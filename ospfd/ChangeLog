@@ -1,5 +1,11 @@
 2004-07-27 Paul Jakma <paul@dishone.st>
 
+        * ospf_packet.c: (ospf_ls_upd_send_queue_event) fix thinko from
+          last fix for ospfd wedging due to oversize LSAs: dont list loop on
+          ospf_ls_upd_queue_send() - guaranteed segfault.
+          
+2004-07-27 Paul Jakma <paul@dishone.st>
+
 	* ospf_opaque.c: (ospf_opaque_lsa_flush_schedule) do not NULL out
 	  the LSA as then free_opaque_info_per_id() can never unlock (and
 	  free) the LSA. Reported by Gunnar Stigen.

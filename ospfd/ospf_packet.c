@@ -3123,11 +3123,7 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
       if (rn->info == NULL)
         continue;
 
-      for (tn = update->head; tn; tn = nn)
-        {
-          nn = tn->next;
-          ospf_ls_upd_queue_send (oi, update, rn->p.u.prefix4);
-        }
+      ospf_ls_upd_queue_send (oi, update, rn->p.u.prefix4);
       
       /* list might not be empty.
        * TODO: work out what to do about oversized LSAs.
