@@ -942,12 +942,18 @@ isis_run_spf (struct isis_area *area, int level, int family)
   spftree->lastrun = time (NULL);
   spftree->pending = 0;
   
-  if (level == 1)
+  if (level == 1) {
+    /* FIXME: Should do it earlier. */
+    spftree->t_spf_periodic = NULL;
     THREAD_TIMER_ON(master, spftree->t_spf_periodic, isis_run_spf_l1, area,
         isis_jitter(PERIODIC_SPF_INTERVAL, 10));
-  else 
+  }
+  else {
+    /* FIXME: Should do it earlier. */
+    spftree->t_spf_periodic = NULL;
     THREAD_TIMER_ON(master, spftree->t_spf_periodic, isis_run_spf_l2, area,
         isis_jitter(PERIODIC_SPF_INTERVAL, 10));
+  }
 
   return retval;
 }
@@ -1039,7 +1045,7 @@ isis_spf_schedule (struct isis_area *area, int level)
   }
   /* FIXME: This stuff is just mess. All spf thread add/cancel
      logic should be reviewed. */
-  /* THREAD_TIMER_OFF(spftree->t_spf_periodic); */
+  THREAD_TIMER_OFF(spftree->t_spf_periodic);
 
   if (diff < MINIMUM_SPF_INTERVAL) {
     if (level == 1)
