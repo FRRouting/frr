@@ -1221,8 +1221,7 @@ addattr32 (struct nlmsghdr *n, int maxlen, int type, int data)
 static int
 netlink_talk_filter (struct sockaddr_nl *snl, struct nlmsghdr *h)
 {
-  if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("netlink_talk: ignoring message type 0x%04x", h->nlmsg_type);
+  zlog_warn ("netlink_talk: ignoring message type 0x%04x", h->nlmsg_type);
   return 0;
 }
 
@@ -1241,13 +1240,13 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
   memset (&snl, 0, sizeof snl);
   snl.nl_family = AF_NETLINK;
 
-  n->nlmsg_seq = ++netlink_cmd.seq;
+  n->nlmsg_seq = ++nl->seq;
 
   /* Request an acknowledgement by setting NLM_F_ACK */
   n->nlmsg_flags |= NLM_F_ACK;
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("netlink_talk: %s type %s(%u), seq=%u", netlink_cmd.name,
+    zlog_debug ("netlink_talk: %s type %s(%u), seq=%u", nl->name,
                lookup (nlmsg_str, n->nlmsg_type), n->nlmsg_type,
                n->nlmsg_seq);
 
@@ -1357,7 +1356,7 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
   snl.nl_family = AF_NETLINK;
 
   /* Talk to netlink socket. */
-  ret = netlink_talk (&req.n, &netlink);
+  ret = netlink_talk (&req.n, &netlink_cmd);
   if (ret < 0)
     return -1;
 
@@ -1373,7 +1372,6 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
   struct sockaddr_nl snl;
   struct nexthop *nexthop = NULL;
   int nexthop_num = 0;
-  struct nlsock *nl;
   int discard;
 
   struct
@@ -1639,13 +1637,8 @@ skip:
   memset (&snl, 0, sizeof snl);
   snl.nl_family = AF_NETLINK;
 
-  if (family == AF_INET)
-    nl = &netlink_cmd;
-  else
-    nl = &netlink;
-
   /* Talk to netlink socket. */
-  return netlink_talk (&req.n, nl);
+  return netlink_talk (&req.n, &netlink_cmd);
 }
 
 int

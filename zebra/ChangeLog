@@ -1,3 +1,12 @@
+2005-03-31 Hasso Tepper <hasso at quagga.net>
+
+	* rt_netlink.c (netlink_talk_filter): Show always warning message,
+	  it's not for debug.
+	* rt_netlink.c (netlink_talk): Don't assume we use netlink_cmd
+	  although we do now actually.
+	* rt_netlink.c (netlink_route, netlink_route_multipath): Always use
+	  netlink_cmd to send messages to the kernel.
+
 2005-03-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* irdp.h: Add prototype for irdp_sock_init, and fix protos for
