@@ -1001,6 +1001,9 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
               ifp->flags = ifi->ifi_flags & 0x0000fffff;
               if (!if_is_operative (ifp))
                 if_down (ifp);
+	      else
+		/* Must notify client daemons of new interface status. */
+	        zebra_interface_up_update (ifp);
             }
           else
             {

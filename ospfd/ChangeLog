@@ -1,5 +1,14 @@
 2005-03-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf_zebra.c: (ospf_interface_state_up) If the MTU of an operative
+	  interface changes, print a debug message and call ospf_if_reset()
+	  to simulate down/up on the interface.
+	* ospf_interface.h: Declare new function ospf_if_reset().
+	* ospf_interface.c: (ospf_if_reset) New function to call ospf_if_down
+	  and ospf_if_up for all ospf interfaces attached to an interface.
+
+2005-03-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf_packet.c: (ospf_write_frags) Enhance error message to
 	  show MTU.  Also make function static.
 	  (ospf_write) Enhance error message to show interface name and MTU.

@@ -102,6 +102,25 @@ ospf_if_recalculate_output_cost (struct interface *ifp)
     }
 }
 
+/* Simulate down/up on the interface.  This is needed, for example, when 
+   the MTU changes. */
+void
+ospf_if_reset(struct interface *ifp)
+{
+  struct route_node *rn;
+  
+  for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
+    {
+      struct ospf_interface *oi;
+      
+      if ( (oi = rn->info) == NULL)
+	continue;
+
+      ospf_if_down(oi);
+      ospf_if_up(oi);
+    }
+}
+
 void
 ospf_if_reset_variables (struct ospf_interface *oi)
 {

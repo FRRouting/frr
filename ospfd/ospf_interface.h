@@ -234,6 +234,9 @@ int ospf_if_is_enable (struct ospf_interface *);
 int ospf_if_get_output_cost (struct ospf_interface *);
 void ospf_if_recalculate_output_cost (struct interface *);
 
+/* Simulate down/up on the interface. */
+extern void ospf_if_reset (struct interface *);
+
 struct ospf_interface *ospf_vl_new (struct ospf *, struct ospf_vl_data *);
 struct ospf_vl_data *ospf_vl_data_new (struct ospf_area *, struct in_addr);
 struct ospf_vl_data *ospf_vl_lookup (struct ospf_area *, struct in_addr);

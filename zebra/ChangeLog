@@ -1,3 +1,12 @@
+2005-03-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* rt_netlink.c: (netlink_link_change) If the status of an
+	  operative interface changes (e.g. MTU changes), the client
+	  daemons should be notified by calling zebra_interface_up_update.
+	  Previously, the information was being updated in zebra's
+	  interface structure, but the clients were not notified of
+	  changes to an operative interface.
+
 2005-03-25 Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
 	* interface.c, interface.h, rtadv.c, rtadv.h: modifications to 
 	  IPv6 Neighbor Discovery according to RFC3775, section 7:

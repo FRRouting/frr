@@ -168,7 +168,6 @@ ospf_interface_state_up (int command, struct zclient *zclient,
                          zebra_size_t length)
 {
   struct interface *ifp;
-  struct interface if_tmp;
   struct ospf_interface *oi;
   struct route_node *rn;
 
@@ -181,6 +180,7 @@ ospf_interface_state_up (int command, struct zclient *zclient,
   if (if_is_operative (ifp))
     {
       /* Temporarily keep ifp values. */
+      struct interface if_tmp;
       memcpy (&if_tmp, ifp, sizeof (struct interface));
 
       zebra_interface_if_set_value (zclient->ibuf, ifp);
@@ -196,6 +196,16 @@ ospf_interface_state_up (int command, struct zclient *zclient,
 
           ospf_if_recalculate_output_cost (ifp);
         }
+
+      if (if_tmp.mtu != ifp->mtu)
+        {
+          if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
+            zlog_debug ("Zebra: Interface[%s] MTU change %u -> %u.",
+                       ifp->name, if_tmp.mtu, ifp->mtu);
+
+	  /* Must reset the interface (simulate down/up) when MTU changes. */
+          ospf_if_reset(ifp);
+	}
       return 0;
     }
 
