@@ -387,7 +387,7 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
   int ret;
   struct prefix_ipv4 p;
   struct route_node *rp;
-  struct rip_info *rinfo;
+  struct rip_info *rinfo, rinfotmp;
   struct rip_interface *ri;
   struct in_addr *nexthop;
   u_char oldmetric;
@@ -560,13 +560,27 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
       if (same)
 	rip_timeout_update (rinfo);
 
+
+      /* Fill in a minimaly temporary rip_info structure, for a future
+         rip_distance_apply() use) */
+      memset (&rinfo,0,sizeof(rinfotmp));
+      IPV4_ADDR_COPY (&rinfotmp.from, &from->sin_addr);
+      rinfotmp.rp=rinfo->rp;
+
+
       /* Next, compare the metrics.  If the datagram is from the same
 	 router as the existing route, and the new metric is different
 	 than the old one; or, if the new metric is lower than the old
-	 one, or if the tag has been changed; do the following actions: */
-      if ((same && rinfo->metric != rte->metric) ||
-	  (rte->metric < rinfo->metric) ||
-	  (same && (rinfo->metric == rte->metric) && ntohs(rte->tag) != rinfo->tag))
+	 one, or if the tag has been changed; or if there is a route
+	 with a lower administrave distance; or an update of the
+	 distance on the actual route; do the following actions: */
+      if (( same && rinfo->metric != rte->metric ) 
+          || ( rte->metric < rinfo->metric ) 
+          || ( (same)
+               && (rinfo->metric == rte->metric) 
+               && ntohs(rte->tag) != rinfo->tag ) 
+          || ( rinfo->distance > rip_distance_apply (&rinfotmp) ) 
+          || ( (rinfo->distance != rip_distance_apply (rinfo)) && same ))
 	{
 	  /* - Adopt the route from the datagram.  That is, put the
 	     new metric in, and adjust the next hop address (if

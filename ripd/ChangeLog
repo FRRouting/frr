@@ -1,3 +1,8 @@
+2004-03-19 Jean-Yves Simon <lethalwp@tiscali.be>
+
+	* ripd.c: make ripd also check on administrative distance of his
+	  own links to update routes.
+
 2004-03-18 sowmini.varadhan@sun.com
 
 	* ripd.c: rip_send_packet can get null connected address when
