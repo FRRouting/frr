@@ -759,12 +759,18 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
     {
       active = CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-      rib->nexthop_active_num += nexthop_active_check (rn, rib, nexthop, set);
-      if (active != CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-	SET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+
+      nexthop_active_check (rn, rib, nexthop, set);
+      if ((MULTIPATH_NUM == 0 || rib->nexthop_active_num < MULTIPATH_NUM)
+          && active != CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+        SET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+
+      if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+        rib->nexthop_active_num++;
     }
   return rib->nexthop_active_num;
 }
+
 
 #define RIB_SYSTEM_ROUTE(R) \
         ((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
@@ -1298,7 +1304,6 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
     {
       /* Same distance static route is there.  Update it with new
          nexthop. */
-      rib_uninstall (rn, rib);
       route_unlock_node (rn);
       switch (si->type)
         {
@@ -1417,7 +1422,8 @@ static_uninstall_ipv4 (struct prefix *p, struct static_ipv4 *si)
     }
   else
     {
-      rib_uninstall (rn, rib);
+      if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
+        rib_uninstall (rn, rib);
       nexthop_delete (rib, nexthop);
       nexthop_free (nexthop);
       rib_process (rn, rib);
@@ -1860,7 +1866,6 @@ static_install_ipv6 (struct prefix *p, struct static_ipv6 *si)
     {
       /* Same distance static route is there.  Update it with new
          nexthop. */
-      rib_uninstall (rn, rib);
       route_unlock_node (rn);
 
       switch (si->type)
@@ -1980,7 +1985,8 @@ static_uninstall_ipv6 (struct prefix *p, struct static_ipv6 *si)
     }
   else
     {
-      rib_uninstall (rn, rib);
+      if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
+        rib_uninstall (rn, rib);
       nexthop_delete (rib, nexthop);
       nexthop_free (nexthop);
       rib_process (rn, rib);
