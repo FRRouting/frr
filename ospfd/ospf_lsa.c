@@ -2380,8 +2380,9 @@ ospf_router_lsa_install (struct ospf *ospf,
       area->router_lsa_self = ospf_lsa_lock (new);
 
       if (IS_DEBUG_OSPF (lsa, LSA_INSTALL))
-        zlog_info("LSA[Type%d]: ID %s is self-originated",
-                  new->data->type, inet_ntoa (new->data->id));
+	zlog_info("LSA[Type%d]: ID %s seq 0x%x is self-originated",
+		  new->data->type, inet_ntoa (new->data->id), 
+		  new->data->ls_seqnum);
     }
 
   return new;
@@ -2641,6 +2642,44 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
   if (  old == NULL || ospf_lsa_different(old, lsa))
     rt_recalc = 1;
 
+  /*
+     Sequence number check (Section 14.1 of rfc 2328)
+     "Premature aging is used when it is time for a self-originated
+      LSA's sequence number field to wrap.  At this point, the current
+      LSA instance (having LS sequence number MaxSequenceNumber) must
+      be prematurely aged and flushed from the routing domain before a
+      new instance with sequence number equal to InitialSequenceNumber
+      can be originated. "
+   */
+
+  if (lsa->data->ls_seqnum - 1 == htonl(OSPF_MAX_SEQUENCE_NUMBER))
+    {
+      if (ospf_lsa_is_self_originated(ospf, lsa))
+        {
+	  lsa->data->ls_seqnum = htonl(OSPF_MAX_SEQUENCE_NUMBER);
+	  if (!IS_LSA_MAXAGE(lsa))
+            lsa->flags |= OSPF_LSA_PREMATURE_AGE;
+          lsa->data->ls_age = htons (OSPF_LSA_MAXAGE);
+      	
+          if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
+            {
+      	      zlog_info ("ospf_lsa_install() Premature Aging "
+		         "lsa 0x%lx", (u_long)lsa);
+      	      ospf_lsa_header_dump (lsa->data);
+            }
+        }
+      else
+        {
+          if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+            {
+      	      zlog_info ("ospf_lsa_install() got an lsa with seq 0x80000000 "
+		         "that was not self originated. Ignoring\n");
+      	      ospf_lsa_header_dump (lsa->data);
+            }
+	  return old;
+        }
+    }
+
   /* discard old LSA from LSDB */
   if (old != NULL)
     ospf_discard_from_db (ospf, lsdb, lsa);
@@ -2722,12 +2761,16 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
         }
     }
 
-  /* If received LSA' ls_age is MaxAge, set LSA on MaxAge LSA list. */
-  if (IS_LSA_MAXAGE (new) && !IS_LSA_SELF (new))
+  /* 
+     If received LSA' ls_age is MaxAge, or lsa is being prematurely aged
+     (it's getting flushed out of the area), set LSA on MaxAge LSA list. 
+   */
+  if ((lsa->flags & OSPF_LSA_PREMATURE_AGE) ||
+      (IS_LSA_MAXAGE (new) && !IS_LSA_SELF (new)))
     {
-      if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
-	zlog_info ("LSA[Type%d:%s]: Install LSA, MaxAge",
-		   new->data->type, inet_ntoa (new->data->id));
+      if (IS_DEBUG_OSPF (lsa, LSA_INSTALL))
+	zlog_info ("LSA[Type%d:%s]: Install LSA 0x%lx, MaxAge",
+		   new->data->type, inet_ntoa (new->data->id), (u_long)lsa);
       ospf_lsa_maxage (ospf, lsa);
     }
 
@@ -2822,8 +2865,8 @@ ospf_maxage_lsa_remover (struct thread *thread)
         /* Remove LSA from the LSDB */
         if (CHECK_FLAG (lsa->flags, OSPF_LSA_SELF))
           if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
-            zlog_info ("LSA[Type%d:%s]: This LSA is self-originated: ",
-                       lsa->data->type, inet_ntoa (lsa->data->id));
+            zlog_info ("LSA[Type%d:%s]: LSA 0x%lx is self-oririnated: ",
+                       lsa->data->type, inet_ntoa (lsa->data->id), (u_long)lsa);
 
         if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
           zlog_info ("LSA[Type%d:%s]: MaxAge LSA removed from list",
@@ -2835,6 +2878,14 @@ ospf_maxage_lsa_remover (struct thread *thread)
 #else /* ORIGINAL_CODING */
         ospf_flood_through (ospf, NULL, lsa);
 #endif /* ORIGINAL_CODING */
+
+	if (lsa->flags & OSPF_LSA_PREMATURE_AGE)  
+          {
+            if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
+              zlog_info ("originating new router lsa for lsa 0x%lx \n", 
+                         (u_long)lsa);
+            ospf_router_lsa_originate(lsa->area);
+          }
 
 	/* Remove from lsdb. */
         ospf_discard_from_db (ospf, lsa->lsdb, lsa);

@@ -80,6 +80,7 @@ struct ospf_lsa
 #ifdef HAVE_NSSA
 #define OSPF_LSA_LOCAL_XLT	  0x20
 #endif /* HAVE_NSSA */
+#define OSPF_LSA_PREMATURE_AGE	  0x40
 
   /* LSA data. */
   struct lsa_header *data;
