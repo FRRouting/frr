@@ -524,25 +524,36 @@ community_list_match_delete (struct community *com,
 
   for (entry = list->head; entry; entry = entry->next)
     {
-      if (entry->any && entry->direct == COMMUNITY_PERMIT)
+      if (entry->any)
         {
-          /* This is a tricky part.  Currently only
-             route_set_community_delete() uses this function.  In the
-             function com->size is zero, it free the community
-             structure.  */
-          com->size = 0;
+          if (entry->direct == COMMUNITY_PERMIT) 
+            {
+              /* This is a tricky part.  Currently only
+               * route_set_community_delete() uses this function.  In the
+               * function com->size is zero, it free the community
+               * structure.  
+               */
+              com->size = 0;
+            }
           return com;
         }
 
-      if (entry->style == COMMUNITY_LIST_STANDARD)
+      if ((entry->style == COMMUNITY_LIST_STANDARD) 
+          && (community_include (entry->u.com, COMMUNITY_INTERNET)
+              || community_match (com, entry->u.com) ))
         {
-          if (entry->direct == COMMUNITY_PERMIT)
-            community_delete (com, entry->u.com);
+              if (entry->direct == COMMUNITY_PERMIT)
+                community_delete (com, entry->u.com);
+              else
+                break;
         }
-      else if (entry->style == COMMUNITY_LIST_EXPANDED)
+      else if ((entry->style == COMMUNITY_LIST_EXPANDED)
+               && community_regexp_match (com, entry->reg))
         {
           if (entry->direct == COMMUNITY_PERMIT)
             community_regexp_delete (com, entry->reg);
+          else
+            break;
         }
     }
   return com;
