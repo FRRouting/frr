@@ -1049,8 +1049,32 @@ DEFUN (area_passwd,
   area->area_passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
   strncpy ((char *)area->area_passwd.passwd, argv[0], 255);
 
+  if (argc > 1)
+    {
+      SET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND);
+      if (strncmp(argv[1], "v", 1) == 0)
+	SET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
+      else
+	UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
+    }
+  else
+    {
+      UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND);
+      UNSET_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV);
+    }
+
   return CMD_SUCCESS;
 }
+
+ALIAS (area_passwd,
+       area_passwd_snpauth_cmd,
+       "area-password WORD authenticate snp (send-only|validate)",
+       "Configure the authentication password for an area\n"
+       "Area password\n"
+       "Authentication\n"
+       "SNP PDUs\n"
+       "Send but do not check PDUs on receiving\n"
+       "Send and check PDUs on receiving\n");
 
 DEFUN (no_area_passwd,
        no_area_passwd_cmd,
@@ -1100,8 +1124,32 @@ DEFUN (domain_passwd,
   area->domain_passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
   strncpy ((char *)area->domain_passwd.passwd, argv[0], 255);
 
+  if (argc > 1)
+    {
+      SET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND);
+      if (strncmp(argv[1], "v", 1) == 0)
+	SET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
+      else
+	UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
+    }
+  else
+    {
+      UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND);
+      UNSET_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV);
+    }
+
   return CMD_SUCCESS;
 }
+
+ALIAS (domain_passwd,
+       domain_passwd_snpauth_cmd,
+       "domain-password WORD authenticate snp (send-only|validate)",
+       "Set the authentication password for a routing domain\n"
+       "Routing domain password\n"
+       "Authentication\n"
+       "SNP PDUs\n"
+       "Send but do not check PDUs on receiving\n"
+       "Send and check PDUs on receiving\n");
 
 DEFUN (no_domain_passwd,
        no_domain_passwd_cmd,
@@ -1904,14 +1952,30 @@ isis_config_write (struct vty *vty)
 	/* Authentication passwords. */
 	if (area->area_passwd.len > 0)
 	  {
-	    vty_out(vty, " area-password %s%s",
-		    area->area_passwd.passwd, VTY_NEWLINE);
+	    vty_out(vty, " area-password %s", area->area_passwd.passwd);
+	    if (CHECK_FLAG(area->area_passwd.snp_auth, SNP_AUTH_SEND))
+	      {
+		vty_out(vty, " authenticate snp ");
+		if (CHECK_FLAG(area->area_passwd.snp_auth, SNP_AUTH_RECV))
+		  vty_out(vty, "validate");
+		else
+		  vty_out(vty, "send-only");
+	      }
+	    vty_out(vty, "%s", VTY_NEWLINE);
 	    write++; 
 	  }  
 	if (area->domain_passwd.len > 0)
 	  {
-	    vty_out(vty, " domain-password %s%s",
-		    area->domain_passwd.passwd, VTY_NEWLINE);
+	    vty_out(vty, " domain-password %s", area->domain_passwd.passwd);
+	    if (CHECK_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_SEND))
+	      {
+		vty_out(vty, " authenticate snp ");
+		if (CHECK_FLAG(area->domain_passwd.snp_auth, SNP_AUTH_RECV))
+		  vty_out(vty, "validate");
+		else
+		  vty_out(vty, "send-only");
+	      }
+	    vty_out(vty, "%s", VTY_NEWLINE);
 	    write++;
 	  }
 #ifdef TOPOLOGY_GENERATE
@@ -2028,9 +2092,11 @@ isis_init ()
   install_element (ISIS_NODE, &no_is_type_cmd);
 
   install_element (ISIS_NODE, &area_passwd_cmd);
+  install_element (ISIS_NODE, &area_passwd_snpauth_cmd);
   install_element (ISIS_NODE, &no_area_passwd_cmd);
 
   install_element (ISIS_NODE, &domain_passwd_cmd);
+  install_element (ISIS_NODE, &domain_passwd_snpauth_cmd);
   install_element (ISIS_NODE, &no_domain_passwd_cmd);
 
   install_element (ISIS_NODE, &lsp_gen_interval_cmd);

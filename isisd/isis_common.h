@@ -37,6 +37,10 @@ struct isis_passwd
 #define ISIS_PASSWD_TYPE_CLEARTXT 1
 #define ISIS_PASSWD_TYPE_PRIVATE  255
   u_char type;
+  /* Authenticate SNPs? */
+#define SNP_AUTH_SEND   0x01
+#define SNP_AUTH_RECV   0x02
+  u_char snp_auth;
   u_char passwd[255];
 };
 

@@ -1,3 +1,8 @@
+2005-01-01 Hasso Tepper <hasso at quagga.net>
+
+	* isis_common.h, isisd.c, isis_pdu.c: Implement authentication in
+	  SNPs correctly - ie. make it conditional like it is in IOS.
+
 2004-12-29 Hasso Tepper <hasso at quagga.net>
 
 	* isis_circuit.c, isis_csm.c, isis_zebra.c: Don't crash during

@@ -1270,10 +1270,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   struct listnode *node, *node2;
   struct tlvs tlvs;
   struct list *lsp_list = NULL;
-  /* TODO: Implement SNP authentication. */
-#if 0
   struct isis_passwd *passwd;
-#endif
 
   if (snp_type == ISIS_SNP_CSNP_FLAG)
     {
@@ -1398,27 +1395,25 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
       return retval;
     }
 
-  /* FIXME: Authentication in LSPs does not mean authentication in SNPs...
-   * In fact by default IOS only deals with LSPs authentication!!
-   * To force authentication in SNPs, one must specify the 'authenticate
-   * snp' command after 'area-password WORD' or 'domain-password WORD'.
-   * This command is not supported for the moment.
-   */
-#if 0
-  (level == 1) ? (passwd = &circuit->area->area_passwd) :
-    (passwd = &circuit->area->domain_passwd);
-  if (passwd->type)
+  if (level == 1)
+    passwd = &circuit->area->area_passwd;
+  else
+    passwd = &circuit->area->domain_passwd;
+
+  if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_RECV))
     {
-      if (!(found & TLVFLAG_AUTH_INFO) ||
-	  authentication_check (passwd, &tlvs.auth_info))
+      if (passwd->type)
 	{
-	  isis_event_auth_failure (circuit->area->area_tag,
-				   "SNP authentication" " failure",
-				   phdr ? phdr->source_id : chdr->source_id);
-	  return ISIS_OK;
+	  if (!(found & TLVFLAG_AUTH_INFO) ||
+	      authentication_check (passwd, &tlvs.auth_info))
+	    {
+	      isis_event_auth_failure (circuit->area->area_tag,
+				       "SNP authentication" " failure",
+				       phdr ? phdr->source_id : chdr->source_id);
+	      return ISIS_OK;
+	    }
 	}
     }
-#endif /* 0 */
 
   /* debug isis snp-packets */
   if (isis->debugs & DEBUG_SNP_PACKETS)
@@ -2155,9 +2150,10 @@ build_csnp (int level, u_char * start, u_char * stop, struct list *lsps,
   else
     passwd = &circuit->area->domain_passwd;
 
-  if (passwd->type)
-    retval = tlv_add_authinfo (passwd->type, passwd->len,
-			       passwd->passwd, circuit->snd_stream);
+  if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
+    if (passwd->type)
+      retval = tlv_add_authinfo (passwd->type, passwd->len,
+				 passwd->passwd, circuit->snd_stream);
 
   if (!retval && lsps)
     {
@@ -2305,9 +2301,10 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
   else
     passwd = &circuit->area->domain_passwd;
 
-  if (passwd->type)
-    retval = tlv_add_authinfo (passwd->type, passwd->len,
-			       passwd->passwd, circuit->snd_stream);
+  if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
+    if (passwd->type)
+      retval = tlv_add_authinfo (passwd->type, passwd->len,
+				 passwd->passwd, circuit->snd_stream);
 
   if (!retval && lsps)
     {
