@@ -25,7 +25,6 @@
 #include "log.h"
 #include "privs.h"
 #include "memory.h"
-       
 
 /* internal privileges state */
 static struct _zprivs_t
@@ -40,6 +39,7 @@ static struct _zprivs_t
   uid_t zuid,                 /* uid to run as            */
         zsuid;                /* saved uid                */
   gid_t zgid;                 /* gid to run as            */
+  gid_t vtygrp;               /* gid for vty sockets      */
 } zprivs_state;
 
 /* externally exported but not directly accessed functions */
@@ -69,10 +69,8 @@ cap_map [ZCAP_MAX] =
   [ZCAP_DAC_OVERRIDE] = CAP_DAC_OVERRIDE,
   [ZCAP_READ_SEARCH] = CAP_DAC_READ_SEARCH,
   [ZCAP_SYS_ADMIN] = CAP_SYS_ADMIN,
-  [ZCAP_FOWNER] = ZCAP_FOWNER
+  [ZCAP_FOWNER] = CAP_FOWNER
 };
-
-static cap_value_t cap_setuid_value [] = { CAP_SETUID };
 
 /* convert zebras privileges to system capabilities */
 static cap_value_t *
@@ -176,6 +174,12 @@ zprivs_init(struct zebra_privs_t *zprivs)
   struct passwd *pwentry = NULL;
   struct group *grentry = NULL;
 
+  if (!zprivs)
+    {
+      zlog_err ("zprivs_init: called with NULL arg!");
+      exit (1);
+    }
+
   /* NULL privs */
   if (! (zprivs->user || zprivs->group 
          || zprivs->cap_num_p || zprivs->cap_num_i) )
@@ -188,7 +192,31 @@ zprivs_init(struct zebra_privs_t *zprivs)
   if (zprivs->user)
     {
       if ( (pwentry = getpwnam (zprivs->user)) )
-        zprivs_state.zuid = pwentry->pw_uid;
+        {
+          zprivs_state.zuid = pwentry->pw_uid;
+        }
+      else
+        {
+          zlog_err ("privs_init: could not lookup supplied user");
+          exit (1);
+        }
+    }
+
+  grentry = NULL;
+
+  if (zprivs->vty_group)
+    /* Add the vty_group to the supplementary groups so it can be chowned to */
+    {
+      if ( (grentry = getgrnam (zprivs->vty_group)) )
+        {
+          zprivs_state.vtygrp = grentry->gr_gid;
+          if ( setgroups (1, &zprivs_state.vtygrp) )
+            {
+              zlog_err ("privs_init: could not setgroups, %s",
+                         strerror (errno) );
+              exit (1);
+            }       
+        }
       else
         {
           zlog_err ("privs_init: could not lookup supplied user");
@@ -198,18 +226,20 @@ zprivs_init(struct zebra_privs_t *zprivs)
   
   if (zprivs->group)
     {
-      if ( (grentry = getgrnam (zprivs->user)) )
-        zprivs_state.zgid = grentry->gr_gid;
+      if ( (grentry = getgrnam (zprivs->group)) )
+        {
+          zprivs_state.zgid = grentry->gr_gid;
+        }
       else
         {
           zlog_err ("privs_init: could not lookup supplied user");
           exit (1);
         }
-      
       /* change group now, forever. uid we do later */
       if ( setregid (zprivs_state.zgid, zprivs_state.zgid) )
         {
-          zlog_err ("privs_init: could not setregid");
+          zlog_err ("zprivs_init: could not setregid, %s",
+                    strerror (errno) );
           exit (1);
         }
     }
@@ -238,6 +268,17 @@ zprivs_init(struct zebra_privs_t *zprivs)
       zlog_err ("privs_init: failed to cap_init, %s", strerror (errno) );
       exit (1);
     }
+
+  /* we have caps, we have no need to ever change back the original user */
+  if (zprivs_state.zuid)
+    {
+      if ( setreuid (zprivs_state.zuid, zprivs_state.zuid) )
+        {
+          zlog_err ("zprivs_init (cap): could not setreuid, %s", 
+                     strerror (errno) );
+          exit (1);
+        }
+    }
   
   if ( cap_clear (zprivs_state.caps) )
     {
@@ -251,12 +292,6 @@ zprivs_init(struct zebra_privs_t *zprivs)
   cap_set_flag(zprivs_state.caps, CAP_EFFECTIVE, 
                zprivs_state.sys_num_p, zprivs_state.syscaps_p, CAP_SET);
 
-  /* still need CAP_SETUID for the moment */
-  cap_set_flag(zprivs_state.caps, CAP_PERMITTED,
-               1, cap_setuid_value, CAP_SET);
-  cap_set_flag(zprivs_state.caps, CAP_EFFECTIVE,
-  				1, cap_setuid_value, CAP_SET);
-
   /* set inheritable caps, if any */
   if (zprivs_state.sys_num_i)
     {
@@ -264,8 +299,8 @@ zprivs_init(struct zebra_privs_t *zprivs)
                    zprivs_state.sys_num_i, zprivs_state.syscaps_i, CAP_SET);
     }
   
-  /* apply caps. CAP_EFFECTIVE is clear bar cap_setuid_value. 
-   * we'll raise the caps as and when, and only when, they are needed.
+  /* apply caps. CAP_EFFECTIVE is cleared. we'll raise the caps as 
+   * and when, and only when, they are needed.
    */
   if ( cap_set_proc (zprivs_state.caps) ) 
     {
@@ -273,28 +308,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
       exit (1);
     }
   
-  /* we have caps, we have no need to ever change back the original user */
-  if (zprivs_state.zuid)
-    {
-      if ( setreuid (zprivs_state.zuid, zprivs_state.zuid) )
-        {
-          zlog_err ("privs_init (cap): could not setreuid, %s", strerror (errno) );
-          exit (1);
-        }
-    }
-
-  /* No more need for cap_setuid_value */
-  cap_set_flag(zprivs_state.caps, CAP_PERMITTED,
-               1, cap_setuid_value, CAP_CLEAR);
-  cap_set_flag(zprivs_state.caps, CAP_EFFECTIVE,
-  				1, cap_setuid_value, CAP_CLEAR);
-  if ( cap_set_proc (zprivs_state.caps) ) 
-    {
-      zlog_err ("privs_init: cap_set_proc failed to clear cap_setuid, %s",
-                strerror (errno) );
-      exit (1);
-    }
-
+  /* set methods for the caller to use */
   zprivs->change = zprivs_change_caps;
   zprivs->current_state = zprivs_state_caps;
 
@@ -353,4 +367,19 @@ zprivs_terminate (void)
      }
 #endif /* HAVE_LCAPS */
   return;
+}
+
+void
+zprivs_get_ids(struct zprivs_ids_t *ids)
+{
+
+   ids->uid_priv = getuid();
+   (zprivs_state.zuid) ? (ids->uid_normal = zprivs_state.zuid)
+                     : (ids->uid_normal = -1);
+   (zprivs_state.zgid) ? (ids->gid_normal = zprivs_state.zgid)
+                     : (ids->gid_normal = -1);
+   (zprivs_state.vtygrp) ? (ids->gid_vty = zprivs_state.vtygrp)
+                       : (ids->gid_vty = -1);
+   
+   return;
 }

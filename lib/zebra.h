@@ -72,10 +72,6 @@ typedef int socklen_t;
 #ifdef HAVE_RUSAGE
 #include <sys/resource.h>
 #endif /* HAVE_RUSAGE */
-#ifdef HAVE_LCAPS
-#include <sys/capability.h>
-#include <sys/prctl.h>
-#endif /* HAVE_LCAPS */
 
 /* machine dependent includes */
 #ifdef SUNOS_5
@@ -95,6 +91,11 @@ typedef int socklen_t;
 /* misc include group */
 #include <stdarg.h>
 #include <assert.h>
+
+#ifdef HAVE_LCAPS
+#include <sys/capability.h>
+#include <sys/prctl.h>
+#endif /* HAVE_LCAPS */
 
 /* network include group */
 

@@ -63,7 +63,7 @@ struct zebra_privs_t
   int cap_num_i;                    
   char *user;                         /* user and group to run as */
   char *group;
-
+  char *vty_group;                    /* group to chown vty socket to */
   /* methods */
   int 
     (*change) (zebra_privs_ops_t);    /* change privileges, 0 on success */
@@ -71,9 +71,21 @@ struct zebra_privs_t
     (*current_state) (void);          /* current privilege state */
 };
 
+struct zprivs_ids_t
+{
+  /* -1 is undefined */
+  uid_t uid_priv;                     /* privileged uid */
+  uid_t uid_normal;                   /* normal uid */
+  gid_t gid_priv;                     /* privileged uid */
+  gid_t gid_normal;                   /* normal uid */
+  gid_t gid_vty;                      /* vty gid */
+};
+
   /* initialise zebra privileges */
 void zprivs_init (struct zebra_privs_t *zprivs);
   /* drop all and terminate privileges */ 
 void zprivs_terminate (void);
+  /* query for runtime uid's and gid's, eg vty needs this */
+void zprivs_get_ids(struct zprivs_ids_t *);
 
 #endif /* _ZEBRA_PRIVS_H */
