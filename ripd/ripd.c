@@ -2002,9 +2002,11 @@ rip_create_socket ()
   ret = bind (sock, (struct sockaddr *) & addr, sizeof (addr));
   if (ret < 0)
     {
-      perror ("bind");
+      int save_errno = errno;
       if (ripd_privs.change (ZPRIVS_LOWER))
         zlog_err ("rip_create_socket: could not lower privs");
+      zlog_err("cannot bind to port %d: %s",
+	       (int)ntohs(addr.sin_port), safe_strerror(save_errno));
       return ret;
     }
   if (ripd_privs.change (ZPRIVS_LOWER))
