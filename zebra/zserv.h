@@ -89,6 +89,8 @@ zsend_interface_up (struct zserv *, struct interface *);
 int
 zsend_interface_down (struct zserv *, struct interface *);
 
+#if 0
+#warning oldies
 int
 zsend_ipv4_add (struct zserv *client, int type, int flags,
 		struct prefix_ipv4 *p, struct in_addr *nexthop,
@@ -98,6 +100,7 @@ int
 zsend_ipv4_delete (struct zserv *client, int type, int flags,
 		   struct prefix_ipv4 *p, struct in_addr *nexthop,
 		   unsigned int ifindex);
+#endif
 
 int
 zsend_ipv4_add_multipath (struct zserv *, struct prefix *, struct rib *);
@@ -106,6 +109,8 @@ int
 zsend_ipv4_delete_multipath (struct zserv *, struct prefix *, struct rib *);
 
 #ifdef HAVE_IPV6
+#if 0
+#warning oldies
 int
 zsend_ipv6_add (struct zserv *client, int type, int flags,
 		struct prefix_ipv6 *p, struct in6_addr *nexthop,
@@ -115,6 +120,7 @@ int
 zsend_ipv6_delete (struct zserv *client, int type, int flags,
 		   struct prefix_ipv6 *p, struct in6_addr *nexthop,
 		   unsigned int ifindex);
+#endif
 
 int
 zsend_ipv6_add_multipath (struct zserv *, struct prefix *, struct rib *);

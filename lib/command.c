@@ -718,12 +718,23 @@ cmd_ipv6_match (char *str)
   int state = STATE_START;
   int colons = 0, nums = 0, double_colon = 0;
   char *sp = NULL;
+  struct sockaddr_in6 sin6_dummy;
+  int ret;
 
   if (str == NULL)
     return partly_match;
 
   if (strspn (str, IPV6_ADDR_STR) != strlen (str))
     return no_match;
+
+  /* use inet_pton that has a better support,
+   * for example inet_pton can support the automatic addresses:
+   *  ::1.2.3.4
+   */
+  ret = inet_pton(AF_INET6, str, &sin6_dummy.sin6_addr);
+   
+  if (ret == 1)
+    return exact_match;
 
   while (*str != '\0')
     {

@@ -763,9 +763,8 @@ kernel_read (struct thread *thread)
 
   thread_add_read (master, kernel_read, NULL, sock);
 
-#ifdef DEBUG
-  rtmsg_debug (&buf.r.rtm);
-#endif /* DEBUG */
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    rtmsg_debug (&buf.r.rtm);
 
   rtm = &buf.r.rtm;
 
@@ -788,6 +787,8 @@ kernel_read (struct thread *thread)
       break;
 #endif /* RTM_IFANNOUNCE */
     default:
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_info("Unprocessed RTM_type: %d", rtm->rtm_type);
       break;
     }
   return 0;

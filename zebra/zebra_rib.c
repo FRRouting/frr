@@ -1539,8 +1539,14 @@ int
 rib_bogus_ipv6 (int type, struct prefix_ipv6 *p,
 		struct in6_addr *gate, unsigned int ifindex, int table)
 {
-  if (type == ZEBRA_ROUTE_CONNECT && IN6_IS_ADDR_UNSPECIFIED (&p->prefix))
+  if (type == ZEBRA_ROUTE_CONNECT && IN6_IS_ADDR_UNSPECIFIED (&p->prefix)) {
+#if defined (MUSICA) || defined (LINUX)
+    /* IN6_IS_ADDR_V4COMPAT(&p->prefix) */
+    if (p->prefixlen == 96)
+      return 0;
+#endif /* MUSICA */
     return 1;
+  }
   if (type == ZEBRA_ROUTE_KERNEL && IN6_IS_ADDR_UNSPECIFIED (&p->prefix)
       && p->prefixlen == 96 && gate && IN6_IS_ADDR_UNSPECIFIED (gate))
     {

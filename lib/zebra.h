@@ -143,6 +143,10 @@ typedef int socklen_t;
 #include <netinet/in_var.h>
 #endif /* HAVE_NETINET_IN_VAR_H */
 
+#ifdef HAVE_NETINET6_IN6_VAR_H
+#include <netinet6/in6_var.h>
+#endif /* HAVE_NETINET6_IN6_VAR_H */
+
 #ifdef HAVE_NETINET_IN6_VAR_H
 #include <netinet/in6_var.h>
 #endif /* HAVE_NETINET_IN6_VAR_H */

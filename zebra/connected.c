@@ -263,8 +263,11 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
   /* Apply mask to the network. */
   apply_mask_ipv6 (&p);
 
+#if ! defined (MUSICA) && ! defined (LINUX)
+  /* XXX: It is already done by rib_bogus_ipv6 within rib_add_ipv6 */
   if (IN6_IS_ADDR_UNSPECIFIED (&p.prefix))
     return;
+#endif
 
   rib_add_ipv6 (ZEBRA_ROUTE_CONNECT, 0, &p, NULL, ifp->ifindex, 0);
 

@@ -448,6 +448,7 @@ zsend_ipv4_add_multipath (struct zserv *client, struct prefix *p,
 	{
 	  stream_putc (s, 1);
 
+	  /* XXX: Waht's about NEXTHOP_TYPE_IPV4_IFNAME ? */
 	  if (nexthop->type == NEXTHOP_TYPE_IPV4
 	      || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
 	    stream_put_in_addr (s, &nexthop->gate.ipv4);
@@ -529,6 +530,8 @@ zsend_ipv4_delete_multipath (struct zserv *client, struct prefix *p,
   return 0;
 }
 
+#if 0
+#warning oldies
 int
 zsend_ipv4_add (struct zserv *client, int type, int flags,
 		struct prefix_ipv4 *p, struct in_addr *nexthop,
@@ -610,8 +613,11 @@ zsend_ipv4_delete (struct zserv *client, int type, int flags,
 
   return 0;
 }
+#endif /* oldies */
 
 #ifdef HAVE_IPV6
+#if 0
+#warning oldies
 int
 zsend_ipv6_add (struct zserv *client, int type, int flags,
 		struct prefix_ipv6 *p, struct in6_addr *nexthop,
@@ -652,6 +658,7 @@ zsend_ipv6_add (struct zserv *client, int type, int flags,
 
   return 0;
 }
+#endif /* oldies */
 
 int
 zsend_ipv6_add_multipath (struct zserv *client, struct prefix *p,
@@ -687,7 +694,9 @@ zsend_ipv6_add_multipath (struct zserv *client, struct prefix *p,
 	{
 	  stream_putc (s, 1);
 
-	  if (nexthop->type == NEXTHOP_TYPE_IPV6)
+	  if (nexthop->type == NEXTHOP_TYPE_IPV6
+	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
+	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
 	    stream_write (s, (u_char *) &nexthop->gate.ipv6, 16);
 	  else
 	    stream_write (s, (u_char *) &empty, 16);
@@ -711,6 +720,8 @@ zsend_ipv6_add_multipath (struct zserv *client, struct prefix *p,
   return 0;
 }
 
+#if 0
+#warning oldies
 int
 zsend_ipv6_delete (struct zserv *client, int type, int flags,
 		   struct prefix_ipv6 *p, struct in6_addr *nexthop,
@@ -751,6 +762,7 @@ zsend_ipv6_delete (struct zserv *client, int type, int flags,
 
   return 0;
 }
+#endif /* oldies */
 
 int
 zsend_ipv6_delete_multipath (struct zserv *client, struct prefix *p,

@@ -344,8 +344,13 @@ sockunion_connect (int fd, union sockunion *peersu, unsigned short port,
 	{
 #ifdef HAVE_SIN6_SCOPE_ID
 	  /* su.sin6.sin6_scope_id = ifindex; */
+#ifdef MUSICA
+	  su.sin6.sin6_scope_id = ifindex; 
+#endif
 #endif /* HAVE_SIN6_SCOPE_ID */
+#ifndef MUSICA
 	  SET_IN6_LINKLOCAL_IFINDEX (su.sin6.sin6_addr, ifindex);
+#endif
 	}
 #endif /* KAME */
       break;

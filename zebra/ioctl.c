@@ -474,8 +474,10 @@ if_prefix_add_ipv6 (struct interface *ifp, struct connected *ifc)
 #endif
   memcpy (&addreq.ifra_prefixmask, &mask, sizeof (struct sockaddr_in6));
   
+#ifdef HAVE_IFRA_LIFETIME 
   addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME; 
   addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME; 
+#endif
 
   ret = if_ioctl_ipv6 (SIOCAIFADDR_IN6, (caddr_t) &addreq);
   if (ret < 0)
@@ -513,8 +515,10 @@ if_prefix_delete_ipv6 (struct interface *ifp, struct connected *ifc)
 #endif
   memcpy (&addreq.ifra_prefixmask, &mask, sizeof (struct sockaddr_in6));
 
+#ifdef HAVE_IFRA_LIFETIME
   addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME; 
   addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME; 
+#endif
 
   ret = if_ioctl_ipv6 (SIOCDIFADDR_IN6, (caddr_t) &addreq);
   if (ret < 0)
