@@ -7,6 +7,6 @@ DIST_SUBDIRS = lib zebra bgpd ripd ripngd ospfd ospf6d \
 	  isisd vtysh ospfclient doc redhat
 
 EXTRA_DIST = aclocal.m4 SERVICES TODO REPORTING-BUGS vtysh/Makefile.in \
-	vtysh/Makefile.am update-autotools
+	vtysh/Makefile.am update-autotools \
 	tools/mrlg.cgi tools/rrcheck.pl tools/rrlookup.pl tools/zc.pl \
 	tools/zebra.el 
