@@ -283,7 +283,10 @@ vtysh_execute_func (const char *line, int pager)
       break;
     case CMD_SUCCESS_DAEMON:
       {
-	if (pager && vtysh_pager_name)
+	/* FIXME: Don't open pager for exit commands. popen() causes problems
+	 * if exited from vtysh at all. This hack shouldn't cause any problem
+	 * but is really ugly. */
+	if (pager && vtysh_pager_name && (strncmp(line, "exit", 4) != 0))
 	  {
 	    fp = popen (vtysh_pager_name, "w");
 	    if (fp == NULL)

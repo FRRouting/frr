@@ -1,3 +1,8 @@
+2004-10-20 Hasso Tepper <hasso at quagga.net>
+
+	* vtysh.c: Don't popen pager if command is "exit". Fixes "vtysh screws
+	  up my terminal if I exit" issue.
+
 2004-10-13 Hasso Tepper <hasso at quagga.net>
 
 	* extract.pl.in: All daemons can use both IPv6 and IPv4 access lists
