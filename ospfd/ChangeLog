@@ -1,10 +1,15 @@
-2003-04-23 Hasso Tepper <hasso@estpak.ee>
+2003-05-18 Hasso Tepper <hasso@estpak.ee>
 
-	* ospf_vty.c: fix "router xxx" node commands in vtysh
+	* ospf_vty.c: Show NSSA LSA route info in "show ip ospf database"
+	output
 
 2003-05-16 Hasso Tepper <hasso@estpak.ee>
 
 	* ospf_lsa.c: Fix handling of NSSA
+
+2003-04-23 Hasso Tepper <hasso@estpak.ee>
+
+	* ospf_vty.c: fix "router xxx" node commands in vtysh
 
 2003-04-19 Hasso Tepper <hasso@estpak.ee>
 

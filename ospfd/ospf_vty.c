@@ -3100,6 +3100,9 @@ show_lsa_summary (struct vty *vty, struct ospf_lsa *lsa, int self)
 	    vty_out (vty, " %s/%d", inet_ntoa (p.prefix), p.prefixlen);
 	    break;
 	  case OSPF_AS_EXTERNAL_LSA:
+#ifdef HAVE_NSSA
+	  case OSPF_AS_NSSA_LSA:
+#endif /* HAVE_NSSA */
 	    asel = (struct as_external_lsa *) lsa->data;
 
 	    p.family = AF_INET;
