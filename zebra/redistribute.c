@@ -40,7 +40,7 @@
 /* master zebra server structure */
 extern struct zebra_t zebrad;
 
-int
+static int
 zebra_check_addr (struct prefix *p)
 {
   if (p->family == AF_INET)
@@ -65,7 +65,7 @@ zebra_check_addr (struct prefix *p)
   return 1;
 }
 
-int
+static int
 is_default (struct prefix *p)
 {
   if (p->family == AF_INET)
@@ -82,7 +82,7 @@ is_default (struct prefix *p)
   return 0;
 }
 
-void
+static void
 zebra_redistribute_default (struct zserv *client)
 {
   struct prefix_ipv4 p;
@@ -136,7 +136,7 @@ zebra_redistribute_default (struct zserv *client)
 }
 
 /* Redistribute routes. */
-void
+static void
 zebra_redistribute (struct zserv *client, int type)
 {
   struct rib *newrib;
