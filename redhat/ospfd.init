@@ -4,7 +4,7 @@
 # description: An OSPF v2 routing engine for use with Zebra
 #
 # processname: ospfd
-# config: /etc/zebra/ospfd.conf
+# config: /etc/quagga/ospfd.conf
 
 # source function library
 . /etc/rc.d/init.d/functions
@@ -16,7 +16,7 @@
 [ "${NETWORKING}" = "no" ] && exit 0
 
 # The process must be configured first.
-[ -f /etc/zebra/ospfd.conf ] || exit 0
+[ -f /etc/quagga/ospfd.conf ] || exit 0
 
 RETVAL=0
 

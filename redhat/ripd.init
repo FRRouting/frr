@@ -4,7 +4,7 @@
 # description: A RIP routing engine for use with Zebra
 #
 # processname: ripd
-# config: /etc/zebra/ripd.conf
+# config: /etc/quagga/ripd.conf
 
 # source function library
 . /etc/rc.d/init.d/functions
@@ -16,7 +16,7 @@
 [ "${NETWORKING}" = "no" ] && exit 0
 
 # The process must be configured first.
-[ -f /etc/zebra/ripd.conf ] || exit 0
+[ -f /etc/quagga/ripd.conf ] || exit 0
 
 RETVAL=0
 prog="ripd"

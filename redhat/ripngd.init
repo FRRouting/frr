@@ -4,7 +4,7 @@
 # description: A RIP routing engine for use with Zebra and IPv6
 #
 # processname: ripngd
-# config: /etc/zebra/ripngd.conf
+# config: /etc/quagga/ripngd.conf
 
 # source function library
 . /etc/rc.d/init.d/functions
@@ -16,7 +16,7 @@
 [ "${NETWORKING_IPV6}" = "no" ] && exit 0
 
 # The process must be configured first.
-[ -f /etc/zebra/ripngd.conf ] || exit 0
+[ -f /etc/quagga/ripngd.conf ] || exit 0
 
 RETVAL=0
 prog="ripngd"

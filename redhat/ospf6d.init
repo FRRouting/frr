@@ -4,7 +4,7 @@
 # description: An OSPF routing engine for use with Zebra and IPv6
 #
 # processname: ospf6d
-# config: /etc/zebra/ospf6d.conf
+# config: /etc/quagga/ospf6d.conf
 
 # source function library
 . /etc/rc.d/init.d/functions
@@ -16,7 +16,7 @@
 [ "${NETWORKING_IPV6}" = "no" ] && exit 0
 
 # The process must be configured first.
-[ -f /etc/zebra/ospf6d.conf ] || exit 0
+[ -f /etc/quagga/ospf6d.conf ] || exit 0
 
 RETVAL=0
 prog="ospf6d"

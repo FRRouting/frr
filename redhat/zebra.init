@@ -4,7 +4,7 @@
 # description: GNU Zebra routing manager
 #
 # processname: zebra
-# config: /etc/zebra/zebra.conf
+# config: /etc/quagga/zebra.conf
 
 # source function library
 . /etc/rc.d/init.d/functions
@@ -13,7 +13,7 @@
 [ "${NETWORKING}" = "no" ] && exit 0
 
 # The process must be configured first.
-[ -f /etc/zebra/zebra.conf ] || exit 0
+[ -f /etc/quagga/zebra.conf ] || exit 0
 
 RETVAL=0
 

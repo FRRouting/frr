@@ -16,7 +16,7 @@
 [ "${NETWORKING}" = "no" ] && exit 0
 
 # The process must be configured first.
-[ -f /etc/zebra/bgpd.conf ] || exit 0
+[ -f /etc/quagga/bgpd.conf ] || exit 0
 
 RETVAL=0
 prog="bgpd"
