@@ -1,3 +1,8 @@
+2005-02-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zebra.h: Change macro definitions SET_FLAG and UNSET_FLAG
+	  to use compound assignment operators (aesthetic change).
+
 2005-02-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* log.c: (zlog_signal,zlog_backtrace_sigsafe) Eliminate use of fileno()

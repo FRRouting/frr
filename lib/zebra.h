@@ -444,8 +444,8 @@ struct in_pktinfo
 
 /* Flag manipulation macros. */
 #define CHECK_FLAG(V,F)      ((V) & (F))
-#define SET_FLAG(V,F)        (V) = (V) | (F)
-#define UNSET_FLAG(V,F)      (V) = (V) & ~(F)
+#define SET_FLAG(V,F)        (V) |= (F)
+#define UNSET_FLAG(V,F)      (V) &= ~(F)
 
 /* AFI and SAFI type. */
 typedef u_int16_t afi_t;
