@@ -1,3 +1,8 @@
+2005-03-26 Hasso Tepper <hasso at quagga.net>
+
+	* doc/defines.texi.in, lib/version.h.in: Update copyright string to
+	  include year 2005. 
+
 2005-03-25 Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
 	* configure.ac: add struct nd_opt_interval and struct
 	  nd_opt_homeagent_info detection.
