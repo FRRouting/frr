@@ -1,3 +1,11 @@
+2004-11-05 Phil Spagnolo <phillip.a.spagnolo@boeing.com>
+       * ospf6_flood.c:  When adding a thread to retransmit an lsa after 
+    rxmt_interval, the ospf6d used thread_add_event().  However, 
+    thread_add_event() executes immediately and ignores the delay parameter.  
+    This was causing unnecesary unicast LSU sends.  Adding the thread has 
+    been changed to use thread_add_timer() which will expire after delay.  
+    After the fix results appear consistent with expectation.
+
 2004-10-12 Hasso Tepper <hasso at quagga.net>
 
 	* ospf6_snmp.c: Remove defaults used to initialize smux connection to

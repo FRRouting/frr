@@ -335,7 +335,7 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->retrans_list);
       if (on->thread_send_lsupdate == NULL)
         on->thread_send_lsupdate =
-          thread_add_event (master, ospf6_lsupdate_send_neighbor,
+          thread_add_timer (master, ospf6_lsupdate_send_neighbor,
                             on, on->ospf6_if->rxmt_interval);
       retrans_added++;
     }
