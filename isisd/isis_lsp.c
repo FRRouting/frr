@@ -2087,6 +2087,8 @@ lsp_l1_refresh_pseudo (struct thread *thread)
   if (!circuit->u.bc.is_dr[0])
     return ISIS_ERROR;		/* FIXME: purge and such */
 
+  circuit->u.bc.t_refresh_pseudo_lsp[0] = NULL;
+
   retval = lsp_pseudo_regenerate (circuit, 1);
 
   ref_time = circuit->area->lsp_refresh[0] > MAX_LSP_GEN_INTERVAL ?
@@ -2144,6 +2146,8 @@ lsp_l2_refresh_pseudo (struct thread *thread)
 
   if (!circuit->u.bc.is_dr[1])
     return ISIS_ERROR;		/* FIXME: purge and such */
+
+  circuit->u.bc.t_refresh_pseudo_lsp[1] = NULL;
 
   retval = lsp_pseudo_regenerate (circuit, 2);
 
@@ -2211,6 +2215,7 @@ lsp_tick (struct thread *thread)
 
   area = THREAD_ARG (thread);
   assert (area);
+  area->t_tick = NULL;
   THREAD_TIMER_ON (master, area->t_tick, lsp_tick, area, 1);
 
   /*

@@ -880,6 +880,10 @@ DEFUN (isis_circuit_type,
       return CMD_WARNING;
     }
 
+  /* XXX what to do when ip_router_isis is not executed */
+  if (circuit->area == NULL)
+    return CMD_WARNING;
+
   assert (circuit);
 
   circuit_t = string2circuit_t (argv[0]);

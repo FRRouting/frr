@@ -812,8 +812,10 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
        */
       adj = isis_new_adj (hdr.source_id, ssnpa, level, circuit);
       if (adj == NULL)
-	retval = ISIS_ERROR;
-      goto out;
+	{
+	  retval = ISIS_ERROR;
+	  goto out;
+	}
 
       adj->level = level;
       isis_adj_state_change (adj, ISIS_ADJ_INITIALIZING, NULL);

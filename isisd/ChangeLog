@@ -1,3 +1,12 @@
+2004-09-10 LIU Xin <lx at ns.6test.edu.cn>
+	
+	* isis_pdu.c: Goto out only if no adjacency exist.
+	* isis_circuit.c: Don't crash while executing "isis circuit-type"
+	  command if circuit exists, but circuit->area is still NULL.
+	* isis_lsp.c: Set pointers to thread to NULL before initiating new
+	  thread in lsp_l1_refresh_pseudo(), lsp_l2_refresh_pseudo() and
+	  lsp_tick() functions.
+
 2004-05-19 Laurent Rabret <laurent.rabret at francetelecom.com>
 
 	* isis_constants.h: change the ISIS Hello interval from 1 to 10 (cisco's
