@@ -6,7 +6,6 @@ zebra.info-*
 zebra.html
 defines.texi
 version.texi
-quagga.info*
 quagga.html
 *.pdf
 quagga.ps

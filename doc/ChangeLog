@@ -2,6 +2,9 @@
 
 	* routeserver.texi: Strip ctrl-M from line endings, note by
 	  sigma@smx.pair.com
+	* quagga.info: Add generated file to CVS, as it requires most recent
+          texinfo to build, until such time as texinfo 4.7 is more
+          prevalent.
 
 2004-11-08 Paul Jakma <paul@dishone.st>
 
