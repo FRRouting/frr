@@ -1291,8 +1291,7 @@ vty_read (struct thread *thread)
 	{
 	  /* In case of telnet command */
 	  int ret = 0;
-	  if (vty->iac_sb_in_progress)
-	    ret = vty_telnet_option (vty, buf + i, nbytes - i);
+	  ret = vty_telnet_option (vty, buf + i, nbytes - i);
 	  vty->iac = 0;
 	  i += ret;
 	  continue;
