@@ -1,3 +1,7 @@
+2005-01-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* NEWS: Note improved logging facilities.
+
 2004-12-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* configure.ac: Add new option --enable-gcc-rdynamic to link
