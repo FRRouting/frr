@@ -1,3 +1,7 @@
+2004-10-31 Paul Jakma <paul@dishone.st>
+
+	* {bgpd,bgp_attr}.c: size_t printf format should be ld.
+
 2004-10-25 Paul Jakma <paul@dishone.st>
 
 	* Update with fix in debian bug id 222930.

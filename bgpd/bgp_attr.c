@@ -1167,7 +1167,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       if (endp - BGP_INPUT_PNT (peer) < BGP_ATTR_MIN_LEN)
 	{
 	  zlog (peer->log, LOG_WARNING, 
-		"%s error BGP attribute length %d is smaller than min len",
+		"%s error BGP attribute length %ld is smaller than min len",
 		peer->host, endp - STREAM_PNT (BGP_INPUT (peer)));
 
 	  bgp_notify_send (peer, 
