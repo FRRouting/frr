@@ -2757,9 +2757,15 @@ vty_finish ()
 void
 vty_save_cwd ()
 {
-  char *cwd;
+  char cwd[MAXPATHLEN];
 
-  cwd = getcwd (NULL, MAXPATHLEN);
+  cwd[0] = getcwd (cwd, MAXPATHLEN);
+
+  if (!cwd)
+    {
+      chdir (SYSCONFDIR);
+      cwd[0] = getcwd (cwd, MAXPATHLEN);
+    }
 
   vty_cwd = XMALLOC (MTYPE_TMP, strlen (cwd) + 1);
   strcpy (vty_cwd, cwd);
