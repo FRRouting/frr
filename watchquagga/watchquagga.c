@@ -1,5 +1,5 @@
 /*
-    $Id: watchquagga.c,v 1.1 2004/12/22 02:56:59 ajs Exp $
+    $Id: watchquagga.c,v 1.2 2004/12/22 14:08:13 ajs Exp $
 
     Monitor status of quagga daemons and restart if necessary.
 
@@ -35,6 +35,10 @@
 #include <sys/wait.h>
 
 /* Quagga headers: */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <thread.h>
 #include <log.h>
 #include <sigevent.h>
@@ -54,7 +58,11 @@
 #define DEFAULT_LOGLEVEL	LOG_INFO
 #define DEFAULT_MIN_RESTART	60
 #define DEFAULT_MAX_RESTART	600
+#ifdef PATH_WATCHQUAGGA_PID
+#define DEFAULT_PIDFILE		PATH_WATCHQUAGGA_PID
+#else
 #define DEFAULT_PIDFILE		STATEDIR "/watchquagga.pid"
+#endif
 
 #define PING_TOKEN	"PING"
 
