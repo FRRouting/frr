@@ -337,12 +337,12 @@ ospf_intra_add_router (struct route_table *rt, struct vertex *v,
   struct router_lsa *lsa;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_intra_add_router: Start");
+    zlog_debug ("ospf_intra_add_router: Start");
 
   lsa = (struct router_lsa *) v->lsa;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_intra_add_router: LS ID: %s",
+    zlog_debug ("ospf_intra_add_router: LS ID: %s",
 	       inet_ntoa (lsa->header.id));
 
   ospf_vl_up_check (area, lsa->header.id, v);
@@ -356,7 +356,7 @@ ospf_intra_add_router (struct route_table *rt, struct vertex *v,
   if (! IS_ROUTER_LSA_BORDER (lsa) && ! IS_ROUTER_LSA_EXTERNAL (lsa))
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_intra_add_router: "
+	zlog_debug ("ospf_intra_add_router: "
 		   "this router is neither ASBR nor ABR, skipping it");
       return;
     }
@@ -398,7 +398,7 @@ ospf_intra_add_router (struct route_table *rt, struct vertex *v,
   p.prefixlen = IPV4_MAX_BITLEN;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_intra_add_router: talking about %s/%d",
+    zlog_debug ("ospf_intra_add_router: talking about %s/%d",
 	       inet_ntoa (p.prefix), p.prefixlen);
 
   rn = route_node_get (rt, (struct prefix *) &p);
@@ -414,7 +414,7 @@ ospf_intra_add_router (struct route_table *rt, struct vertex *v,
   listnode_add (rn->info, or);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_intra_add_router: Stop");
+    zlog_debug ("ospf_intra_add_router: Stop");
 }
 
 /* RFC2328 16.1. (4).  For transit network. */
@@ -492,7 +492,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
   struct ospf_path *path;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_intra_add_stub(): Start");
+    zlog_debug ("ospf_intra_add_stub(): Start");
 
   lsa = (struct router_lsa *) v->lsa;
 
@@ -502,7 +502,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
   apply_mask_ipv4 (&p);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_intra_add_stub(): processing route to %s/%d",  
+    zlog_debug ("ospf_intra_add_stub(): processing route to %s/%d",  
 	       inet_ntoa (p.prefix), p.prefixlen);
 
   /* (1) Calculate the distance D of stub network from the root.  D is
@@ -512,7 +512,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
   cost = v->distance + ntohs (link->m[0].metric);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_intra_add_stub(): calculated cost is %d + %d = %d", 
+    zlog_debug ("ospf_intra_add_stub(): calculated cost is %d + %d = %d", 
 	       v->distance, ntohs(link->m[0].metric), cost);
 
   rn = route_node_get (rt, (struct prefix *) &p);
@@ -527,7 +527,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
       cur_or = rn->info;
 
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_intra_add_stub(): "
+	zlog_debug ("ospf_intra_add_stub(): "
 		   "another route to the same prefix found with cost %u",
 		   cur_or->cost);
 
@@ -539,7 +539,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
       if (cost > cur_or->cost)
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_intra_add_stub(): old route is better, exit");
+	    zlog_debug ("ospf_intra_add_stub(): old route is better, exit");
 	  return;
 	}
 
@@ -559,7 +559,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
       if (cost == cur_or->cost)
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_intra_add_stub(): routes are equal, merge");
+	    zlog_debug ("ospf_intra_add_stub(): routes are equal, merge");
 
 	  ospf_route_copy_nexthops_from_vertex (cur_or, v);
 
@@ -578,7 +578,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
       if (cost < cur_or->cost)
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_intra_add_stub(): new route is better, set it");
+	    zlog_debug ("ospf_intra_add_stub(): new route is better, set it");
 
 	  cur_or->cost = cost;
 
@@ -592,7 +592,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
     }
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_intra_add_stub(): installing new route");
+    zlog_debug ("ospf_intra_add_stub(): installing new route");
 
   or = ospf_route_new ();
 
@@ -608,18 +608,18 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
   if (v != area->spf)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_intra_add_stub(): this network is on remote router");
+	zlog_debug ("ospf_intra_add_stub(): this network is on remote router");
       ospf_route_copy_nexthops_from_vertex (or, v);
     }
   else
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_intra_add_stub(): this network is on this router");
+	zlog_debug ("ospf_intra_add_stub(): this network is on this router");
 
       if ((oi = ospf_if_lookup_by_prefix (area->ospf, &p)))
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_intra_add_stub(): the interface is %s",
+	    zlog_debug ("ospf_intra_add_stub(): the interface is %s",
 		       IF_NAME (oi));
 
 	  path = ospf_path_new ();
@@ -630,14 +630,14 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
       else
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_intra_add_stub(): where's the interface ?");
+	    zlog_debug ("ospf_intra_add_stub(): where's the interface ?");
 	}
     }
 
   rn->info = or;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info("ospf_intra_add_stub(): Stop");
+    zlog_debug("ospf_intra_add_stub(): Stop");
 }
 
 const char *ospf_path_type_str[] =
@@ -660,17 +660,17 @@ ospf_route_table_dump (struct route_table *rt)
   struct ospf_path *path;
 
 #if 0
-  zlog_info ("Type   Dest   Area   Path	 Type	 Cost	Next	 Adv.");
-  zlog_info ("					Hop(s)	 Router(s)");
+  zlog_debug ("Type   Dest   Area   Path	 Type	 Cost	Next	 Adv.");
+  zlog_debug ("					Hop(s)	 Router(s)");
 #endif /* 0 */
 
-  zlog_info ("========== OSPF routing table ==========");
+  zlog_debug ("========== OSPF routing table ==========");
   for (rn = route_top (rt); rn; rn = route_next (rn))
     if ((or = rn->info) != NULL)
       {
         if (or->type == OSPF_DESTINATION_NETWORK)
 	  {
-	    zlog_info ("N %s/%d\t%s\t%s\t%d", 
+	    zlog_debug ("N %s/%d\t%s\t%s\t%d", 
 		       inet_ntop (AF_INET, &rn->p.u.prefix4, buf1, BUFSIZ),
 		       rn->p.prefixlen,
 		       inet_ntop (AF_INET, &or->u.std.area_id, buf2,
@@ -680,18 +680,18 @@ ospf_route_table_dump (struct route_table *rt)
 	    for (pnode = listhead (or->paths); pnode; nextnode (pnode))
 	      {
 		path = getdata (pnode);
-		zlog_info ("  -> %s", inet_ntoa (path->nexthop));
+		zlog_debug ("  -> %s", inet_ntoa (path->nexthop));
 	      }
 	  }
         else
-	  zlog_info ("R %s\t%s\t%s\t%d", 
+	  zlog_debug ("R %s\t%s\t%s\t%d", 
 		     inet_ntop (AF_INET, &rn->p.u.prefix4, buf1, BUFSIZ),
 		     inet_ntop (AF_INET, &or->u.std.area_id, buf2,
 				BUFSIZ),
 		     ospf_path_type_str[or->path_type],
 		     or->cost);
       }
-  zlog_info ("========================================");
+  zlog_debug ("========================================");
 }
 
 void
@@ -750,7 +750,7 @@ ospf_route_cmp (struct ospf *ospf, struct ospf_route *r1,
     return ret;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("Route[Compare]: Path types are the same.");
+    zlog_debug ("Route[Compare]: Path types are the same.");
   /* Path types are the same, compare any cost. */
   switch (r1->path_type)
     {
@@ -889,7 +889,7 @@ ospf_route_add (struct route_table *rt, struct prefix_ipv4 *p,
   if (rn->info)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_route_add(): something's wrong !");
+	zlog_debug ("ospf_route_add(): something's wrong !");
       route_unlock_node (rn);
       return;
     }
@@ -904,7 +904,7 @@ ospf_prune_unreachable_networks (struct route_table *rt)
   struct ospf_route *or;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("Pruning unreachable networks");
+    zlog_debug ("Pruning unreachable networks");
 
   for (rn = route_top (rt); rn; rn = next)
     {
@@ -915,7 +915,7 @@ ospf_prune_unreachable_networks (struct route_table *rt)
 	  if (listcount (or->paths) == 0)
 	    {
 	      if (IS_DEBUG_OSPF_EVENT)
-		zlog_info ("Pruning route to %s/%d",
+		zlog_debug ("Pruning route to %s/%d",
 			   inet_ntoa (rn->p.u.prefix4), rn->p.prefixlen);
 
 	      ospf_route_free (or);
@@ -935,7 +935,7 @@ ospf_prune_unreachable_routers (struct route_table *rtrs)
   struct list *paths;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("Pruning unreachable routers");
+    zlog_debug ("Pruning unreachable routers");
 
   for (rn = route_top (rtrs); rn; rn = next)
     {
@@ -953,9 +953,9 @@ ospf_prune_unreachable_routers (struct route_table *rtrs)
 	    {
 	      if (IS_DEBUG_OSPF_EVENT)
 		{
-		  zlog_info ("Pruning route to rtr %s",
+		  zlog_debug ("Pruning route to rtr %s",
 			     inet_ntoa (rn->p.u.prefix4));
-		  zlog_info ("               via area %s",
+		  zlog_debug ("               via area %s",
 			     inet_ntoa (or->u.std.area_id));
 		}
 
@@ -967,7 +967,7 @@ ospf_prune_unreachable_routers (struct route_table *rtrs)
       if (listcount (paths) == 0)
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("Pruning router node %s", inet_ntoa (rn->p.u.prefix4));
+	    zlog_debug ("Pruning router node %s", inet_ntoa (rn->p.u.prefix4));
 
 	  list_delete (paths);
 	  rn->info = NULL;
@@ -988,7 +988,7 @@ ospf_add_discard_route (struct route_table *rt, struct ospf_area *area,
   if (rn == NULL)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_add_discard_route(): router installation error");
+	zlog_debug ("ospf_add_discard_route(): router installation error");
       return 0;
     }
 
@@ -1001,7 +1001,7 @@ ospf_add_discard_route (struct route_table *rt, struct ospf_area *area,
       if (or->path_type == OSPF_PATH_INTRA_AREA)
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_add_discard_route(): "
+	    zlog_debug ("ospf_add_discard_route(): "
 		       "an intra-area route exists");
 	  return 0;
 	}
@@ -1009,7 +1009,7 @@ ospf_add_discard_route (struct route_table *rt, struct ospf_area *area,
       if (or->type == OSPF_DESTINATION_DISCARD)
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_add_discard_route(): "
+	    zlog_debug ("ospf_add_discard_route(): "
 		       "discard entry already installed");
 	  return 0;
 	}

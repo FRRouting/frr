@@ -543,14 +543,14 @@ ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph,
       
       if (IS_DEBUG_OSPF_PACKET (type - 1, SEND))
         {
-          zlog_info ("ospf_write_frags: sent id %d, off %d, len %d to %s\n",
+          zlog_debug ("ospf_write_frags: sent id %d, off %d, len %d to %s\n",
                      iph->ip_id, iph->ip_off, iph->ip_len,
                      inet_ntoa (iph->ip_dst));
           if (IS_DEBUG_OSPF_PACKET (type - 1, DETAIL))
             {
-              zlog_info ("-----------------IP Header Dump----------------------");
+              zlog_debug ("-----------------IP Header Dump----------------------");
               ospf_ip_header_dump (iph);
-              zlog_info ("-----------------------------------------------------");
+              zlog_debug ("-----------------------------------------------------");
             }
         }
       
@@ -697,18 +697,18 @@ ospf_write (struct thread *thread)
     {
       if (IS_DEBUG_OSPF_PACKET (type - 1, DETAIL))
 	{
-	  zlog_info ("-----------------------------------------------------");
+	  zlog_debug ("-----------------------------------------------------");
 	  ospf_ip_header_dump (&iph);
 	  stream_set_getp (op->s, 0);
 	  ospf_packet_dump (op->s);
 	}
 
-      zlog_info ("%s sent to [%s] via [%s].",
+      zlog_debug ("%s sent to [%s] via [%s].",
 		 ospf_packet_type_str[type], inet_ntoa (op->dst),
 		 IF_NAME (oi));
 
       if (IS_DEBUG_OSPF_PACKET (type - 1, DETAIL))
-	zlog_info ("-----------------------------------------------------");
+	zlog_debug ("-----------------------------------------------------");
     }
 
   /* Now delete packet from queue. */
@@ -748,7 +748,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
     {
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
         {
-          zlog_info ("ospf_header[%s/%s]: selforiginated, "
+          zlog_debug ("ospf_header[%s/%s]: selforiginated, "
                      "dropping.",
                      ospf_packet_type_str[ospfh->type],
                      inet_ntoa (iph->ip_src));
@@ -796,7 +796,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
     }
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("Packet %s [Hello:RECV]: Options %s",
+    zlog_debug ("Packet %s [Hello:RECV]: Options %s",
 	       inet_ntoa (ospfh->router_id),
 	       ospf_options_dump (hello->options));
 
@@ -846,7 +846,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 	  return;
 	}
       if (IS_DEBUG_OSPF_NSSA)
-        zlog_info ("NSSA-Hello:RECV:Packet from %s:", inet_ntoa(ospfh->router_id));
+        zlog_debug ("NSSA-Hello:RECV:Packet from %s:", inet_ntoa(ospfh->router_id));
     }
   else    
     /* The setting of the E-bit found in the Hello Packet's Options
@@ -1029,7 +1029,7 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
 	{
 	  /* Received LSA is not recent. */
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("Packet [DD:RECV]: LSA received Type %d, "
+	    zlog_debug ("Packet [DD:RECV]: LSA received Type %d, "
 		       "ID %s is not recent.", lsah->type, inet_ntoa (lsah->id));
 	  ospf_lsa_discard (new);
 	  continue;
@@ -1211,7 +1211,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
       if (CHECK_FLAG (oi->ospf->config, OSPF_OPAQUE_CAPABLE))
         {
           if (IS_DEBUG_OSPF_EVENT)
-            zlog_info ("Neighbor[%s] is %sOpaque-capable.",
+            zlog_debug ("Neighbor[%s] is %sOpaque-capable.",
 		       inet_ntoa (nbr->router_id),
 		       CHECK_FLAG (nbr->options, OSPF_OPTION_O) ? "" : "NOT ");
 
@@ -1251,7 +1251,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  zlog_warn ("Packet[DD]: MS-bit mismatch.");
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("Packet[DD]: dd->flags=%d, nbr->dd_flags=%d",
+	    zlog_debug ("Packet[DD]: dd->flags=%d, nbr->dd_flags=%d",
 		       dd->flags, nbr->dd_flags);
 	  break;
 	}
@@ -1506,7 +1506,7 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
 	      && nbr->oi->area->external_routing != OSPF_AREA_DEFAULT) 
             {
               if (IS_DEBUG_OSPF_EVENT)
-                zlog_info ("LSA[Type%d:%s]: We are a stub, don't take this LSA.", lsah->type, inet_ntoa (lsah->id));
+                zlog_debug ("LSA[Type%d:%s]: We are a stub, don't take this LSA.", lsah->type, inet_ntoa (lsah->id));
               continue;
             }
         }
@@ -1542,7 +1542,7 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
       memcpy (lsa->data, lsah, length);
 
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info("LSA[Type%d:%s]: %p new LSA created with Link State Update",
+	zlog_debug("LSA[Type%d:%s]: %p new LSA created with Link State Update",
 		  lsa->data->type, inet_ntoa (lsa->data->id), lsa);
       listnode_add (lsas, lsa);
     }
@@ -1627,7 +1627,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 
 #define DISCARD_LSA(L,N) {\
         if (IS_DEBUG_OSPF_EVENT) \
-          zlog_info ("ospf_lsa_discard() in ospf_ls_upd() point %d: lsa %p Type-%d", N, lsa, (int) lsa->data->type); \
+          zlog_debug ("ospf_lsa_discard() in ospf_ls_upd() point %d: lsa %p Type-%d", N, lsa, (int) lsa->data->type); \
         ospf_lsa_discard (L); \
 	continue; }
 
@@ -1647,7 +1647,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	  char buf2[INET_ADDRSTRLEN];
 	  char buf3[INET_ADDRSTRLEN];
 
-	  zlog_info("LSA Type-%d from %s, ID: %s, ADV: %s",
+	  zlog_debug("LSA Type-%d from %s, ID: %s, ADV: %s",
 		  lsa->data->type,
 		  inet_ntop (AF_INET, &ospfh->router_id,
 			     buf1, INET_ADDRSTRLEN),
@@ -1680,7 +1680,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	  {
 	    DISCARD_LSA (lsa, 1);
 	    if (IS_DEBUG_OSPF_NSSA)
-	      zlog_info("Incoming External LSA Discarded: We are NSSA/STUB Area");
+	      zlog_debug("Incoming External LSA Discarded: We are NSSA/STUB Area");
 	  }
 
       if (lsa->data->type == OSPF_AS_NSSA_LSA)
@@ -1688,7 +1688,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	  {
 	    DISCARD_LSA (lsa,2);
 	    if (IS_DEBUG_OSPF_NSSA)
-	      zlog_info("Incoming NSSA LSA Discarded:  Not NSSA Area");
+	      zlog_debug("Incoming NSSA LSA Discarded:  Not NSSA Area");
 	  }
 
       /* Find the LSA in the current database. */
@@ -1748,7 +1748,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
           if (current == NULL)
             {
               if (IS_DEBUG_OSPF_EVENT)
-                zlog_info ("LSA[%s]: Previously originated Opaque-LSA, not found in the LSDB.", dump_lsa_key (lsa));
+                zlog_debug ("LSA[%s]: Previously originated Opaque-LSA, not found in the LSDB.", dump_lsa_key (lsa));
 
               SET_FLAG (lsa->flags, OSPF_LSA_SELF);
               listnode_add (mylsa_upds, ospf_lsa_dup  (lsa));
@@ -1782,7 +1782,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
             {
               ospf_lsa_flush_area(lsa,out_if->area);
               if(IS_DEBUG_OSPF_EVENT)
-                zlog_info ("ospf_lsa_discard() in ospf_ls_upd() point 9: lsa %p Type-%d",
+                zlog_debug ("ospf_lsa_discard() in ospf_ls_upd() point 9: lsa %p Type-%d",
                             lsa, (int) lsa->data->type);
               ospf_lsa_discard (lsa);
               Flag = 1;
@@ -2105,12 +2105,12 @@ ospf_associate_packet_vl (struct ospf *ospf, struct interface *ifp,
 	  IPV4_ADDR_SAME (&vl_data->vl_peer, &ospfh->router_id))
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("associating packet with %s",
+	    zlog_debug ("associating packet with %s",
 		       IF_NAME (vl_data->vl_oi));
 	  if (! CHECK_FLAG (vl_data->vl_oi->ifp->flags, IFF_UP))
 	    {
 	      if (IS_DEBUG_OSPF_EVENT)
-		zlog_info ("This VL is not up yet, sorry");
+		zlog_debug ("This VL is not up yet, sorry");
 	      return NULL;
 	    }
 	  
@@ -2119,7 +2119,7 @@ ospf_associate_packet_vl (struct ospf *ospf, struct interface *ifp,
     }
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("couldn't find any VL to associate the packet with");
+    zlog_debug ("couldn't find any VL to associate the packet with");
   
   return NULL;
 }
@@ -2343,7 +2343,7 @@ ospf_read (struct thread *thread)
     {
       if (IS_DEBUG_OSPF_PACKET (0, RECV))
         {
-          zlog_info ("ospf_read[%s]: Dropping self-originated packet",
+          zlog_debug ("ospf_read[%s]: Dropping self-originated packet",
                      inet_ntoa (iph->ip_src));
         }
       stream_free (ibuf);
@@ -2409,18 +2409,18 @@ ospf_read (struct thread *thread)
     {
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, DETAIL))
         {
-          zlog_info ("-----------------------------------------------------");
+          zlog_debug ("-----------------------------------------------------");
           ospf_packet_dump (ibuf);
         }
 
-      zlog_info ("%s received from [%s] via [%s]",
+      zlog_debug ("%s received from [%s] via [%s]",
                  ospf_packet_type_str[ospfh->type],
                  inet_ntoa (ospfh->router_id), IF_NAME (oi));
-      zlog_info (" src [%s],", inet_ntoa (iph->ip_src));
-      zlog_info (" dst [%s]", inet_ntoa (iph->ip_dst));
+      zlog_debug (" src [%s],", inet_ntoa (iph->ip_src));
+      zlog_debug (" dst [%s]", inet_ntoa (iph->ip_dst));
 
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, DETAIL))
-	zlog_info ("-----------------------------------------------------");
+	zlog_debug ("-----------------------------------------------------");
   }
 
   /* Some header verification. */
@@ -2429,7 +2429,7 @@ ospf_read (struct thread *thread)
     {
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
         {
-          zlog_info ("ospf_read[%s/%s]: Header check failed, "
+          zlog_debug ("ospf_read[%s/%s]: Header check failed, "
                      "dropping.",
                      ospf_packet_type_str[ospfh->type],
                      inet_ntoa (iph->ip_src));
@@ -2578,7 +2578,7 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
   stream_putw (s, OSPF_IF_PARAM (oi, v_hello));
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("make_hello: options: %x, int: %s",
+    zlog_debug ("make_hello: options: %x, int: %s",
 	       OPTIONS(oi), IF_NAME (oi));
 
   /* Set Options. */
@@ -2810,7 +2810,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
   int count = 0;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_make_ls_upd: Start");
+    zlog_debug ("ospf_make_ls_upd: Start");
 
   pp = stream_get_putp (s);
   ospf_output_forward (s, OSPF_LS_UPD_MIN_SIZE);
@@ -2821,7 +2821,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
       u_int16_t ls_age;
 
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("ospf_make_ls_upd: List Iteration");
+        zlog_debug ("ospf_make_ls_upd: List Iteration");
 
       lsa = getdata (node);
       assert (lsa);
@@ -2857,7 +2857,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
   stream_set_putp (s, s->endp);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_make_ls_upd: Stop");
+    zlog_debug ("ospf_make_ls_upd: Stop");
   return length;
 }
 
@@ -2966,7 +2966,7 @@ ospf_poll_timer (struct thread *thread)
   nbr_nbma->t_poll = NULL;
 
   if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
-    zlog (NULL, LOG_INFO, "NSM[%s:%s]: Timer (Poll timer expire)",
+    zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: Timer (Poll timer expire)",
     IF_NAME (nbr_nbma->oi), inet_ntoa (nbr_nbma->addr));
 
   ospf_poll_send (nbr_nbma);
@@ -2990,7 +2990,7 @@ ospf_hello_reply_timer (struct thread *thread)
   assert (nbr->oi);
 
   if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
-    zlog (NULL, LOG_INFO, "NSM[%s:%s]: Timer (hello-reply timer expire)",
+    zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: Timer (hello-reply timer expire)",
 	  IF_NAME (nbr->oi), inet_ntoa (nbr->router_id));
 
   ospf_hello_send_sub (nbr->oi, &nbr->address.u.prefix4);
@@ -3226,7 +3226,7 @@ ospf_ls_upd_packet_new (struct list *update, struct ospf_interface *oi)
         }
 
       if (IS_DEBUG_OSPF_PACKET (0, SEND))
-        zlog_warn ("ospf_ls_upd_packet_new: oversized LSA id:%s,"
+        zlog_debug ("ospf_ls_upd_packet_new: oversized LSA id:%s,"
                    " %d bytes originated by %s, will be fragmented!",
                    inet_ntoa (lsa->data->id),
                    ntohs (lsa->data->length),
@@ -3264,7 +3264,7 @@ ospf_ls_upd_queue_send (struct ospf_interface *oi, struct list *update,
   u_int16_t length = OSPF_HEADER_SIZE;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("listcount = %d, dst %s", listcount (update), inet_ntoa(addr));
+    zlog_debug ("listcount = %d, dst %s", listcount (update), inet_ntoa(addr));
   
   op = ospf_ls_upd_packet_new (update, oi);
 
@@ -3304,7 +3304,7 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
   oi->t_ls_upd_event = NULL;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_ls_upd_send_queue start");
+    zlog_debug ("ospf_ls_upd_send_queue start");
 
   for (rn = route_top (oi->ls_upd_queue); rn; rn = rnext)
     {
@@ -3331,14 +3331,14 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
   if (again != 0)
     {
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("ospf_ls_upd_send_queue: update lists not cleared,"
+        zlog_debug ("ospf_ls_upd_send_queue: update lists not cleared,"
                    " %d nodes to try again, raising new event", again);
       oi->t_ls_upd_event = 
         thread_add_event (master, ospf_ls_upd_send_queue_event, oi, 0);
     }
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_ls_upd_send_queue stop");
+    zlog_debug ("ospf_ls_upd_send_queue stop");
   
   return 0;
 }

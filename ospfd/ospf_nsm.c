@@ -81,7 +81,7 @@ ospf_db_desc_timer (struct thread *thread)
   oi = nbr->oi;
 
   if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
-    zlog (NULL, LOG_INFO, "NSM[%s:%s]: Timer (DD Retransmit timer expire)",
+    zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: Timer (DD Retransmit timer expire)",
 	  IF_NAME (nbr->oi), inet_ntoa (nbr->src));
 
   /* resent last send DD packet. */
@@ -144,7 +144,7 @@ int
 nsm_ignore (struct ospf_neighbor *nbr)
 {
   if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
-    zlog (NULL, LOG_INFO, "NSM[%s:%s]: nsm_ignore called",
+    zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: nsm_ignore called",
 	  IF_NAME (nbr->oi), inet_ntoa (nbr->router_id));
 
   return 0;
@@ -449,7 +449,7 @@ nsm_kill_nbr (struct ospf_neighbor *nbr)
 			  nbr_nbma->v_poll);
 
       if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
-	zlog_info ("NSM[%s:%s]: Down (PollIntervalTimer scheduled)",
+	zlog_debug ("NSM[%s:%s]: Down (PollIntervalTimer scheduled)",
 		   IF_NAME (nbr->oi), inet_ntoa (nbr->address.u.prefix4));  
     }
 
@@ -669,7 +669,7 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   
   /* Logging change of status. */
   if (IS_DEBUG_OSPF (nsm, NSM_STATUS))
-    zlog_info ("NSM[%s:%s]: State change %s -> %s",
+    zlog_debug ("NSM[%s:%s]: State change %s -> %s",
 	       IF_NAME (nbr->oi), inet_ntoa (nbr->router_id),
 	       LOOKUP (ospf_nsm_state_msg, nbr->state),
 	       LOOKUP (ospf_nsm_state_msg, state));
@@ -832,7 +832,7 @@ ospf_nsm_event (struct thread *thread)
   if (event == NSM_KillNbr || event == NSM_InactivityTimer)
     {
       if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
-	zlog_info ("NSM[%s:%s]: neighbor deleted",
+	zlog_debug ("NSM[%s:%s]: neighbor deleted",
 		   IF_NAME (oi), inet_ntoa (router_id));
 
       /* Timers are canceled in ospf_nbr_free, moreover we cannot call
@@ -846,7 +846,7 @@ ospf_nsm_event (struct thread *thread)
     next_state = NSM [nbr->state][event].next_state;
 
   if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
-    zlog_info ("NSM[%s:%s]: %s (%s)", IF_NAME (oi),
+    zlog_debug ("NSM[%s:%s]: %s (%s)", IF_NAME (oi),
 	       inet_ntoa (nbr->router_id),
 	       LOOKUP (ospf_nsm_state_msg, nbr->state),
 	       ospf_nsm_event_str [event]);

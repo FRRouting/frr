@@ -3395,6 +3395,7 @@ show_as_external_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
   return 0;
 }
 
+/* N.B. This function currently seems to be unused. */
 int
 show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
 {
@@ -3402,18 +3403,18 @@ show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
 
   /* show_ip_ospf_database_header (vty, lsa); */
 
-  zlog_info( "  Network Mask: /%d%s",
+  zlog_debug( "  Network Mask: /%d%s",
 	     ip_masklen (al->mask), "\n");
-  zlog_info( "        Metric Type: %s%s",
+  zlog_debug( "        Metric Type: %s%s",
 	     IS_EXTERNAL_METRIC (al->e[0].tos) ?
 	     "2 (Larger than any link state path)" : "1", "\n");
-  zlog_info( "        TOS: 0%s", "\n");
-  zlog_info( "        Metric: %d%s",
+  zlog_debug( "        TOS: 0%s", "\n");
+  zlog_debug( "        Metric: %d%s",
 	     GET_METRIC (al->e[0].metric), "\n");
-  zlog_info( "        Forward Address: %s%s",
+  zlog_debug( "        Forward Address: %s%s",
 	     inet_ntoa (al->e[0].fwd_addr), "\n");
 
-  zlog_info( "        External Route Tag: %u%s%s",
+  zlog_debug( "        External Route Tag: %u%s%s",
 	     ntohl (al->e[0].route_tag), "\n", "\n");
 
   return 0;

@@ -881,7 +881,7 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
   lsa_id.s_addr = htonl (tmp);
 
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
-    zlog_info ("LSA[Type%d:%s]: Create an Opaque-LSA/MPLS-TE instance", lsa_type, inet_ntoa (lsa_id));
+    zlog_debug ("LSA[Type%d:%s]: Create an Opaque-LSA/MPLS-TE instance", lsa_type, inet_ntoa (lsa_id));
 
   /* Set opaque-LSA header fields. */
   lsa_header_set (s, options, lsa_type, lsa_id, area->ospf->router_id);
@@ -952,7 +952,7 @@ ospf_mpls_te_lsa_originate1 (struct ospf_area *area, struct mpls_te_link *lp)
     {
       char area_id[INET_ADDRSTRLEN];
       strcpy (area_id, inet_ntoa (area->area_id));
-      zlog_info ("LSA[Type%d:%s]: Originate Opaque-LSA/MPLS-TE: Area(%s), Link(%s)", new->data->type, inet_ntoa (new->data->id), area_id, lp->ifp->name);
+      zlog_debug ("LSA[Type%d:%s]: Originate Opaque-LSA/MPLS-TE: Area(%s), Link(%s)", new->data->type, inet_ntoa (new->data->id), area_id, lp->ifp->name);
       ospf_lsa_header_dump (new->data);
     }
 
@@ -1065,7 +1065,7 @@ ospf_mpls_te_lsa_refresh (struct ospf_lsa *lsa)
   /* Debug logging. */
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     {
-      zlog_info ("LSA[Type%d:%s]: Refresh Opaque-LSA/MPLS-TE",
+      zlog_debug ("LSA[Type%d:%s]: Refresh Opaque-LSA/MPLS-TE",
 		 new->data->type, inet_ntoa (new->data->id));
       ospf_lsa_header_dump (new->data);
     }
@@ -1124,7 +1124,7 @@ show_vty_router_addr (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Router-Address: %s%s", inet_ntoa (top->value), VTY_NEWLINE);
   else
-    zlog_info ("    Router-Address: %s", inet_ntoa (top->value));
+    zlog_debug ("    Router-Address: %s", inet_ntoa (top->value));
 
   return TLV_SIZE (tlvh);
 }
@@ -1137,7 +1137,7 @@ show_vty_link_header (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Link: %u octets of data%s", ntohs (top->header.length), VTY_NEWLINE);
   else
-    zlog_info ("    Link: %u octets of data", ntohs (top->header.length));
+    zlog_debug ("    Link: %u octets of data", ntohs (top->header.length));
 
   return TLV_HDR_SIZE;	/* Here is special, not "TLV_SIZE". */
 }
@@ -1164,7 +1164,7 @@ show_vty_link_subtlv_link_type (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Link-Type: %s (%u)%s", cp, top->link_type.value, VTY_NEWLINE);
   else
-    zlog_info ("    Link-Type: %s (%u)", cp, top->link_type.value);
+    zlog_debug ("    Link-Type: %s (%u)", cp, top->link_type.value);
 
   return TLV_SIZE (tlvh);
 }
@@ -1178,7 +1178,7 @@ show_vty_link_subtlv_link_id (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Link-ID: %s%s", inet_ntoa (top->value), VTY_NEWLINE);
   else
-    zlog_info ("    Link-ID: %s", inet_ntoa (top->value));
+    zlog_debug ("    Link-ID: %s", inet_ntoa (top->value));
 
   return TLV_SIZE (tlvh);
 }
@@ -1195,14 +1195,14 @@ show_vty_link_subtlv_lclif_ipaddr (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Local Interface IP Address(es): %d%s", n, VTY_NEWLINE);
   else
-    zlog_info ("    Local Interface IP Address(es): %d", n);
+    zlog_debug ("    Local Interface IP Address(es): %d", n);
 
   for (i = 0; i < n; i++)
     {
       if (vty != NULL)
         vty_out (vty, "    #%d: %s%s", i, inet_ntoa (top->value[i]), VTY_NEWLINE);
       else
-        zlog_info ("      #%d: %s", i, inet_ntoa (top->value[i]));
+        zlog_debug ("      #%d: %s", i, inet_ntoa (top->value[i]));
     }
   return TLV_SIZE (tlvh);
 }
@@ -1218,14 +1218,14 @@ show_vty_link_subtlv_rmtif_ipaddr (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Remote Interface IP Address(es): %d%s", n, VTY_NEWLINE);
   else
-    zlog_info ("    Remote Interface IP Address(es): %d", n);
+    zlog_debug ("    Remote Interface IP Address(es): %d", n);
 
   for (i = 0; i < n; i++)
     {
       if (vty != NULL)
         vty_out (vty, "    #%d: %s%s", i, inet_ntoa (top->value[i]), VTY_NEWLINE);
       else
-        zlog_info ("      #%d: %s", i, inet_ntoa (top->value[i]));
+        zlog_debug ("      #%d: %s", i, inet_ntoa (top->value[i]));
     }
   return TLV_SIZE (tlvh);
 }
@@ -1239,7 +1239,7 @@ show_vty_link_subtlv_te_metric (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Traffic Engineering Metric: %u%s", (u_int32_t) ntohl (top->value), VTY_NEWLINE);
   else
-    zlog_info ("    Traffic Engineering Metric: %u", (u_int32_t) ntohl (top->value));
+    zlog_debug ("    Traffic Engineering Metric: %u", (u_int32_t) ntohl (top->value));
 
   return TLV_SIZE (tlvh);
 }
@@ -1256,7 +1256,7 @@ show_vty_link_subtlv_max_bw (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Maximum Bandwidth: %g (Bytes/sec)%s", fval, VTY_NEWLINE);
   else
-    zlog_info ("    Maximum Bandwidth: %g (Bytes/sec)", fval);
+    zlog_debug ("    Maximum Bandwidth: %g (Bytes/sec)", fval);
 
   return TLV_SIZE (tlvh);
 }
@@ -1273,7 +1273,7 @@ show_vty_link_subtlv_max_rsv_bw (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Maximum Reservable Bandwidth: %g (Bytes/sec)%s", fval, VTY_NEWLINE);
   else
-    zlog_info ("    Maximum Reservable Bandwidth: %g (Bytes/sec)", fval);
+    zlog_debug ("    Maximum Reservable Bandwidth: %g (Bytes/sec)", fval);
 
   return TLV_SIZE (tlvh);
 }
@@ -1292,7 +1292,7 @@ show_vty_link_subtlv_unrsv_bw (struct vty *vty, struct te_tlv_header *tlvh)
       if (vty != NULL)
         vty_out (vty, "  Unreserved Bandwidth (pri %d): %g (Bytes/sec)%s", i, fval, VTY_NEWLINE);
       else
-        zlog_info ("    Unreserved Bandwidth (pri %d): %g (Bytes/sec)", i, fval);
+        zlog_debug ("    Unreserved Bandwidth (pri %d): %g (Bytes/sec)", i, fval);
     }
 
   return TLV_SIZE (tlvh);
@@ -1307,7 +1307,7 @@ show_vty_link_subtlv_rsc_clsclr (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Resource class/color: 0x%x%s", (u_int32_t) ntohl (top->value), VTY_NEWLINE);
   else
-    zlog_info ("    Resource Class/Color: 0x%x", (u_int32_t) ntohl (top->value));
+    zlog_debug ("    Resource Class/Color: 0x%x", (u_int32_t) ntohl (top->value));
 
   return TLV_SIZE (tlvh);
 }
@@ -1318,7 +1318,7 @@ show_vty_unknown_tlv (struct vty *vty, struct te_tlv_header *tlvh)
   if (vty != NULL)
     vty_out (vty, "  Unknown TLV: [type(0x%x), length(0x%x)]%s", ntohs (tlvh->type), ntohs (tlvh->length), VTY_NEWLINE);
   else
-    zlog_info ("    Unknown TLV: [type(0x%x), length(0x%x)]", ntohs (tlvh->type), ntohs (tlvh->length));
+    zlog_debug ("    Unknown TLV: [type(0x%x), length(0x%x)]", ntohs (tlvh->type), ntohs (tlvh->length));
 
   return TLV_SIZE (tlvh);
 }
@@ -1478,7 +1478,7 @@ DEFUN (mpls_te,
     return CMD_SUCCESS;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("MPLS-TE: OFF -> ON");
+    zlog_debug ("MPLS-TE: OFF -> ON");
 
   OspfMplsTE.status = enabled;
 
@@ -1517,7 +1517,7 @@ DEFUN (no_mpls_te,
     return CMD_SUCCESS;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("MPLS-TE: ON -> OFF");
+    zlog_debug ("MPLS-TE: ON -> OFF");
 
   OspfMplsTE.status = disabled;
 

@@ -121,7 +121,7 @@ ospf_vertex_dump(const char *msg, struct vertex *v,
   if ( ! IS_DEBUG_OSPF_EVENT)
     return;
 
-  zlog_info("%s %s vertex %s  distance %u backlink %d flags %u",
+  zlog_debug("%s %s vertex %s  distance %u backlink %d flags %u",
             msg,
 	    v->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
 	    inet_ntoa(v->lsa->id),
@@ -141,7 +141,7 @@ ospf_vertex_dump(const char *msg, struct vertex *v,
 	  nexthop = getdata (nnode);
 	  if (nexthop)
 	    {
-	      zlog_info (" nexthop %s  interface %s  parent %s",
+	      zlog_debug (" nexthop %s  interface %s  parent %s",
 			 inet_ntop(AF_INET, &nexthop->router, buf1, BUFSIZ),
 			 nexthop->oi ? IF_NAME(nexthop->oi) : "NULL",
 			 nexthop->parent ? inet_ntop(AF_INET, 
@@ -467,7 +467,7 @@ ospf_nexthop_calculation (struct ospf_area *area,
 
   if (IS_DEBUG_OSPF_EVENT)
     {
-      zlog_info ("ospf_nexthop_calculation(): Start");
+      zlog_debug ("ospf_nexthop_calculation(): Start");
       ospf_vertex_dump("V (parent):", v, 1, 1);
       ospf_vertex_dump("W (dest)  :", w, 1, 1);
     }
@@ -493,7 +493,7 @@ ospf_nexthop_calculation (struct ospf_area *area,
 	      if (IS_DEBUG_OSPF_EVENT)
 	        {
 		  char buf1[BUFSIZ];
-		  zlog_info("ospf_nexthop_calculation(): considering link "
+		  zlog_debug("ospf_nexthop_calculation(): considering link "
 			    "type %d link_id %s link_data %s",
 			    l->m[0].type,
 			    inet_ntop (AF_INET, &l->link_id, buf1, BUFSIZ),
@@ -676,7 +676,7 @@ ospf_install_candidate (struct list *candidate, struct vertex *w)
 
   if (IS_DEBUG_OSPF_EVENT)
     {
-      zlog_info("ospf_install_candidate(): candidate list now contains:");
+      zlog_debug("ospf_install_candidate(): candidate list now contains:");
       for (node = listhead (candidate); node; nextnode (node))
         {
 	  cw = (struct vertex *) getdata (node);
@@ -744,7 +744,7 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
               if (type == LSA_LINK_TYPE_VIRTUALLINK)
                 {
                   if (IS_DEBUG_OSPF_EVENT)
-                    zlog_info ("looking up LSA through VL: %s",
+                    zlog_debug ("looking up LSA through VL: %s",
                                inet_ntoa (l->link_id));
                 }
 
@@ -753,19 +753,18 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
               if (w_lsa)
                 {
                   if (IS_DEBUG_OSPF_EVENT)
-                    zlog_info ("found Router LSA %s", inet_ntoa (l->link_id));
+                    zlog_debug ("found Router LSA %s", inet_ntoa (l->link_id));
                 }
               break;
             case LSA_LINK_TYPE_TRANSIT:
               if (IS_DEBUG_OSPF_EVENT)
-
-                zlog_info ("Looking up Network LSA, ID: %s",
+                zlog_debug ("Looking up Network LSA, ID: %s",
                            inet_ntoa (l->link_id));
               w_lsa = ospf_lsa_lookup_by_id (area, OSPF_NETWORK_LSA,
                                              l->link_id);
               if (w_lsa)
                 if (IS_DEBUG_OSPF_EVENT)
-                  zlog_info ("found the LSA");
+                  zlog_debug ("found the LSA");
               break;
             default:
               zlog_warn ("Invalid LSA link type %d", type);
@@ -794,7 +793,7 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
       if ( (link = ospf_lsa_has_link (w_lsa->data, v->lsa)) < 0 )
         {
           if (IS_DEBUG_OSPF_EVENT)
-            zlog_info ("The LSA doesn't have a link back");
+            zlog_debug ("The LSA doesn't have a link back");
           continue;
         }
 
@@ -803,7 +802,7 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
       if (ospf_spf_has_vertex (rv, nv, w_lsa->data))
         {
           if (IS_DEBUG_OSPF_EVENT)
-            zlog_info ("The LSA is already in SPF");
+            zlog_debug ("The LSA is already in SPF");
           continue;
         }
 
@@ -929,13 +928,13 @@ ospf_spf_dump (struct vertex *v, int i)
   if (v->type == OSPF_VERTEX_ROUTER)
     {
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("SPF Result: %d [R] %s", i, inet_ntoa (v->lsa->id));
+        zlog_debug ("SPF Result: %d [R] %s", i, inet_ntoa (v->lsa->id));
     }
   else
     {
       struct network_lsa *lsa = (struct network_lsa *) v->lsa;
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("SPF Result: %d [N] %s/%d", i, inet_ntoa (v->lsa->id),
+        zlog_debug ("SPF Result: %d [N] %s/%d", i, inet_ntoa (v->lsa->id),
                    ip_masklen (lsa->mask));
     }
 
@@ -943,7 +942,7 @@ ospf_spf_dump (struct vertex *v, int i)
     {
       nexthop = getdata (nnode);
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info (" nexthop %s", inet_ntoa (nexthop->router));
+        zlog_debug (" nexthop %s", inet_ntoa (nexthop->router));
     }
 
   i++;
@@ -964,7 +963,7 @@ ospf_spf_process_stubs (struct ospf_area *area, struct vertex *v,
   struct vertex *child;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_process_stub():processing stubs for area %s",
+    zlog_debug ("ospf_process_stub():processing stubs for area %s",
                inet_ntoa (area->area_id));
   if (v->type == OSPF_VERTEX_ROUTER)
     {
@@ -974,13 +973,13 @@ ospf_spf_process_stubs (struct ospf_area *area, struct vertex *v,
       struct router_lsa *rlsa;
 
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("ospf_process_stubs():processing router LSA, id: %s",
+        zlog_debug ("ospf_process_stubs():processing router LSA, id: %s",
                    inet_ntoa (v->lsa->id));
       rlsa = (struct router_lsa *) v->lsa;
 
 
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("ospf_process_stubs(): we have %d links to process",
+        zlog_debug ("ospf_process_stubs(): we have %d links to process",
                    ntohs (rlsa->links));
       p = ((u_char *) v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
       lim = ((u_char *) v->lsa) + ntohs (v->lsa->length);
@@ -1020,7 +1019,7 @@ ospf_rtrs_free (struct route_table *rtrs)
   struct listnode *node;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("Route: Router Routing Table free");
+    zlog_debug ("Route: Router Routing Table free");
 
   for (rn = route_top (rtrs); rn; rn = route_next (rn))
     if ((or_list = rn->info) != NULL)
@@ -1050,7 +1049,7 @@ ospf_rtrs_print (struct route_table *rtrs)
   char buf2[BUFSIZ];
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_rtrs_print() start");
+    zlog_debug ("ospf_rtrs_print() start");
 
   for (rn = route_top (rtrs); rn; rn = route_next (rn))
     if ((or_list = rn->info) != NULL)
@@ -1062,14 +1061,14 @@ ospf_rtrs_print (struct route_table *rtrs)
             {
             case OSPF_PATH_INTRA_AREA:
               if (IS_DEBUG_OSPF_EVENT)
-                zlog_info ("%s   [%d] area: %s",
+                zlog_debug ("%s   [%d] area: %s",
                            inet_ntop (AF_INET, &or->id, buf1, BUFSIZ),
                            or->cost, inet_ntop (AF_INET, &or->u.std.area_id,
                                                 buf2, BUFSIZ));
               break;
             case OSPF_PATH_INTER_AREA:
               if (IS_DEBUG_OSPF_EVENT)
-                zlog_info ("%s IA [%d] area: %s",
+                zlog_debug ("%s IA [%d] area: %s",
                            inet_ntop (AF_INET, &or->id, buf1, BUFSIZ),
                            or->cost, inet_ntop (AF_INET, &or->u.std.area_id,
                                                 buf2, BUFSIZ));
@@ -1084,19 +1083,19 @@ ospf_rtrs_print (struct route_table *rtrs)
               if (path->nexthop.s_addr == 0)
                 {
                   if (IS_DEBUG_OSPF_EVENT)
-                    zlog_info ("   directly attached to %s\r\n",
+                    zlog_debug ("   directly attached to %s\r\n",
                                IF_NAME (path->oi));
                 }
               else
                 {
                   if (IS_DEBUG_OSPF_EVENT)
-                    zlog_info ("   via %s, %s\r\n",
+                    zlog_debug ("   via %s, %s\r\n",
                                inet_ntoa (path->nexthop), IF_NAME (path->oi));
                 }
             }
         }
 
-  zlog_info ("ospf_rtrs_print() end");
+  zlog_debug ("ospf_rtrs_print() end");
 }
 
 /* Calculating the shortest-path tree for an area. */
@@ -1112,8 +1111,8 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
 
   if (IS_DEBUG_OSPF_EVENT)
     {
-      zlog_info ("ospf_spf_calculate: Start");
-      zlog_info ("ospf_spf_calculate: running Dijkstra for area %s",
+      zlog_debug ("ospf_spf_calculate: Start");
+      zlog_debug ("ospf_spf_calculate: running Dijkstra for area %s",
                  inet_ntoa (area->area_id));
     }
 
@@ -1122,7 +1121,7 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
   if (!area->router_lsa_self)
     {
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("ospf_spf_calculate: "
+        zlog_debug ("ospf_spf_calculate: "
                    "Skip area %s's calculation due to empty router_lsa_self",
                    inet_ntoa (area->area_id));
       return;
@@ -1211,7 +1210,7 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
   area->ospf->ts_spf = time (NULL);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_spf_calculate: Stop");
+    zlog_debug ("ospf_spf_calculate: Stop");
 }
 
 /* Timer for SPF calculation. */
@@ -1223,7 +1222,7 @@ ospf_spf_calculate_timer (struct thread *thread)
   struct listnode *node;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("SPF: Timer (SPF calculation expire)");
+    zlog_debug ("SPF: Timer (SPF calculation expire)");
 
   ospf->t_spf_calc = NULL;
 
@@ -1271,7 +1270,7 @@ ospf_spf_calculate_timer (struct thread *thread)
     ospf_abr_task (ospf);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("SPF: calculation complete");
+    zlog_debug ("SPF: calculation complete");
 
   return 0;
 }
@@ -1284,7 +1283,7 @@ ospf_spf_calculate_schedule (struct ospf *ospf)
   time_t ht, delay;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("SPF: calculation timer scheduled");
+    zlog_debug ("SPF: calculation timer scheduled");
 
   /* OSPF instance does not exist. */
   if (ospf == NULL)
@@ -1294,7 +1293,7 @@ ospf_spf_calculate_schedule (struct ospf *ospf)
   if (ospf->t_spf_calc)
     {
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("SPF: calculation timer is already scheduled: %p",
+        zlog_debug ("SPF: calculation timer is already scheduled: %p",
                    ospf->t_spf_calc);
       return;
     }
@@ -1313,7 +1312,7 @@ ospf_spf_calculate_schedule (struct ospf *ospf)
     delay = ospf->spf_delay;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("SPF: calculation timer delay = %ld", (long)delay);
+    zlog_debug ("SPF: calculation timer delay = %ld", (long)delay);
   ospf->t_spf_calc =
     thread_add_timer (master, ospf_spf_calculate_timer, ospf, delay);
 }
