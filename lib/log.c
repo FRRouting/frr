@@ -232,7 +232,8 @@ zlog_signal(int signo, const char *action)
     void *array[20];
     int size;
 
-    size = backtrace(array,sizeof(array)/sizeof(array[0]));
+    if ((size = backtrace(array,sizeof(array)/sizeof(array[0]))) <= 0)
+      return;
     s = buf;
     s = str_append(LOC,"Backtrace for ");
     s = num_append(LOC,size);
