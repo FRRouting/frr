@@ -1,3 +1,8 @@
+2004-08-26  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* sockopt.h: Define method-independent macro for callers of
+	get_ifindex to use for cmsg length.
+
 2004-08-19 Paul Jakma <paul@dishone.st>
 
 	* zebra.h: add MAX and MIN defines (eg for ospf6d)
