@@ -158,16 +158,18 @@ char *bgp_origin_str[] = {"i","e","?"};
 char *bgp_origin_long_str[] = {"IGP","EGP","incomplete"};
 
 /* Dump attribute. */
-void
+int
 bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
 {
-
   if (! attr)
-    return;
+    return 0;
 
-  snprintf (buf, size, "nexthop %s", inet_ntoa (attr->nexthop));
-  snprintf (buf + strlen (buf), size - strlen (buf), ", origin %s",
-	    bgp_origin_str[attr->origin]);
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP)))
+    snprintf (buf, size, "nexthop %s", inet_ntoa (attr->nexthop));
+
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_ORIGIN)))
+    snprintf (buf + strlen (buf), size - strlen (buf), ", origin %s",
+	      bgp_origin_str[attr->origin]);
 
 #ifdef HAVE_IPV6
   {
@@ -186,42 +188,47 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
   }
 #endif /* HAVE_IPV6 */
 
-  if (peer_sort (peer) == BGP_PEER_IBGP)
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", localpref %d",
 	      attr->local_pref);
 
-  if (attr->med)
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))) 
     snprintf (buf + strlen (buf), size - strlen (buf), ", metric %d",
 	      attr->med);
 
-  if (attr->community) 
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES))) 
     snprintf (buf + strlen (buf), size - strlen (buf), ", community %s",
 	      community_str (attr->community));
 
-  if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_ATOMIC_AGGREGATE)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", atomic-aggregate");
 
-  if (attr->aggregator_as)
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", aggregated by %d %s",
 	      attr->aggregator_as, inet_ntoa (attr->aggregator_addr));
 
-  if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID))
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", originator %s",
 	      inet_ntoa (attr->originator_id));
 
-  if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_CLUSTER_LIST))
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_CLUSTER_LIST)))
     {
       int i;
 
-      snprintf (buf + strlen (buf), size - strlen (buf), ", clusterlist ");
+      snprintf (buf + strlen (buf), size - strlen (buf), ", clusterlist");
       for (i = 0; i < attr->cluster->length / 4; i++)
-	snprintf (buf + strlen (buf), size - strlen (buf), "%s",
+	snprintf (buf + strlen (buf), size - strlen (buf), " %s",
 		  inet_ntoa (attr->cluster->list[i]));
     }
 
-  if (attr->aspath) 
+  if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AS_PATH))) 
     snprintf (buf + strlen (buf), size - strlen (buf), ", path %s",
 	      aspath_print (attr->aspath));
+
+  if (strlen (buf) > 1)
+    return 1;
+  else
+    return 0;
 }
 
 /* dump notify packet */

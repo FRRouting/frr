@@ -1,3 +1,12 @@
+2004-07-09 Paul Jakma <paul@dishone.st>
+
+	* Merge of GNU Zebra cvs2svn changesets r799, r800 and r807.
+	* bgp_dump.c: (bgp_dump_attr) cleanup. return status code. check
+	  attributes present before printing.
+	* bgp_dump.c: update bgp_dump_attr prototype.
+	* bgp_packet.c: (bgp_update_receive) init attrstr. check status
+	  of bgp_dump_attr. Log end-of-rib UPDATEs.
+
 2004-07-09 Sowmini Varadhan <sowmini.varadhan@sun.com>
 
 	* bgp_packet.c: (bgp_collision_detect) Send NOTIFY on new socket

@@ -106,7 +106,7 @@ extern unsigned long term_bgp_debug_normal;
 
 extern char *bgp_type_str[];
 
-void bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
+int bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
 void bgp_notify_print (struct peer *, struct bgp_notify *, char *);
 
 extern struct message bgp_status_msg[];

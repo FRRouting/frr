@@ -1375,7 +1375,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   struct bgp_nlri withdraw;
   struct bgp_nlri mp_update;
   struct bgp_nlri mp_withdraw;
-  char attrstr[BUFSIZ];
+  char attrstr[BUFSIZ] = "";
 
   /* Status must be Established. */
   if (peer->status != Established) 
@@ -1478,9 +1478,11 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   /* Logging the attribute. */
   if (BGP_DEBUG (update, UPDATE_IN))
     {
-      bgp_dump_attr (peer, &attr, attrstr, BUFSIZ);
-      zlog (peer->log, LOG_INFO, "%s rcvd UPDATE w/ attr: %s",
-	    peer->host, attrstr);
+      ret= bgp_dump_attr (peer, &attr, attrstr, BUFSIZ);
+
+      if (ret)
+	zlog (peer->log, LOG_INFO, "%s rcvd UPDATE w/ attr: %s",
+	      peer->host, attrstr);
     }
 
   /* Network Layer Reachability Information. */
@@ -1518,6 +1520,15 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 
 	  bgp_nlri_parse (peer, &attr, &update);
 	}
+
+      if (! attribute_len && ! withdraw_len)
+	{
+	  /* End-of-RIB received */
+
+	  if (BGP_DEBUG (update, UPDATE_IN))
+	    zlog (peer->log, LOG_INFO, "rcvd End-of-RIB for IPv4 Unicast from %s",
+		  peer->host);
+	}
     }
   if (peer->afc[AFI_IP][SAFI_MULTICAST])
     {
@@ -1530,6 +1541,18 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  && mp_withdraw.afi == AFI_IP 
 	  && mp_withdraw.safi == SAFI_MULTICAST)
 	bgp_nlri_parse (peer, NULL, &mp_withdraw);
+
+      if (attribute_len == 6 && ! withdraw_len
+	  && mp_withdraw.afi == AFI_IP
+	  && mp_withdraw.safi == SAFI_MULTICAST
+	  && mp_withdraw.length == 0)
+	{
+	  /* End-of-RIB received */
+
+	  if (BGP_DEBUG (update, UPDATE_IN))
+	    zlog (peer->log, LOG_INFO, "rcvd End-of-RIB for IPv4 Multicast from %s",
+		  peer->host);
+	}
     }
   if (peer->afc[AFI_IP6][SAFI_UNICAST])
     {
@@ -1542,6 +1565,18 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  && mp_withdraw.afi == AFI_IP6 
 	  && mp_withdraw.safi == SAFI_UNICAST)
 	bgp_nlri_parse (peer, NULL, &mp_withdraw);
+
+      if (attribute_len == 6 && ! withdraw_len
+	  && mp_withdraw.afi == AFI_IP6
+	  && mp_withdraw.safi == SAFI_UNICAST
+	  && mp_withdraw.length == 0)
+	{
+	  /* End-of-RIB received */
+
+	  if (BGP_DEBUG (update, UPDATE_IN))
+	    zlog (peer->log, LOG_INFO, "rcvd End-of-RIB for IPv6 Unicast from %s",
+		  peer->host);
+	}
     }
   if (peer->afc[AFI_IP6][SAFI_MULTICAST])
     {
@@ -1554,6 +1589,18 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  && mp_withdraw.afi == AFI_IP6 
 	  && mp_withdraw.safi == SAFI_MULTICAST)
 	bgp_nlri_parse (peer, NULL, &mp_withdraw);
+
+      if (attribute_len == 6 && ! withdraw_len
+	  && mp_withdraw.afi == AFI_IP6
+	  && mp_withdraw.safi == SAFI_MULTICAST
+	  && mp_withdraw.length == 0)
+	{
+	  /* End-of-RIB received */
+
+	  if (BGP_DEBUG (update, UPDATE_IN))
+	    zlog (peer->log, LOG_INFO, "rcvd End-of-RIB for IPv6 Multicast from %s",
+		  peer->host);
+	}
     }
   if (peer->afc[AFI_IP][SAFI_MPLS_VPN])
     {
@@ -1566,6 +1613,18 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  && mp_withdraw.afi == AFI_IP 
 	  && mp_withdraw.safi == BGP_SAFI_VPNV4)
 	bgp_nlri_parse_vpnv4 (peer, NULL, &mp_withdraw);
+
+      if (attribute_len == 6 && ! withdraw_len
+	  && mp_withdraw.afi == AFI_IP
+	  && mp_withdraw.safi == BGP_SAFI_VPNV4
+	  && mp_withdraw.length == 0)
+	{
+	  /* End-of-RIB received */
+
+	  if (BGP_DEBUG (update, UPDATE_IN))
+	    zlog (peer->log, LOG_INFO, "rcvd End-of-RIB for VPNv4 Unicast from %s",
+		  peer->host);
+	}
     }
 
   /* Everything is done.  We unintern temporary structures which
