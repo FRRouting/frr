@@ -122,7 +122,7 @@ nexthop_print (struct isis_nexthop *nh)
 {
   u_char buf[BUFSIZ];
 
-  inet_ntop (AF_INET, &nh->ip, buf, BUFSIZ);
+  inet_ntop (AF_INET, &nh->ip, (char *) buf, BUFSIZ);
 
   zlog_info ("      %s %u", buf, nh->ifindex);
 }
@@ -218,7 +218,7 @@ nexthop6_print (struct isis_nexthop6 *nh6)
 {
   u_char buf[BUFSIZ];
 
-  inet_ntop (AF_INET6, &nh6->ip6, buf, BUFSIZ);
+  inet_ntop (AF_INET6, &nh6->ip6, (char *) buf, BUFSIZ);
 
   zlog_info ("      %s %u", buf, nh6->ifindex);
 }
@@ -331,14 +331,14 @@ isis_route_info_delete (struct isis_route_info *route_info)
 {
   if (route_info->nexthops)
     {
-      route_info->nexthops->del = (void *) isis_nexthop_delete;
+      route_info->nexthops->del = (void (*)(void *)) isis_nexthop_delete;
       list_delete (route_info->nexthops);
     }
 
 #ifdef HAVE_IPV6
   if (route_info->nexthops6)
     {
-      route_info->nexthops6->del = (void *) isis_nexthop6_delete;
+      route_info->nexthops6->del = (void (*)(void *)) isis_nexthop6_delete;
       list_delete (route_info->nexthops6);
     }
 #endif /* HAVE_IPV6 */
@@ -484,7 +484,7 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
 
   family = prefix->family;
   /* for debugs */
-  prefix2str (prefix, buff, BUFSIZ);
+  prefix2str (prefix, (char *) buff, BUFSIZ);
 
   rinfo_new = isis_route_info_new (cost, depth, family, adjacencies);
   if (!rinfo_new)
@@ -623,7 +623,7 @@ again:
 
       if (isis->debugs & DEBUG_RTE_EVENTS)
 	{
-	  prefix2str (&rode->p, buff, BUFSIZ);
+	  prefix2str (&rode->p, (char *) buff, BUFSIZ);
 	  zlog_info ("ISIS-Rte (%s): route validate: %s %s %s",
 		     area->area_tag,
 		     (CHECK_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC) ?

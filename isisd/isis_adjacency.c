@@ -263,7 +263,7 @@ isis_adj_print (struct isis_adjacency *adj)
       for (node = listhead (adj->ipv6_addrs); node; nextnode (node))
 	{
 	  ipv6_addr = getdata (node);
-	  inet_ntop (AF_INET6, ipv6_addr, ip6, INET6_ADDRSTRLEN);
+	  inet_ntop (AF_INET6, ipv6_addr, (char *)ip6, INET6_ADDRSTRLEN);
 	  zlog_info ("%s", ip6);
 	}
     }
@@ -413,7 +413,7 @@ isis_adj_print_vty2 (struct isis_adjacency *adj, struct vty *vty, char detail)
 	  for (node = listhead (adj->ipv6_addrs); node; nextnode (node))
 	    {
 	      ipv6_addr = getdata (node);
-	      inet_ntop (AF_INET6, ipv6_addr, ip6, INET6_ADDRSTRLEN);
+	      inet_ntop (AF_INET6, ipv6_addr, (char *)ip6, INET6_ADDRSTRLEN);
 	      vty_out (vty, "      %s%s", ip6, VTY_NEWLINE);
 	    }
 	}

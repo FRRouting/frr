@@ -192,13 +192,13 @@ vid2string (struct isis_vertex *vertex, u_char * buff)
     case VTYPE_IP6REACH_INTERNAL:
     case VTYPE_IP6REACH_EXTERNAL:
 #endif /* HAVE_IPV6 */
-      prefix2str ((struct prefix *) &vertex->N.prefix, buff, BUFSIZ);
+      prefix2str ((struct prefix *) &vertex->N.prefix, (char *) buff, BUFSIZ);
       break;
     default:
       return "UNKNOWN";
     }
 
-  return buff;
+  return (char *) buff;
 }
 
 struct isis_spftree *
@@ -232,10 +232,10 @@ isis_vertex_del (struct isis_vertex *vertex)
 void
 isis_spftree_del (struct isis_spftree *spftree)
 {
-  spftree->tents->del = (void *) isis_vertex_del;
+  spftree->tents->del = (void (*)(void *)) isis_vertex_del;
   list_delete (spftree->tents);
 
-  spftree->paths->del = (void *) isis_vertex_del;
+  spftree->paths->del = (void (*)(void *)) isis_vertex_del;
   list_delete (spftree->paths);
 
   XFREE (MTYPE_ISIS_SPFTREE, spftree);
@@ -935,7 +935,7 @@ add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
 void
 init_spt (struct isis_spftree *spftree)
 {
-  spftree->tents->del = spftree->paths->del = (void *) isis_vertex_del;
+  spftree->tents->del = spftree->paths->del = (void (*)(void *)) isis_vertex_del;
   list_delete_all_node (spftree->tents);
   list_delete_all_node (spftree->paths);
   spftree->tents->del = spftree->paths->del = NULL;

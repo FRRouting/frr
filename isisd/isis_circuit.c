@@ -241,7 +241,7 @@ isis_circuit_add_addr (struct isis_circuit *circuit,
       ipv4->prefixlen = connected->address->prefixlen;
       ipv4->prefix = connected->address->u.prefix4;
       listnode_add (circuit->ip_addrs, ipv4);
-      isis_event_int_reach_change (circuit);
+      lsp_regenerate_schedule (circuit->area);
 
 #ifdef EXTREME_DEBUG
       prefix2str (connected->address, buf, BUFSIZ);
@@ -261,7 +261,7 @@ isis_circuit_add_addr (struct isis_circuit *circuit,
       else
 	listnode_add (circuit->ipv6_non_link, ipv6);
 
-      isis_event_int_reach_change(circuit);
+      lsp_regenerate_schedule (circuit->area);
 
 #ifdef EXTREME_DEBUG
       prefix2str (connected->address, buf, BUFSIZ);
@@ -302,11 +302,11 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
       if (ip)
 	{
 	  listnode_delete (circuit->ip_addrs, ip);
-	  isis_event_int_reach_change (circuit);
+	  lsp_regenerate_schedule (circuit->area);
 	}
       else
 	{
-	  prefix2str (connected->address, buf, BUFSIZ);
+	  prefix2str (connected->address, (char *)buf, BUFSIZ);
 	  zlog_warn("Nonexitant ip address %s removal attempt from circuit \
 		     %d", buf, circuit->circuit_id);
 	}
@@ -349,12 +349,12 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 
       if (!found)
 	{
-	  prefix2str (connected->address, buf, BUFSIZ);
+	  prefix2str (connected->address, (char *)buf, BUFSIZ);
 	  zlog_warn("Nonexitant ip address %s removal attempt from \
 		     circuit %d", buf, circuit->circuit_id);
 	}
       else
-	isis_event_int_reach_change (circuit);
+	lsp_regenerate_schedule (circuit->area);
     }
 #endif /* HAVE_IPV6 */
   return;
@@ -960,7 +960,7 @@ DEFUN (isis_circuit_type,
 
   assert (circuit);
 
-  circuit_t = string2circuit_t (argv[0]);
+  circuit_t = string2circuit_t ((u_char *)argv[0]);
 
   if (!circuit_t)
     {
@@ -1036,7 +1036,7 @@ DEFUN (isis_passwd,
     }
   circuit->passwd.len = len;
   circuit->passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
-  strncpy (circuit->passwd.passwd, argv[0], 255);
+  strncpy ((char *)circuit->passwd.passwd, argv[0], 255);
 
   return CMD_SUCCESS;
 }

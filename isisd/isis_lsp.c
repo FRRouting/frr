@@ -653,18 +653,18 @@ lspid_print (u_char * lsp_id, u_char * trg, char dynhost, char frag)
     dyn = NULL;
 
   if (dyn)
-    sprintf (id, "%.14s", dyn->name.name);
+    sprintf ((char *)id, "%.14s", dyn->name.name);
   else if (!memcmp (isis->sysid, lsp_id, ISIS_SYS_ID_LEN) & dynhost)
-    sprintf (id, "%.14s", unix_hostname ());
+    sprintf ((char *)id, "%.14s", unix_hostname ());
   else
     {
       memcpy (id, sysid_print (lsp_id), 15);
     }
   if (frag)
-    sprintf (trg, "%s.%02x-%02x", id, LSP_PSEUDO_ID (lsp_id),
+    sprintf ((char *)trg, "%s.%02x-%02x", id, LSP_PSEUDO_ID (lsp_id),
 	     LSP_FRAGMENT (lsp_id));
   else
-    sprintf (trg, "%s.%02x", id, LSP_PSEUDO_ID (lsp_id));
+    sprintf ((char *)trg, "%s.%02x", id, LSP_PSEUDO_ID (lsp_id));
 }
 
 /* Convert the lsp attribute bits to attribute string */
@@ -832,7 +832,7 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
       memset (&in6, 0, sizeof (in6));
       memcpy (in6.s6_addr, ipv6_reach->prefix,
 	      PSIZE (ipv6_reach->prefix_len));
-      inet_ntop (AF_INET6, &in6, buff, BUFSIZ);
+      inet_ntop (AF_INET6, &in6, (char *)buff, BUFSIZ);
       if ((ipv6_reach->control_info &&
 	   CTRL_INFO_DISTRIBUTION) == DISTRIBUTION_INTERNAL)
 	vty_out (vty, "  Metric: %d IPv6-Intern %s/%d%s",

@@ -390,7 +390,7 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 
   bytesread = recvfrom (circuit->fd, (void *) &llc,
 			LLC_LEN, MSG_PEEK,
-			(struct sockaddr *) &s_addr, &addr_len);
+			(struct sockaddr *) &s_addr, (socklen_t *) &addr_len);
 
   if (bytesread < 0)
     {
@@ -417,7 +417,7 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 
   /* on lan we have to read to the static buff first */
   bytesread = recvfrom (circuit->fd, sock_buff, circuit->interface->mtu, 0,
-			(struct sockaddr *) &s_addr, &addr_len);
+			(struct sockaddr *) &s_addr, (socklen_t *) &addr_len);
 
   /* then we lose the LLC */
   memcpy (STREAM_DATA (circuit->rcv_stream),
@@ -442,7 +442,7 @@ isis_recv_pdu_p2p (struct isis_circuit *circuit, u_char * ssnpa)
   /* we can read directly to the stream */
   bytesread = recvfrom (circuit->fd, STREAM_DATA (circuit->rcv_stream),
 			circuit->interface->mtu, 0,
-			(struct sockaddr *) &s_addr, &addr_len);
+			(struct sockaddr *) &s_addr, (socklen_t *) &addr_len);
 
   if (s_addr.sll_pkttype == PACKET_OUTGOING)
     {

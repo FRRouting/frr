@@ -112,7 +112,7 @@ dotformat2buff (u_char * buff, u_char * dotted)
   int nextdotpos = 2;
 
   number[2] = '\0';
-  dotlen = strlen (dotted);
+  dotlen = strlen ((char *)dotted);
   if (dotlen > 50)
     {
       /* this can't be an iso net, its too long */
@@ -151,7 +151,7 @@ dotformat2buff (u_char * buff, u_char * dotted)
 	  break;
 	}
 
-      *(buff + len) = (char) strtol (number, NULL, 16);
+      *(buff + len) = (char) strtol ((char *)number, NULL, 16);
       len++;
     }
 
@@ -170,7 +170,7 @@ sysid2buff (u_char * buff, u_char * dotted)
 
   number[2] = '\0';
   // surely not a sysid_string if not 14 length
-  if (strlen (dotted) != 14)
+  if (strlen ((char *)dotted) != 14)
     {
       return 0;
     }
@@ -199,7 +199,7 @@ sysid2buff (u_char * buff, u_char * dotted)
 	  break;
 	}
 
-      *(buff + len) = (char) strtol (number, NULL, 16);
+      *(buff + len) = (char) strtol ((char *)number, NULL, 16);
       len++;
     }
 
@@ -282,13 +282,13 @@ string2circuit_t (u_char * str)
   if (!str)
     return 0;
 
-  if (!strcmp (str, "level-1"))
+  if (!strcmp ((char *)str, "level-1"))
     return IS_LEVEL_1;
 
-  if (!strcmp (str, "level-2-only") || !strcmp (str, "level-2"))
+  if (!strcmp ((char *)str, "level-2-only") || !strcmp ((char *)str, "level-2"))
     return IS_LEVEL_2;
 
-  if (!strcmp (str, "level-1-2"))
+  if (!strcmp ((char *)str, "level-1-2"))
     return IS_LEVEL_1_AND_2;
 
   return 0;
@@ -339,7 +339,7 @@ char *
 snpa_print (u_char * from)
 {
   int i = 0;
-  u_char *pos = snpa;
+  u_char *pos = (u_char *)snpa;
 
   if (!from)
     return "unknown";
@@ -348,19 +348,19 @@ snpa_print (u_char * from)
     {
       if (i & 1)
 	{
-	  sprintf (pos, "%02x.", *(from + i));
+	  sprintf ((char *)pos, "%02x.", *(from + i));
 	  pos += 3;
 	}
       else
 	{
-	  sprintf (pos, "%02x", *(from + i));
+	  sprintf ((char *)pos, "%02x", *(from + i));
 	  pos += 2;
 
 	}
       i++;
     }
 
-  sprintf (pos, "%02x", *(from + (ISIS_SYS_ID_LEN - 1)));
+  sprintf ((char *)pos, "%02x", *(from + (ISIS_SYS_ID_LEN - 1)));
   pos += 2;
   *(pos) = '\0';
 

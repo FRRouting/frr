@@ -220,7 +220,7 @@ isis_area_destroy (struct vty *vty, char *area_tag)
 }
 
 int
-area_net_title (struct vty *vty, char *net_title)
+area_net_title (struct vty *vty, u_char *net_title)
 {
   struct isis_area *area;
   struct area_addr *addr;
@@ -314,7 +314,7 @@ area_net_title (struct vty *vty, char *net_title)
 }
 
 int
-area_clear_net_title (struct vty *vty, char *net_title)
+area_clear_net_title (struct vty *vty, u_char *net_title)
 {
   struct isis_area *area;
   struct area_addr addr, *addrp = NULL;
@@ -1006,7 +1006,7 @@ DEFUN (net,
        "A Network Entity Title for this process (OSI only)\n"
        "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
-  return area_net_title (vty, argv[0]);
+  return area_net_title (vty, (u_char *)argv[0]);
 }
 
 /*
@@ -1019,7 +1019,7 @@ DEFUN (no_net,
        "A Network Entity Title for this process (OSI only)\n"
        "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
-  return area_clear_net_title (vty, argv[0]);
+  return area_clear_net_title (vty, (u_char *)argv[0]);
 }
 
 DEFUN (area_passwd,
@@ -1047,7 +1047,7 @@ DEFUN (area_passwd,
     }
   area->area_passwd.len = (u_char) len;
   area->area_passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
-  strncpy (area->area_passwd.passwd, argv[0], 255);
+  strncpy ((char *)area->area_passwd.passwd, argv[0], 255);
 
   return CMD_SUCCESS;
 }
@@ -1098,7 +1098,7 @@ DEFUN (domain_passwd,
     }
   area->domain_passwd.len = (u_char) len;
   area->domain_passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
-  strncpy (area->domain_passwd.passwd, argv[0], 255);
+  strncpy ((char *)area->domain_passwd.passwd, argv[0], 255);
 
   return CMD_SUCCESS;
 }
@@ -1143,7 +1143,7 @@ DEFUN (is_type,
       return CMD_WARNING;
     }
 
-  type = string2circuit_t (argv[0]);
+  type = string2circuit_t ((u_char *)argv[0]);
   if (!type)
     {
       vty_out (vty, "Unknown IS level %s", VTY_NEWLINE);

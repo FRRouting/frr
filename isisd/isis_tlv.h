@@ -265,7 +265,7 @@ int tlv_add_is_neighs (struct list *is_neighs, struct stream *stream);
 int tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream);
 int tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream);
 int tlv_add_checksum (struct checksum *checksum, struct stream *stream);
-int tlv_add_authinfo (char auth_type, char authlen, char *auth_value,
+int tlv_add_authinfo (char auth_type, char authlen, u_char *auth_value,
 		      struct stream *stream);
 int tlv_add_ip_addrs (struct list *ip_addrs, struct stream *stream);
 int tlv_add_dynamic_hostname (struct hostname *hostname,

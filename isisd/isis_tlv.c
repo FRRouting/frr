@@ -881,7 +881,7 @@ tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream)
 }
 
 int
-tlv_add_authinfo (char auth_type, char auth_len, char *auth_value,
+tlv_add_authinfo (char auth_type, char auth_len, u_char *auth_value,
 		  struct stream *stream)
 {
   u_char value[255];

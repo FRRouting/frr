@@ -52,7 +52,7 @@
 extern struct isis *isis;
 
 void
-isis_route_map_upd ()
+isis_route_map_upd (char *name)
 {
   int i = 0;
 

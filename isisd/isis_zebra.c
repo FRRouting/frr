@@ -97,7 +97,7 @@ zebra_interface_if_lookup (struct stream *s)
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
   /* Lookup this by interface index. */
-  ifp = if_lookup_by_name (ifname_tmp);
+  ifp = if_lookup_by_name ((char *) ifname_tmp);
 
   /* If such interface does not exist, indicate an error */
   if (!ifp)
@@ -169,7 +169,7 @@ isis_zebra_if_address_add (int command, struct zclient *zclient,
 {
   struct connected *c;
   struct prefix *p;
-  u_char buf[BUFSIZ];
+  char buf[BUFSIZ];
 
   c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_ADD,
 				    zclient->ibuf);
