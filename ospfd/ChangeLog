@@ -1,3 +1,11 @@
+2004-04-20 Hasso Tepper <hasso@estpak.ee>
+
+	* ospfd.c: Unset NP flag if area is going to be normal or stub.
+	  Fixes UNH OSPF_NSSA.1.2a comment.
+	* ospf_abr.c: Originate default into stub/nssa area even if
+	  summaries are disabled.
+	* ospf_zebra.c: Don't attempt to redistribute 127.0.0.0/8.
+
 2004-04-19 Hasso Tepper <hasso@estpak.ee>
 
 	* ospf_vty.c: Don't warn that export- and import-list can't be

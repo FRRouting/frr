@@ -982,7 +982,12 @@ ospf_area_type_set (struct ospf_area *area, int type)
       for (node = listhead (area->oiflist); node; nextnode (node))
 	if ((oi = getdata (node)) != NULL)
 	  if (oi->nbr_self != NULL)
-	    SET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
+	    {
+#ifdef HAVE_NSSA
+	      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
+#endif /* HAVE_NSSA */
+	      SET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
+	    }
       break;
     case OSPF_AREA_STUB:
       for (node = listhead (area->oiflist); node; nextnode (node))
@@ -991,6 +996,9 @@ ospf_area_type_set (struct ospf_area *area, int type)
 	    {
 	      if (IS_DEBUG_OSPF_EVENT)
 		zlog_info ("setting options on %s accordingly", IF_NAME (oi));
+#ifdef HAVE_NSSA
+	      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
+#endif /* HAVE_NSSA */
 	      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
 	      if (IS_DEBUG_OSPF_EVENT)
 		zlog_info ("options set on %s: %x",

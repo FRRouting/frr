@@ -1628,9 +1628,6 @@ ospf_abr_announce_stub_defaults (struct ospf *ospf)
       if (OSPF_IS_AREA_BACKBONE (area))
         continue; /* Sanity Check */
 
-      if (area->no_summary)
-        continue;
-
       if (IS_DEBUG_OSPF_EVENT)
       zlog_info ("ospf_abr_announce_stub_defaults(): "
                  "announcing 0.0.0.0/0 to area %s",

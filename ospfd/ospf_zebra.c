@@ -794,6 +794,9 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
   p.prefixlen = stream_getc (s);
   stream_get (&p.prefix, s, PSIZE (p.prefixlen));
 
+  if (IPV4_NET127(ntohl(p.prefix.s_addr)))
+    return 0;
+
   /* Nexthop, ifindex, distance, metric. */
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP))
     {
