@@ -1,8 +1,6 @@
 /var/log/quagga/zebra.log {
     notifempty
     missingok
-    nocompress
-    weekly
     postrotate
 	/usr/sbin/killall -USR1 zebra
     endscript
@@ -11,8 +9,6 @@
 /var/log/quagga/bgpd.log {
     notifempty
     missingok
-    nocompress
-    weekly
     postrotate
 	/usr/sbin/killall -USR1 bgpd
     endscript
@@ -21,8 +17,6 @@
 /var/log/quagga/ospfd.log {
     notifempty
     missingok
-    nocompress
-    weekly
     postrotate
 	/usr/sbin/killall -USR1 ospfd
     endscript
@@ -31,8 +25,6 @@
 /var/log/quagga/ospf6d.log {
     notifempty
     missingok
-    nocompress
-    weekly
     postrotate
 	/usr/sbin/killall -USR1 ospf6d
     endscript
@@ -41,8 +33,6 @@
 /var/log/quagga/ripd.log {
     notifempty
     missingok
-    nocompress
-    weekly
     postrotate
 	/usr/sbin/killall -USR1 ripd
     endscript
@@ -51,8 +41,6 @@
 /var/log/quagga/ripngd.log {
     notifempty
     missingok
-    nocompress
-    weekly
     postrotate
 	/usr/sbin/killall -USR1 ripngd
     endscript

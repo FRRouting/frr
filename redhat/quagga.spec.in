@@ -1,5 +1,5 @@
 # configure options
-%define 	with_snmp	0
+%define 	with_snmp	1
 %define		with_vtysh	1
 %define		with_ospf_te	1
 %define		with_nssa	1
@@ -45,8 +45,8 @@ Group: System Environment/Daemons
 Source0:	http://www.quagga.net/snapshots/cvs/%{name}-%{version}.tar.gz
 URL:		http://www.quagga.net
 %if %with_snmp
-BuildRequires:	ucd-snmp-devel
-Prereq:		ucd-snmp
+BuildRequires:	net-snmp-devel
+Prereq:		net-snmp
 %endif
 %if %with_vtysh
 BuildRequires:	readline readline-devel ncurses ncurses-devel
