@@ -1,3 +1,7 @@
+2004-11-19 Hasso Tepper <hasso at quagga.net>
+
+	* Makefile.am: Don't remove quagga.info while cleaning up.
+
 2004-11-15 Paul Jakma <paul@dishone.st>
 
 	* routeserver.texi: Strip ctrl-M from line endings, note by

@@ -15,7 +15,7 @@ BUILT_SOURCES = defines.texi
 
 info_TEXINFOS = quagga.texi
 
-CLEANFILES = *.pdf quagga.info
+CLEANFILES = *.pdf
 
 # The figure sources
 figures_SOURCES = fig-normal-processing.eps \
