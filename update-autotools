@@ -16,7 +16,7 @@ for tool in autoheader autoconf libtool libtoolize aclocal automake; do
 done
 
 echo "UPDATING:"
-aclocal
+aclocal -I m4
 autoheader
 autoconf
 libtoolize
