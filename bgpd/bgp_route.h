@@ -149,9 +149,11 @@ void bgp_static_update (struct bgp *, struct prefix *, struct bgp_static *,
 			afi_t, safi_t);
 void bgp_static_withdraw (struct bgp *, struct prefix *, afi_t, safi_t);
                      
-int bgp_static_set_vpnv4 (struct vty *vty, char *, char *, char *);
+int bgp_static_set_vpnv4 (struct vty *vty, const char *, 
+                          const char *, const char *);
 
-int bgp_static_unset_vpnv4 (struct vty *, char *, char *, char *);
+int bgp_static_unset_vpnv4 (struct vty *, const char *, 
+                            const char *, const char *);
 
 int bgp_config_write_network (struct vty *, struct bgp *, afi_t, safi_t, int *);
 int bgp_config_write_distance (struct vty *, struct bgp *);

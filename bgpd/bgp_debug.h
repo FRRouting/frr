@@ -104,10 +104,10 @@ extern unsigned long term_bgp_debug_normal;
 #define BGP_DEBUG(a, b)		(term_bgp_debug_ ## a & BGP_DEBUG_ ## b)
 #define CONF_BGP_DEBUG(a, b)    (conf_bgp_debug_ ## a & BGP_DEBUG_ ## b)
 
-extern char *bgp_type_str[];
+const extern char *bgp_type_str[];
 
 int bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
-void bgp_notify_print (struct peer *, struct bgp_notify *, char *);
+void bgp_notify_print (struct peer *, struct bgp_notify *, const char *);
 
 extern struct message bgp_status_msg[];
 extern int bgp_status_msg_max;

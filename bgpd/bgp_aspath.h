@@ -25,8 +25,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define AS_CONFED_SET                4
 
 /* Private AS range defined in RFC2270.  */
-#define BGP_PRIVATE_AS_MIN       64512
-#define BGP_PRIVATE_AS_MAX       65535
+#define BGP_PRIVATE_AS_MIN       64512U
+#define BGP_PRIVATE_AS_MAX       65535U
+
+#define BGP_AS_MAX		 65535U
 
 /* AS path may be include some AsSegments.  */
 struct aspath 
@@ -63,7 +65,7 @@ int aspath_cmp_left_confed (struct aspath *, struct aspath *);
 struct aspath *aspath_delete_confed_seq (struct aspath *);
 struct aspath *aspath_empty ();
 struct aspath *aspath_empty_get ();
-struct aspath *aspath_str2aspath (char *);
+struct aspath *aspath_str2aspath (const char *);
 void aspath_free (struct aspath *);
 struct aspath *aspath_intern (struct aspath *);
 void aspath_unintern (struct aspath *);

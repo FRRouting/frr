@@ -245,7 +245,8 @@ ecommunity_hash_make (struct ecommunity *ecom)
 
 /* Compare two Extended Communities Attribute structure.  */
 int
-ecommunity_cmp (struct ecommunity *ecom1, struct ecommunity *ecom2)
+ecommunity_cmp (const struct ecommunity *ecom1, 
+                const struct ecommunity *ecom2)
 {
   if (ecom1->size == ecom2->size
       && memcmp (ecom1->val, ecom2->val, ecom1->size * ECOMMUNITY_SIZE) == 0)
@@ -270,8 +271,8 @@ enum ecommunity_token
 };
 
 /* Get next Extended Communities token from the string. */
-char *
-ecommunity_gettoken (char *str, struct ecommunity_val *eval,
+const char *
+ecommunity_gettoken (const char *str, struct ecommunity_val *eval,
 		     enum ecommunity_token *token)
 {
   int ret;
@@ -280,7 +281,7 @@ ecommunity_gettoken (char *str, struct ecommunity_val *eval,
   int separator = 0;
   u_int32_t val_low = 0;
   u_int32_t val_high = 0;
-  char *p = str;
+  const char *p = str;
   struct in_addr ip;
   char ipstr[INET_ADDRSTRLEN + 1];
 
@@ -448,7 +449,7 @@ ecommunity_gettoken (char *str, struct ecommunity_val *eval,
                                     keyword_include = 1
 */
 struct ecommunity *
-ecommunity_str2com (char *str, int type, int keyword_included)
+ecommunity_str2com (const char *str, int type, int keyword_included)
 {
   struct ecommunity *ecom = NULL;
   enum ecommunity_token token;
@@ -537,7 +538,7 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
   int str_size;
   int str_pnt;
   char *str_buf;
-  char *prefix;
+  const char *prefix;
   int len = 0;
   int first = 1;
 
@@ -650,7 +651,8 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
 }
 
 int
-ecommunity_match (struct ecommunity *ecom1, struct ecommunity *ecom2)
+ecommunity_match (const struct ecommunity *ecom1, 
+                  const struct ecommunity *ecom2)
 {
   int i = 0;
   int j = 0;

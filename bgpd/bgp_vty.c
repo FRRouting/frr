@@ -84,7 +84,7 @@ peer_address_self_check (union sockunion *su)
 
 /* Utility function for looking up peer from VTY.  */
 struct peer *
-peer_lookup_vty (struct vty *vty, char *ip_str)
+peer_lookup_vty (struct vty *vty, const char *ip_str)
 {
   int ret;
   struct bgp *bgp;
@@ -111,7 +111,7 @@ peer_lookup_vty (struct vty *vty, char *ip_str)
 
 /* Utility function for looking up peer or peer group.  */
 struct peer *
-peer_and_group_lookup_vty (struct vty *vty, char *peer_str)
+peer_and_group_lookup_vty (struct vty *vty, const char *peer_str)
 {
   int ret;
   struct bgp *bgp;
@@ -144,7 +144,7 @@ peer_and_group_lookup_vty (struct vty *vty, char *peer_str)
 int
 bgp_vty_return (struct vty *vty, int ret)
 {
-  char *str = NULL;
+  const char *str = NULL;
 
   switch (ret)
     {
@@ -297,7 +297,7 @@ DEFUN (router_bgp,
   int ret;
   as_t as;
   struct bgp *bgp;
-  char *name = NULL;
+  const char *name = NULL;
 
   VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, 65535);
 
@@ -350,7 +350,7 @@ DEFUN (no_router_bgp,
 {
   as_t as;
   struct bgp *bgp;
-  char *name = NULL;
+  const char *name = NULL;
 
   VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, 65535);
 
@@ -1143,8 +1143,8 @@ ALIAS (no_bgp_default_local_preference,
        "Configure default local preference value\n")
 
 static int
-peer_remote_as_vty (struct vty *vty, char *peer_str, char *as_str, afi_t afi,
-		    safi_t safi)
+peer_remote_as_vty (struct vty *vty, const char *peer_str, 
+                    const char *as_str, afi_t afi, safi_t safi)
 {
   int ret;
   struct bgp *bgp;
@@ -1508,7 +1508,8 @@ DEFUN (no_neighbor_set_peer_group,
 }
 
 int
-peer_flag_modify_vty (struct vty *vty, char *ip_str, u_int16_t flag, int set)
+peer_flag_modify_vty (struct vty *vty, const char *ip_str, 
+                      u_int16_t flag, int set)
 {
   int ret;
   struct peer *peer;
@@ -1526,13 +1527,13 @@ peer_flag_modify_vty (struct vty *vty, char *ip_str, u_int16_t flag, int set)
 }
 
 int
-peer_flag_set_vty (struct vty *vty, char *ip_str, u_int16_t flag)
+peer_flag_set_vty (struct vty *vty, const char *ip_str, u_int16_t flag)
 {
   return peer_flag_modify_vty (vty, ip_str, flag, 1);
 }
 
 int
-peer_flag_unset_vty (struct vty *vty, char *ip_str, u_int16_t flag)
+peer_flag_unset_vty (struct vty *vty, const char *ip_str, u_int16_t flag)
 {
   return peer_flag_modify_vty (vty, ip_str, flag, 0);
 }
@@ -1652,7 +1653,7 @@ DEFUN (no_neighbor_dont_capability_negotiate,
 }
 
 int
-peer_af_flag_modify_vty (struct vty *vty, char *peer_str, afi_t afi,
+peer_af_flag_modify_vty (struct vty *vty, const char *peer_str, afi_t afi,
 			 safi_t safi, u_int32_t flag, int set)
 {
   int ret;
@@ -1671,14 +1672,14 @@ peer_af_flag_modify_vty (struct vty *vty, char *peer_str, afi_t afi,
 }
 
 int
-peer_af_flag_set_vty (struct vty *vty, char *peer_str, afi_t afi,
+peer_af_flag_set_vty (struct vty *vty, const char *peer_str, afi_t afi,
 		      safi_t safi, u_int32_t flag)
 {
   return peer_af_flag_modify_vty (vty, peer_str, afi, safi, flag, 1);
 }
 
 int
-peer_af_flag_unset_vty (struct vty *vty, char *peer_str, afi_t afi,
+peer_af_flag_unset_vty (struct vty *vty, const char *peer_str, afi_t afi,
 			safi_t safi, u_int32_t flag)
 {
   return peer_af_flag_modify_vty (vty, peer_str, afi, safi, flag, 0);
@@ -1929,7 +1930,8 @@ DEFUN (no_neighbor_route_reflector_client,
 }
 
 int
-peer_rsclient_set_vty (struct vty *vty, char *peer_str, int afi, int safi)
+peer_rsclient_set_vty (struct vty *vty, const char *peer_str, 
+                       int afi, int safi)
 {
   int ret;
   struct bgp *bgp;
@@ -2010,7 +2012,8 @@ peer_rsclient_set_vty (struct vty *vty, char *peer_str, int afi, int safi)
 }
 
 int
-peer_rsclient_unset_vty (struct vty *vty, char *peer_str, int afi, int safi)
+peer_rsclient_unset_vty (struct vty *vty, const char *peer_str, 
+                         int afi, int safi)
 {
   int ret;
   struct bgp *bgp;
@@ -2466,10 +2469,11 @@ DEFUN (neighbor_transparent_nexthop,
 
 /* EBGP multihop configuration. */
 int
-peer_ebgp_multihop_set_vty (struct vty *vty, char *ip_str, char *ttl_str)
+peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str, 
+                            const char *ttl_str)
 {
   struct peer *peer;
-  int ttl;
+  unsigned int ttl;
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
@@ -2486,7 +2490,7 @@ peer_ebgp_multihop_set_vty (struct vty *vty, char *ip_str, char *ttl_str)
 }
 
 int
-peer_ebgp_multihop_unset_vty (struct vty *vty, char *ip_str) 
+peer_ebgp_multihop_unset_vty (struct vty *vty, const char *ip_str) 
 {
   struct peer *peer;
 
@@ -2632,7 +2636,8 @@ ALIAS (no_neighbor_description,
 
 /* Neighbor update-source. */
 int
-peer_update_source_vty (struct vty *vty, char *peer_str, char *source_str)
+peer_update_source_vty (struct vty *vty, const char *peer_str, 
+                        const char *source_str)
 {
   struct peer *peer;
   union sockunion *su;
@@ -2682,8 +2687,9 @@ DEFUN (no_neighbor_update_source,
 }
 
 int
-peer_default_originate_set_vty (struct vty *vty, char *peer_str, afi_t afi,
-				safi_t safi, char *rmap, int set)
+peer_default_originate_set_vty (struct vty *vty, const char *peer_str, 
+                                afi_t afi, safi_t safi, 
+                                const char *rmap, int set)
 {
   int ret;
   struct peer *peer;
@@ -2749,7 +2755,8 @@ ALIAS (no_neighbor_default_originate,
 
 /* Set neighbor's BGP port.  */
 int
-peer_port_vty (struct vty *vty, char *ip_str, int afi, char *port_str)
+peer_port_vty (struct vty *vty, const char *ip_str, int afi, 
+               const char *port_str)
 {
   struct peer *peer;
   u_int16_t port;
@@ -2808,7 +2815,8 @@ ALIAS (no_neighbor_port,
 
 /* neighbor weight. */
 int
-peer_weight_set_vty (struct vty *vty, char *ip_str, char *weight_str)
+peer_weight_set_vty (struct vty *vty, const char *ip_str, 
+                     const char *weight_str)
 {
   int ret;
   struct peer *peer;
@@ -2826,7 +2834,7 @@ peer_weight_set_vty (struct vty *vty, char *ip_str, char *weight_str)
 }
 
 int
-peer_weight_unset_vty (struct vty *vty, char *ip_str)
+peer_weight_unset_vty (struct vty *vty, const char *ip_str)
 {
   struct peer *peer;
 
@@ -2914,8 +2922,8 @@ DEFUN (no_neighbor_strict_capability,
 }
 
 int
-peer_timers_set_vty (struct vty *vty, char *ip_str, char *keep_str,
-		     char *hold_str)
+peer_timers_set_vty (struct vty *vty, const char *ip_str, 
+                     const char *keep_str, const char *hold_str)
 {
   int ret;
   struct peer *peer;
@@ -2935,7 +2943,7 @@ peer_timers_set_vty (struct vty *vty, char *ip_str, char *keep_str,
 }
 
 int
-peer_timers_unset_vty (struct vty *vty, char *ip_str)
+peer_timers_unset_vty (struct vty *vty, const char *ip_str)
 {
   int ret;
   struct peer *peer;
@@ -2973,7 +2981,8 @@ DEFUN (no_neighbor_timers,
 }
 
 int
-peer_timers_connect_set_vty (struct vty *vty, char *ip_str, char *time_str)
+peer_timers_connect_set_vty (struct vty *vty, const char *ip_str, 
+                             const char *time_str)
 {
   int ret;
   struct peer *peer;
@@ -2991,7 +3000,7 @@ peer_timers_connect_set_vty (struct vty *vty, char *ip_str, char *time_str)
 }
 
 int
-peer_timers_connect_unset_vty (struct vty *vty, char *ip_str)
+peer_timers_connect_unset_vty (struct vty *vty, const char *ip_str)
 {
   int ret;
   struct peer *peer;
@@ -3040,8 +3049,8 @@ ALIAS (no_neighbor_timers_connect,
        "Connect timer\n")
 
 int
-peer_advertise_interval_vty (struct vty *vty, char *ip_str, char *time_str,
-			     int set)  
+peer_advertise_interval_vty (struct vty *vty, const char *ip_str, 
+                             const char *time_str, int set)  
 {
   int ret;
   struct peer *peer;
@@ -3094,7 +3103,7 @@ ALIAS (no_neighbor_advertise_interval,
        "time in seconds\n")
 
 int
-peer_version_vty (struct vty *vty, char *ip_str, char *str)
+peer_version_vty (struct vty *vty, const char *ip_str, const char *str)
 {
   int ret;
   struct peer *peer;
@@ -3145,7 +3154,7 @@ DEFUN (no_neighbor_version,
 
 /* neighbor interface */
 int
-peer_interface_vty (struct vty *vty, char *ip_str, char *str)
+peer_interface_vty (struct vty *vty, const char *ip_str, const char *str)
 {
   int ret;
   struct peer *peer;
@@ -3187,8 +3196,9 @@ DEFUN (no_neighbor_interface,
 
 /* Set distribute list to the peer. */
 int
-peer_distribute_set_vty (struct vty *vty, char *ip_str, afi_t afi, safi_t safi,
-			 char *name_str, char *direct_str)
+peer_distribute_set_vty (struct vty *vty, const char *ip_str, 
+                         afi_t afi, safi_t safi,
+			 const char *name_str, const char *direct_str)
 {
   int ret;
   struct peer *peer;
@@ -3210,8 +3220,8 @@ peer_distribute_set_vty (struct vty *vty, char *ip_str, afi_t afi, safi_t safi,
 }
 
 int
-peer_distribute_unset_vty (struct vty *vty, char *ip_str, afi_t afi,
-			   safi_t safi, char *direct_str)
+peer_distribute_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
+			   safi_t safi, const char *direct_str)
 {
   int ret;
   struct peer *peer;
@@ -3267,8 +3277,9 @@ DEFUN (no_neighbor_distribute_list,
 
 /* Set prefix list to the peer. */
 int
-peer_prefix_list_set_vty (struct vty *vty, char *ip_str, afi_t afi,
-			  safi_t safi, char *name_str, char *direct_str)
+peer_prefix_list_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
+			  safi_t safi, const char *name_str, 
+                          const char *direct_str)
 {
   int ret;
   struct peer *peer;
@@ -3290,8 +3301,8 @@ peer_prefix_list_set_vty (struct vty *vty, char *ip_str, afi_t afi,
 }
 
 int
-peer_prefix_list_unset_vty (struct vty *vty, char *ip_str, afi_t afi,
-			    safi_t safi, char *direct_str)
+peer_prefix_list_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
+			    safi_t safi, const char *direct_str)
 {
   int ret;
   struct peer *peer;
@@ -3342,8 +3353,9 @@ DEFUN (no_neighbor_prefix_list,
 }
 
 int
-peer_aslist_set_vty (struct vty *vty, char *ip_str, afi_t afi, safi_t safi,
-		     char *name_str, char *direct_str)
+peer_aslist_set_vty (struct vty *vty, const char *ip_str, 
+                     afi_t afi, safi_t safi,
+		     const char *name_str, const char *direct_str)
 {
   int ret;
   struct peer *peer;
@@ -3365,8 +3377,9 @@ peer_aslist_set_vty (struct vty *vty, char *ip_str, afi_t afi, safi_t safi,
 }
 
 int
-peer_aslist_unset_vty (struct vty *vty, char *ip_str, afi_t afi, safi_t safi,
-		       char *direct_str)
+peer_aslist_unset_vty (struct vty *vty, const char *ip_str, 
+                       afi_t afi, safi_t safi,
+		       const char *direct_str)
 {
   int ret;
   struct peer *peer;
@@ -3418,8 +3431,9 @@ DEFUN (no_neighbor_filter_list,
 
 /* Set route-map to the peer. */
 int
-peer_route_map_set_vty (struct vty *vty, char *ip_str, afi_t afi, safi_t safi,
-			char *name_str, char *direct_str)
+peer_route_map_set_vty (struct vty *vty, const char *ip_str, 
+                        afi_t afi, safi_t safi,
+			const char *name_str, const char *direct_str)
 {
   int ret;
   struct peer *peer;
@@ -3445,8 +3459,8 @@ peer_route_map_set_vty (struct vty *vty, char *ip_str, afi_t afi, safi_t safi,
 }
 
 int
-peer_route_map_unset_vty (struct vty *vty, char *ip_str, afi_t afi,
-			  safi_t safi, char *direct_str)
+peer_route_map_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
+			  safi_t safi, const char *direct_str)
 {
   int ret;
   struct peer *peer;
@@ -3506,8 +3520,8 @@ DEFUN (no_neighbor_route_map,
 
 /* Set unsuppress-map to the peer. */
 int
-peer_unsuppress_map_set_vty (struct vty *vty, char *ip_str, afi_t afi,
-			     safi_t safi, char *name_str)
+peer_unsuppress_map_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
+			     safi_t safi, const char *name_str)
 {
   int ret;
   struct peer *peer;
@@ -3523,7 +3537,7 @@ peer_unsuppress_map_set_vty (struct vty *vty, char *ip_str, afi_t afi,
 
 /* Unset route-map from the peer. */
 int
-peer_unsuppress_map_unset_vty (struct vty *vty, char *ip_str, afi_t afi,
+peer_unsuppress_map_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			       safi_t safi)
 {
   int ret;
@@ -3564,9 +3578,9 @@ DEFUN (no_neighbor_unsuppress_map,
 }
 
 int
-peer_maximum_prefix_set_vty (struct vty *vty, char *ip_str, afi_t afi,
-			     safi_t safi, char *num_str,  char *threshold_str,
-                             int warning)
+peer_maximum_prefix_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
+			     safi_t safi, const char *num_str,  
+                             const char *threshold_str, int warning)
 {
   int ret;
   struct peer *peer;
@@ -3589,7 +3603,7 @@ peer_maximum_prefix_set_vty (struct vty *vty, char *ip_str, afi_t afi,
 }
 
 int
-peer_maximum_prefix_unset_vty (struct vty *vty, char *ip_str, afi_t afi,
+peer_maximum_prefix_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			       safi_t safi)
 {
   int ret;
@@ -3711,7 +3725,7 @@ DEFUN (neighbor_allowas_in,
 {
   int ret;
   struct peer *peer;
-  int allow_num;
+  unsigned int allow_num;
 
   peer = peer_and_group_lookup_vty (vty, argv[0]);
   if (! peer)
@@ -3863,7 +3877,7 @@ bgp_clear_vty_error (struct vty *vty, struct peer *peer, afi_t afi,
 /* `clear ip bgp' functions. */
 int
 bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
-           enum clear_sort sort,enum bgp_clear_type stype, char *arg)
+           enum clear_sort sort,enum bgp_clear_type stype, const char *arg)
 {
   int ret;
   struct peer *peer;
@@ -4005,8 +4019,9 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
 }
 
 int
-bgp_clear_vty (struct vty *vty, char *name, afi_t afi, safi_t safi,
-               enum clear_sort sort, enum bgp_clear_type stype, char *arg)  
+bgp_clear_vty (struct vty *vty, const char *name, afi_t afi, safi_t safi,
+               enum clear_sort sort, enum bgp_clear_type stype, 
+               const char *arg)
 {
   int ret;
   struct bgp *bgp;
@@ -6412,7 +6427,8 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
 }
 
 int 
-bgp_show_summary_vty (struct vty *vty, char *name, afi_t afi, safi_t safi)
+bgp_show_summary_vty (struct vty *vty, const char *name, 
+                      afi_t afi, safi_t safi)
 {
   struct bgp *bgp;
 
@@ -6602,7 +6618,7 @@ DEFUN (show_ipv6_mbgp_summary,
 }
 #endif /* HAVE_IPV6 */
 
-char *
+const char *
 afi_safi_print (afi_t afi, safi_t safi)
 {
   if (afi == AFI_IP && safi == SAFI_UNICAST)
@@ -7187,8 +7203,8 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp,
 }
 
 int 
-bgp_show_neighbor_vty (struct vty *vty, char *name, enum show_type type,
-		       char *ip_str)
+bgp_show_neighbor_vty (struct vty *vty, const char *name, 
+                       enum show_type type, const char *ip_str)
 {
   int ret;
   struct bgp *bgp;
@@ -7505,7 +7521,7 @@ bgp_write_rsclient_summary (struct vty *vty, struct peer *rsclient,
 {
   char timebuf[BGP_UPTIME_LEN];
   char rmbuf[14];
-  char *rmname;
+  const char *rmname;
   struct peer *peer;
   struct listnode *nn;
   int len;
@@ -7576,7 +7592,8 @@ bgp_write_rsclient_summary (struct vty *vty, struct peer *rsclient,
 }
 
 int
-bgp_show_rsclient_summary (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
+bgp_show_rsclient_summary (struct vty *vty, struct bgp *bgp, 
+                           afi_t afi, safi_t safi)
 {
   struct peer *peer;
   struct listnode *nn;
@@ -7618,7 +7635,8 @@ bgp_show_rsclient_summary (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t s
 }
 
 int
-bgp_show_rsclient_summary_vty (struct vty *vty, char *name, afi_t afi, safi_t safi)
+bgp_show_rsclient_summary_vty (struct vty *vty, const char *name, 
+                               afi_t afi, safi_t safi)
 {
   struct bgp *bgp;
 
@@ -7760,7 +7778,7 @@ ALIAS (show_bgp_instance_rsclient_summary,
 /* Utility function to convert user input route type string to route
    type.  */
 static int
-bgp_str2route_type (int afi, char *str)
+bgp_str2route_type (int afi, const char *str)
 {
   if (! str)
     return 0;
@@ -8306,7 +8324,7 @@ bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
 			       safi_t safi, int *write)
 {
   int i;
-  char *str[] = { "system", "kernel", "connected", "static", "rip",
+  const char *str[] = { "system", "kernel", "connected", "static", "rip",
 		  "ripng", "ospf", "ospf6", "isis", "bgp"};
 
   /* Unicast redistribution only.  */
@@ -9325,7 +9343,7 @@ bgp_vty_init ()
 /* VTY functions.  */
 
 /* Direction value to string conversion.  */
-char *
+const char *
 community_direct_str (int direct)
 {
   switch (direct)
@@ -9365,8 +9383,8 @@ community_list_perror (struct vty *vty, int ret)
 
 /* VTY interface for community_set() function.  */
 int
-community_list_set_vty (struct vty *vty, int argc, char **argv, int style,
-			int reject_all_digit_name)
+community_list_set_vty (struct vty *vty, int argc, const char **argv, 
+                        int style, int reject_all_digit_name)
 {
   int ret;
   int direct;
@@ -9418,7 +9436,7 @@ community_list_set_vty (struct vty *vty, int argc, char **argv, int style,
 
 /* Community-list delete with name.  */
 int
-community_list_unset_all_vty (struct vty *vty, char *name)
+community_list_unset_all_vty (struct vty *vty, const char *name)
 {
   int ret;
 
@@ -9434,7 +9452,8 @@ community_list_unset_all_vty (struct vty *vty, char *name)
 
 /* Communiyt-list entry delete.  */
 int
-community_list_unset_vty (struct vty *vty, int argc, char **argv, int style)
+community_list_unset_vty (struct vty *vty, int argc, const char **argv, 
+                          int style)
 {
   int ret;
   int direct;
@@ -9738,8 +9757,8 @@ DEFUN (show_ip_community_list_arg,
 }
 
 int
-extcommunity_list_set_vty (struct vty *vty, int argc, char **argv, int style,
-			   int reject_all_digit_name)
+extcommunity_list_set_vty (struct vty *vty, int argc, const char **argv, 
+                           int style, int reject_all_digit_name)
 {
   int ret;
   int direct;
@@ -9786,7 +9805,7 @@ extcommunity_list_set_vty (struct vty *vty, int argc, char **argv, int style,
 }
 
 int
-extcommunity_list_unset_all_vty (struct vty *vty, char *name)
+extcommunity_list_unset_all_vty (struct vty *vty, const char *name)
 {
   int ret;
 
@@ -9801,7 +9820,8 @@ extcommunity_list_unset_all_vty (struct vty *vty, char *name)
 }
 
 int
-extcommunity_list_unset_vty (struct vty *vty, int argc, char **argv, int style)
+extcommunity_list_unset_vty (struct vty *vty, int argc, const char **argv, 
+                             int style)
 {
   int ret;
   int direct;
@@ -10077,10 +10097,10 @@ DEFUN (show_ip_extcommunity_list_arg,
 }
 
 /* Return configuration string of community-list entry.  */
-static char *
+static const char *
 community_list_config_str (struct community_entry *entry)
 {
-  char *str;
+  const char *str;
 
   if (entry->any)
     str = "";

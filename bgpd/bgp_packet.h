@@ -18,10 +18,10 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-#define BGP_NLRI_LENGTH       1
-#define BGP_TOTAL_ATTR_LEN    2
-#define BGP_UNFEASIBLE_LEN    2
-#define BGP_WRITE_PACKET_MAX 10
+#define BGP_NLRI_LENGTH       1U
+#define BGP_TOTAL_ATTR_LEN    2U
+#define BGP_UNFEASIBLE_LEN    2U
+#define BGP_WRITE_PACKET_MAX 10U
 
 /* When to refresh */
 #define REFRESH_IMMEDIATE 1

@@ -401,7 +401,7 @@ community_hash_make (struct community *com)
 }
 
 int
-community_match (struct community *com1, struct community *com2)
+community_match (const struct community *com1, const struct community *com2)
 {
   int i = 0;
   int j = 0;
@@ -432,7 +432,7 @@ community_match (struct community *com1, struct community *com2)
 /* If two aspath have same value then return 1 else return 0. This
    function is used by hash package. */
 int
-community_cmp (struct community *com1, struct community *com2)
+community_cmp (const struct community *com1, const struct community *com2)
 {
   if (com1 == NULL && com2 == NULL)
     return 1;
@@ -472,10 +472,11 @@ enum community_token
 };
 
 /* Get next community token from string. */
-char *
-community_gettoken (char *buf, enum community_token *token, u_int32_t *val)
+const char *
+community_gettoken (const char *buf, enum community_token *token, 
+                    u_int32_t *val)
 {
-  char *p = buf;
+  const char *p = buf;
 
   /* Skip white space. */
   while (isspace ((int) *p))
@@ -570,7 +571,7 @@ community_gettoken (char *buf, enum community_token *token, u_int32_t *val)
 
 /* convert string to community structure */
 struct community *
-community_str2com (char *str)
+community_str2com (const char *str)
 {
   struct community *com = NULL;
   struct community *com_sort = NULL;

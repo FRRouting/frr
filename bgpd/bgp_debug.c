@@ -66,7 +66,7 @@ struct message bgp_status_msg[] =
 int bgp_status_msg_max = BGP_STATUS_MAX;
 
 /* BGP message type string. */
-char *bgp_type_str[] =
+const char *bgp_type_str[] =
 {
   NULL,
   "OPEN",
@@ -154,8 +154,8 @@ struct message bgp_notify_capability_msg[] =
 int bgp_notify_capability_msg_max = BGP_NOTIFY_CAPABILITY_MAX;
 
 /* Origin strings. */
-char *bgp_origin_str[] = {"i","e","?"};
-char *bgp_origin_long_str[] = {"IGP","EGP","incomplete"};
+const char *bgp_origin_str[] = {"i","e","?"};
+const char *bgp_origin_long_str[] = {"IGP","EGP","incomplete"};
 
 /* Dump attribute. */
 int
@@ -233,9 +233,10 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
 
 /* dump notify packet */
 void
-bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify, char *direct)
+bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify, 
+                 const char *direct)
 {
-  char *subcode_str;
+  const char *subcode_str;
 
   subcode_str = "";
 

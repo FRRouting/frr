@@ -119,7 +119,7 @@ as_filter_free (struct as_filter *asfilter)
 
 /* Make new AS filter. */
 struct as_filter *
-as_filter_make (regex_t *reg, char *reg_str, enum as_filter_type type)
+as_filter_make (regex_t *reg, const char *reg_str, enum as_filter_type type)
 {
   struct as_filter *asfilter;
 
@@ -132,7 +132,7 @@ as_filter_make (regex_t *reg, char *reg_str, enum as_filter_type type)
 }
 
 struct as_filter *
-as_filter_lookup (struct as_list *aslist, char *reg_str,
+as_filter_lookup (struct as_list *aslist, const char *reg_str,
 		  enum as_filter_type type)
 {
   struct as_filter *asfilter;
@@ -158,7 +158,7 @@ as_list_filter_add (struct as_list *aslist, struct as_filter *asfilter)
 
 /* Lookup as_list from list of as_list by name. */
 struct as_list *
-as_list_lookup (char *name)
+as_list_lookup (const char *name)
 {
   struct as_list *aslist;
 
@@ -195,9 +195,9 @@ as_list_free (struct as_list *aslist)
 /* Insert new AS list to list of as_list.  Each as_list is sorted by
    the name. */
 struct as_list *
-as_list_insert (char *name)
+as_list_insert (const char *name)
 {
-  int i;
+  size_t i;
   long number;
   struct as_list *aslist;
   struct as_list *point;
@@ -279,7 +279,7 @@ as_list_insert (char *name)
 }
 
 struct as_list *
-as_list_get (char *name)
+as_list_get (const char *name)
 {
   struct as_list *aslist;
 
@@ -296,7 +296,7 @@ as_list_get (char *name)
   return aslist;
 }
 
-static char *
+static const char *
 filter_type_str (enum as_filter_type type)
 {
   switch (type)

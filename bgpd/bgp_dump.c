@@ -462,7 +462,7 @@ bgp_dump_packet (struct peer *peer, int type, struct stream *packet)
 }
 
 unsigned int
-bgp_dump_parse_time (char *str)
+bgp_dump_parse_time (const char *str)
 {
   int i;
   int len;
@@ -510,7 +510,7 @@ bgp_dump_parse_time (char *str)
 
 int
 bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump, int type,
-	      char *path, char *interval_str)
+	      const char *path, const char *interval_str)
 {
   unsigned int interval;
   

@@ -842,7 +842,8 @@ bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type)
 
 /* Redistribute with route-map specification.  */
 int
-bgp_redistribute_rmap_set (struct bgp *bgp, afi_t afi, int type, char *name)
+bgp_redistribute_rmap_set (struct bgp *bgp, afi_t afi, int type, 
+                           const char *name)
 {
   if (bgp->rmap[afi][type].name
       && (strcmp (bgp->rmap[afi][type].name, name) == 0))

@@ -180,7 +180,7 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
 }
 
 int
-str2prefix_rd (char *str, struct prefix_rd *prd)
+str2prefix_rd (const char *str, struct prefix_rd *prd)
 {
   int ret;
   char *p;
@@ -236,15 +236,22 @@ str2prefix_rd (char *str, struct prefix_rd *prd)
 }
 
 int
-str2tag (char *str, u_char *tag)
+str2tag (const char *str, u_char *tag)
 {
-  u_int32_t l;
+  unsigned long l;
+  char *endptr;
+  u_int32_t t;
 
-  l = atol (str);
+  l = strtoul (str, &endptr, 10);
+  
+  if (*endptr == '\0' || l == ULONG_MAX || l > UINT32_MAX)
+    return 0;
 
-  tag[0] = (u_char)(l >> 12);
-  tag[1] = (u_char)(l >> 4);
-  tag[2] = (u_char)(l << 4);
+  t = (u_int32_t) l;
+  
+  tag[0] = (u_char)(t >> 12);
+  tag[1] = (u_char)(t >> 4);
+  tag[2] = (u_char)(t << 4);
 
   return 1;
 }

@@ -25,7 +25,7 @@ void bgp_zebra_announce (struct prefix *, struct bgp_info *, struct bgp *);
 void bgp_zebra_withdraw (struct prefix *, struct bgp_info *);
 
 int bgp_redistribute_set (struct bgp *, afi_t, int);
-int bgp_redistribute_rmap_set (struct bgp *, afi_t, int, char *);
+int bgp_redistribute_rmap_set (struct bgp *, afi_t, int, const char *);
 int bgp_redistribute_metric_set (struct bgp *, afi_t, int, u_int32_t);
 int bgp_redistribute_unset (struct bgp *, afi_t, int);
 int bgp_redistribute_routemap_unset (struct bgp *, afi_t, int);

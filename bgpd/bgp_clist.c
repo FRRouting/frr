@@ -115,9 +115,9 @@ community_list_free (struct community_list *list)
 
 struct community_list *
 community_list_insert (struct community_list_handler *ch,
-                       char *name, int style)
+                       const char *name, int style)
 {
-  int i;
+  size_t i;
   long number;
   struct community_list *new;
   struct community_list *point;
@@ -209,7 +209,7 @@ community_list_insert (struct community_list_handler *ch,
 
 struct community_list *
 community_list_lookup (struct community_list_handler *ch,
-                       char *name, int style)
+                       const char *name, int style)
 {
   struct community_list *list;
   struct community_list_master *cm;
@@ -232,7 +232,8 @@ community_list_lookup (struct community_list_handler *ch,
 }
 
 struct community_list *
-community_list_get (struct community_list_handler *ch, char *name, int style)
+community_list_get (struct community_list_handler *ch, 
+                    const char *name, int style)
 {
   struct community_list *list;
 
@@ -313,7 +314,7 @@ community_list_entry_delete (struct community_list *list,
 
 /* Lookup community-list entry from the list.  */
 static struct community_entry *
-community_list_entry_lookup (struct community_list *list, void *arg,
+community_list_entry_lookup (struct community_list *list, const void *arg,
                              int direct)
 {
   struct community_entry *entry;
@@ -347,7 +348,7 @@ community_list_entry_lookup (struct community_list *list, void *arg,
 static int
 community_regexp_match (struct community *com, regex_t * reg)
 {
-  char *str;
+  const char *str;
 
   /* When there is no communities attribute it is treated as empty
      string.  */
@@ -367,7 +368,7 @@ community_regexp_match (struct community *com, regex_t * reg)
 static int
 ecommunity_regexp_match (struct ecommunity *ecom, regex_t * reg)
 {
-  char *str;
+  const char *str;
 
   /* When there is no communities attribute it is treated as empty
      string.  */
@@ -393,7 +394,7 @@ community_regexp_delete (struct community *com, regex_t * reg)
   u_int32_t comval;
   /* Maximum is "65535:65535" + '\0'. */
   char c[12];
-  char *str;
+  const char *str;
 
   if (!com)
     return NULL;
@@ -606,7 +607,7 @@ community_list_dup_check (struct community_list *list,
 /* Set community-list.  */
 int
 community_list_set (struct community_list_handler *ch,
-                    char *name, char *str, int direct, int style)
+                    const char *name, const char *str, int direct, int style)
 {
   struct community_entry *entry;
   struct community_list *list;
@@ -702,7 +703,8 @@ community_list_set (struct community_list_handler *ch,
    community-list entry belongs to the specified name.  */
 int
 community_list_unset (struct community_list_handler *ch,
-                      char *name, char *str, int direct, int style)
+                      const char *name, const char *str, 
+                      int direct, int style)
 {
   struct community_entry *entry;
   struct community_list *list;
@@ -766,7 +768,8 @@ community_list_unset (struct community_list_handler *ch,
 /* Set extcommunity-list.  */
 int
 extcommunity_list_set (struct community_list_handler *ch,
-                       char *name, char *str, int direct, int style)
+                       const char *name, const char *str, 
+                       int direct, int style)
 {
   struct community_entry *entry;
   struct community_list *list;
@@ -869,7 +872,8 @@ extcommunity_list_set (struct community_list_handler *ch,
    extcommunity-list entry belongs to the specified name.  */
 int
 extcommunity_list_unset (struct community_list_handler *ch,
-                         char *name, char *str, int direct, int style)
+                         const char *name, const char *str, 
+                         int direct, int style)
 {
   struct community_entry *entry;
   struct community_list *list;

@@ -27,5 +27,5 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #endif /* HAVE_GNU_REGEX */
 
 void bgp_regex_free (regex_t *regex);
-regex_t *bgp_regcomp (char *str);
+regex_t *bgp_regcomp (const char *str);
 int bgp_regexec (regex_t *regex, struct aspath *aspath);

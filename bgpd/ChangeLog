@@ -1,3 +1,14 @@
+2004-10-13 Paul Jakma <paul@dishone.st>
+
+	* (global) more const'ification and fixups of types to clean up code.
+	* bgp_mplsvpn.{c,h}: (str2tag) fix abuse. Still not perfect,
+          should use something like the VTY_GET_INTEGER macro, but without
+          the vty_out bits..
+        * bgp_routemap.c: (set_aggregator_as) use VTY_GET_INTEGER_RANGE
+          (no_set_aggregator_as) ditto.
+        * bgpd.c: (peer_uptime) fix unlikely bug, where no buffer is 
+          returned, add comments about troublesome return value.
+	
 2004-10-03 James R. Leu <jleu at mindspring.com>
 
 	* bgp_vty.c: Router id from zebra can be manually overriden.

@@ -308,7 +308,7 @@ bgp_uptime_reset (struct peer *peer)
 }
 
 /* BGP Peer Down Cause */
-char *peer_down_str[] =
+const char *peer_down_str[] =
 {
   "",
   "Router ID changed",
@@ -828,7 +828,7 @@ struct {
   },
 };
 
-static char *bgp_event_str[] =
+static const char *bgp_event_str[] =
 {
   NULL,
   "BGP_Start",

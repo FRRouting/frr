@@ -766,11 +766,11 @@ int bgp_nexthop_set (union sockunion *, union sockunion *,
 		     struct bgp_nexthop *, struct peer *);
 struct bgp_master *bgp_get_master ();
 struct bgp *bgp_get_default ();
-struct bgp *bgp_lookup (as_t, char *);
-struct bgp *bgp_lookup_by_name (char *);
+struct bgp *bgp_lookup (as_t, const char *);
+struct bgp *bgp_lookup_by_name (const char *);
 struct peer *peer_lookup (struct bgp *, union sockunion *);
-struct peer_group *peer_group_lookup (struct bgp *, char *);
-struct peer_group *peer_group_get (struct bgp *, char *);
+struct peer_group *peer_group_lookup (struct bgp *, const char *);
+struct peer_group *peer_group_get (struct bgp *, const char *);
 struct peer *peer_lookup_with_open (union sockunion *, as_t, struct in_addr *,
 				    int *);
 int peer_sort (struct peer *peer);
@@ -788,7 +788,7 @@ int bgp_option_set (int);
 int bgp_option_unset (int);
 int bgp_option_check (int);
 
-int bgp_get (struct bgp **, as_t *, char *);
+int bgp_get (struct bgp **, as_t *, const char *);
 int bgp_delete (struct bgp *);
 
 int bgp_flag_set (struct bgp *, int);
@@ -817,7 +817,7 @@ int bgp_default_local_preference_unset (struct bgp *);
 int peer_rsclient_active (struct peer *);
 
 int peer_remote_as (struct bgp *, union sockunion *, as_t *, afi_t, safi_t);
-int peer_group_remote_as (struct bgp *, char *, as_t *);
+int peer_group_remote_as (struct bgp *, const char *, as_t *);
 int peer_delete (struct peer *peer);
 int peer_group_delete (struct peer_group *);
 int peer_group_remote_as_delete (struct peer_group *);
@@ -843,11 +843,11 @@ int peer_ebgp_multihop_unset (struct peer *);
 int peer_description_set (struct peer *, char *);
 int peer_description_unset (struct peer *);
 
-int peer_update_source_if_set (struct peer *, char *);
+int peer_update_source_if_set (struct peer *, const char *);
 int peer_update_source_addr_set (struct peer *, union sockunion *);
 int peer_update_source_unset (struct peer *);
 
-int peer_default_originate_set (struct peer *, afi_t, safi_t, char *);
+int peer_default_originate_set (struct peer *, afi_t, safi_t, const char *);
 int peer_default_originate_unset (struct peer *, afi_t, safi_t);
 
 int peer_port_set (struct peer *, u_int16_t);
@@ -868,10 +868,10 @@ int peer_advertise_interval_unset (struct peer *);
 int peer_version_set (struct peer *, int);
 int peer_version_unset (struct peer *);
 
-int peer_interface_set (struct peer *, char *);
+int peer_interface_set (struct peer *, const char *);
 int peer_interface_unset (struct peer *);
 
-int peer_distribute_set (struct peer *, afi_t, safi_t, int, char *);
+int peer_distribute_set (struct peer *, afi_t, safi_t, int, const char *);
 int peer_distribute_unset (struct peer *, afi_t, safi_t, int);
 
 int peer_allowas_in_set (struct peer *, afi_t, safi_t, int);
@@ -880,16 +880,16 @@ int peer_allowas_in_unset (struct peer *, afi_t, safi_t);
 int peer_local_as_set (struct peer *, as_t, int);
 int peer_local_as_unset (struct peer *);
 
-int peer_prefix_list_set (struct peer *, afi_t, safi_t, int, char *);
+int peer_prefix_list_set (struct peer *, afi_t, safi_t, int, const char *);
 int peer_prefix_list_unset (struct peer *, afi_t, safi_t, int);
 
-int peer_aslist_set (struct peer *, afi_t, safi_t, int, char *);
+int peer_aslist_set (struct peer *, afi_t, safi_t, int, const char *);
 int peer_aslist_unset (struct peer *,afi_t, safi_t, int);
 
-int peer_route_map_set (struct peer *, afi_t, safi_t, int, char *);
+int peer_route_map_set (struct peer *, afi_t, safi_t, int, const char *);
 int peer_route_map_unset (struct peer *, afi_t, safi_t, int);
 
-int peer_unsuppress_map_set (struct peer *, afi_t, safi_t, char *);
+int peer_unsuppress_map_set (struct peer *, afi_t, safi_t, const char *);
 int peer_unsuppress_map_unset (struct peer *, afi_t, safi_t);
 
 int peer_maximum_prefix_set (struct peer *, afi_t, safi_t, u_int32_t, u_char, int);

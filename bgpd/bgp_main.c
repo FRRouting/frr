@@ -91,7 +91,7 @@ struct thread_master *master;
 char *config_file = NULL;
 
 /* Process ID saved for use by init system */
-char *pid_file = PATH_BGPD_PID;
+const char *pid_file = PATH_BGPD_PID;
 
 /* VTY port number and address.  */
 int vty_port = BGP_VTY_PORT;

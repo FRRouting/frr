@@ -47,7 +47,7 @@ struct bgp_damp_config *damp = &bgp_damp_cfg;
 static int
 bgp_reuse_index (int penalty)
 {
-  int i;
+  unsigned int i;
   int index;
 
   i = (int)(((double) penalty / damp->reuse_limit - 1.0) * damp->scale_factor);
@@ -91,7 +91,7 @@ bgp_reuse_list_delete (struct bgp_damp_info *bdi)
 int 
 bgp_damp_decay (time_t tdiff, int penalty)
 {
-  int i;
+  unsigned int i;
 
   i = (int) ((double) tdiff / DELTA_T);
 
@@ -380,7 +380,7 @@ void
 bgp_damp_parameter_set (int hlife, int reuse, int sup, int maxsup)
 {
   double reuse_max_ratio;
-  int i;
+  unsigned int i;
   double j;
 	
   damp->suppress_value = sup;
@@ -438,8 +438,8 @@ bgp_damp_parameter_set (int hlife, int reuse, int sup, int maxsup)
 }
 
 int
-bgp_damp_enable (struct bgp *bgp, afi_t afi, safi_t safi, int half,
-		 int reuse, int suppress, int max)
+bgp_damp_enable (struct bgp *bgp, afi_t afi, safi_t safi, time_t half,
+		 unsigned int reuse, unsigned int suppress, time_t max)
 {
   if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
     {
@@ -479,7 +479,7 @@ bgp_damp_config_clean (struct bgp_damp_config *damp)
 void
 bgp_damp_info_clean ()
 {
-  int i;
+  unsigned int i;
   struct bgp_damp_info *bdi, *next;
 
   damp->reuse_offset = 0;
@@ -537,11 +537,11 @@ bgp_config_write_damp (struct vty *vty)
 	       && bgp_damp_cfg.reuse_limit == DEFAULT_REUSE
 	       && bgp_damp_cfg.suppress_value == DEFAULT_SUPPRESS
 	       && bgp_damp_cfg.max_suppress_time == bgp_damp_cfg.half_life*4)
-	vty_out (vty, " bgp dampening %d%s",
+	vty_out (vty, " bgp dampening %ld%s",
 		 bgp_damp_cfg.half_life/60,
 		 VTY_NEWLINE);
       else
-	vty_out (vty, " bgp dampening %d %d %d %d%s",
+	vty_out (vty, " bgp dampening %ld %d %d %ld%s",
 		 bgp_damp_cfg.half_life/60,
 		 bgp_damp_cfg.reuse_limit,
 		 bgp_damp_cfg.suppress_value,
@@ -555,7 +555,7 @@ bgp_config_write_damp (struct vty *vty)
 #define BGP_UPTIME_LEN 25
 
 char *
-bgp_get_reuse_time (int penalty, char *buf, size_t len)
+bgp_get_reuse_time (unsigned int penalty, char *buf, size_t len)
 {
   time_t reuse_time = 0;
   struct tm *tm = NULL;

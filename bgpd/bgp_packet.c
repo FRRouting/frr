@@ -548,7 +548,7 @@ bgp_write (struct thread *thread)
   u_char type;
   struct stream *s; 
   int num;
-  int count = 0;
+  unsigned int count = 0;
   int write_errno;
 
   /* Yes first of all get peer pointer. */
@@ -873,7 +873,7 @@ bgp_notify_send (struct peer *peer, u_char code, u_char sub_code)
   bgp_notify_send_with_data (peer, code, sub_code, NULL, 0);
 }
 
-char *
+const char *
 afi2str (afi_t afi)
 {
   if (afi == AFI_IP)
@@ -884,7 +884,7 @@ afi2str (afi_t afi)
     return "Unknown AFI";
 }
 
-char *
+const char *
 safi2str (safi_t safi)
 {
   if (safi == SAFI_UNICAST)

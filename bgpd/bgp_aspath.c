@@ -993,10 +993,10 @@ enum as_token
 };
 
 /* Return next token and point for string parse. */
-char *
-aspath_gettoken (char *buf, enum as_token *token, u_short *asno)
+const char *
+aspath_gettoken (const char *buf, enum as_token *token, u_short *asno)
 {
-  char *p = buf;
+  const char *p = buf;
 
   /* Skip space. */
   while (isspace ((int) *p))
@@ -1055,7 +1055,7 @@ aspath_gettoken (char *buf, enum as_token *token, u_short *asno)
 }
 
 struct aspath *
-aspath_str2aspath (char *str)
+aspath_str2aspath (const char *str)
 {
   enum as_token token;
   u_short as_type;

@@ -1399,7 +1399,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
   struct attr *attr_new2;
   struct bgp_info *ri;
   struct bgp_info *new;
-  char *reason;
+  const char *reason;
   char buf[SU_ADDRSTRLEN];
 
   /* Do not insert announces from a rsclient into its own 'bgp_table'. */
@@ -1612,7 +1612,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
   struct attr *attr_new;
   struct bgp_info *ri;
   struct bgp_info *new;
-  char *reason;
+  const char *reason;
   char buf[SU_ADDRSTRLEN];
 
   bgp = peer->bgp;
@@ -2920,8 +2920,8 @@ bgp_static_withdraw_vpnv4 (struct bgp *bgp, struct prefix *p, u_int16_t afi,
 /* Configure static BGP network.  When user don't run zebra, static
    route should be installed as valid.  */
 int
-bgp_static_set (struct vty *vty, struct bgp *bgp, char *ip_str, u_int16_t afi,
-		u_char safi, char *rmap, int backdoor)
+bgp_static_set (struct vty *vty, struct bgp *bgp, const char *ip_str, 
+                u_int16_t afi, u_char safi, const char *rmap, int backdoor)
 {
   int ret;
   struct prefix p;
@@ -3012,7 +3012,7 @@ bgp_static_set (struct vty *vty, struct bgp *bgp, char *ip_str, u_int16_t afi,
 
 /* Configure static BGP network. */
 int
-bgp_static_unset (struct vty *vty, struct bgp *bgp, char *ip_str,
+bgp_static_unset (struct vty *vty, struct bgp *bgp, const char *ip_str,
 		  u_int16_t afi, u_char safi)
 {
   int ret;
@@ -3106,8 +3106,8 @@ bgp_static_delete (struct bgp *bgp)
 }
 
 int
-bgp_static_set_vpnv4 (struct vty *vty, char *ip_str, char *rd_str,
-		      char *tag_str)
+bgp_static_set_vpnv4 (struct vty *vty, const char *ip_str, const char *rd_str,
+		      const char *tag_str)
 {
   int ret;
   struct prefix p;
@@ -3174,8 +3174,8 @@ bgp_static_set_vpnv4 (struct vty *vty, char *ip_str, char *rd_str,
 
 /* Configure static BGP network. */
 int
-bgp_static_unset_vpnv4 (struct vty *vty, char *ip_str, char *rd_str,
-			char *tag_str)
+bgp_static_unset_vpnv4 (struct vty *vty, const char *ip_str, 
+                        const char *rd_str, const char *tag_str)
 {
   int ret;
   struct bgp *bgp;
@@ -4034,7 +4034,8 @@ bgp_aggregate_delete (struct bgp *bgp, struct prefix *p, afi_t afi,
 #define AGGREGATE_AS_SET       1
 
 int
-bgp_aggregate_set (struct vty *vty, char *prefix_str, afi_t afi, safi_t safi,
+bgp_aggregate_set (struct vty *vty, const char *prefix_str, 
+                   afi_t afi, safi_t safi,
 		   u_char summary_only, u_char as_set)
 {
   int ret;
@@ -4082,7 +4083,8 @@ bgp_aggregate_set (struct vty *vty, char *prefix_str, afi_t afi, safi_t safi,
 }
 
 int
-bgp_aggregate_unset (struct vty *vty, char *prefix_str, afi_t afi, safi_t safi)
+bgp_aggregate_unset (struct vty *vty, const char *prefix_str, 
+                     afi_t afi, safi_t safi)
 {
   int ret;
   struct prefix p;
@@ -5864,9 +5866,9 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
 /* Display specified route of BGP table. */
 int
 bgp_show_route_in_table (struct vty *vty, struct bgp *bgp, 
-                         struct bgp_table *rib, char *ip_str, 
-		afi_t afi, safi_t safi, struct prefix_rd *prd,
-		int prefix_check)
+                         struct bgp_table *rib, const char *ip_str,
+                         afi_t afi, safi_t safi, struct prefix_rd *prd,
+                         int prefix_check)
 {
   int ret;
   int header;
@@ -5952,7 +5954,7 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
 
 /* Display specified route of Main RIB */
 int
-bgp_show_route (struct vty *vty, char *view_name, char *ip_str,
+bgp_show_route (struct vty *vty, const char *view_name, const char *ip_str,
 		afi_t afi, safi_t safi, struct prefix_rd *prd,
 		int prefix_check)
 {
@@ -6390,7 +6392,7 @@ bgp_show_regexp_clean (struct vty *vty)
 }
 
 int
-bgp_show_regexp (struct vty *vty, int argc, char **argv, afi_t afi,
+bgp_show_regexp (struct vty *vty, int argc, const char **argv, afi_t afi,
 		 safi_t safi, enum bgp_show_type type)
 {
   int i;
@@ -6532,7 +6534,7 @@ DEFUN (show_ipv6_mbgp_regexp,
 #endif /* HAVE_IPV6 */
 
 int
-bgp_show_prefix_list (struct vty *vty, char *prefix_list_str, afi_t afi,
+bgp_show_prefix_list (struct vty *vty, const char *prefix_list_str, afi_t afi,
 		      safi_t safi, enum bgp_show_type type)
 {
   struct prefix_list *plist;
@@ -6649,7 +6651,7 @@ DEFUN (show_ipv6_mbgp_prefix_list,
 #endif /* HAVE_IPV6 */
 
 int
-bgp_show_filter_list (struct vty *vty, char *filter, afi_t afi,
+bgp_show_filter_list (struct vty *vty, const char *filter, afi_t afi,
 		      safi_t safi, enum bgp_show_type type)
 {
   struct as_list *as_list;
@@ -6765,7 +6767,7 @@ DEFUN (show_ipv6_mbgp_filter_list,
 #endif /* HAVE_IPV6 */
 
 int
-bgp_show_route_map (struct vty *vty, char *rmap_str, afi_t afi,
+bgp_show_route_map (struct vty *vty, const char *rmap_str, afi_t afi,
 		    safi_t safi, enum bgp_show_type type)
 {
   struct route_map *rmap;
@@ -6974,8 +6976,8 @@ DEFUN (show_ipv6_mbgp_community_all,
 #endif /* HAVE_IPV6 */
 
 int
-bgp_show_community (struct vty *vty, int argc, char **argv, int exact,
-		                          u_int16_t afi, u_char safi)
+bgp_show_community (struct vty *vty, int argc, const char **argv, int exact,
+                    u_int16_t afi, u_char safi)
 {
   struct community *com;
   struct buffer *b;
@@ -7977,7 +7979,7 @@ ALIAS (show_ipv6_mbgp_community_exact,
 #endif /* HAVE_IPV6 */
 
 int
-bgp_show_community_list (struct vty *vty, char *com, int exact,
+bgp_show_community_list (struct vty *vty, const char *com, int exact,
 			 u_int16_t afi, u_char safi)
 {
   struct community_list *list;
@@ -8168,7 +8170,7 @@ bgp_show_prefix_longer_clean (struct vty *vty)
 }
 
 int
-bgp_show_prefix_longer (struct vty *vty, char *prefix, afi_t afi,
+bgp_show_prefix_longer (struct vty *vty, const char *prefix, afi_t afi,
 			safi_t safi, enum bgp_show_type type)
 {
   int ret;
@@ -8313,7 +8315,8 @@ DEFUN (show_ipv6_mbgp_prefix_longer,
 #endif /* HAVE_IPV6 */
 
 struct peer *
-peer_lookup_in_view (struct vty *vty, char *view_name, char *ip_str)
+peer_lookup_in_view (struct vty *vty, const char *view_name, 
+                     const char *ip_str)
 {
   int ret;
   struct bgp *bgp;
@@ -9695,8 +9698,8 @@ bgp_distance_free (struct bgp_distance *bdistance)
 }
 
 int
-bgp_distance_set (struct vty *vty, char *distance_str, char *ip_str,
-		  char *access_list_str)
+bgp_distance_set (struct vty *vty, const char *distance_str, 
+                  const char *ip_str, const char *access_list_str)
 {
   int ret;
   struct prefix_ipv4 p;
@@ -9742,8 +9745,8 @@ bgp_distance_set (struct vty *vty, char *distance_str, char *ip_str,
 }
 
 int
-bgp_distance_unset (struct vty *vty, char *distance_str, char *ip_str,
-		    char *access_list_str)
+bgp_distance_unset (struct vty *vty, const char *distance_str, 
+                    const char *ip_str, const char *access_list_str)
 {
   int ret;
   struct prefix_ipv4 p;
@@ -10060,9 +10063,9 @@ DEFUN (show_ip_bgp_flap_statistics,
 
 /* Display specified route of BGP table. */
 int
-bgp_clear_damp_route (struct vty *vty, char *view_name, char *ip_str,
-		      afi_t afi, safi_t safi, struct prefix_rd *prd,
-		      int prefix_check)
+bgp_clear_damp_route (struct vty *vty, const char *view_name, 
+                      const char *ip_str, afi_t afi, safi_t safi, 
+                      struct prefix_rd *prd, int prefix_check)
 {
   int ret;
   struct prefix match;

@@ -34,7 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
    (^|[,{}() ]|$) */
 
 regex_t *
-bgp_regcomp (char *regstr)
+bgp_regcomp (const char *regstr)
 {
   /* Convert _ character to generic regular expression. */
   int i, j;

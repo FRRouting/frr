@@ -627,7 +627,7 @@ bgp4PathAttrLookup (struct variable *v, oid name[], size_t *length,
   struct bgp_info *min;
   struct bgp_node *rn;
   union sockunion su;
-  int len;
+  unsigned int len;
   struct in_addr paddr;
 
 #define BGP_PATHATTR_ENTRY_OFFSET \

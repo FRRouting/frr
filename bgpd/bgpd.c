@@ -1197,7 +1197,7 @@ peer_group_free (struct peer_group *group)
 }
 
 struct peer_group *
-peer_group_lookup (struct bgp *bgp, char *name)
+peer_group_lookup (struct bgp *bgp, const char *name)
 {
   struct peer_group *group;
   struct listnode *nn;
@@ -1211,7 +1211,7 @@ peer_group_lookup (struct bgp *bgp, char *name)
 }
 
 struct peer_group *
-peer_group_get (struct bgp *bgp, char *name)
+peer_group_get (struct bgp *bgp, const char *name)
 {
   struct peer_group *group;
 
@@ -1490,7 +1490,7 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
 
 /* Peer group's remote AS configuration.  */
 int
-peer_group_remote_as (struct bgp *bgp, char *group_name, as_t *as)
+peer_group_remote_as (struct bgp *bgp, const char *group_name, as_t *as)
 {
   struct peer_group *group;
   struct peer *peer;
@@ -1738,7 +1738,7 @@ peer_group_unbind (struct bgp *bgp, struct peer *peer,
 
 /* BGP instance creation by `router bgp' commands. */
 struct bgp *
-bgp_create (as_t *as, char *name)
+bgp_create (as_t *as, const char *name)
 {
   struct bgp *bgp;
   afi_t afi;
@@ -1747,7 +1747,7 @@ bgp_create (as_t *as, char *name)
   bgp = XCALLOC (MTYPE_BGP, sizeof (struct bgp));
 
   bgp->peer_self = peer_new ();
-  bgp->peer_self->host = "Static announcement";
+  bgp->peer_self->host = strdup ("Static announcement");
 
   bgp->peer = list_new ();
   bgp->peer->cmp = (int (*)(void *, void *)) peer_cmp;
@@ -1800,7 +1800,7 @@ bgp_get_default ()
 
 /* Lookup BGP entry. */
 struct bgp *
-bgp_lookup (as_t as, char *name)
+bgp_lookup (as_t as, const char *name)
 {
   struct bgp *bgp;
   struct listnode *nn;
@@ -1815,7 +1815,7 @@ bgp_lookup (as_t as, char *name)
 
 /* Lookup BGP structure by view name. */
 struct bgp *
-bgp_lookup_by_name (char *name)
+bgp_lookup_by_name (const char *name)
 {
   struct bgp *bgp;
   struct listnode *nn;
@@ -1829,7 +1829,7 @@ bgp_lookup_by_name (char *name)
 
 /* Called from VTY commands. */
 int
-bgp_get (struct bgp **bgp_val, as_t *as, char *name)
+bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
 {
   struct bgp *bgp;
 
@@ -2536,7 +2536,7 @@ peer_description_unset (struct peer *peer)
 
 /* Neighbor update-source. */
 int
-peer_update_source_if_set (struct peer *peer, char *ifname)
+peer_update_source_if_set (struct peer *peer, const char *ifname)
 {
   struct peer_group *group;
   struct listnode *nn;
@@ -2756,7 +2756,7 @@ peer_update_source_unset (struct peer *peer)
 
 int
 peer_default_originate_set (struct peer *peer, afi_t afi, safi_t safi,
-			    char *rmap)
+			    const char *rmap)
 {
   struct peer_group *group;
   struct listnode *nn;
@@ -3079,7 +3079,7 @@ peer_version_unset (struct peer *peer)
 
 /* neighbor interface */
 int
-peer_interface_set (struct peer *peer, char *str)
+peer_interface_set (struct peer *peer, const char *str)
 {
   if (peer->ifname)
     free (peer->ifname);
@@ -3273,7 +3273,7 @@ peer_local_as_unset (struct peer *peer)
 /* Set distribute list to the peer. */
 int
 peer_distribute_set (struct peer *peer, afi_t afi, safi_t safi, int direct, 
-		     char *name)
+		     const char *name)
 {
   struct bgp_filter *filter;
   struct peer_group *group;
@@ -3432,7 +3432,7 @@ peer_distribute_update (struct access_list *access)
 /* Set prefix list to the peer. */
 int
 peer_prefix_list_set (struct peer *peer, afi_t afi, safi_t safi, int direct, 
-		      char *name)
+		      const char *name)
 {
   struct bgp_filter *filter;
   struct peer_group *group;
@@ -3589,7 +3589,7 @@ peer_prefix_list_update (struct prefix_list *plist)
 
 int
 peer_aslist_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
-		 char *name)
+		 const char *name)
 {
   struct bgp_filter *filter;
   struct peer_group *group;
@@ -3745,7 +3745,7 @@ peer_aslist_update ()
 /* Set route-map to the peer. */
 int
 peer_route_map_set (struct peer *peer, afi_t afi, safi_t safi, int direct, 
-		    char *name)
+		    const char *name)
 {
   struct bgp_filter *filter;
   struct peer_group *group;
@@ -3850,7 +3850,8 @@ peer_route_map_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 
 /* Set unsuppress-map to the peer. */
 int
-peer_unsuppress_map_set (struct peer *peer, afi_t afi, safi_t safi, char *name)
+peer_unsuppress_map_set (struct peer *peer, afi_t afi, safi_t safi, 
+                         const char *name)
 {
   struct bgp_filter *filter;
   struct peer_group *group;
@@ -4110,7 +4111,8 @@ peer_clear_soft (struct peer *peer, afi_t afi, safi_t safi,
   return 0;
 }
 
-/* Display peer uptime. */
+/* Display peer uptime.*/
+/* XXX: why does this function return char * when it takes buffer? */
 char *
 peer_uptime (time_t uptime2, char *buf, size_t len)
 {
@@ -4121,7 +4123,9 @@ peer_uptime (time_t uptime2, char *buf, size_t len)
   if (len < BGP_UPTIME_LEN)
     {
       zlog_warn ("peer_uptime (): buffer shortage %d", len);
-      return "";
+      /* XXX: should return status instead of buf... */
+      snprintf (buf, len, "<error> "); 
+      return buf;
     }
 
   /* If there is no connection has been done before print `never'. */
