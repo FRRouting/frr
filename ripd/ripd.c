@@ -854,8 +854,17 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   if (ri->auth_type != RIP_AUTH_MD5 || ntohs (md5->type) != RIP_AUTH_MD5)
     return 0;
 
-  if (md5->auth_len != RIP_HEADER_SIZE + RIP_AUTH_MD5_SIZE)
+/*
+ * If the authentication length is less than 16, then it must be wrong for
+ * any interpretation of rfc2082.
+ */
+  if (md5->auth_len < RIP_AUTH_MD5_SIZE)
+    {
+      if (IS_RIP_DEBUG_EVENT)
+       zlog_info ("RIPv2 MD5 authentication, authentication length field too \
+         short");
     return 0;
+    }
 
   if (ri->key_chain)
     {
@@ -888,7 +897,8 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   strncpy ((char *)md5data->digest, auth_str, RIP_AUTH_MD5_SIZE);
 
   md5_init_ctx (&ctx);
-  md5_process_bytes (packet, packet_len + md5->auth_len, &ctx);
+  md5_process_bytes (packet, packet_len + RIP_HEADER_SIZE + RIP_AUTH_MD5_SIZE, \
+    &ctx);
   md5_finish_ctx (&ctx, digest);
 
   if (memcmp (pdigest, digest, RIP_AUTH_MD5_SIZE) == 0)
@@ -972,7 +982,7 @@ rip_auth_md5_set (struct stream *s, struct interface *ifp)
 
   /* Auth Data Len.  Set 16 for MD5 authentication
      data. */
-  stream_putc (s, RIP_AUTH_MD5_SIZE + RIP_HEADER_SIZE);
+  stream_putc (s, RIP_AUTH_MD5_SIZE);
 
   /* Sequence Number (non-decreasing). */
   /* RFC2080: The value used in the sequence number is

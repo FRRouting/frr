@@ -1,3 +1,9 @@
+2004-06-04 JJ Ludman <jacques.ludman@sun.com>
+
+	* ripd.c: Interoperability fix. Correct value for MD5 auth length
+	  is 16. Accept packets with this set to >= 16, and set to 16
+          ourselves.
+
 2004-05-31 Sowmini Varadhan <sowmini.varadhan@sun.com>
 
 	* ripd.c: Fixup compile warnings
