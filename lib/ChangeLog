@@ -1,3 +1,97 @@
+2005-02-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* buffer.h: Make the struct buffer and struct buffer_data structures
+	  private by moving them inside buffer.c.  Add comments for all
+	  functions.  Rename buffer_write as buffer_put (to be more consistent
+	  with the buffer_putc and buffer_putstr functions).  Declare a new
+	  buffer_write function that is used to write data to a file descriptor
+	  and/or add it to the buffer queue.  Remove unused function
+	  buffer_flush_vty_all.  Create a new enum typedef buffer_status_t
+	  to be used as the return code for all buffer_flush* functions
+	  and buffer_write.
+	* buffer.c: The struct buffer and struct buffer_data declarations
+	  are now private to this file.  In conjunction with that, remove
+	  some unnecessary fields: struct buffer (alloc, unused_head,
+	  unused_tail, length), struct buffer_data (prev).
+	  (buffer_data_new) Removed: functionality incorporated into buffer_add.
+	  (buffer_data_free) Removed: use a macro BUFFER_DATA_FREE instead.
+	  (buffer_new) Use calloc instead of malloc + memset(zero). 
+	  Supply an appropriate default size if the specified size is 0.
+	  (buffer_free) Eliminate code duplication by calling buffer_reset to
+	  free the contents of the buffer (and remove unused code related
+	  to unused_head).
+	  (buffer_empty,buffer_putc,buffer_putstr) Aesthetic change (make more
+	  compact).
+	  (buffer_reset) Use macro BUFFER_DATA_FREE.  No need to set
+	  alloc and length to 0 (these fields have been removed).
+	  (buffer_add) Fix scope to be static.  Call XMALLOC directly instead
+	  of calling removed buffer_data_new function.  Simplify the logic
+	  (since it's now a singly-linked list instead of doubly-linked).
+	  (buffer_write) Renamed to buffer_put.  Change to void, since return
+	  code of 1 was meaningless.  No need to adjust length field, since
+	  it has been removed.
+	  (buffer_putw,buffer_flush,buffer_flush_vty_all,buffer_flush_vty)
+	  Remove unused functions.
+	  (buffer_flush_all) Rewrite using buffer_flush_available to eliminate
+	  a possible failure mode if IOV_MAX is less than the number of buffers
+	  on the queue.
+	  (buffer_flush_window) Incorporate logic from buffer_flush_vty.
+	  Log an error message if there is a writev error.
+	  (buffer_flush_available) Be more paranoid: check for case where
+	  buffer is already empty.  Use new ERRNO_IO_RETRY macro, and use
+	  new enum for return codes.  Simplify deletion logic (since it's
+	  now a singly-linked list).
+	  (buffer_write) New function for use with non-blocking I/O.
+	* vty.h: Replace the struct vty sb_buffer field with a fixed-size
+	  (5-character) sb_buf field and an sb_len field, since using
+	  a struct buffer was inappropriate for this task.  Add some useful
+	  comments about telnet window size negotiation.
+	* vty.c: Include <arpa/telnet.h> (no longer included by zebra.h).
+	  Remove VTY_OBUF_SIZE (instead use buffer_new default size).
+	  Make telnet_backward_char and telnet_space_char static const.
+	  (vty_out) Replace buffer_write with buffer_put.
+	  (vty_log_out) Check for I/O errors.  If fatal, close the vty session.
+	  Consolidate 3 separate writes into a single write call.
+	  (vty_will_echo,vty_command,vty_next_line,vty_previous_line,
+	  vty_end_config,vty_describe_fold,vty_clear_buf,vty_serv_sock_addrinfo,
+	  vty_serv_sock_family,vty_serv_un,vty_use_backup_config,exec_timeout,
+	  vty_config_write,vty_save_cwd) Fix scope to static.
+	  (vty_new) Let buffer_new use its default buffer size.
+	  (vty_write) Fix signature: 2nd arg should be const char *.
+	  Replaced buffer_write with buffer_put.
+	  (vty_telnet_option) Fix minor bug (window height or width greater than
+	  255 was broken).  Use sb_buf and sb_len instead of removed sb_buffer
+	  (which was being used improperly).
+	  (vty_read) On error, use ERRNO_IO_RETRY to decide whether it's fatal.
+	  If the error is fatal, call buffer_reset so vty_close does not attempt
+	  to flush the data.  Use new sb_buf and sb_len instead of sb_buffer
+	  to store the SB negotiation string.
+	  (vty_flush) When vty->lines is 0, call buffer_flush_available instead
+	  of buffer_flush_window.  Look at the return code from buffer_flush
+	  to detect I/O errors (and in that case, log an error message and
+	  close the vty).
+	  (vty_create) Fix scope to static.  Initialize sb_len to 0 instead
+	  of creating sb_buffer.
+	  (vty_accept) Set socket nonblocking.
+	  (vtysh_accept) Use new set_nonblocking function instead of calling
+	  fcntl directly.
+	  (vtysh_flush) New function called from vtysh_read (after command
+	  execution) and from vtysh_write.  This flushes the buffer
+	  and reacts appropriately to the return code (by closing the vty
+	  or scheduling further flushes).
+	  (vtysh_read) Check whether error is fatal using ERRNO_IO_RETRY.
+	  If not, just try again later.  Otherwise, call buffer_reset before
+	  calling vty_close (to avoid trying to flush the buffer in vty_close).
+	  Fix logic to allow case where a command does not arrive atomically
+	  in a single read call by checking for the terminating NUL char.
+	  (vtysh_write) Use new vtysh_flush helper function.
+	  (vty_close) No need to call buffer_empty, just call buffer_flush_all
+	  in any case (it will check whether the buffer is empty).
+	  Do not free sb_buffer (since it has been removed).
+	  (vty_log_fixed) Use writev instead of write.
+	* zebra.h: Do not include <arpa/telnet.h>, since this is used only
+	  by lib/vty.c.
+
 2005-02-21 Vincenzo Eramo <eramo at infocom.ing.uniroma1.it>
 
 	* pqueue.[ch]: Introduce "update" function to meet ospf spf needs. It

@@ -25,24 +25,45 @@
 #include "memory.h"
 #include "buffer.h"
 #include "log.h"
+#include "network.h"
 #include <stddef.h>
 
-/* Make buffer data. */
-static struct buffer_data *
-buffer_data_new (size_t size)
-{
-  struct buffer_data *d;
 
-  d = XMALLOC (MTYPE_BUFFER_DATA, offsetof(struct buffer_data,data[size]));
-  d->cp = d->sp = 0;
-  return d;
-}
 
-static void
-buffer_data_free (struct buffer_data *d)
+/* Buffer master. */
+struct buffer
 {
-  XFREE (MTYPE_BUFFER_DATA, d);
-}
+  /* Data list. */
+  struct buffer_data *head;
+  struct buffer_data *tail;
+  
+  /* Size of each buffer_data chunk. */
+  size_t size;
+};
+
+/* Data container. */
+struct buffer_data
+{
+  struct buffer_data *next;
+
+  /* Location to add new data. */
+  size_t cp;
+
+  /* Pointer to data not yet flushed. */
+  size_t sp;
+
+  /* Actual data stream (variable length). */
+  unsigned char data[0];  /* real dimension is buffer->size */
+};
+
+/* It should always be true that: 0 <= sp <= cp <= size */
+
+/* Default buffer size (used if none specified).  It is rounded up to the
+   next page boundery. */
+#define BUFFER_SIZE_DEFAULT		4096
+
+
+#define BUFFER_DATA_FREE(D) XFREE(MTYPE_BUFFER_DATA, (D))
 
 /* Make new buffer. */
 struct buffer *
@@ -50,10 +71,20 @@ buffer_new (size_t size)
 {
   struct buffer *b;
 
-  b = XMALLOC (MTYPE_BUFFER, sizeof (struct buffer));
-  memset (b, 0, sizeof (struct buffer));
+  b = XCALLOC (MTYPE_BUFFER, sizeof (struct buffer));
 
-  b->size = size;
+  if (size)
+    b->size = size;
+  else
+    {
+      static size_t default_size;
+      if (!default_size)
+        {
+	  long pgsz = sysconf(_SC_PAGESIZE);
+	  default_size = ((((BUFFER_SIZE_DEFAULT-1)/pgsz)+1)*pgsz);
+	}
+      b->size = default_size;
+    }
 
   return b;
 }
@@ -62,25 +93,7 @@ buffer_new (size_t size)
 void
 buffer_free (struct buffer *b)
 {
-  struct buffer_data *d;
-  struct buffer_data *next;
-
-  d = b->head;
-  while (d)
-    {
-      next = d->next;
-      buffer_data_free (d);
-      d = next;
-    }
-
-  d = b->unused_head;
-  while (d)
-    {
-      next = d->next;
-      buffer_data_free (d);
-      d = next;
-    }
-  
+  buffer_reset(b);
   XFREE (MTYPE_BUFFER, b);
 }
 
@@ -111,10 +124,7 @@ buffer_getstr (struct buffer *b)
 int
 buffer_empty (struct buffer *b)
 {
-  if (b->tail == NULL || b->tail->cp == b->tail->sp)
-    return 1;
-  else
-    return 0;
+  return (b->head == NULL);
 }
 
 /* Clear and free all allocated data. */
@@ -127,48 +137,36 @@ buffer_reset (struct buffer *b)
   for (data = b->head; data; data = next)
     {
       next = data->next;
-      buffer_data_free (data);
+      BUFFER_DATA_FREE(data);
     }
   b->head = b->tail = NULL;
-  b->alloc = 0;
-  b->length = 0;
 }
 
 /* Add buffer_data to the end of buffer. */
-void
+static struct buffer_data *
 buffer_add (struct buffer *b)
 {
   struct buffer_data *d;
 
-  d = buffer_data_new (b->size);
+  d = XMALLOC(MTYPE_BUFFER_DATA, offsetof(struct buffer_data, data[b->size]));
+  d->cp = d->sp = 0;
+  d->next = NULL;
 
-  if (b->tail == NULL)
-    {
-      d->prev = NULL;
-      d->next = NULL;
-      b->head = d;
-      b->tail = d;
-    }
+  if (b->tail)
+    b->tail->next = d;
   else
-    {
-      d->prev = b->tail;
-      d->next = NULL;
+    b->head = d;
+  b->tail = d;
 
-      b->tail->next = d;
-      b->tail = d;
-    }
-
-  b->alloc++;
+  return d;
 }
 
 /* Write data to buffer. */
-int
-buffer_write (struct buffer *b, const void *p, size_t size)
+void
+buffer_put(struct buffer *b, const void *p, size_t size)
 {
-  struct buffer_data *data;
+  struct buffer_data *data = b->tail;
   const char *ptr = p;
-  data = b->tail;
-  b->length += size;
 
   /* We use even last one byte of data buffer. */
   while (size)    
@@ -177,10 +175,7 @@ buffer_write (struct buffer *b, const void *p, size_t size)
 
       /* If there is no data buffer add it. */
       if (data == NULL || data->cp == b->size)
-	{
-	  buffer_add (b);
-	  data = b->tail;
-	}
+	data = buffer_add (b);
 
       chunk = ((size <= (b->size - data->cp)) ? size : (b->size - data->cp));
       memcpy ((data->data + data->cp), ptr, chunk);
@@ -188,127 +183,54 @@ buffer_write (struct buffer *b, const void *p, size_t size)
       ptr += chunk;
       data->cp += chunk;
     }
-  return 1;
 }
 
 /* Insert character into the buffer. */
-int
+void
 buffer_putc (struct buffer *b, u_char c)
 {
-  buffer_write (b, &c, 1);
-  return 1;
-}
-
-/* Insert word (2 octets) into ther buffer. */
-int
-buffer_putw (struct buffer *b, u_short c)
-{
-  buffer_write (b, (char *)&c, 2);
-  return 1;
+  buffer_put(b, &c, 1);
 }
 
 /* Put string to the buffer. */
-int
+void
 buffer_putstr (struct buffer *b, const char *c)
 {
-  size_t size;
-
-  size = strlen (c);
-  buffer_write (b, (void *) c, size);
-  return 1;
+  buffer_put(b, c, strlen(c));
 }
 
-/* Flush specified size to the fd. */
-void
-buffer_flush (struct buffer *b, int fd, size_t size)
-{
-  int iov_index;
-  struct iovec *iovec;
-  struct buffer_data *data;
-  struct buffer_data *out;
-  struct buffer_data *next;
-
-  iovec = malloc (sizeof (struct iovec) * b->alloc);
-  iov_index = 0;
-
-  for (data = b->head; data; data = data->next)
-    {
-      iovec[iov_index].iov_base = (char *)(data->data + data->sp);
-
-      if (size <= (data->cp - data->sp))
-	{
-	  iovec[iov_index++].iov_len = size;
-	  data->sp += size;
-	  b->length -= size;
-	  if (data->sp == data->cp)
-	    data = data->next;
-	  break;
-	}
-      else
-	{
-	  iovec[iov_index++].iov_len = data->cp - data->sp;
-	  b->length -= (data->cp - data->sp);
-	  size -= data->cp - data->sp;
-	  data->sp = data->cp;
-	}
-    }
-
-  /* Write buffer to the fd. */
-  writev (fd, iovec, iov_index);
-
-  /* Free printed buffer data. */
-  for (out = b->head; out && out != data; out = next)
-    {
-      next = out->next;
-      if (next)
-	next->prev = NULL;
-      else
-	b->tail = next;
-      b->head = next;
-
-      buffer_data_free (out);
-      b->alloc--;
-    }
-
-  free (iovec);
-}
-
-/* Flush all buffer to the fd. */
-int
+/* Keep flushing data to the fd until the buffer is empty or an error is
+   encountered or the operation would block. */
+buffer_status_t
 buffer_flush_all (struct buffer *b, int fd)
 {
-  int ret;
-  struct buffer_data *d;
-  int iov_index;
-  struct iovec *iovec;
+  buffer_status_t ret;
+  struct buffer_data *head;
+  size_t head_sp;
 
-  if (buffer_empty (b))
-    return 0;
-
-  iovec = malloc (sizeof (struct iovec) * b->alloc);
-  iov_index = 0;
-
-  for (d = b->head; d; d = d->next)
+  if (!b->head)
+    return BUFFER_EMPTY;
+  head_sp = (head = b->head)->sp;
+  /* Flush all data. */
+  while ((ret = buffer_flush_available(b, fd)) == BUFFER_PENDING)
     {
-      iovec[iov_index].iov_base = (char *)(d->data + d->sp);
-      iovec[iov_index].iov_len = d->cp - d->sp;
-      iov_index++;
+      if ((b->head == head) && (head_sp == head->sp) && (errno != EINTR))
+        /* No data was flushed, so kernel buffer must be full. */
+	return ret;
+      head_sp = (head = b->head)->sp;
     }
-  ret = writev (fd, iovec, iov_index);
-
-  free (iovec);
-
-  buffer_reset (b);
 
   return ret;
 }
 
-/* Flush all buffer to the fd. */
-int
-buffer_flush_vty_all (struct buffer *b, int fd, int erase_flag,
-		      int no_more_flag)
+/* Flush enough data to fill a terminal window of the given scene (used only
+   by vty telnet interface). */
+buffer_status_t
+buffer_flush_window (struct buffer *b, int fd, int width, int height, 
+		     int erase_flag, int no_more_flag)
 {
   int nbytes;
+  int iov_alloc;
   int iov_index;
   struct iovec *iov;
   struct iovec small_iov[3];
@@ -317,16 +239,37 @@ buffer_flush_vty_all (struct buffer *b, int fd, int erase_flag,
 		   ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
 		   0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08};
   struct buffer_data *data;
-  struct buffer_data *out;
-  struct buffer_data *next;
+  int column;
+
+  if (!b->head)
+    return BUFFER_EMPTY;
+
+  if (height < 1)
+    {
+      zlog_warn("%s called with non-positive window height %d, forcing to 1",
+      		__func__, height);
+      height = 1;
+    }
+  else if (height >= 2)
+    height--;
+  if (width < 1)
+    {
+      zlog_warn("%s called with non-positive window width %d, forcing to 1",
+      		__func__, width);
+      width = 1;
+    }
 
   /* For erase and more data add two to b's buffer_data count.*/
-  if (b->alloc == 1)
-    iov = small_iov;
+  if (b->head->next == NULL)
+    {
+      iov_alloc = sizeof(small_iov)/sizeof(small_iov[0]);
+      iov = small_iov;
+    }
   else
-    iov = XCALLOC (MTYPE_TMP, sizeof (struct iovec) * (b->alloc + 2));
-
-  data = b->head;
+    {
+      iov_alloc = ((height*(width+2))/b->size)+10;
+      iov = XMALLOC(MTYPE_TMP, iov_alloc*sizeof(*iov));
+    }
   iov_index = 0;
 
   /* Previously print out is performed. */
@@ -338,250 +281,115 @@ buffer_flush_vty_all (struct buffer *b, int fd, int erase_flag,
     }
 
   /* Output data. */
-  for (data = b->head; data; data = data->next)
+  column = 1;  /* Column position of next character displayed. */
+  for (data = b->head; data && (height > 0); data = data->next)
     {
+      size_t cp;
+
+      cp = data->sp;
+      while ((cp < data->cp) && (height > 0))
+        {
+	  /* Calculate lines remaining and column position after displaying
+	     this character. */
+	  if (data->data[cp] == '\r')
+	    column = 1;
+	  else if ((data->data[cp] == '\n') || (column == width))
+	    {
+	      column = 1;
+	      height--;
+	    }
+	  else
+	    column++;
+	  cp++;
+        }
       iov[iov_index].iov_base = (char *)(data->data + data->sp);
-      iov[iov_index].iov_len = data->cp - data->sp;
-      iov_index++;
+      iov[iov_index++].iov_len = cp-data->sp;
+      data->sp = cp;
+
+      if (iov_index == iov_alloc)
+	/* This should not ordinarily happen. */
+        {
+	  iov_alloc *= 2;
+	  if (iov != small_iov)
+	    {
+	      zlog_warn("%s: growing iov array to %d; "
+			"width %d, height %d, size %lu",
+			__func__, iov_alloc, width, height, (u_long)b->size);
+	      iov = XREALLOC(MTYPE_TMP, iov, iov_alloc*sizeof(*iov));
+	    }
+	  else
+	    {
+	      /* This should absolutely never occur. */
+	      zlog_err("%s: corruption detected: iov_small overflowed; "
+		       "head %p, tail %p, head->next %p",
+		       __func__, b->head, b->tail, b->head->next);
+	      iov = XMALLOC(MTYPE_TMP, iov_alloc*sizeof(*iov));
+	      memcpy(iov, small_iov, sizeof(small_iov));
+	    }
+	}
     }
 
   /* In case of `more' display need. */
-  if (! buffer_empty (b) && !no_more_flag)
+  if (b->tail && (b->tail->sp < b->tail->cp) && !no_more_flag)
     {
       iov[iov_index].iov_base = more;
       iov[iov_index].iov_len = sizeof more;
       iov_index++;
     }
 
-  /* We use write or writev*/
-  nbytes = writev (fd, iov, iov_index);
-
-  /* Error treatment. */
-  if (nbytes < 0)
-    {
-      if (errno == EINTR)
-	;
-      if (errno == EWOULDBLOCK)
-	;
-    }
-
-  /* Free printed buffer data. */
-  for (out = b->head; out && out != data; out = next)
-    {
-      next = out->next;
-      if (next)
-	next->prev = NULL;
-      else
-	b->tail = next;
-      b->head = next;
-
-      b->length -= (out->cp-out->sp);
-      buffer_data_free (out);
-      b->alloc--;
-    }
-
-  if (iov != small_iov)
-    XFREE (MTYPE_TMP, iov);
-
-  return nbytes;
-}
-
-/* Flush buffer to the file descriptor.  Mainly used from vty
-   interface. */
-int
-buffer_flush_vty (struct buffer *b, int fd, unsigned int size, 
-		  int erase_flag, int no_more_flag)
-{
-  int nbytes;
-  int iov_index;
-  struct iovec *iov;
-  struct iovec small_iov[3];
-  char more[] = " --More-- ";
-  char erase[] = { 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
-		   ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-		   0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08};
-  struct buffer_data *data;
-  struct buffer_data *out;
-  struct buffer_data *next;
-
-#ifdef  IOV_MAX
-  int iov_size;
-  int total_size;
-  struct iovec *c_iov;
-  int c_nbytes;
-#endif /* IOV_MAX */
-
-  /* For erase and more data add two to b's buffer_data count.*/
-  if (b->alloc == 1)
-    iov = small_iov;
-  else
-    iov = XCALLOC (MTYPE_TMP, sizeof (struct iovec) * (b->alloc + 2));
-
-  data = b->head;
-  iov_index = 0;
-
-  /* Previously print out is performed. */
-  if (erase_flag)
-    {
-      iov[iov_index].iov_base = erase;
-      iov[iov_index].iov_len = sizeof erase;
-      iov_index++;
-    }
-
-  /* Output data. */
-  for (data = b->head; data; data = data->next)
-    {
-      iov[iov_index].iov_base = (char *)(data->data + data->sp);
-
-      if (size <= (data->cp - data->sp))
-	{
-	  iov[iov_index++].iov_len = size;
-	  data->sp += size;
-	  b->length -= size;
-	  if (data->sp == data->cp)
-	    data = data->next;
-	  break;
-	}
-      else
-	{
-	  iov[iov_index++].iov_len = data->cp - data->sp;
-	  size -= (data->cp - data->sp);
-	  b->length -= (data->cp - data->sp);
-	  data->sp = data->cp;
-	}
-    }
-
-  /* In case of `more' display need. */
-  if (!buffer_empty (b) && !no_more_flag)
-    {
-      iov[iov_index].iov_base = more;
-      iov[iov_index].iov_len = sizeof more;
-      iov_index++;
-    }
-
-  /* We use write or writev*/
 
 #ifdef IOV_MAX
   /* IOV_MAX are normally defined in <sys/uio.h> , Posix.1g.
      example: Solaris2.6 are defined IOV_MAX size at 16.     */
-  c_iov = iov;
-  total_size = iov_index;
-  nbytes = 0;
+  {
+    struct iovec *c_iov = iov;
+    nbytes = 0; /* Make sure it's initialized. */
 
-  while( total_size > 0 )
-    {
-       /* initialize write vector size at once */
-       iov_size = ( total_size > IOV_MAX ) ? IOV_MAX : total_size;
+    while (iov_index > 0)
+      {
+	 int iov_size;
 
-       c_nbytes = writev (fd, c_iov, iov_size );
+	 iov_size = ((iov_index > IOV_MAX) ? IOV_MAX : iov_index);
+	 if ((nbytes = writev(fd, c_iov, iov_size)) < 0)
+	   {
+	     zlog_warn("%s: writev to fd %d failed: %s",
+		       __func__, fd, safe_strerror(errno));
+	     break;
+	   }
 
-       if( c_nbytes < 0 )
-         {
-           if(errno == EINTR)
-             ;
-             ;
-           if(errno == EWOULDBLOCK)
-             ;
-             ;
-           nbytes = c_nbytes;
-           break;
-
-         }
-
-        nbytes += c_nbytes;
-
-       /* move pointer io-vector */
-       c_iov += iov_size;
-       total_size -= iov_size;
-    }
+	 /* move pointer io-vector */
+	 c_iov += iov_size;
+	 iov_index -= iov_size;
+      }
+  }
 #else  /* IOV_MAX */
-   nbytes = writev (fd, iov, iov_index);
-
-  /* Error treatment. */
-  if (nbytes < 0)
-    {
-      if (errno == EINTR)
-	;
-      if (errno == EWOULDBLOCK)
-	;
-    }
+   if ((nbytes = writev (fd, iov, iov_index)) < 0)
+     zlog_warn("%s: writev to fd %d failed: %s",
+	       __func__, fd, safe_strerror(errno));
 #endif /* IOV_MAX */
 
   /* Free printed buffer data. */
-  for (out = b->head; out && out != data; out = next)
+  while (b->head && (b->head->sp == b->head->cp))
     {
-      next = out->next;
-      if (next)
-	next->prev = NULL;
-      else
-	b->tail = next;
-      b->head = next;
-
-      buffer_data_free (out);
-      b->alloc--;
+      struct buffer_data *del;
+      if (!(b->head = (del = b->head)->next))
+        b->tail = NULL;
+      BUFFER_DATA_FREE(del);
     }
 
   if (iov != small_iov)
     XFREE (MTYPE_TMP, iov);
 
-  return nbytes;
-}
-
-/* Calculate size of outputs then flush buffer to the file
-   descriptor. */
-int
-buffer_flush_window (struct buffer *b, int fd, int width, int height, 
-		     int erase, int no_more)
-{
-  unsigned long cp;
-  unsigned long size;
-  int lp;
-  int lineno;
-  struct buffer_data *data;
-
-  if (height >= 2)
-    height--;
-
-  /* We have to calculate how many bytes should be written. */
-  lp = 0;
-  lineno = 0;
-  size = 0;
-  
-  for (data = b->head; data; data = data->next)
-    {
-      cp = data->sp;
-
-      while (cp < data->cp)
-	{
-	  if (data->data[cp] == '\n' || lp == width)
-	    {
-	      lineno++;
-	      if (lineno == height)
-		{
-		  cp++;
-		  size++;
-		  goto flush;
-		}
-	      lp = 0;
-	    }
-	  cp++;
-	  lp++;
-	  size++;
-	}
-    }
-
-  /* Write data to the file descriptor. */
- flush:
-
-  return buffer_flush_vty (b, fd, size, erase, no_more);
+  return (nbytes < 0) ? BUFFER_ERROR :
+  			(b->head ? BUFFER_PENDING : BUFFER_EMPTY);
 }
 
 /* This function (unlike other buffer_flush* functions above) is designed
 to work with non-blocking sockets.  It does not attempt to write out
 all of the queued data, just a "big" chunk.  It returns 0 if it was
-able to empty out the buffers completely, or 1 if more flushing is
-required later. */
-int
+able to empty out the buffers completely, 1 if more flushing is
+required later, or -1 on a fatal write error. */
+buffer_status_t
 buffer_flush_available(struct buffer *b, int fd)
 {
 
@@ -596,7 +404,6 @@ in one shot. */
 #define MAX_FLUSH 131072
 
   struct buffer_data *d;
-  struct buffer_data *next;
   size_t written;
   struct iovec iov[MAX_CHUNKS];
   size_t iovcnt = 0;
@@ -609,40 +416,76 @@ in one shot. */
       nbyte += (iov[iovcnt].iov_len = d->cp-d->sp);
     }
 
+  if (!nbyte)
+    /* No data to flush: should we issue a warning message? */
+    return BUFFER_EMPTY;
+
   /* only place where written should be sign compared */
   if ((ssize_t)(written = writev(fd,iov,iovcnt)) < 0)
     {
-      if ((errno != EAGAIN) && (errno != EINTR))
-        zlog_warn("buffer_flush_available write error on fd %d: %s",
-		  fd,safe_strerror(errno));
-      return 1;
+      if (ERRNO_IO_RETRY(errno))
+	/* Calling code should try again later. */
+        return BUFFER_PENDING;
+      zlog_warn("%s: write error on fd %d: %s",
+		__func__, fd, safe_strerror(errno));
+      return BUFFER_ERROR;
     }
 
   /* Free printed buffer data. */
-  for (d = b->head; (written > 0) && d; d = next)
+  while (written > 0)
     {
+      struct buffer_data *d;
+      if (!(d = b->head))
+        {
+          zlog_err("%s: corruption detected: buffer queue empty, "
+		   "but written is %lu", __func__, (u_long)written);
+	  break;
+        }
       if (written < d->cp-d->sp)
         {
 	  d->sp += written;
-	  b->length -= written;
-	  return 1;
+	  return BUFFER_PENDING;
 	}
 
       written -= (d->cp-d->sp);
-      next = d->next;
-      if (next)
-	next->prev = NULL;
-      else
-	b->tail = next;
-      b->head = next;
-
-      b->length -= (d->cp-d->sp);
-      buffer_data_free (d);
-      b->alloc--;
+      if (!(b->head = d->next))
+        b->tail = NULL;
+      BUFFER_DATA_FREE(d);
     }
 
-  return (b->head != NULL);
+  return b->head ? BUFFER_PENDING : BUFFER_EMPTY;
 
 #undef MAX_CHUNKS
 #undef MAX_FLUSH
+}
+
+buffer_status_t
+buffer_write(struct buffer *b, int fd, const void *p, size_t size)
+{
+  ssize_t nbytes;
+
+  /* Attempt to drain the previously buffered data? */
+  if (b->head && (buffer_flush_available(b, fd) == BUFFER_ERROR))
+    return BUFFER_ERROR;
+  if (b->head)
+    /* Buffer still not empty. */
+    nbytes = 0;
+  else if ((nbytes = write(fd, p, size)) < 0)
+    {
+      if (ERRNO_IO_RETRY(errno))
+        nbytes = 0;
+      else
+        {
+	  zlog_warn("%s: write error on fd %d: %s",
+		    __func__, fd, safe_strerror(errno));
+	  return BUFFER_ERROR;
+	}
+    }
+  /* Add any remaining data to the buffer. */
+  {
+    size_t written = nbytes;
+    if (written < size)
+      buffer_put(b, ((const char *)p)+written, size-written);
+  }
+  return b->head ? BUFFER_PENDING : BUFFER_EMPTY;
 }

@@ -161,7 +161,6 @@ typedef int socklen_t;
 #endif /* HAVE_NETDB_H */
 
 #include <arpa/inet.h>
-#include <arpa/telnet.h>
 
 #ifdef HAVE_INET_ND_H
 #include <inet/nd.h>

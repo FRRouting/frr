@@ -81,12 +81,21 @@ struct vty
   /* Current vty status. */
   enum {VTY_NORMAL, VTY_CLOSE, VTY_MORE, VTY_MORELINE} status;
 
-  /* IAC handling */
+  /* IAC handling: was the last character received the
+     IAC (interpret-as-command) escape character (and therefore the next
+     character will be the command code)?  Refer to Telnet RFC 854. */
   unsigned char iac;
 
-  /* IAC SB handling */
+  /* IAC SB (option subnegotiation) handling */
   unsigned char iac_sb_in_progress;
-  struct buffer *sb_buffer;
+  /* At the moment, we care only about the NAWS (window size) negotiation,
+     and that requires just a 5-character buffer (RFC 1073):
+       <NAWS char> <16-bit width> <16-bit height> */
+#define TELNET_NAWS_SB_LEN 5
+  unsigned char sb_buf[TELNET_NAWS_SB_LEN];
+  /* How many subnegotiation characters have we received?  We just drop
+     those that do not fit in the buffer. */
+  size_t sb_len;
 
   /* Window width/height. */
   int width;
