@@ -2,57 +2,114 @@
 @comment  node-name,  next,  previous,  up
 @chapter SNMP Support
 
-SNMP (Simple Network Managing Protocol) is widely implemented feature
-for collecting network information from router and/or host.  Quagga
-itself does not support SNMP agent functionality.  But conjuction with
-SNMP agent, Quagga provides routing protocol MIBs.
-
-Quagga uses SMUX protocol (RFC1227) for making communication with SNMP
-agent.  There are several SNMP agent which support SMUX.  We recommend
-to use the latest @command{ucd-snmp} software.  
+SNMP (Simple Network Managing Protocol) is a widely implemented feature for
+collecting network information from router and/or host. Quagga itself does not
+support SNMP agent (server daemon) functionality but is able to connect to a
+SNMP agent using the SMUX protocol (RFC1227) and make the routing protocol MIBs
+available through it.
 
 @menu
-* How to get ucd-snmp::         
-* SMUX configuration::          
+* Getting and installing an SNMP agent::
+* SMUX configuration::
+* MIB and command reference::
 @end menu
 
-@node How to get ucd-snmp, SMUX configuration, SNMP Support, SNMP Support
+
+
+@node Getting and installing an SNMP agent, SMUX configuration, SNMP Support, SNMP Support
 @comment  node-name,  next,  previous,  up
-@section How to get ucd-snmp
+@section Getting and installing an SNMP agent
 
-ucd-snmp is a free software which distributed so called "as is" software
-license.  Please check the license which comes with distribution of
-@command{ucd-snmp}.  The authors of ucd-snmp are the University of
-California, the University of California at Davis, and the Electrical
-Engineering department at the University of California at Davis.
+There are several SNMP agent which support SMUX. We recommend to use the latest
+version of @code{net-snmp} which was formerly known as @code{ucd-snmp}.
+It is free and open software and available at @url{http://www.net-snmp.org/}
+and as binary package for most Linux distributions.
+@code{net-snmp} has to be compiled with @code{--with-mib-modules=smux} to
+be able to accept connections from Quagga.
 
-You can get ucd-snmp from @url{ftp://ucd-snmp.ucdavis.edu/}.  As of this
-writing we are testing with @command{ucd-snmp-4.1.pre1.tar.gz}.
 
-To enable SMUX protocol support, please configure @command{ucd-snmp}
-like below.
 
-@example
-% configure --with-mib-modules=smux
-@end example
-
-After compile and install @command{ucd-snmp}, you will need to configure
-smuxpeer.  I'm now using configuration shown below.  This means SMUX client
-connects to MIB 1.3.6.1.6.3.1 with password test.
-  
-@example
-/usr/local/share/snmp/snmpd.conf
-================================
-smuxpeer 1.3.6.1.6.3.1 test
-@end example
-
-@node SMUX configuration,  , How to get ucd-snmp, SNMP Support
+@node SMUX configuration, MIB and command reference, Getting and installing an SNMP agent, SNMP Support
 @comment  node-name,  next,  previous,  up
 @section SMUX configuration
 
-To enable SNMP support of Quagga, you have to configure Quagga with
-@command{--enable-snmp} (@pxref{Configure the Software}).
+To enable SMUX protocol support, Quagga must have been build with the
+@code{--enable-snmp} option.
 
+A separate connection has then to be established between between the SNMP agent
+(snmpd) and each of the Quagga daemons. This connections each use different OID
+numbers and passwords. Be aware that this OID number is not the one that is
+used in queries by clients, it is solely used for the intercommunication of the
+daemons.
+
+In the following example the ospfd daemon will be connected to the snmpd daemon
+using the password "quagga_ospfd". For testing it is recommending to take
+exactly the below snmpd.conf as wrong access restrictions can be hard to debug.
+
+@example
+/etc/snmp/snmpd.conf:
+	#
+	# example access restrictions setup
+	#
+	com2sec readonly default public
+	group MyROGroup v1 readonly
+	view all included .1 80
+	access MyROGroup "" any noauth exact all none none
+	#
+	# the following line is relevant for Quagga
+	#
+	smuxpeer .1.3.6.1.4.1.3317.1.2.5 quagga_ospfd
+
+/etc/quagga/ospf:
+	! ... the rest of ospfd.conf has been omitted for clarity ...
+	!
+	smux peer .1.3.6.1.4.1.3317.1.2.5 quagga_ospfd
+	!
+@end example
+
+After restarting snmpd and quagga, a successful connection can be verified in
+the syslog and by querying the SNMP daemon:
+
+@example
+snmpd[12300]: [smux_accept] accepted fd 12 from 127.0.0.1:36255 
+snmpd[12300]: accepted smux peer: \
+	oid GNOME-PRODUCT-ZEBRA-MIB::ospfd, quagga-0.96.5
+
+# snmpwalk -c public -v1 localhost .1.3.6.1.2.1.14.1.1
+OSPF-MIB::ospfRouterId.0 = IpAddress: 192.168.42.109
+@end example
+
+Be warned that the current version (5.1.1) of the Net-SNMP daemon writes a line
+for every SNMP connect to the syslog which can lead to enormous log file sizes.
+If that is a problem you should consider to patch snmpd and comment out the
+troublesome @code{snmp_log()} line in the function
+@code{netsnmp_agent_check_packet()} in @code{agent/snmp_agent.c}.
+
+
+
+@node MIB and command reference, ,SMUX configuration, SNMP Support
+@comment  node-name,  next,  previous,  up
+@section MIB and command reference
+
+The following OID numbers are used for the interprocess communication of snmpd and
+the Quagga daemons. Sadly, SNMP has not been implemented in all daemons yet.
+@example
+            (OIDs below .iso.org.dod.internet.private.enterprises)
+zebra .1.3.6.1.4.1.3317.1.2.1 .gnome.gnomeProducts.zebra.zserv
+bgpd  .1.3.6.1.4.1.3317.1.2.2 .gnome.gnomeProducts.zebra.bgpd
+ripd  .1.3.6.1.4.1.3317.1.2.3 .gnome.gnomeProducts.zebra.ripd
+ospfd .1.3.6.1.4.1.3317.1.2.5 .gnome.gnomeProducts.zebra.ospfd
+@end example
+
+The following OID numbers are used for querying the SNMP daemon by a client:
+@example
+zebra .1,3,6,1,2,1,4,24  .iso.org.dot.internet.mgmt.mib-2.ip.ipForward
+ospfd .1.3.6.1.2.1.14    .iso.org.dot.internet.mgmt.mib-2.ospf
+bgpd  .1.3.6.1.2.1.15    .iso.org.dot.internet.mgmt.mib-2.bgp 
+ripd  .1.3.6.1.2.1.23    .iso.org.dot.internet.mgmt.mib-2.rip2 
+@end example
+
+The following syntax is understood by the Quagga daemons for configuring SNMP:
 @deffn {Command} {smux peer @var{oid}} {}
 @deffnx {Command} {no smux peer @var{oid}} {}
 @end deffn
@@ -60,9 +117,3 @@ To enable SNMP support of Quagga, you have to configure Quagga with
 @deffn {Command} {smux peer @var{oid} @var{password}} {}
 @deffnx {Command} {no smux peer @var{oid} @var{password}} {}
 @end deffn
-
-@example
-!
-smux peer .1.3.6.1.6.3.1 test
-!
-@end example
