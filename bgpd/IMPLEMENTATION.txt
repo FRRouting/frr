@@ -1,0 +1,161 @@
+$Id: IMPLEMENTATION.txt,v 1.1 2005/02/10 16:38:09 gdt Exp $
+
+This file contains notes about the internals of the BGP
+implementation.  The initial impetus is understanding the memory usage
+of Quagga'a BGP implementation.  There may be some inaccuracies; it is
+in the repository in the hopes that it will be significantly more
+helpful than not.
+
+* FILES
+
+bgp_advertise.[hc]:
+  data structures: advertised prefixes, attributes
+
+bgp_aspath.[hc]:
+  struct aspath:
+    These are stored in a hash, apparently in wire format.
+ 
+bgp_attr.[hc]:
+  struct attr: contains all attributes
+    size(ILP32) 26 words/104 bytes (poor packing, v6/multicast is 10)
+
+  bgp_attr_parse: origin, aspath, next hop probably most of interest
+  bgp_attr_origin: set flag bit
+  bgp_attr_aspath: put in refcounted hash table, so share pointer
+  bgp_attr_nexthop: store in attribute structure
+
+bgp_btoa.c: ? test program
+
+bgp_clist.[hc]:
+  data structures: community lists (including permit/deny state)
+
+bgp_community.[hc]:
+  data structures: community atttributes (multiple communities per struct)
+
+bgp_damp.[hc]:
+  per-route damping data, and damping control information
+
+bgp_debug.[hc]:
+  debugging support (vty config, dump of packets)
+
+bgp_dump.[hc]:
+  MRT-compatible dump format routines
+
+bgp_ecommunity.[hc]:
+  Extended communities attributes (multiple ecommmunities per struct)
+
+bgp_filter.[hc]:
+  AS path access list filtering
+
+bgp_fsm.[hc]:
+  Per-peer state machine for TCP connection, hold time, etc.
+
+bgp_main.c:
+  Daemon startup.
+
+bgp_mplsvpn.[hc]:
+  parsing of attribute structures for MPLS VPNs [need better description]
+
+bgp_network.[hc]:
+  Opening and binding of sockets, finding addresses for interfaces
+
+bgp_nexthop.[hc]:
+  data structures: Nexthop cache [not clear how used, if truly cache
+  in sense of memoization, or something else]
+
+  importing EGP routes into IGP (thread created)
+  "scanning" (thread created)
+  bgp_scan: has useful clues to data structure complexity.  Scanning
+  process iterates over database of received advertisements, and
+  builds 'cache' structure.
+ 
+bgp_open.[ch]:
+  Open messages, and capability negotiation
+
+bgp_packet.[hc]
+  sending and receiving of UPDATE/WITHDRAW
+  collision resolution for simultanteous opens
+  bgp_read: top-level read routine: reads whole packet (nonblocking)
+    and dispatches to per-message-type receive
+
+  bgp_update_receive:
+    calls bgp_attr_parse
+    reads nrli into struct bgp_nrli update
+
+    uninterning of aspath, community, ecommmunity, cluster,
+    transit which were interned in bgp_attr_parse
+
+bgp_regex.[ch]:
+  Glue to convert BGP regexps to standard (_ means many things).
+
+bgp_route.[hc]:
+  data structures: routes as received, static routes
+  Application of filters.  Lots of route processing.
+ 
+  bgp_nlri_parse:
+    sanity checks, then calls bgp_update with peer, prefix, attributes pointer
+
+  bgp_update: bgp_update_main, then RS processing
+
+  bgp_update_main:
+    find 'struct bgp_node *' for this afi/safi
+    look for route in table, then 'intern' attributes
+    ** interning is process of
+      looking for data in hash table, and putting there if missing, refcnt
+      using pointer to existing data
+    many validity checks
+    get new struct bgp_info (10 words/40 bytes)
+    call bgp_info_add with rn and bgp_info
+    call bgp_process
+
+bgp_routemap.c
+  implementation of route maps (match and set)
+
+bgp_snmp.c
+  SNMP glue.  Not particularly interesting except to add variables or
+  debug SNMP.
+
+bgp_table.[hc]
+  data structures: struct bgp_table, struct bgp_node
+  allocation/lookup/utility operations - not a lot of protocol processin
+
+bgp_vty.[hc]
+  protocol-wide vty hooks
+
+bgp_zebra.[hc]
+  Processing interface events from zebra, redistribution of routes.
+
+bgpd.h
+  struct bgp_master: daemon main data structure 
+  struct bgp: per-instance structure
+  struct peer_group
+  struct bgp_notify: (in-core representation of wire format?)
+  struct bgp_nexthop: (v4 and v6 addresses, *ifp)
+  struct bgp_rd: router distinguisher: 8 octects
+  struct bgp_filter: distribute, prefix, aslist, route_maps
+  struct peer: neighbor structure (very rich/complex)
+  struct bgp_nlri: reference to wire format
+  #define of protocol constants
+    attribute type codes
+  fsm states/events
+  timer values
+
+bgpd.c
+  instance/peer allocation
+  configuration
+  initialization/termination
+
+* DATA STRUCTURE SIZES
+
+Question: How much memory does quagga's bgpd use as a function of
+state received from peers?
+
+It seems that a struct bgp_info is kept for each prefix, and this has
+its own struct attr.  aspath, etc. are 'interned' and shared.
+So, it seems that 144 bytes are used per received prefix, plus storage
+for all unique aspaths received.
+
+* TIME COMPLEXITY
+
+It appears that received prefixes from each peer are stored in a
+linked list.
