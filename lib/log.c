@@ -366,7 +366,7 @@ zlog_reset_flag (struct zlog *zl, int flags)
 }
 
 int
-zlog_set_file (struct zlog *zl, int flags, char *filename)
+zlog_set_file (struct zlog *zl, int flags, const char *filename)
 {
   FILE *fp;
   mode_t oldumask;

@@ -239,6 +239,8 @@ struct memory_list memory_list_lib[] =
   { MTYPE_ROUTE_TABLE,        "Route table     " },
   { MTYPE_ROUTE_NODE,         "Route node      " },
   { MTYPE_RIB,                "RIB             " },
+  { MTYPE_DISTRIBUTE,         "Distribute list " },
+  { MTYPE_DISTRIBUTE_IFNAME,  "Dist-list ifname" },
   { MTYPE_NEXTHOP,            "Nexthop         " },
   { MTYPE_LINK_LIST,          "Link List       " },
   { MTYPE_LINK_NODE,          "Link Node       " },

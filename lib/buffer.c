@@ -149,10 +149,10 @@ buffer_add (struct buffer *b)
 
 /* Write data to buffer. */
 int
-buffer_write (struct buffer *b, void *ptr, size_t size)
+buffer_write (struct buffer *b, const void *p, size_t size)
 {
   struct buffer_data *data;
-
+  const char *ptr = p;
   data = b->tail;
   b->length += size;
 
@@ -205,7 +205,7 @@ buffer_putw (struct buffer *b, u_short c)
 
 /* Put string to the buffer. */
 int
-buffer_putstr (struct buffer *b, char *c)
+buffer_putstr (struct buffer *b, const char *c)
 {
   size_t size;
 

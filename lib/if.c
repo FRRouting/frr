@@ -123,7 +123,7 @@ if_new ()
 }
 
 struct interface *
-if_create (char *name, int namelen)
+if_create (const char *name, int namelen)
 {
   struct interface *ifp;
 
@@ -208,7 +208,7 @@ ifindex2ifname (unsigned int index)
 
 /* Interface existance check by interface name. */
 struct interface *
-if_lookup_by_name (char *name)
+if_lookup_by_name (const char *name)
 {
   struct listnode *node;
   struct interface *ifp;
@@ -320,7 +320,7 @@ if_lookup_address (struct in_addr src)
 /* Get interface by name if given name interface doesn't exist create
    one. */
 struct interface *
-if_get_by_name (char *name)
+if_get_by_name (const char *name)
 {
   struct interface *ifp;
 

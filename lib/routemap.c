@@ -57,9 +57,9 @@ struct route_map_list
   struct route_map *head;
   struct route_map *tail;
 
-  void (*add_hook) (char *);
-  void (*delete_hook) (char *);
-  void (*event_hook) (route_map_event_t, char *); 
+  void (*add_hook) (const char *);
+  void (*delete_hook) (const char *);
+  void (*event_hook) (route_map_event_t, const char *); 
 };
 
 /* Master list of route map. */
@@ -75,7 +75,7 @@ route_map_index_delete (struct route_map_index *, int);
 /* New route map allocation. Please note route map's name must be
    specified. */
 static struct route_map *
-route_map_new (char *name)
+route_map_new (const char *name)
 {
   struct route_map *new;
 
@@ -86,7 +86,7 @@ route_map_new (char *name)
 
 /* Add new name to route_map. */
 static struct route_map *
-route_map_add (char *name)
+route_map_add (const char *name)
 {
   struct route_map *map;
   struct route_map_list *list;
@@ -147,7 +147,7 @@ route_map_delete (struct route_map *map)
 
 /* Lookup route map by route map name string. */
 struct route_map *
-route_map_lookup_by_name (char *name)
+route_map_lookup_by_name (const char *name)
 {
   struct route_map *map;
 
@@ -160,7 +160,7 @@ route_map_lookup_by_name (char *name)
 /* Lookup route map.  If there isn't route map create one and return
    it. */
 struct route_map *
-route_map_get (char *name)
+route_map_get (const char *name)
 {
   struct route_map *map;
 
@@ -241,7 +241,7 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
 }
 
 int
-vty_show_route_map (struct vty *vty, char *name)
+vty_show_route_map (struct vty *vty, const char *name)
 {
   struct route_map *map;
 
@@ -852,19 +852,19 @@ route_map_apply (struct route_map *map, struct prefix *prefix,
 }
 
 void
-route_map_add_hook (void (*func) (char *))
+route_map_add_hook (void (*func) (const char *))
 {
   route_map_master.add_hook = func;
 }
 
 void
-route_map_delete_hook (void (*func) (char *))
+route_map_delete_hook (void (*func) (const char *))
 {
   route_map_master.delete_hook = func;
 }
 
 void
-route_map_event_hook (void (*func) (route_map_event_t, char *))
+route_map_event_hook (void (*func) (route_map_event_t, const char *))
 {
   route_map_master.event_hook = func;
 }

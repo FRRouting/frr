@@ -58,12 +58,13 @@ if_rmap_free (struct if_rmap *if_rmap)
 }
 
 struct if_rmap *
-if_rmap_lookup (char *ifname)
+if_rmap_lookup (const char *ifname)
 {
   struct if_rmap key;
   struct if_rmap *if_rmap;
 
-  key.ifname = ifname;
+  /* temporary copy */
+  key.ifname = (char *)ifname;
 
   if_rmap = hash_lookup (ifrmaphash, &key);
   
@@ -94,11 +95,12 @@ if_rmap_hash_alloc (struct if_rmap *arg)
 }
 
 struct if_rmap *
-if_rmap_get (char *ifname)
+if_rmap_get (const char *ifname)
 {
   struct if_rmap key;
 
-  key.ifname = ifname;
+  /* temporary copy */
+  key.ifname = (char *)ifname;
 
   return (struct if_rmap *) hash_get (ifrmaphash, &key, if_rmap_hash_alloc);
 }
@@ -124,7 +126,8 @@ if_rmap_hash_cmp (struct if_rmap *if_rmap1, struct if_rmap *if_rmap2)
 }
 
 struct if_rmap *
-if_rmap_set (char *ifname, enum if_rmap_type type, char *routemap_name)
+if_rmap_set (const char *ifname, enum if_rmap_type type, 
+             const char *routemap_name)
 {
   struct if_rmap *if_rmap;
 
@@ -150,7 +153,8 @@ if_rmap_set (char *ifname, enum if_rmap_type type, char *routemap_name)
 }
 
 int
-if_rmap_unset (char *ifname, enum if_rmap_type type, char *routemap_name)
+if_rmap_unset (const char *ifname, enum if_rmap_type type, 
+               const char *routemap_name)
 {
   struct if_rmap *if_rmap;
 

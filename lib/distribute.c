@@ -51,7 +51,7 @@ void
 distribute_free (struct distribute *dist)
 {
   if (dist->ifname)
-    free (dist->ifname);
+    XFREE (MTYPE_DISTRIBUTE_IFNAME, dist->ifname);
 
   if (dist->list[DISTRIBUTE_IN])
     free (dist->list[DISTRIBUTE_IN]);
@@ -68,12 +68,13 @@ distribute_free (struct distribute *dist)
 
 /* Lookup interface's distribute list. */
 struct distribute *
-distribute_lookup (char *ifname)
+distribute_lookup (const char *ifname)
 {
   struct distribute key;
   struct distribute *dist;
 
-  key.ifname = ifname;
+  /* temporary reference */
+  key.ifname = (char *)ifname;
 
   dist = hash_lookup (disthash, &key);
   
@@ -99,7 +100,7 @@ distribute_hash_alloc (struct distribute *arg)
 
   dist = distribute_new ();
   if (arg->ifname)
-    dist->ifname = strdup (arg->ifname);
+    dist->ifname = XSTRDUP (MTYPE_DISTRIBUTE_IFNAME, arg->ifname);
   else
     dist->ifname = NULL;
   return dist;
@@ -107,12 +108,13 @@ distribute_hash_alloc (struct distribute *arg)
 
 /* Make new distribute list and push into hash. */
 struct distribute *
-distribute_get (char *ifname)
+distribute_get (const char *ifname)
 {
   struct distribute key;
 
-  key.ifname = ifname;
-
+  /* temporary reference */
+  key.ifname = (char *)ifname;
+  
   return hash_get (disthash, &key, distribute_hash_alloc);
 }
 
@@ -144,7 +146,8 @@ distribute_cmp (struct distribute *dist1, struct distribute *dist2)
 
 /* Set access-list name to the distribute list. */
 struct distribute *
-distribute_list_set (char *ifname, enum distribute_type type, char *alist_name)
+distribute_list_set (const char *ifname, enum distribute_type type, 
+                     const char *alist_name)
 {
   struct distribute *dist;
 
@@ -172,8 +175,8 @@ distribute_list_set (char *ifname, enum distribute_type type, char *alist_name)
 /* Unset distribute-list.  If matched distribute-list exist then
    return 1. */
 int
-distribute_list_unset (char *ifname, enum distribute_type type, 
-		       char *alist_name)
+distribute_list_unset (const char *ifname, enum distribute_type type, 
+		       const char *alist_name)
 {
   struct distribute *dist;
 
@@ -221,8 +224,8 @@ distribute_list_unset (char *ifname, enum distribute_type type,
 
 /* Set access-list name to the distribute list. */
 struct distribute *
-distribute_list_prefix_set (char *ifname, enum distribute_type type,
-			    char *plist_name)
+distribute_list_prefix_set (const char *ifname, enum distribute_type type,
+			    const char *plist_name)
 {
   struct distribute *dist;
 
@@ -250,8 +253,8 @@ distribute_list_prefix_set (char *ifname, enum distribute_type type,
 /* Unset distribute-list.  If matched distribute-list exist then
    return 1. */
 int
-distribute_list_prefix_unset (char *ifname, enum distribute_type type,
-			      char *plist_name)
+distribute_list_prefix_unset (const char *ifname, enum distribute_type type,
+			      const char *plist_name)
 {
   struct distribute *dist;
 

@@ -47,7 +47,7 @@ void distribute_list_init (int);
 void distribute_list_reset (void);
 void distribute_list_add_hook (void (*) (struct distribute *));
 void distribute_list_delete_hook (void (*) (struct distribute *));
-struct distribute *distribute_lookup (char *);
+struct distribute *distribute_lookup (const char *);
 int config_write_distribute (struct vty *);
 int config_show_distribute (struct vty *);
 

@@ -432,7 +432,7 @@ to64(char *s, long v, int n)
     }
 }
 
-char *zencrypt (char *passwd)
+char *zencrypt (const char *passwd)
 {
   char salt[6];
   struct timeval tv;
@@ -1932,7 +1932,7 @@ cmd_execute_command_real (vector vline, struct vty *vty, struct cmd_element **cm
   struct cmd_element *matched_element;
   unsigned int matched_count, incomplete_count;
   int argc;
-  char *argv[CMD_ARGC_MAX];
+  const char *argv[CMD_ARGC_MAX];
   enum match_type match = 0;
   int varflag;
   char *command;
@@ -2111,7 +2111,7 @@ cmd_execute_command_strict (vector vline, struct vty *vty,
   struct cmd_element *matched_element;
   unsigned int matched_count, incomplete_count;
   int argc;
-  char *argv[CMD_ARGC_MAX];
+  const char *argv[CMD_ARGC_MAX];
   int varflag;
   enum match_type match = 0;
   char *command;
@@ -2983,21 +2983,37 @@ DEFUN (config_log_file,
        "Logging filename\n")
 {
   int ret;
-  char *cwd;
-  char *fullpath;
-
+  char *p = NULL;
+  const char *fullpath;
+  
   /* Path detection. */
   if (! IS_DIRECTORY_SEP (*argv[0]))
     {
-      cwd = getcwd (NULL, MAXPATHLEN);
-      fullpath = XMALLOC (MTYPE_TMP,
-			  strlen (cwd) + strlen (argv[0]) + 2);
-      sprintf (fullpath, "%s/%s", cwd, argv[0]);
+      char cwd[MAXPATHLEN+1];
+      cwd[MAXPATHLEN] = '\0';
+      
+      if (getcwd (cwd, MAXPATHLEN) == NULL)
+        {
+          zlog_err ("config_log_file: Unable to alloc mem!");
+          return CMD_WARNING;
+        }
+      
+      if ( (p = XMALLOC (MTYPE_TMP, strlen (cwd) + strlen (argv[0]) + 2))
+          == NULL)
+        {
+          zlog_err ("config_log_file: Unable to alloc mem!");
+          return CMD_WARNING;
+        }
+      sprintf (p, "%s/%s", cwd, argv[0]);
+      fullpath = p;
     }
   else
     fullpath = argv[0];
 
   ret = zlog_set_file (NULL, ZLOG_FILE, fullpath);
+
+  if (p)
+    XFREE (MTYPE_TMP, p);
 
   if (!ret)
     {

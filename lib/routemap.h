@@ -185,16 +185,16 @@ route_map_install_set (struct route_map_rule_cmd *cmd);
 
 /* Lookup route map by name. */
 struct route_map *
-route_map_lookup_by_name (char *name);
+route_map_lookup_by_name (const char *name);
 
 /* Apply route map to the object. */
 route_map_result_t
 route_map_apply (struct route_map *map, struct prefix *, 
 		 route_map_object_t object_type, void *object);
 
-void route_map_add_hook (void (*func) (char *));
-void route_map_delete_hook (void (*func) (char *));
-void route_map_event_hook (void (*func) (route_map_event_t, char *));
+void route_map_add_hook (void (*func) (const char *));
+void route_map_delete_hook (void (*func) (const char *));
+void route_map_event_hook (void (*func) (route_map_event_t, const char *));
 
 
 #endif /* _ZEBRA_ROUTEMAP_H */

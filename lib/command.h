@@ -129,7 +129,7 @@ struct cmd_node
 struct cmd_element 
 {
   const char *string;			/* Command specification by string. */
-  int (*func) (struct cmd_element *, struct vty *, int, char **);
+  int (*func) (struct cmd_element *, struct vty *, int, const char *[]);
   const char *doc;			/* Documentation of this command. */
   int daemon;                   /* Daemon to which this command belong. */
   vector strvec;		/* Pointing out each description vector. */
@@ -166,15 +166,15 @@ struct desc
 
 /* DEFUN for vty command interafce. Little bit hacky ;-). */
 #define DEFUN(funcname, cmdname, cmdstr, helpstr) \
-  int funcname (struct cmd_element *, struct vty *, int, char **); \
+  int funcname (struct cmd_element *, struct vty *, int, const char *[]); \
   struct cmd_element cmdname = \
   { \
-    cmdstr, \
-    funcname, \
-    helpstr \
+    .string = cmdstr, \
+    .func = funcname, \
+    .doc = helpstr \
   }; \
   int funcname \
-  (struct cmd_element *self, struct vty *vty, int argc, char **argv)
+  (struct cmd_element *self, struct vty *vty, int argc, const char *argv[])
 
 /* DEFUN_NOSH for commands that vtysh should ignore */
 #define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr) \
@@ -304,8 +304,8 @@ extern struct cmd_element config_exit_cmd;
 extern struct cmd_element config_quit_cmd;
 extern struct cmd_element config_help_cmd;
 extern struct cmd_element config_list_cmd;
-int config_exit (struct cmd_element *, struct vty *, int, char **);
-int config_help (struct cmd_element *, struct vty *, int, char **);
+int config_exit (struct cmd_element *, struct vty *, int, const char *[]);
+int config_help (struct cmd_element *, struct vty *, int, const char *[]);
 char *host_config_file ();
 void host_config_set (char *);
 

@@ -2422,7 +2422,7 @@ DEFUN (line_vty,
 
 /* Set time out value. */
 int
-exec_timeout (struct vty *vty, char *min_str, char *sec_str)
+exec_timeout (struct vty *vty, const char *min_str, const char *sec_str)
 {
   unsigned long timeout = 0;
 

@@ -569,7 +569,7 @@ filter_lookup_zebra (struct access_list *access, struct filter *mnew)
 }
 
 int
-vty_access_list_remark_unset (struct vty *vty, afi_t afi, char *name)
+vty_access_list_remark_unset (struct vty *vty, afi_t afi, const char *name)
 {
   struct access_list *access;
 
@@ -594,7 +594,7 @@ vty_access_list_remark_unset (struct vty *vty, afi_t afi, char *name)
 }
 
 int
-filter_set_cisco (struct vty *vty, char *name_str, char *type_str,
+filter_set_cisco (struct vty *vty, const char *name_str, const char *type_str,
 		  const char *addr_str, const char *addr_mask_str,
 		  const char *mask_str, const char *mask_mask_str,
 		  int extended, int set)
@@ -1596,7 +1596,7 @@ void config_write_access_cisco (struct vty *, struct filter *);
 
 /* show access-list command. */
 int
-filter_show (struct vty *vty, char *name, afi_t afi)
+filter_show (struct vty *vty, const char *name, afi_t afi)
 {
   struct access_list *access;
   struct access_master *master;

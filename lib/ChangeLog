@@ -1,7 +1,35 @@
-2004-10-05 Paul Jakma <paul@dishone.st>
+2004-10-10 Paul Jakma <paul@dishone.st>
 
 	* version.h.in: (pid_output*) add const qualifier.
-
+	* command.h: Change DEFUN func to take const char *[] rather
+          than char **, to begin process of fixing compile warnings in lib/.
+          Nearly all other changes in this commit follow from this change.
+        * buffer.{c,h}: (buffer_write) pointer-arithmetic is gccism, take
+          const void * and cast an automatic const char *p to it.
+          (buffer_putstr) add const
+        * command.c: (zencrypt) const qualifier
+          (cmd_execute_command_real) ditto
+          (cmd_execute_command_strict) ditto
+          (config_log_file) ditto. 
+          Fix leak of getcwd() returned string.
+        * memory.{c,h}: Add MTYPE_DISTRIBUTE_IFNAME for struct dist ifname.
+        * distribute.{c,h}: Update with const qualifier.
+          (distribute_free) use MTYPE_DISTRIBUTE_IFNAME
+          (distribute_lookup) Cast to char *, note that it's ok.
+          (distribute_hash_alloc) use MTYPE_DISTRIBUTE_IFNAME.
+          (distribute_get)  Cast to char *, note that it's ok.
+        * filter.c: Update with const qualifier.
+        * if.{c,h}: ditto.
+        * if_rmap.{c,h}: ditto.
+          (if_rmap_lookup) Cast to char *, note that it's ok.
+          (if_rmap_get) ditto.
+        * log.{c,h}: Update with const qualifier.
+        * plist.{c,h}: ditto.
+        * routemap.{c,h}: ditto.
+        * smux.{c,h}: ditto. Fix some signed/unsigned comparisons.
+        * sockopt.c: (getsockopt_cmsg_data) add return for error case.
+        * vty.c: Update with const qualifier.
+          
 2004-10-08 Hasso Tepper <hasso at quagga.net>
 
 	* routemap.c, routemap.h: Make some string arguments const.

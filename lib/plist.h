@@ -67,7 +67,7 @@ void prefix_list_reset (void);
 void prefix_list_add_hook (void (*func) (struct prefix_list *));
 void prefix_list_delete_hook (void (*func) (struct prefix_list *));
 
-struct prefix_list *prefix_list_lookup (afi_t, char *);
+struct prefix_list *prefix_list_lookup (afi_t, const char *);
 enum prefix_list_type prefix_list_apply (struct prefix_list *, void *);
 
 struct stream *

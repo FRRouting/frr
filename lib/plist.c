@@ -126,7 +126,7 @@ prefix_master_get (afi_t afi)
 
 /* Lookup prefix_list from list of prefix_list by name. */
 struct prefix_list *
-prefix_list_lookup (afi_t afi, char *name)
+prefix_list_lookup (afi_t afi, const char *name)
 {
   struct prefix_list *plist;
   struct prefix_master *master;
@@ -182,7 +182,7 @@ prefix_list_entry_free (struct prefix_list_entry *pentry)
 /* Insert new prefix list to list of prefix_list.  Each prefix_list
    is sorted by the name. */
 static struct prefix_list *
-prefix_list_insert (afi_t afi, char *name)
+prefix_list_insert (afi_t afi, const char *name)
 {
   unsigned int i;
   long number;
@@ -272,7 +272,7 @@ prefix_list_insert (afi_t afi, char *name)
 }
 
 static struct prefix_list *
-prefix_list_get (afi_t afi, char *name)
+prefix_list_get (afi_t afi, const char *name)
 {
   struct prefix_list *plist;
 
@@ -647,7 +647,7 @@ prefix_entry_dup_check (struct prefix_list *plist,
 }
 
 static int
-vty_invalid_prefix_range (struct vty *vty, char *prefix)
+vty_invalid_prefix_range (struct vty *vty, const char *prefix)
 {
   vty_out (vty, "%% Invalid prefix range for %s, make sure: len < ge-value <= le-value%s",
            prefix, VTY_NEWLINE);
@@ -655,9 +655,9 @@ vty_invalid_prefix_range (struct vty *vty, char *prefix)
 }
 
 static int
-vty_prefix_list_install (struct vty *vty, afi_t afi,
-			 char *name, char *seq, char *typestr,
-			 char *prefix, char *ge, char *le)
+vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name, 
+                         const char *seq, const char *typestr,
+			 const char *prefix, const char *ge, const char *le)
 {
   int ret;
   enum prefix_list_type type;
@@ -774,9 +774,9 @@ vty_prefix_list_install (struct vty *vty, afi_t afi,
 }
 
 static int
-vty_prefix_list_uninstall (struct vty *vty, afi_t afi,
-			   char *name, char *seq, char *typestr,
-			   char *prefix, char *ge, char *le)
+vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name, 
+                           const char *seq, const char *typestr,
+			   const char *prefix, const char *ge, const char *le)
 {
   int ret;
   enum prefix_list_type type;
@@ -878,7 +878,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi,
 }
 
 static int
-vty_prefix_list_desc_unset (struct vty *vty, afi_t afi, char *name)
+vty_prefix_list_desc_unset (struct vty *vty, afi_t afi, const char *name)
 {
   struct prefix_list *plist;
 
@@ -982,8 +982,8 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
 }
 
 static int
-vty_show_prefix_list (struct vty *vty, afi_t afi, char *name,
-		      char *seq, enum display_type dtype)
+vty_show_prefix_list (struct vty *vty, afi_t afi, const char *name,
+		      const char *seq, enum display_type dtype)
 {
   struct prefix_list *plist;
   struct prefix_master *master;
@@ -1026,8 +1026,8 @@ vty_show_prefix_list (struct vty *vty, afi_t afi, char *name,
 }
 
 static int
-vty_show_prefix_list_prefix (struct vty *vty, afi_t afi, char *name, 
-			     char *prefix, enum display_type type)
+vty_show_prefix_list_prefix (struct vty *vty, afi_t afi, const char *name, 
+			     const char *prefix, enum display_type type)
 {
   struct prefix_list *plist;
   struct prefix_list_entry *pentry;
@@ -1098,7 +1098,8 @@ vty_show_prefix_list_prefix (struct vty *vty, afi_t afi, char *name,
 }
 
 static int
-vty_clear_prefix_list (struct vty *vty, afi_t afi, char *name, char *prefix)
+vty_clear_prefix_list (struct vty *vty, afi_t afi, const char *name, 
+                       const char *prefix)
 {
   struct prefix_master *master;
   struct prefix_list *plist;

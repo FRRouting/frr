@@ -61,7 +61,7 @@ size_t smux_default_oid_len;
 
 /* SMUX password. */
 char *smux_passwd;
-char *smux_default_passwd = "";
+const char *smux_default_passwd = "";
 
 /* SMUX read threads. */
 struct thread *smux_read_thread;
@@ -160,9 +160,9 @@ oid_compare_part (oid *o1, int o1_len, oid *o2, int o2_len)
 }
 
 void
-smux_oid_dump (char *prefix, oid *oid, size_t oid_len)
+smux_oid_dump (const char *prefix, oid *oid, size_t oid_len)
 {
-  int i;
+  unsigned int i;
   int first = 1;
   char buf[MAX_OID_LEN * 3];
 
@@ -1004,7 +1004,7 @@ smux_trap (oid *name, size_t namelen,
 	   struct trap_object *trapobj, size_t trapobjlen,
 	   unsigned int tick, u_char sptrap)
 {
-  int i;
+  unsigned int i;
   u_char buf[BUFSIZ];
   u_char *ptr;
   int len, length;
@@ -1249,7 +1249,7 @@ smux_event (enum smux_event event, int sock)
 }
 
 int
-smux_str2oid (char *str, oid *oid, size_t *oid_len)
+smux_str2oid (const char *str, oid *oid, size_t *oid_len)
 {
   int len;
   int val;
@@ -1303,7 +1303,7 @@ smux_oid_dup (oid *objid, size_t objid_len)
 }
 
 int
-smux_peer_oid (struct vty *vty, char *oid_str, char *passwd_str)
+smux_peer_oid (struct vty *vty, const char *oid_str, const char *passwd_str)
 {
   int ret;
   oid oid[MAX_OID_LEN];
@@ -1319,6 +1319,7 @@ smux_peer_oid (struct vty *vty, char *oid_str, char *passwd_str)
   if (smux_oid && smux_oid != smux_default_oid)
     free (smux_oid);
 
+  /* careful, smux_passwd might point to string constant */
   if (smux_passwd && smux_passwd != smux_default_passwd)
     {
       free (smux_passwd);
@@ -1369,10 +1370,12 @@ smux_peer_default ()
       smux_oid = smux_default_oid;
       smux_oid_len = smux_default_oid_len;
     }
+  
+  /* careful, smux_passwd might be pointing at string constant */
   if (smux_passwd != smux_default_passwd)
     {
       free (smux_passwd);
-      smux_passwd = smux_default_passwd;
+      smux_passwd = (char *)smux_default_passwd;
     }
   return CMD_SUCCESS;
 }
@@ -1425,7 +1428,7 @@ int
 config_write_smux (struct vty *vty)
 {
   int first = 1;
-  int i;
+  unsigned int i;
 
   if (smux_oid != smux_default_oid || smux_passwd != smux_default_passwd)
     {
@@ -1482,7 +1485,9 @@ smux_init (struct thread_master *tm, oid defoid[], size_t defoid_len)
 
   smux_oid = smux_default_oid;
   smux_oid_len = smux_default_oid_len;
-  smux_passwd = smux_default_passwd;
+
+  /* be careful with smux_passwd, points to string constant by default */
+  smux_passwd = (char *)smux_default_passwd;
 
   /* copy callers thread master */
   master = tm;

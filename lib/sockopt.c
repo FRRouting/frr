@@ -46,6 +46,8 @@ getsockopt_cmsg_data (struct msghdr *msgh, int level, int type)
        cmsg = CMSG_NXTHDR(msgh, cmsg))
     if (cmsg->cmsg_level == level && cmsg->cmsg_type)
       return (ptr = CMSG_DATA(cmsg));
+
+  return NULL;
 }
 
 #ifdef HAVE_IPV6

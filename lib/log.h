@@ -112,7 +112,7 @@ void zlog_set_flag (struct zlog *zl, int flags);
 void zlog_reset_flag (struct zlog *zl, int flags);
 
 /* Set zlog filename. */
-int zlog_set_file (struct zlog *zl, int flags, char *filename);
+int zlog_set_file (struct zlog *zl, int flags, const char *filename);
 int zlog_reset_file (struct zlog *zl);
 
 /* Rotate log. */
