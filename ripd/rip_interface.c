@@ -137,28 +137,25 @@ rip_interface_new ()
 }
 
 void
-rip_interface_multicast_set (int sock, struct interface *ifp)
+rip_interface_multicast_set (int sock, struct connected *connected, 
+                             int if_pointopoint)
 {
   int ret;
-  listnode node;
   struct servent *sp;
   struct sockaddr_in from;
-
-  for (node = listhead (ifp->connected); node; nextnode (node))
-    {
-      struct prefix_ipv4 *p;
-      struct connected *connected;
       struct in_addr addr;
+  struct prefix_ipv4 *p;
 
-      connected = getdata (node);
+  if (if_pointopoint)
+    p = (struct prefix_ipv4 *) connected->destination;
+  else
       p = (struct prefix_ipv4 *) connected->address;
 
-      if (p->family == AF_INET)
-	{
 	  addr = p->prefix;
 
+
 	  if (setsockopt_multicast_ipv4 (sock, IP_MULTICAST_IF,
-					 addr, 0, ifp->ifindex) < 0) 
+				 addr, 0, 0) < 0) 
 	    {
 	      zlog_warn ("Can't setsockopt IP_MULTICAST_IF to fd %d", sock);
 	      return;
@@ -176,6 +173,7 @@ rip_interface_multicast_set (int sock, struct interface *ifp)
 
 	  /* Address shoud be any address. */
 	  from.sin_family = AF_INET;
+  addr = ((struct prefix_ipv4 *) connected->address)->prefix;
 	  from.sin_addr = addr;
 #ifdef HAVE_SIN_LEN
 	  from.sin_len = sizeof (struct sockaddr_in);
@@ -184,12 +182,11 @@ rip_interface_multicast_set (int sock, struct interface *ifp)
     if (ripd_privs.change (ZPRIVS_RAISE))
       zlog_err ("rip_interface_multicast_set: could not raise privs");
       
-	  ret = bind (sock, (struct sockaddr *) & from, 
-		      sizeof (struct sockaddr_in));
+  bind (sock, NULL, 0); /* unbind any previous association */
+  ret = bind (sock, (struct sockaddr *) & from, sizeof (struct sockaddr_in));
 	  if (ret < 0)
 	    {
 	      zlog_warn ("Can't bind socket: %s", strerror (errno));
-	      return;
 	    }
 
     if (ripd_privs.change (ZPRIVS_LOWER))
@@ -198,8 +195,6 @@ rip_interface_multicast_set (int sock, struct interface *ifp)
 	  return;
 
 	}
-    }
-}
 
 /* Send RIP request packet to specified interface. */
 void

@@ -60,7 +60,8 @@ long rip_global_queries = 0;
 void rip_event (enum rip_event, int);
 
 void rip_output_process (struct interface *, struct prefix *,
-			 struct sockaddr_in *, int, u_char);
+			 struct sockaddr_in *, int, u_char, 
+                         struct prefix_ipv4 *);
 
 /* RIP output routes type. */
 enum
@@ -1238,7 +1239,6 @@ rip_send_packet (caddr_t buf, int size, struct sockaddr_in *to,
 {
   int ret;
   struct sockaddr_in sin;
-  int sock;
 
   /* Make destination address. */
   memset (&sin, 0, sizeof (struct sockaddr_in));
@@ -1250,38 +1250,28 @@ rip_send_packet (caddr_t buf, int size, struct sockaddr_in *to,
   /* When destination is specified, use it's port and address. */
   if (to)
     {
-      sock = rip->sock;
-
       sin.sin_port = to->sin_port;
       sin.sin_addr = to->sin_addr;
     }
   else
     {
-      sock = socket (AF_INET, SOCK_DGRAM, 0);
-      
-      sockopt_broadcast (sock);
-      sockopt_reuseaddr (sock);
-      sockopt_reuseport (sock);
 
       sin.sin_port = htons (RIP_PORT_DEFAULT);
       sin.sin_addr.s_addr = htonl (INADDR_RIP_GROUP);
 
-      /* Set multicast interface. */
-      rip_interface_multicast_set (sock, ifp);
+      /* caller has set multicast interface */
+
     }
 
-  ret = sendto (sock, buf, size, 0, (struct sockaddr *)&sin,
+  ret = sendto (rip->sock, buf, size, 0, (struct sockaddr *)&sin,
 		sizeof (struct sockaddr_in));
 
   if (IS_RIP_DEBUG_EVENT)
-      zlog_info ("SEND to socket %d port %d addr %s",
-                 sock, ntohs (sin.sin_port), inet_ntoa(sin.sin_addr));
+      zlog_info ("SEND to  %s.%d", inet_ntoa(sin.sin_addr), 
+                  ntohs (sin.sin_port));
 
   if (ret < 0)
     zlog_warn ("can't send packet : %s", strerror (errno));
-
-  if (! to)
-    close (sock);
 
   return ret;
 }
@@ -1454,8 +1444,19 @@ rip_request_process (struct rip_packet *packet, int size,
       ntohs (rte->family) == 0 &&
       ntohl (rte->metric) == RIP_METRIC_INFINITY)
     {	
+      struct prefix_ipv4 saddr;
+
+      /* saddr will be used for determining which routes to split-horizon.
+         Since the source address we'll pick will be on the same subnet as the
+         destination, for the purpose of split-horizoning, we'll
+         pretend that "from" is our source address.  */
+      saddr.family = AF_INET;
+      saddr.prefixlen = IPV4_MAX_BITLEN;
+      saddr.prefix = from->sin_addr;
+
       /* All route with split horizon */
-      rip_output_process (ifp, NULL, from, rip_all_route, packet->version);
+      rip_output_process (ifp, NULL, from, rip_all_route, packet->version, 
+                          &saddr);
     }
   else
     {
@@ -1979,7 +1980,8 @@ rip_write_rte (int num, struct stream *s, struct prefix_ipv4 *p,
 /* Send update to the ifp or spcified neighbor. */
 void
 rip_output_process (struct interface *ifp, struct prefix *ifaddr,
-		    struct sockaddr_in *to, int route_type, u_char version)
+		    struct sockaddr_in *to, int route_type, u_char version,
+                    struct prefix_ipv4 *saddr)
 {
   int ret;
   struct stream *s;
@@ -2118,7 +2120,7 @@ rip_output_process (struct interface *ifp, struct prefix *ifaddr,
 	    /* We perform split horizon for RIP and connected route. */
 	    if ((rinfo->type == ZEBRA_ROUTE_RIP ||
 		 rinfo->type == ZEBRA_ROUTE_CONNECT) &&
-		rinfo->ifindex == ifp->ifindex)
+                 prefix_match((struct prefix *)p, (struct prefix *)saddr))
 	      continue;
 	  }
 
@@ -2247,7 +2249,8 @@ rip_output_process (struct interface *ifp, struct prefix *ifaddr,
 
 /* Send RIP packet to the interface. */
 void
-rip_update_interface (struct interface *ifp, u_char version, int route_type)
+rip_update_interface (struct interface *ifp, u_char version, int route_type,
+                      struct prefix_ipv4 *saddr)
 {
   struct prefix_ipv4 *p;
   struct connected *connected;
@@ -2260,7 +2263,8 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type)
       if (IS_RIP_DEBUG_EVENT)
 	zlog_info ("multicast announce on %s ", ifp->name);
 
-      rip_output_process (ifp, NULL, NULL, route_type, rip->version_send);
+      rip_output_process (ifp, NULL, NULL, route_type, rip->version_send, 
+                          saddr);
       return;
     }
 
@@ -2288,7 +2292,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type)
 			   inet_ntoa (to.sin_addr), ifp->name);
 
 	      rip_output_process (ifp, connected->address, &to, route_type,
-				 rip->version_send);
+				 rip->version_send, saddr);
 	    }
 	}
     }
@@ -2298,7 +2302,8 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type)
 void
 rip_update_process (int route_type)
 {
-  listnode node;
+  listnode node, ifnode;
+  struct connected *connected;
   struct interface *ifp;
   struct rip_interface *ri;
   struct route_node *rp;
@@ -2336,15 +2341,29 @@ rip_update_process (int route_type)
 			   ifp->ifindex);
 	    }
 
+          /* send update on each connected network */
+
+	  LIST_LOOP(ifp->connected, connected, ifnode)
+	    {
+	      struct prefix_ipv4 *ifaddr;
+          
+
 	  /* If there is no version configuration in the interface,
              use rip's version setting. */
-	  {
 	      int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ?
 			   rip->version_send : ri->ri_send);
+
+              ifaddr = (struct prefix_ipv4 *) connected->address;
+
+	      if (ifaddr->family != AF_INET)
+		continue;
+
+	      rip_interface_multicast_set(rip->sock, connected,
+					  if_is_pointopoint(ifp));
 	      if (vsend & RIPv1)
-		rip_update_interface (ifp, RIPv1, route_type);
+		rip_update_interface (ifp, RIPv1, route_type, ifaddr);
 	      if (vsend & RIPv2)
-		rip_update_interface (ifp, RIPv2, route_type);
+		rip_update_interface (ifp, RIPv2, route_type, ifaddr);
 	  }
 	}
     }
@@ -2369,7 +2388,7 @@ rip_update_process (int route_type)
 	to.sin_port = htons (RIP_PORT_DEFAULT);
 
 	/* RIP version is rip's configuration. */
-	rip_output_process (ifp, NULL, &to, route_type, rip->version_send);
+	rip_output_process (ifp, NULL, &to, route_type, rip->version_send, p);
       }
 }
 
@@ -2549,6 +2568,8 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
 {
   struct rte *rte;
   struct rip_packet rip_packet;
+  listnode node;
+  struct connected *connected;
 
   memset (&rip_packet, 0, sizeof (rip_packet));
 
@@ -2557,7 +2578,23 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
   rte = rip_packet.rte;
   rte->metric = htonl (RIP_METRIC_INFINITY);
 
-  return rip_send_packet ((caddr_t) &rip_packet, sizeof (rip_packet), to, ifp);
+  /* send request on each connected network */
+  LIST_LOOP(ifp->connected, connected, node)
+    {
+      struct prefix_ipv4 *p;
+
+      p = (struct prefix_ipv4 *) connected->address;
+
+      if (p->family != AF_INET)
+        continue;
+
+      rip_interface_multicast_set(rip->sock, connected,
+				  if_is_pointopoint(ifp));
+      if (rip_send_packet ((caddr_t) &rip_packet, sizeof (rip_packet), 
+                            to, ifp) != sizeof (rip_packet))
+        return -1;
+    }
+  return sizeof (rip_packet);
 }
 
 int
