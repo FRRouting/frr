@@ -809,7 +809,6 @@ DEFUN (linkdetect,
        "link-detect",
        "Enable link detection on interface\n")
 {
-  int ret;
   struct interface *ifp;
   int if_was_operative;
   
@@ -833,7 +832,6 @@ DEFUN (no_linkdetect,
        NO_STR
        "Disable link detection on interface\n")
 {
-  int ret;
   struct interface *ifp;
   int if_was_operative;
 
