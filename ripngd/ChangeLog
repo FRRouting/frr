@@ -1,3 +1,10 @@
+2005-04-05 Hasso Tepper <hasso at quagga.net>
+
+	* ripngd.[hc]: Remove inet6_ntop() and any usage of it. inet6_ntoa()
+	  from lib is used now.
+	* ripng_interface.c: inet6_ntop() -> inet6_ntoa().
+	* ripng_peer.c: inet6_ntop() -> inet6_ntoa().
+
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripng_interface.c: (ripng_interface_delete) After deleting, set

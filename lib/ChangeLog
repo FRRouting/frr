@@ -1,3 +1,8 @@
+2004-04-05 Hasso Tepper <hasso at quagga.net>
+
+	* lib/prefix.[hc]: inet6_ntoa utility function copied from
+	  ripngd/ripngd.c (inet6_ntop).
+
 2004-04-05 Paul Jakma <paul@dishone.st>
 
 	* vty.c: Improve logging of failures to open vty socket(s).

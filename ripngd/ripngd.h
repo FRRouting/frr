@@ -388,8 +388,6 @@ void ripng_zebra_ipv6_delete (struct prefix_ipv6 *p, struct in6_addr *nexthop, u
 
 void ripng_redistribute_clean ();
 
-const char *inet6_ntop (struct in6_addr *p);
-
 int ripng_write_rte (int num, struct stream *s, struct prefix_ipv6 *p,
 		     struct in6_addr *nexthop, u_int16_t tag, u_char metric);
 int ripng_send_packet (caddr_t buf, int bufsize, struct sockaddr_in6 *to, 

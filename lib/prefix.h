@@ -173,6 +173,8 @@ int ip6_masklen (struct in6_addr);
 void masklen2ip6 (int, struct in6_addr *);
 
 void str2in6_addr (const char *, struct in6_addr *);
+const char *inet6_ntoa (struct in6_addr *);
+
 #endif /* HAVE_IPV6 */
 
 int all_digit (const char *);

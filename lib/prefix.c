@@ -735,3 +735,14 @@ netmask_str2prefix_str (const char *net_str, const char *mask_str,
   return 1;
 }
 
+#ifdef HAVE_IPV6
+/* Utility function for making IPv6 address string. */
+const char *
+inet6_ntoa (struct in6_addr *addr)
+{
+  static char buf[INET6_ADDRSTRLEN];
+
+  inet_ntop (AF_INET6, addr, buf, INET6_ADDRSTRLEN);
+  return buf;
+}
+#endif /* HAVE_IPV6 */

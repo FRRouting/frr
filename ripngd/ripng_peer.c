@@ -197,7 +197,7 @@ ripng_peer_display (struct vty *vty)
 
   LIST_LOOP (peer_list, peer, nn)
     {
-      vty_out (vty, "    %s %s%14s %10d %10d %10d      %s%s", inet6_ntop (&peer->addr),
+      vty_out (vty, "    %s %s%14s %10d %10d %10d      %s%s", inet6_ntoa (&peer->addr),
                VTY_NEWLINE, " ",
 	       peer->recv_badpackets, peer->recv_badroutes,
 	       ZEBRA_RIPNG_DISTANCE_DEFAULT,
