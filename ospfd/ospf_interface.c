@@ -472,8 +472,6 @@ ospf_new_if_params ()
   if (!oip)
     return NULL;
 
-  memset (oip, 0, sizeof (struct ospf_if_params));
-
   UNSET_IF_PARAM (oip, output_cost_cmd);
   UNSET_IF_PARAM (oip, transmit_delay);
   UNSET_IF_PARAM (oip, retransmit_interval);
