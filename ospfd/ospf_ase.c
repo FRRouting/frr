@@ -645,8 +645,8 @@ ospf_ase_calculate_timer (struct thread *t)
 		ospf_ase_calculate_route (ospf, lsa);
 	  }
       /* kevinm: And add the NSSA routes in ospf_top */
-      foreach_lsa(NSSA_LSDB (ospf_top), NULL, 0,
-		  ospf_ase_calculate_route);
+      LSDB_LOOP (NSSA_LSDB (ospf),rn,lsa)
+      		ospf_ase_calculate_route(ospf,lsa);
 
 #endif /* HAVE_NSSA */
 
