@@ -1,3 +1,8 @@
+2004-08-31  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* Makefile.am (EXTRA_DIST): New - just has EXTRA_DIST.  (Using a
+	directory in EXTRA_DIST in the parent was causing 'make dist' to fail.)
+
 2004-08-19 Paul Jakma <paul@dishone.st>
 
 	* *.m4: import of libtool CVS m4 autoconf files. These only

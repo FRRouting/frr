@@ -1,5 +1,11 @@
 2004-08-31  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
+	* Makefile.am: make m4 as subdir, rather the EXTRA_DISTing it
+
+	* configure.ac: add m4/Makefile to output list
+
+2004-08-31  Greg Troxel  <gdt@poblano.ir.bbn.com>
+	
 	* Makefile.am: Only put pkgsrc dir in SUBDIRS if we should install
 	  rc.d files.  (Note that pkgsrc is always in DIST_SUBDIRS.)
 
