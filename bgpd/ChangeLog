@@ -1,3 +1,7 @@
+2003-06-09 Paul Jakma <paul@dishone.st>
+
+	* bgp_clist.c (community_list_delete): honour deny statements
+
 2003-04-19 Hasso Tepper <hasso@estpak.ee>
 
 	* rip_routemap.c: sync daemon's route-map commands to have same
