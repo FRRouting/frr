@@ -57,17 +57,17 @@ of a peer are announced to that peer.
 @end itemize
 
 @float Figure,fig:normal-processing
-@image{fig-normal-processing,500pt,,Normal announcement processing,eps}
+@image{fig-normal-processing,,,Normal announcement processing}
 @caption{Announcement processing inside a ``normal'' BGP speaker}
 @end float
 
 @float Figure,fig:full-mesh
-@image{fig_topologies_full,,,Full Mesh BGP Topology,eps}
+@image{fig_topologies_full,,,Full Mesh BGP Topology}
 @caption{Full Mesh}
 @end float
 
 @float Figure,fig:route-server
-@image{fig_topologies_rs,,,Route Server BGP Topology,eps}
+@image{fig_topologies_rs,,,Route Server BGP Topology}
 @caption{Route Server and clients} 
 @end float
 
@@ -167,7 +167,7 @@ they do not hurt anybody (they can always be left empty).
 @end itemize
 
 @float Figure,fig:rs-processing
-@image{fig-rs-processing,500pt,,,eps}
+@image{fig-rs-processing,,,Route Server Processing Model}
 @caption{Announcement processing model implemented by the Route Server}
 @end float
 

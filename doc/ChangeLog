@@ -1,3 +1,18 @@
+2005-04-02 Paul Jakma <paul@dishone.st>
+
+	* fig{-{normal,rs}-processing,_topologies_{rs,full}}.dia: new
+          files, dia diagramme XML versions of the original corresponding
+          EPS encapsulated bitmaps.
+	* fig{-{normal,rs}-processing,_topologies_{rs,full}}.png: new
+	  files, png exports by dia of the source dia diagrammes above.
+	* fig{-{normal,rs}-processing,_topologies_{rs,full}}.eps: removed,
+	  replaced by above dia source.
+	* routeserver.texi: remove extension in image macros.
+	* quagga.info: updated build
+	* Makefile.am: Add rules to build eps (using 'convert'), png (using
+	  dia). Add figures_BUILT_SOURCES to extra_dist to avoid the 
+	  dependency on dia :) (amongst other things) for dist users.
+	  
 2005-03-25 Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
 	* ipv6.texi: Add new commands for neighbor discovery
 	    interface ipv6 nd prefix X:X::X:X/M router-address

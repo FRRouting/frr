@@ -22,10 +22,10 @@ END-INFO-DIR-ENTRY
    This file documents the Quagga Software Routing Suite which manages
 common TCP/IP routing protocols.
 
-   This is Edition 0.99.0, last updated 8 November 2004 of `The Quagga
+   This is Edition 0.99.0, last updated 15 December 2004 of `The Quagga
 Manual', for Quagga Version 0.99.0.
 
-   Copyright (C) 1999-2004 Kunihiro Ishiguro, et al.
+   Copyright (C) 1999-2005 Kunihiro Ishiguro, et al.
 
      Permission is granted to make and distribute verbatim copies of
      this manual provided the copyright notice and this permission
@@ -1009,7 +1009,7 @@ all.
      Escape character is '^]'.
 
      Hello, this is Quagga (version 0.99.0)
-     Copyright (C) 1999-2004 Kunihiro Ishiguro, et al.
+     Copyright (C) 1999-2005 Kunihiro Ishiguro, et al.
 
      User Access Verification
 
@@ -3820,15 +3820,15 @@ fig:normal-processing::, it consists of three steps:
      its attributes modified. Those routes which are accepted by the
      `Out' filters of a peer are announced to that peer.
 
- [image src="fig-normal-processing.eps" alt="Normal announcement processing" ]
+ [image src="fig-normal-processing.png" alt="Normal announcement processing" ]
 
 Figure 10.1: Announcement processing inside a "normal" BGP speaker
 
- [image src="fig_topologies_full.eps" alt="Full Mesh BGP Topology" ]
+ [image src="fig_topologies_full.png" alt="Full Mesh BGP Topology" ]
 
 Figure 10.2: Full Mesh
 
- [image src="fig_topologies_rs.eps" alt="Route Server BGP Topology" ]
+ [image src="fig_topologies_rs.png" alt="Route Server BGP Topology" ]
 
 Figure 10.3: Route Server and clients
 
@@ -3915,7 +3915,7 @@ additional comments:
      not to remove them as they do not hurt anybody (they can always be
      left empty).
 
- [image src="fig-rs-processing.eps" ]
+ [image src="fig-rs-processing.png" alt="Route Server Processing Model" ]
 
 Figure 10.4: Announcement processing model implemented by the Route Server
 
@@ -4674,7 +4674,7 @@ File: quagga.info,  Node: Router Advertisement,  Up: IPv6 Support
      Don't send router advertisment messages.
 
  -- Interface Command: ipv6 nd prefix IPV6PREFIX [VALID-LIFETIME]
-[PREFERRED-LIFETIME] [off-link] [no-autconfig]
+[PREFERRED-LIFETIME] [off-link] [no-autoconfig] [router-address]
      Configuring the IPv6 prefix to include in router advertisements.
      Several prefix specific optional parameters and flags may follow:
         * VALID-LIFETIME - the length of time in seconds during what
@@ -4702,6 +4702,13 @@ File: quagga.info,  Node: Router Advertisement,  Up: IPv6 Support
           Default: not set, i.e. prefix can be used for
           autoconfiguration.
 
+        * ROUTER-ADDRESS - indicates to hosts on the local link that
+          the specified prefix contains a complete IP address by
+          setting R flag.
+
+          Default: not set, i.e. hosts do not assume a complete IP
+          address is placed.
+
  -- Interface Command: ipv6 nd ra-interval SECONDS
  -- Interface Command: no ipv6 nd ra-interval
      The  maximum  time allowed between sending unsolicited multicast
@@ -4709,6 +4716,14 @@ File: quagga.info,  Node: Router Advertisement,  Up: IPv6 Support
      less than 3 seconds.
 
      Default: `600'
+
+ -- Interface Command: ipv6 nd ra-interval msec MILLISECONDS
+ -- Interface Command: no ipv6 nd ra-interval msec
+     The  maximum  time allowed between sending unsolicited multicast
+     router advertisements from the interface, in milliseconds. Must be
+     no less than 30 milliseconds.
+
+     Default: `600000'
 
  -- Interface Command: ipv6 nd ra-lifetime SECONDS
  -- Interface Command: no ipv6 nd ra-lifetime
@@ -4749,13 +4764,44 @@ File: quagga.info,  Node: Router Advertisement,  Up: IPv6 Support
 
      Default: not set
 
+ -- Interface Command: ipv6 nd home-agent-config-flag
+ -- Interface Command: no ipv6 nd home-agent-config-flag
+     Set/unset flag in IPv6 router advertisements which indicates to
+     hosts that the router acts as a Home Agent and includes a Home
+     Agent Option.
+
+     Default: not set
+
+ -- Interface Command: ipv6 nd home-agent-preference
+ -- Interface Command: no ipv6 nd home-agent-preference
+     The value to be placed in Home Agent Option, when Home Agent
+     config flag is set, which indicates to hosts Home Agent preference.
+
+     Default: 0
+
+ -- Interface Command: ipv6 nd home-agent-lifetime
+ -- Interface Command: no ipv6 nd home-agent-lifetime
+     The value to be placed in Home Agent Option, when Home Agent
+     config flag is set, which indicates to hosts Home Agent Lifetime.
+     A value of 0 means to place Router Lifetime value.
+
+     Default: 0
+
+ -- Interface Command: ipv6 nd adv-interval-option
+ -- Interface Command: no ipv6 nd adv-interval-option
+     Include an Advertisement Interval option which indicates to hosts
+     the maximum time, in milliseconds, between successive unsolicited
+     Router Advertisements.
+
+     Default: not set
+
      interface eth0
       no ipv6 nd suppress-ra
       ipv6 nd prefix 2001:0DB8:5009::/64
 
    For more information see `RFC2462 (IPv6 Stateless Address
-Autoconfiguration)' and `RFC2461 (Neighbor Discovery for IP Version 6
-(IPv6))'.
+Autoconfiguration)' , `RFC2461 (Neighbor Discovery for IP Version 6
+(IPv6))' and `RFC3775 (Mobility Support in IPv6 (Mobile IPv6))'.
 
 
 File: quagga.info,  Node: Kernel Interface,  Next: SNMP Support,  Prev: IPv6 Support,  Up: Top
@@ -5375,18 +5421,28 @@ Command Index
                                                               (line  25)
 * ip split-horizon:                      RIP Configuration.   (line  99)
 * ip6 address ADDRESS/PREFIX:            Interface Commands.  (line  14)
+* ipv6 nd adv-interval-option:           Router Advertisement.
+                                                              (line 127)
+* ipv6 nd home-agent-config-flag:        Router Advertisement.
+                                                              (line 104)
+* ipv6 nd home-agent-lifetime:           Router Advertisement.
+                                                              (line 119)
+* ipv6 nd home-agent-preference:         Router Advertisement.
+                                                              (line 112)
 * ipv6 nd managed-config-flag:           Router Advertisement.
-                                                              (line  72)
+                                                              (line  87)
 * ipv6 nd other-config-flag:             Router Advertisement.
-                                                              (line  81)
-* ipv6 nd prefix IPV6PREFIX [VALID-LIFETIME] [PREFERRED-LIFETIME] [off-link] [no-autconfig]: Router Advertisement.
+                                                              (line  96)
+* ipv6 nd prefix IPV6PREFIX [VALID-LIFETIME] [PREFERRED-LIFETIME] [off-link] [no-autoconfig] [router-address]: Router Advertisement.
                                                               (line  14)
+* ipv6 nd ra-interval msec MILLISECONDS: Router Advertisement.
+                                                              (line  57)
 * ipv6 nd ra-interval SECONDS:           Router Advertisement.
-                                                              (line  42)
+                                                              (line  49)
 * ipv6 nd ra-lifetime SECONDS:           Router Advertisement.
-                                                              (line  50)
+                                                              (line  65)
 * ipv6 nd reachable-time MILLISECONDS:   Router Advertisement.
-                                                              (line  62)
+                                                              (line  77)
 * ipv6 nd suppress-ra:                   Router Advertisement.
                                                               (line  10)
 * ipv6 ospf6 cost COST:                  OSPF6 interface.     (line   7)
@@ -5599,16 +5655,26 @@ Command Index
 * no ip rip authentication string STRING: RIP Authentication. (line  16)
 * no ip split-horizon:                   RIP Configuration.   (line 100)
 * no ip6 address ADDRESS/PREFIX:         Interface Commands.  (line  16)
+* no ipv6 nd adv-interval-option:        Router Advertisement.
+                                                              (line 128)
+* no ipv6 nd home-agent-config-flag:     Router Advertisement.
+                                                              (line 105)
+* no ipv6 nd home-agent-lifetime:        Router Advertisement.
+                                                              (line 120)
+* no ipv6 nd home-agent-preference:      Router Advertisement.
+                                                              (line 113)
 * no ipv6 nd managed-config-flag:        Router Advertisement.
-                                                              (line  73)
+                                                              (line  88)
 * no ipv6 nd other-config-flag:          Router Advertisement.
-                                                              (line  82)
+                                                              (line  97)
 * no ipv6 nd ra-interval:                Router Advertisement.
-                                                              (line  43)
+                                                              (line  50)
+* no ipv6 nd ra-interval msec:           Router Advertisement.
+                                                              (line  58)
 * no ipv6 nd ra-lifetime:                Router Advertisement.
-                                                              (line  51)
+                                                              (line  66)
 * no ipv6 nd reachable-time:             Router Advertisement.
-                                                              (line  63)
+                                                              (line  78)
 * no ipv6 nd suppress-ra:                Router Advertisement.
                                                               (line   7)
 * no link-detect:                        Interface Commands.  (line  38)
@@ -6007,157 +6073,157 @@ VTY Key Index
 
 
 Tag Table:
-Node: Top1889
-Node: Overview2484
-Node: About Quagga3885
-Node: System Architecture6138
-Node: Supported Platforms8828
-Node: Supported RFC9969
-Node: How to get Quagga11933
-Node: Mailing List12687
-Node: Bug Reports13134
-Node: Installation14012
-Node: Configure the Software14446
-Node: The Configure script and its options14694
-Node: Least-Privilege support17882
-Node: Linux notes19618
-Ref: Linux notes-Footnote-121476
-Node: Build the Software21542
-Node: Install the Software22090
-Node: Basic commands23550
-Node: Config Commands24325
-Node: Basic Config Commands25218
-Node: Sample Config File30708
-Node: Terminal Mode Commands31478
-Node: Common Invocation Options32575
-Node: Virtual Terminal Interfaces33982
-Node: VTY Overview34493
-Node: VTY Modes35744
-Node: VTY View Mode36194
-Node: VTY Enable Mode36444
-Node: VTY Other Modes36722
-Node: VTY CLI Commands36898
-Node: CLI Movement Commands37358
-Node: CLI Editing Commands37881
-Node: CLI Advanced Commands38469
-Node: Zebra39235
-Node: Invoking zebra39744
-Node: Interface Commands40323
-Node: Static Route Commands41855
-Node: zebra Terminal Mode Commands45128
-Node: RIP46093
-Node: Starting and Stopping ripd47030
-Node: RIP netmask48443
-Node: RIP Configuration49542
-Node: How to Announce RIP route53807
-Node: Filtering RIP Routes56370
-Node: RIP Metric Manipulation57837
-Node: RIP distance58750
-Node: RIP route-map59565
-Node: RIP Authentication62081
-Node: RIP Timers63188
-Node: Show RIP Information64474
-Node: RIP Debug Commands65847
-Node: RIPng66843
-Node: Invoking ripngd67163
-Node: ripngd Configuration67412
-Node: ripngd Terminal Mode Commands68163
-Node: ripngd Filtering Commands68527
-Node: OSPFv269036
-Node: Configuring ospfd69595
-Node: OSPF router70063
-Node: OSPF area73219
-Node: OSPF interface78401
-Node: Redistribute routes to OSPF81784
-Node: Showing OSPF information83947
-Node: Debugging OSPF85193
-Node: OSPFv386232
-Node: OSPF6 router86552
-Node: OSPF6 area86906
-Node: OSPF6 interface87084
-Node: Redistribute routes to OSPF687961
-Node: Showing OSPF6 information88277
-Node: BGP89097
-Node: Starting BGP89987
-Node: BGP router90564
-Node: BGP distance91808
-Node: BGP decision process92246
-Node: BGP network92516
-Node: BGP route92706
-Node: Route Aggregation93262
-Node: Redistribute to BGP93831
-Node: BGP Peer94358
-Node: Defining Peer94545
-Node: BGP Peer commands95158
-Node: Peer filtering97562
-Node: BGP Peer Group98070
-Node: BGP Address Family98383
-Node: Autonomous System98537
-Node: AS Path Regular Expression99374
-Node: Display BGP Routes by AS Path100621
-Node: AS Path Access List101061
-Node: Using AS Path in Route Map101528
-Node: Private AS Numbers101809
-Node: BGP Communities Attribute101967
-Node: BGP Community Lists104434
-Node: Numbered BGP Community Lists107088
-Node: BGP Community in Route Map108675
-Node: Display BGP Routes by Community110618
-Node: Using BGP Communities Attribute111787
-Node: BGP Extended Communities Attribute115355
-Node: BGP Extended Community Lists117127
-Node: BGP Extended Communities in Route Map119002
-Node: Displaying BGP routes119461
-Node: Show IP BGP119698
-Node: More Show IP BGP120398
-Node: Capability Negotiation121549
-Node: Route Reflector124853
-Node: Route Server125132
-Node: Multiple instance126198
-Node: BGP instance and view128009
-Node: Routing policy129389
-Node: Viewing the view130157
-Node: How to set up a 6-Bone connection130442
-Node: Dump BGP packets and table131814
-Node: Configuring Quagga as a Route Server132361
-Node: Description of the Route Server model133322
-Ref: fig:normal-processing134899
-Ref: fig:full-mesh135049
-Ref: fig:route-server135145
-Ref: filter-delegation135559
-Ref: Route Server tasks136743
-Ref: Route-server path filter process137114
-Ref: fig:rs-processing139428
-Node: Commands for configuring a Route Server139545
-Node: Example of Route Server Configuration142572
-Node: Configuration of the BGP routers without Route Server143493
-Node: Configuration of the BGP routers with Route Server146376
-Node: Configuration of the Route Server itself147677
-Node: Further considerations about Import and Export route-maps152676
-Node: VTY shell155720
-Node: VTY shell username156389
-Node: VTY shell integrated configuration157021
-Node: Filtering158469
-Node: IP Access List158822
-Node: IP Prefix List159208
-Node: ip prefix-list description162227
-Node: ip prefix-list sequential number control162754
-Node: Showing ip prefix-list163296
-Node: Clear counter of ip prefix-list164404
-Node: Route Map164843
-Node: Route Map Command165348
-Node: Route Map Match Command165545
-Node: Route Map Set Command166169
-Node: IPv6 Support167046
-Node: Router Advertisement167618
-Node: Kernel Interface171419
-Node: SNMP Support173376
-Node: Getting and installing an SNMP agent173948
-Node: SMUX configuration174521
-Node: MIB and command reference176657
-Node: Zebra Protocol178044
-Node: Packet Binary Dump Format179958
-Node: Command Index191568
-Node: VTY Key Index247761
+Node: Top1890
+Node: Overview2485
+Node: About Quagga3886
+Node: System Architecture6139
+Node: Supported Platforms8829
+Node: Supported RFC9970
+Node: How to get Quagga11934
+Node: Mailing List12688
+Node: Bug Reports13135
+Node: Installation14013
+Node: Configure the Software14447
+Node: The Configure script and its options14695
+Node: Least-Privilege support17883
+Node: Linux notes19619
+Ref: Linux notes-Footnote-121477
+Node: Build the Software21543
+Node: Install the Software22091
+Node: Basic commands23551
+Node: Config Commands24326
+Node: Basic Config Commands25219
+Node: Sample Config File30709
+Node: Terminal Mode Commands31479
+Node: Common Invocation Options32576
+Node: Virtual Terminal Interfaces33983
+Node: VTY Overview34494
+Node: VTY Modes35745
+Node: VTY View Mode36195
+Node: VTY Enable Mode36445
+Node: VTY Other Modes36723
+Node: VTY CLI Commands36899
+Node: CLI Movement Commands37359
+Node: CLI Editing Commands37882
+Node: CLI Advanced Commands38470
+Node: Zebra39236
+Node: Invoking zebra39745
+Node: Interface Commands40324
+Node: Static Route Commands41856
+Node: zebra Terminal Mode Commands45129
+Node: RIP46094
+Node: Starting and Stopping ripd47031
+Node: RIP netmask48444
+Node: RIP Configuration49543
+Node: How to Announce RIP route53808
+Node: Filtering RIP Routes56371
+Node: RIP Metric Manipulation57838
+Node: RIP distance58751
+Node: RIP route-map59566
+Node: RIP Authentication62082
+Node: RIP Timers63189
+Node: Show RIP Information64475
+Node: RIP Debug Commands65848
+Node: RIPng66844
+Node: Invoking ripngd67164
+Node: ripngd Configuration67413
+Node: ripngd Terminal Mode Commands68164
+Node: ripngd Filtering Commands68528
+Node: OSPFv269037
+Node: Configuring ospfd69596
+Node: OSPF router70064
+Node: OSPF area73220
+Node: OSPF interface78402
+Node: Redistribute routes to OSPF81785
+Node: Showing OSPF information83948
+Node: Debugging OSPF85194
+Node: OSPFv386233
+Node: OSPF6 router86553
+Node: OSPF6 area86907
+Node: OSPF6 interface87085
+Node: Redistribute routes to OSPF687962
+Node: Showing OSPF6 information88278
+Node: BGP89098
+Node: Starting BGP89988
+Node: BGP router90565
+Node: BGP distance91809
+Node: BGP decision process92247
+Node: BGP network92517
+Node: BGP route92707
+Node: Route Aggregation93263
+Node: Redistribute to BGP93832
+Node: BGP Peer94359
+Node: Defining Peer94546
+Node: BGP Peer commands95159
+Node: Peer filtering97563
+Node: BGP Peer Group98071
+Node: BGP Address Family98384
+Node: Autonomous System98538
+Node: AS Path Regular Expression99375
+Node: Display BGP Routes by AS Path100622
+Node: AS Path Access List101062
+Node: Using AS Path in Route Map101529
+Node: Private AS Numbers101810
+Node: BGP Communities Attribute101968
+Node: BGP Community Lists104435
+Node: Numbered BGP Community Lists107089
+Node: BGP Community in Route Map108676
+Node: Display BGP Routes by Community110619
+Node: Using BGP Communities Attribute111788
+Node: BGP Extended Communities Attribute115356
+Node: BGP Extended Community Lists117128
+Node: BGP Extended Communities in Route Map119003
+Node: Displaying BGP routes119462
+Node: Show IP BGP119699
+Node: More Show IP BGP120399
+Node: Capability Negotiation121550
+Node: Route Reflector124854
+Node: Route Server125133
+Node: Multiple instance126199
+Node: BGP instance and view128010
+Node: Routing policy129390
+Node: Viewing the view130158
+Node: How to set up a 6-Bone connection130443
+Node: Dump BGP packets and table131815
+Node: Configuring Quagga as a Route Server132362
+Node: Description of the Route Server model133323
+Ref: fig:normal-processing134900
+Ref: fig:full-mesh135050
+Ref: fig:route-server135146
+Ref: filter-delegation135560
+Ref: Route Server tasks136744
+Ref: Route-server path filter process137115
+Ref: fig:rs-processing139429
+Node: Commands for configuring a Route Server139582
+Node: Example of Route Server Configuration142609
+Node: Configuration of the BGP routers without Route Server143530
+Node: Configuration of the BGP routers with Route Server146413
+Node: Configuration of the Route Server itself147714
+Node: Further considerations about Import and Export route-maps152713
+Node: VTY shell155757
+Node: VTY shell username156426
+Node: VTY shell integrated configuration157058
+Node: Filtering158506
+Node: IP Access List158859
+Node: IP Prefix List159245
+Node: ip prefix-list description162264
+Node: ip prefix-list sequential number control162791
+Node: Showing ip prefix-list163333
+Node: Clear counter of ip prefix-list164441
+Node: Route Map164880
+Node: Route Map Command165385
+Node: Route Map Match Command165582
+Node: Route Map Set Command166206
+Node: IPv6 Support167083
+Node: Router Advertisement167655
+Node: Kernel Interface173271
+Node: SNMP Support175228
+Node: Getting and installing an SNMP agent175800
+Node: SMUX configuration176373
+Node: MIB and command reference178509
+Node: Zebra Protocol179896
+Node: Packet Binary Dump Format181810
+Node: Command Index193420
+Node: VTY Key Index250991
 
 End Tag Table
