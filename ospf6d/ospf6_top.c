@@ -616,6 +616,7 @@ struct cmd_node ospf6_node =
 {
   OSPF6_NODE,
   "%s(config-ospf6)# ",
+  1 /* VTYSH */
 };
 
 /* Install ospf related commands. */

@@ -1541,6 +1541,7 @@ struct cmd_node interface_node =
 {
   INTERFACE_NODE,
   "%s(config-if)# ",
+  1 /* VTYSH */
 };
 
 void

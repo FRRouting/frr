@@ -95,7 +95,8 @@ DEFUN (show_version_ospf6,
 struct cmd_node debug_node =
 {
   DEBUG_NODE,
-  ""
+  "",
+  1 /* VTYSH */
 };
 
 int
