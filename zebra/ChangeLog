@@ -1,3 +1,16 @@
+2003-05-16 Gilad Arnold <gilad.arnold@terayon.com>
+
+	* zebra_rib.c: Fix memory leaks for ifname nexthops
+
+2003-04-19 Israel Keys <ikeys@agile.tv>
+
+	* rt_netlink.c: BLOCK on netlink while initialising
+
+2003-02-06  Francois Deppierraz <francois@ctrlaltdel.ch>
+
+	* rt_netlink.c (netlink_route_multipath): Set RTM_F_EQUALIZE when
+	it exists.
+
 2002-09-28  Akihiro Mizutani <mizutani@net-chef.net>
 
 	* zebra_rib.c (static_add_ipv4): Null0 static route is added.

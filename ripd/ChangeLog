@@ -1,3 +1,8 @@
+2003-04-19 Hasso Tepper <hasso@estpak.ee>
+
+	* rip_routemap.c: sync daemon's route-map commands to have same
+	syntax
+
 2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.93 released.

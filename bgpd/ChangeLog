@@ -1,3 +1,12 @@
+2003-04-19 Hasso Tepper <hasso@estpak.ee>
+
+	* rip_routemap.c: sync daemon's route-map commands to have same
+	syntax
+
+2003-01-09  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_routemap.c: Add match extcommunity command.
+
 2002-10-23  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* bgp_aspath.c (aspath_init): Extend hash size from default to

@@ -1,3 +1,13 @@
+2003-05-01 Sergiy Vyshnevetskiy <serg@vostok.net>
+
+	vtysh.c: Program shouldn't terminate on pager execution failure
+	vtysh_user.c: configure support for openpam (freebsd5.0)
+
+2003-04-19 Hasso Tepper <hasso@estpak.ee>
+
+	* extract.pl vtysh.c vtysh.h: sync daemon's route-map commands to
+	have same syntax
+
 2002-09-30 Paul Jakma <paulzebra@rs250.org>
 	
 	* vtysh.c: add 'write-config (integrated|daemon)' option

@@ -1,3 +1,18 @@
+2003-04-23 Hasso Tepper <hasso@estpak.ee>
+          
+        * {ospf6_damp,ospf6d}.c: fix "router xxx" node commands in vtysh
+
+2003-04-25  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.c: AS-External LSA refresh was based on the
+	prefix of the obsolete LSA. It was wrong so fixed.
+	* version: 0.9.6p
+
+2003-04-19 Hasso Tepper <hasso@estpak.ee>
+
+	* rip_routemap.c: sync daemon's route-map commands to have same
+        syntax
+
 2002-11-09  Vincent Jardin  <jardin@6wind.com>
 
 	* ospf6_interface.c: update link-local address on interface creation.

@@ -1,3 +1,12 @@
+2003-05-08 Sergiy Vyshnevetskiy <serg @ vostok.net>
+
+	* vty.c: -A option
+
+2003-04-19 Hasso Tepper <hasso@estpak.ee>
+
+	* rip_routemap.c: sync daemon's route-map commands to have same
+	syntax
+
 2002-09-28  Yasuhiro Ohara <yasu@sfc.wide.ad.jp>
 
 	* vty.c (vty_flush): One line more on vty.

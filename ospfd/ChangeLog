@@ -1,6 +1,33 @@
+2003-04-23 Hasso Tepper <hasso@estpak.ee>
+
+	* ospf_vty.c: fix "router xxx" node commands in vtysh
+
 2003-05-16 Hasso Tepper <hasso@estpak.ee>
 
 	* ospf_lsa.c: Fix handling of NSSA
+
+2003-04-19 Hasso Tepper <hasso@estpak.ee>
+
+	* {ospf_abr,ospfd}.c: area id's DECIMAL -> ADDRESS
+	* ospf_routemap.c: sync daemon's route-map commands to have same
+	  syntax.
+	
+2003-04-19 Sergey Vyshnevetskiy <serg@vostok.net>
+
+	* ospf_packet.c: Add missing param to zlog
+	* ospf_flood.c: remove unused vars
+
+2003-04-17 Denis Ovsienko <zebra@pilot.org.ua>
+
+	* ospf_interface.c: fix incorrect memset
+
+2003-04-10 Hasso Tepper <hasso@estpak.ee>
+
+	* ospf_lsa.[ch]: opaque LSA fix, use ospf_lookup.
+
+2003-04-03 David Watson <dwatson@eecs.umich.edu>
+
+	* ospf_lsa.c: byte order fix
 
 2002-03-17  Amir Guindehi <amir@datacore.ch>
 
