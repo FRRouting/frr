@@ -66,6 +66,11 @@
 #include "ospfd/ospf_te.h"
 #endif /* HAVE_OSPF_TE */
 
+#ifdef SUPPORT_OSPF_API
+int ospf_apiserver_init (void);
+void ospf_apiserver_term (void); 
+#endif /* SUPPORT_OSPF_API */
+
 static void ospf_opaque_register_vty (void);
 static void ospf_opaque_funclist_init (void);
 static void ospf_opaque_funclist_term (void);
@@ -85,6 +90,11 @@ ospf_opaque_init (void)
     exit (1);
 #endif /* HAVE_OSPF_TE */
 
+#ifdef SUPPORT_OSPF_API
+  if (ospf_apiserver_init () != 0)
+    exit (1);
+#endif /* SUPPORT_OSPF_API */
+
   return;
 }
 
@@ -94,6 +104,10 @@ ospf_opaque_term (void)
 #ifdef HAVE_OSPF_TE
   ospf_mpls_te_term ();
 #endif /* HAVE_OSPF_TE */
+
+#ifdef SUPPORT_OSPF_API
+  ospf_apiserver_term ();
+#endif /* SUPPORT_OSPF_API */
 
   ospf_opaque_funclist_term ();
   return;
