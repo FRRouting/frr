@@ -610,6 +610,77 @@ DEFUN (no_ip_as_path_all,
   return CMD_SUCCESS;
 }
 
+void
+as_list_show (struct vty *vty, struct as_list *aslist)
+{
+  struct as_filter *asfilter;
+
+  vty_out (vty, "AS path access list %s%s", aslist->name, VTY_NEWLINE);
+
+  for (asfilter = aslist->head; asfilter; asfilter = asfilter->next)
+    {
+      vty_out (vty, "    %s %s%s", filter_type_str (asfilter->type),
+	       asfilter->reg_str, VTY_NEWLINE);
+    }
+}
+
+void
+as_list_show_all (struct vty *vty)
+{
+  struct as_list *aslist;
+  struct as_filter *asfilter;
+
+  for (aslist = as_list_master.num.head; aslist; aslist = aslist->next)
+    {
+      vty_out (vty, "AS path access list %s%s", aslist->name, VTY_NEWLINE);
+
+      for (asfilter = aslist->head; asfilter; asfilter = asfilter->next)
+	{
+	  vty_out (vty, "    %s %s%s", filter_type_str (asfilter->type),
+		   asfilter->reg_str, VTY_NEWLINE);
+	}
+    }
+
+  for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
+    {
+      vty_out (vty, "AS path access list %s%s", aslist->name, VTY_NEWLINE);
+
+      for (asfilter = aslist->head; asfilter; asfilter = asfilter->next)
+	{
+	  vty_out (vty, "    %s %s%s", filter_type_str (asfilter->type),
+		   asfilter->reg_str, VTY_NEWLINE);
+	}
+    }
+}
+
+DEFUN (show_ip_as_path_access_list,
+       show_ip_as_path_access_list_cmd,
+       "show ip as-path-access-list WORD",
+       SHOW_STR
+       IP_STR
+       "List AS path access lists\n"
+       "AS path access list name\n")
+{
+  struct as_list *aslist;
+
+  aslist = as_list_lookup (argv[0]);
+  if (aslist)
+    as_list_show (vty, aslist);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_as_path_access_list_all,
+       show_ip_as_path_access_list_all_cmd,
+       "show ip as-path-access-list",
+       SHOW_STR
+       IP_STR
+       "List AS path access lists\n")
+{
+  as_list_show_all (vty);
+  return CMD_SUCCESS;
+}
+
 int
 config_write_as_list (struct vty *vty)
 {
@@ -655,4 +726,9 @@ bgp_filter_init ()
   install_element (CONFIG_NODE, &ip_as_path_cmd);
   install_element (CONFIG_NODE, &no_ip_as_path_cmd);
   install_element (CONFIG_NODE, &no_ip_as_path_all_cmd);
+
+  install_element (VIEW_NODE, &show_ip_as_path_access_list_cmd);
+  install_element (VIEW_NODE, &show_ip_as_path_access_list_all_cmd);
+  install_element (ENABLE_NODE, &show_ip_as_path_access_list_cmd);
+  install_element (ENABLE_NODE, &show_ip_as_path_access_list_all_cmd);
 }
