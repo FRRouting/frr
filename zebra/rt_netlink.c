@@ -122,18 +122,16 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
     }
 
   ret = bind (sock, (struct sockaddr *) &snl, sizeof snl);
+  if (zserv_privs.change (ZPRIVS_LOWER))
+    zlog (NULL, LOG_ERR, "Can't lower privileges");
+
   if (ret < 0)
     {
-      if (zserv_privs.change (ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
       zlog (NULL, LOG_ERR, "Can't bind %s socket to group 0x%x: %s",
             nl->name, snl.nl_groups, strerror (errno));
       close (sock);
       return -1;
     }
-
-  if (zserv_privs.change (ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
 
   /* multiple netlink sockets will have different nl_pid */
   namelen = sizeof snl;
