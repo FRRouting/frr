@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.31 2005/01/02 18:51:01 hasso Exp $
+   $Id: command.c,v 1.32 2005/01/14 15:47:33 gdt Exp $
 
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -145,8 +145,10 @@ level_match(const char *s)
 void
 print_version (const char *progname)
 {
-  printf ("%s version %s (%s)\n", progname, QUAGGA_VERSION, host.name);
-  printf ("%s\n", QUAGGA_COPYRIGHT);
+  printf ("%s version %s", progname, QUAGGA_VERSION);
+  if (host.name != NULL)
+    printf (" (%s)", host.name);
+  printf ("\n%s\n", QUAGGA_COPYRIGHT);
 }
 
 

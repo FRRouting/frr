@@ -1,3 +1,8 @@
+2005-01-14  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* command.c (print_version): Don't print host.name if it is NULL.
+	Fixes segfault on Solaris reported by Goetz von Escher <goetz@open.ch>
+	
 2005-01-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* sigevent.c: (trap_default_signals) Use the SA_SIGINFO flag to
