@@ -1,3 +1,8 @@
+2004-12-22 Hasso Tepper <hasso at quagga.net>
+
+	* vtysh_config.c: No delimiter between "ip forwarding" and "ipv6
+	  forwarding".
+
 2004-12-09 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* vtysh.c: (vtysh_connect) No reason to call geteuid and getegid,
