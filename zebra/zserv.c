@@ -51,7 +51,7 @@ static void zebra_event (enum event event, int sock, struct zserv *client);
 extern struct zebra_privs_t zserv_privs;
 
 /* For logging of zebra meesages. */
-static char *zebra_command_str [] =
+static const char *zebra_command_str [] =
 {
   "NULL",
   "ZEBRA_INTERFACE_ADD",
@@ -169,7 +169,8 @@ zebra_server_send_message (int sock, u_char *buf, unsigned long length)
       else
 	return -1;
     }
-  else if (nbytes != length)
+  /* It's clear that nbytes is positive at this point. */
+  else if ((unsigned) nbytes != length)
     zebra_server_enqueue (sock, buf, length, nbytes);
 
   return 0;
@@ -1449,7 +1450,7 @@ zebra_serv ()
 
 /* zebra server UNIX domain socket. */
 static void
-zebra_serv_un (char *path)
+zebra_serv_un (const char *path)
 {
   int ret;
   int sock, len;

@@ -349,7 +349,7 @@ rtadv_process_advert ()
 }
 
 void
-rtadv_process_packet (u_char *buf, int len, unsigned int ifindex, int hoplimit)
+rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int hoplimit)
 {
   struct icmp6_hdr *icmph;
   struct interface *ifp;
@@ -429,7 +429,7 @@ rtadv_read (struct thread *thread)
       return len;
     }
 
-  rtadv_process_packet (buf, len, ifindex, hoplimit);
+  rtadv_process_packet (buf, (unsigned)len, ifindex, hoplimit);
 
   return 0;
 }

@@ -47,7 +47,7 @@ struct nlsock
   int sock;
   int seq;
   struct sockaddr_nl snl;
-  char *name;
+  const char *name;
 } netlink      = { -1, 0, {0}, "netlink-listen"},     /* kernel messages */
   netlink_cmd  = { -1, 0, {0}, "netlink-cmd"},        /* command channel */
   netlink_addr = { -1, 0, {0}, "netlink-addr"};       /* address channel */
@@ -65,7 +65,7 @@ struct message nlmsg_str[] = {
   {0, NULL}
 };
 
-char *nexthop_types_desc[] =  
+const char *nexthop_types_desc[] =  
 {
   "none",
   "Directly connected",

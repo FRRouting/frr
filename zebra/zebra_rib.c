@@ -63,7 +63,7 @@ vector vrf_vector;
 
 /* Allocate new VRF.  */
 struct vrf *
-vrf_alloc (char *name)
+vrf_alloc (const char *name)
 {
   struct vrf *vrf;
 
@@ -102,7 +102,7 @@ vrf_lookup (u_int32_t id)
 struct vrf *
 vrf_lookup_by_name (char *name)
 {
-  int i;
+  unsigned int i;
   struct vrf *vrf;
 
   for (i = 0; i < vector_max (vrf_vector); i++)

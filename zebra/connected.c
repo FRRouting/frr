@@ -279,7 +279,7 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
 /* Add connected IPv6 route to the interface. */
 void
 connected_add_ipv6 (struct interface *ifp, struct in6_addr *addr,
-		    int prefixlen, struct in6_addr *broad)
+		    u_char prefixlen, struct in6_addr *broad)
 {
   struct prefix_ipv6 *p;
   struct connected *ifc;
@@ -367,7 +367,7 @@ connected_down_ipv6 (struct interface *ifp, struct connected *ifc)
 
 void
 connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address,
-                    int prefixlen, struct in6_addr *broad)
+		       u_char prefixlen, struct in6_addr *broad)
 {
   struct prefix_ipv6 p;
   struct connected *ifc;

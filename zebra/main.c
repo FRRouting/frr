@@ -109,7 +109,7 @@ struct zebra_privs_t zserv_privs =
 char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
 
 /* Process ID saved for use by init system */
-char *pid_file = PATH_ZEBRA_PID;
+const char *pid_file = PATH_ZEBRA_PID;
 
 /* Help information display. */
 static void
