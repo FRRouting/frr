@@ -1,3 +1,7 @@
+2005-02-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* if.h: Declare if_flag_dump.
+
 2005-01-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* daemon.c: (daemon) Replace perror with zlog_err.

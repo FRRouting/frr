@@ -2430,11 +2430,11 @@ ospf_read (struct thread *thread)
       stream_free (ibuf);
       return 0;
     }
-  else if (oi->state == ISM_InterfaceDown)
+  else if (oi->state == ISM_Down)
     {
       zlog_warn ("Ignoring packet from [%s] received on interface that is "
-      		 "down [%s]",
-                 inet_ntoa (iph->ip_src), ifp->name); 
+      		 "down [%s]; interface flags are %s",
+                 inet_ntoa (iph->ip_src), ifp->name, if_flag_dump(ifp->flags));
       stream_free (ibuf);
       return 0;
     }

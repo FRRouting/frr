@@ -227,6 +227,7 @@ void if_add_hook (int, int (*)(struct interface *));
 void if_init ();
 void if_dump_all ();
 char *ifindex2ifname (unsigned int);
+extern const char *if_flag_dump(unsigned long);
 
 /* Connected address functions. */
 struct connected *connected_new ();
