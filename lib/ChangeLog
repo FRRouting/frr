@@ -2,6 +2,8 @@
 
 	* Merge Kunihiro's 'show route-map' change and add 
 	  compatibility aliases for route-map continue
+	* jhash.{c,h}: New files. Bob Jenkins' public domain hashing 
+	  function, as implemented in linux kernel by David Miller.
 
 2004-07-09 Juris Kalnins <juris@mt.lv>
 
