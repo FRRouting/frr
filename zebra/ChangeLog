@@ -1,3 +1,8 @@
+2004-10-12 Hasso Tepper <hasso at quagga.net>
+
+	* zebra_vty.c: Unbreak "show ip route" command help and make it work
+	  for isis routes.
+
 2004-10-07 Hasso Tepper <hasso at quagga.net>
 
 	* connected.c, main.c, rt_netlink.c, rtadv.c, zebra_rib.c, zserv.c:

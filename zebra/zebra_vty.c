@@ -872,15 +872,15 @@ DEFUN (show_ip_route_supernets,
 
 DEFUN (show_ip_route_protocol,
        show_ip_route_protocol_cmd,
-       "show ip route (bgp|connected|kernel|ospf|rip|static)",
+       "show ip route (bgp|connected|isis|kernel|ospf|rip|static)",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        "Border Gateway Protocol (BGP)\n"
        "Connected\n"
+       "ISO IS-IS (ISIS)\n"
        "Kernel\n"
        "Open Shortest Path First (OSPF)\n"
-       "ISO IS-IS (ISIS)\n"
        "Routing Information Protocol (RIP)\n"
        "Static routes\n")
 {
