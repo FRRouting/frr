@@ -44,7 +44,7 @@ int mib[MIB_SIZ] =
 int
 ipforward ()
 {
-  int len;
+  size_t len;
   int ipforwarding = 0;
 
   len = sizeof ipforwarding;
@@ -59,7 +59,7 @@ ipforward ()
 int
 ipforward_on ()
 {
-  int len;
+  size_t len;
   int ipforwarding = 1;
 
   len = sizeof ipforwarding;
@@ -80,7 +80,7 @@ ipforward_on ()
 int
 ipforward_off ()
 {
-  int len;
+  size_t len;
   int ipforwarding = 0;
 
   len = sizeof ipforwarding;
@@ -117,7 +117,7 @@ int mib_ipv6[MIB_SIZ] =
 int
 ipforward_ipv6 ()
 {
-  int len;
+  size_t len;
   int ip6forwarding = 0;
 
   len = sizeof ip6forwarding;
@@ -138,7 +138,7 @@ ipforward_ipv6 ()
 int
 ipforward_ipv6_on ()
 {
-  int len;
+  size_t len;
   int ip6forwarding = 1;
 
   len = sizeof ip6forwarding;
@@ -159,7 +159,7 @@ ipforward_ipv6_on ()
 int
 ipforward_ipv6_off ()
 {
-  int len;
+  size_t len;
   int ip6forwarding = 0;
 
   len = sizeof ip6forwarding;

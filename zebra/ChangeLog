@@ -1,3 +1,9 @@
+2004-08-26  Miles Nordin  <carton@Ivy.NET>
+
+	* ipforward_sysctl.c (mib_ipv6): Use size_t for len, per
+	  sysctl(3), rather than int.  (Needed on NetBSD/alpha to display
+	  forwarding status correctly.)
+
 2004-08-23 Paul Jakma <paul@dishone.st>
 
 	* zserv.c: (zebra_init) remove implicit ip forward enabling
