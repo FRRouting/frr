@@ -491,8 +491,15 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 #endif /* HAVE_IPV6 */
     }
 
+  /* Transparency check. */
+  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)
+      && CHECK_FLAG (from->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+    transparent = 1;
+  else
+    transparent = 0;
+
   /* If community is not disabled check the no-export and local. */
-  if (bgp_community_filter (peer, ri->attr)) 
+  if (! transparent && bgp_community_filter (peer, ri->attr)) 
     return 0;
 
   /* If the attribute has originator-id and it is same as remote
@@ -600,13 +607,6 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
       attr->local_pref = bgp->default_local_pref;
     }
 
-  /* Transparency check. */
-  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)
-      && CHECK_FLAG (from->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
-    transparent = 1;
-  else
-    transparent = 0;
-
   /* Remove MED if its an EBGP peer - will get overwritten by route-maps */
   if (peer_sort (peer) == BGP_PEER_EBGP 
       && attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
@@ -620,7 +620,10 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   if (transparent || reflect
       || (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_UNCHANGED)
 	  && ((p->family == AF_INET && attr->nexthop.s_addr)
-	      || (p->family == AF_INET6 && ri->peer != bgp->peer_self))))
+#ifdef HAVE_IPV6
+	      || (p->family == AF_INET6 && ri->peer != bgp->peer_self)
+#endif /* HAVE_IPV6 */
+	      )))
     {
       /* NEXT-HOP Unchanged. */
     }
@@ -876,10 +879,10 @@ bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, safi_t safi)
 	    safi = BGP_SAFI_VPNV4;
 	  ndata[2] = (u_char) safi;
 
+	  SET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 	  bgp_notify_send_with_data (peer, BGP_NOTIFY_CEASE,
 				     BGP_NOTIFY_CEASE_MAX_PREFIX,
 				     ndata, 7);
-	  SET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 	  return 1;
 	}
     }
@@ -1777,6 +1780,7 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
   struct bgp_info *new;
   struct bgp_info info;
   struct attr attr;
+  struct attr attr_tmp;
   struct attr *attr_new;
   int ret;
 
@@ -1793,23 +1797,26 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
   /* Apply route-map. */
   if (bgp_static->rmap.name)
     {
+      attr_tmp = attr;
       info.peer = bgp->peer_self;
-      info.attr = &attr;
+      info.attr = &attr_tmp;
 
       ret = route_map_apply (bgp_static->rmap.map, p, RMAP_BGP, &info);
+
       if (ret == RMAP_DENYMATCH)
 	{    
 	  /* Free uninterned attribute. */
-	  bgp_attr_flush (&attr);
+	  bgp_attr_flush (&attr_tmp);
 
 	  /* Unintern original. */
 	  aspath_unintern (attr.aspath);
 	  bgp_static_withdraw (bgp, p, afi, safi);
 	  return;
 	}
+      attr_new = bgp_attr_intern (&attr_tmp);
     }
-
-  attr_new = bgp_attr_intern (&attr);
+  else
+    attr_new = bgp_attr_intern (&attr);
 
   for (ri = rn->info; ri; ri = ri->next)
     if (ri->peer == bgp->peer_self && ri->type == ZEBRA_ROUTE_BGP
@@ -2859,7 +2866,7 @@ bgp_aggregate_increment (struct bgp *bgp, struct prefix *p,
     if ((aggregate = rn->info) != NULL && rn->p.prefixlen < p->prefixlen)
       {
 	bgp_aggregate_delete (bgp, &rn->p, afi, safi, aggregate);
-	bgp_aggregate_route (bgp, &rn->p, ri, safi, safi, NULL, aggregate);
+	bgp_aggregate_route (bgp, &rn->p, ri, afi, safi, NULL, aggregate);
       }
   bgp_unlock_node (child);
 }
@@ -2886,7 +2893,7 @@ bgp_aggregate_decrement (struct bgp *bgp, struct prefix *p,
     if ((aggregate = rn->info) != NULL && rn->p.prefixlen < p->prefixlen)
       {
 	bgp_aggregate_delete (bgp, &rn->p, afi, safi, aggregate);
-	bgp_aggregate_route (bgp, &rn->p, NULL, safi, safi, del, aggregate);
+	bgp_aggregate_route (bgp, &rn->p, NULL, afi, safi, del, aggregate);
       }
   bgp_unlock_node (child);
 }
