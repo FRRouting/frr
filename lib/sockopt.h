@@ -44,7 +44,7 @@ int setsockopt_ipv6_multicast_loop (int, int);
  * Size defines for control messages used to get ifindex.  We define
  * values for each method, and define a macro that can be used by code
  * that is unaware of which method is in use.
- * XXX Needs to use CMSG_DATA and CMSG_ALIGN.
+ * These values are without any alignment needed (see CMSG_SPACE in RFC3542).
  */
 #if defined (IP_PKTINFO)
 /* Linux in_pktinfo. */
@@ -61,8 +61,7 @@ int setsockopt_ipv6_multicast_loop (int, int);
 #if defined (SUNOS_5)
 #define SOPT_SIZE_CMSG_RECVIF_IPV4()  (sizeof (uint_t))
 #else
-#define SOPT_SIZE_CMSG_RECVIF_IPV4()	\
-	__CMSG_ALIGN((sizeof (struct sockaddr_dl)))
+#define SOPT_SIZE_CMSG_RECVIF_IPV4()	(sizeof (struct sockaddr_dl))
 #endif /* SUNOS_5 */
 #endif /* IP_RECVIF */
 

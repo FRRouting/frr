@@ -2007,12 +2007,8 @@ ospf_recv_packet (int fd, struct interface **ifp)
   struct stream *ibuf;
   unsigned int ifindex = 0;
   struct iovec iov;
-#if defined(CMSG_SPACE)
   /* Header and data both require alignment. */
   char buff [CMSG_SPACE(SOPT_SIZE_CMSG_IFINDEX_IPV4())];
-#else
-  char buff [sizeof (struct cmsghdr) + SOPT_SIZE_CMSG_IFINDEX_IPV4()];
-#endif
   struct msghdr msgh;
 
   memset (&msgh, 0, sizeof (struct msghdr));

@@ -1,3 +1,11 @@
+2004-11-15  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* sockopt.h: Avoid CMSG_ALIGN, and declare that sizes are without
+	alignment (users should use CMSG_SPACE).
+
+	* zebra.h: Rationalize CMSG_SPACE compatibility defines.  Warn if
+	asumming 4-byte alignment, since this isn't safe.
+
 2004-11-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* memory.c: (zerror) Use zlog_err instead of fprintf to stderr.

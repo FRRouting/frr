@@ -210,7 +210,13 @@ typedef int socklen_t;
 #endif /* BSDI_NRL */
 
 /* 
- * RFC 2553-bis defines not available on some systems.
+ * RFC 3542 defines several macros for using struct cmsghdr.
+ * Here, we define those that are not present
+ */
+
+/*
+ * Internal defines, for use only in this file.
+ * These are likely wrong on other than ILP32 machines, so warn.
  */
 #ifndef _CMSG_DATA_ALIGN
 #define _CMSG_DATA_ALIGN(n)           (((n) + 3) & ~3)
@@ -220,15 +226,23 @@ typedef int socklen_t;
 #define _CMSG_HDR_ALIGN(n)            (((n) + 3) & ~3)
 #endif /* _CMSG_HDR_ALIGN */
 
+/*
+ * CMSG_SPACE and CMSG_LEN are required in RFC3542, but were new in that
+ * version.
+ */
 #ifndef CMSG_SPACE
 #define CMSG_SPACE(l)       (_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + \
                               _CMSG_HDR_ALIGN(l))
+#warning "assuming 4-byte alignment for CMSG_SPACE"
 #endif  /* CMSG_SPACE */
 
 
 #ifndef CMSG_LEN
 #define CMSG_LEN(l)         (_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + (l))
+#warning "assuming 4-byte alignment for CMSG_LEN"
 #endif /* CMSG_LEN */
+
+
 
 #if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL)) 
 #define __attribute__(x)

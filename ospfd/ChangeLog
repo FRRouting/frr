@@ -1,3 +1,8 @@
+2004-11-15  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* ospf_packet.c (ospf_recv_packet): Assume CMSG_SPACE is present
+	and works (lib/zebra.h provides if OS doesn't).
+
 2004-11-15 Paul Jakma <paul@dishone.st>
 
 	* ospf_{apiserver,te}.c: ospf_lsa_free's should be ospf_lsa_unlock.
