@@ -1,3 +1,10 @@
+2004-01-08  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* kernel_socket.c (kernel_read): Use sockaddr_storage in buffer
+	for reading kernel messages to ensure enough space (necessary on
+	Solaris due to sockaddr_dl being large).  Thanks to Sowmini
+	Varadhan for help with this change.
+
 2004-01-06  Greg Troxel  <gdt@t1.ir.bbn.com>
 
 	* rtadv.c (rtadv_send_packet): Change perror to zlog_err.

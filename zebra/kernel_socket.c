@@ -849,10 +849,12 @@ kernel_read (struct thread *thread)
 
   /*
    * This must be big enough for any message the kernel might send.
-   * The code previously used RTAX_MAX struct sockaddrs in all cases,
-   * but now that sockaddrs are variable size, this doesn't work
-   * (Solaris has 244 bytes of sdl_data!).  For now, add a struct
-   * sockaddr_dl to the case where it is used.
+   * Rather than determining how many sockaddrs of what size might be
+   * in each particular message, just use RTAX_MAX of sockaddr_storage
+   * for each.  Note that the sockaddrs must be after each message
+   * definition, or rather after whichever happens to be the largest,
+   * since the buffer needs to be big enough for a message and the
+   * sockaddrs together.
    */
   union 
   {
@@ -860,22 +862,21 @@ kernel_read (struct thread *thread)
     struct 
     {
       struct rt_msghdr rtm;
-      struct sockaddr addr[RTAX_MAX];
+      struct sockaddr_storage addr[RTAX_MAX];
     } r;
 
     /* Interface information. */
     struct
     {
       struct if_msghdr ifm;
-      struct sockaddr_dl;
-      struct sockaddr addr[RTAX_MAX-1];
+      struct sockaddr_storage addr[RTAX_MAX];
     } im;
 
     /* Interface address information. */
     struct
     {
       struct ifa_msghdr ifa;
-      struct sockaddr addr[RTAX_MAX];
+      struct sockaddr_storage addr[RTAX_MAX];
     } ia;
 
 #ifdef RTM_IFANNOUNCE
@@ -883,7 +884,7 @@ kernel_read (struct thread *thread)
     struct
     {
       struct if_announcemsghdr ifan;
-      struct sockaddr addr[RTAX_MAX];
+      struct sockaddr_storage addr[RTAX_MAX];
     } ian;
 #endif /* RTM_IFANNOUNCE */
 
@@ -908,6 +909,10 @@ kernel_read (struct thread *thread)
 
   rtm = &buf.r.rtm;
 
+  /*
+   * Ensure that we didn't drop any data, so that processing routines
+   * can assume they have the whole message.
+   */
   if (rtm->rtm_msglen != nbytes)
     {
       zlog_warn ("kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d\n",
