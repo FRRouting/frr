@@ -18,7 +18,7 @@ noinst_HEADERS = \
 	ospf6_network.h ospf6_message.h ospf6_lsa.h ospf6_lsdb.h \
 	ospf6_top.h ospf6_area.h ospf6_interface.h ospf6_neighbor.h \
 	ospf6_flood.h ospf6_route.h ospf6_intra.h ospf6_zebra.h \
-	ospf6_spf.h ospf6_proto.h ospf6_asbr.h ospf6_abr.h ospf6_snmp.c \
+	ospf6_spf.h ospf6_proto.h ospf6_asbr.h ospf6_abr.h ospf6_snmp.h \
 	ospf6d.h
 
 ospf6d_SOURCES = \

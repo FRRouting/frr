@@ -1,3 +1,7 @@
+2004-10-10 Paul Jakma <paul@dishone.st>
+
+	* Makefile.am: fix listing of ospf_snmp.c in noinst_HEADERS
+
 2004-10-06  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
 	* ospf6_snmp.[ch], OSPFV3-MIB.txt: start supporting SNMP.
