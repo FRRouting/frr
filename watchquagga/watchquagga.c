@@ -1,5 +1,5 @@
 /*
-    $Id: watchquagga.c,v 1.10 2005/02/16 20:40:25 ajs Exp $
+    $Id: watchquagga.c,v 1.11 2005/02/17 20:11:58 ajs Exp $
 
     Monitor status of quagga daemons and restart if necessary.
 
@@ -609,7 +609,7 @@ handle_read(struct thread *t_read)
     {
       char why[100];
 
-      if ((errno == EINTR) || (errno == EAGAIN))
+      if (ERRNO_IO_RETRY(errno))
 	{
 	  /* Pretend it never happened. */
 	  SET_READ_HANDLER(dmn);
