@@ -7800,13 +7800,15 @@ bgp_vty_init ()
   install_element (BGP_IPV4_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4M_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_set_peer_group_cmd);
-
+  install_element (BGP_VPNV4_NODE, &neighbor_set_peer_group_cmd);
+  
   /* "no neighbor peer-group unset" commands. */
   install_element (BGP_NODE, &no_neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4_NODE, &no_neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4M_NODE, &no_neighbor_set_peer_group_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_set_peer_group_cmd);
-
+  install_element (BGP_VPNV4_NODE, &no_neighbor_set_peer_group_cmd);
+  
   /* "neighbor softreconfiguration inbound" commands.*/
   install_element (BGP_NODE, &neighbor_soft_reconfiguration_cmd);
   install_element (BGP_NODE, &no_neighbor_soft_reconfiguration_cmd);
@@ -7816,6 +7818,8 @@ bgp_vty_init ()
   install_element (BGP_IPV4M_NODE, &no_neighbor_soft_reconfiguration_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_soft_reconfiguration_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_soft_reconfiguration_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_soft_reconfiguration_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_soft_reconfiguration_cmd);
 
   /* "neighbor attribute-unchanged" commands.  */
   install_element (BGP_NODE, &neighbor_attr_unchanged_cmd);
@@ -8168,6 +8172,8 @@ bgp_vty_init ()
   install_element (BGP_IPV4M_NODE, &no_neighbor_unsuppress_map_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_unsuppress_map_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_unsuppress_map_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_unsuppress_map_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_unsuppress_map_cmd);  
 
   /* "neighbor maximum-prefix" commands. */
   install_element (BGP_NODE, &neighbor_maximum_prefix_cmd);
