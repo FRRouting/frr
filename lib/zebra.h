@@ -97,9 +97,17 @@ typedef int socklen_t;
 #include <stdarg.h>
 #if !(defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
 /* Not C99; do we need to define va_copy? */
-#if !defined(va_copy) && defined(__va_copy)
+#ifndef va_copy
+#ifdef __va_copy
 #define va_copy(DST,SRC) __va_copy(DST,SRC)
-#endif /* need va_copy */
+#else
+/* Now we are desperate; this should work on many typical platforms. 
+   But this is slightly dangerous, because the standard does not require
+   va_copy to be a macro. */
+#define va_copy(DST,SRC) memcpy(&(DST), &(SRC), sizeof(va_list))
+#warning "Not C99 and no va_copy macro available, falling back to memcpy"
+#endif /* __va_copy */
+#endif /* !va_copy */
 #endif /* !C99 */
 #include "zassert.h"
 

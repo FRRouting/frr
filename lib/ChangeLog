@@ -1,3 +1,8 @@
+2005-01-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zebra.h: If not C99 and no va_copy macro available, fall back to
+	  memcpy (solves a build problem on FreeBSD 4.x).
+
 2005-01-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zebra.h: Define ZCMSG_FIRSTHDR appropriately based on whether
