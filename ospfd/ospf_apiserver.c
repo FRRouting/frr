@@ -2131,7 +2131,12 @@ ospf_apiserver_del_if (struct interface *ifp)
 	     ifp->ifindex);
 
   oi = ospf_apiserver_if_lookup_by_ifp (ifp);
-  assert (oi);
+
+  if (!oi) {
+    /* This interface is known to Zebra but not to OSPF daemon
+       anymore. No need to tell clients about it */
+    return 0;
+  }
 
   /* Interface deleted, tell clients about it */
   if (listcount (apiserver_list) > 0) {
