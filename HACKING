@@ -1,0 +1,69 @@
+-*- mode: text; -*-
+
+$Id: HACKING,v 1.1 2003/12/19 19:20:25 gdt Exp $
+
+GUIDELINES FOR HACKING ON QUAGGA
+
+[this is a strawman on which consensus has been neither tested nor reached]
+
+[this is a draft in progress]
+
+Generally, GNU coding standards apply.  The indentation style is a bit
+different from standard GNU style, and the existing style should be
+maintained and used for new code.
+
+PATCH SUBMISSION
+
+* Send a clean diff against the head of CVS.
+
+* Include ChangeLog and NEWS entries as appropriate before the patch
+  (or in it if you are 100% up to date).
+
+* Inclue only one semantic change or group of changes per patch.p
+
+* Do not make gratuitous changes to whitespace.
+
+* State on which platforms and with what daemons the patch has been
+  tested.  Understand that if the set of testing locations is small,
+  and the patch might have unforeseen or hard to fix consequences that
+  there may be a call for testers on quagga-dev, and that the patch
+  may be blocked until test results appear.
+
+  If there are no users for a platform on quagga-dev who are able and
+  willing to verify -current occasionally, that platform may be
+  dropped from the "should be checked" list.
+
+PATCH APPLICATION TO CVS
+
+* Only apply patches that meet the submission guidelines.
+
+* If a patch is large (perhaps more than 100 new/changed lines), tag
+  the repository before and after the change with e.g. before-foo-fix
+  and after-foo-fix.
+
+* If the patch might break something, issue a call for testing on the
+  mailinglist.
+
+* By committing a patch, you are responsible for fixing problems
+  resulting from it (or backing it out).
+
+STABLE PLATFORMS AND DAEMONS
+
+The list of platforms that should be tested follow.  This is a list
+derived from what quagga is thought to run on and for which
+maintainers can test or there are people on quagga-dev who are able
+and willing to verify that -current does or does not work correctly.
+
+  BSD (Free, Net or Open, any platform) # without capabilities
+  GNU/Linux (any distribution, i386)
+  [future: some 64-bit machine, e.g. NetBSD/sparc64]
+  [Solaris? (could address 64-bit issue)]
+
+The list of daemons that are thought to be stable and that should be
+tested are:
+
+  zebra
+  bgpd
+  ripd
+  ospfd
+  ripngd
