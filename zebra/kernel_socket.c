@@ -318,7 +318,6 @@ ifm_read (struct if_msghdr *ifm)
   if (ifp == NULL)
     ifp = if_lookup_by_index (ifm->ifm_index);
 
-
   /* 
    * If lookup by index was unsuccessful and we have a name, try
    * looking up by name.  Interfaces specified in the configuration
@@ -326,7 +325,7 @@ ifm_read (struct if_msghdr *ifm)
    * ifindex == -1, and such interfaces are found by this search, and
    * then their ifindex values can be filled in.
    */
-  if (ifp != NULL && sdl != NULL)
+  if (ifp == NULL && sdl != NULL)
     {
       /*
        * paranoia: sanity check name length.  nlen does not include
