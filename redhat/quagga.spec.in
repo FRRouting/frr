@@ -11,29 +11,29 @@
 %define		with_ospfclient 1
 %define		with_ospfapi	1
 %define		with_multipath	64
-%define		zebra_user	zebra
+%define		quagga_user	quagga
 %define		vty_group	zebravty
 
 # path defines
-%define		_sysconfdir	/etc/zebra
+%define		_sysconfdir	/etc/quagga
 %define		zeb_src		%{_builddir}/%{name}-%{version}
 %define		zeb_rh_src	%{zeb_src}/redhat
 %define		zeb_docs	%{zeb_src}/doc
 
 # defines for configure
-%define		_libexecdir	%{_exec_prefix}/libexec/zebra
-%define		_includedir	%{_prefix}/include/zebra
-%define		_libdir		%{_exec_prefix}/%{_lib}/zebra
-%define		_localstatedir	/var/run/zebra
+%define		_libexecdir	%{_exec_prefix}/libexec/quagga
+%define		_includedir	%{_prefix}/include/quagga
+%define		_libdir		%{_exec_prefix}/%{_lib}/quagga
+%define		_localstatedir	/var/run/quagga
 
 Summary: Routing daemon
-Name:		zebra
+Name:		quagga
 Version:	@VERSION@
 Release:	@CONFDATE@01
 License:	GPL
 Group: System Environment/Daemons
-Source0:	ftp://ftp.zebra.org/pub/zebra/%{name}-%{version}.tar.gz
-URL:		http://www.zebra.org/
+Source0:	http://www.quagga.net/snapshots/cvs/%{name}-%{version}.tar.gz
+URL:		http://www.quagga.net
 %if %with_snmp
 #BuildRequires:	ucd-snmp-devel
 Prereq:		ucd-snmp
@@ -42,41 +42,42 @@ Prereq:		ucd-snmp
 BuildRequires:	readline readline-devel ncurses ncurses-devel
 Prereq:		readline ncurses
 %endif
-BuildRequires:	texinfo tetex autoconf openssl-devel pam-devel patch
+BuildRequires:	texinfo tetex autoconf pam-devel patch
 # Initscripts > 5.60 is required for IPv6 support
 Prereq:		initscripts >= 5.60
 Prereq:		openssl ncurses readline pam
 Prereq:		/sbin/install-info
 Provides:	routingdaemon
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Obsoletes:	bird gated mrt
+Obsoletes:	bird gated mrt zebra
 
 %description
-GNU Zebra is a free software that manages TCP/IP based routing
+Quagga is a free software that manages TCP/IP based routing
 protocol. It takes multi-server and multi-thread approach to resolve
 the current complexity of the Internet.
 
-GNU Zebra supports BGP4, BGP4+, OSPFv2, OSPFv3, RIPv1, RIPv2, and RIPng.
+Quagga supports BGP4, BGP4+, OSPFv2, OSPFv3, RIPv1, RIPv2, and RIPng.
 
-GNU Zebra is intended to be used as a Route Server and a Route
-Reflector. It is not a toolkit, it provides full routing power under
-a new architecture. GNU Zebra is unique in design in that it has a
-process for each protocol.
+Quagga is intended to be used as a Route Server and a Route Reflector. It is
+not a toolkit, it provides full routing power under a new architecture.
+Quagga by design has a process for each protocol.
+
+Quagga is a fork of GNU Zebra.
 
 %package contrib
-Summary: contrib tools for zebra
+Summary: contrib tools for quagga
 Group: System Environment/Daemons
 
 %description contrib
-Contributed/3rd party tools which may be of use with zebra.
+Contributed/3rd party tools which may be of use with quagga.
 
 %package devel
-Summary: Header and object files for zebra development
+Summary: Header and object files for quagga development
 Group: System Environment/Daemons
 
 %description devel
-The zebra-devel package contains the header and object files neccessary for
-developing OSPF-API and zebra applications.
+The quagga-devel package contains the header and object files neccessary for
+developing OSPF-API and quagga applications.
 
 %prep
 %setup  -q
@@ -120,9 +121,9 @@ developing OSPF-API and zebra applications.
 %if %with_pam
 	--with-libpam \
 %endif
-%if %zebra_user
-	--enable-user=%zebra_user \
-	--enable-group=%zebra_user \
+%if %quagga_user
+	--enable-user=%quagga_user \
+	--enable-group=%quagga_user \
 %endif
 %if %vty_group
 	--enable-vty-group=%vty_group \
@@ -133,14 +134,14 @@ developing OSPF-API and zebra applications.
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
 pushd doc
-texi2html zebra.texi
+texi2html quagga.texi
 popd
 
 %install
 rm -rf $RPM_BUILD_ROOT
 
 install -d $RPM_BUILD_ROOT/etc/{rc.d/init.d,sysconfig,logrotate.d,pam.d} \
-	$RPM_BUILD_ROOT/var/log/zebra $RPM_BUILD_ROOT%{_infodir}
+	$RPM_BUILD_ROOT/var/log/quagga $RPM_BUILD_ROOT%{_infodir}
 
 make install \
 	DESTDIR=$RPM_BUILD_ROOT
@@ -156,19 +157,19 @@ install %{zeb_rh_src}/ripngd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/ripngd
 %endif
 install %{zeb_rh_src}/ospfd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/ospfd
 install %{zeb_rh_src}/ripd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/ripd
-install -m644 %{zeb_rh_src}/zebra.pam $RPM_BUILD_ROOT/etc/pam.d/zebra
-install -m644 %{zeb_rh_src}/zebra.logrotate $RPM_BUILD_ROOT/etc/logrotate.d/zebra
-install -d -m750  $RPM_BUILD_ROOT/var/run/zebra
+install -m644 %{zeb_rh_src}/quagga.pam $RPM_BUILD_ROOT/etc/pam.d/quagga
+install -m644 %{zeb_rh_src}/quagga.logrotate $RPM_BUILD_ROOT/etc/logrotate.d/quagga
+install -d -m750  $RPM_BUILD_ROOT/var/run/quagga
 
 %pre
 # add vty_group
 %if %vty_group
 groupadd -r %vty_group 2> /dev/null || :
 %endif
-# add zebra user and group
-%if %zebra_user
-/usr/sbin/useradd -M -r -s /bin/false -c "Zebra routing suite" \
- -d %_localstatedir %zebra_user 2> /dev/null || :
+# add quagga user and group
+%if %quagga_user
+/usr/sbin/useradd -M -r -s /bin/false -c "Quagga routing suite" \
+ -d %_localstatedir %quagga_user 2> /dev/null || :
 %endif
 
 %post
@@ -207,7 +208,7 @@ zebra_spec_add_service ospfapi  2607/tcp "OSPF-API"
 /sbin/chkconfig --add ospfd
 /sbin/chkconfig --add bgpd
 
-/sbin/install-info %{_infodir}/zebra.info.gz %{_infodir}/dir
+/sbin/install-info %{_infodir}/quagga.info.gz %{_infodir}/dir
 
 # Create dummy files if they don't exist so basic functions can be used.
 if [ ! -e %{_sysconfdir}/zebra.conf ]; then
@@ -232,7 +233,7 @@ if [ "$1" -ge  "1" ]; then
 %endif
 	/etc/rc.d/init.d/bgpd   condrestart >/dev/null 2>&1
 fi
-/sbin/install-info --delete %{_infodir}/zebra.info.gz %{_infodir}/dir
+/sbin/install-info --delete %{_infodir}/quagga.info.gz %{_infodir}/dir
 
 %preun
 if [ "$1" = "0" ]; then
@@ -254,21 +255,21 @@ fi
 %files
 %defattr(-,root,root)
 %doc */*.sample* AUTHORS COPYING
-%doc doc/zebra.html
+%doc doc/quagga.html
 %doc doc/mpls
 %doc ChangeLog INSTALL NEWS README REPORTING-BUGS SERVICES TODO
-%if %zebra_user
-%dir %attr(751,%zebra_user,%zebra_user) %{_sysconfdir}
-%dir %attr(750,%zebra_user,%zebra_user) /var/log/zebra 
-%dir %attr(751,%zebra_user,%zebra_user) /var/run/zebra
+%if %quagga_user
+%dir %attr(751,%quagga_user,%quagga_user) %{_sysconfdir}
+%dir %attr(750,%quagga_user,%quagga_user) /var/log/quagga 
+%dir %attr(751,%quagga_user,%quagga_user) /var/run/quagga
 %else
 %dir %attr(750,root,root) %{_sysconfdir}
-%dir %attr(750,root,root) /var/log/zebra
+%dir %attr(750,root,root) /var/log/quagga
 %dir %attr(755,root,root) /usr/share/info
-%dir %attr(750,root,root) /var/run/zebra
+%dir %attr(750,root,root) /var/run/quagga
 %endif
 %if %vty_group
-%attr(750,%zebra_user,%vty_group) %{_sysconfdir}/vtysh.conf.sample
+%attr(750,%quagga_user,%vty_group) %{_sysconfdir}/vtysh.conf.sample
 %endif
 %{_infodir}/*info*
 %{_mandir}/man*/*
@@ -276,9 +277,9 @@ fi
 %if %with_vtysh
 %{_bindir}/*
 %endif
-%config /etc/zebra/[!v]*
+%config /etc/quagga/[!v]*
 %config /etc/rc.d/init.d/*
-%config(noreplace) /etc/pam.d/zebra
+%config(noreplace) /etc/pam.d/quagga
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
 
 %files contrib
@@ -294,6 +295,10 @@ fi
 %endif
 
 %changelog
+* Tue Aug 12 2003 Paul Jakma <paul@dishone.st>
+- Renamed to Quagga
+- Sync to Quagga release 0.96
+
 * Tue Mar 20 2003 Paul Jakma <paul@dishone.st>
 - zebra privileges support
 
