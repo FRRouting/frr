@@ -85,12 +85,8 @@ ospf_apiserver_if_lookup_by_addr (struct in_addr address)
 {
   listnode node;
   struct ospf_interface *oi;
-  struct ospf *ospf;
 
-  ospf = ospf_get ();
-  assert (ospf);
-
-  for (node = listhead (ospf->oiflist); node; nextnode (node))
+  for (node = listhead (ospf_top->oiflist); node; nextnode (node))
     {
       if ((oi = getdata (node)) != NULL
 	  && oi->type != OSPF_IFTYPE_VIRTUALLINK)
@@ -107,12 +103,8 @@ ospf_apiserver_if_lookup_by_ifp (struct interface *ifp)
 {
   listnode node;
   struct ospf_interface *oi;
-  struct ospf *ospf;
-  
-  ospf = ospf_get ();
-  assert (ospf);
 
-  for (node = listhead (ospf->oiflist); node; nextnode (node))
+  for (node = listhead (ospf_top->oiflist); node; nextnode (node))
     {
       if ((oi = getdata (node)) && oi->ifp == ifp)
 	{
@@ -1461,6 +1453,27 @@ ospf_apiserver_opaque_lsa_new (struct ospf_area *area,
   u_char options = 0x0;
   u_int16_t length;
 
+  struct ospf *ospf = ospf_top;
+
+#if 0
+  struct ospf *ospf = NULL;
+
+  switch(protolsa->type)
+    {
+    case OSPF_OPAQUE_LINK_LSA:
+      ospf = oi_to_top (oi); /* ospf_opaque.c */
+      break;
+    case OSPF_OPAQUE_AREA_LSA:
+      ospf = area->ospf;
+      break;
+    case OSPF_OPAQUE_AS_LSA:
+      ospf = ospf_top; /* XXX */
+      break;
+    }
+#endif
+
+  assert(ospf);
+
   /* Create a stream for internal opaque LSA */
   if ((s = stream_new (OSPF_MAX_LSA_SIZE)) == NULL)
     {
@@ -1491,7 +1504,7 @@ ospf_apiserver_opaque_lsa_new (struct ospf_area *area,
 
   /* Set opaque-LSA header fields. */
   lsa_header_set (s, options, protolsa->type, protolsa->id, 
-                  area->ospf->router_id);
+                  ospf->router_id);
 
   /* Set opaque-LSA body fields. */
   stream_put (s, ((u_char *) protolsa) + sizeof (struct lsa_header),
@@ -1587,7 +1600,6 @@ ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
 {
   struct msg_originate_request *omsg;
   struct lsa_header *data;
-  struct ospf *ospf;
   struct ospf_lsa *new;
   struct ospf_lsa *old;
   struct ospf_area *area = NULL;
@@ -1597,9 +1609,6 @@ ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
   int ready = 0;
   int rc = 0;
   
-  ospf = ospf_get ();
-  assert (ospf);
-
   /* Extract opaque LSA data from message */
   omsg = (struct msg_originate_request *) STREAM_DATA (msg->s);
   data = &omsg->data;
@@ -1620,7 +1629,7 @@ ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
       lsdb = area->lsdb;
       break;
     case OSPF_OPAQUE_AREA_LSA:
-      area = ospf_area_lookup_by_area_id (ospf, omsg->area_id);
+      area = ospf_area_lookup_by_area_id (ospf_top, omsg->area_id);
       if (!area)
 	{
 	  zlog_warn ("apiserver_originate: unknown area %s",
@@ -1744,11 +1753,13 @@ ospf_apiserver_flood_opaque_lsa (struct ospf_lsa *lsa)
       ospf_flood_through_area (lsa->area, NULL /*nbr */ , lsa);
       break;
     case OSPF_OPAQUE_AS_LSA:
-      /* Increment counters? XXX */
+      {
+	/* Increment counters? XXX */
 
-      /* Flood LSA through AS. */
-      ospf_flood_through_as (lsa->oi->ospf, NULL /*nbr */ , lsa);
-      break;
+	/* Flood LSA through AS. */
+	ospf_flood_through_as (ospf_top, NULL /*nbr */ , lsa);
+	break;
+      }
     }
 }
 
@@ -1756,7 +1767,7 @@ int
 ospf_apiserver_originate1 (struct ospf_lsa *lsa)
 {
   /* Install this LSA into LSDB. */
-  if (ospf_lsa_install (lsa->oi->ospf, lsa->oi, lsa) == NULL)
+  if (ospf_lsa_install (ospf_top, lsa->oi, lsa) == NULL)
     {
       zlog_warn ("ospf_apiserver_originate1: ospf_lsa_install failed");
       return -1;
@@ -1866,7 +1877,7 @@ ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa)
   SET_FLAG (new->flags, OSPF_LSA_SELF);
 
   /* Install LSA into LSDB. */
-  if (ospf_lsa_install (new->area->ospf, new->oi, new) == NULL)
+  if (ospf_lsa_install (ospf_top, new->oi, new) == NULL)
     {
       zlog_warn ("ospf_apiserver_lsa_refresher: ospf_lsa_install failed");
       ospf_lsa_free (new);
@@ -1903,15 +1914,11 @@ ospf_apiserver_handle_delete_request (struct ospf_apiserver *apiserv,
 				      struct msg *msg)
 {
   struct msg_delete_request *dmsg;
-  struct ospf *ospf;
   struct ospf_lsa *old;
   struct ospf_area *area = NULL;
   struct in_addr id;
   int lsa_type, opaque_type;
   int rc = 0;
-
-  ospf = ospf_get ();
-  assert(ospf);
 
   /* Extract opaque LSA from message */
   dmsg = (struct msg_delete_request *) STREAM_DATA (msg->s);
@@ -1921,7 +1928,7 @@ ospf_apiserver_handle_delete_request (struct ospf_apiserver *apiserv,
     {
     case OSPF_OPAQUE_LINK_LSA:
     case OSPF_OPAQUE_AREA_LSA:
-      area = ospf_area_lookup_by_area_id (ospf, dmsg->area_id);
+      area = ospf_area_lookup_by_area_id (ospf_top, dmsg->area_id);
       if (!area)
 	{
 	  zlog_warn ("ospf_apiserver_lsa_delete: unknown area %s",
