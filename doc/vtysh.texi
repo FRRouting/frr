@@ -2,7 +2,7 @@
 @comment  node-name,  next,  previous,  up
 @chapter VTY shell
 
-@command{vtysh} is integrated shell of Zebra software.
+@command{vtysh} is integrated shell of Quagga software.
 
 To use vtysh please specify ---enable-vtysh to configure script.  To use
 PAM for authentication use ---with-libpam option to configure script.
@@ -31,23 +31,23 @@ Instruct daemons to write out their config files when 'write file'
 is issued.
 @end deffn
 @deffn {Command} {write-conf integrated} {}
-Write out integrated Zebra.conf file when 'write file' is issued.
+Write out integrated Quagga.conf file when 'write file' is issued.
 @end deffn
 
 This command controls the behaviour of vtysh when it is told
 to write out the configuration.  If @command{write-conf integrated} is
-set, the daemon will write out a Zebra.conf with all daemons' commands
+set, the daemon will write out a Quagga.conf with all daemons' commands
 integrated into it. If @command{write-conf daemon} is set, vtysh
 will instruct each daemon to write out their config files.
 
 Vtysh per default behaves as if @command{write-conf daemon} is set. Note
 that both may be set at same time if one wishes to have both
-Zebra.conf and daemon specific files written out. Further, note that the
-daemons are hard-coded to first look for the integrated Zebra.conf
+Quagga.conf and daemon specific files written out. Further, note that the
+daemons are hard-coded to first look for the integrated Quagga.conf
 file before looking for their own file.
 
 We recommend you do not mix the use of the two types of files.
-Further, it is better not to use the integrated Zebra.conf file,
+Further, it is better not to use the integrated Quagga.conf file,
 as any syntax error in it can lead to /all/ of your daemons being unable
 to start up. Per daemon files are more robust as impact of errors in
 configuration are limited to the daemon in whose file the error is made.

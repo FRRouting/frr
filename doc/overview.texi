@@ -3,80 +3,79 @@
 @chapter Overview
 @cindex Overview
 
-  Zebra is a routing software package that provides TCP/IP based
+  Quagga is a routing software package that provides TCP/IP based
 routing services with routing protocols support such as RIPv1, RIPv2,
 RIPng, OSPFv2, OSPFv3, BGP-4, and BGP-4+ (@pxref{Supported RFC}).
-Zebra also supports special BGP Route Reflector and Route Server
-behavior.  In addition to traditional IPv4 routing protocols, Zebra
+Quagga also supports special BGP Route Reflector and Route Server
+behavior.  In addition to traditional IPv4 routing protocols, Quagga
 also supports IPv6 routing protocols.  With SNMP daemon which supports
-SMUX protocol, Zebra provides routing protocol MIBs (@pxref{SNMP
+SMUX protocol, Quagga provides routing protocol MIBs (@pxref{SNMP
 Support}).
 
-  Zebra uses an advanced software architecture to provide you with a
-high quality, multi server routing engine.  Zebra has an interactive
+  Quagga uses an advanced software architecture to provide you with a
+high quality, multi server routing engine.  Quagga has an interactive
 user interface for each routing protocol and supports common client
-commands.  Due to this design, you can add new protocol daemons to Zebra
-easily.  You can use Zebra library as your program's client user
+commands.  Due to this design, you can add new protocol daemons to Quagga
+easily.  You can use Quagga library as your program's client user
 interface.
 
-  Zebra is an official @sc{gnu} software and distributed under the
-@sc{gnu} General Public License.
+  Zebra is distributed under the @sc{gnu} General Public License.
 
 @menu
-* About Zebra::                 Basic information about Zebra
-* System Architecture::         The Zebra system architecture
+* About Quagga::                 Basic information about Quagga
+* System Architecture::         The Quagga system architecture
 * Supported Platforms::         Supported platforms and future plans
 * Supported RFC::               Supported RFCs
-* How to get Zebra::            
+* How to get Quagga::            
 * Mailing List::                Mailing list information
 * Bug Reports::                 Mail address for bug data
 @end menu
 
-@node About Zebra, System Architecture, Overview, Overview
+@node About Quagga, System Architecture, Overview, Overview
 @comment  node-name,  next,  previous,  up
-@section About Zebra
-@cindex About Zebra
+@section About Quagga
+@cindex About Quagga
 
   Today, TCP/IP networks are covering all of the world.  The Internet
 has been deployed in many countries, companies, and to the home.  When
 you connect to the Internet your packet will pass many routers which
 have TCP/IP routing functionality.
 
-  A system with Zebra installed acts as a dedicated router.  With Zebra,
+  A system with Quagga installed acts as a dedicated router.  With Quagga,
 your machine exchanges routing information with other routers using
-routing protocols.  Zebra uses this information to update the kernel
+routing protocols.  Quagga uses this information to update the kernel
 routing table so that the right data goes to the right place.  You can
 dynamically change the configuration and you may view routing table
-information from the Zebra terminal interface.
+information from the Quagga terminal interface.
 
-  Adding to routing protocol support, Zebra can setup interface's flags,
+  Adding to routing protocol support, Quagga can setup interface's flags,
 interface's address, static routes and so on.  If you have a small
-network, or a stub network, or xDSL connection, configuring the Zebra
+network, or a stub network, or xDSL connection, configuring the Quagga
 routing software is very easy.  The only thing you have to do is to set
 up the interfaces and put a few commands about static routes and/or
 default routes.  If the network is rather large, or if the network
-structure changes frequently, you will want to take advantage of Zebra's
+structure changes frequently, you will want to take advantage of Quagga's
 dynamic routing protocol support for protocols such as RIP, OSPF or BGP.
-Zebra is with you.
+Quagga is with you.
 
   Traditionally, UNIX based router configuration is done by
 @command{ifconfig} and @command{route} commands.  Status of routing
 table is displayed by @command{netstat} utility.  Almost of these
-commands work only if the user has root privileges.  Zebra has a different
-system administration method.  There are two user modes in Zebra.  One is
+commands work only if the user has root privileges.  Quagga has a different
+system administration method.  There are two user modes in Quagga.  One is
 normal mode, the other is enable mode.  Normal mode user can only view
 system status, enable mode user can change system configuration.  This
 UNIX account independent feature will be great help to the router
 administrator.
 
-  Currently, Zebra supports common unicast routing protocols.  Multicast
-routing protocols such as BGMP, PIM-SM, PIM-DM will be supported in
-Zebra 2.0.  MPLS support is going on.  In the future, TCP/IP filtering
-control, QoS control, diffserv configuration will be added to Zebra.
-Zebra project's final goal is making a productive, quality free TCP/IP
+  Currently, Quagga supports common unicast routing protocols.  Multicast
+routing protocols such as BGMP, PIM-SM, PIM-DM may be supported in
+Quagga 2.0.  MPLS support is going on.  In the future, TCP/IP filtering
+control, QoS control, diffserv configuration will be added to Quagga.
+Quagga project's final goal is making a productive, quality free TCP/IP
 routing software.
 
-@node System Architecture, Supported Platforms, About Zebra, Overview
+@node System Architecture, Supported Platforms, About Quagga, Overview
 @comment  node-name,  next,  previous,  up
 @section System Architecture
 @cindex System architecture
@@ -84,7 +83,7 @@ routing software.
 @cindex Software internals
 
   Traditional routing software is made as a one process program which
-provides all of the routing protocol functionalities.  Zebra takes a
+provides all of the routing protocol functionalities.  Quagga takes a
 different approach.  It is made from a collection of several daemons
 that work together to build the routing table.  There may be several
 protocol-specific routing daemons and zebra the kernel routing manager.
@@ -116,7 +115,7 @@ architecture creates new possibilities for the routing system.
 |                              |
 +------------------------------+
 
-    Zebra System Architecture
+    Quagga System Architecture
 @end group
 @end example
 
@@ -126,11 +125,11 @@ files and terminal interfaces.  Each daemon has it's own configuration
 file and terminal interface.  When you configure a static route, it must
 be done in @command{zebra} configuration file.  When you configure BGP
 network it must be done in @command{bgpd} configuration file.  This can be a
-very annoying thing.  To resolve the problem, Zebra provides integrated
+very annoying thing.  To resolve the problem, Quagga provides integrated
 user interface shell called @command{vtysh}.  @command{vtysh} connects to
 each daemon with UNIX domain socket and then works as a proxy for user input.
 
-  Zebra was planned to use multi-threaded mechanism when it runs with a
+  Quagga was planned to use multi-threaded mechanism when it runs with a
 kernel that supports multi-threads.  But at the moment, the thread
 library which comes with @sc{gnu}/Linux or FreeBSD has some problems with
 running reliable services such as routing software, so we don't use
@@ -139,7 +138,7 @@ multiplexing the events.
 
   When @command{zebra} runs under a @sc{gnu} Hurd kernel it will act as a
 kernel routing table itself.  Under @sc{gnu} Hurd, all TCP/IP services are
-provided by user processes called @command{pfinet}.  Zebra will provide
+provided by user processes called @command{pfinet}.  Quagga will provide
 all the routing selection mechanisms for the process.  This feature will
 be implemented when @sc{gnu} Hurd becomes stable.
 
@@ -148,15 +147,15 @@ be implemented when @sc{gnu} Hurd becomes stable.
 @section Supported Platforms
 
 @cindex Supported platforms
-@cindex Zebra on other systems
+@cindex Quagga on other systems
 @cindex Compatibility with other systems
-@cindex Operating systems that support Zebra
+@cindex Operating systems that support Quagga
 
-  Currently Zebra supports @sc{gnu}/Linux, BSD and Solaris.  Below is a list
-of OS versions on which Zebra runs.  Porting Zebra to other platforms is
+  Currently Quagga supports @sc{gnu}/Linux, BSD and Solaris.  Below is a list
+of OS versions on which Quagga runs.  Porting Quagga to other platforms is
 not so too difficult.  Platform dependent codes exist only in
 @command{zebra} daemon.  Protocol daemons are platform independent.
-Please let us know when you find out Zebra runs on a platform which is not
+Please let us know when you find out Quagga runs on a platform which is not
 listed below.
 
 @sp 1
@@ -184,7 +183,7 @@ Solaris 7
 @end itemize
 
 @sp 1
-  Some IPv6 stacks are in development.  Zebra supports following IPv6
+  Some IPv6 stacks are in development.  Quagga supports following IPv6
 stacks.  For BSD, we recommend KAME IPv6 stack.  Solaris IPv6 stack is
 not yet supported.
 @sp 1
@@ -197,7 +196,7 @@ KAME IPv6 stack for BSD.
 INRIA IPv6 stack for BSD.
 @end itemize
 
-@node Supported RFC, How to get Zebra, Supported Platforms, Overview
+@node Supported RFC, How to get Quagga, Supported Platforms, Overview
 @comment  node-name,  next,  previous,  up
 @section Supported RFC
 
@@ -266,13 +265,13 @@ November 1995.}
 
 @end table
 
-@node How to get Zebra, Mailing List, Supported RFC, Overview
+@node How to get Quagga, Mailing List, Supported RFC, Overview
 @comment  node-name,  next,  previous,  up
-@section How to get Zebra
+@section How to get Quagga
 
-  Zebra is still beta software and there is no officially released
-version. Once Zebra is released you can get it from @sc{gnu} FTP
-site and its mirror sites.  We are planning Zebra-1.0 as the first
+  Quagga is still beta software and there is no officially released
+version. Once Quagga is released you can get it from @sc{gnu} FTP
+site and its mirror sites.  We are planning Quagga-1.0 as the first
 released version.
 
   Zebra's official web page is located at:
@@ -284,45 +283,30 @@ released version.
 @url{http://www.zebra.org/}.
 
   As of this writing, development by zebra.org on Zebra has slowed down.
-There is some work being done by third-parties to try maintain bug-fixes and
-enhancements to the current Zebra code-base. Please see:
+Some work is being done by third-parties to try maintain bug-fixes and
+enhancements to the current Zebra code-base, which has resulted in a fork of
+Zebra called Quagga, see:
 
-@url{http://zebra.dishone.st/}.
+@url{http://www.quagga.net/}.
 
 for further information, as well as links to additional zebra resources.
 
-@node Mailing List, Bug Reports, How to get Zebra, Overview
+@node Mailing List, Bug Reports, How to get Quagga, Overview
 @comment  node-name,  next,  previous,  up
 @section Mailing List
-@cindex How to get in touch with Zebra
-@cindex Mailing Zebra
+@cindex How to get in touch with Quagga
+@cindex Mailing Quagga
 @cindex Contact information
 @cindex Mailing lists
 
-  There is a mailing list for discussions about Zebra.  If you have any
-comments or suggestions to Zebra, please send mail to
-@email{zebra@@zebra.org}.  New snapshot announcements, improvement
-notes, and patches are sent to the list.
+  There is a mailing list for discussions about Quagga.  If you have any
+comments or suggestions to Quagga, please subscribe to
+@url{http://lists.quagga.net/mailman/listinfo/quagga-users}.
 
-  To subscribe to the @email{zebra@@zebra.org, Zebra mailing list},
-please send a mail to @email{majordomo@@zebra.org} with a message body
-that includes only:
-
-@quotation
-subscribe zebra
-@end quotation
-
-  To unsubscribe from the list, please send a mail to
-@email{majordomo@@zebra.org} with a message body that includes only:
-
-@quotation
-unsubscribe zebra
-@end quotation
-
-  There is an additional mailing list, @email{znog@@dishone.st,ZNOG} for 
-discussion of zebra related issues and network operation. To subscribe
-send an email to @email{znog-subscribe@@dishone.st} with a message body that 
-includes only:
+  There is an additional mailing list, @email{znog@@dishone.st,ZNOG} for
+general discussion of zebra related issues and network operation. To
+subscribe send an email to @email{znog-subscribe@@dishone.st} with a message
+body that includes only:
 
 @quotation
 subscribe znog
@@ -367,7 +351,7 @@ Please send your configuration file with the report.  If you specify
 arguments to the configure script please note that too.
 @end itemize
 
-  Bug reports are very important for us to improve the quality of Zebra.
-Zebra is still in the development stage, but please don't hesitate to
+  Bug reports are very important for us to improve the quality of Quagga.
+Quagga is still in the development stage, but please don't hesitate to
 send a bug report to @email{bug-zebra@@gnu.org}.
 

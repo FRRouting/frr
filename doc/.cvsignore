@@ -3,3 +3,5 @@ Makefile.in
 draft-zebra-00.txt
 zebra.info-*
 zebra.html
+quagga.info*
+quagga.html

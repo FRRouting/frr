@@ -2,9 +2,9 @@
 @comment  node-name,  next,  previous,  up
 @chapter IPv6 Support
 
-Zebra fully supports IPv6 routing.  As described so far, Zebra supports
+Quagga fully supports IPv6 routing.  As described so far, Quagga supports
 RIPng, OSPFv3 and BGP-4+.  You can give IPv6 addresses to an interface
-and configure static IPv6 routing information.  Zebra-IPv6 also provides
+and configure static IPv6 routing information.  Quagga-IPv6 also provides
 automatic address configuration via a feature called @code{address
 auto configuration}.  To do it, the router must send router advertisement
 messages to the all nodes that exist on the network.

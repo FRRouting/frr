@@ -3,11 +3,11 @@
 @chapter SNMP Support
 
 SNMP (Simple Network Managing Protocol) is widely implemented feature
-for collecting network information from router and/or host.  Zebra
+for collecting network information from router and/or host.  Quagga
 itself does not support SNMP agent functionality.  But conjuction with
-SNMP agent, Zebra provides routing protocol MIBs.
+SNMP agent, Quagga provides routing protocol MIBs.
 
-Zebra uses SMUX protocol (RFC1227) for making communication with SNMP
+Quagga uses SMUX protocol (RFC1227) for making communication with SNMP
 agent.  There are several SNMP agent which support SMUX.  We recommend
 to use the latest @command{ucd-snmp} software.  
 
@@ -50,7 +50,7 @@ smuxpeer 1.3.6.1.6.3.1 test
 @comment  node-name,  next,  previous,  up
 @section SMUX configuration
 
-To enable SNMP support of Zebra, you have to configure Zebra with
+To enable SNMP support of Quagga, you have to configure Quagga with
 @command{--enable-snmp} (@pxref{Configure the Software}).
 
 @deffn {Command} {smux peer @var{oid}} {}

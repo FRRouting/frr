@@ -1,5 +1,5 @@
 @c -*-texinfo-*-
-@c This is part of the GNU Zebra Manual.
+@c This is part of the Quagga Manual.
 @c Copyright (C) 1999, 2000, 2001 2002 Kunihiro Ishiguro <kunihiro@zebra.org>
 @c See file zebra.texi for copying conditions.
 @node BGP
@@ -990,11 +990,11 @@ Negotiation to detect remote peer's capabilities.  If the peer is only
 configured as IPv4 unicast neighbor, @command{bgpd} does not send these Capability
 Negotiation packets.
 
-  By default, Zebra will bring up peering with minimal common capability
+  By default, Quagga will bring up peering with minimal common capability
 for the both sides.  For example, local router has unicast and multicast 
 capabilitie and remote router has unicast capability.  In this case,
 the local router will establish the connection with unicast only capability.
-When there are no common capabilities, Zebra sends Unsupported Capability
+When there are no common capabilities, Quagga sends Unsupported Capability
 error and then resets the connection.
 
   If you want to completely match capabilities with remote peer.  Please
@@ -1102,10 +1102,10 @@ When bgp config-type cisco is specified,
 ``network'' and ``aggregate-address'' argument is displayed as
 ``A.B.C.D M.M.M.M''
 
-Zebra: network 10.0.0.0/8
+Quagga: network 10.0.0.0/8
 Cisco: network 10.0.0.0
 
-Zebra: aggregate-address 192.168.0.0/24
+Quagga: aggregate-address 192.168.0.0/24
 Cisco: aggregate-address 192.168.0.0 255.255.255.0
 
 Community attribute handling is also different.  If there is no
@@ -1129,7 +1129,7 @@ router bgp 1
 !
 
 @deffn {Command} {bgp config-type zebra} {}
-Zebra style BGP configuration.  This is default.
+Quagga style BGP configuration.  This is default.
 @end deffn
 
 @node BGP instance and view, Routing policy, Multiple instance, Route Server
@@ -1262,7 +1262,7 @@ route-map set-nexthop permit 10
  set ipv6 nexthop local fe80::2c0:4fff:fe68:a225
 !
 ! logfile FILENAME is obsolete.  Please use log file FILENAME
-!
+
 log file bgpd.log
 !
 @end group

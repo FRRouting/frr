@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in.
 
-info_TEXINFOS = zebra.texi
+info_TEXINFOS = quagga.texi
 
 zebra_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi install.texi \
 	ipv6.texi kernel.texi main.texi ospf6d.texi ospfd.texi overview.texi \

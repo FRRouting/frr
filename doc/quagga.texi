@@ -1,17 +1,17 @@
 \input texinfo @c -*- texinfo -*-
 @c %**start of header
 @setchapternewpage odd
-@settitle GNU Zebra
-@setfilename zebra.info
+@settitle Quagga
+@setfilename quagga.info
 @defcodeindex op
 @synindex pg cp
 @c %**end of header
 
 @c Set variables
 @set EDITION 0.1
-@set VERSION 0.93b
-@set UPDATED 12 September 2002
-@set UPDATED-MONTH September 2002
+@set VERSION 0.96
+@set UPDATED 12 August 2003
+@set UPDATED-MONTH August 2003
 
 @c These may vary with installation environment.
 @set INSTALL_PREFIX_ETC /usr/local/etc
@@ -20,17 +20,17 @@
 @c Info entry
 @dircategory Routing Software:
 @direntry
-* Zebra: (zebra).		The @sc{gnu} Zebra routing software
+* Quagga: (quagga).		The Quagga routing software
 @end direntry
 
 @c @smallbook
 
 @ifinfo
-This file documents the @sc{gnu} Zebra software which manages common
+This file documents the @sc{gnu} Quagga software which manages common
 TCP/IP routing protocols.
 
 This is Edition @value{EDITION}, last updated @value{UPDATED} of
-@cite{The GNU Zebra Manual}, for Zebra Version @value{VERSION}.
+@cite{The Quagga Manual}, for Quagga Version @value{VERSION}.
 
 Copyright (C) 1999, 2000, 2001, 2002 Kunihiro Ishiguro
 
@@ -57,11 +57,11 @@ approved by Kunihiro Ishiguro.
 @end ifinfo
 
 @titlepage
-@title GNU Zebra
+@title Quagga
 @subtitle A routing software package for TCP/IP networks
-@subtitle Zebra version @value{VERSION}
+@subtitle Quagga version @value{VERSION}
 @subtitle @value{UPDATED-MONTH}
-@author Kunihiro Ishiguro
+@author Kunihiro Ishiguro, et al
 
 @page
 @vskip 0pt plus 1filll
@@ -86,11 +86,11 @@ by Kunihiro Ishiguro.
 @ifnottex
 @node Top, Overview, (dir), (dir)
 @comment  node-name,  next,  previous,  up
-@top Zebra
+@top Quagga
 		     
-Zebra is a advanced routing software package that provides TCP/IP
-based routing protocols.  This is the Zebra Manual for
-zebra-@value{VERSION}.
+Quagga is a advanced routing software package that provides TCP/IP
+based routing protocols.  This is the Quagga Manual for
+quagga-@value{VERSION}. Quagga is a fork of GNU Zebra.
 @end ifnottex
 
 @menu

@@ -2,7 +2,7 @@
 @comment  node-name,  next,  previous,  up
 @appendix Packet Binary Dump Format
 
-  Zebra can dump routing protocol packet into file with a binary format
+  Quagga can dump routing protocol packet into file with a binary format
 (@pxref{Dump BGP packets and table}).
 
   It seems to be better that we share the MRT's header format for
