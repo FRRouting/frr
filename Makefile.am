@@ -4,8 +4,7 @@ SUBDIRS = lib @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ \
          @ISISD@ @VTYSH@ @OSPFCLIENT@ redhat doc
 
 DIST_SUBDIRS = lib zebra bgpd ripd ripngd ospfd ospf6d vtysh \
-	       ospfclient doc \
-	       isisd
+	       ospfclient doc redhat isisd
 
 EXTRA_DIST = aclocal.m4 SERVICES TODO REPORTING-BUGS vtysh/Makefile.in \
 	vtysh/Makefile.am update-autotools doc/mpls

@@ -1,3 +1,7 @@
+2004-01-10 Paul Jakma <paul@dishone.st>
+
+	* Makefile.am: redhat/ is a dist subdir too.
+	
 2004-01-10 Vincent Jardin <jardin@6wind.com>
 
 	* configure.ac: add the redhat/Makefile as a AC_OUTPUT() argument.
