@@ -1,4 +1,4 @@
-# $Id: INSTALL.quagga.txt,v 1.5 2004/11/17 06:58:31 paul Exp $
+# $Id: INSTALL.quagga.txt,v 1.6 2004/11/22 20:14:33 gdt Exp $
 
 --------------------------------------------------------------------------
 Building and Installing Quagga from releases or snapshots:
@@ -46,6 +46,11 @@ should work at least with:
 	libtool:	1.5.6
 	texinfo:	4.7
 
+Texinfo is not actually required since quagga.info is checked in.
+When texinfo 4.7 is widespread, it will be removed and texinfo will
+become required again.  (4.7 has figure support, needed for the route
+server docs, which is why 4.6 doesn't work.)
+
 To create the required autotools files (Makefile.in, configure, etc.),
 run either the 'update-autotools' script provided, or else the
 'autoreconf -i' command supplied with your autoconf package.  After this
@@ -64,6 +69,11 @@ The general goal is to use a modern baseline of tools, while not
 imposing pain on those tracking stable distributions.  The notes below
 explain what versions are present in various environments.
 
-NetBSD pkgsrc provides automake 1.9.1 autoconf 2.59 libtool 1.5.6
 NetBSD 1.6.2 and 2.0 provide texinfo 4.6.
+NetBSD pkgsrc provides automake 1.9.1 autoconf 2.59 libtool 1.5.6
+NetBSD pgksrc provides texinfo 4.7 (devel/gtexinfo)
+
+OpenBSD provides texinfo 4.2.
+OpenBSD ports provides automake 1.4-p6 autoconf 2.5.9 libtool 1.5.8
+
 --------------------------------------------------------------------------
