@@ -143,14 +143,14 @@ else
   AC_MSG_RESULT(no)
 fi
 
-if test "${enable_user}" = "yes" ; then
+if test "${enable_user}" = "yes" || test x"${enable_user}" = x""; then
   enable_user="zebra"
 elif test "${enable_user}" = "no"; then
   enable_user="root"
 fi
 AC_DEFINE_UNQUOTED(ZEBRA_USER, "${enable_user}", Zebra User)
 
-if test "${enable_group}" = "yes" ; then
+if test "${enable_group}" = "yes" || test x"${enable_group}" = x""; then
   enable_group="zebra"
 elif test "${enable_group}" = "no"; then
   enable_group="root"
@@ -159,8 +159,7 @@ AC_DEFINE_UNQUOTED(ZEBRA_GROUP, "${enable_group}", Zebra Group)
 
 if test x"${enable_vty_group}" = x"yes" ; then
   AC_MSG_ERROR([--enable-vty-group requires a group as argument, not yes])
-fi
-if test x"${enable_vty_group}" != x""; then
+elif test x"${enable_vty_group}" != x""; then
   if test x"${enable_vty_group}" != x"no"; then
     AC_DEFINE_UNQUOTED(VTY_GROUP, "${enable_vty_group}", VTY Sockets Group)
   fi
