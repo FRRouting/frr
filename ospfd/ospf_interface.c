@@ -426,8 +426,9 @@ ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src)
 	{
 	  if (prefix_match (oi->address, (struct prefix *) &addr))
 	    {
-	      if (match == NULL || 
-	         (match->address->prefixlen < oi->address->prefixlen)
+	      if ( (match == NULL) || 
+	           (match->address->prefixlen < oi->address->prefixlen)
+	         )
 	        match = oi;
 	    }
 	}
