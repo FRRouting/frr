@@ -23,6 +23,18 @@
 #include "log.h"
 #include "sockopt.h"
 
+int
+setsockopt_so_recvbuf (int sock, int size)
+{
+  int ret;
+  
+  if ( (ret = setsockopt (sock, SOL_SOCKET, SO_RCVBUF, (char *) 
+                          &size, sizeof (int)) < 0);
+    zlog_err ("can't setsockopt SO_RCVBUF");
+
+  return ret;
+}
+
 static void *
 getsockopt_cmsg_data (struct msghdr *msgh, int level, int type)
 {

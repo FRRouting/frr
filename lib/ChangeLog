@@ -1,3 +1,7 @@
+2004-09-17 Paul Jakma <paul@dishone.st>
+
+	* sockopt.{c,h}: Add setsockopt_so_recvbuf, for ripd and ripngd.
+
 2004-09-13 Paul Jakma <paul@dishone.st>
 
 	* command.c: Update the copyright string in the default motd.

@@ -22,6 +22,8 @@
 #ifndef _ZEBRA_SOCKOPT_H
 #define _ZEBRA_SOCKOPT_H
 
+int setsockopt_so_recvbuf (int sock, int size);
+
 #ifdef HAVE_IPV6
 int setsockopt_ipv6_pktinfo (int, int);
 int setsockopt_ipv6_checksum (int, int);

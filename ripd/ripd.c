@@ -42,6 +42,10 @@
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
 
+/* UDP receive buffer size */
+#define RIP_UDP_RCV_BUF 41600
+
+/* privileges global */
 extern struct zebra_privs_t ripd_privs;
 
 /* RIP Structure. */
@@ -1977,6 +1981,7 @@ rip_create_socket ()
   sockopt_broadcast (sock);
   sockopt_reuseaddr (sock);
   sockopt_reuseport (sock);
+  setsockopt_so_recvbuf (sock, RIP_UDP_RCV_BUF);
 #ifdef RIP_RECVMSG
   setsockopt_pktinfo (sock);
 #endif /* RIP_RECVMSG */

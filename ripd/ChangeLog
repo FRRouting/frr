@@ -1,3 +1,9 @@
+2004-09-17 Paul Jakma <paul@dishone.st>
+
+	* ripd.c: set receive buffer to a decent size, some systems have low
+	  defaults. Problem noted and fix suggested by Stephan Schweizer
+	  in [zebra 20967].
+
 2004-08-19 Paul Jakma <paul@dishone.st>
 
 	* rip_interface.c: (rip_interface_multicast_set) get rid

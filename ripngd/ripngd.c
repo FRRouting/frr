@@ -107,17 +107,6 @@ ripng_info_free (struct ripng_info *rinfo)
   XFREE (MTYPE_RIPNG_ROUTE, rinfo);
 }
 
-static int
-setsockopt_so_recvbuf (int sock, int size)
-{
-  int ret;
-
-  ret = setsockopt (sock, SOL_SOCKET, SO_RCVBUF, (char *) &size, sizeof (int));
-  if (ret < 0)
-    zlog (NULL, LOG_ERR, "can't setsockopt SO_RCVBUF");
-  return ret;
-}
-
 /* Create ripng socket. */
 int 
 ripng_make_socket (void)

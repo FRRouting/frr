@@ -1,3 +1,7 @@
+2004-09-17 Paul Jakma <paul@dishone.st>
+
+	* ripngd.c: move setsockopt_so_recvbuf to lib.
+
 2004-07-23  Hasso Tepper  <hasso@estpak.ee>
 
 	* ripng_interface.c, ripng_nexthop.c: use ifp->mtu6 instead of
