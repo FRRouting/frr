@@ -1,5 +1,9 @@
 2004-12-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* watchquagga: New watchquagga daemon.
+
+2004-12-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* redhat/Makefile.am: Added watchquagga.init to EXTRA_DIST.
 
 2004-12-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
