@@ -10,7 +10,7 @@
 %define		with_ipv6	1
 %define		with_ospfclient 1
 %define		with_ospfapi	1
-%define		with_irdp	1
+%define		with_irdp	0
 %define		with_isisd	0
 %define		with_shared	1
 %define		with_multipath	64
@@ -182,8 +182,10 @@ rm -rf $RPM_BUILD_ROOT/usr/share/info/dir
 
 # install etc sources
 for daemon in %{daemon_list} %{daemonv6_list} %{daemon_other} ; do
-	install %{zeb_rh_src}/${daemon}.init \
-		$RPM_BUILD_ROOT/etc/rc.d/init.d/${daemon}
+	if [ x"${daemon}" != x"" ] ; then
+		install %{zeb_rh_src}/${daemon}.init \
+			$RPM_BUILD_ROOT/etc/rc.d/init.d/${daemon}
+	fi
 done
 install -m644 %{zeb_rh_src}/quagga.pam \
 	$RPM_BUILD_ROOT/etc/pam.d/quagga
@@ -324,6 +326,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %files devel
 %defattr(-,root,root)
+%if %{with_ospfclient}
+%{_sbindir}/ospfclient
+%endif
 %dir %{_libdir}/*.a
 %dir %{_libdir}/*.la
 %dir %{_includedir}/%name/*.h
@@ -334,6 +339,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 %changelog
+* Fri Oct 08 2004 Paul Jakma <paul@dishone.st>
+- Update to 0.97.0
+
 * Wed Sep 15 2004 Paul Jakma <paul@dishone.st>
 - build snmp support by default
 - build irdp support
