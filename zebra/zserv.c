@@ -1748,6 +1748,32 @@ DEFUN (config_table,
   return CMD_SUCCESS;
 }
 
+DEFUN (ip_forwarding,
+       ip_forwarding_cmd,
+       "ip forwarding",
+       IP_STR
+       "Turn on IP forwarding")
+{
+  int ret;
+
+  ret = ipforward ();
+
+  if (ret != 0)
+    {
+      vty_out (vty, "IP forwarding is already on%s", VTY_NEWLINE);
+      return CMD_ERR_NOTHING_TODO;
+    }
+
+  ret = ipforward_on ();
+  if (ret == 0)
+    {
+      vty_out (vty, "Can't turn on IP forwarding%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (no_ip_forwarding,
        no_ip_forwarding_cmd,
        "no ip forwarding",
@@ -1932,6 +1958,7 @@ zebra_init ()
 
   install_element (VIEW_NODE, &show_ip_forwarding_cmd);
   install_element (ENABLE_NODE, &show_ip_forwarding_cmd);
+  install_element (CONFIG_NODE, &ip_forwarding_cmd);
   install_element (CONFIG_NODE, &no_ip_forwarding_cmd);
   install_element (ENABLE_NODE, &show_zebra_client_cmd);
 

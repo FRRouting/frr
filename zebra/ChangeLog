@@ -1,3 +1,7 @@
+2003-05-25 Jim Crumpler <Jim.Crumpler@edion.com>
+
+  * zserv.c: Add "ip forwarding" command.
+
 2003-05-16 Gilad Arnold <gilad.arnold@terayon.com>
 
 	* zebra_rib.c: Fix memory leaks for ifname nexthops
