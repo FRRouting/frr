@@ -5,6 +5,9 @@
 	  ospf_write_frags.
 	  (ospf_ls_upd_packet_new) print size in debug output when too large
 	  packet is encountered.
+	* ospf_zebra.c: (ospf_distribute_list_update_timer) Ugly misuse of
+	  THREAD_ARG to store an integer, but it should at least use same
+          same type to retrieve the value. Assert value is sane.
 
 2004-10-22 Paul Jakma <paul@dishone.st>
 

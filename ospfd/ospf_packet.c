@@ -3246,7 +3246,7 @@ ospf_ls_upd_packet_new (struct list *update, struct ospf_interface *oi)
   if (size > OSPF_MAX_PACKET_SIZE)
     {
       zlog_warn ("ospf_ls_upd_packet_new: oversized LSA id:%s too big,"
-                 " %d bytes, packet size %d, dropping it completely."
+                 " %d bytes, packet size %ld, dropping it completely."
                  " OSPF routing is broken!",
                  inet_ntoa (lsa->data->id), ntohs (lsa->data->length),
                  size);

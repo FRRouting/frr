@@ -929,10 +929,12 @@ ospf_distribute_list_update_timer (struct thread *thread)
   struct external_info *ei;
   struct route_table *rt;
   struct ospf_lsa *lsa;
-  u_char type;
+  int type;
   struct ospf *ospf;
 
   type = (int) THREAD_ARG (thread);
+  assert (type < ZEBRA_ROUTE_MAX);
+  
   rt = EXTERNAL_INFO (type);
 
   ospf = ospf_lookup ();
