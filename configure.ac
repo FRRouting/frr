@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.85 2005/01/07 14:17:39 paul Exp $
+## $Id: configure.ac,v 1.86 2005/01/12 16:52:55 ajs Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.98.0, [http://bugzilla.quagga.net])
@@ -948,6 +948,10 @@ dnl  AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
       LIBS="${LIBS} -lcrypto"
     fi
   fi
+fi
+
+if test "${enable_snmp}" = "yes" -a "${HAVE_SNMP}" != "yes"; then
+  AC_MSG_ERROR([--enable-snmp given, but cannot find support for SNMP])
 fi
 
 dnl ----------------------------

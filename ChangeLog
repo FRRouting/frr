@@ -1,5 +1,11 @@
 2005-01-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* configure.ac: If configure is invoked with --enable-snmp, but
+	  the configure script is unable to find SNMP support on the platform,
+	  then configure should give an error message and exit.
+
+2005-01-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* redhat/quagga.spec.in: Pass --enable-gcc-rdynamic to configure
 	  to get gcc to link with -rdynamic for better backtraces.
 	  When the rpm is upgraded, the restart logic now works as follows:
