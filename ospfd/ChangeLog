@@ -10,6 +10,9 @@
           loops to LIST_LOOP. miscellaneous style and indent fixups.
         * ospf_te.{c,h}: ditto
 	* ospf_packet.c: lists typedef removal cleanup.
+          (ospf_write) ifdef fragmentation support. move actual
+	  fragmentation out to a new, similarly ifdefed, function.
+	  (ospf_write_frags) fragmented write support, moved from previous.
 
 2004-09-23 Hasso Tepper <hasso at quagga.net>
 
