@@ -1,3 +1,8 @@
+2005-02-23 Hasso Tepper <hasso at quagga.net>
+
+	* bgp_route.c: Make reannouncing prefixes with changed attributes
+	  work again.
+
 2005-02-02 Akihiro Mizutani <mizutani@net-chef.net>
 
 	* bgp_vty.c: Deprecate "neighbor transparent-as" and "neighbor

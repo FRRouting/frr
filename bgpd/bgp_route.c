@@ -1098,18 +1098,6 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn, struct bgp_info_pair *
 	new_select = ri;
     }
 
-    if ( (! old_select) || old_select != new_select
-	|| CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
-	{
-  if (old_select)
-    UNSET_FLAG (old_select->flags, BGP_INFO_SELECTED);
-  if (new_select)
-    {
-      SET_FLAG (new_select->flags, BGP_INFO_SELECTED);
-      UNSET_FLAG (new_select->flags, BGP_INFO_ATTR_CHANGED);
-    }
-      }
-
     result->old = old_select;
     result->new = new_select;
 
@@ -1188,6 +1176,14 @@ bgp_process_rsclient (struct bgp *bgp, struct peer *rsclient,
         if (old_select && old_select == new_select)
           if (! CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
             continue;
+  
+        if (old_select)
+          UNSET_FLAG (old_select->flags, BGP_INFO_SELECTED);
+        if (new_select)
+         {
+           SET_FLAG (new_select->flags, BGP_INFO_SELECTED);
+           UNSET_FLAG (new_select->flags, BGP_INFO_ATTR_CHANGED);
+         }
 
         bgp_process_announce_selected (rsclient, new_select, rn, &attr, 
               afi, safi);
@@ -1228,6 +1224,15 @@ bgp_process_main (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
          return 0;
        }
     }
+
+  if (old_select)
+    UNSET_FLAG (old_select->flags, BGP_INFO_SELECTED);
+  if (new_select)
+    {
+      SET_FLAG (new_select->flags, BGP_INFO_SELECTED);
+      UNSET_FLAG (new_select->flags, BGP_INFO_ATTR_CHANGED);
+    }
+
 
   /* Check each BGP peer. */
   LIST_LOOP (bgp->peer, peer, nn)
