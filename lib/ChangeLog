@@ -1,3 +1,13 @@
+2005-01-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* log.h: Change prototype for zlog_backtrace_sigsafe to take additional
+	  program_counter argument.
+	* log.c: (zlog_backtrace_sigsafe) Add additional program_counter
+	  argument.  If it is non-NULL, use backtrace_symbols_fd to resolve
+	  the address.
+	  (zlog_signal) Call zlog_backtrace_sigsafe with additional
+	  program_counter argument.
+
 2005-01-17 Hasso Tepper <hasso at quagga.net>
 
 	* command.[ch], vty.c: cmd_execute_command() function must not attempt

@@ -1,5 +1,5 @@
 /*
- * $Id: log.c,v 1.21 2005/01/12 17:27:27 ajs Exp $
+ * $Id: log.c,v 1.22 2005/01/17 15:22:28 ajs Exp $
  *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -312,7 +312,7 @@ zlog_signal(int signo, const char *action, siginfo_t *siginfo,
     }
 #undef DUMP
 
-  zlog_backtrace_sigsafe(PRI);
+  zlog_backtrace_sigsafe(PRI, program_counter);
 #undef PRI
 #undef LOC
 }
@@ -320,9 +320,10 @@ zlog_signal(int signo, const char *action, siginfo_t *siginfo,
 /* Log a backtrace using only async-signal-safe functions.
    Needs to be enhanced to support syslog logging. */
 void
-zlog_backtrace_sigsafe(int priority)
+zlog_backtrace_sigsafe(int priority, void *program_counter)
 {
 #ifdef HAVE_GLIBC_BACKTRACE
+  static const char pclabel[] = "Program counter: ";
   void *array[20];
   int size;
   char buf[100];
@@ -338,6 +339,11 @@ zlog_backtrace_sigsafe(int priority)
   s = str_append(LOC," stack frames:\n");
 
 #define DUMP(FP) { \
+  if (program_counter) \
+    { \
+      write(fileno(FP),pclabel,sizeof(pclabel)-1); \
+      backtrace_symbols_fd(&program_counter, 1, fileno(FP)); \
+    } \
   write(fileno(FP),buf,s-buf);	\
   backtrace_symbols_fd(array, size, fileno(FP)); \
 }
