@@ -22,6 +22,8 @@
 #ifndef _ZEBRA_VERSION_H
 #define _ZEBRA_VERSION_H
 
+#define QUAGGA_PROGNAME   "quagga"
+
 #define QUAGGA_VERSION     "0.96"
 
 #define ZEBRA_BUG_ADDRESS "bug-zebra@gnu.org"

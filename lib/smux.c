@@ -952,7 +952,7 @@ smux_open (int sock)
   u_char *ptr;
   int len;
   u_long version;
-  u_char progname[] = "quagga-" QUAGGA_VERSION;
+  u_char progname[] = QUAGGA_PROGNAME "-" QUAGGA_VERSION;
 
   if (debug_smux)
     {

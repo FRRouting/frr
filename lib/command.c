@@ -39,7 +39,7 @@ struct host host;
 /* Default motd string. */
 char *default_motd = 
 "\r\n\
-Hello, this is quagga (version " QUAGGA_VERSION ").\r\n\
+Hello, this is " QUAGGA_PROGNAME " (version " QUAGGA_VERSION ").\r\n\
 Copyright 1996-2002 Kunihiro Ishiguro.\r\n\
 \r\n";
 

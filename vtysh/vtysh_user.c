@@ -51,7 +51,7 @@ vtysh_pam (char *user)
   pam_handle_t *pamh = NULL;
 
   /* Start PAM. */
-  ret = pam_start("zebra", user, &conv, &pamh);
+  ret = pam_start(QUAGGA_PROGNAME, user, &conv, &pamh);
   /* printf ("ret %d\n", ret); */
 
   /* Is user really user? */
