@@ -162,7 +162,8 @@ connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
   p.family = AF_INET;
   p.prefixlen = addr->prefixlen;
 
-  if (ifc_pointopoint (ifc))
+  /* Point-to-point check. */
+  if (dest && ifc_pointopoint (ifc))
     p.prefix = dest->prefix;
   else
     p.prefix = addr->prefix;
