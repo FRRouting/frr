@@ -1,3 +1,67 @@
+2004-09-13 Jose Luis Rubio <jrubio@dit.upm.es>
+           (at Technical University of Madrid as part of Euro6ix Project)
+
+        Enhanced Route Server functionality and Route-Maps:
+
+        * bgpd/bgpd.h: Modified 'struct peer' and 'struct bgp_filter' to
+        support rs-clients. A 'struct bgp_table *rib' has been added to the
+        first (to mantain a separated RIB for each rs-client) and two new
+        route-maps have been added to the last (for import/export policies).
+        Added the following #defines: RMAP_{IN|OUT|IMPORT|EXPORT|MAX},
+        PEER_RMAP_TYPE_{IMPORT|EXPORT} and BGP_CLEAR_SOFT_RSCLIENT.
+
+        * bgpd/bgpd.c: Modified the functions that create/delete/etc peers in
+        order to consider the new fields included in 'struct peer' for
+        supporting rs-clients, i.e. the import/export route-maps and the
+        'struct bgp_table'.
+
+        * bgpd/bgp_route.{ch}: Modified several functions related with
+        receiving/sending announces in order to support the new Route Server
+        capabilities.
+        Function 'bgp_process' has been reorganized, creating an auxiliar
+        function for best path selection ('bgp_best_selection').
+        Modified 'bgp_show' and 'bgp_show_route' for displaying information
+        about any RIB (and not only the main bgp RIB).
+        Added commands for displaying information about RS-clients RIBs:
+        'show bgp rsclient (A.B.C.D|X:X::X:X)', 'show bgp rsclient
+        (A.B.C.D|X:X::X:X) X:X::X:X/M', etc
+
+        * bgpd/bgp_table.{ch}: The structure 'struct bgp_table' now has two
+        new fields: type (which can take the values BGP_TABLE_{MAIN|RSCLIENT})
+        and 'void *owner' which points to 'struct bgp' or 'struct peer' which
+        owns the table.
+        When creating a new bgp_table by default 'type=BGP_TABLE_MAIN' is set.
+
+        * bgpd/bgp_vty.c: The commands 'neighbor ... route-server-client' and
+        'no neighbor ... route-server-client' now not only set/unset the flag
+        PEER_FLAG_RSERVER_CLIENT, but they create/destroy the 'struct
+        bgp_table' of the peer. Special actions are taken for peer_groups.
+        Command 'neighbor ... route-map WORD (in|out)' now also supports two
+        new kinds of route-map: 'import' and 'export'.
+        Added commands 'clear bgp * rsclient', etc. These commands allow a new
+        kind of soft_reconfig which affects only the RIB of the specified
+        RS-client.
+        Added commands 'show bgp rsclient summary', etc which display a
+        summary of the rs-clients configured for the corresponding address
+        family.
+
+        * bgpd/bgp_routemap.c: A new match statement is available,
+        'match peer (A.B.C.D|X:X::X:X)'. This statement can only be used in
+        import/export route-maps, and it matches when the peer who announces
+        (when used in an import route-map) or is going to receive (when used
+        in an export route-map) the route is the same than the one specified
+        in the statement.
+        For peer-groups the statement matches if the specified peer is member
+        of the peer-group.
+        A special version of the command, 'match peer local', matches with
+        routes originated by the Route Server (defined with 'network ...',
+        redistributed routes and default-originate).
+
+        * lib/routemap.{ch}: Added a new clause 'call NAME' for use in
+        route-maps. It jumps into the specified route-map and when it returns
+        the first route-map ends if the called RM returns DENY_MATCH, or
+        continues in other case.
+
 2004-08-31  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* Makefile.am: make m4 as subdir, rather the EXTRA_DISTing it

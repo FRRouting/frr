@@ -38,6 +38,9 @@ bgp_table_init (void)
 
   rt = XMALLOC (MTYPE_BGP_TABLE, sizeof (struct bgp_table));
   memset (rt, 0, sizeof (struct bgp_table));
+
+  rt->type = BGP_TABLE_MAIN;
+
   return rt;
 }
 

@@ -95,6 +95,103 @@ o Local extention
 
 */ 
 
+ /* 'match peer (A.B.C.D|X:X::X:X)' */
+
+/* Compares the peer specified in the 'match peer' clause with the peer
+    received in bgp_info->peer. If it is the same, or if the peer structure
+    received is a peer_group containing it, returns RMAP_MATCH. */
+route_map_result_t
+route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
+      void *object)
+{
+  union sockunion *su;
+  union sockunion *su2;
+  struct peer_group *group;
+  struct peer *peer;
+  struct listnode *nn;
+
+  if (type == RMAP_BGP)
+    {
+      su = rule;
+      peer = ((struct bgp_info *) object)->peer;
+
+      if ( ! CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IMPORT) &&
+           ! CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_EXPORT) )
+        return RMAP_NOMATCH;
+
+      /* If su='0.0.0.0' (command 'match peer local'), and it's a NETWORK,
+          REDISTRIBUTE or DEFAULT_GENERATED route => return RMAP_MATCH */
+      su2 = sockunion_str2su ("0.0.0.0");
+      if ( sockunion_same (su, su2) )
+        {
+          if ( CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_NETWORK) ||
+               CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_REDISTRIBUTE) ||
+               CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_DEFAULT))
+            {
+              XFREE (MTYPE_SOCKUNION, su2);
+
+              return RMAP_MATCH;
+            }
+          else
+            return RMAP_NOMATCH;
+        }
+      XFREE (MTYPE_SOCKUNION, su2);
+
+      if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+        {
+          if (sockunion_same (su, &peer->su))
+            return RMAP_MATCH;
+
+          return RMAP_NOMATCH;
+        }
+      else
+        {
+          group = peer->group;
+          LIST_LOOP (group->peer, peer, nn)
+            {
+              if (sockunion_same (su, &peer->su))
+                return RMAP_MATCH;
+
+              return RMAP_NOMATCH;
+            }
+        }
+    }
+  return RMAP_NOMATCH;
+}
+
+void *
+route_match_peer_compile (char *arg)
+{
+  union sockunion *su;
+  int ret;
+
+  su = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (union sockunion));
+
+  ret = str2sockunion ( (arg)? arg : "0.0.0.0", su);
+  if (ret < 0) {
+    XFREE (MTYPE_ROUTE_MAP_COMPILED, su);
+    return NULL;
+  }
+
+  return su;
+}
+
+/* Free route map's compiled `ip address' value. */
+void
+route_match_peer_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for ip address matching. */
+struct route_map_rule_cmd route_match_peer_cmd =
+{
+  "peer",
+  route_match_peer,
+  route_match_peer_compile,
+  route_match_peer_free
+};
+
 /* `match ip address IP_ACCESS_LIST' */
 
 /* Match function should return 1 if match is success else return
@@ -643,7 +740,8 @@ route_set_ip_nexthop (void *rule, struct prefix *prefix,
 
       if (rins->peer_address)
 	{
-	  if (CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IN) 
+         if ((CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IN) ||
+           CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IMPORT))
 	      && peer->su_remote 
 	      && sockunion_family (peer->su_remote) == AF_INET)
 	    {
@@ -1974,7 +2072,7 @@ bgp_route_map_update (char *unused)
 	      {
 		filter = &peer->filter[afi][safi];
 	  
-		for (direct = FILTER_IN; direct < FILTER_MAX; direct++)
+               for (direct = RMAP_IN; direct < RMAP_MAX; direct++)
 		  {
 		    if (filter->map[direct].name)
 		      filter->map[direct].map = 
@@ -1996,7 +2094,7 @@ bgp_route_map_update (char *unused)
 	      {
 		filter = &group->conf->filter[afi][safi];
 	  
-		for (direct = FILTER_IN; direct < FILTER_MAX; direct++)
+               for (direct = RMAP_IN; direct < RMAP_MAX; direct++)
 		  {
 		    if (filter->map[direct].name)
 		      filter->map[direct].map = 
@@ -2064,6 +2162,57 @@ bgp_route_map_update (char *unused)
     }
 }
 
+DEFUN (match_peer,
+       match_peer_cmd,
+       "match peer (A.B.C.D|X:X::X:X)",
+       MATCH_STR
+       "Match peer address\n"
+       "IPv6 address of peer\n"
+       "IP address of peer\n")
+{
+  return bgp_route_match_add (vty, vty->index, "peer", argv[0]);
+}
+
+DEFUN (match_peer_local,
+        match_peer_local_cmd,
+        "match peer local",
+        MATCH_STR
+        "Match peer address\n"
+        "Static or Redistributed routes\n")
+{
+  return bgp_route_match_add (vty, vty->index, "peer", NULL);
+}
+
+DEFUN (no_match_peer,
+       no_match_peer_cmd,
+       "no match peer",
+       NO_STR
+       MATCH_STR
+       "Match peer address\n")
+{
+ if (argc == 0)
+   return bgp_route_match_delete (vty, vty->index, "peer", NULL);
+
+  return bgp_route_match_delete (vty, vty->index, "peer", argv[0]);
+}
+
+ALIAS (no_match_peer,
+       no_match_peer_val_cmd,
+       "no match peer (A.B.C.D|X:X::X:X)",
+       NO_STR
+       MATCH_STR
+       "Match peer address\n"
+       "IPv6 address of peer\n"
+       "IP address of peer\n")
+
+ALIAS (no_match_peer,
+       no_match_peer_local_cmd,
+       "no match peer local",
+       NO_STR
+       MATCH_STR
+       "Match peer address\n"
+       "Static or Redistributed routes\n")
+
 DEFUN (match_ip_address, 
        match_ip_address_cmd,
        "match ip address (<1-199>|<1300-2699>|WORD)",
@@ -3239,6 +3388,7 @@ bgp_route_map_init ()
   route_map_add_hook (bgp_route_map_update);
   route_map_delete_hook (bgp_route_map_update);
 
+  route_map_install_match (&route_match_peer_cmd);
   route_map_install_match (&route_match_ip_address_cmd);
   route_map_install_match (&route_match_ip_next_hop_cmd);
   route_map_install_match (&route_match_ip_address_prefix_list_cmd);
@@ -3264,6 +3414,11 @@ bgp_route_map_init ()
   route_map_install_set (&route_set_ecommunity_rt_cmd);
   route_map_install_set (&route_set_ecommunity_soo_cmd);
 
+  install_element (RMAP_NODE, &match_peer_cmd);
+  install_element (RMAP_NODE, &match_peer_local_cmd);
+  install_element (RMAP_NODE, &no_match_peer_cmd);
+  install_element (RMAP_NODE, &no_match_peer_val_cmd);
+  install_element (RMAP_NODE, &no_match_peer_local_cmd);
   install_element (RMAP_NODE, &match_ip_address_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_val_cmd);

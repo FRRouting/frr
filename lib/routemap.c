@@ -26,6 +26,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "prefix.h"
 #include "routemap.h"
 #include "command.h"
+#include "log.h"
 
 /* Vector for route match rules. */
 static vector route_match_vec;
@@ -221,9 +222,11 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
                  rule->cmd->str, rule->rule_str, VTY_NEWLINE);
       
       vty_out (vty, "  Action:%s", VTY_NEWLINE);
-      if (index->exitpolicy == RMAP_GOTO)
+      
+      if (index->nextrm)
+        vty_out (vty, "    Call %s%s", index->nextrm, VTY_NEWLINE);
+      else if (index->exitpolicy == RMAP_GOTO)
         vty_out (vty, "    Goto %d%s", index->nextpref, VTY_NEWLINE);
-        
       else if (index->exitpolicy == RMAP_NEXT)
         {
           vty_out (vty, "    Goto next, (entry ");
@@ -297,6 +300,10 @@ route_map_index_delete (struct route_map_index *index, int notify)
     index->prev->next = index->next;
   else
     index->map->head = index->next;
+
+  /* Free 'char *nextrm' if not NULL */
+  if (index->nextrm)
+    free (index->nextrm);
 
     /* Execute event hook. */
   if (route_map_master.event_hook && notify)
@@ -688,18 +695,26 @@ route_map_delete_set (struct route_map_index *index, char *set_name,
     deny      deny    |     cont
                       |
   
-   action) Apply Set statements, accept route
-      If NEXT is specified, goto NEXT statement
-      If GOTO is specified, goto the first clause where pref > nextpref
-      If nothing is specified, do as Cisco and finish
-   deny)   If NEXT is specified, goto NEXT statement
-      If nothing is specified, finally will be denied by route-map.
-   cont)   Goto Next index
+   action)
+      -Apply Set statements, accept route
+      -If Call statement is present jump to the specified route-map, if it
+         denies the route we finish.
+      -If NEXT is specified, goto NEXT statement
+      -If GOTO is specified, goto the first clause where pref > nextpref
+      -If nothing is specified, do as Cisco and finish
+   deny)
+      -Route is denied by route-map.
+   cont)
+      -Goto Next index
   
    If we get no matches after we've processed all updates, then the route
    is dropped too.
   
-   Some notes on the new "NEXT" and "GOTO"
+   Some notes on the new "CALL", "NEXT" and "GOTO"
+     call WORD        - If this clause is matched, then the set statements
+                        are executed and then we jump to route-map 'WORD'. If
+                        this route-map denies the route, we finish, in other case we
+                        do whatever the exit policy (EXIT, NEXT or GOTO) tells.
      on-match next    - If this clause is matched, then the set statements
                         are executed and then we drop through to the next clause
      on-match goto n  - If this clause is matched, then the set statments
@@ -746,9 +761,19 @@ route_map_result_t
 route_map_apply (struct route_map *map, struct prefix *prefix,
                  route_map_object_t type, void *object)
 {
+  static int recursion = 0;
   int ret = 0;
   struct route_map_index *index;
   struct route_map_rule *set;
+
+  if (recursion > RMAP_RECURSION_LIMIT)
+    {
+      zlog (NULL, LOG_WARNING,
+            "route-map recursion limit (%d) reached, discarding route",
+            RMAP_RECURSION_LIMIT);
+      recursion = 0;
+      return RMAP_DENYMATCH;
+    }
 
   if (map == NULL)
     return RMAP_DENYMATCH;
@@ -771,6 +796,25 @@ route_map_apply (struct route_map *map, struct prefix *prefix,
               for (set = index->set_list.head; set; set = set->next)
                 ret = (*set->cmd->func_apply) (set->value, prefix,
                                                type, object);
+
+              /* Call another route-map if available */
+              if (index->nextrm)
+                {
+                  struct route_map *nextrm =
+                                    route_map_lookup_by_name (index->nextrm);
+
+                  if (nextrm) /* Target route-map found, jump to it */
+                    {
+                      recursion++;
+                      ret = route_map_apply (nextrm, prefix, type, object);
+                      recursion--;
+                    }
+
+                  /* If nextrm returned 'deny', finish. */
+                  if (ret == RMAP_DENYMATCH)
+                    return ret;
+                }
+                
               switch (index->exitpolicy)
                 {
                   case RMAP_EXIT:
@@ -781,8 +825,9 @@ route_map_apply (struct route_map *map, struct prefix *prefix,
                     {
                       /* Find the next clause to jump to */
                       struct route_map_index *next = index->next;
+                      int nextpref = index->nextpref;
 
-                      while (next && next->pref < index->nextpref)
+                      while (next && next->pref < nextpref)
                         {
                           index = next;
                           next = next->next;
@@ -798,9 +843,6 @@ route_map_apply (struct route_map *map, struct prefix *prefix,
           else if (index->type == RMAP_DENY)
             /* 'deny' */
             {
-              if (index->exitpolicy == RMAP_NEXT)
-                continue;
-              else
                 return RMAP_DENYMATCH;
             }
         }
@@ -1046,7 +1088,7 @@ DEFUN (no_rmap_onmatch_goto,
        "no on-match goto",
        NO_STR
        "Exit policy on matches\n"
-       "Next clause\n")
+       "Goto Clause number\n")
 {
   struct route_map_index *index;
 
@@ -1103,6 +1145,49 @@ DEFUN (rmap_show_name,
     return vty_show_route_map (vty, argv[0]);
 }
 
+ALIAS (rmap_onmatch_goto,
+      rmap_continue_index_cmd,
+      "continue <1-65536>",
+      "Exit policy on matches\n"
+      "Goto Clause number\n")
+
+DEFUN (rmap_call,
+       rmap_call_cmd,
+       "call WORD",
+       "Jump to another Route-Map after match+set\n"
+       "Target route-map name\n")
+{
+  struct route_map_index *index;
+
+  index = vty->index;
+  if (index)
+    {
+      if (index->nextrm)
+          free (index->nextrm);
+      index->nextrm = strdup (argv[0]);
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_rmap_call,
+       no_rmap_call_cmd,
+       "no call",
+       NO_STR
+       "Jump to another Route-Map after match+set\n")
+{
+  struct route_map_index *index;
+
+  index = vty->index;
+
+  if (index->nextrm)
+    {
+      free (index->nextrm);
+      index->nextrm = NULL;
+    }
+
+  return CMD_SUCCESS;
+}
+
 /* Configuration write function. */
 int
 route_map_config_write (struct vty *vty)
@@ -1135,9 +1220,10 @@ route_map_config_write (struct vty *vty)
 	  vty_out (vty, " set %s %s%s", rule->cmd->str,
 		   rule->rule_str ? rule->rule_str : "",
 		   VTY_NEWLINE);
+   if (index->nextrm)
+     vty_out (vty, " call %s%s", index->nextrm, VTY_NEWLINE);
 	if (index->exitpolicy == RMAP_GOTO)
-	  vty_out (vty, " on-match goto %d%s", index->nextpref,
-		   VTY_NEWLINE);
+      vty_out (vty, " on-match goto %d%s", index->nextpref, VTY_NEWLINE);
 	if (index->exitpolicy == RMAP_NEXT)
 	  vty_out (vty," on-match next%s", VTY_NEWLINE);
 	
@@ -1173,7 +1259,16 @@ route_map_init_vty ()
   install_element (RMAP_NODE, &no_rmap_onmatch_next_cmd);
   install_element (RMAP_NODE, &rmap_onmatch_goto_cmd);
   install_element (RMAP_NODE, &no_rmap_onmatch_goto_cmd);
-
+  
+  /* Install the continue stuff (ALIAS of on-match). */
+  install_element (RMAP_NODE, &rmap_continue_cmd);
+  install_element (RMAP_NODE, &no_rmap_continue_cmd);
+  install_element (RMAP_NODE, &rmap_continue_index_cmd);
+  
+  /* Install the call stuff. */
+  install_element (RMAP_NODE, &rmap_call_cmd);
+  install_element (RMAP_NODE, &no_rmap_call_cmd);
+   
   /* Install show command */
   install_element (ENABLE_NODE, &rmap_show_cmd);
   install_element (ENABLE_NODE, &rmap_show_name_cmd);

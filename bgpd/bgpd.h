@@ -65,6 +65,9 @@ struct bgp
   /* BGP peer group.  */
   struct list *group;
 
+  /* BGP route-server-clients. */
+  struct list *rsclient;
+
   /* BGP configuration.  */
   u_int16_t config;
 #define BGP_CONFIG_ROUTER_ID              (1 << 0)
@@ -186,6 +189,12 @@ struct bgp_rd
   u_char val[BGP_RD_SIZE];
 };
 
+#define RMAP_IN           0
+#define RMAP_OUT        1
+#define RMAP_IMPORT   2
+#define RMAP_EXPORT   3
+#define RMAP_MAX        4
+
 /* BGP filter structure. */
 struct bgp_filter
 {
@@ -215,7 +224,7 @@ struct bgp_filter
   {
     char *name;
     struct route_map *map;
-  } map[FILTER_MAX];
+  } map[RMAP_MAX];
 
   /* Unsuppress-map.  */
   struct
@@ -249,6 +258,9 @@ struct peer
 
   /* Local router ID. */
   struct in_addr local_id;
+
+  /* Peer specific RIB when configured as route-server-client. */
+  struct bgp_table *rib[AFI_MAX][SAFI_MAX];
 
   /* Packet receive and send buffer. */
   struct stream *ibuf;
@@ -341,6 +353,7 @@ struct peer
 #define PEER_FLAG_ORF_PREFIX_RM             (1 << 13) /* orf capability receive-mode */
 #define PEER_FLAG_MAX_PREFIX                (1 << 14) /* maximum prefix */
 #define PEER_FLAG_MAX_PREFIX_WARNING        (1 << 15) /* maximum prefix warning-only */
+#define PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED   (1 << 16) /* leave link-local nexthop unchanged */ 
 
   /* default-originate route-map.  */
   struct
@@ -480,6 +493,8 @@ struct peer
 #define PEER_RMAP_TYPE_REDISTRIBUTE   (1 << 3) /* redistribute route-map */
 #define PEER_RMAP_TYPE_DEFAULT        (1 << 4) /* default-originate route-map */
 #define PEER_RMAP_TYPE_NOSET          (1 << 5) /* not allow to set commands */
+#define PEER_RMAP_TYPE_IMPORT         (1 << 6) /* neighbor route-map import */
+#define PEER_RMAP_TYPE_EXPORT         (1 << 7) /* neighbor route-map export */
 };
 
 /* This structure's member directly points incoming packet data
@@ -689,7 +704,8 @@ enum bgp_clear_type
   BGP_CLEAR_SOFT_OUT,
   BGP_CLEAR_SOFT_IN,
   BGP_CLEAR_SOFT_BOTH,
-  BGP_CLEAR_SOFT_IN_ORF_PREFIX
+  BGP_CLEAR_SOFT_IN_ORF_PREFIX,
+  BGP_CLEAR_SOFT_RSCLIENT
 };
 
 /* Macros. */
@@ -796,6 +812,8 @@ int bgp_timers_unset (struct bgp *);
 
 int bgp_default_local_preference_set (struct bgp *, u_int32_t);
 int bgp_default_local_preference_unset (struct bgp *);
+
+int peer_rsclient_active (struct peer *);
 
 int peer_remote_as (struct bgp *, union sockunion *, as_t *, afi_t, safi_t);
 int peer_group_remote_as (struct bgp *, char *, as_t *);

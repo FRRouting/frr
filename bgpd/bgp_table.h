@@ -18,8 +18,19 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+typedef enum
+{
+  BGP_TABLE_MAIN,
+  BGP_TABLE_RSCLIENT,
+} bgp_table_t;
+
 struct bgp_table
 {
+  bgp_table_t type;
+
+  /* The owner of this 'bgp_table' structure. */
+  void *owner;
+
   struct bgp_node *top;
 };
 

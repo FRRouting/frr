@@ -39,6 +39,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_table.h"
 
 /* Utility function to get address family from current node.  */
 afi_t
@@ -1648,7 +1649,7 @@ DEFUN (no_neighbor_dont_capability_negotiate,
 
 int
 peer_af_flag_modify_vty (struct vty *vty, char *peer_str, afi_t afi,
-			 safi_t safi, u_int16_t flag, int set)
+			 safi_t safi, u_int32_t flag, int set)
 {
   int ret;
   struct peer *peer;
@@ -1667,14 +1668,14 @@ peer_af_flag_modify_vty (struct vty *vty, char *peer_str, afi_t afi,
 
 int
 peer_af_flag_set_vty (struct vty *vty, char *peer_str, afi_t afi,
-		      safi_t safi, u_int16_t flag)
+		      safi_t safi, u_int32_t flag)
 {
   return peer_af_flag_modify_vty (vty, peer_str, afi, safi, flag, 1);
 }
 
 int
 peer_af_flag_unset_vty (struct vty *vty, char *peer_str, afi_t afi,
-			safi_t safi, u_int16_t flag)
+			safi_t safi, u_int32_t flag)
 {
   return peer_af_flag_modify_vty (vty, peer_str, afi, safi, flag, 0);
 }
@@ -1923,6 +1924,134 @@ DEFUN (no_neighbor_route_reflector_client,
 				 PEER_FLAG_REFLECTOR_CLIENT);
 }
 
+int
+peer_rsclient_set_vty (struct vty *vty, char *peer_str, int afi, int safi)
+{
+  int ret;
+  struct bgp *bgp;
+  struct peer *peer;
+  struct peer_group *group;
+  struct listnode *nn;
+  struct bgp_filter *pfilter;
+  struct bgp_filter *gfilter;
+
+  bgp = vty->index;
+
+  peer = peer_and_group_lookup_vty (vty, peer_str);
+  if ( ! peer )
+    return CMD_WARNING;
+
+  /* If it is already a RS-Client, don't do anything. */
+  if ( CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT) )
+    return CMD_SUCCESS;
+
+  if ( ! peer_rsclient_active (peer) )
+    listnode_add_sort (bgp->rsclient, peer);
+
+  ret = peer_af_flag_set (peer, afi, safi, PEER_FLAG_RSERVER_CLIENT);
+  if (ret < 0)
+    return bgp_vty_return (vty, ret);
+
+  peer->rib[afi][safi] = bgp_table_init ();
+  peer->rib[afi][safi]->type = BGP_TABLE_RSCLIENT;
+  peer->rib[afi][safi]->owner = peer;
+
+  /* Check for existing 'network' and 'redistribute' routes. */
+  bgp_check_local_routes_rsclient (peer, afi, safi);
+
+  /* Check for routes for peers configured with 'soft-reconfiguration'. */
+  bgp_soft_reconfig_rsclient (peer, afi, safi);
+
+  if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+    {
+      group = peer->group;
+      gfilter = &peer->filter[afi][safi];
+
+      LIST_LOOP(group->peer, peer, nn)
+        {
+          pfilter = &peer->filter[afi][safi];
+
+          /* Members of a non-RS-Client group should not be RS-Clients, as that 
+             is checked when the become part of the peer-group */
+          ret = peer_af_flag_set (peer, afi, safi, PEER_FLAG_RSERVER_CLIENT);
+          if (ret < 0)
+            return bgp_vty_return (vty, ret);
+
+          /* Make peer's RIB point to group's RIB. */
+          peer->rib[afi][safi] = group->conf->rib[afi][safi];
+
+          /* Import policy. */
+          if (pfilter->map[RMAP_IMPORT].name)
+            free (pfilter->map[RMAP_IMPORT].name);
+          if (gfilter->map[RMAP_IMPORT].name)
+            {
+              pfilter->map[RMAP_IMPORT].name = strdup (gfilter->map[RMAP_IMPORT].name);
+              pfilter->map[RMAP_IMPORT].map = gfilter->map[RMAP_IMPORT].map;
+            }
+          else
+            {
+              pfilter->map[RMAP_IMPORT].name = NULL;
+              pfilter->map[RMAP_IMPORT].map =NULL;
+            }
+
+          /* Export policy. */
+          if (gfilter->map[RMAP_EXPORT].name && ! pfilter->map[RMAP_EXPORT].name)
+            {
+              pfilter->map[RMAP_EXPORT].name = strdup (gfilter->map[RMAP_EXPORT].name);
+              pfilter->map[RMAP_EXPORT].map = gfilter->map[RMAP_EXPORT].map;
+            }
+        }
+    }
+  return CMD_SUCCESS;
+}
+
+int
+peer_rsclient_unset_vty (struct vty *vty, char *peer_str, int afi, int safi)
+{
+  int ret;
+  struct bgp *bgp;
+  struct peer *peer;
+  struct peer_group *group;
+  struct listnode *nn;
+
+  bgp = vty->index;
+
+  peer = peer_and_group_lookup_vty (vty, peer_str);
+  if ( ! peer )
+    return CMD_WARNING;
+
+  /* If it is not a RS-Client, don't do anything. */
+  if ( ! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT) )
+    return CMD_SUCCESS;
+
+  if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+    {
+      group = peer->group;
+
+      LIST_LOOP (group->peer, peer, nn)
+        {
+          ret = peer_af_flag_unset (peer, afi, safi, PEER_FLAG_RSERVER_CLIENT);
+          if (ret < 0)
+            return bgp_vty_return (vty, ret);
+
+          peer->rib[afi][safi] = NULL;
+        }
+
+        peer = group->conf;
+    }
+
+  ret = peer_af_flag_unset (peer, afi, safi, PEER_FLAG_RSERVER_CLIENT);
+  if (ret < 0)
+    return bgp_vty_return (vty, ret);
+
+  if ( ! peer_rsclient_active (peer) )
+    listnode_delete (bgp->rsclient, peer);
+
+  bgp_table_finish (peer->rib[bgp_node_afi(vty)][bgp_node_safi(vty)]);
+
+  return CMD_SUCCESS;
+}
+
 /* neighbor route-server-client. */
 DEFUN (neighbor_route_server_client,
        neighbor_route_server_client_cmd,
@@ -1931,9 +2060,8 @@ DEFUN (neighbor_route_server_client,
        NEIGHBOR_ADDR_STR2
        "Configure a neighbor as Route Server client\n")
 {
-  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
-			       bgp_node_safi (vty),
-			       PEER_FLAG_RSERVER_CLIENT);
+  return peer_rsclient_set_vty (vty, argv[0], bgp_node_afi(vty),
+                  bgp_node_safi(vty));
 }
 
 DEFUN (no_neighbor_route_server_client,
@@ -1944,9 +2072,35 @@ DEFUN (no_neighbor_route_server_client,
        NEIGHBOR_ADDR_STR2
        "Configure a neighbor as Route Server client\n")
 {
+  return peer_rsclient_unset_vty (vty, argv[0], bgp_node_afi(vty),
+                  bgp_node_safi(vty));
+}
+
+DEFUN (neighbor_nexthop_local_unchanged,
+       neighbor_nexthop_local_unchanged_cmd,
+       NEIGHBOR_CMD2 "nexthop-local unchanged",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Configure treatment of outgoing link-local nexthop attribute\n"
+       "Leave link-local nexthop unchanged for this peer\n")
+{
+  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
+                                bgp_node_safi (vty),
+                                PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED );
+}
+
+DEFUN (no_neighbor_nexthop_local_unchanged,
+       no_neighbor_nexthop_local_unchanged_cmd,
+       NO_NEIGHBOR_CMD2 "nexthop-local unchanged",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Configure treatment of outgoing link-local-nexthop attribute\n"
+       "Leave link-local nexthop unchanged for this peer\n")
+{
   return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				 bgp_node_safi (vty),
-				 PEER_FLAG_RSERVER_CLIENT);
+                                PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED );
 }
 
 DEFUN (neighbor_attr_unchanged,
@@ -3265,17 +3419,21 @@ peer_route_map_set_vty (struct vty *vty, char *ip_str, afi_t afi, safi_t safi,
 {
   int ret;
   struct peer *peer;
-  int direct = FILTER_IN;
+  int direct = RMAP_IN;
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
     return CMD_WARNING;
 
   /* Check filter direction. */
-  if (strncmp (direct_str, "i", 1) == 0)
-    direct = FILTER_IN;
+  if (strncmp (direct_str, "in", 2) == 0)
+    direct = RMAP_IN;
   else if (strncmp (direct_str, "o", 1) == 0)
-    direct = FILTER_OUT;
+    direct = RMAP_OUT;
+  else if (strncmp (direct_str, "im", 2) == 0)
+    direct = RMAP_IMPORT;
+  else if (strncmp (direct_str, "e", 1) == 0)
+    direct = RMAP_EXPORT;
 
   ret = peer_route_map_set (peer, afi, safi, direct, name_str);
 
@@ -3288,18 +3446,21 @@ peer_route_map_unset_vty (struct vty *vty, char *ip_str, afi_t afi,
 {
   int ret;
   struct peer *peer;
-  int direct = FILTER_IN;
+  int direct = RMAP_IN;
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
     return CMD_WARNING;
 
   /* Check filter direction. */
-  if (strncmp (direct_str, "i", 1) == 0)
-    direct = FILTER_IN;
+  if (strncmp (direct_str, "in", 2) == 0)
+    direct = RMAP_IN;
   else if (strncmp (direct_str, "o", 1) == 0)
-
-    direct = FILTER_OUT;
+    direct = RMAP_OUT;
+  else if (strncmp (direct_str, "im", 2) == 0)
+    direct = RMAP_IMPORT;
+  else if (strncmp (direct_str, "e", 1) == 0)
+    direct = RMAP_EXPORT;
 
   ret = peer_route_map_unset (peer, afi, safi, direct);
 
@@ -3308,13 +3469,15 @@ peer_route_map_unset_vty (struct vty *vty, char *ip_str, afi_t afi,
 
 DEFUN (neighbor_route_map,
        neighbor_route_map_cmd,
-       NEIGHBOR_CMD2 "route-map WORD (in|out)",
+       NEIGHBOR_CMD2 "route-map WORD (in|out|import|export)",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Apply route map to neighbor\n"
        "Name of route map\n"
        "Apply map to incoming routes\n"
-       "Apply map to outbound routes\n")
+       "Apply map to outbound routes\n"
+       "Apply map to routes going into a Route-Server client's table\n"
+       "Apply map to routes coming from a Route-Server client")
 {
   return peer_route_map_set_vty (vty, argv[0], bgp_node_afi (vty),
 				 bgp_node_safi (vty), argv[1], argv[2]);
@@ -3322,14 +3485,16 @@ DEFUN (neighbor_route_map,
 
 DEFUN (no_neighbor_route_map,
        no_neighbor_route_map_cmd,
-       NO_NEIGHBOR_CMD2 "route-map WORD (in|out)",
+       NO_NEIGHBOR_CMD2 "route-map WORD (in|out|import|export)",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Apply route map to neighbor\n"
        "Name of route map\n"
        "Apply map to incoming routes\n"
-       "Apply map to outbound routes\n")
+       "Apply map to outbound routes\n"
+       "Apply map to routes going into a Route-Server client's table\n"
+       "Apply map to routes coming from a Route-Server client")
 {
   return peer_route_map_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				   bgp_node_safi (vty), argv[2]);
@@ -5990,6 +6155,166 @@ ALIAS (clear_bgp_as_soft,
        "Clear peers with the AS number\n"
        "Soft reconfig\n")
 
+/* RS-client soft reconfiguration. */
+#ifdef HAVE_IPV6
+DEFUN (clear_bgp_all_rsclient,
+       clear_bgp_all_rsclient_cmd,
+       "clear bgp * rsclient",
+       CLEAR_STR
+       BGP_STR
+       "Clear all peers\n"
+       "Soft reconfig for rsclient RIB\n")
+{
+  if (argc == 1)
+    return bgp_clear_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, clear_all,
+                          BGP_CLEAR_SOFT_RSCLIENT, NULL);
+
+  return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_all,
+                        BGP_CLEAR_SOFT_RSCLIENT, NULL);
+}
+
+ALIAS (clear_bgp_all_rsclient,
+       clear_bgp_ipv6_all_rsclient_cmd,
+       "clear bgp ipv6 * rsclient",
+       CLEAR_STR
+       BGP_STR
+       "Address family\n"
+       "Clear all peers\n"
+       "Soft reconfig for rsclient RIB\n")
+
+ALIAS (clear_bgp_all_rsclient,
+       clear_bgp_instance_all_rsclient_cmd,
+       "clear bgp view WORD * rsclient",
+       CLEAR_STR
+       BGP_STR
+       "BGP view\n"
+       "view name\n"
+       "Clear all peers\n"
+       "Soft reconfig for rsclient RIB\n")
+
+ALIAS (clear_bgp_all_rsclient,
+       clear_bgp_ipv6_instance_all_rsclient_cmd,
+       "clear bgp ipv6 view WORD * rsclient",
+       CLEAR_STR
+       BGP_STR
+       "Address family\n"
+       "BGP view\n"
+       "view name\n"
+       "Clear all peers\n"
+       "Soft reconfig for rsclient RIB\n")
+#endif /* HAVE_IPV6 */
+
+DEFUN (clear_ip_bgp_all_rsclient,
+       clear_ip_bgp_all_rsclient_cmd,
+       "clear ip bgp * rsclient",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "Clear all peers\n"
+       "Soft reconfig for rsclient RIB\n")
+{
+  if (argc == 1)
+    return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_all,
+                          BGP_CLEAR_SOFT_RSCLIENT, NULL);
+
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_all,
+                        BGP_CLEAR_SOFT_RSCLIENT, NULL);
+}
+
+ALIAS (clear_ip_bgp_all_rsclient,
+       clear_ip_bgp_instance_all_rsclient_cmd,
+       "clear ip bgp view WORD * rsclient",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "BGP view\n"
+       "view name\n"
+       "Clear all peers\n"
+       "Soft reconfig for rsclient RIB\n")
+
+#ifdef HAVE_IPV6
+DEFUN (clear_bgp_peer_rsclient,
+       clear_bgp_peer_rsclient_cmd,
+       "clear bgp (A.B.C.D|X:X::X:X) rsclient",
+       CLEAR_STR
+       BGP_STR
+       "BGP neighbor IP address to clear\n"
+       "BGP IPv6 neighbor to clear\n"
+       "Soft reconfig for rsclient RIB\n")
+{
+  if (argc == 2)
+    return bgp_clear_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST, clear_peer,
+                          BGP_CLEAR_SOFT_RSCLIENT, argv[1]);
+
+  return bgp_clear_vty (vty, NULL, AFI_IP6, SAFI_UNICAST, clear_peer,
+                        BGP_CLEAR_SOFT_RSCLIENT, argv[0]);
+}
+
+ALIAS (clear_bgp_peer_rsclient,
+       clear_bgp_ipv6_peer_rsclient_cmd,
+       "clear bgp ipv6 (A.B.C.D|X:X::X:X) rsclient",
+       CLEAR_STR
+       BGP_STR
+       "Address family\n"
+       "BGP neighbor IP address to clear\n"
+       "BGP IPv6 neighbor to clear\n"
+       "Soft reconfig for rsclient RIB\n")
+
+ALIAS (clear_bgp_peer_rsclient,
+       clear_bgp_instance_peer_rsclient_cmd,
+       "clear bgp view WORD (A.B.C.D|X:X::X:X) rsclient",
+       CLEAR_STR
+       BGP_STR
+       "BGP view\n"
+       "view name\n"
+       "BGP neighbor IP address to clear\n"
+       "BGP IPv6 neighbor to clear\n"
+       "Soft reconfig for rsclient RIB\n")
+
+ALIAS (clear_bgp_peer_rsclient,
+       clear_bgp_ipv6_instance_peer_rsclient_cmd,
+       "clear bgp ipv6 view WORD (A.B.C.D|X:X::X:X) rsclient",
+       CLEAR_STR
+       BGP_STR
+       "Address family\n"
+       "BGP view\n"
+       "view name\n"
+       "BGP neighbor IP address to clear\n"
+       "BGP IPv6 neighbor to clear\n"
+       "Soft reconfig for rsclient RIB\n")
+#endif /* HAVE_IPV6 */
+
+DEFUN (clear_ip_bgp_peer_rsclient,
+       clear_ip_bgp_peer_rsclient_cmd,
+       "clear ip bgp (A.B.C.D|X:X::X:X) rsclient",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "BGP neighbor IP address to clear\n"
+       "BGP IPv6 neighbor to clear\n"
+       "Soft reconfig for rsclient RIB\n")
+{
+  if (argc == 2)
+    return bgp_clear_vty (vty, argv[0], AFI_IP, SAFI_UNICAST, clear_peer,
+                          BGP_CLEAR_SOFT_RSCLIENT, argv[1]);
+
+  return bgp_clear_vty (vty, NULL, AFI_IP, SAFI_UNICAST, clear_peer,
+                        BGP_CLEAR_SOFT_RSCLIENT, argv[0]);
+}
+
+ALIAS (clear_ip_bgp_peer_rsclient,
+       clear_ip_bgp_instance_peer_rsclient_cmd,
+       "clear ip bgp view WORD (A.B.C.D|X:X::X:X) rsclient",
+       CLEAR_STR
+       IP_STR
+       BGP_STR
+       "BGP view\n"
+       "view name\n"
+       "BGP neighbor IP address to clear\n"
+       "BGP IPv6 neighbor to clear\n"
+       "Soft reconfig for rsclient RIB\n")
+
+
 /* Show BGP peer's summary information. */
 int
 bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
@@ -6443,14 +6768,18 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
   if (filter->plist[FILTER_IN].name
       || filter->dlist[FILTER_IN].name
       || filter->aslist[FILTER_IN].name
-      || filter->map[FILTER_IN].name)
+      || filter->map[RMAP_IN].name)
     vty_out (vty, "  Inbound path policy configured%s", VTY_NEWLINE);
   if (filter->plist[FILTER_OUT].name
       || filter->dlist[FILTER_OUT].name
       || filter->aslist[FILTER_OUT].name
-      || filter->map[FILTER_OUT].name
+      || filter->map[RMAP_OUT].name
       || filter->usmap.name)
     vty_out (vty, "  Outbound path policy configured%s", VTY_NEWLINE);
+  if (filter->map[RMAP_IMPORT].name)
+    vty_out (vty, "  Import policy for this RS-client configured%s", VTY_NEWLINE);
+  if (filter->map[RMAP_EXPORT].name)
+    vty_out (vty, "  Export policy for this RS-client configured%s", VTY_NEWLINE);
 
   /* prefix-list */
   if (filter->plist[FILTER_IN].name)
@@ -6489,15 +6818,25 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
 	     VTY_NEWLINE);
 
   /* route-map. */
-  if (filter->map[FILTER_IN].name)
+  if (filter->map[RMAP_IN].name)
     vty_out (vty, "  Route map for incoming advertisements is %s%s%s",
-	     filter->map[FILTER_IN].map ? "*" : "",
-	     filter->map[FILTER_IN].name,
+            filter->map[RMAP_IN].map ? "*" : "",
+            filter->map[RMAP_IN].name,
 	     VTY_NEWLINE);
-  if (filter->map[FILTER_OUT].name)
+  if (filter->map[RMAP_OUT].name)
     vty_out (vty, "  Route map for outgoing advertisements is %s%s%s",
-	     filter->map[FILTER_OUT].map ? "*" : "",
-	     filter->map[FILTER_OUT].name,
+            filter->map[RMAP_OUT].map ? "*" : "",
+            filter->map[RMAP_OUT].name,
+            VTY_NEWLINE);
+  if (filter->map[RMAP_IMPORT].name)
+    vty_out (vty, "  Route map for advertisements going into this RS-client's table is %s%s%s",
+            filter->map[RMAP_IMPORT].map ? "*" : "",
+            filter->map[RMAP_IMPORT].name,
+            VTY_NEWLINE);
+  if (filter->map[RMAP_EXPORT].name)
+    vty_out (vty, "  Route map for advertisements coming from this RS-client is %s%s%s",
+            filter->map[RMAP_EXPORT].map ? "*" : "",
+            filter->map[RMAP_EXPORT].name,
 	     VTY_NEWLINE);
 
   /* unsuppress-map */
@@ -7155,6 +7494,262 @@ DEFUN (show_ip_bgp_attr_info,
   attr_show_all (vty);
   return CMD_SUCCESS;
 }
+
+int
+bgp_write_rsclient_summary (struct vty *vty, struct peer *rsclient,
+        afi_t afi, safi_t safi)
+{
+  char timebuf[BGP_UPTIME_LEN];
+  char rmbuf[14];
+  char *rmname;
+  struct peer *peer;
+  struct listnode *nn;
+  int len;
+  int count = 0;
+
+  if (CHECK_FLAG (rsclient->sflags, PEER_STATUS_GROUP))
+    {
+      LIST_LOOP (rsclient->group->peer, peer, nn)
+        {
+          count++;
+          bgp_write_rsclient_summary (vty, peer, afi, safi);
+        }
+      return count;
+    }
+
+  len = vty_out (vty, "%s", rsclient->host);
+  len = 16 - len;
+
+  if (len < 1)
+    vty_out (vty, "%s%*s", VTY_NEWLINE, 16, " ");
+  else
+    vty_out (vty, "%*s", len, " ");
+
+  switch (rsclient->version)
+    {
+      case BGP_VERSION_4:
+        vty_out (vty, "4 ");
+        break;
+      case BGP_VERSION_MP_4_DRAFT_00:
+        vty_out (vty, "4-");
+        break;
+    }
+
+  vty_out (vty, "%5d ", rsclient->as);
+
+  rmname = ROUTE_MAP_EXPORT_NAME(&rsclient->filter[afi][safi]);
+  if ( rmname && strlen (rmname) > 13 )
+    {
+      sprintf (rmbuf, "%13s", "...");
+      rmname = strncpy (rmbuf, rmname, 10);
+    }
+  else if (! rmname)
+    rmname = "<none>";
+  vty_out (vty, " %13s ", rmname);
+
+  rmname = ROUTE_MAP_IMPORT_NAME(&rsclient->filter[afi][safi]);
+  if ( rmname && strlen (rmname) > 13 )
+    {
+      sprintf (rmbuf, "%13s", "...");
+      rmname = strncpy (rmbuf, rmname, 10);
+    }
+  else if (! rmname)
+    rmname = "<none>";
+  vty_out (vty, " %13s ", rmname);
+
+  vty_out (vty, "%8s", peer_uptime (rsclient->uptime, timebuf, BGP_UPTIME_LEN));
+
+  if (CHECK_FLAG (rsclient->flags, PEER_FLAG_SHUTDOWN))
+    vty_out (vty, " Idle (Admin)");
+  else if (CHECK_FLAG (rsclient->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+    vty_out (vty, " Idle (PfxCt)");
+  else
+    vty_out (vty, " %-11s", LOOKUP(bgp_status_msg, rsclient->status));
+
+  vty_out (vty, "%s", VTY_NEWLINE);
+
+  return 1;
+}
+
+int
+bgp_show_rsclient_summary (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
+{
+  struct peer *peer;
+  struct listnode *nn;
+  int count = 0;
+
+  /* Header string for each address family. */
+  static char header[] = "Neighbor        V    AS  Export-Policy  Import-Policy  Up/Down  State";
+
+  LIST_LOOP (bgp->rsclient, peer, nn)
+    {
+      if (peer->afc[afi][safi] &&
+         CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+       {
+         if (! count)
+           {
+             vty_out (vty,
+                      "Route Server's BGP router identifier %s%s",
+                      inet_ntoa (bgp->router_id), VTY_NEWLINE);
+             vty_out (vty,
+              "Route Server's local AS number %d%s", bgp->as,
+                       VTY_NEWLINE);
+
+             vty_out (vty, "%s", VTY_NEWLINE);
+             vty_out (vty, "%s%s", header, VTY_NEWLINE);
+           }
+
+         count += bgp_write_rsclient_summary (vty, peer, afi, safi);
+       }
+    }
+
+  if (count)
+    vty_out (vty, "%sTotal number of Route Server Clients %d%s", VTY_NEWLINE,
+            count, VTY_NEWLINE);
+  else
+    vty_out (vty, "No %s Route Server Client is configured%s",
+            afi == AFI_IP ? "IPv4" : "IPv6", VTY_NEWLINE);
+
+  return CMD_SUCCESS;
+}
+
+int
+bgp_show_rsclient_summary_vty (struct vty *vty, char *name, afi_t afi, safi_t safi)
+{
+  struct bgp *bgp;
+
+  if (name)
+    {
+      bgp = bgp_lookup_by_name (name);
+
+      if (! bgp)
+       {
+         vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
+         return CMD_WARNING;
+       }
+
+      bgp_show_rsclient_summary (vty, bgp, afi, safi);
+      return CMD_SUCCESS;
+    }
+
+  bgp = bgp_get_default ();
+
+  if (bgp)
+    bgp_show_rsclient_summary (vty, bgp, afi, safi);
+
+  return CMD_SUCCESS;
+}
+
+/* 'show bgp rsclient' commands. */
+DEFUN (show_ip_bgp_rsclient_summary,
+       show_ip_bgp_rsclient_summary_cmd,
+       "show ip bgp rsclient summary",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Information about Route Server Clients\n"
+       "Summary of all Route Server Clients\n")
+{
+  return bgp_show_rsclient_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST);
+}
+
+DEFUN (show_ip_bgp_instance_rsclient_summary,
+       show_ip_bgp_instance_rsclient_summary_cmd,
+       "show ip bgp view WORD rsclient summary",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\n"
+       "View name\n"
+       "Information about Route Server Clients\n"
+       "Summary of all Route Server Clients\n")
+{
+  return bgp_show_rsclient_summary_vty (vty, argv[0], AFI_IP, SAFI_UNICAST);
+}
+
+DEFUN (show_ip_bgp_ipv4_rsclient_summary,
+      show_ip_bgp_ipv4_rsclient_summary_cmd,
+      "show ip bgp ipv4 (unicast|multicast) rsclient summary",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Information about Route Server Clients\n"
+       "Summary of all Route Server Clients\n")
+{
+  if (strncmp (argv[0], "m", 1) == 0)
+    return bgp_show_rsclient_summary_vty (vty, NULL, AFI_IP, SAFI_MULTICAST);
+
+  return bgp_show_rsclient_summary_vty (vty, NULL, AFI_IP, SAFI_UNICAST);
+}
+
+DEFUN (show_ip_bgp_instance_ipv4_rsclient_summary,
+      show_ip_bgp_instance_ipv4_rsclient_summary_cmd,
+      "show ip bgp view WORD ipv4 (unicast|multicast) rsclient summary",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\n"
+       "View name\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Information about Route Server Clients\n"
+       "Summary of all Route Server Clients\n")
+{
+  if (strncmp (argv[1], "m", 1) == 0)
+    return bgp_show_rsclient_summary_vty (vty, argv[0], AFI_IP, SAFI_MULTICAST);
+
+  return bgp_show_rsclient_summary_vty (vty, argv[0], AFI_IP, SAFI_UNICAST);
+}
+
+#ifdef HAVE_IPV6
+DEFUN (show_bgp_rsclient_summary,
+       show_bgp_rsclient_summary_cmd,
+       "show bgp rsclient summary",
+       SHOW_STR
+       BGP_STR
+       "Information about Route Server Clients\n"
+       "Summary of all Route Server Clients\n")
+{
+  return bgp_show_rsclient_summary_vty (vty, NULL, AFI_IP6, SAFI_UNICAST);
+}
+
+DEFUN (show_bgp_instance_rsclient_summary,
+       show_bgp_instance_rsclient_summary_cmd,
+       "show bgp view WORD rsclient summary",
+       SHOW_STR
+       BGP_STR
+       "BGP view\n"
+       "View name\n"
+       "Information about Route Server Clients\n"
+       "Summary of all Route Server Clients\n")
+{
+  return bgp_show_rsclient_summary_vty (vty, argv[0], AFI_IP6, SAFI_UNICAST);
+}
+
+ALIAS (show_bgp_rsclient_summary,
+      show_bgp_ipv6_rsclient_summary_cmd,
+      "show bgp ipv6 rsclient summary",
+       SHOW_STR
+       BGP_STR
+       "Address family\n"
+       "Information about Route Server Clients\n"
+       "Summary of all Route Server Clients\n")
+
+ALIAS (show_bgp_instance_rsclient_summary,
+      show_bgp_instance_ipv6_rsclient_summary_cmd,
+       "show bgp view WORD ipv6 rsclient summary",
+       SHOW_STR
+       BGP_STR
+       "BGP view\n"
+       "View name\n"
+       "Address family\n"
+       "Information about Route Server Clients\n"
+       "Summary of all Route Server Clients\n")
+#endif /* HAVE IPV6 */
 
 /* Redistribute VTY commands.  */
 
@@ -8066,6 +8661,10 @@ bgp_vty_init ()
   install_element (BGP_VPNV4_NODE, &no_neighbor_attr_unchanged9_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_attr_unchanged10_cmd);
 
+  /* "nexthop-local unchanged" commands */
+  install_element (BGP_IPV6_NODE, &neighbor_nexthop_local_unchanged_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_nexthop_local_unchanged_cmd);
+
   /* "transparent-as" and "transparent-nexthop" for old version
      compatibility.  */
   install_element (BGP_NODE, &neighbor_transparent_as_cmd);
@@ -8562,6 +9161,22 @@ bgp_vty_init ()
   install_element (ENABLE_NODE, &clear_bgp_ipv6_as_soft_cmd);
 #endif /* HAVE_IPV6 */
 
+  /* "clear ip bgp neighbor rsclient" */
+  install_element (ENABLE_NODE, &clear_ip_bgp_all_rsclient_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_instance_all_rsclient_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_peer_rsclient_cmd);
+  install_element (ENABLE_NODE, &clear_ip_bgp_instance_peer_rsclient_cmd);
+#ifdef HAVE_IPV6
+  install_element (ENABLE_NODE, &clear_bgp_all_rsclient_cmd);
+  install_element (ENABLE_NODE, &clear_bgp_instance_all_rsclient_cmd);
+  install_element (ENABLE_NODE, &clear_bgp_ipv6_all_rsclient_cmd);
+  install_element (ENABLE_NODE, &clear_bgp_ipv6_instance_all_rsclient_cmd);
+  install_element (ENABLE_NODE, &clear_bgp_peer_rsclient_cmd);
+  install_element (ENABLE_NODE, &clear_bgp_instance_peer_rsclient_cmd);
+  install_element (ENABLE_NODE, &clear_bgp_ipv6_peer_rsclient_cmd);
+  install_element (ENABLE_NODE, &clear_bgp_ipv6_instance_peer_rsclient_cmd);
+#endif /* HAVE_IPV6 */
+
   /* "show ip bgp summary" commands. */
   install_element (VIEW_NODE, &show_ip_bgp_summary_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_instance_summary_cmd);
@@ -8633,6 +9248,27 @@ bgp_vty_init ()
   install_element (VIEW_NODE, &show_ipv6_mbgp_summary_cmd);
   install_element (ENABLE_NODE, &show_ipv6_bgp_summary_cmd);
   install_element (ENABLE_NODE, &show_ipv6_mbgp_summary_cmd);
+#endif /* HAVE_IPV6 */
+
+  /* "show ip bgp rsclient" commands. */
+  install_element (VIEW_NODE, &show_ip_bgp_rsclient_summary_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_rsclient_summary_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_ipv4_rsclient_summary_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_instance_ipv4_rsclient_summary_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_rsclient_summary_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_rsclient_summary_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_rsclient_summary_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_instance_ipv4_rsclient_summary_cmd);
+
+#ifdef HAVE_IPV6
+  install_element (VIEW_NODE, &show_bgp_rsclient_summary_cmd);
+  install_element (VIEW_NODE, &show_bgp_ipv6_rsclient_summary_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_rsclient_summary_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_ipv6_rsclient_summary_cmd);
+  install_element (ENABLE_NODE, &show_bgp_rsclient_summary_cmd);
+  install_element (ENABLE_NODE, &show_bgp_ipv6_rsclient_summary_cmd);
+  install_element (ENABLE_NODE, &show_bgp_instance_rsclient_summary_cmd);
+  install_element (ENABLE_NODE, &show_bgp_instance_ipv6_rsclient_summary_cmd);
 #endif /* HAVE_IPV6 */
 
   /* "show ip bgp paths" commands. */

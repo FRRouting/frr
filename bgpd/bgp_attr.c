@@ -1365,8 +1365,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   if (peer_sort (peer) == BGP_PEER_EBGP
       && (! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED)
 	  || attr->aspath->length == 0)
-      && ! (CHECK_FLAG (from->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)
-	    && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)))
+      && (! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)))
     {    
       aspath = aspath_dup (attr->aspath);
 

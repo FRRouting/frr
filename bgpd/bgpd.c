@@ -531,6 +531,23 @@ bgp_default_local_preference_unset (struct bgp *bgp)
   return 0;
 }
 
+/* If peer is RSERVER_CLIENT in at least one address family and is not member
+    of a peer_group for that family, return 1.
+    Used to check wether the peer is included in list bgp->rsclient. */
+int
+peer_rsclient_active (struct peer *peer)
+{
+  int i;
+  int j;
+
+  for (i=AFI_IP; i < AFI_MAX; i++)
+    for (j=SAFI_UNICAST; j < SAFI_MAX; j++)
+      if (CHECK_FLAG(peer->af_flags[i][j], PEER_FLAG_RSERVER_CLIENT)
+            && ! peer->af_group[i][j])
+        return 1;
+  return 0;
+}
+
 /* Peer comparison function for sorting.  */
 static int
 peer_cmp (struct peer *p1, struct peer *p2)
@@ -572,6 +589,9 @@ peer_af_flag_reset (struct peer *peer, afi_t afi, safi_t safi)
 	  free (filter->aslist[i].name);
 	  filter->aslist[i].name = NULL;
 	}
+   }
+ for (i = RMAP_IN; i < RMAP_MAX; i++)
+       {
       if (filter->map[i].name)
 	{
 	  free (filter->map[i].name);
@@ -1092,7 +1112,18 @@ peer_delete (struct peer *peer)
 
   /* Delete from all peer list. */
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    {
     listnode_delete (bgp->peer, peer);
+      if (peer_rsclient_active (peer))
+        listnode_delete (bgp->rsclient, peer);
+    }
+
+  /* Free RIB for any family in which peer is RSERVER_CLIENT, and is not
+      member of a peer_group. */
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      if (peer->rib[afi][safi] && ! peer->af_group[afi][safi])
+        bgp_table_finish (peer->rib[afi][safi]);
 
   /* Buffer.  */
   if (peer->ibuf)
@@ -1134,6 +1165,9 @@ peer_delete (struct peer *peer)
 	      free (filter->plist[i].name);
 	    if (filter->aslist[i].name)
 	      free (filter->aslist[i].name);
+     }
+   for (i = RMAP_IN; i < RMAP_MAX; i++)
+      {
 	    if (filter->map[i].name)
 	      free (filter->map[i].name);
 	  }
@@ -1300,6 +1334,34 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
   /* allowas-in */
   peer->allowas_in[afi][safi] = conf->allowas_in[afi][safi];
 
+  /* route-server-client */
+  if (CHECK_FLAG(conf->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+    {
+      /* Make peer's RIB point to group's RIB. */
+      peer->rib[afi][safi] = group->conf->rib[afi][safi];
+
+      /* Import policy. */
+      if (pfilter->map[RMAP_IMPORT].name)
+        free (pfilter->map[RMAP_IMPORT].name);
+      if (gfilter->map[RMAP_IMPORT].name)
+        {
+          pfilter->map[RMAP_IMPORT].name = strdup (gfilter->map[RMAP_IMPORT].name);
+          pfilter->map[RMAP_IMPORT].map = gfilter->map[RMAP_IMPORT].map;
+        }
+      else
+        {
+          pfilter->map[RMAP_IMPORT].name = NULL;
+          pfilter->map[RMAP_IMPORT].map = NULL;
+        }
+
+      /* Export policy. */
+      if (gfilter->map[RMAP_EXPORT].name && ! pfilter->map[RMAP_EXPORT].name)
+        {
+          pfilter->map[RMAP_EXPORT].name = strdup (gfilter->map[RMAP_EXPORT].name);
+          pfilter->map[RMAP_EXPORT].map = gfilter->map[RMAP_EXPORT].map;
+        }
+    }
+
   /* default-originate route-map */
   if (conf->default_rmap[afi][safi].name)
     {
@@ -1355,12 +1417,12 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
       pfilter->aslist[in].name = strdup (gfilter->aslist[in].name);
       pfilter->aslist[in].aslist = gfilter->aslist[in].aslist;
     }
-  if (gfilter->map[in].name && ! pfilter->map[in].name)
+  if (gfilter->map[RMAP_IN].name && ! pfilter->map[RMAP_IN].name)
     {
-      if (pfilter->map[in].name)
-	free (pfilter->map[in].name);
-      pfilter->map[in].name = strdup (gfilter->map[in].name);
-      pfilter->map[in].map = gfilter->map[in].map;
+      if (pfilter->map[RMAP_IN].name)
+        free (pfilter->map[RMAP_IN].name);
+      pfilter->map[RMAP_IN].name = strdup (gfilter->map[RMAP_IN].name);
+      pfilter->map[RMAP_IN].map = gfilter->map[RMAP_IN].map;
     }
 
   /* outbound filter apply */
@@ -1406,19 +1468,42 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
       pfilter->aslist[out].name = NULL;
       pfilter->aslist[out].aslist = NULL;
     }
-  if (gfilter->map[out].name)
+  if (gfilter->map[RMAP_OUT].name)
     {
-      if (pfilter->map[out].name)
-	free (pfilter->map[out].name);
-      pfilter->map[out].name = strdup (gfilter->map[out].name);
-      pfilter->map[out].map = gfilter->map[out].map;
+      if (pfilter->map[RMAP_OUT].name)
+        free (pfilter->map[RMAP_OUT].name);
+      pfilter->map[RMAP_OUT].name = strdup (gfilter->map[RMAP_OUT].name);
+      pfilter->map[RMAP_OUT].map = gfilter->map[RMAP_OUT].map;
     }
   else
     {
-      if (pfilter->map[out].name)
-	free (pfilter->map[out].name);
-      pfilter->map[out].name = NULL;
-      pfilter->map[out].map = NULL;
+      if (pfilter->map[RMAP_OUT].name)
+        free (pfilter->map[RMAP_OUT].name);
+      pfilter->map[RMAP_OUT].name = NULL;
+      pfilter->map[RMAP_OUT].map = NULL;
+    }
+
+ /* RS-client's import/export route-maps. */
+  if (gfilter->map[RMAP_IMPORT].name)
+    {
+      if (pfilter->map[RMAP_IMPORT].name)
+        free (pfilter->map[RMAP_IMPORT].name);
+      pfilter->map[RMAP_IMPORT].name = strdup (gfilter->map[RMAP_IMPORT].name);
+      pfilter->map[RMAP_IMPORT].map = gfilter->map[RMAP_IMPORT].map;
+    }
+  else
+    {
+      if (pfilter->map[RMAP_IMPORT].name)
+        free (pfilter->map[RMAP_IMPORT].name);
+      pfilter->map[RMAP_IMPORT].name = NULL;
+      pfilter->map[RMAP_IMPORT].map = NULL;
+    }
+  if (gfilter->map[RMAP_EXPORT].name && ! pfilter->map[RMAP_EXPORT].name)
+    {
+      if (pfilter->map[RMAP_EXPORT].name)
+        free (pfilter->map[RMAP_EXPORT].name);
+      pfilter->map[RMAP_EXPORT].name = strdup (gfilter->map[RMAP_EXPORT].name);
+      pfilter->map[RMAP_EXPORT].map = gfilter->map[RMAP_EXPORT].map;
     }
 
   if (gfilter->usmap.name)
@@ -1601,6 +1686,35 @@ peer_group_bind (struct bgp *bgp, union sockunion *su,
 	  UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
 	}
     }
+
+  if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+    {
+      /* If it's not configured as RSERVER_CLIENT in any other address
+          family, without being member of a peer_group, remove it from
+          list bgp->rsclient.*/
+      if (! peer_rsclient_active (peer))
+        listnode_delete (bgp->rsclient, peer);
+
+      bgp_table_finish (peer->rib[afi][safi]);
+
+      /* Import policy. */
+      if (peer->filter[afi][safi].map[RMAP_IMPORT].name)
+        {
+          free (peer->filter[afi][safi].map[RMAP_IMPORT].name);
+          peer->filter[afi][safi].map[RMAP_IMPORT].name = NULL;
+          peer->filter[afi][safi].map[RMAP_IMPORT].map = NULL;
+        }
+
+      /* Export policy. */
+      if (! CHECK_FLAG(group->conf->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)
+              && peer->filter[afi][safi].map[RMAP_EXPORT].name)
+        {
+          free (peer->filter[afi][safi].map[RMAP_EXPORT].name);
+          peer->filter[afi][safi].map[RMAP_EXPORT].name = NULL;
+          peer->filter[afi][safi].map[RMAP_EXPORT].map = NULL;
+        }
+    }
+
   peer_group2peer_config_copy (group, peer, afi, safi);
 
   if (peer->status == Established)
@@ -1628,6 +1742,9 @@ peer_group_unbind (struct bgp *bgp, struct peer *peer,
   peer->af_group[afi][safi] = 0;
   peer->afc[afi][safi] = 0;
   peer_af_flag_reset (peer, afi, safi);
+
+  if (peer->rib[afi][safi])
+    peer->rib[afi][safi] = NULL;
 
   if (! peer_group_active (peer))
     {
@@ -1671,6 +1788,9 @@ bgp_create (as_t *as, char *name)
 
   bgp->group = list_new ();
   bgp->group->cmp = (int (*)(void *, void *)) peer_group_cmp;
+
+  bgp->rsclient = list_new ();
+  bgp->rsclient->cmp = (int (*)(void*, void*)) peer_cmp;
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -1825,6 +1945,9 @@ bgp_delete (struct bgp *bgp)
       next = nn->next;
       peer_delete (peer);
     }
+
+  bgp->rsclient->del = (void (*)(void *)) peer_delete;
+  list_delete (bgp->rsclient);
 
   listnode_delete (bm->bgp, bgp);
 
@@ -2007,6 +2130,7 @@ struct peer_flag_action peer_af_flag_action_list[] =
     { PEER_FLAG_ALLOWAS_IN,               0, peer_change_reset_in },
     { PEER_FLAG_ORF_PREFIX_SM,            1, peer_change_reset },
     { PEER_FLAG_ORF_PREFIX_RM,            1, peer_change_reset },
+    { PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED,  0, peer_change_reset_out },
     { 0, 0, 0 }
   };
 
@@ -3551,10 +3675,12 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
 
-  if (direct != FILTER_IN && direct != FILTER_OUT)
+  if (direct != RMAP_IN && direct != RMAP_OUT &&
+      direct != RMAP_IMPORT && direct != RMAP_EXPORT)
     return BGP_ERR_INVALID_VALUE;
 
-  if (direct == FILTER_OUT && peer_is_group_member (peer, afi, safi))
+  if ( (direct == RMAP_OUT || direct == RMAP_IMPORT)
+      && peer_is_group_member (peer, afi, safi))
     return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   filter = &peer->filter[afi][safi];
@@ -3662,10 +3788,12 @@ peer_route_map_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
 
-  if (direct != FILTER_IN && direct != FILTER_OUT)
+  if (direct != RMAP_IN && direct != RMAP_OUT &&
+      direct != RMAP_IMPORT && direct != RMAP_EXPORT)
     return BGP_ERR_INVALID_VALUE;
 
-  if (direct == FILTER_OUT && peer_is_group_member (peer, afi, safi))
+  if ( (direct == RMAP_OUT || direct == RMAP_IMPORT)
+      && peer_is_group_member (peer, afi, safi))
     return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   filter = &peer->filter[afi][safi];
@@ -3950,6 +4078,14 @@ peer_clear_soft (struct peer *peer, afi_t afi, safi_t safi,
   if (! peer->afc[afi][safi])
     return BGP_ERR_AF_UNCONFIGURED;
 
+  if (stype == BGP_CLEAR_SOFT_RSCLIENT)
+    {
+      if (! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+        return 0;
+      bgp_check_local_routes_rsclient (peer, afi, safi);
+      bgp_soft_reconfig_rsclient (peer, afi, safi);
+    }
+
   if (stype == BGP_CLEAR_SOFT_OUT || stype == BGP_CLEAR_SOFT_BOTH)
     bgp_announce_route (peer, afi, safi);
 
@@ -4086,14 +4222,23 @@ bgp_config_write_filter (struct vty *vty, struct peer *peer,
 	     filter->plist[out].name, VTY_NEWLINE);
 
   /* route-map. */
-  if (filter->map[in].name)
-    if (! gfilter || ! gfilter->map[in].name
-	|| strcmp (filter->map[in].name, gfilter->map[in].name) != 0)
+  if (filter->map[RMAP_IN].name)
+    if (! gfilter || ! gfilter->map[RMAP_IN].name
+       || strcmp (filter->map[RMAP_IN].name, gfilter->map[RMAP_IN].name) != 0)
       vty_out (vty, " neighbor %s route-map %s in%s", addr, 
-	       filter->map[in].name, VTY_NEWLINE);
-  if (filter->map[out].name && ! gfilter)
+              filter->map[RMAP_IN].name, VTY_NEWLINE);
+  if (filter->map[RMAP_OUT].name && ! gfilter)
     vty_out (vty, " neighbor %s route-map %s out%s", addr, 
-	     filter->map[out].name, VTY_NEWLINE);
+            filter->map[RMAP_OUT].name, VTY_NEWLINE);
+  if (filter->map[RMAP_IMPORT].name && ! gfilter)
+    vty_out (vty, " neighbor %s route-map %s import%s", addr,
+        filter->map[RMAP_IMPORT].name, VTY_NEWLINE);
+  if (filter->map[RMAP_EXPORT].name)
+    if (! gfilter || ! gfilter->map[RMAP_EXPORT].name
+    || strcmp (filter->map[RMAP_EXPORT].name,
+                    gfilter->map[RMAP_EXPORT].name) != 0)
+    vty_out (vty, " neighbor %s route-map %s export%s", addr,
+        filter->map[RMAP_EXPORT].name, VTY_NEWLINE);
 
   /* unsuppress-map */
   if (filter->usmap.name && ! gfilter)

@@ -67,6 +67,9 @@ typedef enum
   RMAP_EVENT_INDEX_DELETED
 } route_map_event_t;
 
+/* Depth limit in RMAP recursion using RMAP_CALL. */
+#define RMAP_RECURSION_LIMIT      10
+
 /* Route map rule structure for matching and setting. */
 struct route_map_rule_cmd
 {
@@ -117,6 +120,9 @@ struct route_map_index
 
   /* If we're using "GOTO", to where do we go? */
   int nextpref;
+
+  /* If we're using "CALL", to which route-map do ew go? */
+  char *nextrm;
 
   /* Matching rule list. */
   struct route_map_rule_list match_list;

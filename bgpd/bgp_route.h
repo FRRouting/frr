@@ -109,10 +109,15 @@ struct bgp_static
 #define FILTER_LIST_OUT_NAME(F) ((F)->aslist[FILTER_OUT].name)
 #define FILTER_LIST_OUT(F)      ((F)->aslist[FILTER_OUT].aslist)
 
-#define ROUTE_MAP_IN_NAME(F)    ((F)->map[FILTER_IN].name)
-#define ROUTE_MAP_IN(F)         ((F)->map[FILTER_IN].map)
-#define ROUTE_MAP_OUT_NAME(F)   ((F)->map[FILTER_OUT].name)
-#define ROUTE_MAP_OUT(F)        ((F)->map[FILTER_OUT].map)
+#define ROUTE_MAP_IN_NAME(F)    ((F)->map[RMAP_IN].name)
+#define ROUTE_MAP_IN(F)         ((F)->map[RMAP_IN].map)
+#define ROUTE_MAP_OUT_NAME(F)   ((F)->map[RMAP_OUT].name)
+#define ROUTE_MAP_OUT(F)        ((F)->map[RMAP_OUT].map)
+
+#define ROUTE_MAP_IMPORT_NAME(F)    ((F)->map[RMAP_IMPORT].name)
+#define ROUTE_MAP_IMPORT(F)    ((F)->map[RMAP_IMPORT].map)
+#define ROUTE_MAP_EXPORT_NAME(F)    ((F)->map[RMAP_EXPORT].name)
+#define ROUTE_MAP_EXPORT(F)    ((F)->map[RMAP_EXPORT].map)
 
 #define UNSUPPRESS_MAP_NAME(F)  ((F)->usmap.name)
 #define UNSUPPRESS_MAP(F)       ((F)->usmap.map)
@@ -124,6 +129,8 @@ void bgp_announce_route (struct peer *, afi_t, safi_t);
 void bgp_announce_route_all (struct peer *);
 void bgp_default_originate (struct peer *, afi_t, safi_t, int);
 void bgp_soft_reconfig_in (struct peer *, afi_t, safi_t);
+void bgp_soft_reconfig_rsclient (struct peer *, afi_t, safi_t);
+void bgp_check_local_routes_rsclient (struct peer *rsclient, afi_t afi, safi_t safi);
 void bgp_clear_route (struct peer *, afi_t, safi_t);
 void bgp_clear_route_all (struct peer *);
 void bgp_clear_adj_in (struct peer *, afi_t, safi_t);
