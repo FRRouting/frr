@@ -29,7 +29,6 @@
 #include <snmp.h>
 #include <snmp_impl.h>
 
-#include "smux.h"
 #include "log.h"
 #include "thread.h"
 #include "linklist.h"
@@ -37,6 +36,7 @@
 #include "version.h"
 #include "memory.h"
 #include "sockunion.h"
+#include "smux.h"
 
 #define min(A,B) ((A) < (B) ? (A) : (B))
 
@@ -81,6 +81,9 @@ struct cmd_node smux_node =
   SMUX_NODE,
   ""                            /* SMUX has no interface. */
 };
+
+/* thread master */
+static struct thread_master *master;
 
 void *
 oid_copy (void *dest, void *src, size_t size)
@@ -1224,7 +1227,7 @@ smux_stop ()
     }
 }
 
-extern struct thread_master *master;
+
 
 void
 smux_event (enum smux_event event, int sock)
@@ -1471,7 +1474,7 @@ smux_tree_cmp(struct subtree *tree1, struct subtree *tree2)
 
 /* Initialize some values then schedule first SMUX connection. */
 void
-smux_init (oid defoid[], size_t defoid_len)
+smux_init (struct thread_master *tm, oid defoid[], size_t defoid_len)
 {
   /* Set default SMUX oid. */
   smux_default_oid = defoid;
@@ -1480,6 +1483,9 @@ smux_init (oid defoid[], size_t defoid_len)
   smux_oid = smux_default_oid;
   smux_oid_len = smux_default_oid_len;
   smux_passwd = smux_default_passwd;
+
+  /* copy callers thread master */
+  master = tm;
   
   /* Make MIB tree. */
   treelist = list_new();

@@ -152,6 +152,8 @@ struct variable rip_variables[] =
   {RIP2PEERRCVBADROUTES,      COUNTER, RONLY, rip2PeerTable,
    3, {4, 1, 6}}
 };
+
+extern struct thread_master *master;
 
 static u_char *
 rip2Globals (struct variable *v, oid name[], size_t *length,
@@ -406,9 +408,9 @@ rip2IfConfSend (struct rip_interface *ri)
     return ripVersion1;
   else if (rip)
     {
-      if (rip->version == RIPv2)
+      if (rip->version_send == RIPv2)
 	return ripVersion2;
-      else if (rip->version == RIPv1)
+      else if (rip->version_send == RIPv1)
 	return ripVersion1;
     }
   return doNotSend;
@@ -573,7 +575,7 @@ rip_snmp_init ()
 {
   rip_ifaddr_table = route_table_init ();
 
-  smux_init (ripd_oid, sizeof (ripd_oid) / sizeof (oid));
+  smux_init (master, ripd_oid, sizeof (ripd_oid) / sizeof (oid));
   REGISTER_MIB("mibII/rip", rip_variables, variable, rip_oid);
   smux_start ();
 }

@@ -2477,9 +2477,11 @@ ospfAreaAggregateEntry (struct variable *v, oid *name, size_t *length,
 void
 ospf_snmp_init ()
 {
+  struct ospf *ospf;
+
   ospf_snmp_iflist = list_new ();
   ospf_snmp_vl_table = route_table_init ();
-  smux_init (ospfd_oid, sizeof (ospfd_oid) / sizeof (oid));
+  smux_init (om->master, ospfd_oid, sizeof (ospfd_oid) / sizeof (oid));
   REGISTER_MIB("mibII/ospf", ospf_variables, variable, ospf_oid);
   smux_start ();
 }

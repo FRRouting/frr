@@ -242,6 +242,7 @@ struct variable bgp_variables[] =
   {BGP4PATHATTRUNKNOWN,       OCTET_STRING, RONLY, bgp4PathAttrTable,
    3, {6, 1, 14}},
 };
+
 
 static u_char *
 bgpVersion (struct variable *v, oid name[], size_t *length, int exact,
@@ -874,7 +875,12 @@ bgpTrapBackwardTransition (struct peer *peer)
 void
 bgp_snmp_init ()
 {
-  smux_init (bgpd_oid, sizeof bgpd_oid / sizeof (oid));
+  struct bgp_master *bm;
+  
+  if ( !(bm = bgp_get_master ()) )
+    return;
+    
+  smux_init (bm->master, bgpd_oid, sizeof bgpd_oid / sizeof (oid));
   REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
   smux_start ();
 }

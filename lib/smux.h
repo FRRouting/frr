@@ -144,12 +144,12 @@ struct trap_object
     (u_char *) &snmp_in_addr_val \
   )
 
-void smux_init (oid [], size_t);
+void smux_init (struct thread_master *tm, oid [], size_t);
 void smux_start (void);
 void smux_register_mib(char *, struct variable *, size_t, int, oid [], size_t);
 int smux_header_generic (struct variable *, oid [], size_t *, int, size_t *, 
     WriteMethod **);
-int smux_trap (oid *, size_t, oid *, size_t, struct trap_object *, size_t, unsigned int);
+int smux_trap (oid *, size_t, oid *, size_t, struct trap_object *, size_t, unsigned int, u_char);
 
 int oid_compare (oid *, int, oid *, int);
 void oid2in_addr (oid [], int, struct in_addr *);
