@@ -17,6 +17,14 @@ ospf6d \- an OSPF routing engine for use with Zebra and IPv6
 [
 .B \-P port-number
 ]
+[
+.B \-A vty-address
+]
+[
+.B \-u user
+]
+
+
 
 .SH DESCRIPTION
 .B ospf6d 
@@ -51,6 +59,15 @@ restart ospf6d.  The likely default is \fB\fI/var/run/ospf6d.pid\fR.
 \fB\-P\fR, \fB\-\-vty_port \fR\fIport-number\fR 
 Specify the port that the ospf6d VTY will listen on. This defaults to
 2606, as specified in \fB\fI/etc/services\fR.
+
+.TP
+\fB\-A\fR, \fB\-\-vty_addr \fR\fIvty-address\fR
+Specify the address that the ospf6d VTY will listen on. Default is all
+intrefaces.
+
+.TP
+\fB\-u\fR, \fB\-\-user \fR\fIuser\fR
+Specify the user ... Default is \fIquagga\fR.
 
 .TP
 \fB\-v\fR, \fB\-\-version\fR

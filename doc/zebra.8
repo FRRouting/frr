@@ -17,6 +17,13 @@ zebra \- a routing manager for use with associated components
 [
 .B \-P port-number
 ]
+[
+.B \-A vty-address
+]
+[
+.B \-u user
+]
+
 
 .SH DESCRIPTION
 .B zebra 
@@ -63,6 +70,16 @@ Turn verbose logging on.
 \fB\-P\fR, \fB\-\-vty_port \fR\fIport-number\fR 
 Specify the port that the zebra VTY will listen on. This defaults to
 2602, as specified in \fB\fI/etc/services\fR.
+
+.TP
+\fB\-A\fR, \fB\-\-vty_addr \fR\fIvty-address\fR
+Specify the address that the zebra VTY will listen on. Default is all
+intrefaces.
+
+.TP
+\fB\-u\fR, \fB\-\-user \fR\fIuser\fR
+Specify the user and group to run as. User and group have to have same
+name at the moment. Default is \fIquagga\fR.
 
 .TP
 \fB\-r\fR, \fB\-\-retain\fR 

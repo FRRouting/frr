@@ -1,3 +1,11 @@
+2003-11-27  Hasso Tepper <hasso@estpak.ee>
+
+	* Added -A and -u descriptions to the man pages.
+
+2003-01-22  Christian Hammers <ch@westend.com>
+
+	* ospfd.texi (OSPF router, OSPF router): Add description.
+
 2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.93 released.
