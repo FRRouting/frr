@@ -22,6 +22,19 @@
 #include <zebra.h>
 #include "log.h"
 
+static void *
+getsockopt_cmsg_data (struct msghdr *msgh, int level, int type)
+{
+  struct cmsghdr *cmsg;
+  void *ptr = NULL;
+  
+  for (cmsg = CMSG_FIRSTHDR(msgh); 
+       cmsg != NULL;
+       cmsg = CMSG_NXTHDR(msgh, cmsg))
+    if (cmsg->cmsg_level == level && cmsg->cmsg_type)
+      return (ptr = CMSG_DATA(cmsg));
+}
+
 #ifdef HAVE_IPV6
 /* Set IPv6 packet info to the socket. */
 int
@@ -111,6 +124,15 @@ setsockopt_ipv6_multicast_loop (int sock, int val)
   return ret;
 }
 
+static int
+getsockopt_ipv6_pktinfo_ifindex (struct msghdr *msgh)
+{
+  struct in6_pktinfo *pktinfo;
+  
+  pktinfo = getsockopt_cmsg_data (msgh, IPPROTO_IPV6, IPV6_PKTINFO);
+  
+  return pktinfo->ipi6_ifindex;
+}
 #endif /* HAVE_IPV6 */
 
 
@@ -197,3 +219,105 @@ setsockopt_multicast_ipv4(int sock,
 #endif /* #if OS_TYPE */
 
 }
+
+static int
+setsockopt_ipv4_pktinfo (int sock, int val)
+{
+  int ret;
+
+#if defined (IP_PKTINFO)
+  ret = setsockopt (sock, IPPROTO_IP, IP_PKTINFO, &val, sizeof (val));
+#elif defined (IP_RECVIF)
+  ret = setsockopt (sock, IPPROTO_IP, IP_RECVIF, &val, sizeof (val));
+#else
+#warning "Neither IP_PKTINFO nor IP_RECVIF is available."
+#warning "Will not be able to receive link info."
+#warning "Things might be seriously broken.."
+#endif
+
+  if (ret < 0)
+    zlog_warn ("Can't set IP_PKTINFO option");
+  return ret;
+}
+
+/* set appropriate pktinfo socket option 
+ * on systems without PKTINFO, sets RECVIF, which only retrieves
+ * interface index.
+ */
+int 
+setsockopt_pktinfo (int af, int sock, int val)
+{
+  int ret = -1;
+  
+  switch (af)
+    {
+      case AF_INET:
+        ret = setsockopt_ipv4_pktinfo (sock, val);
+        break;
+#ifdef HAVE_IPV6
+      case AF_INET6:
+        ret = setsockopt_ipv6_pktinfo (sock, val);
+        break;
+#endif
+      default:
+        zlog_warn ("setsockopt_pktinfo: unknown address family %d");
+    }
+  return ret;
+}
+
+
+static int
+getsockopt_ipv4_pktinfo_ifindex (struct msghdr *msgh)
+{
+  int ifindex = 0;
+#if defined (IP_PKTINFO)
+  struct in_pktinfo *pktinfo;
+#elif defined (IP_REVCIF)
+#ifndef SUNOS_5
+  struct sockaddr_dl *sdl;
+#endif /* SUNOS_5 */
+#else /* IP_RECVIF */
+  char *pktinfo;
+#endif /* IP_PKTINFO */
+  
+#ifdef IP_PKTINFO
+  pktinfo = 
+    (struct in_pktinfo *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_PKTINFO);
+#elif defined (IP_RECVIF)
+#ifdef SUNOS_5
+  ifindex = *(uint_t *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_RECVIF);
+#else
+  pktinfo = 
+    (struct sockaddr_dl *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_RECVIF);
+  ifindex = pktinfo->sdl_index;
+#endif /* SUNOS_5 */
+#else
+#warning "getsockopt_ipv4_pktinfo_ifindex: dont have PKTINFO or RECVIF"
+        ifindex = 0;
+#endif /* IP_PKTINFO */
+ 
+  return ifindex;
+}
+
+/* return ifindex, 0 if none found */
+int
+getsockopt_pktinfo_ifindex (int af, struct msghdr *msgh)
+{
+  int ifindex = 0;
+  
+  switch (af)
+    {
+      case AF_INET:
+        return (getsockopt_ipv4_pktinfo_ifindex (msgh));
+        break;
+#ifdef HAVE_IPV6
+      case AF_INET6:
+        return (getsockopt_ipv6_pktinfo_ifindex (msgh));
+        break;
+#endif
+      default:
+        zlog_warn ("getsockopt_pktinfo_ifindex: unknown address family %d");
+        return (ifindex = 0);
+    }
+}
+

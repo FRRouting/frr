@@ -1,3 +1,20 @@
+2004-07-23 Paul Jakma <paul@dishone.st>
+
+	* sockopt.h: Add SOPT_SIZE_CMSG_PKTINFO{_IPV{4,6}} define, for
+	  sizeof pktinfo as appropriate, to be used when allocating msg
+	  buffers. export setsockopt_pktinfo() and
+	  getsockopt_pktinfo_ifindex()
+	* sockopt.c: (setsockopt_pktinfo_ifindex) new function to portably
+	  set received ifindex sock option.
+	  (getsockopt_pktinfo_ifindex) portably retrieve ifindex.
+	  (getsockopt_cmsg_data) retrieve indicated control info from 
+	  message header.
+	  (getsockopt_ipv6_pktinfo_ifindex) ipv6 version of above.
+	  (setsockopt_ipv4_pktinfo) v4 version
+	  (setsockopt_pktinfo) the exported version
+	  (getsockopt_ipv4_pktinfo_ifindex) v4 specific version
+	  (getsockopt_pktinfo_ifindex) the exported version
+
 2004-07-14 Paul Jakma <paul@dishone.st>
 
 	* sigevent.c: (quagga_signal_handler) add a global caught flag, set
