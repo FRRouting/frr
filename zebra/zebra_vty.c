@@ -49,6 +49,8 @@ route_type_str (u_char type)
       return "ospf";
     case ZEBRA_ROUTE_OSPF6:
       return "ospf";
+    case ZEBRA_ROUTE_ISIS:
+      return "isis";
     case ZEBRA_ROUTE_BGP:
       return "bgp";
     default:
@@ -78,6 +80,8 @@ route_type_char (u_char type)
       return 'O';
     case ZEBRA_ROUTE_OSPF6:
       return 'O';
+    case ZEBRA_ROUTE_ISIS:
+      return 'I';
     case ZEBRA_ROUTE_BGP:
       return 'B';
     default:
@@ -558,6 +562,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 #define ONE_WEEK_SECOND 60*60*24*7
       if (rib->type == ZEBRA_ROUTE_RIP
 	  || rib->type == ZEBRA_ROUTE_OSPF
+	  || rib->type == ZEBRA_ROUTE_ISIS
 	  || rib->type == ZEBRA_ROUTE_BGP)
 	{
 	  time_t uptime;
@@ -721,6 +726,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 
       if (rib->type == ZEBRA_ROUTE_RIP
 	  || rib->type == ZEBRA_ROUTE_OSPF
+	  || rib->type == ZEBRA_ROUTE_ISIS
 	  || rib->type == ZEBRA_ROUTE_BGP)
 	{
 	  time_t uptime;
@@ -748,7 +754,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
     }
 }
 
-#define SHOW_ROUTE_V4_HEADER "Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,%s       B - BGP, > - selected route, * - FIB route%s%s"
+#define SHOW_ROUTE_V4_HEADER "Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,%s       I - ISIS, B - BGP, > - selected route, * - FIB route%s%s"
 
 DEFUN (show_ip_route,
        show_ip_route_cmd,
@@ -874,6 +880,7 @@ DEFUN (show_ip_route_protocol,
        "Connected\n"
        "Kernel\n"
        "Open Shortest Path First (OSPF)\n"
+       "ISO IS-IS (ISIS)\n"
        "Routing Information Protocol (RIP)\n"
        "Static routes\n")
 {
@@ -891,6 +898,8 @@ DEFUN (show_ip_route_protocol,
     type = ZEBRA_ROUTE_KERNEL;
   else if (strncmp (argv[0], "o", 1) == 0)
     type = ZEBRA_ROUTE_OSPF;
+  else if (strncmp (argv[0], "i", 1) == 0)
+    type = ZEBRA_ROUTE_ISIS;
   else if (strncmp (argv[0], "r", 1) == 0)
     type = ZEBRA_ROUTE_RIP;
   else if (strncmp (argv[0], "s", 1) == 0)
@@ -1437,6 +1446,7 @@ vty_show_ipv6_route_detail (struct vty *vty, struct route_node *rn)
 #define ONE_WEEK_SECOND 60*60*24*7
       if (rib->type == ZEBRA_ROUTE_RIPNG
 	  || rib->type == ZEBRA_ROUTE_OSPF6
+	  || rib->type == ZEBRA_ROUTE_ISIS
 	  || rib->type == ZEBRA_ROUTE_BGP)
 	{
 	  time_t uptime;
@@ -1615,6 +1625,7 @@ vty_show_ipv6_route (struct vty *vty, struct route_node *rn,
       
       if (rib->type == ZEBRA_ROUTE_RIPNG
 	  || rib->type == ZEBRA_ROUTE_OSPF6
+	  || rib->type == ZEBRA_ROUTE_ISIS
 	  || rib->type == ZEBRA_ROUTE_BGP)
 	{
 	  time_t uptime;
@@ -1642,7 +1653,7 @@ vty_show_ipv6_route (struct vty *vty, struct route_node *rn,
     }
 }
 
-#define SHOW_ROUTE_V6_HEADER "Codes: K - kernel route, C - connected, S - static, R - RIPng, O - OSPFv3,%s       B - BGP, * - FIB route.%s%s"
+#define SHOW_ROUTE_V6_HEADER "Codes: K - kernel route, C - connected, S - static, R - RIPng, O - OSPFv3,%s       I - ISIS, B - BGP, * - FIB route.%s%s"
 
 DEFUN (show_ipv6_route,
        show_ipv6_route_cmd,
@@ -1726,6 +1737,7 @@ DEFUN (show_ipv6_route_protocol,
        "Connected\n"
        "Kernel\n"
        "Open Shortest Path First (OSPFv3)\n"
+       "ISO IS-IS (ISIS)\n"
        "Routing Information Protocol (RIPng)\n"
        "Static routes\n")
 {
@@ -1743,6 +1755,8 @@ DEFUN (show_ipv6_route_protocol,
     type = ZEBRA_ROUTE_KERNEL;
   else if (strncmp (argv[0], "o", 1) == 0)
     type = ZEBRA_ROUTE_OSPF6;
+  else if (strncmp (argv[0], "i", 1) == 0)
+    type = ZEBRA_ROUTE_ISIS;
   else if (strncmp (argv[0], "r", 1) == 0)
     type = ZEBRA_ROUTE_RIPNG;
   else if (strncmp (argv[0], "s", 1) == 0)

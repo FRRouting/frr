@@ -37,6 +37,7 @@ const char *zlog_proto_names[] =
   "OSPF",
   "RIPNG",
   "OSPF6",
+  "ISIS",
   "MASC",
   NULL,
 };

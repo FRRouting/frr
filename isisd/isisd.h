@@ -24,7 +24,6 @@
 #define ISISD_H
 
 #define ISISD_VERSION "0.0.7"
-#define ISIS_VTYSH_PATH        "/tmp/.isisd"
 
 /* uncomment if you are a developer in bug hunt */
 /* #define EXTREME_DEBUG  */

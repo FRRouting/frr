@@ -42,6 +42,10 @@
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_network.h"
 
+#include "privs.h"
+
+extern struct zebra_privs_t isisd_privs;
+
 /*
  * On linux we can use the packet(7) sockets, in other OSs we have to do with
  * Berkley Packet Filter (BPF). Please tell me if you can think of a better 
@@ -297,28 +301,39 @@ isis_sock_init (struct isis_circuit *circuit)
 {
   int retval = ISIS_OK;
 
+  if ( isisd_privs.change (ZPRIVS_RAISE) )
+    zlog_err ("%s: could not raise privs, %s", __func__,
+               strerror (errno) );
 
 #ifdef GNU_LINUX
   retval = open_packet_socket (circuit);
 #else
   retval = open_bpf_dev (circuit);
 #endif
-  
-  if (retval == ISIS_OK) {
-    if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-      circuit->tx = isis_send_pdu_bcast;
-      circuit->rx = isis_recv_pdu_bcast;
-    }
-    else if (circuit->circ_type == CIRCUIT_T_P2P) {
-      circuit->tx = isis_send_pdu_p2p;
-      circuit->rx = isis_recv_pdu_p2p;
-    }
-    else {
-      zlog_warn ("isis_sock_init(): unknown circuit type");
-      retval = ISIS_WARNING;
-    }
+
+  if (retval != ISIS_OK) {
+    zlog_warn("%s: could not initialize the socket",
+              __func__);
+    goto end;
   }
-  
+ 
+  if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+    circuit->tx = isis_send_pdu_bcast;
+    circuit->rx = isis_recv_pdu_bcast;
+  } else if (circuit->circ_type == CIRCUIT_T_P2P) {
+    circuit->tx = isis_send_pdu_p2p;
+    circuit->rx = isis_recv_pdu_p2p;
+  } else {
+    zlog_warn ("isis_sock_init(): unknown circuit type");
+    retval = ISIS_WARNING;
+    goto end;
+  }
+ 
+end:
+  if ( isisd_privs.change (ZPRIVS_LOWER) )
+    zlog_err ("%s: could not lower privs, %s", __func__,
+               strerror (errno) );
+
   return retval;
 }
 

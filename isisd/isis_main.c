@@ -33,6 +33,7 @@
 #include "memory.h"
 #include "stream.h"
 #include "if.h"
+#include "privs.h"
 
 #include "isisd/dict.h"
 #include "include-netbsd/iso.h"
@@ -48,12 +49,36 @@
 /* Default vty port */
 #define ISISD_VTY_PORT       2607
 
+/* isisd privileges */
+zebra_capabilities_t _caps_p [] = 
+{
+  ZCAP_RAW,
+  ZCAP_BIND
+};
+
+struct zebra_privs_t isisd_privs =
+{
+#if defined(QUAGGA_USER)
+  .user = QUAGGA_USER,
+#endif
+#if defined QUAGGA_GROUP
+  .group = QUAGGA_GROUP,
+#endif
+#ifdef VTY_GROUP
+  .vty_group = VTY_GROUP,
+#endif
+  .caps_p = _caps_p,
+  .cap_num_p = 2,
+  .cap_num_i = 0
+};
+
 /* isisd options */
 struct option longopts[] = 
 {
   { "daemon",      no_argument,       NULL, 'd'},
   { "config_file", required_argument, NULL, 'f'},
   { "vty_port",    required_argument, NULL, 'P'},
+  { "user",        required_argument, NULL, 'u'},
   { "version",     no_argument,       NULL, 'v'},
   { "help",        no_argument,       NULL, 'h'},
   { 0 }
@@ -94,6 +119,7 @@ Daemon which manages IS-IS routing\n\n\
 -d, --daemon       Runs in daemon mode\n\
 -f, --config_file  Set configuration file name\n\
 -P, --vty_port     Set vty's port number\n\
+-u, --user         User and group to run as\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
@@ -230,7 +256,7 @@ main (int argc, char **argv, char **envp)
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:hAp:P:v", longopts, 0);
+      opt = getopt_long (argc, argv, "df:hAp:P:u:v", longopts, 0);
     
       if (opt == EOF)
         break;
@@ -249,7 +275,19 @@ main (int argc, char **argv, char **envp)
           vty_addr = optarg;
           break;
         case 'P':
+         /* Deal with atoi() returning 0 on failure, and isisd not
+             listening on isisd port... */
+          if (strcmp(optarg, "0") == 0) 
+            {
+              vty_port = 0;
+              break;
+            } 
           vty_port = atoi (optarg);
+          vty_port = (vty_port ? vty_port : ISISD_VTY_PORT);
+	  break;
+        case 'u':
+          isisd_privs.user = isisd_privs.group = optarg;
+          break;
           break;
         case 'v':
 	  printf("ISISd version %s\n", ISISD_VERSION);
@@ -276,9 +314,10 @@ main (int argc, char **argv, char **envp)
   /*
    *  initializations
    */
+  zprivs_init (&isisd_privs);
   signal_init ();
   cmd_init (1);
-  vty_init ();
+  vty_init (master);
   memory_init ();
   isis_init ();
   dyn_cache_init ();
@@ -295,19 +334,18 @@ main (int argc, char **argv, char **envp)
   if (daemon_mode)
     daemon (0, 0);
 
-  /* Problems with the build env ?*/
-#ifndef PATH_ISISD_PID
-#define PATH_ISISD_PID "/var/run/isisd.pid"
-#endif
   /* Process ID file creation. */
   pid_output (PATH_ISISD_PID);
 
   /* Make isis vty socket. */
-  vty_serv_sock (vty_addr, vty_port ? vty_port : ISISD_VTY_PORT, 
-                 ISIS_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, ISIS_VTYSH_PATH);
   
   /* Print banner. */
+#if defined(ZEBRA_VERSION)
   zlog_info ("ISISd %s starting: vty@%d", ZEBRA_VERSION, vty_port);
+#elif defined(QUAGGA_VERSION)
+  zlog_info ("Quagga-ISISd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
+#endif
 #ifdef HAVE_IPV6
   zlog_info ("IPv6 enabled");
 #endif

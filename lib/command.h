@@ -87,6 +87,7 @@ enum node_type
   BGP_IPV6_NODE,		/* BGP IPv6 address family */
   OSPF_NODE,			/* OSPF protocol mode */
   OSPF6_NODE,			/* OSPF protocol for IPv6 mode */
+  ISIS_NODE,			/* ISIS protocol mode */
   MASC_NODE,			/* MASC for multicast.  */
   IRDP_NODE,			/* ICMP Router Discovery Protocol mode. */ 
   IP_NODE,			/* Static ip route node. */
@@ -255,6 +256,8 @@ struct desc
 #define PREFIX_LIST_STR "Build a prefix list\n"
 #define OSPF6_DUMP_TYPE_LIST \
 "(neighbor|interface|area|lsa|zebra|config|dbex|spf|route|lsdb|redistribute|hook|asbr|prefix|abr)"
+#define ISIS_STR "IS-IS information\n"
+#define AREA_TAG_STR "[area tag]\n"
 
 #define CONF_BACKUP_EXT ".sav"
 

@@ -131,6 +131,7 @@ struct cpu_thread_history {
 #define thread_add_read(m,f,a,v) funcname_thread_add_read(m,f,a,v,#f)
 #define thread_add_write(m,f,a,v) funcname_thread_add_write(m,f,a,v,#f)
 #define thread_add_timer(m,f,a,v) funcname_thread_add_timer(m,f,a,v,#f)
+#define thread_add_timer_msec(m,f,a,v) funcname_thread_add_timer_msec(m,f,a,v,#f)
 #define thread_add_event(m,f,a,v) funcname_thread_add_event(m,f,a,v,#f)
 #define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f)
 
@@ -141,6 +142,8 @@ struct thread *funcname_thread_add_read (struct thread_master *,
 struct thread *funcname_thread_add_write (struct thread_master *,
 				 int (*)(struct thread *), void *, int, char*);
 struct thread *funcname_thread_add_timer (struct thread_master *,
+				 int (*)(struct thread *), void *, long, char*);
+struct thread *funcname_thread_add_timer_msec (struct thread_master *,
 				 int (*)(struct thread *), void *, long, char*);
 struct thread *funcname_thread_add_event (struct thread_master *,
 				 int (*)(struct thread *), void *, int, char*);

@@ -385,6 +385,25 @@ struct memory_list memory_list_ospf6[] =
   { -1, NULL },
 };
 
+struct memory_list memory_list_isis[] =
+{
+  { MTYPE_ISIS,               "ISIS              " },
+  { MTYPE_ISIS_TMP,           "ISIS TMP          " },
+  { MTYPE_ISIS_CIRCUIT,       "ISIS circuit      " },
+  { MTYPE_ISIS_LSP,           "ISIS LSP          " },
+  { MTYPE_ISIS_ADJACENCY,     "ISIS adjacency    " },
+  { MTYPE_ISIS_AREA,          "ISIS area         " },
+  { MTYPE_ISIS_AREA_ADDR,     "ISIS area address " },
+  { MTYPE_ISIS_TLV,           "ISIS TLV          " },
+  { MTYPE_ISIS_DYNHN,         "ISIS dyn hostname " },
+  { MTYPE_ISIS_SPFTREE,       "ISIS SPFtree      " },
+  { MTYPE_ISIS_VERTEX,        "ISIS vertex       " },
+  { MTYPE_ISIS_ROUTE_INFO,    "ISIS route info   " },
+  { MTYPE_ISIS_NEXTHOP,       "ISIS nexthop      " },
+  { MTYPE_ISIS_NEXTHOP6,      "ISIS nexthop6     " },
+  { -1, NULL },
+};
+
 struct memory_list memory_list_separator[] =
 {
   { 0, NULL},
@@ -419,6 +438,8 @@ DEFUN (show_memory_all,
   show_memory_vty (vty, memory_list_ospf);
   show_memory_vty (vty, memory_list_separator);
   show_memory_vty (vty, memory_list_ospf6);
+  show_memory_vty (vty, memory_list_separator);
+  show_memory_vty (vty, memory_list_isis);
   show_memory_vty (vty, memory_list_separator);
   show_memory_vty (vty, memory_list_bgp);
 
@@ -497,6 +518,17 @@ DEFUN (show_memory_ospf6,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_memory_isis,
+       show_memory_isis_cmd,
+       "show memory isis",
+       SHOW_STR
+       "Memory statistics\n"
+       "ISIS memory\n")
+{
+  show_memory_vty (vty, memory_list_isis);
+  return CMD_SUCCESS;
+}
+
 void
 memory_init ()
 {
@@ -508,6 +540,7 @@ memory_init ()
   install_element (VIEW_NODE, &show_memory_bgp_cmd);
   install_element (VIEW_NODE, &show_memory_ospf_cmd);
   install_element (VIEW_NODE, &show_memory_ospf6_cmd);
+  install_element (VIEW_NODE, &show_memory_isis_cmd);
 
   install_element (ENABLE_NODE, &show_memory_cmd);
   install_element (ENABLE_NODE, &show_memory_all_cmd);
@@ -517,4 +550,5 @@ memory_init ()
   install_element (ENABLE_NODE, &show_memory_bgp_cmd);
   install_element (ENABLE_NODE, &show_memory_ospf_cmd);
   install_element (ENABLE_NODE, &show_memory_ospf6_cmd);
+  install_element (ENABLE_NODE, &show_memory_isis_cmd);
 }

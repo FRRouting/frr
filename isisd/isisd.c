@@ -506,6 +506,79 @@ DEFUN (show_debugging,
   return CMD_SUCCESS;
 }
 
+/* Debug node. */
+static struct cmd_node debug_node =
+{
+  DEBUG_NODE,
+ "",
+ 1
+};
+
+static int
+config_write_debug (struct vty *vty)
+{
+  int write = 0;
+  int flags = isis->debugs;
+
+  if (flags & DEBUG_ADJ_PACKETS) {
+    vty_out (vty, "debug isis adj-packets%s",
+             VTY_NEWLINE);
+    write++;
+  }
+  if (flags & DEBUG_CHECKSUM_ERRORS) {
+    vty_out (vty, "debug isis checksum-errors%s",
+             VTY_NEWLINE);
+    write++;
+  }
+  if (flags & DEBUG_LOCAL_UPDATES) {
+    vty_out (vty, "debug isis local-updates%s",
+             VTY_NEWLINE);
+    write++;
+  }
+  if (flags & DEBUG_PROTOCOL_ERRORS) {
+    vty_out (vty, "debug isis protocol-errors%s",  
+             VTY_NEWLINE);
+    write++;
+  }
+  if (flags & DEBUG_SNP_PACKETS) {
+    vty_out (vty, "debug isis snp-packets%s",
+             VTY_NEWLINE);
+    write++;
+  }
+  if (flags & DEBUG_SPF_EVENTS) {
+    vty_out (vty, "debug isis spf-events%s",
+             VTY_NEWLINE);
+    write++;
+  }
+  if (flags & DEBUG_SPF_STATS) {
+    vty_out (vty, "debug isis spf-statistics%s",
+             VTY_NEWLINE);
+    write++;
+  }
+  if (flags & DEBUG_SPF_TRIGGERS) {
+    vty_out (vty, "debug isis spf-triggers%s",
+             VTY_NEWLINE);
+    write++;
+  }
+  if (flags & DEBUG_UPDATE_PACKETS) {
+    vty_out (vty, "debug isis update-packets%s",
+             VTY_NEWLINE);
+    write++;
+  }
+  if (flags & DEBUG_RTE_EVENTS) {
+    vty_out (vty, "debug isis route-events%s",
+             VTY_NEWLINE);
+    write++;
+  }
+  if (flags & DEBUG_EVENTS) {
+    vty_out (vty, "debug isis events%s",
+             VTY_NEWLINE);
+    write++;
+  }
+
+  return write;
+}
+
 DEFUN (debug_isis_adj,
        debug_isis_adj_cmd,
        "debug isis adj-packets",
@@ -1893,6 +1966,8 @@ isis_init ()
   install_element (ENABLE_NODE, &show_database_detail_cmd);
   install_element (ENABLE_NODE, &show_debugging_cmd);
 
+  install_node(&debug_node, config_write_debug);
+
   install_element (ENABLE_NODE, &debug_isis_adj_cmd);
   install_element (ENABLE_NODE, &no_debug_isis_adj_cmd);
   install_element (ENABLE_NODE, &debug_isis_csum_cmd);
@@ -1915,6 +1990,29 @@ isis_init ()
   install_element (ENABLE_NODE, &no_debug_isis_rtevents_cmd);
   install_element (ENABLE_NODE, &debug_isis_events_cmd);
   install_element (ENABLE_NODE, &no_debug_isis_events_cmd);
+
+  install_element (CONFIG_NODE, &debug_isis_adj_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_adj_cmd);
+  install_element (CONFIG_NODE, &debug_isis_csum_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_csum_cmd);
+  install_element (CONFIG_NODE, &debug_isis_lupd_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_lupd_cmd);
+  install_element (CONFIG_NODE, &debug_isis_err_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_err_cmd);
+  install_element (CONFIG_NODE, &debug_isis_snp_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_snp_cmd);
+  install_element (CONFIG_NODE, &debug_isis_upd_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_upd_cmd);
+  install_element (CONFIG_NODE, &debug_isis_spfevents_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_spfevents_cmd);
+  install_element (CONFIG_NODE, &debug_isis_spfstats_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_spfstats_cmd);
+  install_element (CONFIG_NODE, &debug_isis_spftrigg_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_spftrigg_cmd);
+  install_element (CONFIG_NODE, &debug_isis_rtevents_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_rtevents_cmd);
+  install_element (CONFIG_NODE, &debug_isis_events_cmd);
+  install_element (CONFIG_NODE, &no_debug_isis_events_cmd);
 
   install_element (CONFIG_NODE, &router_isis_cmd);
   install_element (CONFIG_NODE, &no_router_isis_cmd);

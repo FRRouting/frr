@@ -1,6 +1,6 @@
 -*- mode: text; -*-
 
-$Id: HACKING,v 1.2 2003/12/22 15:45:01 gdt Exp $
+$Id: HACKING,v 1.3 2003/12/23 08:56:18 jardin Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -71,3 +71,41 @@ tested are:
 CHANGELOG
 
 [TBD: when to add to per-dir Changelog, when to add to top-level]
+
+IMPORT OR UPDATE VENDOR SPECIFIC ROUTING PROTOCOLS
+
+The source code of Quagga is based on two vendors:
+
+   zebra_org (http://www.zebra.org/)
+   isisd_sf (http://isisd.sf.net/)
+
+In order to import source code, the following procedure should be used:
+
+* Tag the Current Quagga CVS repository:
+
+    cvs tag import_isisd_sf_20031223
+
+* Import the source code into the Quagga's framework. You must not modified
+  this source code. It will be merged later.
+
+    cd dir_isisd
+    export CVSROOT=:pserver:LOGIN@anoncvs.quagga.net:/var/cvsroot 
+    cvs import quagga/isisd isisd_sf isisd_sf_20031223
+  ---COMMENTS---
+    Vendor: [isisd_sf] Sampo's ISISd from Sourceforge
+    Tag: [isisd_sf_20031217] Current CVS release
+  ---
+
+* Update your Quagga's directory:
+
+    cd dir_quagga
+    cvs update -dP
+
+  or
+
+    cvs co -d quagga_isisd quagga
+
+* Merge the code, then commit:
+
+    cvs commit
+

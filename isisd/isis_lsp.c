@@ -60,7 +60,6 @@
 
 extern struct isis *isis;
 extern struct thread_master *master;
-extern struct host host;
 
 int 
 lsp_id_cmp (u_char *id1, u_char *id2)
@@ -638,7 +637,7 @@ lspid_print (u_char *lsp_id, u_char *trg, char dynhost, char frag)
   if (dyn)
     sprintf (id, "%.14s", dyn->name.name);
   else if (!memcmp (isis->sysid, lsp_id, ISIS_SYS_ID_LEN) & dynhost)
-    sprintf (id, "%.14s", host.name);
+    sprintf (id, "%.14s", unix_hostname());
    else {
     memcpy(id, sysid_print (lsp_id), 15);
   }
@@ -1053,8 +1052,9 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   if (area->dynhostname) {
     lsp->tlv_data.hostname = XMALLOC (MTYPE_ISIS_TLV, 
                                       sizeof (struct hostname));
-    memcpy (&lsp->tlv_data.hostname->name, host.name, strlen(host.name));
-    lsp->tlv_data.hostname->namelen = strlen (host.name);
+    memcpy (&lsp->tlv_data.hostname->name, unix_hostname(),
+            strlen(unix_hostname()));
+    lsp->tlv_data.hostname->namelen = strlen (unix_hostname());
   }
 #ifdef TOPOLOGY_GENERATE
   /*
@@ -1337,8 +1337,10 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   if (area->dynhostname) {
     lsp->tlv_data.hostname = XMALLOC (MTYPE_ISIS_TLV, 
                                       sizeof (struct hostname));
-    memcpy (lsp->tlv_data.hostname->name, host.name, strlen (host.name));
-    lsp->tlv_data.hostname->namelen = strlen (host.name);
+
+    memcpy (lsp->tlv_data.hostname->name, unix_hostname(),
+            strlen (unix_hostname()));
+    lsp->tlv_data.hostname->namelen = strlen (unix_hostname());
   }
 
   /*
@@ -1553,13 +1555,14 @@ build_lsp_data (struct isis_lsp *lsp, struct isis_area *area)
   if (area->dynhostname) {
     tlv_ptr = lsppdu_realloc (lsp,MTYPE_ISIS_TLV, 2); /* the 2 is for the TL */
     *tlv_ptr = DYNAMIC_HOSTNAME; /* Type */
-    *(tlv_ptr+1) = strlen (host.name); /* Length */
+    *(tlv_ptr+1) = strlen (unix_hostname()); /* Length */
     lsp->tlv_data.hostname = (struct hostname *)
       (lsppdu_realloc(lsp,
 		      MTYPE_ISIS_TLV,
 		      /* the -1 is to fit the length in the struct */
-		      strlen (host.name)) - 1); 
-    memcpy (lsp->tlv_data.hostname->name, host.name, strlen(host.name));
+		      strlen (unix_hostname())) - 1); 
+    memcpy (lsp->tlv_data.hostname->name, unix_hostname(),
+            strlen(unix_hostname()));
   }
 
 }

@@ -261,8 +261,9 @@ struct in_pktinfo
 #define ZEBRA_ROUTE_RIPNG                5
 #define ZEBRA_ROUTE_OSPF                 6
 #define ZEBRA_ROUTE_OSPF6                7
-#define ZEBRA_ROUTE_BGP                  8
-#define ZEBRA_ROUTE_MAX                  9
+#define ZEBRA_ROUTE_ISIS                 8
+#define ZEBRA_ROUTE_BGP                  9
+#define ZEBRA_ROUTE_MAX                  10
 
 /* Zebra's family types. */
 #define ZEBRA_FAMILY_IPV4                1
@@ -325,6 +326,7 @@ struct in_pktinfo
 #define ZEBRA_RIPNG_DISTANCE_DEFAULT     120
 #define ZEBRA_OSPF_DISTANCE_DEFAULT      110
 #define ZEBRA_OSPF6_DISTANCE_DEFAULT     110
+#define ZEBRA_ISIS_DISTANCE_DEFAULT      115
 #define ZEBRA_IBGP_DISTANCE_DEFAULT      200
 #define ZEBRA_EBGP_DISTANCE_DEFAULT       20
 

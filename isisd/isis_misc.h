@@ -53,6 +53,8 @@ char *nlpid2string (struct nlpids *);
  */
 int  speaks (struct nlpids *nlpids, int family);
 unsigned long isis_jitter (unsigned long timer, unsigned long jitter);
+const char * unix_hostname(void);
+
 
 /*
  * macros

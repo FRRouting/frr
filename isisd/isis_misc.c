@@ -28,12 +28,13 @@
 #include <ctype.h>
 #include <zebra.h>
 #include <net/ethernet.h>
-
+#include <sys/utsname.h>
 
 #include "stream.h"
 #include "vty.h"
 #include "hash.h"
 #include "if.h"
+#include "command.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -432,7 +433,22 @@ newprefix2inaddr (u_char *prefix_start, u_char prefix_masklen)
   return new_prefix;
 }
 
+/*
+ * Returns host.name if any, otherwise
+ * it returns the system hostname.
+ */
+const char *
+unix_hostname(void)
+{
+  static struct utsname names;
+  const char *hostname;
+  extern struct host host;
 
+  hostname = host.name;
+  if (!hostname) { 
+    uname(&names);
+    hostname = names.nodename;
+  }
 
-
-
+  return hostname;
+}

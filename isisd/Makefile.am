@@ -43,13 +43,3 @@ install-sysconfDATA: $(sysconf_DATA)
 	  fi; fi; \
 	done
 
-depend:
-	@$(CPP) -MM $(INCLUDES) $(LDFLAGS) *.c
-
-## File dependency.
-isis_adjacency.o : isis_adjacency.c ../lib/version.h ../lib/log.h \
- ../isisd/isis_adjacency.h
-isis_pdu.o : isis_pdu.c ../lib/log.h ../isisd/isisd.h \
- ../isisd/isis_constants.h ../isisd/isis_adjacency.h \
- ../isisd/isis_pdu.h
-isis_circuit.o : isis_circuit.c ../isisd/isis_circuit.h

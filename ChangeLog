@@ -1,3 +1,7 @@
+2003-12-23 Vincent Jardin <jardin@6wind.com>
+
+	* isisd: Import isisd from Sampo Saaristo's source code.
+
 2003-12-22 Christian Hammers <ch@lathspell.de>
 
 	* configure.ac (and everywhere a regular file is opened for

@@ -117,7 +117,7 @@ void  dynhn_print_all (struct vty *vty)
 	     VTY_NEWLINE);
   }
   
-  vty_out (vty,  "     * %s %s%s", sysid_print (isis->sysid), host.name, 
+  vty_out (vty,  "     * %s %s%s", sysid_print (isis->sysid), unix_hostname(), 
 	   VTY_NEWLINE);
   return;
 }
