@@ -201,7 +201,9 @@ ifan_read (struct if_announcemsghdr *ifan)
   if (ifp == NULL && ifan->ifan_what == IFAN_ARRIVAL)
     {
       /* Create Interface */
-      ifp = if_get_by_name (ifan->ifan_name);
+      ifp = if_get_by_name_len(ifan->ifan_name,
+			       strnlen(ifan->ifan_name,
+				       sizeof(ifan->ifan_name)));
       ifp->ifindex = ifan->ifan_index;
 
       if_add_update (ifp);

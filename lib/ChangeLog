@@ -1,5 +1,12 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* if.h: Fix comments to reflect that if_lookup_by_name and
+	  if_get_by_name now require the argument strings to be NUL-terminated.
+	* if.c: (if_lookup_by_name) Compare using strcmp.
+	  (if_get_by_name) Pass strlen(ifname) as 2nd arg to if_create.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* if.c: (if_nametoindex) The man page is rather vague, but it seems
 	  like the argument to if_nametoindex has an implicit maximum length
 	  of IFNAMSIZ characters.

@@ -1,5 +1,12 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* if_ioctl.c: (interface_list_ioctl) Use if_get_by_name_len.
+	* if_proc.c: (ifaddr_proc_ipv6) Increase size of ifname buffer to
+	  avoid overflow.
+	* kernel_socket.c: (ifan_read) Use if_get_by_name_len.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* kernel_socket.c: (ifm_read) Use new if_lookup_by_name_len function
 	  to save a memcpy.
 	* if_ioctl_solaris.c: (interface_list_ioctl) Fix subtle bug with new

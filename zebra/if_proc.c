@@ -212,7 +212,7 @@ ifaddr_proc_ipv6 ()
   char buf[PROCBUFSIZ];
   int n;
   char addr[33];
-  char ifname[20];
+  char ifname[21];
   int ifindex, plen, scope, status;
   struct interface *ifp;
   struct prefix_ipv6 p;

@@ -219,9 +219,7 @@ if_lookup_by_name (const char *name)
   for (node = listhead (iflist); node; nextnode (node))
     {
       ifp = getdata (node);
-      /* Change this to strcmp once improper uses of this function
-         have been replaced with calls to if_lookup_by_name_len. */
-      if (strncmp (name, ifp->name, sizeof ifp->name) == 0)
+      if (strcmp(name, ifp->name) == 0)
 	return ifp;
     }
   return NULL;
@@ -335,10 +333,8 @@ if_get_by_name (const char *name)
 {
   struct interface *ifp;
 
-  /* Replace 2nd arg to if_create with strlen(name) once improper uses of
-     this function have been replaced with calls to if_get_by_name_len. */
   return ((ifp = if_lookup_by_name(name)) != NULL) ? ifp :
-	 if_create(name, INTERFACE_NAMSIZ);
+	 if_create(name, strlen(name));
 }
 
 struct interface *

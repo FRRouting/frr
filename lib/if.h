@@ -217,20 +217,17 @@ struct interface *if_lookup_by_index (unsigned int);
 struct interface *if_lookup_exact_address (struct in_addr);
 struct interface *if_lookup_address (struct in_addr);
 
-/* Currently, the code assumes that the interface name arguments to these
-   functions have length <= INTERFACE_NAMSIZ, and they must be NUL-terminated
-   if they are shorter than INTERFACE_NAMSIZ.  After code cleanup, the
-   implementation will be changed to require the arguments to these functions
-   to terminate with a NUL character (no length limitation). */
-struct interface *if_lookup_by_name (const char *);
-struct interface *if_get_by_name (const char *);
+/* These 2 functions are to be used when the ifname argument is terminated
+   by a '\0' character: */
+struct interface *if_lookup_by_name (const char *ifname);
+struct interface *if_get_by_name (const char *ifname);
 
-/* For these 2 functions, the 2nd argument should be the precise length
-   of the interface name (not counting a trailing NUL which may or may
-   not be present). */
-extern struct interface *if_lookup_by_name_len(const char *name,
+/* For these 2 functions, the namelen argument should be the precise length
+   of the ifname string (not counting any optional trailing '\0' character).
+   In most cases, strnlen should be used to calculate the namelen value. */
+extern struct interface *if_lookup_by_name_len(const char *ifname,
 					       size_t namelen);
-extern struct interface *if_get_by_name_len(const char *name, size_t namelen);
+extern struct interface *if_get_by_name_len(const char *ifname, size_t namelen);
 
 
 /* Delete the interface, but do not free the structure, and leave it in the
