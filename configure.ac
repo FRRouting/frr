@@ -617,19 +617,6 @@ dnl  AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
 	AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
 	LIBS="${old_libs}"
   fi
-  if test "${HAVE_SNMP}" = ""; then
-	if test "${NEED_CRYPTO}" = ""; then
-	     old_libs="${LIBS}"
-	     LIBS="-L/usr/lib"
-	     AC_CHECK_LIB(netsnmp, asn_parse_int, [HAVE_NETSNMP=yes; HAVE_SNMP=yes ])
-	     LIBS="${old_libs}"
-	else
-	     old_libs="${LIBS}"
-	     LIBS="-L/usr/lib"
-       	     AC_CHECK_LIB(netsnmp, asn_parse_int, [HAVE_NETSNMP=yes; HAVE_SNMP=yes; NEED_CRYPTO=yes;LIBS="$LIBS -lcrypto" ],,"-lcrypto")
-	     LIBS="${old_libs}"
-	fi
-  fi
   if test "${HAVE_SNMP}" = "yes"; then
     for ac_snmp in /usr/include/net-snmp/library/asn1.h /usr/include/ucd-snmp/asn1.h /usr/local/include/ucd-snmp/asn1.h /dev/null
     do
@@ -639,13 +626,8 @@ dnl  AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
       /usr/include/net-snmp/*)
                   AC_DEFINE(HAVE_SNMP,,SNMP)
                   AC_DEFINE(UCD_COMPATIBLE,,SNMP)
-                  CFLAGS="${CFLAGS} -I/usr/include/net-snmp -I/usr/include/net-snmp/library"
-		  if test "${HAVE_NETSNMP}" = "yes"; then
-                       AC_DEFINE(HAVE_NETSNMP,,SNMP)
-                       LIBS="${LIBS} -lnetsnmp"
-		  else
+                  CFLAGS="${CFLAGS} -I/usr/include/ucd-snmp"
                   LIBS="${LIBS} -lsnmp"
-		  fi
                   ;;
       /usr/include/ucd-snmp/*) 
                   AC_DEFINE(HAVE_SNMP,,SNMP)
