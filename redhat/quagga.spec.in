@@ -12,7 +12,7 @@
 %define		with_ospfapi	1
 %define		with_multipath	64
 %define		quagga_user	quagga
-%define		vty_group	zebravty
+%define		vty_group	quaggavty
 
 # path defines
 %define		_sysconfdir	/etc/quagga
@@ -45,7 +45,7 @@ Prereq:		readline ncurses
 BuildRequires:	texinfo tetex autoconf pam-devel patch
 # Initscripts > 5.60 is required for IPv6 support
 Prereq:		initscripts >= 5.60
-Prereq:		openssl ncurses readline pam
+Prereq:		ncurses readline pam
 Prereq:		/sbin/install-info
 Provides:	routingdaemon
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
