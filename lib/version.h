@@ -22,9 +22,11 @@
 #ifndef _ZEBRA_VERSION_H
 #define _ZEBRA_VERSION_H
 
-#define ZEBRA_VERSION     "0.93b"
+#define ZEBRA_VERSION     "0.94"
 
 #define ZEBRA_BUG_ADDRESS "bug-zebra@gnu.org"
+
+#define ZEBRA_URL "http://zebra.dishone.st"
 
 extern char *host_name;
 

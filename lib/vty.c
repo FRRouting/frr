@@ -2115,17 +2115,17 @@ vty_read_file (FILE *confp)
   /* Execute configuration file */
   ret = config_from_file (vty, confp);
 
-  if (ret != CMD_SUCCESS) 
+  if ( !((ret == CMD_SUCCESS) || (ret == CMD_ERR_NOTHING_TODO)) ) 
     {
       switch (ret)
-	{
-	case CMD_ERR_AMBIGUOUS:
-	  fprintf (stderr, "Ambiguous command.\n");
-	  break;
-	case CMD_ERR_NO_MATCH:
-	  fprintf (stderr, "There is no such command.\n");
-	  break;
-	}
+       {
+         case CMD_ERR_AMBIGUOUS:
+           fprintf (stderr, "Ambiguous command.\n");
+           break;
+         case CMD_ERR_NO_MATCH:
+           fprintf (stderr, "There is no such command.\n");
+           break;
+       }
       fprintf (stderr, "Error occured during reading below line.\n%s\n", 
 	       vty->buf);
       vty_close (vty);

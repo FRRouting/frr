@@ -809,6 +809,15 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
 
   if (command == ZEBRA_IPV4_ROUTE_ADD)
     {
+      /* XXX|HACK|TODO|FIXME:
+       * ignore reject/blackhole routes 
+       * need a better generalised solution for these types
+       * really.
+       */
+      if ( CHECK_FLAG (api.flags, ZEBRA_FLAG_BLACKHOLE)
+           || CHECK_FLAG (api.flags, ZEBRA_FLAG_REJECT))
+        return 0;
+        
       ei = ospf_external_info_add (api.type, p, ifindex, nexthop);
 
       if (ospf->router_id.s_addr == 0)
@@ -841,10 +850,10 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
   else                          /* if (command == ZEBRA_IPV4_ROUTE_DELETE) */
     {
       ospf_external_info_delete (api.type, p);
-      if (!is_prefix_default (&p))
-        ospf_external_lsa_flush (ospf, api.type, &p, ifindex, nexthop);
-      else
+      if (is_prefix_default (&p))
         ospf_external_lsa_refresh_default (ospf);
+      else
+        ospf_external_lsa_flush (ospf, api.type, &p, ifindex, nexthop);
     }
 
   return 0;

@@ -191,6 +191,9 @@ zebra_spec_add_service bgpd     2605/tcp "BGPd vty"
 %if %with_ipv6
 zebra_spec_add_service ospf6d   2606/tcp "OSPF6d vty"
 %endif
+%if %with_ospfapi
+zebra_spec_add_service ospfapi  2607/tcp "OSPF-API"
+%endif
 
 /sbin/chkconfig --add zebra 
 /sbin/chkconfig --add ripd

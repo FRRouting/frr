@@ -863,20 +863,20 @@ rib_process (struct route_node *rn, struct rib *del)
       
       /* Currently installed rib. */
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
-	fib = rib;
+        fib = rib;
 
       /* Skip unreachable nexthop. */
       if (! nexthop_active_update (rn, rib, 0))
-	continue;
+        continue;
 
       /* Infinit distance. */
       if (rib->distance == DISTANCE_INFINITY)
-	continue;
+        continue;
 
       /* Newly selected rib. */
       if (! select || rib->distance < select->distance 
-	  || rib->type == ZEBRA_ROUTE_CONNECT)
-	select = rib;
+          || rib->type == ZEBRA_ROUTE_CONNECT)
+        select = rib;
     }
 
   /* Deleted route check. */
@@ -1300,19 +1300,18 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
          nexthop. */
       rib_uninstall (rn, rib);
       route_unlock_node (rn);
-
       switch (si->type)
-	{
-	case STATIC_IPV4_GATEWAY:
-	  nexthop_ipv4_add (rib, &si->gate.ipv4);
-	  break;
-	case STATIC_IPV4_IFNAME:
-	  nexthop_ifname_add (rib, si->gate.ifname);
-	  break;
-  case STATIC_IPV4_BLACKHOLE:
-    nexthop_blackhole_add (rib);
-    break;
-	}
+        {
+          case STATIC_IPV4_GATEWAY:
+            nexthop_ipv4_add (rib, &si->gate.ipv4);
+            break;
+          case STATIC_IPV4_IFNAME:
+            nexthop_ifname_add (rib, si->gate.ifname);
+            break;
+          case STATIC_IPV4_BLACKHOLE:
+            nexthop_blackhole_add (rib);
+            break;
+         }
       rib_process (rn, NULL);
     }
   else
@@ -1327,17 +1326,17 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
       rib->nexthop_num = 0;
 
       switch (si->type)
-	{
-	case STATIC_IPV4_GATEWAY:
-	  nexthop_ipv4_add (rib, &si->gate.ipv4);
-	  break;
-	case STATIC_IPV4_IFNAME:
-	  nexthop_ifname_add (rib, si->gate.ifname);
-	  break;
-  case STATIC_IPV4_BLACKHOLE:
-    nexthop_blackhole_add (rib);
-    break;
-	}
+        {
+          case STATIC_IPV4_GATEWAY:
+            nexthop_ipv4_add (rib, &si->gate.ipv4);
+            break;
+          case STATIC_IPV4_IFNAME:
+            nexthop_ifname_add (rib, si->gate.ifname);
+            break;
+          case STATIC_IPV4_BLACKHOLE:
+            nexthop_blackhole_add (rib);
+            break;
+        }
 
       /* Save the flags of this static routes (reject, blackhole) */
       rib->flags = si->flags;

@@ -136,7 +136,7 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd,
           return CMD_WARNING;
         }
       if (add_cmd)
-        static_add_ipv4 (&p, NULL, NULL, 0, distance, 0);
+        static_add_ipv4 (&p, NULL, NULL, ZEBRA_FLAG_BLACKHOLE, distance, 0);
       else
         static_delete_ipv4 (&p, NULL, NULL, distance, 0);
       return CMD_SUCCESS;
@@ -603,11 +603,9 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 	      vty_out (vty, " directly connected, %s", nexthop->ifname);
 	      break;
       case NEXTHOP_TYPE_BLACKHOLE:
-        vty_out (vty, " directly connected");
-        if (!rib->flags)
-          vty_out (vty, ", Null0");
+        vty_out (vty, " directly connected, Null0");
         break;
-	    default:
+      default:
 	      break;
 	    }
 	  if (! CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
@@ -688,11 +686,9 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	  vty_out (vty, " is directly connected, %s", nexthop->ifname);
 	  break;
   case NEXTHOP_TYPE_BLACKHOLE:
-    vty_out (vty, " is directly connected");
-    if (!rib->flags)
-      vty_out (vty, ", Null0");
+    vty_out (vty, " is directly connected, Null0");
     break;
-	default:
+  default:
 	  break;
 	}
       if (! CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
@@ -1070,34 +1066,38 @@ static_config_ipv4 (struct vty *vty)
   for (rn = route_top (stable); rn; rn = route_next (rn))
     for (si = rn->info; si; si = si->next)
       {
-	vty_out (vty, "ip route %s/%d", inet_ntoa (rn->p.u.prefix4),
-		 rn->p.prefixlen);
+        vty_out (vty, "ip route %s/%d", inet_ntoa (rn->p.u.prefix4),
+                 rn->p.prefixlen);
 
-	switch (si->type)
-	  {
-	  case STATIC_IPV4_GATEWAY:
-	    vty_out (vty, " %s", inet_ntoa (si->gate.ipv4));
-	    break;
-	  case STATIC_IPV4_IFNAME:
-	    vty_out (vty, " %s", si->gate.ifname);
-	    break;
-    case STATIC_IPV4_BLACKHOLE:
-      if (!si->flags)
-        vty_out (vty, " Null0");
-      break;
-	  }
+        switch (si->type)
+          {
+            case STATIC_IPV4_GATEWAY:
+              vty_out (vty, " %s", inet_ntoa (si->gate.ipv4));
+              break;
+            case STATIC_IPV4_IFNAME:
+              vty_out (vty, " %s", si->gate.ifname);
+              break;
+            case STATIC_IPV4_BLACKHOLE:
+              vty_out (vty, " Null0");
+              break;
+          }
+        
+        /* flags are incompatible with STATIC_IPV4_BLACKHOLE */
+        if (si->type != STATIC_IPV4_BLACKHOLE)
+          {
+            if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
+              vty_out (vty, " %s", "reject");
 
-       if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
-         vty_out (vty, " %s", "reject");
+            if (CHECK_FLAG(si->flags, ZEBRA_FLAG_BLACKHOLE))
+              vty_out (vty, " %s", "blackhole");
+          }
 
-       if (CHECK_FLAG(si->flags, ZEBRA_FLAG_BLACKHOLE))
-         vty_out (vty, " %s", "blackhole");
+        if (si->distance != ZEBRA_STATIC_DISTANCE_DEFAULT)
+          vty_out (vty, " %d", si->distance);
 
-	if (si->distance != ZEBRA_STATIC_DISTANCE_DEFAULT)
-	  vty_out (vty, " %d", si->distance);
-	vty_out (vty, "%s", VTY_NEWLINE);
+        vty_out (vty, "%s", VTY_NEWLINE);
 
-	write = 1;
+        write = 1;
       }
   return write;
 }

@@ -123,22 +123,26 @@ struct static_ipv6
 };
 #endif /* HAVE_IPV6 */
 
+enum nexthop_types_t
+{
+  NEXTHOP_TYPE_IFINDEX = 1,      /* Directly connected.  */
+  NEXTHOP_TYPE_IFNAME,           /* Interface route.  */
+  NEXTHOP_TYPE_IPV4,             /* IPv4 nexthop.  */
+  NEXTHOP_TYPE_IPV4_IFINDEX,     /* IPv4 nexthop with ifindex.  */
+  NEXTHOP_TYPE_IPV4_IFNAME,      /* IPv4 nexthop with ifname.  */
+  NEXTHOP_TYPE_IPV6,             /* IPv6 nexthop.  */
+  NEXTHOP_TYPE_IPV6_IFINDEX,     /* IPv6 nexthop with ifindex.  */
+  NEXTHOP_TYPE_IPV6_IFNAME,      /* IPv6 nexthop with ifname.  */
+  NEXTHOP_TYPE_BLACKHOLE,        /* Null0 nexthop.  */
+};
+
 /* Nexthop structure. */
 struct nexthop
 {
   struct nexthop *next;
   struct nexthop *prev;
 
-  u_char type;
-#define NEXTHOP_TYPE_IFINDEX        1 /* Directly connected.  */
-#define NEXTHOP_TYPE_IFNAME         2 /* Interface route.  */
-#define NEXTHOP_TYPE_IPV4           3 /* IPv4 nexthop.  */
-#define NEXTHOP_TYPE_IPV4_IFINDEX   4 /* IPv4 nexthop with ifindex.  */
-#define NEXTHOP_TYPE_IPV4_IFNAME    5 /* IPv4 nexthop with ifname.  */
-#define NEXTHOP_TYPE_IPV6           6 /* IPv6 nexthop.  */
-#define NEXTHOP_TYPE_IPV6_IFINDEX   7 /* IPv6 nexthop with ifindex.  */
-#define NEXTHOP_TYPE_IPV6_IFNAME    8 /* IPv6 nexthop with ifname.  */
-#define NEXTHOP_TYPE_BLACKHOLE      9 /* Null0 nexthop.  */
+  enum nexthop_types_t type;
 
   u_char flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
