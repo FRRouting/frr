@@ -1,6 +1,11 @@
+2003-06-07 Andrew J. Schorr <aschorr@telemetry-investments.com>
+
+	* Allow ripd to receive RIPv1
+	* add default as valid param to passive-interface command
+
 2003-05-25 Vincent Jardin <vjardin@wanadoo.fr>
 
-  * 6Wind patch merge.
+	* 6Wind patch merge.
 
 2003-04-19 Hasso Tepper <hasso@estpak.ee>
 

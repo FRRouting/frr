@@ -269,21 +269,14 @@ rip_request_interface (struct interface *ifp)
 
   /* If there is no version configuration in the interface,
      use rip's version setting. */
-  if (ri->ri_send == RI_RIP_UNSPEC)
-    {
-      if (rip->version == RIPv1)
-	rip_request_interface_send (ifp, RIPv1);
-      else
-	rip_request_interface_send (ifp, RIPv2);
-    }
-  /* If interface has RIP version configuration use it. */
-  else
-    {
-      if (ri->ri_send & RIPv1)
-	rip_request_interface_send (ifp, RIPv1);
-      if (ri->ri_send & RIPv2)
-	rip_request_interface_send (ifp, RIPv2);
-    }
+  {
+    int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ?
+		 rip->version_send : ri->ri_send);
+    if (vsend & RIPv1)
+      rip_request_interface_send (ifp, RIPv1);
+    if (vsend & RIPv2)
+      rip_request_interface_send (ifp, RIPv2);
+  }
 }
 
 /* Send RIP request to the neighbor. */
@@ -296,7 +289,7 @@ rip_request_neighbor (struct in_addr addr)
   to.sin_port = htons (RIP_PORT_DEFAULT);
   to.sin_addr = addr;
 
-  rip_request_send (&to, NULL, rip->version);
+  rip_request_send (&to, NULL, rip->version_send);
 }
 
 /* Request routes at all interfaces. */

@@ -1687,21 +1687,10 @@ rip_read (struct thread *t)
   /* RIP Version check. */
   if (packet->command == RIP_RESPONSE)
     {
-      if (ri->ri_receive == RI_RIP_UNSPEC)
-	{
-	  if (packet->version != rip->version) 
-	    {
-	      if (IS_RIP_DEBUG_PACKET)
-		zlog_warn ("  packet's v%d doesn't fit to my version %d", 
-			   packet->version, rip->version);
-	      rip_peer_bad_packet (&from);
-	      return -1;
-	    }
-	}
-      else
-	{
+	  int vrecv = ((ri->ri_receive == RI_RIP_UNSPEC) ?
+		       rip->version_recv : ri->ri_receive);
 	  if (packet->version == RIPv1)
-	    if (! (ri->ri_receive & RIPv1))
+	    if (! (vrecv & RIPv1))
 	      {
 		if (IS_RIP_DEBUG_PACKET)
 		  zlog_warn ("  packet's v%d doesn't fit to if version spec", 
@@ -1710,7 +1699,7 @@ rip_read (struct thread *t)
 		return -1;
 	      }
 	  if (packet->version == RIPv2)
-	    if (! (ri->ri_receive & RIPv2))
+	    if (! (vrecv & RIPv2))
 	      {
 		if (IS_RIP_DEBUG_PACKET)
 		  zlog_warn ("  packet's v%d doesn't fit to if version spec", 
@@ -1718,7 +1707,6 @@ rip_read (struct thread *t)
 		rip_peer_bad_packet (&from);
 		return -1;
 	      }
-	}
     }
 
   /* RFC2453 5.2 If the router is not configured to authenticate RIP-2
@@ -2300,7 +2288,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type)
 			   inet_ntoa (to.sin_addr), ifp->name);
 
 	      rip_output_process (ifp, connected->address, &to, route_type,
-				  version);
+				  version_send);
 	    }
 	}
     }
@@ -2350,21 +2338,14 @@ rip_update_process (int route_type)
 
 	  /* If there is no version configuration in the interface,
              use rip's version setting. */
-	  if (ri->ri_send == RI_RIP_UNSPEC)
-	    {
-	      if (rip->version == RIPv1)
+	  {
+	      int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ?
+			   rip->version_send : ri->ri_send);
+	      if (vsend & RIPv1)
 		rip_update_interface (ifp, RIPv1, route_type);
-	      else
+	      if (vsend & RIPv2)
 		rip_update_interface (ifp, RIPv2, route_type);
-	    }
-	  /* If interface has RIP version configuration use it. */
-	  else
-	    {
-	      if (ri->ri_send & RIPv1)
-		rip_update_interface (ifp, RIPv1, route_type);
-	      if (ri->ri_send & RIPv2)
-		rip_update_interface (ifp, RIPv2, route_type);
-	    }
+	  }
 	}
     }
 
@@ -2534,7 +2515,8 @@ rip_create ()
   memset (rip, 0, sizeof (struct rip));
 
   /* Set initial value. */
-  rip->version = RIPv2;
+  rip->version_send = RI_RIP_VERSION_2;
+  rip->version_recv = RI_RIP_VERSION_1_AND_2;
   rip->update_time = RIP_UPDATE_TIMER_DEFAULT;
   rip->timeout_time = RIP_TIMEOUT_TIMER_DEFAULT;
   rip->garbage_time = RIP_GARBAGE_TIMER_DEFAULT;
@@ -2668,7 +2650,8 @@ DEFUN (rip_version,
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
-  rip->version = version;
+  rip->version_send = version;
+  rip->version_recv = version;
 
   return CMD_SUCCESS;
 } 
@@ -2680,7 +2663,8 @@ DEFUN (no_rip_version,
        "Set routing protocol version\n")
 {
   /* Set RIP version to the default. */
-  rip->version = RIPv2;
+  rip->version_send = RI_RIP_VERSION_2;
+  rip->version_recv = RI_RIP_VERSION_1_AND_2;
 
   return CMD_SUCCESS;
 } 
@@ -3328,9 +3312,13 @@ DEFUN (show_ip_rip_status,
   config_write_rip_redistribute (vty, 0);
   vty_out (vty, "%s", VTY_NEWLINE);
 
-  vty_out (vty, "  Default version control: send version %d,", rip->version);
-  vty_out (vty, " receive version %d %s", rip->version,
-	   VTY_NEWLINE);
+  vty_out (vty, "  Default version control: send version %s,",
+	   lookup(ri_version_msg,rip->version_send));
+  if (rip->version_recv == RI_RIP_VERSION_1_AND_2)
+    vty_out (vty, " receive any version %s", VTY_NEWLINE);
+  else
+    vty_out (vty, " receive version %s %s",
+	     lookup(ri_version_msg,rip->version_recv), VTY_NEWLINE);
 
   vty_out (vty, "    Interface        Send  Recv   Key-chain%s", VTY_NEWLINE);
 
@@ -3342,12 +3330,12 @@ DEFUN (show_ip_rip_status,
       if (ri->enable_network || ri->enable_interface)
 	{
 	  if (ri->ri_send == RI_RIP_UNSPEC)
-	    send_version = lookup (ri_version_msg, rip->version);
+	    send_version = lookup (ri_version_msg, rip->version_send);
 	  else
 	    send_version = lookup (ri_version_msg, ri->ri_send);
 
 	  if (ri->ri_receive == RI_RIP_UNSPEC)
-	    receive_version = lookup (ri_version_msg, rip->version);
+	    receive_version = lookup (ri_version_msg, rip->version_recv);
 	  else
 	    receive_version = lookup (ri_version_msg, ri->ri_receive);
 	
@@ -3405,8 +3393,9 @@ config_write_rip (struct vty *vty)
       write++;
   
       /* RIP version statement.  Default is RIP version 2. */
-      if (rip->version != RIPv2)
-	vty_out (vty, " version %d%s", rip->version,
+      if (rip->version_send != RI_RIP_VERSION_2
+	  || rip->version_recv != RI_RIP_VERSION_1_AND_2)
+	vty_out (vty, " version %d%s", rip->version_send,
 		 VTY_NEWLINE);
  
       /* RIP timer configuration. */

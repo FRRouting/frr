@@ -25,6 +25,9 @@
 /* RIP version number. */
 #define RIPv1                            1
 #define RIPv2                            2
+/* N.B. stuff will break if
+	(RIPv1 != RI_RIP_VERSION_1) || (RIPv2 != RI_RIP_VERSION_2) */
+
 
 /* RIP command list. */
 #define RIP_REQUEST                      1
@@ -85,7 +88,8 @@ struct rip
   int sock;
 
   /* Default version of rip instance. */
-  u_char version;
+  int version_send;	/* version 1 or 2 (but not both) */
+  int version_recv;	/* version 1 or 2 or both */
 
   /* Output buffer of RIP. */
   struct stream *obuf;
@@ -322,6 +326,8 @@ struct rip_md5_data
 #define RI_RIP_VERSION_1                   1
 #define RI_RIP_VERSION_2                   2
 #define RI_RIP_VERSION_1_AND_2             3
+/* N.B. stuff will break if
+	(RIPv1 != RI_RIP_VERSION_1) || (RIPv2 != RI_RIP_VERSION_2) */
 
 /* Default value for "default-metric" command. */
 #define RIP_DEFAULT_METRIC_DEFAULT         1
