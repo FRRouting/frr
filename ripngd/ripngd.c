@@ -176,9 +176,9 @@ ripng_send_packet (caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 
   if (IS_RIPNG_DEBUG_SEND) {
     if (to)
-      zlog_info ("send to %s", inet6_ntop (&to->sin6_addr));
-    zlog_info ("  send interface %s", ifp->name);
-    zlog_info ("  send packet size %d", bufsize);
+      zlog_debug ("send to %s", inet6_ntop (&to->sin6_addr));
+    zlog_debug ("  send interface %s", ifp->name);
+    zlog_debug ("  send packet size %d", bufsize);
   }
 
   memset (&addr, 0, sizeof (struct sockaddr_in6));
@@ -311,7 +311,7 @@ ripng_packet_dump (struct ripng_packet *packet, int size, const char *sndrcv)
     command_str = "unknown";
 
   /* Dump packet header. */
-  zlog_info ("%s %s version %d packet size %d", 
+  zlog_debug ("%s %s version %d packet size %d", 
 	     sndrcv, command_str, packet->version, size);
 
   /* Dump each routing table entry. */
@@ -320,9 +320,9 @@ ripng_packet_dump (struct ripng_packet *packet, int size, const char *sndrcv)
   for (lim = (caddr_t) packet + size; (caddr_t) rte < lim; rte++)
     {
       if (rte->metric == RIPNG_METRIC_NEXTHOP)
-	zlog_info ("  nexthop %s/%d", inet6_ntop (&rte->addr), rte->prefixlen);
+	zlog_debug ("  nexthop %s/%d", inet6_ntop (&rte->addr), rte->prefixlen);
       else
-	zlog_info ("  %s/%d metric %d tag %d", 
+	zlog_debug ("  %s/%d metric %d tag %d", 
 		   inet6_ntop (&rte->addr), rte->prefixlen, 
 		   rte->metric, ntohs (rte->tag));
     }
@@ -338,7 +338,7 @@ ripng_nexthop_rte (struct rte *rte,
 
   /* Logging before checking RTE. */
   if (IS_RIPNG_DEBUG_RECV)
-    zlog_info ("RIPng nexthop RTE address %s tag %d prefixlen %d",
+    zlog_debug ("RIPng nexthop RTE address %s tag %d prefixlen %d",
 	       inet6_ntop (&rte->addr), ntohs (rte->tag), rte->prefixlen);
 
   /* RFC2080 2.1.1 Next Hop: 
@@ -496,7 +496,7 @@ ripng_incoming_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 			     (struct prefix *) p) == FILTER_DENY)
 	{
 	  if (IS_RIPNG_DEBUG_PACKET)
-	    zlog_info ("%s/%d filtered by distribute in",
+	    zlog_debug ("%s/%d filtered by distribute in",
 		       inet6_ntop (&p->prefix), p->prefixlen);
 	  return -1;
 	}
@@ -507,7 +507,7 @@ ripng_incoming_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 			     (struct prefix *) p) == PREFIX_DENY)
 	{
 	  if (IS_RIPNG_DEBUG_PACKET)
-	    zlog_info ("%s/%d filtered by prefix-list in",
+	    zlog_debug ("%s/%d filtered by prefix-list in",
 		       inet6_ntop (&p->prefix), p->prefixlen);
 	  return -1;
 	}
@@ -527,7 +527,7 @@ ripng_incoming_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 				     (struct prefix *) p) == FILTER_DENY)
 		{
 		  if (IS_RIPNG_DEBUG_PACKET)
-		    zlog_info ("%s/%d filtered by distribute in",
+		    zlog_debug ("%s/%d filtered by distribute in",
 			       inet6_ntop (&p->prefix), p->prefixlen);
 		  return -1;
 		}
@@ -543,7 +543,7 @@ ripng_incoming_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 				     (struct prefix *) p) == PREFIX_DENY)
 		{
 		  if (IS_RIPNG_DEBUG_PACKET)
-		    zlog_info ("%s/%d filtered by prefix-list in",
+		    zlog_debug ("%s/%d filtered by prefix-list in",
 			       inet6_ntop (&p->prefix), p->prefixlen);
 		  return -1;
 		}
@@ -566,7 +566,7 @@ ripng_outgoing_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 			     (struct prefix *) p) == FILTER_DENY)
 	{
 	  if (IS_RIPNG_DEBUG_PACKET)
-	    zlog_info ("%s/%d is filtered by distribute out",
+	    zlog_debug ("%s/%d is filtered by distribute out",
 		       inet6_ntop (&p->prefix), p->prefixlen);
 	  return -1;
 	}
@@ -577,7 +577,7 @@ ripng_outgoing_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 			     (struct prefix *) p) == PREFIX_DENY)
 	{
 	  if (IS_RIPNG_DEBUG_PACKET)
-	    zlog_info ("%s/%d is filtered by prefix-list out",
+	    zlog_debug ("%s/%d is filtered by prefix-list out",
 		       inet6_ntop (&p->prefix), p->prefixlen);
 	  return -1;
 	}
@@ -597,7 +597,7 @@ ripng_outgoing_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 				     (struct prefix *) p) == FILTER_DENY)
 		{
 		  if (IS_RIPNG_DEBUG_PACKET)
-		    zlog_info ("%s/%d filtered by distribute out",
+		    zlog_debug ("%s/%d filtered by distribute out",
 			       inet6_ntop (&p->prefix), p->prefixlen);
 		  return -1;
 		}
@@ -613,7 +613,7 @@ ripng_outgoing_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 				     (struct prefix *) p) == PREFIX_DENY)
 		{
 		  if (IS_RIPNG_DEBUG_PACKET)
-		    zlog_info ("%s/%d filtered by prefix-list out",
+		    zlog_debug ("%s/%d filtered by prefix-list out",
 			       inet6_ntop (&p->prefix), p->prefixlen);
 		  return -1;
 		}
@@ -682,7 +682,7 @@ ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
       if (ret == RMAP_DENYMATCH)
 	{
 	  if (IS_RIPNG_DEBUG_PACKET)
-	    zlog_info ("RIPng %s/%d is filtered by route-map in",
+	    zlog_debug ("RIPng %s/%d is filtered by route-map in",
 		       inet6_ntop (&p.prefix), p.prefixlen);
 	  return;
 	}
@@ -1004,11 +1004,11 @@ ripng_redistribute_add (int type, int sub_type, struct prefix_ipv6 *p,
 
   if (IS_RIPNG_DEBUG_EVENT) {
     if (!nexthop)
-      zlog_info ("Redistribute new prefix %s/%d on the interface %s",
+      zlog_debug ("Redistribute new prefix %s/%d on the interface %s",
                  inet6_ntop(&p->prefix), p->prefixlen,
                  ifindex2ifname(ifindex));
     else
-      zlog_info ("Redistribute new prefix %s/%d with nexthop %s on the interface %s",
+      zlog_debug ("Redistribute new prefix %s/%d with nexthop %s on the interface %s",
                  inet6_ntop(&p->prefix), p->prefixlen, inet6_ntop(nexthop),
                  ifindex2ifname(ifindex));
   }
@@ -1061,7 +1061,7 @@ ripng_redistribute_delete (int type, int sub_type, struct prefix_ipv6 *p,
 	  rinfo->flags |= RIPNG_RTF_CHANGED;
 	  
           if (IS_RIPNG_DEBUG_EVENT)
-            zlog_info ("Poisone %s/%d on the interface %s with an infinity metric [delete]",
+            zlog_debug ("Poisone %s/%d on the interface %s with an infinity metric [delete]",
                        inet6_ntop(&p->prefix), p->prefixlen,
                        ifindex2ifname(ifindex));
 
@@ -1100,7 +1100,7 @@ ripng_redistribute_withdraw (int type)
 	    if (IS_RIPNG_DEBUG_EVENT) {
 	      struct prefix_ipv6 *p = (struct prefix_ipv6 *) &rp->p;
 
-	      zlog_info ("Poisone %s/%d on the interface %s [withdraw]",
+	      zlog_debug ("Poisone %s/%d on the interface %s [withdraw]",
 	                 inet6_ntop(&p->prefix), p->prefixlen,
 	                 ifindex2ifname(rinfo->ifindex));
 	    }
@@ -1379,7 +1379,7 @@ ripng_read (struct thread *thread)
 
   /* RIPng packet received. */
   if (IS_RIPNG_DEBUG_EVENT)
-    zlog_info ("RIPng packet received from %s port %d on %s",
+    zlog_debug ("RIPng packet received from %s port %d on %s",
 	       inet6_ntop (&from.sin6_addr), ntohs (from.sin6_port), 
 	       ifp ? ifp->name : "unknown");
 
@@ -1447,7 +1447,7 @@ ripng_update (struct thread *t)
 
   /* Logging update event. */
   if (IS_RIPNG_DEBUG_EVENT)
-    zlog_info ("RIPng update timer expired!");
+    zlog_debug ("RIPng update timer expired!");
 
   /* Supply routes to each interface. */
   for (node = listhead (iflist); node; nextnode (node))
@@ -1470,7 +1470,7 @@ ripng_update (struct thread *t)
       if (ri->ri_send == RIPNG_SEND_OFF)
 	{
 	  if (IS_RIPNG_DEBUG_EVENT)
-	    zlog (NULL, LOG_INFO, 
+	    zlog (NULL, LOG_DEBUG, 
 		  "[Event] RIPng send to if %d is suppressed by config",
 		 ifp->ifindex);
 	  continue;
@@ -1530,7 +1530,7 @@ ripng_triggered_update (struct thread *t)
 
   /* Logging triggered update. */
   if (IS_RIPNG_DEBUG_EVENT)
-    zlog_info ("RIPng triggered update!");
+    zlog_debug ("RIPng triggered update!");
 
   /* Split Horizon processing is done when generating triggered
      updates as well as normal updates (see section 2.6). */
@@ -1613,10 +1613,10 @@ ripng_output_process (struct interface *ifp, struct sockaddr_in6 *to,
 
   if (IS_RIPNG_DEBUG_EVENT) {
     if (to)
-      zlog_info ("RIPng update routes to neighbor %s",
+      zlog_debug ("RIPng update routes to neighbor %s",
                  inet6_ntop(&to->sin6_addr));
     else
-      zlog_info ("RIPng update routes on interface %s", ifp->name);
+      zlog_debug ("RIPng update routes on interface %s", ifp->name);
   }
 
   /* Get RIPng interface. */
@@ -1682,7 +1682,7 @@ ripng_output_process (struct interface *ifp, struct sockaddr_in6 *to,
 	      if (ret == RMAP_DENYMATCH)
 		{
 		  if (IS_RIPNG_DEBUG_PACKET)
-		    zlog_info ("RIPng %s/%d is filtered by route-map out",
+		    zlog_debug ("RIPng %s/%d is filtered by route-map out",
 			       inet6_ntop (&p->prefix), p->prefixlen);
 		  continue;
 		}
@@ -1701,7 +1701,7 @@ ripng_output_process (struct interface *ifp, struct sockaddr_in6 *to,
 	      if (ret == RMAP_DENYMATCH)
 		{
 		  if (IS_RIPNG_DEBUG_PACKET)
-		    zlog_info ("RIPng %s/%d is filtered by route-map",
+		    zlog_debug ("RIPng %s/%d is filtered by route-map",
 			       inet6_ntop (&p->prefix), p->prefixlen);
 		  continue;
 		}
@@ -1787,7 +1787,7 @@ ripng_output_process (struct interface *ifp, struct sockaddr_in6 *to,
 	      if (ret == RMAP_DENYMATCH)
 		{
 		  if (IS_RIPNG_DEBUG_PACKET)
-		    zlog_info ("RIPng %s/%d is filtered by route-map out",
+		    zlog_debug ("RIPng %s/%d is filtered by route-map out",
 			       inet6_ntop (&p->prefix), p->prefixlen);
 		  continue;
 		}
@@ -1880,7 +1880,7 @@ ripng_request (struct interface *ifp)
     return 0;
 
   if (IS_RIPNG_DEBUG_EVENT)
-    zlog_info ("RIPng send request to %s", ifp->name);
+    zlog_debug ("RIPng send request to %s", ifp->name);
 
   memset (&ripng_packet, 0, sizeof (ripng_packet));
   ripng_packet.command = RIPNG_REQUEST;
