@@ -2400,7 +2400,7 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
            vty_out (vty, "not the NSSA Elected Translator. %s",
                     VTY_NEWLINE);
          else
-           vty_out (vty, "not the NSSA Elected Translator. %s", 
+           vty_out (vty, "never an NSSA Translator. %s", 
 	             VTY_NEWLINE);
 	   }
     }
