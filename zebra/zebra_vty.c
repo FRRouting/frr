@@ -1732,15 +1732,15 @@ DEFUN (show_ipv6_route_prefix_longer,
 
 DEFUN (show_ipv6_route_protocol,
        show_ipv6_route_protocol_cmd,
-       "show ipv6 route (bgp|connected|kernel|ospf6|ripng|static)",
+       "show ipv6 route (bgp|connected|isis|kernel|ospf6|ripng|static)",
        SHOW_STR
        IP_STR
        "IP routing table\n"
        "Border Gateway Protocol (BGP)\n"
        "Connected\n"
+       "ISO IS-IS (ISIS)\n"
        "Kernel\n"
        "Open Shortest Path First (OSPFv3)\n"
-       "ISO IS-IS (ISIS)\n"
        "Routing Information Protocol (RIPng)\n"
        "Static routes\n")
 {

@@ -1,3 +1,8 @@
+2004-12-18 Hasso Tepper <hasso at quagga.net>
+
+	* zebra_vty.c: Fix "show ipv6 route <proto>" command help and make it
+	  work for isis routes.
+
 2004-12-09  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* kernel_socket.c (rtmsg_debug): char * => const char *
