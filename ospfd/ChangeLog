@@ -21,7 +21,7 @@
 
 	* ospf_interface.c: fix incorrect memset
 
-2003-04-10 Hasso Tepper <hasso@estpak.ee>
+2003-04-10 Amir Guindehi <amir@datacore.ch>
 
 	* ospf_lsa.[ch]: opaque LSA fix, use ospf_lookup.
 
