@@ -1,30 +1,33 @@
 /* 
- * Simple main program to demonstrate how OSPF API can be used.  
+ * Simple program to demonstrate how OSPF API can be used. This
+ * application retrieves the LSDB from the OSPF daemon and then
+ * originates, updates and finally deletes an application-specific
+ * opaque LSA. You can use this application as a template when writing
+ * your own application.
  */
 
 /* The following includes are needed in all OSPF API client
-   applications */
+   applications. */
 
 #include <zebra.h>
-#include "prefix.h" /* for ospf_asbr.h */
-
+#include "prefix.h" /* needed by ospf_asbr.h */
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_opaque.h"
-#include "ospfd/ospf_lsdb.h"
-#include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_api.h"
 #include "ospf_apiclient.h"
 
-/* The following includes are specific to this main application. Here
-   main uses the thread functionality from libzebra (however an
-   application can use any thread library like pthreads) */
+/* The following includes are specific to this application. For
+   example it uses threads from libzebra, however your application is
+   free to use any thread library (like pthreads). */
 
+#include "ospfd/ospf_dump.h" /* for ospf_lsa_header_dump */
 #include "thread.h"
 #include "log.h"
 
-/* local portnumber for async channel */
+/* Local portnumber for async channel. Note that OSPF API library will also
+   allocate a sync channel at ASYNCPORT+1. */
 #define ASYNCPORT 4000
 
 /* Master thread */
@@ -34,11 +37,11 @@ struct thread_master *master;
 struct ospf_apiclient *oclient;
 char **args;
 
-/* Our opaque LSAs have the following format */
+/* Our opaque LSAs have the following format. */
 struct my_opaque_lsa
 {
-  struct lsa_header hdr;
-  u_char data[4];
+  struct lsa_header hdr; /* include common LSA header */
+  u_char data[4]; /* our own data format then follows here */
 };
 
 
@@ -80,7 +83,7 @@ lsa_inject (struct thread *t)
   void *opaquedata;
   int opaquelen;
 
-  static u_int32_t counter = 1;	/* Incremented each time */
+  static u_int32_t counter = 1;	/* Incremented each time invoked */
   int rc;
 
   cl = THREAD_ARG (t);
@@ -134,8 +137,6 @@ lsa_read (struct thread *thread)
   return 0;
 }
 
-
-
 /* ---------------------------------------------------------
  * Callback functions for asynchronous events 
  * ---------------------------------------------------------
@@ -151,6 +152,19 @@ lsa_update_callback (struct in_addr ifaddr, struct in_addr area_id,
   printf ("area: %s\n", inet_ntoa (area_id));
   printf ("is_self_origin: %u\n", is_self_originated);
 
+  /* It is important to note that lsa_header does indeed include the
+     header and the LSA payload. To access the payload, first check
+     the LSA type and then typecast lsa into the corresponding type,
+     e.g.:
+     
+     if (lsa->type == OSPF_ROUTER_LSA) {
+       struct router_lsa *rl = (struct router_lsa) lsa;
+       ...
+       u_int16_t links = rl->links;
+       ...
+    }
+  */
+       
   ospf_lsa_header_dump (lsa);
 }
 
@@ -221,6 +235,19 @@ nsm_change_callback (struct in_addr ifaddr, struct in_addr nbraddr,
  * ---------------------------------------------------------
  */
 
+int usage()
+{
+  printf("Usage: ospfclient <ospfd> <lsatype> <opaquetype> <opaqueid> <ifaddr> <areaid>\n");
+  printf("where ospfd     : router where API-enabled OSPF daemon is running\n");
+  printf("      lsatype   : either 9, 10, or 11 depending on flooding scope\n");
+  printf("      opaquetype: 0-255 (e.g., experimental applications use > 128)\n");
+  printf("      opaqueid  : arbitrary application instance (24 bits)\n");
+  printf("      ifaddr    : interface IP address (for type 9) otherwise ignored\n");
+  printf("      areaid    : area in IP address format (for type 10) otherwise ignored\n");
+  
+  exit(1);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -228,14 +255,14 @@ main (int argc, char *argv[])
 
   args = argv;
 
-  /* Main should be started with the following arguments:
+  /* ospfclient should be started with the following arguments:
    * 
    * (1) host (2) lsa_type (3) opaque_type (4) opaque_id (5) if_addr 
    * (6) area_id
    * 
    * host: name or IP of host where ospfd is running
    * lsa_type: 9, 10, or 11
-   * opaque_type: 0-255 (e.g., 140 for experimental Active Networking)
+   * opaque_type: 0-255 (e.g., experimental applications use > 128) 
    * opaque_id: arbitrary application instance (24 bits)
    * if_addr: interface IP address (for type 9) otherwise ignored
    * area_id: area in IP address format (for type 10) otherwise ignored
@@ -243,8 +270,7 @@ main (int argc, char *argv[])
 
   if (argc != 7)
     {
-      printf ("main: wrong number of arguments!\n");
-      exit (1);
+      usage();
     }
 
   /* Initialization */
@@ -254,7 +280,8 @@ main (int argc, char *argv[])
   oclient = ospf_apiclient_connect (args[1], ASYNCPORT);
   if (!oclient)
     {
-      printf ("main: connect failed!\n");
+      printf ("Connecting to OSPF daemon on %s failed!\n",
+	      args[1]);
       exit (1);
     }
 
