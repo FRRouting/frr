@@ -868,7 +868,7 @@ int
 bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, safi_t safi)
 {
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX)
-      && peer->pcount[afi][safi] >= peer->pmax[afi][safi])
+      && peer->pcount[afi][safi] > peer->pmax[afi][safi])
     {
       zlog (peer->log, LOG_INFO,
 	    "MAXPFXEXCEED: No. of prefix received from %s (afi %d): %ld exceed limit %ld",
