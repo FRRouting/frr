@@ -43,28 +43,32 @@
 void
 ospf_route_map_update (char *name)
 {
+  struct ospf *ospf;
   int type;
 
   /* If OSPF instatnce does not exist, return right now. */
-  if (!ospf_top)
+  ospf = ospf_lookup ();
+  if (ospf == NULL)
     return;
 
   /* Update route-map */
   for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
     {
-      if (ROUTEMAP_NAME (type) && strcmp (ROUTEMAP_NAME (type), name) == 0)
+      if (ROUTEMAP_NAME (ospf, type)
+	  && strcmp (ROUTEMAP_NAME (ospf, type), name) == 0)
 	{
 	  /* Keep old route-map. */
-	  struct route_map *old = ROUTEMAP (type);
+	  struct route_map *old = ROUTEMAP (ospf, type);
 
 	  /* Update route-map. */
-	  ROUTEMAP (type) = route_map_lookup_by_name (ROUTEMAP_NAME (type));
+	  ROUTEMAP (ospf, type) =
+	    route_map_lookup_by_name (ROUTEMAP_NAME (ospf, type));
 
 	  /* No update for this distribute type. */
-	  if (old == NULL && ROUTEMAP (type) == NULL)
+	  if (old == NULL && ROUTEMAP (ospf, type) == NULL)
 	    continue;
 
-	  ospf_distribute_list_update (type);
+	  ospf_distribute_list_update (ospf, type);
 	}
     }
 }
@@ -72,19 +76,21 @@ ospf_route_map_update (char *name)
 void
 ospf_route_map_event (route_map_event_t event, char *name)
 {
+  struct ospf *ospf;
   int type;
 
   /* If OSPF instatnce does not exist, return right now. */
-  if (!ospf_top)
+  ospf = ospf_lookup ();
+  if (ospf == NULL)
     return;
 
   /* Update route-map. */
   for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
     {
-      if (ROUTEMAP_NAME (type) &&  ROUTEMAP (type) &&
-          !strcmp (ROUTEMAP_NAME (type), name))
+      if (ROUTEMAP_NAME (ospf, type) &&  ROUTEMAP (ospf, type)
+	  && !strcmp (ROUTEMAP_NAME (ospf, type), name))
         {
-          ospf_distribute_list_update (type);
+          ospf_distribute_list_update (ospf, type);
         }
     }
 }
@@ -750,8 +756,8 @@ DEFUN (set_metric_type,
        "set metric-type (type-1|type-2)",
        SET_STR
        "Type of metric for destination routing protocol\n"
-       "OSPF external type 1 metric\n"
-       "OSPF external type 2 metric\n")
+       "OSPF[6] external type 1 metric\n"
+       "OSPF[6] external type 2 metric\n")
 {
   if (strcmp (argv[0], "1") == 0)
     return ospf_route_set_add (vty, vty->index, "metric-type", "type-1");
@@ -780,8 +786,8 @@ ALIAS (no_set_metric_type,
        NO_STR
        SET_STR
        "Type of metric for destination routing protocol\n"
-       "OSPF external type 1 metric\n"
-       "OSPF external type 2 metric\n")
+       "OSPF[6] external type 1 metric\n"
+       "OSPF[6] external type 2 metric\n")
 
 /* Route-map init */
 void

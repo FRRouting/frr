@@ -628,11 +628,13 @@ ALIAS (no_match_interface,
 
 DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
-       "match ip next-hop WORD",
+       "match ip next-hop (<1-199>|<1300-2699>|WORD)",
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
-       "IP access-list name\n")
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
 {
   return rip_route_match_add (vty, vty->index, "ip next-hop", argv[0]);
 }
@@ -653,12 +655,14 @@ DEFUN (no_match_ip_next_hop,
 
 ALIAS (no_match_ip_next_hop,
        no_match_ip_next_hop_val_cmd,
-       "no match ip next-hop WORD",
+       "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
        NO_STR
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
-       "IP access-list name\n")
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
 
 DEFUN (match_ip_next_hop_prefix_list,
        match_ip_next_hop_prefix_list_cmd,
@@ -697,13 +701,16 @@ ALIAS (no_match_ip_next_hop_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 
-DEFUN (match_ip_address, 
+DEFUN (match_ip_address,
        match_ip_address_cmd,
-       "match ip address WORD",
+       "match ip address (<1-199>|<1300-2699>|WORD)",
        MATCH_STR
        IP_STR
        "Match address of route\n"
-       "IP access-list name\n")
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
+
 {
   return rip_route_match_add (vty, vty->index, "ip address", argv[0]);
 }
@@ -722,14 +729,16 @@ DEFUN (no_match_ip_address,
   return rip_route_match_delete (vty, vty->index, "ip address", argv[0]);
 }
 
-ALIAS (no_match_ip_address, 
+ALIAS (no_match_ip_address,
        no_match_ip_address_val_cmd,
-       "no match ip address WORD",
+       "no match ip address (<1-199>|<1300-2699>|WORD)",
        NO_STR
        MATCH_STR
        IP_STR
        "Match address of route\n"
-       "IP access-list name\n")
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
 
 DEFUN (match_ip_address_prefix_list, 
        match_ip_address_prefix_list_cmd,

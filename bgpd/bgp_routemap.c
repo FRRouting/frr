@@ -518,6 +518,52 @@ struct route_map_rule_cmd route_match_community_cmd =
   route_match_community_free
 };
 
+/* Match function for extcommunity match. */
+route_map_result_t
+route_match_ecommunity (void *rule, struct prefix *prefix, 
+			route_map_object_t type, void *object)
+{
+  struct community_list *list;
+  struct bgp_info *bgp_info;
+
+  if (type == RMAP_BGP) 
+    {
+      bgp_info = object;
+
+      list = community_list_lookup (bgp_clist, (char *) rule,
+				    EXTCOMMUNITY_LIST_AUTO);
+      if (! list)
+	return RMAP_NOMATCH;
+
+      if (ecommunity_list_match (bgp_info->attr->ecommunity, list))
+	return RMAP_MATCH;
+    }
+  return RMAP_NOMATCH;
+}
+
+/* Compile function for extcommunity match. */
+void *
+route_match_ecommunity_compile (char *arg)
+{
+  return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+/* Compile function for extcommunity match. */
+void
+route_match_ecommunity_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for community matching. */
+struct route_map_rule_cmd route_match_ecommunity_cmd = 
+{
+  "extcommunity",
+  route_match_ecommunity,
+  route_match_ecommunity_compile,
+  route_match_ecommunity_free
+};
+
 /* `match nlri` and `set nlri` are replaced by `address-family ipv4`
    and `address-family vpnv4'.  */
 
@@ -2222,6 +2268,38 @@ ALIAS (no_match_community,
        "Community-list name\n"
        "Do exact matching of communities\n")
 
+DEFUN (match_ecommunity, 
+       match_ecommunity_cmd,
+       "match extcommunity (<1-99>|<100-199>|WORD)",
+       MATCH_STR
+       "Match BGP/VPN extended community list\n"
+       "Extended community-list number (standard)\n"
+       "Extended community-list number (expanded)\n"
+       "Extended community-list name\n")
+{
+  return bgp_route_match_add (vty, vty->index, "extcommunity", argv[0]);
+}
+
+DEFUN (no_match_ecommunity,
+       no_match_ecommunity_cmd,
+       "no match extcommunity",
+       NO_STR
+       MATCH_STR
+       "Match BGP/VPN extended community list\n")
+{
+  return bgp_route_match_delete (vty, vty->index, "extcommunity", NULL);
+}
+
+ALIAS (no_match_ecommunity,
+       no_match_ecommunity_val_cmd,
+       "no match extcommunity (<1-99>|<100-199>|WORD)",
+       NO_STR
+       MATCH_STR
+       "Match BGP/VPN extended community list\n"
+       "Extended community-list number (standard)\n"
+       "Extended community-list number (expanded)\n"
+       "Extended community-list name\n")
+
 DEFUN (match_aspath,
        match_aspath_cmd,
        "match as-path WORD",
@@ -2335,14 +2413,20 @@ ALIAS (no_set_ip_nexthop,
 
 DEFUN (set_metric,
        set_metric_cmd,
-       "set metric (<0-4294967295>|<+/-metric>)",
+       "set metric <0-4294967295>",
        SET_STR
        "Metric value for destination routing protocol\n"
-       "Metric value\n"
-       "Add or subtract metric\n")
+       "Metric value\n")
 {
   return bgp_route_set_add (vty, vty->index, "metric", argv[0]);
 }
+
+ALIAS (set_metric,
+       set_metric_addsub_cmd,
+       "set metric <+/-metric>",
+       SET_STR
+       "Metric value for destination routing protocol\n"
+       "Add or subtract BGP metric\n")
 
 DEFUN (no_set_metric,
        no_set_metric_cmd,
@@ -3093,6 +3177,7 @@ bgp_route_map_init ()
   route_map_install_match (&route_match_ip_next_hop_prefix_list_cmd);
   route_map_install_match (&route_match_aspath_cmd);
   route_map_install_match (&route_match_community_cmd);
+  route_map_install_match (&route_match_ecommunity_cmd);
   route_map_install_match (&route_match_metric_cmd);
   route_map_install_match (&route_match_origin_cmd);
 
@@ -3136,6 +3221,9 @@ bgp_route_map_init ()
   install_element (RMAP_NODE, &no_match_community_cmd);
   install_element (RMAP_NODE, &no_match_community_val_cmd);
   install_element (RMAP_NODE, &no_match_community_exact_cmd);
+  install_element (RMAP_NODE, &match_ecommunity_cmd);
+  install_element (RMAP_NODE, &no_match_ecommunity_cmd);
+  install_element (RMAP_NODE, &no_match_ecommunity_val_cmd);
   install_element (RMAP_NODE, &match_origin_cmd);
   install_element (RMAP_NODE, &no_match_origin_cmd);
   install_element (RMAP_NODE, &no_match_origin_val_cmd);
@@ -3150,6 +3238,7 @@ bgp_route_map_init ()
   install_element (RMAP_NODE, &no_set_weight_cmd);
   install_element (RMAP_NODE, &no_set_weight_val_cmd);
   install_element (RMAP_NODE, &set_metric_cmd);
+  install_element (RMAP_NODE, &set_metric_addsub_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_val_cmd);
   install_element (RMAP_NODE, &set_aspath_prepend_cmd);

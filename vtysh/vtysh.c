@@ -1174,21 +1174,6 @@ DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
        NO_STR
        "Interface specific description\n")
 
-DEFSH (VTYSH_RIPD|VTYSH_BGPD,
-       set_ip_nexthop_cmd,
-       "set ip next-hop A.B.C.D",
-       SET_STR
-       IP_STR
-       "Next hop address\n"
-       "IP address of next hop\n")
-
-DEFSH (VTYSH_RMAP,
-       set_metric_cmd,
-       "set metric <0-4294967295>",
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Metric value\n")
-
 DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D,
 	 vtysh_exit_interface,
 	 vtysh_exit_interface_cmd,
@@ -1908,9 +1893,6 @@ vtysh_init_vty ()
   install_element (ENABLE_NODE, &vtysh_start_shell_cmd);
   install_element (ENABLE_NODE, &vtysh_start_bash_cmd);
   install_element (ENABLE_NODE, &vtysh_start_zsh_cmd);
-
-  install_element (RMAP_NODE, &set_metric_cmd);
-  install_element (RMAP_NODE, &set_ip_nexthop_cmd);
 
   install_element (CONFIG_NODE, &vtysh_log_stdout_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_stdout_cmd);

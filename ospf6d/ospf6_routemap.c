@@ -214,14 +214,14 @@ route_map_command_status (struct vty *vty, int ret)
 }
 
 /* add "match address" */
-DEFUN (ospf6_routemap_match_address_prefixlist,
-       ospf6_routemap_match_address_prefixlist_cmd,
+DEFUN (match_ipv6_address_prefix_list,
+       match_ipv6_address_prefix_list_cmd,
        "match ipv6 address prefix-list WORD",
-       "Match values\n"
+       MATCH_STR
        IPV6_STR
        "Match address of route\n"
        "Match entries of prefix-lists\n"
-       "IPv6 prefix-list name\n")
+       "IP prefix-list name\n")
 {
   int ret = route_map_add_match ((struct route_map_index *) vty->index,
                                  "ipv6 address prefix-list", argv[0]);
@@ -229,15 +229,15 @@ DEFUN (ospf6_routemap_match_address_prefixlist,
 }
 
 /* delete "match address" */
-DEFUN (ospf6_routemap_no_match_address_prefixlist,
-       ospf6_routemap_no_match_address_prefixlist_cmd,
+DEFUN (no_match_ipv6_address_prefix_list,
+       no_match_ipv6_address_prefix_list_cmd,
        "no match ipv6 address prefix-list WORD",
        NO_STR
-       "Match values\n"
+       MATCH_STR
        IPV6_STR
        "Match address of route\n"
        "Match entries of prefix-lists\n"
-       "IPv6 prefix-list name\n")
+       "IP prefix-list name\n")
 {
   int ret = route_map_delete_match ((struct route_map_index *) vty->index,
                                     "ipv6 address prefix-list", argv[0]);
@@ -245,13 +245,13 @@ DEFUN (ospf6_routemap_no_match_address_prefixlist,
 }
 
 /* add "set metric-type" */
-DEFUN (ospf6_routemap_set_metric_type,
-       ospf6_routemap_set_metric_type_cmd,
+DEFUN (set_metric_type,
+       set_metric_type_cmd,
        "set metric-type (type-1|type-2)",
-       "Set value\n"
-       "Type of metric\n"
-       "OSPF6 external type 1 metric\n"
-       "OSPF6 external type 2 metric\n")
+       SET_STR
+       "Type of metric for destination routing protocol\n"
+       "OSPF[6] external type 1 metric\n"
+       "OSPF[6] external type 2 metric\n")
 {
   int ret = route_map_add_set ((struct route_map_index *) vty->index,
                                "metric-type", argv[0]);
@@ -259,26 +259,38 @@ DEFUN (ospf6_routemap_set_metric_type,
 }
 
 /* delete "set metric-type" */
-DEFUN (ospf6_routemap_no_set_metric_type,
-       ospf6_routemap_no_set_metric_type_cmd,
-       "no set metric-type (type-1|type-2)",
+DEFUN (no_set_metric_type,
+       no_set_metric_type_cmd,
+       "no set metric-type",
        NO_STR
-       "Set value\n"
-       "Type of metric\n"
-       "OSPF6 external type 1 metric\n"
-       "OSPF6 external type 2 metric\n")
+       SET_STR
+       "Type of metric for destination routing protocol\n")
 {
-  int ret = route_map_delete_set ((struct route_map_index *) vty->index,
+  int ret;
+  if (argc == 0)
+    ret = route_map_delete_set ((struct route_map_index *) vty->index,
+                                  "metric-type", NULL);
+  else
+    ret = route_map_delete_set ((struct route_map_index *) vty->index,
                                   "metric-type", argv[0]);
   return route_map_command_status (vty, ret);
 }
+
+ALIAS (no_set_metric_type,
+       no_set_metric_type_val_cmd,
+       "no set metric-type (type-1|type-2)",
+       NO_STR
+       SET_STR
+       "Type of metric for destination routing protocol\n"
+       "OSPF[6] external type 1 metric\n"
+       "OSPF[6] external type 2 metric\n")
 
 /* add "set metric" */
 DEFUN (set_metric,
        set_metric_cmd,
        "set metric <0-4294967295>",
-       "Set value\n"
-       "Metric value\n"
+       SET_STR
+       "Metric value for destination routing protocol\n"
        "Metric value\n")
 {
   int ret = route_map_add_set ((struct route_map_index *) vty->index,
@@ -289,16 +301,28 @@ DEFUN (set_metric,
 /* delete "set metric" */
 DEFUN (no_set_metric,
        no_set_metric_cmd,
-       "no set metric <0-4294967295>",
+       "no set metric",
        NO_STR
-       "Set value\n"
-       "Metric\n"
-       "METRIC value\n")
+       SET_STR
+       "Metric value for destination routing protocol\n")
 {
-  int ret = route_map_delete_set ((struct route_map_index *) vty->index,
+  int ret;
+  if (argc == 0)
+    ret = route_map_delete_set ((struct route_map_index *) vty->index,
+                                  "metric", NULL);
+  else
+    ret = route_map_delete_set ((struct route_map_index *) vty->index,
                                   "metric", argv[0]);
   return route_map_command_status (vty, ret);
 }
+
+ALIAS (no_set_metric,
+       no_set_metric_val_cmd,
+       "no set metric <0-4294967295>",
+       NO_STR
+       SET_STR
+       "Metric value for destination routing protocol\n"
+       "Metric value\n")
 
 /* add "set forwarding-address" */
 DEFUN (ospf6_routemap_set_forwarding,
@@ -341,16 +365,18 @@ ospf6_routemap_init ()
   route_map_install_set (&ospf6_routemap_rule_set_forwarding_cmd);
 
   /* Match address prefix-list */
-  install_element (RMAP_NODE, &ospf6_routemap_match_address_prefixlist_cmd);
-  install_element (RMAP_NODE, &ospf6_routemap_no_match_address_prefixlist_cmd);
+  install_element (RMAP_NODE, &match_ipv6_address_prefix_list_cmd);
+  install_element (RMAP_NODE, &no_match_ipv6_address_prefix_list_cmd);
 
   /* ASE Metric Type (e.g. Type-1/Type-2) */
-  install_element (RMAP_NODE, &ospf6_routemap_set_metric_type_cmd);
-  install_element (RMAP_NODE, &ospf6_routemap_no_set_metric_type_cmd);
+  install_element (RMAP_NODE, &set_metric_type_cmd);
+  install_element (RMAP_NODE, &no_set_metric_type_cmd);
+  install_element (RMAP_NODE, &no_set_metric_type_val_cmd);
 
   /* ASE Metric */
   install_element (RMAP_NODE, &set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
+  install_element (RMAP_NODE, &no_set_metric_val_cmd);
 
   /* ASE Metric */
   install_element (RMAP_NODE, &ospf6_routemap_set_forwarding_cmd);

@@ -85,7 +85,7 @@ foreach (@ARGV) {
               $protocol = "VTYSH_RIPD";
            }
            if ($file =~ /routemap.c/) {
-              $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
+              $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD";
            }
            if ($file =~ /filter.c/) {
               if ($defun_array[1] =~ m/ipv6/) {
