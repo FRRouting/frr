@@ -1181,7 +1181,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  if (IPV4_ADDR_CMP (&nbr->router_id, &oi->ospf->router_id) > 0)
 	    {
 	      /* We're Slave---obey */
-	      zlog_warn ("Packet[DD]: Neighbor %s Negotiation done (Slave).",
+	      zlog_info ("Packet[DD]: Neighbor %s Negotiation done (Slave).",
 	      		 inet_ntoa(nbr->router_id));
 	      nbr->dd_seqnum = ntohl (dd->dd_seqnum);
 	      nbr->dd_flags &= ~(OSPF_DD_FLAG_MS|OSPF_DD_FLAG_I); /* Reset I/MS */
@@ -1199,7 +1199,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	       ntohl (dd->dd_seqnum) == nbr->dd_seqnum &&
 	       IPV4_ADDR_CMP (&nbr->router_id, &oi->ospf->router_id) < 0)
 	{
-	  zlog_warn ("Packet[DD]: Neighbor %s Negotiation done (Master).",
+	  zlog_info ("Packet[DD]: Neighbor %s Negotiation done (Master).",
 		     inet_ntoa(nbr->router_id));
 	  nbr->dd_flags &= ~OSPF_DD_FLAG_I;
 	}

@@ -1,5 +1,11 @@
 2004-12-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf_packet.c: (ospf_db_desc) Reduce severity of "Negotiation done"
+	  messages from LOG_WARNING to LOG_INFO, since this seems to be
+	  normal.
+
+2004-12-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf_packet.c: (ospf_read) Always look up the interface if
 	  ospf_recv_packet returns NULL ifp, since some platforms such
 	  as Solaris 8 appear to support ifindex retrieval but don't.
