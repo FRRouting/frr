@@ -46,6 +46,8 @@
 %define		daemon_other	""
 %endif
 
+%define		all_daemons	%{daemon_list} %{daemonv6_list} %{daemon_other} watchquagga
+
 # allow build dir to be kept
 %define		keep_build	0
 
@@ -196,7 +198,7 @@ make install \
 rm -rf $RPM_BUILD_ROOT/usr/share/info/dir
 
 # install etc sources
-for daemon in %{daemon_list} %{daemonv6_list} %{daemon_other} ; do
+for daemon in %{all_daemons} ; do
 	if [ x"${daemon}" != x"" ] ; then
 		install %{zeb_rh_src}/${daemon}.init \
 			$RPM_BUILD_ROOT/etc/rc.d/init.d/${daemon}
@@ -272,14 +274,14 @@ fi
 
 %postun
 if [ "$1" -ge  "1" ]; then
-	for daemon in %daemon_list ; do
+	for daemon in %all_daemons ; do
 		/etc/rc.d/init.d/${daemon} condrestart >/dev/null 2>&1
 	done
 fi
 
 %preun
 if [ "$1" = "0" ]; then
-	for daemon in %daemon_list ; do
+	for daemon in %all_daemons ; do
 		/etc/rc.d/init.d/${daemon} stop  >/dev/null 2>&1
 		/sbin/chkconfig --del ${daemon}
 	done
@@ -316,6 +318,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_sbindir}/ospfd
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
+%{_sbindir}/watchquagga
 %if %{with_ipv6}
 %{_sbindir}/ripngd
 %{_sbindir}/ospf6d
@@ -359,6 +362,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 %changelog
+* Wed Dec 22 2004 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+- watchquagga added
+- on upgrade, all daemons should be condrestart'ed
+- on removal, all daemons should be stopped
+
 * Mon Nov 08 2004 Paul Jakma <paul@dishone.st>
 - Use makeinfo --html to generate quagga.html
 
