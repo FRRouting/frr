@@ -1,3 +1,9 @@
+2005-01-10 Hasso Tepper <hasso at quagga.net>
+
+	* vtysh.c: Reflect changes in lib. cmd_execute_command() should know
+	  now that it's called from vtysh and must not attempt to walk up in
+	  the node tree.
+
 2004-12-22 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh_config.c: No delimiter between "ip forwarding" and "ipv6

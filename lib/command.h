@@ -329,7 +329,7 @@ vector cmd_describe_command ();
 char **cmd_complete_command ();
 const char *cmd_prompt (enum node_type);
 int config_from_file (struct vty *, FILE *);
-int cmd_execute_command (vector, struct vty *, struct cmd_element **);
+int cmd_execute_command (vector, struct vty *, struct cmd_element **, int);
 int cmd_execute_command_strict (vector, struct vty *, struct cmd_element **);
 void config_replace_string (struct cmd_element *, char *, ...);
 void cmd_init (int);

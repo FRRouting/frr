@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.33 2005/01/14 17:09:38 ajs Exp $
+   $Id: command.c,v 1.34 2005/01/16 23:31:54 hasso Exp $
 
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -2092,7 +2092,8 @@ cmd_execute_command_real (vector vline, struct vty *vty, struct cmd_element **cm
 
 
 int
-cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd) {
+cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
+		     int vtysh) {
   int ret, saved_ret, tried = 0;
   enum node_type onode, try_node;
 
@@ -2122,6 +2123,9 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd) {
 
 
   saved_ret = ret = cmd_execute_command_real (vline, vty, cmd);
+
+  if (vtysh)
+    return saved_ret;
 
   /* This assumes all nodes above CONFIG_NODE are childs of CONFIG_NODE */
   while ( ret != CMD_SUCCESS && ret != CMD_WARNING 

@@ -262,7 +262,7 @@ vtysh_execute_func (const char *line, int pager)
   if (vline == NULL)
     return;
 
-  ret = cmd_execute_command (vline, vty, &cmd);
+  ret = cmd_execute_command (vline, vty, &cmd, 1);
 
   cmd_free_strvec (vline);
 
@@ -340,7 +340,7 @@ vtysh_execute_func (const char *line, int pager)
 		    return;
 		  }
 
-		ret = cmd_execute_command (vline, vty, &cmd);
+		ret = cmd_execute_command (vline, vty, &cmd, 1);
 		cmd_free_strvec (vline);
 		if (ret != CMD_SUCCESS_DAEMON)
 		  break;

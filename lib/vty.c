@@ -361,7 +361,7 @@ vty_command (struct vty *vty, char *buf)
   if (vline == NULL)
     return CMD_SUCCESS;
 
-  ret = cmd_execute_command (vline, vty, NULL);
+  ret = cmd_execute_command (vline, vty, NULL, 0);
 
   if (ret != CMD_SUCCESS)
     switch (ret)

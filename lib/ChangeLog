@@ -1,3 +1,10 @@
+2005-01-17 Hasso Tepper <hasso at quagga.net>
+
+	* command.[ch], vty.c: cmd_execute_command() function must not attempt
+	  to walk up in the node tree if called from vtysh. Different daemons
+	  might have commands with same syntax in different nodes (for example
+	  "router-id x.x.x.x" commands in zebra/ospfd/ospf6d daemons).
+
 2005-01-14 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* command.c (print_version): Do not bother even to examine host.name,
