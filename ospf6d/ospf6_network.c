@@ -255,10 +255,8 @@ ospf6_leave_allspfrouters (u_int ifindex)
                   &mreq6, sizeof (mreq6)) < 0)
     zlog_warn ("Network: Leave AllSPFRouters on ifindex %d Failed: %s",
                ifindex, strerror (errno));
-#if 0
   else
     zlog_info ("Network: Leave AllSPFRouters on ifindex %d", ifindex);
-#endif
 }
 
 void
@@ -275,10 +273,8 @@ ospf6_join_alldrouters (u_int ifindex)
                   &mreq6, sizeof (mreq6)) < 0)
     zlog_warn ("Network: Join AllDRouters on ifindex %d Failed: %s",
                ifindex, strerror (errno));
-#if 0
   else
     zlog_info ("Network: Join AllDRouters on ifindex %d", ifindex);
-#endif
 }
 
 void
@@ -294,10 +290,8 @@ ospf6_leave_alldrouters (u_int ifindex)
   if (setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
                   &mreq6, sizeof (mreq6)) < 0)
     zlog_warn ("Network: Leave AllDRouters on ifindex %d Failed", ifindex);
-#if 0
   else
     zlog_info ("Network: Leave AllDRouters on ifindex %d", ifindex);
-#endif
 }
 
 /* setsockopt ReUseAddr to on */
@@ -340,7 +334,7 @@ void
 ospf6_set_checksum ()
 {
   int offset = 12;
-#ifndef DISABLE_IPV6_CHECKSUM
+#if !defined(DISABLE_IPV6_CHECKSUM)
   if (setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_CHECKSUM,
                   &offset, sizeof (offset)) < 0)
     zlog_warn ("Network: set IPV6_CHECKSUM failed: %s", strerror (errno));

@@ -412,8 +412,9 @@ ospf6_asbr_external_lsa_refresh (void *data)
   struct ospf6_lsa_as_external *e;
   struct prefix prefix;
   struct route_node *node;
-  struct ospf6_external_route *route;
-  struct ospf6_external_info *info;
+  struct ospf6_external_route *route = NULL;
+  struct ospf6_external_info *info = NULL;
+  struct ospf6_external_info *match = NULL;
 
   if (IS_OSPF6_DUMP_ASBR)
     zlog_info ("ASBR: refresh %s", lsa->str);
@@ -424,6 +425,29 @@ ospf6_asbr_external_lsa_refresh (void *data)
   prefix.family = AF_INET6;
   apply_mask_ipv6 ((struct prefix_ipv6 *) &prefix);
 
+  for (node = route_top (external_table); node; node = route_next (node))
+    {
+      route = node->info;
+      if (route == NULL)
+        continue;
+
+      for (info = route->info_head; info; info = info->next)
+        {
+          if (lsa->header->id == htonl (info->id))
+            match = info;
+        }
+    }
+
+  if (match == NULL)
+    {
+      ospf6_lsa_premature_aging (lsa);
+      return 0;
+    }
+
+  ospf6_asbr_schedule_external (match);
+  return 0;
+
+#if 0
   node = route_node_lookup (external_table, &prefix);
   if (! node || ! node->info)
     {
@@ -450,6 +474,7 @@ ospf6_asbr_external_lsa_refresh (void *data)
     ospf6_lsa_premature_aging (lsa);
 
   return 0;
+#endif
 }
 
 void
@@ -460,6 +485,18 @@ ospf6_asbr_route_add (int type, int ifindex, struct prefix *prefix,
   struct route_node *node;
   struct ospf6_external_route *route;
   struct ospf6_external_info *info, tinfo;
+
+#if defined (MUSICA) || defined (LINUX)
+  /* XXX As long as the OSPFv3 redistribution is applied to all the connected
+   *     routes, one needs to filter the ::/96 prefixes.
+   *     However it could be a wanted case, it will be removed soon.
+   */
+  struct prefix_ipv6 *p = (prefix_ipv6 *)prefix;
+
+  if ((IN6_IS_ADDR_V4COMPAT(&p->prefix)) ||
+      (IN6_IS_ADDR_UNSPECIFIED (&p->prefix) && (p->prefixlen == 96))) 
+    return;
+#endif /* MUSICA or LINUX */
 
   if (! ospf6_zebra_is_redistribute (type))
     return;
@@ -566,6 +603,18 @@ ospf6_asbr_route_remove (int type, int ifindex, struct prefix *prefix)
   struct ospf6_external_route *route;
   struct ospf6_external_info *info;
   struct ospf6_lsa *lsa;
+
+#if defined (MUSICA) || defined (LINUX)
+  /* XXX As long as the OSPFv3 redistribution is applied to all the connected
+   *     routes, one needs to filter the ::/96 prefixes.
+   *     However it could be a wanted case, it will be removed soon.
+   */
+  struct prefix_ipv6 *p = (prefix_ipv6 *)prefix;
+
+  if ((IN6_IS_ADDR_V4COMPAT(&p->prefix)) ||
+      (IN6_IS_ADDR_UNSPECIFIED (&p->prefix) && (p->prefixlen == 96))) 
+    return;
+#endif /* MUSICA or LINUX */
 
   node = route_node_get (external_table, prefix);
   route = node->info;

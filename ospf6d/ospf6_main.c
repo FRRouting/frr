@@ -283,10 +283,10 @@ main (int argc, char *argv[], char *envp[])
   if (! daemon_mode)
     flag = ZLOG_STDOUT;
   else
-    flag = 0;
+    flag = ZLOG_NOLOG;
 
   zlog_default = openzlog (progname, flag, ZLOG_OSPF6,
-			   LOG_CONS|LOG_NDELAY|LOG_PERROR|LOG_PID,
+			   LOG_CONS|LOG_NDELAY|LOG_PID,
 			   LOG_DAEMON);
   signal_init ();
   cmd_init (1);
@@ -315,9 +315,11 @@ main (int argc, char *argv[], char *envp[])
   /* Make ospf vty socket. */
   vty_serv_sock (vty_addr, vty_port, OSPF6_VTYSH_PATH);
 
+#ifdef DEBUG
   /* Print start message */
   zlog_notice ("OSPF6d (Zebra-%s ospf6d-%s) starts",
                ZEBRA_VERSION, OSPF6_DAEMON_VERSION);
+#endif
 
   /* Start finite state machine, here we go! */
   while (thread_fetch (master, &thread))

@@ -286,6 +286,9 @@ ospf6_create (unsigned long process_id)
 void
 ospf6_delete (struct ospf6 *ospf6)
 {
+  if (!ospf6)
+    return;
+
   ospf6_route_remove_all (ospf6->route_table);
   ospf6_free (ospf6);
 }
