@@ -1,3 +1,13 @@
+2004-11-02 Paul Jakma <paul@dishone.st>
+
+	* ospf_packet.c: (ospf_write_frags) remove iov arg, msg already points
+	  to it. Add convenience pointer to msg->msg_iov[1], and use this,
+	  fixing the unfortunate borkenness introduced in moving of this code 
+	  to a function.
+	  (ospf_write) remove iovp and fix up call to previous.
+	  (ospf_ls_upd_packet_new) cast size to long int - unfortunately 
+          glibc's size_t format modifier is not portable.
+
 2004-10-31 Paul Jakma <paul@dishone.st>
 
 	* ospf_packet.c: (ospf_write_frags) Add debug output

@@ -485,15 +485,16 @@ ospf_ls_ack_timer (struct thread *thread)
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 void
 ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph, 
-                  struct msghdr *msg, struct iovec *iov[],
-                  unsigned int maxdatasize, 
+                  struct msghdr *msg, unsigned int maxdatasize, 
                   unsigned int mtu, int flags, u_char type)
 {
 #define OSPF_WRITE_FRAG_SHIFT 3
   u_int16_t offset;
+  struct iovec *iovp;
   int ret;
 
   assert ( op->length == stream_get_endp(op->s) );
+  assert (msg->msg_iovlen == 2);
 
   /* we can but try.
    *
@@ -515,12 +516,14 @@ ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph,
   /* ip frag offset is expressed in units of 8byte words */
   offset = maxdatasize >> OSPF_WRITE_FRAG_SHIFT;
   
+  iovp = &msg->msg_iov[1];
+  
   while ( (stream_get_endp(op->s) - stream_get_getp (op->s)) 
          > maxdatasize )
     {
       /* data length of this frag is to next offset value */
-      iov[1]->iov_len = offset << OSPF_WRITE_FRAG_SHIFT;
-      iph->ip_len = iov[1]->iov_len + sizeof (struct ip);
+      iovp->iov_len = offset << OSPF_WRITE_FRAG_SHIFT;
+      iph->ip_len = iovp->iov_len + sizeof (struct ip);
       assert (iph->ip_len <= mtu);
 
       sockopt_iphdrincl_swab_htosys (iph);
@@ -552,13 +555,13 @@ ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph,
         }
       
       iph->ip_off += offset;
-      stream_forward (op->s, iov[1]->iov_len);
-      iov[1]->iov_base = STREAM_PNT (op->s); 
+      stream_forward (op->s, iovp->iov_len);
+      iovp->iov_base = STREAM_PNT (op->s); 
     }
     
   /* setup for final fragment */
-  iov[1]->iov_len = stream_get_endp(op->s) - stream_get_getp (op->s);
-  iph->ip_len = iov[1]->iov_len + sizeof (struct ip);
+  iovp->iov_len = stream_get_endp(op->s) - stream_get_getp (op->s);
+  iph->ip_len = iovp->iov_len + sizeof (struct ip);
   iph->ip_off &= (~IP_MF);
 }
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
@@ -572,7 +575,7 @@ ospf_write (struct thread *thread)
   struct sockaddr_in sa_dst;
   struct ip iph;
   struct msghdr msg;
-  struct iovec iov[2], *iovp;
+  struct iovec iov[2];
   u_char type;
   int ret;
   int flags = 0;
@@ -676,11 +679,8 @@ ospf_write (struct thread *thread)
    */
 #ifdef WANT_OSPF_WRITE_FRAGMENT
   if ( op->length > maxdatasize )
-    {
-      iovp = iov;
-      ospf_write_frags (ospf->fd, op, &iph, &msg, &iovp, maxdatasize, 
-                        oi->ifp->mtu, flags, type);
-    }
+    ospf_write_frags (ospf->fd, op, &iph, &msg, maxdatasize, 
+                      oi->ifp->mtu, flags, type);
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 
   /* send final fragment (could be first) */
@@ -3249,7 +3249,7 @@ ospf_ls_upd_packet_new (struct list *update, struct ospf_interface *oi)
                  " %d bytes, packet size %ld, dropping it completely."
                  " OSPF routing is broken!",
                  inet_ntoa (lsa->data->id), ntohs (lsa->data->length),
-                 size);
+                 (long int) size);
       list_delete_node (update, ln);
       return NULL;
     }
