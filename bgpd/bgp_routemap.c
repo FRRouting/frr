@@ -622,22 +622,51 @@ struct route_map_rule_cmd route_match_origin_cmd =
 /* `set ip next-hop IP_ADDRESS' */
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
+struct rmap_ip_nexthop_set
+{
+  struct in_addr *address;
+  int peer_address;
+};
+
 route_map_result_t
 route_set_ip_nexthop (void *rule, struct prefix *prefix,
 		      route_map_object_t type, void *object)
 {
-  struct in_addr *address;
+  struct rmap_ip_nexthop_set *rins = rule;
+  struct in_addr peer_address;
   struct bgp_info *bgp_info;
+  struct peer *peer;
 
   if (type == RMAP_BGP)
     {
-      /* Fetch routemap's rule information. */
-      address = rule;
       bgp_info = object;
-    
-      /* Set next hop value. */ 
-      bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
-      bgp_info->attr->nexthop = *address;
+      peer = bgp_info->peer;
+
+      if (rins->peer_address)
+	{
+	  if (CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IN) 
+	      && peer->su_remote 
+	      && sockunion_family (peer->su_remote) == AF_INET)
+	    {
+              inet_aton (sockunion_su2str (peer->su_remote), &peer_address);
+              bgp_info->attr->nexthop = peer_address;
+	      bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
+	    }
+	  else if (CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT)
+		   && peer->su_local
+		   && sockunion_family (peer->su_local) == AF_INET)
+	    {
+              inet_aton (sockunion_su2str (peer->su_local), &peer_address);
+              bgp_info->attr->nexthop = peer_address;
+	      bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
+	    }
+	}
+      else
+	{
+	  /* Set next hop value. */ 
+	  bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
+	  bgp_info->attr->nexthop = *rins->address;
+	}
     }
 
   return RMAP_OKAY;
@@ -648,27 +677,44 @@ route_set_ip_nexthop (void *rule, struct prefix *prefix,
 void *
 route_set_ip_nexthop_compile (char *arg)
 {
+  struct rmap_ip_nexthop_set *rins;
+  struct in_addr *address = NULL;
+  int peer_address = 0;
   int ret;
-  struct in_addr *address;
 
-  address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct in_addr));
-
-  ret = inet_aton (arg, address);
-
-  if (ret == 0)
+  if (strcmp (arg, "peer-address") == 0)
+    peer_address = 1;
+  else
     {
-      XFREE (MTYPE_ROUTE_MAP_COMPILED, address);
-      return NULL;
+      address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct in_addr));
+      ret = inet_aton (arg, address);
+
+      if (ret == 0)
+	{
+	  XFREE (MTYPE_ROUTE_MAP_COMPILED, address);
+	  return NULL;
+	}
     }
 
-  return address;
+  rins = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct rmap_ip_nexthop_set));
+  memset (rins, 0, sizeof (struct rmap_ip_nexthop_set));
+
+  rins->address = address;
+  rins->peer_address = peer_address;
+
+  return rins;
 }
 
 /* Free route map's compiled `ip nexthop' value. */
 void
 route_set_ip_nexthop_free (void *rule)
 {
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+  struct rmap_ip_nexthop_set *rins = rule;
+
+  if (rins->address)
+    XFREE (MTYPE_ROUTE_MAP_COMPILED, rins->address);
+    
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rins);
 }
 
 /* Route map commands for ip nexthop set. */
@@ -2369,14 +2415,18 @@ ALIAS (no_match_origin,
 
 DEFUN (set_ip_nexthop,
        set_ip_nexthop_cmd,
-       "set ip next-hop A.B.C.D",
+       "set ip next-hop (A.B.C.D|peer-address)",
        SET_STR
        IP_STR
        "Next hop address\n"
-       "IP address of next hop\n")
+       "IP address of next hop\n"
+       "Use peer address (for BGP only)\n")
 {
   union sockunion su;
   int ret;
+
+  if (strncmp (argv[0], "peer-address", 1) == 0)
+    return bgp_route_set_add (vty, vty->index, "ip next-hop", "peer-address");
 
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
@@ -2396,7 +2446,7 @@ DEFUN (no_set_ip_nexthop,
        IP_STR
        "Next hop address\n")
 {
-  if (argc == 0)
+  if (argc == 0 || strncmp (argv[0], "peer-address", 1) == 0)
     return bgp_route_set_delete (vty, vty->index, "ip next-hop", NULL);
 
   return bgp_route_set_delete (vty, vty->index, "ip next-hop", argv[0]);
@@ -2404,12 +2454,13 @@ DEFUN (no_set_ip_nexthop,
 
 ALIAS (no_set_ip_nexthop,
        no_set_ip_nexthop_val_cmd,
-       "no set ip next-hop A.B.C.D",
+       "no set ip next-hop (A.B.C.D|peer-address)",
        NO_STR
        SET_STR
        IP_STR
        "Next hop address\n"
-       "IP address of next hop\n")
+       "IP address of next hop\n"
+       "Use peer address (for BGP only)\n")
 
 DEFUN (set_metric,
        set_metric_cmd,

@@ -430,6 +430,15 @@ struct peer
 
   /* allowas-in. */
   char allowas_in[AFI_MAX][SAFI_MAX];
+
+  /* The kind of route-map Flags.*/
+  u_char rmap_type;
+#define PEER_RMAP_TYPE_IN             (1 << 0) /* neighbor route-map in */
+#define PEER_RMAP_TYPE_OUT            (1 << 1) /* neighbor route-map out */
+#define PEER_RMAP_TYPE_NETWORK        (1 << 2) /* network route-map */
+#define PEER_RMAP_TYPE_REDISTRIBUTE   (1 << 3) /* redistribute route-map */
+#define PEER_RMAP_TYPE_DEFAULT        (1 << 4) /* default-originate route-map */
+#define PEER_RMAP_TYPE_NOSET          (1 << 5) /* not allow to set commands */
 };
 
 /* This structure's member directly points incoming packet data

@@ -437,8 +437,13 @@ bgp_input_modifier (struct peer *peer, struct prefix *p, struct attr *attr,
       info.peer = peer;
       info.attr = attr;
 
+      SET_FLAG (peer->rmap_type, PEER_RMAP_TYPE_IN); 
+
       /* Apply BGP route map to the attribute. */
       ret = route_map_apply (ROUTE_MAP_IN (filter), p, RMAP_BGP, &info);
+
+      peer->rmap_type = 0;
+
       if (ret == RMAP_DENYMATCH)
 	{
 	  /* Free newly generated AS path and community by route-map. */
@@ -702,11 +707,15 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 	  dummy_attr = *attr;
 	  info.attr = &dummy_attr;
 	}
- 
+
+      SET_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT); 
+
       if (ri->suppress)
 	ret = route_map_apply (UNSUPPRESS_MAP (filter), p, RMAP_BGP, &info);
       else
 	ret = route_map_apply (ROUTE_MAP_OUT (filter), p, RMAP_BGP, &info);
+
+      peer->rmap_type = 0;
 
       if (ret == RMAP_DENYMATCH)
 	{

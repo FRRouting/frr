@@ -1,3 +1,8 @@
+2003-08-11 kunihiro <kunihiro@zebra.org
+
+	* bgp_route{,map}.c: Extend 'set ip next-hop' in route-maps with
+	  ability to specify 'peer-address' rather than IP. 
+
 2003-06-09 Paul Jakma <paul@dishone.st>
 
 	* bgp_clist.c (community_list_delete): honour deny statements
