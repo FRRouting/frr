@@ -1992,7 +1992,7 @@ rip_output_process (struct interface *ifp, struct prefix *ifaddr,
   struct connected *c;
   int num;
   int rtemax;
-  int subnetted;
+  int subnetted = 0;
 
   /* Logging output event. */
   if (IS_RIP_DEBUG_EVENT)
@@ -2061,7 +2061,7 @@ rip_output_process (struct interface *ifp, struct prefix *ifaddr,
       apply_classful_mask_ipv4 (&ifaddrclass);
       subnetted = 0;
       if (ifaddr->prefixlen > ifaddrclass.prefixlen)
-	subnetted = 1;
+        subnetted = 1;
     }
 
   for (rp = route_top (rip->table); rp; rp = route_next (rp))
@@ -2260,7 +2260,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type)
       if (IS_RIP_DEBUG_EVENT)
 	zlog_info ("multicast announce on %s ", ifp->name);
 
-      rip_output_process (ifp, NULL, NULL, route_type, version);
+      rip_output_process (ifp, NULL, NULL, route_type, rip->version_send);
       return;
     }
 
@@ -2288,7 +2288,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type)
 			   inet_ntoa (to.sin_addr), ifp->name);
 
 	      rip_output_process (ifp, connected->address, &to, route_type,
-				  version_send);
+				 rip->version_send);
 	    }
 	}
     }
@@ -2369,7 +2369,7 @@ rip_update_process (int route_type)
 	to.sin_port = htons (RIP_PORT_DEFAULT);
 
 	/* RIP version is rip's configuration. */
-	rip_output_process (ifp, NULL, &to, route_type, rip->version);
+	rip_output_process (ifp, NULL, &to, route_type, rip->version_send);
       }
 }
 

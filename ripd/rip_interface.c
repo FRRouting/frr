@@ -1981,7 +1981,7 @@ config_write_rip_network (struct vty *vty, int config_mode)
   /* RIP passive interface listing. */
   if (config_mode) {
     if (passive_default)
-      vty_out (vty, " passive-interface default%s", ifname, VTY_NEWLINE);
+      vty_out (vty, " passive-interface default%s", VTY_NEWLINE);
     for (i = 0; i < vector_max (Vrip_passive_nondefault); i++)
       if ((ifname = vector_slot (Vrip_passive_nondefault, i)) != NULL)
 	vty_out (vty, " %spassive-interface %s%s",
