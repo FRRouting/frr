@@ -1,0 +1,119 @@
+$Id: OSPF-ALIGNMENT.txt,v 1.1 2004/11/17 17:59:52 gdt Exp $
+
+Greg Troxel <gdt@ir.bbn.com>
+2004-11-17
+
+The OSPF specification (RFC2328) and the OSPF Opaque LSA specification
+(RFC2370) are ambiguous about LSAs whose data section is not an
+integral multiple of 4 octets.  This note examines the issue and
+proposes clarifications to ensure interoperability.
+
+RFC2328 does not specify that LSA lengths be a multiple of 4.
+It does not require that LSAs in update packets be aligned.
+However, all structures defined by RFC2328 are multiples of 4, and
+thus update packets with those structures must be aligned.
+LSA length is defined in Appendix A.4 as
+
+    length
+        The length in bytes of the LSA.  This includes the 20 byte LSA
+        header.
+
+RFC2370 defines Opaque LSAs, which are intended to contain arbitrary
+data:
+
+   This memo defines enhancements to the OSPF protocol to support a new
+   class of link-state advertisements (LSA) called Opaque LSAs.  Opaque
+   LSAs provide a generalized mechanism to allow for the future
+   extensibility of OSPF. Opaque LSAs consist of a standard LSA header
+   followed by application-specific information.  The information field
+   may be used directly by OSPF or by other applications.  Standard OSPF
+   link-state database flooding mechanisms are used to distribute Opaque
+   LSAs to all or some limited portion of the OSPF topology.
+
+
+Later, 2370 says:
+
+   Opaque LSAs contain some number of octets (of application-specific
+   data) padded to 32-bit alignment.
+
+This can be interpreted in several ways:
+
+A) The payload may be any number of octets, and the length field
+reflects the payload length (e.g. length 23 for 3 octets of payload),
+but there are padding octets following the LSA in packets, so that the
+next LSA starts on a 4-octet boundary.  (This approach is common in
+the BSD user/kernel interface.)
+
+B) The payload must be a multiple of 4 octets, so that the length is a
+multiple of 4 octets.  This corresponds to an implementation that
+treats an Opaque LSA publish request that is not a multiple of 4
+octets as an error.
+
+C) The payload can be any number of octets, but padding is added and
+included in the length field.  This interpretation corresponds to an
+OSPF implementation that accepts a publish request for an Opaque LSA
+that is not a multiple of 4 octets.  This interpretation is
+nonsensical, because it claims to represent arbitrary lengths, but
+does not actually do so --- the receiver cannot distinguish padding
+from supplied data.
+
+D) Accept according to A, and transmit according to B.
+
+Option A arguably violates RFC 2328, which doesn't say anything about
+adding padding (A.3.5 shows a diagram of adjacent LSAs which are shown
+as all multiples of 4).  This option is thus likely to lead to a lack
+of interoperability.
+
+Option B restricts what data can be represented as an Opaque LSA, but
+probably not in a serious way.  It is likely to lead to
+interoperability in that the complex case of non-multiple-of-4 lengths
+will not arise.
+
+However, an implementation that follows A and emits an LSA with
+payload length not a multiple of 4 will not interoperate with an
+Option B implementation.
+
+Given that all known and documented uses of Opaque LSAs seem to be
+multiples of 4 octets, we choose Option B as the clarification.
+
+CLARIFYING TEXT
+
+In RFC2328:
+
+In section A.4, add a second sentence about length:
+
+    length
+        The length in bytes of the LSA.  This includes the 20 byte LSA
+        header.  The length must be an integral multiple of 4 bytes.
+
+Add to the list in Section 13:
+
+    Verify that the length of the LSA is a multiple of 4 bytes.  If
+    not, discard the entire Link State Update Packet.
+
+In RFC2380:
+
+Change text:
+
+   Opaque LSAs contain some number of octets (of application-specific
+   data) padded to 32-bit alignment.
+
+to:
+
+   Opaque LSAs contain some a number of octets (of
+   application-specific data).  The number of octets must be a
+   multiple of four.
+
+
+HOW THIS ISSUE AROSE
+
+At BBN, we use Opaque LSAs to exchange data among routers; the format
+of the data is naturally aligned to 4 bytes, and thus does not raise
+this issue.  We created a test program to publish Opaque data via IPC
+to the OSPF daemon (quagga), and this program accepts strings on the
+command line to publish.  We then used this test program to publish
+software version strings.  Quagga's ospfd then crashed on a
+NetBSD/sparc64 machine with an alignment fault, because the odd-length
+LSAs were marshalled into a link-state update packet with no padding.
+While this behavior was a clear violation of RFC2380, it was not clear
+how to remedy the problem.
