@@ -1,3 +1,9 @@
+2005-03-28 Hasso Tepper <hasso at quagga.net>
+
+	* configure.ac: Fix most of "Presents But Cannot Compiled" warnings
+	  about various headers. CFLAGS is not correct place to specify
+	  includes, INCLUDES is for that.
+
 2005-03-27 Hasso Tepper <hasso at quagga.net>
 
 	* configure.ac: Add Intel compiler (icc) support. Although Intel
