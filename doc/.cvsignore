@@ -6,6 +6,8 @@ zebra.html
 quagga.info*
 quagga.html
 quagga.pdf
+quagga.ps
+quagga.dvi
 .nfs*
 *.aux
 *.cp
