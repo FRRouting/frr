@@ -97,7 +97,7 @@ ripng_multicast_join (struct interface *ifp)
       zlog_warn ("can't setsockopt IPV6_JOIN_GROUP: %s", safe_strerror (errno));
 
     if (IS_RIPNG_DEBUG_EVENT)
-      zlog_info ("RIPng %s join to all-rip-routers multicast group", ifp->name);
+      zlog_debug ("RIPng %s join to all-rip-routers multicast group", ifp->name);
 
     if (ret < 0)
       return -1;
@@ -123,7 +123,7 @@ ripng_multicast_leave (struct interface *ifp)
       zlog_warn ("can't setsockopt IPV6_LEAVE_GROUP: %s\n", safe_strerror (errno));
 
     if (IS_RIPNG_DEBUG_EVENT)
-      zlog_info ("RIPng %s leave from all-rip-routers multicast group",
+      zlog_debug ("RIPng %s leave from all-rip-routers multicast group",
 	         ifp->name);
 
     if (ret < 0)
@@ -216,7 +216,7 @@ ripng_if_down (struct interface *ifp)
   if (ri->running)
    {
      if (IS_RIPNG_DEBUG_EVENT)
-       zlog_info ("turn off %s", ifp->name);
+       zlog_debug ("turn off %s", ifp->name);
 
      /* Leave from multicast group. */
      ripng_multicast_leave (ifp);
@@ -242,7 +242,7 @@ ripng_interface_up (int command, struct zclient *zclient, zebra_size_t length)
     return 0;
 
   if (IS_RIPNG_DEBUG_ZEBRA)
-    zlog_info ("interface up %s index %d flags %ld metric %d mtu %d",
+    zlog_debug ("interface up %s index %d flags %ld metric %d mtu %d",
 	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu6);
 
   /* Check if this interface is RIPng enabled or not. */
@@ -275,7 +275,7 @@ ripng_interface_down (int command, struct zclient *zclient,
   ripng_if_down (ifp);
 
   if (IS_RIPNG_DEBUG_ZEBRA)
-    zlog_info ("interface down %s index %d flags %ld metric %d mtu %d",
+    zlog_debug ("interface down %s index %d flags %ld metric %d mtu %d",
 	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu6);
 
   return 0;
@@ -290,7 +290,7 @@ ripng_interface_add (int command, struct zclient *zclient, zebra_size_t length)
   ifp = zebra_interface_add_read (zclient->ibuf);
 
   if (IS_RIPNG_DEBUG_ZEBRA)
-    zlog_info ("RIPng interface add %s index %d flags %ld metric %d mtu %d",
+    zlog_debug ("RIPng interface add %s index %d flags %ld metric %d mtu %d",
 	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu6);
 
   /* Check is this interface is RIP enabled or not.*/
@@ -436,7 +436,7 @@ ripng_interface_address_add (int command, struct zclient *zclient,
   if (p->family == AF_INET6)
     {
       if (IS_RIPNG_DEBUG_ZEBRA)
-	zlog_info ("RIPng connected address %s/%d add",
+	zlog_debug ("RIPng connected address %s/%d add",
 		   inet6_ntop(&p->u.prefix6),
 		   p->prefixlen);
       
@@ -505,7 +505,7 @@ ripng_interface_address_delete (int command, struct zclient *zclient,
       if (p->family == AF_INET6)
 	{
 	  if (IS_RIPNG_DEBUG_ZEBRA)
-	    zlog_info ("RIPng connected address %s/%d delete",
+	    zlog_debug ("RIPng connected address %s/%d delete",
 		       inet_ntop (AF_INET6, &p->u.prefix6, buf,
 				  INET6_ADDRSTRLEN),
 		       p->prefixlen);
@@ -794,7 +794,7 @@ ripng_enable_apply (struct interface *ifp)
     {
 	{
 	  if (IS_RIPNG_DEBUG_EVENT)
-	    zlog_info ("RIPng turn on %s", ifp->name);
+	    zlog_debug ("RIPng turn on %s", ifp->name);
 
 	  /* Add interface wake up thread. */
 	  if (! ri->t_wakeup)
