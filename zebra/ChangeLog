@@ -1,3 +1,56 @@
+2005-02-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zserv.c: Must include network.h and buffer.h for non-blocking I/O.
+	  Remove global message_queue and t_write (need separate buffering for
+	  each client).
+	  (zebra_server_dequeue,zebra_server_enqueue) Remove functions
+	  related to old buggy buffering code.
+	  (zserv_delayed_close) New thread callback function to delete a client.
+	  (zserv_flush_data) New thread callback function to flush buffered
+	  data to client.
+	  (zebra_server_send_message) Rewritten to use buffer_write (so
+	  buffering of writes and non-blocking I/O work properly).
+	  (zsend_interface_add,zsend_interface_delete,zsend_interface_address,
+	  zsend_interface_update) Return 0 instead of -1 if !client->ifinfo
+	  (this is not really an error).  Return value from
+	  zebra_server_send_message.
+	  (zsend_route_multipath,zsend_ipv4_nexthop_lookup,
+	  zsend_ipv4_import_lookup) Return value from zebra_server_send_message.
+	  (zsend_ipv6_nexthop_lookup) Fix scope to static, and return value
+	  from zebra_server_send_message.
+	  (zsend_router_id_update) Must use zebra_server_send_message instead
+	  of deprecated writen function.  Return 0 instead of -1 if this client
+	  is not subscribed to router-id updates (since this is not really
+	  an error).
+	  (zread_interface_add) Change type to static int.  If
+	  zsend_interface_add fails or zsend_interface_address fails, return -1
+	  immediately (since the client has had an I/O error).
+	  (zread_interface_delete,zread_ipv4_add,zread_ipv4_delete,
+	  zread_ipv6_add,zread_ipv6_delete,zread_router_id_delete) Return 0
+	  to indicate success.
+	  (zread_ipv4_nexthop_lookup) Return value from
+	  zsend_ipv4_nexthop_lookup.
+	  (zread_ipv4_import_lookup) Return value from zsend_ipv4_import_lookup.
+	  (zebra_read_ipv6) Remove unused function.
+	  (zread_ipv6_nexthop_lookup) Return value from
+	  zsend_ipv6_nexthop_lookup.
+	  (zread_router_id_add) Return value from zsend_router_id_update.
+	  (zebra_client_close) Call buffer_free(client->wb) and
+	  thread_cancel(client->t_suicide).
+	  (zebra_client_create) Allocate client->wb using buffer_new.
+	  (zebra_client_read) Support non-blocking I/O by using stream_read_try.
+	  Use ZEBRA_HEADER_SIZE instead of 3.
+	  (zebra_accept) Fix bug: reset accept thread at top.  Make client
+	  socket non-blocking using the set_nonblocking function.
+	  (config_write_forwarding) Fix scope to static.
+	  (zebra_init) Remove initialization code for old buggy write buffering.
+	* zserv.h: Add 2 new fields to struct zserv: struct buffer *wb
+	  (to enable buffered writes with non-blocking I/), and 
+	  struct thread *t_suicide to support delayed close on I/O
+	  errors.
+	* router-id.h: Remove prototypes for zread_router_id_add and
+	  zread_router_id_delete (their scope should be static to zserv.c).
+
 2005-02-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* redistribute.c: (zebra_check_addr,is_default,

@@ -41,9 +41,15 @@ struct zserv
   struct stream *ibuf;
   struct stream *obuf;
 
+  /* Buffer of data waiting to be written to client. */
+  struct buffer *wb;
+
   /* Threads for read/write. */
   struct thread *t_read;
   struct thread *t_write;
+
+  /* Thread for delayed close. */
+  struct thread *t_suicide;
 
   /* default routing table this client munges */
   int rtm_table;

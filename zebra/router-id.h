@@ -37,7 +37,4 @@ extern void router_id_init(void);
 extern void router_id_write(struct vty *);
 extern void router_id_get(struct prefix *);
 
-extern void zread_router_id_add(struct zserv *, u_short);
-extern void zread_router_id_delete(struct zserv *, u_short);
-
 #endif
