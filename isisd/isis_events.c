@@ -148,41 +148,35 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
   uint32_t interval;
 
   if (level == 1) {
-    circuit->t_send_psnp[0] = thread_add_timer (master, send_l1_psnp,
-						circuit,
-						isis_jitter
-						(circuit->psnp_interval[0], 
-						 PSNP_JITTER));
+    THREAD_TIMER_ON(master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
+        isis_jitter(circuit->psnp_interval[0], PSNP_JITTER));
+
     if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
       interval = circuit->hello_multiplier[0] * (circuit->hello_interval[0]); 
-      circuit->u.bc.t_run_dr[0] =  thread_add_timer (master, isis_run_dr_l1, 
+      
+      THREAD_TIMER_ON(master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
 						     circuit, interval);
       
-      circuit->u.bc.t_send_lan_hello[0] = 
-	thread_add_timer (master, 
-                          send_lan_l1_hello,
-                          circuit, 
-                          isis_jitter 
-                          (circuit->hello_interval[0], IIH_JITTER));
+      THREAD_TIMER_ON(master, circuit->u.bc.t_send_lan_hello[0],
+          send_lan_l1_hello, circuit,
+          isis_jitter(circuit->hello_interval[0], IIH_JITTER));
+      
       circuit->u.bc.lan_neighs[0] = list_new ();
     }
   } else {
-    circuit->t_send_psnp[1] = thread_add_timer (master, send_l2_psnp,
-						circuit,
-						isis_jitter
-						(circuit->psnp_interval[1], 
-						 PSNP_JITTER));
+    THREAD_TIMER_ON(master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
+        isis_jitter(circuit->psnp_interval[1], PSNP_JITTER));
+
     if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
       interval = circuit->hello_multiplier[1] * (circuit->hello_interval[1]); 
-      circuit->u.bc.t_run_dr[1] =  thread_add_timer (master, isis_run_dr_l2, 
+      
+      THREAD_TIMER_ON(master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
 						     circuit, interval);
       
-      circuit->u.bc.t_send_lan_hello[1] = 
-	thread_add_timer (master, 
-                          send_lan_l2_hello,
-                          circuit, 
-                          isis_jitter 
-                          (circuit->hello_interval[1], IIH_JITTER));
+      THREAD_TIMER_ON(master, circuit->u.bc.t_send_lan_hello[1],
+          send_lan_l2_hello, circuit,
+          isis_jitter(circuit->hello_interval[1], IIH_JITTER));
+      
       circuit->u.bc.lan_neighs[1] = list_new ();
     }
   }
@@ -195,21 +189,12 @@ circuit_resign_level (struct isis_circuit *circuit, int level)
 {
   int idx = level - 1;
  
-  if (circuit->t_send_csnp[idx])
-      thread_cancel (circuit->t_send_csnp[idx]);
-  circuit->t_send_csnp[idx] = NULL;
-
-  if (circuit->t_send_psnp[idx])
-    thread_cancel (circuit->t_send_psnp[idx]);
-  circuit->t_send_psnp[level - 1] = NULL;
+  THREAD_TIMER_OFF(circuit->t_send_csnp[idx]);
+  THREAD_TIMER_OFF(circuit->t_send_psnp[idx]);
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-    if (circuit->u.bc.t_send_lan_hello[idx])
-      thread_cancel (circuit->u.bc.t_send_lan_hello[idx]);
-    circuit->u.bc.t_send_lan_hello[idx] = NULL;
-    if (circuit->u.bc.t_run_dr[idx])
-	thread_cancel (circuit->u.bc.t_run_dr[idx]);
-    circuit->u.bc.t_run_dr[idx] = NULL;
+    THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[idx]);
+    THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[idx]);
     circuit->u.bc.run_dr_elect[idx] = 0;
   }
   

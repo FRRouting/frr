@@ -944,15 +944,11 @@ isis_run_spf (struct isis_area *area, int level, int family)
   spftree->pending = 0;
   
   if (level == 1)
-    spftree->t_spf_periodic =  thread_add_timer (master, 
-						 isis_run_spf_l1, area, 
-						 isis_jitter 
-						 (PERIODIC_SPF_INTERVAL, 10));
+    THREAD_TIMER_ON(master, spftree->t_spf_periodic, isis_run_spf_l1, area,
+        isis_jitter(PERIODIC_SPF_INTERVAL, 10));
   else 
-    spftree->t_spf_periodic =  thread_add_timer (master, 
-						 isis_run_spf_l2, area, 
-						 isis_jitter 
-						 (PERIODIC_SPF_INTERVAL, 10));
+    THREAD_TIMER_ON(master, spftree->t_spf_periodic, isis_run_spf_l2, area,
+        isis_jitter(PERIODIC_SPF_INTERVAL, 10));
 
   return retval;
 }
@@ -1042,8 +1038,7 @@ isis_spf_schedule (struct isis_area *area, int level)
     spftree->pending = 1;
     return retval;
   }
-  if (spftree->t_spf_periodic)
-    thread_cancel (spftree->t_spf_periodic);
+  THREAD_TIMER_OFF(spftree->t_spf_periodic);
 
   if (diff < MINIMUM_SPF_INTERVAL) {
     if (level == 1)
@@ -1075,8 +1070,7 @@ isis_spf_schedule6 (struct isis_area *area, int level)
 
   diff = now - spftree->lastrun; 
   
-  if (spftree->t_spf_periodic)
-    thread_cancel (spftree->t_spf_periodic);
+  THREAD_TIMER_OFF(spftree->t_spf_periodic);
   
   /* FIXME: let's wait a minute before doing the SPF */
   if (now - isis->uptime < 60 || isis->uptime == 0) {

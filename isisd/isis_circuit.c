@@ -414,12 +414,12 @@ isis_circuit_up (struct isis_circuit *circuit)
     /* 8.4.1 d) */
     /* dr election will commence in... */
     if (circuit->circuit_is_type & IS_LEVEL_1) 
-      circuit->u.bc.t_run_dr[0] = 
-        thread_add_timer (master, isis_run_dr_l1, circuit,
+      THREAD_TIMER_ON(master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
+          circuit,
         2 * circuit->hello_multiplier[0] * circuit->hello_interval[0]); 
     if (circuit->circuit_is_type & IS_LEVEL_2) 
-      circuit->u.bc.t_run_dr[1] = 
-        thread_add_timer (master, isis_run_dr_l2, circuit,
+      THREAD_TIMER_ON(master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
+          circuit,
        2 * circuit->hello_multiplier[1] * circuit->hello_interval[1]); 
   } else {
     /* initializing the hello send threads
@@ -431,22 +431,13 @@ isis_circuit_up (struct isis_circuit *circuit)
 
   /* initializing PSNP timers */
   if (circuit->circuit_is_type & IS_LEVEL_1) {
-    circuit->t_send_psnp[0] = thread_add_timer (master,
-                                                send_l1_psnp,
-                                                circuit,
-                                                isis_jitter
-                                                (circuit->psnp_interval[0],
-                                                 PSNP_JITTER));
+    THREAD_TIMER_ON(master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
+        isis_jitter(circuit->psnp_interval[0], PSNP_JITTER));
   }
   
   if (circuit->circuit_is_type & IS_LEVEL_2) {
-    circuit->t_send_psnp[1] = thread_add_timer (master,
-                                                send_l2_psnp,
-                                                circuit,
-                                                isis_jitter
-                                                (circuit->psnp_interval[1], 
-                                                 PSNP_JITTER));
-
+    THREAD_TIMER_ON(master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
+        isis_jitter(circuit->psnp_interval[1], PSNP_JITTER));
   }
   
   /* initialize the circuit streams */
@@ -460,10 +451,10 @@ isis_circuit_up (struct isis_circuit *circuit)
   isis_sock_init (circuit);
 
 #ifdef GNU_LINUX
-  circuit->t_read = thread_add_read (master, isis_receive, circuit, 
+  THREAD_READ_ON(master, circuit->t_read, isis_receive, circuit,
                                      circuit->fd);
 #else
-  circuit->t_read = thread_add_timer (master, isis_receive, circuit, 
+  THREAD_TIMER_ON(master, circuit->t_read, isis_receive, circuit,
                                       circuit->fd);
 #endif
   return;
@@ -473,16 +464,13 @@ void
 isis_circuit_down (struct isis_circuit *circuit)
 {
   /* Cancel all active threads -- FIXME: wrong place*/
-  if (circuit->t_read)
-    thread_cancel (circuit->t_read);
+  /* HT: Read thread if GNU_LINUX, TIMER thread otherwise. */
+  THREAD_OFF(circuit->t_read);
   if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-    if (circuit->u.bc.t_send_lan_hello[0])
-      thread_cancel (circuit->u.bc.t_send_lan_hello[0]);
-    if (circuit->u.bc.t_send_lan_hello[1])
-      thread_cancel (circuit->u.bc.t_send_lan_hello[1]);
+    THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[0]);
+    THREAD_TIMER_OFF(circuit->u.bc.t_send_lan_hello[1]);
   } else if (circuit->circ_type == CIRCUIT_T_P2P) {
-    if (circuit->u.p2p.t_send_p2p_hello)
-      thread_cancel (circuit->u.p2p.t_send_p2p_hello);
+    THREAD_TIMER_OFF(circuit->u.p2p.t_send_p2p_hello);
   }
   /* close the socket */
   close (circuit->fd);

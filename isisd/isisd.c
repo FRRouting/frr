@@ -120,7 +120,7 @@ isis_area_create ()
 #endif /* HAVE_IPV6 */
   area->circuit_list = list_new ();
   area->area_addrs = list_new ();
-  area->t_tick = thread_add_timer (master, lsp_tick, area, 1);
+  THREAD_TIMER_ON(master, area->t_tick, lsp_tick, area, 1);
   area->flags.maxindex = -1;
   /*
    * Default values
@@ -210,14 +210,11 @@ isis_area_destroy (struct vty *vty, char *area_tag)
     list_delete (area->circuit_list);
   }
   listnode_delete (isis->area_list, area);
-  if (area->t_tick)
-    thread_cancel (area->t_tick); 
+  THREAD_TIMER_OFF(area->t_tick);
   if (area->t_remove_aged)
     thread_cancel (area->t_remove_aged);
-  if (area->t_lsp_refresh[0])
-    thread_cancel (area->t_lsp_refresh[0]);
-  if (area->t_lsp_refresh[1])
-    thread_cancel (area->t_lsp_refresh[1]);
+  THREAD_TIMER_OFF(area->t_lsp_refresh[0]);
+  THREAD_TIMER_OFF(area->t_lsp_refresh[1]);
 
   XFREE (MTYPE_ISIS_AREA, area);
   

@@ -381,10 +381,8 @@ process_p2p_hello (struct isis_circuit *circuit)
 #endif /* HAVE_IPV6 */
 
   /* lets take care of the expiry */
-  if(adj->t_expire) {
-    thread_cancel (adj->t_expire);
-  }
-  adj->t_expire = thread_add_timer (master, isis_adj_expire, adj,
+  THREAD_TIMER_OFF(adj->t_expire);
+  THREAD_TIMER_ON(master, adj->t_expire, isis_adj_expire, adj,
                                     (long)adj->hold_time);
 
   /* 8.2.5.2 a) a match was detected */
@@ -786,10 +784,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char *ssnpa)
   adj->circuit_t = hdr.circuit_t;
 
   /* lets take care of the expiry */
-  if (adj->t_expire) {
-    thread_cancel (adj->t_expire);
-  }
-  adj->t_expire = thread_add_timer (master, isis_adj_expire, adj,
+  THREAD_TIMER_OFF(adj->t_expire);
+  THREAD_TIMER_ON(master, adj->t_expire, isis_adj_expire, adj,
                                     (long)adj->hold_time);
 
   /*
@@ -1614,8 +1610,7 @@ isis_receive (struct thread *thread)
   /* 
    * prepare for next packet. 
    */
-  circuit->t_read = thread_add_read (master, isis_receive, circuit, 
-                                     circuit->fd);
+  THREAD_READ_ON(master, circuit->t_read, isis_receive, circuit, circuit->fd);
 
   return retval;
 }
@@ -1879,9 +1874,8 @@ send_lan_l1_hello (struct thread *thread)
   retval = send_lan_hello (circuit, 1);
 
   /* set next timer thread */
-  circuit->u.bc.t_send_lan_hello[0] = 
-    thread_add_timer (master, send_lan_l1_hello, circuit, 
-                     isis_jitter (circuit->hello_interval[0], IIH_JITTER));
+  THREAD_TIMER_ON(master, circuit->u.bc.t_send_lan_hello[0], send_lan_l1_hello,
+      circuit, isis_jitter (circuit->hello_interval[0], IIH_JITTER));
 
   return retval;
 }
@@ -1902,9 +1896,8 @@ send_lan_l2_hello (struct thread *thread)
   retval = send_lan_hello (circuit, 2);
 
   /* set next timer thread*/
-  circuit->u.bc.t_send_lan_hello[1] = 
-    thread_add_timer (master, send_lan_l2_hello, circuit, 
-                      isis_jitter (circuit->hello_interval[1], IIH_JITTER));
+  THREAD_TIMER_ON(master, circuit->u.bc.t_send_lan_hello[1], send_lan_l2_hello,
+      circuit, isis_jitter (circuit->hello_interval[1], IIH_JITTER));
 
   return retval;
 }
@@ -1921,9 +1914,8 @@ send_p2p_hello (struct thread *thread)
   send_hello(circuit,1);
 
   /* set next timer thread*/
-  circuit->u.p2p.t_send_p2p_hello = thread_add_timer
-    (master, send_p2p_hello, circuit, isis_jitter (circuit->hello_interval[1],
-                                                   IIH_JITTER));
+  THREAD_TIMER_ON(master, circuit->u.p2p.t_send_p2p_hello, send_p2p_hello,
+      circuit, isis_jitter (circuit->hello_interval[1], IIH_JITTER));
 
   return ISIS_OK;
 }
@@ -2049,12 +2041,8 @@ send_l1_csnp (struct thread *thread)
     send_csnp(circuit,1);
   }
   /* set next timer thread */
-  circuit->t_send_csnp[0] = thread_add_timer (master, 
-                                              send_l1_csnp,
-                                              circuit, 
-                                              isis_jitter 
-                                              (circuit->csnp_interval[0],
-                                               CSNP_JITTER));
+  THREAD_TIMER_ON(master, circuit->t_send_csnp[0], send_l1_csnp, circuit,
+      isis_jitter(circuit->csnp_interval[0], CSNP_JITTER));
 
   return retval;
 }
@@ -2074,12 +2062,9 @@ send_l2_csnp (struct thread *thread)
     send_csnp(circuit,2);
   }
   /* set next timer thread */
-  circuit->t_send_csnp[1] = thread_add_timer (master, 
-                                              send_l2_csnp,
-                                              circuit, 
-                                              isis_jitter 
-                                              (circuit->csnp_interval[1],
-                                               CSNP_JITTER));
+  THREAD_TIMER_ON(master, circuit->t_send_csnp[1], send_l2_csnp, circuit,
+      isis_jitter(circuit->csnp_interval[1], CSNP_JITTER));
+
   return retval;
 }
 
@@ -2215,12 +2200,8 @@ send_l1_psnp (struct thread *thread)
 
   send_psnp (1, circuit);
   /* set next timer thread */
-  circuit->t_send_psnp[0] = thread_add_timer (master,
-                                              send_l1_psnp,
-                                              circuit,
-                                              isis_jitter
-                                              (circuit->psnp_interval[0], 
-                                               PSNP_JITTER));
+  THREAD_TIMER_ON(master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
+      isis_jitter(circuit->psnp_interval[0], PSNP_JITTER));
 
   return retval;
 }
@@ -2244,12 +2225,8 @@ send_l2_psnp (struct thread *thread)
   send_psnp (2, circuit);
 
   /* set next timer thread */
-  circuit->t_send_psnp[1] = thread_add_timer (master,
-                                              send_l2_psnp,
-                                              circuit,
-                                              isis_jitter
-                                              (circuit->psnp_interval[1],
-                                               PSNP_JITTER));
+  THREAD_TIMER_ON(master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
+      isis_jitter(circuit->psnp_interval[1], PSNP_JITTER));
 
   return retval;
 }

@@ -1652,8 +1652,7 @@ lsp_generate_non_pseudo (struct isis_area *area, int level) {
 int
 lsp_l1_generate (struct isis_area *area)
 {
-  
-  area->t_lsp_refresh[0] = thread_add_timer (master, lsp_refresh_l1, area, 
+  THREAD_TIMER_ON(master, area->t_lsp_refresh[0], lsp_refresh_l1, area,
                                              MAX_LSP_GEN_INTERVAL);
 
   return lsp_generate_non_pseudo (area, 1);
@@ -1666,8 +1665,7 @@ lsp_l1_generate (struct isis_area *area)
 int
 lsp_l2_generate (struct isis_area *area)
 {
-  
-  area->t_lsp_refresh[1] = thread_add_timer (master, lsp_refresh_l2, area, 
+  THREAD_TIMER_ON(master, area->t_lsp_refresh[1], lsp_refresh_l2, area,
                                              MAX_LSP_GEN_INTERVAL);
 
   return lsp_generate_non_pseudo (area, 2);
@@ -1753,9 +1751,9 @@ lsp_refresh_l1 (struct thread *thread)
   ref_time =  area->lsp_refresh[0] > MAX_LSP_GEN_INTERVAL ? 
     MAX_LSP_GEN_INTERVAL : area->lsp_refresh[0];
 
-  area->t_lsp_refresh[0] = thread_add_timer (master, lsp_refresh_l1, area,
-                                          isis_jitter (ref_time, 
-                                                       MAX_AGE_JITTER));
+  THREAD_TIMER_ON(master, area->t_lsp_refresh[0], lsp_refresh_l1, area,
+      isis_jitter(ref_time, MAX_AGE_JITTER));
+
   return ISIS_OK;
 }
 
@@ -1775,10 +1773,9 @@ lsp_refresh_l2 (struct thread *thread)
   ref_time =  area->lsp_refresh[1] > MAX_LSP_GEN_INTERVAL ? 
     MAX_LSP_GEN_INTERVAL : area->lsp_refresh[1];
 
+  THREAD_TIMER_ON(master, area->t_lsp_refresh[1], lsp_refresh_l2, area,
+      isis_jitter(ref_time, MAX_AGE_JITTER));
 
-  area->t_lsp_refresh[1] = thread_add_timer (master, lsp_refresh_l2, area,
-                                          isis_jitter (ref_time, 
-                                                       MAX_AGE_JITTER));
   return ISIS_OK;
 }
 
@@ -2018,10 +2015,9 @@ lsp_l1_refresh_pseudo (struct thread *thread)
   ref_time =  circuit->area->lsp_refresh[0] > MAX_LSP_GEN_INTERVAL ? 
     MAX_LSP_GEN_INTERVAL : circuit->area->lsp_refresh[0];
 
-  circuit->u.bc.t_refresh_pseudo_lsp[0] = 
-    thread_add_timer (master, lsp_l1_refresh_pseudo, circuit, 
-                      isis_jitter (ref_time,
-                                   MAX_AGE_JITTER));
+  THREAD_TIMER_ON(master, circuit->u.bc.t_refresh_pseudo_lsp[0],
+      lsp_l1_refresh_pseudo, circuit, isis_jitter (ref_time, MAX_AGE_JITTER));
+  
   return retval;
 }
 
@@ -2053,11 +2049,8 @@ lsp_l1_pseudo_generate (struct isis_circuit *circuit)
   ref_time =  circuit->area->lsp_refresh[0] > MAX_LSP_GEN_INTERVAL ? 
     MAX_LSP_GEN_INTERVAL : circuit->area->lsp_refresh[0];
 
-  
-  circuit->u.bc.t_refresh_pseudo_lsp[0] = 
-    thread_add_timer (master, lsp_l1_refresh_pseudo, circuit, 
-                      isis_jitter (ref_time,
-                                   MAX_AGE_JITTER));
+  THREAD_TIMER_ON(master, circuit->u.bc.t_refresh_pseudo_lsp[0],
+      lsp_l1_refresh_pseudo, circuit, isis_jitter (ref_time, MAX_AGE_JITTER));
 
   return lsp_regenerate_schedule (circuit->area);
 }
@@ -2078,11 +2071,9 @@ lsp_l2_refresh_pseudo (struct thread *thread)
   ref_time =  circuit->area->lsp_refresh[1] > MAX_LSP_GEN_INTERVAL ? 
     MAX_LSP_GEN_INTERVAL : circuit->area->lsp_refresh[1];
 
+  THREAD_TIMER_ON(master, circuit->u.bc.t_refresh_pseudo_lsp[1],
+      lsp_l2_refresh_pseudo, circuit, isis_jitter (ref_time, MAX_AGE_JITTER));
 
-  circuit->u.bc.t_refresh_pseudo_lsp[1] = 
-    thread_add_timer (master, lsp_l2_refresh_pseudo, circuit, 
-                      isis_jitter (ref_time,
-                                   MAX_AGE_JITTER));
   return retval;
 }
 
@@ -2114,10 +2105,8 @@ lsp_l2_pseudo_generate (struct isis_circuit *circuit)
   lsp_insert (lsp, circuit->area->lspdb[1]);
   ISIS_FLAGS_SET_ALL (lsp->SRMflags);
       
-  circuit->u.bc.t_refresh_pseudo_lsp[1] = 
-    thread_add_timer (master, lsp_l2_refresh_pseudo, circuit, 
-                      isis_jitter (ref_time,
-                                   MAX_AGE_JITTER));
+  THREAD_TIMER_ON(master, circuit->u.bc.t_refresh_pseudo_lsp[1],
+      lsp_l2_refresh_pseudo, circuit, isis_jitter (ref_time, MAX_AGE_JITTER));
   
   return lsp_regenerate_schedule (circuit->area);
 }
@@ -2144,7 +2133,7 @@ lsp_tick (struct thread *thread)
   
   area = THREAD_ARG (thread);
   assert (area);
-  area->t_tick = thread_add_timer (master, lsp_tick, area, 1);
+  THREAD_TIMER_ON(master, area->t_tick, lsp_tick, area, 1);
 
   /*
    * Build a list of LSPs with (any) SRMflag set
@@ -2289,10 +2278,8 @@ top_lsp_refresh (struct thread *thread)
   /* time to calculate our checksum */
   iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
                    ntohs(lsp->lsp_header->pdu_len) - 12, 12);
-
-  lsp->t_lsp_top_ref = thread_add_timer (master, top_lsp_refresh, lsp,
-                                         isis_jitter (MAX_LSP_GEN_INTERVAL,
-                                                      MAX_LSP_GEN_JITTER));
+  THREAD_TIMER_ON(master, lsp->t_lsp_top_ref, top_lsp_refresh, lsp,
+      isis_jitter (MAX_LSP_GEN_INTERVAL, MAX_LSP_GEN_JITTER));
 
   return ISIS_OK;
 }
@@ -2328,9 +2315,8 @@ generate_topology_lsps (struct isis_area *area)
     /* time to calculate our checksum */
     iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
 		     ntohs(lsp->lsp_header->pdu_len) - 12, 12);
-    lsp->t_lsp_top_ref = thread_add_timer (master, top_lsp_refresh, lsp,
-					   isis_jitter(MAX_LSP_GEN_INTERVAL,
-						       MAX_LSP_GEN_JITTER));
+    THREAD_TIMER_ON(master, lsp->t_lsp_top_ref, top_lsp_refresh, lsp,
+        isis_jitter(MAX_LSP_GEN_INTERVAL, MAX_LSP_GEN_JITTER));
 
     ISIS_FLAGS_SET_ALL(lsp->SRMflags);
     lsp_insert (lsp,area->lspdb[0]);
@@ -2349,7 +2335,7 @@ remove_topology_lsps (struct isis_area *area)
     dnode_next = dict_next (area->lspdb[0], dnode);
     lsp = dnode_get (dnode);
     if (lsp->from_topology) {
-      thread_cancel(lsp->t_lsp_top_ref);
+      THREAD_TIMER_OFF(lsp->t_lsp_top_ref);
       lsp_destroy (lsp);
       dict_delete (area->lspdb[0], dnode);
     }
