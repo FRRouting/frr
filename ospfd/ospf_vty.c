@@ -3196,13 +3196,32 @@ char *show_database_header[] =
 #endif /* HAVE_OPAQUE_LSA */
 };
 
+char *show_lsa_flags[] =
+{
+  "Self-originated",
+  "Checked",
+  "Received",
+  "Approved",
+  "Discard",
+#ifdef HAVE_NSSA
+  "Translated",
+#endif
+};
+
 void
 show_ip_ospf_database_header (struct vty *vty, struct ospf_lsa *lsa)
 {
   struct router_lsa *rlsa = (struct router_lsa*) lsa->data;
-
+  
   vty_out (vty, "  LS age: %d%s", LS_AGE (lsa), VTY_NEWLINE);
-  vty_out (vty, "  Options: %d%s", lsa->data->options, VTY_NEWLINE);
+  vty_out (vty, "  Options: 0x%-2x : %s%s", 
+           lsa->data->options,
+           ospf_options_dump(lsa->data->options), 
+           VTY_NEWLINE);
+  vty_out (vty, "  LS Flags: 0x%-2x %s%s",
+           lsa->flags, 
+           ((lsa->flags & OSPF_LSA_LOCAL_XLT) ? "(Translated from Type-7)" : ""),
+           VTY_NEWLINE);
 
   if (lsa->data->type == OSPF_ROUTER_LSA)
     {
@@ -3534,12 +3553,6 @@ show_lsa_detail_proc (struct vty *vty, struct route_table *rt,
       for (rn = start; rn; rn = route_next_until (rn, start))
 	if ((lsa = rn->info))
 	  {
-#ifdef HAVE_NSSA
-	    /* Stay away from any Local Translated Type-7 LSAs */
-	    if (CHECK_FLAG (lsa->flags, OSPF_LSA_LOCAL_XLT))
-	      continue;
-#endif /* HAVE_NSSA */
-
 	    if (show_function[lsa->data->type] != NULL)
 	      show_function[lsa->data->type] (vty, lsa);
 	  }

@@ -558,7 +558,8 @@ ospf_write (struct thread *thread)
   ret = sendmsg (ospf->fd, &msg, flags);
   
   if (ret < 0)
-    zlog_warn ("*** sendmsg in ospf_write failed with %s", strerror (errno));
+    zlog_warn ("*** sendmsg in ospf_write to %s failed with %s", 
+               inet_ntoa (iph.ip_dst), strerror (errno));
 
   /* Retrieve OSPF packet type. */
   stream_set_getp (op->s, 1);
