@@ -1371,7 +1371,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   struct ipv4_reachability *ipreach;
   struct isis_adjacency *nei;
 #ifdef HAVE_IPV6
-  struct prefix_ipv6 *ipv6;
+  struct prefix_ipv6 *ipv6, *ip6prefix;
   struct ipv6_reachability *ip6reach;
 #endif /* HAVE_IPV6 */
   struct tlvs tlv_data;
@@ -1468,8 +1468,9 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 	      ipreach =
 		XMALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv4_reachability));
 	      ipreach->metrics = circuit->metrics[level - 1];
-	      ipreach->prefix = ipv4->prefix;
 	      masklen2ip (ipv4->prefixlen, &ipreach->mask);
+	      ipreach->prefix.s_addr = ((ipreach->mask.s_addr) &
+					(ipv4->prefix.s_addr));
 	      listnode_add (tlv_data.ipv4_int_reachs, ipreach);
 	    }
 
@@ -1497,8 +1498,10 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 		htonl (circuit->metrics[level - 1].metric_default);
 	      ip6reach->control_info = 0;
 	      ip6reach->prefix_len = ipv6->prefixlen;
-	      memcpy (ip6reach->prefix, ipv6->prefix.s6_addr,
-		      (ipv6->prefixlen + 7) / 8);
+	      memcpy (&ip6prefix, &ipv6, sizeof(ip6prefix));
+	      apply_mask_ipv6 (ip6prefix);
+	      memcpy (ip6reach->prefix, ip6prefix->prefix.s6_addr,
+		      sizeof (ip6reach->prefix));
 	      listnode_add (tlv_data.ipv6_reachs, ip6reach);
 	    }
 	}

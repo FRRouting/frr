@@ -1,3 +1,8 @@
+2004-09-21 Hasso Tepper <hasso at quagga.net>
+
+	* isis_lsp.c: Put IPv4 prefixes into reachability TLVs, not
+	  addresses. Make IPv6 work with other prefix lengths than % 8 == 0.
+
 2004-09-20 LIU Xin <lx at ns.6test.edu.cn>
 
 	* isis_dr.c, isis_events.c: Remove hello multiplier usage while
