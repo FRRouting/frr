@@ -425,12 +425,12 @@ step_two:
             }
           else /* equal, case of tie */
             {
-              if (nbpi->router_id > nbpj->router_id)
+              if (ntohl (nbpi->router_id) > ntohl (nbpj->router_id))
                 {
                   list_delete_node (candidate_list, j);
                   continue;
                 }
-              else if (nbpi->router_id < nbpj->router_id)
+              else if (ntohl (nbpi->router_id) < ntohl (nbpj->router_id))
                 {
                   list_delete_node (candidate_list, i);
                   continue;

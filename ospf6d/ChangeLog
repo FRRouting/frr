@@ -1,3 +1,7 @@
+2003-08-11  Taisuke Sasaki <sasaki@soft.net.fujitsu.co.jp>
+
+	* ospf6_ism.c: DR Election bug fix.
+	
 2003-05-18 Hasso Tepper <hasso@estpak.ee>
 
 	* ospf6_{dump,interface,zebra}.c,ospf6d.c: show router and interface
