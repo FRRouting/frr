@@ -2,7 +2,7 @@
     notifempty
     missingok
     postrotate
-	/usr/sbin/killall -USR1 zebra
+	/bin/kill -USR1 `cat /var/run/quagga/zebra.pid 2> /dev/null` 2> /dev/null || true
     endscript
 }
 
@@ -10,7 +10,7 @@
     notifempty
     missingok
     postrotate
-	/usr/sbin/killall -USR1 bgpd
+	/bin/kill -USR1 `cat /var/run/quagga/bgpd.pid 2> /dev/null` 2> /dev/null || true
     endscript
 }
 
@@ -18,7 +18,7 @@
     notifempty
     missingok
     postrotate
-	/usr/sbin/killall -USR1 ospfd
+	/bin/kill -USR1 `cat /var/run/quagga/ospfd.pid 2> /dev/null` 2> /dev/null || true
     endscript
 }
 
@@ -26,7 +26,7 @@
     notifempty
     missingok
     postrotate
-	/usr/sbin/killall -USR1 ospf6d
+	/bin/kill -USR1 `cat /var/run/quagga/ospf6d.pid 2> /dev/null` 2> /dev/null || true
     endscript
 }
 
@@ -34,7 +34,7 @@
     notifempty
     missingok
     postrotate
-	/usr/sbin/killall -USR1 ripd
+	/bin/kill -USR1 `cat /var/run/quagga/ripd.pid 2> /dev/null` 2> /dev/null || true
     endscript
 }
 
@@ -42,6 +42,6 @@
     notifempty
     missingok
     postrotate
-	/usr/sbin/killall -USR1 ripngd
+	/bin/kill -USR1 `cat /var/run/quagga/ripngd.pid 2> /dev/null` 2> /dev/null || true
     endscript
 }
