@@ -1218,7 +1218,8 @@ addattr32 (struct nlmsghdr *n, int maxlen, int type, int data)
 static int
 netlink_talk_filter (struct sockaddr_nl *snl, struct nlmsghdr *h)
 {
-  zlog_warn ("netlink_talk: ignoring message type 0x%04x", h->nlmsg_type);
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    zlog_debug ("netlink_talk: ignoring message type 0x%04x", h->nlmsg_type);
   return 0;
 }
 

@@ -1,3 +1,8 @@
+2005-02-20 Hasso Tepper <hasso at quagga.net>
+
+	* rt_netlink.c: Don't show messages "ignoring message type 0x001[89]"
+	  if we are not debugging.
+
 2005-02-19 Paul Jakma <paul@dishone.st>
 
 	* zserv.c: (zebra_read_ipv6) replace the char * arithmetic with
