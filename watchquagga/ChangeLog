@@ -1,3 +1,7 @@
+2004-12-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* watchquagga.c: Fix headers: get most stuff from zebra.h.
+
 2004-12-23 Paul Jakma <paul@dishone.st>
 
 	* watchquagga.c: Add missing getopt.h include
