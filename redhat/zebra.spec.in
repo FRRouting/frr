@@ -145,6 +145,9 @@ install -d $RPM_BUILD_ROOT/etc/{rc.d/init.d,sysconfig,logrotate.d,pam.d} \
 make install \
 	DESTDIR=$RPM_BUILD_ROOT
 
+# Remove this file, as it is uninstalled and causes errors when building on RH9
+rm -rf $RPM_BUILD_ROOT/usr/share/info/dir
+
 install %{zeb_rh_src}/zebra.init $RPM_BUILD_ROOT/etc/rc.d/init.d/zebra
 install %{zeb_rh_src}/bgpd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/bgpd
 %if %with_ipv6
@@ -273,7 +276,7 @@ fi
 %if %with_vtysh
 %{_bindir}/*
 %endif
-%config /etc/zebra/*
+%config /etc/zebra/[!v]
 %config /etc/rc.d/init.d/*
 %config(noreplace) /etc/pam.d/zebra
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
