@@ -3,6 +3,10 @@
 	* sockopt.{c,h}: add sockopt_iphdrincl_swab_{htosys,systoh},
           functions to change byte order between system IP_HDRINCL order
           and host order.
+	* thread.c: (funcname_thread_add_timer_timeval) new function, add
+          timer at specified timeval.
+	  (funcname_thread_add_timer) use funcname_thread_add_timer_timeval.
+	  (funcname_thread_add_timer_msec) ditto
 
 2004-10-04 Hasso Tepper <hasso at quagga.net>
 

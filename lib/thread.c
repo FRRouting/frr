@@ -482,13 +482,15 @@ funcname_thread_add_write (struct thread_master *m,
   return thread;
 }
 
-/* Add timer event thread. */
-struct thread *
-funcname_thread_add_timer (struct thread_master *m,
-		  int (*func) (struct thread *), void *arg, long timer, char* funcname)
+static struct thread *
+funcname_thread_add_timer_timeval (struct thread_master *m,
+                                   int (*func) (struct thread *), 
+                                  void *arg, 
+                                  struct timeval *time_relative, 
+                                  char* funcname)
 {
-  struct timeval timer_now;
   struct thread *thread;
+  struct timeval timer_now;
 #ifndef TIMER_NO_SORT
   struct thread *tt;
 #endif /* TIMER_NO_SORT */
@@ -499,7 +501,9 @@ funcname_thread_add_timer (struct thread_master *m,
 
   /* Do we need jitter here? */
   gettimeofday (&timer_now, NULL);
-  timer_now.tv_sec += timer;
+  timer_now.tv_sec += time_relative->tv_sec;
+  timer_now.tv_usec += time_relative->tv_usec;
+  timeval_adjust (timer_now);
   thread->u.sands = timer_now;
 
   /* Sort by timeval. */
@@ -519,44 +523,39 @@ funcname_thread_add_timer (struct thread_master *m,
   return thread;
 }
 
-/* Add timer event thread with "millisecond" resolution */
+
+/* Add timer event thread. */
 struct thread *
-funcname_thread_add_timer_msec (struct thread_master *m,
-		  int (*func) (struct thread *), void *arg, long timer, char* funcname)
+funcname_thread_add_timer (struct thread_master *m,
+		           int (*func) (struct thread *), 
+		           void *arg, long timer, char* funcname)
 {
-  struct timeval timer_now;
-  struct thread *thread;
-#ifndef TIMER_NO_SORT
-  struct thread *tt;
-#endif /* TIMER_NO_SORT */
+  struct timeval trel;
 
   assert (m != NULL);
 
-  thread = thread_get (m, THREAD_TIMER, func, arg, funcname);
+  trel.tv_sec += timer;
+  trel.tv_usec = 0;
+
+  return funcname_thread_add_timer_timeval (m, func, arg, &trel, funcname);
+}
+
+/* Add timer event thread with "millisecond" resolution */
+struct thread *
+funcname_thread_add_timer_msec (struct thread_master *m,
+                                int (*func) (struct thread *), 
+                                void *arg, long timer, char* funcname)
+{
+  struct timeval trel;
+
+  assert (m != NULL);
 
   timer = 1000*timer; /* milli -> micro */
 
-  /* Do we need jitter here? */
-  gettimeofday (&timer_now, NULL);
-  timer_now.tv_sec += timer / TIMER_SECOND_MICRO;
-  timer_now.tv_usec += (timer % TIMER_SECOND_MICRO);
-  thread->u.sands = timer_now;
+  trel.tv_sec += timer / TIMER_SECOND_MICRO;
+  trel.tv_usec += (timer % TIMER_SECOND_MICRO);
 
-  /* Sort by timeval. */
-#ifdef TIMER_NO_SORT
-  thread_list_add (&m->timer, thread);
-#else
-  for (tt = m->timer.head; tt; tt = tt->next)
-    if (timeval_cmp (thread->u.sands, tt->u.sands) <= 0)
-      break;
-
-  if (tt)
-    thread_list_add_before (&m->timer, tt, thread);
-  else
-    thread_list_add (&m->timer, thread);
-#endif /* TIMER_NO_SORT */
-
-  return thread;
+  return funcname_thread_add_timer_timeval (m, func, arg, &trel, funcname);
 }
 
 /* Add simple event thread. */
