@@ -130,13 +130,13 @@ struct ospf_interface *
 ospf_if_table_lookup (struct interface *ifp, struct prefix *prefix)
 {
   struct prefix p;
-  struct route_node rn;
+  struct route_node *rn;
   
   p = *prefix;
 
-  rn = route_node_get (IF_OIFS (ifp), &p));
+  rn = route_node_get (IF_OIFS (ifp), &p);
   /* route_node_get implicitely locks */
-  route_node_unlock (rn);
+  route_unlock_node (rn);
   return (struct ospf_interface *) rn->info;
 }
 
