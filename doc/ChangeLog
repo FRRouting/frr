@@ -1,3 +1,8 @@
+2004-10-03 Hasso Tepper <hasso at quagga.net>
+
+	* vtysh.1: Update vtysh man page to reflect changes in shell. Remove
+	  info about -f command line switch.
+
 2004-09-11 Paul Jakma <paul@dishone.st>
 
 	* quagga.texi: Update copyright. Contents should be at beginning

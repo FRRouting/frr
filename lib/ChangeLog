@@ -1,3 +1,10 @@
+2004-10-03  Hasso Tepper  <hasso at quagga.net>
+
+	* command.h: Introduce SERVICE_NODE for "service <...>" commands.
+	* command.c: Don't initialize commands that don't make sense if vtysh
+	  is used.
+	* vty.c: Make VTY_NODE appear in vtysh.
+
 2004-10-03 James R. Leu <jleu at mindspring.com>
 
 	* zclient.c, zclient.h: zclient functions for router id handling.

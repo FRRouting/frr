@@ -40,15 +40,7 @@
 char *progname;
 
 /* Configuration file name and directory. */
-char *config_file = NULL;
 char config_default[] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
-
-/* Integrated configuration file. */
-char *integrate_file = NULL;
-char *integrate_current = NULL;
-#if 0
-char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
-#endif
 
 /* Flag for indicate executing child command. */
 int execute_flag = 0;
@@ -143,7 +135,6 @@ usage (int status)
 	    "Integrated shell for Quagga routing software suite. \n\n"\
 	    "-b, --boot               Execute boot startup configuration\n" \
 	    "-c, --command            Execute argument as command\n "\
-	    "-f, --config_file        Set configuration file name\n"\
 	    "-h, --help               Display this help and exit\n\n" \
 	    "Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 
@@ -158,7 +149,6 @@ struct option longopts[] =
   { "eval",                 required_argument,       NULL, 'e'},
   { "command",              required_argument,       NULL, 'c'},
   { "help",                 no_argument,             NULL, 'h'},
-  { "config_file",          required_argument,       NULL, 'f'},
   { 0 }
 };
 
@@ -208,7 +198,7 @@ main (int argc, char **argv, char **env)
   /* Option handling. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "be:c:hf:", longopts, 0);
+      opt = getopt_long (argc, argv, "be:c:h", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -227,12 +217,6 @@ main (int argc, char **argv, char **env)
 	  break;
 	case 'h':
 	  usage (0);
-	  break;
-	/* XXX It isn't used in any way. */
-	case 'i':
-	  integrated_file = strdup (optarg);
-	case 'f':
-	  config_file = optarg;
 	  break;
 	default:
 	  usage (1);
@@ -259,7 +243,7 @@ main (int argc, char **argv, char **env)
   vtysh_connect_all ();
 
   /* Read vtysh configuration file. */
-  vtysh_read_config (config_file, config_default);
+  vtysh_read_config (config_default);
 
   /* If eval mode. */
   if (eval_flag)
@@ -271,8 +255,14 @@ main (int argc, char **argv, char **env)
   /* Boot startup configuration file. */
   if (boot_flag)
     {
-      vtysh_read_config (integrate_file, integrate_default);
-      exit (0);
+      if (vtysh_read_config (integrate_default))
+	{
+	  fprintf (stderr, "Can't open configuration file [%s]\n",
+		   integrate_default);
+	  exit (1);
+	}
+      else
+	exit (0);
     }
 
   vtysh_pager_init ();
@@ -282,6 +272,9 @@ main (int argc, char **argv, char **env)
   vty_hello (vty);
 
   vtysh_auth ();
+
+  /* Enter into enable node. */
+  vtysh_execute ("enable");
 
   /* Preparation for longjmp() in sigtstp(). */
   sigsetjmp (jmpbuf, 1);

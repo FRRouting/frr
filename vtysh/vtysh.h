@@ -60,7 +60,7 @@ void vtysh_config_write ();
 
 int vtysh_config_from_file (struct vty *, FILE *);
 
-void vtysh_read_config (char *, char *);
+int vtysh_read_config (char *);
 
 void vtysh_config_parse (char *);
 

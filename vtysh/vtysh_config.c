@@ -28,6 +28,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 vector configvec;
 
+extern int vtysh_writeconfig_integrated;
+
 struct config
 {
   /* Configuration node name. */
@@ -174,7 +176,8 @@ vtysh_config_parse_line (char *line)
 		   strlen (" address-family ipv6")) == 0)
 	    config = config_get (BGP_IPV6_NODE, line);
 	  else if (config->index == RMAP_NODE ||
-	           config->index == INTERFACE_NODE )
+	           config->index == INTERFACE_NODE ||
+		   config->index == VTY_NODE)
 	    config_add_line_uniq (config->line, line);
 	  else
 	    config_add_line (config->line, line);
@@ -224,13 +227,24 @@ vtysh_config_parse_line (char *line)
    	config = config_get (IP_NODE, line);
       else if (strncmp (line, "key", strlen ("key")) == 0)
 	config = config_get (KEYCHAIN_NODE, line);
+      else if (strncmp (line, "line", strlen ("line")) == 0)
+	config = config_get (VTY_NODE, line);
+      else if ( (strncmp (line, "ipv6 forwarding",
+		 strlen ("ipv6 forwarding")) == 0)
+	       || (strncmp (line, "ip forwarding",
+		   strlen ("ip forwarding")) == 0) )
+	config = config_get (FORWARDING_NODE, line);
+      else if (strncmp (line, "service", strlen ("service")) == 0)
+	config = config_get (SERVICE_NODE, line);
       else
 	{
 	  if (strncmp (line, "log", strlen ("log")) == 0
 	      || strncmp (line, "hostname", strlen ("hostname")) == 0
 	      || strncmp (line, "password", strlen ("password")) == 0
 	      || strncmp (line, "enable password",
-		          strlen ("enable password")) == 0)
+		          strlen ("enable password")) == 0
+	      || strncmp (line, "service", strlen ("service")) == 0
+	     )
 	    config_add_line_uniq (config_top, line);
 	  else
 	    config_add_line (config_top, line);
@@ -268,7 +282,8 @@ vtysh_config_parse (char *line)
 #define NO_DELIMITER(I)  \
   ((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE \
    || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE || \
-   (I) == ACCESS_IPV6_NODE || (I) == PREFIX_IPV6_NODE)
+   (I) == ACCESS_IPV6_NODE || (I) == PREFIX_IPV6_NODE \
+   || (I) == SERVICE_NODE)
 
 /* Display configuration to file pointer. */
 void
@@ -364,67 +379,40 @@ vtysh_read_file (FILE *confp)
     }
 }
 
-/* Read up configuration file from file_name. */
-void
-vtysh_read_config (char *config_file,
-		   char *config_default_dir)
+/* Read up configuration file from config_default_dir. */
+int
+vtysh_read_config (char *config_default_dir)
 {
-  char *cwd;
   FILE *confp = NULL;
-  char *fullpath;
 
-  /* If -f flag specified. */
-  if (config_file != NULL)
-    {
-      if (! IS_DIRECTORY_SEP (config_file[0]))
-	{
-	  cwd = getcwd (NULL, MAXPATHLEN);
-	  fullpath = XMALLOC (MTYPE_TMP, 
-			      strlen (cwd) + strlen (config_file) + 2);
-	  sprintf (fullpath, "%s/%s", cwd, config_file);
-	}
-      else
-	fullpath = config_file;
-
-      confp = fopen (fullpath, "r");
-
-      if (confp == NULL)
-	{
-	  fprintf (stderr, "can't open configuration file [%s]\n", 
-		   config_file);
-	  exit(1);
-	}
-    }
-  else
-    {
-      /* No configuration specified from command line. Open system
-       * default file. */
-      confp = fopen (config_default_dir, "r");
-      if (confp == NULL)
-	{
-	  fprintf (stderr, "can't open configuration file [%s]\n",
-		   config_default_dir);
-	  exit (1);
-	}      
-      else
-	fullpath = config_default_dir;
-    }
+  confp = fopen (config_default_dir, "r");
+  if (confp == NULL)
+    return (1);
 
   vtysh_read_file (confp);
-
   fclose (confp);
+  host_config_set (config_default_dir);
 
-  host_config_set (fullpath);
+  return (0);
 }
 
+/* We don't write vtysh specific into file from vtysh. vtysh.conf should
+ * be edited by hand. So, we handle only "write terminal" case here and
+ * integrate vtysh specific conf with conf from daemons.
+ */
 void
-vtysh_config_write (FILE *fp)
+vtysh_config_write ()
 {
+  char *line;
   extern struct host host;
 
   if (host.name)
-    fprintf (fp, "hostname %s\n", host.name);
-  fprintf (fp, "!\n");
+    {
+      sprintf (line, "hostname %s", host.name);
+      vtysh_config_parse_line(line);
+    }
+  if (vtysh_writeconfig_integrated)
+    vtysh_config_parse_line ("service integrated-vtysh-config");
 }
 
 void

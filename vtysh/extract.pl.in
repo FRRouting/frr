@@ -52,6 +52,11 @@ $ignore{'"key chain WORD"'} = "ignore";
 $ignore{'"key <0-2147483647>"'} = "ignore";
 $ignore{'"route-map WORD (deny|permit) <1-65535>"'} = "ignore";
 $ignore{'"show route-map"'} = "ignore";
+$ignore{'"line vty"'} = "ignore";
+$ignore{'"who"'} = "ignore";
+$ignore{'"terminal monitor"'} = "ignore";
+$ignore{'"terminal no monitor"'} = "ignore";
+$ignore{'"show history"'} = "ignore";
 
 foreach (@ARGV) {
     $file = $_;
@@ -118,6 +123,9 @@ foreach (@ARGV) {
                  $protocol = "VTYSH_RIPD";
               }
            }
+	   if ($file =~ /vty.c/) {
+	      $protocol = "VTYSH_ALL";
+	   }
         } else {
            ($protocol) = ($file =~ /^.*\/([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
            $protocol = "VTYSH_" . uc $protocol;

@@ -1,3 +1,28 @@
+2004-10-03 Hasso Tepper <hasso at quagga.net>
+
+	* vtsyh_main.c: Enter into enable node by default. Disable node doesn't
+	  make sense if we don't have any authentication for enable.
+	* vtysh.c: Implement "show running-daemons" command.
+	* vtysh.c: Use either integrated conf or daemon conf not both. Move
+	  configuration command into "service" level.
+	* vtysh.c: Remove "write ..." commands from other nodes than enable.
+	  We have "do ..." extension for that.
+	* vtysh_config.c, vtysh.c: Integrate vtysh configuration into
+	  integrated one.
+	* vtysh_config.c: Use FORWARD_NODE and SERVICE_NODE vty nodes.
+	* vtysh_config.c: Make "service" lines unique in integrated config.
+	* vtysh.c: Make "service password-encryption" command work in vtysh.
+	* vtysh_config.c, vtysh.c, Makefile.am, extract.pl.in: Introduce line
+	  vty commands in vtysh. Parse lib/vty.c for commands, but ignore
+	  commands that don't make sense in vtysh. Closes Bugzilla #104.
+	* vtysh.c: Make "[enable] password" commands work in vtysh. Behavior
+	  is similar to "log" commands - vtysh just passes commands to all
+	  daemons.
+	* vtysh_main.c, vtysh_config.c, vtysh.h: Remove any code dealing with
+	  configuration files specified from command line. We read/write files
+	  from/to system location only (ie. remove -f again).
+	* Makefile.am: Parse zebra/router-id.c.
+
 2004-09-26 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh.c: Fix compiler warning.

@@ -46,6 +46,11 @@ struct vtysh_client
   int fd;
 } vtysh_client[VTYSH_INDEX_MAX];
 
+/* Using integrated config from Quagga.conf. Default is no. */
+int vtysh_writeconfig_integrated = 0;
+
+extern char config_default[];
+
 void
 vclient_close (struct vtysh_client *vclient)
 {
@@ -148,6 +153,7 @@ vtysh_client_config (struct vtysh_client *vclient, char *line)
     }
 
   /* Parse anything left in the buffer. */
+
   vtysh_config_parse (buf);
 
   XFREE(MTYPE_TMP, buf);
@@ -756,6 +762,9 @@ struct cmd_node keychain_key_node =
   "%s(config-keychain-key)# "
 };
 
+/* Defined in lib/vty.c */
+extern struct cmd_node vty_node;
+
 /* When '^Z' is received from vty, move down to the enable mode. */
 int
 vtysh_end ()
@@ -777,7 +786,7 @@ DEFUNSH (VTYSH_ALL,
 	 vtysh_end_all,
 	 vtysh_end_all_cmd,
 	 "end",
-	 "End current mode and down to previous mode\n")
+	 "End current mode and change to enable mode\n")
 {
   return vtysh_end ();
 }
@@ -954,6 +963,17 @@ DEFUNSH (VTYSH_RMAP,
 	 "Sequence to insert to/delete from existing route-map entry\n")
 {
   vty->node = RMAP_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_line_vty,
+	 vtysh_line_vty_cmd,
+	 "line vty",
+	 "Configure a terminal line\n"
+	 "Virtual terminal\n")
+{
+  vty->node = VTY_NODE;
   return CMD_SUCCESS;
 }
 
@@ -1172,6 +1192,20 @@ ALIAS (vtysh_exit_isisd,
        "quit",
        "Exit current mode and down to previous mode\n")
 
+DEFUNSH (VTYSH_ALL,
+         vtysh_exit_line_vty,
+         vtysh_exit_line_vty_cmd,
+         "exit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+ALIAS (vtysh_exit_line_vty,
+       vtysh_quit_line_vty_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n")
+
 DEFUNSH (VTYSH_INTERFACE,
 	 vtysh_interface,
 	 vtysh_interface_cmd,
@@ -1328,6 +1362,84 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
+DEFUNSH (VTYSH_ALL,
+	 vtysh_service_password_encrypt,
+	 vtysh_service_password_encrypt_cmd,
+	 "service password-encryption",
+	 "Set up miscellaneous service\n"
+	 "Enable encrypted passwords\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 no_vtysh_service_password_encrypt,
+	 no_vtysh_service_password_encrypt_cmd,
+	 "no service password-encryption",
+	 NO_STR
+	 "Set up miscellaneous service\n"
+	 "Enable encrypted passwords\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_config_password,
+	 vtysh_password_cmd,
+	 "password (8|) WORD",
+	 "Assign the terminal connection password\n"
+	 "Specifies a HIDDEN password will follow\n"
+	 "dummy string \n"
+	 "The HIDDEN line password string\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_password_text,
+	 vtysh_password_text_cmd,
+	 "password LINE",
+	 "Assign the terminal connection password\n"
+	 "The UNENCRYPTED (cleartext) line password\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_config_enable_password,
+	 vtysh_enable_password_cmd,
+	 "enable password (8|) WORD",
+	 "Modify enable password parameters\n"
+	 "Assign the privileged level password\n"
+	 "Specifies a HIDDEN password will follow\n"
+	 "dummy string \n"
+	 "The HIDDEN 'enable' password string\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_enable_password_text,
+	 vtysh_enable_password_text_cmd,
+	 "enable password LINE",
+	 "Modify enable password parameters\n"
+	 "Assign the privileged level password\n"
+	 "The UNENCRYPTED (cleartext) 'enable' password\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 no_vtysh_config_enable_password,
+	 no_vtysh_enable_password_cmd,
+	 "no enable password",
+	 NO_STR
+	 "Modify enable password parameters\n"
+	 "Assign the privileged level password\n")
+{
+  return CMD_SUCCESS;
+}
+
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
        "write terminal",
@@ -1353,8 +1465,7 @@ DEFUN (vtysh_write_terminal,
   vty_out (vty, "Building configuration...%s", VTY_NEWLINE);
   vty_out (vty, "%sCurrent configuration:%s", VTY_NEWLINE,
 	   VTY_NEWLINE);
-
-  vtysh_config_write (fp);
+  vty_out (vty, "!%s", VTY_NEWLINE);
 
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_ZEBRA], line);
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_RIP], line);
@@ -1363,6 +1474,9 @@ DEFUN (vtysh_write_terminal,
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_OSPF6], line);
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_BGP], line);
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_ISIS], line);
+
+  /* Integrate vtysh specific configuration. */
+  vtysh_config_write ();
 
   vtysh_config_dump (fp);
 
@@ -1380,37 +1494,25 @@ DEFUN (vtysh_write_terminal,
   return CMD_SUCCESS;
 }
 
-struct vtysh_writeconfig_t {
-	int daemon;
-	int integrated;
-} vtysh_wc = {-1,0};
-
-DEFUN (vtysh_write_config,
-       vtysh_write_config_cmd,
-       "write-config (daemon|integrated)",
-       "Specify config files to write to\n"
-       "Write per daemon file\n"
-       "Write integrated file\n")
+DEFUN (vtysh_integrated_config,
+       vtysh_integrated_config_cmd,
+       "service integrated-vtysh-config",
+       "Set up miscellaneous service\n"
+       "Write configuration into integrated file\n")
 {
-	if (!strncmp(argv[0],"d",1))
-	  vtysh_wc.daemon = 1;
-	else if (!strncmp(argv[0],"i",1))
-	  vtysh_wc.integrated = 1;
-
-	return CMD_SUCCESS;
+  vtysh_writeconfig_integrated = 1;
+  return CMD_SUCCESS;
 }
 
-DEFUN (no_vtysh_write_config,
-       no_vtysh_write_config_cmd,
-       "no write-config (daemon|integrated)",
-       "Negate per daemon and/or integrated config files\n")
+DEFUN (no_vtysh_integrated_config,
+       no_vtysh_integrated_config_cmd,
+       "no service integrated-vtysh-config",
+       NO_STR
+       "Set up miscellaneous service\n"
+       "Write configuration into integrated file\n")
 {
-	if (!strncmp(argv[0],"d",1))
-	  vtysh_wc.daemon = 0;
-	else if (!strncmp(argv[0],"i",1))
-	  vtysh_wc.integrated = 0;
-
-	return CMD_SUCCESS;
+  vtysh_writeconfig_integrated = 0;
+  return CMD_SUCCESS;
 }
 
 int write_config_integrated(void)
@@ -1439,8 +1541,6 @@ int write_config_integrated(void)
 	       integrate_default);
       return CMD_SUCCESS;
     }
-
-  vtysh_config_write (fp);
 
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_ZEBRA], line);
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_RIP], line);
@@ -1476,13 +1576,13 @@ DEFUN (vtysh_write_memory,
 {
   int ret = CMD_SUCCESS;
   char line[] = "write memory\n";
+  char *vtysh_conf;
+  extern struct host host;
+  FILE *fp;
   
-  /* If integrated Zebra.conf explicitely set. */
-  if (vtysh_wc.integrated == 1)
-    ret = write_config_integrated();
-
-  if (!vtysh_wc.daemon)
-    return ret;
+  /* If integrated Quagga.conf explicitely set. */
+  if (vtysh_writeconfig_integrated)
+    return write_config_integrated();
 
   fprintf (stdout,"Building Configuration...\n");
 	  
@@ -1493,7 +1593,7 @@ DEFUN (vtysh_write_memory,
   ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_OSPF6], line, stdout);
   ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_BGP], line, stdout);
   ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS], line, stdout);
-
+  
   fprintf (stdout,"[OK]\n");
 
   return ret;
@@ -1570,6 +1670,31 @@ DEFUN (vtysh_terminal_no_length,
     }
 
   vtysh_pager_init();
+  return CMD_SUCCESS;
+}
+
+DEFUN (vtysh_show_running_daemons,
+       vtysh_show_running_daemons_cmd,
+       "show running-daemons",
+       SHOW_STR
+       "Show list of running daemons\n")
+{
+  if ( vtysh_client[VTYSH_INDEX_ZEBRA].fd > 0 )
+    vty_out(vty, " zebra");
+  if ( vtysh_client[VTYSH_INDEX_RIP].fd > 0 )
+    vty_out(vty, " ripd");
+  if ( vtysh_client[VTYSH_INDEX_RIPNG].fd > 0 )
+    vty_out(vty, " ripngd");
+  if ( vtysh_client[VTYSH_INDEX_OSPF].fd > 0 )
+    vty_out(vty, " ospfd");
+  if ( vtysh_client[VTYSH_INDEX_OSPF6].fd > 0 )
+    vty_out(vty, " ospf6d");
+  if ( vtysh_client[VTYSH_INDEX_BGP].fd > 0 )
+    vty_out(vty, " bgpd");
+  if ( vtysh_client[VTYSH_INDEX_ISIS].fd > 0 )
+    vty_out(vty, " isisd");
+  vty_out(vty, "%s", VTY_NEWLINE);
+
   return CMD_SUCCESS;
 }
 
@@ -1898,6 +2023,7 @@ vtysh_init_vty ()
   install_node (&keychain_node, NULL);
   install_node (&keychain_key_node, NULL);
   install_node (&isis_node, NULL);
+  install_node (&vty_node, NULL);
 
   vtysh_install_default (VIEW_NODE);
   vtysh_install_default (ENABLE_NODE);
@@ -1917,6 +2043,7 @@ vtysh_init_vty ()
   vtysh_install_default (ISIS_NODE);
   vtysh_install_default (KEYCHAIN_NODE);
   vtysh_install_default (KEYCHAIN_KEY_NODE);
+  vtysh_install_default (VTY_NODE);
 
   install_element (VIEW_NODE, &vtysh_enable_cmd);
   install_element (ENABLE_NODE, &vtysh_config_terminal_cmd);
@@ -1955,6 +2082,8 @@ vtysh_init_vty ()
   install_element (KEYCHAIN_KEY_NODE, &vtysh_quit_ripd_cmd);
   install_element (RMAP_NODE, &vtysh_exit_rmap_cmd);
   install_element (RMAP_NODE, &vtysh_quit_rmap_cmd);
+  install_element (VTY_NODE, &vtysh_exit_line_vty_cmd);
+  install_element (VTY_NODE, &vtysh_quit_line_vty_cmd);
 
   /* "end" command. */
   install_element (CONFIG_NODE, &vtysh_end_all_cmd);
@@ -1972,6 +2101,7 @@ vtysh_init_vty ()
   install_element (KEYCHAIN_NODE, &vtysh_end_all_cmd);
   install_element (KEYCHAIN_KEY_NODE, &vtysh_end_all_cmd);
   install_element (RMAP_NODE, &vtysh_end_all_cmd);
+  install_element (VTY_NODE, &vtysh_end_all_cmd);
 
   install_element (INTERFACE_NODE, &interface_desc_cmd);
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
@@ -2002,6 +2132,7 @@ vtysh_init_vty ()
   install_element (BGP_IPV6_NODE, &exit_address_family_cmd);
   install_element (CONFIG_NODE, &key_chain_cmd);
   install_element (CONFIG_NODE, &route_map_cmd);
+  install_element (CONFIG_NODE, &vtysh_line_vty_cmd);
   install_element (KEYCHAIN_NODE, &key_cmd);
   install_element (KEYCHAIN_NODE, &key_chain_cmd);
   install_element (KEYCHAIN_KEY_NODE, &key_chain_cmd);
@@ -2014,44 +2145,19 @@ vtysh_init_vty ()
 
   /* "write terminal" command. */
   install_element (ENABLE_NODE, &vtysh_write_terminal_cmd);
-  install_element (CONFIG_NODE, &vtysh_write_terminal_cmd);
-  install_element (BGP_NODE, &vtysh_write_terminal_cmd);
-  install_element (BGP_VPNV4_NODE, &vtysh_write_terminal_cmd);
-  install_element (BGP_IPV4_NODE, &vtysh_write_terminal_cmd);
-  install_element (BGP_IPV4M_NODE, &vtysh_write_terminal_cmd);
-  install_element (BGP_IPV6_NODE, &vtysh_write_terminal_cmd);
-  install_element (RIP_NODE, &vtysh_write_terminal_cmd);
-  install_element (RIPNG_NODE, &vtysh_write_terminal_cmd);
-  install_element (OSPF_NODE, &vtysh_write_terminal_cmd);
-  install_element (OSPF6_NODE, &vtysh_write_terminal_cmd);
-  install_element (ISIS_NODE, &vtysh_write_terminal_cmd);
-  install_element (INTERFACE_NODE, &vtysh_write_terminal_cmd);
-  install_element (RMAP_NODE, &vtysh_write_terminal_cmd);
-  install_element (KEYCHAIN_NODE, &vtysh_write_terminal_cmd);
-  install_element (KEYCHAIN_KEY_NODE, &vtysh_write_terminal_cmd);
+ 
+  install_element (CONFIG_NODE, &vtysh_integrated_config_cmd);
+  install_element (CONFIG_NODE, &no_vtysh_integrated_config_cmd);
 
   /* "write memory" command. */
   install_element (ENABLE_NODE, &vtysh_write_memory_cmd);
-  install_element (CONFIG_NODE, &vtysh_write_memory_cmd);
-  install_element (BGP_NODE, &vtysh_write_memory_cmd);
-  install_element (BGP_VPNV4_NODE, &vtysh_write_memory_cmd);
-  install_element (BGP_IPV4_NODE, &vtysh_write_memory_cmd);
-  install_element (BGP_IPV4M_NODE, &vtysh_write_memory_cmd);
-  install_element (BGP_IPV6_NODE, &vtysh_write_memory_cmd);
-  install_element (RIP_NODE, &vtysh_write_memory_cmd);
-  install_element (RIPNG_NODE, &vtysh_write_memory_cmd);
-  install_element (OSPF_NODE, &vtysh_write_memory_cmd);
-  install_element (OSPF6_NODE, &vtysh_write_memory_cmd);
-  install_element (ISIS_NODE, &vtysh_write_memory_cmd);
-  install_element (INTERFACE_NODE, &vtysh_write_memory_cmd);
-  install_element (RMAP_NODE, &vtysh_write_memory_cmd);
-  install_element (KEYCHAIN_NODE, &vtysh_write_memory_cmd);
-  install_element (KEYCHAIN_KEY_NODE, &vtysh_write_memory_cmd);
 
   install_element (VIEW_NODE, &vtysh_terminal_length_cmd);
   install_element (ENABLE_NODE, &vtysh_terminal_length_cmd);
   install_element (VIEW_NODE, &vtysh_terminal_no_length_cmd);
   install_element (ENABLE_NODE, &vtysh_terminal_no_length_cmd);
+  install_element (VIEW_NODE, &vtysh_show_running_daemons_cmd);
+  install_element (ENABLE_NODE, &vtysh_show_running_daemons_cmd);
 
   install_element (VIEW_NODE, &vtysh_ping_cmd);
   install_element (VIEW_NODE, &vtysh_ping_ip_cmd);
@@ -2089,6 +2195,14 @@ vtysh_init_vty ()
   install_element (CONFIG_NODE, &no_vtysh_log_trap_cmd);
   install_element (CONFIG_NODE, &vtysh_log_record_priority_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_record_priority_cmd);
-  install_element (CONFIG_NODE, &vtysh_write_config_cmd);
-  install_element (CONFIG_NODE, &no_vtysh_write_config_cmd);
+
+  install_element (CONFIG_NODE, &vtysh_service_password_encrypt_cmd);
+  install_element (CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);
+
+  install_element (CONFIG_NODE, &vtysh_password_cmd);
+  install_element (CONFIG_NODE, &vtysh_password_text_cmd);
+  install_element (CONFIG_NODE, &vtysh_enable_password_cmd);
+  install_element (CONFIG_NODE, &vtysh_enable_password_text_cmd);
+  install_element (CONFIG_NODE, &no_vtysh_enable_password_cmd);
+
 }

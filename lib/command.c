@@ -3300,23 +3300,22 @@ cmd_init (int terminal)
     }
   install_element (ENABLE_NODE, &show_startup_config_cmd);
   install_element (ENABLE_NODE, &show_version_cmd);
-  if (terminal)
-  {
-    install_element (ENABLE_NODE, &config_terminal_length_cmd);
-    install_element (ENABLE_NODE, &config_terminal_no_length_cmd);
-  }
 
   if (terminal)
-    install_default (CONFIG_NODE);
-  install_element (CONFIG_NODE, &hostname_cmd);
-  install_element (CONFIG_NODE, &no_hostname_cmd);
-  install_element (CONFIG_NODE, &password_cmd);
-  install_element (CONFIG_NODE, &password_text_cmd);
-  install_element (CONFIG_NODE, &enable_password_cmd);
-  install_element (CONFIG_NODE, &enable_password_text_cmd);
-  install_element (CONFIG_NODE, &no_enable_password_cmd);
-  if (terminal)
     {
+      install_element (ENABLE_NODE, &config_terminal_length_cmd);
+      install_element (ENABLE_NODE, &config_terminal_no_length_cmd);
+
+      install_default (CONFIG_NODE);
+
+      install_element (CONFIG_NODE, &hostname_cmd);
+      install_element (CONFIG_NODE, &no_hostname_cmd);
+      install_element (CONFIG_NODE, &password_cmd);
+      install_element (CONFIG_NODE, &password_text_cmd);
+      install_element (CONFIG_NODE, &enable_password_cmd);
+      install_element (CONFIG_NODE, &enable_password_text_cmd);
+      install_element (CONFIG_NODE, &no_enable_password_cmd);
+
       install_element (CONFIG_NODE, &config_log_stdout_cmd);
       install_element (CONFIG_NODE, &no_config_log_stdout_cmd);
       install_element (CONFIG_NODE, &config_log_file_cmd);
@@ -3335,10 +3334,7 @@ cmd_init (int terminal)
       install_element (CONFIG_NODE, &no_banner_motd_cmd);
       install_element (CONFIG_NODE, &service_terminal_length_cmd);
       install_element (CONFIG_NODE, &no_service_terminal_length_cmd);
-    }
 
-  if (terminal)
-    {
       install_element(VIEW_NODE, &show_thread_cpu_cmd);
       install_element(ENABLE_NODE, &show_thread_cpu_cmd);
     }
