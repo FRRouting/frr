@@ -34,7 +34,7 @@ of unix groups and the --enable-vty-group configure option.
 @end deffn
 
 @node VTY shell integrated configuration
-@section
+@section VTY shell integrated configuration
 
 @deffn {Command} {service integrated-vtysh-config} {}
 Write out integrated Quagga.conf file when 'write file' is issued.

@@ -4347,8 +4347,8 @@ File: quagga.info,  Node: VTY shell username,  Next: VTY shell integrated config
 
 File: quagga.info,  Node: VTY shell integrated configuration,  Prev: VTY shell username,  Up: VTY shell
 
-11.2
-====
+11.2 VTY shell integrated configuration
+=======================================
 
  -- Command: service integrated-vtysh-config
      Write out integrated Quagga.conf file when 'write file' is issued.
@@ -6130,27 +6130,27 @@ Node: Further considerations about Import and Export route-maps152284
 Node: VTY shell155328
 Node: VTY shell username155997
 Node: VTY shell integrated configuration156629
-Node: Filtering158007
-Node: IP Access List158360
-Node: IP Prefix List158746
-Node: ip prefix-list description161765
-Node: ip prefix-list sequential number control162292
-Node: Showing ip prefix-list162834
-Node: Clear counter of ip prefix-list163942
-Node: Route Map164381
-Node: Route Map Command164886
-Node: Route Map Match Command165083
-Node: Route Map Set Command165707
-Node: IPv6 Support166584
-Node: Router Advertisement167156
-Node: Kernel Interface170957
-Node: SNMP Support172914
-Node: Getting and installing an SNMP agent173486
-Node: SMUX configuration174059
-Node: MIB and command reference176195
-Node: Zebra Protocol177582
-Node: Packet Binary Dump Format179496
-Node: Command Index191106
-Node: VTY Key Index247299
+Node: Filtering158077
+Node: IP Access List158430
+Node: IP Prefix List158816
+Node: ip prefix-list description161835
+Node: ip prefix-list sequential number control162362
+Node: Showing ip prefix-list162904
+Node: Clear counter of ip prefix-list164012
+Node: Route Map164451
+Node: Route Map Command164956
+Node: Route Map Match Command165153
+Node: Route Map Set Command165777
+Node: IPv6 Support166654
+Node: Router Advertisement167226
+Node: Kernel Interface171027
+Node: SNMP Support172984
+Node: Getting and installing an SNMP agent173556
+Node: SMUX configuration174129
+Node: MIB and command reference176265
+Node: Zebra Protocol177652
+Node: Packet Binary Dump Format179566
+Node: Command Index191176
+Node: VTY Key Index247369
 
 End Tag Table
