@@ -24,7 +24,7 @@
 
 #define QUAGGA_PROGNAME   "quagga"
 
-#define QUAGGA_VERSION     "0.96"
+#define QUAGGA_VERSION     "0.96.1"
 
 #define ZEBRA_BUG_ADDRESS "bug-zebra@gnu.org"
 
