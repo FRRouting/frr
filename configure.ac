@@ -403,8 +403,13 @@ done
 case $zebra_rtread in
   "/proc/net/route") RTREAD_METHOD="rtread_proc.o"
                      zebra_rtread="proc";;
-  "/dev/ip")         RTREAD_METHOD="rtread_getmsg.o"
-                     zebra_rtread="getmsg";;
+  "/dev/ip")
+                     case "$host" in
+                       *-freebsd*)    RTREAD_METHOD=rtread_sysctl.o
+                                      zebra_rtread="sysctl";;
+                       *)             RTREAD_METHOD="rtread_getmsg.o"
+                                      zebra_rtread="getmsg";;
+                     esac;;
   *)                 RTREAD_METHOD="rtread_sysctl.o"
                      zebra_rtread="sysctl";;
 esac
@@ -465,6 +470,8 @@ case $zebra_ipforward_path in
                      case "$host" in
                        *-nec-sysv4*)  IPFORWARD=ipforward_ews.o
                                       zebra_ipforward_path="ews";;
+                       *-freebsd*)    IPFORWARD=ipforward_sysctl.o
+                                      zebra_ipforward_path="sysctl";;
                        *)             IPFORWARD=ipforward_solaris.o
                                       zebra_ipforward_path="solaris";;
                      esac;;
