@@ -7,3 +7,16 @@ quagga.info*
 quagga.html
 quagga.pdf
 .nfs*
+*.aux
+*.cp
+*.cps
+*.fn
+*.fns
+*.ky
+*.kys
+*.log
+*.op
+*.pg
+*.toc
+*.tp
+*.vr
