@@ -40,15 +40,29 @@
 extern struct zebra_privs_t zserv_privs;
 extern struct zebra_t zebrad;
 
-/* Socket length roundup function. */
+/*
+ * Given a sockaddr length, round it up to include pad bytes following
+ * it.  Assumes the kernel pads to sizeof(long).
+ *
+ * XXX: why is ROUNDUP(0) sizeof(long)?  0 is an illegal sockaddr
+ * length anyway (< sizeof (struct sockaddr)), so this shouldn't
+ * matter.
+ */
 #define ROUNDUP(a) \
   ((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
 
-/* And this macro is wrapper for handling sa_len. */
+/*
+ * Given a pointer (sockaddr or void *), return the number of bytes
+ * taken up by the sockaddr and any padding needed for alignment.
+ */
 #if defined(HAVE_SA_LEN)
-#define WRAPUP(X)   ROUNDUP(((struct sockaddr *)(X))->sa_len)
+#define SAROUNDUP(X)   ROUNDUP(((struct sockaddr *)(X))->sa_len)
 #elif defined(HAVE_IPV6)
-#define WRAPUP(X) \
+/*
+ * One would hope all fixed-size structure definitions are aligned,
+ * but round them up nonetheless.
+ */
+#define SAROUNDUP(X) \
     do { \
     (((struct sockaddr *)(X))->sa_family == AF_INET ?   \
       ROUNDUP(sizeof(struct sockaddr_in)):\
@@ -58,7 +72,7 @@ extern struct zebra_t zebrad;
          ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr)))) \
     } while (0)
 #else /* HAVE_IPV6 */ 
-#define WRAPUP(X) \
+#define SAROUNDUP(X) \
       (((struct sockaddr *)(X))->sa_family == AF_INET ?   \
         ROUNDUP(sizeof(struct sockaddr_in)):\
          (((struct sockaddr *)(X))->sa_family == AF_LINK ? \
@@ -221,6 +235,8 @@ ifm_read (struct if_msghdr *ifm)
 {
   struct interface *ifp = NULL;
   struct sockaddr_dl *sdl = NULL;
+  void *cp;
+  unsigned int i;
   char ifname[IFNAMSIZ];
 
   /* paranoia: sanity check structure */
@@ -232,91 +248,55 @@ ifm_read (struct if_msghdr *ifm)
     }
 
   /*
-   * Check for a sockaddr_dl following the message.
+   * Check for a sockaddr_dl following the message.  First, point to
+   * where a socakddr might be if one follows the message.
    */
+  cp = (void *)(ifm + 1);
+
 #ifdef SUNOS_5
-  int i;
-  struct sockaddr *sa;
-  u_char *cp = (u_char *)(ifm + 1);
-
   /* 
+   * XXX This behavior should be narrowed to only the kernel versions
+   * for which the structures returned do not match the headers.
+   *
    * if_msghdr_t on 64 bit kernels in Solaris 9 and earlier versions
-   * is 12 bytes larger than the 32 bit version, so make adjustment
-   * here.
+   * is 12 bytes larger than the 32 bit version.
    */
-  sa = (struct sockaddr *)cp;
-  if (sa->sa_family == AF_UNSPEC)
+  if (((struct sockaddr *) cp)->sa_family == AF_UNSPEC)
   	cp = cp + 12;
-
-  for (i = 1; i != 0; i <<= 1) 
-    {
-      if (i & ifm->ifm_addrs) 
-        {
-          sa = (struct sockaddr *)cp;
-          cp += WRAPUP(sa);
-	  if (i & RTA_IFP)
-	    {
-	      sdl = (struct sockaddr_dl *)sa;
-	      break;
-            }
-        }
-    }
-  /*
-   * After here, If RTA_IFP was set in ifm_addrs, sdl should point to
-   * the sockaddr_dl.
-   */
-#else
-  /* sockaddrs_present? */
-  if (ifm->ifm_addrs)
-    {
-      if (ifm->ifm_addrs == RTA_IFP)
-	{
-	  /* just the one we want */
-	  sdl = (struct sockaddr_dl *)(ifm + 1);
-	}
-      else
-	{
-	  /*
-	   * Not strictly an error, but more complicated parsing than
-	   * is implemented is required to handle this case.
-	   */
-	  zlog_err ("ifm_read: addrs %x != RTA_IFP (unhandled, ignoring)\n",
-		    ifm->ifm_addrs);
-	  return -1;
-      }
-    }
-  /*
-   * Past here, either ifm_addrs == 0 or ifm_addrs == RTA_IFP and sdl
-   * points to a RTA_IFP sockaddr.
-   */
 #endif
 
-  /* Check that sdl, if present, is actually a sockaddr_dl before use. */
-  if (sdl != NULL)
-    switch (sdl->sdl_family)
-      {
-      case AF_LINK:
-	/* Standard AF for link-layer address sockaddrs. */
-      case AF_DLI:
-	/*
-	 * XXX Comment in NetBSD net/if_dl.h says AF_DLI, but this
-	 * seems wrong.  Accept it for now.
-	 */
-	break;
+  /* 
+   * Check for each sockaddr in turn, advancing over it.  After this
+   * loop, sdl should point to a sockaddr_dl iff one was present.
+   */
+  for (i = 1; i != 0; i <<= 1) 
+    {
+      if (i & ifm->ifm_addrs)
+        {
+	  if (i == RTA_IFP)
+	    {
+	      sdl = (struct sockaddr_dl *)cp;
+	      break;
+            }
+	  cp += SAROUNDUP(cp);
+        }
+    }
 
-      default:
-	zlog_err ("ifm_read: sockaddr_dl bad AF %d\n",
-		  sdl->sdl_family);
-	return -1;
-      }
+  /* Ensure that sdl, if present, is actually a sockaddr_dl. */
+  if (sdl != NULL && sdl->sdl_family != AF_LINK)
+    {
+      zlog_err ("ifm_read: sockaddr_dl bad AF %d\n",
+		sdl->sdl_family);
+      return -1;
+    }
 
   /* 
-   * Look up on ifindex.  This is useful if this is an up/down
-   * notification for an interface of which we are already aware.
-   * (This happens on NetBSD 1.6.2, for example.)
+   * Look up on ifindex first, because ifindices are the primary
+   * handle for interfaces across the user/kernel boundary.  (Some
+   * messages, such as up/down status changes on NetBSD, do not
+   * include a sockaddr_dl).
    */
-  if (ifp == NULL)
-    ifp = if_lookup_by_index (ifm->ifm_index);
+  ifp = if_lookup_by_index (ifm->ifm_index);
 
   /* 
    * If lookup by index was unsuccessful and we have a name, try
@@ -348,28 +328,25 @@ ifm_read (struct if_msghdr *ifm)
    */
   if ((ifp == NULL) || (ifp->ifindex == -1))
     {
-      /* Check interface's address.*/
-      if (! (ifm->ifm_addrs & RTA_IFP))
+      /*
+       * To create or fill in an interface, a sockaddr_dl (via
+       * RTA_IFP) is required.
+       */
+      if (sdl == NULL)
 	{
-	  zlog_warn ("Interface index %d (new) missing RTA_IFP sockaddr\n",
+	  zlog_warn ("Interface index %d (new) missing RTA_IFP sockaddr_dl\n",
 		     ifm->ifm_index);
 	  return -1;
 	}
 
-      /*
-       * paranoia: sdl-finding code above guarantees that sdl is
-       * non-NULL and valid if RTA_IFP is set in ifm_addrs, so this
-       * check is in theory not necessary.
-       */
-      if (sdl == NULL)
-	{
-	  zlog_warn ("ifm_read: no sockaddr_dl present");
-	  return -1;
-	}
-
       if (ifp == NULL)
+	/* Interface that zebra was not previously aware of, so create. */ 
       	ifp = if_create (sdl->sdl_data, sdl->sdl_nlen);
 
+      /* 
+       * Fill in newly created interface structure, or larval
+       * structure with ifindex -1.
+       */
       ifp->ifindex = ifm->ifm_index;
       ifp->flags = ifm->ifm_flags;
 #if defined(__bsdi__)
@@ -379,13 +356,11 @@ ifm_read (struct if_msghdr *ifm)
 #endif /* __bsdi__ */
       if_get_metric (ifp);
 
-      /* Fetch hardware address. */
-      if (sdl->sdl_family != AF_LINK)
-	{
-	  zlog_warn ("sockaddr_dl->sdl_family is not AF_LINK");
-	  return -1;
-	}
-      /* XXX sockaddr_dl can be larger than base structure */
+      /* 
+       * XXX sockaddr_dl contents can be larger than the structure
+       * definition, so the user of the stored structure must be
+       * careful not to read off the end.
+       */
       memcpy (&ifp->sdl, sdl, sizeof (struct sockaddr_dl));
 
       if_add_update (ifp);
@@ -438,7 +413,7 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
 #define IFAMADDRGET(X,R) \
     if (ifm->ifam_addrs & (R)) \
       { \
-        int len = WRAPUP(pnt); \
+        int len = SAROUNDUP(pnt); \
         if (((X) != NULL) && af_check (((struct sockaddr *)pnt)->sa_family)) \
           memcpy ((caddr_t)(X), pnt, len); \
         pnt += len; \
@@ -446,7 +421,7 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
 #define IFAMMASKGET(X,R) \
     if (ifm->ifam_addrs & (R)) \
       { \
-	int len = WRAPUP(pnt); \
+	int len = SAROUNDUP(pnt); \
         if ((X) != NULL) \
 	  memcpy ((caddr_t)(X), pnt, len); \
 	pnt += len; \
@@ -554,7 +529,7 @@ rtm_read_mesg (struct rt_msghdr *rtm,
 #define RTMADDRGET(X,R) \
     if (rtm->rtm_addrs & (R)) \
       { \
-	int len = WRAPUP (pnt); \
+	int len = SAROUNDUP (pnt); \
         if (((X) != NULL) && af_check (((struct sockaddr *)pnt)->sa_family)) \
 	  memcpy ((caddr_t)(X), pnt, len); \
 	pnt += len; \
@@ -562,7 +537,7 @@ rtm_read_mesg (struct rt_msghdr *rtm,
 #define RTMMASKGET(X,R) \
     if (rtm->rtm_addrs & (R)) \
       { \
-	int len = WRAPUP (pnt); \
+	int len = SAROUNDUP (pnt); \
         if ((X) != NULL) \
 	  memcpy ((caddr_t)(X), pnt, len); \
 	pnt += len; \

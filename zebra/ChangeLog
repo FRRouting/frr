@@ -1,10 +1,18 @@
 2004-01-05  Greg Troxel  <gdt@fnord.ir.bbn.com>
+	* kernel_socket.c (ifm_read): Major cleanup.  Use Sowmini's code
+	to find the sockaddr_dl in all cases, narrowing the Solaris ifdef
+	to just the accomodation of broken kernels.  Check sockaddr_dl
+	carefully up front, and later assume any non-NULL sdl pointer is
+	valid.  Clean up types and variable declarations, and rename
+	WRAPUP to SAROUNDUP to make the name fit the behavior.
+
+2004-01-05  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* kernel_socket.c (kernel_read): Add a sockaddr_dl to the ifmsg
 	structure, because on Solaris sockaddr_dl is far larger than the
 	base sockaddr structure.  (The code had previously been failing to
 	read all the data.)
-
+	
 2004-01-05  Greg Troxel  <gdt@ahi.ir.bbn.com>
 
 	* kernel_socket.c (kernel_read): Look up interfaces by index
