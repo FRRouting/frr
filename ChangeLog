@@ -1,3 +1,9 @@
+2004-04-06 Hasso Tepper <hasso@estpak.ee>
+	
+	* zebra/ipforward_proc.c: Fixed lowering privileges.
+	* zebra/zserv.c: Fixed "(no) ipv6 forwarding" command logic.
+	* configure.ac: Added --disable-capabilities switch to configure.
+
 2004-03-22 Hasso Tepper <hasso@estpak.ee>
 
 	* Readded SIGTERM handling so daemons can clean up their stuff if they

@@ -1919,8 +1919,15 @@ DEFUN (ipv6_forwarding,
 {
   int ret;
 
-  ret = ipforward_ipv6_on ();
+  ret = ipforward_ipv6 ();
   if (ret != 0)
+    {
+      vty_out (vty, "IPv6 forwarding is already on%s", VTY_NEWLINE);
+      return CMD_ERR_NOTHING_TODO;
+    }
+
+  ret = ipforward_ipv6_on ();
+  if (ret == 0)
     {
       vty_out (vty, "Can't turn on IPv6 forwarding%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -1937,6 +1944,13 @@ DEFUN (no_ipv6_forwarding,
        "Turn off IPv6 forwarding")
 {
   int ret;
+
+  ret = ipforward_ipv6 ();
+  if (ret == 0)
+    {
+      vty_out (vty, "IP forwarding is already off%s", VTY_NEWLINE);
+      return CMD_ERR_NOTHING_TODO;
+    }
 
   ret = ipforward_ipv6_off ();
   if (ret != 0)

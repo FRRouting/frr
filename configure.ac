@@ -124,6 +124,8 @@ AC_ARG_ENABLE(logfile_mask,
 
 AC_ARG_ENABLE(rtadv,
 [  --disable-rtadv         disable IPV6 router advertisement feature])
+AC_ARG_ENABLE(capabilities,
+[  --disable-capabilities        disable using POSIX capabilities])
 
 if test "${enable_broken_aliases}" = "yes"; then
   if test "${enable_netlink}" = "yes"
@@ -970,22 +972,24 @@ AC_TRY_COMPILE([#include <sys/resource.h>
 dnl -------------------
 dnl capabilities checks
 dnl -------------------
-AC_MSG_CHECKING(whether prctl PR_SET_KEEPCAPS is available)
-AC_TRY_COMPILE([#include <sys/prctl.h>],[prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);],
-  [AC_MSG_RESULT(yes)
-   AC_DEFINE(HAVE_PR_SET_KEEPCAPS,,prctl)
-   quagga_ac_keepcaps="yes"],
-   AC_MSG_RESULT(no)
-)
-if test x"${quagga_ac_keepcaps}" = x"yes"; then
-  AC_CHECK_HEADERS(sys/capability.h)
-fi
-if test x"${ac_cv_header_sys_capability_h}" = x"yes"; then
-  AC_CHECK_LIB(cap, cap_init, 
-    [AC_DEFINE(HAVE_LCAPS,1,Capabilities)
-     LIBCAP="-lcap"
-    ]
+if test "${enable_capabilities}" != "no"; then
+  AC_MSG_CHECKING(whether prctl PR_SET_KEEPCAPS is available)
+  AC_TRY_COMPILE([#include <sys/prctl.h>],[prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);],
+    [AC_MSG_RESULT(yes)
+     AC_DEFINE(HAVE_PR_SET_KEEPCAPS,,prctl)
+     quagga_ac_keepcaps="yes"],
+     AC_MSG_RESULT(no)
   )
+  if test x"${quagga_ac_keepcaps}" = x"yes"; then
+    AC_CHECK_HEADERS(sys/capability.h)
+  fi
+  if test x"${ac_cv_header_sys_capability_h}" = x"yes"; then
+    AC_CHECK_LIB(cap, cap_init, 
+      [AC_DEFINE(HAVE_LCAPS,1,Capabilities)
+       LIBCAP="-lcap"
+      ]
+    )
+  fi
 fi
 AC_SUBST(LIBCAP)
 
