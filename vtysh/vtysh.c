@@ -779,7 +779,7 @@ DEFUNSH (VTYSH_ALL,
 	 "end",
 	 "End current mode and down to previous mode\n")
 {
-  return vtysh_end (vty);
+  return vtysh_end ();
 }
 
 DEFUNSH (VTYSH_BGPD,
