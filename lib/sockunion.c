@@ -557,7 +557,7 @@ union sockunion *
 sockunion_getsockname (int fd)
 {
   int ret;
-  int len;
+  socklen_t len;
   union
   {
     struct sockaddr sa;
@@ -612,7 +612,7 @@ union sockunion *
 sockunion_getpeername (int fd)
 {
   int ret;
-  int len;
+  socklen_t len;
   union
   {
     struct sockaddr sa;

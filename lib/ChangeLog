@@ -6,7 +6,9 @@
 	* if.c: (connected_add_by_prefix) Add prefix to connected list.
 	  (if_flag_dump) Solaris: Dump IFF_IPv4/6 flag
 	  (if_dump) Dump mtu6 flag, for HAVE_IPV6.
-
+	* command.c: (sockunion_getsockname) use socklen_t for len.
+	  (sockunion_getpeername) ditto.
+	  
 2004-04-21 Boris Kovalenko <boris@tagnet.ru>
 
 	* daemon.c: (daemon) fix check for error return from setsid
