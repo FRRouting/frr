@@ -9,6 +9,7 @@ stamp-h
 stamp-h[0-9]*
 *-stamp
 Makefile
+INSTALL
 .deps
 depcomp
 missing

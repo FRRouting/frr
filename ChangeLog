@@ -3,6 +3,9 @@
 	* configure.ac: Fix AC_CONFIG_FILES, the chmod seems to run for
           every input file, should be only be for vtysh/extract.pl, so that
 	  should be a seperate AC_CONFIG_FILES.
+	* INSTALL: update-autotools, autoreconf -i will install this, remove
+	  the file so it always matches the autoconf which created
+          configure (ie the quagga snapshot producing host).
 
 2004-11-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
