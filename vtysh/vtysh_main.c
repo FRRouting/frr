@@ -35,7 +35,7 @@
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
-
+
 /* VTY shell program name. */
 char *progname;
 
@@ -68,7 +68,7 @@ static char *line_read;
 
 /* Master of threads. */
 struct thread_master *master;
-
+
 /* SIGTSTP handler.  This function care user's ^Z input. */
 void
 sigtstp (int sig)
@@ -134,7 +134,7 @@ signal_init ()
   signal_set (SIGTSTP, sigtstp);
   signal_set (SIGPIPE, SIG_IGN);
 }
-
+
 /* Help information display. */
 static void
 usage (int status)
@@ -157,14 +157,14 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 /* VTY shell options, we use GNU getopt library. */
 struct option longopts[] = 
 {
-  { "boot",                no_argument,             NULL, 'b'},
+  { "boot",                 no_argument,             NULL, 'b'},
   /* For compatibility with older zebra/quagga versions */
   { "eval",                 required_argument,       NULL, 'e'},
   { "command",              required_argument,       NULL, 'c'},
   { "help",                 no_argument,             NULL, 'h'},
   { 0 }
 };
-
+
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
 char *
 vtysh_rl_gets ()
@@ -194,7 +194,7 @@ vtysh_rl_gets ()
      
   return (line_read);
 }
-
+
 /* VTY shell main routine. */
 int
 main (int argc, char **argv, char **env)

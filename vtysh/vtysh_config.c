@@ -184,11 +184,11 @@ vtysh_config_parse_line (char *line)
       else if (strncmp (line, "router rip", strlen ("router rip")) == 0)
 	config = config_get (RIP_NODE, line);
       else if (strncmp (line, "router ripng", strlen ("router ripng")) == 0)
-   config = config_get (RIPNG_NODE, line);
+	config = config_get (RIPNG_NODE, line);
       else if (strncmp (line, "router ospf", strlen ("router ospf")) == 0)
-   config = config_get (OSPF_NODE, line);
+	config = config_get (OSPF_NODE, line);
       else if (strncmp (line, "router ospf6", strlen ("router ospf6")) == 0)
-   config = config_get (OSPF6_NODE, line);
+	config = config_get (OSPF6_NODE, line);
       else if (strncmp (line, "router bgp", strlen ("router bgp")) == 0)
 	config = config_get (BGP_NODE, line);
       else if (strncmp (line, "router isis", strlen ("router isis")) == 0)
@@ -200,11 +200,11 @@ vtysh_config_parse_line (char *line)
       else if (strncmp (line, "access-list", strlen ("access-list")) == 0)
 	config = config_get (ACCESS_NODE, line);
       else if (strncmp (line, "ipv6 access-list", strlen ("ipv6 access-list")) == 0)
-   config = config_get (ACCESS_IPV6_NODE, line);
+	config = config_get (ACCESS_IPV6_NODE, line);
       else if (strncmp (line, "ip prefix-list", strlen ("ip prefix-list")) == 0)
 	config = config_get (PREFIX_NODE, line);
       else if (strncmp (line, "ipv6 prefix-list", strlen ("ipv6 prefix-list")) == 0)
-   config = config_get (PREFIX_IPV6_NODE, line);
+	config = config_get (PREFIX_IPV6_NODE, line);
       else if (strncmp (line, "ip as-path access-list", strlen ("ip as-path access-list")) == 0)
 	config = config_get (AS_LIST_NODE, line);
       else if (strncmp (line, "ip community-list", strlen ("ip community-list")) == 0)
@@ -284,7 +284,7 @@ vtysh_config_dump (FILE *fp)
 	LIST_LOOP (master, config, nn)
 	  {
 	    fprintf (fp, "%s\n", config->name);
-            fflush (fp);
+	    fflush (fp);
 
 	    LIST_LOOP (config->line, line, nm)
 	      {

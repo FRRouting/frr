@@ -45,7 +45,7 @@ struct vtysh_client
 {
   int fd;
 } vtysh_client[VTYSH_INDEX_MAX];
-
+
 /* When '^Z' is received from vty, move down to the enable mode. */
 int
 vtysh_end ()
@@ -94,24 +94,24 @@ DEFUNSH (VTYSH_ALL,
 }
 
 DEFUNSH (VTYSH_ALL,
-       vtysh_log_file,
-       vtysh_log_file_cmd,
-       "log file FILENAME",
-       "Logging control\n"
-       "Logging to file\n"
-       "Logging filename\n")
+	 vtysh_log_file,
+	 vtysh_log_file_cmd,
+	 "log file FILENAME",
+	 "Logging control\n"
+	 "Logging to file\n"
+	 "Logging filename\n")
 {
   return CMD_SUCCESS;
 }
 
 DEFUNSH (VTYSH_ALL,
-       no_vtysh_log_file,
-       no_vtysh_log_file_cmd,
-       "no log file [FILENAME]",
-       NO_STR
-       "Logging control\n"
-       "Cancel logging to file\n"
-       "Logging file name\n")
+	 no_vtysh_log_file,
+	 no_vtysh_log_file_cmd,
+	 "no log file [FILENAME]",
+	 NO_STR
+	 "Logging control\n"
+	 "Cancel logging to file\n"
+	 "Logging file name\n")
 {
   return CMD_SUCCESS;
 }
@@ -421,14 +421,14 @@ vtysh_execute_func (char *line, int pager)
 	    if (cmd_stat != CMD_WARNING)
 	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_BGP],
 					       line, fp);
-      if (cmd_stat != CMD_WARNING)
-        cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS], line, fp);
+	    if (cmd_stat != CMD_WARNING)
+	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS], line, fp);
 	    if (cmd_stat)
 	      {
-                line = "end";
-                vline = cmd_make_strvec (line);
+		line = "end";
+		vline = cmd_make_strvec (line);
 
-                if (vline == NULL)
+		if (vline == NULL)
 		  {
 		    if (pager && vtysh_pager_name && fp && closepager)
 		      {
@@ -441,17 +441,17 @@ vtysh_execute_func (char *line, int pager)
 		    return;
 		  }
 
-                ret = cmd_execute_command (vline, vty, &cmd);
-                cmd_free_strvec (vline);
-                if (ret != CMD_SUCCESS_DAEMON)
-                  break;
+		ret = cmd_execute_command (vline, vty, &cmd);
+		cmd_free_strvec (vline);
+		if (ret != CMD_SUCCESS_DAEMON)
+		  break;
 	      }
 	    else
 	      if (cmd->func)
 		{
 		  (*cmd->func) (cmd, vty, 0, NULL);
 		  break;
-                }
+		}
 	  }
 
 	if (cmd->daemon & VTYSH_ZEBRA)
@@ -478,10 +478,10 @@ vtysh_execute_func (char *line, int pager)
 	  if (vtysh_client_execute (&vtysh_client[VTYSH_INDEX_BGP], line, fp)
 	      != CMD_SUCCESS)
 	    break;
-  if (cmd->daemon & VTYSH_ISISD)
-    if (vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS], line, fp)
-        != CMD_SUCCESS)
-      break;
+	if (cmd->daemon & VTYSH_ISISD)
+	  if (vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS], line, fp)
+	      != CMD_SUCCESS)
+	    break;
 	if (cmd->func)
 	  (*cmd->func) (cmd, vty, 0, NULL);
       }
@@ -602,10 +602,10 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	      if (vtysh_client_execute (&vtysh_client[VTYSH_INDEX_BGP],
 					vty->buf, stdout) != CMD_SUCCESS)
 		break;
-      if (cmd->daemon & VTYSH_ISISD)
-        if (vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS],
-          vty->buf, stdout) != CMD_SUCCESS)
-    break;
+	    if (cmd->daemon & VTYSH_ISISD)
+	      if (vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS],
+					vty->buf, stdout) != CMD_SUCCESS)
+		break;
 	    if (cmd->func)
 	      (*cmd->func) (cmd, vty, 0, NULL);
 	  }
@@ -684,12 +684,12 @@ vtysh_rl_describe ()
 
 	if (! desc->str)
 	  fprintf (stdout,"  %-s\n",
-		  desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd);
+		   desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd);
 	else
 	  fprintf (stdout,"  %-*s  %s\n",
-		  width,
-		  desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
-		  desc->str);
+		   width,
+		   desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
+		   desc->str);
       }
 
   cmd_free_strvec (vline);
@@ -956,12 +956,12 @@ DEFUNSH (VTYSH_OSPF6D,
 }
 
 DEFUNSH (VTYSH_ISISD,
-   router_isis,
-   router_isis_cmd,
-   "router isis WORD",
-   ROUTER_STR
-   "ISO IS-IS\n"
-   "ISO Routing area tag")
+	 router_isis,
+	 router_isis_cmd,
+	 "router isis WORD",
+	 ROUTER_STR
+	 "ISO IS-IS\n"
+	 "ISO Routing area tag")
 {
   vty->node = ISIS_NODE;
   return CMD_SUCCESS;
@@ -1116,10 +1116,10 @@ ALIAS (vtysh_exit_ripd,
        "Exit current mode and down to previous mode\n")
 
 DEFUNSH (VTYSH_RIPNGD,
-    vtysh_exit_ripngd,
-    vtysh_exit_ripngd_cmd,
-    "exit",
-    "Exit current mode and down to previous mode\n")
+	 vtysh_exit_ripngd,
+	 vtysh_exit_ripngd_cmd,
+	 "exit",
+	 "Exit current mode and down to previous mode\n")
 {
   return vtysh_exit (vty);
 }
@@ -1172,10 +1172,10 @@ ALIAS (vtysh_exit_ospfd,
        "Exit current mode and down to previous mode\n")
 
 DEFUNSH (VTYSH_OSPF6D,
-    vtysh_exit_ospf6d,
-    vtysh_exit_ospf6d_cmd,
-    "exit",
-    "Exit current mode and down to previous mode\n")
+	 vtysh_exit_ospf6d,
+	 vtysh_exit_ospf6d_cmd,
+	 "exit",
+	 "Exit current mode and down to previous mode\n")
 {
   return vtysh_exit (vty);
 }
@@ -1186,10 +1186,10 @@ ALIAS (vtysh_exit_ospf6d,
        "Exit current mode and down to previous mode\n")
 
 DEFUNSH (VTYSH_ISISD,
-    vtysh_exit_isisd,
-    vtysh_exit_isisd_cmd,
-    "exit",
-    "Exit current mode and down to previous mode\n")
+	 vtysh_exit_isisd,
+	 vtysh_exit_isisd_cmd,
+	 "exit",
+	 "Exit current mode and down to previous mode\n")
 {
   return vtysh_exit (vty);
 }
@@ -1301,12 +1301,12 @@ struct vtysh_writeconfig_t {
 } vtysh_wc = {-1,0};
 
 DEFUN (vtysh_write_config,
-		vtysh_write_config_cmd,
-		"write-config (daemon|integrated)",
-		"Specify config files to write to\n"
-		"Write per daemon file\n"
-		"Write integrated file\n"
-)
+       vtysh_write_config_cmd,
+       "write-config (daemon|integrated)",
+       "Specify config files to write to\n"
+       "Write per daemon file\n"
+       "Write integrated file\n"
+      )
 {
 	if (!strncmp(argv[0],"d",1)) {
 		vtysh_wc.daemon = 1;
@@ -1317,10 +1317,10 @@ DEFUN (vtysh_write_config,
 }
 
 DEFUN (no_vtysh_write_config,
-		no_vtysh_write_config_cmd,
-		"no write-config (daemon|integrated)",
-		"Negate per daemon and/or integrated config files\n"
-)
+       no_vtysh_write_config_cmd,
+       "no write-config (daemon|integrated)",
+       "Negate per daemon and/or integrated config files\n"
+      )
 {
 	if (!strncmp(argv[0],"d",1)) {
 		vtysh_wc.daemon = 0;
@@ -1441,7 +1441,7 @@ ALIAS (vtysh_write_terminal,
        "show running-config",
        SHOW_STR
        "Current operating configuration\n")
-
+
 /* Execute command in child process. */
 int
 execute_command (char *command, int argc, char *arg1, char *arg2)
@@ -1606,7 +1606,7 @@ DEFUN (vtysh_start_zsh,
   execute_command ("zsh", 0, NULL, NULL);
   return CMD_SUCCESS;
 }
-
+
 /* Route map node structure. */
 struct cmd_node rmap_node =
 {
@@ -1676,7 +1676,7 @@ struct cmd_node keychain_key_node =
   KEYCHAIN_KEY_NODE,
   "%s(config-keychain-key)# "
 };
-
+
 void
 vtysh_install_default (enum node_type node)
 {
