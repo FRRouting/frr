@@ -1,3 +1,9 @@
+2004-10-11 Hasso Tepper <hasso at quagga.net>
+
+	* osp6_top.c, ospf6_top.h: Better handling for router-id. If we use
+	  common one, don't output it into configuration - only statically
+	  configured one.
+
 2004-10-10 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: fix listing of ospf_snmp.c in noinst_HEADERS

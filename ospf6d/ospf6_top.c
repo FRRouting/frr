@@ -311,7 +311,10 @@ DEFUN (ospf6_router_id,
       return CMD_SUCCESS;
     }
 
-  o->router_id = router_id;
+  o->router_id_static = router_id;
+  if (o->router_id  == 0)
+    o->router_id  = router_id;
+
   return CMD_SUCCESS;
 }
 
@@ -618,9 +621,10 @@ config_write_ospf6 (struct vty *vty)
   if (CHECK_FLAG (ospf6->flag, OSPF6_DISABLED))
     return CMD_SUCCESS;
 
-  inet_ntop (AF_INET, &ospf6->router_id, router_id, sizeof (router_id));
+  inet_ntop (AF_INET, &ospf6->router_id_static, router_id, sizeof (router_id));
   vty_out (vty, "router ospf6%s", VNL);
-  vty_out (vty, " router-id %s%s", router_id, VNL);
+  if (ospf6->router_id_static != 0)
+    vty_out (vty, " router-id %s%s", router_id, VNL);
 
   ospf6_redistribute_config_write (vty);
   ospf6_area_config_write (vty);
