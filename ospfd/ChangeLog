@@ -1,3 +1,9 @@
+2004-11-12 Paul Jakma <paul@dishone.st>
+
+	* ospf_ia.c: (process_summary_lsa) Only an ABR has any reason to
+          ignore stub area summary default. Even so it seems a strange
+          check, add a comment to that effect.
+
 2004-11-04 Paul Jakma <paul@dishone.st>
 
 	* ospfd.c: (ospf_network_match_iface) revert to previous network

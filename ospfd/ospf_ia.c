@@ -241,7 +241,12 @@ process_summary_lsa (struct ospf_area *area, struct route_table *rt,
       ospf_area_range_active (range))
     return 0;
 
-  if (ospf->abr_type != OSPF_ABR_STAND &&
+  /* XXX: This check seems dubious to me. If an ABR has already decided
+   * to consider summaries received in this area, then why would one wish
+   * to exclude default? 
+   */
+  if (IS_OSPF_ABR(ospf) && 
+      ospf->abr_type != OSPF_ABR_STAND &&
       area->external_routing != OSPF_AREA_DEFAULT &&
       p.prefix.s_addr == OSPF_DEFAULT_DESTINATION &&
       p.prefixlen == 0)
