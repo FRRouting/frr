@@ -2341,11 +2341,11 @@ ospf_read (struct thread *thread)
   iph = (struct ip *) STREAM_DATA (ibuf);
   sockopt_iphdrincl_swab_systoh (iph);
 
-  /* openbsd lacks IP_RECVIF */
-#if !(defined(IP_PKTINFO) || defined(IP_RECVIF))
   if (ifp == NULL)
+    /* Handle cases where the platform does not support retrieving the ifindex,
+       and also platforms (such as Solaris 8) that claim to support ifindex
+       retrieval but do not. */
     ifp = if_lookup_address (iph->ip_src);
-#endif /* !((defined(IP_PKTINFO) || defined(IP_RECVIF)) */
   
   if (ifp == NULL)
     {

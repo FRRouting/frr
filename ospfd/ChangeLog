@@ -1,3 +1,9 @@
+2004-12-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_packet.c: (ospf_read) Always look up the interface if
+	  ospf_recv_packet returns NULL ifp, since some platforms such
+	  as Solaris 8 appear to support ifindex retrieval but don't.
+
 2004-12-22 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_dump.c: Show debug configuration in vtysh.
