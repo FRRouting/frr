@@ -1929,7 +1929,7 @@ ospf_recv_packet (int fd, struct interface **ifp)
   iov.iov_len = ip_len;
   ret = recvmsg (fd, &msgh, 0);
   
-  ifindex = getsockopt_pktinfo_ifindex (AF_INET, &msgh);
+  ifindex = getsockopt_ifindex (AF_INET, &msgh);
   
   *ifp = if_lookup_by_index (ifindex);
 
