@@ -809,6 +809,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_IFINDEX))
     {
       api.ifindex_num = stream_getc (s);
+      /* XXX assert(api.ifindex_num == 1); */
       ifindex = stream_getl (s);
     }
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_DISTANCE))
