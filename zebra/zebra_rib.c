@@ -1575,11 +1575,14 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, char *ifname,
     rn->info = si->next;
   if (si->next)
     si->next->prev = si->prev;
+  route_unlock_node (rn);
   
   /* Free static route configuration. */
   if (ifname)
     XFREE (0, si->gate.ifname);
   XFREE (MTYPE_STATIC_IPV4, si);
+
+  route_unlock_node (rn);
 
   return 1;
 }
