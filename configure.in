@@ -224,6 +224,33 @@ dnl ----------
 dnl PAM module
 dnl ----------
 if test "$with_libpam" = "yes"; then
+  AC_MSG_CHECKING(security/pam_misc.h)
+  AC_CHECK_HEADER(security/pam_misc.h)
+  if test "$ac_cv_header_security_pam_misc_h" = yes; then
+    AC_DEFINE(HAVE_PAM_MISC_H,,Have pam_misc.h)
+    AC_DEFINE(PAM_CONV_FUNC,misc_conv,Have misc_conv)
+    pam_conv_func="misc_conv"
+    AC_MSG_RESULT(yes)
+  else
+    AC_MSG_RESULT(no)
+  fi
+  AC_MSG_CHECKING(security/openpam.h)
+  AC_CHECK_HEADER(security/openpam.h)
+  if test "$ac_cv_header_security_openpam_h" = yes; then
+    AC_DEFINE(HAVE_OPENPAM_H,,Have openpam.h)
+    AC_DEFINE(PAM_CONV_FUNC,openpam_ttyconv,Have openpam_ttyconv)
+    pam_conv_func="openpam_ttyconv"
+    AC_MSG_RESULT(yes)
+  else
+    AC_MSG_RESULT(no)
+  fi
+  if test -z "$ac_cv_header_security_pam_misc_h$ac_cv_header_security_openpam_h" ; then
+    AC_MSG_WARN([*** pam support will not be built ***])
+    with_libpam="no"
+  fi
+fi
+
+if test "$with_libpam" = "yes"; then
 dnl took this test from proftpd's configure.in and suited to our needs
 dnl -------------------------------------------------------------------------
 dnl
@@ -232,7 +259,7 @@ dnl of the PAM library.  Prior to 0.72 release, the Linux PAM shared library
 dnl omitted requiring libdl linking information. PAM-0.72 or better ships
 dnl with RedHat 6.2 and Debian 2.2 or better.
 AC_CHECK_LIB(pam, pam_start,
-  [AC_CHECK_LIB(pam, misc_conv,
+  [AC_CHECK_LIB(pam, $pam_conv_func,
     [AC_DEFINE(USE_PAM,,Use PAM for authentication)
      LIBPAM="-lpam"],
     [AC_DEFINE(USE_PAM,,Use PAM for authentication)
@@ -241,7 +268,7 @@ AC_CHECK_LIB(pam, pam_start,
   ],
 
   [AC_CHECK_LIB(pam, pam_end,
-    [AC_CHECK_LIB(pam, misc_conv,
+    [AC_CHECK_LIB(pam, $pam_conv_func,
       [AC_DEFINE(USE_PAM)
        LIBPAM="-lpam -ldl"],
       [AC_DEFINE(USE_PAM)
@@ -844,7 +871,8 @@ if test "${localstatedir}" = '${prefix}/var'; then
   [for ZEBRA_SOCK_DIR in ${ac_sock_prefix}/var/run/zebra dnl
                      ${ac_sock_prefix}/var/run	dnl
                      ${ac_sock_prefix}/var/adm	dnl
-                     ${ac_sock_prefix}/tmp;      dnl
+                     ${ac_sock_prefix}/tmp      dnl
+		     /tmp /var/tmp; dnl
   do
     test -d $ZEBRA_SOCK_DIR && break
   done
