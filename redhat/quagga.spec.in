@@ -106,6 +106,17 @@ developing OSPF-API and quagga applications.
 %setup  -q
 
 %build
+
+# For standard gcc verbosity, uncomment these lines:
+#CFLAGS="%{optflags} -Wall -Wsign-compare -Wpointer-arith"
+#CFLAGS="${CFLAGS} -Wbad-function-cast -Wwrite-strings"
+
+# For ultra gcc verbosity, uncomment these lines also:
+#CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"
+#CFLAGS="${CFLAGS} -Wmissing-declarations -Wmissing-noreturn"
+#CFLAGS="${CFLAGS} -Wmissing-format-attribute -Wunreachable-code"
+#CFLAGS="${CFLAGS} -Wpacked -Wpadded"
+
 %configure \
 %if !%{with_shared}
 	--disable-shared \
