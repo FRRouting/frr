@@ -3,11 +3,8 @@
 # When local system does not have the latest autoconf/automake
 #        -- Kunihiro Ishiguro <kunihiro@zebra.org>
 #
-rm -f config.cache
-rm -f Makefile.in
-rm -f aclocal.m4
-rm -f config.h.in
-rm -f configure
+rm -f config.cache Makefile.in aclocal.m4 config.h.in
+rm -f autom4te.cache configure
 aclocal
 autoheader
 autoconf
