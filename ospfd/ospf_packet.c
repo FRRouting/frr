@@ -348,7 +348,6 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
   unsigned char digest[OSPF_AUTH_MD5_SIZE];
   struct md5_ctx ctx;
   void *ibuf;
-  unsigned long oldputp;
   u_int32_t t;
   struct crypt_key *ck;
   char *auth_key;
@@ -381,10 +380,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
   md5_finish_ctx (&ctx, digest);
 
   /* Append md5 digest to the end of the stream. */
-  oldputp = stream_get_putp (op->s);
-  stream_set_putp (op->s, ntohs (ospfh->length));
   stream_put (op->s, digest, OSPF_AUTH_MD5_SIZE);
-  stream_set_putp (op->s, oldputp);
 
   /* We do *NOT* increment the OSPF header length. */
   op->length = ntohs (ospfh->length) + OSPF_AUTH_MD5_SIZE;
@@ -2643,7 +2639,7 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
   /* Set Designated Router. */
   stream_put_ipv4 (s, DR (oi).s_addr);
 
-  p = s->putp;
+  p = stream_get_putp (s);
 
   /* Set Backup Designated Router. */
   stream_put_ipv4 (s, BDR (oi).s_addr);
@@ -2668,10 +2664,7 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
 
   /* Let neighbor generate BackupSeen. */
   if (flag == 1)
-    {
-      stream_set_putp (s, p);
-      stream_put_ipv4 (s, 0);
-    }
+    stream_putl_at (s, p, 0); /* ipv4 address, normally */
 
   return length;
 }
@@ -2729,8 +2722,7 @@ ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
 	{
 	  nbr->dd_flags &= ~OSPF_DD_FLAG_M;
 	  /* Set DD flags again */
-	  stream_set_putp (s, pp);
-	  stream_putc (s, nbr->dd_flags);
+	  stream_putc_at (s, pp, nbr->dd_flags);
 	}
       return length;
     }
@@ -2905,10 +2897,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
     }
 
   /* Now set #LSAs. */
-  stream_set_putp (s, pp);
-  stream_putl (s, count);
-
-  stream_set_putp (s, s->endp);
+  stream_putl_at (s, pp, count);
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_make_ls_upd: Stop");
