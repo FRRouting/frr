@@ -1,3 +1,7 @@
+2004-09-21 LIU Xin <lx at ns.6test.edu.cn>
+
+	* isis_dr.c: Update dis_record of adjacencies when isisd becomes DIS.
+
 2004-09-21 Hasso Tepper <hasso at quagga.net>
 
 	* isis_lsp.c: Put IPv4 prefixes into reachability TLVs, not

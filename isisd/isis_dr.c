@@ -211,8 +211,17 @@ isis_dr_elect (struct isis_circuit *circuit, int level)
       if (!circuit->u.bc.is_dr[level - 1])
 	{
 	  /*
-	   * We are the DR -> commence
+	   * We are the DR
 	   */
+
+	  /* rotate the history log */
+	  for (node = listhead (list); node; nextnode (node))
+	    {
+	      adj = getdata (node);
+	      isis_check_dr_change (adj, level);
+	    }
+
+	  /* commence */
 	  list_delete (list);
 	  return isis_dr_commence (circuit, level);
 	}
