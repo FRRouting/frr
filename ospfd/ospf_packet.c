@@ -621,7 +621,8 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 
   /* If incoming interface is passive one, ignore Hello. */
   if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE) {
-    zlog_info ("Packet %s [HELLO:RECV]: oi is passive");
+    zlog_info ("Packet %s [HELLO:RECV]: oi is passive",
+               inet_ntoa (ospfh->router_id));
     return;
   }
 
