@@ -215,7 +215,8 @@ groupadd -r %vty_group 2> /dev/null || :
 zebra_spec_add_service ()
 {
   # Add port /etc/services entry if it isn't already there 
-  if [ -f /etc/services ] && ! grep -q "^$1[^a-zA-Z0-9]" /etc/services ; then
+  if [ -f /etc/services ] && \
+      ! %__sed -e 's/#.*$//' /etc/services | %__grep -wq $1 ; then
     echo "$1		$2			# $3"  >> /etc/services
   fi
 }
