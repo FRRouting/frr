@@ -1883,7 +1883,7 @@ ospf_recv_packet (int fd, struct interface **ifp)
   struct cmsghdr *cmsg;
 #if defined(CMSG_SPACE)
   /* Header and data both require alignment. */
-  char buff [CMSG_SPACE(SIZE_CMSG_IFINDEX_IPV4())];
+  char buff [CMSG_SPACE(SOPT_SIZE_CMSG_IFINDEX_IPV4())];
 #else
   char buff [sizeof (*cmsg) + SOPT_SIZE_CMSG_IFINDEX_IPV4()];
 #endif
