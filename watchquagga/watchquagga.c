@@ -1,5 +1,5 @@
 /*
-    $Id: watchquagga.c,v 1.8 2004/12/29 17:45:08 ajs Exp $
+    $Id: watchquagga.c,v 1.9 2005/01/12 16:24:51 ajs Exp $
 
     Monitor status of quagga daemons and restart if necessary.
 
@@ -484,8 +484,11 @@ run_job(struct restart_info *restart, const char *cmdtype, const char *command,
       return -1;
     }
 
-  if (!force &&
-      (time_elapsed(&delay,&restart->time)->tv_sec < restart->interval))
+  /* Note: time_elapsed test must come before the force test, since we need
+     to make sure that delay is initialized for use below in updating the
+     restart interval. */
+  if ((time_elapsed(&delay,&restart->time)->tv_sec < restart->interval) &&
+      !force)
     {
       if (gs.loglevel > LOG_DEBUG+1)
         zlog_debug("postponing %s %s: "
@@ -861,7 +864,7 @@ phase_check(void)
 	for (dmn = gs.daemons; dmn; dmn = dmn->next)
 	  {
 	    if (dmn != gs.special)
-	      run_job(&dmn->restart,"start",gs.start_command,1,1);
+	      run_job(&dmn->restart,"start",gs.start_command,1,0);
 	  }
       }
       gs.phase = PHASE_NONE;
@@ -923,7 +926,7 @@ try_restart(struct daemon *dmn)
     for (dmn = gs.daemons; dmn; dmn = dmn->next)
       {
         if (dmn != gs.special)
-	  run_job(&dmn->restart,"stop",gs.stop_command,1,0);
+	  run_job(&dmn->restart,"stop",gs.stop_command,1,1);
       }
     set_phase(PHASE_STOPS_PENDING);
     break;

@@ -1,3 +1,14 @@
+2005-01-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* watchquagga.c: (run_job) Fix bug: delay.tv_sec was being used
+	  without having been initialized when the "force" argument was true.
+	  (try_restart) When phased restart is stopping the routing daemons,
+	  it should tell run_job to update the restart interval.
+	  (phase_check) In final step of phased restart when the routing
+	  daemons are being started again, tell run_job not to update
+	  the restart interval (this is now done when the daemons are
+	  stopped).
+
 2004-12-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* watchquagga.c: In several places, cast pid_t to int for printf to
