@@ -22,6 +22,7 @@ aclocal.m4
 Makefile.in
 zebra-[0-9.][0-9.][0-9.]*.tar.gz
 quagga-[0-9.][0-9.][0-9.]*.tar.gz
+quagga-[0-9.][0-9.][0-9.]*.tar.gz.asc
 .nfs*
 libtool
 .arch-inventory
