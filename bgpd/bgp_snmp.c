@@ -476,7 +476,7 @@ bgpPeerTable (struct variable *v, oid name[], size_t *length,
 	return SNMP_INTEGER (BGP_PeerAdmin_start);
       break;
     case BGPPEERNEGOTIATEDVERSION:
-      return SNMP_INTEGER (peer->version);
+      return SNMP_INTEGER (BGP_VERSION_4);
       break;
     case BGPPEERLOCALADDR:
       if (peer->su_local)

@@ -994,14 +994,6 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
       stream_forward (s, (snpa_len + 1) >> 1);
     }
   
-  /* If peer is based on old draft-00. I read NLRI length from the
-     packet. */
-  if (peer->version == BGP_VERSION_MP_4_DRAFT_00)
-    {
-      bgp_size_t nlri_total_len;
-      nlri_total_len = stream_getw (s);
-    }
-
   nlri_len = lim - stream_pnt (s);
  
   if (safi != BGP_SAFI_VPNV4)
@@ -1538,7 +1530,6 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   if (p->family == AF_INET6)
     {
       unsigned long sizep;
-      unsigned long draftp = 0;
 
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
       stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
@@ -1560,29 +1551,17 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       /* SNPA */
       stream_putc (s, 0);
 
-      /* In case of old draft BGP-4+. */
-      if (peer->version == BGP_VERSION_MP_4_DRAFT_00)
-	{
-	  draftp = stream_get_putp (s);
-	  stream_putw (s, 0);
-	}
-      
       /* Prefix write. */
       stream_put_prefix (s, p);
 
       /* Set MP attribute length. */
       stream_putc_at (s, sizep, (stream_get_putp (s) - sizep) - 1);
-
-      /* In case of old draft BGP-4+. */
-      if (peer->version == BGP_VERSION_MP_4_DRAFT_00)
-	stream_putw_at (s, draftp, (stream_get_putp (s) - draftp) - 2);
     }
 #endif /* HAVE_IPV6 */
 
   if (p->family == AF_INET && safi == SAFI_MULTICAST)
     {
       unsigned long sizep;
-      unsigned long draftp = 0;
 
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
       stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
@@ -1597,28 +1576,16 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       /* SNPA */
       stream_putc (s, 0);
 
-      /* In case of old draft BGP-4+. */
-      if (peer->version == BGP_VERSION_MP_4_DRAFT_00)
-	{
-	  draftp = stream_get_putp (s);
-	  stream_putw (s, 0);
-	}
-      
       /* Prefix write. */
       stream_put_prefix (s, p);
 
       /* Set MP attribute length. */
       stream_putc_at (s, sizep, (stream_get_putp (s) - sizep) - 1);
-
-      /* In case of old draft BGP-4+. */
-      if (peer->version == BGP_VERSION_MP_4_DRAFT_00)
-	stream_putw_at (s, draftp, (stream_get_putp (s) - draftp) - 2);
     }
 
   if (p->family == AF_INET && safi == SAFI_MPLS_VPN)
     {
       unsigned long sizep;
-      unsigned long draftp = 0;
 
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
       stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
@@ -1635,13 +1602,6 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       /* SNPA */
       stream_putc (s, 0);
 
-      /* In case of old draft BGP-4+. */
-      if (peer->version == BGP_VERSION_MP_4_DRAFT_00)
-	{
-	  draftp = stream_get_putp (s);
-	  stream_putw (s, 0);
-	}
-      
       /* Tag, RD, Prefix write. */
       stream_putc (s, p->prefixlen + 88);
       stream_put (s, tag, 3);
@@ -1650,10 +1610,6 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 
       /* Set MP attribute length. */
       stream_putc_at (s, sizep, (stream_get_putp (s) - sizep) - 1);
-
-      /* In case of old draft BGP-4+. */
-      if (peer->version == BGP_VERSION_MP_4_DRAFT_00)
-	stream_putw_at (s, draftp, (stream_get_putp (s) - draftp) - 2);
     }
 
   /* Extended Communities attribute. */

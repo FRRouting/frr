@@ -286,6 +286,17 @@ DEFUN (no_auto_summary,
 {
   return CMD_SUCCESS;
 }
+
+DEFUN_DEPRECATED (neighbor_version,
+		  neighbor_version_cmd,
+		  NEIGHBOR_CMD "version (4|4-)",
+		  NEIGHBOR_STR
+		  NEIGHBOR_ADDR_STR
+		  "Set the BGP version to match a neighbor\n"
+		  "Neighbor's BGP version\n")
+{
+  return CMD_SUCCESS;
+}
 
 /* "router bgp" commands. */
 DEFUN (router_bgp, 
@@ -3090,56 +3101,6 @@ ALIAS (no_neighbor_advertise_interval,
        NEIGHBOR_ADDR_STR
        "Minimum interval between sending BGP routing updates\n"
        "time in seconds\n")
-
-int
-peer_version_vty (struct vty *vty, const char *ip_str, const char *str)
-{
-  int ret;
-  struct peer *peer;
-  int version = BGP_VERSION_4;
-
-  peer = peer_lookup_vty (vty, ip_str);
-  if (! peer)
-    return CMD_WARNING;
-
-  /* BGP version string check. */
-  if (str)
-    {
-      if (strcmp (str, "4") == 0)
-	version = BGP_VERSION_4;
-      else if (strcmp (str, "4-") == 0)
-	version = BGP_VERSION_MP_4_DRAFT_00;
-
-      ret = peer_version_set (peer, version);
-    }
-  else
-    ret = peer_version_unset (peer);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (neighbor_version,
-       neighbor_version_cmd,
-       NEIGHBOR_CMD "version (4|4-)",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
-       "Neighbor's BGP version\n"
-       "Border Gateway Protocol 4\n"
-       "Multiprotocol Extensions for BGP-4(Old Draft)\n")
-{
-  return peer_version_vty (vty, argv[0], argv[1]);
-}
-
-DEFUN (no_neighbor_version,
-       no_neighbor_version_cmd,
-       NO_NEIGHBOR_CMD "version",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
-       "Neighbor's BGP version\n")
-{
-  return peer_version_vty (vty, argv[0], NULL);
-}
 
 /* neighbor interface */
 int
@@ -6438,15 +6399,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
 	  else
 	    vty_out (vty, "%*s", len, " ");
 
-	  switch (peer->version) 
-	    {
-	    case BGP_VERSION_4:
-	      vty_out (vty, "4 ");
-	      break;
-	    case BGP_VERSION_MP_4_DRAFT_00:
-	      vty_out (vty, "4-");
-	      break;
-	    }
+	  vty_out (vty, "4 ");
 
 	  vty_out (vty, "%5d %7d %7d %8d %4d %4ld ",
 		   peer->as,
@@ -6982,8 +6935,6 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 
   /* BGP Version. */
   vty_out (vty, "  BGP version 4");
-  if (p->version == BGP_VERSION_MP_4_DRAFT_00)
-    vty_out (vty, "(with draft-00 verion of multiporotocol extension)");
   vty_out (vty, ", remote router ID %s%s", 
 	   inet_ntop (AF_INET, &p->remote_id, buf1, BUFSIZ),
 	   VTY_NEWLINE);
@@ -7615,15 +7566,7 @@ bgp_write_rsclient_summary (struct vty *vty, struct peer *rsclient,
   else
     vty_out (vty, "%*s", len, " ");
 
-  switch (rsclient->version)
-    {
-      case BGP_VERSION_4:
-        vty_out (vty, "4 ");
-        break;
-      case BGP_VERSION_MP_4_DRAFT_00:
-        vty_out (vty, "4-");
-        break;
-    }
+  vty_out (vty, "4 ");
 
   vty_out (vty, "%5d ", rsclient->as);
 
@@ -8933,7 +8876,6 @@ bgp_vty_init ()
 
   /* "neighbor version" commands. */
   install_element (BGP_NODE, &neighbor_version_cmd);
-  install_element (BGP_NODE, &no_neighbor_version_cmd);
 
   /* "neighbor interface" commands. */
   install_element (BGP_NODE, &neighbor_interface_cmd);

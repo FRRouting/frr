@@ -705,7 +705,6 @@ peer_new ()
   peer->v_asorig = BGP_DEFAULT_ASORIGINATE;
   peer->status = Idle;
   peer->ostatus = Idle;
-  peer->version = BGP_VERSION_4;
   peer->weight = 0;
 
   /* Set default flags.  */
@@ -3061,24 +3060,6 @@ peer_advertise_interval_unset (struct peer *peer)
   return 0;
 }
 
-int
-peer_version_set (struct peer *peer, int version)
-{
-  if (version != BGP_VERSION_4 && version != BGP_VERSION_MP_4_DRAFT_00)
-    return BGP_ERR_INVALID_VALUE;
-
-  peer->version = version;
-
-  return 0;
-}
-
-int
-peer_version_unset (struct peer *peer)
-{
-  peer->version = BGP_VERSION_4;
-  return 0;
-}
-
 /* neighbor interface */
 int
 peer_interface_set (struct peer *peer, const char *str)
@@ -4349,11 +4330,6 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	  vty_out (vty, " neighbor %s update-source %s%s", addr,
 		   sockunion2str (peer->update_source, buf, SU_ADDRSTRLEN),
 		   VTY_NEWLINE);
-
-      /* BGP version print. */
-      if (peer->version == BGP_VERSION_MP_4_DRAFT_00)
-	vty_out (vty, " neighbor %s version %s%s",
-		 addr,"4-", VTY_NEWLINE);
 
       /* advertisement-interval */
       if (CHECK_FLAG (peer->config, PEER_CONFIG_ROUTEADV))

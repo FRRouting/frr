@@ -288,7 +288,6 @@ struct peer
   char *update_if;
   union sockunion *update_source;
   struct zlog *log;
-  u_char version;		/* Peer BGP version. */
 
   union sockunion *su_local;	/* Sockunion of local address.  */
   union sockunion *su_remote;	/* Sockunion of remote address.  */
@@ -520,7 +519,6 @@ struct bgp_nlri
 
 /* BGP versions.  */
 #define BGP_VERSION_4		                 4
-#define BGP_VERSION_MP_4_DRAFT_00               40
 
 /* Default BGP port number.  */
 #define BGP_PORT_DEFAULT                       179
@@ -866,9 +864,6 @@ int peer_timers_connect_unset (struct peer *);
 
 int peer_advertise_interval_set (struct peer *, u_int32_t);
 int peer_advertise_interval_unset (struct peer *);
-
-int peer_version_set (struct peer *, int);
-int peer_version_unset (struct peer *);
 
 int peer_interface_set (struct peer *, const char *);
 int peer_interface_unset (struct peer *);
