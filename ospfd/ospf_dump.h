@@ -96,7 +96,7 @@
 	(term_debug_ospf_ ## a & OSPF_DEBUG_ ## b)
 #define IS_DEBUG_OSPF_EVENT IS_DEBUG_OSPF(event,EVENT)
 
-#define IS_DEBUG_OSPF_NSSA  IS_DEBUG_OSPF(event,NSSA)
+#define IS_DEBUG_OSPF_NSSA  IS_DEBUG_OSPF(nssa,NSSA)
 
 #define IS_CONF_DEBUG_OSPF_PACKET(a, b) \
 	(conf_debug_ospf_packet[a] & OSPF_DEBUG_ ## b)
