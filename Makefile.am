@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in.
 
 SUBDIRS = lib @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ \
-         @ISISD@ @VTYSH@ @OSPFCLIENT@ pkgsrc redhat doc
+         @ISISD@ @VTYSH@ @OSPFCLIENT@ @pkgsrcdir@ redhat doc
 
 DIST_SUBDIRS = lib zebra bgpd ripd ripngd ospfd ospf6d \
 	  isisd vtysh ospfclient doc pkgsrc redhat tests

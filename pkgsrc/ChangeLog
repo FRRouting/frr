@@ -1,0 +1,15 @@
+2004-08-31  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* Rename scripts to *.sh.in, and use autoconf-style substitution
+	  for prefix and localstatedir.
+	
+2004-08-31  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* Makefile.am: Only put pkgsrc dir in SUBDIRS if we should install
+	  rc.d files.  (Note that pkgsrc is always in DIST_SUBDIRS.)
+
+	* configure.ac (pkgsrcdir): add new --enable-pkgsrcrcdir to give a
+	  directory into which www.pkgsrc.org-style rc.d files are
+	  installed.
+
+

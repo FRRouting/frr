@@ -1,12 +1,12 @@
 #!/bin/sh
 #
-# ospfd is part of the quagga routing beast
+# bgpd is part of the quagga routing beast
 #
-# PROVIDE: ospfd
+# PROVIDE: bgpd
 # REQUIRE: zebra
 ##
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin:@PREFIX@/sbin:@PREFIX@/bin
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:@prefix@/sbin:@prefix@/bin
 export PATH
 
 if [ -f /etc/rc.subr ]
@@ -14,14 +14,14 @@ then
 	. /etc/rc.subr
 fi
 
-name="ospfd"
+name="bgpd"
 rcvar=$name
-required_files="@PKG_SYSCONFDIR@/${name}.conf"
-command="@PREFIX@/sbin/${name}"
+required_files="@sysconfdir@/${name}.conf"
+command="@prefix@/sbin/${name}"
 command_args="-d"
 
 start_precmd="zebra_precmd"
-socket_dir=/var/run/zebra
+socket_dir=@localstatedir@
 pidfile="${socket_dir}/${name}.pid"
 
 zebra_precmd()
