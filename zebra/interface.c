@@ -1109,6 +1109,16 @@ DEFUN (ip_address_label,
   return ip_address_install (vty, vty->index, argv[0], NULL, argv[1], 1);
 }
 
+ALIAS (ip_address_label,
+       ip_address_secondary_label_cmd,
+       "ip address A.B.C.D/M secondary label LINE",
+       "Interface Internet Protocol config commands\n"
+       "Set the IP address of an interface\n"
+       "IP address (e.g. 10.0.0.1/8)\n"
+       "Secondary IP address\n"
+       "Label of this address\n"
+       "Label\n")
+
 DEFUN (no_ip_address_secondary,
        no_ip_address_secondary_cmd,
        "no ip address A.B.C.D/M secondary",
@@ -1133,6 +1143,17 @@ DEFUN (no_ip_address_label,
 {
   return ip_address_uninstall (vty, vty->index, argv[0], NULL, argv[1], 1);
 }
+
+ALIAS (no_ip_address_label,
+       no_ip_address_secondary_label_cmd,
+       "no ip address A.B.C.D/M secondary label LINE",
+       NO_STR
+       "Interface Internet Protocol config commands\n"
+       "Set the IP address of an interface\n"
+       "IP address (e.g. 10.0.0.1/8)\n"
+       "Secondary IP address\n"
+       "Label of this address\n"
+       "Label\n")
 #endif /* HAVE_NETLINK */
 
 #ifdef HAVE_IPV6
@@ -1427,7 +1448,9 @@ zebra_if_init ()
 #ifdef HAVE_NETLINK
   install_element (INTERFACE_NODE, &ip_address_secondary_cmd);
   install_element (INTERFACE_NODE, &ip_address_label_cmd);
+  install_element (INTERFACE_NODE, &ip_address_secondary_label_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_secondary_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_label_cmd);
+  install_element (INTERFACE_NODE, &no_ip_address_secondary_label_cmd);
 #endif /* HAVE_NETLINK */
 }

@@ -1,4 +1,10 @@
+2004-04-18  Hasso Tepper <hasso@estpak.ee>
+
+	* interface.c: Temporary fix for handling secondary addresses
+	  with label.
+
 2004-02-12  Hasso Tepper  <hasso@estpak.ee>
+
 	* zserv.c: Added "ipv6 forwarding" command.
 
 2004-01-08  Greg Troxel  <gdt@fnord.ir.bbn.com>
