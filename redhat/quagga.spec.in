@@ -36,6 +36,9 @@
 %define		daemon_list	zebra ripd isisd ospfd bgpd
 %endif
 
+# allow build dir to be kept
+%define		keep_build	0
+
 Summary: Routing daemon
 Name:		quagga
 Version:	@VERSION@
@@ -250,7 +253,9 @@ if [ "$1" = "0" ]; then
 fi
 
 %clean
-#rm -rf $RPM_BUILD_ROOT
+%if !%{keep_build}
+rm -rf $RPM_BUILD_ROOT
+%endif
 
 %files
 %defattr(-,root,root)

@@ -32,7 +32,7 @@ TCP/IP routing protocols.
 This is Edition @value{EDITION}, last updated @value{UPDATED} of
 @cite{The Quagga Manual}, for Quagga Version @value{VERSION}.
 
-Copyright (C) 1999, 2000, 2001, 2002 Kunihiro Ishiguro
+Copyright (C) 1999-2004 Kunihiro Ishiguro, et al.
 
 Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -65,7 +65,7 @@ approved by Kunihiro Ishiguro.
 
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1999, 2000, 2001, 2002 Kunihiro Ishiguro
+Copyright @copyright{} 1999-2004 Kunihiro Ishiguro, et al.
 
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -114,6 +114,8 @@ quagga-@value{VERSION}. Quagga is a fork of GNU Zebra.
 * Command Index::               
 * VTY Key Index::               
 @end menu
+@summarycontents
+@contents
 
 @include overview.texi
 @include install.texi
@@ -145,6 +147,4 @@ quagga-@value{VERSION}. Quagga is a fork of GNU Zebra.
 
 @printindex ky
 
-@summarycontents
-@contents
 @bye

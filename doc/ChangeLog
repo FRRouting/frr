@@ -1,5 +1,10 @@
 2004-09-11 Paul Jakma <paul@dishone.st>
 
+	* quagga.texi: Update copyright. Contents should be at beginning
+	  of docs...
+
+2004-09-11 Paul Jakma <paul@dishone.st>
+
 	* ospfd.texi: OSPF MD5 auth requires stable time.
 
 2004-08-31 Hasso Tepper <hasso at quagga.net>
