@@ -5,7 +5,7 @@ LOCAL_OPTS =-DSUPPORT_OSPF_API
 DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 
-noinst_LIBRARIES = libospf.a
+lib_LIBRARIES = libospf.a
 sbin_PROGRAMS = ospfd
 
 libospf_a_SOURCES = \
@@ -15,12 +15,16 @@ libospf_a_SOURCES = \
 	ospf_lsdb.c ospf_asbr.c ospf_routemap.c ospf_snmp.c \
 	ospf_opaque.c ospf_te.c ospf_vty.c ospf_api.c ospf_apiserver.c
 
+ospfdheaderdir = $(includedir)/ospfd
+
+ospfdheader_HEADERS = \
+	ospf_api.h ospf_asbr.h ospf_dump.h ospf_lsa.h ospf_lsdb.h \
+	ospf_nsm.h ospf_ism.h ospf_opaque.h ospfd.h
+
 noinst_HEADERS = \
-	ospf_dump.h ospf_interface.h ospf_ism.h ospf_neighbor.h \
-	ospf_network.h ospf_nsm.h ospf_packet.h ospf_zebra.h ospfd.h \
-	ospf_lsa.h ospf_spf.h ospf_route.h ospf_ase.h ospf_abr.h ospf_ia.h \
-	ospf_flood.h ospf_lsdb.h ospf_asbr.h ospf_snmp.h ospf_opaque.h \
-	ospf_te.h ospf_vty.h ospf_api.h ospf_apiserver.h
+	ospf_interface.h ospf_neighbor.h ospf_network.h ospf_packet.h \
+	ospf_zebra.h ospf_spf.h ospf_route.h ospf_ase.h ospf_abr.h ospf_ia.h \
+	ospf_flood.h ospf_snmp.h ospf_te.h ospf_vty.h ospf_apiserver.h
 
 ospfd_SOURCES = \
 	ospf_main.c $(libospf_a_SOURCES)

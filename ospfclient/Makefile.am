@@ -2,13 +2,15 @@
 
 INCLUDES = -I../lib -I../
 
-noinst_LIBRARIES = libospfapiclient.a
+lib_LIBRARIES = libospfapiclient.a
 sbin_PROGRAMS = ospfclient
 
 libospfapiclient_a_SOURCES = \
 	ospf_apiclient.c
 
-noinst_HEADERS = \
+ospfapiheaderdir = $(includedir)/ospfapi
+
+ospfapiheader_HEADERS = \
 	ospf_apiclient.h
 
 ospfclient_SOURCES = \

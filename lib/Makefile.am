@@ -3,7 +3,7 @@
 INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 
-noinst_LIBRARIES = libzebra.a
+lib_LIBRARIES = libzebra.a
 
 libzebra_a_SOURCES = \
 	version.c network.c pid_output.c getopt.c getopt1.c daemon.c \
