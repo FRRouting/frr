@@ -1411,9 +1411,21 @@ desc_unique_string (vector v, char *str)
   return 0;
 }
 
+int 
+cmd_try_do_shortcut (enum node_type node, char* first_word) {
+  if ( first_word != NULL &&
+       node != AUTH_NODE &&
+       node != VIEW_NODE &&
+       node != AUTH_ENABLE_NODE &&
+       node != ENABLE_NODE &&
+       0 == strcmp( "do", first_word ) )
+    return 1;
+  return 0;
+}
+
 /* '?' describe command support. */
 vector
-cmd_describe_command (vector vline, struct vty *vty, int *status)
+cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 {
   int i;
   vector cmd_vector;
@@ -1536,6 +1548,40 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
   return matchvec;
 }
 
+vector
+cmd_describe_command (vector vline, struct vty *vty, int *status)
+{
+  vector ret;
+
+  if ( cmd_try_do_shortcut(vty->node, vector_slot(vline, 0) ) )
+    {
+      enum node_type onode;
+      vector shifted_vline;
+      int index;
+
+      onode = vty->node;
+      vty->node = ENABLE_NODE;
+      /* We can try it on enable node, cos' the vty is authenticated */
+
+      shifted_vline = vector_init (vector_count(vline));
+      /* use memcpy? */
+      for (index = 1; index < vector_max (vline); index++) 
+	{
+	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
+	}
+
+      ret = cmd_describe_command_real (shifted_vline, vty, status);
+
+      vector_free(shifted_vline);
+      vty->node = onode;
+      return ret;
+  }
+
+
+  return cmd_describe_command_real (vline, vty, status);
+}
+
+
 /* Check LCD of matched command. */
 int
 cmd_lcd (char **matched)
@@ -1571,7 +1617,7 @@ cmd_lcd (char **matched)
 
 /* Command line completion support. */
 char **
-cmd_complete_command (vector vline, struct vty *vty, int *status)
+cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 {
   int i;
   vector cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
@@ -1717,9 +1763,59 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
   return match_str;
 }
 
+char **
+cmd_complete_command (vector vline, struct vty *vty, int *status)
+{
+  char **ret;
+
+  if ( cmd_try_do_shortcut(vty->node, vector_slot(vline, 0) ) )
+    {
+      enum node_type onode;
+      vector shifted_vline;
+      int index;
+
+      onode = vty->node;
+      vty->node = ENABLE_NODE;
+      /* We can try it on enable node, cos' the vty is authenticated */
+
+      shifted_vline = vector_init (vector_count(vline));
+      /* use memcpy? */
+      for (index = 1; index < vector_max (vline); index++) 
+	{
+	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
+	}
+
+      ret = cmd_complete_command_real (shifted_vline, vty, status);
+
+      vector_free(shifted_vline);
+      vty->node = onode;
+      return ret;
+  }
+
+
+  return cmd_complete_command_real (vline, vty, status);
+}
+
+/* return parent node */
+/* MUST eventually converge on CONFIG_NODE */
+enum node_type node_parent ( enum node_type node )
+{
+  enum node_type ret;
+
+  switch ( node ) {
+  case KEYCHAIN_KEY_NODE:
+    ret = KEYCHAIN_NODE;
+    break;
+  default:
+    ret = CONFIG_NODE;
+    }
+
+  return ret;
+}
+
 /* Execute command by argument vline vector. */
 int
-cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd)
+cmd_execute_command_real (vector vline, struct vty *vty, struct cmd_element **cmd)
 {
   int i;
   int index;
@@ -1840,6 +1936,59 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd)
 
   /* Execute matched command. */
   return (*matched_element->func) (matched_element, vty, argc, argv);
+}
+
+
+int
+cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd) {
+  int ret;
+  enum node_type onode = vty->node;
+
+  if ( cmd_try_do_shortcut(vty->node, vector_slot(vline, 0) ) )
+    {
+      vector shifted_vline;
+      int index;
+
+      vty->node = ENABLE_NODE;
+      /* We can try it on enable node, cos' the vty is authenticated */
+
+      shifted_vline = vector_init (vector_count(vline));
+      /* use memcpy? */
+      for (index = 1; index < vector_max (vline); index++) 
+	{
+	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
+	}
+
+      ret = cmd_execute_command_real (shifted_vline, vty, cmd);
+
+      vector_free(shifted_vline);
+      vty->node = onode;
+      return ret;
+  }
+
+
+  ret = cmd_execute_command_real (vline, vty, cmd);
+
+  /* This assumes all nodes above CONFIG_NODE are childs of CONFIG_NODE */
+  if ( ret != CMD_SUCCESS && ret != CMD_WARNING 
+	  && vty->node > CONFIG_NODE )
+    {
+      /* XXX try node_parent(vty->node)? */
+      vty->node = CONFIG_NODE;
+      ret = cmd_execute_command_real (vline, vty, cmd);
+      if (ret != CMD_SUCCESS && ret != CMD_WARNING)
+	{
+	  /* if the command changed the node dont reset it */
+	  if( vty->node == CONFIG_NODE )
+	    vty->node = onode;
+	  return ret;
+	}
+      else
+	if( vty->node == CONFIG_NODE )
+	  vty->node = onode;
+      /* if the command changed the node dont reset it */
+    }
+  return ret;
 }
 
 /* Execute command by argument readline. */
@@ -1981,27 +2130,13 @@ config_from_file (struct vty *vty, FILE *fp)
       ret = cmd_execute_command_strict (vline, vty, NULL);
 
       /* Try again with setting node to CONFIG_NODE */
-      if (ret != CMD_SUCCESS && ret != CMD_WARNING)
+      while (ret != CMD_SUCCESS && ret != CMD_WARNING
+	     && vty->node != CONFIG_NODE)
 	{
-	  if (vty->node == KEYCHAIN_KEY_NODE)
-	    {
-	      vty->node = KEYCHAIN_NODE;
-
-	      ret = cmd_execute_command_strict (vline, vty, NULL);
-
-	      if (ret != CMD_SUCCESS && ret != CMD_WARNING)
-		{
-		  vty->node = CONFIG_NODE;
-		  ret = cmd_execute_command_strict (vline, vty, NULL);
-		}
-	    }
-	  else
-	    {
-	      vty->node = CONFIG_NODE;
-	      ret = cmd_execute_command_strict (vline, vty, NULL);
-	    }
+	  vty->node = node_parent(vty->node);
+	  ret = cmd_execute_command_strict (vline, vty, NULL);
 	}	  
-
+      
       cmd_free_strvec (vline);
 
       if (ret != CMD_SUCCESS && ret != CMD_WARNING)
