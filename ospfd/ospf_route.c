@@ -586,8 +586,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
 
 	  cur_or->cost = cost;
 
-	  list_delete (cur_or->paths);
-	  cur_or->paths = NULL;
+	  list_delete_all_node (cur_or->paths);
 
 	  ospf_route_copy_nexthops_from_vertex (cur_or, v);
 
