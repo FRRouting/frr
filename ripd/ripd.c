@@ -226,7 +226,7 @@ rip_incoming_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 			     (struct prefix *) p) == FILTER_DENY)
 	{
 	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_info ("%s/%d filtered by distribute in",
+	    zlog_debug ("%s/%d filtered by distribute in",
 		       inet_ntoa (p->prefix), p->prefixlen);
 	  return -1;
 	}
@@ -237,7 +237,7 @@ rip_incoming_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 			     (struct prefix *) p) == PREFIX_DENY)
 	{
 	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_info ("%s/%d filtered by prefix-list in",
+	    zlog_debug ("%s/%d filtered by prefix-list in",
 		       inet_ntoa (p->prefix), p->prefixlen);
 	  return -1;
 	}
@@ -257,7 +257,7 @@ rip_incoming_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 				     (struct prefix *) p) == FILTER_DENY)
 		{
 		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_info ("%s/%d filtered by distribute in",
+		    zlog_debug ("%s/%d filtered by distribute in",
 			       inet_ntoa (p->prefix), p->prefixlen);
 		  return -1;
 		}
@@ -273,7 +273,7 @@ rip_incoming_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 				     (struct prefix *) p) == PREFIX_DENY)
 		{
 		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_info ("%s/%d filtered by prefix-list in",
+		    zlog_debug ("%s/%d filtered by prefix-list in",
 			       inet_ntoa (p->prefix), p->prefixlen);
 		  return -1;
 		}
@@ -296,7 +296,7 @@ rip_outgoing_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 			     (struct prefix *) p) == FILTER_DENY)
 	{
 	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_info ("%s/%d is filtered by distribute out",
+	    zlog_debug ("%s/%d is filtered by distribute out",
 		       inet_ntoa (p->prefix), p->prefixlen);
 	  return -1;
 	}
@@ -307,7 +307,7 @@ rip_outgoing_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 			     (struct prefix *) p) == PREFIX_DENY)
 	{
 	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_info ("%s/%d is filtered by prefix-list out",
+	    zlog_debug ("%s/%d is filtered by prefix-list out",
 		       inet_ntoa (p->prefix), p->prefixlen);
 	  return -1;
 	}
@@ -327,7 +327,7 @@ rip_outgoing_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 				     (struct prefix *) p) == FILTER_DENY)
 		{
 		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_info ("%s/%d filtered by distribute out",
+		    zlog_debug ("%s/%d filtered by distribute out",
 			       inet_ntoa (p->prefix), p->prefixlen);
 		  return -1;
 		}
@@ -343,7 +343,7 @@ rip_outgoing_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 				     (struct prefix *) p) == PREFIX_DENY)
 		{
 		  if (IS_RIP_DEBUG_PACKET)
-		    zlog_info ("%s/%d filtered by prefix-list out",
+		    zlog_debug ("%s/%d filtered by prefix-list out",
 			       inet_ntoa (p->prefix), p->prefixlen);
 		  return -1;
 		}
@@ -435,7 +435,7 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
       if (ret == RMAP_DENYMATCH)
         {
           if (IS_RIP_DEBUG_PACKET)
-            zlog_info ("RIP %s/%d is filtered by route-map in",
+            zlog_debug ("RIP %s/%d is filtered by route-map in",
                        inet_ntoa (p.prefix), p.prefixlen);
           return;
         }
@@ -471,7 +471,7 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
   if (rip_nexthop_check (nexthop) < 0)
     {
       if (IS_RIP_DEBUG_PACKET)
-        zlog_info ("Nexthop address %s is myself", inet_ntoa (*nexthop));
+        zlog_debug ("Nexthop address %s is myself", inet_ntoa (*nexthop));
       return;
     }
 
@@ -693,7 +693,7 @@ rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
     command_str = "unknown";
 
   /* Dump packet header. */
-  zlog_info ("%s %s version %d packet size %d",
+  zlog_debug ("%s %s version %d packet size %d",
 	     sndrcv, command_str, packet->version, size);
 
   /* Dump each routing table entry. */
@@ -711,7 +711,7 @@ rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
 		{
 		  p = (u_char *)&rte->prefix;
 
-		  zlog_info ("  family 0x%X type %d auth string: %s",
+		  zlog_debug ("  family 0x%X type %d auth string: %s",
 			     ntohs (rte->family), ntohs (rte->tag), p);
 		}
               else if (rte->tag == htons (RIP_AUTH_MD5))
@@ -720,22 +720,22 @@ rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
 
 		  md5 = (struct rip_md5_info *) &packet->rte;
 
-		  zlog_info ("  family 0x%X type %d (MD5 authentication)",
+		  zlog_debug ("  family 0x%X type %d (MD5 authentication)",
 			     ntohs (md5->family), ntohs (md5->type));
-		  zlog_info ("    RIP-2 packet len %d Key ID %d"
+		  zlog_debug ("    RIP-2 packet len %d Key ID %d"
                              " Auth Data len %d",
                              ntohs (md5->packet_len), md5->keyid,
                              md5->auth_len);
-                  zlog_info ("    Sequence Number %ld",
+                  zlog_debug ("    Sequence Number %ld",
                              (u_long) ntohl (md5->sequence));
 		}
               else if (rte->tag == htons (RIP_AUTH_DATA))
 		{
 		  p = (u_char *)&rte->prefix;
 
-		  zlog_info ("  family 0x%X type %d (MD5 data)",
+		  zlog_debug ("  family 0x%X type %d (MD5 data)",
 			     ntohs (rte->family), ntohs (rte->tag));
-		  zlog_info ("    MD5: %02X%02X%02X%02X%02X%02X%02X%02X"
+		  zlog_debug ("    MD5: %02X%02X%02X%02X%02X%02X%02X%02X"
 			     "%02X%02X%02X%02X%02X%02X%02X",
                              p[0], p[1], p[2], p[3], p[4], p[5], p[6],
                              p[7], p[9], p[10], p[11], p[12], p[13],
@@ -743,12 +743,12 @@ rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
 		}
 	      else
 		{
-		  zlog_info ("  family 0x%X type %d (Unknown auth type)",
+		  zlog_debug ("  family 0x%X type %d (Unknown auth type)",
 			     ntohs (rte->family), ntohs (rte->tag));
 		}
             }
 	  else
-	    zlog_info ("  %s/%d -> %s family %d tag %d metric %ld",
+	    zlog_debug ("  %s/%d -> %s family %d tag %d metric %ld",
                        inet_ntop (AF_INET, &rte->prefix, pbuf, BUFSIZ),
                        netmask, inet_ntop (AF_INET, &rte->nexthop, nbuf,
                                            BUFSIZ), ntohs (rte->family),
@@ -756,7 +756,7 @@ rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
 	}
       else
 	{
-	  zlog_info ("  %s family %d tag %d metric %ld", 
+	  zlog_debug ("  %s family %d tag %d metric %ld", 
 		     inet_ntop (AF_INET, &rte->prefix, pbuf, BUFSIZ),
 		     ntohs (rte->family), ntohs (rte->tag),
 		     (u_long)ntohl (rte->metric));
@@ -802,7 +802,7 @@ rip_auth_simple_password (struct rte *rte, struct sockaddr_in *from,
   char *auth_str;
 
   if (IS_RIP_DEBUG_EVENT)
-    zlog_info ("RIPv2 simple password authentication from %s",
+    zlog_debug ("RIPv2 simple password authentication from %s",
 	       inet_ntoa (from->sin_addr));
 
   ri = ifp->info;
@@ -852,7 +852,7 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   char *auth_str = NULL;
   
   if (IS_RIP_DEBUG_EVENT)
-    zlog_info ("RIPv2 MD5 authentication from %s",
+    zlog_debug ("RIPv2 MD5 authentication from %s",
                inet_ntoa (from->sin_addr));
 
   ri = ifp->info;
@@ -870,7 +870,7 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
          || (md5->auth_len == RIP_AUTH_MD5_COMPAT_SIZE)))
     {
       if (IS_RIP_DEBUG_EVENT)
-        zlog_warn ("RIPv2 MD5 authentication, strange authentication "
+        zlog_debug ("RIPv2 MD5 authentication, strange authentication "
                    "length field %d", md5->auth_len);
     return 0;
     }
@@ -881,7 +881,7 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   if (packet_len > (length - RIP_HEADER_SIZE - RIP_AUTH_MD5_SIZE))
     {
       if (IS_RIP_DEBUG_EVENT)
-        zlog_warn ("RIPv2 MD5 authentication, packet length field %d "
+        zlog_debug ("RIPv2 MD5 authentication, packet length field %d "
                    "greater than received length %d!",
                    md5->packet_len, length);
       return 0;
@@ -1165,13 +1165,13 @@ rip_response_process (struct rip_packet *packet, int size,
 		      && rinfo->sub_type == RIP_ROUTE_RTE)
 		    {
 		      if (IS_RIP_DEBUG_EVENT)
-			zlog_info ("Next hop %s is on RIP network.  Set nexthop to the packet's originator", inet_ntoa (rte->nexthop));
+			zlog_debug ("Next hop %s is on RIP network.  Set nexthop to the packet's originator", inet_ntoa (rte->nexthop));
 		      rte->nexthop = rinfo->from;
 		    }
 		  else
 		    {
 		      if (IS_RIP_DEBUG_EVENT)
-			zlog_info ("Next hop %s is not directly reachable. Treat it as 0.0.0.0", inet_ntoa (rte->nexthop));
+			zlog_debug ("Next hop %s is not directly reachable. Treat it as 0.0.0.0", inet_ntoa (rte->nexthop));
 		      rte->nexthop.s_addr = 0;
 		    }
 
@@ -1180,7 +1180,7 @@ rip_response_process (struct rip_packet *packet, int size,
 	      else
 		{
 		  if (IS_RIP_DEBUG_EVENT)
-		    zlog_info ("Next hop %s is not directly reachable. Treat it as 0.0.0.0", inet_ntoa (rte->nexthop));
+		    zlog_debug ("Next hop %s is not directly reachable. Treat it as 0.0.0.0", inet_ntoa (rte->nexthop));
 		  rte->nexthop.s_addr = 0;
 		}
 
@@ -1232,7 +1232,7 @@ rip_response_process (struct rip_packet *packet, int size,
 	      if ((rte->prefix.s_addr & rte->mask.s_addr) != rte->prefix.s_addr)
 		masklen2ip (32, &rte->mask);
 	      if (IS_RIP_DEBUG_EVENT)
-		zlog_info ("Subnetted route %s", inet_ntoa (rte->prefix));
+		zlog_debug ("Subnetted route %s", inet_ntoa (rte->prefix));
 	    }
 	  else
 	    {
@@ -1242,8 +1242,8 @@ rip_response_process (struct rip_packet *packet, int size,
 
 	  if (IS_RIP_DEBUG_EVENT)
 	    {
-	      zlog_info ("Resultant route %s", inet_ntoa (rte->prefix));
-	      zlog_info ("Resultant mask %s", inet_ntoa (rte->mask));
+	      zlog_debug ("Resultant route %s", inet_ntoa (rte->prefix));
+	      zlog_debug ("Resultant mask %s", inet_ntoa (rte->mask));
 	    }
 	}
 
@@ -1265,7 +1265,7 @@ rip_response_process (struct rip_packet *packet, int size,
 	  && (rte->mask.s_addr != 0))
 	{
 	  if (IS_RIP_DEBUG_EVENT)
-	    zlog_info ("Default route with non-zero netmask.  Set zero to netmask");
+	    zlog_debug ("Default route with non-zero netmask.  Set zero to netmask");
 	  rte->mask.s_addr = 0;
 	}
 	  
@@ -1299,7 +1299,7 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
           sin.sin_addr.s_addr = htonl (INADDR_RIP_GROUP);
           strcpy(dst, inet_ntoa(sin.sin_addr));
         }
-      zlog_info("rip_send_packet %s > %s (%s)",
+      zlog_debug("rip_send_packet %s > %s (%s)",
                 inet_ntoa(ifc->address->u.prefix4),
                 dst, ifc->ifp->name);
     }
@@ -1317,7 +1317,7 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
        * source address on non-linux systems.  
        */
       if (IS_RIP_DEBUG_PACKET)
-        zlog_info("duplicate dropped");
+        zlog_debug("duplicate dropped");
       return 0;
     }
 
@@ -1366,7 +1366,7 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
 		sizeof (struct sockaddr_in));
 
   if (IS_RIP_DEBUG_EVENT)
-      zlog_info ("SEND to  %s.%d", inet_ntoa(sin.sin_addr), 
+      zlog_debug ("SEND to  %s.%d", inet_ntoa(sin.sin_addr), 
                   ntohs (sin.sin_port));
 
   if (ret < 0)
@@ -1449,11 +1449,11 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
 
   if (IS_RIP_DEBUG_EVENT) {
     if (!nexthop)
-      zlog_info ("Redistribute new prefix %s/%d on the interface %s",
+      zlog_debug ("Redistribute new prefix %s/%d on the interface %s",
                  inet_ntoa(p->prefix), p->prefixlen,
                  ifindex2ifname(ifindex));
     else
-      zlog_info ("Redistribute new prefix %s/%d with nexthop %s on the interface %s",
+      zlog_debug ("Redistribute new prefix %s/%d with nexthop %s on the interface %s",
                  inet_ntoa(p->prefix), p->prefixlen, inet_ntoa(rinfo->nexthop),
                  ifindex2ifname(ifindex));
   }
@@ -1493,7 +1493,7 @@ rip_redistribute_delete (int type, int sub_type, struct prefix_ipv4 *p,
 	  rinfo->flags |= RIP_RTF_CHANGED;
 
           if (IS_RIP_DEBUG_EVENT)
-            zlog_info ("Poisone %s/%d on the interface %s with an infinity metric [delete]",
+            zlog_debug ("Poisone %s/%d on the interface %s with an infinity metric [delete]",
                        inet_ntoa(p->prefix), p->prefixlen,
                        ifindex2ifname(ifindex));
 
@@ -1709,7 +1709,7 @@ rip_read (struct thread *t)
   if (if_check_address (from.sin_addr)) 
     {
       if (IS_RIP_DEBUG_PACKET)
-	zlog_warn ("ignore packet comes from myself");
+	zlog_debug ("ignore packet comes from myself");
       return -1;
     }
 
@@ -1718,7 +1718,7 @@ rip_read (struct thread *t)
   
   /* RIP packet received */
   if (IS_RIP_DEBUG_EVENT)
-    zlog_info ("RECV packet from %s port %d on %s",
+    zlog_debug ("RECV packet from %s port %d on %s",
 	       inet_ntoa (from.sin_addr), ntohs (from.sin_port),
 	       ifp ? ifp->name : "unknown");
 
@@ -1791,7 +1791,7 @@ rip_read (struct thread *t)
   if (! ri->running && ! rip_neighbor_lookup (&from))
     {
       if (IS_RIP_DEBUG_EVENT)
-	zlog_info ("RIP is not enabled on interface %s.", ifp->name);
+	zlog_debug ("RIP is not enabled on interface %s.", ifp->name);
       rip_peer_bad_packet (&from);
       return -1;
     }
@@ -1805,7 +1805,7 @@ rip_read (struct thread *t)
 	    if (! (vrecv & RIPv1))
 	      {
 		if (IS_RIP_DEBUG_PACKET)
-		  zlog_warn ("  packet's v%d doesn't fit to if version spec", 
+		  zlog_debug ("  packet's v%d doesn't fit to if version spec", 
 			     packet->version);
 		rip_peer_bad_packet (&from);
 		return -1;
@@ -1814,7 +1814,7 @@ rip_read (struct thread *t)
 	    if (! (vrecv & RIPv2))
 	      {
 		if (IS_RIP_DEBUG_PACKET)
-		  zlog_warn ("  packet's v%d doesn't fit to if version spec", 
+		  zlog_debug ("  packet's v%d doesn't fit to if version spec", 
 			     packet->version);
 		rip_peer_bad_packet (&from);
 		return -1;
@@ -1831,7 +1831,7 @@ rip_read (struct thread *t)
       && (packet->rte->family == htons(RIP_FAMILY_AUTH)))
     {
       if (IS_RIP_DEBUG_EVENT)
-	zlog_warn ("packet RIPv%d is dropped because authentication disabled", 
+	zlog_debug ("packet RIPv%d is dropped because authentication disabled", 
 		   packet->version);
       rip_peer_bad_packet (&from);
       return -1;
@@ -1854,7 +1854,7 @@ rip_read (struct thread *t)
       && packet->rte->family == htons(RIP_FAMILY_AUTH))
 	{
 	  if (IS_RIP_DEBUG_PACKET)
-            zlog_warn
+            zlog_debug
               ("packet RIPv%d is dropped because authentication enabled",
                packet->version);
 	  rip_peer_bad_packet (&from);
@@ -1872,7 +1872,7 @@ rip_read (struct thread *t)
 		  if (! ret)
 		    {
 		      if (IS_RIP_DEBUG_EVENT)
-                        zlog_warn
+                        zlog_debug
                           ("RIPv2 simple password authentication failed");
 		      rip_peer_bad_packet (&from);
 		      return -1;
@@ -1880,7 +1880,7 @@ rip_read (struct thread *t)
 		  else
 		    {
 		      if (IS_RIP_DEBUG_EVENT)
-                        zlog_info
+                        zlog_debug
                           ("RIPv2 simple password authentication success");
 		    }
                 }
@@ -1890,14 +1890,14 @@ rip_read (struct thread *t)
 		  if (! ret)
 		    {
 		      if (IS_RIP_DEBUG_EVENT)
-			zlog_warn ("RIPv2 MD5 authentication failed");
+			zlog_debug ("RIPv2 MD5 authentication failed");
 		      rip_peer_bad_packet (&from);
 		      return -1;
 		    }
 		  else
 		    {
 		      if (IS_RIP_DEBUG_EVENT)
-			zlog_info ("RIPv2 MD5 authentication success");
+			zlog_debug ("RIPv2 MD5 authentication success");
 		    }
 		  /* Reset RIP packet length to trim MD5 data. */
 		  len = ret; 
@@ -1905,7 +1905,7 @@ rip_read (struct thread *t)
 	      else
 		{
 		  if (IS_RIP_DEBUG_EVENT)
-		    zlog_warn ("Unknown authentication type %d",
+		    zlog_debug ("Unknown authentication type %d",
 			       ntohs (packet->rte->tag));
 		  rip_peer_bad_packet (&from);
 		  return -1;
@@ -1917,7 +1917,7 @@ rip_read (struct thread *t)
 	      if (ri->auth_str || ri->key_chain)
 		{
 		  if (IS_RIP_DEBUG_EVENT)
-                    zlog_warn
+                    zlog_debug
                       ("RIPv2 authentication failed: no authentication in packet");
 		  rip_peer_bad_packet (&from);
 		  return -1;
@@ -2119,9 +2119,9 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
   if (IS_RIP_DEBUG_EVENT)
     {
       if (to)
-	zlog_info ("update routes to neighbor %s", inet_ntoa (to->sin_addr));
+	zlog_debug ("update routes to neighbor %s", inet_ntoa (to->sin_addr));
       else
-	zlog_info ("update routes on interface %s ifindex %d",
+	zlog_debug ("update routes on interface %s ifindex %d",
 		   ifc->ifp->name, ifc->ifp->ifindex);
     }
 
@@ -2185,7 +2185,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 	    p = (struct prefix_ipv4 *) &rp->p;
 
 	    if (IS_RIP_DEBUG_PACKET)
-	      zlog_info("RIPv1 mask check, %s/%d considered for output",
+	      zlog_debug("RIPv1 mask check, %s/%d considered for output",
 			inet_ntoa (rp->p.u.prefix4), rp->p.prefixlen);
 
 	    if (subnetted &&
@@ -2204,7 +2204,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 		  continue;
 	      }
 	    if (IS_RIP_DEBUG_PACKET)
-	      zlog_info("RIPv1 mask check, %s/%d made it through",
+	      zlog_debug("RIPv1 mask check, %s/%d made it through",
 			inet_ntoa (rp->p.u.prefix4), rp->p.prefixlen);
 	  }
 	else 
@@ -2269,7 +2269,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 	    if (ret == RMAP_DENYMATCH)
 	      {
 	        if (IS_RIP_DEBUG_PACKET)
-	          zlog_info ("RIP %s/%d is filtered by route-map out",
+	          zlog_debug ("RIP %s/%d is filtered by route-map out",
 			     inet_ntoa (p->prefix), p->prefixlen);
 		  continue;
 	      }
@@ -2285,7 +2285,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 	    if (ret == RMAP_DENYMATCH) 
 	      {
 		if (IS_RIP_DEBUG_PACKET)
-		  zlog_info ("%s/%d is filtered by route-map",
+		  zlog_debug ("%s/%d is filtered by route-map",
 			     inet_ntoa (p->prefix), p->prefixlen);
 		continue;
 	      }
@@ -2387,7 +2387,7 @@ rip_update_interface (struct connected *ifc, u_char version, int route_type)
   if (version == RIPv2 && if_is_multicast (ifc->ifp)) 
     {
       if (IS_RIP_DEBUG_EVENT)
-	zlog_info ("multicast announce on %s ", ifc->ifp->name);
+	zlog_debug ("multicast announce on %s ", ifc->ifp->name);
 
       rip_output_process (ifc, NULL, route_type, version);
       return;
@@ -2411,7 +2411,7 @@ rip_update_interface (struct connected *ifc, u_char version, int route_type)
           to.sin_port = htons (RIP_PORT_DEFAULT);
 
           if (IS_RIP_DEBUG_EVENT)
-            zlog_info ("%s announce to %s on %s",
+            zlog_debug ("%s announce to %s on %s",
                        if_is_pointopoint (ifc->ifp) ? "unicast" : "broadcast",
                        inet_ntoa (to.sin_addr), ifc->ifp->name);
 
@@ -2456,10 +2456,10 @@ rip_update_process (int route_type)
 	  if (IS_RIP_DEBUG_EVENT) 
 	    {
 	      if (ifp->name) 
-		zlog_info ("SEND UPDATE to %s ifindex %d",
+		zlog_debug ("SEND UPDATE to %s ifindex %d",
 			   ifp->name, ifp->ifindex);
 	      else
-		zlog_info ("SEND UPDATE to _unknown_ ifindex %d",
+		zlog_debug ("SEND UPDATE to _unknown_ ifindex %d",
 			   ifp->ifindex);
 	    }
 
@@ -2532,7 +2532,7 @@ rip_update (struct thread *t)
   rip->t_update = NULL;
 
   if (IS_RIP_DEBUG_EVENT)
-    zlog_info ("update timer fire!");
+    zlog_debug ("update timer fire!");
 
   /* Process update output. */
   rip_update_process (rip_all_route);
@@ -2600,7 +2600,7 @@ rip_triggered_update (struct thread *t)
 
   /* Logging triggered update. */
   if (IS_RIP_DEBUG_EVENT)
-    zlog_info ("triggered update!");
+    zlog_debug ("triggered update!");
 
   /* Split Horizon processing is done when generating triggered
      updates as well as normal updates (see section 2.6). */
@@ -2648,7 +2648,7 @@ rip_redistribute_withdraw (int type)
 	    if (IS_RIP_DEBUG_EVENT) {
               struct prefix_ipv4 *p = (struct prefix_ipv4 *) &rp->p;
 
-              zlog_info ("Poisone %s/%d on the interface %s with an infinity metric [withdraw]",
+              zlog_debug ("Poisone %s/%d on the interface %s with an infinity metric [withdraw]",
                          inet_ntoa(p->prefix), p->prefixlen,
                          ifindex2ifname(rinfo->ifindex));
 	    }

@@ -1,3 +1,7 @@
+2004-12-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* *.c: Change level of debug messages to LOG_DEBUG.
+
 2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* rip_main.c: (main) The 2nd argument to openzlog has been removed.
