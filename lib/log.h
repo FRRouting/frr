@@ -121,8 +121,8 @@ int zlog_rotate ();
 /* For hackey massage lookup and check */
 #define LOOKUP(x, y) mes_lookup(x, x ## _max, y)
 
-char *lookup (struct message *, int);
-char *mes_lookup (struct message *meslist, int max, int index);
+const char *lookup (struct message *, int);
+const char *mes_lookup (struct message *meslist, int max, int index);
 
 extern const char *zlog_priority[];
 

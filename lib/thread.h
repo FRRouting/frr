@@ -74,7 +74,7 @@ struct thread
 
 struct cpu_thread_history {
   int (*func)(struct thread *);
-  char *funcname;
+  const char *funcname;
   unsigned int total_calls;
   unsigned long total, max;
   unsigned char types;
@@ -138,21 +138,21 @@ struct cpu_thread_history {
 /* Prototypes. */
 struct thread_master *thread_master_create ();
 struct thread *funcname_thread_add_read (struct thread_master *, 
-				int (*)(struct thread *), void *, int, char*);
+				int (*)(struct thread *), void *, int, const char*);
 struct thread *funcname_thread_add_write (struct thread_master *,
-				 int (*)(struct thread *), void *, int, char*);
+				 int (*)(struct thread *), void *, int, const char*);
 struct thread *funcname_thread_add_timer (struct thread_master *,
-				 int (*)(struct thread *), void *, long, char*);
+				 int (*)(struct thread *), void *, long, const char*);
 struct thread *funcname_thread_add_timer_msec (struct thread_master *,
-				 int (*)(struct thread *), void *, long, char*);
+				 int (*)(struct thread *), void *, long, const char*);
 struct thread *funcname_thread_add_event (struct thread_master *,
-				 int (*)(struct thread *), void *, int, char*);
+				 int (*)(struct thread *), void *, int, const char*);
 void thread_cancel (struct thread *);
 void thread_cancel_event (struct thread_master *, void *);
 
 struct thread *thread_fetch (struct thread_master *, struct thread *);
 struct thread *funcname_thread_execute (struct thread_master *,
-			       int (*)(struct thread *), void *, int, char *);
+			       int (*)(struct thread *), void *, int, const char *);
 void thread_call (struct thread *);
 unsigned long thread_timer_remain_second (struct thread *);
 

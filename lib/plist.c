@@ -184,7 +184,7 @@ prefix_list_entry_free (struct prefix_list_entry *pentry)
 static struct prefix_list *
 prefix_list_insert (afi_t afi, char *name)
 {
-  int i;
+  unsigned int i;
   long number;
   struct prefix_list *plist;
   struct prefix_list *point;
@@ -517,7 +517,7 @@ prefix_list_entry_add (struct prefix_list *plist,
 }
 
 /* Return string of prefix_list_type. */
-static char *
+const static char *
 prefix_list_type_str (struct prefix_list_entry *pentry)
 {
   switch (pentry->type)

@@ -29,4 +29,4 @@ EXTRA_DIST = regex.c regex-gnu.h
 
 version.c: Makefile
 	echo '' >version.c
-	echo 'char *host_name = "$(host_alias)";' >>version.c
+	echo 'const char *host_name = "$(host_alias)";' >>version.c

@@ -848,9 +848,10 @@ vty_complete_command (struct vty *vty)
 
 void
 vty_describe_fold (struct vty *vty, int cmd_width,
-                 int desc_width, struct desc *desc)
+		   unsigned int desc_width, struct desc *desc)
 {
-  char *buf, *cmd, *p;
+  char *buf;
+  const char *cmd, *p;
   int pos;
 
   cmd = desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd;
@@ -891,7 +892,7 @@ vty_describe_command (struct vty *vty)
   int ret;
   vector vline;
   vector describe;
-  int i, width, desc_width;
+  unsigned int i, width, desc_width;
   struct desc *desc, *desc_cr = NULL;
 
   vline = cmd_make_strvec (vty->buf);
@@ -934,7 +935,7 @@ vty_describe_command (struct vty *vty)
   for (i = 0; i < vector_max (describe); i++)
     if ((desc = vector_slot (describe, i)) != NULL)
       {
-	int len;
+	unsigned int len;
 
 	if (desc->cmd[0] == '\0')
 	  continue;
@@ -2308,7 +2309,7 @@ vty_read_config (char *config_file,
 void
 vty_log (const char *proto_str, const char *format, va_list va)
 {
-  int i;
+  unsigned int i;
   struct vty *vty;
 
   for (i = 0; i < vector_max (vtyvec); i++)
@@ -2397,7 +2398,7 @@ DEFUN (config_who,
        "who",
        "Display who is on vty\n")
 {
-  int i;
+  unsigned int i;
   struct vty *v;
 
   for (i = 0; i < vector_max (vtyvec); i++)
@@ -2677,7 +2678,7 @@ struct cmd_node vty_node =
 void
 vty_reset ()
 {
-  int i;
+  unsigned int i;
   struct vty *vty;
   struct thread *vty_serv_thread;
 
@@ -2717,7 +2718,7 @@ vty_reset ()
 void
 vty_finish ()
 {
-  int i;
+  unsigned int i;
   struct vty *vty;
   struct thread *vty_serv_thread;
 

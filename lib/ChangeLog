@@ -1,3 +1,8 @@
+2004-10-05 Hasso Tepper <hasso at quagga.net>
+
+	* *.[c|h]: Make many strings cons and a lot of int -> unsigned int
+	  changes to fix warnings.
+
 2004-10-05 Paul Jakma <paul@dishone.st>
 
 	* sockopt.{c,h}: add sockopt_iphdrincl_swab_{htosys,systoh},

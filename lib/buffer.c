@@ -382,7 +382,7 @@ buffer_flush_vty_all (struct buffer *b, int fd, int erase_flag,
 /* Flush buffer to the file descriptor.  Mainly used from vty
    interface. */
 int
-buffer_flush_vty (struct buffer *b, int fd, int size, 
+buffer_flush_vty (struct buffer *b, int fd, unsigned int size, 
 		  int erase_flag, int no_more_flag)
 {
   int nbytes;

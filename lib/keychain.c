@@ -59,7 +59,7 @@ key_free (struct key *key)
 }
 
 struct keychain *
-keychain_lookup (char *name)
+keychain_lookup (const char *name)
 {
   struct listnode *nn;
   struct keychain *keychain;
@@ -76,7 +76,7 @@ keychain_lookup (char *name)
 }
 
 int
-key_cmp_func (struct key *k1, struct key *k2)
+key_cmp_func (const struct key *k1, const struct key *k2)
 {
   if (k1->index > k2->index)
     return 1;
@@ -94,7 +94,7 @@ key_delete_func (struct key *key)
 }
 
 struct keychain *
-keychain_get (char *name)
+keychain_get (const char *name)
 {
   struct keychain *keychain;
 
@@ -125,7 +125,7 @@ keychain_delete (struct keychain *keychain)
 }
 
 struct key *
-key_lookup (struct keychain *keychain, u_int32_t index)
+key_lookup (const struct keychain *keychain, u_int32_t index)
 {
   struct listnode *nn;
   struct key *key;
@@ -139,7 +139,7 @@ key_lookup (struct keychain *keychain, u_int32_t index)
 }
 
 struct key *
-key_lookup_for_accept (struct keychain *keychain, u_int32_t index)
+key_lookup_for_accept (const struct keychain *keychain, u_int32_t index)
 {
   struct listnode *nn;
   struct key *key;
@@ -163,7 +163,7 @@ key_lookup_for_accept (struct keychain *keychain, u_int32_t index)
 }
 
 struct key *
-key_match_for_accept (struct keychain *keychain, char *auth_str)
+key_match_for_accept (const struct keychain *keychain, const char *auth_str)
 {
   struct listnode *nn;
   struct key *key;
@@ -183,7 +183,7 @@ key_match_for_accept (struct keychain *keychain, char *auth_str)
 }
 
 struct key *
-key_lookup_for_send (struct keychain *keychain)
+key_lookup_for_send (const struct keychain *keychain)
 {
   struct listnode *nn;
   struct key *key;
@@ -204,7 +204,7 @@ key_lookup_for_send (struct keychain *keychain)
 }
 
 struct key *
-key_get (struct keychain *keychain, u_int32_t index)
+key_get (const struct keychain *keychain, u_int32_t index)
 {
   struct key *key;
 
@@ -370,17 +370,18 @@ DEFUN (no_key_string,
 /* Convert HH:MM:SS MON DAY YEAR to time_t value.  -1 is returned when
    given string is malformed. */
 time_t 
-key_str2time(char *time_str, char *day_str, char *month_str, char *year_str)
+key_str2time (const char *time_str, const char *day_str, const char *month_str,
+	      const char *year_str)
 {
   int i = 0;
   char *colon;
   struct tm tm;
   time_t time;
-  int sec, min, hour;
-  int day, month, year;
+  unsigned int sec, min, hour;
+  unsigned int day, month, year;
   char *endptr = NULL;
 
-  char *month_name[] = 
+  const char *month_name[] = 
   {
     "January",
     "February",
@@ -466,10 +467,11 @@ key_str2time(char *time_str, char *day_str, char *month_str, char *year_str)
 }
 
 int
-key_lifetime_set (struct vty *vty, struct key_range *krange, char *stime_str,
-		  char *sday_str, char *smonth_str, char *syear_str,
-		  char *etime_str, char *eday_str, char *emonth_str,
-		  char *eyear_str)
+key_lifetime_set (struct vty *vty, struct key_range *krange,
+		  const char *stime_str, const char *sday_str,
+		  const char *smonth_str, const char *syear_str,
+		  const char *etime_str, const char *eday_str,
+		  const char *emonth_str, const char *eyear_str)
 {
   time_t time_start;
   time_t time_end;
@@ -502,8 +504,9 @@ key_lifetime_set (struct vty *vty, struct key_range *krange, char *stime_str,
 
 int
 key_lifetime_duration_set (struct vty *vty, struct key_range *krange,
-			   char *stime_str, char *sday_str, char *smonth_str,
-			   char *syear_str, char *duration_str)
+			   const char *stime_str, const char *sday_str,
+			   const char *smonth_str, const char *syear_str,
+			   const char *duration_str)
 {
   time_t time_start;
   u_int32_t duration;
@@ -531,8 +534,8 @@ key_lifetime_duration_set (struct vty *vty, struct key_range *krange,
 
 int
 key_lifetime_infinite_set (struct vty *vty, struct key_range *krange,
-			   char *stime_str, char *sday_str, char *smonth_str,
-			   char *syear_str)
+			   const char *stime_str, const char *sday_str,
+			   const char *smonth_str, const char *syear_str)
 {
   time_t time_start;
     

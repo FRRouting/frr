@@ -474,7 +474,7 @@ zlog_free_cwd ()
 }
 
 /* Message lookup function. */
-char *
+const char *
 lookup (struct message *mes, int key)
 {
   struct message *pnt;
@@ -488,7 +488,7 @@ lookup (struct message *mes, int key)
 
 /* Very old hacky version of message lookup function.  Still partly
    used in bgpd and ospfd. FIXME Seems that it's not used any more. */
-char *
+const char *
 mes_lookup (struct message *meslist, int max, int index)
 {
   if (index < 0 || index >= max) 

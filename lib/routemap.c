@@ -171,7 +171,7 @@ route_map_get (char *name)
 }
 
 /* Return route map's type string. */
-static char *
+const static char *
 route_map_type_str (enum route_map_type type)
 {
   switch (type)
@@ -426,7 +426,7 @@ route_map_install_set (struct route_map_rule_cmd *cmd)
 struct route_map_rule_cmd *
 route_map_lookup_match (char *name)
 {
-  int i;
+  unsigned int i;
   struct route_map_rule_cmd *rule;
 
   for (i = 0; i < vector_max (route_match_vec); i++)
@@ -440,7 +440,7 @@ route_map_lookup_match (char *name)
 struct route_map_rule_cmd *
 route_map_lookup_set (char *name)
 {
-  int i;
+  unsigned int i;
   struct route_map_rule_cmd *rule;
 
   for (i = 0; i < vector_max (route_set_vec); i++)

@@ -382,7 +382,7 @@ thread_timer_remain_second (struct thread *thread)
 
 /* Trim blankspace and "()"s */
 static char *
-strip_funcname (char *funcname) 
+strip_funcname (const char *funcname) 
 {
   char buff[100];
   char tmp, *ret, *e, *b = buff;
@@ -410,7 +410,7 @@ strip_funcname (char *funcname)
 /* Get new thread.  */
 static struct thread *
 thread_get (struct thread_master *m, u_char type,
-	    int (*func) (struct thread *), void *arg, char* funcname)
+	    int (*func) (struct thread *), void *arg, const char* funcname)
 {
   struct thread *thread;
 
@@ -439,7 +439,7 @@ thread_get (struct thread_master *m, u_char type,
 /* Add new read thread. */
 struct thread *
 funcname_thread_add_read (struct thread_master *m, 
-		 int (*func) (struct thread *), void *arg, int fd, char* funcname)
+		 int (*func) (struct thread *), void *arg, int fd, const char* funcname)
 {
   struct thread *thread;
 
@@ -462,7 +462,7 @@ funcname_thread_add_read (struct thread_master *m,
 /* Add new write thread. */
 struct thread *
 funcname_thread_add_write (struct thread_master *m,
-		 int (*func) (struct thread *), void *arg, int fd, char* funcname)
+		 int (*func) (struct thread *), void *arg, int fd, const char* funcname)
 {
   struct thread *thread;
 
@@ -487,7 +487,7 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
                                    int (*func) (struct thread *), 
                                   void *arg, 
                                   struct timeval *time_relative, 
-                                  char* funcname)
+                                  const char* funcname)
 {
   struct thread *thread;
   struct timeval timer_now;
@@ -528,7 +528,7 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
 struct thread *
 funcname_thread_add_timer (struct thread_master *m,
 		           int (*func) (struct thread *), 
-		           void *arg, long timer, char* funcname)
+		           void *arg, long timer, const char* funcname)
 {
   struct timeval trel;
 
@@ -544,7 +544,7 @@ funcname_thread_add_timer (struct thread_master *m,
 struct thread *
 funcname_thread_add_timer_msec (struct thread_master *m,
                                 int (*func) (struct thread *), 
-                                void *arg, long timer, char* funcname)
+                                void *arg, long timer, const char* funcname)
 {
   struct timeval trel;
 
@@ -561,7 +561,7 @@ funcname_thread_add_timer_msec (struct thread_master *m,
 /* Add simple event thread. */
 struct thread *
 funcname_thread_add_event (struct thread_master *m,
-		  int (*func) (struct thread *), void *arg, int val, char* funcname)
+		  int (*func) (struct thread *), void *arg, int val, const char* funcname)
 {
   struct thread *thread;
 
@@ -888,7 +888,7 @@ funcname_thread_execute (struct thread_master *m,
                 int (*func)(struct thread *), 
                 void *arg,
                 int val,
-		char* funcname)
+		const char* funcname)
 {
   struct thread dummy; 
 

@@ -48,9 +48,9 @@ struct key
 };
 
 void keychain_init ();
-struct keychain *keychain_lookup (char *);
-struct key *key_lookup_for_accept (struct keychain *, u_int32_t);
-struct key *key_match_for_accept (struct keychain *, char *);
-struct key *key_lookup_for_send (struct keychain *);
+struct keychain *keychain_lookup (const char *);
+struct key *key_lookup_for_accept (const struct keychain *, u_int32_t);
+struct key *key_match_for_accept (const struct keychain *, const char *);
+struct key *key_lookup_for_send (const struct keychain *);
 
 #endif /* _ZEBRA_KEYCHAIN_H */

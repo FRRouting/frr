@@ -119,8 +119,7 @@ distribute_get (char *ifname)
 unsigned int
 distribute_hash_make (struct distribute *dist)
 {
-  unsigned int key;
-  int i;
+  unsigned int i, key;
 
   key = 0;
   if (dist->ifname)
@@ -625,7 +624,7 @@ ALIAS (no_districute_list_prefix, no_ipv6_distribute_list_prefix_cmd,
 int
 config_show_distribute (struct vty *vty)
 {
-  int i;
+  unsigned int i;
   struct hash_backet *mp;
   struct distribute *dist;
 
@@ -704,7 +703,7 @@ config_show_distribute (struct vty *vty)
 int
 config_write_distribute (struct vty *vty)
 {
-  int i;
+  unsigned int i;
   struct hash_backet *mp;
   int write = 0;
 

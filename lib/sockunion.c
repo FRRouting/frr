@@ -704,7 +704,7 @@ sockunion_print (union sockunion *su)
 int
 in6addr_cmp (struct in6_addr *addr1, struct in6_addr *addr2)
 {
-  int i;
+  unsigned int i;
   u_char *p1, *p2;
 
   p1 = (u_char *)addr1;

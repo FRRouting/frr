@@ -60,7 +60,7 @@ struct host
   int encrypt;
 
   /* Banner configuration. */
-  char *motd;
+  const char *motd;
 };
 
 /* There are some command levels which called from command node. */
@@ -113,7 +113,7 @@ struct cmd_node
   enum node_type node;		
 
   /* Prompt character at vty interface. */
-  char *prompt;			
+  const char *prompt;			
 
   /* Is this node's configuration goes to vtysh ? */
   int vtysh;
@@ -128,12 +128,12 @@ struct cmd_node
 /* Structure of command element. */
 struct cmd_element 
 {
-  char *string;			/* Command specification by string. */
+  const char *string;			/* Command specification by string. */
   int (*func) (struct cmd_element *, struct vty *, int, char **);
-  char *doc;			/* Documentation of this command. */
+  const char *doc;			/* Documentation of this command. */
   int daemon;                   /* Daemon to which this command belong. */
   vector strvec;		/* Pointing out each description vector. */
-  int cmdsize;			/* Command index count. */
+  unsigned int cmdsize;		/* Command index count. */
   char *config;			/* Configuration string */
   vector subconfig;		/* Sub configuration string */
 };
@@ -141,8 +141,8 @@ struct cmd_element
 /* Command description structure. */
 struct desc
 {
-  char *cmd;			/* Command string. */
-  char *str;			/* Command's description. */
+  const char *cmd;			/* Command string. */
+  const char *str;			/* Command's description. */
 };
 
 /* Return value of the commands. */
@@ -291,7 +291,7 @@ vector cmd_make_strvec (char *);
 void cmd_free_strvec (vector);
 vector cmd_describe_command ();
 char **cmd_complete_command ();
-char *cmd_prompt (enum node_type);
+const char *cmd_prompt (enum node_type);
 int config_from_file (struct vty *, FILE *);
 int cmd_execute_command (vector, struct vty *, struct cmd_element **);
 int cmd_execute_command_strict (vector, struct vty *, struct cmd_element **);

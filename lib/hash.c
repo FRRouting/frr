@@ -140,7 +140,7 @@ void
 hash_iterate (struct hash *hash, 
 	      void (*func) (struct hash_backet *, void *), void *arg)
 {
-  int i;
+  unsigned int i;
   struct hash_backet *hb;
   struct hash_backet *hbnext;
 
@@ -159,7 +159,7 @@ hash_iterate (struct hash *hash,
 void
 hash_clean (struct hash *hash, void (*free_func) (void *))
 {
-  int i;
+  unsigned int i;
   struct hash_backet *hb;
   struct hash_backet *next;
 

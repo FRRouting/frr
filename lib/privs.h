@@ -61,9 +61,9 @@ struct zebra_privs_t
   zebra_capabilities_t *caps_i;       /* caps to allow inheritance of */
   int cap_num_p;                      /* number of caps in arrays */
   int cap_num_i;                    
-  char *user;                         /* user and group to run as */
-  char *group;
-  char *vty_group;                    /* group to chown vty socket to */
+  const char *user;                   /* user and group to run as */
+  const char *group;
+  const char *vty_group;              /* group to chown vty socket to */
   /* methods */
   int 
     (*change) (zebra_privs_ops_t);    /* change privileges, 0 on success */

@@ -106,8 +106,7 @@ if_rmap_get (char *ifname)
 unsigned int
 if_rmap_hash_make (struct if_rmap *if_rmap)
 {
-  unsigned int key;
-  int i;
+  unsigned int i, key;
 
   key = 0;
   for (i = 0; i < strlen (if_rmap->ifname); i++)
@@ -276,7 +275,7 @@ ALIAS (no_if_rmap,
 int
 config_write_if_rmap (struct vty *vty)
 {
-  int i;
+  unsigned int i;
   struct hash_backet *mp;
   int write = 0;
 

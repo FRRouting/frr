@@ -137,7 +137,7 @@ filter_free (struct filter *filter)
 }
 
 /* Return string of filter_type. */
-static char *
+const static char *
 filter_type_str (struct filter *filter)
 {
   switch (filter->type)
@@ -267,9 +267,9 @@ access_list_delete (struct access_list *access)
 /* Insert new access list to list of access_list.  Each acceess_list
    is sorted by the name. */
 struct access_list *
-access_list_insert (afi_t afi, char *name)
+access_list_insert (afi_t afi, const char *name)
 {
-  int i;
+  unsigned int i;
   long number;
   struct access_list *access;
   struct access_list *point;
@@ -358,7 +358,7 @@ access_list_insert (afi_t afi, char *name)
 
 /* Lookup access_list from list of access_list by name. */
 struct access_list *
-access_list_lookup (afi_t afi, char *name)
+access_list_lookup (afi_t afi, const char *name)
 {
   struct access_list *access;
   struct access_master *master;
@@ -384,7 +384,7 @@ access_list_lookup (afi_t afi, char *name)
 /* Get access list from list of access_list.  If there isn't matched
    access_list create new one and return it. */
 struct access_list *
-access_list_get (afi_t afi, char *name)
+access_list_get (afi_t afi, const char *name)
 {
   struct access_list *access;
 
@@ -595,8 +595,8 @@ vty_access_list_remark_unset (struct vty *vty, afi_t afi, char *name)
 
 int
 filter_set_cisco (struct vty *vty, char *name_str, char *type_str,
-		  char *addr_str, char *addr_mask_str,
-		  char *mask_str, char *mask_mask_str,
+		  const char *addr_str, const char *addr_mask_str,
+		  const char *mask_str, const char *mask_mask_str,
 		  int extended, int set)
 {
   int ret;
@@ -1153,8 +1153,8 @@ DEFUN (no_access_list_extended_host_any,
 }
 
 int
-filter_set_zebra (struct vty *vty, char *name_str, char *type_str,
-		  afi_t afi, char *prefix_str, int exact, int set)
+filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
+		  afi_t afi, const char *prefix_str, int exact, int set)
 {
   int ret;
   enum filter_type type;

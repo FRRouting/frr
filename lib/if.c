@@ -203,7 +203,7 @@ ifindex2ifname (unsigned int index)
       if (ifp->ifindex == index)
 	return ifp->name;
     }
-  return "unknown";
+  return (char *) "unknown";
 }
 
 /* Interface existance check by interface name. */

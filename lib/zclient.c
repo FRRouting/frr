@@ -167,7 +167,7 @@ zclient_socket ()
 #include <sys/un.h>
 
 int
-zclient_socket_un (char *path)
+zclient_socket_un (const char *path)
 {
   int ret;
   int sock, len;
