@@ -215,6 +215,10 @@ typedef int socklen_t;
 
 #endif /* BSDI_NRL */
 
+#if !defined(__GNUC__) || __GNUC__ < 2 || __GNUC_MINOR__ < 5
+#define __attribute__(x)
+#endif  /* !__GNUC__ */
+
 /*  The definition of struct in_pktinfo is missing in old version of
     GLIBC 2.1 (Redhat 6.1).  */
 #if defined (GNU_LINUX) && ! defined (HAVE_INPKTINFO)
