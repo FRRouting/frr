@@ -502,6 +502,43 @@ DEFUN (no_rip_redistribute_type_metric,
   return CMD_WARNING;
 }
 
+DEFUN (rip_redistribute_type_metric_routemap,
+       rip_redistribute_type_metric_routemap_cmd,
+       "redistribute (kernel|connected|static|ospf|bgp) metric <0-16> route-map WORD",
+       "Redistribute information from another routing protocol\n"
+       "Kernel routes\n"
+       "Connected\n"
+       "Static routes\n"
+       "Open Shortest Path First (OSPF)\n"
+       "Border Gateway Protocol (BGP)\n"
+       "Metric\n"
+       "Metric value\n"
+       "Route map reference\n"
+       "Pointer to route-map entries\n")
+{
+  int i;
+  int metric;
+
+  metric = atoi (argv[1]);
+
+  for (i = 0; redist_type[i].str; i++) {
+    if (strncmp(redist_type[i].str, argv[0],
+		redist_type[i].str_min_len) == 0) 
+      {
+	rip_redistribute_metric_set (redist_type[i].type, metric);
+	rip_routemap_set (redist_type[i].type, argv[2]);
+	zclient_redistribute_set (zclient, redist_type[i].type);
+	return CMD_SUCCESS;
+      }
+  }
+
+  vty_out(vty, "Invalid type %s%s", argv[0],
+	  VTY_NEWLINE);
+
+  return CMD_WARNING;
+}
+
+
 DEFUN (no_rip_redistribute_type_metric_routemap,
        no_rip_redistribute_type_metric_routemap_cmd,
        "no redistribute (kernel|connected|static|ospf|bgp) metric <0-16> route-map WORD",
@@ -559,7 +596,7 @@ DEFUN (rip_default_information_originate,
 
       rip->default_information = 1;
   
-      rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0, NULL);
+      rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p, 0, NULL);
     }
 
   return CMD_SUCCESS;
@@ -581,7 +618,7 @@ DEFUN (no_rip_default_information_originate,
 
       rip->default_information = 0;
   
-      rip_redistribute_delete (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0);
+      rip_redistribute_delete (ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p, 0);
     }
 
   return CMD_SUCCESS;
@@ -682,6 +719,7 @@ rip_zclient_init ()
   install_element (RIP_NODE, &rip_redistribute_type_cmd);
   install_element (RIP_NODE, &rip_redistribute_type_routemap_cmd);
   install_element (RIP_NODE, &rip_redistribute_type_metric_cmd);
+  install_element (RIP_NODE, &rip_redistribute_type_metric_routemap_cmd);
   install_element (RIP_NODE, &no_rip_redistribute_type_cmd);
   install_element (RIP_NODE, &no_rip_redistribute_type_routemap_cmd);
   install_element (RIP_NODE, &no_rip_redistribute_type_metric_cmd);

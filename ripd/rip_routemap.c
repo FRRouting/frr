@@ -31,6 +31,18 @@
 #include "plist.h"
 
 #include "ripd/ripd.h"
+
+struct rip_metric_modifier
+{
+  enum 
+  {
+    metric_increment,
+    metric_decrement,
+    metric_absolute
+  } type;
+
+  u_char metric;
+};
 
 /* Add rip route map rule. */
 int
@@ -439,6 +451,57 @@ struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd =
   route_match_ip_address_prefix_list_compile,
   route_match_ip_address_prefix_list_free
 };
+
+/* `match tag TAG' */
+/* Match function return 1 if match is success else return zero. */
+route_map_result_t
+route_match_tag (void *rule, struct prefix *prefix, 
+		    route_map_object_t type, void *object)
+{
+  u_short *tag;
+  struct rip_info *rinfo;
+
+  if (type == RMAP_RIP)
+    {
+      tag = rule;
+      rinfo = object;
+
+      /* The information stored by rinfo is host ordered. */
+      if (rinfo->tag == *tag)
+	return RMAP_MATCH;
+      else
+	return RMAP_NOMATCH;
+    }
+  return RMAP_NOMATCH;
+}
+
+/* Route map `match tag' match statement. `arg' is TAG value */
+void *
+route_match_tag_compile (char *arg)
+{
+  u_short *tag;
+
+  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+  *tag = atoi (arg);
+
+  return tag;
+}
+
+/* Free route map's compiled `match tag' value. */
+void
+route_match_tag_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for tag matching. */
+struct route_map_rule_cmd route_match_tag_cmd =
+{
+  "tag",
+  route_match_tag,
+  route_match_tag_compile,
+  route_match_tag_free
+};
 
 /* `set metric METRIC' */
 
@@ -447,17 +510,26 @@ route_map_result_t
 route_set_metric (void *rule, struct prefix *prefix, 
 		  route_map_object_t type, void *object)
 {
-  u_int32_t *metric;
-  struct rip_info *rinfo;
-
   if (type == RMAP_RIP)
     {
-      /* Fetch routemap's rule information. */
-      metric = rule;
+      struct rip_metric_modifier *mod;
+      struct rip_info *rinfo;
+
+      mod = rule;
       rinfo = object;
-    
-      /* Set metric out value. */
-      rinfo->metric_out = *metric;
+
+      if (mod->type == metric_increment)
+	rinfo->metric_out += mod->metric;
+      else if (mod->type == metric_decrement)
+	rinfo->metric_out -= mod->metric;
+      else if (mod->type == metric_absolute)
+	rinfo->metric_out = mod->metric;
+
+      if (rinfo->metric_out < 1)
+	rinfo->metric_out = 1;
+      if (rinfo->metric_out > RIP_METRIC_INFINITY)
+	rinfo->metric_out = RIP_METRIC_INFINITY;
+
       rinfo->metric_set = 1;
     }
   return RMAP_OKAY;
@@ -467,22 +539,51 @@ route_set_metric (void *rule, struct prefix *prefix,
 void *
 route_set_metric_compile (char *arg)
 {
-  u_int32_t *metric;
+  int len;
+  char *pnt;
+  int type;
+  long metric;
+  char *endptr = NULL;
+  struct rip_metric_modifier *mod;
 
-  metric = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
-  *metric = atoi (arg);
+  len = strlen (arg);
+  pnt = arg;
 
-  return metric;
+  if (len == 0)
+    return NULL;
 
-#if 0
-  /* To make it consistent to other daemon, metric check is commented
-     out.*/
-  if (*metric >= 0 && *metric <= 16)
-    return metric;
+  /* Examine first character. */
+  if (arg[0] == '+')
+    {
+      type = metric_increment;
+      pnt++;
+    }
+  else if (arg[0] == '-')
+    {
+      type = metric_decrement;
+      pnt++;
+    }
+  else
+    type = metric_absolute;
 
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, metric);
-  return NULL;
-#endif /* 0 */
+  /* Check beginning with digit string. */
+  if (*pnt < '0' || *pnt > '9')
+    return NULL;
+
+  /* Convert string to integer. */
+  metric = strtol (pnt, &endptr, 10);
+
+  if (metric == LONG_MAX || *endptr != '\0')
+    return NULL;
+  if (metric < 0 || metric > RIP_METRIC_INFINITY)
+    return NULL;
+
+  mod = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, 
+		 sizeof (struct rip_metric_modifier));
+  mod->type = type;
+  mod->metric = metric;
+
+  return mod;
 }
 
 /* Free route map's compiled `set metric' value. */
@@ -559,6 +660,58 @@ struct route_map_rule_cmd route_set_ip_nexthop_cmd =
   route_set_ip_nexthop,
   route_set_ip_nexthop_compile,
   route_set_ip_nexthop_free
+};
+
+/* `set tag TAG' */
+
+/* Set tag to object.  ojbect must be pointer to struct attr. */
+route_map_result_t
+route_set_tag (void *rule, struct prefix *prefix, 
+		      route_map_object_t type, void *object)
+{
+  u_short *tag;
+  struct rip_info *rinfo;
+
+  if(type == RMAP_RIP)
+    {
+      /* Fetch routemap's rule information. */
+      tag = rule;
+      rinfo = object;
+    
+      /* Set next hop value. */ 
+      rinfo->tag_out = *tag;
+    }
+
+  return RMAP_OKAY;
+}
+
+/* Route map `tag' compile function.  Given string is converted
+   to u_short. */
+void *
+route_set_tag_compile (char *arg)
+{
+  u_short *tag;
+
+  tag = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_short));
+  *tag = atoi (arg);
+
+  return tag;
+}
+
+/* Free route map's compiled `ip nexthop' value. */
+void
+route_set_tag_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for tag set. */
+struct route_map_rule_cmd route_set_tag_cmd =
+{
+  "tag",
+  route_set_tag,
+  route_set_tag_compile,
+  route_set_tag_free
 };
 
 #define MATCH_STR "Match values from routing table\n"
@@ -777,14 +930,46 @@ ALIAS (no_match_ip_address_prefix_list,
        "Match entries of prefix-lists\n"
        "IP prefix-list name\n")
 
+DEFUN (match_tag, 
+       match_tag_cmd,
+       "match tag <0-65535>",
+       MATCH_STR
+       "Match tag of route\n"
+       "Metric value\n")
+{
+  return rip_route_match_add (vty, vty->index, "tag", argv[0]);
+}
+
+DEFUN (no_match_tag,
+       no_match_tag_cmd,
+       "no match tag",
+       NO_STR
+       MATCH_STR
+       "Match tag of route\n")
+{
+  if (argc == 0)
+    return rip_route_match_delete (vty, vty->index, "tag", NULL);
+
+  return rip_route_match_delete (vty, vty->index, "tag", argv[0]);
+}
+
+ALIAS (no_match_tag,
+       no_match_tag_val_cmd,
+       "no match tag <0-65535>",
+       NO_STR
+       MATCH_STR
+       "Match tag of route\n"
+       "Metric value\n")
+
 /* set functions */
 
 DEFUN (set_metric,
        set_metric_cmd,
-       "set metric <0-4294967295>",
+       "set metric (<0-4294967295>|<+/-metric>)",
        SET_STR
        "Metric value for destination routing protocol\n"
-       "Metric value\n")
+       "Metric value\n"
+       "Add or subtract metric\n")
 {
   return rip_route_set_add (vty, vty->index, "metric", argv[0]);
 }
@@ -804,11 +989,12 @@ DEFUN (no_set_metric,
 
 ALIAS (no_set_metric,
        no_set_metric_val_cmd,
-       "no set metric <0-4294967295>",
+       "no set metric (<0-4294967295>|<+/-metric>)",
        NO_STR
        SET_STR
        "Metric value for destination routing protocol\n"
-       "Metric value\n")
+       "Metric value\n"
+       "Add or subtract metric\n")
 
 DEFUN (set_ip_nexthop,
        set_ip_nexthop_cmd,
@@ -854,6 +1040,37 @@ ALIAS (no_set_ip_nexthop,
        "Next hop address\n"
        "IP address of next hop\n")
 
+DEFUN (set_tag,
+       set_tag_cmd,
+       "set tag <0-65535>",
+       SET_STR
+       "Tag value for routing protocol\n"
+       "Tag value\n")
+{
+  return rip_route_set_add (vty, vty->index, "tag", argv[0]);
+}
+
+DEFUN (no_set_tag,
+       no_set_tag_cmd,
+       "no set tag",
+       NO_STR
+       SET_STR
+       "Tag value for routing protocol\n")
+{
+  if (argc == 0)
+    return rip_route_set_delete (vty, vty->index, "tag", NULL);
+  
+  return rip_route_set_delete (vty, vty->index, "tag", argv[0]);
+}
+
+ALIAS (no_set_tag,
+       no_set_tag_val_cmd,
+       "no set tag <0-65535>",
+       NO_STR
+       SET_STR
+       "Tag value for routing protocol\n"
+       "Tag value\n")
+
 void
 rip_route_map_reset ()
 {
@@ -875,9 +1092,11 @@ rip_route_map_init ()
   route_map_install_match (&route_match_ip_next_hop_prefix_list_cmd);
   route_map_install_match (&route_match_ip_address_cmd);
   route_map_install_match (&route_match_ip_address_prefix_list_cmd);
+  route_map_install_match (&route_match_tag_cmd);
 
   route_map_install_set (&route_set_metric_cmd);
   route_map_install_set (&route_set_ip_nexthop_cmd);
+  route_map_install_set (&route_set_tag_cmd);
 
   install_element (RMAP_NODE, &match_metric_cmd);
   install_element (RMAP_NODE, &no_match_metric_cmd);
@@ -897,6 +1116,9 @@ rip_route_map_init ()
   install_element (RMAP_NODE, &match_ip_address_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_prefix_list_val_cmd);
+  install_element (RMAP_NODE, &match_tag_cmd);
+  install_element (RMAP_NODE, &no_match_tag_cmd);
+  install_element (RMAP_NODE, &no_match_tag_val_cmd);
 
   install_element (RMAP_NODE, &set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
@@ -904,4 +1126,7 @@ rip_route_map_init ()
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_val_cmd);
+  install_element (RMAP_NODE, &set_tag_cmd);
+  install_element (RMAP_NODE, &no_set_tag_cmd);
+  install_element (RMAP_NODE, &no_set_tag_val_cmd);
 }

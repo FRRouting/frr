@@ -199,6 +199,7 @@ struct rip_info
   struct in_addr nexthop_out;
   u_char metric_set;
   u_int32_t metric_out;
+  u_short tag_out;
   unsigned int ifindex_out;
 
   struct route_node *rp;
@@ -210,6 +211,12 @@ struct rip_info
   struct rip_info *prev;
 #endif /* NEW_RIP_TABLE */
 };
+
+typedef enum {
+  RIP_NO_SPLIT_HORIZON = 0,
+  RIP_SPLIT_HORIZON,
+  RIP_SPLIT_HORIZON_POISONED_REVERSE
+} split_horizon_policy_t;
 
 /* RIP specific interface configuration. */
 struct rip_interface
@@ -239,8 +246,8 @@ struct rip_interface
   char *key_chain;
 
   /* Split horizon flag. */
-  int split_horizon;
-  int split_horizon_default;
+  split_horizon_policy_t split_horizon;
+  split_horizon_policy_t split_horizon_default;
 
   /* For filter type slot. */
 #define RIP_FILTER_IN  0
@@ -252,6 +259,9 @@ struct rip_interface
 
   /* Prefix-list. */
   struct prefix_list *prefix[RIP_FILTER_MAX];
+
+  /* Route-map. */
+  struct route_map *routemap[RIP_FILTER_MAX];
 
   /* Wake up thread. */
   struct thread *t_wakeup;
@@ -369,6 +379,7 @@ void rip_zebra_ipv4_add (struct prefix_ipv4 *, struct in_addr *, u_int32_t, u_ch
 void rip_zebra_ipv4_delete (struct prefix_ipv4 *, struct in_addr *, u_int32_t);
 void rip_interface_multicast_set (int, struct interface *);
 void rip_distribute_update_interface (struct interface *);
+void rip_if_rmap_update_interface (struct interface *);
 
 int config_write_rip_network (struct vty *, int);
 int config_write_rip_offset_list (struct vty *);
