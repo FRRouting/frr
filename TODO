@@ -1,18 +1,22 @@
 
-			   Zebra TODO list
-                             2002/06/18
+			   Quagga TODO list
+                             2004/07/27
 
 zebra:
 
 o Pointopoint address configuration.
 o Multiple (alias) address configuration for the interface when kernel
   support it [just starting].
+o improve rtnetlink to handle sequence number tracking and reconciliation
+  and resyncs.
+o Add support for valid and preferred lifetimes to IPv6 addresses 
 
 bgpd:
 
-o BGP TCP MD5 authentication (on OpenBSD) by password command.
+o BGP TCP MD5 authentication by password command.
 o HUP signal support (reload configuration file).
 o BGP multi-path extension
+o move FSM state to be per-connection, not per-peer.
 
 ripd:
 
@@ -25,5 +29,31 @@ o Demand circuits.
 o Multiple instances.
 o OSPF MIB [SNMP get is amost finished].
 o HUP signal treatment.
---
-Kunihiro Ishiguro <kunihiro@zebra.org>
+o Fragment Oversized LSAs 
+o move SPF to common code
+
+ospf6d:
+
+o move SPF to common code
+o add router-id lookups
+
+lib:
+o improve route_table speed, eg strided lookups for common prefix depths.
+o improve hash tables, eg auto-growing hash tables
+o move performance sensitive users of hashes over to jhash
+o clean up linked lists
+o ipv6 addresses need concept of valid/preferred
+o implement a generic daemon access/control protocol (eg D-Bus like? 
+  simplified SNMP-a-like?)
+o merge SPF code from ospfd and ospf6d into a common libspf
+o depends-on(generic A/C protocol) move snmp to seperate daemon
+o extend command definitions to allow them to be self-documenting
+o i18n command help strings
+
+vtysh:
+o untangle readline specific bits
+o add a vtyd with a vty (ie telnet) frontend (as opposed to readline)
+o depends-on(generic A/C protocol) use such
+o better AAA support than just PAM, eg krb5, SASL, LDAP..
+                        -----------------------------
+
