@@ -1,6 +1,6 @@
 -*- mode: text; -*-
 
-$Id: HACKING,v 1.3 2003/12/23 08:56:18 jardin Exp $
+$Id: HACKING,v 1.4 2004/01/05 20:09:00 gdt Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -11,6 +11,25 @@ GUIDELINES FOR HACKING ON QUAGGA
 Generally, GNU coding standards apply.  The indentation style is a bit
 different from standard GNU style, and the existing style should be
 maintained and used for new code.
+
+Be particularly careful not to break platforms/protocols that you
+cannot test.
+
+New code should have good comments, and changes to existing code
+should in many cases upgrade the comments when necessary for a
+reviewer to conclude that the change has no unintended consequences.
+
+CHANGELOG
+
+Add a ChangeLog entry whenever changing code, except for minor fixes
+to a commit (with a ChangeLog entry) within the last few days.
+
+There is at present a mixed style for ChangeLog, with some changes
+being described in per-directory ChangeLog files, and some at top
+level.
+
+[TBD: resolve per-dir vs top-level, perhaps by reading GNU coding
+standards]
 
 PATCH SUBMISSION
 
@@ -67,10 +86,6 @@ tested are:
   ripd
   ospfd
   ripngd
-
-CHANGELOG
-
-[TBD: when to add to per-dir Changelog, when to add to top-level]
 
 IMPORT OR UPDATE VENDOR SPECIFIC ROUTING PROTOCOLS
 
