@@ -424,7 +424,7 @@ route_map_install_set (struct route_map_rule_cmd *cmd)
 
 /* Lookup rule command from match list. */
 struct route_map_rule_cmd *
-route_map_lookup_match (char *name)
+route_map_lookup_match (const char *name)
 {
   unsigned int i;
   struct route_map_rule_cmd *rule;
@@ -438,7 +438,7 @@ route_map_lookup_match (char *name)
 
 /* Lookup rule command from set list. */
 struct route_map_rule_cmd *
-route_map_lookup_set (char *name)
+route_map_lookup_set (const char *name)
 {
   unsigned int i;
   struct route_map_rule_cmd *rule;
@@ -510,7 +510,7 @@ rulecmp (char *dst, char *src)
 
 /* Add match statement to route map. */
 int
-route_map_add_match (struct route_map_index *index, char *match_name,
+route_map_add_match (struct route_map_index *index, const char *match_name,
 		     char *match_arg)
 {
   struct route_map_rule *rule;
@@ -569,7 +569,7 @@ route_map_add_match (struct route_map_index *index, char *match_name,
 
 /* Delete specified route match rule. */
 int
-route_map_delete_match (struct route_map_index *index, char *match_name,
+route_map_delete_match (struct route_map_index *index, const char *match_name,
 			char *match_arg)
 {
   struct route_map_rule *rule;
@@ -596,7 +596,7 @@ route_map_delete_match (struct route_map_index *index, char *match_name,
 
 /* Add route-map set statement to the route map. */
 int
-route_map_add_set (struct route_map_index *index, char *set_name,
+route_map_add_set (struct route_map_index *index, const char *set_name,
 		   char *set_arg)
 {
   struct route_map_rule *rule;
@@ -655,7 +655,7 @@ route_map_add_set (struct route_map_index *index, char *set_name,
 
 /* Delete route map set rule. */
 int
-route_map_delete_set (struct route_map_index *index, char *set_name,
+route_map_delete_set (struct route_map_index *index, const char *set_name,
 			char *set_arg)
 {
   struct route_map_rule *rule;

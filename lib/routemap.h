@@ -74,7 +74,7 @@ typedef enum
 struct route_map_rule_cmd
 {
   /* Route map rule name (e.g. as-path, metric) */
-  char *str;
+  const char *str;
 
   /* Function for value set or match. */
   route_map_result_t (*func_apply)(void *, struct prefix *, 
@@ -155,24 +155,24 @@ void route_map_init_vty ();
 /* Add match statement to route map. */
 int
 route_map_add_match (struct route_map_index *index,
-		     char *match_name,
+		     const char *match_name,
 		     char *match_arg);
 
 /* Delete specified route match rule. */
 int
 route_map_delete_match (struct route_map_index *index,
-			char *match_name,
+			const char *match_name,
 			char *match_arg);
 
 /* Add route-map set statement to the route map. */
 int
 route_map_add_set (struct route_map_index *index, 
-		   char *set_name,
+		   const char *set_name,
 		   char *set_arg);
 
 /* Delete route map set rule. */
 int
-route_map_delete_set (struct route_map_index *index, char *set_name,
+route_map_delete_set (struct route_map_index *index, const char *set_name,
                       char *set_arg);
 
 /* Install rule command to the match list. */
