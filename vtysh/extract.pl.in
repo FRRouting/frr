@@ -117,7 +117,7 @@ foreach (@ARGV) {
               }
            }
         } else {
-           ($protocol) = ($file =~ /\/([a-z0-9]+)/);
+           ($protocol) = ($file =~ /^.*\/([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
            $protocol = "VTYSH_" . uc $protocol;
         }
 
