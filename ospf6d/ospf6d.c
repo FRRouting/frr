@@ -1714,6 +1714,87 @@ ALIAS (show_ipv6_ospf6_border_routers,
        "Display Detail\n"
       );
 
+DEFUN (show_ipv6_ospf6_linkstate,
+       show_ipv6_ospf6_linkstate_cmd,
+       "show ipv6 ospf6 linkstate",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       "Display linkstate routing table\n"
+      )
+{
+  listnode node;
+  struct ospf6_area *oa;
+
+  for (node = listhead (ospf6->area_list); node; nextnode (node))
+    {
+      oa = OSPF6_AREA (getdata (node));
+
+      vty_out (vty, "%s        SPF Result in Area %s%s%s",
+               VNL, oa->name, VNL, VNL);
+      ospf6_linkstate_table_show (vty, argc, argv, oa->spf_table);
+    }
+
+  vty_out (vty, "%s", VNL);
+  return CMD_SUCCESS;
+}
+
+ALIAS (show_ipv6_ospf6_linkstate,
+       show_ipv6_ospf6_linkstate_router_cmd,
+       "show ipv6 ospf6 linkstate router A.B.C.D",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       "Display linkstate routing table\n"
+       "Display Router Entry\n"
+       "Specify Router ID as IPv4 address notation\n"
+      );
+
+ALIAS (show_ipv6_ospf6_linkstate,
+       show_ipv6_ospf6_linkstate_network_cmd,
+       "show ipv6 ospf6 linkstate network A.B.C.D A.B.C.D",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       "Display linkstate routing table\n"
+       "Display Network Entry\n"
+       "Specify Router ID as IPv4 address notation\n"
+       "Specify Link state ID as IPv4 address notation\n"
+      );
+
+DEFUN (show_ipv6_ospf6_linkstate_detail,
+       show_ipv6_ospf6_linkstate_detail_cmd,
+       "show ipv6 ospf6 linkstate detail",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       "Display linkstate routing table\n"
+      )
+{
+  char *sargv[CMD_ARGC_MAX];
+  int i, sargc;
+  listnode node;
+  struct ospf6_area *oa;
+
+  /* copy argv to sargv and then append "detail" */
+  for (i = 0; i < argc; i++)
+    sargv[i] = argv[i];
+  sargc = argc;
+  sargv[sargc++] = "detail";
+  sargv[sargc] = NULL;
+
+  for (node = listhead (ospf6->area_list); node; nextnode (node))
+    {
+      oa = OSPF6_AREA (getdata (node));
+
+      vty_out (vty, "%s        SPF Result in Area %s%s%s",
+               VNL, oa->name, VNL, VNL);
+      ospf6_linkstate_table_show (vty, sargc, sargv, oa->spf_table);
+    }
+
+  vty_out (vty, "%s", VNL);
+  return CMD_SUCCESS;
+}
 
 /* Install ospf related commands. */
 void
@@ -1751,6 +1832,15 @@ ospf6_init ()
   install_element (VIEW_NODE, &show_ipv6_ospf6_border_routers_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_border_routers_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_border_routers_detail_cmd);
+
+  install_element (VIEW_NODE, &show_ipv6_ospf6_linkstate_cmd);
+  install_element (VIEW_NODE, &show_ipv6_ospf6_linkstate_router_cmd);
+  install_element (VIEW_NODE, &show_ipv6_ospf6_linkstate_network_cmd);
+  install_element (VIEW_NODE, &show_ipv6_ospf6_linkstate_detail_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_linkstate_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_linkstate_router_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_linkstate_network_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_linkstate_detail_cmd);
 
 #define INSTALL(n,c) \
   install_element (n ## _NODE, &show_ipv6_ospf6_ ## c);

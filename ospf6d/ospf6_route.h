@@ -156,8 +156,8 @@ struct ospf6_route
 #define OSPF6_ROUTE_ADD              0x02
 #define OSPF6_ROUTE_REMOVE           0x04
 #define OSPF6_ROUTE_BEST             0x08
-#define OSPF6_ROUTE_ACTIVE_SUMMARY   0x08
-#define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x10
+#define OSPF6_ROUTE_ACTIVE_SUMMARY   0x10
+#define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x20
 
 struct ospf6_route_table
 {
@@ -267,8 +267,8 @@ void ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route);
 
 int ospf6_route_table_show (struct vty *, int, char **,
                             struct ospf6_route_table *);
-int ospf6_lsentry_table_show (struct vty *, int, char **,
-                              struct ospf6_route_table *);
+int ospf6_linkstate_table_show (struct vty *vty, int argc, char **argv,
+                            struct ospf6_route_table *table);
 
 void ospf6_brouter_show_header (struct vty *vty);
 void ospf6_brouter_show (struct vty *vty, struct ospf6_route *route);

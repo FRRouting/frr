@@ -51,25 +51,29 @@ void
 ospf6_linkstate_prefix2str (struct prefix *prefix, char *buf, int size)
 {
   u_int32_t adv_router, id;
-  char adv_router_str[16];
+  char adv_router_str[16], id_str[16];
   memcpy (&adv_router, &prefix->u.prefix6.s6_addr[0], 4);
   memcpy (&id, &prefix->u.prefix6.s6_addr[4], 4);
   inet_ntop (AF_INET, &adv_router, adv_router_str, sizeof (adv_router_str));
-  snprintf (buf, size, "%s(%lu)", adv_router_str, (u_long) ntohl (id));
+  inet_ntop (AF_INET, &id, id_str, sizeof (id_str));
+  if (ntohl (id))
+    snprintf (buf, size, "%s Net-ID: %s", adv_router_str, id_str);
+  else
+    snprintf (buf, size, "%s", adv_router_str);
 }
 
 /* Global strings for logging */
 char *ospf6_dest_type_str[OSPF6_DEST_TYPE_MAX] =
-{ "Unknown", "Router", "Network", "Discard", "Linkstate", };
+{ "Unknown", "Router", "Network", "Discard", "Linkstate", "AddressRange", };
 
 char *ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX] =
-{ "?", "R", "N", "D", "L", };
+{ "?", "R", "N", "D", "L", "A", };
 
 char *ospf6_path_type_str[OSPF6_PATH_TYPE_MAX] =
 { "Unknown", "Intra-Area", "Inter-Area", "External-1", "External-2", };
 
 char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX] =
-{ "??", "Ia", "Ie", "E1", "E2", };
+{ "??", "IA", "IE", "E1", "E2", };
 
 
 struct ospf6_route *
@@ -763,8 +767,7 @@ ospf6_route_show_table_summary (struct vty *vty,
   int i, pathtype[OSPF6_PATH_TYPE_MAX];
   int number = 0;
   int nhinval = 0, ecmp = 0;
-  int multipath = 0, destination = 0;
-  int desttype = 0, desttype_mismatch = 0;
+  int alternative = 0, destination = 0;
 
   for (i = 0; i < OSPF6_PATH_TYPE_MAX; i++)
     pathtype[i] = 0;
@@ -772,48 +775,131 @@ ospf6_route_show_table_summary (struct vty *vty,
   for (route = ospf6_route_head (table); route;
        route = ospf6_route_next (route))
     {
-      if (desttype == 0)
-        desttype = route->type;
-      else if (desttype != route->type)
-        desttype_mismatch++;
-
       if (prev == NULL || ! ospf6_route_is_same (prev, route))
         destination++;
       else
-        multipath++;
-
+        alternative++;
       if (! ospf6_nexthop_is_set (&route->nexthop[0]))
         nhinval++;
       else if (ospf6_nexthop_is_set (&route->nexthop[1]))
         ecmp++;
-
-      if (prev == NULL || ! ospf6_route_is_same (prev, route))
-        pathtype[route->path.type]++;
-
+      pathtype[route->path.type]++;
       number++;
+
       prev = route;
     }
 
   assert (number == table->count);
-  vty_out (vty, "Number of Destination: %d (%d routes)%s",
-           destination, number, VNL);
-  if (multipath)
-    vty_out (vty, "  Number of Multi-path: %d%s", multipath, VNL);
-  if (desttype_mismatch)
-    vty_out (vty, "  Number of Different Dest-type: %d%s",
-             desttype_mismatch, VNL);
-  if (ecmp)
-    vty_out (vty, "  Number of Equal Cost Multi Path: %d%s",
-             ecmp, VNL);
-  if (ecmp)
-    vty_out (vty, "  Number of Invalid Nexthop: %d%s",
-             nhinval, VNL);
 
-  for (i = 0; i < OSPF6_PATH_TYPE_MAX; i++)
+  vty_out (vty, "Number of OSPFv3 routes: %d%s", number, VNL);
+  vty_out (vty, "Number of Destination: %d%s", destination, VNL);
+  vty_out (vty, "Number of Alternative routes: %d%s", alternative, VNL);
+  vty_out (vty, "Number of Equal Cost Multi Path: %d%s", ecmp, VNL);
+  for (i = OSPF6_PATH_TYPE_INTRA; i <= OSPF6_PATH_TYPE_EXTERNAL2; i++)
     {
-      if (pathtype[i])
-        vty_out (vty, "  Number of %s routes: %d%s",
-                 OSPF6_PATH_TYPE_NAME (i), pathtype[i], VNL);
+      vty_out (vty, "Number of %s routes: %d%s",
+               OSPF6_PATH_TYPE_NAME (i), pathtype[i], VNL);
+    }
+}
+
+void
+ospf6_route_show_table_prefix (struct vty *vty,
+                               struct prefix *prefix,
+                               struct ospf6_route_table *table)
+{
+  struct ospf6_route *route;
+
+  route = ospf6_route_lookup (prefix, table);
+  if (route == NULL)
+    return;
+
+  ospf6_route_lock (route);
+  while (route && ospf6_route_is_prefix (prefix, route))
+    {
+      /* Specifying a prefix will always display details */
+      ospf6_route_show_detail (vty, route);
+      route = ospf6_route_next (route);
+    }
+  if (route)
+    ospf6_route_unlock (route);
+}
+
+void
+ospf6_route_show_table_address (struct vty *vty,
+                                struct prefix *prefix,
+                                struct ospf6_route_table *table)
+{
+  struct ospf6_route *route;
+
+  route = ospf6_route_lookup_bestmatch (prefix, table);
+  if (route == NULL)
+    return;
+
+  prefix = &route->prefix;
+  ospf6_route_lock (route);
+  while (route && ospf6_route_is_prefix (prefix, route))
+    {
+      /* Specifying a prefix will always display details */
+      ospf6_route_show_detail (vty, route);
+      route = ospf6_route_next (route);
+    }
+  if (route)
+    ospf6_route_unlock (route);
+}
+
+void
+ospf6_route_show_table_match (struct vty *vty, int detail,
+                              struct prefix *prefix,
+                              struct ospf6_route_table *table)
+{
+  struct ospf6_route *route;
+  assert (prefix->family);
+
+  route = ospf6_route_match_head (prefix, table);
+  while (route)
+    {
+      if (detail)
+        ospf6_route_show_detail (vty, route);
+      else
+        ospf6_route_show (vty, route);
+      route = ospf6_route_match_next (prefix, route);
+    }
+}
+
+void
+ospf6_route_show_table_type (struct vty *vty, int detail, u_char type,
+                             struct ospf6_route_table *table)
+{
+  struct ospf6_route *route;
+
+  route = ospf6_route_head (table);
+  while (route)
+    {
+      if (route->path.type == type)
+        {
+          if (detail)
+            ospf6_route_show_detail (vty, route);
+          else
+            ospf6_route_show (vty, route);
+        }
+      route = ospf6_route_next (route);
+    }
+}
+
+void
+ospf6_route_show_table (struct vty *vty, int detail,
+                        struct ospf6_route_table *table)
+{
+  struct ospf6_route *route;
+
+  route = ospf6_route_head (table);
+  while (route)
+    {
+      if (detail)
+        ospf6_route_show_detail (vty, route);
+      else
+        ospf6_route_show (vty, route);
+      route = ospf6_route_next (route);
     }
 }
 
@@ -821,268 +907,239 @@ int
 ospf6_route_table_show (struct vty *vty, int argc, char **argv,
                         struct ospf6_route_table *table)
 {
-  unsigned char flag = 0;
-#define MATCH      0x01
-#define DETAIL     0x02
-#define PREFIX     0x04
-#define SUMMARY    0x08
+  int summary = 0;
+  int match = 0;
+  int detail = 0;
+  int slash = 0;
+  int isprefix = 0;
   int i, ret;
-  struct prefix prefix, *p;
-  struct ospf6_route *route;
+  struct prefix prefix;
+  u_char type = 0;
 
   memset (&prefix, 0, sizeof (struct prefix));
 
   for (i = 0; i < argc; i++)
     {
-      /* set "detail" */
       if (! strcmp (argv[i], "summary"))
         {
-          SET_FLAG (flag, SUMMARY);
+          summary++;
           continue;
         }
 
-      /* set "detail" */
+      if (! strcmp (argv[i], "intra-area"))
+        {
+          type = OSPF6_PATH_TYPE_INTRA;
+          continue;
+        }
+
+      if (! strcmp (argv[i], "inter-area"))
+        {
+          type = OSPF6_PATH_TYPE_INTER;
+          continue;
+        }
+
+      if (! strcmp (argv[i], "external-1"))
+        {
+          type = OSPF6_PATH_TYPE_EXTERNAL1;
+          continue;
+        }
+
+      if (! strcmp (argv[i], "external-2"))
+        {
+          type = OSPF6_PATH_TYPE_EXTERNAL2;
+          continue;
+        }
+
       if (! strcmp (argv[i], "detail"))
         {
-          SET_FLAG (flag, DETAIL);
+          detail++;
           continue;
         }
 
-      /* set "match" */
       if (! strcmp (argv[i], "match"))
         {
-          SET_FLAG (flag, MATCH);
+          match++;
           continue;
-        }
-
-      if (prefix.family)
-        {
-          vty_out (vty, "Invalid argument: %s%s", argv[i], VNL);
-          return CMD_SUCCESS;
         }
 
       ret = str2prefix (argv[i], &prefix);
-      if (ret != 1 || prefix.family != AF_INET6)
+      if (ret == 1 && prefix.family == AF_INET6)
         {
-          vty_out (vty, "Malformed argument: %s%s", argv[i], VNL);
-          return CMD_SUCCESS;
+          isprefix++;
+          if (strchr (argv[i], '/'))
+            slash++;
+          continue;
         }
 
-      if (strchr (argv[i], '/'))
-        SET_FLAG (flag, PREFIX);
+      vty_out (vty, "Malformed argument: %s%s", argv[i], VNL);
+      return CMD_SUCCESS;
     }
 
   /* Give summary of this route table */
-  if (CHECK_FLAG (flag, SUMMARY))
+  if (summary)
     {
       ospf6_route_show_table_summary (vty, table);
       return CMD_SUCCESS;
     }
 
   /* Give exact prefix-match route */
-  if (prefix.family && ! CHECK_FLAG (flag, MATCH))
+  if (isprefix && ! match)
     {
       /* If exact address, give best matching route */
-      if (! CHECK_FLAG (flag, PREFIX))
-        route = ospf6_route_lookup_bestmatch (&prefix, table);
+      if (! slash)
+        ospf6_route_show_table_address (vty, &prefix, table);
       else
-        route = ospf6_route_lookup (&prefix, table);
-
-      if (route)
-        {
-          ospf6_route_lock (route);
-          p = &route->prefix;
-        }
-
-      while (route && ospf6_route_is_prefix (p, route))
-        {
-          /* Seaching an entry will always display details */
-          if (route)
-            ospf6_route_show_detail (vty, route);
-
-          route = ospf6_route_next (route);
-        }
+        ospf6_route_show_table_prefix (vty, &prefix, table);
 
       return CMD_SUCCESS;
     }
 
-  if (prefix.family == 0)
-    route = ospf6_route_head (table);
+  if (match)
+    ospf6_route_show_table_match (vty, detail, &prefix, table);
+  else if (type)
+    ospf6_route_show_table_type (vty, detail, type, table);
   else
-    route = ospf6_route_match_head (&prefix, table);
-
-  while (route)
-    {
-      if (CHECK_FLAG (flag, DETAIL))
-        ospf6_route_show_detail (vty, route);
-      else
-        ospf6_route_show (vty, route);
-
-      if (prefix.family == 0)
-        route = ospf6_route_next (route);
-      else
-        route = ospf6_route_match_next (&prefix, route);
-    }
+    ospf6_route_show_table (vty, detail, table);
 
   return CMD_SUCCESS;
 }
 
-
-int
-ospf6_lsentry_table_show (struct vty *vty, int argc, char **argv,
-                          struct ospf6_route_table *table)
+void
+ospf6_linkstate_show_header (struct vty *vty)
 {
-  unsigned char flag = 0;
-#define MATCH      0x01
-#define DETAIL     0x02
-  int i, ret;
-  struct prefix adv_router, id, prefix;
+  vty_out (vty, "%-7s %-15s %-15s %-8s %-14s %s%s",
+           "Type", "Router-ID", "Net-ID", "Rtr-Bits", "Options", "Cost", VNL);
+}
+
+void
+ospf6_linkstate_show (struct vty *vty, struct ospf6_route *route)
+{
+  u_int32_t router, id;
+  char routername[16], idname[16], rbits[16], options[16];
+
+  router = ospf6_linkstate_prefix_adv_router (&route->prefix);
+  inet_ntop (AF_INET, &router, routername, sizeof (routername));
+  id = ospf6_linkstate_prefix_id (&route->prefix);
+  inet_ntop (AF_INET, &id, idname, sizeof (idname));
+
+  ospf6_capability_printbuf (route->path.router_bits, rbits, sizeof (rbits));
+  ospf6_options_printbuf (route->path.options, options, sizeof (options));
+
+  if (ntohl (id))
+    vty_out (vty, "%-7s %-15s %-15s %-8s %-14s %lu%s",
+             "Network", routername, idname, rbits, options,
+             (unsigned long) route->path.cost, VNL);
+  else
+    vty_out (vty, "%-7s %-15s %-15s %-8s %-14s %lu%s",
+             "Router", routername, idname, rbits, options,
+             (unsigned long) route->path.cost, VNL);
+}
+
+
+void
+ospf6_linkstate_show_table_exact (struct vty *vty,
+                                  struct prefix *prefix,
+                                  struct ospf6_route_table *table)
+{
   struct ospf6_route *route;
 
-  memset (&adv_router, 0, sizeof (struct prefix));
+  route = ospf6_route_lookup (prefix, table);
+  if (route == NULL)
+    return;
+
+  ospf6_route_lock (route);
+  while (route && ospf6_route_is_prefix (prefix, route))
+    {
+      /* Specifying a prefix will always display details */
+      ospf6_route_show_detail (vty, route);
+      route = ospf6_route_next (route);
+    }
+  if (route)
+    ospf6_route_unlock (route);
+}
+
+void
+ospf6_linkstate_show_table (struct vty *vty, int detail,
+                            struct ospf6_route_table *table)
+{
+  struct ospf6_route *route;
+
+  if (! detail)
+    ospf6_linkstate_show_header (vty);
+
+  route = ospf6_route_head (table);
+  while (route)
+    {
+      if (detail)
+        ospf6_route_show_detail (vty, route);
+      else
+        ospf6_linkstate_show (vty, route);
+      route = ospf6_route_next (route);
+    }
+}
+
+int
+ospf6_linkstate_table_show (struct vty *vty, int argc, char **argv,
+                            struct ospf6_route_table *table)
+{
+  int detail = 0;
+  int is_id = 0;
+  int is_router = 0;
+  int i, ret;
+  struct prefix router, id, prefix;
+
+  memset (&router, 0, sizeof (struct prefix));
   memset (&id, 0, sizeof (struct prefix));
+  memset (&prefix, 0, sizeof (struct prefix));
 
   for (i = 0; i < argc; i++)
     {
-      /* set "detail" */
       if (! strcmp (argv[i], "detail"))
         {
-          SET_FLAG (flag, DETAIL);
+          detail++;
           continue;
         }
 
-      /* set "match" */
-      if (! strcmp (argv[i], "match"))
+      if (! is_router)
         {
-          SET_FLAG (flag, MATCH);
-          continue;
-        }
-
-      if (adv_router.family && id.family)
-        {
-          vty_out (vty, "Invalid argument: %s%s", argv[i], VNL);
+          ret = str2prefix (argv[i], &router);
+          if (ret == 1 && router.family == AF_INET)
+            {
+              is_router++;
+              continue;
+            }
+          vty_out (vty, "Malformed argument: %s%s", argv[i], VNL);
           return CMD_SUCCESS;
         }
 
-      if (adv_router.family == 0)
+      if (! is_id)
         {
-          ret = str2prefix (argv[i], &adv_router);
-          if (ret != 1)
-            {
-              if (! strcmp (argv[i], "*"))
-                {
-                  adv_router.family = AF_INET;
-                  adv_router.prefixlen = 0;
-                  ret = 1;
-                }
-            }
-          if (ret != 1)
-            {
-              vty_out (vty, "Invalid Router-ID: %s%s", argv[i], VNL);
-              return CMD_SUCCESS;
-            }
-        }
-      else if (id.family == 0)
-        {
-          unsigned long val;
-          char *endptr;
-
           ret = str2prefix (argv[i], &id);
-          if (ret != 1)
+          if (ret == 1 && id.family == AF_INET)
             {
-              val = strtoul (argv[i], &endptr, 0);
-              if (val != ULONG_MAX && *endptr == '\0')
-                {
-                  id.u.prefix4.s_addr = val;
-                  ret = 1;
-                }
+              is_id++;
+              continue;
             }
-
-          if (ret != 1)
-            {
-              vty_out (vty, "Invalid Link state ID: %s%s", argv[i],
-                       VNL);
-              return CMD_WARNING;
-            }
-        }
-    }
-
-  /* Encode to linkstate prefix */
-  if (adv_router.family)
-    {
-      if (adv_router.prefixlen == 0 &&
-          id.family && id.prefixlen != IPV4_MAX_BITLEN)
-        {
-          vty_out (vty, "Specifying Link State ID by prefix is not allowed%s"
-                   "when specifying Router-ID as wildcard%s",
-                   VNL, VNL);
-          return CMD_SUCCESS;
-        }
-      else if (adv_router.prefixlen != 0 &&
-               adv_router.prefixlen != IPV4_MAX_BITLEN && id.family)
-        {
-          vty_out (vty, "Specifying Link State ID is not allowed%s"
-                   "when specifying Router-ID by prefix%s",
-                   VNL, VNL);
+          vty_out (vty, "Malformed argument: %s%s", argv[i], VNL);
           return CMD_SUCCESS;
         }
 
-      if (adv_router.prefixlen == 0)
-        ospf6_linkstate_prefix (0, id.u.prefix4.s_addr, &prefix);
-      else if (adv_router.prefixlen != IPV4_MAX_BITLEN)
-        {
-          ospf6_linkstate_prefix (adv_router.u.prefix4.s_addr, 0, &prefix);
-          prefix.prefixlen = adv_router.prefixlen;
-          SET_FLAG (flag, MATCH);
-        }
-      else
-        {
-          ospf6_linkstate_prefix (adv_router.u.prefix4.s_addr,
-                                  id.u.prefix4.s_addr, &prefix);
-          prefix.prefixlen = adv_router.prefixlen + id.prefixlen;
-          if (prefix.prefixlen != 64)
-            SET_FLAG (flag, MATCH);
-        }
-    }
-
-  /* give exact match entry */
-  if (adv_router.family && adv_router.prefixlen == IPV4_MAX_BITLEN &&
-      id.family && id.prefixlen == IPV4_MAX_BITLEN)
-    {
-      route = ospf6_route_lookup (&prefix, table);
-      if (route)
-        ospf6_route_show_detail (vty, route);
+      vty_out (vty, "Malformed argument: %s%s", argv[i], VNL);
       return CMD_SUCCESS;
     }
 
-  if (CHECK_FLAG (flag, MATCH))
-    route = ospf6_route_match_head (&prefix, table);
+  if (is_router)
+    ospf6_linkstate_prefix (router.u.prefix4.s_addr,
+                            id.u.prefix4.s_addr, &prefix);
+
+  if (prefix.family)
+    ospf6_linkstate_show_table_exact (vty, &prefix, table);
   else
-    route = ospf6_route_head (table);
-
-  while (route)
-    {
-      if (! adv_router.family ||
-          (CHECK_FLAG (flag, MATCH) &&
-           prefix_match (&prefix, &route->prefix)) ||
-          (adv_router.prefixlen == 0 && id.family &&
-           ospf6_linkstate_prefix_id (&prefix) ==
-           ospf6_linkstate_prefix_id (&route->prefix)))
-        {
-          if (CHECK_FLAG (flag, DETAIL))
-            ospf6_route_show_detail (vty, route);
-          else
-            ospf6_route_show (vty, route);
-        }
-
-      if (CHECK_FLAG (flag, MATCH))
-        route = ospf6_route_match_next (&prefix, route);
-      else
-        route = ospf6_route_next (route);
-    }
+    ospf6_linkstate_show_table (vty, detail, table);
 
   return CMD_SUCCESS;
 }
+
 
 void
 ospf6_brouter_show_header (struct vty *vty)

@@ -499,7 +499,7 @@ DEFUN (show_ipv6_ospf6_route,
 
 ALIAS (show_ipv6_ospf6_route,
        show_ipv6_ospf6_route_detail_cmd,
-       "show ipv6 ospf6 route (X::X|X::X/M|detail|summary)",
+       "show ipv6 ospf6 route (X:X::X:X|X:X::X:X/M|detail|summary)",
        SHOW_STR
        IP6_STR
        OSPF6_STR
@@ -512,7 +512,7 @@ ALIAS (show_ipv6_ospf6_route,
 
 DEFUN (show_ipv6_ospf6_route_match,
        show_ipv6_ospf6_route_match_cmd,
-       "show ipv6 ospf6 route X::X/M match",
+       "show ipv6 ospf6 route X:X::X:X/M match",
        SHOW_STR
        IP6_STR
        OSPF6_STR
@@ -537,7 +537,7 @@ DEFUN (show_ipv6_ospf6_route_match,
 
 DEFUN (show_ipv6_ospf6_route_match_detail,
        show_ipv6_ospf6_route_match_detail_cmd,
-       "show ipv6 ospf6 route X::X/M match detail",
+       "show ipv6 ospf6 route X:X::X:X/M match detail",
        SHOW_STR
        IP6_STR
        OSPF6_STR
@@ -562,6 +562,46 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
   return CMD_SUCCESS;
 }
 
+ALIAS (show_ipv6_ospf6_route,
+       show_ipv6_ospf6_route_type_cmd,
+       "show ipv6 ospf6 route (intra-area|inter-area|external-1|external-2)",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       ROUTE_STR
+       "Dispaly Intra-Area routes\n"
+       "Dispaly Inter-Area routes\n"
+       "Dispaly Type-1 External routes\n"
+       "Dispaly Type-2 External routes\n"
+       );
+
+DEFUN (show_ipv6_ospf6_route_type_detail,
+       show_ipv6_ospf6_route_type_detail_cmd,
+       "show ipv6 ospf6 route (intra-area|inter-area|external-1|external-2) detail",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       ROUTE_STR
+       "Dispaly Intra-Area routes\n"
+       "Dispaly Inter-Area routes\n"
+       "Dispaly Type-1 External routes\n"
+       "Dispaly Type-2 External routes\n"
+       "Detailed information\n"
+       )
+{
+  char *sargv[CMD_ARGC_MAX];
+  int i, sargc;
+
+  /* copy argv to sargv and then append "detail" */
+  for (i = 0; i < argc; i++)
+    sargv[i] = argv[i];
+  sargc = argc;
+  sargv[sargc++] = "detail";
+  sargv[sargc] = NULL;
+
+  ospf6_route_table_show (vty, sargc, sargv, ospf6->route_table);
+  return CMD_SUCCESS;
+}
 
 /* OSPF configuration write function. */
 int
@@ -622,10 +662,14 @@ ospf6_top_init ()
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_detail_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_match_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
+  install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_cmd);
+  install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_match_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_type_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
 
   install_default (OSPF6_NODE);
   install_element (OSPF6_NODE, &ospf6_router_id_cmd);

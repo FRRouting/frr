@@ -1,3 +1,14 @@
+2004-09-03  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_area.c, ospf6_route.c, ospf6_top.c, ospf6d.c:
+	"show intra-route" function and "show SPF result" function is
+	changed.
+	* ospf6_neighbor.c: Changed to update stub intra-prefix origination
+	when it is not DR.
+	* ospf6_route.h: resolv conflict between best flag and
+	active-summary flag.
+	* ospf6d.h: version 0.9.7m
+
 2004-09-02  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
 	* ospf6_asbr.c: E-bit check in examining AS-External-LSA

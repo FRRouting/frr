@@ -87,7 +87,10 @@ ospf6_abr_enable_area (struct ospf6_area *area)
         {
           for (ro = ospf6_route_head (oa->range_table); ro;
                ro = ospf6_route_next (ro))
-            ospf6_abr_originate_summary_to_area (ro, area);
+            {
+              if (CHECK_FLAG (ro->flag, OSPF6_ROUTE_ACTIVE_SUMMARY))
+                ospf6_abr_originate_summary_to_area (ro, area);
+            }
         }
     }
 
