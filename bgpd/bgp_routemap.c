@@ -2414,18 +2414,14 @@ ALIAS (no_match_origin,
 
 DEFUN (set_ip_nexthop,
        set_ip_nexthop_cmd,
-       "set ip next-hop (A.B.C.D|peer-address)",
+       "set ip next-hop A.B.C.D",
        SET_STR
        IP_STR
        "Next hop address\n"
-       "IP address of next hop\n"
-       "Use peer address (for BGP only)\n")
+       "IP address of next hop\n")
 {
   union sockunion su;
   int ret;
-
-  if (strncmp (argv[0], "peer-address", 1) == 0)
-    return bgp_route_set_add (vty, vty->index, "ip next-hop", "peer-address");
 
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
@@ -2437,15 +2433,38 @@ DEFUN (set_ip_nexthop,
   return bgp_route_set_add (vty, vty->index, "ip next-hop", argv[0]);
 }
 
+DEFUN (set_ip_nexthop_peer,
+       set_ip_nexthop_peer_cmd,
+       "set ip next-hop peer-address",
+       SET_STR
+       IP_STR
+       "Next hop address\n"
+       "Use peer address (for BGP only)\n")
+{
+  return bgp_route_set_add (vty, vty->index, "ip next-hop", "peer-address");
+}
+
+DEFUN (no_set_ip_nexthop_peer,
+       no_set_ip_nexthop_peer_cmd,
+       "no set ip next-hop peer-address",
+       NO_STR
+       SET_STR
+       IP_STR
+       "Next hop address\n"
+       "Use peer address (for BGP only)\n")
+{
+  return bgp_route_set_delete (vty, vty->index, "ip next-hop", NULL);
+}
+
+
 DEFUN (no_set_ip_nexthop,
        no_set_ip_nexthop_cmd,
        "no set ip next-hop",
        NO_STR
        SET_STR
-       IP_STR
        "Next hop address\n")
 {
-  if (argc == 0 || strncmp (argv[0], "peer-address", 1) == 0)
+  if (argc == 0)
     return bgp_route_set_delete (vty, vty->index, "ip next-hop", NULL);
 
   return bgp_route_set_delete (vty, vty->index, "ip next-hop", argv[0]);
@@ -2453,13 +2472,12 @@ DEFUN (no_set_ip_nexthop,
 
 ALIAS (no_set_ip_nexthop,
        no_set_ip_nexthop_val_cmd,
-       "no set ip next-hop (A.B.C.D|peer-address)",
+       "no set ip next-hop A.B.C.D",
        NO_STR
        SET_STR
        IP_STR
        "Next hop address\n"
-       "IP address of next hop\n"
-       "Use peer address (for BGP only)\n")
+       "IP address of next hop\n")
 
 DEFUN (set_metric,
        set_metric_cmd,
@@ -3279,6 +3297,7 @@ bgp_route_map_init ()
   install_element (RMAP_NODE, &no_match_origin_val_cmd);
 
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
+  install_element (RMAP_NODE, &set_ip_nexthop_peer_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_set_ip_nexthop_val_cmd);
   install_element (RMAP_NODE, &set_local_pref_cmd);
