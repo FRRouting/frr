@@ -94,62 +94,62 @@ int bgp_notify_msg_max = BGP_NOTIFY_MAX;
 struct message bgp_notify_head_msg[] = 
 {
   { 0, "null"},
-  { BGP_NOTIFY_HEADER_NOT_SYNC, "/Connection Not Synchronized."},
-  { BGP_NOTIFY_HEADER_BAD_MESLEN, "/Bad Message Length."},
-  { BGP_NOTIFY_HEADER_BAD_MESTYPE, "/Bad Message Type."}
+  { BGP_NOTIFY_HEADER_NOT_SYNC, "/Connection Not Synchronized"},
+  { BGP_NOTIFY_HEADER_BAD_MESLEN, "/Bad Message Length"},
+  { BGP_NOTIFY_HEADER_BAD_MESTYPE, "/Bad Message Type"}
 };
 int bgp_notify_head_msg_max = BGP_NOTIFY_HEADER_MAX;
 
 struct message bgp_notify_open_msg[] = 
 {
   { 0, "null" },
-  { BGP_NOTIFY_OPEN_UNSUP_VERSION, "/Unsupported Version Number." },
-  { BGP_NOTIFY_OPEN_BAD_PEER_AS, "/Bad Peer AS."},
-  { BGP_NOTIFY_OPEN_BAD_BGP_IDENT, "/Bad BGP Identifier."},
-  { BGP_NOTIFY_OPEN_UNSUP_PARAM, "/Unsupported Optional Parameter."},
-  { BGP_NOTIFY_OPEN_AUTH_FAILURE, "/Authentication Failure."},
-  { BGP_NOTIFY_OPEN_UNACEP_HOLDTIME, "/Unacceptable Hold Time."}, 
-  { BGP_NOTIFY_OPEN_UNSUP_CAPBL, "/Unsupported Capability."},
+  { BGP_NOTIFY_OPEN_UNSUP_VERSION, "/Unsupported Version Number" },
+  { BGP_NOTIFY_OPEN_BAD_PEER_AS, "/Bad Peer AS"},
+  { BGP_NOTIFY_OPEN_BAD_BGP_IDENT, "/Bad BGP Identifier"},
+  { BGP_NOTIFY_OPEN_UNSUP_PARAM, "/Unsupported Optional Parameter"},
+  { BGP_NOTIFY_OPEN_AUTH_FAILURE, "/Authentication Failure"},
+  { BGP_NOTIFY_OPEN_UNACEP_HOLDTIME, "/Unacceptable Hold Time"}, 
+  { BGP_NOTIFY_OPEN_UNSUP_CAPBL, "/Unsupported Capability"},
 };
 int bgp_notify_open_msg_max = BGP_NOTIFY_OPEN_MAX;
 
 struct message bgp_notify_update_msg[] = 
 {
   { 0, "null"}, 
-  { BGP_NOTIFY_UPDATE_MAL_ATTR, "/Malformed Attribute List."},
-  { BGP_NOTIFY_UPDATE_UNREC_ATTR, "/Unrecognized Well-known Attribute."},
-  { BGP_NOTIFY_UPDATE_MISS_ATTR, "/Missing Well-known Attribute."},
-  { BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR, "/Attribute Flags Error."},
-  { BGP_NOTIFY_UPDATE_ATTR_LENG_ERR, "/Attribute Length Error."},
-  { BGP_NOTIFY_UPDATE_INVAL_ORIGIN, "/Invalid ORIGIN Attribute."},
-  { BGP_NOTIFY_UPDATE_AS_ROUTE_LOOP, "/AS Routing Loop."},
-  { BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP, "/Invalid NEXT_HOP Attribute."},
-  { BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, "/Optional Attribute Error."},
-  { BGP_NOTIFY_UPDATE_INVAL_NETWORK, "/Invalid Network Field."},
-  { BGP_NOTIFY_UPDATE_MAL_AS_PATH, "/Malformed AS_PATH."},
+  { BGP_NOTIFY_UPDATE_MAL_ATTR, "/Malformed Attribute List"},
+  { BGP_NOTIFY_UPDATE_UNREC_ATTR, "/Unrecognized Well-known Attribute"},
+  { BGP_NOTIFY_UPDATE_MISS_ATTR, "/Missing Well-known Attribute"},
+  { BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR, "/Attribute Flags Error"},
+  { BGP_NOTIFY_UPDATE_ATTR_LENG_ERR, "/Attribute Length Error"},
+  { BGP_NOTIFY_UPDATE_INVAL_ORIGIN, "/Invalid ORIGIN Attribute"},
+  { BGP_NOTIFY_UPDATE_AS_ROUTE_LOOP, "/AS Routing Loop"},
+  { BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP, "/Invalid NEXT_HOP Attribute"},
+  { BGP_NOTIFY_UPDATE_OPT_ATTR_ERR, "/Optional Attribute Error"},
+  { BGP_NOTIFY_UPDATE_INVAL_NETWORK, "/Invalid Network Field"},
+  { BGP_NOTIFY_UPDATE_MAL_AS_PATH, "/Malformed AS_PATH"},
 };
 int bgp_notify_update_msg_max = BGP_NOTIFY_UPDATE_MAX;
 
 struct message bgp_notify_cease_msg[] =
 {
   { 0, ""},
-  { BGP_NOTIFY_CEASE_MAX_PREFIX, "/Maximum Number of Prefixes Reached."},
-  { BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN, "/Administratively Shutdown."},
-  { BGP_NOTIFY_CEASE_PEER_UNCONFIG, "/Peer Unconfigured."},
-  { BGP_NOTIFY_CEASE_ADMIN_RESET, "/Administratively Reset."},
-  { BGP_NOTIFY_CEASE_CONNECT_REJECT, "/Connection Rejected."},
-  { BGP_NOTIFY_CEASE_CONFIG_CHANGE, "/Other Configuration Change."},
-  { BGP_NOTIFY_CEASE_COLLISION_RESOLUTION, "/Connection collision resolution."},
-  { BGP_NOTIFY_CEASE_OUT_OF_RESOURCE, "/Out of Resource."},
+  { BGP_NOTIFY_CEASE_MAX_PREFIX, "/Maximum Number of Prefixes Reached"},
+  { BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN, "/Administratively Shutdown"},
+  { BGP_NOTIFY_CEASE_PEER_UNCONFIG, "/Peer Unconfigured"},
+  { BGP_NOTIFY_CEASE_ADMIN_RESET, "/Administratively Reset"},
+  { BGP_NOTIFY_CEASE_CONNECT_REJECT, "/Connection Rejected"},
+  { BGP_NOTIFY_CEASE_CONFIG_CHANGE, "/Other Configuration Change"},
+  { BGP_NOTIFY_CEASE_COLLISION_RESOLUTION, "/Connection collision resolution"},
+  { BGP_NOTIFY_CEASE_OUT_OF_RESOURCE, "/Out of Resource"},
 };
 int bgp_notify_cease_msg_max = BGP_NOTIFY_CEASE_MAX;
 
 struct message bgp_notify_capability_msg[] = 
 {
   { 0, "null" },
-  { BGP_NOTIFY_CAPABILITY_INVALID_ACTION, "/Invalid Action Value." },
-  { BGP_NOTIFY_CAPABILITY_INVALID_LENGTH, "/Invalid Capability Length."},
-  { BGP_NOTIFY_CAPABILITY_MALFORMED_CODE, "/Malformed Capability Value."},
+  { BGP_NOTIFY_CAPABILITY_INVALID_ACTION, "/Invalid Action Value" },
+  { BGP_NOTIFY_CAPABILITY_INVALID_LENGTH, "/Invalid Capability Length"},
+  { BGP_NOTIFY_CAPABILITY_MALFORMED_CODE, "/Malformed Capability Value"},
 };
 int bgp_notify_capability_msg_max = BGP_NOTIFY_CAPABILITY_MAX;
 
@@ -256,7 +256,15 @@ bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify, char *direct)
       subcode_str = LOOKUP (bgp_notify_capability_msg, bgp_notify->subcode);
       break;
     }
-  if (BGP_DEBUG (normal, NORMAL))
+
+  if (bgp_flag_check (peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
+    zlog_info ("%%NOTIFICATION: %s neighbor %s %d/%d (%s%s) %d bytes %s",
+              strcmp (direct, "received") == 0 ? "received from" : "sent to",
+              peer->host, bgp_notify->code, bgp_notify->subcode,
+               LOOKUP (bgp_notify_msg, bgp_notify->code),
+              subcode_str, bgp_notify->length,
+              bgp_notify->data ? bgp_notify->data : "");
+  else if (BGP_DEBUG (normal, NORMAL))
     plog_info (peer->log, "%s %s NOTIFICATION %d/%d (%s%s) %d bytes %s",
 	       peer ? peer->host : "",
 	       direct, bgp_notify->code, bgp_notify->subcode,
