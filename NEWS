@@ -1,5 +1,8 @@
 * Changes in Quagga 0.96.6
 
+- All libraries are built and used shared, on platforms where libtool
+  supports shared libraries.
+
 - Router advertisement syntax is changed. In usual cases (if you didn't do
   any fancy stuff) it's enough to change lines in configuration from:
   "ipv6 nd prefix-advertisement X:X:X:X::/X 2592000 604800 autoconfig on-link"
