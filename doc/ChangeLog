@@ -1,3 +1,7 @@
+2004-12-23 Paul Jakma <paul@dishone.st>
+
+	* quagga.info: Version bump
+
 2004-12-18 Hasso Tepper <hasso at quagga.net>
 
 	* Makefile.am: Add isisd man page to the list. Should fix problem
