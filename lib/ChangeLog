@@ -3,6 +3,9 @@
 	* thread.c: (funcname_thread_add_timer) 
 	  (funcname_thread_add_timer_msec) Fix mistakes from last change.
 	  Pointed out by Liu Xin in [quagga-dev 1609].
+	* if.h: mtu's should be unsigned.
+	* routemap.{c,h}: const char updates
+	* smux.{c,h}: ditto
 
 2004-10-10 Paul Jakma <paul@dishone.st>
 

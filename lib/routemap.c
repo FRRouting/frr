@@ -489,7 +489,7 @@ route_map_rule_delete (struct route_map_rule_list *list,
 
 /* strcmp wrapper function which don't crush even argument is NULL. */
 int
-rulecmp (char *dst, char *src)
+rulecmp (const char *dst, const char *src)
 {
   if (dst == NULL)
     {
@@ -511,7 +511,7 @@ rulecmp (char *dst, char *src)
 /* Add match statement to route map. */
 int
 route_map_add_match (struct route_map_index *index, const char *match_name,
-		     char *match_arg)
+                     const char *match_arg)
 {
   struct route_map_rule *rule;
   struct route_map_rule *next;
@@ -570,7 +570,7 @@ route_map_add_match (struct route_map_index *index, const char *match_name,
 /* Delete specified route match rule. */
 int
 route_map_delete_match (struct route_map_index *index, const char *match_name,
-			char *match_arg)
+                        const char *match_arg)
 {
   struct route_map_rule *rule;
   struct route_map_rule_cmd *cmd;
@@ -597,7 +597,7 @@ route_map_delete_match (struct route_map_index *index, const char *match_name,
 /* Add route-map set statement to the route map. */
 int
 route_map_add_set (struct route_map_index *index, const char *set_name,
-		   char *set_arg)
+                   const char *set_arg)
 {
   struct route_map_rule *rule;
   struct route_map_rule *next;
@@ -656,7 +656,7 @@ route_map_add_set (struct route_map_index *index, const char *set_name,
 /* Delete route map set rule. */
 int
 route_map_delete_set (struct route_map_index *index, const char *set_name,
-			char *set_arg)
+                      const char *set_arg)
 {
   struct route_map_rule *rule;
   struct route_map_rule_cmd *cmd;

@@ -1445,7 +1445,8 @@ config_write_smux (struct vty *vty)
 
 /* Register subtree to smux master tree. */
 void
-smux_register_mib (char *descr, struct variable *var, size_t width, int num, 
+smux_register_mib (const char *descr, struct variable *var, 
+                   size_t width, int num, 
 		   oid name[], size_t namelen)
 {
   struct subtree *tree;

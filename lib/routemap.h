@@ -81,7 +81,7 @@ struct route_map_rule_cmd
 				   route_map_object_t, void *);
 
   /* Compile argument and return result as void *. */
-  void *(*func_compile)(char *);
+  void *(*func_compile)(const char *);
 
   /* Free allocated value by func_compile (). */
   void (*func_free)(void *);
@@ -156,24 +156,24 @@ void route_map_init_vty ();
 int
 route_map_add_match (struct route_map_index *index,
 		     const char *match_name,
-		     char *match_arg);
+		     const char *match_arg);
 
 /* Delete specified route match rule. */
 int
 route_map_delete_match (struct route_map_index *index,
 			const char *match_name,
-			char *match_arg);
+			const char *match_arg);
 
 /* Add route-map set statement to the route map. */
 int
 route_map_add_set (struct route_map_index *index, 
 		   const char *set_name,
-		   char *set_arg);
+		   const char *set_arg);
 
 /* Delete route map set rule. */
 int
 route_map_delete_set (struct route_map_index *index, const char *set_name,
-                      char *set_arg);
+		      const char *set_arg);
 
 /* Install rule command to the match list. */
 void

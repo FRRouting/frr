@@ -94,8 +94,8 @@ struct interface
   int metric;
 
   /* Interface MTU. */
-  int mtu;    /* IPv4 MTU */
-  int mtu6;   /* IPv6 MTU - probably, but not neccessarily same as mtu */
+  unsigned int mtu;    /* IPv4 MTU */
+  unsigned int mtu6;   /* IPv6 MTU - probably, but not neccessarily same as mtu */
 
   /* Hardware address. */
 #ifdef HAVE_SOCKADDR_DL
