@@ -61,8 +61,15 @@ quagga_signal_timer (struct thread *t)
 
   sigm = THREAD_ARG (t);
   
-  /* block all signals */
+  /*
+   * Block most signals, but be careful not to defer SIGTRAP because
+   * doing so breaks gdb, at least on NetBSD 2.0.  Avoid asking to
+   * block SIGKILL, just because we shouldn't be able to do so.
+   */
   sigfillset (&newmask);
+  sigdelset (&newmask, SIGTRAP);
+  sigdelset (&newmask, SIGKILL);
+
   if ( (sigprocmask (SIG_BLOCK, &newmask, &oldmask)) < 0)
     {
       zlog_err ("quagga_signal_timer: couldnt block signals!");

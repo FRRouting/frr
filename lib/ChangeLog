@@ -1,3 +1,9 @@
+2004-07-13  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* sigevent.c: Don't block SIGTRAP and SIGKILL.  Blocking SIGTRAP
+	confuses gdb, at least on NetBSD 2.0_BETA, where the block
+	succeeds.
+
 2004-07-09 Paul Jakma <paul@dishone.st>
 
 	* Merge Kunihiro's 'show route-map' change and add 
