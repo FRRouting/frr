@@ -965,14 +965,20 @@ ALIAS (no_match_tag,
 
 DEFUN (set_metric,
        set_metric_cmd,
-       "set metric (<0-4294967295>|<+/-metric>)",
+       "set metric <0-4294967295>",
        SET_STR
        "Metric value for destination routing protocol\n"
-       "Metric value\n"
-       "Add or subtract metric\n")
+       "Metric value\n")
 {
   return rip_route_set_add (vty, vty->index, "metric", argv[0]);
 }
+
+ALIAS (set_metric,
+       set_metric_addsub_cmd,
+       "set metric <+/-metric>",
+       SET_STR
+       "Metric value for destination routing protocol\n"
+       "Add or subtract BGP metric\n")
 
 DEFUN (no_set_metric,
        no_set_metric_cmd,
@@ -1121,6 +1127,7 @@ rip_route_map_init ()
   install_element (RMAP_NODE, &no_match_tag_val_cmd);
 
   install_element (RMAP_NODE, &set_metric_cmd);
+  install_element (RMAP_NODE, &set_metric_addsub_cmd);
   install_element (RMAP_NODE, &no_set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_val_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
