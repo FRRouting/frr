@@ -26,19 +26,7 @@ bgpd_SOURCES = \
 
 bgpd_LDADD = ../lib/libzebra.a @LIBCAP@
 
-sysconf_DATA = bgpd.conf.sample bgpd.conf.sample2
+dist_sysconf_DATA = bgpd.conf.sample bgpd.conf.sample2
 
-EXTRA_DIST = $(sysconf_DATA) BGP4-MIB.txt
+EXTRA_DIST = BGP4-MIB.txt
 
-install-sysconfDATA: $(sysconf_DATA)
-	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(sysconfdir)
-	@list='$(sysconf_DATA)'; for p in $$list; do \
-	  if test -f $(srcdir)/$$p; then \
-	    echo " $(INSTALL_SDATA) $(srcdir)/$$p $(DESTDIR)$(sysconfdir)/$$p"; \
-	    $(INSTALL_SDATA) $(srcdir)/$$p $(DESTDIR)$(sysconfdir)/$$p; \
-	  else if test -f $$p; then \
-	    echo " $(INSTALL_SDATA) $$p $(DESTDIR)$(sysconfdir)/$$p"; \
-	    $(INSTALL_SDATA) $$p $(DESTDIR)$(sysconfdir)/$$p; \
-	  fi; fi; \
-	done

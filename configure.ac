@@ -345,7 +345,8 @@ dnl ----------------------------
 dnl check existance of functions
 dnl ----------------------------
 AC_CHECK_FUNCS(memset memcpy strerror inet_aton daemon snprintf vsnprintf \
-               strlcat strlcpy if_nametoindex if_indextoname getifaddrs)
+               strlcat strlcpy if_nametoindex if_indextoname getifaddrs \
+	       fcntl)
 AC_CHECK_FUNCS(setproctitle, ,
   [AC_CHECK_LIB(util, setproctitle, 
      [LIBS="$LIBS -lutil"

@@ -32,9 +32,7 @@ zebra_LDADD = ../lib/libzebra.a $(otherobj) $(LIBCAP) $(LIB_IPV6)
 
 zebra_DEPENDENCIES = $(otherobj)
 
-sysconf_DATA = zebra.conf.sample
-
-EXTRA_DIST = $(sysconf_DATA) if_ioctl.c if_netlink.c if_proc.c if_sysctl.c \
+EXTRA_DIST = if_ioctl.c if_netlink.c if_proc.c if_sysctl.c \
 	ipforward_aix.c ipforward_ews.c ipforward_proc.c \
 	ipforward_solaris.c ipforward_sysctl.c rt_ioctl.c rt_netlink.c \
 	rt_socket.c rtread_netlink.c rtread_proc.c rtread_sysctl.c \
@@ -44,15 +42,5 @@ EXTRA_DIST = $(sysconf_DATA) if_ioctl.c if_netlink.c if_proc.c if_sysctl.c \
 #client : client_main.o ../lib/libzebra.a
 #	$(CC) -g -o client client_main.o ../lib/libzebra.a $(LIBS) $(LIB_IPV6)
 
-install-sysconfDATA: $(sysconf_DATA)
-	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(sysconfdir)
-	@list='$(sysconf_DATA)'; for p in $$list; do \
-	  if test -f $(srcdir)/$$p; then \
-	    echo " $(INSTALL_SDATA) $(srcdir)/$$p $(DESTDIR)$(sysconfdir)/$$p"; \
-	    $(INSTALL_SDATA) $(srcdir)/$$p $(DESTDIR)$(sysconfdir)/$$p; \
-	  else if test -f $$p; then \
-	    echo " $(INSTALL_SDATA) $$p $(DESTDIR)$(sysconfdir)/$$p"; \
-	    $(INSTALL_SDATA) $$p $(DESTDIR)$(sysconfdir)/$$p; \
-	  fi; fi; \
-	done
+quaggaconfdir = $(sysconfdir)
+dist_quaggaconf_DATA = zebra.conf.sample

@@ -30,19 +30,7 @@ ospfd_SOURCES = \
 
 ospfd_LDADD = -L../lib -lzebra @LIBCAP@
 
-sysconf_DATA = ospfd.conf.sample
+EXTRA_DIST = OSPF-MIB.txt OSPF-TRAP-MIB.txt ChangeLog.opaque.txt
 
-EXTRA_DIST = $(sysconf_DATA) OSPF-MIB.txt OSPF-TRAP-MIB.txt ChangeLog.opaque.txt
+dist_sysconf_DATA = ospfd.conf.sample
 
-install-sysconfDATA: $(sysconf_DATA)
-	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(sysconfdir)
-	@list='$(sysconf_DATA)'; for p in $$list; do \
-	  if test -f $(srcdir)/$$p; then \
-	    echo " $(INSTALL_SDATA) $(srcdir)/$$p $(DESTDIR)$(sysconfdir)/$$p"; \
-	    $(INSTALL_SDATA) $(srcdir)/$$p $(DESTDIR)$(sysconfdir)/$$p; \
-	  else if test -f $$p; then \
-	    echo " $(INSTALL_SDATA) $$p $(DESTDIR)$(sysconfdir)/$$p"; \
-	    $(INSTALL_SDATA) $$p $(DESTDIR)$(sysconfdir)/$$p; \
-	  fi; fi; \
-	done

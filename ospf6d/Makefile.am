@@ -30,19 +30,4 @@ ospf6d_SOURCES = \
 
 ospf6d_LDADD = -L../lib -lzebra @LIBCAP@
 
-sysconf_DATA = ospf6d.conf.sample
-
-EXTRA_DIST = $(sysconf_DATA)
-
-install-sysconfDATA: $(sysconf_DATA)
-	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(sysconfdir)
-	@list='$(sysconf_DATA)'; for p in $$list; do \
-	  if test -f $(srcdir)/$$p; then \
-	    echo " $(INSTALL_SDATA) $(srcdir)/$$p $(DESTDIR)$(sysconfdir)/$$p"; \
-	    $(INSTALL_SDATA) $(srcdir)/$$p $(DESTDIR)$(sysconfdir)/$$p; \
-	  else if test -f $$p; then \
-	    echo " $(INSTALL_SDATA) $$p $(DESTDIR)$(sysconfdir)/$$p"; \
-	    $(INSTALL_SDATA) $$p $(DESTDIR)$(sysconfdir)/$$p; \
-	  fi; fi; \
-	done
+dist_sysconf_DATA = ospf6d.conf.sample
