@@ -2202,7 +2202,7 @@ vty_read_config (char *config_file,
 		 char *config_current_dir,
 		 char *config_default_dir)
 {
-  char *cwd;
+  char cwd[MAXPATHLEN];
   FILE *confp = NULL;
   char *fullpath;
 
@@ -2211,7 +2211,7 @@ vty_read_config (char *config_file,
     {
       if (! IS_DIRECTORY_SEP (config_file[0]))
 	{
-	  cwd = getcwd (NULL, MAXPATHLEN);
+	  getcwd (cwd, MAXPATHLEN);
 	  fullpath = XMALLOC (MTYPE_TMP, 
 			      strlen (cwd) + strlen (config_file) + 2);
 	  sprintf (fullpath, "%s/%s", cwd, config_file);
@@ -2299,7 +2299,7 @@ vty_read_config (char *config_file,
       else
 	{
 	  /* Rleative path configuration file. */
-	  cwd = getcwd (NULL, MAXPATHLEN);
+	  getcwd (cwd, MAXPATHLEN);
 	  fullpath = XMALLOC (MTYPE_TMP, 
 			      strlen (cwd) + strlen (config_current_dir) + 2);
 	  sprintf (fullpath, "%s/%s", cwd, config_current_dir);
@@ -2763,13 +2763,14 @@ void
 vty_save_cwd ()
 {
   char cwd[MAXPATHLEN];
+  char *c;
 
-  cwd[0] = getcwd (cwd, MAXPATHLEN);
+  c = getcwd (cwd, MAXPATHLEN);
 
-  if (!cwd)
+  if (!c)
     {
       chdir (SYSCONFDIR);
-      cwd[0] = getcwd (cwd, MAXPATHLEN);
+      getcwd (cwd, MAXPATHLEN);
     }
 
   vty_cwd = XMALLOC (MTYPE_TMP, strlen (cwd) + 1);
