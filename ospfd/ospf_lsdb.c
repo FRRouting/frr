@@ -180,6 +180,23 @@ ospf_lsdb_delete_all (struct ospf_lsdb *lsdb)
     }
 }
 
+void
+ospf_lsdb_clean_stat (struct ospf_lsdb *lsdb)
+{
+  struct route_table *table;
+  struct route_node *rn;
+  struct ospf_lsa *lsa;
+  int i;
+
+  for (i = OSPF_MIN_LSA; i < OSPF_MAX_LSA; i++)
+    {
+      table = lsdb->type[i].db;
+      for (rn = route_top (table); rn; rn = route_next (rn))
+	if ((lsa = (rn->info)) != NULL)
+	  lsa->stat = LSA_SPF_NOT_EXPLORED;
+    }
+}
+
 struct ospf_lsa *
 ospf_lsdb_lookup (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
 {

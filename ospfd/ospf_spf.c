@@ -29,6 +29,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "table.h"
 #include "log.h"
 #include "sockunion.h"          /* for inet_ntop () */
+#include "pqueue.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -46,6 +47,28 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "ospfd/ospf_dump.h"
 
 #define DEBUG
+
+/* Heap related functions, for the managment of the candidates, to
+ * be used with pqueue. */
+static int
+cmp (void * node1 , void * node2)
+{
+  struct vertex * v1 = (struct vertex *) node1;
+  struct vertex * v2 = (struct vertex *) node2;
+  if (v1 != NULL && v2 != NULL )
+    return (v1->distance - v2->distance);
+  else
+    return 0;
+}
+
+static void
+update_stat (void * node , int position)
+{
+  struct vertex * v = (struct vertex *) node;
+  /* Set the status of the vertex, when its position changes. */
+  *(v->stat) = position;
+}
+/* End of the heap related functions. */
 
 struct vertex_nexthop *
 vertex_nexthop_new (struct vertex *parent)
@@ -87,6 +110,7 @@ ospf_vertex_new (struct ospf_lsa *lsa)
   memset (new, 0, sizeof (struct vertex));
 
   new->flags = 0;
+  new->stat = &(lsa->stat);
   new->type = lsa->data->type;
   new->id = lsa->data->id;
   new->lsa = lsa->data;
@@ -195,50 +219,6 @@ ospf_spf_init (struct ospf_area *area)
   /* Reset ABR and ASBR router counts. */
   area->abr_count = 0;
   area->asbr_count = 0;
-}
-
-/* Check if the vertex represented by lsa is on the SPF tree. */
-int
-ospf_spf_has_vertex (struct route_table *rv, struct route_table *nv,
-                     struct lsa_header *lsa)
-{
-  struct prefix p;
-  struct route_node *rn;
-
-  p.family = AF_INET;
-  p.prefixlen = IPV4_MAX_BITLEN;
-  p.u.prefix4 = lsa->id;
-
-  if (lsa->type == OSPF_ROUTER_LSA)
-    rn = route_node_get (rv, &p);
-  else
-    rn = route_node_get (nv, &p);
-
-  if (rn->info != NULL)
-    {
-      route_unlock_node (rn);
-      return 1;
-    }
-  return 0;
-}
-
-/* Find the vertex specified by the given id and LSA type
- * in vlist (the candidate list).
- */
-struct listnode *
-ospf_vertex_lookup (struct list *vlist, struct in_addr id, int type)
-{
-  struct listnode *node;
-  struct vertex *v;
-
-  for (node = listhead (vlist); node; nextnode (node))
-    {
-      v = (struct vertex *) getdata (node);
-      if (IPV4_ADDR_SAME (&id, &v->id) && type == v->type)
-        return node;
-    }
-
-  return NULL;
 }
 
 /* return index of link back to V from W, or -1 if no link found */
@@ -643,48 +623,6 @@ ospf_nexthop_calculation (struct ospf_area *area,
     }
 }
 
-/* Add a vertex to the SPF candidate list. */
-void
-ospf_install_candidate (struct list *candidate, struct vertex *w)
-{
-  struct listnode *node;
-  struct vertex *cw;
-
-  ospf_vertex_dump("ospf_install_candidate(): add to candidate list", w, 1, 1);
-
-  if (list_isempty (candidate))
-    {
-      listnode_add (candidate, w);
-      return;
-    }
-
-  /* Install vertex with sorting by distance. */
-  for (node = listhead (candidate); node; nextnode (node))
-    {
-      cw = (struct vertex *) getdata (node);
-      if (cw->distance > w->distance)
-        {
-          list_add_node_prev (candidate, node, w);
-          break;
-        }
-      else if (node->next == NULL)
-        {
-          list_add_node_next (candidate, node, w);
-          break;
-        }
-    }
-
-  if (IS_DEBUG_OSPF_EVENT)
-    {
-      zlog_debug("ospf_install_candidate(): candidate list now contains:");
-      for (node = listhead (candidate); node; nextnode (node))
-        {
-	  cw = (struct vertex *) getdata (node);
-	  ospf_vertex_dump(" candidate:", cw, 0, 0);
-	}
-    }
-}
-
 /* RFC2328 Section 16.1 (2).
  * v is on the SPF tree.  Examine the links in v's LSA.  Update the list
  * of candidates with any vertices not already on the list.  If a lower-cost
@@ -692,8 +630,7 @@ ospf_install_candidate (struct list *candidate, struct vertex *w)
  */
 void
 ospf_spf_next (struct vertex *v, struct ospf_area *area,
-               struct list *candidate, struct route_table *rv,
-	       struct route_table *nv)
+	       struct pqueue * candidate)
 {
   struct ospf_lsa *w_lsa = NULL;
   struct vertex *w, *cw;
@@ -701,7 +638,6 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
   u_char *lim;
   struct router_lsa_link *l = NULL;
   struct in_addr *r;
-  struct listnode *node;
   int type = 0;
 
   /* If this is a router-LSA, and bit V of the router-LSA (see Section
@@ -799,12 +735,12 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
 
       /* (c) If vertex W is already on the shortest-path tree, examine
          the next link in the LSA. */
-      if (ospf_spf_has_vertex (rv, nv, w_lsa->data))
-        {
-          if (IS_DEBUG_OSPF_EVENT)
-            zlog_debug ("The LSA is already in SPF");
-          continue;
-        }
+      if (w_lsa->stat == LSA_SPF_IN_SPFTREE)
+	{
+	  if (IS_DEBUG_OSPF_EVENT)
+	    zlog_debug ("The LSA is already in SPF");
+	  continue;
+	}
 
       /* (d) Calculate the link state cost D of the resulting path
          from the root to vertex W.  D is equal to the sum of the link
@@ -825,34 +761,25 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
 	w->distance = v->distance;
 
       /* Is there already vertex W in candidate list? */
-      node = ospf_vertex_lookup (candidate, w->id, w->type);
-      if (node == NULL)
-        {
-          /* W is a new candidate.  Calculate nexthop to W and add W
-	   * to the candidate list.
-	   */
-          ospf_nexthop_calculation (area, v, w);
+      if (w_lsa->stat == LSA_SPF_NOT_EXPLORED)
+	{
+          /* Calculate nexthop to W. */
+	  ospf_nexthop_calculation (area, v, w);
+	  pqueue_enqueue (w, candidate);
+	}
+      else if (w_lsa->stat >= 0)
+	{
+	  /* Get the vertex from candidates. */
+	  cw = (struct vertex *) candidate->array[w_lsa->stat];
 
-          ospf_install_candidate (candidate, w);
-        }
-      else
-        {
-	  /* W is already on the candidate list; call it cw.
-	   * Compare the previously calculated cost (cw->distance)
-	   * with the cost we just determined (w->distance) to see
-	   * if we've found a shorter path.
-	   */
-          cw = (struct vertex *) getdata (node);
-
-          /* If the previous cost was lower, we didn't find a
-	   * shorter path, so we're done with w.
-	   */
-          if (cw->distance < w->distance)
+	  /* if D is greater than. */  
+	  if (cw->distance < w->distance)
             {
               ospf_vertex_free (w);
               continue;
             }
-          else if (cw->distance == w->distance)
+          /* equal to. */
+	  else if (cw->distance == w->distance)
             {
 	      /* Found an equal-cost path to W.  Calculate nexthop to W. */
               ospf_nexthop_calculation (area, v, w);
@@ -860,42 +787,20 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
               list_delete_all_node (w->nexthop);
               ospf_vertex_free (w);
             }
-          else
+           /* less than. */
+	  else
             {
 	      /* Found a lower-cost path to W.  Calculate nexthop to W. */
               ospf_nexthop_calculation (area, v, w);
 
               /* Remove old vertex from candidate list. */
               ospf_vertex_free (cw);
-              listnode_delete (candidate, cw);
-
-              /* Install new W to candidate list. */
-              ospf_install_candidate (candidate, w);
+	      candidate->array[w_lsa->stat] = w;
+	      /* Decrease the key of the node in the heap, re-sort the heap. */
+	      trickle_down (w_lsa->stat, candidate);
             }
         } /* end W is already on the candidate list */
     } /* end loop over the links in V's LSA */
-}
-
-/* Add vertex V to SPF tree. */
-void
-ospf_spf_register (struct vertex *v, struct route_table *rv,
-                   struct route_table *nv)
-{
-  struct prefix p;
-  struct route_node *rn;
-
-  ospf_vertex_dump("ospf_spf_register(): adding to SPF tree:", v, 1, 1);
-
-  p.family = AF_INET;
-  p.prefixlen = IPV4_MAX_BITLEN;
-  p.u.prefix4 = v->id;
-
-  if (v->type == OSPF_VERTEX_ROUTER)
-    rn = route_node_get (rv, &p);
-  else
-    rn = route_node_get (nv, &p);
-
-  rn->info = v;
 }
 
 void
@@ -1103,11 +1008,8 @@ void
 ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
                     struct route_table *new_rtrs)
 {
-  struct list *candidate;
-  struct listnode *node;
+  struct pqueue *candidate;
   struct vertex *v;
-  struct route_table *rv;
-  struct route_table *nv;
 
   if (IS_DEBUG_OSPF_EVENT)
     {
@@ -1129,17 +1031,22 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
 
   /* RFC2328 16.1. (1). */
   /* Initialize the algorithm's data structures. */
-  rv = route_table_init ();
-  nv = route_table_init ();
-
-  /* Clear the list of candidate vertices. */
-  candidate = list_new ();
+  
+  /* This function scans all the LSA database and set the stat field to
+   * LSA_SPF_NOT_EXPLORED. */
+  ospf_lsdb_clean_stat (area->lsdb);
+  /* Create a new heap for the candidates. */ 
+  candidate = pqueue_create();
+  candidate->cmp = cmp;
+  candidate->update = update_stat;
 
   /* Initialize the shortest-path tree to only the root (which is the
      router doing the calculation). */
   ospf_spf_init (area);
   v = area->spf;
-  ospf_spf_register (v, rv, nv);
+  /* Set LSA position to LSA_SPF_IN_SPFTREE. This vertex is the root of the
+   * spanning tree. */
+  *(v->stat) = LSA_SPF_IN_SPFTREE;
 
   /* Set Area A's TransitCapability to FALSE. */
   area->transit = OSPF_TRANSIT_FALSE;
@@ -1148,28 +1055,24 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
   for (;;)
     {
       /* RFC2328 16.1. (2). */
-      ospf_spf_next (v, area, candidate, rv, nv);
+      ospf_spf_next (v, area, candidate);
 
       /* RFC2328 16.1. (3). */
       /* If at this step the candidate list is empty, the shortest-
          path tree (of transit vertices) has been completely built and
          this stage of the procedure terminates. */
-      if (listcount (candidate) == 0)
+      if (candidate->size == 0)
         break;
 
       /* Otherwise, choose the vertex belonging to the candidate list
          that is closest to the root, and add it to the shortest-path
          tree (removing it from the candidate list in the
          process). */
-      node = listhead (candidate);
-      v = getdata (node);
+      /* Extract from the candidates the node with the lower key. */
+      v = (struct vertex *) pqueue_dequeue (candidate);
+      /* Update stat field in vertex. */
+      *(v->stat) = LSA_SPF_IN_SPFTREE;
       ospf_vertex_add_parent (v);
-
-      /* Remove from the candidate list. */
-      listnode_delete (candidate, v);
-
-      /* Add to SPF tree. */
-      ospf_spf_register (v, rv, nv);
 
       /* Note that when there is a choice of vertices closest to the
          root, network vertices must be chosen before router vertices
@@ -1197,12 +1100,8 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
   /* Second stage of SPF calculation procedure's  */
   ospf_spf_process_stubs (area, area->spf, new_table);
 
-  /* Free all vertices which allocated for SPF calculation */
-  ospf_spf_route_free (rv);
-  ospf_spf_route_free (nv);
-
-  /* Free candidate list */
-  list_free (candidate);
+  /* Free candidates. */
+  pqueue_delete (candidate);
 
   /* Increment SPF Calculation Counter. */
   area->spf_calculation++;

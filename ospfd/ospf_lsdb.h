@@ -69,6 +69,8 @@ void ospf_lsdb_cleanup (struct ospf_lsdb *);
 void ospf_lsdb_add (struct ospf_lsdb *, struct ospf_lsa *);
 void ospf_lsdb_delete (struct ospf_lsdb *, struct ospf_lsa *);
 void ospf_lsdb_delete_all (struct ospf_lsdb *);
+/* Set all stats to -1 (LSA_SPF_NOT_EXPLORED). */
+void ospf_lsdb_clean_stat (struct ospf_lsdb *lsdb);
 struct ospf_lsa *ospf_lsdb_lookup (struct ospf_lsdb *, struct ospf_lsa *);
 struct ospf_lsa *ospf_lsdb_lookup_by_id (struct ospf_lsdb *, u_char,
 					struct in_addr, struct in_addr);

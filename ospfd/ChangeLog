@@ -1,3 +1,14 @@
+2005-02-23 Vincenzo Eramo <eramo at infocom.ing.uniroma1.it>
+
+	* ospf_lsa.h: New flag to the LSA structure for the SPF calculation.
+	* ospf_lsdb.h: Export ospf_lsdb_clean_stat() function.
+	* ospf_spf.h: Add link to the LSA stat structure into vertex.
+	* ospf_spf.c: New functions cmp() and update_stat() to manage
+	  candidates. Remove ospf_spf_has_vertex(), ospf_vertex_lookup(),
+	  ospf_install_candidate() and ospf_spf_register() functions not needed
+	  any more. Update ospf_vertex_new(), ospf_spf_next() and
+	  ospf_spf_calculate() functions to use pqueue instead of linked list.
+
 2005-02-21 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_ase.c: Don't show messages related to the ase calculations if

@@ -36,6 +36,7 @@ struct vertex
   u_char type;		/* copied from LSA header */
   struct in_addr id;	/* copied from LSA header */
   struct lsa_header *lsa; /* Router or Network LSA */
+  int * stat;		/* Link to LSA status. */
   u_int32_t distance;	/* from root to this vertex */
   int backlink;        /* link index of back-link */
   struct list *child;		/* list of vertex: children in SPF tree*/
