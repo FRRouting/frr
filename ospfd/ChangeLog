@@ -1,3 +1,12 @@
+2004-08-04 Paul Jakma <paul@dishone.st>
+
+	* ospf_spf.c: (ospf_spf_consider_nexthop) Add comment about issue.
+	  Compare only against list head - all nexthops must be same cost
+	  anyway, fixes a reference-listnode-after-delete bug noted by
+	  Kir Kostuchenko.
+	  (ospf_nexthop_calculation) Use ospf_spf_consider_nexthop for all
+	  candidates attached to root.
+	  
 2004-07-27 Paul Jakma <paul@dishone.st>
 
         * ospf_packet.c: (ospf_ls_upd_send_queue_event) fix thinko from

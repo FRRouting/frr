@@ -341,31 +341,51 @@ ospf_get_next_link (struct vertex *v, struct vertex *w,
   return NULL;
 }
 
-/* Consider supplied next-hop for inclusion to the supplied list
- * of next-hops, adjust list as neccessary
+/* 
+ * Consider supplied next-hop for inclusion to the supplied list of
+ * equal-cost next-hops, adjust list as neccessary.  
+ *
+ * (Discussed on GNU Zebra list 27 May 2003, [zebra 19184])
+ *
+ * Note that below is a bit of a hack, and limits ECMP to paths that go to
+ * same nexthop. Where as paths via inequal output_cost interfaces could
+ * still quite easily be ECMP due to remote cost differences.
+ *
+ * TODO: It really should be done by way of recording currently valid
+ * backlinks and determining the appropriate nexthops from the list of
+ * backlinks, or even simpler, just flushing nexthop list if we find a lower
+ * cost path to a candidate vertex in SPF, maybe.
  */
 void
 ospf_spf_consider_nexthop (struct list *nexthops,
                            struct vertex_nexthop *newhop)
 {
-  struct listnode *nnode;
   struct vertex_nexthop *hop;
+  struct listnode *ln, *nn;
 
-  LIST_LOOP (nexthops, hop, nnode)
-  {
-    assert (hop->oi);
-    /* weed out hops with higher cost than the newhop */
-    if (hop->oi->output_cost > newhop->oi->output_cost)
-      {
-        /* delete the existing nexthop */
-        listnode_delete (nexthops, hop);
-        vertex_nexthop_free (hop);
-      }
-    else if (hop->oi->output_cost < newhop->oi->output_cost)
-      {
+  /* nexthop list should contain only the set of nexthops that have the lowest
+   * equal cost
+   */
+  if (nexthops->head != NULL)
+    {
+      hop = getdata (nexthops->head);
+      
+      /* weed out hops with higher cost than the newhop */
+      if (hop->oi->output_cost > newhop->oi->output_cost)
+        {
+          /* delete the existing nexthops */
+          for (ln = nexthops->head; ln; ln = nn)
+            {
+              nn = ln->next;
+              hop = getdata (ln);
+              
+              listnode_delete (nexthops, hop);
+              vertex_nexthop_free (hop);
+            }
+        }
+      else if (hop->oi->output_cost < newhop->oi->output_cost)
         return;
-      }
-  }
+    }
 
   /* new hop is <= existing hops, add it */
   listnode_add (nexthops, newhop);
@@ -455,7 +475,7 @@ ospf_nexthop_calculation (struct ospf_area *area,
                   nh = vertex_nexthop_new (v);
                   nh->oi = oi;
                   nh->router.s_addr = 0;
-                  listnode_add (w->nexthop, nh);
+                  ospf_spf_consider_nexthop (w->nexthop, nh);
                 }
             }
         }
@@ -474,7 +494,7 @@ ospf_nexthop_calculation (struct ospf_area *area,
                   nh = vertex_nexthop_new (v);
                   nh->oi = x->oi;
                   nh->router = l->link_data;
-                  listnode_add (w->nexthop, nh);
+                  ospf_spf_consider_nexthop (w->nexthop, nh);
                 }
               return;
             }
