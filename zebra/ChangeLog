@@ -1,3 +1,8 @@
+2004-07-12  Hasso Tepper <hasso@estpak.ee>
+
+	* irdp_interface.c: follow common style while naming vty command
+	  functions. Avoids confusion in extract.pl.
+
 2004-06-30  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* main.c: define thread_master variable so that linking with

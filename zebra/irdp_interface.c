@@ -408,8 +408,8 @@ DEFUN (ip_irdp_broadcast,
   return CMD_SUCCESS;
 }
 
-DEFUN (ip_irdp_no,
-       ip_irdp_cmd_no,
+DEFUN (no_ip_irdp,
+       no_ip_irdp_cmd,
        "no ip irdp",
        IP_STR
        "Disable ICMP Router discovery on this interface\n")
@@ -442,8 +442,8 @@ DEFUN (ip_irdp_shutdown,
   return CMD_SUCCESS;
 }
 
-DEFUN (ip_irdp_no_shutdown,
-       ip_irdp_no_shutdown_cmd,
+DEFUN (no_ip_irdp_shutdown,
+       no_ip_irdp_shutdown_cmd,
        "no ip irdp shutdown",
        IP_STR
        "ICMP Router discovery no shutdown on this interface\n")
@@ -625,8 +625,8 @@ DEFUN (ip_irdp_address_preference,
 
 }
 
-DEFUN (ip_irdp_address_preference_no,
-       ip_irdp_address_preference_cmd_no,
+DEFUN (no_ip_irdp_address_preference,
+       no_ip_irdp_address_preference_cmd,
        "no ip irdp address A.B.C.D preference <0-2147483647>",
        IP_STR
        "Alter ICMP Router discovery preference this interface\n"
@@ -765,15 +765,15 @@ irdp_if_init ()
 {
   install_element (INTERFACE_NODE, &ip_irdp_broadcast_cmd);
   install_element (INTERFACE_NODE, &ip_irdp_multicast_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_cmd_no);
+  install_element (INTERFACE_NODE, &no_ip_irdp_cmd);
   install_element (INTERFACE_NODE, &ip_irdp_shutdown_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_no_shutdown_cmd);
+  install_element (INTERFACE_NODE, &no_ip_irdp_shutdown_cmd);
   install_element (INTERFACE_NODE, &ip_irdp_holdtime_cmd);
   install_element (INTERFACE_NODE, &ip_irdp_maxadvertinterval_cmd);
   install_element (INTERFACE_NODE, &ip_irdp_minadvertinterval_cmd);
   install_element (INTERFACE_NODE, &ip_irdp_preference_cmd);
   install_element (INTERFACE_NODE, &ip_irdp_address_preference_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_address_preference_cmd_no);
+  install_element (INTERFACE_NODE, &no_ip_irdp_address_preference_cmd);
 
   install_element (INTERFACE_NODE, &ip_irdp_debug_messages_cmd);
   install_element (INTERFACE_NODE, &ip_irdp_debug_misc_cmd);
