@@ -531,14 +531,10 @@ isis_circuit_up (struct isis_circuit *circuit)
       /* dr election will commence in... */
       if (circuit->circuit_is_type & IS_LEVEL_1)
 	THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-			 circuit,
-			 2 * circuit->hello_multiplier[0] *
-			 circuit->hello_interval[0]);
+			 circuit, 2 * circuit->hello_interval[0]);
       if (circuit->circuit_is_type & IS_LEVEL_2)
 	THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
-			 circuit,
-			 2 * circuit->hello_multiplier[1] *
-			 circuit->hello_interval[1]);
+			 circuit, 2 * circuit->hello_interval[1]);
     }
   else
     {

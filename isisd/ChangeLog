@@ -1,3 +1,8 @@
+2004-09-17 LIU Xin <lx at ns.6test.edu.cn>
+	
+	* isis_circuit.c: According to RFC1142 the first DIS election will be
+	started 2 * HelloTimer seconds after the initialization.
+
 2004-09-15 Laurent Rabret <laurent.rabret at francetelecom.com>
 
 	* isis_pdu.c: Fix error in same subnet comparison. The previous
