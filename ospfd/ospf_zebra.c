@@ -431,8 +431,10 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
             }
           else
             {
-              api.ifindex_num = 1;
-              api.ifindex = &path->oi->ifp->ifindex;
+              /* Commented out by Hasso because it introduces segfault.
+               * See bug #29 in bugzilla for details. */
+              /* api.ifindex_num = 1;
+                 api.ifindex = &path->oi->ifp->ifindex; */
             }
 
           zapi_ipv4_delete (zclient, p, &api);
