@@ -303,6 +303,20 @@ isis_event_adjacency_state_change (struct isis_adjacency *adj, int newstate)
   return;
 }
 
+void
+isis_event_int_reach_change (struct isis_circuit *circuit)
+{
+  if (!circuit || !circuit->area)
+    return;
+
+  zlog_info ("ISIS-Evt (%s) Internal reachability change",
+	     circuit->area->area_tag);
+
+  lsp_regenerate_schedule (circuit->area);
+
+  return;
+}
+
 /* events supporting code */
 
 int

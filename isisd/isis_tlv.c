@@ -437,8 +437,10 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	      while (length > value_len)
 		{
 		  ipv4_addr = (struct in_addr *) pnt;
+#ifdef EXTREME_TLV_DEBUG
 		  zlog_info ("ISIS-TLV (%s) : IP ADDR %s, pnt %p", areatag,
 			     inet_ntoa (*ipv4_addr), pnt);
+#endif /* EXTREME_TLV_DEBUG */
 		  if (!tlvs->ipv4_addrs)
 		    tlvs->ipv4_addrs = list_new ();
 		  listnode_add (tlvs->ipv4_addrs, ipv4_addr);

@@ -199,6 +199,8 @@ isis_zebra_if_address_del (int command, struct zclient *client,
 {
   struct connected *c;
   struct interface *ifp;
+  struct prefix *p;
+  u_char buf[BUFSIZ];
 
   c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_DELETE,
 				    zclient->ibuf);
@@ -208,9 +210,20 @@ isis_zebra_if_address_del (int command, struct zclient *client,
 
   ifp = c->ifp;
 
-  connected_free (c);
+#ifdef EXTREME_DEBUG
+  p = c->address;
+  prefix2str (p, buf, BUFSIZ);
+
+  if (p->family == AF_INET)
+    zlog_info ("disconnected IP address %s", buf);
+#ifdef HAVE_IPV6
+  if (p->family == AF_INET6)
+    zlog_info ("disconnected IPv6 address %s", buf);
+#endif /* HAVE_IPV6 */
+#endif /* EXTREME_DEBUG */
 
   isis_circuit_del_addr (circuit_scan_by_ifp (ifp), c);
+  connected_free (c);
 
   return 0;
 }

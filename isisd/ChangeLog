@@ -1,3 +1,18 @@
+2004-09-14 Hasso Tepper <hasso at quagga.net>
+
+	* isis_circuit.c: Mostly cosmetical changes in isis_circuit_add_addr()
+	  and add calls to isis_event_int_reach_change(). Implement
+	  isis_circuit_del_addr(). Cancel t_run_dr threads is circuit goes
+	  down.
+	* isis_events.c: Implement isis_event_int_reach_change(). I'm not sure
+	  yet how this stuff should work, but it allows be to start debug
+	  threads which act very weird at the moment.
+	* isis_tlv.c: Much less verbose by default.
+	* isis_zebra.c: Added extreme debugging output. Call connected_free()
+	  after isis_circuit_del_addr, not before.
+	* isisd.conf.sample: Update it a little bit. 10000 seconds hello time
+	  was certainly too much IMHO.
+
 2004-09-14 LIU Xin <lx at ns.6test.edu.cn>
 
 	* isis_pdu.c: Update l1_desig_is only if neighbor really is DIS.

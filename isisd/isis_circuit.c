@@ -216,64 +216,60 @@ isis_circuit_del (struct isis_circuit *circuit)
 }
 
 void
-isis_circuit_add_addr (struct isis_circuit *circuit, struct connected *conn)
+isis_circuit_add_addr (struct isis_circuit *circuit,
+		       struct connected *connected)
 {
   struct prefix_ipv4 *ipv4;
   u_char buf[BUFSIZ];
 #ifdef HAVE_IPV6
   struct prefix_ipv6 *ipv6;
 #endif /* HAVE_IPV6 */
+
   if (!circuit->ip_addrs)
-    {
-      circuit->ip_addrs = list_new ();
-    }
+    circuit->ip_addrs = list_new ();
 #ifdef HAVE_IPV6
   if (!circuit->ipv6_link)
-    {
-      circuit->ipv6_link = list_new ();
-    }
+    circuit->ipv6_link = list_new ();
   if (!circuit->ipv6_non_link)
-    {
-      circuit->ipv6_non_link = list_new ();
-    }
+    circuit->ipv6_non_link = list_new ();
 #endif /* HAVE_IPV6 */
 
   memset (&buf, 0, BUFSIZ);
-  if (conn->address->family == AF_INET)
+  if (connected->address->family == AF_INET)
     {
       ipv4 = prefix_ipv4_new ();
-      ipv4->prefixlen = conn->address->prefixlen;
-      ipv4->prefix = conn->address->u.prefix4;
+      ipv4->prefixlen = connected->address->prefixlen;
+      ipv4->prefix = connected->address->u.prefix4;
       listnode_add (circuit->ip_addrs, ipv4);
-      prefix2str (conn->address, buf, BUFSIZ);
+      isis_event_int_reach_change (circuit);
+
 #ifdef EXTREME_DEBUG
+      prefix2str (connected->address, buf, BUFSIZ);
       zlog_info ("Added IP address %s to circuit %d", buf,
 		 circuit->circuit_id);
 #endif /* EXTREME_DEBUG */
     }
 #ifdef HAVE_IPV6
-  if (conn->address->family == AF_INET6)
+  if (connected->address->family == AF_INET6)
     {
       ipv6 = prefix_ipv6_new ();
-      ipv6->prefixlen = conn->address->prefixlen;
-      ipv6->prefix = conn->address->u.prefix6;
+      ipv6->prefixlen = connected->address->prefixlen;
+      ipv6->prefix = connected->address->u.prefix6;
+
       if (IN6_IS_ADDR_LINKLOCAL (&ipv6->prefix))
-	{
-	  listnode_add (circuit->ipv6_link, ipv6);
-	}
+	listnode_add (circuit->ipv6_link, ipv6);
       else
-	{
-	  listnode_add (circuit->ipv6_non_link, ipv6);
-	}
-      prefix2str (conn->address, buf, BUFSIZ);
+	listnode_add (circuit->ipv6_non_link, ipv6);
+
+      isis_event_int_reach_change(circuit);
+
 #ifdef EXTREME_DEBUG
+      prefix2str (connected->address, buf, BUFSIZ);
       zlog_info ("Added IPv6 address %s to circuit %d", buf,
 		 circuit->circuit_id);
 #endif /* EXTREME_DEBUG */
     }
 #endif /* HAVE_IPV6 */
-
-
   return;
 }
 
@@ -281,7 +277,87 @@ void
 isis_circuit_del_addr (struct isis_circuit *circuit,
 		       struct connected *connected)
 {
+  struct prefix_ipv4 *ipv4, *ip = NULL;
+  struct listnode *node;
+  int found = 0;
+  u_char buf[BUFSIZ];
+#ifdef HAVE_IPV6
+  struct prefix_ipv6 *ipv6, *ip6 = NULL;
+#endif /* HAVE_IPV6 */
 
+  memset (&buf, 0, BUFSIZ);
+  if (connected->address->family == AF_INET)
+    {
+      ipv4 = prefix_ipv4_new ();
+      ipv4->prefixlen = connected->address->prefixlen;
+      ipv4->prefix = connected->address->u.prefix4;
+
+      for (node = listhead (circuit->ip_addrs); node; nextnode (node))
+	{
+	  ip = getdata (node);
+	  if (prefix_same ((struct prefix *) ip, (struct prefix *) &ipv4))
+	    break;
+	}
+
+      if (ip)
+	{
+	  listnode_delete (circuit->ip_addrs, ip);
+	  isis_event_int_reach_change (circuit);
+	}
+      else
+	{
+	  prefix2str (connected->address, buf, BUFSIZ);
+	  zlog_warn("Nonexitant ip address %s removal attempt from circuit \
+		     %d", buf, circuit->circuit_id);
+	}
+    }
+#ifdef HAVE_IPV6
+  if (connected->address->family == AF_INET6)
+    {
+      ipv6 = prefix_ipv6_new ();
+      ipv6->prefixlen = connected->address->prefixlen;
+      ipv6->prefix = connected->address->u.prefix6;
+
+      if (IN6_IS_ADDR_LINKLOCAL (&ipv6->prefix))
+	{
+	  for (node = listhead (circuit->ipv6_link); node; nextnode (node))
+	    {
+	      ip6 = getdata (node);
+	      if (prefix_same ((struct prefix *) ip6, (struct prefix *) ipv6))
+		break;
+	    }
+	  if (ip6)
+	    {
+	      listnode_delete (circuit->ipv6_link, ip6);
+	      found = 1;
+	    }
+	}
+      else
+	{
+	  for (node = listhead (circuit->ipv6_non_link); node; nextnode (node))
+	    {
+	      ip6 = getdata (node);
+	      if (prefix_same ((struct prefix *) ip6, (struct prefix *) ipv6))
+		break;
+	    }
+	  if (ip6)
+	    {
+	      listnode_delete (circuit->ipv6_non_link, ip6);
+	      found = 1;
+	    }
+	}
+
+      if (!found)
+	{
+	  prefix2str (connected->address, buf, BUFSIZ);
+	  zlog_warn("Nonexitant ip address %s removal attempt from \
+		     circuit %d", buf, circuit->circuit_id);
+	}
+      else
+	isis_event_int_reach_change (circuit);
+    }
+#endif /* HAVE_IPV6 */
+  return;
 }
 
 void
@@ -516,6 +592,8 @@ isis_circuit_down (struct isis_circuit *circuit)
     {
       THREAD_TIMER_OFF (circuit->u.bc.t_send_lan_hello[0]);
       THREAD_TIMER_OFF (circuit->u.bc.t_send_lan_hello[1]);
+      THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[0]);
+      THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[1]);
     }
   else if (circuit->circ_type == CIRCUIT_T_P2P)
     {
