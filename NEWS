@@ -1,3 +1,9 @@
+* Changes in Quagga 0.96.3
+
+- revert the 'generic PtP' patch. Means Quagga will no longer work with
+FreeSWAN, however, on the plus side this gets rid of a lot of niggly bugs
+which the PtP patch introduced.
+
 * Changes in Quagga 0.96.2
 
 - Fix crash in ospfd
