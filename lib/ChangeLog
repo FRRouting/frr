@@ -1,3 +1,7 @@
+2004-05-18 Hasso Tepper <hasso@estpak.ee>
+	
+	* pqueue.[c|h]: Added as part of ospf6d merge from Zebra repository.
+
 2004-05-08 Paul Jakma <paul@dishone.st>
 
 	* zclient.c (zapi_ipv4_route) Follow Sowmini's lead and describe
