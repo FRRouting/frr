@@ -1,3 +1,7 @@
+2004-10-05 Paul Jakma <paul@dishone.st>
+
+	* version.h.in: (pid_output*) add const qualifier.
+
 2004-10-08 Hasso Tepper <hasso at quagga.net>
 
 	* routemap.c, routemap.h: Make some string arguments const.

@@ -33,8 +33,8 @@
 extern char *host_name;
 
 void print_version (const char *);
-pid_t pid_output (char *);
-pid_t pid_output_lock (char *);
+pid_t pid_output (const char *);
+pid_t pid_output_lock (const char *);
 
 #ifndef HAVE_DAEMON
 int daemon(int, int);
