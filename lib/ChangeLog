@@ -1,3 +1,8 @@
+2004-12-09 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* log.c: (hex_append) No need to include this function if
+	  HAVE_GLIBC_BACKTRACE is not defined.
+
 2004-12-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* prefix.c: (prefix_copy) Error message before abort should

@@ -1,5 +1,5 @@
 /*
- * $Id: log.c,v 1.18 2004/12/09 14:53:32 gdt Exp $
+ * $Id: log.c,v 1.19 2004/12/09 17:26:31 ajs Exp $
  *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -177,10 +177,10 @@ num_append(char *s, int len, u_long x)
   return str_append(s,len,t);
 }
 
-/*
- * XXX warning: `hex_append' defined but not used
- * Apparently this is used only if HAVE_GLIBC_BACKTRACE is defined.
- */
+#ifdef HAVE_GLIBC_BACKTRACE
+
+/* This function is used only in zlog_backtrace_sigsafe when glibc
+   backtraces are available. */
 static char *
 hex_append(char *s, int len, u_long x)
 {
@@ -198,6 +198,8 @@ hex_append(char *s, int len, u_long x)
     }
   return str_append(s,len,t);
 }
+
+#endif /* HAVE_GLIBC_BACKTRACE */
 
 static int syslog_fd = -1;
 
