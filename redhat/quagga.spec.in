@@ -34,10 +34,12 @@
 %define         quagga_gid      92
 %define		daemon_list	zebra ripd ospfd bgpd
 %if %{with_ipv6}
-%define		daemon_list	%{daemon_list} ripngd ospf6d
+%define		daemonv6_list	%{daemon_list} ripngd ospf6d
 %endif
 %if %{with_isisd}
-%define		daemon_list	%{daemon_list} isisd
+%define		daemon_other	isisd
+%else
+%define		daemon_other	""
 %endif
 
 # allow build dir to be kept
@@ -146,7 +148,7 @@ developing OSPF-API and quagga applications.
 %if %{with_isisd}
 	--enable-isisd \
 %else
-	--disable-isisd
+	--disable-isisd \
 %endif
 %if %{with_pam}
 	--with-libpam \
@@ -179,7 +181,7 @@ make install \
 rm -rf $RPM_BUILD_ROOT/usr/share/info/dir
 
 # install etc sources
-for daemon in %daemon_list ; do
+for daemon in %{daemon_list} %{daemonv6_list} %{daemon_other} ; do
 	install %{zeb_rh_src}/${daemon}.init \
 		$RPM_BUILD_ROOT/etc/rc.d/init.d/${daemon}
 done
