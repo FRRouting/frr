@@ -596,7 +596,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
       if (IPV4_ADDR_SAME (&peer->remote_id, &ri->attr->originator_id))
 	{
 	  if (BGP_DEBUG (filter, FILTER))  
-	    zlog (peer->log, LOG_INFO,
+	    zlog (peer->log, LOG_DEBUG,
 		  "%s [Update:SEND] %s/%d originator-id is same as remote router-id",
 		  peer->host,
 		  inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -619,7 +619,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   if (bgp_output_filter (peer, p, ri->attr, afi, safi) == FILTER_DENY)
     {
       if (BGP_DEBUG (filter, FILTER))
-	zlog (peer->log, LOG_INFO,
+	zlog (peer->log, LOG_DEBUG,
 	      "%s [Update:SEND] %s/%d is filtered",
 	      peer->host,
 	      inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -632,7 +632,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   if (aspath_loop_check (ri->attr->aspath, peer->as))
     {
       if (BGP_DEBUG (filter, FILTER))  
-        zlog (peer->log, LOG_INFO, 
+        zlog (peer->log, LOG_DEBUG, 
 	      "%s [Update:SEND] suppress announcement to peer AS %d is AS path.",
 	      peer->host, peer->as);
       return 0;
@@ -645,7 +645,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
       if (aspath_loop_check(ri->attr->aspath, bgp->confed_id))
 	{
 	  if (BGP_DEBUG (filter, FILTER))  
-	    zlog (peer->log, LOG_INFO, 
+	    zlog (peer->log, LOG_DEBUG, 
 		  "%s [Update:SEND] suppress announcement to peer AS %d is AS path.",
 		  peer->host,
 		  bgp->confed_id);
@@ -872,7 +872,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
       if (IPV4_ADDR_SAME (&rsclient->remote_id, &ri->attr->originator_id))
         {
          if (BGP_DEBUG (filter, FILTER))
-           zlog (rsclient->log, LOG_INFO,
+           zlog (rsclient->log, LOG_DEBUG,
                  "%s [Update:SEND] %s/%d originator-id is same as remote router-id",
                  rsclient->host,
                  inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -895,7 +895,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
   if (bgp_output_filter (rsclient, p, ri->attr, afi, safi) == FILTER_DENY)
     {
       if (BGP_DEBUG (filter, FILTER))
-       zlog (rsclient->log, LOG_INFO,
+       zlog (rsclient->log, LOG_DEBUG,
              "%s [Update:SEND] %s/%d is filtered",
              rsclient->host,
              inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -908,7 +908,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
   if (aspath_loop_check (ri->attr->aspath, rsclient->as))
     {
       if (BGP_DEBUG (filter, FILTER))
-        zlog (rsclient->log, LOG_INFO,
+        zlog (rsclient->log, LOG_DEBUG,
              "%s [Update:SEND] suppress announcement to peer AS %d is AS path.",
              rsclient->host, rsclient->as);
       return 0;
@@ -1479,7 +1479,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
           UNSET_FLAG (ri->flags, BGP_INFO_ATTR_CHANGED);
 
           if (BGP_DEBUG (update, UPDATE_IN))
-            zlog (peer->log, LOG_INFO,
+            zlog (peer->log, LOG_DEBUG,
                     "%s rcvd %s/%d for RS-client %s...duplicate ignored",
                     peer->host,
                     inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -1493,7 +1493,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
 
       /* Received Logging. */
       if (BGP_DEBUG (update, UPDATE_IN))
-        zlog (peer->log, LOG_INFO, "%s rcvd %s/%d for RS-client %s",
+        zlog (peer->log, LOG_DEBUG, "%s rcvd %s/%d for RS-client %s",
                 peer->host,
                 inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
                 p->prefixlen, rsclient->host);
@@ -1521,7 +1521,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
   /* Received Logging. */
   if (BGP_DEBUG (update, UPDATE_IN))
     {
-      zlog (peer->log, LOG_INFO, "%s rcvd %s/%d for RS-client %s",
+      zlog (peer->log, LOG_DEBUG, "%s rcvd %s/%d for RS-client %s",
               peer->host,
               inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
               p->prefixlen, rsclient->host);
@@ -1553,7 +1553,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
 
   /* This BGP update is filtered.  Log the reason then update BGP entry.  */
   if (BGP_DEBUG (update, UPDATE_IN))
-        zlog (peer->log, LOG_INFO,
+        zlog (peer->log, LOG_DEBUG,
         "%s rcvd UPDATE about %s/%d -- DENIED for RS-client %s due to: %s",
         peer->host,
         inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -1590,7 +1590,7 @@ bgp_withdraw_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
   if (ri && ! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
     bgp_rib_withdraw (rn, ri, peer, afi, safi, 0);
   else if (BGP_DEBUG (update, UPDATE_IN))
-    zlog (peer->log, LOG_INFO,
+    zlog (peer->log, LOG_DEBUG,
           "%s Can't find the route %s/%d", peer->host,
           inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
           p->prefixlen);
@@ -1724,7 +1724,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	      && CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
 	    {
 	      if (BGP_DEBUG (update, UPDATE_IN))  
-		  zlog (peer->log, LOG_INFO, "%s rcvd %s/%d",
+		  zlog (peer->log, LOG_DEBUG, "%s rcvd %s/%d",
 		  peer->host,
 		  inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 		  p->prefixlen);
@@ -1740,7 +1740,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	  else
 	    {
 	      if (BGP_DEBUG (update, UPDATE_IN))  
-		zlog (peer->log, LOG_INFO,
+		zlog (peer->log, LOG_DEBUG,
 		"%s rcvd %s/%d...duplicate ignored",
 		peer->host,
 		inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -1754,7 +1754,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 
       /* Received Logging. */
       if (BGP_DEBUG (update, UPDATE_IN))  
-	zlog (peer->log, LOG_INFO, "%s rcvd %s/%d",
+	zlog (peer->log, LOG_DEBUG, "%s rcvd %s/%d",
 	      peer->host,
 	      inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 	      p->prefixlen);
@@ -1823,7 +1823,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
   /* Received Logging. */
   if (BGP_DEBUG (update, UPDATE_IN))  
     {
-      zlog (peer->log, LOG_INFO, "%s rcvd %s/%d",
+      zlog (peer->log, LOG_DEBUG, "%s rcvd %s/%d",
 	    peer->host,
 	    inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 	    p->prefixlen);
@@ -1879,7 +1879,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
      entry.  */
  filtered:
   if (BGP_DEBUG (update, UPDATE_IN))
-    zlog (peer->log, LOG_INFO,
+    zlog (peer->log, LOG_DEBUG,
 	  "%s rcvd UPDATE about %s/%d -- DENIED due to: %s",
 	  peer->host,
 	  inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
@@ -1942,7 +1942,7 @@ bgp_withdraw (struct peer *peer, struct prefix *p, struct attr *attr,
 
   /* Logging. */
   if (BGP_DEBUG (update, UPDATE_IN))  
-    zlog (peer->log, LOG_INFO, "%s rcvd UPDATE about %s/%d -- withdrawn",
+    zlog (peer->log, LOG_DEBUG, "%s rcvd UPDATE about %s/%d -- withdrawn",
 	  peer->host,
 	  inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 	  p->prefixlen);
@@ -1965,7 +1965,7 @@ bgp_withdraw (struct peer *peer, struct prefix *p, struct attr *attr,
   if (ri && ! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
     bgp_rib_withdraw (rn, ri, peer, afi, safi, 0);
   else if (BGP_DEBUG (update, UPDATE_IN))
-    zlog (peer->log, LOG_INFO, 
+    zlog (peer->log, LOG_DEBUG, 
 	  "%s Can't find the route %s/%d", peer->host,
 	  inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 	  p->prefixlen);
@@ -2613,7 +2613,7 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
 {
       /* This BGP update is filtered.  Log the reason then update BGP entry.  */
       if (BGP_DEBUG (update, UPDATE_IN))
-              zlog (rsclient->log, LOG_INFO,
+              zlog (rsclient->log, LOG_DEBUG,
               "Static UPDATE about %s/%d -- DENIED for RS-client %s due to: import-policy",
               inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
               p->prefixlen, rsclient->host);
