@@ -236,7 +236,7 @@ bgp_dump_routes_entry (struct prefix *p, struct bgp_info *info, int afi,
 	  stream_putw (obuf, peer->as);
 
 	  /* Dump attribute. */
-	  bgp_dump_routes_attr (obuf, attr, NULL);
+	  bgp_dump_routes_attr (obuf, attr, p);
 	}
       else
 	{
@@ -246,7 +246,7 @@ bgp_dump_routes_entry (struct prefix *p, struct bgp_info *info, int afi,
 	  stream_putc (obuf, p->prefixlen);
 	  plen = PSIZE (p->prefixlen);
 	  stream_put (obuf, &p->u.prefix4, plen);
-	  bgp_dump_routes_attr (obuf, attr, NULL);
+	  bgp_dump_routes_attr (obuf, attr, p);
 	}
     }
 #ifdef HAVE_IPV6
