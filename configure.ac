@@ -13,12 +13,12 @@ AM_INIT_AUTOMAKE()
 AM_CONFIG_HEADER(config.h)
 
 dnl default is to match previous behavior
-exampledir='${sysconfdir}'
+exampledir=${sysconfdir}
 AC_ARG_ENABLE([exampledir],
 	  AC_HELP_STRING([--enable-exampledir],
 			 [specify alternate directory for examples]),
 			 exampledir="$enableval",)
-dnl XXX hook into argument processing
+dnl XXX add --exampledir to autoconf standard directory list somehow
 AC_SUBST(exampledir)
 
 dnl -----------------------------------

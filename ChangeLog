@@ -1,3 +1,9 @@
+2003-12-04  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* configure.ac: When setting exampledir to sysconfdir as a
+	default, don't quote ${sysconfdir}.  (Bug reported by Vincent
+	Jardin.)
+
 2003-12-03  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* configure.ac: Compile in Router Advertisement support by
