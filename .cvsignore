@@ -10,6 +10,9 @@ stamp-h[0-9]*
 *-stamp
 Makefile
 .deps
+depcomp
+missing
+install-sh
 autom4te*.cache
 configure.lineno
 configure
