@@ -1665,13 +1665,13 @@ ospf_install_flood_nssa (struct ospf *ospf,
 	  if (extlsa->e[0].fwd_addr.s_addr == 0)
 	    extlsa->e[0].fwd_addr = ospf_get_nssa_ip(area); /* this NSSA area in ifp */
 
-	  if (IS_DEBUG_OSPF_NSSA)
-	    if (extlsa->e[0].fwd_addr.s_addr == 0) 
-	      {
-		zlog_info ("LSA[Type-7]: Could not build FWD-ADDR");
-		ospf_lsa_discard(new2);
-		return;
-	      }
+	  if (extlsa->e[0].fwd_addr.s_addr == 0) 
+	  {
+	    if (IS_DEBUG_OSPF_NSSA)
+	      zlog_info ("LSA[Type-7]: Could not build FWD-ADDR");
+	    ospf_lsa_discard(new2);
+	    return;
+	  }
 	}
       /* Re-calculate checksum. */
       ospf_lsa_checksum (new2->data);
@@ -1869,29 +1869,26 @@ ospf_nssa_lsa_flush (struct ospf *ospf, struct prefix_ipv4 *p)
   struct ospf_lsa *lsa;
   struct ospf_area *area;
 
-  if (ospf->anyNSSA) 
+  for (node = listhead (ospf->areas); node; nextnode (node)) 
   {
-     for (node = listhead (ospf->areas); node; nextnode (node)) 
-     {
-        if (((area = getdata (node)) != NULL) 
-              && (area->external_routing == OSPF_AREA_NSSA)) 
-        {
-           if (!(lsa = ospf_lsa_lookup (area, OSPF_AS_NSSA_LSA, p->prefix,
-                                        ospf->router_id))) 
-           {
-              if (IS_DEBUG_OSPF (lsa, LSA_FLOODING)) 
-                 zlog_warn ("LSA: There is no such AS-NSSA-LSA %s/%d in LSDB",
-                        inet_ntoa (p->prefix), p->prefixlen);
-              return;
-           }
-           ospf_ls_retransmit_delete_nbr_as (ospf, lsa);
-           if (!IS_LSA_MAXAGE (lsa)) 
-           {
-              ospf_refresher_unregister_lsa (ospf, lsa);
-              ospf_lsa_flush_as (ospf, lsa);
-           }
-        }
-     }
+    if (((area = getdata (node)) != NULL) 
+          && (area->external_routing == OSPF_AREA_NSSA)) 
+    {
+      if (!(lsa = ospf_lsa_lookup (area, OSPF_AS_NSSA_LSA, p->prefix,
+                                ospf->router_id))) 
+      {
+        if (IS_DEBUG_OSPF (lsa, LSA_FLOODING)) 
+          zlog_warn ("LSA: There is no such AS-NSSA-LSA %s/%d in LSDB",
+                    inet_ntoa (p->prefix), p->prefixlen);
+        continue;
+      }
+      ospf_ls_retransmit_delete_nbr_area (area, lsa);
+      if (!IS_LSA_MAXAGE (lsa)) 
+      {
+        ospf_refresher_unregister_lsa (ospf, lsa);
+        ospf_lsa_flush_area (lsa, area);
+      }
+    }
   }
 }
 #endif /* HAVE_NSSA */
@@ -1916,6 +1913,13 @@ ospf_external_lsa_flush (struct ospf *ospf,
 		   inet_ntoa (p->prefix), p->prefixlen);
       return;
     }
+#ifdef HAVE_NSSA
+  /* If LSA is selforiginated and there is NSSA area, flush
+   * Type-7 LSA's at first. */
+
+  if (IS_LSA_SELF(lsa) && (ospf->anyNSSA))
+    ospf_nssa_lsa_flush (ospf, p);
+#endif /* HAVE_NSSA */
 
   /* Sweep LSA from Link State Retransmit List. */
   ospf_ls_retransmit_delete_nbr_as (ospf, lsa);
@@ -1935,11 +1939,6 @@ ospf_external_lsa_flush (struct ospf *ospf,
       ospf_lsa_flush_as (ospf, lsa);
     }
 
-#ifdef HAVE_NSSA
-  /* If there is NSSA area, flush Type-7 lsa's as well */
-  ospf_nssa_lsa_flush (ospf, p);
-#endif /* HAVE_NSSA */
-  
   if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
     zlog_info ("ospf_external_lsa_flush(): stop");
 }
@@ -2230,6 +2229,13 @@ ospf_external_lsa_install (struct ospf *ospf, struct ospf_lsa *new,
 	ospf_ase_incremental_update (ospf, new);
     }
 
+#ifdef HAVE_NSSA
+  /* There is no point to register selforiginate Type-7 LSA for
+   * refreshing. We rely on refreshing Type-5 LSA's */
+  if (IS_LSA_SELF (new) && (new->data->type == OSPF_AS_NSSA_LSA))
+    return new;
+#endif /* HAVE_NSSA */
+
   /* Register self-originated LSA to refresh queue. */
   if (IS_LSA_SELF (new))
     ospf_refresher_register_lsa (ospf, new);
@@ -2257,12 +2263,15 @@ ospf_discard_from_db (struct ospf *ospf,
 #ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
 #endif /* HAVE_OPAQUE_LSA */
-#ifdef HAVE_NSSA
-    case OSPF_AS_NSSA_LSA:
-#endif /* HAVE_NSSA */
       ospf_ls_retransmit_delete_nbr_as (ospf, old);
       ospf_ase_unregister_external_lsa (old, ospf);
       break;
+#ifdef HAVE_NSSA
+    case OSPF_AS_NSSA_LSA:
+      ospf_ls_retransmit_delete_nbr_area (old->area, old);
+      ospf_ase_unregister_external_lsa (old, ospf);
+    break;
+#endif /* HAVE_NSSA */
     default:
       ospf_ls_retransmit_delete_nbr_area (old->area, old);
       break;
@@ -3271,9 +3280,9 @@ ospf_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
     case OSPF_OPAQUE_AS_LSA:
       ospf_opaque_lsa_refresh (lsa);
       break;
+#endif /* HAVE_OPAQUE_LSA */
     default:
       break;
-#endif /* HAVE_OPAQUE_LSA */
     }
 }
 
