@@ -1825,9 +1825,10 @@ ALIAS (no_ip_rip_split_horizon,
 
 DEFUN (rip_passive_interface,
        rip_passive_interface_cmd,
-       "passive-interface IFNAME",
+       "passive-interface (IFNAME|default)",
        "Suppress routing updates on an interface\n"
-       "Interface name\n")
+       "Interface name\n"
+       "default for all interfaces\n")
 {
   char *ifname = argv[0];
 
@@ -1844,10 +1845,11 @@ DEFUN (rip_passive_interface,
 
 DEFUN (no_rip_passive_interface,
        no_rip_passive_interface_cmd,
-       "no passive-interface IFNAME",
+       "no passive-interface (IFNAME|default)",
        NO_STR
        "Suppress routing updates on an interface\n"
-       "Interface name\n")
+       "Interface name\n"
+       "default for all interfaces\n")
 {
   char *ifname = argv[0];
 
