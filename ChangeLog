@@ -1,5 +1,11 @@
 2005-03-28 Hasso Tepper <hasso at quagga.net>
 
+	* configure.ac, */Makefile.am: Fix previous commit. SNMP includes
+	  must be after lib/ includes in some systems. Introduce SNMP_INCLUDES
+	  for that.
+
+2005-03-28 Hasso Tepper <hasso at quagga.net>
+
 	* configure.ac: Fix most of "Presents But Cannot Compiled" warnings
 	  about various headers. CFLAGS is not correct place to specify
 	  includes, INCLUDES is for that.
