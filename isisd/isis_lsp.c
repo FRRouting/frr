@@ -866,7 +866,7 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
     LIST_LOOP (lsp->tlv_data.te_ipv4_reachs, te_ipv4_reach, lnode)
     {
       /* FIXME: There should be better way to output this stuff. */
-      vty_out (vty, "  Metric: %d extrd-IP %s/%d%s",
+      vty_out (vty, "  Metric: %d extd-IP %s/%d%s",
 	       ntohl (te_ipv4_reach->te_metric),
 	       inet_ntoa (newprefix2inaddr (&te_ipv4_reach->prefix_start,
 					    te_ipv4_reach->control)),
