@@ -71,7 +71,7 @@ int setsockopt_ipv6_multicast_loop (int, int);
 #define SOPT_SIZE_CMSG_IFINDEX_IPV4() SOPT_SIZE_CMSG_PKTINFO_IPV4()
 #elif defined (SOPT_SIZE_CMSG_RECVIF_IPV4)
 #define SOPT_SIZE_CMSG_IFINDEX_IPV4() SOPT_SIZE_CMSG_RECVIF_IPV4()
-#elif /* Nothing available */
+#else /* Nothing available */
 #define SOPT_SIZE_CMSG_IFINDEX_IPV4() (sizeof (char *))
 #endif /* SOPT_SIZE_CMSG_IFINDEX_IPV4 */
 
