@@ -245,6 +245,42 @@ struct in_pktinfo
 };
 #endif
 
+/* 
+ * OSPF Fragmentation / fragmented writes
+ *
+ * ospfd can support writing fragmented packets, for cases where
+ * kernel will not fragment IP_HDRINCL and/or multicast destined
+ * packets (ie TTBOMK all kernels, BSD, SunOS, Linux). However,
+ * SunOS, probably BSD too, clobber the user supplied IP ID and IP
+ * flags fields, hence user-space fragmentation will not work.
+ * Only Linux is known to leave IP header unmolested.
+ * Further, fragmentation really should be done the kernel, which already
+ * supports it, and which avoids nasty IP ID state problems.
+ *
+ * Fragmentation of OSPF packets can be required on networks with router
+ * with many many interfaces active in one area, or on networks with links
+ * with low MTUs.
+ */
+#ifdef GNU_LINUX
+#define WANT_OSPF_WRITE_FRAGMENT
+#endif
+
+/* 
+ * IP_HDRINCL / struct ip byte order
+ *
+ * Linux: network byte order
+ * *BSD: network, except for length and offset. (cf Stevens)
+ * SunOS: nominally as per BSD. but bug: network order on LE.
+ * OpenBSD: network byte order, apart from older versions which are as per 
+ *          *BSD
+ */
+#if defined(__NetBSD__) || defined(__FreeBSD__) \
+   || (defined(__OpenBSD__) && (OpenBSD < 200311)) \
+   || (defined(SUNOS_5) && defined(WORDS_BIGENDIAN))
+#define HAVE_IP_HDRINCL_BSD_ORDER
+#endif
+
+/* 
 /* MAX / MIN are not commonly defined, but useful */
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
