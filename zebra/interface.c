@@ -748,7 +748,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	   ifp->stats.rx_bytes, ifp->stats.rx_dropped, VTY_NEWLINE);
 
   vty_out (vty, "    %lu input errors, %lu length, %lu overrun,"
-	   " CRC %lu, frame %lu%s",
+	   " %lu CRC, %lu frame%s",
 	   ifp->stats.rx_errors, ifp->stats.rx_length_errors,
 	   ifp->stats.rx_over_errors, ifp->stats.rx_crc_errors,
 	   ifp->stats.rx_frame_errors, VTY_NEWLINE);

@@ -1,3 +1,7 @@
+2005-03-06 Hasso Tepper <hasso at quagga.net>
+
+	* interface.c: Fix CRC and frame errors statistics in Linux.
+
 2005-02-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zserv.c: Must include network.h and buffer.h for non-blocking I/O.
