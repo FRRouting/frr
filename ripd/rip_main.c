@@ -170,7 +170,7 @@ struct quagga_signal_t ripd_signals[] =
   },
   {
     .signal = SIGINT,
-    .handler = &sigusr1,
+    .handler = &sigint,
   },
 };  
 

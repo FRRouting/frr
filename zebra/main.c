@@ -174,7 +174,7 @@ struct quagga_signal_t zebra_signals[] =
   },
   {
     .signal = SIGINT,
-    .handler = &sigusr1,
+    .handler = &sigint,
   },
 };
 

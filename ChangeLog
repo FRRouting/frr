@@ -1,3 +1,8 @@
+2004-03-17 Jean-Yves Simon <lethalwp@tiscali.be>
+	
+	* zebra/main.c, ripd/rip_main.c: Fix typos sigusr1 -> sigint,
+	  bugzilla #82.
+
 2004-03-16 David Young <dyoung@pobox.com>
 
 	* (many) reference <lib/version.h> rather than "version.h",
