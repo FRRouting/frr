@@ -62,6 +62,7 @@ ripng_multicast_join (struct interface *ifp)
 {
   int ret;
   struct ipv6_mreq mreq;
+  int save_errno;
 
   if (if_is_up (ifp) && if_is_multicast (ifp)) {
     memset (&mreq, 0, sizeof (mreq));
@@ -78,11 +79,12 @@ ripng_multicast_join (struct interface *ifp)
 
     ret = setsockopt (ripng->sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 		      (char *) &mreq, sizeof (mreq));
+    save_errno = errno;
 
     if (ripngd_privs.change (ZPRIVS_LOWER))
       zlog_err ("ripng_multicast_join: could not lower privs");
 
-    if (ret < 0 && errno == EADDRINUSE)
+    if (ret < 0 && save_errno == EADDRINUSE)
       {
 	/*
 	 * Group is already joined.  This occurs due to sloppy group
@@ -94,7 +96,8 @@ ripng_multicast_join (struct interface *ifp)
       }
 
     if (ret < 0)
-      zlog_warn ("can't setsockopt IPV6_JOIN_GROUP: %s", safe_strerror (errno));
+      zlog_warn ("can't setsockopt IPV6_JOIN_GROUP: %s",
+      		 safe_strerror (save_errno));
 
     if (IS_RIPNG_DEBUG_EVENT)
       zlog_debug ("RIPng %s join to all-rip-routers multicast group", ifp->name);

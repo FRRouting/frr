@@ -1,3 +1,8 @@
+2005-01-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripng_interface.c: (ripng_multicast_join) Save errno before calling
+	  ripngd_privs.change.
+
 2005-01-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripngd.c: (ripng_recv_packet) Use ZCMSG_FIRSTHDR instead of
