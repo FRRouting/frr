@@ -1,3 +1,15 @@
+2004-07-23 Sowmini Varadhan <Sowmini.Varadhan@Sun.COM>
+
+        * if_ioctl_solaris.c: HAVE_IPV6 ifdef fixups
+        * zserv.c: ditto
+        * ioctl_solaris.c: ditto.
+        * interface.c: cast for LLADDR
+        * interface.h: Add guards, include redistribute.h and remove
+          extraneous definitions of zebra_interface_{up,down}_update
+        * ioctl.h: Add AF_IOCTL define for non SOLARIS_IPV6
+        * redistribute.h: include dependent header, zserv.h
+        * zserv.h: include dependent header, rib.h
+
 2004-07-23 Paul Jakma <paul@dishone.st>
 
 	* irdp_main.c: use setsockopt_pktinfo_ipv4

@@ -543,8 +543,8 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
       u_char *ptr;
 
       vty_out (vty, "  HWaddr: ");
-      for (i = 0, ptr = LLADDR (sdl); i < sdl->sdl_alen; i++, ptr++)
-	vty_out (vty, "%s%02x", i == 0 ? "" : ":", *ptr);
+      for (i = 0, ptr = (u_char *)LLADDR (sdl); i < sdl->sdl_alen; i++, ptr++)
+        vty_out (vty, "%s%02x", i == 0 ? "" : ":", *ptr);
       vty_out (vty, "%s", VTY_NEWLINE);
     }
 #else

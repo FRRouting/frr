@@ -19,6 +19,11 @@
  * 02111-1307, USA.  
  */
 
+#ifndef _ZEBRA_INTERFACE_H
+#define _ZEBRA_INTERFACE_H
+
+#include "redistribute.h"
+
 #ifdef HAVE_IRDP
 #include "zebra/irdp.h"
 #endif
@@ -169,8 +174,6 @@ void if_add_update (struct interface *ifp);
 void if_up (struct interface *);
 void if_down (struct interface *);
 void if_refresh (struct interface *);
-void zebra_interface_up_update (struct interface *ifp);
-void zebra_interface_down_update (struct interface *ifp);
 
 #ifdef HAVE_PROC_NET_DEV
 int ifstat_update_proc ();
@@ -189,3 +192,5 @@ int ifaddr_proc_ipv6 ();
 #ifdef BSDI
 int if_kvm_get_mtu (struct interface *);
 #endif /* BSDI */
+
+#endif /* _ZEBRA_INTERFACE_H */

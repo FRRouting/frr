@@ -80,10 +80,11 @@ if_ioctl (u_long request, caddr_t buffer)
   return 0;
 }
 
-#ifdef HAVE_IPV6
+
 int
 if_ioctl_ipv6 (u_long request, caddr_t buffer)
 {
+#ifdef HAVE_IPV6
   int sock;
   int ret = 0;
   int err = 0;
@@ -116,9 +117,10 @@ if_ioctl_ipv6 (u_long request, caddr_t buffer)
       errno = err;
       return ret;
     }
+#endif /* HAVE_IPV6 */
+
   return 0;
 }
-#endif /* HAVE_IPV6 */
 
 /*
  * get interface metric
@@ -134,8 +136,10 @@ if_get_metric (struct interface *ifp)
 
   if (ifp->flags & IFF_IPV4)
     ret = AF_IOCTL (AF_INET, SIOCGLIFMETRIC, (caddr_t) & lifreq);
+#ifdef SOLARIS_IPV6
   else if (ifp->flags & IFF_IPV6)
     ret = AF_IOCTL (AF_INET6, SIOCGLIFMETRIC, (caddr_t) & lifreq);
+#endif /* SOLARIS_IPV6 */
   else
     ret = -1;
     
@@ -171,10 +175,13 @@ if_get_mtu (struct interface *ifp)
         }
     }
 
-
+#ifdef HAVE_IPV6
   if ((ifp->flags & IFF_IPV6) == 0)
-
+    return;
+    
+  memset(&lifreq, 0, sizeof(lifreq));
   lifreq_set_name (&lifreq, ifp);
+
   ret = AF_IOCTL (AF_INET6, SIOCGLIFMTU, (caddr_t) & lifreq);
   if (ret < 0)
     {
@@ -185,6 +192,7 @@ if_get_mtu (struct interface *ifp)
     {
       ifp->mtu6 = lifreq.lifr_metric;
     }
+#endif /* HAVE_IPV6 */
 }
 
 /* Set up interface's address, netmask (and broadcast? ).

@@ -49,6 +49,10 @@ struct connected *if_lookup_linklocal( struct interface *);
 #define AF_IOCTL(af, request, buffer) \
         ((af) == AF_INET? if_ioctl(request, buffer) : \
                           if_ioctl_ipv6(request, buffer))
+#else /* SOLARIS_IPV6 */
+
+#define AF_IOCTL(af, request, buffer)  if_ioctl(request, buffer)
+
 #endif /* SOLARIS_IPV6 */
 
 #endif /* _ZEBRA_IOCTL_H */

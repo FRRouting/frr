@@ -137,11 +137,22 @@ calculate_lifc_len:     /* must hold privileges to enter here */
   for (n = 0; n < lifconf.lifc_len; n += sizeof (struct lifreq))
     {
       ifp = if_get_by_name (lifreq->lifr_name);
+
       if (lifreq->lifr_addr.ss_family == AF_INET)
         ifp->flags |= IFF_IPV4;
+
       if (lifreq->lifr_addr.ss_family == AF_INET6)
-        ifp->flags |= IFF_IPV6;
+        {
+#ifdef HAVE_IPV6
+          ifp->flags |= IFF_IPV6;
+#else
+          lifreq++;
+          continue;
+#endif /* HAVE_IPV6 */
+        }
+        
       if_add_update (ifp);
+
       interface_info_ioctl (ifp);
       if_get_addr (ifp, (struct sockaddr *) &lifreq->lifr_addr);
       lifreq++;
@@ -265,7 +276,8 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr)
           dest_pnt = (char *) &SIN (&dest)->sin_addr;
         }
     }
-  else
+#ifdef HAVE_IPV6
+  else if (af == AF_INET6)
     {
       if (ifp->flags & IFF_POINTOPOINT)
         {
@@ -285,15 +297,17 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr)
             }
         }
     }
-
+#endif /* HAVE_IPV6 */
 
   /* Set address to the interface. */
   if (af == AF_INET)
     connected_add_ipv4 (ifp, 0, &SIN (addr)->sin_addr, prefixlen,
                         (struct in_addr *) dest_pnt, NULL);
-  else
+#ifdef HAVE_IPV6
+  else if (af == AF_INET6)
     connected_add_ipv6 (ifp, &SIN6 (addr)->sin6_addr, prefixlen,
                         (struct in6_addr *) dest_pnt);
+#endif /* HAVE_IPV6 */
 
   return 0;
 }
@@ -319,6 +333,7 @@ interface_list ()
 struct connected *
 if_lookup_linklocal (struct interface *ifp)
 {
+#ifdef HAVE_IPV6
   listnode node;
   struct connected *ifc;
 
@@ -333,5 +348,7 @@ if_lookup_linklocal (struct interface *ifp)
           (IN6_IS_ADDR_LINKLOCAL (&ifc->address->u.prefix6)))
         return ifc;
     }
+#endif /* HAVE_IPV6 */
+
   return NULL;
 }

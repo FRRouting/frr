@@ -24,6 +24,7 @@
 #define _ZEBRA_REDISTRIBUTE_H
 
 #include "table.h"
+#include "zserv.h"
 
 void zebra_redistribute_add (int, struct zserv *, int);
 void zebra_redistribute_delete (int, struct zserv *, int);

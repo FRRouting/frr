@@ -22,6 +22,8 @@
 #ifndef _ZEBRA_ZSERV_H
 #define _ZEBRA_ZSERV_H
 
+#include "rib.h"
+
 /* Default port information. */
 #define ZEBRA_PORT                    2600
 #define ZEBRA_VTY_PORT                2601
