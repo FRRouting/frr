@@ -9,3 +9,4 @@ TAGS
 .nfs*
 *.lo
 *.la
+*.libs
