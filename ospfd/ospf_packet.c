@@ -2709,12 +2709,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, list update, struct stream *s)
 
       /* Check packet size. */
       if (length + delta + ntohs (lsa->data->length) > OSPF_PACKET_MAX (oi))
-        {
-          /* clean up */
-          list_delete_node (update, node);
-          ospf_lsa_unlock (lsa);
-          break;
-        }
+	break;
       
       /* Keep pointer to LS age. */
       lsah = (struct lsa_header *) (STREAM_DATA (s) + stream_get_putp (s));
