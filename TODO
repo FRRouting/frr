@@ -43,6 +43,17 @@ ospf6d:
 o move SPF to common code
 o add router-id lookups
 
+isisd:
+
+o finish SPF
+o select nearest L2 when running SPF for L1
+o remove the routes when holding time for nexthop expires
+o redistribution
+o autosummary
+
+o Mesh groups (RFC2973)
+o Crypto authentication (RFC3567)
+
 lib:
 o improve route_table speed, eg strided lookups for common prefix depths.
 o improve hash tables, eg auto-growing hash tables
