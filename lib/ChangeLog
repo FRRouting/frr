@@ -1,3 +1,8 @@
+2004-07-09 Paul Jakma <paul@dishone.st>
+
+	* Merge Kunihiro's 'show route-map' change and add 
+	  compatibility aliases for route-map continue
+
 2004-07-09 Juris Kalnins <juris@mt.lv>
 
 	* if.c: (if_cmp_func) fix for interface names where name is same,

@@ -196,31 +196,70 @@ route_map_empty (struct route_map *map)
     return 0;
 }
 
-/* For debug. */
-void
-route_map_print ()
+/* show route-map */
+static void
+vty_show_route_map_entry (struct vty *vty, struct route_map *map)
 {
-  struct route_map *map;
   struct route_map_index *index;
   struct route_map_rule *rule;
 
-  for (map = route_map_master.head; map; map = map->next)
-    for (index = map->head; index; index = index->next)
-      {
-	printf ("route-map %s %s %d\n", 
-		map->name,
-		route_map_type_str (index->type),
-		index->pref);
-	for (rule = index->match_list.head; rule; rule = rule->next)
-	  printf (" match %s %s\n", rule->cmd->str, rule->rule_str);
-	for (rule = index->set_list.head; rule; rule = rule->next)
-	  printf (" set %s %s\n", rule->cmd->str, rule->rule_str);
-	if (index->exitpolicy == RMAP_GOTO)
-	  printf (" on-match goto %d\n", index->nextpref);
-	if (index->exitpolicy == RMAP_NEXT)
-	  printf (" on-match next\n");
-      }
+  for (index = map->head; index; index = index->next)
+    {
+      vty_out (vty, "route-map %s, %s, sequence %d%s",
+               map->name, route_map_type_str (index->type),
+               index->pref, VTY_NEWLINE);
+      
+      /* Match clauses */
+      vty_out (vty, "  Match clauses:%s", VTY_NEWLINE);
+      for (rule = index->match_list.head; rule; rule = rule->next)
+        vty_out (vty, "    %s %s%s", 
+                 rule->cmd->str, rule->rule_str, VTY_NEWLINE);
+      
+      vty_out (vty, "  Set clauses:%s", VTY_NEWLINE);
+      for (rule = index->set_list.head; rule; rule = rule->next)
+        vty_out (vty, "    %s %s%s",
+                 rule->cmd->str, rule->rule_str, VTY_NEWLINE);
+      
+      vty_out (vty, "  Action:%s", VTY_NEWLINE);
+      if (index->exitpolicy == RMAP_GOTO)
+        vty_out (vty, "    Goto %d%s", index->nextpref, VTY_NEWLINE);
+        
+      else if (index->exitpolicy == RMAP_NEXT)
+        {
+          vty_out (vty, "    Goto next, (entry ");
+          if (index->next)
+            vty_out (vty, " %d)%s", index->next->pref, VTY_NEWLINE);
+          else
+            vty_out (vty, " undefined)%s", VTY_NEWLINE);
+        }
+      else if (index->exitpolicy == RMAP_EXIT)
+        vty_out (vty, "    Exit routemap%s", VTY_NEWLINE);
+    }
 }
+
+int
+vty_show_route_map (struct vty *vty, char *name)
+{
+  struct route_map *map;
+
+  if (name)
+    {
+      map = route_map_lookup_by_name (name);
+
+      if (map)
+        {
+          vty_show_route_map_entry (vty, map);
+          return CMD_SUCCESS;
+        }
+      else
+        {
+          vty_out (vty, "%%route-map %s not found%s", name, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+  return CMD_SUCCESS;
+}
+
 
 /* New route map allocation. Please note route map's name must be
    specified. */
@@ -1019,6 +1058,51 @@ DEFUN (no_rmap_onmatch_goto,
   return CMD_SUCCESS;
 }
 
+/* Cisco/GNU Zebra compatible ALIASes for on-match next */
+ALIAS (rmap_onmatch_goto,
+       rmap_continue_cmd,
+       "continue",
+       "Continue on a different entry within the route-map\n")
+
+ALIAS (no_rmap_onmatch_goto,
+       no_rmap_continue_cmd,
+       "no continue",
+       NO_STR
+       "Continue on a different entry within the route-map\n")
+
+/* GNU Zebra compatible */
+ALIAS (rmap_onmatch_goto,
+       rmap_continue_seq_cmd,
+       "continue <1-65535>",
+       "Continue on a different entry within the route-map\n"
+       "Route-map entry sequence number\n")
+
+ALIAS (no_rmap_onmatch_goto,
+       no_rmap_continue_seq,
+       "no continue <1-65535>",
+       NO_STR
+       "Continue on a different entry within the route-map\n"
+       "Route-map entry sequence number\n")
+
+DEFUN (rmap_show,
+       rmap_show_cmd,
+       "show route-map",
+       SHOW_STR
+       "route-map information\n")
+{
+    return vty_show_route_map (vty, NULL);
+}
+
+DEFUN (rmap_show_name,
+       rmap_show_name_cmd,
+       "show route-map WORD",
+       SHOW_STR
+       "route-map information\n"
+       "route-map name\n")
+{
+    return vty_show_route_map (vty, argv[0]);
+}
+
 /* Configuration write function. */
 int
 route_map_config_write (struct vty *vty)
@@ -1089,4 +1173,8 @@ route_map_init_vty ()
   install_element (RMAP_NODE, &no_rmap_onmatch_next_cmd);
   install_element (RMAP_NODE, &rmap_onmatch_goto_cmd);
   install_element (RMAP_NODE, &no_rmap_onmatch_goto_cmd);
+
+  /* Install show command */
+  install_element (ENABLE_NODE, &rmap_show_cmd);
+  install_element (ENABLE_NODE, &rmap_show_name_cmd);
 }
