@@ -1,3 +1,8 @@
+2005-04-03 Hasso Tepper <hasso at quagga.net>
+
+	* configure.ac: Use AC_RUN_IFELSE instead of obsolete AC_TRY_RUN macro
+	  and define action for cross-compiling.
+
 2005-04-02 Hasso Tepper <hasso at quagga.net>
 
 	* configure.ac: Add --enable-isis-topology to enable isisd topology
