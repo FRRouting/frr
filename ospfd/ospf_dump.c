@@ -455,7 +455,7 @@ ospf_lsa_header_list_dump (struct stream *s, u_int16_t length)
       lsa = (struct lsa_header *) STREAM_PNT (s);
       ospf_lsa_header_dump (lsa);
 
-      stream_forward (s, OSPF_LSA_HEADER_SIZE);
+      stream_forward_getp (s, OSPF_LSA_HEADER_SIZE);
       length -= OSPF_LSA_HEADER_SIZE;
     }
 }
@@ -481,7 +481,7 @@ ospf_packet_db_desc_dump (struct stream *s, u_int16_t length)
 
   length -= OSPF_HEADER_SIZE + OSPF_DB_DESC_MIN_SIZE;
 
-  stream_forward (s, OSPF_DB_DESC_MIN_SIZE);
+  stream_forward_getp (s, OSPF_DB_DESC_MIN_SIZE);
 
   ospf_lsa_header_list_dump (s, length);
 
@@ -577,7 +577,7 @@ ospf_packet_ls_upd_dump (struct stream *s, u_int16_t length)
 	  break;
 	}
 
-      stream_forward (s, lsa_len);
+      stream_forward_getp (s, lsa_len);
       length -= lsa_len;
       count--;
     }
@@ -673,7 +673,7 @@ ospf_packet_dump (struct stream *s)
 
   /* Show OSPF header detail. */
   ospf_header_dump (ospfh);
-  stream_forward (s, OSPF_HEADER_SIZE);
+  stream_forward_getp (s, OSPF_HEADER_SIZE);
 
   switch (ospfh->type)
     {

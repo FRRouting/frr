@@ -480,7 +480,7 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         {
-          nhnummark = stream_get_putp (s);
+          nhnummark = stream_get_endp (s);
           stream_putc (s, 1); /* placeholder */
           nhnum++;
 
@@ -562,7 +562,7 @@ zsend_ipv6_nexthop_lookup (struct zserv *client, struct in6_addr *addr)
     {
       stream_putl (s, rib->metric);
       num = 0;
-      nump = s->putp;
+      nump = stream_get_endp(s);
       stream_putc (s, 0);
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
 	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
@@ -629,7 +629,7 @@ zsend_ipv4_nexthop_lookup (struct zserv *client, struct in_addr addr)
     {
       stream_putl (s, rib->metric);
       num = 0;
-      nump = s->putp;
+      nump = stream_get_endp(s);
       stream_putc (s, 0);
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
 	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
@@ -690,7 +690,7 @@ zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p)
     {
       stream_putl (s, rib->metric);
       num = 0;
-      nump = s->putp;
+      nump = stream_get_endp(s);
       stream_putc (s, 0);
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
 	if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
@@ -853,14 +853,14 @@ zread_ipv4_add (struct zserv *client, u_short length)
 	      break;
 	    case ZEBRA_NEXTHOP_IFNAME:
 	      ifname_len = stream_getc (s);
-	      stream_forward (s, ifname_len);
+	      stream_forward_getp (s, ifname_len);
 	      break;
 	    case ZEBRA_NEXTHOP_IPV4:
 	      nexthop.s_addr = stream_get_ipv4 (s);
 	      nexthop_ipv4_add (rib, &nexthop);
 	      break;
 	    case ZEBRA_NEXTHOP_IPV6:
-	      stream_forward (s, IPV6_MAX_BYTELEN);
+	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
 	      break;
       case ZEBRA_NEXTHOP_BLACKHOLE:
         nexthop_blackhole_add (rib);
@@ -925,13 +925,13 @@ zread_ipv4_delete (struct zserv *client, u_short length)
 	      break;
 	    case ZEBRA_NEXTHOP_IFNAME:
 	      ifname_len = stream_getc (s);
-	      stream_forward (s, ifname_len);
+	      stream_forward_getp (s, ifname_len);
 	      break;
 	    case ZEBRA_NEXTHOP_IPV4:
 	      nexthop.s_addr = stream_get_ipv4 (s);
 	      break;
 	    case ZEBRA_NEXTHOP_IPV6:
-	      stream_forward (s, IPV6_MAX_BYTELEN);
+	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
 	      break;
 	    }
 	}

@@ -1,3 +1,11 @@
+2005-02-09 Paul Jakma <paul.jakma@sun.com>
+
+	* (global) Update code to match stream.h changes.
+	  stream_get_putp effectively replaced with stream_get_endp.
+	  stream_forward renamed to stream_forward_getp.
+	  stream_forward_endp introduced to replace some previous 
+	  setting/manual twiddling of putp by daemons.
+
 2005-01-24 Paul Jakma <paul@dishone.st>
 
 	* configure.ac: Bump version to 0.99.0

@@ -369,7 +369,6 @@ lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
 
   /* copying only the relevant part of our stream */
   lsp->pdu = stream_new (stream->endp);
-  lsp->pdu->putp = stream->putp;
   lsp->pdu->getp = stream->getp;
   lsp->pdu->endp = stream->endp;
   memcpy (lsp->pdu->data, stream->data, stream->endp);
@@ -509,7 +508,7 @@ lsp_new (u_char * lsp_id, u_int16_t rem_lifetime, u_int32_t seq_num,
   lsp->level = level;
   lsp->age_out = ZERO_AGE_LIFETIME;
 
-  stream_set_putp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
+  stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
 
   /* #ifdef EXTREME_DEBUG */
   /* logging */
@@ -1141,7 +1140,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 	}
     }
 
-  stream_set_putp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
+  stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
 
   if (lsp->tlv_data.nlpids)
     tlv_add_nlpid (lsp->tlv_data.nlpids, lsp->pdu);
@@ -1159,7 +1158,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
     tlv_add_ipv6_reachs (lsp->tlv_data.ipv6_reachs, lsp->pdu);
 #endif /* HAVE_IPV6 */
 
-  lsp->lsp_header->pdu_len = htons (stream_get_putp (lsp->pdu));
+  lsp->lsp_header->pdu_len = htons (stream_get_endp (lsp->pdu));
 
   return;
 }
@@ -1200,7 +1199,7 @@ lsp_tlv_fit (struct isis_lsp *lsp, struct list **from, struct list **to,
 	}
       tlv_build_func (*to, lsp->pdu);
     }
-  lsp->lsp_header->pdu_len = htons (stream_get_putp (lsp->pdu));
+  lsp->lsp_header->pdu_len = htons (stream_get_endp (lsp->pdu));
   return;
 }
 
@@ -1319,7 +1318,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   /*
    * Building the zero lsp
    */
-  stream_set_putp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
+  stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
   /*
    * Add the authentication info if its present
    */
@@ -1929,7 +1928,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 	}
     }
 
-  stream_set_putp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
+  stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
   /*
    * Add the authentication info if it's present
    */
@@ -1947,7 +1946,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
   if (lsp->tlv_data.es_neighs && listcount (lsp->tlv_data.es_neighs) > 0)
     tlv_add_is_neighs (lsp->tlv_data.es_neighs, lsp->pdu);
 
-  lsp->lsp_header->pdu_len = htons (stream_get_putp (lsp->pdu));
+  lsp->lsp_header->pdu_len = htons (stream_get_endp (lsp->pdu));
   iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
 		   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 
@@ -2473,7 +2472,6 @@ build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
     }
 
   /* thanks to hannes, another bug bites the dust */
-  lsp->pdu->putp = ntohs (lsp->lsp_header->pdu_len);
   lsp->pdu->endp = ntohs (lsp->lsp_header->pdu_len);
 }
 #endif /* TOPOLOGY_GENERATE */

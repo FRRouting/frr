@@ -1938,7 +1938,7 @@ send_hello (struct isis_circuit *circuit, int level)
   hello_hdr.hold_time = htons ((u_int16_t) interval);
 
   hello_hdr.pdu_len = 0;	/* Update the PDU Length later */
-  len_pointer = stream_get_putp (circuit->snd_stream) + 3 + ISIS_SYS_ID_LEN;
+  len_pointer = stream_get_endp (circuit->snd_stream) + 3 + ISIS_SYS_ID_LEN;
 
   /* copy the shared part of the hello to the p2p hello if needed */
   if (circuit->circ_type == CIRCUIT_T_P2P)
@@ -2012,7 +2012,7 @@ send_hello (struct isis_circuit *circuit, int level)
     if (tlv_add_padding (circuit->snd_stream))
       return ISIS_WARNING;
 
-  length = stream_get_putp (circuit->snd_stream);
+  length = stream_get_endp (circuit->snd_stream);
   /* Update PDU length */
   stream_putw_at (circuit->snd_stream, len_pointer, (u_int16_t) length);
 
@@ -2132,7 +2132,7 @@ build_csnp (int level, u_char * start, u_char * stop, struct list *lsps,
    * Fill Level 1 or 2 Complete Sequence Numbers header
    */
 
-  lenp = stream_get_putp (circuit->snd_stream);
+  lenp = stream_get_endp (circuit->snd_stream);
   stream_putw (circuit->snd_stream, 0);	/* PDU length - when we know it */
   /* no need to send the source here, it is always us if we csnp */
   stream_put (circuit->snd_stream, isis->sysid, ISIS_SYS_ID_LEN);
@@ -2159,7 +2159,7 @@ build_csnp (int level, u_char * start, u_char * stop, struct list *lsps,
     {
       retval = tlv_add_lsp_entries (lsps, circuit->snd_stream);
     }
-  length = (u_int16_t) stream_get_putp (circuit->snd_stream);
+  length = (u_int16_t) stream_get_endp (circuit->snd_stream);
   assert (length >= ISIS_CSNP_HDRLEN);
   /* Update PU length */
   stream_putw_at (circuit->snd_stream, lenp, length);
@@ -2287,7 +2287,7 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
   /*
    * Fill Level 1 or 2 Partial Sequence Numbers header
    */
-  lenp = stream_get_putp (circuit->snd_stream);
+  lenp = stream_get_endp (circuit->snd_stream);
   stream_putw (circuit->snd_stream, 0);	/* PDU length - when we know it */
   stream_put (circuit->snd_stream, isis->sysid, ISIS_SYS_ID_LEN);
   stream_putc (circuit->snd_stream, circuit->idx);
@@ -2325,7 +2325,7 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
       }
     }
 
-  length = (u_int16_t) stream_get_putp (circuit->snd_stream);
+  length = (u_int16_t) stream_get_endp (circuit->snd_stream);
   assert (length >= ISIS_PSNP_HDRLEN);
   /* Update PDU length */
   stream_putw_at (circuit->snd_stream, lenp, length);
@@ -2446,7 +2446,7 @@ build_link_state (struct isis_lsp *lsp, struct isis_circuit *circuit,
   unsigned long length;
 
   stream_put (stream, lsp->pdu, ntohs (lsp->lsp_header->pdu_len));
-  length = stream_get_putp (stream);
+  length = stream_get_endp (stream);
 
   return;
 } */
@@ -2501,7 +2501,6 @@ send_lsp (struct thread *thread)
 	    }
 	  /* copy our lsp to the send buffer */
 	  circuit->snd_stream->getp = lsp->pdu->getp;
-	  circuit->snd_stream->putp = lsp->pdu->putp;
 	  circuit->snd_stream->endp = lsp->pdu->endp;
 	  memcpy (circuit->snd_stream->data, lsp->pdu->data, lsp->pdu->endp);
 
@@ -2577,7 +2576,7 @@ ack_lsp (struct isis_link_state_hdr *hdr, struct isis_circuit *circuit,
 			      circuit->snd_stream);
 
 
-  lenp = stream_get_putp (circuit->snd_stream);
+  lenp = stream_get_endp (circuit->snd_stream);
   stream_putw (circuit->snd_stream, 0);	/* PDU length  */
   stream_put (circuit->snd_stream, isis->sysid, ISIS_SYS_ID_LEN);
   stream_putc (circuit->snd_stream, circuit->idx);
@@ -2589,7 +2588,7 @@ ack_lsp (struct isis_link_state_hdr *hdr, struct isis_circuit *circuit,
   stream_putl (circuit->snd_stream, ntohl (hdr->seq_num));
   stream_putw (circuit->snd_stream, ntohs (hdr->checksum));
 
-  length = (u_int16_t) stream_get_putp (circuit->snd_stream);
+  length = (u_int16_t) stream_get_endp (circuit->snd_stream);
   /* Update PDU length */
   stream_putw_at (circuit->snd_stream, lenp, length);
 

@@ -1,3 +1,11 @@
+2005-02-09 Paul Jakma <paul.jakma@sun.com>
+
+	* stream.h: Remove putp. Update reference to putp with endp.
+	  Add stream_forward_endp, which daemons were doing manually.
+	  Rename stream_forward to stream_forward_getp.
+	  stream.c: Remove/update references to putp.
+	  introduce stream_forward_endp.
+
 2005-02-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zebra.h: Change macro definitions SET_FLAG and UNSET_FLAG

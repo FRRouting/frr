@@ -32,9 +32,6 @@ struct stream
 
   unsigned char *data;
   
-  /* Put pointer. */
-  unsigned long putp;
-
   /* Get pointer. */
   unsigned long getp;
 
@@ -57,7 +54,7 @@ struct stream_fifo
 /* Utility macros. */
 #define STREAM_PNT(S)   ((S)->data + (S)->getp)
 #define STREAM_SIZE(S)  ((S)->size)
-#define STREAM_REMAIN(S) ((S)->size - (S)->putp)
+#define STREAM_REMAIN(S) ((S)->size - (S)->endp)
 #define STREAM_DATA(S)  ((S)->data)
 
 /* Stream prototypes. */
@@ -65,15 +62,13 @@ struct stream *stream_new (size_t);
 void stream_free (struct stream *);
 
 unsigned long stream_get_getp (struct stream *);
-unsigned long stream_get_putp (struct stream *);
 unsigned long stream_get_endp (struct stream *);
 unsigned long stream_get_size (struct stream *);
 u_char *stream_get_data (struct stream *);
 
 void stream_set_getp (struct stream *, unsigned long);
-void stream_set_putp (struct stream *, unsigned long);
-
-void stream_forward (struct stream *, int);
+void stream_forward_getp (struct stream *, int);
+void stream_forward_endp (struct stream *, int);
 
 void stream_put (struct stream *, void *, size_t);
 int stream_putc (struct stream *, u_char);

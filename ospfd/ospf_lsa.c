@@ -407,7 +407,7 @@ lsa_header_set (struct stream *s, u_char options,
   lsah->adv_router = router_id;
   lsah->ls_seqnum = htonl (OSPF_INITIAL_SEQUENCE_NUMBER);
 
-  ospf_output_forward (s, OSPF_LSA_HEADER_SIZE);
+  stream_forward_endp (s, OSPF_LSA_HEADER_SIZE);
 }
 
 
@@ -710,7 +710,7 @@ ospf_router_lsa_body_set (struct stream *s, struct ospf_area *area)
   stream_putc (s, 0);
 
   /* Keep pointer to # links. */
-  putp = s->putp;
+  putp = stream_get_endp(s);
 
   /* Forward word */
   stream_putw(s, 0);

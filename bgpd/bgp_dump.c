@@ -185,7 +185,7 @@ bgp_dump_header (struct stream *obuf, int type, int subtype)
 void
 bgp_dump_set_size (struct stream *s, int type)
 {
-  stream_putl_at (s, 8, stream_get_putp (s) - BGP_DUMP_HEADER_SIZE);
+  stream_putl_at (s, 8, stream_get_endp (s) - BGP_DUMP_HEADER_SIZE);
 }
 
 void
@@ -290,7 +290,7 @@ bgp_dump_routes_entry (struct prefix *p, struct bgp_info *info, int afi,
   /* Set length. */
   bgp_dump_set_size (obuf, type);
 
-  fwrite (STREAM_DATA (obuf), stream_get_putp (obuf), 1, bgp_dump_routes.fp);
+  fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump_routes.fp);
   fflush (bgp_dump_routes.fp);
 }
 
@@ -416,7 +416,7 @@ bgp_dump_state (struct peer *peer, int status_old, int status_new)
   bgp_dump_set_size (obuf, MSG_PROTOCOL_BGP4MP);
 
   /* Write to the stream. */
-  fwrite (STREAM_DATA (obuf), stream_get_putp (obuf), 1, bgp_dump_all.fp);
+  fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump_all.fp);
   fflush (bgp_dump_all.fp);
 }
 
@@ -445,7 +445,7 @@ bgp_dump_packet_func (struct bgp_dump *bgp_dump, struct peer *peer,
   bgp_dump_set_size (obuf, MSG_PROTOCOL_BGP4MP);
 
   /* Write to the stream. */
-  fwrite (STREAM_DATA (obuf), stream_get_putp (obuf), 1, bgp_dump->fp);
+  fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump->fp);
   fflush (bgp_dump->fp);
 }
 

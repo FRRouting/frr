@@ -84,13 +84,6 @@ ospf_auth_type (struct ospf_interface *oi)
 
 }
 
-/* forward output pointer. */
-void
-ospf_output_forward (struct stream *s, int size)
-{
-  s->putp += size;
-}
-
 struct ospf_packet *
 ospf_packet_new (size_t size)
 {
@@ -225,7 +218,6 @@ struct stream *
 ospf_stream_copy (struct stream *new, struct stream *s)
 {
   new->endp = s->endp;
-  new->putp = s->putp;
   new->getp = s->getp;
 
   memcpy (new->data, s->data, stream_get_endp (s));
@@ -571,7 +563,7 @@ ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph,
         }
       
       iph->ip_off += offset;
-      stream_forward (op->s, iovp->iov_len);
+      stream_forward_getp (op->s, iovp->iov_len);
       iovp->iov_base = STREAM_PNT (op->s); 
     }
     
@@ -997,12 +989,12 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
   struct ospf_lsa *new, *find;
   struct lsa_header *lsah;
 
-  stream_forward (s, OSPF_DB_DESC_MIN_SIZE);
+  stream_forward_getp (s, OSPF_DB_DESC_MIN_SIZE);
   for (size -= OSPF_DB_DESC_MIN_SIZE;
        size >= OSPF_LSA_HEADER_SIZE; size -= OSPF_LSA_HEADER_SIZE) 
     {
       lsah = (struct lsa_header *) STREAM_PNT (s);
-      stream_forward (s, OSPF_LSA_HEADER_SIZE);
+      stream_forward_getp (s, OSPF_LSA_HEADER_SIZE);
 
       /* Unknown LS type. */
       if (lsah->type < OSPF_MIN_LSA || lsah->type >= OSPF_MAX_LSA)
@@ -1492,7 +1484,7 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
   size -= OSPF_LS_UPD_MIN_SIZE; /* # LSAs */
 
   for (; size >= OSPF_LSA_HEADER_SIZE && count > 0;
-       size -= length, stream_forward (s, length), count--)
+       size -= length, stream_forward_getp (s, length), count--)
     {
       lsah = (struct lsa_header *) STREAM_PNT (s);
       length = ntohs (lsah->length);
@@ -2016,7 +2008,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 
       /* lsah = (struct lsa_header *) STREAM_PNT (s); */
       size -= OSPF_LSA_HEADER_SIZE;
-      stream_forward (s, OSPF_LSA_HEADER_SIZE);
+      stream_forward_getp (s, OSPF_LSA_HEADER_SIZE);
 
       if (lsa->data->type < OSPF_MIN_LSA || lsa->data->type >= OSPF_MAX_LSA)
 	{
@@ -2402,7 +2394,7 @@ ospf_read (struct thread *thread)
     }
 
   /* Adjust size to message length. */
-  stream_forward (ibuf, iph->ip_hl * 4);
+  stream_forward_getp (ibuf, iph->ip_hl * 4);
   
   /* Get ospf packet header. */
   ospfh = (struct ospf_header *) STREAM_PNT (ibuf);
@@ -2510,7 +2502,7 @@ ospf_read (struct thread *thread)
       return ret;
     }
 
-  stream_forward (ibuf, OSPF_HEADER_SIZE);
+  stream_forward_getp (ibuf, OSPF_HEADER_SIZE);
 
   /* Adjust size to message length. */
   length = ntohs (ospfh->length) - OSPF_HEADER_SIZE;
@@ -2563,7 +2555,7 @@ ospf_make_header (int type, struct ospf_interface *oi, struct stream *s)
 
   memset (ospfh->u.auth_data, 0, OSPF_AUTH_SIMPLE_SIZE);
 
-  ospf_output_forward (s, OSPF_HEADER_SIZE);
+  stream_forward_endp (s, OSPF_HEADER_SIZE);
 }
 
 /* Make Authentication Data. */
@@ -2665,7 +2657,7 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
   /* Set Designated Router. */
   stream_put_ipv4 (s, DR (oi).s_addr);
 
-  p = stream_get_putp (s);
+  p = stream_get_endp (s);
 
   /* Set Backup Designated Router. */
   stream_put_ipv4 (s, BDR (oi).s_addr);
@@ -2736,7 +2728,7 @@ ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
   stream_putc (s, options);
 
   /* Keep pointer to flags. */
-  pp = stream_get_putp (s);
+  pp = stream_get_endp (s);
   stream_putc (s, nbr->dd_flags);
 
   /* Set DD Sequence Number. */
@@ -2786,7 +2778,7 @@ ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
 		
 		/* Keep pointer to LS age. */
 		lsah = (struct lsa_header *) (STREAM_DATA (s) +
-					      stream_get_putp (s));
+					      stream_get_endp (s));
 		
 		/* Proceed stream pointer. */
 		stream_put (s, lsa->data, OSPF_LSA_HEADER_SIZE);
@@ -2835,7 +2827,7 @@ ospf_make_ls_req (struct ospf_neighbor *nbr, struct stream *s)
 {
   struct ospf_lsa *lsa;
   u_int16_t length = OSPF_LS_REQ_MIN_SIZE;
-  unsigned long delta = stream_get_putp(s)+12;
+  unsigned long delta = stream_get_endp(s)+12;
   struct route_table *table;
   struct route_node *rn;
   int i;
@@ -2874,15 +2866,15 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
   struct listnode *node;
   u_int16_t length = OSPF_LS_UPD_MIN_SIZE;
   unsigned int size_noauth;
-  unsigned long delta = stream_get_putp (s);
+  unsigned long delta = stream_get_endp (s);
   unsigned long pp;
   int count = 0;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_make_ls_upd: Start");
 
-  pp = stream_get_putp (s);
-  ospf_output_forward (s, OSPF_LS_UPD_MIN_SIZE);
+  pp = stream_get_endp (s);
+  stream_forward_endp (s, OSPF_LS_UPD_MIN_SIZE);
 
   /* Calculate amount of packet usable for data. */
   size_noauth = stream_get_size(s) - ospf_packet_authspace(oi);
@@ -2904,7 +2896,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
         break;
 
       /* Keep pointer to LS age. */
-      lsah = (struct lsa_header *) (STREAM_DATA (s) + stream_get_putp (s));
+      lsah = (struct lsa_header *) (STREAM_DATA (s) + stream_get_endp (s));
 
       /* Put LSA to Link State Request. */
       stream_put (s, lsa->data, ntohs (lsa->data->length));
@@ -2936,7 +2928,7 @@ ospf_make_ls_ack (struct ospf_interface *oi, struct list *ack, struct stream *s)
   struct list *rm_list;
   struct listnode *node;
   u_int16_t length = OSPF_LS_ACK_MIN_SIZE;
-  unsigned long delta = stream_get_putp(s) + 24;
+  unsigned long delta = stream_get_endp(s) + 24;
   struct ospf_lsa *lsa;
 
   rm_list = list_new ();

@@ -305,11 +305,11 @@ send_packet(struct interface *ifp,
   icmp = (struct icmphdr *) (buf + sizeof (struct ip));
 
   /* Merge IP header with icmp packet */
-
-  stream_get(icmp, s, s->putp);
+  assert (stream_get_endp(s) < (sizeof (buf) - sizeof (struct ip)));
+  stream_get(icmp, s, stream_get_endp(s));
 
   /* icmp->checksum is already calculated */
-  ip->ip_len  = sizeof(struct ip) + s->putp;
+  ip->ip_len  = sizeof(struct ip) + stream_get_endp(s);
   stream_free(s); 
 
   on = 1;

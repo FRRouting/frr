@@ -751,7 +751,7 @@ int
 add_tlv (u_char tag, u_char len, u_char * value, struct stream *stream)
 {
 
-  if (STREAM_SIZE (stream) - stream_get_putp (stream) < (unsigned) len + 2)
+  if (STREAM_SIZE (stream) - stream_get_endp (stream) < (unsigned) len + 2)
     {
       zlog_warn ("No room for TLV of type %d", tag);
       return ISIS_WARNING;
@@ -1065,7 +1065,6 @@ tlv_add_ipv6_reachs (struct list *ipv6_reachs, struct stream *stream)
 int
 tlv_add_padding (struct stream *stream)
 {
-  unsigned long putp, endp;
   int fullpads, i, left;
 
   /*
@@ -1078,15 +1077,10 @@ tlv_add_padding (struct stream *stream)
 	goto err;
       if (!stream_putc (stream, (u_char) 255))	/* LENGHT */
 	goto err;
-      endp = stream_get_endp (stream);
-      putp = stream_get_putp (stream);
-      if (putp != endp)
-	zlog_warn ("tvl_add_padding endp %ld while putp %ld", endp, putp);
-      stream_set_putp (stream, putp + 255);	/* VALUE */
-      stream->endp = stream->putp;
+      stream_forward_endp (stream, 255);	/* VALUE */
     }
 
-  left = STREAM_SIZE (stream) - stream_get_putp (stream);
+  left = STREAM_SIZE (stream) - stream_get_endp (stream);
 
   if (left < 2)
     return ISIS_OK;
@@ -1100,8 +1094,7 @@ tlv_add_padding (struct stream *stream)
 
   stream_putc (stream, PADDING);
   stream_putc (stream, left - 2);
-  stream_set_putp (stream, stream_get_putp (stream) + left - 2);
-  stream->endp = stream->putp;
+  stream_forward_endp (stream, left - 2);
 
   return ISIS_OK;
 

@@ -35,8 +35,8 @@
 */
 
 #define CHECK_SIZE(S, Z) \
-	if (((S)->putp + (Z)) > (S)->size) \
-           (Z) = (S)->size - (S)->putp;
+	if (((S)->endp + (Z)) > (S)->size) \
+           (Z) = (S)->size - (S)->endp;
 
 /* Stream is fixed length buffer for network output/input. */
 
@@ -73,12 +73,6 @@ stream_get_getp (struct stream *s)
 }
 
 unsigned long
-stream_get_putp (struct stream *s)
-{
-  return s->putp;
-}
-
-unsigned long
 stream_get_endp (struct stream *s)
 {
   return s->endp;
@@ -97,17 +91,17 @@ stream_set_getp (struct stream *s, unsigned long pos)
   s->getp = pos;
 }
 
-void
-stream_set_putp (struct stream *s, unsigned long pos)
-{
-  s->putp = pos;
-}
-
 /* Forward pointer. */
 void
-stream_forward (struct stream *s, int size)
+stream_forward_getp (struct stream *s, int size)
 {
   s->getp += size;
+}
+
+void
+stream_forward_endp (struct stream *s, int size)
+{
+  s->endp += size;
 }
 
 /* Copy from stream to destination. */
@@ -194,25 +188,22 @@ stream_put (struct stream *s, void *src, size_t size)
   CHECK_SIZE(s, size);
 
   if (src)
-    memcpy (s->data + s->putp, src, size);
+    memcpy (s->data + s->endp, src, size);
   else
-    memset (s->data + s->putp, 0, size);
+    memset (s->data + s->endp, 0, size);
 
-  s->putp += size;
-  if (s->putp > s->endp)
-    s->endp = s->putp;
+  s->endp += size;
 }
 
 /* Put character to the stream. */
 int
 stream_putc (struct stream *s, u_char c)
 {
-  if (s->putp >= s->size) return 0;
+  if (s->endp >= s->size) return 0;
 
-  s->data[s->putp] = c;
-  s->putp++;
-  if (s->putp > s->endp)
-    s->endp = s->putp;
+  s->data[s->endp] = c;
+  s->endp++;
+
   return 1;
 }
 
@@ -220,13 +211,11 @@ stream_putc (struct stream *s, u_char c)
 int
 stream_putw (struct stream *s, u_int16_t w)
 {
-  if ((s->size - s->putp) < 2) return 0;
+  if ((s->size - s->endp) < 2) return 0;
 
-  s->data[s->putp++] = (u_char)(w >>  8);
-  s->data[s->putp++] = (u_char) w;
+  s->data[s->endp++] = (u_char)(w >>  8);
+  s->data[s->endp++] = (u_char) w;
 
-  if (s->putp > s->endp)
-    s->endp = s->putp;
   return 2;
 }
 
@@ -234,15 +223,13 @@ stream_putw (struct stream *s, u_int16_t w)
 int
 stream_putl (struct stream *s, u_int32_t l)
 {
-  if ((s->size - s->putp) < 4) return 0;
+  if ((s->size - s->endp) < 4) return 0;
 
-  s->data[s->putp++] = (u_char)(l >> 24);
-  s->data[s->putp++] = (u_char)(l >> 16);
-  s->data[s->putp++] = (u_char)(l >>  8);
-  s->data[s->putp++] = (u_char)l;
+  s->data[s->endp++] = (u_char)(l >> 24);
+  s->data[s->endp++] = (u_char)(l >> 16);
+  s->data[s->endp++] = (u_char)(l >>  8);
+  s->data[s->endp++] = (u_char)l;
 
-  if (s->putp > s->endp)
-    s->endp = s->putp;
   return 4;
 }
 
@@ -275,14 +262,12 @@ stream_putl_at (struct stream *s, unsigned long putp, u_int32_t l)
 int
 stream_put_ipv4 (struct stream *s, u_int32_t l)
 {
-  if ((s->size - s->putp) < 4)
+  if ((s->size - s->endp) < 4)
     return 0;
 
-  memcpy (s->data + s->putp, &l, 4);
-  s->putp += 4;
+  memcpy (s->data + s->endp, &l, 4);
+  s->endp += 4;
 
-  if (s->putp > s->endp)
-    s->endp = s->putp;
   return 4;
 }
 
@@ -290,14 +275,12 @@ stream_put_ipv4 (struct stream *s, u_int32_t l)
 int
 stream_put_in_addr (struct stream *s, struct in_addr *addr)
 {
-  if ((s->size - s->putp) < 4)
+  if ((s->size - s->endp) < 4)
     return 0;
 
-  memcpy (s->data + s->putp, addr, 4);
-  s->putp += 4;
+  memcpy (s->data + s->endp, addr, 4);
+  s->endp += 4;
 
-  if (s->putp > s->endp)
-    s->endp = s->putp;
   return 4;
 }
 
@@ -309,15 +292,12 @@ stream_put_prefix (struct stream *s, struct prefix *p)
 
   psize = PSIZE (p->prefixlen);
 
-  if ((s->size - s->putp) < psize) return 0;
+  if ((s->size - s->endp) < psize) return 0;
 
   stream_putc (s, p->prefixlen);
-  memcpy (s->data + s->putp, &p->u.prefix, psize);
-  s->putp += psize;
+  memcpy (s->data + s->endp, &p->u.prefix, psize);
+  s->endp += psize;
   
-  if (s->putp > s->endp)
-    s->endp = s->putp;
-
   return psize;
 }
 
@@ -327,13 +307,11 @@ stream_read (struct stream *s, int fd, size_t size)
 {
   int nbytes;
 
-  nbytes = readn (fd, s->data + s->putp, size);
+  nbytes = readn (fd, s->data + s->endp, size);
 
   if (nbytes > 0)
-    {
-      s->putp += nbytes;
-      s->endp += nbytes;
-    }
+    s->endp += nbytes;
+  
   return nbytes;
 }
 
@@ -346,14 +324,12 @@ stream_read_unblock (struct stream *s, int fd, size_t size)
 
   val = fcntl (fd, F_GETFL, 0);
   fcntl (fd, F_SETFL, val|O_NONBLOCK);
-  nbytes = read (fd, s->data + s->putp, size);
+  nbytes = read (fd, s->data + s->endp, size);
   fcntl (fd, F_SETFL, val);
 
   if (nbytes > 0)
-    {
-      s->putp += nbytes;
-      s->endp += nbytes;
-    }
+    s->endp += nbytes;
+  
   return nbytes;
 }
 
@@ -364,10 +340,9 @@ stream_write (struct stream *s, u_char *ptr, size_t size)
 
   CHECK_SIZE(s, size);
 
-  memcpy (s->data + s->putp, ptr, size);
-  s->putp += size;
-  if (s->putp > s->endp)
-    s->endp = s->putp;
+  memcpy (s->data + s->endp, ptr, size);
+  s->endp += size;
+
   return size;
 }
 
@@ -382,7 +357,7 @@ stream_pnt (struct stream *s)
 int
 stream_empty (struct stream *s)
 {
-  if (s->putp == 0 && s->endp == 0 && s->getp == 0)
+  if (s->endp == 0 && s->getp == 0)
     return 1;
   else
     return 0;
@@ -392,7 +367,6 @@ stream_empty (struct stream *s)
 void
 stream_reset (struct stream *s)
 {
-  s->putp = 0;
   s->endp = 0;
   s->getp = 0;
 }

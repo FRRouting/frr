@@ -701,7 +701,7 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
     }
 
   /* Forward pointer. */
-  stream_forward (peer->ibuf, length);
+  stream_forward_getp (peer->ibuf, length);
 
   /* Set aspath attribute flag. */
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AS_PATH);
@@ -789,7 +789,7 @@ bgp_attr_local_pref (struct peer *peer, bgp_size_t length,
      receiving speaker. */
   if (peer_sort (peer) == BGP_PEER_EBGP)
     {
-      stream_forward (peer->ibuf, length);
+      stream_forward_getp (peer->ibuf, length);
       return 0;
     }
 
@@ -859,7 +859,7 @@ bgp_attr_community (struct peer *peer, bgp_size_t length,
     {
       attr->community = 
         community_parse ((u_int32_t *)stream_pnt (peer->ibuf), length);
-      stream_forward (peer->ibuf, length);
+      stream_forward_getp (peer->ibuf, length);
     }
 
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES);
@@ -908,7 +908,7 @@ bgp_attr_cluster_list (struct peer *peer, bgp_size_t length,
   attr->cluster = cluster_parse ((struct in_addr *)stream_pnt (peer->ibuf), 
                                  length);
 
-  stream_forward (peer->ibuf, length);;
+  stream_forward_getp (peer->ibuf, length);;
 
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_CLUSTER_LIST);
 
@@ -991,7 +991,7 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
   while (snpa_num--)
     {
       snpa_len = stream_getc (s);
-      stream_forward (s, (snpa_len + 1) >> 1);
+      stream_forward_getp (s, (snpa_len + 1) >> 1);
     }
   
   nlri_len = lim - stream_pnt (s);
@@ -1008,7 +1008,7 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
   mp_update->nlri = stream_pnt (s);
   mp_update->length = nlri_len;
 
-  stream_forward (s, nlri_len);
+  stream_forward_getp (s, nlri_len);
 
   return 0;
 }
@@ -1045,7 +1045,7 @@ bgp_mp_unreach_parse (struct peer *peer, int length,
   mp_withdraw->nlri = stream_pnt (s);
   mp_withdraw->length = withdraw_len;
 
-  stream_forward (s, withdraw_len);
+  stream_forward_getp (s, withdraw_len);
 
   return 0;
 }
@@ -1061,7 +1061,7 @@ bgp_attr_ext_communities (struct peer *peer, bgp_size_t length,
     {
       attr->ecommunity = 
         ecommunity_parse ((u_int8_t *)stream_pnt (peer->ibuf), length);
-      stream_forward (peer->ibuf, length);
+      stream_forward_getp (peer->ibuf, length);
     }
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
 
@@ -1085,7 +1085,7 @@ bgp_attr_unknown (struct peer *peer, struct attr *attr, u_char flag,
 	  "Unknown attribute type %d length %d is received", type, length);
 
   /* Forward read pointer of input stream. */
-  stream_forward (peer->ibuf, length);
+  stream_forward_getp (peer->ibuf, length);
 
   /* Adjest total length to include type and length. */
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
@@ -1348,7 +1348,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     bgp = bgp_get_default ();
 
   /* Remember current pointer. */
-  cp = stream_get_putp (s);
+  cp = stream_get_endp (s);
 
   /* Origin attribute. */
   stream_putc (s, BGP_ATTR_FLAG_TRANS);
@@ -1533,7 +1533,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
       stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
-      sizep = stream_get_putp (s);
+      sizep = stream_get_endp (s);
       stream_putc (s, 0);	/* Length of this attribute. */
       stream_putw (s, AFI_IP6);	/* AFI */
       stream_putc (s, safi);	/* SAFI */
@@ -1555,7 +1555,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       stream_put_prefix (s, p);
 
       /* Set MP attribute length. */
-      stream_putc_at (s, sizep, (stream_get_putp (s) - sizep) - 1);
+      stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);
     }
 #endif /* HAVE_IPV6 */
 
@@ -1565,7 +1565,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
       stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
-      sizep = stream_get_putp (s);
+      sizep = stream_get_endp (s);
       stream_putc (s, 0);	/* Length of this attribute. */
       stream_putw (s, AFI_IP);	/* AFI */
       stream_putc (s, SAFI_MULTICAST);	/* SAFI */
@@ -1580,7 +1580,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       stream_put_prefix (s, p);
 
       /* Set MP attribute length. */
-      stream_putc_at (s, sizep, (stream_get_putp (s) - sizep) - 1);
+      stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);
     }
 
   if (p->family == AF_INET && safi == SAFI_MPLS_VPN)
@@ -1589,7 +1589,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
       stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
-      sizep = stream_get_putp (s);
+      sizep = stream_get_endp (s);
       stream_putc (s, 0);	/* Length of this attribute. */
       stream_putw (s, AFI_IP);	/* AFI */
       stream_putc (s, BGP_SAFI_VPNV4);	/* SAFI */
@@ -1609,7 +1609,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
 
       /* Set MP attribute length. */
-      stream_putc_at (s, sizep, (stream_get_putp (s) - sizep) - 1);
+      stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);
     }
 
   /* Extended Communities attribute. */
@@ -1684,7 +1684,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     stream_put (s, attr->transit->val, attr->transit->length);
 
   /* Return total size of attribute. */
-  return stream_get_putp (s) - cp;
+  return stream_get_endp (s) - cp;
 }
 
 bgp_size_t
@@ -1696,12 +1696,12 @@ bgp_packet_withdraw (struct peer *peer, struct stream *s, struct prefix *p,
   unsigned long attrlen_pnt;
   bgp_size_t size;
 
-  cp = stream_get_putp (s);
+  cp = stream_get_endp (s);
 
   stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
   stream_putc (s, BGP_ATTR_MP_UNREACH_NLRI);
 
-  attrlen_pnt = stream_get_putp (s);
+  attrlen_pnt = stream_get_endp (s);
   stream_putc (s, 0);		/* Length of this attribute. */
 
   stream_putw (s, family2afi (p->family));
@@ -1727,10 +1727,10 @@ bgp_packet_withdraw (struct peer *peer, struct stream *s, struct prefix *p,
     }
 
   /* Set MP attribute length. */
-  size = stream_get_putp (s) - attrlen_pnt - 1;
+  size = stream_get_endp (s) - attrlen_pnt - 1;
   stream_putc_at (s, attrlen_pnt, size);
 
-  return stream_get_putp (s) - cp;
+  return stream_get_endp (s) - cp;
 }
 
 /* Initialization of attribute. */
@@ -1757,7 +1757,7 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
   struct aspath *aspath;
 
   /* Remember current pointer. */
-  cp = stream_get_putp (s);
+  cp = stream_get_endp (s);
 
   /* Place holder of length. */
   stream_putw (s, 0);
@@ -1861,7 +1861,7 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
 
       stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
       stream_putc(s, BGP_ATTR_MP_REACH_NLRI);
-      sizep = stream_get_putp (s);
+      sizep = stream_get_endp (s);
 
       /* MP header */
       stream_putc (s, 0);		/* Length of this attribute. */
@@ -1881,11 +1881,11 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
       stream_put_prefix(s, prefix);
 
       /* Set MP attribute length. */
-      stream_putc_at (s, sizep, (stream_get_putp (s) - sizep) - 1);
+      stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);
     }
 #endif /* HAVE_IPV6 */
 
   /* Return total size of attribute. */
-  len = stream_get_putp (s) - cp - 2;
+  len = stream_get_endp (s) - cp - 2;
   stream_putw_at (s, cp, len);
 }

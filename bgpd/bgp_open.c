@@ -675,15 +675,15 @@ bgp_open_capability_orf (struct stream *s, struct peer *peer,
     safi = BGP_SAFI_VPNV4;
 
   stream_putc (s, BGP_OPEN_OPT_CAP);
-  capp = stream_get_putp (s);           /* Set Capability Len Pointer */
+  capp = stream_get_endp (s);           /* Set Capability Len Pointer */
   stream_putc (s, 0);                   /* Capability Length */
   stream_putc (s, code);                /* Capability Code */
-  orfp = stream_get_putp (s);           /* Set ORF Len Pointer */
+  orfp = stream_get_endp (s);           /* Set ORF Len Pointer */
   stream_putc (s, 0);                   /* ORF Length */
   stream_putw (s, afi);
   stream_putc (s, 0);
   stream_putc (s, safi);
-  numberp = stream_get_putp (s);        /* Set Number Pointer */
+  numberp = stream_get_endp (s);        /* Set Number Pointer */
   stream_putc (s, 0);                   /* Number of ORFs */
 
   /* Address Prefix ORF */
@@ -717,11 +717,11 @@ bgp_open_capability_orf (struct stream *s, struct peer *peer,
   stream_putc_at (s, numberp, number_of_orfs);
 
   /* Total ORF Len. */
-  orf_len = stream_get_putp (s) - orfp - 1;
+  orf_len = stream_get_endp (s) - orfp - 1;
   stream_putc_at (s, orfp, orf_len);
 
   /* Total Capability Len. */
-  cap_len = stream_get_putp (s) - capp - 1;
+  cap_len = stream_get_endp (s) - capp - 1;
   stream_putc_at (s, capp, cap_len);
 }
 
@@ -735,7 +735,7 @@ bgp_open_capability (struct stream *s, struct peer *peer)
   safi_t safi;
 
   /* Remember current pointer for Opt Parm Len. */
-  cp = stream_get_putp (s);
+  cp = stream_get_endp (s);
 
   /* Opt Parm Len. */
   stream_putc (s, 0);
@@ -851,6 +851,6 @@ bgp_open_capability (struct stream *s, struct peer *peer)
      }
 
   /* Total Opt Parm Len. */
-  len = stream_get_putp (s) - cp - 1;
+  len = stream_get_endp (s) - cp - 1;
   stream_putc_at (s, cp, len);
 }

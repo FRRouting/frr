@@ -994,7 +994,7 @@ rip_auth_md5_ah_write (struct stream *s, struct rip_interface *ri,
    * Set to placeholder value here, to true value when RIP-2 Packet length
    * is known.  Actual value is set in .....().
    */
-  len = stream_get_putp(s);
+  len = stream_get_endp(s);
   stream_putw (s, 0);
 
   /* Key ID. */

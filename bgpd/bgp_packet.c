@@ -67,7 +67,7 @@ bgp_packet_set_marker (struct stream *s, u_char type)
   stream_putc (s, type);
 
   /* Return current stream size. */
-  return stream_get_putp (s);
+  return stream_get_endp (s);
 }
 
 /* Set BGP packet header size entry.  If size is zero then use current
@@ -78,12 +78,8 @@ bgp_packet_set_size (struct stream *s)
   int cp;
 
   /* Preserve current pointer. */
-  cp = stream_get_putp (s);
-  stream_set_putp (s, BGP_MARKER_SIZE);
-  stream_putw (s, cp);
-
-  /* Write back current pointer. */
-  stream_set_putp (s, cp);
+  cp = stream_get_endp (s);
+  stream_putw_at (s, BGP_MARKER_SIZE, cp);
 
   return cp;
 }
@@ -112,7 +108,6 @@ bgp_packet_dup (struct stream *s)
   new = stream_new (stream_get_endp (s));
 
   new->endp = s->endp;
-  new->putp = s->putp;
   new->getp = s->getp;
 
   memcpy (new->data, s->data, stream_get_endp (s));
@@ -202,7 +197,7 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 	{
 	  bgp_packet_set_marker (s, BGP_MSG_UPDATE);
 	  stream_putw (s, 0);		
-	  pos = stream_get_putp (s);
+	  pos = stream_get_endp (s);
 	  stream_putw (s, 0);
 	  total_attr_len = bgp_packet_attribute (NULL, peer, s, 
 	                                         adv->baa->attr,
@@ -330,7 +325,7 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
 	stream_put_prefix (s, &rn->p);
       else
 	{
-	  pos = stream_get_putp (s);
+	  pos = stream_get_endp (s);
 	  stream_putw (s, 0);
 	  total_attr_len
 	    = bgp_packet_withdraw (peer, s, &rn->p, afi, safi, prd, NULL);
@@ -359,7 +354,7 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
       if (afi == AFI_IP && safi == SAFI_UNICAST)
 	{
 	  unfeasible_len 
-	    = stream_get_putp (s) - BGP_HEADER_SIZE - BGP_UNFEASIBLE_LEN;
+	    = stream_get_endp (s) - BGP_HEADER_SIZE - BGP_UNFEASIBLE_LEN;
 	  stream_putw_at (s, BGP_HEADER_SIZE, unfeasible_len);
 	  stream_putw (s, 0);
 	}
@@ -414,7 +409,7 @@ bgp_default_update_send (struct peer *peer, struct attr *attr,
   stream_putw (s, 0);
 
   /* Make place for total attribute length.  */
-  pos = stream_get_putp (s);
+  pos = stream_get_endp (s);
   stream_putw (s, 0);
   total_attr_len = bgp_packet_attribute (NULL, peer, s, attr, &p, afi, safi, from, NULL, NULL);
 
@@ -479,7 +474,7 @@ bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
   bgp_packet_set_marker (s, BGP_MSG_UPDATE);
 
   /* Unfeasible Routes Length. */;
-  cp = stream_get_putp (s);
+  cp = stream_get_endp (s);
   stream_putw (s, 0);
 
   /* Withdrawn Routes. */
@@ -487,7 +482,7 @@ bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
     {
       stream_put_prefix (s, &p);
 
-      unfeasible_len = stream_get_putp (s) - cp - 2;
+      unfeasible_len = stream_get_endp (s) - cp - 2;
 
       /* Set unfeasible len.  */
       stream_putw_at (s, cp, unfeasible_len);
@@ -497,7 +492,7 @@ bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
     }
   else
     {
-      pos = stream_get_putp (s);
+      pos = stream_get_endp (s);
       stream_putw (s, 0);
       total_attr_len = bgp_packet_withdraw (peer, s, &p, afi, safi, NULL, NULL);
 
@@ -665,7 +660,7 @@ bgp_write (struct thread *thread)
 	}
       if (num != writenum)
 	{
-	  stream_forward (s, num);
+	  stream_forward_getp (s, num);
 
 	  if (write_errno == EAGAIN)
 	    break;
@@ -1016,7 +1011,7 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
 	orf_refresh = 1; 
 	stream_putc (s, when_to_refresh);
 	stream_putc (s, orf_type);
-	orfp = stream_get_putp (s);
+	orfp = stream_get_endp (s);
 	stream_putw (s, 0);
 
 	if (remove)
@@ -1043,7 +1038,7 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
 	  }
 
 	/* Total ORF Entry Len. */
-	orf_len = stream_get_putp (s) - orfp - 2;
+	orf_len = stream_get_endp (s) - orfp - 2;
 	stream_putw_at (s, orfp, orf_len);
       }
 
@@ -1398,7 +1393,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
       if (ret < 0)
 	return ret;
 
-      stream_forward (peer->ibuf, optlen);
+      stream_forward_getp (peer->ibuf, optlen);
     }
   else
     {
@@ -1506,7 +1501,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       withdraw.safi = SAFI_UNICAST;
       withdraw.nlri = stream_pnt (s);
       withdraw.length = withdraw_len;
-      stream_forward (s, withdraw_len);
+      stream_forward_getp (s, withdraw_len);
     }
   
   /* Attribute total length check. */
@@ -1568,7 +1563,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       update.safi = SAFI_UNICAST;
       update.nlri = stream_pnt (s);
       update.length = update_len;
-      stream_forward (s, update_len);
+      stream_forward_getp (s, update_len);
     }
 
   /* NLRI is processed only when the peer is configured specific
@@ -1992,7 +1987,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 	      peer->orf_plist[afi][safi] =
 			 prefix_list_lookup (AFI_ORF_PREFIX, name);
 	    }
-	  stream_forward (s, orf_len);
+	  stream_forward_getp (s, orf_len);
 	}
       if (BGP_DEBUG (normal, NORMAL))
 	zlog_debug ("%s rcvd Refresh %s ORF request", peer->host,
@@ -2162,7 +2157,7 @@ bgp_read_packet (struct peer *peer)
   int nbytes;
   int readsize;
 
-  readsize = peer->packet_size - peer->ibuf->putp;
+  readsize = peer->packet_size - stream_get_endp (peer->ibuf);
 
   /* If size is zero then return. */
   if (! readsize)
@@ -2218,7 +2213,7 @@ bgp_read_packet (struct peer *peer)
     }
 
   /* We read partial packet. */
-  if (peer->ibuf->putp != peer->packet_size)
+  if (stream_get_endp (peer->ibuf) != peer->packet_size)
     return -1;
 
   return 0;
@@ -2271,7 +2266,7 @@ bgp_read (struct thread *thread)
   if (peer->packet_size == 0)
     peer->packet_size = BGP_HEADER_SIZE;
 
-  if (peer->ibuf->putp < BGP_HEADER_SIZE)
+  if (stream_get_endp (peer->ibuf) < BGP_HEADER_SIZE)
     {
       ret = bgp_read_packet (peer);
 
@@ -2280,7 +2275,7 @@ bgp_read (struct thread *thread)
 	goto done;
 
       /* Get size and type. */
-      stream_forward (peer->ibuf, BGP_MARKER_SIZE);
+      stream_forward_getp (peer->ibuf, BGP_MARKER_SIZE);
       memcpy (notify_data_length, stream_pnt (peer->ibuf), 2);
       size = stream_getw (peer->ibuf);
       type = stream_getc (peer->ibuf);
