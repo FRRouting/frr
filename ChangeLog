@@ -1,3 +1,8 @@
+2004-08-17  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* update-autotools: print tools versions to aid people in sending
+	bug reports.
+
 2004-07-23  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* */Makefile.am: Use ../dir/libfoo.la, rather than "-L../dir

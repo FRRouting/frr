@@ -3,8 +3,16 @@
 # When local system does not have the latest autoconf/automake
 #        -- Kunihiro Ishiguro <kunihiro@zebra.org>
 #
+
 rm -f config.cache Makefile.in aclocal.m4 config.h.in configure
 rm -rf autom4te.cache
+
+echo "TOOLS VERIONS:"
+for tool in autoheader autoconf libtool libtoolize aclocal automake; do
+  $tool --version | head -1
+done
+
+echo "UPDATING:"
 aclocal
 autoheader
 autoconf
