@@ -872,6 +872,13 @@ kernel_read (struct thread *thread)
   int nbytes;
   struct rt_msghdr *rtm;
 
+  /*
+   * This must be big enough for any message the kernel might send.
+   * The code previously used RTAX_MAX struct sockaddrs in all cases,
+   * but now that sockaddrs are variable size, this doesn't work
+   * (Solaris has 244 bytes of sdl_data!).  For now, add a struct
+   * sockaddr_dl to the case where it is used.
+   */
   union 
   {
     /* Routing information. */
@@ -885,7 +892,8 @@ kernel_read (struct thread *thread)
     struct
     {
       struct if_msghdr ifm;
-      struct sockaddr addr[RTAX_MAX];
+      struct sockaddr_dl;
+      struct sockaddr addr[RTAX_MAX-1];
     } im;
 
     /* Interface address information. */

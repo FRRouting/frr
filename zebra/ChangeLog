@@ -1,3 +1,10 @@
+2004-01-05  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* kernel_socket.c (kernel_read): Add a sockaddr_dl to the ifmsg
+	structure, because on Solaris sockaddr_dl is far larger than the
+	base sockaddr structure.  (The code had previously been failing to
+	read all the data.)
+
 2004-01-05  Greg Troxel  <gdt@ahi.ir.bbn.com>
 
 	* kernel_socket.c (kernel_read): Look up interfaces by index
