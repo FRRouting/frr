@@ -27,6 +27,7 @@
 
 void alloc_inc (int);
 void alloc_dec (int);
+static void log_memstats(int log_priority);
 
 struct message mstr [] =
 {
@@ -42,9 +43,10 @@ struct message mstr [] =
 static void
 zerror (const char *fname, int type, size_t size)
 {
-  fprintf (stderr, "%s : can't allocate memory for `%s' size %d\n", 
-	   fname, lookup (mstr, type), (int) size);
-  exit (1);
+  zlog_err ("%s : can't allocate memory for `%s' size %d: %s\n", 
+	    fname, lookup (mstr, type), (int) size, strerror(errno));
+  log_memstats(LOG_WARNING);
+  abort();
 }
 
 /* Memory allocation. */
@@ -406,6 +408,36 @@ struct memory_list memory_list_isis[] =
   { -1, NULL },
 };
 
+static struct mlist {
+  struct memory_list *list;
+  const char *name;
+} mlists[] = {
+  { memory_list_lib,   "LIB"},
+  { memory_list_rip,   "RIP"},
+  { memory_list_ripng, "RIPNG"},
+  { memory_list_ospf,  "OSPF"},
+  { memory_list_ospf6, "OSPF6"},
+  { memory_list_isis,  "ISIS"},
+  { memory_list_bgp,   "BGP"},
+  { NULL, NULL},
+};
+
+static void
+log_memstats(int pri)
+{
+  struct mlist *ml;
+
+  for (ml = mlists; ml->list; ml++)
+    {
+      struct memory_list *m;
+
+      zlog (NULL, pri, "Memory utilization in module %s:", ml->name);
+      for (m = ml->list; m->index >= 0; m++)
+	if (m->index && mstat[m->index].alloc)
+	  zlog (NULL, pri, "  %-22s: %5ld", m->format, mstat[m->index].alloc);
+    }
+}
+
 struct memory_list memory_list_separator[] =
 {
   { 0, NULL},
@@ -431,19 +463,14 @@ DEFUN (show_memory_all,
        "Memory statistics\n"
        "All memory statistics\n")
 {
-  show_memory_vty (vty, memory_list_lib);
-  show_memory_vty (vty, memory_list_separator);
-  show_memory_vty (vty, memory_list_rip);
-  show_memory_vty (vty, memory_list_separator);
-  show_memory_vty (vty, memory_list_ripng);
-  show_memory_vty (vty, memory_list_separator);
-  show_memory_vty (vty, memory_list_ospf);
-  show_memory_vty (vty, memory_list_separator);
-  show_memory_vty (vty, memory_list_ospf6);
-  show_memory_vty (vty, memory_list_separator);
-  show_memory_vty (vty, memory_list_isis);
-  show_memory_vty (vty, memory_list_separator);
-  show_memory_vty (vty, memory_list_bgp);
+  struct mlist *ml;
+
+  for (ml = mlists; ml->list; ml++)
+    {
+      if (ml != mlists)
+        show_memory_vty (vty, memory_list_separator);
+      show_memory_vty (vty, ml->list);
+    }
 
   return CMD_SUCCESS;
 }

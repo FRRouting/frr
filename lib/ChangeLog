@@ -1,3 +1,12 @@
+2004-11-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* memory.c: (zerror) Use zlog_err instead of fprintf to stderr.
+	  Instead of exiting, log currenty memory usage and then abort.
+	  (log_memstats) New function to log memory statistics, called by
+	  zerror.
+	  (show_memory_all) Loop over new mlists array instead of calling
+	  show_memory_vty separately for each memory_list.
+
 2004-11-08 Paul Jakma <paul@dishone.st>
 
 	* buffer.c: Add missing include of log.h.
