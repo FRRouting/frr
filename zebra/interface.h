@@ -159,6 +159,9 @@ struct zebra_if
   /* Interface's address. */
   struct list *address;
 
+  /* Installed addresses chains tree. */
+  struct route_table *ipv4_subnets;
+
 #ifdef RTADV
   struct rtadvconf rtadv;
 #endif /* RTADV */
@@ -174,6 +177,8 @@ void if_add_update (struct interface *ifp);
 void if_up (struct interface *);
 void if_down (struct interface *);
 void if_refresh (struct interface *);
+int if_subnet_add (struct interface *, struct connected *);
+int if_subnet_delete (struct interface *, struct connected *);
 
 #ifdef HAVE_PROC_NET_DEV
 int ifstat_update_proc ();

@@ -97,6 +97,9 @@ if_zebra_new_hook (struct interface *ifp)
   }    
 #endif /* RTADV */
 
+  /* Initialize installed address chains tree. */
+  zebra_if->ipv4_subnets = route_table_init ();
+
   ifp->info = zebra_if;
   return 0;
 }
@@ -105,8 +108,98 @@ if_zebra_new_hook (struct interface *ifp)
 int
 if_zebra_delete_hook (struct interface *ifp)
 {
+  struct zebra_if *zebra_if;
+  
   if (ifp->info)
-    XFREE (MTYPE_TMP, ifp->info);
+    {
+      zebra_if = ifp->info;
+
+      /* Free installed address chains tree. */
+      if (zebra_if->ipv4_subnets)
+	route_table_finish (zebra_if->ipv4_subnets);
+
+      XFREE (MTYPE_TMP, zebra_if);
+    }
+
+  return 0;
+}
+
+/* Tie an interface address to its derived subnet list of addresses. */
+int
+if_subnet_add (struct interface *ifp, struct connected *ifc)
+{
+  struct route_node *rn;
+  struct zebra_if *zebra_if;
+  struct prefix cp;
+  struct list *addr_list;
+
+  assert (ifp && ifp->info && ifc);
+  zebra_if = ifp->info;
+
+  /* Get address derived subnet node and associated address list, while marking
+     address secondary attribute appropriately. */
+  cp = *ifc->address;
+  apply_mask (&cp);
+  rn = route_node_get (zebra_if->ipv4_subnets, &cp);
+
+  if ((addr_list = rn->info))
+    SET_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY);
+  else
+    {
+      UNSET_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY);
+      rn->info = addr_list = list_new ();
+      route_lock_node (rn);
+    }
+
+  /* Tie address at the tail of address list. */
+  listnode_add (addr_list, ifc);
+  
+  /* Return list element count. */
+  return (addr_list->count);
+}
+
+/* Untie an interface address from its derived subnet list of addresses. */
+int
+if_subnet_delete (struct interface *ifp, struct connected *ifc)
+{
+  struct route_node *rn;
+  struct zebra_if *zebra_if;
+  struct list *addr_list;
+
+  assert (ifp && ifp->info && ifc);
+  zebra_if = ifp->info;
+
+  /* Get address derived subnet node. */
+  rn = route_node_lookup (zebra_if->ipv4_subnets, ifc->address);
+  if (! (rn && rn->info))
+    return -1;
+  route_unlock_node (rn);
+  
+  /* Untie address from subnet's address list. */
+  addr_list = rn->info;
+  listnode_delete (addr_list, ifc);
+  route_unlock_node (rn);
+
+  /* Return list element count, if not empty. */
+  if (addr_list->count)
+    {
+      /* If deleted address is primary, mark subsequent one as such and distribute. */
+      if (! CHECK_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY))
+	{
+	  ifc = (struct connected *) addr_list->head->data;
+	  zebra_interface_address_delete_update (ifp, ifc);
+	  UNSET_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY);
+	  zebra_interface_address_add_update (ifp, ifc);
+	}
+      
+      return addr_list->count;
+    }
+  
+  /* Otherwise, free list and route node. */
+  list_free (addr_list);
+  rn->info = NULL;
+  route_unlock_node (rn);
+
   return 0;
 }
 
@@ -144,6 +237,10 @@ if_addr_wakeup (struct interface *ifp)
 			     strerror(errno));
 		  continue;
 		}
+
+	      /* Add to subnet chain list. */
+	      if_subnet_add (ifp, ifc);
+
 	      SET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
 
 	      zebra_interface_address_add_update (ifp, ifc);
@@ -223,8 +320,15 @@ if_delete_update (struct interface *ifp)
 {
   struct listnode *node;
   struct listnode *next;
+  struct listnode *first;
+  struct listnode *last;
   struct connected *ifc;
   struct prefix *p;
+  struct route_node *rn;
+  struct zebra_if *zebra_if;
+  struct list *addr_list;
+
+  zebra_if = ifp->info;
 
   if (if_is_up(ifp))
     {
@@ -243,28 +347,70 @@ if_delete_update (struct interface *ifp)
   /* Delete connected routes from the kernel. */
   if (ifp->connected)
     {
-      for (node = listhead (ifp->connected); node; node = next)
+      last = NULL;
+      while ((node = (last ? last->next : listhead (ifp->connected))))
 	{
-	  next = node->next;
 	  ifc = getdata (node);
 	  p = ifc->address;
-
+	  
 	  if (p->family == AF_INET)
-	    connected_down_ipv4 (ifp, ifc);
+	    {
+	      rn = route_node_lookup (zebra_if->ipv4_subnets, p);
+	      route_unlock_node (rn);
+	      addr_list = (struct list *) rn->info;
+	      
+	      /* Remove addresses, secondaries first. */
+	      first = listhead (addr_list);
+	      for (node = first->next; node || first; node = next)
+		{
+		  if (! node)
+		    {
+		      node = first;
+		      first = NULL;
+		    }
+		  next = node->next;
+
+		  ifc = getdata (node);
+		  p = ifc->address;
+
+		  connected_down_ipv4 (ifp, ifc);
+
+		  zebra_interface_address_delete_update (ifp, ifc);
+
+		  UNSET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
+
+		  /* Remove from subnet chain. */
+		  list_delete_node (addr_list, node);
+		  route_unlock_node (rn);
+		  
+		  /* Remove from interface address list (unconditionally). */
+		  listnode_delete (ifp->connected, ifc);
+	      	  connected_free (ifc);
+		}
+
+	      /* Free chain list and respective route node. */
+	      list_delete (addr_list);
+	      rn->info = NULL;
+	      route_unlock_node (rn);
+	    }
 #ifdef HAVE_IPV6
 	  else if (p->family == AF_INET6)
-	    connected_down_ipv6 (ifp, ifc);
-#endif /* HAVE_IPV6 */
+	    {
+	      connected_down_ipv6 (ifp, ifc);
 
-	  zebra_interface_address_delete_update (ifp, ifc);
+	      zebra_interface_address_delete_update (ifp, ifc);
 
-	  UNSET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
-	  
-	  if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
-	    {      
-	      listnode_delete (ifp->connected, ifc);
-	      connected_free (ifc);
+	      UNSET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
+
+	      if (CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
+		last = node;
+	      else
+		{
+		  listnode_delete (ifp->connected, ifc);
+		  connected_free (ifc);
+		}
 	    }
+#endif /* HAVE_IPV6 */
 	}
     }
   zebra_interface_delete_update (ifp);
@@ -491,6 +637,10 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 #endif /* HAVE_SOCKADDR_DL */
   struct connected *connected;
   struct listnode *node;
+  struct route_node *rn;
+  struct zebra_if *zebra_if;
+
+  zebra_if = ifp->info;
 
   vty_out (vty, "Interface %s is ", ifp->name);
   if (if_is_up(ifp)) {
@@ -566,11 +716,16 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
       vty_out(vty, "%s", VTY_NEWLINE);
     }
 
-  for (node = listhead (ifp->connected); node; nextnode (node))
+  for (rn = route_top (zebra_if->ipv4_subnets); rn; rn = route_next (rn))
     {
-      connected = getdata (node);
-      if (CHECK_FLAG (connected->conf, ZEBRA_IFC_REAL))
-	connected_dump_vty (vty, connected);
+      if (! rn->info)
+	continue;
+      
+      for (node = listhead ((struct list *) rn->info); node; nextnode (node))
+	{
+	  connected = getdata (node);
+	  connected_dump_vty (vty, connected);
+	}
     }
 
 #ifdef RTADV
@@ -938,7 +1093,7 @@ ALIAS (no_bandwidth_if,
 
 int
 ip_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
-		    char *peer_str, char *label, int secondary)
+		    char *peer_str, char *label)
 {
   struct prefix_ipv4 cp;
   struct connected *ifc;
@@ -974,10 +1129,6 @@ ip_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
 	  ifc->destination = (struct prefix *) p;
 	}
 
-      /* Secondary. */
-      if (secondary)
-	SET_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY);
-
       /* Label. */
       if (label)
 	ifc->label = strdup (label);
@@ -1009,6 +1160,9 @@ ip_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
 	  return CMD_WARNING;
 	}
 
+      /* Add to subnet chain list (while marking secondary attribute). */
+      if_subnet_add (ifp, ifc);
+
       /* IP address propery set. */
       SET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
 
@@ -1025,7 +1179,7 @@ ip_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
 
 int
 ip_address_uninstall (struct vty *vty, struct interface *ifp, char *addr_str,
-		      char *peer_str, char *label, int secondry)
+		      char *peer_str, char *label)
 {
   struct prefix_ipv4 cp;
   struct connected *ifc;
@@ -1069,6 +1223,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp, char *addr_str,
       return CMD_WARNING;
     }
 
+#if 0
   /* Redistribute this information. */
   zebra_interface_address_delete_update (ifp, ifc);
 
@@ -1078,6 +1233,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp, char *addr_str,
   /* Free address information. */
   listnode_delete (ifp->connected, ifc);
   connected_free (ifc);
+#endif
 
   return CMD_SUCCESS;
 }
@@ -1089,7 +1245,7 @@ DEFUN (ip_address,
        "Set the IP address of an interface\n"
        "IP address (e.g. 10.0.0.1/8)\n")
 {
-  return ip_address_install (vty, vty->index, argv[0], NULL, NULL, 0);
+  return ip_address_install (vty, vty->index, argv[0], NULL, NULL);
 }
 
 DEFUN (no_ip_address,
@@ -1100,21 +1256,10 @@ DEFUN (no_ip_address,
        "Set the IP address of an interface\n"
        "IP Address (e.g. 10.0.0.1/8)")
 {
-  return ip_address_uninstall (vty, vty->index, argv[0], NULL, NULL, 0);
+  return ip_address_uninstall (vty, vty->index, argv[0], NULL, NULL);
 }
 
 #ifdef HAVE_NETLINK
-DEFUN (ip_address_secondary,
-       ip_address_secondary_cmd,
-       "ip address A.B.C.D/M secondary",
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n"
-       "IP address (e.g. 10.0.0.1/8)\n"
-       "Secondary IP address\n")
-{
-  return ip_address_install (vty, vty->index, argv[0], NULL, NULL, 1);
-}
-
 DEFUN (ip_address_label,
        ip_address_label_cmd,
        "ip address A.B.C.D/M label LINE",
@@ -1124,29 +1269,7 @@ DEFUN (ip_address_label,
        "Label of this address\n"
        "Label\n")
 {
-  return ip_address_install (vty, vty->index, argv[0], NULL, argv[1], 1);
-}
-
-ALIAS (ip_address_label,
-       ip_address_secondary_label_cmd,
-       "ip address A.B.C.D/M secondary label LINE",
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n"
-       "IP address (e.g. 10.0.0.1/8)\n"
-       "Secondary IP address\n"
-       "Label of this address\n"
-       "Label\n")
-
-DEFUN (no_ip_address_secondary,
-       no_ip_address_secondary_cmd,
-       "no ip address A.B.C.D/M secondary",
-       NO_STR
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n"
-       "IP address (e.g. 10.0.0.1/8)\n"
-       "Secondary IP address\n")
-{
-  return ip_address_uninstall (vty, vty->index, argv[0], NULL, NULL, 1);
+  return ip_address_install (vty, vty->index, argv[0], NULL, argv[1]);
 }
 
 DEFUN (no_ip_address_label,
@@ -1159,19 +1282,8 @@ DEFUN (no_ip_address_label,
        "Label of this address\n"
        "Label\n")
 {
-  return ip_address_uninstall (vty, vty->index, argv[0], NULL, argv[1], 1);
+  return ip_address_uninstall (vty, vty->index, argv[0], NULL, argv[1]);
 }
-
-ALIAS (no_ip_address_label,
-       no_ip_address_secondary_label_cmd,
-       "no ip address A.B.C.D/M secondary label LINE",
-       NO_STR
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n"
-       "IP address (e.g. 10.0.0.1/8)\n"
-       "Secondary IP address\n"
-       "Label of this address\n"
-       "Label\n")
 #endif /* HAVE_NETLINK */
 
 #ifdef HAVE_IPV6
@@ -1395,9 +1507,6 @@ if_config_write (struct vty *vty)
 			 inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 			 p->prefixlen);
 
-		if (CHECK_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY))
-		  vty_out (vty, " secondary");
-		  
 		if (ifc->label)
 		  vty_out (vty, " label %s", ifc->label);
 
@@ -1468,11 +1577,7 @@ zebra_if_init ()
   install_element (INTERFACE_NODE, &no_ip_tunnel_cmd);
 #endif /* KAME */
 #ifdef HAVE_NETLINK
-  install_element (INTERFACE_NODE, &ip_address_secondary_cmd);
   install_element (INTERFACE_NODE, &ip_address_label_cmd);
-  install_element (INTERFACE_NODE, &ip_address_secondary_label_cmd);
-  install_element (INTERFACE_NODE, &no_ip_address_secondary_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_label_cmd);
-  install_element (INTERFACE_NODE, &no_ip_address_secondary_label_cmd);
 #endif /* HAVE_NETLINK */
 }

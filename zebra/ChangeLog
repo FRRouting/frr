@@ -1,3 +1,12 @@
+2004-10-03 Gilad Arnold <gilad.arnold at terayon.com>
+
+	* interface.c, interface.h: A new prefix tree of connected subnets is
+	  associated with each interface structure in zebra, in which each
+	  live (ie, non-synthetic) node holds a list of installed addresses
+	  that belong to that prefix. Remove secondary address logic from cli.
+	  See [quagga-dev 872] for detailed explanation.
+	* connected.c: Use if_subnet_add() and if_subnet_delete().
+
 2004-10-03 James R. Leu <jleu at mindspring.com>
 
 	* router-id.c, router-id.h: New files. Router id selection process. If
