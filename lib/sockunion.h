@@ -93,7 +93,7 @@ int sockunion_cmp (union sockunion *, union sockunion *);
 int sockunion_same (union sockunion *, union sockunion *);
 
 char *sockunion_su2str (union sockunion *su);
-union sockunion *sockunion_str2su (char *str);
+union sockunion *sockunion_str2su (const char *str);
 struct in_addr sockunion_get_in_addr (union sockunion *su);
 int sockunion_accept (int sock, union sockunion *);
 int sockunion_stream_socket (union sockunion *);

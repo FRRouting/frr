@@ -286,7 +286,7 @@ void install_default (enum node_type);
 void install_element (enum node_type, struct cmd_element *);
 void sort_node ();
 
-char *argv_concat (char **, int, int);
+char *argv_concat (const char **, int, int);
 vector cmd_make_strvec (const char *);
 void cmd_free_strvec (vector);
 vector cmd_describe_command ();

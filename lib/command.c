@@ -78,7 +78,7 @@ struct cmd_node config_node =
 /* Utility function to concatenate argv argument into a single string
    with inserting ' ' character between each argument.  */
 char *
-argv_concat (char **argv, int argc, int shift)
+argv_concat (const char **argv, int argc, int shift)
 {
   int i;
   int len;

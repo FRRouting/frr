@@ -158,29 +158,32 @@ struct vty
 #define PRINTF_ATTRIBUTE(a,b)
 #endif /* __GNUC__ */
 
-/* Utility macro to convert VTY argument to unsigned integer.  */
-#define VTY_GET_INTEGER(NAME,V,STR)                              \
-{                                                                \
-  char *endptr = NULL;                                           \
-  (V) = strtoul ((STR), &endptr, 10);                            \
-  if ((V) == ULONG_MAX || *endptr != '\0')                       \
-    {                                                            \
+/* Utility macros to convert VTY argument to unsigned long or integer. */
+#define VTY_GET_LONG(NAME,V,STR) \
+{ \
+  char *endptr = NULL; \
+  (V) = strtoul ((STR), &endptr, 10); \
+  if (*endptr != '\0' || (V) == ULONG_MAX) \
+    { \
       vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE); \
-      return CMD_WARNING;                                        \
-    }                                                            \
+      return CMD_WARNING; \
+    } \
 }
 
-#define VTY_GET_INTEGER_RANGE(NAME,V,STR,MIN,MAX)                \
-{                                                                \
-  char *endptr = NULL;                                           \
-  (V) = strtoul ((STR), &endptr, 10);                            \
-  if ((V) == ULONG_MAX || *endptr != '\0'                        \
-      || (V) < (MIN) || (V) > (MAX))                             \
-    {                                                            \
+#define VTY_GET_INTEGER_RANGE(NAME,V,STR,MIN,MAX) \
+{ \
+  unsigned long tmpl; \
+  VTY_GET_LONG(NAME, tmpl, STR) \
+  if ( tmpl < (MIN) || tmpl > (MAX)) \
+    { \
       vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE); \
-      return CMD_WARNING;                                        \
-    }                                                            \
+      return CMD_WARNING; \
+    } \
+  (V) = tmpl; \
 }
+
+#define VTY_GET_INTEGER(NAME,V,STR) \
+  VTY_GET_INTEGER_RANGE(NAME,V,STR,0U,UINT32_MAX)
 
 /* Exported variables */
 extern char integrate_default[];

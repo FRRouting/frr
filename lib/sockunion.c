@@ -175,7 +175,7 @@ sockunion2str (union sockunion *su, char *buf, size_t len)
 }
 
 union sockunion *
-sockunion_str2su (char *str)
+sockunion_str2su (const char *str)
 {
   int ret;
   union sockunion *su;
@@ -211,7 +211,7 @@ sockunion_str2su (char *str)
 char *
 sockunion_su2str (union sockunion *su)
 {
-  char str[INET6_ADDRSTRLEN];
+  char str[SU_ADDRSTRLEN];
 
   switch (su->sa.sa_family)
     {
@@ -314,7 +314,7 @@ sockunion_log (union sockunion *su)
       snprintf (buf, SU_ADDRSTRLEN, "af_unknown %d ", su->sa.sa_family);
       break;
     }
-  return buf;
+  return (strdup (buf));
 }
 
 /* sockunion_connect returns
@@ -676,7 +676,7 @@ sockunion_print (union sockunion *su)
 #ifdef HAVE_IPV6
     case AF_INET6:
       {
-	char buf [64];
+	char buf [SU_ADDRSTRLEN];
 
 	printf ("%s\n", inet_ntop (AF_INET6, &(su->sin6.sin6_addr),
 				 buf, sizeof (buf)));

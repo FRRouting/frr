@@ -1,3 +1,16 @@
+2004-10-13 Paul Jakma <paul@dishone.st>
+
+	* (global) more const'ification.
+	* sockunion.c: (sockunion_su2str) buffer should be sized
+          SU_ADDRSTRLEN.
+          (sockunion_log) do not return stack variables, strdup buf before
+          return.
+        * vty.h: Fix up the VTY_GET_INTEGER macros. Testing caller supplied
+          values against ULONG_MAX is daft, when caller probably has passed
+          a type that can not hold ULONG_MAX. use a temporary long instead.
+          Add VTY_GET_LONG, make VTY_GET_INTEGER_RANGE use it, make
+	  VTY_GET_INTEGER a define for VTY_GET_INTEGER_RANGE.
+
 2004-10-11 Hasso Tepper <hasso at quagga.net>
 
 	* command.h: Sync DEFUNSH with other macros.
