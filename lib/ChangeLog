@@ -1,5 +1,10 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* str.c: Replace strlcpy and strlcat with actual working versions
+	  copied from rsync-2.6.2/lib/compat.c.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* if.h: Remove define for IFINDEX_INTERNBASE and add define
 	  IFINDEX_INTERNAL 0, since all internal (i.e. non-kernel) pseudo-
 	  interfaces should have ifindex set to 0.

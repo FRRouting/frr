@@ -1,10 +1,18 @@
 /*
  * zebra string function
  *
- * these functions are just very basic wrappers around exiting ones and
- * do not offer the protection that might be expected against buffer
- * overruns etc
+ * XXX This version of snprintf does not check bounds!
  */
+
+/*
+ The implementations of strlcpy and strlcat are copied from rsync (GPL):
+    Copyright (C) Andrew Tridgell 1998
+    Copyright (C) 2002 by Martin Pool
+
+ Note that these are not terribly efficient, since they make more than one
+ pass over the argument strings.  At some point, they should be optimized.
+*/
+
 
 #include <zebra.h>
 
@@ -25,37 +33,51 @@ snprintf(char *str, size_t size, const char *format, ...)
 #endif
 
 #ifndef HAVE_STRLCPY
-/*
- * strlcpy is a safer version of strncpy(), checking the total
- * size of the buffer
- */
+/**
+ * Like strncpy but does not 0 fill the buffer and always null 
+ * terminates.
+ *
+ * @param bufsize is the size of the destination buffer.
+ *
+ * @return index of the terminating byte.
+ **/
 size_t
-strlcpy(char *dst, const char *src, size_t size)
+strlcpy(char *d, const char *s, size_t bufsize)
 {
-  strncpy(dst, src, size);
-
-  return (strlen(dst));
+	size_t len = strlen(s);
+	size_t ret = len;
+	if (bufsize > 0) {
+		if (len >= bufsize)
+			len = bufsize-1;
+		memcpy(d, s, len);
+		d[len] = 0;
+	}
+	return ret;
 }
 #endif
 
 #ifndef HAVE_STRLCAT
-/*
- * strlcat is a safer version of strncat(), checking the total
- * size of the buffer
- */
+/**
+ * Like strncat() but does not 0 fill the buffer and always null 
+ * terminates.
+ *
+ * @param bufsize length of the buffer, which should be one more than
+ * the maximum resulting string length.
+ **/
 size_t
-strlcat(char *dst, const char *src, size_t size)
+strlcat(char *d, const char *s, size_t bufsize)
 {
-  /* strncpy(dst, src, size - strlen(dst)); */
+	size_t len1 = strlen(d);
+	size_t len2 = strlen(s);
+	size_t ret = len1 + len2;
 
-  /* I've just added below code only for workable under Linux.  So
-     need rewrite -- Kunihiro. */
-  if (strlen (dst) + strlen (src) >= size)
-    return -1;
-
-  strcat (dst, src);
-
-  return (strlen(dst));
+	if (len1 < bufsize - 1) {
+		if (len2 >= bufsize - len1)
+			len2 = bufsize - len1 - 1;
+		memcpy(d+len1, s, len2);
+		d[len1+len2] = 0;
+	}
+	return ret;
 }
 #endif
 
