@@ -929,72 +929,73 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
     return 0;
 }
 
-void
-rip_auth_md5_set (struct stream *s, struct interface *ifp)
+/* Pick correct auth string for sends, prepare auth_str buffer for use.
+ * (left justified and padded).
+ *
+ * presumes one of ri or key is valid, and that the auth strings they point
+ * to are nul terminated. If neither are present, auth_str will be fully
+ * zero padded.
+ *
+ */
+static void
+rip_auth_prepare_str_send (struct rip_interface *ri, struct key *key, 
+                           char *auth_str, int len)
 {
-  struct rip_interface *ri;
-  struct keychain *keychain = NULL;
-  struct key *key = NULL;
-  unsigned long len;
-  struct md5_ctx ctx;
-  unsigned char secret[RIP_AUTH_MD5_SIZE];
-  unsigned char digest[RIP_AUTH_MD5_SIZE];
-  char *auth_str = NULL;
+  assert (ri || key);
 
-  ri = ifp->info;
+  memset (auth_str, 0, len);
+  if (key && key->string)
+    strncpy (auth_str, key->string, len);
+  else if (ri->auth_str)
+    strncpy (auth_str, ri->auth_str, len);
 
-  /* Make it sure this interface is configured as MD5
-     authentication. */
-  if (ri->auth_type != RIP_AUTH_MD5)
-    return;
+  return;
+}
 
-  /* Lookup key chain. */
-  if (ri->key_chain)
-    {
-      keychain = keychain_lookup (ri->key_chain);
-      if (keychain == NULL)
-	return;
-
-      /* Lookup key. */
-      key = key_lookup_for_send (keychain);
-      if (key == NULL)
-	return;
-
-      auth_str = key->string;
-    }
-
-  if (ri->auth_str)
-    auth_str = ri->auth_str;
-
-  if (! auth_str)
-    return;
-
-  /* Get packet length. */
-  len = s->putp;
-
-  /* Check packet length. */
-  if (len < (RIP_HEADER_SIZE + RIP_RTE_SIZE))
-    {
-      zlog_err ("rip_auth_md5_set(): packet length %ld is less than minimum length.", len);
-      return;
-    }
-
-  /* Move RTE. */
-  memmove (s->data + RIP_HEADER_SIZE + RIP_RTE_SIZE,
-	   s->data + RIP_HEADER_SIZE,
-	   len - RIP_HEADER_SIZE);
+/* Write RIPv2 simple password authentication information
+ *
+ * auth_str is presumed to be 2 bytes and correctly prepared 
+ * (left justified and zero padded).
+ */
+static void
+rip_auth_simple_write (struct stream *s, char *auth_str, int len)
+{
+  assert (s && len == RIP_AUTH_SIMPLE_SIZE);
   
-  /* Set pointer to authentication header. */
-  stream_set_putp (s, RIP_HEADER_SIZE);
-  len += RIP_RTE_SIZE;
+  stream_putw (s, RIP_FAMILY_AUTH);
+  stream_putw (s, RIP_AUTH_SIMPLE_PASSWORD);
+  stream_put (s, auth_str, RIP_AUTH_SIMPLE_SIZE);
+  
+  return;
+}
+
+/* write RIPv2 MD5 "authentication header" 
+ * (uses the auth key data field)
+ *
+ * Digest offset field is set to 0.
+ *
+ * returns: offset of the digest offset field, which must be set when
+ * length to the auth-data MD5 digest is known.
+ */
+static size_t
+rip_auth_md5_ah_write (struct stream *s, struct rip_interface *ri, 
+                       struct key *key)
+{
+  size_t len = 0;
+
+  assert (s && ri && ri->auth_type == RIP_AUTH_MD5);
 
   /* MD5 authentication. */
   stream_putw (s, RIP_FAMILY_AUTH);
   stream_putw (s, RIP_AUTH_MD5);
 
-  /* RIP-2 Packet length.  Actual value is filled in
-     rip_auth_md5_set(). */
-  stream_putw (s, len);
+  /* MD5 AH digest offset field.
+   *
+   * Set to placeholder value here, to true value when RIP-2 Packet length
+   * is known.  Actual value is set in .....().
+   */
+  len = stream_get_putp(s);
+  stream_putw (s, 0);
 
   /* Key ID. */
   if (key)
@@ -1018,19 +1019,66 @@ rip_auth_md5_set (struct stream *s, struct interface *ifp)
   stream_putl (s, 0);
   stream_putl (s, 0);
 
-  /* Set pointer to authentication data. */
-  stream_set_putp (s, len);
+  return len;
+}
 
+/* If authentication is in used, write the appropriate header
+ * returns stream offset to which length must later be written
+ * or 0 if this is not required
+ */
+static size_t
+rip_auth_header_write (struct stream *s, struct rip_interface *ri, 
+                       struct key *key, char *auth_str, int len)
+{
+  assert (ri->auth_type != RIP_NO_AUTH);
+  
+  switch (ri->auth_type)
+    {
+      case RIP_AUTH_SIMPLE_PASSWORD:
+        rip_auth_prepare_str_send (ri, key, auth_str, len);
+        rip_auth_simple_write (s, auth_str, len);
+        return 0;
+      case RIP_AUTH_MD5:
+        return rip_auth_md5_ah_write (s, ri, key);
+    }
+  assert (1);
+}
+
+/* Write RIPv2 MD5 authentication data trailer */
+static void
+rip_auth_md5_set (struct stream *s, struct rip_interface *ri, size_t doff,
+                  char *auth_str, int authlen)
+{
+  unsigned long len;
+  struct md5_ctx ctx;
+  unsigned char digest[RIP_AUTH_MD5_SIZE];
+
+  /* Make it sure this interface is configured as MD5
+     authentication. */
+  assert ((ri->auth_type == RIP_AUTH_MD5) && (authlen == RIP_AUTH_MD5_SIZE));
+  assert (doff > 0);
+  
+  /* Get packet length. */
+  len = stream_get_endp(s);
+
+  /* Check packet length. */
+  if (len < (RIP_HEADER_SIZE + RIP_RTE_SIZE))
+    {
+      zlog_err ("rip_auth_md5_set(): packet length %ld is less than minimum length.", len);
+      return;
+    }
+
+  /* Set the digest offset length in the header */
+  stream_putw_at (s, doff, len);
+  
   /* Set authentication data. */
   stream_putw (s, RIP_FAMILY_AUTH);
   stream_putw (s, RIP_AUTH_DATA);
 
   /* Generate a digest for the RIP packet. */
-  memset (secret, 0, RIP_AUTH_MD5_SIZE);
-  strncpy ((char *)secret, auth_str, RIP_AUTH_MD5_SIZE);
   md5_init_ctx (&ctx);
   md5_process_bytes (s->data, s->endp, &ctx);
-  md5_process_bytes (secret, RIP_AUTH_MD5_SIZE, &ctx);
+  md5_process_bytes (auth_str, RIP_AUTH_MD5_SIZE, &ctx);
   md5_finish_ctx (&ctx, digest);
 
   /* Copy the digest to the packet. */
@@ -2015,68 +2063,14 @@ rip_create_socket ()
   return sock;
 }
 
+
 /* Write routing table entry to the stream and return next index of
    the routing table entry in the stream. */
 int
 rip_write_rte (int num, struct stream *s, struct prefix_ipv4 *p,
-	       u_char version, struct rip_info *rinfo, struct interface *ifp)
+               u_char version, struct rip_info *rinfo)
 {
   struct in_addr mask;
-  struct rip_interface *ri;
-
-  /* RIP packet header. */
-  if (num == 0)
-    {
-      stream_putc (s, RIP_RESPONSE);
-      stream_putc (s, version);
-      stream_putw (s, 0);
-
-      /* In case of we need RIPv2 authentication. */
-      if (version == RIPv2 && ifp)
-	{
-	  ri = ifp->info;
-	      
-	  if (ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD)
-	    {
-	      if (ri->auth_str)
-		{
-		  stream_putw (s, RIP_FAMILY_AUTH);
-		  stream_putw (s, RIP_AUTH_SIMPLE_PASSWORD);
-
-		  memset ((s->data + s->putp), 0, 16);
-		  strncpy ((char *)(s->data + s->putp), ri->auth_str, 16);
-		  stream_set_putp (s, s->putp + 16);
-
-		  num++;
-		}
-	      if (ri->key_chain)
-		{
-		  struct keychain *keychain;
-		  struct key *key;
-
-		  keychain = keychain_lookup (ri->key_chain);
-
-		  if (keychain)
-		    {
-		      key = key_lookup_for_send (keychain);
-		      
-		      if (key)
-			{
-			  stream_putw (s, RIP_FAMILY_AUTH);
-			  stream_putw (s, RIP_AUTH_SIMPLE_PASSWORD);
-
-			  memset ((s->data + s->putp), 0, 16);
-			  strncpy ((char *)(s->data + s->putp), 
-				   key->string, 16);
-			  stream_set_putp (s, s->putp + 16);
-
-			  num++;
-			}
-		    }
-		}
-	    }
-	}
-    }
 
   /* Write routing table entry. */
   if (version == RIPv1)
@@ -2116,6 +2110,11 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
   struct prefix_ipv4 *p;
   struct prefix_ipv4 classfull;
   struct prefix_ipv4 ifaddrclass;
+  struct key *key = NULL;
+  /* this might need to made dynamic if RIP ever supported auth methods
+     with larger key string sizes */
+  char auth_str[RIP_AUTH_SIMPLE_SIZE];
+  size_t doff; /* offset of digest offset field */
   int num;
   int rtemax;
   int subnetted = 0;
@@ -2153,7 +2152,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 
   /* If output interface is in simple password authentication mode
      and string or keychain is specified we need space for auth. data */
-  if (ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD)
+  if (ri->auth_type != RIP_NO_AUTH)
     {
       if (ri->key_chain)
        {
@@ -2161,12 +2160,10 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 
          keychain = keychain_lookup (ri->key_chain);
          if (keychain)
-           if (key_lookup_for_send (keychain))
-             rtemax -=1;
+           key = key_lookup_for_send (keychain);
        }
-      else
-       if (ri->auth_str)
-         rtemax -=1;
+      /* to be passed to auth functions later */
+      rip_auth_prepare_str_send (ri, key, auth_str, RIP_AUTH_SIMPLE_SIZE);
     }
 
   if (version == RIPv1)
@@ -2344,13 +2341,27 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
               prefix_match((struct prefix *)p, ifc->address))
 	       rinfo->metric_out = RIP_METRIC_INFINITY;
 	}
- 
+	
+	/* Prepare preamble, auth headers, if needs be */
+	if (num == 0)
+	  {
+	    stream_putc (s, RIP_RESPONSE);
+	    stream_putc (s, version);
+	    stream_putw (s, 0);
+	    
+	    /* auth header for simple or v2 && MD5 */
+            if ( (ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD)
+                || (version == RIPv2 && ri->auth_type == RIP_AUTH_MD5) )
+              doff = rip_auth_header_write (s, ri, key, auth_str, 
+                                              RIP_AUTH_SIMPLE_SIZE);
+          }
+        
 	/* Write RTE to the stream. */
-	num = rip_write_rte (num, s, p, version, rinfo, to ? NULL : ifc->ifp);
+	num = rip_write_rte (num, s, p, version, rinfo);
 	if (num == rtemax)
 	  {
 	    if (version == RIPv2 && ri->auth_type == RIP_AUTH_MD5)
-	      rip_auth_md5_set (s, ifc->ifp);
+              rip_auth_md5_set (s, ri, doff, auth_str, RIP_AUTH_SIMPLE_SIZE);
 
 	    ret = rip_send_packet (STREAM_DATA (s), stream_get_endp (s),
 				   to, ifc);
@@ -2367,7 +2378,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
   if (num != 0)
     {
       if (version == RIPv2 && ri->auth_type == RIP_AUTH_MD5)
-	rip_auth_md5_set (s, ifc->ifp);
+        rip_auth_md5_set (s, ri, doff, auth_str, RIP_AUTH_SIMPLE_SIZE);
 
       ret = rip_send_packet (STREAM_DATA (s), stream_get_endp (s), to, ifc);
 

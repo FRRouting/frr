@@ -87,6 +87,9 @@
 #define RIP_AUTH_SIMPLE_PASSWORD   2
 #define RIP_AUTH_MD5               3
 
+/* RIPv2 Simple authentication */
+#define RIP_AUTH_SIMPLE_SIZE		16
+
 /* RIPv2 MD5 authentication. */
 #define RIP_AUTH_MD5_SIZE               16
 #define RIP_AUTH_MD5_COMPAT_SIZE        RIP_RTE_SIZE

@@ -1,3 +1,26 @@
+2005-02-04 Paul Jakma <paul@dishone.st>
+
+	* ripd.c: Untangle the construction of RIP auth data.
+	  (rip_auth_prepare_str_send) new helper function, prepare
+	  correct key string.
+	  (rip_auth_simple_write) new helper, write out the
+	  rip simple password auth psuedo-RTE.
+	  (rip_auth_md5_ah_write) new helper, write out the
+	  MD5 auth-header psuedo-RTE.
+	  (rip_auth_header_write) new helper, write out correct
+	  auth header data / psuedo-RTE.
+	  (rip_auth_md5_set) rip out the memmove and writing of the
+	  auth header psuedo-RTE. So that all that is left is to
+	  write the trailing auth digest, and update digest offset
+	  field in the original header.
+	  (rip_write_rte) rip out writing of RIP header, writing of
+	  simple auth data psuedo-RTE. Make it do what its name suggests,
+	  write out actual RTEs.
+	  (rip_output_process) remove the incorrect additional decrements 
+	  of rtemax. Prepare the auth_str, which simple or MD5 auth will
+	  need. Move write out of RIP header and auth data to inside the
+	  loop. Adjust paramaters as required.
+
 2005-01-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripd.c: (rip_create_socket) Replace perror with zlog_err.
