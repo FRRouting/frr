@@ -152,10 +152,17 @@ getsockopt_ipv6_ifindex (struct msghdr *msgh)
 #endif /* HAVE_IPV6 */
 
 
-/* Set up a multicast socket options for IPv4
-   This is here so that people only have to do their OS multicast mess 
-   in one place rather than all through zebra, ospfd, and ripd 
-   NB: This is a hookpoint for specific OS functionality */
+/*
+ * Process multicast socket options for IPv4 in an OS-dependent manner.
+ * Supported options are IP_MULTICAST_IF and IP_{ADD,DROP}_MEMBERSHIP.
+ *
+ * Many operating systems have a limit on the number of groups that
+ * can be joined per socket (where each group and local address
+ * counts).  This impacts OSPF, which joins groups on each interface
+ * using a single socket.  The limit is typically 20, derived from the
+ * original BSD multicast implementation.  Some systems have
+ * mechanisms for increasing this limit.
+ */
 int
 setsockopt_multicast_ipv4(int sock, 
 			int optname, 
@@ -200,7 +207,7 @@ setsockopt_multicast_ipv4(int sock,
   /* Add your favourite OS here! */
 
 #else /* #if OS_TYPE */ 
-  /* default OS support */
+  /* standard BSD API */
 
   struct in_addr m;
   struct ip_mreq mreq;
