@@ -14,7 +14,7 @@ libospf_a_SOURCES = \
 	ospf_lsdb.c ospf_asbr.c ospf_routemap.c ospf_snmp.c \
 	ospf_opaque.c ospf_te.c ospf_vty.c ospf_api.c ospf_apiserver.c
 
-ospfdheaderdir = $(includedir)/ospfd
+ospfdheaderdir = $(pkgincludedir)/ospfd
 
 ospfdheader_HEADERS = \
 	ospf_api.h ospf_asbr.h ospf_dump.h ospf_lsa.h ospf_lsdb.h \

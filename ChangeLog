@@ -1,3 +1,9 @@
+2003-12-08  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* {lib,ospfd,ospfapi}/Makefile.am: Use pkginclude_HEADERS rather
+	than include_HEADERS to place includes in
+	${prefix}/include/quaggainstead of polluting ${prefix}/include.
+
 2003-12-04  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* configure.ac: When setting exampledir to sysconfdir as a

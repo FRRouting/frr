@@ -8,7 +8,7 @@ sbin_PROGRAMS = ospfclient
 libospfapiclient_a_SOURCES = \
 	ospf_apiclient.c
 
-ospfapiheaderdir = $(includedir)/ospfapi
+ospfapiheaderdir = $(pkgincludedir)/ospfapi
 
 ospfapiheader_HEADERS = \
 	ospf_apiclient.h

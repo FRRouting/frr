@@ -16,7 +16,7 @@ libzebra_a_DEPENDENCIES = @LIB_REGEX@
 
 libzebra_a_LIBADD = @LIB_REGEX@
 
-include_HEADERS = \
+pkginclude_HEADERS = \
 	buffer.h command.h filter.h getopt.h hash.h if.h linklist.h log.h \
 	memory.h network.h prefix.h routemap.h distribute.h sockunion.h \
 	str.h stream.h table.h thread.h vector.h version.h vty.h zebra.h \

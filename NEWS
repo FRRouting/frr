@@ -1,3 +1,13 @@
+* Changes in Quagga 0.96.5
+
+- include files are installed in $(prefix)/include/quagga.  Programs
+  building against these includes should -I$(prefix)/include and e.g.
+  #include <quagga/routemap.h>
+
+- New option --enable-exampledir puts example files in a separate
+  directory from $(sysconfdir), easing NetBSD pkgsrc hierarchy rules
+  compliance.
+
 * Changes in Quagga 0.96.4
 
 - Further fixes to ospfd, some relating to the PtP revert. Interface
