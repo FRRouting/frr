@@ -125,6 +125,29 @@
 #define OSPF_LS_REFRESH_SHIFT       (60 * 15)
 #define OSPF_LS_REFRESH_JITTER      60
 
+/* OSPF master for system wide configuration and variables. */
+struct ospf_master
+{
+  /* OSPF instance. */
+  struct list *ospf;
+
+  /* OSPF thread master. */
+  struct thread_master *master;
+
+  /* Zebra interface list. */
+  struct list *iflist;
+
+  /* Redistributed external information. */
+  struct route_table *external_info[ZEBRA_ROUTE_MAX + 1];
+#define EXTERNAL_INFO(T)      om->external_info[T]
+
+  /* OSPF start time. */
+  time_t start_time;
+
+  /* Various OSPF global configuration. */
+  u_char options;
+};
+
 /* OSPF instance structure. */
 struct ospf
 {
@@ -175,16 +198,11 @@ struct ospf
   struct route_table *nbr_nbma;
   struct ospf_area *backbone;           /* Pointer to the Backbone Area. */
 
-  list iflist;                          /* Zebra derived interfaces. */
   list oiflist;                         /* ospf interfaces */
 
   /* LSDB of AS-external-LSAs. */
   struct ospf_lsdb *lsdb;
   
-  /* Redistributed external information. */
-  struct route_table *external_info[ZEBRA_ROUTE_MAX + 1];
-#define EXTERNAL_INFO(T)      ospf_top->external_info[T]
-
   /* Flags. */
   int external_origin;			/* AS-external-LSA origin flag. */
   int ase_calc;				/* ASE calculation flag. */
@@ -238,8 +256,8 @@ struct ospf
     char *name;
     struct access_list *list;
   } dlist[ZEBRA_ROUTE_MAX];
-#define DISTRIBUTE_NAME(T)    ospf_top->dlist[T].name
-#define DISTRIBUTE_LIST(T)    ospf_top->dlist[T].list
+#define DISTRIBUTE_NAME(O,T)    (O)->dlist[T].name
+#define DISTRIBUTE_LIST(O,T)    (O)->dlist[T].list
 
   /* Redistribute metric info. */
   struct 
@@ -255,8 +273,8 @@ struct ospf
     char *name;
     struct route_map *map;
   } route_map [ZEBRA_ROUTE_MAX + 1]; /* +1 is for default-information */
-#define ROUTEMAP_NAME(T)   ospf_top->route_map[T].name
-#define ROUTEMAP(T)        ospf_top->route_map[T].map
+#define ROUTEMAP_NAME(O,T)   (O)->route_map[T].name
+#define ROUTEMAP(O,T)        (O)->route_map[T].map
   
   int default_metric;		/* Default metric for redistribute. */
 
@@ -438,8 +456,8 @@ struct ospf_nbr_nbma
 #define OSPF_AREA_SAME(X,Y) \
         (memcmp ((X->area_id), (Y->area_id), IPV4_MAX_BYTELEN) == 0)
 
-#define OSPF_IS_ABR		(ospf_top->flags & OSPF_FLAG_ABR)
-#define OSPF_IS_ASBR		(ospf_top->flags & OSPF_FLAG_ASBR)
+#define IS_OSPF_ABR(O)		((O)->flags & OSPF_FLAG_ABR)
+#define IS_OSPF_ASBR(O)		((O)->flags & OSPF_FLAG_ASBR)
 
 #define OSPF_IS_AREA_ID_BACKBONE(I) ((I).s_addr == OSPF_AREA_BACKBONE)
 #define OSPF_IS_AREA_BACKBONE(A) OSPF_IS_AREA_ID_BACKBONE ((A)->area_id)
@@ -487,7 +505,8 @@ struct ospf_nbr_nbma
         }                                                                     \
     } while (0)
 
-/* Messages */
+/* Extern variables. */
+extern struct ospf_master *om;
 extern struct message ospf_ism_state_msg[];
 extern struct message ospf_nsm_state_msg[];
 extern struct message ospf_lsa_type_msg[];
@@ -502,10 +521,10 @@ extern int ospf_redistributed_proto_max;
 extern int ospf_network_type_msg_max;
 extern struct zclient *zclient;
 extern struct thread_master *master;
-extern struct ospf *ospf_top;
 extern int ospf_zlog;
 
 /* Prototypes. */
+struct ospf *ospf_lookup ();
 struct ospf *ospf_get ();
 void ospf_finish (struct ospf *);
 int ospf_router_id_update_timer (struct thread *);
@@ -555,5 +574,7 @@ void ospf_area_del_if (struct ospf_area *, struct ospf_interface *);
 
 void ospf_route_map_init ();
 void ospf_snmp_init ();
+
+void ospf_master_init ();
 
 #endif /* _ZEBRA_OSPFD_H */

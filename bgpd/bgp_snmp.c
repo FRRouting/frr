@@ -45,6 +45,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* BGP4-MIB described in RFC1657. */
 #define BGP4MIB 1,3,6,1,2,1,15
 
+/* BGP TRAP. */
+#define BGPESTABLISHED			1
+#define BGPBACKWARDTRANSITION		2	
+
 /* Zebra enterprise BGP MIB.  This variable is used for register
    OSPF MIB to SNMP agent under SMUX protocol.  */
 #define BGPDMIB 1,3,6,1,4,1,3317,1,2,2
@@ -846,7 +850,7 @@ bgpTrapEstablished (struct peer *peer)
   smux_trap (bgp_oid, sizeof bgp_oid / sizeof (oid),
 	     index, IN_ADDR_SIZE,
 	     bgpTrapList, sizeof bgpTrapList / sizeof (struct trap_object),
-	     bm->start_time - time (NULL));
+	     bm->start_time - time (NULL), BGPESTABLISHED);
 }
 
 void
@@ -865,7 +869,7 @@ bgpTrapBackwardTransition (struct peer *peer)
   smux_trap (bgp_oid, sizeof bgp_oid / sizeof (oid),
 	     index, IN_ADDR_SIZE,
 	     bgpTrapList, sizeof bgpTrapList / sizeof (struct trap_object),
-	     bm->start_time - time (NULL));
+	     bm->start_time - time (NULL), BGPBACKWARDTRANSITION);
 }
 
 void

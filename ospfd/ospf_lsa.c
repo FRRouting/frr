@@ -1638,7 +1638,7 @@ ospf_install_flood_nssa (struct ospf *ospf,
       new2->data->type = OSPF_AS_NSSA_LSA;
 
       /* set P-bit if not ABR */
-      if (! OSPF_IS_ABR)
+      if (! IS_OSPF_ABR (ospf))
         {
 	  SET_FLAG(new2->data->options, OSPF_OPTION_NP);
        
@@ -1799,12 +1799,11 @@ ospf_external_lsa_originate_timer (struct thread *thread)
 }
 
 struct external_info *
-ospf_default_external_info ()
+ospf_default_external_info (struct ospf *ospf)
 {
   int type;
   struct route_node *rn;
   struct prefix_ipv4 p;
-  struct ospf *ospf = ospf_top;
   
   p.family = AF_INET;
   p.prefix.s_addr = 0;
@@ -1834,8 +1833,10 @@ ospf_default_originate_timer (struct thread *thread)
   struct prefix_ipv4 p;
   struct in_addr nexthop;
   struct external_info *ei;
-  struct ospf *ospf = ospf_top;
+  struct ospf *ospf;
   
+  ospf = ospf_lookup ();
+
   /* Get originate flags. */
   origin = THREAD_ARG (thread);
 
@@ -1851,7 +1852,7 @@ ospf_default_originate_timer (struct thread *thread)
       ospf_external_info_add (DEFAULT_ROUTE, p, 0, nexthop);
     }
 
-  if ((ei = ospf_default_external_info ()))
+  if ((ei = ospf_default_external_info (ospf)))
     ospf_external_lsa_originate (ospf, ei);
   
   return 0;
@@ -1911,7 +1912,7 @@ ospf_external_lsa_refresh_default (struct ospf *ospf)
   p.prefixlen = 0;
   p.prefix.s_addr = 0;
 
-  ei = ospf_default_external_info ();
+  ei = ospf_default_external_info (ospf);
   lsa = ospf_external_info_find_lsa (ospf, &p);
 
   if (ei)
@@ -2694,7 +2695,7 @@ ospf_lsa_lookup (struct ospf_area *area, u_int32_t type,
 #ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
 #endif /* HAVE_OPAQUE_LSA */
-      return ospf_lsdb_lookup_by_id (ospf_top->lsdb, type, id, adv_router);
+      return ospf_lsdb_lookup_by_id (area->ospf->lsdb, type, id, adv_router);
       break;
     default:
       break;
@@ -3117,7 +3118,9 @@ int
 ospf_lsa_action (struct thread *t)
 {
   struct lsa_action *data;
-  struct ospf *ospf = ospf_top;
+  struct ospf *ospf;
+
+  ospf = ospf_lookup ();
 
   data = THREAD_ARG (t);
 

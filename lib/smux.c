@@ -999,7 +999,7 @@ int
 smux_trap (oid *name, size_t namelen,
 	   oid *iname, size_t inamelen,
 	   struct trap_object *trapobj, size_t trapobjlen,
-	   unsigned int tick)
+	   unsigned int tick, u_char sptrap)
 {
   int i;
   u_char buf[BUFSIZ];
@@ -1040,7 +1040,7 @@ smux_trap (oid *name, size_t namelen,
 		       &val, sizeof (int));
 
   /* Specific trap integer. */
-  val = 2;
+  val = sptrap;
   ptr = asn_build_int (ptr, &len, 
 		       (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
 		       &val, sizeof (int));

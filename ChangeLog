@@ -1,3 +1,12 @@
+2003-04-04 Paul Jakma <paul@dishone.st>
+
+	* Sync to Zebra CVS
+	* Fix lib/thread.h leak
+	* Fix small Opaque LSA leak
+	* Do not configure OSPF interfaces for secondary addresses
+	* vtysh fixes from Hasso
+	* Dave Watson's missing ntohs fix
+
 2003-03-25 Paul Jakma <paul@dishone.st>
 
 	* Sync to Zebra CVS

@@ -1967,7 +1967,8 @@ ospf_recv_packet (int fd, struct interface **ifp)
 }
 
 struct ospf_interface *
-ospf_associate_packet_vl (struct interface *ifp, struct ospf_interface *oi,
+ospf_associate_packet_vl (struct ospf *ospf,
+			  struct interface *ifp, struct ospf_interface *oi,
 			  struct ip *iph, struct ospf_header *ospfh)
 {
   struct ospf_interface *rcv_oi;
@@ -1981,17 +1982,17 @@ ospf_associate_packet_vl (struct interface *ifp, struct ospf_interface *oi,
 
   if ((rcv_oi = oi) == NULL)
     {
-     if ((rcv_oi = ospf_if_lookup_by_local_addr (oi->ospf, ifp,
+     if ((rcv_oi = ospf_if_lookup_by_local_addr (ospf, ifp,
 						 iph->ip_dst)) == NULL)
        return NULL;
     }
 
-  for (node = listhead (oi->ospf->vlinks); node; nextnode (node))
+  for (node = listhead (ospf->vlinks); node; nextnode (node))
     {
       if ((vl_data = getdata (node)) == NULL)
 	continue;
       
-      vl_area = ospf_area_lookup_by_area_id (oi->ospf, vl_data->vl_area_id);
+      vl_area = ospf_area_lookup_by_area_id (ospf, vl_data->vl_area_id);
       if (!vl_area)
 	continue;
       
@@ -2242,7 +2243,7 @@ ospf_read (struct thread *thread)
       return 0;
     }
   
-  if ((oi = ospf_associate_packet_vl (ifp, oi, iph, ospfh)) == NULL)
+  if ((oi = ospf_associate_packet_vl (ospf, ifp, oi, iph, ospfh)) == NULL)
     {
       stream_free (ibuf);
       return 0;
@@ -2778,7 +2779,7 @@ ospf_hello_send_sub (struct ospf_interface *oi, struct in_addr *addr)
   ospf_packet_add (oi, op);
 
   /* Hook thread to write packet. */
-  OSPF_ISM_WRITE_ON ();
+  OSPF_ISM_WRITE_ON (oi->ospf);
 }
 
 void
@@ -2913,7 +2914,7 @@ ospf_hello_send (struct ospf_interface *oi)
 		  /* Add packet to the interface output queue. */
 		  ospf_packet_add (oi, op_dup);
 
-		  OSPF_ISM_WRITE_ON ();
+		  OSPF_ISM_WRITE_ON (oi->ospf);
 		}
 
 	      }
@@ -2931,7 +2932,7 @@ ospf_hello_send (struct ospf_interface *oi)
       ospf_packet_add (oi, op);
 
       /* Hook thread to write packet. */
-      OSPF_ISM_WRITE_ON ();
+      OSPF_ISM_WRITE_ON (oi->ospf);
     }
 }
 
@@ -2965,7 +2966,7 @@ ospf_db_desc_send (struct ospf_neighbor *nbr)
   ospf_packet_add (oi, op);
 
   /* Hook thread to write packet. */
-  OSPF_ISM_WRITE_ON ();
+  OSPF_ISM_WRITE_ON (oi->ospf);
 
   /* Remove old DD packet, then copy new one and keep in neighbor structure. */
   if (nbr->last_send)
@@ -2986,7 +2987,7 @@ ospf_db_desc_resend (struct ospf_neighbor *nbr)
   ospf_packet_add (oi, ospf_packet_dup (nbr->last_send));
 
   /* Hook thread to write packet. */
-  OSPF_ISM_WRITE_ON ();
+  OSPF_ISM_WRITE_ON (oi->ospf);
 }
 
 /* Send Link State Request. */
@@ -3024,7 +3025,7 @@ ospf_ls_req_send (struct ospf_neighbor *nbr)
   ospf_packet_add (oi, op);
 
   /* Hook thread to write packet. */
-  OSPF_ISM_WRITE_ON ();
+  OSPF_ISM_WRITE_ON (oi->ospf);
 
   /* Add Link State Request Retransmission Timer. */
   OSPF_NSM_TIMER_ON (nbr->t_ls_req, ospf_ls_req_timer, nbr->v_ls_req);
@@ -3077,7 +3078,7 @@ ospf_ls_upd_queue_send (struct ospf_interface *oi, list update,
   ospf_packet_add (oi, op);
 
   /* Hook thread to write packet. */
-  OSPF_ISM_WRITE_ON ();
+  OSPF_ISM_WRITE_ON (oi->ospf);
 }
 
 static int
@@ -3186,7 +3187,7 @@ ospf_ls_ack_send_list (struct ospf_interface *oi, list ack, struct in_addr dst)
   ospf_packet_add (oi, op);
 
   /* Hook thread to write packet. */
-  OSPF_ISM_WRITE_ON ();
+  OSPF_ISM_WRITE_ON (oi->ospf);
 }
 
 static int

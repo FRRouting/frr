@@ -193,6 +193,9 @@ main (int argc, char **argv)
   zlog_default = openzlog (progname, ZLOG_NOLOG, ZLOG_OSPF,
 			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 
+  /* OSPF master init. */
+  ospf_master_init ();
+
   while (1) 
     {
       int opt;
@@ -243,7 +246,7 @@ main (int argc, char **argv)
     }
 
   /* Initializations. */
-  master = thread_master_create ();
+  master = om->master;
 
   /* Library inits. */
   signal_init ();

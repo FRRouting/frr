@@ -1056,7 +1056,7 @@ ospf_spf_calculate_timer (struct thread *thread)
   ospf->old_rtrs = ospf->new_rtrs;
   ospf->new_rtrs = new_rtrs;
 
-  if (OSPF_IS_ABR) 
+  if (IS_OSPF_ABR (ospf)) 
     ospf_abr_task (ospf);
 
   if (IS_DEBUG_OSPF_EVENT)
