@@ -276,8 +276,11 @@ rtadv_send_packet (int sock, struct interface *ifp)
   pkt->ipi6_ifindex = ifp->ifindex;
 
   ret = sendmsg (sock, &msg, 0);
-  if (ret <0)
-    perror ("sendmsg");
+  if (ret < 0)
+    {
+      zlog_err ("rtadv_send_packet: sendmsg %d (%s)\n",
+		errno, strerror(errno));
+    }
 }
 
 int

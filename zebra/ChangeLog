@@ -1,3 +1,7 @@
+2004-01-06  Greg Troxel  <gdt@t1.ir.bbn.com>
+
+	* rtadv.c (rtadv_send_packet): Change perror to zlog_err.
+
 2004-01-05  Greg Troxel  <gdt@fnord.ir.bbn.com>
 	* kernel_socket.c (ifm_read): Major cleanup.  Use Sowmini's code
 	to find the sockaddr_dl in all cases, narrowing the Solaris ifdef
