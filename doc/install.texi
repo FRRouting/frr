@@ -262,6 +262,8 @@ ripngd        2603/tcp		  # RIPngd vty
 ospfd         2604/tcp		  # OSPFd vty
 bgpd          2605/tcp		  # BGPd vty
 ospf6d        2606/tcp		  # OSPF6d vty
+ospfapi       2607/tcp		  # ospfapi
+isisd         2608/tcp		  # ISISd vty
 @end example
 
 If you use a FreeBSD newer than 2.2.8, the above entries are already
