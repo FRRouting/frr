@@ -67,11 +67,12 @@ behaviors implemented in Cisco and IBM routers."
 
 @deffn {OSPF Command} {ospf rfc1583compatibility} {}
 @deffnx {OSPF Command} {no ospf rfc1583compatibility} {}
-This rfc2328, the sucessor to rfc1583, suggests according to section G.2
-(changes) in section 16.4 a change to the path preference algorithm that
-prevents possible routing loops that were possible in the old version of
-OSPFv2. More specificly it demands that inter-area paths and intra-area path
-are now of equal preference but still both preferred to external paths.
+This rfc2328, the sucessor to rfc1583, suggests according to section 
+G.2 (changes) in section 16.4 a change to the path preference
+algorithm that prevents possible routing loops that were possible in
+the old version of OSPFv2. More specifically it demands that inter-area
+paths and intra-area path are now of equal preference but still both
+preferred to external paths.
 @end deffn
 
 @deffn {OSPF Command} {passive interface @var{interface}} {}

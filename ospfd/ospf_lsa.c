@@ -2617,6 +2617,8 @@ ospf_lsa_maxage_walker_remover (struct ospf_lsa *lsa, void *p_arg, int int_arg)
         switch (lsa->data->type)
           {
 #ifdef HAVE_OPAQUE_LSA
+          case OSPF_OPAQUE_LINK_LSA:
+          case OSPF_OPAQUE_AREA_LSA:
           case OSPF_OPAQUE_AS_LSA:
           case OSPF_OPAQUE_LINK_LSA:
           case OSPF_OPAQUE_AREA_LSA:
