@@ -27,9 +27,12 @@
 #include "prefix.h"
 #include "ioctl.h"
 #include "log.h"
+#include "privs.h"
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
+
+extern struct zebra_privs_t zserv_privs;
 
 /* clear and set interface name string */
 void
@@ -46,14 +49,19 @@ if_ioctl (u_long request, caddr_t buffer)
   int ret = 0;
   int err = 0;
 
+  if (zserv_privs.change(ZPRIVS_RAISE))
+    zlog (NULL, LOG_ERR, "Can't raise privileges");
   sock = socket (AF_INET, SOCK_DGRAM, 0);
   if (sock < 0)
     {
+      if (zserv_privs.change(ZPRIVS_LOWER))
+        zlog (NULL, LOG_ERR, "Can't lower privileges");
       perror ("socket");
       exit (1);
     }
-
   ret = ioctl (sock, request, buffer);
+  if (zserv_privs.change(ZPRIVS_LOWER))
+    zlog (NULL, LOG_ERR, "Can't lower privileges");
   if (ret < 0)
     {
       err = errno;
@@ -76,14 +84,21 @@ if_ioctl_ipv6 (u_long request, caddr_t buffer)
   int ret = 0;
   int err = 0;
 
+  if (zserv_privs.change(ZPRIVS_RAISE))
+    zlog (NULL, LOG_ERR, "Can't raise privileges");
   sock = socket (AF_INET6, SOCK_DGRAM, 0);
   if (sock < 0)
     {
+      if (zserv_privs.change(ZPRIVS_LOWER))
+        zlog (NULL, LOG_ERR, "Can't lower privileges");
       perror ("socket");
       exit (1);
     }
 
   ret = ioctl (sock, request, buffer);
+  if (zserv_privs.change(ZPRIVS_LOWER))
+    zlog (NULL, LOG_ERR, "Can't lower privileges");
+ 
   if (ret < 0)
     {
       err = errno;

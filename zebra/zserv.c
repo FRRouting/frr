@@ -33,6 +33,7 @@
 #include "sockunion.h"
 #include "log.h"
 #include "zclient.h"
+#include "privs.h"
 
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
@@ -49,6 +50,8 @@ list client_list;
 int rtm_table_default = 0;
 
 void zebra_event (enum event event, int sock, struct zserv *client);
+
+extern struct zebra_privs_t zserv_privs;
 
 extern struct thread_master *master;
 
@@ -1638,6 +1641,9 @@ zebra_serv ()
   sockopt_reuseaddr (accept_sock);
   sockopt_reuseport (accept_sock);
 
+  if ( zserv_privs.change(ZPRIVS_RAISE) )
+    zlog (NULL, LOG_ERR, "Can't raise privileges");
+    
   ret  = bind (accept_sock, (struct sockaddr *)&addr, 
 	       sizeof (struct sockaddr_in));
   if (ret < 0)
@@ -1647,6 +1653,9 @@ zebra_serv ()
       close (accept_sock);      /* Avoid sd leak. */
       return;
     }
+    
+  if ( zserv_privs.change(ZPRIVS_LOWER) )
+    zlog (NULL, LOG_ERR, "Can't lower privileges");
 
   ret = listen (accept_sock, 1);
   if (ret < 0)

@@ -34,6 +34,7 @@
 #include "table.h"
 #include "rib.h"
 #include "thread.h"
+#include "privs.h"
 
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
@@ -67,6 +68,8 @@ struct message nlmsg_str[] =
 
 extern int rtm_table_default;
 
+extern struct zebra_privs_t zserv_privs;
+
 /* Make socket for Linux netlink interface. */
 static int
 netlink_socket (struct nlsock *nl, unsigned long groups)
@@ -98,14 +101,25 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
   snl.nl_groups = groups;
 
   /* Bind the socket to the netlink structure for anything. */
+  if ( zserv_privs.change(ZPRIVS_RAISE) )
+   {
+     zlog (NULL, LOG_ERR, "Can't raise privileges");
+     return -1;
+   } 
+
   ret = bind (sock, (struct sockaddr *) &snl, sizeof snl);
   if (ret < 0)
     {
+      if ( zserv_privs.change(ZPRIVS_LOWER) )
+        zlog (NULL, LOG_ERR, "Can't lower privileges");
       zlog (NULL, LOG_ERR, "Can't bind %s socket to group 0x%x: %s", 
 	    nl->name, snl.nl_groups, strerror (errno));
       close (sock);
       return -1;
     }
+    
+  if ( zserv_privs.change(ZPRIVS_LOWER) )
+    zlog (NULL, LOG_ERR, "Can't lower privileges");
 
   /* multiple netlink sockets will have different nl_pid */
   namelen = sizeof snl;
@@ -186,14 +200,28 @@ netlink_request (int family, int type, struct nlsock *nl)
   req.nlh.nlmsg_pid = 0;
   req.nlh.nlmsg_seq = ++nl->seq;
   req.g.rtgen_family = family;
+
+  /* linux appears to check capabilities on every message 
+   * have to raise caps for every message sent
+   */
+  if ( zserv_privs.change(ZPRIVS_RAISE) )
+    {
+      zlog (NULL, LOG_ERR, "Can't raise privileges");
+      return -1;
+    }
  
   ret = sendto (nl->sock, (void*) &req, sizeof req, 0, 
 		(struct sockaddr*) &snl, sizeof snl);
+		
+  if ( zserv_privs.change(ZPRIVS_LOWER) )
+        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        
   if (ret < 0)
-    {
+    {      
       zlog (NULL, LOG_ERR, "%s sendto failed: %s", nl->name, strerror (errno));
       return -1;
     }
+
   return 0;
 }
 
@@ -215,7 +243,13 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
       struct msghdr msg = { (void*)&snl, sizeof snl, &iov, 1, NULL, 0, 0};
       struct nlmsghdr *h;
 
+      if ( zserv_privs.change(ZPRIVS_RAISE) )
+        zlog (NULL, LOG_ERR, "Can't raise privileges");
+        
       status = recvmsg (nl->sock, &msg, 0);
+      
+      if ( zserv_privs.change(ZPRIVS_LOWER) )
+        zlog (NULL, LOG_ERR, "Can't lower privileges");
 
       if (status < 0)
 	{
@@ -1104,7 +1138,12 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
 	      n->nlmsg_seq);
 
   /* Send message to netlink interface. */
+  if ( zserv_privs.change(ZPRIVS_RAISE) )
+        zlog (NULL, LOG_ERR, "Can't raise privileges");
   status = sendmsg (nl->sock, &msg, 0);
+  if ( zserv_privs.change(ZPRIVS_LOWER) )
+        zlog (NULL, LOG_ERR, "Can't lower privileges");
+        
   if (status < 0)
     {
       zlog (NULL, LOG_ERR, "netlink_talk sendmsg() error: %s",

@@ -27,6 +27,7 @@
 #include "command.h"
 #include "vty.h"
 #include "memory.h"
+#include "privs.h"
 
 #include "ospf6d.h"
 #include "ospf6_network.h"
@@ -43,6 +44,26 @@ extern int ospf6_sock;
 /* Default port values. */
 #define OSPF6_VTY_PORT             2606
 
+/* ospf6d privileges */
+zebra_capabilities_t _caps_p [] = 
+{
+  ZCAP_RAW,
+  ZCAP_BIND
+};
+
+struct zebra_privs_t ospf6d_privs =
+{
+#if defined(ZEBRA_USER)
+  .user = ZEBRA_USER,
+#endif
+#if defined ZEBRA_GROUP
+  .group = ZEBRA_GROUP,
+#endif
+  .caps_p = _caps_p,
+  .cap_num_p = 2,
+  .cap_num_i = 0
+};
+
 /* ospf6d options, we use GNU getopt library. */
 struct option longopts[] = 
 {
@@ -51,6 +72,7 @@ struct option longopts[] =
   { "pid_file",    required_argument, NULL, 'i'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
+  { "user",        required_argument, NULL, 'u'},
   { "version",     no_argument,       NULL, 'v'},
   { "help",        no_argument,       NULL, 'h'},
   { 0 }
@@ -93,6 +115,7 @@ Daemon which manages OSPF version 3.\n\n\
 -i, --pid_file     Set process identifier file name\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
+-u, --user         User and group to run as\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
@@ -231,7 +254,7 @@ main (int argc, char *argv[], char *envp[])
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:hp:A:P:v", longopts, 0);
+      opt = getopt_long (argc, argv, "df:hp:A:P:u:v", longopts, 0);
     
       if (opt == EOF)
         break;
@@ -263,6 +286,9 @@ main (int argc, char *argv[], char *envp[])
           vty_port = atoi (optarg);
           vty_port = (vty_port ? vty_port : OSPF6_VTY_PORT);
 	  break;
+        case 'u':
+          ospf6d_privs.user = ospf6d_privs.group = optarg;
+          break;
         case 'v':
           print_version (progname);
           exit (0);
@@ -288,6 +314,7 @@ main (int argc, char *argv[], char *envp[])
   zlog_default = openzlog (progname, flag, ZLOG_OSPF6,
 			   LOG_CONS|LOG_NDELAY|LOG_PID,
 			   LOG_DAEMON);
+	zprivs_init (&ospf6d_privs);
   signal_init ();
   cmd_init (1);
   vty_init ();

@@ -98,8 +98,15 @@ AC_ARG_ENABLE(ospf-te,
 [  --enable-ospf-te        enable Traffic Engineering Extension to OSPF])
 AC_ARG_ENABLE(multipath,
 [  --enable-multipath=ARG  enable multipath function, ARG must be digit])
+AC_ARG_ENABLE(zebra_user,
+[  --enable-user=ARG       user to run zebra suite as (default zebra)])
+AC_ARG_ENABLE(zebra_group,
+[  --enable-group=ARG      group to run zebra suite as (default zebra)])
+AC_ARG_ENABLE(vty_group,
+[  --enable-vty-group=ARG      set vty sockets to have specified group as owner])
+
 AC_ARG_ENABLE(rtadv,
-[  --enable-rtadv         enable IPV6 router advertisment feature])
+[  --enable-rtadv         enable IPV6 router advertisement feature])
 
 if test "${enable_broken_aliases}" = "yes"; then
   if test "${enable_netlink}" = "yes"
@@ -134,6 +141,32 @@ if test "${enable_rtadv}" = "yes"; then
   AC_DEFINE(HAVE_RTADV,,Enable Zebra IPv6 Routing Advertisements)
 else
   AC_MSG_RESULT(no)
+fi
+
+if test "${enable_user}" = "yes" ; then
+  enable_user="zebra"
+elif test "${enable_user}" = "no"; then
+  enable_user="root"
+fi
+AC_DEFINE_UNQUOTED(ZEBRA_USER, "${enable_user}", Zebra User)
+
+if test "${enable_group}" = "yes" ; then
+  enable_group="zebra"
+elif test "${enable_group}" = "no"; then
+  enable_group="root"
+fi
+AC_DEFINE_UNQUOTED(ZEBRA_GROUP, "${enable_group}", Zebra Group)
+
+if test x"${enable_vty_group}" = x"yes" ; then
+  AC_MSG_ERROR([--enable-vty-group requires a group as argument])
+fi
+if test "${enable_vty_group}" = ""; then
+  AC_MSG_ERROR([--enable-vty-group requires a group as argument])
+fi
+if test x"${enable_vty_group}" != x"no"; then
+  if test "${enable_vty_group}" != ""; then
+    AC_DEFINE_UNQUOTED(VTY_GROUP, "${enable_vty_group}", VTY Sockets Group)
+  fi
 fi
 
 changequote(, )dnl
@@ -864,6 +897,28 @@ AC_TRY_COMPILE([#include <sys/resource.h>
  AC_DEFINE(HAVE_RUSAGE,,rusage)],
  AC_MSG_RESULT(no))
 
+dnl -------------------
+dnl capabilities checks
+dnl -------------------
+AC_MSG_CHECKING(whether prctl PR_SET_KEEPCAPS is available)
+AC_TRY_COMPILE([#include <sys/prctl.h>],[prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);],
+  [AC_MSG_RESULT(yes)
+   AC_DEFINE(HAVE_PR_SET_KEEPCAPS,,prctl)
+   zebra_ac_keepcaps="yes"],
+   AC_MSG_RESULT(no)
+)
+if test x"${zebra_ac_keepcaps}" = x"yes"; then
+  AC_CHECK_HEADERS(sys/capability.h)
+fi
+if test x"${ac_cv_header_sys_capability_h}" = x"yes"; then
+  AC_CHECK_LIB(cap, cap_init, 
+    [AC_DEFINE(HAVE_LCAPS,1,Capabilities)
+     LIBCAP="-lcap"
+    ]
+  )
+fi
+AC_SUBST(LIBCAP)
+
 dnl ---------------------------
 dnl check for glibc 'backtrace'
 dnl --------------------------- 
@@ -968,5 +1023,4 @@ compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 linker flags            : ${LDFLAGS} ${LIBS}
 state file directory    : ${zebra_statedir}
-linker flags            : ${LDFLAGS} ${LIBS}
 "

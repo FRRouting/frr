@@ -27,9 +27,12 @@
 #include "sockunion.h"
 #include "log.h"
 #include "str.h"
+#include "privs.h"
 
 #include "zebra/debug.h"
 #include "zebra/rib.h"
+
+extern struct zebra_privs_t zserv_privs;
 
 int
 rtm_write (int message,
@@ -187,13 +190,29 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 int
 kernel_add_ipv4 (struct prefix *p, struct rib *rib)
 {
-  return kernel_rtm_ipv4 (RTM_ADD, p, rib, AF_INET);
+  int route;
+
+  if (zserv_privs.change(ZPRIVS_RAISE))
+    zlog (NULL, LOG_ERR, "Can't raise privileges");
+  route = kernel_rtm_ipv4 (RTM_ADD, p, rib, AF_INET);
+  if (zserv_privs.change(ZPRIVS_LOWER))
+    zlog (NULL, LOG_ERR, "Can't lower privileges");
+
+  return route;
 }
 
 int
 kernel_delete_ipv4 (struct prefix *p, struct rib *rib)
 {
-  return kernel_rtm_ipv4 (RTM_DELETE, p, rib, AF_INET);
+  int route;
+
+  if (zserv_privs.change(ZPRIVS_RAISE))
+    zlog (NULL, LOG_ERR, "Can't raise privileges");
+  route = kernel_rtm_ipv4 (RTM_DELETE, p, rib, AF_INET);
+  if (zserv_privs.change(ZPRIVS_LOWER))
+    zlog (NULL, LOG_ERR, "Can't lower privileges");
+
+  return route;
 }
 
 #ifdef HAVE_IPV6
@@ -421,13 +440,29 @@ kernel_rtm_ipv6_multipath (int cmd, struct prefix *p, struct rib *rib,
 int
 kernel_add_ipv6 (struct prefix *p, struct rib *rib)
 {
-  return kernel_rtm_ipv6_multipath (RTM_ADD, p, rib, AF_INET6);
+  int route;
+
+  if (zserv_privs.change(ZPRIVS_RAISE))
+    zlog (NULL, LOG_ERR, "Can't raise privileges");
+  route =  kernel_rtm_ipv6_multipath (RTM_ADD, p, rib, AF_INET6);
+  if (zserv_privs.change(ZPRIVS_LOWER))
+    zlog (NULL, LOG_ERR, "Can't lower privileges");
+
+  return route;
 }
 
 int
 kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
 {
-  return kernel_rtm_ipv6_multipath (RTM_DELETE, p, rib, AF_INET6);
+  int route;
+
+  if (zserv_privs.change(ZPRIVS_RAISE))
+    zlog (NULL, LOG_ERR, "Can't raise privileges");
+  route =  kernel_rtm_ipv6_multipath (RTM_DELETE, p, rib, AF_INET6);
+  if (zserv_privs.change(ZPRIVS_LOWER))
+    zlog (NULL, LOG_ERR, "Can't lower privileges");
+
+  return route;
 }
 
 /* Delete IPv6 route from the kernel. */
@@ -435,6 +470,14 @@ int
 kernel_delete_ipv6_old (struct prefix_ipv6 *dest, struct in6_addr *gate,
 		    int index, int flags, int table)
 {
-  return kernel_rtm_ipv6 (RTM_DELETE, dest, gate, index, flags);
+  int route;
+
+  if (zserv_privs.change(ZPRIVS_RAISE))
+    zlog (NULL, LOG_ERR, "Can't raise privileges");
+  route = kernel_rtm_ipv6 (RTM_DELETE, dest, gate, index, flags);
+  if (zserv_privs.change(ZPRIVS_LOWER))
+    zlog (NULL, LOG_ERR, "Can't lower privileges");
+
+  return route;
 }
 #endif /* HAVE_IPV6 */

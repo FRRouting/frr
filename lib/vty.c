@@ -33,6 +33,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "filter.h"
+#include "privs.h"
 
 /* Vty events */
 enum event 
@@ -1851,7 +1852,8 @@ vty_serv_un (char *path)
   int sock, len;
   struct sockaddr_un serv;
   mode_t old_mask;
-
+  struct zprivs_ids_t ids;
+  
   /* First of all, unlink existing socket */
   unlink (path);
 
@@ -1893,6 +1895,18 @@ vty_serv_un (char *path)
     }
 
   umask (old_mask);
+
+  zprivs_get_ids(&ids);
+  
+  if (ids.gid_vty > 0)
+    {
+      /* set group of socket */
+      if ( chown (path, -1, ids.gid_vty) )
+        {
+          zlog_err ("vty_serv_un: could chown socket, %s",
+                     strerror (errno) );
+        }
+    }
 
   vty_event (VTYSH_SERV, sock, NULL);
 }

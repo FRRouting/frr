@@ -53,6 +53,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "ospfd/ospf_ase.h"
 
 
+
 /* OSPF process wide configuration. */
 static struct ospf_master ospf_master;
 

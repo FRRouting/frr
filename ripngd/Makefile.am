@@ -17,7 +17,7 @@ noinst_HEADERS = \
 ripngd_SOURCES = \
 	ripng_main.c $(libripng_a_SOURCES)
 
-ripngd_LDADD = -L../lib -lzebra
+ripngd_LDADD = -L../lib -lzebra @LIBCAP@
 
 sysconf_DATA = ripngd.conf.sample
 

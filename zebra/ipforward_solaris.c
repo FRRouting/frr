@@ -22,6 +22,7 @@
 
 #include <zebra.h>
 #include "log.h"
+#include "prefix.h"
 
 /*
 ** Solaris should define IP_DEV_NAME in <inet/ip.h>, but we'll save
@@ -33,6 +34,9 @@
 #define IP_DEV_NAME "/dev/ip"
 #endif
 /*
+
+extern struct zebra_privs_t zserv_privs;
+
 ** This is a limited ndd style function that operates one integer
 ** value only.  Errors return -1. ND_SET commands return 0 on
 ** success. ND_GET commands return the value on success (which could
@@ -63,30 +67,48 @@ solaris_nd(const int cmd, const char* parameter, const int value)
     zlog_err("internal error - inappropriate command given to solaris_nd()%s:%d", __FILE__, __LINE__);
     return -1;
   }
+
   strioctl.ic_cmd = cmd;
   strioctl.ic_timout = 0;
   strioctl.ic_len = ND_BUFFER_SIZE;
   strioctl.ic_dp = nd_buf;
-  if ((fd = open (device, O_RDWR)) < 0) {
-    zlog_warn("failed to open device %s - %s", device, strerror(errno));
-    return -1;
-  }
-  if (ioctl (fd, I_STR, &strioctl) < 0) {
-    close (fd);
-    zlog_warn("ioctl I_STR failed on device %s - %s", device,strerror(errno));
-    return -1;
-  }
-  close(fd);
-  if (cmd == ND_GET) {
-    errno = 0;
-    retval = atoi(nd_buf);
-    if (errno) {
-      zlog_warn("failed to convert returned value to integer - %s",strerror(errno));
-      retval = -1;
+  
+  if ( zserv_privs.change (ZPRIVS_RAISE) )
+       zlog_err ("solaris_nd: Can't raise privileges");
+  if ((fd = open (device, O_RDWR)) < 0) 
+    {
+      zlog_warn("failed to open device %s - %s", device, strerror(errno));
+      if ( zserv_privs.change (ZPRIVS_LOWER) )
+        zlog_err ("solaris_nd: Can't lower privileges");
+      return -1;
     }
-  } else {
-    retval = 0;
-  }
+  if (ioctl (fd, I_STR, &strioctl) < 0) 
+    {
+      if ( zserv_privs.change (ZPRIVS_LOWER) )
+        zlog_err ("solaris_nd: Can't lower privileges");
+      close (fd);
+      zlog_warn("ioctl I_STR failed on device %s - %s", device,strerror(errno));
+      return -1;
+    }
+  close(fd);
+  if ( zserv_privs.change (ZPRIVS_LOWER) )
+         zlog_err ("solaris_nd: Can't lower privileges");
+  
+  if (cmd == ND_GET) 
+    {
+      errno = 0;
+      retval = atoi(nd_buf);
+      if (errno) 
+        {
+          zlog_warn("failed to convert returned value to integer - %s",
+                    strerror(errno));
+          retval = -1;
+        }
+    } 
+  else 
+    {
+      retval = 0;
+    }
   return retval;
 }
 

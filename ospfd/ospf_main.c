@@ -36,6 +36,8 @@
 #include "stream.h"
 #include "log.h"
 #include "memory.h"
+#include "privs.h"
+#include "debug.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -46,6 +48,29 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_vty.h"
+
+/* ospfd privileges */
+zebra_capabilities_t _caps_p [] = 
+{
+  ZCAP_RAW,
+  ZCAP_BIND,
+  ZCAP_BROADCAST,
+  ZCAP_ADMIN,
+};
+
+struct zebra_privs_t ospfd_privs =
+{
+#if defined(ZEBRA_USER) && defined(ZEBRA_GROUP)
+  .user = ZEBRA_USER,
+  .group = ZEBRA_GROUP,
+#endif
+#if defined(VTY_GROUP)
+  .vty_group = VTY_GROUP,
+#endif
+  .caps_p = _caps_p,
+  .cap_num_p = sizeof(_caps_p)/sizeof(_caps_p[0]),
+  .cap_num_i = 0
+};
 
 /* Configuration filename and directory. */
 char config_current[] = OSPF_DEFAULT_CONFIG;
@@ -61,6 +86,7 @@ struct option longopts[] =
   { "help",        no_argument,       NULL, 'h'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
+  { "user",        required_argument, NULL, 'u'},
   { "version",     no_argument,       NULL, 'v'},
   { 0 }
 };
@@ -88,6 +114,7 @@ Daemon which manages OSPF.\n\n\
 -i, --pid_file     Set process identifier file name\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
+-u, --user         User and group to run as\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
@@ -162,6 +189,11 @@ signal_init ()
   signal_set (SIGTTOU, SIG_IGN);
 #endif
   signal_set (SIGUSR1, sigusr1);
+#ifdef HAVE_GLIBC_BACKTRACE
+  signal_set (SIGBUS, debug_print_trace);
+  signal_set (SIGSEGV, debug_print_trace);
+  signal_set (SIGILL, debug_print_trace); 
+#endif /* HAVE_GLIBC_BACKTRACE */
 }
 
 /* OSPFd main routine. */
@@ -200,7 +232,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "dlf:hA:P:v", longopts, 0);
+      opt = getopt_long (argc, argv, "dlf:hA:P:u:v", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -232,6 +264,9 @@ main (int argc, char **argv)
           vty_port = atoi (optarg);
           vty_port = (vty_port ? vty_port : OSPF_VTY_PORT);
   	  break;
+  case 'u':
+    ospfd_privs.group = ospfd_privs.user = optarg;
+    break;
 	case 'v':
 	  print_version (progname);
 	  exit (0);
@@ -249,6 +284,7 @@ main (int argc, char **argv)
   master = om->master;
 
   /* Library inits. */
+  zprivs_init (&ospfd_privs);
   signal_init ();
   cmd_init (1);
   debug_init ();

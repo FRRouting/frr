@@ -28,7 +28,7 @@ noinst_HEADERS = \
 ospfd_SOURCES = \
 	ospf_main.c $(libospf_a_SOURCES)
 
-ospfd_LDADD = -L../lib -lzebra
+ospfd_LDADD = -L../lib -lzebra @LIBCAP@
 
 sysconf_DATA = ospfd.conf.sample
 

@@ -27,12 +27,16 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "if.h"
 #include "prefix.h"
 #include "command.h"
+#include "privs.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_network.h"
+
+extern struct zebra_privs_t bgpd_privs;
+
 
 /* Accept bgp connection. */
 static int
@@ -153,9 +157,16 @@ bgp_bind_address (int sock, struct in_addr *addr)
 #endif /* HAVE_SIN_LEN */
   memcpy (&local.sin_addr, addr, sizeof (struct in_addr));
 
+  if ( bgpd_privs.change (ZPRIVS_RAISE) )
+    zlog_err ("bgp_bind_address: could not raise privs");
+    
   ret = bind (sock, (struct sockaddr *)&local, sizeof (struct sockaddr_in));
   if (ret < 0)
     ;
+    
+  if (bgpd_privs.change (ZPRIVS_LOWER) )
+    zlog_err ("bgp_bind_address: could not lower privs");
+    
   return 0;
 }
 
@@ -306,6 +317,9 @@ bgp_socket (struct bgp *bgp, unsigned short port)
 
       sockopt_reuseaddr (sock);
       sockopt_reuseport (sock);
+      
+      if (bgpd_privs.change (ZPRIVS_RAISE) )
+        zlog_err ("bgp_socket: could not raise privs");
 
       ret = bind (sock, ainfo->ai_addr, ainfo->ai_addrlen);
       if (ret < 0)
@@ -314,6 +328,10 @@ bgp_socket (struct bgp *bgp, unsigned short port)
 	  close (sock);
 	  continue;
 	}
+      
+      if (bgpd_privs.change (ZPRIVS_LOWER) )
+        zlog_err ("bgp_bind_address: could not lower privs");
+        
       ret = listen (sock, 3);
       if (ret < 0) 
 	{
@@ -359,6 +377,9 @@ bgp_socket (struct bgp *bgp, unsigned short port)
   sin.sin_len = socklen;
 #endif /* HAVE_SIN_LEN */
 
+  if ( bgpd_privs.change (ZPRIVS_RAISE) )
+    zlog_err ("bgp_socket: could not raise privs");
+
   ret = bind (sock, (struct sockaddr *) &sin, socklen);
   if (ret < 0)
     {
@@ -366,6 +387,10 @@ bgp_socket (struct bgp *bgp, unsigned short port)
       close (sock);
       return ret;
     }
+  
+  if (bgpd_privs.change (ZPRIVS_LOWER) )
+    zlog_err ("bgp_socket: could not lower privs");
+    
   ret = listen (sock, 3);
   if (ret < 0) 
     {

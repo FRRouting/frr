@@ -23,6 +23,7 @@
 #include "memory.h"
 #include "log.h"
 #include "sockunion.h"
+#include "privs.h"
 
 #include "ospf6d.h"
 #include "ospf6_proto.h"
@@ -32,6 +33,7 @@ extern struct sockaddr_in6 allspfrouters6;
 extern struct sockaddr_in6 alldrouters6;
 extern int ospf6_sock;
 extern struct thread_master *master;
+extern struct zebra_privs_t ospf6d_privs;
 
 /* iovec functions */
 void
@@ -194,6 +196,10 @@ iov_copy_all (struct iovec *dst, struct iovec *src, size_t size)
 int
 ospf6_serv_sock ()
 {
+
+  if (ospf6d_privs.change (ZPRIVS_RAISE))
+      zlog_err ("ospf6_serv_sock: could not raise privs");
+      
   ospf6_sock = socket (AF_INET6, SOCK_RAW, IPPROTO_OSPFIGP);
   if (ospf6_sock < 0)
     {
@@ -202,6 +208,9 @@ ospf6_serv_sock ()
     }
   sockopt_reuseaddr (ospf6_sock);
 
+  if (ospf6d_privs.change (ZPRIVS_LOWER))
+      zlog_err ("ospf_sock_init: could not lower privs");
+  
   /* setup global sockaddr_in6, allspf6 & alldr6 for later use */
   allspfrouters6.sin6_family = AF_INET6;
   alldrouters6.sin6_family = AF_INET6;

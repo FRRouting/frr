@@ -16,6 +16,6 @@ ospfapiheader_HEADERS = \
 ospfclient_SOURCES = \
 	ospfclient.c $(libospfapiclient_a_SOURCES)
 
-ospfclient_LDADD = ../ospfd/libospf.a ../lib/libzebra.a
+ospfclient_LDADD = ../ospfd/libospf.a ../lib/libzebra.a @LIBCAP@
 
 

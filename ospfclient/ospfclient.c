@@ -11,12 +11,26 @@
 
 #include <zebra.h>
 #include "prefix.h" /* needed by ospf_asbr.h */
+#include "privs.h"
+
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
 #include "ospfd/ospf_lsa.h"
 #include "ospfd/ospf_opaque.h"
 #include "ospfd/ospf_api.h"
 #include "ospf_apiclient.h"
+
+/* privileges struct. 
+ * set cap_num_* and uid/gid to nothing to use NULL privs
+ * as ospfapiclient links in libospf.a which uses privs.
+ */
+struct zebra_privs_t ospfd_privs =
+{
+  .user = NULL,
+  .group = NULL,
+  .cap_num_p = 0,
+  .cap_num_i = 0
+};
 
 /* The following includes are specific to this application. For
    example it uses threads from libzebra, however your application is
@@ -274,6 +288,7 @@ main (int argc, char *argv[])
     }
 
   /* Initialization */
+  zprivs_init (&ospfd_privs);
   master = thread_master_create ();
 
   /* Open connection to OSPF daemon */

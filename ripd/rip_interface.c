@@ -34,6 +34,7 @@
 #include "zclient.h"
 #include "filter.h"
 #include "sockopt.h"
+#include "privs.h"
 
 #include "zebra/connected.h"
 
@@ -55,6 +56,8 @@ struct message ri_version_msg[] =
   {RI_RIP_VERSION_1_AND_2, "1 2"},
   {0,                      NULL}
 };
+
+extern struct zebra_privs_t ripd_privs;
 
 /* RIP enabled network vector. */
 vector rip_enable_interface;
@@ -177,6 +180,9 @@ rip_interface_multicast_set (int sock, struct interface *ifp)
 	  from.sin_len = sizeof (struct sockaddr_in);
 #endif /* HAVE_SIN_LEN */
 
+    if (ripd_privs.change (ZPRIVS_RAISE))
+      zlog_err ("rip_interface_multicast_set: could not raise privs");
+      
 	  ret = bind (sock, (struct sockaddr *) & from, 
 		      sizeof (struct sockaddr_in));
 	  if (ret < 0)
@@ -184,6 +190,9 @@ rip_interface_multicast_set (int sock, struct interface *ifp)
 	      zlog_warn ("Can't bind socket: %s", strerror (errno));
 	      return;
 	    }
+
+    if (ripd_privs.change (ZPRIVS_LOWER))
+        zlog_err ("rip_interface_multicast_set: could not lower privs");
 
 	  return;
 

@@ -37,9 +37,12 @@
 #include "distribute.h"
 #include "md5-gnu.h"
 #include "keychain.h"
+#include "privs.h"
 
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
+
+extern struct zebra_privs_t ripd_privs;
 
 /* RIP Structure. */
 struct rip *rip = NULL;
@@ -1884,13 +1887,17 @@ rip_create_socket ()
   setsockopt_pktinfo (sock);
 #endif /* RIP_RECVMSG */
 
+  if (ripd_privs.change (ZPRIVS_RAISE))
+      zlog_err ("rip_create_socket: could not raise privs");
   ret = bind (sock, (struct sockaddr *) & addr, sizeof (addr));
   if (ret < 0)
     {
       perror ("bind");
       return ret;
     }
-  
+  if (ripd_privs.change (ZPRIVS_LOWER))
+      zlog_err ("rip_create_socket: could not lower privs");
+      
   return sock;
 }
 

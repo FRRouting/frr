@@ -28,7 +28,7 @@ noinst_HEADERS = \
 ospf6d_SOURCES = \
 	ospf6_main.c $(libospf6_a_SOURCES)
 
-ospf6d_LDADD = -L../lib -lzebra
+ospf6d_LDADD = -L../lib -lzebra @LIBCAP@
 
 sysconf_DATA = ospf6d.conf.sample
 

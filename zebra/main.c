@@ -1,5 +1,4 @@
-/*
- * zebra daemon main routine.
+/* zebra daemon main routine.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -30,6 +29,7 @@
 #include "memory.h"
 #include "prefix.h"
 #include "log.h"
+#include "privs.h"
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
@@ -62,8 +62,30 @@ struct option longopts[] =
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
+  { "user",        required_argument, NULL, 'u'},
   { "version",     no_argument,       NULL, 'v'},
   { 0 }
+};
+
+zebra_capabilities_t _caps_p [] = 
+{
+  ZCAP_ADMIN,
+  ZCAP_SYS_ADMIN,
+};
+
+/* zebra privileges to run with */
+struct zebra_privs_t zserv_privs =
+{
+#if defined(ZEBRA_USER) && defined(ZEBRA_GROUP)
+  .user = ZEBRA_USER,
+  .group = ZEBRA_GROUP,
+#endif
+#ifdef VTY_GROUP
+  .vty_group = VTY_GROUP,
+#endif
+  .caps_p = _caps_p,
+  .cap_num_p = sizeof(_caps_p)/sizeof(_caps_p[0]),
+  .cap_num_i = 0
 };
 
 /* Default configuration file path. */
@@ -93,6 +115,7 @@ redistribution between different routing protocols.\n\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -r, --retain       When program terminates, retain added route by zebra.\n\
+-u, --user         User and group to run as\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
@@ -196,7 +219,7 @@ main (int argc, char **argv)
     {
       int opt;
   
-      opt = getopt_long (argc, argv, "bdklf:hA:P:rv", longopts, 0);
+      opt = getopt_long (argc, argv, "bdklf:hA:P:ru:v", longopts, 0);
 
       if (opt == EOF)
 	break;
@@ -239,6 +262,9 @@ main (int argc, char **argv)
 	case 'r':
 	  retain_mode = 1;
 	  break;
+  case 'u':
+    zserv_privs.user = zserv_privs.group = optarg;
+    break;
 	case 'v':
 	  print_version (progname);
 	  exit (0);
@@ -254,6 +280,9 @@ main (int argc, char **argv)
 
   /* Make master thread emulator. */
   master = thread_master_create ();
+
+  /* privs initialise */
+  zprivs_init (&zserv_privs);
 
   /* Vty related initialize. */
   signal_init ();

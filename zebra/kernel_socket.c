@@ -31,10 +31,13 @@
 #include "str.h"
 #include "table.h"
 #include "rib.h"
+#include "privs.h"
 
 #include "zebra/interface.h"
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
+
+extern struct zebra_privs_t zserv_privs;
 
 /* Socket length roundup function. */
 #define ROUNDUP(a) \
@@ -798,16 +801,23 @@ kernel_read (struct thread *thread)
 void
 routing_socket ()
 {
+  if ( zserv_privs.change (ZPRIVS_RAISE) )
+    zlog_err ("routing_socket: Can't raise privileges");
+
   routing_sock = socket (AF_ROUTE, SOCK_RAW, 0);
 
   if (routing_sock < 0) 
     {
+      if ( zserv_privs.change (ZPRIVS_LOWER) )
+        zlog_err ("routing_socket: Can't lower privileges");
       zlog_warn ("Can't init kernel routing socket");
       return;
     }
 
   if (fcntl (routing_sock, F_SETFL, O_NONBLOCK) < 0) 
     zlog_warn ("Can't set O_NONBLOCK to routing socket");
+  if ( zserv_privs.change (ZPRIVS_LOWER) )
+    zlog_err ("routing_socket: Can't lower privileges");
 
   /* kernel_read needs rewrite. */
   thread_add_read (master, kernel_read, NULL, routing_sock);

@@ -42,6 +42,8 @@ typedef int socklen_t;
 #include <fcntl.h>
 #include <signal.h>
 #include <string.h>
+#include <pwd.h>
+#include <grp.h>
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif /* HAVE_STROPTS_H */
@@ -70,6 +72,10 @@ typedef int socklen_t;
 #ifdef HAVE_RUSAGE
 #include <sys/resource.h>
 #endif /* HAVE_RUSAGE */
+#ifdef HAVE_LCAPS
+#include <sys/capability.h>
+#include <sys/prctl.h>
+#endif /* HAVE_LCAPS */
 
 /* machine dependent includes */
 #ifdef SUNOS_5

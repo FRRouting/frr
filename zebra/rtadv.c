@@ -29,10 +29,13 @@
 #include "prefix.h"
 #include "linklist.h"
 #include "command.h"
+#include "privs.h"
 
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/debug.h"
+
+extern struct zebra_privs_t zserv_privs;
 
 #if defined (HAVE_IPV6) && defined (RTADV)
 
@@ -143,7 +146,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
   struct cmsghdr  *cmsgptr;
   struct in6_pktinfo *pkt;
   struct sockaddr_in6 addr;
-#if HAVE_SOCKADDR_DL
+#ifdef HAVE_SOCKADDR_DL
   struct sockaddr_dl *sdl;
 #endif /* HAVE_SOCKADDR_DL */
   char adata [sizeof (struct cmsghdr) + sizeof (struct in6_pktinfo)];
@@ -409,7 +412,15 @@ rtadv_make_socket (void)
   int ret;
   struct icmp6_filter filter;
 
+  if ( zserv_privs.change (ZPRIVS_RAISE) )
+       zlog_err ("rtadv_make_socket: could not raise privs, %s",
+                  strerror (errno) );
+                  
   sock = socket (AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+
+  if ( zserv_privs.change (ZPRIVS_LOWER) )
+       zlog_err ("rtadv_make_socket: could not lower privs, %s",
+       			 strerror (errno) );
 
   /* When we can't make ICMPV6 socket simply back.  Router
      advertisement feature will not be supported. */

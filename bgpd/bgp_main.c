@@ -29,6 +29,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "memory.h"
 #include "prefix.h"
 #include "log.h"
+#include "privs.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -45,6 +46,7 @@ struct option longopts[] =
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
   { "no_kernel",   no_argument,       NULL, 'n'},
+  { "user",        required_argument, NULL, 'u'},
   { "version",     no_argument,       NULL, 'v'},
   { "help",        no_argument,       NULL, 'h'},
   { 0 }
@@ -70,6 +72,23 @@ char *pid_file = PATH_BGPD_PID;
 int vty_port = BGP_VTY_PORT;
 char *vty_addr = NULL;
 
+/* privileges */
+zebra_capabilities_t _caps_p [] =  
+{
+    ZCAP_BIND,
+};
+
+struct zebra_privs_t bgpd_privs =
+{
+#if defined(ZEBRA_USER) && defined(ZEBRA_GROUP)
+  .user = ZEBRA_USER,
+  .group = ZEBRA_GROUP,
+#endif
+  .caps_p = _caps_p,
+  .cap_num_p = sizeof(_caps_p)/sizeof(_caps_p[0]),
+  .cap_num_i = 0,
+};
+
 /* Help information display. */
 static void
 usage (char *progname, int status)
@@ -89,6 +108,7 @@ redistribution between different routing protocols.\n\n\
 -P, --vty_port     Set vty's port number\n\
 -r, --retain       When program terminates, retain added route by bgpd.\n\
 -n, --no_kernel    Do not install route to kernel.\n\
+-u, --user         User and group to run as\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
@@ -197,7 +217,7 @@ main (int argc, char **argv)
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:hp:A:P:rnv", longopts, 0);
+      opt = getopt_long (argc, argv, "df:hp:A:P:rnu:v", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -238,6 +258,9 @@ main (int argc, char **argv)
 	case 'n':
 	  bgp_option_set (BGP_OPT_NO_FIB);
 	  break;
+  case 'u':
+    bgpd_privs.user = bgpd_privs.group = optarg;
+    break;
 	case 'v':
 	  print_version (progname);
 	  exit (0);
@@ -257,6 +280,7 @@ main (int argc, char **argv)
   /* Initializations. */
   srand (time (NULL));
   signal_init ();
+  zprivs_init (&bgpd_privs);
   cmd_init (1);
   vty_init ();
   memory_init ();

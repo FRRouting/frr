@@ -29,6 +29,9 @@
 #include "sockunion.h"
 #include "log.h"
 #include "sockopt.h"
+#include "privs.h"
+
+extern struct zebra_privs_t ospfd_privs;
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -38,6 +41,8 @@
 #include "ospfd/ospf_lsdb.h"
 #include "ospfd/ospf_neighbor.h"
 #include "ospfd/ospf_packet.h"
+
+
 
 /* Join to the OSPF ALL SPF ROUTERS multicast group. */
 int
@@ -151,12 +156,20 @@ ospf_sock_init (void)
   int ospf_sock;
   int ret, tos, hincl = 1;
 
+  if ( ospfd_privs.change (ZPRIVS_RAISE) )
+    zlog_err ("ospf_sock_init: could not raise privs, %s",
+               strerror (errno) );
+    
   ospf_sock = socket (AF_INET, SOCK_RAW, IPPROTO_OSPFIGP);
   if (ospf_sock < 0)
     {
+      if ( ospfd_privs.change (ZPRIVS_LOWER) )
+        zlog_err ("ospf_sock_init: could not lower privs, %s",
+                   strerror (errno) );
       zlog_warn ("ospf_read_sock_init: socket: %s", strerror (errno));
       return -1;
     }
+    
 
   /* Set precedence field. */
 #ifdef IPTOS_PREC_INTERNETCONTROL
@@ -165,6 +178,9 @@ ospf_sock_init (void)
 		    (char *) &tos, sizeof (int));
   if (ret < 0)
     {
+      if ( ospfd_privs.change (ZPRIVS_LOWER) )
+        zlog_err ("ospf_sock_init: could not lower privs, %s",
+                   strerror (errno) );
       zlog_warn ("can't set sockopt IP_TOS %d to socket %d", tos, ospf_sock);
       close (ospf_sock);	/* Prevent sd leak. */
       return ret;
@@ -174,19 +190,40 @@ ospf_sock_init (void)
   /* we will include IP header with packet */
   ret = setsockopt (ospf_sock, IPPROTO_IP, IP_HDRINCL, &hincl, sizeof (hincl));
   if (ret < 0)
-    zlog_warn ("Can't set IP_HDRINCL option");
+    {
+      if ( ospfd_privs.change (ZPRIVS_LOWER) )
+        zlog_err ("ospf_sock_init: could not lower privs, %s",
+                   strerror (errno) );
+      zlog_warn ("Can't set IP_HDRINCL option");
+    }
 
 #if defined (IP_PKTINFO)
   ret = setsockopt (ospf_sock, IPPROTO_IP, IP_PKTINFO, &hincl, sizeof (hincl));
    if (ret < 0)
-    zlog_warn ("Can't set IP_PKTINFO option");
+     {
+       if ( ospfd_privs.change (ZPRIVS_LOWER) )
+         zlog_err ("ospf_sock_init: could not lower privs, %s",
+                   strerror (errno) );
+       zlog_warn ("Can't set IP_PKTINFO option");
+     }
 #elif defined (IP_RECVIF)
   ret = setsockopt (ospf_sock, IPPROTO_IP, IP_RECVIF, &hincl, sizeof (hincl));
    if (ret < 0)
-    zlog_warn ("Can't set IP_RECVIF option");
+     {
+       if ( ospfd_privs.change (ZPRIVS_LOWER) )
+         zlog_err ("ospf_sock_init: could not lower privs, %s",
+                   strerror (errno) );
+       zlog_warn ("Can't set IP_RECVIF option");
+     }
 #else
 #warning "cannot be able to receive link information on this OS"
 #endif
+
+  if (ospfd_privs.change (ZPRIVS_LOWER))
+    {
+      zlog_err ("ospf_sock_init: could not lower privs, %s",
+               strerror (errno) );
+    }
  
   return ospf_sock;
 }

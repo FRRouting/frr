@@ -1,4 +1,4 @@
-# conditionals
+# configure options
 %define 	with_snmp	0
 %define		with_vtysh	1
 %define		with_ospf_te	1
@@ -11,6 +11,8 @@
 %define		with_ospfclient 1
 %define		with_ospfapi	1
 %define		with_multipath	64
+%define		zebra_user	zebra
+%define		vty_group	zebravty
 
 # path defines
 %define		_sysconfdir	/etc/zebra
@@ -22,12 +24,12 @@
 %define		_libexecdir	%{_exec_prefix}/libexec/zebra
 %define		_includedir	%{_prefix}/include/zebra
 %define		_libdir		%{_exec_prefix}/%{_lib}/zebra
-%define		_localstatedir	%{_prefix}/var/run
+%define		_localstatedir	/var/run/zebra
 
 Summary: Routing daemon
 Name:		zebra
 Version:	@VERSION@
-Release:	@CONFDATE@
+Release:	@CONFDATE@01
 License:	GPL
 Group: System Environment/Daemons
 Source0:	ftp://ftp.zebra.org/pub/zebra/%{name}-%{version}.tar.gz
@@ -80,10 +82,7 @@ developing OSPF-API and zebra applications.
 %setup  -q
 
 %build
-./update-autotools
 %configure \
-	--with-cflags="-O2" \
-	--enable-netlink \
 %if %with_ipv6
 	--enable-ipv6 \
 %endif
@@ -119,12 +118,17 @@ developing OSPF-API and zebra applications.
 	--enable-ospfapi=no \
 %endif
 %if %with_pam
-	--with-libpam
+	--with-libpam \
 %endif
-
-pushd vtysh
-make %{?_smp_mflags} rebuild
-popd
+%if %zebra_user
+	--enable-user=%zebra_user \
+	--enable-group=%zebra_user \
+%endif
+%if %vty_group
+	--enable-vty-group=%vty_group \
+%endif
+--with-cflags="-O2" \
+--enable-netlink
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
@@ -151,6 +155,18 @@ install %{zeb_rh_src}/ospfd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/ospfd
 install %{zeb_rh_src}/ripd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/ripd
 install -m644 %{zeb_rh_src}/zebra.pam $RPM_BUILD_ROOT/etc/pam.d/zebra
 install -m644 %{zeb_rh_src}/zebra.logrotate $RPM_BUILD_ROOT/etc/logrotate.d/zebra
+install -d -m750  $RPM_BUILD_ROOT/var/run/zebra
+
+%pre
+# add vty_group
+%if %vty_group
+groupadd -r %vty_group 2> /dev/null || :
+%endif
+# add zebra user and group
+%if %zebra_user
+/usr/sbin/useradd -M -r -s /bin/false -c "Zebra routing suite" \
+ -d %_localstatedir %zebra_user 2> /dev/null || :
+%endif
 
 %post
 # zebra_spec_add_service <service name> <port/proto> <comment>
@@ -235,9 +251,19 @@ fi
 %doc doc/zebra.html
 %doc doc/mpls
 %doc ChangeLog INSTALL NEWS README REPORTING-BUGS SERVICES TODO
+%if %zebra_user
+%dir %attr(751,%zebra_user,%zebra_user) %{_sysconfdir}
+%dir %attr(750,%zebra_user,%zebra_user) /var/log/zebra 
+%dir %attr(751,%zebra_user,%zebra_user) /var/run/zebra
+%else
 %dir %attr(750,root,root) %{_sysconfdir}
 %dir %attr(750,root,root) /var/log/zebra
 %dir %attr(755,root,root) /usr/share/info
+%dir %attr(750,root,root) /var/run/zebra
+%endif
+%if %vty_group
+%attr(750,%zebra_user,%vty_group) %{_sysconfdir}/vtysh.conf.sample
+%endif
 %{_infodir}/*info*
 %{_mandir}/man*/*
 %{_sbindir}/*
@@ -262,6 +288,9 @@ fi
 %endif
 
 %changelog
+* Tue Mar 20 2003 Paul Jakma <paul@dishone.st>
+- zebra privileges support
+
 * Mon Mar 18 2003 Paul Jakma <paul@dishone.st>
 - Fix mem leak in 'show thread cpu'
 - Ralph Keller's OSPF-API
