@@ -357,7 +357,7 @@ bgp_socket (struct bgp *bgp, unsigned short port)
   int sock;
   int socklen;
   struct sockaddr_in sin;
-  int ret;
+  int ret, en;
 
   sock = socket (AF_INET, SOCK_STREAM, 0);
   if (sock < 0)
