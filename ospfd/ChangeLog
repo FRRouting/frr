@@ -1,5 +1,11 @@
 2005-02-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf_interface.h: Reduce structure padding by putting new u_char
+	  field multicast_memberships in a better spot (grouped with
+	  other u_char fields type and state).
+
+2005-02-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf_interface.h: Improve passive_interface comment.  Add new
 	  multicast_memberships bitmask to struct ospf_interface to track
 	  active multicast subscriptions.  Declare new function

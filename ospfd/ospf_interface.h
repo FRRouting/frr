@@ -123,13 +123,13 @@ struct ospf_interface
   /* State of Interface State Machine. */
   u_char state;
 
-  struct prefix *address;		/* Interface prefix */
-  struct connected *connected;          /* Pointer to connected */ 
-
   /* To which multicast groups do we currently belong? */
   u_char multicast_memberships;
 #define MEMBER_ALLROUTERS	0x1
 #define MEMBER_DROUTERS		0x2
+
+  struct prefix *address;		/* Interface prefix */
+  struct connected *connected;          /* Pointer to connected */ 
 
   /* Configured varables. */
   struct ospf_if_params *params;
