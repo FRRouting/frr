@@ -1,3 +1,7 @@
+2004-04-21 Boris Kovalenko <boris@tagnet.ru>
+
+	* daemon.c: (daemon) fix check for error return from setsid
+	
 2004-01-19 Paul Jakma <paul@dishone.st>
 
 	* sigevent.{c,h}: New files, implement event handled signals.

@@ -46,7 +46,7 @@ daemon (int nochdir, int noclose)
   /* Become session leader and get pid. */
   pid = setsid();
 
-  if (pid < -1)
+  if (pid == -1)
     {
       perror ("setsid");
       return -1;
