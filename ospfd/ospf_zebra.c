@@ -821,13 +821,15 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
   if (command == ZEBRA_IPV4_ROUTE_ADD)
     {
       /* XXX|HACK|TODO|FIXME:
-       * ignore reject/blackhole routes 
-       * need a better generalised solution for these types
-       * really.
+       * Maybe we should ignore reject/blackhole routes? Testing shows that
+       * there is no problems though and this is only way to "summarize"
+       * routes in ASBR at the moment. Maybe we need just a better generalised
+       * solution for these types?
+       *
+       * if ( CHECK_FLAG (api.flags, ZEBRA_FLAG_BLACKHOLE)
+       *     || CHECK_FLAG (api.flags, ZEBRA_FLAG_REJECT))
+       * return 0;
        */
-      if ( CHECK_FLAG (api.flags, ZEBRA_FLAG_BLACKHOLE)
-           || CHECK_FLAG (api.flags, ZEBRA_FLAG_REJECT))
-        return 0;
         
       ei = ospf_external_info_add (api.type, p, ifindex, nexthop);
 

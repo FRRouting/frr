@@ -1,3 +1,8 @@
+2004-04-22 Hasso Tepper <hasso@estpak.ee>
+
+	* ospf_zebra.c: Don't ignore reject/bh routes, it's the only way
+	  to "summarize" routes in ASBR at the moment.
+
 2004-04-20 Hasso Tepper <hasso@estpak.ee>
 
 	* ospfd.c: Unset NP flag if area is going to be normal or stub.
