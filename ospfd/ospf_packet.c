@@ -978,7 +978,7 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
       /* Unknown LS type. */
       if (lsah->type < OSPF_MIN_LSA || lsah->type >= OSPF_MAX_LSA)
 	{
-	  zlog_warn ("Pakcet [DD:RECV]: Unknown LS type %d.", lsah->type);
+	  zlog_warn ("Packet [DD:RECV]: Unknown LS type %d.", lsah->type);
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
 	  return;
 	}
@@ -1059,7 +1059,7 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_ExchangeDone);
 	}
 
-      /* Send DD pakcet in reply. */
+      /* Send DD packet in reply. */
       ospf_db_desc_send (nbr);
     }
 
@@ -1160,7 +1160,8 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
     case NSM_Down:
     case NSM_Attempt:
     case NSM_TwoWay:
-      zlog_warn ("Packet[DD]: Neighbor state is %s, packet discarded.",
+      zlog_warn ("Packet[DD]: Neighbor %s state is %s, packet discarded.",
+		 inet_ntoa (ospfh->router_id),
 		 LOOKUP (ospf_nsm_state_msg, nbr->state));
       break;
     case NSM_Init:
@@ -1281,7 +1282,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  (!IS_SET_DD_MS (nbr->dd_flags) &&
 	   ntohl (dd->dd_seqnum) != nbr->dd_seqnum + 1))
 	{
-	  zlog_warn ("Pakcet[DD]: sequence number mismatch.");
+	  zlog_warn ("Packet[DD]: sequence number mismatch.");
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
 	  break;
 	}
@@ -1296,7 +1297,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  if (IS_SET_DD_MS (nbr->dd_flags))
 	    {
 	      /* Master should discard duplicate DD packet. */
-	      zlog_warn ("Pakcet[DD]: duplicated, packet discarded.");
+	      zlog_warn ("Packet[DD]: duplicated, packet discarded.");
 	      break;
 	    }
 	  else
@@ -1360,7 +1361,9 @@ ospf_ls_req (struct ip *iph, struct ospf_header *ospfh,
       nbr->state != NSM_Loading &&
       nbr->state != NSM_Full)
     {
-      zlog_warn ("Link State Request: Neighbor state is %s, packet discarded.",
+      zlog_warn ("Link State Request received from %s: "
+      		 "Neighbor state is %s, packet discarded.",
+		 inet_ntoa (ospfh->router_id),
 		 LOOKUP (ospf_nsm_state_msg, nbr->state));
       return;
     }

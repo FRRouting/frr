@@ -1,3 +1,13 @@
+2004-11-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_packet.c: (ospf_db_desc_proc) Fix spelling of packet in warning
+	  message and in comment.
+	  (ospf_db_desc) Warning message that a packet is being discarded
+	  should give the router id of the packet source.  Fix spelling
+	  of packet in two warning messages.
+	  (ospf_ls_req) Warning message that a link state request is being
+	  discarded should give the router id of the neighbor that sent it.
+
 2004-11-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_main.c: Remove #include "debug.h" (was not being used, and
