@@ -1,3 +1,7 @@
+2005-01-25 Paul Jakma <paul@dishone.st>
+
+	* ospf6_asbr.c: Add "hsls" to the zroute_name const char array.
+
 2004-12-24 Hasso Tepper <hasso at quagga.net>
 
 	* *.c: Change level of debug messages to LOG_DEBUG.
