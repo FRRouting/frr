@@ -1,3 +1,280 @@
+2003-11-02 Paul Jakma <paul@dishone.st>
+
+        * bgpd/bgp_routemap.c: Fix up 'set ip next-hop A.B.C.D|peer-address'
+          route map command so that vtysh can use it. Modified version of   
+          Hasso Tepper's patch. Fixes bug #52.
+        * configure.ac: FreeBSD has net-snmp in /usr/local.
+        * redhat/quagga.spec.in: Install libzebra headers with -devel
+          package.
+
+2003-11-02 Krzysztof Oledzki <oleq@ans.pl>
+
+        * zebra/zebra_rib.c: Revert patch (dating from zebra.org) which  
+          caused zebra to read all routes in all tables, rather than just
+          the main table. See [quagga-dev 280].
+
+2003-10-30 Paul Jakma <paul@dishone.st>
+
+        * configure.ac: netinet/in_systm.h is yet another well-known
+          header file we really should be checking for
+
+2003-10-27 kamatchi soundaram <kamatchi@tdd.sj.nec.com>
+
+        * ospfd/ospfd.c: Do not increment act_int for an area, as it is done
+          by ospf_ism.c::ism_change_state() - results in incorrect figure
+          for active interfaces in an area.
+
+2003-10-27 Paul Jakma <paul@dishone.st>
+
+        * lib/if.{ch}: remove ifc_pointtopoint() - left over from the
+          reverted RFC3021 patch.
+
+2003-10-27 Simon <lists@routemeister.net>
+
+        * ospfd/ospfd.c: if_is_pointopoint() takes (struct interface *), was
+          being called with struct connected. Change to co->ifp.
+
+2003-10-27 Gilad Arnold <gilad.arnold@terayon.com>
+
+        * zebra/zebra_rib.c: (nexthop_active_update) Check for multipath
+          limit when setting changed flag to avoid spurious changes.
+          (static_install_ipv{4,6}) dont uninstall by default, might not be
+          required - avoid spurious uninstalls.
+          (static_uninstall_ipv{4,6}) only uninstall the route if its
+          actually FIB route.
+
+2003-10-24 sowmini.varadhan@sun.com
+
+        * ospfd/ospf_network.c: (ospf_sock_init) Exit if socket can not be
+          created.
+
+2003-10-24 Jose Luis Rubio Guivernau <jrubio@dit.upm.es>
+
+        * Better 'show bgp' support for views (eg ipv6), see [quagga-dev 238]
+        * bgpd/bgp_route.c: (bgp_show) Take a struct bgp argument instead of
+          view string.
+          (bgp_show_neighbor_route) Take a struct peer argument instead of
+          ip string.
+          (peer_adj_routes) ditto
+          (show_adj_routes) ditto
+          (peer_lookup_in_view) new function to return appropriate struct
+          peer for a given view string.
+          (misc) Fixup all calls to above to reflect new calling arguments,
+          and use peer_lookup_in_view as needed. Additional commands
+          installed to use expanded functionality above, existing commands
+          modified to suit as well.
+        * bgpd/bgp_vty.c: 2 new aliases.
+
+2003-10-24 Paul Jakma <paul@dishone.st>
+
+        * configure.ac: Check for fcntl()
+        * {bgpd,ospf,ospf6d,ripd,ripngd}/Makefile.am: Install conf file via
+          regular automake means, not magic install incantations, see
+          bug #38.
+        * lib/Makefile.am: install the headers, needed to link libzebra.a
+          (and hence libospf.a, OSPF-API, etc.)
+
+2003-10-24 waldi@debian.org
+
+        * vtysh/Makefile.am: vtysh_cmd.c rebuild was broken because it
+          depended against source files without specification, i.e. it
+          used ../zebra instead of $(top_srcdir)/zebra.
+
+2003-10-23 Paul Jakma <paul@dishone.st>
+
+        * configure.ac: IRIX configure.ac support. Sort of works.
+          sysctl() crashes though (ipforward), there's some kind of odd
+          padding in the PF_ROUTE socket messages and setsockopt() on
+          SOCK_RAW does not work (so ospfd doesnt work).
+
+2003-10-22 Paul Jakma <paul@dishone.st>
+
+        * vtysh/Makefile.am: do not include vtysh_cmd.c in dists, its
+          configure dependent. (still need to find a way to make building of
+          it dependent on configure options or include all commands.)
+
+2003-10-22 Paul Jakma <paul@dishone.st>
+
+        * lib/zebra.h: include limits.h if its there, its a portable header
+          and useful and not just solaris specific. net/route.h is also
+          useful.
+
+2003-10-22 Paul Jakma <paul@dishone.st>
+
+        * lib/regex.c: bzero -> memset
+        * zebra/ioctl.c: ditto. bzero is not portable.
+
+2003-10-22 Paul Jakma <paul@dishone.st>
+
+        * zebra/kernel_socket.c: HAVE_IPV6 conditional for WRAPUP when
+          HAVE_SA_LEN is not defined. bcopy -> memcpy, bcopy is not
+          portable.
+
+2003-10-22 Paul Jakma <paul@dishone.st>
+
+        * configure.ac: Split up header checks into non-net, net and ipv6
+          related. Checking of IPv6 is conditional. Add some more output
+          text for the end of the configure run.
+
+2003-10-18 Lorenzo Colitti <lorenzo@ripe.net>
+
+        * bgpd/bgp_attr.c: (bgp_dump_routes_attr) Dont dump IPv4 nexthop
+          for IP. Dump MP_NLRI attr with IPv6 next-hop for AF_INET6 address
+          family prefixes. Accept prefix as argument.
+        * bgpd/bgp_attr.c: modify bgp_dump_routes_attr declaration.
+        * bgpd/bgp_dump.c: (bgp_dump_routes_entry) Modify calls to
+          bgp_dump_routes_attr.
+          (bgp_dump_common) Go by the family of the peering socket, not
+          configured address family when dumping peering information.
+          Add HAVE_IPV6 conditionals, eg missing from previous bgp interval
+          patch.
+
+2003-10-18 Lorenzo Colitti <lorenzo@ripe.net>
+
+        * bgpd/bgp_dump.{c,h}: (bgp_dump_interval_add) Dump at discrete
+          fixed intervals rather than fixed intervals from startup time.
+          (bgp_dump_interval_func) Dont return immediately if file cant be
+          openeded, but reschedule interval dumps, even - admin might
+          fix problem in meantime. Close the dump file in between intervals.
+          (bgp_dump_init) account for MSG header when initialising stream
+          size.
+
+2003-10-15 Paul Jakma <paul@dishone.st>
+
+        * ospfd/ospf_interface: (ospf_if_lookup_table) new function to
+          lookup oi for a given prefix in a given interfaces table of oi's.
+          (ospf_if_new) use ospf_if_lookup_table to deal with zebra
+          reporting new interface multiple times.
+          NB: This patch is a complete plaster-band of a hack. First, why is
+          zebra reporting interface events multiple times? Second, why does
+          ospfd maintain so many damn lists and tables relating to oi's -
+          these should be reconciled into one or two tables.
+
+2003-10-15 sowmini.varadhan@sun.com
+
+        * ripd/ripd.c: (rip_send_packet) use rip->sock for mcast sends,
+          instead of creating one socket per send. send source addr to
+          rip_update_interface.
+          (rip_update_process) should send an update on every connected
+          network for each interface.
+          (rip_request_send) should send a request on every connected
+          network for each interface.
+        * ripd/ripd.h: update prototype for rip_interface_multicast_set
+        * ripd/rip_interface.c: (rip_interface_multicast_set) reorganized
+          so that it can be called repeatedly for aliased interfaces (on
+          multiple networks).
+
+2003-10-15 Jay Fenlason <fenlason@redhat.com>
+
+        * lib/vty.c: (vty_telnet_option) Remote DoS exists if a telnet
+          end-sub-negotation is sent when no sub-negotation data has been
+          sent. Return immediately if no sub-negotation is in progress.
+          (vty_read) do not attempt to process options if no sub-negotation
+          is in progress.
+
+2003-10-15 Paul Jakma <paul@dishone.st>
+
+        * lib/vty.c: (vty_save_cwd) dont crash if getcwd fails. try fallback
+          to SYSCONFDIR. Allocate cwd from the stack rather than relying on
+          (non-portable) getcwd() allocation (which we didnt seem to be
+          freeing).
+
+2003-10-13 Jay Fenlason <fenlason@redhat.com>
+
+        * lib/zebra.h: define UINT32_MAX for those systems which do not
+          provide it.
+        * bgp_attr.h: define BGP_MED_MAX.
+        * bgp_route.c: update defines/constants to BGP_MED_MAX.
+        * bgp_routemap.c: ditto. clean up route_match_metric_compile
+          slightly to avoid unneccesary XMALLOC.
+
+2003-10-13 sowmini.varadhan@sun.com
+
+        * ospf_lsa.h: Add OSPF_LSA_PREMATURE_AGE flag.
+        * ospf_lsa.c: added better debug comments. check sequence number in
+          ospf_lsa_install. ospf_maxage_lsa_remover() checks for
+          OSPF_LSA_PREMATURE_AGE and re-originates the lsa after ls_acks are
+          received.
+        * ospf_flood.c: improve debug statement- print ls_seqnum.
+
+2003-10-13 Douglas Fraser <doug+quagga@idmf.net>
+
+        * zebra/connected.c: PtP revert fixup. Zebra was not creating
+        connected route for PtP peer.
+
+2003-10-07 Tarhon-Onu Victor <mituc@iasi.rdsnet.ro>
+
+        * zebra/ipforward_proc.c: (ipforward) Close the fd for
+        /proc/net/snmp. See [quagga-dev 284]
+
+2003-09-29 Gilad Arnold <gilad.arnold@terayon.com>
+
+        * zebra/zebra_rib.c: Fix possible dangling reference to rib
+        route_nodes - unlock it the appropriate number of times. (twice,
+        because of the implicit lock). see [quagga-dev 251].
+
+2003-09-29 Paul Jakma <paul@dishone.st>
+
+        * zebra/connected.c: revert the 'generic PtP' patch as it causes
+        far too many problems. People who use FreeSWAN should investigate
+        native linux ipsec.
+        * zebra/rt_netlink.c: ditto
+        * lib/if.c: ditto
+        * ripd/ripd.h: ditto
+        * ripd/ripd.c: ditto
+        * ripd/rip_interface.c: ditto
+        * ospfd/ospfd.c: ditto
+        * ospfd/ospf_snmp.c: ditto
+        * bgpd/bgp_nexthop.c: ditto
+        * ospfd/ospf_packet.c: Add debug output for some of the previously
+          completely silent drops of 'bad' packets.
+        * configure.ac: bump version
+
+2003-08-27 Jay Fenlason <fenlason@redhat.com>
+
+        * lib/Makefile.am: Do not use a lib (libcap) as a dependency
+        * zebra/Makefile.am: Link in libcap
+        * bgpd/bgp_routemap.c: attr->med is type u_in32_t, should be
+          compared with UINT32_MAX
+        * ospfd/ospfd.c: remove redundant assert
+        * zebra/rtadv.c: add missing include for zebra/rib.h
+
+2003-09-24 Paul Jakma <paul@dishone.st>
+
+        * lib/version.h: moved to version.h.in
+        * lib/version.h.in: New file, from version.h. Change hardcoded
+          package name and version to use the autoconf defined substition
+          variables.
+        * configure.ac: Fix up AC/AM_INIT* to new style. Remove the sed'ing
+          through lib/version.h for VERSION. Add lib/version.h to the
+          AC_OUTPUT list. Update the text output of quagga version at end
+          of configure run to use PACKAGE_VERSION.
+        * doc/.cvsignore: ignore quagga.pdf
+        * doc/.cvsignore: ignore version.h, its now autogenerated.
+
+2003-09-24 sowmini.varadhan@sun.com
+
+        * lib/if.c: (if_cmp_func) fix infinite loop if
+          ifp1->name == ifp2->name
+        * lib/linklist.c: (if_cmp_func) Fix handling of case where
+          list->cmp returns 0.
+        * rip_interface.c: (rip_interface_address_add) call
+          rip_enable_apply(), or the interface is never considered up.
+          see [quagga-dev 225].
+        * zebra/kernel_socket.c: Fix up WRAPUP macro to deal with multiple
+          address families in the absence of sa_len element in struct
+          sockaddr.
+          (ifm_read): Handle solaris 9 if_msghdr_t.
+          Deal with interfaces which are incomplete, lookup on name rather
+          than the placeholder interface index of -1.
+
+2003-09-24 Thomas Giger TGC <thomas.giger@tgc.de>
+
+        * ospf_packet.c (ospf_associate_packet_vl): pass NULL struct
+          interface to ospf_if_lookup_by_local_addr() rather than the
+          receiving interface ifp, packets for VL's could come in any
+          interface. See quagga-dev 250.
+
 2003-04-13 Paul Jakma <paul@dishone.st>
 
 	* Amir: Opaque LSA bug fix for deletion of Type11's
