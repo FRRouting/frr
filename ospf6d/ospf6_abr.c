@@ -362,7 +362,7 @@ ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
       summary->path.origin.id =
         ospf6_new_ls_id (summary->path.origin.type,
                          summary->path.origin.adv_router, area->lsdb);
-      ospf6_route_add (summary, summary_table);
+      summary = ospf6_route_add (summary, summary_table);
     }
   else
     {

@@ -1302,6 +1302,9 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
       if (lsentry->path.area_id != oa->area_id)
         continue;
 
+      if (CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_WAS_REMOVED))
+        continue;
+
       if (CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_REMOVE) &&
           CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_ADD))
         {

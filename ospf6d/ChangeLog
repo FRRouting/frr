@@ -1,3 +1,14 @@
+2004-09-13  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_intra.c, ospf6_route.[ch]: try to fix assertion failure
+	in brouter's route_remove
+	* ospf6d.h: version 0.9.7o
+
+2004-09-12  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_route.c: route_count_assert bug fix
+	* ospf6d.h: version 0.9.7n
+
 2004-09-03  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
 	* ospf6_area.c, ospf6_route.c, ospf6_top.c, ospf6d.c:

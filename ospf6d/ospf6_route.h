@@ -158,6 +158,7 @@ struct ospf6_route
 #define OSPF6_ROUTE_BEST             0x08
 #define OSPF6_ROUTE_ACTIVE_SUMMARY   0x10
 #define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x20
+#define OSPF6_ROUTE_WAS_REMOVED      0x40
 
 struct ospf6_route_table
 {

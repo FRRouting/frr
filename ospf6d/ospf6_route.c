@@ -288,6 +288,7 @@ ospf6_route_add (struct ospf6_route *route,
           ospf6_route_delete (route);
           SET_FLAG (old->flag, OSPF6_ROUTE_ADD);
           ospf6_route_count_assert (table);
+
           return old;
         }
 
@@ -315,10 +316,11 @@ ospf6_route_add (struct ospf6_route *route,
       ospf6_route_lock (route);
 
       SET_FLAG (route->flag, OSPF6_ROUTE_CHANGE);
+      ospf6_route_count_assert (table);
+
       if (table->hook_add)
         (*table->hook_add) (route);
 
-      ospf6_route_count_assert (table);
       return route;
     }
 
@@ -353,12 +355,12 @@ ospf6_route_add (struct ospf6_route *route,
 
       ospf6_route_lock (route);
       table->count++;
+      ospf6_route_count_assert (table);
 
       SET_FLAG (route->flag, OSPF6_ROUTE_ADD);
       if (table->hook_add)
         (*table->hook_add) (route);
 
-      ospf6_route_count_assert (table);
       return route;
     }
 
@@ -414,12 +416,12 @@ ospf6_route_add (struct ospf6_route *route,
     }
 
   table->count++;
+  ospf6_route_count_assert (table);
 
   SET_FLAG (route->flag, OSPF6_ROUTE_ADD);
   if (table->hook_add)
     (*table->hook_add) (route);
 
-  ospf6_route_count_assert (table);
   return route;
 }
 
@@ -470,13 +472,15 @@ ospf6_route_remove (struct ospf6_route *route,
         node->info = NULL; /* should unlock route_node here ? */
     }
 
+  table->count--;
+  ospf6_route_count_assert (table);
+
+  SET_FLAG (route->flag, OSPF6_ROUTE_WAS_REMOVED);
+
   if (table->hook_remove)
     (*table->hook_remove) (route);
 
   ospf6_route_unlock (route);
-  table->count--;
-
-  ospf6_route_count_assert (table);
 }
 
 struct ospf6_route *
