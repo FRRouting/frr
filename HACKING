@@ -1,6 +1,6 @@
 -*- mode: text; -*-
 
-$Id: HACKING,v 1.1 2003/12/19 19:20:25 gdt Exp $
+$Id: HACKING,v 1.2 2003/12/22 15:45:01 gdt Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -67,3 +67,7 @@ tested are:
   ripd
   ospfd
   ripngd
+
+CHANGELOG
+
+[TBD: when to add to per-dir Changelog, when to add to top-level]
