@@ -1134,6 +1134,12 @@ DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
   return CMD_SUCCESS;
 }
 
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
+       interface_desc_cmd,
+       "description .LINE",
+       "Interface specific description\n"
+       "Characters describing this interface\n")
+
 DEFSH (VTYSH_RIPD|VTYSH_BGPD,
        set_ip_nexthop_cmd,
        "set ip next-hop A.B.C.D",
@@ -1782,6 +1788,7 @@ vtysh_init_vty ()
   install_element (KEYCHAIN_KEY_NODE, &vtysh_end_all_cmd);
   install_element (RMAP_NODE, &vtysh_end_all_cmd);
 
+  install_element (INTERFACE_NODE, &interface_desc_cmd);
   install_element (INTERFACE_NODE, &vtysh_end_all_cmd);
   install_element (INTERFACE_NODE, &vtysh_exit_interface_cmd);
   install_element (INTERFACE_NODE, &vtysh_quit_interface_cmd);
