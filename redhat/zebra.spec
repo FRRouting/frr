@@ -8,48 +8,47 @@
 %define		with_pam	1
 %define		with_ipv6	1
 %define		with_multipath	32
+
+# path defines
 %define		_sysconfdir	/etc/zebra
+%define		zeb_builddir	%{_builddir}/%{name}-%{version}
+%define		zeb_rh_src	%{zeb_builddir}/redhat
+%define		zeb_docs	%{zeb_builddir}/doc
+
+# files
+%define		zebra.ini
+%define		zebra_init	%{zeb_rh_src}/zebra.init
+%define		bgpd_init 	%{zeb_rh_src}/bgpd.init
+%define		ospf6d_init	%{zeb_rh_src}/ospf6d.init
+%define		ospfd_init	%{zeb_rh_src}/ospfd.init
+%define		ripd_init 	%{zeb_rh_src}/ripd.init
+%define		ripngd_init	%{zeb_rh_src}/ripngd.init
+%define		zebra_pam	%{zeb_rh_src}/zebra.pam
+%define		zebra_logrotate	%{zeb_rh_src}/zebra.logrotate
+
+#echo %{zeb_docs}
+#echo %{zeb_rh_src}
 
 Summary: Routing daemon
 Name:		zebra
 Version:	0.93b
-Release:	2002111101
+Release:	2003011801
 License:	GPL
 Group: System Environment/Daemons
 Source0:	ftp://ftp.zebra.org/pub/zebra/%{name}-%{version}.tar.gz
-Source1:        zebra.init
-Source2:        bgpd.init
-Source3:        ospf6d.init
-Source4:        ospfd.init
-Source5:        ripd.init
-Source6:        ripngd.init
-Source8:	zebra.pam
-Source9:	zebra.logrotate
-Source10:	zebra.mpls-docs.tar.gz
-Patch0:		zebra-bgpd-hash.patch
-Patch1:		zebra-ptp.patch
-Patch2:		zebra-linkstate.patch
-Patch3:		zebra-ospfd-ptmp.patch
-Patch4:		zebra-ospfd-misc.patch
-Patch5:		zebra-ospfd-olsa.patch
-Patch7:		zebra-vtysh-write-config.patch
-Patch8:		zebra-ospfd-md5auth-seqnum.patch
-Patch9:		zebra-ospfd-oi_write_q.patch
-Patch10:	zebra-ripv1-netmask.patch
-Patch11:	zebra-ospfd-md5-buffer-fix.patch
-Patch12:	zebra-multi.patch
 URL:		http://www.zebra.org/
 %if %with_snmp
 BuildRequires:	ucd-snmp-devel
 Prereq:		ucd-snmp
 %endif
 %if %with_vtysh
-BuildRequires:	readline readline-devel ncurses ncuses-devel
+BuildRequires:	readline readline-devel ncurses ncurses-devel
 Prereq:		readline ncurses
 %endif
 BuildRequires:	texinfo tetex autoconf openssl-devel pam-devel patch
 # Initscripts > 5.60 is required for IPv6 support
-Prereq:		openssl ncurses readline initscripts pam
+Prereq:		initscripts >= 5.60
+Prereq:		openssl ncurses readline pam
 Prereq:		/sbin/install-info
 Provides:	routingdaemon
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
@@ -69,19 +68,6 @@ process for each protocol.
 
 %prep
 %setup  -q
-%patch0 -p1 -b .bgphash
-%patch1 -p0 -b .ptp
-%patch2 -p1 -b .linkstate
-%patch3 -p1 -b .ospf-ptmp
-%patch4 -p1 -b .ospf-misc
-%patch5 -p1 -b .ospf-olsa
-%patch7 -p1 -b .vtysh-write
-%patch8 -p2 -b .ospf-md5auth-seqnum
-%patch9 -p0 -b .ospfd-oi_write_q
-%patch10 -p0 -b .ripd-netmask
-%patch11 -p0 -b .ospfd-md5-buffer
-%patch12 -p0 -b .zebra-multi
-%{__tar} -zxf %{SOURCE10}
 
 %build
 %configure \
@@ -134,21 +120,19 @@ install -d $RPM_BUILD_ROOT/etc/{rc.d/init.d,sysconfig,logrotate.d,pam.d} \
 make install \
 	DESTDIR=$RPM_BUILD_ROOT
 
-install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/zebra
-install %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/bgpd
+install %{zebra_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/zebra
+install %{bgpd_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/bgpd
 %if %with_ipv6
-install %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/ospf6d
+install %{ospf6d_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/ospf6d
+install %{ripngd_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/ripngd
 %endif
-install %{SOURCE4} $RPM_BUILD_ROOT/etc/rc.d/init.d/ospfd
-install %{SOURCE5} $RPM_BUILD_ROOT/etc/rc.d/init.d/ripd
-%if %with_ipv6
-install %{SOURCE6} $RPM_BUILD_ROOT/etc/rc.d/init.d/ripngd
-%endif
-install -m644 %{SOURCE8} $RPM_BUILD_ROOT/etc/pam.d/zebra
-install -m644 %{SOURCE9} $RPM_BUILD_ROOT/etc/logrotate.d/zebra
+install %{ospfd_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/ospfd
+install %{ripd_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/ripd
+install -m644 %{zebra_pam} $RPM_BUILD_ROOT/etc/pam.d/zebra
+install -m644 %{zebra_logrotate} $RPM_BUILD_ROOT/etc/logrotate.d/zebra
 
 %post
-# zebra_spec_add_service <sercice name> <port/proto> <comment>
+# zebra_spec_add_service <service name> <port/proto> <comment>
 # e.g. zebra_spec_add_service zebrasrv 2600/tcp "zebra service"
 
 zebra_spec_add_service ()
@@ -175,11 +159,9 @@ zebra_spec_add_service ospf6d   2606/tcp "OSPF6d vty"
 /sbin/chkconfig --add ripd
 %if %with_ipv6
 /sbin/chkconfig --add ripngd
-%endif
-/sbin/chkconfig --add ospfd
-%if %with_ipv6
 /sbin/chkconfig --add ospf6d
 %endif
+/sbin/chkconfig --add ospfd
 /sbin/chkconfig --add bgpd
 
 /sbin/install-info %{_infodir}/zebra.info.gz %{_infodir}/dir
@@ -230,6 +212,7 @@ fi
 %defattr(-,root,root)
 %doc */*.sample* doc/zebra.html tools AUTHORS COPYING
 %doc ChangeLog INSTALL NEWS README REPORTING-BUGS SERVICES TODO
+%doc doc/mpls
 %dir %attr(750,root,root) %{_sysconfdir}
 %dir %attr(750,root,root) /var/log/zebra
 %dir %attr(755,root,root) /usr/share/info
