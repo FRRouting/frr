@@ -1,3 +1,8 @@
+2005-02-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* watchquagga.c: (try_connect) Use new set_nonblocking function instead
+	  of calling fcntl directly.
+
 2005-01-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* watchquagga.c: (run_job) Fix bug: delay.tv_sec was being used
