@@ -7,7 +7,8 @@ LIBS = @LIBS@ @CURSES@ @LIBPAM@
 
 bin_PROGRAMS = vtysh
 
-vtysh_SOURCES = vtysh_main.c vtysh.c vtysh_cmd.c vtysh_user.c vtysh_config.c
+vtysh_SOURCES = vtysh_main.c vtysh.c vtysh_user.c vtysh_config.c
+nodist_vtysh_SOURCES = vtysh_cmd.c
 noinst_HEADERS = vtysh.h vtysh_user.h
 vtysh_LDADD = ../lib/libzebra.a @LIBCAP@
 
