@@ -195,7 +195,10 @@ vtysh_client_execute (struct vtysh_client *vclient, const char *line, FILE *fp)
 	  fprintf (fp, "%s", buf);
 	  fflush (fp);
 	  
-	  /* check for trailling \0\0\0\0, even if split across reads */
+	  /* check for trailling \0\0\0<ret code>, 
+	   * even if split across reads 
+	   * (see lib/vty.c::vtysh_read)
+	   */
           if (nbytes >= 4) 
             {
               i = nbytes-4;
@@ -204,7 +207,7 @@ vtysh_client_execute (struct vtysh_client *vclient, const char *line, FILE *fp)
           else
             i = 0;
           
-          while (i < nbytes)
+          while (i < nbytes && numnulls < 3)
             {
               if (buf[i++] == '\0')
                 numnulls++;
@@ -217,10 +220,10 @@ vtysh_client_execute (struct vtysh_client *vclient, const char *line, FILE *fp)
 
           /* got 3 or more trailling nulls? */
           if (numnulls >= 3)
-            return CMD_SUCCESS;
+            return (buf[nbytes-1]);
 	}
     }
-  return ret;
+  assert (1);
 }
 
 void

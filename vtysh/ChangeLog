@@ -1,3 +1,10 @@
+2004-09-17 Paul Jakma <paul@dishone.st>
+
+	* vtysh.c: (vtysh_client_execute) fix the sync fix. The 4th and
+	  final sync byte is not ASCII NULL, it's actually a status integer,
+	  and only ASCII NULL if CMD_SUCCESS is returned by daemon.
+	  Fix pointed out by Hasso.
+ 
 2004-10-11 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh.c, vtysh_user.c: Make more strings const.
