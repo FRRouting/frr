@@ -138,6 +138,7 @@ zprivs_state_caps (void)
 int
 zprivs_change_uid (zebra_privs_ops_t op)
 {
+
   if (op == ZPRIVS_RAISE)
     return seteuid (zprivs_state.zsuid);
   else if (op == ZPRIVS_LOWER)
@@ -194,13 +195,13 @@ zprivs_init(struct zebra_privs_t *zprivs)
   if (zprivs->group)
     {
       if ( (grentry = getgrnam (zprivs->user)) )
-        zprivs_state.zgid = pwentry->pw_uid;
+        zprivs_state.zgid = grentry->gr_gid;
       else
         {
           zlog_err ("privs_init: could not lookup supplied user");
           exit (1);
         }
-        
+      
       /* change group now, forever. uid we do later */
       if ( setregid (zprivs_state.zgid, zprivs_state.zgid) )
         {
@@ -268,7 +269,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
       exit (1);
     }
   
-  /* we have caps, we have no need to ever change back the original user
+  /* we have caps, we have no need to ever change back the original user */
   if (zprivs_state.zuid)
     {
       if ( setreuid (zprivs_state.zuid, zprivs_state.zuid) )
@@ -276,8 +277,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
           zlog_err ("privs_init (cap): could not setreuid, %s", strerror (errno) );
           exit (1);
         }
-     }
-   */
+    }
 
   /* No more need for cap_setuid_value */
   cap_set_flag(zprivs_state.caps, CAP_PERMITTED,
