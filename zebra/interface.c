@@ -742,30 +742,32 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 
 #ifdef HAVE_PROC_NET_DEV
   /* Statistics print out using proc file system. */
-  vty_out (vty, "    input packets %lu, bytes %lu, dropped %lu,"
-	   " multicast packets %lu%s",
-	   ifp->stats.rx_packets, ifp->stats.rx_bytes, 
-	   ifp->stats.rx_dropped, ifp->stats.rx_multicast, VTY_NEWLINE);
+  vty_out (vty, "    %lu input packets (%lu multicast), %lu bytes, "
+	   "%lu dropped%s",
+	   ifp->stats.rx_packets, ifp->stats.rx_multicast,
+	   ifp->stats.rx_bytes, ifp->stats.rx_dropped, VTY_NEWLINE);
 
-  vty_out (vty, "    input errors %lu, length %lu, overrun %lu,"
-	   " CRC %lu, frame %lu, fifo %lu, missed %lu%s",
+  vty_out (vty, "    %lu input errors, %lu length, %lu overrun,"
+	   " CRC %lu, frame %lu%s",
 	   ifp->stats.rx_errors, ifp->stats.rx_length_errors,
 	   ifp->stats.rx_over_errors, ifp->stats.rx_crc_errors,
-	   ifp->stats.rx_frame_errors, ifp->stats.rx_fifo_errors,
+	   ifp->stats.rx_frame_errors, VTY_NEWLINE);
+
+  vty_out (vty, "    %lu fifo, %lu missed%s", ifp->stats.rx_fifo_errors,
 	   ifp->stats.rx_missed_errors, VTY_NEWLINE);
 
-  vty_out (vty, "    output packets %lu, bytes %lu, dropped %lu%s",
+  vty_out (vty, "    %lu output packets, %lu bytes, %lu dropped%s",
 	   ifp->stats.tx_packets, ifp->stats.tx_bytes,
 	   ifp->stats.tx_dropped, VTY_NEWLINE);
 
-  vty_out (vty, "    output errors %lu, aborted %lu, carrier %lu,"
-	   " fifo %lu, heartbeat %lu, window %lu%s",
+  vty_out (vty, "    %lu output errors, %lu aborted, %lu carrier,"
+	   " %lu fifo, %lu heartbeat%s",
 	   ifp->stats.tx_errors, ifp->stats.tx_aborted_errors,
 	   ifp->stats.tx_carrier_errors, ifp->stats.tx_fifo_errors,
-	   ifp->stats.tx_heartbeat_errors, ifp->stats.tx_window_errors,
-	   VTY_NEWLINE);
+	   ifp->stats.tx_heartbeat_errors, VTY_NEWLINE);
 
-  vty_out (vty, "    collisions %lu%s", ifp->stats.collisions, VTY_NEWLINE);
+  vty_out (vty, "    %lu window, %lu collisions%s",
+	   ifp->stats.tx_window_errors, ifp->stats.collisions, VTY_NEWLINE);
 #endif /* HAVE_PROC_NET_DEV */
 
 #ifdef HAVE_NET_RT_IFLIST
