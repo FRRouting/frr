@@ -1,4 +1,4 @@
-# $Id: INSTALL.quagga.txt,v 1.6 2004/11/22 20:14:33 gdt Exp $
+# $Id: INSTALL.quagga.txt,v 1.7 2004/11/23 12:21:16 gdt Exp $
 
 --------------------------------------------------------------------------
 Building and Installing Quagga from releases or snapshots:
@@ -73,7 +73,7 @@ NetBSD 1.6.2 and 2.0 provide texinfo 4.6.
 NetBSD pkgsrc provides automake 1.9.1 autoconf 2.59 libtool 1.5.6
 NetBSD pgksrc provides texinfo 4.7 (devel/gtexinfo)
 
-OpenBSD provides texinfo 4.2.
-OpenBSD ports provides automake 1.4-p6 autoconf 2.5.9 libtool 1.5.8
+OpenBSD 3.6 provides texinfo 4.2.
+OpenBSD [3.6] ports provides automake 1.4-p6 autoconf 2.5.9 libtool 1.5.8
 
 --------------------------------------------------------------------------
