@@ -2046,6 +2046,7 @@ ospf_recv_packet (int fd, struct interface **ifp)
   if (ret != sizeof (iph))
     {
       zlog_warn ("ospf_recv_packet packet smaller than ip header");
+      /* XXX: We peeked, and thus perhaps should discard this packet. */
       return NULL;
     }
   
