@@ -1,6 +1,5 @@
 -*- mode: text; -*-
-
-$Id: HACKING,v 1.11 2004/11/15 17:29:11 gdt Exp $
+$Id: HACKING,v 1.12 2004/11/15 19:23:47 gdt Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -31,6 +30,11 @@ cannot test.
 New code should have good comments, and changes to existing code
 should in many cases upgrade the comments when necessary for a
 reviewer to conclude that the change has no unintended consequences.
+
+Each file in CVS should have the RCS keyword Id, somewhere very near
+the top, commented out appropriately for the file type.  Just add
+<dollar>Id:<dollar>, replacing <dollar> with $.  See line 2 of HACKING
+for an example; on checkout :$ is expanded to include the value.
 
 CHANGELOG
 
