@@ -322,6 +322,14 @@ bgp_stop (struct peer *peer)
       established = 1;
       peer->dropped++;
       bgp_fsm_change_status (peer, Idle);
+
+      /* bgp log-neighbor-changes of neighbor Down */
+      if (bgp_flag_check (peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
+	zlog_info ("%%ADJCHANGE: neighbor %s Down", peer->host);
+
+      /* set last reset time */
+      peer->resettime = time (NULL);
+
 #ifdef HAVE_SNMP
       bgpTrapBackwardTransition (peer);
 #endif /* HAVE_SNMP */
@@ -629,6 +637,11 @@ bgp_establish (struct peer *peer)
   /* Increment established count. */
   peer->established++;
   bgp_fsm_change_status (peer, Established);
+
+  /* bgp log-neighbor-changes of neighbor Up */
+  if (bgp_flag_check (peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
+    zlog_info ("%%ADJCHANGE: neighbor %s Up", peer->host);
+
 #ifdef HAVE_SNMP
   bgpTrapEstablished (peer);
 #endif /* HAVE_SNMP */

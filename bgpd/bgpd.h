@@ -96,6 +96,7 @@ struct bgp
 #define BGP_FLAG_ASPATH_IGNORE            (1 << 8)
 #define BGP_FLAG_IMPORT_CHECK             (1 << 9)
 #define BGP_FLAG_NO_FAST_EXT_FAILOVER     (1 << 10)
+#define BGP_FLAG_LOG_NEIGHBOR_CHANGES     (1 << 11)
 
   /* BGP Per AF flags */
   u_int16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -263,6 +264,7 @@ struct peer
   union sockunion su;		/* Sockunion address of the peer. */
   time_t uptime;		/* Last Up/Down time */
   time_t readtime;		/* Last read time */
+  time_t resettime;		/* Last reset time */
   
   unsigned int ifindex;		/* ifindex of the BGP connection. */
   char *ifname;			/* bind interface name. */

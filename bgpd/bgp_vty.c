@@ -878,6 +878,34 @@ DEFUN (no_bgp_bestpath_aspath_ignore,
   return CMD_SUCCESS;
 }
 
+/* "bgp log-neighbor-changes" configuration.  */
+DEFUN (bgp_log_neighbor_changes,
+       bgp_log_neighbor_changes_cmd,
+       "bgp log-neighbor-changes",
+       "BGP specific commands\n"
+       "Log neighbor up/down and reset reason\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_set (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_log_neighbor_changes,
+       no_bgp_log_neighbor_changes_cmd,
+       "no bgp log-neighbor-changes",
+       NO_STR
+       "BGP specific commands\n"
+       "Log neighbor up/down and reset reason\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_unset (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
+  return CMD_SUCCESS;
+}
+
 /* "bgp bestpath med" configuration. */
 DEFUN (bgp_bestpath_med,
        bgp_bestpath_med_cmd,
@@ -6660,6 +6688,9 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 	   p->established, p->dropped,
 	   VTY_NEWLINE);
 
+  vty_out (vty, "  Last reset %s%s", p->dropped ? peer_uptime (p->resettime, timebuf, BGP_UPTIME_LEN) : "never",
+	   VTY_NEWLINE);
+
   if (CHECK_FLAG (p->sflags, PEER_STATUS_PREFIX_OVERFLOW))
     {
       vty_out (vty, "  Peer had exceeded the max. no. of prefixes configured.%s", VTY_NEWLINE);
@@ -7742,6 +7773,10 @@ bgp_vty_init ()
   /* "bgp bestpath as-path ignore" commands */
   install_element (BGP_NODE, &bgp_bestpath_aspath_ignore_cmd);
   install_element (BGP_NODE, &no_bgp_bestpath_aspath_ignore_cmd);
+
+  /* "bgp log-neighbor-changes" commands */
+  install_element (BGP_NODE, &bgp_log_neighbor_changes_cmd);
+  install_element (BGP_NODE, &no_bgp_log_neighbor_changes_cmd);
 
   /* "bgp bestpath med" commands */
   install_element (BGP_NODE, &bgp_bestpath_med_cmd);

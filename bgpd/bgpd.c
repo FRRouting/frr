@@ -752,6 +752,9 @@ peer_create (union sockunion *su, struct bgp *bgp, as_t local_as,
   /* Last read time set */
   peer->readtime = time (NULL);
 
+  /* Last reset time set */
+  peer->resettime = time (NULL);
+
   /* Default TTL set. */
   peer->ttl = (peer_sort (peer) == BGP_PEER_IBGP ? 255 : 1);
 
@@ -796,6 +799,13 @@ peer_as_change (struct peer *peer, as_t as)
     }
   type = peer_sort (peer);
   peer->as = as;
+
+  if (bgp_config_check (peer->bgp, BGP_CONFIG_CONFEDERATION)
+      && ! bgp_confederation_peers_check (peer->bgp, as)
+      && peer->bgp->as != as)
+    peer->local_as = peer->bgp->confed_id;
+  else
+    peer->local_as = peer->bgp->as;
 
   /* Advertisement-interval reset */
   if (peer_sort (peer) == BGP_PEER_IBGP)
@@ -1632,6 +1642,15 @@ bgp_create (as_t *as, char *name)
     bgp->name = strdup (name);
 
   return bgp;
+}
+
+/* Return master of BGP. */
+struct bgp_master *
+bgp_get_master ()
+{
+  if (bm)
+    return bm;
+  return NULL;
 }
 
 /* Return first entry of BGP. */
@@ -4414,6 +4433,10 @@ bgp_config_write (struct vty *vty)
       if (CHECK_FLAG (bgp->config, BGP_CONFIG_ROUTER_ID))
 	vty_out (vty, " bgp router-id %s%s", inet_ntoa (bgp->router_id), 
 		 VTY_NEWLINE);
+
+      /* BGP log-neighbor-changes. */
+      if (bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
+	vty_out (vty, " bgp log-neighbor-changes%s", VTY_NEWLINE);
 
       /* BGP configuration. */
       if (bgp_flag_check (bgp, BGP_FLAG_ALWAYS_COMPARE_MED))
