@@ -340,6 +340,37 @@ ospf_get_next_link (struct vertex *v, struct vertex *w,
   return NULL;
 }
 
+/* Consider supplied next-hop for inclusion to the supplied list
+ * of next-hops, adjust list as neccessary
+ */
+void 
+ospf_spf_consider_nexthop (struct list *nexthops, struct vertex_nexthop *newhop)
+{
+  struct listnode *nnode;
+  struct vertex_nexthop *hop;
+  
+  LIST_LOOP (nexthops, hop, nnode)
+    {
+      assert (hop->oi);
+      /* weed out hops with higher cost than the newhop */
+      if (hop->oi->output_cost > newhop->oi->output_cost)
+        {
+          /* delete the existing nexthop */
+          listnode_delete (nexthops, hop);
+          vertex_nexthop_free (hop);
+        }
+      else if ( hop->oi->output_cost < newhop->oi->output_cost)
+        {
+          return;
+        } 
+    }
+  
+  /* new hop is <= existing hops, add it */
+  listnode_add (nexthops, newhop); 
+
+  return;
+}
+
 /* Calculate nexthop from root to vertex W. */
 void
 ospf_nexthop_calculation (struct ospf_area *area,
@@ -407,7 +438,7 @@ ospf_nexthop_calculation (struct ospf_area *area,
 		      nh = vertex_nexthop_new (v);
 		      nh->oi = oi;
 		      nh->router = l2->link_data;
-		      listnode_add (w->nexthop, nh);
+		      ospf_spf_consider_nexthop (w->nexthop, nh);
 		    }
 		}
 	    }
