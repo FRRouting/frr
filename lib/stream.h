@@ -25,21 +25,86 @@
 
 #include "prefix.h"
 
+/*
+ * A stream is an arbitrary buffer, whose contents generally are assumed to
+ * be in network order.
+ *
+ * A stream has the following attributes associated with it:
+ *
+ * - size: the allocated, invariant size of the buffer.
+ *
+ * - getp: the get position marker, denoting the offset in the stream where
+ *         the next read (or 'get') will be from. This getp marker is
+ *         automatically adjusted when data is read from the stream, the
+ *         user may also manipulate this offset as they wish, within limits
+ *         (see below)
+ *
+ * - endp: the end position marker, denoting the offset in the stream where
+ *         valid data ends, and if the user attempted to write (or
+ *         'put') data where that data would be written (or 'put') to.
+ *
+ * These attributes are all size_t values.
+ *
+ * Constraints:
+ *
+ * 1. getp can never exceed endp
+ *
+ * - hence if getp is equal to endp, there is no more valid data that can be
+ *   gotten from the stream (though, the user may reposition getp to earlier in
+ *   the stream, if they wish).
+ *
+ * 2. endp can never exceed size
+ *
+ * - hence, if endp is equal to size, then the stream is full, and no more
+ *   data can be written to the stream.
+ *
+ * In other words the following must always be true, and the stream
+ * abstraction is allowed internally to assert that the following property
+ * holds true for a stream, as and when it wishes:
+ *
+ *        getp <= endp <= size
+ *
+ * It is the users responsibility to ensure this property is never violated.
+ *
+ * A stream therefore can be thought of like this:
+ *
+ * 	---------------------------------------------------
+ * 	|XXXXXXXXXXXXXXXXXXXXXXXX                         |
+ * 	---------------------------------------------------
+ *               ^               ^                        ^
+ *               getp            endp                     size
+ *
+ * This shows a stream containing data (shown as 'X') up to the endp offset.
+ * The stream is empty from endp to size. Without adjusting getp, there are
+ * still endp-getp bytes of valid data to be read from the stream.
+ *
+ * Methods are provided to get and put to/from the stream, as well as 
+ * retrieve the values of the 3 markers and manipulate the getp marker.
+ *
+ * Note:
+ * At the moment, newly allocated streams are zero filled. Hence, one can
+ * use stream_forward_endp() to effectively create arbitrary zero-fill
+ * padding. However, note that stream_reset() does *not* zero-out the
+ * stream. This property should **not** be relied upon.
+ * 
+ * A Good stream user should ensure it writes all bytes. (the zero-fill
+ * guarantee may be removed in future, however, the zero-filling may
+ * possibly be moved to stream_forward_endp() instead, maybe..)
+ */
+
 /* Stream buffer. */
 struct stream
 {
   struct stream *next;
 
-  unsigned char *data;
-  
-  /* Get pointer. */
-  size_t getp;
-
-  /* End of pointer. */
-  size_t endp;
-
-  /* Data size. */
-  size_t size;
+  /* Remainder is ***private*** to stream
+   * direct access is frowned upon!
+   * Use the appropriate functions/macros 
+   */
+  size_t getp; 		/* next get position */
+  size_t endp;		/* last valid data position */
+  size_t size;		/* size of data segment */
+  unsigned char data[0]; /* data pointer */
 };
 
 /* First in first out queue structure. */
@@ -52,14 +117,22 @@ struct stream_fifo
 };
 
 /* Utility macros. */
-#define STREAM_PNT(S)   ((S)->data + (S)->getp)
 #define STREAM_SIZE(S)  ((S)->size)
-#define STREAM_REMAIN(S) ((S)->size - (S)->endp)
+  /* number of bytes which can still be written */
+#define STREAM_WRITEABLE(S) ((S)->size - (S)->endp)
+  /* number of bytes still to be read */
+#define STREAM_READABLE(S) ((S)->endp - (S)->getp)
+
+/* deprecated macros - do not use in new code */
+#define STREAM_PNT(S)   stream_pnt((S))
 #define STREAM_DATA(S)  ((S)->data)
+#define STREAM_REMAIN(S) STREAM_WRITEABLE((S))
 
 /* Stream prototypes. */
 struct stream *stream_new (size_t);
 void stream_free (struct stream *);
+struct stream * stream_copy (struct stream *new, struct stream *src);
+struct stream *stream_dup (struct stream *);
 
 size_t stream_get_getp (struct stream *);
 size_t stream_get_endp (struct stream *);
@@ -67,8 +140,8 @@ size_t stream_get_size (struct stream *);
 u_char *stream_get_data (struct stream *);
 
 void stream_set_getp (struct stream *, size_t);
-void stream_forward_getp (struct stream *, int);
-void stream_forward_endp (struct stream *, int);
+void stream_forward_getp (struct stream *, size_t);
+void stream_forward_endp (struct stream *, size_t);
 
 void stream_put (struct stream *, void *, size_t);
 int stream_putc (struct stream *, u_char);
@@ -87,18 +160,23 @@ u_char stream_getc_from (struct stream *, size_t);
 u_int16_t stream_getw (struct stream *);
 u_int16_t stream_getw_from (struct stream *, size_t);
 u_int32_t stream_getl (struct stream *);
+u_int32_t stream_getl_from (struct stream *, size_t);
 u_int32_t stream_get_ipv4 (struct stream *);
 
 #undef stream_read
 #undef stream_write
 int stream_read (struct stream *, int, size_t);
 int stream_read_unblock (struct stream *, int, size_t);
+int stream_recvmsg (struct stream *s, int fd, struct msghdr *,
+                    int flags, size_t size);
 int stream_write (struct stream *, u_char *, size_t);
 
-u_char *stream_pnt (struct stream *);
-void stream_reset (struct stream *);
+void stream_reset (struct stream *); /* reset the stream. See Note above */
 int stream_flush (struct stream *, int);
-int stream_empty (struct stream *);
+int stream_empty (struct stream *); /* is the stream empty? */
+
+/* deprecated */
+u_char *stream_pnt (struct stream *);
 
 /* Stream fifo. */
 struct stream_fifo *stream_fifo_new ();

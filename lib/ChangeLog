@@ -2,6 +2,21 @@
 
 	* stream.h: Unsigned long updated to size_t
 	* stream.c: ditto
+	* stream.h: Add stream_copy, stream_dup, stream_recvmsg.
+	  Add comment describing struct stream abstraction, and various
+	  other comments.
+	  Deprecate several unsafe/ambigious macros.
+	  Add STREAM_WRITEABLE and STREAM_READABLE.
+	  Add (stream_getl_from) for symmetry.
+	  Update stream_forward_{endp,getp} to use size_t offset.
+	  Make stream data a 0 length array, rather than a seperate malloc.
+	* stream.c: Add consistency checks. Update to follow stream.h
+	  changes.
+	  (stream_new) Alloc stream+data in one go.
+	  (stream_copy) new function, copy a stream.
+	  (stream_dup) new function, dup a stream.
+	  (stream_recvmsg) new function, recvmsg data into a stream.
+	  (stream_empty) no need to check getp == 0.
 
 2005-02-09 Paul Jakma <paul.jakma@sun.com>
 

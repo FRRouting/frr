@@ -1,4 +1,4 @@
-/*
+  /*
  * Packet interface
  * Copyright (C) 1999 Kunihiro Ishiguro
  *
@@ -20,25 +20,70 @@
  * 02111-1307, USA.  
  */
 
+#include <stddef.h>
 #include <zebra.h>
 
 #include "stream.h"
 #include "memory.h"
 #include "network.h"
 #include "prefix.h"
+#include "log.h"
 
+/* Tests whether a position is valid */ 
+#define GETP_VALID(S,G) \
+  ((G) <= (S)->endp)
+#define PUT_AT_VALID(S,G) GETP_VALID(S,G)
+#define ENDP_VALID(S,E) \
+  ((E) <= (S)->size)
 
-/*A macro to check pointers in order to not
-  go behind the allocated mem block 
-  S -- stream reference
-  Z -- size of data to be written 
-*/
+/* asserting sanity checks. Following must be true before
+ * stream functions are called:
+ *
+ * Following must always be true of stream elements
+ * before and after calls to stream functions:
+ *
+ * getp <= endp <= size
+ *
+ * Note that after a stream function is called following may be true:
+ * if (getp == endp) then stream is no longer readable
+ * if (endp == size) then stream is no longer writeable
+ *
+ * It is valid to put to anywhere within the size of the stream, but only
+ * using stream_put..._at() functions.
+ */
+#define STREAM_WARN_OFFSETS(S) \
+  zlog_warn ("&(struct stream): %p, size: %lu, endp: %lu, getp: %lu\n", \
+             (S), \
+             (unsigned long) (S)->size, \
+             (unsigned long) (S)->getp, \
+             (unsigned long) (S)->endp)\
 
+#define STREAM_VERIFY_SANE(S) \
+  do { \
+    if ( !(GETP_VALID(S, (S)->getp)) && ENDP_VALID(S, (S)->endp) ) \
+      STREAM_WARN_OFFSETS(S); \
+    assert ( GETP_VALID(S, (S)->getp) ); \
+    assert ( ENDP_VALID(S, (S)->endp) ); \
+  } while (0)
+
+#define STREAM_BOUND_WARN(S, WHAT) \
+  do { \
+    zlog_warn ("%s: Attempt to %s out of bounds", __func__, (WHAT)); \
+    STREAM_WARN_OFFSETS(S); \
+    assert (0); \
+  } while (0)
+
+/* XXX: Deprecated macro: do not use */
 #define CHECK_SIZE(S, Z) \
-	if (((S)->endp + (Z)) > (S)->size) \
-           (Z) = (S)->size - (S)->endp;
-
-/* Stream is fixed length buffer for network output/input. */
+  do { \
+    if (((S)->endp + (Z)) > (S)->size) \
+      { \
+        zlog_warn ("CHECK_SIZE: truncating requested size %lu\n", \
+                   (unsigned long) (Z)); \
+        STREAM_WARN_OFFSETS(S); \
+        (Z) = (S)->size - (S)->endp; \
+      } \
+  } while (0);
 
 /* Make stream buffer. */
 struct stream *
@@ -49,11 +94,16 @@ stream_new (size_t size)
   assert (size > 0);
   
   if (size == 0)
-    return NULL;
+    {
+      zlog_warn ("stream_new(): called with 0 size!");
+      return NULL;
+    }
   
-  s = XCALLOC (MTYPE_STREAM, sizeof (struct stream));
+  s = XCALLOC (MTYPE_STREAM, offsetof(struct stream, size));
 
-  s->data = XCALLOC (MTYPE_STREAM_DATA, size);
+  if (s == NULL)
+    return s;
+  
   s->size = size;
   return s;
 }
@@ -62,25 +112,56 @@ stream_new (size_t size)
 void
 stream_free (struct stream *s)
 {
-  XFREE (MTYPE_STREAM_DATA, s->data);
   XFREE (MTYPE_STREAM, s);
+}
+
+struct stream *
+stream_copy (struct stream *new, struct stream *src)
+{
+  STREAM_VERIFY_SANE (src);
+  
+  assert (new != NULL);
+  assert (STREAM_SIZE(new) >= src->endp);
+
+  new->endp = src->endp;
+  new->getp = src->getp;
+  
+  memcpy (new->data, src->data, src->endp);
+  
+  return new;
+}
+
+struct stream *
+stream_dup (struct stream *s)
+{
+  struct stream *new;
+
+  STREAM_VERIFY_SANE (s);
+
+  if ( (new = stream_new (s->endp)) == NULL)
+    return NULL;
+
+  return (stream_copy (new, s));
 }
 
 size_t
 stream_get_getp (struct stream *s)
 {
+  STREAM_VERIFY_SANE(s);
   return s->getp;
 }
 
 size_t
 stream_get_endp (struct stream *s)
 {
+  STREAM_VERIFY_SANE(s);
   return s->endp;
 }
 
 size_t
 stream_get_size (struct stream *s)
 {
+  STREAM_VERIFY_SANE(s);
   return s->size;
 }
 
@@ -88,19 +169,43 @@ stream_get_size (struct stream *s)
 void
 stream_set_getp (struct stream *s, size_t pos)
 {
+  STREAM_VERIFY_SANE(s);
+  
+  if (!GETP_VALID (s, pos))
+    {
+      STREAM_BOUND_WARN (s, "set getp");
+      pos = s->endp;
+    }
+
   s->getp = pos;
 }
 
 /* Forward pointer. */
 void
-stream_forward_getp (struct stream *s, int size)
+stream_forward_getp (struct stream *s, size_t size)
 {
+  STREAM_VERIFY_SANE(s);
+  
+  if (!GETP_VALID (s, s->getp + size))
+    {
+      STREAM_BOUND_WARN (s, "seek getp");
+      return;
+    }
+  
   s->getp += size;
 }
 
 void
-stream_forward_endp (struct stream *s, int size)
+stream_forward_endp (struct stream *s, size_t size)
 {
+  STREAM_VERIFY_SANE(s);
+  
+  if (!ENDP_VALID (s, s->endp + size))
+    {
+      STREAM_BOUND_WARN (s, "seek endp");
+      return;
+    }
+  
   s->endp += size;
 }
 
@@ -108,6 +213,14 @@ stream_forward_endp (struct stream *s, int size)
 void
 stream_get (void *dst, struct stream *s, size_t size)
 {
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_READABLE(s) < size)
+    {
+      STREAM_BOUND_WARN (s, "get");
+      return;
+    }
+  
   memcpy (dst, s->data + s->getp, size);
   s->getp += size;
 }
@@ -117,9 +230,16 @@ u_char
 stream_getc (struct stream *s)
 {
   u_char c;
+  
+  STREAM_VERIFY_SANE (s);
 
-  c = s->data[s->getp];
-  s->getp++;
+  if (STREAM_READABLE(s) < sizeof (u_char))
+    {
+      STREAM_BOUND_WARN (s, "get char");
+      return 0;
+    }
+  c = s->data[s->getp++];
+  
   return c;
 }
 
@@ -129,7 +249,16 @@ stream_getc_from (struct stream *s, size_t from)
 {
   u_char c;
 
+  STREAM_VERIFY_SANE(s);
+  
+  if (!GETP_VALID (s, from + sizeof (u_char)))
+    {
+      STREAM_BOUND_WARN (s, "get char");
+      return 0;
+    }
+  
   c = s->data[from];
+  
   return c;
 }
 
@@ -139,8 +268,17 @@ stream_getw (struct stream *s)
 {
   u_int16_t w;
 
+  STREAM_VERIFY_SANE (s);
+
+  if (STREAM_READABLE (s) < sizeof (u_int16_t))
+    {
+      STREAM_BOUND_WARN (s, "get ");
+      return 0;
+    }
+  
   w = s->data[s->getp++] << 8;
   w |= s->data[s->getp++];
+  
   return w;
 }
 
@@ -150,43 +288,102 @@ stream_getw_from (struct stream *s, size_t from)
 {
   u_int16_t w;
 
+  STREAM_VERIFY_SANE(s);
+  
+  if (!GETP_VALID (s, from + sizeof (u_int16_t)))
+    {
+      STREAM_BOUND_WARN (s, "get ");
+      return 0;
+    }
+  
   w = s->data[from++] << 8;
   w |= s->data[from];
+  
   return w;
 }
 
 /* Get next long word from the stream. */
 u_int32_t
+stream_getl_from (struct stream *s, size_t from)
+{
+  u_int32_t l;
+
+  STREAM_VERIFY_SANE(s);
+  
+  if (!GETP_VALID (s, from + sizeof (u_int32_t)))
+    {
+      STREAM_BOUND_WARN (s, "get long");
+      return 0;
+    }
+  
+  l  = s->data[from++] << 24;
+  l |= s->data[from++] << 16;
+  l |= s->data[from++] << 8;
+  l |= s->data[from];
+  
+  return l;
+}
+
+u_int32_t
 stream_getl (struct stream *s)
 {
   u_int32_t l;
 
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_READABLE (s) < sizeof (u_int32_t))
+    {
+      STREAM_BOUND_WARN (s, "get long");
+      return 0;
+    }
+  
   l  = s->data[s->getp++] << 24;
   l |= s->data[s->getp++] << 16;
   l |= s->data[s->getp++] << 8;
   l |= s->data[s->getp++];
+  
   return l;
 }
-
 /* Get next long word from the stream. */
 u_int32_t
 stream_get_ipv4 (struct stream *s)
 {
   u_int32_t l;
 
-  memcpy (&l, s->data + s->getp, 4);
-  s->getp += 4;
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_READABLE (s) < sizeof(u_int32_t))
+    {
+      STREAM_BOUND_WARN (s, "get ipv4");
+      return 0;
+    }
+  
+  memcpy (&l, s->data + s->getp, sizeof(u_int32_t));
+  s->getp += sizeof(u_int32_t);
 
   return l;
 }
 
-/* Copy to source to stream. */
+/* Copy to source to stream.
+ *
+ * XXX: This uses CHECK_SIZE and hence has funny semantics -> Size will wrap
+ * around. This should be fixed once the stream updates are working.
+ */
 void
 stream_put (struct stream *s, void *src, size_t size)
 {
 
+  /* XXX: CHECK_SIZE has strange semantics. It should be deprecated */
   CHECK_SIZE(s, size);
-
+  
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_WRITEABLE (s) < size)
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return;
+    }
+  
   if (src)
     memcpy (s->data + s->endp, src, size);
   else
@@ -199,20 +396,30 @@ stream_put (struct stream *s, void *src, size_t size)
 int
 stream_putc (struct stream *s, u_char c)
 {
-  if (s->endp >= s->size) return 0;
-
-  s->data[s->endp] = c;
-  s->endp++;
-
-  return 1;
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_WRITEABLE (s) < sizeof(u_char))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
+  s->data[s->endp++] = c;
+  return sizeof (u_char);
 }
 
 /* Put word to the stream. */
 int
 stream_putw (struct stream *s, u_int16_t w)
 {
-  if ((s->size - s->endp) < 2) return 0;
+  STREAM_VERIFY_SANE (s);
 
+  if (STREAM_WRITEABLE (s) < sizeof (u_int16_t))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
   s->data[s->endp++] = (u_char)(w >>  8);
   s->data[s->endp++] = (u_char) w;
 
@@ -223,8 +430,14 @@ stream_putw (struct stream *s, u_int16_t w)
 int
 stream_putl (struct stream *s, u_int32_t l)
 {
-  if ((s->size - s->endp) < 4) return 0;
+  STREAM_VERIFY_SANE (s);
 
+  if (STREAM_WRITEABLE (s) < sizeof (u_int32_t))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
   s->data[s->endp++] = (u_char)(l >> 24);
   s->data[s->endp++] = (u_char)(l >> 16);
   s->data[s->endp++] = (u_char)(l >>  8);
@@ -236,25 +449,51 @@ stream_putl (struct stream *s, u_int32_t l)
 int
 stream_putc_at (struct stream *s, size_t putp, u_char c)
 {
+  STREAM_VERIFY_SANE(s);
+  
+  if (!PUT_AT_VALID (s, putp + sizeof (u_char)))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
   s->data[putp] = c;
+  
   return 1;
 }
 
 int
 stream_putw_at (struct stream *s, size_t putp, u_int16_t w)
 {
+  STREAM_VERIFY_SANE(s);
+  
+  if (!PUT_AT_VALID (s, putp + sizeof (u_int16_t)))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
   s->data[putp] = (u_char)(w >>  8);
   s->data[putp + 1] = (u_char) w;
+  
   return 2;
 }
 
 int
 stream_putl_at (struct stream *s, size_t putp, u_int32_t l)
 {
+  STREAM_VERIFY_SANE(s);
+  
+  if (!PUT_AT_VALID (s, putp + sizeof (u_int32_t)))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
   s->data[putp] = (u_char)(l >> 24);
   s->data[putp + 1] = (u_char)(l >> 16);
   s->data[putp + 2] = (u_char)(l >>  8);
   s->data[putp + 3] = (u_char)l;
+  
   return 4;
 }
 
@@ -262,38 +501,53 @@ stream_putl_at (struct stream *s, size_t putp, u_int32_t l)
 int
 stream_put_ipv4 (struct stream *s, u_int32_t l)
 {
-  if ((s->size - s->endp) < 4)
-    return 0;
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_WRITEABLE (s) < sizeof (u_int32_t))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  memcpy (s->data + s->endp, &l, sizeof (u_int32_t));
+  s->endp += sizeof (u_int32_t);
 
-  memcpy (s->data + s->endp, &l, 4);
-  s->endp += 4;
-
-  return 4;
+  return sizeof (u_int32_t);
 }
 
 /* Put long word to the stream. */
 int
 stream_put_in_addr (struct stream *s, struct in_addr *addr)
 {
-  if ((s->size - s->endp) < 4)
-    return 0;
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_WRITEABLE (s) < sizeof (u_int32_t))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
 
-  memcpy (s->data + s->endp, addr, 4);
-  s->endp += 4;
+  memcpy (s->data + s->endp, addr, sizeof (u_int32_t));
+  s->endp += sizeof (u_int32_t);
 
-  return 4;
+  return sizeof (u_int32_t);
 }
 
 /* Put prefix by nlri type format. */
 int
 stream_put_prefix (struct stream *s, struct prefix *p)
 {
-  u_char psize;
-
+  size_t psize;
+  
+  STREAM_VERIFY_SANE(s);
+  
   psize = PSIZE (p->prefixlen);
-
-  if ((s->size - s->endp) < psize) return 0;
-
+  
+  if (STREAM_WRITEABLE (s) < psize)
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
   stream_putc (s, p->prefixlen);
   memcpy (s->data + s->endp, &p->u.prefix, psize);
   s->endp += psize;
@@ -307,6 +561,14 @@ stream_read (struct stream *s, int fd, size_t size)
 {
   int nbytes;
 
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_WRITEABLE (s) < size)
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
   nbytes = readn (fd, s->data + s->endp, size);
 
   if (nbytes > 0)
@@ -321,7 +583,15 @@ stream_read_unblock (struct stream *s, int fd, size_t size)
 {
   int nbytes;
   int val;
-
+  
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_WRITEABLE (s) < size)
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
   val = fcntl (fd, F_GETFL, 0);
   fcntl (fd, F_SETFL, val|O_NONBLOCK);
   nbytes = read (fd, s->data + s->endp, size);
@@ -333,6 +603,39 @@ stream_read_unblock (struct stream *s, int fd, size_t size)
   return nbytes;
 }
 
+/* Read up to smaller of size or SIZE_REMAIN() bytes to the stream, starting
+ * from endp.
+ * First iovec will be used to receive the data.
+ * Stream need not be empty.
+ */
+int
+stream_recvmsg (struct stream *s, int fd, struct msghdr *msgh, int flags, 
+                size_t size)
+{
+  int nbytes;
+  struct iovec *iov;
+  
+  STREAM_VERIFY_SANE(s);
+  assert (msgh->msg_iovlen > 0);  
+  
+  if (STREAM_WRITEABLE (s) < size)
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
+  iov = &(msgh->msg_iov[0]);
+  iov->iov_base = (s->data + s->endp);
+  iov->iov_len = size;
+  
+  nbytes = recvmsg (fd, msgh, flags);
+  
+  if (nbytes > 0)
+    s->endp += nbytes;
+  
+  return nbytes;
+}
+  
 /* Write data to buffer. */
 int
 stream_write (struct stream *s, u_char *ptr, size_t size)
@@ -340,16 +643,29 @@ stream_write (struct stream *s, u_char *ptr, size_t size)
 
   CHECK_SIZE(s, size);
 
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_WRITEABLE (s) < size)
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  
   memcpy (s->data + s->endp, ptr, size);
   s->endp += size;
 
   return size;
 }
 
-/* Return current read pointer. */
+/* Return current read pointer. 
+ * DEPRECATED!
+ * Use stream_get_pnt_to if you must, but decoding streams properly
+ * is preferred
+ */
 u_char *
 stream_pnt (struct stream *s)
 {
+  STREAM_VERIFY_SANE(s);
   return s->data + s->getp;
 }
 
@@ -357,18 +673,18 @@ stream_pnt (struct stream *s)
 int
 stream_empty (struct stream *s)
 {
-  if (s->endp == 0 && s->getp == 0)
-    return 1;
-  else
-    return 0;
+  STREAM_VERIFY_SANE(s);
+
+  return (s->endp == 0);
 }
 
 /* Reset stream. */
 void
 stream_reset (struct stream *s)
 {
-  s->endp = 0;
-  s->getp = 0;
+  STREAM_VERIFY_SANE (s);
+
+  s->getp = s->endp = 0;
 }
 
 /* Write stream contens to the file discriptor. */
@@ -376,9 +692,11 @@ int
 stream_flush (struct stream *s, int fd)
 {
   int nbytes;
-
+  
+  STREAM_VERIFY_SANE(s);
+  
   nbytes = write (fd, s->data + s->getp, s->endp - s->getp);
-
+  
   return nbytes;
 }
 
