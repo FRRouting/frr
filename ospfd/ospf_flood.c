@@ -121,7 +121,7 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("LSA[Type%d:%s]: Process self-originated LSA seq 0x%lx",
 	       new->data->type, inet_ntoa (new->data->id), 
-	       (u_long)new->data->ls_seqnum);
+	       ntohl(new->data->ls_seqnum));
 
   /* If we're here, we installed a self-originated LSA that we received
      from a neighbor, i.e. it's more recent.  We must see whether we want

@@ -2380,9 +2380,9 @@ ospf_router_lsa_install (struct ospf *ospf,
       area->router_lsa_self = ospf_lsa_lock (new);
 
       if (IS_DEBUG_OSPF (lsa, LSA_INSTALL))
-	zlog_info("LSA[Type%d]: ID %s seq 0x%x is self-originated",
-		  new->data->type, inet_ntoa (new->data->id), 
-		  new->data->ls_seqnum);
+        zlog_info("LSA[Type%d]: ID %s seq 0x%x is self-originated",
+                  new->data->type, inet_ntoa (new->data->id),
+                  ntohl(new->data->ls_seqnum));
     }
 
   return new;
@@ -2652,12 +2652,13 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
       can be originated. "
    */
 
-  if (lsa->data->ls_seqnum - 1 == htonl(OSPF_MAX_SEQUENCE_NUMBER))
+  if (ntohl(lsa->data->ls_seqnum) - 1 ==  htonl(OSPF_MAX_SEQUENCE_NUMBER)
     {
       if (ospf_lsa_is_self_originated(ospf, lsa))
         {
-	  lsa->data->ls_seqnum = htonl(OSPF_MAX_SEQUENCE_NUMBER);
-	  if (!IS_LSA_MAXAGE(lsa))
+          lsa->data->ls_seqnum = htonl(OSPF_MAX_SEQUENCE_NUMBER);
+          
+          if (!IS_LSA_MAXAGE(lsa))
             lsa->flags |= OSPF_LSA_PREMATURE_AGE;
           lsa->data->ls_age = htons (OSPF_LSA_MAXAGE);
       	
@@ -2769,8 +2770,10 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
       (IS_LSA_MAXAGE (new) && !IS_LSA_SELF (new)))
     {
       if (IS_DEBUG_OSPF (lsa, LSA_INSTALL))
-	zlog_info ("LSA[Type%d:%s]: Install LSA 0x%lx, MaxAge",
-		   new->data->type, inet_ntoa (new->data->id), (u_long)lsa);
+        zlog_info ("LSA[Type%d:%s]: Install LSA 0x%p, MaxAge",
+                   new->data->type, 
+                   inet_ntoa (new->data->id), 
+                   lsa);
       ospf_lsa_maxage (ospf, lsa);
     }
 

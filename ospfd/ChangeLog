@@ -1,3 +1,11 @@
+2004-05-31 Sagun Shakya <sagun.shakya@sun.com>
+
+	* ospf_dump.c: (ospf_lsa_header_dump) LOOKUP can return null if
+	  index is out of range.
+	  ospf_flood.c: endianness fix
+	  ospf_lsa.c: Missing ntohl's on (struct lsa *)->data->ls_seqnum
+	  in various places.
+	  
 2004-05-10 Hasso Tepper <hasso@estpak.ee>
 
 	* ospf_zebra.c, ospfd.c: Move ospf_prefix_list_update() function
