@@ -34,6 +34,7 @@
 #include "command.h"
 #include "table.h"
 #include "thread.h"
+#include "privs.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_debug.h"
@@ -45,6 +46,8 @@
 #ifndef IPV6_LEAVE_GROUP
 #define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP 
 #endif
+
+extern struct zebra_privs_t ripngd_privs;
 
 /* Static utility function. */
 static void ripng_enable_apply (struct interface *);
@@ -65,8 +68,19 @@ ripng_multicast_join (struct interface *ifp)
     inet_pton(AF_INET6, RIPNG_GROUP, &mreq.ipv6mr_multiaddr);
     mreq.ipv6mr_interface = ifp->ifindex;
 
+    /*
+     * NetBSD 1.6.2 requires root to join groups on gif(4).
+     * While this is bogus, privs are available and easy to use
+     * for this call as a workaround.
+     */
+    if (ripngd_privs.change (ZPRIVS_RAISE))
+      zlog_err ("ripng_multicast_join: could not raise privs");
+
     ret = setsockopt (ripng->sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 		      (char *) &mreq, sizeof (mreq));
+
+    if (ripngd_privs.change (ZPRIVS_LOWER))
+      zlog_err ("ripng_multicast_join: could not lower privs");
 
     if (ret < 0 && errno == EADDRINUSE)
       {
