@@ -1470,7 +1470,7 @@ rip_request_process (struct rip_packet *packet, int size,
   if (if_is_loopback (ifp))
     return;
 
-  /* Check RIPng process is enabled on this interface. */
+  /* Check RIP process is enabled on this interface. */
   ri = ifp->info;
   if (! ri->running)
     return;
