@@ -23,16 +23,17 @@
 #include <zebra.h>
 
 #include "linklist.h"
+#include "thread.h"
 #include "buffer.h"
 #include "version.h"
 #include "command.h"
 #include "sockunion.h"
-#include "thread.h"
 #include "memory.h"
 #include "str.h"
 #include "log.h"
 #include "prefix.h"
 #include "filter.h"
+#include "vty.h"
 #include "privs.h"
 
 /* Vty events */
@@ -2342,8 +2343,7 @@ vty_config_unlock (struct vty *vty)
 }
 
 /* Master of the threads. */
-extern struct thread_master *master;
-/* struct thread_master *master; */
+static struct thread_master *master;
 
 static void
 vty_event (enum event event, int sock, struct vty *vty)
@@ -2791,12 +2791,14 @@ vty_init_vtysh ()
 
 /* Install vty's own commands like `who' command. */
 void
-vty_init ()
+vty_init (struct thread_master *master_thread)
 {
   /* For further configuration read, preserve current directory. */
   vty_save_cwd ();
 
   vtyvec = vector_init (VECTOR_MIN_SIZE);
+
+  master = master_thread;
 
   /* Initilize server thread vector. */
   Vvty_serv_thread = vector_init (VECTOR_MIN_SIZE);

@@ -34,6 +34,7 @@
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/debug.h"
+#include "zebra/zserv.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -49,6 +50,8 @@ extern struct zebra_privs_t zserv_privs;
 
 #define ALLNODE   "ff02::1"
 #define ALLROUTER "ff02::2"
+
+extern struct zebra_t zebrad;
 
 enum rtadv_event {RTADV_START, RTADV_STOP, RTADV_TIMER, RTADV_READ};
 
@@ -999,7 +1002,6 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
     }
 }
 
-extern struct thread_master *master;
 
 void
 rtadv_event (enum rtadv_event event, int val)
@@ -1008,9 +1010,9 @@ rtadv_event (enum rtadv_event event, int val)
     {
     case RTADV_START:
       if (! rtadv->ra_read)
-	rtadv->ra_read = thread_add_read (master, rtadv_read, NULL, val);
+	rtadv->ra_read = thread_add_read (zebrad.master, rtadv_read, NULL, val);
       if (! rtadv->ra_timer)
-	rtadv->ra_timer = thread_add_event (master, rtadv_timer, NULL, 0);
+	rtadv->ra_timer = thread_add_event (zebrad.master, rtadv_timer, NULL, 0);
       break;
     case RTADV_STOP:
       if (rtadv->ra_timer)
@@ -1026,11 +1028,11 @@ rtadv_event (enum rtadv_event event, int val)
       break;
     case RTADV_TIMER:
       if (! rtadv->ra_timer)
-	rtadv->ra_timer = thread_add_timer (master, rtadv_timer, NULL, val);
+	rtadv->ra_timer = thread_add_timer (zebrad.master, rtadv_timer, NULL, val);
       break;
     case RTADV_READ:
       if (! rtadv->ra_read)
-	rtadv->ra_read = thread_add_read (master, rtadv_read, NULL, val);
+	rtadv->ra_read = thread_add_read (zebrad.master, rtadv_read, NULL, val);
       break;
     default:
       break;

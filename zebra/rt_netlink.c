@@ -66,7 +66,7 @@ struct message nlmsg_str[] =
   {0,            NULL}
 };
 
-extern int rtm_table_default;
+extern struct zebra_t zebrad;
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -615,7 +615,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
 
   table = rtm->rtm_table;
 #if 0		/* we weed them out later in rib_weed_tables () */
-  if (table != RT_TABLE_MAIN && table != rtm_table_default)
+  if (table != RT_TABLE_MAIN && table != zebrad.rtm_table_default)
     return 0;
 #endif
 
@@ -734,7 +734,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
     }
 
   table = rtm->rtm_table;
-  if (table != RT_TABLE_MAIN && table != rtm_table_default)
+  if (table != RT_TABLE_MAIN && table != zebrad.rtm_table_default)
     {
       return 0;
     }
@@ -1600,7 +1600,7 @@ kernel_read (struct thread *thread)
 
   sock = THREAD_FD (thread);
   ret = netlink_parse_info (netlink_information_fetch, &netlink);
-  thread_add_read (master, kernel_read, NULL, netlink.sock);
+  thread_add_read (zebrad.master, kernel_read, NULL, netlink.sock);
 
   return 0;
 }
@@ -1621,5 +1621,5 @@ kernel_init ()
 
   /* Register kernel socket. */
   if (netlink.sock > 0)
-    thread_add_read (master, kernel_read, NULL, netlink.sock);
+    thread_add_read (zebrad.master, kernel_read, NULL, netlink.sock);
 }

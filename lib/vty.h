@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _ZEBRA_VTY_H
 #define _ZEBRA_VTY_H
 
+#include "thread.h"
+
 #define VTY_BUFSIZ 512
 #define VTY_MAXHIST 20
 
@@ -184,7 +186,7 @@ struct vty
 extern char integrate_default[];
 
 /* Prototypes. */
-void vty_init (void);
+void vty_init (struct thread_master *);
 void vty_init_vtysh (void);
 void vty_reset (void);
 void vty_finish (void);

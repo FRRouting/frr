@@ -56,6 +56,18 @@ struct zserv
   u_char ifinfo;
 };
 
+/* Zebra instance */
+struct zebra_t
+{
+  /* Thread master */
+  struct thread_master *master;
+  list client_list;
+
+  /* default table */
+  int rtm_table_default;
+  
+};
+
 /* Count prefix size from mask length */
 #define PSIZE(a) (((a) + 7) / (8))
 

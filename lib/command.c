@@ -20,11 +20,14 @@ Boston, MA 02111-1307, USA.  */
 
 #include <zebra.h>
 
-#include "command.h"
+
 #include "memory.h"
 #include "log.h"
 #include "version.h"
 #include "thread.h"
+#include "vector.h"
+#include "vty.h"
+#include "command.h"
 
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */

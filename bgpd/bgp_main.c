@@ -282,7 +282,7 @@ main (int argc, char **argv)
   signal_init ();
   zprivs_init (&bgpd_privs);
   cmd_init (1);
-  vty_init ();
+  vty_init (master);
   memory_init ();
 
   /* BGP related initialization.  */

@@ -36,8 +36,11 @@
 #include "zebra/debug.h"
 #include "zebra/rib.h"
 
-/* Master of threads. */
-struct thread_master *master;
+/* Zebra instance */
+struct zebra_t zebrad =
+{
+  .rtm_table_default = 0,
+};
 
 /* process id. */
 pid_t old_pid;
@@ -280,7 +283,7 @@ main (int argc, char **argv)
     }
 
   /* Make master thread emulator. */
-  master = thread_master_create ();
+  zebrad.master = thread_master_create ();
 
   /* privs initialise */
   zprivs_init (&zserv_privs);
@@ -288,7 +291,7 @@ main (int argc, char **argv)
   /* Vty related initialize. */
   signal_init ();
   cmd_init (1);
-  vty_init ();
+  vty_init (zebrad.master);
   memory_init ();
 
   /* Zebra related initialize. */
@@ -345,7 +348,7 @@ main (int argc, char **argv)
   /* Make vty server socket. */
   vty_serv_sock (vty_addr, vty_port, ZEBRA_VTYSH_PATH);
 
-  while (thread_fetch (master, &thread))
+  while (thread_fetch (zebrad.master, &thread))
     thread_call (&thread);
 
   /* Not reached... */

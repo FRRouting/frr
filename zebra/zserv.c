@@ -43,17 +43,11 @@
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
 
-/* Zebra client list. */
-list client_list;
-
-/* Default rtm_table for all clients */
-int rtm_table_default = 0;
+extern struct zebra_t zebrad;
 
 void zebra_event (enum event event, int sock, struct zserv *client);
 
 extern struct zebra_privs_t zserv_privs;
-
-extern struct thread_master *master;
 
 /* For logging of zebra meesages. */
 char *zebra_command_str [] =
@@ -126,7 +120,8 @@ zebra_server_dequeue (struct thread *t)
     }
 
   if (FIFO_TOP (&message_queue))
-    THREAD_WRITE_ON (master, t_write, zebra_server_dequeue, NULL, sock);
+    THREAD_WRITE_ON (zebrad.master, t_write, zebra_server_dequeue, 
+                     NULL, sock);
 
   return 0;
 }
@@ -146,7 +141,7 @@ zebra_server_enqueue (int sock, u_char *buf, unsigned long length,
 
   FIFO_ADD (&message_queue, queue);
 
-  THREAD_WRITE_ON (master, t_write, zebra_server_dequeue, NULL, sock);
+  THREAD_WRITE_ON (zebrad.master, t_write, zebra_server_dequeue, NULL, sock);
 }
 
 int
@@ -1422,7 +1417,7 @@ zebra_client_close (struct zserv *client)
     thread_cancel (client->t_write);
 
   /* Free client structure. */
-  listnode_delete (client_list, client);
+  listnode_delete (zebrad.client_list, client);
   XFREE (0, client);
 }
 
@@ -1440,10 +1435,10 @@ zebra_client_create (int sock)
   client->obuf = stream_new (ZEBRA_MAX_PACKET_SIZ);
 
   /* Set table number. */
-  client->rtm_table = rtm_table_default;
+  client->rtm_table = zebrad.rtm_table_default;
 
   /* Add this client to linked list. */
-  listnode_add (client_list, client);
+  listnode_add (zebrad.client_list, client);
   
   /* Make new read thread. */
   zebra_event (ZEBRA_READ, sock, client);
@@ -1726,8 +1721,6 @@ zebra_serv_un (char *path)
   zebra_event (ZEBRA_SERV, sock, NULL);
 }
 
-/* Zebra's event management function. */
-extern struct thread_master *master;
 
 void
 zebra_event (enum event event, int sock, struct zserv *client)
@@ -1735,11 +1728,11 @@ zebra_event (enum event event, int sock, struct zserv *client)
   switch (event)
     {
     case ZEBRA_SERV:
-      thread_add_read (master, zebra_accept, client, sock);
+      thread_add_read (zebrad.master, zebra_accept, client, sock);
       break;
     case ZEBRA_READ:
       client->t_read = 
-	thread_add_read (master, zebra_client_read, client, sock);
+	thread_add_read (zebrad.master, zebra_client_read, client, sock);
       break;
     case ZEBRA_WRITE:
       /**/
@@ -1754,7 +1747,7 @@ DEFUN (show_table,
        SHOW_STR
        "default routing table to use for all clients\n")
 {
-  vty_out (vty, "table %d%s", rtm_table_default,
+  vty_out (vty, "table %d%s", zebrad.rtm_table_default,
 	   VTY_NEWLINE);
   return CMD_SUCCESS;
 }
@@ -1765,7 +1758,7 @@ DEFUN (config_table,
        "Configure target kernel routing table\n"
        "TABLE integer\n")
 {
-  rtm_table_default = strtol (argv[0], (char**)0, 10);
+  zebrad.rtm_table_default = strtol (argv[0], (char**)0, 10);
   return CMD_SUCCESS;
 }
 
@@ -1833,7 +1826,7 @@ DEFUN (show_zebra_client,
   listnode node;
   struct zserv *client;
 
-  for (node = listhead (client_list); node; nextnode (node))
+  for (node = listhead (zebrad.client_list); node; nextnode (node))
     {
       client = getdata (node);
       vty_out (vty, "Client fd %d%s", client->sock, VTY_NEWLINE);
@@ -1845,8 +1838,8 @@ DEFUN (show_zebra_client,
 int
 config_write_table (struct vty *vty)
 {
-  if (rtm_table_default)
-    vty_out (vty, "table %d%s", rtm_table_default,
+  if (zebrad.rtm_table_default)
+    vty_out (vty, "table %d%s", zebrad.rtm_table_default,
 	     VTY_NEWLINE);
   return 0;
 }
@@ -1958,7 +1951,7 @@ void
 zebra_init ()
 {
   /* Client list init. */
-  client_list = list_new ();
+  zebrad.client_list = list_new ();
 
   /* Forwarding is on by default. */
   ipforward_on ();

@@ -274,7 +274,7 @@ main (int argc, char **argv)
   zprivs_init (&ripngd_privs);
   signal_init ();
   cmd_init (1);
-  vty_init ();
+  vty_init (master);
   memory_init ();
 
   /* RIPngd inits. */

@@ -36,6 +36,9 @@
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 
+/* master zebra server structure */
+extern struct zebra_t zebrad;
+
 int
 zebra_check_addr (struct prefix *p)
 {
@@ -162,15 +165,13 @@ zebra_redistribute (struct zserv *client, int type)
 #endif /* HAVE_IPV6 */
 }
 
-extern list client_list;
-
 void
 redistribute_add (struct prefix *p, struct rib *rib)
 {
   listnode node;
   struct zserv *client;
 
-  for (node = listhead (client_list); node; nextnode (node))
+  for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
       {
 	if (is_default (p))
@@ -207,7 +208,7 @@ redistribute_delete (struct prefix *p, struct rib *rib)
   if (rib->distance == DISTANCE_INFINITY)
     return;
 
-  for (node = listhead (client_list); node; nextnode (node))
+  for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
       {
 	if (is_default (p))
@@ -310,7 +311,7 @@ zebra_interface_up_update (struct interface *ifp)
   if (IS_ZEBRA_DEBUG_EVENT)
     zlog_info ("MESSAGE: ZEBRA_INTERFACE_UP %s", ifp->name);
 
-  for (node = listhead (client_list); node; nextnode (node))
+  for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
       zsend_interface_up (client, ifp);
 }
@@ -325,7 +326,7 @@ zebra_interface_down_update (struct interface *ifp)
   if (IS_ZEBRA_DEBUG_EVENT)
     zlog_info ("MESSAGE: ZEBRA_INTERFACE_DOWN %s", ifp->name);
 
-  for (node = listhead (client_list); node; nextnode (node))
+  for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
       zsend_interface_down (client, ifp);
 }
@@ -340,7 +341,7 @@ zebra_interface_add_update (struct interface *ifp)
   if (IS_ZEBRA_DEBUG_EVENT)
     zlog_info ("MESSAGE: ZEBRA_INTERFACE_ADD %s", ifp->name);
     
-  for (node = listhead (client_list); node; nextnode (node))
+  for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
       if (client->ifinfo)
 	zsend_interface_add (client, ifp);
@@ -355,7 +356,7 @@ zebra_interface_delete_update (struct interface *ifp)
   if (IS_ZEBRA_DEBUG_EVENT)
     zlog_info ("MESSAGE: ZEBRA_INTERFACE_DELETE %s", ifp->name);
 
-  for (node = listhead (client_list); node; nextnode (node))
+  for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
       if (client->ifinfo)
 	zsend_interface_delete (client, ifp);
@@ -379,7 +380,7 @@ zebra_interface_address_add_update (struct interface *ifp,
 		 p->prefixlen, ifc->ifp->name);
     }
 
-  for (node = listhead (client_list); node; nextnode (node))
+  for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
       if (client->ifinfo && CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
 	zsend_interface_address_add (client, ifp, ifc);
@@ -403,7 +404,7 @@ zebra_interface_address_delete_update (struct interface *ifp,
 		 p->prefixlen, ifc->ifp->name);
     }
 
-  for (node = listhead (client_list); node; nextnode (node))
+  for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
       if (client->ifinfo && CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
 	zsend_interface_address_delete (client, ifp, ifc);

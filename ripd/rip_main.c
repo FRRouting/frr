@@ -270,7 +270,7 @@ main (int argc, char **argv)
   zprivs_init (&ripd_privs);
   signal_init ();
   cmd_init (1);
-  vty_init ();
+  vty_init (master);
   memory_init ();
   keychain_init ();
 

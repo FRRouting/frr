@@ -37,7 +37,7 @@
 #include "zebra/debug.h"
 
 /* Default rtm_table for all clients */
-extern int rtm_table_default;
+extern struct zebra_t zebrad;
 
 /* Each route type's string and default distance value. */
 struct
@@ -2147,7 +2147,7 @@ rib_weed_table (struct route_table *table)
 	{
 	  next = rib->next;
 
-	  if (rib->table != rtm_table_default &&
+	  if (rib->table != zebrad.rtm_table_default &&
 	      rib->table != RT_TABLE_MAIN)
 	    {
 	      rib_delnode (rn, rib);
