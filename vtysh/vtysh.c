@@ -217,7 +217,7 @@ vtysh_client_config (struct vtysh_client *vclient, char *line)
 	
   /* Allow enough room for buffer to read more than a few pages from socket
    */
-  bufsz = 5 * sysconf(_SC_PAGESIZE) + 1;
+  bufsz = 5 * getpagesize() + 1;
   buf = XMALLOC(MTYPE_TMP, bufsz);
   memset(buf, 0, bufsz);
   pbuf = buf;
