@@ -24,6 +24,9 @@
 #include "log.h"
 #include "memory.h"
 #include "command.h"
+#ifndef SUNOS_5
+#include <sys/un.h>
+#endif
 
 struct zlog *zlog_default = NULL;
 
@@ -175,9 +178,11 @@ static char *
 num_append(char *s, int len, u_long x)
 {
   char buf[30];
-  char *t = &buf[29];
+  char *t;
 
-  *t = '\0';
+  if (!x)
+    return str_append(s,len,"0");
+  *(t = &buf[sizeof(buf)-1]) = '\0';
   while (x && (t > buf))
     {
       *--t = '0'+(x % 10);
@@ -186,14 +191,93 @@ num_append(char *s, int len, u_long x)
   return str_append(s,len,t);
 }
 
-/* Note: the goal here is to use only async-signal-safe functions.
-   Needs to be enhanced to support syslog logging. */
+static char *
+hex_append(char *s, int len, u_long x)
+{
+  char buf[30];
+  char *t;
+
+  if (!x)
+    return str_append(s,len,"0");
+  *(t = &buf[sizeof(buf)-1]) = '\0';
+  while (x && (t > buf))
+    {
+      u_int cc = (x % 16);
+      *--t = ((cc < 10) ? ('0'+cc) : ('a'+cc-10));
+      x /= 16;
+    }
+  return str_append(s,len,t);
+}
+
+static int syslog_fd = -1;
+
+/* Needs to be enhanced to support Solaris. */
+static int
+syslog_connect(void)
+{
+#ifdef SUNOS_5
+  return -1;
+#else
+  int fd;
+  char *s;
+  struct sockaddr_un addr;
+
+  if ((fd = socket(AF_UNIX,SOCK_DGRAM,0)) < 0)
+    return -1;
+  addr.sun_family = AF_UNIX;
+#ifdef _PATH_LOG
+#define SYSLOG_SOCKET_PATH _PATH_LOG
+#else
+#define SYSLOG_SOCKET_PATH "/dev/log"
+#endif
+  s = str_append(addr.sun_path,sizeof(addr.sun_path),SYSLOG_SOCKET_PATH);
+#undef SYSLOG_SOCKET_PATH
+  *s = '\0';
+  if (connect(fd,(struct sockaddr *)&addr,sizeof(addr)) < 0)
+    {
+      close(fd);
+      return -1;
+    }
+  return fd;
+#endif
+}
+
+static void
+syslog_sigsafe(int priority, const char *msg, size_t msglen)
+{
+  char buf[sizeof("<1234567890>ripngd[1234567890]: ")+msglen+50];
+  char *s;
+
+  if ((syslog_fd < 0) && ((syslog_fd = syslog_connect()) < 0))
+    return;
+
+#define LOC s,buf+sizeof(buf)-s
+  s = buf;
+  s = str_append(LOC,"<");
+  s = num_append(LOC,priority);
+  s = str_append(LOC,">");
+  /* forget about the timestamp, too difficult in a signal handler */
+  s = str_append(LOC,zlog_default->ident);
+  if (zlog_default->syslog_options & LOG_PID)
+    {
+      s = str_append(LOC,"[");
+      s = num_append(LOC,getpid());
+      s = str_append(LOC,"]");
+    }
+  s = str_append(LOC,": ");
+  s = str_append(LOC,msg);
+  write(syslog_fd,buf,s-buf);
+#undef LOC
+}
+
+/* Note: the goal here is to use only async-signal-safe functions. */
 void
 zlog_signal(int signo, const char *action)
 {
   time_t now;
   char buf[sizeof("DEFAULT: Received signal S at T; aborting...")+60];
   char *s = buf;
+  char *msgstart = buf;
 #define LOC s,buf+sizeof(buf)-s
 
   time(&now);
@@ -202,6 +286,7 @@ zlog_signal(int signo, const char *action)
       s = str_append(LOC,zlog_proto_names[zlog_default->protocol]);
       *s++ = ':';
       *s++ = ' ';
+      msgstart = s;
     }
   s = str_append(LOC,"Received signal ");
   s = num_append(LOC,signo);
@@ -209,7 +294,8 @@ zlog_signal(int signo, const char *action)
   s = num_append(LOC,now);
   s = str_append(LOC,"; ");
   s = str_append(LOC,action);
-  *s++ = '\n';
+  if (s < buf+sizeof(buf))
+    *s++ = '\n';
 
 #define DUMP(FP) write(fileno(FP),buf,s-buf);
   if (!zlog_default)
@@ -222,7 +308,11 @@ zlog_signal(int signo, const char *action)
         DUMP(stdout)
       if (zlog_default->flags & ZLOG_STDERR)
         DUMP(stderr)
-      /* Is there a signal-safe way to send a syslog message? */
+      if (zlog_default->flags & ZLOG_SYSLOG)
+        {
+	  *--s = '\0';
+	  syslog_sigsafe(LOG_ERR|zlog_default->facility,msgstart,s-msgstart);
+	}
     }
 #undef DUMP
 
@@ -269,7 +359,23 @@ zlog_backtrace_sigsafe(int priority)
 	DUMP(stdout)
       if (zlog_default->flags & ZLOG_STDERR)
 	DUMP(stderr)
-      /* Is there a signal-safe way to send a syslog message? */
+      if (zlog_default->flags & ZLOG_SYSLOG)
+        {
+	  int i;
+	  *--s = '\0';
+	  syslog_sigsafe(priority|zlog_default->facility,buf,s-buf);
+	  /* Just print the function addresses. */
+	  for (i = 0; i < size; i++)
+	    {
+	      s = buf;
+	      s = str_append(LOC,"[bt ");
+	      s = num_append(LOC,i);
+	      s = str_append(LOC,"] 0x");
+	      s = hex_append(LOC,(u_long)(array[i]));
+	      *s = '\0';
+	      syslog_sigsafe(priority|zlog_default->facility,buf,s-buf);
+	    }
+        }
     }
 #undef DUMP
 #undef LOC
@@ -391,6 +497,7 @@ openzlog (const char *progname, int flags, zlog_proto_t protocol,
   zl->facility = syslog_facility;
   zl->maskpri = LOG_DEBUG;
   zl->record_priority = 0;
+  zl->syslog_options = syslog_flags;
 
   openlog (progname, syslog_flags, zl->facility);
   

@@ -1,3 +1,20 @@
+2004-11-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* log.h: Remove several unused fields from struct zlog.  Add comments
+	  for other fields, and add one new field syslog_options that is
+	  used in the new syslog_sigsafe implementation.
+	* log.c: (syslog_sigsafe) New function to send syslog messages in
+	  an async-signal safe way that can be used inside a signal handler.
+	  (syslog_connect) New function to connect to syslog daemon inside a
+	  signal handler.  This function supports only systems where /dev/log
+	  is a unix datagram socket (e.g. not Solaris).
+	  (zlog_signal) Call syslog_sigsafe if syslog logging is enabled.
+	  (zlog_backtrace_sigsafe) Call syslog_sigsafe if syslog logging is
+	  enabled.
+	  (openzlog) Save syslog_options for use in syslog_sigsafe.
+	  (num_append) Fix bug: handle 0 properly.
+	  (hex_append) New function to print a u_long in hex format.
+
 2004-11-28 Hasso Tepper <hasso at quagga.net>
 
 	* command.h: DEFUN_DEPRECATED passes attribute to DEFUN as well.

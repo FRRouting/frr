@@ -46,18 +46,16 @@ typedef enum
 
 struct zlog 
 {
-  const char *ident;
+  const char *ident;	/* daemon name (first arg to openlog) */
   zlog_proto_t protocol;
-  int flags;
+  int flags;		/* mask indicating which destinations to log to */
   FILE *fp;
   char *filename;
-  int syslog;
-  int stat;
-  int connected;
-  int maskpri;		/* as per syslog setlogmask */
-  int priority;		/* as per syslog priority */
+  int maskpri;		/* discard messages with priority > maskpri */
   int facility;		/* as per syslog facility */
-  int record_priority;
+  int record_priority;	/* should messages logged through stdio include the
+  			   priority of the message? */
+  int syslog_options;	/* 2nd arg to openlog */
 };
 
 /* Message structure. */
