@@ -768,7 +768,8 @@ if_nametoindex (const char *name)
 {
   struct interface *ifp;
 
-  return ((ifp = if_lookup_by_name(name)) != NULL) ? ifp->ifindex : 0;
+  return ((ifp = if_lookup_by_name_len(name, strnlen(name, IFNAMSIZ))) != NULL)
+  	 ? ifp->ifindex : 0;
 }
 #endif
 

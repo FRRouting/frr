@@ -1,5 +1,11 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* if.c: (if_nametoindex) The man page is rather vague, but it seems
+	  like the argument to if_nametoindex has an implicit maximum length
+	  of IFNAMSIZ characters.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* if.h: (if_lookup_by_name_len, if_get_by_name_len) New functions.
 	* if.c: (if_lookup_by_name_len, if_get_by_name_len) New functions.
 	  (if_get_by_name) Tighten up code.
