@@ -1,3 +1,10 @@
+2002-09-30 Paul Jakma <paulzebra@rs250.org>
+	
+	* vtysh.c: add 'write-config (integrated|daemon)' option
+	to specifiy whether write config commands should write
+	integrated Zebra.conf file and/or per daemon files.
+	Defaults to per daemon, unless this is turned off.
+
 2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.93 released.

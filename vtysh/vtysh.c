@@ -376,22 +376,22 @@ vtysh_execute_func (char *line, int pager)
     {
     case CMD_WARNING:
       if (vty->type == VTY_FILE)
-	printf ("Warning...\n");
+	fprintf (stdout,"Warning...\n");
       break;
     case CMD_ERR_AMBIGUOUS:
-      printf ("%% Ambiguous command.\n");
+      fprintf (stdout,"%% Ambiguous command.\n");
       break;
     case CMD_ERR_NO_MATCH:
-      printf ("%% Unknown command.\n");
+      fprintf (stdout,"%% Unknown command.\n");
       break;
     case CMD_ERR_INCOMPLETE:
-      printf ("%% Command incomplete.\n");
+      fprintf (stdout,"%% Command incomplete.\n");
       break;
     case CMD_SUCCESS_DAEMON:
       {
 	if (pager && vtysh_pager_name)
 	  {
-	    fp = popen ("more", "w");
+	    fp = popen (vtysh_pager_name, "w");
 	    if (fp == NULL)
 	      {
 		perror ("popen");
@@ -558,16 +558,16 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	{
 	case CMD_WARNING:
 	  if (vty->type == VTY_FILE)
-	    printf ("Warning...\n");
+	    fprintf (stdout,"Warning...\n");
 	  break;
 	case CMD_ERR_AMBIGUOUS:
-	  printf ("%% Ambiguous command.\n");
+	  fprintf (stdout,"%% Ambiguous command.\n");
 	  break;
 	case CMD_ERR_NO_MATCH:
-	  printf ("%% Unknown command: %s", vty->buf);
+	  fprintf (stdout,"%% Unknown command: %s", vty->buf);
 	  break;
 	case CMD_ERR_INCOMPLETE:
-	  printf ("%% Command incomplete.\n");
+	  fprintf (stdout,"%% Command incomplete.\n");
 	  break;
 	case CMD_SUCCESS_DAEMON:
 	  {
@@ -628,20 +628,20 @@ vtysh_rl_describe ()
 
   describe = cmd_describe_command (vline, vty, &ret);
 
-  printf ("\n");
+  fprintf (stdout,"\n");
 
   /* Ambiguous and no match error. */
   switch (ret)
     {
     case CMD_ERR_AMBIGUOUS:
       cmd_free_strvec (vline);
-      printf ("%% Ambiguous command.\n");
+      fprintf (stdout,"%% Ambiguous command.\n");
       rl_on_new_line ();
       return 0;
       break;
     case CMD_ERR_NO_MATCH:
       cmd_free_strvec (vline);
-      printf ("%% There is no matched command.\n");
+      fprintf (stdout,"%% There is no matched command.\n");
       rl_on_new_line ();
       return 0;
       break;
@@ -672,10 +672,10 @@ vtysh_rl_describe ()
 	  continue;
 
 	if (! desc->str)
-	  printf ("  %-s\n",
+	  fprintf (stdout,"  %-s\n",
 		  desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd);
 	else
-	  printf ("  %-*s  %s\n",
+	  fprintf (stdout,"  %-*s  %s\n",
 		  width,
 		  desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
 		  desc->str);
@@ -1175,7 +1175,7 @@ DEFUN (vtysh_write_terminal,
 
   if (vtysh_pager_name)
     {
-      fp = popen ("more", "w");
+      fp = popen (vtysh_pager_name, "w");
       if (fp == NULL)
 	{
 	  perror ("popen");
@@ -1214,11 +1214,42 @@ DEFUN (vtysh_write_terminal,
   return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_write_memory,
-       vtysh_write_memory_cmd,
-       "write memory",
-       "Write running configuration to memory, network, or terminal\n"
-       "Write configuration to the file (same as write file)\n")
+struct vtysh_writeconfig_t {
+	int daemon;
+	int integrated;
+} vtysh_wc = {-1,0};
+
+DEFUN (vtysh_write_config,
+		vtysh_write_config_cmd,
+		"write-config (daemon|integrated)",
+		"Specify config files to write to\n"
+		"Write per daemon file\n"
+		"Write integrated file\n"
+)
+{
+	if (!strncmp(argv[0],"d",1)) {
+		vtysh_wc.daemon = 1;
+	} else if (!strncmp(argv[0],"i",1)) {
+		vtysh_wc.integrated = 1;
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_vtysh_write_config,
+		no_vtysh_write_config_cmd,
+		"no write-config (daemon|integrated)",
+		"Negate per daemon and/or integrated config files\n"
+)
+{
+	if (!strncmp(argv[0],"d",1)) {
+		vtysh_wc.daemon = 0;
+	} else if (!strncmp(argv[0],"i",1)) {
+		vtysh_wc.integrated = 0;
+	}
+	return CMD_SUCCESS;
+}
+
+int write_config_integrated(void)
 {
   int ret;
   mode_t old_umask;
@@ -1235,22 +1266,19 @@ DEFUN (vtysh_write_memory,
   strcat (integrate_sav, CONF_BACKUP_EXT);
 
 
-  printf ("Building Configuration...\n");
+  fprintf (stdout,"Building Configuration...\n");
 
   /* Move current configuration file to backup config file */
   unlink (integrate_sav);
   rename (integrate_default, integrate_sav);
-
+ 
   fp = fopen (integrate_default, "w");
   if (fp == NULL)
     {
-      printf ("%% Can't open configuration file %s.\n", integrate_default);
+      fprintf (stdout,"%% Can't open configuration file %s.\n", integrate_default);
       umask (old_umask);
       return CMD_SUCCESS;
     }
-  else
-    printf ("[OK]\n");
-	  
 
   vtysh_config_write (fp);
 
@@ -1265,8 +1293,44 @@ DEFUN (vtysh_write_memory,
 
   fclose (fp);
 
+  fprintf(stdout,"Integrated configuration saved to %s\n",integrate_default);
+
+  fprintf (stdout,"[OK]\n");
+
   umask (old_umask);
   return CMD_SUCCESS;
+}
+
+DEFUN (vtysh_write_memory,
+       vtysh_write_memory_cmd,
+       "write memory",
+       "Write running configuration to memory, network, or terminal\n"
+       "Write configuration to the file (same as write file)\n")
+{
+  int ret;
+  char line[] = "write memory\n";
+  
+  /* if integrated Zebra.conf explicitely set */
+  if (vtysh_wc.integrated == 1) {
+  	ret = write_config_integrated();
+  }
+
+  if (!vtysh_wc.daemon) {
+  	return ret;
+  }
+
+  fprintf (stdout,"Building Configuration...\n");
+	  
+  ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ZEBRA], line, stdout);
+  ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_RIP], line, stdout);
+  ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_RIPNG], line, stdout);
+  ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_OSPF], line, stdout);
+  ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_OSPF6], line, stdout);
+  ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_BGP], line, stdout);
+
+  fprintf (stdout,"[OK]\n");
+
+  return CMD_SUCCESS;  
 }
 
 ALIAS (vtysh_write_memory,
@@ -1800,4 +1864,6 @@ vtysh_init_vty ()
   install_element (CONFIG_NODE, &no_vtysh_log_trap_cmd);
   install_element (CONFIG_NODE, &vtysh_log_record_priority_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_record_priority_cmd);
+  install_element (CONFIG_NODE, &vtysh_write_config_cmd);
+  install_element (CONFIG_NODE, &no_vtysh_write_config_cmd);
 }
