@@ -634,7 +634,7 @@ ospf_network_set (struct ospf *ospf, struct prefix_ipv4 *p,
   struct ospf_area *area;
   struct route_node *rn;
   struct external_info *ei;
-  int ret = OSPF_AREA_ID_FORMAT_DECIMAL;
+  int ret = OSPF_AREA_ID_FORMAT_ADDRESS;
 
   rn = route_node_get (ospf->networks, (struct prefix *)p);
   if (rn->info)
@@ -1046,7 +1046,7 @@ int
 ospf_area_stub_set (struct ospf *ospf, struct in_addr area_id)
 {
   struct ospf_area *area;
-  int format = OSPF_AREA_ID_FORMAT_DECIMAL;
+  int format = OSPF_AREA_ID_FORMAT_ADDRESS;
 
   area = ospf_area_get (ospf, area_id, format);
   if (ospf_area_vlink_count (ospf, area))
@@ -1079,7 +1079,7 @@ int
 ospf_area_no_summary_set (struct ospf *ospf, struct in_addr area_id)
 {
   struct ospf_area *area;
-  int format = OSPF_AREA_ID_FORMAT_DECIMAL;
+  int format = OSPF_AREA_ID_FORMAT_ADDRESS;
 
   area = ospf_area_get (ospf, area_id, format);
   area->no_summary = 1;
@@ -1106,7 +1106,7 @@ int
 ospf_area_nssa_set (struct ospf *ospf, struct in_addr area_id)
 {
   struct ospf_area *area;
-  int format = OSPF_AREA_ID_FORMAT_DECIMAL;
+  int format = OSPF_AREA_ID_FORMAT_ADDRESS;
 
   area = ospf_area_get (ospf, area_id, format);
   if (ospf_area_vlink_count (ospf, area))
