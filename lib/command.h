@@ -122,7 +122,7 @@ struct cmd_node
 
 enum
 {
-  CMD_ATTR_DEPRECATED,
+  CMD_ATTR_DEPRECATED = 1,
   CMD_ATTR_HIDDEN,
 };
 

@@ -1,6 +1,11 @@
 2005-03-08 Paul Jakma <paul.jakma@sun.com>
 
-	* command.c: (banner_motd_file_cmd) use XSTRDUP/XFREE
+	* command.c: (banner_motd_file_cmd) use XSTRDUP/XFREE.
+	  (cmd_describe_command_real) sign compile warning fix
+	  (cmd_complete_command_real) ditto.
+	  (config_list_cmd) Don't list hidden or deprecated commands,
+	  hiding these from tab completion is still to be done.
+	* command.h: cmd attr enum should start at 1.
 	* vty.c: (vty_hello) suggestions from Andrew, read by line and
 	  stub out trailling non-printable characters on each line thus
 	  allowing us to specify VTY_NEWLINE to vty_out.
