@@ -1,3 +1,9 @@
+2005-03-12 Paul Jakma <paul@dishone.st>
+
+	* rt_netlink.c: (netlink_route_multipath) dont set equalise flag.
+	  No stock Linux kernel has ever supported it, and even if it had
+	  it's not generally a good idea.
+
 2005-03-07 Michael Sandee <voidptr@voidptr.sboost.org>
 
 	* if_proc.c, ipforward_proc.c, rtread_proc.c: Fix fd leaks.

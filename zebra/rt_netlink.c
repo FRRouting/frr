@@ -1391,10 +1391,6 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
   req.r.rtm_table = rib->table;
   req.r.rtm_dst_len = p->prefixlen;
 
-#ifdef RTM_F_EQUALIZE
-  req.r.rtm_flags |= RTM_F_EQUALIZE;
-#endif /* RTM_F_EQUALIZE */
-
   if ((rib->flags & ZEBRA_FLAG_BLACKHOLE) || (rib->flags & ZEBRA_FLAG_REJECT))
     discard = 1;
   else
