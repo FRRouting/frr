@@ -1,3 +1,8 @@
+2003-05-24 Kenji Yabuuchi
+
+	* ospf_interface.c(ospf_if_lookup_recv_if): Use the most specific
+	  match for interface lookup.
+
 2003-05-18 Hasso Tepper <hasso@estpak.ee>
 
 	* ospf_vty.c: Show NSSA LSA route info in "show ip ospf database"
