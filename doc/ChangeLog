@@ -1,3 +1,8 @@
+2004-12-18 Hasso Tepper <hasso at quagga.net>
+
+	* Makefile.am: Add isisd man page to the list. Should fix problem
+	  isisd not included in release/snapshot tarballs.
+
 2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* basic.texi: Document new logging features.  Separate basic config
