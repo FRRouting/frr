@@ -111,6 +111,7 @@ for quagga-@value{VERSION}. @uref{http://www.quagga.net,,Quagga} is a fork of
 @include ospfd.texi
 @include ospf6d.texi
 @include bgpd.texi
+@include routeserver.texi
 @include vtysh.texi
 @include filter.texi
 @include routemap.texi

@@ -1,5 +1,11 @@
 2004-11-07 Paul Jakma <paul@dishone.st>
 
+	* quagga.texi: include routeserver.texi. TODO: integrate the current
+          multiple-instance orientated bgpd route-server section with the
+          new route-server docs.
+
+2004-11-07 Paul Jakma <paul@dishone.st>
+
 	* Makefile.am: Add automatic rule to build pdf's from eps figures.
 	  Clean *.pdf. Add rule for quagga.pdf (as the eps.pdf pattern
           probably otherwise will override automake's rule for quagga.pdf)
