@@ -1,3 +1,7 @@
+2004-01-15 Paul Jakma <paul@dishone.st>
+
+	* vtysh_config.c: Fix up strlen to use correct string.
+	
 2003-12-23 Hasso Tepper <hasso@estpak.ee>
   
 	* Makefile.am extract.pl vtysh.c vtysh.h vtysh_config.c:
