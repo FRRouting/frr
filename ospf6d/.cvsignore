@@ -11,3 +11,5 @@ TAGS
 *.lo
 *.la
 *.libs
+.arch-inventory
+.arch-ids

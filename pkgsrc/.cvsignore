@@ -1,3 +1,5 @@
 Makefile
 Makefile.in
 *.sh
+.arch-inventory
+.arch-ids

@@ -5,3 +5,5 @@ tags
 TAGS
 .deps
 .nfs*
+.arch-inventory
+.arch-ids

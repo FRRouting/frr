@@ -9,3 +9,5 @@ TAGS
 .deps
 .nfs*
 .libs
+.arch-inventory
+.arch-ids

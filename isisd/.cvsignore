@@ -8,3 +8,5 @@ isisd.conf
 *.lo
 *.la
 *.libs
+.arch-inventory
+.arch-ids

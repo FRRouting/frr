@@ -3,3 +3,5 @@ quagga.spec
 Makefile
 Makefile.in
 .nfs*
+.arch-inventory
+.arch-ids

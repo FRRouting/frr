@@ -22,3 +22,5 @@ quagga.dvi
 *.toc
 *.tp
 *.vr
+.arch-inventory
+.arch-ids

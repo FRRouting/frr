@@ -9,3 +9,5 @@ TAGS
 *.la
 *.libs
 testsig
+.arch-inventory
+.arch-ids
