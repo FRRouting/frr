@@ -3,6 +3,21 @@
 	* *.*: Merge rewritten ospf6d from Zebra repository.
 	* ospf6_network.c, ospf6_main.c: Merged privs stuff back in.
 	* ospf6_zebra.c: Sync back to zclient changes.
+	* ospf6_asbr.c: Added isis to the routings list.
+	* ospf6_main.c: "version.h" -> <lib/version.h>
+
+2004-05-17  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_flood.[ch], ospf6_lsa.[ch], ospf6_lsdb.h, ospf6_message.c
+	ospf6_neighbor.c: Fix crash bug and change the way to count
+        how many neighbors include paticular LSA on its retrans-list.
+	* ospf6d.h: version 0.9.7c
+
+2004-05-03  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_message.[ch], ospf6_interface.c: adjust send/recv buffer
+	size to interface MTUs.
+	* ospf6d.h: version 0.9.7b
 
 2003-08-18  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 

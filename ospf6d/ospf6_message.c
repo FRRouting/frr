@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "memory.h"
 #include "log.h"
 #include "vty.h"
 #include "command.h"
@@ -1090,6 +1091,7 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
       if (IS_OSPF6_DEBUG_LSA (DATABASE))
         zlog_info ("remove %s from retrans_list of %s",
                    mine->name, on->name);
+      ospf6_decrement_onretrans (mine);
       ospf6_lsdb_remove (mine, on->retrans_list);
       ospf6_lsa_delete (his);
     }
@@ -1101,8 +1103,36 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
     }
 }
 
-char recvbuf[OSPF6_MESSAGE_BUFSIZ];
-char sendbuf[OSPF6_MESSAGE_BUFSIZ];
+char *recvbuf = NULL;
+char *sendbuf = NULL;
+int iobuflen = 0;
+
+int
+ospf6_iobuf_size (int size)
+{
+  char *recvnew, *sendnew;
+
+  if (size <= iobuflen)
+    return iobuflen;
+
+  recvnew = XMALLOC (MTYPE_OSPF6_MESSAGE, size);
+  sendnew = XMALLOC (MTYPE_OSPF6_MESSAGE, size);
+  if (recvnew == NULL || sendnew == NULL)
+    {
+      zlog_info ("Could not allocate I/O buffer of size %d.", size);
+      return iobuflen;
+    }
+
+  if (recvbuf)
+    XFREE (MTYPE_OSPF6_MESSAGE, recvbuf);
+  if (sendbuf)
+    XFREE (MTYPE_OSPF6_MESSAGE, sendbuf);
+  recvbuf = recvnew;
+  sendbuf = sendnew;
+  iobuflen = size;
+
+  return iobuflen;
+}
 
 int
 ospf6_receive (struct thread *thread)
@@ -1120,15 +1150,15 @@ ospf6_receive (struct thread *thread)
   thread_add_read (master, ospf6_receive, NULL, sockfd);
 
   /* initialize */
-  memset (recvbuf, 0, sizeof (recvbuf));
+  memset (recvbuf, 0, iobuflen);
   iovector[0].iov_base = recvbuf;
-  iovector[0].iov_len = sizeof (recvbuf);
+  iovector[0].iov_len = iobuflen;
   iovector[1].iov_base = NULL;
   iovector[1].iov_len = 0;
 
   /* receive message */
   len = ospf6_recvmsg (&src, &dst, &ifindex, iovector);
-  if (len > sizeof (recvbuf))
+  if (len > iobuflen)
     {
       zlog_err ("Excess message read");
       return 0;
@@ -1314,7 +1344,7 @@ ospf6_hello_send (struct thread *thread)
   oi->thread_send_hello = thread_add_timer (master, ospf6_hello_send,
                                             oi, oi->hello_interval);
 
-  memset (sendbuf, 0, sizeof (sendbuf));
+  memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
   hello = (struct ospf6_hello *)((caddr_t) oh + sizeof (struct ospf6_header));
 
@@ -1381,7 +1411,7 @@ ospf6_dbdesc_send (struct thread *thread)
       thread_add_timer (master, ospf6_dbdesc_send, on,
                         on->ospf6_if->rxmt_interval);
 
-  memset (sendbuf, 0, sizeof (sendbuf));
+  memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
   dbdesc = (struct ospf6_dbdesc *)((caddr_t) oh +
                                    sizeof (struct ospf6_header));
@@ -1510,7 +1540,7 @@ ospf6_lsreq_send (struct thread *thread)
     thread_add_timer (master, ospf6_lsreq_send, on,
                       on->ospf6_if->rxmt_interval);
 
-  memset (sendbuf, 0, sizeof (sendbuf));
+  memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
 
   /* set Request entries in lsreq */
@@ -1569,7 +1599,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
   if (IS_OSPF6_DEBUG_LSA (SEND))
     zlog_info ("LSA Send to %s", on->name);
 
-  memset (sendbuf, 0, sizeof (sendbuf));
+  memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
   lsupdate = (struct ospf6_lsupdate *)
     ((caddr_t) oh + sizeof (struct ospf6_header));
@@ -1671,7 +1701,7 @@ ospf6_lsupdate_send_interface (struct thread *thread)
   if (IS_OSPF6_DEBUG_LSA (SEND))
     zlog_info ("LSA Send to %s", oi->interface->name);
 
-  memset (sendbuf, 0, sizeof (sendbuf));
+  memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
   lsupdate = (struct ospf6_lsupdate *)((caddr_t) oh +
                                        sizeof (struct ospf6_header));
@@ -1744,7 +1774,7 @@ ospf6_lsack_send_neighbor (struct thread *thread)
   if (on->lsack_list->count == 0)
     return 0;
 
-  memset (sendbuf, 0, sizeof (sendbuf));
+  memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
 
   p = (char *)((caddr_t) oh + sizeof (struct ospf6_header));
@@ -1804,7 +1834,7 @@ ospf6_lsack_send_interface (struct thread *thread)
   if (oi->lsack_list->count == 0)
     return 0;
 
-  memset (sendbuf, 0, sizeof (sendbuf));
+  memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
 
   p = (char *)((caddr_t) oh + sizeof (struct ospf6_header));

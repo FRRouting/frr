@@ -120,9 +120,7 @@ struct ospf6_lsa
 
   void                *scope;      /* pointer to scope data structure */
   int                  headeronly; /* indicate this is LS header only */
-
-  unsigned long        refcnt;
-  struct ospf6_lsa    *refsrc;
+  int                  onretrans;
 
   /* lsa instance */
   struct ospf6_lsa_header *header;

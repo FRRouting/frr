@@ -121,7 +121,7 @@ struct ospf6_lsdb
       {                                                                  \
         if (! OSPF6_LSA_IS_MAXAGE (lsa))                                 \
           continue;                                                      \
-        if (lsa->refcnt != 0)                                            \
+        if (lsa->onretrans != 0)                                         \
           continue;                                                      \
         if (IS_OSPF6_DEBUG_LSA (TIMER))                                  \
           zlog_info (" remove maxage %s", lsa->name);                    \

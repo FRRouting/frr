@@ -93,6 +93,28 @@ ospf6_get_scoped_lsdb (u_int16_t type, void *scope)
 }
 
 void
+ospf6_decrement_onretrans (struct ospf6_lsa *lsa)
+{
+  struct ospf6_lsdb *lsdb;
+  struct ospf6_lsa *src;
+
+  lsdb = ospf6_get_scoped_lsdb (lsa->header->type, lsa->scope);
+  if (lsdb == NULL)
+    {
+      zlog_warn ("Decrement onretrans: no such scope: %s", lsa->name);
+      return;
+    }
+
+  src = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
+                           lsa->header->adv_router, lsdb);
+  if (src && src != lsa)
+    src->onretrans--;
+
+  if (src->onretrans < 0)
+    zlog_warn ("internal error: onretrans");
+}
+
+void
 ospf6_flood_clear (struct ospf6_lsa *lsa)
 {
   struct ospf6_neighbor *on;
@@ -159,6 +181,7 @@ ospf6_flood_clear (struct ospf6_lsa *lsa)
               if (IS_OSPF6_DEBUG_LSA (DATABASE))
                 zlog_info ("Remove %s from retrans_list of %s",
                            rxmt->name, on->name);
+              ospf6_decrement_onretrans (rxmt);
               ospf6_lsdb_remove (rxmt, on->retrans_list);
             }
         }
@@ -308,6 +331,7 @@ ospf6_flood_lsa (struct ospf6_lsa *lsa, struct ospf6_neighbor *from)
           if (IS_OSPF6_DEBUG_LSA (SEND) || IS_OSPF6_DEBUG_LSA (DATABASE))
             zlog_info ("  Add copy of %s to retrans-list of %s",
                        lsa->name, on->name);
+          lsa->onretrans++;
           ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->retrans_list);
           if (on->thread_send_lsupdate == NULL)
             on->thread_send_lsupdate =
@@ -811,6 +835,7 @@ ospf6_receive_lsa (struct ospf6_lsa_header *lsa_header,
           if (IS_OSPF6_DEBUG_LSA (DATABASE))
             zlog_info ("Remove %s from retrans_list of %s",
                        rem->name, from->name);
+          ospf6_decrement_onretrans (rem);
           ospf6_lsdb_remove (rem, from->retrans_list);
         }
 

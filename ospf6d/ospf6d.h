@@ -22,7 +22,7 @@
 #ifndef OSPF6D_H
 #define OSPF6D_H
 
-#define OSPF6_DAEMON_VERSION    "0.9.7a"
+#define OSPF6_DAEMON_VERSION    "0.9.7c"
 
 /* global variables */
 extern int errno;

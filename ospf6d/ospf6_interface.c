@@ -113,6 +113,7 @@ struct ospf6_interface *
 ospf6_interface_create (struct interface *ifp)
 {
   struct ospf6_interface *oi;
+  int iobuflen;
 
   oi = (struct ospf6_interface *)
     XMALLOC (MTYPE_OSPF6_IF, sizeof (struct ospf6_interface));
@@ -137,9 +138,19 @@ ospf6_interface_create (struct interface *ifp)
   oi->dead_interval = 40;
   oi->rxmt_interval = 5;
   oi->cost = 1;
-  oi->ifmtu = ifp->mtu;
   oi->state = OSPF6_INTERFACE_DOWN;
   oi->flag = 0;
+
+  /* Try to adust I/O buffer size with IfMtu */
+  iobuflen = ospf6_iobuf_size (ifp->mtu);
+  if (iobuflen < ifp->mtu)
+    {
+      zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
+                 ifp->name, iobuflen);
+      oi->ifmtu = iobuflen;
+    }
+  else
+    oi->ifmtu = ifp->mtu;
 
   oi->lsupdate_list = ospf6_lsdb_create ();
   oi->lsack_list = ospf6_lsdb_create ();
@@ -253,12 +264,22 @@ void
 ospf6_interface_if_add (struct interface *ifp)
 {
   struct ospf6_interface *oi;
+  int iobuflen;
 
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
     return;
 
-  oi->ifmtu = ifp->mtu;
+  /* Try to adust I/O buffer size with IfMtu */
+  iobuflen = ospf6_iobuf_size (ifp->mtu);
+  if (iobuflen < ifp->mtu)
+    {
+      zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
+                 ifp->name, iobuflen);
+      oi->ifmtu = iobuflen;
+    }
+  else
+    oi->ifmtu = ifp->mtu;
 
   /* interface start */
   if (oi->area)

@@ -26,6 +26,7 @@
 void *ospf6_get_lsa_scope (u_int16_t type, struct ospf6_neighbor *from);
 struct ospf6_lsdb *ospf6_get_scoped_lsdb (u_int16_t type, void *scope);
 
+void ospf6_decrement_onretrans (struct ospf6_lsa *lsa);
 void ospf6_flood_clear (struct ospf6_lsa *lsa);
 void ospf6_flood_lsa (struct ospf6_lsa *lsa, struct ospf6_neighbor *from);
 void ospf6_install_lsa (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);

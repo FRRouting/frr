@@ -386,10 +386,6 @@ ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa)
            ntohs (lsa->header->length), VTY_NEWLINE);
   vty_out (vty, "    Prev: %p This: %p Next: %p%s",
            lsa->prev, lsa, lsa->next, VTY_NEWLINE);
-  vty_out (vty, "    Reference count: %ld%s", lsa->refcnt, VTY_NEWLINE);
-  vty_out (vty, "    Reference source: %s (%p) %s",
-           (lsa->refsrc ? lsa->refsrc->name : "None"),
-           lsa->refsrc, VTY_NEWLINE);
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
@@ -535,9 +531,6 @@ ospf6_lsa_copy (struct ospf6_lsa *lsa)
   copy->originated = lsa->originated;
   copy->scope = lsa->scope;
 
-  copy->refsrc = lsa;
-  copy->refsrc->refcnt++;
-
   return copy;
 }
 
@@ -559,9 +552,6 @@ ospf6_lsa_unlock (struct ospf6_lsa *lsa)
 
   if (lsa->lock != 0)
     return;
-
-  if (lsa->refsrc)
-    lsa->refsrc->refcnt--;
 
   ospf6_lsa_delete (lsa);
 }

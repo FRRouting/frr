@@ -47,10 +47,10 @@ unsigned char conf_debug_ospf6_asbr = 0;
 
 char *zroute_name[] =
 { "system", "kernel", "connected", "static",
-  "rip", "ripng", "ospf", "ospf6", "bgp", "unknown" };
+  "rip", "ripng", "ospf", "ospf6", "isis", "bgp", "unknown" };
 
 char *zroute_abname[] =
-{ "X", "K", "C", "S", "R", "R", "O", "O", "B", "?" };
+{ "X", "K", "C", "S", "R", "R", "O", "O", "I", "B", "?" };
 
 #define ZROUTE_NAME(x)                                     \
   (0 < (x) && (x) < ZEBRA_ROUTE_MAX ? zroute_name[(x)] :   \
