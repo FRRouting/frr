@@ -125,4 +125,13 @@ extern const char *safe_strerror(int errnum);
 /* To be called when a fatal signal is caught. */
 extern void zlog_signal(int signo, const char *action);
 
+/* Log a backtrace. */
+extern void zlog_backtrace(int priority);
+
+/* Log a backtrace, but in an async-signal-safe way.  Should not be
+   called unless the program is about to exit or abort, since it messes
+   up the state of zlog file pointers.  This function needs to be enhanced
+   to support syslog logging. */
+extern void zlog_backtrace_safe(int priority);
+
 #endif /* _ZEBRA_LOG_H */

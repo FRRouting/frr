@@ -186,14 +186,14 @@ num_append(char *s, int len, u_long x)
   return str_append(s,len,t);
 }
 
-/* Note: the goal here is to use only async-signal-safe functions. */
+/* Note: the goal here is to use only async-signal-safe functions.
+   Needs to be enhanced to support syslog logging. */
 void
 zlog_signal(int signo, const char *action)
 {
   time_t now;
   char buf[sizeof("DEFAULT: Received signal S at T; aborting...")+60];
   char *s = buf;
-
 #define LOC s,buf+sizeof(buf)-s
 
   time(&now);
@@ -226,18 +226,33 @@ zlog_signal(int signo, const char *action)
     }
 #undef DUMP
 
-  /* Now try for a backtrace. */
-#ifdef HAVE_GLIBC_BACKTRACE
-  {
-    void *array[20];
-    int size;
+  zlog_backtrace_safe(LOG_ERR);
+#undef LOC
+}
 
-    if ((size = backtrace(array,sizeof(array)/sizeof(array[0]))) <= 0)
-      return;
-    s = buf;
-    s = str_append(LOC,"Backtrace for ");
-    s = num_append(LOC,size);
-    s = str_append(LOC," stack frames:\n");
+/* Log a backtrace using only async-signal-safe functions.
+   Needs to be enhanced to support syslog logging. */
+void
+zlog_backtrace_safe(int priority)
+{
+#ifdef HAVE_GLIBC_BACKTRACE
+  void *array[20];
+  int size;
+  char buf[100];
+  char *s;
+#define LOC s,buf+sizeof(buf)-s
+
+  /* only log this information if it has not been masked out */
+  if (zlog_default && (priority > zlog_default->maskpri))
+    return;
+
+  if (((size = backtrace(array,sizeof(array)/sizeof(array[0]))) <= 0) ||
+      ((size_t)size > sizeof(array)/sizeof(array[0])))
+    return;
+  s = buf;
+  s = str_append(LOC,"Backtrace for ");
+  s = num_append(LOC,size);
+  s = str_append(LOC," stack frames:\n");
 
 #define DUMP(FP) { \
   write(fileno(FP),buf,s-buf);	\
@@ -249,17 +264,50 @@ zlog_signal(int signo, const char *action)
   else
     {
       if ((zlog_default->flags & ZLOG_FILE) && zlog_default->fp)
-        DUMP(zlog_default->fp)
+	DUMP(zlog_default->fp)
       if (zlog_default->flags & ZLOG_STDOUT)
-        DUMP(stdout)
+	DUMP(stdout)
       if (zlog_default->flags & ZLOG_STDERR)
-        DUMP(stderr)
+	DUMP(stderr)
       /* Is there a signal-safe way to send a syslog message? */
     }
 #undef DUMP
-  }
-#endif /* HAVE_GLIBC_BACKTRACE */
 #undef LOC
+#endif /* HAVE_GLIBC_BACKTRACE */
+}
+
+void
+zlog_backtrace(int priority)
+{
+#ifndef HAVE_GLIBC_BACKTRACE
+  zlog(NULL, priority, "No backtrace available on this platform.");
+#else
+  void *array[20];
+  int size, i;
+  char **strings;
+
+  if (((size = backtrace(array,sizeof(array)/sizeof(array[0]))) <= 0) ||
+      ((size_t)size > sizeof(array)/sizeof(array[0])))
+    {
+      zlog_err("Cannot get backtrace, returned invalid # of frames %d "
+	       "(valid range is between 1 and %u)",
+	       size, sizeof(array)/sizeof(array[0]));
+      return;
+    }
+  zlog(NULL, priority, "Backtrace for %d stack frames:", size);
+  if (!(strings = backtrace_symbols(array, size)))
+    {
+      zlog_err("Cannot get backtrace symbols (out of memory?)");
+      for (i = 0; i < size; i++)
+	zlog(NULL, priority, "[bt %d] %p",i,array[i]);
+    }
+  else
+    {
+      for (i = 0; i < size; i++)
+	zlog(NULL, priority, "[bt %d] %s",i,strings[i]);
+      free(strings);
+    }
+#endif /* HAVE_GLIBC_BACKTRACE */
 }
 
 void
@@ -322,6 +370,7 @@ _zlog_assert_failed (const char *assertion, const char *file,
 {
   zlog_err("Assertion `%s' failed in file %s, line %u, function %s",
 	   assertion,file,line,(function ? function : "?"));
+  zlog_backtrace(LOG_ERR);
   abort();
 }
 

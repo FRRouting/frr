@@ -1,5 +1,16 @@
 2004-11-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* log.c: (zlog_backtrace) New function to log a backtrace.
+	  (zlog_backtrace_safe) Log a backtrace in an async-signal-safe way.
+	  Unfortunately, this function does not support syslog logging yet.
+	  (zlog_signal) Move backtrace code into separate function
+	  zlog_backtrace_safe.
+	  (_zlog_assert_failed) Call zlog_backtrace before aborting.
+	* log.h: Declare new functions zlog_backtrace and zlog_backtrace_safe.
+	* memory.c: (zerror) Call zlog_backtrace before aborting.
+
+2004-11-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* Makefile.am: Need to add zassert.h to pkginclude_HEADERS.
 
 2004-11-25 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
