@@ -507,6 +507,70 @@ ospf_swab_iph_toh (struct ip *iph)
   iph->ip_id = ntohs(iph->ip_id);
 }
 
+#ifdef WANT_OSPF_WRITE_FRAGMENT
+void
+ospf_write_frags (struct ospf_packet *op, struct ip *ip, struct msghdr *msg, 
+                  struct iovec *iov, int maxdatasize);
+{
+#define OSPF_WRITE_FRAG_SHIFT 3
+
+  assert ( op->length == stream_get_endp(op->s) );
+
+  /* we can but try.
+   *
+   * SunOS, BSD and BSD derived kernels likely will clear ip_id, as
+   * well as the IP_MF flag, making this all quite pointless.
+   *
+   * However, for a system on which IP_MF is left alone, and ip_id left
+   * alone or else which sets same ip_id for each fragment this might
+   * work, eg linux.
+   *
+   * XXX-TODO: It would be much nicer to have the kernel's use their
+   * existing fragmentation support to do this for us. Bugs/RFEs need to
+   * be raised against the various kernels.
+   */
+  
+  /* set More Frag */
+  iph->ip_off |= IP_MF;
+  
+  /* ip frag offset is expressed in units of 8byte words */
+  offset = maxdatasize >> OSPF_WRITE_FRAG_SHIFT;
+  
+  while ( (stream_get_endp(op->s) - stream_get_getp (op->s)) 
+         > maxdatasize )
+    {
+      /* data length of this frag is to next offset value */
+      iov[1]->iov_len = offset << OSPF_WRITE_FRAG_SHIFT;
+      iph->ip_len = iov[1]->iov_len + sizeof (struct ip);
+      assert (iph->ip_len <= oi->ifp->mtu);
+
+      ospf_swab_iph_ton (iph);
+
+      ret = sendmsg (ospf->fd, msg, flags);
+      
+      ospf_swab_iph_toh (iph);
+      
+      if (ret < 0)
+        zlog_warn ("*** sendmsg in ospf_write to %s,"
+                   " id %d, off %d, len %d failed with %s",
+                   inet_ntoa (iph->ip_dst),
+                   iph->ip_id,
+                   iph->ip_off,
+                   iph->ip_len,
+                   strerror (errno));
+      
+      iph->ip_off += offset;
+      stream_forward (op->s, iov[1]->iov_len);
+      iov[1]->iov_base = STREAM_PNT (op->s); 
+    }
+    
+  /* setup for final fragment */
+  iov[1]->iov_len = stream_get_endp(op->s) - stream_get_getp (op->s);
+  iph->ip_len = iov[1]->iov_len + sizeof (struct ip);
+  iph->ip_off &= (~IP_MF);
+}
+#endif /* WANT_OSPF_WRITE_FRAGMENT */
+
 int
 ospf_write (struct thread *thread)
 {
@@ -521,10 +585,11 @@ ospf_write (struct thread *thread)
   int ret;
   int flags = 0;
   struct listnode *node;
+#ifdef WANT_OSPF_WRITE_FRAGMENT
   static u_int16_t ipid = 0;
+#endif /* WANT_OSPF_WRITE_FRAGMENT */
   u_int16_t maxdatasize, offset;
 #define OSPF_WRITE_IPHL_SHIFT 2
-#define OSPF_WRITE_FRAG_SHIFT 3
   
   ospf->t_write = NULL;
 
@@ -532,11 +597,13 @@ ospf_write (struct thread *thread)
   assert (node);
   oi = getdata (node);
   assert (oi);
-  
+
+#ifdef WANT_OSPF_WRITE_FRAGMENT
   /* seed ipid static with low order bits of time */
   if (ipid == 0)
     ipid = (time(NULL) & 0xffff);
-  
+#endif /* WANT_OSPF_WRITE_FRAGMENT */
+
   /* convenience - max OSPF data per packet */
   maxdatasize = oi->ifp->mtu - sizeof (struct ip);
   
@@ -578,14 +645,15 @@ ospf_write (struct thread *thread)
   iph.ip_v = IPVERSION;
   iph.ip_tos = IPTOS_PREC_INTERNETCONTROL;
   iph.ip_len = (iph.ip_hl << OSPF_WRITE_IPHL_SHIFT) + op->length;
-  iph.ip_id = 0;
 
+#ifdef WANT_OSPF_WRITE_FRAGMENT
   /* XXX-MT: not thread-safe at all..
    * XXX: this presumes this is only programme sending OSPF packets 
    * otherwise, no guarantee ipid will be unique
    */
   iph.ip_id = ++ipid;
-  
+#endif /* WANT_OSPF_WRITE_FRAGMENT */
+
   iph.ip_off = 0;
   if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
     iph.ip_ttl = OSPF_VL_IP_TTL;
@@ -609,63 +677,10 @@ ospf_write (struct thread *thread)
   /* Sadly we can not rely on kernels to fragment packets because of either
    * IP_HDRINCL and/or multicast destination being set.
    */
+#ifdef WANT_OSPF_WRITE_FRAGMENT
   if ( op->length > maxdatasize )
-    {
-      assert ( op->length == stream_get_endp(op->s) );
-
-      /* we can but try.
-       *
-       * SunOS, BSD and BSD derived kernels likely will clear ip_id, as
-       * well as the IP_MF flag, making this all quite pointless.
-       *
-       * However, for a system on which IP_MF is left alone, and ip_id left
-       * alone or else which sets same ip_id for each fragment this might
-       * work, eg linux.
-       *
-       * XXX-TODO: It would be much nicer to have the kernel's use their
-       * existing fragmentation support to do this for us. Bugs/RFEs need to
-       * be raised against the various kernels.
-       */
-      
-      /* set More Frag */
-      iph.ip_off |= IP_MF;
-      
-      /* ip frag offset is expressed in units of 8byte words */
-      offset = maxdatasize >> OSPF_WRITE_FRAG_SHIFT;      
-      
-      while ( (stream_get_endp(op->s) - stream_get_getp (op->s)) 
-             > maxdatasize )
-        {
-          /* data length of this frag is to next offset value */
-          iov[1].iov_len = offset << OSPF_WRITE_FRAG_SHIFT;
-          iph.ip_len = iov[1].iov_len + sizeof (struct ip);
-          assert (iph.ip_len <= oi->ifp->mtu);
-
-          ospf_swab_iph_ton (&iph);
-
-          ret = sendmsg (ospf->fd, &msg, flags);
-          
-          ospf_swab_iph_toh (&iph);
-          
-          if (ret < 0)
-            zlog_warn ("*** sendmsg in ospf_write to %s,"
-                       " id %d, off %d, len %d failed with %s",
-                       inet_ntoa (iph.ip_dst),
-                       iph.ip_id,
-                       iph.ip_off,
-                       iph.ip_len,
-                       strerror (errno));
-          
-          iph.ip_off += offset;
-          stream_forward (op->s, iov[1].iov_len);
-          iov[1].iov_base = STREAM_PNT (op->s); 
-        }
-        
-      /* setup for final fragment */
-      iov[1].iov_len = stream_get_endp(op->s) - stream_get_getp (op->s);
-      iph.ip_len = iov[1].iov_len + sizeof (struct ip);
-      iph.ip_off &= (~IP_MF);
-    }
+    ospf_write_frags (&op, &ip, &msg, &iov, maxdatasize);
+#endif /* WANT_OSPF_WRITE_FRAGMENT */
 
   /* send final fragment (could be first) */
   ospf_swab_iph_ton (&iph);
