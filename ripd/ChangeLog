@@ -1,3 +1,7 @@
+2004-09-26 Hasso Tepper <hasso at quagga.net>
+
+	* ripd.c: Fix compiler warning.
+
 2004-09-23 Hasso Tepper <hasso at quagga.net>
 
 	* *.[c|h]: list -> struct list *, listnode -> struct listnode *.

@@ -31,6 +31,7 @@
 #include "stream.h"
 #include "filter.h"
 #include "sockunion.h"
+#include "sockopt.h"
 #include "routemap.h"
 #include "if_rmap.h"
 #include "plist.h"
