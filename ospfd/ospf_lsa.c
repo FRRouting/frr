@@ -1648,6 +1648,10 @@ ospf_install_flood_nssa (struct ospf *ospf,
   for (node = listhead (ospf->areas); node; nextnode (node))
     {
       struct ospf_area *area = getdata (node);
+      
+      /* Don't install Type-7 LSA's into nonNSSA area */
+      if (area->external_routing != OSPF_AREA_NSSA)
+        continue;
 
       /* make lsa duplicate, lock=1 */
       new2 = ospf_lsa_dup (lsa);
