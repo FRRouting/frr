@@ -1374,10 +1374,14 @@ zebra_accept (struct thread *thread)
     }
 
   /* Make client socket non-blocking.  */
-
+  /* XXX: We dont requeue failed writes, so this leads to inconsistencies.
+   * for now socket must remain blocking, regardless of risk of deadlocks.
+   */
+  /*
   val = fcntl (client_sock, F_GETFL, 0);
   fcntl (client_sock, F_SETFL, (val | O_NONBLOCK));
-
+  */
+  
   /* Create new zebra client. */
   zebra_client_create (client_sock);
 

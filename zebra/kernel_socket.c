@@ -966,8 +966,13 @@ routing_socket ()
       return;
     }
 
-  if (fcntl (routing_sock, F_SETFL, O_NONBLOCK) < 0) 
-    zlog_warn ("Can't set O_NONBLOCK to routing socket");
+  /* XXX: Socket should be NONBLOCK, however as we currently 
+   * discard failed writes, this will lead to inconsistencies.
+   * For now, socket must be blocking.
+   */
+  /*if (fcntl (routing_sock, F_SETFL, O_NONBLOCK) < 0) 
+    zlog_warn ("Can't set O_NONBLOCK to routing socket");*/
+    
   if ( zserv_privs.change (ZPRIVS_LOWER) )
     zlog_err ("routing_socket: Can't lower privileges");
 

@@ -1,3 +1,10 @@
+2005-01-05 Paul Jakma <paul@dishone.st>
+
+	* zserv.c: (zebra_accept) Comment out setting of socket to NONBLOCK
+          for now, as we dont actually deal with with resending.... See
+          bugzilla #122, fix from wawa@yandex-team.ru (Vladimir Ivanov).
+	* kernel_socket.c: (routing_socket) ditto.
+
 2005-01-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* rtadv.c: (rtadv_recv_packet,rtadv_send_packet) Use ZCMSG_FIRSTHDR
