@@ -4,7 +4,7 @@
 ##### if running zebra as root:
 # Only allow root (and possibly wheel) to use this because enable access
 # is unrestricted.
-# auth       sufficient   /lib/security/pam_rootok.so
+auth       sufficient   /lib/security/pam_rootok.so
 
 # Uncomment the following line to implicitly trust users in the "wheel" group.
 #auth       sufficient   /lib/security/pam_wheel.so trust use_uid
