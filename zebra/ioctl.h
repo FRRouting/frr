@@ -40,7 +40,15 @@ void if_get_mtu (struct interface *);
 #ifdef HAVE_IPV6
 int if_prefix_add_ipv6 (struct interface *, struct connected *);
 int if_prefix_delete_ipv6 (struct interface *, struct connected *);
-
 #endif /* HAVE_IPV6 */
+
+#ifdef SOLARIS_IPV6
+int if_ioctl_ipv6(u_long, caddr_t);
+struct connected *if_lookup_linklocal( struct interface *);
+
+#define AF_IOCTL(af, request, buffer) \
+        ((af) == AF_INET? if_ioctl(request, buffer) : \
+                          if_ioctl_ipv6(request, buffer))
+#endif /* SOLARIS_IPV6 */
 
 #endif /* _ZEBRA_IOCTL_H */

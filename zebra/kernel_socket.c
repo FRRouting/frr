@@ -63,14 +63,12 @@ extern struct zebra_t zebrad;
  * but round them up nonetheless.
  */
 #define SAROUNDUP(X) \
-    do { \
     (((struct sockaddr *)(X))->sa_family == AF_INET ?   \
       ROUNDUP(sizeof(struct sockaddr_in)):\
       (((struct sockaddr *)(X))->sa_family == AF_INET6 ? \
        ROUNDUP(sizeof(struct sockaddr_in6)) :  \
        (((struct sockaddr *)(X))->sa_family == AF_LINK ? \
-         ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr)))) \
-    } while (0)
+         ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr))))
 #else /* HAVE_IPV6 */ 
 #define SAROUNDUP(X) \
       (((struct sockaddr *)(X))->sa_family == AF_INET ?   \

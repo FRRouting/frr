@@ -4,7 +4,12 @@
 	* if_ioctl_solaris.c: Fixup some erroneous privilege changes and
 	  add privs.h header.
 	* ioctl_solaris.c: ditto
-	 
+	* ioctl.h: Add if_ioctl_ipv6 prototype and AF_IOCTL for SOLARIS_IPV6
+	* kernel_socket.c: Fix SAROUNDUP, compiler doesnt like do..while
+	  RHS in assignments :)
+	* redistribute.c: (zebra_interface_delete_update) only used
+	  if RTM_IFANNOUNCE and NETLINK is available.
+		 
 2004-05-09 Paul Jakma <paul@dishone.st>
 
 	* zserv.c: (zsend_route_multipath) Set the nexthop_num
