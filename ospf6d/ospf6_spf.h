@@ -26,6 +26,7 @@
 extern unsigned char conf_debug_ospf6_spf;
 #define OSPF6_DEBUG_SPF_PROCESS   0x01
 #define OSPF6_DEBUG_SPF_TIME      0x02
+#define OSPF6_DEBUG_SPF_DATABASE  0x04
 #define OSPF6_DEBUG_SPF_ON(level) \
   (conf_debug_ospf6_spf |= (level))
 #define OSPF6_DEBUG_SPF_OFF(level) \

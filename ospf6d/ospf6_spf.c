@@ -487,6 +487,32 @@ ospf6_spf_calculation (u_int32_t router_id,
   pqueue_delete (candidate_list);
 }
 
+void
+ospf6_spf_log_database (struct ospf6_area *oa)
+{
+  char *p, *end, buffer[256];
+  struct listnode *node;
+  struct ospf6_interface *oi;
+
+  p = buffer;
+  end = buffer + sizeof (buffer);
+
+  snprintf (p, end - p, "SPF on DB (#LSAs):");
+  p = (buffer + strlen (buffer) < end ? buffer + strlen (buffer) : end);
+  snprintf (p, end - p, " Area %s: %d", oa->name, oa->lsdb->count);
+  p = (buffer + strlen (buffer) < end ? buffer + strlen (buffer) : end);
+
+  for (node = listhead (oa->if_list); node; nextnode (node))
+    {
+      oi = (struct ospf6_interface *) getdata (node);
+      snprintf (p, end - p, " I/F %s: %d",
+                oi->interface->name, oi->lsdb->count);
+      p = (buffer + strlen (buffer) < end ? buffer + strlen (buffer) : end);
+    }
+
+  zlog_info ("%s", buffer);
+}
+
 int
 ospf6_spf_calculation_thread (struct thread *t)
 {
@@ -496,20 +522,20 @@ ospf6_spf_calculation_thread (struct thread *t)
   oa = (struct ospf6_area *) THREAD_ARG (t);
   oa->thread_spf_calculation = NULL;
 
-  if (IS_OSPF6_DEBUG_SPF (PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
-    zlog_info ("SPF calculation for area %s", oa->name);
+  if (IS_OSPF6_DEBUG_SPF (PROCESS))
+    zlog_info ("SPF calculation for Area %s", oa->name);
+  if (IS_OSPF6_DEBUG_SPF (DATABASE))
+    ospf6_spf_log_database (oa);
 
   /* execute SPF calculation */
   gettimeofday (&start, (struct timezone *) NULL);
   ospf6_spf_calculation (oa->ospf6->router_id, oa->spf_table, oa);
   gettimeofday (&end, (struct timezone *) NULL);
+  timersub (&end, &start, &runtime);
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
-    {
-      timersub (&end, &start, &runtime);
-      zlog_info ("SPF calculation for area %s: runtime %ld sec %ld usec",
-                 oa->name, runtime.tv_sec, runtime.tv_usec);
-    }
+    zlog_info ("SPF runtime: %ld sec %ld usec",
+               runtime.tv_sec, runtime.tv_usec);
 
   ospf6_intra_route_calculation (oa);
   ospf6_intra_brouter_calculation (oa);
@@ -588,6 +614,21 @@ DEFUN (debug_ospf6_spf_time,
   return CMD_SUCCESS;
 }
 
+DEFUN (debug_ospf6_spf_database,
+       debug_ospf6_spf_database_cmd,
+       "debug ospf6 spf database",
+       DEBUG_STR
+       OSPF6_STR
+       "Debug SPF Calculation\n"
+       "Log number of LSAs at SPF Calculation time\n"
+      )
+{
+  unsigned char level = 0;
+  level = OSPF6_DEBUG_SPF_DATABASE;
+  OSPF6_DEBUG_SPF_ON (level);
+  return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf6_spf_process,
        no_debug_ospf6_spf_process_cmd,
        "no debug ospf6 spf process",
@@ -620,6 +661,22 @@ DEFUN (no_debug_ospf6_spf_time,
   return CMD_SUCCESS;
 }
 
+DEFUN (no_debug_ospf6_spf_database,
+       no_debug_ospf6_spf_database_cmd,
+       "no debug ospf6 spf database",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR
+       "Debug SPF Calculation\n"
+       "Quit Logging number of LSAs at SPF Calculation time\n"
+      )
+{
+  unsigned char level = 0;
+  level = OSPF6_DEBUG_SPF_DATABASE;
+  OSPF6_DEBUG_SPF_OFF (level);
+  return CMD_SUCCESS;
+}
+
 int
 config_write_ospf6_debug_spf (struct vty *vty)
 {
@@ -627,6 +684,8 @@ config_write_ospf6_debug_spf (struct vty *vty)
     vty_out (vty, "debug ospf6 spf process%s", VNL);
   if (IS_OSPF6_DEBUG_SPF (TIME))
     vty_out (vty, "debug ospf6 spf time%s", VNL);
+  if (IS_OSPF6_DEBUG_SPF (DATABASE))
+    vty_out (vty, "debug ospf6 spf database%s", VNL);
   return 0;
 }
 
@@ -635,12 +694,16 @@ install_element_ospf6_debug_spf ()
 {
   install_element (ENABLE_NODE, &debug_ospf6_spf_process_cmd);
   install_element (ENABLE_NODE, &debug_ospf6_spf_time_cmd);
+  install_element (ENABLE_NODE, &debug_ospf6_spf_database_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_spf_process_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_spf_time_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf6_spf_database_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_spf_process_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_spf_time_cmd);
+  install_element (CONFIG_NODE, &debug_ospf6_spf_database_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_spf_process_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_spf_time_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf6_spf_database_cmd);
 }
 
 void

@@ -53,9 +53,12 @@ struct ospf6_lsdb
 struct ospf6_lsdb *ospf6_lsdb_create (void *data);
 void ospf6_lsdb_delete (struct ospf6_lsdb *lsdb);
 
-struct ospf6_lsa *ospf6_lsdb_lookup (u_int16_t type, u_int32_t id,
-                                     u_int32_t adv_router,
-                                     struct ospf6_lsdb *lsdb);
+struct ospf6_lsa *
+ospf6_lsdb_lookup (u_int16_t type, u_int32_t id, u_int32_t adv_router,
+                   struct ospf6_lsdb *lsdb);
+struct ospf6_lsa *
+ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id,
+                        u_int32_t adv_router, struct ospf6_lsdb *lsdb);
 
 void ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
 void ospf6_lsdb_remove (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);

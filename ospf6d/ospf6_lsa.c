@@ -97,6 +97,9 @@ ospf6_get_lsa_handler (u_int16_t type)
   else
     handler = vector_slot (ospf6_lsa_handler_vector, index);
 
+  if (handler == NULL)
+    handler = &unknown_handler;
+
   return handler;
 }
 

@@ -1,7 +1,7 @@
 OSPFV3-MIB DEFINITIONS ::= BEGIN 
  
 IMPORTS 
-        MODULE-IDENTITY, OBJECT-TYPE, mib-2, 
+        MODULE-IDENTITY, OBJECT-TYPE, mib-2, experimental,
         Counter32, Gauge32, Integer32, IpAddress, 
         Unsigned32 
                 FROM SNMPv2-SMI 
@@ -45,7 +45,7 @@ ospfv3MIB MODULE-IDENTITY
          REVISION "200404081200Z" 
          DESCRIPTION -- RFC Editor assigns RFC xxxx 
              "Initial version, published as RFC xxxx" 
-         ::= { mib-2 xx } -- IANA assigns xx 
+         ::= { experimental 102 } -- IANA assigns xx 
  
 -- Texual conventions 
  
@@ -62,7 +62,7 @@ RouterDeadRange ::= TEXTUAL-CONVENTION
             "The range of intervals in seconds that a routers hello 
             must have not been seen before a neighbor declares the 
             router down" 
-         SYNTAX        Integer32 (1..ÆFFFFÆh) 
+         SYNTAX        Integer32 (1..'FFFF'h) 
 
  
 -- Top-level structure of MIB 
@@ -420,7 +420,7 @@ Ospfv3AreaEntry ::= SEQUENCE {
  
 ospfv3AreaId OBJECT-TYPE 
         SYNTAX          AreaID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "A 32-bit integer uniquely identifying an area. 
@@ -654,8 +654,8 @@ Ospfv3AsLsdbEntry ::= SEQUENCE {
         } 
  
 ospfv3AsLsdbType OBJECT-TYPE 
-        SYNTAX          Unsigned32(0..'FFFFFFFF'h) 
-        MAX-ACCESS      not-accessible 
+        SYNTAX          Unsigned32 (0..4294967295)
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The type of the link state advertisement. 
@@ -666,7 +666,7 @@ ospfv3AsLsdbType OBJECT-TYPE
  
 ospfv3AsLsdbRouterId OBJECT-TYPE 
         SYNTAX          RouterID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The 32 bit number that uniquely identifies the 
@@ -677,7 +677,7 @@ ospfv3AsLsdbRouterId OBJECT-TYPE
  
 ospfv3AsLsdbLsid OBJECT-TYPE 
         SYNTAX          IpAddress 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The Link State ID is an LS Type Specific field 
@@ -806,7 +806,7 @@ Ospfv3AreaLsdbEntry ::= SEQUENCE {
  
 ospfv3AreaLsdbAreaId OBJECT-TYPE 
         SYNTAX          AreaID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The 32 bit identifier of the Area from which the 
@@ -816,8 +816,8 @@ ospfv3AreaLsdbAreaId OBJECT-TYPE
         ::= { ospfv3AreaLsdbEntry 1 } 
  
 ospfv3AreaLsdbType OBJECT-TYPE 
-        SYNTAX          Unsigned32(0..'FFFFFFFF'h) 
-        MAX-ACCESS      not-accessible 
+        SYNTAX          Unsigned32 (0..4294967295)
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The type  of  the  link  state  advertisement. 
@@ -828,7 +828,7 @@ ospfv3AreaLsdbType OBJECT-TYPE
  
 ospfv3AreaLsdbRouterId OBJECT-TYPE 
         SYNTAX          RouterID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The 32 bit number that uniquely identifies the 
@@ -839,7 +839,7 @@ ospfv3AreaLsdbRouterId OBJECT-TYPE
  
 ospfv3AreaLsdbLsid OBJECT-TYPE 
         SYNTAX          IpAddress 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The Link State ID is an LS Type Specific field 
@@ -967,7 +967,7 @@ Ospfv3LinkLsdbEntry ::= SEQUENCE {
  
 ospfv3LinkLsdbIfIndex OBJECT-TYPE 
         SYNTAX         InterfaceIndex 
-        MAX-ACCESS     not-accessible 
+        MAX-ACCESS     read-only 
         STATUS         current 
         DESCRIPTION 
             "The identifier of the link from which the LSA 
@@ -977,8 +977,8 @@ ospfv3LinkLsdbIfIndex OBJECT-TYPE
         ::= { ospfv3LinkLsdbEntry 1 } 
  
 ospfv3LinkLsdbType OBJECT-TYPE 
-        SYNTAX          Unsigned32(0..'FFFFFFFF'h) 
-        MAX-ACCESS      not-accessible 
+        SYNTAX          Unsigned32 (0..4294967295)
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The type of the link state advertisement. 
@@ -989,7 +989,7 @@ ospfv3LinkLsdbType OBJECT-TYPE
  
 ospfv3LinkLsdbRouterId OBJECT-TYPE 
         SYNTAX          RouterID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The 32 bit number that uniquely identifies the 
@@ -1000,7 +1000,7 @@ ospfv3LinkLsdbRouterId OBJECT-TYPE
  
 ospfv3LinkLsdbLsid OBJECT-TYPE 
         SYNTAX        IpAddress 
-        MAX-ACCESS    not-accessible 
+        MAX-ACCESS    read-only 
         STATUS        current 
         DESCRIPTION 
             "The Link State ID is an LS Type Specific field 
@@ -1125,7 +1125,7 @@ Ospfv3HostEntry ::= SEQUENCE {
  
 ospfv3HostAddressType OBJECT-TYPE 
         SYNTAX          InetAddressType 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The address type of ospfv3HostAddress. Only IPv6 
@@ -1138,7 +1138,7 @@ ospfv3HostAddressType OBJECT-TYPE
  
 ospfv3HostAddress OBJECT-TYPE 
         SYNTAX          InetAddress (SIZE (16)) 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The IPv6 Address of the Host. Must be a Global 
@@ -1259,7 +1259,7 @@ Ospfv3IfEntry ::= SEQUENCE {
  
 ospfv3IfIndex OBJECT-TYPE 
         SYNTAX          InterfaceIndex 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The interface index of this OSPFv3 interface. 
@@ -1608,7 +1608,7 @@ Ospfv3VirtIfEntry ::= SEQUENCE {
  
 ospfv3VirtIfAreaId OBJECT-TYPE 
         SYNTAX          AreaID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The  Transit  Area  that  the   Virtual   Link 
@@ -1617,7 +1617,7 @@ ospfv3VirtIfAreaId OBJECT-TYPE
  
 ospfv3VirtIfNeighbor OBJECT-TYPE 
         SYNTAX          RouterID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The Router ID of the Virtual Neighbor." 
@@ -1805,7 +1805,7 @@ Ospfv3NbrEntry ::= SEQUENCE {
  
 ospfv3NbrIfIndex OBJECT-TYPE 
         SYNTAX          InterfaceIndex 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The local link ID of the link over which the 
@@ -1814,7 +1814,7 @@ ospfv3NbrIfIndex OBJECT-TYPE
  
 ospfv3NbrRtrId OBJECT-TYPE 
         SYNTAX          RouterID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "A 32-bit integer (represented as a type  IpAd- 
@@ -2018,7 +2018,7 @@ Ospfv3NbmaNbrEntry ::= SEQUENCE {
  
 ospfv3NbmaNbrIfIndex OBJECT-TYPE 
         SYNTAX          InterfaceIndex 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The local link ID of the link over which the 
@@ -2027,7 +2027,7 @@ ospfv3NbmaNbrIfIndex OBJECT-TYPE
  
 ospfv3NbmaNbrAddressType OBJECT-TYPE 
         SYNTAX          InetAddressType 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The address type of ospfv3NbrAddress. Only IPv6 
@@ -2036,7 +2036,7 @@ ospfv3NbmaNbrAddressType OBJECT-TYPE
  
 ospfv3NbmaNbrAddress OBJECT-TYPE 
         SYNTAX          InetAddress (SIZE (16)) 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The IPv6 address of the neighbor associated with 
@@ -2173,7 +2173,7 @@ Ospfv3VirtNbrEntry ::= SEQUENCE {
  
 ospfv3VirtNbrArea OBJECT-TYPE 
         SYNTAX          AreaID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The Transit Area Identifier." 
@@ -2181,7 +2181,7 @@ ospfv3VirtNbrArea OBJECT-TYPE
  
 ospfv3VirtNbrRtrId OBJECT-TYPE 
         SYNTAX          RouterID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "A  32-bit  integer  uniquely  identifying  the 
@@ -2378,7 +2378,7 @@ Ospfv3AreaAggregateEntry ::= SEQUENCE {
  
 ospfv3AreaAggregateAreaID OBJECT-TYPE 
         SYNTAX          AreaID 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The Area the Address Aggregate is to be  found 
@@ -2392,7 +2392,7 @@ ospfv3AreaAggregateAreaLsdbType OBJECT-TYPE
                         interAreaPrefixLsa(8195), -- 0x2003 
                         nssaExternalLsa(8199)     -- 0x2007 
                         } 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The type of the Address Aggregate.  This field 
@@ -2405,7 +2405,7 @@ ospfv3AreaAggregateAreaLsdbType OBJECT-TYPE
  
 ospfv3AreaAggregatePrefixType OBJECT-TYPE 
         SYNTAX          InetAddressType 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The prefix type of ospfv3AreaAggregatePrefix. Only 
@@ -2414,7 +2414,7 @@ ospfv3AreaAggregatePrefixType OBJECT-TYPE
  
 ospfv3AreaAggregatePrefix OBJECT-TYPE 
         SYNTAX          InetAddress (SIZE (0..16)) 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The IPv6 Prefix." 
@@ -2425,7 +2425,7 @@ ospfv3AreaAggregatePrefix OBJECT-TYPE
 ospfv3AreaAggregatePrefixLength OBJECT-TYPE 
         SYNTAX          InetAddressPrefixLength (3..128) 
         UNITS           "bits" 
-        MAX-ACCESS      not-accessible 
+        MAX-ACCESS      read-only 
         STATUS          current 
         DESCRIPTION 
             "The length of the prefix (in bits). A prefix can 

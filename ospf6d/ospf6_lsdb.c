@@ -258,6 +258,81 @@ ospf6_lsdb_lookup (u_int16_t type, u_int32_t id, u_int32_t adv_router,
   return (struct ospf6_lsa *) node->info;
 }
 
+/* Macro version of check_bit (). */
+#define CHECK_BIT(X,P) ((((u_char *)(X))[(P) / 8]) >> (7 - ((P) % 8)) & 1)
+
+struct ospf6_lsa *
+ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id, u_int32_t adv_router,
+                        struct ospf6_lsdb *lsdb)
+{
+  struct route_node *node;
+  struct route_node *matched = NULL;
+  struct prefix_ipv6 key;
+  struct prefix *p;
+
+  if (lsdb == NULL)
+    return NULL;
+
+  memset (&key, 0, sizeof (key));
+  ospf6_lsdb_set_key (&key, &type, sizeof (type));
+  ospf6_lsdb_set_key (&key, &adv_router, sizeof (adv_router));
+  ospf6_lsdb_set_key (&key, &id, sizeof (id));
+  p = (struct prefix *) &key;
+
+  {
+    char buf[64];
+    prefix2str (p, buf, sizeof (buf));
+    zlog_info ("lsdb_lookup_next: key: %s", buf);
+  }
+
+  node = lsdb->table->top;
+  /* walk down tree. */
+  while (node && node->p.prefixlen <= p->prefixlen &&
+         prefix_match (&node->p, p))
+    {
+      matched = node;
+      node = node->link[CHECK_BIT(&p->u.prefix, node->p.prefixlen)];
+    }
+
+  if (matched)
+    node = matched;
+  else
+    node = lsdb->table->top;
+  route_lock_node (node);
+
+  /* skip to real existing entry */
+  while (node && node->info == NULL)
+    node = route_next (node);
+
+  if (! node)
+    return NULL;
+
+  if (prefix_same (&node->p, p))
+    {
+      struct route_node *prev = node;
+      struct ospf6_lsa *lsa_prev;
+      struct ospf6_lsa *lsa_next;
+
+      node = route_next (node);
+      while (node && node->info == NULL)
+        node = route_next (node);
+
+      lsa_prev = prev->info;
+      lsa_next = (node ? node->info : NULL);
+      assert (lsa_prev);
+      assert (lsa_prev->next == lsa_next);
+      if (lsa_next)
+        assert (lsa_next->prev == lsa_prev);
+      zlog_info ("lsdb_lookup_next: assert OK with previous LSA");
+    }
+
+  if (! node)
+    return NULL;
+
+  route_unlock_node (node);
+  return (struct ospf6_lsa *) node->info;
+}
+
 /* Iteration function */
 struct ospf6_lsa *
 ospf6_lsdb_head (struct ospf6_lsdb *lsdb)
@@ -291,9 +366,6 @@ ospf6_lsdb_next (struct ospf6_lsa *lsa)
 
   return next;
 }
-
-/* Macro version of check_bit (). */
-#define CHECK_BIT(X,P) ((((u_char *)(X))[(P) / 8]) >> (7 - ((P) % 8)) & 1)
 
 struct ospf6_lsa *
 ospf6_lsdb_type_router_head (u_int16_t type, u_int32_t adv_router,

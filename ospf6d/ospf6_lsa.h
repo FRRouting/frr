@@ -148,6 +148,10 @@ struct ospf6_lsa_handler
   u_char debug;
 };
 
+extern struct ospf6_lsa_handler unknown_handler;
+#define OSPF6_LSA_IS_KNOWN(type) \
+  (ospf6_get_lsa_handler (type) != &unknown_handler ? 1 : 0)
+
 /* Macro for LSA Origination */
 /* addr is (struct prefix *) */
 #define CONTINUE_IF_ADDRESS_LINKLOCAL(debug,addr)      \
@@ -236,6 +240,8 @@ int ospf6_lsa_prohibited_duration (u_int16_t type, u_int32_t id,
                                    u_int32_t adv_router, void *scope);
 
 void ospf6_install_lsa_handler (struct ospf6_lsa_handler *handler);
+struct ospf6_lsa_handler *ospf6_get_lsa_handler (u_int16_t type);
+
 void ospf6_lsa_init ();
 void ospf6_lsa_cmd_init ();
 

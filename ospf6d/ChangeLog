@@ -49,6 +49,15 @@
 	
 2004-10-06  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
+	* ospf6_snmp.c: add partial support for SNMP
+	(i.e. ospfv3AreaLsdbTable).
+	* OSPFv3-MIB.txt: Net-SNMP translate Unsigned32 range
+	(0..'FFFFFFFF'h) incorrectly to (0..-1). Those parts for
+	Unsigned32 range are changed to (0..4294967295).
+	Also, doubtful 'not-accessible's are changed to read-only.
+
+2004-10-06  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
 	* ospf6_snmp.[ch], OSPFV3-MIB.txt: start supporting SNMP.
 	it follows draft-ietf-ospf-ospfv3-mib-08.txt, but change
 	OSPFv3 tree to {experimental 102} based on
