@@ -607,9 +607,8 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 {
   struct ospf_hello *hello;
   struct ospf_neighbor *nbr;
-  struct route_node *rn;
-  struct prefix p, key;
   int old_state;
+  struct prefix p;
 
   /* increment statistics. */
   oi->hello_in++;
@@ -736,70 +735,12 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 		   OPTIONS (oi), hello->options);
 	return;
       }
-
-
-  /* Get neighbor information from table. */
-  key.family = AF_INET;
-  key.prefixlen = IPV4_MAX_BITLEN;
-  key.u.prefix4 = iph->ip_src;
-
-  rn = route_node_get (oi->nbrs, &key);
-  if (rn->info)
-    {
-      route_unlock_node (rn);
-      nbr = rn->info;
-
-      if (oi->type == OSPF_IFTYPE_NBMA && nbr->state == NSM_Attempt)
-	{
-	  nbr->src = iph->ip_src;
-	  nbr->address = p;
-	}
-    }
-  else
-    {
-      /* Create new OSPF Neighbor structure. */
-      nbr = ospf_nbr_new (oi);
-      nbr->state = NSM_Down;
-      nbr->src = iph->ip_src;
-      nbr->address = p;
-
-      rn->info = nbr;
-
-      nbr->nbr_nbma = NULL;
-
-      if (oi->type == OSPF_IFTYPE_NBMA)
-	{
-	  struct ospf_nbr_nbma *nbr_nbma;
-	  listnode node;
-
-	  for (node = listhead (oi->nbr_nbma); node; nextnode (node))
-	    {
-	      nbr_nbma = getdata (node);
-	      assert (nbr_nbma);
-      
-	      if (IPV4_ADDR_SAME(&nbr_nbma->addr, &iph->ip_src))
-		{
-		  nbr_nbma->nbr = nbr;
-		  nbr->nbr_nbma = nbr_nbma;
-
-		  if (nbr_nbma->t_poll)
-		    OSPF_POLL_TIMER_OFF (nbr_nbma->t_poll);
-		  
-		  nbr->state_change = nbr_nbma->state_change + 1;
-		}
-	    }
-	}
-      
-      /* New nbr, save the crypto sequence number if necessary */
-      if (ntohs (ospfh->auth_type) == OSPF_AUTH_CRYPTOGRAPHIC)
-	nbr->crypt_seqnum = ospfh->u.crypt.crypt_seqnum;
-
-      if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("NSM[%s:%s]: start", IF_NAME (nbr->oi),
-		   inet_ntoa (nbr->router_id));
-    }
   
-  nbr->router_id = ospfh->router_id;
+  /* get neighbour struct */
+  nbr = ospf_nbr_get (oi, ospfh, iph, &p);
+
+  /* neighbour must be valid, ospf_nbr_get creates if none existed */
+  assert (nbr);
 
   old_state = nbr->state;
 
@@ -1029,7 +970,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 
   dd = (struct ospf_db_desc *) STREAM_PNT (s);
 
-  nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &iph->ip_src);
+  nbr = ospf_nbr_lookup (oi, iph, ospfh);
   if (nbr == NULL)
     {
       zlog_warn ("Packet[DD]: Unknown Neighbor %s",
@@ -1286,7 +1227,7 @@ ospf_ls_req (struct ip *iph, struct ospf_header *ospfh,
   /* Increment statistics. */
   oi->ls_req_in++;
 
-  nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &iph->ip_src);
+  nbr = ospf_nbr_lookup (oi, iph, ospfh);
   if (nbr == NULL)
     {
       zlog_warn ("Link State Request: Unknown Neighbor %s.",
@@ -1520,7 +1461,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
   oi->ls_upd_in++;
 
   /* Check neighbor. */
-  nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &iph->ip_src);
+  nbr = ospf_nbr_lookup (oi, iph, ospfh);
   if (nbr == NULL)
     {
       zlog_warn ("Link State Update: Unknown Neighbor %s on int: %s",
@@ -1881,7 +1822,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
   /* increment statistics. */
   oi->ls_ack_in++;
 
-  nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &iph->ip_src);
+  nbr = ospf_nbr_lookup (oi, iph, ospfh);
   if (nbr == NULL)
     {
       zlog_warn ("Link State Acknowledgment: Unknown Neighbor %s.",
@@ -2043,8 +1984,7 @@ ospf_recv_packet (int fd, struct interface **ifp)
 }
 
 struct ospf_interface *
-ospf_associate_packet_vl (struct ospf *ospf,
-			  struct interface *ifp, struct ospf_interface *oi,
+ospf_associate_packet_vl (struct ospf *ospf, struct interface *ifp, 
 			  struct ip *iph, struct ospf_header *ospfh)
 {
   struct ospf_interface *rcv_oi;
@@ -2054,14 +1994,16 @@ ospf_associate_packet_vl (struct ospf *ospf,
 
   if (IN_MULTICAST (ntohl (iph->ip_dst.s_addr)) ||
       !OSPF_IS_AREA_BACKBONE (ospfh))
-    return oi;
+    return NULL;
 
-  if ((rcv_oi = oi) == NULL)
-    {
-     if ((rcv_oi = ospf_if_lookup_by_local_addr (ospf, NULL, 
-                                                 iph->ip_dst)) == NULL)
-       return NULL;
-    }
+  /* look for local OSPF interface matching the destination
+   * to determine Area ID. We presume therefore the destination address
+   * is unique, or at least (for "unnumbered" links), not used in other 
+   * areas
+   */
+  if ((rcv_oi = ospf_if_lookup_by_local_addr (ospf, NULL, 
+                                              iph->ip_dst)) == NULL)
+    return NULL;
 
   for (node = listhead (ospf->vlinks); node; nextnode (node))
     {
@@ -2092,7 +2034,7 @@ ospf_associate_packet_vl (struct ospf *ospf,
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("couldn't find any VL to associate the packet with");
   
-  return oi;
+  return NULL;
 }
 
 int
@@ -2287,6 +2229,12 @@ ospf_read (struct thread *thread)
   if (ibuf == NULL)
     return -1;
   
+  if (ifp == NULL)
+    {
+      stream_free (ibuf);
+      return 0;
+    }
+    
   iph = (struct ip *) STREAM_DATA (ibuf);
 
   /* prepare for next packet. */
@@ -2316,23 +2264,33 @@ ospf_read (struct thread *thread)
 
   /* associate packet with ospf interface */
   oi = ospf_if_lookup_recv_if (ospf, iph->ip_src);
-  if (ifp && oi && oi->ifp != ifp)
+
+  /* if no local ospf_interface, 
+   * or header area is backbone but ospf_interface is not
+   * check for VLINK interface
+   */
+  if ( (oi == NULL) ||
+      (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id)
+      && !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id))
+     )
+    {
+      if ((oi = ospf_associate_packet_vl (ospf, ifp, iph, ospfh)) == NULL)
+        {
+          zlog_warn ("Packet from [%s] received on link %s"
+                     " but no ospf_interface",
+                     inet_ntoa (iph->ip_src), ifp->name);
+          stream_free (ibuf);
+          return 0;
+        }
+    }
+    
+  /* else it must be a local ospf interface, check it was received on 
+   * correct link 
+   */
+  else if (oi->ifp != ifp)
     {
       zlog_warn ("Packet from [%s] received on wrong link %s",
                  inet_ntoa (iph->ip_src), ifp->name); 
-      stream_free (ibuf);
-      return 0;
-    }
-  
-  if ((oi = ospf_associate_packet_vl (ospf, ifp, oi, iph, ospfh)) == NULL)
-    {
-      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
-        {
-          zlog_info ("ospf_read[%s/%s]: Could not associate packet with VL, "
-                     "dropping.",
-                     ospf_packet_type_str[ospfh->type],
-                     inet_ntoa (iph->ip_src));
-        }
       stream_free (ibuf);
       return 0;
     }

@@ -1,3 +1,18 @@
+2004-05-05 Paul Jakma <paul@dishone.st>
+
+	* ospf_packet.c:  (ospf_associate_packet_vl) cleanup, move 
+	  some of the checks up to ospf_read, return either a 
+	  virtual link oi, or NULL. 
+	  (ospf_read) Cleanup, make it responsible for checks. Remove
+	  the nbr lookup - moved to ospf_neighbor. Adjust all nbr
+	  lookups to use new wrappers exported by ospf_neighbor.
+	* ospf_neighbor.h: Add ospf_neigbour_get and ospf_nbr_lookup.
+	* ospf_neighbor.c: (ospf_neigbour_get) Index ospf_interface 
+	  neighbour table by router-id for virtual-link ospf_interfaces, 
+	  not by peer_addr (which breaks for asymmetric vlinks)
+	  (ospf_nbr_lookup) add a wrapper for nbr lookups to deal with
+	  above.
+
 2004-04-22 Hasso Tepper <hasso@estpak.ee>
 
 	* ospf_zebra.c: Don't ignore reject/bh routes, it's the only way
