@@ -540,11 +540,10 @@ else
   OSPFD="ospfd"
 fi
 
-OSPFAPI=""
 OSPFCLIENT=""
 if test "${enable_opaque_lsa}" = "yes"; then
   if test "${enable_ospfapi}" != "no";then
-    OSPFAPI="-DSUPPORT_OSPF_API"
+    AC_DEFINE(SUPPORT_OSPF_API,,OSPFAPI)
 
     if test "${enable_ospfclient}" != "no";then
       OSPFCLIENT="ospfclient"
