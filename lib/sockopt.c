@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 #include "log.h"
+#include "sockopt.h"
 
 static void *
 getsockopt_cmsg_data (struct msghdr *msgh, int level, int type)
@@ -125,7 +126,7 @@ setsockopt_ipv6_multicast_loop (int sock, int val)
 }
 
 static int
-getsockopt_ipv6_pktinfo_ifindex (struct msghdr *msgh)
+getsockopt_ipv6_ifindex (struct msghdr *msgh)
 {
   struct in6_pktinfo *pktinfo;
   
@@ -221,7 +222,7 @@ setsockopt_multicast_ipv4(int sock,
 }
 
 static int
-setsockopt_ipv4_pktinfo (int sock, int val)
+setsockopt_ipv4_ifindex (int sock, int val)
 {
   int ret;
 
@@ -243,6 +244,7 @@ setsockopt_ipv4_pktinfo (int sock, int val)
 /* set appropriate pktinfo socket option 
  * on systems without PKTINFO, sets RECVIF, which only retrieves
  * interface index.
+ * Not portable for IPv4, use only setsockopt_ifindex for v4.
  */
 int 
 setsockopt_pktinfo (int af, int sock, int val)
@@ -252,7 +254,8 @@ setsockopt_pktinfo (int af, int sock, int val)
   switch (af)
     {
       case AF_INET:
-        ret = setsockopt_ipv4_pktinfo (sock, val);
+        /* _ifindex will use PKTINFO if available.. */
+        ret = setsockopt_ipv4_ifindex (sock, val);
         break;
 #ifdef HAVE_IPV6
       case AF_INET6:
@@ -265,62 +268,83 @@ setsockopt_pktinfo (int af, int sock, int val)
   return ret;
 }
 
-
-static int
-getsockopt_ipv4_pktinfo_ifindex (struct msghdr *msgh)
+int
+setsockopt_ifindex (int af, int sock, int val)
 {
-  int ifindex = 0;
-#if defined (IP_PKTINFO)
+  int ret = -1;
+  
+  switch (af)
+    {
+      case AF_INET:
+        ret = setsockopt_ipv4_ifindex (sock, val);
+        break;
+#ifdef HAVE_IPV6
+      case AF_INET6:
+        ret = setsockopt_ipv6_pktinfo (sock, val);
+        break;
+#endif
+      default:
+        zlog_warn ("setsockopt_ifindex: unknown address family %d");
+    }
+  return ret;
+}
+  
+static int
+getsockopt_ipv4_ifindex (struct msghdr *msgh)
+{
+  int ifindex = -1;
+#if defined(IP_PKTINFO)
+/* Linux pktinfo based ifindex retrieval */
   struct in_pktinfo *pktinfo;
-#elif defined (IP_RECVIF)
+  
+  pktinfo = 
+    (struct in_pktinfo *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_PKTINFO);
+  ifindex = pktinfo->ipi_ifindex;
+  
+#elif defined(IP_RECVIF)
+/* BSD/other IP_RECVIF based ifindex retrieval */
 #ifndef SUNOS_5
   /* RECVIF, but not SUNOS, so BSD */
   struct sockaddr_dl *sdl;
 #endif /* SUNOS_5 */
   /* SUNOS_5 doesn't need a structure to extract ifindex */
-#else /* IP_RECVIF */
-  /* XXX Neither, so we are going to lose. */
-#endif /* IP_PKTINFO */
-  
-#ifdef IP_PKTINFO
-  pktinfo = 
-    (struct in_pktinfo *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_PKTINFO);
-#elif defined (IP_RECVIF)
+
 #ifndef SUNOS_5
   sdl = 
     (struct sockaddr_dl *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_RECVIF);
   ifindex = sdl->sdl_index;
-#else
+#else /* !SUNOS_5 */
   ifindex = *(uint_t *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_RECVIF);
 #endif /* SUNOS_5 */
-#else
+
+#else /* neither IP_PKTINFO nor IP_RECVIF, broken */
+
 #warning "getsockopt_ipv4_pktinfo_ifindex: dont have PKTINFO or RECVIF"
+#warning "things will be broken on this platform!"
   /* XXX why not -1 - this is a failure condition. */
-  ifindex = 0;
-#endif /* IP_PKTINFO */
- 
+  ifindex = -1;
+#endif /* IP_PKTINFO */ 
   return ifindex;
 }
 
 /* return ifindex, 0 if none found */
 int
-getsockopt_pktinfo_ifindex (int af, struct msghdr *msgh)
+getsockopt_ifindex (int af, struct msghdr *msgh)
 {
   int ifindex = 0;
   
   switch (af)
     {
       case AF_INET:
-        return (getsockopt_ipv4_pktinfo_ifindex (msgh));
+        return (getsockopt_ipv4_ifindex (msgh));
         break;
 #ifdef HAVE_IPV6
       case AF_INET6:
-        return (getsockopt_ipv6_pktinfo_ifindex (msgh));
+        return (getsockopt_ipv6_ifindex (msgh));
         break;
 #endif
       default:
-        zlog_warn ("getsockopt_pktinfo_ifindex: unknown address family %d");
+        zlog_warn ("getsockopt_ifindex: unknown address family %d");
         return (ifindex = 0);
     }
 }
-

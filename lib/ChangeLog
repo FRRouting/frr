@@ -1,3 +1,25 @@
+2004-08-19 Paul Jakma <paul@dishone.st>
+
+	* sockopt.c: include sockopt.h
+	  rename some of the _pktinfo_ functions to _ifindex, where that is
+	  their purpose.
+          (getsockopt_ipv6_pktinfo_ifindex) renamed to
+	  getsockopt_ipv6_ifindex.
+	  (setsockopt_ipv4_pktinfo) renamed to setsockopt_ipv4_ifindex
+	  (setsockopt_pktinfo) update with previous and add comment re
+	  AF_INET portability.
+	  (setsockopt_ifindex) generic ifindex function ala
+	  setsockopt_pktinfo.
+	  (getsockopt_ipv4_pktinfo_ifindex) renamed to
+	  getsockopt_ipv4_ifindex.
+	  (getsockopt_ipv4_ifindex) rejiggling to reduce repeated
+          ifdef/elses. pktinfo case forgot to set ifindex.
+          (getsockopt_pktinfo_ifindex) renamed to 
+          getsockopt_ifindex. update some calls to renamed functions.
+        * sockopt.h: Update renamed exported functions
+          Rename the CMSG_SIZE macros to IFINDEX.
+          Guard IPv4 PKTINFO in a conditional define.
+
 2004-08-18 Paul Jakma <paul@dishone.st>
 
 	* vty.c: (vty_serv_un) set unix vty socket to nonblocking
