@@ -543,7 +543,7 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
                                                               [IFA_BROADCAST]),
                                                     buf, BUFSIZ));
       if (tb[IFA_LABEL] && strcmp (ifp->name, RTA_DATA (tb[IFA_LABEL])))
-        zlog_info ("  IFA_LABEL     %s", RTA_DATA (tb[IFA_LABEL]));
+        zlog_info ("  IFA_LABEL     %s", (char *)RTA_DATA (tb[IFA_LABEL]));
     }
   
   if (tb[IFA_ADDRESS] == NULL)
