@@ -3113,19 +3113,23 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
 {
   struct ospf_interface *oi = THREAD_ARG(thread);
   struct route_node *rn;
+  struct route_node *rnext;
   
   oi->t_ls_upd_event = NULL;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("ospf_ls_upd_send_queue start");
 
-  for (rn = route_top (oi->ls_upd_queue); rn; rn = route_next (rn))
+  for (rn = route_top (oi->ls_upd_queue); rn; rn = rnext)
     {
+      
+      rnext = route_next (rn);
+      
       if (rn->info == NULL)
-	continue;
+        continue;
 
       while (!list_isempty ((list)rn->info))
-	ospf_ls_upd_queue_send (oi, rn->info, rn->p.u.prefix4);
+        ospf_ls_upd_queue_send (oi, rn->info, rn->p.u.prefix4);
 
       list_delete (rn->info);
       rn->info = NULL;

@@ -1,3 +1,10 @@
+2003-07-25 kamatchi soundaram <kamatchi@tdd.sj.nec.com>
+
+        * ospf_packet.c (ospf_ls_upd_send_queue_event): get next route
+          node in body of the loop to avoid chance that route node
+          is unlocked and deleted before the next iteration tries to 
+          get next route node.
+
 2003-05-24 Kenji Yabuuchi
 
 	* ospf_interface.c(ospf_if_lookup_recv_if): Use the most specific
