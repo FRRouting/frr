@@ -472,14 +472,12 @@ ospf_area_free (struct ospf_area *area)
                ospf_lsa_discard_callback);
   foreach_lsa (OPAQUE_LINK_LSDB (area), area->lsdb, 0,
                ospf_lsa_discard_callback);
+  ospf_opaque_type10_lsa_term (area);
 #endif /* HAVE_OPAQUE_LSA */
 
   ospf_lsdb_delete_all (area->lsdb);
   ospf_lsdb_free (area->lsdb);
 
-#ifdef HAVE_OPAQUE_LSA
-  ospf_opaque_type10_lsa_term (area);
-#endif /* HAVE_OPAQUE_LSA */
   ospf_lsa_unlock (area->router_lsa_self);
   
   route_table_finish (area->ranges);
@@ -722,8 +720,11 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 	  else 
 	    addr = co->address;
 
-	  if (ospf_network_match_iface(co,p))
+	  if (p->family == co->address->family 
+	      && ! ospf_if_is_configured (&(addr->u.prefix4))
+	      && ospf_network_match_iface(co,p))
 	    {
+	    assert(co);
 	    struct ospf_interface *oi;
 		
 		oi = ospf_if_new (ifp, co->address);
