@@ -144,7 +144,7 @@ sighup (void)
 void
 sigint (void)
 {
-  zlog (NULL, LOG_INFO, "Terminating on signal");
+  zlog_notice ("Terminating on signal");
 
   if (! retain_mode)
     rip_clean ();
@@ -289,6 +289,9 @@ main (int argc, char **argv)
 
   /* Create VTY's socket */
   vty_serv_sock (vty_addr, vty_port, RIP_VTYSH_PATH);
+
+  /* Print banner. */
+  zlog_notice ("RIPd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
 
   /* Execute each thread. */
   while (thread_fetch (master, &thread))

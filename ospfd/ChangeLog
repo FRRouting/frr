@@ -1,3 +1,8 @@
+2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_main.c: (sigint) Use zlog_notice for termination message.
+	  (main) Issue a startup announcement using zlog_notice.
+
 2004-11-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_packet.c: (ospf_db_desc_proc) Fix spelling of packet in warning

@@ -1,3 +1,12 @@
+2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf6_main.c: (sigint,sigterm) Use zlog_notice for termination
+	  message.
+	  (main) Remove commented-out call to pid_output_lock (which should
+	  never be called other than from inside pid_output).  And use
+	  zlog_notice to print the startup message, which now includes
+	  the vty port.
+
 2004-11-26 Hasso Tepper <hasso at quagga.net>
 
 	* ospf6_snmp.c: Fix compile: listnode -> struct listnode *.

@@ -173,7 +173,7 @@ sighup (void)
 void
 sigint (void)
 {
-  zlog (NULL, LOG_INFO, "Terminating on signal");
+  zlog_notice ("Terminating on signal");
 
   if (! retain_mode)
     bgp_terminate ();
@@ -305,8 +305,8 @@ main (int argc, char **argv)
   vty_serv_sock (vty_addr, vty_port, BGP_VTYSH_PATH);
 
   /* Print banner. */
-  zlog_info ("BGPd %s starting: vty@%d, bgp@%d", QUAGGA_VERSION,
-	     vty_port, bm->port);
+  zlog_notice ("BGPd %s starting: vty@%d, bgp@%d", QUAGGA_VERSION,
+	       vty_port, bm->port);
 
   /* Start finite state machine, here we go! */
   while (thread_fetch (master, &thread))

@@ -141,7 +141,7 @@ sighup (void)
 void
 sigint (void)
 {
-  zlog (NULL, LOG_INFO, "Terminating on signal");
+  zlog_notice ("Terminating on signal");
 
   ospf_terminate ();
 
@@ -317,10 +317,8 @@ main (int argc, char **argv)
   /* Create VTY socket */
   vty_serv_sock (vty_addr, vty_port, OSPF_VTYSH_PATH);
 
-#ifdef DEBUG
   /* Print banner. */
-  zlog (NULL, LOG_INFO, "OSPFd (%s) starts", QUAGGA_VERSION);
-#endif
+  zlog_notice ("OSPFd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
 
   /* Fetch next active thread. */
   while (thread_fetch (master, &thread))

@@ -1,3 +1,8 @@
+2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* rip_main.c: (sigint) Use zlog_notice for termination message.
+	  (main) Add a startup announcement using zlog_notice.
+
 2004-11-25 Hasso Tepper <hasso at quagga.net>
 
 	* rip_main.c: Make group to run as configurable.

@@ -165,7 +165,7 @@ sigint (void)
   /* Decrared in rib.c */
   void rib_close ();
 
-  zlog_info ("Terminating on signal");
+  zlog_notice ("Terminating on signal");
 
   if (!retain_mode)
     rib_close ();
@@ -371,6 +371,9 @@ main (int argc, char **argv)
 
   /* Make vty server socket. */
   vty_serv_sock (vty_addr, vty_port, ZEBRA_VTYSH_PATH);
+
+  /* Print banner. */
+  zlog_notice ("Zebra %s starting: vty@%d", QUAGGA_VERSION, vty_port);
 
   while (thread_fetch (zebrad.master, &thread))
     thread_call (&thread);

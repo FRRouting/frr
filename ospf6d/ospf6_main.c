@@ -133,7 +133,7 @@ sighup (void)
 void
 sigint (void)
 {
-  zlog_info ("SIGINT received");
+  zlog_notice ("Terminating on signal SIGINT");
   exit (0);
 }
 
@@ -141,7 +141,7 @@ sigint (void)
 void
 sigterm (void)
 {
-  zlog_info ("SIGTERM received");
+  zlog_notice ("Terminating on signal SIGTERM");
   exit (0);
 }
 
@@ -281,19 +281,16 @@ main (int argc, char *argv[], char *envp[])
     daemon (0, 0);
 
   /* pid file create */
-#if 0
-  pid_output_lock (pid_file);
-#else
   pid_output (pid_file);
-#endif
 
   /* Make ospf6 vty socket. */
-  vty_serv_sock (vty_addr,
-                 vty_port ? vty_port : OSPF6_VTY_PORT, OSPF6_VTYSH_PATH);
+  if (!vty_port)
+    vty_port = OSPF6_VTY_PORT;
+  vty_serv_sock (vty_addr, vty_port, OSPF6_VTYSH_PATH);
 
   /* Print start message */
-  zlog_notice ("OSPF6d (Quagga-%s ospf6d-%s) starts",
-               QUAGGA_VERSION, OSPF6_DAEMON_VERSION);
+  zlog_notice ("OSPF6d (Quagga-%s ospf6d-%s) starts: vty@%d",
+               QUAGGA_VERSION, OSPF6_DAEMON_VERSION,vty_port);
 
   /* Start finite state machine, here we go! */
   while (thread_fetch (master, &thread))

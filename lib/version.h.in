@@ -35,7 +35,6 @@
 #define QUAGGA_COPYRIGHT "Copyright 1996-2004 Kunihiro Ishiguro, et al."
 
 pid_t pid_output (const char *);
-pid_t pid_output_lock (const char *);
 
 #ifndef HAVE_DAEMON
 int daemon(int, int);

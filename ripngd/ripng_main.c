@@ -133,7 +133,6 @@ sighup (void)
   zlog_info ("SIGHUP received");
   ripng_clean ();
   ripng_reset ();
-  zlog_info ("Terminating on signal");
 
   /* Reload config file. */
   vty_read_config (config_file, config_default);
@@ -147,7 +146,7 @@ sighup (void)
 void
 sigint (void)
 {
-  zlog_info ("Terminating on signal");
+  zlog_notice ("Terminating on signal");
 
   if (! retain_mode)
     ripng_clean ();
@@ -291,6 +290,9 @@ main (int argc, char **argv)
 
   /* Process id file create. */
   pid_output (pid_file);
+
+  /* Print banner. */
+  zlog_notice ("RIPNGd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
 
   /* Fetch next active thread. */
   while (thread_fetch (master, &thread))

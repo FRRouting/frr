@@ -47,12 +47,14 @@ pid_output (const char *path)
   umask(oldumask);
   return pid;
 #else
+  static pid_t pid_output_lock (const char *);
+
   return pid_output_lock(path);
 #endif /* HAVE_FCNTL */
 }
 
 #ifdef HAVE_FCNTL
-pid_t
+static pid_t
 pid_output_lock (const char *path)
 {
   int tmp;
@@ -65,7 +67,6 @@ pid_output_lock (const char *path)
   pid = getpid ();
 
   oldumask = umask(0777 & ~LOGFILE_MASK);
-  zlog_err( "old umask %d %d", oldumask, 0777 & ~LOGFILE_MASK);
   fd = open (path, O_RDWR | O_CREAT, LOGFILE_MASK);
       if (fd < 0)
         {

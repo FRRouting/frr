@@ -143,7 +143,7 @@ reload ()
   execve (_progpath, _argv, _envp);
 }
 
-void
+static void
 terminate (int i)
 {
   exit (i);
@@ -165,16 +165,14 @@ sighup (void)
 void
 sigint (void)
 {
-  zlog_info ("SIGINT received");
+  zlog_notice ("Terminating on signal SIGINT");
   terminate (0);
-
-  return;
 }
 
 void
 sigterm (void)
 {
-  zlog_info ("SIGTERM received");
+  zlog_notice ("Terminating on signal SIGTERM");
   terminate (0);
 }
 
@@ -326,11 +324,7 @@ main (int argc, char **argv, char **envp)
   vty_serv_sock (vty_addr, vty_port, ISIS_VTYSH_PATH);
 
   /* Print banner. */
-#if defined(ZEBRA_VERSION)
-  zlog_info ("ISISd %s starting: vty@%d", ZEBRA_VERSION, vty_port);
-#elif defined(QUAGGA_VERSION)
-  zlog_info ("Quagga-ISISd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
-#endif
+  zlog_notice ("Quagga-ISISd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
 #ifdef HAVE_IPV6
   zlog_info ("IPv6 enabled");
 #endif

@@ -1,3 +1,10 @@
+2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* isis_main.c: (sigint,sigterm) Use zlog_notice for termination message.
+	  (terminate) This function should be static, not global.
+	  (main) Use zlog_notice for startup announcement, and remove
+	  ifdef ZEBRA_VERSION.
+
 2004-11-25 Hasso Tepper <hasso at quagga.net>
 
 	* isis_main.c: Make group to run as configurable.

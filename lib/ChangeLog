@@ -1,3 +1,12 @@
+2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* version.h.in: Remove declaration for pid_output_lock, this function
+	  is now static, not global.
+	* pid_output.c: (pid_output_lock) This function should be static, not
+	  global.  And remove "old umask" error message, since it was really
+	  an unimportant debug message, not an error.
+	  (pid_output) Need to declare static function pid_output_lock.
+
 2004-11-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* log.h: Remove several unused fields from struct zlog.  Add comments
