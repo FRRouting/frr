@@ -1,3 +1,12 @@
+2005-03-13 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_lsa.c: (ospf_lsa_refresh_walker) If the system clock jumps
+	  backward, then current time may be less than
+	  ospf->lsa_refresher_started.  This was causing invalid values
+	  for ospf->lsa_refresh_queue.index resulting in infinite loops.
+	  Problem fixed by casting the expression to unsigned before taking
+	  the modulus.
+
 2005-02-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospfd.h: Add new field struct stream *ibuf to struct ospf.

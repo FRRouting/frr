@@ -3673,10 +3673,13 @@ ospf_lsa_refresh_walker (struct thread *t)
   
   i = ospf->lsa_refresh_queue.index;
   
+  /* Note: if clock has jumped backwards, then time change could be negative,
+     so we are careful to cast the expression to unsigned before taking
+     modulus. */
   ospf->lsa_refresh_queue.index =
-    (ospf->lsa_refresh_queue.index +
-     (time (NULL) - ospf->lsa_refresher_started) / OSPF_LSA_REFRESHER_GRANULARITY)
-    % OSPF_LSA_REFRESHER_SLOTS;
+   ((unsigned long)(ospf->lsa_refresh_queue.index +
+		    (time (NULL) - ospf->lsa_refresher_started) /
+		    OSPF_LSA_REFRESHER_GRANULARITY)) % OSPF_LSA_REFRESHER_SLOTS;
 
   if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
     zlog_debug ("LSA[Refresh]: ospf_lsa_refresh_walker(): next index %d",
