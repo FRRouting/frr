@@ -898,7 +898,7 @@ ospf_rtrs_print (struct route_table *rtrs)
               break;
             }
 
-          for (pnode = listhead (or->path); pnode; nextnode (pnode))
+          for (pnode = listhead (or->paths); pnode; nextnode (pnode))
             {
               path = getdata (pnode);
               if (path->nexthop.s_addr == 0)

@@ -141,7 +141,7 @@ ospf_ase_complete_direct_routes (struct ospf_route *ro, struct in_addr nexthop)
   listnode node;
   struct ospf_path *op;
 
-  for (node = listhead (ro->path); node; nextnode (node))
+  for (node = listhead (ro->paths); node; nextnode (node))
     if ((op = getdata (node)) != NULL)
       if (op->nexthop.s_addr == 0)
 	op->nexthop.s_addr = nexthop.s_addr;
@@ -268,7 +268,6 @@ ospf_ase_calculate_new_route (struct ospf_lsa *lsa,
     }
 
   new->type = OSPF_DESTINATION_NETWORK;
-  new->path = list_new ();
   new->u.ext.origin = lsa;
   new->u.ext.tag = ntohl (al->e[0].route_tag);
   new->u.ext.asbr = asbr_route;
@@ -511,7 +510,7 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
       else
 	{
 	  zlog_info ("Route[External]: Routes are equal");
-	  ospf_route_copy_nexthops (or, asbr_route->path);
+	  ospf_route_copy_nexthops (or, asbr_route->paths);
 	  if (al->e[0].fwd_addr.s_addr)
 	    ospf_ase_complete_direct_routes (or, al->e[0].fwd_addr);
 	}
@@ -565,11 +564,11 @@ ospf_ase_route_match_same (struct route_table *rt, struct prefix *prefix,
        return 0;
      }
    
-   if (or->path->count != newor->path->count)
+   if (or->paths->count != newor->paths->count)
      return 0;
        
    /* Check each path. */
-   for (n1 = listhead (or->path), n2 = listhead (newor->path);
+   for (n1 = listhead (or->paths), n2 = listhead (newor->paths);
 	n1 && n2; nextnode (n1), nextnode (n2))
      { 
        op = getdata (n1);

@@ -110,7 +110,7 @@ struct ospf_route
   u_char path_type;
 
   /* List of Paths. */
-  list path;
+  list paths;
 
   /* Link State Cost. */
   u_int32_t cost;		/* i.e. metric. */
@@ -124,14 +124,14 @@ struct ospf_route
 };
 
 struct ospf_path *ospf_path_new ();
-void ospf_path_free (struct ospf_path *op);
+void ospf_path_free (struct ospf_path *);
 struct ospf_path *ospf_path_lookup (list, struct ospf_path *);
 struct ospf_route *ospf_route_new ();
-void ospf_route_free (struct ospf_route *or);
-void ospf_route_delete (struct route_table *rt);
-void ospf_route_table_free (struct route_table *rt);
+void ospf_route_free (struct ospf_route *);
+void ospf_route_delete (struct route_table *);
+void ospf_route_table_free (struct route_table *);
 
-void ospf_route_install (struct route_table *);
+void ospf_route_install (struct ospf *, struct route_table *);
 void ospf_route_table_dump (struct route_table *);
 
 void ospf_intra_add_router (struct route_table *, struct vertex *,
@@ -143,7 +143,7 @@ void ospf_intra_add_transit (struct route_table *, struct vertex *,
 void ospf_intra_add_stub (struct route_table *, struct router_lsa_link *,
  		          struct vertex *, struct ospf_area *);
 
-int ospf_route_cmp (struct ospf_route *, struct ospf_route *);
+int ospf_route_cmp (struct ospf *, struct ospf_route *, struct ospf_route *);
 void ospf_route_copy_nexthops (struct ospf_route *, list);
 void ospf_route_copy_nexthops_from_vertex (struct ospf_route *,
 					   struct vertex * );

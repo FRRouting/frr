@@ -779,15 +779,15 @@ ospf_abr_nexthops_belong_to_area (struct ospf_route *or,
 				  struct ospf_area *area)
 {
   listnode node;
+  struct ospf_path *path;
 
-  for (node = listhead (or->path); node; nextnode (node))
+  LIST_LOOP (or->paths, path, node)
     {
-      struct ospf_path *path = node->data;
       struct ospf_interface *oi = path->oi;
 
       if (oi != NULL)
-	if (oi->area == area)
-	  return 1;
+        if (oi->area == area)
+          return 1;
     }
 
   return 0;

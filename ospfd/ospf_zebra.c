@@ -355,10 +355,10 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
       stream_write (s, (u_char *) & p->prefix, psize);
 
       /* Nexthop count. */
-      stream_putc (s, or->path->count);
+      stream_putc (s, or->paths->count);
 
       /* Nexthop, ifindex, distance and metric information. */
-      for (node = listhead (or->path); node; nextnode (node))
+      for (node = listhead (or->paths); node; nextnode (node))
         {
           path = getdata (node);
 
@@ -419,7 +419,7 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
       api.nexthop_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
 
-      for (node = listhead (or->path); node; nextnode (node))
+      for (node = listhead (or->paths); node; nextnode (node))
         {
           path = getdata (node);
 

@@ -6513,20 +6513,19 @@ show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
 	  }
 
         if (or->type == OSPF_DESTINATION_NETWORK)
- 	  for (pnode = listhead (or->path); pnode; nextnode (pnode))
-	    {
-	      path = getdata (pnode);
-	      if (path->oi != NULL)
-		{
-		  if (path->nexthop.s_addr == 0)
-		    vty_out (vty, "%24s   directly attached to %s%s",
-			     "", path->oi->ifp->name, VTY_NEWLINE);
-		  else 
-		    vty_out (vty, "%24s   via %s, %s%s", "",
-			     inet_ntoa (path->nexthop), path->oi->ifp->name,
-			     VTY_NEWLINE);
-		}
-	    }
+          LIST_LOOP (or->paths, path, pnode)
+            {
+              if (path->oi != NULL)
+                {
+                  if (path->nexthop.s_addr == 0)
+                    vty_out (vty, "%24s   directly attached to %s%s",
+                             "", path->oi->ifp->name, VTY_NEWLINE);
+                  else
+                    vty_out (vty, "%24s   via %s, %s%s", "",
+                             inet_ntoa (path->nexthop), path->oi->ifp->name,
+                             VTY_NEWLINE);
+                }
+            }
       }
   vty_out (vty, "%s", VTY_NEWLINE);
 }
@@ -6563,18 +6562,17 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
 		       (or->u.std.flags & ROUTER_LSA_BORDER ? ", ABR" : ""),
 		       (or->u.std.flags & ROUTER_LSA_EXTERNAL ? ", ASBR" : ""),
 		       VTY_NEWLINE);
-
-	      for (pn = listhead (or->path); pn; nextnode (pn))
-		{
-		  path = getdata (pn);
-		  if (path->nexthop.s_addr == 0)
-		    vty_out (vty, "%24s   directly attached to %s%s",
-			     "", path->oi->ifp->name, VTY_NEWLINE);
-		  else 
-		    vty_out (vty, "%24s   via %s, %s%s", "",
-			     inet_ntoa (path->nexthop), path->oi->ifp->name,
-			     VTY_NEWLINE);
-		}
+		    
+		    LIST_LOOP (or->paths, path, pn)
+		      {
+		        if (path->nexthop.s_addr == 0)
+		          vty_out (vty, "%24s   directly attached to %s%s",
+		                   "", path->oi->ifp->name, VTY_NEWLINE);
+		        else
+		          vty_out (vty, "%24s   via %s, %s%s", "",
+		                   inet_ntoa (path->nexthop), path->oi->ifp->name,
+		                              VTY_NEWLINE);
+		      }
 	    }
       }
   vty_out (vty, "%s", VTY_NEWLINE);
@@ -6609,18 +6607,17 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 	    break;
 	  }
 
-        for (pnode = listhead (er->path); pnode; nextnode (pnode))
+        LIST_LOOP (er->paths, path, pnode)
           {
-            path = getdata (pnode);
             if (path->oi != NULL)
               {
                 if (path->nexthop.s_addr == 0)
-	          vty_out (vty, "%24s   directly attached to %s%s",
-		           "", path->oi->ifp->name, VTY_NEWLINE);
-                else 
-	          vty_out (vty, "%24s   via %s, %s%s", "",
-			   inet_ntoa (path->nexthop), path->oi->ifp->name,
-     		           VTY_NEWLINE);
+                  vty_out (vty, "%24s   directly attached to %s%s",
+                           "", path->oi->ifp->name, VTY_NEWLINE);
+                else
+                  vty_out (vty, "%24s   via %s, %s%s", "",
+                           inet_ntoa (path->nexthop), path->oi->ifp->name,
+                           VTY_NEWLINE);
               }
            }
         }
@@ -7326,8 +7323,8 @@ ospf_config_write (struct vty *vty)
 
 	  if (OSPF_IF_PARAM_CONFIGURED (oi->params, passive_interface) &&
 	      oi->params->passive_interface == OSPF_IF_PASSIVE)
-	    vty_out (vty, " passive-interface %s %s%s",
-	             oi->ifp->name,
+      vty_out (vty, " passive-interface %s %s%s",
+               oi->ifp->name,
                inet_ntoa (oi->address->u.prefix4), VTY_NEWLINE);
         }
 

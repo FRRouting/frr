@@ -254,7 +254,7 @@ main (int argc, char *argv[], char *envp[])
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:hp:A:P:u:v", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hp:A:P:u:v", longopts, 0);
     
       if (opt == EOF)
         break;

@@ -212,7 +212,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "df:hA:P:u:rv", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hA:P:u:rv", longopts, 0);
     
       if (opt == EOF)
 	break;

@@ -232,7 +232,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "dlf:hA:P:u:v", longopts, 0);
+      opt = getopt_long (argc, argv, "dlf:i:hA:P:u:v", longopts, 0);
     
       if (opt == EOF)
 	break;
