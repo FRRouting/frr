@@ -745,7 +745,8 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("ospf_vl_new(): creating pseudo zebra interface");
 
-  vi = if_create ();
+  snprintf (ifname, INTERFACE_NAMSIZ + 1, "VLINK%d", vlink_count);
+  vi = if_create (ifname, INTERFACE_NAMSIZ);
   co = connected_new ();
   co->ifp = vi;
   listnode_add (vi->connected, co);
@@ -769,10 +770,9 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
   voi->ifp->mtu = OSPF_VL_MTU;
   voi->type = OSPF_IFTYPE_VIRTUALLINK;
 
-  sprintf (ifname, "VLINK%d", vlink_count++);
+  vlink_count++;
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("ospf_vl_new(): Created name: %s", ifname);
-  strncpy (vi->name, ifname, IFNAMSIZ);
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("ospf_vl_new(): set if->name to %s", vi->name);
 

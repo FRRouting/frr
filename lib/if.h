@@ -180,8 +180,9 @@ struct connected
 #endif /* IFF_LINK2 */
 
 /* Prototypes. */
+int if_cmp_func (struct interface *, struct interface *);
 struct interface *if_new (void);
-struct interface *if_create (void);
+struct interface *if_create (char *name, int namelen);
 struct interface *if_lookup_by_index (unsigned int);
 struct interface *if_lookup_by_name (char *);
 struct interface *if_lookup_exact_address (struct in_addr);
