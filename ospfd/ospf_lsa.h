@@ -266,6 +266,7 @@ struct ospf_lsa *ospf_summary_asbr_lsa_refresh (struct ospf *, struct ospf_lsa *
 struct ospf_lsa *ospf_lsa_install (struct ospf *,
 				   struct ospf_interface *, struct ospf_lsa *);
 
+void ospf_nssa_lsa_flush (struct ospf *ospf, struct prefix_ipv4 *p);
 void ospf_external_lsa_flush (struct ospf *, u_char, struct prefix_ipv4 *,
 			      unsigned int, struct in_addr);
 

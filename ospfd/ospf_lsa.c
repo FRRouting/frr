@@ -1860,6 +1860,42 @@ ospf_default_originate_timer (struct thread *thread)
   return 0;
 }
 
+#ifdef HAVE_NSSA
+/* Flush any NSSA LSAs for given prefix */
+void
+ospf_nssa_lsa_flush (struct ospf *ospf, struct prefix_ipv4 *p)
+{
+  struct listnode *node;
+  struct ospf_lsa *lsa;
+  struct ospf_area *area;
+
+  if (ospf->anyNSSA) 
+  {
+     for (node = listhead (ospf->areas); node; nextnode (node)) 
+     {
+        if (((area = getdata (node)) != NULL) 
+              && (area->external_routing == OSPF_AREA_NSSA)) 
+        {
+           if (!(lsa = ospf_lsa_lookup (area, OSPF_AS_NSSA_LSA, p->prefix,
+                                        ospf->router_id))) 
+           {
+              if (IS_DEBUG_OSPF (lsa, LSA_FLOODING)) 
+                 zlog_warn ("LSA: There is no such AS-NSSA-LSA %s/%d in LSDB",
+                        inet_ntoa (p->prefix), p->prefixlen);
+              return;
+           }
+           ospf_ls_retransmit_delete_nbr_as (ospf, lsa);
+           if (!IS_LSA_MAXAGE (lsa)) 
+           {
+              ospf_refresher_unregister_lsa (ospf, lsa);
+              ospf_lsa_flush_as (ospf, lsa);
+           }
+        }
+     }
+  }
+}
+#endif /* HAVE_NSSA */
+
 /* Flush an AS-external-LSA from LSDB and routing domain. */
 void
 ospf_external_lsa_flush (struct ospf *ospf,
@@ -1899,6 +1935,11 @@ ospf_external_lsa_flush (struct ospf *ospf,
       ospf_lsa_flush_as (ospf, lsa);
     }
 
+#ifdef HAVE_NSSA
+  /* If there is NSSA area, flush Type-7 lsa's as well */
+  ospf_nssa_lsa_flush (ospf, p);
+#endif /* HAVE_NSSA */
+  
   if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
     zlog_info ("ospf_external_lsa_flush(): stop");
 }
