@@ -1,3 +1,9 @@
+2004-10-05 Paul Jakma <paul@dishone.st>
+
+	* sockopt.{c,h}: add sockopt_iphdrincl_swab_{htosys,systoh},
+          functions to change byte order between system IP_HDRINCL order
+          and host order.
+
 2004-10-04 Hasso Tepper <hasso at quagga.net>
 
 	* memory.c, memory.h: Make char * argument of strdup functions const.

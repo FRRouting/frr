@@ -92,4 +92,11 @@ int setsockopt_pktinfo (int, int, int);
 /* Ask for, and get, ifindex, by whatever method is supported. */
 int setsockopt_ifindex (int, int, int);
 int getsockopt_ifindex (int, struct msghdr *);
+
+/* swab the fields in iph between the host order and system order expected 
+ * for IP_HDRINCL.
+ */
+void sockopt_iphdrincl_swab_htosys (struct ip *iph);
+void sockopt_iphdrincl_swab_systoh (struct ip *iph);
+
 #endif /*_ZEBRA_SOCKOPT_H */

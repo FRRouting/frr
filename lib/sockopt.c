@@ -360,3 +360,29 @@ getsockopt_ifindex (int af, struct msghdr *msgh)
         return (ifindex = 0);
     }
 }
+
+/* swab iph between order system uses for IP_HDRINCL and host order */
+void
+sockopt_iphdrincl_swab_htosys (struct ip *iph)
+{
+  /* BSD and derived take iph in network order, except for 
+   * ip_len and ip_off
+   */
+#ifndef HAVE_IP_HDRINCL_BSD_ORDER
+  iph->ip_len = htons(iph->ip_len);
+  iph->ip_off = htons(iph->ip_off);
+#endif /* HAVE_IP_HDRINCL_BSD_ORDER */
+
+  iph->ip_id = htons(iph->ip_id);
+}
+
+void
+sockopt_iphdrincl_swab_systoh (struct ip *iph)
+{
+#ifndef HAVE_IP_HDRINCL_BSD_ORDER
+  iph->ip_len = ntohs(iph->ip_len);
+  iph->ip_off = ntohs(iph->ip_off);
+#endif /* HAVE_IP_HDRINCL_BSD_ORDER */
+
+  iph->ip_id = ntohs(iph->ip_id);
+}
