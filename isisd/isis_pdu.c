@@ -141,6 +141,9 @@ ip_match (struct list *left, struct list *right)
   struct in_addr *ip2;
   struct listnode *node1, *node2;
 
+  if ((left == NULL) || (right == NULL))
+    return 0;
+  
   LIST_LOOP (left, ip1, node1)
   {
     LIST_LOOP (right, ip2, node2)

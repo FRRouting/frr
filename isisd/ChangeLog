@@ -1,3 +1,7 @@
+2004-09-27 Hasso Tepper <hasso at quagga.net>
+
+	* isis_pdu.c: Fix accessing NULL found by valgrind.
+
 2004-09-26 Hasso Tepper <hasso at quagga.net>
 
 	* isis_circuit.c: Fix previous commit. Don't schedule LSP regeneration
