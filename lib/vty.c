@@ -220,22 +220,23 @@ vty_hello (struct vty *vty)
     {
       FILE *f;
       char buf[4096];
-      int r;
+      
       f = fopen (host.motdfile, "r");
       if (f)
 	{
-	  while (!feof (f))
+	  while (fgets (buf, sizeof (buf), f))
 	    {
-	      memset (buf, '\0', sizeof (buf));
-	      r = fread (&buf, sizeof (buf) - 1, 1, f);
-	      if (r < 0)
-		break;
-	      vty_out (vty, buf);
-	    }
+	      char *s;
+	      /* work backwards and squash all isspace() chars
+	       * we want nul terminated for vty_out */
+	      for (s = buf+strlen(buf); (s > buf) && isspace(*(s-1)); s--);
+	        *s = '\0';
+              vty_out (vty, "%s%s", buf, VTY_NEWLINE);
+            }
 	  fclose (f);
 	}
       else
-	vty_out (vty, "MOTD file not found\n");
+	vty_out (vty, "MOTD file not found%s", VTY_NEWLINE);
     }
   else if (host.motd)
     vty_out (vty, host.motd);

@@ -1,3 +1,10 @@
+2005-03-08 Paul Jakma <paul.jakma@sun.com>
+
+	* command.c: (banner_motd_file_cmd) use XSTRDUP/XFREE
+	* vty.c: (vty_hello) suggestions from Andrew, read by line and
+	  stub out trailling non-printable characters on each line thus
+	  allowing us to specify VTY_NEWLINE to vty_out.
+
 2005-03-08 Jeroen Massar <jeroen@unfix.org>
 
 	* vty.c: (vty_hello) display motd file, if set
