@@ -224,25 +224,17 @@ dnl ----------
 dnl PAM module
 dnl ----------
 if test "$with_libpam" = "yes"; then
-  AC_MSG_CHECKING(security/pam_misc.h)
   AC_CHECK_HEADER(security/pam_misc.h)
   if test "$ac_cv_header_security_pam_misc_h" = yes; then
     AC_DEFINE(HAVE_PAM_MISC_H,,Have pam_misc.h)
     AC_DEFINE(PAM_CONV_FUNC,misc_conv,Have misc_conv)
     pam_conv_func="misc_conv"
-    AC_MSG_RESULT(yes)
-  else
-    AC_MSG_RESULT(no)
   fi
-  AC_MSG_CHECKING(security/openpam.h)
   AC_CHECK_HEADER(security/openpam.h)
   if test "$ac_cv_header_security_openpam_h" = yes; then
     AC_DEFINE(HAVE_OPENPAM_H,,Have openpam.h)
     AC_DEFINE(PAM_CONV_FUNC,openpam_ttyconv,Have openpam_ttyconv)
     pam_conv_func="openpam_ttyconv"
-    AC_MSG_RESULT(yes)
-  else
-    AC_MSG_RESULT(no)
   fi
   if test -z "$ac_cv_header_security_pam_misc_h$ac_cv_header_security_openpam_h" ; then
     AC_MSG_WARN([*** pam support will not be built ***])
@@ -835,6 +827,12 @@ dnl -------------
 file="${srcdir}/lib/version.h"
 VERSION=`sed -ne 's/^#.*ZEBRA_VERSION.*\"\([^\"]*\)\"$/\1/p' $file`
 AC_SUBST(VERSION)
+
+dnl ----------
+dnl configure date
+dnl ----------
+CONFDATE=`date '+%Y%m%d'`
+AC_SUBST(CONFDATE)
 
 dnl ------------------------------
 dnl set paths for process id files
