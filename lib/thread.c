@@ -328,6 +328,7 @@ thread_list_free (struct thread_master *m, struct thread_list *list)
   for (t = list->head; t; t = next)
     {
       next = t->next;
+      XFREE (MTYPE_STRVEC, t->funcname);
       XFREE (MTYPE_THREAD, t);
       list->count--;
       m->alloc--;
@@ -399,7 +400,7 @@ strip_funcname (char *funcname)
 
   tmp = *e;
   *e = '\0';
-  ret  = XSTRDUP (MTYPE_TMP, b);
+  ret  = XSTRDUP (MTYPE_STRVEC, b);
   *e = tmp;
 
   return ret;
