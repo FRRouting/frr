@@ -308,8 +308,8 @@ rm -rf $RPM_BUILD_ROOT
 %if %{with_isisd}
 %{_sbindir}/isisd
 %endif
-%if %{with_shared}
 %dir %attr(755,root,root) %{_libdir}
+%if %{with_shared}
 %{_libdir}/lib*.so
 %{_libdir}/lib*.so.*
 %endif
@@ -331,15 +331,15 @@ rm -rf $RPM_BUILD_ROOT
 %if %{with_ospfclient}
 %{_sbindir}/ospfclient
 %endif
-%dir %{_libdir}/*.a
-%dir %{_libdir}/*.la
+%{_libdir}/*.a
+%{_libdir}/*.la
 %dir %attr(755,root,root) %{_includedir}/%{name}
-%dir %{_includedir}/%name/*.h
+%{_includedir}/%name/*.h
 %dir %attr(755,root,root) %{_includedir}/%{name}/ospfd
-%dir %{_includedir}/%name/ospfd/*.h
+%{_includedir}/%name/ospfd/*.h
 %if %{with_ospfapi}
 %dir %attr(755,root,root) %{_includedir}/%{name}/ospfapi
-%dir %{_includedir}/%name/ospfapi/*.h
+%{_includedir}/%name/ospfapi/*.h
 %endif
 
 %changelog
