@@ -139,7 +139,7 @@ reload ()
 {
   zlog_debug ("Reload");
   /* FIXME: Clean up func call here */
-  vty_finish ();
+  vty_reset ();
   execve (_progpath, _argv, _envp);
 }
 

@@ -2780,46 +2780,6 @@ vty_reset ()
     }
 }
 
-/* for ospf6d easy temprary reload function */
-/* vty_reset + close accept socket */
-void
-vty_finish ()
-{
-  unsigned int i;
-  struct vty *vty;
-  struct thread *vty_serv_thread;
-
-  for (i = 0; i < vector_max (vtyvec); i++)
-    if ((vty = vector_slot (vtyvec, i)) != NULL)
-      {
-	buffer_reset (vty->obuf);
-	vty->status = VTY_CLOSE;
-	vty_close (vty);
-      }
-
-  for (i = 0; i < vector_max (Vvty_serv_thread); i++)
-    if ((vty_serv_thread = vector_slot (Vvty_serv_thread, i)) != NULL)
-      {
-	thread_cancel (vty_serv_thread);
-	vector_slot (Vvty_serv_thread, i) = NULL;
-        close (i);
-      }
-
-  vty_timeout_val = VTY_TIMEOUT_DEFAULT;
-
-  if (vty_accesslist_name)
-    {
-      XFREE(MTYPE_VTY, vty_accesslist_name);
-      vty_accesslist_name = NULL;
-    }
-
-  if (vty_ipv6_accesslist_name)
-    {
-      XFREE(MTYPE_VTY, vty_ipv6_accesslist_name);
-      vty_ipv6_accesslist_name = NULL;
-    }
-}
-
 static void
 vty_save_cwd (void)
 {

@@ -1,5 +1,9 @@
 2005-02-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* {vty.h,vty.c}: Remove vty_finish (duplicate of vty_reset).
+
+2005-02-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* buffer.h: Make the struct buffer and struct buffer_data structures
 	  private by moving them inside buffer.c.  Add comments for all
 	  functions.  Rename buffer_write as buffer_put (to be more consistent

@@ -181,7 +181,6 @@ extern char integrate_default[];
 void vty_init (struct thread_master *);
 void vty_init_vtysh (void);
 void vty_reset (void);
-void vty_finish (void);
 struct vty *vty_new (void);
 int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
 void vty_read_config (char *, char *);
