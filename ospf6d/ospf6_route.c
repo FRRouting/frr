@@ -666,7 +666,10 @@ ospf6_route_remove (struct ospf6_route_req *request,
             for (c = s; c < e; c++)
               {
                 if ((c - s) % 4 == 0)
-                  snprintf (p++, line + sizeof (line) - p, " ");
+		{
+                  snprintf (p, line + sizeof (line) - p, " ");
+		  p++;
+		}
                 snprintf (p, line + sizeof (line) - p, "%02x", *c);
                 p += 2;
               }
@@ -678,7 +681,10 @@ ospf6_route_remove (struct ospf6_route_req *request,
             for (c = s; c < e; c++)
               {
                 if ((c - s) % 4 == 0)
-                  snprintf (p++, line + sizeof (line) - p, " ");
+		{
+                  snprintf (p, line + sizeof (line) - p, " ");
+		  p++;
+		}
                 snprintf (p, line + sizeof (line) - p, "%02x", *c);
                 p += 2;
               }
