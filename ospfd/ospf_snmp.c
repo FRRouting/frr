@@ -498,7 +498,7 @@ struct variable ospf_variables[] =
 int
 ospf_admin_stat (struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_interface *oi;
 
   if (ospf == NULL)
@@ -619,7 +619,7 @@ struct ospf_area *
 ospf_area_lookup_next (struct ospf *ospf, struct in_addr *area_id, int first)
 {
   struct ospf_area *area;
-  listnode node;
+  struct listnode *node;
 
   if (ospf == NULL)
     return NULL;
@@ -755,7 +755,7 @@ struct ospf_area *
 ospf_stub_area_lookup_next (struct in_addr *area_id, int first)
 {
   struct ospf_area *area;
-  listnode node;
+  struct listnode *node;
   struct ospf *ospf;
 
   ospf = ospf_lookup ();

@@ -28,6 +28,7 @@
 #include "command.h"
 #include "stream.h"
 #include "log.h"
+#include "sockopt.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"

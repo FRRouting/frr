@@ -1,3 +1,8 @@
+2004-10-07 Paul Jakma <paul@dishone.st>
+
+	* ospf_snmp.c: Missed list typedef update
+	* ospf_dump.c: Include sockopt.h for header swab functions.
+
 2004-10-05 Paul Jakma <paul@dishone.st>
 
 	* ospf_packet.c: replace ospf_swap_iph_to... with
