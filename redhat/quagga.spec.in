@@ -268,6 +268,8 @@ fi
 %{_infodir}/*info*
 %{_mandir}/man*/*
 %{_sbindir}/*
+%{_libdir}/lib*.so
+%{_libdir}/lib*.so.*
 %if %with_vtysh
 %{_bindir}/*
 %endif
@@ -283,7 +285,8 @@ fi
 
 %files devel
 %defattr(-,root,root)
-%dir %{_libdir}/*
+%dir %{_libdir}/*.a
+%dir %{_libdir}/*.la
 %dir %{_includedir}/%name/*.h
 %dir %{_includedir}/%name/ospfd/*.h
 %if %with_ospfapi
