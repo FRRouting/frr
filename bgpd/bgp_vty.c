@@ -6973,6 +6973,25 @@ DEFUN (show_ip_bgp_instance_neighbors,
   return bgp_show_neighbor_vty (vty, argv[0], show_all, NULL);
 }
 
+ALIAS (show_ip_bgp_instance_neighbors,
+       show_bgp_instance_neighbors_cmd,
+       "show bgp view WORD neighbors",
+       SHOW_STR
+       BGP_STR
+       "BGP view\n"
+       "View name\n"
+       "Detailed information on TCP and BGP neighbor connections\n")
+
+ALIAS (show_ip_bgp_instance_neighbors,
+       show_bgp_instance_ipv6_neighbors_cmd,
+       "show bgp view WORD ipv6 neighbors",
+       SHOW_STR
+       BGP_STR
+       "BGP view\n"
+       "View name\n"
+       "Address family\n"
+       "Detailed information on TCP and BGP neighbor connections\n")
+
 DEFUN (show_ip_bgp_instance_neighbors_peer,
        show_ip_bgp_instance_neighbors_peer_cmd,
        "show ip bgp view WORD neighbors (A.B.C.D|X:X::X:X)",
@@ -6987,7 +7006,30 @@ DEFUN (show_ip_bgp_instance_neighbors_peer,
 {
   return bgp_show_neighbor_vty (vty, argv[0], show_peer, argv[1]);
 }
-
+
+ALIAS (show_ip_bgp_instance_neighbors_peer,
+       show_bgp_instance_neighbors_peer_cmd,
+       "show bgp view WORD neighbors (A.B.C.D|X:X::X:X)",
+       SHOW_STR
+       BGP_STR
+       "BGP view\n"
+       "View name\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n")
+
+ALIAS (show_ip_bgp_instance_neighbors_peer,
+       show_bgp_instance_ipv6_neighbors_peer_cmd,
+       "show bgp view WORD ipv6 neighbors (A.B.C.D|X:X::X:X)",
+       SHOW_STR
+       BGP_STR
+       "BGP view\n"
+       "View name\n"
+       "Address family\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n")
+       
 /* Show BGP's AS paths internal data.  There are both `show ip bgp
    paths' and `show ip mbgp paths'.  Those functions results are the
    same.*/
@@ -8502,10 +8544,18 @@ bgp_vty_init ()
   install_element (VIEW_NODE, &show_bgp_ipv6_neighbors_cmd);
   install_element (VIEW_NODE, &show_bgp_neighbors_peer_cmd);
   install_element (VIEW_NODE, &show_bgp_ipv6_neighbors_peer_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_neighbors_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_ipv6_neighbors_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_neighbors_peer_cmd);
+  install_element (VIEW_NODE, &show_bgp_instance_ipv6_neighbors_peer_cmd);
   install_element (ENABLE_NODE, &show_bgp_neighbors_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_neighbors_cmd);
   install_element (ENABLE_NODE, &show_bgp_neighbors_peer_cmd);
   install_element (ENABLE_NODE, &show_bgp_ipv6_neighbors_peer_cmd);
+  install_element (ENABLE_NODE, &show_bgp_instance_neighbors_cmd);
+  install_element (ENABLE_NODE, &show_bgp_instance_ipv6_neighbors_cmd);
+  install_element (ENABLE_NODE, &show_bgp_instance_neighbors_peer_cmd);
+  install_element (ENABLE_NODE, &show_bgp_instance_ipv6_neighbors_peer_cmd);
 
   /* Old commands.  */
   install_element (VIEW_NODE, &show_ipv6_bgp_summary_cmd);
