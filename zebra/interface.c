@@ -904,6 +904,52 @@ DEFUN (show_interface, show_interface_cmd,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_interface_desc,
+       show_interface_desc_cmd,
+       "show interface description",
+       SHOW_STR
+       "Interface status and configuration\n"
+       "Interface description\n")
+{
+  struct listnode *node;
+  struct interface *ifp;
+
+  vty_out (vty, "Interface       Status  Protocol  Description%s", VTY_NEWLINE);
+  for (node = listhead (iflist); node; nextnode (node))
+    {
+      int len;
+      ifp = getdata (node);
+
+      len = vty_out (vty, "%s", ifp->name);
+      vty_out (vty, "%*s", (16 - len), " ");
+      
+      if (if_is_up(ifp))
+	{
+	  vty_out (vty, "up      ");
+	  if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
+	    {
+	      if (if_is_running(ifp))
+		vty_out (vty, "up        ");
+	      else
+		vty_out (vty, "down      ");
+	    }
+	  else
+	    {
+	      vty_out (vty, "unknown   ");
+	    }
+	}
+      else
+	{
+	  vty_out (vty, "down    down      ");
+	}
+
+      if (ifp->desc)
+	vty_out (vty, "%s", ifp->desc);
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+  return CMD_SUCCESS;
+}
+
 DEFUN (multicast,
        multicast_cmd,
        "multicast",
@@ -1545,6 +1591,7 @@ zebra_if_init ()
 
   install_element (VIEW_NODE, &show_interface_cmd);
   install_element (ENABLE_NODE, &show_interface_cmd);
+  install_element (ENABLE_NODE, &show_interface_desc_cmd);
   install_element (CONFIG_NODE, &zebra_interface_cmd);
   install_element (CONFIG_NODE, &no_interface_cmd);
   install_default (INTERFACE_NODE);

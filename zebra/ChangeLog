@@ -1,3 +1,8 @@
+2005-03-13 Hasso Tepper <hasso at quagga.net>
+
+	* zebra/interaface.c: "show interface description" command
+	  implemented.
+
 2005-03-12 Paul Jakma <paul@dishone.st>
 
 	* rt_netlink.c: (netlink_route_multipath) dont set equalise flag.
