@@ -10,7 +10,7 @@
 %define		with_ipv6	1
 %define		with_ospfclient 1
 %define		with_ospfapi	1
-%define		with_irdp	0
+%define		with_irdp	1
 %define		with_isisd	0
 %define		with_shared	1
 %define		with_multipath	64
@@ -308,6 +308,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_sbindir}/isisd
 %endif
 %if %{with_shared}
+%dir %attr(755,root,root) %{_libdir}
 %{_libdir}/lib*.so
 %{_libdir}/lib*.so.*
 %endif
@@ -331,14 +332,24 @@ rm -rf $RPM_BUILD_ROOT
 %endif
 %dir %{_libdir}/*.a
 %dir %{_libdir}/*.la
+%dir %attr(755,root,root) %{_includedir}/%{name}
 %dir %{_includedir}/%name/*.h
+%dir %attr(755,root,root) %{_includedir}/%{name}/ospfd
 %dir %{_includedir}/%name/ospfd/*.h
 %if %{with_ospfapi}
+%dir %attr(755,root,root) %{_includedir}/%{name}/ospfapi
 %dir %{_includedir}/%name/ospfapi/*.h
 %endif
 
 %changelog
 %changelog
+* Sat Oct 23 2004 Paul Jakma <paul@dishone.st>
+- Update to 0.97.2
+
+* Sat Oct 23 2004 Andrew J. Schorr <aschorr@telemetry-investments.com>
+- Make directories be owned by the packages concerned
+- Update logrotate scripts to use correct path to killall and use pid files
+
 * Fri Oct 08 2004 Paul Jakma <paul@dishone.st>
 - Update to 0.97.0
 
