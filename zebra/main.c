@@ -76,7 +76,7 @@ struct option longopts[] =
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
 #ifdef HAVE_NETLINK
-  { "nl-bufsize",  no_argument,       NULL, 's'},
+  { "nl-bufsize",  required_argument, NULL, 's'},
 #endif /* HAVE_NETLINK */
   { "user",        required_argument, NULL, 'u'},
   { "group",       required_argument, NULL, 'g'},
