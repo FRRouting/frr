@@ -1,3 +1,8 @@
+2004-10-05 Paul Jakma <paul@dishone.st>
+
+	* version.h.in: print_version declaration is here, not in automake
+	  generated version.h.
+
 2004-10-08 Hasso Tepper <hasso at quagga.net>
 
 	* command.c, command.h: Make argument of cmd_make_strvec function
