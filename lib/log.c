@@ -106,7 +106,7 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list *args)
 		
   /* Syslog output */
   if (zl->flags & ZLOG_SYSLOG)
-    vsyslog (priority, format, args[ZLOG_SYSLOG_INDEX]);
+    vsyslog (priority|zlog_default->facility, format, args[ZLOG_SYSLOG_INDEX]);
 
   /* File output. */
   if (zl->flags & ZLOG_FILE)
