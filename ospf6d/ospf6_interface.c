@@ -961,18 +961,25 @@ ospf6_interface_config_write (struct vty *vty)
 
       vty_out (vty, "interface %s%s",
                o6i->interface->name, VTY_NEWLINE);
+      if (o6i->cost != 1)
       vty_out (vty, " ipv6 ospf6 cost %d%s",
                o6i->cost, VTY_NEWLINE);
+      if (o6i->hello_interval != 10)
       vty_out (vty, " ipv6 ospf6 hello-interval %d%s",
                o6i->hello_interval, VTY_NEWLINE);
+      if (o6i->dead_interval != 40)
       vty_out (vty, " ipv6 ospf6 dead-interval %d%s",
                o6i->dead_interval, VTY_NEWLINE);
+      if (o6i->rxmt_interval != 5)
       vty_out (vty, " ipv6 ospf6 retransmit-interval %d%s",
                o6i->rxmt_interval, VTY_NEWLINE);
+      if (o6i->priority != 1)
       vty_out (vty, " ipv6 ospf6 priority %d%s",
                o6i->priority, VTY_NEWLINE);
+      if (o6i->transdelay != 1)
       vty_out (vty, " ipv6 ospf6 transmit-delay %d%s",
                o6i->transdelay, VTY_NEWLINE);
+      if (o6i->instance_id != 0)
       vty_out (vty, " ipv6 ospf6 instance-id %d%s",
                o6i->instance_id, VTY_NEWLINE);
 
@@ -994,6 +1001,7 @@ struct cmd_node interface_node =
 {
   INTERFACE_NODE,
   "%s(config-if)# ",
+  vtysh: 1
 };
 
 void

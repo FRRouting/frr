@@ -1,3 +1,9 @@
+2003-05-18 Hasso Tepper <hasso@estpak.ee>
+
+	* ospf6_{dump,interface,zebra}.c,ospf6d.c: show router and interface
+	nodes from ospf6d when using vtysh,  and don't show defaults in
+	interface node (from ^WIND patch).
+
 2003-04-23 Hasso Tepper <hasso@estpak.ee>
           
         * {ospf6_damp,ospf6d}.c: fix "router xxx" node commands in vtysh

@@ -348,6 +348,7 @@ struct cmd_node zebra_node =
 {
   ZEBRA_NODE,
   "%s(config-zebra)# ",
+  vtysh: 0
 };
 
 #define ADD    0
