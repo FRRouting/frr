@@ -1,3 +1,12 @@
+2004-01-03  Greg Troxel  <gdt@ahi.ir.bbn.com>
+
+	* ripng_interface.c (ripng_multicast_join): If IPV6_JOIN_GROUP
+	returns EADDRINUSE, consider the join successful.  This happens
+	when an interface goes down and comes back because
+	ripng_multicast_leave does not invoke the LEAVE_GROUP operation if
+	the interface is down.  Solves problem of ripng stopping working
+	on an interface which goes down and then comes back up (on NetBSD).
+
 2003-05-25 Hasso Tepper <hasso@estpak.ee>
   
   * Revert ripng_ifrmap stuff because ripd uses it now as well.

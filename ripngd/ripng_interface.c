@@ -67,6 +67,18 @@ ripng_multicast_join (struct interface *ifp)
 
     ret = setsockopt (ripng->sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 		      (char *) &mreq, sizeof (mreq));
+
+    if (ret < 0 && errno == EADDRINUSE)
+      {
+	/*
+	 * Group is already joined.  This occurs due to sloppy group
+	 * management, in particular declining to leave the group on
+	 * an interface that has just gone down.
+	 */
+	zlog_warn ("ripng join on %s EADDRINUSE (ignoring)\n", ifp->name);
+	return 0;		/* not an error */
+      }
+
     if (ret < 0)
       zlog_warn ("can't setsockopt IPV6_JOIN_GROUP: %s", strerror (errno));
 
