@@ -1,10 +1,8 @@
 -*- mode: text; -*-
 
-$Id: HACKING,v 1.4 2004/01/05 20:09:00 gdt Exp $
+$Id: HACKING,v 1.5 2004/01/09 16:34:54 paul Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
-
-[this is a strawman on which consensus has been neither tested nor reached]
 
 [this is a draft in progress]
 
@@ -33,14 +31,16 @@ standards]
 
 PATCH SUBMISSION
 
-* Send a clean diff against the head of CVS.
+* Send a clean diff against the head of CVS in unified diff format, eg by:
+  cvs <cvs opts> diff -uwb ....
 
 * Include ChangeLog and NEWS entries as appropriate before the patch
   (or in it if you are 100% up to date).
 
 * Inclue only one semantic change or group of changes per patch.p
 
-* Do not make gratuitous changes to whitespace.
+* Do not make gratuitous changes to whitespace. See the w and b arguments
+  to diff.
 
 * State on which platforms and with what daemons the patch has been
   tested.  Understand that if the set of testing locations is small,
