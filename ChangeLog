@@ -1,3 +1,7 @@
+2004-09-30 Paul Jakma <paul@dishone.st>
+
+	* Update default CFLAGS for gcc to keep Hasso busy.
+
 2004-09-27 Paul Jakma <paul@dishone.st>
 
 	* update-autotools: libtoolize should copy files, rather than link.

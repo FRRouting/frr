@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.65 2004/09/13 20:22:18 hasso Exp $
+## $Id: configure.ac,v 1.66 2004/09/30 06:08:58 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.96.5, [http://bugzilla.quagga.net])
@@ -54,14 +54,20 @@ dnl Check CC
 dnl --------
 AC_PROG_CC
 
-dnl -----------------------------------------
+dnl ---------------------------------------------
 dnl If CLFAGS doesn\'t exist set default value
-dnl -----------------------------------------
+dnl AC_PROG_CC will have set minimal default
+dnl already, eg "-O2 -g" for gcc, "-g" for others
 dnl (Wall is gcc specific... have to make sure
 dnl  gcc is being used before setting it)
+dnl ---------------------------------------------
 dnl
 if test "x$cflags_specified" = "x" ; then
-  CFLAGS="$CFLAGS -O"
+  if test "x${GCC}" = "xyes"; then
+  	CFLAGS="-Os -g -Wall -Wpacked -Wpadded -Wsign-compare"
+  	CFLAGS="${CFLAGS} -Wpointer-arith -Wbad-function-cast"
+        CFLAGS="${CFLAGS}  -Wwrite-strings"
+  fi
 fi
 
 dnl --------------
