@@ -1,3 +1,17 @@
+* Changes in Quagga 0.96.6
+
+- Router advertisement syntax is changed. In usual cases (if you didn't do
+  any fancy stuff) it's enough to change lines in configuration from:
+  "ipv6 nd prefix-advertisement X:X:X:X::/X 2592000 604800 autoconfig on-link"
+  to:
+  "ipv6 nd prefix X:X:X:X::/X"
+
+  All router advertisement options are documented in texi documentation.
+
+- --enable-nssa configure switch is removed. NSSA support is stable enough.
+
+- Daemons don't look at current directory for config file any more.
+
 * Changes in Quagga 0.96.5
 
 - include files are installed in $(prefix)/include/quagga.  Programs
