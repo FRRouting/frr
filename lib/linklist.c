@@ -85,6 +85,10 @@ listnode_add (struct list *list, void *val)
  * cmp function, insert a new node with the given val such that the
  * list remains sorted.  The new node is always inserted; there is no
  * notion of omitting duplicates.
+ * 
+ * XXX not sure this is right:
+ * It is currently undefined whether new nodes for which cmp returns 0
+ * should be added before or after any existing nodes.
  */
 void
 listnode_add_sort (struct list *list, void *val)
