@@ -154,6 +154,10 @@ int
 ospf_sock_init (void)
 {
   int ospf_sock;
+  /*
+   * XXX warning: unused variable `tos'
+   * tos should be ifdefed similarly to usage
+   */
   int ret, tos, hincl = 1;
 
   if ( ospfd_privs.change (ZPRIVS_RAISE) )
