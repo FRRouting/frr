@@ -1,5 +1,23 @@
 2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* command.h: Remove fields log_stdout and log_syslog from struct host,
+	  since they are just trying to duplicate information in the
+	  zlog_default structure.  Note that this fixes a bug since those
+	  fields were not registering any logging that was established
+	  in the initial call to openzlog (this affects only the zebra and
+	  ospf6d daemons).  It is probably a bug to turn on any logging by
+	  default in the call to openzlog.
+	* command.c: (config_write_host) Get logging info from zlog_default
+	  instead of now-removed fields host.log_stdout and host.log_syslog.
+	  (config_log_stdout,no_config_log_stdout) Do not set now-removed field
+	  host.log_stdout, since this info is recorded in zlog_default.
+	  (config_log_file) Use XSTRDUP (instead of strdup) to set host.logfile.
+	  (config_log_syslog,config_log_syslog_facility,no_config_log_syslog)
+	  Do not set now-removed field host.log_syslog, since this info is
+	  recorded in zlog_default.
+
+2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* version.h.in: Remove declaration for pid_output_lock, this function
 	  is now static, not global.
 	* pid_output.c: (pid_output_lock) This function should be static, not

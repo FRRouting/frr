@@ -545,10 +545,10 @@ config_write_host (struct vty *vty)
   if (host.logfile)
     vty_out (vty, "log file %s%s", host.logfile, VTY_NEWLINE);
 
-  if (host.log_stdout)
+  if (zlog_default->flags & ZLOG_STDOUT)
     vty_out (vty, "log stdout%s", VTY_NEWLINE);
 
-  if (host.log_syslog)
+  if (zlog_default->flags & ZLOG_SYSLOG)
     {
       vty_out (vty, "log syslog");
       if (zlog_default->facility != LOG_DAEMON)
@@ -2966,7 +2966,6 @@ DEFUN (config_log_stdout,
        "Logging goes to stdout\n")
 {
   zlog_set_flag (NULL, ZLOG_STDOUT);
-  host.log_stdout = 1;
   return CMD_SUCCESS;
 }
 
@@ -2978,7 +2977,6 @@ DEFUN (no_config_log_stdout,
        "Cancel logging to stdout\n")
 {
   zlog_reset_flag (NULL, ZLOG_STDOUT);
-  host.log_stdout = 0;
   return CMD_SUCCESS;
 }
 
@@ -3031,7 +3029,7 @@ DEFUN (config_log_file,
   if (host.logfile)
     XFREE (MTYPE_TMP, host.logfile);
 
-  host.logfile = strdup (argv[0]);
+  host.logfile = XSTRDUP (MTYPE_TMP, argv[0]);
 
   return CMD_SUCCESS;
 }
@@ -3061,7 +3059,6 @@ DEFUN (config_log_syslog,
        "Logging goes to syslog\n")
 {
   zlog_set_flag (NULL, ZLOG_SYSLOG);
-  host.log_syslog = 1;
   zlog_default->facility = LOG_DAEMON;
   return CMD_SUCCESS;
 }
@@ -3094,7 +3091,6 @@ DEFUN (config_log_syslog_facility,
   int facility = LOG_DAEMON;
 
   zlog_set_flag (NULL, ZLOG_SYSLOG);
-  host.log_syslog = 1;
 
   if (strncmp (argv[0], "kern", 1) == 0)
     facility = LOG_KERN;
@@ -3146,7 +3142,6 @@ DEFUN (no_config_log_syslog,
        "Cancel logging to syslog\n")
 {
   zlog_reset_flag (NULL, ZLOG_SYSLOG);
-  host.log_syslog = 0;
   zlog_default->facility = LOG_DAEMON;
   return CMD_SUCCESS;
 }

@@ -46,12 +46,6 @@ struct host
   /* Log filename. */
   char *logfile;
 
-  /* Log stdout. */
-  u_char log_stdout;
-
-  /* Log syslog. */
-  u_char log_syslog;
-  
   /* config file name of this host */
   char *config;
 
