@@ -2148,10 +2148,10 @@ isis_circuit_init ()
 
   install_element (INTERFACE_NODE, &isis_hello_cmd);
   install_element (INTERFACE_NODE, &no_isis_hello_cmd);
-
+#if 0
   install_element (INTERFACE_NODE, &ip_address_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_cmd);
-
+#endif
   install_element (INTERFACE_NODE, &csnp_interval_cmd);
   install_element (INTERFACE_NODE, &no_csnp_interval_cmd);
   install_element (INTERFACE_NODE, &no_csnp_interval_arg_cmd);
