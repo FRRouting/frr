@@ -1902,12 +1902,6 @@ vty_serv_un (const char *path)
       return;
     }
 
-  /* set to non-blocking*/
-  if ( ((flags = fcntl (sock, F_GETFL)) == -1)
-      || (fcntl (sock, F_SETFL, flags|O_NONBLOCK) == -1) )
-    zlog_warn ("vty_serv_un: could not set vty socket to non-blocking,"
-               " %s", strerror (errno));
-
   umask (old_mask);
 
   zprivs_get_ids(&ids);
@@ -1952,6 +1946,12 @@ vtysh_accept (struct thread *thread)
       return -1;
     }
 
+  /* set to non-blocking*/
+  if ( ((flags = fcntl (sock, F_GETFL)) == -1)
+      || (fcntl (sock, F_SETFL, flags|O_NONBLOCK) == -1) )
+    zlog_warn ("vty_serv_un: could not set vty socket to non-blocking,"
+               " %s", strerror (errno));
+  
 #ifdef VTYSH_DEBUG
   printf ("VTY shell accept\n");
 #endif /* VTYSH_DEBUG */

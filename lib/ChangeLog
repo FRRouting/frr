@@ -1,3 +1,9 @@
+2004-10-29 Paul Jakma <paul@dishone.st>
+
+	* vty.c: Move setting of sock to O_NONBLOCK from vty_serv_un
+	  to vtysh_accept, where sock is the actual fd we wanted to set to
+          O_NONBLOCK, ie the /connected/ vtysh unix socket.
+
 2004-10-23 Hasso Tepper <hasso at quagga.net>
 
 	* zclient.c: Unbreak reading interface update message. Might fix
