@@ -1470,6 +1470,8 @@ DEFUN (show_debugging_ospf,
       if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
 	vty_out (vty, "  OSPF Zebra redistribute debugging is on%s", VTY_NEWLINE);
     }
+  if (IS_DEBUG_OSPF (nssa, NSSA) == OSPF_DEBUG_NSSA)
+    vty_out (vty, "  OSPF NSSA debugging is on%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
