@@ -277,6 +277,7 @@ isis_adj_expire (struct thread *thread)
   adj = THREAD_ARG (thread);
   assert (adj);
   level = adj->level;
+  adj->t_expire = NULL;
 
   /* trigger the adj expire event */
   isis_adj_state_change (adj, ISIS_ADJ_DOWN, "holding time expired");
