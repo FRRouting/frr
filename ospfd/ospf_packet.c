@@ -774,8 +774,19 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 
   /* If incoming interface is passive one, ignore Hello. */
   if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE) {
-    zlog_info ("Packet %s [HELLO:RECV]: oi is passive",
-               inet_ntoa (ospfh->router_id));
+    char buf[3][INET_ADDRSTRLEN];
+    zlog_warn("Warning: ignoring HELLO from router %s sent to %s; we "
+	      "should not receive hellos on passive interface %s!",
+	      inet_ntop(AF_INET, &ospfh->router_id, buf[0], sizeof(buf[0])),
+	      inet_ntop(AF_INET, &iph->ip_dst, buf[1], sizeof(buf[1])),
+	      inet_ntop(AF_INET, &oi->address->u.prefix4,
+	      		buf[2], sizeof(buf[2])));
+    if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS))
+      {
+        /* Try to fix multicast membership. */
+        SET_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS);
+        ospf_if_set_multicast(oi);
+      }
     return;
   }
 
@@ -2428,10 +2439,20 @@ ospf_read (struct thread *thread)
     }
   else if (oi->state == ISM_Down)
     {
-      zlog_warn ("Ignoring packet from [%s] received on interface that is "
+      char buf[2][INET_ADDRSTRLEN];
+      zlog_warn ("Ignoring packet from %s to %s received on interface that is "
       		 "down [%s]; interface flags are %s",
-                 inet_ntoa (iph->ip_src), ifp->name, if_flag_dump(ifp->flags));
+		 inet_ntop(AF_INET, &iph->ip_src, buf[0], sizeof(buf[0])),
+		 inet_ntop(AF_INET, &iph->ip_dst, buf[1], sizeof(buf[1])),
+	         ifp->name, if_flag_dump(ifp->flags));
       stream_free (ibuf);
+      /* Fix multicast memberships? */
+      if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS))
+	SET_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS);
+      else if (iph->ip_dst.s_addr == htonl(OSPF_ALLDROUTERS))
+	SET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
+      if (oi->multicast_memberships)
+	ospf_if_set_multicast(oi);
       return 0;
     }
 
@@ -2443,10 +2464,13 @@ ospf_read (struct thread *thread)
   if (iph->ip_dst.s_addr == htonl (OSPF_ALLDROUTERS)
   && (oi->state != ISM_DR && oi->state != ISM_Backup))
     {
-      zlog_info ("Packet for AllDRouters from [%s] via [%s] (ISM: %s)",
+      zlog_warn ("Dropping packet for AllDRouters from [%s] via [%s] (ISM: %s)",
                  inet_ntoa (iph->ip_src), IF_NAME (oi),
                  LOOKUP (ospf_ism_state_msg, oi->state));
       stream_free (ibuf);
+      /* Try to fix multicast membership. */
+      SET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
+      ospf_if_set_multicast(oi);
       return 0;
     }
 

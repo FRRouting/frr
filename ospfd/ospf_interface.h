@@ -44,7 +44,7 @@ struct ospf_if_params
   DECLARE_IF_PARAM (u_int32_t, transmit_delay); /* Interface Transmisson Delay */
   DECLARE_IF_PARAM (u_int32_t, output_cost_cmd);/* Command Interface Output Cost */
   DECLARE_IF_PARAM (u_int32_t, retransmit_interval); /* Retransmission Interval */
-  DECLARE_IF_PARAM (u_char, passive_interface);      /* OSPF Interface is passive */
+  DECLARE_IF_PARAM (u_char, passive_interface);      /* OSPF Interface is passive: no sending or receiving (no need to join multicast groups) */
   DECLARE_IF_PARAM (u_char, priority);               /* OSPF Interface priority */
   DECLARE_IF_PARAM (u_char, type);                   /* type of interface */
 #define OSPF_IF_ACTIVE                  0
@@ -125,6 +125,11 @@ struct ospf_interface
 
   struct prefix *address;		/* Interface prefix */
   struct connected *connected;          /* Pointer to connected */ 
+
+  /* To which multicast groups do we currently belong? */
+  u_char multicast_memberships;
+#define MEMBER_ALLROUTERS	0x1
+#define MEMBER_DROUTERS		0x2
 
   /* Configured varables. */
   struct ospf_if_params *params;
@@ -247,5 +252,9 @@ void ospf_crypt_key_add (struct list *, struct crypt_key *);
 int ospf_crypt_key_delete (struct list *, u_char);
 
 u_char ospf_default_iftype(struct interface *ifp);
+
+/* Set all multicast memberships appropriately based on the type and
+   state of the interface. */
+extern void ospf_if_set_multicast(struct ospf_interface *);
 
 #endif /* _ZEBRA_OSPF_INTERFACE_H */

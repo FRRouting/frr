@@ -254,17 +254,6 @@ ospf_dr_election (struct ospf_interface *oi)
       !IPV4_ADDR_SAME (&old_bdr, &BDR (oi)))
     ospf_dr_change (oi->ospf, oi->nbrs);
 
-  if (oi->type == OSPF_IFTYPE_BROADCAST || oi->type == OSPF_IFTYPE_POINTOPOINT)
-    {
-      /* Multicast group change. */
-      if ((old_state != ISM_DR && old_state != ISM_Backup) &&
-	  (new_state == ISM_DR || new_state == ISM_Backup))
-	ospf_if_add_alldrouters (oi->ospf, oi->address, oi->ifp->ifindex);
-      else if ((old_state == ISM_DR || old_state == ISM_Backup) &&
-	       (new_state != ISM_DR && new_state != ISM_Backup))
-	ospf_if_drop_alldrouters (oi->ospf, oi->address, oi->ifp->ifindex);
-    }
-
   return new_state;
 }
 
@@ -580,6 +569,9 @@ ism_change_state (struct ospf_interface *oi, int state)
   old_state = oi->state;
   oi->state = state;
   oi->state_change++;
+
+  /* Set multicast memberships appropriately for new state. */
+  ospf_if_set_multicast(oi);
 
   if (old_state == ISM_Down || state == ISM_Down)
     ospf_check_abr_status (oi->ospf);

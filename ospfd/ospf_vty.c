@@ -260,6 +260,7 @@ DEFUN (ospf_passive_interface,
  struct in_addr addr;
  int ret;
  struct ospf_if_params *params;
+ struct route_node *rn;
 
  ifp = if_lookup_by_name (argv[0]);
  
@@ -287,7 +288,28 @@ DEFUN (ospf_passive_interface,
 
   SET_IF_PARAM (params, passive_interface);
   params->passive_interface = OSPF_IF_PASSIVE;
- 
+
+  /* XXX We should call ospf_if_set_multicast on exactly those
+   * interfaces for which the passive property changed.  It is too much
+   * work to determine this set, so we do this for every interface.
+   * This is safe and reasonable because ospf_if_set_multicast uses a
+   * record of joined groups to avoid systems calls if the desired
+   * memberships match the current memership.
+   */
+  for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next (rn))
+    {
+      struct ospf_interface *oi = rn->info;
+
+      if (oi && (OSPF_IF_PARAM(oi, passive_interface) == OSPF_IF_PASSIVE))
+        ospf_if_set_multicast(oi);
+    }
+  /*
+   * XXX It is not clear what state transitions the interface needs to
+   * undergo when going from active to passive.  Fixing this will
+   * require precise identification of interfaces having such a
+   * transition.
+   */
+
  return CMD_SUCCESS;
 }
 
@@ -308,6 +330,7 @@ DEFUN (no_ospf_passive_interface,
   struct in_addr addr;
   struct ospf_if_params *params;
   int ret;
+  struct route_node *rn;
     
   ifp = if_lookup_by_name (argv[0]);
   
@@ -342,7 +365,22 @@ DEFUN (no_ospf_passive_interface,
       ospf_free_if_params (ifp, addr);
       ospf_if_update_params (ifp, addr);
     }
-  
+
+  /* XXX We should call ospf_if_set_multicast on exactly those
+   * interfaces for which the passive property changed.  It is too much
+   * work to determine this set, so we do this for every interface.
+   * This is safe and reasonable because ospf_if_set_multicast uses a
+   * record of joined groups to avoid systems calls if the desired
+   * memberships match the current memership.
+   */
+  for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next (rn))
+    {
+      struct ospf_interface *oi = rn->info;
+
+      if (oi && (OSPF_IF_PARAM(oi, passive_interface) == OSPF_IF_ACTIVE))
+        ospf_if_set_multicast(oi);
+    }
+
   return CMD_SUCCESS;
 }
 
@@ -2628,6 +2666,17 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
 		       inet_ntoa (nbr->address.u.prefix4), VTY_NEWLINE);
 	    }
 	}
+
+      vty_out (vty, "  Multicast group memberships:");
+      if (CHECK_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS))
+        vty_out (vty, " OSPFAllRouters");
+      if (CHECK_FLAG(oi->multicast_memberships, MEMBER_DROUTERS))
+        vty_out (vty, " OSPFDesignatedRouters");
+      if (!CHECK_FLAG(oi->multicast_memberships,
+		      MEMBER_ALLROUTERS|MEMBER_DROUTERS))
+        vty_out (vty, " <None>");
+      vty_out (vty, "%s", VTY_NEWLINE);
+
       vty_out (vty, "  Timer intervals configured,");
       vty_out (vty, " Hello %d, Dead %d, Wait %d, Retransmit %d%s",
 	       OSPF_IF_PARAM (oi, v_hello), OSPF_IF_PARAM (oi, v_wait),

@@ -727,6 +727,60 @@ ospf_if_is_enable (struct ospf_interface *oi)
   return 0;
 }
 
+void
+ospf_if_set_multicast(struct ospf_interface *oi)
+{
+  if ((oi->state > ISM_Loopback) &&
+      (oi->type != OSPF_IFTYPE_LOOPBACK) &&
+      (oi->type != OSPF_IFTYPE_VIRTUALLINK) &&
+      (OSPF_IF_PARAM(oi, passive_interface) == OSPF_IF_ACTIVE))
+    {
+      /* The interface should belong to the OSPF-all-routers group. */
+      if (!CHECK_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS) &&
+	  (ospf_if_add_allspfrouters(oi->ospf, oi->address,
+				     oi->ifp->ifindex) >= 0))
+	/* Set the flag only if the system call to join succeeded. */
+        SET_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS);
+    }
+  else
+    {
+      /* The interface should NOT belong to the OSPF-all-routers group. */
+      if (CHECK_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS))
+        {
+	  ospf_if_drop_allspfrouters (oi->ospf, oi->address, oi->ifp->ifindex);
+	  /* Unset the flag regardless of whether the system call to leave
+	     the group succeeded, since it's much safer to assume that
+	     we are not a member. */
+	  UNSET_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS);
+        }
+    }
+
+  if (((oi->type == OSPF_IFTYPE_BROADCAST) ||
+       (oi->type == OSPF_IFTYPE_POINTOPOINT)) &&
+      ((oi->state == ISM_DR) || (oi->state == ISM_Backup)) &&
+      (OSPF_IF_PARAM(oi, passive_interface) == OSPF_IF_ACTIVE))
+    {
+      /* The interface should belong to the OSPF-designated-routers group. */
+      if (!CHECK_FLAG(oi->multicast_memberships, MEMBER_DROUTERS) &&
+	  (ospf_if_add_alldrouters(oi->ospf, oi->address,
+	  			   oi->ifp->ifindex) >= 0))
+	/* Set the flag only if the system call to join succeeded. */
+        SET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
+    }
+  else
+    {
+      /* The interface should NOT belong to the OSPF-designated-routers group */
+      if (CHECK_FLAG(oi->multicast_memberships, MEMBER_DROUTERS))
+        {
+	  ospf_if_drop_alldrouters(oi->ospf, oi->address, oi->ifp->ifindex);
+	  /* Unset the flag regardless of whether the system call to leave
+	     the group succeeded, since it's much safer to assume that
+	     we are not a member. */
+          UNSET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
+        }
+    }
+}
+
 int
 ospf_if_up (struct ospf_interface *oi)
 {
@@ -737,8 +791,6 @@ ospf_if_up (struct ospf_interface *oi)
     OSPF_ISM_EVENT_SCHEDULE (oi, ISM_LoopInd);
   else
     {
-      if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
-	ospf_if_add_allspfrouters (oi->ospf, oi->address, oi->ifp->ifindex);
       ospf_if_stream_set (oi);
       OSPF_ISM_EVENT_SCHEDULE (oi, ISM_InterfaceUp);
     }
@@ -755,9 +807,6 @@ ospf_if_down (struct ospf_interface *oi)
   OSPF_ISM_EVENT_EXECUTE (oi, ISM_InterfaceDown);
   /* Shutdown packet reception and sending */
   ospf_if_stream_unset (oi);
-  if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
-    ospf_if_drop_allspfrouters (oi->ospf, oi->address, oi->ifp->ifindex);
-
 
   return 1;
 }

@@ -1,3 +1,42 @@
+2005-02-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_interface.h: Improve passive_interface comment.  Add new
+	  multicast_memberships bitmask to struct ospf_interface to track
+	  active multicast subscriptions.  Declare new function
+	  ospf_if_set_multicast.
+	* ospf_interface.c: (ospf_if_set_multicast) New function to configure
+	  multicast memberships properly based on the current
+	  multicast_memberships status and the current values of the
+	  ospf_interface state, type, and passive_interface status.
+	  (ospf_if_up) Remove call to ospf_if_add_allspfrouters (this is
+	  now handled by ism_change_state's call to ospf_if_set_multicast).
+	  (ospf_if_down) Remove call to ospf_if_drop_allspfrouters (now
+	  handled by ism_change_state).
+	* ospf_ism.c: (ospf_dr_election) Remove logic to join or leave
+	  the DRouters multicast group (now handled by ism_change_state's call
+	  to ospf_if_set_multicast).
+	  (ism_change_state) Add call to ospf_if_set_multicast to change
+	  multicast memberships as necessary to reflect the new interface state.
+	* ospf_packet.c: (ospf_hello) When a Hello packet is received on a
+	  passive interface: 1. Increase the severity of the error message
+	  from LOG_INFO to LOG_WARNING; 2. Add more information to the error
+	  message (packet destination address and interface address);
+	  and 3. If the packet was sent to ospf-all-routers, then try
+	  to fix the multicast group memberships.
+	  (ospf_read) When a packet is received on an interface whose state
+	  is ISM_Down, enhance the warning message to show the packet
+	  destination address, and try to update/fix the multicast group
+	  memberships if the packet was sent to a multicast address.
+	  When a packet is received for ospf-designated-routers, but the
+	  current interface state is not DR or BDR, then increase the
+	  severity level of the error message from LOG_INFO to LOG_WARNING,
+	  and try to fix the multicast group memberships.
+	* ospf_vty.c: (ospf_passive_interface) Call ospf_if_set_multicast for
+	  any ospf interface that may have changed from active to passive.
+	  (no_ospf_passive_interface) Call ospf_if_set_multicast for
+	  any ospf interface that may have changed from passive to active.
+	  (show_ip_ospf_interface_sub) Show multicast group memberships.
+
 2005-02-08 Paul Jakma <paul@dishone.st>
 
 	* ospf_packet.c: (various) Remove unneeded stream_set_putp abuse.
