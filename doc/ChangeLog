@@ -1,3 +1,7 @@
+2004-11-22 Paul Jakma <paul@dishone.st>
+
+	* bgpd.8: escape -/+ signs, reported by ESR to bug-zebra.
+
 2004-11-19 Hasso Tepper <hasso at quagga.net>
 
 	* Makefile.am: Don't remove quagga.info while cleaning up.
