@@ -28,7 +28,14 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifdef SUNOS_5
 #define _XPG4_2
 #define __EXTENSIONS__
+typedef unsigned int u_int32_t; 
+typedef unsigned short u_int16_t; 
+typedef unsigned short u_int8_t; 
 #endif /* SUNOS_5 */
+
+#ifndef HAVE_SOCKLEN_T
+typedef int socklen_t;
+#endif /* HAVE_SOCKLEN_T */
 
 #include <unistd.h>
 #include <stdio.h>
@@ -77,10 +84,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifdef HAVE_LINUX_VERSION_H
 #include <linux/version.h>
 #endif /* HAVE_LINUX_VERSION_H */
-
-#ifdef HAVE_ASM_TYPES_H
-#include <asm/types.h>
-#endif /* HAVE_ASM_TYPES_H */
 
 /* misc include group */
 #include <stdarg.h>
@@ -308,5 +311,44 @@ typedef u_char safi_t;
 /* Zebra types. */
 typedef u_int16_t zebra_size_t;
 typedef u_int8_t zebra_command_t;
+
+/* FIFO -- first in first out structure and macros.  */
+struct fifo
+{
+  struct fifo *next;
+  struct fifo *prev;
+};
+
+#define FIFO_INIT(F)                                  \
+  do {                                                \
+    struct fifo *Xfifo = (struct fifo *)(F);          \
+    Xfifo->next = Xfifo->prev = Xfifo;                \
+  } while (0)
+
+#define FIFO_ADD(F,N)                                 \
+  do {                                                \
+    struct fifo *Xfifo = (struct fifo *)(F);          \
+    struct fifo *Xnode = (struct fifo *)(N);          \
+    Xnode->next = Xfifo;                              \
+    Xnode->prev = Xfifo->prev;                        \
+    Xfifo->prev = Xfifo->prev->next = Xnode;          \
+  } while (0)
+
+#define FIFO_DEL(N)                                   \
+  do {                                                \
+    struct fifo *Xnode = (struct fifo *)(N);          \
+    Xnode->prev->next = Xnode->next;                  \
+    Xnode->next->prev = Xnode->prev;                  \
+  } while (0)
+
+#define FIFO_HEAD(F)                                  \
+  ((((struct fifo *)(F))->next == (struct fifo *)(F)) \
+  ? NULL : (F)->next)
+
+#define FIFO_EMPTY(F)                                 \
+  (((struct fifo *)(F))->next == (struct fifo *)(F))
+
+#define FIFO_TOP(F)                                   \
+  (FIFO_EMPTY(F) ? NULL : ((struct fifo *)(F))->next)
 
 #endif /* _ZEBRA_H */
