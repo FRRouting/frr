@@ -21,7 +21,7 @@
 
 #include <zebra.h>
 
-#include "version.h"
+#include <lib/version.h>
 
 void
 print_version (char *progname)

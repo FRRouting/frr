@@ -20,7 +20,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 
-#include "version.h"
+#include <lib/version.h>
 #include "prefix.h"
 #include "linklist.h"
 #include "stream.h"

@@ -27,7 +27,7 @@
 
 #ifndef HEADER_DEPENDENCY
 /* Include other stuffs */
-#include "version.h"
+#include <lib/version.h>
 #include "log.h"
 #include "getopt.h"
 #include "thread.h"

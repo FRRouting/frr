@@ -29,7 +29,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-#include "version.h"
+#include <lib/version.h>
 #include "getopt.h"
 #include "command.h"
 

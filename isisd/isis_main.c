@@ -27,7 +27,7 @@
 #include "getopt.h"
 #include "thread.h"
 #include "log.h"
-#include "version.h"
+#include <lib/version.h>
 #include "command.h"
 #include "vty.h"
 #include "memory.h"

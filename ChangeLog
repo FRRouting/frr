@@ -1,3 +1,9 @@
+2004-03-16 David Young <dyoung@pobox.com>
+
+	* (many) reference <lib/version.h> rather than "version.h",
+	because version.h is a generated file and not present in the
+	source tree when using objdir builds.
+
 2004-03-03 PC Drew <pc@superiorcomm.net>
 
 	* lib/keychain.c: typecast time_t function to long, fixes compile

@@ -25,7 +25,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "command.h"
 #include "getopt.h"
 #include "thread.h"
-#include "version.h"
+#include <lib/version.h>
 #include "memory.h"
 #include "prefix.h"
 #include "log.h"

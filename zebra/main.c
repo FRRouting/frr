@@ -21,7 +21,7 @@
 
 #include <zebra.h>
 
-#include "version.h"
+#include <lib/version.h>
 #include "getopt.h"
 #include "command.h"
 #include "thread.h"
