@@ -130,14 +130,11 @@ interface_list_ioctl ()
 int
 if_get_index (struct interface *ifp)
 {
-  static int if_fake_index = 1;
-
-#ifdef HAVE_BROKEN_ALIASES
-  /* Linux 2.2.X does not provide individual interface index for aliases. */
-  ifp->ifindex = if_fake_index++;
-  return ifp->ifindex;
-#else
-#ifdef SIOCGIFINDEX
+#if defined(HAVE_IF_NAMETOINDEX)
+  /* Modern systems should have if_nametoindex(3). */
+  ifp->ifindex = if_nametoindex(ifp->name);
+#elif defined(SIOCGIFINDEX) && !defined(HAVE_BROKEN_ALIASES)
+  /* Fall-back for older linuxes. */
   int ret;
   struct ifreq ifreq;
 
@@ -157,13 +154,20 @@ if_get_index (struct interface *ifp)
 #else
   ifp->ifindex = ifreq.ifr_index;
 #endif
-  return ifp->ifindex;
 
 #else
+/* Linux 2.2.X does not provide individual interface index 
+   for aliases and we know it. For others issue a warning. */
+#if !defined(HAVE_BROKEN_ALIASES)
+#warning "Using if_fake_index. You may want to add appropriate"
+#warning "mapping from ifname to ifindex for your system..."
+#endif
+  /* This branch probably won't provide usable results, but anyway... */
+  static int if_fake_index = 1;
   ifp->ifindex = if_fake_index++;
+#endif
+
   return ifp->ifindex;
-#endif /* SIOCGIFINDEX */
-#endif /* HAVE_BROKEN_ALIASES */
 }
 
 #ifdef SIOCGIFHWADDR
@@ -286,6 +290,15 @@ if_getaddrs ()
 		  dest_pnt = &dest->sin6_addr;
 		}
 	    }
+
+#if defined(KAME)
+	  if (IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr)) 
+	    {
+	      addr->sin6_scope_id =
+			ntohs(*(u_int16_t *)&addr->sin6_addr.s6_addr[2]);
+	      addr->sin6_addr.s6_addr[2] = addr->sin6_addr.s6_addr[3] = 0;
+	    }	
+#endif          
 
 	  connected_add_ipv6 (ifp, &addr->sin6_addr, prefixlen, dest_pnt);
 	}
