@@ -350,6 +350,8 @@ vtysh_pager_init ()
 {
   vtysh_pager_name = getenv ("VTYSH_PAGER");
   if (! vtysh_pager_name)
+    vtysh_pager_name = getenv ("PAGER");
+  if (! vtysh_pager_name)
     vtysh_pager_name = "more";
 }
 
@@ -361,6 +363,7 @@ vtysh_execute_func (char *line, int pager)
   vector vline;
   struct cmd_element *cmd;
   FILE *fp = NULL;
+  int closepager=0;
 
   /* Split readline string up into the vector */
   vline = cmd_make_strvec (line);
@@ -394,9 +397,11 @@ vtysh_execute_func (char *line, int pager)
 	    fp = popen (vtysh_pager_name, "w");
 	    if (fp == NULL)
 	      {
-		perror ("popen");
-		exit (1);
+		perror ("popen failed for pager");
+		fp = stdout;
 	      }
+	    else
+	      closepager=1;
 	  }
 	else
 	  fp = stdout;
@@ -425,12 +430,11 @@ vtysh_execute_func (char *line, int pager)
 
                 if (vline == NULL)
 		  {
-		    if (pager && vtysh_pager_name && fp)
+		    if (pager && vtysh_pager_name && fp && closepager)
 		      {
 			if (pclose (fp) == -1)
 			  {
-			    perror ("pclose");
-			    exit (1);
+			    perror ("pclose failed for pager");
 			  }
 			fp = NULL;
 		      }
@@ -478,12 +482,11 @@ vtysh_execute_func (char *line, int pager)
 	  (*cmd->func) (cmd, vty, 0, NULL);
       }
     }
-  if (pager && vtysh_pager_name && fp)
+  if (pager && vtysh_pager_name && fp && closepager)
     {
       if (pclose (fp) == -1)
 	{
-	  perror ("pclose");
-	  exit (1);
+	  perror ("pclose failed for pager");
 	}
       fp = NULL;
     }
