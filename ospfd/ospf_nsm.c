@@ -689,7 +689,7 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   /* One of the neighboring routers changes to/from the FULL state. */
   if ((old_state != NSM_Full && state == NSM_Full) ||
       (old_state == NSM_Full && state != NSM_Full))
-    { 
+    {
       if (state == NSM_Full)
 	{
 	  oi->full_nbrs++;
@@ -726,8 +726,11 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
             ospf_ls_retransmit_clear (nbr);
 	}
 
-      zlog_info ("nsm_change_state(): "
-		 "scheduling new router-LSA origination");
+      zlog_info ("nsm_change_state(%s, %s -> %s): "
+		 "scheduling new router-LSA origination",
+		 inet_ntoa (nbr->router_id),
+		 LOOKUP(ospf_nsm_state_msg, old_state),
+		 LOOKUP(ospf_nsm_state_msg, state));
 
       ospf_router_lsa_timer_add (oi->area);
 

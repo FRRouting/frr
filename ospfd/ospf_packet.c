@@ -857,8 +857,8 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
     if (CHECK_FLAG (OPTIONS (oi), OSPF_OPTION_E) !=
 	CHECK_FLAG (hello->options, OSPF_OPTION_E))
       {
-	zlog_warn ("Packet[Hello:RECV]: my options: %x, his options %x",
-		   OPTIONS (oi), hello->options);
+	zlog_warn ("Packet %s [Hello:RECV]: my options: %x, his options %x",
+		   inet_ntoa(ospfh->router_id), OPTIONS (oi), hello->options);
 	return;
       }
   
@@ -1080,7 +1080,7 @@ ospf_db_desc_is_dup (struct ospf_db_desc *dd, struct ospf_neighbor *nbr)
 }
 
 /* OSPF Database Description message read -- RFC2328 Section 10.6. */
-void
+static void
 ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	      struct stream *s, struct ospf_interface *oi, u_int16_t size)
 {
@@ -1103,7 +1103,9 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
   /* Check MTU. */
   if (ntohs (dd->mtu) > oi->ifp->mtu)
     {
-      zlog_warn ("Packet[DD]: MTU is larger than [%s]'s MTU", IF_NAME (oi));
+      zlog_warn ("Packet[DD]: Neighbor %s MTU %u is larger than [%s]'s MTU %u",
+		 inet_ntoa (nbr->router_id), ntohs (dd->mtu),
+		 IF_NAME (oi), oi->ifp->mtu);
       return;
     }
 
@@ -1161,7 +1163,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
     case NSM_Attempt:
     case NSM_TwoWay:
       zlog_warn ("Packet[DD]: Neighbor %s state is %s, packet discarded.",
-		 inet_ntoa (ospfh->router_id),
+		 inet_ntoa(nbr->router_id),
 		 LOOKUP (ospf_nsm_state_msg, nbr->state));
       break;
     case NSM_Init:
@@ -1179,14 +1181,16 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  if (IPV4_ADDR_CMP (&nbr->router_id, &oi->ospf->router_id) > 0)
 	    {
 	      /* We're Slave---obey */
-	      zlog_warn ("Packet[DD]: Negotiation done (Slave).");
+	      zlog_warn ("Packet[DD]: Neighbor %s Negotiation done (Slave).",
+	      		 inet_ntoa(nbr->router_id));
 	      nbr->dd_seqnum = ntohl (dd->dd_seqnum);
 	      nbr->dd_flags &= ~(OSPF_DD_FLAG_MS|OSPF_DD_FLAG_I); /* Reset I/MS */
 	    }
 	  else
 	    {
 	      /* We're Master, ignore the initial DBD from Slave */
-	      zlog_warn ("Packet[DD]: Initial DBD from Slave, ignoring.");
+	      zlog_warn ("Packet[DD]: Neighbor %s: Initial DBD from Slave, "
+	      		 "ignoring.", inet_ntoa(nbr->router_id));
 	      break;
 	    }
 	}
@@ -1195,12 +1199,14 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	       ntohl (dd->dd_seqnum) == nbr->dd_seqnum &&
 	       IPV4_ADDR_CMP (&nbr->router_id, &oi->ospf->router_id) < 0)
 	{
-	  zlog_warn ("Packet[DD]: Negotiation done (Master).");
+	  zlog_warn ("Packet[DD]: Neighbor %s Negotiation done (Master).",
+		     inet_ntoa(nbr->router_id));
 	  nbr->dd_flags &= ~OSPF_DD_FLAG_I;
 	}
       else
 	{
-	  zlog_warn ("Packet[DD]: Negotiation fails.");
+	  zlog_warn ("Packet[DD]: Neighbor %s Negotiation fails.",
+		     inet_ntoa(nbr->router_id));
 	  break;
 	}
       
@@ -1234,11 +1240,13 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	{
 	  if (IS_SET_DD_MS (nbr->dd_flags))
 	    /* Master: discard duplicated DD packet. */
-	    zlog_warn ("Packet[DD] (Master): packet duplicated.");
+	    zlog_warn ("Packet[DD] (Master): Neighbor %s packet duplicated.",
+		       inet_ntoa (nbr->router_id));
 	  else
 	    /* Slave: cause to retransmit the last Database Description. */
 	    {
-	      zlog_warn ("Packet[DD] [Slave]: packet duplicated.");
+	      zlog_warn ("Packet[DD] [Slave]: Neighbor %s packet duplicated.",
+			 inet_ntoa (nbr->router_id));
 	      ospf_db_desc_resend (nbr);
 	    }
 	  break;
@@ -1248,18 +1256,20 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
       /* Check Master/Slave bit mismatch */
       if (IS_SET_DD_MS (dd->flags) != IS_SET_DD_MS (nbr->last_recv.flags))
 	{
-	  zlog_warn ("Packet[DD]: MS-bit mismatch.");
+	  zlog_warn ("Packet[DD]: Neighbor %s MS-bit mismatch.",
+		     inet_ntoa(nbr->router_id));
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
 	  if (IS_DEBUG_OSPF_EVENT)
 	    zlog_debug ("Packet[DD]: dd->flags=%d, nbr->dd_flags=%d",
-		       dd->flags, nbr->dd_flags);
+		        dd->flags, nbr->dd_flags);
 	  break;
 	}
 
       /* Check initialize bit is set. */
       if (IS_SET_DD_I (dd->flags))
 	{
-	  zlog_warn ("Packet[DD]: I-bit set.");
+	  zlog_warn ("Packet[DD]: Neighbor %s I-bit set.",
+		     inet_ntoa(nbr->router_id));
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
 	  break;
 	}
@@ -1271,7 +1281,8 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  /* Save the new options for debugging */
 	  nbr->options = dd->options;
 #endif /* ORIGINAL_CODING */
-	  zlog_warn ("Packet[DD]: options mismatch.");
+	  zlog_warn ("Packet[DD]: Neighbor %s options mismatch.",
+		     inet_ntoa(nbr->router_id));
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
 	  break;
 	}
@@ -1282,7 +1293,8 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  (!IS_SET_DD_MS (nbr->dd_flags) &&
 	   ntohl (dd->dd_seqnum) != nbr->dd_seqnum + 1))
 	{
-	  zlog_warn ("Packet[DD]: sequence number mismatch.");
+	  zlog_warn ("Packet[DD]: Neighbor %s sequence number mismatch.",
+		     inet_ntoa(nbr->router_id));
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
 	  break;
 	}
@@ -1297,7 +1309,8 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  if (IS_SET_DD_MS (nbr->dd_flags))
 	    {
 	      /* Master should discard duplicate DD packet. */
-	      zlog_warn ("Packet[DD]: duplicated, packet discarded.");
+	      zlog_warn("Packet[DD]: Neighbor %s duplicated, packet discarded.",
+			inet_ntoa(nbr->router_id));
 	      break;
 	    }
 	  else
@@ -1325,7 +1338,8 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
       OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
       break;
     default:
-      zlog_warn ("Packet[DD]: NSM illegal status.");
+      zlog_warn ("Packet[DD]: Neighbor %s NSM illegal status %u.",
+		 inet_ntoa(nbr->router_id), nbr->state);
       break;
     }
 }
@@ -1595,8 +1609,10 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
   /* Check neighbor state. */
   if (nbr->state < NSM_Exchange)
     {
-      zlog_warn ("Link State Update: Neighbor[%s] state is less than Exchange",
-		 inet_ntoa (ospfh->router_id));
+      zlog_warn ("Link State Update: "
+      		 "Neighbor[%s] state %s is less than Exchange",
+		 inet_ntoa (ospfh->router_id),
+		 LOOKUP(ospf_nsm_state_msg, nbr->state));
       return;
     }
 
@@ -1708,7 +1724,8 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	  ospf_ls_ack_send (nbr, lsa);
 
 	  /* Discard LSA. */	  
-	  zlog_warn ("Link State Update: LS age is equal to MaxAge.");
+	  zlog_warn("Link State Update[%s]: LS age is equal to MaxAge.",
+		    dump_lsa_key(lsa));
           DISCARD_LSA (lsa, 3);
 	}
 
@@ -1818,7 +1835,8 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
       if (ospf_ls_request_lookup (nbr, lsa))
 	{
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_BadLSReq);
-	  zlog_warn ("LSA instance exists on Link state request list");
+	  zlog_warn("LSA[%s] instance exists on Link state request list",
+	  	    dump_lsa_key(lsa));
 
 	  /* Clean list of LSAs. */
           ospf_upd_list_clean (lsas);
@@ -1949,7 +1967,10 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 
   if (nbr->state < NSM_Exchange)
     {
-      zlog_warn ("Link State Acknowledgment: State is less than Exchange.");
+      zlog_warn ("Link State Acknowledgment: "
+      		 "Neighbor[%s] state %s is less than Exchange",
+		 inet_ntoa (ospfh->router_id),
+		 LOOKUP(ospf_nsm_state_msg, nbr->state));
       return;
     }
 

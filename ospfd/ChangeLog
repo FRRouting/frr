@@ -1,3 +1,11 @@
+2004-12-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_packet.c: (ospf_db_desc) Should be static, not global.
+	  (ospf_hello,ospf_db_desc,ospf_ls_upd,ospf_ls_ack) Improve warning
+	  messages to include identifying information (e.g. router id).
+	* ospf_nsm.c: (nsm_change_state) Improve info message to include
+	  router id and state names.
+
 2004-12-09  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* ospf_apiserver.c (ospf_apiserver_term): Obtain struct
