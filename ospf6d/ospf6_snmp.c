@@ -372,7 +372,7 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
   int offsetlen;
   char a[16], b[16], c[16];
   struct ospf6_area *oa;
-  listnode node;
+  struct listnode *node;
 
   memset (&area_id, 0, sizeof (struct in_addr));
   type = 0;
