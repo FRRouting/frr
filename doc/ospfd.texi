@@ -223,13 +223,16 @@ Same as export-list, but it applies to paths announced into specified area as
 Type-3 summary-LSAs.
 @end deffn
 
-@deffn {OSPF Command} {area @var{a.b.c.d} filter-list NAME} {}
-@deffnx {OSPF Command} {area <0-4294967295> filter-list NAME} {}
-@deffnx {OSPF Command} {no area @var{a.b.c.d} filter-list NAME} {}
-@deffnx {OSPF Command} {no area <0-4294967295> filter-list NAME} {}
-If you want to filter intra area paths in both direction with same access list,
-you can use filter-list command instead of export-list and import-list
-commands.
+@deffn {OSPF Command} {area @var{a.b.c.d} filter-list prefix NAME in} {}
+@deffnx {OSPF Command} {area @var{a.b.c.d} filter-list prefix NAME out} {}
+@deffnx {OSPF Command} {area <0-4294967295> filter-list prefix NAME in} {}
+@deffnx {OSPF Command} {area <0-4294967295> filter-list prefix NAME out} {}
+@deffnx {OSPF Command} {no area @var{a.b.c.d} filter-list prefix NAME in} {}
+@deffnx {OSPF Command} {no area @var{a.b.c.d} filter-list prefix NAME out} {}
+@deffnx {OSPF Command} {no area <0-4294967295> filter-list prefix NAME in} {}
+@deffnx {OSPF Command} {no area <0-4294967295> filter-list prefix NAME out} {}
+Filtering Type-3 summary-LSAs to/from area using prefix lists. Unlike export-
+and import-list, these commands can be used with backbone area as well.
 @end deffn
 
 @deffn {OSPF Command} {area @var{a.b.c.d} authentication} {}
