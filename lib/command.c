@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.37 2005/03/07 08:35:39 hasso Exp $
+   $Id: command.c,v 1.38 2005/03/08 10:43:43 paul Exp $
 
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -597,7 +597,9 @@ config_write_host (struct vty *vty)
     vty_out (vty, "service terminal-length %d%s", host.lines,
 	     VTY_NEWLINE);
 
-  if (! host.motd)
+  if (host.motdfile)
+    vty_out (vty, "banner motd file %s%s", host.motdfile, VTY_NEWLINE);
+  else if (! host.motd)
     vty_out (vty, "no banner motd%s", VTY_NEWLINE);
 
   return 1;
@@ -3399,6 +3401,18 @@ DEFUN (no_config_log_record_priority,
   return CMD_SUCCESS;
 }
 
+DEFUN (banner_motd_file,
+       banner_motd_file_cmd,
+       "banner motd file [FILE]",
+       "Set banner\n"
+       "Banner for motd\n"
+       "Banner from a file\n"
+       "Filename\n")
+{
+  if (host.motdfile) free(host.motdfile);
+  host.motdfile = strdup(argv[0]);
+  return CMD_SUCCESS;
+}
 
 DEFUN (banner_motd_default,
        banner_motd_default_cmd,
@@ -3419,6 +3433,8 @@ DEFUN (no_banner_motd,
        "Strings for motd\n")
 {
   host.motd = NULL;
+  if (host.motdfile) free(host.motdfile);
+  host.motdfile = NULL;
   return CMD_SUCCESS;
 }
 
@@ -3460,6 +3476,7 @@ cmd_init (int terminal)
   host.config = NULL;
   host.lines = -1;
   host.motd = default_motd;
+  host.motdfile = NULL;
 
   /* Install top nodes. */
   install_node (&view_node, NULL);
@@ -3539,6 +3556,7 @@ cmd_init (int terminal)
       install_element (CONFIG_NODE, &service_password_encrypt_cmd);
       install_element (CONFIG_NODE, &no_service_password_encrypt_cmd);
       install_element (CONFIG_NODE, &banner_motd_default_cmd);
+      install_element (CONFIG_NODE, &banner_motd_file_cmd);
       install_element (CONFIG_NODE, &no_banner_motd_cmd);
       install_element (CONFIG_NODE, &service_terminal_length_cmd);
       install_element (CONFIG_NODE, &no_service_terminal_length_cmd);

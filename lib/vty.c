@@ -216,7 +216,28 @@ vty_time_print (struct vty *vty, int cr)
 void
 vty_hello (struct vty *vty)
 {
-  if (host.motd)
+  if (host.motdfile)
+    {
+      FILE *f;
+      char buf[4096];
+      int r;
+      f = fopen (host.motdfile, "r");
+      if (f)
+	{
+	  while (!feof (f))
+	    {
+	      memset (buf, '\0', sizeof (buf));
+	      r = fread (&buf, sizeof (buf) - 1, 1, f);
+	      if (r < 0)
+		break;
+	      vty_out (vty, buf);
+	    }
+	  fclose (f);
+	}
+      else
+	vty_out (vty, "MOTD file not found\n");
+    }
+  else if (host.motd)
     vty_out (vty, host.motd);
 }
 

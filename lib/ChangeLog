@@ -1,3 +1,14 @@
+2005-03-08 Jeroen Massar <jeroen@unfix.org>
+
+	* vty.c: (vty_hello) display motd file, if set
+	* command.h: add char *motdfile to struct host
+	* command.c: (config_write_host) write out motdfile config
+	  (banner_motd_file_cmd) new command, allow motd to be read from
+	  file.
+	  (no_banner_motd_cmd) free motdfile string, if needs be.
+	  (cmd_init) init (struct host).motdfile. Add new motd file
+	  commands.
+
 2005-03-07 Michael Sandee <voidptr@voidptr.sboost.org>
 
 	* command.c: host.name might be NULL.

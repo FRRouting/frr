@@ -55,6 +55,7 @@ struct host
 
   /* Banner configuration. */
   const char *motd;
+  char *motdfile;
 };
 
 /* There are some command levels which called from command node. */
