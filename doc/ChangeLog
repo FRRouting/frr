@@ -1,3 +1,8 @@
+2004-11-15 Paul Jakma <paul@dishone.st>
+
+	* routeserver.texi: Strip ctrl-M from line endings, note by
+	  sigma@smx.pair.com
+
 2004-11-08 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: Add routeserver.texi to quagga_TEXINFOS.
