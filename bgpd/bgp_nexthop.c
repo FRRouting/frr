@@ -1119,9 +1119,11 @@ bgp_import_check (struct prefix *p, u_int32_t *igpmetric, struct in_addr *igpnex
 int
 bgp_import (struct thread *t)
 {
+  struct bgp_master *bm;
   struct bgp *bgp;
   struct bgp_node *rn;
   struct bgp_static *bgp_static;
+  struct listnode *nn;
   int valid;
   u_int32_t metric;
   struct in_addr nexthop;
@@ -1131,49 +1133,52 @@ bgp_import (struct thread *t)
   bgp_import_thread = 
     thread_add_timer (master, bgp_import, NULL, bgp_import_interval);
 
-  bgp = bgp_get_default ();
-  if (! bgp)
+  bm = bgp_get_master ();
+  if (! bm)
     return 0;
 
-  for (afi = AFI_IP; afi < AFI_MAX; afi++)
-    for (safi = SAFI_UNICAST; safi < SAFI_MPLS_VPN; safi++)
-      for (rn = bgp_table_top (bgp->route[afi][safi]); rn;
-	   rn = bgp_route_next (rn))
-	if ((bgp_static = rn->info) != NULL)
-	  {
-	    if (bgp_static->backdoor)
-	      continue;
-
-	    valid = bgp_static->valid;
-	    metric = bgp_static->igpmetric;
-	    nexthop = bgp_static->igpnexthop;
-
-	    if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK)
-		&& afi == AFI_IP && safi == SAFI_UNICAST)
-	      bgp_static->valid = bgp_import_check (&rn->p, &bgp_static->igpmetric,
-						    &bgp_static->igpnexthop);
-	    else
+  LIST_LOOP (bm->bgp, bgp, nn)
+    {
+      for (afi = AFI_IP; afi < AFI_MAX; afi++)
+	for (safi = SAFI_UNICAST; safi < SAFI_MPLS_VPN; safi++)
+	  for (rn = bgp_table_top (bgp->route[afi][safi]); rn;
+	       rn = bgp_route_next (rn))
+	    if ((bgp_static = rn->info) != NULL)
 	      {
-		bgp_static->valid = 1;
-		bgp_static->igpmetric = 0;
-		bgp_static->igpnexthop.s_addr = 0;
-	      }
+		if (bgp_static->backdoor)
+		  continue;
 
-	    if (bgp_static->valid != valid)
-	      {
-		if (bgp_static->valid)
-		  bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
+		valid = bgp_static->valid;
+		metric = bgp_static->igpmetric;
+		nexthop = bgp_static->igpnexthop;
+
+		if (bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK)
+		    && afi == AFI_IP && safi == SAFI_UNICAST)
+		  bgp_static->valid = bgp_import_check (&rn->p, &bgp_static->igpmetric,
+						        &bgp_static->igpnexthop);
 		else
-		  bgp_static_withdraw (bgp, &rn->p, afi, safi);
+		  {
+		    bgp_static->valid = 1;
+		    bgp_static->igpmetric = 0;
+		    bgp_static->igpnexthop.s_addr = 0;
+		  }
+
+		if (bgp_static->valid != valid)
+		  {
+		    if (bgp_static->valid)
+		      bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
+		    else
+		      bgp_static_withdraw (bgp, &rn->p, afi, safi);
+		  }
+		else if (bgp_static->valid)
+		  {
+		    if (bgp_static->igpmetric != metric
+			|| bgp_static->igpnexthop.s_addr != nexthop.s_addr
+			|| bgp_static->rmap.name)
+		      bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
+		  }
 	      }
-	    else if (bgp_static->valid)
-	      {
-		if (bgp_static->igpmetric != metric
-		    || bgp_static->igpnexthop.s_addr != nexthop.s_addr
-		    || bgp_static->rmap.name)
-		  bgp_static_update (bgp, &rn->p, bgp_static, afi, safi);
-	      }
-	  }
+    }
   return 0;
 }
 
@@ -1196,10 +1201,6 @@ zlookup_connect (struct thread *t)
 #endif /* HAVE_TCP_ZEBRA */
   if (zlookup->sock < 0)
     return -1;
-
-  /* Make BGP import there. */
-  bgp_import_thread = 
-    thread_add_timer (master, bgp_import, NULL, 0);
 
   return 0;
 }
@@ -1396,6 +1397,8 @@ bgp_scan_init ()
 
   /* Make BGP scan thread. */
   bgp_scan_thread = thread_add_timer (master, bgp_scan, NULL, bgp_scan_interval);
+  /* Make BGP import there. */
+  bgp_import_thread = thread_add_timer (master, bgp_import, NULL, 0);
 
   install_element (BGP_NODE, &bgp_scan_time_cmd);
   install_element (BGP_NODE, &no_bgp_scan_time_cmd);
