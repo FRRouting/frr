@@ -214,15 +214,15 @@ _route_count_assert (struct ospf6_route_table *table)
   if (num == table->count)
     return;
 
-  zlog_info ("PANIC !! table[%p]->count = %d, real = %d",
-             table, table->count, num);
+  zlog_debug ("PANIC !! table[%p]->count = %d, real = %d",
+	      table, table->count, num);
   for (debug = ospf6_route_head (table); debug;
        debug = ospf6_route_next (debug))
     {
       prefix2str (&debug->prefix, buf, sizeof (buf));
-      zlog_info ("%p %p %s", debug->prev, debug->next, buf);
+      zlog_debug ("%p %p %s", debug->prev, debug->next, buf);
     }
-  zlog_info ("DUMP END");
+  zlog_debug ("DUMP END");
 
   assert (num == table->count);
 }
@@ -252,7 +252,7 @@ ospf6_route_add (struct ospf6_route *route,
     prefix2str (&route->prefix, buf, sizeof (buf));
 
   if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-    zlog_info ("route add %s", buf);
+    zlog_debug ("route add %s", buf);
 
   gettimeofday (&now, NULL);
 
@@ -283,7 +283,7 @@ ospf6_route_add (struct ospf6_route *route,
       if (ospf6_route_is_identical (old, route))
         {
           if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-            zlog_info ("  identical route found, ignore");
+            zlog_debug ("  identical route found, ignore");
 
           ospf6_route_delete (route);
           SET_FLAG (old->flag, OSPF6_ROUTE_ADD);
@@ -293,7 +293,7 @@ ospf6_route_add (struct ospf6_route *route,
         }
 
       if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-        zlog_info ("  old route found, replace");
+        zlog_debug ("  old route found, replace");
 
       /* replace old one if exists */
       if (node->info == old)
@@ -328,7 +328,7 @@ ospf6_route_add (struct ospf6_route *route,
   if (prev || next)
     {
       if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-        zlog_info ("  another path found, insert");
+        zlog_debug ("  another path found, insert");
 
       if (prev == NULL)
         prev = next->prev;
@@ -366,7 +366,7 @@ ospf6_route_add (struct ospf6_route *route,
 
   /* Else, this is the brand new route regarding to the prefix */
   if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-    zlog_info ("  brand new route, add");
+    zlog_debug ("  brand new route, add");
 
   assert (node->info == NULL);
   node->info = route;
@@ -439,7 +439,7 @@ ospf6_route_remove (struct ospf6_route *route,
     prefix2str (&route->prefix, buf, sizeof (buf));
 
   if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-    zlog_info ("route remove: %s", buf);
+    zlog_debug ("route remove: %s", buf);
 
   node = route_node_lookup (table->table, &route->prefix);
   assert (node);

@@ -141,8 +141,8 @@ ospf6_interface_create (struct interface *ifp)
   if (oi->ifmtu > iobuflen)
     {
       if (IS_OSPF6_DEBUG_INTERFACE)
-        zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
-                   ifp->name, iobuflen);
+        zlog_debug ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
+		    ifp->name, iobuflen);
       oi->ifmtu = iobuflen;
     }
 
@@ -274,8 +274,8 @@ ospf6_interface_if_add (struct interface *ifp)
   if (oi->ifmtu > iobuflen)
     {
       if (IS_OSPF6_DEBUG_INTERFACE)
-        zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
-                   ifp->name, iobuflen);
+        zlog_debug ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
+		    ifp->name, iobuflen);
       oi->ifmtu = iobuflen;
     }
 
@@ -373,8 +373,8 @@ ospf6_interface_connected_route_update (struct interface *ifp)
           if (ret == PREFIX_DENY)
             {
               if (IS_OSPF6_DEBUG_INTERFACE)
-                zlog_info ("%s on %s filtered by prefix-list %s ",
-                           buf, oi->interface->name, oi->plist_name);
+                zlog_debug ("%s on %s filtered by prefix-list %s ",
+			    buf, oi->interface->name, oi->plist_name);
               continue;
             }
         }
@@ -411,9 +411,9 @@ ospf6_interface_state_change (u_char next_state, struct ospf6_interface *oi)
   /* log */
   if (IS_OSPF6_DEBUG_INTERFACE)
     {
-      zlog_info ("Interface state change %s: %s -> %s", oi->interface->name,
-                 ospf6_interface_state_str[prev_state],
-                 ospf6_interface_state_str[next_state]);
+      zlog_debug ("Interface state change %s: %s -> %s", oi->interface->name,
+		  ospf6_interface_state_str[prev_state],
+		  ospf6_interface_state_str[next_state]);
     }
 
   if ((prev_state == OSPF6_INTERFACE_DR ||
@@ -586,9 +586,9 @@ dr_election (struct ospf6_interface *oi)
       oi->bdrouter != (bdrouter ? bdrouter->router_id : htonl (0)))
     {
       if (IS_OSPF6_DEBUG_INTERFACE)
-        zlog_info ("DR Election on %s: DR: %s BDR: %s", oi->interface->name,
-                   (drouter ? drouter->name : "0.0.0.0"),
-                   (bdrouter ? bdrouter->name : "0.0.0.0"));
+        zlog_debug ("DR Election on %s: DR: %s BDR: %s", oi->interface->name,
+		    (drouter ? drouter->name : "0.0.0.0"),
+		    (bdrouter ? bdrouter->name : "0.0.0.0"));
 
       for (i = listhead (oi->neighbor_list); i; nextnode (i))
         {
@@ -616,15 +616,15 @@ interface_up (struct thread *thread)
   assert (oi && oi->interface);
 
   if (IS_OSPF6_DEBUG_INTERFACE)
-    zlog_info ("Interface Event %s: [InterfaceUp]",
-               oi->interface->name);
+    zlog_debug ("Interface Event %s: [InterfaceUp]",
+		oi->interface->name);
 
   /* check physical interface is up */
   if (! if_is_up (oi->interface))
     {
       if (IS_OSPF6_DEBUG_INTERFACE)
-        zlog_info ("Interface %s is down, can't execute [InterfaceUp]",
-                   oi->interface->name);
+        zlog_debug ("Interface %s is down, can't execute [InterfaceUp]",
+		    oi->interface->name);
       return 0;
     }
 
@@ -632,8 +632,8 @@ interface_up (struct thread *thread)
   if (oi->state > OSPF6_INTERFACE_DOWN)
     {
       if (IS_OSPF6_DEBUG_INTERFACE)
-        zlog_info ("Interface %s already enabled",
-                   oi->interface->name);
+        zlog_debug ("Interface %s already enabled",
+		    oi->interface->name);
       return 0;
     }
 
@@ -670,8 +670,8 @@ wait_timer (struct thread *thread)
   assert (oi && oi->interface);
 
   if (IS_OSPF6_DEBUG_INTERFACE)
-    zlog_info ("Interface Event %s: [WaitTimer]",
-               oi->interface->name);
+    zlog_debug ("Interface Event %s: [WaitTimer]",
+		oi->interface->name);
 
   if (oi->state == OSPF6_INTERFACE_WAITING)
     ospf6_interface_state_change (dr_election (oi), oi);
@@ -688,8 +688,8 @@ backup_seen (struct thread *thread)
   assert (oi && oi->interface);
 
   if (IS_OSPF6_DEBUG_INTERFACE)
-    zlog_info ("Interface Event %s: [BackupSeen]",
-               oi->interface->name);
+    zlog_debug ("Interface Event %s: [BackupSeen]",
+		oi->interface->name);
 
   if (oi->state == OSPF6_INTERFACE_WAITING)
     ospf6_interface_state_change (dr_election (oi), oi);
@@ -706,8 +706,8 @@ neighbor_change (struct thread *thread)
   assert (oi && oi->interface);
 
   if (IS_OSPF6_DEBUG_INTERFACE)
-    zlog_info ("Interface Event %s: [NeighborChange]",
-               oi->interface->name);
+    zlog_debug ("Interface Event %s: [NeighborChange]",
+		oi->interface->name);
 
   if (oi->state == OSPF6_INTERFACE_DROTHER ||
       oi->state == OSPF6_INTERFACE_BDR ||
@@ -726,8 +726,8 @@ loopind (struct thread *thread)
   assert (oi && oi->interface);
 
   if (IS_OSPF6_DEBUG_INTERFACE)
-    zlog_info ("Interface Event %s: [LoopInd]",
-               oi->interface->name);
+    zlog_debug ("Interface Event %s: [LoopInd]",
+		oi->interface->name);
 
   /* XXX not yet */
 
@@ -745,8 +745,8 @@ interface_down (struct thread *thread)
   assert (oi && oi->interface);
 
   if (IS_OSPF6_DEBUG_INTERFACE)
-    zlog_info ("Interface Event %s: [InterfaceDown]",
-               oi->interface->name);
+    zlog_debug ("Interface Event %s: [InterfaceDown]",
+		oi->interface->name);
 
   /* Leave AllSPFRouters */
   if (oi->state > OSPF6_INTERFACE_DOWN)

@@ -314,9 +314,9 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
   if (len)
     oid2in_addr (name + v->namelen, len, (struct in_addr *) &area_id);
 
-  zlog_info ("SNMP access by area: %s, exact=%d len=%d length=%d",
-             inet_ntoa (* (struct in_addr *) &area_id),
-             exact, len, *length);
+  zlog_debug ("SNMP access by area: %s, exact=%d len=%d length=%d",
+	      inet_ntoa (* (struct in_addr *) &area_id),
+	      exact, len, *length);
 
   for (node = listhead (ospf6->area_list); node; nextnode (node))
     {
@@ -339,9 +339,9 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
   oid_copy_addr (name + v->namelen, (struct in_addr *) &area->area_id,
                  sizeof (u_int32_t));
 
-  zlog_info ("SNMP found area: %s, exact=%d len=%d length=%d",
-             inet_ntoa (* (struct in_addr *) &area->area_id),
-             exact, len, *length);
+  zlog_debug ("SNMP found area: %s, exact=%d len=%d length=%d",
+	      inet_ntoa (* (struct in_addr *) &area->area_id),
+	      exact, len, *length);
 
   switch (v->magic)
     {
@@ -424,9 +424,9 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
   inet_ntop (AF_INET, &area_id, a, sizeof (a));
   inet_ntop (AF_INET, &adv_router, b, sizeof (b));
   inet_ntop (AF_INET, &id, c, sizeof (c));
-  zlog_info ("SNMP access by lsdb: area=%s exact=%d length=%d magic=%d"
-             " type=%#x adv_router=%s id=%s",
-             a, exact, *length, v->magic, ntohs (type), b, c);
+  zlog_debug ("SNMP access by lsdb: area=%s exact=%d length=%d magic=%d"
+	      " type=%#x adv_router=%s id=%s",
+	      a, exact, *length, v->magic, ntohs (type), b, c);
 
   if (exact)
     {
@@ -457,12 +457,12 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
 
   if (! lsa)
     {
-      zlog_info ("SNMP respond: No LSA to return");
+      zlog_debug ("SNMP respond: No LSA to return");
       return NULL;
     }
   oa = OSPF6_AREA (lsa->lsdb->data);
 
-  zlog_info ("SNMP respond: area: %s lsa: %s", oa->name, lsa->name);
+  zlog_debug ("SNMP respond: area: %s lsa: %s", oa->name, lsa->name);
 
   /* Add Index (AreaId, Type, RouterId, Lsid) */
   *length = v->namelen + OSPFV3_AREA_LSDB_ENTRY_EXACT_OFFSET;

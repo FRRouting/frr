@@ -55,9 +55,9 @@ ospf6_header_print (struct ospf6_header *oh)
   inet_ntop (AF_INET, &oh->router_id, router_id, sizeof (router_id));
   inet_ntop (AF_INET, &oh->area_id, area_id, sizeof (area_id));
 
-  zlog_info ("    OSPFv%d Type:%d Len:%hu Router-ID:%s",
+  zlog_debug ("    OSPFv%d Type:%d Len:%hu Router-ID:%s",
              oh->version, oh->type, ntohs (oh->length), router_id);
-  zlog_info ("    Area-ID:%s Cksum:%hx Instance-ID:%d",
+  zlog_debug ("    Area-ID:%s Cksum:%hx Instance-ID:%d",
              area_id, ntohs (oh->checksum), oh->instance_id);
 }
 
@@ -79,22 +79,22 @@ ospf6_hello_print (struct ospf6_header *oh)
   inet_ntop (AF_INET, &hello->bdrouter, bdrouter, sizeof (bdrouter));
   ospf6_options_printbuf (hello->options, options, sizeof (options));
 
-  zlog_info ("    I/F-Id:%ld Priority:%d Option:%s",
+  zlog_debug ("    I/F-Id:%ld Priority:%d Option:%s",
              (u_long) ntohl (hello->interface_id), hello->priority, options);
-  zlog_info ("    HelloInterval:%hu DeadInterval:%hu",
+  zlog_debug ("    HelloInterval:%hu DeadInterval:%hu",
              ntohs (hello->hello_interval), ntohs (hello->dead_interval));
-  zlog_info ("    DR:%s BDR:%s", drouter, bdrouter);
+  zlog_debug ("    DR:%s BDR:%s", drouter, bdrouter);
 
   for (p = (char *) ((caddr_t) hello + sizeof (struct ospf6_hello));
        p + sizeof (u_int32_t) <= OSPF6_MESSAGE_END (oh);
        p += sizeof (u_int32_t))
     {
       inet_ntop (AF_INET, (void *) p, neighbor, sizeof (neighbor));
-      zlog_info ("    Neighbor: %s", neighbor);
+      zlog_debug ("    Neighbor: %s", neighbor);
     }
 
   if (p != OSPF6_MESSAGE_END (oh))
-    zlog_info ("Trailing garbage exists");
+    zlog_debug ("Trailing garbage exists");
 }
 
 void
@@ -112,9 +112,9 @@ ospf6_dbdesc_print (struct ospf6_header *oh)
 
   ospf6_options_printbuf (dbdesc->options, options, sizeof (options));
 
-  zlog_info ("    MBZ: %#x Option: %s IfMTU: %hu",
+  zlog_debug ("    MBZ: %#x Option: %s IfMTU: %hu",
              dbdesc->reserved1, options, ntohs (dbdesc->ifmtu));
-  zlog_info ("    MBZ: %#x Bits: %s%s%s SeqNum: %#lx",
+  zlog_debug ("    MBZ: %#x Bits: %s%s%s SeqNum: %#lx",
              dbdesc->reserved2,
              (CHECK_FLAG (dbdesc->bits, OSPF6_DBDESC_IBIT) ? "I" : "-"),
              (CHECK_FLAG (dbdesc->bits, OSPF6_DBDESC_MBIT) ? "M" : "-"),
@@ -127,7 +127,7 @@ ospf6_dbdesc_print (struct ospf6_header *oh)
     ospf6_lsa_header_print_raw ((struct ospf6_lsa_header *) p);
 
   if (p != OSPF6_MESSAGE_END (oh))
-    zlog_info ("Trailing garbage exists");
+    zlog_debug ("Trailing garbage exists");
 }
 
 void
@@ -146,12 +146,12 @@ ospf6_lsreq_print (struct ospf6_header *oh)
       struct ospf6_lsreq_entry *e = (struct ospf6_lsreq_entry *) p;
       inet_ntop (AF_INET, &e->adv_router, adv_router, sizeof (adv_router));
       inet_ntop (AF_INET, &e->id, id, sizeof (id));
-      zlog_info ("    [%s Id:%s Adv:%s]",
+      zlog_debug ("    [%s Id:%s Adv:%s]",
                  ospf6_lstype_name (e->type), id, adv_router);
     }
 
   if (p != OSPF6_MESSAGE_END (oh))
-    zlog_info ("Trailing garbage exists");
+    zlog_debug ("Trailing garbage exists");
 }
 
 void
@@ -168,7 +168,7 @@ ospf6_lsupdate_print (struct ospf6_header *oh)
     ((caddr_t) oh + sizeof (struct ospf6_header));
 
   num = ntohl (lsupdate->lsa_number);
-  zlog_info ("    Number of LSA: %ld", num);
+  zlog_debug ("    Number of LSA: %ld", num);
 
   for (p = (char *) ((caddr_t) lsupdate + sizeof (struct ospf6_lsupdate));
        p < OSPF6_MESSAGE_END (oh) &&
@@ -178,7 +178,7 @@ ospf6_lsupdate_print (struct ospf6_header *oh)
       ospf6_lsa_header_print_raw ((struct ospf6_lsa_header *) p);
       if (OSPF6_LSA_SIZE (p) < sizeof (struct ospf6_lsa_header))
         {
-          zlog_info ("    Malformed LSA length, quit printing");
+          zlog_debug ("    Malformed LSA length, quit printing");
           break;
         }
     }
@@ -190,20 +190,20 @@ ospf6_lsupdate_print (struct ospf6_header *oh)
       int num = 0;
       memset (buf, 0, sizeof (buf));
 
-      zlog_info ("    Trailing garbage exists");
+      zlog_debug ("    Trailing garbage exists");
       while (p < OSPF6_MESSAGE_END (oh))
         {
           snprintf (buf, sizeof (buf), "%s %2x", buf, *p++);
           num++;
           if (num == 8)
             {
-              zlog_info ("    %s", buf);
+              zlog_debug ("    %s", buf);
               memset (buf, 0, sizeof (buf));
               num = 0;
             }
         }
       if (num)
-        zlog_info ("    %s", buf);
+        zlog_debug ("    %s", buf);
     }
 }
 
@@ -221,7 +221,7 @@ ospf6_lsack_print (struct ospf6_header *oh)
     ospf6_lsa_header_print_raw ((struct ospf6_lsa_header *) p);
 
   if (p != OSPF6_MESSAGE_END (oh))
-    zlog_info ("Trailing garbage exists");
+    zlog_debug ("Trailing garbage exists");
 }
 
 /* Receive function */
@@ -238,7 +238,7 @@ ospf6_header_examin (struct in6_addr *src, struct in6_addr *dst,
   if (oh->version != OSPFV3_VERSION)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (type, RECV))
-        zlog_info ("Message with unknown version");
+        zlog_debug ("Message with unknown version");
       return MSG_NG;
     }
 
@@ -248,12 +248,12 @@ ospf6_header_examin (struct in6_addr *src, struct in6_addr *dst,
       if (oh->area_id == BACKBONE_AREA_ID)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (type, RECV))
-            zlog_info ("Message may be via Virtual Link: not supported");
+            zlog_debug ("Message may be via Virtual Link: not supported");
           return MSG_NG;
         }
 
       if (IS_OSPF6_DEBUG_MESSAGE (type, RECV))
-        zlog_info ("Area-ID mismatch");
+        zlog_debug ("Area-ID mismatch");
       return MSG_NG;
     }
 
@@ -261,7 +261,7 @@ ospf6_header_examin (struct in6_addr *src, struct in6_addr *dst,
   if (oh->instance_id != oi->instance_id)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (type, RECV))
-        zlog_info ("Instance-ID mismatch");
+        zlog_debug ("Instance-ID mismatch");
       return MSG_NG;
     }
 
@@ -293,7 +293,7 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
   if (ntohs (hello->hello_interval) != oi->hello_interval)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("HelloInterval mismatch");
+        zlog_debug ("HelloInterval mismatch");
       return;
     }
 
@@ -301,7 +301,7 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
   if (ntohs (hello->dead_interval) != oi->dead_interval)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("RouterDeadInterval mismatch");
+        zlog_debug ("RouterDeadInterval mismatch");
       return;
     }
 
@@ -310,7 +310,7 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
       OSPF6_OPT_ISSET (oi->area->options, OSPF6_OPT_E))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("E-bit mismatch");
+        zlog_debug ("E-bit mismatch");
       return;
     }
 
@@ -340,7 +340,7 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
   if (p != OSPF6_MESSAGE_END (oh))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Trailing garbage ignored");
+        zlog_debug ("Trailing garbage ignored");
     }
 
   /* RouterPriority check */
@@ -404,7 +404,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
   if (on->state < OSPF6_NEIGHBOR_INIT)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor state less than Init, ignore");
+        zlog_debug ("Neighbor state less than Init, ignore");
       return;
     }
 
@@ -412,7 +412,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
     {
     case OSPF6_NEIGHBOR_TWOWAY:
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor state is 2-Way, ignore");
+        zlog_debug ("Neighbor state is 2-Way, ignore");
       return;
 
     case OSPF6_NEIGHBOR_INIT:
@@ -420,7 +420,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
       if (on->state != OSPF6_NEIGHBOR_EXSTART)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Neighbor state is not ExStart, ignore");
+            zlog_debug ("Neighbor state is not ExStart, ignore");
           return;
         }
       /* else fall through to ExStart */
@@ -441,7 +441,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
       else
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Negotiation failed");
+            zlog_debug ("Negotiation failed");
           return;
         }
       /* fall through to exchange */
@@ -451,14 +451,14 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
         {
           /* Duplicated DatabaseDescription is dropped by master */
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Duplicated dbdesc discarded by Master, ignore");
+            zlog_debug ("Duplicated dbdesc discarded by Master, ignore");
           return;
         }
 
       if (CHECK_FLAG (dbdesc->bits, OSPF6_DBDESC_MSBIT))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Master/Slave bit mismatch");
+            zlog_debug ("Master/Slave bit mismatch");
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
         }
@@ -466,7 +466,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
       if (CHECK_FLAG (dbdesc->bits, OSPF6_DBDESC_IBIT))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Initialize bit mismatch");
+            zlog_debug ("Initialize bit mismatch");
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
         }
@@ -474,7 +474,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
       if (memcmp (on->options, dbdesc->options, sizeof (on->options)))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Option field mismatch");
+            zlog_debug ("Option field mismatch");
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
         }
@@ -482,7 +482,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
       if (ntohl (dbdesc->seqnum) != on->dbdesc_seqnum)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Sequence number mismatch (%#lx expected)",
+            zlog_debug ("Sequence number mismatch (%#lx expected)",
                        (u_long) on->dbdesc_seqnum);
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
@@ -495,13 +495,13 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
         {
           /* Duplicated DatabaseDescription is dropped by master */
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Duplicated dbdesc discarded by Master, ignore");
+            zlog_debug ("Duplicated dbdesc discarded by Master, ignore");
           return;
         }
 
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Not duplicate dbdesc in state %s",
-                   ospf6_neighbor_state_str[on->state]);
+        zlog_debug ("Not duplicate dbdesc in state %s",
+		    ospf6_neighbor_state_str[on->state]);
       thread_add_event (master, seqnumber_mismatch, on, 0);
       return;
 
@@ -521,7 +521,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
       his = ospf6_lsa_create_headeronly ((struct ospf6_lsa_header *) p);
 
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("%s", his->name);
+        zlog_debug ("%s", his->name);
 
       switch (OSPF6_LSA_SCOPE (his->header->type))
         {
@@ -536,7 +536,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
           break;
         case OSPF6_SCOPE_RESERVED:
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Ignoring LSA of reserved scope");
+            zlog_debug ("Ignoring LSA of reserved scope");
           ospf6_lsa_delete (his);
           continue;
           break;
@@ -546,7 +546,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
           IS_AREA_STUB (on->ospf6_if->area))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("SeqNumMismatch (E-bit mismatch), discard");
+            zlog_debug ("SeqNumMismatch (E-bit mismatch), discard");
           ospf6_lsa_delete (his);
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
@@ -557,19 +557,19 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
       if (mine == NULL)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Add request (No database copy)");
+            zlog_debug ("Add request (No database copy)");
           ospf6_lsdb_add (his, on->request_list);
         }
       else if (ospf6_lsa_compare (his, mine) < 0)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Add request (Received MoreRecent)");
+            zlog_debug ("Add request (Received MoreRecent)");
           ospf6_lsdb_add (his, on->request_list);
         }
       else
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Discard (Existing MoreRecent)");
+            zlog_debug ("Discard (Existing MoreRecent)");
           ospf6_lsa_delete (his);
         }
     }
@@ -577,7 +577,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
   if (p != OSPF6_MESSAGE_END (oh))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Trailing garbage ignored");
+        zlog_debug ("Trailing garbage ignored");
     }
 
   /* Increment sequence number */
@@ -615,7 +615,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
   if (on->state < OSPF6_NEIGHBOR_INIT)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor state less than Init, ignore");
+        zlog_debug ("Neighbor state less than Init, ignore");
       return;
     }
 
@@ -623,7 +623,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
     {
     case OSPF6_NEIGHBOR_TWOWAY:
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor state is 2-Way, ignore");
+        zlog_debug ("Neighbor state is 2-Way, ignore");
       return;
 
     case OSPF6_NEIGHBOR_INIT:
@@ -631,7 +631,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
       if (on->state != OSPF6_NEIGHBOR_EXSTART)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Neighbor state is not ExStart, ignore");
+            zlog_debug ("Neighbor state is not ExStart, ignore");
           return;
         }
       /* else fall through to ExStart */
@@ -660,7 +660,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
       else
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Negotiation failed");
+            zlog_debug ("Negotiation failed");
           return;
         }
       break;
@@ -670,7 +670,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
         {
           /* Duplicated DatabaseDescription causes slave to retransmit */
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Duplicated dbdesc causes retransmit");
+            zlog_debug ("Duplicated dbdesc causes retransmit");
           THREAD_OFF (on->thread_send_dbdesc);
           on->thread_send_dbdesc =
             thread_add_event (master, ospf6_dbdesc_send, on, 0);
@@ -680,7 +680,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
       if (! CHECK_FLAG (dbdesc->bits, OSPF6_DBDESC_MSBIT))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Master/Slave bit mismatch");
+            zlog_debug ("Master/Slave bit mismatch");
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
         }
@@ -688,7 +688,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
       if (CHECK_FLAG (dbdesc->bits, OSPF6_DBDESC_IBIT))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Initialize bit mismatch");
+            zlog_debug ("Initialize bit mismatch");
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
         }
@@ -696,7 +696,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
       if (memcmp (on->options, dbdesc->options, sizeof (on->options)))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Option field mismatch");
+            zlog_debug ("Option field mismatch");
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
         }
@@ -704,8 +704,8 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
       if (ntohl (dbdesc->seqnum) != on->dbdesc_seqnum + 1)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Sequence number mismatch (%#lx expected)",
-                       (u_long) on->dbdesc_seqnum + 1);
+            zlog_debug ("Sequence number mismatch (%#lx expected)",
+			(u_long) on->dbdesc_seqnum + 1);
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
         }
@@ -717,7 +717,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
         {
           /* Duplicated DatabaseDescription causes slave to retransmit */
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Duplicated dbdesc causes retransmit");
+            zlog_debug ("Duplicated dbdesc causes retransmit");
           THREAD_OFF (on->thread_send_dbdesc);
           on->thread_send_dbdesc =
             thread_add_event (master, ospf6_dbdesc_send, on, 0);
@@ -725,8 +725,8 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
         }
 
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Not duplicate dbdesc in state %s",
-                   ospf6_neighbor_state_str[on->state]);
+        zlog_debug ("Not duplicate dbdesc in state %s",
+		    ospf6_neighbor_state_str[on->state]);
       thread_add_event (master, seqnumber_mismatch, on, 0);
       return;
 
@@ -758,7 +758,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
           break;
         case OSPF6_SCOPE_RESERVED:
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Ignoring LSA of reserved scope");
+            zlog_debug ("Ignoring LSA of reserved scope");
           ospf6_lsa_delete (his);
           continue;
           break;
@@ -768,7 +768,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
           IS_AREA_STUB (on->ospf6_if->area))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("E-bit mismatch with LSA Headers");
+            zlog_debug ("E-bit mismatch with LSA Headers");
           ospf6_lsa_delete (his);
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
@@ -779,7 +779,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
       if (mine == NULL || ospf6_lsa_compare (his, mine) < 0)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Add request-list: %s", his->name);
+            zlog_debug ("Add request-list: %s", his->name);
           ospf6_lsdb_add (his, on->request_list);
         }
       else
@@ -789,7 +789,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
   if (p != OSPF6_MESSAGE_END (oh))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Trailing garbage ignored");
+        zlog_debug ("Trailing garbage ignored");
     }
 
   /* Set sequence number to Master's */
@@ -822,14 +822,14 @@ ospf6_dbdesc_recv (struct in6_addr *src, struct in6_addr *dst,
   if (on == NULL)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor not found, ignore");
+        zlog_debug ("Neighbor not found, ignore");
       return;
     }
 
   if (memcmp (src, &on->linklocal_addr, sizeof (struct in6_addr)))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Seems to be from Secondary I/F of the neighbor, ignore");
+        zlog_debug ("Seems to be from Secondary I/F of the neighbor, ignore");
       return;
     }
 
@@ -840,15 +840,15 @@ ospf6_dbdesc_recv (struct in6_addr *src, struct in6_addr *dst,
   if (ntohs (dbdesc->ifmtu) != oi->ifmtu)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("I/F MTU mismatch");
+        zlog_debug ("I/F MTU mismatch");
       return;
     }
 
   if (dbdesc->reserved1 || dbdesc->reserved2)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Non-0 reserved field in %s's DbDesc, correct",
-                   on->name);
+        zlog_debug ("Non-0 reserved field in %s's DbDesc, correct",
+		    on->name);
       dbdesc->reserved1 = 0;
       dbdesc->reserved2 = 0;
     }
@@ -860,7 +860,7 @@ ospf6_dbdesc_recv (struct in6_addr *src, struct in6_addr *dst,
   else
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Can't decide which is master, ignore");
+        zlog_debug ("Can't decide which is master, ignore");
     }
 }
 
@@ -881,14 +881,14 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
   if (on == NULL)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor not found, ignore");
+        zlog_debug ("Neighbor not found, ignore");
       return;
     }
 
   if (memcmp (src, &on->linklocal_addr, sizeof (struct in6_addr)))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Seems to be from Secondary I/F of the neighbor, ignore");
+        zlog_debug ("Seems to be from Secondary I/F of the neighbor, ignore");
       return;
     }
 
@@ -897,7 +897,7 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
       on->state != OSPF6_NEIGHBOR_FULL)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor state less than Exchange, ignore");
+        zlog_debug ("Neighbor state less than Exchange, ignore");
       return;
     }
 
@@ -921,7 +921,7 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
           break;
         default:
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Ignoring LSA of reserved scope");
+            zlog_debug ("Ignoring LSA of reserved scope");
           continue;
           break;
         }
@@ -936,8 +936,8 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
               inet_ntop (AF_INET, &e->id, id, sizeof (id));
               inet_ntop (AF_INET, &e->adv_router, adv_router,
                      sizeof (adv_router));
-              zlog_info ("Can't find requested [%s Id:%s Adv:%s]",
-                         ospf6_lstype_name (e->type), id, adv_router);
+              zlog_debug ("Can't find requested [%s Id:%s Adv:%s]",
+			  ospf6_lstype_name (e->type), id, adv_router);
             }
           thread_add_event (master, bad_lsreq, on, 0);
           return;
@@ -949,7 +949,7 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
   if (p != OSPF6_MESSAGE_END (oh))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Trailing garbage ignored");
+        zlog_debug ("Trailing garbage ignored");
     }
 
   /* schedule send lsupdate */
@@ -974,14 +974,14 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
   if (on == NULL)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor not found, ignore");
+        zlog_debug ("Neighbor not found, ignore");
       return;
     }
 
   if (memcmp (src, &on->linklocal_addr, sizeof (struct in6_addr)))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Seems to be from Secondary I/F of the neighbor, ignore");
+        zlog_debug ("Seems to be from Secondary I/F of the neighbor, ignore");
       return;
     }
 
@@ -990,7 +990,7 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
       on->state != OSPF6_NEIGHBOR_FULL)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor state less than Exchange, ignore");
+        zlog_debug ("Neighbor state less than Exchange, ignore");
       return;
     }
 
@@ -1010,7 +1010,7 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
       if (OSPF6_LSA_SIZE (p) < sizeof (struct ospf6_lsa_header))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Malformed LSA length, quit processing");
+            zlog_debug ("Malformed LSA length, quit processing");
           break;
         }
 
@@ -1021,12 +1021,12 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
   if (num != 0)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Malformed LSA number or LSA length");
+        zlog_debug ("Malformed LSA number or LSA length");
     }
   if (p != OSPF6_MESSAGE_END (oh))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Trailing garbage ignored");
+        zlog_debug ("Trailing garbage ignored");
     }
 
   /* RFC2328 Section 10.9: When the neighbor responds to these requests
@@ -1061,14 +1061,14 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
   if (on == NULL)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor not found, ignore");
+        zlog_debug ("Neighbor not found, ignore");
       return;
     }
 
   if (memcmp (src, &on->linklocal_addr, sizeof (struct in6_addr)))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Seems to be from Secondary I/F of the neighbor, ignore");
+        zlog_debug ("Seems to be from Secondary I/F of the neighbor, ignore");
       return;
     }
 
@@ -1077,7 +1077,7 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
       on->state != OSPF6_NEIGHBOR_FULL)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Neighbor state less than Exchange, ignore");
+        zlog_debug ("Neighbor state less than Exchange, ignore");
       return;
     }
 
@@ -1100,14 +1100,14 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
           break;
         case OSPF6_SCOPE_RESERVED:
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Ignoring LSA of reserved scope");
+            zlog_debug ("Ignoring LSA of reserved scope");
           ospf6_lsa_delete (his);
           continue;
           break;
         }
 
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("%s acknowledged by %s", his->name, on->name);
+        zlog_debug ("%s acknowledged by %s", his->name, on->name);
 
       /* Find database copy */
       mine = ospf6_lsdb_lookup (his->header->type, his->header->id,
@@ -1115,7 +1115,7 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
       if (mine == NULL)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("No database copy");
+            zlog_debug ("No database copy");
           ospf6_lsa_delete (his);
           continue;
         }
@@ -1126,7 +1126,7 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
       if (mine == NULL)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Not on %s's retrans-list", on->name);
+            zlog_debug ("Not on %s's retrans-list", on->name);
           ospf6_lsa_delete (his);
           continue;
         }
@@ -1136,14 +1136,14 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
           /* Log this questionable acknowledgement,
              and examine the next one. */
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Questionable acknowledgement");
+            zlog_debug ("Questionable acknowledgement");
           ospf6_lsa_delete (his);
           continue;
         }
 
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Acknowledged, remove from %s's retrans-list",
-                   on->name);
+        zlog_debug ("Acknowledged, remove from %s's retrans-list",
+		    on->name);
 
       if (OSPF6_LSA_IS_MAXAGE (mine))
         ospf6_maxage_remove (on->ospf6_if->area->ospf6);
@@ -1156,7 +1156,7 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
   if (p != OSPF6_MESSAGE_END (oh))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Trailing garbage ignored");
+        zlog_debug ("Trailing garbage ignored");
     }
 }
 
@@ -1180,7 +1180,7 @@ ospf6_iobuf_size (unsigned int size)
         XFREE (MTYPE_OSPF6_MESSAGE, recvnew);
       if (sendnew)
         XFREE (MTYPE_OSPF6_MESSAGE, sendnew);
-      zlog_info ("Could not allocate I/O buffer of size %d.", size);
+      zlog_debug ("Could not allocate I/O buffer of size %d.", size);
       return iobuflen;
     }
 
@@ -1234,7 +1234,7 @@ ospf6_receive (struct thread *thread)
   oi = ospf6_interface_lookup_by_ifindex (ifindex);
   if (oi == NULL || oi->area == NULL)
     {
-      zlog_info ("Message received on disabled interface");
+      zlog_debug ("Message received on disabled interface");
       return 0;
     }
 
@@ -1245,12 +1245,12 @@ ospf6_receive (struct thread *thread)
     {
       inet_ntop (AF_INET6, &src, srcname, sizeof (srcname));
       inet_ntop (AF_INET6, &dst, dstname, sizeof (dstname));
-      zlog_info ("%s received on %s",
+      zlog_debug ("%s received on %s",
                  OSPF6_MESSAGE_TYPE_NAME (oh->type), oi->interface->name);
-      zlog_info ("    src: %s", srcname);
-      zlog_info ("    dst: %s", dstname);
+      zlog_debug ("    src: %s", srcname);
+      zlog_debug ("    dst: %s", dstname);
       if (len != ntohs (oh->length))
-        zlog_info ("Message length does not match actually received: %d", len);
+        zlog_debug ("Message length does not match actually received: %d", len);
 
       switch (oh->type)
         {
@@ -1270,7 +1270,7 @@ ospf6_receive (struct thread *thread)
             ospf6_lsack_print (oh);
             break;
           default:
-            zlog_info ("Unknown message");
+            zlog_debug ("Unknown message");
             break;
         }
     }
@@ -1278,7 +1278,7 @@ ospf6_receive (struct thread *thread)
   if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE))
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_info ("Ignore message on passive interface %s",
+        zlog_debug ("Ignore message on passive interface %s",
                    oi->interface->name);
       return 0;
     }
@@ -1307,7 +1307,7 @@ ospf6_receive (struct thread *thread)
 
       default:
         if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
-          zlog_info ("Unknown message");
+          zlog_debug ("Unknown message");
         break;
     }
 
@@ -1346,10 +1346,10 @@ ospf6_send (struct in6_addr *src, struct in6_addr *dst,
         inet_ntop (AF_INET6, src, srcname, sizeof (srcname));
       else
         memset (srcname, 0, sizeof (srcname));
-      zlog_info ("%s send on %s",
+      zlog_debug ("%s send on %s",
                  OSPF6_MESSAGE_TYPE_NAME (oh->type), oi->interface->name);
-      zlog_info ("    src: %s", srcname);
-      zlog_info ("    dst: %s", dstname);
+      zlog_debug ("    src: %s", srcname);
+      zlog_debug ("    dst: %s", dstname);
 
       switch (oh->type)
         {
@@ -1369,7 +1369,7 @@ ospf6_send (struct in6_addr *src, struct in6_addr *dst,
             ospf6_lsack_print (oh);
             break;
           default:
-            zlog_info ("Unknown message");
+            zlog_debug ("Unknown message");
             assert (0);
             break;
         }
@@ -1397,7 +1397,7 @@ ospf6_hello_send (struct thread *thread)
   if (oi->state <= OSPF6_INTERFACE_DOWN)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_HELLO, SEND))
-        zlog_info ("Unable to send Hello on down interface %s",
+        zlog_debug ("Unable to send Hello on down interface %s",
                    oi->interface->name);
       return 0;
     }
@@ -1432,7 +1432,7 @@ ospf6_hello_send (struct thread *thread)
       if (p - sendbuf + sizeof (u_int32_t) > oi->ifmtu)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_HELLO, SEND))
-            zlog_info ("sending Hello message: exceeds I/F MTU");
+            zlog_debug ("sending Hello message: exceeds I/F MTU");
           break;
         }
 
@@ -1462,8 +1462,8 @@ ospf6_dbdesc_send (struct thread *thread)
   if (on->state < OSPF6_NEIGHBOR_EXSTART)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_DBDESC, SEND))
-        zlog_info ("Quit to send DbDesc to neighbor %s state %s",
-                   on->name, ospf6_neighbor_state_str[on->state]);
+        zlog_debug ("Quit to send DbDesc to neighbor %s state %s",
+		    on->name, ospf6_neighbor_state_str[on->state]);
       return 0;
     }
 
@@ -1580,8 +1580,8 @@ ospf6_lsreq_send (struct thread *thread)
       on->state != OSPF6_NEIGHBOR_LOADING)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_LSREQ, SEND))
-        zlog_info ("Quit to send LSReq to neighbor %s state %s",
-                   on->name, ospf6_neighbor_state_str[on->state]);
+        zlog_debug ("Quit to send LSReq to neighbor %s state %s",
+		    on->name, ospf6_neighbor_state_str[on->state]);
       return 0;
     }
 
@@ -1641,13 +1641,13 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
   on->thread_send_lsupdate = (struct thread *) NULL;
 
   if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
-    zlog_info ("LSUpdate to neighbor %s", on->name);
+    zlog_debug ("LSUpdate to neighbor %s", on->name);
 
   if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
-        zlog_info ("Quit to send (neighbor state %s)",
-                   ospf6_neighbor_state_str[on->state]);
+        zlog_debug ("Quit to send (neighbor state %s)",
+		    ospf6_neighbor_state_str[on->state]);
       return 0;
     }
 
@@ -1656,7 +1656,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
       on->retrans_list->count == 0)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
-        zlog_info ("Quit to send (nothing to send)");
+        zlog_debug ("Quit to send (nothing to send)");
       return 0;
     }
 
@@ -1746,8 +1746,8 @@ ospf6_lsupdate_send_interface (struct thread *thread)
   if (oi->state <= OSPF6_INTERFACE_WAITING)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
-        zlog_info ("Quit to send LSUpdate to interface %s state %s",
-                   oi->interface->name, ospf6_interface_state_str[oi->state]);
+        zlog_debug ("Quit to send LSUpdate to interface %s state %s",
+		    oi->interface->name, ospf6_interface_state_str[oi->state]);
       return 0;
     }
 
@@ -1817,8 +1817,8 @@ ospf6_lsack_send_neighbor (struct thread *thread)
   if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_LSACK, SEND))
-        zlog_info ("Quit to send LSAck to neighbor %s state %s",
-                   on->name, ospf6_neighbor_state_str[on->state]);
+        zlog_debug ("Quit to send LSAck to neighbor %s state %s",
+		    on->name, ospf6_neighbor_state_str[on->state]);
       return 0;
     }
 
@@ -1877,8 +1877,8 @@ ospf6_lsack_send_interface (struct thread *thread)
   if (oi->state <= OSPF6_INTERFACE_WAITING)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_LSACK, SEND))
-        zlog_info ("Quit to send LSAck to interface %s state %s",
-                   oi->interface->name, ospf6_interface_state_str[oi->state]);
+        zlog_debug ("Quit to send LSAck to interface %s state %s",
+		    oi->interface->name, ospf6_interface_state_str[oi->state]);
       return 0;
     }
 

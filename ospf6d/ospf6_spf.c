@@ -157,10 +157,10 @@ ospf6_lsdesc_lsa (caddr_t lsdesc, struct ospf6_vertex *v)
       inet_ntop (AF_INET, &id, ibuf, sizeof (ibuf));
       inet_ntop (AF_INET, &adv_router, abuf, sizeof (abuf));
       if (lsa)
-        zlog_info ("  Link to: %s", lsa->name);
+        zlog_debug ("  Link to: %s", lsa->name);
       else
-        zlog_info ("  Link to: [%s Id:%s Adv:%s] No LSA",
-                   ospf6_lstype_name (type), ibuf, abuf);
+        zlog_debug ("  Link to: [%s Id:%s Adv:%s] No LSA",
+		    ospf6_lstype_name (type), ibuf, abuf);
     }
 
   return lsa;
@@ -213,7 +213,7 @@ ospf6_lsdesc_backlink (struct ospf6_lsa *lsa,
     }
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS))
-    zlog_info ("  Backlink %s", (found ? "OK" : "FAIL"));
+    zlog_debug ("  Backlink %s", (found ? "OK" : "FAIL"));
 
   return found;
 }
@@ -237,7 +237,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
   if (oi == NULL)
     {
       if (IS_OSPF6_DEBUG_SPF (PROCESS))
-        zlog_warn ("Can't find interface in SPF: ifindex %d", ifindex);
+        zlog_debug ("Can't find interface in SPF: ifindex %d", ifindex);
       return;
     }
 
@@ -258,7 +258,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
       if (IS_OSPF6_DEBUG_SPF (PROCESS))
         {
           inet_ntop (AF_INET6, &link_lsa->linklocal_addr, buf, sizeof (buf));
-          zlog_info ("  nexthop %s from %s", buf, lsa->name);
+          zlog_debug ("  nexthop %s from %s", buf, lsa->name);
         }
 
       if (i < OSPF6_MULTI_PATH_LIMIT)
@@ -271,7 +271,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
     }
 
   if (i == 0 && IS_OSPF6_DEBUG_SPF (PROCESS))
-    zlog_info ("No nexthop for %s found", w->name);
+    zlog_debug ("No nexthop for %s found", w->name);
 }
 
 int
@@ -284,22 +284,22 @@ ospf6_spf_install (struct ospf6_vertex *v,
   struct listnode *node;
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS))
-    zlog_info ("SPF install %s hops %d cost %d",
-               v->name, v->hops, v->cost);
+    zlog_debug ("SPF install %s hops %d cost %d",
+		v->name, v->hops, v->cost);
 
   route = ospf6_route_lookup (&v->vertex_id, result_table);
   if (route && route->path.cost < v->cost)
     {
       if (IS_OSPF6_DEBUG_SPF (PROCESS))
-        zlog_info ("  already installed with lower cost (%d), ignore",
-                   route->path.cost);
+        zlog_debug ("  already installed with lower cost (%d), ignore",
+		    route->path.cost);
       ospf6_vertex_delete (v);
       return -1;
     }
   else if (route && route->path.cost == v->cost)
     {
       if (IS_OSPF6_DEBUG_SPF (PROCESS))
-        zlog_info ("  another path found, merge");
+        zlog_debug ("  another path found, merge");
 
       for (i = 0; ospf6_nexthop_is_set (&v->nexthop[i]) &&
            i < OSPF6_MULTI_PATH_LIMIT; i++)
@@ -478,8 +478,8 @@ ospf6_spf_calculation (u_int32_t router_id,
 
           /* add new candidate to the candidate_list */
           if (IS_OSPF6_DEBUG_SPF (PROCESS))
-            zlog_info ("  New candidate: %s hops %d cost %d",
-                       w->name, w->hops, w->cost);
+            zlog_debug ("  New candidate: %s hops %d cost %d",
+			w->name, w->hops, w->cost);
           pqueue_enqueue (w, candidate_list);
         }
     }
@@ -510,7 +510,7 @@ ospf6_spf_log_database (struct ospf6_area *oa)
       p = (buffer + strlen (buffer) < end ? buffer + strlen (buffer) : end);
     }
 
-  zlog_info ("%s", buffer);
+  zlog_debug ("%s", buffer);
 }
 
 int
@@ -523,7 +523,7 @@ ospf6_spf_calculation_thread (struct thread *t)
   oa->thread_spf_calculation = NULL;
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS))
-    zlog_info ("SPF calculation for Area %s", oa->name);
+    zlog_debug ("SPF calculation for Area %s", oa->name);
   if (IS_OSPF6_DEBUG_SPF (DATABASE))
     ospf6_spf_log_database (oa);
 
@@ -534,8 +534,8 @@ ospf6_spf_calculation_thread (struct thread *t)
   timersub (&end, &start, &runtime);
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
-    zlog_info ("SPF runtime: %ld sec %ld usec",
-               runtime.tv_sec, runtime.tv_usec);
+    zlog_debug ("SPF runtime: %ld sec %ld usec",
+		runtime.tv_sec, runtime.tv_usec);
 
   ospf6_intra_route_calculation (oa);
   ospf6_intra_brouter_calculation (oa);

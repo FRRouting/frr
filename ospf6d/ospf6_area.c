@@ -61,9 +61,9 @@ ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
     case OSPF6_LSTYPE_NETWORK:
       if (IS_OSPF6_DEBUG_EXAMIN_TYPE (lsa->header->type))
         {
-          zlog_info ("Examin %s", lsa->name);
-          zlog_info ("Schedule SPF Calculation for %s",
-                     OSPF6_AREA (lsa->lsdb->data)->name);
+          zlog_debug ("Examin %s", lsa->name);
+          zlog_debug ("Schedule SPF Calculation for %s",
+		      OSPF6_AREA (lsa->lsdb->data)->name);
         }
       ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));
       break;
@@ -91,8 +91,8 @@ ospf6_area_lsdb_hook_remove (struct ospf6_lsa *lsa)
     case OSPF6_LSTYPE_NETWORK:
       if (IS_OSPF6_DEBUG_EXAMIN_TYPE (lsa->header->type))
         {
-          zlog_info ("LSA disappearing: %s", lsa->name);
-          zlog_info ("Schedule SPF Calculation for %s",
+          zlog_debug ("LSA disappearing: %s", lsa->name);
+          zlog_debug ("Schedule SPF Calculation for %s",
                      OSPF6_AREA (lsa->lsdb->data)->name);
         }
       ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));

@@ -234,7 +234,7 @@ ospf6_lsa_premature_aging (struct ospf6_lsa *lsa)
 {
   /* log */
   if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type))
-    zlog_info ("LSA: Premature aging: %s", lsa->name);
+    zlog_debug ("LSA: Premature aging: %s", lsa->name);
 
   THREAD_OFF (lsa->expire);
   THREAD_OFF (lsa->refresh);
@@ -315,11 +315,11 @@ ospf6_lsa_header_print_raw (struct ospf6_lsa_header *header)
   inet_ntop (AF_INET, &header->id, id, sizeof (id));
   inet_ntop (AF_INET, &header->adv_router, adv_router,
              sizeof (adv_router));
-  zlog_info ("    [%s Id:%s Adv:%s]",
-             ospf6_lstype_name (header->type), id, adv_router);
-  zlog_info ("    Age: %4hu SeqNum: %#08lx Cksum: %04hx Len: %d",
-             ntohs (header->age), (u_long) ntohl (header->seqnum),
-             ntohs (header->checksum), ntohs (header->length));
+  zlog_debug ("    [%s Id:%s Adv:%s]",
+	      ospf6_lstype_name (header->type), id, adv_router);
+  zlog_debug ("    Age: %4hu SeqNum: %#08lx Cksum: %04hx Len: %d",
+	      ntohs (header->age), (u_long) ntohl (header->seqnum),
+	      ntohs (header->checksum), ntohs (header->length));
 }
 
 void
@@ -587,7 +587,7 @@ ospf6_lsa_expire (struct thread *thread)
 
   if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type))
     {
-      zlog_info ("LSA Expire:");
+      zlog_debug ("LSA Expire:");
       ospf6_lsa_header_print (lsa);
     }
 
@@ -624,7 +624,7 @@ ospf6_lsa_refresh (struct thread *thread)
   if (self == NULL)
     {
       if (IS_OSPF6_DEBUG_LSA_TYPE (old->header->type))
-        zlog_info ("Refresh: could not find self LSA, flush %s", old->name);
+        zlog_debug ("Refresh: could not find self LSA, flush %s", old->name);
       ospf6_lsa_premature_aging (old);
       return 0;
     }
@@ -646,7 +646,7 @@ ospf6_lsa_refresh (struct thread *thread)
 
   if (IS_OSPF6_DEBUG_LSA_TYPE (new->header->type))
     {
-      zlog_info ("LSA Refresh:");
+      zlog_debug ("LSA Refresh:");
       ospf6_lsa_header_print (new);
     }
 

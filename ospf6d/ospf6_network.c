@@ -130,7 +130,7 @@ ospf6_join_allspfrouters (u_int ifindex)
               ifindex, safe_strerror (errno));
 #if 0
   else
-    zlog_info ("Network: Join AllSPFRouters on ifindex %d", ifindex);
+    zlog_debug ("Network: Join AllSPFRouters on ifindex %d", ifindex);
 #endif
 }
 
@@ -150,7 +150,7 @@ ospf6_leave_allspfrouters (u_int ifindex)
                ifindex, safe_strerror (errno));
 #if 0
   else
-    zlog_info ("Network: Leave AllSPFRouters on ifindex %d", ifindex);
+    zlog_debug ("Network: Leave AllSPFRouters on ifindex %d", ifindex);
 #endif
 }
 
@@ -170,7 +170,7 @@ ospf6_join_alldrouters (u_int ifindex)
                ifindex, safe_strerror (errno));
 #if 0
   else
-    zlog_info ("Network: Join AllDRouters on ifindex %d", ifindex);
+    zlog_debug ("Network: Join AllDRouters on ifindex %d", ifindex);
 #endif
 }
 
@@ -189,7 +189,7 @@ ospf6_leave_alldrouters (u_int ifindex)
     zlog_warn ("Network: Leave AllDRouters on ifindex %d Failed", ifindex);
 #if 0
   else
-    zlog_info ("Network: Leave AllDRouters on ifindex %d", ifindex);
+    zlog_debug ("Network: Leave AllDRouters on ifindex %d", ifindex);
 #endif
 }
 

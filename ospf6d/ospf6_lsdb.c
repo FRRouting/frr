@@ -83,13 +83,13 @@ _lsdb_count_assert (struct ospf6_lsdb *lsdb)
   if (num == lsdb->count)
     return;
 
-  zlog_info ("PANIC !! lsdb[%p]->count = %d, real = %d",
+  zlog_debug ("PANIC !! lsdb[%p]->count = %d, real = %d",
              lsdb, lsdb->count, num);
   for (debug = ospf6_lsdb_head (lsdb); debug;
        debug = ospf6_lsdb_next (debug))
-    zlog_info ("%p %p %s lsdb[%p]", debug->prev, debug->next, debug->name,
+    zlog_debug ("%p %p %s lsdb[%p]", debug->prev, debug->next, debug->name,
                debug->lsdb);
-  zlog_info ("DUMP END");
+  zlog_debug ("DUMP END");
 
   assert (num == lsdb->count);
 }
@@ -282,7 +282,7 @@ ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id, u_int32_t adv_router,
   {
     char buf[64];
     prefix2str (p, buf, sizeof (buf));
-    zlog_info ("lsdb_lookup_next: key: %s", buf);
+    zlog_debug ("lsdb_lookup_next: key: %s", buf);
   }
 
   node = lsdb->table->top;
@@ -323,7 +323,7 @@ ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id, u_int32_t adv_router,
       assert (lsa_prev->next == lsa_next);
       if (lsa_next)
         assert (lsa_next->prev == lsa_prev);
-      zlog_info ("lsdb_lookup_next: assert OK with previous LSA");
+      zlog_debug ("lsdb_lookup_next: assert OK with previous LSA");
     }
 
   if (! node)

@@ -122,7 +122,7 @@ ospf6_router_lsa_originate (struct thread *thread)
   oa->thread_router_lsa = NULL;
 
   if (IS_OSPF6_DEBUG_ORIGINATE (ROUTER))
-    zlog_info ("Originate Router-LSA for Area %s", oa->name);
+    zlog_debug ("Originate Router-LSA for Area %s", oa->name);
 
   memset (buffer, 0, sizeof (buffer));
   lsa_header = (struct ospf6_lsa_header *) buffer;
@@ -181,7 +181,7 @@ ospf6_router_lsa_originate (struct thread *thread)
                                   sizeof (struct ospf6_router_lsa))
             {
               if (IS_OSPF6_DEBUG_ORIGINATE (ROUTER))
-                zlog_info ("Size limit setting for Router-LSA too short");
+                zlog_debug ("Size limit setting for Router-LSA too short");
               return 0;
             }
 
@@ -294,7 +294,7 @@ ospf6_router_lsa_originate (struct thread *thread)
   else
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (ROUTER))
-        zlog_info ("Nothing to describe in Router-LSA, suppress");
+        zlog_debug ("Nothing to describe in Router-LSA, suppress");
     }
 
   /* Do premature-aging of rest, undesired Router-LSAs */
@@ -379,7 +379,7 @@ ospf6_network_lsa_originate (struct thread *thread)
     }
 
   if (IS_OSPF6_DEBUG_ORIGINATE (NETWORK))
-    zlog_info ("Originate Network-LSA for Interface %s", oi->interface->name);
+    zlog_debug ("Originate Network-LSA for Interface %s", oi->interface->name);
 
   /* If none of neighbor is adjacent to us */
   count = 0;
@@ -392,7 +392,7 @@ ospf6_network_lsa_originate (struct thread *thread)
   if (count == 0)
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (NETWORK))
-        zlog_info ("Interface stub, ignore");
+        zlog_debug ("Interface stub, ignore");
       if (old)
         ospf6_lsa_purge (old);
       return 0;
@@ -549,13 +549,13 @@ ospf6_link_lsa_originate (struct thread *thread)
     }
 
   if (IS_OSPF6_DEBUG_ORIGINATE (LINK))
-    zlog_info ("Originate Link-LSA for Interface %s", oi->interface->name);
+    zlog_debug ("Originate Link-LSA for Interface %s", oi->interface->name);
 
   /* can't make Link-LSA if linklocal address not set */
   if (oi->linklocal_addr == NULL)
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (LINK))
-        zlog_info ("No Linklocal address on %s, defer originating",
+        zlog_debug ("No Linklocal address on %s, defer originating",
                    oi->interface->name);
       if (old)
         ospf6_lsa_purge (old);
@@ -709,7 +709,7 @@ ospf6_intra_prefix_lsa_originate_stub (struct thread *thread)
     }
 
   if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-    zlog_info ("Originate Intra-Area-Prefix-LSA for area %s's stub prefix",
+    zlog_debug ("Originate Intra-Area-Prefix-LSA for area %s's stub prefix",
                oa->name);
 
   /* prepare buffer */
@@ -732,7 +732,7 @@ ospf6_intra_prefix_lsa_originate_stub (struct thread *thread)
       if (oi->state == OSPF6_INTERFACE_DOWN)
         {
           if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-            zlog_info ("  Interface %s is down, ignore", oi->interface->name);
+            zlog_debug ("  Interface %s is down, ignore", oi->interface->name);
           continue;
         }
 
@@ -748,13 +748,13 @@ ospf6_intra_prefix_lsa_originate_stub (struct thread *thread)
           full_count != 0)
         {
           if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-            zlog_info ("  Interface %s is not stub, ignore",
+            zlog_debug ("  Interface %s is not stub, ignore",
                        oi->interface->name);
           continue;
         }
 
       if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-        zlog_info ("  Interface %s:", oi->interface->name);
+        zlog_debug ("  Interface %s:", oi->interface->name);
 
       /* connected prefix to advertise */
       for (route = ospf6_route_head (oi->route_connected); route;
@@ -763,7 +763,7 @@ ospf6_intra_prefix_lsa_originate_stub (struct thread *thread)
           if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
             {
               prefix2str (&route->prefix, buf, sizeof (buf));
-              zlog_info ("    include %s", buf);
+              zlog_debug ("    include %s", buf);
             }
           ospf6_route_add (ospf6_route_copy (route), route_advertise);
         }
@@ -798,7 +798,7 @@ ospf6_intra_prefix_lsa_originate_stub (struct thread *thread)
   if (prefix_num == 0)
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-        zlog_info ("Quit to Advertise Intra-Prefix: no route to advertise");
+        zlog_debug ("Quit to Advertise Intra-Prefix: no route to advertise");
       return 0;
     }
 
@@ -867,7 +867,7 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
     }
 
   if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-    zlog_info ("Originate Intra-Area-Prefix-LSA for interface %s's prefix",
+    zlog_debug ("Originate Intra-Area-Prefix-LSA for interface %s's prefix",
                oi->interface->name);
 
   /* prepare buffer */
@@ -884,7 +884,7 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
   if (oi->state != OSPF6_INTERFACE_DR)
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-        zlog_info ("  Interface is not DR");
+        zlog_debug ("  Interface is not DR");
       if (old)
         ospf6_lsa_purge (old);
       return 0;
@@ -900,7 +900,7 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
   if (full_count == 0)
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-        zlog_info ("  Interface is stub");
+        zlog_debug ("  Interface is stub");
       if (old)
         ospf6_lsa_purge (old);
       return 0;
@@ -917,7 +917,7 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
         continue;
 
       if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-        zlog_info ("  include prefix from %s", lsa->name);
+        zlog_debug ("  include prefix from %s", lsa->name);
 
       if (lsa->header->adv_router != oi->area->ospf6->router_id)
         {
@@ -925,7 +925,7 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
           if (on == NULL || on->state != OSPF6_NEIGHBOR_FULL)
             {
               if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-                zlog_info ("    Neighbor not found or not Full, ignore");
+                zlog_debug ("    Neighbor not found or not Full, ignore");
               continue;
             }
         }
@@ -966,14 +966,14 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
           if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
             {
               prefix2str (&route->prefix, buf, sizeof (buf));
-              zlog_info ("    include %s", buf);
+              zlog_debug ("    include %s", buf);
             }
 
           ospf6_route_add (route, route_advertise);
           prefix_num--;
         }
       if (current != end && IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-        zlog_info ("Trailing garbage in %s", lsa->name);
+        zlog_debug ("Trailing garbage in %s", lsa->name);
     }
 
   op = (struct ospf6_prefix *)
@@ -997,7 +997,7 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
   if (prefix_num == 0)
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
-        zlog_info ("Quit to Advertise Intra-Prefix: no route to advertise");
+        zlog_debug ("Quit to Advertise Intra-Prefix: no route to advertise");
       return 0;
     }
 
@@ -1041,7 +1041,7 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
     return;
 
   if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
-    zlog_info ("%s found", lsa->name);
+    zlog_debug ("%s found", lsa->name);
 
   oa = OSPF6_AREA (lsa->lsdb->data);
 
@@ -1056,8 +1056,8 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
   else
     {
       if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
-        zlog_info ("Unknown reference LS-type: %#hx",
-                   ntohs (intra_prefix_lsa->ref_type));
+        zlog_debug ("Unknown reference LS-type: %#hx",
+		    ntohs (intra_prefix_lsa->ref_type));
       return;
     }
 
@@ -1067,7 +1067,7 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
       if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
         {
           ospf6_linkstate_prefix2str (&ls_prefix, buf, sizeof (buf));
-          zlog_info ("LS entry does not exist: %s", buf);
+          zlog_debug ("LS entry does not exist: %s", buf);
         }
       return;
     }
@@ -1109,7 +1109,7 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
       if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
         {
           prefix2str (&route->prefix, buf, sizeof (buf));
-          zlog_info ("  add %s", buf);
+          zlog_debug ("  add %s", buf);
         }
 
       ospf6_route_add (route, oa->route_table);
@@ -1117,7 +1117,7 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
     }
 
   if (current != end && IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
-    zlog_info ("Trailing garbage ignored");
+    zlog_debug ("Trailing garbage ignored");
 }
 
 void
@@ -1133,7 +1133,7 @@ ospf6_intra_prefix_lsa_remove (struct ospf6_lsa *lsa)
   char buf[64];
 
   if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
-    zlog_info ("%s disappearing", lsa->name);
+    zlog_debug ("%s disappearing", lsa->name);
 
   oa = OSPF6_AREA (lsa->lsdb->data);
 
@@ -1180,14 +1180,14 @@ ospf6_intra_prefix_lsa_remove (struct ospf6_lsa *lsa)
           if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
             {
               prefix2str (&route->prefix, buf, sizeof (buf));
-              zlog_info ("remove %s", buf);
+              zlog_debug ("remove %s", buf);
             }
           ospf6_route_remove (route, oa->route_table);
         }
     }
 
   if (current != end && IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
-    zlog_info ("Trailing garbage ignored");
+    zlog_debug ("Trailing garbage ignored");
 }
 
 void
@@ -1200,7 +1200,7 @@ ospf6_intra_route_calculation (struct ospf6_area *oa)
   void (*hook_remove) (struct ospf6_route *) = NULL;
 
   if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
-    zlog_info ("Re-examin intra-routes for area %s", oa->name);
+    zlog_debug ("Re-examin intra-routes for area %s", oa->name);
 
   hook_add = oa->route_table->hook_add;
   hook_remove = oa->route_table->hook_remove;
@@ -1242,7 +1242,7 @@ ospf6_intra_route_calculation (struct ospf6_area *oa)
     }
 
   if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
-    zlog_info ("Re-examin intra-routes for area %s: Done", oa->name);
+    zlog_debug ("Re-examin intra-routes for area %s: Done", oa->name);
 }
 
 void
@@ -1254,7 +1254,7 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
   char buf[16];
 
   if (IS_OSPF6_DEBUG_ROUTE (INTRA))
-    zlog_info ("Border-router calculation for area %s", oa->name);
+    zlog_debug ("Border-router calculation for area %s", oa->name);
 
   hook_add = oa->ospf6->brouter_table->hook_add;
   hook_remove = oa->ospf6->brouter_table->hook_remove;
@@ -1290,7 +1290,7 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
         {
           inet_ntop (AF_INET, &ADV_ROUTER_IN_PREFIX (&copy->prefix),
                      buf, sizeof (buf));
-          zlog_info ("Re-install router entry %s", buf);
+          zlog_debug ("Re-install router entry %s", buf);
         }
     }
 
@@ -1322,7 +1322,7 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
             {
               inet_ntop (AF_INET, &ADV_ROUTER_IN_PREFIX (&lsentry->prefix),
                          buf, sizeof (buf));
-              zlog_info ("Call hook for router entry %s", buf);
+              zlog_debug ("Call hook for router entry %s", buf);
             }
           if (hook_add)
             (*hook_add) (lsentry);
@@ -1332,7 +1332,7 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
     }
 
   if (IS_OSPF6_DEBUG_ROUTE (INTRA))
-    zlog_info ("Border-router calculation for area %s: Done", oa->name);
+    zlog_debug ("Border-router calculation for area %s: Done", oa->name);
 }
 
 struct ospf6_lsa_handler router_handler =

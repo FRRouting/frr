@@ -161,9 +161,9 @@ ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on)
   /* log */
   if (IS_OSPF6_DEBUG_NEIGHBOR (STATE))
     {
-      zlog_info ("Neighbor state change %s: [%s]->[%s]", on->name,
-                 ospf6_neighbor_state_str[prev_state],
-                 ospf6_neighbor_state_str[next_state]);
+      zlog_debug ("Neighbor state change %s: [%s]->[%s]", on->name,
+		  ospf6_neighbor_state_str[prev_state],
+		  ospf6_neighbor_state_str[next_state]);
     }
 
   if (prev_state == OSPF6_NEIGHBOR_FULL || next_state == OSPF6_NEIGHBOR_FULL)
@@ -218,7 +218,7 @@ hello_received (struct thread *thread)
   assert (on);
 
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    zlog_info ("Neighbor Event %s: *HelloReceived*", on->name);
+    zlog_debug ("Neighbor Event %s: *HelloReceived*", on->name);
 
   /* reset Inactivity Timer */
   THREAD_OFF (on->inactivity_timer);
@@ -243,7 +243,7 @@ twoway_received (struct thread *thread)
     return 0;
 
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    zlog_info ("Neighbor Event %s: *2Way-Received*", on->name);
+    zlog_debug ("Neighbor Event %s: *2Way-Received*", on->name);
 
   thread_add_event (master, neighbor_change, on->ospf6_if, 0);
 
@@ -278,7 +278,7 @@ negotiation_done (struct thread *thread)
     return 0;
 
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    zlog_info ("Neighbor Event %s: *NegotiationDone*", on->name);
+    zlog_debug ("Neighbor Event %s: *NegotiationDone*", on->name);
 
   /* clear ls-list */
   ospf6_lsdb_remove_all (on->summary_list);
@@ -347,7 +347,7 @@ exchange_done (struct thread *thread)
     return 0;
 
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    zlog_info ("Neighbor Event %s: *ExchangeDone*", on->name);
+    zlog_debug ("Neighbor Event %s: *ExchangeDone*", on->name);
 
   THREAD_OFF (on->thread_send_dbdesc);
   ospf6_lsdb_remove_all (on->dbdesc_list);
@@ -377,7 +377,7 @@ loading_done (struct thread *thread)
     return 0;
 
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    zlog_info ("Neighbor Event %s: *LoadingDone*", on->name);
+    zlog_debug ("Neighbor Event %s: *LoadingDone*", on->name);
 
   assert (on->request_list->count == 0);
 
@@ -396,7 +396,7 @@ adj_ok (struct thread *thread)
   assert (on);
 
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    zlog_info ("Neighbor Event %s: *AdjOK?*", on->name);
+    zlog_debug ("Neighbor Event %s: *AdjOK?*", on->name);
 
   if (on->state == OSPF6_NEIGHBOR_TWOWAY && need_adjacency (on))
     {
@@ -440,7 +440,7 @@ seqnumber_mismatch (struct thread *thread)
     return 0;
 
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    zlog_info ("Neighbor Event %s: *SeqNumberMismatch*", on->name);
+    zlog_debug ("Neighbor Event %s: *SeqNumberMismatch*", on->name);
 
   ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT);
@@ -476,7 +476,7 @@ bad_lsreq (struct thread *thread)
     return 0;
 
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    zlog_info ("Neighbor Event %s: *BadLSReq*", on->name);
+    zlog_debug ("Neighbor Event %s: *BadLSReq*", on->name);
 
   ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT);
@@ -512,7 +512,7 @@ oneway_received (struct thread *thread)
     return 0;
 
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    zlog_info ("Neighbor Event %s: *1Way-Received*", on->name);
+    zlog_debug ("Neighbor Event %s: *1Way-Received*", on->name);
 
   ospf6_neighbor_state_change (OSPF6_NEIGHBOR_INIT, on);
   thread_add_event (master, neighbor_change, on->ospf6_if, 0);
@@ -543,7 +543,7 @@ inactivity_timer (struct thread *thread)
   assert (on);
 
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    zlog_info ("Neighbor Event %s: *InactivityTimer*", on->name);
+    zlog_debug ("Neighbor Event %s: *InactivityTimer*", on->name);
 
   on->inactivity_timer = NULL;
   on->drouter = on->prev_drouter = 0;
