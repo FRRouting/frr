@@ -1,3 +1,7 @@
+2004-10-22 Paul Jakma <paul@dishone.st>
+
+	* irdp_main.c: change setsockopt_pktinfo to setsockopt_ifindex
+
 2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
 
 	* rt_netlink.c: (netlink_interface_addr) For PtP interfaces, ignore

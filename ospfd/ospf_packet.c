@@ -2303,6 +2303,9 @@ ospf_read (struct thread *thread)
   if (ibuf == NULL)
     return -1;
   
+  iph = (struct ip *) STREAM_DATA (ibuf);
+  sockopt_iphdrincl_swab_systoh (iph);
+
   /* openbsd lacks IP_RECVIF */
 #if !(defined(IP_PKTINFO) || defined(IP_RECVIF))
   if (ifp == NULL)
@@ -2314,9 +2317,6 @@ ospf_read (struct thread *thread)
       stream_free (ibuf);
       return 0;
     }
-    
-  iph = (struct ip *) STREAM_DATA (ibuf);
-  sockopt_iphdrincl_swab_systoh (iph);
   
   /* prepare for next packet. */
   ospf->t_read = thread_add_read (master, ospf_read, ospf, ospf->fd);

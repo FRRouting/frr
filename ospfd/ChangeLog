@@ -4,6 +4,7 @@
           function.
         * ospf_packet.c: (ospf_read) manually look up ifindex
           if system could not have returned one, eg openbsd.
+          Change setsockopt_pktinfo to setsockopt_ifindex.
 
 2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
 
