@@ -167,9 +167,10 @@ sort_node ()
    character is separated by a space character. Return value is a
    vector which includes char ** data element. */
 vector
-cmd_make_strvec (char *string)
+cmd_make_strvec (const char *string)
 {
-  char *cp, *start, *token;
+  const char *cp, *start;
+  char *token;
   int strlen;
   vector strvec;
   
@@ -3303,9 +3304,13 @@ cmd_init (int terminal)
       install_element (ENABLE_NODE, &config_terminal_no_length_cmd);
 
       install_default (CONFIG_NODE);
+    }
+  
+  install_element (CONFIG_NODE, &hostname_cmd);
+  install_element (CONFIG_NODE, &no_hostname_cmd);
 
-      install_element (CONFIG_NODE, &hostname_cmd);
-      install_element (CONFIG_NODE, &no_hostname_cmd);
+  if (terminal)
+    {
       install_element (CONFIG_NODE, &password_cmd);
       install_element (CONFIG_NODE, &password_text_cmd);
       install_element (CONFIG_NODE, &enable_password_cmd);
