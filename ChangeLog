@@ -1,3 +1,8 @@
+2004-10-05 Hasso Tepper <hasso at quagga.net>
+
+	* configure.ac: Removed -Wpadded. I don't have sooo much time that I
+	  could care about padding ;).
+
 2004-09-30 Paul Jakma <paul@dishone.st>
 
 	* Update default CFLAGS for gcc to keep Hasso busy.

@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.66 2004/09/30 06:08:58 paul Exp $
+## $Id: configure.ac,v 1.67 2004/10/05 14:15:17 hasso Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.96.5, [http://bugzilla.quagga.net])
@@ -64,9 +64,8 @@ dnl ---------------------------------------------
 dnl
 if test "x$cflags_specified" = "x" ; then
   if test "x${GCC}" = "xyes"; then
-  	CFLAGS="-Os -g -Wall -Wpacked -Wpadded -Wsign-compare"
-  	CFLAGS="${CFLAGS} -Wpointer-arith -Wbad-function-cast"
-        CFLAGS="${CFLAGS}  -Wwrite-strings"
+  	CFLAGS="-Os -g -Wall -Wpacked -Wsign-compare -Wpointer-arith"
+  	CFLAGS="${CFLAGS} -Wbad-function-cast -Wwrite-strings"
   fi
 fi
 
