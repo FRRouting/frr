@@ -1,3 +1,10 @@
+2004-07-23 Paul Jakma <paul@dishone.st>
+
+	* ospf_network.c: Replace PKTINFO/RECVIF with call to
+	  setsockopt_pktinfo
+	* ospf_packet.c: Use getsockopt_pktinfo_ifindex and
+	  SOPT_SIZE_CMSG_PKTINFO_IPV4.
+
 2004-07-14 Paul Jakma <paul@dishone.st>
 
 	* ospf_packet.c: (ospf_ls_upd_send_queue_event) Partial fix for 

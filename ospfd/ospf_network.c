@@ -201,27 +201,9 @@ ospf_sock_init (void)
   zlog_warn ("IP_HDRINCL option not available");
 #endif /* IP_HDRINCL */
 
-#if defined (IP_PKTINFO)
-  ret = setsockopt (ospf_sock, IPPROTO_IP, IP_PKTINFO, &hincl, sizeof (hincl));
-   if (ret < 0)
-     {
-       if ( ospfd_privs.change (ZPRIVS_LOWER) )
-         zlog_err ("ospf_sock_init: could not lower privs, %s",
-                   strerror (errno) );
-       zlog_warn ("Can't set IP_PKTINFO option");
-     }
-#elif defined (IP_RECVIF)
-  ret = setsockopt (ospf_sock, IPPROTO_IP, IP_RECVIF, &hincl, sizeof (hincl));
-   if (ret < 0)
-     {
-       if ( ospfd_privs.change (ZPRIVS_LOWER) )
-         zlog_err ("ospf_sock_init: could not lower privs, %s",
-                   strerror (errno) );
-       zlog_warn ("Can't set IP_RECVIF option");
-     }
-#else
-#warning "cannot be able to receive link information on this OS"
-#endif
+  ret = setsockopt_pktinfo (AF_INET, ospf_sock, 1);
+  if (ret < 0)
+     zlog_warn ("Can't set pktinfo option");
 
   if (ospfd_privs.change (ZPRIVS_LOWER))
     {

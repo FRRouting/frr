@@ -31,6 +31,7 @@
 #include "sockunion.h"
 #include "stream.h"
 #include "log.h"
+#include "sockopt.h"
 #include "md5-gnu.h"
 
 #include "ospfd/ospfd.h"
@@ -1880,17 +1881,17 @@ ospf_recv_packet (int fd, struct interface **ifp)
   unsigned int ifindex = 0;
   struct iovec iov;
   struct cmsghdr *cmsg;
-#if defined (IP_PKTINFO)
-  struct in_pktinfo *pktinfo;
-#elif defined (IP_RECVIF)
-  struct sockaddr_dl *pktinfo;
-#else
-  char *pktinfo; /* dummy */
-#endif
-  char buff [sizeof (*cmsg) + sizeof (*pktinfo)];
-  struct msghdr msgh = {NULL, 0, &iov, 1, buff,
-			sizeof (*cmsg) + sizeof (*pktinfo), 0};
-    
+  char buff [sizeof (*cmsg) + SOPT_SIZE_CMSG_PKTINFO_IPV4()];
+  struct msghdr msgh;
+
+  msgh.msg_name = NULL;
+  msgh.msg_namelen = 0;
+  msgh.msg_iov = &iov;
+  msgh.msg_iovlen = 1;
+  msgh.msg_control = (caddr_t) buff;
+  msgh.msg_controllen = sizeof (buff);
+  msgh.msg_flags = 0;
+  
   ret = recvfrom (fd, (void *)&iph, sizeof (iph), MSG_PEEK, NULL, 0);
   
   if (ret != sizeof (iph))
@@ -1928,33 +1929,7 @@ ospf_recv_packet (int fd, struct interface **ifp)
   iov.iov_len = ip_len;
   ret = recvmsg (fd, &msgh, 0);
   
-  cmsg = CMSG_FIRSTHDR (&msgh);
-  
-  if (cmsg != NULL && //cmsg->cmsg_len == sizeof (*pktinfo) &&
-      cmsg->cmsg_level == IPPROTO_IP &&
-#if defined (IP_PKTINFO)
-      cmsg->cmsg_type == IP_PKTINFO
-#elif defined (IP_RECVIF)
-      cmsg->cmsg_type == IP_RECVIF
-#else
-      0
-#endif
-      )
-    {
-#if defined (IP_PKTINFO)
-      pktinfo = (struct in_pktinfo *)CMSG_DATA(cmsg);
-      ifindex = pktinfo->ipi_ifindex;
-#elif defined (IP_RECVIF)
-#ifdef SUNOS_5
-      ifindex = *(uint_t *)CMSG_DATA(cmsg);
-#else
-      pktinfo = (struct sockaddr_dl *)CMSG_DATA(cmsg);
-      ifindex = pktinfo->sdl_index;
-#endif /* SUNOS_5 */
-#else
-      ifindex = 0;
-#endif
-    }
+  ifindex = getsockopt_pktinfo_ifindex (AF_INET, &msgh);
   
   *ifp = if_lookup_by_index (ifindex);
 
