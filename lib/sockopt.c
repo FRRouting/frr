@@ -334,9 +334,9 @@ getsockopt_ipv4_ifindex (struct msghdr *msgh)
 #else /* neither IP_PKTINFO nor IP_RECVIF, broken */
 
 #warning "getsockopt_ipv4_pktinfo_ifindex: dont have PKTINFO or RECVIF"
-#warning "things will be broken on this platform!"
+#warning "things probably will be broken on this platform!"
   /* XXX why not -1 - this is a failure condition. */
-  ifindex = -1;
+  ifindex = 0;
 #endif /* IP_PKTINFO */ 
   return ifindex;
 }
