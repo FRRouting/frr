@@ -1,10 +1,16 @@
-# $Id: INSTALL.quagga.txt,v 1.2 2004/11/15 15:34:50 gdt Exp $
+# $Id: INSTALL.quagga.txt,v 1.3 2004/11/15 17:26:47 gdt Exp $
 
 --------------------------------------------------------------------------
-Building and Installing Quagga:
+Building and Installing Quagga from releases or snapshots:
 
 The 'INSTALL' file contains generic instructions on how to use 'configure'
 scripts.
+
+Quagga can be compiled with either BSD make or GNU make.
+GNU make 3.80 is known to work.
+The following system makes are known to work
+  NetBSD 1.6.2
+  NetBSD 2.0
 
 For further Quagga specific information on 'configure' and build-time
 configuration of the software, please read the Quagga info documentation,
@@ -27,25 +33,26 @@ available online.
 Building Quagga from CVS checkouts:
 
 In order to build from CVS, you will need recent versions of several GNU
-tools, particularly autoconf, automake, libtool and texinfo. Note that the
+tools, particularly autoconf, automake, libtool and texinfo.  Note that the
 CVS snapshots on the Quagga website do not require these tools; everything
-is already setup ready to run 'configure', and if you have trouble building
+is already setup ready to run 'configure'.  If you have trouble building
 from CVS checkout it is recommended that you try a CVS snapshot instead.
 
-If you must build from plain CVS checkouts, the versions which should work
-at least with:
+If you are building from plain CVS checkouts, the versions which
+should work at least with:
 
 	automake:	1.8.5
 	autoconf:	2.59
 	libtool:	1.5.6
-	texinfo:	4.7-4
+	texinfo:	4.7
 
-To create the required files, run either the 'update-autotools' script
-provided, or else the 'autoreconf' command supplied with your autoconf
-package. After this you may run configure. You will need a recentish version
-of GNU Texinfo in order to build doc/quagga.info, which is not supplied in
-CVS, but is supplied in the CVS snapshots on the Quagga website. You will
-need to run make to create this file.
+To create the required autotools files (Makefile.in, configure, etc.),
+run either the 'update-autotools' script provided, or else the
+'autoreconf' command supplied with your autoconf package.  After this
+you may run configure.  GNU texinfo is required in order to build
+doc/quagga.info, which is not supplied in CVS, but is supplied in the
+CVS snapshots on the Quagga website.   quagga.info is created via
+makeinfo during the build.
 
 Please refer to "Building and Installing Quagga" above for further
 instructions.
