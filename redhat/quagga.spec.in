@@ -128,7 +128,6 @@ developing OSPF-API and quagga applications.
 %if %vty_group
 	--enable-vty-group=%vty_group \
 %endif
---with-cflags="-O2" \
 --enable-netlink
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
