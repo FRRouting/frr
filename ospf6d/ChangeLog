@@ -1,3 +1,25 @@
+2004-08-15  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* *.c: Area support almost done. (almost ! ;p)
+	* ospf6d.h: version 0.9.7i
+
+2004-08-15  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_message.c: Bug cause BadLSReq is fixed.
+	* ospf6_abr.c: Border Router check.
+	* ospf6d.h: version 0.9.7h
+
+2004-08-14  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_area.[ch], ospf6_abr.[ch]: area range,
+	border-routers, Inter-Area-Router-LSA origination
+	* ospf6d.h: version 0.9.7g
+
+2004-08-12  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* *.[c,h]: LSA refreshing is changed and cleaned up.
+	* ospf6d.h: version 0.9.7f
+
 2004-08-01  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
 	* ospf6_abr.[ch]: add files for abr function.

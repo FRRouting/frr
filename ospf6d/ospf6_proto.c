@@ -36,11 +36,14 @@ ospf6_prefix_apply_mask (struct ospf6_prefix *op)
   offset = op->prefix_length % 8;
   mask = 0xff << (8 - offset);
 
-  if (index >= 16)
+  if (index > 16)
     {
-      zlog_warn ("Apply mask to ospf6_prefix failed");
+      zlog_warn ("Prefix length too long: %d", op->prefix_length);
       return;
     }
+
+  if (index == 16)
+    return;
 
   pnt[index] &= mask;
   index ++;

@@ -39,160 +39,169 @@
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
 
-
-void *
-ospf6_get_lsa_scope (u_int16_t type, struct ospf6_neighbor *from)
-{
-  void *scope = NULL;
-
-  if (from == NULL)
-    return NULL;
-
-  switch (OSPF6_LSA_SCOPE (type))
-    {
-      case OSPF6_LSA_SCOPE_AS:
-        scope = (from)->ospf6_if->area->ospf6;
-        break;
-      case OSPF6_LSA_SCOPE_AREA:
-        scope = (from)->ospf6_if->area;
-        break;
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
-        scope = (from)->ospf6_if;
-        break;
-      default:
-        break;
-    }
-
-  return scope;
-}
+#include "ospf6_flood.h"
 
 struct ospf6_lsdb *
-ospf6_get_scoped_lsdb (u_int16_t type, void *scope)
+ospf6_get_scoped_lsdb (struct ospf6_lsa *lsa)
 {
   struct ospf6_lsdb *lsdb = NULL;
-
-  if (scope == NULL)
-    return NULL;
-
-  switch (OSPF6_LSA_SCOPE (type))
+  switch (OSPF6_LSA_SCOPE (lsa->header->type))
     {
-      case OSPF6_LSA_SCOPE_AS:
-        lsdb = ((struct ospf6 *)(scope))->lsdb;
-        break;
-      case OSPF6_LSA_SCOPE_AREA:
-        lsdb = ((struct ospf6_area *)(scope))->lsdb;
-        break;
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
-        lsdb = ((struct ospf6_interface *)(scope))->lsdb;
-        break;
-      default:
-        break;
+    case OSPF6_SCOPE_LINKLOCAL:
+      lsdb = OSPF6_INTERFACE (lsa->lsdb->data)->lsdb;
+      break;
+    case OSPF6_SCOPE_AREA:
+      lsdb = OSPF6_AREA (lsa->lsdb->data)->lsdb;
+      break;
+    case OSPF6_SCOPE_AS:
+      lsdb = OSPF6_PROCESS (lsa->lsdb->data)->lsdb;
+      break;
+    default:
+      assert (0);
+      break;
     }
-
   return lsdb;
 }
 
-void
-ospf6_decrement_onretrans (struct ospf6_lsa *lsa)
+struct ospf6_lsdb *
+ospf6_get_scoped_lsdb_self (struct ospf6_lsa *lsa)
 {
-  struct ospf6_lsdb *lsdb;
-  struct ospf6_lsa *src;
-
-  lsdb = ospf6_get_scoped_lsdb (lsa->header->type, lsa->scope);
-  if (lsdb == NULL)
+  struct ospf6_lsdb *lsdb_self = NULL;
+  switch (OSPF6_LSA_SCOPE (lsa->header->type))
     {
-      zlog_warn ("Decrement onretrans: no such scope: %s", lsa->name);
-      return;
+    case OSPF6_SCOPE_LINKLOCAL:
+      lsdb_self = OSPF6_INTERFACE (lsa->lsdb->data)->lsdb_self;
+      break;
+    case OSPF6_SCOPE_AREA:
+      lsdb_self = OSPF6_AREA (lsa->lsdb->data)->lsdb_self;
+      break;
+    case OSPF6_SCOPE_AS:
+      lsdb_self = OSPF6_PROCESS (lsa->lsdb->data)->lsdb_self;
+      break;
+    default:
+      assert (0);
+      break;
     }
-
-  src = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
-                           lsa->header->adv_router, lsdb);
-  if (src && src != lsa)
-    src->onretrans--;
-
-  if (src->onretrans < 0)
-    zlog_warn ("internal error: onretrans");
+  return lsdb_self;
 }
 
 void
-ospf6_flood_clear (struct ospf6_lsa *lsa)
+ospf6_lsa_originate (struct ospf6_lsa *lsa)
 {
-  struct ospf6_neighbor *on;
-  struct ospf6_interface *oi, *ospf6_if = NULL;
-  struct ospf6_area *oa, *area = NULL;
-  struct ospf6 *ospf6 = NULL;
-  u_int16_t scope_type;
-  list scoped_interfaces;
-  struct ospf6_lsa *rxmt;
-  listnode i, j;
+  struct ospf6_lsa *old;
+  struct ospf6_lsdb *lsdb_self;
 
-  scoped_interfaces = list_new ();
-  scope_type = OSPF6_LSA_SCOPE (lsa->header->type);
+  /* find previous LSA */
+  old = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
+                           lsa->header->adv_router, lsa->lsdb);
 
-  if (scope_type == OSPF6_LSA_SCOPE_LINKLOCAL)
+  /* if the new LSA does not differ from previous,
+     suppress this update of the LSA */
+  if (old && ! OSPF6_LSA_IS_DIFFER (lsa, old))
     {
-      ospf6_if = (struct ospf6_interface *) lsa->scope;
-      area = ospf6_if->area;
-      ospf6 = area->ospf6;
-    }
-  else if (scope_type == OSPF6_LSA_SCOPE_AREA)
-    {
-      area = (struct ospf6_area *) lsa->scope;
-      ospf6 = area->ospf6;
-    }
-  else if (scope_type == OSPF6_LSA_SCOPE_AS)
-    {
-      ospf6 = (struct ospf6 *) lsa->scope;
-    }
-  else
-    {
-      zlog_warn ("Can't decide LSA scope, quit ospf6_flood_clear ()");
+      if (IS_OSPF6_DEBUG_LSA (ORIGINATE))
+        zlog_info ("Suppress updating LSA: %s", lsa->name);
+      ospf6_lsa_delete (lsa);
       return;
     }
 
-  /* Collect eligible interfaces */
-  for (i = listhead (ospf6->area_list); i; nextnode (i))
+  /* store it in the LSDB for self-originated LSAs */
+  lsdb_self = ospf6_get_scoped_lsdb_self (lsa);
+  ospf6_lsdb_add (ospf6_lsa_copy (lsa), lsdb_self);
+
+  lsa->refresh = thread_add_timer (master, ospf6_lsa_refresh, lsa,
+                                   LS_REFRESH_TIME);
+
+  if (IS_OSPF6_DEBUG_LSA (ORIGINATE))
     {
-      oa = (struct ospf6_area *) getdata (i);
-      if (scope_type != OSPF6_LSA_SCOPE_AS && oa != area)
-        continue;
-
-      for (j = listhead (oa->if_list); j; nextnode (j))
-        {
-          oi = (struct ospf6_interface *) getdata (j);
-          if (scope_type != OSPF6_LSA_SCOPE_AS &&
-              scope_type != OSPF6_LSA_SCOPE_AREA && oi != ospf6_if)
-            continue;
-
-          listnode_add (scoped_interfaces, oi);
-        }
+      zlog_info ("LSA Originate:");
+      ospf6_lsa_header_print (lsa);
     }
 
-  for (i = listhead (scoped_interfaces); i; nextnode (i))
+  if (old)
+    ospf6_flood_clear (old);
+  ospf6_flood (NULL, lsa);
+  ospf6_install_lsa (lsa);
+}
+
+void
+ospf6_lsa_originate_process (struct ospf6_lsa *lsa,
+                             struct ospf6 *process)
+{
+  lsa->lsdb = process->lsdb;
+  ospf6_lsa_originate (lsa);
+}
+
+void
+ospf6_lsa_originate_area (struct ospf6_lsa *lsa,
+                          struct ospf6_area *oa)
+{
+  lsa->lsdb = oa->lsdb;
+  ospf6_lsa_originate (lsa);
+}
+
+void
+ospf6_lsa_originate_interface (struct ospf6_lsa *lsa,
+                               struct ospf6_interface *oi)
+{
+  lsa->lsdb = oi->lsdb;
+  ospf6_lsa_originate (lsa);
+}
+
+void
+ospf6_lsa_purge (struct ospf6_lsa *lsa)
+{
+  struct ospf6_lsa *self;
+  struct ospf6_lsdb *lsdb_self;
+
+  /* remove it from the LSDB for self-originated LSAs */
+  lsdb_self = ospf6_get_scoped_lsdb_self (lsa);
+  self = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
+                            lsa->header->adv_router, lsdb_self);
+  if (self)
     {
-      oi = (struct ospf6_interface *) getdata (i);
-      for (j = listhead (oi->neighbor_list); j; nextnode (j))
-        {
-          on = (struct ospf6_neighbor *) getdata (j);
-          rxmt = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
-                                    lsa->header->adv_router, on->retrans_list);
-          if (rxmt && ! ospf6_lsa_compare (rxmt, lsa))
-            {
-              if (IS_OSPF6_DEBUG_LSA (DATABASE))
-                zlog_info ("Remove %s from retrans_list of %s",
-                           rxmt->name, on->name);
-              ospf6_decrement_onretrans (rxmt);
-              ospf6_lsdb_remove (rxmt, on->retrans_list);
-            }
-        }
+      THREAD_OFF (self->expire);
+      THREAD_OFF (self->refresh);
+      ospf6_lsdb_remove (self, lsdb_self);
     }
 
-  list_delete (scoped_interfaces);
+  ospf6_lsa_premature_aging (lsa);
+}
+
+
+void
+ospf6_increment_retrans_count (struct ospf6_lsa *lsa)
+{
+  /* The LSA must be the original one (see the description
+     in ospf6_decrement_retrans_count () below) */
+  lsa->retrans_count++;
+}
+
+void
+ospf6_decrement_retrans_count (struct ospf6_lsa *lsa)
+{
+  struct ospf6_lsdb *lsdb;
+  struct ospf6_lsa *orig;
+
+  /* The LSA must be on the retrans-list of a neighbor. It means
+     the "lsa" is a copied one, and we have to decrement the
+     retransmission count of the original one (instead of "lsa"'s).
+     In order to find the original LSA, first we have to find
+     appropriate LSDB that have the original LSA. */
+  lsdb = ospf6_get_scoped_lsdb (lsa);
+
+  /* Find the original LSA of which the retrans_count should be decremented */
+  orig = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
+                           lsa->header->adv_router, lsdb);
+  if (orig)
+    orig->retrans_count--;
+
+  assert (orig->retrans_count >= 0);
 }
 
 /* RFC2328 section 13.2 Installing LSAs in the database */
 void
-ospf6_install_lsa (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
+ospf6_install_lsa (struct ospf6_lsa *lsa)
 {
   struct ospf6_lsa *old;
 
@@ -202,184 +211,298 @@ ospf6_install_lsa (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
   /* Remove the old instance from all neighbors' Link state
      retransmission list (RFC2328 13.2 last paragraph) */
   old = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
-                           lsa->header->adv_router, lsdb);
+                           lsa->header->adv_router, lsa->lsdb);
   if (old)
     ospf6_flood_clear (old);
 
   /* actually install */
   gettimeofday (&lsa->installed, (struct timezone *) NULL);
-  ospf6_lsdb_add (lsa, lsdb);
+  ospf6_lsdb_add (lsa, lsa->lsdb);
 
   return;
 }
 
+/* RFC2740 section 3.5.2. Sending Link State Update packets */
 /* RFC2328 section 13.3 Next step in the flooding procedure */
 void
-ospf6_flood_lsa (struct ospf6_lsa *lsa, struct ospf6_neighbor *from)
+ospf6_flood_interface (struct ospf6_neighbor *from,
+                       struct ospf6_lsa *lsa, struct ospf6_interface *oi)
 {
-  struct ospf6 *scope_as = NULL;
-  struct ospf6_area *oa, *scope_area = NULL;
-  struct ospf6_interface *oi, *scope_linklocal = NULL;
+  listnode node;
   struct ospf6_neighbor *on;
-  list eligible_interfaces;
-  listnode i, j;
-  u_int16_t scope_type;
   struct ospf6_lsa *req;
   int retrans_added = 0;
 
-  scope_type = OSPF6_LSA_SCOPE (lsa->header->type);
-  switch (scope_type)
-    {
-      case OSPF6_LSA_SCOPE_AS:
-        scope_as = (struct ospf6 *) lsa->scope;
-        break;
-      case OSPF6_LSA_SCOPE_AREA:
-        scope_as = ((struct ospf6_area *) lsa->scope)->ospf6;
-        scope_area = (struct ospf6_area *) lsa->scope;
-        break;
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
-        scope_as = ((struct ospf6_interface *) lsa->scope)->area->ospf6;
-        scope_area = ((struct ospf6_interface *) lsa->scope)->area;
-        scope_linklocal = (struct ospf6_interface *) lsa->scope;
-        break;
-      default:
-        if (IS_OSPF6_DEBUG_LSA (SEND))
-          zlog_info ("Can't decide LSA scope");
-        return;
-    }
-
   if (IS_OSPF6_DEBUG_LSA (SEND))
-    zlog_info ("Flood %s", lsa->name);
+    zlog_info ("Flooding on %s: %s", oi->interface->name, lsa->name);
 
-  /* Collect eligible interfaces */
-  eligible_interfaces = list_new ();
-  for (i = listhead (scope_as->area_list); i; nextnode (i))
+  /* (1) For each neighbor */
+  for (node = listhead (oi->neighbor_list); node; nextnode (node))
     {
-      oa = (struct ospf6_area *) getdata (i);
-      if (scope_type != OSPF6_LSA_SCOPE_AS &&
-          oa != scope_area)
-        continue;
+      on = (struct ospf6_neighbor *) getdata (node);
 
-      for (j = listhead (oa->if_list); j; nextnode (j))
+      if (IS_OSPF6_DEBUG_LSA (SEND))
+        zlog_info ("To neighbor %s", on->name);
+
+      /* (a) if neighbor state < Exchange, examin next */
+      if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
         {
-          oi = (struct ospf6_interface *) getdata (j);
-          if (scope_type != OSPF6_LSA_SCOPE_AS &&
-              scope_type != OSPF6_LSA_SCOPE_AREA &&
-              oi != scope_linklocal)
-            continue;
-
-          listnode_add (eligible_interfaces, oi);
+          if (IS_OSPF6_DEBUG_LSA (SEND))
+            zlog_info ("Neighbor state less than ExChange, next neighbor");
+          continue;
         }
-    }
 
-  /* For each eligible interface: */
-  for (i = listhead (eligible_interfaces); i; nextnode (i))
-    {
-      oi = (struct ospf6_interface *) getdata (i);
-
-      /* (1) For each neighbor */
-      for (j = listhead (oi->neighbor_list); j; nextnode (j))
+      /* (b) if neighbor not yet Full, check request-list */
+      if (on->state != OSPF6_NEIGHBOR_FULL)
         {
-          on = (struct ospf6_neighbor *) getdata (j);
+          if (IS_OSPF6_DEBUG_LSA (SEND))
+            zlog_info ("Neighbor not yet Full");
 
-          /* (a) if neighbor state < Exchange, examin next */
-          if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
-            continue;
-
-          /* (b) if neighbor not yet Full, check request-list */
-          if (on->state != OSPF6_NEIGHBOR_FULL)
+          req = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
+                                   lsa->header->adv_router, on->request_list);
+          if (req == NULL)
             {
-              req = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
-                                       lsa->header->adv_router,
-                                       on->request_list);
-              if (req)
+              if (IS_OSPF6_DEBUG_LSA (SEND))
+                zlog_info ("Not on request-list for this neighbor");
+              /* fall through */
+            }
+          else
+            {
+              /* If new LSA less recent, examin next neighbor */
+              if (ospf6_lsa_compare (lsa, req) > 0)
                 {
-                  /* If new LSA less recent, examin next neighbor */
-                  if (ospf6_lsa_compare (lsa, req) > 0)
-                    continue;
+                  if (IS_OSPF6_DEBUG_LSA (SEND))
+                    zlog_info ("Requesting is newer, next neighbor");
+                  continue;
+                }
 
-                  /* If the same instance, delete from request-list and
-                     examin next neighbor */
-                  if (ospf6_lsa_compare (lsa, req) == 0)
-                    {
-                      if (IS_OSPF6_DEBUG_LSA (SEND) || IS_OSPF6_DEBUG_LSA (DATABASE))
-                        zlog_info ("Remove %s from request-list of %s: "
-                                   "the same instance", req->name, on->name);
-                      ospf6_lsdb_remove (req, on->request_list);
-                      continue;
-                    }
+              /* If the same instance, delete from request-list and
+                 examin next neighbor */
+              if (ospf6_lsa_compare (lsa, req) == 0)
+                {
+                  if (IS_OSPF6_DEBUG_LSA (SEND))
+                    zlog_info ("Requesting the same, remove it, next neighbor");
+                  ospf6_lsdb_remove (req, on->request_list);
+                  continue;
+                }
 
-                  /* If the new LSA is more recent, delete from
-                     request-list */
-                  if (ospf6_lsa_compare (lsa, req) < 0)
-                    {
-                      if (IS_OSPF6_DEBUG_LSA (SEND) || IS_OSPF6_DEBUG_LSA (DATABASE))
-                        zlog_info ("Remove %s from request-list of %s: "
-                                   "newer instance", req->name, on->name);
-                      ospf6_lsdb_remove (req, on->request_list);
-                      /* fall through */
-                    }
+              /* If the new LSA is more recent, delete from request-list */
+              if (ospf6_lsa_compare (lsa, req) < 0)
+                {
+                  if (IS_OSPF6_DEBUG_LSA (SEND))
+                    zlog_info ("Received is newer, remove requesting");
+                  ospf6_lsdb_remove (req, on->request_list);
+                  /* fall through */
                 }
             }
-
-          /* (c) If the new LSA was received from this neighbor,
-             examin next neighbor */
-          if (from == on)
-            continue;
-
-          /* (d) add retrans-list, schedule retransmission */
-          if (IS_OSPF6_DEBUG_LSA (SEND) || IS_OSPF6_DEBUG_LSA (DATABASE))
-            zlog_info ("  Add copy of %s to retrans-list of %s",
-                       lsa->name, on->name);
-          lsa->onretrans++;
-          ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->retrans_list);
-          if (on->thread_send_lsupdate == NULL)
-            on->thread_send_lsupdate =
-              thread_add_event (master, ospf6_lsupdate_send_neighbor,
-                                on, on->ospf6_if->rxmt_interval);
-          retrans_added++;
         }
 
-      /* (2) examin next interface if not added to retrans-list */
-      if (retrans_added == 0)
-        continue;
-
-      /* (3) If the new LSA was received on this interface,
-         and it was from DR or BDR, examin next interface */
-      if (from && from->ospf6_if == oi &&
-          (from->router_id == oi->drouter || from->router_id == oi->bdrouter))
-        continue;
-
-      /* (4) If the new LSA was received on this interface,
-         and the interface state is BDR, examin next interface */
-      if (from && from->ospf6_if == oi && oi->state == OSPF6_INTERFACE_BDR)
-        continue;
-
-      /* (5) flood the LSA out the interface. */
-      if (if_is_broadcast (oi->interface))
+      /* (c) If the new LSA was received from this neighbor,
+         examin next neighbor */
+      if (from == on)
         {
-          if (IS_OSPF6_DEBUG_LSA (SEND) || IS_OSPF6_DEBUG_LSA (DATABASE))
-            zlog_info ("  Add copy of %s to lsupdate_list of %s",
-                       lsa->name, oi->interface->name);
-          ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsupdate_list);
-          if (oi->thread_send_lsupdate == NULL)
-            oi->thread_send_lsupdate =
-              thread_add_event (master, ospf6_lsupdate_send_interface, oi, 0);
+          if (IS_OSPF6_DEBUG_LSA (SEND))
+            zlog_info ("Received is from the neighbor, next neighbor");
+          continue;
         }
-      else
-        {
-          for (j = listhead (oi->neighbor_list); j; nextnode (j))
-            {
-              on = (struct ospf6_neighbor *) getdata (j);
-              THREAD_OFF (on->thread_send_lsupdate);
-              on->thread_send_lsupdate =
-                thread_add_event (master, ospf6_lsupdate_send_neighbor, on, 0);
-            }
-        }
+
+      /* (d) add retrans-list, schedule retransmission */
+      if (IS_OSPF6_DEBUG_LSA (SEND))
+        zlog_info ("Add retrans-list of this neighbor");
+      ospf6_increment_retrans_count (lsa);
+      ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->retrans_list);
+      if (on->thread_send_lsupdate == NULL)
+        on->thread_send_lsupdate =
+          thread_add_event (master, ospf6_lsupdate_send_neighbor,
+                            on, on->ospf6_if->rxmt_interval);
+      retrans_added++;
     }
 
-  list_delete (eligible_interfaces);
+  /* (2) examin next interface if not added to retrans-list */
+  if (retrans_added == 0)
+    {
+      if (IS_OSPF6_DEBUG_LSA (SEND))
+        zlog_info ("No retransmission scheduled, next interface");
+      return;
+    }
+
+  /* (3) If the new LSA was received on this interface,
+     and it was from DR or BDR, examin next interface */
+  if (from && from->ospf6_if == oi &&
+      (from->router_id == oi->drouter || from->router_id == oi->bdrouter))
+    {
+      if (IS_OSPF6_DEBUG_LSA (SEND))
+        zlog_info ("Received is from the I/F's DR or BDR, next interface");
+      return;
+    }
+
+  /* (4) If the new LSA was received on this interface,
+     and the interface state is BDR, examin next interface */
+  if (from && from->ospf6_if == oi && oi->state == OSPF6_INTERFACE_BDR)
+    {
+      if (IS_OSPF6_DEBUG_LSA (SEND))
+        zlog_info ("Received is from the I/F, itself BDR, next interface");
+      return;
+    }
+
+  /* (5) flood the LSA out the interface. */
+  if (IS_OSPF6_DEBUG_LSA (SEND))
+    zlog_info ("Schedule flooding for the interface");
+  if (if_is_broadcast (oi->interface))
+    {
+      ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsupdate_list);
+      if (oi->thread_send_lsupdate == NULL)
+        oi->thread_send_lsupdate =
+          thread_add_event (master, ospf6_lsupdate_send_interface, oi, 0);
+    }
+  else
+    {
+      /* reschedule retransmissions to all neighbors */
+      for (node = listhead (oi->neighbor_list); node; nextnode (node))
+        {
+          on = (struct ospf6_neighbor *) getdata (node);
+          THREAD_OFF (on->thread_send_lsupdate);
+          on->thread_send_lsupdate =
+            thread_add_event (master, ospf6_lsupdate_send_neighbor, on, 0);
+        }
+    }
 }
+
+void
+ospf6_flood_area (struct ospf6_neighbor *from,
+                  struct ospf6_lsa *lsa, struct ospf6_area *oa)
+{
+  listnode node;
+  struct ospf6_interface *oi;
+
+  for (node = listhead (oa->if_list); node; nextnode (node))
+    {
+      oi = OSPF6_INTERFACE (getdata (node));
+
+      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_LINKLOCAL &&
+          oi != OSPF6_INTERFACE (lsa->lsdb->data))
+        continue;
+
+#if 0
+      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AS &&
+          ospf6_is_interface_virtual_link (oi))
+        continue;
+#endif/*0*/
+
+      ospf6_flood_interface (from, lsa, oi);
+    }
+}
+
+void
+ospf6_flood_process (struct ospf6_neighbor *from,
+                     struct ospf6_lsa *lsa, struct ospf6 *process)
+{
+  listnode node;
+  struct ospf6_area *oa;
+
+  for (node = listhead (process->area_list); node; nextnode (node))
+    {
+      oa = OSPF6_AREA (getdata (node));
+
+      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AREA &&
+          oa != OSPF6_AREA (lsa->lsdb->data))
+        continue;
+      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_LINKLOCAL &&
+          oa != OSPF6_INTERFACE (lsa->lsdb->data)->area)
+        continue;
+
+      if (ntohs (lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL &&
+          IS_AREA_STUB (oa))
+        continue;
+
+      ospf6_flood_area (from, lsa, oa);
+    }
+}
+
+void
+ospf6_flood (struct ospf6_neighbor *from, struct ospf6_lsa *lsa)
+{
+  ospf6_flood_process (from, lsa, ospf6);
+}
+
+void
+ospf6_flood_clear_interface (struct ospf6_lsa *lsa, struct ospf6_interface *oi)
+{
+  listnode node;
+  struct ospf6_neighbor *on;
+  struct ospf6_lsa *rem;
+
+  for (node = listhead (oi->neighbor_list); node; nextnode (node))
+    {
+      on = OSPF6_NEIGHBOR (getdata (node));
+      rem = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
+                               lsa->header->adv_router, on->retrans_list);
+      if (rem && ! ospf6_lsa_compare (rem, lsa))
+        {
+          if (IS_OSPF6_DEBUG_LSA (DATABASE))
+            zlog_info ("Remove %s from retrans_list of %s",
+                       rem->name, on->name);
+          ospf6_decrement_retrans_count (rem);
+          ospf6_lsdb_remove (rem, on->retrans_list);
+        }
+    }
+}
+
+void
+ospf6_flood_clear_area (struct ospf6_lsa *lsa, struct ospf6_area *oa)
+{
+  listnode node;
+  struct ospf6_interface *oi;
+
+  for (node = listhead (oa->if_list); node; nextnode (node))
+    {
+      oi = OSPF6_INTERFACE (getdata (node));
+
+      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_LINKLOCAL &&
+          oi != OSPF6_INTERFACE (lsa->lsdb->data))
+        continue;
+
+#if 0
+      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AS &&
+          ospf6_is_interface_virtual_link (oi))
+        continue;
+#endif/*0*/
+
+      ospf6_flood_clear_interface (lsa, oi);
+    }
+}
+
+void
+ospf6_flood_clear_process (struct ospf6_lsa *lsa, struct ospf6 *process)
+{
+  listnode node;
+  struct ospf6_area *oa;
+
+  for (node = listhead (process->area_list); node; nextnode (node))
+    {
+      oa = OSPF6_AREA (getdata (node));
+
+      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AREA &&
+          oa != OSPF6_AREA (lsa->lsdb->data))
+        continue;
+      if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_LINKLOCAL &&
+          oa != OSPF6_INTERFACE (lsa->lsdb->data)->area)
+        continue;
+
+      if (ntohs (lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL &&
+          IS_AREA_STUB (oa))
+        continue;
+
+      ospf6_flood_clear_area (lsa, oa);
+    }
+}
+
+void
+ospf6_flood_clear (struct ospf6_lsa *lsa)
+{
+  ospf6_flood_clear_process (lsa, ospf6);
+}
+
 
 /* RFC2328 13.5 (Table 19): Sending link state acknowledgements. */
 static void
@@ -396,7 +519,7 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
   if (CHECK_FLAG (lsa->flag, OSPF6_LSA_FLOODBACK))
     {
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("  BDR, FloodBack, No acknowledgement.");
+        zlog_info ("No acknowledgement (BDR & FloodBack)");
       return;
     }
 
@@ -406,16 +529,11 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
      otherwide do nothing. */
   if (ismore_recent < 0)
     {
-      if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("  BDR, Not FloodBack, MoreRecent, ");
       if (oi->drouter == from->router_id)
         {
           if (IS_OSPF6_DEBUG_LSA (RECV))
-            zlog_info ("       From DR, Delayed acknowledgement.");
+            zlog_info ("Delayed acknowledgement (BDR & MoreRecent & from DR)");
           /* Delayed acknowledgement */
-          if (IS_OSPF6_DEBUG_LSA (DATABASE))
-            zlog_info ("  Add copy of %s to lsack_list of %s",
-                       lsa->name, oi->interface->name);
           ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsack_list);
           if (oi->thread_send_lsack == NULL)
             oi->thread_send_lsack =
@@ -424,7 +542,7 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
       else
         {
           if (IS_OSPF6_DEBUG_LSA (RECV))
-            zlog_info ("       Not From DR, No acknowledgement.");
+            zlog_info ("No acknowledgement (BDR & MoreRecent & ! from DR)");
         }
       return;
     }
@@ -435,16 +553,11 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
   if (CHECK_FLAG (lsa->flag, OSPF6_LSA_DUPLICATE) &&
       CHECK_FLAG (lsa->flag, OSPF6_LSA_IMPLIEDACK))
     {
-      if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("  BDR, Duplicate, ImpliedAck, ");
       if (oi->drouter == from->router_id)
         {
           if (IS_OSPF6_DEBUG_LSA (RECV))
-            zlog_info ("       From DR, Delayed acknowledgement.");
+            zlog_info ("Delayed acknowledgement (BDR & Duplicate & ImpliedAck & from DR)");
           /* Delayed acknowledgement */
-          if (IS_OSPF6_DEBUG_LSA (DATABASE))
-            zlog_info ("  Add copy of %s to lsack_list of %s",
-                       lsa->name, oi->interface->name);
           ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsack_list);
           if (oi->thread_send_lsack == NULL)
             oi->thread_send_lsack =
@@ -453,7 +566,7 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
       else
         {
           if (IS_OSPF6_DEBUG_LSA (RECV))
-            zlog_info ("       Not From DR, No acknowledgement.");
+            zlog_info ("No acknowledgement (BDR & Duplicate & ImpliedAck & ! from DR)");
         }
       return;
     }
@@ -464,10 +577,7 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
       ! CHECK_FLAG (lsa->flag, OSPF6_LSA_IMPLIEDACK))
     {
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("  BDR, Duplicate, Not ImpliedAck, Direct acknowledgement.");
-      if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        zlog_info ("  Add copy of %s to lsack_list of %s",
-                   lsa->name, from->name);
+        zlog_info ("Direct acknowledgement (BDR & Duplicate)");
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), from->lsack_list);
       if (from->thread_send_lsack == NULL)
         from->thread_send_lsack =
@@ -496,7 +606,7 @@ ospf6_acknowledge_lsa_allother (struct ospf6_lsa *lsa, int ismore_recent,
   if (CHECK_FLAG (lsa->flag, OSPF6_LSA_FLOODBACK))
     {
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("  AllOther, FloodBack, No acknowledgement.");
+        zlog_info ("No acknowledgement (AllOther & FloodBack)");
       return;
     }
 
@@ -505,11 +615,8 @@ ospf6_acknowledge_lsa_allother (struct ospf6_lsa *lsa, int ismore_recent,
   if (ismore_recent < 0)
     {
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("  AllOther, Not FloodBack, Delayed acknowledgement.");
+        zlog_info ("Delayed acknowledgement (AllOther & MoreRecent)");
       /* Delayed acknowledgement */
-      if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        zlog_info ("  Add copy of %s to lsack_list of %s",
-                   lsa->name, oi->interface->name);
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsack_list);
       if (oi->thread_send_lsack == NULL)
         oi->thread_send_lsack =
@@ -523,7 +630,7 @@ ospf6_acknowledge_lsa_allother (struct ospf6_lsa *lsa, int ismore_recent,
       CHECK_FLAG (lsa->flag, OSPF6_LSA_IMPLIEDACK))
     {
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("  AllOther, Duplicate, ImpliedAck, No acknowledgement.");
+        zlog_info ("No acknowledgement (AllOther & Duplicate & ImpliedAck)");
       return;
     }
 
@@ -533,10 +640,7 @@ ospf6_acknowledge_lsa_allother (struct ospf6_lsa *lsa, int ismore_recent,
       ! CHECK_FLAG (lsa->flag, OSPF6_LSA_IMPLIEDACK))
     {
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("  AllOther, Duplicate, Not ImpliedAck, Direct acknowledgement.");
-      if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        zlog_info ("  Add copy of %s to lsack_list of %s",
-                   lsa->name, from->name);
+        zlog_info ("Direct acknowledgement (AllOther & Duplicate)");
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), from->lsack_list);
       if (from->thread_send_lsack == NULL)
         from->thread_send_lsack =
@@ -571,106 +675,55 @@ ospf6_acknowledge_lsa (struct ospf6_lsa *lsa, int ismore_recent,
    is in states Exchange or Loading
    returns 1 if match this case, else returns 0 */
 static int
-ospf6_is_maxage_lsa_drop (struct ospf6_lsa *lsa,
-                          struct ospf6_neighbor *from)
+ospf6_is_maxage_lsa_drop (struct ospf6_lsa *lsa, struct ospf6_neighbor *from)
 {
-  struct ospf6_lsdb *lsdb = NULL;
   struct ospf6_neighbor *on;
-  struct ospf6_interface *oi, *ospf6_if = NULL;
-  struct ospf6_area *oa, *area = NULL;
-  struct ospf6 *ospf6 = NULL;
-  u_int16_t scope_type;
-  list scoped_interfaces;
-  listnode i, j;
+  struct ospf6_interface *oi;
+  struct ospf6_area *oa;
+  struct ospf6 *process = NULL;
+  listnode i, j, k;
   int count = 0;
 
   if (! OSPF6_LSA_IS_MAXAGE (lsa))
     return 0;
 
-  lsdb = ospf6_get_scoped_lsdb (lsa->header->type, lsa->scope);
-  if (lsdb == NULL)
-    {
-      zlog_info ("Can't decide scoped LSDB");
-      return 0;
-    }
-
   if (ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
-                         lsa->header->adv_router, lsdb))
+                         lsa->header->adv_router, lsa->lsdb))
     return 0;
 
-  scoped_interfaces = list_new ();
-  scope_type = OSPF6_LSA_SCOPE (lsa->header->type);
-
-  if (scope_type == OSPF6_LSA_SCOPE_LINKLOCAL)
+  process = from->ospf6_if->area->ospf6;
+  for (i = listhead (process->area_list); i; nextnode (i))
     {
-      ospf6_if = (struct ospf6_interface *) lsa->scope;
-      area = ospf6_if->area;
-      ospf6 = area->ospf6;
-    }
-  else if (scope_type == OSPF6_LSA_SCOPE_AREA)
-    {
-      area = (struct ospf6_area *) lsa->scope;
-      ospf6 = area->ospf6;
-    }
-  else if (scope_type == OSPF6_LSA_SCOPE_AS)
-    {
-      ospf6 = (struct ospf6 *) lsa->scope;
-    }
-  else
-    {
-      zlog_info ("Can't decide LSA scope");
-      return 0;
-    }
-
-  /* Collect eligible interfaces */
-  for (i = listhead (ospf6->area_list); i; nextnode (i))
-    {
-      oa = (struct ospf6_area *) getdata (i);
-      if (scope_type != OSPF6_LSA_SCOPE_AS && oa != area)
-        continue;
-
+      oa = OSPF6_AREA (getdata (i));
       for (j = listhead (oa->if_list); j; nextnode (j))
         {
-          oi = (struct ospf6_interface *) getdata (j);
-          if (scope_type != OSPF6_LSA_SCOPE_AS &&
-              scope_type != OSPF6_LSA_SCOPE_AREA && oi != ospf6_if)
-            continue;
-
-          listnode_add (scoped_interfaces, oi);
+          oi = OSPF6_INTERFACE (getdata (j));
+          for (k = listhead (oi->neighbor_list); k; nextnode (k))
+            {
+              on = OSPF6_NEIGHBOR (getdata (k));
+              if (on->state == OSPF6_NEIGHBOR_EXCHANGE ||
+                  on->state == OSPF6_NEIGHBOR_LOADING)
+                count++;
+            }
         }
     }
-
-  for (i = listhead (scoped_interfaces); i; nextnode (i))
-    {
-      oi = (struct ospf6_interface *) getdata (i);
-      for (j = listhead (oi->neighbor_list); j; nextnode (j))
-        {
-          on = (struct ospf6_neighbor *) getdata (j);
-          if (on->state == OSPF6_NEIGHBOR_EXCHANGE ||
-              on->state == OSPF6_NEIGHBOR_LOADING)
-            count ++;
-        }
-    }
-
-  list_delete (scoped_interfaces);
 
   if (count == 0)
     return 1;
-
   return 0;
 }
 
 /* RFC2328 section 13 The Flooding Procedure */
 void
-ospf6_receive_lsa (struct ospf6_lsa_header *lsa_header,
-                   struct ospf6_neighbor *from)
+ospf6_receive_lsa (struct ospf6_neighbor *from,
+                   struct ospf6_lsa_header *lsa_header)
 {
   struct ospf6_lsa *new = NULL, *old = NULL, *rem = NULL;
   int ismore_recent;
   unsigned short cksum;
-  struct ospf6_lsdb *lsdb = NULL;
 
   ismore_recent = 1;
+  assert (from);
 
   /* make lsa structure for received lsa */
   new = ospf6_lsa_create (lsa_header);
@@ -681,30 +734,45 @@ ospf6_receive_lsa (struct ospf6_lsa_header *lsa_header,
       ospf6_lsa_header_print (new);
     }
 
-  new->scope = ospf6_get_lsa_scope (new->header->type, from);
-  if (new->scope == NULL)
-    {
-      zlog_warn ("Can't decide LSA scope, ignore");
-      ospf6_lsa_delete (new);
-      return;
-    }
-
   /* (1) LSA Checksum */
   cksum = ntohs (new->header->checksum);
   if (ntohs (ospf6_lsa_checksum (new->header)) != cksum)
     {
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("Wrong LSA Checksum");
+        zlog_info ("Wrong LSA Checksum, discard");
       ospf6_lsa_delete (new);
       return;
     }
 
-  /* (3) Ebit Missmatch: AS-External-LSA */
-  if (ntohs (new->header->type) == OSPF6_LSTYPE_AS_EXTERNAL &&
-      ospf6_area_is_stub (from->ospf6_if->area))
+  /* (2) Examine the LSA's LS type. 
+     RFC2470 3.5.1. Receiving Link State Update packets  */
+  if (IS_AREA_STUB (from->ospf6_if->area) &&
+      OSPF6_LSA_SCOPE (new->header->type) == OSPF6_SCOPE_AS)
     {
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("AS-External-LSA in stub area");
+        zlog_info ("AS-External-LSA (or AS-scope LSA) in stub area, discard");
+      ospf6_lsa_delete (new);
+      return;
+    }
+
+  /* (3) LSA which have reserved scope is discarded
+     RFC2470 3.5.1. Receiving Link State Update packets  */
+  /* Flooding scope check. LSAs with unknown scope are discarded here.
+     Set appropriate LSDB for the LSA */
+  switch (OSPF6_LSA_SCOPE (new->header->type))
+    {
+    case OSPF6_SCOPE_LINKLOCAL:
+      new->lsdb = from->ospf6_if->lsdb;
+      break;
+    case OSPF6_SCOPE_AREA:
+      new->lsdb = from->ospf6_if->area->lsdb;
+      break;
+    case OSPF6_SCOPE_AS:
+      new->lsdb = from->ospf6_if->area->ospf6->lsdb;
+      break;
+    default:
+      if (IS_OSPF6_DEBUG_LSA (RECV))
+        zlog_info ("LSA has reserved scope, discard");
       ospf6_lsa_delete (new);
       return;
     }
@@ -715,41 +783,30 @@ ospf6_receive_lsa (struct ospf6_lsa_header *lsa_header,
     {
       /* log */
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("Drop MaxAge LSA with Direct acknowledgement.");
+        zlog_info ("Drop MaxAge LSA with direct acknowledgement.");
 
       /* a) Acknowledge back to neighbor (Direct acknowledgement, 13.5) */
-      if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        zlog_info ("  Add %s to lsack_list of %s",
-                   new->name, from->name);
-      ospf6_lsdb_add (new, from->lsack_list);
+      ospf6_lsdb_add (ospf6_lsa_copy (new), from->lsack_list);
       if (from->thread_send_lsack == NULL)
         from->thread_send_lsack =
           thread_add_event (master, ospf6_lsack_send_neighbor, from, 0);
 
       /* b) Discard */
-      /* "new" LSA will be discarded just after the LSAck sent */
+      ospf6_lsa_delete (new);
       return;
     }
 
   /* (5) */
   /* lookup the same database copy in lsdb */
-  lsdb = ospf6_get_scoped_lsdb (new->header->type, new->scope);
-  if (lsdb == NULL)
-    {
-      zlog_warn ("Can't decide scoped LSDB, ignore");
-      ospf6_lsa_delete (new);
-      return;
-    }
-
   old = ospf6_lsdb_lookup (new->header->type, new->header->id,
-                           new->header->adv_router, lsdb);
+                           new->header->adv_router, new->lsdb);
   if (old)
     {
       ismore_recent = ospf6_lsa_compare (new, old);
       if (ntohl (new->header->seqnum) == ntohl (old->header->seqnum))
         {
           if (IS_OSPF6_DEBUG_LSA (RECV))
-            zlog_info ("Duplicated LSA");
+            zlog_info ("Received is duplicated LSA");
           SET_FLAG (new->flag, OSPF6_LSA_DUPLICATE);
         }
     }
@@ -769,35 +826,43 @@ ospf6_receive_lsa (struct ospf6_lsa_header *lsa_header,
           if (res.tv_sec < MIN_LS_ARRIVAL)
             {
               if (IS_OSPF6_DEBUG_LSA (RECV) || IS_OSPF6_DEBUG_LSA (TIMER))
-                zlog_info ("LSA can't be updated within MinLSArrival");
+                zlog_info ("LSA can't be updated within MinLSArrival, discard");
               ospf6_lsa_delete (new);
               return;   /* examin next lsa */
             }
         }
 
+      if (IS_OSPF6_DEBUG_LSA (RECV))
+        zlog_info ("Flood, Install, Possibly acknowledge the received LSA");
+
       /* (b) immediately flood and (c) remove from all retrans-list */
-      ospf6_flood_lsa (new, from);
+      ospf6_flood (from, new);
+
+      /* (c) Remove the current database copy from all neighbors' Link
+             state retransmission lists. */
+      /* XXX, flood_clear ? */
 
       /* (d), installing lsdb, which may cause routing
               table calculation (replacing database copy) */
-      ospf6_install_lsa (new, lsdb);
+      ospf6_install_lsa (new);
 
       /* (e) possibly acknowledge */
       ospf6_acknowledge_lsa (new, ismore_recent, from);
 
-      /* (f) */
-      /* Self Originated LSA, section 13.4 */
-      if (new->header->adv_router == from->ospf6_if->area->ospf6->router_id
-          && (! old || ismore_recent < 0))
+      /* (f) Self Originated LSA, section 13.4 */
+      if (new->header->adv_router == from->ospf6_if->area->ospf6->router_id)
         {
-          /* We have to make a new instance of the LSA
+          /* Self-originated LSA (newer than ours) is received from
+             another router. We have to make a new instance of the LSA
              or have to flush this LSA. */
           if (IS_OSPF6_DEBUG_LSA (RECV))
-            zlog_info ("New instance of the self-originated LSA");
-
-          SET_FLAG (new->flag, OSPF6_LSA_REFRESH);
-          ospf6_lsa_re_originate (new);
+            {
+              zlog_info ("Newer instance of the self-originated LSA");
+              zlog_info ("Schedule reorigination");
+            }
+          new->refresh = thread_add_event (master, ospf6_lsa_refresh, new, 0);
         }
+
       return;
     }
 
@@ -809,7 +874,10 @@ ospf6_receive_lsa (struct ospf6_lsa_header *lsa_header,
       assert (old);
 
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("LSA is not newer and on request-list of sending neighbor");
+        {
+          zlog_info ("Received is not newer, on the neighbor's request-list");
+          zlog_info ("BadLSReq, discard the received LSA");
+        }
 
       /* BadLSReq */
       thread_add_event (master, bad_lsreq, from, 0);
@@ -822,7 +890,7 @@ ospf6_receive_lsa (struct ospf6_lsa_header *lsa_header,
   if (ismore_recent == 0)
     {
       if (IS_OSPF6_DEBUG_LSA (RECV))
-        zlog_info ("The same instance as database copy");
+        zlog_info ("The same instance as database copy (neither recent)");
 
       /* (a) if on retrans-list, Treat this LSA as an Ack: Implied Ack */
       rem = ospf6_lsdb_lookup (new->header->type, new->header->id,
@@ -830,14 +898,17 @@ ospf6_receive_lsa (struct ospf6_lsa_header *lsa_header,
       if (rem)
         {
           if (IS_OSPF6_DEBUG_LSA (RECV))
-            zlog_info ("Treat as an Implied acknowledgement");
+            {
+              zlog_info ("It is on the neighbor's retrans-list.");
+              zlog_info ("Treat as an Implied acknowledgement");
+            }
           SET_FLAG (new->flag, OSPF6_LSA_IMPLIEDACK);
-          if (IS_OSPF6_DEBUG_LSA (DATABASE))
-            zlog_info ("Remove %s from retrans_list of %s",
-                       rem->name, from->name);
-          ospf6_decrement_onretrans (rem);
+          ospf6_decrement_retrans_count (rem);
           ospf6_lsdb_remove (rem, from->retrans_list);
         }
+
+      if (IS_OSPF6_DEBUG_LSA (RECV))
+        zlog_info ("Possibly acknowledge and then discard");
 
       /* (b) possibly acknowledge */
       ospf6_acknowledge_lsa (new, ismore_recent, from);
@@ -856,7 +927,10 @@ ospf6_receive_lsa (struct ospf6_lsa_header *lsa_header,
           old->header->seqnum == htonl (MAX_SEQUENCE_NUMBER))
         {
           if (IS_OSPF6_DEBUG_LSA (RECV))
-            zlog_info ("Database copy is in Seqnumber Wrapping");
+            {
+              zlog_info ("The LSA is in Seqnumber Wrapping");
+              zlog_info ("MaxAge & MaxSeqNum, discard");
+            }
           ospf6_lsa_delete (new);
           return;
         }
@@ -864,13 +938,13 @@ ospf6_receive_lsa (struct ospf6_lsa_header *lsa_header,
       /* Otherwise, Send database copy of this LSA to this neighbor */
         {
           if (IS_OSPF6_DEBUG_LSA (RECV))
-            zlog_info ("Database is more recent, send back directly");
+            {
+              zlog_info ("Database copy is more recent.");
+              zlog_info ("Send back directly and then discard");
+            }
 
           /* XXX, MinLSArrival check !? RFC 2328 13 (8) */
 
-          if (IS_OSPF6_DEBUG_LSA (DATABASE))
-            zlog_info ("  Add copy of %s to lsupdate_list of %s",
-                       old->name, from->name);
           ospf6_lsdb_add (ospf6_lsa_copy (old), from->lsupdate_list);
           if (from->thread_send_lsupdate == NULL)
             from->thread_send_lsupdate =

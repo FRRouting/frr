@@ -140,7 +140,8 @@ route_prev (struct route_node *node)
   return prev;
 }
 
-
+
+/* show database functions */
 DEFUN (show_version_ospf6,
        show_version_ospf6_cmd,
        "show version ospf6",
@@ -186,7 +187,7 @@ config_write_ospf6_debug (struct vty *vty)
 static int
 parse_show_level (int argc, char **argv)
 {
-  int level;
+  int level = 0;
   if (argc)
     {
       if (! strncmp (argv[0], "de", 2))
@@ -204,7 +205,7 @@ parse_show_level (int argc, char **argv)
 static u_int16_t
 parse_type_spec (int argc, char **argv)
 {
-  u_int16_t type;
+  u_int16_t type = 0;
   assert (argc);
   if (! strcmp (argv[0], "router"))
     type = htons (OSPF6_LSTYPE_ROUTER);
@@ -316,7 +317,7 @@ DEFUN (show_ipv6_ospf6_database_type,
 
   switch (OSPF6_LSA_SCOPE (type))
     {
-      case OSPF6_LSA_SCOPE_AREA:
+      case OSPF6_SCOPE_AREA:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -325,7 +326,7 @@ DEFUN (show_ipv6_ospf6_database_type,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
+      case OSPF6_SCOPE_LINKLOCAL:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -339,7 +340,7 @@ DEFUN (show_ipv6_ospf6_database_type,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_AS:
+      case OSPF6_SCOPE_AS:
         vty_out (vty, AS_LSDB_TITLE_FORMAT, VNL, VNL, VNL);
         ospf6_lsdb_show (vty, level, &type, NULL, NULL, o->lsdb);
         break;
@@ -623,7 +624,7 @@ DEFUN (show_ipv6_ospf6_database_type_id,
 
   switch (OSPF6_LSA_SCOPE (type))
     {
-      case OSPF6_LSA_SCOPE_AREA:
+      case OSPF6_SCOPE_AREA:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -632,7 +633,7 @@ DEFUN (show_ipv6_ospf6_database_type_id,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
+      case OSPF6_SCOPE_LINKLOCAL:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -646,7 +647,7 @@ DEFUN (show_ipv6_ospf6_database_type_id,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_AS:
+      case OSPF6_SCOPE_AS:
         vty_out (vty, AS_LSDB_TITLE_FORMAT, VNL, VNL, VNL);
         ospf6_lsdb_show (vty, level, &type, &id, NULL, o->lsdb);
         break;
@@ -782,7 +783,7 @@ DEFUN (show_ipv6_ospf6_database_type_router,
 
   switch (OSPF6_LSA_SCOPE (type))
     {
-      case OSPF6_LSA_SCOPE_AREA:
+      case OSPF6_SCOPE_AREA:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -791,7 +792,7 @@ DEFUN (show_ipv6_ospf6_database_type_router,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
+      case OSPF6_SCOPE_LINKLOCAL:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -805,7 +806,7 @@ DEFUN (show_ipv6_ospf6_database_type_router,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_AS:
+      case OSPF6_SCOPE_AS:
         vty_out (vty, AS_LSDB_TITLE_FORMAT, VNL, VNL, VNL);
         ospf6_lsdb_show (vty, level, &type, NULL, &adv_router, o->lsdb);
         break;
@@ -918,7 +919,7 @@ DEFUN (show_ipv6_ospf6_database_id_router,
   if ((inet_pton (AF_INET, argv[0], &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[1], VNL);
+               argv[0], VNL);
       return CMD_SUCCESS;
     }
 
@@ -1014,7 +1015,7 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
   if ((inet_pton (AF_INET, argv[0], &id)) != 1)
     {
       vty_out (vty, "Link state ID is not parsable: %s%s",
-               argv[1], VNL);
+               argv[0], VNL);
       return CMD_SUCCESS;
     }
 
@@ -1125,7 +1126,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
 
   switch (OSPF6_LSA_SCOPE (type))
     {
-      case OSPF6_LSA_SCOPE_AREA:
+      case OSPF6_SCOPE_AREA:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -1134,7 +1135,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
+      case OSPF6_SCOPE_LINKLOCAL:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -1148,7 +1149,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_AS:
+      case OSPF6_SCOPE_AS:
         vty_out (vty, AS_LSDB_TITLE_FORMAT, VNL, VNL, VNL);
         ospf6_lsdb_show (vty, level, &type, &id, &adv_router, o->lsdb);
         break;
@@ -1250,7 +1251,7 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 
   switch (OSPF6_LSA_SCOPE (type))
     {
-      case OSPF6_LSA_SCOPE_AREA:
+      case OSPF6_SCOPE_AREA:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -1259,7 +1260,7 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
+      case OSPF6_SCOPE_LINKLOCAL:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -1273,7 +1274,7 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_AS:
+      case OSPF6_SCOPE_AS:
         vty_out (vty, AS_LSDB_TITLE_FORMAT, VNL, VNL, VNL);
         ospf6_lsdb_show (vty, level, &type, &id, &adv_router, o->lsdb);
         break;
@@ -1416,7 +1417,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
 
   switch (OSPF6_LSA_SCOPE (type))
     {
-      case OSPF6_LSA_SCOPE_AREA:
+      case OSPF6_SCOPE_AREA:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -1425,7 +1426,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
+      case OSPF6_SCOPE_LINKLOCAL:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -1439,7 +1440,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_AS:
+      case OSPF6_SCOPE_AS:
         vty_out (vty, AS_LSDB_TITLE_FORMAT, VNL, VNL, VNL);
         ospf6_lsdb_show (vty, level, &type, NULL, &adv_router, o->lsdb);
         break;
@@ -1517,7 +1518,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[1], &id)) != 1)
+  if ((inet_pton (AF_INET, argv[0], &id)) != 1)
     {
       vty_out (vty, "Link State ID is not parsable: %s%s",
                argv[0], VNL);
@@ -1532,7 +1533,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 
   switch (OSPF6_LSA_SCOPE (type))
     {
-      case OSPF6_LSA_SCOPE_AREA:
+      case OSPF6_SCOPE_AREA:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -1541,7 +1542,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
+      case OSPF6_SCOPE_LINKLOCAL:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -1555,7 +1556,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_AS:
+      case OSPF6_SCOPE_AS:
         vty_out (vty, AS_LSDB_TITLE_FORMAT, VNL, VNL, VNL);
         ospf6_lsdb_show (vty, level, &type, &id, &adv_router, o->lsdb);
         break;
@@ -1633,7 +1634,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
   argc--;
   argv++;
 
-  if ((inet_pton (AF_INET, argv[1], &id)) != 1)
+  if ((inet_pton (AF_INET, argv[0], &id)) != 1)
     {
       vty_out (vty, "Link State ID is not parsable: %s%s",
                argv[0], VNL);
@@ -1648,7 +1649,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
 
   switch (OSPF6_LSA_SCOPE (type))
     {
-      case OSPF6_LSA_SCOPE_AREA:
+      case OSPF6_SCOPE_AREA:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -1657,7 +1658,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_LINKLOCAL:
+      case OSPF6_SCOPE_LINKLOCAL:
         for (i = listhead (o->area_list); i; nextnode (i))
           {
             oa = (struct ospf6_area *) getdata (i);
@@ -1671,7 +1672,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
           }
         break;
 
-      case OSPF6_LSA_SCOPE_AS:
+      case OSPF6_SCOPE_AS:
         vty_out (vty, AS_LSDB_TITLE_FORMAT, VNL, VNL, VNL);
         ospf6_lsdb_show (vty, level, &type, &id, &adv_router, o->lsdb);
         break;
@@ -1712,6 +1713,68 @@ ALIAS (show_ipv6_ospf6_database_type_id_self_originated,
        "Display LSA's internal information\n"
       );
 
+
+DEFUN (show_ipv6_ospf6_border_routers,
+       show_ipv6_ospf6_border_routers_cmd,
+       "show ipv6 ospf6 border-routers",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       "Display routing table for ABR and ASBR\n"
+      )
+{
+  u_int32_t adv_router;
+  void (*showfunc) (struct vty *, struct ospf6_route *);
+  struct ospf6_route *ro;
+  struct prefix prefix;
+
+  OSPF6_CMD_CHECK_RUNNING ();
+
+  if (argc && ! strcmp ("detail", argv[0]))
+    {
+      showfunc = ospf6_route_show_detail;
+      argc--;
+      argv++;
+    }
+  else
+    showfunc = ospf6_brouter_show;
+
+  if (argc)
+    {
+      if ((inet_pton (AF_INET, argv[0], &adv_router)) != 1)
+        {
+          vty_out (vty, "Router ID is not parsable: %s%s", argv[0], VNL);
+          return CMD_SUCCESS;
+        }
+
+      ospf6_linkstate_prefix (adv_router, 0, &prefix);
+      ro = ospf6_route_lookup (&prefix, ospf6->brouter_table);
+      ospf6_route_show_detail (vty, ro);
+      return CMD_SUCCESS;
+    }
+
+  if (showfunc == ospf6_brouter_show)
+    ospf6_brouter_show_header (vty);
+
+  for (ro = ospf6_route_head (ospf6->brouter_table); ro;
+       ro = ospf6_route_next (ro))
+    (*showfunc) (vty, ro);
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (show_ipv6_ospf6_border_routers,
+       show_ipv6_ospf6_border_routers_detail_cmd,
+       "show ipv6 ospf6 border-routers (A.B.C.D|detail)",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       "Display routing table for ABR and ASBR\n"
+       "Specify Router-ID\n"
+       "Display Detail\n"
+      );
+
+
 /* Install ospf related commands. */
 void
 ospf6_init ()
@@ -1726,9 +1789,15 @@ ospf6_init ()
   install_element_ospf6_debug_spf ();
   install_element_ospf6_debug_route ();
   install_element_ospf6_debug_asbr ();
+  install_element_ospf6_debug_abr ();
 
   install_element (VIEW_NODE, &show_version_ospf6_cmd);
   install_element (ENABLE_NODE, &show_version_ospf6_cmd);
+
+  install_element (VIEW_NODE, &show_ipv6_ospf6_border_routers_cmd);
+  install_element (VIEW_NODE, &show_ipv6_ospf6_border_routers_detail_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_border_routers_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_border_routers_detail_cmd);
 
 #define INSTALL(n,c) \
   install_element (n ## _NODE, &show_ipv6_ospf6_ ## c);

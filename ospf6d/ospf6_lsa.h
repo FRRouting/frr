@@ -62,11 +62,12 @@ extern unsigned char conf_debug_ospf6_lsa;
 #define OSPF6_LSTYPE_FCODE_MASK       0x1fff
 
 /* LSA scope */
-#define OSPF6_LSA_SCOPE_LINKLOCAL  0x0000
-#define OSPF6_LSA_SCOPE_AREA       0x2000
-#define OSPF6_LSA_SCOPE_AS         0x4000
-#define OSPF6_LSA_SCOPE_RESERVED   0x6000
+#define OSPF6_SCOPE_LINKLOCAL  0x0000
+#define OSPF6_SCOPE_AREA       0x2000
+#define OSPF6_SCOPE_AS         0x4000
+#define OSPF6_SCOPE_RESERVED   0x6000
 
+/* XXX U-bit handling should be treated here */
 #define OSPF6_LSA_SCOPE(type) \
   (ntohs (type) & OSPF6_LSTYPE_SCOPE_MASK)
 
@@ -103,55 +104,46 @@ struct ospf6_lsa_header
 
 struct ospf6_lsa
 {
-  char                 name[64];   /* dump string */
+  char              name[64];   /* dump string */
 
-  struct ospf6_lsa    *prev;
-  struct ospf6_lsa    *next;
+  struct ospf6_lsa *prev;
+  struct ospf6_lsa *next;
 
-  unsigned char        lock;       /* reference counter */
-  unsigned char        flag;       /* special meaning (e.g. floodback) */
+  unsigned char     lock;           /* reference counter */
+  unsigned char     flag;           /* special meaning (e.g. floodback) */
 
-  struct timeval       birth;      /* tv_sec when LS age 0 */
-  struct timeval       installed;  /* used by MinLSArrival check */
-  struct timeval       originated; /* used by MinLSInterval check */
+  struct timeval    birth;          /* tv_sec when LS age 0 */
+  struct timeval    installed;      /* used by MinLSArrival check */
+  struct timeval    originated;     /* used by MinLSInterval check */
 
-  struct thread       *expire;
-  struct thread       *refresh;    /* For self-originated LSA */
+  struct thread    *expire;
+  struct thread    *refresh;        /* For self-originated LSA */
 
-  void                *scope;      /* pointer to scope data structure */
-  int                  headeronly; /* indicate this is LS header only */
-  int                  onretrans;
+  int               retrans_count;
+
+struct ospf6_lsdb;
+  struct ospf6_lsdb *lsdb;
 
   /* lsa instance */
   struct ospf6_lsa_header *header;
 };
 
-#define OSPF6_LSA_FLOODBACK  0x01
-#define OSPF6_LSA_DUPLICATE  0x02
-#define OSPF6_LSA_IMPLIEDACK 0x04
-#define OSPF6_LSA_REFRESH    0x08
+#define OSPF6_LSA_HEADERONLY 0x01
+#define OSPF6_LSA_FLOODBACK  0x02
+#define OSPF6_LSA_DUPLICATE  0x04
+#define OSPF6_LSA_IMPLIEDACK 0x08
 
-struct ospf6_lstype
+struct ospf6_lsa_handler
 {
+  u_int16_t type; /* network byte order */
   char *name;
-  int (*reoriginate) (struct ospf6_lsa *);
   int (*show) (struct vty *, struct ospf6_lsa *);
 };
 
-extern struct ospf6_lstype ospf6_lstype[OSPF6_LSTYPE_SIZE];
 #define OSPF6_LSTYPE_INDEX(type) \
-  (((type) & OSPF6_LSTYPE_FCODE_MASK) < OSPF6_LSTYPE_SIZE ? \
-   ((type) & OSPF6_LSTYPE_FCODE_MASK) : OSPF6_LSTYPE_UNKNOWN)
-
-#if 0
-extern char *ospf6_lstype_str[OSPF6_LSTYPE_SIZE];
-#define OSPF6_LSTYPE_NAME(type) \
   ((ntohs (type) & OSPF6_LSTYPE_FCODE_MASK) < OSPF6_LSTYPE_SIZE ? \
-   ospf6_lstype_str[ntohs (type) & OSPF6_LSTYPE_FCODE_MASK] :     \
-   ospf6_lstype_str[OSPF6_LSTYPE_UNKNOWN])
-#else /*0*/
+   (ntohs (type) & OSPF6_LSTYPE_FCODE_MASK) : OSPF6_LSTYPE_UNKNOWN)
 #define OSPF6_LSTYPE_NAME(type) (ospf6_lstype_name (type))
-#endif /*0*/
 
 /* Macro for LSA Origination */
 /* void (CONTINUE_IF_...) (struct prefix *addr); */
@@ -219,11 +211,11 @@ int ospf6_lsa_compare (struct ospf6_lsa *, struct ospf6_lsa *);
 char *ospf6_lsa_printbuf (struct ospf6_lsa *lsa, char *buf, int size);
 void ospf6_lsa_header_print_raw (struct ospf6_lsa_header *header);
 void ospf6_lsa_header_print (struct ospf6_lsa *lsa);
-void ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa);
 void ospf6_lsa_show_summary_header (struct vty *vty);
 void ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa);
 void ospf6_lsa_show_dump (struct vty *vty, struct ospf6_lsa *lsa);
 void ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa);
+void ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa);
 
 struct ospf6_lsa *ospf6_lsa_create (struct ospf6_lsa_header *header);
 struct ospf6_lsa *ospf6_lsa_create_headeronly (struct ospf6_lsa_header *header);
@@ -233,8 +225,6 @@ struct ospf6_lsa *ospf6_lsa_copy (struct ospf6_lsa *);
 void ospf6_lsa_lock (struct ospf6_lsa *);
 void ospf6_lsa_unlock (struct ospf6_lsa *);
 
-void ospf6_lsa_originate (struct ospf6_lsa *);
-void ospf6_lsa_re_originate (struct ospf6_lsa *lsa);
 int ospf6_lsa_expire (struct thread *);
 int ospf6_lsa_refresh (struct thread *);
 
@@ -242,6 +232,7 @@ unsigned short ospf6_lsa_checksum (struct ospf6_lsa_header *);
 int ospf6_lsa_prohibited_duration (u_int16_t type, u_int32_t id,
                                    u_int32_t adv_router, void *scope);
 
+void ospf6_install_lsa_handler (struct ospf6_lsa_handler *handler);
 void ospf6_lsa_init ();
 
 int config_write_ospf6_debug_lsa (struct vty *vty);

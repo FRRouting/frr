@@ -245,7 +245,7 @@ ospf6_header_examin (struct in6_addr *src, struct in6_addr *dst,
   /* Area-ID check */
   if (oh->area_id != oi->area->area_id)
     {
-      if (oh->area_id == 0)
+      if (oh->area_id == BACKBONE_AREA_ID)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (type, RECV))
             zlog_info ("Message may be via Virtual Link: not supported");
@@ -519,21 +519,34 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
       struct ospf6_lsdb *lsdb = NULL;
 
       his = ospf6_lsa_create_headeronly ((struct ospf6_lsa_header *) p);
-      his->scope = ospf6_get_lsa_scope (his->header->type, on);
-      lsdb = ospf6_get_scoped_lsdb (his->header->type, his->scope);
-      if (lsdb == NULL)
+
+      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+        zlog_info ("%s", his->name);
+
+      switch (OSPF6_LSA_SCOPE (his->header->type))
         {
-          zlog_warn ("Can't decide scoped LSDB");
+        case OSPF6_SCOPE_LINKLOCAL:
+          lsdb = on->ospf6_if->lsdb;
+          break;
+        case OSPF6_SCOPE_AREA:
+          lsdb = on->ospf6_if->area->lsdb;
+          break;
+        case OSPF6_SCOPE_AS:
+          lsdb = on->ospf6_if->area->ospf6->lsdb;
+          break;
+        case OSPF6_SCOPE_RESERVED:
+          if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+            zlog_info ("Ignoring LSA of reserved scope");
           ospf6_lsa_delete (his);
-          thread_add_event (master, seqnumber_mismatch, on, 0);
-          return;
+          continue;
+          break;
         }
 
       if (ntohs (his->header->type) == OSPF6_LSTYPE_AS_EXTERNAL &&
-          ospf6_area_is_stub (on->ospf6_if->area))
+          IS_AREA_STUB (on->ospf6_if->area))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("E-bit mismatch with LSA Headers");
+            zlog_info ("SeqNumMismatch (E-bit mismatch), discard");
           ospf6_lsa_delete (his);
           thread_add_event (master, seqnumber_mismatch, on, 0);
           return;
@@ -541,14 +554,24 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
 
       mine = ospf6_lsdb_lookup (his->header->type, his->header->id,
                                 his->header->adv_router, lsdb);
-      if (mine == NULL || ospf6_lsa_compare (his, mine) < 0)
+      if (mine == NULL)
         {
-          if (IS_OSPF6_DEBUG_LSA (RECV) || IS_OSPF6_DEBUG_LSA (DATABASE))
-            zlog_info ("Add %s's request-list: %s", on->name, his->name);
+          if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+            zlog_info ("Add request (No database copy)", his->name);
+          ospf6_lsdb_add (his, on->request_list);
+        }
+      else if (ospf6_lsa_compare (his, mine) < 0)
+        {
+          if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+            zlog_info ("Add request (Received MoreRecent)", his->name);
           ospf6_lsdb_add (his, on->request_list);
         }
       else
-        ospf6_lsa_delete (his);
+        {
+          if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+            zlog_info ("Discard (Existing MoreRecent)", his->name);
+          ospf6_lsa_delete (his);
+        }
     }
 
   if (p != OSPF6_MESSAGE_END (oh))
@@ -721,18 +744,28 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
       struct ospf6_lsdb *lsdb = NULL;
 
       his = ospf6_lsa_create_headeronly ((struct ospf6_lsa_header *) p);
-      his->scope = ospf6_get_lsa_scope (his->header->type, on);
-      lsdb = ospf6_get_scoped_lsdb (his->header->type, his->scope);
-      if (lsdb == NULL)
+
+      switch (OSPF6_LSA_SCOPE (his->header->type))
         {
-          zlog_warn ("Can't decide scoped LSDB");
+        case OSPF6_SCOPE_LINKLOCAL:
+          lsdb = on->ospf6_if->lsdb;
+          break;
+        case OSPF6_SCOPE_AREA:
+          lsdb = on->ospf6_if->area->lsdb;
+          break;
+        case OSPF6_SCOPE_AS:
+          lsdb = on->ospf6_if->area->ospf6->lsdb;
+          break;
+        case OSPF6_SCOPE_RESERVED:
+          if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+            zlog_info ("Ignoring LSA of reserved scope");
           ospf6_lsa_delete (his);
-          thread_add_event (master, seqnumber_mismatch, on, 0);
-          return;
+          continue;
+          break;
         }
 
-      if (ntohs (his->header->type) == OSPF6_LSTYPE_AS_EXTERNAL &&
-          ospf6_area_is_stub (on->ospf6_if->area))
+      if (OSPF6_LSA_SCOPE (his->header->type) == OSPF6_SCOPE_AS &&
+          IS_AREA_STUB (on->ospf6_if->area))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
             zlog_info ("E-bit mismatch with LSA Headers");
@@ -745,8 +778,8 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
                                 his->header->adv_router, lsdb);
       if (mine == NULL || ospf6_lsa_compare (his, mine) < 0)
         {
-          if (IS_OSPF6_DEBUG_LSA (RECV) || IS_OSPF6_DEBUG_LSA (DATABASE))
-            zlog_info ("Add %s to request-list of %s", his->name, on->name);
+          if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+            zlog_info ("Add request-list: %s", his->name);
           ospf6_lsdb_add (his, on->request_list);
         }
       else
@@ -838,7 +871,6 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
   struct ospf6_neighbor *on;
   char *p;
   struct ospf6_lsreq_entry *e;
-  void *scope = NULL;
   struct ospf6_lsdb *lsdb = NULL;
   struct ospf6_lsa *lsa;
 
@@ -875,8 +907,24 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
        p += sizeof (struct ospf6_lsreq_entry))
     {
       e = (struct ospf6_lsreq_entry *) p;
-      scope = ospf6_get_lsa_scope (e->type, on);
-      lsdb = ospf6_get_scoped_lsdb (e->type, scope);
+
+      switch (OSPF6_LSA_SCOPE (e->type))
+        {
+        case OSPF6_SCOPE_LINKLOCAL:
+          lsdb = on->ospf6_if->lsdb;
+          break;
+        case OSPF6_SCOPE_AREA:
+          lsdb = on->ospf6_if->area->lsdb;
+          break;
+        case OSPF6_SCOPE_AS:
+          lsdb = on->ospf6_if->area->ospf6->lsdb;
+          break;
+        default:
+          if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+            zlog_info ("Ignoring LSA of reserved scope");
+          continue;
+          break;
+        }
 
       /* Find database copy */
       lsa = ospf6_lsdb_lookup (e->type, e->id, e->adv_router, lsdb);
@@ -895,9 +943,6 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
           return;
         }
 
-      if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        zlog_info ("Add copy of %s to lsupdate_list of %s",
-                   lsa->name, on->name);
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->lsupdate_list);
     }
 
@@ -969,7 +1014,7 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
           break;
         }
 
-      ospf6_receive_lsa ((struct ospf6_lsa_header *) p, on);
+      ospf6_receive_lsa (on, (struct ospf6_lsa_header *) p);
       num--;
     }
 
@@ -1041,11 +1086,27 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
        p += sizeof (struct ospf6_lsa_header))
     {
       his = ospf6_lsa_create_headeronly ((struct ospf6_lsa_header *) p);
-      his->scope = ospf6_get_lsa_scope (his->header->type, on);
-      lsdb = ospf6_get_scoped_lsdb (his->header->type, his->scope);
 
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV) ||
-          IS_OSPF6_DEBUG_LSA (SEND))
+      switch (OSPF6_LSA_SCOPE (his->header->type))
+        {
+        case OSPF6_SCOPE_LINKLOCAL:
+          lsdb = on->ospf6_if->lsdb;
+          break;
+        case OSPF6_SCOPE_AREA:
+          lsdb = on->ospf6_if->area->lsdb;
+          break;
+        case OSPF6_SCOPE_AS:
+          lsdb = on->ospf6_if->area->ospf6->lsdb;
+          break;
+        case OSPF6_SCOPE_RESERVED:
+          if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+            zlog_info ("Ignoring LSA of reserved scope");
+          ospf6_lsa_delete (his);
+          continue;
+          break;
+        }
+
+      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
         zlog_info ("%s acknowledged by %s", his->name, on->name);
 
       /* Find database copy */
@@ -1080,18 +1141,14 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
           continue;
         }
 
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV) ||
-          IS_OSPF6_DEBUG_LSA (SEND))
+      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
         zlog_info ("Acknowledged, remove from %s's retrans-list",
                    on->name);
 
       if (OSPF6_LSA_IS_MAXAGE (mine))
         ospf6_maxage_remove (on->ospf6_if->area->ospf6);
 
-      if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        zlog_info ("remove %s from retrans_list of %s",
-                   mine->name, on->name);
-      ospf6_decrement_onretrans (mine);
+      ospf6_decrement_retrans_count (mine);
       ospf6_lsdb_remove (mine, on->retrans_list);
       ospf6_lsa_delete (his);
     }
@@ -1473,8 +1530,6 @@ ospf6_dbdesc_send_newone (struct thread *thread)
   unsigned int size = 0;
 
   on = (struct ospf6_neighbor *) THREAD_ARG (thread);
-  if (IS_OSPF6_DEBUG_LSA (DATABASE))
-    zlog_info ("Remove entire dbdesc_list of %s: sending newone", on->name);
   ospf6_lsdb_remove_all (on->dbdesc_list);
 
   /* move LSAs from summary_list to dbdesc_list (within neighbor structure)
@@ -1489,9 +1544,6 @@ ospf6_dbdesc_send_newone (struct thread *thread)
           break;
         }
 
-      if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        zlog_info ("Move %s from summary_list to dbdesc_list of %s",
-                   lsa->name, on->name);
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->dbdesc_list);
       ospf6_lsdb_remove (lsa, on->summary_list);
       size += sizeof (struct ospf6_lsa_header);
@@ -1587,21 +1639,25 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
   on = (struct ospf6_neighbor *) THREAD_ARG (thread);
   on->thread_send_lsupdate = (struct thread *) NULL;
 
+  if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
+    zlog_info ("LSUpdate to neighbor %s", on->name);
+
   if (on->state < OSPF6_NEIGHBOR_EXCHANGE)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
-        zlog_info ("Quit to send LSUpdate to neighbor %s state %s",
-                   on->name, ospf6_neighbor_state_str[on->state]);
+        zlog_info ("Quit to send (neighbor state %s)",
+                   ospf6_neighbor_state_str[on->state]);
       return 0;
     }
 
   /* if we have nothing to send, return */
   if (on->lsupdate_list->count == 0 &&
       on->retrans_list->count == 0)
-    return 0;
-
-  if (IS_OSPF6_DEBUG_LSA (SEND))
-    zlog_info ("LSA Send to %s", on->name);
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
+        zlog_info ("Quit to send (nothing to send)");
+      return 0;
+    }
 
   memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
@@ -1623,9 +1679,6 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
           break;
         }
 
-      if (IS_OSPF6_DEBUG_LSA (SEND))
-        ospf6_lsa_header_print (lsa);
-
       ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
       memcpy (p, lsa->header, OSPF6_LSA_SIZE (lsa->header));
       p += OSPF6_LSA_SIZE (lsa->header);
@@ -1644,9 +1697,6 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
           ospf6_lsa_unlock (lsa);
           break;
         }
-
-      if (IS_OSPF6_DEBUG_LSA (SEND))
-        ospf6_lsa_header_print (lsa);
 
       ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
       memcpy (p, lsa->header, OSPF6_LSA_SIZE (lsa->header));

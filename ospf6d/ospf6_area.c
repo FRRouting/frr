@@ -48,29 +48,18 @@ ospf6_area_cmp (void *va, void *vb)
 {
   struct ospf6_area *oa = (struct ospf6_area *) va;
   struct ospf6_area *ob = (struct ospf6_area *) vb;
-  return (ntohl (oa->area_id) - ntohl (ob->area_id));
-}
-
-int
-ospf6_area_is_stub (struct ospf6_area *o6a)
-{
-  if (OSPF6_OPT_ISSET (o6a->options, OSPF6_OPT_E))
-    return 0;
-  return 1;
+  return (ntohl (oa->area_id) < ntohl (ob->area_id) ? -1 : 1);
 }
 
 /* schedule routing table recalculation */
 void
 ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
 {
-  struct ospf6_area *oa;
-
-  oa = (struct ospf6_area *) lsa->scope;
   switch (ntohs (lsa->header->type))
     {
     case OSPF6_LSTYPE_ROUTER:
     case OSPF6_LSTYPE_NETWORK:
-      ospf6_spf_schedule (oa);
+      ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));
       break;
 
     case OSPF6_LSTYPE_INTRA_PREFIX:
@@ -83,7 +72,8 @@ ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
 
     default:
       if (IS_OSPF6_DEBUG_LSA (RECV))
-	zlog_info ("Unknown LSA in Area %s's lsdb", oa->name);
+	zlog_info ("Unknown LSA in Area %s's lsdb",
+                   OSPF6_AREA (lsa->lsdb->data)->name);
       break;
     }
 }
@@ -91,14 +81,11 @@ ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
 void
 ospf6_area_lsdb_hook_remove (struct ospf6_lsa *lsa)
 {
-  struct ospf6_area *oa;
-
-  oa = (struct ospf6_area *) lsa->scope;
   switch (ntohs (lsa->header->type))
     {
     case OSPF6_LSTYPE_ROUTER:
     case OSPF6_LSTYPE_NETWORK:
-      ospf6_spf_schedule (oa);
+      ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));
       break;
 
     case OSPF6_LSTYPE_INTRA_PREFIX:
@@ -111,7 +98,8 @@ ospf6_area_lsdb_hook_remove (struct ospf6_lsa *lsa)
 
     default:
       if (IS_OSPF6_DEBUG_LSA (RECV))
-	zlog_info ("Unknown LSA in Area %s's lsdb", oa->name);
+	zlog_info ("Unknown LSA in Area %s's lsdb",
+                   OSPF6_AREA (lsa->lsdb->data)->name);
       break;
     }
 }
@@ -146,16 +134,19 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
   oa->area_id = area_id;
   oa->if_list = list_new ();
 
-  oa->summary_table = ospf6_route_table_create ();
-
-  oa->lsdb = ospf6_lsdb_create ();
+  oa->lsdb = ospf6_lsdb_create (oa);
   oa->lsdb->hook_add = ospf6_area_lsdb_hook_add;
   oa->lsdb->hook_remove = ospf6_area_lsdb_hook_remove;
+  oa->lsdb_self = ospf6_lsdb_create (oa);
 
   oa->spf_table = ospf6_route_table_create ();
   oa->route_table = ospf6_route_table_create ();
   oa->route_table->hook_add = ospf6_area_route_hook_add;
   oa->route_table->hook_remove = ospf6_area_route_hook_remove;
+
+  oa->range_table = ospf6_route_table_create ();
+  oa->summary_prefix = ospf6_route_table_create ();
+  oa->summary_router = ospf6_route_table_create ();
 
   /* set default options */
   OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);
@@ -168,7 +159,7 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
   /* import athoer area's routes as inter-area routes */
   for (route = ospf6_route_head (o->route_table); route;
        route = ospf6_route_next (route))
-    ospf6_abr_originate_prefix_to_area (route, oa);
+    ospf6_abr_originate_summary_to_area (route, oa);
 
   return oa;
 }
@@ -179,7 +170,9 @@ ospf6_area_delete (struct ospf6_area *oa)
   listnode n;
   struct ospf6_interface *oi;
 
-  ospf6_route_table_delete (oa->summary_table);
+  ospf6_route_table_delete (oa->range_table);
+  ospf6_route_table_delete (oa->summary_prefix);
+  ospf6_route_table_delete (oa->summary_router);
 
   /* ospf6 interface list */
   for (n = listhead (oa->if_list); n; nextnode (n))
@@ -190,6 +183,8 @@ ospf6_area_delete (struct ospf6_area *oa)
   list_delete (oa->if_list);
 
   ospf6_lsdb_delete (oa->lsdb);
+  ospf6_lsdb_delete (oa->lsdb_self);
+
   ospf6_route_table_delete (oa->spf_table);
   ospf6_route_table_delete (oa->route_table);
 
@@ -224,13 +219,23 @@ ospf6_area_lookup (u_int32_t area_id, struct ospf6 *ospf6)
   return (struct ospf6_area *) NULL;
 }
 
+struct ospf6_area *
+ospf6_area_get (u_int32_t area_id, struct ospf6 *o)
+{
+  struct ospf6_area *oa;
+  oa = ospf6_area_lookup (area_id, o);
+  if (oa == NULL)
+    oa = ospf6_area_create (area_id, o);
+  return oa;
+}
+
 void
 ospf6_area_enable (struct ospf6_area *oa)
 {
   listnode i;
   struct ospf6_interface *oi;
 
-  UNSET_FLAG (oa->flag, OSPF6_AREA_DISABLE);
+  SET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
 
   for (i = listhead (oa->if_list); i; nextnode (i))
     {
@@ -245,7 +250,7 @@ ospf6_area_disable (struct ospf6_area *oa)
   listnode i;
   struct ospf6_interface *oi;
 
-  SET_FLAG (oa->flag, OSPF6_AREA_DISABLE);
+  UNSET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
 
   for (i = listhead (oa->if_list); i; nextnode (i))
     {
@@ -289,6 +294,130 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
       vty_out (vty, "No such Area: %s%s", str, VNL);       \
       return CMD_SUCCESS;                                  \
     }                                                      \
+}
+
+#define OSPF6_CMD_AREA_GET(str, oa)                        \
+{                                                          \
+  u_int32_t area_id = 0;                                   \
+  if (inet_pton (AF_INET, str, &area_id) != 1)             \
+    {                                                      \
+      vty_out (vty, "Malformed Area-ID: %s%s", str, VNL);  \
+      return CMD_SUCCESS;                                  \
+    }                                                      \
+  oa = ospf6_area_get (area_id, ospf6);                    \
+}
+
+DEFUN (area_range,
+       area_range_cmd,
+       "area A.B.C.D range X:X::X:X/M",
+       "OSPF area parameters\n"
+       OSPF6_AREA_ID_STR
+       "Configured address range\n"
+       "Specify IPv6 prefix\n"
+       )
+{
+  int ret;
+  struct ospf6_area *oa;
+  struct prefix prefix;
+  struct ospf6_route *range;
+
+  OSPF6_CMD_AREA_GET (argv[0], oa);
+  argc--;
+  argv++;
+
+  ret = str2prefix (argv[0], &prefix);
+  if (ret != 1 || prefix.family != AF_INET6)
+    {
+      vty_out (vty, "Malformed argument: %s%s", argv[0], VNL);
+      return CMD_SUCCESS;
+    }
+  argc--;
+  argv++;
+
+  range = ospf6_route_lookup (&prefix, oa->range_table);
+  if (range == NULL)
+    {
+      range = ospf6_route_create ();
+      range->type = OSPF6_DEST_TYPE_RANGE;
+      range->prefix = prefix;
+    }
+
+  if (argc)
+    {
+      if (! strcmp (argv[0], "not-advertise"))
+        SET_FLAG (range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
+      else if (! strcmp (argv[0], "advertise"))
+        UNSET_FLAG (range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
+    }
+
+  ospf6_route_add (range, oa->range_table);
+  return CMD_SUCCESS;
+}
+
+ALIAS (area_range,
+       area_range_advertise_cmd,
+       "area A.B.C.D range X:X::X:X/M (advertise|not-advertise)",
+       "OSPF area parameters\n"
+       OSPF6_AREA_ID_STR
+       "Configured address range\n"
+       "Specify IPv6 prefix\n"
+       );
+
+DEFUN (no_area_range,
+       no_area_range_cmd,
+       "no area A.B.C.D range X:X::X:X/M",
+       "OSPF area parameters\n"
+       OSPF6_AREA_ID_STR
+       "Configured address range\n"
+       "Specify IPv6 prefix\n"
+       )
+{
+  int ret;
+  struct ospf6_area *oa;
+  struct prefix prefix;
+  struct ospf6_route *range;
+
+  OSPF6_CMD_AREA_GET (argv[0], oa);
+  argc--;
+  argv++;
+
+  ret = str2prefix (argv[0], &prefix);
+  if (ret != 1 || prefix.family != AF_INET6)
+    {
+      vty_out (vty, "Malformed argument: %s%s", argv[0], VNL);
+      return CMD_SUCCESS;
+    }
+
+  range = ospf6_route_lookup (&prefix, oa->range_table);
+  if (range == NULL)
+    {
+      vty_out (vty, "Range %s does not exists.%s", argv[0], VNL);
+      return CMD_SUCCESS;
+    }
+
+  ospf6_route_remove (range, oa->range_table);
+  return CMD_SUCCESS;
+}
+
+void
+ospf6_area_config_write (struct vty *vty)
+{
+  listnode node;
+  struct ospf6_area *oa;
+  struct ospf6_route *range;
+  char buf[128];
+
+  for (node = listhead (ospf6->area_list); node; nextnode (node))
+    {
+      oa = OSPF6_AREA (getdata (node));
+
+      for (range = ospf6_route_head (oa->range_table); range;
+           range = ospf6_route_next (range))
+        {
+          prefix2str (&range->prefix, buf, sizeof (buf));
+          vty_out (vty, " area %s range %s%s", oa->name, buf, VNL);
+        }
+    }
 }
 
 DEFUN (show_ipv6_ospf6_area_route_intra,
@@ -876,5 +1005,10 @@ ospf6_area_init ()
   install_element (ENABLE_NODE, &show_ipv6_ospf6_area_route_intra_match_detail_cmd);
 
   install_element (ENABLE_NODE, &show_ipv6_ospf6_simulate_spf_tree_root_cmd);
+
+  install_element (OSPF6_NODE, &area_range_cmd);
+  install_element (OSPF6_NODE, &area_range_advertise_cmd);
+  install_element (OSPF6_NODE, &no_area_range_cmd);
 }
+
 

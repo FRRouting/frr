@@ -42,8 +42,10 @@
 #include "ospf6_interface.h"
 #include "ospf6_neighbor.h"
 
+#include "ospf6_flood.h"
 #include "ospf6_asbr.h"
 #include "ospf6_abr.h"
+#include "ospf6_intra.h"
 #include "ospf6d.h"
 
 /* global ospf6d variable */
@@ -84,15 +86,29 @@ ospf6_top_lsdb_hook_remove (struct ospf6_lsa *lsa)
 void
 ospf6_top_route_hook_add (struct ospf6_route *route)
 {
-  ospf6_abr_originate_prefix (route, ospf6);
+  ospf6_abr_originate_summary (route);
   ospf6_zebra_route_update_add (route);
 }
 
 void
 ospf6_top_route_hook_remove (struct ospf6_route *route)
 {
-  ospf6_abr_originate_prefix (route, ospf6);
+  ospf6_abr_originate_summary (route);
   ospf6_zebra_route_update_remove (route);
+}
+
+void
+ospf6_top_brouter_hook_add (struct ospf6_route *route)
+{
+  ospf6_abr_originate_summary (route);
+  ospf6_asbr_lsentry_add (route);
+}
+
+void
+ospf6_top_brouter_hook_remove (struct ospf6_route *route)
+{
+  ospf6_abr_originate_summary (route);
+  ospf6_asbr_lsentry_remove (route);
 }
 
 struct ospf6 *
@@ -107,7 +123,8 @@ ospf6_create ()
   gettimeofday (&o->starttime, (struct timezone *) NULL);
   o->area_list = list_new ();
   o->area_list->cmp = ospf6_area_cmp;
-  o->lsdb = ospf6_lsdb_create ();
+  o->lsdb = ospf6_lsdb_create (o);
+  o->lsdb_self = ospf6_lsdb_create (o);
   o->lsdb->hook_add = ospf6_top_lsdb_hook_add;
   o->lsdb->hook_remove = ospf6_top_lsdb_hook_remove;
 
@@ -115,11 +132,9 @@ ospf6_create ()
   o->route_table->hook_add = ospf6_top_route_hook_add;
   o->route_table->hook_remove = ospf6_top_route_hook_remove;
 
-  o->asbr_table = ospf6_route_table_create ();
-  o->asbr_table->hook_add = ospf6_asbr_lsentry_add;
-  o->asbr_table->hook_remove = ospf6_asbr_lsentry_remove;
-
   o->brouter_table = ospf6_route_table_create ();
+  o->brouter_table->hook_add = ospf6_top_brouter_hook_add;
+  o->brouter_table->hook_remove = ospf6_top_brouter_hook_remove;
 
   o->external_table = ospf6_route_table_create ();
   o->external_id_table = route_table_init ();
@@ -140,9 +155,9 @@ ospf6_delete (struct ospf6 *o)
     }
 
   ospf6_lsdb_delete (o->lsdb);
+  ospf6_lsdb_delete (o->lsdb_self);
 
   ospf6_route_table_delete (o->route_table);
-  ospf6_route_table_delete (o->asbr_table);
   ospf6_route_table_delete (o->brouter_table);
 
   ospf6_route_table_delete (o->external_table);
@@ -185,7 +200,7 @@ ospf6_disable (struct ospf6 *o)
 
       ospf6_lsdb_remove_all (o->lsdb);
       ospf6_route_remove_all (o->route_table);
-      ospf6_route_remove_all (o->asbr_table);
+      ospf6_route_remove_all (o->brouter_table);
     }
 }
 
@@ -320,10 +335,12 @@ DEFUN (ospf6_interface_area,
       )
 {
   struct ospf6 *o;
-  struct ospf6_area *oa;
+  struct ospf6_area *oa, *area;
   struct ospf6_interface *oi;
   struct interface *ifp;
   u_int32_t area_id;
+  listnode node;
+  struct ospf6_route *ro;
 
   o = (struct ospf6 *) vty->index;
 
@@ -355,8 +372,31 @@ DEFUN (ospf6_interface_area,
   listnode_add (oa->if_list, oi); /* sort ?? */
   oi->area = oa;
 
+  SET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
+
   /* start up */
   thread_add_event (master, interface_up, oi, 0);
+
+  /* ABR stuff, redistribute inter-area LSAs and
+     re-originate Router-LSA (B-bit may have been changed) */
+  for (node = listhead (o->area_list); node; nextnode (node))
+    {
+      area = OSPF6_AREA (getdata (node));
+      OSPF6_ROUTER_LSA_SCHEDULE (area);
+
+      for (ro = ospf6_route_head (area->range_table); ro;
+           ro = ospf6_route_next (ro))
+        ospf6_abr_originate_summary_to_area (ro, oa);
+    }
+
+  for (ro = ospf6_route_head (o->brouter_table); ro;
+       ro = ospf6_route_next (ro))
+    ospf6_abr_originate_summary_to_area (ro, oa);
+
+  for (ro = ospf6_route_head (o->route_table); ro;
+       ro = ospf6_route_next (ro))
+    ospf6_abr_originate_summary_to_area (ro, oa);
+
   return CMD_SUCCESS;
 }
 
@@ -372,8 +412,12 @@ DEFUN (no_ospf6_interface_area,
 {
   struct ospf6 *o;
   struct ospf6_interface *oi;
+  struct ospf6_area *oa, *area;
   struct interface *ifp;
   u_int32_t area_id;
+  listnode node;
+  struct ospf6_route *ro;
+  struct ospf6_lsa *old;
 
   o = (struct ospf6 *) vty->index;
 
@@ -407,8 +451,44 @@ DEFUN (no_ospf6_interface_area,
 
   thread_execute (master, interface_down, oi, 0);
 
+  oa = oi->area;
   listnode_delete (oi->area->if_list, oi);
   oi->area = (struct ospf6_area *) NULL;
+
+  /* Withdraw inter-area routes from this area, if necessary */
+  if (oa->if_list->count == 0)
+    {
+      UNSET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
+
+      for (ro = ospf6_route_head (oa->summary_prefix); ro;
+           ro = ospf6_route_next (ro))
+        {
+          old = ospf6_lsdb_lookup (ro->path.origin.type,
+                                   ro->path.origin.id,
+                                   oa->ospf6->router_id, oa->lsdb);
+          if (old)
+            ospf6_lsa_purge (old);
+          ospf6_route_remove (ro, oa->summary_prefix);
+        }
+      for (ro = ospf6_route_head (oa->summary_router); ro;
+           ro = ospf6_route_next (ro))
+        {
+          old = ospf6_lsdb_lookup (ro->path.origin.type,
+                                   ro->path.origin.id,
+                                   oa->ospf6->router_id, oa->lsdb);
+          if (old)
+            ospf6_lsa_purge (old);
+          ospf6_route_remove (ro, oa->summary_router);
+        }
+    }
+
+  /* Schedule Refreshment of Router-LSA for each area
+     (ABR status may change) */
+  for (node = listhead (o->area_list); node; nextnode (node))
+    {
+      area = OSPF6_AREA (getdata (node));
+      OSPF6_ROUTER_LSA_SCHEDULE (area);
+    }
 
   return CMD_SUCCESS;
 }
@@ -562,6 +642,7 @@ config_write_ospf6 (struct vty *vty)
   vty_out (vty, " router-id %s%s", router_id, VNL);
 
   ospf6_redistribute_config_write (vty);
+  ospf6_area_config_write (vty);
 
   for (j = listhead (ospf6->area_list); j; nextnode (j))
     {

@@ -84,6 +84,7 @@ struct ospf6_interface
 
   /* Linklocal LSA Database: includes Link-LSA */
   struct ospf6_lsdb *lsdb;
+  struct ospf6_lsdb *lsdb_self;
 
   struct ospf6_lsdb *lsupdate_list;
   struct ospf6_lsdb *lsack_list;

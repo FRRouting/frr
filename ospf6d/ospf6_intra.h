@@ -128,6 +128,18 @@ struct ospf6_intra_prefix_lsa
                           oi, 0); \
   } while (0)
 
+#define OSPF6_NETWORK_LSA_EXECUTE(oi) \
+  do { \
+    THREAD_OFF ((oi)->thread_network_lsa); \
+    thread_execute (master, ospf6_network_lsa_originate, oi, 0); \
+  } while (0)
+#define OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT(oi) \
+  do { \
+    THREAD_OFF ((oi)->thread_intra_prefix_lsa); \
+    thread_execute (master, ospf6_intra_prefix_lsa_originate_transit, oi, 0); \
+  } while (0)
+
+
 /* Function Prototypes */
 char *ospf6_router_lsdesc_lookup (u_char type, u_int32_t interface_id,
                             u_int32_t neighbor_interface_id,
@@ -145,7 +157,7 @@ void ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa);
 void ospf6_intra_prefix_lsa_remove (struct ospf6_lsa *lsa);
 
 void ospf6_intra_route_calculation (struct ospf6_area *oa);
-void ospf6_intra_asbr_calculation (struct ospf6_area *oa);
+void ospf6_intra_brouter_calculation (struct ospf6_area *oa);
 
 void ospf6_intra_init ();
 

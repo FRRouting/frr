@@ -27,6 +27,7 @@
 
 struct ospf6_lsdb
 {
+  void *data; /* data structure that holds this lsdb */
   struct route_table *table;
   u_int32_t count;
   void (*hook_add) (struct ospf6_lsa *);
@@ -40,7 +41,7 @@ struct ospf6_lsdb
       {                                                                  \
         if (! OSPF6_LSA_IS_MAXAGE (lsa))                                 \
           continue;                                                      \
-        if (lsa->onretrans != 0)                                         \
+        if (lsa->retrans_count != 0)                                         \
           continue;                                                      \
         if (IS_OSPF6_DEBUG_LSA (TIMER))                                  \
           zlog_info (" remove maxage %s", lsa->name);                    \
@@ -49,7 +50,7 @@ struct ospf6_lsdb
   } while (0)
 
 /* Function Prototypes */
-struct ospf6_lsdb *ospf6_lsdb_create ();
+struct ospf6_lsdb *ospf6_lsdb_create (void *data);
 void ospf6_lsdb_delete (struct ospf6_lsdb *lsdb);
 
 struct ospf6_lsa *ospf6_lsdb_lookup (u_int16_t type, u_int32_t id,

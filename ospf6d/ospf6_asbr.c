@@ -37,10 +37,15 @@
 #include "ospf6_lsdb.h"
 #include "ospf6_route.h"
 #include "ospf6_zebra.h"
+#include "ospf6_message.h"
+
 #include "ospf6_top.h"
 #include "ospf6_area.h"
+#include "ospf6_interface.h"
+#include "ospf6_neighbor.h"
 #include "ospf6_asbr.h"
 #include "ospf6_intra.h"
+#include "ospf6_flood.h"
 #include "ospf6d.h"
 
 unsigned char conf_debug_ospf6_asbr = 0;
@@ -61,20 +66,19 @@ char *zroute_abname[] =
 
 /* AS External LSA origination */
 void
-ospf6_as_external_lsa_originate_sub (struct ospf6_route *route, int force)
+ospf6_as_external_lsa_originate (struct ospf6_route *route)
 {
   char buffer[OSPF6_MAX_LSASIZE];
   struct ospf6_lsa_header *lsa_header;
   struct ospf6_lsa *old, *lsa;
 
-  struct ospf6_external_info *info = route->route_option;
   struct ospf6_as_external_lsa *as_external_lsa;
   char buf[64];
   caddr_t p;
 
   /* find previous LSA */
   old = ospf6_lsdb_lookup (htons (OSPF6_LSTYPE_AS_EXTERNAL),
-                           htonl (info->id), ospf6->router_id,
+                           route->path.origin.id, ospf6->router_id,
                            ospf6->lsdb);
 
   if (IS_OSPF6_DEBUG_LSA (ORIGINATE))
@@ -99,7 +103,7 @@ ospf6_as_external_lsa_originate_sub (struct ospf6_route *route, int force)
     UNSET_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_E);
 
   /* forwarding address */
-  if (! IN6_IS_ADDR_UNSPECIFIED (&info->forwarding))
+  if (! IN6_IS_ADDR_UNSPECIFIED (&route->nexthop[0].address))
     SET_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F);
   else
     UNSET_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F);
@@ -128,7 +132,7 @@ ospf6_as_external_lsa_originate_sub (struct ospf6_route *route, int force)
   /* Forwarding address */
   if (CHECK_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F))
     {
-      memcpy (p, &info->forwarding, sizeof (struct in6_addr));
+      memcpy (p, &route->nexthop[0].address, sizeof (struct in6_addr));
       p += sizeof (struct in6_addr);
     }
 
@@ -141,7 +145,7 @@ ospf6_as_external_lsa_originate_sub (struct ospf6_route *route, int force)
   /* Fill LSA Header */
   lsa_header->age = 0;
   lsa_header->type = htons (OSPF6_LSTYPE_AS_EXTERNAL);
-  lsa_header->id = htonl (info->id);
+  lsa_header->id = route->path.origin.id;
   lsa_header->adv_router = ospf6->router_id;
   lsa_header->seqnum =
     ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
@@ -153,36 +157,10 @@ ospf6_as_external_lsa_originate_sub (struct ospf6_route *route, int force)
 
   /* create LSA */
   lsa = ospf6_lsa_create (lsa_header);
-  lsa->scope = ospf6;
-  if (force)
-    SET_FLAG (lsa->flag, OSPF6_LSA_REFRESH);
 
   /* Originate */
-  ospf6_lsa_originate (lsa);
+  ospf6_lsa_originate_process (lsa, ospf6);
 }
-
-int
-ospf6_as_external_lsa_reoriginate (struct ospf6_lsa *lsa)
-{
-  struct prefix prefix_id;
-  struct route_node *node;
-  struct ospf6_route *route;
-
-  /* create/update binding in external_id_table */
-  prefix_id.family = AF_INET;
-  prefix_id.prefixlen = 32;
-  prefix_id.u.prefix4.s_addr = lsa->header->id;
-  node = route_node_get (ospf6->external_id_table, &prefix_id);
-  route = node->info;
-
-  if (route)
-    ospf6_as_external_lsa_originate_sub (route, 1);
-  else
-    ospf6_lsa_premature_aging (lsa);
-
-  return 0;
-}
-
 
 
 void
@@ -217,7 +195,7 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
   asbr_id.family = AF_INET;
   asbr_id.prefixlen = 32;
   asbr_id.u.prefix4.s_addr = lsa->header->adv_router;
-  asbr_entry = ospf6_route_lookup (&asbr_id, ospf6->asbr_table);
+  asbr_entry = ospf6_route_lookup (&asbr_id, ospf6->brouter_table);
 
   if (asbr_entry == NULL)
     {
@@ -545,7 +523,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
           zlog_info ("Advertise as AS-External Id:%s", ibuf);
         }
 
-      ospf6_as_external_lsa_originate_sub (match, 0);
+      ospf6_as_external_lsa_originate (match);
       return;
     }
 
@@ -593,7 +571,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
       zlog_info ("Advertise as AS-External Id:%s", ibuf);
     }
 
-  ospf6_as_external_lsa_originate_sub (route, 0);
+  ospf6_as_external_lsa_originate (route);
 
   /* Router-Bit (ASBR Flag) may have to be updated */
   for (lnode = listhead (ospf6->area_list); lnode; nextnode (lnode))
@@ -649,7 +627,7 @@ ospf6_asbr_redistribute_remove (int type, int ifindex, struct prefix *prefix)
   lsa = ospf6_lsdb_lookup (htons (OSPF6_LSTYPE_AS_EXTERNAL),
                            htonl (info->id), ospf6->router_id, ospf6->lsdb);
   if (lsa)
-    ospf6_lsa_premature_aging (lsa);
+    ospf6_lsa_purge (lsa);
 
   /* remove binding in external_id_table */
   prefix_id.family = AF_INET;
@@ -1254,94 +1232,22 @@ DEFUN (show_ipv6_ospf6_redistribute,
   return CMD_SUCCESS;
 }
 
-DEFUN (show_ipv6_ospf6_asbr,
-       show_ipv6_ospf6_asbr_cmd,
-       "show ipv6 ospf6 asbr",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       "Show AS Boundary Router table\n"
-      )
+struct ospf6_lsa_handler as_external_handler =
 {
-  ospf6_lsentry_table_show (vty, argc, argv, ospf6->asbr_table);
-  return CMD_SUCCESS;
-}
-
-ALIAS (show_ipv6_ospf6_asbr,
-       show_ipv6_ospf6_asbr_1_cmd,
-       "show ipv6 ospf6 asbr (A.B.C.D|A.B.C.D/M|detail)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       "Show AS Boundary Router table\n"
-       "Specify Router-ID\n"
-       "Display multiple entry by specifying match-prefix of Router-ID\n"
-       "Display Detail\n"
-      );
-
-ALIAS (show_ipv6_ospf6_asbr,
-       show_ipv6_ospf6_asbr_2_cmd,
-       "show ipv6 ospf6 asbr (A.B.C.D|A.B.C.D/M|*) (A.B.C.D|A.B.C.D/M|detail)",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       "Show AS Boundary Router table\n"
-       "Specify Router-ID\n"
-       "Display multiple entry by specifying match-prefix of Router-ID\n"
-       "Wildcard Router-ID\n"
-       "Specify Link State ID\n"
-       "Display multiple entry by specifying match-prefix of Link State ID\n"
-       "Display Detail\n"
-      );
-
-DEFUN (show_ipv6_ospf6_asbr_3,
-       show_ipv6_ospf6_asbr_3_cmd,
-       "show ipv6 ospf6 asbr (A.B.C.D|*) A.B.C.D/M detail",
-       SHOW_STR
-       IP6_STR
-       OSPF6_STR
-       "Show AS Boundary Router table\n"
-       "Specify Router-ID\n"
-       "Wildcard Router-ID\n"
-       "Display multiple entry by specifying match-prefix of Link State ID\n"
-       "Display Detail\n"
-      )
-{
-  char *sargv[CMD_ARGC_MAX];
-  int i, sargc;
-
-  /* copy argv to sargv and then append "detail" */
-  for (i = 0; i < argc; i++)
-    sargv[i] = argv[i];
-  sargc = argc;
-  sargv[sargc++] = "detail";
-  sargv[sargc] = NULL;
-
-  ospf6_lsentry_table_show (vty, sargc, sargv, ospf6->asbr_table);
-  return CMD_SUCCESS;
-}
-
+  OSPF6_LSTYPE_AS_EXTERNAL,
+  "AS-External",
+  ospf6_as_external_lsa_show
+};
 
 void
 ospf6_asbr_init ()
 {
   ospf6_routemap_init ();
 
-  ospf6_lstype[5].name = "AS-External";
-  ospf6_lstype[5].reoriginate = ospf6_as_external_lsa_reoriginate;
-  ospf6_lstype[5].show = ospf6_as_external_lsa_show;
+  ospf6_install_lsa_handler (&as_external_handler);
 
   install_element (VIEW_NODE, &show_ipv6_ospf6_redistribute_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_redistribute_cmd);
-
-  install_element (VIEW_NODE, &show_ipv6_ospf6_asbr_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_asbr_1_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_asbr_2_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_asbr_3_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_asbr_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_asbr_1_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_asbr_2_cmd);
-  install_element (ENABLE_NODE, &show_ipv6_ospf6_asbr_3_cmd);
 
   install_element (OSPF6_NODE, &ospf6_redistribute_cmd);
   install_element (OSPF6_NODE, &ospf6_redistribute_routemap_cmd);

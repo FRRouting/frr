@@ -51,7 +51,7 @@ ospf6_neighbor_cmp (void *va, void *vb)
 {
   struct ospf6_neighbor *ona = (struct ospf6_neighbor *) va;
   struct ospf6_neighbor *onb = (struct ospf6_neighbor *) vb;
-  return (ntohl (ona->router_id) - ntohl (onb->router_id));
+  return (ntohl (ona->router_id) < ntohl (onb->router_id) ? -1 : 1);
 }
 
 struct ospf6_neighbor *
@@ -94,14 +94,14 @@ ospf6_neighbor_create (u_int32_t router_id, struct ospf6_interface *oi)
   gettimeofday (&on->last_changed, (struct timezone *) NULL);
   on->router_id = router_id;
 
-  on->summary_list = ospf6_lsdb_create ();
-  on->request_list = ospf6_lsdb_create ();
-  on->retrans_list = ospf6_lsdb_create ();
+  on->summary_list = ospf6_lsdb_create (on);
+  on->request_list = ospf6_lsdb_create (on);
+  on->retrans_list = ospf6_lsdb_create (on);
 
-  on->dbdesc_list = ospf6_lsdb_create ();
-  on->lsreq_list = ospf6_lsdb_create ();
-  on->lsupdate_list = ospf6_lsdb_create ();
-  on->lsack_list = ospf6_lsdb_create ();
+  on->dbdesc_list = ospf6_lsdb_create (on);
+  on->lsreq_list = ospf6_lsdb_create (on);
+  on->lsupdate_list = ospf6_lsdb_create (on);
+  on->lsack_list = ospf6_lsdb_create (on);
 
   listnode_add_sort (oi->neighbor_list, on);
   return on;
@@ -117,7 +117,7 @@ ospf6_neighbor_delete (struct ospf6_neighbor *on)
   for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
-      ospf6_decrement_onretrans (lsa);
+      ospf6_decrement_retrans_count (lsa);
       ospf6_lsdb_remove (lsa, on->retrans_list);
     }
 
@@ -286,7 +286,7 @@ negotiation_done (struct thread *thread)
   for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
-      ospf6_decrement_onretrans (lsa);
+      ospf6_decrement_retrans_count (lsa);
       ospf6_lsdb_remove (lsa, on->retrans_list);
     }
 
@@ -300,7 +300,7 @@ negotiation_done (struct thread *thread)
                     "summary_list"), on->name);
       if (OSPF6_LSA_IS_MAXAGE (lsa))
         {
-          lsa->onretrans++;
+          ospf6_increment_retrans_count (lsa);
           ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->retrans_list);
         }
       else
@@ -317,7 +317,7 @@ negotiation_done (struct thread *thread)
                     "summary_list"), on->name);
       if (OSPF6_LSA_IS_MAXAGE (lsa))
         {
-          lsa->onretrans++;
+          ospf6_increment_retrans_count (lsa);
           ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->retrans_list);
         }
       else
@@ -334,7 +334,7 @@ negotiation_done (struct thread *thread)
                     "summary_list"), on->name);
       if (OSPF6_LSA_IS_MAXAGE (lsa))
         {
-          lsa->onretrans++;
+          ospf6_increment_retrans_count (lsa);
           ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->retrans_list);
         }
       else
@@ -431,7 +431,7 @@ adj_ok (struct thread *thread)
       for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
            lsa = ospf6_lsdb_next (lsa))
         {
-          ospf6_decrement_onretrans (lsa);
+          ospf6_decrement_retrans_count (lsa);
           ospf6_lsdb_remove (lsa, on->retrans_list);
         }
     }
@@ -464,7 +464,7 @@ seqnumber_mismatch (struct thread *thread)
   for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
-      ospf6_decrement_onretrans (lsa);
+      ospf6_decrement_retrans_count (lsa);
       ospf6_lsdb_remove (lsa, on->retrans_list);
     }
 
@@ -500,7 +500,7 @@ bad_lsreq (struct thread *thread)
   for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
-      ospf6_decrement_onretrans (lsa);
+      ospf6_decrement_retrans_count (lsa);
       ospf6_lsdb_remove (lsa, on->retrans_list);
     }
 
@@ -534,7 +534,7 @@ oneway_received (struct thread *thread)
   for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
-      ospf6_decrement_onretrans (lsa);
+      ospf6_decrement_retrans_count (lsa);
       ospf6_lsdb_remove (lsa, on->retrans_list);
     }
 

@@ -34,7 +34,7 @@
 #include "ospf6d.h"
 
 struct ospf6_lsdb *
-ospf6_lsdb_create ()
+ospf6_lsdb_create (void *data)
 {
   struct ospf6_lsdb *lsdb;
 
@@ -46,6 +46,7 @@ ospf6_lsdb_create ()
     }
   memset (lsdb, 0, sizeof (struct ospf6_lsdb));
 
+  lsdb->data = data;
   lsdb->table = route_table_init ();
   return lsdb;
 }
@@ -228,6 +229,7 @@ ospf6_lsdb_remove (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 
   ospf6_lsa_unlock (lsa);
   route_unlock_node (node);
+
   ospf6_lsdb_count_assert (lsdb);
 }
 
@@ -475,7 +477,7 @@ ospf6_new_ls_id (u_int16_t type, u_int32_t adv_router,
       if (ntohl (lsa->header->id) < id)
         continue;
       if (ntohl (lsa->header->id) > id)
-        return ((u_int32_t) htonl (id));
+        break;
       id++;
     }
 

@@ -52,9 +52,11 @@ struct ospf6_inter_router_lsa
   { (E)->metric &= htonl (0x00000000); \
     (E)->metric |= htonl (0x00ffffff) & htonl (C); }
 
-void ospf6_abr_originate_prefix_to_area (struct ospf6_route *route,
-                                         struct ospf6_area *area);
-void ospf6_abr_originate_prefix (struct ospf6_route *route, struct ospf6 *o);
+int ospf6_is_router_abr (struct ospf6 *o);
+
+void ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
+                                          struct ospf6_area *area);
+void ospf6_abr_originate_summary (struct ospf6_route *route);
 void ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa);
 
 int config_write_ospf6_debug_abr (struct vty *vty);

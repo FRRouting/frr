@@ -23,15 +23,31 @@
 #define OSPF6_FLOOD_H
 
 /* Function Prototypes */
-void *ospf6_get_lsa_scope (u_int16_t type, struct ospf6_neighbor *from);
-struct ospf6_lsdb *ospf6_get_scoped_lsdb (u_int16_t type, void *scope);
+struct ospf6_lsdb *ospf6_get_scoped_lsdb (struct ospf6_lsa *lsa);
+struct ospf6_lsdb *ospf6_get_scoped_lsdb_self (struct ospf6_lsa *lsa);
 
-void ospf6_decrement_onretrans (struct ospf6_lsa *lsa);
+/* origination & purging */
+void ospf6_lsa_originate (struct ospf6_lsa *lsa);
+void ospf6_lsa_originate_process (struct ospf6_lsa *lsa,
+                                  struct ospf6 *process);
+void ospf6_lsa_originate_area (struct ospf6_lsa *lsa,
+                               struct ospf6_area *oa);
+void ospf6_lsa_originate_interface (struct ospf6_lsa *lsa,
+                                    struct ospf6_interface *oi);
+void ospf6_lsa_purge (struct ospf6_lsa *lsa);
+
+/* access method to retrans_count */
+void ospf6_increment_retrans_count (struct ospf6_lsa *lsa);
+void ospf6_decrement_retrans_count (struct ospf6_lsa *lsa);
+
+/* flooding & clear flooding */
 void ospf6_flood_clear (struct ospf6_lsa *lsa);
-void ospf6_flood_lsa (struct ospf6_lsa *lsa, struct ospf6_neighbor *from);
-void ospf6_install_lsa (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
-void ospf6_receive_lsa (struct ospf6_lsa_header *header,
-                        struct ospf6_neighbor *from);
+void ospf6_flood (struct ospf6_neighbor *from, struct ospf6_lsa *lsa);
+
+/* receive & install */
+void ospf6_receive_lsa (struct ospf6_neighbor *from,
+                        struct ospf6_lsa_header *header);
+void ospf6_install_lsa (struct ospf6_lsa *lsa);
 
 #endif /* OSPF6_FLOOD_H */
 

@@ -90,6 +90,7 @@ struct ospf6_path
 
   /* Path-type */
   u_char type;
+  u_char subtype; /* only used for redistribute i.e ZEBRA_ROUTE_XXX */
 
   /* Cost */
   u_int8_t metric_type;
@@ -97,12 +98,13 @@ struct ospf6_path
   u_int32_t cost_e2;
 };
 
-#define OSPF6_PATH_TYPE_NONE       0
-#define OSPF6_PATH_TYPE_INTRA      1
-#define OSPF6_PATH_TYPE_INTER      2
-#define OSPF6_PATH_TYPE_EXTERNAL1  3
-#define OSPF6_PATH_TYPE_EXTERNAL2  4
-#define OSPF6_PATH_TYPE_MAX        5
+#define OSPF6_PATH_TYPE_NONE         0
+#define OSPF6_PATH_TYPE_INTRA        1
+#define OSPF6_PATH_TYPE_INTER        2
+#define OSPF6_PATH_TYPE_EXTERNAL1    3
+#define OSPF6_PATH_TYPE_EXTERNAL2    4
+#define OSPF6_PATH_TYPE_REDISTRIBUTE 5
+#define OSPF6_PATH_TYPE_MAX          6
 
 #include "prefix.h"
 #include "table.h"
@@ -147,13 +149,15 @@ struct ospf6_route
 #define OSPF6_DEST_TYPE_NETWORK    2
 #define OSPF6_DEST_TYPE_DISCARD    3
 #define OSPF6_DEST_TYPE_LINKSTATE  4
-#define OSPF6_DEST_TYPE_MAX        5
+#define OSPF6_DEST_TYPE_RANGE      5
+#define OSPF6_DEST_TYPE_MAX        6
 
-#define OSPF6_ROUTE_CHANGE      0x01
-#define OSPF6_ROUTE_ADD         0x02
-#define OSPF6_ROUTE_REMOVE      0x04
-#define OSPF6_ROUTE_BEST        0x08
-#define OSPF6_ROUTE_HAVE_LONGER 0x10
+#define OSPF6_ROUTE_CHANGE           0x01
+#define OSPF6_ROUTE_ADD              0x02
+#define OSPF6_ROUTE_REMOVE           0x04
+#define OSPF6_ROUTE_BEST             0x08
+#define OSPF6_ROUTE_ACTIVE_SUMMARY   0x08
+#define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x10
 
 struct ospf6_route_table
 {
@@ -252,10 +256,17 @@ struct ospf6_route_table *ospf6_route_table_create ();
 void ospf6_route_table_delete (struct ospf6_route_table *);
 void ospf6_route_dump (struct ospf6_route_table *table);
 
+
+void ospf6_route_show (struct vty *vty, struct ospf6_route *route);
+void ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route);
+
 int ospf6_route_table_show (struct vty *, int, char **,
                             struct ospf6_route_table *);
 int ospf6_lsentry_table_show (struct vty *, int, char **,
                               struct ospf6_route_table *);
+
+void ospf6_brouter_show_header (struct vty *vty);
+void ospf6_brouter_show (struct vty *vty, struct ospf6_route *route);
 
 int config_write_ospf6_debug_route (struct vty *vty);
 void install_element_ospf6_debug_route ();

@@ -89,21 +89,18 @@ ospf6_interface_lookup_by_name (char *ifname)
 void
 ospf6_interface_lsdb_hook (struct ospf6_lsa *lsa)
 {
-  struct ospf6_interface *oi;
-
-  oi = (struct ospf6_interface *) lsa->scope;
   switch (ntohs (lsa->header->type))
     {
       case OSPF6_LSTYPE_LINK:
-        if (oi->state == OSPF6_INTERFACE_DR)
-          OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
-        ospf6_spf_schedule (oi->area);
+        if (OSPF6_INTERFACE (lsa->lsdb->data)->state == OSPF6_INTERFACE_DR)
+          OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (OSPF6_INTERFACE (lsa->lsdb->data));
+        ospf6_spf_schedule (OSPF6_INTERFACE (lsa->lsdb->data)->area);
         break;
 
       default:
         if (IS_OSPF6_DEBUG_LSA (RECV))
           zlog_info ("Unknown LSA in Interface %s's lsdb",
-                     oi->interface->name);
+                     OSPF6_INTERFACE (lsa->lsdb->data)->interface->name);
         break;
     }
 }
@@ -151,11 +148,12 @@ ospf6_interface_create (struct interface *ifp)
       oi->ifmtu = iobuflen;
     }
 
-  oi->lsupdate_list = ospf6_lsdb_create ();
-  oi->lsack_list = ospf6_lsdb_create ();
-  oi->lsdb = ospf6_lsdb_create ();
+  oi->lsupdate_list = ospf6_lsdb_create (oi);
+  oi->lsack_list = ospf6_lsdb_create (oi);
+  oi->lsdb = ospf6_lsdb_create (oi);
   oi->lsdb->hook_add = ospf6_interface_lsdb_hook;
   oi->lsdb->hook_remove = ospf6_interface_lsdb_hook;
+  oi->lsdb_self = ospf6_lsdb_create (oi);
 
   oi->route_connected = ospf6_route_table_create ();
 
@@ -188,6 +186,8 @@ ospf6_interface_delete (struct ospf6_interface *oi)
   ospf6_lsdb_remove_all (oi->lsack_list);
 
   ospf6_lsdb_delete (oi->lsdb);
+  ospf6_lsdb_delete (oi->lsdb_self);
+
   ospf6_lsdb_delete (oi->lsupdate_list);
   ospf6_lsdb_delete (oi->lsack_list);
 
@@ -428,7 +428,14 @@ ospf6_interface_state_change (u_char next_state, struct ospf6_interface *oi)
     ospf6_join_alldrouters (oi->interface->ifindex);
 
   OSPF6_ROUTER_LSA_SCHEDULE (oi->area);
-  if (prev_state == OSPF6_INTERFACE_DR || next_state == OSPF6_INTERFACE_DR)
+  if (next_state == OSPF6_INTERFACE_DOWN)
+    {
+      OSPF6_NETWORK_LSA_EXECUTE (oi);
+      OSPF6_INTRA_PREFIX_LSA_EXECUTE_TRANSIT (oi);
+      OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (oi->area);
+    }
+  else if (prev_state == OSPF6_INTERFACE_DR ||
+           next_state == OSPF6_INTERFACE_DR)
     {
       OSPF6_NETWORK_LSA_SCHEDULE (oi);
       OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);

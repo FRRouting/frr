@@ -342,8 +342,11 @@ ospf6_spf_install (struct ospf6_vertex *v,
 
   /* There should be no case where candidate being installed (variable
      "v") is closer than the one in the SPF tree (variable "route").
-     In the case something's gone wrong with the behavior of
+     In the case something has gone wrong with the behavior of
      Priority-Queue. */
+
+  /* the case where the route exists already is handled and returned
+     up to here. */
   assert (route == NULL);
 
   route = ospf6_route_create ();
@@ -387,6 +390,8 @@ ospf6_spf_table_finish (struct ospf6_route_table *result_table)
     }
 }
 
+/* RFC2328 16.1.  Calculating the shortest-path tree for an area */
+/* RFC2740 3.8.1.  Calculating the shortest path tree for an area */
 void
 ospf6_spf_calculation (u_int32_t router_id,
                        struct ospf6_route_table *result_table,
@@ -415,7 +420,7 @@ ospf6_spf_calculation (u_int32_t router_id,
   root->area = oa;
   root->cost = 0;
   root->hops = 0;
-  root->nexthop[0].ifindex = 0; /* should have been loopbak I/F ... */
+  root->nexthop[0].ifindex = 0; /* loopbak I/F is better ... */
   inet_pton (AF_INET6, "::1", &root->nexthop[0].address);
 
   /* Actually insert root to the candidate-list as the only candidate */
@@ -427,7 +432,7 @@ ospf6_spf_calculation (u_int32_t router_id,
       /* get closest candidate from priority queue */
       v = pqueue_dequeue (candidate_list);
 
-      /* install may result in merging and rejecting of the vertex */
+      /* installing may result in merging or rejecting of the vertex */
       if (ospf6_spf_install (v, result_table) < 0)
         continue;
 
@@ -507,7 +512,7 @@ ospf6_spf_calculation_thread (struct thread *t)
     }
 
   ospf6_intra_route_calculation (oa);
-  ospf6_intra_asbr_calculation (oa);
+  ospf6_intra_brouter_calculation (oa);
 
   return 0;
 }

@@ -1069,6 +1069,32 @@ ospf6_lsentry_table_show (struct vty *vty, int argc, char **argv,
   return CMD_SUCCESS;
 }
 
+void
+ospf6_brouter_show_header (struct vty *vty)
+{
+  vty_out (vty, "%-15s %-8s %-14s %-10s %-15s%s",
+           "Router-ID", "Rtr-Bits", "Options", "Path-Type", "Area", VNL);
+}
+
+void
+ospf6_brouter_show (struct vty *vty, struct ospf6_route *route)
+{
+  u_int32_t adv_router;
+  char adv[16], rbits[16], options[16], area[16];
+
+  adv_router = ospf6_linkstate_prefix_adv_router (&route->prefix);
+  inet_ntop (AF_INET, &adv_router, adv, sizeof (adv));
+  ospf6_capability_printbuf (route->path.router_bits, rbits, sizeof (rbits));
+  ospf6_options_printbuf (route->path.options, options, sizeof (options));
+  inet_ntop (AF_INET, &route->path.area_id, area, sizeof (area));
+
+  /* vty_out (vty, "%-15s %-8s %-14s %-10s %-15s%s",
+           "Router-ID", "Rtr-Bits", "Options", "Path-Type", "Area", VNL); */
+  vty_out (vty, "%-15s %-8s %-14s %-10s %-15s%s",
+           adv, rbits, options, OSPF6_PATH_TYPE_NAME (route->path.type),
+           area, VNL);
+}
+
 DEFUN (debug_ospf6_route,
        debug_ospf6_route_cmd,
        "debug ospf6 route (table|intra-area|inter-area)",
