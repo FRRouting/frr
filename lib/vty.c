@@ -1856,7 +1856,7 @@ void
 vty_serv_un (char *path)
 {
   int ret;
-  int sock, len;
+  int sock, len, flags;
   struct sockaddr_un serv;
   mode_t old_mask;
   struct zprivs_ids_t ids;
@@ -1900,6 +1900,12 @@ vty_serv_un (char *path)
       close (sock);	/* Avoid sd leak. */
       return;
     }
+
+  /* set to non-blocking*/
+  if ( ((flags = fcntl (sock, F_GETFL)) == -1)
+      || (fcntl (sock, F_SETFL, flags|O_NONBLOCK) == -1) )
+    zlog_warn ("vty_serv_un: could not set vty socket to non-blocking,"
+               " %s", strerror (errno));
 
   umask (old_mask);
 

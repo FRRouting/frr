@@ -1,3 +1,10 @@
+2004-08-18 Paul Jakma <paul@dishone.st>
+
+	* vty.c: (vty_serv_un) set unix vty socket to nonblocking
+	  to prevent inadvertent blocking of daemons by use of
+	  vtysh. TODO: disentangle manual paging from the buffer_write
+	  path so that unix vty can use this path too and be reliable.
+	  
 2004-07-23  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* sockopt.c (getsockopt_ipv4_pktinfo_ifindex): Make this compile
