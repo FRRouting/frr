@@ -100,7 +100,9 @@ struct thread_master *master;
 /* Process ID saved for use by init system */
 const char *pid_file = PATH_OSPFD_PID;
 
+#ifdef SUPPORT_OSPF_API
 extern int ospf_apiserver_enable;
+#endif /* SUPPORT_OSPF_API */
 
 /* Help information display. */
 static void
@@ -204,8 +206,10 @@ main (int argc, char **argv)
   /* OSPF master init. */
   ospf_master_init ();
 
+#ifdef SUPPORT_OSPF_API
   /* OSPF apiserver is disabled by default. */
   ospf_apiserver_enable = 0;
+#endif /* SUPPORT_OSPF_API */
 
   while (1) 
     {
@@ -246,9 +250,11 @@ main (int argc, char **argv)
 	case 'u':
 	  ospfd_privs.group = ospfd_privs.user = optarg;
 	  break;
+#ifdef SUPPORT_OSPF_API
 	case 'a':
 	  ospf_apiserver_enable = 1;
 	  break;
+#endif /* SUPPORT_OSPF_API */
 	case 'v':
 	  print_version (progname);
 	  exit (0);

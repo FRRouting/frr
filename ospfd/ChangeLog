@@ -1,3 +1,7 @@
+2004-10-13 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_main.c: Unbreak compilation with ospfapi disabled.
+
 2004-10-12 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_main.c, ospf_opaque.c: Unbreak ospfclient compilation - move
