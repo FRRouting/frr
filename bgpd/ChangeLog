@@ -1,3 +1,8 @@
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* bgp_zebra.c: (bgp_interface_delete) After deleting, set ifp->ifindex
+	  to IFINDEX_INTERNAL.
+
 2005-03-21 Hasso Tepper <hasso at quagga.net>
 
 	* bgp_route.c: Don't crash while clearing route tables if there is

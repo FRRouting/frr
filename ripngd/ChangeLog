@@ -1,3 +1,8 @@
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripng_interface.c: (ripng_interface_delete) After deleting, set
+	  ifp->ifindex to IFINDEX_INTERNAL.
+
 2005-01-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripng_interface.c: (ripng_multicast_join) Save errno before calling

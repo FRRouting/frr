@@ -104,16 +104,24 @@ ospf6_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
 int
 ospf6_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
 {
-#if 0
   struct interface *ifp;
 
-  ifp = zebra_interface_delete_read (zclient->ibuf);
+  if (!(ifp = zebra_interface_state_read(zclient->ibuf)))
+    return 0;
+
+  if (if_is_up (ifp))
+    zlog_warn ("Zebra: got delete of %s, but interface is still up", ifp->name);
+
   if (IS_OSPF6_DEBUG_ZEBRA (RECV))
     zlog_debug ("Zebra Interface delete: %s index %d mtu %d",
 		ifp->name, ifp->ifindex, ifp->mtu6);
 
+#if 0
+  /* Why is this commented out? */
   ospf6_interface_if_del (ifp);
 #endif /*0*/
+
+  ifp->ifindex = IFINDEX_INTERNAL;
   return 0;
 }
 
@@ -348,7 +356,7 @@ static void
 ospf6_zebra_route_update (int type, struct ospf6_route *request)
 {
   struct zapi_ipv6 api;
-  char buf[64], ifname[IFNAMSIZ];
+  char buf[64];
   int nhcount;
   struct in6_addr **nexthops;
   unsigned int *ifindexes;
@@ -432,13 +440,15 @@ ospf6_zebra_route_update (int type, struct ospf6_route *request)
   for (i = 0; i < nhcount; i++)
     {
       if (IS_OSPF6_DEBUG_ZEBRA (SEND))
-        {
-          inet_ntop (AF_INET6, &request->nexthop[i].address,
-                     buf, sizeof (buf));
-          if_indextoname (request->nexthop[i].ifindex, ifname);
-          zlog_debug ("  nexthop: %s%%%s(%d)", buf, ifname,
+	{
+	  char ifname[IFNAMSIZ];
+	  inet_ntop (AF_INET6, &request->nexthop[i].address,
+		     buf, sizeof (buf));
+	  if (!if_indextoname(request->nexthop[i].ifindex, ifname))
+	    strlcpy(ifname, "unknown", sizeof(ifname));
+	  zlog_debug ("  nexthop: %s%%%.*s(%d)", buf, IFNAMSIZ, ifname,
 		      request->nexthop[i].ifindex);
-        }
+	}
       nexthops[i] = &request->nexthop[i].address;
       ifindexes[i] = request->nexthop[i].ifindex;
     }

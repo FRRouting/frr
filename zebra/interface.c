@@ -40,27 +40,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/irdp.h"
-
-/* Allocate a new internal interface index 
- * This works done from the top so that %d macros
- * print a - sign! 
- */
-static unsigned int
-if_new_intern_ifindex (void)
-{
-  /* Start here so that first one assigned is 0xFFFFFFFF */
-  static unsigned int ifindex = IFINDEX_INTERNBASE + 1;
 
-  for (;;) 
-    {
-      ifindex--;
-      if ( ifindex <= IFINDEX_INTERNBASE )
-       ifindex = 0xFFFFFFFF;
-
-      if (if_lookup_by_index(ifindex) == NULL)
-       return ifindex;
-    }
-}
 
 /* Called when new interface is added. */
 int
@@ -418,6 +398,13 @@ if_delete_update (struct interface *ifp)
 	}
     }
   zebra_interface_delete_update (ifp);
+
+  /* Update ifindex after distributing the delete message.  This is in
+     case any client needs to have the old value of ifindex available
+     while processing the deletion.  Each client daemon is responsible
+     for setting ifindex to IFINDEX_INTERNAL after processing the
+     interface deletion message. */
+  ifp->ifindex = IFINDEX_INTERNAL;
 }
 #endif /* (defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK) */
 
@@ -680,9 +667,9 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
   if (ifp->desc)
     vty_out (vty, "  Description: %s%s", ifp->desc,
 	     VTY_NEWLINE);
-  if (ifp->ifindex <= 0)
+  if (ifp->ifindex == IFINDEX_INTERNAL)
     {
-      vty_out(vty, "  index %d pseudo interface%s", ifp->ifindex, VTY_NEWLINE);
+      vty_out(vty, "  pseudo interface%s", VTY_NEWLINE);
       return;
     }
   else if (! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
@@ -861,17 +848,15 @@ DEFUN_NOSH (zebra_interface,
   struct interface * ifp;
   
   /* Call lib interface() */
-  ret = interface_cmd.func (self, vty, argc, argv);
+  if ((ret = interface_cmd.func (self, vty, argc, argv)) != CMD_SUCCESS)
+    return ret;
 
   ifp = vty->index;  
 
-  /* Set ifindex 
-     this only happens if interface is NOT in kernel */
-  if (ifp->ifindex == 0)
-    {
-      ifp->ifindex = if_new_intern_ifindex ();
-      UNSET_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE);
-    }
+  if (ifp->ifindex == IFINDEX_INTERNAL)
+    /* Is this really necessary?  Shouldn't status be initialized to 0
+       in that case? */
+    UNSET_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE);
 
   return ret;
 }

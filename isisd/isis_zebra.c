@@ -95,9 +95,14 @@ isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
   zlog_debug ("Zebra I/F delete: %s index %d flags %ld metric %d mtu %d",
 	      ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
 
-  if_delete (ifp);
+
+  /* Cannot call if_delete because we should retain the pseudo interface
+     in case there is configuration info attached to it. */
+  if_delete_retain(ifp);
 
   isis_csm_state_change (IF_DOWN_FROM_Z, circuit_scan_by_ifp (ifp), ifp);
+
+  ifp->ifindex = IFINDEX_INTERNAL;
 
   return 0;
 }
@@ -105,20 +110,13 @@ isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
 static struct interface *
 zebra_interface_if_lookup (struct stream *s)
 {
-  struct interface *ifp;
   u_char ifname_tmp[INTERFACE_NAMSIZ];
 
   /* Read interface name. */
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
-  /* Lookup this by interface index. */
-  ifp = if_lookup_by_name ((char *) ifname_tmp);
-
-  /* If such interface does not exist, indicate an error */
-  if (!ifp)
-    return NULL;
-
-  return ifp;
+  /* And look it up. */
+  return if_lookup_by_name ((char *) ifname_tmp);
 }
 
 static int

@@ -1,5 +1,14 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf6_zebra.c: (ospf6_zebra_if_del) Previously, this whole function
+	  was commented out.  But this is not safe: we should at least update
+	  the ifindex when the interface is deleted.  So the new version
+	  updates the interface status and sets ifp->ifindex to
+	  IFINDEX_INTERNAL.
+	  (ospf6_zebra_route_update) Use if_indextoname properly.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf6_route.c: (ospf6_route_show, ospf6_route_show_detail) Protect
 	  against the possibility that the string returned by if_indextoname
 	  may not terminate with '\0'.

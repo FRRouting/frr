@@ -1,3 +1,10 @@
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* isis_zebra.c: (isis_zebra_if_del) Call if_delete_retain instead
+	  of if_delete, since it is generally not safe to remove interface
+	  structures.  After deleting, set ifp->ifindex to IFINDEX_INTERNAL.
+	  (zebra_interface_if_lookup) Tighten up code.
+
 2005-03-07 Michael Sandee <voidptr@voidptr.sboost.org>
 
 	* isis_spf.c: host.name might be NULL.

@@ -2582,8 +2582,9 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
   /* Is interface up? */
   vty_out (vty, "%s is %s%s", ifp->name,
 	   ((is_up = if_is_operative(ifp)) ? "up" : "down"), VTY_NEWLINE);
-  vty_out (vty, "  MTU %u bytes, BW %u Kbit%s",
-  	   ifp->mtu, ifp->bandwidth, VTY_NEWLINE);
+  vty_out (vty, "  ifindex %u, MTU %u bytes, BW %u Kbit %s%s",
+  	   ifp->ifindex, ifp->mtu, ifp->bandwidth, if_flag_dump(ifp->flags),
+	   VTY_NEWLINE);
 
   /* Is interface OSPF enabled? */
   if (ospf_oi_count(ifp) == 0)

@@ -113,28 +113,22 @@ if_cmp_func (struct interface *ifp1, struct interface *ifp2)
 
 /* Create new interface structure. */
 struct interface *
-if_new ()
-{
-  struct interface *ifp;
-
-  ifp = XMALLOC (MTYPE_IF, sizeof (struct interface));
-  memset (ifp, 0, sizeof (struct interface));
-  return ifp;
-}
-
-struct interface *
 if_create (const char *name, int namelen)
 {
   struct interface *ifp;
 
-  ifp = if_new ();
+  ifp = XCALLOC (MTYPE_IF, sizeof (struct interface));
+  ifp->ifindex = IFINDEX_INTERNAL;
   
   assert (name);
-  assert (namelen <= (INTERFACE_NAMSIZ + 1));
+  assert (namelen <= INTERFACE_NAMSIZ);	/* Need space for '\0' at end. */
   strncpy (ifp->name, name, namelen);
-  ifp->name[INTERFACE_NAMSIZ] = '\0';
+  ifp->name[namelen] = '\0';
   if (if_lookup_by_name(ifp->name) == NULL)
     listnode_add_sort (iflist, ifp);
+  else
+    zlog_err("if_create(%s): corruption detected -- interface with this "
+	     "name exists already!", ifp->name);
   ifp->connected = list_new ();
   ifp->connected->del = (void (*) (void *)) connected_free;
 
@@ -144,17 +138,24 @@ if_create (const char *name, int namelen)
   return ifp;
 }
 
+/* Delete interface structure. */
+void
+if_delete_retain (struct interface *ifp)
+{
+  if (if_master.if_delete_hook)
+    (*if_master.if_delete_hook) (ifp);
+
+  /* Free connected address list */
+  list_delete (ifp->connected);
+}
+
 /* Delete and free interface structure. */
 void
 if_delete (struct interface *ifp)
 {
   listnode_delete (iflist, ifp);
 
-  if (if_master.if_delete_hook)
-    (*if_master.if_delete_hook) (ifp);
-
-  /* Free connected address list */
-  list_delete (ifp->connected);
+  if_delete_retain(ifp);
 
   XFREE (MTYPE_IF, ifp);
 }
@@ -194,16 +195,18 @@ if_lookup_by_index (unsigned int index)
 char *
 ifindex2ifname (unsigned int index)
 {
-  struct listnode *node;
   struct interface *ifp;
 
-  for (node = listhead (iflist); node; nextnode (node))
-    {
-      ifp = getdata (node);
-      if (ifp->ifindex == index)
-	return ifp->name;
-    }
-  return (char *) "unknown";
+  return ((ifp = if_lookup_by_index(index)) != NULL) ?
+  	 ifp->name : (char *)"unknown";
+}
+
+unsigned int
+ifname2ifindex (const char *name)
+{
+  struct interface *ifp;
+
+  return ((ifp = if_lookup_by_name(name)) != NULL) ? ifp->ifindex : 0;
 }
 
 /* Interface existance check by interface name. */
@@ -491,11 +494,20 @@ DEFUN (interface,
        "Interface's name\n")
 {
   struct interface *ifp;
+  size_t sl;
+
+  if ((sl = strlen(argv[0])) > INTERFACE_NAMSIZ)
+    {
+      vty_out (vty, "%% Interface name %s is invalid: length exceeds "
+		    "%d characters%s",
+	       argv[0], INTERFACE_NAMSIZ, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   ifp = if_lookup_by_name (argv[0]);
 
   if (ifp == NULL)
-    ifp = if_create (argv[0], INTERFACE_NAMSIZ);
+    ifp = if_create (argv[0], sl);
   vty->index = ifp;
   vty->node = INTERFACE_NODE;
 
@@ -515,17 +527,17 @@ DEFUN_NOSH (no_interface,
   ifp = if_lookup_by_name (argv[0]);
 
   if (ifp == NULL)
-  {
-    vty_out (vty, "%% Inteface %s does not exist%s", argv[0], VTY_NEWLINE);
-    return CMD_WARNING;
-  }
+    {
+      vty_out (vty, "%% Interface %s does not exist%s", argv[0], VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE)) 
-  {
-    vty_out (vty, "%% Only inactive interfaces can be deleted%s",
-            VTY_NEWLINE);
-    return CMD_WARNING;
-  }
+    {
+      vty_out (vty, "%% Only inactive interfaces can be deleted%s",
+	      VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   if_delete(ifp);
 
@@ -726,16 +738,9 @@ connected_add_by_prefix (struct interface *ifp, struct prefix *p,
 unsigned int
 if_nametoindex (const char *name)
 {
-  struct listnode *node;
   struct interface *ifp;
 
-  for (node = listhead (iflist); node; nextnode (node))
-    {
-      ifp = getdata (node);
-      if (strcmp (ifp->name, name) == 0)
-	return ifp->ifindex;
-    }
-  return 0;
+  return ((ifp = if_lookup_by_name(name)) != NULL) ? ifp->ifindex : 0;
 }
 #endif
 
@@ -743,19 +748,12 @@ if_nametoindex (const char *name)
 char *
 if_indextoname (unsigned int ifindex, char *name)
 {
-  struct listnode *node;
   struct interface *ifp;
 
-  for (node = listhead (iflist); node; nextnode (node))
-    {
-      ifp = getdata (node);
-      if (ifp->ifindex == ifindex)
-	{
-	  memcpy (name, ifp->name, IFNAMSIZ);
-	  return ifp->name;
-	}
-    }
-  return NULL;
+  if (!(ifp = if_lookup_by_index(ifindex)))
+    return NULL;
+  strncpy (name, ifp->name, IFNAMSIZ);
+  return ifp->name;
 }
 #endif
 
@@ -832,16 +830,7 @@ ifaddr_ipv4_lookup (struct in_addr *addr, unsigned int ifindex)
       return ifp;
     }
   else
-    {
-      for (node = listhead (iflist); node; nextnode (node))
-	{
-	  ifp = getdata (node);
-
-	  if (ifp->ifindex == ifindex)
-	    return ifp;
-	}
-    }
-  return NULL;
+    return if_lookup_by_index(ifindex);
 }
 
 /* Initialize interface list. */

@@ -86,6 +86,33 @@ extern struct zebra_privs_t zserv_privs;
 
 extern u_int32_t nl_rcvbufsize;
 
+/* Note: on netlink systems, there should be a 1-to-1 mapping between interface
+   names and ifindex values. */
+static void
+set_ifindex(struct interface *ifp, unsigned int ifi_index)
+{
+  struct interface *oifp;
+
+  if (((oifp = if_lookup_by_index(ifi_index)) != NULL) && (oifp != ifp))
+    {
+      if (ifi_index == IFINDEX_INTERNAL)
+        zlog_err("Netlink is setting interface %s ifindex to reserved "
+		 "internal value %u", ifp->name, ifi_index);
+      else
+        {
+	  if (IS_ZEBRA_DEBUG_KERNEL)
+	    zlog_debug("interface index %d was renamed from %s to %s",
+	    	       ifi_index, oifp->name, ifp->name);
+	  if (if_is_up(oifp))
+	    zlog_err("interface rename detected on up interface: index %d "
+		     "was renamed from %s to %s, results are uncertain!", 
+	    	     ifi_index, oifp->name, ifp->name);
+	  if_delete_update(oifp);
+        }
+    }
+  ifp->ifindex = ifi_index;
+}
+
 /* Make socket for Linux netlink interface. */
 static int
 netlink_socket (struct nlsock *nl, unsigned long groups)
@@ -504,8 +531,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h)
 
   /* Add interface. */
   ifp = if_get_by_name (name);
-
-  ifp->ifindex = ifi->ifi_index;
+  set_ifindex(ifp, ifi->ifi_index);
   ifp->flags = ifi->ifi_flags & 0x0000fffff;
   ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
   ifp->metric = 1;
@@ -981,7 +1007,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
           if (ifp == NULL)
             ifp = if_get_by_name (name);
 
-          ifp->ifindex = ifi->ifi_index;
+          set_ifindex(ifp, ifi->ifi_index);
           ifp->flags = ifi->ifi_flags & 0x0000fffff;
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
           ifp->metric = 1;
@@ -992,7 +1018,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
       else
         {
           /* Interface status change. */
-          ifp->ifindex = ifi->ifi_index;
+          set_ifindex(ifp, ifi->ifi_index);
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
           ifp->metric = 1;
 

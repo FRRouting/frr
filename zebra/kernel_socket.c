@@ -301,8 +301,8 @@ ifm_read (struct if_msghdr *ifm)
    * If lookup by index was unsuccessful and we have a name, try
    * looking up by name.  Interfaces specified in the configuration
    * file for which the ifindex has not been determined will have
-   * ifindex == -1, and such interfaces are found by this search, and
-   * then their ifindex values can be filled in.
+   * ifindex == IFINDEX_INTERNAL, and such interfaces are found by this search,
+   * and then their ifindex values can be filled in.
    */
   if (ifp == NULL && sdl != NULL)
     {
@@ -322,14 +322,10 @@ ifm_read (struct if_msghdr *ifm)
     }
 
   /*
-   * If ifp does not exist or has an invalid index (-1), create or
+   * If ifp does not exist or has an invalid index (IFINDEX_INTERNAL), create or
    * fill in an interface.
    */
-  /*
-   * XXX warning: comparison between signed and unsigned
-   * ifindex should probably be signed
-   */
-  if ((ifp == NULL) || (ifp->ifindex == -1))
+  if ((ifp == NULL) || (ifp->ifindex == IFINDEX_INTERNAL))
     {
       /*
        * To create or fill in an interface, a sockaddr_dl (via
@@ -348,7 +344,7 @@ ifm_read (struct if_msghdr *ifm)
 
       /* 
        * Fill in newly created interface structure, or larval
-       * structure with ifindex -1.
+       * structure with ifindex IFINDEX_INTERNAL.
        */
       ifp->ifindex = ifm->ifm_index;
       ifp->flags = ifm->ifm_flags;

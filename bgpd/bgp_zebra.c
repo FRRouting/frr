@@ -81,6 +81,7 @@ bgp_interface_delete (int command, struct zclient *zclient,
 
   s = zclient->ibuf;
   ifp = zebra_interface_state_read (s);
+  ifp->ifindex = IFINDEX_INTERNAL;
 
   return 0;
 }

@@ -1,3 +1,22 @@
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* interface.c: (if_new_intern_ifindex) Remove obsolete function.
+	  (if_delete_update) After distributing the interface deletion message,
+	  set ifp->ifindex to IFINDEX_INTERNAL.
+	  (if_dump_vty) Detect pseudo interface by checking if ifp->ifindex is
+	  IFINDEX_INTERNAL.
+	  (zebra_interface) Check return code from interface_cmd.func.
+	  Do not set internal ifindex values to if_new_intern_ifindex(),
+	  since we now use IFINDEX_INTERNAL for all pseudo interfaces.
+	* kernel_socket.c: (ifm_read) Fix code and comments to reflect that
+	  all internal interfaces now have ifp->ifindex set to IFINDEX_INTERNAL.
+        * rt_netlink.c: (set_ifindex) New function used to update ifp->ifindex.
+	  Detects interface rename events by checking if that ifindex is already
+	  being used.  If it is, delete the old interface before assigning
+	  the ifindex to the new interface.
+	  (netlink_interface, netlink_link_change) Call set_ifindex to update
+	  the ifindex.
+
 2005-03-31 Hasso Tepper <hasso at quagga.net>
 
 	* rt_netlink.c (netlink_talk_filter): Show always warning message,

@@ -36,10 +36,6 @@ Boston, MA 02111-1307, USA.  */
 #define INTERFACE_NAMSIZ      20
 #define INTERFACE_HWADDR_MAX  20
 
-/* Internal If indexes start at 0xFFFFFFFF and go down to 1 greater
-   than this */
-#define IFINDEX_INTERNBASE 0x80000000
-
 #ifdef HAVE_PROC_NET_DEV
 struct if_stats
 {
@@ -75,11 +71,19 @@ struct if_stats
 /* Interface structure */
 struct interface 
 {
-  /* Interface name. */
+  /* Interface name.  This should probably never be changed after the
+     interface is created, because the configuration info for this interface
+     is associated with this structure.  For that reason, the interface
+     should also never be deleted (to avoid losing configuration info).
+     To delete, just set ifindex to IFINDEX_INTERNAL to indicate that the
+     interface does not exist in the kernel.
+   */
   char name[INTERFACE_NAMSIZ + 1];
 
-  /* Interface index. */
+  /* Interface index (should be IFINDEX_INTERNAL for non-kernel or
+     deleted interfaces). */
   unsigned int ifindex;
+#define IFINDEX_INTERNAL	0
 
   /* Zebra internal interface status */
   u_char status;
@@ -208,14 +212,22 @@ struct connected
 
 /* Prototypes. */
 int if_cmp_func (struct interface *, struct interface *);
-struct interface *if_new (void);
 struct interface *if_create (const char *name, int namelen);
 struct interface *if_lookup_by_index (unsigned int);
 struct interface *if_lookup_by_name (const char *);
 struct interface *if_lookup_exact_address (struct in_addr);
 struct interface *if_lookup_address (struct in_addr);
 struct interface *if_get_by_name (const char *);
-void if_delete (struct interface *);
+
+/* Delete the interface, but do not free the structure, and leave it in the
+   interface list.  It is often advisable to leave the pseudo interface 
+   structure because there may be configuration information attached. */
+extern void if_delete_retain (struct interface *);
+
+/* Delete and free the interface structure: calls if_delete_retain and then
+   deletes it from the interface list and frees the structure. */
+extern void if_delete (struct interface *);
+
 int if_is_up (struct interface *);
 int if_is_running (struct interface *);
 int if_is_operative (struct interface *);
@@ -226,8 +238,17 @@ int if_is_multicast (struct interface *);
 void if_add_hook (int, int (*)(struct interface *));
 void if_init ();
 void if_dump_all ();
-char *ifindex2ifname (unsigned int);
 extern const char *if_flag_dump(unsigned long);
+
+/* Please use ifindex2ifname instead of if_indextoname where possible;
+   ifindex2ifname uses internal interface info, whereas if_indextoname must
+   make a system call. */
+extern char *ifindex2ifname (unsigned int);
+
+/* Please use ifname2ifindex instead of if_nametoindex where possible;
+   ifname2ifindex uses internal interface info, whereas if_nametoindex must
+   make a system call. */
+extern unsigned int ifname2ifindex(const char *ifname);
 
 /* Connected address functions. */
 struct connected *connected_new ();

@@ -1,5 +1,31 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* if.h: Remove define for IFINDEX_INTERNBASE and add define
+	  IFINDEX_INTERNAL 0, since all internal (i.e. non-kernel) pseudo-
+	  interfaces should have ifindex set to 0.
+	  (if_new) Remove function.
+	  (if_delete_retain) New function to delete an interface without
+	  removing from iflist and freeing the structure.
+	  (ifname2ifindex) New function.
+	* if.c: (if_new) Remove function (absorb into if_create).
+	  (if_create) Replace function if_new with call to calloc.
+	  Set ifp->ifindex to IFINDEX_INTERNAL.  Fix off-by-one error
+	  in assert to check length of interface name.  Add error message
+	  if interface with this name already exists.
+	  (if_delete_retain) New function to delete an interface without
+	  removing from iflist and freeing the structure.
+	  (if_delete) Implement with help of if_delete_retain.
+	  (ifindex2ifname) Reimplement using if_lookup_by_index.
+	  (ifname2ifindex) New function to complement ifindex2ifname.
+	  (interface) The interface command should check the name length
+	  and fail with a warning message if it is too long.
+	  (no_interface) Fix spelling in warning message.
+	  (if_nametoindex) Reimplement using if_lookup_by_name.
+	  (if_indextoname, ifaddr_ipv4_lookup) Reimplement using
+	  if_lookup_by_index.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* zebra.h: Should include str.h to pick up missing functions.
 	* str.h: Declare strnlen if needed.
 	* str.c: Do not include str.h since zebra.h now includes it.

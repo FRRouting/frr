@@ -141,26 +141,20 @@ ospf_interface_delete (int command, struct zclient *zclient,
     if (rn->info)
       ospf_if_free ((struct ospf_interface *) rn->info);
 
+  ifp->ifindex = IFINDEX_INTERNAL;
   return 0;
 }
 
-struct interface *
+static struct interface *
 zebra_interface_if_lookup (struct stream *s)
 {
-  struct interface *ifp;
   u_char ifname_tmp[INTERFACE_NAMSIZ];
 
   /* Read interface name. */
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
-  /* Lookup this by interface index. */
-  ifp = if_lookup_by_name ((char *) ifname_tmp);
-
-  /* If such interface does not exist, indicate an error */
-  if (!ifp)
-    return NULL;
-
-  return ifp;
+  /* And look it up. */
+  return if_lookup_by_name ((char *) ifname_tmp);
 }
 
 int
