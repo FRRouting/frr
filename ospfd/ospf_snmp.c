@@ -52,10 +52,6 @@
 /* OSPF2-MIB. */
 #define OSPF2MIB 1,3,6,1,2,1,14
 
-/* Zebra enterprise OSPF MIB.  This variable is used for register
-   OSPF MIB to SNMP agent under SMUX protocol.  */
-#define OSPFDOID 1,3,6,1,4,1,3317,1,2,5
-
 /* OSPF MIB General Group values. */
 #define OSPFROUTERID                     1
 #define OSPFADMINSTAT                    2
@@ -214,7 +210,6 @@ SNMP_LOCAL_VARIABLES
 
 /* OSPF-MIB instances. */
 oid ospf_oid [] = { OSPF2MIB };
-oid ospfd_oid [] = { OSPFDOID };
 
 /* IP address 0.0.0.0. */
 static struct in_addr ospf_empty_addr = {0};
@@ -2479,8 +2474,7 @@ ospf_snmp_init ()
 {
   ospf_snmp_iflist = list_new ();
   ospf_snmp_vl_table = route_table_init ();
-  smux_init (om->master, ospfd_oid, sizeof (ospfd_oid) / sizeof (oid));
+  smux_init (om->master);
   REGISTER_MIB("mibII/ospf", ospf_variables, variable, ospf_oid);
-  smux_start ();
 }
 #endif /* HAVE_SNMP */

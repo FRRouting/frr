@@ -49,10 +49,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGPESTABLISHED			1
 #define BGPBACKWARDTRANSITION		2	
 
-/* Zebra enterprise BGP MIB.  This variable is used for register
-   OSPF MIB to SNMP agent under SMUX protocol.  */
-#define BGPDMIB 1,3,6,1,4,1,3317,1,2,2
-
 /* BGP MIB bgpVersion. */
 #define BGPVERSION			      0
 
@@ -125,7 +121,6 @@ SNMP_LOCAL_VARIABLES
 
 /* BGP-MIB instances. */
 oid bgp_oid [] = { BGP4MIB };
-oid bgpd_oid [] = { BGPDMIB };
 
 /* IP address 0.0.0.0. */
 static struct in_addr bgp_empty_addr = {0};
@@ -880,8 +875,7 @@ bgp_snmp_init ()
   if ( !(bm = bgp_get_master ()) )
     return;
     
-  smux_init (bm->master, bgpd_oid, sizeof bgpd_oid / sizeof (oid));
+  smux_init (bm->master);
   REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
-  smux_start ();
 }
 #endif /* HAVE_SNMP */

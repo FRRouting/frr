@@ -1,3 +1,8 @@
+2004-10-13 Hasso Tepper <hasso at quagga.net>
+
+	* bgp_snmp.c: Remove defaults used to initialize smux connection to
+	  snmpd. Connection is initialized only if smux peer is configured.
+
 2004-10-13 Paul Jakma <paul@dishone.st>
 
 	* (global) more const'ification and fixups of types to clean up code.

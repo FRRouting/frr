@@ -2,6 +2,10 @@
 
 	* command.c: Make CMD_ERR_NOTHING_TODO nonfatal if reading
 	  configuration from file. Fixes critical bugzilla #113.
+	* smux.c, smux.h: Remove all defaults to initialize smux connection to
+	  snmpd by default even if not configured to do so. "smux peer OID
+	  <password>" initializes now connection and "no smux peer" terminates
+	  it.
 
 2004-10-13 Paul Jakma <paul@dishone.st>
 

@@ -52,16 +52,11 @@ int smux_sock = -1;
 struct list *treelist;
 
 /* SMUX oid. */
-oid *smux_oid;
+oid *smux_oid = NULL;
 size_t smux_oid_len;
 
-/* SMUX default oid. */
-oid *smux_default_oid;
-size_t smux_default_oid_len;
-
 /* SMUX password. */
-char *smux_passwd;
-const char *smux_default_passwd = "";
+char *smux_passwd = NULL;
 
 /* SMUX read threads. */
 struct thread *smux_read_thread;
@@ -1316,11 +1311,14 @@ smux_peer_oid (struct vty *vty, const char *oid_str, const char *passwd_str)
       return CMD_WARNING;
     }
 
-  if (smux_oid && smux_oid != smux_default_oid)
-    free (smux_oid);
+  if (smux_oid)
+    {
+      free (smux_oid);
+      smux_oid = NULL;
+    }
 
   /* careful, smux_passwd might point to string constant */
-  if (smux_passwd && smux_passwd != smux_default_passwd)
+  if (smux_passwd)
     {
       free (smux_passwd);
       smux_passwd = NULL;
@@ -1331,8 +1329,10 @@ smux_peer_oid (struct vty *vty, const char *oid_str, const char *passwd_str)
 
   if (passwd_str)
     smux_passwd = strdup (passwd_str);
+  else
+    smux_passwd = strdup ("");
 
-  return CMD_SUCCESS;
+  return 0;
 }
 
 int
@@ -1364,19 +1364,19 @@ smux_header_generic (struct variable *v, oid *name, size_t *length, int exact,
 int
 smux_peer_default ()
 {
-  if (smux_oid != smux_default_oid)
+  if (smux_oid)
     {
       free (smux_oid);
-      smux_oid = smux_default_oid;
-      smux_oid_len = smux_default_oid_len;
+      smux_oid = NULL;
     }
   
   /* careful, smux_passwd might be pointing at string constant */
-  if (smux_passwd != smux_default_passwd)
+  if (smux_passwd)
     {
       free (smux_passwd);
-      smux_passwd = (char *)smux_default_passwd;
+      smux_passwd = NULL;
     }
+
   return CMD_SUCCESS;
 }
 
@@ -1387,7 +1387,13 @@ DEFUN (smux_peer,
        "SNMP MUX peer settings\n"
        "Object ID used in SMUX peering\n")
 {
-  return smux_peer_oid (vty, argv[0], NULL);
+  if (smux_peer_oid (vty, argv[0], NULL) == 0)
+    {
+      smux_start();
+      return CMD_SUCCESS;
+    }
+  else
+    return CMD_WARNING;
 }
 
 DEFUN (smux_peer_password,
@@ -1398,31 +1404,42 @@ DEFUN (smux_peer_password,
        "SMUX peering object ID\n"
        "SMUX peering password\n")
 {
-  return smux_peer_oid (vty, argv[0], argv[1]);
+  if (smux_peer_oid (vty, argv[0], argv[1]) == 0)
+    {
+      smux_start();
+      return CMD_SUCCESS;
+    }
+  else
+    return CMD_WARNING;
 }
 
 DEFUN (no_smux_peer,
        no_smux_peer_cmd,
+       "no smux peer",
+       NO_STR
+       "SNMP MUX protocol settings\n"
+       "SNMP MUX peer settings\n")
+{
+  smux_stop();
+  return smux_peer_default ();
+}
+
+ALIAS (no_smux_peer,
+       no_smux_peer_oid_cmd,
        "no smux peer OID",
        NO_STR
        "SNMP MUX protocol settings\n"
        "SNMP MUX peer settings\n"
-       "Object ID used in SMUX peering\n")
-{
-  return smux_peer_default ();
-}
+       "SMUX peering object ID\n")
 
-DEFUN (no_smux_peer_password,
-       no_smux_peer_password_cmd,
+ALIAS (no_smux_peer,
+       no_smux_peer_oid_password_cmd,
        "no smux peer OID PASSWORD",
        NO_STR
        "SNMP MUX protocol settings\n"
        "SNMP MUX peer settings\n"
        "SMUX peering object ID\n"
        "SMUX peering password\n")
-{
-  return smux_peer_default ();
-}
 
 int
 config_write_smux (struct vty *vty)
@@ -1430,7 +1447,7 @@ config_write_smux (struct vty *vty)
   int first = 1;
   unsigned int i;
 
-  if (smux_oid != smux_default_oid || smux_passwd != smux_default_passwd)
+  if (smux_oid)
     {
       vty_out (vty, "smux peer ");
       for (i = 0; i < smux_oid_len; i++)
@@ -1478,18 +1495,8 @@ smux_tree_cmp(struct subtree *tree1, struct subtree *tree2)
 
 /* Initialize some values then schedule first SMUX connection. */
 void
-smux_init (struct thread_master *tm, oid defoid[], size_t defoid_len)
+smux_init (struct thread_master *tm)
 {
-  /* Set default SMUX oid. */
-  smux_default_oid = defoid;
-  smux_default_oid_len = defoid_len;
-
-  smux_oid = smux_default_oid;
-  smux_oid_len = smux_default_oid_len;
-
-  /* be careful with smux_passwd, points to string constant by default */
-  smux_passwd = (char *)smux_default_passwd;
-
   /* copy callers thread master */
   master = tm;
   
@@ -1503,7 +1510,8 @@ smux_init (struct thread_master *tm, oid defoid[], size_t defoid_len)
   install_element (CONFIG_NODE, &smux_peer_cmd);
   install_element (CONFIG_NODE, &smux_peer_password_cmd);
   install_element (CONFIG_NODE, &no_smux_peer_cmd);
-  install_element (CONFIG_NODE, &no_smux_peer_password_cmd);
+  install_element (CONFIG_NODE, &no_smux_peer_oid_cmd);
+  install_element (CONFIG_NODE, &no_smux_peer_oid_password_cmd);
 }
 
 void

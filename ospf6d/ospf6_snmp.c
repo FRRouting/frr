@@ -50,9 +50,6 @@
 /* OSPFv3-MIB */
 #define OSPFv3MIB 1,3,6,1,3,102
 
-/* Zebra enterprise ospf6d MIB */
-#define OSPF6DOID 1,3,6,1,4,1,3317,1,2,6
-
 /* OSPFv3 MIB General Group values. */
 #define OSPFv3ROUTERID                   1
 #define OSPFv3ADMINSTAT                  2
@@ -101,7 +98,6 @@ static struct in_addr tmp;
 
 /* OSPFv3-MIB instances. */
 oid ospfv3_oid [] = { OSPFv3MIB };
-oid ospf6d_oid [] = { OSPF6DOID };
 
 /* empty ID 0.0.0.0 e.g. empty router-id */
 static struct in_addr ospf6_empty_id = {0};
@@ -295,9 +291,8 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
 void
 ospf6_snmp_init (struct thread_master *master)
 {
-  smux_init (master, ospf6d_oid, sizeof (ospf6d_oid) / sizeof (oid));
+  smux_init (master);
   REGISTER_MIB ("OSPFv3MIB", ospfv3_variables, variable, ospfv3_oid);
-  smux_start ();
 }
 
 #endif /* HAVE_SNMP */

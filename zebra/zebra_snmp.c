@@ -40,7 +40,6 @@
 #include "zebra/zserv.h"
 
 #define IPFWMIB 1,3,6,1,2,1,4,24
-#define ZEBRAOID 1,3,6,1,4,1,3317,1,2,1
 
 /* ipForwardTable */
 #define IPFORWARDDEST                         1
@@ -87,7 +86,6 @@
 extern struct zebra_t zebrad;
 
 oid ipfw_oid [] = { IPFWMIB };
-oid zebra_oid [] = { ZEBRAOID };
 
 /* Hook functions. */
 u_char * ipFwNumber ();
@@ -564,8 +562,7 @@ ipCidrTable (struct variable *v, oid objid[], size_t *objid_len,
 void
 zebra_snmp_init ()
 {
-  smux_init (zebrad.master, zebra_oid, sizeof (zebra_oid) / sizeof (oid));
+  smux_init (zebrad.master);
   REGISTER_MIB("mibII/ipforward", zebra_variables, variable, ipfw_oid);
-  smux_start ();
 }
 #endif /* HAVE_SNMP */

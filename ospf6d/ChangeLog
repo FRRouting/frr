@@ -1,3 +1,8 @@
+2004-10-12 Hasso Tepper <hasso at quagga.net>
+
+	* ospf6_snmp.c: Remove defaults used to initialize smux connection to
+	  snmpd. Connection is initialized only if smux peer is configured.
+
 2004-10-11 Hasso Tepper <hasso at quagga.net>
 
 	* osp6_top.c, ospf6_top.h: Better handling for router-id. If we use

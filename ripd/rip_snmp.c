@@ -41,10 +41,6 @@
 /* RIPv2-MIB. */
 #define RIPV2MIB 1,3,6,1,2,1,23
 
-/* Zebra enterprise RIP MIB.  This variable is used for register
-   RIPv2-MIB to SNMP agent under SMUX protocol.  */
-#define RIPDOID 1,3,6,1,4,1,3317,1,2,3
-
 /* RIPv2-MIB rip2Globals values. */
 #define RIP2GLOBALROUTECHANGES  1
 #define RIP2GLOBALQUERIES       2
@@ -90,7 +86,6 @@ SNMP_LOCAL_VARIABLES
 
 /* RIP-MIB instances. */
 oid rip_oid [] = { RIPV2MIB };
-oid ripd_oid [] = { RIPDOID };
 
 /* Interface cache table sorted by interface's address. */
 struct route_table *rip_ifaddr_table;
@@ -575,8 +570,7 @@ rip_snmp_init ()
 {
   rip_ifaddr_table = route_table_init ();
 
-  smux_init (master, ripd_oid, sizeof (ripd_oid) / sizeof (oid));
+  smux_init (master);
   REGISTER_MIB("mibII/rip", rip_variables, variable, rip_oid);
-  smux_start ();
 }
 #endif /* HAVE_SNMP */
