@@ -245,6 +245,14 @@ struct in_pktinfo
 };
 #endif
 
+/* MAX / MIN are not commonly defined, but useful */
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif 
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+
 /* For old definition. */
 #ifndef IN6_ARE_ADDR_EQUAL
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
@@ -269,7 +277,8 @@ struct in_pktinfo
 #define ZEBRA_IPV6_NEXTHOP_LOOKUP         16
 #define ZEBRA_IPV4_IMPORT_LOOKUP          17
 #define ZEBRA_IPV6_IMPORT_LOOKUP          18
-#define ZEBRA_MESSAGE_MAX                 19
+#define ZEBRA_INTERFACE_RENAME            19
+#define ZEBRA_MESSAGE_MAX                 20
 
 /* Zebra route's types. */
 #define ZEBRA_ROUTE_SYSTEM               0

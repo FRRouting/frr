@@ -1,5 +1,9 @@
 2004-08-19 Paul Jakma <paul@dishone.st>
 
+	* zebra.h: add MAX and MIN defines (eg for ospf6d)
+
+2004-08-19 Paul Jakma <paul@dishone.st>
+
 	* sockopt.c: include sockopt.h
 	  rename some of the _pktinfo_ functions to _ifindex, where that is
 	  their purpose.
