@@ -2119,9 +2119,20 @@ rip_output_process (struct interface *ifp, struct prefix *ifaddr,
 	/* if (split_horizon == rip_split_horizon) */
 	if (ri->split_horizon == RIP_SPLIT_HORIZON)
 	  {
-	    /* We perform split horizon for RIP and connected route. */
-	    if ((rinfo->type == ZEBRA_ROUTE_RIP ||
-		 rinfo->type == ZEBRA_ROUTE_CONNECT) &&
+	    /* 
+	     * We perform split horizon for RIP and connected route. 
+	     * For rip routes, we want to suppress the route if we would
+             * end up sending the route back on the interface that we
+             * learned it from, with a higher metric. For connected routes,
+             * we suppress the route if the prefix is a subset of the
+             * source address that we are going to use for the packet 
+             * (in order to handle the case when multiple subnets are
+             * configured on the same interface).
+             */
+	    if (rinfo->type == ZEBRA_ROUTE_RIP  &&
+                 rinfo->ifindex == ifp->ifindex) 
+	      continue;
+	    if (rinfo->type == ZEBRA_ROUTE_CONNECT &&
                  prefix_match((struct prefix *)p, (struct prefix *)saddr))
 	      continue;
 	  }
@@ -2206,9 +2217,21 @@ rip_output_process (struct interface *ifp, struct prefix *ifaddr,
 	 * for RIP and connected routes.
 	 **/
 	if (ri->split_horizon == RIP_SPLIT_HORIZON_POISONED_REVERSE) {
-	  if ((rinfo->type == ZEBRA_ROUTE_RIP ||
-	       rinfo->type == ZEBRA_ROUTE_CONNECT) &&
+	    /* 
+	     * We perform split horizon for RIP and connected route. 
+	     * For rip routes, we want to suppress the route if we would
+             * end up sending the route back on the interface that we
+             * learned it from, with a higher metric. For connected routes,
+             * we suppress the route if the prefix is a subset of the
+             * source address that we are going to use for the packet 
+             * (in order to handle the case when multiple subnets are
+             * configured on the same interface).
+             */
+	  if (rinfo->type == ZEBRA_ROUTE_RIP  &&
 	       rinfo->ifindex == ifp->ifindex)
+	       rinfo->metric_out = RIP_METRIC_INFINITY;
+	  if (rinfo->type == ZEBRA_ROUTE_CONNECT &&
+              prefix_match((struct prefix *)p, (struct prefix *)saddr))
 	       rinfo->metric_out = RIP_METRIC_INFINITY;
 	}
  
