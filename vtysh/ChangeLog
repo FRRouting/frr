@@ -1,8 +1,10 @@
 2004-09-13 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: extract.pl isnt in srcdir, it's always in the builddir.
+	  remove zebra/irdp.c from list - dead.
 	* extract.pl.in: match on end of filenames, filename could contain
-          various preamble due to out of tree builds.
+          various preamble due to out of tree builds. Substitute in the
+	  autoconf srcdir/builddir paths for includes to cpp.
 
 2004-08-28 Hasso Tepper <hasso at quagga.net>
 
