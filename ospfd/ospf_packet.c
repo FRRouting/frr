@@ -616,8 +616,6 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 
   /* increment statistics. */
   oi->hello_in++;
-  zlog_info ("Packet %s [Hello:RECV]: oi hello cnt %d",
-	     inet_ntoa (ospfh->router_id), oi->hello_in);
 
   hello = (struct ospf_hello *) STREAM_PNT (s);
 
@@ -2460,10 +2458,6 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
   /* Add neighbor seen. */
   for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
     if ((nbr = rn->info) != NULL) {
-      zlog_info("make_hello: nbr %s, state %d",
-		inet_ntoa(nbr->router_id),
-		nbr->state);
-
       /* ignore 0.0.0.0 node. */
       if (nbr->router_id.s_addr != 0)
 	if (nbr->state != NSM_Attempt)
