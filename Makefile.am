@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in.
 
-SUBDIRS = lib @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @VTYSH@ doc
+SUBDIRS = lib @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @VTYSH@ @OSPFCLIENT@ doc
 
 EXTRA_DIST = aclocal.m4 SERVICES TODO REPORTING-BUGS vtysh/Makefile.in \
 	vtysh/Makefile.am update-autotools
