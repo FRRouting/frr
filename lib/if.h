@@ -190,6 +190,21 @@ struct connected
 #ifndef IFF_LINK2
 #define IFF_LINK2 0x0
 #endif /* IFF_LINK2 */
+#ifndef IFF_NOXMIT
+#define IFF_NOXMIT 0x0
+#endif /* IFF_NOXMIT */
+#ifndef IFF_NORTEXCH
+#define IFF_NORTEXCH 0x0
+#endif /* IFF_NORTEXCH */
+#ifndef IFF_IPV4
+#define IFF_IPV4 0x0
+#endif /* IFF_IPV4 */
+#ifndef IFF_IPV6
+#define IFF_IPV6 0x0
+#endif /* IFF_IPV6 */
+#ifndef IFF_VIRTUAL
+#define IFF_VIRTUAL 0x0
+#endif /* IFF_VIRTUAL */
 
 /* Prototypes. */
 int if_cmp_func (struct interface *, struct interface *);

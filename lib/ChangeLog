@@ -1,3 +1,8 @@
+2004-12-21 Paul Jakma <paul.jakma@sun.com>
+
+	* if.h: Add more 'non-generic' IFF_ flags.
+	* if.c: IFF_NOXMIT/IFF_VIRTUAL interfaces are 'loopback like'
+
 2004-12-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* command.c: (do_echo) Added new "echo" command, useful for

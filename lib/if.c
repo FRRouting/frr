@@ -344,7 +344,10 @@ if_is_operative (struct interface *ifp)
 int
 if_is_loopback (struct interface *ifp)
 {
-  return ifp->flags & IFF_LOOPBACK;
+  /* XXX: Do this better, eg what if IFF_WHATEVER means X on platform M
+   * but Y on platform N?
+   */
+  return (ifp->flags & (IFF_LOOPBACK|IFF_NOXMIT|IFF_VIRTUAL));
 }
 
 /* Does this interface support broadcast ? */
@@ -376,7 +379,7 @@ if_flag_dump (unsigned long flag)
   static char logbuf[BUFSIZ];
 
 #define IFF_OUT_LOG(X,STR) \
-  if ((X) && (flag & (X))) \
+  if (flag & (X)) \
     { \
       if (separator) \
 	strlcat (logbuf, ",", BUFSIZ); \
@@ -402,10 +405,11 @@ if_flag_dump (unsigned long flag)
   IFF_OUT_LOG (IFF_LINK1, "LINK1");
   IFF_OUT_LOG (IFF_LINK2, "LINK2");
   IFF_OUT_LOG (IFF_MULTICAST, "MULTICAST");
-#ifdef SOLARIS_IPV6
-  IFF_OUT_LOG (IFF_IPV4, "IFF_IPv4");
-  IFF_OUT_LOG (IFF_IPV6, "IFF_IPv6");
-#endif /* SOLARIS_IPV6 */
+  IFF_OUT_LOG (IFF_NOXMIT, "NOXMIT");
+  IFF_OUT_LOG (IFF_NORTEXCH, "NORTEXCH");
+  IFF_OUT_LOG (IFF_VIRTUAL, "VIRTUAL");
+  IFF_OUT_LOG (IFF_IPV4, "IPv4");
+  IFF_OUT_LOG (IFF_IPV6, "IPv6");
 
   strlcat (logbuf, ">", BUFSIZ);
 
