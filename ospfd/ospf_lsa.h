@@ -124,13 +124,14 @@ struct ospf_lsa
 #define ROUTER_LSA_BORDER	       0x01 /* The router is an ABR */
 #define ROUTER_LSA_EXTERNAL	       0x02 /* The router is an ASBR */
 #define ROUTER_LSA_VIRTUAL	       0x04 /* The router has a VL in this area */
-#define ROUTER_LSA_NT		       0x10 /* NSSA-specific flag */
+#define ROUTER_LSA_NT		       0x10 /* The routers always translates Type-7 */
 #define ROUTER_LSA_SHORTCUT	       0x20 /* Shortcut-ABR specific flag */
 
 #define IS_ROUTER_LSA_VIRTUAL(x)       ((x)->flags & ROUTER_LSA_VIRTUAL)
 #define IS_ROUTER_LSA_EXTERNAL(x)      ((x)->flags & ROUTER_LSA_EXTERNAL)
 #define IS_ROUTER_LSA_BORDER(x)	       ((x)->flags & ROUTER_LSA_BORDER)
 #define IS_ROUTER_LSA_SHORTCUT(x)      ((x)->flags & ROUTER_LSA_SHORTCUT)
+#define IS_ROUTER_LSA_NT(x)            ((x)->flags & ROUTER_LSA_NT)
 
 /* OSPF Router-LSA Link information. */
 struct router_lsa_link
