@@ -101,6 +101,13 @@ foreach (@ARGV) {
                  $protocol = "VTYSH_RIPD|VTYSH_BGPD";
               }
            }
+           if ($file =~ /distribute.c/) {
+              if ($defun_array[1] =~ m/ipv6/) {
+                 $protocol = "VTYSH_RIPNGD";
+              } else {
+                 $protocol = "VTYSH_RIPD";
+              }
+           }
         } else {
            ($protocol) = ($file =~ /\/([a-z0-9]+)/);
            $protocol = "VTYSH_" . uc $protocol;

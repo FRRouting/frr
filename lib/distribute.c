@@ -327,6 +327,14 @@ DEFUN (distribute_list_all,
   return CMD_SUCCESS;
 }
 
+ALIAS (distribute_list_all,
+       ipv6_distribute_list_all_cmd,
+       "distribute-list WORD (in|out)",
+       "Filter networks in routing updates\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n")
+
 DEFUN (no_distribute_list_all,
        no_distribute_list_all_cmd,
        "no distribute-list WORD (in|out)",
@@ -360,6 +368,15 @@ DEFUN (no_distribute_list_all,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_distribute_list_all,
+       no_ipv6_distribute_list_all_cmd,
+       "no distribute-list WORD (in|out)",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n")
+
 DEFUN (distribute_list,
        distribute_list_cmd,
        "distribute-list WORD (in|out) WORD",
@@ -388,6 +405,15 @@ DEFUN (distribute_list,
 
   return CMD_SUCCESS;
 }       
+
+ALIAS (distribute_list,
+       ipv6_distribute_list_cmd,
+       "distribute-list WORD (in|out) WORD",
+       "Filter networks in routing updates\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
 
 DEFUN (no_districute_list, no_distribute_list_cmd,
        "no distribute-list WORD (in|out) WORD",
@@ -421,6 +447,15 @@ DEFUN (no_districute_list, no_distribute_list_cmd,
   return CMD_SUCCESS;
 }       
 
+ALIAS (no_districute_list, no_ipv6_distribute_list_cmd,
+       "no distribute-list WORD (in|out) WORD",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Access-list name\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
+
 DEFUN (districute_list_prefix_all,
        distribute_list_prefix_all_cmd,
        "distribute-list prefix WORD (in|out)",
@@ -450,6 +485,15 @@ DEFUN (districute_list_prefix_all,
 
   return CMD_SUCCESS;
 }       
+
+ALIAS (districute_list_prefix_all,
+       ipv6_distribute_list_prefix_all_cmd,
+       "distribute-list prefix WORD (in|out)",
+       "Filter networks in routing updates\n"
+       "Filter prefixes in routing updates\n"
+       "Name of an IP prefix-list\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n")
 
 DEFUN (no_districute_list_prefix_all,
        no_distribute_list_prefix_all_cmd,
@@ -485,6 +529,16 @@ DEFUN (no_districute_list_prefix_all,
   return CMD_SUCCESS;
 }       
 
+ALIAS (no_districute_list_prefix_all,
+       no_ipv6_distribute_list_prefix_all_cmd,
+       "no distribute-list prefix WORD (in|out)",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Filter prefixes in routing updates\n"
+       "Name of an IP prefix-list\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n")
+
 DEFUN (districute_list_prefix, distribute_list_prefix_cmd,
        "distribute-list prefix WORD (in|out) WORD",
        "Filter networks in routing updates\n"
@@ -514,6 +568,15 @@ DEFUN (districute_list_prefix, distribute_list_prefix_cmd,
 
   return CMD_SUCCESS;
 }       
+
+ALIAS (districute_list_prefix, ipv6_distribute_list_prefix_cmd,
+       "distribute-list prefix WORD (in|out) WORD",
+       "Filter networks in routing updates\n"
+       "Filter prefixes in routing updates\n"
+       "Name of an IP prefix-list\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
 
 DEFUN (no_districute_list_prefix, no_distribute_list_prefix_cmd,
        "no distribute-list prefix WORD (in|out) WORD",
@@ -548,6 +611,16 @@ DEFUN (no_districute_list_prefix, no_distribute_list_prefix_cmd,
     }
   return CMD_SUCCESS;
 }       
+
+ALIAS (no_districute_list_prefix, no_ipv6_distribute_list_prefix_cmd,
+       "no distribute-list prefix WORD (in|out) WORD",
+       NO_STR
+       "Filter networks in routing updates\n"
+       "Filter prefixes in routing updates\n"
+       "Name of an IP prefix-list\n"
+       "Filter incoming routing updates\n"
+       "Filter outgoing routing updates\n"
+       "Interface name\n")
 
 int
 config_show_distribute (struct vty *vty)
@@ -695,15 +768,23 @@ distribute_list_init (int node)
 {
   disthash = hash_create (distribute_hash_make, distribute_cmp);
 
-  install_element (node, &distribute_list_all_cmd);
-  install_element (node, &no_distribute_list_all_cmd);
-
-  install_element (node, &distribute_list_cmd);
-  install_element (node, &no_distribute_list_cmd);
-
-  install_element (node, &distribute_list_prefix_all_cmd);
-  install_element (node, &no_distribute_list_prefix_all_cmd);
-
-  install_element (node, &distribute_list_prefix_cmd);
-  install_element (node, &no_distribute_list_prefix_cmd);
+  if(node==RIP_NODE) {
+    install_element (RIP_NODE, &distribute_list_all_cmd);
+    install_element (RIP_NODE, &no_distribute_list_all_cmd);
+    install_element (RIP_NODE, &distribute_list_cmd);
+    install_element (RIP_NODE, &no_distribute_list_cmd);
+    install_element (RIP_NODE, &distribute_list_prefix_all_cmd);
+    install_element (RIP_NODE, &no_distribute_list_prefix_all_cmd);
+    install_element (RIP_NODE, &distribute_list_prefix_cmd);
+    install_element (RIP_NODE, &no_distribute_list_prefix_cmd);
+  } else {
+    install_element (RIPNG_NODE, &ipv6_distribute_list_all_cmd);
+    install_element (RIPNG_NODE, &no_ipv6_distribute_list_all_cmd);
+    install_element (RIPNG_NODE, &ipv6_distribute_list_cmd);
+    install_element (RIPNG_NODE, &no_ipv6_distribute_list_cmd);
+    install_element (RIPNG_NODE, &ipv6_distribute_list_prefix_all_cmd);
+    install_element (RIPNG_NODE, &no_ipv6_distribute_list_prefix_all_cmd);
+    install_element (RIPNG_NODE, &ipv6_distribute_list_prefix_cmd);
+    install_element (RIPNG_NODE, &no_ipv6_distribute_list_prefix_cmd);
+  }
 }
