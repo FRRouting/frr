@@ -1,3 +1,9 @@
+2005-01-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* redhat/quagga.spec.in: Fix postun script to avoid misleading error
+	  message saying the postun scriptlet failed when watchquagga
+	  is not running.
+
 2005-01-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* configure.ac: Test for header file <ucontext.h> (for use in

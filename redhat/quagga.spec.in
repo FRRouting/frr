@@ -306,8 +306,9 @@ if [ "$1" -ge 1 ]; then
 			/etc/rc.d/init.d/$daemon start >/dev/null 2>&1
 	done
 	# Start watchquagga last.
+	# Avoid postun scriptlet error if watchquagga is not running. 
 	[ "$running_watchquagga" = yes ] && \
-		/etc/rc.d/init.d/watchquagga start >/dev/null 2>&1
+		/etc/rc.d/init.d/watchquagga start >/dev/null 2>&1 || :
 fi
 
 %preun
