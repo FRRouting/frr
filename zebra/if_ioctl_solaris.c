@@ -29,13 +29,14 @@
 #include "connected.h"
 #include "memory.h"
 #include "log.h"
+#include "privs.h"
 
 #include "zebra/interface.h"
 
 void lifreq_set_name (struct lifreq *, struct interface *);
 static int if_get_addr (struct interface *, struct sockaddr *);
 static void interface_info_ioctl (struct interface *);
-
+extern struct zebra_privs_t zserv_privs;
 
 int
 interface_list_ioctl (int af)
@@ -161,18 +162,12 @@ if_get_index (struct interface *ifp)
 
   lifreq_set_name (&lifreq, ifp);
 
-  if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
-
   if (ifp->flags & IFF_IPV4)
     ret = AF_IOCTL (AF_INET, SIOCGLIFINDEX, (caddr_t) & lifreq);
   else if (ifp->flags & IFF_IPV6)
     ret = AF_IOCTL (AF_INET6, SIOCGLIFINDEX, (caddr_t) & lifreq);
   else
     ret = -1;
-
-  if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
 
   if (ret < 0)
     {
@@ -221,13 +216,7 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr)
 
   if (ifp->flags & IFF_POINTOPOINT)
     {
-      if (zserv_privs.change(ZPRIVS_RAISE))
-        zlog (NULL, LOG_ERR, "Can't raise privileges");      
-
       ret = AF_IOCTL (af, SIOCGLIFDSTADDR, (caddr_t) & lifreq);
-
-      if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
         
       if (ret < 0)
         {

@@ -27,10 +27,12 @@
 #include "prefix.h"
 #include "ioctl.h"
 #include "log.h"
+#include "privs.h"
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
 
+extern struct zebra_privs_t zserv_privs;
 
 /* clear and set interface name string */
 void
@@ -130,18 +132,12 @@ if_get_metric (struct interface *ifp)
 
   lifreq_set_name (&lifreq, ifp);
 
-  if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
-    
   if (ifp->flags & IFF_IPV4)
     ret = AF_IOCTL (AF_INET, SIOCGLIFMETRIC, (caddr_t) & lifreq);
   else if (ifp->flags & IFF_IPV6)
     ret = AF_IOCTL (AF_INET6, SIOCGLIFMETRIC, (caddr_t) & lifreq);
   else
     ret = -1;
-
-  if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
     
   if (ret < 0)
     return;
@@ -158,9 +154,6 @@ if_get_mtu (struct interface *ifp)
 {
   struct lifreq lifreq;
   int ret;
-  
-  if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
   
   if (ifp->flags & IFF_IPV4)
     {
@@ -180,7 +173,6 @@ if_get_mtu (struct interface *ifp)
 
 
   if ((ifp->flags & IFF_IPV6) == 0)
-    goto out;
 
   lifreq_set_name (&lifreq, ifp);
   ret = AF_IOCTL (AF_INET6, SIOCGLIFMTU, (caddr_t) & lifreq);
@@ -193,10 +185,6 @@ if_get_mtu (struct interface *ifp)
     {
       ifp->mtu6 = lifreq.lifr_metric;
     }
-
-out:
-   if (zserv_privs.change(ZPRIVS_LOWER))
-     zlog (NULL, LOG_ERR, "Can't lower privileges");
 }
 
 /* Set up interface's address, netmask (and broadcast? ).
@@ -241,7 +229,7 @@ if_set_prefix (struct interface *ifp, struct connected *ifc)
       memcpy (&ifreq.ifr_broadaddr, &broad, sizeof (struct sockaddr_in));
       ret = if_ioctl (SIOCSIFBRDADDR, (caddr_t) & ifreq);
       if (ret < 0)
-        goto out;
+        return ret;
     }
 
   mask.sin_family = p->family;
@@ -249,7 +237,7 @@ if_set_prefix (struct interface *ifp, struct connected *ifc)
   memcpy (&mask, &ifreq.ifr_addr, sizeof (mask));
 #else
   memcpy (&ifreq.ifr_netmask, &mask, sizeof (struct sockaddr_in));
-#endif /* SUNOS5 */
+#endif /* SUNOS_5 */
   ret = if_ioctl (SIOCSIFNETMASK, (caddr_t) & ifreq);
 
   return ((ret < 0) ? ret : 0);
@@ -293,13 +281,7 @@ if_get_flags (struct interface *ifp)
     {
       lifreq_set_name (&lifreq, ifp);
       
-      if (zserv_privs.change(ZPRIVS_RAISE))
-        zlog (NULL, LOG_ERR, "Can't raise privileges");
-      
       ret = AF_IOCTL (AF_INET, SIOCGLIFFLAGS, (caddr_t) & lifreq);
-      
-      if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
 
       flags4 = (lifreq.lifr_flags & 0xffffffff);
       if (!(flags4 & IFF_UP))
@@ -310,13 +292,7 @@ if_get_flags (struct interface *ifp)
     {
       lifreq_set_name (&lifreq, ifp);
       
-      if (zserv_privs.change(ZPRIVS_RAISE))
-        zlog (NULL, LOG_ERR, "Can't raise privileges");      
-      
       ret = AF_IOCTL (AF_INET6, SIOCGLIFFLAGS, (caddr_t) & lifreq);
-      
-      if (zserv_privs.change(ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
               
       flags6 = (lifreq.lifr_flags & 0xffffffff);
       if (!(flags6 & IFF_UP))
@@ -338,9 +314,6 @@ if_set_flags (struct interface *ifp, unsigned long flags)
   lifreq.lifr_flags = ifp->flags;
   lifreq.lifr_flags |= flags;
 
-  if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
-
   if (ifp->flags & IFF_IPV4)
     ret = AF_IOCTL (AF_INET, SIOCSLIFFLAGS, (caddr_t) & lifreq);
   else if (ifp->flags & IFF_IPV6)
@@ -353,9 +326,8 @@ if_set_flags (struct interface *ifp, unsigned long flags)
                strerror (errno));
   else
     ret = 0;
-
-  if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+    
+  return ret;
 }
 
 /* Unset interface's flag. */
@@ -370,9 +342,6 @@ if_unset_flags (struct interface *ifp, unsigned long flags)
   lifreq.lifr_flags = ifp->flags;
   lifreq.lifr_flags &= ~flags;
 
-  if (zserv_privs.change(ZPRIVS_RAISE))
-    zlog (NULL, LOG_ERR, "Can't raise privileges");
-
   if (ifp->flags & IFF_IPV4)
     ret = AF_IOCTL (AF_INET, SIOCSLIFFLAGS, (caddr_t) & lifreq);
   else if (ifp->flags & IFF_IPV6)
@@ -385,8 +354,7 @@ if_unset_flags (struct interface *ifp, unsigned long flags)
   else
     ret = 0;
   
-  if (zserv_privs.change(ZPRIVS_LOWER))
-    zlog (NULL, LOG_ERR, "Can't lower privileges");
+  return ret;
 }
 
 #ifdef HAVE_IPV6
