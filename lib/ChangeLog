@@ -6,6 +6,11 @@
 	* sockopt.h: Cleanup SOCKOPT_CMSG defines a bit. Add a throwaway
           define for SOPT_SIZE_CMSG_IFINDEX_IPV4 for systems which have
           neither IP_RECVIF nor IP_PKTINFO (eg openbsd).
+	* command.h: Cleanup the defines a bit, add helper defines and
+	  collapse all defines to use those. Add an attribute field to
+	  cmd_element to support, eg hidden or deprecated commands, add
+          defun defines for such. All that's left to do is add logic
+          to command.c to check these attributes... ;)
 
 2004-10-19 Hasso Tepper <hasso at quagga.net>
 

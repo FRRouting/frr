@@ -125,6 +125,12 @@ struct cmd_node
   vector cmd_vector;	
 };
 
+enum
+{
+  CMD_ATTR_DEPRECATED,
+  CMD_ATTR_HIDDEN,
+};
+
 /* Structure of command element. */
 struct cmd_element 
 {
@@ -136,6 +142,7 @@ struct cmd_element
   unsigned int cmdsize;		/* Command index count. */
   char *config;			/* Configuration string */
   vector subconfig;		/* Sub configuration string */
+  u_char attr;			/* Command attributes */
 };
 
 /* Command description structure. */
@@ -164,17 +171,40 @@ struct desc
 /* Turn off these macros when uisng cpp with extract.pl */
 #ifndef VTYSH_EXTRACT_PL  
 
-/* DEFUN for vty command interafce. Little bit hacky ;-). */
-#define DEFUN(funcname, cmdname, cmdstr, helpstr) \
-  int funcname (struct cmd_element *, struct vty *, int, const char *[]); \
+/* helper defines for end-user DEFUN* macros */
+#define DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attrs, dnum) \
   struct cmd_element cmdname = \
   { \
     .string = cmdstr, \
     .func = funcname, \
-    .doc = helpstr \
-  }; \
+    .doc = helpstr, \
+    .attr = attrs, \
+    .daemon = dnum, \
+  };
+
+#define DEFUN_CMD_FUNC_DECL(funcname) \
+  int funcname (struct cmd_element *, struct vty *, int, const char *[]); \
+
+#define DEFUN_CMD_FUNC_TEXT(funcname) \
   int funcname \
-  (struct cmd_element *self, struct vty *vty, int argc, const char *argv[])
+    (struct cmd_element *self, struct vty *vty, int argc, const char *argv[])
+
+/* DEFUN for vty command interafce. Little bit hacky ;-). */
+#define DEFUN(funcname, cmdname, cmdstr, helpstr) \
+  DEFUN_CMD_FUNC_DECL(funcname) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0) \
+  DEFUN_CMD_FUNC_TEXT(funcname)
+
+#define DEFUN_ATTR(funcname, cmdname, cmdstr, helpstr, attr) \
+  DEFUN_CMD_FUNC_DECL(funcname) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0) \
+  DEFUN_CMD_FUNC_TEXT(funcname)
+
+#define DEFUN_HIDDEN(funcname, cmdname, cmdstr, helpstr) \
+  DEFUN_ATTR (funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
+
+#define DEFUN_DEPRECATED(funcname, cmdname, cmdstr, helpstr) \
+  DEFUN (funcname, cmdname, cmdstr, helpstr, CMD_ATTR_DEPRECATED) \
 
 /* DEFUN_NOSH for commands that vtysh should ignore */
 #define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr) \
@@ -182,35 +212,26 @@ struct desc
 
 /* DEFSH for vtysh. */
 #define DEFSH(daemon, cmdname, cmdstr, helpstr) \
-  struct cmd_element cmdname = \
-  { \
-    cmdstr, \
-    NULL, \
-    helpstr, \
-    daemon \
-  }; \
+  DEFUN_CMD_ELEMENT(NULL, cmdname, cmdstr, helpstr, 0, daemon) \
 
 /* DEFUN + DEFSH */
 #define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr) \
-  int funcname (struct cmd_element *, struct vty *, int, const char *[]); \
-  struct cmd_element cmdname = \
-  { \
-    cmdstr, \
-    funcname, \
-    helpstr, \
-    daemon \
-  }; \
-  int funcname \
-  (struct cmd_element *self, struct vty *vty, int argc, const char *argv[])
+  DEFUN_CMD_FUNC_DECL(funcname) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, daemon) \
+  DEFUN_CMD_FUNC_TEXT(funcname)
 
 /* ALIAS macro which define existing command's alias. */
 #define ALIAS(funcname, cmdname, cmdstr, helpstr) \
-  struct cmd_element cmdname = \
-  { \
-    cmdstr, \
-    funcname, \
-    helpstr \
-  };
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)
+
+#define ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, attr) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, daemon) \
+
+#define ALIAS_HIDDEN(funcname, cmdname, cmdstr, helpstr) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, 0)
+
+#define ALIAS_DEPRECATED(funcname, cmdname, cmdstr, helpstr) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_DEPRECATED, 0)
 
 #endif /* VTYSH_EXTRACT_PL */
 
