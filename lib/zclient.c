@@ -321,6 +321,8 @@ zapi_ipv4_add (struct zclient *zclient, struct prefix_ipv4 *p,
         {
           stream_putc (s, 1);
           stream_putc (s, ZEBRA_NEXTHOP_BLACKHOLE);
+	  /* XXX assert(api->nexthop_num == 0); */
+	  /* XXX assert(api->ifindex_num == 0); */
         }
       else
         stream_putc (s, api->nexthop_num + api->ifindex_num);
@@ -381,6 +383,8 @@ zapi_ipv4_delete (struct zclient *zclient, struct prefix_ipv4 *p,
         {
           stream_putc (s, 1);
           stream_putc (s, ZEBRA_NEXTHOP_BLACKHOLE);
+	  /* XXX assert(api->nexthop_num == 0); */
+	  /* XXX assert(api->ifindex_num == 0); */
         }
       else
         stream_putc (s, api->nexthop_num + api->ifindex_num);
