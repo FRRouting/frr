@@ -1676,12 +1676,12 @@ void
 vtysh_connect_all()
 {
   /* Clear each daemons client structure. */
-  vtysh_connect (&vtysh_client[VTYSH_INDEX_ZEBRA], ZEBRA_PATH);
-  vtysh_connect (&vtysh_client[VTYSH_INDEX_RIP], RIP_PATH);
-  vtysh_connect (&vtysh_client[VTYSH_INDEX_RIPNG], RIPNG_PATH);
-  vtysh_connect (&vtysh_client[VTYSH_INDEX_OSPF], OSPF_PATH);
-  vtysh_connect (&vtysh_client[VTYSH_INDEX_OSPF6], OSPF6_PATH);
-  vtysh_connect (&vtysh_client[VTYSH_INDEX_BGP], BGP_PATH);
+  vtysh_connect (&vtysh_client[VTYSH_INDEX_ZEBRA], ZEBRA_VTYSH_PATH);
+  vtysh_connect (&vtysh_client[VTYSH_INDEX_RIP], RIP_VTYSH_PATH);
+  vtysh_connect (&vtysh_client[VTYSH_INDEX_RIPNG], RIPNG_VTYSH_PATH);
+  vtysh_connect (&vtysh_client[VTYSH_INDEX_OSPF], OSPF_VTYSH_PATH);
+  vtysh_connect (&vtysh_client[VTYSH_INDEX_OSPF6], OSPF6_VTYSH_PATH);
+  vtysh_connect (&vtysh_client[VTYSH_INDEX_BGP], BGP_VTYSH_PATH);
 }
 
 
