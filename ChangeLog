@@ -1,3 +1,14 @@
+2004-04-08 Paul Jakma <paul@dishone.st>
+
+	* ospf_spf.h: Add backlink field to struct vertex
+	* ospf_spf.h: (ospf_vertex_new) initialise backlink
+	  (ospf_lsa_has_link) return index of link back to
+	  vertex V from candidate vertex W, or -1 if no link exists.
+	  (ospf_spf_next) save backlink index for candidate vertex
+	* ospf_interface.c: (ospf_vl_set_params) Use the backlink index
+	  to determine correct address for virtual-link peers. Fall back 
+	  to older "pick first link" method if no backlink index exists.
+	  
 2004-04-06 Hasso Tepper <hasso@estpak.ee>
 	
 	* zebra/ipforward_proc.c: Fixed lowering privileges.

@@ -93,6 +93,7 @@ ospf_vertex_new (struct ospf_lsa *lsa)
   new->distance = 0;
   new->child = list_new ();
   new->nexthop = list_new ();
+  new->backlink = -1;
 
   return new;
 }
@@ -184,6 +185,7 @@ ospf_vertex_lookup (list vlist, struct in_addr id, int type)
   return NULL;
 }
 
+/* return index of link back to V from W, or -1 if no link found */
 int
 ospf_lsa_has_link (struct lsa_header *w, struct lsa_header *v)
 {
@@ -196,15 +198,15 @@ ospf_lsa_has_link (struct lsa_header *w, struct lsa_header *v)
   if (w->type == OSPF_NETWORK_LSA)
     {
       if (v->type == OSPF_NETWORK_LSA)
-        return 0;
+        return -1;
 
       nl = (struct network_lsa *) w;
       length = (ntohs (w->length) - OSPF_LSA_HEADER_SIZE - 4) / 4;
 
       for (i = 0; i < length; i++)
         if (IPV4_ADDR_SAME (&nl->routers[i], &v->id))
-          return 1;
-      return 0;
+          return i;
+      return -1;
     }
 
   /* In case of W is Router LSA. */
@@ -226,7 +228,7 @@ ospf_lsa_has_link (struct lsa_header *w, struct lsa_header *v)
               if (v->type == OSPF_ROUTER_LSA &&
                   IPV4_ADDR_SAME (&rl->link[i].link_id, &v->id))
                 {
-                  return 1;
+                  return i;
                 }
               break;
             case LSA_LINK_TYPE_TRANSIT:
@@ -234,7 +236,7 @@ ospf_lsa_has_link (struct lsa_header *w, struct lsa_header *v)
               if (v->type == OSPF_NETWORK_LSA &&
                   IPV4_ADDR_SAME (&rl->link[i].link_id, &v->id))
                 {
-                  return 1;
+                  return i;
                 }
               break;
             case LSA_LINK_TYPE_STUB:
@@ -245,7 +247,7 @@ ospf_lsa_has_link (struct lsa_header *w, struct lsa_header *v)
             }
         }
     }
-  return 0;
+  return -1;
 }
 
 /* Add the nexthop to the list, only if it is unique.
@@ -544,6 +546,8 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
 
   while (p < lim)
     {
+      int link = -1; /* link index for w's back link */
+      
       /* In case of V is Router-LSA. */
       if (v->lsa->type == OSPF_ROUTER_LSA)
         {
@@ -616,7 +620,7 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
       if (IS_LSA_MAXAGE (w_lsa))
         continue;
 
-      if (!ospf_lsa_has_link (w_lsa->data, v->lsa))
+      if ( (link = ospf_lsa_has_link (w_lsa->data, v->lsa)) < 0 )
         {
           if (IS_DEBUG_OSPF_EVENT)
             zlog_info ("The LSA doesn't have a link back");
@@ -640,6 +644,9 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
 
       /* prepare vertex W. */
       w = ospf_vertex_new (w_lsa);
+
+      /* Save W's back link index number, for use by virtual links */
+      w->backlink = link;
 
       /* calculate link cost D. */
       if (v->lsa->type == OSPF_ROUTER_LSA)

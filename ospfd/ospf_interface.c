@@ -933,24 +933,49 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
       }
 
   rl = (struct router_lsa *)v->lsa;
-  
-  for (i = 0; i < ntohs (rl->links); i++)
+
+  /* use SPF determined backlink index in struct vertex
+   * for virtual link destination address
+   */
+  if (v->backlink >= 0)
     {
-      switch (rl->link[i].type)
+      if (!IPV4_ADDR_SAME (&vl_data->peer_addr,
+                           &rl->link[v->backlink].link_data))
+        changed = 1;
+      vl_data->peer_addr = rl->link[v->backlink].link_data;
+    }
+  else
+    {
+      /* This is highly odd, there is no backlink index
+       * there should be due to the ospf_spf_has_link() check
+       * in SPF. Lets warn and try pick a link anyway.
+       */
+      zlog_warn ("ospf_vl_set_params: No backlink for %s!",
+                 vl_data->vl_oi->ifp->name);
+      for (i = 0; i < ntohs (rl->links); i++)
         {
-          case LSA_LINK_TYPE_VIRTUALLINK:
-            if (IS_DEBUG_OSPF_EVENT)
-              zlog_info ("found back link through VL");
-          case LSA_LINK_TYPE_TRANSIT:
-          case LSA_LINK_TYPE_POINTOPOINT:
-            vl_data->peer_addr = rl->link[i].link_data;
-          if (IS_DEBUG_OSPF_EVENT)
-            zlog_info ("%s peer address is %s\n",
-        	           vl_data->vl_oi->ifp->name, 
-        	           inet_ntoa(vl_data->peer_addr));
-          return changed;
+          switch (rl->link[i].type)
+            {
+              case LSA_LINK_TYPE_VIRTUALLINK:
+                if (IS_DEBUG_OSPF_EVENT)
+                  zlog_info ("found back link through VL");
+              case LSA_LINK_TYPE_TRANSIT:
+              case LSA_LINK_TYPE_POINTOPOINT:
+                vl_data->peer_addr = rl->link[i].link_data;
+              if (IS_DEBUG_OSPF_EVENT)
+                zlog_info ("%s peer address is %s\n",
+                               vl_data->vl_oi->ifp->name, 
+                               inet_ntoa(vl_data->peer_addr));
+              return changed;
+            }
         }
     }
+    
+  if (IS_DEBUG_OSPF_EVENT)
+    zlog_info ("ospf_vl_set_params: %s peer address is %s\n",
+               vl_data->vl_oi->ifp->name,
+               inet_ntoa(vl_data->peer_addr));
+               
   return changed;
 }
 

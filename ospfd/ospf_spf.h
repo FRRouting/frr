@@ -33,6 +33,7 @@ struct vertex
   struct in_addr id;
   struct lsa_header *lsa;
   u_int32_t distance;
+  int backlink;        /* link index of back-link */
   list child;
   list nexthop;
 };
@@ -44,7 +45,7 @@ struct vertex_nexthop
   struct vertex *parent;
 };
 
-void ospf_spf_calculate_schedule ();
+void ospf_spf_calculate_schedule (struct ospf *);
 void ospf_rtrs_free (struct route_table *);
 
 /* void ospf_spf_calculate_timer_add (); */
