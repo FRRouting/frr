@@ -969,7 +969,7 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
 	  char buf2[INET6_ADDRSTRLEN];
 
 	  if (BGP_DEBUG (update, UPDATE_IN))
-	    zlog_warn ("%s got two nexthop %s %s but second one is not a link-local nexthop", peer->host,
+	    zlog_debug ("%s got two nexthop %s %s but second one is not a link-local nexthop", peer->host,
 		       inet_ntop (AF_INET6, &attr->mp_nexthop_global,
 				  buf1, INET6_ADDRSTRLEN),
 		       inet_ntop (AF_INET6, &attr->mp_nexthop_local,
@@ -1085,7 +1085,7 @@ bgp_attr_unknown (struct peer *peer, struct attr *attr, u_char flag,
   struct transit *transit;
 
   if (BGP_DEBUG (events, EVENTS))
-    zlog (peer->log, LOG_INFO, 
+    zlog (peer->log, LOG_DEBUG, 
 	  "Unknown attribute type %d length %d is received", type, length);
 
   /* Forward read pointer of input stream. */
