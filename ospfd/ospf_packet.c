@@ -705,8 +705,10 @@ ospf_write (struct thread *thread)
   sockopt_iphdrincl_swab_systoh (&iph);
   
   if (ret < 0)
-    zlog_warn ("*** sendmsg in ospf_write to %s failed with %s",
-      inet_ntoa (iph.ip_dst), safe_strerror (errno));
+    zlog_warn ("*** sendmsg in ospf_write failed to %s, "
+	       "id %d, off %d, len %d: %s",
+	       inet_ntoa (iph.ip_dst), iph.ip_id, iph.ip_off, iph.ip_len,
+	       safe_strerror (errno));
 
   /* Show debug sending packet. */
   if (IS_DEBUG_OSPF_PACKET (type - 1, SEND))

@@ -1,3 +1,8 @@
+2005-02-09 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_packet.c: (ospf_write) If sendmsg fails, give more info in the
+	  error message.
+	  
 2005-02-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_interface.h: Reduce structure padding by putting new u_char
