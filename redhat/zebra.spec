@@ -18,8 +18,8 @@
 
 Summary: Routing daemon
 Name:		zebra
-Version:	0.93b
-Release:	2003012001
+Version:	0.94
+Release:	2003021301
 License:	GPL
 Group: System Environment/Daemons
 Source0:	ftp://ftp.zebra.org/pub/zebra/%{name}-%{version}.tar.gz
