@@ -8,7 +8,7 @@
 AC_PREREQ(2.53)
 
 AC_INIT(lib/zebra.h)
-AM_INIT_AUTOMAKE(quagga, 0.96.1)
+AM_INIT_AUTOMAKE(quagga, 0.96.2)
 AM_CONFIG_HEADER(config.h)
 
 dnl -----------------------------------
