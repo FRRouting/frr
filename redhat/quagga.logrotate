@@ -1,4 +1,4 @@
-/var/log/zebra/zebra.log {
+/var/log/quagga/zebra.log {
     notifempty
     missingok
     nocompress
@@ -8,7 +8,7 @@
     endscript
 }
 
-/var/log/zebra/bgpd.log {
+/var/log/quagga/bgpd.log {
     notifempty
     missingok
     nocompress
@@ -18,7 +18,7 @@
     endscript
 }
 
-/var/log/zebra/ospfd.log {
+/var/log/quagga/ospfd.log {
     notifempty
     missingok
     nocompress
@@ -28,7 +28,7 @@
     endscript
 }
 
-/var/log/zebra/ospf6d.log {
+/var/log/quagga/ospf6d.log {
     notifempty
     missingok
     nocompress
@@ -38,7 +38,7 @@
     endscript
 }
 
-/var/log/zebra/ripd.log {
+/var/log/quagga/ripd.log {
     notifempty
     missingok
     nocompress
@@ -48,7 +48,7 @@
     endscript
 }
 
-/var/log/zebra/ripngd.log {
+/var/log/quagga/ripngd.log {
     notifempty
     missingok
     nocompress
