@@ -57,6 +57,7 @@ struct thread_master
 struct thread
 {
   unsigned char type;		/* thread type */
+  unsigned char add_type;	/* thread type */
   struct thread *next;		/* next pointer of the thread */
   struct thread *prev;		/* previous pointer of the thread */
   struct thread_master *master;	/* pointer to the struct thread_master. */
@@ -68,6 +69,15 @@ struct thread
     struct timeval sands;	/* rest of time sands value. */
   } u;
   RUSAGE_T ru;			/* Indepth usage info.  */
+  char* funcname;
+};
+
+struct cpu_thread_history {
+  int (*func)(struct thread *);
+  char *funcname;
+  unsigned int total_calls;
+  unsigned long total, max;
+  unsigned char types;
 };
 
 /* Thread types. */
@@ -77,6 +87,7 @@ struct thread
 #define THREAD_EVENT          3
 #define THREAD_READY          4
 #define THREAD_UNUSED         5
+#define THREAD_EXECUTE        6
 
 /* Thread yield time.  */
 #define THREAD_YIELD_TIME_SLOT     100 * 1000L /* 100ms */
@@ -117,23 +128,31 @@ struct thread
 #define THREAD_WRITE_OFF(thread)  THREAD_OFF(thread)
 #define THREAD_TIMER_OFF(thread)  THREAD_OFF(thread)
 
+#define thread_add_read(m,f,a,v) funcname_thread_add_read(m,f,a,v,#f)
+#define thread_add_write(m,f,a,v) funcname_thread_add_write(m,f,a,v,#f)
+#define thread_add_timer(m,f,a,v) funcname_thread_add_timer(m,f,a,v,#f)
+#define thread_add_event(m,f,a,v) funcname_thread_add_event(m,f,a,v,#f)
+#define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f)
+
 /* Prototypes. */
 struct thread_master *thread_master_create ();
-struct thread *thread_add_read (struct thread_master *, 
-				int (*)(struct thread *), void *, int);
-struct thread *thread_add_write (struct thread_master *,
-				 int (*)(struct thread *), void *, int);
-struct thread *thread_add_timer (struct thread_master *,
-				 int (*)(struct thread *), void *, long);
-struct thread *thread_add_event (struct thread_master *,
-				 int (*)(struct thread *), void *, int );
+struct thread *funcname_thread_add_read (struct thread_master *, 
+				int (*)(struct thread *), void *, int, char*);
+struct thread *funcname_thread_add_write (struct thread_master *,
+				 int (*)(struct thread *), void *, int, char*);
+struct thread *funcname_thread_add_timer (struct thread_master *,
+				 int (*)(struct thread *), void *, long, char*);
+struct thread *funcname_thread_add_event (struct thread_master *,
+				 int (*)(struct thread *), void *, int, char*);
 void thread_cancel (struct thread *);
 void thread_cancel_event (struct thread_master *, void *);
 
 struct thread *thread_fetch (struct thread_master *, struct thread *);
-struct thread *thread_execute (struct thread_master *,
-			       int (*)(struct thread *), void *, int);
+struct thread *funcname_thread_execute (struct thread_master *,
+			       int (*)(struct thread *), void *, int, char *);
 void thread_call (struct thread *);
 unsigned long thread_timer_remain_second (struct thread *);
+
+extern struct cmd_element show_thread_cpu_cmd;
 
 #endif /* _ZEBRA_THREAD_H */

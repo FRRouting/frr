@@ -33,6 +33,7 @@
 #include "connected.h"
 #include "table.h"
 #include "rib.h"
+#include "thread.h"
 
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
@@ -1456,7 +1457,6 @@ kernel_address_delete_ipv4 (struct interface *ifp, struct connected *ifc)
   return netlink_address (RTM_DELADDR, AF_INET, ifp, ifc);
 }
 
-#include "thread.h"
 
 extern struct thread_master *master;
 

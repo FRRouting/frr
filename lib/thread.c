@@ -26,6 +26,10 @@
 #include "thread.h"
 #include "memory.h"
 #include "log.h"
+#include "hash.h"
+#include "command.h"
+
+static struct hash *cpu_record = NULL;
 
 /* Struct timeval's tv_usec one second value.  */
 #define TIMER_SECOND_MICRO 1000000L
@@ -82,6 +86,141 @@ timeval_elapsed (struct timeval a, struct timeval b)
 	  + (a.tv_usec - b.tv_usec));
 }
 
+static unsigned int 
+cpu_record_hash_key (struct cpu_thread_history *a)
+{
+  return (unsigned int) a->func;
+}
+
+static int 
+cpu_record_hash_cmp (struct cpu_thread_history *a,
+		     struct cpu_thread_history *b)
+{
+  return a->func == b->func;
+}
+
+static void*  
+cpu_record_hash_alloc (struct cpu_thread_history *a)
+{
+  struct cpu_thread_history *new;
+  new = XMALLOC( MTYPE_TMP/*XXX*/, sizeof *new);
+  memset(new, 0, sizeof *new);
+  new->func = a->func;
+  new->funcname = XSTRDUP(MTYPE_TMP/*XXX*/,a->funcname);
+  return new;
+}
+
+static inline void 
+vty_out_cpu_thread_history(struct vty* vty,
+			   struct cpu_thread_history *a)
+{
+  vty_out(vty, " %7ld.%03ld  %9d  %8ld  %10ld %c%c%c%c%c %s%s",
+	  a->total/1000, a->total%1000, a->total_calls,
+	  a->total/a->total_calls, a->max,
+	  a->types & (1 << THREAD_READ) ? 'R':' ',
+	  a->types & (1 << THREAD_WRITE) ? 'W':' ',
+	  a->types & (1 << THREAD_TIMER) ? 'T':' ',
+	  a->types & (1 << THREAD_EVENT) ? 'E':' ',
+	  a->types & (1 << THREAD_EXECUTE) ? 'X':' ',
+	  a->funcname, VTY_NEWLINE);
+}
+
+static void
+cpu_record_hash_print(struct hash_backet *bucket, 
+		      void *args[])
+{
+  struct cpu_thread_history *totals = args[0];
+  struct vty *vty = args[1];
+  unsigned char *filter = args[2];
+  struct cpu_thread_history *a = bucket->data;
+
+
+  a = bucket->data;
+  if ( !(a->types & *filter) )
+       return;
+  vty_out_cpu_thread_history(vty,a);
+  totals->total += a->total;
+  totals->total_calls += a->total_calls;
+  if (totals->max < a->max)
+    totals->max = a->max;
+}
+
+static void
+cpu_record_print(struct vty *vty, unsigned char filter)
+{
+  struct cpu_thread_history tmp;
+  void *args[3] = {&tmp, vty, &filter};
+
+  memset(&tmp, 0, sizeof tmp);
+  tmp.funcname = "TOTAL";
+  tmp.types = filter;
+
+  vty_out(vty, 
+	  " Runtime(ms)    Invoked Avg uSecs   Max uSecs  Type Thread%s", 
+	  VTY_NEWLINE);
+  hash_iterate(cpu_record,
+	       (void(*)(struct hash_backet*,void*))cpu_record_hash_print,
+	       args);
+
+  if (tmp.total_calls > 0)
+    vty_out_cpu_thread_history(vty, &tmp);
+}
+
+DEFUN(show_thread_cpu,
+      show_thread_cpu_cmd,
+      "show thread cpu [FILTER]",
+      SHOW_STR
+      "Thread information\n"
+      "Thread CPU usage\n"
+      "Display filter (rwtex)\n")
+{
+  int i = 0;
+  unsigned char filter = 0xff;
+
+  if (argc > 0)
+    {
+      filter = 0;
+      while (argv[0][i] != '\0')
+	{
+	  switch ( argv[0][i] )
+	    {
+	    case 'r':
+	    case 'R':
+	      filter |= (1 << THREAD_READ);
+	      break;
+	    case 'w':
+	    case 'W':
+	      filter |= (1 << THREAD_WRITE);
+	      break;
+	    case 't':
+	    case 'T':
+	      filter |= (1 << THREAD_TIMER);
+	      break;
+	    case 'e':
+	    case 'E':
+	      filter |= (1 << THREAD_EVENT);
+	      break;
+	    case 'x':
+	    case 'X':
+	      filter |= (1 << THREAD_EXECUTE);
+	      break;
+	    default:
+	      break;
+	    }
+	  ++i;
+	}
+      if (filter == 0)
+	{
+	  vty_out(vty, "Invalid filter \"%s\" specified, must contain at least one of 'RWTEX'%s",
+		  argv[0], VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+    }
+
+  cpu_record_print(vty, filter);
+  return CMD_SUCCESS;
+}
+
 /* List allocation and head/tail print out. */
 static void
 thread_list_debug (struct thread_list *list)
@@ -113,6 +252,10 @@ thread_master_debug (struct thread_master *m)
 struct thread_master *
 thread_master_create ()
 {
+  if (cpu_record == NULL) 
+    {
+      cpu_record = hash_create_size( 1011, cpu_record_hash_key, cpu_record_hash_cmp);
+    }
   return (struct thread_master *) XCALLOC (MTYPE_THREAD_MASTER,
 					   sizeof (struct thread_master));
 }
@@ -235,10 +378,37 @@ thread_timer_remain_second (struct thread *thread)
     return 0;
 }
 
+/* Trim blankspace and "()"s */
+static char *
+strip_funcname (char *funcname) 
+{
+  char buff[100];
+  char tmp, *ret, *e, *b = buff;
+
+  strncpy(buff, funcname, sizeof(buff));
+  buff[ sizeof(buff) -1] = '\0';
+  e = buff +strlen(buff) -1;
+
+  /* Wont work for funcname ==  "Word (explanation)"  */
+
+  while (*b == ' ' || *b == '(')
+    ++b;
+  while (*e == ' ' || *e == ')')
+    --e;
+  e++;
+
+  tmp = *e;
+  *e = '\0';
+  ret  = XSTRDUP (MTYPE_TMP, b);
+  *e = tmp;
+
+  return ret;
+}
+
 /* Get new thread.  */
 static struct thread *
 thread_get (struct thread_master *m, u_char type,
-	    int (*func) (struct thread *), void *arg)
+	    int (*func) (struct thread *), void *arg, char* funcname)
 {
   struct thread *thread;
 
@@ -250,17 +420,20 @@ thread_get (struct thread_master *m, u_char type,
       m->alloc++;
     }
   thread->type = type;
+  thread->add_type = type;
   thread->master = m;
   thread->func = func;
   thread->arg = arg;
   
+  thread->funcname = strip_funcname(funcname);
+
   return thread;
 }
 
 /* Add new read thread. */
 struct thread *
-thread_add_read (struct thread_master *m, 
-		 int (*func) (struct thread *), void *arg, int fd)
+funcname_thread_add_read (struct thread_master *m, 
+		 int (*func) (struct thread *), void *arg, int fd, char* funcname)
 {
   struct thread *thread;
 
@@ -272,7 +445,7 @@ thread_add_read (struct thread_master *m,
       return NULL;
     }
 
-  thread = thread_get (m, THREAD_READ, func, arg);
+  thread = thread_get (m, THREAD_READ, func, arg, funcname);
   FD_SET (fd, &m->readfd);
   thread->u.fd = fd;
   thread_list_add (&m->read, thread);
@@ -282,8 +455,8 @@ thread_add_read (struct thread_master *m,
 
 /* Add new write thread. */
 struct thread *
-thread_add_write (struct thread_master *m,
-		 int (*func) (struct thread *), void *arg, int fd)
+funcname_thread_add_write (struct thread_master *m,
+		 int (*func) (struct thread *), void *arg, int fd, char* funcname)
 {
   struct thread *thread;
 
@@ -295,7 +468,7 @@ thread_add_write (struct thread_master *m,
       return NULL;
     }
 
-  thread = thread_get (m, THREAD_WRITE, func, arg);
+  thread = thread_get (m, THREAD_WRITE, func, arg, funcname);
   FD_SET (fd, &m->writefd);
   thread->u.fd = fd;
   thread_list_add (&m->write, thread);
@@ -305,8 +478,8 @@ thread_add_write (struct thread_master *m,
 
 /* Add timer event thread. */
 struct thread *
-thread_add_timer (struct thread_master *m,
-		  int (*func) (struct thread *), void *arg, long timer)
+funcname_thread_add_timer (struct thread_master *m,
+		  int (*func) (struct thread *), void *arg, long timer, char* funcname)
 {
   struct timeval timer_now;
   struct thread *thread;
@@ -316,7 +489,7 @@ thread_add_timer (struct thread_master *m,
 
   assert (m != NULL);
 
-  thread = thread_get (m, THREAD_TIMER, func, arg);
+  thread = thread_get (m, THREAD_TIMER, func, arg, funcname);
 
   /* Do we need jitter here? */
   gettimeofday (&timer_now, NULL);
@@ -342,14 +515,14 @@ thread_add_timer (struct thread_master *m,
 
 /* Add simple event thread. */
 struct thread *
-thread_add_event (struct thread_master *m,
-		  int (*func) (struct thread *), void *arg, int val)
+funcname_thread_add_event (struct thread_master *m,
+		  int (*func) (struct thread *), void *arg, int val, char* funcname)
 {
   struct thread *thread;
 
   assert (m != NULL);
 
-  thread = thread_get (m, THREAD_EVENT, func, arg);
+  thread = thread_get (m, THREAD_EVENT, func, arg, funcname);
   thread->u.val = val;
   thread_list_add (&m->event, thread);
 
@@ -621,6 +794,11 @@ thread_call (struct thread *thread)
 {
   unsigned long thread_time;
   RUSAGE_T ru;
+  struct cpu_thread_history tmp, *cpu;
+  
+  tmp.func = thread->func;
+  tmp.funcname = thread->funcname;
+  cpu = hash_get(cpu_record, &tmp, cpu_record_hash_alloc);
 
   GETRUSAGE (&thread->ru);
 
@@ -629,6 +807,12 @@ thread_call (struct thread *thread)
   GETRUSAGE (&ru);
 
   thread_time = thread_consumed_time (&ru, &thread->ru);
+  cpu->total += thread_time;
+  if (cpu->max < thread_time)
+    cpu->max = thread_time;
+
+  ++cpu->total_calls;
+  cpu->types |= (1 << thread->add_type);
 
 #ifdef THREAD_CONSUMED_TIME_CHECK
   if (thread_time > 200000L)
@@ -638,8 +822,8 @@ thread_call (struct thread *thread)
        * Whinge about it now, so we're aware this is yet another task
        * to fix.
        */
-      zlog_err ("CPU HOG task %lx ran for %ldms",
-                /* FIXME: report the name of the function somehow */
+      zlog_err ("CPU HOG task %s (%lx) ran for %ldms",
+		thread->funcname,
 		(unsigned long) thread->func,
 		thread_time / 1000L);
     }
@@ -648,20 +832,23 @@ thread_call (struct thread *thread)
 
 /* Execute thread */
 struct thread *
-thread_execute (struct thread_master *m,
+funcname_thread_execute (struct thread_master *m,
                 int (*func)(struct thread *), 
                 void *arg,
-                int val)
+                int val,
+		char* funcname)
 {
   struct thread dummy; 
 
   memset (&dummy, 0, sizeof (struct thread));
 
   dummy.type = THREAD_EVENT;
+  dummy.add_type = THREAD_EXECUTE;
   dummy.master = NULL;
   dummy.func = func;
   dummy.arg = arg;
   dummy.u.val = val;
+  dummy.funcname = strip_funcname (funcname);
   thread_call (&dummy);
 
   return NULL;
