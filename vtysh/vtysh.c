@@ -1167,6 +1167,12 @@ DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
        "description .LINE",
        "Interface specific description\n"
        "Characters describing this interface\n")
+       
+DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
+       no_interface_desc_cmd,
+       "no description",
+       NO_STR
+       "Interface specific description\n")
 
 DEFSH (VTYSH_RIPD|VTYSH_BGPD,
        set_ip_nexthop_cmd,
@@ -1821,6 +1827,7 @@ vtysh_init_vty ()
   install_element (RMAP_NODE, &vtysh_end_all_cmd);
 
   install_element (INTERFACE_NODE, &interface_desc_cmd);
+  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &vtysh_end_all_cmd);
   install_element (INTERFACE_NODE, &vtysh_exit_interface_cmd);
   install_element (INTERFACE_NODE, &vtysh_quit_interface_cmd);
