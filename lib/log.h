@@ -126,4 +126,7 @@ const char *mes_lookup (struct message *meslist, int max, int index);
 
 extern const char *zlog_priority[];
 
+/* Safe version of strerror -- never returns NULL. */
+extern const char *safe_strerror(int errnum);
+
 #endif /* _ZEBRA_LOG_H */

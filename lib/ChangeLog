@@ -1,3 +1,7 @@
+2004-11-19 David Young <dyoung@pobox.com>
+
+	* log.c: (safe_strerror) New function: safe wrapper for strerror.
+
 2004-11-19 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* sockopt.c: (setsockopt_so_recvbuf) Stop error message from being

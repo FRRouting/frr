@@ -498,3 +498,11 @@ mes_lookup (struct message *meslist, int max, int index)
     }
   return meslist[index].str;
 }
+
+/* Wrapper around strerror to handle case where it returns NULL. */
+const char *
+safe_strerror(int errnum)
+{
+  const char *s = strerror(errnum);
+  return (s != NULL) ? s : "Unknown error";
+}
