@@ -1,6 +1,6 @@
 /*
-   $Id: command.c,v 1.41 2005/03/08 16:00:12 paul Exp $
-
+   $Id: command.c,v 1.42 2005/03/09 13:39:26 paul Exp $
+ 
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
 
@@ -1561,12 +1561,12 @@ cmd_try_do_shortcut (enum node_type node, char* first_word) {
 static vector
 cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 {
-  unsigned int i;
+  int i;
   vector cmd_vector;
 #define INIT_MATCHVEC_SIZE 10
   vector matchvec;
   struct cmd_element *cmd_element;
-  unsigned int index;
+  int index;
   int ret;
   enum match_type match;
   char *command;
@@ -1757,12 +1757,12 @@ cmd_lcd (char **matched)
 static char **
 cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 {
-  unsigned int i;
+  int i;
   vector cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
 #define INIT_MATCHVEC_SIZE 10
   vector matchvec;
   struct cmd_element *cmd_element;
-  unsigned int index = vector_max (vline) - 1;
+  int index = vector_max (vline) - 1;
   char **match_str;
   struct desc *desc;
   vector descvec;
@@ -2483,9 +2483,7 @@ DEFUN (config_list,
   struct cmd_element *cmd;
 
   for (i = 0; i < vector_max (cnode->cmd_vector); i++)
-    if ((cmd = vector_slot (cnode->cmd_vector, i)) != NULL
-        && !(cmd->attr == CMD_ATTR_DEPRECATED 
-             || cmd->attr == CMD_ATTR_HIDDEN))
+    if ((cmd = vector_slot (cnode->cmd_vector, i)) != NULL)
       vty_out (vty, "  %s%s", cmd->string,
 	       VTY_NEWLINE);
   return CMD_SUCCESS;

@@ -1,3 +1,9 @@
+2005-03-09 Paul Jakma <paul.jakma@sun.com>
+
+	* command.c: Undo commit of sign warning fix and hidden command
+	  in list_cmd. Sign warning is more subtle. list_cmd on its own
+	  will be committed after.
+
 2005-03-08 Paul Jakma <paul.jakma@sun.com>
 
 	* command.c: (banner_motd_file_cmd) use XSTRDUP/XFREE.
