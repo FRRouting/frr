@@ -699,17 +699,17 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 	  struct connected *co = getdata (cn);
 	  struct prefix *addr;
 
-	  if (if_is_pointopoint (ifp))
+	  if (ifc_pointopoint (co))
 	    addr = co->destination;
 	  else 
 	    addr = co->address;
 
 	  if (p->family == co->address->family &&
 	      ! ospf_if_is_configured (&(addr->u.prefix4)))
-	    if ((if_is_pointopoint (ifp) &&
+	    if ((ifc_pointopoint (co) &&
 		 IPV4_ADDR_SAME (&(addr->u.prefix4), &(p->u.prefix4))) ||
 		prefix_match (p, addr)) 
-	    {
+	      {
 	        struct ospf_interface *oi;
 		
 		oi = ospf_if_new (ifp, co->address);

@@ -663,7 +663,7 @@ bgp_connected_add (struct connected *ifc)
       p.family = AF_INET;
       p.prefixlen = addr->prefixlen;
 
-      if (if_is_pointopoint (ifp))
+      if (ifc_pointopoint (ifc))
 	p.u.prefix4 = dest->u.prefix4;
       else
 	p.u.prefix4 = addr->u.prefix4;
@@ -694,7 +694,7 @@ bgp_connected_add (struct connected *ifc)
       p.family = AF_INET6;
       p.prefixlen = addr->prefixlen;
 
-      if (if_is_pointopoint (ifp))
+      if (ifc_pointopoint (ifc))
 	p.u.prefix6 = dest->u.prefix6;
       else
 	p.u.prefix6 = addr->u.prefix6;
@@ -748,7 +748,7 @@ bgp_connected_delete (struct connected *ifc)
       p.family = AF_INET;
       p.prefixlen = addr->prefixlen;
 
-      if (if_is_pointopoint (ifp))
+      if (ifc_pointopoint (ifc))
 	p.u.prefix4 = dest->u.prefix4;
       else
 	p.u.prefix4 = addr->u.prefix4;
@@ -779,7 +779,7 @@ bgp_connected_delete (struct connected *ifc)
       p.family = AF_INET6;
       p.prefixlen = addr->prefixlen;
 
-      if (if_is_pointopoint (ifp))
+      if (ifc_pointopoint (ifc))
 	p.u.prefix6 = dest->u.prefix6;
       else
 	p.u.prefix6 = addr->u.prefix6;

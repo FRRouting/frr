@@ -388,6 +388,7 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
   void *broad = NULL;
   u_char flags = 0;
   char *label = NULL;
+  int peeronly = 0;
 
   ifa = NLMSG_DATA (h);
 
@@ -416,39 +417,50 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
       return -1;
     }
 
-  if (tb[IFA_ADDRESS] == NULL)
-    tb[IFA_ADDRESS] = tb[IFA_LOCAL];
-
-  if (ifp->flags & IFF_POINTOPOINT)
+  if (IS_ZEBRA_DEBUG_KERNEL)	/* remove this line to see initial ifcfg */
     {
+      char buf[BUFSIZ];
+      zlog_info ("netlink_interface_addr %s %s/%d:",
+		 lookup (nlmsg_str, h->nlmsg_type),
+		 ifp->name, ifa->ifa_prefixlen);
       if (tb[IFA_LOCAL])
-	{
-	  addr = RTA_DATA (tb[IFA_LOCAL]);
-	  if (tb[IFA_ADDRESS]) 
-	    broad = RTA_DATA (tb[IFA_ADDRESS]);
-	  else
-	    broad = NULL;
-	}
-      else
-	{
-	  if (tb[IFA_ADDRESS])
-	    addr = RTA_DATA (tb[IFA_ADDRESS]);
-	  else
-	    addr = NULL;
-	}
-    }
-  else
-    {
+	zlog_info ("  IFA_LOCAL     %s", inet_ntop (ifa->ifa_family,
+		  RTA_DATA (tb[IFA_LOCAL]), buf, BUFSIZ));
       if (tb[IFA_ADDRESS])
-	addr = RTA_DATA (tb[IFA_ADDRESS]);
-      else
-	addr = NULL;
-
+	zlog_info ("  IFA_ADDRESS   %s", inet_ntop (ifa->ifa_family,
+		  RTA_DATA (tb[IFA_ADDRESS]), buf, BUFSIZ));
       if (tb[IFA_BROADCAST])
-	broad = RTA_DATA(tb[IFA_BROADCAST]);
-      else
-	broad = NULL;
+	zlog_info ("  IFA_BROADCAST %s", inet_ntop (ifa->ifa_family,
+		  RTA_DATA (tb[IFA_BROADCAST]), buf, BUFSIZ));
+      if (tb[IFA_LABEL] && strcmp (ifp->name, RTA_DATA (tb[IFA_LABEL])))
+	zlog_info ("  IFA_LABEL     %s", RTA_DATA (tb[IFA_LABEL]));
     }
+
+  /* peer or broadcast network? */
+  if (ifa->ifa_family == AF_INET)
+    peeronly = if_is_pointopoint (ifp) ||
+	       ifa->ifa_prefixlen >= IPV4_MAX_PREFIXLEN - 1;
+#ifdef HAVE_IPV6
+  if (ifa->ifa_family == AF_INET6)
+    peeronly = if_is_pointopoint (ifp) ||
+	       ifa->ifa_prefixlen >= IPV6_MAX_PREFIXLEN - 1;
+#endif /* HAVE_IPV6*/
+
+  /* network. prefixlen applies to IFA_ADDRESS rather than IFA_LOCAL */
+  if (tb[IFA_ADDRESS] && !peeronly)
+    addr = RTA_DATA (tb[IFA_ADDRESS]);
+  else if (tb[IFA_LOCAL])
+    addr = RTA_DATA (tb[IFA_LOCAL]);
+  else
+    addr = NULL;
+
+  /* broadcast/peer */
+  if (tb[IFA_BROADCAST])
+    broad = RTA_DATA (tb[IFA_BROADCAST]);
+  else if (tb[IFA_ADDRESS] && peeronly)
+    broad = RTA_DATA (tb[IFA_ADDRESS]);		/* peer address specified */
+  else
+    broad = NULL;
 
   /* Flags. */
   if (ifa->ifa_flags & IFA_F_SECONDARY)

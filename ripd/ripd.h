@@ -359,8 +359,6 @@ void rip_zclient_init ();
 void rip_zclient_start ();
 void rip_zclient_reset ();
 void rip_offset_init ();
-int if_check_address (struct in_addr addr);
-int if_valid_neighbor (struct in_addr addr);
 
 int rip_request_send (struct sockaddr_in *, struct interface *, u_char);
 int rip_neighbor_lookup (struct sockaddr_in *);

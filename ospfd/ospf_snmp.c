@@ -1413,7 +1413,7 @@ ospf_snmp_if_update (struct interface *ifp)
   /* Lookup first IPv4 address entry. */
   LIST_LOOP (ifp->connected, ifc, nn)
     {
-      if (if_is_pointopoint (ifp))
+      if (ifc_pointopoint (ifc))
 	p = ifc->destination;
       else
 	p = ifc->address;
