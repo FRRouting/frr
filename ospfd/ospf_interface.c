@@ -135,7 +135,10 @@ ospf_add_to_if (struct interface *ifp, struct ospf_interface *oi)
   p.prefixlen = IPV4_MAX_PREFIXLEN;
 
   rn = route_node_get (IF_OIFS (ifp), &p);
-  assert (! rn->info);
+  /* rn->info should either be NULL or equal to this oi
+   * as route_node_get may return an existing node
+   */
+  assert (! rn->info || rn->info == oi);
   rn->info = oi;
 }
 
