@@ -871,7 +871,8 @@ if test "${localstatedir}" = '${prefix}/var'; then
   [for ZEBRA_SOCK_DIR in ${ac_sock_prefix}/var/run/zebra dnl
                      ${ac_sock_prefix}/var/run	dnl
                      ${ac_sock_prefix}/var/adm	dnl
-                     ${ac_sock_prefix}/tmp;      dnl
+                     ${ac_sock_prefix}/tmp      dnl
+		     /tmp /var/tmp; dnl
   do
     test -d $ZEBRA_SOCK_DIR && break
   done
