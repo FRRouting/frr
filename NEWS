@@ -1,3 +1,16 @@
+* Changes in Quagga 0.96.4
+
+- Further fixes to ospfd, some relating to the PtP revert. Interface
+lookups should be a lot more robust now. 
+
+- Fix for a remote triggerable crash in vty layer.
+
+- Improvements to ripd, and addition of split horizon support.
+
+- Improved bgpd table support, now dumps at time of day intervals rather
+than time from startup intervals. Much improved support for IPv6 table
+dumps. show commands for views improved.
+
 * Changes in Quagga 0.96.3
 
 - revert the 'generic PtP' patch. Means Quagga will no longer work with
