@@ -83,6 +83,7 @@ void list_add_list (list, list);
     else \
       (L)->tail->next = (N); \
     (L)->tail = (N); \
+    (L)->count++; \
   } while (0)
 
 /* List node delete macro.  */
@@ -96,6 +97,7 @@ void list_add_list (list, list);
       (N)->next->prev = (N)->prev; \
     else \
       (L)->tail = (N)->prev; \
+    (L)->count--; \
   } while (0)
 
 #endif /* _ZEBRA_LINKLIST_H */
