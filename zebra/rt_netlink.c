@@ -357,7 +357,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
                 {
                   if (IS_ZEBRA_DEBUG_KERNEL)
                     {
-                      zlog_info ("%s: %s ACK: type=%s(%u), seq=%u, pid=%d",
+                      zlog_debug ("%s: %s ACK: type=%s(%u), seq=%u, pid=%d",
                                  __FUNCTION__, nl->name,
                                  lookup (nlmsg_str, err->msg.nlmsg_type),
                                  err->msg.nlmsg_type, err->msg.nlmsg_seq,
@@ -405,7 +405,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
 
           /* OK we got netlink message. */
           if (IS_ZEBRA_DEBUG_KERNEL)
-            zlog_info ("netlink_parse_info: %s type %s(%u), seq=%u, pid=%d",
+            zlog_debug ("netlink_parse_info: %s type %s(%u), seq=%u, pid=%d",
                        nl->name,
                        lookup (nlmsg_str, h->nlmsg_type), h->nlmsg_type,
                        h->nlmsg_seq, h->nlmsg_pid);
@@ -414,7 +414,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
           if (nl != &netlink_cmd && h->nlmsg_pid == netlink_cmd.snl.nl_pid)
             {
               if (IS_ZEBRA_DEBUG_KERNEL)
-                zlog_info ("netlink_parse_info: %s packet comes from %s",
+                zlog_debug ("netlink_parse_info: %s packet comes from %s",
                            nl->name, netlink_cmd.name);
               continue;
             }
@@ -567,25 +567,25 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
   if (IS_ZEBRA_DEBUG_KERNEL)    /* remove this line to see initial ifcfg */
     {
       char buf[BUFSIZ];
-      zlog_info ("netlink_interface_addr %s %s/%d:",
+      zlog_debug ("netlink_interface_addr %s %s/%d:",
                  lookup (nlmsg_str, h->nlmsg_type),
                  ifp->name, ifa->ifa_prefixlen);
       if (tb[IFA_LOCAL])
-        zlog_info ("  IFA_LOCAL     %s", inet_ntop (ifa->ifa_family,
+        zlog_debug ("  IFA_LOCAL     %s", inet_ntop (ifa->ifa_family,
                                                     RTA_DATA (tb[IFA_LOCAL]),
                                                     buf, BUFSIZ));
       if (tb[IFA_ADDRESS])
-        zlog_info ("  IFA_ADDRESS   %s", inet_ntop (ifa->ifa_family,
+        zlog_debug ("  IFA_ADDRESS   %s", inet_ntop (ifa->ifa_family,
                                                     RTA_DATA (tb
                                                               [IFA_ADDRESS]),
                                                     buf, BUFSIZ));
       if (tb[IFA_BROADCAST])
-        zlog_info ("  IFA_BROADCAST %s", inet_ntop (ifa->ifa_family,
+        zlog_debug ("  IFA_BROADCAST %s", inet_ntop (ifa->ifa_family,
                                                     RTA_DATA (tb
                                                               [IFA_BROADCAST]),
                                                     buf, BUFSIZ));
       if (tb[IFA_LABEL] && strcmp (ifp->name, RTA_DATA (tb[IFA_LABEL])))
-        zlog_info ("  IFA_LABEL     %s", (char *)RTA_DATA (tb[IFA_LABEL]));
+        zlog_debug ("  IFA_LABEL     %s", (char *)RTA_DATA (tb[IFA_LABEL]));
     }
   
   if (tb[IFA_ADDRESS] == NULL)
@@ -801,7 +801,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
 
   /* Connected route. */
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_info ("%s %s %s proto %s",
+    zlog_debug ("%s %s %s proto %s",
                h->nlmsg_type ==
                RTM_NEWROUTE ? "RTM_NEWROUTE" : "RTM_DELROUTE",
                rtm->rtm_family == AF_INET ? "ipv4" : "ipv6",
@@ -867,10 +867,10 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
       if (IS_ZEBRA_DEBUG_KERNEL)
         {
           if (h->nlmsg_type == RTM_NEWROUTE)
-            zlog_info ("RTM_NEWROUTE %s/%d",
+            zlog_debug ("RTM_NEWROUTE %s/%d",
                        inet_ntoa (p.prefix), p.prefixlen);
           else
-            zlog_info ("RTM_DELROUTE %s/%d",
+            zlog_debug ("RTM_DELROUTE %s/%d",
                        inet_ntoa (p.prefix), p.prefixlen);
         }
 
@@ -893,11 +893,11 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
       if (IS_ZEBRA_DEBUG_KERNEL)
         {
           if (h->nlmsg_type == RTM_NEWROUTE)
-            zlog_info ("RTM_NEWROUTE %s/%d",
+            zlog_debug ("RTM_NEWROUTE %s/%d",
                        inet_ntop (AF_INET6, &p.prefix, buf, BUFSIZ),
                        p.prefixlen);
           else
-            zlog_info ("RTM_DELROUTE %s/%d",
+            zlog_debug ("RTM_DELROUTE %s/%d",
                        inet_ntop (AF_INET6, &p.prefix, buf, BUFSIZ),
                        p.prefixlen);
         }
@@ -1213,7 +1213,7 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
   n->nlmsg_flags |= NLM_F_ACK;
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_info ("netlink_talk: %s type %s(%u), seq=%u", netlink_cmd.name,
+    zlog_debug ("netlink_talk: %s type %s(%u), seq=%u", netlink_cmd.name,
                lookup (nlmsg_str, n->nlmsg_type), n->nlmsg_type,
                n->nlmsg_seq);
 
@@ -1415,7 +1415,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
                 {
                   if (IS_ZEBRA_DEBUG_KERNEL)
                     {
-                      zlog_info
+                      zlog_debug
                         ("netlink_route_multipath() (recursive, 1 hop): "
                          "%s %s/%d via %s if %u, type %s",
                          lookup (nlmsg_str, cmd), inet_ntoa (p->u.prefix4),
@@ -1447,7 +1447,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
                 {
                   if (IS_ZEBRA_DEBUG_KERNEL)
                     {
-                      zlog_info
+                      zlog_debug
                         ("netlink_route_multipath(): (single hop)"
                          "%s %s/%d via %s if %u, type %s",
                          lookup (nlmsg_str, cmd), inet_ntoa (p->u.prefix4),
@@ -1514,7 +1514,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
                 {
                   if (IS_ZEBRA_DEBUG_KERNEL)
                     {
-                      zlog_info ("netlink_route_multipath() "
+                      zlog_debug ("netlink_route_multipath() "
                          "(recursive, multihop): "
                          "%s %s/%d via %s if %u, type %s",
                          lookup (nlmsg_str, cmd), inet_ntoa (p->u.prefix4),
@@ -1550,7 +1550,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
                 {
                   if (IS_ZEBRA_DEBUG_KERNEL)
                     {
-                      zlog_info ("netlink_route_multipath() "
+                      zlog_debug ("netlink_route_multipath() "
                          "(multihop): "
                          "%s %s/%d via %s if %u, type %s",
                          lookup (nlmsg_str, cmd), inet_ntoa (p->u.prefix4),
@@ -1598,7 +1598,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
   if (nexthop_num == 0)
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
-        zlog_info ("netlink_route_multipath(): No useful nexthop.");
+        zlog_debug ("netlink_route_multipath(): No useful nexthop.");
       return 0;
     }
 

@@ -180,7 +180,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
   if (nexthop_num == 0)
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_info ("kernel_rtm_ipv4(): No useful nexthop.");
+	zlog_debug ("kernel_rtm_ipv4(): No useful nexthop.");
       return 0;
     }
 
@@ -430,7 +430,7 @@ kernel_rtm_ipv6_multipath (int cmd, struct prefix *p, struct rib *rib,
   if (nexthop_num == 0)
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_info ("kernel_rtm_ipv6_multipath(): No useful nexthop.");
+	zlog_debug ("kernel_rtm_ipv6_multipath(): No useful nexthop.");
       return 0;
     }
 

@@ -133,9 +133,9 @@ int if_add_group (struct interface *ifp)
   }
 
   if(irdp->flags & IF_DEBUG_MISC )
-    zlog_warn("IRDP: Adding group %s for %s\n", 
-	      inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1),
-	      ifp->name);
+    zlog_debug("IRDP: Adding group %s for %s\n", 
+	       inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1),
+	       ifp->name);
   return 0;
 }
 int if_drop_group (struct interface *ifp)
@@ -149,9 +149,9 @@ int if_drop_group (struct interface *ifp)
     return ret;
 
   if(irdp->flags & IF_DEBUG_MISC)
-    zlog_warn("IRDP: Leaving group %s for %s\n", 
-	      inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1),
-	      ifp->name);
+    zlog_debug("IRDP: Leaving group %s for %s\n", 
+	       inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1),
+	       ifp->name);
   return 0;
 }
 
@@ -256,9 +256,9 @@ void irdp_if_start(struct interface *ifp, int multicast, int set_defaults)
 
   
   if(irdp->flags & IF_DEBUG_MISC)
-    zlog_warn("IRDP: Init timer for %s set to %u\n", 
-	      ifp->name, 
-	      timer);
+    zlog_debug("IRDP: Init timer for %s set to %u\n", 
+	       ifp->name, 
+	       timer);
 
   irdp->t_advertise = thread_add_timer(zebrad.master, 
 				       irdp_send_thread, 

@@ -259,7 +259,7 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
   if (nexthop_num == 0)
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_info ("netlink_route_multipath(): No useful nexthop.");
+	zlog_debug ("netlink_route_multipath(): No useful nexthop.");
       return 0;
     }
 
@@ -509,7 +509,7 @@ kernel_ioctl_ipv6_multipath (u_long cmd, struct prefix *p, struct rib *rib,
   if (nexthop_num == 0)
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_info ("netlink_route_multipath(): No useful nexthop.");
+	zlog_debug ("netlink_route_multipath(): No useful nexthop.");
       return 0;
     }
 

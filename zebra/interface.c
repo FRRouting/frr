@@ -297,13 +297,13 @@ if_add_update (struct interface *ifp)
       if_addr_wakeup (ifp);
 
       if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_info ("interface %s index %d becomes active.", 
-		   ifp->name, ifp->ifindex);
+	zlog_debug ("interface %s index %d becomes active.", 
+		    ifp->name, ifp->ifindex);
     }
   else
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_info ("interface %s index %d is added.", ifp->name, ifp->ifindex);
+	zlog_debug ("interface %s index %d is added.", ifp->name, ifp->ifindex);
     }
 }
 
@@ -341,7 +341,7 @@ if_delete_update (struct interface *ifp)
   UNSET_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE);
   
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_info ("interface %s index %d is now inactive.",
+    zlog_debug ("interface %s index %d is now inactive.",
 	       ifp->name, ifp->ifindex);
 
   /* Delete connected routes from the kernel. */

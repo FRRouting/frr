@@ -173,9 +173,9 @@ void parse_irdp_packet(char *p,
     case ICMP_ROUTERSOLICIT:
 
       if(irdp->flags & IF_DEBUG_MESSAGES) 
-	zlog_warn ("IRDP: RX Solicit on %s from %s\n",
-		   ifp->name,
-		   inet_ntoa (src));
+	zlog_debug ("IRDP: RX Solicit on %s from %s\n",
+		    ifp->name,
+		    inet_ntoa (src));
 
       process_solicit(ifp);
       break;
@@ -251,15 +251,14 @@ int irdp_read_raw(struct thread *r)
   if(! (irdp->flags & IF_ACTIVE)) {
 
     if(irdp->flags & IF_DEBUG_MISC) 
-      zlog_warn("IRDP: RX ICMP for disabled interface %s\n",
-		ifp->name);
+      zlog_debug("IRDP: RX ICMP for disabled interface %s\n", ifp->name);
     return 0;
   }
 
   if(irdp->flags & IF_DEBUG_PACKET) {
     int i;
-    zlog_warn("IRDP: RX (idx %d) ", ifindex);
-    for(i=0; i < ret; i++) zlog_warn( "IRDP: RX %x ", buf[i]&0xFF);
+    zlog_debug("IRDP: RX (idx %d) ", ifindex);
+    for(i=0; i < ret; i++) zlog_debug( "IRDP: RX %x ", buf[i]&0xFF);
   }
 
   parse_irdp_packet(buf, ret, ifp);

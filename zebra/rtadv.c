@@ -183,7 +183,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
 
   /* Logging of packet. */
   if (IS_ZEBRA_DEBUG_PACKET)
-    zlog_info ("Router advertisement send to %s", ifp->name);
+    zlog_debug ("Router advertisement send to %s", ifp->name);
 
   /* Fill in sockaddr_in6. */
   memset (&addr, 0, sizeof (struct sockaddr_in6));
@@ -247,7 +247,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
       {
 	u_char buf[INET6_ADDRSTRLEN];
 
-	zlog_info ("DEBUG %s", inet_ntop (AF_INET6, &pinfo->nd_opt_pi_prefix, 
+	zlog_debug ("DEBUG %s", inet_ntop (AF_INET6, &pinfo->nd_opt_pi_prefix, 
 	           buf, INET6_ADDRSTRLEN));
 
       }

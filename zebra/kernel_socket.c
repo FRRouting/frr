@@ -172,7 +172,7 @@ af_check (int family)
 }
 
 /* Dump routing table flag for debug purpose. */
-void
+static void
 rtm_flag_dump (int flag)
 {
   struct message *mes;
@@ -187,7 +187,7 @@ rtm_flag_dump (int flag)
 	  strlcat (buf, " ", BUFSIZ);
 	}
     }
-  zlog_info ("Kernel: %s", buf);
+  zlog_debug ("Kernel: %s", buf);
 }
 
 #ifdef RTM_IFANNOUNCE
@@ -217,7 +217,7 @@ ifan_read (struct if_announcemsghdr *ifan)
   if_get_metric (ifp);
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_info ("interface %s index %d", ifp->name, ifp->ifindex);
+    zlog_debug ("interface %s index %d", ifp->name, ifp->ifindex);
 
   return 0;
 }
@@ -391,7 +391,7 @@ ifm_read (struct if_msghdr *ifm)
 #endif /* HAVE_NET_RT_IFLIST */
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_info ("interface %s index %d", ifp->name, ifp->ifindex);
+    zlog_debug ("interface %s index %d", ifp->name, ifp->ifindex);
 
   return 0;
 }
@@ -809,7 +809,7 @@ rtm_write (int message,
 #include "zebra/zserv.h"
 
 /* For debug purpose. */
-void
+static void
 rtmsg_debug (struct rt_msghdr *rtm)
 {
   char *type = "Unknown";
@@ -822,10 +822,10 @@ rtmsg_debug (struct rt_msghdr *rtm)
 	break;
       }
 
-  zlog_info ("Kernel: Len: %d Type: %s", rtm->rtm_msglen, type);
+  zlog_debug ("Kernel: Len: %d Type: %s", rtm->rtm_msglen, type);
   rtm_flag_dump (rtm->rtm_flags);
-  zlog_info ("Kernel: message seq %d", rtm->rtm_seq);
-  zlog_info ("Kernel: pid %d", rtm->rtm_pid);
+  zlog_debug ("Kernel: message seq %d", rtm->rtm_seq);
+  zlog_debug ("Kernel: pid %d", rtm->rtm_pid);
 }
 
 /* This is pretty gross, better suggestions welcome -- mhandler */
@@ -938,7 +938,7 @@ kernel_read (struct thread *thread)
 #endif /* RTM_IFANNOUNCE */
     default:
       if (IS_ZEBRA_DEBUG_KERNEL)
-        zlog_info("Unprocessed RTM_type: %d", rtm->rtm_type);
+        zlog_debug("Unprocessed RTM_type: %d", rtm->rtm_type);
       break;
     }
   return 0;

@@ -310,7 +310,7 @@ zebra_interface_up_update (struct interface *ifp)
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_info ("MESSAGE: ZEBRA_INTERFACE_UP %s", ifp->name);
+    zlog_debug ("MESSAGE: ZEBRA_INTERFACE_UP %s", ifp->name);
 
   for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
@@ -325,7 +325,7 @@ zebra_interface_down_update (struct interface *ifp)
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_info ("MESSAGE: ZEBRA_INTERFACE_DOWN %s", ifp->name);
+    zlog_debug ("MESSAGE: ZEBRA_INTERFACE_DOWN %s", ifp->name);
 
   for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
@@ -340,7 +340,7 @@ zebra_interface_add_update (struct interface *ifp)
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_info ("MESSAGE: ZEBRA_INTERFACE_ADD %s", ifp->name);
+    zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADD %s", ifp->name);
     
   for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
@@ -361,7 +361,7 @@ zebra_interface_delete_update (struct interface *ifp)
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_info ("MESSAGE: ZEBRA_INTERFACE_DELETE %s", ifp->name);
+    zlog_debug ("MESSAGE: ZEBRA_INTERFACE_DELETE %s", ifp->name);
 
   for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
@@ -383,9 +383,9 @@ zebra_interface_address_add_update (struct interface *ifp,
   if (IS_ZEBRA_DEBUG_EVENT)
     {
       p = ifc->address;
-      zlog_info ("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %s/%d on %s",
-		 inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
-		 p->prefixlen, ifc->ifp->name);
+      zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %s/%d on %s",
+		  inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
+		  p->prefixlen, ifc->ifp->name);
     }
 
   router_id_add_address(ifc);
@@ -409,8 +409,8 @@ zebra_interface_address_delete_update (struct interface *ifp,
   if (IS_ZEBRA_DEBUG_EVENT)
     {
       p = ifc->address;
-      zlog_info ("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %s/%d on %s",
-		 inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
+      zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %s/%d on %s",
+		  inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 		 p->prefixlen, ifc->ifp->name);
     }
 

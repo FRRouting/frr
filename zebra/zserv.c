@@ -1251,7 +1251,7 @@ zebra_client_read (struct thread *thread)
   if (nbyte <= 0) 
     {
       if (IS_ZEBRA_DEBUG_EVENT)
-	zlog_info ("connection closed socket [%d]", sock);
+	zlog_debug ("connection closed socket [%d]", sock);
       zebra_client_close (client);
       return -1;
     }
@@ -1261,7 +1261,7 @@ zebra_client_read (struct thread *thread)
   if (length < 3) 
     {
       if (IS_ZEBRA_DEBUG_EVENT)
-	zlog_info ("length %d is less than 3 ", length);
+	zlog_debug ("length %d is less than 3 ", length);
       zebra_client_close (client);
       return -1;
     }
@@ -1275,7 +1275,7 @@ zebra_client_read (struct thread *thread)
       if (nbyte <= 0) 
 	{
 	  if (IS_ZEBRA_DEBUG_EVENT)
-	    zlog_info ("connection closed [%d] when reading zebra data", sock);
+	    zlog_debug ("connection closed [%d] when reading zebra data", sock);
 	  zebra_client_close (client);
 	  return -1;
 	}
@@ -1283,10 +1283,10 @@ zebra_client_read (struct thread *thread)
 
   /* Debug packet information. */
   if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_info ("zebra message comes from socket [%d]", sock);
+    zlog_debug ("zebra message comes from socket [%d]", sock);
 
   if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-    zlog_info ("zebra message received [%s] %d", 
+    zlog_debug ("zebra message received [%s] %d", 
 	       zebra_command_str[command], length);
 
   switch (command) 

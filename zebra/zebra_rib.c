@@ -1155,7 +1155,7 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   apply_mask_ipv4 (p);
 
   if (IS_ZEBRA_DEBUG_KERNEL && gate)
-    zlog_info ("rib_delete_ipv4(): route delete %s/%d via %s ifindex %d",
+    zlog_debug ("rib_delete_ipv4(): route delete %s/%d via %s ifindex %d",
 		       inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
 		       p->prefixlen, 
 		       inet_ntoa (*gate), 
@@ -1168,13 +1168,13 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
       if (IS_ZEBRA_DEBUG_KERNEL)
 	{
 	  if (gate)
-	    zlog_info ("route %s/%d via %s ifindex %d doesn't exist in rib",
+	    zlog_debug ("route %s/%d via %s ifindex %d doesn't exist in rib",
 		       inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
 		       p->prefixlen,
 		       inet_ntop (AF_INET, gate, buf2, BUFSIZ),
 		       ifindex);
 	  else
-	    zlog_info ("route %s/%d ifindex %d doesn't exist in rib",
+	    zlog_debug ("route %s/%d ifindex %d doesn't exist in rib",
 		       inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
 		       p->prefixlen,
 		       ifindex);
@@ -1248,14 +1248,14 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
 	  if (IS_ZEBRA_DEBUG_KERNEL)
 	    {
 	      if (gate)
-		zlog_info ("route %s/%d via %s ifindex %d type %d doesn't exist in rib",
+		zlog_debug ("route %s/%d via %s ifindex %d type %d doesn't exist in rib",
 			   inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
 			   p->prefixlen,
 			   inet_ntop (AF_INET, gate, buf2, BUFSIZ),
 			   ifindex,
 			   type);
 	      else
-		zlog_info ("route %s/%d ifindex %d type %d doesn't exist in rib",
+		zlog_debug ("route %s/%d ifindex %d type %d doesn't exist in rib",
 			   inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
 			   p->prefixlen,
 			   ifindex,
@@ -1745,13 +1745,13 @@ rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
       if (IS_ZEBRA_DEBUG_KERNEL)
 	{
 	  if (gate)
-	    zlog_info ("route %s/%d via %s ifindex %d doesn't exist in rib",
+	    zlog_debug ("route %s/%d via %s ifindex %d doesn't exist in rib",
 		       inet_ntop (AF_INET6, &p->prefix, buf1, BUFSIZ),
 		       p->prefixlen,
 		       inet_ntop (AF_INET6, gate, buf2, BUFSIZ),
 		       ifindex);
 	  else
-	    zlog_info ("route %s/%d ifindex %d doesn't exist in rib",
+	    zlog_debug ("route %s/%d ifindex %d doesn't exist in rib",
 		       inet_ntop (AF_INET6, &p->prefix, buf1, BUFSIZ),
 		       p->prefixlen,
 		       ifindex);
@@ -1811,14 +1811,14 @@ rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
 	  if (IS_ZEBRA_DEBUG_KERNEL)
 	    {
 	      if (gate)
-		zlog_info ("route %s/%d via %s ifindex %d type %d doesn't exist in rib",
+		zlog_debug ("route %s/%d via %s ifindex %d type %d doesn't exist in rib",
 			   inet_ntop (AF_INET6, &p->prefix, buf1, BUFSIZ),
 			   p->prefixlen,
 			   inet_ntop (AF_INET6, gate, buf2, BUFSIZ),
 			   ifindex,
 			   type);
 	      else
-		zlog_info ("route %s/%d ifindex %d type %d doesn't exist in rib",
+		zlog_debug ("route %s/%d ifindex %d type %d doesn't exist in rib",
 			   inet_ntop (AF_INET6, &p->prefix, buf1, BUFSIZ),
 			   p->prefixlen,
 			   ifindex,
