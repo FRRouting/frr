@@ -1253,9 +1253,10 @@ rip_send_packet (caddr_t buf, int size, struct sockaddr_in *to,
           strcpy(dst, inet_ntoa(sin.sin_addr));
         }
       zlog_info("rip_send_packet %s > %s (%s)",
-                inet_ntoa(connected->address->u.prefix4), dst, ifp->name);
+                (connected ? inet_ntoa(connected->address->u.prefix4) : ""),
+                dst, ifp->name);
     }
-  if (connected->flags & ZEBRA_IFA_SECONDARY)
+  if (connected && connected->flags & ZEBRA_IFA_SECONDARY)
     {
       /*
        * ZEBRA_IFA_SECONDARY is set on linux when an interface is configured

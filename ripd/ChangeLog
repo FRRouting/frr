@@ -1,3 +1,8 @@
+2004-03-18 sowmini.varadhan@sun.com
+
+	* ripd.c: rip_send_packet can get null connected address when
+	  called in response to a unicast rip-request. Handle correctly.
+
 2004-03-03 Krzysztof Oledzki <oleq@ans.pl>
 
 	* ripd.c: fix "show ip rip" and per interface rip version selection.
