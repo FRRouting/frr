@@ -1,3 +1,9 @@
+2004-10-31 Paul Jakma <paul@dishone.st>
+
+	* vty.c: As per Andrew's suggestions..
+	  (vty_serv_un) remove flags.
+	  (vtysh_accept) close socket if we cant set NONBLOCK. Add flags.
+
 2004-10-29 Paul Jakma <paul@dishone.st>
 
 	* vty.c: Move setting of sock to O_NONBLOCK from vty_serv_un

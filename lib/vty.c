@@ -1857,7 +1857,7 @@ void
 vty_serv_un (const char *path)
 {
   int ret;
-  int sock, len, flags;
+  int sock, len;
   struct sockaddr_un serv;
   mode_t old_mask;
   struct zprivs_ids_t ids;
@@ -1927,6 +1927,7 @@ vtysh_accept (struct thread *thread)
   int accept_sock;
   int sock;
   int client_len;
+  int flags;
   struct sockaddr_un client;
   struct vty *vty;
   
@@ -1949,8 +1950,12 @@ vtysh_accept (struct thread *thread)
   /* set to non-blocking*/
   if ( ((flags = fcntl (sock, F_GETFL)) == -1)
       || (fcntl (sock, F_SETFL, flags|O_NONBLOCK) == -1) )
-    zlog_warn ("vty_serv_un: could not set vty socket to non-blocking,"
-               " %s", strerror (errno));
+    {
+      zlog_warn ("vtysh_accept: could not set vty socket to non-blocking,"
+                 " %s, closing", strerror (errno));
+      close (sock);
+      return -1;
+    }
   
 #ifdef VTYSH_DEBUG
   printf ("VTY shell accept\n");
