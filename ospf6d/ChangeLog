@@ -1,3 +1,12 @@
+2004-10-06  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_snmp.[ch], OSPFV3-MIB.txt: start supporting SNMP.
+	it follows draft-ietf-ospf-ospfv3-mib-08.txt, but change
+	OSPFv3 tree to {experimental 102} based on
+	http://www.iana.org/assignments/smi-numbers:
+	Prefix: iso.org.dod.internet.experimental (1.3.6.1.3.)
+	   102   OSPFv3    OSPF for IPv6   [Joyal]
+
 2004-10-03 Hasso Tepper <hasso at quagga.net>
 
 	* ospf6_zebra.c: Use router id from zebra daemon if it wasn't set in
