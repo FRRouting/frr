@@ -241,7 +241,8 @@ isis_circuit_add_addr (struct isis_circuit *circuit,
       ipv4->prefixlen = connected->address->prefixlen;
       ipv4->prefix = connected->address->u.prefix4;
       listnode_add (circuit->ip_addrs, ipv4);
-      lsp_regenerate_schedule (circuit->area);
+      if (circuit->area)
+	lsp_regenerate_schedule (circuit->area);
 
 #ifdef EXTREME_DEBUG
       prefix2str (connected->address, buf, BUFSIZ);
@@ -260,8 +261,8 @@ isis_circuit_add_addr (struct isis_circuit *circuit,
 	listnode_add (circuit->ipv6_link, ipv6);
       else
 	listnode_add (circuit->ipv6_non_link, ipv6);
-
-      lsp_regenerate_schedule (circuit->area);
+      if (circuit->area)
+	lsp_regenerate_schedule (circuit->area);
 
 #ifdef EXTREME_DEBUG
       prefix2str (connected->address, buf, BUFSIZ);
@@ -302,7 +303,8 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
       if (ip)
 	{
 	  listnode_delete (circuit->ip_addrs, ip);
-	  lsp_regenerate_schedule (circuit->area);
+	  if (circuit->area)
+	    lsp_regenerate_schedule (circuit->area);
 	}
       else
 	{
@@ -354,7 +356,8 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 		     circuit %d", buf, circuit->circuit_id);
 	}
       else
-	lsp_regenerate_schedule (circuit->area);
+	if (circuit->area)
+	  lsp_regenerate_schedule (circuit->area);
     }
 #endif /* HAVE_IPV6 */
   return;

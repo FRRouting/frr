@@ -1,5 +1,10 @@
 2004-09-26 Hasso Tepper <hasso at quagga.net>
 
+	* isis_circuit.c: Fix previous commit. Don't schedule LSP regeneration
+	  and don't crash if circuit->area == NULL.
+
+2004-09-26 Hasso Tepper <hasso at quagga.net>
+
 	* *.[c|h]: Fix a lot of compiler warnings.
 	* isis_events.c: Remove isis_event_int_reach_change() function, as it
 	  doesn't make sense for now. Call lsp_regenerate_schedule() directly
