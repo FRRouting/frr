@@ -2678,6 +2678,9 @@ struct ospf_lsa *
 ospf_lsa_lookup (struct ospf_area *area, u_int32_t type,
                  struct in_addr id, struct in_addr adv_router)
 {
+  struct ospf *ospf = ospf_lookup();
+  assert(ospf);
+
   switch (type)
     {
     case OSPF_ROUTER_LSA:
@@ -2697,7 +2700,7 @@ ospf_lsa_lookup (struct ospf_area *area, u_int32_t type,
 #ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
 #endif /* HAVE_OPAQUE_LSA */
-      return ospf_lsdb_lookup_by_id (area->ospf->lsdb, type, id, adv_router);
+      return ospf_lsdb_lookup_by_id (ospf->lsdb, type, id, adv_router);
       break;
     default:
       break;

@@ -1,3 +1,8 @@
+2003-04-13 Paul Jakma <paul@dishone.st>
+
+	* Amir: Opaque LSA bug fix for deletion of Type11's
+	* configure.ac: use --localstatedir for Unix sockets
+
 2003-04-04 Paul Jakma <paul@dishone.st>
 
 	* Sync to Zebra CVS
