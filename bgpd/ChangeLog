@@ -1,3 +1,7 @@
+2004-05-01 rivo nurges <rix@estpak.ee>
+ 
+        * bgp_route.c: fix UNH IOL BGP-4.1.12f
+ 
 2004-05-01 Paul Jakma <paul@dishone.st>
 
 	* Revert the attempted clean-up of the dummy peer hack, reverts

@@ -480,6 +480,16 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   if (from == peer)
     return 0;
 
+  /* If peer's id and route's nexthop are same. draft-ietf-idr-bgp4-23 5.1.3 */
+  if (p->family == AF_INET
+      && IPV4_ADDR_SAME(&peer->remote_id, &ri->attr->nexthop))
+    return 0;
+#ifdef HAVE_IPV6
+  if (p->family == AF_INET6
+     && IPV6_ADDR_SAME(&peer->remote_id, &ri->attr->nexthop))
+    return 0;
+#endif
+
   /* Aggregate-address suppress check. */
   if (ri->suppress)
     if (! UNSUPPRESS_MAP_NAME (filter))
