@@ -1,4 +1,9 @@
-2004-04-18  Hasso Tepper <hasso@estpak.ee>
+2004-04-06  Krzysztof Oledzki <oleq@ans.pl>
+
+	* rt_netlink.c: Do not ignore metric when reading kernel routing
+	  table on Linux with rt_netlink interface.
+
+2004-03-18  Hasso Tepper <hasso@estpak.ee>
 
 	* interface.c: Temporary fix for handling secondary addresses
 	  with label.

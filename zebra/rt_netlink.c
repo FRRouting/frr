@@ -633,6 +633,8 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
 
   int index;
   int table;
+  int metric;
+
   void *dest;
   void *gate;
 
@@ -671,6 +673,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
     flags |= ZEBRA_FLAG_SELFROUTE;
 
   index = 0;
+  metric = 0;
   dest = NULL;
   gate = NULL;
 
@@ -686,6 +689,9 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
   if (tb[RTA_GATEWAY])
     gate = RTA_DATA (tb[RTA_GATEWAY]);
 
+  if (tb[RTA_PRIORITY])
+    metric = *(int *) RTA_DATA(tb[RTA_PRIORITY]);
+
   if (rtm->rtm_family == AF_INET)
     {
       struct prefix_ipv4 p;
@@ -693,7 +699,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
       memcpy (&p.prefix, dest, 4);
       p.prefixlen = rtm->rtm_dst_len;
 
-      rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, flags, &p, gate, index, table, 0, 0);
+      rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, flags, &p, gate, index, table, metric, 0);
     }
 #ifdef HAVE_IPV6
   if (rtm->rtm_family == AF_INET6)
