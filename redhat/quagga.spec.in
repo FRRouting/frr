@@ -289,12 +289,17 @@ fi
 %files devel
 %defattr(-,root,root)
 %dir %{_libdir}/*
+%dir %{_includedir}/*.h
 %dir %{_includedir}/ospfd/*
 %if %with_ospfapi
 %dir %{_includedir}/ospfapi/*
 %endif
 
 %changelog
+* Sun Nov 2 2003 Paul Jakma <paul@dishone.st>
+- Fix -devel package to include all files
+- Sync to 0.96.4
+
 * Tue Aug 12 2003 Paul Jakma <paul@dishone.st>
 - Renamed to Quagga
 - Sync to Quagga release 0.96
