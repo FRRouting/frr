@@ -218,8 +218,9 @@ ifm_read (struct if_msghdr *ifm)
 	  return -1;
 	}
 
-      ifp = if_create (sdl->sdl_data, sdl->sdl_nlen);
+      ifp = if_create ();
 
+      strncpy (ifp->name, sdl->sdl_data, sdl->sdl_nlen);
       ifp->ifindex = ifm->ifm_index;
       ifp->flags = ifm->ifm_flags;
 #if defined(__bsdi__)

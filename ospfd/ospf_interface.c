@@ -745,7 +745,7 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("ospf_vl_new(): creating pseudo zebra interface");
 
-  vi = if_create (NULL, 0);
+  vi = if_create ();
   co = connected_new ();
   co->ifp = vi;
   listnode_add (vi->connected, co);
