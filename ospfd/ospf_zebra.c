@@ -429,6 +429,18 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
               nexthop = &path->nexthop;
               api.nexthop = &nexthop;
             }
+          else if (path->oi->ifp)
+            {
+              SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
+              api.ifindex_num = 1;
+              api.ifindex = &path->oi->ifp->ifindex;
+            }
+          else if ( IS_DEBUG_OSPF(zebra,ZEBRA_REDISTRIBUTE) )
+            {
+              zlog_info("Zebra: no ifp %s %d",
+                         inet_ntoa(p->prefix),
+                         p->prefixlen);
+            }
 
           zapi_ipv4_delete (zclient, p, &api);
 
@@ -437,6 +449,12 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
               zlog_info ("Zebra: Route delete %s/%d nexthop %s",
                          inet_ntoa (p->prefix),
                          p->prefixlen, inet_ntoa (**api.nexthop));
+            }
+          if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE) && api.ifindex_num)
+            {
+              zlog_info ("Zebra: Route delete %s/%d ifindex %d",
+                         inet_ntoa (p->prefix),
+                         p->prefixlen, *api.ifindex);
             }
         }
     }
