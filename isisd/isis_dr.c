@@ -80,6 +80,7 @@ isis_run_dr_l1 (struct thread *thread)
   if (circuit->u.bc.run_dr_elect[0])
     zlog_warn ("isis_run_dr(): run_dr_elect already set for l1");
   
+  circuit->u.bc.t_run_dr[0] = NULL;
   circuit->u.bc.run_dr_elect[0] = 1;
     
   return ISIS_OK;
@@ -97,6 +98,7 @@ isis_run_dr_l2 (struct thread *thread)
     zlog_warn ("isis_run_dr(): run_dr_elect already set for l2");
   
   
+  circuit->u.bc.t_run_dr[1] = NULL; 
   circuit->u.bc.run_dr_elect[1] = 1;
     
   return ISIS_OK;
@@ -273,8 +275,8 @@ isis_dr_resign (struct isis_circuit *circuit, int level)
   } else {
     memset (circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 
-    if (circuit->t_send_csnp[0])
-      thread_cancel (circuit->t_send_csnp[0]);
+    if (circuit->t_send_csnp[1])
+      thread_cancel (circuit->t_send_csnp[1]);
 
     circuit->u.bc.t_run_dr[1] =
       thread_add_timer (master, isis_run_dr_l2, circuit,
