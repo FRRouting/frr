@@ -24,6 +24,7 @@
 #include "log.h"
 #include "memory.h"
 #include "sockunion.h"
+#include "sockopt.h"
 #include "privs.h"
 
 #include "ospf6_proto.h"

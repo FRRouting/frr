@@ -383,7 +383,7 @@ ospf6_asbr_routemap_unset (int type)
 }
 
 void
-ospf6_asbr_routemap_update ()
+ospf6_asbr_routemap_update (char *mapname)
 {
   int type;
 
@@ -460,7 +460,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
   if (ospf6->rmap[type].name)
     {
       if (ospf6->rmap[type].map == NULL)
-        ospf6_asbr_routemap_update ();
+        ospf6_asbr_routemap_update (NULL);
       if (ospf6->rmap[type].map == NULL)
         {
           zlog_warn ("route-map \"%s\" not found, suppress redistributing",
