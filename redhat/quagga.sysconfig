@@ -9,3 +9,10 @@ RIPD_OPTS="-A 127.0.0.1 -f ${QCONFDIR}/ripd.conf"
 RIPNGD_OPTS="-A ::1 -f ${QCONFDIR}/ripngd.conf"
 ZEBRA_OPTS="-A 127.0.0.1 -f ${QCONFDIR}/zebra.conf"
 ISISD_OPTS="-A ::1 -f ${QCONFDIR}/isisd.conf"
+
+# Watchquagga configuration (please check timer values before using):
+WATCH_OPTS=""
+WATCH_DAEMONS="zebra bgpd ospfd ospf6d ripd ripngd"
+# To enable restarts, uncomment this line (but first be sure to edit
+# the WATCH_DAEMONS line to reflect the daemons you are actually using):
+#WATCH_OPTS="-Az -b_ -r/sbin/service_%s_restart -s/sbin/service_%s_start -k/sbin/service_%s_stop"
