@@ -15,4 +15,5 @@ ripng		2603/tcp
 ospfd		2604/tcp
 bgpd		2605/tcp
 ospf6d		2606/tcp
-isisd		2607/tcp
+ospfapi		2607/tcp
+isisd		2608/tcp

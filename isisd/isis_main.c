@@ -47,7 +47,7 @@
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
 /* Default vty port */
-#define ISISD_VTY_PORT       2607
+#define ISISD_VTY_PORT       2608
 
 /* isisd privileges */
 zebra_capabilities_t _caps_p [] = 
