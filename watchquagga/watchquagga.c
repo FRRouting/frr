@@ -1,5 +1,5 @@
 /*
-    $Id: watchquagga.c,v 1.7 2004/12/29 17:39:10 ajs Exp $
+    $Id: watchquagga.c,v 1.8 2004/12/29 17:45:08 ajs Exp $
 
     Monitor status of quagga daemons and restart if necessary.
 
@@ -353,7 +353,7 @@ run_background(const char *shell_cmd)
       }
     default:
       /* Parent process: we will reap the child later. */
-      zlog_err("Forked background command [pid %d]: %s",child,shell_cmd);
+      zlog_err("Forked background command [pid %d]: %s",(int)child,shell_cmd);
       return child;
     }
 }
@@ -381,7 +381,7 @@ restart_kill(struct thread *t_kill)
   time_elapsed(&delay,&restart->time);
   zlog_warn("Warning: %s %s child process %d still running after "
 	    "%ld seconds, sending signal %d",
-	    restart->what,restart->name,restart->pid,delay.tv_sec,
+	    restart->what,restart->name,(int)restart->pid,delay.tv_sec,
 	    (restart->kills ? SIGKILL : SIGTERM));
   kill(-restart->pid,(restart->kills ? SIGKILL : SIGTERM));
   restart->kills++;
@@ -443,27 +443,27 @@ sigchild(void)
   else
     {
       zlog_err("waitpid returned status for an unknown child process %d",
-	       child);
+	       (int)child);
       name = "(unknown)";
       what = "background";
     }
   if (WIFSTOPPED(status))
       zlog_warn("warning: %s %s process %d is stopped",
-		what,name,child);
+		what,name,(int)child);
   else if (WIFSIGNALED(status))
     zlog_warn("%s %s process %d terminated due to signal %d",
-	      what,name,child,WTERMSIG(status));
+	      what,name,(int)child,WTERMSIG(status));
   else if (WIFEXITED(status))
     {
       if (WEXITSTATUS(status) != 0)
 	zlog_warn("%s %s process %d exited with non-zero status %d",
-		  what,name,child,WEXITSTATUS(status));
+		  what,name,(int)child,WEXITSTATUS(status));
       else
-	zlog_debug("%s %s process %d exited normally",what,name,child);
+	zlog_debug("%s %s process %d exited normally",what,name,(int)child);
     }
   else
     zlog_err("cannot interpret %s %s process %d wait status 0x%x",
-	     what,name,child,status);
+	     what,name,(int)child,status);
   phase_check();
 }
 
@@ -480,7 +480,7 @@ run_job(struct restart_info *restart, const char *cmdtype, const char *command,
     {
       if (gs.loglevel > LOG_DEBUG+1)
         zlog_debug("cannot %s %s, previous pid %d still running",
-		   cmdtype,restart->name,restart->pid);
+		   cmdtype,restart->name,(int)restart->pid);
       return -1;
     }
 

@@ -1,5 +1,10 @@
 2004-12-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* watchquagga.c: In several places, cast pid_t to int for printf to
+	  avoid complaints on Solaris 8.
+
+2004-12-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* watchquagga.c: Fix headers: get most stuff from zebra.h.
 
 2004-12-23 Paul Jakma <paul@dishone.st>
