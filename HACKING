@@ -1,6 +1,6 @@
 -*- mode: text; -*-
 
-$Id: HACKING,v 1.8 2004/09/01 20:13:23 hasso Exp $
+$Id: HACKING,v 1.9 2004/11/05 13:17:20 gdt Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -37,12 +37,10 @@ CHANGELOG
 Add a ChangeLog entry whenever changing code, except for minor fixes
 to a commit (with a ChangeLog entry) within the last few days.
 
-There is at present a mixed style for ChangeLog, with some changes
-being described in per-directory ChangeLog files, and some at top
-level.
-
-[TBD: resolve per-dir vs top-level, perhaps by reading GNU coding
-standards]
+Most directories have a ChangeLog file; changes to code in that
+directory should go in the per-directory ChangeLog.  Global or
+structural changes should also be mentioned in the top-level
+ChangeLog.
 
 SHARED LIBRARY VERSIONING
 
@@ -74,7 +72,7 @@ PATCH SUBMISSION
 * Include ChangeLog and NEWS entries as appropriate before the patch
   (or in it if you are 100% up to date).
 
-* Inclue only one semantic change or group of changes per patch.p
+* Include only one semantic change or group of changes per patch.
 
 * Do not make gratuitous changes to whitespace. See the w and b arguments
   to diff.
@@ -115,8 +113,8 @@ and willing to verify that -current does or does not work correctly.
 
   BSD (Free, Net or Open, any platform) # without capabilities
   GNU/Linux (any distribution, i386)
-  [future: some 64-bit machine, e.g. NetBSD/sparc64]
-  [Solaris? (could address 64-bit issue)]
+  Solaris with 64-bit processor (strict alignment, not ILP32)
+  [future: NetBSD/sparc64]
 
 The list of daemons that are thought to be stable and that should be
 tested are:
@@ -127,12 +125,21 @@ tested are:
   ospfd
   ripngd
 
+Daemons which are in a testing phase are
+
+  ospf6d
+  isisd
+
 IMPORT OR UPDATE VENDOR SPECIFIC ROUTING PROTOCOLS
 
 The source code of Quagga is based on two vendors:
 
    zebra_org (http://www.zebra.org/)
    isisd_sf (http://isisd.sf.net/)
+
+[20041105: Is isisd.sf.netf still where isisd word is happening, or is
+the quagga repo now the canonical place?  The last tarball on sf is
+two years old.  --gdt]
 
 In order to import source code, the following procedure should be used:
 
