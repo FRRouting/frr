@@ -7,3 +7,4 @@ ospf6d.conf
 tags
 TAGS
 .deps
+.nfs*

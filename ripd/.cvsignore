@@ -6,3 +6,4 @@ ripd.conf
 tags
 TAGS
 .deps
+.nfs*

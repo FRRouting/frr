@@ -6,3 +6,4 @@ tags
 TAGS
 .deps
 vtysh_cmd.c
+.nfs*

@@ -4,3 +4,4 @@ Makefile.in
 tags
 TAGS
 .deps
+.nfs*

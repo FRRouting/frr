@@ -2,3 +2,4 @@ zebra.spec
 quagga.spec
 Makefile
 Makefile.in
+.nfs*

@@ -6,3 +6,4 @@ ripngd.conf
 tags
 TAGS
 .deps
+.nfs*

@@ -2,3 +2,4 @@ Makefile
 *.o
 zebra-guile
 Makefile.in
+.nfs*

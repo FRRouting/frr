@@ -4,3 +4,4 @@ Makefile.in
 isisd
 .deps
 
+.nfs*

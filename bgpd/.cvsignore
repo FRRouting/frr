@@ -7,3 +7,4 @@ bgpd.conf
 tags
 TAGS
 .deps
+.nfs*
