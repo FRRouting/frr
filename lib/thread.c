@@ -550,10 +550,8 @@ funcname_thread_add_timer_msec (struct thread_master *m,
 
   assert (m != NULL);
 
-  timer = 1000*timer; /* milli -> micro */
-
-  trel.tv_sec = timer / TIMER_SECOND_MICRO;
-  trel.tv_usec = (timer % TIMER_SECOND_MICRO);
+  trel.tv_sec = timer / 1000;
+  trel.tv_usec = 1000*(timer % 1000);
 
   return funcname_thread_add_timer_timeval (m, func, arg, &trel, funcname);
 }

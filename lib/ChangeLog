@@ -1,3 +1,7 @@
+2004-12-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* thread.c: (funcname_thread_add_timer_msec) Reduce overflow risk.
+
 2004-12-21 Paul Jakma <paul.jakma@sun.com>
 
 	* if.h: Add more 'non-generic' IFF_ flags.
