@@ -2570,40 +2570,34 @@ DEFUN (show_ip_ospf,
 }
 
 
-void
+static void
 show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
 			    struct interface *ifp)
 {
+  int is_up;
   struct ospf_neighbor *nbr;
-  int oi_count;
   struct route_node *rn;
   char buf[9];
 
-  oi_count = ospf_oi_count (ifp);
-  
   /* Is interface up? */
-  if (if_is_operative (ifp)) {
-  	vty_out (vty, "%s is up%s", ifp->name, VTY_NEWLINE);
-  } else
-  	{
-  		vty_out (vty, "%s is down%s", ifp->name, VTY_NEWLINE);
-
-      
-      if (oi_count == 0)
-	vty_out (vty, "  OSPF not enabled on this interface%s", VTY_NEWLINE);
-      else
-	vty_out (vty, "  OSPF is enabled, but not running on this interface%s",
-		 VTY_NEWLINE);
-      return;
-    }
+  vty_out (vty, "%s is %s%s", ifp->name,
+	   ((is_up = if_is_operative(ifp)) ? "up" : "down"), VTY_NEWLINE);
+  vty_out (vty, "  MTU %u bytes, BW %u Kbit%s",
+  	   ifp->mtu, ifp->bandwidth, VTY_NEWLINE);
 
   /* Is interface OSPF enabled? */
-  if (oi_count == 0)
+  if (ospf_oi_count(ifp) == 0)
     {
       vty_out (vty, "  OSPF not enabled on this interface%s", VTY_NEWLINE);
       return;
     }
-  
+  else if (!is_up)
+    {
+      vty_out (vty, "  OSPF is enabled, but not running on this interface%s",
+	       VTY_NEWLINE);
+      return;
+    }
+
   for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
     {
       struct ospf_interface *oi = rn->info;
