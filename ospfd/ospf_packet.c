@@ -1699,6 +1699,42 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
             }
         }
 #endif /* HAVE_OPAQUE_LSA */
+      /* It might be happen that received LSA is self-originated network LSA, but
+       * router ID is cahnged. So, we should check if LSA is a network-LSA whose
+       * Link State ID is one of the router's own IP interface addresses but whose
+       * Advertising Router is not equal to the router's own Router ID
+       * According to RFC 2328 12.4.2 and 13.4 this LSA should be flushed.
+       */
+
+      if(lsa->data->type == OSPF_NETWORK_LSA)
+      {
+        listnode oi_node;
+        int Flag = 0;
+
+        for(oi_node = listhead(oi->ospf->oiflist); oi_node; oi_node = nextnode(oi_node))
+        {
+          struct ospf_interface *out_if = getdata(oi_node);
+          if(out_if == NULL)
+            break;
+
+          if((IPV4_ADDR_SAME(&out_if->address->u.prefix4, &lsa->data->id)) &&
+              (!(IPV4_ADDR_SAME(&oi->ospf->router_id, &lsa->data->adv_router))))
+          {
+            if(out_if->network_lsa_self)
+            {
+              ospf_lsa_flush_area(lsa,out_if->area);
+              if(IS_DEBUG_OSPF_EVENT)
+                zlog_info ("ospf_lsa_discard() in ospf_ls_upd() point 9: lsa %p Type-%d",
+                            lsa, (int) lsa->data->type);
+              ospf_lsa_discard (lsa);
+              Flag = 1;
+            }
+            break;
+          }
+        }
+        if(Flag)
+          continue;
+      }
 
       /* (5) Find the instance of this LSA that is currently contained
 	 in the router's link state database.  If there is no

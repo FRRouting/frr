@@ -1,4 +1,8 @@
-2003-12-08 Mattias Amnefelt <mattiasa@kth.se?
+2004-02-11 Vadim Suraev <vadim.suraev@terayon.com>
+	* ospf_packet.c (ospf_ls_upd): Router should flush received network
+	  LSA if it was originated with older router-id ([zebra 14710] #6).
+
+2003-12-08 Mattias Amnefelt <mattiasa@kth.se>
 
 	* ospf_packet.c: (ospf_recv_packet) OpenBSD now leaves iph.ip_len 
 	  network byte order.
