@@ -113,8 +113,9 @@ struct ospf6_lsa
   unsigned char     flag;           /* special meaning (e.g. floodback) */
 
   struct timeval    birth;          /* tv_sec when LS age 0 */
-  struct timeval    installed;      /* used by MinLSArrival check */
   struct timeval    originated;     /* used by MinLSInterval check */
+  struct timeval    received;       /* used by MinLSArrival check */
+  struct timeval    installed;
 
   struct thread    *expire;
   struct thread    *refresh;        /* For self-originated LSA */

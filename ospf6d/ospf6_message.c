@@ -557,19 +557,19 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
       if (mine == NULL)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Add request (No database copy)", his->name);
+            zlog_info ("Add request (No database copy)");
           ospf6_lsdb_add (his, on->request_list);
         }
       else if (ospf6_lsa_compare (his, mine) < 0)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Add request (Received MoreRecent)", his->name);
+            zlog_info ("Add request (Received MoreRecent)");
           ospf6_lsdb_add (his, on->request_list);
         }
       else
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_info ("Discard (Existing MoreRecent)", his->name);
+            zlog_info ("Discard (Existing MoreRecent)");
           ospf6_lsa_delete (his);
         }
     }

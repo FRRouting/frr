@@ -192,11 +192,8 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
       return;
     }
 
-  asbr_id.family = AF_INET;
-  asbr_id.prefixlen = 32;
-  asbr_id.u.prefix4.s_addr = lsa->header->adv_router;
+  ospf6_linkstate_prefix (lsa->header->adv_router, htonl (0), &asbr_id);
   asbr_entry = ospf6_route_lookup (&asbr_id, ospf6->brouter_table);
-
   if (asbr_entry == NULL)
     {
       if (IS_OSPF6_DEBUG_ASBR)

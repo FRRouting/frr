@@ -220,7 +220,7 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
     }
 
   gettimeofday (&now, (struct timezone *) NULL);
-  if (ospf6_lsa_age_current (lsa) != MAXAGE)
+  if (! OSPF6_LSA_IS_MAXAGE (lsa))
     lsa->expire = thread_add_timer (master, ospf6_lsa_expire, lsa,
                                     MAXAGE + lsa->birth.tv_sec - now.tv_sec);
   else
@@ -843,11 +843,17 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
             }
         }
 
+      gettimeofday (&new->received, (struct timezone *) NULL);
+
       if (IS_OSPF6_DEBUG_LSA (RECV))
         zlog_info ("Flood, Install, Possibly acknowledge the received LSA");
 
       /* (b) immediately flood and (c) remove from all retrans-list */
-      ospf6_flood (from, new);
+      /* Prevent self-originated LSA to be flooded. this is to make
+      reoriginated instance of the LSA not to be rejected by other routers
+      due to MinLSArrival. */
+      if (new->header->adv_router != from->ospf6_if->area->ospf6->router_id)
+        ospf6_flood (from, new);
 
       /* (c) Remove the current database copy from all neighbors' Link
              state retransmission lists. */

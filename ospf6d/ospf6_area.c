@@ -68,6 +68,7 @@ ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
 
     case OSPF6_LSTYPE_INTER_PREFIX:
     case OSPF6_LSTYPE_INTER_ROUTER:
+      ospf6_abr_examin_summary (lsa, (struct ospf6_area *) lsa->lsdb->data);
       break;
 
     default:
@@ -94,6 +95,7 @@ ospf6_area_lsdb_hook_remove (struct ospf6_lsa *lsa)
 
     case OSPF6_LSTYPE_INTER_PREFIX:
     case OSPF6_LSTYPE_INTER_ROUTER:
+      ospf6_abr_examin_summary (lsa, (struct ospf6_area *) lsa->lsdb->data);
       break;
 
     default:

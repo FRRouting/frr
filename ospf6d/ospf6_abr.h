@@ -61,6 +61,7 @@ void ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
                                           struct ospf6_area *area);
 void ospf6_abr_originate_summary (struct ospf6_route *route);
 void ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa);
+void ospf6_abr_examin_brouter (u_int32_t router_id);
 
 int config_write_ospf6_debug_abr (struct vty *vty);
 void install_element_ospf6_debug_abr ();

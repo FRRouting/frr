@@ -497,8 +497,9 @@ ospf6_lsa_copy (struct ospf6_lsa *lsa)
   assert (copy->lock == 0);
 
   copy->birth = lsa->birth;
-  copy->installed = lsa->installed;
   copy->originated = lsa->originated;
+  copy->received = lsa->received;
+  copy->installed = lsa->installed;
   copy->lsdb = lsa->lsdb;
 
   return copy;

@@ -1,5 +1,10 @@
 2004-08-19  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
+	* ospf6_asbr.c: Bug in ASBR check fixed.
+	* ospf6d.h: version 0.9.7k
+
+2004-08-19  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
 	* ospf6_asbr.c: Bug in AS-External Origination fixed.
 	* ospf6d.h: version 0.9.7j
 

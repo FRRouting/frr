@@ -215,9 +215,9 @@ extern char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 #define ospf6_linkstate_prefix_id(x) \
   (*(u_int32_t *)(&(x)->u.prefix6.s6_addr[4]))
 
-#define ID_IN_PREFIX(x) \
-  (*(u_int32_t *)(&(x)->u.prefix6.s6_addr[0]))
 #define ADV_ROUTER_IN_PREFIX(x) \
+  (*(u_int32_t *)(&(x)->u.prefix6.s6_addr[0]))
+#define ID_IN_PREFIX(x) \
   (*(u_int32_t *)(&(x)->u.prefix6.s6_addr[4]))
 
 /* Function prototype */

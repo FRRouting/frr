@@ -499,6 +499,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
   u_int8_t prefix_options = 0;
   u_int32_t cost = 0;
   int i;
+  char buf[64];
 
   if (IS_OSPF6_DEBUG_ABR)
     zlog_info ("Examin %s in area %s", lsa->name, oa->name);
@@ -511,6 +512,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
       prefix.family = AF_INET6;
       prefix.prefixlen = prefix_lsa->prefix.prefix_length;
       ospf6_prefix_in6_addr (&prefix.u.prefix6, &prefix_lsa->prefix);
+      prefix2str (&prefix, buf, sizeof (buf));
       table = oa->ospf6->route_table;
       type = OSPF6_DEST_TYPE_NETWORK;
       prefix_options = prefix_lsa->prefix.prefix_options;
@@ -522,6 +524,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
       router_lsa = (struct ospf6_inter_router_lsa *)
         OSPF6_LSA_HEADER_END (lsa->header);
       ospf6_linkstate_prefix (router_lsa->router_id, htonl (0), &prefix);
+      inet_ntop (AF_INET, &router_lsa->router_id, buf, sizeof (buf));
       table = oa->ospf6->brouter_table;
       type = OSPF6_DEST_TYPE_ROUTER;
       options[0] = router_lsa->options[0];
@@ -532,15 +535,18 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
   else
     assert (0);
 
-  for (route = ospf6_route_lookup (&prefix, table);
-       route && ospf6_route_is_prefix (&prefix, route);
-       route = ospf6_route_next (route))
+  /* Find existing route */
+  route = ospf6_route_lookup (&prefix, table);
+  if (route)
+    ospf6_route_lock (route);
+  while (route && ospf6_route_is_prefix (&prefix, route))
     {
       if (route->path.area_id == oa->area_id &&
           route->path.origin.type == lsa->header->type &&
           route->path.origin.id == lsa->header->id &&
           route->path.origin.adv_router == lsa->header->adv_router)
         old = route;
+      route = ospf6_route_next (route);
     }
 
   /* (1) if cost == LSInfinity or if the LSA is MaxAge */
@@ -589,6 +595,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
   ospf6_linkstate_prefix (lsa->header->adv_router, htonl (0), &abr_prefix);
   abr_entry = ospf6_route_lookup (&abr_prefix, oa->ospf6->brouter_table);
   if (abr_entry == NULL || abr_entry->path.area_id != oa->area_id ||
+      CHECK_FLAG (abr_entry->flag, OSPF6_ROUTE_REMOVE) ||
       ! CHECK_FLAG (abr_entry->path.router_bits, OSPF6_ROUTER_BIT_B))
     {
       if (IS_OSPF6_DEBUG_ABR)
@@ -602,7 +609,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
      in the routing table. Always install the path by substituting
      old route (if any). */
   if (old)
-    route = old;
+    route = ospf6_route_copy (old);
   else
     route = ospf6_route_create ();
 
@@ -622,8 +629,43 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
     route->nexthop[i] = abr_entry->nexthop[i];
 
   if (IS_OSPF6_DEBUG_ABR)
-    zlog_info ("Install route");
+    zlog_info ("Install route: %s", buf);
   ospf6_route_add (route, table);
+}
+
+void
+ospf6_abr_examin_brouter (u_int32_t router_id)
+{
+  struct ospf6_lsa *lsa;
+  struct ospf6_area *oa;
+  listnode node;
+  u_int16_t type;
+
+  if (IS_OSPF6_DEBUG_ABR)
+    {
+      char buf[16];
+      inet_ntop (AF_INET, &router_id, buf, sizeof (buf));
+      zlog_info ("Router entry of %s changed", buf);
+      zlog_info ("Examin summary LSAs originated by the router");
+    }
+
+  type = htons (OSPF6_LSTYPE_INTER_ROUTER);
+  for (node = listhead (ospf6->area_list); node; nextnode (node))
+    {
+      oa = OSPF6_AREA (getdata (node));
+      for (lsa = ospf6_lsdb_type_router_head (type, router_id, oa->lsdb); lsa;
+           lsa = ospf6_lsdb_type_router_next (type, router_id, lsa))
+        ospf6_abr_examin_summary (lsa, oa);
+    }
+
+  type = htons (OSPF6_LSTYPE_INTER_PREFIX);
+  for (node = listhead (ospf6->area_list); node; nextnode (node))
+    {
+      oa = OSPF6_AREA (getdata (node));
+      for (lsa = ospf6_lsdb_type_router_head (type, router_id, oa->lsdb); lsa;
+           lsa = ospf6_lsdb_type_router_next (type, router_id, lsa))
+        ospf6_abr_examin_summary (lsa, oa);
+    }
 }
 
 

@@ -201,10 +201,25 @@ static void
 _route_count_assert (struct ospf6_route_table *table)
 {
   struct ospf6_route *debug;
+  char buf[64];
   int num = 0;
   for (debug = ospf6_route_head (table); debug;
        debug = ospf6_route_next (debug))
     num++;
+
+  if (num == table->count)
+    return;
+
+  zlog_info ("PANIC !! table[%p]->count = %d, real = %d",
+             table, table->count, num);
+  for (debug = ospf6_route_head (table); debug;
+       debug = ospf6_route_next (debug))
+    {
+      prefix2str (&debug->prefix, buf, sizeof (buf));
+      zlog_info ("%p %p %s", debug->prev, debug->next, buf);
+    }
+  zlog_info ("DUMP END");
+
   assert (num == table->count);
 }
 #define ospf6_route_count_assert(t) (_route_count_assert (t))

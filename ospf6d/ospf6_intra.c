@@ -1036,6 +1036,9 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
   char *start, *current, *end;
   char buf[64];
 
+  if (OSPF6_LSA_IS_MAXAGE (lsa))
+    return;
+
   if (IS_OSPF6_DEBUG_ROUTE (INTRA))
     zlog_info ("%s found", lsa->name);
 
@@ -1081,10 +1084,12 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
         break;
 
       route = ospf6_route_create ();
-      route->prefix.prefixlen = op->prefix_length;
+
+      memset (&route->prefix, 0, sizeof (struct prefix));
       route->prefix.family = AF_INET6;
-      memcpy (&route->prefix.u.prefix6, OSPF6_PREFIX_BODY (op),
-              OSPF6_PREFIX_SPACE (op->prefix_length));
+      route->prefix.prefixlen = op->prefix_length;
+      ospf6_prefix_in6_addr (&route->prefix.u.prefix6, op);
+
       route->type = OSPF6_DEST_TYPE_NETWORK;
       route->path.origin.type = lsa->header->type;
       route->path.origin.id = lsa->header->id;
@@ -1147,6 +1152,7 @@ ospf6_intra_prefix_lsa_remove (struct ospf6_lsa *lsa)
         break;
       prefix_num--;
 
+      memset (&prefix, 0, sizeof (struct prefix));
       prefix.family = AF_INET6;
       prefix.prefixlen = op->prefix_length;
       ospf6_prefix_in6_addr (&prefix.u.prefix6, op);
@@ -1246,6 +1252,7 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
   struct ospf6_route *lsentry, *copy;
   void (*hook_add) (struct ospf6_route *) = NULL;
   void (*hook_remove) (struct ospf6_route *) = NULL;
+  char buf[16];
 
   if (IS_OSPF6_DEBUG_ROUTE (INTRA))
     zlog_info ("Border-router calculation for area %s", oa->name);
@@ -1277,9 +1284,15 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
 
       copy = ospf6_route_copy (lsentry);
       copy->type = OSPF6_DEST_TYPE_ROUTER;
-      copy->prefix.family = AF_INET;
-      copy->prefix.prefixlen = 32;
+      copy->path.area_id = oa->area_id;
       ospf6_route_add (copy, oa->ospf6->brouter_table);
+
+      if (IS_OSPF6_DEBUG_ROUTE (INTRA))
+        {
+          inet_ntop (AF_INET, &ADV_ROUTER_IN_PREFIX (&copy->prefix),
+                     buf, sizeof (buf));
+          zlog_info ("Re-install router entry %s", buf);
+        }
     }
 
   oa->ospf6->brouter_table->hook_add = hook_add;
@@ -1303,6 +1316,12 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
       else if (CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_ADD) ||
                CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_CHANGE))
         {
+          if (IS_OSPF6_DEBUG_ROUTE (INTRA))
+            {
+              inet_ntop (AF_INET, &ADV_ROUTER_IN_PREFIX (&lsentry->prefix),
+                         buf, sizeof (buf));
+              zlog_info ("Call hook for router entry %s", buf);
+            }
           if (hook_add)
             (*hook_add) (lsentry);
         }
