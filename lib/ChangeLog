@@ -1,3 +1,7 @@
+2004-11-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* Makefile.am: Need to add zassert.h to pkginclude_HEADERS.
+
 2004-11-25 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zebra.h: If not C99 and there's no va_copy macro and there is
