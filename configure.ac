@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.80 2004/12/23 20:09:44 paul Exp $
+## $Id: configure.ac,v 1.81 2004/12/29 17:50:22 ajs Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.97.4, [http://bugzilla.quagga.net])
@@ -155,12 +155,18 @@ AC_ARG_ENABLE(capabilities,
 [  --disable-capabilities        disable using POSIX capabilities])
 AC_ARG_ENABLE(gcc_ultra_verbose,
 [  --enable-gcc-ultra-verbose    enable ultra verbose GCC warnings])
+AC_ARG_ENABLE(gcc-rdynamic,
+[  --enable-gcc-rdynamic   enable gcc linking with -rdynamic for better backtraces])
 
 if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
   CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"
   CFLAGS="${CFLAGS} -Wmissing-declarations -Wmissing-noreturn"
   CFLAGS="${CFLAGS} -Wmissing-format-attribute -Wunreachable-code"
   CFLAGS="${CFLAGS} -Wpacked -Wpadded"
+fi
+
+if test x"${enable_gcc_rdynamic}" = x"yes" ; then
+  LDFLAGS="${LDFLAGS} -rdynamic"
 fi
 
 if test "${enable_broken_aliases}" = "yes"; then
