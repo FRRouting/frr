@@ -1,3 +1,8 @@
+2004-10-08 Hasso Tepper <hasso at quagga.net>
+
+	* *.[c|h]: Fix compiler warnings: make strings const, signed ->
+	  unsigned etc.
+
 2004-09-26 Hasso Tepper <hasso at quagga.net>
 
 	* ripingd.c: Access list hook argument function must have struct

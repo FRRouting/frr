@@ -207,7 +207,7 @@ ripng_redistribute_routemap_unset (int type)
 static struct {
   int type;
   int str_min_len;
-  char *str;
+  const char *str;
 } redist_type[] = {
   {ZEBRA_ROUTE_KERNEL,  1, "kernel"},
   {ZEBRA_ROUTE_CONNECT, 1, "connected"},
@@ -484,8 +484,8 @@ void
 ripng_redistribute_write (struct vty *vty, int config_mode)
 {
   int i;
-  char *str[] = { "system", "kernel", "connected", "static", "rip",
-		  "ripng", "ospf", "ospf6", "isis", "bgp"};
+  const char *str[] = { "system", "kernel", "connected", "static", "rip",
+			"ripng", "ospf", "ospf6", "isis", "bgp"};
 
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     if (i != zclient->redist_default && zclient->redist[i])

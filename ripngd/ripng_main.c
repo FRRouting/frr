@@ -96,7 +96,7 @@ int vty_port = RIPNG_VTY_PORT;
 struct thread_master *master;
 
 /* Process ID saved for use by init system */
-char *pid_file = PATH_RIPNGD_PID;
+const char *pid_file = PATH_RIPNGD_PID;
 
 /* Help information display. */
 static void

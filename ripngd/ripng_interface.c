@@ -604,7 +604,7 @@ ripng_enable_network_add (struct prefix *p)
       return -1;
     }
   else
-    node->info = "enabled";
+    node->info = (char *) "enabled";
 
   /* XXX: One should find a better solution than a generic one */
   ripng_enable_apply_all();
@@ -638,7 +638,7 @@ ripng_enable_network_delete (struct prefix *p)
 int
 ripng_enable_if_lookup (char *ifname)
 {
-  int i;
+  unsigned int i;
   char *str;
 
   for (i = 0; i < vector_max (ripng_enable_if); i++)
@@ -836,7 +836,7 @@ ripng_enable_apply_all ()
 void
 ripng_clean_network ()
 {
-  int i;
+  unsigned int i;
   char *str;
   struct route_node *rn;
 
@@ -862,7 +862,7 @@ vector Vripng_passive_interface;
 int
 ripng_passive_interface_lookup (char *ifname)
 {
-  int i;
+  unsigned int i;
   char *str;
 
   for (i = 0; i < vector_max (Vripng_passive_interface); i++)
@@ -937,7 +937,7 @@ ripng_passive_interface_unset (struct vty *vty, char *ifname)
 void
 ripng_passive_interface_clean (void)
 {
-  int i;
+  unsigned int i;
   char *str;
 
   for (i = 0; i < vector_max (Vripng_passive_interface); i++)
@@ -953,7 +953,7 @@ ripng_passive_interface_clean (void)
 int
 ripng_network_write (struct vty *vty, int config_mode)
 {
-  int i;
+  unsigned int i;
   char *ifname;
   struct route_node *node;
   char buf[BUFSIZ];

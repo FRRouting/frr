@@ -296,11 +296,11 @@ ripng_recv_packet (int sock, u_char *buf, int bufsize,
 
 /* Dump rip packet */
 void
-ripng_packet_dump (struct ripng_packet *packet, int size, char *sndrcv)
+ripng_packet_dump (struct ripng_packet *packet, int size, const char *sndrcv)
 {
   caddr_t lim;
   struct rte *rte;
-  char *command_str;
+  const char *command_str;
 
   /* Set command string. */
   if (packet->command == RIPNG_REQUEST)
@@ -1935,12 +1935,13 @@ ripng_event (enum ripng_event event, int sock)
     }
 }
 
-/* Each route type's strings and default preference. */
+/* Each route type's strings and default preference.
+ * FIXME: ISIS? What are these distance values? */
 struct
 {  
   int key;
-  char *str;
-  char *str_long;
+  const char *str;
+  const char *str_long;
   int distance;
 } route_info[] =
 {

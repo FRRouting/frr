@@ -395,7 +395,7 @@ int ripng_write_rte (int num, struct stream *s, struct prefix_ipv6 *p,
 int ripng_send_packet (caddr_t buf, int bufsize, struct sockaddr_in6 *to, 
 		       struct interface *ifp);
 
-void ripng_packet_dump (struct ripng_packet *packet, int size, char *sndrcv);
+void ripng_packet_dump (struct ripng_packet *packet, int size, const char *sndrcv);
 
 
 #endif /* _ZEBRA_RIPNG_RIPNGD_H */
