@@ -1552,14 +1552,9 @@ DEFUN (ip_forwarding,
   int ret;
 
   ret = ipforward ();
+  if (ret == 0)
+    ret = ipforward_on ();
 
-  if (ret != 0)
-    {
-      vty_out (vty, "IP forwarding is already on%s", VTY_NEWLINE);
-      return CMD_ERR_NOTHING_TODO;
-    }
-
-  ret = ipforward_on ();
   if (ret == 0)
     {
       vty_out (vty, "Can't turn on IP forwarding%s", VTY_NEWLINE);
@@ -1579,14 +1574,9 @@ DEFUN (no_ip_forwarding,
   int ret;
 
   ret = ipforward ();
+  if (ret != 0)
+    ret = ipforward_off ();
 
-  if (ret == 0)
-    {
-      vty_out (vty, "IP forwarding is already off%s", VTY_NEWLINE); 
-      return CMD_ERR_NOTHING_TODO;
-    }
-
-  ret = ipforward_off ();
   if (ret != 0)
     {
       vty_out (vty, "Can't turn off IP forwarding%s", VTY_NEWLINE);
@@ -1692,13 +1682,9 @@ DEFUN (ipv6_forwarding,
   int ret;
 
   ret = ipforward_ipv6 ();
-  if (ret != 0)
-    {
-      vty_out (vty, "IPv6 forwarding is already on%s", VTY_NEWLINE);
-      return CMD_ERR_NOTHING_TODO;
-    }
+  if (ret == 0)
+    ret = ipforward_ipv6_on ();
 
-  ret = ipforward_ipv6_on ();
   if (ret == 0)
     {
       vty_out (vty, "Can't turn on IPv6 forwarding%s", VTY_NEWLINE);
@@ -1718,13 +1704,9 @@ DEFUN (no_ipv6_forwarding,
   int ret;
 
   ret = ipforward_ipv6 ();
-  if (ret == 0)
-    {
-      vty_out (vty, "IP forwarding is already off%s", VTY_NEWLINE);
-      return CMD_ERR_NOTHING_TODO;
-    }
+  if (ret != 0)
+    ret = ipforward_ipv6_off ();
 
-  ret = ipforward_ipv6_off ();
   if (ret != 0)
     {
       vty_out (vty, "Can't turn off IPv6 forwarding%s", VTY_NEWLINE);

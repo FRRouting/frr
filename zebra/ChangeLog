@@ -2,6 +2,7 @@
 
 	* zebra_snmp.c: Remove defaults used to initialize smux connection to
 	  snmpd. Connection is initialized only if smux peer is configured.
+	* zserv.c: Remove useless warnings "forwarding is already on".
 
 2004-10-12 Hasso Tepper <hasso at quagga.net>
 
