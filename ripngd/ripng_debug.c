@@ -33,8 +33,8 @@ DEFUN (show_debugging_ripng,
        show_debugging_ripng_cmd,
        "show debugging ripng",
        SHOW_STR
-       "RIPng configuration\n"
-       "Debugging information\n")
+       DEBUG_STR
+       "RIPng configuration\n")
 {
   vty_out (vty, "RIPng debugging status:%s", VTY_NEWLINE);
 
