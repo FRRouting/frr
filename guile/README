@@ -1,0 +1,17 @@
+
+			     zebra-guile
+
+			  Kunihiro Ishiguro
+				 1999
+
+1. What is zebra-guile
+
+zebra-guile is GNU Zebra which linked with guile.  Almost zebra's
+command can be called from guile interpreter.  So you can use guile as
+a routing scripting language.
+
+2. How to use it.
+
+(define bgp (router-bgp 7675))
+
+3.

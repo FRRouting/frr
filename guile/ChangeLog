@@ -1,0 +1,26 @@
+2000-10-02  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* zebra-0.89 is released.
+
+2000-08-17  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* zebra-0.88 is released.
+
+1999-04-18  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* guile-bgp.c (scm_router_bgp): Allocate real struct bgp object.
+
+	* Makefile.am: Delete -DPACKAGE and -DVERSION.
+
+	* zebra-guile.h: File added.
+	* zebra-support.c: File added.
+	* guile-bgp.c: File added.
+
+1999-04-15  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* guile/Makefile.am (INCLUDES): Use @GUILE_CFLAGS@ and
+	@GUILE_LDFLAGS@
+
+1999-04-14  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* zebra-guile work restarted.

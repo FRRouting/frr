@@ -1,0 +1,54 @@
+!
+! Zebra configuration saved from vty
+!   2000/05/11 02:09:37
+!
+hostname ospf6d@yasu3380
+password zebra
+log file /var/log/zebra-ospf6d.log
+log stdout
+!
+debug ospf6 message dbdesc
+debug ospf6 message lsreq
+debug ospf6 message lsupdate
+debug ospf6 message lsack
+debug ospf6 neighbor
+debug ospf6 spf
+debug ospf6 interface
+debug ospf6 area
+debug ospf6 lsa
+debug ospf6 zebra
+debug ospf6 config
+debug ospf6 dbex
+debug ospf6 route
+!
+interface ed0
+ ipv6 ospf6 cost 1
+ ipv6 ospf6 hello-interval 10
+ ipv6 ospf6 dead-interval 40
+ ipv6 ospf6 retransmit-interval 5
+ ipv6 ospf6 priority 1
+ ipv6 ospf6 transmit-delay 1
+ ipv6 ospf6 instance-id 0
+!
+interface lo0
+ ipv6 ospf6 cost 1
+ ipv6 ospf6 hello-interval 10
+ ipv6 ospf6 dead-interval 40
+ ipv6 ospf6 retransmit-interval 5
+ ipv6 ospf6 priority 1
+ ipv6 ospf6 transmit-delay 1
+ ipv6 ospf6 instance-id 0
+!
+router ospf6
+ router-id 0.0.0.1
+ redistribute static route-map static-ospf6
+ interface ed0 area 0.0.0.0
+ interface lo0 area 0.0.0.0
+!
+ipv6 prefix-list hostroute seq 10 permit 3ffe:501:100c:4380::/60 le 128 ge 128
+!
+route-map static-ospf6 permit 50
+ match ipv6 address prefix-list hostroute
+ set metric-type type-2
+ set metric 30
+!

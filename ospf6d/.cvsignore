@@ -1,0 +1,8 @@
+Makefile
+*.o
+*.patch
+ospf6d
+ospf6d.conf
+tags
+TAGS
+.deps

@@ -1,0 +1,6 @@
+Makefile
+*.o
+vtysh
+tags
+TAGS
+.deps

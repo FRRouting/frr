@@ -1,0 +1,10 @@
+config.log
+config.h
+config.cache
+config.status
+stamp-h
+stamp-h[0-9]*
+Makefile
+.deps
+autom4te.cache
+configure.lineno

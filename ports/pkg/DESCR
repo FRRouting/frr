@@ -1,0 +1,75 @@
+=============
+WHAT IS ZEBRA
+=============
+  Zebra is a free software that manages TCP/IP based routing protocol.
+  It takes multi-server and multi-thread approach to resolve the current
+complexity of the Internet.
+
+  Currently zebra is still under development, so If you want to use zebra,
+I strongly recommend you to get the latest version of zebra.
+  Zebra snapshot is released on every monday.
+
+===================
+SUPPORTED Protocols
+===================
+  Zebra supports both IPv4 and IPv6 :-)
+  For supporting IPv4 Routing protocols is here
+	RIP (both version1 and version2)
+		RIPv2 supports both Multicast and Broadcast
+	BGP (only support BGP4)
+
+  For supporting IPv6 Routing protocols is here
+	RIPng
+	BGP4+
+
+===================
+Supported plat-home
+===================
+  Now zebra is testing on 
+  o FreeBSD 2.2.8
+      -- without IPv6 ;-)
+      -- with KAME
+      -- with INRIA IPv6 protocol stack.
+
+  o GNU/Linux 2.2.2
+  o GNU/Linux 2.0.36
+
+===========
+ZEBRA Ports
+===========
+  Each daemon has each own terminal interface.  Also zebra has communication
+port which provides several services to other daemons.  Below is zebra ports
+list.
+
+zebrasrv      2600/tcp		  # zebra service
+zebra	      2601/tcp		  # zebra vty
+ripd	      2602/tcp		  # RIPd vty
+ripngd	      2603/tcp		  # RIPngd vty
+ospfd	      2604/tcp		  # OSPFd vty
+bgpd	      2605/tcp		  # BGPd vty
+
+I recommend you to add upper list to /etc/services.
+
+====================
+For More Information
+====================
+  Web page is located at:
+	http://www.zebra.org/
+
+  Alpha version source file can be found at:
+	ftp://ftp.zebra.org/pub/zebra/
+
+  Mailing List is here
+	zebra@zebra.org
+	zebra-jp@zebra.org
+
+    If you want to join zebra mailing list, mail to 
+	majordomo@zebra.org
+    and you write
+	subscribe zebra
+	  -- if you want to talk with English
+	subscribe zebra-jp
+	  -- if you want to talk with Japanese
+    on Mail BODY (Not Subject).
+
+Enjoy.

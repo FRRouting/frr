@@ -1,0 +1,7 @@
+Makefile
+*.o
+ripd
+ripd.conf
+tags
+TAGS
+.deps
