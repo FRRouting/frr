@@ -69,6 +69,7 @@
 #ifdef SUPPORT_OSPF_API
 int ospf_apiserver_init (void);
 void ospf_apiserver_term (void); 
+extern int ospf_apiserver_enable;
 #endif /* SUPPORT_OSPF_API */
 
 static void ospf_opaque_register_vty (void);
@@ -91,7 +92,7 @@ ospf_opaque_init (void)
 #endif /* HAVE_OSPF_TE */
 
 #ifdef SUPPORT_OSPF_API
-  if (ospf_apiserver_init () != 0)
+  if ((ospf_apiserver_enable) && (ospf_apiserver_init () != 0))
     exit (1);
 #endif /* SUPPORT_OSPF_API */
 

@@ -1,3 +1,8 @@
+2004-10-11 Hasso Tepper <hasso at quagga.net>
+
+	* ospfd.8: Update manpage: add info about new -a/--apiserver command
+	  line switch.
+
 2004-10-11 Paul Jakma <paul@dishone.st>
 
 	* ospfd.texi: reformat the ospf md5 paragraph, add an additional

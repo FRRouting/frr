@@ -1,3 +1,8 @@
+2004-10-11 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_main.c, ospf_opaque.c: Disable ospfapi init by default. New
+	  command line switch to enable it.
+
 2004-10-11 Paul Jakma <paul@dishone.st>
 
 	* ospf_dump.c: (ospf_ip_header_dump) Assume header is in host order

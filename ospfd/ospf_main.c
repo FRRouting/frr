@@ -87,6 +87,7 @@ struct option longopts[] =
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "user",        required_argument, NULL, 'u'},
+  { "apiserver",   no_argument,       NULL, 'a'},
   { "version",     no_argument,       NULL, 'v'},
   { 0 }
 };
@@ -98,6 +99,9 @@ struct thread_master *master;
 
 /* Process ID saved for use by init system */
 const char *pid_file = PATH_OSPFD_PID;
+
+/* OSPF apiserver is disabled by default. */
+int ospf_apiserver_enable = 0;
 
 /* Help information display. */
 static void
@@ -115,6 +119,7 @@ Daemon which manages OSPF.\n\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -u, --user         User and group to run as\n\
+-a. --apiserver    Enable OSPF apiserver\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
@@ -204,7 +209,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "dlf:i:hA:P:u:v", longopts, 0);
+      opt = getopt_long (argc, argv, "dlf:i:hA:P:u:av", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -236,9 +241,12 @@ main (int argc, char **argv)
           vty_port = atoi (optarg);
           vty_port = (vty_port ? vty_port : OSPF_VTY_PORT);
   	  break;
-  case 'u':
-    ospfd_privs.group = ospfd_privs.user = optarg;
-    break;
+	case 'u':
+	  ospfd_privs.group = ospfd_privs.user = optarg;
+	  break;
+	case 'a':
+	  ospf_apiserver_enable = 1;
+	  break;
 	case 'v':
 	  print_version (progname);
 	  exit (0);
