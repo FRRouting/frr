@@ -95,6 +95,12 @@ typedef int socklen_t;
 
 /* misc include group */
 #include <stdarg.h>
+#if !(defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L)
+/* Not C99; do we need to define va_copy? */
+#if !defined(va_copy) && defined(__va_copy)
+#define va_copy(DST,SRC) __va_copy(DST,SRC)
+#endif /* need va_copy */
+#endif /* !C99 */
 #include "zassert.h"
 
 #ifdef HAVE_LCAPS

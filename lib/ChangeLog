@@ -1,5 +1,10 @@
 2004-11-25 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* zebra.h: If not C99 and there's no va_copy macro and there is
+	  a __va_copy macro, define va_copy as __va_copy.
+
+2004-11-25 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* pid_output.c: (pid_output_lock) Fix 2 bugs: when locking, should
 	  set l_whence to SEEK_SET, not SEEK_END.  And after writing new
 	  pid to file, must ftruncate to eliminate any extraneous bytes left
