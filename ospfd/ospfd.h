@@ -86,8 +86,8 @@
 #define OSPF_AUTH_CMD_NOTSEEN              -2
 
 /* OSPF SPF timer values. */
-#define OSPF_SPF_DELAY_DEFAULT              5
-#define OSPF_SPF_HOLDTIME_DEFAULT          10
+#define OSPF_SPF_DELAY_DEFAULT              1
+#define OSPF_SPF_HOLDTIME_DEFAULT           1
 
 /* OSPF interface default values. */
 #define OSPF_OUTPUT_COST_DEFAULT           10
