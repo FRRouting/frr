@@ -144,7 +144,7 @@ ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
   stream_reset (s);
   num = 0;
 
-  mtu = ifp->mtu;
+  mtu = ifp->mtu6;
   if (mtu < 0)
     mtu = IFMINMTU;
 

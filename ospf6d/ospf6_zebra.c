@@ -73,7 +73,7 @@ ospf6_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
   ifp = zebra_interface_add_read (zclient->ibuf);
   if (IS_OSPF6_DEBUG_ZEBRA (RECV))
     zlog_info ("Zebra Interface add: %s index %d mtu %d",
-               ifp->name, ifp->ifindex, ifp->mtu);
+               ifp->name, ifp->ifindex, ifp->mtu6);
   ospf6_interface_if_add (ifp);
   return 0;
 }
@@ -87,7 +87,7 @@ ospf6_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
   ifp = zebra_interface_delete_read (zclient->ibuf);
   if (IS_OSPF6_DEBUG_ZEBRA (RECV))
     zlog_info ("Zebra Interface delete: %s index %d mtu %d",
-               ifp->name, ifp->ifindex, ifp->mtu);
+               ifp->name, ifp->ifindex, ifp->mtu6);
 
   ospf6_interface_if_del (ifp);
 #endif /*0*/
@@ -104,7 +104,7 @@ ospf6_zebra_if_state_update (int command, struct zclient *zclient,
   if (IS_OSPF6_DEBUG_ZEBRA (RECV))
     zlog_info ("Zebra Interface state change: "
                  "%s index %d flags %ld metric %d mtu %d",
-               ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+               ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu6);
 
   ospf6_interface_state_update (ifp);
   return 0;

@@ -142,8 +142,8 @@ ospf6_interface_create (struct interface *ifp)
   oi->flag = 0;
 
   /* Try to adjust I/O buffer size with IfMtu */
-  oi->ifmtu = ifp->mtu;
-  iobuflen = ospf6_iobuf_size (ifp->mtu);
+  oi->ifmtu = ifp->mtu6;
+  iobuflen = ospf6_iobuf_size (ifp->mtu6);
   if (oi->ifmtu > iobuflen)
     {
       zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
@@ -271,8 +271,8 @@ ospf6_interface_if_add (struct interface *ifp)
 
   /* Try to adjust I/O buffer size with IfMtu */
   if (oi->ifmtu == 0)
-    oi->ifmtu = ifp->mtu;
-  iobuflen = ospf6_iobuf_size (ifp->mtu);
+    oi->ifmtu = ifp->mtu6;
+  iobuflen = ospf6_iobuf_size (ifp->mtu6);
   if (oi->ifmtu > iobuflen)
     {
       zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
@@ -822,7 +822,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   if (oi->area)
     {
       vty_out (vty, "  Instance ID %d, Interface MTU %d (autodetect: %d)%s",
-	       oi->instance_id, oi->ifmtu, ifp->mtu, VTY_NEWLINE);
+	       oi->instance_id, oi->ifmtu, ifp->mtu6, VTY_NEWLINE);
       inet_ntop (AF_INET, &oi->area->area_id,
                  strbuf, sizeof (strbuf));
       vty_out (vty, "  Area ID %s, Cost %hu%s", strbuf, oi->cost,
@@ -1068,10 +1068,10 @@ DEFUN (ipv6_ospf6_ifmtu,
   if (oi->ifmtu == ifmtu)
     return CMD_SUCCESS;
 
-  if (ifp->mtu != 0 && ifp->mtu < ifmtu)
+  if (ifp->mtu6 != 0 && ifp->mtu6 < ifmtu)
     {
       vty_out (vty, "%s's ospf6 ifmtu cannot go beyond physical mtu (%d)%s",
-               ifp->name, ifp->mtu, VTY_NEWLINE);
+               ifp->name, ifp->mtu6, VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1452,7 +1452,7 @@ config_write_ospf6_interface (struct vty *vty)
       if (ifp->desc)
         vty_out (vty, " description %s%s", ifp->desc, VTY_NEWLINE);
 
-      if (ifp->mtu != oi->ifmtu)
+      if (ifp->mtu6 != oi->ifmtu)
         vty_out (vty, " ipv6 ospf6 ifmtu %d%s", oi->ifmtu, VTY_NEWLINE);
       vty_out (vty, " ipv6 ospf6 cost %d%s",
                oi->cost, VTY_NEWLINE);

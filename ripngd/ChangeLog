@@ -1,3 +1,8 @@
+2004-07-23  Hasso Tepper  <hasso@estpak.ee>
+
+	* ripng_interface.c, ripng_nexthop.c: use ifp->mtu6 instead of
+	  ifp->mtu.
+
 2004-07-01  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* ripng_interface.c (ripng_multicast_join): Use privs to do join,

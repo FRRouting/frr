@@ -166,8 +166,8 @@ ripng_check_max_mtu ()
   for (node = listhead (iflist); node; nextnode (node))
     {
       ifp = getdata (node);
-      if (mtu < ifp->mtu)
-	mtu = ifp->mtu;
+      if (mtu < ifp->mtu6)
+	mtu = ifp->mtu6;
     }
   return mtu;
 }
@@ -243,7 +243,7 @@ ripng_interface_up (int command, struct zclient *zclient, zebra_size_t length)
 
   if (IS_RIPNG_DEBUG_ZEBRA)
     zlog_info ("interface up %s index %d flags %ld metric %d mtu %d",
-	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu6);
 
   /* Check if this interface is RIPng enabled or not. */
   ripng_enable_apply (ifp);
@@ -276,7 +276,7 @@ ripng_interface_down (int command, struct zclient *zclient,
 
   if (IS_RIPNG_DEBUG_ZEBRA)
     zlog_info ("interface down %s index %d flags %ld metric %d mtu %d",
-	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu6);
 
   return 0;
 }
@@ -291,7 +291,7 @@ ripng_interface_add (int command, struct zclient *zclient, zebra_size_t length)
 
   if (IS_RIPNG_DEBUG_ZEBRA)
     zlog_info ("RIPng interface add %s index %d flags %ld metric %d mtu %d",
-	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu6);
 
   /* Check is this interface is RIP enabled or not.*/
   ripng_enable_apply (ifp);
@@ -324,7 +324,7 @@ ripng_interface_delete (int command, struct zclient *zclient,
   }
 
   zlog_info("interface delete %s index %d flags %ld metric %d mtu %d",
-            ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+            ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu6);
 
   /* To support pseudo interface do not free interface structure.  */
   /* if_delete(ifp); */
