@@ -204,6 +204,7 @@ void
 ospf6_install_lsa (struct ospf6_lsa *lsa)
 {
   struct ospf6_lsa *old;
+  struct timeval now;
 
   if (IS_OSPF6_DEBUG_LSA (RECV) || IS_OSPF6_DEBUG_LSA (DATABASE))
     zlog_info ("Install LSA: %s", lsa->name);
@@ -213,10 +214,20 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
   old = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
                            lsa->header->adv_router, lsa->lsdb);
   if (old)
-    ospf6_flood_clear (old);
+    {
+      THREAD_OFF (old->expire);
+      ospf6_flood_clear (old);
+    }
+
+  gettimeofday (&now, (struct timezone *) NULL);
+  if (ospf6_lsa_age_current (lsa) != MAXAGE)
+    lsa->expire = thread_add_timer (master, ospf6_lsa_expire, lsa,
+                                    MAXAGE + lsa->birth.tv_sec - now.tv_sec);
+  else
+    lsa->expire = NULL;
 
   /* actually install */
-  gettimeofday (&lsa->installed, (struct timezone *) NULL);
+  lsa->installed = now;
   ospf6_lsdb_add (lsa, lsa->lsdb);
 
   return;

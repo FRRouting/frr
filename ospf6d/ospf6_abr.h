@@ -54,6 +54,9 @@ struct ospf6_inter_router_lsa
 
 int ospf6_is_router_abr (struct ospf6 *o);
 
+void ospf6_abr_enable_area (struct ospf6_area *oa);
+void ospf6_abr_disable_area (struct ospf6_area *oa);
+
 void ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
                                           struct ospf6_area *area);
 void ospf6_abr_originate_summary (struct ospf6_route *route);

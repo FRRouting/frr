@@ -335,12 +335,10 @@ DEFUN (ospf6_interface_area,
       )
 {
   struct ospf6 *o;
-  struct ospf6_area *oa, *area;
+  struct ospf6_area *oa;
   struct ospf6_interface *oi;
   struct interface *ifp;
   u_int32_t area_id;
-  listnode node;
-  struct ospf6_route *ro;
 
   o = (struct ospf6 *) vty->index;
 
@@ -377,25 +375,9 @@ DEFUN (ospf6_interface_area,
   /* start up */
   thread_add_event (master, interface_up, oi, 0);
 
-  /* ABR stuff, redistribute inter-area LSAs and
-     re-originate Router-LSA (B-bit may have been changed) */
-  for (node = listhead (o->area_list); node; nextnode (node))
-    {
-      area = OSPF6_AREA (getdata (node));
-      OSPF6_ROUTER_LSA_SCHEDULE (area);
-
-      for (ro = ospf6_route_head (area->range_table); ro;
-           ro = ospf6_route_next (ro))
-        ospf6_abr_originate_summary_to_area (ro, oa);
-    }
-
-  for (ro = ospf6_route_head (o->brouter_table); ro;
-       ro = ospf6_route_next (ro))
-    ospf6_abr_originate_summary_to_area (ro, oa);
-
-  for (ro = ospf6_route_head (o->route_table); ro;
-       ro = ospf6_route_next (ro))
-    ospf6_abr_originate_summary_to_area (ro, oa);
+  /* If the router is ABR, originate summary routes */
+  if (ospf6_is_router_abr (o))
+    ospf6_abr_enable_area (oa);
 
   return CMD_SUCCESS;
 }
@@ -412,12 +394,9 @@ DEFUN (no_ospf6_interface_area,
 {
   struct ospf6 *o;
   struct ospf6_interface *oi;
-  struct ospf6_area *oa, *area;
+  struct ospf6_area *oa;
   struct interface *ifp;
   u_int32_t area_id;
-  listnode node;
-  struct ospf6_route *ro;
-  struct ospf6_lsa *old;
 
   o = (struct ospf6 *) vty->index;
 
@@ -459,35 +438,7 @@ DEFUN (no_ospf6_interface_area,
   if (oa->if_list->count == 0)
     {
       UNSET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
-
-      for (ro = ospf6_route_head (oa->summary_prefix); ro;
-           ro = ospf6_route_next (ro))
-        {
-          old = ospf6_lsdb_lookup (ro->path.origin.type,
-                                   ro->path.origin.id,
-                                   oa->ospf6->router_id, oa->lsdb);
-          if (old)
-            ospf6_lsa_purge (old);
-          ospf6_route_remove (ro, oa->summary_prefix);
-        }
-      for (ro = ospf6_route_head (oa->summary_router); ro;
-           ro = ospf6_route_next (ro))
-        {
-          old = ospf6_lsdb_lookup (ro->path.origin.type,
-                                   ro->path.origin.id,
-                                   oa->ospf6->router_id, oa->lsdb);
-          if (old)
-            ospf6_lsa_purge (old);
-          ospf6_route_remove (ro, oa->summary_router);
-        }
-    }
-
-  /* Schedule Refreshment of Router-LSA for each area
-     (ABR status may change) */
-  for (node = listhead (o->area_list); node; nextnode (node))
-    {
-      area = OSPF6_AREA (getdata (node));
-      OSPF6_ROUTER_LSA_SCHEDULE (area);
+      ospf6_abr_disable_area (oa);
     }
 
   return CMD_SUCCESS;

@@ -50,92 +50,29 @@ ospf6_debug ()
 {
 }
 
-static struct route_node *
-_route_next_until (struct route_node *node, struct route_node *limit)
-{
-  struct route_node *next;
-  struct route_node *start;
-
-  /* Node may be deleted from route_unlock_node so we have to preserve
-     next node's pointer. */
-
-  if (node->l_left)
-    {
-      next = node->l_left;
-      if (next == limit)
-        {
-          route_unlock_node (node);
-          return NULL;
-        }
-      route_lock_node (next);
-      route_unlock_node (node);
-      return next;
-    }
-  if (node->l_right)
-    {
-      next = node->l_right;
-      if (next == limit)
-        {
-          route_unlock_node (node);
-          return NULL;
-        }
-      route_lock_node (next);
-      route_unlock_node (node);
-      return next;
-    }
-
-  start = node;
-  while (node->parent)
-    {
-      if (node->parent->l_left == node && node->parent->l_right)
-	{
-	  next = node->parent->l_right;
-          if (next == limit)
-            {
-              route_unlock_node (start);
-              return NULL;
-            }
-	  route_lock_node (next);
-	  route_unlock_node (start);
-	  return next;
-	}
-      node = node->parent;
-    }
-
-  route_unlock_node (start);
-  return NULL;
-}
-
 struct route_node *
 route_prev (struct route_node *node)
 {
   struct route_node *end;
   struct route_node *prev = NULL;
 
-  if (node->parent == NULL)
-    {
-      route_unlock_node (node);
-      return NULL;
-    }
-
-  if (node->parent->l_left == node)
-    {
-      prev = node->parent;
-      route_lock_node (prev);
-      route_unlock_node (node);
-      return prev;
-    }
-
   end = node;
   node = node->parent;
-  route_lock_node (node);
+  if (node)
+    route_lock_node (node);
   while (node)
     {
       prev = node;
-      node = _route_next_until (node, end);
+      node = route_next (node);
+      if (node == end)
+        {
+          route_unlock_node (node);
+          node = NULL;
+        }
     }
   route_unlock_node (end);
-  route_lock_node (prev);
+  if (prev)
+    route_lock_node (prev);
 
   return prev;
 }

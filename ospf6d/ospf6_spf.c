@@ -151,7 +151,7 @@ ospf6_lsdesc_lsa (caddr_t lsdesc, struct ospf6_vertex *v)
 
   lsa = ospf6_lsdb_lookup (type, id, adv_router, v->area->lsdb);
 
-  if (IS_OSPF6_DEBUG_SPF (DETAIL))
+  if (IS_OSPF6_DEBUG_SPF (PROCESS))
     {
       char ibuf[16], abuf[16];
       inet_ntop (AF_INET, &id, ibuf, sizeof (ibuf));
@@ -212,7 +212,7 @@ ospf6_lsdesc_backlink (struct ospf6_lsa *lsa,
         }
     }
 
-  if (IS_OSPF6_DEBUG_SPF (DETAIL))
+  if (IS_OSPF6_DEBUG_SPF (PROCESS))
     zlog_info ("  Backlink %s", (found ? "OK" : "FAIL"));
 
   return found;
@@ -236,7 +236,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
   oi = ospf6_interface_lookup_by_ifindex (ifindex);
   if (oi == NULL)
     {
-      if (IS_OSPF6_DEBUG_SPF (SUMMARY))
+      if (IS_OSPF6_DEBUG_SPF (PROCESS))
         zlog_warn ("Can't find interface in SPF: ifindex %d", ifindex);
       return;
     }
@@ -255,7 +255,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
         continue;
 
       link_lsa = (struct ospf6_link_lsa *) OSPF6_LSA_HEADER_END (lsa->header);
-      if (IS_OSPF6_DEBUG_SPF (DETAIL))
+      if (IS_OSPF6_DEBUG_SPF (PROCESS))
         {
           inet_ntop (AF_INET6, &link_lsa->linklocal_addr, buf, sizeof (buf));
           zlog_info ("  nexthop %s from %s", buf, lsa->name);
@@ -270,7 +270,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
         }
     }
 
-  if (i == 0 && IS_OSPF6_DEBUG_SPF (SUMMARY))
+  if (i == 0 && IS_OSPF6_DEBUG_SPF (PROCESS))
     zlog_info ("No nexthop for %s found", w->name);
 }
 
@@ -283,14 +283,14 @@ ospf6_spf_install (struct ospf6_vertex *v,
   struct ospf6_vertex *prev, *w;
   listnode node;
 
-  if (IS_OSPF6_DEBUG_SPF (SUMMARY))
+  if (IS_OSPF6_DEBUG_SPF (PROCESS))
     zlog_info ("SPF install %s hops %d cost %d",
                v->name, v->hops, v->cost);
 
   route = ospf6_route_lookup (&v->vertex_id, result_table);
   if (route && route->path.cost < v->cost)
     {
-      if (IS_OSPF6_DEBUG_SPF (SUMMARY))
+      if (IS_OSPF6_DEBUG_SPF (PROCESS))
         zlog_info ("  already installed with lower cost (%d), ignore",
                    route->path.cost);
       ospf6_vertex_delete (v);
@@ -298,7 +298,7 @@ ospf6_spf_install (struct ospf6_vertex *v,
     }
   else if (route && route->path.cost == v->cost)
     {
-      if (IS_OSPF6_DEBUG_SPF (SUMMARY))
+      if (IS_OSPF6_DEBUG_SPF (PROCESS))
         zlog_info ("  another path found, merge");
 
       for (i = 0; ospf6_nexthop_is_set (&v->nexthop[i]) &&
@@ -477,7 +477,7 @@ ospf6_spf_calculation (u_int32_t router_id,
             }
 
           /* add new candidate to the candidate_list */
-          if (IS_OSPF6_DEBUG_SPF (SUMMARY))
+          if (IS_OSPF6_DEBUG_SPF (PROCESS))
             zlog_info ("  New candidate: %s hops %d cost %d",
                        w->name, w->hops, w->cost);
           pqueue_enqueue (w, candidate_list);
@@ -496,7 +496,7 @@ ospf6_spf_calculation_thread (struct thread *t)
   oa = (struct ospf6_area *) THREAD_ARG (t);
   oa->thread_spf_calculation = NULL;
 
-  if (IS_OSPF6_DEBUG_SPF (SUMMARY))
+  if (IS_OSPF6_DEBUG_SPF (PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
     zlog_info ("SPF calculation for area %s", oa->name);
 
   /* execute SPF calculation */
@@ -504,7 +504,7 @@ ospf6_spf_calculation_thread (struct thread *t)
   ospf6_spf_calculation (oa->ospf6->router_id, oa->spf_table, oa);
   gettimeofday (&end, (struct timezone *) NULL);
 
-  if (IS_OSPF6_DEBUG_SPF (SUMMARY))
+  if (IS_OSPF6_DEBUG_SPF (PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
     {
       timersub (&end, &start, &runtime);
       zlog_info ("SPF calculation for area %s: runtime %ld sec %ld usec",
@@ -558,62 +558,64 @@ ospf6_spf_display_subtree (struct vty *vty, char *prefix, int rest,
   free (next_prefix);
 }
 
-DEFUN (debug_ospf6_spf_detail,
-       debug_ospf6_spf_detail_cmd,
-       "debug ospf6 spf detail",
+DEFUN (debug_ospf6_spf_process,
+       debug_ospf6_spf_process_cmd,
+       "debug ospf6 spf process",
        DEBUG_STR
        OSPF6_STR
        "Debug SPF Calculation\n"
-       "Debug Detailed SPF\n"
+       "Debug Detailed SPF Process\n"
       )
 {
   unsigned char level = 0;
-  level = OSPF6_DEBUG_SPF_SUMMARY | OSPF6_DEBUG_SPF_DETAIL;
+  level = OSPF6_DEBUG_SPF_PROCESS;
   OSPF6_DEBUG_SPF_ON (level);
   return CMD_SUCCESS;
 }
 
-DEFUN (debug_ospf6_spf,
-       debug_ospf6_spf_cmd,
-       "debug ospf6 spf",
+DEFUN (debug_ospf6_spf_time,
+       debug_ospf6_spf_time_cmd,
+       "debug ospf6 spf time",
        DEBUG_STR
        OSPF6_STR
        "Debug SPF Calculation\n"
+       "Measure time taken by SPF Calculation\n"
       )
 {
   unsigned char level = 0;
-  level = OSPF6_DEBUG_SPF_SUMMARY;
+  level = OSPF6_DEBUG_SPF_TIME;
   OSPF6_DEBUG_SPF_ON (level);
   return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_ospf6_spf_detail,
-       no_debug_ospf6_spf_detail_cmd,
-       "no debug ospf6 spf detail",
+DEFUN (no_debug_ospf6_spf_process,
+       no_debug_ospf6_spf_process_cmd,
+       "no debug ospf6 spf process",
        NO_STR
        DEBUG_STR
        OSPF6_STR
        "Quit Debugging SPF Calculation\n"
-       "Quit Debugging Detailed SPF (change to debug summary)\n"
+       "Quit Debugging Detailed SPF Process\n"
       )
 {
   unsigned char level = 0;
-  level = OSPF6_DEBUG_SPF_DETAIL;
+  level = OSPF6_DEBUG_SPF_PROCESS;
   OSPF6_DEBUG_SPF_OFF (level);
   return CMD_SUCCESS;
 }
 
-DEFUN (no_debug_ospf6_spf,
-       no_debug_ospf6_spf_cmd,
-       "no debug ospf6 spf",
+DEFUN (no_debug_ospf6_spf_time,
+       no_debug_ospf6_spf_time_cmd,
+       "no debug ospf6 spf time",
        NO_STR
        DEBUG_STR
        OSPF6_STR
        "Quit Debugging SPF Calculation\n"
+       "Quit Measuring time taken by SPF Calculation\n"
       )
 {
   unsigned char level = 0;
-  level = OSPF6_DEBUG_SPF_SUMMARY | OSPF6_DEBUG_SPF_DETAIL;
+  level = OSPF6_DEBUG_SPF_TIME;
   OSPF6_DEBUG_SPF_OFF (level);
   return CMD_SUCCESS;
 }
@@ -621,24 +623,24 @@ DEFUN (no_debug_ospf6_spf,
 int
 config_write_ospf6_debug_spf (struct vty *vty)
 {
-  if (IS_OSPF6_DEBUG_SPF (DETAIL))
-    vty_out (vty, "debug ospf6 spf detail%s", VNL);
-  else if (IS_OSPF6_DEBUG_SPF (SUMMARY))
-    vty_out (vty, "debug ospf6 spf%s", VNL);
+  if (IS_OSPF6_DEBUG_SPF (PROCESS))
+    vty_out (vty, "debug ospf6 spf process%s", VNL);
+  if (IS_OSPF6_DEBUG_SPF (TIME))
+    vty_out (vty, "debug ospf6 spf time%s", VNL);
   return 0;
 }
 
 void
 install_element_ospf6_debug_spf ()
 {
-  install_element (ENABLE_NODE, &debug_ospf6_spf_cmd);
-  install_element (ENABLE_NODE, &debug_ospf6_spf_detail_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_spf_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_spf_detail_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_spf_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_spf_detail_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_spf_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_spf_detail_cmd);
+  install_element (ENABLE_NODE, &debug_ospf6_spf_process_cmd);
+  install_element (ENABLE_NODE, &debug_ospf6_spf_time_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf6_spf_process_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf6_spf_time_cmd);
+  install_element (CONFIG_NODE, &debug_ospf6_spf_process_cmd);
+  install_element (CONFIG_NODE, &debug_ospf6_spf_time_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf6_spf_process_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf6_spf_time_cmd);
 }
 
 void

@@ -109,7 +109,7 @@ ospf6_lsa_is_changed (struct ospf6_lsa *lsa1,
 }
 
 /* ospf6 age functions */
-/* calculate birth and set expire timer */
+/* calculate birth */
 static void
 ospf6_lsa_age_set (struct ospf6_lsa *lsa)
 {
@@ -123,11 +123,7 @@ ospf6_lsa_age_set (struct ospf6_lsa *lsa)
 
   lsa->birth.tv_sec = now.tv_sec - ntohs (lsa->header->age);
   lsa->birth.tv_usec = now.tv_usec;
-  if (ntohs (lsa->header->age) != MAXAGE)
-    lsa->expire = thread_add_timer (master, ospf6_lsa_expire, lsa,
-                                    MAXAGE + lsa->birth.tv_sec - now.tv_sec);
-  else
-    lsa->expire = NULL;
+
   return;
 }
 
@@ -421,7 +417,7 @@ ospf6_lsa_create (struct ospf6_lsa_header *header)
   /* dump string */
   ospf6_lsa_printbuf (lsa, lsa->name, sizeof (lsa->name));
 
-  /* calculate birth, expire and refresh of this lsa */
+  /* calculate birth of this lsa */
   ospf6_lsa_age_set (lsa);
 
   if (IS_OSPF6_DEBUG_LSA (MEMORY))
@@ -456,7 +452,7 @@ ospf6_lsa_create_headeronly (struct ospf6_lsa_header *header)
   /* dump string */
   ospf6_lsa_printbuf (lsa, lsa->name, sizeof (lsa->name));
 
-  /* calculate birth, expire and refresh of this lsa */
+  /* calculate birth of this lsa */
   ospf6_lsa_age_set (lsa);
 
   if (IS_OSPF6_DEBUG_LSA (MEMORY))
@@ -500,6 +496,7 @@ ospf6_lsa_copy (struct ospf6_lsa *lsa)
     copy = ospf6_lsa_create (lsa->header);
   assert (copy->lock == 0);
 
+  copy->birth = lsa->birth;
   copy->installed = lsa->installed;
   copy->originated = lsa->originated;
   copy->lsdb = lsa->lsdb;
@@ -559,7 +556,7 @@ ospf6_lsa_expire (struct thread *thread)
   /* reinstall lsa */
   if (IS_OSPF6_DEBUG_LSA (DATABASE))
     zlog_info ("Reinstall MaxAge %s", lsa->name);
-  ospf6_lsdb_add (lsa, lsa->lsdb);
+  ospf6_install_lsa (lsa);
 
   /* schedule maxage remover */
   ospf6_maxage_remove (ospf6);
@@ -584,6 +581,8 @@ ospf6_lsa_refresh (struct thread *thread)
                             old->header->adv_router, lsdb_self);
   if (self == NULL)
     {
+      if (IS_OSPF6_DEBUG_LSA (ORIGINATE))
+        zlog_info ("Refresh: could not find self LSA, flush %s", old->name);
       ospf6_lsa_premature_aging (old);
       return 0;
     }

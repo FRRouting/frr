@@ -523,6 +523,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
           zlog_info ("Advertise as AS-External Id:%s", ibuf);
         }
 
+      match->path.origin.id = htonl (info->id);
       ospf6_as_external_lsa_originate (match);
       return;
     }
@@ -571,6 +572,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
       zlog_info ("Advertise as AS-External Id:%s", ibuf);
     }
 
+  route->path.origin.id = htonl (info->id);
   ospf6_as_external_lsa_originate (route);
 
   /* Router-Bit (ASBR Flag) may have to be updated */

@@ -1608,7 +1608,7 @@ DEFUN (no_debug_ospf6_interface,
        "Debug OSPFv3 Interface\n"
       )
 {
-  OSPF6_DEBUG_INTERFACE_ON ();
+  OSPF6_DEBUG_INTERFACE_OFF ();
   return CMD_SUCCESS;
 }
 

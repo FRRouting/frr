@@ -83,15 +83,14 @@ _lsdb_count_assert (struct ospf6_lsdb *lsdb)
   if (num == lsdb->count)
     return;
 
-  if (IS_OSPF6_DEBUG_LSA (DATABASE))
-    {
-      zlog_info ("PANIC !! lsdb[%p]->count = %d, real = %d",
-                 lsdb, lsdb->count, num);
-      for (debug = ospf6_lsdb_head (lsdb); debug;
-           debug = ospf6_lsdb_next (debug))
-        zlog_info ("%p %p %s", debug->prev, debug->next, debug->name);
-      zlog_info ("DUMP END");
-    }
+  zlog_info ("PANIC !! lsdb[%p]->count = %d, real = %d",
+             lsdb, lsdb->count, num);
+  for (debug = ospf6_lsdb_head (lsdb); debug;
+       debug = ospf6_lsdb_next (debug))
+    zlog_info ("%p %p %s lsdb[%p]", debug->prev, debug->next, debug->name,
+               debug->lsdb);
+  zlog_info ("DUMP END");
+
   assert (num == lsdb->count);
 }
 #define ospf6_lsdb_count_assert(t) (_lsdb_count_assert (t))
