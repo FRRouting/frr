@@ -1882,6 +1882,8 @@ rip_create_socket ()
   if (ret < 0)
     {
       perror ("bind");
+      if (ripd_privs.change (ZPRIVS_LOWER))
+        zlog_err ("rip_create_socket: could not lower privs");
       return ret;
     }
   if (ripd_privs.change (ZPRIVS_LOWER))
