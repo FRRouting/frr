@@ -2,6 +2,10 @@
 
 	* added support for vtysh 'write file' command to 
 	write either per-daamon and/or integrated file
+	* ospfd md5 buffer copying fix
+	* ospfd md5 sequence number derived from time()
+	* RIPv1 fixes and improvements
+	* link state detection (linux)
 
 2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
