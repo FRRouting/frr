@@ -1,4 +1,5 @@
 /* Router advertisement
+ * Copyright (C) 2005 6WIND <jean-mickael.guerin@6wind.com>
  * Copyright (C) 1999 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -42,8 +43,51 @@ struct rtadv_prefix
 
   /* The value to be placed in the Autonomous Flag. */
   int AdvAutonomousFlag;
+
+  /* The value to be placed in the Router Address Flag (RFC3775 7.2). */
+  int AdvRouterAddressFlag;
+#ifndef ND_OPT_PI_FLAG_RADDR
+#define ND_OPT_PI_FLAG_RADDR         0x20
+#endif
+
 };
 
 void rtadv_config_write (struct vty *, struct interface *);
+
+/* draft-ietf-mip6-mipext-advapi-03 */
+
+#ifndef ND_OPT_ADV_INTERVAL
+#define ND_OPT_ADV_INTERVAL	7   /* Adv Interval Option */
+#endif
+#ifndef ND_OPT_HA_INFORMATION
+#define ND_OPT_HA_INFORMATION	8   /* HA Information Option */
+#endif
+
+#ifndef HAVE_ND_OPT_ADV_INTERVAL
+struct nd_opt_adv_interval {   /* Advertisement interval option */
+        uint8_t        nd_opt_ai_type;
+        uint8_t        nd_opt_ai_len;
+        uint16_t       nd_opt_ai_reserved;
+        uint32_t       nd_opt_ai_interval;
+} __attribute__((__packed__));
+#else
+#ifndef HAVE_ND_OPT_ADV_INTERVAL_AI_FIELDS
+/* fields may have to be renamed */
+#define nd_opt_ai_type		nd_opt_adv_interval_type
+#define nd_opt_ai_len		nd_opt_adv_interval_len
+#define nd_opt_ai_reserved	nd_opt_adv_interval_reserved
+#define nd_opt_ai_interval	nd_opt_adv_interval_ival
+#endif
+#endif
+
+#ifndef HAVE_ND_OPT_HOMEAGENT_INFO
+struct nd_opt_homeagent_info {  /* Home Agent info */
+        u_int8_t        nd_opt_hai_type;
+        u_int8_t        nd_opt_hai_len;
+        u_int16_t       nd_opt_hai_reserved;
+        u_int16_t       nd_opt_hai_preference;
+        u_int16_t       nd_opt_hai_lifetime;
+} __attribute__((__packed__));
+#endif
 
 #endif /* _ZEBRA_RTADV_H */

@@ -46,7 +46,7 @@
 #endif
 
 #ifdef RTADV
-/* Router advertisement parameter.  From RFC2461. */
+/* Router advertisement parameter.  From RFC2461 and RFC3775. */
 struct rtadvconf
 {
   /* A flag indicating whether or not the router sends periodic Router
@@ -55,16 +55,18 @@ struct rtadvconf
   int AdvSendAdvertisements;
 
   /* The maximum time allowed between sending unsolicited multicast
-     Router Advertisements from the interface, in seconds.  MUST be no
-     less than 4 seconds and no greater than 1800 seconds. 
+     Router Advertisements from the interface, in milliseconds.
+     MUST be no less than 70 ms (RFC3775, section 7.4) and no greater 
+     than 1800000 ms (See RFC2461).
 
-     Default: 600 seconds */
+     Default: 600000 milliseconds */
   int MaxRtrAdvInterval;
-#define RTADV_MAX_RTR_ADV_INTERVAL 600
+#define RTADV_MAX_RTR_ADV_INTERVAL 600000
 
   /* The minimum time allowed between sending unsolicited multicast
-     Router Advertisements from the interface, in seconds.  MUST be no
-     less than 3 seconds and no greater than .75 * MaxRtrAdvInterval.
+     Router Advertisements from the interface, in milliseconds.
+     MUST be no less than 30 ms (See RFC3775, section 7.4). 
+     MUST be no greater than .75 * MaxRtrAdvInterval.
 
      Default: 0.33 * MaxRtrAdvInterval */
   int MinRtrAdvInterval;
@@ -140,6 +142,35 @@ struct rtadvconf
      advertisement is sent. The link-local prefix SHOULD NOT be
      included in the list of advertised prefixes. */
   struct list *AdvPrefixList;
+
+  /* The TRUE/FALSE value to be placed in the "Home agent"
+     flag field in the Router Advertisement.  See [RFC3775 7.1].
+
+     Default: FALSE */
+  int AdvHomeAgentFlag;
+#ifndef ND_RA_FLAG_HOME_AGENT
+#define ND_RA_FLAG_HOME_AGENT 	0x20
+#endif
+
+  /* The value to be placed in Home Agent Information option if Home 
+     Flag is set.
+     Default: 0 */
+  int HomeAgentPreference;
+
+  /* The value to be placed in Home Agent Information option if Home 
+     Flag is set. Lifetime (seconds) MUST not be greater than 18.2 
+     hours. 
+     The value 0 has special meaning: use of AdvDefaultLifetime value.
+     
+     Default: 0 */
+  int HomeAgentLifetime;
+#define RTADV_MAX_HALIFETIME 65520 /* 18.2 hours */
+
+  /* The TRUE/FALSE value to insert or not an Advertisement Interval
+     option. See [RFC 3775 7.3]
+
+     Default: FALSE */
+  int AdvIntervalOption;
 };
 
 #endif /* RTADV */

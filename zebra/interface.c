@@ -87,11 +87,15 @@ if_zebra_new_hook (struct interface *ifp)
     rtadv->AdvIntervalTimer = 0;
     rtadv->AdvManagedFlag = 0;
     rtadv->AdvOtherConfigFlag = 0;
+    rtadv->AdvHomeAgentFlag = 0;
     rtadv->AdvLinkMTU = 0;
     rtadv->AdvReachableTime = 0;
     rtadv->AdvRetransTimer = 0;
     rtadv->AdvCurHopLimit = 0;
     rtadv->AdvDefaultLifetime = RTADV_ADV_DEFAULT_LIFETIME;
+    rtadv->HomeAgentPreference = 0;
+    rtadv->HomeAgentLifetime = RTADV_ADV_DEFAULT_LIFETIME;
+    rtadv->AdvIntervalOption = 0;
 
     rtadv->AdvPrefixList = list_new ();
   }    
@@ -604,6 +608,7 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 {
   struct zebra_if *zif;
   struct rtadvconf *rtadv;
+  int interval;
 
   zif = (struct zebra_if *) ifp->info;
   rtadv = &zif->rtadv;
@@ -614,8 +619,15 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 	       rtadv->AdvReachableTime, VTY_NEWLINE);
       vty_out (vty, "  ND advertised retransmit interval is %d milliseconds%s",
 	       rtadv->AdvRetransTimer, VTY_NEWLINE);
-      vty_out (vty, "  ND router advertisements are sent every %d seconds%s",
-	       rtadv->MaxRtrAdvInterval, VTY_NEWLINE);
+      interval = rtadv->MaxRtrAdvInterval;
+      if (interval % 1000)
+        vty_out (vty, "  ND router advertisements are sent every "
+			"%d milliseconds%s", interval,
+		 VTY_NEWLINE);
+      else
+        vty_out (vty, "  ND router advertisements are sent every "
+			"%d seconds%s", interval / 1000,
+		 VTY_NEWLINE);
       vty_out (vty, "  ND router advertisements live for %d seconds%s",
 	       rtadv->AdvDefaultLifetime, VTY_NEWLINE);
       if (rtadv->AdvManagedFlag)
@@ -623,6 +635,13 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 		 VTY_NEWLINE);
       else
 	vty_out (vty, "  Hosts use stateless autoconfig for addresses.%s",
+		 VTY_NEWLINE);
+      if (rtadv->AdvHomeAgentFlag)
+      	vty_out (vty, "  ND router advertisements with "
+				"Home Agent flag bit set.%s",
+		 VTY_NEWLINE);
+      if (rtadv->AdvIntervalOption)
+      	vty_out (vty, "  ND router advertisements with Adv. Interval option.%s",
 		 VTY_NEWLINE);
     }
 }

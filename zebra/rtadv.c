@@ -1,4 +1,5 @@
 /* Router advertisement
+ * Copyright (C) 2005 6WIND <jean-mickael.guerin@6wind.com>
  * Copyright (C) 1999 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -58,7 +59,8 @@ extern struct zebra_privs_t zserv_privs;
 
 extern struct zebra_t zebrad;
 
-enum rtadv_event {RTADV_START, RTADV_STOP, RTADV_TIMER, RTADV_READ};
+enum rtadv_event {RTADV_START, RTADV_STOP, RTADV_TIMER, 
+		  RTADV_TIMER_MSEC, RTADV_READ};
 
 void rtadv_event (enum rtadv_event, int);
 
@@ -71,6 +73,7 @@ struct rtadv
   int sock;
 
   int adv_if_count;
+  int adv_msec_if_count;
 
   struct thread *ra_read;
   struct thread *ra_timer;
@@ -210,11 +213,36 @@ rtadv_send_packet (int sock, struct interface *ifp)
     rtadv->nd_ra_flags_reserved |= ND_RA_FLAG_MANAGED;
   if (zif->rtadv.AdvOtherConfigFlag)
     rtadv->nd_ra_flags_reserved |= ND_RA_FLAG_OTHER;
+  if (zif->rtadv.AdvHomeAgentFlag)
+    rtadv->nd_ra_flags_reserved |= ND_RA_FLAG_HOME_AGENT;
   rtadv->nd_ra_router_lifetime = htons (zif->rtadv.AdvDefaultLifetime);
   rtadv->nd_ra_reachable = htonl (zif->rtadv.AdvReachableTime);
   rtadv->nd_ra_retransmit = htonl (0);
 
   len = sizeof (struct nd_router_advert);
+
+  if (zif->rtadv.AdvHomeAgentFlag)
+    {
+      struct nd_opt_homeagent_info *ndopt_hai = 
+	(struct nd_opt_homeagent_info *)(buf + len);
+      ndopt_hai->nd_opt_hai_type = ND_OPT_HA_INFORMATION;
+      ndopt_hai->nd_opt_hai_len = 1;
+      ndopt_hai->nd_opt_hai_reserved = 0;
+      ndopt_hai->nd_opt_hai_preference = htons(zif->rtadv.HomeAgentPreference);
+      ndopt_hai->nd_opt_hai_lifetime = htons(zif->rtadv.HomeAgentLifetime);
+      len += sizeof(struct nd_opt_homeagent_info);
+    }
+
+  if (zif->rtadv.AdvIntervalOption)
+    {
+      struct nd_opt_adv_interval *ndopt_adv = 
+	(struct nd_opt_adv_interval *)(buf + len);
+      ndopt_adv->nd_opt_ai_type = ND_OPT_ADV_INTERVAL;
+      ndopt_adv->nd_opt_ai_len = 1;
+      ndopt_adv->nd_opt_ai_reserved = 0;
+      ndopt_adv->nd_opt_ai_interval = htonl(zif->rtadv.MaxRtrAdvInterval);
+      len += sizeof(struct nd_opt_adv_interval);
+    }
 
   /* Fill in prefix. */
   for (node = listhead (zif->rtadv.AdvPrefixList); node; node = nextnode (node))
@@ -235,6 +263,8 @@ rtadv_send_packet (int sock, struct interface *ifp)
 	pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_ONLINK;
       if (rprefix->AdvAutonomousFlag)
 	pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_AUTO;
+      if (rprefix->AdvRouterAddressFlag)
+	pinfo->nd_opt_pi_flags_reserved |= ND_OPT_PI_FLAG_RADDR;
 
       pinfo->nd_opt_pi_valid_time = htonl (rprefix->AdvValidLifetime);
       pinfo->nd_opt_pi_preferred_time = htonl (rprefix->AdvPreferredLifetime);
@@ -311,9 +341,19 @@ rtadv_timer (struct thread *thread)
   struct listnode *node;
   struct interface *ifp;
   struct zebra_if *zif;
+  int period;
 
   rtadv->ra_timer = NULL;
-  rtadv_event (RTADV_TIMER, 1);
+  if (rtadv->adv_msec_if_count == 0)
+    {
+      period = 1000; /* 1 s */
+      rtadv_event (RTADV_TIMER, 1 /* 1 s */);
+    } 
+  else
+    {
+      period = 10; /* 10 ms */
+      rtadv_event (RTADV_TIMER_MSEC, 10 /* 10 ms */);
+    }
 
   for (node = listhead (iflist); node; nextnode (node))
     {
@@ -325,11 +365,14 @@ rtadv_timer (struct thread *thread)
       zif = ifp->info;
 
       if (zif->rtadv.AdvSendAdvertisements)
-	if (--zif->rtadv.AdvIntervalTimer <= 0)
-	  {
-	    zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
-	    rtadv_send_packet (rtadv->sock, ifp);
-	  }
+	{ 
+	  zif->rtadv.AdvIntervalTimer -= period;
+	  if (zif->rtadv.AdvIntervalTimer <= 0)
+	    {
+	      zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
+	      rtadv_send_packet (rtadv->sock, ifp);
+	    }
+	}
     }
   return 0;
 }
@@ -547,6 +590,7 @@ rtadv_prefix_set (struct zebra_if *zif, struct rtadv_prefix *rp)
   rprefix->AdvPreferredLifetime = rp->AdvPreferredLifetime;
   rprefix->AdvOnLinkFlag = rp->AdvOnLinkFlag;
   rprefix->AdvAutonomousFlag = rp->AdvAutonomousFlag;
+  rprefix->AdvRouterAddressFlag = rp->AdvRouterAddressFlag;
 }
 
 int
@@ -634,6 +678,42 @@ DEFUN (no_ipv6_nd_suppress_ra,
   return CMD_SUCCESS;
 }
 
+DEFUN (ipv6_nd_ra_interval_msec,
+       ipv6_nd_ra_interval_msec_cmd,
+       "ipv6 nd ra-interval msec MILLISECONDS",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Router Advertisement interval\n"
+       "Router Advertisement interval in milliseconds\n")
+{
+  int interval;
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  interval = atoi (argv[0]);
+
+  if (interval <= 0)
+    {
+      vty_out (vty, "Invalid Router Advertisement Interval%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (zif->rtadv.MaxRtrAdvInterval % 1000)
+    rtadv->adv_msec_if_count--;
+
+  if (interval % 1000)
+    rtadv->adv_msec_if_count++;
+  
+  zif->rtadv.MaxRtrAdvInterval = interval;
+  zif->rtadv.MinRtrAdvInterval = 0.33 * interval;
+  zif->rtadv.AdvIntervalTimer = 0;
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (ipv6_nd_ra_interval,
        ipv6_nd_ra_interval_cmd,
        "ipv6 nd ra-interval SECONDS",
@@ -651,12 +731,18 @@ DEFUN (ipv6_nd_ra_interval,
 
   interval = atoi (argv[0]);
 
-  if (interval < 0)
+  if (interval <= 0)
     {
       vty_out (vty, "Invalid Router Advertisement Interval%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
+  if (zif->rtadv.MaxRtrAdvInterval % 1000)
+    rtadv->adv_msec_if_count--;
+	
+  /* convert to milliseconds */
+  interval = interval * 1000; 
+	
   zif->rtadv.MaxRtrAdvInterval = interval;
   zif->rtadv.MinRtrAdvInterval = 0.33 * interval;
   zif->rtadv.AdvIntervalTimer = 0;
@@ -678,6 +764,9 @@ DEFUN (no_ipv6_nd_ra_interval,
   ifp = (struct interface *) vty->index;
   zif = ifp->info;
 
+  if (zif->rtadv.MaxRtrAdvInterval % 1000)
+    rtadv->adv_msec_if_count--;
+  
   zif->rtadv.MaxRtrAdvInterval = RTADV_MAX_RTR_ADV_INTERVAL;
   zif->rtadv.MinRtrAdvInterval = RTADV_MIN_RTR_ADV_INTERVAL;
   zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
@@ -779,6 +868,100 @@ DEFUN (no_ipv6_nd_reachable_time,
   return CMD_SUCCESS;
 }
 
+DEFUN (ipv6_nd_homeagent_preference,
+       ipv6_nd_homeagent_preference_cmd,
+       "ipv6 nd home-agent-preference PREFERENCE",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Home Agent preference\n"
+       "Home Agent preference value 0..65535\n")
+{
+  u_int32_t hapref;
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  hapref = (u_int32_t) atol (argv[0]);
+
+  if (hapref > 65535)
+    {
+      vty_out (vty, "Invalid Home Agent preference%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  zif->rtadv.HomeAgentPreference = hapref;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_nd_homeagent_preference,
+       no_ipv6_nd_homeagent_preference_cmd,
+       "no ipv6 nd home-agent-preference",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Home Agent preference\n")
+{
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  zif->rtadv.HomeAgentPreference = 0;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ipv6_nd_homeagent_lifetime,
+       ipv6_nd_homeagent_lifetime_cmd,
+       "ipv6 nd home-agent-lifetime SECONDS",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Home Agent lifetime\n"
+       "Home Agent lifetime in seconds\n")
+{
+  u_int32_t ha_ltime;
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  ha_ltime = (u_int32_t) atol (argv[0]);
+
+  if (ha_ltime > RTADV_MAX_HALIFETIME)
+    {
+      vty_out (vty, "Invalid Home Agent Lifetime time%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  zif->rtadv.HomeAgentLifetime = ha_ltime;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_nd_homeagent_lifetime,
+       no_ipv6_nd_homeagent_lifetime_cmd,
+       "no ipv6 nd home-agent-lifetime",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Home Agent lifetime\n")
+{
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  zif->rtadv.HomeAgentLifetime = 0;
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (ipv6_nd_managed_config_flag,
        ipv6_nd_managed_config_flag_cmd,
        "ipv6 nd managed-config-flag",
@@ -812,6 +995,80 @@ DEFUN (no_ipv6_nd_managed_config_flag,
   zif = ifp->info;
 
   zif->rtadv.AdvManagedFlag = 0;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ipv6_nd_homeagent_config_flag,
+       ipv6_nd_homeagent_config_flag_cmd,
+       "ipv6 nd home-agent-config-flag",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Home Agent configuration flag\n")
+{
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  zif->rtadv.AdvHomeAgentFlag = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_nd_homeagent_config_flag,
+       no_ipv6_nd_homeagent_config_flag_cmd,
+       "no ipv6 nd home-agent-config-flag",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Home Agent configuration flag\n")
+{
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  zif->rtadv.AdvHomeAgentFlag = 0;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ipv6_nd_adv_interval_config_option,
+       ipv6_nd_adv_interval_config_option_cmd,
+       "ipv6 nd adv-interval-option",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Advertisement Interval Option\n")
+{
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  zif->rtadv.AdvIntervalOption = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_nd_adv_interval_config_option,
+       no_ipv6_nd_adv_interval_config_option_cmd,
+       "no ipv6 nd adv-interval-option",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Advertisement Interval Option\n")
+{
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  zif->rtadv.AdvIntervalOption = 0;
 
   return CMD_SUCCESS;
 }
@@ -856,7 +1113,7 @@ DEFUN (no_ipv6_nd_other_config_flag,
 DEFUN (ipv6_nd_prefix,
        ipv6_nd_prefix_cmd,
        "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
-       "(<0-4294967295>|infinite) (off-link|) (no-autoconfig|)",
+       "(<0-4294967295>|infinite) (off-link|) (no-autoconfig|) (router-address|)",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Prefix information\n"
@@ -866,7 +1123,8 @@ DEFUN (ipv6_nd_prefix,
        "Preferred lifetime in seconds\n"
        "Infinite preferred lifetime\n"
        "Do not use prefix for onlink determination\n"
-       "Do not use prefix for autoconfiguration\n")
+       "Do not use prefix for autoconfiguration\n"
+       "Set Router Address flag\n")
 {
   int i;
   int ret;
@@ -886,6 +1144,7 @@ DEFUN (ipv6_nd_prefix,
     }
   rp.AdvOnLinkFlag = 1;
   rp.AdvAutonomousFlag = 1;
+  rp.AdvRouterAddressFlag = 0;
   rp.AdvValidLifetime = RTADV_VALID_LIFETIME;
   rp.AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
 
@@ -920,6 +1179,8 @@ DEFUN (ipv6_nd_prefix,
 		rp.AdvOnLinkFlag = 0;
 	      if (strncmp (argv[i], "no", 2) == 0)
 		rp.AdvAutonomousFlag = 0;
+	      if (strncmp (argv[i], "ro", 2) == 0)
+		rp.AdvRouterAddressFlag = 1;
 	    }
 	}
     }
@@ -928,6 +1189,21 @@ DEFUN (ipv6_nd_prefix,
 
   return CMD_SUCCESS;
 }
+
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_val_nortaddr_cmd,
+       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+       "(<0-4294967295>|infinite) (off-link|) (no-autoconfig|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Valid lifetime in seconds\n"
+       "Infinite valid lifetime\n"
+       "Preferred lifetime in seconds\n"
+       "Infinite preferred lifetime\n"
+       "Do not use prefix for onlink determination\n"
+       "Do not use prefix for autoconfiguration\n")
 
 ALIAS (ipv6_nd_prefix,
        ipv6_nd_prefix_val_rev_cmd,
@@ -945,6 +1221,22 @@ ALIAS (ipv6_nd_prefix,
        "Do not use prefix for onlink determination\n")
 
 ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_val_rev_rtaddr_cmd,
+       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+       "(<0-4294967295>|infinite) (no-autoconfig|) (off-link|) (router-address|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Valid lifetime in seconds\n"
+       "Infinite valid lifetime\n"
+       "Preferred lifetime in seconds\n"
+       "Infinite preferred lifetime\n"
+       "Do not use prefix for autoconfiguration\n"
+       "Do not use prefix for onlink determination\n"
+       "Set Router Address flag\n")
+
+ALIAS (ipv6_nd_prefix,
        ipv6_nd_prefix_val_noauto_cmd,
        "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
        "(<0-4294967295>|infinite) (no-autoconfig|)",
@@ -956,7 +1248,7 @@ ALIAS (ipv6_nd_prefix,
        "Infinite valid lifetime\n"
        "Preferred lifetime in seconds\n"
        "Infinite preferred lifetime\n"
-       "Do not use prefix for autoconfigurationn")
+       "Do not use prefix for autoconfiguration")
 
 ALIAS (ipv6_nd_prefix,
        ipv6_nd_prefix_val_offlink_cmd,
@@ -971,6 +1263,20 @@ ALIAS (ipv6_nd_prefix,
        "Preferred lifetime in seconds\n"
        "Infinite preferred lifetime\n"
        "Do not use prefix for onlink determination\n")
+
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_val_rtaddr_cmd,
+       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+       "(<0-4294967295>|infinite) (router-address|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Valid lifetime in seconds\n"
+       "Infinite valid lifetime\n"
+       "Preferred lifetime in seconds\n"
+       "Infinite preferred lifetime\n"
+       "Set Router Address flag\n")
 
 ALIAS (ipv6_nd_prefix,
        ipv6_nd_prefix_val_cmd,
@@ -1024,6 +1330,15 @@ ALIAS (ipv6_nd_prefix,
        "Do not use prefix for onlink determination\n")
 
 ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_noval_rtaddr_cmd,
+       "ipv6 nd prefix X:X::X:X/M (router-address|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Set Router Address flag\n")
+
+ALIAS (ipv6_nd_prefix,
        ipv6_nd_prefix_prefix_cmd,
        "ipv6 nd prefix X:X::X:X/M",
        "Interface IPv6 config commands\n"
@@ -1064,7 +1379,6 @@ DEFUN (no_ipv6_nd_prefix,
 
   return CMD_SUCCESS;
 }
-
 /* Write configuration about router advertisement. */
 void
 rtadv_config_write (struct vty *vty, struct interface *ifp)
@@ -1073,6 +1387,7 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
   struct listnode *node;
   struct rtadv_prefix *rprefix;
   u_char buf[INET6_ADDRSTRLEN];
+  int interval;
 
   if (! rtadv)
     return;
@@ -1087,8 +1402,14 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
 	vty_out (vty, " ipv6 nd suppress-ra%s", VTY_NEWLINE);
     }
 
-  if (zif->rtadv.MaxRtrAdvInterval != RTADV_MAX_RTR_ADV_INTERVAL)
-    vty_out (vty, " ipv6 nd ra-interval %d%s", zif->rtadv.MaxRtrAdvInterval,
+  
+  interval = zif->rtadv.MaxRtrAdvInterval;
+  if (interval % 1000)
+    vty_out (vty, " ipv6 nd ra-interval msec %d%s", interval,
+	     VTY_NEWLINE);
+  else
+    if (interval != RTADV_MAX_RTR_ADV_INTERVAL)
+      vty_out (vty, " ipv6 nd ra-interval %d%s", interval / 1000,
 	     VTY_NEWLINE);
 
   if (zif->rtadv.AdvDefaultLifetime != RTADV_ADV_DEFAULT_LIFETIME)
@@ -1128,6 +1449,8 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
 	vty_out (vty, " off-link");
       if (!rprefix->AdvAutonomousFlag)
 	vty_out (vty, " no-autoconfig");
+      if (rprefix->AdvRouterAddressFlag)
+	vty_out (vty, " router-address");
       vty_out (vty, "%s", VTY_NEWLINE);
     }
 }
@@ -1162,6 +1485,11 @@ rtadv_event (enum rtadv_event event, int val)
 	rtadv->ra_timer = thread_add_timer (zebrad.master, rtadv_timer, NULL,
 	                                    val);
       break;
+    case RTADV_TIMER_MSEC:
+      if (! rtadv->ra_timer)
+	rtadv->ra_timer = thread_add_timer_msec (zebrad.master, rtadv_timer, 
+					    NULL, val);
+      break;
     case RTADV_READ:
       if (! rtadv->ra_read)
 	rtadv->ra_read = thread_add_read (zebrad.master, rtadv_read, NULL, val);
@@ -1187,6 +1515,7 @@ rtadv_init ()
   install_element (INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_suppress_ra_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_ra_interval_msec_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_ra_lifetime_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_ra_lifetime_cmd);
@@ -1196,15 +1525,27 @@ rtadv_init ()
   install_element (INTERFACE_NODE, &no_ipv6_nd_managed_config_flag_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_other_config_flag_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_other_config_flag_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_homeagent_config_flag_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_config_flag_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_homeagent_preference_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_preference_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_homeagent_lifetime_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_lifetime_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_adv_interval_config_option_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_adv_interval_config_option_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_rev_rtaddr_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_nortaddr_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_rev_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_noauto_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_offlink_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_rtaddr_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_rev_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_noauto_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_offlink_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_rtaddr_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_prefix_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
 }

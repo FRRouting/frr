@@ -1,3 +1,13 @@
+2005-03-25 Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
+	* interface.c, interface.h, rtadv.c, rtadv.h: modifications to 
+	  IPv6 Neighbor Discovery according to RFC3775, section 7:
+	  o 1-bit Home Agent flag management in Router Advertisement (7.1).
+	  o 1-bit Router Address flag management in Prefix Information 
+	    Option (7.2).
+	  o Advertisement Interval Option (7.3)
+	  o Home Agent Information Option (7.4)
+	  o Changes to Sending Router Advertisements more frequently (7.5)
+
 2005-03-13 Hasso Tepper <hasso at quagga.net>
 
 	* zebra/interaface.c: "show interface description" command
