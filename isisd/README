@@ -1,20 +1,3 @@
-Modified files in the ZEBRA-0.92a package.
-
- ../configure.in
- ../Makefile.am
- ../acconfig.h
- ../lib/log.h
- ../lib/memory.h
- ../lib/vty.c
-   - case ISIS_NODE:
- ../lib/command.c
-   - case ISIS_NODE:
- ../lib/command.h
-   - ISIS_NODE,                    /* IS-IS protocol mode */
-   - str #definitions
-
-
 Constraints
 
   o Maximum number of interfaces 255
-
