@@ -1385,10 +1385,15 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
     {
       for (node = listhead (oi->opaque_lsa_self); node; nextnode (node))
         {
+	  /* 
+	   * removed the test for
+	   *   (! list_isempty (oipt->id_list))   * Handler is already active. *
+           * because opaque cababilities ON -> OFF -> ON result in list_isempty (oipt->id_list)
+	   * not being empty.
+	   */
           if ((oipt = getdata (node))  == NULL /* Something wrong? */
           ||   oipt->t_opaque_lsa_self != NULL /* Waiting for a thread call. */
-          ||   oipt->status == PROC_SUSPEND    /* Cannot originate now. */
-          ||  ! list_isempty (oipt->id_list))  /* Handler is already active. */
+          ||   oipt->status == PROC_SUSPEND)   /* Cannot originate now. */
               continue;
 
           ospf_opaque_lsa_reoriginate_schedule ((void *) oi,
@@ -1401,10 +1406,15 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
     {
       for (node = listhead (area->opaque_lsa_self); node; nextnode (node))
         {
+	  /* 
+	   * removed the test for
+	   *   (! list_isempty (oipt->id_list))   * Handler is already active. *
+           * because opaque cababilities ON -> OFF -> ON result in list_isempty (oipt->id_list)
+	   * not being empty.
+	   */
           if ((oipt = getdata (node))  == NULL /* Something wrong? */
           ||   oipt->t_opaque_lsa_self != NULL /* Waiting for a thread call. */
-          ||   oipt->status == PROC_SUSPEND    /* Cannot originate now. */
-          ||  ! list_isempty (oipt->id_list))  /* Handler is already active. */
+          ||   oipt->status == PROC_SUSPEND)   /* Cannot originate now. */
             continue;
 
           ospf_opaque_lsa_reoriginate_schedule ((void *) area,
@@ -1417,10 +1427,15 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
     {
       for (node = listhead (top->opaque_lsa_self); node; nextnode (node))
         {
+	  /* 
+	   * removed the test for
+	   *   (! list_isempty (oipt->id_list))   * Handler is already active. *
+           * because opaque cababilities ON -> OFF -> ON result in list_isempty (oipt->id_list)
+	   * not being empty.
+	   */
           if ((oipt = getdata (node))  == NULL /* Something wrong? */
           ||   oipt->t_opaque_lsa_self != NULL /* Waiting for a thread call. */
-          ||   oipt->status == PROC_SUSPEND    /* Cannot originate now. */
-          ||  ! list_isempty (oipt->id_list))  /* Handler is already active. */
+          ||   oipt->status == PROC_SUSPEND)   /* Cannot originate now. */
             continue;
 
           ospf_opaque_lsa_reoriginate_schedule ((void *) top,
