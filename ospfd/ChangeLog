@@ -1,3 +1,12 @@
+2003-12-05  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* ospfd.c (ospf_network_match_iface): Rewrite code for clarity
+	while trying not to change semantics.  Add ifdefed-out code to
+	avoid matching ppp interfaces whose destination address does not
+	also match the prefix under consideration, to help out people with
+	problems due to as-yet-unfixed bugs with p2p interfaces coming and
+	going.
+
 2003-07-25 kamatchi soundaram <kamatchi@tdd.sj.nec.com>
 
         * ospf_packet.c (ospf_ls_upd_send_queue_event): get next route
