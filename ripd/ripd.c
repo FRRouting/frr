@@ -1725,7 +1725,8 @@ rip_read (struct thread *t)
   /* If this packet come from unknown interface, ignore it. */
   if (ifp == NULL)
     {
-      zlog_info ("rip_read: packet comes from unknown interface");
+      zlog_info ("rip_read: cannot find interface for packet from %s port %d",
+		 inet_ntoa(from.sin_addr), ntohs (from.sin_port));
       return -1;
     }
   
@@ -1733,7 +1734,9 @@ rip_read (struct thread *t)
   
   if (ifc == NULL)
     {
-      zlog_info ("rip_read: packet comes from unknown network");
+      zlog_info ("rip_read: cannot find connected address for packet from %s "
+		 "port %d on interface %s",
+		 inet_ntoa(from.sin_addr), ntohs (from.sin_port), ifp->name);
       return -1;
     }
 

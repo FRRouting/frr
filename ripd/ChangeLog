@@ -1,3 +1,8 @@
+2004-12-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripd.c: (rip_read) Improve 2 error messages to show the source of
+	  the packet when the lookup fails.
+
 2004-12-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* *.c: Change level of debug messages to LOG_DEBUG.
