@@ -3,17 +3,10 @@
 SUBDIRS = lib @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ \
          @ISISD@ @VTYSH@ @OSPFCLIENT@ redhat doc
 
-DIST_SUBDIRS = lib zebra bgpd ripd ripngd ospfd ospf6d vtysh \
-	       ospfclient doc redhat isisd
+DIST_SUBDIRS = lib zebra bgpd ripd ripngd ospfd ospf6d \
+	  isisd vtysh ospfclient doc redhat
 
 EXTRA_DIST = aclocal.m4 SERVICES TODO REPORTING-BUGS vtysh/Makefile.in \
-	vtysh/Makefile.am update-autotools doc/mpls
-
-dist-hook:
-	mkdir $(distdir)/tools
-	cp -p $(srcdir)/tools/*.pl $(distdir)/tools
-	cp -p $(srcdir)/tools/*.el $(distdir)/tools
-	cp -p $(srcdir)/tools/*.cgi $(distdir)/tools
-	rm -rf `find $(distdir)/doc -type d -name CVS`
-	rm -rf `find $(distdir)/ -type f -name "*~"`
-
+	vtysh/Makefile.am update-autotools
+	tools/mrlg.cgi tools/rrcheck.pl tools/rrlookup.pl tools/zc.pl \
+	tools/zebra.el 
