@@ -3300,8 +3300,11 @@ cmd_init (int terminal)
     }
   install_element (ENABLE_NODE, &show_startup_config_cmd);
   install_element (ENABLE_NODE, &show_version_cmd);
-  install_element (ENABLE_NODE, &config_terminal_length_cmd);
-  install_element (ENABLE_NODE, &config_terminal_no_length_cmd);
+  if (terminal)
+  {
+    install_element (ENABLE_NODE, &config_terminal_length_cmd);
+    install_element (ENABLE_NODE, &config_terminal_no_length_cmd);
+  }
 
   if (terminal)
     install_default (CONFIG_NODE);

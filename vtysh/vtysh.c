@@ -212,9 +212,9 @@ vtysh_exit_ripd_only ()
 void
 vtysh_pager_init ()
 {
-  vtysh_pager_name = getenv ("VTYSH_PAGER");
+  vtysh_pager_name = strdup (getenv ("VTYSH_PAGER"));
   if (! vtysh_pager_name)
-    vtysh_pager_name = "more";
+    vtysh_pager_name = strdup ("more");
 }
 
 /* Command execution over the vty interface. */
@@ -1503,6 +1503,56 @@ ALIAS (vtysh_write_terminal,
        SHOW_STR
        "Current operating configuration\n")
 
+DEFUN (vtysh_terminal_length,
+       vtysh_terminal_length_cmd,
+       "terminal length <0-512>",
+       "Set terminal line parameters\n"
+       "Set number of lines on a screen\n"
+       "Number of lines on screen (0 for no pausing)\n")
+{
+  int lines;
+  char *endptr = NULL;
+  char default_pager[10];
+
+  lines = strtol (argv[0], &endptr, 10);
+  if (lines < 0 || lines > 512 || *endptr != '\0')
+    {
+      vty_out (vty, "length is malformed%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (vtysh_pager_name)
+    {
+      free (vtysh_pager_name);
+      vtysh_pager_name = NULL;
+    }
+
+  if (lines != 0)
+    {
+      snprintf(default_pager, 10, "more -%i", lines);
+      vtysh_pager_name = strdup (default_pager);
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (vtysh_terminal_no_length,
+       vtysh_terminal_no_length_cmd,
+       "terminal no length",
+       "Set terminal line parameters\n"
+       NO_STR
+       "Set number of lines on a screen\n")
+{
+  if (vtysh_pager_name)
+    {
+      free (vtysh_pager_name);
+      vtysh_pager_name = NULL;
+    }
+
+  vtysh_pager_init();
+  return CMD_SUCCESS;
+}
+
 /* Execute command in child process. */
 int
 execute_command (char *command, int argc, char *arg1, char *arg2)
@@ -1977,6 +2027,11 @@ vtysh_init_vty ()
   install_element (RMAP_NODE, &vtysh_write_memory_cmd);
   install_element (KEYCHAIN_NODE, &vtysh_write_memory_cmd);
   install_element (KEYCHAIN_KEY_NODE, &vtysh_write_memory_cmd);
+
+  install_element (VIEW_NODE, &vtysh_terminal_length_cmd);
+  install_element (ENABLE_NODE, &vtysh_terminal_length_cmd);
+  install_element (VIEW_NODE, &vtysh_terminal_no_length_cmd);
+  install_element (ENABLE_NODE, &vtysh_terminal_no_length_cmd);
 
   install_element (VIEW_NODE, &vtysh_ping_cmd);
   install_element (VIEW_NODE, &vtysh_ping_ip_cmd);
