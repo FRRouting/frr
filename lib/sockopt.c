@@ -255,33 +255,6 @@ setsockopt_ipv4_ifindex (int sock, int val)
   return ret;
 }
 
-/* set appropriate pktinfo socket option 
- * on systems without PKTINFO, sets RECVIF, which only retrieves
- * interface index.
- * Not portable for IPv4, use only setsockopt_ifindex for v4.
- */
-static int 
-setsockopt_pktinfo (int af, int sock, int val)
-{
-  int ret = -1;
-  
-  switch (af)
-    {
-      case AF_INET:
-        /* _ifindex will use PKTINFO if available.. */
-        ret = setsockopt_ipv4_ifindex (sock, val);
-        break;
-#ifdef HAVE_IPV6
-      case AF_INET6:
-        ret = setsockopt_ipv6_pktinfo (sock, val);
-        break;
-#endif
-      default:
-        zlog_warn ("setsockopt_pktinfo: unknown address family %d", af);
-    }
-  return ret;
-}
-
 int
 setsockopt_ifindex (int af, int sock, int val)
 {

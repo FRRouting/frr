@@ -1,3 +1,7 @@
+2004-11-01 Paul Jakma <paul@dishone.st>
+
+	* sockopt.c: (setsockopt_pktinfo) remove, its unused.
+
 2004-10-31 Paul Jakma <paul@dishone.st>
 
 	* vty.c: As per Andrew's suggestions..
