@@ -301,7 +301,7 @@ struct peer
   u_char afc_adv[AFI_MAX][SAFI_MAX];
   u_char afc_recv[AFI_MAX][SAFI_MAX];
 
-  /* Capability Flags.*/
+  /* Capability flags (reset in bgp_stop) */
   u_char cap;
 #define PEER_CAP_REFRESH_ADV                (1 << 0) /* refresh advertised */
 #define PEER_CAP_REFRESH_OLD_RCV            (1 << 1) /* refresh old received */
@@ -311,7 +311,7 @@ struct peer
 #define PEER_CAP_RESTART_ADV                (1 << 5) /* restart advertised */
 #define PEER_CAP_RESTART_RCV                (1 << 6) /* restart received */
 
-  /* Capability Flags.*/
+  /* Capability flags (reset in bgp_stop) */
   u_int16_t af_cap[AFI_MAX][SAFI_MAX];
 #define PEER_CAP_ORF_PREFIX_SM_ADV          (1 << 0) /* send-mode advertised */
 #define PEER_CAP_ORF_PREFIX_RM_ADV          (1 << 1) /* receive-mode advertised */
@@ -371,7 +371,7 @@ struct peer
 #define PEER_STATUS_HAVE_ACCEPT       (1 << 3) /* accept peer's parent */
 #define PEER_STATUS_GROUP             (1 << 4) /* peer-group conf */
 
-  /* Peer status af flags. */
+  /* Peer status af flags (reset in bgp_stop) */
   u_int16_t af_sflags[AFI_MAX][SAFI_MAX];
 #define PEER_STATUS_ORF_PREFIX_SEND   (1 << 0) /* prefix-list send peer */
 #define PEER_STATUS_ORF_WAIT_REFRESH  (1 << 1) /* wait refresh received peer */
@@ -399,6 +399,7 @@ struct peer
   u_int32_t v_keepalive;
   u_int32_t v_asorig;
   u_int32_t v_routeadv;
+  u_int32_t v_pmax_restart;
 
   /* Threads. */
   struct thread *t_read;
@@ -409,6 +410,7 @@ struct peer
   struct thread *t_keepalive;
   struct thread *t_asorig;
   struct thread *t_routeadv;
+  struct thread *t_pmax_restart;
 
   /* Statistics field */
   u_int32_t open_in;		/* Open message input count */
@@ -457,6 +459,7 @@ struct peer
   /* Max prefix count. */
   unsigned long pmax[AFI_MAX][SAFI_MAX];
   u_char pmax_threshold[AFI_MAX][SAFI_MAX];
+  u_int16_t pmax_restart[AFI_MAX][SAFI_MAX];
 #define MAXIMUM_PREFIX_THRESHOLD_DEFAULT 75
 
   /* allowas-in. */
@@ -891,7 +894,7 @@ int peer_route_map_unset (struct peer *, afi_t, safi_t, int);
 int peer_unsuppress_map_set (struct peer *, afi_t, safi_t, const char *);
 int peer_unsuppress_map_unset (struct peer *, afi_t, safi_t);
 
-int peer_maximum_prefix_set (struct peer *, afi_t, safi_t, u_int32_t, u_char, int);
+int peer_maximum_prefix_set (struct peer *, afi_t, safi_t, u_int32_t, u_char, int, u_int16_t);
 int peer_maximum_prefix_unset (struct peer *, afi_t, safi_t);
 
 int peer_clear (struct peer *);

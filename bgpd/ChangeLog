@@ -1,5 +1,10 @@
 2005-02-01 Akihiro Mizutani <mizutani@net-chef.net>
 
+	* bgpd.[ch], bgp_vty.c, bgp_route.c: "Restart session after
+	  maximum-prefix limit" feature support.
+
+2005-02-01 Akihiro Mizutani <mizutani@net-chef.net>
+
 	* bgp_nexthop.c: Improve debug.
 	* bgpd.[ch], bgp_nexthop.c, bgp_snmp.c: Remove useless bgp_get_master()
 	  function.

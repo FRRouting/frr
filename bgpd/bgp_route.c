@@ -52,6 +52,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_vty.h"
 
 /* Extern from bgp_dump.c */
 extern char *bgp_origin_str[];
@@ -1267,7 +1268,24 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
     }
   return 0;
 }
-  
+
+int
+bgp_maximum_prefix_restart_timer (struct thread *thread)
+{
+  struct peer *peer;
+
+  peer = THREAD_ARG (thread);
+  peer->t_pmax_restart = NULL;
+
+  if (BGP_DEBUG (events, EVENTS))
+    zlog_debug ("%s Maximum-prefix restart timer expired, restore peering",
+		peer->host);
+
+  peer_clear (peer);
+
+  return 0;
+}
+
 int
 bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, 
                              safi_t safi, int always)
@@ -1282,8 +1300,9 @@ bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi,
        return 0;
 
       zlog (peer->log, LOG_INFO,
-           "%%MAXPFXEXCEED: No. of prefix received from %s (afi %d): %ld exceed limit %ld",
-           peer->host, afi, peer->pcount[afi][safi], peer->pmax[afi][safi]);
+	    "%%MAXPFXEXCEED: No. of %s prefix received from %s %ld exceed, "
+	    "limit %ld", afi_safi_print (afi, safi), peer->host,
+	    peer->pcount[afi][safi], peer->pmax[afi][safi]);
       SET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT);
 
       if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
@@ -1307,6 +1326,20 @@ bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi,
        bgp_notify_send_with_data (peer, BGP_NOTIFY_CEASE,
                                   BGP_NOTIFY_CEASE_MAX_PREFIX, ndata, 7);
       }
+
+      /* restart timer start */
+      if (peer->pmax_restart[afi][safi])
+	{
+	  peer->v_pmax_restart = peer->pmax_restart[afi][safi] * 60;
+
+	  if (BGP_DEBUG (events, EVENTS))
+	    zlog_debug ("%s Maximum-prefix restart timer started for %d secs",
+			peer->host, peer->v_pmax_restart);
+
+	  BGP_TIMER_ON (peer->t_pmax_restart, bgp_maximum_prefix_restart_timer,
+			peer->v_pmax_restart);
+	}
+
       return 1;
     }
   else
@@ -1319,8 +1352,9 @@ bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi,
        return 0;
 
       zlog (peer->log, LOG_INFO,
-           "%%MAXPFX: No. of prefix received from %s (afi %d) reaches %ld, max %ld",
-           peer->host, afi, peer->pcount[afi][safi], peer->pmax[afi][safi]);
+	    "%%MAXPFX: No. of %s prefix received from %s reaches %ld, max %ld",
+	    afi_safi_print (afi, safi), peer->host, peer->pcount[afi][safi],
+	    peer->pmax[afi][safi]);
       SET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_THRESHOLD);
     }
   else

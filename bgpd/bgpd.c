@@ -1075,6 +1075,7 @@ peer_delete (struct peer *peer)
   BGP_TIMER_OFF (peer->t_keepalive);
   BGP_TIMER_OFF (peer->t_asorig);
   BGP_TIMER_OFF (peer->t_routeadv);
+  BGP_TIMER_OFF (peer->t_pmax_restart);
 
   /* Delete from all peer list. */
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
@@ -1296,6 +1297,7 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
   /* maximum-prefix */
   peer->pmax[afi][safi] = conf->pmax[afi][safi];
   peer->pmax_threshold[afi][safi] = conf->pmax_threshold[afi][safi];
+  peer->pmax_restart[afi][safi] = conf->pmax_restart[afi][safi];
 
   /* allowas-in */
   peer->allowas_in[afi][safi] = conf->allowas_in[afi][safi];
@@ -2148,6 +2150,15 @@ peer_flag_modify_action (struct peer *peer, u_int32_t flag)
     {
       if (CHECK_FLAG (peer->flags, flag))
 	{
+	  UNSET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
+	  if (peer->t_pmax_restart)
+	    {
+	      BGP_TIMER_OFF (peer->t_pmax_restart);
+              if (BGP_DEBUG (events, EVENTS))
+		zlog_debug ("%s Maximum-prefix restart timer canceled",
+			    peer->host);
+	    }
+
 	  if (peer->status == Established)
 	    bgp_notify_send (peer, BGP_NOTIFY_CEASE,
 			     BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
@@ -3923,7 +3934,8 @@ peer_unsuppress_map_unset (struct peer *peer, afi_t afi, safi_t safi)
 
 int
 peer_maximum_prefix_set (struct peer *peer, afi_t afi, safi_t safi,
-			 u_int32_t max, u_char threshold, int warning)
+			 u_int32_t max, u_char threshold,
+			 int warning, u_int16_t restart)
 {
   struct peer_group *group;
   struct listnode *nn;
@@ -3934,6 +3946,7 @@ peer_maximum_prefix_set (struct peer *peer, afi_t afi, safi_t safi,
   SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX);
   peer->pmax[afi][safi] = max;
   peer->pmax_threshold[afi][safi] = threshold;
+  peer->pmax_restart[afi][safi] = restart;
   if (warning)
     SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
   else
@@ -3951,6 +3964,7 @@ peer_maximum_prefix_set (struct peer *peer, afi_t afi, safi_t safi,
       SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX);
       peer->pmax[afi][safi] = max;
       peer->pmax_threshold[afi][safi] = threshold;
+      peer->pmax_restart[afi][safi] = restart;
       if (warning)
 	SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
       else
@@ -3985,13 +3999,15 @@ peer_maximum_prefix_unset (struct peer *peer, afi_t afi, safi_t safi)
 
       peer->pmax[afi][safi] = peer->group->conf->pmax[afi][safi];
       peer->pmax_threshold[afi][safi] = peer->group->conf->pmax_threshold[afi][safi];
+      peer->pmax_restart[afi][safi] = peer->group->conf->pmax_restart[afi][safi];
       return 0;
     }
 
   UNSET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX);
   UNSET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
   peer->pmax[afi][safi] = 0;
-  peer->pmax_threshold[afi][safi] = MAXIMUM_PREFIX_THRESHOLD_DEFAULT;
+  peer->pmax_threshold[afi][safi] = 0;
+  peer->pmax_restart[afi][safi] = 0;
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     return 0;
@@ -4005,7 +4021,8 @@ peer_maximum_prefix_unset (struct peer *peer, afi_t afi, safi_t safi)
       UNSET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX);
       UNSET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING);
       peer->pmax[afi][safi] = 0;
-      peer->pmax_threshold[afi][safi] = MAXIMUM_PREFIX_THRESHOLD_DEFAULT;
+      peer->pmax_threshold[afi][safi] = 0;
+      peer->pmax_restart[afi][safi] = 0;
     }
   return 0;
 }
@@ -4015,7 +4032,20 @@ peer_clear (struct peer *peer)
 {
   if (! CHECK_FLAG (peer->flags, PEER_FLAG_SHUTDOWN))
     {
-      UNSET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
+      if (CHECK_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW))
+	{
+	  UNSET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
+	  if (peer->t_pmax_restart)
+	    {
+	      BGP_TIMER_OFF (peer->t_pmax_restart);
+	      if (BGP_DEBUG (events, EVENTS))
+		zlog_debug ("%s Maximum-prefix restart timer canceled",
+			    peer->host);
+	    }
+	  BGP_EVENT_ADD (peer, BGP_Start);
+	  return 0;
+	}
+
       peer->v_start = BGP_INIT_START_TIMER;
       if (peer->status == Established)
 	bgp_notify_send (peer, BGP_NOTIFY_CEASE,
@@ -4499,12 +4529,14 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	|| CHECK_FLAG (g_peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING)
 	   != CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
       {
-       vty_out (vty, " neighbor %s maximum-prefix %ld", addr, peer->pmax[afi][safi]);
-       if (peer->pmax_threshold[afi][safi] != MAXIMUM_PREFIX_THRESHOLD_DEFAULT)
-         vty_out (vty, " %d", peer->pmax_threshold[afi][safi]);
-       if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
-         vty_out (vty, " warning-only");
-       vty_out (vty, "%s", VTY_NEWLINE);
+	vty_out (vty, " neighbor %s maximum-prefix %ld", addr, peer->pmax[afi][safi]);
+	if (peer->pmax_threshold[afi][safi] != MAXIMUM_PREFIX_THRESHOLD_DEFAULT)
+	  vty_out (vty, " %d", peer->pmax_threshold[afi][safi]);
+	if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
+	  vty_out (vty, " warning-only");
+	if (peer->pmax_restart[afi][safi])
+	  vty_out (vty, " restart %d", peer->pmax_restart[afi][safi]);
+	vty_out (vty, "%s", VTY_NEWLINE);
       }
 
   /* Route server client. */
