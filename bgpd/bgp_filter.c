@@ -446,10 +446,7 @@ DEFUN (ip_as_path, ip_as_path_cmd,
   struct as_filter *asfilter;
   struct as_list *aslist;
   regex_t *regex;
-  struct buffer *b;
-  int i;
   char *regstr;
-  int first = 0;
 
   /* Check the filter type. */
   if (strncmp (argv[1], "p", 1) == 0)
@@ -463,25 +460,12 @@ DEFUN (ip_as_path, ip_as_path_cmd,
     }
 
   /* Check AS path regex. */
-  b = buffer_new (1024);
-  for (i = 2; i < argc; i++)
-    {
-      if (first)
-	buffer_putc (b, ' ');
-      else
-	first = 1;
-
-      buffer_putstr (b, argv[i]);
-    }
-  buffer_putc (b, '\0');
-
-  regstr = buffer_getstr (b);
-  buffer_free (b);
+  regstr = argv_concat(argv, argc, 2);
 
   regex = bgp_regcomp (regstr);
   if (!regex)
     {
-      free (regstr);
+      XFREE (MTYPE_TMP, regstr);
       vty_out (vty, "can't compile regexp %s%s", argv[0],
 	       VTY_NEWLINE);
       return CMD_WARNING;
@@ -489,7 +473,7 @@ DEFUN (ip_as_path, ip_as_path_cmd,
 
   asfilter = as_filter_make (regex, regstr, type);
   
-  free (regstr);
+  XFREE (MTYPE_TMP, regstr);
 
   /* Install new filter to the access_list. */
   aslist = as_list_get (argv[0]);
@@ -518,9 +502,6 @@ DEFUN (no_ip_as_path,
   enum as_filter_type type;
   struct as_filter *asfilter;
   struct as_list *aslist;
-  struct buffer *b;
-  int i;
-  int first = 0;
   char *regstr;
   regex_t *regex;
 
@@ -545,25 +526,12 @@ DEFUN (no_ip_as_path,
     }
   
   /* Compile AS path. */
-  b = buffer_new (1024);
-  for (i = 2; i < argc; i++)
-    {
-      if (first)
-	buffer_putc (b, ' ');
-      else
-	first = 1;
-
-      buffer_putstr (b, argv[i]);
-    }
-  buffer_putc (b, '\0');
-
-  regstr = buffer_getstr (b);
-  buffer_free (b);
+  regstr = argv_concat(argv, argc, 2);
 
   regex = bgp_regcomp (regstr);
   if (!regex)
     {
-      free (regstr);
+      XFREE (MTYPE_TMP, regstr);
       vty_out (vty, "can't compile regexp %s%s", argv[0],
 	       VTY_NEWLINE);
       return CMD_WARNING;
@@ -572,7 +540,7 @@ DEFUN (no_ip_as_path,
   /* Lookup asfilter. */
   asfilter = as_filter_lookup (aslist, regstr, type);
 
-  free (regstr);
+  XFREE (MTYPE_TMP, regstr);
   bgp_regex_free (regex);
 
   if (asfilter == NULL)

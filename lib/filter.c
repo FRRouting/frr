@@ -1359,8 +1359,6 @@ DEFUN (access_list_remark,
        "Comment up to 100 characters\n")
 {
   struct access_list *access;
-  struct buffer *b;
-  int i;
 
   access = access_list_get (AFI_IP, argv[0]);
 
@@ -1369,19 +1367,7 @@ DEFUN (access_list_remark,
       XFREE (MTYPE_TMP, access->remark);
       access->remark = NULL;
     }
-
-  /* Below is remark get codes. */
-  b = buffer_new (1024);
-  for (i = 1; i < argc; i++)
-    {
-      buffer_putstr (b, argv[i]);
-      buffer_putc (b, ' ');
-    }
-  buffer_putc (b, '\0');
-
-  access->remark = buffer_getstr (b);
-
-  buffer_free (b);
+  access->remark = argv_concat(argv, argc, 1);
 
   return CMD_SUCCESS;
 }
@@ -1541,8 +1527,6 @@ DEFUN (ipv6_access_list_remark,
        "Comment up to 100 characters\n")
 {
   struct access_list *access;
-  struct buffer *b;
-  int i;
 
   access = access_list_get (AFI_IP6, argv[0]);
 
@@ -1551,19 +1535,7 @@ DEFUN (ipv6_access_list_remark,
       XFREE (MTYPE_TMP, access->remark);
       access->remark = NULL;
     }
-
-  /* Below is remark get codes. */
-  b = buffer_new (1024);
-  for (i = 1; i < argc; i++)
-    {
-      buffer_putstr (b, argv[i]);
-      buffer_putc (b, ' ');
-    }
-  buffer_putc (b, '\0');
-
-  access->remark = buffer_getstr (b);
-
-  buffer_free (b);
+  access->remark = argv_concat(argv, argc, 1);
 
   return CMD_SUCCESS;
 }

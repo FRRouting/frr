@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "stream.h"
 #include "thread.h"
 #include "log.h"
+#include "memory.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -2576,9 +2577,7 @@ DEFUN (neighbor_description,
        "Up to 80 characters describing this neighbor\n")
 {
   struct peer *peer;
-  struct buffer *b;
   char *str;
-  int i;
 
   peer = peer_and_group_lookup_vty (vty, argv[0]);
   if (! peer)
@@ -2587,21 +2586,11 @@ DEFUN (neighbor_description,
   if (argc == 1)
     return CMD_SUCCESS;
 
-  /* Make string from buffer.  This function should be provided by
-     buffer.c. */
-  b = buffer_new (1024);
-  for (i = 1; i < argc; i++)
-    {
-      buffer_putstr (b, argv[i]);
-      buffer_putc (b, ' ');
-    }
-  buffer_putc (b, '\0');
-  str = buffer_getstr (b);
-  buffer_free (b);
+  str = argv_concat(argv, argc, 1);
 
   peer_description_set (peer, str);
 
-  free (str);
+  XFREE (MTYPE_TMP, str);
 
   return CMD_SUCCESS;
 }

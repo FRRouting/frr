@@ -1561,8 +1561,6 @@ DEFUN (ip_prefix_list_description,
        "Up to 80 characters describing this prefix-list\n")
 {
   struct prefix_list *plist;
-  struct buffer *b;
-  int i;
 
   plist = prefix_list_get (AFI_IP, argv[0]);
   
@@ -1571,19 +1569,7 @@ DEFUN (ip_prefix_list_description,
       XFREE (MTYPE_TMP, plist->desc);
       plist->desc = NULL;
     }
-
-  /* Below is description get codes. */
-  b = buffer_new (1024);
-  for (i = 1; i < argc; i++)
-    {
-      buffer_putstr (b, argv[i]);
-      buffer_putc (b, ' ');
-    }
-  buffer_putc (b, '\0');
-
-  plist->desc = buffer_getstr (b);
-
-  buffer_free (b);
+  plist->desc = argv_concat(argv, argc, 1);
 
   return CMD_SUCCESS;
 }       
@@ -2171,8 +2157,6 @@ DEFUN (ipv6_prefix_list_description,
        "Up to 80 characters describing this prefix-list\n")
 {
   struct prefix_list *plist;
-  struct buffer *b;
-  int i;
 
   plist = prefix_list_get (AFI_IP6, argv[0]);
   
@@ -2181,19 +2165,7 @@ DEFUN (ipv6_prefix_list_description,
       XFREE (MTYPE_TMP, plist->desc);
       plist->desc = NULL;
     }
-
-  /* Below is description get codes. */
-  b = buffer_new (1024);
-  for (i = 1; i < argc; i++)
-    {
-      buffer_putstr (b, argv[i]);
-      buffer_putc (b, ' ');
-    }
-  buffer_putc (b, '\0');
-
-  plist->desc = buffer_getstr (b);
-
-  buffer_free (b);
+  plist->desc = argv_concat(argv, argc, 1);
 
   return CMD_SUCCESS;
 }       

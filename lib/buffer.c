@@ -95,7 +95,7 @@ buffer_getstr (struct buffer *b)
 
   for (data = b->head; data; data = data->next)
     totlen += data->cp - data->sp;
-  if (!(s = malloc(totlen+1)))
+  if (!(s = XMALLOC(MTYPE_TMP, totlen+1)))
     return NULL;
   p = s;
   for (data = b->head; data; data = data->next)

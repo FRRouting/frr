@@ -1,3 +1,14 @@
+2005-01-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* buffer.h: Fix comment on buffer_getstr to reflect that it now
+	  uses XMALLOC.
+	* buffer.c: (buffer_getstr) Use XMALLOC(MTYPE_TMP) instead of malloc.
+	* filter.c: (access_list_remark,ipv6_access_list_remark) Use
+	  argv_concat instead of buffer_getstr.
+	* if.c: (interface_desc) Use argv_concat instead of buffer_getstr.
+	* plist.c: (ip_prefix_list_description,ipv6_prefix_list_description)
+	  Use argv_concat instead of buffer_getstr.
+
 2005-01-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* lib/buffer.h: Document behavior of buffer_getstr function.

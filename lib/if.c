@@ -453,27 +453,15 @@ DEFUN (interface_desc,
        "Interface specific description\n"
        "Characters describing this interface\n")
 {
-  int i;
   struct interface *ifp;
-  struct buffer *b;
 
   if (argc == 0)
     return CMD_SUCCESS;
 
   ifp = vty->index;
   if (ifp->desc)
-    XFREE (0, ifp->desc);
-
-  b = buffer_new (1024);
-  for (i = 0; i < argc; i++)
-    {
-      buffer_putstr (b, argv[i]);
-      buffer_putc (b, ' ');
-    }
-  buffer_putc (b, '\0');
-
-  ifp->desc = buffer_getstr (b);
-  buffer_free (b);
+    XFREE (MTYPE_TMP, ifp->desc);
+  ifp->desc = argv_concat(argv, argc, 0);
 
   return CMD_SUCCESS;
 }

@@ -1,3 +1,16 @@
+2005-01-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* bgp_filter.c: (ip_as_path,no_ip_as_path) Use argv_concat instead
+	  of buffer_getstr.
+	* bgp_route.c: (bgp_show_regexp) Fix memory leak: need to free string
+	  returned by buffer_getstr.
+	  (bgp_show_community) Must use XFREE instead of free on string
+	  returned by buffer_getstr.
+	* bgp_routemap.c: (set_community) Must use XFREE instead of free
+	  on string returned by buffer_getstr.
+	* bgp_vty.c: (neighbor_description) Use argv_concat instead of
+	  buffer_getstr.
+
 2005-01-24 Hasso Tepper <hasso at quagga.net>
 
 	* bgp_route.c: Fix showstopper bug. New route must be selected also

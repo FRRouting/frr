@@ -2846,7 +2846,7 @@ DEFUN (set_community,
   if (str)
     {
       com = community_str2com (str);
-      free (str);
+      XFREE (MTYPE_TMP, str);
     }
 
   /* Can't compile user input into communities attribute.  */

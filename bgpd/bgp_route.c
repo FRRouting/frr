@@ -6136,6 +6136,7 @@ bgp_show_regexp (struct vty *vty, int argc, const char **argv, afi_t afi,
   buffer_free (b);
 
   regex = bgp_regcomp (regstr);
+  XFREE(MTYPE_TMP, regstr);
   if (! regex)
     {
       vty_out (vty, "Can't compile regexp %s%s", argv[0],
@@ -6712,7 +6713,7 @@ bgp_show_community (struct vty *vty, int argc, const char **argv, int exact,
   buffer_free (b);
 
   com = community_str2com (str);
-  free (str);
+  XFREE (MTYPE_TMP, str);
   if (! com)
     {
       vty_out (vty, "%% Community malformed: %s", VTY_NEWLINE);
