@@ -2248,9 +2248,6 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
   struct peer *rsclient;
   struct listnode *nn;
 
-  if (! peer->afc[afi][safi])
-    return;
-
   if (safi != SAFI_MPLS_VPN)
     bgp_clear_route_table (peer, afi, safi, NULL, NULL);
   else
