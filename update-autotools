@@ -7,6 +7,9 @@
 rm -f config.cache Makefile.in aclocal.m4 config.h.in configure
 rm -rf autom4te.cache
 
+echo "This $0 script is deprecated, and will be removed at some stage."
+echo "Please use the 'autoreconf' command included with autoconf."
+
 echo "TOOLS VERIONS:"
 for tool in autoheader autoconf libtool libtoolize aclocal automake; do
   $tool --version | head -1
