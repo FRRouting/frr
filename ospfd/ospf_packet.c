@@ -2018,8 +2018,12 @@ ospf_recv_packet (int fd, struct interface **ifp)
       pktinfo = (struct in_pktinfo *)CMSG_DATA(cmsg);
       ifindex = pktinfo->ipi_ifindex;
 #elif defined (IP_RECVIF)
+#ifdef SUNOS_5
+      ifindex = *(uint_t *)CMSG_DATA(cmsg);
+#else
       pktinfo = (struct sockaddr_dl *)CMSG_DATA(cmsg);
       ifindex = pktinfo->sdl_index;
+#endif /* SUNOS_5 */
 #else
       ifindex = 0;
 #endif

@@ -1,3 +1,8 @@
+2004-02-19 Sowmini Varadhan <sowmini.varadhan@sun.com>
+
+	* ospf_packet.c: Don't drop packets in Solaris x86.
+	  [quagga-dev 1005].
+
 2004-03-18 Amir Guindehi <amir@datacore.ch>
 
 	* ospf_opaque.c: Attempt to correct the incorrect behavior of
