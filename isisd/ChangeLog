@@ -1,3 +1,7 @@
+2005-03-07 Michael Sandee <voidptr@voidptr.sboost.org>
+
+	* isis_spf.c: host.name might be NULL.
+
 2005-02-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* isis_main.c: (reload) Call vty_reset instead of vty_finish (both

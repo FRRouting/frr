@@ -1279,7 +1279,8 @@ isis_print_paths (struct vty *vty, struct list *paths)
 	continue;
       if (memcmp (vertex->N.id, isis->sysid, ISIS_SYS_ID_LEN) == 0)
 	{
-	  vty_out (vty, "%s             --%s", host.name, VTY_NEWLINE);
+	  vty_out (vty, "%s             --%s", host.name?host.name:"",
+		   VTY_NEWLINE);
 	}
       else
 	{
