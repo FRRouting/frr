@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.30 2004/12/17 23:16:33 ajs Exp $
+   $Id: command.c,v 1.31 2005/01/02 18:51:01 hasso Exp $
 
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -1565,12 +1565,12 @@ cmd_try_do_shortcut (enum node_type node, char* first_word) {
 static vector
 cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 {
-  unsigned int i;
+  int i;
   vector cmd_vector;
 #define INIT_MATCHVEC_SIZE 10
   vector matchvec;
   struct cmd_element *cmd_element;
-  unsigned int index;
+  int index;
   int ret;
   enum match_type match;
   char *command;
@@ -1761,12 +1761,12 @@ cmd_lcd (char **matched)
 static char **
 cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 {
-  unsigned int i;
+  int i;
   vector cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
 #define INIT_MATCHVEC_SIZE 10
   vector matchvec;
   struct cmd_element *cmd_element;
-  unsigned int index = vector_max (vline) - 1;
+  int index = vector_max (vline) - 1;
   char **match_str;
   struct desc *desc;
   vector descvec;

@@ -1,3 +1,9 @@
+2005-01-02 Hasso Tepper <hasso at quagga.net>
+
+	* command.c: Revert int -> unsigned int fixes in
+	cmd_describe_command_real() and cmd_complete_command_real(). index can
+	be actually negative and it caused crash with "do<TAB>" in vty.
+
 2004-12-29  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* sockopt.c (getsockopt_ipv4_ifindex): Document calling
