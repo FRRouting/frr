@@ -1,3 +1,10 @@
+2003-12-21 Hasso Tepper <hasso@estpak.ee>
+
+	* lib/linklist.c: Revert patch [quagga-dev 227]. listnode_add_sort()
+	  function should not drop nodes in any case. But fix behavior where
+	  nodes were added to the end of list when cmp returned 0.
+	* lib/if.c: Check for duplicates before calling listnode_add_sort().
+
 2003-12-08  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* {lib,ospfd,ospfapi}/Makefile.am: Use pkginclude_HEADERS rather

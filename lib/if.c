@@ -120,7 +120,8 @@ if_create (char *name, int namelen)
   assert (namelen <= (INTERFACE_NAMSIZ + 1));
   strncpy (ifp->name, name, namelen);
   ifp->name[INTERFACE_NAMSIZ] = '\0';
-  listnode_add_sort (iflist, ifp);
+  if (if_lookup_by_name(ifp->name) == NULL)
+    listnode_add_sort (iflist, ifp);
   ifp->connected = list_new ();
   ifp->connected->del = (void (*) (void *)) connected_free;
 
