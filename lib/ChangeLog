@@ -1,5 +1,11 @@
 2004-12-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* sockopt.c: (setsockopt_ipv4_ifindex) Improve error message.
+	  When neither IP_PKTINFO nor IP_RECVIF is defined, make return value
+	  deterministic (-1).
+
+2004-12-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* thread.c: (funcname_thread_add_timer_msec) Reduce overflow risk.
 
 2004-12-21 Paul Jakma <paul.jakma@sun.com>

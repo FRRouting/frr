@@ -242,17 +242,20 @@ setsockopt_ipv4_ifindex (int sock, int val)
   int ret;
 
 #if defined (IP_PKTINFO)
-  ret = setsockopt (sock, IPPROTO_IP, IP_PKTINFO, &val, sizeof (val));
+  if ((ret = setsockopt (sock, IPPROTO_IP, IP_PKTINFO, &val, sizeof (val))) < 0)
+    zlog_warn ("Can't set IP_PKTINFO option for fd %d to %d: %s",
+	       sock,val,safe_strerror(errno));
 #elif defined (IP_RECVIF)
-  ret = setsockopt (sock, IPPROTO_IP, IP_RECVIF, &val, sizeof (val));
+  if ((ret = setsockopt (sock, IPPROTO_IP, IP_RECVIF, &val, sizeof (val))) < 0)
+    zlog_warn ("Can't set IP_RECVIF option for fd %d to %d: %s",
+	       sock,val,safe_strerror(errno));
 #else
 #warning "Neither IP_PKTINFO nor IP_RECVIF is available."
 #warning "Will not be able to receive link info."
 #warning "Things might be seriously broken.."
+  /* XXX Does this ever happen?  Should there be a zlog_warn message here? */
+  ret = -1;
 #endif
-
-  if (ret < 0)
-    zlog_warn ("Can't set IP_PKTINFO option");
   return ret;
 }
 
