@@ -1,4 +1,4 @@
-# $Id: INSTALL.quagga.txt,v 1.8 2004/11/23 17:19:21 gdt Exp $
+# $Id: INSTALL.quagga.txt,v 1.9 2005/04/02 17:13:33 paul Exp $
 
 --------------------------------------------------------------------------
 Building and Installing Quagga from releases or snapshots:
@@ -52,6 +52,10 @@ Texinfo is not actually required since quagga.info is checked in.
 When texinfo 4.7 is widespread, it will be removed and texinfo will
 become required again.  (4.7 has figure support, needed for the route
 server docs, which is why 4.6 doesn't work.)
+
+In order to create PostScript or PDF versions of the Texinfo documentation,
+you will need the convert utility, from the ImageMagick toolset installed,
+and epstopdf from the TeTeX suite.
 
 To create the required autotools files (Makefile.in, configure, etc.),
 run either the 'update-autotools' script provided, or else the
