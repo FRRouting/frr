@@ -1154,7 +1154,7 @@ ALIAS (vtysh_exit_ospf6d,
        "quit",
        "Exit current mode and down to previous mode\n")
 
-DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D,
+DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
 	 vtysh_interface,
 	 vtysh_interface_cmd,
 	 "interface IFNAME",
@@ -1184,7 +1184,7 @@ DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
        NO_STR
        "Interface specific description\n")
 
-DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D,
+DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
 	 vtysh_exit_interface,
 	 vtysh_exit_interface_cmd,
 	 "exit",
