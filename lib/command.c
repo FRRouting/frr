@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.42 2005/03/09 13:39:26 paul Exp $
+   $Id: command.c,v 1.43 2005/03/09 13:42:23 paul Exp $
  
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -2483,7 +2483,9 @@ DEFUN (config_list,
   struct cmd_element *cmd;
 
   for (i = 0; i < vector_max (cnode->cmd_vector); i++)
-    if ((cmd = vector_slot (cnode->cmd_vector, i)) != NULL)
+    if ((cmd = vector_slot (cnode->cmd_vector, i)) != NULL
+        && !(cmd->attr == CMD_ATTR_DEPRECATED
+             || cmd->attr == CMD_ATTR_HIDDEN))
       vty_out (vty, "  %s%s", cmd->string,
 	       VTY_NEWLINE);
   return CMD_SUCCESS;

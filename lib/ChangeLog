@@ -3,6 +3,8 @@
 	* command.c: Undo commit of sign warning fix and hidden command
 	  in list_cmd. Sign warning is more subtle. list_cmd on its own
 	  will be committed after.
+	* command.c: (config_list_cmd) Don't list hidden or deprecated
+	  commands, hiding these from tab completion is still to be done.
 
 2005-03-08 Paul Jakma <paul.jakma@sun.com>
 
