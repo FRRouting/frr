@@ -14,6 +14,8 @@
 	  dependency on dia :) (amongst other things) for dist users.
 	  quagga_TEXINFOS should depend on figures_BUILT_SOURCES.
 	* .cvsignore: ignore eps files, built from sources
+	* Makefile.am: Urg, dont use automake _SOURCES, _BUILT_SOURCES
+	  for figures, automake doesnt know anything about them.
 	  
 2005-03-25 Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
 	* ipv6.texi: Add new commands for neighbor discovery
