@@ -715,6 +715,8 @@ cmd_ipv4_prefix_match (char *str)
 #define STATE_SLASH		6
 #define STATE_MASK		7
 
+#ifdef HAVE_IPV6
+
 enum match_type
 cmd_ipv6_match (char *str)
 {
@@ -952,6 +954,8 @@ cmd_ipv6_prefix_match (char *str)
   return exact_match;
 }
 
+#endif /* HAVE_IPV6  */
+
 #define DECIMAL_STRLEN_MAX 10
 
 int
@@ -1046,6 +1050,7 @@ cmd_filter_by_completion (char *command, vector v, int index)
 			matched++;
 		      }
 		  }
+#ifdef HAVE_IPV6
 		else if (CMD_IPV6 (str))
 		  {
 		    if (cmd_ipv6_match (command))
@@ -1066,6 +1071,7 @@ cmd_filter_by_completion (char *command, vector v, int index)
 			matched++;
 		      }
 		  }
+#endif   /* HAVE_IPV6  */
 		else if (CMD_IPV4 (str))
 		  {
 		    if (cmd_ipv4_match (command))
@@ -1160,6 +1166,7 @@ cmd_filter_by_string (char *command, vector v, int index)
 			matched++;
 		      }
 		  }
+#ifdef HAVE_IPV6
 		else if (CMD_IPV6 (str))
 		  {
 		    if (cmd_ipv6_match (command) == exact_match)
@@ -1178,6 +1185,7 @@ cmd_filter_by_string (char *command, vector v, int index)
 			matched++;
 		      }
 		  }
+#endif /* HAVE_IPV6  */
 		else if (CMD_IPV4 (str))
 		  {
 		    if (cmd_ipv4_match (command) == exact_match)
@@ -1272,6 +1280,7 @@ is_cmd_ambiguous (char *command, vector v, int index, enum match_type type)
 		    match++;
 		  }
 		break;
+#ifdef HAVE_IPV6		
  	      case ipv6_match:
 		if (CMD_IPV6 (str))
 		  match++;
@@ -1285,6 +1294,7 @@ is_cmd_ambiguous (char *command, vector v, int index, enum match_type type)
 		    match++;
 		  }
 		break;
+#endif  /* HAVE_IPV6 */		
 	      case ipv4_match:
 		if (CMD_IPV4 (str))
 		  match++;
@@ -1350,6 +1360,7 @@ cmd_entry_function_desc (char *src, char *dst)
 	return NULL;
     }
 
+#ifdef HAVE_IPV6
   if (CMD_IPV6 (dst))
     {
       if (cmd_ipv6_match (src))
@@ -1365,6 +1376,7 @@ cmd_entry_function_desc (char *src, char *dst)
       else
 	return NULL;
     }
+#endif /* HAVE_IPV6 */
 
   if (CMD_IPV4 (dst))
     {
