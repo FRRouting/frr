@@ -1,5 +1,5 @@
 -*- mode: text; -*-
-$Id: HACKING,v 1.16 2005/02/23 16:20:07 gdt Exp $
+$Id: HACKING,v 1.17 2005/04/05 10:10:06 paul Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -72,7 +72,6 @@ RELEASE PROCEDURE
   In an empty directory, do a fresh checkout with -r <release-tag>
   [This makes the dates in the tarball be the modified dates in CVS.]
 
-  {Manually patch redhat/quagga.spec.in to remove @CONFDATE@}
   ./configure
   make dist
 
