@@ -157,14 +157,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
 #ifdef HAVE_SOCKADDR_DL
   struct sockaddr_dl *sdl;
 #endif /* HAVE_SOCKADDR_DL */
-  /*
-   * XXX: Alignment padding follows cmsghdr, and there is not
-   * necessarily a portable way to determine this.  Add 16 bytes as a
-   * pessimistic assumption.  (NetBSD/i386 aligns to 4, and
-   * NetBSD/sparc to 8.)  Note check below that buf is not
-   * overwritten.  A better fix is needed.
-   */
-  char adata [sizeof (struct cmsghdr) + 16 + sizeof (struct in6_pktinfo)];
+  static void *adata = NULL;
   unsigned char buf[RTADV_MSG_SIZE];
   struct nd_router_advert *rtadv;
   int ret;
@@ -172,6 +165,21 @@ rtadv_send_packet (int sock, struct interface *ifp)
   struct zebra_if *zif;
   u_char all_nodes_addr[] = {0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
   listnode node;
+
+  /*
+   * Allocate control message bufffer.  This is dynamic because
+   * CMSG_SPACE is not guaranteed not to call a function.  Note that
+   * the size will be different on different architectures due to
+   * differing alignment rules.
+   */
+  if (adata == NULL)
+    {
+      /* XXX Free on shutdown. */
+      adata = malloc(CMSG_SPACE(sizeof(struct in6_pktinfo)));
+	   
+      if (adata == NULL)
+	zlog_err("rtadv_send_packet: can't malloc control data\n");
+    }
 
   /* Logging of packet. */
   if (IS_ZEBRA_DEBUG_PACKET)
@@ -275,25 +283,17 @@ rtadv_send_packet (int sock, struct interface *ifp)
   msg.msg_iov = &iov;
   msg.msg_iovlen = 1;
   msg.msg_control = (void *) adata;
-  msg.msg_controllen = sizeof adata;
-  msg.msg_flags = MSG_DONTROUTE;
+  msg.msg_controllen = CMSG_LEN(sizeof(struct in6_pktinfo));
+  msg.msg_flags = 0;
   iov.iov_base = buf;
   iov.iov_len = len;
 
-  cmsgptr = (struct cmsghdr *)adata;
-  cmsgptr->cmsg_len = sizeof adata;
+  cmsgptr = CMSG_FIRSTHDR(&msg);
+  cmsgptr->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
   cmsgptr->cmsg_level = IPPROTO_IPV6;
   cmsgptr->cmsg_type = IPV6_PKTINFO;
 
-  /* XXX Check that we do not overwrite buf. */
   pkt = (struct in6_pktinfo *) CMSG_DATA (cmsgptr);
-  if ((void *) &pkt->ipi6_ifindex + sizeof(pkt->ipi6_ifindex)
-      > (void *) &addr)
-    {
-      zlog_err ("rtadv_send_packet: NOT overwriting address\n");
-      return;
-    }
-
   memset (&pkt->ipi6_addr, 0, sizeof (struct in6_addr));
   pkt->ipi6_ifindex = ifp->ifindex;
 

@@ -1,3 +1,10 @@
+2004-08-11  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* rtadv.c (rtadv_send_packet): Allocate space for control messages
+	more carefully; it was wrong on NetBSD/sparc where CMSG alignment
+	is to 8 bytes instead of 4, and overwriting the address.  Use the
+	provided macros for determining lengths.
+
 2004-07-23 Sowmini Varadhan <Sowmini.Varadhan@Sun.COM>
 
         * if_ioctl_solaris.c: HAVE_IPV6 ifdef fixups
