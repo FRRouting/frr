@@ -273,7 +273,7 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
 #endif /* MPLS_VPN */
 
       if (STREAM_REMAIN (s) 
-	  <= (BGP_NLRI_LENGTH + BGP_TOTAL_ATTR_LEN + PSIZE (rn->p.prefixlen)))
+	  < (BGP_NLRI_LENGTH + BGP_TOTAL_ATTR_LEN + PSIZE (rn->p.prefixlen)))
 	break;
 
       if (stream_empty (s))

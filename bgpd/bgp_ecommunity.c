@@ -158,6 +158,15 @@ ecommunity_dup (struct ecommunity *ecom)
   return new;
 }
 
+/* Retrun string representation of communities attribute. */
+char *
+ecommunity_str (struct ecommunity *ecom)
+{
+  if (! ecom->str)
+    ecom->str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_DISPLAY);
+  return ecom->str;
+}
+
 /* Merge two Extended Communities Attribute structure.  */
 struct ecommunity *
 ecommunity_merge (struct ecommunity *ecom1, struct ecommunity *ecom2)
@@ -559,24 +568,30 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
 
   for (i = 0; i < ecom->size; i++)
     {
+      /* Space between each value.  */
+      if (! first)
+	str_buf[str_pnt++] = ' ';
+
       pnt = ecom->val + (i * 8);
 
       /* High-order octet of type. */
       encode = *pnt++;
       if (encode != ECOMMUNITY_ENCODE_AS && encode != ECOMMUNITY_ENCODE_IP)
 	{
-	  if (str_buf)
-	    XFREE (MTYPE_ECOMMUNITY_STR, str_buf);
-	  return "Unknown";
+	  len = sprintf (str_buf + str_pnt, "?");
+	  str_pnt += len;
+	  first = 0;
+	  continue;
 	}
       
       /* Low-order octet of type. */
       type = *pnt++;
       if (type !=  ECOMMUNITY_ROUTE_TARGET && type != ECOMMUNITY_SITE_ORIGIN)
 	{
-	  if (str_buf)
-	    XFREE (MTYPE_ECOMMUNITY_STR, str_buf);
-	  return "Unknown";
+	  len = sprintf (str_buf + str_pnt, "?");
+	  str_pnt += len;
+	  first = 0;
+	  continue;
 	}
 
       switch (format)
@@ -591,9 +606,7 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
 	  prefix = "";
 	  break;
 	default:
-	  if (str_buf)
-	    XFREE (MTYPE_ECOMMUNITY_STR, str_buf);
-	  return "Unknown";
+	  prefix = "";
 	  break;
 	}
 
@@ -603,10 +616,6 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
 	  str_size *= 2;
 	  str_buf = XREALLOC (MTYPE_ECOMMUNITY_STR, str_buf, str_size);
 	}
-
-      /* Space between each value.  */
-      if (! first)
-	str_buf[str_pnt++] = ' ';
 
       /* Put string into buffer.  */
       if (encode == ECOMMUNITY_ENCODE_AS)
@@ -639,3 +648,33 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
     }
   return str_buf;
 }
+
+int
+ecommunity_match (struct ecommunity *ecom1, struct ecommunity *ecom2)
+{
+  int i = 0;
+  int j = 0;
+
+  if (ecom1 == NULL && ecom2 == NULL)
+    return 1;
+
+  if (ecom1 == NULL || ecom2 == NULL)
+    return 0;
+
+  if (ecom1->size < ecom2->size)
+    return 0;
+
+  /* Every community on com2 needs to be on com1 for this to match */
+  while (i < ecom1->size && j < ecom2->size)
+    {
+      if (memcmp (ecom1->val + i, ecom2->val + j, ECOMMUNITY_SIZE) == 0)
+        j++;
+      i++;
+    }
+
+  if (j == ecom2->size)
+    return 1;
+  else
+    return 0;
+}
+

@@ -1,3 +1,8 @@
+2004-05-20  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_ecommunity.c: Transit ecommunity support.
+	* bgp_ecommunity.c: Fix for unknown community crush.
+
 2005-05-20 Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* *: Maximum prefix threshold support.

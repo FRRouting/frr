@@ -1653,19 +1653,67 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY) 
       && (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES)))
     {
-      if (attr->ecommunity->size * 8 > 255)
+      if (peer_sort (peer) == BGP_PEER_IBGP || peer_sort (peer) == BGP_PEER_CONFED)
 	{
-	  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_EXTLEN);
-	  stream_putc (s, BGP_ATTR_EXT_COMMUNITIES);
-	  stream_putw (s, attr->ecommunity->size * 8);
+	  if (attr->ecommunity->size * 8 > 255)
+	    {
+	      stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_EXTLEN);
+	      stream_putc (s, BGP_ATTR_EXT_COMMUNITIES);
+	      stream_putw (s, attr->ecommunity->size * 8);
+	    }
+	  else
+	    {
+	      stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
+	      stream_putc (s, BGP_ATTR_EXT_COMMUNITIES);
+	      stream_putc (s, attr->ecommunity->size * 8);
+	    }
+	  stream_put (s, attr->ecommunity->val, attr->ecommunity->size * 8);
 	}
       else
 	{
-	  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
-	  stream_putc (s, BGP_ATTR_EXT_COMMUNITIES);
-	  stream_putc (s, attr->ecommunity->size * 8);
+	  u_char *pnt;
+	  int tbit;
+	  int ecom_tr_size = 0;
+	  int i;
+
+	  for (i = 0; i < attr->ecommunity->size; i++)
+	    {
+	      pnt = attr->ecommunity->val + (i * 8);
+	      tbit = *pnt;
+
+	      if (CHECK_FLAG (tbit, ECOMMUNITY_FLAG_NON_TRANSITIVE))
+		continue;
+
+	      ecom_tr_size++;
+	    }
+
+	  if (ecom_tr_size)
+	    {
+	      if (ecom_tr_size * 8 > 255)
+		{
+		  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_EXTLEN);
+		  stream_putc (s, BGP_ATTR_EXT_COMMUNITIES);
+		  stream_putw (s, ecom_tr_size * 8);
+		}
+	      else
+		{
+		  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
+		  stream_putc (s, BGP_ATTR_EXT_COMMUNITIES);
+		  stream_putc (s, ecom_tr_size * 8);
+		}
+
+	      for (i = 0; i < attr->ecommunity->size; i++)
+		{
+		  pnt = attr->ecommunity->val + (i * 8);
+		  tbit = *pnt;
+
+		  if (CHECK_FLAG (tbit, ECOMMUNITY_FLAG_NON_TRANSITIVE))
+		    continue;
+
+		  stream_put (s, pnt, 8);
+		}
+	    }
 	}
-      stream_put (s, attr->ecommunity->val, attr->ecommunity->size * 8);
     }
 
   /* Unknown transit attribute. */

@@ -34,6 +34,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* Extended Communities value is eight octet long.  */
 #define ECOMMUNITY_SIZE                        8
 
+/* Extended Communities type flag.  */
+#define ECOMMUNITY_FLAG_NON_TRANSITIVE      0x40  
+
 /* Extended Communities attribute.  */
 struct ecommunity
 {
@@ -70,3 +73,5 @@ void ecommunity_unintern (struct ecommunity *);
 unsigned int ecommunity_hash_make (struct ecommunity *);
 struct ecommunity *ecommunity_str2com (char *, int, int);
 char *ecommunity_ecom2str (struct ecommunity *, int);
+int ecommunity_match (struct ecommunity *, struct ecommunity *);
+char *ecommunity_str (struct ecommunity *);
