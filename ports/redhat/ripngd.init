@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+# chkconfig: - 16 84
+# description: A RIP routing engine for use with Zebra and IPv6
+#
+# processname: ripngd
+# config: /etc/zebra/ripngd.conf
+
+# source function library
+. /etc/rc.d/init.d/functions
+
+# Get network config
+. /etc/sysconfig/network
+
+# Check that networking is up.
+[ "${NETWORKING_IPV6}" = "no" ] && exit 0
+
+# The process must be configured first.
+[ -f /etc/zebra/ripngd.conf ] || exit 0
+
+RETVAL=0
+prog="ripngd"
+
+case "$1" in
+  start)
+	echo -n $"Starting $prog: "
+        daemon /usr/sbin/ripngd -d
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/ripngd
+	echo
+	;;
+  stop)
+	echo -n $"Shutting down $prog: "
+	killproc ripngd
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/ripngd
+	echo
+	;;
+  restart|reload)
+        $0 stop
+        $0 start
+	RETVAL=$?
+        ;;
+  condrestart)
+        if [ -f /var/lock/subsys/ripngd ]; then
+                $0 stop
+		$0 start
+        fi
+	RETVAL=$?
+        ;;
+  status)
+        status ripngd
+	RETVAL=$?
+        ;;
+  *)
+	echo $"Usage: $0 {start|stop|restart|reload|condrestart|status}"
+	exit 1
+esac
+
+exit $RETVAL

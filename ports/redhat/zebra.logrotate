@@ -1,0 +1,59 @@
+/var/log/zebra/zebra.log {
+    notifempty
+    missingok
+    nocompress
+    weekly
+    postrotate
+	/usr/sbin/killall -USR1 zebra
+    endscript
+}
+
+/var/log/zebra/bgpd.log {
+    notifempty
+    missingok
+    nocompress
+    weekly
+    postrotate
+	/usr/sbin/killall -USR1 bgpd
+    endscript
+}
+
+/var/log/zebra/ospfd.log {
+    notifempty
+    missingok
+    nocompress
+    weekly
+    postrotate
+	/usr/sbin/killall -USR1 ospfd
+    endscript
+}
+
+/var/log/zebra/ospf6d.log {
+    notifempty
+    missingok
+    nocompress
+    weekly
+    postrotate
+	/usr/sbin/killall -USR1 ospf6d
+    endscript
+}
+
+/var/log/zebra/ripd.log {
+    notifempty
+    missingok
+    nocompress
+    weekly
+    postrotate
+	/usr/sbin/killall -USR1 ripd
+    endscript
+}
+
+/var/log/zebra/ripngd.log {
+    notifempty
+    missingok
+    nocompress
+    weekly
+    postrotate
+	/usr/sbin/killall -USR1 ripngd
+    endscript
+}

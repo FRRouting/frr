@@ -1,0 +1,10 @@
+#%PAM-1.0
+#
+# Only allow root (and possibly wheel) to use this because enable access
+# is unrestricted.
+
+auth       sufficient   /lib/security/pam_rootok.so
+# Uncomment the following line to implicitly trust users in the "wheel" group.
+#auth       sufficient   /lib/security/pam_wheel.so trust use_uid
+# Uncomment the following line to require a user to be in the "wheel" group.
+#auth       required     /lib/security/pam_wheel.so use_uid

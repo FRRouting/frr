@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+# chkconfig: - 16 84
+# description: A BGPv4, BGPv4+, BGPv4- routing engine for use with Zebra
+#
+# processname: bgpd
+# config: /etc/zebra/bgpd.conf
+
+# source function library
+. /etc/rc.d/init.d/functions
+
+# Get network config
+. /etc/sysconfig/network
+
+# Check that networking is up.
+[ "${NETWORKING}" = "no" ] && exit 0
+
+# The process must be configured first.
+[ -f /etc/zebra/bgpd.conf ] || exit 0
+
+RETVAL=0
+prog="bgpd"
+
+case "$1" in
+  start)
+	echo -n $"Starting $prog: "
+        daemon /usr/sbin/bgpd -d
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/bgpd
+	echo
+	;;
+  stop)
+	echo -n $"Shutting down $prog: "
+	killproc bgpd
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/bgpd
+	echo
+	;;
+  restart|reload)
+        $0 stop
+        $0 start
+	RETVAL=$?
+        ;;
+  condrestart)
+        if [ -f /var/lock/subsys/bgpd ]; then
+                $0 stop
+		$0 start
+        fi
+	RETVAL=$?
+        ;;
+  status)
+        status bgpd
+	RETVAL=$?
+        ;;
+  *)
+	echo $"Usage: $0 {start|stop|restart|reload|condrestart|status}"
+	exit 1
+esac
+
+exit $RETVAL
