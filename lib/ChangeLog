@@ -1,5 +1,20 @@
 2004-11-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* sigevent.c: (signal_init) Set up some default signal handlers
+	  so that processes will issue an error message before terminating
+	  or dumping core.
+	  (trap_default_signals) New function to set up signal handlers
+	  for various signals that may kill the process.
+	  (exit_handler) Call zlog_signal, then _exit.
+	  (core_handler) Call zlog_signal, then abort.
+	* log.h: Declare new function zlog_signal.
+	* log.c: (zlog_signal) New function to log information about
+	  a received signal before the process dies.  Try to log a 
+	  backtrace also.
+	  (quagga_signal_handler,signal_set) Should be static.
+
+2004-11-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* log.c: (vzlog) Take a single va_list argument and use va_copy
 	  as necessary for multiple traversals.
 	  (zlog) Pass only one va_list to vzlog.

@@ -163,6 +163,104 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
   vty_log (zlog_proto_names[zl->protocol], format, args);
 }
 
+static char *
+str_append(char *dst, int len, const char *src)
+{
+  while ((len-- > 0) && *src)
+    *dst++ = *src++;
+  return dst;
+}
+
+static char *
+num_append(char *s, int len, u_long x)
+{
+  char buf[30];
+  char *t = &buf[29];
+
+  *t = '\0';
+  while (x && (t > buf))
+    {
+      *--t = '0'+(x % 10);
+      x /= 10;
+    }
+  return str_append(s,len,t);
+}
+
+/* Note: the goal here is to use only async-signal-safe functions. */
+void
+zlog_signal(int signo, const char *action)
+{
+  time_t now;
+  char buf[sizeof("DEFAULT: Received signal S at T; aborting...")+60];
+  char *s = buf;
+
+#define LOC s,buf+sizeof(buf)-s
+
+  time(&now);
+  if (zlog_default)
+    {
+      s = str_append(LOC,zlog_proto_names[zlog_default->protocol]);
+      *s++ = ':';
+      *s++ = ' ';
+    }
+  s = str_append(LOC,"Received signal ");
+  s = num_append(LOC,signo);
+  s = str_append(LOC," at ");
+  s = num_append(LOC,now);
+  s = str_append(LOC,"; ");
+  s = str_append(LOC,action);
+  *s++ = '\n';
+
+#define DUMP(FP) write(fileno(FP),buf,s-buf);
+  if (!zlog_default)
+    DUMP(stderr)
+  else
+    {
+      if ((zlog_default->flags & ZLOG_FILE) && zlog_default->fp)
+        DUMP(zlog_default->fp)
+      if (zlog_default->flags & ZLOG_STDOUT)
+        DUMP(stdout)
+      if (zlog_default->flags & ZLOG_STDERR)
+        DUMP(stderr)
+      /* Is there a signal-safe way to send a syslog message? */
+    }
+#undef DUMP
+
+  /* Now try for a backtrace. */
+#ifdef HAVE_GLIBC_BACKTRACE
+  {
+    void *array[20];
+    size_t size;
+
+    size = backtrace(array,sizeof(array)/sizeof(array[0]));
+    s = buf;
+    s = str_append(LOC,"Backtrace for ");
+    s = num_append(LOC,size);
+    s = str_append(LOC," stack frames:\n");
+
+#define DUMP(FP) { \
+  write(fileno(FP),buf,s-buf);	\
+  backtrace_symbols_fd(array, size, fileno(FP)); \
+}
+
+  if (!zlog_default)
+    DUMP(stderr)
+  else
+    {
+      if ((zlog_default->flags & ZLOG_FILE) && zlog_default->fp)
+        DUMP(zlog_default->fp)
+      if (zlog_default->flags & ZLOG_STDOUT)
+        DUMP(stdout)
+      if (zlog_default->flags & ZLOG_STDERR)
+        DUMP(stderr)
+      /* Is there a signal-safe way to send a syslog message? */
+    }
+#undef DUMP
+  }
+#endif /* HAVE_GLIBC_BACKTRACE */
+#undef LOC
+}
+
 void
 zlog (struct zlog *zl, int priority, const char *format, ...)
 {

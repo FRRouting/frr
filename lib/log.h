@@ -122,4 +122,7 @@ extern const char *zlog_priority[];
 /* Safe version of strerror -- never returns NULL. */
 extern const char *safe_strerror(int errnum);
 
+/* To be called when a fatal signal is caught. */
+extern void zlog_signal(int signo, const char *action);
+
 #endif /* _ZEBRA_LOG_H */

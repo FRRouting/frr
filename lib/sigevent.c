@@ -37,7 +37,7 @@ struct quagga_sigevent_master_t
 /* Generic signal handler 
  * Schedules signal event thread
  */
-void
+static void
 quagga_signal_handler (int signo)
 {
   int i;
@@ -125,7 +125,7 @@ quagga_signal_timer (struct thread *t)
 
 /* Initialization of signal handles. */
 /* Signale wrapper. */
-int
+static int
 signal_set (int signo)
 {
   int ret;
@@ -152,6 +152,93 @@ signal_set (int signo)
     return 0;
 }
 
+static void
+exit_handler(int signo)
+{
+  zlog_signal(signo,"exiting...");
+  _exit(128+signo);
+}
+
+static void
+core_handler(int signo)
+{
+  zlog_signal(signo,"aborting...");
+  abort();
+}
+
+static void
+trap_default_signals(void)
+{
+  static const int core_signals[] = {
+    SIGQUIT,
+    SIGILL,
+#ifdef SIGEMT
+    SIGEMT,
+#endif
+    SIGFPE,
+    SIGBUS,
+    SIGSEGV,
+#ifdef SIGSYS
+    SIGSYS,
+#endif
+#ifdef SIGXCPU
+    SIGXCPU,
+#endif
+#ifdef SIGXFSZ
+    SIGXFSZ,
+#endif
+  };
+  static const int exit_signals[] = {
+    SIGHUP,
+    SIGINT,
+    SIGPIPE,
+    SIGALRM,
+    SIGTERM,
+    SIGUSR1,
+    SIGUSR2,
+#ifdef SIGPOLL
+    SIGPOLL, 
+#endif
+#ifdef SIGVTALRM
+    SIGVTALRM,
+#endif
+#ifdef SIGSTKFLT
+    SIGSTKFLT, 
+#endif
+  };
+  static const struct {
+    const int *sigs;
+    int nsigs;
+    void (*handler)(int);
+  } sigmap[2] = {
+    { core_signals, sizeof(core_signals)/sizeof(core_signals[0]),core_handler },
+    { exit_signals, sizeof(exit_signals)/sizeof(exit_signals[0]),exit_handler },
+  };
+  int i;
+
+  for (i = 0; i < 2; i++)
+    {
+      int j;
+
+      for (j = 0; j < sigmap[i].nsigs; j++)
+        {
+	  struct sigaction oact;
+	  if ((sigaction(sigmap[i].sigs[j],NULL,&oact) == 0) &&
+	      (oact.sa_handler == SIG_DFL))
+	    {
+	      struct sigaction act;
+	      act.sa_handler = sigmap[i].handler;
+	      sigfillset (&act.sa_mask);
+	      act.sa_flags = 0;
+	      if (sigaction(sigmap[i].sigs[j],&act,NULL) < 0)
+	        zlog_warn("Unable to set signal handler for signal %d: %s",
+			  sigmap[i].sigs[j],safe_strerror(errno));
+
+	    }
+        }
+    }
+}
+
 void 
 signal_init (struct thread_master *m, int sigc, 
              struct quagga_signal_t signals[])
@@ -159,6 +246,10 @@ signal_init (struct thread_master *m, int sigc,
 
   int i = 0;
   struct quagga_signal_t *sig;
+
+  /* First establish some default handlers that can be overridden by
+     the application. */
+  trap_default_signals();
   
   while (i < sigc)
     {
