@@ -180,7 +180,7 @@ out:
 void
 ospf_apiserver_term (void)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct ospf_apiserver *apiserv;
 
   /* Unregister wildcard [0/0] type */
@@ -189,6 +189,11 @@ ospf_apiserver_term (void)
 
   /* Free all client instances */
   while ( (node = listhead (apiserver_list)) != NULL)
+    /*
+     * XXX: this is just plain odd/wrong.  Is there a missing
+     * apiserv = (struct ospf_apiserver *) node;
+     * ?
+     */
     ospf_apiserver_free (apiserv);
 
   /* Free client list itself */
