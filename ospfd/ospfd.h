@@ -511,6 +511,7 @@ struct ospf *ospf_get ();
 void ospf_finish (struct ospf *);
 int ospf_router_id_update_timer (struct thread *);
 void ospf_router_id_update ();
+int ospf_network_match_iface (struct connected *, struct prefix *);
 int ospf_network_set (struct ospf *, struct prefix_ipv4 *, struct in_addr);
 int ospf_network_unset (struct ospf *, struct prefix_ipv4 *, struct in_addr);
 int ospf_area_stub_set (struct ospf *, struct in_addr);
