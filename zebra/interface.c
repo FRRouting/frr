@@ -1275,7 +1275,7 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp, char *addr_str,
 DEFUN (ipv6_address,
        ipv6_address_cmd,
        "ipv6 address X:X::X:X/M",
-       "Interface Internet Protocol config commands\n"
+       "Interface IPv6 config commands\n"
        "Set the IP address of an interface\n"
        "IPv6 address (e.g. 3ffe:506::1/48)\n")
 {
@@ -1286,7 +1286,7 @@ DEFUN (no_ipv6_address,
        no_ipv6_address_cmd,
        "no ipv6 address X:X::X:X/M",
        NO_STR
-       "Interface Internet Protocol config commands\n"
+       "Interface IPv6 config commands\n"
        "Set the IP address of an interface\n"
        "IPv6 address (e.g. 3ffe:506::1/48)\n")
 {
