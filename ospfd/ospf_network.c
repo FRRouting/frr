@@ -55,8 +55,10 @@ ospf_if_add_allspfrouters (struct ospf *top, struct prefix *p,
                                    p->u.prefix4, htonl (OSPF_ALLSPFROUTERS),
                                    ifindex);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP (AllSPFRouters): %s",
-               safe_strerror (errno));
+    zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
+	       "ifindex %u, AllSPFRouters): %s; perhaps a kernel limit "
+	       "on # of multicast group memberships has been exceeded?",
+               top->fd, inet_ntoa(p->u.prefix4), ifindex, safe_strerror(errno));
   else
     zlog_info ("interface %s join AllSPFRouters Multicast group.",
 	       inet_ntoa (p->u.prefix4));
@@ -74,8 +76,9 @@ ospf_if_drop_allspfrouters (struct ospf *top, struct prefix *p,
                                    p->u.prefix4, htonl (OSPF_ALLSPFROUTERS),
                                    ifindex);
   if (ret < 0)
-    zlog_warn("can't setsockopt IP_DROP_MEMBERSHIP (AllSPFRouters): %s",
-	      safe_strerror (errno));
+    zlog_warn ("can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
+	       "ifindex %u, AllSPFRouters): %s",
+               top->fd, inet_ntoa(p->u.prefix4), ifindex, safe_strerror(errno));
   else
     zlog_info ("interface %s leave AllSPFRouters Multicast group.",
 	       inet_ntoa (p->u.prefix4));
@@ -94,8 +97,10 @@ ospf_if_add_alldrouters (struct ospf *top, struct prefix *p, unsigned int
                                    p->u.prefix4, htonl (OSPF_ALLDROUTERS),
                                    ifindex);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP (AllDRouters): %s",
-               safe_strerror (errno));
+    zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP (fd %d, addr %s, "
+	       "ifindex %u, AllDRouters): %s; perhaps a kernel limit "
+	       "on # of multicast group memberships has been exceeded?",
+               top->fd, inet_ntoa(p->u.prefix4), ifindex, safe_strerror(errno));
   else
     zlog_info ("interface %s join AllDRouters Multicast group.",
 	       inet_ntoa (p->u.prefix4));
@@ -113,8 +118,9 @@ ospf_if_drop_alldrouters (struct ospf *top, struct prefix *p, unsigned int
                                    p->u.prefix4, htonl (OSPF_ALLDROUTERS),
                                    ifindex);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_DROP_MEMBERSHIP (AllDRouters): %s",
-	       safe_strerror (errno));
+    zlog_warn ("can't setsockopt IP_DROP_MEMBERSHIP (fd %d, addr %s, "
+	       "ifindex %u, AllDRouters): %s",
+               top->fd, inet_ntoa(p->u.prefix4), ifindex, safe_strerror(errno));
   else
     zlog_info ("interface %s leave AllDRouters Multicast group.",
 	       inet_ntoa (p->u.prefix4));
@@ -134,18 +140,22 @@ ospf_if_ipmulticast (struct ospf *top, struct prefix *p, unsigned int ifindex)
   /* Prevent receiving self-origined multicast packets. */
   ret = setsockopt (top->fd, IPPROTO_IP, IP_MULTICAST_LOOP, (void *)&val, len);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_MULTICAST_LOOP(0): %s", safe_strerror (errno));
+    zlog_warn ("can't setsockopt IP_MULTICAST_LOOP(0) for fd %d: %s",
+	       top->fd, safe_strerror(errno));
   
   /* Explicitly set multicast ttl to 1 -- endo. */
   val = 1;
   ret = setsockopt (top->fd, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&val, len);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_MULTICAST_TTL(1): %s", safe_strerror (errno));
+    zlog_warn ("can't setsockopt IP_MULTICAST_TTL(1) for fd %d: %s",
+	       top->fd, safe_strerror (errno));
 
   ret = setsockopt_multicast_ipv4 (top->fd, IP_MULTICAST_IF,
                                    p->u.prefix4, 0, ifindex);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_MULTICAST_IF: %s", safe_strerror (errno));
+    zlog_warn("can't setsockopt IP_MULTICAST_IF(fd %d, addr %s, "
+	      "ifindex %u): %s",
+	      top->fd, inet_ntoa(p->u.prefix4), ifindex, safe_strerror(errno));
 
   return ret;
 }
@@ -182,7 +192,7 @@ ospf_sock_init (void)
       if ( ospfd_privs.change (ZPRIVS_LOWER) )
         zlog_err ("ospf_sock_init: could not lower privs, %s",
                    safe_strerror (errno) );
-      zlog_warn ("Can't set IP_HDRINCL option");
+      zlog_warn ("Can't set IP_HDRINCL option for fd %d",ospf_sock);
     }
 #elif defined (IPTOS_PREC_INTERNETCONTROL)
 #warning "IP_HDRINCL not available on this system"
@@ -208,7 +218,7 @@ ospf_sock_init (void)
   ret = setsockopt_ifindex (AF_INET, ospf_sock, 1);
 
   if (ret < 0)
-     zlog_warn ("Can't set pktinfo option");
+     zlog_warn ("Can't set pktinfo option for fd %d", ospf_sock);
 
   if (ospfd_privs.change (ZPRIVS_LOWER))
     {

@@ -1,3 +1,8 @@
+2004-12-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_network.c: Improve all setsockopt error messages to give detailed
+	  information on the arguments.
+
 2004-12-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_packet.c: (ospf_db_desc) Reduce severity of "Negotiation done"
