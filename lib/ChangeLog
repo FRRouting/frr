@@ -1,3 +1,19 @@
+2005-01-18 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* log.h: Test for SA_SIGINFO to see whether zlog_signal takes final
+	  two args (siginfo and program_counter).
+	* log.c: (hex_append) Include this function only if SA_SIGINFO or
+	  HAVE_GLIBC_BACKTRACE is defined.
+	  (zlog_signal) Final two args (siginfo and program_counter) now
+	  depend on whether SA_SIGINFO is defined on this platform.
+	* sigevent.c: (program_counter) Do not include this function if
+	  SA_SIGINFO is not defined on this platform.
+	  (exit_handler,core_handler) Test for SA_SIGINFO to decide whether
+	  2nd & 3rd arguments are present and to decide how to invoke
+	  zlog_signal.
+	  (trap_default_signals) Test for SA_SIGINFO and invoke sigaction
+	  appropriately.
+
 2005-01-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* log.h: Change prototype for zlog_backtrace_sigsafe to take additional

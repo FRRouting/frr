@@ -1,5 +1,5 @@
 /*
- * $Id: log.c,v 1.22 2005/01/17 15:22:28 ajs Exp $
+ * $Id: log.c,v 1.23 2005/01/18 22:18:59 ajs Exp $
  *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -177,6 +177,7 @@ num_append(char *s, int len, u_long x)
   return str_append(s,len,t);
 }
 
+#if defined(SA_SIGINFO) || defined(HAVE_GLIBC_BACKTRACE)
 static char *
 hex_append(char *s, int len, u_long x)
 {
@@ -194,6 +195,7 @@ hex_append(char *s, int len, u_long x)
     }
   return str_append(s,len,t);
 }
+#endif
 
 static int syslog_fd = -1;
 
@@ -258,8 +260,11 @@ syslog_sigsafe(int priority, const char *msg, size_t msglen)
 
 /* Note: the goal here is to use only async-signal-safe functions. */
 void
-zlog_signal(int signo, const char *action, siginfo_t *siginfo,
-	    void *program_counter)
+zlog_signal(int signo, const char *action
+#ifdef SA_SIGINFO
+	    , siginfo_t *siginfo, void *program_counter
+#endif
+	   )
 {
   time_t now;
   char buf[sizeof("DEFAULT: Received signal S at T (si_addr 0xP, PC 0xP); aborting...")+100];
@@ -279,6 +284,7 @@ zlog_signal(int signo, const char *action, siginfo_t *siginfo,
   s = num_append(LOC,signo);
   s = str_append(LOC," at ");
   s = num_append(LOC,now);
+#ifdef SA_SIGINFO
   s = str_append(LOC," (si_addr 0x");
   s = hex_append(LOC,(u_long)(siginfo->si_addr));
   if (program_counter)
@@ -287,6 +293,9 @@ zlog_signal(int signo, const char *action, siginfo_t *siginfo,
       s = hex_append(LOC,(u_long)program_counter);
     }
   s = str_append(LOC,"); ");
+#else /* SA_SIGINFO */
+  s = str_append(LOC,"; ");
+#endif /* SA_SIGINFO */
   s = str_append(LOC,action);
   if (s < buf+sizeof(buf))
     *s++ = '\n';
@@ -312,7 +321,13 @@ zlog_signal(int signo, const char *action, siginfo_t *siginfo,
     }
 #undef DUMP
 
-  zlog_backtrace_sigsafe(PRI, program_counter);
+  zlog_backtrace_sigsafe(PRI,
+#ifdef SA_SIGINFO
+  			 program_counter
+#else
+			 NULL
+#endif
+			);
 #undef PRI
 #undef LOC
 }

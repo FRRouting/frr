@@ -23,6 +23,7 @@
 #include <sigevent.h>
 #include <log.h>
 
+#ifdef SA_SIGINFO
 #ifdef HAVE_UCONTEXT_H
 #ifdef GNU_LINUX
 /* get REG_EIP from ucontext.h */
@@ -30,6 +31,7 @@
 #endif /* GNU_LINUX */
 #include <ucontext.h>
 #endif /* HAVE_UCONTEXT_H */
+#endif /* SA_SIGINFO */
 
 
 /* master signals descriptor struct */
@@ -161,6 +163,8 @@ signal_set (int signo)
     return 0;
 }
 
+#ifdef SA_SIGINFO
+
 /* XXX This function should be enhanced to support more platforms
        (it currently works only on Linux/x86). */
 static void *
@@ -177,17 +181,35 @@ program_counter(void *context)
   return NULL;
 }
 
+#endif /* SA_SIGINFO */
+
 static void
-exit_handler(int signo, siginfo_t *siginfo, void *context)
+exit_handler(int signo
+#ifdef SA_SIGINFO
+	     , siginfo_t *siginfo, void *context
+#endif
+	    )
 {
-  zlog_signal(signo, "exiting...", siginfo, program_counter(context));
+  zlog_signal(signo, "exiting..."
+#ifdef SA_SIGINFO
+	      , siginfo, program_counter(context)
+#endif
+	     );
   _exit(128+signo);
 }
 
 static void
-core_handler(int signo, siginfo_t *siginfo, void *context)
+core_handler(int signo
+#ifdef SA_SIGINFO
+	     , siginfo_t *siginfo, void *context
+#endif
+	    )
 {
-  zlog_signal(signo, "aborting...", siginfo, program_counter(context));
+  zlog_signal(signo, "aborting..."
+#ifdef SA_SIGINFO
+	      , siginfo, program_counter(context)
+#endif
+	     );
   abort();
 }
 
@@ -236,7 +258,11 @@ trap_default_signals(void)
   static const struct {
     const int *sigs;
     u_int nsigs;
-    void (*handler)(int signo, siginfo_t *info, void *context);
+    void (*handler)(int signo
+#ifdef SA_SIGINFO
+		    , siginfo_t *info, void *context
+#endif
+		   );
   } sigmap[] = {
     { core_signals, sizeof(core_signals)/sizeof(core_signals[0]), core_handler},
     { exit_signals, sizeof(exit_signals)/sizeof(exit_signals[0]), exit_handler},
@@ -263,9 +289,14 @@ trap_default_signals(void)
 	        }
 	      else
 	        {
+#ifdef SA_SIGINFO
 		  /* Request extra arguments to signal handler. */
 		  act.sa_sigaction = sigmap[i].handler;
 		  act.sa_flags = SA_SIGINFO;
+#else
+		  act.sa_handler = sigmap[i].handler;
+		  act.sa_flags = 0;
+#endif
 	        }
 	      if (sigaction(sigmap[i].sigs[j],&act,NULL) < 0)
 	        zlog_warn("Unable to set signal handler for signal %d: %s",
