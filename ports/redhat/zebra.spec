@@ -43,7 +43,11 @@ URL:		http://www.zebra.org/
 BuildRequires:	ucd-snmp-devel
 Prereq:		ucd-snmp
 %endif
-BuildRequires:	texinfo tetex autoconf readline-devel ncurses-devel openssl-devel pam-devel
+%if %with_vtysh
+BuildRequires:	readline readline-devel ncurses ncuses-devel
+Prereq:		readline ncurses
+%endif
+BuildRequires:	texinfo tetex autoconf openssl-devel pam-devel patch
 # Initscripts > 5.60 is required for IPv6 support
 Prereq:		openssl ncurses readline initscripts pam
 Prereq:		/sbin/install-info
@@ -132,13 +136,16 @@ make install \
 
 install %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/zebra
 install %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/bgpd
+%if %with_ipv6
 install %{SOURCE3} $RPM_BUILD_ROOT/etc/rc.d/init.d/ospf6d
+%endif
 install %{SOURCE4} $RPM_BUILD_ROOT/etc/rc.d/init.d/ospfd
 install %{SOURCE5} $RPM_BUILD_ROOT/etc/rc.d/init.d/ripd
+%if %with_ipv6
 install %{SOURCE6} $RPM_BUILD_ROOT/etc/rc.d/init.d/ripngd
+%endif
 install -m644 %{SOURCE8} $RPM_BUILD_ROOT/etc/pam.d/zebra
 install -m644 %{SOURCE9} $RPM_BUILD_ROOT/etc/logrotate.d/zebra
-
 
 %post
 # zebra_spec_add_service <sercice name> <port/proto> <comment>
@@ -155,16 +162,24 @@ zebra_spec_add_service ()
 zebra_spec_add_service zebrasrv 2600/tcp "zebra service"
 zebra_spec_add_service zebra    2601/tcp "zebra vty"
 zebra_spec_add_service ripd     2602/tcp "RIPd vty"
+%if %with_ipv6
 zebra_spec_add_service ripngd   2603/tcp "RIPngd vty"
+%endif
 zebra_spec_add_service ospfd    2604/tcp "OSPFd vty"
 zebra_spec_add_service bgpd     2605/tcp "BGPd vty"
+%if %with_ipv6
 zebra_spec_add_service ospf6d   2606/tcp "OSPF6d vty"
+%endif
 
 /sbin/chkconfig --add zebra 
 /sbin/chkconfig --add ripd
+%if %with_ipv6
 /sbin/chkconfig --add ripngd
+%endif
 /sbin/chkconfig --add ospfd
+%if %with_ipv6
 /sbin/chkconfig --add ospf6d
+%endif
 /sbin/chkconfig --add bgpd
 
 /sbin/install-info %{_infodir}/zebra.info.gz %{_infodir}/dir
@@ -183,9 +198,13 @@ fi
 if [ "$1" -ge  "1" ]; then
 	/etc/rc.d/init.d/zebra  condrestart >/dev/null 2>&1
 	/etc/rc.d/init.d/ripd   condrestart >/dev/null 2>&1
+%if %with_ipv6
 	/etc/rc.d/init.d/ripngd condrestart >/dev/null 2>&1
+%endif
 	/etc/rc.d/init.d/ospfd  condrestart >/dev/null 2>&1
+%if %with_ipv6
 	/etc/rc.d/init.d/ospf6d condrestart >/dev/null 2>&1
+%endif
 	/etc/rc.d/init.d/bgpd   condrestart >/dev/null 2>&1
 fi
 /sbin/install-info --delete %{_infodir}/zebra.info.gz %{_infodir}/dir
@@ -194,9 +213,13 @@ fi
 if [ "$1" = "0" ]; then
         /sbin/chkconfig --del zebra
 	/sbin/chkconfig --del ripd
+%if %with_ipv6
 	/sbin/chkconfig --del ripngd
+%endif
 	/sbin/chkconfig --del ospfd
+%if %with_ipv6
 	/sbin/chkconfig --del ospf6d
+%endif
 	/sbin/chkconfig --del bgpd
 fi
 
@@ -213,13 +236,21 @@ fi
 %{_infodir}/*info*
 %{_mandir}/man*/*
 %{_sbindir}/*
+%if %with_vtysh
 %{_bindir}/*
+%endif
 %config /etc/zebra/*
 %config /etc/rc.d/init.d/*
 %config(noreplace) /etc/pam.d/zebra
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
 
 %changelog
+* Sat Dec 28 2002 Alexander Hoogerhuis <alexh@ihatent.com>
+- Added conditionals for building with(out) IPv6, vtysh, RIP, BGP
+- Fixed up some build requirements (patch)
+- Added conditional build requirements for vtysh / snmp
+- Added conditional to %files for %_bindir depending on vtysh
+
 * Mon Nov 11 2002 Paul Jakma <paulj@alphyra.ie>
 - update to latest CVS
 - add Greg Troxel's md5 buffer copy/dup fix
