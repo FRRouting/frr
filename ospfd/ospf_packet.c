@@ -321,6 +321,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
   struct md5_ctx ctx;
   void *ibuf;
   unsigned long oldputp;
+  u_int32_t t;
   struct crypt_key *ck;
   char *auth_key;
 
@@ -332,7 +333,9 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
 
   /* We do this here so when we dup a packet, we don't have to
      waste CPU rewriting other headers. */
-  ospfh->u.crypt.crypt_seqnum = htonl (oi->crypt_seqnum++);
+  t = (time(NULL) & 0xFFFFFFFF);
+  oi->crypt_seqnum = ( t > oi->crypt_seqnum ? t : oi->crypt_seqnum++);
+  ospfh->u.crypt.crypt_seqnum = htonl (oi->crypt_seqnum); 
 
   /* Get MD5 Authentication key from auth_key list. */
   if (list_isempty (OSPF_IF_PARAM (oi, auth_crypt)))
