@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP4MP_SNAPSHOT       3
 
 #define BGP_DUMP_HEADER_SIZE 12
+#define BGP_DUMP_MSG_HEADER  40
 
 void bgp_dump_init ();
 void bgp_dump_state (struct peer *, int, int);

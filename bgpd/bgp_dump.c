@@ -129,13 +129,32 @@ int
 bgp_dump_interval_add (struct bgp_dump *bgp_dump, int interval)
 {
   int bgp_dump_interval_func (struct thread *);
+  int interval2, secs_into_day;
+  time_t t;
+  struct tm *tm;
 
   if (interval > 0 )
-    bgp_dump->t_interval = thread_add_timer (master, bgp_dump_interval_func, 
-					     bgp_dump, interval);
+    {
+      if ((interval < 86400) && ((86400 % interval) == 0))
+	{
+	  (void) time(&t);
+	  tm = localtime(&t);
+	  secs_into_day = tm->tm_sec + 60*tm->tm_min + 60*60*tm->tm_hour;
+	  interval2 = interval - secs_into_day % interval;
+	  if(interval2 == 0) interval2 = interval;
+	}
+      else
+	{
+	  interval2 = interval;
+	}
+      bgp_dump->t_interval = thread_add_timer (master, bgp_dump_interval_func, 
+					       bgp_dump, interval2);
+    }
   else
-    bgp_dump->t_interval = thread_add_event (master, bgp_dump_interval_func,
-    					     bgp_dump, 0);
+    {
+      bgp_dump->t_interval = thread_add_event (master, bgp_dump_interval_func,
+					       bgp_dump, 0);
+    }
 
   return 0;
 }
@@ -304,21 +323,24 @@ bgp_dump_interval_func (struct thread *t)
   bgp_dump = THREAD_ARG (t);
   bgp_dump->t_interval = NULL;
 
-  if (bgp_dump_open_file (bgp_dump) == NULL)
-    return 0;
-
-  /* In case of bgp_dump_routes, we need special route dump function. */
-  if (bgp_dump->type == BGP_DUMP_ROUTES)
+  /* Reschedule dump even if file couldn't be opened this time... */
+  if (bgp_dump_open_file (bgp_dump) != NULL)
     {
-      bgp_dump_routes_func (AFI_IP);
-      bgp_dump_routes_func (AFI_IP6);
+      /* In case of bgp_dump_routes, we need special route dump function. */
+      if (bgp_dump->type == BGP_DUMP_ROUTES)
+	{
+	  bgp_dump_routes_func (AFI_IP);
+	  bgp_dump_routes_func (AFI_IP6);
+	  /* Close the file now. For a RIB dump there's no point in leaving
+	   * it open until the next scheduled dump starts. */
+	  fclose(bgp_dump->fp); bgp_dump->fp = NULL;
+	}
     }
 
   /* if interval is set reschedule */
   if (bgp_dump->interval > 0)
     bgp_dump_interval_add (bgp_dump, bgp_dump->interval);
 
-     
   return 0;
 }
 
@@ -738,7 +760,8 @@ bgp_dump_init ()
   memset (&bgp_dump_updates, 0, sizeof (struct bgp_dump));
   memset (&bgp_dump_routes, 0, sizeof (struct bgp_dump));
 
-  bgp_dump_obuf = stream_new (BGP_MAX_PACKET_SIZE + BGP_DUMP_HEADER_SIZE);
+  bgp_dump_obuf = stream_new (BGP_MAX_PACKET_SIZE + BGP_DUMP_MSG_HEADER
+                              + BGP_DUMP_HEADER_SIZE);
 
   install_node (&bgp_dump_node, config_write_bgp_dump);
 
