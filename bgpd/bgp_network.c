@@ -133,8 +133,15 @@ bgp_bind (struct peer *peer)
 
   strncpy ((char *)&ifreq.ifr_name, peer->ifname, sizeof (ifreq.ifr_name));
 
+  if ( bgpd_privs.change (ZPRIVS_RAISE) )
+  	zlog_err ("bgp_bind: could not raise privs");
+  
   ret = setsockopt (peer->fd, SOL_SOCKET, SO_BINDTODEVICE, 
 		    &ifreq, sizeof (ifreq));
+
+  if (bgpd_privs.change (ZPRIVS_LOWER) )
+    zlog_err ("bgp_bind: could not lower privs");
+
   if (ret < 0)
     {
       zlog (peer->log, LOG_INFO, "bind to interface %s failed", peer->ifname);

@@ -100,7 +100,8 @@ char *vty_addr = NULL;
 /* privileges */
 zebra_capabilities_t _caps_p [] =  
 {
-    ZCAP_BIND,
+    ZCAP_BIND, 
+    ZCAP_RAW,
 };
 
 struct zebra_privs_t bgpd_privs =

@@ -1,3 +1,10 @@
+2004-10-25 Paul Jakma <paul@dishone.st>
+
+	* Update with fix in debian bug id 222930.
+	* bgp_main.c: Add ZCAP_RAW, needed to bind to interfaces.
+	  bgp_network.c: (....) raise/lower privs around call to
+          SO_BINDTODEVICE sockopt. 
+
 2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
 
 	* bgp_nexthop.c: (bgp_connected_add) Connected destination pointer
