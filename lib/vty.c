@@ -2246,7 +2246,7 @@ vty_use_backup_config (char *fullpath)
   
   free (fullpath_sav);
   free (fullpath_tmp);
-  return fopen (fullpath, "r");
+  return ret;
 }
 
 /* Read up configuration file from file_name. */

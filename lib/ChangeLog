@@ -1,3 +1,8 @@
+2005-03-07 Michael Sandee <voidptr@voidptr.sboost.org>
+
+	* command.c: host.name might be NULL.
+	* vty.c: Fix fd leak.
+
 2005-02-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* stream.c: (stream_read_try) Log a warning message if a fatal
