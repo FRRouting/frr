@@ -1,5 +1,5 @@
 -*- mode: text; -*-
-$Id: HACKING,v 1.12 2004/11/15 19:23:47 gdt Exp $
+$Id: HACKING,v 1.13 2004/12/03 19:03:33 ajs Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -35,6 +35,15 @@ Each file in CVS should have the RCS keyword Id, somewhere very near
 the top, commented out appropriately for the file type.  Just add
 <dollar>Id:<dollar>, replacing <dollar> with $.  See line 2 of HACKING
 for an example; on checkout :$ is expanded to include the value.
+
+Please document fully the proper use of a new function in the header file
+in which it is declared.  And please consult existing headers for
+documentation on how to use existing functions.  In particular, please consult
+these header files:
+
+  lib/log.h	logging levels and usage guidance
+  [more to be added]
+
 
 CHANGELOG
 

@@ -1,5 +1,10 @@
 2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* log.h: Document appropriate use of syslog logging priorities
+	  inside quagga.
+
+2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* command.h: Remove fields log_stdout and log_syslog from struct host,
 	  since they are just trying to duplicate information in the
 	  zlog_default structure.  Note that this fixes a bug since those

@@ -24,6 +24,22 @@
 
 #include <syslog.h>
 
+/* Here is some guidance on logging levels to use:
+ *
+ * LOG_DEBUG	- For all messages that are enabled by optional debugging
+ *		  features, typically preceded by "if (IS...DEBUG...)"
+ * LOG_INFO	- Information that may be of interest, but everything seems
+ *		  to be working properly.
+ * LOG_NOTICE	- Only for message pertaining to daemon startup or shutdown.
+ * LOG_WARNING	- Warning conditions: unexpected events, but the daemon believes
+ *		  it can continue to operate correctly.
+ * LOG_ERR	- Error situations indicating malfunctions.  Probably require
+ *		  attention.
+ *
+ * Note: LOG_CRIT, LOG_ALERT, and LOG_EMERG are currently not used anywhere,
+ * please use LOG_ERR instead.
+ */
+
 #define ZLOG_NOLOG              0x00
 #define ZLOG_FILE		0x01
 #define ZLOG_SYSLOG		0x02

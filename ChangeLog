@@ -1,3 +1,8 @@
+2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* HACKING: Indicate that header files should be consulted for
+	  documentation, particularly logging levels in lib/log.h.
+
 2004-11-24 Paul Jakma <paul@dishone.st>
 
 	* TODO: Add source routing, zebra filtering and lib/ documenting.
