@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.89 2005/02/19 13:58:06 hasso Exp $
+## $Id: configure.ac,v 1.90 2005/03/12 06:36:10 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.0, [http://bugzilla.quagga.net])
@@ -274,17 +274,17 @@ AC_TYPE_SIGNAL
 
 dnl Some systems (Solaris 2.x) require libnsl (Network Services Library)
 case "$host" in
-  [*-sunos5.[6-8]*] | [*-solaris2.[6-8]*])
+  [*-sunos5.[6-7]*] | [*-solaris2.[6-7]*])
       opsys=sol2-6
-      AC_DEFINE(SUNOS_56, 1, SunOS 5.6 to 5.8)
+      AC_DEFINE(SUNOS_56, 1, SunOS 5.6 to 5.7)
       AC_DEFINE(SUNOS_5, 1, SunOS 5)
       AC_CHECK_LIB(xnet, main)
       CURSES=-lcurses
   ;;
   [*-sunos5.[8-9]] | [*-sunos5.1[0-9]] \
   | [*-solaris2.[8-9]] | [*-solaris2.1[0-9]])
-      opsys=sol9
-      AC_DEFINE(SUNOS_59,,SunOS 5.9 up)
+      opsys=sol8
+      AC_DEFINE(SUNOS_59,,SunOS 5.8 up)
       AC_DEFINE(SUNOS_5, 1, SunOS 5)
       AC_CHECK_LIB(socket, main)
       AC_CHECK_LIB(nsl, main)
@@ -459,7 +459,7 @@ elif test x"$opsys" = x"sol2-6";then
   AC_MSG_RESULT(Route socket)
   KERNEL_METHOD="kernel_socket.o"
   RT_METHOD="rt_socket.o"
-elif test x"$opsys" = x"sol9";then
+elif test x"$opsys" = x"sol8";then
   AC_MSG_RESULT(Route socket)
   KERNEL_METHOD="kernel_socket.o"
   RT_METHOD="rt_socket.o"
@@ -560,7 +560,7 @@ if test "$netlink" = yes; then
 elif test "$opsys" = "sol2-6";then
   AC_MSG_RESULT(Solaris GIF)
   IF_METHOD=if_ioctl.o
-elif test "$opsys" = "sol9";then
+elif test "$opsys" = "sol8";then
   AC_MSG_RESULT(Solaris GLIF)
   IF_METHOD=if_ioctl_solaris.o
   IOCTL_METHOD=ioctl_solaris.o
@@ -687,7 +687,7 @@ dnl ---------
 dnl ------------------------------------
 dnl Solaris 9, 10 and potentially higher
 dnl ------------------------------------
-  elif test x"$opsys" = x"sol9"; then
+  elif test x"$opsys" = x"sol8"; then
     zebra_cv_ipv6=yes;
     AC_DEFINE(HAVE_IPV6, 1, IPv6)
     AC_DEFINE(SOLARIS_IPV6, 1, Solaris IPv6)
