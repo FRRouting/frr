@@ -647,11 +647,11 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
   if (! if_indextoname (route->nexthop[0].ifindex, ifname))
     snprintf (ifname, sizeof (ifname), "%d", route->nexthop[0].ifindex);
 
-  vty_out (vty, "%c%1s %2s %-30s %-25s %6s %s%s",
+  vty_out (vty, "%c%1s %2s %-30s %-25s %6.*s %s%s",
            (ospf6_route_is_best (route) ? '*' : ' '),
            OSPF6_DEST_TYPE_SUBSTR (route->type),
            OSPF6_PATH_TYPE_SUBSTR (route->path.type),
-           destination, nexthop, ifname, duration, VNL);
+           destination, nexthop, IFNAMSIZ, ifname, duration, VNL);
 
   for (i = 1; ospf6_nexthop_is_set (&route->nexthop[i]) &&
        i < OSPF6_MULTI_PATH_LIMIT; i++)
@@ -662,8 +662,8 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
       if (! if_indextoname (route->nexthop[i].ifindex, ifname))
         snprintf (ifname, sizeof (ifname), "%d", route->nexthop[i].ifindex);
 
-      vty_out (vty, "%c%1s %2s %-30s %-25s %6s %s%s",
-               ' ', "", "", "", nexthop, ifname, "", VNL);
+      vty_out (vty, "%c%1s %2s %-30s %-25s %6.*s %s%s",
+               ' ', "", "", "", nexthop, IFNAMSIZ, ifname, "", VNL);
     }
 }
 
@@ -758,7 +758,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
                  sizeof (nexthop));
       if (! if_indextoname (route->nexthop[i].ifindex, ifname))
         snprintf (ifname, sizeof (ifname), "%d", route->nexthop[i].ifindex);
-      vty_out (vty, "  %s %s%s", nexthop, ifname, VNL);
+      vty_out (vty, "  %s %.*s%s", nexthop, IFNAMSIZ, ifname, VNL);
     }
   vty_out (vty, "%s", VNL);
 }
