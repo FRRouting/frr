@@ -161,7 +161,7 @@ ifstat_update_proc ()
       ifp = if_get_by_name (name);
       ifstat_dev_fields (version, stat, ifp);
     }
-
+  fclose(fp);
   return 0;
 }
 
@@ -195,6 +195,7 @@ interface_list_proc ()
       ifp = if_get_by_name (name);
       if_add_update (ifp);
     }
+  fclose(fp);
   return 0;
 }
 
