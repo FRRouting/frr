@@ -99,7 +99,7 @@ AC_ARG_ENABLE(ospf-te,
 AC_ARG_ENABLE(multipath,
 [  --enable-multipath=ARG  enable multipath function, ARG must be digit])
 AC_ARG_ENABLE(rtadv,
-[  --enable-rtadv         disable IPV6 router advertisment feature])
+[  --enable-rtadv         enable IPV6 router advertisment feature])
 
 if test "${enable_broken_aliases}" = "yes"; then
   if test "${enable_netlink}" = "yes"
@@ -131,7 +131,7 @@ fi
 AC_MSG_CHECKING(Should Zebra's RTADV be used)
 if test "${enable_rtadv}" = "yes"; then
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_RTADV)
+  AC_DEFINE(HAVE_RTADV,,Enable Zebra IPv6 Routing Advertisements)
 else
   AC_MSG_RESULT(no)
 fi
@@ -268,9 +268,9 @@ AC_CHECK_LIB(pam, pam_start,
 
   [AC_CHECK_LIB(pam, pam_end,
     [AC_CHECK_LIB(pam, $pam_conv_func,
-      [AC_DEFINE(USE_PAM)
+      [AC_DEFINE(USE_PAM,,Use PAM for authentication)
        LIBPAM="-lpam -ldl"],
-      [AC_DEFINE(USE_PAM)
+      [AC_DEFINE(USE_PAM,,Use PAM for authentication)
        LIBPAM="-lpam -ldl -lpam_misc"]
      )
   ],AC_MSG_WARN([*** pam support will not be built ***]),
@@ -297,7 +297,14 @@ dnl ----------------------------
 dnl check existance of functions
 dnl ----------------------------
 AC_CHECK_FUNCS(bcopy bzero strerror inet_aton daemon snprintf vsnprintf strlcat strlcpy if_nametoindex if_indextoname getifaddrs)
-AC_CHECK_FUNCS(setproctitle, ,[AC_CHECK_LIB(util, setproctitle, [LIBS="$LIBS -lutil"; AC_DEFINE(HAVE_SETPROCTITLE)])])
+AC_CHECK_FUNCS(setproctitle, ,
+  [AC_CHECK_LIB(util, setproctitle, 
+     [LIBS="$LIBS -lutil"
+      AC_DEFINE(HAVE_SETPROCTITLE,, Have setproctitle)
+     ]
+   )
+  ]
+)
 
 dnl ------------------------------------
 dnl Determine routing get and set method
@@ -449,111 +456,112 @@ else
 dnl ----------
 dnl INRIA IPv6
 dnl ----------
-if grep IPV6_INRIA_VERSION /usr/include/netinet/in.h >/dev/null 2>&1; then
-   zebra_cv_ipv6=yes
-   AC_DEFINE(HAVE_IPV6,,IPv6)
-   AC_DEFINE(INRIA_IPV6,,Inria IPv6)
-   RIPNGD="ripngd"
-   OSPF6D="ospf6d"
-   LIB_IPV6=""
-   AC_MSG_RESULT(INRIA IPv6)
-fi
+  if grep IPV6_INRIA_VERSION /usr/include/netinet/in.h >/dev/null 2>&1; then
+    zebra_cv_ipv6=yes
+    AC_DEFINE(HAVE_IPV6,1,INRIA IPv6)
+    AC_DEFINE(INRIA_IPV6,1,INRIA IPv6)
+    RIPNGD="ripngd"
+    OSPF6D="ospf6d"
+    LIB_IPV6=""
+    AC_MSG_RESULT(INRIA IPv6)
 dnl ---------
 dnl KAME IPv6
 dnl ---------
-if grep WIDE /usr/include/netinet6/in6.h >/dev/null 2>&1; then
-   zebra_cv_ipv6=yes
-   AC_DEFINE(HAVE_IPV6,,IPv6)
-   AC_DEFINE(KAME,,KAME IPv6)
-   RIPNGD="ripngd"
-   OSPF6D="ospf6d"
-   if test -d /usr/local/v6/lib -a -f /usr/local/v6/lib/libinet6.a; then
+  elif grep WIDE /usr/include/netinet6/in6.h >/dev/null 2>&1; then
+    zebra_cv_ipv6=yes
+    AC_DEFINE(HAVE_IPV6,1,KAME IPv6)
+    AC_DEFINE(KAME,1,KAME IPv6)
+    RIPNGD="ripngd"
+    OSPF6D="ospf6d"
+    if test -d /usr/local/v6/lib -a -f /usr/local/v6/lib/libinet6.a; then
       LIB_IPV6="-L/usr/local/v6/lib -linet6"
-   fi
-   AC_MSG_RESULT(KAME)
-fi
+    fi
+    AC_MSG_RESULT(KAME)
 dnl -------------------------
 dnl MUSICA IPv6
 dnl  default host check
 dnl  It is not used by Kheops
 dnl -------------------------
-if grep MUSICA /usr/include6/netinet6/in6.h >/dev/null 2>&1; then
-   zebra_cv_ipv6=yes
-   AC_DEFINE(HAVE_IPV6)
-   AC_DEFINE(MUSICA)
-   AC_DEFINE(KAME)
-   RIPNGD="ripngd"
-   OSPF6D="ospf6d"
-   if test -d /usr/local/v6/lib -a -f /usr/local/v6/lib/libinet6.a; then
+  elif grep MUSICA /usr/include6/netinet6/in6.h >/dev/null 2>&1; then
+    zebra_cv_ipv6=yes
+    AC_DEFINE(HAVE_IPV6,1,Musicia IPv6)
+    AC_DEFINE(MUSICA,1,Musica IPv6 stack)
+    AC_DEFINE(KAME,1,KAME IPv6 stack)
+    RIPNGD="ripngd"
+    OSPF6D="ospf6d"
+    if test -d /usr/local/v6/lib -a -f /usr/local/v6/lib/libinet6.a; then
       LIB_IPV6="-L/usr/local/v6/lib -linet6"
-   fi
-   AC_MSG_RESULT(MUSICA)
-fi
+    fi
+    AC_MSG_RESULT(MUSICA)
 dnl ---------
 dnl NRL check
 dnl ---------
-if grep NRL /usr/include/netinet6/in6.h >/dev/null 2>&1; then
-   zebra_cv_ipv6=yes
-   AC_DEFINE(HAVE_IPV6,,IPv6)
-   AC_DEFINE(NRL,,NRL)
-   RIPNGD="ripngd"
-   OSPF6D="ospf6d"
-   if test x"$opsys" = x"bsdi";then
+  elif grep NRL /usr/include/netinet6/in6.h >/dev/null 2>&1; then
+    zebra_cv_ipv6=yes
+    AC_DEFINE(HAVE_IPV6,1,NRL IPv6)
+    AC_DEFINE(NRL,1,NRL)
+    RIPNGD="ripngd"
+    OSPF6D="ospf6d"
+    if test x"$opsys" = x"bsdi";then
       AC_DEFINE(BSDI_NRL,,BSDI)
       AC_MSG_RESULT(BSDI_NRL)
-   else
+    else
       AC_MSG_RESULT(NRL)
-   fi
-fi
-
+    fi
 dnl ----------
 dnl Linux IPv6
 dnl ----------
-if test "${enable_ipv6}" = "yes"; then
-   AC_EGREP_CPP(yes, [
-   #include <linux/version.h>
-   /* 2.1.128 or later */
-   #if LINUX_VERSION_CODE >= 0x020180
-   yes
-   #endif],
-   [zebra_cv_ipv6=yes; zebra_cv_linux_ipv6=yes;AC_MSG_RESULT(Linux IPv6)])
-else
-   if test x`ls /proc/net/ipv6_route 2>/dev/null` = x"/proc/net/ipv6_route"
-   then
+  elif test "${enable_ipv6}" = "yes"; then
+    AC_EGREP_CPP(yes, [
+      #include <linux/version.h>
+      /* 2.1.128 or later */
+      #if LINUX_VERSION_CODE >= 0x020180
+      yes
+      #endif],
+      [zebra_cv_ipv6=yes
+       zebra_cv_linux_ipv6=yes
+       AC_MSG_RESULT(Linux IPv6)])
+  else
+    if test x`ls /proc/net/ipv6_route 2>/dev/null` = x"/proc/net/ipv6_route"
+     then
       zebra_cv_ipv6=yes
       zebra_cv_linux_ipv6=yes
       AC_MSG_RESULT(Linux IPv6)
-   fi
-fi
+    fi
+  fi
 
-if test "$zebra_cv_linux_ipv6" = "yes";then
-   AC_DEFINE(HAVE_IPV6)
-   AC_MSG_CHECKING(for GNU libc 2.1)
-   AC_EGREP_CPP(yes, [
+  if test "$zebra_cv_linux_ipv6" = "yes";then
+    AC_MSG_CHECKING(for GNU libc >= 2.1)
+    AC_DEFINE(HAVE_IPV6,1,Linux IPv6)
+    AC_EGREP_CPP(yes, [
 #include <features.h>
 #if __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1
   yes
-#endif], [glibc=yes; AC_MSG_RESULT(yes)], AC_MSG_RESULT(no))
-   AC_DEFINE(LINUX_IPV6,,Linux IPv6)   
-   RIPNGD="ripngd"
-   OSPF6D="ospf6d"
-   if test "$glibc" != "yes"; then
+#endif], 
+      [glibc=yes
+       AC_DEFINE(LINUX_IPV6,1,Linux IPv6 stack)
+       AC_MSG_RESULT(yes)], 
+      AC_MSG_RESULT(no)
+    )
+    RIPNGD="ripngd"
+    OSPF6D="ospf6d"
+    if test "$glibc" != "yes"; then
       INCLUDES="-I/usr/inet6/include"
       if test x`ls /usr/inet6/lib/libinet6.a 2>/dev/null` != x;then
          LIB_IPV6="-L/usr/inet6/lib -linet6"
       fi
-   fi
-fi
+    fi
+  fi
 
 dnl -----------------------
 dnl Set IPv6 related values
 dnl -----------------------
-LIBS="$LIB_IPV6 $LIBS"
-AC_SUBST(LIB_IPV6)
+  LIBS="$LIB_IPV6 $LIBS"
+  AC_SUBST(LIB_IPV6)
 
-if test x"$RIPNGD" = x""; then
-  AC_MSG_RESULT(IPv4 only)
-fi
+  if test x"$RIPNGD" = x""; then
+    AC_MSG_RESULT(IPv4 only)
+  fi
 fi
 
 dnl --------------------
@@ -631,9 +639,9 @@ AC_CHECK_LIB(m, main)
 dnl ---------------------------------------------------
 dnl BSD/OS 4.1 define inet_XtoY function as __inet_XtoY
 dnl ---------------------------------------------------
-AC_CHECK_FUNC(__inet_ntop, AC_DEFINE(HAVE_INET_NTOP))
-AC_CHECK_FUNC(__inet_pton, AC_DEFINE(HAVE_INET_PTON))
-AC_CHECK_FUNC(__inet_aton, AC_DEFINE(HAVE_INET_ATON))
+AC_CHECK_FUNC(__inet_ntop, AC_DEFINE(HAVE_INET_NTOP,,__inet_ntop))
+AC_CHECK_FUNC(__inet_pton, AC_DEFINE(HAVE_INET_PTON,,__inet_pton))
+AC_CHECK_FUNC(__inet_aton, AC_DEFINE(HAVE_INET_ATON,,__inet_aton))
 
 dnl ---------------------------
 dnl check system has GNU regexp
@@ -823,7 +831,7 @@ AC_TRY_COMPILE([#include <sys/types.h>
 #include <netinet6/in6_var.h>
 ],[static struct if6_aliasreq ac_i;int ac_j = sizeof (ac_i.ifra_lifetime);],
 [AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_IFRA_LIFETIME)],
+ AC_DEFINE(HAVE_IFRA_LIFETIME,,Have in6_aliasreq.ifra_lifetime)],
  AC_MSG_RESULT(no))
 
 dnl ---------------------------
@@ -882,59 +890,48 @@ CONFDATE=`date '+%Y%m%d'`
 AC_SUBST(CONFDATE)
 
 dnl ------------------------------
-dnl set paths for process id files
-dnl ------------------------------
-AC_CACHE_CHECK(pid file directory,ac_piddir,
-[for ZEBRA_PID_DIR in /var/run	dnl
-                   /var/adm	dnl
-                   /etc		dnl
-                   /dev/null;
-do
-  test -d $ZEBRA_PID_DIR && break
-done
-ac_piddir=$ZEBRA_PID_DIR
-if test $ZEBRA_PID_DIR = "/dev/null"; then
-  echo "PID DIRECTORY NOT FOUND!"
-fi])
-AC_DEFINE_UNQUOTED(PATH_ZEBRA_PID, "$ac_piddir/zebra.pid",zebra PID)
-AC_DEFINE_UNQUOTED(PATH_RIPD_PID, "$ac_piddir/ripd.pid",ripd PID)
-AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$ac_piddir/ripngd.pid",ripngd PID)
-AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$ac_piddir/bgpd.pid",bgpd PID)
-AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$ac_piddir/ospfd.pid",ospfd PID)
-AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$ac_piddir/ospf6d.pid",ospf6d PID)
-
-dnl ------------------------------
-dnl set paths for socket files
+dnl set paths for state directory
 dnl ------------------------------
 if test "${prefix}" = "NONE"; then
-  ac_sock_prefix="";
+  zebra_statedir_prefix="";
 else
-  ac_sock_prefix=${prefix}
+  zebra_statedir_prefix=${prefix}
 fi
 if test "${localstatedir}" = '${prefix}/var'; then
-  AC_CACHE_CHECK(socket directory,ac_sockdir,
-  [for ZEBRA_SOCK_DIR in ${ac_sock_prefix}/var/run/zebra dnl
-                     ${ac_sock_prefix}/var/run	dnl
-                     ${ac_sock_prefix}/var/adm	dnl
-                     ${ac_sock_prefix}/tmp      dnl
-		     /tmp /var/tmp; dnl
+  AC_CACHE_CHECK(state directory,ac_statedir,
+  [for ZEBRA_STATE_DIR in ${zebra_statedir_prefix}/var/run dnl
+			${zebra_statedir_prefix}/var/adm dnl
+			${zebra_statedir_prefix}/etc dnl
+			/var/run	dnl
+                        /var/adm	dnl
+                        /etc		dnl
+                        /dev/null;
   do
-    test -d $ZEBRA_SOCK_DIR && break
+    test -d $ZEBRA_STATE_DIR && break
   done
-  ac_sockdir=$ZEBRA_SOCK_DIR
-  if test ! -d $ZEBRA_SOCK_DIR ; then
-    echo "SOCKET DIRECTORY NOT FOUND!"
-  fi])
+  zebra_statedir=$ZEBRA_STATE_DIR])
 else
-  ac_sockdir="`eval echo ${localstatedir}`"
+  zebra_statedir=${localstatedir}
+  AC_MSG_CHECKING(directory to use for state file)
+  AC_MSG_RESULT(${zebra_statedir})
 fi
-AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$ac_sockdir/zserv.api",zebra api socket)
-AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$ac_sockdir/zebra.vty",zebra vty socket)
-AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$ac_sockdir/ripd.vty",rip vty socket)
-AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$ac_sockdir/ripngd.vty",ripng vty socket)
-AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$ac_sockdir/bgpd.vty",bgpd vty socket)
-AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$ac_sockdir/ospfd.vty",ospfd vty socket)
-AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$ac_sockdir/ospf6d.vty",ospf6d vty socket)
+if test $zebra_statedir = "/dev/null"; then
+    AC_MSG_ERROR('STATE DIRECTORY NOT FOUND! FIX OR SPECIFY --localstatedir!')
+fi
+
+AC_DEFINE_UNQUOTED(PATH_ZEBRA_PID, "$zebra_statedir/zebra.pid",zebra PID)
+AC_DEFINE_UNQUOTED(PATH_RIPD_PID, "$zebra_statedir/ripd.pid",ripd PID)
+AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$zebra_statedir/ripngd.pid",ripngd PID)
+AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$zebra_statedir/bgpd.pid",bgpd PID)
+AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$zebra_statedir/ospfd.pid",ospfd PID)
+AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$zebra_statedir/ospf6d.pid",ospf6d PID)
+AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$zebra_statedir/zserv.api",zebra api socket)
+AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$zebra_statedir/zebra.vty",zebra vty socket)
+AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$zebra_statedir/ripd.vty",rip vty socket)
+AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$zebra_statedir/ripngd.vty",ripng vty socket)
+AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$zebra_statedir/bgpd.vty",bgpd vty socket)
+AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$zebra_statedir/ospfd.vty",ospfd vty socket)
+AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$zebra_statedir/ospf6d.vty",ospf6d vty socket)
 
 dnl ---------------------------
 dnl Check htonl works correctly
@@ -970,5 +967,6 @@ source code location    : ${srcdir}
 compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 linker flags            : ${LDFLAGS} ${LIBS}
-directory for pid files : ${ac_piddir}
+state file directory    : ${zebra_statedir}
+linker flags            : ${LDFLAGS} ${LIBS}
 "
