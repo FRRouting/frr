@@ -442,10 +442,15 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
     peeronly = if_is_pointopoint (ifp) ||
 	       ifa->ifa_prefixlen >= IPV4_MAX_PREFIXLEN - 1;
 #ifdef HAVE_IPV6
-  if (ifa->ifa_family == AF_INET6)
+  if (ifa->ifa_family == AF_INET6) {
     peeronly = if_is_pointopoint (ifp) ||
 	       ifa->ifa_prefixlen >= IPV6_MAX_PREFIXLEN - 1;
+  }
 #endif /* HAVE_IPV6*/
+  if (!(tb[IFA_LOCAL] && tb[IFA_ADDRESS])) {
+  	/* FIXME: IPv6 Appears to have only IFA_ADDRESS */
+  	peeronly=0;
+  }
 
   /* network. prefixlen applies to IFA_ADDRESS rather than IFA_LOCAL */
   if (tb[IFA_ADDRESS] && !peeronly)
