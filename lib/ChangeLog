@@ -1,3 +1,8 @@
+2004-12-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+	
+	* log.c: (zlog_signal,_zlog_assert_failed) Change logging level back to
+	  LOG_ERR instead of LOG_EMERG.
+
 2004-12-09 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* log.c: (hex_append) No need to include this function if

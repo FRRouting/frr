@@ -1,5 +1,5 @@
 /*
- * $Id: log.c,v 1.19 2004/12/09 17:26:31 ajs Exp $
+ * $Id: log.c,v 1.20 2004/12/10 22:43:17 ajs Exp $
  *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -290,7 +290,7 @@ zlog_signal(int signo, const char *action)
     *s++ = '\n';
 
   /* N.B. implicit priority is most severe */
-#define PRI LOG_EMERG
+#define PRI LOG_ERR
 
 #define DUMP(FP) write(fileno(FP),buf,s-buf);
   if (!zlog_default)
@@ -472,7 +472,7 @@ _zlog_assert_failed (const char *assertion, const char *file,
 {
   zlog_err("Assertion `%s' failed in file %s, line %u, function %s",
 	   assertion,file,line,(function ? function : "?"));
-  zlog_backtrace(LOG_EMERG);
+  zlog_backtrace(LOG_ERR);
   abort();
 }
 
