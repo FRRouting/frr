@@ -8,6 +8,10 @@
   directory from $(sysconfdir), easing NetBSD pkgsrc hierarchy rules
   compliance.
 
+- New configure options --enable-configfile-mask and
+  --enable-logfile-mask to set umask values for config and log
+  values.  Masks default to 0600, matching previous behavior.
+
 * Changes in Quagga 0.96.4
 
 - Further fixes to ospfd, some relating to the PtP revert. Interface

@@ -365,6 +365,7 @@ int
 zlog_set_file (struct zlog *zl, int flags, char *filename)
 {
   FILE *fp;
+  mode_t oldumask;
 
   /* There is opend file.  */
   zlog_reset_file (zl);
@@ -374,9 +375,14 @@ zlog_set_file (struct zlog *zl, int flags, char *filename)
     zl = zlog_default;
 
   /* Open file. */
+  oldumask = umask (0777 & ~LOGFILE_MASK);
   fp = fopen (filename, "a");
   if (fp == NULL)
-    return 0;
+    {
+      umask(oldumask);
+      return 0;
+    }
+  umask(oldumask);
 
   /* Set flags. */
   zl->filename = strdup (filename);
@@ -421,9 +427,16 @@ zlog_rotate (struct zlog *zl)
 
   if (zl->filename)
     {
+      mode_t oldumask;
+
+      oldumask = umask (0777 & ~LOGFILE_MASK);
       fp = fopen (zl->filename, "a");
       if (fp == NULL)
-	return -1;
+        {
+	  umask(oldumask);
+	  return -1;
+        }	
+      umask(oldumask);
       zl->fp = fp;
     }
 

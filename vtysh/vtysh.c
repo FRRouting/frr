@@ -1287,13 +1287,9 @@ DEFUN (no_vtysh_write_config,
 int write_config_integrated(void)
 {
   int ret;
-  mode_t old_umask;
   char line[] = "write terminal\n";
   FILE *fp;
   char *integrate_sav = NULL;
-
-  /* config files have 0600 perms... */ 
-  old_umask = umask (0077);
 
   integrate_sav = malloc (strlen (integrate_default) 
 			    + strlen (CONF_BACKUP_EXT) + 1);
@@ -1312,7 +1308,6 @@ int write_config_integrated(void)
   if (fp == NULL)
     {
       fprintf (stdout,"%% Can't open configuration file %s.\n", integrate_default);
-      umask (old_umask);
       return CMD_SUCCESS;
     }
 
@@ -1329,11 +1324,17 @@ int write_config_integrated(void)
 
   fclose (fp);
 
+  if (chmod (integrate_default, CONFIGFILE_MASK) != 0)
+    {
+      fprintf (stdout,"%% Can't chmod configuration file %s: %s (%d)\n", 
+	integrate_default, strerror(errno), errno);
+      return CMD_WARNING;
+    }
+
   fprintf(stdout,"Integrated configuration saved to %s\n",integrate_default);
 
   fprintf (stdout,"[OK]\n");
 
-  umask (old_umask);
   return CMD_SUCCESS;
 }
 

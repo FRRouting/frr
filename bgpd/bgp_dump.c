@@ -95,6 +95,7 @@ bgp_dump_open_file (struct bgp_dump *bgp_dump)
   struct tm *tm;
   char fullpath[MAXPATHLEN];
   char realpath[MAXPATHLEN];
+  mode_t oldumask;
 
   time (&clock);
   tm = localtime (&clock);
@@ -117,10 +118,15 @@ bgp_dump_open_file (struct bgp_dump *bgp_dump)
     fclose (bgp_dump->fp);
 
 
+  oldumask = umask(0777 & ~LOGFILE_MASK);
   bgp_dump->fp = fopen (realpath, "w");
 
   if (bgp_dump->fp == NULL)
-    return NULL;
+    {
+      umask(oldumask);
+      return NULL;
+    }
+  umask(oldumask);  
 
   return bgp_dump->fp;
 }

@@ -1,3 +1,9 @@
+2003-12-22 Christian Hammers <ch@lathspell.de>
+
+	* configure.ac (and everywhere a regular file is opened for
+	  writing): use file permissions from configure rather than
+	  compiled-in umask.
+
 2003-12-22 Hasso Tepper <hasso@estpak.ee>
 
 	* lib/linklist.c: Revert microfix I commited while reverting 

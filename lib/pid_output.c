@@ -32,16 +32,20 @@ pid_output (char *path)
 #ifndef HAVE_FCNTL
   FILE *fp;
   pid_t pid;
+  mask_t oldumask;
 
   pid = getpid();
 
+  oldumask = umask(0777 & ~LOGFILE_MASK);
   fp = fopen (path, "w");
   if (fp != NULL) 
     {
       fprintf (fp, "%d\n", (int) pid);
       fclose (fp);
+      umask(oldumask);
       return -1;
     }
+  umask(oldumask);
   return pid;
 #else
   return pid_output_lock(path);
@@ -57,18 +61,23 @@ pid_output_lock (char *path)
   pid_t pid;
   char buf[16];
   struct flock lock;  
+  mode_t oldumask;
 
   pid = getpid ();
 
-  fd = open (path, O_RDWR | O_CREAT, 0644);
+  oldumask = umask(0777 & ~LOGFILE_MASK);
+  zlog_err( "old umask %d %d", oldumask, 0777 & ~LOGFILE_MASK);
+  fd = open (path, O_RDWR | O_CREAT, LOGFILE_MASK);
       if (fd < 0)
         {
         zlog_err( "Can't creat pid lock file %s (%s), exit", 
                  path, strerror(errno));
+      umask(oldumask);
       exit (-1);
     }
   else
     {
+      umask(oldumask);
       memset (&lock, 0, sizeof(lock));
 
       lock.l_type = F_WRLCK;

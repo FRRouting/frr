@@ -2185,6 +2185,14 @@ vty_use_backup_config (char *fullpath)
   close (sav);
   close (tmp);
   
+  if (chmod(fullpath_tmp, CONFIGFILE_MASK) != 0)
+    {
+      free (fullpath_sav);
+      free (fullpath_tmp);
+      unlink (fullpath_tmp);
+      return NULL;
+    }
+  
   if (link (fullpath_tmp, fullpath) == 0)
     ret = fopen (fullpath, "r");
 

@@ -115,6 +115,10 @@ AC_ARG_ENABLE(quagga_group,
 [  --enable-group=ARG      group to run Quagga suite as (default quagga)])
 AC_ARG_ENABLE(vty_group,
 [  --enable-vty-group=ARG      set vty sockets to have specified group as owner])
+AC_ARG_ENABLE(configfile_mask,
+[  --enable-configfile-mask=ARG  set mask for config files])
+AC_ARG_ENABLE(logfile_mask,
+[  --enable-logfile-mask=ARG     set mask for log files])
 
 AC_ARG_ENABLE(rtadv,
 [  --disable-rtadv         disable IPV6 router advertisement feature])
@@ -175,6 +179,12 @@ elif test x"${enable_vty_group}" != x""; then
     AC_DEFINE_UNQUOTED(VTY_GROUP, "${enable_vty_group}", VTY Sockets Group)
   fi
 fi
+
+enable_configfile_mask=${enable_configfile_mask:-0600}
+AC_DEFINE_UNQUOTED(CONFIGFILE_MASK, ${enable_configfile_mask}, Mask for config files)
+
+enable_logfile_mask=${enable_logfile_mask:-0600}
+AC_DEFINE_UNQUOTED(LOGFILE_MASK, ${enable_logfile_mask}, Mask for log files)
 
 changequote(, )dnl
 
@@ -1073,6 +1083,8 @@ example directory       : `eval echo \`echo ${exampledir}\``
 user to run as		: ${enable_user}
 group to run as		: ${enable_group}
 group for vty sockets	: ${enable_vty_group}
+config file mask        : ${enable_configfile_mask}
+log file mask           : ${enable_logfile_mask}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory.

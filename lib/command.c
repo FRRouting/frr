@@ -2552,6 +2552,14 @@ DEFUN (config_write_file,
   
   free (config_file_sav);
   free (config_file_tmp);
+
+  if (chmod (config_file, CONFIGFILE_MASK) != 0)
+    {
+      vty_out (vty, "Can't chmod configuration file %s: %s (%d).%s", 
+	config_file, strerror(errno), errno, VTY_NEWLINE);
+      return CMD_WARNING;      
+    }
+
   vty_out (vty, "Configuration saved to %s%s", config_file,
 	   VTY_NEWLINE);
   return CMD_SUCCESS;
