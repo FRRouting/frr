@@ -414,7 +414,11 @@ thread_get (struct thread_master *m, u_char type,
   struct thread *thread;
 
   if (m->unuse.head)
-    thread = thread_trim_head (&m->unuse);
+    {
+      thread = thread_trim_head (&m->unuse);
+      if (thread->funcname)
+        XFREE(MTYPE_STRVEC, thread->funcname);
+    }
   else
     {
       thread = XCALLOC (MTYPE_THREAD, sizeof (struct thread));
@@ -851,6 +855,8 @@ funcname_thread_execute (struct thread_master *m,
   dummy.u.val = val;
   dummy.funcname = strip_funcname (funcname);
   thread_call (&dummy);
+
+  XFREE (MTYPE_STRVEC, dummy.funcname);
 
   return NULL;
 }
