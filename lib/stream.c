@@ -603,6 +603,31 @@ stream_read_unblock (struct stream *s, int fd, size_t size)
   return nbytes;
 }
 
+ssize_t
+stream_read_try(struct stream *s, int fd, size_t size)
+{
+  ssize_t nbytes;
+
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_WRITEABLE(s) < size)
+    {
+      STREAM_BOUND_WARN (s, "put");
+      /* Fatal (not transient) error, since retrying will not help
+         (stream is too small to contain the desired data). */
+      return -1;
+    }
+
+  if ((nbytes = read(fd, s->data + s->endp, size)) >= 0)
+    {
+      s->endp += nbytes;
+      return nbytes;
+    }
+  /* Error: was it transient (return -2) or fatal (return -1)? */
+  return ((errno == EAGAIN) || (errno == EWOULDBLOCK) || (errno == EINTR)) ?
+         -2 : -1;
+}
+
 /* Read up to smaller of size or SIZE_REMAIN() bytes to the stream, starting
  * from endp.
  * First iovec will be used to receive the data.
@@ -621,7 +646,9 @@ stream_recvmsg (struct stream *s, int fd, struct msghdr *msgh, int flags,
   if (STREAM_WRITEABLE (s) < size)
     {
       STREAM_BOUND_WARN (s, "put");
-      return 0;
+      /* This is a logic error in the calling code: the stream is too small
+         to hold the desired data! */
+      return -1;
     }
   
   iov = &(msgh->msg_iov[0]);

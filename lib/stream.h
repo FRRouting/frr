@@ -165,8 +165,25 @@ u_int32_t stream_get_ipv4 (struct stream *);
 
 #undef stream_read
 #undef stream_write
+
+/* Deprecated: assumes blocking I/O.  Will be removed. 
+   Use stream_read_try instead.  */
 int stream_read (struct stream *, int, size_t);
+
+/* Deprecated: all file descriptors should already be non-blocking.
+   Will be removed.  Use stream_read_try instead. */
 int stream_read_unblock (struct stream *, int, size_t);
+
+/* Read up to size bytes into the stream.
+   Return code:
+     >0: number of bytes read
+     0: end-of-file
+     -1: fatal error
+     -2: transient error, should retry later (i.e. EAGAIN or EINTR)
+   This is suitable for use with non-blocking file descriptors.
+ */
+extern ssize_t stream_read_try(struct stream *s, int fd, size_t size);
+
 int stream_recvmsg (struct stream *s, int fd, struct msghdr *,
                     int flags, size_t size);
 int stream_write (struct stream *, u_char *, size_t);
