@@ -87,7 +87,6 @@ struct option longopts[] =
 };
 
 /* Configuration file and directory. */
-char config_current[] = ISISD_DEFAULT_CONFIG;
 char config_default[] = SYSCONFDIR ISISD_DEFAULT_CONFIG;
 char *config_file = NULL;
 
@@ -311,9 +310,9 @@ main (int argc, char **argv, char **envp)
 
   /* parse config file */ 
   /* this is needed three times! because we have interfaces before the areas */
-  vty_read_config (config_file, config_current, config_default);
-  vty_read_config (config_file, config_current, config_default);
-  vty_read_config (config_file, config_current, config_default);
+  vty_read_config (config_file, config_default);
+  vty_read_config (config_file, config_default);
+  vty_read_config (config_file, config_default);
 
   /* demonize */
   if (daemon_mode)

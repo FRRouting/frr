@@ -79,7 +79,6 @@ struct option longopts[] =
 };
 
 /* Configuration file and directory. */
-char config_current[] = OSPF6_DEFAULT_CONFIG;
 char config_default[] = SYSCONFDIR OSPF6_DEFAULT_CONFIG;
 
 /* ospf6d program name. */
@@ -291,7 +290,7 @@ main (int argc, char *argv[], char *envp[])
   sort_node ();
 
   /* parse config file */
-  vty_read_config (config_file, config_current, config_default);
+  vty_read_config (config_file, config_default);
 
   if (daemon_mode)
     daemon (0, 0);

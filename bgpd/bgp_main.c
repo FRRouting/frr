@@ -79,7 +79,6 @@ struct quagga_signal_t bgp_signals[] =
 };
 
 /* Configuration file and directory. */
-char config_current[] = BGP_DEFAULT_CONFIG;
 char config_default[] = SYSCONFDIR BGP_DEFAULT_CONFIG;
 
 /* Route retain mode flag. */
@@ -159,7 +158,7 @@ sighup (void)
   zlog_info ("bgpd restarting!");
 
   /* Reload config file. */
-  vty_read_config (config_file, config_current, config_default);
+  vty_read_config (config_file, config_default);
 
   /* Create VTY's socket */
   vty_serv_sock (vty_addr, vty_port, BGP_VTYSH_PATH);
@@ -287,7 +286,7 @@ main (int argc, char **argv)
   sort_node ();
 
   /* Parse config file. */
-  vty_read_config (config_file, config_current, config_default);
+  vty_read_config (config_file, config_default);
 
   /* Turn into daemon if daemon_mode is set. */
   if (daemon_mode)

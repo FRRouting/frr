@@ -2208,8 +2208,7 @@ vty_use_backup_config (char *fullpath)
 /* Read up configuration file from file_name. */
 void
 vty_read_config (char *config_file,
-		 char *config_current_dir,
-		 char *config_default_dir)
+                 char *config_default_dir)
 {
   char cwd[MAXPATHLEN];
   FILE *confp = NULL;
@@ -2219,101 +2218,78 @@ vty_read_config (char *config_file,
   if (config_file != NULL)
     {
       if (! IS_DIRECTORY_SEP (config_file[0]))
-	{
-	  getcwd (cwd, MAXPATHLEN);
-	  fullpath = XMALLOC (MTYPE_TMP, 
-			      strlen (cwd) + strlen (config_file) + 2);
-	  sprintf (fullpath, "%s/%s", cwd, config_file);
-	}
+        {
+          getcwd (cwd, MAXPATHLEN);
+          fullpath = XMALLOC (MTYPE_TMP, 
+ 			      strlen (cwd) + strlen (config_file) + 2);
+          sprintf (fullpath, "%s/%s", cwd, config_file);
+        }
       else
-	fullpath = config_file;
+        fullpath = config_file;
 
       confp = fopen (fullpath, "r");
 
       if (confp == NULL)
-	{
-	  confp = vty_use_backup_config (fullpath);
-	  if (confp)
-	    fprintf (stderr, "WARNING: using backup configuration file!\n");
-	  else
-	    {
-	      fprintf (stderr, "can't open configuration file [%s]\n", 
-		       config_file);
-	      exit(1);
-	    }
-	}
+        {
+          confp = vty_use_backup_config (fullpath);
+          if (confp)
+            fprintf (stderr, "WARNING: using backup configuration file!\n");
+          else
+            {
+              fprintf (stderr, "can't open configuration file [%s]\n", 
+  	            config_file);
+              exit(1);
+            }
+        }
     }
   else
     {
-      /* Relative path configuration file open. */
-      if (config_current_dir)
-	{
-	  confp = fopen (config_current_dir, "r");
-	  if (confp == NULL)
-	    {
-	      confp = vty_use_backup_config (config_current_dir);
-	      if (confp)
-		fprintf (stderr, "WARNING: using backup configuration file!\n");
-	    }
-	}
-
-      /* If there is no relative path exists, open system default file. */
-      if (confp == NULL)
-	{
 #ifdef VTYSH
-	  int ret;
-	  struct stat conf_stat;
+      int ret;
+      struct stat conf_stat;
 
-	  /* !!!!PLEASE LEAVE!!!!
-	     This is NEEDED for use with vtysh -b, or else you can get
-	     a real configuration food fight with a lot garbage in the
-	     merged configuration file it creates coming from the per
-	     daemon configuration files.  This also allows the daemons
-	     to start if there default configuration file is not
-	     present or ignore them, as needed when using vtysh -b to
-	     configure the daemons at boot - MAG */
+      /* !!!!PLEASE LEAVE!!!!
+       * This is NEEDED for use with vtysh -b, or else you can get
+       * a real configuration food fight with a lot garbage in the
+       * merged configuration file it creates coming from the per
+       * daemon configuration files.  This also allows the daemons
+       * to start if there default configuration file is not
+       * present or ignore them, as needed when using vtysh -b to
+       * configure the daemons at boot - MAG
+       */
 
-	  /* Stat for vtysh Zebra.conf, if found startup and wait for
-	     boot configuration */
+      /* Stat for vtysh Zebra.conf, if found startup and wait for
+       * boot configuration
+       */
 
-	  if ( strstr(config_default_dir, "vtysh") == NULL)
-	    {
-	      ret = stat (integrate_default, &conf_stat);
-	      if (ret >= 0)
-		{
-		  return;
-		}
-	    }
+      if ( strstr(config_default_dir, "vtysh") == NULL)
+        {
+          ret = stat (integrate_default, &conf_stat);
+          if (ret >= 0)
+            return;
+        }
 #endif /* VTYSH */
 
-	  confp = fopen (config_default_dir, "r");
-	  if (confp == NULL)
-	    {
-	      confp = vty_use_backup_config (config_default_dir);
-	      if (confp)
-		{
-		  fprintf (stderr, "WARNING: using backup configuration file!\n");
-		  fullpath = config_default_dir;
-		}
-	      else
-		{
-		  fprintf (stderr, "can't open configuration file [%s]\n",
-			   config_default_dir);
-		  exit (1);
-		}
-	    }      
-	  else
-	    fullpath = config_default_dir;
-	}
+      confp = fopen (config_default_dir, "r");
+      if (confp == NULL)
+        {
+          confp = vty_use_backup_config (config_default_dir);
+          if (confp)
+            {
+              fprintf (stderr, "WARNING: using backup configuration file!\n");
+              fullpath = config_default_dir;
+            }
+          else
+            {
+              fprintf (stderr, "can't open configuration file [%s]\n",
+  		                 config_default_dir);
+  	          exit (1);
+  	        }
+        }      
       else
-	{
-	  /* Rleative path configuration file. */
-	  getcwd (cwd, MAXPATHLEN);
-	  fullpath = XMALLOC (MTYPE_TMP, 
-			      strlen (cwd) + strlen (config_current_dir) + 2);
-	  sprintf (fullpath, "%s/%s", cwd, config_current_dir);
-	}  
-    }  
+        fullpath = config_default_dir;
+    }
+
   vty_read_file (confp);
 
   fclose (confp);

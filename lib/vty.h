@@ -192,7 +192,7 @@ void vty_reset (void);
 void vty_finish (void);
 struct vty *vty_new (void);
 int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
-void vty_read_config (char *, char *, char *);
+void vty_read_config (char *, char *);
 void vty_time_print (struct vty *, int);
 void vty_serv_sock (const char *, unsigned short, char *);
 void vty_close (struct vty *);

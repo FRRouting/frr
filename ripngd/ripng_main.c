@@ -38,7 +38,6 @@
 #include "ripngd/ripngd.h"
 
 /* Configuration filename and directory. */
-char config_current[] = RIPNG_DEFAULT_CONFIG;
 char config_default[] = SYSCONFDIR RIPNG_DEFAULT_CONFIG;
 char *config_file = NULL;
 
@@ -135,7 +134,7 @@ sighup (void)
   zlog_info ("Terminating on signal");
 
   /* Reload config file. */
-  vty_read_config (config_file, config_current, config_default);
+  vty_read_config (config_file, config_default);
   /* Create VTY's socket */
   vty_serv_sock (vty_addr, vty_port, RIPNG_VTYSH_PATH);
 
@@ -276,7 +275,7 @@ main (int argc, char **argv)
   sort_node ();
 
   /* Get configuration file. */
-  vty_read_config (config_file, config_current, config_default);
+  vty_read_config (config_file, config_default);
 
   /* Change to the daemon program. */
   if (daemon_mode)

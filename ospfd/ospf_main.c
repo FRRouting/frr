@@ -74,7 +74,6 @@ struct zebra_privs_t ospfd_privs =
 };
 
 /* Configuration filename and directory. */
-char config_current[] = OSPF_DEFAULT_CONFIG;
 char config_default[] = SYSCONFDIR OSPF_DEFAULT_CONFIG;
 
 /* OSPFd options. */
@@ -286,7 +285,7 @@ main (int argc, char **argv)
   sort_node ();
 
   /* Get configuration file. */
-  vty_read_config (config_file, config_current, config_default);
+  vty_read_config (config_file, config_default);
 
   /* Change to the daemon program. */
   if (daemon_mode)

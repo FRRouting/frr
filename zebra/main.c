@@ -95,7 +95,6 @@ struct zebra_privs_t zserv_privs =
 };
 
 /* Default configuration file path. */
-char config_current[] = DEFAULT_CONFIG_FILE;
 char config_default[] = SYSCONFDIR DEFAULT_CONFIG_FILE;
 
 /* Process ID saved for use by init system */
@@ -317,7 +316,7 @@ main (int argc, char **argv)
     rib_sweep_route ();
 
   /* Configuration file read*/
-  vty_read_config (config_file, config_current, config_default);
+  vty_read_config (config_file, config_default);
 
   /* Clean up rib. */
   rib_weed_tables ();

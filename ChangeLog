@@ -1,3 +1,11 @@
+2004-06-20 Hasso Tepper <hasso@estpak.ee>
+
+	* lib/vty.c: Don't attempt to load configuration file from current
+	  directory.
+	* Update vty_read_config() calls in bgpd/bgp_main.c, isisd/isis_main.c,
+	  ospf6d/ospf6_main.c, ospfd/ospf_main.c, ripd/rip_main.c,
+	  ripngd/ripng_main.c and zebra/main.c.
+
 2004-05-11 Paul Jakma <paul@dishone.st>
 
 	* configure.ac: Add solaris support for the zebra/*_solaris 
