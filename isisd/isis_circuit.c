@@ -1546,6 +1546,7 @@ DEFUN (isis_hello,
   return CMD_SUCCESS;
 }
 
+#if 0
 DEFUN (ip_address,
        ip_address_cmd,
        "ip address A.B.C.D/A",
@@ -1649,6 +1650,7 @@ DEFUN (no_ip_address,
   
   return CMD_SUCCESS;
 }
+#endif
 
 DEFUN (no_isis_hello,
        no_isis_hello_cmd,

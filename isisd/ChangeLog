@@ -1,3 +1,7 @@
+2004-01-27 Hasso Tepper <hasso@estpak.ee>
+  * isis_circuit.c: Commented out "(no) ip address" commands so it doesn't
+    confuse vtysh.
+
 2003-12-31 Hasso Tepper <hasso@estpak.ee>
   * isis_dr.c: Fix some threads related bugs.
 
