@@ -1426,7 +1426,7 @@ ospf6_message_send (unsigned char type, struct iovec *msg,
       if (o6i->lladdr)
         inet_ntop (AF_INET6, o6i->lladdr, src_name, sizeof (src_name));
       else
-        memcpy (src_name, "Unknown", sizeof (src_name));
+        strcpy (src_name, "Unknown");
       zlog_info ("Send %s on %s",
                  ospf6_message_type_string[type], o6i->interface->name);
       zlog_info ("    %s -> %s", src_name, dst_name);
