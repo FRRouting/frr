@@ -1,72 +1,79 @@
-.TH VTYSH 1 "July 2000" "Zebra Beast - VTY shell" "Version 0.88"
-
+.TH VTYSH 1 "10 August 2004" "Quagga VTY shell" "Version 0.96.5"
 .SH NAME
-vtysh \- a integrated shell for Zebra routing software
-
+vtysh \- a integrated shell for Quagga routing software
 .SH SYNOPSIS
 .B vtysh
 [
-.B \-e command
+.B \-b
 ]
-
-.SH DESCBGPTION
+.br
+.B vtysh
+[
+.B \-c
+.I command
+]
+.SH DESCRIPTION
 .B vtysh
 is a integrated shell for
-.B Zebra
+.B Quagga
 routing engine.
-
-
 .SH OPTIONS
+Options available for the
+.B vtysh
+command:
+.IP "\fB\-b, \-\-boot\fP"
+Execute boot startup configuration. It makes sense only if integrated config
+file is in use (not default in Quagga). See Info file \fBQuagga\fR for more
+info.
+.IP "\fB\-c, \-\-command \fIcommand\fP"
+Specify command to be executed under batch mode. It behaves like -c option in
+any other shell -
+.I command
+is executed and vtysh exits.
 
-.TP
-\fB\-c
-Specify command to be executed under batch mode.
-
-
-.SH COMMANDS
-
-\fB Almost Zebra commands.
-
-\fB ping
-\fB traceroute
-\fB telnnet
-
-\fB start-shell
-\fB start-shell bash
-\fB start-shell zsh
-
+It's useful for gathering info from Quagga routing software from shell scripts
+etc.
+.IP "\fB\-e, \-\-execute \fIcommand\fP"
+Alias for -c. It's only for compatibility with Zebra routing software and older
+Quagga versions and this might be removed in future.
+.IP "\fB\-h, \-\-help\fP"
+Display a usage message on standard output and exit.
 .SH ENVIRONMENT VARIABLES
-
 .IP "\fBVTYSH_PAGER\fR"
 This should be the name of the pager to use. Default is \fBmore\fR.
-
 .SH FILES
-
 .TP
-.BI /usr/local/etc/Zebra.conf
+.BI /usr/local/etc/vtysh.conf
 The default location of the 
 .B vtysh
 config file.
-
-
+.TP
+.BI /usr/local/etc/Quagga.conf
+The default location of the integrated Quagga routing engine config file
+if integrated config file is in use (not default).
 .SH WARNING
-This man page is intended as a quick reference for command line
-options, and for config file commands. The definitive document is the
-Info file \fBZebra\fR.
-
-
+This man page is intended to be a quick reference for command line
+options. The definitive document is the Info file \fBQuagga\fR.
 .SH "SEE ALSO"
-References to other related man pages:
-
-bgpd(8), ripd(8), ripngd(8), ospfd(8), ospf6d(8), zebra(8)
-
-
+.BR bgpd (8),
+.BR ripd (8),
+.BR ripngd (8),
+.BR ospfd (8),
+.BR ospf6d (8),
+.BR isisd (8),
+.BR zebra (8)
 .SH BUGS
+Running the command which outputs large amount of data through pager ("show ip
+ospf database", "show ip bgp" etc. in big networks) will cause daemon to be
+unresponsive until vtysh returns back to the prompt.
+
 .B vtysh
 eats bugs for breakfast. If you have food for the maintainers try 
 .BI http://bugzilla.quagga.net
-
-
-.SH AUTHOR[S]
-See <\fBwww.zebra.org\fR>, or the Info file for an accurate list of authors.
+.SH AUTHORS
+See
+.BI http://www.zebra.org
+and
+.BI http://www.quagga.org
+or the Info file for an accurate list of authors.
 

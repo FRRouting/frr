@@ -1,10 +1,10 @@
-.TH RIPNGD 8 "10 August 2004" "Quagga RIPNG daemon" "Version 0.96.5"
+.TH IS-IS 8 "10 August 2004" "Quagga IS-IS daemon" "Version 0.96.5"
 .SH NAME
-ripngd \- a RIPNG routing engine for use with Quagga routing software.
+isisd \- an IS-IS routing engine for use with Quagga routing software.
 .SH SYNOPSIS
-.B ripngd
+.B isisd
 [
-.B \-dhlrv
+.B \-dhv
 ] [
 .B \-f
 .I config-file
@@ -22,91 +22,85 @@ ripngd \- a RIPNG routing engine for use with Quagga routing software.
 .I user
 ]
 .SH DESCRIPTION
-.B ripngd
+.B isisd
 is a routing component that works with the
 .B Quagga
 routing engine.
 .SH OPTIONS
 Options available for the
-.B ripngd
+.B isisd
 command:
-.SH OPTIONS
 .TP
 \fB\-d\fR, \fB\-\-daemon\fR
 Runs in daemon mode, forking and exiting from tty.
 .TP
 \fB\-f\fR, \fB\-\-config-file \fR\fIconfig-file\fR 
 Specifies the config file to use for startup. If not specified this
-option will likely default to \fB\fI/usr/local/etc/ripngd.conf\fR.
+option will likely default to \fB\fI/usr/local/etc/isisd.conf\fR.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
 .TP
 \fB\-i\fR, \fB\-\-pid_file \fR\fIpid-file\fR
-When ripngd starts its process idenifier is written to
+When isisd starts its process idenifier is written to
 \fB\fIpid-file\fR.  The init system uses the recorded PID to stop or
-restart ripngd.  The likely default is \fB\fI/var/run/ripngd.pid\fR.
-.TP
-\fB\-l\fR, \fB\-\-log_mode\fR 
-Turn verbose logging on.
+restart isisd.  The likely default is \fB\fI/var/run/isisd.pid\fR.
 .TP
 \fB\-P\fR, \fB\-\-vty_port \fR\fIport-number\fR 
-Specify the port that the ripngd VTY will listen on. This defaults to
-2603, as specified in \fB\fI/etc/services\fR.
+Specify the port that the isisd VTY will listen on. This defaults to
+2608, as specified in \fB\fI/etc/services\fR.
 .TP
 \fB\-A\fR, \fB\-\-vty_addr \fR\fIvty-address\fR
-Specify the address that the ripngd VTY will listen on. Default is all
+Specify the address that the isisd VTY will listen on. Default is all
 intrefaces.
 .TP
 \fB\-u\fR, \fB\-\-user \fR\fIuser\fR
 Specify the user and group to run as. User and group have to have same
 name at the moment. Default is \fIquagga\fR.
 .TP
-\fB\-r\fR, \fB\-\-retain\fR 
-When the program terminates, retain routes added by \fBripd\fR.
-.TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.
 .SH FILES
 .TP
-.BI /usr/local/sbin/ripngd
+.BI /usr/local/sbin/isisd
 The default location of the 
-.B ripngd
+.B isisd
 binary.
 .TP
-.BI /usr/local/etc/ripngd.conf
+.BI /usr/local/etc/isisd.conf
 The default location of the 
-.B ripngd
+.B isisd
 config file.
 .TP
-.BI $(PWD)/ripngd.log 
+.BI $(PWD)/isisd.log 
 If the 
-.B ripngd
+.B isisd
 process is config'd to output logs to a file, then you will find this
-file in the directory where you started \fBripngd\fR.
+file in the directory where you started \fBisisd\fR.
 .SH WARNING
 This man page is intended to be a quick reference for command line
 options. The definitive document is the Info file \fBQuagga\fR.
 .SH DIAGNOSTICS
-The ripngd process may log to standard output, to a VTY, to a log
-file, or through syslog to the system logs. \fBripngd\fR supports many
+The isisd process may log to standard output, to a VTY, to a log
+file, or through syslog to the system logs. \fBisisd\fR supports many
 debugging options, see the Info file, or the source for details.
 .SH "SEE ALSO"
 .BR bgpd (8),
 .BR ripd (8),
+.BR ripngd (8),
 .BR ospfd (8),
 .BR ospf6d (8),
-.BR isisd (8),
 .BR zebra (8),
 .BR vtysh (1)
 .SH BUGS
-.B ripngd
+\fBisisd\fR is ALPHA quality at the moment and hasn't any way ready for
+production use.
+
+.B isisd
 eats bugs for breakfast. If you have food for the maintainers try
 .BI http://bugzilla.quagga.net
 .SH AUTHORS
 See
-.BI http://www.zebra.org
-and
-.BI http://www.quagga.org
+.BI http://isisd.sourceforge.net
 or the Info file for an accurate list of authors.
 

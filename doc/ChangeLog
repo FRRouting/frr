@@ -1,3 +1,10 @@
+2004-08-10 Hasso Tepper <hasso at quagga.net>
+
+	* Updated man pages.
+	* Removed vty commands section from all man pages. This inf belongs to
+	  Info pages.
+	* Added isisd man page.
+
 2004-07-31 Christian Hammers <ch@lathspell.de>
 
 	* snmp.texi: update (completely rewritten almost)

@@ -1,163 +1,118 @@
-.TH ZEBRA 8 "July 2000" "Zebra" "Version 0.88"
-
+.TH ZEBRA 8 "10 August 2004" "Zebra daemon" "Version 0.96.5"
 .SH NAME
-zebra \- a routing manager for use with associated components
-
+zebra \- a routing manager for use with associated Quagga components.
 .SH SYNOPSIS
 .B zebra
 [
 .B \-bdhklrv
+] [
+.B \-f
+.I config-file
+] [
+.B \-i
+.I pid-file
+] [
+.B \-P
+.I port-number
+] [
+.B \-A
+.I vty-address
+] [
+.B \-u
+.I user
 ]
-[
-.B \-f config-file
-]
-[
-.B \-i pid-file
-]
-[
-.B \-P port-number
-]
-[
-.B \-A vty-address
-]
-[
-.B \-u user
-]
-
-
 .SH DESCRIPTION
 .B zebra 
 is a routing manager that implements the 
 .B zebra
 route engine.
 .B zebra 
-supports RIPv1, RIPv2, RIPng, OSPF, OSPF6, BGP4+, and BGP4-.
-
-
+supports RIPv1, RIPv2, RIPng, OSPF, OSPF6, IS-IS, BGP4+, and BGP4-.
 .SH OPTIONS
-
+Options available for the
+.B zebra
+command:
 .TP
 \fB\-b\fR, \fB\-\-batch\fR
 Runs in batch mode, \fBzebra\fR parses its config and exits.
-
 .TP
 \fB\-d\fR, \fB\-\-daemon\fR
 Runs in daemon mode, forking and exiting from tty.
-
 .TP
 \fB\-f\fR, \fB\-\-config-file \fR\fIconfig-file\fR
 Specifies the config file to use for startup. If not specified this option will likely default to \fB\fI/usr/local/etc/zebra.conf\fR.
- 
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
-
 .TP
 \fB\-i\fR, \fB\-\-pid_file \fR\fIpid-file\fR
 When zebra starts its process idenifier is written to
 \fB\fIpid-file\fR.  The init system uses the recorded PID to stop or
 restart zebra.  The likely default is \fB\fI/var/run/zebra.pid\fR.
-
 .TP
 \fB\-k\fR, \fB\-\-keep_kernel\fR
 On startup, don't delete self inserted routes.
-
 .TP
 \fB\-l\fR, \fB\-\-log_mode\fR
 Turn verbose logging on.
-
 .TP
 \fB\-P\fR, \fB\-\-vty_port \fR\fIport-number\fR 
 Specify the port that the zebra VTY will listen on. This defaults to
 2602, as specified in \fB\fI/etc/services\fR.
-
 .TP
 \fB\-A\fR, \fB\-\-vty_addr \fR\fIvty-address\fR
 Specify the address that the zebra VTY will listen on. Default is all
 intrefaces.
-
 .TP
 \fB\-u\fR, \fB\-\-user \fR\fIuser\fR
 Specify the user and group to run as. User and group have to have same
 name at the moment. Default is \fIquagga\fR.
-
 .TP
 \fB\-r\fR, \fB\-\-retain\fR 
 When the program terminates, retain routes added by \fBzebra\fR.
-
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.
-
-
-.SH COMMANDS
-
-\fB table [TABLENO] \fR -- for use with multi-table kernels 
-
-\fB ip route [NETWORK] [GATEWAY] \fR
-\fB ipv6 route [NETWORK] [GATEWAY] \fR
-
-\fB show ip route \fR
-\fB show ipv6 route \fR
-\fB show interface \fR
-\fB show ipforward \fR
-\fB show ipv6forward \fR
-
-.TP
-\fB interface [IFNAME] \fR
-\fB shutdown \fR
-\fB no shutdown \fR
-\fB ip address [IP-ADDRESS] \fR
-\fB description [DESCRIPTION] \fR
-\fB multicast \fR
-\fB no multicast \fR
-
-
 .SH FILES
-
 .TP
 .BI /usr/local/sbin/zebra
 The default location of the 
 .B zebra
 binary.
-
 .TP
 .BI /usr/local/etc/zebra.conf
 The default location of the 
 .B zebra
 config file.
-
 .TP
 .BI $(PWD)/zebra.log 
 If the 
 .B zebra
 process is config'd to output logs to a file, then you will find this
 file in the directory where you started \fBzebra\fR.
-
-
 .SH WARNING
-This man page is intended as a quick reference for command line options, and for config file commands. The definitive document is the Info file \fBzebra\fR.
-
-
+This man page is intended to be a quick reference for command line
+options. The definitive document is the Info file \fBQuagga\fR.
 .SH DIAGNOSTICS
-The zebra process may log to standard output, to a VTY, to a log file, or through syslog to the system logs. 
-.B zebra
-supports many debugging options, see the Info file, or the source for details.
-
-
+The zebra process may log to standard output, to a VTY, to a log
+file, or through syslog to the system logs. \fBzebra\fR supports many
+debugging options, see the Info file, or the source for details.
 .SH "SEE ALSO"
-References to other related man pages:
-
-ripngd(8), ospfd(8), ospf6d(8), bgpd(8), zebra(8), vtysh(1)
-
-
-
+.BR bgpd (8),
+.BR ripd (8),
+.BR ripngd (8),
+.BR ospfd (8),
+.BR ospf6d (8),
+.BR isisd (8),
+.BR vtysh (1)
 .SH BUGS
 .B zebra
-eats bugs for breakfast. If you have food for the maintainers try 
+eats bugs for breakfast. If you have food for the maintainers try
 .BI http://bugzilla.quagga.net
-
-
-.SH AUTHOR[S]
-See <\fBwww.zebra.org\fR>, or the Info file for an accurate list of authors.
+.SH AUTHORS
+See
+.BI http://www.zebra.org
+and
+.BI http://www.quagga.org
+or the Info file for an accurate list of authors.
 
