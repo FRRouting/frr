@@ -535,12 +535,12 @@ bgp_start (struct peer *peer)
     {
     case connect_error:
       if (BGP_DEBUG (fsm, FSM))
-	plog_info (peer->log, "%s [FSM] Connect error", peer->host);
+	plog_debug (peer->log, "%s [FSM] Connect error", peer->host);
       BGP_EVENT_ADD (peer, TCP_connection_open_failed);
       break;
     case connect_success:
       if (BGP_DEBUG (fsm, FSM))
-	plog_info (peer->log, "%s [FSM] Connect immediately success",
+	plog_debug (peer->log, "%s [FSM] Connect immediately success",
 		   peer->host);
       BGP_EVENT_ADD (peer, TCP_connection_open);
       break;
@@ -548,7 +548,7 @@ bgp_start (struct peer *peer)
       /* To check nonblocking connect, we wait until socket is
          readable or writable. */
       if (BGP_DEBUG (fsm, FSM))
-	plog_info (peer->log, "%s [FSM] Non blocking connect waiting result",
+	plog_debug (peer->log, "%s [FSM] Non blocking connect waiting result",
 		   peer->host);
       if (peer->fd < 0)
 	{
@@ -862,13 +862,13 @@ bgp_event (struct thread *thread)
   next = FSM [peer->status -1][event - 1].next_state;
 
   if (BGP_DEBUG (fsm, FSM))
-    plog_info (peer->log, "%s [FSM] %s (%s->%s)", peer->host, 
+    plog_debug (peer->log, "%s [FSM] %s (%s->%s)", peer->host, 
 	       bgp_event_str[event],
 	       LOOKUP (bgp_status_msg, peer->status),
 	       LOOKUP (bgp_status_msg, next));
   if (BGP_DEBUG (normal, NORMAL)
       && strcmp (LOOKUP (bgp_status_msg, peer->status), LOOKUP (bgp_status_msg, next)))
-    zlog_info ("%s went from %s to %s",
+    zlog_debug ("%s went from %s to %s",
 	       peer->host,
 	       LOOKUP (bgp_status_msg, peer->status),
 	       LOOKUP (bgp_status_msg, next));
