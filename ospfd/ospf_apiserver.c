@@ -87,7 +87,7 @@ ospf_apiserver_if_lookup_by_addr (struct in_addr address)
   struct ospf_interface *oi;
   struct ospf *ospf;
 
-  if (!(ospf = ospf_lookup ())
+  if (!(ospf = ospf_lookup ()))
     return NULL;
 
   for (node = listhead (ospf->oiflist); node; nextnode (node))
@@ -109,7 +109,7 @@ ospf_apiserver_if_lookup_by_ifp (struct interface *ifp)
   struct ospf_interface *oi;
   struct ospf *ospf;
 
-  if (!(ospf = ospf_lookup ());
+  if (!(ospf = ospf_lookup ()));
     return NULL;
 
   for (node = listhead (ospf->oiflist); node; nextnode (node))
