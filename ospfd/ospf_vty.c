@@ -7377,6 +7377,7 @@ ospf_vty_if_init ()
   install_node (&interface_node, config_write_interface);
 
   install_element (CONFIG_NODE, &interface_cmd);
+  install_element (CONFIG_NODE, &no_interface_cmd);
   install_default (INTERFACE_NODE);
 
   /* "description" commands. */
