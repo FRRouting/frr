@@ -2096,7 +2096,10 @@ ospf_recv_packet (int fd, struct interface **ifp)
   ibuf = stream_new (ip_len);
   iov.iov_base = STREAM_DATA (ibuf);
   iov.iov_len = ip_len;
-  ret = recvmsg (fd, &msgh, 0);
+  if ( (ibuf = stream_new (ip_len)) == NULL)
+    return NULL;
+  
+  ret = stream_recvmsg (ibuf, fd, &msgh, 0, ip_len);
   
   ifindex = getsockopt_ifindex (AF_INET, &msgh);
   
