@@ -137,6 +137,7 @@ if_get_index (struct interface *ifp)
   /* Fall-back for older linuxes. */
   int ret;
   struct ifreq ifreq;
+  static int if_fake_index;
 
   ifreq_set_name (&ifreq, ifp);
 
