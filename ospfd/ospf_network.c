@@ -201,7 +201,8 @@ ospf_sock_init (void)
   zlog_warn ("IP_HDRINCL option not available");
 #endif /* IP_HDRINCL */
 
-  ret = setsockopt_pktinfo (AF_INET, ospf_sock, 1);
+  ret = setsockopt_ifindex (AF_INET, ospf_sock, 1);
+
   if (ret < 0)
      zlog_warn ("Can't set pktinfo option");
 

@@ -1,3 +1,10 @@
+2004-10-22 Paul Jakma <paul@dishone.st>
+
+	* ospf_network.c: (ospf_sock_init) call neutral setsock_ifindex()
+          function.
+        * ospf_packet.c: (ospf_read) manually look up ifindex
+          if system could not have returned one, eg openbsd.
+
 2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
 
 	* ospf_snmp.c: (ospf_snmp_if_update) Fix logic to handle PtP links

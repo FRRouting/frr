@@ -2303,6 +2303,12 @@ ospf_read (struct thread *thread)
   if (ibuf == NULL)
     return -1;
   
+  /* openbsd lacks IP_RECVIF */
+#if !(defined(IP_PKTINFO) || defined(IP_RECVIF))
+  if (ifp == NULL)
+    ifp = if_lookup_address (iph->ip_src);
+#endif /* !((defined(IP_PKTINFO) || defined(IP_RECVIF)) */
+  
   if (ifp == NULL)
     {
       stream_free (ibuf);
