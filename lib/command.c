@@ -2562,7 +2562,7 @@ DEFUN (config_write_file,
   if (chmod (config_file, CONFIGFILE_MASK) != 0)
     {
       vty_out (vty, "Can't chmod configuration file %s: %s (%d).%s", 
-	config_file, strerror(errno), errno, VTY_NEWLINE);
+	config_file, safe_strerror(errno), errno, VTY_NEWLINE);
       return CMD_WARNING;      
     }
 

@@ -152,7 +152,7 @@ bgp_connect_check (struct peer *peer)
     {
       if (BGP_DEBUG (events, EVENTS))
 	  plog_info (peer->log, "%s [Event] Connect failed (%s)",
-		     peer->host, strerror (errno));
+		     peer->host, safe_strerror (errno));
       BGP_EVENT_ADD (peer, TCP_connection_open_failed);
     }
 }
@@ -2115,7 +2115,7 @@ bgp_read_packet (struct peer *peer)
 	return -1;
 
       plog_err (peer->log, "%s [Error] bgp_read_packet error: %s",
-		 peer->host, strerror (errno));
+		 peer->host, safe_strerror (errno));
       BGP_EVENT_ADD (peer, TCP_fatal_error);
       return -1;
     }  

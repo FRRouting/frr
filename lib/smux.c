@@ -904,7 +904,7 @@ smux_read (struct thread *t)
 
   if (len < 0)
     {
-      zlog_warn ("Can't read all SMUX packet: %s", strerror (errno));
+      zlog_warn ("Can't read all SMUX packet: %s", safe_strerror (errno));
       close (sock);
       smux_sock = -1;
       smux_event (SMUX_CONNECT, 0);
@@ -1181,7 +1181,7 @@ smux_connect (struct thread *t)
   ret = smux_open (smux_sock);
   if (ret < 0)
     {
-      zlog_warn ("SMUX open message send failed: %s", strerror (errno));
+      zlog_warn ("SMUX open message send failed: %s", safe_strerror (errno));
       close (smux_sock);
       smux_sock = -1;
       if (++fail < SMUX_MAX_FAILURE)
@@ -1193,7 +1193,7 @@ smux_connect (struct thread *t)
   ret = smux_register (smux_sock);
   if (ret < 0)
     {
-      zlog_warn ("SMUX register message send failed: %s", strerror (errno));
+      zlog_warn ("SMUX register message send failed: %s", safe_strerror (errno));
       close (smux_sock);
       smux_sock = -1;
       if (++fail < SMUX_MAX_FAILURE)

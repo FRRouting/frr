@@ -301,7 +301,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
   if (ret < 0)
     {
       zlog_err ("rtadv_send_packet: sendmsg %d (%s)\n",
-		errno, strerror(errno));
+		errno, safe_strerror(errno));
     }
 }
 
@@ -425,7 +425,7 @@ rtadv_read (struct thread *thread)
 
   if (len < 0) 
     {
-      zlog_warn ("router solicitation recv failed: %s.", strerror (errno));
+      zlog_warn ("router solicitation recv failed: %s.", safe_strerror (errno));
       return len;
     }
 
@@ -443,13 +443,13 @@ rtadv_make_socket (void)
 
   if ( zserv_privs.change (ZPRIVS_RAISE) )
        zlog_err ("rtadv_make_socket: could not raise privs, %s",
-                  strerror (errno) );
+                  safe_strerror (errno) );
                   
   sock = socket (AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
 
   if ( zserv_privs.change (ZPRIVS_LOWER) )
        zlog_err ("rtadv_make_socket: could not lower privs, %s",
-       			 strerror (errno) );
+       			 safe_strerror (errno) );
 
   /* When we can't make ICMPV6 socket simply back.  Router
      advertisement feature will not be supported. */
@@ -480,7 +480,7 @@ rtadv_make_socket (void)
 		    sizeof (struct icmp6_filter));
   if (ret < 0)
     {
-      zlog_info ("ICMP6_FILTER set fail: %s", strerror (errno));
+      zlog_info ("ICMP6_FILTER set fail: %s", safe_strerror (errno));
       return ret;
     }
 
@@ -1223,7 +1223,7 @@ if_join_all_router (int sock, struct interface *ifp)
   ret = setsockopt (sock, IPPROTO_IPV6, IPV6_JOIN_GROUP, 
 		    (char *) &mreq, sizeof mreq);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IPV6_JOIN_GROUP: %s", strerror (errno));
+    zlog_warn ("can't setsockopt IPV6_JOIN_GROUP: %s", safe_strerror (errno));
 
   zlog_info ("rtadv: %s join to all-routers multicast group", ifp->name);
 
@@ -1244,7 +1244,7 @@ if_leave_all_router (int sock, struct interface *ifp)
   ret = setsockopt (sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP, 
 		    (char *) &mreq, sizeof mreq);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IPV6_LEAVE_GROUP: %s", strerror (errno));
+    zlog_warn ("can't setsockopt IPV6_LEAVE_GROUP: %s", safe_strerror (errno));
 
   zlog_info ("rtadv: %s leave from all-routers multicast group", ifp->name);
 

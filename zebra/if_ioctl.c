@@ -50,7 +50,7 @@ interface_list_ioctl ()
   sock = socket (AF_INET, SOCK_DGRAM, 0);
   if (sock < 0) 
     {
-      zlog_warn ("Can't make AF_INET socket stream: %s", strerror (errno));
+      zlog_warn ("Can't make AF_INET socket stream: %s", safe_strerror (errno));
       return -1;
     }
 
@@ -79,7 +79,7 @@ interface_list_ioctl ()
 
       if (ret < 0) 
 	{
-	  zlog_warn ("SIOCGIFCONF: %s", strerror(errno));
+	  zlog_warn ("SIOCGIFCONF: %s", safe_strerror(errno));
 	  goto end;
 	}
       /* Repeatedly get info til buffer fails to grow. */
@@ -218,7 +218,7 @@ if_getaddrs ()
   ret = getifaddrs (&ifap); 
   if (ret != 0)
     {
-      zlog_err ("getifaddrs(): %s", strerror (errno));
+      zlog_err ("getifaddrs(): %s", safe_strerror (errno));
       return -1;
     }
 
@@ -334,7 +334,7 @@ if_get_addr (struct interface *ifp)
     {
       if (errno != EADDRNOTAVAIL)
 	{
-	  zlog_warn ("SIOCGIFADDR fail: %s", strerror (errno));
+	  zlog_warn ("SIOCGIFADDR fail: %s", safe_strerror (errno));
 	  return ret;
 	}
       return 0;
@@ -347,7 +347,7 @@ if_get_addr (struct interface *ifp)
     {
       if (errno != EADDRNOTAVAIL) 
 	{
-	  zlog_warn ("SIOCGIFNETMASK fail: %s", strerror (errno));
+	  zlog_warn ("SIOCGIFNETMASK fail: %s", safe_strerror (errno));
 	  return ret;
 	}
       return 0;
@@ -369,7 +369,7 @@ if_get_addr (struct interface *ifp)
 	{
 	  if (errno != EADDRNOTAVAIL) 
 	    {
-	      zlog_warn ("SIOCGIFDSTADDR fail: %s", strerror (errno));
+	      zlog_warn ("SIOCGIFDSTADDR fail: %s", safe_strerror (errno));
 	      return ret;
 	    }
 	  return 0;
@@ -384,7 +384,7 @@ if_get_addr (struct interface *ifp)
 	{
 	  if (errno != EADDRNOTAVAIL) 
 	    {
-	      zlog_warn ("SIOCGIFBRDADDR fail: %s", strerror (errno));
+	      zlog_warn ("SIOCGIFBRDADDR fail: %s", safe_strerror (errno));
 	      return ret;
 	    }
 	  return 0;

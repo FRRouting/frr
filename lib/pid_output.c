@@ -71,7 +71,7 @@ pid_output_lock (const char *path)
       if (fd < 0)
         {
         zlog_err( "Can't creat pid lock file %s (%s), exit", 
-                 path, strerror(errno));
+                 path, safe_strerror(errno));
       umask(oldumask);
       exit (-1);
     }

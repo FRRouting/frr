@@ -33,6 +33,7 @@
 #include "command.h"
 #include "memory.h"
 #include "vtysh/vtysh.h"
+#include "log.h"
 
 /* Struct VTY. */
 struct vty *vty;
@@ -1562,7 +1563,7 @@ int write_config_integrated(void)
   if (chmod (integrate_default, CONFIGFILE_MASK) != 0)
     {
       fprintf (stdout,"%% Can't chmod configuration file %s: %s (%d)\n", 
-	integrate_default, strerror(errno), errno);
+	integrate_default, safe_strerror(errno), errno);
       return CMD_WARNING;
     }
 
@@ -1715,7 +1716,7 @@ execute_command (const char *command, int argc, const char *arg1,
   if (pid < 0)
     {
       /* Failure of fork(). */
-      fprintf (stderr, "Can't fork: %s\n", strerror (errno));
+      fprintf (stderr, "Can't fork: %s\n", safe_strerror (errno));
       exit (1);
     }
   else if (pid == 0)
@@ -1735,7 +1736,7 @@ execute_command (const char *command, int argc, const char *arg1,
 	}
 
       /* When execlp suceed, this part is not executed. */
-      fprintf (stderr, "Can't execute %s: %s\n", command, strerror (errno));
+      fprintf (stderr, "Can't execute %s: %s\n", command, safe_strerror (errno));
       exit (1);
     }
   else
@@ -1893,7 +1894,7 @@ vtysh_connect (struct vtysh_client *vclient, const char *path)
   if (ret < 0 && errno != ENOENT)
     {
       fprintf  (stderr, "vtysh_connect(%s): stat = %s\n", 
-		path, strerror(errno)); 
+		path, safe_strerror(errno)); 
       exit(1);
     }
   
@@ -1913,7 +1914,7 @@ vtysh_connect (struct vtysh_client *vclient, const char *path)
     {
 #ifdef DEBUG
       fprintf(stderr, "vtysh_connect(%s): socket = %s\n", path,
-	      strerror(errno));
+	      safe_strerror(errno));
 #endif /* DEBUG */
       return -1;
     }
@@ -1932,7 +1933,7 @@ vtysh_connect (struct vtysh_client *vclient, const char *path)
     {
 #ifdef DEBUG
       fprintf(stderr, "vtysh_connect(%s): connect = %s\n", path,
-	      strerror(errno));
+	      safe_strerror(errno));
 #endif /* DEBUG */
       close (sock);
       return -1;

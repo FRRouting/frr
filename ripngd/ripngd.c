@@ -151,7 +151,7 @@ ripng_make_socket (void)
   ret = bind (sock, (struct sockaddr *) &ripaddr, sizeof (ripaddr));
   if (ret < 0)
   {
-    zlog (NULL, LOG_ERR, "Can't bind ripng socket: %s.", strerror (errno));
+    zlog (NULL, LOG_ERR, "Can't bind ripng socket: %s.", safe_strerror (errno));
     if (ripngd_privs.change (ZPRIVS_LOWER))
       zlog_err ("ripng_make_socket: could not lower privs");
     return ret;
@@ -224,9 +224,9 @@ ripng_send_packet (caddr_t buf, int bufsize, struct sockaddr_in6 *to,
   if (ret < 0) {
     if (to)
       zlog_err ("RIPng send fail on %s to %s: %s", ifp->name, 
-                inet6_ntop (&to->sin6_addr), strerror (errno));
+                inet6_ntop (&to->sin6_addr), safe_strerror (errno));
     else
-      zlog_err ("RIPng send fail on %s: %s", ifp->name, strerror (errno));
+      zlog_err ("RIPng send fail on %s: %s", ifp->name, safe_strerror (errno));
   }
 
   return ret;
@@ -1360,7 +1360,7 @@ ripng_read (struct thread *thread)
 			   &hoplimit);
   if (len < 0) 
     {
-      zlog_warn ("RIPng recvfrom failed: %s.", strerror (errno));
+      zlog_warn ("RIPng recvfrom failed: %s.", safe_strerror (errno));
       return len;
     }
 

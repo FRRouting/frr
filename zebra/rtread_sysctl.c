@@ -48,7 +48,7 @@ route_read ()
   /* Get buffer size. */
   if (sysctl (mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) 
     {
-      zlog_warn ("sysctl fail: %s", strerror (errno));
+      zlog_warn ("sysctl fail: %s", safe_strerror (errno));
       return -1;
     }
 
@@ -58,7 +58,7 @@ route_read ()
   /* Read routing table information by calling sysctl(). */
   if (sysctl (mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) 
     {
-      zlog_warn ("sysctl() fail by %s", strerror (errno));
+      zlog_warn ("sysctl() fail by %s", safe_strerror (errno));
       return -1;
     }
 

@@ -1350,7 +1350,7 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
       if (send_sock < 0)
         {
           zlog_warn("rip_send_packet could not create socket %s",
-                    strerror(errno));
+                    safe_strerror(errno));
           return -1;
     }
       sockopt_broadcast (send_sock);
@@ -1370,7 +1370,7 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
                   ntohs (sin.sin_port));
 
   if (ret < 0)
-    zlog_warn ("can't send packet : %s", strerror (errno));
+    zlog_warn ("can't send packet : %s", safe_strerror (errno));
 
   if (!to)
     close(send_sock);
@@ -1604,7 +1604,7 @@ setsockopt_pktinfo (int sock)
     
   ret = setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &val, sizeof(val));
   if (ret < 0)
-    zlog_warn ("Can't setsockopt IP_PKTINFO : %s", strerror (errno));
+    zlog_warn ("Can't setsockopt IP_PKTINFO : %s", safe_strerror (errno));
   return ret;
 }
 
@@ -1662,7 +1662,7 @@ rip_read_new (struct thread *t)
   ret = rip_recvmsg (sock, buf, RIP_PACKET_MAXSIZ, &from, (int *)&ifindex);
   if (ret < 0)
     {
-      zlog_warn ("Can't read RIP packet: %s", strerror (errno));
+      zlog_warn ("Can't read RIP packet: %s", safe_strerror (errno));
       return ret;
     }
 
@@ -1701,7 +1701,7 @@ rip_read (struct thread *t)
 		  (struct sockaddr *) &from, &fromlen);
   if (len < 0) 
     {
-      zlog_info ("recvfrom failed: %s", strerror (errno));
+      zlog_info ("recvfrom failed: %s", safe_strerror (errno));
       return len;
     }
 

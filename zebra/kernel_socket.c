@@ -798,7 +798,7 @@ rtm_write (int message,
       if (errno == ENETUNREACH)
 	return ZEBRA_ERR_RTUNREACH;
       
-      zlog_warn ("write : %s (%d)", strerror (errno), errno);
+      zlog_warn ("write : %s (%d)", safe_strerror (errno), errno);
       return -1;
     }
   return 0;
@@ -896,7 +896,7 @@ kernel_read (struct thread *thread)
   if (nbytes <= 0)
     {
       if (nbytes < 0 && errno != EWOULDBLOCK && errno != EAGAIN)
-	zlog_warn ("routing socket error: %s", strerror (errno));
+	zlog_warn ("routing socket error: %s", safe_strerror (errno));
       return 0;
     }
 

@@ -86,7 +86,7 @@ ipv4_multicast_join (int sock,
 
   if (ret < 0) 
     zlog (NULL, LOG_INFO, "can't setsockopt IP_ADD_MEMBERSHIP %s",
-	  strerror (errno));
+	  safe_strerror (errno));
 
   return ret;
 }
@@ -193,7 +193,7 @@ rip_interface_multicast_set (int sock, struct connected *connected)
 	      	 sock,inet_ntoa(from.sin_addr),
 		 (int)ntohs(from.sin_port),
 		 connected->ifp->name,
-		  strerror (errno));
+		  safe_strerror (errno));
     }
 
   if (ripd_privs.change (ZPRIVS_LOWER))

@@ -44,7 +44,7 @@ static void
 zerror (const char *fname, int type, size_t size)
 {
   zlog_err ("%s : can't allocate memory for `%s' size %d: %s\n", 
-	    fname, lookup (mstr, type), (int) size, strerror(errno));
+	    fname, lookup (mstr, type), (int) size, safe_strerror(errno));
   log_memstats(LOG_WARNING);
   abort();
 }

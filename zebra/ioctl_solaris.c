@@ -331,7 +331,7 @@ if_set_flags (struct interface *ifp, unsigned long flags)
 
   if (ret < 0)
     zlog_info ("can't set interface flags on %s: %s", ifp->name,
-               strerror (errno));
+               safe_strerror (errno));
   else
     ret = 0;
     

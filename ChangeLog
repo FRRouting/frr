@@ -1,3 +1,8 @@
+2004-11-19 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* global: Replace strerror with safe_strerror.  And vtysh/vtysh.c
+	  needs to include "log.h" to pick up the declaration.
+
 2004-11-19 Hasso Tepper <hasso at quagga.net>
 
 	* configure.ac: Avoid regeneration of doc/quagga.info for now.

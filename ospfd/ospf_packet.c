@@ -539,7 +539,7 @@ ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph,
                    iph->ip_id,
                    iph->ip_off,
                    iph->ip_len,
-                   strerror (errno));
+                   safe_strerror (errno));
       
       if (IS_DEBUG_OSPF_PACKET (type - 1, SEND))
         {
@@ -690,7 +690,7 @@ ospf_write (struct thread *thread)
   
   if (ret < 0)
     zlog_warn ("*** sendmsg in ospf_write to %s failed with %s",
-      inet_ntoa (iph.ip_dst), strerror (errno));
+      inet_ntoa (iph.ip_dst), safe_strerror (errno));
 
   /* Show debug sending packet. */
   if (IS_DEBUG_OSPF_PACKET (type - 1, SEND))

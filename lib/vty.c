@@ -1598,7 +1598,7 @@ vty_accept (struct thread *thread)
   vty_sock = sockunion_accept (accept_sock, &su);
   if (vty_sock < 0)
     {
-      zlog_warn ("can't accept vty socket : %s", strerror (errno));
+      zlog_warn ("can't accept vty socket : %s", safe_strerror (errno));
       return -1;
     }
 
@@ -1655,7 +1655,7 @@ vty_accept (struct thread *thread)
 		    (char *) &on, sizeof (on));
   if (ret < 0)
     zlog (NULL, LOG_INFO, "can't set sockopt to vty_sock : %s", 
-	  strerror (errno));
+	  safe_strerror (errno));
 
   vty = vty_create (vty_sock, &su);
 
@@ -1758,7 +1758,7 @@ vty_serv_sock_family (const char* addr, unsigned short port, int family)
 	naddr=NULL;
 	break;
       case 0:
-        zlog_err("error translating address %s: %s",addr,strerror(errno));
+        zlog_err("error translating address %s: %s",addr,safe_strerror(errno));
 	naddr=NULL;
     }
 
@@ -1857,7 +1857,7 @@ vty_serv_un (const char *path)
       if ( chown (path, -1, ids.gid_vty) )
         {
           zlog_err ("vty_serv_un: could chown socket, %s",
-                     strerror (errno) );
+                     safe_strerror (errno) );
         }
     }
 
@@ -1888,7 +1888,7 @@ vtysh_accept (struct thread *thread)
 
   if (sock < 0)
     {
-      zlog_warn ("can't accept vty socket : %s", strerror (errno));
+      zlog_warn ("can't accept vty socket : %s", safe_strerror (errno));
       return -1;
     }
 
@@ -1897,7 +1897,7 @@ vtysh_accept (struct thread *thread)
       || (fcntl (sock, F_SETFL, flags|O_NONBLOCK) == -1) )
     {
       zlog_warn ("vtysh_accept: could not set vty socket to non-blocking,"
-                 " %s, closing", strerror (errno));
+                 " %s, closing", safe_strerror (errno));
       close (sock);
       return -1;
     }

@@ -99,7 +99,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
   if (sock < 0)
     {
       zlog (NULL, LOG_ERR, "Can't open %s socket: %s", nl->name,
-            strerror (errno));
+            safe_strerror (errno));
       return -1;
     }
 
@@ -107,7 +107,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
   if (ret < 0)
     {
       zlog (NULL, LOG_ERR, "Can't set %s socket flags: %s", nl->name,
-            strerror (errno));
+            safe_strerror (errno));
       close (sock);
       return -1;
     }
@@ -125,7 +125,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
       if (ret < 0)
 	{
 	  zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
-		strerror (errno));
+		safe_strerror (errno));
 	  close (sock);
 	  return -1;
 	}
@@ -135,7 +135,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
       if (ret < 0)
 	{
 	  zlog (NULL, LOG_ERR, "Can't set %s receive buffer size: %s", nl->name,
-		strerror (errno));
+		safe_strerror (errno));
 	  close (sock);
 	  return -1;
 	}
@@ -144,7 +144,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
       if (ret < 0)
 	{
 	  zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
-		strerror (errno));
+		safe_strerror (errno));
 	  close (sock);
 	  return -1;
 	}
@@ -172,7 +172,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
   if (ret < 0)
     {
       zlog (NULL, LOG_ERR, "Can't bind %s socket to group 0x%x: %s",
-            nl->name, snl.nl_groups, strerror (errno));
+            nl->name, snl.nl_groups, safe_strerror (errno));
       close (sock);
       return -1;
     }
@@ -183,7 +183,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
   if (ret < 0 || namelen != sizeof snl)
     {
       zlog (NULL, LOG_ERR, "Can't get %s socket name: %s", nl->name,
-            strerror (errno));
+            safe_strerror (errno));
       close (sock);
       return -1;
     }
@@ -201,14 +201,14 @@ set_netlink_blocking (struct nlsock *nl, int *flags)
   if ((*flags = fcntl (nl->sock, F_GETFL, 0)) < 0)
     {
       zlog (NULL, LOG_ERR, "%s:%i F_GETFL error: %s",
-            __FUNCTION__, __LINE__, strerror (errno));
+            __FUNCTION__, __LINE__, safe_strerror (errno));
       return -1;
     }
   *flags &= ~O_NONBLOCK;
   if (fcntl (nl->sock, F_SETFL, *flags) < 0)
     {
       zlog (NULL, LOG_ERR, "%s:%i F_SETFL error: %s",
-            __FUNCTION__, __LINE__, strerror (errno));
+            __FUNCTION__, __LINE__, safe_strerror (errno));
       return -1;
     }
   return 0;
@@ -222,7 +222,7 @@ set_netlink_nonblocking (struct nlsock *nl, int *flags)
   if (fcntl (nl->sock, F_SETFL, *flags) < 0)
     {
       zlog (NULL, LOG_ERR, "%s:%i F_SETFL error: %s",
-            __FUNCTION__, __LINE__, strerror (errno));
+            __FUNCTION__, __LINE__, safe_strerror (errno));
       return -1;
     }
   return 0;
@@ -277,7 +277,7 @@ netlink_request (int family, int type, struct nlsock *nl)
   if (ret < 0)
     {
       zlog (NULL, LOG_ERR, "%s sendto failed: %s", nl->name,
-            strerror (errno));
+            safe_strerror (errno));
       return -1;
     }
 
@@ -392,7 +392,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
 
                 zlog (NULL, loglvl, "%s error: %s, type=%s(%u), "
                       "seq=%u, pid=%d",
-                      nl->name, strerror (-errnum),
+                      nl->name, safe_strerror (-errnum),
                       lookup (nlmsg_str, msg_type),
                       msg_type, err->msg.nlmsg_seq, err->msg.nlmsg_pid);
               }
@@ -1227,7 +1227,7 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
   if (status < 0)
     {
       zlog (NULL, LOG_ERR, "netlink_talk sendmsg() error: %s",
-            strerror (errno));
+            safe_strerror (errno));
       return -1;
     }
 

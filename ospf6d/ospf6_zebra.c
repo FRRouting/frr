@@ -461,7 +461,7 @@ ospf6_zebra_route_update (int type, struct ospf6_route *request)
 
   if (ret < 0)
     zlog_err ("zapi_ipv6_route() %s failed: %s",
-              (type == REM ? "delete" : "add"), strerror (errno));
+              (type == REM ? "delete" : "add"), safe_strerror (errno));
 
   XFREE (MTYPE_OSPF6_OTHER, nexthops);
   XFREE (MTYPE_OSPF6_OTHER, ifindexes);

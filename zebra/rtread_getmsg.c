@@ -108,7 +108,7 @@ void route_read ()
 
 	if ((dev = open (_PATH_GETMSG_ROUTE, O_RDWR)) == -1) {
 		zlog_warn ("can't open %s: %s", _PATH_GETMSG_ROUTE,
-			strerror (errno));
+			safe_strerror (errno));
 		return;
 	}
 
@@ -129,7 +129,7 @@ void route_read ()
 	flags = 0;
 
 	if (putmsg (dev, &msgdata, NULL, flags) == -1) {
-		zlog_warn ("putmsg failed: %s", strerror (errno));
+		zlog_warn ("putmsg failed: %s", safe_strerror (errno));
 		goto exit;
 	}
 
@@ -141,7 +141,7 @@ void route_read ()
 		retval = getmsg (dev, &msgdata, NULL, &flags);
 
 		if (retval == -1) {
-			zlog_warn ("getmsg(ctl) failed: %s", strerror (errno));
+			zlog_warn ("getmsg(ctl) failed: %s", safe_strerror (errno));
 			goto exit;
 		}
 
@@ -156,7 +156,7 @@ void route_read ()
 		if (msgdata.len >= sizeof (struct T_error_ack) &&
 			TLIerr->PRIM_type == T_ERROR_ACK) {
 			zlog_warn ("getmsg(ctl) returned T_ERROR_ACK: %s",
-				strerror ((TLIerr->TLI_error == TSYSERR)
+				safe_strerror ((TLIerr->TLI_error == TSYSERR)
 				? TLIerr->UNIX_error : EPROTO));
 			break;
 		}
@@ -196,7 +196,7 @@ void route_read ()
 
 			if (retval == -1) {
 				zlog_warn ("getmsg(data) failed: %s",
-					strerror (errno));
+					safe_strerror (errno));
 				goto exit;
 			}
 

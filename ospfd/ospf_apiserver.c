@@ -646,7 +646,7 @@ ospf_apiserver_serv_sock_family (unsigned short port, int family)
   if (rc < 0)
     {
       zlog_warn ("ospf_apiserver_serv_sock_family: listen: %s",
-                 strerror (errno));
+                 safe_strerror (errno));
       close (accept_sock);	/* Close socket */
       return rc;
     }
@@ -680,7 +680,7 @@ ospf_apiserver_accept (struct thread *thread)
   new_sync_sock = sockunion_accept (accept_sock, &su);
   if (new_sync_sock < 0)
     {
-      zlog_warn ("ospf_apiserver_accept: accept: %s", strerror (errno));
+      zlog_warn ("ospf_apiserver_accept: accept: %s", safe_strerror (errno));
       return -1;
     }
 
@@ -693,7 +693,7 @@ ospf_apiserver_accept (struct thread *thread)
   ret = getpeername (new_sync_sock, (struct sockaddr *)&peer_sync, &peerlen);
   if (ret < 0)
     {
-      zlog_warn ("ospf_apiserver_accept: getpeername: %s", strerror (errno));
+      zlog_warn ("ospf_apiserver_accept: getpeername: %s", safe_strerror (errno));
       close (new_sync_sock);
       return -1;
     }
@@ -718,7 +718,7 @@ ospf_apiserver_accept (struct thread *thread)
   new_async_sock = socket (AF_INET, SOCK_STREAM, 0);
   if (new_async_sock < 0)
     {
-      zlog_warn ("ospf_apiserver_accept: socket: %s", strerror (errno));
+      zlog_warn ("ospf_apiserver_accept: socket: %s", safe_strerror (errno));
       close (new_sync_sock);
       return -1;
     }
@@ -728,7 +728,7 @@ ospf_apiserver_accept (struct thread *thread)
 
   if (ret < 0)
     {
-      zlog_warn ("ospf_apiserver_accept: connect: %s", strerror (errno));
+      zlog_warn ("ospf_apiserver_accept: connect: %s", safe_strerror (errno));
       close (new_sync_sock);
       close (new_async_sock);
       return -1;
@@ -740,7 +740,7 @@ ospf_apiserver_accept (struct thread *thread)
   ret = shutdown (new_async_sock, SHUT_RD);
   if (ret < 0)
     {
-      zlog_warn ("ospf_apiserver_accept: shutdown: %s", strerror (errno));
+      zlog_warn ("ospf_apiserver_accept: shutdown: %s", safe_strerror (errno));
       close (new_sync_sock);
       close (new_async_sock);
       return -1;

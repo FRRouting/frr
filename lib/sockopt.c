@@ -61,11 +61,11 @@ setsockopt_ipv6_pktinfo (int sock, int val)
 #ifdef IPV6_RECVPKTINFO		/*2292bis-01*/
   ret = setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &val, sizeof(val));
   if (ret < 0)
-    zlog_warn ("can't setsockopt IPV6_RECVPKTINFO : %s", strerror (errno));
+    zlog_warn ("can't setsockopt IPV6_RECVPKTINFO : %s", safe_strerror (errno));
 #else	/*RFC2292*/
   ret = setsockopt(sock, IPPROTO_IPV6, IPV6_PKTINFO, &val, sizeof(val));
   if (ret < 0)
-    zlog_warn ("can't setsockopt IPV6_PKTINFO : %s", strerror (errno));
+    zlog_warn ("can't setsockopt IPV6_PKTINFO : %s", safe_strerror (errno));
 #endif /* INIA_IPV6 */
   return ret;
 }

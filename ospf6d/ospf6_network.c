@@ -43,7 +43,7 @@ ospf6_set_reuseaddr ()
   u_int on = 0;
   if (setsockopt (ospf6_sock, SOL_SOCKET, SO_REUSEADDR, &on,
                   sizeof (u_int)) < 0)
-    zlog_warn ("Network: set SO_REUSEADDR failed: %s", strerror (errno));
+    zlog_warn ("Network: set SO_REUSEADDR failed: %s", safe_strerror (errno));
 }
 
 /* setsockopt MulticastLoop to off */
@@ -54,7 +54,7 @@ ospf6_reset_mcastloop ()
   if (setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP,
                   &off, sizeof (u_int)) < 0)
     zlog_warn ("Network: reset IPV6_MULTICAST_LOOP failed: %s",
-               strerror (errno));
+               safe_strerror (errno));
 }
 
 void
@@ -70,7 +70,7 @@ ospf6_set_checksum ()
 #ifndef DISABLE_IPV6_CHECKSUM
   if (setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_CHECKSUM,
                   &offset, sizeof (offset)) < 0)
-    zlog_warn ("Network: set IPV6_CHECKSUM failed: %s", strerror (errno));
+    zlog_warn ("Network: set IPV6_CHECKSUM failed: %s", safe_strerror (errno));
 #else
   zlog_warn ("Network: Don't set IPV6_CHECKSUM");
 #endif /* DISABLE_IPV6_CHECKSUM */
@@ -127,7 +127,7 @@ ospf6_join_allspfrouters (u_int ifindex)
 
   if (retval < 0)
     zlog_err ("Network: Join AllSPFRouters on ifindex %d failed: %s",
-              ifindex, strerror (errno));
+              ifindex, safe_strerror (errno));
 #if 0
   else
     zlog_info ("Network: Join AllSPFRouters on ifindex %d", ifindex);
@@ -147,7 +147,7 @@ ospf6_leave_allspfrouters (u_int ifindex)
   if (setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
                   &mreq6, sizeof (mreq6)) < 0)
     zlog_warn ("Network: Leave AllSPFRouters on ifindex %d Failed: %s",
-               ifindex, strerror (errno));
+               ifindex, safe_strerror (errno));
 #if 0
   else
     zlog_info ("Network: Leave AllSPFRouters on ifindex %d", ifindex);
@@ -167,7 +167,7 @@ ospf6_join_alldrouters (u_int ifindex)
   if (setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
                   &mreq6, sizeof (mreq6)) < 0)
     zlog_warn ("Network: Join AllDRouters on ifindex %d Failed: %s",
-               ifindex, strerror (errno));
+               ifindex, safe_strerror (errno));
 #if 0
   else
     zlog_info ("Network: Join AllDRouters on ifindex %d", ifindex);
@@ -264,7 +264,7 @@ ospf6_sendmsg (struct in6_addr *src, struct in6_addr *dst,
   retval = sendmsg (ospf6_sock, &smsghdr, 0);
   if (retval != iov_totallen (message))
     zlog_warn ("sendmsg failed: ifindex: %d: %s (%d)",
-               *ifindex, strerror (errno), errno);
+               *ifindex, safe_strerror (errno), errno);
 
   return retval;
 }
@@ -300,7 +300,7 @@ ospf6_recvmsg (struct in6_addr *src, struct in6_addr *dst,
 
   retval = recvmsg (ospf6_sock, &rmsghdr, 0);
   if (retval < 0)
-    zlog_warn ("recvmsg failed: %s", strerror (errno));
+    zlog_warn ("recvmsg failed: %s", safe_strerror (errno));
   else if (retval == iov_totallen (message))
     zlog_warn ("recvmsg read full buffer size: %d", retval);
 

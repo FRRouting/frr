@@ -56,7 +56,7 @@ proc_route_read ()
   fp = fopen (_PATH_PROCNET_ROUTE, "r");
   if (fp == NULL)
     {
-      zlog_warn ("Can't open %s : %s\n", _PATH_PROCNET_ROUTE, strerror (errno));
+      zlog_warn ("Can't open %s : %s\n", _PATH_PROCNET_ROUTE, safe_strerror (errno));
       return -1;
     }
   
@@ -111,7 +111,7 @@ proc_ipv6_route_read ()
   if (fp == NULL)
     {
       zlog_warn ("Can't open %s : %s", _PATH_PROCNET_ROUTE6, 
-		strerror (errno));
+		safe_strerror (errno));
       return -1;
     }
   

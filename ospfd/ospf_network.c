@@ -56,7 +56,7 @@ ospf_if_add_allspfrouters (struct ospf *top, struct prefix *p,
                                    ifindex);
   if (ret < 0)
     zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP (AllSPFRouters): %s",
-               strerror (errno));
+               safe_strerror (errno));
   else
     zlog_info ("interface %s join AllSPFRouters Multicast group.",
 	       inet_ntoa (p->u.prefix4));
@@ -75,7 +75,7 @@ ospf_if_drop_allspfrouters (struct ospf *top, struct prefix *p,
                                    ifindex);
   if (ret < 0)
     zlog_warn("can't setsockopt IP_DROP_MEMBERSHIP (AllSPFRouters): %s",
-	      strerror (errno));
+	      safe_strerror (errno));
   else
     zlog_info ("interface %s leave AllSPFRouters Multicast group.",
 	       inet_ntoa (p->u.prefix4));
@@ -95,7 +95,7 @@ ospf_if_add_alldrouters (struct ospf *top, struct prefix *p, unsigned int
                                    ifindex);
   if (ret < 0)
     zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP (AllDRouters): %s",
-               strerror (errno));
+               safe_strerror (errno));
   else
     zlog_info ("interface %s join AllDRouters Multicast group.",
 	       inet_ntoa (p->u.prefix4));
@@ -114,7 +114,7 @@ ospf_if_drop_alldrouters (struct ospf *top, struct prefix *p, unsigned int
                                    ifindex);
   if (ret < 0)
     zlog_warn ("can't setsockopt IP_DROP_MEMBERSHIP (AllDRouters): %s",
-	       strerror (errno));
+	       safe_strerror (errno));
   else
     zlog_info ("interface %s leave AllDRouters Multicast group.",
 	       inet_ntoa (p->u.prefix4));
@@ -134,18 +134,18 @@ ospf_if_ipmulticast (struct ospf *top, struct prefix *p, unsigned int ifindex)
   /* Prevent receiving self-origined multicast packets. */
   ret = setsockopt (top->fd, IPPROTO_IP, IP_MULTICAST_LOOP, (void *)&val, len);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_MULTICAST_LOOP(0): %s", strerror (errno));
+    zlog_warn ("can't setsockopt IP_MULTICAST_LOOP(0): %s", safe_strerror (errno));
   
   /* Explicitly set multicast ttl to 1 -- endo. */
   val = 1;
   ret = setsockopt (top->fd, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&val, len);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_MULTICAST_TTL(1): %s", strerror (errno));
+    zlog_warn ("can't setsockopt IP_MULTICAST_TTL(1): %s", safe_strerror (errno));
 
   ret = setsockopt_multicast_ipv4 (top->fd, IP_MULTICAST_IF,
                                    p->u.prefix4, 0, ifindex);
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_MULTICAST_IF: %s", strerror (errno));
+    zlog_warn ("can't setsockopt IP_MULTICAST_IF: %s", safe_strerror (errno));
 
   return ret;
 }
@@ -158,15 +158,15 @@ ospf_sock_init (void)
 
   if ( ospfd_privs.change (ZPRIVS_RAISE) )
     zlog_err ("ospf_sock_init: could not raise privs, %s",
-               strerror (errno) );
+               safe_strerror (errno) );
     
   ospf_sock = socket (AF_INET, SOCK_RAW, IPPROTO_OSPFIGP);
   if (ospf_sock < 0)
     {
       if ( ospfd_privs.change (ZPRIVS_LOWER) )
         zlog_err ("ospf_sock_init: could not lower privs, %s",
-                   strerror (errno) );
-      zlog_err ("ospf_read_sock_init: socket: %s", strerror (errno));
+                   safe_strerror (errno) );
+      zlog_err ("ospf_read_sock_init: socket: %s", safe_strerror (errno));
       exit(-1);
     }
     
@@ -177,7 +177,7 @@ ospf_sock_init (void)
     {
       if ( ospfd_privs.change (ZPRIVS_LOWER) )
         zlog_err ("ospf_sock_init: could not lower privs, %s",
-                   strerror (errno) );
+                   safe_strerror (errno) );
       zlog_warn ("Can't set IP_HDRINCL option");
     }
 #elif defined (IPTOS_PREC_INTERNETCONTROL)
@@ -191,7 +191,7 @@ ospf_sock_init (void)
     {
       if ( ospfd_privs.change (ZPRIVS_LOWER) )
         zlog_err ("ospf_sock_init: could not lower privs, %s",
-                   strerror (errno) );
+                   safe_strerror (errno) );
       zlog_warn ("can't set sockopt IP_TOS %d to socket %d", tos, ospf_sock);
       close (ospf_sock);	/* Prevent sd leak. */
       return ret;
@@ -209,7 +209,7 @@ ospf_sock_init (void)
   if (ospfd_privs.change (ZPRIVS_LOWER))
     {
       zlog_err ("ospf_sock_init: could not lower privs, %s",
-               strerror (errno) );
+               safe_strerror (errno) );
     }
  
   return ospf_sock;

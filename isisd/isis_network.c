@@ -130,7 +130,7 @@ isis_multicast_join (int fd, int registerto, int if_num)
   if (setsockopt (fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq,
 		  sizeof (struct packet_mreq)))
     {
-      zlog_warn ("isis_multicast_join(): setsockopt(): %s", strerror (errno));
+      zlog_warn ("isis_multicast_join(): setsockopt(): %s", safe_strerror (errno));
       return ISIS_WARNING;
     }
 
@@ -147,7 +147,7 @@ open_packet_socket (struct isis_circuit *circuit)
   if (fd < 0)
     {
       zlog_warn ("open_packet_socket(): socket() failed %s",
-		 strerror (errno));
+		 safe_strerror (errno));
       return ISIS_WARNING;
     }
 
@@ -162,7 +162,7 @@ open_packet_socket (struct isis_circuit *circuit)
   if (bind (fd, (struct sockaddr *) (&s_addr),
 	    sizeof (struct sockaddr_ll)) < 0)
     {
-      zlog_warn ("open_packet_socket(): bind() failed: %s", strerror (errno));
+      zlog_warn ("open_packet_socket(): bind() failed: %s", safe_strerror (errno));
       return ISIS_WARNING;
     }
 
@@ -222,7 +222,7 @@ open_bpf_dev (struct isis_circuit *circuit)
   if (fd < 0)
     {
       zlog_warn ("open_bpf_dev(): failed to create bpf socket: %s",
-		 strerror (errno));
+		 safe_strerror (errno));
       return ISIS_WARNING;
     }
 
@@ -232,7 +232,7 @@ open_bpf_dev (struct isis_circuit *circuit)
   if (ioctl (fd, BIOCSETIF, (caddr_t) & ifr) < 0)
     {
       zlog_warn ("open_bpf_dev(): failed to bind to interface: %s",
-		 strerror (errno));
+		 safe_strerror (errno));
       return ISIS_WARNING;
     }
 
@@ -307,7 +307,7 @@ open_bpf_dev (struct isis_circuit *circuit)
   if (ioctl (fd, BIOCSETF, (caddr_t) & bpf_prog) < 0)
     {
       zlog_warn ("open_bpf_dev(): failed to install filter: %s",
-		 strerror (errno));
+		 safe_strerror (errno));
       return ISIS_WARNING;
     }
 
@@ -329,7 +329,7 @@ isis_sock_init (struct isis_circuit *circuit)
   int retval = ISIS_OK;
 
   if (isisd_privs.change (ZPRIVS_RAISE))
-    zlog_err ("%s: could not raise privs, %s", __func__, strerror (errno));
+    zlog_err ("%s: could not raise privs, %s", __func__, safe_strerror (errno));
 
 #ifdef GNU_LINUX
   retval = open_packet_socket (circuit);
@@ -362,7 +362,7 @@ isis_sock_init (struct isis_circuit *circuit)
 
 end:
   if (isisd_privs.change (ZPRIVS_LOWER))
-    zlog_err ("%s: could not lower privs, %s", __func__, strerror (errno));
+    zlog_err ("%s: could not lower privs, %s", __func__, safe_strerror (errno));
 
   return retval;
 }
@@ -395,7 +395,7 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
   if (bytesread < 0)
     {
       zlog_warn ("isis_recv_packet_bcast(): fd %d, recvfrom (): %s",
-		 circuit->fd, strerror (errno));
+		 circuit->fd, safe_strerror (errno));
       zlog_warn ("circuit is %s", circuit->interface->name);
       zlog_warn ("circuit fd %d", circuit->fd);
       zlog_warn ("bytesread %d", bytesread);
@@ -549,7 +549,7 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 
   if (ioctl (circuit->fd, FIONREAD, (caddr_t) & bytestoread) < 0)
     {
-      zlog_warn ("ioctl() FIONREAD failed: %s", strerror (errno));
+      zlog_warn ("ioctl() FIONREAD failed: %s", safe_strerror (errno));
     }
 
   if (bytestoread)
@@ -559,7 +559,7 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
   if (bytesread < 0)
     {
       zlog_warn ("isis_recv_pdu_bcast(): read() failed: %s",
-		 strerror (errno));
+		 safe_strerror (errno));
       return ISIS_WARNING;
     }
 
@@ -584,7 +584,7 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 	  ETHER_ADDR_LEN);
 
   if (ioctl (circuit->fd, BIOCFLUSH, &one) < 0)
-    zlog_warn ("Flushing failed: %s", strerror (errno));
+    zlog_warn ("Flushing failed: %s", safe_strerror (errno));
 
   return ISIS_OK;
 }
@@ -599,7 +599,7 @@ isis_recv_pdu_p2p (struct isis_circuit *circuit, u_char * ssnpa)
 
   if (bytesread < 0)
     {
-      zlog_warn ("isis_recv_pdu_p2p(): read () failed: %s", strerror (errno));
+      zlog_warn ("isis_recv_pdu_p2p(): read () failed: %s", safe_strerror (errno));
       return ISIS_WARNING;
     }
 

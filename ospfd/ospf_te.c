@@ -563,7 +563,7 @@ ospf_mpls_te_new_if (struct interface *ifp)
   if ((new = XMALLOC (MTYPE_OSPF_MPLS_TE_LINKPARAMS,
                   sizeof (struct mpls_te_link))) == NULL)
     {
-      zlog_warn ("ospf_mpls_te_new_if: XMALLOC: %s", strerror (errno));
+      zlog_warn ("ospf_mpls_te_new_if: XMALLOC: %s", safe_strerror (errno));
       goto out;
     }
   memset (new, 0, sizeof (struct mpls_te_link));
@@ -1647,7 +1647,7 @@ DEFUN (mpls_te_link_maxbw,
   ntohf (&lp->max_bw.value, &f1);
   if (sscanf (argv[0], "%g", &f2) != 1)
     {
-      vty_out (vty, "mpls_te_link_maxbw: fscanf: %s%s", strerror (errno), VTY_NEWLINE);
+      vty_out (vty, "mpls_te_link_maxbw: fscanf: %s%s", safe_strerror (errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1689,7 +1689,7 @@ DEFUN (mpls_te_link_max_rsv_bw,
   ntohf (&lp->max_rsv_bw.value, &f1);
   if (sscanf (argv[0], "%g", &f2) != 1)
     {
-      vty_out (vty, "mpls_te_link_max_rsv_bw: fscanf: %s%s", strerror (errno), VTY_NEWLINE);
+      vty_out (vty, "mpls_te_link_max_rsv_bw: fscanf: %s%s", safe_strerror (errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1733,14 +1733,14 @@ DEFUN (mpls_te_link_unrsv_bw,
   /* We don't have to consider about range check here. */
   if (sscanf (argv[0], "%d", &priority) != 1)
     {
-      vty_out (vty, "mpls_te_link_unrsv_bw: fscanf: %s%s", strerror (errno), VTY_NEWLINE);
+      vty_out (vty, "mpls_te_link_unrsv_bw: fscanf: %s%s", safe_strerror (errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
 
   ntohf (&lp->unrsv_bw.value [priority], &f1);
   if (sscanf (argv[1], "%g", &f2) != 1)
     {
-      vty_out (vty, "mpls_te_link_unrsv_bw: fscanf: %s%s", strerror (errno), VTY_NEWLINE);
+      vty_out (vty, "mpls_te_link_unrsv_bw: fscanf: %s%s", safe_strerror (errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1781,7 +1781,7 @@ DEFUN (mpls_te_link_rsc_clsclr,
 
   if (sscanf (argv[0], "0x%lx", &value) != 1)
     {
-      vty_out (vty, "mpls_te_link_rsc_clsclr: fscanf: %s%s", strerror (errno), VTY_NEWLINE);
+      vty_out (vty, "mpls_te_link_rsc_clsclr: fscanf: %s%s", safe_strerror (errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
 

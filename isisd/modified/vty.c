@@ -1638,7 +1638,7 @@ vty_accept (struct thread *thread)
   vty_sock = sockunion_accept (accept_sock, &su);
   if (vty_sock < 0)
     {
-      zlog_warn ("can't accept vty socket : %s", strerror (errno));
+      zlog_warn ("can't accept vty socket : %s", safe_strerror (errno));
       return -1;
     }
 
@@ -1695,7 +1695,7 @@ vty_accept (struct thread *thread)
 		    (char *) &on, sizeof (on));
   if (ret < 0)
     zlog (NULL, LOG_INFO, "can't set sockopt to vty_sock : %s", 
-	  strerror (errno));
+	  safe_strerror (errno));
 
   vty = vty_create (vty_sock, &su);
 
@@ -1889,7 +1889,7 @@ vtysh_accept (struct thread *thread)
 
   if (sock < 0)
     {
-      zlog_warn ("can't accept vty socket : %s", strerror (errno));
+      zlog_warn ("can't accept vty socket : %s", safe_strerror (errno));
       return -1;
     }
 

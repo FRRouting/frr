@@ -179,7 +179,7 @@ ospf6_lsa_age_set (struct ospf6_lsa *lsa)
 
   if (gettimeofday (&now, (struct timezone *)NULL) < 0)
     zlog_warn ("LSA: gettimeofday failed, may fail LSA AGEs: %s",
-               strerror (errno));
+               safe_strerror (errno));
 
   lsa->birth.tv_sec = now.tv_sec - ntohs (lsa->header->age);
   lsa->birth.tv_usec = now.tv_usec;
@@ -202,7 +202,7 @@ ospf6_lsa_age_current (struct ospf6_lsa *lsa)
   /* current time */
   if (gettimeofday (&now, (struct timezone *)NULL) < 0)
     zlog_warn ("LSA: gettimeofday failed, may fail LSA AGEs: %s",
-               strerror (errno));
+               safe_strerror (errno));
 
   /* calculate age */
   ulage = now.tv_sec - lsa->birth.tv_sec;

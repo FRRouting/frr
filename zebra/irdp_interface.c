@@ -116,7 +116,7 @@ int if_group (struct interface *ifp,
     zlog_warn ("IRDP: %s can't setsockopt %s: %s",
 	       add_leave == IP_ADD_MEMBERSHIP? "join group":"leave group", 
                inet_2a(group, b1),
-               strerror (errno));
+               safe_strerror (errno));
 
   return ret;
 }

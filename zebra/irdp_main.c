@@ -104,16 +104,16 @@ irdp_sock_init (void)
 
   if ( zserv_privs.change (ZPRIVS_RAISE) )
        zlog_err ("irdp_sock_init: could not raise privs, %s",
-                  strerror (errno) );
+                  safe_strerror (errno) );
 
   irdp_sock = socket (AF_INET, SOCK_RAW, IPPROTO_ICMP);
 
   if ( zserv_privs.change (ZPRIVS_LOWER) )
        zlog_err ("irdp_sock_init: could not lower privs, %s",
-             strerror (errno) );
+             safe_strerror (errno) );
 
   if (irdp_sock < 0) {
-    zlog_warn ("IRDP: can't create irdp socket %s", strerror(errno));
+    zlog_warn ("IRDP: can't create irdp socket %s", safe_strerror(errno));
     return irdp_sock;
   };
   
@@ -121,13 +121,13 @@ irdp_sock_init (void)
   ret = setsockopt (irdp_sock, IPPROTO_IP, IP_TTL, 
                         (void *) &i, sizeof (i));
   if (ret < 0) {
-    zlog_warn ("IRDP: can't do irdp sockopt %s", strerror(errno));
+    zlog_warn ("IRDP: can't do irdp sockopt %s", safe_strerror(errno));
     return ret;
   };
   
   ret = setsockopt_ifindex (AF_INET, irdp_sock, 1);
   if (ret < 0) {
-    zlog_warn ("IRDP: can't do irdp sockopt %s", strerror(errno));
+    zlog_warn ("IRDP: can't do irdp sockopt %s", safe_strerror(errno));
     return ret;
   };
 

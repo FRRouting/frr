@@ -151,7 +151,7 @@ kernel_add_route (struct prefix_ipv4 *dest, struct in_addr *gate,
 	}
 
       close (sock);
-      zlog_warn ("write : %s (%d)", strerror (errno), errno);
+      zlog_warn ("write : %s (%d)", safe_strerror (errno), errno);
       return 1;
     }
   close (sock);
@@ -326,7 +326,7 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
 	}
 
       close (sock);
-      zlog_warn ("write : %s (%d)", strerror (errno), errno);
+      zlog_warn ("write : %s (%d)", safe_strerror (errno), errno);
       return ret;
     }
   close (sock);
@@ -411,7 +411,7 @@ kernel_ioctl_ipv6 (u_long type, struct prefix_ipv6 *dest, struct in6_addr *gate,
   if (ret < 0)
     {
       zlog_warn ("can't %s ipv6 route: %s\n", type == SIOCADDRT ? "add" : "delete", 
-	   strerror(errno));
+	   safe_strerror(errno));
       ret = errno;
       close (sock);
       return ret;
@@ -526,7 +526,7 @@ kernel_ioctl_ipv6_multipath (u_long cmd, struct prefix *p, struct rib *rib,
     {
       zlog_warn ("can't %s ipv6 route: %s\n",
 		 cmd == SIOCADDRT ? "add" : "delete", 
-	   strerror(errno));
+	   safe_strerror(errno));
       ret = errno;
       close (sock);
       return ret;

@@ -60,7 +60,7 @@ interface_list_ioctl (int af)
   if (sock < 0)
     {
       zlog_warn ("Can't make %s socket stream: %s",
-                 (af == AF_INET ? "AF_INET" : "AF_INET6"), strerror (errno));
+                 (af == AF_INET ? "AF_INET" : "AF_INET6"), safe_strerror (errno));
                  
       if (zserv_privs.change(ZPRIVS_LOWER))
         zlog (NULL, LOG_ERR, "Can't lower privileges");
@@ -79,7 +79,7 @@ calculate_lifc_len:     /* must hold privileges to enter here */
   if (ret < 0)
     {
       zlog_warn ("interface_list_ioctl: SIOCGLIFNUM failed %s",
-                 strerror (errno));
+                 safe_strerror (errno));
       close (sock);
       return -1;
     }
@@ -120,7 +120,7 @@ calculate_lifc_len:     /* must hold privileges to enter here */
       if (errno == EINVAL)
         goto calculate_lifc_len; /* deliberately hold privileges */
 
-      zlog_warn ("SIOCGLIFCONF: %s", strerror (errno));
+      zlog_warn ("SIOCGLIFCONF: %s", safe_strerror (errno));
 
       if (zserv_privs.change(ZPRIVS_LOWER))
         zlog (NULL, LOG_ERR, "Can't lower privileges");
@@ -232,7 +232,7 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr)
       if (ret < 0)
         {
           zlog_warn ("SIOCGLIFDSTADDR (%s) fail: %s",
-                     ifp->name, strerror (errno));
+                     ifp->name, safe_strerror (errno));
           return ret;
         }
       memcpy (&dest, &lifreq.lifr_dstaddr, ADDRLEN (addr));
@@ -251,7 +251,7 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr)
           if (errno != EADDRNOTAVAIL)
             {
               zlog_warn ("SIOCGLIFNETMASK (%s) fail: %s", ifp->name,
-                         strerror (errno));
+                         safe_strerror (errno));
               return ret;
             }
           return 0;
@@ -267,7 +267,7 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr)
               if (errno != EADDRNOTAVAIL)
                 {
                   zlog_warn ("SIOCGLIFBRDADDR (%s) fail: %s",
-                             ifp->name, strerror (errno));
+                             ifp->name, safe_strerror (errno));
                   return ret;
                 }
               return 0;
@@ -289,7 +289,7 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr)
           if (ret < 0)
             {
               zlog_warn ("SIOCGLIFSUBNET (%s) fail: %s",
-                         ifp->name, strerror (errno));
+                         ifp->name, safe_strerror (errno));
             }
           else
             {

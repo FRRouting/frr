@@ -359,7 +359,7 @@ msg_read (int fd)
 
   if (rlen < 0)
     {
-      zlog_warn ("msg_read: readn %s", strerror (errno));
+      zlog_warn ("msg_read: readn %s", safe_strerror (errno));
       return NULL;
     }
   else if (rlen == 0)
@@ -389,7 +389,7 @@ msg_read (int fd)
       rlen = readn (fd, buf, bodylen);
       if (rlen < 0)
 	{
-	  zlog_warn ("msg_read: readn %s", strerror (errno));
+	  zlog_warn ("msg_read: readn %s", safe_strerror (errno));
 	  return NULL;
 	}
       else if (rlen == 0)
@@ -431,7 +431,7 @@ msg_write (int fd, struct msg *msg)
   wlen = writen (fd, buf, l);
   if (wlen < 0)
     {
-      zlog_warn ("msg_write: writen %s", strerror (errno));
+      zlog_warn ("msg_write: writen %s", safe_strerror (errno));
       return -1;
     }
   else if (wlen == 0)

@@ -65,7 +65,7 @@ bgp_accept (struct thread *thread)
   bgp_sock = sockunion_accept (accept_sock, &su);
   if (bgp_sock < 0)
     {
-      zlog_err ("[Error] BGP socket accept failed (%s)", strerror (errno));
+      zlog_err ("[Error] BGP socket accept failed (%s)", safe_strerror (errno));
       return -1;
     }
 
@@ -318,7 +318,7 @@ bgp_socket (struct bgp *bgp, unsigned short port)
       sock = socket (ainfo->ai_family, ainfo->ai_socktype, ainfo->ai_protocol);
       if (sock < 0)
 	{
-	  zlog_err ("socket: %s", strerror (errno));
+	  zlog_err ("socket: %s", safe_strerror (errno));
 	  continue;
 	}
 
@@ -335,7 +335,7 @@ bgp_socket (struct bgp *bgp, unsigned short port)
 
       if (ret < 0)
 	{
-	  zlog_err ("bind: %s", strerror (en));
+	  zlog_err ("bind: %s", safe_strerror (en));
 	  close(sock);
 	  continue;
 	}
@@ -343,7 +343,7 @@ bgp_socket (struct bgp *bgp, unsigned short port)
       ret = listen (sock, 3);
       if (ret < 0) 
 	{
-	  zlog_err ("listen: %s", strerror (errno));
+	  zlog_err ("listen: %s", safe_strerror (errno));
 	  close (sock);
 	  continue;
 	}
@@ -369,7 +369,7 @@ bgp_socket (struct bgp *bgp, unsigned short port)
   sock = socket (AF_INET, SOCK_STREAM, 0);
   if (sock < 0)
     {
-      zlog_err ("socket: %s", strerror (errno));
+      zlog_err ("socket: %s", safe_strerror (errno));
       return sock;
     }
 
@@ -396,7 +396,7 @@ bgp_socket (struct bgp *bgp, unsigned short port)
 
   if (ret < 0)
     {
-      zlog_err ("bind: %s", strerror (en));
+      zlog_err ("bind: %s", safe_strerror (en));
       close (sock);
       return ret;
     }
@@ -404,7 +404,7 @@ bgp_socket (struct bgp *bgp, unsigned short port)
   ret = listen (sock, 3);
   if (ret < 0) 
     {
-      zlog_err ("listen: %s", strerror (errno));
+      zlog_err ("listen: %s", safe_strerror (errno));
       close (sock);
       return ret;
     }

@@ -52,7 +52,7 @@ ifstat_update_sysctl ()
   /* Query buffer size. */
   if (sysctl (mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) 
     {
-      zlog_warn ("sysctl() error by %s", strerror (errno));
+      zlog_warn ("sysctl() error by %s", safe_strerror (errno));
       return -1;
     }
 
@@ -62,7 +62,7 @@ ifstat_update_sysctl ()
   /* Fetch interface informations into allocated buffer. */
   if (sysctl (mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) 
     {
-      zlog (NULL, LOG_WARNING, "sysctl error by %s", strerror (errno));
+      zlog (NULL, LOG_WARNING, "sysctl error by %s", safe_strerror (errno));
       return -1;
     }
 
@@ -108,7 +108,7 @@ interface_list ()
   /* Query buffer size. */
   if (sysctl (mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) 
     {
-      zlog (NULL, LOG_WARNING, "sysctl() error by %s", strerror (errno));
+      zlog (NULL, LOG_WARNING, "sysctl() error by %s", safe_strerror (errno));
       return;
     }
 
@@ -118,7 +118,7 @@ interface_list ()
   /* Fetch interface informations into allocated buffer. */
   if (sysctl (mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) 
     {
-      zlog (NULL, LOG_WARNING, "sysctl error by %s", strerror (errno));
+      zlog (NULL, LOG_WARNING, "sysctl error by %s", safe_strerror (errno));
       return;
     }
 

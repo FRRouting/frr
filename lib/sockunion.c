@@ -236,7 +236,7 @@ sockunion_socket (union sockunion *su)
   sock = socket (su->sa.sa_family, SOCK_STREAM, 0);
   if (sock < 0)
     {
-      zlog (NULL, LOG_WARNING, "Can't make socket : %s", strerror (errno));
+      zlog (NULL, LOG_WARNING, "Can't make socket : %s", safe_strerror (errno));
       return -1;
     }
 
@@ -377,7 +377,7 @@ sockunion_connect (int fd, union sockunion *peersu, unsigned short port,
       if (errno != EINPROGRESS)
 	{
 	  zlog_info ("can't connect to %s fd %d : %s",
-		     sockunion_log (&su), fd, strerror (errno));
+		     sockunion_log (&su), fd, safe_strerror (errno));
 	  return connect_error;
 	}
     }
@@ -444,7 +444,7 @@ sockunion_bind (int sock, union sockunion *su, unsigned short port,
 
   ret = bind (sock, (struct sockaddr *)su, size);
   if (ret < 0)
-    zlog (NULL, LOG_WARNING, "can't bind socket : %s", strerror (errno));
+    zlog (NULL, LOG_WARNING, "can't bind socket : %s", safe_strerror (errno));
 
   return ret;
 }
@@ -576,7 +576,7 @@ sockunion_getsockname (int fd)
   if (ret < 0)
     {
       zlog_warn ("Can't get local address and port by getsockname: %s",
-		 strerror (errno));
+		 safe_strerror (errno));
       return NULL;
     }
 
@@ -630,7 +630,7 @@ sockunion_getpeername (int fd)
   if (ret < 0)
     {
       zlog (NULL, LOG_WARNING, "Can't get remote address and port: %s",
-	    strerror (errno));
+	    safe_strerror (errno));
       return NULL;
     }
 

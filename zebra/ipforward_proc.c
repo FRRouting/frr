@@ -77,13 +77,13 @@ ipforward_on ()
   FILE *fp;
   
   if ( zserv_privs.change(ZPRIVS_RAISE) )
-  	zlog_err ("Can't raise privileges, %s", strerror (errno) );
+  	zlog_err ("Can't raise privileges, %s", safe_strerror (errno) );
 
   fp = fopen (proc_ipv4_forwarding, "w");
 
   if (fp == NULL) {
     if ( zserv_privs.change(ZPRIVS_LOWER) )
-      zlog_err ("Can't lower privileges, %s", strerror (errno));
+      zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
     return -1;
   }
 
@@ -92,7 +92,7 @@ ipforward_on ()
   fclose (fp);
 
   if ( zserv_privs.change(ZPRIVS_LOWER) )
-    zlog_err ("Can't lower privileges, %s", strerror (errno));
+    zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
 
   return ipforward ();
 }
@@ -103,13 +103,13 @@ ipforward_off ()
   FILE *fp;
 
   if ( zserv_privs.change(ZPRIVS_RAISE) )
-  	zlog_err ("Can't raise privileges, %s", strerror (errno));
+  	zlog_err ("Can't raise privileges, %s", safe_strerror (errno));
 
   fp = fopen (proc_ipv4_forwarding, "w");
 
   if (fp == NULL) {
     if ( zserv_privs.change(ZPRIVS_LOWER) )
-      zlog_err ("Can't lower privileges, %s", strerror (errno));
+      zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
     return -1;
   }
 
@@ -118,7 +118,7 @@ ipforward_off ()
   fclose (fp);
 
   if ( zserv_privs.change(ZPRIVS_LOWER) )
-    zlog_err ("Can't lower privileges, %s", strerror (errno));
+    zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
 
   return ipforward ();
 }
@@ -150,13 +150,13 @@ ipforward_ipv6_on ()
   FILE *fp;
 
   if ( zserv_privs.change(ZPRIVS_RAISE) )
-  	zlog_err ("Can't raise privileges, %s", strerror (errno));
+  	zlog_err ("Can't raise privileges, %s", safe_strerror (errno));
 
   fp = fopen (proc_ipv6_forwarding, "w");
 
   if (fp == NULL) {
     if ( zserv_privs.change(ZPRIVS_LOWER) )
-      zlog_err ("Can't lower privileges, %s", strerror (errno));
+      zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
     return -1;
   }
 
@@ -165,7 +165,7 @@ ipforward_ipv6_on ()
   fclose (fp);
 
   if ( zserv_privs.change(ZPRIVS_LOWER) )
-    zlog_err ("Can't lower privileges, %s", strerror (errno));
+    zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
 
   return ipforward_ipv6 ();
 }
@@ -176,13 +176,13 @@ ipforward_ipv6_off ()
   FILE *fp;
 
   if ( zserv_privs.change(ZPRIVS_RAISE) )
-  	zlog_err ("Can't raise privileges, %s", strerror (errno));
+  	zlog_err ("Can't raise privileges, %s", safe_strerror (errno));
 
   fp = fopen (proc_ipv6_forwarding, "w");
 
   if (fp == NULL) {
     if ( zserv_privs.change(ZPRIVS_LOWER) )
-      zlog_err ("Can't lower privileges, %s", strerror (errno));
+      zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
     return -1;
   }
 
@@ -191,7 +191,7 @@ ipforward_ipv6_off ()
   fclose (fp);
 
   if ( zserv_privs.change(ZPRIVS_LOWER) )
-    zlog_err ("Can't lower privileges, %s", strerror (errno));
+    zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
 
   return ipforward_ipv6 ();
 }

@@ -156,7 +156,7 @@ ospf_apiclient_connect (char *host, int syncport)
   ret = listen (async_server_sock, BACKLOG);
   if (ret < 0)
     {
-      fprintf (stderr, "ospf_apiclient_connect: listen: %s\n", strerror (errno));
+      fprintf (stderr, "ospf_apiclient_connect: listen: %s\n", safe_strerror (errno));
       close (async_server_sock);
       return NULL;
     }

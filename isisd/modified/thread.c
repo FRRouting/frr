@@ -611,7 +611,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
 	  if (errno == EINTR)
 	    continue;
 
-	  zlog_warn ("select() error: %s", strerror (errno));
+	  zlog_warn ("select() error: %s", safe_strerror (errno));
 	  return NULL;
 	}
 

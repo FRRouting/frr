@@ -1369,7 +1369,7 @@ zebra_accept (struct thread *thread)
 
   if (client_sock < 0)
     {
-      zlog_warn ("Can't accept zebra socket: %s", strerror (errno));
+      zlog_warn ("Can't accept zebra socket: %s", safe_strerror (errno));
       return -1;
     }
 
@@ -1400,7 +1400,7 @@ zebra_serv ()
 
   if (accept_sock < 0) 
     {
-      zlog_warn ("Can't bind to socket: %s", strerror (errno));
+      zlog_warn ("Can't bind to socket: %s", safe_strerror (errno));
       zlog_warn ("zebra can't provice full functionality due to above error");
       return;
     }
@@ -1423,7 +1423,7 @@ zebra_serv ()
 	       sizeof (struct sockaddr_in));
   if (ret < 0)
     {
-      zlog_warn ("Can't bind to socket: %s", strerror (errno));
+      zlog_warn ("Can't bind to socket: %s", safe_strerror (errno));
       zlog_warn ("zebra can't provice full functionality due to above error");
       close (accept_sock);      /* Avoid sd leak. */
       return;
@@ -1435,7 +1435,7 @@ zebra_serv ()
   ret = listen (accept_sock, 1);
   if (ret < 0)
     {
-      zlog_warn ("Can't listen to socket: %s", strerror (errno));
+      zlog_warn ("Can't listen to socket: %s", safe_strerror (errno));
       zlog_warn ("zebra can't provice full functionality due to above error");
       close (accept_sock);	/* Avoid sd leak. */
       return;

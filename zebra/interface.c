@@ -234,7 +234,7 @@ if_addr_wakeup (struct interface *ifp)
 	      if (ret < 0)
 		{
 		  zlog_warn ("Can't set interface's address: %s", 
-			     strerror(errno));
+			     safe_strerror(errno));
 		  continue;
 		}
 
@@ -261,7 +261,7 @@ if_addr_wakeup (struct interface *ifp)
 	      if (ret < 0)
 		{
 		  zlog_warn ("Can't set interface's address: %s", 
-			     strerror(errno));
+			     safe_strerror(errno));
 		  continue;
 		}
 	      SET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
@@ -1163,7 +1163,7 @@ ip_address_install (struct vty *vty, struct interface *ifp,
       if (ret < 0)
 	{
 	  vty_out (vty, "%% Can't set interface IP address: %s.%s", 
-		   strerror(errno), VTY_NEWLINE);
+		   safe_strerror(errno), VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
 
@@ -1227,7 +1227,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
   if (ret < 0)
     {
       vty_out (vty, "%% Can't unset interface IP address: %s.%s", 
-	       strerror(errno), VTY_NEWLINE);
+	       safe_strerror(errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -1355,7 +1355,7 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
       if (ret < 0)
 	{
 	  vty_out (vty, "%% Can't set interface IP address: %s.%s", 
-		   strerror(errno), VTY_NEWLINE);
+		   safe_strerror(errno), VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
 
@@ -1416,7 +1416,7 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
   if (ret < 0)
     {
       vty_out (vty, "%% Can't unset interface IP address: %s.%s", 
-	       strerror(errno), VTY_NEWLINE);
+	       safe_strerror(errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
 

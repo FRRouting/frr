@@ -138,7 +138,7 @@ ifstat_update_proc ()
   if (fp == NULL)
     {
       zlog_warn ("Can't open proc file %s: %s",
-		 _PATH_PROC_NET_DEV, strerror (errno));
+		 _PATH_PROC_NET_DEV, safe_strerror (errno));
       return -1;
     }
 
@@ -179,7 +179,7 @@ interface_list_proc ()
   if (fp == NULL)
     {
       zlog_warn ("Can't open proc file %s: %s",
-		 _PATH_PROC_NET_DEV, strerror (errno));
+		 _PATH_PROC_NET_DEV, safe_strerror (errno));
       return -1;
     }
 
@@ -222,7 +222,7 @@ ifaddr_proc_ipv6 ()
   if (fp == NULL)
     {
       zlog_warn ("Can't open proc file %s: %s",
-		 _PATH_PROC_NET_IF_INET6, strerror (errno));
+		 _PATH_PROC_NET_IF_INET6, safe_strerror (errno));
       return -1;
     }
   

@@ -598,7 +598,7 @@ in one shot. */
     {
       if ((errno != EAGAIN) && (errno != EINTR))
         zlog_warn("buffer_flush_available write error on fd %d: %s",
-		  fd,strerror(errno));
+		  fd,safe_strerror(errno));
       return 1;
     }
 

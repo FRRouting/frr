@@ -128,7 +128,7 @@ zprivs_state_caps (void)
       if ( cap_get_flag (zprivs_state.caps, zprivs_state.syscaps_p[i], 
                          CAP_EFFECTIVE, &val) )
         zlog_warn ("zprivs_state_caps: could not cap_get_flag, %s",
-                    strerror (errno) );
+                    safe_strerror (errno) );
       if (val == CAP_SET)
         return ZPRIVS_RAISED;
     }
@@ -215,7 +215,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
           if ( setgroups (1, &zprivs_state.vtygrp) )
             {
               fprintf (stderr, "privs_init: could not setgroups, %s\n",
-                         strerror (errno) );
+                         safe_strerror (errno) );
               exit (1);
             }       
         }
@@ -243,7 +243,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
       if ( setregid (zprivs_state.zgid, zprivs_state.zgid) )
         {
           fprintf (stderr, "zprivs_init: could not setregid, %s\n",
-                    strerror (errno) );
+                    safe_strerror (errno) );
           exit (1);
         }
     }
@@ -258,7 +258,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
   if ( prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) == -1 )
     {
       fprintf (stderr, "privs_init: could not set PR_SET_KEEPCAPS, %s\n",
-                strerror (errno) );
+                safe_strerror (errno) );
       exit(1);
     }
 
@@ -270,7 +270,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
   if ( !(zprivs_state.caps = cap_init()) )
     {
       fprintf (stderr, "privs_init: failed to cap_init, %s\n", 
-               strerror (errno));
+               safe_strerror (errno));
       exit (1);
     }
 
@@ -280,7 +280,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
       if ( setreuid (zprivs_state.zuid, zprivs_state.zuid) )
         {
           fprintf (stderr, "zprivs_init (cap): could not setreuid, %s\n", 
-                     strerror (errno));
+                     safe_strerror (errno));
           exit (1);
         }
     }
@@ -288,7 +288,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
   if ( cap_clear (zprivs_state.caps) )
     {
       fprintf (stderr, "privs_init: failed to cap_clear, %s\n", 
-               strerror (errno));
+               safe_strerror (errno));
       exit (1);
     }
   
@@ -329,7 +329,7 @@ zprivs_init(struct zebra_privs_t *zprivs)
       if ( setreuid (-1, zprivs_state.zuid) )
         {
           fprintf (stderr, "privs_init (uid): could not setreuid, %s\n", 
-                   strerror (errno));
+                   safe_strerror (errno));
           exit (1);
         }
     }
@@ -351,7 +351,7 @@ zprivs_terminate (void)
   if ( cap_set_proc (zprivs_state.caps) ) 
     {
       zlog_err ("privs_terminate: cap_set_proc failed, %s",
-                strerror (errno) );
+                safe_strerror (errno) );
       exit (1);
     }  
 
@@ -368,7 +368,7 @@ zprivs_terminate (void)
       if ( setreuid (zprivs_state.zuid, zprivs_state.zuid) )
         {
           zlog_err ("privs_terminate: could not setreuid, %s", 
-                     strerror (errno) );
+                     safe_strerror (errno) );
           exit (1);
         }
      }
