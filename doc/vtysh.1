@@ -35,6 +35,10 @@ Specify command to be executed under batch mode.
 \fB start-shell bash
 \fB start-shell zsh
 
+.SH ENVIRONMENT VARIABLES
+
+.IP "\fBVTYSH_PAGER\fR"
+This should be the name of the pager to use. Default is \fBmore\fR.
 
 .SH FILES
 
@@ -60,7 +64,7 @@ bgpd(8), ripd(8), ripngd(8), ospfd(8), ospf6d(8), zebra(8)
 .SH BUGS
 .B vtysh
 eats bugs for breakfast. If you have food for the maintainers try 
-.BI <bug-zebra@gnu.org>
+.BI http://bugzilla.quagga.net
 
 
 .SH AUTHOR[S]
