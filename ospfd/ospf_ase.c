@@ -295,13 +295,13 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
 
   if (lsa->data->type == OSPF_AS_NSSA_LSA)
     if (IS_DEBUG_OSPF_NSSA)
-      zlog_info ("ospf_ase_calc(): Processing Type-7");
+      zlog_debug ("ospf_ase_calc(): Processing Type-7");
 
   /* Stay away from any Local Translated Type-7 LSAs */
   if (CHECK_FLAG (lsa->flags, OSPF_LSA_LOCAL_XLT))
     {
       if (IS_DEBUG_OSPF_NSSA)
-	zlog_info ("ospf_ase_calc(): Rejecting Local Xlt'd");
+	zlog_debug ("ospf_ase_calc(): Rejecting Local Xlt'd");
       return 0;
     }
 
@@ -631,7 +631,7 @@ ospf_ase_calculate_timer (struct thread *t)
 	  {
 	    area = getdata (node);
 	    if (IS_DEBUG_OSPF_NSSA)
-	      zlog_info ("ospf_ase_calculate_timer(): looking at area %s",
+	      zlog_debug ("ospf_ase_calculate_timer(): looking at area %s",
 			 inet_ntoa (area->area_id));
 
 	    if (area->external_routing == OSPF_AREA_NSSA)

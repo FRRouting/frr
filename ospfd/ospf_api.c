@@ -80,13 +80,13 @@ api_opaque_lsa_print (struct lsa_header *data)
   olsa = (struct opaque_lsa *) data;
 
   opaquelen = ntohs (data->length) - OSPF_LSA_HEADER_SIZE;
-  zlog_warn ("apiserver_lsa_print: opaquelen=%d\n", opaquelen);
+  zlog_debug ("apiserver_lsa_print: opaquelen=%d\n", opaquelen);
 
   for (i = 0; i < opaquelen; i++)
     {
-      zlog_warn ("0x%x ", olsa->mydata[i]);
+      zlog_debug ("0x%x ", olsa->mydata[i]);
     }
-  zlog_warn ("\n");
+  zlog_debug ("\n");
 }
 
 /* -----------------------------------------------------------
@@ -208,18 +208,18 @@ msg_print (struct msg *msg)
 {
   if (!msg)
     {
-      zlog_warn ("msg_print msg=NULL!\n");
+      zlog_debug ("msg_print msg=NULL!\n");
       return;
     }
 
 #ifdef ORIGINAL_CODING
-  zlog_warn
+  zlog_debug
     ("msg=%p msgtype=%d msglen=%d msgseq=%d streamdata=%p streamsize=%lu\n",
      msg, msg->hdr.msgtype, ntohs (msg->hdr.msglen), ntohl (msg->hdr.msgseq),
      STREAM_DATA (msg->s), STREAM_SIZE (msg->s));
 #else /* ORIGINAL_CODING */
   /* API message common header part. */
-  zlog_info
+  zlog_debug
     ("API-msg [%s]: type(%d),len(%d),seq(%lu),data(%p),size(%lu)",
      ospf_api_typename (msg->hdr.msgtype), msg->hdr.msgtype, 
      ntohs (msg->hdr.msglen), (unsigned long) ntohl (msg->hdr.msgseq),

@@ -247,7 +247,7 @@ static int
 ospf_apiserver_new_lsa_hook (struct ospf_lsa *lsa)
 {
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("API: Put LSA(%p)[%s] into reserve, total=%ld", lsa, dump_lsa_key (lsa), lsa->lsdb->total);
+    zlog_debug ("API: Put LSA(%p)[%s] into reserve, total=%ld", lsa, dump_lsa_key (lsa), lsa->lsdb->total);
   return 0;
 }
 
@@ -255,7 +255,7 @@ static int
 ospf_apiserver_del_lsa_hook (struct ospf_lsa *lsa)
 {
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("API: Get LSA(%p)[%s] from reserve, total=%ld", lsa, dump_lsa_key (lsa), lsa->lsdb->total);
+    zlog_debug ("API: Get LSA(%p)[%s] from reserve, total=%ld", lsa, dump_lsa_key (lsa), lsa->lsdb->total);
   return 0;
 }
 
@@ -402,7 +402,7 @@ ospf_apiserver_free (struct ospf_apiserver *apiserv)
   listnode_delete (apiserver_list, apiserv);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("API: Delete apiserv(%p), total#(%d)", apiserv, apiserver_list->count);
+    zlog_debug ("API: Delete apiserv(%p), total#(%d)", apiserv, apiserver_list->count);
 
   /* And free instance. */
   XFREE (MTYPE_OSPF_APISERVER, apiserv);
@@ -426,7 +426,7 @@ ospf_apiserver_read (struct thread *thread)
       apiserv->t_sync_read = NULL;
 
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("API: ospf_apiserver_read: Peer: %s/%u",
+        zlog_debug ("API: ospf_apiserver_read: Peer: %s/%u",
                     inet_ntoa (apiserv->peer_sync.sin_addr),
                     ntohs (apiserv->peer_sync.sin_port));
     }
@@ -437,7 +437,7 @@ ospf_apiserver_read (struct thread *thread)
       apiserv->t_async_read = NULL;
 
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("API: ospf_apiserver_read: Peer: %s/%u",
+        zlog_debug ("API: ospf_apiserver_read: Peer: %s/%u",
                     inet_ntoa (apiserv->peer_async.sin_addr),
                     ntohs (apiserv->peer_async.sin_port));
     }
@@ -498,7 +498,7 @@ ospf_apiserver_sync_write (struct thread *thread)
     }
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("API: ospf_apiserver_sync_write: Peer: %s/%u",
+    zlog_debug ("API: ospf_apiserver_sync_write: Peer: %s/%u",
                 inet_ntoa (apiserv->peer_sync.sin_addr),
                 ntohs (apiserv->peer_sync.sin_port));
 
@@ -567,7 +567,7 @@ ospf_apiserver_async_write (struct thread *thread)
     }
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("API: ospf_apiserver_async_write: Peer: %s/%u",
+    zlog_debug ("API: ospf_apiserver_async_write: Peer: %s/%u",
                 inet_ntoa (apiserv->peer_async.sin_addr),
                 ntohs (apiserv->peer_async.sin_port));
 
@@ -699,7 +699,7 @@ ospf_apiserver_accept (struct thread *thread)
     }
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("API: ospf_apiserver_accept: New peer: %s/%u",
+    zlog_debug ("API: ospf_apiserver_accept: New peer: %s/%u",
                inet_ntoa (peer_sync.sin_addr), ntohs (peer_sync.sin_port));
 
   /* Create new socket for asynchronous messages. */
@@ -762,7 +762,7 @@ ospf_apiserver_accept (struct thread *thread)
 #endif /* USE_ASYNC_READ */
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_warn ("API: New apiserv(%p), total#(%d)", apiserv, apiserver_list->count);
+    zlog_debug ("API: New apiserv(%p), total#(%d)", apiserv, apiserver_list->count);
 
   return 0;
 }
@@ -950,7 +950,7 @@ ospf_apiserver_register_opaque_type (struct ospf_apiserver *apiserv,
   listnode_add (apiserv->opaque_types, regtype);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("API: Add LSA-type(%d)/Opaque-type(%d) into"
+    zlog_debug ("API: Add LSA-type(%d)/Opaque-type(%d) into"
                " apiserv(%p), total#(%d)", 
                lsa_type, opaque_type, apiserv, 
                listcount (apiserv->opaque_types));
@@ -986,7 +986,7 @@ ospf_apiserver_unregister_opaque_type (struct ospf_apiserver *apiserv,
 	  listnode_delete (apiserv->opaque_types, regtype);
 
           if (IS_DEBUG_OSPF_EVENT)
-            zlog_info ("API: Del LSA-type(%d)/Opaque-type(%d)"
+            zlog_debug ("API: Del LSA-type(%d)/Opaque-type(%d)"
                        " from apiserv(%p), total#(%d)", 
                        lsa_type, opaque_type, apiserv, 
                        listcount (apiserv->opaque_types));
@@ -1502,7 +1502,7 @@ ospf_apiserver_opaque_lsa_new (struct ospf_area *area,
 
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     {
-      zlog_info ("LSA[Type%d:%s]: Creating an Opaque-LSA instance",
+      zlog_debug ("LSA[Type%d:%s]: Creating an Opaque-LSA instance",
 		 protolsa->type, inet_ntoa (protolsa->id));
     }
 
@@ -1908,7 +1908,7 @@ ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa)
   /* Debug logging. */
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     {
-      zlog_info ("LSA[Type%d:%s]: Refresh Opaque LSA",
+      zlog_debug ("LSA[Type%d:%s]: Refresh Opaque LSA",
 		 new->data->type, inet_ntoa (new->data->id));
       ospf_lsa_header_dump (new->data);
     }
@@ -2224,17 +2224,17 @@ ospf_apiserver_show_info (struct vty *vty, struct ospf_lsa *lsa)
   else
     {
       int i;
-      zlog_info ("    Added using OSPF API: %u octets of opaque data %s",
+      zlog_debug ("    Added using OSPF API: %u octets of opaque data %s",
 		 opaquelen,
 		 VALID_OPAQUE_INFO_LEN (lsa->
 					data) ? "" : "(Invalid length?)");
-      zlog_info ("    Opaque data: ");
+      zlog_debug ("    Opaque data: ");
 
       for (i = 0; i < opaquelen; i++)
 	{
-	  zlog_info ("0x%x ", olsa->data[i]);
+	  zlog_debug ("0x%x ", olsa->data[i]);
 	}
-      zlog_info ("\n");
+      zlog_debug ("\n");
     }
   return;
 }
