@@ -1,5 +1,10 @@
 2004-11-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* debug.[ch]: Remove unused files.
+	* Makefile.am: Remove references to debug.c and debug.h
+
+2004-11-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* log.c: (zlog_backtrace) New function to log a backtrace.
 	  (zlog_backtrace_safe) Log a backtrace in an async-signal-safe way.
 	  Unfortunately, this function does not support syslog logging yet.

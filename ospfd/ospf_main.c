@@ -37,7 +37,6 @@
 #include "log.h"
 #include "memory.h"
 #include "privs.h"
-#include "debug.h"
 #include "sigevent.h"
 
 #include "ospfd/ospfd.h"
