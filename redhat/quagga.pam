@@ -14,13 +14,13 @@ auth       sufficient   /lib/security/pam_rootok.so
 
 # If using quagga privileges and with a seperate group for vty access, then
 # access can be controlled via the vty access group, and pam can simply
-# check for valid user/password
+# check for valid user/password, eg:
 #
 # only allow local users.
-auth       required     /lib/security/pam_securetty.so
-auth       required     /lib/security/pam_stack.so service=system-auth
-auth       required     /lib/security/pam_nologin.so
-account    required     /lib/security/pam_stack.so service=system-auth
-password   required     /lib/security/pam_stack.so service=system-auth
-session    required     /lib/security/pam_stack.so service=system-auth
-session    optional     /lib/security/pam_console.so
+#auth       required     /lib/security/pam_securetty.so
+#auth       required     /lib/security/pam_stack.so service=system-auth
+#auth       required     /lib/security/pam_nologin.so
+#account    required     /lib/security/pam_stack.so service=system-auth
+#password   required     /lib/security/pam_stack.so service=system-auth
+#session    required     /lib/security/pam_stack.so service=system-auth
+#session    optional     /lib/security/pam_console.so
