@@ -216,6 +216,12 @@ INRIA IPv6 stack for BSD.
 @item @asis{RFC2328}
 @cite{OSPF Version 2. J. Moy. April 1998.}
 
+@item @asis{RFC2370}
+@cite{The OSPF Opaque LSA Option R. Coltun. July 1998.}
+
+@item @asis{RFC3101}
+@cite{The OSPF Not-So-Stubby Area (NSSA) Option P. Murphy. January 2003.}
+
 @item @asis{RFC2740}
 @cite{OSPF for IPv6. R. Coltun, D. Ferguson, J. Moy. December 1999.}
 
