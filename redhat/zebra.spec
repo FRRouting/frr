@@ -16,16 +16,21 @@
 %define		zeb_rh_src	%{zeb_src}/redhat
 %define		zeb_docs	%{zeb_src}/doc
 
+# defines for configure
+%define		_libexecdir	%{_exec_prefix}/libexec/zebra
+%define		_includedir	%{_prefix}/include/zebra
+%define		_libdir		%{_exec_prefix}/%{_lib}/zebra
+
 Summary: Routing daemon
 Name:		zebra
 Version:	0.94
-Release:	2003030101
+Release:	2003031801
 License:	GPL
 Group: System Environment/Daemons
 Source0:	ftp://ftp.zebra.org/pub/zebra/%{name}-%{version}.tar.gz
 URL:		http://www.zebra.org/
 %if %with_snmp
-BuildRequires:	ucd-snmp-devel
+#BuildRequires:	ucd-snmp-devel
 Prereq:		ucd-snmp
 %endif
 %if %with_vtysh
@@ -60,10 +65,19 @@ Group: System Environment/Daemons
 %description contrib
 Contributed/3rd party tools which may be of use with zebra.
 
+%package devel
+Summary: Header and object files for zebra development
+Group: System Environment/Daemons
+
+%description devel
+The zebra-devel package contains the header and object files neccessary for
+developing OSPF-API and zebra applications.
+
 %prep
 %setup  -q
 
 %build
+./update-autotools
 %configure \
 	--with-cflags="-O2" \
 	--enable-netlink \
@@ -226,7 +240,18 @@ fi
 %defattr(-,root,root)
 %doc tools
 
+%files devel
+%defattr(-,root,root)
+%dir %{_libdir}/*
+%dir %{_includedir}/ospfd/* 
+%dir %{_includedir}/ospfapi/*
+
 %changelog
+* Mon Mar 18 2003 Paul Jakma <paul@dishone.st>
+- Fix mem leak in 'show thread cpu'
+- Ralph Keller's OSPF-API
+- Amir: Fix configure.ac for net-snmp
+
 * Sat Mar 1 2003 Paul Jakma <paul@dishone.st>
 - ospfd IOS prefix to interface matching for 'network' statement
 - temporary fix for PtP and IPv6
