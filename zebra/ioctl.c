@@ -364,6 +364,7 @@ if_set_flags (struct interface *ifp, unsigned long flags)
   int ret;
   struct ifreq ifreq;
 
+  bzero(&ifreq, sizeof(struct ifreq));
   ifreq_set_name (&ifreq, ifp);
 
   ifreq.ifr_flags = ifp->flags;
@@ -386,6 +387,7 @@ if_unset_flags (struct interface *ifp, unsigned long flags)
   int ret;
   struct ifreq ifreq;
 
+  bzero(&ifreq, sizeof(struct ifreq));
   ifreq_set_name (&ifreq, ifp);
 
   ifreq.ifr_flags = ifp->flags;
@@ -488,6 +490,9 @@ if_prefix_add_ipv6 (struct interface *ifp, struct connected *ifc)
   mask.sin6_len = sizeof (struct sockaddr_in6);
 #endif
   memcpy (&addreq.ifra_prefixmask, &mask, sizeof (struct sockaddr_in6));
+
+  addreq.ifra_lifetime.ia6t_vltime = 0xffffffff;
+  addreq.ifra_lifetime.ia6t_pltime = 0xffffffff;
   
 #ifdef HAVE_IFRA_LIFETIME 
   addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME; 
