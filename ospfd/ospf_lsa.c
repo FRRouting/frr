@@ -2257,6 +2257,9 @@ ospf_discard_from_db (struct ospf *ospf,
 #ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
 #endif /* HAVE_OPAQUE_LSA */
+#ifdef HAVE_NSSA
+    case case OSPF_AS_NSSA_LSA:
+#endif /* HAVE_NSSA */
       ospf_ls_retransmit_delete_nbr_as (ospf, old);
       ospf_ase_unregister_external_lsa (old, ospf);
       break;
@@ -2666,9 +2669,13 @@ ospf_lsa_maxage_walker (struct thread *thread)
       LSDB_LOOP (OPAQUE_LINK_LSDB (area), rn, lsa)
 	ospf_lsa_maxage_walker_remover (ospf, lsa);
 #endif /* HAVE_OPAQUE_LSA */
+#ifdef HAVE_NSSA
+      LSDB_LOOP (NSSA_LSDB (area), rn, lsa)
+        ospf_lsa_maxage_walker_remover (ospf, lsa);
+#endif /* HAVE_NSSA */
     }
 
-  /* for AS-eternal-LSAs. */
+  /* for AS-external-LSAs. */
   if (ospf->lsdb)
     {
       LSDB_LOOP (EXTERNAL_LSDB (ospf), rn, lsa)
