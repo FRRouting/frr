@@ -1,13 +1,19 @@
 2002-12-13 Paul Jakma <paul@dishone.st>
 
 	* added support for vtysh 'write file' command to 
-	write either per-daamon and/or integrated file
+	  write either per-daamon and/or integrated file
 	* ospfd md5 buffer copying fix (Greg Troxel) 
 	* ospfd md5 sequence number derived from time()
 	* RIPv1 fixes and improvements (John Hay)
 	* link state detection (linux) ([zebra 12269])
 	* Generic PtP and RFC3021 interface addressing support
 	  (Frank van Maarseveen)
+	* Michal Ludvig <michal@logix.cz>:
+	  [zebra 16525] PATCH: Bugfixes for KAME systems
+	* Kevin C Miller <kevinm@andrew.cmu.edu>
+	  [zebra 16681] OSPF NSSA Patches
+	* Yon Uriarte <havanna_moon@gmx.net>
+	  [zebra 16671] [PATCH] CLI extensions
 
 2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
