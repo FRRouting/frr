@@ -908,7 +908,11 @@ ac_cv_htonl_works=yes,
 ac_cv_htonl_works=no)])
 AC_MSG_RESULT($ac_cv_htonl_works)
 
-AC_OUTPUT(Makefile lib/Makefile zebra/Makefile ripd/Makefile ripngd/Makefile bgpd/Makefile ospfd/Makefile ospf6d/Makefile vtysh/Makefile doc/Makefile ospfclient/Makefile)
+AC_OUTPUT(Makefile lib/Makefile zebra/Makefile ripd/Makefile 
+	  ripngd/Makefile bgpd/Makefile ospfd/Makefile 
+	  ospf6d/Makefile vtysh/Makefile doc/Makefile 
+	  ospfclient/Makefile
+	  redhat/zebra.spec)
 
 echo "
 zebra configuration
