@@ -16,9 +16,9 @@ sysconf_DATA = vtysh.conf.sample
 EXTRA_DIST = extract.pl vtysh.conf.sample
 
 rebuild4:
-	./extract.pl ../zebra/*.c ../ripd/*.c ../ospfd/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c ../lib/filter.c ../lib/plist.c ../lib/distribute.c > vtysh_cmd.c
+	./extract.pl ../zebra/*.c ../ripd/*.c ../ospfd/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c ../lib/filter.c ../lib/plist.c ../lib/distribute.c ../lib/if_rmap.c > vtysh_cmd.c
 
 rebuild:
-	./extract.pl ../zebra/*.c ../ripd/*.c ../ripngd/*.c ../ospfd/*.c ../ospf6d/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c ../lib/filter.c ../lib/plist.c ../lib/distribute.c > vtysh_cmd.c
+	./extract.pl ../zebra/*.c ../ripd/*.c ../ripngd/*.c ../ospfd/*.c ../ospf6d/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c ../lib/filter.c ../lib/plist.c ../lib/distribute.c ../lib/if_rmap.c > vtysh_cmd.c
 
 vtysh_cmd.c: rebuild

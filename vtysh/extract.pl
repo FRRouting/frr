@@ -108,6 +108,9 @@ foreach (@ARGV) {
                  $protocol = "VTYSH_RIPD";
               }
            }
+           if ($file =~ /if_rmap.c/) {
+              $protocol = "VTYSH_RIPNGD";
+           }
         } else {
            ($protocol) = ($file =~ /\/([a-z0-9]+)/);
            $protocol = "VTYSH_" . uc $protocol;

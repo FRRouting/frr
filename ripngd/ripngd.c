@@ -37,11 +37,11 @@
 #include "distribute.h"
 #include "plist.h"
 #include "routemap.h"
+#include "if_rmap.h"
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_route.h"
 #include "ripngd/ripng_debug.h"
-#include "ripngd/ripng_ifrmap.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
@@ -2520,7 +2520,7 @@ ripng_init ()
   route_map_add_hook (ripng_routemap_update);
   route_map_delete_hook (ripng_routemap_update);
 
-  if_rmap_init ();
+  if_rmap_init (RIPNG_NODE);
   if_rmap_hook_add (ripng_if_rmap_update);
   if_rmap_hook_delete (ripng_if_rmap_update);
 }

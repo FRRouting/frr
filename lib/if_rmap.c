@@ -25,7 +25,7 @@
 #include "command.h"
 #include "memory.h"
 #include "if.h"
-#include "ripng_ifrmap.h"
+#include "if_rmap.h"
 
 struct hash *ifrmaphash;
 
@@ -194,8 +194,8 @@ if_rmap_unset (char *ifname, enum if_rmap_type type, char *routemap_name)
   return 1;
 }
 
-DEFUN (ripng_if_rmap,
-       ripng_if_rmap_cmd,
+DEFUN (if_rmap,
+       if_rmap_cmd,
        "route-map RMAP_NAME (in|out) IFNAME",
        "Route map set\n"
        "Route map name\n"
@@ -221,8 +221,8 @@ DEFUN (ripng_if_rmap,
   return CMD_SUCCESS;
 }       
 
-DEFUN (no_ripng_if_rmap,
-       no_ripng_if_rmap_cmd,
+DEFUN (no_if_rmap,
+       no_if_rmap_cmd,
        "no route-map ROUTEMAP_NAME (in|out) IFNAME",
        NO_STR
        "Route map unset\n"
@@ -296,10 +296,11 @@ if_rmap_reset ()
 }
 
 void
-if_rmap_init (void)
+if_rmap_init (int node)
 {
   ifrmaphash = hash_create (if_rmap_hash_make, if_rmap_hash_cmp);
-
-  install_element (RIPNG_NODE, &ripng_if_rmap_cmd);
-  install_element (RIPNG_NODE, &no_ripng_if_rmap_cmd);
+  if (node == RIPNG_NODE) {
+    install_element (RIPNG_NODE, &if_rmap_cmd);
+    install_element (RIPNG_NODE, &no_if_rmap_cmd);
+  }
 }

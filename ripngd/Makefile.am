@@ -9,10 +9,10 @@ sbin_PROGRAMS = ripngd
 
 libripng_a_SOURCES = \
 	ripng_interface.c ripngd.c ripng_zebra.c ripng_route.c ripng_debug.c \
-	ripng_routemap.c ripng_ifrmap.c
+	ripng_routemap.c
 
 noinst_HEADERS = \
-	ripng_debug.h ripng_route.h ripngd.h ripng_ifrmap.h
+	ripng_debug.h ripng_route.h ripngd.h
 
 ripngd_SOURCES = \
 	ripng_main.c $(libripng_a_SOURCES)
