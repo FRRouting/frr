@@ -617,7 +617,6 @@ ospf_flood_through_as (struct ospf *ospf, struct ospf_neighbor *inbr,
 {
   listnode node;
   int lsa_ack_flag;
-  struct as_external_lsa *extlsa;
 
   lsa_ack_flag = 0;
 
@@ -642,7 +641,6 @@ ospf_flood_through_as (struct ospf *ospf, struct ospf_neighbor *inbr,
     {
       int continue_flag = 0;
       struct ospf_area *area = getdata (node);
-      struct in_addr fwd;
       listnode if_node;
 
       switch (area->external_routing)
