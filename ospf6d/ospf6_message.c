@@ -147,7 +147,7 @@ ospf6_lsreq_print (struct ospf6_header *oh)
       inet_ntop (AF_INET, &e->adv_router, adv_router, sizeof (adv_router));
       inet_ntop (AF_INET, &e->id, id, sizeof (id));
       zlog_info ("    [%s Id:%s Adv:%s]",
-                 OSPF6_LSTYPE_NAME (e->type), id, adv_router);
+                 ospf6_lstype_name (e->type), id, adv_router);
     }
 
   if (p != OSPF6_MESSAGE_END (oh))
@@ -937,7 +937,7 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
               inet_ntop (AF_INET, &e->adv_router, adv_router,
                      sizeof (adv_router));
               zlog_info ("Can't find requested [%s Id:%s Adv:%s]",
-                         OSPF6_LSTYPE_NAME (e->type), id, adv_router);
+                         ospf6_lstype_name (e->type), id, adv_router);
             }
           thread_add_event (master, bad_lsreq, on, 0);
           return;
@@ -1752,9 +1752,6 @@ ospf6_lsupdate_send_interface (struct thread *thread)
   if (oi->lsupdate_list->count == 0)
     return 0;
 
-  if (IS_OSPF6_DEBUG_LSA (SEND))
-    zlog_info ("LSA Send to %s", oi->interface->name);
-
   memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
   lsupdate = (struct ospf6_lsupdate *)((caddr_t) oh +
@@ -1772,9 +1769,6 @@ ospf6_lsupdate_send_interface (struct thread *thread)
           ospf6_lsa_unlock (lsa);
           break;
         }
-
-      if (IS_OSPF6_DEBUG_LSA (SEND))
-        ospf6_lsa_header_print (lsa);
 
       ospf6_lsa_age_update_to_send (lsa, oi->transdelay);
       memcpy (p, lsa->header, OSPF6_LSA_SIZE (lsa->header));

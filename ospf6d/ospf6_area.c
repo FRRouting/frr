@@ -59,6 +59,12 @@ ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
     {
     case OSPF6_LSTYPE_ROUTER:
     case OSPF6_LSTYPE_NETWORK:
+      if (IS_OSPF6_DEBUG_EXAMIN_TYPE (lsa->header->type))
+        {
+          zlog_info ("Examin %s", lsa->name);
+          zlog_info ("Schedule SPF Calculation for %s",
+                     OSPF6_AREA (lsa->lsdb->data)->name);
+        }
       ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));
       break;
 
@@ -72,9 +78,6 @@ ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
       break;
 
     default:
-      if (IS_OSPF6_DEBUG_LSA (RECV))
-	zlog_info ("Unknown LSA in Area %s's lsdb",
-                   OSPF6_AREA (lsa->lsdb->data)->name);
       break;
     }
 }
@@ -86,6 +89,12 @@ ospf6_area_lsdb_hook_remove (struct ospf6_lsa *lsa)
     {
     case OSPF6_LSTYPE_ROUTER:
     case OSPF6_LSTYPE_NETWORK:
+      if (IS_OSPF6_DEBUG_EXAMIN_TYPE (lsa->header->type))
+        {
+          zlog_info ("LSA disappearing: %s", lsa->name);
+          zlog_info ("Schedule SPF Calculation for %s",
+                     OSPF6_AREA (lsa->lsdb->data)->name);
+        }
       ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));
       break;
 
@@ -99,9 +108,6 @@ ospf6_area_lsdb_hook_remove (struct ospf6_lsa *lsa)
       break;
 
     default:
-      if (IS_OSPF6_DEBUG_LSA (RECV))
-	zlog_info ("Unknown LSA in Area %s's lsdb",
-                   OSPF6_AREA (lsa->lsdb->data)->name);
       break;
     }
 }

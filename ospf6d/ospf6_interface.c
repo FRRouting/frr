@@ -98,9 +98,6 @@ ospf6_interface_lsdb_hook (struct ospf6_lsa *lsa)
         break;
 
       default:
-        if (IS_OSPF6_DEBUG_LSA (RECV))
-          zlog_info ("Unknown LSA in Interface %s's lsdb",
-                     OSPF6_INTERFACE (lsa->lsdb->data)->interface->name);
         break;
     }
 }
@@ -143,8 +140,9 @@ ospf6_interface_create (struct interface *ifp)
   iobuflen = ospf6_iobuf_size (ifp->mtu6);
   if (oi->ifmtu > iobuflen)
     {
-      zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
-                 ifp->name, iobuflen);
+      if (IS_OSPF6_DEBUG_INTERFACE)
+        zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
+                   ifp->name, iobuflen);
       oi->ifmtu = iobuflen;
     }
 
@@ -275,8 +273,9 @@ ospf6_interface_if_add (struct interface *ifp)
   iobuflen = ospf6_iobuf_size (ifp->mtu6);
   if (oi->ifmtu > iobuflen)
     {
-      zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
-                 ifp->name, iobuflen);
+      if (IS_OSPF6_DEBUG_INTERFACE)
+        zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
+                   ifp->name, iobuflen);
       oi->ifmtu = iobuflen;
     }
 
@@ -355,11 +354,11 @@ ospf6_interface_connected_route_update (struct interface *ifp)
       if (c->address->family != AF_INET6)
         continue;
 
-      CONTINUE_IF_ADDRESS_LINKLOCAL (c->address);
-      CONTINUE_IF_ADDRESS_UNSPECIFIED (c->address);
-      CONTINUE_IF_ADDRESS_LOOPBACK (c->address);
-      CONTINUE_IF_ADDRESS_V4COMPAT (c->address);
-      CONTINUE_IF_ADDRESS_V4MAPPED (c->address);
+      CONTINUE_IF_ADDRESS_LINKLOCAL (IS_OSPF6_DEBUG_INTERFACE, c->address);
+      CONTINUE_IF_ADDRESS_UNSPECIFIED (IS_OSPF6_DEBUG_INTERFACE, c->address);
+      CONTINUE_IF_ADDRESS_LOOPBACK (IS_OSPF6_DEBUG_INTERFACE, c->address);
+      CONTINUE_IF_ADDRESS_V4COMPAT (IS_OSPF6_DEBUG_INTERFACE, c->address);
+      CONTINUE_IF_ADDRESS_V4MAPPED (IS_OSPF6_DEBUG_INTERFACE, c->address);
 
       /* apply filter */
       if (oi->plist_name)
@@ -373,8 +372,9 @@ ospf6_interface_connected_route_update (struct interface *ifp)
           ret = prefix_list_apply (plist, (void *) c->address);
           if (ret == PREFIX_DENY)
             {
-              zlog_info ("%s on %s filtered by prefix-list %s ",
-                         buf, oi->interface->name, oi->plist_name);
+              if (IS_OSPF6_DEBUG_INTERFACE)
+                zlog_info ("%s on %s filtered by prefix-list %s ",
+                           buf, oi->interface->name, oi->plist_name);
               continue;
             }
         }

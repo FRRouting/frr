@@ -22,6 +22,15 @@
 #ifndef OSPF6_FLOOD_H
 #define OSPF6_FLOOD_H
 
+/* Debug option */
+extern unsigned char conf_debug_ospf6_flooding;
+#define OSPF6_DEBUG_FLOODING_ON() \
+  (conf_debug_ospf6_flooding = 1)
+#define OSPF6_DEBUG_FLOODING_OFF() \
+  (conf_debug_ospf6_flooding = 0)
+#define IS_OSPF6_DEBUG_FLOODING \
+  (conf_debug_ospf6_flooding)
+
 /* Function Prototypes */
 struct ospf6_lsdb *ospf6_get_scoped_lsdb (struct ospf6_lsa *lsa);
 struct ospf6_lsdb *ospf6_get_scoped_lsdb_self (struct ospf6_lsa *lsa);
@@ -48,6 +57,9 @@ void ospf6_flood (struct ospf6_neighbor *from, struct ospf6_lsa *lsa);
 void ospf6_receive_lsa (struct ospf6_neighbor *from,
                         struct ospf6_lsa_header *header);
 void ospf6_install_lsa (struct ospf6_lsa *lsa);
+
+int config_write_ospf6_debug_flood (struct vty *vty);
+void install_element_ospf6_debug_flood ();
 
 #endif /* OSPF6_FLOOD_H */
 

@@ -294,10 +294,6 @@ negotiation_done (struct thread *thread)
   for (lsa = ospf6_lsdb_head (on->ospf6_if->lsdb); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
-      if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        zlog_info ("Add copy of %s to %s of %s", lsa->name,
-                   (OSPF6_LSA_IS_MAXAGE (lsa) ? "retrans_list" :
-                    "summary_list"), on->name);
       if (OSPF6_LSA_IS_MAXAGE (lsa))
         {
           ospf6_increment_retrans_count (lsa);
@@ -311,10 +307,6 @@ negotiation_done (struct thread *thread)
   for (lsa = ospf6_lsdb_head (on->ospf6_if->area->lsdb); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
-      if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        zlog_info ("Add copy of %s to %s of %s", lsa->name,
-                   (OSPF6_LSA_IS_MAXAGE (lsa) ? "retrans_list" :
-                    "summary_list"), on->name);
       if (OSPF6_LSA_IS_MAXAGE (lsa))
         {
           ospf6_increment_retrans_count (lsa);
@@ -328,10 +320,6 @@ negotiation_done (struct thread *thread)
   for (lsa = ospf6_lsdb_head (on->ospf6_if->area->ospf6->lsdb); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
-      if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        zlog_info ("Add copy of %s to %s of %s", lsa->name,
-                   (OSPF6_LSA_IS_MAXAGE (lsa) ? "retrans_list" :
-                    "summary_list"), on->name);
       if (OSPF6_LSA_IS_MAXAGE (lsa))
         {
           ospf6_increment_retrans_count (lsa);

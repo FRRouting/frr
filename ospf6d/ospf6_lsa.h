@@ -23,21 +23,28 @@
 #define OSPF6_LSA_H
 
 /* Debug option */
-extern unsigned char conf_debug_ospf6_lsa;
-#define OSPF6_DEBUG_LSA_SEND      0x01
-#define OSPF6_DEBUG_LSA_RECV      0x02
-#define OSPF6_DEBUG_LSA_ORIGINATE 0x04
-#define OSPF6_DEBUG_LSA_TIMER     0x08
-#define OSPF6_DEBUG_LSA_DATABASE  0x10
-#define OSPF6_DEBUG_LSA_MEMORY    0x80
-#define OSPF6_DEBUG_LSA_ALL       0x9f
-#define OSPF6_DEBUG_LSA_DEFAULT   0x0f
-#define OSPF6_DEBUG_LSA_ON(level) \
-  (conf_debug_ospf6_lsa |= (level))
-#define OSPF6_DEBUG_LSA_OFF(level) \
-  (conf_debug_ospf6_lsa &= ~(level))
-#define IS_OSPF6_DEBUG_LSA(e) \
-  (conf_debug_ospf6_lsa & OSPF6_DEBUG_LSA_ ## e)
+#define OSPF6_LSA_DEBUG           0x01
+#define OSPF6_LSA_DEBUG_ORIGINATE 0x02
+#define OSPF6_LSA_DEBUG_EXAMIN    0x04
+#define OSPF6_LSA_DEBUG_FLOOD     0x08
+
+#define IS_OSPF6_DEBUG_LSA(name)                        \
+  (ospf6_lstype_debug (htons (OSPF6_LSTYPE_ ## name)) & \
+   OSPF6_LSA_DEBUG)
+#define IS_OSPF6_DEBUG_ORIGINATE(name)                  \
+  (ospf6_lstype_debug (htons (OSPF6_LSTYPE_ ## name)) & \
+   OSPF6_LSA_DEBUG_ORIGINATE)
+#define IS_OSPF6_DEBUG_EXAMIN(name)                     \
+  (ospf6_lstype_debug (htons (OSPF6_LSTYPE_ ## name)) & \
+   OSPF6_LSA_DEBUG_EXAMIN)
+#define IS_OSPF6_DEBUG_LSA_TYPE(type) \
+  (ospf6_lstype_debug (type) & OSPF6_LSA_DEBUG)
+#define IS_OSPF6_DEBUG_ORIGINATE_TYPE(type) \
+  (ospf6_lstype_debug (type) & OSPF6_LSA_DEBUG_ORIGINATE)
+#define IS_OSPF6_DEBUG_EXAMIN_TYPE(type) \
+  (ospf6_lstype_debug (type) & OSPF6_LSA_DEBUG_EXAMIN)
+#define IS_OSPF6_DEBUG_FLOOD_TYPE(type) \
+  (ospf6_lstype_debug (type) & OSPF6_LSA_DEBUG_FLOOD)
 
 /* LSA definition */
 
@@ -135,65 +142,60 @@ struct ospf6_lsa
 
 struct ospf6_lsa_handler
 {
-  u_int16_t type; /* network byte order */
+  u_int16_t type; /* host byte order */
   char *name;
   int (*show) (struct vty *, struct ospf6_lsa *);
+  u_char debug;
 };
 
-#define OSPF6_LSTYPE_INDEX(type) \
-  ((ntohs (type) & OSPF6_LSTYPE_FCODE_MASK) < OSPF6_LSTYPE_SIZE ? \
-   (ntohs (type) & OSPF6_LSTYPE_FCODE_MASK) : OSPF6_LSTYPE_UNKNOWN)
-#define OSPF6_LSTYPE_NAME(type) (ospf6_lstype_name (type))
-
 /* Macro for LSA Origination */
-/* void (CONTINUE_IF_...) (struct prefix *addr); */
-
-#define CONTINUE_IF_ADDRESS_LINKLOCAL(addr)\
+/* addr is (struct prefix *) */
+#define CONTINUE_IF_ADDRESS_LINKLOCAL(debug,addr)      \
   if (IN6_IS_ADDR_LINKLOCAL (&(addr)->u.prefix6))      \
     {                                                  \
       char buf[64];                                    \
       prefix2str (addr, buf, sizeof (buf));            \
-      if (IS_OSPF6_DEBUG_LSA (ORIGINATE))              \
+      if (debug)                                       \
         zlog_info ("Filter out Linklocal: %s", buf);   \
       continue;                                        \
     }
 
-#define CONTINUE_IF_ADDRESS_UNSPECIFIED(addr)          \
+#define CONTINUE_IF_ADDRESS_UNSPECIFIED(debug,addr)    \
   if (IN6_IS_ADDR_UNSPECIFIED (&(addr)->u.prefix6))    \
     {                                                  \
       char buf[64];                                    \
       prefix2str (addr, buf, sizeof (buf));            \
-      if (IS_OSPF6_DEBUG_LSA (ORIGINATE))              \
+      if (debug)                                       \
         zlog_info ("Filter out Unspecified: %s", buf); \
       continue;                                        \
     }
 
-#define CONTINUE_IF_ADDRESS_LOOPBACK(addr)             \
+#define CONTINUE_IF_ADDRESS_LOOPBACK(debug,addr)       \
   if (IN6_IS_ADDR_LOOPBACK (&(addr)->u.prefix6))       \
     {                                                  \
       char buf[64];                                    \
       prefix2str (addr, buf, sizeof (buf));            \
-      if (IS_OSPF6_DEBUG_LSA (ORIGINATE))              \
+      if (debug)                                       \
         zlog_info ("Filter out Loopback: %s", buf);    \
       continue;                                        \
     }
 
-#define CONTINUE_IF_ADDRESS_V4COMPAT(addr)             \
+#define CONTINUE_IF_ADDRESS_V4COMPAT(debug,addr)       \
   if (IN6_IS_ADDR_V4COMPAT (&(addr)->u.prefix6))       \
     {                                                  \
       char buf[64];                                    \
       prefix2str (addr, buf, sizeof (buf));            \
-      if (IS_OSPF6_DEBUG_LSA (ORIGINATE))              \
+      if (debug)                                       \
         zlog_info ("Filter out V4Compat: %s", buf);    \
       continue;                                        \
     }
 
-#define CONTINUE_IF_ADDRESS_V4MAPPED(addr)             \
+#define CONTINUE_IF_ADDRESS_V4MAPPED(debug,addr)       \
   if (IN6_IS_ADDR_V4MAPPED (&(addr)->u.prefix6))       \
     {                                                  \
       char buf[64];                                    \
       prefix2str (addr, buf, sizeof (buf));            \
-      if (IS_OSPF6_DEBUG_LSA (ORIGINATE))              \
+      if (debug)                                       \
         zlog_info ("Filter out V4Mapped: %s", buf);    \
       continue;                                        \
     }
@@ -201,6 +203,7 @@ struct ospf6_lsa_handler
 
 /* Function Prototypes */
 char *ospf6_lstype_name (u_int16_t type);
+u_char ospf6_lstype_debug (u_int16_t type);
 int ospf6_lsa_is_differ (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 int ospf6_lsa_is_changed (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 u_int16_t ospf6_lsa_age_current (struct ospf6_lsa *);
@@ -234,6 +237,7 @@ int ospf6_lsa_prohibited_duration (u_int16_t type, u_int32_t id,
 
 void ospf6_install_lsa_handler (struct ospf6_lsa_handler *handler);
 void ospf6_lsa_init ();
+void ospf6_lsa_cmd_init ();
 
 int config_write_ospf6_debug_lsa (struct vty *vty);
 void install_element_ospf6_debug_lsa ();

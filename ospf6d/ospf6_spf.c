@@ -160,7 +160,7 @@ ospf6_lsdesc_lsa (caddr_t lsdesc, struct ospf6_vertex *v)
         zlog_info ("  Link to: %s", lsa->name);
       else
         zlog_info ("  Link to: [%s Id:%s Adv:%s] No LSA",
-                   OSPF6_LSTYPE_NAME (type), ibuf, abuf);
+                   ospf6_lstype_name (type), ibuf, abuf);
     }
 
   return lsa;

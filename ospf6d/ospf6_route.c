@@ -720,7 +720,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
   inet_ntop (AF_INET, &route->path.origin.adv_router, adv_router,
              sizeof (adv_router));
   vty_out (vty, "LS Origin: %s Id: %s Adv: %s%s",
-           OSPF6_LSTYPE_NAME (route->path.origin.type),
+           ospf6_lstype_name (route->path.origin.type),
            id, adv_router, VNL);
 
   /* Options */

@@ -61,8 +61,6 @@ ospf6_top_lsdb_hook_add (struct ospf6_lsa *lsa)
         break;
 
       default:
-        if (IS_OSPF6_DEBUG_LSA (RECV))
-          zlog_info ("Unknown LSA in AS-scoped lsdb");
         break;
     }
 }
@@ -77,8 +75,6 @@ ospf6_top_lsdb_hook_remove (struct ospf6_lsa *lsa)
         break;
 
       default:
-        if (IS_OSPF6_DEBUG_LSA (RECV))
-          zlog_info ("Unknown LSA in AS-scoped lsdb");
         break;
     }
 }
@@ -216,8 +212,6 @@ ospf6_maxage_remover (struct thread *thread)
   listnode i, j, k;
 
   o->maxage_remover = (struct thread *) NULL;
-  if (IS_OSPF6_DEBUG_LSA (TIMER))
-    zlog_info ("Maxage Remover");
 
   for (i = listhead (o->area_list); i; nextnode (i))
     {
@@ -232,9 +226,6 @@ ospf6_maxage_remover (struct thread *thread)
                   on->state != OSPF6_NEIGHBOR_LOADING)
                 continue;
 
-              if (IS_OSPF6_DEBUG_LSA (TIMER))
-                zlog_info ("Maxage Remover End: %s exchange or loading",
-                           on->name);
               return 0;
             }
         }
@@ -251,9 +242,6 @@ ospf6_maxage_remover (struct thread *thread)
       OSPF6_LSDB_MAXAGE_REMOVER (oa->lsdb);
     }
   OSPF6_LSDB_MAXAGE_REMOVER (o->lsdb);
-
-  if (IS_OSPF6_DEBUG_LSA (TIMER))
-    zlog_info ("Maxage Remover End");
 
   return 0;
 }

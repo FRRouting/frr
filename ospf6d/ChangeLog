@@ -1,3 +1,10 @@
+2004-09-02  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* *.[ch]: Logging LSAs of particular type is added.
+	lsa_handler is now using vector in order to adjust
+	existing LSA modules.
+	* ospf6d.h: version 0.9.7l
+
 2004-08-28  Hasso Tepper  <hasso at quagga.net>
 
 	* ospf6_main.c: Modify for sigevents.

@@ -41,10 +41,10 @@ struct ospf6_lsdb
       {                                                                  \
         if (! OSPF6_LSA_IS_MAXAGE (lsa))                                 \
           continue;                                                      \
-        if (lsa->retrans_count != 0)                                         \
+        if (lsa->retrans_count != 0)                                     \
           continue;                                                      \
-        if (IS_OSPF6_DEBUG_LSA (TIMER))                                  \
-          zlog_info (" remove maxage %s", lsa->name);                    \
+        if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type))                 \
+          zlog_info ("Remove MaxAge %s", lsa->name);                     \
         ospf6_lsdb_remove (lsa, lsdb);                                   \
       }                                                                  \
   } while (0)

@@ -41,6 +41,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_asbr.h"
 #include "ospf6_abr.h"
+#include "ospf6_flood.h"
 #include "ospf6d.h"
 
 char ospf6_daemon_version[] = OSPF6_DAEMON_VERSION;
@@ -111,6 +112,7 @@ config_write_ospf6_debug (struct vty *vty)
   config_write_ospf6_debug_route (vty);
   config_write_ospf6_debug_asbr (vty);
   config_write_ospf6_debug_abr (vty);
+  config_write_ospf6_debug_flood (vty);
   vty_out (vty, "!%s", VNL);
   return 0;
 }
@@ -1717,6 +1719,18 @@ ALIAS (show_ipv6_ospf6_border_routers,
 void
 ospf6_init ()
 {
+  ospf6_top_init ();
+  ospf6_area_init ();
+  ospf6_interface_init ();
+  ospf6_neighbor_init ();
+  ospf6_zebra_init ();
+
+  ospf6_lsa_init ();
+  ospf6_spf_init ();
+  ospf6_intra_init ();
+  ospf6_asbr_init ();
+  ospf6_abr_init ();
+
   install_node (&debug_node, config_write_ospf6_debug);
 
   install_element_ospf6_debug_message ();
@@ -1728,6 +1742,7 @@ ospf6_init ()
   install_element_ospf6_debug_route ();
   install_element_ospf6_debug_asbr ();
   install_element_ospf6_debug_abr ();
+  install_element_ospf6_debug_flood ();
 
   install_element (VIEW_NODE, &show_version_ospf6_cmd);
   install_element (ENABLE_NODE, &show_version_ospf6_cmd);
@@ -1817,18 +1832,6 @@ ospf6_init ()
   INSTALL (ENABLE, database_type_self_originated_linkstate_id_detail_cmd);
   INSTALL (ENABLE, database_type_id_self_originated_cmd);
   INSTALL (ENABLE, database_type_id_self_originated_detail_cmd);
-
-  ospf6_top_init ();
-  ospf6_area_init ();
-  ospf6_interface_init ();
-  ospf6_neighbor_init ();
-  ospf6_zebra_init ();
-
-  ospf6_lsa_init ();
-  ospf6_spf_init ();
-  ospf6_intra_init ();
-  ospf6_asbr_init ();
-  ospf6_abr_init ();
 
   /* Make ospf protocol socket. */
   ospf6_serv_sock ();

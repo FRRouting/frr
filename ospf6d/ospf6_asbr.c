@@ -81,7 +81,7 @@ ospf6_as_external_lsa_originate (struct ospf6_route *route)
                            route->path.origin.id, ospf6->router_id,
                            ospf6->lsdb);
 
-  if (IS_OSPF6_DEBUG_LSA (ORIGINATE))
+  if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE (AS_EXTERNAL))
     {
       prefix2str (&route->prefix, buf, sizeof (buf));
       zlog_info ("Originate AS-External-LSA for %s", buf);
@@ -175,19 +175,19 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
   external = (struct ospf6_as_external_lsa *)
     OSPF6_LSA_HEADER_END (lsa->header);
 
-  if (IS_OSPF6_DEBUG_ASBR)
+  if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
     zlog_info ("Calculate AS-External route for %s", lsa->name);
 
   if (lsa->header->adv_router == ospf6->router_id)
     {
-      if (IS_OSPF6_DEBUG_ASBR)
+      if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
         zlog_info ("Ignore self-originated AS-External-LSA");
       return;
     }
 
   if (OSPF6_ASBR_METRIC (external) == LS_INFINITY)
     {
-      if (IS_OSPF6_DEBUG_ASBR)
+      if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
         zlog_info ("Ignore LSA with LSInfinity Metric");
       return;
     }
@@ -196,7 +196,7 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
   asbr_entry = ospf6_route_lookup (&asbr_id, ospf6->brouter_table);
   if (asbr_entry == NULL)
     {
-      if (IS_OSPF6_DEBUG_ASBR)
+      if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
         {
           prefix2str (&asbr_id, buf, sizeof (buf));
           zlog_info ("ASBR entry not found: %s", buf);
@@ -234,7 +234,7 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
   for (i = 0; i < OSPF6_MULTI_PATH_LIMIT; i++)
     ospf6_nexthop_copy (&route->nexthop[i], &asbr_entry->nexthop[i]);
 
-  if (IS_OSPF6_DEBUG_ASBR)
+  if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
     {
       prefix2str (&route->prefix, buf, sizeof (buf));
       zlog_info ("AS-External route add: %s", buf);
@@ -254,12 +254,12 @@ ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa)
   external = (struct ospf6_as_external_lsa *)
     OSPF6_LSA_HEADER_END (lsa->header);
 
-  if (IS_OSPF6_DEBUG_ASBR)
+  if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
     zlog_info ("Withdraw AS-External route for %s", lsa->name);
 
   if (lsa->header->adv_router == ospf6->router_id)
     {
-      if (IS_OSPF6_DEBUG_ASBR)
+      if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
         zlog_info ("Ignore self-originated AS-External-LSA");
       return;
     }
@@ -272,7 +272,7 @@ ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa)
   route = ospf6_route_lookup (&prefix, ospf6->route_table);
   if (route == NULL)
     {
-      if (IS_OSPF6_DEBUG_ASBR)
+      if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
         {
           prefix2str (&prefix, buf, sizeof (buf));
           zlog_info ("AS-External route %s not found", buf);
@@ -293,7 +293,7 @@ ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa)
       if (route->path.origin.adv_router != lsa->header->adv_router)
         continue;
 
-      if (IS_OSPF6_DEBUG_ASBR)
+      if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
         {
           prefix2str (&route->prefix, buf, sizeof (buf));
           zlog_info ("AS-External route remove: %s", buf);
@@ -310,7 +310,7 @@ ospf6_asbr_lsentry_add (struct ospf6_route *asbr_entry)
   u_int16_t type;
   u_int32_t router;
 
-  if (IS_OSPF6_DEBUG_ASBR)
+  if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
     {
       ospf6_linkstate_prefix2str (&asbr_entry->prefix, buf, sizeof (buf));
       zlog_info ("New ASBR %s found", buf);
@@ -325,7 +325,7 @@ ospf6_asbr_lsentry_add (struct ospf6_route *asbr_entry)
         ospf6_asbr_lsa_add (lsa);
     }
 
-  if (IS_OSPF6_DEBUG_ASBR)
+  if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
     {
       ospf6_linkstate_prefix2str (&asbr_entry->prefix, buf, sizeof (buf));
       zlog_info ("Calculation for new ASBR %s done", buf);
@@ -340,7 +340,7 @@ ospf6_asbr_lsentry_remove (struct ospf6_route *asbr_entry)
   u_int16_t type;
   u_int32_t router;
 
-  if (IS_OSPF6_DEBUG_ASBR)
+  if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
     {
       ospf6_linkstate_prefix2str (&asbr_entry->prefix, buf, sizeof (buf));
       zlog_info ("ASBR %s disappeared", buf);
@@ -352,7 +352,7 @@ ospf6_asbr_lsentry_remove (struct ospf6_route *asbr_entry)
        lsa; lsa = ospf6_lsdb_type_router_next (type, router, lsa))
     ospf6_asbr_lsa_remove (lsa);
 
-  if (IS_OSPF6_DEBUG_ASBR)
+  if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
     {
       ospf6_linkstate_prefix2str (&asbr_entry->prefix, buf, sizeof (buf));
       zlog_info ("Calculation for old ASBR %s done", buf);
