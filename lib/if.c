@@ -245,13 +245,11 @@ if_lookup_address (struct in_addr src)
   listnode node;
   struct prefix addr;
   struct prefix best;
-  struct prefix peer;
   listnode cnode;
   struct interface *ifp;
   struct prefix *p;
   struct connected *c;
   struct interface *match;
-  int prefixlen;
 
   /* Zero structures - get rid of rubbish from stack */
   memset(&addr, 0, sizeof(addr));
@@ -270,24 +268,34 @@ if_lookup_address (struct in_addr src)
       for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
 	{
 	  c = getdata (cnode);
-	  p = c->address;
 
-	  if (p->family == AF_INET)
+	  if (if_is_pointopoint (ifp))
 	    {
-	      prefixlen = p->prefixlen;
+	      p = c->address;
 
-	      if (if_is_pointopoint (ifp) ||
-		  prefixlen >= IPV4_MAX_PREFIXLEN - 1)
+	      if (p && p->family == AF_INET)
 		{
-		  peer = *c->destination;
-		  peer.prefixlen = prefixlen;
-		  p = &peer;
+#ifdef OLD_RIB	 /* PTP  links are conventionally identified 
+		     by the address of the far end - MAG */
+		  if (IPV4_ADDR_SAME (&p->u.prefix4, &src))
+		    return ifp;
+#endif
+		  p = c->destination;
+		  if (p && IPV4_ADDR_SAME (&p->u.prefix4, &src))
+		    return ifp;
 		}
+	    }
+	  else
+	    {
+	      p = c->address;
 
-	      if (prefix_match (p, &addr) && prefixlen > best.prefixlen)
+	      if (p->family == AF_INET)
 		{
-		  best = *p;
-		  match = ifp;
+		  if (prefix_match (p, &addr) && p->prefixlen > best.prefixlen)
+		    {
+		      best = *p;
+		      match = ifp;
+		    }
 		}
 	    }
 	}

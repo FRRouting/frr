@@ -396,6 +396,106 @@ rip_if_ipv4_address_check (struct interface *ifp)
 						
   return count;
 }
+						
+						
+						
+
+/* Does this address belongs to me ? */
+int
+if_check_address (struct in_addr addr)
+{
+  listnode node;
+
+  for (node = listhead (iflist); node; nextnode (node))
+    {
+      listnode cnode;
+      struct interface *ifp;
+
+      ifp = getdata (node);
+
+      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+	{
+	  struct connected *connected;
+	  struct prefix_ipv4 *p;
+
+	  connected = getdata (cnode);
+	  p = (struct prefix_ipv4 *) connected->address;
+
+	  if (p->family != AF_INET)
+	    continue;
+
+	  if (IPV4_ADDR_CMP (&p->prefix, &addr) == 0)
+	    return 1;
+	}
+    }
+  return 0;
+}
+
+/* is this address from a valid neighbor? (RFC2453 - Sec. 3.9.2) */
+int
+if_valid_neighbor (struct in_addr addr)
+{
+  listnode node;
+  struct connected *connected = NULL;
+  struct prefix_ipv4 *p;
+
+  for (node = listhead (iflist); node; nextnode (node))
+    {
+      listnode cnode;
+      struct interface *ifp;
+
+      ifp = getdata (node);
+
+      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+	{
+	  struct prefix *pxn = NULL; /* Prefix of the neighbor */
+	  struct prefix *pxc = NULL; /* Prefix of the connected network */
+
+	  connected = getdata (cnode);
+
+	  if (if_is_pointopoint (ifp))
+	    {
+	      p = (struct prefix_ipv4 *) connected->address;
+
+	      if (p && p->family == AF_INET)
+		{
+		  if (IPV4_ADDR_SAME (&p->prefix, &addr))
+		    return 1;
+
+		  p = (struct prefix_ipv4 *) connected->destination;
+		  if (p && IPV4_ADDR_SAME (&p->prefix, &addr))
+		    return 1;
+		}
+	    }
+	  else
+	    {
+	      p = (struct prefix_ipv4 *) connected->address;
+
+	      if (p->family != AF_INET)
+		continue;
+
+	      pxn = prefix_new();
+	      pxn->family = AF_INET;
+	      pxn->prefixlen = 32;
+	      pxn->u.prefix4 = addr;
+	      
+	      pxc = prefix_new();
+	      prefix_copy(pxc, (struct prefix *) p);
+	      apply_mask(pxc);
+	  
+	      if (prefix_match (pxc, pxn)) 
+		{
+		  prefix_free (pxn);
+		  prefix_free (pxc);
+		  return 1;
+		}
+	      prefix_free(pxc);
+	      prefix_free(pxn);
+	    }
+	}
+    }
+  return 0;
+}
 
 /* Inteface link down message processing. */
 int

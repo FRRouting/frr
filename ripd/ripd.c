@@ -1017,7 +1017,7 @@ rip_response_process (struct rip_packet *packet, int size,
   /* The datagram's IPv4 source address should be checked to see
      whether the datagram is from a valid neighbor; the source of the
      datagram must be on a directly connected network  */
-  if (if_lookup_address (from->sin_addr) == NULL)
+  if (! if_valid_neighbor (from->sin_addr)) 
     {
       zlog_info ("This datagram doesn't came from a valid neighbor: %s",
 		 inet_ntoa (from->sin_addr));
@@ -1602,7 +1602,7 @@ rip_read (struct thread *t)
     }
 
   /* Check is this packet comming from myself? */
-  if (if_lookup_exact_address (from.sin_addr)) 
+  if (if_check_address (from.sin_addr)) 
     {
       if (IS_RIP_DEBUG_PACKET)
 	zlog_warn ("ignore packet comes from myself");

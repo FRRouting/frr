@@ -714,7 +714,7 @@ ospf_network_match_iface(struct connected *co, struct prefix *net)
    *   PtP special case: network specified == iface peer addr -> ospf
    */
   return (
-          ((ifc_pointopoint (co) && 
+          ((if_is_pointopoint (co) && 
             IPV4_ADDR_SAME ( &(co->destination->u.prefix4), &(net->u.prefix4)))
    		  || prefix_match (net, co->address)) 
   		  ? 1 : 0
@@ -756,7 +756,7 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
           if (CHECK_FLAG(co->flags,ZEBRA_IFA_SECONDARY))
             continue;
 
-	  if (ifc_pointopoint (co))
+	  if (if_is_pointopoint (co))
 	    addr = co->destination;
 	  else 
 	    addr = co->address;

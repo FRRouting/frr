@@ -69,7 +69,7 @@ connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
   p.prefixlen = addr->prefixlen;
 
   /* Point-to-point check. */
-  if (ifc_pointopoint (ifc) && dest)
+  if (if_is_pointopoint (ifc) && dest)
     p.prefix = dest->prefix;
   else
     p.prefix = addr->prefix;
@@ -163,7 +163,7 @@ connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
   p.prefixlen = addr->prefixlen;
 
   /* Point-to-point check. */
-  if (dest && ifc_pointopoint (ifc))
+  if (dest && if_is_pointopoint (ifc))
     p.prefix = dest->prefix;
   else
     p.prefix = addr->prefix;
@@ -250,7 +250,7 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
   p.family = AF_INET6;
   p.prefixlen = addr->prefixlen;
 
-  if (ifc_pointopoint (ifc) && dest)
+  if (if_is_pointopoint (ifp) && dest)
     {
       if (IN6_IS_ADDR_UNSPECIFIED (&dest->prefix))
 	p.prefix = addr->prefix;
@@ -343,7 +343,7 @@ connected_down_ipv6 (struct interface *ifp, struct connected *ifc)
   p.family = AF_INET6;
   p.prefixlen = addr->prefixlen;
 
-  if (ifc_pointopoint (ifc) && dest)
+  if (if_is_pointopoint (ifp) && dest)
     {
       if (IN6_IS_ADDR_UNSPECIFIED (&dest->prefix))
 	p.prefix = addr->prefix;
