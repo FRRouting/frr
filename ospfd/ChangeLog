@@ -1,3 +1,8 @@
+2005-02-19 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_packet.c: (ospf_stream_copy) remove
+	  (ospf_packet_dup) use stream_copy instead of ospf_stream_copy
+
 2005-02-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_packet.c: (ospf_recv_packet) If there is somehow a runt

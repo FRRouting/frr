@@ -214,17 +214,6 @@ ospf_packet_delete (struct ospf_interface *oi)
     ospf_packet_free (op);
 }
 
-struct stream *
-ospf_stream_copy (struct stream *new, struct stream *s)
-{
-  new->endp = s->endp;
-  new->getp = s->getp;
-
-  memcpy (new->data, s->data, stream_get_endp (s));
-
-  return new;
-}
-
 struct ospf_packet *
 ospf_packet_dup (struct ospf_packet *op)
 {
@@ -236,7 +225,7 @@ ospf_packet_dup (struct ospf_packet *op)
 
   /* Reserve space for MD5 authentication that may be added later. */
   new = ospf_packet_new (stream_get_endp(op->s) + OSPF_AUTH_MD5_SIZE);
-  ospf_stream_copy (new->s, op->s);
+  stream_copy (new->s, op->s);
 
   new->dst = op->dst;
   new->length = op->length;
