@@ -831,6 +831,37 @@ AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$ac_piddir/bgpd.pid",bgpd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$ac_piddir/ospfd.pid",ospfd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$ac_piddir/ospf6d.pid",ospf6d PID)
 
+dnl ------------------------------
+dnl set paths for socket files
+dnl ------------------------------
+if test "${prefix}" = "NONE"; then
+  ac_sock_prefix="";
+else
+  ac_sock_prefix=${prefix}
+fi
+if test "${localstatedir}" = '${prefix}/var'; then
+  AC_CACHE_CHECK(socket directory,ac_sockdir,
+  [for ZEBRA_SOCK_DIR in ${ac_sock_prefix}/var/run/zebra dnl
+                     ${ac_sock_prefix}/var/run	dnl
+                     ${ac_sock_prefix}/var/adm	dnl
+                     ${ac_sock_prefix}/tmp;      dnl
+  do
+    test -d $ZEBRA_SOCK_DIR && break
+  done
+  ac_sockdir=$ZEBRA_SOCK_DIR
+  if test ! -d $ZEBRA_SOCK_DIR ; then
+    echo "SOCKET DIRECTORY NOT FOUND!"
+  fi])
+else
+  ac_sockdir="`eval echo ${localstatedir}`"
+fi
+AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$ac_sockdir/zserv.api",zebra api socket)
+AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$ac_sockdir/zebra.vty",zebra vty socket)
+AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$ac_sockdir/ripd.vty",rip vty socket)
+AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$ac_sockdir/ripngd.vty",ripng vty socket)
+AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$ac_sockdir/bgpd.vty",bgpd vty socket)
+AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$ac_sockdir/ospfd.vty",ospfd vty socket)
+AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$ac_sockdir/ospf6d.vty",ospf6d vty socket)
 
 dnl ---------------------------
 dnl Check htonl works correctly
