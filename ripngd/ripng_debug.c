@@ -36,7 +36,7 @@ DEFUN (show_debugging_ripng,
        "RIPng configuration\n"
        "Debugging information\n")
 {
-  vty_out (vty, "Zebra debugging status:%s", VTY_NEWLINE);
+  vty_out (vty, "RIPng debugging status:%s", VTY_NEWLINE);
 
   if (IS_RIPNG_DEBUG_EVENT)
     vty_out (vty, "  RIPng event debugging is on%s", VTY_NEWLINE);

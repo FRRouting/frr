@@ -1393,7 +1393,7 @@ DEFUN (show_debugging_ospf,
 {
   int i;
 
-  vty_out (vty, "Zebra debugging status:%s", VTY_NEWLINE);
+  vty_out (vty, "OSPF debugging status:%s", VTY_NEWLINE);
 
   /* Show debug status for ISM. */
   if (IS_DEBUG_OSPF (ism, ISM) == OSPF_DEBUG_ISM)

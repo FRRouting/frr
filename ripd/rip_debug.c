@@ -35,7 +35,7 @@ DEFUN (show_debugging_rip,
        DEBUG_STR
        RIP_STR)
 {
-  vty_out (vty, "Zebra debugging status:%s", VTY_NEWLINE);
+  vty_out (vty, "RIP debugging status:%s", VTY_NEWLINE);
 
   if (IS_RIP_DEBUG_EVENT)
     vty_out (vty, "  RIP event debugging is on%s", VTY_NEWLINE);
