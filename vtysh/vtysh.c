@@ -1040,6 +1040,8 @@ vtysh_exit (struct vty *vty)
     case RMAP_NODE:
     case VTY_NODE:
     case KEYCHAIN_NODE:
+      vtysh_execute("end");
+      vtysh_execute("configure terminal");
       vty->node = CONFIG_NODE;
       break;
     case BGP_VPNV4_NODE:
