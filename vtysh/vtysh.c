@@ -695,7 +695,7 @@ vtysh_rl_describe ()
 int complete_status;
 
 char *
-command_generator (char *text, int state)
+command_generator (const char *text, int state)
 {
   vector vline;
   static char **matched = NULL;
@@ -730,7 +730,7 @@ new_completion (char *text, int start, int end)
 {
   char **matches;
 
-  matches = completion_matches (text, command_generator);
+  matches = rl_completion_matches (text, command_generator);
 
   if (matches)
     {
@@ -1348,7 +1348,7 @@ DEFUN (vtysh_write_memory,
        "Write running configuration to memory, network, or terminal\n"
        "Write configuration to the file (same as write file)\n")
 {
-  int ret;
+  int ret = CMD_SUCCESS;
   char line[] = "write memory\n";
   
   /* if integrated Zebra.conf explicitely set */
@@ -1371,7 +1371,7 @@ DEFUN (vtysh_write_memory,
 
   fprintf (stdout,"[OK]\n");
 
-  return CMD_SUCCESS;  
+  return ret;
 }
 
 ALIAS (vtysh_write_memory,
@@ -1686,10 +1686,10 @@ vtysh_connect_all()
 
 
 /* To disable readline's filename completion */
-int
-vtysh_completion_entry_function (int ignore, int invoking_key)
+char *
+vtysh_completion_entry_function (const char *ignore, int invoking_key)
 {
-  return 0;
+  return NULL;
 }
 
 void
