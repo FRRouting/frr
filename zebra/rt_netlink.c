@@ -123,6 +123,39 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
   return ret;
 }
 
+int set_netlink_blocking(struct nlsock *nl, int *flags)
+{
+
+  /* Change socket flags for blocking I/O.  */
+  if((*flags = fcntl(nl->sock, F_GETFL, 0)) < 0) 
+    {
+      zlog (NULL, LOG_ERR, "%s:%i F_GETFL error: %s", 
+              __FUNCTION__, __LINE__, strerror (errno));
+      return -1;
+    }
+  *flags &= ~O_NONBLOCK;
+  if(fcntl(nl->sock, F_SETFL, *flags) < 0) 
+    {
+      zlog (NULL, LOG_ERR, "%s:%i F_SETFL error: %s", 
+              __FUNCTION__, __LINE__, strerror (errno));
+      return -1;
+    }
+  return 0;
+}
+
+int set_netlink_nonblocking(struct nlsock *nl, int *flags)
+{  
+  /* Restore socket flags for nonblocking I/O */
+  *flags |= O_NONBLOCK;
+  if(fcntl(nl->sock, F_SETFL, *flags) < 0) 
+    {
+      zlog (NULL, LOG_ERR, "%s:%i F_SETFL error: %s", 
+              __FUNCTION__, __LINE__, strerror (errno));
+      return -1;
+    }
+  return 0;
+}
+
 /* Get type specified information from netlink. */
 static int
 netlink_request (int family, int type, struct nlsock *nl)
@@ -887,7 +920,19 @@ int
 interface_lookup_netlink ()
 {
   int ret;
-
+  int flags;
+  int snb_ret;
+ 
+  /* 
+   * Change netlink socket flags to blocking to ensure we get 
+   * a reply via nelink_parse_info
+   */ 
+  snb_ret = set_netlink_blocking(&netlink_cmd, &flags);
+  if(snb_ret < 0) 
+     zlog (NULL, LOG_WARNING, 
+             "%s:%i Warning: Could not set netlink socket to blocking.", 
+             __FUNCTION__, __LINE__);
+  
   /* Get interface information. */
   ret = netlink_request (AF_PACKET, RTM_GETLINK, &netlink_cmd);
   if (ret < 0)
@@ -914,6 +959,9 @@ interface_lookup_netlink ()
     return ret;
 #endif /* HAVE_IPV6 */
 
+  /* restore socket flags */   
+  if(snb_ret == 0)
+    set_netlink_nonblocking(&netlink_cmd, &flags);
   return 0;
 }
 
@@ -923,7 +971,19 @@ int
 netlink_route_read ()
 {
   int ret;
-
+  int flags;
+  int snb_ret;
+  
+  /* 
+   * Change netlink socket flags to blocking to ensure we get 
+   * a reply via nelink_parse_info
+   */ 
+  snb_ret = set_netlink_blocking(&netlink_cmd, &flags);
+  if(snb_ret < 0) 
+     zlog (NULL, LOG_WARNING, 
+             "%s:%i Warning: Could not set netlink socket to blocking.", 
+             __FUNCTION__, __LINE__);
+  
   /* Get IPv4 routing table. */
   ret = netlink_request (AF_INET, RTM_GETROUTE, &netlink_cmd);
   if (ret < 0)
@@ -942,6 +1002,9 @@ netlink_route_read ()
     return ret;
 #endif /* HAVE_IPV6 */
 
+  /* restore flags */
+  if(snb_ret == 0)
+    set_netlink_nonblocking(&netlink_cmd, &flags);
   return 0;
 }
 
@@ -1025,6 +1088,7 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
   struct iovec iov = { (void*) n, n->nlmsg_len };
   struct msghdr msg = {(void*) &snl, sizeof snl, &iov, 1, NULL, 0, 0};
   int flags = 0;
+  int snb_ret;
   
   memset (&snl, 0, sizeof snl);
   snl.nl_family = AF_NETLINK;
@@ -1052,17 +1116,11 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
    * Change socket flags for blocking I/O. 
    * This ensures we wait for a reply in netlink_parse_info().
    */
-  if((flags = fcntl(nl->sock, F_GETFL, 0)) < 0) 
-    {
-      zlog (NULL, LOG_ERR, "%s:%i F_GETFL error: %s", 
-              __FUNCTION__, __LINE__, strerror (errno));
-    }
-  flags &= ~O_NONBLOCK;
-  if(fcntl(nl->sock, F_SETFL, flags) < 0) 
-    {
-      zlog (NULL, LOG_ERR, "%s:%i F_SETFL error: %s", 
-              __FUNCTION__, __LINE__, strerror (errno));
-    }
+  snb_ret = set_netlink_blocking(nl, &flags);
+  if(snb_ret < 0) 
+     zlog (NULL, LOG_WARNING, 
+             "%s:%i Warning: Could not set netlink socket to blocking.", 
+             __FUNCTION__, __LINE__);
 
   /* 
    * Get reply from netlink socket. 
@@ -1071,12 +1129,8 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
   status = netlink_parse_info (netlink_talk_filter, nl);
   
   /* Restore socket flags for nonblocking I/O */
-  flags |= O_NONBLOCK;
-  if(fcntl(nl->sock, F_SETFL, flags) < 0) 
-    {
-      zlog (NULL, LOG_ERR, "%s:%i F_SETFL error: %s", 
-              __FUNCTION__, __LINE__, strerror (errno));
-    }
+  if(snb_ret == 0)
+     set_netlink_nonblocking(nl, &flags);
   
   return status;
 }
