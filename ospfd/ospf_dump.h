@@ -131,7 +131,7 @@ const char *ospf_if_name_string (struct ospf_interface *);
 void ospf_nbr_state_message (struct ospf_neighbor *, char *, size_t);
 char *ospf_options_dump (u_char);
 const char *ospf_timer_dump (struct thread *, char *, size_t);
-void ospf_ip_header_dump (struct stream *);
+void ospf_ip_header_dump (struct ip *);
 void ospf_packet_dump (struct stream *);
 void ospf_lsa_header_dump (struct lsa_header *);
 void debug_init ();

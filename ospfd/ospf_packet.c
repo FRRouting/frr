@@ -667,7 +667,7 @@ ospf_write (struct thread *thread)
   /* send final fragment (could be first) */
   sockopt_iphdrincl_swab_htosys (&iph);
   ret = sendmsg (ospf->fd, &msg, flags);
-  sockopt_iphdrincl_swab_htosys (&iph);
+  sockopt_iphdrincl_swab_systoh (&iph);
   
   if (ret < 0)
     zlog_warn ("*** sendmsg in ospf_write to %s failed with %s",
@@ -2015,6 +2015,8 @@ ospf_recv_packet (int fd, struct interface **ifp)
   
   sockopt_iphdrincl_swab_systoh (&iph);
   
+  ip_len = iph.ip_len;
+  
 #if !defined(GNU_LINUX) && (OpenBSD < 200311)
   /*
    * Kernel network code touches incoming IP header parameters,
@@ -2306,13 +2308,14 @@ ospf_read (struct thread *thread)
     }
     
   iph = (struct ip *) STREAM_DATA (ibuf);
-
+  sockopt_iphdrincl_swab_systoh (iph);
+  
   /* prepare for next packet. */
   ospf->t_read = thread_add_read (master, ospf_read, ospf, ospf->fd);
 
   /* IP Header dump. */
     if (IS_DEBUG_OSPF_PACKET(0, RECV))
-	    ospf_ip_header_dump (ibuf);
+	    ospf_ip_header_dump (iph);
 
   /* Self-originated packet should be discarded silently. */
   if (ospf_if_lookup_by_local_addr (ospf, NULL, iph->ip_src))

@@ -599,27 +599,20 @@ ospf_packet_ls_ack_dump (struct stream *s, u_int16_t length)
   stream_set_getp (s, sp);
 }
 
+/* Expects header to be in host order */
 void
-ospf_ip_header_dump (struct stream *s)
+ospf_ip_header_dump (struct ip *iph)
 {
-  u_int16_t length;
-  u_int16_t offset;
-  struct ip *iph;
-
-  iph = (struct ip *) STREAM_PNT (s);
-
-  sockopt_iphdrincl_swab_systoh (iph);
-  
   /* IP Header dump. */
   zlog_info ("ip_v %d", iph->ip_v);
   zlog_info ("ip_hl %d", iph->ip_hl);
   zlog_info ("ip_tos %d", iph->ip_tos);
-  zlog_info ("ip_len %d", length);
+  zlog_info ("ip_len %d", iph->ip_len);
   zlog_info ("ip_id %u", (u_int32_t) iph->ip_id);
-  zlog_info ("ip_off %u", (u_int32_t) offset);
+  zlog_info ("ip_off %u", (u_int32_t) iph->ip_off);
   zlog_info ("ip_ttl %d", iph->ip_ttl);
   zlog_info ("ip_p %d", iph->ip_p);
-  zlog_info ("ip_sum 0x%x", (u_int32_t) ntohs (iph->ip_sum));
+  zlog_info ("ip_sum 0x%x", (u_int32_t) iph->ip_sum);
   zlog_info ("ip_src %s",  inet_ntoa (iph->ip_src));
   zlog_info ("ip_dst %s", inet_ntoa (iph->ip_dst));
 }

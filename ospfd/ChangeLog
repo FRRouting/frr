@@ -1,3 +1,16 @@
+2004-10-11 Paul Jakma <paul@dishone.st>
+
+	* ospf_dump.c: (ospf_ip_header_dump) Assume header is in host order
+	  remove ntohs that should have dissappeared. Take struct ip
+	  as argument, caller has to know there's an IP header at start of
+	  stream anyway.
+	* ospf_dump.h: update declaration of ospf_ip_header_dump.
+	* ospf_packet.c: (ospf_write) correct call to 
+	  sockopt_iphdrincl_swab_htosys which was munging the header.
+	  (ospf_recv_packet) ip_len is needed for old OpenBSD fixup.
+	  (ospf_read) sockopt_iphdrincl_swab_systoh ip header as soon as
+	  we have it.
+	  
 2004-10-08 Hasso Tepper <hasso at quagga.net>
 	
 	* *.[c|h]: Fix compiler warnings: make some strings const, signed ->
