@@ -201,7 +201,7 @@ bgp_interface_address_add (int command, struct zclient *zclient,
 {
   struct connected *ifc;
 
-  ifc = zebra_interface_address_add_read (zclient->ibuf);
+  ifc = zebra_interface_address_read (command, zclient->ibuf);
 
   if (ifc == NULL)
     return 0;
@@ -220,7 +220,7 @@ bgp_interface_address_delete (int command, struct zclient *zclient,
 {
   struct connected *ifc;
 
-  ifc = zebra_interface_address_delete_read (zclient->ibuf);
+  ifc = zebra_interface_address_read (command, zclient->ibuf);
 
   if (ifc == NULL)
     return 0;
@@ -703,7 +703,8 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
 	  SET_FLAG (api.message, ZAPI_MESSAGE_DISTANCE);
 	  api.distance = distance;
 	}
-      zapi_ipv4_add (zclient, (struct prefix_ipv4 *) p, &api);
+      zapi_ipv4_route (ZEBRA_IPV4_ROUTE_ADD, zclient, 
+                       (struct prefix_ipv4 *) p, &api);
     }
 #ifdef HAVE_IPV6
   /* We have to think about a IPv6 link-local address curse. */
@@ -758,7 +759,8 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
 
-      zapi_ipv6_add (zclient, (struct prefix_ipv6 *) p, &api);
+      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, 
+                       (struct prefix_ipv6 *) p, &api);
     }
 #endif /* HAVE_IPV6 */
 }
@@ -805,7 +807,8 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info)
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
 
-      zapi_ipv4_delete (zclient, (struct prefix_ipv4 *) p, &api);
+      zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, 
+                       (struct prefix_ipv4 *) p, &api);
     }
 #ifdef HAVE_IPV6
   /* We have to think about a IPv6 link-local address curse. */
@@ -849,7 +852,8 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info)
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
 
-      zapi_ipv6_delete (zclient, (struct prefix_ipv6 *) p, &api);
+      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, 
+                       (struct prefix_ipv6 *) p, &api);
     }
 #endif /* HAVE_IPV6 */
 }

@@ -786,7 +786,8 @@ rip_interface_address_add (int command, struct zclient *zclient,
   struct connected *ifc;
   struct prefix *p;
 
-  ifc = zebra_interface_address_add_read (zclient->ibuf);
+  ifc = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_ADD, 
+                                      zclient->ibuf);
 
   if (ifc == NULL)
     return 0;
@@ -841,7 +842,8 @@ rip_interface_address_delete (int command, struct zclient *zclient,
   struct connected *ifc;
   struct prefix *p;
 
-  ifc = zebra_interface_address_delete_read (zclient->ibuf);
+  ifc = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_DELETE,
+                                      zclient->ibuf);
   
   if (ifc)
     {

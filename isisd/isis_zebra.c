@@ -171,7 +171,8 @@ isis_zebra_if_address_add (int command, struct zclient *zclient,
   struct prefix *p;
   u_char buf[BUFSIZ];
 
-  c = zebra_interface_address_add_read (zclient->ibuf);
+  c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_ADD, 
+                                    zclient->ibuf);
   
   if (c == NULL)
     return 0;
@@ -199,7 +200,8 @@ isis_zebra_if_address_del (int command, struct zclient *client,
   struct connected *c;
   struct interface *ifp;
 
-  c = zebra_interface_address_delete_read (zclient->ibuf);
+  c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_DELETE, 
+                                    zclient->ibuf);
   
   if (c == NULL)
     return 0;
@@ -293,7 +295,7 @@ isis_zebra_route_del_ipv4 (struct prefix *prefix,
     prefix4.family = AF_INET;
     prefix4.prefixlen = prefix->prefixlen;
     prefix4.prefix = prefix->u.prefix4;
-    zapi_ipv4_delete (zclient, &prefix4, &api);
+    zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, &prefix4, &api);
   }
   
   return;
@@ -370,7 +372,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
     prefix6.family = AF_INET6;
     prefix6.prefixlen = prefix->prefixlen;
     memcpy (&prefix6.prefix, &prefix->u.prefix6, sizeof (struct in6_addr));
-    zapi_ipv6_add (zclient, &prefix6, &api);
+    zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, &prefix6, &api);
     SET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC);
   }
   
@@ -444,7 +446,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
     prefix6.family = AF_INET6;
     prefix6.prefixlen = prefix->prefixlen;
     memcpy (&prefix6.prefix, &prefix->u.prefix6, sizeof (struct in6_addr));
-    zapi_ipv6_delete (zclient, &prefix6, &api);
+    zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, &prefix6, &api);
     UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC);
   }
   

@@ -1,3 +1,7 @@
+2004-05-08 Paul Jakma <paul@dishone.st>
+
+	* ripng_{interface,zebra}.c: sync with zclient changes
+
 2004-01-03  Greg Troxel  <gdt@ahi.ir.bbn.com>
 
 	* ripng_interface.c (ripng_multicast_join): If IPV6_JOIN_GROUP

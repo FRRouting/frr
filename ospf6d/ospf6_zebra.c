@@ -138,7 +138,7 @@ ospf6_zebra_if_address_update_add (int command, struct zclient *zclient,
   struct connected *c;
   char buf[128];
 
-  c = zebra_interface_address_add_read (zclient->ibuf);
+  c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_ADD, zclient->ibuf);
   if (c == NULL)
     return 0;
 
@@ -161,7 +161,7 @@ ospf6_zebra_if_address_update_delete (int command, struct zclient *zclient,
   struct connected *c;
   char buf[128];
 
-  c = zebra_interface_address_delete_read (zclient->ibuf);
+  c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_DELETE, zclient->ibuf);
   if (c == NULL)
     return 0;
 
@@ -568,12 +568,12 @@ ospf6_zebra_route_update (int type, struct ospf6_route_req *request)
 
   p = (struct prefix_ipv6 *) &request->route.prefix;
   if (type == REMOVE && nexthop_list->count == 1)
-    ret = zapi_ipv6_delete (zclient, p, &api);
+    ret = zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, p, &api);
   else
-    ret = zapi_ipv6_add (zclient, p, &api);
+    ret = zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, p, &api);
 
   if (ret < 0)
-    zlog_err ("ZEBRA: zapi_ipv6_add () failed: %s", strerror (errno));
+    zlog_err ("ZEBRA: zapi_ipv6_route () failed: %s", strerror (errno));
 
   for (linklist_head (nexthop_list, &node); !linklist_end (&node);
        linklist_next (&node))

@@ -1,3 +1,36 @@
+2004-05-08 Paul Jakma <paul@dishone.st>
+
+	* zclient.c (zapi_ipv4_route) Follow Sowmini's lead and describe
+	  message format.
+
+2004-05-08 Sowmini Varadhan <sowmini.varadhan@sun.com>
+
+	* zclient.c: (zapi_ipv4_add) collapsed into zapi_ipv4_route
+	  (zapi_ipv4_delete) ditto.
+	  (zapi_ipv4_route) add/delete a route by way of cmd arg.
+	  (zapi_ipv6_add) collapsed into zapi_ipv6_route.
+	  (zapi_ipv6_delete) ditto.
+	  (zapi_ipv6_route) add/delete a route by way of cmd arg.
+	  (zebra_interface_address_delete_read) collapsed into 
+	  zebra_interface_address_read.
+	  (zebra_interface_address_delete_read) ditto.
+	  (zebra_interface_address_read) read address add/delete messages
+	  by way of type argument. Describe command message format.
+	  (zebra_interface_add_read) Unconditionally read new ifmtu6 field.
+	  Describe command message format.
+	  (zebra_interface_state_read) Unconditionally read new ifmtu6 field.
+	  (zclient_redistribute_set) Collapsed into zclient_redistribute
+	  (zclient_redistribute_unset) ditto
+	  (zclient_redistribute) set/unset redistribution.
+	  (zclient_redistribute_default_set) Collapsed into
+	  zclient_redistribute_default.
+	  (zclient_redistribute_default_unset) ditto.
+	  (zclient_redistribute_default) Redistribute default set/unset.
+	* zclient.h: delete zapi_ipv{4,6}_add, zapi_ipv{4,6}_delete. Add
+	  zapi_ipv{4,6}_route. delete zclient_redistribute_set/unset. Add
+	  zclient_redistribute. Ditto for
+          zclient_redistribute_default_{set/unset}.
+          
 2004-05-08 Sowmini Varadhan <sowmini.varadhan@sun.com>
 
 	* if.h: Add mtu6 field to struct interface, IPv6 MTU may differ
@@ -8,7 +41,7 @@
 	  (if_dump) Dump mtu6 flag, for HAVE_IPV6.
 	* command.c: (sockunion_getsockname) use socklen_t for len.
 	  (sockunion_getpeername) ditto.
-	  
+	  	  
 2004-04-21 Boris Kovalenko <boris@tagnet.ru>
 
 	* daemon.c: (daemon) fix check for error return from setsid

@@ -66,7 +66,7 @@ rip_zebra_ipv4_add (struct prefix_ipv4 *p, struct in_addr *nexthop,
 	  api.distance = distance;
 	}
 
-      zapi_ipv4_add (zclient, p, &api);
+      zapi_ipv4_route (ZEBRA_IPV4_ROUTE_ADD, zclient, p, &api);
 
       rip_global_route_changes++;
     }
@@ -90,7 +90,7 @@ rip_zebra_ipv4_delete (struct prefix_ipv4 *p, struct in_addr *nexthop,
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = metric;
 
-      zapi_ipv4_delete (zclient, p, &api);
+      zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, p, &api);
 
       rip_global_route_changes++;
     }
@@ -331,7 +331,8 @@ DEFUN (rip_redistribute_type,
       if (strncmp (redist_type[i].str, argv[0], 
 		   redist_type[i].str_min_len) == 0) 
 	{
-	  zclient_redistribute_set (zclient, redist_type[i].type);
+	  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, 
+	                        redist_type[i].type);
 	  return CMD_SUCCESS;
 	}
     }
@@ -392,7 +393,7 @@ DEFUN (rip_redistribute_type_routemap,
 		redist_type[i].str_min_len) == 0) 
       {
 	rip_routemap_set (redist_type[i].type, argv[1]);
-	zclient_redistribute_set (zclient, redist_type[i].type);
+	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, redist_type[i].type);
 	return CMD_SUCCESS;
       }
   }
@@ -458,7 +459,7 @@ DEFUN (rip_redistribute_type_metric,
 		redist_type[i].str_min_len) == 0) 
       {
 	rip_redistribute_metric_set (redist_type[i].type, metric);
-	zclient_redistribute_set (zclient, redist_type[i].type);
+	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, redist_type[i].type);
 	return CMD_SUCCESS;
       }
   }
@@ -527,7 +528,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
       {
 	rip_redistribute_metric_set (redist_type[i].type, metric);
 	rip_routemap_set (redist_type[i].type, argv[2]);
-	zclient_redistribute_set (zclient, redist_type[i].type);
+	zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, redist_type[i].type);
 	return CMD_SUCCESS;
       }
   }

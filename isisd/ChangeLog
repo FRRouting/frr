@@ -1,3 +1,7 @@
+2004-05-08 Paul Jakma <paul@dishone.st>
+
+	* isis_zebra.c: Sync with zclient changes.
+
 2004-02-11 Hasso Tepper <hasso@estpak.ee>
   * many *.c files: Replace thread_add_xxx() and thread_cancel() with
     THREAD_XXX_ON and THREAD_XXX_OFF macros.

@@ -100,12 +100,6 @@ struct zapi_ipv4
   u_int32_t metric;
 };
 
-int
-zapi_ipv4_add (struct zclient *, struct prefix_ipv4 *, struct zapi_ipv4 *);
-
-int
-zapi_ipv4_delete (struct zclient *, struct prefix_ipv4 *, struct zapi_ipv4 *);
-
 /* Prototypes of zebra client service functions. */
 struct zclient *zclient_new (void);
 void zclient_free (struct zclient *);
@@ -116,19 +110,17 @@ void zclient_reset (struct zclient *);
 int zclient_socket ();
 int zclient_socket_un (char *);
 
-void zclient_redistribute_set (struct zclient *, int);
-void zclient_redistribute_unset (struct zclient *, int);
-
-void zclient_redistribute_default_set (struct zclient *);
-void zclient_redistribute_default_unset (struct zclient *);
+void zclient_redistribute (int, struct zclient *, int);
+void zclient_redistribute_default (int, struct zclient *);
 
 /* struct zebra *zebra_new (); */
 int zebra_redistribute_send (int, int, int);
 
 struct interface *zebra_interface_add_read (struct stream *);
 struct interface *zebra_interface_state_read (struct stream *s);
-struct connected *zebra_interface_address_add_read (struct stream *);
-struct connected *zebra_interface_address_delete_read (struct stream *);
+struct connected *zebra_interface_address_read (int, struct stream *);
+int zapi_ipv4_route (u_char, struct zclient *, struct prefix_ipv4 *, 
+                     struct zapi_ipv4 *);
 
 #ifdef HAVE_IPV6
 /* IPv6 prefix add and delete function prototype. */
@@ -152,13 +144,8 @@ struct zapi_ipv6
   u_int32_t metric;
 };
 
-int
-zapi_ipv6_add (struct zclient *zclient, struct prefix_ipv6 *p,
-	       struct zapi_ipv6 *api);
-int
-zapi_ipv6_delete (struct zclient *zclient, struct prefix_ipv6 *p,
-		  struct zapi_ipv6 *api);
-
+int zapi_ipv6_route (u_char cmd, struct zclient *zclient, 
+                     struct prefix_ipv6 *p, struct zapi_ipv6 *api);
 #endif /* HAVE_IPV6 */
 
 #endif /* _ZEBRA_ZCLIENT_H */

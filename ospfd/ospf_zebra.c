@@ -246,7 +246,7 @@ ospf_interface_address_add (int command, struct zclient *zclient,
   struct ospf *ospf;
   struct connected *c;
 
-  c = zebra_interface_address_add_read (zclient->ibuf);
+  c = zebra_interface_address_read (command, zclient->ibuf);
 
   if (c == NULL)
     return 0;
@@ -273,7 +273,7 @@ ospf_interface_address_delete (int command, struct zclient *zclient,
   struct route_node *rn;
   struct prefix p;
 
-  c = zebra_interface_address_delete_read (zclient->ibuf);
+  c = zebra_interface_address_read (command, zclient->ibuf);
 
   if (c == NULL)
     return 0;
@@ -436,7 +436,7 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
                          p->prefixlen);
             }
 
-          zapi_ipv4_delete (zclient, p, &api);
+          zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, p, &api);
 
           if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE) && api.nexthop_num)
             {
@@ -468,7 +468,7 @@ ospf_zebra_add_discard (struct prefix_ipv4 *p)
       api.nexthop_num = 0;
       api.ifindex_num = 0;
 
-      zapi_ipv4_add (zclient, p, &api);
+      zapi_ipv4_route (ZEBRA_IPV4_ROUTE_ADD, zclient, p, &api);
     }
 }
 
@@ -486,7 +486,7 @@ ospf_zebra_delete_discard (struct prefix_ipv4 *p)
       api.nexthop_num = 0;
       api.ifindex_num = 0;
 
-      zapi_ipv4_delete (zclient, p, &api);
+      zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, p, &api);
 
       if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
         zlog_info ("Zebra: Route delete discard %s/%d",
@@ -533,7 +533,7 @@ ospf_redistribute_set (struct ospf *ospf, int type, int mtype, int mvalue)
   ospf->dmetric[type].type = mtype;
   ospf->dmetric[type].value = mvalue;
 
-  zclient_redistribute_set (zclient, type);
+  zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, type);
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
     zlog_info ("Redistribute[%s]: Start  Type[%d], Metric[%d]",
@@ -554,7 +554,7 @@ ospf_redistribute_unset (struct ospf *ospf, int type)
   if (!ospf_is_type_redistributed (type))
     return CMD_SUCCESS;
 
-  zclient_redistribute_unset (zclient, type);
+  zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
     zlog_info ("Redistribute[%s]: Stop",
@@ -604,7 +604,7 @@ ospf_redistribute_default_set (struct ospf *ospf, int originate,
   ospf->dmetric[DEFAULT_ROUTE].type = mtype;
   ospf->dmetric[DEFAULT_ROUTE].value = mvalue;
 
-  zclient_redistribute_default_set (zclient);
+  zclient_redistribute_default (ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient);
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
     zlog_info ("Redistribute[DEFAULT]: Start  Type[%d], Metric[%d]",
@@ -632,7 +632,7 @@ ospf_redistribute_default_unset (struct ospf *ospf)
   ospf->dmetric[DEFAULT_ROUTE].type = -1;
   ospf->dmetric[DEFAULT_ROUTE].value = -1;
 
-  zclient_redistribute_default_unset (zclient);
+  zclient_redistribute_default (ZEBRA_REDISTRIBUTE_DEFAULT_DELETE, zclient);
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
     zlog_info ("Redistribute[DEFAULT]: Stop");
