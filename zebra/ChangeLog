@@ -1,3 +1,8 @@
+2004-11-25 Hasso Tepper <hasso at quagga.net>
+
+	* irdp_interface.c: Remove comment from DEFUN, it breaks vtysh because
+	  it confuses extract.pl.
+
 2004-10-28 Hasso Tepper <hasso at quagga.net>
 
 	* interface.c: Remove dead "ip tunnel" command.

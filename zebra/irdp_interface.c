@@ -548,16 +548,13 @@ DEFUN (ip_irdp_maxadvertinterval,
   return CMD_WARNING;
 }
 
+/* DEFUN needs to be fixed for negative ranages...
+ * "ip irdp preference <-2147483648-2147483647>",
+ * Be positive for now. :-)
+ */
+
 DEFUN (ip_irdp_preference,
        ip_irdp_preference_cmd,
-
-       /* DEFUN needs to be fixed for negative ranages...
-	  Be positive for now. :-)
-
-	  "ip irdp preference <-2147483648-2147483647>",
-	*/
-
-
        "ip irdp preference <0-2147483647>",
        IP_STR
        "ICMP Router discovery on this interface\n"
