@@ -8,4 +8,5 @@ rm -rf autom4te.cache
 aclocal
 autoheader
 autoconf
+libtoolize
 automake --foreign

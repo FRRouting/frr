@@ -48,6 +48,9 @@ struct zebra_t zebrad =
 pid_t old_pid;
 pid_t pid;
 
+/* Pacify zclient.o in libzebra, which expects this variable. */
+struct thread_master *master;
+
 /* Route retain mode flag. */
 int retain_mode = 0;
 

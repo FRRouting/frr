@@ -3,9 +3,9 @@
 INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 
-lib_LIBRARIES = libzebra.a
+lib_LTLIBRARIES = libzebra.la
 
-libzebra_a_SOURCES = \
+libzebra_la_SOURCES = \
 	version.c network.c pid_output.c getopt.c getopt1.c daemon.c \
 	print_version.c checksum.c vector.c linklist.c vty.c command.c \
 	sockunion.c prefix.c thread.c if.c memory.c buffer.c table.c hash.c \
@@ -13,9 +13,9 @@ libzebra_a_SOURCES = \
 	zclient.c sockopt.c smux.c md5.c if_rmap.c keychain.c privs.c \
 	debug.c sigevent.c pqueue.c
 
-libzebra_a_DEPENDENCIES = @LIB_REGEX@
+libzebra_la_DEPENDENCIES = @LIB_REGEX@
 
-libzebra_a_LIBADD = @LIB_REGEX@
+libzebra_la_LIBADD = @LIB_REGEX@
 
 pkginclude_HEADERS = \
 	buffer.h command.h filter.h getopt.h hash.h if.h linklist.h log.h \

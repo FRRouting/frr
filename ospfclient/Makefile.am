@@ -2,10 +2,10 @@
 
 INCLUDES = -I../lib -I../
 
-lib_LIBRARIES = libospfapiclient.a
+lib_LTLIBRARIES = libospfapiclient.la
 sbin_PROGRAMS = ospfclient
 
-libospfapiclient_a_SOURCES = \
+libospfapiclient_la_SOURCES = \
 	ospf_apiclient.c
 
 ospfapiheaderdir = $(pkgincludedir)/ospfapi
@@ -14,8 +14,9 @@ ospfapiheader_HEADERS = \
 	ospf_apiclient.h
 
 ospfclient_SOURCES = \
-	ospfclient.c $(libospfapiclient_a_SOURCES)
+	ospfclient.c
 
-ospfclient_LDADD = ../ospfd/libospf.a ../lib/libzebra.a @LIBCAP@
+ospfclient_LDADD = libospfapiclient.la \
+	-L../ospfd -lospf -L../lib -lzebra @LIBCAP@
 
 

@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.54 2004/06/30 14:25:12 gdt Exp $
+## $Id: configure.ac,v 1.55 2004/06/30 17:36:11 gdt Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(quagga, 0.96.5, [http://bugzilla.quagga.net])
@@ -63,6 +63,11 @@ dnl ---------
 dnl AIX check
 dnl ---------
 AC_AIX
+
+dnl -------
+dnl libtool
+dnl -------
+AM_PROG_LIBTOOL
 
 dnl ----------------------
 dnl Packages configuration

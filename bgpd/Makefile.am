@@ -24,7 +24,7 @@ noinst_HEADERS = \
 bgpd_SOURCES = \
 	bgp_main.c $(libbgp_a_SOURCES)
 
-bgpd_LDADD = ../lib/libzebra.a @LIBCAP@
+bgpd_LDADD = -L../lib -lzebra @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = bgpd.conf.sample bgpd.conf.sample2
