@@ -1,3 +1,8 @@
+2004-09-17 Paul Jakma <paul@dishone.st>
+
+	* vtysh.c: (vtysh_client_execute) trailling NULLs can be arbitrarily
+          split across reads, dont get confused by this and block forever.
+
 2004-09-13 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: extract.pl isnt in srcdir, it's always in the builddir.
