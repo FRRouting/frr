@@ -1,3 +1,12 @@
+2005-01-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* lib/command.h: Document behavior of argv_concat function.
+	* lib/command.c: (argv_concat) Calculate total string length first so
+	  we can call malloc just once (instead of realloc'ing to add each
+	  string element).
+	  (do_echo,config_logmsg) Allow for possible NULL return value from
+	  argv_concat.
+
 2005-01-23 Hasso Tepper <hasso at quagga.net>
 
 	* lib/command.[ch]: Make node_parent() function nonstatic. vtyh.c will

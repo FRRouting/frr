@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.35 2005/01/23 21:42:25 hasso Exp $
+   $Id: command.c,v 1.36 2005/01/28 20:28:35 ajs Exp $
 
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -157,31 +157,24 @@ char *
 argv_concat (const char **argv, int argc, int shift)
 {
   int i;
-  int len;
-  int index;
+  size_t len;
   char *str;
+  char *p;
 
-  str = NULL;
-  index = 0;
-
+  len = 0;
+  for (i = shift; i < argc; i++)
+    len += strlen(argv[i])+1;
+  if (!len)
+    return NULL;
+  p = str = XMALLOC(MTYPE_TMP, len);
   for (i = shift; i < argc; i++)
     {
-      len = strlen (argv[i]);
-
-      if (i == shift)
-	{
-	  str = XSTRDUP (MTYPE_TMP, argv[i]);
-	  index = len;
-	}
-      else
-	{
-	  str = XREALLOC (MTYPE_TMP, str, (index + len + 2));
-	  str[index++] = ' ';
-	  memcpy (str + index, argv[i], len);
-	  index += len;
-	  str[index] = '\0';
-	}
+      size_t arglen;
+      memcpy(p, argv[i], (arglen = strlen(argv[i])));
+      p += arglen;
+      *p++ = ' ';
     }
+  *(p-1) = '\0';
   return str;
 }
 
@@ -3008,8 +3001,10 @@ DEFUN_HIDDEN (do_echo,
 {
   char *message;
 
-  vty_out (vty, "%s%s",(message = argv_concat(argv, argc, 0)), VTY_NEWLINE);
-  XFREE(MTYPE_TMP, message);
+  vty_out (vty, "%s%s", ((message = argv_concat(argv, argc, 0)) ? message : ""),
+	   VTY_NEWLINE);
+  if (message)
+    XFREE(MTYPE_TMP, message);
   return CMD_SUCCESS;
 }
 
@@ -3026,8 +3021,9 @@ DEFUN (config_logmsg,
   if ((level = level_match(argv[0])) == ZLOG_DISABLED)
     return CMD_ERR_NO_MATCH;
 
-  zlog(NULL, level, (message = argv_concat(argv, argc, 1)));
-  XFREE(MTYPE_TMP, message);
+  zlog(NULL, level, ((message = argv_concat(argv, argc, 1)) ? message : ""));
+  if (message)
+    XFREE(MTYPE_TMP, message);
   return CMD_SUCCESS;
 }
 
