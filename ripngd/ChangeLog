@@ -1,3 +1,9 @@
+2003-05-25 Hasso Tepper <hasso@estpak.ee>
+  
+  * Revert ripng_ifrmap stuff because ripd uses it now as well.
+  * Merge ripngd part of 6Wind patch from Vincent Jardin 
+    <vjardin@wanadoo.fr>.
+
 2003-04-23 Hasso Tepper <hasso@estpak.ee>
 
 	* {ripng_ifrmap,ripngd}.c: fix "router xxx" node commands in vtysh
