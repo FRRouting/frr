@@ -867,32 +867,35 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 int
 bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, safi_t safi)
 {
-  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX)
-      && peer->pcount[afi][safi] > peer->pmax[afi][safi])
+  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
     {
-      zlog (peer->log, LOG_INFO,
-	    "MAXPFXEXCEED: No. of prefix received from %s (afi %d): %ld exceed limit %ld",
-	    peer->host, afi, peer->pcount[afi][safi], peer->pmax[afi][safi]);
-      if (! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
+      /* Once we should revert this for future work.  */
+      if (peer->pcount[afi][safi] >= peer->pmax[afi][safi])
 	{
-	  char ndata[7];
+	  zlog (peer->log, LOG_INFO,
+		"MAXPFXEXCEED: No. of prefix received from %s (afi %d): %ld exceed limit %ld", peer->host, afi, peer->pcount[afi][safi], peer->pmax[afi][safi]);
+	  if (! CHECK_FLAG (peer->af_flags[afi][safi],
+			    PEER_FLAG_MAX_PREFIX_WARNING))
+	    {
+	      char ndata[7];
 
-	  ndata[0] = (u_char)(afi >>  8);
-	  ndata[1] = (u_char) afi;
-	  ndata[3] = (u_char)(peer->pmax[afi][safi] >> 24);
-	  ndata[4] = (u_char)(peer->pmax[afi][safi] >> 16);
-	  ndata[5] = (u_char)(peer->pmax[afi][safi] >> 8);
-	  ndata[6] = (u_char)(peer->pmax[afi][safi]);
+	      ndata[0] = (u_char)(afi >>  8);
+	      ndata[1] = (u_char) afi;
+	      ndata[3] = (u_char)(peer->pmax[afi][safi] >> 24);
+	      ndata[4] = (u_char)(peer->pmax[afi][safi] >> 16);
+	      ndata[5] = (u_char)(peer->pmax[afi][safi] >> 8);
+	      ndata[6] = (u_char)(peer->pmax[afi][safi]);
 
-	  if (safi == SAFI_MPLS_VPN)
-	    safi = BGP_SAFI_VPNV4;
-	  ndata[2] = (u_char) safi;
+	      if (safi == SAFI_MPLS_VPN)
+		safi = BGP_SAFI_VPNV4;
+	      ndata[2] = (u_char) safi;
 
-	  SET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-	  bgp_notify_send_with_data (peer, BGP_NOTIFY_CEASE,
-				     BGP_NOTIFY_CEASE_MAX_PREFIX,
-				     ndata, 7);
-	  return 1;
+	      SET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
+	      bgp_notify_send_with_data (peer, BGP_NOTIFY_CEASE,
+					 BGP_NOTIFY_CEASE_MAX_PREFIX,
+					 ndata, 7);
+	      return 1;
+	    }
 	}
     }
   return 0;
