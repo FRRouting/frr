@@ -562,7 +562,7 @@ ospf_check_abr_status (struct ospf *ospf)
 
 void
 ospf_abr_update_aggregate (struct ospf_area_range *range,
-			   struct ospf_route *or)
+                           struct ospf_route *or)
 {
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("ospf_abr_update_aggregate(): Start");
@@ -570,23 +570,23 @@ ospf_abr_update_aggregate (struct ospf_area_range *range,
   if (range->cost_config != -1)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_abr_update_aggregate(): use configured cost %d",
-		   range->cost_config);
+        zlog_info ("ospf_abr_update_aggregate(): use configured cost %d",
+                   range->cost_config);
 
       range->cost = range->cost_config;
     }
   else
     {
       if (range->specifics == 0)
-	range->cost = or->cost; /* 1st time get 1st cost */
+        range->cost = or->cost; /* 1st time get 1st cost */
 
-      if (or->cost < range->cost)
-	{
-	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_abr_update_aggregate(): lowest cost, update");
+      if (or->cost > range->cost)
+        {
+          if (IS_DEBUG_OSPF_EVENT)
+            zlog_info ("ospf_abr_update_aggregate(): lowest cost, update");
 
-	  range->cost = or->cost;
-	}
+          range->cost = or->cost;
+        }
     }
 
   range->specifics++;

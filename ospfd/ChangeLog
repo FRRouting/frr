@@ -1,3 +1,9 @@
+2004-02-19 Sowmini Varadhan <sowmini.varadhan@sun.com>
+
+	* ospf_abr.c: (ospf_abr_update_aggregate) UNH 3.12b,c, address range
+	  should be configured with the highest cost path within the range,
+	  not lowest.
+	  
 2004-02-17 Paul Jakma <paul@dishone.st>
 
 	* ospf_zebra.c: (ospf_interface_delete) Do not delete the interface
