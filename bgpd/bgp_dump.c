@@ -130,8 +130,13 @@ bgp_dump_interval_add (struct bgp_dump *bgp_dump, int interval)
 {
   int bgp_dump_interval_func (struct thread *);
 
-  bgp_dump->t_interval = thread_add_timer (master, bgp_dump_interval_func, 
-					   bgp_dump, interval);
+  if (interval > 0 )
+    bgp_dump->t_interval = thread_add_timer (master, bgp_dump_interval_func, 
+					     bgp_dump, interval);
+  else
+    bgp_dump->t_interval = thread_add_event (master, bgp_dump_interval_func,
+    					     bgp_dump, 0);
+
   return 0;
 }
 
@@ -296,7 +301,6 @@ int
 bgp_dump_interval_func (struct thread *t)
 {
   struct bgp_dump *bgp_dump;
-
   bgp_dump = THREAD_ARG (t);
   bgp_dump->t_interval = NULL;
 
@@ -310,8 +314,11 @@ bgp_dump_interval_func (struct thread *t)
       bgp_dump_routes_func (AFI_IP6);
     }
 
-  bgp_dump_interval_add (bgp_dump, bgp_dump->interval);
-  
+  /* if interval is set reschedule */
+  if (bgp_dump->interval > 0)
+    bgp_dump_interval_add (bgp_dump, bgp_dump->interval);
+
+     
   return 0;
 }
 
@@ -475,10 +482,11 @@ int
 bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump, int type,
 	      char *path, char *interval_str)
 {
+  unsigned int interval;
+  
   if (interval_str)
     {
-      unsigned int interval;
-
+      
       /* Check interval string. */
       interval = bgp_dump_parse_time (interval_str);
       if (interval == 0)
@@ -491,10 +499,15 @@ bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump, int type,
       if (bgp_dump->interval_str)
 	free (bgp_dump->interval_str);
       bgp_dump->interval_str = strdup (interval_str);
-
-      /* Create interval thread. */
-      bgp_dump_interval_add (bgp_dump, interval);
+      
     }
+  else
+    {
+      interval = 0;
+    }
+    
+  /* Create interval thread. */
+  bgp_dump_interval_add (bgp_dump, interval);
 
   /* Set type. */
   bgp_dump->type = type;
