@@ -125,7 +125,6 @@ extern const char *ospf6_interface_state_str[];
 /* Function Prototypes */
 
 struct ospf6_interface *ospf6_interface_lookup_by_ifindex (int);
-struct ospf6_interface *ospf6_interface_lookup_by_name (char *);
 struct ospf6_interface *ospf6_interface_create (struct interface *);
 void ospf6_interface_delete (struct ospf6_interface *);
 

@@ -1,5 +1,10 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf_interface.h: (ospf_if_lookup_by_name) Remove declaration of a
+	  function that does not exist.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf_zebra.c: (zebra_interface_if_lookup) Must use
 	  if_lookup_by_name_len.
 

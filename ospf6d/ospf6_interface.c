@@ -71,20 +71,6 @@ ospf6_interface_lookup_by_ifindex (int ifindex)
   return oi;
 }
 
-struct ospf6_interface *
-ospf6_interface_lookup_by_name (char *ifname)
-{
-  struct ospf6_interface *oi;
-  struct interface *ifp;
-
-  ifp = if_lookup_by_name (ifname);
-  if (ifp == NULL)
-    return (struct ospf6_interface *) NULL;
-
-  oi = (struct ospf6_interface *) ifp->info;
-  return oi;
-}
-
 /* schedule routing table recalculation */
 void
 ospf6_interface_lsdb_hook (struct ospf6_lsa *lsa)

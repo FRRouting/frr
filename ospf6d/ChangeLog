@@ -1,5 +1,10 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf6_interface.[ch]: (ospf6_interface_lookup_by_name) Remove unused
+	  function.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf6_zebra.c: (ospf6_zebra_if_del) Previously, this whole function
 	  was commented out.  But this is not safe: we should at least update
 	  the ifindex when the interface is deleted.  So the new version
