@@ -96,11 +96,7 @@ foreach (@ARGV) {
               $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD";
            }
            if ($file =~ /filter.c/) {
-              if ($defun_array[1] =~ m/ipv6/) {
-                 $protocol = "VTYSH_ZEBRA|VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD";
-	      } else {
-                 $protocol = "VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
-              }
+              $protocol = "VTYSH_ALL";
            }
            if ($file =~ /plist.c/) {
 	      if ($defun_array[1] =~ m/ipv6/) {

@@ -1,3 +1,8 @@
+2004-10-13 Hasso Tepper <hasso at quagga.net>
+
+	* extract.pl.in: All daemons can use both IPv6 and IPv4 access lists
+	  to limit access to vty.
+
 2004-09-17 Paul Jakma <paul@dishone.st>
 
 	* vtysh.c: (vtysh_client_execute) fix the sync fix. The 4th and
