@@ -12,7 +12,7 @@ libripng_a_SOURCES = \
 	ripng_routemap.c ripng_offset.c ripng_peer.c ripng_nexthop.c
 
 noinst_HEADERS = \
-	ripng_debug.h ripng_route.h ripngd.h
+	ripng_debug.h ripng_route.h ripngd.h ripng_nexthop.h
 
 ripngd_SOURCES = \
 	ripng_main.c $(libripng_a_SOURCES)
