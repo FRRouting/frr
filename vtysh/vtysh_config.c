@@ -170,7 +170,7 @@ vtysh_config_parse_line (char *line)
 	    config = config_get (BGP_IPV4M_NODE, line);
 	  else if (strncmp (line, " address-family ipv6", strlen (" address-family ipv6")) == 0)
 	    config = config_get (BGP_IPV6_NODE, line);
-	  else if (config->index == RMAP_NODE)
+	  else if (config->index == RMAP_NODE || config->index == INTERFACE_NODE )
 	    config_add_line_uniq (config->line, line);
 	  else
 	    config_add_line (config->line, line);
@@ -183,8 +183,12 @@ vtysh_config_parse_line (char *line)
 	config = config_get (INTERFACE_NODE, line);
       else if (strncmp (line, "router rip", strlen ("router rip")) == 0)
 	config = config_get (RIP_NODE, line);
+      else if (strncmp (line, "router ripng", strlen ("router ripng")) == 0)
+   config = config_get (RIPNG_NODE, line);
       else if (strncmp (line, "router ospf", strlen ("router ospf")) == 0)
-	config = config_get (OSPF_NODE, line);
+   config = config_get (OSPF_NODE, line);
+      else if (strncmp (line, "router ospf6", strlen ("router ospf6")) == 0)
+   config = config_get (OSPF6_NODE, line);
       else if (strncmp (line, "router bgp", strlen ("router bgp")) == 0)
 	config = config_get (BGP_NODE, line);
       else if (strncmp (line, "router", strlen ("router")) == 0)
@@ -193,14 +197,20 @@ vtysh_config_parse_line (char *line)
 	config = config_get (RMAP_NODE, line);
       else if (strncmp (line, "access-list", strlen ("access-list")) == 0)
 	config = config_get (ACCESS_NODE, line);
+      else if (strncmp (line, "ipv6 access-list", strlen ("ipv6 access-list")) == 0)
+   config = config_get (ACCESS_IPV6_NODE, line);
       else if (strncmp (line, "ip prefix-list", strlen ("ip prefix-list")) == 0)
 	config = config_get (PREFIX_NODE, line);
+      else if (strncmp (line, "ipv6 prefix-list", strlen ("ipv6 prefix-list")) == 0)
+   config = config_get (PREFIX_IPV6_NODE, line);
       else if (strncmp (line, "ip as-path access-list", strlen ("ip as-path access-list")) == 0)
 	config = config_get (AS_LIST_NODE, line);
       else if (strncmp (line, "ip community-list", strlen ("ip community-list")) == 0)
 	config = config_get (COMMUNITY_LIST_NODE, line);
       else if (strncmp (line, "ip route", strlen ("ip route")) == 0)
 	config = config_get (IP_NODE, line);
+      else if (strncmp (line, "ipv6 route", strlen ("ipv6 route")) == 0)
+   	config = config_get (IP_NODE, line);
       else if (strncmp (line, "key", strlen ("key")) == 0)
 	config = config_get (KEYCHAIN_NODE, line);
       else
@@ -244,7 +254,8 @@ vtysh_config_parse (char *line)
    or not.  */
 #define NO_DELIMITER(I)  \
   ((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE \
-   || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE)
+   || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE || \
+   (I) == ACCESS_IPV6_NODE || (I) == PREFIX_IPV6_NODE)
 
 /* Display configuration to file pointer.  */
 void
