@@ -1,3 +1,7 @@
+2004-08-23 Paul Jakma <paul@dishone.st>
+
+	* zserv.c: (zebra_init) remove implicit ip forward enabling
+	
 2004-08-19 Paul Jakma <paul@dishone.st>
 
         * irdp_main.c: update to match sockopt renames.

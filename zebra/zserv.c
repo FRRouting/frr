@@ -1676,11 +1676,11 @@ DEFUN (no_ipv6_forwarding,
 int
 config_write_forwarding (struct vty *vty)
 {
-  if (! ipforward ())
-    vty_out (vty, "no ip forwarding%s", VTY_NEWLINE);
+  if (ipforward ())
+    vty_out (vty, "ip forwarding%s", VTY_NEWLINE);
 #ifdef HAVE_IPV6
-  if (! ipforward_ipv6 ())
-    vty_out (vty, "no ipv6 forwarding%s", VTY_NEWLINE);
+  if (ipforward_ipv6 ())
+    vty_out (vty, "ipv6 forwarding%s", VTY_NEWLINE);
 #endif /* HAVE_IPV6 */
   vty_out (vty, "!%s", VTY_NEWLINE);
   return 0;
@@ -1701,12 +1701,6 @@ zebra_init ()
 {
   /* Client list init. */
   zebrad.client_list = list_new ();
-
-  /* Forwarding is on by default. */
-  ipforward_on ();
-#ifdef HAVE_IPV6
-  ipforward_ipv6_on ();
-#endif /* HAVE_IPV6 */
 
   /* Make zebra server socket. */
 #ifdef HAVE_TCP_ZEBRA

@@ -1,5 +1,9 @@
 * Changes in Quagga 0.96.6
 
+- Zebra no longer enables forwarding by default. If you rely on zebra to
+  enable forwarding make sure to add '<ip|ip6> forwarding' statements
+  to your zebra configuration file.
+
 - All libraries are built and used shared, on platforms where libtool
   supports shared libraries.
 
