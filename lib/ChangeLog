@@ -1,3 +1,20 @@
+2004-07-14 Paul Jakma <paul@dishone.st>
+
+	* sigevent.c: (quagga_signal_handler) add a global caught flag, set
+	  the flags to a constant rather increment to be kinder. 
+	  (quagga_sigevent_process) new function, to do core of what
+	  quagga_signal_timer did. dont block signals at all as sig->caught
+	  is volatile sig_atomic_t and should be safe to access from signal
+	  and normal contexts. The signal blocking is unneeded paranoia, but
+	  is left intact under an ifdef, should some platform require it.
+	  Check global caught flag before iterating through array. 
+	  (quagga_signal_timer) nearly everything moved to
+	  quagga_sigevent_process. Left in under ifdef, in case some
+	  platform could use a regular timer check for signals.
+	* sigevent.h: quagga_sigevent_process declaration.
+	* thread.c: (thread_fetch) check for signals at beginning of 
+	  scheduler loop, check for signals if select returns EINTR.
+	 
 2004-07-13  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* sigevent.c: Don't block SIGTRAP and SIGKILL.  Blocking SIGTRAP

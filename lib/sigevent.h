@@ -23,6 +23,7 @@
 
 #ifndef _QUAGGA_SIGNAL_H
 #define _QUAGGA_SIGNAL_H
+
 #include <thread.h>
 
 #define QUAGGA_SIGNAL_TIMER_INTERVAL 2L
@@ -45,5 +46,8 @@ struct quagga_signal_t
  */
 void signal_init (struct thread_master *m, int sigc, 
                          struct quagga_signal_t *signals);
+
+/* check whether there are signals to handle, process any found */
+int quagga_sigevent_process (void);
 
 #endif /* _QUAGGA_SIGNAL_H */

@@ -28,6 +28,7 @@
 #include "log.h"
 #include "hash.h"
 #include "command.h"
+#include "sigevent.h"
 
 static struct hash *cpu_record = NULL;
 
@@ -748,23 +749,26 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
 
   while (1)
     {
-      /* Normal event is the highest priority.  */
+      /* Signals are highest priority */
+      quagga_sigevent_process ();
+       
+      /* Normal event are the next highest priority.  */
       if ((thread = thread_trim_head (&m->event)) != NULL)
-	return thread_run (m, thread, fetch);
+        return thread_run (m, thread, fetch);
 
       /* Execute timer.  */
       gettimeofday (&timer_now, NULL);
 
       for (thread = m->timer.head; thread; thread = thread->next)
-	if (timeval_cmp (timer_now, thread->u.sands) >= 0)
-	  {
-	    thread_list_delete (&m->timer, thread);
-	    return thread_run (m, thread, fetch);
-	  }
+        if (timeval_cmp (timer_now, thread->u.sands) >= 0)
+          {
+            thread_list_delete (&m->timer, thread);
+            return thread_run (m, thread, fetch);
+          }
 
       /* If there are any ready threads, process top of them.  */
       if ((thread = thread_trim_head (&m->ready)) != NULL)
-	return thread_run (m, thread, fetch);
+        return thread_run (m, thread, fetch);
 
       /* Structure copy.  */
       readfd = m->readfd;
@@ -777,16 +781,20 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       num = select (FD_SETSIZE, &readfd, &writefd, &exceptfd, timer_wait);
 
       if (num == 0)
-	continue;
+        continue;
 
       if (num < 0)
-	{
-	  if (errno == EINTR)
-	    continue;
+        {
+          if (errno == EINTR)
+            {
+              /* signal received */
+              quagga_sigevent_process ();
+              continue;
+            }
 
-	  zlog_warn ("select() error: %s", strerror (errno));
-	  return NULL;
-	}
+          zlog_warn ("select() error: %s", strerror (errno));
+            return NULL;
+        }
 
       /* Normal priority read thead. */
       ready = thread_process_fd (m, &m->read, &readfd, &m->readfd);
@@ -795,7 +803,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       ready = thread_process_fd (m, &m->write, &writefd, &m->writefd);
 
       if ((thread = thread_trim_head (&m->ready)) != NULL)
-	return thread_run (m, thread, fetch);
+        return thread_run (m, thread, fetch);
     }
 }
 

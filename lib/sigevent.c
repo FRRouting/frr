@@ -23,15 +23,16 @@
 #include <sigevent.h>
 #include <log.h>
 
+/* master signals descriptor struct */
 struct quagga_sigevent_master_t
 {
-  struct thread_master *tm;
   struct thread *t;
 
-  struct quagga_signal_t *signals;
+  struct quagga_signal_t *signals; 
   int sigc;
- 
-} sigmaster; 
+  
+  volatile sig_atomic_t caught;
+} sigmaster;
 
 /* Generic signal handler 
  * Schedules signal event thread
@@ -47,20 +48,22 @@ quagga_signal_handler (int signo)
       sig = &(sigmaster.signals[i]);
       
       if (sig->signal == signo)
-        sig->caught++;
+        sig->caught = 1;
     }
+  
+  sigmaster.caught = 1;
 } 
 
+/* check if signals have been caught and run appropriate handlers */
 int
-quagga_signal_timer (struct thread *t)
+quagga_sigevent_process (void)
 {
-  sigset_t newmask, oldmask;
-  struct quagga_sigevent_master_t *sigm;
   struct quagga_signal_t *sig;
   int i;
+#ifdef SIGEVENT_BLOCK_SIGNALS
+  /* shouldnt need to block signals, but potentially may be needed */
+  sigset_t newmask, oldmask;
 
-  sigm = THREAD_ARG (t);
-  
   /*
    * Block most signals, but be careful not to defer SIGTRAP because
    * doing so breaks gdb, at least on NetBSD 2.0.  Avoid asking to
@@ -69,33 +72,56 @@ quagga_signal_timer (struct thread *t)
   sigfillset (&newmask);
   sigdelset (&newmask, SIGTRAP);
   sigdelset (&newmask, SIGKILL);
-
+   
   if ( (sigprocmask (SIG_BLOCK, &newmask, &oldmask)) < 0)
     {
       zlog_err ("quagga_signal_timer: couldnt block signals!");
-		  sigm->t = thread_add_timer (sigm->tm, quagga_signal_timer, 
-		                              &sigmaster, QUAGGA_SIGNAL_TIMER_INTERVAL);    
       return -1;
     }
-  
-  for (i = 0; i < sigm->sigc; i++)
+#endif /* SIGEVENT_BLOCK_SIGNALS */
+
+  if (sigmaster.caught > 0)
     {
-      sig = &(sigm->signals[i]);
-      if (sig->caught > 0)
+      sigmaster.caught = 0;
+      /* must not read or set sigmaster.caught after here,
+       * race condition with per-sig caught flags if one does
+       */
+      
+      for (i = 0; i < sigmaster.sigc; i++)
         {
-          sig->caught = 0;
-          sig->handler();
+          sig = &(sigmaster.signals[i]);
+
+          if (sig->caught > 0)
+            {
+              sig->caught = 0;
+              sig->handler ();
+            }
         }
     }
-  
-  sigm->t = thread_add_timer (sigm->tm, quagga_signal_timer, &sigmaster, 
-                                           QUAGGA_SIGNAL_TIMER_INTERVAL);
 
+#ifdef SIGEVENT_BLOCK_SIGNALS
   if ( sigprocmask (SIG_UNBLOCK, &oldmask, NULL) < 0 );
     return -1;
-  
+#endif /* SIGEVENT_BLOCK_SIGNALS */
+
   return 0;
 }
+
+#ifdef SIGEVENT_SCHEDULE_THREAD
+/* timer thread to check signals. Shouldnt be needed */
+int
+quagga_signal_timer (struct thread *t)
+{
+  struct quagga_sigevent_master_t *sigm;
+  struct quagga_signal_t *sig;
+  int i;
+
+  sigm = THREAD_ARG (t);
+  sigm->t = thread_add_timer (sigm->t->master, quagga_signal_timer, &sigmaster,
+                              QUAGGA_SIGNAL_TIMER_INTERVAL);
+  return quagga_sigevent_process ();
+}
+#endif /* SIGEVENT_SCHEDULE_THREAD */
 
 /* Initialization of signal handles. */
 /* Signale wrapper. */
@@ -127,8 +153,8 @@ signal_set (int signo)
 }
 
 void 
-signal_init (struct thread_master *m, 
-             int sigc, struct quagga_signal_t signals[])
+signal_init (struct thread_master *m, int sigc, 
+             struct quagga_signal_t signals[])
 {
 
   int i = 0;
@@ -144,11 +170,10 @@ signal_init (struct thread_master *m,
 
   sigmaster.sigc = sigc;
   sigmaster.signals = signals;
-  sigmaster.tm = m;
-  
+
+#ifdef SIGEVENT_SCHEDULE_THREAD  
   sigmaster.t = 
     thread_add_timer (m, quagga_signal_timer, &sigmaster, 
                       QUAGGA_SIGNAL_TIMER_INTERVAL);
-
+#endif /* SIGEVENT_SCHEDULE_THREAD */
 }
-
