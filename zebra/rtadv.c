@@ -157,7 +157,14 @@ rtadv_send_packet (int sock, struct interface *ifp)
 #ifdef HAVE_SOCKADDR_DL
   struct sockaddr_dl *sdl;
 #endif /* HAVE_SOCKADDR_DL */
-  char adata [sizeof (struct cmsghdr) + sizeof (struct in6_pktinfo)];
+  /*
+   * XXX: Alignment padding follows cmsghdr, and there is not
+   * necessarily a portable way to determine this.  Add 16 bytes as a
+   * pessimistic assumption.  (NetBSD/i386 aligns to 4, and
+   * NetBSD/sparc to 8.)  Note check below that buf is not
+   * overwritten.  A better fix is needed.
+   */
+  char adata [sizeof (struct cmsghdr) + 16 + sizeof (struct in6_pktinfo)];
   unsigned char buf[RTADV_MSG_SIZE];
   struct nd_router_advert *rtadv;
   int ret;
@@ -269,6 +276,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
   msg.msg_iovlen = 1;
   msg.msg_control = (void *) adata;
   msg.msg_controllen = sizeof adata;
+  msg.msg_flags = MSG_DONTROUTE;
   iov.iov_base = buf;
   iov.iov_len = len;
 
@@ -276,7 +284,16 @@ rtadv_send_packet (int sock, struct interface *ifp)
   cmsgptr->cmsg_len = sizeof adata;
   cmsgptr->cmsg_level = IPPROTO_IPV6;
   cmsgptr->cmsg_type = IPV6_PKTINFO;
+
+  /* XXX Check that we do not overwrite buf. */
   pkt = (struct in6_pktinfo *) CMSG_DATA (cmsgptr);
+  if ((void *) &pkt->ipi6_ifindex + sizeof(pkt->ipi6_ifindex)
+      > (void *) &addr)
+    {
+      zlog_err ("rtadv_send_packet: NOT overwriting address\n");
+      return;
+    }
+
   memset (&pkt->ipi6_addr, 0, sizeof (struct in6_addr));
   pkt->ipi6_ifindex = ifp->ifindex;
 
