@@ -328,9 +328,6 @@ This command bind specific peer to peer group @var{word}.
 @node BGP Address Family
 @section BGP Address Family
 
-
-
-@page
 @c -----------------------------------------------------------------------
 @node Autonomous System
 @section Autonomous System
@@ -422,7 +419,6 @@ This command defines a new AS path access list.
 @node Private AS Numbers
 @subsection Private AS Numbers
 
-@page
 @c -----------------------------------------------------------------------
 @node BGP Communities Attribute
 @section BGP Communities Attribute
@@ -1181,6 +1177,7 @@ Display routing table of BGP view @var{name}.
 
 @node How to set up a 6-Bone connection
 @section How to set up a 6-Bone connection
+
 
 @example
 @group

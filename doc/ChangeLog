@@ -1,6 +1,15 @@
 2004-11-07 Paul Jakma <paul@dishone.st>
 
+	* Makefile.am: Add automatic rule to build pdf's from eps figures.
+	  Clean *.pdf. Add rule for quagga.pdf (as the eps.pdf pattern
+          probably otherwise will override automake's rule for quagga.pdf)
+	* overview.texi: URL was causing TeX overfull, put on newline.
+	* quagga.texi: Put the copyright notice into @copying section, as
+	  is proper. Strip trailling space from the main menu lines.
+	* rip(ng)?d.texi: Minor reformatting.
 	* Add the route server docs.
+	* bgpd.texi: remove unneeded page breaks. The 6Bone example
+          overflows though.
 	* routeserver.texi: new file, texinfo'fied and slightly modified 
           version of the original TeX from James Luis Rubio.
 	* fig-*.eps: new files, diagrammes.

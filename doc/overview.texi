@@ -304,9 +304,11 @@ the available mailing lists, see:
 @cindex Reporting software errors
 @cindex Errors in the software
 
-  If you think you have found a bug, please send a bug report to
-@uref{http://bugzilla.quagga.net}. When you send a bug report, please be
-careful about the points below.
+If you think you have found a bug, please send a bug report to:
+
+@uref{http://bugzilla.quagga.net}
+
+When you send a bug report, please be careful about the points below.
 
 @itemize @bullet
 @item 

@@ -1,3 +1,7 @@
+@c -*-texinfo-*-
+@c This is part of the Quagga Manual.
+@c @value{COPYRIGHT_STR}
+@c See file quagga.texi for copying conditions.
 @node RIPng
 @chapter RIPng
 

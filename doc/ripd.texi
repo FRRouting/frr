@@ -3,7 +3,6 @@
 @c @value{COPYRIGHT_STR}
 @c See file quagga.texi for copying conditions.
 @node RIP
-@comment  node-name,  next,  previous,  up
 @chapter RIP
 
 RIP -- Routing Information Protocol is widely deployed interior gateway
@@ -567,9 +566,9 @@ dump is shown.
 Debug rip between zebra communication.
 @end deffn
 
-This command will show the communication between @command{ripd} and @command{zebra}.  The
-main information will include addition and deletion of paths to the
-kernel and the sending and receiving of interface information.
+This command will show the communication between @command{ripd} and
+@command{zebra}.  The main information will include addition and deletion of
+paths to the kernel and the sending and receiving of interface information.
 
 @deffn Command {show debugging rip} {}
 Display @command{ripd}'s debugging option.
