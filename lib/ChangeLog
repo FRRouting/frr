@@ -1,3 +1,8 @@
+2004-10-07 Hasso Tepper <hasso at quagga.net>
+
+	* command.c, pid_output.c, print_version.c, vty.c, vty.h: Make more
+	  strings const.
+
 2004-10-05 Hasso Tepper <hasso at quagga.net>
 
 	* *.[c|h]: Make many strings cons and a lot of int -> unsigned int

@@ -1854,7 +1854,7 @@ vty_serv_sock_family (const char* addr, unsigned short port, int family)
 
 /* VTY shell UNIX domain socket. */
 void
-vty_serv_un (char *path)
+vty_serv_un (const char *path)
 {
   int ret;
   int sock, len, flags;
@@ -2019,7 +2019,7 @@ vtysh_read (struct thread *thread)
 
 /* Determine address family to bind. */
 void
-vty_serv_sock (const char *addr, unsigned short port, char *path)
+vty_serv_sock (const char *addr, unsigned short port, const char *path)
 {
   /* If port is set to 0, do not listen on TCP/IP at all! */
   if (port)

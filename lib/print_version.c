@@ -24,7 +24,7 @@
 #include <lib/version.h>
 
 void
-print_version (char *progname)
+print_version (const char *progname)
 {
   printf ("%s version %s (%s)\n", progname, QUAGGA_VERSION, host_name);
   printf ("Copyright 1996-2001, Kunihiro Ishiguro\n");

@@ -233,9 +233,10 @@ cmd_free_strvec (vector v)
 
 /* Fetch next description.  Used in cmd_make_descvec(). */
 char *
-cmd_desc_str (char **string)
+cmd_desc_str (const char **string)
 {
-  char *cp, *start, *token;
+  const char *cp, *start;
+  char *token;
   int strlen;
   
   cp = *string;

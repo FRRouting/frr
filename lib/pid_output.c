@@ -24,10 +24,10 @@
 #include <fcntl.h>
 #include <log.h>
 
-pid_t pid_output_lock(char *);
+pid_t pid_output_lock(const char *);
 
 pid_t
-pid_output (char *path)
+pid_output (const char *path)
 {
 #ifndef HAVE_FCNTL
   FILE *fp;
@@ -54,7 +54,7 @@ pid_output (char *path)
 
 #ifdef HAVE_FCNTL
 pid_t
-pid_output_lock (char *path)
+pid_output_lock (const char *path)
 {
   int tmp;
   int fd;
