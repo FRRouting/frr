@@ -417,7 +417,8 @@ ospf_intra_add_router (struct route_table *rt, struct vertex *v,
 
   listnode_add (rn->info, or);
 
-  zlog_info ("ospf_intra_add_router: Start");
+  if (IS_DEBUG_OSPF_EVENT)
+    zlog_info ("ospf_intra_add_router: Stop");
 }
 
 /* RFC2328 16.1. (4).  For transit network. */
