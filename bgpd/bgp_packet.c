@@ -133,7 +133,7 @@ bgp_connect_check (struct peer *peer)
 
   /* Check file descriptor. */
   slen = sizeof (status);
-  ret = getsockopt(*peer->fd, SOL_SOCKET, SO_ERROR, (void *) &status, &slen);
+  ret = getsockopt(peer->fd, SOL_SOCKET, SO_ERROR, (void *) &status, &slen);
 
   /* If getsockopt is fail, this is fatal error. */
   if (ret < 0)
@@ -238,6 +238,7 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
       bgp_packet_set_size (s);
       packet = bgp_packet_dup (s);
       bgp_packet_add (peer, packet);
+      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
       stream_reset (s);
       return packet;
     }
@@ -394,7 +395,7 @@ bgp_default_update_send (struct peer *peer, struct attr *attr,
   /* Add packet to the peer. */
   bgp_packet_add (peer, packet);
 
-  BGP_WRITE_ON (peer->t_write, bgp_write, *peer->fd);
+  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
 
 void
@@ -468,7 +469,7 @@ bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
   /* Add packet to the peer. */
   bgp_packet_add (peer, packet);
 
-  BGP_WRITE_ON (peer->t_write, bgp_write, *peer->fd);
+  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
 
 /* Get next packet to be written.  */
@@ -574,7 +575,7 @@ bgp_write (struct thread *thread)
       writenum = stream_get_endp (s) - stream_get_getp (s);
 
       /* Call write() system call.  */
-      num = write (*peer->fd, STREAM_PNT (s), writenum);
+      num = write (peer->fd, STREAM_PNT (s), writenum);
       write_errno = errno;
       if (num <= 0)
 	{
@@ -644,7 +645,7 @@ bgp_write (struct thread *thread)
     }
   
   if (bgp_write_proceed (peer))
-    BGP_WRITE_ON (peer->t_write, bgp_write, *peer->fd);
+    BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
   
   return 0;
 }
@@ -664,7 +665,7 @@ bgp_write_notify (struct peer *peer)
   assert (stream_get_endp (s) >= BGP_HEADER_SIZE);
 
   /* I'm not sure fd is writable. */
-  ret = writen (*peer->fd, STREAM_DATA (s), stream_get_endp (s));
+  ret = writen (peer->fd, STREAM_DATA (s), stream_get_endp (s));
   if (ret <= 0)
     {
       bgp_stop (peer);
@@ -724,7 +725,7 @@ bgp_keepalive_send (struct peer *peer)
   /* Add packet to the peer. */
   bgp_packet_add (peer, s);
 
-  BGP_WRITE_ON (peer->t_write, bgp_write, *peer->fd);
+  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
 
 /* Make open packet and send it to the peer. */
@@ -779,7 +780,7 @@ bgp_open_send (struct peer *peer)
   /* Add packet to the peer. */
   bgp_packet_add (peer, s);
 
-  BGP_WRITE_ON (peer->t_write, bgp_write, *peer->fd);
+  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
 
 /* Send BGP notify packet with data potion. */
@@ -980,7 +981,7 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
   /* Add packet to the peer. */
   bgp_packet_add (peer, packet);
 
-  BGP_WRITE_ON (peer->t_write, bgp_write, *peer->fd);
+  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
 
 /* Send capability message to the peer. */
@@ -1047,13 +1048,14 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
     zlog_info ("%s send message type %d, length (incl. header) %d",
 	       peer->host, BGP_MSG_CAPABILITY, length);
 
-  BGP_WRITE_ON (peer->t_write, bgp_write, *peer->fd);
+  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
 
 /* RFC1771 6.8 Connection collision detection. */
 int
-bgp_collision_detect (struct peer *peer, struct in_addr remote_id)
+bgp_collision_detect (struct peer *new, struct in_addr remote_id)
 {
+  struct peer *peer;
   struct listnode *nn;
   struct bgp *bgp;
 
@@ -1074,10 +1076,11 @@ bgp_collision_detect (struct peer *peer, struct in_addr remote_id)
     {
       /* Under OpenConfirm status, local peer structure already hold
          remote router ID. */
-      if ((peer->status == OpenConfirm)
-          && ( ntohl(peer->remote_id.s_addr) == ntohl(remote_id.s_addr) )
-         )
-        {
+
+      if (peer != new
+	  && (peer->status == OpenConfirm || peer->status == OpenSent)
+	  && sockunion_same (&peer->su, &new->su))
+	{
 	  /* 1. The BGP Identifier of the local system is compared to
 	     the BGP Identifier of the remote system (as specified in
 	     the OPEN message). */
@@ -1090,16 +1093,8 @@ bgp_collision_detect (struct peer *peer, struct in_addr remote_id)
 		 already in the OpenConfirm state), and accepts BGP
 		 connection initiated by the remote system. */
 
-	      if (peer->fd_local >= 0)
-	        {
-	          BGP_WRITE_OFF (peer->t_write);
-	          BGP_READ_OFF (peer->t_read);
-	          close (peer->fd_local);
-	        }
-	      peer->fd_local = -1;
-	      peer->fd = &peer->fd_accept;
-
-	      BGP_READ_ON (peer->t_read, bgp_read, *peer->fd);
+	      if (peer->fd >= 0)
+		bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
 	      return 1;
 	    }
 	  else
@@ -1110,15 +1105,12 @@ bgp_collision_detect (struct peer *peer, struct in_addr remote_id)
 		 existing one (the one that is already in the
 		 OpenConfirm state). */
 
-	      if (peer->fd_accept >= 0)
-	        {
-	          close (peer->fd_accept);
-	          peer->fd_accept = -1;
-	        }    
+	      if (new->fd >= 0)
+		bgp_notify_send (new, BGP_NOTIFY_CEASE, 0);
 	      return -1;
 	    }
-	  }
-    }    
+	}
+    }
   return 0;
 }
 
@@ -1194,6 +1186,51 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   ret = bgp_collision_detect (peer, remote_id);
   if (ret < 0)
     return ret;
+
+  /* Hack part. */
+  if (CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
+    {
+      if (ret == 0 && realpeer->status != Active
+	  && realpeer->status != OpenSent
+	  && realpeer->status != OpenConfirm)
+ 	{
+ 	  if (BGP_DEBUG (events, EVENTS))
+ 	    zlog_info ("%s [Event] peer's status is %s close connection",
+		       realpeer->host, LOOKUP (bgp_status_msg, peer->status));
+ 	  return -1;
+ 	}
+
+      if (BGP_DEBUG (events, EVENTS))
+	zlog_info ("%s [Event] Transfer temporary BGP peer to existing one",
+		   peer->host);
+
+      bgp_stop (realpeer);
+      
+      /* Transfer file descriptor. */
+      realpeer->fd = peer->fd;
+      peer->fd = -1;
+
+      /* Transfer input buffer. */
+      stream_free (realpeer->ibuf);
+      realpeer->ibuf = peer->ibuf;
+      realpeer->packet_size = peer->packet_size;
+      peer->ibuf = NULL;
+
+      /* Transfer status. */
+      realpeer->status = peer->status;
+      bgp_stop (peer);
+
+      /* peer pointer change. Open packet send to neighbor. */
+      peer = realpeer;
+      bgp_open_send (peer);
+      if (peer->fd < 0)
+	{
+	  zlog_err ("bgp_open_receive peer's fd is negative value %d",
+		    peer->fd);
+	  return -1;
+	}
+      BGP_READ_ON (peer->t_read, bgp_read, peer->fd);
+    }
 
   /* remote router-id check. */
   if (remote_id.s_addr == 0
@@ -1994,7 +2031,7 @@ bgp_read_packet (struct peer *peer)
     return 0;
 
   /* Read packet from fd. */
-  nbytes = stream_read_unblock (peer->ibuf, *peer->fd, readsize);
+  nbytes = stream_read_unblock (peer->ibuf, peer->fd, readsize);
 
   /* If read byte is smaller than zero then error occured. */
   if (nbytes < 0) 
@@ -2013,7 +2050,7 @@ bgp_read_packet (struct peer *peer)
     {
       if (BGP_DEBUG (events, EVENTS))
 	plog_info (peer->log, "%s [Event] BGP connection closed fd %d",
-		   peer->host, *peer->fd);
+		   peer->host, peer->fd);
       BGP_EVENT_ADD (peer, TCP_connection_closed);
       return -1;
     }
@@ -2060,12 +2097,12 @@ bgp_read (struct thread *thread)
     }
   else
     {
-      if (*peer->fd < 0)
+      if (peer->fd < 0)
 	{
-	  zlog_err ("bgp_read peer's fd is negative value %d", *peer->fd);
+	  zlog_err ("bgp_read peer's fd is negative value %d", peer->fd);
 	  return -1;
 	}
-      BGP_READ_ON (peer->t_read, bgp_read, *peer->fd);
+      BGP_READ_ON (peer->t_read, bgp_read, peer->fd);
     }
 
   /* Read packet header to determine type of the packet */

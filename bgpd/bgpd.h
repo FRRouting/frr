@@ -256,29 +256,27 @@ struct peer
   int ostatus;
 
   /* Peer information */
-  int *fd;                        /* connection in use: -> local||accept */
-  int ttl;                        /* TTL of TCP connection to the peer. */
-  int fd_local;                   /* locally initiated connection */
-  int fd_accept;                  /* remote initiated/accepted connection */
-  char *desc;                     /* Description of the peer. */
-  unsigned short port;            /* Destination port for peer */
-  char *host;                     /* Printable address of the peer. */
-  union sockunion su;             /* Sockunion address of the peer. */
-  time_t uptime;                  /* Last Up/Down time */
-  time_t readtime;                /* Last read time */
-  time_t resettime;               /* Last reset time */
+  int fd;			/* File descriptor */
+  int ttl;			/* TTL of TCP connection to the peer. */
+  char *desc;			/* Description of the peer. */
+  unsigned short port;          /* Destination port for peer */
+  char *host;			/* Printable address of the peer. */
+  union sockunion su;		/* Sockunion address of the peer. */
+  time_t uptime;		/* Last Up/Down time */
+  time_t readtime;		/* Last read time */
+  time_t resettime;		/* Last reset time */
   
-  unsigned int ifindex;           /* ifindex of the BGP connection. */
-  char *ifname;                   /* bind interface name. */
-  char *update_if;                /* interface to send from */
-  union sockunion *update_source; /* sockunion to send from */
-  struct zlog *log;               /* log socket */
-  u_char version;                 /* Peer BGP version. */
+  unsigned int ifindex;		/* ifindex of the BGP connection. */
+  char *ifname;			/* bind interface name. */
+  char *update_if;
+  union sockunion *update_source;
+  struct zlog *log;
+  u_char version;		/* Peer BGP version. */
 
-  union sockunion *su_local;      /* Sockunion of local address.  */
-  union sockunion *su_remote;     /* Sockunion of remote address.  */
-  int shared_network;             /* Is this peer shared same network. */
-  struct bgp_nexthop nexthop;     /* Nexthop */
+  union sockunion *su_local;	/* Sockunion of local address.  */
+  union sockunion *su_remote;	/* Sockunion of remote address.  */
+  int shared_network;		/* Is this peer shared same network. */
+  struct bgp_nexthop nexthop;	/* Nexthop */
 
   /* Peer address family configuration. */
   u_char afc[AFI_MAX][SAFI_MAX];
