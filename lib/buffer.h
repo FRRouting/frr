@@ -29,7 +29,8 @@ struct buffer
   /* Data list. */
   struct buffer_data *head;
   struct buffer_data *tail;
-
+  
+  /* XXX: These unsigned longs should be size_t's */
   /* Current allocated data. */
   unsigned long alloc;
 

@@ -24,6 +24,7 @@
 
 #include "memory.h"
 #include "buffer.h"
+#include "log.h"
 #include <stddef.h>
 
 /* Make buffer data. */
@@ -580,9 +581,9 @@ in one shot. */
 
   struct buffer_data *d;
   struct buffer_data *next;
-  ssize_t written;
+  size_t written;
   struct iovec iov[MAX_CHUNKS];
-  int iovcnt = 0;
+  size_t iovcnt = 0;
   size_t nbyte = 0;
 
   for (d = b->head; d && (iovcnt < MAX_CHUNKS) && (nbyte < MAX_FLUSH);
@@ -592,7 +593,8 @@ in one shot. */
       nbyte += (iov[iovcnt].iov_len = d->cp-d->sp);
     }
 
-  if ((written = writev(fd,iov,iovcnt)) < 0)
+  /* only place where written should be sign compared */
+  if ((ssize_t)(written = writev(fd,iov,iovcnt)) < 0)
     {
       if ((errno != EAGAIN) && (errno != EINTR))
         zlog_warn("buffer_flush_available write error on fd %d: %s",

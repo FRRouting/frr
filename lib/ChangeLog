@@ -1,6 +1,16 @@
 2004-11-07 Paul Jakma <paul@dishone.st>
 
-	* lib/version.h.in: add autoconf configure_input output var
+	* buffer.c: Add missing include of log.h.
+	  (buffer_flush_available) written is compared against
+	  mostly against unsigned types, only for the writev do we need
+          signed compare, so declare it as size_t and cast it to ssize_t
+          just for the error compare when we've called writev.
+	* buffer.h: Add comment that buffer data sizes really should be 
+          size_t.
+
+2004-11-07 Paul Jakma <paul@dishone.st>
+
+	* version.h.in: add autoconf configure_input output var
 
 2004-11-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
