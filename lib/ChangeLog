@@ -1,3 +1,11 @@
+2004-12-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+	
+	* pid_output.c: (pid_output_lock) Eliminate static function, and just
+	  use the #ifdef to decide which version of the function to include.
+	  This eliminates a compilation problem with gcc4.  And fix the
+	  non-fcntl version so that it actually compiles.  Exit with
+	  status 1 instead of -1 on error.
+
 2004-12-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* sigevent.c: (trap_default_signals) Ignore SIGPIPE instead of exiting.

@@ -25,13 +25,14 @@
 #include <log.h>
 #include "version.h"
 
+#ifndef HAVE_FCNTL
+
 pid_t
 pid_output (const char *path)
 {
-#ifndef HAVE_FCNTL
   FILE *fp;
   pid_t pid;
-  mask_t oldumask;
+  mode_t oldumask;
 
   pid = getpid();
 
@@ -42,20 +43,20 @@ pid_output (const char *path)
       fprintf (fp, "%d\n", (int) pid);
       fclose (fp);
       umask(oldumask);
-      return -1;
+      return pid;
     }
+  /* XXX Why do we continue instead of exiting?  This seems incompatible
+     with the behavior of the fcntl version below. */
+  zlog_warn("Can't fopen pid lock file %s (%s), continuing",
+	    path, safe_strerror(errno));
   umask(oldumask);
-  return pid;
-#else
-  static pid_t pid_output_lock (const char *);
-
-  return pid_output_lock(path);
-#endif /* HAVE_FCNTL */
+  return -1;
 }
 
-#ifdef HAVE_FCNTL
-static pid_t
-pid_output_lock (const char *path)
+#else /* HAVE_FCNTL */
+
+pid_t
+pid_output (const char *path)
 {
   int tmp;
   int fd;
@@ -68,12 +69,12 @@ pid_output_lock (const char *path)
 
   oldumask = umask(0777 & ~LOGFILE_MASK);
   fd = open (path, O_RDWR | O_CREAT, LOGFILE_MASK);
-      if (fd < 0)
-        {
-        zlog_err( "Can't creat pid lock file %s (%s), exit", 
-                 path, safe_strerror(errno));
+  if (fd < 0)
+    {
+      zlog_err("Can't create pid lock file %s (%s), exiting",
+	       path, safe_strerror(errno));
       umask(oldumask);
-      exit (-1);
+      exit(1);
     }
   else
     {
@@ -87,8 +88,8 @@ pid_output_lock (const char *path)
 
       if (fcntl(fd, F_SETLK, &lock) < 0)
         {
-          zlog_err("Could not lock pid_file %s, exit", path);
-          exit (-1);
+          zlog_err("Could not lock pid_file %s, exiting", path);
+          exit(1);
         }
 
       sprintf (buf, "%d\n", (int) pid);
@@ -102,4 +103,5 @@ pid_output_lock (const char *path)
     }
   return pid;
 }
+
 #endif /* HAVE_FCNTL */
