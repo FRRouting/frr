@@ -177,7 +177,7 @@ developing OSPF-API and quagga applications.
 %if %vty_group
 	--enable-vty-group=%vty_group \
 %endif
---enable-netlink
+--enable-netlink --enable-gcc-rdynamic
 
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
@@ -273,10 +273,41 @@ if [ ! -e %{_sysconfdir}/vtysh.conf ]; then
 fi
 
 %postun
-if [ "$1" -ge  "1" ]; then
+if [ "$1" -ge 1 ]; then
+	# Find out which daemons need to be restarted.
 	for daemon in %all_daemons ; do
-		/etc/rc.d/init.d/${daemon} condrestart >/dev/null 2>&1
+		if [ -f /var/lock/subsys/$daemon ]; then
+			eval restart_$daemon=yes
+		else
+			eval restart_$daemon=no
+		fi
 	done
+	# Rename restart flags for daemons handled specially.
+	running_zebra="$restart_zebra"
+	restart_zebra=no
+	running_watchquagga="$restart_watchquagga"
+	restart_watchquagga=no
+	# Stop watchquagga first.
+	[ "$running_watchquagga" = yes ] && \
+		/etc/rc.d/init.d/watchquagga stop >/dev/null 2>&1
+	# Stop all daemons other than zebra and watchquagga.
+	for daemon in %all_daemons ; do
+		eval restart=\$restart_${daemon}
+		[ "$restart" = yes ] && \
+			/etc/rc.d/init.d/$daemon stop >/dev/null 2>&1
+	done
+	# Restart zebra.
+	[ "$running_zebra" = yes ] && \
+		/etc/rc.d/init.d/zebra restart >/dev/null 2>&1
+	# Start all daemons other than zebra and watchquagga.
+	for daemon in %all_daemons ; do
+		eval restart=\$restart_${daemon}
+		[ "$restart" = yes ] && \
+			/etc/rc.d/init.d/$daemon start >/dev/null 2>&1
+	done
+	# Start watchquagga last.
+	[ "$running_watchquagga" = yes ] && \
+		/etc/rc.d/init.d/watchquagga start >/dev/null 2>&1
 fi
 
 %preun
@@ -362,6 +393,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 %changelog
+* Wed Jan 12 2005 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+- on package upgrade, implement careful, phased restart logic
+- use gcc -rdynamic flag when linking for better backtraces
+
 * Wed Dec 22 2004 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 - daemonv6_list should contain only IPv6 daemons
 

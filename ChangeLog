@@ -1,3 +1,12 @@
+2005-01-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* redhat/quagga.spec.in: Pass --enable-gcc-rdynamic to configure
+	  to get gcc to link with -rdynamic for better backtraces.
+	  When the rpm is upgraded, the restart logic now works as follows:
+	  1. stop watchquagga; 2. stop all routing daemons; 3. restart zebra
+	  if it was running; 4. start all routing daemons that were running;
+	  and 5. start watchquagga if it was running.
+
 2005-01-07 Paul Jakma <paul@dishone.st>
 
 	* configure.ac: Bump version to 0.98.0
