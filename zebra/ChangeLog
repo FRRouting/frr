@@ -1,3 +1,7 @@
+2004-07-13 Hasso Tepper <hasso@estpak.ee>
+
+	* irdp_main.c: Add privilege change.
+
 2004-07-12  Hasso Tepper <hasso@estpak.ee>
 
 	* irdp_interface.c: follow common style while naming vty command

@@ -50,6 +50,7 @@
 #include "log.h"
 #include "zclient.h"
 #include "thread.h"
+#include "privs.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
@@ -63,6 +64,8 @@
 #include "log.h"
 
 /* GLOBAL VARS */
+
+extern struct zebra_privs_t zserv_privs;
 
 /* Master of threads. */
 extern struct zebra_t zebrad;
@@ -98,7 +101,16 @@ irdp_sock_init (void)
 {
   int ret, i;
 
+  if ( zserv_privs.change (ZPRIVS_RAISE) )
+       zlog_err ("irdp_sock_init: could not raise privs, %s",
+                  strerror (errno) );
+
   irdp_sock = socket (AF_INET, SOCK_RAW, IPPROTO_ICMP);
+
+  if ( zserv_privs.change (ZPRIVS_LOWER) )
+       zlog_err ("irdp_sock_init: could not lower privs, %s",
+             strerror (errno) );
+
   if (irdp_sock < 0) {
     zlog_warn ("IRDP: can't create irdp socket %s", strerror(errno));
     return irdp_sock;
