@@ -665,7 +665,7 @@ ospf_write (struct thread *thread)
   iph.ip_dst.s_addr = op->dst.s_addr;
 
   memset (&msg, 0, sizeof (msg));
-  msg.msg_name = &sa_dst;
+  msg.msg_name = (caddr_t) &sa_dst;
   msg.msg_namelen = sizeof (sa_dst); 
   msg.msg_iov = iov;
   msg.msg_iovlen = 2;
@@ -2018,13 +2018,11 @@ ospf_recv_packet (int fd, struct interface **ifp)
 #endif
   struct msghdr msgh;
 
-  msgh.msg_name = NULL;
-  msgh.msg_namelen = 0;
+  memset (&msgh, 0, sizeof (struct msghdr));
   msgh.msg_iov = &iov;
   msgh.msg_iovlen = 1;
   msgh.msg_control = (caddr_t) buff;
   msgh.msg_controllen = sizeof (buff);
-  msgh.msg_flags = 0;
   
   ret = recvfrom (fd, (void *)&iph, sizeof (iph), MSG_PEEK, NULL, 0);
   
