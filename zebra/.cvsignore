@@ -8,3 +8,4 @@ tags
 TAGS
 .deps
 .nfs*
+.libs
