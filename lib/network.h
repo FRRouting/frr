@@ -33,4 +33,8 @@ int writen (int, const u_char *, int);
    -1 on error. */
 extern int set_nonblocking(int fd);
 
+/* Does the I/O error indicate that the operation should be retried later? */
+#define ERRNO_IO_RETRY(EN) \
+	(((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))
+
 #endif /* _ZEBRA_NETWORK_H */
