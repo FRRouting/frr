@@ -329,7 +329,7 @@ struct peer
 #define PEER_FLAG_OVERRIDE_CAPABILITY       (1 << 3) /* override-capability */
 #define PEER_FLAG_STRICT_CAP_MATCH          (1 << 4) /* strict-match */
 #define PEER_FLAG_DYNAMIC_CAPABILITY        (1 << 5) /* dynamic capability */
-#define PEER_FLAG_ENFORCE_MULTIHOP          (1 << 6) /* enforce-multihop */
+#define PEER_FLAG_DISABLE_CONNECTED_CHECK   (1 << 6) /* disable-connected-check */
 #define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1 << 7) /* local-as no-prepend */
 
   /* NSF mode (graceful restart) */

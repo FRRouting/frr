@@ -2604,27 +2604,44 @@ ALIAS (no_neighbor_ebgp_multihop,
        "Allow EBGP neighbors not on directly connected networks\n"
        "maximum hop count\n")
 
+/* disable-connected-check */
+DEFUN (neighbor_disable_connected_check,
+       neighbor_disable_connected_check_cmd,
+       NEIGHBOR_CMD2 "disable-connected-check",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "one-hop away EBGP peer using loopback address\n")
+{
+  return peer_flag_set_vty (vty, argv[0], PEER_FLAG_DISABLE_CONNECTED_CHECK);
+}
+
+DEFUN (no_neighbor_disable_connected_check,
+       no_neighbor_disable_connected_check_cmd,
+       NO_NEIGHBOR_CMD2 "disable-connected-check",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "one-hop away EBGP peer using loopback address\n")
+{
+  return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_DISABLE_CONNECTED_CHECK);
+}
+
 /* Enforce multihop.  */
-DEFUN (neighbor_enforce_multihop,
+ALIAS (neighbor_disable_connected_check,
        neighbor_enforce_multihop_cmd,
        NEIGHBOR_CMD2 "enforce-multihop",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Enforce EBGP neighbors perform multihop\n")
-{
-  return peer_flag_set_vty (vty, argv[0], PEER_FLAG_ENFORCE_MULTIHOP);
-}
+       "Enforce EBGP neighbors perform multihop\n");
 
-DEFUN (no_neighbor_enforce_multihop,
+/* Enforce multihop.  */
+ALIAS (no_neighbor_disable_connected_check,
        no_neighbor_enforce_multihop_cmd,
        NO_NEIGHBOR_CMD2 "enforce-multihop",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Enforce EBGP neighbors perform multihop\n")
-{
-  return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_ENFORCE_MULTIHOP);
-}
+       "Enforce EBGP neighbors perform multihop\n");
 
 DEFUN (neighbor_description,
        neighbor_description_cmd,
@@ -8918,7 +8935,9 @@ bgp_vty_init ()
   install_element (BGP_NODE, &no_neighbor_ebgp_multihop_cmd);
   install_element (BGP_NODE, &no_neighbor_ebgp_multihop_ttl_cmd);
 
-  /* "neighbor enforce-multihop" commands.  */
+  /* "neighbor disable-connected-check" commands.  */
+  install_element (BGP_NODE, &neighbor_disable_connected_check_cmd);
+  install_element (BGP_NODE, &no_neighbor_disable_connected_check_cmd);
   install_element (BGP_NODE, &neighbor_enforce_multihop_cmd);
   install_element (BGP_NODE, &no_neighbor_enforce_multihop_cmd);
 

@@ -2101,7 +2101,7 @@ struct peer_flag_action peer_flag_action_list[] =
     { PEER_FLAG_OVERRIDE_CAPABILITY,      0, peer_change_none },
     { PEER_FLAG_STRICT_CAP_MATCH,         0, peer_change_none },
     { PEER_FLAG_DYNAMIC_CAPABILITY,       0, peer_change_reset },
-    { PEER_FLAG_ENFORCE_MULTIHOP,         0, peer_change_reset },
+    { PEER_FLAG_DISABLE_CONNECTED_CHECK,  0, peer_change_reset },
     { 0, 0, 0 }
   };
 
@@ -2214,7 +2214,7 @@ peer_flag_modify_action (struct peer *peer, u_int32_t flag)
 	peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
       else if (flag == PEER_FLAG_PASSIVE)
 	peer->last_reset = PEER_DOWN_PASSIVE_CHANGE;
-      else if (flag == PEER_FLAG_ENFORCE_MULTIHOP)
+      else if (flag == PEER_FLAG_DISABLE_CONNECTED_CHECK)
 	peer->last_reset = PEER_DOWN_MULTIHOP_CHANGE;
 
       bgp_notify_send (peer, BGP_NOTIFY_CEASE,
@@ -4331,11 +4331,11 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	  vty_out (vty, " neighbor %s ebgp-multihop %d%s", addr, peer->ttl,
 		   VTY_NEWLINE);
 
-      /* Enforce multihop.  */
-      if (CHECK_FLAG (peer->flags, PEER_FLAG_ENFORCE_MULTIHOP))
+      /* disable-connected-check.  */
+      if (CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
 	if (! peer_group_active (peer) ||
-	    ! CHECK_FLAG (g_peer->flags, PEER_FLAG_ENFORCE_MULTIHOP))
-	  vty_out (vty, " neighbor %s enforce-multihop%s", addr, VTY_NEWLINE);
+	    ! CHECK_FLAG (g_peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
+	  vty_out (vty, " neighbor %s disable-connected-check%s", addr, VTY_NEWLINE);
 
       /* Update-source. */
       if (peer->update_if)

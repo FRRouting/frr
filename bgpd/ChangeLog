@@ -1,4 +1,9 @@
-2005-02-02 Akihiro Mizutani <mizutani@net-chef.net
+2005-02-02 Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_route.c, bgp_vty.c, bgp_zebra.c, bgpd.[ch]: "enforce-multihop"
+	  -> "disable-connected-check".
+
+2005-02-02 Akihiro Mizutani <mizutani@net-chef.net>
 
 	* bgp_fsm.c, bgp_open.c, bgp_packet.c, bgp_route.[ch], bgp_vty.c,
 	  bgpd.[ch]: Add BGP_INFO_STALE flag and end-of-rib support. "bgp
