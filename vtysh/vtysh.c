@@ -1443,12 +1443,19 @@ execute_command (char *command, int argc, char *arg1, char *arg2)
 DEFUN (vtysh_ping,
        vtysh_ping_cmd,
        "ping WORD",
-       "send echo messages\n"
+       "Send echo messages\n"
        "Ping destination address or hostname\n")
 {
   execute_command ("ping", 1, argv[0], NULL);
   return CMD_SUCCESS;
 }
+
+ALIAS (vtysh_ping,
+       vtysh_ping_ip_cmd,
+       "ping ip WORD",
+       "Send echo messages\n"
+       "IP echo\n"
+       "Ping destination address or hostname\n")
 
 DEFUN (vtysh_traceroute,
        vtysh_traceroute_cmd,
@@ -1459,6 +1466,37 @@ DEFUN (vtysh_traceroute,
   execute_command ("traceroute", 1, argv[0], NULL);
   return CMD_SUCCESS;
 }
+
+ALIAS (vtysh_traceroute,
+       vtysh_traceroute_ip_cmd,
+       "traceroute ip WORD",
+       "Trace route to destination\n"
+       "IP trace\n"
+       "Trace route to destination address or hostname\n")
+
+#ifdef HAVE_IPV6
+DEFUN (vtysh_ping6,
+       vtysh_ping6_cmd,
+       "ping ipv6 WORD",
+       "Send echo messages\n"
+       "IPv6 echo\n"
+       "Ping destination address or hostname\n")
+{
+  execute_command ("ping6", 1, argv[0], NULL);
+  return CMD_SUCCESS;
+}
+
+DEFUN (vtysh_traceroute6,
+       vtysh_traceroute6_cmd,
+       "traceroute ipv6 WORD",
+       "Trace route to destination\n"
+       "IPv6 trace\n"
+       "Trace route to destination address or hostname\n")
+{
+  execute_command ("traceroute6", 1, argv[0], NULL);
+  return CMD_SUCCESS;
+}
+#endif
 
 DEFUN (vtysh_telnet,
        vtysh_telnet_cmd,
@@ -1891,12 +1929,24 @@ vtysh_init_vty ()
   install_element (KEYCHAIN_KEY_NODE, &vtysh_write_memory_cmd);
 
   install_element (VIEW_NODE, &vtysh_ping_cmd);
+  install_element (VIEW_NODE, &vtysh_ping_ip_cmd);
   install_element (VIEW_NODE, &vtysh_traceroute_cmd);
+  install_element (VIEW_NODE, &vtysh_traceroute_ip_cmd);
+#ifdef HAVE_IPV6
+  install_element (VIEW_NODE, &vtysh_ping6_cmd);
+  install_element (VIEW_NODE, &vtysh_traceroute6_cmd);
+#endif
   install_element (VIEW_NODE, &vtysh_telnet_cmd);
   install_element (VIEW_NODE, &vtysh_telnet_port_cmd);
   install_element (VIEW_NODE, &vtysh_ssh_cmd);
   install_element (ENABLE_NODE, &vtysh_ping_cmd);
+  install_element (ENABLE_NODE, &vtysh_ping_ip_cmd);
   install_element (ENABLE_NODE, &vtysh_traceroute_cmd);
+  install_element (ENABLE_NODE, &vtysh_traceroute_ip_cmd);
+#ifdef HAVE_IPV6
+  install_element (ENABLE_NODE, &vtysh_ping6_cmd);
+  install_element (ENABLE_NODE, &vtysh_traceroute6_cmd);
+#endif
   install_element (ENABLE_NODE, &vtysh_telnet_cmd);
   install_element (ENABLE_NODE, &vtysh_telnet_port_cmd);
   install_element (ENABLE_NODE, &vtysh_start_shell_cmd);
