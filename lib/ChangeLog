@@ -1,3 +1,8 @@
+2004-06-21 Paul Jakma <paul@dishone.st>
+
+	* ChangeLog: fix my last update config.h -> zebra.h ;)
+	* zebra.h: Fix gcc check.
+	
 2004-06-11 Sowmini Varadhan <sowmini.varadhan@sun.com>
 
 	* filter.c: (access_list_remark_cmd) buffer_putstr doesnt need cast
@@ -18,7 +23,7 @@
 	  
 2004-06-09 Paul Jakma <paul@dishone.st>
 
-	* config.h: __attribute__ is a gcc'ism
+	* zebra.h: __attribute__ is a gcc'ism
 	
 2004-06-04 Paul Jakma <paul@dishone.st>
 

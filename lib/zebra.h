@@ -230,7 +230,7 @@ typedef int socklen_t;
 #define CMSG_LEN(l)         (_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + (l))
 #endif /* CMSG_LEN */
 
-#if !defined(__GNUC__) || __GNUC__ < 2 || __GNUC_MINOR__ < 5
+#if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL)) 
 #define __attribute__(x)
 #endif  /* !__GNUC__ */
 
