@@ -276,7 +276,7 @@ fi
 %if %with_vtysh
 %{_bindir}/*
 %endif
-%config /etc/zebra/[!v]
+%config /etc/zebra/[!v]*
 %config /etc/rc.d/init.d/*
 %config(noreplace) /etc/pam.d/zebra
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
