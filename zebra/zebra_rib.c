@@ -1554,6 +1554,8 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, char *ifname,
     si->next->prev = si->prev;
   
   /* Free static route configuration. */
+  if (ifname)
+    XFREE (0, si->gate.ifname);
   XFREE (MTYPE_STATIC_IPV4, si);
 
   return 1;
@@ -2078,6 +2080,8 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
     si->next->prev = si->prev;
   
   /* Free static route configuration. */
+  if (ifname)
+    XFREE (0, si->ifname);
   XFREE (MTYPE_STATIC_IPV6, si);
 
   return 1;
