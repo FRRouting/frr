@@ -1,3 +1,9 @@
+2004-10-28 Hasso Tepper <hasso at quagga.net>
+
+	* vtysh.c: "show running-daemons" broke users habits who are using
+	  "sho run" to view running configuration. Changed it to "show
+	  daemons". 
+
 2004-10-20 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh.c: Don't popen pager if command is "exit". Fixes "vtysh screws

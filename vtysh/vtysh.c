@@ -1676,9 +1676,9 @@ DEFUN (vtysh_terminal_no_length,
   return CMD_SUCCESS;
 }
 
-DEFUN (vtysh_show_running_daemons,
-       vtysh_show_running_daemons_cmd,
-       "show running-daemons",
+DEFUN (vtysh_show_daemons,
+       vtysh_show_daemons_cmd,
+       "show daemons",
        SHOW_STR
        "Show list of running daemons\n")
 {
@@ -2160,8 +2160,8 @@ vtysh_init_vty ()
   install_element (ENABLE_NODE, &vtysh_terminal_length_cmd);
   install_element (VIEW_NODE, &vtysh_terminal_no_length_cmd);
   install_element (ENABLE_NODE, &vtysh_terminal_no_length_cmd);
-  install_element (VIEW_NODE, &vtysh_show_running_daemons_cmd);
-  install_element (ENABLE_NODE, &vtysh_show_running_daemons_cmd);
+  install_element (VIEW_NODE, &vtysh_show_daemons_cmd);
+  install_element (ENABLE_NODE, &vtysh_show_daemons_cmd);
 
   install_element (VIEW_NODE, &vtysh_ping_cmd);
   install_element (VIEW_NODE, &vtysh_ping_ip_cmd);
