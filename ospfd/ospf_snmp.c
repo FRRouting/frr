@@ -2130,6 +2130,9 @@ ospfNbrLookup (struct variable *v, oid *name, size_t *length,
 
   ospf = ospf_lookup ();
 
+  if (! ospf)
+    return NULL;
+
   if (exact)
     {
       if (*length != v->namelen + IN_ADDR_SIZE + 1)
