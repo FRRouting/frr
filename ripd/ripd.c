@@ -2344,7 +2344,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type,
       if (IS_RIP_DEBUG_EVENT)
 	zlog_info ("multicast announce on %s ", ifp->name);
 
-      rip_output_process (ifp, NULL, NULL, route_type, rip->version_send, 
+      rip_output_process (ifp, NULL, NULL, route_type, version, 
                           sconn, saddr);
       return;
     }
@@ -2373,7 +2373,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type,
 			   inet_ntoa (to.sin_addr), ifp->name);
 
 	      rip_output_process (ifp, connected->address, &to, route_type,
-				 rip->version_send, connected, saddr);
+				 version, connected, saddr);
 	    }
 	}
     }
