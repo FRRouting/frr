@@ -6,3 +6,5 @@ tags
 TAGS
 .deps
 .nfs*
+*.lo
+*.la
