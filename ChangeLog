@@ -1,3 +1,12 @@
+2004-11-05 Paul Jakma <paul@dishone.st>
+
+	* HACKING: Expand on ChangeLogs, eg current practice for certain
+          directories and certain other meta-data is not to maintain a 
+          ChangeLog. Expand on the commit message, IMHO, commit message
+          should always be ChangeLog for files where ChangeLog is kept.
+	  Solaris is supported on any platform (with, at moment, an
+          additional patch).
+
 2004-10-23 Paul Jakma <paul@dishone.st>
 
 	* configure.ac: bump version to 0.97.2, release imminent.

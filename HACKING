@@ -1,6 +1,6 @@
 -*- mode: text; -*-
 
-$Id: HACKING,v 1.9 2004/11/05 13:17:20 gdt Exp $
+$Id: HACKING,v 1.10 2004/11/05 23:38:20 paul Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -41,6 +41,13 @@ Most directories have a ChangeLog file; changes to code in that
 directory should go in the per-directory ChangeLog.  Global or
 structural changes should also be mentioned in the top-level
 ChangeLog.
+
+Certain directories do not contain project code, but contain project
+meta-data, eg packaging information, changes to files in these directory may
+not require the global ChangeLog to be updated (at the discretion of the
+maintainer who usually maintains that meta-data). Also, CVS meta-data such
+as cvsignore files do not require ChangeLog updates, just a sane commit
+message.
 
 SHARED LIBRARY VERSIONING
 
@@ -99,7 +106,10 @@ PATCH APPLICATION TO CVS
   mailinglist.
 
 * Give an appropriate commit message, eg the ChangeLog entry should suffice,
-  if it does not, then the ChangeLog entry itself needs to be corrected.
+  if it does not, then the ChangeLog entry itself needs to be corrected. The
+  commit message text should be identical to that added to the ChangeLog
+  message. (One suggestion: when commiting, use your editor to read in the
+  ChangeLog and delete all previous ChangeLogs.)
 
 * By committing a patch, you are responsible for fixing problems
   resulting from it (or backing it out).
@@ -113,7 +123,7 @@ and willing to verify that -current does or does not work correctly.
 
   BSD (Free, Net or Open, any platform) # without capabilities
   GNU/Linux (any distribution, i386)
-  Solaris with 64-bit processor (strict alignment, not ILP32)
+  Solaris (strict alignment, any platform)
   [future: NetBSD/sparc64]
 
 The list of daemons that are thought to be stable and that should be
