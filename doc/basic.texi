@@ -116,6 +116,12 @@ If the optional second argument specifying the
 logging level is not present, the default logging level (typically debugging,
 but can be changed using the deprecated @code{log trap} command) will be used.
 The @code{no} form of the command disables logging to a file.
+
+Note: if you do not configure any file logging, and a daemon crashes due
+to a signal or an assertion failure, it will attempt to save the crash
+information in a file named /var/tmp/quagga.<daemon name>.crashlog.
+For security reasons, this will not happen if the file exists already, so
+it is important to delete the file after reporting the crash information.
 @end deffn
 
 @deffn Command {log syslog} {}
