@@ -2677,6 +2677,10 @@ ospf_lsa_maxage_walker (struct thread *thread)
       LSDB_LOOP (OPAQUE_AS_LSDB (ospf), rn, lsa)
 	ospf_lsa_maxage_walker_remover (ospf, lsa);
 #endif /* HAVE_OPAQUE_LSA */
+#ifdef HAVE_NSSA
+      LSDB_LOOP (NSSA_LSDB (ospf), rn, lsa)
+        ospf_lsa_maxage_walker_remover (ospf, lsa);
+#endif /* HAVE_NSSA */
     }
 
   OSPF_TIMER_ON (ospf->t_maxage_walker, ospf_lsa_maxage_walker,
