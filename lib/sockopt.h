@@ -53,7 +53,7 @@ int setsockopt_ipv6_multicast_loop (int, int);
   ((af == AF_INET) ? SOPT_SIZE_CMSG_PKTINFO_IPV4() \
                    : SOPT_SIZE_CMSG_PKTINFO_IPV6()
 
-#define SOPT_SIZE_CMSG_IFINDEX_IPV4()	SOPT_SIZE_CMSG_PKTINFO_IPV4
+#define SOPT_SIZE_CMSG_IFINDEX_IPV4()	SOPT_SIZE_CMSG_PKTINFO_IPV4()
 
 #elif defined (IP_RECVIF)
 /* BSD/Solaris.  Arguably these should say RECVIF rather than IFINDEX. */
