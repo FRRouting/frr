@@ -4,7 +4,7 @@
 
 Quagga fully supports IPv6 routing.  As described so far, Quagga supports
 RIPng, OSPFv3 and BGP-4+.  You can give IPv6 addresses to an interface
-and configure static IPv6 routing information.  Quagga-IPv6 also provides
+and configure static IPv6 routing information.  Quagga IPv6 also provides
 automatic address configuration via a feature called @code{address
 auto configuration}.  To do it, the router must send router advertisement
 messages to the all nodes that exist on the network.
@@ -17,16 +17,102 @@ messages to the all nodes that exist on the network.
 @comment  node-name,  next,  previous,  up
 @section Router Advertisement
 
-@deffn {Interface Command} {ipv6 nd send-ra} {}
+@deffn {Interface Command} {no ipv6 nd supress-ra} {}
+Send router advertisment messages.
 @end deffn
 
-@deffn {Interface Command} {ipv6 nd prefix-advertisement @var{ipv6prefix}} {}
+@deffn {Interface Command} {ipv6 nd supress-ra} {}
+Don't send router advertisment messages.
+@end deffn
+
+@deffn {Interface Command} {ipv6 nd prefix @var{ipv6prefix} [@var{valid-lifetime}] [@var{preferred-lifetime}] [off-link] [no-autconfig]} {}
+Configuring the IPv6 prefix to include in router advertisements. Several prefix
+specific optional parameters and flags may follow:
+@itemize @bullet
+@item
+@var{valid-lifetime} - the length of time in seconds during what the prefix is
+valid for the purpose of on-link determination. Value @var{infinite} represents
+infinity (i.e. a value of all one bits (@code{0xffffffff})).
+
+Range: @code{<0-4294967295>}  Default: @code{2592000}
+
+@item
+@var{preferred-lifetime} - the length of time in seconds during what addresses
+generated from the prefix remain preferred. Value @var{infinite} represents
+infinity.
+
+Range: @code{<0-4294967295>}  Default: @code{604800}
+
+@item
+@var{off-link} - indicates that advertisement makes no statement about on-link or
+off-link properties of the prefix.
+
+Default: not set, i.e. this prefix can be used for on-link determination.
+
+@item
+@var{no-autoconfig} - indicates to hosts on the local link that the specified prefix
+cannot be used for IPv6 autoconfiguration.
+
+Default: not set, i.e. prefix can be used for autoconfiguration.
+@end itemize
+@end deffn
+
+@deffn {Interface Command} {ipv6 nd ra-interval SECONDS} {}
+@deffnx {Interface Command} {no ipv6 nd ra-interval} {}
+The  maximum  time allowed between sending unsolicited multicast router
+advertisements from the interface, in seconds. Must be no less than 3 seconds.
+
+Default: @code{600}
+@end deffn
+
+@deffn {Interface Command} {ipv6 nd ra-lifetime SECONDS} {}
+@deffnx {Interface Command} {no ipv6 nd ra-lifetime} {}
+The value to be placed in the Router Lifetime field of router advertisements
+sent from the interface, in seconds. Indicates the usefulness of the router
+as a default router on this interface. Setting the value to zero indicates
+that the router should not be considered a default router on this interface.
+Must be either zero or between value specified with @var{ipv6 nd ra-interval}
+(or default) and 9000 seconds.
+
+Default: @code{1800}
+@end deffn
+
+@deffn {Interface Command} {ipv6 nd reachable-time MILLISECONDS} {}
+@deffnx {Interface Command} {no ipv6 nd reachable-time} {}
+The value to be placed in the Reachable Time field in the Router Advertisement
+messages sent by the router, in milliseconds. The configured time enables the
+router to detect unavailable neighbors. The value zero means unspecified (by
+this router). Must be no greater than @code{3,600,000} milliseconds (1 hour).
+
+Default: @code{0}
+@end deffn
+
+@deffn {Interface Command} {ipv6 nd managed-config-flag} {}
+@deffnx {Interface Command} {no ipv6 nd managed-config-flag} {}
+Set/unset flag in IPv6 router advertisements which indicates to hosts that they
+should use managed (stateful) protocol for addresses autoconfiguration in
+addition to any addresses autoconfigured using stateless address
+autoconfiguration.
+
+Default: not set
+@end deffn
+
+@deffn {Interface Command} {ipv6 nd other-config-flag} {}
+@deffnx {Interface Command} {no ipv6 nd other-config-flag} {}
+Set/unset flag in IPv6 router advertisements which indicates to hosts that
+they should use administered (stateful) protocol to obtain autoconfiguration
+information other than addresses.
+
+Default: not set
 @end deffn
 
 @example
 @group
 interface eth0
- ipv6 nd send-ra
- ipv6 nd prefix-advertisement 3ffe:506:5009::/64
+ no ipv6 nd supress-ra
+ ipv6 nd prefix 2001:0DB8:5009::/64
 @end group
 @end example
+
+For more information see @cite{RFC2462 (IPv6 Stateless Address Autoconfiguration)}
+and @cite{RFC2461 (Neighbor Discovery for IP Version 6 (IPv6))}.

@@ -232,7 +232,8 @@ rtadv_send_packet (int sock, struct interface *ifp)
       {
 	u_char buf[INET6_ADDRSTRLEN];
 
-	zlog_info ("DEBUG %s", inet_ntop (AF_INET6, &pinfo->nd_opt_pi_prefix, buf, INET6_ADDRSTRLEN));
+	zlog_info ("DEBUG %s", inet_ntop (AF_INET6, &pinfo->nd_opt_pi_prefix, 
+	           buf, INET6_ADDRSTRLEN));
 
       }
 #endif /* DEBUG */
@@ -550,7 +551,7 @@ rtadv_prefix_reset (struct zebra_if *zif, struct rtadv_prefix *rp)
 DEFUN (ipv6_nd_suppress_ra,
        ipv6_nd_suppress_ra_cmd,
        "ipv6 nd suppress-ra",
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Suppress Router Advertisement\n")
 {
@@ -581,19 +582,11 @@ DEFUN (ipv6_nd_suppress_ra,
   return CMD_SUCCESS;
 }
 
-ALIAS (ipv6_nd_suppress_ra,
-       no_ipv6_nd_send_ra_cmd,
-       "no ipv6 nd send-ra",
-       NO_STR
-       IP_STR
-       "Neighbor discovery\n"
-       "Send Router Advertisement\n")
-
 DEFUN (no_ipv6_nd_suppress_ra,
        no_ipv6_nd_suppress_ra_cmd,
        "no ipv6 nd suppress-ra",
        NO_STR
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Suppress Router Advertisement\n")
 {
@@ -624,17 +617,10 @@ DEFUN (no_ipv6_nd_suppress_ra,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ipv6_nd_suppress_ra,
-       ipv6_nd_send_ra_cmd,
-       "ipv6 nd send-ra",
-       IP_STR
-       "Neighbor discovery\n"
-       "Send Router Advertisement\n")
-
 DEFUN (ipv6_nd_ra_interval,
        ipv6_nd_ra_interval_cmd,
        "ipv6 nd ra-interval SECONDS",
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router Advertisement interval\n"
        "Router Advertisement interval in seconds\n")
@@ -665,7 +651,7 @@ DEFUN (no_ipv6_nd_ra_interval,
        no_ipv6_nd_ra_interval_cmd,
        "no ipv6 nd ra-interval",
        NO_STR
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router Advertisement interval\n")
 {
@@ -685,7 +671,7 @@ DEFUN (no_ipv6_nd_ra_interval,
 DEFUN (ipv6_nd_ra_lifetime,
        ipv6_nd_ra_lifetime_cmd,
        "ipv6 nd ra-lifetime SECONDS",
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router lifetime\n"
        "Router lifetime in seconds\n")
@@ -714,7 +700,7 @@ DEFUN (no_ipv6_nd_ra_lifetime,
        no_ipv6_nd_ra_lifetime_cmd,
        "no ipv6 nd ra-lifetime",
        NO_STR
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router lifetime\n")
 {
@@ -732,7 +718,7 @@ DEFUN (no_ipv6_nd_ra_lifetime,
 DEFUN (ipv6_nd_reachable_time,
        ipv6_nd_reachable_time_cmd,
        "ipv6 nd reachable-time MILLISECONDS",
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Reachable time\n"
        "Reachable time in milliseconds\n")
@@ -761,7 +747,7 @@ DEFUN (no_ipv6_nd_reachable_time,
        no_ipv6_nd_reachable_time_cmd,
        "no ipv6 nd reachable-time",
        NO_STR
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Reachable time\n")
 {
@@ -779,7 +765,7 @@ DEFUN (no_ipv6_nd_reachable_time,
 DEFUN (ipv6_nd_managed_config_flag,
        ipv6_nd_managed_config_flag_cmd,
        "ipv6 nd managed-config-flag",
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Managed address configuration flag\n")
 {
@@ -798,7 +784,7 @@ DEFUN (no_ipv6_nd_managed_config_flag,
        no_ipv6_nd_managed_config_flag_cmd,
        "no ipv6 nd managed-config-flag",
        NO_STR
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Managed address configuration flag\n")
 {
@@ -816,7 +802,7 @@ DEFUN (no_ipv6_nd_managed_config_flag,
 DEFUN (ipv6_nd_other_config_flag,
        ipv6_nd_other_config_flag_cmd,
        "ipv6 nd other-config-flag",
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Other statefull configuration flag\n")
 {
@@ -835,7 +821,7 @@ DEFUN (no_ipv6_nd_other_config_flag,
        no_ipv6_nd_other_config_flag_cmd,
        "no ipv6 nd other-config-flag",
        NO_STR
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Other statefull configuration flag\n")
 {
@@ -850,20 +836,24 @@ DEFUN (no_ipv6_nd_other_config_flag,
   return CMD_SUCCESS;
 }
 
-DEFUN (ipv6_nd_prefix_advertisement,
-       ipv6_nd_prefix_advertisement_cmd,
-       "ipv6 nd prefix-advertisement IPV6PREFIX VALID PREFERRED [onlink] [autoconfig]",
-       IP_STR
+DEFUN (ipv6_nd_prefix,
+       ipv6_nd_prefix_cmd,
+       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+       "(<0-4294967295>|infinite) (off-link|) (no-autoconfig|)",
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Prefix information\n"
        "IPv6 prefix\n"
        "Valid lifetime in seconds\n"
+       "Infinite valid lifetime\n"
        "Preferred lifetime in seconds\n"
-       "On link flag\n"
-       "Autonomous address-configuration flag\n")
+       "Infinite preferred lifetime\n"
+       "Do not use prefix for onlink determination\n"
+       "Do not use prefix for autoconfiguration\n")
 {
   int i;
   int ret;
+  int cursor = 1;
   struct interface *ifp;
   struct zebra_if *zebra_if;
   struct rtadv_prefix rp;
@@ -877,32 +867,43 @@ DEFUN (ipv6_nd_prefix_advertisement,
       vty_out (vty, "Malformed IPv6 prefix%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
+  rp.AdvOnLinkFlag = 1;
+  rp.AdvAutonomousFlag = 1;
+  rp.AdvValidLifetime = RTADV_VALID_LIFETIME;
+  rp.AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
 
-  if (argc == 1)
+  if (argc > 1)
     {
-      rp.AdvValidLifetime = RTADV_VALID_LIFETIME;
-      rp.AdvPreferredLifetime = RTADV_PREFERRED_LIFETIME;
-      rp.AdvOnLinkFlag = 1;
-      rp.AdvAutonomousFlag = 1;
-    }
-  else
-    {
-      rp.AdvValidLifetime = (u_int32_t) atol (argv[1]);
-      rp.AdvPreferredLifetime = (u_int32_t) atol (argv[2]);
-      if (rp.AdvPreferredLifetime > rp.AdvValidLifetime)
+      if ((isdigit(argv[1][0])) || strncmp (argv[1], "i", 1) == 0)
 	{
-	  vty_out (vty, "Invalid preferred lifetime%s", VTY_NEWLINE);
-	  return CMD_WARNING;
+	  if ( strncmp (argv[1], "i", 1) == 0)
+	    rp.AdvValidLifetime = UINT32_MAX;
+	  else
+	    rp.AdvValidLifetime = (u_int32_t) strtoll (argv[1],
+		(char **)NULL, 10);
+      
+	  if ( strncmp (argv[2], "i", 1) == 0)
+	    rp.AdvPreferredLifetime = UINT32_MAX;
+	  else
+	    rp.AdvPreferredLifetime = (u_int32_t) strtoll (argv[2],
+		(char **)NULL, 10);
+
+	  if (rp.AdvPreferredLifetime > rp.AdvValidLifetime)
+	    {
+	      vty_out (vty, "Invalid preferred lifetime%s", VTY_NEWLINE);
+	      return CMD_WARNING;
+	    }
+	  cursor = cursor + 2;
 	}
-
-      rp.AdvOnLinkFlag = 0;
-      rp.AdvAutonomousFlag = 0;
-      for (i = 3; i < argc; i++)
+      if (argc > cursor)
 	{
-	  if (! strcmp (argv[i], "onlink"))
-	    rp.AdvOnLinkFlag = 1;
-	  else if (! strcmp (argv[i], "autoconfig"))
-	    rp.AdvAutonomousFlag = 1;
+	  for (i = cursor; i < argc; i++)
+	    {
+	      if (strncmp (argv[i], "of", 2) == 0)
+		rp.AdvOnLinkFlag = 0;
+	      if (strncmp (argv[i], "no", 2) == 0)
+		rp.AdvAutonomousFlag = 0;
+	    }
 	}
     }
 
@@ -911,19 +912,113 @@ DEFUN (ipv6_nd_prefix_advertisement,
   return CMD_SUCCESS;
 }
 
-ALIAS (ipv6_nd_prefix_advertisement,
-       ipv6_nd_prefix_advertisement_no_val_cmd,
-       "ipv6 nd prefix-advertisement IPV6PREFIX",
-       IP_STR
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_val_rev_cmd,
+       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+       "(<0-4294967295>|infinite) (no-autoconfig|) (off-link|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Valid lifetime in seconds\n"
+       "Infinite valid lifetime\n"
+       "Preferred lifetime in seconds\n"
+       "Infinite preferred lifetime\n"
+       "Do not use prefix for autoconfiguration\n"
+       "Do not use prefix for onlink determination\n")
+
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_val_noauto_cmd,
+       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+       "(<0-4294967295>|infinite) (no-autoconfig|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Valid lifetime in seconds\n"
+       "Infinite valid lifetime\n"
+       "Preferred lifetime in seconds\n"
+       "Infinite preferred lifetime\n"
+       "Do not use prefix for autoconfigurationn")
+
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_val_offlink_cmd,
+       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+       "(<0-4294967295>|infinite) (off-link|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Valid lifetime in seconds\n"
+       "Infinite valid lifetime\n"
+       "Preferred lifetime in seconds\n"
+       "Infinite preferred lifetime\n"
+       "Do not use prefix for onlink determination\n")
+
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_val_cmd,
+       "ipv6 nd prefix X:X::X:X/M (<0-4294967295>|infinite) "
+       "(<0-4294967295>|infinite)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Valid lifetime in seconds\n"
+       "Infinite valid lifetime\n"
+       "Preferred lifetime in seconds\n"
+       "Infinite preferred lifetime\n")
+
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_noval_cmd,
+       "ipv6 nd prefix X:X::X:X/M (no-autoconfig|) (off-link|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Do not use prefix for autoconfiguration\n"
+       "Do not use prefix for onlink determination\n")
+
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_noval_rev_cmd,
+       "ipv6 nd prefix X:X::X:X/M (off-link|) (no-autoconfig|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Do not use prefix for onlink determination\n"
+       "Do not use prefix for autoconfiguration\n")
+
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_noval_noauto_cmd,
+       "ipv6 nd prefix X:X::X:X/M (no-autoconfig|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Do not use prefix for autoconfiguration\n")
+
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_noval_offlink_cmd,
+       "ipv6 nd prefix X:X::X:X/M (off-link|)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Prefix information\n"
+       "IPv6 prefix\n"
+       "Do not use prefix for onlink determination\n")
+
+ALIAS (ipv6_nd_prefix,
+       ipv6_nd_prefix_prefix_cmd,
+       "ipv6 nd prefix X:X::X:X/M",
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Prefix information\n"
        "IPv6 prefix\n")
 
-DEFUN (no_ipv6_nd_prefix_advertisement,
-       no_ipv6_nd_prefix_advertisement_cmd,
-       "no ipv6 nd prefix-advertisement IPV6PREFIX",
+DEFUN (no_ipv6_nd_prefix,
+       no_ipv6_nd_prefix_cmd,
+       "no ipv6 nd prefix IPV6PREFIX",
        NO_STR
-       IP_STR
+       "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Prefix information\n"
        "IPv6 prefix\n")
@@ -996,16 +1091,26 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
   for (node = listhead(zif->rtadv.AdvPrefixList); node; node = nextnode (node))
     {
       rprefix = getdata (node);
-      vty_out (vty, " ipv6 nd prefix-advertisement %s/%d %d %d",
+      vty_out (vty, " ipv6 nd prefix %s/%d",
 	       inet_ntop (AF_INET6, &rprefix->prefix.u.prefix6, 
 			  buf, INET6_ADDRSTRLEN),
-	       rprefix->prefix.prefixlen,
-	       rprefix->AdvValidLifetime,
-	       rprefix->AdvPreferredLifetime);
-      if (rprefix->AdvOnLinkFlag)
-	vty_out (vty, " onlink");
-      if (rprefix->AdvAutonomousFlag)
-	vty_out (vty, " autoconfig");
+	       rprefix->prefix.prefixlen);
+      if ((rprefix->AdvValidLifetime != RTADV_VALID_LIFETIME) || 
+	  (rprefix->AdvPreferredLifetime != RTADV_PREFERRED_LIFETIME))
+	{
+	  if (rprefix->AdvValidLifetime == UINT32_MAX)
+	    vty_out (vty, " infinite");
+	  else
+	    vty_out (vty, " %u", rprefix->AdvValidLifetime);
+	  if (rprefix->AdvPreferredLifetime == UINT32_MAX)
+	    vty_out (vty, " infinite");
+	  else
+	    vty_out (vty, " %u", rprefix->AdvPreferredLifetime);
+	}
+      if (!rprefix->AdvOnLinkFlag)
+	vty_out (vty, " off-link");
+      if (!rprefix->AdvAutonomousFlag)
+	vty_out (vty, " no-autoconfig");
       vty_out (vty, "%s", VTY_NEWLINE);
     }
 }
@@ -1020,7 +1125,8 @@ rtadv_event (enum rtadv_event event, int val)
       if (! rtadv->ra_read)
 	rtadv->ra_read = thread_add_read (zebrad.master, rtadv_read, NULL, val);
       if (! rtadv->ra_timer)
-	rtadv->ra_timer = thread_add_event (zebrad.master, rtadv_timer, NULL, 0);
+	rtadv->ra_timer = thread_add_event (zebrad.master, rtadv_timer,
+	                                    NULL, 0);
       break;
     case RTADV_STOP:
       if (rtadv->ra_timer)
@@ -1036,7 +1142,8 @@ rtadv_event (enum rtadv_event event, int val)
       break;
     case RTADV_TIMER:
       if (! rtadv->ra_timer)
-	rtadv->ra_timer = thread_add_timer (zebrad.master, rtadv_timer, NULL, val);
+	rtadv->ra_timer = thread_add_timer (zebrad.master, rtadv_timer, NULL,
+	                                    val);
       break;
     case RTADV_READ:
       if (! rtadv->ra_read)
@@ -1062,8 +1169,6 @@ rtadv_init ()
 
   install_element (INTERFACE_NODE, &ipv6_nd_suppress_ra_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_suppress_ra_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_send_ra_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_send_ra_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_ra_lifetime_cmd);
@@ -1074,9 +1179,17 @@ rtadv_init ()
   install_element (INTERFACE_NODE, &no_ipv6_nd_managed_config_flag_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_other_config_flag_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_other_config_flag_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_advertisement_cmd);
-  install_element (INTERFACE_NODE, &ipv6_nd_prefix_advertisement_no_val_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_advertisement_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_rev_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_noauto_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_offlink_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_val_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_rev_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_noauto_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_offlink_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_prefix_prefix_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
 }
 
 int

@@ -1,3 +1,12 @@
+2004-05-18 Hasso Tepper <hasso@estpak.ee>
+
+	* rtadv.c: Removed "[no] ipv6 nd send-ra" command. Replaced "ipv6 nd
+	  prefix-advertisement" with "ipv6 nd prefix". Rewrite syntax of
+	  "ipv6 nd prefix" command to allow various combinations of parameters
+	  and flags. No defaults in configuration. Replaced on-link and
+	  autoconfig with off-link and no-autoconfig flags in command syntax.
+	  Cosmetic fixes in all commands. Documentation to reflect all changes.
+
 2004-05-11 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: support for IOCTL_METHOD, as per Sowmini's patch.
