@@ -1,3 +1,11 @@
+2004-09-19 Hasso Tepper <hasso at quagga.net>
+
+	* isis_spf.h: Renamed t_spf_periodic to t_spf as it's not used to
+	  store pointer to periodic SPF thread only.
+	* isis_spf.c: Cleaned up SPF threads schedule code. IPv4 and IPv6
+	  threads are independant now. Used macros wherever possible.
+	* isis_lsp.c: Fixed bug in scheduling LSP regeneration.
+
 2004-09-17 LIU Xin <lx at ns.6test.edu.cn>
 	
 	* isis_circuit.c: According to RFC1142 the first DIS election will be

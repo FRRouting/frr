@@ -1022,21 +1022,6 @@ isis_run_spf (struct isis_area *area, int level, int family)
   spftree->lastrun = time (NULL);
   spftree->pending = 0;
 
-  if (level == 1)
-    {
-      /* FIXME: Should do it earlier. */
-      spftree->t_spf_periodic = NULL;
-      THREAD_TIMER_ON (master, spftree->t_spf_periodic, isis_run_spf_l1, area,
-		       isis_jitter (PERIODIC_SPF_INTERVAL, 10));
-    }
-  else
-    {
-      /* FIXME: Should do it earlier. */
-      spftree->t_spf_periodic = NULL;
-      THREAD_TIMER_ON (master, spftree->t_spf_periodic, isis_run_spf_l2, area,
-		       isis_jitter (PERIODIC_SPF_INTERVAL, 10));
-    }
-
   return retval;
 }
 
@@ -1049,27 +1034,25 @@ isis_run_spf_l1 (struct thread *thread)
   area = THREAD_ARG (thread);
   assert (area);
 
+  area->spftree[0]->t_spf = NULL;
+
   if (!(area->is_type & IS_LEVEL_1))
     {
       if (isis->debugs & DEBUG_SPF_EVENTS)
-	{
-	  zlog_warn ("ISIS-SPF (%s) area does not share level",
-		     area->area_tag);
-	}
+	zlog_warn ("ISIS-SPF (%s) area does not share level",
+		   area->area_tag);
       return ISIS_WARNING;
     }
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
-    {
-      zlog_info ("ISIS-Spf (%s) L1 SPF needed, periodic SPF", area->area_tag);
-    }
+    zlog_info ("ISIS-Spf (%s) L1 SPF needed, periodic SPF", area->area_tag);
 
   if (area->ip_circuits)
     retval = isis_run_spf (area, 1, AF_INET);
-#ifdef HAVE_IPV6
-  if (area->ipv6_circuits)
-    retval = isis_run_spf (area, 1, AF_INET6);
-#endif
+
+  THREAD_TIMER_ON (master, area->spftree[0]->t_spf, isis_run_spf_l1, area,
+		   isis_jitter (PERIODIC_SPF_INTERVAL, 10));
+
   return retval;
 }
 
@@ -1082,27 +1065,23 @@ isis_run_spf_l2 (struct thread *thread)
   area = THREAD_ARG (thread);
   assert (area);
 
+  area->spftree[1]->t_spf = NULL;
+
   if (!(area->is_type & IS_LEVEL_2))
     {
       if (isis->debugs & DEBUG_SPF_EVENTS)
-	{
-	  zlog_warn ("ISIS-SPF (%s) area does not share level",
-		     area->area_tag);
-	}
+	zlog_warn ("ISIS-SPF (%s) area does not share level", area->area_tag);
       return ISIS_WARNING;
     }
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
-    {
-      zlog_info ("ISIS-Spf (%s) L2 SPF needed, periodic SPF", area->area_tag);
-    }
+    zlog_info ("ISIS-Spf (%s) L2 SPF needed, periodic SPF", area->area_tag);
 
   if (area->ip_circuits)
     retval = isis_run_spf (area, 2, AF_INET);
-#ifdef HAVE_IPV6
-  if (area->ipv6_circuits)
-    retval = isis_run_spf (area, 2, AF_INET6);
-#endif
+
+  THREAD_TIMER_ON (master, area->spftree[1]->t_spf, isis_run_spf_l2, area,
+		   isis_jitter (PERIODIC_SPF_INTERVAL, 10));
 
   return retval;
 }
@@ -1123,25 +1102,24 @@ isis_spf_schedule (struct isis_area *area, int level)
   if (now - isis->uptime < 60 || isis->uptime == 0)
     {
       if (level == 1)
-	thread_add_timer (master, isis_run_spf_l1, area, 60);
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l1, area, 60);
       else
-	thread_add_timer (master, isis_run_spf_l2, area, 60);
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l2, area, 60);
 
       spftree->pending = 1;
       return retval;
     }
-  /* FIXME: This stuff is just mess. All spf thread add/cancel
-     logic should be reviewed. */
-  THREAD_TIMER_OFF (spftree->t_spf_periodic);
+
+  THREAD_TIMER_OFF (spftree->t_spf);
 
   if (diff < MINIMUM_SPF_INTERVAL)
     {
       if (level == 1)
-	thread_add_timer (master, isis_run_spf_l1, area,
-			  MINIMUM_SPF_INTERVAL - diff);
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l1, area,
+			 MINIMUM_SPF_INTERVAL - diff);
       else
-	thread_add_timer (master, isis_run_spf_l2, area,
-			  MINIMUM_SPF_INTERVAL - diff);
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l2, area,
+			 MINIMUM_SPF_INTERVAL - diff);
 
       spftree->pending = 1;
     }
@@ -1149,12 +1127,78 @@ isis_spf_schedule (struct isis_area *area, int level)
     {
       spftree->pending = 0;
       retval = isis_run_spf (area, level, AF_INET);
+      if (level == 1)
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l1, area,
+			 isis_jitter (PERIODIC_SPF_INTERVAL, 10));
+      else
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l2, area,
+			 isis_jitter (PERIODIC_SPF_INTERVAL, 10));
     }
 
   return retval;
 }
 
 #ifdef HAVE_IPV6
+int
+isis_run_spf6_l1 (struct thread *thread)
+{
+  struct isis_area *area;
+  int retval = ISIS_OK;
+
+  area = THREAD_ARG (thread);
+  assert (area);
+
+  area->spftree6[0]->t_spf = NULL;
+
+  if (!(area->is_type & IS_LEVEL_1))
+    {
+      if (isis->debugs & DEBUG_SPF_EVENTS)
+	zlog_warn ("ISIS-SPF (%s) area does not share level", area->area_tag);
+      return ISIS_WARNING;
+    }
+
+  if (isis->debugs & DEBUG_SPF_EVENTS)
+    zlog_info ("ISIS-Spf (%s) L1 SPF needed, periodic SPF", area->area_tag);
+
+  if (area->ipv6_circuits)
+    retval = isis_run_spf (area, 1, AF_INET6);
+
+  THREAD_TIMER_ON (master, area->spftree6[0]->t_spf, isis_run_spf6_l1, area,
+		   isis_jitter (PERIODIC_SPF_INTERVAL, 10));
+
+  return retval;
+}
+
+int
+isis_run_spf6_l2 (struct thread *thread)
+{
+  struct isis_area *area;
+  int retval = ISIS_OK;
+
+  area = THREAD_ARG (thread);
+  assert (area);
+
+  area->spftree6[1]->t_spf = NULL;
+
+  if (!(area->is_type & IS_LEVEL_2))
+    {
+      if (isis->debugs & DEBUG_SPF_EVENTS)
+        zlog_warn ("ISIS-SPF (%s) area does not share level", area->area_tag);
+      return ISIS_WARNING;
+    }
+
+  if (isis->debugs & DEBUG_SPF_EVENTS)
+    zlog_info ("ISIS-Spf (%s) L2 SPF needed, periodic SPF", area->area_tag);
+
+  if (area->ipv6_circuits)
+    retval = isis_run_spf (area, 2, AF_INET6);
+
+  THREAD_TIMER_ON (master, area->spftree6[1]->t_spf, isis_run_spf6_l2, area,
+		   isis_jitter (PERIODIC_SPF_INTERVAL, 10));
+
+  return retval;
+}
+
 int
 isis_spf_schedule6 (struct isis_area *area, int level)
 {
@@ -1167,29 +1211,28 @@ isis_spf_schedule6 (struct isis_area *area, int level)
 
   diff = now - spftree->lastrun;
 
-  THREAD_TIMER_OFF (spftree->t_spf_periodic);
-
   /* FIXME: let's wait a minute before doing the SPF */
   if (now - isis->uptime < 60 || isis->uptime == 0)
     {
       if (level == 1)
-	thread_add_timer (master, isis_run_spf_l1, area, 60);
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l1, area, 60);
       else
-	thread_add_timer (master, isis_run_spf_l2, area, 60);
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l2, area, 60);
 
       spftree->pending = 1;
       return retval;
     }
-
+  
+  THREAD_TIMER_OFF (spftree->t_spf);
 
   if (diff < MINIMUM_SPF_INTERVAL)
     {
       if (level == 1)
-	thread_add_timer (master, isis_run_spf_l1, area,
-			  MINIMUM_SPF_INTERVAL - diff);
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l1, area,
+			 MINIMUM_SPF_INTERVAL - diff);
       else
-	thread_add_timer (master, isis_run_spf_l2, area,
-			  MINIMUM_SPF_INTERVAL - diff);
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l2, area,
+			 MINIMUM_SPF_INTERVAL - diff);
 
       spftree->pending = 1;
     }
@@ -1197,11 +1240,17 @@ isis_spf_schedule6 (struct isis_area *area, int level)
     {
       spftree->pending = 0;
       retval = isis_run_spf (area, level, AF_INET6);
+
+      if (level == 1)
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l1, area,
+			 isis_jitter (PERIODIC_SPF_INTERVAL, 10));
+      else
+	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l2, area,
+			 isis_jitter (PERIODIC_SPF_INTERVAL, 10));
     }
 
   return retval;
 }
-
 #endif
 
 void

@@ -1895,7 +1895,7 @@ lsp_regenerate_schedule (struct isis_area *area)
 	  area->lsp_regenerate_pending[0] = 1;
 	  thread_add_timer (master, lsp_l1_regenerate, area,
 			    MIN_LSP_GEN_INTERVAL - diff);
-	  return ISIS_OK;
+	  goto L2;
 	}
       else
 	lsp_non_pseudo_regenerate (area, 1);

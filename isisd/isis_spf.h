@@ -60,7 +60,7 @@ struct isis_vertex
 
 struct isis_spftree
 {
-  struct thread *t_spf_periodic;	/* periodic spf threads  */
+  struct thread *t_spf;		/* spf threads */
   time_t lastrun;		/* for scheduling */
   int pending;			/* already scheduled */
   struct list *paths;		/* the SPT */
