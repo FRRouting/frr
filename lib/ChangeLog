@@ -1,5 +1,22 @@
 2005-01-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* sigevent.c: (trap_default_signals) Use the SA_SIGINFO flag to
+	  pass additional siginfo_t and ucontext_t arguments to core_handler
+	  and exit_handler.
+	  (core_handler,exit_handler) Now invoked with 3 arguments (using
+	  SA_SIGINFO).  Pass additional info to zlog_signal.
+	  (program_counter) New function to find program counter in ucontext_t,
+	  needs to be enhanced to support more platforms (currently works only
+	  on Linux/x86).
+	* log.h: Change the zlog_signal prototype to add new arguments
+	  siginfo_t * and program_counter.
+	* log.c: (zlog_signal) Add new arguments siginfo and program_counter.
+	  Include si_addr and program counter (if non-NULL) in message.
+	  And remove #ifdef HAVE_GLIBC_BACKTRACE around hex_append, since
+	  that is now used to render the si_addr and PC pointers.
+
+2005-01-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* zebra.h: If not C99 and no va_copy macro available, fall back to
 	  memcpy (solves a build problem on FreeBSD 4.x).
 

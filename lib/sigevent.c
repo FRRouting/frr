@@ -23,6 +23,15 @@
 #include <sigevent.h>
 #include <log.h>
 
+#ifdef HAVE_UCONTEXT_H
+#ifdef GNU_LINUX
+/* get REG_EIP from ucontext.h */
+#define __USE_GNU
+#endif /* GNU_LINUX */
+#include <ucontext.h>
+#endif /* HAVE_UCONTEXT_H */
+
+
 /* master signals descriptor struct */
 struct quagga_sigevent_master_t
 {
@@ -124,7 +133,7 @@ quagga_signal_timer (struct thread *t)
 #endif /* SIGEVENT_SCHEDULE_THREAD */
 
 /* Initialization of signal handles. */
-/* Signale wrapper. */
+/* Signal wrapper. */
 static int
 signal_set (int signo)
 {
@@ -152,17 +161,33 @@ signal_set (int signo)
     return 0;
 }
 
-static void
-exit_handler(int signo)
+/* XXX This function should be enhanced to support more platforms
+       (it currently works only on Linux/x86). */
+static void *
+program_counter(void *context)
 {
-  zlog_signal(signo,"exiting...");
+#ifdef HAVE_UCONTEXT_H
+#ifdef GNU_LINUX
+#ifdef REG_EIP
+  if (context)
+    return (void *)(((ucontext_t *)context)->uc_mcontext.gregs[REG_EIP]);
+#endif /* REG_EIP */
+#endif /* GNU_LINUX */
+#endif /* HAVE_UCONTEXT_H */
+  return NULL;
+}
+
+static void
+exit_handler(int signo, siginfo_t *siginfo, void *context)
+{
+  zlog_signal(signo, "exiting...", siginfo, program_counter(context));
   _exit(128+signo);
 }
 
 static void
-core_handler(int signo)
+core_handler(int signo, siginfo_t *siginfo, void *context)
 {
-  zlog_signal(signo,"aborting...");
+  zlog_signal(signo, "aborting...", siginfo, program_counter(context));
   abort();
 }
 
@@ -211,11 +236,11 @@ trap_default_signals(void)
   static const struct {
     const int *sigs;
     u_int nsigs;
-    void (*handler)(int);
+    void (*handler)(int signo, siginfo_t *info, void *context);
   } sigmap[] = {
-    { core_signals, sizeof(core_signals)/sizeof(core_signals[0]),core_handler },
-    { exit_signals, sizeof(exit_signals)/sizeof(exit_signals[0]),exit_handler },
-    { ignore_signals, sizeof(ignore_signals)/sizeof(ignore_signals[0]),SIG_IGN},
+    { core_signals, sizeof(core_signals)/sizeof(core_signals[0]), core_handler},
+    { exit_signals, sizeof(exit_signals)/sizeof(exit_signals[0]), exit_handler},
+    { ignore_signals, sizeof(ignore_signals)/sizeof(ignore_signals[0]), NULL},
   };
   u_int i;
 
@@ -230,9 +255,18 @@ trap_default_signals(void)
 	      (oact.sa_handler == SIG_DFL))
 	    {
 	      struct sigaction act;
-	      act.sa_handler = sigmap[i].handler;
 	      sigfillset (&act.sa_mask);
-	      act.sa_flags = 0;
+	      if (sigmap[i].handler == NULL)
+	        {
+		  act.sa_handler = SIG_IGN;
+		  act.sa_flags = 0;
+	        }
+	      else
+	        {
+		  /* Request extra arguments to signal handler. */
+		  act.sa_sigaction = sigmap[i].handler;
+		  act.sa_flags = SA_SIGINFO;
+	        }
 	      if (sigaction(sigmap[i].sigs[j],&act,NULL) < 0)
 	        zlog_warn("Unable to set signal handler for signal %d: %s",
 			  sigmap[i].sigs[j],safe_strerror(errno));

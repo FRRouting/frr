@@ -1,5 +1,5 @@
 /*
- * $Id: log.h,v 1.14 2004/12/07 15:39:32 ajs Exp $
+ * $Id: log.h,v 1.15 2005/01/12 17:27:27 ajs Exp $
  *
  * Zebra logging funcions.
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -153,7 +153,8 @@ extern const char *zlog_proto_names[];
 extern const char *safe_strerror(int errnum);
 
 /* To be called when a fatal signal is caught. */
-extern void zlog_signal(int signo, const char *action);
+extern void zlog_signal(int signo, const char *action,
+			siginfo_t *siginfo, void *program_counter);
 
 /* Log a backtrace. */
 extern void zlog_backtrace(int priority);

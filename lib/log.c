@@ -1,5 +1,5 @@
 /*
- * $Id: log.c,v 1.20 2004/12/10 22:43:17 ajs Exp $
+ * $Id: log.c,v 1.21 2005/01/12 17:27:27 ajs Exp $
  *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -177,10 +177,6 @@ num_append(char *s, int len, u_long x)
   return str_append(s,len,t);
 }
 
-#ifdef HAVE_GLIBC_BACKTRACE
-
-/* This function is used only in zlog_backtrace_sigsafe when glibc
-   backtraces are available. */
 static char *
 hex_append(char *s, int len, u_long x)
 {
@@ -198,8 +194,6 @@ hex_append(char *s, int len, u_long x)
     }
   return str_append(s,len,t);
 }
-
-#endif /* HAVE_GLIBC_BACKTRACE */
 
 static int syslog_fd = -1;
 
@@ -264,10 +258,11 @@ syslog_sigsafe(int priority, const char *msg, size_t msglen)
 
 /* Note: the goal here is to use only async-signal-safe functions. */
 void
-zlog_signal(int signo, const char *action)
+zlog_signal(int signo, const char *action, siginfo_t *siginfo,
+	    void *program_counter)
 {
   time_t now;
-  char buf[sizeof("DEFAULT: Received signal S at T; aborting...")+60];
+  char buf[sizeof("DEFAULT: Received signal S at T (si_addr 0xP, PC 0xP); aborting...")+100];
   char *s = buf;
   char *msgstart = buf;
 #define LOC s,buf+sizeof(buf)-s
@@ -284,7 +279,14 @@ zlog_signal(int signo, const char *action)
   s = num_append(LOC,signo);
   s = str_append(LOC," at ");
   s = num_append(LOC,now);
-  s = str_append(LOC,"; ");
+  s = str_append(LOC," (si_addr 0x");
+  s = hex_append(LOC,(u_long)(siginfo->si_addr));
+  if (program_counter)
+    {
+      s = str_append(LOC,", PC 0x");
+      s = hex_append(LOC,(u_long)program_counter);
+    }
+  s = str_append(LOC,"); ");
   s = str_append(LOC,action);
   if (s < buf+sizeof(buf))
     *s++ = '\n';
