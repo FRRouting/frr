@@ -2,6 +2,9 @@ config.log
 config.h
 config.cache
 config.status
+config.guess
+config.sub
+ltmain.sh
 stamp-h
 stamp-h[0-9]*
 Makefile
