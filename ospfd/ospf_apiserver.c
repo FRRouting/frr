@@ -1536,7 +1536,7 @@ ospf_apiserver_is_ready_type9 (struct ospf_interface *oi)
      active opaque-capable neighbor attached to the outgoing
      interface. */
 
-  return (ospf_opaque_capable_nbr_count (oi->nbrs, NSM_Full) > 0);
+  return (ospf_nbr_count_opaque_capable (oi) > 0);
 }
 
 int
@@ -1587,6 +1587,7 @@ ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
 {
   struct msg_originate_request *omsg;
   struct lsa_header *data;
+  struct ospf *ospf;
   struct ospf_lsa *new;
   struct ospf_lsa *old;
   struct ospf_area *area = NULL;
@@ -1595,6 +1596,9 @@ ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
   int lsa_type, opaque_type;
   int ready = 0;
   int rc = 0;
+  
+  ospf = ospf_get ();
+  assert (ospf);
 
   /* Extract opaque LSA data from message */
   omsg = (struct msg_originate_request *) STREAM_DATA (msg->s);
@@ -1616,7 +1620,7 @@ ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
       lsdb = area->lsdb;
       break;
     case OSPF_OPAQUE_AREA_LSA:
-      area = ospf_area_lookup_by_area_id (omsg->area_id);
+      area = ospf_area_lookup_by_area_id (ospf, omsg->area_id);
       if (!area)
 	{
 	  zlog_warn ("apiserver_originate: unknown area %s",
@@ -1734,7 +1738,7 @@ ospf_apiserver_flood_opaque_lsa (struct ospf_lsa *lsa)
     case OSPF_OPAQUE_AREA_LSA:
       /* Update LSA origination count. */
       assert (lsa->area);
-      lsa->area->top->lsa_originate_count++;
+      lsa->area->ospf->lsa_originate_count++;
 
       /* Flood LSA through area. */
       ospf_flood_through_area (lsa->area, NULL /*nbr */ , lsa);
@@ -1743,7 +1747,7 @@ ospf_apiserver_flood_opaque_lsa (struct ospf_lsa *lsa)
       /* Increment counters? XXX */
 
       /* Flood LSA through AS. */
-      ospf_flood_through_as (NULL /*nbr */ , lsa);
+      ospf_flood_through_as (lsa->oi->ospf, NULL /*nbr */ , lsa);
       break;
     }
 }
@@ -1752,7 +1756,7 @@ int
 ospf_apiserver_originate1 (struct ospf_lsa *lsa)
 {
   /* Install this LSA into LSDB. */
-  if (ospf_lsa_install (lsa->oi, lsa) == NULL)
+  if (ospf_lsa_install (lsa->oi->ospf, lsa->oi, lsa) == NULL)
     {
       zlog_warn ("ospf_apiserver_originate1: ospf_lsa_install failed");
       return -1;
@@ -1862,7 +1866,7 @@ ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa)
   SET_FLAG (new->flags, OSPF_LSA_SELF);
 
   /* Install LSA into LSDB. */
-  if (ospf_lsa_install (new->oi, new) == NULL)
+  if (ospf_lsa_install (new->area->ospf, new->oi, new) == NULL)
     {
       zlog_warn ("ospf_apiserver_lsa_refresher: ospf_lsa_install failed");
       ospf_lsa_free (new);
@@ -1899,11 +1903,15 @@ ospf_apiserver_handle_delete_request (struct ospf_apiserver *apiserv,
 				      struct msg *msg)
 {
   struct msg_delete_request *dmsg;
+  struct ospf *ospf;
   struct ospf_lsa *old;
   struct ospf_area *area = NULL;
   struct in_addr id;
   int lsa_type, opaque_type;
   int rc = 0;
+
+  ospf = ospf_get ();
+  assert(ospf);
 
   /* Extract opaque LSA from message */
   dmsg = (struct msg_delete_request *) STREAM_DATA (msg->s);
@@ -1913,7 +1921,7 @@ ospf_apiserver_handle_delete_request (struct ospf_apiserver *apiserv,
     {
     case OSPF_OPAQUE_LINK_LSA:
     case OSPF_OPAQUE_AREA_LSA:
-      area = ospf_area_lookup_by_area_id (dmsg->area_id);
+      area = ospf_area_lookup_by_area_id (ospf, dmsg->area_id);
       if (!area)
 	{
 	  zlog_warn ("ospf_apiserver_lsa_delete: unknown area %s",
