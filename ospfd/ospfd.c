@@ -728,6 +728,9 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 	{
 	  struct connected *co = getdata (cn);
 	  struct prefix *addr;
+	  
+      if (CHECK_FLAG(co->flags,ZEBRA_IFA_SECONDARY))
+        continue;
 
 	  if (ifc_pointopoint (co))
 	    addr = co->destination;
