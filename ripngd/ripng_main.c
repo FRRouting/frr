@@ -27,6 +27,7 @@
 #include "vector.h"
 #include "vty.h"
 #include "command.h"
+#include "memory.h"
 #include "thread.h"
 #include "log.h"
 #include "prefix.h"
@@ -37,6 +38,7 @@
 /* Configuration filename and directory. */
 char config_current[] = RIPNG_DEFAULT_CONFIG;
 char config_default[] = SYSCONFDIR RIPNG_DEFAULT_CONFIG;
+char *config_file = NULL;
 
 /* RIPngd options. */
 struct option longopts[] = 
@@ -57,6 +59,12 @@ struct option longopts[] =
 
 /* Route retain mode flag. */
 int retain_mode = 0;
+
+/* RIPng VTY bind address. */
+char *vty_addr = NULL;
+
+/* RIPng VTY connection port. */
+int vty_port = RIPNG_VTY_PORT;
 
 /* Master of threads. */
 struct thread_master *master;
@@ -93,17 +101,27 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 void 
 sighup (int sig)
 {
-  zlog (NULL, LOG_INFO, "SIGHUP received");
+  zlog_info ("SIGHUP received");
+  ripng_clean ();
+  ripng_reset ();
+  zlog_info ("Terminating on signal");
+
+  /* Reload config file. */
+  vty_read_config (config_file, config_current, config_default);
+  /* Create VTY's socket */
+  vty_serv_sock (vty_addr, vty_port, RIPNG_VTYSH_PATH);
+
+  /* Try to return to normal operation. */
 }
 
 /* SIGINT handler. */
 void
 sigint (int sig)
 {
-  zlog (NULL, LOG_INFO, "Terminating on signal");
+  zlog_info ("Terminating on signal");
 
   if (! retain_mode)
-    ripng_terminate ();
+    ripng_clean ();
 
   exit (0);
 }
@@ -154,10 +172,8 @@ int
 main (int argc, char **argv)
 {
   char *p;
-  char *vty_addr = NULL;
   int vty_port = RIPNG_VTY_PORT;
   int daemon_mode = 0;
-  char *config_file = NULL;
   char *progname;
   struct thread thread;
 
@@ -231,10 +247,14 @@ main (int argc, char **argv)
   signal_init ();
   cmd_init (1);
   vty_init ();
+  memory_init ();
 
   /* RIPngd inits. */
   ripng_init ();
   zebra_init ();
+  ripng_peer_init ();
+
+  /* Sort all installed commands. */
   sort_node ();
 
   /* Get configuration file. */

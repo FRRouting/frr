@@ -44,25 +44,25 @@
 #define RIPNG_TIMEOUT_TIMER_DEFAULT    180
 #define RIPNG_GARBAGE_TIMER_DEFAULT    120
 
+/* RIPng peer timeout value. */
+#define RIPNG_PEER_TIMER_DEFAULT       180
+
 /* Default config file name. */
 #define RIPNG_DEFAULT_CONFIG "ripngd.conf"
 
 /* RIPng route types. */
 #define RIPNG_ROUTE_RTE                  0
 #define RIPNG_ROUTE_STATIC               1
-#define RIPNG_ROUTE_AGGREGATE            2
+#define RIPNG_ROUTE_DEFAULT              2
+#define RIPNG_ROUTE_REDISTRIBUTE         3
+#define RIPNG_ROUTE_INTERFACE            4
+#define RIPNG_ROUTE_AGGREGATE            5
 
 /* Interface send/receive configuration. */
 #define RIPNG_SEND_UNSPEC                0
 #define RIPNG_SEND_OFF                   1
 #define RIPNG_RECEIVE_UNSPEC             0
 #define RIPNG_RECEIVE_OFF                1
-
-/* Split horizon definitions. */
-#define RIPNG_SPLIT_HORIZON_UNSPEC       0
-#define RIPNG_SPLIT_HORIZON_NONE         1
-#define RIPNG_SPLIT_HORIZON              2
-#define RIPNG_SPLIT_HORIZON_POISONED     3
 
 /* RIP default route's accept/announce methods. */
 #define RIPNG_DEFAULT_ADVERTISE_UNSPEC   0
@@ -139,10 +139,12 @@ struct ripng
 /* Routing table entry. */
 struct rte
 {
-  struct in6_addr addr;
-  u_short tag;
-  u_char prefixlen;
-  u_char metric;
+  struct in6_addr addr;	/* RIPng destination prefix */
+  u_short tag;		/* RIPng tag */
+  u_char prefixlen;	/* Length of the RIPng prefix */
+  u_char metric;	/* Metric of the RIPng route */
+  			/* The nexthop is stored by the structure
+			 * ripng_nexthop within ripngd.c */
 };
 
 /* RIPNG send packet. */
@@ -189,11 +191,16 @@ struct ripng_info
   struct thread *t_garbage_collect;
 
   /* Route-map features - this variables can be changed. */
+  struct in6_addr nexthop_out;
   u_char metric_set;
+  u_char metric_out;
+  u_short tag_out;
 
   struct route_node *rp;
 };
 
+#ifdef notyet
+#if 0
 /* RIPng tag structure. */
 struct ripng_tag
 {
@@ -218,6 +225,14 @@ struct ripng_tag
   /* Poison reverse. */
   u_char poison_reverse;
 };
+#endif /* 0 */
+#endif /* not yet */
+
+typedef enum {
+  RIPNG_NO_SPLIT_HORIZON = 0,
+  RIPNG_SPLIT_HORIZON,
+  RIPNG_SPLIT_HORIZON_POISONED_REVERSE
+} split_horizon_policy_t;
 
 /* RIPng specific interface configuration. */
 struct ripng_interface
@@ -229,6 +244,10 @@ struct ripng_interface
   /* RIPng is running on this interface. */
   int running;
 
+  /* Split horizon flag. */
+  split_horizon_policy_t split_horizon;
+  split_horizon_policy_t split_horizon_default;
+  
   /* For filter type slot. */
 #define RIPNG_FILTER_IN  0
 #define RIPNG_FILTER_OUT 1
@@ -243,8 +262,12 @@ struct ripng_interface
   /* Route-map. */
   struct route_map *routemap[RIPNG_FILTER_MAX];
 
+#ifdef notyet
+#if 0
   /* RIPng tag configuration. */
   struct ripng_tag *rtag;
+#endif /* 0 */
+#endif /* notyet */
 
   /* Default information originate. */
   u_char default_originate;
@@ -257,6 +280,29 @@ struct ripng_interface
 
   /* Passive interface. */
   int passive;
+};
+
+/* RIPng peer information. */
+struct ripng_peer
+{
+  /* Peer address. */
+  struct in6_addr addr;
+
+  /* Peer RIPng tag value. */
+  int domain;
+
+  /* Last update time. */
+  time_t uptime;
+
+  /* Peer RIP version. */
+  u_char version;
+
+  /* Statistics. */
+  int recv_badpackets;
+  int recv_badroutes;
+
+  /* Timeout thread. */
+  struct thread *t_timeout;
 };
 
 /* All RIPng events. */
@@ -295,15 +341,42 @@ extern struct thread_master *master;
 
 /* Prototypes. */
 void ripng_init ();
+void ripng_reset ();
+void ripng_clean ();
+void ripng_clean_network ();
+void ripng_interface_clean ();
+void ripng_interface_reset ();
+void ripng_passive_interface_clean ();
 void ripng_if_init ();
+void ripng_route_map_init ();
+void ripng_route_map_reset ();
 void ripng_terminate ();
-void ripng_zclient_start ();
+ /* zclient_init() is done by ripng_zebra.c:zebra_init() */
 void zebra_init ();
+void ripng_zclient_start ();
+void ripng_zclient_reset ();
+void ripng_offset_init ();
+
+int config_write_ripng_offset_list (struct vty *);
+
+void ripng_peer_init ();
+void ripng_peer_update (struct sockaddr_in6 *, u_char);
+void ripng_peer_bad_route (struct sockaddr_in6 *);
+void ripng_peer_bad_packet (struct sockaddr_in6 *);
+void ripng_peer_display (struct vty *);
+struct ripng_peer *ripng_peer_lookup (struct in6_addr *);
+struct ripng_peer *ripng_peer_lookup_next (struct in6_addr *);
+
+int ripng_offset_list_apply_in (struct prefix_ipv6 *, struct interface *, u_char *);
+int ripng_offset_list_apply_out (struct prefix_ipv6 *, struct interface *, u_char *);
+void ripng_offset_clean ();
+
 struct ripng_info * ripng_info_new ();
 void ripng_info_free (struct ripng_info *rinfo);
 void ripng_event (enum ripng_event, int);
 int ripng_request (struct interface *ifp);
-void ripng_redistribute_add (int, int, struct prefix_ipv6 *, unsigned int);
+void ripng_redistribute_add (int, int, struct prefix_ipv6 *, unsigned int,
+			     struct in6_addr *);
 void ripng_redistribute_delete (int, int, struct prefix_ipv6 *, unsigned int);
 void ripng_redistribute_withdraw (int type);
 
@@ -312,6 +385,17 @@ void ripng_if_rmap_update_interface (struct interface *);
 
 void ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop, unsigned int ifindex);
 void ripng_zebra_ipv6_delete (struct prefix_ipv6 *p, struct in6_addr *nexthop, unsigned int ifindex);
-void ripng_route_map_init ();
+
+void ripng_redistribute_clean ();
+
+const char *inet6_ntop (struct in6_addr *p);
+
+int ripng_write_rte (int num, struct stream *s, struct prefix_ipv6 *p,
+		     struct in6_addr *nexthop, u_int16_t tag, u_char metric);
+int ripng_send_packet (caddr_t buf, int bufsize, struct sockaddr_in6 *to, 
+		       struct interface *ifp);
+
+void ripng_packet_dump (struct ripng_packet *packet, int size, char *sndrcv);
+
 
 #endif /* _ZEBRA_RIPNG_RIPNGD_H */

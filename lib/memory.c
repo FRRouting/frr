@@ -255,6 +255,7 @@ struct memory_list memory_list_lib[] =
   { MTYPE_ROUTE_MAP_INDEX,    "Route map index " },
   { MTYPE_ROUTE_MAP_RULE,     "Route map rule  " },
   { MTYPE_ROUTE_MAP_RULE_STR, "Route map rule str" },
+  { MTYPE_ROUTE_MAP_COMPILED, "Route map compiled" },
   { MTYPE_DESC,               "Command desc    " },
   { MTYPE_BUFFER,             "Buffer          " },
   { MTYPE_BUFFER_DATA,        "Buffer data     " },
@@ -320,6 +321,17 @@ struct memory_list memory_list_rip[] =
   { MTYPE_RIP_PEER,           "RIP peer        " },
   { MTYPE_RIP_OFFSET_LIST,    "RIP offset list " },
   { MTYPE_RIP_DISTANCE,       "RIP distance    " },
+  { -1, NULL }
+};
+
+struct memory_list memory_list_ripng[] =
+{
+  { MTYPE_RIPNG,              "RIPng structure " },
+  { MTYPE_RIPNG_ROUTE,        "RIPng route info" },
+  { MTYPE_RIPNG_AGGREGATE,    "RIPng aggregate " },
+  { MTYPE_RIPNG_PEER,         "RIPng peer      " },
+  { MTYPE_RIPNG_OFFSET_LIST,  "RIPng offset lst" },
+  { MTYPE_RIPNG_RTE_DATA,     "RIPng rte data  " },
   { -1, NULL }
 };
 
@@ -402,6 +414,8 @@ DEFUN (show_memory_all,
   show_memory_vty (vty, memory_list_separator);
   show_memory_vty (vty, memory_list_rip);
   show_memory_vty (vty, memory_list_separator);
+  show_memory_vty (vty, memory_list_ripng);
+  show_memory_vty (vty, memory_list_separator);
   show_memory_vty (vty, memory_list_ospf);
   show_memory_vty (vty, memory_list_separator);
   show_memory_vty (vty, memory_list_ospf6);
@@ -436,6 +450,17 @@ DEFUN (show_memory_rip,
        "RIP memory\n")
 {
   show_memory_vty (vty, memory_list_rip);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_memory_ripng,
+       show_memory_ripng_cmd,
+       "show memory ripng",
+       SHOW_STR
+       "Memory statistics\n"
+       "RIPng memory\n")
+{
+  show_memory_vty (vty, memory_list_ripng);
   return CMD_SUCCESS;
 }
 
@@ -479,6 +504,7 @@ memory_init ()
   install_element (VIEW_NODE, &show_memory_all_cmd);
   install_element (VIEW_NODE, &show_memory_lib_cmd);
   install_element (VIEW_NODE, &show_memory_rip_cmd);
+  install_element (VIEW_NODE, &show_memory_ripng_cmd);
   install_element (VIEW_NODE, &show_memory_bgp_cmd);
   install_element (VIEW_NODE, &show_memory_ospf_cmd);
   install_element (VIEW_NODE, &show_memory_ospf6_cmd);
@@ -487,6 +513,7 @@ memory_init ()
   install_element (ENABLE_NODE, &show_memory_all_cmd);
   install_element (ENABLE_NODE, &show_memory_lib_cmd);
   install_element (ENABLE_NODE, &show_memory_rip_cmd);
+  install_element (ENABLE_NODE, &show_memory_ripng_cmd);
   install_element (ENABLE_NODE, &show_memory_bgp_cmd);
   install_element (ENABLE_NODE, &show_memory_ospf_cmd);
   install_element (ENABLE_NODE, &show_memory_ospf6_cmd);

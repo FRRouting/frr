@@ -207,7 +207,8 @@ DEFUN (no_debug_ripng_zebra,
 struct cmd_node debug_node =
 {
   DEBUG_NODE,
-  ""				/* Debug node has no interface. */
+  "",				/* Debug node has no interface. */
+  1 /* VTYSH */
 };
 
 int

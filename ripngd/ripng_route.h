@@ -36,6 +36,12 @@ struct ripng_aggregate
 
   /* Tag field of RIPng packet.*/
   u_short tag;		
+
+  /* Route-map futures - this variables can be changed. */
+  struct in6_addr nexthop_out;
+  u_char metric_set;
+  u_char metric_out;
+  u_short tag_out;
 };
 
 void
