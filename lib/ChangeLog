@@ -1,3 +1,9 @@
+2004-10-11 Paul Jakma <paul@dishone.st>
+
+	* thread.c: (funcname_thread_add_timer) 
+	  (funcname_thread_add_timer_msec) Fix mistakes from last change.
+	  Pointed out by Liu Xin in [quagga-dev 1609].
+
 2004-10-10 Paul Jakma <paul@dishone.st>
 
 	* version.h.in: (pid_output*) add const qualifier.
