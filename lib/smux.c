@@ -271,7 +271,7 @@ smux_getresp_send (oid objid[], size_t objid_len, long reqid, long errstat,
   int ret;
   u_char buf[BUFSIZ];
   u_char *ptr, *h1, *h1e, *h2, *h2e;
-  int len, length;
+  size_t len, length;
 
   ptr = buf;
   len = BUFSIZ;
@@ -322,13 +322,13 @@ smux_getresp_send (oid objid[], size_t objid_len, long reqid, long errstat,
   asn_build_sequence(h1,&length,(u_char)SMUX_GETRSP,ptr-h1e);
 
   if (debug_smux)
-    zlog_info ("SMUX getresp send: %d", ptr - buf);
+    zlog_info ("SMUX getresp send: %ld", (ptr - buf));
   
   ret = send (smux_sock, buf, (ptr - buf), 0);
 }
 
 char *
-smux_var (char *ptr, int len, oid objid[], size_t *objid_len,
+smux_var (char *ptr, size_t len, oid objid[], size_t *objid_len,
           size_t *var_val_len,
           u_char *var_val_type,
           void **var_value)
@@ -339,14 +339,14 @@ smux_var (char *ptr, int len, oid objid[], size_t *objid_len,
   u_char *val;
 
   if (debug_smux)
-    zlog_info ("SMUX var parse: len %d", len);
+    zlog_info ("SMUX var parse: len %ld", len);
 
   /* Parse header. */
   ptr = asn_parse_header (ptr, &len, &type);
   
   if (debug_smux)
     {
-      zlog_info ("SMUX var parse: type %d len %d", type, len);
+      zlog_info ("SMUX var parse: type %d len %ld", type, len);
       zlog_info ("SMUX var parse: type must be %d", 
 		 (ASN_SEQUENCE | ASN_CONSTRUCTOR));
     }
@@ -437,7 +437,7 @@ smux_set (oid *reqid, size_t *reqid_len,
   struct variable *v;
   int subresult;
   oid *suffix;
-  int suffix_len;
+  size_t suffix_len;
   int result;
   u_char *statP = NULL;
   WriteMethod *write_method = NULL;
@@ -506,7 +506,7 @@ smux_get (oid *reqid, size_t *reqid_len, int exact,
   struct variable *v;
   int subresult;
   oid *suffix;
-  int suffix_len;
+  size_t suffix_len;
   int result;
   WriteMethod *write_method=NULL;
   struct listnode *node;
@@ -575,7 +575,7 @@ smux_getnext (oid *reqid, size_t *reqid_len, int exact,
   struct variable *v;
   int subresult;
   oid *suffix;
-  int suffix_len;
+  size_t suffix_len;
   int result;
   WriteMethod *write_method=NULL;
   struct listnode *node;
@@ -668,13 +668,13 @@ smux_parse_get_header (char *ptr, size_t *len, long *reqid)
   ptr = asn_parse_int (ptr, len, &type, &errstat, sizeof (errstat));
 
   if (debug_smux)
-    zlog_info ("SMUX GET errstat %ld len: %d", errstat, *len);
+    zlog_info ("SMUX GET errstat %ld len: %ld", errstat, *len);
 
   /* Error index. */
   ptr = asn_parse_int (ptr, len, &type, &errindex, sizeof (errindex));
 
   if (debug_smux)
-    zlog_info ("SMUX GET errindex %ld len: %d", errindex, *len);
+    zlog_info ("SMUX GET errindex %ld len: %ld", errindex, *len);
 
   return ptr;
 }
@@ -691,7 +691,7 @@ smux_parse_set (char *ptr, size_t len, int action)
   int ret;
 
   if (debug_smux)
-    zlog_info ("SMUX SET(%s) message parse: len %d",
+    zlog_info ("SMUX SET(%s) message parse: len %ld",
                (RESERVE1 == action) ? "RESERVE1" : ((FREE == action) ? "FREE" : "COMMIT"),
                len);
 
@@ -722,7 +722,7 @@ smux_parse_get (char *ptr, size_t len, int exact)
   int ret;
 
   if (debug_smux)
-    zlog_info ("SMUX GET message parse: len %d", len);
+    zlog_info ("SMUX GET message parse: len %ld", len);
   
   /* Parse GET message header. */
   ptr = smux_parse_get_header (ptr, &len, &reqid);
@@ -759,7 +759,7 @@ smux_parse_close (char *ptr, int len)
 
 /* SMUX_RRSP message. */
 void
-smux_parse_rrsp (char *ptr, int len)
+smux_parse_rrsp (char *ptr, size_t len)
 {
   char val;
   long errstat;
@@ -772,7 +772,7 @@ smux_parse_rrsp (char *ptr, int len)
 
 /* Parse SMUX message. */
 int
-smux_parse (char *ptr, int len)
+smux_parse (char *ptr, size_t len)
 {
   /* This buffer we'll use for SOUT message. We could allocate it with
      malloc and save only static pointer/lenght, but IMHO static
@@ -792,7 +792,7 @@ process_rest: /* see note below: YYY */
   ptr = asn_parse_header (ptr, &len, &type);
 
   if (debug_smux)
-    zlog_info ("SMUX message received type: %d rest len: %d", type, len);
+    zlog_info ("SMUX message received type: %d rest len: %ld", type, len);
 
   switch (type)
     {
@@ -945,7 +945,7 @@ smux_open (int sock)
 {
   u_char buf[BUFSIZ];
   u_char *ptr;
-  int len;
+  size_t len;
   u_long version;
   u_char progname[] = QUAGGA_PROGNAME "-" QUAGGA_VERSION;
 
@@ -1002,7 +1002,7 @@ smux_trap (oid *name, size_t namelen,
   unsigned int i;
   u_char buf[BUFSIZ];
   u_char *ptr;
-  int len, length;
+  size_t len, length;
   struct in_addr addr;
   unsigned long val;
   u_char *h1, *h1e;
@@ -1103,7 +1103,8 @@ smux_register (int sock)
 {
   u_char buf[BUFSIZ];
   u_char *ptr;
-  int len, ret;
+  int ret;
+  size_t len;
   long priority;
   long operation;
   struct subtree *subtree;
