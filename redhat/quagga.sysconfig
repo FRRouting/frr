@@ -1,0 +1,9 @@
+#
+# Default: Bind all daemon vtys to the loopback(s) only
+#
+BGPD_OPTS="-A 127.0.0.1"
+OSPF6D_OPTS="-A ::1"
+OSPFD_OPTS="-A 127.0.0.1"
+RIPD_OPTS="-A 127.0.0.1"
+RIPNGD_OPTS="-A ::1"
+ZEBRA_OPTS="-A 127.0.0.1"

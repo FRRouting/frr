@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# chkconfig: - 16 84
+# chkconfig: 2345 16 84
 # description: An OSPF v2 routing engine for use with Zebra
 #
 # processname: ospfd
@@ -11,6 +11,9 @@
 
 # Get network config
 . /etc/sysconfig/network
+
+# quagga command line options
+. /etc/sysconfig/quagga
 
 # Check that networking is up.
 [ "${NETWORKING}" = "no" ] && exit 0
@@ -25,7 +28,7 @@ prog="ospfd"
 case "$1" in
   start)
 	echo -n $"Starting $prog: "
-        daemon /usr/sbin/ospfd -d
+        daemon /usr/sbin/ospfd -d $OSPFD_OPTS
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/ospfd
 	echo

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# chkconfig: - 15 85
+# chkconfig: 2345 15 85
 # description: GNU Zebra routing manager
 #
 # processname: zebra
@@ -8,6 +8,9 @@
 
 # source function library
 . /etc/rc.d/init.d/functions
+
+# quagga command line options
+. /etc/sysconfig/quagga
 
 # Check that networking is up.
 [ "${NETWORKING}" = "no" ] && exit 0
@@ -25,7 +28,7 @@ case "$1" in
 
 	/sbin/ip route flush proto zebra
 			
-        daemon /usr/sbin/zebra -d
+        daemon /usr/sbin/zebra -d $ZEBRA_OPTS
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/zebra
 	echo

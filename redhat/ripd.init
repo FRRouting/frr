@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# chkconfig: - 16 84
+# chkconfig: 2345 16 84
 # description: A RIP routing engine for use with Zebra
 #
 # processname: ripd
@@ -11,6 +11,9 @@
 
 # Get network config
 . /etc/sysconfig/network
+
+# quagga command line options
+. /etc/sysconfig/quagga
 
 # Check that networking is up.
 [ "${NETWORKING}" = "no" ] && exit 0
@@ -24,7 +27,7 @@ prog="ripd"
 case "$1" in
   start)
 	echo -n $"Starting $prog: "
-        daemon /usr/sbin/ripd -d
+        daemon /usr/sbin/ripd -d $RIPD_OPTS
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/ripd
 	echo

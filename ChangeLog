@@ -1,5 +1,16 @@
 2003-12-30 Paul Jakma <paul@dishone.st>
 
+	* redhat/isisd.init: new file, init script for isisd.
+	  redhat/quagga.sysconfig: new file, sysconfig file for quagga
+	  initscripts. 
+	  redhat/quagga.spec.in: various cleanups, including sysconfig patch
+	  from RH, fixed UID/GID as per RH EL, shell changed to 
+	  /sbin/nologin, daemon vty's listen to 127.1 only per default and 
+	  isisd packaged.
+	  redhat/*.init: sysconfig support and runlevels specified.
+	  
+2003-12-30 Paul Jakma <paul@dishone.st>
+
 	* Makefile.am: put the redhat/ stuff into EXTRA_DIST rather than
 	  copying via dist-hook. Remove ~ files backup cruft from dists.
 	  isisd/Makefile.am: sysconf example should go via
