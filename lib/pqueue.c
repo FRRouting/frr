@@ -56,14 +56,18 @@ trickle_up (int index, struct pqueue *queue)
     {
       /* actually trickle up */
       queue->array[index] = queue->array[PARENT_OF (index)];
+      if (queue->update != NULL)
+	(*queue->update) (queue->array[index], index);
       index = PARENT_OF (index);
     }
 
   /* Restore the tmp node to appropriate place.  */
   queue->array[index] = tmp;
+  if (queue->update != NULL)
+    (*queue->update) (tmp, index);
 }
 
-static void
+void
 trickle_down (int index, struct pqueue *queue)
 {
   void *tmp;
@@ -90,11 +94,15 @@ trickle_down (int index, struct pqueue *queue)
 
       /* Actually trickle down the tmp node.  */
       queue->array[index] = queue->array[which];
+       if (queue->update != NULL)
+	 (*queue->update) (queue->array[index], index);
       index = which;
     }
 
   /* Restore the tmp node to appropriate place.  */
   queue->array[index] = tmp;
+  if (queue->update != NULL)
+    (*queue->update) (tmp, index);
 }
 
 struct pqueue *
@@ -110,6 +118,8 @@ pqueue_create ()
   memset (queue->array, 0, DATA_SIZE * PQUEUE_INIT_ARRAYSIZE);
   queue->array_size = PQUEUE_INIT_ARRAYSIZE;
 
+  /* By default we want nothing to happen when a node changes. */
+  queue->update = NULL;
   return queue;
 }
 
@@ -146,6 +156,8 @@ pqueue_enqueue (void *data, struct pqueue *queue)
     return;
 
   queue->array[queue->size] = data;
+  if (queue->update != NULL)
+    (*queue->update) (data, queue->size);
   trickle_up (queue->size, queue);
   queue->size ++;
 }

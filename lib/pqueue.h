@@ -28,6 +28,7 @@ struct pqueue
   int size;
 
   int (*cmp) (void *, void *);
+  void (*update) (void * node, int actual_position);
 };
 
 #define PQUEUE_INIT_ARRAYSIZE  32
@@ -37,5 +38,7 @@ void pqueue_delete (struct pqueue *queue);
 
 void pqueue_enqueue (void *data, struct pqueue *queue);
 void *pqueue_dequeue (struct pqueue *queue);
+
+void trickle_down (int index, struct pqueue *queue);
 
 #endif /* _ZEBRA_PQUEUE_H */

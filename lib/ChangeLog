@@ -1,3 +1,11 @@
+2005-02-21 Vincenzo Eramo <eramo at infocom.ing.uniroma1.it>
+
+	* pqueue.[ch]: Introduce "update" function to meet ospf spf needs. It
+	  will allow to update node when:
+	  i) a node is inserted into the priority queue;
+	  ii) a node position is modified in the priority queue;
+	* pqueue.h: Export trickle_down() function.
+
 2005-02-19 Paul Jakma <paul.jakma@sun.com>
 
 	* stream.c: (stream_new) fix dumb mistake.
