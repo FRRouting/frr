@@ -2710,7 +2710,22 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
 int
 rip_update_jitter (unsigned long time)
 {
-  return ((rand () % (time + 1)) - (time / 2));
+#define JITTER_BOUND 4
+  /* We want to get the jitter to +/- 1/JITTER_BOUND the interval.
+     Given that, we cannot let time be less than JITTER_BOUND seconds.
+     The RIPv2 RFC says jitter should be small compared to
+     update_time.  We consider 1/JITTER_BOUND to be small.
+  */
+  
+  int jitter_input = time;
+  int jitter;
+  
+  if (jitter_input < JITTER_BOUND)
+    jitter_input = JITTER_BOUND;
+  
+  jitter = (((rand () % ((jitter_input * 2) + 1)) - jitter_input));  
+
+  return jitter/JITTER_BOUND;
 }
 
 void
