@@ -1,3 +1,7 @@
+2005-03-07 Michael Sandee <voidptr@voidptr.sboost.org>
+
+	* if_proc.c, ipforward_proc.c, rtread_proc.c: Fix fd leaks.
+
 2005-03-06 Hasso Tepper <hasso at quagga.net>
 
 	* interface.c: Fix CRC and frame errors statistics in Linux.

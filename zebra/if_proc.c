@@ -242,6 +242,7 @@ ifaddr_proc_ipv6 ()
 
       connected_add_ipv6 (ifp, &p.prefix, p.prefixlen, NULL);
     }
+  fclose (fp);
   return 0;
 }
 #endif /* HAVE_IPV6 && HAVE_PROC_NET_IF_INET6 */

@@ -141,6 +141,7 @@ ipforward_ipv6 ()
   fgets (buf, 2, fp);
   sscanf (buf, "%d", &ipforwarding);
 
+  fclose (fp);
   return ipforwarding;
 }
 

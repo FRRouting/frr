@@ -96,6 +96,7 @@ proc_route_read ()
       rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p, &gateway, 0, 0, 0, 0);
     }
 
+  fclose (fp);
   return 0;
 }
 
@@ -155,6 +156,7 @@ proc_ipv6_route_read ()
       rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p, &gateway, 0, 0);
     }
 
+  fclose (fp);
   return 0;
 }
 #endif /* HAVE_IPV6 */
