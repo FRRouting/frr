@@ -46,7 +46,7 @@ extern struct thread_master *master;
 struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */
-int
+static int
 isis_router_id_update_zebra (int command, struct zclient *zclient,
 			     zebra_size_t length)
 {
@@ -59,7 +59,7 @@ isis_router_id_update_zebra (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 isis_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct interface *ifp;
@@ -76,7 +76,7 @@ isis_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
   return 0;
 }
 
-int
+static int
 isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct interface *ifp;
@@ -102,7 +102,7 @@ isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
   return 0;
 }
 
-struct interface *
+static struct interface *
 zebra_interface_if_lookup (struct stream *s)
 {
   struct interface *ifp;
@@ -121,7 +121,7 @@ zebra_interface_if_lookup (struct stream *s)
   return ifp;
 }
 
-int
+static int
 isis_zebra_if_state_up (int command, struct zclient *zclient,
 			zebra_size_t length)
 {
@@ -148,7 +148,7 @@ isis_zebra_if_state_up (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 isis_zebra_if_state_down (int command, struct zclient *zclient,
 			  zebra_size_t length)
 {
@@ -168,7 +168,7 @@ isis_zebra_if_state_down (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 isis_zebra_if_address_add (int command, struct zclient *zclient,
 			   zebra_size_t length)
 {
@@ -199,7 +199,7 @@ isis_zebra_if_address_add (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 isis_zebra_if_address_del (int command, struct zclient *client,
 			   zebra_size_t length)
 {
@@ -237,7 +237,7 @@ isis_zebra_if_address_del (int command, struct zclient *client,
   return 0;
 }
 
-void
+static void
 isis_zebra_route_add_ipv4 (struct prefix *prefix,
 			   struct isis_route_info *route_info)
 {
@@ -308,7 +308,7 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
     }
 }
 
-void
+static void
 isis_zebra_route_del_ipv4 (struct prefix *prefix,
 			   struct isis_route_info *route_info)
 {
@@ -415,7 +415,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
   return;
 }
 
-void
+static void
 isis_zebra_route_del_ipv6 (struct prefix *prefix,
 			   struct isis_route_info *route_info)
 {
@@ -525,7 +525,7 @@ isis_zebra_route_update (struct prefix *prefix,
   return;
 }
 
-int
+static int
 isis_zebra_read_ipv4 (int command, struct zclient *zclient,
 		      zebra_size_t length)
 {
@@ -572,7 +572,7 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 isis_zebra_read_ipv6 (int command, struct zclient *zclient,
 		      zebra_size_t length)
 {
@@ -588,12 +588,14 @@ isis_distribute_list_update (int routetype)
   return 0;
 }
 
-int
+#if 0 /* Not yet. */
+static int
 isis_redistribute_default_set (int routetype, int metric_type,
 			       int metric_value)
 {
   return 0;
 }
+#endif /* 0 */
 
 void
 isis_zebra_init ()

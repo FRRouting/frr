@@ -102,7 +102,7 @@ area_match (struct list *left, struct list *right)
  * return  0            the IIH's IP is not in the IS's subnetwork
  *         1            the IIH's IP is in the IS's subnetwork
  */
-int
+static int
 ip_same_subnet (struct prefix_ipv4 *ip1, struct in_addr *ip2)
 {
   u_char *addr1, *addr2;
@@ -194,7 +194,7 @@ authentication_check (struct isis_passwd *one, struct isis_passwd *theother)
 /*
  * Processing helper functions
  */
-void
+static void
 tlvs_to_adj_nlpids (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
   int i;
@@ -214,13 +214,13 @@ tlvs_to_adj_nlpids (struct tlvs *tlvs, struct isis_adjacency *adj)
     }
 }
 
-void
+static void
 del_ip_addr (void *val)
 {
   XFREE (MTYPE_ISIS_TMP, val);
 }
 
-void
+static void
 tlvs_to_adj_ipv4_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
   struct listnode *node;
@@ -244,7 +244,7 @@ tlvs_to_adj_ipv4_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
 }
 
 #ifdef HAVE_IPV6
-void
+static void
 tlvs_to_adj_ipv6_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
   struct listnode *node;
@@ -1253,7 +1253,7 @@ dontcheckadj:
  * Section 7.3.15.2 - Action on receipt of a sequence numbers PDU
  */
 
-int
+static int
 process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	     u_char * ssnpa)
 {
@@ -1532,7 +1532,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   return retval;
 }
 
-int
+static int
 process_csnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 {
   /* Sanity check - FIXME: move to correct place */
@@ -1546,7 +1546,7 @@ process_csnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
   return process_snp (ISIS_SNP_CSNP_FLAG, level, circuit, ssnpa);
 }
 
-int
+static int
 process_psnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 {
   if ((stream_get_endp (circuit->rcv_stream) -
@@ -1568,7 +1568,7 @@ process_psnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
  *           0x38	0x08	0x47	0x00	0x01	0x00	0x02	0x00
  *           0x03	0x00	0x81	0x01	0xcc
  */
-int
+static int
 process_is_hello (struct isis_circuit *circuit)
 {
   struct isis_adjacency *adj;
@@ -1636,7 +1636,7 @@ process_is_hello (struct isis_circuit *circuit)
  * PDU Dispatcher
  */
 
-int
+static int
 isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
 {
   struct isis_fixed_hdr *hdr;
@@ -1875,7 +1875,7 @@ fill_fixed_hdr (struct isis_fixed_hdr *hdr, u_char pdu_type)
 /*
  * SEND SIDE                             
  */
-void
+static void
 fill_fixed_hdr_andstream (struct isis_fixed_hdr *hdr, u_char pdu_type,
 			  struct stream *stream)
 {
@@ -2040,7 +2040,7 @@ send_hello (struct isis_circuit *circuit, int level)
   return retval;
 }
 
-int
+static int
 send_lan_hello (struct isis_circuit *circuit, int level)
 {
   return send_hello (circuit, level);
@@ -2111,7 +2111,7 @@ send_p2p_hello (struct thread *thread)
   return ISIS_OK;
 }
 
-int
+static int
 build_csnp (int level, u_char * start, u_char * stop, struct list *lsps,
 	    struct isis_circuit *circuit)
 {
@@ -2266,7 +2266,7 @@ send_l2_csnp (struct thread *thread)
   return retval;
 }
 
-int
+static int
 build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
 {
   struct isis_fixed_hdr fixed_hdr;
@@ -2337,7 +2337,7 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
  *  7.3.15.4 action on expiration of partial SNP interval
  *  level 1
  */
-int
+static int
 send_psnp (int level, struct isis_circuit *circuit)
 {
   int retval = ISIS_OK;
@@ -2438,7 +2438,8 @@ send_l2_psnp (struct thread *thread)
   return retval;
 }
 
-void
+/* FIXME: Not used any more? */
+/* static void
 build_link_state (struct isis_lsp *lsp, struct isis_circuit *circuit,
 		  struct stream *stream)
 {
@@ -2448,7 +2449,7 @@ build_link_state (struct isis_lsp *lsp, struct isis_circuit *circuit,
   length = stream_get_putp (stream);
 
   return;
-}
+} */
 
 /*
  * ISO 10589 - 7.3.14.3

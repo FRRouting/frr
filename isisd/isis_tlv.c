@@ -365,7 +365,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   * +-------+-------+-------+-------+-------+-------+-------+-------+
 	   */
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_debug ("LSP Entries length %d", areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): LSP Entries length %d", areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  *found |= TLVFLAG_LSP_ENTRIES;
 	  if (TLVFLAG_LSP_ENTRIES & *expected)

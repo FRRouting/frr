@@ -104,7 +104,7 @@ lsp_search (u_char * id, dict_t * lspdb)
   return NULL;
 }
 
-void
+static void
 lsp_clear_data (struct isis_lsp *lsp)
 {
   if (!lsp)
@@ -141,7 +141,7 @@ lsp_clear_data (struct isis_lsp *lsp)
   return;
 }
 
-void
+static void
 lsp_destroy (struct isis_lsp *lsp)
 {
   if (!lsp)
@@ -183,7 +183,7 @@ lsp_db_destroy (dict_t * lspdb)
 /*
  * Remove all the frags belonging to the given lsp
  */
-void
+static void
 lsp_remove_frags (struct list *frags, dict_t * lspdb)
 {
   dnode_t *dnode;
@@ -321,7 +321,7 @@ lsp_inc_seqnum (struct isis_lsp *lsp, u_int32_t seq_num)
 /*
  * Genetates checksum for LSP and its frags
  */
-void
+static void
 lsp_seqnum_update (struct isis_lsp *lsp0)
 {
   struct isis_lsp *lsp;
@@ -360,7 +360,7 @@ isis_lsp_authinfo_check (struct stream *stream, struct isis_area *area,
   return authentication_check (passwd, &tlvs.auth_info);
 }
 
-void
+static void
 lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
 		 struct isis_area *area)
 {
@@ -615,7 +615,7 @@ lsp_build_list_ssn (struct isis_circuit *circuit, struct list *list,
   return;
 }
 
-void
+static void
 lsp_set_time (struct isis_lsp *lsp)
 {
   assert (lsp);
@@ -642,7 +642,7 @@ lsp_set_time (struct isis_lsp *lsp)
     htons (ntohs (lsp->lsp_header->rem_lifetime) - 1);
 }
 
-void
+static void
 lspid_print (u_char * lsp_id, u_char * trg, char dynhost, char frag)
 {
   struct isis_dynhn *dyn = NULL;
@@ -692,7 +692,7 @@ lsp_bits2string (u_char * lsp_bits)
 }
 
 /* this function prints the lsp on show isis database */
-void
+static void
 lsp_print (dnode_t * node, struct vty *vty, char dynhost)
 {
   struct isis_lsp *lsp = dnode_get (node);
@@ -712,7 +712,7 @@ lsp_print (dnode_t * node, struct vty *vty, char dynhost)
 	   lsp_bits2string (&lsp->lsp_header->lsp_bits), VTY_NEWLINE);
 }
 
-void
+static void
 lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 {
   struct isis_lsp *lsp = dnode_get (node);
@@ -914,10 +914,11 @@ lsp_print_all (struct vty *vty, dict_t * lspdb, char detail, char dynhost)
   return lsp_count;
 }
 
+#if 0 /* Seems to be old code */
 /* this function reallocate memory to an lsp pdu, with an additional
  * size of memory, it scans the lsp and moves all pointers the
  * way they should */
-u_char *
+static u_char *
 lsppdu_realloc (struct isis_lsp * lsp, int memorytype, int size)
 {
   u_char *retval;
@@ -940,6 +941,7 @@ lsppdu_realloc (struct isis_lsp * lsp, int memorytype, int size)
   return STREAM_DATA (lsp->pdu) + (lsp->lsp_header->pdu_len - size);
 #endif /* LSP_MEMORY_PREASSIGN */
 }
+#endif /* 0 */
 
 #if 0				/* Saving the old one just in case :) */
 /*
@@ -1170,7 +1172,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 #define FRAG_NEEDED(S,T,I) \
   (STREAM_SIZE(S)-STREAM_REMAIN(S)+(I) > FRAG_THOLD(S,T))
 
-void
+static void
 lsp_tlv_fit (struct isis_lsp *lsp, struct list **from, struct list **to,
 	     int tlvsize, int frag_thold,
 	     int tlv_build_func (struct list *, struct stream *))
@@ -1202,7 +1204,7 @@ lsp_tlv_fit (struct isis_lsp *lsp, struct list **from, struct list **to,
   return;
 }
 
-struct isis_lsp *
+static struct isis_lsp *
 lsp_next_frag (u_char frag_num, struct isis_lsp *lsp0, struct isis_area *area,
 	       int level)
 {
@@ -1253,7 +1255,7 @@ lsp_next_frag (u_char frag_num, struct isis_lsp *lsp0, struct isis_area *area,
  * area->lsp_frag_threshold is exceeded.
  */
 #if 1
-void
+static void
 lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 {
   struct is_neigh *is_neigh;
@@ -1519,7 +1521,8 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 }
 #endif
 
-void
+#if 0 /* Old code? */
+static void
 build_lsp_data (struct isis_lsp *lsp, struct isis_area *area)
 {
   struct list *circuit_list = area->circuit_list;
@@ -1581,11 +1584,12 @@ build_lsp_data (struct isis_lsp *lsp, struct isis_area *area)
     }
 
 }
+#endif /* 0 */
 
 /*
  * 7.3.7 Generation on non-pseudonode LSPs
  */
-int
+static int
 lsp_generate_non_pseudo (struct isis_area *area, int level)
 {
   struct isis_lsp *oldlsp, *newlsp;
@@ -1651,7 +1655,7 @@ lsp_l2_generate (struct isis_area *area)
   return lsp_generate_non_pseudo (area, 2);
 }
 
-int
+static int
 lsp_non_pseudo_regenerate (struct isis_area *area, int level)
 {
   dict_t *lspdb = area->lspdb[level - 1];
@@ -1766,7 +1770,7 @@ lsp_refresh_l2 (struct thread *thread)
  * Something has changed -> regenerate LSP
  */
 
-int
+static int
 lsp_l1_regenerate (struct thread *thread)
 {
   struct isis_area *area;
@@ -1777,7 +1781,7 @@ lsp_l1_regenerate (struct thread *thread)
   return lsp_non_pseudo_regenerate (area, 1);
 }
 
-int
+static int
 lsp_l2_regenerate (struct thread *thread)
 {
   struct isis_area *area;
@@ -1853,7 +1857,7 @@ L2:
 /*
  * 7.3.8 and 7.3.10 Generation of level 1 and 2 pseudonode LSPs 
  */
-void
+static void
 lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 		  int level)
 {
@@ -1952,7 +1956,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
   return;
 }
 
-int
+static int
 lsp_pseudo_regenerate (struct isis_circuit *circuit, int level)
 {
   dict_t *lspdb = circuit->area->lspdb[level - 1];
@@ -2270,7 +2274,7 @@ lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
 }
 
 #ifdef TOPOLOGY_GENERATE
-int
+static int
 top_lsp_refresh (struct thread *thread)
 {
   struct isis_lsp *lsp;

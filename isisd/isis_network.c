@@ -95,7 +95,7 @@ static char sock_buff[8192];
  * FIXME: and the p2p multicast being ???
  */
 #ifdef GNU_LINUX
-int
+static int
 isis_multicast_join (int fd, int registerto, int if_num)
 {
   struct packet_mreq mreq;
@@ -137,7 +137,7 @@ isis_multicast_join (int fd, int registerto, int if_num)
   return ISIS_OK;
 }
 
-int
+static int
 open_packet_socket (struct isis_circuit *circuit)
 {
   struct sockaddr_ll s_addr;
@@ -201,7 +201,7 @@ open_packet_socket (struct isis_circuit *circuit)
 
 #else
 
-int
+static int
 open_bpf_dev (struct isis_circuit *circuit)
 {
   int i = 0, fd;

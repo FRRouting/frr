@@ -53,7 +53,7 @@
 extern struct isis *isis;
 extern struct thread_master *master;
 
-struct isis_nexthop *
+static struct isis_nexthop *
 isis_nexthop_create (struct in_addr *ip, unsigned int ifindex)
 {
   struct listnode *node;
@@ -86,7 +86,7 @@ isis_nexthop_create (struct in_addr *ip, unsigned int ifindex)
   return nexthop;
 }
 
-void
+static void
 isis_nexthop_delete (struct isis_nexthop *nexthop)
 {
   nexthop->lock--;
@@ -99,7 +99,7 @@ isis_nexthop_delete (struct isis_nexthop *nexthop)
   return;
 }
 
-int
+static int
 nexthoplookup (struct list *nexthops, struct in_addr *ip,
 	       unsigned int ifindex)
 {
@@ -117,7 +117,8 @@ nexthoplookup (struct list *nexthops, struct in_addr *ip,
   return 0;
 }
 
-void
+#if 0 /* Old or new code? */
+static void
 nexthop_print (struct isis_nexthop *nh)
 {
   u_char buf[BUFSIZ];
@@ -127,7 +128,7 @@ nexthop_print (struct isis_nexthop *nh)
   zlog_debug ("      %s %u", buf, nh->ifindex);
 }
 
-void
+static void
 nexthops_print (struct list *nhs)
 {
   struct listnode *node;
@@ -135,10 +136,10 @@ nexthops_print (struct list *nhs)
   for (node = listhead (nhs); node; nextnode (node))
     nexthop_print (getdata (node));
 }
+#endif /* 0 */
 
 #ifdef HAVE_IPV6
-
-struct isis_nexthop6 *
+static struct isis_nexthop6 *
 isis_nexthop6_new (struct in6_addr *ip6, unsigned int ifindex)
 {
 
@@ -158,7 +159,7 @@ isis_nexthop6_new (struct in6_addr *ip6, unsigned int ifindex)
   return nexthop6;
 }
 
-struct isis_nexthop6 *
+static struct isis_nexthop6 *
 isis_nexthop6_create (struct in6_addr *ip6, unsigned int ifindex)
 {
   struct listnode *node;
@@ -181,7 +182,7 @@ isis_nexthop6_create (struct in6_addr *ip6, unsigned int ifindex)
   return nexthop6;
 }
 
-void
+static void
 isis_nexthop6_delete (struct isis_nexthop6 *nexthop6)
 {
 
@@ -195,7 +196,7 @@ isis_nexthop6_delete (struct isis_nexthop6 *nexthop6)
   return;
 }
 
-int
+static int
 nexthop6lookup (struct list *nexthops6, struct in6_addr *ip6,
 		unsigned int ifindex)
 {
@@ -213,7 +214,8 @@ nexthop6lookup (struct list *nexthops6, struct in6_addr *ip6,
   return 0;
 }
 
-void
+#ifdef EXTREME_DEBUG
+static void
 nexthop6_print (struct isis_nexthop6 *nh6)
 {
   u_char buf[BUFSIZ];
@@ -223,7 +225,7 @@ nexthop6_print (struct isis_nexthop6 *nh6)
   zlog_debug ("      %s %u", buf, nh6->ifindex);
 }
 
-void
+static void
 nexthops6_print (struct list *nhs6)
 {
   struct listnode *node;
@@ -231,11 +233,10 @@ nexthops6_print (struct list *nhs6)
   for (node = listhead (nhs6); node; nextnode (node))
     nexthop6_print (getdata (node));
 }
-
-
+#endif /* EXTREME_DEBUG */
 #endif /* HAVE_IPV6 */
 
-void
+static void
 adjinfo2nexthop (struct list *nexthops, struct isis_adjacency *adj)
 {
   struct isis_nexthop *nh;
@@ -258,7 +259,7 @@ adjinfo2nexthop (struct list *nexthops, struct isis_adjacency *adj)
 }
 
 #ifdef HAVE_IPV6
-void
+static void
 adjinfo2nexthop6 (struct list *nexthops6, struct isis_adjacency *adj)
 {
   struct listnode *node;
@@ -282,7 +283,7 @@ adjinfo2nexthop6 (struct list *nexthops6, struct isis_adjacency *adj)
 }
 #endif /* HAVE_IPV6 */
 
-struct isis_route_info *
+static struct isis_route_info *
 isis_route_info_new (uint32_t cost, uint32_t depth, u_char family,
 		     struct list *adjacencies)
 {
@@ -326,7 +327,7 @@ isis_route_info_new (uint32_t cost, uint32_t depth, u_char family,
   return rinfo;
 }
 
-void
+static void
 isis_route_info_delete (struct isis_route_info *route_info)
 {
   if (route_info->nexthops)
@@ -346,7 +347,7 @@ isis_route_info_delete (struct isis_route_info *route_info)
   XFREE (MTYPE_ISIS_ROUTE_INFO, route_info);
 }
 
-int
+static int
 isis_route_info_same_attrib (struct isis_route_info *new,
 			     struct isis_route_info *old)
 {
@@ -358,7 +359,7 @@ isis_route_info_same_attrib (struct isis_route_info *new,
   return 1;
 }
 
-int
+static int
 isis_route_info_same (struct isis_route_info *new,
 		      struct isis_route_info *old, u_char family)
 {
@@ -412,7 +413,7 @@ isis_route_info_same (struct isis_route_info *new,
   return 1;
 }
 
-void
+static void
 isis_nexthops_merge (struct list *new, struct list *old)
 {
   struct listnode *node;
@@ -429,7 +430,7 @@ isis_nexthops_merge (struct list *new, struct list *old)
 }
 
 #ifdef HAVE_IPV6
-void
+static void
 isis_nexthops6_merge (struct list *new, struct list *old)
 {
   struct listnode *node;
@@ -446,7 +447,7 @@ isis_nexthops6_merge (struct list *new, struct list *old)
 }
 #endif /* HAVE_IPV6 */
 
-void
+static void
 isis_route_info_merge (struct isis_route_info *new,
 		       struct isis_route_info *old, u_char family)
 {
@@ -460,7 +461,7 @@ isis_route_info_merge (struct isis_route_info *new,
   return;
 }
 
-int
+static int
 isis_route_info_prefer_new (struct isis_route_info *new,
 			    struct isis_route_info *old)
 {
@@ -565,7 +566,7 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
   return route_info;
 }
 
-void
+static void
 isis_route_delete (struct prefix *prefix, struct route_table *table)
 {
   struct route_node *rode;

@@ -103,7 +103,7 @@ isis_run_dr_l2 (struct thread *thread)
   return ISIS_OK;
 }
 
-int
+static int
 isis_check_dr_change (struct isis_adjacency *adj, int level)
 {
   int i;

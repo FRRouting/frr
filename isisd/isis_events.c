@@ -143,7 +143,7 @@ isis_event_area_addr_change (struct isis_area *area)
 
 }
 
-void
+static void
 circuit_commence_level (struct isis_circuit *circuit, int level)
 {
   if (level == 1)
@@ -186,7 +186,7 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
   return;
 }
 
-void
+static void
 circuit_resign_level (struct isis_circuit *circuit, int level)
 {
   int idx = level - 1;

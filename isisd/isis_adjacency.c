@@ -49,7 +49,7 @@
 
 extern struct isis *isis;
 
-struct isis_adjacency *
+static struct isis_adjacency *
 adj_alloc (u_char * id)
 {
   struct isis_adjacency *adj;
@@ -293,7 +293,7 @@ isis_adj_expire (struct thread *thread)
   return 0;
 }
 
-const char *
+static const char *
 adj_state2string (int state)
 {
 
@@ -315,7 +315,7 @@ adj_state2string (int state)
 /*
  * show clns/isis neighbor (detail)
  */
-void
+static void
 isis_adj_print_vty2 (struct isis_adjacency *adj, struct vty *vty, char detail)
 {
 

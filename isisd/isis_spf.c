@@ -58,8 +58,9 @@ extern struct host host;
 int isis_run_spf_l1 (struct thread *thread);
 int isis_run_spf_l2 (struct thread *thread);
 
-/* performace issue ???? */
-void
+#if 0
+/* performace issue ???? HT: Old or new code? */
+static void
 union_adjlist (struct list *target, struct list *source)
 {
   struct isis_adjacency *adj, *adj2;
@@ -82,9 +83,10 @@ union_adjlist (struct list *target, struct list *source)
 	listnode_add (target, adj);
     }
 }
+#endif
 
 /* 7.2.7 */
-void
+static void
 remove_excess_adjs (struct list *adjs)
 {
   struct listnode *node, *excess = NULL;
@@ -140,7 +142,8 @@ remove_excess_adjs (struct list *adjs)
   return;
 }
 
-const char *
+#ifdef EXTREME_DEBUG
+static const char *
 vtype2string (enum vertextype vtype)
 {
   switch (vtype)
@@ -174,7 +177,7 @@ vtype2string (enum vertextype vtype)
   return NULL;			/* Not reached */
 }
 
-const char *
+static const char *
 vid2string (struct isis_vertex *vertex, u_char * buff)
 {
   switch (vertex->type)
@@ -200,8 +203,9 @@ vid2string (struct isis_vertex *vertex, u_char * buff)
 
   return (char *) buff;
 }
+#endif /* EXTREME_DEBUG */
 
-struct isis_spftree *
+static struct isis_spftree *
 isis_spftree_new ()
 {
   struct isis_spftree *tree;
@@ -219,7 +223,7 @@ isis_spftree_new ()
   return tree;
 }
 
-void
+static void
 isis_vertex_del (struct isis_vertex *vertex)
 {
   list_delete (vertex->Adj_N);
@@ -229,7 +233,8 @@ isis_vertex_del (struct isis_vertex *vertex)
   return;
 }
 
-void
+#if 0 /* HT: Not used yet. */
+static void
 isis_spftree_del (struct isis_spftree *spftree)
 {
   spftree->tents->del = (void (*)(void *)) isis_vertex_del;
@@ -242,6 +247,7 @@ isis_spftree_del (struct isis_spftree *spftree)
 
   return;
 }
+#endif 
 
 void
 spftree_area_init (struct isis_area *area)
@@ -270,7 +276,7 @@ spftree_area_init (struct isis_area *area)
   return;
 }
 
-struct isis_vertex *
+static struct isis_vertex *
 isis_vertex_new (void *id, enum vertextype vtype)
 {
   struct isis_vertex *vertex;
@@ -314,7 +320,7 @@ isis_vertex_new (void *id, enum vertextype vtype)
 /*
  * Add this IS to the root of SPT
  */
-void
+static void
 isis_spf_add_self (struct isis_spftree *spftree, struct isis_area *area,
 		   int level)
 {
@@ -347,7 +353,7 @@ isis_spf_add_self (struct isis_spftree *spftree, struct isis_area *area,
   return;
 }
 
-struct isis_vertex *
+static struct isis_vertex *
 isis_find_vertex (struct list *list, void *id, enum vertextype vtype)
 {
   struct listnode *node;
@@ -392,7 +398,7 @@ isis_find_vertex (struct list *list, void *id, enum vertextype vtype)
 /*
  * Add a vertex to TENT sorted by cost and by vertextype on tie break situation
  */
-struct isis_vertex *
+static struct isis_vertex *
 isis_spf_add2tent (struct isis_spftree *spftree, enum vertextype vtype,
 		   void *id, struct isis_adjacency *adj, u_int16_t cost,
 		   int depth, int family)
@@ -452,7 +458,7 @@ isis_spf_add2tent (struct isis_spftree *spftree, enum vertextype vtype,
   return vertex;
 }
 
-struct isis_vertex *
+static struct isis_vertex *
 isis_spf_add_local (struct isis_spftree *spftree, enum vertextype vtype,
 		    void *id, struct isis_adjacency *adj, u_int16_t cost,
 		    int family)
@@ -486,7 +492,7 @@ add2tent:
   return isis_spf_add2tent (spftree, vtype, id, adj, cost, 1, family);
 }
 
-void
+static void
 process_N (struct isis_spftree *spftree, enum vertextype vtype, void *id,
 	   u_int16_t dist, u_int16_t depth, struct isis_adjacency *adj,
 	   int family)
@@ -548,7 +554,7 @@ process_N (struct isis_spftree *spftree, enum vertextype vtype, void *id,
 /*
  * C.2.6 Step 1
  */
-int
+static int
 isis_spf_process_lsp (struct isis_spftree *spftree, struct isis_lsp *lsp,
 		      uint16_t cost, uint16_t depth, int family)
 {
@@ -661,7 +667,7 @@ lspfragloop:
   return ISIS_OK;
 }
 
-int
+static int
 isis_spf_process_pseudo_lsp (struct isis_spftree *spftree,
 			     struct isis_lsp *lsp, uint16_t cost,
 			     uint16_t depth, int family)
@@ -714,7 +720,7 @@ pseudofragloop:
   return ISIS_OK;
 }
 
-int
+static int
 isis_spf_preload_tent (struct isis_spftree *spftree,
 		       struct isis_area *area, int level, int family)
 {
@@ -906,7 +912,7 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
  * The parent(s) for vertex is set when added to TENT list
  * now we just put the child pointer(s) in place
  */
-void
+static void
 add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
 	      struct isis_area *area)
 {
@@ -932,7 +938,7 @@ add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
   return;
 }
 
-void
+static void
 init_spt (struct isis_spftree *spftree)
 {
   spftree->tents->del = spftree->paths->del = (void (*)(void *)) isis_vertex_del;
@@ -943,7 +949,7 @@ init_spt (struct isis_spftree *spftree)
   return;
 }
 
-int
+static int
 isis_run_spf (struct isis_area *area, int level, int family)
 {
   int retval = ISIS_OK;
@@ -1139,7 +1145,7 @@ isis_spf_schedule (struct isis_area *area, int level)
 }
 
 #ifdef HAVE_IPV6
-int
+static int
 isis_run_spf6_l1 (struct thread *thread)
 {
   struct isis_area *area;
@@ -1169,7 +1175,7 @@ isis_run_spf6_l1 (struct thread *thread)
   return retval;
 }
 
-int
+static int
 isis_run_spf6_l2 (struct thread *thread)
 {
   struct isis_area *area;
@@ -1253,16 +1259,16 @@ isis_spf_schedule6 (struct isis_area *area, int level)
 }
 #endif
 
-void
+static void
 isis_print_paths (struct vty *vty, struct list *paths)
 {
   struct listnode *node, *anode;
   struct isis_vertex *vertex;
   struct isis_dynhn *dyn, *nh_dyn = NULL;
   struct isis_adjacency *adj;
-#ifdef EXTREME_DEBUG
+#if 0
   u_char buff[255];
-#endif
+#endif /* 0 */
 
   vty_out (vty, "System Id            Metric     Next-Hop"
 	   "             Interface   SNPA%s", VTY_NEWLINE);
