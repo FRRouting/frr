@@ -1,5 +1,4 @@
-@node  Installation, Basic commands, Overview, Top
-@comment  node-name,  next,  previous,  up
+@node  Installation
 @chapter Installation
 
 @cindex How to install Quagga
@@ -8,16 +7,16 @@
 @cindex Building the system
 @cindex Making Quagga
 
-  There are three steps for installing the software: configuration,
+There are three steps for installing the software: configuration,
 compilation, and installation.
 
 @menu
-* Configure the Software::      
-* Build the Software::          
-* Install the Software::        
+* Configure the Software::
+* Build the Software::
+* Install the Software::
 @end menu
 
-  The easiest way to get Quagga running is to issue the following
+The easiest way to get Quagga running is to issue the following
 commands:
 
 @example
@@ -26,9 +25,17 @@ commands:
 % make install
 @end example
 
-@node Configure the Software, Build the Software, Installation, Installation
-@comment  node-name,  next,  previous,  up
+@node Configure the Software
 @section Configure the Software
+
+@menu
+* The Configure script and its options::
+* Least-Privilege support::
+* Linux notes::
+@end menu
+
+@node The Configure script and its options
+@subsection The Configure script and its options
 
 @cindex Configuration options
 @cindex Options for configuring
@@ -36,10 +43,10 @@ commands:
 @cindex Distribution configuration
 @cindex Options to @code{./configure}
  
-  Quagga has an excellent configure script which
-automatically detects most host configurations.  There are several
-additional configure options you can use to turn off IPv6 support, to
-disable the compilation of specific daemons, and to enable SNMP support.
+Quagga has an excellent configure script which automatically detects most
+host configurations.  There are several additional configure options you can
+use to turn off IPv6 support, to disable the compilation of specific
+daemons, and to enable SNMP support.
 
 @table @option
 @item --enable-guile
@@ -106,10 +113,22 @@ Configure zebra to use @var{dir} for local state files, such
 as pid files and unix sockets.
 @end table
 
-Additionally, you may configure zebra to drop its elevated
-privileges shortly after startup and switch
-to another user, there are three configure options
-to control zebra's behaviour.
+@example
+% ./configure --disable-ipv6
+@end example
+
+This command will configure zebra and the routing daemons.
+
+@node Least-Privilege support
+@subsection Least-Privilege support
+
+@cindex Quagga Least-Privileges
+@cindex Quagga Privileges
+
+Additionally, you may configure zebra to drop its elevated privileges
+shortly after startup and switch to another user. The configure script will
+automatically try to configure this support. There are three configure
+options to control the behaviour of Quagga daemons.
 
 @table @option
 @item --enable-user=@var{user}
@@ -127,42 +146,35 @@ this group.
 @end table
 
 The default user and group which will be configured is 'quagga' if no user
-or group is specified. Note that this user or group requires write access
-to the local state directory (see --localstatedir) and requires at least
-read access, and write access if you wish to allow daemons
-to write out their configuration, to the configuration directory
-(see --sysconfdir).
+or group is specified. Note that this user or group requires write access to
+the local state directory (see --localstatedir) and requires at least read
+access, and write access if you wish to allow daemons to write out their
+configuration, to the configuration directory (see --sysconfdir).
 
 On systems which have the 'libcap' capabilities manipulation library
-(currently only linux), the quagga system will retain
-only minimal capabilities required, further it will only raise these
-capabilities for brief periods. On systems without libcap, quagga will run
-as the user specified and only raise its uid back to uid 0 for brief
-periods.
+(currently only linux), the quagga system will retain only minimal
+capabilities required, further it will only raise these capabilities for
+brief periods. On systems without libcap, quagga will run as the user
+specified and only raise its uid back to uid 0 for brief periods.
 
-@example
-% ./configure --disable-ipv6
-@end example
-
-This command will configure zebra and the routing daemons.
+@node Linux notes
+@subsection Linux Notes
 
 @cindex Configuring Quagga
-@cindex Configuration the software build
 @cindex Building on Linux boxes
 @cindex Linux configurations
 
 There are several options available only to @sc{gnu}/Linux systems:
-@footnote{GNU/Linux has very flexible kernel configuration features.  If
-you use GNU/Linux, make sure that the current kernel configuration is
+@footnote{@sc{gnu}/Linux has very flexible kernel configuration features}.  If
+you use @sc{gnu}/Linux, make sure that the current kernel configuration is
 what you want.  Quagga will run with any kernel configuration but some
 recommendations do exist.
 
 @table @var
 
 @item CONFIG_NETLINK
-Kernel/User netlink socket.  
-This is a brand new feature which enables
-an advanced interface between the Linux kernel and zebra (@pxref{Kernel Interface}).
+Kernel/User netlink socket. This is a brand new feature which enables an
+advanced interface between the Linux kernel and zebra (@pxref{Kernel Interface}).
 
 @item CONFIG_RTNETLINK
 Routing messages.
@@ -172,8 +184,8 @@ updates directly from the kernel (@pxref{Kernel Interface}).
 
 @item CONFIG_IP_MULTICAST
 IP: multicasting.  
-This option should be specified when you use @command{ripd} or
-@command{ospfd} because these protocols use multicast.
+This option should be specified when you use @command{ripd} (@pxref{RIP}) or
+@command{ospfd} (@pxref{OSPFv2}) because these protocols use multicast.
 
 @end table
 
@@ -190,20 +202,18 @@ The @code{inet6-apps} package includes basic IPv6 related libraries such
 as @code{inet_ntop} and @code{inet_pton}.  Some basic IPv6 programs such
 as @command{ping}, @command{ftp}, and @command{inetd} are also
 included. The @code{inet-apps} can be found at
-@url{ftp://ftp.inner.net/pub/ipv6/}.
+@uref{ftp://ftp.inner.net/pub/ipv6/}.
 
 @item net-tools
 The @code{net-tools} package provides an IPv6 enabled interface and
 routing utility.  It contains @command{ifconfig}, @command{route},
 @command{netstat}, and other tools.  @code{net-tools} may be found at
-@url{http://www.tazenda.demon.co.uk/phil/net-tools/}.
+@uref{http://www.tazenda.demon.co.uk/phil/net-tools/}.
 
 @end table
 @c A - end of footnote 
-}.
 
-@node Build the Software, Install the Software, Configure the Software, Installation
-@comment  node-name,  next,  previous,  up
+@node Build the Software
 @section Build the Software
 
 After configuring the software, you will need to compile it for your
@@ -225,7 +235,7 @@ at this stage, be certain to send a bug report @xref{Bug Reports}.
 @c A - End of node, Building the Software
 
 
-@node Install the Software,  , Build the Software, Installation
+@node Install the Software
 @comment  node-name,  next,  previous,  up
 @section Install the Software
 
@@ -242,11 +252,6 @@ prompt: @command{make install}.
 % make install
 %
 @end example
-
-@c A - removed this section and placed it with Install the Software
-@c @node Additional Notes,  , Install the Software, Installation
-@comment  node-name,  next,  previous,  up
-@c @section Additional Notes
 
 Quagga daemons have their own terminal interface or VTY.  After
 installation, you have to setup each beast's port number to connect to

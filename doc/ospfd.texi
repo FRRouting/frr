@@ -1,5 +1,4 @@
-@node OSPFv2, OSPFv3, RIPng, Top
-@comment  node-name,  next,  previous,  up
+@node OSPFv2
 @chapter OSPFv2
 
   OSPF version 2 is a routing protocol which described in
@@ -18,8 +17,7 @@ networks such as ISP backbone and enterprise networks.
 * Debugging OSPF::              
 @end menu
 
-@node Configuring ospfd, OSPF router, OSPFv2, OSPFv2
-@comment  node-name,  next,  previous,  up
+@node Configuring ospfd
 @section Configuring ospfd
 
 There is no @command{ospfd} specific options.  Common options can be
@@ -31,8 +29,7 @@ please make it sure @command{zebra} is running before invoking
 Like other daemons, @command{ospfd} configuration is done in OSPF
 specific configuration file @file{ospfd.conf}.
 
-@node OSPF router, OSPF area, Configuring ospfd, OSPFv2
-@comment  node-name,  next,  previous,  up
+@node OSPF router
 @section OSPF router
 
 To start OSPF process you have to specify the OSPF router.  As of this
@@ -112,8 +109,7 @@ ospf on interface with address 192.168.1.1/23, but it does on interface with
 address 192.168.1.129/25.
 @end deffn
 
-@node OSPF area, OSPF interface, OSPF router, OSPFv2
-@comment  node-name,  next,  previous,  up
+@node OSPF area
 @section OSPF area
 
 @deffn {OSPF Command} {area @var{a.b.c.d} range @var{a.b.c.d/m}} {}
@@ -244,8 +240,7 @@ makes sense in ABR only.
 @deffnx {OSPF Command} {area <0-4294967295> authentication message-digest} {}
 @end deffn
 
-@node OSPF interface, Redistribute routes to OSPF, OSPF area, OSPFv2
-@comment  node-name,  next,  previous,  up
+@node OSPF interface
 @section OSPF interface
 
 @deffn {Interface Command} {ip ospf authentication-key AUTH_KEY} {}
@@ -318,8 +313,7 @@ incremented by this value when transmitting.
 The default value is 1 seconds.
 @end deffn
 
-@node Redistribute routes to OSPF, Showing OSPF information, OSPF interface, OSPFv2
-@comment  node-name,  next,  previous,  up
+@node Redistribute routes to OSPF
 @section Redistribute routes to OSPF
 
 @deffn {OSPF Command} {redistribute (kernel|connected|static|rip|bgp)} {}
@@ -364,8 +358,7 @@ The default value is 1 seconds.
 @deffnx {Command} {no router zebra} {}
 @end deffn
 
-@node Showing OSPF information, Debugging OSPF, Redistribute routes to OSPF, OSPFv2
-@comment  node-name,  next,  previous,  up
+@node Showing OSPF information
 @section Showing OSPF information
 
 @deffn {Command} {show ip ospf} {}
@@ -403,8 +396,7 @@ The default value is 1 seconds.
 @deffn {Command} {show ip ospf route} {}
 @end deffn
 
-@node Debugging OSPF,  , Showing OSPF information, OSPFv2
-@comment  node-name,  next,  previous,  up
+@node Debugging OSPF
 @section Debugging OSPF
 
 @deffn {Command} {debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]} {}

@@ -1,5 +1,4 @@
-@node  Packet Binary Dump Format, , Zebra Protocol, Top
-@comment  node-name,  next,  previous,  up
+@node  Packet Binary Dump Format
 @appendix Packet Binary Dump Format
 
   Quagga can dump routing protocol packet into file with a binary format

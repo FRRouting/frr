@@ -1,0 +1,13 @@
+@c -*- texinfo -*-
+@c @configure_input@
+
+@c Set variables
+@set PACKAGE_NAME @PACKAGE_NAME@
+@set AUTHORS Kunihiro Ishiguro, et al.
+@set COPYRIGHT_YEAR 1999-2004
+@set COPYRIGHT_STR Copyright @copyright{} @value{COPYRIGHT_YEAR} @value{AUTHORS}
+
+@c These may vary with installation environment.
+@set INSTALL_PREFIX_ETC /etc/quagga
+@set INSTALL_PREFIX_SBIN /usr/sbin
+@set INSTALL_PREFIX_STATE /var/run/quagga

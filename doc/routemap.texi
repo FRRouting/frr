@@ -1,5 +1,4 @@
-@node Route Map, IPv6 Support, Filtering, Top
-@comment  node-name,  next,  previous,  up
+@node Route Map
 @chapter Route Map
 
 Route map is a very useful function in zebra.  There is a match and set
@@ -22,16 +21,14 @@ local-preference value is set to 200.
 * Route Map Set Command::       
 @end menu
 
-@node Route Map Command, Route Map Match Command, Route Map, Route Map
-@comment  node-name,  next,  previous,  up
-@subsection Route Map Command
+@node Route Map Command
+@section Route Map Command
 
 @deffn {Command} {route-map @var{route-map-name} permit @var{priority}} {}
 @end deffn
 
-@node Route Map Match Command, Route Map Set Command, Route Map Command, Route Map
-@comment  node-name,  next,  previous,  up
-@subsection Route Map Match Command
+@node Route Map Match Command
+@section Route Map Match Command
 
 @deffn {Route-map Command} {match ip address @var{access_list}} {}
 Matches the specified @var{access_list}
@@ -53,9 +50,8 @@ Matches the specified @var{metric}.
 Matches the specified  @var{community_list}
 @end deffn
 
-@node Route Map Set Command,  , Route Map Match Command, Route Map
-@comment  node-name,  next,  previous,  up
-@subsection Route Map Set Command
+@node Route Map Set Command
+@section Route Map Set Command
 
 @deffn {Route-map Command} {set ip next-hop @var{ipv4_address}} {}
 Set the BGP nexthop address.

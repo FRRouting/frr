@@ -1,5 +1,4 @@
-@node RIPng, OSPFv2, RIP, Top
-@comment  node-name,  next,  previous,  up
+@node RIPng
 @chapter RIPng
 
 @command{ripngd} supports the RIPng protocol as described in RFC2080.  It's an
@@ -12,15 +11,13 @@ IPv6 reincarnation of the RIP protocol.
 * ripngd Filtering Commands::   
 @end menu
 
-@node Invoking ripngd, ripngd Configuration, RIPng, RIPng
-@comment  node-name,  next,  previous,  up
+@node Invoking ripngd
 @section Invoking ripngd
 
 There are no @code{ripngd} specific invocation options.  Common options
 can be specified (@pxref{Common Invocation Options}).
 
-@node ripngd Configuration, ripngd Terminal Mode Commands, Invoking ripngd, RIPng
-@comment  node-name,  next,  previous,  up
+@node ripngd Configuration
 @section ripngd Configuration
 
 Currently ripngd supports the following commands:
@@ -50,8 +47,7 @@ This command is the default and does not appear in the configuration.
 With this statement, RIPng routes go to the @command{zebra} daemon.
 @end deffn
 
-@node ripngd Terminal Mode Commands, ripngd Filtering Commands, ripngd Configuration, RIPng
-@comment  node-name,  next,  previous,  up
+@node ripngd Terminal Mode Commands
 @section ripngd Terminal Mode Commands
 
 @deffn Command {show ip ripng} {}
@@ -69,8 +65,7 @@ With this statement, RIPng routes go to the @command{zebra} daemon.
 @deffn Command {debug ripng zebra} {}
 @end deffn
 
-@node ripngd Filtering Commands,  , ripngd Terminal Mode Commands, RIPng
-@comment  node-name,  next,  previous,  up
+@node ripngd Filtering Commands
 @section ripngd Filtering Commands
 
 @deffn Command {distribute-list @var{access_list} (in|out) @var{ifname}} {}

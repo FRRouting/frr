@@ -1,28 +1,25 @@
-@node Overview, Installation, Top, Top
-@comment  node-name,  next,  previous,  up
+@node Overview
 @chapter Overview
 @cindex Overview
 
-  Quagga is a routing software package that provides TCP/IP based
-routing services with routing protocols support such as RIPv1, RIPv2,
-RIPng, OSPFv2, OSPFv3, BGP-4, and BGP-4+ (@pxref{Supported RFC}).
-Quagga also supports special BGP Route Reflector and Route Server
-behavior.  In addition to traditional IPv4 routing protocols, Quagga
-also supports IPv6 routing protocols.  With SNMP daemon which supports
-SMUX protocol, Quagga provides routing protocol MIBs (@pxref{SNMP
-Support}).
+  @uref{http://www.quagga.net,,Quagga} is a routing software package that
+provides TCP/IP based routing services with routing protocols support such
+as RIPv1, RIPv2, RIPng, OSPFv2, OSPFv3, BGP-4, and BGP-4+ (@pxref{Supported
+RFC}). Quagga also supports special BGP Route Reflector and Route Server
+behavior.  In addition to traditional IPv4 routing protocols, Quagga also
+supports IPv6 routing protocols.  With SNMP daemon which supports SMUX
+protocol, Quagga provides routing protocol MIBs (@pxref{SNMP Support}).
 
-  Quagga uses an advanced software architecture to provide you with a
-high quality, multi server routing engine.  Quagga has an interactive
-user interface for each routing protocol and supports common client
-commands.  Due to this design, you can add new protocol daemons to Quagga
-easily.  You can use Quagga library as your program's client user
-interface.
+  Quagga uses an advanced software architecture to provide you with a high
+quality, multi server routing engine. Quagga has an interactive user
+interface for each routing protocol and supports common client commands. 
+Due to this design, you can add new protocol daemons to Quagga easily.  You
+can use Quagga library as your program's client user interface.
 
-  Zebra is distributed under the @sc{gnu} General Public License.
+  Quagga is distributed under the @sc{gnu} General Public License.
 
 @menu
-* About Quagga::                 Basic information about Quagga
+* About Quagga::                Basic information about Quagga
 * System Architecture::         The Quagga system architecture
 * Supported Platforms::         Supported platforms and future plans
 * Supported RFC::               Supported RFCs
@@ -31,51 +28,49 @@ interface.
 * Bug Reports::                 Mail address for bug data
 @end menu
 
-@node About Quagga, System Architecture, Overview, Overview
+@node About Quagga
 @comment  node-name,  next,  previous,  up
 @section About Quagga
 @cindex About Quagga
 
-  Today, TCP/IP networks are covering all of the world.  The Internet
-has been deployed in many countries, companies, and to the home.  When
-you connect to the Internet your packet will pass many routers which
-have TCP/IP routing functionality.
+  Today, TCP/IP networks are covering all of the world.  The Internet has
+been deployed in many countries, companies, and to the home.  When you
+connect to the Internet your packet will pass many routers which have TCP/IP
+routing functionality.
 
   A system with Quagga installed acts as a dedicated router.  With Quagga,
-your machine exchanges routing information with other routers using
-routing protocols.  Quagga uses this information to update the kernel
-routing table so that the right data goes to the right place.  You can
-dynamically change the configuration and you may view routing table
-information from the Quagga terminal interface.
+your machine exchanges routing information with other routers using routing
+protocols.  Quagga uses this information to update the kernel routing table
+so that the right data goes to the right place.  You can dynamically change
+the configuration and you may view routing table information from the Quagga
+terminal interface.
 
   Adding to routing protocol support, Quagga can setup interface's flags,
-interface's address, static routes and so on.  If you have a small
-network, or a stub network, or xDSL connection, configuring the Quagga
-routing software is very easy.  The only thing you have to do is to set
-up the interfaces and put a few commands about static routes and/or
-default routes.  If the network is rather large, or if the network
-structure changes frequently, you will want to take advantage of Quagga's
-dynamic routing protocol support for protocols such as RIP, OSPF or BGP.
-Quagga is with you.
+interface's address, static routes and so on.  If you have a small network,
+or a stub network, or xDSL connection, configuring the Quagga routing
+software is very easy.  The only thing you have to do is to set up the
+interfaces and put a few commands about static routes and/or default routes. 
+If the network is rather large, or if the network structure changes
+frequently, you will want to take advantage of Quagga's dynamic routing
+protocol support for protocols such as RIP, OSPF or BGP.
 
   Traditionally, UNIX based router configuration is done by
 @command{ifconfig} and @command{route} commands.  Status of routing
-table is displayed by @command{netstat} utility.  Almost of these
-commands work only if the user has root privileges.  Quagga has a different
-system administration method.  There are two user modes in Quagga.  One is
-normal mode, the other is enable mode.  Normal mode user can only view
-system status, enable mode user can change system configuration.  This
-UNIX account independent feature will be great help to the router
-administrator.
+table is displayed by @command{netstat} utility.  Almost of these commands
+work only if the user has root privileges.  Quagga has a different system
+administration method.  There are two user modes in Quagga.  One is normal
+mode, the other is enable mode.  Normal mode user can only view system
+status, enable mode user can change system configuration.  This UNIX account
+independent feature will be great help to the router administrator.
 
   Currently, Quagga supports common unicast routing protocols.  Multicast
-routing protocols such as BGMP, PIM-SM, PIM-DM may be supported in
-Quagga 2.0.  MPLS support is going on.  In the future, TCP/IP filtering
-control, QoS control, diffserv configuration will be added to Quagga.
-Quagga project's final goal is making a productive, quality, free TCP/IP
-routing software.
+routing protocols such as BGMP, PIM-SM, PIM-DM may be supported in Quagga
+2.0.  MPLS support is going on.  In the future, TCP/IP filtering control,
+QoS control, diffserv configuration will be added to Quagga. Quagga
+project's final goal is making a productive, quality, free TCP/IP routing
+software.
 
-@node System Architecture, Supported Platforms, About Quagga, Overview
+@node System Architecture
 @comment  node-name,  next,  previous,  up
 @section System Architecture
 @cindex System architecture
@@ -84,23 +79,22 @@ routing software.
 
   Traditional routing software is made as a one process program which
 provides all of the routing protocol functionalities.  Quagga takes a
-different approach.  It is made from a collection of several daemons
-that work together to build the routing table.  There may be several
+different approach.  It is made from a collection of several daemons that
+work together to build the routing table.  There may be several
 protocol-specific routing daemons and zebra the kernel routing manager.
 
   The @command{ripd} daemon handles the RIP protocol, while
 @command{ospfd} is a daemon which supports OSPF version 2.
 @command{bgpd} supports the BGP-4 protocol.  For changing the kernel
 routing table and for redistribution of routes between different routing
-protocols, there is a kernel routing table manager @command{zebra}
-daemon.  It is easy to add a new routing protocol daemons to the entire
-routing system without affecting any other software.  You need to run only
-the protocol daemon associated with routing protocols in use.  Thus,
-user may run a specific daemon and send routing reports to a central
-routing console.
+protocols, there is a kernel routing table manager @command{zebra} daemon. 
+It is easy to add a new routing protocol daemons to the entire routing
+system without affecting any other software.  You need to run only the
+protocol daemon associated with routing protocols in use.  Thus, user may
+run a specific daemon and send routing reports to a central routing console.
 
-  There is no need for these daemons to be running on the same machine.
-You can even run several same protocol daemons on the same machine.  This
+  There is no need for these daemons to be running on the same machine. You
+can even run several same protocol daemons on the same machine.  This
 architecture creates new possibilities for the routing system.
 
 @example
@@ -120,29 +114,23 @@ architecture creates new possibilities for the routing system.
 @end example
 
   Multi-process architecture brings extensibility, modularity and
-maintainability.  At the same time it also brings many configuration
-files and terminal interfaces.  Each daemon has it's own configuration
-file and terminal interface.  When you configure a static route, it must
-be done in @command{zebra} configuration file.  When you configure BGP
-network it must be done in @command{bgpd} configuration file.  This can be a
-very annoying thing.  To resolve the problem, Quagga provides integrated
-user interface shell called @command{vtysh}.  @command{vtysh} connects to
-each daemon with UNIX domain socket and then works as a proxy for user input.
+maintainability.  At the same time it also brings many configuration files
+and terminal interfaces.  Each daemon has it's own configuration file and
+terminal interface.  When you configure a static route, it must be done in
+@command{zebra} configuration file.  When you configure BGP network it must
+be done in @command{bgpd} configuration file.  This can be a very annoying
+thing.  To resolve the problem, Quagga provides integrated user interface
+shell called @command{vtysh}.  @command{vtysh} connects to each daemon with
+UNIX domain socket and then works as a proxy for user input.
 
   Quagga was planned to use multi-threaded mechanism when it runs with a
-kernel that supports multi-threads.  But at the moment, the thread
-library which comes with @sc{gnu}/Linux or FreeBSD has some problems with
-running reliable services such as routing software, so we don't use
-threads at all.  Instead we use the @command{select(2)} system call for
-multiplexing the events.
+kernel that supports multi-threads.  But at the moment, the thread library
+which comes with @sc{gnu}/Linux or FreeBSD has some problems with running
+reliable services such as routing software, so we don't use threads at all. 
+Instead we use the @command{select(2)} system call for multiplexing the
+events.
 
-  When @command{zebra} runs under a @sc{gnu} Hurd kernel it will act as a
-kernel routing table itself.  Under @sc{gnu} Hurd, all TCP/IP services are
-provided by user processes called @command{pfinet}.  Quagga will provide
-all the routing selection mechanisms for the process.  This feature will
-be implemented when @sc{gnu} Hurd becomes stable.
-
-@node Supported Platforms, Supported RFC, System Architecture, Overview
+@node Supported Platforms
 @comment  node-name,  next,  previous,  up
 @section Supported Platforms
 
@@ -151,33 +139,28 @@ be implemented when @sc{gnu} Hurd becomes stable.
 @cindex Compatibility with other systems
 @cindex Operating systems that support Quagga
 
-  Currently Quagga supports @sc{gnu}/Linux, BSD and Solaris.  Below is a list
-of OS versions on which Quagga runs.  Porting Quagga to other platforms is
-not so too difficult.  Platform dependent codes exist only in
-@command{zebra} daemon.  Protocol daemons are platform independent.
-Please let us know when you find out Quagga runs on a platform which is not
-listed below.
+  Currently Quagga supports @sc{gnu}/Linux, BSD and Solaris. Porting Quagga
+to other platforms is not too difficult as platform dependent code should
+most be limited to the @command{zebra} daemon.  Protocol daemons are mostly
+platform independent. Please let us know when you find out Quagga runs on a
+platform which is not listed below.
+
+  The list of officially supported platforms are listed below. Note that
+Quagga may run correctly on other platforms, and may run with partial
+functionality on further platforms.
 
 @sp 1
 @itemize @bullet
 @item
-GNU/Linux 2.0.37
+@sc{gnu}/Linux 2.2.x and higher
 @item
-GNU/Linux 2.2.x and higher
+FreeBSD 4.x and higher
 @item
-FreeBSD 2.2.8
+NetBSD 1.6 and higher
 @item
-FreeBSD 3.x
+OpenBSD 2.5 and higher
 @item
-FreeBSD 4.x
-@item
-NetBSD 1.4
-@item
-OpenBSD 2.5
-@item
-Solaris 2.6
-@item
-Solaris 7
+Solaris 2.6 and higher (IPv6 support requires a patch at moment)
 @end itemize
 
 @sp 1
@@ -194,7 +177,7 @@ KAME IPv6 stack for BSD.
 INRIA IPv6 stack for BSD.
 @end itemize
 
-@node Supported RFC, How to get Quagga, Supported Platforms, Overview
+@node Supported RFC
 @comment  node-name,  next,  previous,  up
 @section Supported RFC
 
@@ -269,33 +252,31 @@ November 1995.}
 
 @end table
 
-@node How to get Quagga, Mailing List, Supported RFC, Overview
+@node How to get Quagga
 @comment  node-name,  next,  previous,  up
 @section How to get Quagga
 
-  Quagga is still beta software and there is no officially released
-version. Once Quagga is released you can get it from @sc{gnu} FTP
-site and its mirror sites.  We are planning Quagga-1.0 as the first
-released version.
+Quagga is still beta software and there is no officially released
+version.
 
-  Zebra's official web page is located at:
+Zebra's official web page is located at:
 
-@url{http://www.gnu.org/software/zebra/zebra.html}.
+@uref{http://www.gnu.org/software/zebra/zebra.html}.
 
-  The original Zebra web site is located at: 
+The original Zebra web site is located at: 
 
-@url{http://www.zebra.org/}.
+@uref{http://www.zebra.org/}.
 
-  As of this writing, development by zebra.org on Zebra has slowed down.
-Some work is being done by third-parties to try maintain bug-fixes and
+As of this writing, development by zebra.org on Zebra has slowed down. Some
+work is being done by third-parties to try maintain bug-fixes and
 enhancements to the current Zebra code-base, which has resulted in a fork of
 Zebra called Quagga, see:
 
-@url{http://www.quagga.net/}.
+@uref{http://www.quagga.net/}
 
 for further information, as well as links to additional zebra resources.
 
-@node Mailing List, Bug Reports, How to get Quagga, Overview
+@node Mailing List
 @comment  node-name,  next,  previous,  up
 @section Mailing List
 @cindex How to get in touch with Quagga
@@ -303,32 +284,17 @@ for further information, as well as links to additional zebra resources.
 @cindex Contact information
 @cindex Mailing lists
 
-  There is a mailing list for discussions about Quagga.  If you have any
-comments or suggestions to Quagga, please subscribe to
-@url{http://lists.quagga.net/mailman/listinfo/quagga-users}.
+There is a mailing list for discussions about Quagga.  If you have any
+comments or suggestions to Quagga, please subscribe to:
 
-  There is an additional mailing list, @email{znog@@dishone.st,ZNOG} for
-general discussion of zebra related issues and network operation. To
-subscribe send an email to @email{znog-subscribe@@dishone.st} with a message
-body that includes only:
+@uref{http://lists.quagga.net/mailman/listinfo/quagga-users}.
 
-@quotation
-subscribe znog
-@end quotation
+The @uref{http://www.quagga.net/,,Quagga} site has further information on
+the available mailing lists, see:
 
- To unsubscribe, send an email to @email{znog-unsubscribe@@dishone.st}
-with a message body that includes only:
+	@uref{http://www.quagga.net/lists.php}
 
-@quotation
-unsubscribe znog
-@end quotation
-
- Alternatively, you may use the web interface located at
-@url{http://www.dishone.st/mailman/listinfo/znog}. Links to archives of the
-znog list are available at this URL.
-
-@node Bug Reports,  , Mailing List, Overview
-@comment  node-name,  next,  previous,  up
+@node Bug Reports
 @section Bug Reports
 
 @cindex Bug Reports
@@ -339,7 +305,7 @@ znog list are available at this URL.
 @cindex Errors in the software
 
   If you think you have found a bug, please send a bug report to
-@url{http://bugzilla.quagga.net}.  When you send a bug report, please be
+@uref{http://bugzilla.quagga.net}. When you send a bug report, please be
 careful about the points below.
 
 @itemize @bullet
@@ -357,5 +323,4 @@ arguments to the configure script please note that too.
 
   Bug reports are very important for us to improve the quality of Quagga.
 Quagga is still in the development stage, but please don't hesitate to
-send a bug report to @url{http://bugzilla.quagga.net}.
-
+send a bug report to @uref{http://bugzilla.quagga.net}.

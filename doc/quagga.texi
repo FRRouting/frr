@@ -1,21 +1,18 @@
 \input texinfo @c -*- texinfo -*-
 @c %**start of header
 @setchapternewpage odd
-@settitle Quagga
+@settitle @uref{http://www.quagga.net,,Quagga}
 @setfilename quagga.info
 @defcodeindex op
 @synindex pg cp
 @c %**end of header
 
-@c Set variables
-@set EDITION 0.1
-@set VERSION 0.96
-@set UPDATED 12 August 2003
-@set UPDATED-MONTH August 2003
+@c Set variables - sourced from defines.texi
+@include defines.texi
 
-@c These may vary with installation environment.
-@set INSTALL_PREFIX_ETC /usr/local/etc
-@set INSTALL_PREFIX_SBIN /usr/local/sbin
+@c automake will automatically generate version.texi
+@c and set EDITION, VERSION, UPDATED and UPDATED-MONTH
+@include version.texi
 
 @c Info entry
 @dircategory Routing Software:
@@ -30,9 +27,10 @@ This file documents the @sc{gnu} Quagga software which manages common
 TCP/IP routing protocols.
 
 This is Edition @value{EDITION}, last updated @value{UPDATED} of
-@cite{The Quagga Manual}, for Quagga Version @value{VERSION}.
+@cite{The Quagga Manual}, for @uref{http://www.quagga.net/,,Quagga}
+Version @value{VERSION}.
 
-Copyright (C) 1999-2004 Kunihiro Ishiguro, et al.
+@value{COPYRIGHT_STR}
 
 Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -57,15 +55,15 @@ approved by Kunihiro Ishiguro.
 @end ifinfo
 
 @titlepage
-@title Quagga
+@title @uref{http://www.quagga.net,,Quagga}
 @subtitle A routing software package for TCP/IP networks
-@subtitle Quagga version @value{VERSION}
+@subtitle @uref{http://www.quagga.net,,Quagga} version @value{VERSION}
 @subtitle @value{UPDATED-MONTH}
-@author Kunihiro Ishiguro, et al
+@author @value{AUTHORS}
 
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1999-2004 Kunihiro Ishiguro, et al.
+@value{COPYRIGHT_STR}
 
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -84,13 +82,13 @@ by Kunihiro Ishiguro.
 @page
 
 @ifnottex
-@node Top, Overview, (dir), (dir)
-@comment  node-name,  next,  previous,  up
+@node Top
 @top Quagga
 		     
-Quagga is a advanced routing software package that provides TCP/IP
-based routing protocols.  This is the Quagga Manual for
-quagga-@value{VERSION}. Quagga is a fork of GNU Zebra.
+@uref{http://www.quagga.net,,Quagga} is an advanced routing software package
+that provides a suite of TCP/IP based routing protocols.  This is the Manual
+for quagga-@value{VERSION}. @uref{http://www.quagga.net,,Quagga} is a fork of 
+@uref{http://www.zebra.org,,GNU Zebra}.
 @end ifnottex
 
 @menu
@@ -114,7 +112,6 @@ quagga-@value{VERSION}. Quagga is a fork of GNU Zebra.
 * Command Index::               
 * VTY Key Index::               
 @end menu
-@summarycontents
 @contents
 
 @include overview.texi
@@ -135,14 +132,12 @@ quagga-@value{VERSION}. Quagga is a fork of GNU Zebra.
 @include protocol.texi
 @include appendix.texi
 
-@node Command Index, VTY Key Index, Top, Top
-@comment  node-name,  next,  previous,  up
+@node Command Index
 @unnumbered Command Index
 
 @printindex fn
 
-@node VTY Key Index,  , Command Index, Top
-@comment  node-name,  next,  previous,  up
+@node VTY Key Index
 @unnumbered VTY Key Index
 
 @printindex ky

@@ -1,5 +1,4 @@
-@node Kernel Interface, SNMP Support, IPv6 Support, Top
-@comment  node-name,  next,  previous,  up
+@node Kernel Interface
 @chapter Kernel Interface
 
 There are several different methods for reading kernel routing table

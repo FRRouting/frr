@@ -1,7 +1,7 @@
 @c -*-texinfo-*-
 @c This is part of the Quagga Manual.
-@c Copyright (C) 1999, 2000 Kunihiro Ishiguro
-@c See file zebra.texi for copying conditions.
+@c @value{COPYRIGHT_STR}
+@c See file quagga.texi for copying conditions.
 @node RIP
 @comment  node-name,  next,  previous,  up
 @chapter RIP
@@ -32,8 +32,7 @@ version 1 as described in RFC1058.
 * RIP Debug Commands::          
 @end menu
 
-@node Starting and Stopping ripd, RIP Configuration, RIP, RIP
-@comment  node-name,  next,  previous,  up
+@node Starting and Stopping ripd
 @section Starting and Stopping ripd
 
 The default configuration file name of @command{ripd}'s is
@@ -85,8 +84,7 @@ When the program terminates, retain routes added by @command{ripd}.
 * RIP netmask::                 
 @end menu
 
-@node RIP netmask,  , Starting and Stopping ripd, Starting and Stopping ripd
-@comment  node-name,  next,  previous,  up
+@node RIP netmask
 @subsection RIP netmask
 
 The netmask features of @command{ripd} support both version 1 and version 2 of
@@ -107,8 +105,7 @@ old information will be suppressed.  Ripd does not currently support
 equal cost multipath routing.
 
 
-@node RIP Configuration, How to Announce RIP route, Starting and Stopping ripd, RIP
-@comment  node-name,  next,  previous,  up
+@node RIP Configuration
 @section RIP Configuration
 
 @deffn Command {router rip} {}
@@ -220,8 +217,7 @@ split-horizon}.  If you don't perform split-horizon on the interface,
 please specify @code{no ip split-horizon}.
 @end deffn
 
-@node How to Announce RIP route, Filtering RIP Routes, RIP Configuration, RIP
-@comment  node-name,  next,  previous,  up
+@node How to Announce RIP route
 @section How to Announce RIP route
 
 @deffn {RIP command} {redistribute kernel} {}
@@ -284,9 +280,7 @@ most cases, we recommend creating a static route in Quagga and
 redistributing it in RIP using @code{redistribute static}.
 @end deffn
 
-
-@node  Filtering RIP Routes, RIP Metric Manipulation, How to Announce RIP route, RIP
-@comment  node-name,  next,  previous,  up
+@node  Filtering RIP Routes
 @section Filtering RIP Routes
 
 RIP routes can be filtered by a distribute-list.
@@ -326,8 +320,7 @@ name.  Next is the direction of @samp{in} or @samp{out}.  If
 @var{direct} is @samp{in} the access list is applied to input packets.
 @end deffn
 
-@node RIP Metric Manipulation, RIP distance, Filtering RIP Routes, RIP
-@comment  node-name,  next,  previous,  up
+@node RIP Metric Manipulation
 @section RIP Metric Manipulation
 
 RIP metric is a value for distance for the network.  Usually
@@ -348,8 +341,7 @@ affects connected routes.
 @deffnx {RIP command} {offset-list @var{access-list} (in|out) @var{ifname}} {}
 @end deffn
 
-@node RIP distance, RIP route-map, RIP Metric Manipulation, RIP
-@comment  node-name,  next,  previous,  up
+@node RIP distance
 @section RIP distance
 
 Distance value is used in zebra daemon.  Default RIP distance is 120.
@@ -371,8 +363,7 @@ Set default RIP distance to specified value when the route's source IP
 address matches the specified prefix and the specified access-list.
 @end deffn
 
-@node RIP route-map, RIP Authentication, RIP distance, RIP
-@comment  node-name,  next,  previous,  up
+@node RIP route-map
 @section RIP route-map
 
 Usage of @command{ripd}'s route-map support.
@@ -435,8 +426,7 @@ value range is very large for compatibility with other protocols.  For
 RIP, valid metric values are from 1 to 16.
 @end deffn
 
-@node RIP Authentication, RIP Timers, RIP route-map, RIP
-@comment  node-name,  next,  previous,  up
+@node RIP Authentication
 @section RIP Authentication
 
 @deffn {Interface command} {ip rip authentication mode md5} {}
@@ -472,8 +462,7 @@ interface eth1
 !
 @end example
 
-@node RIP Timers, Show RIP Information, RIP Authentication, RIP
-@comment  node-name,  next,  previous,  up
+@node RIP Timers
 @section RIP Timers
 
 @deffn {RIP command} {timers basic @var{update} @var{timeout} @var{garbage}} {}
@@ -511,8 +500,7 @@ The @code{no timers basic} command will reset the timers to the default
 settings listed above.
 @end deffn
 
-@node Show RIP Information, RIP Debug Commands, RIP Timers, RIP
-@comment  node-name,  next,  previous,  up
+@node Show RIP Information
 @section Show RIP Information
 
 To display RIP routes.
@@ -555,8 +543,7 @@ Routing Protocol is "rip"
 @end group
 @end example
 
-@node RIP Debug Commands,  , Show RIP Information, RIP
-@comment  node-name,  next,  previous,  up
+@node RIP Debug Commands
 @section RIP Debug Commands
 
 Debug for RIP protocol.

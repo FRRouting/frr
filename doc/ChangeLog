@@ -1,3 +1,35 @@
+2004-11-06 Paul Jakma <paul@dishone.st>
+
+	* defines.texi.in: New file, texi variables should be set here,
+          autoconf substitution is available. Define common AUTHORS,
+          COPYRIGHT_YEAR and COPYRIGHT_STR vars.
+	* (global): Make use of makeinfo node pointer auto-creation
+          to avoid having to fully specify links for nodes, so we only have
+          to specify current node name - simplifies text slightly.
+          Remove extraneous newlines which appear to cause extra blank pages
+          to be added in output.
+          Update copyright strings which appear in various places to
+          use the new COPYRIGHT_STR texinfo variable.
+	  Change url to uref, the former need not output an actual
+	  hyperlink depending on version of texinfo, the latter should if
+	  supported by the format (eg PDF).
+	* texinfo.tex: Update to a more recent version. previous file
+	  was many many years old. This file should possibly be removed
+          altogether, and allowed to be installed by automake.
+        * quagga.texi: Make use of automake's version.texi feature to
+          have VERSION and some other vars auto-defined. include
+          defines.texi. Change copyright strings to use the COPYRIGHT_STR
+          variable.
+	* install.texi: Make the privs section an actual section. Ditto for
+	  the Linux notes.
+	* overview.texi: Supply URL for Quagga, where format allows. Tidy up
+          one or two paragraphs slightly.
+	  Update the section on supported platforms.
+	  Remove the ZNOG list stuff, direct reader to the website for
+          further information on email lists.
+	* vtysh.texi: Update the integrated config file section. Make the
+	  commands sections so correct PDF indexes are built.
+
 2004-10-12 Hasso Tepper <hasso at quagga.net>
 
 	* snmp.texi: ospf6d supports SNMP as well now.

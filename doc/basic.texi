@@ -1,5 +1,4 @@
 @node Basic commands
-@comment  node-name,  next,  previous,  up
 @chapter Basic commands
 
 There are five routing daemons in use, and there is one manager daemon.
@@ -23,8 +22,7 @@ daemons.
 
 
 
-@node Config Commands, Common Invocation Options, Basic commands, Basic commands
-@comment  node-name,  next,  previous,  up
+@node Config Commands
 @section Config Commands
 
 @cindex Configuration files for running the software
@@ -64,8 +62,7 @@ options when starting the daemon.
 
 
 
-@node Basic Config Commands, Sample Config File, Config Commands, Config Commands
-@comment  node-name,  next,  previous,  up
+@node Basic Config Commands
 @subsection Basic Config Commands
 
 @deffn Command {hostname @var{hostname}} {}
@@ -138,7 +135,7 @@ to all VTY interfaces.
 @end deffn
 
 @deffn Command {show version} {}
-Show the current version of the Quagga and its build host information.
+Show the current version of @value{PACKAGE_NAME} and its build host information.
 @end deffn
 
 @deffn Command {line vty} {}
@@ -172,8 +169,7 @@ Restrict vty connections with an access list.
 
 
 
-@node   Sample Config File,  , Basic Config Commands, Config Commands
-@comment  node-name,  next,  previous,  up
+@node Sample Config File
 @subsection Sample Config File
 
 
@@ -208,13 +204,12 @@ comment and the password is set to 'zebra!password'.
 
 
 
-@node Common Invocation Options, Virtual Terminal Interfaces, Config Commands, Basic commands
-@comment  node-name,  next,  previous,  up
+@node Common Invocation Options
 @section Common Invocation Options
 @c COMMON_OPTIONS
 @c OPTIONS section of the man page
 
-These options apply to all Quagga daemons.
+These options apply to all @value{PACKAGE_NAME} daemons.
 
 @table @samp
 
@@ -241,7 +236,7 @@ stop}.
 
 The file name is an run-time option rather than a configure-time option
 so that multiple routing daemons can be run simultaneously.  This is
-useful when using Quagga to implement a routing looking glass.  One
+useful when using @value{PACKAGE_NAME} to implement a routing looking glass.  One
 machine can be used to collect differing routing views from differing
 points in the network.
 
@@ -267,8 +262,7 @@ Print program version.
 
 
 
-@node  Virtual Terminal Interfaces,  , Common Invocation Options, Basic commands
-@comment  node-name,  next,  previous,  up
+@node Virtual Terminal Interfaces
 @section Virtual Terminal Interfaces
 
 VTY -- Virtual Terminal [aka TeletYpe] Interface is a command line
@@ -282,8 +276,7 @@ interface (CLI) for user interaction with the routing daemon.
 
 
 
-@node  VTY Overview, VTY Modes, Virtual Terminal Interfaces, Virtual Terminal Interfaces
-@comment  node-name,  next,  previous,  up
+@node VTY Overview
 @subsection VTY Overview
 
 
@@ -300,9 +293,8 @@ Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
 
-Hello, this is zebra (version @value{VERSION})
-Copyright 1997-2000 Kunihiro Ishiguro
-
+Hello, this is @value{PACKAGE_NAME} (version @value{VERSION})
+@value{COPYRIGHT_STR}
 
 User Access Verification
 
@@ -326,12 +318,8 @@ Router#
 
 '?' is very useful for looking up commands.
 
-
-
-@node  VTY Modes, VTY CLI Commands, VTY Overview, Virtual Terminal Interfaces
-@comment  node-name,  next,  previous,  up
+@node VTY Modes
 @subsection VTY Modes
-
 
 There are three basic VTY modes:
 
@@ -343,10 +331,7 @@ There are three basic VTY modes:
 
 There are commands that may be restricted to specific VTY modes. 
 
-
-
-@node VTY View Mode, VTY Enable Mode, VTY Modes, VTY Modes
-@comment  node-name,  next,  previous,  up
+@node VTY View Mode
 @subsubsection VTY View Mode
 @c to be written (gpoul)
 
@@ -354,33 +339,25 @@ There are commands that may be restricted to specific VTY modes.
 This mode is for read-only access to the CLI. One may exit the mode by
 leaving the system, or by entering @code{enable} mode.
 
-
-
-@node VTY Enable Mode, VTY Other Modes, VTY View Mode, VTY Modes
-@comment  node-name,  next,  previous,  up
+@node VTY Enable Mode
 @subsubsection VTY Enable Mode
-
 
 @c to be written (gpoul)
 This mode is for read-write access to the CLI. One may exit the mode by
 leaving the system, or by escaping to view mode.
 
-
-
-@node VTY Other Modes,  , VTY Enable Mode, VTY Modes
-@comment  node-name,  next,  previous,  up
+@node VTY Other Modes
 @subsubsection VTY Other Modes
 
 
 @c to be written (gpoul)
 This page is for describing other modes.
 
-@node VTY CLI Commands,  , VTY Modes, Virtual Terminal Interfaces
-@comment  node-name,  next,  previous,  up
+@node VTY CLI Commands
 @subsection VTY CLI Commands
 
-
-Commands that you may use at the command-line are described in the following three subsubsections.
+Commands that you may use at the command-line are described in the following
+three subsubsections.
 
 @menu
 * CLI Movement Commands::       Commands for moving the cursor about
@@ -388,12 +365,8 @@ Commands that you may use at the command-line are described in the following thr
 * CLI Advanced Commands::       Other commands, session management and so on
 @end menu
 
-
-
-@node CLI Movement Commands, CLI Editing Commands, VTY CLI Commands, VTY CLI Commands
-@comment  node-name,  next,  previous,  up
+@node CLI Movement Commands
 @subsubsection CLI Movement Commands
-
 
 These commands are used for moving the CLI cursor. The @key{C} character
 means press the Control Key.
@@ -430,12 +403,8 @@ Move to the end of the line.
 
 @end table
 
-
-
-@node CLI Editing Commands, CLI Advanced Commands, CLI Movement Commands, VTY CLI Commands
-@comment  node-name,  next,  previous,  up
+@node CLI Editing Commands
 @subsubsection CLI Editing Commands
-
 
 These commands are used for editing text on a line. The @key{C}
 character means press the Control Key.
@@ -474,12 +443,8 @@ Transpose character.
 
 @end table
 
-
-
-@node CLI Advanced Commands,  , CLI Editing Commands, VTY CLI Commands
-@comment  node-name,  next,  previous,  up
+@node CLI Advanced Commands
 @subsubsection CLI Advanced Commands
-
 
 There are several additional CLI commands for command line completions,
 insta-help, and VTY session management.

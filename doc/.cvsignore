@@ -1,13 +1,17 @@
 Makefile
 Makefile.in
+mdate-sh
 draft-zebra-00.txt
 zebra.info-*
 zebra.html
+defines.texi
+version.texi
 quagga.info*
 quagga.html
 quagga.pdf
 quagga.ps
 quagga.dvi
+stamp-vti
 .nfs*
 *.aux
 *.cp

@@ -1,5 +1,4 @@
 @node Zebra
-@comment  node-name,  next,  previous,  up
 @chapter Zebra
 
 @c SYNOPSIS
@@ -15,8 +14,7 @@ different routing protocols.
 @end menu
 
 
-@node Invoking zebra, Interface Commands, Zebra, Zebra
-@comment  node-name,  next,  previous,  up
+@node Invoking zebra
 @section Invoking zebra
 
 Besides the common invocation options (@pxref{Common Invocation Options}), the
@@ -42,8 +40,7 @@ When program terminates, retain routes added by zebra.
 
 @end table
 
-@node Interface Commands, Static Route Commands, Invoking zebra, Zebra
-@comment  node-name,  next,  previous,  up
+@node Interface Commands
 @section Interface Commands
 
 @deffn Command {interface @var{ifname}} {}
@@ -90,8 +87,7 @@ only linux and with certain drivers - those which properly support the
 IFF_RUNNING flag.
 @end deffn
 
-@node Static Route Commands, zebra Terminal Mode Commands, Interface Commands, Zebra
-@comment  node-name,  next,  previous,  up
+@node Static Route Commands
 @section Static Route Commands
 
 Static routing is a very fundamental feature of routing technology.  It
@@ -191,8 +187,7 @@ and later).  After setting @var{tableno} with this command,
 static routes defined after this are added to the specified table.
 @end deffn
 
-@node zebra Terminal Mode Commands,  , Static Route Commands, Zebra
-@comment  node-name,  next,  previous,  up
+@node zebra Terminal Mode Commands
 @section zebra Terminal Mode Commands
 
 @deffn Command {show ip route} {}

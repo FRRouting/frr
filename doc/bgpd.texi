@@ -1,9 +1,8 @@
 @c -*-texinfo-*-
 @c This is part of the Quagga Manual.
-@c Copyright (C) 1999, 2000, 2001 2002 Kunihiro Ishiguro <kunihiro@zebra.org>
-@c See file zebra.texi for copying conditions.
+@c @value{COPYRIGHT_STR}
+@c See file quagga.texi for copying conditions.
 @node BGP
-@comment  node-name,  next,  previous,  up
 @chapter BGP
 
   BGP stands for a Border Gateway Protocol.  The lastest BGP version
@@ -34,8 +33,7 @@ support to BGP-4.
 * Dump BGP packets and table::  
 @end menu
 
-@node Starting BGP, BGP router, BGP, BGP
-@comment  node-name,  next,  previous,  up
+@node Starting BGP
 @section Starting BGP
 
 Default configuration file of @command{bgpd} is @file{bgpd.conf}.
@@ -56,8 +54,7 @@ Set the bgp protocol's port number.
 When program terminates, retain BGP routes added by zebra.
 @end table
 
-@node BGP router, BGP network, Starting BGP, BGP
-@comment  node-name,  next,  previous,  up
+@node BGP router
 @section BGP router
 
   First of all you must configure BGP router with @command{router bgp}
@@ -89,8 +86,7 @@ so @code{router-id} is set to 0.0.0.0.  So please set router-id by hand.
 * BGP decision process::        
 @end menu
 
-@node BGP distance, BGP decision process, BGP router, BGP router
-@comment  node-name,  next,  previous,  up
+@node BGP distance
 @subsection BGP distance
 
 @deffn {BGP} {distance bgp <1-255> <1-255> <1-255>} {}
@@ -103,8 +99,7 @@ value for external routes, internal routes and local routes.
 This command set distance value to 
 @end deffn
 
-@node BGP decision process,  , BGP distance, BGP router
-@comment  node-name,  next,  previous,  up
+@node BGP decision process
 @subsection BGP decision process
 
 @table @asis
@@ -121,8 +116,7 @@ This command set distance value to
 @item 6. MED check.
 @end table
 
-@node BGP network, BGP Peer, BGP router, BGP
-@comment  node-name,  next,  previous,  up
+@node BGP network
 @section BGP network
 
 @menu
@@ -131,8 +125,7 @@ This command set distance value to
 * Redistribute to BGP::         
 @end menu
 
-@node BGP route, Route Aggregation, BGP network, BGP network
-@comment  node-name,  next,  previous,  up
+@node BGP route
 @subsection BGP route
 
 @deffn {BGP} {network @var{A.B.C.D/M}} {}
@@ -152,8 +145,7 @@ doesn't care about IGP routes when announcing its routes.
 @deffn {BGP} {no network @var{A.B.C.D/M}} {}
 @end deffn
 
-@node Route Aggregation, Redistribute to BGP, BGP route, BGP network
-@comment  node-name,  next,  previous,  up
+@node Route Aggregation
 @subsection Route Aggregation
 
 @deffn {BGP} {aggregate-address @var{A.B.C.D/M}} {}
@@ -173,8 +165,7 @@ not be announce.
 @deffn {BGP} {no aggregate-address @var{A.B.C.D/M}} {}
 @end deffn
 
-@node Redistribute to BGP,  , Route Aggregation, BGP network
-@comment  node-name,  next,  previous,  up
+@node Redistribute to BGP
 @subsection Redistribute to BGP
 
 @deffn {BGP} {redistribute kernel} {}
@@ -197,8 +188,7 @@ Redistribute RIP route to BGP process.
 Redistribute OSPF route to BGP process.
 @end deffn
 
-@node BGP Peer, BGP Peer Group, BGP network, BGP
-@comment  node-name,  next,  previous,  up
+@node BGP Peer
 @section BGP Peer
 
 @menu
@@ -207,8 +197,7 @@ Redistribute OSPF route to BGP process.
 * Peer filtering::              
 @end menu
 
-@node Defining Peer, BGP Peer commands, BGP Peer, BGP Peer
-@comment  node-name,  next,  previous,  up
+@node Defining Peer
 @subsection Defining Peer
 
 @deffn {BGP} {neighbor @var{peer} remote-as @var{asn}} {}
@@ -230,8 +219,7 @@ can't find neighbor 10.0.0.1
 @end example
 @end deffn
 
-@node BGP Peer commands, Peer filtering, Defining Peer, BGP Peer
-@comment  node-name,  next,  previous,  up
+@node BGP Peer commands
 @subsection BGP Peer commands
 
 In a @code{router bgp} clause there are neighbor specific configurations
@@ -306,8 +294,7 @@ routes.
 @deffnx {BGP} {no neighbor @var{peer} maximum-prefix @var{number}} {}
 @end deffn
 
-@node Peer filtering,  , BGP Peer commands, BGP Peer
-@comment  node-name,  next,  previous,  up
+@node Peer filtering
 @subsection Peer filtering
 
 @deffn {BGP} {neighbor @var{peer} distribute-list @var{name} [in|out]} {}
@@ -327,8 +314,7 @@ Apply a route-map on the neighbor.  @var{direct} must be @code{in} or
 @end deffn
 
 @c -----------------------------------------------------------------------
-@node BGP Peer Group, BGP Address Family, BGP Peer, BGP
-@comment  node-name,  next,  previous,  up
+@node BGP Peer Group
 @section BGP Peer Group
 
 @deffn {BGP} {neighbor @var{word} peer-group} {}
@@ -339,16 +325,14 @@ This command defines a new peer group.
 This command bind specific peer to peer group @var{word}.
 @end deffn
 
-@node BGP Address Family, Autonomous System, BGP Peer Group, BGP
-@comment  node-name,  next,  previous,  up
+@node BGP Address Family
 @section BGP Address Family
 
 
 
 @page
 @c -----------------------------------------------------------------------
-@node Autonomous System, BGP Communities Attribute, BGP Address Family, BGP
-@comment  node-name,  next,  previous,  up
+@node Autonomous System
 @section Autonomous System
 
   AS (Autonomous System) is one of the essential element of BGP.  BGP
@@ -370,8 +354,7 @@ Internet.
 * Private AS Numbers::          
 @end menu
 
-@node AS Path Regular Expression, Display BGP Routes by AS Path, Autonomous System, Autonomous System
-@comment  node-name,  next,  previous,  up
+@node AS Path Regular Expression
 @subsection AS Path Regular Expression
 
   AS path regular expression can be used for displaying BGP routes and
@@ -403,8 +386,7 @@ used for AS value boundaries match.  @code{show ip bgp regexp _7675_}
 matches to all of BGP routes which as AS number include @var{7675}.
 @end table
 
-@node Display BGP Routes by AS Path, AS Path Access List, AS Path Regular Expression, Autonomous System
-@comment  node-name,  next,  previous,  up
+@node Display BGP Routes by AS Path
 @subsection Display BGP Routes by AS Path
 
   To show BGP routes which has specific AS path information @code{show
@@ -415,8 +397,7 @@ This commands display BGP routes that matches AS path regular
 expression @var{line}.
 @end deffn
 
-@node AS Path Access List, Using AS Path in Route Map, Display BGP Routes by AS Path, Autonomous System
-@comment  node-name,  next,  previous,  up
+@node AS Path Access List
 @subsection AS Path Access List
 
   AS path access list is user defined AS path.
@@ -429,8 +410,7 @@ This command defines a new AS path access list.
 @deffnx {Command} {no ip as-path access-list @var{word} @{permit|deny@} @var{line}} {}
 @end deffn
 
-@node Using AS Path in Route Map, Private AS Numbers, AS Path Access List, Autonomous System
-@comment  node-name,  next,  previous,  up
+@node Using AS Path in Route Map
 @subsection Using AS Path in Route Map
 
 @deffn {Route Map} {match as-path @var{word}} {}
@@ -439,14 +419,12 @@ This command defines a new AS path access list.
 @deffn {Route Map} {set as-path prepend @var{as-path}} {}
 @end deffn
 
-@node Private AS Numbers,  , Using AS Path in Route Map, Autonomous System
-@comment  node-name,  next,  previous,  up
+@node Private AS Numbers
 @subsection Private AS Numbers
 
 @page
 @c -----------------------------------------------------------------------
-@node BGP Communities Attribute, BGP Extended Communities Attribute, Autonomous System, BGP
-@comment  node-name,  next,  previous,  up
+@node BGP Communities Attribute
 @section BGP Communities Attribute
 
   BGP communities attribute is widely used for implementing policy
@@ -500,8 +478,7 @@ values are sorted in numerical order.
 * Using BGP Communities Attribute::  
 @end menu
 
-@node BGP Community Lists, Numbered BGP Community Lists, BGP Communities Attribute, BGP Communities Attribute
-@comment  node-name,  next,  previous,  up
+@node BGP Community Lists
 @subsection BGP Community Lists
 
   BGP community list is a user defined BGP communites attribute list.
@@ -563,8 +540,7 @@ Named Community standard list CLIST
 @end example
 @end deffn
 
-@node Numbered BGP Community Lists, BGP Community in Route Map, BGP Community Lists, BGP Communities Attribute
-@comment  node-name,  next,  previous,  up
+@node Numbered BGP Community Lists
 @subsection Numbered BGP Community Lists
 
   When number is used for BGP community list name, the number has
@@ -596,8 +572,7 @@ list.  This feature is left for backward compability.  Use of this
 feature is not recommended.
 @end deffn
 
-@node BGP Community in Route Map, Display BGP Routes by Community, Numbered BGP Community Lists, BGP Communities Attribute
-@comment  node-name,  next,  previous,  up
+@node BGP Community in Route Map
 @subsection BGP Community in Route Map
 
   In Route Map (@pxref{Route Map}), we can match or set BGP
@@ -637,8 +612,7 @@ is removed.  When all of communities value is removed eventually, the
 BGP update's communities attribute is completely removed.
 @end deffn
 
-@node Display BGP Routes by Community, Using BGP Communities Attribute, BGP Community in Route Map, BGP Communities Attribute
-@comment  node-name,  next,  previous,  up
+@node Display BGP Routes by Community
 @subsection Display BGP Routes by Community
 
   To show BGP routes which has specific BGP communities attribute,
@@ -663,8 +637,7 @@ This commands display BGP routes that matches community list
 that have an exact match.
 @end deffn
 
-@node Using BGP Communities Attribute,  , Display BGP Routes by Community, BGP Communities Attribute
-@comment  node-name,  next,  previous,  up
+@node Using BGP Communities Attribute
 @subsection Using BGP Communities Attribute
 
   Following configuration is the most typical usage of BGP communities
@@ -777,8 +750,7 @@ route-map RMAP permit 10
 @end example
 
 @c -----------------------------------------------------------------------
-@node BGP Extended Communities Attribute, Displaying BGP routes, BGP Communities Attribute, BGP
-@comment  node-name,  next,  previous,  up
+@node BGP Extended Communities Attribute
 @section BGP Extended Communities Attribute
 
   BGP extended communities attribute is introduced with MPLS VPN/BGP
@@ -818,8 +790,7 @@ This is a format to define IP address based Extended Community value.
 * BGP Extended Communities in Route Map::  
 @end menu
 
-@node BGP Extended Community Lists, BGP Extended Communities in Route Map, BGP Extended Communities Attribute, BGP Extended Communities Attribute
-@comment  node-name,  next,  previous,  up
+@node BGP Extended Community Lists
 @subsection BGP Extended Community Lists
 
   Expanded Community Lists is a user defined BGP Expanded Community
@@ -863,8 +834,7 @@ This command display current extcommunity-list information.  When
 @end example
 @end deffn
 
-@node BGP Extended Communities in Route Map,  , BGP Extended Community Lists, BGP Extended Communities Attribute
-@comment  node-name,  next,  previous,  up
+@node BGP Extended Communities in Route Map
 @subsection BGP Extended Communities in Route Map
 
 @deffn {Route Map} {match extcommunity @var{word}} {}
@@ -879,8 +849,7 @@ This command set Site of Origin value.
 @end deffn
 
 @c -----------------------------------------------------------------------
-@node Displaying BGP routes, Capability Negotiation, BGP Extended Communities Attribute, BGP
-@comment  node-name,  next,  previous,  up
+@node Displaying BGP routes
 @section Displaying BGP Routes
 
 @menu
@@ -888,8 +857,7 @@ This command set Site of Origin value.
 * More Show IP BGP::            
 @end menu
 
-@node Show IP BGP, More Show IP BGP, Displaying BGP routes, Displaying BGP routes
-@comment  node-name,  next,  previous,  up
+@node Show IP BGP
 @subsection Show IP BGP
 
 @deffn {Command} {show ip bgp} {}
@@ -910,8 +878,7 @@ Origin codes: i - IGP, e - EGP, ? - incomplete
 Total number of prefixes 1
 @end example
 
-@node More Show IP BGP,  , Show IP BGP, Displaying BGP routes
-@comment  node-name,  next,  previous,  up
+@node More Show IP BGP
 @subsection More Show IP BGP
 
 @deffn {Command} {show ip bgp regexp @var{line}} {}
@@ -965,8 +932,7 @@ Clear peer using soft reconfiguration.
 @deffn {Command} {no debug keepalive} {}
 @end deffn
 
-@node Capability Negotiation, Route Reflector, Displaying BGP routes, BGP
-@comment  node-name,  next,  previous,  up
+@node Capability Negotiation
 @section Capability Negotiation
 
   When adding IPv6 routing information exchange feature to BGP.  There
@@ -1033,8 +999,7 @@ Override the result of Capability Negotiation with local configuration.
 Ignore remote peer's capability value.
 @end deffn
 
-@node Route Reflector, Route Server, Capability Negotiation, BGP
-@comment  node-name,  next,  previous,  up
+@node Route Reflector
 @section Route Reflector
 
 @deffn {BGP} {bgp cluster-id @var{a.b.c.d}} {}
@@ -1044,8 +1009,7 @@ Ignore remote peer's capability value.
 @deffnx {BGP} {no neighbor @var{peer} route-reflector-client} {}
 @end deffn
 
-@node Route Server, How to set up a 6-Bone connection, Route Reflector, BGP
-@comment  node-name,  next,  previous,  up
+@node Route Server
 @section Route Server
 
 At an Internet Exchange point, many ISPs are connected to each other by
@@ -1071,8 +1035,7 @@ normal BGP router or Route Server or both at the same time.
 * Viewing the view::            
 @end menu
 
-@node Multiple instance, BGP instance and view, Route Server, Route Server
-@comment  node-name,  next,  previous,  up
+@node Multiple instance
 @subsection Multiple instance
 
 To enable multiple view function of @code{bgpd}, you must turn on
@@ -1132,8 +1095,7 @@ router bgp 1
 Quagga style BGP configuration.  This is default.
 @end deffn
 
-@node BGP instance and view, Routing policy, Multiple instance, Route Server
-@comment  node-name,  next,  previous,  up
+@node BGP instance and view
 @subsection BGP instance and view
 
 BGP instance is a normal BGP process.  The result of route selection
@@ -1183,8 +1145,7 @@ router bgp 2 view 2
 @end group
 @end example
 
-@node Routing policy, Viewing the view, BGP instance and view, Route Server
-@comment  node-name,  next,  previous,  up
+@node Routing policy
 @subsection Routing policy
 
 You can set different routing policy for a peer.  For example, you can
@@ -1209,8 +1170,7 @@ This means BGP update from a peer 10.0.0.1 goes to both BGP view 1 and view
 applied.  On the other hand, when the update is inserted into view 2,
 distribute-list 2 is applied.
 
-@node Viewing the view,  , Routing policy, Route Server
-@comment  node-name,  next,  previous,  up
+@node Viewing the view
 @subsection Viewing the view
 
 To display routing table of BGP view, you must specify view name.
@@ -1219,8 +1179,7 @@ To display routing table of BGP view, you must specify view name.
 Display routing table of BGP view @var{name}.
 @end deffn
 
-@node How to set up a 6-Bone connection, Dump BGP packets and table, Route Server, BGP
-@comment  node-name,  next,  previous,  up
+@node How to set up a 6-Bone connection
 @section How to set up a 6-Bone connection
 
 @example
@@ -1268,8 +1227,7 @@ log file bgpd.log
 @end group
 @end example
 
-@node Dump BGP packets and table,  , How to set up a 6-Bone connection, BGP
-@comment  node-name,  next,  previous,  up
+@node Dump BGP packets and table
 @section Dump BGP packets and table
 
 @deffn Command {dump bgp all @var{path}} {}

@@ -1,5 +1,4 @@
-@node IPv6 Support, Kernel Interface, Route Map, Top
-@comment  node-name,  next,  previous,  up
+@node IPv6 Support
 @chapter IPv6 Support
 
 Quagga fully supports IPv6 routing.  As described so far, Quagga supports
@@ -13,8 +12,7 @@ messages to the all nodes that exist on the network.
 * Router Advertisement::        
 @end menu
 
-@node Router Advertisement,  , IPv6 Support, IPv6 Support
-@comment  node-name,  next,  previous,  up
+@node Router Advertisement
 @section Router Advertisement
 
 @deffn {Interface Command} {no ipv6 nd suppress-ra} {}

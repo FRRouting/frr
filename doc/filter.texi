@@ -11,9 +11,9 @@ defined, it can be applied in any direction.
 * IP Prefix List::              
 @end menu
 
-@node IP Access List, IP Prefix List, Filtering, Filtering
+@node IP Access List
 @comment  node-name,  next,  previous,  up
-@subsection IP Access List
+@section IP Access List
 
 @deffn {Command} {access-list @var{name} permit @var{ipv4-network}} {}
 @deffnx {Command} {access-list @var{name} deny @var{ipv4-network}} {}
@@ -27,9 +27,9 @@ access-list filter deny 10.0.0.0/9
 access-list filter permit 10.0.0.0/8
 @end example
 
-@node IP Prefix List,  , IP Access List, Filtering
+@node IP Prefix List
 @comment  node-name,  next,  previous,  up
-@subsection IP Prefix List
+@section IP Prefix List
 
 @command{ip prefix-list} provides the most powerful prefix based
 filtering mechanism.  In addition to @command{access-list} functionality,
@@ -88,14 +88,8 @@ the new list will overwrite the old list.
 Matching of IP Prefix is performed from the smaller sequential number to the
 larger.  The matching will stop once any rule has been applied.
 
-In the case of no le or ge command, 
-
-Version 0.85: the matching rule will apply to all prefix lengths that
-matched the prefix list.
-
-Version 0.86 or later: In the case of no le or ge command, the prefix
-length must match exactly the length specified in the prefix list.
-
+In the case of no le or ge command, the prefix length must match exactly the
+length specified in the prefix list.
 
 @deffn {Command} {no ip prefix-list @var{name}} {}
 @end deffn
@@ -107,9 +101,8 @@ length must match exactly the length specified in the prefix list.
 * Clear counter of ip prefix-list::  
 @end menu
 
-@node ip prefix-list description, ip prefix-list sequential number control, IP Prefix List, IP Prefix List
-@comment  node-name,  next,  previous,  up
-@subsubsection ip prefix-list description
+@node ip prefix-list description
+@subsection ip prefix-list description
 
 @deffn {Command} {ip prefix-list @var{name} description @var{desc}} {}
 Descriptions may be added to prefix lists.  This command adds a
@@ -121,9 +114,8 @@ Deletes the description from a prefix list.  It is possible to use the
 command without the full description.
 @end deffn
 
-@node  ip prefix-list sequential number control, Showing ip prefix-list, ip prefix-list description, IP Prefix List
-@comment  node-name,  next,  previous,  up
-@subsubsection ip prefix-list sequential number control
+@node  ip prefix-list sequential number control
+@subsection ip prefix-list sequential number control
 
 @deffn {Command} {ip prefix-list sequence-number} {}
 With this command, the IP prefix list sequential number is displayed.
@@ -135,9 +127,8 @@ With this command, the IP prefix list sequential number is not
 displayed.
 @end deffn
 
-@node  Showing ip prefix-list, Clear counter of ip prefix-list, ip prefix-list sequential number control, IP Prefix List
-@comment  node-name,  next,  previous,  up
-@subsubsection Showing ip prefix-list
+@node  Showing ip prefix-list
+@subsection Showing ip prefix-list
 
 @deffn {Command} {show ip prefix-list} {}
 Display all IP prefix lists.
@@ -175,9 +166,8 @@ displayed.
 @deffn {Command} {show ip prefix-list detail @var{name}} {}
 @end deffn
 
-@node  Clear counter of ip prefix-list,  , Showing ip prefix-list, IP Prefix List
-@comment  node-name,  next,  previous,  up
-@subsubsection Clear counter of ip prefix-list
+@node  Clear counter of ip prefix-list
+@subsection Clear counter of ip prefix-list
 
 @deffn {Command} {clear ip prefix-list} {}
 Clears the counters of all IP prefix lists.  Clear IP Prefix List can be

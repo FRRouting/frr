@@ -1,5 +1,4 @@
-@node SNMP Support, Zebra Protocol, Kernel Interface, Top
-@comment  node-name,  next,  previous,  up
+@node SNMP Support
 @chapter SNMP Support
 
 SNMP (Simple Network Managing Protocol) is a widely implemented feature for
@@ -14,23 +13,17 @@ available through it.
 * MIB and command reference::
 @end menu
 
-
-
-@node Getting and installing an SNMP agent, SMUX configuration, SNMP Support, SNMP Support
-@comment  node-name,  next,  previous,  up
+@node Getting and installing an SNMP agent
 @section Getting and installing an SNMP agent
 
 There are several SNMP agent which support SMUX. We recommend to use the latest
 version of @code{net-snmp} which was formerly known as @code{ucd-snmp}.
-It is free and open software and available at @url{http://www.net-snmp.org/}
+It is free and open software and available at @uref{http://www.net-snmp.org/}
 and as binary package for most Linux distributions.
 @code{net-snmp} has to be compiled with @code{--with-mib-modules=smux} to
 be able to accept connections from Quagga.
 
-
-
-@node SMUX configuration, MIB and command reference, Getting and installing an SNMP agent, SNMP Support
-@comment  node-name,  next,  previous,  up
+@node SMUX configuration
 @section SMUX configuration
 
 To enable SMUX protocol support, Quagga must have been build with the
@@ -85,10 +78,7 @@ If that is a problem you should consider to patch snmpd and comment out the
 troublesome @code{snmp_log()} line in the function
 @code{netsnmp_agent_check_packet()} in @code{agent/snmp_agent.c}.
 
-
-
-@node MIB and command reference, ,SMUX configuration, SNMP Support
-@comment  node-name,  next,  previous,  up
+@node MIB and command reference
 @section MIB and command reference
 
 The following OID numbers are used for the interprocess communication of snmpd and

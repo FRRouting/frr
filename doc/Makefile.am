@@ -2,9 +2,12 @@
 
 info_TEXINFOS = quagga.texi
 
+BUILT_SOURCES = defines.texi
+
 quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi install.texi \
 	ipv6.texi kernel.texi main.texi ospf6d.texi ospfd.texi overview.texi \
-	protocol.texi ripd.texi ripngd.texi routemap.texi snmp.texi vtysh.texi
+	protocol.texi ripd.texi ripngd.texi routemap.texi snmp.texi vtysh.texi \
+	defines.texi
 
 man_MANS = vtysh.1 bgpd.8 ospf6d.8 ospfd.8 ripd.8 ripngd.8 zebra.8
 

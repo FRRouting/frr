@@ -1,5 +1,4 @@
-@node  Zebra Protocol, Packet Binary Dump Format, SNMP Support, Top
-@comment  node-name,  next,  previous,  up
+@node  Zebra Protocol
 @appendix Zebra Protocol
 
 Zebra Protocol is a protocol which is used between protocol daemon and
