@@ -602,15 +602,18 @@ void
 ospf_ip_header_dump (struct stream *s)
 {
   u_int16_t length;
+  u_int16_t offset;
   struct ip *iph;
 
   iph = (struct ip *) STREAM_PNT (s);
 
-#ifdef GNU_LINUX
-  length = ntohs (iph->ip_len);
-#else /* GNU_LINUX */
+#ifdef HAVE_IP_HDRINCL_BSD_ORDER
   length = iph->ip_len;
-#endif /* GNU_LINUX */
+  offset = iph->ip_off;
+#else /* !HAVE_IP_HDRINCL_BSD_ORDER */
+  length = ntohs (iph->ip_len);
+  offset = ntohs (iph->ip_off);
+#endif /* HAVE_IP_HDRINCL_BSD_ORDER */
 
   /* IP Header dump. */
   zlog_info ("ip_v %d", iph->ip_v);
@@ -618,12 +621,10 @@ ospf_ip_header_dump (struct stream *s)
   zlog_info ("ip_tos %d", iph->ip_tos);
   zlog_info ("ip_len %d", length);
   zlog_info ("ip_id %u", (u_int32_t) iph->ip_id);
-  zlog_info ("ip_off %u", (u_int32_t) iph->ip_off);
+  zlog_info ("ip_off %u", (u_int32_t) offset);
   zlog_info ("ip_ttl %d", iph->ip_ttl);
   zlog_info ("ip_p %d", iph->ip_p);
-  /* There is a report that Linux 2.0.37 does not have ip_sum.  But
-     I'm not sure.  Temporary commented out by kunihiro. */
-  /* zlog_info ("ip_sum 0x%x", (u_int32_t) ntohs (iph->ip_sum)); */
+  zlog_info ("ip_sum 0x%x", (u_int32_t) ntohs (iph->ip_sum));
   zlog_info ("ip_src %s",  inet_ntoa (iph->ip_src));
   zlog_info ("ip_dst %s", inet_ntoa (iph->ip_dst));
 }

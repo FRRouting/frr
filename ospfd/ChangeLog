@@ -1,7 +1,13 @@
 2004-09-27 Paul Jakma <paul@dishone.st>
 
-	* ospf_packet.c: (ospf_write) (struct msghdr).msg_name is caddr_t
-	  on most platforms.
+	* ospf_dump.c: (ospf_ip_header_dump) Use HAVE_IP_HDRINCL_BSD_ORDER
+	  Apply to offset too. Print ip_cksum, lets not worry about
+	  possible 2.0.37 compile problems.
+	* ospf_packet.c: (ospf_swap_iph_to{n,h}) Use
+	  HAVE_IP_HDRINCL_BSD_ORDER.
+	  (ospf_recv_packet) ditto.
+	  (ospf_write) Fixup iov argument to ospf_write_frags.
+          (struct msghdr).msg_name is caddr_t on most platforms.
 	  (ospf_recv_packet) ditto. And msg_flags is not always there
           memset struct then set fields we care about rather than 
           initialise all fields individually.

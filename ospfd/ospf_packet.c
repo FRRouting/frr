@@ -489,10 +489,11 @@ ospf_swab_iph_ton (struct ip *iph)
   /* BSD and derived take iph in network order, except for 
    * ip_len and ip_off
    */
-#ifdef GNU_LINUX
+#ifndef HAVE_IP_HDRINCL_BSD_ORDER
   iph->ip_len = htons(iph->ip_len);
   iph->ip_off = htons(iph->ip_off);
-#endif
+#endif /* HAVE_IP_HDRINCL_BSD_ORDER */
+
   iph->ip_id = htons(iph->ip_id);
 }
 
@@ -500,19 +501,23 @@ ospf_swab_iph_ton (struct ip *iph)
 void
 ospf_swab_iph_toh (struct ip *iph)
 {
-#ifdef GNU_LINUX
+#ifdef HAVE_IP_HDRINCL_BSD_ORDER
   iph->ip_len = ntohs(iph->ip_len);
   iph->ip_off = ntohs(iph->ip_off);
-#endif  
+#endif /* HAVE_IP_HDRINCL_BSD_ORDER */
+
   iph->ip_id = ntohs(iph->ip_id);
 }
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 void
-ospf_write_frags (struct ospf_packet *op, struct ip *ip, struct msghdr *msg, 
-                  struct iovec *iov, int maxdatasize);
+ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph, 
+                  struct msghdr *msg, struct iovec **iov, 
+                  int maxdatasize, int mtu, int flags)
 {
 #define OSPF_WRITE_FRAG_SHIFT 3
+  u_int16_t offset;
+  int ret;
 
   assert ( op->length == stream_get_endp(op->s) );
 
@@ -542,11 +547,11 @@ ospf_write_frags (struct ospf_packet *op, struct ip *ip, struct msghdr *msg,
       /* data length of this frag is to next offset value */
       iov[1]->iov_len = offset << OSPF_WRITE_FRAG_SHIFT;
       iph->ip_len = iov[1]->iov_len + sizeof (struct ip);
-      assert (iph->ip_len <= oi->ifp->mtu);
+      assert (iph->ip_len <= mtu);
 
       ospf_swab_iph_ton (iph);
 
-      ret = sendmsg (ospf->fd, msg, flags);
+      ret = sendmsg (fd, msg, flags);
       
       ospf_swab_iph_toh (iph);
       
@@ -580,7 +585,7 @@ ospf_write (struct thread *thread)
   struct sockaddr_in sa_dst;
   struct ip iph;
   struct msghdr msg;
-  struct iovec iov[2];
+  struct iovec iov[2], *iovp;
   u_char type;
   int ret;
   int flags = 0;
@@ -588,7 +593,7 @@ ospf_write (struct thread *thread)
 #ifdef WANT_OSPF_WRITE_FRAGMENT
   static u_int16_t ipid = 0;
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
-  u_int16_t maxdatasize, offset;
+  u_int16_t maxdatasize;
 #define OSPF_WRITE_IPHL_SHIFT 2
   
   ospf->t_write = NULL;
@@ -679,7 +684,11 @@ ospf_write (struct thread *thread)
    */
 #ifdef WANT_OSPF_WRITE_FRAGMENT
   if ( op->length > maxdatasize )
-    ospf_write_frags (&op, &ip, &msg, &iov, maxdatasize);
+    {
+      iovp = iov;
+      ospf_write_frags (ospf->fd, op, &iph, &msg, &iovp, maxdatasize, 
+                        oi->ifp->mtu, flags);
+    }
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 
   /* send final fragment (could be first) */
@@ -2032,7 +2041,7 @@ ospf_recv_packet (int fd, struct interface **ifp)
       return NULL;
     }
 
-#if defined(__NetBSD__) || defined(__FreeBSD__) || (defined(__OpenBSD__) && (OpenBSD < 200311))
+#ifdef HAVE_IP_HDRINCL_BSD_ORDER
   ip_len = iph.ip_len;
 #else
   ip_len = ntohs (iph.ip_len);
