@@ -424,6 +424,7 @@ ospf_nexthop_calculation (struct ospf_area *area,
                   if (oi && oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
                     {
                       struct prefix_ipv4 la;
+                      la.family = AF_INET;
                       la.prefixlen = oi->address->prefixlen;
                       /* We link to them on PtMP interface
                          - find the interface on w */

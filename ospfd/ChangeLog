@@ -1,10 +1,16 @@
+2004-08-27  David Wiggins  <dwiggins@bbn.com>
+
+	* ospf_spf.c (ospf_nexthop_calculation): Initialize address family
+	  in on-stack struct prefix_ipv4.  Fixes point-to-multipoint SPF
+	  calculation.
+
 2004-08-26  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* ospf_packet.c (ospf_recv_packet): adjust size declaration of
-	buffer used to get interface index so that it compiles on other
-	than Linux and includes the required alignment space.  Probably
-	this was only working on sparc/sparc64 because most of sockaddr_dl
-	was not being written.
+	  buffer used to get interface index so that it compiles on other
+	  than Linux and includes the required alignment space.  Probably
+	  this was only working on sparc/sparc64 because most of
+	  sockaddr_dl was not being written.
 
 2004-08-19 Paul Jakma <paul@dishone.st>
 
