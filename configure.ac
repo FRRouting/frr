@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.77 2004/11/19 06:41:49 hasso Exp $
+## $Id: configure.ac,v 1.78 2004/12/22 14:03:52 ajs Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.97.3, [http://bugzilla.quagga.net])
@@ -108,6 +108,8 @@ AC_ARG_ENABLE(ospfd,
 [  --disable-ospfd         do not build ospfd])
 AC_ARG_ENABLE(ospf6d,
 [  --disable-ospf6d        do not build ospf6d])
+AC_ARG_ENABLE(watchquagga,
+[  --disable-watchquagga   do not build watchquagga])
 AC_ARG_ENABLE(isisd,
 [  --enable-isisd          build isisd])
 AC_ARG_ENABLE(bgp-announce,
@@ -750,6 +752,12 @@ else
   OSPFD="ospfd"
 fi
 
+if test "${enable_watchquagga}" = "no";then
+  WATCHQUAGGA=""
+else
+  WATCHQUAGGA="watchquagga"
+fi
+
 OSPFCLIENT=""
 if test "${enable_opaque_lsa}" = "yes"; then
   if test "${enable_ospfapi}" != "no";then
@@ -790,6 +798,7 @@ AC_SUBST(RIPD)
 AC_SUBST(RIPNGD)
 AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
+AC_SUBST(WATCHQUAGGA)
 AC_SUBST(ISISD)
 AC_SUBST(VTYSH)
 AC_SUBST(INCLUDES)
@@ -1116,6 +1125,7 @@ AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$quagga_statedir/bgpd.pid",bgpd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$quagga_statedir/ospfd.pid",ospfd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$quagga_statedir/ospf6d.pid",ospf6d PID)
 AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$quagga_statedir/isisd.pid",isisd PID)
+AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$quagga_statedir/watchquagga.pid",watchquagga PID)
 AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$quagga_statedir/zserv.api",zebra api socket)
 AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$quagga_statedir/zebra.vty",zebra vty socket)
 AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$quagga_statedir/ripd.vty",rip vty socket)
@@ -1145,7 +1155,7 @@ ac_cv_htonl_works=no)])
 AC_MSG_RESULT($ac_cv_htonl_works)
 
 AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile 
-	  ripngd/Makefile bgpd/Makefile ospfd/Makefile 
+	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchquagga/Makefile
 	  ospf6d/Makefile isisd/Makefile vtysh/Makefile doc/Makefile 
 	  ospfclient/Makefile tests/Makefile m4/Makefile redhat/Makefile
 	  pkgsrc/Makefile

@@ -1,3 +1,7 @@
+2004-12-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* {configure.ac,Makefile.am}: Build watchquagga by default.
+
 2004-12-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* NEWS: Note addition of watchquagga.

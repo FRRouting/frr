@@ -1,10 +1,10 @@
 ## Process this file with automake to produce Makefile.in.
 
 SUBDIRS = lib @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ \
-         @ISISD@ @VTYSH@ @OSPFCLIENT@ doc m4 @pkgsrcdir@ redhat
+         @ISISD@ @WATCHQUAGGA@ @VTYSH@ @OSPFCLIENT@ doc m4 @pkgsrcdir@ redhat
 
 DIST_SUBDIRS = lib zebra bgpd ripd ripngd ospfd ospf6d \
-	  isisd vtysh ospfclient doc m4 pkgsrc redhat tests
+	  isisd watchquagga vtysh ospfclient doc m4 pkgsrc redhat tests
 
 EXTRA_DIST = aclocal.m4 SERVICES TODO REPORTING-BUGS vtysh/Makefile.in \
 	vtysh/Makefile.am update-autotools \
