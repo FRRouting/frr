@@ -38,6 +38,7 @@
 #include "zebra/debug.h"
 
 extern struct zebra_privs_t zserv_privs;
+extern struct zebra_t zebrad;
 
 /* Socket length roundup function. */
 #define ROUNDUP(a) \
@@ -679,8 +680,6 @@ rtm_write (int message,
 #include "thread.h"
 #include "zebra/zserv.h"
 
-extern struct thread_master *master;
-
 /* For debug purpose. */
 void
 rtmsg_debug (struct rt_msghdr *rtm)
@@ -764,7 +763,7 @@ kernel_read (struct thread *thread)
       return 0;
     }
 
-  thread_add_read (master, kernel_read, NULL, sock);
+  thread_add_read (zebrad.master, kernel_read, NULL, sock);
 
   if (IS_ZEBRA_DEBUG_KERNEL)
     rtmsg_debug (&buf.r.rtm);
@@ -820,7 +819,7 @@ routing_socket ()
     zlog_err ("routing_socket: Can't lower privileges");
 
   /* kernel_read needs rewrite. */
-  thread_add_read (master, kernel_read, NULL, routing_sock);
+  thread_add_read (zebrad.master, kernel_read, NULL, routing_sock);
 }
 
 /* Exported interface function.  This function simply calls

@@ -28,6 +28,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifdef SUNOS_5
 #define _XPG4_2
 #define __EXTENSIONS__
+typedef unsigned int    u_int32_t;
+typedef unsigned short  u_int16_t;
+typedef unsigned char   u_int8_t;
 #endif /* SUNOS_5 */
 
 #ifndef HAVE_SOCKLEN_T
