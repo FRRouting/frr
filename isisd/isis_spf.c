@@ -65,7 +65,7 @@ union_adjlist (struct list *target, struct list *source)
   struct isis_adjacency *adj, *adj2;
   struct listnode *node, *node2;
 
-  zlog_info ("Union adjlist!");
+  zlog_debug ("Union adjlist!");
   for (node = listhead (source); node; nextnode (node))
     {
       adj = getdata (node);
@@ -339,9 +339,9 @@ isis_spf_add_self (struct isis_spftree *spftree, struct isis_area *area,
   listnode_add (spftree->paths, vertex);
 
 #ifdef EXTREME_DEBUG
-  zlog_info ("ISIS-Spf: added this IS  %s %s depth %d dist %d to PATHS",
-	     vtype2string (vertex->type), vid2string (vertex, buff),
-	     vertex->depth, vertex->d_N);
+  zlog_debug ("ISIS-Spf: added this IS  %s %s depth %d dist %d to PATHS",
+	      vtype2string (vertex->type), vid2string (vertex, buff),
+	      vertex->depth, vertex->d_N);
 #endif /* EXTREME_DEBUG */
 
   return;
@@ -410,9 +410,9 @@ isis_spf_add2tent (struct isis_spftree *spftree, enum vertextype vtype,
   if (adj)
     listnode_add (vertex->Adj_N, adj);
 #ifdef EXTREME_DEBUG
-  zlog_info ("ISIS-Spf: add to TENT  %s %s depth %d dist %d",
-	     vtype2string (vertex->type), vid2string (vertex, buff),
-	     vertex->depth, vertex->d_N);
+  zlog_debug ("ISIS-Spf: add to TENT  %s %s depth %d dist %d",
+	      vtype2string (vertex->type), vid2string (vertex, buff),
+	      vertex->depth, vertex->d_N);
 #endif /* EXTREME_DEBUG */
   listnode_add (spftree->tents, vertex);
   if (list_isempty (spftree->tents))
@@ -504,8 +504,8 @@ process_N (struct isis_spftree *spftree, enum vertextype vtype, void *id,
   if (vertex)
     {
 #ifdef EXTREME_DEBUG
-      zlog_info ("ISIS-Spf: process_N  %s %s dist %d already found from PATH",
-		 vtype2string (vtype), vid2string (vertex, buff), dist);
+      zlog_debug ("ISIS-Spf: process_N  %s %s dist %d already found from PATH",
+		  vtype2string (vtype), vid2string (vertex, buff), dist);
 #endif /* EXTREME_DEBUG */
       assert (dist >= vertex->d_N);
       return;
@@ -517,8 +517,8 @@ process_N (struct isis_spftree *spftree, enum vertextype vtype, void *id,
     {
       /*        1) */
 #ifdef EXTREME_DEBUG
-      zlog_info ("ISIS-Spf: process_N  %s %s dist %d",
-		 vtype2string (vtype), vid2string (vertex, buff), dist);
+      zlog_debug ("ISIS-Spf: process_N  %s %s dist %d",
+		  vtype2string (vtype), vid2string (vertex, buff), dist);
 #endif /* EXTREME_DEBUG */
       if (vertex->d_N == dist)
 	{
@@ -916,9 +916,9 @@ add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
   listnode_add (spftree->paths, vertex);
 
 #ifdef EXTREME_DEBUG
-  zlog_info ("ISIS-Spf: added  %s %s depth %d dist %d to PATHS",
-	     vtype2string (vertex->type), vid2string (vertex, buff),
-	     vertex->depth, vertex->d_N);
+  zlog_debug ("ISIS-Spf: added  %s %s depth %d dist %d to PATHS",
+	      vtype2string (vertex->type), vid2string (vertex, buff),
+	      vertex->depth, vertex->d_N);
 #endif /* EXTREME_DEBUG */
   if (vertex->type > VTYPE_ES)
     {
@@ -926,7 +926,7 @@ add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
 	isis_route_create ((struct prefix *) &vertex->N.prefix,
 			   vertex->d_N, vertex->depth, vertex->Adj_N, area);
       else if (isis->debugs & DEBUG_SPF_EVENTS)
-	zlog_info ("ISIS-Spf: no adjacencies do not install route");
+	zlog_debug ("ISIS-Spf: no adjacencies do not install route");
     }
 
   return;
@@ -1045,7 +1045,7 @@ isis_run_spf_l1 (struct thread *thread)
     }
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
-    zlog_info ("ISIS-Spf (%s) L1 SPF needed, periodic SPF", area->area_tag);
+    zlog_debug ("ISIS-Spf (%s) L1 SPF needed, periodic SPF", area->area_tag);
 
   if (area->ip_circuits)
     retval = isis_run_spf (area, 1, AF_INET);
@@ -1075,7 +1075,7 @@ isis_run_spf_l2 (struct thread *thread)
     }
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
-    zlog_info ("ISIS-Spf (%s) L2 SPF needed, periodic SPF", area->area_tag);
+    zlog_debug ("ISIS-Spf (%s) L2 SPF needed, periodic SPF", area->area_tag);
 
   if (area->ip_circuits)
     retval = isis_run_spf (area, 2, AF_INET);
@@ -1158,7 +1158,7 @@ isis_run_spf6_l1 (struct thread *thread)
     }
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
-    zlog_info ("ISIS-Spf (%s) L1 SPF needed, periodic SPF", area->area_tag);
+    zlog_debug ("ISIS-Spf (%s) L1 SPF needed, periodic SPF", area->area_tag);
 
   if (area->ipv6_circuits)
     retval = isis_run_spf (area, 1, AF_INET6);
@@ -1188,7 +1188,7 @@ isis_run_spf6_l2 (struct thread *thread)
     }
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
-    zlog_info ("ISIS-Spf (%s) L2 SPF needed, periodic SPF", area->area_tag);
+    zlog_debug ("ISIS-Spf (%s) L2 SPF needed, periodic SPF", area->area_tag);
 
   if (area->ipv6_circuits)
     retval = isis_run_spf (area, 2, AF_INET6);

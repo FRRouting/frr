@@ -124,7 +124,7 @@ nexthop_print (struct isis_nexthop *nh)
 
   inet_ntop (AF_INET, &nh->ip, (char *) buf, BUFSIZ);
 
-  zlog_info ("      %s %u", buf, nh->ifindex);
+  zlog_debug ("      %s %u", buf, nh->ifindex);
 }
 
 void
@@ -220,7 +220,7 @@ nexthop6_print (struct isis_nexthop6 *nh6)
 
   inet_ntop (AF_INET6, &nh6->ip6, (char *) buf, BUFSIZ);
 
-  zlog_info ("      %s %u", buf, nh6->ifindex);
+  zlog_debug ("      %s %u", buf, nh6->ifindex);
 }
 
 void
@@ -506,20 +506,20 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
   if (!rinfo_old)
     {
       if (isis->debugs & DEBUG_RTE_EVENTS)
-	zlog_info ("ISIS-Rte (%s) route created: %s", area->area_tag, buff);
+	zlog_debug ("ISIS-Rte (%s) route created: %s", area->area_tag, buff);
       SET_FLAG (rinfo_new->flag, ISIS_ROUTE_FLAG_ACTIVE);
       route_node->info = rinfo_new;
       return rinfo_new;
     }
 
   if (isis->debugs & DEBUG_RTE_EVENTS)
-    zlog_info ("ISIS-Rte (%s) route already exists: %s", area->area_tag,
+    zlog_debug ("ISIS-Rte (%s) route already exists: %s", area->area_tag,
 	       buff);
 
   if (isis_route_info_same (rinfo_new, rinfo_old, family))
     {
       if (isis->debugs & DEBUG_RTE_EVENTS)
-	zlog_info ("ISIS-Rte (%s) route unchanged: %s", area->area_tag, buff);
+	zlog_debug ("ISIS-Rte (%s) route unchanged: %s", area->area_tag, buff);
       isis_route_info_delete (rinfo_new);
       route_info = rinfo_old;
     }
@@ -527,12 +527,12 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
     {
       /* merge the nexthop lists */
       if (isis->debugs & DEBUG_RTE_EVENTS)
-	zlog_info ("ISIS-Rte (%s) route changed (same attribs): %s",
+	zlog_debug ("ISIS-Rte (%s) route changed (same attribs): %s",
 		   area->area_tag, buff);
 #ifdef EXTREME_DEBUG
-      zlog_info ("Old nexthops");
+      zlog_debug ("Old nexthops");
       nexthops6_print (rinfo_old->nexthops6);
-      zlog_info ("New nexthops");
+      zlog_debug ("New nexthops");
       nexthops6_print (rinfo_new->nexthops6);
 #endif /* EXTREME_DEBUG */
       isis_route_info_merge (rinfo_new, rinfo_old, family);
@@ -544,16 +544,16 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
       if (isis_route_info_prefer_new (rinfo_new, rinfo_old))
 	{
 	  if (isis->debugs & DEBUG_RTE_EVENTS)
-	    zlog_info ("ISIS-Rte (%s) route changed: %s", area->area_tag,
-		       buff);
+	    zlog_debug ("ISIS-Rte (%s) route changed: %s", area->area_tag,
+			buff);
 	  isis_route_info_delete (rinfo_old);
 	  route_info = rinfo_new;
 	}
       else
 	{
 	  if (isis->debugs & DEBUG_RTE_EVENTS)
-	    zlog_info ("ISIS-Rte (%s) route rejected: %s", area->area_tag,
-		       buff);
+	    zlog_debug ("ISIS-Rte (%s) route rejected: %s", area->area_tag,
+			buff);
 	  isis_route_info_delete (rinfo_new);
 	  route_info = rinfo_old;
 	}
@@ -582,7 +582,7 @@ isis_route_delete (struct prefix *prefix, struct route_table *table)
   if (rinfo == NULL)
     {
       if (isis->debugs & DEBUG_RTE_EVENTS)
-	zlog_info ("ISIS-Rte: tried to delete non-existant route %s", buff);
+	zlog_debug ("ISIS-Rte: tried to delete non-existant route %s", buff);
       return;
     }
 
@@ -590,7 +590,7 @@ isis_route_delete (struct prefix *prefix, struct route_table *table)
     {
       UNSET_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE);
       if (isis->debugs & DEBUG_RTE_EVENTS)
-	zlog_info ("ISIS-Rte: route delete  %s", buff);
+	zlog_debug ("ISIS-Rte: route delete  %s", buff);
       isis_zebra_route_update (prefix, rinfo);
     }
   isis_route_info_delete (rinfo);
@@ -624,11 +624,11 @@ again:
       if (isis->debugs & DEBUG_RTE_EVENTS)
 	{
 	  prefix2str (&rode->p, (char *) buff, BUFSIZ);
-	  zlog_info ("ISIS-Rte (%s): route validate: %s %s %s",
-		     area->area_tag,
-		     (CHECK_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC) ?
+	  zlog_debug ("ISIS-Rte (%s): route validate: %s %s %s",
+		      area->area_tag,
+		      (CHECK_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC) ?
 		      "sync'ed" : "nosync"),
-		     (CHECK_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE) ?
+		      (CHECK_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE) ?
 		      "active" : "inactive"), buff);
 	}
 

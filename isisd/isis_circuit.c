@@ -246,7 +246,7 @@ isis_circuit_add_addr (struct isis_circuit *circuit,
 
 #ifdef EXTREME_DEBUG
       prefix2str (connected->address, buf, BUFSIZ);
-      zlog_info ("Added IP address %s to circuit %d", buf,
+      zlog_debug ("Added IP address %s to circuit %d", buf,
 		 circuit->circuit_id);
 #endif /* EXTREME_DEBUG */
     }
@@ -266,7 +266,7 @@ isis_circuit_add_addr (struct isis_circuit *circuit,
 
 #ifdef EXTREME_DEBUG
       prefix2str (connected->address, buf, BUFSIZ);
-      zlog_info ("Added IPv6 address %s to circuit %d", buf,
+      zlog_debug ("Added IPv6 address %s to circuit %d", buf,
 		 circuit->circuit_id);
 #endif /* EXTREME_DEBUG */
     }
@@ -398,7 +398,7 @@ isis_circuit_if_add (struct isis_circuit *circuit, struct interface *ifp)
 	  memcpy (circuit->u.bc.snpa, circuit->interface->hw_addr, ETH_ALEN);
 	}
 #ifdef EXTREME_DEGUG
-      zlog_info ("isis_circuit_if_add: if_id %d, isomtu %d snpa %s",
+      zlog_debug ("isis_circuit_if_add: if_id %d, isomtu %d snpa %s",
 		 circuit->interface->ifindex, ISO_MTU (circuit),
 		 snpa_print (circuit->u.bc.snpa));
 

@@ -327,11 +327,11 @@ process_p2p_hello (struct isis_circuit *circuit)
 
   if (isis->debugs & DEBUG_ADJ_PACKETS)
     {
-      zlog_info ("ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s,"
-		 " cir id %02d, length %d",
-		 circuit->area->area_tag, circuit->interface->name,
-		 circuit_t2string (circuit->circuit_is_type),
-		 circuit->circuit_id, ntohs (hdr->pdu_len));
+      zlog_debug ("ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s,"
+		  " cir id %02d, length %d",
+		  circuit->area->area_tag, circuit->interface->name,
+		  circuit_t2string (circuit->circuit_is_type),
+		  circuit->circuit_id, ntohs (hdr->pdu_len));
     }
 
   adj = circuit->u.p2p.neighbor;
@@ -672,8 +672,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
 
   if (circuit->ext_domain)
     {
-      zlog_info ("level %d LAN Hello received over circuit with "
-		 "externalDomain = true", level);
+      zlog_debug ("level %d LAN Hello received over circuit with "
+		  "externalDomain = true", level);
       return ISIS_WARNING;
     }
 
@@ -681,8 +681,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
     {
       if (isis->debugs & DEBUG_ADJ_PACKETS)
 	{
-	  zlog_info ("ISIS-Adj (%s): Interface level mismatch, %s",
-		     circuit->area->area_tag, circuit->interface->name);
+	  zlog_debug ("ISIS-Adj (%s): Interface level mismatch, %s",
+		      circuit->area->area_tag, circuit->interface->name);
 	}
       return ISIS_WARNING;
     }
@@ -693,8 +693,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
     {
       if (isis->debugs & DEBUG_ADJ_PACKETS)
 	{
-	  zlog_info ("ISIS-Adj (%s): is type mismatch",
-		     circuit->area->area_tag);
+	  zlog_debug ("ISIS-Adj (%s): is type mismatch",
+		      circuit->area->area_tag);
 	}
       return ISIS_WARNING;
     }
@@ -766,9 +766,9 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
     {
       if (isis->debugs & DEBUG_ADJ_PACKETS)
 	{
-	  zlog_info ("ISIS-Adj (%s): Area mismatch, level %d IIH on %s",
-		     circuit->area->area_tag, level,
-		     circuit->interface->name);
+	  zlog_debug ("ISIS-Adj (%s): Area mismatch, level %d IIH on %s",
+		      circuit->area->area_tag, level,
+		      circuit->interface->name);
 	}
       retval = ISIS_OK;
       goto out;
@@ -779,8 +779,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
    */
   if (!memcmp (circuit->u.bc.snpa, ssnpa, ETH_ALEN))
     {
-      zlog_info ("ISIS-Adj (%s): it's own IIH PDU - discarded",
-		 circuit->area->area_tag);
+      zlog_debug ("ISIS-Adj (%s): it's own IIH PDU - discarded",
+		  circuit->area->area_tag);
 
       retval = ISIS_OK;
       goto out;
@@ -792,7 +792,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   if (!(found & TLVFLAG_IPV4_ADDR)
       || !ip_match (circuit->ip_addrs, tlvs.ipv4_addrs))
     {
-      zlog_info
+      zlog_debug
 	("ISIS-Adj: No usable IP interface addresses in LAN IIH from %s\n",
 	 circuit->interface->name);
       retval = ISIS_WARNING;
@@ -898,12 +898,12 @@ out:
   if (isis->debugs & DEBUG_ADJ_PACKETS)
     {
       /* FIXME: is this place right? fix missing info */
-      zlog_info ("ISIS-Adj (%s): Rcvd L%d LAN IIH from %s on %s, cirType %s, "
-		 "cirID %u, length %ld",
-		 circuit->area->area_tag,
-		 level, snpa_print (ssnpa), circuit->interface->name,
-		 circuit_t2string (circuit->circuit_is_type),
-		 circuit->circuit_id, stream_get_endp (circuit->rcv_stream));
+      zlog_debug ("ISIS-Adj (%s): Rcvd L%d LAN IIH from %s on %s, cirType %s, "
+		  "cirID %u, length %ld",
+		  circuit->area->area_tag,
+		  level, snpa_print (ssnpa), circuit->interface->name,
+		  circuit_t2string (circuit->circuit_is_type),
+		  circuit->circuit_id, stream_get_endp (circuit->rcv_stream));
     }
 
   free_tlvs (&tlvs);
@@ -939,15 +939,15 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
-      zlog_info ("ISIS-Upd (%s): Rcvd L%d LSP %s, seq 0x%08x, cksum 0x%04x, "
-		 "lifetime %us, len %lu, on %s",
-		 circuit->area->area_tag,
-		 level,
-		 rawlspid_print (hdr->lsp_id),
-		 ntohl (hdr->seq_num),
-		 ntohs (hdr->checksum),
-		 ntohs (hdr->rem_lifetime),
-		 circuit->rcv_stream->endp, circuit->interface->name);
+      zlog_debug ("ISIS-Upd (%s): Rcvd L%d LSP %s, seq 0x%08x, cksum 0x%04x, "
+		  "lifetime %us, len %lu, on %s",
+		  circuit->area->area_tag,
+		  level,
+		  rawlspid_print (hdr->lsp_id),
+		  ntohl (hdr->seq_num),
+		  ntohs (hdr->checksum),
+		  ntohs (hdr->rem_lifetime),
+		  circuit->rcv_stream->endp, circuit->interface->name);
     }
 
   assert (ntohs (hdr->pdu_len) > ISIS_LSP_HDR_LEN);
@@ -957,9 +957,9 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
   if (iso_csum_verify (STREAM_PNT (circuit->rcv_stream) + 4,
 		       ntohs (hdr->pdu_len) - 12, &hdr->checksum))
     {
-      zlog_info ("ISIS-Upd (%s): LSP %s invalid LSP checksum 0x%04x",
-		 circuit->area->area_tag,
-		 rawlspid_print (hdr->lsp_id), ntohs (hdr->checksum));
+      zlog_debug ("ISIS-Upd (%s): LSP %s invalid LSP checksum 0x%04x",
+		  circuit->area->area_tag,
+		  rawlspid_print (hdr->lsp_id), ntohs (hdr->checksum));
 
       return ISIS_WARNING;
     }
@@ -967,7 +967,7 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
   /* 7.3.15.1 a) 1 - external domain circuit will discard lsps */
   if (circuit->ext_domain)
     {
-      zlog_info
+      zlog_debug
 	("ISIS-Upd (%s): LSP %s received at level %d over circuit with "
 	 "externalDomain = true", circuit->area->area_tag,
 	 rawlspid_print (hdr->lsp_id), level);
@@ -978,11 +978,11 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
   /* 7.3.15.1 a) 2,3 - manualL2OnlyMode not implemented */
   if (!accept_level (level, circuit->circuit_is_type))
     {
-      zlog_info ("ISIS-Upd (%s): LSP %s received at level %d over circuit of"
-		 " type %s",
-		 circuit->area->area_tag,
-		 rawlspid_print (hdr->lsp_id),
-		 level, circuit_t2string (circuit->circuit_is_type));
+      zlog_debug ("ISIS-Upd (%s): LSP %s received at level %d over circuit of"
+		  " type %s",
+		  circuit->area->area_tag,
+		  rawlspid_print (hdr->lsp_id),
+		  level, circuit_t2string (circuit->circuit_is_type));
 
       return ISIS_WARNING;
     }
@@ -1025,13 +1025,13 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
       adj = isis_adj_lookup_snpa (ssnpa, circuit->u.bc.adjdb[level - 1]);
       if (!adj)
 	{
-	  zlog_info ("(%s): DS ======= LSP %s, seq 0x%08x, cksum 0x%04x, "
-		     "lifetime %us on %s",
-		     circuit->area->area_tag,
-		     rawlspid_print (hdr->lsp_id),
-		     ntohl (hdr->seq_num),
-		     ntohs (hdr->checksum),
-		     ntohs (hdr->rem_lifetime), circuit->interface->name);
+	  zlog_debug ("(%s): DS ======= LSP %s, seq 0x%08x, cksum 0x%04x, "
+		      "lifetime %us on %s",
+		      circuit->area->area_tag,
+		      rawlspid_print (hdr->lsp_id),
+		      ntohl (hdr->seq_num),
+		      ntohs (hdr->checksum),
+		      ntohs (hdr->rem_lifetime), circuit->interface->name);
 	  return ISIS_WARNING;	/* Silently discard */
 	}
     }
@@ -1115,11 +1115,11 @@ dontcheckadj:
 		      && circuit->u.bc.is_dr[level - 1] == 1))
 		{
 		  lsp->lsp_header->seq_num = htonl (ntohl (hdr->seq_num) + 1);
-		  zlog_info ("LSP LEN: %d", ntohs (lsp->lsp_header->pdu_len));
+		  zlog_debug ("LSP LEN: %d", ntohs (lsp->lsp_header->pdu_len));
 		  iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
 				   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 		  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
-		  zlog_info
+		  zlog_debug
 		    ("ISIS-Upd (%s): (1) re-originating LSP %s new seq 0x%08x",
 		     circuit->area->area_tag, rawlspid_print (hdr->lsp_id),
 		     ntohl (lsp->lsp_header->seq_num));
@@ -1162,7 +1162,7 @@ dontcheckadj:
 			   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 
 	  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
-	  zlog_info
+	  zlog_debug
 	    ("ISIS-Upd (%s): (2) re-originating LSP %s new seq 0x%08x",
 	     circuit->area->area_tag, rawlspid_print (hdr->lsp_id),
 	     ntohl (lsp->lsp_header->seq_num));
@@ -1183,15 +1183,15 @@ dontcheckadj:
 	  if (lsp)
 	    {
 #ifdef EXTREME_DEBUG
-	      zlog_info ("level %d number is - %ld", level,
-			 circuit->area->lspdb[level - 1]->dict_nodecount);
+	      zlog_debug ("level %d number is - %ld", level,
+			  circuit->area->lspdb[level - 1]->dict_nodecount);
 #endif /* EXTREME DEBUG */
 	      lsp_search_and_destroy (hdr->lsp_id,
 				      circuit->area->lspdb[level - 1]);
 	      /* exists, so we overwrite */
 #ifdef EXTREME_DEBUG
-	      zlog_info ("level %d number is - %ld", level,
-			 circuit->area->lspdb[level - 1]->dict_nodecount);
+	      zlog_debug ("level %d number is - %ld", level,
+			  circuit->area->lspdb[level - 1]->dict_nodecount);
 #endif /* EXTREME DEBUG */
 	    }
 	  /*
@@ -1204,7 +1204,7 @@ dontcheckadj:
 	      lsp0 = lsp_search (lspid, circuit->area->lspdb[level - 1]);
 	      if (!lsp0)
 		{
-		  zlog_info ("Got lsp frag, while zero lsp not database");
+		  zlog_debug ("Got lsp frag, while zero lsp not database");
 		  return ISIS_OK;
 		}
 	    }
@@ -1307,10 +1307,10 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   if (circuit->ext_domain)
     {
 
-      zlog_info ("ISIS-Snp (%s): Rcvd L%d %cSNP on %s, "
-		 "skipping: circuit externalDomain = true",
-		 circuit->area->area_tag,
-		 level, typechar, circuit->interface->name);
+      zlog_debug ("ISIS-Snp (%s): Rcvd L%d %cSNP on %s, "
+		  "skipping: circuit externalDomain = true",
+		  circuit->area->area_tag,
+		  level, typechar, circuit->interface->name);
 
       return ISIS_OK;
     }
@@ -1319,13 +1319,13 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   if (!accept_level (level, circuit->circuit_is_type))
     {
 
-      zlog_info ("ISIS-Snp (%s): Rcvd L%d %cSNP on %s, "
-		 "skipping: circuit type %s does not match level %d",
-		 circuit->area->area_tag,
-		 level,
-		 typechar,
-		 circuit->interface->name,
-		 circuit_t2string (circuit->circuit_is_type), level);
+      zlog_debug ("ISIS-Snp (%s): Rcvd L%d %cSNP on %s, "
+		  "skipping: circuit type %s does not match level %d",
+		  circuit->area->area_tag,
+		  level,
+		  typechar,
+		  circuit->interface->name,
+		  circuit_t2string (circuit->circuit_is_type), level);
 
       return ISIS_OK;
     }
@@ -1337,11 +1337,11 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
       if (!circuit->u.bc.is_dr[level - 1])
 	{
 
-	  zlog_info ("ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s, "
-		     "skipping: we are not the DIS",
-		     circuit->area->area_tag,
-		     level,
-		     typechar, snpa_print (ssnpa), circuit->interface->name);
+	  zlog_debug ("ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s, "
+		      "skipping: we are not the DIS",
+		      circuit->area->area_tag,
+		      level,
+		      typechar, snpa_print (ssnpa), circuit->interface->name);
 
 	  return ISIS_OK;
 	}
@@ -1423,21 +1423,21 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   /* debug isis snp-packets */
   if (isis->debugs & DEBUG_SNP_PACKETS)
     {
-      zlog_info ("ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s",
-		 circuit->area->area_tag,
-		 level,
-		 typechar, snpa_print (ssnpa), circuit->interface->name);
+      zlog_debug ("ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s",
+		  circuit->area->area_tag,
+		  level,
+		  typechar, snpa_print (ssnpa), circuit->interface->name);
       if (tlvs.lsp_entries)
 	{
 	  LIST_LOOP (tlvs.lsp_entries, entry, node)
 	  {
-	    zlog_info ("ISIS-Snp (%s):         %cSNP entry %s, seq 0x%08x,"
-		       " cksum 0x%04x, lifetime %us",
-		       circuit->area->area_tag,
-		       typechar,
-		       rawlspid_print (entry->lsp_id),
-		       ntohl (entry->seq_num),
-		       ntohs (entry->checksum), ntohs (entry->rem_lifetime));
+	    zlog_debug ("ISIS-Snp (%s):         %cSNP entry %s, seq 0x%08x,"
+			" cksum 0x%04x, lifetime %us",
+			circuit->area->area_tag,
+			typechar,
+			rawlspid_print (entry->lsp_id),
+			ntohl (entry->seq_num),
+			ntohs (entry->checksum), ntohs (entry->rem_lifetime));
 	  }
 	}
     }
@@ -1675,7 +1675,7 @@ isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
 	  /* FIXME */
 	  break;
 	case ISH_PDU:
-	  zlog_info ("AN ISH PDU!!");
+	  zlog_debug ("AN ISH PDU!!");
 	  retval = process_is_hello (circuit);
 	  break;
 	default:
@@ -2030,15 +2030,15 @@ send_hello (struct isis_circuit *circuit, int level)
     {
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	{
-	  zlog_info ("ISIS-Adj (%s): Sent L%d LAN IIH on %s, length %ld",
-		     circuit->area->area_tag, level, circuit->interface->name,
-		     STREAM_SIZE (circuit->snd_stream));
+	  zlog_debug ("ISIS-Adj (%s): Sent L%d LAN IIH on %s, length %ld",
+		      circuit->area->area_tag, level, circuit->interface->name,
+		      STREAM_SIZE (circuit->snd_stream));
 	}
       else
 	{
-	  zlog_info ("ISIS-Adj (%s): Sent P2P IIH on %s, length %ld",
-		     circuit->area->area_tag, circuit->interface->name,
-		     STREAM_SIZE (circuit->snd_stream));
+	  zlog_debug ("ISIS-Adj (%s): Sent P2P IIH on %s, length %ld",
+		      circuit->area->area_tag, circuit->interface->name,
+		      STREAM_SIZE (circuit->snd_stream));
 	}
     }
 
@@ -2203,18 +2203,18 @@ send_csnp (struct isis_circuit *circuit, int level)
 
       if (isis->debugs & DEBUG_SNP_PACKETS)
 	{
-	  zlog_info ("ISIS-Snp (%s): Sent L%d CSNP on %s, length %ld",
-		     circuit->area->area_tag, level, circuit->interface->name,
-		     STREAM_SIZE (circuit->snd_stream));
+	  zlog_debug ("ISIS-Snp (%s): Sent L%d CSNP on %s, length %ld",
+		      circuit->area->area_tag, level, circuit->interface->name,
+		      STREAM_SIZE (circuit->snd_stream));
 	  LIST_LOOP (list, lsp, node)
 	  {
-	    zlog_info ("ISIS-Snp (%s):         CSNP entry %s, seq 0x%08x,"
-		       " cksum 0x%04x, lifetime %us",
-		       circuit->area->area_tag,
-		       rawlspid_print (lsp->lsp_header->lsp_id),
-		       ntohl (lsp->lsp_header->seq_num),
-		       ntohs (lsp->lsp_header->checksum),
-		       ntohs (lsp->lsp_header->rem_lifetime));
+	    zlog_debug ("ISIS-Snp (%s):         CSNP entry %s, seq 0x%08x,"
+			" cksum 0x%04x, lifetime %us",
+			circuit->area->area_tag,
+			rawlspid_print (lsp->lsp_header->lsp_id),
+			ntohl (lsp->lsp_header->seq_num),
+			ntohs (lsp->lsp_header->checksum),
+			ntohs (lsp->lsp_header->rem_lifetime));
 	  }
 	}
 
@@ -2318,13 +2318,13 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
     {
       LIST_LOOP (lsps, lsp, node)
       {
-	zlog_info ("ISIS-Snp (%s):         PSNP entry %s, seq 0x%08x,"
-		   " cksum 0x%04x, lifetime %us",
-		   circuit->area->area_tag,
-		   rawlspid_print (lsp->lsp_header->lsp_id),
-		   ntohl (lsp->lsp_header->seq_num),
-		   ntohs (lsp->lsp_header->checksum),
-		   ntohs (lsp->lsp_header->rem_lifetime));
+	zlog_debug ("ISIS-Snp (%s):         PSNP entry %s, seq 0x%08x,"
+		    " cksum 0x%04x, lifetime %us",
+		    circuit->area->area_tag,
+		    rawlspid_print (lsp->lsp_header->lsp_id),
+		    ntohl (lsp->lsp_header->seq_num),
+		    ntohs (lsp->lsp_header->checksum),
+		    ntohs (lsp->lsp_header->rem_lifetime));
       }
     }
 
@@ -2368,10 +2368,10 @@ send_psnp (int level, struct isis_circuit *circuit)
 
 
 	      if (isis->debugs & DEBUG_SNP_PACKETS)
-		zlog_info ("ISIS-Snp (%s): Sent L%d PSNP on %s, length %ld",
-			   circuit->area->area_tag, level,
-			   circuit->interface->name,
-			   STREAM_SIZE (circuit->snd_stream));
+		zlog_debug ("ISIS-Snp (%s): Sent L%d PSNP on %s, length %ld",
+			    circuit->area->area_tag, level,
+			    circuit->interface->name,
+			    STREAM_SIZE (circuit->snd_stream));
 
 	      retval = build_psnp (level, circuit, list);
 	      if (retval == ISIS_OK)
@@ -2492,7 +2492,7 @@ send_lsp (struct thread *thread)
 
 	  if (isis->debugs & DEBUG_UPDATE_PACKETS)
 	    {
-	      zlog_info
+	      zlog_debug
 		("ISIS-Upd (%s): Sent L%d LSP %s, seq 0x%08x, cksum 0x%04x,"
 		 " lifetime %us on %s", circuit->area->area_tag, lsp->level,
 		 rawlspid_print (lsp->lsp_header->lsp_id),
@@ -2533,7 +2533,7 @@ send_lsp (struct thread *thread)
 	    }
 	  else
 	    {
-	      zlog_info ("sending of level %d link state failed", lsp->level);
+	      zlog_debug ("sending of level %d link state failed", lsp->level);
 	    }
 	}
       else

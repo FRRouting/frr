@@ -172,7 +172,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_AREA_ADDRS;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("TLV Area Adresses len %d", length);
+	  zlog_debug ("TLV Area Adresses len %d", length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_AREA_ADDRS)
 	    {
@@ -195,8 +195,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	case IS_NEIGHBOURS:
 	  *found |= TLVFLAG_IS_NEIGHS;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): IS Neighbours length %d",
-		     areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): IS Neighbours length %d",
+		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (TLVFLAG_IS_NEIGHS & *expected)
 	    {
@@ -248,7 +248,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_TE_IS_NEIGHS;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): Extended IS Neighbours length %d",
+	  zlog_debug ("ISIS-TLV (%s): Extended IS Neighbours length %d",
 		     areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (TLVFLAG_TE_IS_NEIGHS & *expected)
@@ -290,7 +290,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   * :                                                               :
 	   */
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): ES Neighbours length %d",
+	  zlog_debug ("ISIS-TLV (%s): ES Neighbours length %d",
 		     areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  *found |= TLVFLAG_ES_NEIGHS;
@@ -325,8 +325,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_LAN_NEIGHS;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): LAN Neigbours length %d",
-		     areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): LAN Neigbours length %d",
+		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (TLVFLAG_LAN_NEIGHS & *expected)
 	    {
@@ -348,7 +348,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 
 	case PADDING:
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("TLV padding %d", length);
+	  zlog_debug ("TLV padding %d", length);
 #endif /* EXTREME_TLV_DEBUG */
 	  pnt += length;
 	  break;
@@ -365,7 +365,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   * +-------+-------+-------+-------+-------+-------+-------+-------+
 	   */
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("LSP Entries length %d", areatag, length);
+	  zlog_debug ("LSP Entries length %d", areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  *found |= TLVFLAG_LSP_ENTRIES;
 	  if (TLVFLAG_LSP_ENTRIES & *expected)
@@ -394,7 +394,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_CHECKSUM;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): Checksum length %d", areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): Checksum length %d", areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_CHECKSUM)
 	    {
@@ -411,8 +411,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_NLPID;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): Protocols Supported length %d",
-		     areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): Protocols Supported length %d",
+		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_NLPID)
 	    {
@@ -429,8 +429,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_IPV4_ADDR;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): IPv4 Address length %d",
-		     areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): IPv4 Address length %d",
+		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_IPV4_ADDR)
 	    {
@@ -438,8 +438,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 		{
 		  ipv4_addr = (struct in_addr *) pnt;
 #ifdef EXTREME_TLV_DEBUG
-		  zlog_info ("ISIS-TLV (%s) : IP ADDR %s, pnt %p", areatag,
-			     inet_ntoa (*ipv4_addr), pnt);
+		  zlog_debug ("ISIS-TLV (%s) : IP ADDR %s, pnt %p", areatag,
+			      inet_ntoa (*ipv4_addr), pnt);
 #endif /* EXTREME_TLV_DEBUG */
 		  if (!tlvs->ipv4_addrs)
 		    tlvs->ipv4_addrs = list_new ();
@@ -457,8 +457,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	case AUTH_INFO:
 	  *found |= TLVFLAG_AUTH_INFO;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): IS-IS Authentication Information",
-		     areatag);
+	  zlog_debug ("ISIS-TLV (%s): IS-IS Authentication Information",
+		      areatag);
 #endif
 	  if (*expected & TLVFLAG_AUTH_INFO)
 	    {
@@ -477,8 +477,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	case DYNAMIC_HOSTNAME:
 	  *found |= TLVFLAG_DYN_HOSTNAME;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): Dynamic Hostname length %d",
-		     areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): Dynamic Hostname length %d",
+		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_DYN_HOSTNAME)
 	    {
@@ -495,7 +495,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_TE_ROUTER_ID;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): TE Router ID %d", areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): TE Router ID %d", areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_TE_ROUTER_ID)
 	    tlvs->router_id = (struct te_router_id *) (pnt);
@@ -520,8 +520,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_IPV4_INT_REACHABILITY;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): IPv4 internal Reachability length %d",
-		     areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): IPv4 internal Reachability length %d",
+		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_IPV4_INT_REACHABILITY)
 	    {
@@ -559,8 +559,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_IPV4_EXT_REACHABILITY;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): IPv4 external Reachability length %d",
-		     areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): IPv4 external Reachability length %d",
+		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_IPV4_EXT_REACHABILITY)
 	    {
@@ -594,8 +594,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_TE_IPV4_REACHABILITY;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): IPv4 extended Reachability length %d",
-		     areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): IPv4 extended Reachability length %d",
+		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_TE_IPV4_REACHABILITY)
 	    {
@@ -628,8 +628,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   */
 	  *found |= TLVFLAG_IPV6_ADDR;
 #ifdef EXTREME_TLV_DEBUG
-	  zlog_info ("ISIS-TLV (%s): IPv6 Address length %d",
-		     areatag, length);
+	  zlog_debug ("ISIS-TLV (%s): IPv6 Address length %d",
+		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_IPV6_ADDR)
 	    {
@@ -762,7 +762,7 @@ add_tlv (u_char tag, u_char len, u_char * value, struct stream *stream)
   stream_put (stream, value, (int) len);	/* VALUE */
 
 #ifdef EXTREME_DEBUG
-  zlog_info ("Added TLV %d len %d", tag, len);
+  zlog_debug ("Added TLV %d len %d", tag, len);
 #endif /* EXTREME DEBUG */
   return ISIS_OK;
 }

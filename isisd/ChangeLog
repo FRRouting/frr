@@ -1,3 +1,8 @@
+2004-12-24 Hasso Tepper <hasso at quagga.net>
+
+	* *.c: zlog_* cleanup. Mostly changed level of debug messages to
+	  LOG_DEBUG.
+
 2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* isis_main.c: (main) The 2nd argument to openzlog has been removed.

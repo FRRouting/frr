@@ -121,11 +121,11 @@ isis_multicast_join (int fd, int registerto, int if_num)
       mreq.mr_type = PACKET_MR_ALLMULTI;
     }
 #ifdef EXTREME_DEBUG
-  zlog_info ("isis_multicast_join(): fd=%d, reg_to=%d, if_num=%d, "
-	     "address = %02x:%02x:%02x:%02x:%02x:%02x",
-	     fd, registerto, if_num, mreq.mr_address[0], mreq.mr_address[1],
-	     mreq.mr_address[2], mreq.mr_address[3], mreq.mr_address[4],
-	     mreq.mr_address[5]);
+  zlog_debug ("isis_multicast_join(): fd=%d, reg_to=%d, if_num=%d, "
+	      "address = %02x:%02x:%02x:%02x:%02x:%02x",
+	      fd, registerto, if_num, mreq.mr_address[0], mreq.mr_address[1],
+	      mreq.mr_address[2], mreq.mr_address[3], mreq.mr_address[4],
+	      mreq.mr_address[5]);
 #endif /* EXTREME_DEBUG */
   if (setsockopt (fd, SOL_PACKET, PACKET_ADD_MEMBERSHIP, &mreq,
 		  sizeof (struct packet_mreq)))
@@ -226,7 +226,7 @@ open_bpf_dev (struct isis_circuit *circuit)
       return ISIS_WARNING;
     }
 
-  zlog_info ("Opened BPF device %s", bpfdev);
+  zlog_debug ("Opened BPF device %s", bpfdev);
 
   memcpy (ifr.ifr_name, circuit->interface->name, sizeof (ifr.ifr_name));
   if (ioctl (fd, BIOCSETIF, (caddr_t) & ifr) < 0)
@@ -247,7 +247,7 @@ open_bpf_dev (struct isis_circuit *circuit)
   if (readbuff == NULL)
     readbuff = malloc (blen);
 
-  zlog_info ("BPF buffer len = %u", blen);
+  zlog_debug ("BPF buffer len = %u", blen);
 
   /*  BPF(4): reads return immediately upon packet reception.
    *  Otherwise, a read will block until either the kernel

@@ -88,11 +88,11 @@ lsp_search (u_char * id, dict_t * lspdb)
 #ifdef EXTREME_DEBUG
   dnode_t *dn;
 
-  zlog_warn ("searching db");
+  zlog_debug ("searching db");
   for (dn = dict_first (lspdb); dn; dn = dict_next (lspdb, dn))
     {
-      zlog_warn ("%s\t%pX", rawlspid_print ((char *) dnode_getkey (dn)),
-		 dnode_get (dn));
+      zlog_debug ("%s\t%pX", rawlspid_print ((char *) dnode_getkey (dn)),
+		  dnode_get (dn));
     }
 #endif /* EXTREME DEBUG */
 
@@ -252,17 +252,17 @@ lsp_compare (char *areatag, struct isis_lsp *lsp, u_int32_t seq_num,
     {
       if (isis->debugs & DEBUG_SNP_PACKETS)
 	{
-	  zlog_info ("ISIS-Snp (%s): LSP %s seq 0x%08x, cksum 0x%04x,"
-		     " lifetime %us",
-		     areatag,
-		     rawlspid_print (lsp->lsp_header->lsp_id),
-		     ntohl (lsp->lsp_header->seq_num),
-		     ntohs (lsp->lsp_header->checksum),
-		     ntohs (lsp->lsp_header->rem_lifetime));
-	  zlog_info ("ISIS-Snp (%s):         is equal to ours seq 0x%08x,"
-		     " cksum 0x%04x, lifetime %us",
-		     areatag,
-		     ntohl (seq_num), ntohs (checksum), ntohs (rem_lifetime));
+	  zlog_debug ("ISIS-Snp (%s): LSP %s seq 0x%08x, cksum 0x%04x,"
+		      " lifetime %us",
+		      areatag,
+		      rawlspid_print (lsp->lsp_header->lsp_id),
+		      ntohl (lsp->lsp_header->seq_num),
+		      ntohs (lsp->lsp_header->checksum),
+		      ntohs (lsp->lsp_header->rem_lifetime));
+	  zlog_debug ("ISIS-Snp (%s):         is equal to ours seq 0x%08x,"
+		      " cksum 0x%04x, lifetime %us",
+		      areatag,
+		      ntohl (seq_num), ntohs (checksum), ntohs (rem_lifetime));
 	}
       return LSP_EQUAL;
     }
@@ -271,31 +271,31 @@ lsp_compare (char *areatag, struct isis_lsp *lsp, u_int32_t seq_num,
     {
       if (isis->debugs & DEBUG_SNP_PACKETS)
 	{
-	  zlog_info ("ISIS-Snp (%s): LSP %s seq 0x%08x, cksum 0x%04x,"
-		     " lifetime %us",
-		     areatag,
-		     rawlspid_print (lsp->lsp_header->lsp_id),
-		     ntohl (seq_num), ntohs (checksum), ntohs (rem_lifetime));
-	  zlog_info ("ISIS-Snp (%s):       is newer than ours seq 0x%08x, "
-		     "cksum 0x%04x, lifetime %us",
-		     areatag,
-		     ntohl (lsp->lsp_header->seq_num),
-		     ntohs (lsp->lsp_header->checksum),
-		     ntohs (lsp->lsp_header->rem_lifetime));
+	  zlog_debug ("ISIS-Snp (%s): LSP %s seq 0x%08x, cksum 0x%04x,"
+		      " lifetime %us",
+		      areatag,
+		      rawlspid_print (lsp->lsp_header->lsp_id),
+		      ntohl (seq_num), ntohs (checksum), ntohs (rem_lifetime));
+	  zlog_debug ("ISIS-Snp (%s):       is newer than ours seq 0x%08x, "
+		      "cksum 0x%04x, lifetime %us",
+		      areatag,
+		      ntohl (lsp->lsp_header->seq_num),
+		      ntohs (lsp->lsp_header->checksum),
+		      ntohs (lsp->lsp_header->rem_lifetime));
 	}
       return LSP_NEWER;
     }
   if (isis->debugs & DEBUG_SNP_PACKETS)
     {
-      zlog_info
+      zlog_debug
 	("ISIS-Snp (%s): LSP %s seq 0x%08x, cksum 0x%04x, lifetime %us",
 	 areatag, rawlspid_print (lsp->lsp_header->lsp_id), ntohl (seq_num),
 	 ntohs (checksum), ntohs (rem_lifetime));
-      zlog_info ("ISIS-Snp (%s):       is older than ours seq 0x%08x,"
-		 " cksum 0x%04x, lifetime %us", areatag,
-		 ntohl (lsp->lsp_header->seq_num),
-		 ntohs (lsp->lsp_header->checksum),
-		 ntohs (lsp->lsp_header->rem_lifetime));
+      zlog_debug ("ISIS-Snp (%s):       is older than ours seq 0x%08x,"
+		  " cksum 0x%04x, lifetime %us", areatag,
+		  ntohl (lsp->lsp_header->seq_num),
+		  ntohs (lsp->lsp_header->checksum),
+		  ntohs (lsp->lsp_header->rem_lifetime));
     }
 
   return LSP_OLDER;
@@ -513,10 +513,10 @@ lsp_new (u_char * lsp_id, u_int16_t rem_lifetime, u_int32_t seq_num,
 
   /* #ifdef EXTREME_DEBUG */
   /* logging */
-  zlog_info ("New LSP with ID %s-%02x-%02x seqnum %08x", sysid_print (lsp_id),
-	     LSP_PSEUDO_ID (lsp->lsp_header->lsp_id),
-	     LSP_FRAGMENT (lsp->lsp_header->lsp_id),
-	     ntohl (lsp->lsp_header->seq_num));
+  zlog_debug ("New LSP with ID %s-%02x-%02x seqnum %08x", sysid_print (lsp_id),
+	      LSP_PSEUDO_ID (lsp->lsp_header->lsp_id),
+	      LSP_FRAGMENT (lsp->lsp_header->lsp_id),
+	      ntohl (lsp->lsp_header->seq_num));
   /* #endif  EXTREME DEBUG */
 
   return lsp;
@@ -1621,7 +1621,7 @@ lsp_generate_non_pseudo (struct isis_area *area, int level)
   if (isis->debugs & DEBUG_ADJ_PACKETS)
     {
       /* FIXME: is this place right? fix missing info */
-      zlog_info ("ISIS-Upd (%s): Building L%d LSP", area->area_tag, level);
+      zlog_debug ("ISIS-Upd (%s): Building L%d LSP", area->area_tag, level);
     }
 
   return ISIS_OK;
@@ -1682,14 +1682,14 @@ lsp_non_pseudo_regenerate (struct isis_area *area, int level)
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
-      zlog_info ("ISIS-Upd (%s): refreshing our L%d LSP %s, "
-		 "seq 0x%08x, cksum 0x%04x lifetime %us",
-		 area->area_tag,
-		 level,
-		 rawlspid_print (lsp->lsp_header->lsp_id),
-		 ntohl (lsp->lsp_header->seq_num),
-		 ntohs (lsp->lsp_header->checksum),
-		 ntohs (lsp->lsp_header->rem_lifetime));
+      zlog_debug ("ISIS-Upd (%s): refreshing our L%d LSP %s, "
+		  "seq 0x%08x, cksum 0x%04x lifetime %us",
+		  area->area_tag,
+		  level,
+		  rawlspid_print (lsp->lsp_header->lsp_id),
+		  ntohl (lsp->lsp_header->seq_num),
+		  ntohs (lsp->lsp_header->checksum),
+		  ntohs (lsp->lsp_header->rem_lifetime));
     }
 
   lsp->last_generated = time (NULL);
@@ -1983,9 +1983,9 @@ lsp_pseudo_regenerate (struct isis_circuit *circuit, int level)
 
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
-      zlog_info ("ISIS-Upd (%s): refreshing pseudo LSP L%d %s",
-		 circuit->area->area_tag, level,
-		 rawlspid_print (lsp->lsp_header->lsp_id));
+      zlog_debug ("ISIS-Upd (%s): refreshing pseudo LSP L%d %s",
+		  circuit->area->area_tag, level,
+		  rawlspid_print (lsp->lsp_header->lsp_id));
     }
 
   lsp->last_generated = time (NULL);
@@ -2154,11 +2154,11 @@ lsp_tick (struct thread *thread)
 	      if (lsp->age_out == 0)
 		{
 
-		  zlog_info ("ISIS-Upd (%s): L%u LSP %s seq 0x%08x aged out",
-			     area->area_tag,
-			     lsp->level,
-			     rawlspid_print (lsp->lsp_header->lsp_id),
-			     ntohl (lsp->lsp_header->seq_num));
+		  zlog_debug ("ISIS-Upd (%s): L%u LSP %s seq 0x%08x aged out",
+			      area->area_tag,
+			      lsp->level,
+			      rawlspid_print (lsp->lsp_header->lsp_id),
+			      ntohl (lsp->lsp_header->seq_num));
 
 		  lsp_destroy (lsp);
 		  dict_delete (area->lspdb[level], dnode);
@@ -2234,7 +2234,7 @@ lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
   /*
    * We need to create the LSP to be purged 
    */
-  zlog_info ("LSP PURGE NON EXIST");
+  zlog_debug ("LSP PURGE NON EXIST");
   lsp = XMALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
   memset (lsp, 0, sizeof (struct isis_lsp));
   /*FIXME: BUG BUG BUG! the lsp doesn't exist here! */
@@ -2287,8 +2287,8 @@ top_lsp_refresh (struct thread *thread)
   ISIS_FLAGS_SET_ALL (lsp->SRMflags);
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
-      zlog_info ("ISIS-Upd (): refreshing Topology L1 %s",
-		 rawlspid_print (lsp->lsp_header->lsp_id));
+      zlog_debug ("ISIS-Upd (): refreshing Topology L1 %s",
+		  rawlspid_print (lsp->lsp_header->lsp_id));
     }
 
   /* time to calculate our checksum */

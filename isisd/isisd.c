@@ -173,7 +173,7 @@ isis_area_get (struct vty *vty, const char *area_tag)
   area->area_tag = strdup (area_tag);
   listnode_add (isis->area_list, area);
 
-  zlog_info ("new IS-IS area instance %s", area->area_tag);
+  zlog_debug ("new IS-IS area instance %s", area->area_tag);
 
   vty->node = ISIS_NODE;
   vty->index = area;
@@ -248,7 +248,7 @@ area_net_title (struct vty *vty, u_char *net_title)
   addr->addr_len = dotformat2buff (buff, net_title);
   memcpy (addr->area_addr, buff, addr->addr_len);
 #ifdef EXTREME_DEBUG
-  zlog_info ("added area address %s for area %s (address length %d)",
+  zlog_debug ("added area address %s for area %s (address length %d)",
 	     net_title, area->area_tag, addr->addr_len);
 #endif /* EXTREME_DEBUG */
   if (addr->addr_len < 8 || addr->addr_len > 20)
@@ -266,7 +266,7 @@ area_net_title (struct vty *vty, u_char *net_title)
        */
       memcpy (isis->sysid, GETSYSID (addr, ISIS_SYS_ID_LEN), ISIS_SYS_ID_LEN);
       isis->sysid_set = 1;
-      zlog_info ("Router has SystemID %s", sysid_print (isis->sysid));
+      zlog_debug ("Router has SystemID %s", sysid_print (isis->sysid));
     }
   else
     {

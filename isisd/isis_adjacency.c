@@ -162,7 +162,7 @@ isis_delete_adj (struct isis_adjacency *adj, struct list *adjdb)
     }
   else
     {
-      zlog_info ("tried to delete a non-existent adjacency");
+      zlog_warn ("tried to delete a non-existent adjacency");
     }
 
   return;
@@ -183,7 +183,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state state,
 
   if (isis->debugs & DEBUG_ADJ_PACKETS)
     {
-      zlog_info ("ISIS-Adj (%s): Adjacency state change %d->%d: %s",
+      zlog_debug ("ISIS-Adj (%s): Adjacency state change %d->%d: %s",
 		 circuit->area->area_tag,
 		 old_state, state, reason ? reason : "unspecified");
     }
@@ -240,35 +240,35 @@ isis_adj_print (struct isis_adjacency *adj)
     return;
   dyn = dynhn_find_by_id (adj->sysid);
   if (dyn)
-    zlog_info ("%s", dyn->name.name);
+    zlog_debug ("%s", dyn->name.name);
 
-  zlog_info ("SystemId %20s SNPA %s, level %d\nHolding Time %d",
-	     adj->sysid ? sysid_print (adj->sysid) : "unknown",
-	     snpa_print (adj->snpa), adj->level, adj->hold_time);
+  zlog_debug ("SystemId %20s SNPA %s, level %d\nHolding Time %d",
+	      adj->sysid ? sysid_print (adj->sysid) : "unknown",
+	      snpa_print (adj->snpa), adj->level, adj->hold_time);
   if (adj->ipv4_addrs && listcount (adj->ipv4_addrs) > 0)
     {
-      zlog_info ("IPv4 Addresses:");
+      zlog_debug ("IPv4 Addresses:");
 
       for (node = listhead (adj->ipv4_addrs); node; nextnode (node))
 	{
 	  ipv4_addr = getdata (node);
-	  zlog_info ("%s", inet_ntoa (*ipv4_addr));
+	  zlog_debug ("%s", inet_ntoa (*ipv4_addr));
 	}
     }
 
 #ifdef HAVE_IPV6
   if (adj->ipv6_addrs && listcount (adj->ipv6_addrs) > 0)
     {
-      zlog_info ("IPv6 Addresses:");
+      zlog_debug ("IPv6 Addresses:");
       for (node = listhead (adj->ipv6_addrs); node; nextnode (node))
 	{
 	  ipv6_addr = getdata (node);
 	  inet_ntop (AF_INET6, ipv6_addr, (char *)ip6, INET6_ADDRSTRLEN);
-	  zlog_info ("%s", ip6);
+	  zlog_debug ("%s", ip6);
 	}
     }
 #endif /* HAVE_IPV6 */
-  zlog_info ("Speaks: %s", nlpid2string (&adj->nlpids));
+  zlog_debug ("Speaks: %s", nlpid2string (&adj->nlpids));
 
   return;
 }

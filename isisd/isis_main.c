@@ -137,7 +137,7 @@ Report bugs to http://bugzilla.quagga.net\n", progname);
 void
 reload ()
 {
-  zlog_info ("Reload");
+  zlog_debug ("Reload");
   /* FIXME: Clean up func call here */
   vty_finish ();
   execve (_progpath, _argv, _envp);
@@ -156,7 +156,7 @@ terminate (int i)
 void
 sighup (void)
 {
-  zlog_info ("SIGHUP received");
+  zlog_debug ("SIGHUP received");
   reload ();
 
   return;
@@ -179,7 +179,7 @@ sigterm (void)
 void
 sigusr1 (void)
 {
-  zlog_info ("SIGUSR1 received");
+  zlog_debug ("SIGUSR1 received");
   zlog_rotate (NULL);
 }
 
@@ -326,7 +326,7 @@ main (int argc, char **argv, char **envp)
   /* Print banner. */
   zlog_notice ("Quagga-ISISd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
 #ifdef HAVE_IPV6
-  zlog_info ("IPv6 enabled");
+  zlog_debug ("IPv6 enabled");
 #endif
   /* Start finite state machine. */
   while (thread_fetch (master, &thread))

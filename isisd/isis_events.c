@@ -74,7 +74,7 @@ isis_event_circuit_state_change (struct isis_circuit *circuit, int up)
   area->circuit_state_changes++;
 
   if (isis->debugs & DEBUG_EVENTS)
-    zlog_info ("ISIS-Evt (%s) circuit %s", circuit->area->area_tag,
+    zlog_debug ("ISIS-Evt (%s) circuit %s", circuit->area->area_tag,
 	       up ? "up" : "down");
 
   /*
@@ -92,7 +92,7 @@ isis_event_system_type_change (struct isis_area *area, int newtype)
   struct isis_circuit *circuit;
 
   if (isis->debugs & DEBUG_EVENTS)
-    zlog_info ("ISIS-Evt (%s) system type change %s -> %s", area->area_tag,
+    zlog_debug ("ISIS-Evt (%s) system type change %s -> %s", area->area_tag,
 	       circuit_t2string (area->is_type), circuit_t2string (newtype));
 
   if (area->is_type == newtype)
@@ -209,7 +209,7 @@ isis_event_circuit_type_change (struct isis_circuit *circuit, int newtype)
 {
 
   if (isis->debugs & DEBUG_EVENTS)
-    zlog_info ("ISIS-Evt (%s) circuit type change %s -> %s",
+    zlog_debug ("ISIS-Evt (%s) circuit type change %s -> %s",
 	       circuit->area->area_tag,
 	       circuit_t2string (circuit->circuit_is_type),
 	       circuit_t2string (newtype));
@@ -286,8 +286,8 @@ isis_event_adjacency_state_change (struct isis_adjacency *adj, int newstate)
   if (!adj || !adj->circuit || !adj->circuit->area)
     return;
 
-  zlog_info ("ISIS-Evt (%s) Adjacency State change",
-	     adj->circuit->area->area_tag);
+  zlog_debug ("ISIS-Evt (%s) Adjacency State change",
+	      adj->circuit->area->area_tag);
 
   /* LSP generation again */
   lsp_regenerate_schedule (adj->circuit->area);
@@ -308,7 +308,7 @@ isis_event_dis_status_change (struct thread *thread)
   if (!circuit || !circuit->area)
     return 0;
 
-  zlog_info ("ISIS-Evt (%s) DIS status change", circuit->area->area_tag);
+  zlog_debug ("ISIS-Evt (%s) DIS status change", circuit->area->area_tag);
 
   /* LSP generation again */
   lsp_regenerate_schedule (circuit->area);
@@ -319,8 +319,8 @@ isis_event_dis_status_change (struct thread *thread)
 void
 isis_event_auth_failure (char *area_tag, const char *error_string, u_char *sysid)
 {
-  zlog_info ("ISIS-Evt (%s) Authentication failure %s from %s",
-	     area_tag, error_string, sysid_print (sysid));
+  zlog_debug ("ISIS-Evt (%s) Authentication failure %s from %s",
+	      area_tag, error_string, sysid_print (sysid));
 
   return;
 }

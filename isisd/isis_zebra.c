@@ -67,8 +67,8 @@ isis_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
   ifp = zebra_interface_add_read (zclient->ibuf);
 
 
-  zlog_info ("Zebra I/F add: %s index %d flags %ld metric %d mtu %d",
-	     ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+  zlog_debug ("Zebra I/F add: %s index %d flags %ld metric %d mtu %d",
+	      ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
 
   if (if_is_up (ifp))
     isis_csm_state_change (IF_UP_FROM_Z, circuit_scan_by_ifp (ifp), ifp);
@@ -92,8 +92,8 @@ isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
     zlog_warn ("Zebra: got delete of %s, but interface is still up",
 	       ifp->name);
 
-  zlog_info ("Zebra I/F delete: %s index %d flags %ld metric %d mtu %d",
-	     ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+  zlog_debug ("Zebra I/F delete: %s index %d flags %ld metric %d mtu %d",
+	      ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
 
   if_delete (ifp);
 
@@ -184,10 +184,10 @@ isis_zebra_if_address_add (int command, struct zclient *zclient,
   prefix2str (p, buf, BUFSIZ);
 #ifdef EXTREME_DEBUG
   if (p->family == AF_INET)
-    zlog_info ("connected IP address %s", buf);
+    zlog_debug ("connected IP address %s", buf);
 #ifdef HAVE_IPV6
   if (p->family == AF_INET6)
-    zlog_info ("connected IPv6 address %s", buf);
+    zlog_debug ("connected IPv6 address %s", buf);
 #endif /* HAVE_IPV6 */
 #endif /* EXTREME_DEBUG */
   isis_circuit_add_addr (circuit_scan_by_ifp (c->ifp), c);
@@ -219,10 +219,10 @@ isis_zebra_if_address_del (int command, struct zclient *client,
   prefix2str (p, buf, BUFSIZ);
 
   if (p->family == AF_INET)
-    zlog_info ("disconnected IP address %s", buf);
+    zlog_debug ("disconnected IP address %s", buf);
 #ifdef HAVE_IPV6
   if (p->family == AF_INET6)
-    zlog_info ("disconnected IPv6 address %s", buf);
+    zlog_debug ("disconnected IPv6 address %s", buf);
 #endif /* HAVE_IPV6 */
 #endif /* EXTREME_DEBUG */
 
@@ -561,7 +561,7 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
 
   if (command == ZEBRA_IPV4_ROUTE_ADD)
     {
-      zlog_info ("IPv4 Route add from Z");
+      zlog_debug ("IPv4 Route add from Z");
     }
 
   return 0;
