@@ -772,7 +772,6 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 		
 		oi->nbr_self->address = *oi->address;
 
-		area->act_ints++;
 		oi->area = area;
 
 		oi->params = ospf_lookup_if_params (ifp, oi->address->u.prefix4);
