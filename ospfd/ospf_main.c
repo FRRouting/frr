@@ -163,6 +163,10 @@ struct quagga_signal_t ospf_signals[] =
     .signal = SIGINT,
     .handler = &sigint,
   },
+  {
+    .signal = SIGTERM,
+    .handler = &sigint,
+  },
 };
 
 /* OSPFd main routine. */

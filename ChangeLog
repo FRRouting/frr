@@ -1,3 +1,8 @@
+2004-03-22 Hasso Tepper <hasso@estpak.ee>
+
+	* Readded SIGTERM handling so daemons can clean up their stuff if they
+	  are killed (not murdered).
+
 2004-03-20 Michael Bruening <mike@vailsys.com>
 
 	* ospfd/ospf_vty.c: Completed array distribute_str of route types with

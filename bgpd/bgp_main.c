@@ -72,6 +72,10 @@ struct quagga_signal_t bgp_signals[] =
     .signal = SIGINT,
     .handler = &sigint,
   },
+  {
+    .signal = SIGTERM,
+    .handler = &sigint,
+  },
 };
 
 /* Configuration file and directory. */

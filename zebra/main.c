@@ -176,6 +176,10 @@ struct quagga_signal_t zebra_signals[] =
     .signal = SIGINT,
     .handler = &sigint,
   },
+  {
+    .signal = SIGTERM,
+    .handler = &sigint,
+  },
 };
 
 /* Main startup routine. */

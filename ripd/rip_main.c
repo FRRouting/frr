@@ -172,6 +172,10 @@ struct quagga_signal_t ripd_signals[] =
     .signal = SIGINT,
     .handler = &sigint,
   },
+  {
+    .signal = SIGTERM,
+    .handler = &sigint,
+  },
 };  
 
 /* Main routine of ripd. */
