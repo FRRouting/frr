@@ -197,7 +197,7 @@ AC_CHECK_HEADERS([string.h stropts.h sys/conf.h sys/ksym.h sys/time.h \
                  libutil.h limits.h])
 
 AC_CHECK_HEADERS([sys/socket.h netinet/in_systm.h netinet/in.h \
-		 net/if_dl.hnet/netopt.h inet/nd.h net/route.h 
+		 net/if_dl.hnet/netopt.h inet/nd.h net/route.h \
 		 net/if.h net/if_var.h netinet/in_var.h])
 
 if test "x${enable_ipv6}" = "xyes"; then
