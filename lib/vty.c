@@ -2297,13 +2297,16 @@ vty_read_config (char *config_file,
 
       if (confp == NULL)
         {
+          fprintf (stderr, "%s: failed to open configuration file %s: %s\n",
+                   __func__, fullpath, safe_strerror (errno));
+          
           confp = vty_use_backup_config (fullpath);
           if (confp)
             fprintf (stderr, "WARNING: using backup configuration file!\n");
           else
             {
               fprintf (stderr, "can't open configuration file [%s]\n", 
-  	            config_file);
+  	               config_file);
               exit(1);
             }
         }
@@ -2339,6 +2342,9 @@ vty_read_config (char *config_file,
       confp = fopen (config_default_dir, "r");
       if (confp == NULL)
         {
+          fprintf (stderr, "%s: failed to open configuration file %s: %s\n",
+                   __func__, config_default_dir, safe_strerror (errno));
+          
           confp = vty_use_backup_config (config_default_dir);
           if (confp)
             {
@@ -2350,7 +2356,7 @@ vty_read_config (char *config_file,
               fprintf (stderr, "can't open configuration file [%s]\n",
   		                 config_default_dir);
   	          exit (1);
-  	        }
+            }
         }      
       else
         fullpath = config_default_dir;

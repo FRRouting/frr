@@ -1360,7 +1360,8 @@ zebra_serv ()
 
   if (accept_sock < 0) 
     {
-      zlog_warn ("Can't bind to socket: %s", safe_strerror (errno));
+      zlog_warn ("Can't create zserv stream socket: %s", 
+                 safe_strerror (errno));
       zlog_warn ("zebra can't provice full functionality due to above error");
       return;
     }
@@ -1383,7 +1384,8 @@ zebra_serv ()
 	       sizeof (struct sockaddr_in));
   if (ret < 0)
     {
-      zlog_warn ("Can't bind to socket: %s", safe_strerror (errno));
+      zlog_warn ("Can't bind to stream socket: %s", 
+                 safe_strerror (errno));
       zlog_warn ("zebra can't provice full functionality due to above error");
       close (accept_sock);      /* Avoid sd leak. */
       return;
@@ -1395,7 +1397,8 @@ zebra_serv ()
   ret = listen (accept_sock, 1);
   if (ret < 0)
     {
-      zlog_warn ("Can't listen to socket: %s", safe_strerror (errno));
+      zlog_warn ("Can't listen to stream socket: %s", 
+                 safe_strerror (errno));
       zlog_warn ("zebra can't provice full functionality due to above error");
       close (accept_sock);	/* Avoid sd leak. */
       return;
@@ -1427,7 +1430,9 @@ zebra_serv_un (const char *path)
   sock = socket (AF_UNIX, SOCK_STREAM, 0);
   if (sock < 0)
     {
-      perror ("sock");
+      zlog_warn ("Can't create zserv unix socket: %s", 
+                 safe_strerror (errno));
+      zlog_warn ("zebra can't provide full functionality due to above error");
       return;
     }
 
@@ -1444,7 +1449,9 @@ zebra_serv_un (const char *path)
   ret = bind (sock, (struct sockaddr *) &serv, len);
   if (ret < 0)
     {
-      perror ("bind");
+      zlog_warn ("Can't bind to unix socket %s: %s", 
+                 path, safe_strerror (errno));
+      zlog_warn ("zebra can't provide full functionality due to above error");
       close (sock);
       return;
     }
@@ -1452,7 +1459,9 @@ zebra_serv_un (const char *path)
   ret = listen (sock, 5);
   if (ret < 0)
     {
-      perror ("listen");
+      zlog_warn ("Can't listen to unix socket %s: %s", 
+                 path, safe_strerror (errno));
+      zlog_warn ("zebra can't provide full functionality due to above error");
       close (sock);
       return;
     }
