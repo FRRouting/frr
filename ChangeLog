@@ -1,3 +1,8 @@
+2004-07-22 Paul Jakma <paul@dishone.st>
+
+	* configure.ac: modify default CFLAGS to be compiler agnostic
+	  build Makefile for tests/ subdir.
+	  
 2004-07-14  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* Makefile.am (EXTRA_DIST): Add missing \, so tools stuff is

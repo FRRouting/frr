@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.55 2004/06/30 17:36:11 gdt Exp $
+## $Id: configure.ac,v 1.56 2004/07/22 18:16:59 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(quagga, 0.96.5, [http://bugzilla.quagga.net])
@@ -46,8 +46,11 @@ AC_PROG_CC
 dnl -----------------------------------------
 dnl If CLFAGS doesn\'t exist set default value
 dnl -----------------------------------------
+dnl (Wall is gcc specific... have to make sure
+dnl  gcc is being used before setting it)
+dnl
 if test "x$cflags_specified" = "x" ; then
-  CFLAGS="$CFLAGS -Wall"
+  CFLAGS="$CFLAGS -O"
 fi
 
 dnl --------------
@@ -1122,6 +1125,7 @@ AC_OUTPUT(Makefile lib/Makefile zebra/Makefile ripd/Makefile
 	  vtysh/extract.pl
 	  redhat/Makefile redhat/quagga.spec
 	  lib/version.h,
+	  tests/Makefile,
 	  [chmod +x vtysh/extract.pl])
 
 echo "
