@@ -59,7 +59,7 @@ if_cmp_func (struct interface *ifp1, struct interface *ifp2)
   p1 = ifp1->name;
   p2 = ifp2->name;
 
-  while (1) {
+  while (*p1 && *p2) {
     /* look up to any number */
     l1 = strcspn(p1, "0123456789");
     l2 = strcspn(p2, "0123456789");
@@ -91,6 +91,11 @@ if_cmp_func (struct interface *ifp1, struct interface *ifp2)
     /* numbers were equal, lets do it again..
     (it happens with name like "eth123.456:789") */
   }
+  if (*p1)
+    return 1;
+  if (*p2)
+    return -1;
+  return 0;
 }
 
 /* Create new interface structure. */
