@@ -1,2 +1,11 @@
-test-sig
+Makefile
+Makefile.in
+*.o
+tags
+TAGS
+.deps
 .nfs*
+*.lo
+*.la
+*.libs
+testsig
