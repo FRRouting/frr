@@ -1,3 +1,8 @@
+2005-02-19 Hasso Tepper <hasso at quagga.net>
+
+	* configure.ac: Fix Linux detection. Host types like i686-pc-linux
+	  didn't match the pattern.
+
 2005-02-09 Paul Jakma <paul.jakma@sun.com>
 
 	* (global) Update code to match stream.h changes.
