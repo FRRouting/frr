@@ -24,7 +24,6 @@ figures_sources := $(figures_names_parts:%=fig%.dia)
 figures_png := $(figures_names_parts:%=fig%.png)
 figures_pdf := $(figures_names_parts:%=fig%.pdf)
 figures_eps := $(figures_names_parts:%=fig%.eps)
-figures_built_sources := $(figures_png) $(figures_pdf) $(figures_eps)
 
 # rather twisted logic because we have to build PDFs of the EPS figures for
 # PDFTex and yet build one PDF, quagga.pdf, from texi source. Which means we
@@ -33,16 +32,14 @@ figures_built_sources := $(figures_png) $(figures_pdf) $(figures_eps)
 # compact it somehow.
 
 # Built from defines.texi.in
-BUILT_SOURCES = defines.texi $(figures_built_sources)
+BUILT_SOURCES = defines.texi
 
 info_TEXINFOS = quagga.texi
 
-# i'd prefer to have this in CVS, but not nice for dist tarball users,
-# as these are all built sources, with various build dependencies (eg dia)
-#CLEANFILES = *.pdf *.eps *.png
-
 # Have to manually specify the quagga.pdf rule in order to allow
 # us to have a generic automatic .pdf rule to build the figure sources
+# because it cant just work from the png's directly it seems - contrary
+# to the documentation...
 quagga.pdf: quagga.texi $(figures_pdf)
 	$(TEXI2PDF) -o "$@" $(info_TEXINFOS)
 
@@ -65,7 +62,7 @@ man_MANS = vtysh.1 bgpd.8 ospf6d.8 ospfd.8 ripd.8 ripngd.8 zebra.8 isisd.8
 EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt $(man_MANS) \
 	mpls/ChangeLog.opaque.txt mpls/cli_summary.txt \
 	mpls/opaque_lsa.txt mpls/ospfd.conf \
-	$(figures_sources) $(figures_built_sources)
+	$(figures_sources) $(figures_png)
 
 draft-zebra-00.txt:
 	groff -T ascii -ms draft-zebra-00.ms > draft-zebra-00.txt

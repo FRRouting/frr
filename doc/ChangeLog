@@ -1,3 +1,8 @@
+2005-04-05 Paul Jakma <paul@dishone.st>
+
+	* Makefile.am: Get rid of built_sources. It causes them to be added
+	  to dist, and the dist host can not generate the PDFs.
+
 2005-04-02 Paul Jakma <paul@dishone.st>
 
 	* fig{-{normal,rs}-processing,_topologies_{rs,full}}.dia: new
