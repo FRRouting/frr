@@ -169,7 +169,7 @@ developing OSPF-API and quagga applications.
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
 pushd doc
-texi2html quagga.texi
+makeinfo --no-split --html -o quagga.html quagga.texi
 popd
 
 %install
@@ -348,6 +348,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 %changelog
+* Mon Nov 08 2004 Paul Jakma <paul@dishone.st>
+- Use makeinfo --html to generate quagga.html
+
 * Sun Nov 07 2004 Paul Jakma <paul@dishone.st>
 - Fix with_ipv6 set to 0 build
 
