@@ -1,5 +1,11 @@
 2005-01-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* lib/buffer.h: Document behavior of buffer_getstr function.
+	* lib/buffer.c: (buffer_getstr) Fix bug: must handle case where
+	  the string extends beyond the head struct buffer_data.
+
+2005-01-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* lib/command.h: Document behavior of argv_concat function.
 	* lib/command.c: (argv_concat) Calculate total string length first so
 	  we can call malloc just once (instead of realloc'ing to add each

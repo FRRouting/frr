@@ -88,7 +88,23 @@ buffer_free (struct buffer *b)
 char *
 buffer_getstr (struct buffer *b)
 {
-  return strdup ((char *)b->head->data);
+  size_t totlen = 0;
+  struct buffer_data *data;
+  char *s;
+  char *p;
+
+  for (data = b->head; data; data = data->next)
+    totlen += data->cp - data->sp;
+  if (!(s = malloc(totlen+1)))
+    return NULL;
+  p = s;
+  for (data = b->head; data; data = data->next)
+    {
+      memcpy(p, data->data + data->sp, data->cp - data->sp);
+      p += data->cp - data->sp;
+    }
+  *p = '\0';
+  return s;
 }
 
 /* Return 1 if buffer is empty. */

@@ -65,7 +65,14 @@ struct buffer_data
 struct buffer *buffer_new (size_t);
 int buffer_write (struct buffer *, const void *, size_t);
 void buffer_free (struct buffer *);
+
+/* Combine all accumulated (and unflushed) data inside the buffer into a
+   single NUL-terminated string allocated using malloc (N.B. should be changed
+   to use XMALLOC(MTYPE_TMP)).  Note that this function does not alter
+   the state of the buffer, so the data is still inside waiting to be
+   flushed. */
 char *buffer_getstr (struct buffer *);
+
 int buffer_putc (struct buffer *, u_char);
 int buffer_putstr (struct buffer *, const char *);
 void buffer_reset (struct buffer *);
