@@ -17,11 +17,11 @@ messages to the all nodes that exist on the network.
 @comment  node-name,  next,  previous,  up
 @section Router Advertisement
 
-@deffn {Interface Command} {no ipv6 nd supress-ra} {}
+@deffn {Interface Command} {no ipv6 nd suppress-ra} {}
 Send router advertisment messages.
 @end deffn
 
-@deffn {Interface Command} {ipv6 nd supress-ra} {}
+@deffn {Interface Command} {ipv6 nd suppress-ra} {}
 Don't send router advertisment messages.
 @end deffn
 
@@ -109,7 +109,7 @@ Default: not set
 @example
 @group
 interface eth0
- no ipv6 nd supress-ra
+ no ipv6 nd suppress-ra
  ipv6 nd prefix 2001:0DB8:5009::/64
 @end group
 @end example
