@@ -3,6 +3,12 @@
 	* ospf_dump.c: Show debug configuration in vtysh.
 	* ospf_vty.c: Fix "show ip ospf" output. Router can't be elected in
 	  any case if it's configured as "translate-never".
+	* ospf_lsdb.[ch]: New function to calculate sum of checksums.
+	* ospf_vty.c: Bugfix to show really number of AS external LSAs, not
+	  number of all LSAs with AS scope, this includes opaque as LSAs as
+	  well, show this number separately. Show numbers and sums of
+	  checksums for each type of LSAs.
+	* ospf_lsa.c: Calculate checksum before putting LSA into database.
 
 2004-12-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

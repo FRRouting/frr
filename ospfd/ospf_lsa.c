@@ -2654,13 +2654,13 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
   if (old != NULL)
     ospf_discard_from_db (ospf, lsdb, lsa);
 
-  /* Insert LSA to LSDB. */
-  ospf_lsdb_add (lsdb, lsa);
-  lsa->lsdb = lsdb;
-
   /* Calculate Checksum if self-originated?. */
   if (IS_LSA_SELF (lsa))
     ospf_lsa_checksum (lsa->data);
+
+  /* Insert LSA to LSDB. */
+  ospf_lsdb_add (lsdb, lsa);
+  lsa->lsdb = lsdb;
 
   /* Do LSA specific installation process. */
   switch (lsa->data->type)

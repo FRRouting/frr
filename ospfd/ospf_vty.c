@@ -2428,7 +2428,29 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
 
   /* Show number of LSA. */
   vty_out (vty, "   Number of LSA %ld%s", area->lsdb->total, VTY_NEWLINE);
-
+  vty_out (vty, "   Number of router LSA %ld. Checksum Sum 0x%08x%s",
+	   ospf_lsdb_count (area->lsdb, OSPF_ROUTER_LSA),
+	   ospf_lsdb_checksum (area->lsdb, OSPF_ROUTER_LSA), VTY_NEWLINE);
+  vty_out (vty, "   Number of network LSA %ld. Checksum Sum 0x%08x%s",
+           ospf_lsdb_count (area->lsdb, OSPF_NETWORK_LSA),
+           ospf_lsdb_checksum (area->lsdb, OSPF_NETWORK_LSA), VTY_NEWLINE);
+  vty_out (vty, "   Number of summary LSA %ld. Checksum Sum 0x%08x%s",
+           ospf_lsdb_count (area->lsdb, OSPF_SUMMARY_LSA),
+           ospf_lsdb_checksum (area->lsdb, OSPF_SUMMARY_LSA), VTY_NEWLINE);
+  vty_out (vty, "   Number of ASBR summary LSA %ld. Checksum Sum 0x%08x%s",
+           ospf_lsdb_count (area->lsdb, OSPF_ASBR_SUMMARY_LSA),
+           ospf_lsdb_checksum (area->lsdb, OSPF_ASBR_SUMMARY_LSA), VTY_NEWLINE);
+  vty_out (vty, "   Number of NSSA LSA %ld. Checksum Sum 0x%08x%s",
+           ospf_lsdb_count (area->lsdb, OSPF_AS_NSSA_LSA),
+           ospf_lsdb_checksum (area->lsdb, OSPF_AS_NSSA_LSA), VTY_NEWLINE);
+#ifdef HAVE_OPAQUE_LSA
+  vty_out (vty, "   Number of opaque link LSA %ld. Checksum Sum 0x%08x%s",
+           ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_LINK_LSA),
+           ospf_lsdb_checksum (area->lsdb, OSPF_OPAQUE_LINK_LSA), VTY_NEWLINE);
+  vty_out (vty, "   Number of opaque area LSA %ld. Checksum Sum 0x%08x%s",
+           ospf_lsdb_count (area->lsdb, OSPF_OPAQUE_AREA_LSA),
+           ospf_lsdb_checksum (area->lsdb, OSPF_OPAQUE_AREA_LSA), VTY_NEWLINE);
+#endif /* HAVE_OPAQUE_LSA */
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
@@ -2489,9 +2511,14 @@ DEFUN (show_ip_ospf,
              "(injecting external routing information)%s", VTY_NEWLINE);
 
   /* Show Number of AS-external-LSAs. */
-  vty_out (vty, " Number of external LSA %ld%s",
-	   ospf_lsdb_count_all (ospf->lsdb), VTY_NEWLINE);
-
+  vty_out (vty, " Number of external LSA %ld. Checksum Sum 0x%08x%s",
+	   ospf_lsdb_count (ospf->lsdb, OSPF_AS_EXTERNAL_LSA),
+	   ospf_lsdb_checksum (ospf->lsdb, OSPF_AS_EXTERNAL_LSA), VTY_NEWLINE);
+#ifdef HAVE_OPAQUE_LSA
+  vty_out (vty, " Number of opaque AS LSA %ld. Checksum Sum 0x%08x%s",
+	   ospf_lsdb_count (ospf->lsdb, OSPF_OPAQUE_AS_LSA),
+	   ospf_lsdb_checksum (ospf->lsdb, OSPF_OPAQUE_AS_LSA), VTY_NEWLINE);
+#endif /* HAVE_OPAQUE_LSA */
   /* Show number of areas attached. */
   vty_out (vty, " Number of areas attached to this router: %d%s%s",
            listcount (ospf->areas), VTY_NEWLINE, VTY_NEWLINE);
