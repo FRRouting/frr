@@ -219,7 +219,28 @@ if_lookup_by_name (const char *name)
   for (node = listhead (iflist); node; nextnode (node))
     {
       ifp = getdata (node);
+      /* Change this to strcmp once improper uses of this function
+         have been replaced with calls to if_lookup_by_name_len. */
       if (strncmp (name, ifp->name, sizeof ifp->name) == 0)
+	return ifp;
+    }
+  return NULL;
+}
+
+struct interface *
+if_lookup_by_name_len(const char *name, size_t namelen)
+{
+  struct listnode *node;
+
+  if (namelen > INTERFACE_NAMSIZ)
+    return NULL;
+
+  for (node = listhead (iflist); node; nextnode (node))
+    {
+      struct interface *ifp;
+
+      ifp = getdata (node);
+      if (!memcmp(name, ifp->name, namelen) && (ifp->name[namelen] == '\0'))
 	return ifp;
     }
   return NULL;
@@ -314,10 +335,19 @@ if_get_by_name (const char *name)
 {
   struct interface *ifp;
 
-  ifp = if_lookup_by_name (name);
-  if (ifp == NULL)
-    ifp = if_create (name, INTERFACE_NAMSIZ);
-  return ifp;
+  /* Replace 2nd arg to if_create with strlen(name) once improper uses of
+     this function have been replaced with calls to if_get_by_name_len. */
+  return ((ifp = if_lookup_by_name(name)) != NULL) ? ifp :
+	 if_create(name, INTERFACE_NAMSIZ);
+}
+
+struct interface *
+if_get_by_name_len(const char *name, size_t namelen)
+{
+  struct interface *ifp;
+
+  return ((ifp = if_lookup_by_name_len(name, namelen)) != NULL) ? ifp :
+	 if_create(name, namelen);
 }
 
 /* Does interface up ? */
@@ -504,10 +534,8 @@ DEFUN (interface,
       return CMD_WARNING;
     }
 
-  ifp = if_lookup_by_name (argv[0]);
+  ifp = if_get_by_name_len(argv[0], sl);
 
-  if (ifp == NULL)
-    ifp = if_create (argv[0], sl);
   vty->index = ifp;
   vty->node = INTERFACE_NODE;
 

@@ -1,5 +1,12 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* kernel_socket.c: (ifm_read) Use new if_lookup_by_name_len function
+	  to save a memcpy.
+	* if_ioctl_solaris.c: (interface_list_ioctl) Fix subtle bug with new
+	  if_get_by_name_len function.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* interface.c: (if_new_intern_ifindex) Remove obsolete function.
 	  (if_delete_update) After distributing the interface deletion message,
 	  set ifp->ifindex to IFINDEX_INTERNAL.

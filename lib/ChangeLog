@@ -1,5 +1,15 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* if.h: (if_lookup_by_name_len, if_get_by_name_len) New functions.
+	* if.c: (if_lookup_by_name_len, if_get_by_name_len) New functions.
+	  (if_get_by_name) Tighten up code.
+	  (interface) Use new function if_get_by_name_len.
+	* zclient.c: (zebra_interface_add_read) Use new if_get_by_name_len
+	  function.
+	  (zebra_interface_state_read) Use new if_lookup_by_name_len function.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* str.c: Replace strlcpy and strlcat with actual working versions
 	  copied from rsync-2.6.2/lib/compat.c.
 

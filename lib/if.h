@@ -214,10 +214,24 @@ struct connected
 int if_cmp_func (struct interface *, struct interface *);
 struct interface *if_create (const char *name, int namelen);
 struct interface *if_lookup_by_index (unsigned int);
-struct interface *if_lookup_by_name (const char *);
 struct interface *if_lookup_exact_address (struct in_addr);
 struct interface *if_lookup_address (struct in_addr);
+
+/* Currently, the code assumes that the interface name arguments to these
+   functions have length <= INTERFACE_NAMSIZ, and they must be NUL-terminated
+   if they are shorter than INTERFACE_NAMSIZ.  After code cleanup, the
+   implementation will be changed to require the arguments to these functions
+   to terminate with a NUL character (no length limitation). */
+struct interface *if_lookup_by_name (const char *);
 struct interface *if_get_by_name (const char *);
+
+/* For these 2 functions, the 2nd argument should be the precise length
+   of the interface name (not counting a trailing NUL which may or may
+   not be present). */
+extern struct interface *if_lookup_by_name_len(const char *name,
+					       size_t namelen);
+extern struct interface *if_get_by_name_len(const char *name, size_t namelen);
+
 
 /* Delete the interface, but do not free the structure, and leave it in the
    interface list.  It is often advisable to leave the pseudo interface 

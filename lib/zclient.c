@@ -534,12 +534,8 @@ zebra_interface_add_read (struct stream *s)
   /* Read interface name. */
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
-  /* Lookup this by interface name. */
-  ifp = if_lookup_by_name (ifname_tmp);
-
-  /* If such interface does not exist, make new one. */
-  if (! ifp)
-    ifp = if_create (ifname_tmp, INTERFACE_NAMSIZ);
+  /* Lookup/create interface by name. */
+  ifp = if_get_by_name_len (ifname_tmp, strnlen(ifname_tmp, INTERFACE_NAMSIZ));
 
   /* Read interface's index. */
   ifp->ifindex = stream_getl (s);
@@ -579,7 +575,8 @@ zebra_interface_state_read (struct stream *s)
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
   /* Lookup this by interface index. */
-  ifp = if_lookup_by_name (ifname_tmp);
+  ifp = if_lookup_by_name_len (ifname_tmp,
+			       strnlen(ifname_tmp, INTERFACE_NAMSIZ));
 
   /* If such interface does not exist, indicate an error */
   if (! ifp)

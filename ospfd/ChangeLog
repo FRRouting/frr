@@ -1,5 +1,9 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf_interface.c: (ospf_vl_new) Use strnlen to fix call to if_create.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf_vty.c: (show_ip_ospf_interface_sub) Show ifindex and interface
 	  flags to help with debugging.
 	* ospf_zebra.c: (ospf_interface_delete) After deleting, set ifp->ifindex

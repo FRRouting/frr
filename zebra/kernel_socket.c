@@ -235,7 +235,6 @@ ifm_read (struct if_msghdr *ifm)
   struct sockaddr_dl *sdl = NULL;
   void *cp;
   unsigned int i;
-  char ifname[IFNAMSIZ];
 
   /* paranoia: sanity check structure */
   if (ifm->ifm_msglen < sizeof(struct if_msghdr))
@@ -309,6 +308,9 @@ ifm_read (struct if_msghdr *ifm)
       /*
        * paranoia: sanity check name length.  nlen does not include
        * trailing zero, but IFNAMSIZ max length does.
+       *
+       * XXX Is this test correct?  Should it be '>=' or '>'?  And is it even
+       * necessary now that we are using if_lookup_by_name_len?
        */
       if (sdl->sdl_nlen >= IFNAMSIZ)
 	{
@@ -316,9 +318,7 @@ ifm_read (struct if_msghdr *ifm)
 	  return -1;
 	}
 
-      memcpy (ifname, sdl->sdl_data, sdl->sdl_nlen);
-      ifname[sdl->sdl_nlen] = '\0';
-      ifp = if_lookup_by_name (ifname);
+      ifp = if_lookup_by_name_len (sdl->sdl_data, sdl->sdl_nlen);
     }
 
   /*

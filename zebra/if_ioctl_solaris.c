@@ -138,7 +138,9 @@ calculate_lifc_len:     /* must hold privileges to enter here */
 
   for (n = 0; n < lifconf.lifc_len; n += sizeof (struct lifreq))
     {
-      ifp = if_get_by_name (lifreq->lifr_name);
+      ifp = if_get_by_name_len(lifreq->lifr_name,
+			       strnlen(lifreq->lifr_name,
+				       sizeof(lifreq->lifr_name)));
 
       if (lifreq->lifr_addr.ss_family == AF_INET)
         ifp->flags |= IFF_IPV4;
