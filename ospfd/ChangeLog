@@ -1,5 +1,8 @@
 2004-05-05 Paul Jakma <paul@dishone.st>
 
+	* ospf_network.c: (ospf_sock_init) Check whether IP_HDRINCL is
+	  defined. Warn at compile and runtime. Use 
+	  IPTOS_PREC_INTERNETCONTROL otherwise.
 	* ospf_packet.c:  (ospf_associate_packet_vl) cleanup, move 
 	  some of the checks up to ospf_read, return either a 
 	  virtual link oi, or NULL. 

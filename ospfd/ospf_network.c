@@ -170,9 +170,20 @@ ospf_sock_init (void)
       exit(-1);
     }
     
-
+#ifdef IP_HDRINCL
+  /* we will include IP header with packet */
+  ret = setsockopt (ospf_sock, IPPROTO_IP, IP_HDRINCL, &hincl, sizeof (hincl));
+  if (ret < 0)
+    {
+      if ( ospfd_privs.change (ZPRIVS_LOWER) )
+        zlog_err ("ospf_sock_init: could not lower privs, %s",
+                   strerror (errno) );
+      zlog_warn ("Can't set IP_HDRINCL option");
+    }
+#elif defined (IPTOS_PREC_INTERNETCONTROL)
+#warning "IP_HDRINCL not available on this system"
+#warning "using IPTOS_PREC_INTERNETCONTROL"
   /* Set precedence field. */
-#ifdef IPTOS_PREC_INTERNETCONTROL
   tos = IPTOS_PREC_INTERNETCONTROL;
   ret = setsockopt (ospf_sock, IPPROTO_IP, IP_TOS,
 		    (char *) &tos, sizeof (int));
@@ -185,17 +196,10 @@ ospf_sock_init (void)
       close (ospf_sock);	/* Prevent sd leak. */
       return ret;
     }
-#endif /* IPTOS_PREC_INTERNETCONTROL */
-
-  /* we will include IP header with packet */
-  ret = setsockopt (ospf_sock, IPPROTO_IP, IP_HDRINCL, &hincl, sizeof (hincl));
-  if (ret < 0)
-    {
-      if ( ospfd_privs.change (ZPRIVS_LOWER) )
-        zlog_err ("ospf_sock_init: could not lower privs, %s",
-                   strerror (errno) );
-      zlog_warn ("Can't set IP_HDRINCL option");
-    }
+#else /* !IPTOS_PREC_INTERNETCONTROL */
+#warning "IP_HDRINCL not available, nor is IPTOS_PREC_INTERNETCONTROL"
+  zlog_warn ("IP_HDRINCL option not available");
+#endif /* IP_HDRINCL */
 
 #if defined (IP_PKTINFO)
   ret = setsockopt (ospf_sock, IPPROTO_IP, IP_PKTINFO, &hincl, sizeof (hincl));
