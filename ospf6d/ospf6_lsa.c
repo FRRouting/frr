@@ -92,7 +92,7 @@ ospf6_get_lsa_handler (u_int16_t type)
   struct ospf6_lsa_handler *handler = NULL;
   unsigned int index = ntohs (type) & OSPF6_LSTYPE_FCODE_MASK;
 
-  if (index >= vector_max (ospf6_lsa_handler_vector))
+  if (index >= vector_active (ospf6_lsa_handler_vector))
     handler = &unknown_handler;
   else
     handler = vector_slot (ospf6_lsa_handler_vector, index);
@@ -760,7 +760,7 @@ DEFUN (debug_ospf6_lsa_type,
         type = val;
     }
 
-  for (i = 0; i < vector_max (ospf6_lsa_handler_vector); i++)
+  for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
     {
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)
@@ -828,7 +828,7 @@ DEFUN (no_debug_ospf6_lsa_type,
         type = val;
     }
 
-  for (i = 0; i < vector_max (ospf6_lsa_handler_vector); i++)
+  for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
     {
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)
@@ -889,7 +889,7 @@ install_element_ospf6_debug_lsa ()
   str = &strbuf[strlen (strbuf)];
 
   strncat (strbuf, "debug ospf6 lsa (", STRSIZE - strlen (strbuf));
-  for (i = 0; i < vector_max (ospf6_lsa_handler_vector); i++)
+  for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
     {
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)
@@ -911,7 +911,7 @@ install_element_ospf6_debug_lsa ()
   strncat (docbuf, "Debug Link State Advertisements (LSAs)\n",
            DOCSIZE - strlen (docbuf));
 
-  for (i = 0; i < vector_max (ospf6_lsa_handler_vector); i++)
+  for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
     {
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)
@@ -976,7 +976,7 @@ config_write_ospf6_debug_lsa (struct vty *vty)
   u_int i;
   struct ospf6_lsa_handler *handler;
 
-  for (i = 0; i < vector_max (ospf6_lsa_handler_vector); i++)
+  for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
     {
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)

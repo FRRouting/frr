@@ -429,7 +429,7 @@ route_map_lookup_match (const char *name)
   unsigned int i;
   struct route_map_rule_cmd *rule;
 
-  for (i = 0; i < vector_max (route_match_vec); i++)
+  for (i = 0; i < vector_active (route_match_vec); i++)
     if ((rule = vector_slot (route_match_vec, i)) != NULL)
       if (strcmp (rule->str, name) == 0)
 	return rule;
@@ -443,7 +443,7 @@ route_map_lookup_set (const char *name)
   unsigned int i;
   struct route_map_rule_cmd *rule;
 
-  for (i = 0; i < vector_max (route_set_vec); i++)
+  for (i = 0; i < vector_active (route_set_vec); i++)
     if ((rule = vector_slot (route_set_vec, i)) != NULL)
       if (strcmp (rule->str, name) == 0)
 	return rule;

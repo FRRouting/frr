@@ -644,7 +644,7 @@ ripng_enable_if_lookup (const char *ifname)
   unsigned int i;
   char *str;
 
-  for (i = 0; i < vector_max (ripng_enable_if); i++)
+  for (i = 0; i < vector_active (ripng_enable_if); i++)
     if ((str = vector_slot (ripng_enable_if, i)) != NULL)
       if (strcmp (str, ifname) == 0)
 	return i;
@@ -851,7 +851,7 @@ ripng_clean_network ()
     }
 
   /* ripng_enable_if */
-  for (i = 0; i < vector_max (ripng_enable_if); i++)
+  for (i = 0; i < vector_active (ripng_enable_if); i++)
     if ((str = vector_slot (ripng_enable_if, i)) != NULL) {
       free (str);
       vector_slot (ripng_enable_if, i) = NULL;
@@ -868,7 +868,7 @@ ripng_passive_interface_lookup (const char *ifname)
   unsigned int i;
   char *str;
 
-  for (i = 0; i < vector_max (Vripng_passive_interface); i++)
+  for (i = 0; i < vector_active (Vripng_passive_interface); i++)
     if ((str = vector_slot (Vripng_passive_interface, i)) != NULL)
       if (strcmp (str, ifname) == 0)
 	return i;
@@ -943,7 +943,7 @@ ripng_passive_interface_clean (void)
   unsigned int i;
   char *str;
 
-  for (i = 0; i < vector_max (Vripng_passive_interface); i++)
+  for (i = 0; i < vector_active (Vripng_passive_interface); i++)
     if ((str = vector_slot (Vripng_passive_interface, i)) != NULL)
       {
 	free (str);
@@ -975,7 +975,7 @@ ripng_network_write (struct vty *vty, int config_mode)
       }
   
   /* Write enable interface. */
-  for (i = 0; i < vector_max (ripng_enable_if); i++)
+  for (i = 0; i < vector_active (ripng_enable_if); i++)
     if ((ifname = vector_slot (ripng_enable_if, i)) != NULL)
       vty_out (vty, "%s%s%s",
 	       config_mode ? " network " : "    ",
@@ -984,7 +984,7 @@ ripng_network_write (struct vty *vty, int config_mode)
 
   /* Write passive interface. */
   if (config_mode)
-    for (i = 0; i < vector_max (Vripng_passive_interface); i++)
+    for (i = 0; i < vector_active (Vripng_passive_interface); i++)
       if ((ifname = vector_slot (Vripng_passive_interface, i)) != NULL)
         vty_out (vty, " passive-interface %s%s", ifname, VTY_NEWLINE);
 

@@ -986,7 +986,7 @@ rip_enable_if_lookup (const char *ifname)
   unsigned int i;
   char *str;
 
-  for (i = 0; i < vector_max (rip_enable_interface); i++)
+  for (i = 0; i < vector_active (rip_enable_interface); i++)
     if ((str = vector_slot (rip_enable_interface, i)) != NULL)
       if (strcmp (str, ifname) == 0)
 	return i;
@@ -1253,7 +1253,7 @@ rip_clean_network ()
       }
 
   /* rip_enable_interface. */
-  for (i = 0; i < vector_max (rip_enable_interface); i++)
+  for (i = 0; i < vector_active (rip_enable_interface); i++)
     if ((str = vector_slot (rip_enable_interface, i)) != NULL)
       {
 	free (str);
@@ -1268,7 +1268,7 @@ rip_passive_nondefault_lookup (const char *ifname)
   unsigned int i;
   char *str;
 
-  for (i = 0; i < vector_max (Vrip_passive_nondefault); i++)
+  for (i = 0; i < vector_active (Vrip_passive_nondefault); i++)
     if ((str = vector_slot (Vrip_passive_nondefault, i)) != NULL)
       if (strcmp (str, ifname) == 0)
 	return i;
@@ -1342,7 +1342,7 @@ rip_passive_nondefault_clean ()
   unsigned int i;
   char *str;
 
-  for (i = 0; i < vector_max (Vrip_passive_nondefault); i++)
+  for (i = 0; i < vector_active (Vrip_passive_nondefault); i++)
     if ((str = vector_slot (Vrip_passive_nondefault, i)) != NULL)
       {
 	free (str);
@@ -2123,7 +2123,7 @@ config_write_rip_network (struct vty *vty, int config_mode)
 	       VTY_NEWLINE);
 
   /* Interface name RIP enable statement. */
-  for (i = 0; i < vector_max (rip_enable_interface); i++)
+  for (i = 0; i < vector_active (rip_enable_interface); i++)
     if ((ifname = vector_slot (rip_enable_interface, i)) != NULL)
       vty_out (vty, "%s%s%s",
 	       config_mode ? " network " : "    ",
@@ -2142,7 +2142,7 @@ config_write_rip_network (struct vty *vty, int config_mode)
   if (config_mode) {
     if (passive_default)
       vty_out (vty, " passive-interface default%s", VTY_NEWLINE);
-    for (i = 0; i < vector_max (Vrip_passive_nondefault); i++)
+    for (i = 0; i < vector_active (Vrip_passive_nondefault); i++)
       if ((ifname = vector_slot (Vrip_passive_nondefault, i)) != NULL)
 	vty_out (vty, " %spassive-interface %s%s",
 		 (passive_default ? "no " : ""), ifname, VTY_NEWLINE);

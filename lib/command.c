@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.45 2005/03/14 17:41:45 paul Exp $
+   $Id: command.c,v 1.46 2005/03/14 20:19:01 paul Exp $
  
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -216,20 +216,20 @@ sort_node ()
   vector descvec;
   struct cmd_element *cmd_element;
 
-  for (i = 0; i < vector_max (cmdvec); i++) 
+  for (i = 0; i < vector_active (cmdvec); i++) 
     if ((cnode = vector_slot (cmdvec, i)) != NULL)
       {	
 	vector cmd_vector = cnode->cmd_vector;
-	qsort (cmd_vector->index, vector_max (cmd_vector), 
+	qsort (cmd_vector->index, vector_active (cmd_vector), 
 	       sizeof (void *), cmp_node);
 
-	for (j = 0; j < vector_max (cmd_vector); j++)
+	for (j = 0; j < vector_active (cmd_vector); j++)
 	  if ((cmd_element = vector_slot (cmd_vector, j)) != NULL
-	      && vector_max (cmd_element->strvec))
+	      && vector_active (cmd_element->strvec))
 	    {
 	      descvec = vector_slot (cmd_element->strvec,
-				     vector_max (cmd_element->strvec) - 1);
-	      qsort (descvec->index, vector_max (descvec), 
+				     vector_active (cmd_element->strvec) - 1);
+	      qsort (descvec->index, vector_active (descvec), 
 	             sizeof (void *), cmp_desc);
 	    }
       }
@@ -297,7 +297,7 @@ cmd_free_strvec (vector v)
   if (!v)
     return;
 
-  for (i = 0; i < vector_max (v); i++)
+  for (i = 0; i < vector_active (v); i++)
     if ((cp = vector_slot (v, i)) != NULL)
       XFREE (MTYPE_STRVEC, cp);
 
@@ -442,10 +442,10 @@ cmd_cmdsize (vector strvec)
   vector descvec;
   struct desc *desc;
 
-  for (i = 0; i < vector_max (strvec); i++)
+  for (i = 0; i < vector_active (strvec); i++)
     if ((descvec = vector_slot (strvec, i)) != NULL)
     {
-      if ((vector_max (descvec)) == 1
+      if ((vector_active (descvec)) == 1
         && (desc = vector_slot (descvec, 0)) != NULL)
 	{
 	  if (desc->cmd == NULL || CMD_OPTION (desc->cmd))
@@ -1126,10 +1126,10 @@ cmd_filter_by_completion (char *command, vector v, unsigned int index)
   match_type = no_match;
 
   /* If command and cmd_element string does not match set NULL to vector */
-  for (i = 0; i < vector_max (v); i++)
+  for (i = 0; i < vector_active (v); i++)
     if ((cmd_element = vector_slot (v, i)) != NULL)
       {
-	if (index >= vector_max (cmd_element->strvec))
+	if (index >= vector_active (cmd_element->strvec))
 	  vector_slot (v, i) = NULL;
 	else
 	  {
@@ -1138,7 +1138,7 @@ cmd_filter_by_completion (char *command, vector v, unsigned int index)
 
 	    descvec = vector_slot (cmd_element->strvec, index);
 
-	    for (j = 0; j < vector_max (descvec); j++)
+	    for (j = 0; j < vector_active (descvec); j++)
 	      if ((desc = vector_slot (descvec, j)))
 		{
 		  str = desc->cmd;
@@ -1241,12 +1241,12 @@ cmd_filter_by_string (char *command, vector v, unsigned int index)
   match_type = no_match;
 
   /* If command and cmd_element string does not match set NULL to vector */
-  for (i = 0; i < vector_max (v); i++)
+  for (i = 0; i < vector_active (v); i++)
     if ((cmd_element = vector_slot (v, i)) != NULL)
       {
 	/* If given index is bigger than max string vector of command,
 	   set NULL */
-	if (index >= vector_max (cmd_element->strvec))
+	if (index >= vector_active (cmd_element->strvec))
 	  vector_slot (v, i) = NULL;
 	else
 	  {
@@ -1255,7 +1255,7 @@ cmd_filter_by_string (char *command, vector v, unsigned int index)
 
 	    descvec = vector_slot (cmd_element->strvec, index);
 
-	    for (j = 0; j < vector_max (descvec); j++)
+	    for (j = 0; j < vector_active (descvec); j++)
 	      if ((desc = vector_slot (descvec, j)))
 		{
 		  str = desc->cmd;
@@ -1347,14 +1347,14 @@ is_cmd_ambiguous (char *command, vector v, int index, enum match_type type)
   vector descvec;
   struct desc *desc;
 
-  for (i = 0; i < vector_max (v); i++)
+  for (i = 0; i < vector_active (v); i++)
     if ((cmd_element = vector_slot (v, i)) != NULL)
       {
 	int match = 0;
 
 	descvec = vector_slot (cmd_element->strvec, index);
 
-	for (j = 0; j < vector_max (descvec); j++)
+	for (j = 0; j < vector_active (descvec); j++)
 	  if ((desc = vector_slot (descvec, j)))
 	    {
 	      enum match_type ret;
@@ -1525,7 +1525,7 @@ cmd_unique_string (vector v, const char *str)
   unsigned int i;
   char *match;
 
-  for (i = 0; i < vector_max (v); i++)
+  for (i = 0; i < vector_active (v); i++)
     if ((match = vector_slot (v, i)) != NULL)
       if (strcmp (match, str) == 0)
 	return 0;
@@ -1540,7 +1540,7 @@ desc_unique_string (vector v, const char *str)
   unsigned int i;
   struct desc *desc;
 
-  for (i = 0; i < vector_max (v); i++)
+  for (i = 0; i < vector_active (v); i++)
     if ((desc = vector_slot (v, i)) != NULL)
       if (strcmp (desc->cmd, str) == 0)
 	return 1;
@@ -1575,13 +1575,13 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
   static struct desc desc_cr = { "<cr>", "" };
 
   /* Set index. */
-  if (vector_max (vline) == 0)
+  if (vector_active (vline) == 0)
     {
       *status = CMD_ERR_NO_MATCH;
       return NULL;
     }
   else
-    index = vector_max (vline) - 1;
+    index = vector_active (vline) - 1;
   
   /* Make copy vector of current node's command vector. */
   cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
@@ -1602,13 +1602,13 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 	    vector descvec;
 	    unsigned int j, k;
 
-	    for (j = 0; j < vector_max (cmd_vector); j++)
+	    for (j = 0; j < vector_active (cmd_vector); j++)
 	      if ((cmd_element = vector_slot (cmd_vector, j)) != NULL
-		  && (vector_max (cmd_element->strvec)))
+		  && (vector_active (cmd_element->strvec)))
 		{
 		  descvec = vector_slot (cmd_element->strvec,
-					 vector_max (cmd_element->strvec) - 1);
-		  for (k = 0; k < vector_max (descvec); k++)
+					 vector_active (cmd_element->strvec) - 1);
+		  for (k = 0; k < vector_active (descvec); k++)
 		    {
 		      struct desc *desc = vector_slot (descvec, k);
 		      vector_set (matchvec, desc);
@@ -1644,19 +1644,19 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
     match = cmd_filter_by_completion (command, cmd_vector, index);
 
   /* Make description vector. */
-  for (i = 0; i < vector_max (cmd_vector); i++)
+  for (i = 0; i < vector_active (cmd_vector); i++)
     if ((cmd_element = vector_slot (cmd_vector, i)) != NULL)
       {
 	const char *string = NULL;
 	vector strvec = cmd_element->strvec;
 
-	/* if command is NULL, index may be equal to vector_max */
-	if (command && index >= vector_max (strvec))
+	/* if command is NULL, index may be equal to vector_active */
+	if (command && index >= vector_active (strvec))
 	  vector_slot (cmd_vector, i) = NULL;
 	else
 	  {
 	    /* Check if command is completed. */
-	    if (command == NULL && index == vector_max (strvec))
+	    if (command == NULL && index == vector_active (strvec))
 	      {
 		string = "<cr>";
 		if (!desc_unique_string (matchvec, string))
@@ -1668,7 +1668,7 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 		vector descvec = vector_slot (strvec, index);
 		struct desc *desc;
 
-		for (j = 0; j < vector_max (descvec); j++)
+		for (j = 0; j < vector_active (descvec); j++)
 		  if ((desc = vector_slot (descvec, j)))
 		    {
 		      string = cmd_entry_function_desc (command, desc->cmd);
@@ -1712,7 +1712,7 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
 
       shifted_vline = vector_init (vector_count(vline));
       /* use memcpy? */
-      for (index = 1; index < vector_max (vline); index++) 
+      for (index = 1; index < vector_active (vline); index++) 
 	{
 	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
 	}
@@ -1778,13 +1778,13 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
   char *command;
   int lcd;
 
-  if (vector_max (vline) == 0)
+  if (vector_active (vline) == 0)
     {
       *status = CMD_ERR_NO_MATCH;
       return NULL;
     }
   else
-    index = vector_max (vline) - 1;
+    index = vector_active (vline) - 1;
 
   /* First, filter by preceeding command string */
   for (i = 0; i < index; i++)
@@ -1818,21 +1818,21 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
   matchvec = vector_init (INIT_MATCHVEC_SIZE);
 
   /* Now we got into completion */
-  for (i = 0; i < vector_max (cmd_vector); i++)
+  for (i = 0; i < vector_active (cmd_vector); i++)
     if ((cmd_element = vector_slot (cmd_vector, i)))
       {
 	const char *string;
 	vector strvec = cmd_element->strvec;
 
 	/* Check field length */
-	if (index >= vector_max (strvec))
+	if (index >= vector_active (strvec))
 	  vector_slot (cmd_vector, i) = NULL;
 	else
 	  {
 	    unsigned int j;
 
 	    descvec = vector_slot (strvec, index);
-	    for (j = 0; j < vector_max (descvec); j++)
+	    for (j = 0; j < vector_active (descvec); j++)
 	      if ((desc = vector_slot (descvec, j)))
 		{
 		  if ((string = 
@@ -1892,7 +1892,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 	      /* match_str = (char **) &lcdstr; */
 
 	      /* Free matchvec. */
-	      for (i = 0; i < vector_max (matchvec); i++)
+	      for (i = 0; i < vector_active (matchvec); i++)
 		{
 		  if (vector_slot (matchvec, i))
 		    XFREE (MTYPE_TMP, vector_slot (matchvec, i));
@@ -1934,7 +1934,7 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
 
       shifted_vline = vector_init (vector_count(vline));
       /* use memcpy? */
-      for (index = 1; index < vector_max (vline); index++) 
+      for (index = 1; index < vector_active (vline); index++) 
 	{
 	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
 	}
@@ -1997,7 +1997,7 @@ cmd_execute_command_real (vector vline, struct vty *vty,
   /* Make copy of command elements. */
   cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
 
-  for (index = 0; index < vector_max (vline); index++)
+  for (index = 0; index < vector_active (vline); index++)
     if ((command = vector_slot (vline, index)))
       {
 	int ret;
@@ -2026,7 +2026,7 @@ cmd_execute_command_real (vector vline, struct vty *vty,
   matched_count = 0;
   incomplete_count = 0;
 
-  for (i = 0; i < vector_max (cmd_vector); i++)
+  for (i = 0; i < vector_active (cmd_vector); i++)
     if ((cmd_element = vector_slot (cmd_vector, i)))
       {
 	if (match == vararg_match || index >= cmd_element->cmdsize)
@@ -2062,7 +2062,7 @@ cmd_execute_command_real (vector vline, struct vty *vty,
   varflag = 0;
   argc = 0;
 
-  for (i = 0; i < vector_max (vline); i++)
+  for (i = 0; i < vector_active (vline); i++)
     {
       if (varflag)
 	argv[argc++] = vector_slot (vline, i);
@@ -2070,7 +2070,7 @@ cmd_execute_command_real (vector vline, struct vty *vty,
 	{
 	  vector descvec = vector_slot (matched_element->strvec, i);
 
-	  if (vector_max (descvec) == 1)
+	  if (vector_active (descvec) == 1)
 	    {
 	      struct desc *desc = vector_slot (descvec, 0);
 
@@ -2117,7 +2117,7 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
 
       shifted_vline = vector_init (vector_count(vline));
       /* use memcpy? */
-      for (index = 1; index < vector_max (vline); index++) 
+      for (index = 1; index < vector_active (vline); index++) 
 	{
 	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
 	}
@@ -2176,7 +2176,7 @@ cmd_execute_command_strict (vector vline, struct vty *vty,
   /* Make copy of command element */
   cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
 
-  for (index = 0; index < vector_max (vline); index++)
+  for (index = 0; index < vector_active (vline); index++)
     if ((command = vector_slot (vline, index)))
       {
 	int ret;
@@ -2205,7 +2205,7 @@ cmd_execute_command_strict (vector vline, struct vty *vty,
   matched_element = NULL;
   matched_count = 0;
   incomplete_count = 0;
-  for (i = 0; i < vector_max (cmd_vector); i++)
+  for (i = 0; i < vector_active (cmd_vector); i++)
     if (vector_slot (cmd_vector, i) != NULL)
       {
 	cmd_element = vector_slot (cmd_vector, i);
@@ -2238,7 +2238,7 @@ cmd_execute_command_strict (vector vline, struct vty *vty,
   varflag = 0;
   argc = 0;
 
-  for (i = 0; i < vector_max (vline); i++)
+  for (i = 0; i < vector_active (vline); i++)
     {
       if (varflag)
 	argv[argc++] = vector_slot (vline, i);
@@ -2246,7 +2246,7 @@ cmd_execute_command_strict (vector vline, struct vty *vty,
 	{
 	  vector descvec = vector_slot (matched_element->strvec, i);
 
-	  if (vector_max (descvec) == 1)
+	  if (vector_active (descvec) == 1)
 	    {
 	      struct desc *desc = vector_slot (descvec, 0);
 
@@ -2494,7 +2494,7 @@ DEFUN (config_list,
   struct cmd_node *cnode = vector_slot (cmdvec, vty->node);
   struct cmd_element *cmd;
 
-  for (i = 0; i < vector_max (cnode->cmd_vector); i++)
+  for (i = 0; i < vector_active (cnode->cmd_vector); i++)
     if ((cmd = vector_slot (cnode->cmd_vector, i)) != NULL
         && !(cmd->attr == CMD_ATTR_DEPRECATED
              || cmd->attr == CMD_ATTR_HIDDEN))
@@ -2558,7 +2558,7 @@ DEFUN (config_write_file,
   vty_time_print (file_vty, 1);
   vty_out (file_vty, "!\n");
 
-  for (i = 0; i < vector_max (cmdvec); i++)
+  for (i = 0; i < vector_active (cmdvec); i++)
     if ((node = vector_slot (cmdvec, i)) && node->func)
       {
 	if ((*node->func) (file_vty))
@@ -2652,7 +2652,7 @@ DEFUN (config_write_terminal,
 
   if (vty->type == VTY_SHELL_SERV)
     {
-      for (i = 0; i < vector_max (cmdvec); i++)
+      for (i = 0; i < vector_active (cmdvec); i++)
 	if ((node = vector_slot (cmdvec, i)) && node->func && node->vtysh)
 	  {
 	    if ((*node->func) (vty))
@@ -2665,7 +2665,7 @@ DEFUN (config_write_terminal,
 	       VTY_NEWLINE);
       vty_out (vty, "!%s", VTY_NEWLINE);
 
-      for (i = 0; i < vector_max (cmdvec); i++)
+      for (i = 0; i < vector_active (cmdvec); i++)
 	if ((node = vector_slot (cmdvec, i)) && node->func)
 	  {
 	    if ((*node->func) (vty))

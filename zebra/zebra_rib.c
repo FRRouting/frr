@@ -105,7 +105,7 @@ vrf_lookup_by_name (char *name)
   unsigned int i;
   struct vrf *vrf;
 
-  for (i = 0; i < vector_max (vrf_vector); i++)
+  for (i = 0; i < vector_active (vrf_vector); i++)
     if ((vrf = vector_slot (vrf_vector, i)) != NULL)
       if (vrf->name && name && strcmp (vrf->name, name) == 0)
 	return vrf;

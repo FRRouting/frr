@@ -309,7 +309,7 @@ vtysh_config_dump (FILE *fp)
   fprintf (fp, "!\n");
   fflush (fp);
 
-  for (i = 0; i < vector_max (configvec); i++)
+  for (i = 0; i < vector_active (configvec); i++)
     if ((master = vector_slot (configvec, i)) != NULL)
       {
 	LIST_LOOP (master, config, nn)
@@ -335,7 +335,7 @@ vtysh_config_dump (FILE *fp)
 	  }
       }
 
-  for (i = 0; i < vector_max (configvec); i++)
+  for (i = 0; i < vector_active (configvec); i++)
     if ((master = vector_slot (configvec, i)) != NULL)
       {
 	list_delete (master);

@@ -587,7 +587,7 @@ vtysh_rl_describe (void)
 
   /* Get width of command string. */
   width = 0;
-  for (i = 0; i < vector_max (describe); i++)
+  for (i = 0; i < vector_active (describe); i++)
     if ((desc = vector_slot (describe, i)) != NULL)
       {
 	int len;
@@ -603,7 +603,7 @@ vtysh_rl_describe (void)
 	  width = len;
       }
 
-  for (i = 0; i < vector_max (describe); i++)
+  for (i = 0; i < vector_active (describe); i++)
     if ((desc = vector_slot (describe, i)) != NULL)
       {
 	if (desc->cmd[0] == '\0')

@@ -975,7 +975,7 @@ vty_describe_command (struct vty *vty)
 
   /* Get width of command string. */
   width = 0;
-  for (i = 0; i < vector_max (describe); i++)
+  for (i = 0; i < vector_active (describe); i++)
     if ((desc = vector_slot (describe, i)) != NULL)
       {
 	unsigned int len;
@@ -995,7 +995,7 @@ vty_describe_command (struct vty *vty)
   desc_width = vty->width - (width + 6);
 
   /* Print out description. */
-  for (i = 0; i < vector_max (describe); i++)
+  for (i = 0; i < vector_active (describe); i++)
     if ((desc = vector_slot (describe, i)) != NULL)
       {
 	if (desc->cmd[0] == '\0')
@@ -2371,7 +2371,7 @@ vty_log (const char *level, const char *proto_str,
   unsigned int i;
   struct vty *vty;
 
-  for (i = 0; i < vector_max (vtyvec); i++)
+  for (i = 0; i < vector_active (vtyvec); i++)
     if ((vty = vector_slot (vtyvec, i)) != NULL)
       if (vty->monitor)
 	{
@@ -2394,7 +2394,7 @@ vty_log_fixed (const char *buf, size_t len)
   iov[1].iov_base = "\r\n";
   iov[1].iov_len = 2;
 
-  for (i = 0; i < vector_max (vtyvec); i++)
+  for (i = 0; i < vector_active (vtyvec); i++)
     {
       struct vty *vty;
       if (((vty = vector_slot (vtyvec, i)) != NULL) && vty->monitor)
@@ -2490,7 +2490,7 @@ DEFUN (config_who,
   unsigned int i;
   struct vty *v;
 
-  for (i = 0; i < vector_max (vtyvec); i++)
+  for (i = 0; i < vector_active (vtyvec); i++)
     if ((v = vector_slot (vtyvec, i)) != NULL)
       vty_out (vty, "%svty[%d] connected from %s.%s",
 	       v->config ? "*" : " ",
@@ -2771,7 +2771,7 @@ vty_reset ()
   struct vty *vty;
   struct thread *vty_serv_thread;
 
-  for (i = 0; i < vector_max (vtyvec); i++)
+  for (i = 0; i < vector_active (vtyvec); i++)
     if ((vty = vector_slot (vtyvec, i)) != NULL)
       {
 	buffer_reset (vty->obuf);
@@ -2779,7 +2779,7 @@ vty_reset ()
 	vty_close (vty);
       }
 
-  for (i = 0; i < vector_max (Vvty_serv_thread); i++)
+  for (i = 0; i < vector_active (Vvty_serv_thread); i++)
     if ((vty_serv_thread = vector_slot (Vvty_serv_thread, i)) != NULL)
       {
 	thread_cancel (vty_serv_thread);

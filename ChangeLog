@@ -1,3 +1,9 @@
+2005-03-14 Paul Jakma <paul.jakma@sun.com>
+
+	* (global) update all c files to match the lib/vector.h rename of
+	  (struct vector).active to max, and vector_max macro to
+	  vector_active.
+ 
 2005-03-12 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Solaris 8 can use the newer lifreq based methods

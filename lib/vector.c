@@ -35,7 +35,7 @@ vector_init (unsigned int size)
     size = 1;
 
   v->alloced = size;
-  v->max = 0;
+  v->active = 0;
   v->index = XCALLOC (MTYPE_VECTOR_INDEX, sizeof (void *) * size);
   return v;
 }
@@ -65,7 +65,7 @@ vector_copy (vector v)
   unsigned int size;
   vector new = XCALLOC (MTYPE_VECTOR, sizeof (struct _vector));
 
-  new->max = v->max;
+  new->active = v->active;
   new->alloced = v->alloced;
 
   size = sizeof (void *) * (v->alloced);
@@ -99,10 +99,10 @@ vector_empty_slot (vector v)
 {
   unsigned int i;
 
-  if (v->max == 0)
+  if (v->active == 0)
     return 0;
 
-  for (i = 0; i < v->max; i++)
+  for (i = 0; i < v->active; i++)
     if (v->index[i] == 0)
       return i;
 
@@ -120,8 +120,8 @@ vector_set (vector v, void *val)
 
   v->index[i] = val;
 
-  if (v->max <= i)
-    v->max = i + 1;
+  if (v->active <= i)
+    v->active = i + 1;
 
   return i;
 }
@@ -134,8 +134,8 @@ vector_set_index (vector v, unsigned int i, void *val)
 
   v->index[i] = val;
 
-  if (v->max <= i)
-    v->max = i + 1;
+  if (v->active <= i)
+    v->active = i + 1;
 
   return i;
 }
@@ -144,7 +144,7 @@ vector_set_index (vector v, unsigned int i, void *val)
 void *
 vector_lookup (vector v, unsigned int i)
 {
-  if (i >= v->max)
+  if (i >= v->active)
     return NULL;
   return v->index[i];
 }
@@ -166,10 +166,10 @@ vector_unset (vector v, unsigned int i)
 
   v->index[i] = NULL;
 
-  if (i + 1 == v->max) 
+  if (i + 1 == v->active) 
     {
-      v->max--;
-      while (i && v->index[--i] == NULL && v->max--) 
+      v->active--;
+      while (i && v->index[--i] == NULL && v->active--) 
 	;				/* Is this ugly ? */
     }
 }
@@ -181,7 +181,7 @@ vector_count (vector v)
   unsigned int i;
   unsigned count = 0;
 
-  for (i = 0; i < v->max; i++) 
+  for (i = 0; i < v->active; i++) 
     if (v->index[i] != NULL)
       count++;
 

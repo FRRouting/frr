@@ -20,6 +20,10 @@
 	  (cmd_execute_command_strict) Fixup vector loop to be conditional
 	  on non-null slot.
 	  (various) Fix indentation and other whitespace.
+	  vector.h: Rename to (struct vector).max to slightly less confusing
+	  active, for the number of active slots, distinct from allocated
+	  or active-and-not-empty. Rename vector_max to vector_active 
+	  for same reason.
 
 2005-03-09 Paul Jakma <paul.jakma@sun.com>
 
