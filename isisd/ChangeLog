@@ -1,3 +1,7 @@
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* isis_zebra.c: (isis_zebra_if_del) Must use if_lookup_by_name_len.
+
 2005-04-02 Hasso Tepper <hasso at quagga.net>
 
 	* Makefile.am: Variables to handle conditonal compiling of topology
