@@ -1,0 +1,6 @@
+2004-08-19 Paul Jakma <paul@dishone.st>
+
+	* *.m4: import of libtool CVS m4 autoconf files. These only
+	  configure libtool support for languages where configure has
+	  already called AC_PROG_<lang>, less fragile.
+	* README.txt: doc file for contents of this directory.
