@@ -1,6 +1,6 @@
 -*- mode: text; -*-
 
-$Id: HACKING,v 1.6 2004/05/13 13:38:06 paul Exp $
+$Id: HACKING,v 1.7 2004/07/23 16:23:56 gdt Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -28,6 +28,28 @@ level.
 
 [TBD: resolve per-dir vs top-level, perhaps by reading GNU coding
 standards]
+
+SHARED LIBRARY VERSIONING
+
+[this section is at the moment just gdt's opinion]
+
+Quagga builds several shared libaries (lib/libzebra, ospfd/libospf,
+ospfclient/libsopfapiclient).  These may be used by external programs,
+e.g. a new routing protocol that works with the zebra daemon, or
+ospfapi clients.  The libtool info pages (node Versioning) explain
+when major and minor version numbers should be changed.  These values
+are set in Makefile.am near the definition of the library.  If you
+make a change that requires changing the shared library version,
+please update Makefile.am.
+
+libospf exports far more than it should, and is needed by ospfapi
+clients.  Only bump libospf for changes to functions for which it is
+reasonable for a user of ospfapi to call, and please err on the side
+of not bumping.
+
+There is no support intended for installing part of zebra.  The core
+library libzebra and the included daemons should always be built and
+installed together.
 
 PATCH SUBMISSION
 

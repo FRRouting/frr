@@ -30,7 +30,7 @@ noinst_HEADERS = \
 	connected.h ioctl.h rib.h rt.h zserv.h redistribute.h debug.h rtadv.h \
 	interface.h ipforward.h irdp.h
 
-zebra_LDADD = $(otherobj) $(LIBCAP) $(LIB_IPV6) -L../lib -lzebra
+zebra_LDADD = $(otherobj) $(LIBCAP) $(LIB_IPV6) ../lib/libzebra.la
 
 zebra_DEPENDENCIES = $(otherobj)
 
@@ -42,8 +42,8 @@ EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c if_proc.c \
 	ioctl.c ioctl_solaris.c \
 	GNOME-SMI GNOME-PRODUCT-ZEBRA-MIB
 
-#client : client_main.o -L../lib -lzebra
-#	$(CC) -g -o client client_main.o -L../lib -lzebra $(LIBS) $(LIB_IPV6)
+#client : client_main.o ../lib/libzebra.la
+#	$(CC) -g -o client client_main.o ../liblzebra.la $(LIBS) $(LIB_IPV6)
 
 quaggaconfdir = $(sysconfdir)
 

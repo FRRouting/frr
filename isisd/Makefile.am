@@ -25,7 +25,7 @@ noinst_HEADERS = \
 isisd_SOURCES = \
 	isis_main.c $(libisis_a_SOURCES)
 
-isisd_LDADD = -L../lib -lzebra @LIBCAP@
+isisd_LDADD = ../lib/libzebra.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = isisd.conf.sample

@@ -3,6 +3,8 @@
 INCLUDES = -I../lib -I../
 
 lib_LTLIBRARIES = libospfapiclient.la
+libospfapiclient_la_LDFLAGS = -version 0:0:0
+
 sbin_PROGRAMS = ospfclient
 
 libospfapiclient_la_SOURCES = \
@@ -17,6 +19,6 @@ ospfclient_SOURCES = \
 	ospfclient.c
 
 ospfclient_LDADD = libospfapiclient.la \
-	-L../ospfd -lospf -L../lib -lzebra @LIBCAP@
+	../ospfd/libospf.la ../lib/libzebra.la @LIBCAP@
 
 

@@ -5,6 +5,8 @@ DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 
 lib_LTLIBRARIES = libospf.la
+libospf_la_LDFLAGS = -version 0:0:0
+
 sbin_PROGRAMS = ospfd
 
 libospf_la_SOURCES = \
@@ -27,7 +29,7 @@ noinst_HEADERS = \
 
 ospfd_SOURCES = ospf_main.c
 
-ospfd_LDADD = libospf.la -L../lib -lzebra @LIBCAP@
+ospfd_LDADD = libospf.la ../lib/libzebra.la @LIBCAP@
 
 EXTRA_DIST = OSPF-MIB.txt OSPF-TRAP-MIB.txt ChangeLog.opaque.txt
 

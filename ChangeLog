@@ -1,3 +1,16 @@
+2004-07-23  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* */Makefile.am: Use ../dir/libfoo.la, rather than "-L../dir
+	-lfoo", to avoid linking against installed libraries from a
+	previous version.
+
+	* {lib,ospfd,ospfclient}/Makefile.am: explicitly define the shared
+	library version number to be 0.0
+
+	* configure.ac: remove spurious , so extract.pl is chmod'd +x.
+	
+	* HACKING: explain shared library versioning rules
+	
 2004-07-22 Paul Jakma <paul@dishone.st>
 
 	* configure.ac: modify default CFLAGS to be compiler agnostic

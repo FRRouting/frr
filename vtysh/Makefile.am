@@ -11,7 +11,7 @@ vtysh_SOURCES = vtysh_main.c vtysh.c vtysh_user.c vtysh_config.c
 nodist_vtysh_SOURCES = vtysh_cmd.c
 CLEANFILES = vtysh_cmd.c
 noinst_HEADERS = vtysh.h vtysh_user.h
-vtysh_LDADD = -L../lib -lzebra @LIBCAP@
+vtysh_LDADD = ../lib/libzebra.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = vtysh.conf.sample
