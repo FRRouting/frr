@@ -60,6 +60,8 @@ ipforward ()
   pnt = fgets (buf, 6, fp);
   sscanf (buf, "Ip: %d", &ipforwarding);
 
+  fclose(fp);
+  
   if (ipforwarding == 1)
     return 1;
 
