@@ -139,6 +139,8 @@ struct message bgp_notify_cease_msg[] =
   { BGP_NOTIFY_CEASE_ADMIN_RESET, "/Administratively Reset."},
   { BGP_NOTIFY_CEASE_CONNECT_REJECT, "/Connection Rejected."},
   { BGP_NOTIFY_CEASE_CONFIG_CHANGE, "/Other Configuration Change."},
+  { BGP_NOTIFY_CEASE_COLLISION_RESOLUTION, "/Connection collision resolution."},
+  { BGP_NOTIFY_CEASE_OUT_OF_RESOURCE, "/Out of Resource."},
 };
 int bgp_notify_cease_msg_max = BGP_NOTIFY_CEASE_MAX;
 
