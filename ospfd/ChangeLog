@@ -1,3 +1,11 @@
+2004-08-26  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* ospf_packet.c (ospf_recv_packet): adjust size declaration of
+	buffer used to get interface index so that it compiles on other
+	than Linux and includes the required alignment space.  Probably
+	this was only working on sparc/sparc64 because most of sockaddr_dl
+	was not being written.
+
 2004-08-19 Paul Jakma <paul@dishone.st>
 
 	* ospf_packet.c: update to match sockopt renames.
