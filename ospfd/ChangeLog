@@ -1,8 +1,8 @@
 2004-12-09  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
-	* ospf_apiserver.c (ospf_apiserver_term): Remove unused variable
-	nnode to fix warning.
-	(ospf_apiserver_term): add comment about obviously wrong code.
+	* ospf_apiserver.c (ospf_apiserver_term): Obtain struct
+	ospf_apiserver * from listnode.  Remove unused variables.  Follows
+	suggestion from Jay Fenlason.
 
 2004-12-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

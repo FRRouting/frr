@@ -180,20 +180,17 @@ out:
 void
 ospf_apiserver_term (void)
 {
-  struct listnode *node;
   struct ospf_apiserver *apiserv;
 
   /* Unregister wildcard [0/0] type */
   ospf_delete_opaque_functab (0 /* all LSAs */, 
 			      0 /* all opaque types */);
 
-  /* Free all client instances */
-  while ( (node = listhead (apiserver_list)) != NULL)
-    /*
-     * XXX: this is just plain odd/wrong.  Is there a missing
-     * apiserv = (struct ospf_apiserver *) node;
-     * ?
-     */
+  /*
+   * Free all client instances.  ospf_apiserver_free removes the node
+   * from the list, so we examine the head of the list anew each time.
+   */
+  while ( (apiserv = getdata (listhead (apiserver_list))) != NULL)
     ospf_apiserver_free (apiserv);
 
   /* Free client list itself */
