@@ -332,7 +332,7 @@ ospf_lsa_header_dump (struct lsa_header *lsah)
   zlog_info ("    Options %d (%s)", lsah->options,
 	     ospf_options_dump (lsah->options));
   zlog_info ("    LS type %d (%s)", lsah->type,
-             (lsah->type ? lsah->type : "unknown type"));
+             (lsah->type ? lsah_type : "unknown type"));
   zlog_info ("    Link State ID %s", inet_ntoa (lsah->id));
   zlog_info ("    Advertising Router %s", inet_ntoa (lsah->adv_router));
   zlog_info ("    LS sequence number 0x%lx", (u_long)ntohl (lsah->ls_seqnum));

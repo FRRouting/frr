@@ -119,7 +119,7 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
   listnode node;
   
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("LSA[Type%d:%s]: Process self-originated LSA seq 0x%lx",
+    zlog_info ("LSA[Type%d:%s]: Process self-originated LSA seq 0x%x",
 	       new->data->type, inet_ntoa (new->data->id), 
 	       ntohl(new->data->ls_seqnum));
 

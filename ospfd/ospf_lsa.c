@@ -2652,7 +2652,7 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
       can be originated. "
    */
 
-  if (ntohl(lsa->data->ls_seqnum) - 1 ==  htonl(OSPF_MAX_SEQUENCE_NUMBER)
+  if (ntohl(lsa->data->ls_seqnum) - 1 ==  htonl(OSPF_MAX_SEQUENCE_NUMBER))
     {
       if (ospf_lsa_is_self_originated(ospf, lsa))
         {

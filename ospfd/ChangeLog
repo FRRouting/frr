@@ -1,3 +1,8 @@
+2004-06-06 Paul Jakma <paul@dishone.st>
+
+	* ospf_dump.c,ospf_lsa.c: Fix typos of merge of previous.
+	  ospf_flood.c: (ospf_process_self_originated_lsa) fix zlog format
+
 2004-05-31 Sagun Shakya <sagun.shakya@sun.com>
 
 	* ospf_dump.c: (ospf_lsa_header_dump) LOOKUP can return null if
