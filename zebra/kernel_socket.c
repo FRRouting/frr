@@ -211,7 +211,11 @@ ifan_read (struct if_announcemsghdr *ifan)
 }
 #endif /* RTM_IFANNOUNCE */
 
-/* Interface adding function called from interface_list. */
+/*
+ * Handle struct if_msghdr obtained from reading routing socket or
+ * sysctl (from interface_list).  There may or may not be sockaddrs
+ * present after the header.
+ */
 int
 ifm_read (struct if_msghdr *ifm)
 {
@@ -219,6 +223,17 @@ ifm_read (struct if_msghdr *ifm)
   struct sockaddr_dl *sdl = NULL;
   char ifname[IFNAMSIZ];
 
+  /* paranoia: sanity check structure */
+  if (ifm->ifm_msglen < sizeof(struct if_msghdr))
+    {
+      zlog_err ("ifm_read: ifm->ifm_msglen %d too short\n",
+		ifm->ifm_msglen);
+      return -1;
+    }
+
+  /*
+   * Check for a sockaddr_dl following the message.
+   */
 #ifdef SUNOS_5
   int i;
   struct sockaddr *sa;
@@ -246,30 +261,110 @@ ifm_read (struct if_msghdr *ifm)
             }
         }
     }
+  /*
+   * After here, If RTA_IFP was set in ifm_addrs, sdl should point to
+   * the sockaddr_dl.
+   */
 #else
-  sdl = (struct sockaddr_dl *)(ifm + 1);
+  /* sockaddrs_present? */
+  if (ifm->ifm_addrs)
+    {
+      if (ifm->ifm_addrs == RTA_IFP)
+	{
+	  /* just the one we want */
+	  sdl = (struct sockaddr_dl *)(ifm + 1);
+	}
+      else
+	{
+	  /*
+	   * Not strictly an error, but more complicated parsing than
+	   * is implemented is required to handle this case.
+	   */
+	  zlog_err ("ifm_read: addrs %x != RTA_IFP (unhandled, ignoring)\n",
+		    ifm->ifm_addrs);
+	  return -1;
+      }
+    }
+  /*
+   * Past here, either ifm_addrs == 0 or ifm_addrs == RTA_IFP and sdl
+   * points to a RTA_IFP sockaddr.
+   */
 #endif
 
-  /* 
-   * Check if ifp already exists. If the interface has already been specified
-   * in the conf file, but is just getting created, we would have an
-   * entry in the iflist with incomplete data (e.g., ifindex == -1),
-   * so we lookup on name.
-   */
+  /* Check that sdl, if present, is actually a sockaddr_dl before use. */
   if (sdl != NULL)
+    switch (sdl->sdl_family)
+      {
+      case AF_LINK:
+	/* Standard AF for link-layer address sockaddrs. */
+      case AF_DLI:
+	/*
+	 * XXX Comment in NetBSD net/if_dl.h says AF_DLI, but this
+	 * seems wrong.  Accept it for now.
+	 */
+	break;
+
+      default:
+	zlog_err ("ifm_read: sockaddr_dl bad AF %d\n",
+		  sdl->sdl_family);
+	return -1;
+      }
+
+  /* 
+   * Look up on ifindex.  This is useful if this is an up/down
+   * notification for an interface of which we are already aware.
+   * (This happens on NetBSD 1.6.2, for example.)
+   */
+  if (ifp == NULL)
+    ifp = if_lookup_by_index (ifm->ifm_index);
+
+
+  /* 
+   * If lookup by index was unsuccessful and we have a name, try
+   * looking up by name.  Interfaces specified in the configuration
+   * file for which the ifindex has not been determined will have
+   * ifindex == -1, and such interfaces are found by this search, and
+   * then their ifindex values can be filled in.
+   */
+  if (ifp != NULL && sdl != NULL)
     {
+      /*
+       * paranoia: sanity check name length.  nlen does not include
+       * trailing zero, but IFNAMSIZ max length does.
+       */
+      if (sdl->sdl_nlen >= IFNAMSIZ)
+	{
+	  zlog_err ("ifm_read: illegal sdl_nlen %d\n", sdl->sdl_nlen);
+	  return -1;
+	}
+
       memcpy (ifname, sdl->sdl_data, sdl->sdl_nlen);
       ifname[sdl->sdl_nlen] = '\0';
       ifp = if_lookup_by_name (ifname);
     }
 
+  /*
+   * If ifp does not exist or has an invalid index (-1), create or
+   * fill in an interface.
+   */
   if ((ifp == NULL) || (ifp->ifindex == -1))
     {
       /* Check interface's address.*/
       if (! (ifm->ifm_addrs & RTA_IFP))
 	{
-	  zlog_warn ("There must be RTA_IFP address for ifindex %d\n",
+	  zlog_warn ("Interface index %d (new) missing RTA_IFP sockaddr\n",
 		     ifm->ifm_index);
+	  return -1;
+	}
+
+      /*
+       * paranoia: sdl-finding code above guarantees that sdl is
+       * non-NULL and valid if RTA_IFP is set in ifm_addrs, so this
+       * check is in theory not necessary.
+       */
+      if (sdl == NULL)
+	{
+	  zlog_warn ("ifm_read: no sockaddr_dl present");
 	  return -1;
 	}
 
@@ -291,13 +386,20 @@ ifm_read (struct if_msghdr *ifm)
 	  zlog_warn ("sockaddr_dl->sdl_family is not AF_LINK");
 	  return -1;
 	}
+      /* XXX sockaddr_dl can be larger than base structure */
       memcpy (&ifp->sdl, sdl, sizeof (struct sockaddr_dl));
 
       if_add_update (ifp);
     }
   else
+    /*
+     * Interface structure exists.  Adjust stored flags from
+     * notification.  If interface has up->down or down->up
+     * transition, call state change routines (to adjust routes,
+     * notify routing daemons, etc.).  (Other flag changes are stored
+     * but apparently do not trigger action.)
+     */
     {
-      /* There is a case of promisc, allmulti flag modification. */
       if (if_is_up (ifp))
 	{
 	  ifp->flags = ifm->ifm_flags;
@@ -823,6 +925,13 @@ kernel_read (struct thread *thread)
     rtmsg_debug (&buf.r.rtm);
 
   rtm = &buf.r.rtm;
+
+  if (rtm->rtm_msglen != nbytes)
+    {
+      zlog_warn ("kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d\n",
+		 rtm->rtm_msglen, nbytes, rtm->rtm_type);
+      return -1;
+    }
 
   switch (rtm->rtm_type)
     {

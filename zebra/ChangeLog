@@ -1,3 +1,12 @@
+2004-01-05  Greg Troxel  <gdt@ahi.ir.bbn.com>
+
+	* kernel_socket.c (kernel_read): Look up interfaces by index
+	first, so that state changes which do not include a sockaddr_dl
+	now work.  Add many sanity checks.  In
+	particular, do not assume that a sockaddr_dl follows a message
+	without checking the ifm_addrs flags, and do not trust the length
+	in a sockaddr_dl.  Add/clarify many comments.
+
 2003-12-03  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* rtadv.c: reorder includes to avoid compiler warning (define
