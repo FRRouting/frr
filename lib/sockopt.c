@@ -31,7 +31,7 @@ setsockopt_so_recvbuf (int sock, int size)
   if ( (ret = setsockopt (sock, SOL_SOCKET, SO_RCVBUF, (char *)
                           &size, sizeof (int))) < 0)
     zlog_err ("fd %d: can't setsockopt SO_RCVBUF to %d: %s",
-	      sock,size,strerror(errno));
+	      sock,size,safe_strerror(errno));
 
   return ret;
 }
