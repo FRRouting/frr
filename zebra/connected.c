@@ -69,7 +69,7 @@ connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
   p.prefixlen = addr->prefixlen;
 
   /* Point-to-point check. */
-  if (ifc_pointopoint (ifc))
+  if (ifc_pointopoint (ifc) && dest)
     p.prefix = dest->prefix;
   else
     p.prefix = addr->prefix;

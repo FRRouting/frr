@@ -66,6 +66,8 @@ ospf_interface_add (int command, struct zclient *zclient, zebra_size_t length)
     zlog_info ("Zebra: interface add %s index %d flags %ld metric %d mtu %d",
 	       ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
 
+  assert(ifp->info);
+
   if (!OSPF_IF_PARAM_CONFIGURED (IF_DEF_PARAMS (ifp), type))
     {
       SET_IF_PARAM (IF_DEF_PARAMS (ifp), type);

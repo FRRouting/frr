@@ -253,6 +253,15 @@ ospf_lsa_dup (struct ospf_lsa *lsa)
   new->retransmit_counter = 0;
   new->data = ospf_lsa_data_dup (lsa->data);
 
+  /* kevinm: Clear the refresh_list, otherwise there are going
+     to be problems when we try to remove the LSA from the
+     queue (which it's not a member of.)
+     XXX: Should we add the LSA to the refresh_list queue? */
+  new->refresh_list = -1;
+
+  if (IS_DEBUG_OSPF (lsa, LSA))
+    zlog_info ("LSA: duplicated %p (new: %p)", lsa, new);
+
   return new;
 }
 
@@ -1420,12 +1429,14 @@ ospf_get_ip_from_ifp (struct ospf_interface *oi)
 
 /* Get 1st IP connection for Forward Addr */
 struct in_addr
-ospf_get_nssa_ip (void)
+ospf_get_nssa_ip (struct ospf_area *area)
 {
   struct in_addr fwd;
+  struct in_addr best_default;
   listnode n1;
 
   fwd.s_addr = 0;
+  best_default.s_addr = 0;
 
 
   for (n1 = listhead (ospf_top->oiflist); n1; nextnode (n1))
@@ -1434,9 +1445,16 @@ ospf_get_nssa_ip (void)
 
       if (if_is_operative (oi->ifp))
 	if (oi->area->external_routing == OSPF_AREA_NSSA)
-	  if (oi->address && oi->address->family == AF_INET)
-	    return (oi->address->u.prefix4 );
+	  if (oi->address && oi->address->family == AF_INET) {
+	    if (best_default.s_addr == 0) {
+	      best_default = oi->address->u.prefix4;
+	    }
+	    if (oi->area == area)
+	      return (oi->address->u.prefix4);
+	  }
     }
+  if (best_default.s_addr != 0)
+    return best_default;
 
   return fwd;
 }
@@ -1628,7 +1646,8 @@ void
 ospf_install_flood_nssa (struct ospf_lsa *lsa, struct external_info *ei)
 {
   struct ospf_lsa *new2;
-  struct as_external_lsa *extlsa;
+  struct as_external_lsa *extlsa, *newextlsa;
+  listnode node;
 
   /* NSSA Originate or Refresh (If anyNSSA)
 
@@ -1645,54 +1664,61 @@ ospf_install_flood_nssa (struct ospf_lsa *lsa, struct external_info *ei)
   Later, ABR_TASK and P-bit will scan Type-7 LSDB and translate to
   Type-5's to non-NSSA Areas.  (it will also attempt a re-install) */
 
-  /* make lsa duplicate, lock=1 */
-  new2 = ospf_lsa_dup(lsa);
+  for (node = listhead (ospf_top->areas); node; nextnode (node)) {
+  
+  	  struct ospf_area *area = getdata (node);
 
-  /* make type-7 */
-  new2->data->type  = OSPF_AS_NSSA_LSA;
+	  /* make lsa duplicate, lock=1 */
+	  new2 = ospf_lsa_dup(lsa);
 
-  /* set P-bit if not ABR */
-  if (! OSPF_IS_ABR)
-    {
-      SET_FLAG(new2->data->options, OSPF_OPTION_NP);
+	  /* make type-7 */
+	  new2->data->type  = OSPF_AS_NSSA_LSA;
 
-      /* set non-zero FWD ADDR 
+	  /* set P-bit if not ABR */
+	  if (! OSPF_IS_ABR)
+	    {
+	      SET_FLAG(new2->data->options, OSPF_OPTION_NP);
 
-      draft-ietf-ospf-nssa-update-09.txt
+	      /* set non-zero FWD ADDR 
 
-      if the network between the NSSA AS boundary router and the
-      adjacent AS is advertised into OSPF as an internal OSPF route, 
-      the forwarding address should be the next op address as is cu
-      currently done with type-5 LSAs.  If the intervening network is 
-      not adversited into OSPF as an internal OSPF route and the 
-      type-7 LSA's P-bit is set a forwarding address should be 
-      selected from one of the router's active OSPF inteface addresses
-      which belong to the NSSA.  If no such addresses exist, then
-      no type-7 LSA's with the P-bit set should originate from this
-      router.   */
+	      draft-ietf-ospf-nssa-update-09.txt
 
-      extlsa = (struct as_external_lsa *)(lsa->data);
+	      if the network between the NSSA AS boundary router and the
+	      adjacent AS is advertised into OSPF as an internal OSPF route, 
+	      the forwarding address should be the next op address as is cu
+	      currently done with type-5 LSAs.  If the intervening network is 
+	      not adversited into OSPF as an internal OSPF route and the 
+	      type-7 LSA's P-bit is set a forwarding address should be 
+	      selected from one of the router's active OSPF inteface addresses
+	      which belong to the NSSA.  If no such addresses exist, then
+	      no type-7 LSA's with the P-bit set should originate from this
+	      router.   */
 
-      if (extlsa->e[0].fwd_addr.s_addr == 0) 
-	extlsa->e[0].fwd_addr = ospf_get_nssa_ip(); /* this NSSA area in ifp */
+		/* not updating lsa anymore, just new2 */ 
+		extlsa = (struct as_external_lsa *)(new2->data);
 
-      if (IS_DEBUG_OSPF_NSSA)
-	if (extlsa->e[0].fwd_addr.s_addr == 0) 
-	  {
-	    zlog_info ("LSA[Type-7]: Could not build FWD-ADDR");
-	    ospf_lsa_discard(new2);
-	    return;
-	  }
-    }
+	      if (extlsa->e[0].fwd_addr.s_addr == 0) 
+		/* this NSSA area in ifp */
+		extlsa->e[0].fwd_addr = ospf_get_nssa_ip(area); 
 
-  /* Re-calculate checksum. */
-  ospf_lsa_checksum (new2->data);
+	      if (IS_DEBUG_OSPF_NSSA)
+		if (extlsa->e[0].fwd_addr.s_addr == 0) 
+		  {
+		    zlog_info ("LSA[Type-7]: Could not build FWD-ADDR");
+		    ospf_lsa_discard(new2);
+		    return;
+		  }
+	    }
 
-  /* install also as Type-7 */
-  ospf_lsa_install (NULL, new2);   /* Remove Old, Lock New = 2 */
+	  /* Re-calculate checksum. */
+	  ospf_lsa_checksum (new2->data);
 
-  /* will send each copy, lock=2+n */
-  ospf_flood_through_as (NULL, new2); /* all attached NSSA's, no AS/STUBs */
+	  /* install also as Type-7 */
+	  ospf_lsa_install (NULL, new2);   /* Remove Old, Lock New = 2 */
+
+	  /* will send each copy, lock=2+n */
+	  ospf_flood_through_as (NULL, new2); /* all attached NSSA's, no AS/STUBs */
+	}
 
   /* last send, lock=2 LSA is now permanent in Type-7 LSDB */
   /* It has the same ID as it's Type-5 Counter-Part */
@@ -2257,6 +2283,13 @@ ospf_lsa_install (struct ospf_interface *oi, struct ospf_lsa *lsa)
   /* Set LSDB. */
   switch (lsa->data->type)
     {
+      /* kevinm */
+    case OSPF_AS_NSSA_LSA:
+      if (lsa->area)
+	lsdb = lsa->area->lsdb;
+      else
+	lsdb = ospf_top->lsdb;
+      break;
     case OSPF_AS_EXTERNAL_LSA:
 #ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
@@ -2370,6 +2403,9 @@ ospf_lsa_install (struct ospf_interface *oi, struct ospf_lsa *lsa)
 #ifdef HAVE_OPAQUE_LSA
         case OSPF_OPAQUE_AS_LSA:
 #endif /* HAVE_OPAQUE_LSA */
+#ifdef HAVE_NSSA
+	case OSPF_AS_NSSA_LSA:
+#endif
           zlog_info ("LSA[%s]: Install %s",
                  dump_lsa_key (new),
                  LOOKUP (ospf_lsa_type_msg, new->data->type));
@@ -2579,6 +2615,9 @@ ospf_lsa_maxage_walker_remover (struct ospf_lsa *lsa, void *p_arg, int int_arg)
 #ifdef HAVE_OPAQUE_LSA
           case OSPF_OPAQUE_AS_LSA:
 #endif /* HAVE_OPAQUE_LSA */
+#ifdef HAVE_NSSA
+	  case OSPF_AS_NSSA_LSA:
+#endif
 	    ospf_ase_incremental_update (lsa, ospf_top);
             break;
           default:
@@ -3260,6 +3299,8 @@ ospf_refresher_register_lsa (struct ospf *top, struct ospf_lsa *lsa)
 	top->lsa_refresh_queue.qs[index] = list_new ();
       listnode_add (top->lsa_refresh_queue.qs[index], ospf_lsa_lock (lsa));
       lsa->refresh_list = index;
+      if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
+	zlog_info ("LSA[Refresh]: ospf_refresher_register_lsa(): setting refresh_list on lsa %p (slod %d)", lsa, index);
     }
 }
 
@@ -3324,7 +3365,7 @@ ospf_lsa_refresh_walker (struct thread *t)
 	      next = node->next;
 	      
 	      if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
-		zlog_info ("LSA[Refresh]: ospf_lsa_refresh_walker(): refresh lsa %p", lsa);
+		zlog_info ("LSA[Refresh]: ospf_lsa_refresh_walker(): refresh lsa %p (slot %d)", lsa, i);
 	      
 	      list_delete_node (refresh_list, node);
 	      ospf_lsa_unlock (lsa);

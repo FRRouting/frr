@@ -622,6 +622,7 @@ ospf_flood_through_as (struct ospf_neighbor *inbr, struct ospf_lsa *lsa)
 {
   listnode node;
   int lsa_ack_flag;
+  struct as_external_lsa *extlsa;
 
   lsa_ack_flag = 0;
 
@@ -646,6 +647,7 @@ ospf_flood_through_as (struct ospf_neighbor *inbr, struct ospf_lsa *lsa)
     {
       int continue_flag = 0;
       struct ospf_area *area = getdata (node);
+      struct in_addr fwd;
       listnode if_node;
 
       switch (area->external_routing)
@@ -657,11 +659,13 @@ ospf_flood_through_as (struct ospf_neighbor *inbr, struct ospf_lsa *lsa)
 	case OSPF_AREA_NSSA:	/* Sending Type 5 or 7 into NSSA area */
 #ifdef HAVE_NSSA
 	  /* Type-7, flood NSSA area */
-          if (lsa->data->type == OSPF_AS_NSSA_LSA) 
+          if (lsa->data->type == OSPF_AS_NSSA_LSA &&
+          	area == lsa->area) { 
 	    /* We will send it. */
 	    continue_flag = 0;
-          else
+          } else {
 	    continue_flag = 1;  /* Skip this NSSA area for Type-5's et al */
+	  }
           break;
 #endif /* HAVE_NSSA */
 

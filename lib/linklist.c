@@ -162,6 +162,7 @@ listnode_delete (struct list *list, void *val)
 {
   struct listnode *node;
 
+  assert(list);
   for (node = list->head; node; node = node->next)
     {
       if (node->data == val)
@@ -189,6 +190,7 @@ listnode_head (struct list *list)
 {
   struct listnode *node;
 
+  assert(list);
   node = list->head;
 
   if (node)
@@ -203,6 +205,7 @@ list_delete_all_node (struct list *list)
   struct listnode *node;
   struct listnode *next;
 
+  assert(list);
   for (node = list->head; node; node = next)
     {
       next = node->next;
@@ -221,6 +224,7 @@ list_delete (struct list *list)
   struct listnode *node;
   struct listnode *next;
 
+  assert(list);
   for (node = list->head; node; node = next)
     {
       next = node->next;
@@ -237,6 +241,7 @@ listnode_lookup (struct list *list, void *data)
 {
   listnode node;
 
+  assert(list);
   for (node = list->head; node; nextnode (node))
     if (data == getdata (node))
       return node;

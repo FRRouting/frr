@@ -642,6 +642,10 @@ ospf_ase_calculate_timer (struct thread *t)
 	      foreach_lsa (NSSA_LSDB (area), NULL, 0,
 			   ospf_ase_calculate_route);
 	  }
+      /* kevinm: And add the NSSA routes in ospf_top */
+      foreach_lsa(NSSA_LSDB (ospf_top), NULL, 0,
+		  ospf_ase_calculate_route);
+
 #endif /* HAVE_NSSA */
 
       /* Compare old and new external routing table and install the

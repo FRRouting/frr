@@ -616,16 +616,22 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 
   /* increment statistics. */
   oi->hello_in++;
+  zlog_info ("Packet %s [Hello:RECV]: oi hello cnt %d",
+	     inet_ntoa (ospfh->router_id), oi->hello_in);
 
   hello = (struct ospf_hello *) STREAM_PNT (s);
 
   /* If Hello is myself, silently discard. */
-  if (IPV4_ADDR_SAME (&ospfh->router_id, &ospf_top->router_id))
+  if (IPV4_ADDR_SAME (&ospfh->router_id, &ospf_top->router_id)) {
+    zlog_info ("Packet %s [Hello:RECV]: router_id matches our router id");
     return;
+  }
 
   /* If incoming interface is passive one, ignore Hello. */
-  if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE)
+  if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE) {
+    zlog_info ("Packet %s [HELLO:RECV]: oi is passive");
     return;
+  }
 
   /* get neighbor prefix. */
   p.family = AF_INET;
@@ -2217,8 +2223,8 @@ ospf_read (struct thread *thread)
 
   /* IP Header dump. */
   /*
-  if (ospf_debug_packet & OSPF_DEBUG_RECV)
-    ospf_ip_header_dump (ibuf);
+    if (ospf_debug_packet & OSPF_DEBUG_RECV)*/
+    ospf_ip_header_dump (ibuf); /*
   */
   /* Self-originated packet should be discarded silently. */
   if (ospf_if_lookup_by_local_addr (NULL, iph->ip_src))
@@ -2265,8 +2271,8 @@ ospf_read (struct thread *thread)
     }
 
   /* Show debug receiving packet. */
-  if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
-    {
+  /*  if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+      {*/
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, DETAIL))
 	{
 	  zlog_info ("-----------------------------------------------------");
@@ -2281,7 +2287,7 @@ ospf_read (struct thread *thread)
 
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, DETAIL))
 	zlog_info ("-----------------------------------------------------");
-    }
+      /*    }*/
 
   /* Some header verification. */
   ret = ospf_verify_header (ibuf, oi, iph, ospfh);
@@ -2453,7 +2459,11 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
 
   /* Add neighbor seen. */
   for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
-    if ((nbr = rn->info) != NULL)
+    if ((nbr = rn->info) != NULL) {
+      zlog_info("make_hello: nbr %s, state %d",
+		inet_ntoa(nbr->router_id),
+		nbr->state);
+
       /* ignore 0.0.0.0 node. */
       if (nbr->router_id.s_addr != 0)
 	if (nbr->state != NSM_Attempt)
@@ -2466,11 +2476,12 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
 	      if (nbr->d_router.s_addr != 0 &&
 		  IPV4_ADDR_SAME (&nbr->d_router, &oi->address->u.prefix4) &&
 		  IPV4_ADDR_SAME (&nbr->bd_router, &oi->address->u.prefix4))
-		flag = 1;
+		flag = 0;
 
 	      stream_put_ipv4 (s, nbr->router_id.s_addr);
 	      length += 4;
 	    }
+    }
 
   /* Let neighbor generate BackupSeen. */
   if (flag == 1)

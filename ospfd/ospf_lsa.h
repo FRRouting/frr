@@ -323,4 +323,8 @@ int is_prefix_default (struct prefix_ipv4 *);
 int metric_type (u_char);
 int metric_value (u_char);
 
+#ifdef HAVE_NSSA
+struct in_addr ospf_get_nssa_ip (struct ospf_area *);
+#endif
+
 #endif /* _ZEBRA_OSPF_LSA_H */
