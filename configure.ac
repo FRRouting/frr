@@ -190,8 +190,21 @@ AC_SUBST(MULTIPATH_NUM)
 dnl -------------------
 dnl Check header files.
 dnl -------------------
-AC_STDC_HEADERS
-AC_CHECK_HEADERS(string.h stropts.h sys/conf.h sys/ksym.h sys/time.h sys/times.h sys/select.h sys/sysctl.h sys/sockio.h sys/types.h net/if_dl.h net/if_var.h linux/version.h kvm.h netdb.h netinet/in.h net/netopt.h netinet/in_var.h netinet/in6_var.h netinet6/in6_var.h netinet/in6.h inet/nd.h asm/types.h netinet/icmp6.h netinet6/nd6.h libutil.h)
+AC_HEADER_STDC
+AC_CHECK_HEADERS([string.h stropts.h sys/conf.h sys/ksym.h sys/time.h \
+                 sys/times.h sys/select.h sys/sysctl.h sys/sockio.h \
+                 sys/types.h linux/version.h kvm.h netdb.h asm/types.h \
+                 libutil.h limits.h])
+
+AC_CHECK_HEADERS([sys/socket.h netinet/in.h net/if_dl.h \
+		 net/netopt.h inet/nd.h net/route.h net/if.h \
+		 net/if_var.h netinet/in_var.h])
+
+if test "x${enable_ipv6}" = "xyes"; then
+AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h netinet/icmp6.h \
+		 netinet6/in6_var.h netinet6/nd6.h])
+fi
+dnl if enable_ipv6
 
 dnl check some types
 AC_C_CONST
@@ -231,6 +244,10 @@ case "$host" in
       opsys=bsdi
       OTHER_METHOD="mtu_kvm.o"
       AC_CHECK_LIB(kvm, main)
+  ;;
+  *-irix65)
+      opsys=irix
+      AC_DEFINE(IRIX_65,,IRIX 6.5)
   ;;
 esac
 
@@ -1022,7 +1039,11 @@ compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 linker flags            : ${LDFLAGS} ${LIBS}
 state file directory    : ${quagga_statedir}
+config file directory   : `eval echo \`echo ${sysconfdir}\``
 user to run as		: ${enable_user}
 group to run as		: ${enable_group}
 group for vty sockets	: ${enable_vty_group}
+
+The above user and group must have read/write access to the state file
+directory and to the config files in the config file directory.
 "
