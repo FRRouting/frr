@@ -1,3 +1,72 @@
+2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* log.h: Replace struct zlog flags and maskpri fields with maxlvl
+	  array to support individual logging levels for each destination.
+	  Remove the 2nd argument to openzlog since the default logging config
+	  should be standardized inside the library.  Replaced the
+	  zlog_set_flag and zlog_reset_flag functions with zlog_set_level.
+	  And zlog_set_file now requires an additional log_level argument.
+	  Declare zlog_proto_names for use inside command.c in the
+	  "show logging" command.  Added defines useful for command
+	  construction.
+	* log.c: (vzlog) Decide where to send the message based on the
+	  individual logging levels configured for each destination.
+	  Remove support for ZLOG_STDERR since it was never actually used.
+	  Support record-priority for terminal monitors.
+	  (zlog_signal,zlog_backtrace_sigsafe) Support destination-specific
+	  logging levels.  Remove stderr support (was never used).  Added
+	  support for terminal monitor logging.
+	  (_zlog_assert_failed) Increase message severity to LOG_EMERG.
+	  (openzlog) Remove 2nd argument since default config should be
+	  standardized in library.  By default, terminal monitoring
+	  is set to debug, and all other logging is disabled.
+	  (zlog_set_flag,zlog_reset_flag) Removed.
+	  (zlog_set_level) New function to replace zlog_set_flag and
+	  zlog_reset_flag.  Supports destination-specific logging levels.
+	  (zlog_set_file,zlog_reset_file) Support file-specific logging level.
+	  (zlog_rotate) Log an error message if fopen fails, and support
+	  new file-specific logging level.
+	* command.h: Change DEFUN_CMD_FUNC_DECL and DEFUN_CMD_FUNC_TEXT so that
+	  command functions will be static instead of global.  Remove
+	  declarations for config_exit and config_help.  Define new macros
+	  DEFUNSH_ATTR, DEFUNSH_HIDDEN, and DEFUNSH_DEPRECATED so we can
+	  have deprecated commands in vtysh.  Similarly, for completeness,
+	  define macros ALIAS_SH, ALIAS_SH_HIDDEN, and ALIAS_SH_DEPRECATED.
+	  Also, fix bug in ALIAS_ATTR macro (didn't matter because it
+	  was never used).
+	* command.c: Make many functions static instead of global.
+	  (facility_name,facility_match,level_match) New functions
+	  to support enhanced destination-specific logging levels.
+	  (config_write_host) Support new destination-specific logging levels.
+	  (config_logmsg) Added new "logmsg" command to help test logging
+	  system.
+	  (show_logging) Added "show logging" command to show the current
+	  configuration of the logging system.
+	  (config_log_stdout_level) Support explicit stdout logging level.
+	  (no_config_log_stdout) Now takes optional LEVEL arg.
+	  (config_log_monitor,config_log_monitor_level,no_config_log_monitor)
+	  New commands creating new "log monitor" commands to set terminal
+	  monitoring log level.
+	  (config_log_file_level) Support explicit file logging level.
+	  (config_log_syslog_level) Support explicit syslog logging level.
+	  (config_log_facility,no_config_log_facility) Implement new
+	  "log facility" command.
+	  (cmd_init) Add hooks for new commands: "show logging", "logmsg",
+	  "log stdout <level>", "log monitor", "log monitor <level>",
+	  "no log monitor", "log file <filename> <level>",
+	  "no log file <filename> <level>", "log syslog <level>",
+	  "log facility", and "no log facility".
+	* vty.h: Added a "level" argument to vty_log so it can support
+	  "log record-priority".  Declare new function vty_log_fixed for
+	  use in signal handlers.
+	* vty.c: (vty_log,vty_log_out) Added a "level" argument to support
+	  "log record-priority" for vty terminal monitors.
+	  (vty_down_level) Use config_exit_cmd.func instead of calling
+	  config_exit directly (since command functions will now be static
+	  instead of global).
+	  (vty_log_fixed) New function to send terminal monitor messages
+	  from inside a signal handler.
+
 2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* log.h: Document appropriate use of syslog logging priorities

@@ -205,7 +205,7 @@ main (int argc, char **argv)
   /* Preserve name of myself. */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
-  zlog_default = openzlog (progname, ZLOG_NOLOG, ZLOG_BGP,
+  zlog_default = openzlog (progname, ZLOG_BGP,
 			   LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 
   /* BGP master init. */

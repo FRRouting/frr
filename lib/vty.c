@@ -148,14 +148,17 @@ vty_out (struct vty *vty, const char *format, ...)
 }
 
 static int
-vty_log_out (struct vty *vty, const char *proto_str, const char *format,
-	     va_list va)
+vty_log_out (struct vty *vty, const char *level, const char *proto_str,
+	     const char *format, va_list va)
 {
   int len;
   char buf[1024];
 
-  snprintf (buf, sizeof buf, "%s: ", proto_str);
-  write (vty->fd, buf, strlen (proto_str) + 2);
+  if (level)
+    snprintf (buf, sizeof buf, "%s: %s: ", level, proto_str);
+  else
+    snprintf (buf, sizeof buf, "%s: ", proto_str);
+  write (vty->fd, buf, strlen (buf));
 
   len = vsnprintf (buf, sizeof buf, format, va);
   if (len < 0)
@@ -602,7 +605,7 @@ static void
 vty_down_level (struct vty *vty)
 {
   vty_out (vty, "%s", VTY_NEWLINE);
-  config_exit (NULL, vty, 0, NULL);
+  (*config_exit_cmd.func)(NULL, vty, 0, NULL);
   vty_prompt (vty);
   vty->cp = 0;
 }
@@ -2273,7 +2276,8 @@ vty_read_config (char *config_file,
 
 /* Small utility function which output log to the VTY. */
 void
-vty_log (const char *proto_str, const char *format, va_list va)
+vty_log (const char *level, const char *proto_str,
+	 const char *format, va_list va)
 {
   unsigned int i;
   struct vty *vty;
@@ -2284,9 +2288,27 @@ vty_log (const char *proto_str, const char *format, va_list va)
 	{
 	  va_list ac;
 	  va_copy(ac, va);
-	  vty_log_out (vty, proto_str, format, ac);
+	  vty_log_out (vty, level, proto_str, format, ac);
 	  va_end(ac);
 	}
+}
+
+/* Async-signal-safe version of vty_log for fixed strings. */
+void
+vty_log_fixed (const char *buf, size_t len)
+{
+  unsigned int i;
+
+  for (i = 0; i < vector_max (vtyvec); i++)
+    {
+      struct vty *vty;
+      if ((vty = vector_slot (vtyvec, i)) != NULL)
+	if (vty->monitor)
+	  {
+	    write(vty->fd, buf, len);
+	    write(vty->fd, "\r\n", 2);
+	  }
+    }
 }
 
 int

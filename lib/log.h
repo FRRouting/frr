@@ -1,4 +1,7 @@
-/* Zebra logging funcions.
+/*
+ * $Id: log.h,v 1.14 2004/12/07 15:39:32 ajs Exp $
+ *
+ * Zebra logging funcions.
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -40,12 +43,6 @@
  * please use LOG_ERR instead.
  */
 
-#define ZLOG_NOLOG              0x00
-#define ZLOG_FILE		0x01
-#define ZLOG_SYSLOG		0x02
-#define ZLOG_STDOUT             0x04
-#define ZLOG_STDERR             0x08
-
 typedef enum 
 {
   ZLOG_NONE,
@@ -60,14 +57,28 @@ typedef enum
   ZLOG_MASC
 } zlog_proto_t;
 
+/* If maxlvl is set to ZLOG_DISABLED, then no messages will be sent
+   to that logging destination. */
+#define ZLOG_DISABLED	(LOG_EMERG-1)
+
+typedef enum
+{
+  ZLOG_DEST_SYSLOG = 0,
+  ZLOG_DEST_STDOUT,
+  ZLOG_DEST_MONITOR,
+  ZLOG_DEST_FILE
+} zlog_dest_t;
+#define ZLOG_NUM_DESTS		(ZLOG_DEST_FILE+1)
+
 struct zlog 
 {
   const char *ident;	/* daemon name (first arg to openlog) */
   zlog_proto_t protocol;
-  int flags;		/* mask indicating which destinations to log to */
+  int maxlvl[ZLOG_NUM_DESTS];	/* maximum priority to send to associated
+  				   logging destination */
+  int default_lvl;	/* maxlvl to use if none is specified */
   FILE *fp;
   char *filename;
-  int maskpri;		/* discard messages with priority > maskpri */
   int facility;		/* as per syslog facility */
   int record_priority;	/* should messages logged through stdio include the
   			   priority of the message? */
@@ -85,7 +96,8 @@ struct message
 extern struct zlog *zlog_default;
 
 /* Open zlog function */
-struct zlog *openzlog (const char *, int, zlog_proto_t, int, int);
+struct zlog *openzlog (const char *progname, zlog_proto_t protocol,
+		       int syslog_options, int syslog_facility);
 
 /* Close zlog function. */
 void closezlog (struct zlog *zl);
@@ -114,12 +126,15 @@ void plog_info (struct zlog *, const char *format, ...);
 void plog_notice (struct zlog *, const char *format, ...);
 void plog_debug (struct zlog *, const char *format, ...);
 
-/* Set zlog flags. */
-void zlog_set_flag (struct zlog *zl, int flags);
-void zlog_reset_flag (struct zlog *zl, int flags);
+/* Set logging level for the given destination.  If the log_level
+   argument is ZLOG_DISABLED, then the destination is disabled.
+   This function should not be used for file logging (use zlog_set_file
+   or zlog_reset_file instead). */
+void zlog_set_level (struct zlog *zl, zlog_dest_t, int log_level);
 
-/* Set zlog filename. */
-int zlog_set_file (struct zlog *zl, const char *filename);
+/* Set logging to the given filename at the specified level. */
+int zlog_set_file (struct zlog *zl, const char *filename, int log_level);
+/* Disable file logging. */
 int zlog_reset_file (struct zlog *zl);
 
 /* Rotate log. */
@@ -132,6 +147,7 @@ const char *lookup (struct message *, int);
 const char *mes_lookup (struct message *meslist, int max, int index);
 
 extern const char *zlog_priority[];
+extern const char *zlog_proto_names[];
 
 /* Safe version of strerror -- never returns NULL. */
 extern const char *safe_strerror(int errnum);
@@ -146,5 +162,41 @@ extern void zlog_backtrace(int priority);
    called unless the program is about to exit or abort, since it messes
    up the state of zlog file pointers. */
 extern void zlog_backtrace_sigsafe(int priority);
+
+/* Defines for use in command construction: */
+
+#define LOG_LEVELS "(emergencies|alerts|critical|errors|warnings|notifications|informational|debugging)"
+
+#define LOG_LEVEL_DESC \
+  "System is unusable\n" \
+  "Immediate action needed\n" \
+  "Critical conditions\n" \
+  "Error conditions\n" \
+  "Warning conditions\n" \
+  "Normal but significant conditions\n" \
+  "Informational messages\n" \
+  "Debugging messages\n"
+
+#define LOG_FACILITIES "(kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)"
+
+#define LOG_FACILITY_DESC \
+       "Kernel\n" \
+       "User process\n" \
+       "Mail system\n" \
+       "System daemons\n" \
+       "Authorization system\n" \
+       "Syslog itself\n" \
+       "Line printer system\n" \
+       "USENET news\n" \
+       "Unix-to-Unix copy system\n" \
+       "Cron/at facility\n" \
+       "Local use\n" \
+       "Local use\n" \
+       "Local use\n" \
+       "Local use\n" \
+       "Local use\n" \
+       "Local use\n" \
+       "Local use\n" \
+       "Local use\n"
 
 #endif /* _ZEBRA_LOG_H */

@@ -15,9 +15,10 @@ The following sections discuss commands common to all the routing
 daemons.
 
 @menu
+* Terminal Mode Commands::      Common commands used in a VTY
 * Config Commands::             Commands used in config files
 * Common Invocation Options::   Starting the daemons
-* Virtual Terminal Interfaces::  Interacting with the daemons
+* Virtual Terminal Interfaces:: Interacting with the daemons
 @end menu
 
 
@@ -78,47 +79,85 @@ accept connections.
 Set enable password.
 @end deffn
 
+@deffn Command {log trap @var{level}} {}
+@deffnx Command {no log trap} {}
+These commands are deprecated and are present only for historical compatibility.
+The log trap command sets the current logging level for all enabled
+logging destinations, and it sets the default for all future logging commands
+that do not specify a level.  The normal default
+logging level is debugging.  The @code{no} form of the command resets
+the default level for future logging commands to debugging, but it does
+not change the logging level of existing logging destinations.
+@end deffn
+
+
 @deffn Command {log stdout} {}
+@deffnx Command {log stdout @var{level}} {}
 @deffnx Command {no log stdout} {}
-Set logging output to stdout.
+Enable logging output to stdout. 
+If the optional second argument specifying the
+logging level is not present, the default logging level (typically debugging,
+but can be changed using the deprecated @code{log trap} command) will be used.
+The @code{no} form of the command disables logging to stdout.
+The @code{level} argument must have one of these values: 
+emergencies, alerts, critical, errors, warnings, notifications, informational, or debugging.  Note that the existing code logs its most important messages
+with severity @code{errors}.
 @end deffn
 
 @deffn Command {log file @var{filename}} {}
-If you want to log into a file please specify @code{filename} as
-follows.
+@deffnx Command {log file @var{filename} @var{level}} {}
+@deffnx Command {no log file} {}
+If you want to log into a file, please specify @code{filename} as
+in this example:
 @example
-log file /usr/local/etc/bgpd.log
+log file /var/log/quagga/bgpd.log informational
 @end example
+If the optional second argument specifying the
+logging level is not present, the default logging level (typically debugging,
+but can be changed using the deprecated @code{log trap} command) will be used.
+The @code{no} form of the command disables logging to a file.
 @end deffn
 
 @deffn Command {log syslog} {}
+@deffnx Command {log syslog @var{level}} {}
 @deffnx Command {no log syslog} {}
-Set logging output to syslog.
+Enable logging output to syslog.
+If the optional second argument specifying the
+logging level is not present, the default logging level (typically debugging,
+but can be changed using the deprecated @code{log trap} command) will be used.
+The @code{no} form of the command disables logging to syslog.
 @end deffn
 
-@deffn Command {write terminal} {}
-Displays the current configuration to the vty interface.
+@deffn Command {log monitor} {}
+@deffnx Command {log monitor @var{level}} {}
+@deffnx Command {no log monitor} {}
+Enable logging output to vty terminals that have enabled logging
+using the @code{terminal monitor} command.
+By default, monitor logging is enabled at the debugging level, but this
+command (or the deprecated @code{log trap} command) can be used to change 
+the monitor logging level.
+If the optional second argument specifying the
+logging level is not present, the default logging level (typically debugging,
+but can be changed using the deprecated @code{log trap} command) will be used.
+The @code{no} form of the command disables logging to terminal monitors.
 @end deffn
 
-@deffn Command {write file} {}
-Write current configuration to configuration file.
+@deffn Command {log facility @var{facility}} {}
+@deffnx Command {no log facility} {}
+This command changes the facility used in syslog messages.  The default
+facility is @code{daemon}.  The @code{no} form of the command resets
+the facility to the default @code{daemon} facility.
 @end deffn
 
-@deffn Command {configure terminal} {}
-Change to configuration mode.  This command is the first step to
-configuration.
-@end deffn
-
-@deffn Command {terminal length @var{<0-512>}} {}
-Set terminal display length to @var{<0-512>}.  If length is 0, no
-display control is performed.
-@end deffn
-
-@deffn Command {who} {}
-@end deffn
-
-@deffn Command {list} {}
-List commands.
+@deffn Command {log record-priority} {}
+@deffnx Command {no log record-priority} {}
+To include the severity in all messages logged to a file, to stdout, or to
+a terminal monitor (i.e. anything except syslog),
+use the @code{log record-priority} global configuration command.
+To disable this option, use the @code{no} form of the command.  By default,
+the severity level is not included in logged messages.  Note: some
+versions of syslogd (including Solaris) can be configured to include
+the facility and level in the messages emitted.
 @end deffn
 
 @deffn Command {service password-encryption} {}
@@ -132,10 +171,6 @@ Enable advanced mode VTY.
 @deffn Command {service terminal-length @var{<0-512>}} {}
 Set system wide line configuration.  This configuration command applies
 to all VTY interfaces.
-@end deffn
-
-@deffn Command {show version} {}
-Show the current version of @value{PACKAGE_NAME} and its build host information.
 @end deffn
 
 @deffn Command {line vty} {}
@@ -166,8 +201,6 @@ Do not perform timeout at all.  This command is as same as
 @deffn {Line Command} {access-class @var{access-list}} {}
 Restrict vty connections with an access list.
 @end deffn
-
-
 
 @node Sample Config File
 @subsection Sample Config File
@@ -201,6 +234,52 @@ password zebra!password
 If a comment character is not the first character of the word, it's a
 normal character. So in the above example '!' will not be regarded as a
 comment and the password is set to 'zebra!password'.
+
+
+
+@node Terminal Mode Commands
+@section Terminal Mode Commands
+
+@deffn Command {write terminal} {}
+Displays the current configuration to the vty interface.
+@end deffn
+
+@deffn Command {write file} {}
+Write current configuration to configuration file.
+@end deffn
+
+@deffn Command {configure terminal} {}
+Change to configuration mode.  This command is the first step to
+configuration.
+@end deffn
+
+@deffn Command {terminal length @var{<0-512>}} {}
+Set terminal display length to @var{<0-512>}.  If length is 0, no
+display control is performed.
+@end deffn
+
+@deffn Command {who} {}
+Show a list of currently connected vty sessions.
+@end deffn
+
+@deffn Command {list} {}
+List all available commands.
+@end deffn
+
+@deffn Command {show version} {}
+Show the current version of @value{PACKAGE_NAME} and its build host information.
+@end deffn
+
+@deffn Command {show logging} {}
+Shows the current configuration of the logging system.  This includes
+the status of all logging destinations.
+@end deffn
+
+@deffn Command {logmsg @var{level} @var{message}} {}
+Send a message to all logging destinations that are enabled for messages
+of the given severity.
+@end deffn
+
 
 
 

@@ -1,3 +1,10 @@
+2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* main.c: (main) The 2nd argument to openzlog has been removed.
+	  So stdout logging will no longer be enabled by default.
+	* irdp_main.c: (irdp_finish) Reduce severity of shutdown message
+	  from LOG_WARNING to LOG_INFO.
+
 2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* main.c: (sigint) Use zlog_notice for termination message.

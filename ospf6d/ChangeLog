@@ -1,3 +1,9 @@
+2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf6_main.c: (main) The 2nd argument to openzlog has been removed.
+	  Note that stdout logging will no longer be enabled by default when
+	  not running as a daemon.
+
 2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf6_main.c: (sigint,sigterm) Use zlog_notice for termination

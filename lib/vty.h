@@ -180,11 +180,15 @@ void vty_time_print (struct vty *, int);
 void vty_serv_sock (const char *, unsigned short, const char *);
 void vty_close (struct vty *);
 char *vty_get_cwd (void);
-void vty_log (const char *, const char *, va_list);
+void vty_log (const char *level, const char *proto, const char *fmt, va_list);
 int vty_config_lock (struct vty *);
 int vty_config_unlock (struct vty *);
 int vty_shell (struct vty *);
 int vty_shell_serv (struct vty *);
 void vty_hello (struct vty *);
+
+/* Send a fixed-size message to all vty terminal monitors; this should be
+   an async-signal-safe function. */
+extern void vty_log_fixed (const char *buf, size_t len);
 
 #endif /* _ZEBRA_VTY_H */

@@ -322,7 +322,7 @@ void irdp_finish()
   struct zebra_if *zi;
   struct irdp_interface *irdp;
 
-  zlog_warn("IRDP: Received shutdown notification.");
+  zlog_info("IRDP: Received shutdown notification.");
   
   for (node = listhead (iflist); node; node = nextnode (node))
     {

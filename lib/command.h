@@ -177,10 +177,10 @@ struct desc
   };
 
 #define DEFUN_CMD_FUNC_DECL(funcname) \
-  int funcname (struct cmd_element *, struct vty *, int, const char *[]); \
+  static int funcname (struct cmd_element *, struct vty *, int, const char *[]); \
 
 #define DEFUN_CMD_FUNC_TEXT(funcname) \
-  int funcname \
+  static int funcname \
     (struct cmd_element *self, struct vty *vty, int argc, const char *argv[])
 
 /* DEFUN for vty command interafce. Little bit hacky ;-). */
@@ -214,18 +214,39 @@ struct desc
   DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, daemon) \
   DEFUN_CMD_FUNC_TEXT(funcname)
 
+/* DEFUN + DEFSH with attributes */
+#define DEFUNSH_ATTR(daemon, funcname, cmdname, cmdstr, helpstr, attr) \
+  DEFUN_CMD_FUNC_DECL(funcname) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, daemon) \
+  DEFUN_CMD_FUNC_TEXT(funcname)
+
+#define DEFUNSH_HIDDEN(daemon, funcname, cmdname, cmdstr, helpstr) \
+  DEFUNSH_ATTR (daemon, funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
+
+#define DEFUNSH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr) \
+  DEFUNSH_ATTR (daemon, funcname, cmdname, cmdstr, helpstr, CMD_ATTR_DEPRECATED)
+
 /* ALIAS macro which define existing command's alias. */
 #define ALIAS(funcname, cmdname, cmdstr, helpstr) \
   DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0)
 
 #define ALIAS_ATTR(funcname, cmdname, cmdstr, helpstr, attr) \
-  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, daemon) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, attr, 0)
 
 #define ALIAS_HIDDEN(funcname, cmdname, cmdstr, helpstr) \
   DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, 0)
 
 #define ALIAS_DEPRECATED(funcname, cmdname, cmdstr, helpstr) \
   DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_DEPRECATED, 0)
+
+#define ALIAS_SH(daemon, funcname, cmdname, cmdstr, helpstr) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, daemon)
+
+#define ALIAS_SH_HIDDEN(daemon, funcname, cmdname, cmdstr, helpstr) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN, daemon)
+
+#define ALIAS_SH_DEPRECATED(daemon, funcname, cmdname, cmdstr, helpstr) \
+  DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, CMD_ATTR_DEPRECATED, daemon)
 
 #endif /* VTYSH_EXTRACT_PL */
 
@@ -319,8 +340,6 @@ extern struct cmd_element config_exit_cmd;
 extern struct cmd_element config_quit_cmd;
 extern struct cmd_element config_help_cmd;
 extern struct cmd_element config_list_cmd;
-int config_exit (struct cmd_element *, struct vty *, int, const char *[]);
-int config_help (struct cmd_element *, struct vty *, int, const char *[]);
 char *host_config_file ();
 void host_config_set (char *);
 

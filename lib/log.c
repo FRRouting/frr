@@ -1,4 +1,7 @@
-/* Logging of zebra
+/*
+ * $Id: log.c,v 1.17 2004/12/07 15:39:32 ajs Exp $
+ *
+ * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -104,12 +107,8 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
       return;
     }
 
-  /* only log this information if it has not been masked out */
-  if ( priority > zl->maskpri )
-    return ;
-		
   /* Syslog output */
-  if (zl->flags & ZLOG_SYSLOG)
+  if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG])
     {
       va_list ac;
       va_copy(ac, args);
@@ -118,7 +117,7 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
     }
 
   /* File output. */
-  if (zl->flags & ZLOG_FILE)
+  if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
     {
       va_list ac;
       time_print (zl->fp);
@@ -133,7 +132,7 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
     }
 
   /* stdout output. */
-  if (zl->flags & ZLOG_STDOUT)
+  if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT])
     {
       va_list ac;
       time_print (stdout);
@@ -147,23 +146,10 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list args)
       fflush (stdout);
     }
 
-  /* stderr output. */
-  if (zl->flags & ZLOG_STDERR)
-    {
-      va_list ac;
-      time_print (stderr);
-      if (zl->record_priority)
-	fprintf (stderr, "%s: ", zlog_priority[priority]);
-      fprintf (stderr, "%s: ", zlog_proto_names[zl->protocol]);
-      va_copy(ac, args);
-      vfprintf (stderr, format, ac);
-      va_end(ac);
-      fprintf (stderr, "\n");
-      fflush (stderr);
-    }
-
   /* Terminal monitor. */
-  vty_log (zlog_proto_names[zl->protocol], format, args);
+  if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
+    vty_log ((zl->record_priority ? zlog_priority[priority] : NULL),
+	     zlog_proto_names[zl->protocol], format, args);
 }
 
 static char *
@@ -297,26 +283,29 @@ zlog_signal(int signo, const char *action)
   if (s < buf+sizeof(buf))
     *s++ = '\n';
 
+  /* N.B. implicit priority is most severe */
+#define PRI LOG_EMERG
+
 #define DUMP(FP) write(fileno(FP),buf,s-buf);
   if (!zlog_default)
     DUMP(stderr)
   else
     {
-      if ((zlog_default->flags & ZLOG_FILE) && zlog_default->fp)
+      if ((PRI <= zlog_default->maxlvl[ZLOG_DEST_FILE]) && zlog_default->fp)
         DUMP(zlog_default->fp)
-      if (zlog_default->flags & ZLOG_STDOUT)
+      if (PRI <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
         DUMP(stdout)
-      if (zlog_default->flags & ZLOG_STDERR)
-        DUMP(stderr)
-      if (zlog_default->flags & ZLOG_SYSLOG)
-        {
-	  *--s = '\0';
-	  syslog_sigsafe(LOG_ERR|zlog_default->facility,msgstart,s-msgstart);
-	}
+      /* Remove trailing '\n' for monitor and syslog */
+      *--s = '\0';
+      if (PRI <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
+        vty_log_fixed(buf,s-buf);
+      if (PRI <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
+	syslog_sigsafe(PRI|zlog_default->facility,msgstart,s-msgstart);
     }
 #undef DUMP
 
-  zlog_backtrace_sigsafe(LOG_ERR);
+  zlog_backtrace_sigsafe(PRI);
+#undef PRI
 #undef LOC
 }
 
@@ -331,10 +320,6 @@ zlog_backtrace_sigsafe(int priority)
   char buf[100];
   char *s;
 #define LOC s,buf+sizeof(buf)-s
-
-  /* only log this information if it has not been masked out */
-  if (zlog_default && (priority > zlog_default->maskpri))
-    return;
 
   if (((size = backtrace(array,sizeof(array)/sizeof(array[0]))) <= 0) ||
       ((size_t)size > sizeof(array)/sizeof(array[0])))
@@ -353,29 +338,34 @@ zlog_backtrace_sigsafe(int priority)
     DUMP(stderr)
   else
     {
-      if ((zlog_default->flags & ZLOG_FILE) && zlog_default->fp)
+      if ((priority <= zlog_default->maxlvl[ZLOG_DEST_FILE]) &&
+	  zlog_default->fp)
 	DUMP(zlog_default->fp)
-      if (zlog_default->flags & ZLOG_STDOUT)
+      if (priority <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
 	DUMP(stdout)
-      if (zlog_default->flags & ZLOG_STDERR)
-	DUMP(stderr)
-      if (zlog_default->flags & ZLOG_SYSLOG)
-        {
-	  int i;
-	  *--s = '\0';
-	  syslog_sigsafe(priority|zlog_default->facility,buf,s-buf);
-	  /* Just print the function addresses. */
-	  for (i = 0; i < size; i++)
-	    {
-	      s = buf;
-	      s = str_append(LOC,"[bt ");
-	      s = num_append(LOC,i);
-	      s = str_append(LOC,"] 0x");
-	      s = hex_append(LOC,(u_long)(array[i]));
-	      *s = '\0';
+      /* Remove trailing '\n' for monitor and syslog */
+      *--s = '\0';
+      if (priority <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
+	vty_log_fixed(buf,s-buf);
+      if (priority <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
+	syslog_sigsafe(priority|zlog_default->facility,buf,s-buf);
+      {
+	int i;
+	/* Just print the function addresses. */
+	for (i = 0; i < size; i++)
+	  {
+	    s = buf;
+	    s = str_append(LOC,"[bt ");
+	    s = num_append(LOC,i);
+	    s = str_append(LOC,"] 0x");
+	    s = hex_append(LOC,(u_long)(array[i]));
+	    *s = '\0';
+	    if (priority <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
+	      vty_log_fixed(buf,s-buf);
+	    if (priority <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
 	      syslog_sigsafe(priority|zlog_default->facility,buf,s-buf);
-	    }
-        }
+	  }
+      }
     }
 #undef DUMP
 #undef LOC
@@ -476,28 +466,31 @@ _zlog_assert_failed (const char *assertion, const char *file,
 {
   zlog_err("Assertion `%s' failed in file %s, line %u, function %s",
 	   assertion,file,line,(function ? function : "?"));
-  zlog_backtrace(LOG_ERR);
+  zlog_backtrace(LOG_EMERG);
   abort();
 }
 
 
 /* Open log stream */
 struct zlog *
-openzlog (const char *progname, int flags, zlog_proto_t protocol,
+openzlog (const char *progname, zlog_proto_t protocol,
 	  int syslog_flags, int syslog_facility)
 {
   struct zlog *zl;
+  u_int i;
 
-  zl = XMALLOC(MTYPE_ZLOG, sizeof (struct zlog));
-  memset (zl, 0, sizeof (struct zlog));
+  zl = XCALLOC(MTYPE_ZLOG, sizeof (struct zlog));
 
   zl->ident = progname;
-  zl->flags = flags;
   zl->protocol = protocol;
   zl->facility = syslog_facility;
-  zl->maskpri = LOG_DEBUG;
-  zl->record_priority = 0;
   zl->syslog_options = syslog_flags;
+
+  /* Set default logging levels. */
+  for (i = 0; i < sizeof(zl->maxlvl)/sizeof(zl->maxlvl[0]); i++)
+    zl->maxlvl[i] = ZLOG_DISABLED;
+  zl->maxlvl[ZLOG_DEST_MONITOR] = LOG_DEBUG;
+  zl->default_lvl = LOG_DEBUG;
 
   openlog (progname, syslog_flags, zl->facility);
   
@@ -515,25 +508,16 @@ closezlog (struct zlog *zl)
 
 /* Called from command.c. */
 void
-zlog_set_flag (struct zlog *zl, int flags)
+zlog_set_level (struct zlog *zl, zlog_dest_t dest, int log_level)
 {
   if (zl == NULL)
     zl = zlog_default;
 
-  zl->flags |= flags;
-}
-
-void
-zlog_reset_flag (struct zlog *zl, int flags)
-{
-  if (zl == NULL)
-    zl = zlog_default;
-
-  zl->flags &= ~flags;
+  zl->maxlvl[dest] = log_level;
 }
 
 int
-zlog_set_file (struct zlog *zl, const char *filename)
+zlog_set_file (struct zlog *zl, const char *filename, int log_level)
 {
   FILE *fp;
   mode_t oldumask;
@@ -548,16 +532,13 @@ zlog_set_file (struct zlog *zl, const char *filename)
   /* Open file. */
   oldumask = umask (0777 & ~LOGFILE_MASK);
   fp = fopen (filename, "a");
-  if (fp == NULL)
-    {
-      umask(oldumask);
-      return 0;
-    }
   umask(oldumask);
+  if (fp == NULL)
+    return 0;
 
   /* Set flags. */
   zl->filename = strdup (filename);
-  zl->flags |= ZLOG_FILE;
+  zl->maxlvl[ZLOG_DEST_FILE] = log_level;
   zl->fp = fp;
 
   return 1;
@@ -570,11 +551,10 @@ zlog_reset_file (struct zlog *zl)
   if (zl == NULL)
     zl = zlog_default;
 
-  zl->flags &= ~ZLOG_FILE;
-
   if (zl->fp)
     fclose (zl->fp);
   zl->fp = NULL;
+  zl->maxlvl[ZLOG_DEST_FILE] = ZLOG_DISABLED;
 
   if (zl->filename)
     free (zl->filename);
@@ -587,7 +567,7 @@ zlog_reset_file (struct zlog *zl)
 int
 zlog_rotate (struct zlog *zl)
 {
-  FILE *fp;
+  int level;
 
   if (zl == NULL)
     zl = zlog_default;
@@ -595,20 +575,25 @@ zlog_rotate (struct zlog *zl)
   if (zl->fp)
     fclose (zl->fp);
   zl->fp = NULL;
+  level = zl->maxlvl[ZLOG_DEST_FILE];
+  zl->maxlvl[ZLOG_DEST_FILE] = ZLOG_DISABLED;
 
   if (zl->filename)
     {
       mode_t oldumask;
+      int save_errno;
 
       oldumask = umask (0777 & ~LOGFILE_MASK);
-      fp = fopen (zl->filename, "a");
-      if (fp == NULL)
+      zl->fp = fopen (zl->filename, "a");
+      save_errno = errno;
+      umask(oldumask);
+      if (zl->fp == NULL)
         {
-	  umask(oldumask);
+	  zlog_err("Log rotate failed: cannot open file %s for append: %s",
+	  	   zl->filename, safe_strerror(save_errno));
 	  return -1;
         }	
-      umask(oldumask);
-      zl->fp = fp;
+      zl->maxlvl[ZLOG_DEST_FILE] = level;
     }
 
   return 1;

@@ -52,7 +52,7 @@ int vtysh_writeconfig_integrated = 0;
 
 extern char config_default[];
 
-void
+static void
 vclient_close (struct vtysh_client *vclient)
 {
   if (vclient->fd > 0)
@@ -63,7 +63,7 @@ vclient_close (struct vtysh_client *vclient)
 /* Following filled with debug code to trace a problematic condition
  * under load - it SHOULD handle it. */
 #define ERR_WHERE_STRING "vtysh(): vtysh_client_config(): "
-int
+static int
 vtysh_client_config (struct vtysh_client *vclient, char *line)
 {
   int ret;
@@ -161,7 +161,7 @@ vtysh_client_config (struct vtysh_client *vclient, char *line)
   return ret;
 }
 
-int
+static int
 vtysh_client_execute (struct vtysh_client *vclient, const char *line, FILE *fp)
 {
   int ret;
@@ -247,7 +247,7 @@ vtysh_pager_init ()
 }
 
 /* Command execution over the vty interface. */
-void
+static void
 vtysh_execute_func (const char *line, int pager)
 {
   int ret, cmd_stat;
@@ -604,7 +604,7 @@ vtysh_rl_describe ()
  * correct places only. */
 int complete_status;
 
-char *
+static char *
 command_generator (const char *text, int state)
 {
   vector vline;
@@ -635,7 +635,7 @@ command_generator (const char *text, int state)
   return NULL;
 }
 
-char **
+static char **
 new_completion (char *text, int start, int end)
 {
   char **matches;
@@ -652,7 +652,9 @@ new_completion (char *text, int start, int end)
   return matches;
 }
 
-char **
+#if 0
+/* This function is not actually being used. */
+static char **
 vtysh_completion (char *text, int start, int end)
 {
   int ret;
@@ -676,6 +678,7 @@ vtysh_completion (char *text, int start, int end)
 
   return (char **) matched;
 }
+#endif
 
 /* Vty node structures. */
 struct cmd_node bgp_node =
@@ -1015,7 +1018,7 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
-int
+static int
 vtysh_exit (struct vty *vty)
 {
   switch (vty->node)
@@ -1265,7 +1268,18 @@ DEFUNSH (VTYSH_ALL,
 	 vtysh_log_stdout_cmd,
 	 "log stdout",
 	 "Logging control\n"
-	 "Logging goes to stdout\n")
+	 "Set stdout logging level\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_stdout_level,
+	 vtysh_log_stdout_level_cmd,
+	 "log stdout "LOG_LEVELS,
+	 "Logging control\n"
+	 "Set stdout logging level\n"
+	 LOG_LEVEL_DESC)
 {
   return CMD_SUCCESS;
 }
@@ -1273,10 +1287,11 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 no_vtysh_log_stdout,
 	 no_vtysh_log_stdout_cmd,
-	 "no log stdout",
+	 "no log stdout [LEVEL]",
 	 NO_STR
 	 "Logging control\n"
-	 "Logging goes to stdout\n")
+	 "Cancel logging to stdout\n"
+	 "Logging level\n")
 {
   return CMD_SUCCESS;
 }
@@ -1293,6 +1308,18 @@ DEFUNSH (VTYSH_ALL,
 }
 
 DEFUNSH (VTYSH_ALL,
+	 vtysh_log_file_level,
+	 vtysh_log_file_level_cmd,
+	 "log file FILENAME "LOG_LEVELS,
+	 "Logging control\n"
+	 "Logging to file\n"
+	 "Logging filename\n"
+	 LOG_LEVEL_DESC)
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
 	 no_vtysh_log_file,
 	 no_vtysh_log_file_cmd,
 	 "no log file [FILENAME]",
@@ -1304,12 +1331,66 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
+ALIAS_SH (VTYSH_ALL,
+	  no_vtysh_log_file,
+	  no_vtysh_log_file_level_cmd,
+	  "no log file FILENAME LEVEL",
+	  NO_STR
+	  "Logging control\n"
+	  "Cancel logging to file\n"
+	  "Logging file name\n"
+	  "Logging level\n")
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_monitor,
+	 vtysh_log_monitor_cmd,
+	 "log monitor",
+	 "Logging control\n"
+	 "Set terminal line (monitor) logging level\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_monitor_level,
+	 vtysh_log_monitor_level_cmd,
+	 "log monitor "LOG_LEVELS,
+	 "Logging control\n"
+	 "Set terminal line (monitor) logging level\n"
+	 LOG_LEVEL_DESC)
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 no_vtysh_log_monitor,
+	 no_vtysh_log_monitor_cmd,
+	 "no log monitor [LEVEL]",
+	 NO_STR
+	 "Logging control\n"
+	 "Disable terminal line (monitor) logging\n"
+	 "Logging level\n")
+{
+  return CMD_SUCCESS;
+}
+
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_syslog,
 	 vtysh_log_syslog_cmd,
 	 "log syslog",
 	 "Logging control\n"
-	 "Logging goes to syslog\n")
+	 "Set syslog logging level\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_syslog_level,
+	 vtysh_log_syslog_level_cmd,
+	 "log syslog "LOG_LEVELS,
+	 "Logging control\n"
+	 "Set syslog logging level\n"
+	 LOG_LEVEL_DESC)
 {
   return CMD_SUCCESS;
 }
@@ -1317,32 +1398,60 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 no_vtysh_log_syslog,
 	 no_vtysh_log_syslog_cmd,
-	 "no log syslog",
+	 "no log syslog [LEVEL]",
 	 NO_STR
 	 "Logging control\n"
-	 "Cancel logging to syslog\n")
+	 "Cancel logging to syslog\n"
+	 "Logging level\n")
 {
   return CMD_SUCCESS;
 }
 
 DEFUNSH (VTYSH_ALL,
-	 vtysh_log_trap,
-	 vtysh_log_trap_cmd,
-	 "log trap (emergencies|alerts|critical|errors|warnings|\
-		    notifications|informational|debugging)",
+	 vtysh_log_facility,
+	 vtysh_log_facility_cmd,
+	 "log facility "LOG_FACILITIES,
 	 "Logging control\n"
-	 "Limit logging to specifed level\n")
+	 "Facility parameter for syslog messages\n"
+	 LOG_FACILITY_DESC)
+
 {
   return CMD_SUCCESS;
 }
 
 DEFUNSH (VTYSH_ALL,
-	 no_vtysh_log_trap,
-	 no_vtysh_log_trap_cmd,
-	 "no log trap",
+	 no_vtysh_log_facility,
+	 no_vtysh_log_facility_cmd,
+	 "no log facility [FACILITY]",
 	 NO_STR
 	 "Logging control\n"
-	 "Permit all logging information\n")
+	 "Reset syslog facility to default (daemon)\n"
+	 "Syslog facility\n")
+
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH_DEPRECATED (VTYSH_ALL,
+		    vtysh_log_trap,
+		    vtysh_log_trap_cmd,
+		    "log trap "LOG_LEVELS,
+		    "Logging control\n"
+		    "(Deprecated) Set logging level and default for all destinations\n"
+		    LOG_LEVEL_DESC)
+
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH_DEPRECATED (VTYSH_ALL,
+		    no_vtysh_log_trap,
+		    no_vtysh_log_trap_cmd,
+		    "no log trap [LEVEL]",
+		    NO_STR
+		    "Logging control\n"
+		    "Permit all logging information\n"
+		    "Logging level\n")
 {
   return CMD_SUCCESS;
 }
@@ -1521,7 +1630,8 @@ DEFUN (no_vtysh_integrated_config,
   return CMD_SUCCESS;
 }
 
-int write_config_integrated(void)
+static int
+write_config_integrated(void)
 {
   int ret;
   char line[] = "write terminal\n";
@@ -1702,7 +1812,7 @@ DEFUN (vtysh_show_daemons,
 }
 
 /* Execute command in child process. */
-int
+static int
 execute_command (const char *command, int argc, const char *arg1,
 		 const char *arg2)
 {
@@ -1867,14 +1977,14 @@ DEFUN (vtysh_start_zsh,
   return CMD_SUCCESS;
 }
 
-void
+static void
 vtysh_install_default (enum node_type node)
 {
   install_element (node, &config_list_cmd);
 }
 
 /* Making connection to protocol daemon. */
-int
+static int
 vtysh_connect (struct vtysh_client *vclient, const char *path)
 {
   int ret;
@@ -1957,7 +2067,7 @@ vtysh_connect_all()
 }
 
 /* To disable readline's filename completion. */
-char *
+static char *
 vtysh_completion_entry_function (const char *ignore, int invoking_key)
 {
   return NULL;
@@ -2190,13 +2300,22 @@ vtysh_init_vty ()
   install_element (ENABLE_NODE, &vtysh_start_zsh_cmd);
 
   install_element (CONFIG_NODE, &vtysh_log_stdout_cmd);
+  install_element (CONFIG_NODE, &vtysh_log_stdout_level_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_stdout_cmd);
   install_element (CONFIG_NODE, &vtysh_log_file_cmd);
+  install_element (CONFIG_NODE, &vtysh_log_file_level_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_file_cmd);
+  install_element (CONFIG_NODE, &no_vtysh_log_file_level_cmd);
+  install_element (CONFIG_NODE, &vtysh_log_monitor_cmd);
+  install_element (CONFIG_NODE, &vtysh_log_monitor_level_cmd);
+  install_element (CONFIG_NODE, &no_vtysh_log_monitor_cmd);
   install_element (CONFIG_NODE, &vtysh_log_syslog_cmd);
+  install_element (CONFIG_NODE, &vtysh_log_syslog_level_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_syslog_cmd);
   install_element (CONFIG_NODE, &vtysh_log_trap_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_trap_cmd);
+  install_element (CONFIG_NODE, &vtysh_log_facility_cmd);
+  install_element (CONFIG_NODE, &no_vtysh_log_facility_cmd);
   install_element (CONFIG_NODE, &vtysh_log_record_priority_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_record_priority_cmd);
 

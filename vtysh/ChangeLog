@@ -1,3 +1,9 @@
+2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* vtysh.c: Make several functions static instead of global.
+	  Added several commands to support destination-specific logging levels.
+	  (vtysh_completion) This function is unused, so comment it out.
+
 2004-11-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* vtysh.c: (vtysh_client_execute) Fix flaws in detecting trailing

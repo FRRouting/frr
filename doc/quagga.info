@@ -22,7 +22,7 @@ END-INFO-DIR-ENTRY
    This file documents the Quagga Software Routing Suite which manages
 common TCP/IP routing protocols.
 
-   This is Edition 0.97.3, last updated 7 November 2004 of `The Quagga
+   This is Edition 0.97.3, last updated 8 November 2004 of `The Quagga
 Manual', for Quagga Version 0.97.3.
 
    Copyright (C) 1999-2004 Kunihiro Ishiguro, et al.
@@ -693,12 +693,13 @@ daemons.
 
 * Menu:
 
+* Terminal Mode Commands::      Common commands used in a VTY
 * Config Commands::             Commands used in config files
 * Common Invocation Options::   Starting the daemons
-* Virtual Terminal Interfaces::  Interacting with the daemons
+* Virtual Terminal Interfaces:: Interacting with the daemons
 
 
-File: quagga.info,  Node: Config Commands,  Next: Common Invocation Options,  Up: Basic commands
+File: quagga.info,  Node: Config Commands,  Next: Common Invocation Options,  Prev: Terminal Mode Commands,  Up: Basic commands
 
 3.1 Config Commands
 ===================
@@ -742,37 +743,78 @@ File: quagga.info,  Node: Basic Config Commands,  Next: Sample Config File,  Up:
  -- Command: enable password PASSWORD
      Set enable password.
 
+ -- Command: log trap LEVEL
+ -- Command: no log trap
+     These commands are deprecated and are present only for historical
+     compatibility.  The log trap command sets the current logging
+     level for all enabled logging destinations, and it sets the
+     default for all future logging commands that do not specify a
+     level.  The normal default logging level is debugging.  The `no'
+     form of the command resets the default level for future logging
+     commands to debugging, but it does not change the logging level of
+     existing logging destinations.
+
  -- Command: log stdout
+ -- Command: log stdout LEVEL
  -- Command: no log stdout
-     Set logging output to stdout.
+     Enable logging output to stdout.  If the optional second argument
+     specifying the logging level is not present, the default logging
+     level (typically debugging, but can be changed using the
+     deprecated `log trap' command) will be used.  The `no' form of the
+     command disables logging to stdout.  The `level' argument must
+     have one of these values: emergencies, alerts, critical, errors,
+     warnings, notifications, informational, or debugging.  Note that
+     the existing code logs its most important messages with severity
+     `errors'.
 
  -- Command: log file FILENAME
-     If you want to log into a file please specify `filename' as
-     follows.
-          log file /usr/local/etc/bgpd.log
+ -- Command: log file FILENAME LEVEL
+ -- Command: no log file
+     If you want to log into a file, please specify `filename' as in
+     this example:
+          log file /var/log/quagga/bgpd.log informational
+     If the optional second argument specifying the logging level is
+     not present, the default logging level (typically debugging, but
+     can be changed using the deprecated `log trap' command) will be
+     used.  The `no' form of the command disables logging to a file.
 
  -- Command: log syslog
+ -- Command: log syslog LEVEL
  -- Command: no log syslog
-     Set logging output to syslog.
+     Enable logging output to syslog.  If the optional second argument
+     specifying the logging level is not present, the default logging
+     level (typically debugging, but can be changed using the
+     deprecated `log trap' command) will be used.  The `no' form of the
+     command disables logging to syslog.
 
- -- Command: write terminal
-     Displays the current configuration to the vty interface.
+ -- Command: log monitor
+ -- Command: log monitor LEVEL
+ -- Command: no log monitor
+     Enable logging output to vty terminals that have enabled logging
+     using the `terminal monitor' command.  By default, monitor logging
+     is enabled at the debugging level, but this command (or the
+     deprecated `log trap' command) can be used to change the monitor
+     logging level.  If the optional second argument specifying the
+     logging level is not present, the default logging level (typically
+     debugging, but can be changed using the deprecated `log trap'
+     command) will be used.  The `no' form of the command disables
+     logging to terminal monitors.
 
- -- Command: write file
-     Write current configuration to configuration file.
+ -- Command: log facility FACILITY
+ -- Command: no log facility
+     This command changes the facility used in syslog messages.  The
+     default facility is `daemon'.  The `no' form of the command resets
+     the facility to the default `daemon' facility.
 
- -- Command: configure terminal
-     Change to configuration mode.  This command is the first step to
-     configuration.
-
- -- Command: terminal length <0-512>
-     Set terminal display length to <0-512>.  If length is 0, no
-     display control is performed.
-
- -- Command: who
-
- -- Command: list
-     List commands.
+ -- Command: log record-priority
+ -- Command: no log record-priority
+     To include the severity in all messages logged to a file, to
+     stdout, or to a terminal monitor (i.e. anything except syslog),
+     use the `log record-priority' global configuration command.  To
+     disable this option, use the `no' form of the command.  By default,
+     the severity level is not included in logged messages.  Note: some
+     versions of syslogd (including Solaris) can be configured to
+     include the facility and level in the messages emitted.
 
  -- Command: service password-encryption
      Encrypt password.
@@ -783,9 +825,6 @@ File: quagga.info,  Node: Basic Config Commands,  Next: Sample Config File,  Up:
  -- Command: service terminal-length <0-512>
      Set system wide line configuration.  This configuration command
      applies to all VTY interfaces.
-
- -- Command: show version
-     Show the current version of Quagga and its build host information.
 
  -- Command: line vty
      Enter vty configuration mode.
@@ -841,9 +880,46 @@ normal character. So in the above example '!' will not be regarded as a
 comment and the password is set to 'zebra!password'.
 
 
+File: quagga.info,  Node: Terminal Mode Commands,  Next: Config Commands,  Up: Basic commands
+
+3.2 Terminal Mode Commands
+==========================
+
+ -- Command: write terminal
+     Displays the current configuration to the vty interface.
+
+ -- Command: write file
+     Write current configuration to configuration file.
+
+ -- Command: configure terminal
+     Change to configuration mode.  This command is the first step to
+     configuration.
+
+ -- Command: terminal length <0-512>
+     Set terminal display length to <0-512>.  If length is 0, no
+     display control is performed.
+
+ -- Command: who
+     Show a list of currently connected vty sessions.
+
+ -- Command: list
+     List all available commands.
+
+ -- Command: show version
+     Show the current version of Quagga and its build host information.
+
+ -- Command: show logging
+     Shows the current configuration of the logging system.  This
+     includes the status of all logging destinations.
+
+ -- Command: logmsg LEVEL MESSAGE
+     Send a message to all logging destinations that are enabled for
+     messages of the given severity.
+
+
 File: quagga.info,  Node: Common Invocation Options,  Next: Virtual Terminal Interfaces,  Prev: Config Commands,  Up: Basic commands
 
-3.2 Common Invocation Options
+3.3 Common Invocation Options
 =============================
 
 These options apply to all Quagga daemons.
@@ -895,7 +971,7 @@ These options apply to all Quagga daemons.
 
 File: quagga.info,  Node: Virtual Terminal Interfaces,  Prev: Common Invocation Options,  Up: Basic commands
 
-3.3 Virtual Terminal Interfaces
+3.4 Virtual Terminal Interfaces
 ===============================
 
 VTY - Virtual Terminal [aka TeletYpe] Interface is a command line
@@ -910,7 +986,7 @@ interface (CLI) for user interaction with the routing daemon.
 
 File: quagga.info,  Node: VTY Overview,  Next: VTY Modes,  Up: Virtual Terminal Interfaces
 
-3.3.1 VTY Overview
+3.4.1 VTY Overview
 ------------------
 
 VTY stands for Virtual TeletYpe interface.  It means you can connect to
@@ -951,7 +1027,7 @@ all.
 
 File: quagga.info,  Node: VTY Modes,  Next: VTY CLI Commands,  Prev: VTY Overview,  Up: Virtual Terminal Interfaces
 
-3.3.2 VTY Modes
+3.4.2 VTY Modes
 ---------------
 
 There are three basic VTY modes:
@@ -967,7 +1043,7 @@ There are three basic VTY modes:
 
 File: quagga.info,  Node: VTY View Mode,  Next: VTY Enable Mode,  Up: VTY Modes
 
-3.3.2.1 VTY View Mode
+3.4.2.1 VTY View Mode
 .....................
 
 This mode is for read-only access to the CLI. One may exit the mode by
@@ -976,7 +1052,7 @@ leaving the system, or by entering `enable' mode.
 
 File: quagga.info,  Node: VTY Enable Mode,  Next: VTY Other Modes,  Prev: VTY View Mode,  Up: VTY Modes
 
-3.3.2.2 VTY Enable Mode
+3.4.2.2 VTY Enable Mode
 .......................
 
 This mode is for read-write access to the CLI. One may exit the mode by
@@ -985,7 +1061,7 @@ leaving the system, or by escaping to view mode.
 
 File: quagga.info,  Node: VTY Other Modes,  Prev: VTY Enable Mode,  Up: VTY Modes
 
-3.3.2.3 VTY Other Modes
+3.4.2.3 VTY Other Modes
 .......................
 
 This page is for describing other modes.
@@ -993,7 +1069,7 @@ This page is for describing other modes.
 
 File: quagga.info,  Node: VTY CLI Commands,  Prev: VTY Modes,  Up: Virtual Terminal Interfaces
 
-3.3.3 VTY CLI Commands
+3.4.3 VTY CLI Commands
 ----------------------
 
 Commands that you may use at the command-line are described in the
@@ -1008,7 +1084,7 @@ following three subsubsections.
 
 File: quagga.info,  Node: CLI Movement Commands,  Next: CLI Editing Commands,  Up: VTY CLI Commands
 
-3.3.3.1 CLI Movement Commands
+3.4.3.1 CLI Movement Commands
 .............................
 
 These commands are used for moving the CLI cursor. The <C> character
@@ -1038,7 +1114,7 @@ means press the Control Key.
 
 File: quagga.info,  Node: CLI Editing Commands,  Next: CLI Advanced Commands,  Prev: CLI Movement Commands,  Up: VTY CLI Commands
 
-3.3.3.2 CLI Editing Commands
+3.4.3.2 CLI Editing Commands
 ............................
 
 These commands are used for editing text on a line. The <C> character
@@ -1070,7 +1146,7 @@ means press the Control Key.
 
 File: quagga.info,  Node: CLI Advanced Commands,  Prev: CLI Editing Commands,  Up: VTY CLI Commands
 
-3.3.3.3 CLI Advanced Commands
+3.4.3.3 CLI Advanced Commands
 .............................
 
 There are several additional CLI commands for command line completions,
@@ -5101,7 +5177,7 @@ Command Index
 * Menu:
 
 * access-class ACCESS-LIST:              Basic Config Commands.
-                                                              (line  83)
+                                                              (line 121)
 * access-list NAME deny IPV4-NETWORK:    IP Access List.      (line   8)
 * access-list NAME permit IPV4-NETWORK:  IP Access List.      (line   7)
 * aggregate-address A.B.C.D/M:           Route Aggregation.   (line   7)
@@ -5138,7 +5214,7 @@ Command Index
 * auto-cost refrence-bandwidth <1-4294967>: OSPF router.      (line  53)
 * bandwidth <1-10000000>:                Interface Commands.  (line  31)
 * banner motd default:                   Basic Config Commands.
-                                                              (line  65)
+                                                              (line 103)
 * bgp cluster-id A.B.C.D:                Route Reflector.     (line   7)
 * bgp config-type cisco:                 Multiple instance.   (line  20)
 * bgp config-type zebra:                 Multiple instance.   (line  49)
@@ -5154,8 +5230,8 @@ Command Index
                                                               (line  11)
 * clear ip prefix-list NAME A.B.C.D/M:   Clear counter of ip prefix-list.
                                                               (line  13)
-* configure terminal:                    Basic Config Commands.
-                                                              (line  36)
+* configure terminal:                    Terminal Mode Commands.
+                                                              (line  13)
 * debug event:                           More Show IP BGP.    (line  33)
 * debug keepalive:                       More Show IP BGP.    (line  37)
 * debug ospf ism:                        Debugging OSPF.      (line  12)
@@ -5232,9 +5308,9 @@ Command Index
 * enable password PASSWORD:              Basic Config Commands.
                                                               (line  14)
 * exec-timeout MINUTE:                   Basic Config Commands.
-                                                              (line  71)
+                                                              (line 109)
 * exec-timeout MINUTE SECOND:            Basic Config Commands.
-                                                              (line  72)
+                                                              (line 110)
 * flush_timer TIME:                      ripngd Configuration.
                                                               (line  12)
 * hostname HOSTNAME:                     Basic Config Commands.
@@ -5318,16 +5394,34 @@ Command Index
 * ipv6 route NETWORK GATEWAY DISTANCE:   Static Route Commands.
                                                               (line  78)
 * line vty:                              Basic Config Commands.
-                                                              (line  62)
+                                                              (line 100)
 * link-detect:                           Interface Commands.  (line  37)
-* list:                                  Basic Config Commands.
-                                                              (line  46)
+* list:                                  Terminal Mode Commands.
+                                                              (line  24)
+* log facility FACILITY:                 Basic Config Commands.
+                                                              (line  74)
 * log file FILENAME:                     Basic Config Commands.
-                                                              (line  21)
+                                                              (line  41)
+* log file FILENAME LEVEL:               Basic Config Commands.
+                                                              (line  42)
+* log monitor:                           Basic Config Commands.
+                                                              (line  61)
+* log monitor LEVEL:                     Basic Config Commands.
+                                                              (line  62)
+* log record-priority:                   Basic Config Commands.
+                                                              (line  80)
 * log stdout:                            Basic Config Commands.
-                                                              (line  17)
+                                                              (line  28)
+* log stdout LEVEL:                      Basic Config Commands.
+                                                              (line  29)
 * log syslog:                            Basic Config Commands.
-                                                              (line  26)
+                                                              (line  52)
+* log syslog LEVEL:                      Basic Config Commands.
+                                                              (line  53)
+* log trap LEVEL:                        Basic Config Commands.
+                                                              (line  17)
+* logmsg LEVEL MESSAGE:                  Terminal Mode Commands.
+                                                              (line  34)
 * match as-path WORD:                    Using AS Path in Route Map.
                                                               (line   7)
 * match aspath AS_PATH:                  Route Map Match Command.
@@ -5429,7 +5523,7 @@ Command Index
 * no auto-cost refrence-bandwidth:       OSPF router.         (line  54)
 * no bandwidth <1-10000000>:             Interface Commands.  (line  32)
 * no banner motd:                        Basic Config Commands.
-                                                              (line  68)
+                                                              (line 106)
 * no bgp multiple-instance:              Multiple instance.   (line  14)
 * no debug event:                        More Show IP BGP.    (line  39)
 * no debug keepalive:                    More Show IP BGP.    (line  43)
@@ -5462,7 +5556,7 @@ Command Index
 * no distribute-list NAME out (kernel|connected|static|rip|ospf: Redistribute routes to OSPF.
                                                               (line  42)
 * no exec-timeout:                       Basic Config Commands.
-                                                              (line  79)
+                                                              (line 117)
 * no ip address ADDRESS/PREFIX:          Interface Commands.  (line  15)
 * no ip address ADDRESS/PREFIX secondary: Interface Commands. (line  20)
 * no ip as-path access-list WORD:        AS Path Access List. (line  12)
@@ -5511,10 +5605,20 @@ Command Index
 * no ipv6 nd suppress-ra:                Router Advertisement.
                                                               (line   7)
 * no link-detect:                        Interface Commands.  (line  38)
+* no log facility:                       Basic Config Commands.
+                                                              (line  75)
+* no log file:                           Basic Config Commands.
+                                                              (line  43)
+* no log monitor:                        Basic Config Commands.
+                                                              (line  63)
+* no log record-priority:                Basic Config Commands.
+                                                              (line  81)
 * no log stdout:                         Basic Config Commands.
-                                                              (line  18)
+                                                              (line  30)
 * no log syslog:                         Basic Config Commands.
-                                                              (line  27)
+                                                              (line  54)
+* no log trap:                           Basic Config Commands.
+                                                              (line  18)
 * no multicast:                          Interface Commands.  (line  28)
 * no neighbor A.B.C.D:                   RIP Configuration.   (line  46)
 * no neighbor PEER default-originate:    BGP Peer commands.   (line  48)
@@ -5662,13 +5766,13 @@ Command Index
                                                               (line  24)
 * router-id A.B.C.D:                     OSPF6 router.        (line   9)
 * service advanced-vty:                  Basic Config Commands.
-                                                              (line  52)
+                                                              (line  93)
 * service integrated-vtysh-config:       VTY shell integrated configuration.
                                                               (line   7)
 * service password-encryption:           Basic Config Commands.
-                                                              (line  49)
+                                                              (line  90)
 * service terminal-length <0-512>:       Basic Config Commands.
-                                                              (line  55)
+                                                              (line  96)
 * set as-path prepend AS-PATH:           Using AS Path in Route Map.
                                                               (line   9)
 * set as-path prepend AS_PATH:           Route Map Set Command.
@@ -5819,8 +5923,10 @@ Command Index
                                                               (line  24)
 * show ipv6forward:                      zebra Terminal Mode Commands.
                                                               (line  28)
-* show version:                          Basic Config Commands.
-                                                              (line  59)
+* show logging:                          Terminal Mode Commands.
+                                                              (line  30)
+* show version:                          Terminal Mode Commands.
+                                                              (line  27)
 * shutdown:                              Interface Commands.  (line   9)
 * smux peer OID:                         MIB and command reference.
                                                               (line  28)
@@ -5828,18 +5934,18 @@ Command Index
                                                               (line  31)
 * table TABLENO:                         Static Route Commands.
                                                               (line  81)
-* terminal length <0-512>:               Basic Config Commands.
-                                                              (line  40)
+* terminal length <0-512>:               Terminal Mode Commands.
+                                                              (line  17)
 * timers basic UPDATE TIMEOUT GARBAGE:   RIP Timers.          (line   7)
 * timers spf <0-4294967295> <0-4294967295>: OSPF router.      (line  46)
 * username USERNAME nopassword:          VTY shell username.  (line   7)
 * version VERSION:                       RIP Configuration.   (line  23)
-* who:                                   Basic Config Commands.
-                                                              (line  44)
-* write file:                            Basic Config Commands.
-                                                              (line  33)
-* write terminal:                        Basic Config Commands.
-                                                              (line  30)
+* who:                                   Terminal Mode Commands.
+                                                              (line  21)
+* write file:                            Terminal Mode Commands.
+                                                              (line  10)
+* write terminal:                        Terminal Mode Commands.
+                                                              (line   7)
 
 
 File: quagga.info,  Node: VTY Key Index,  Prev: Command Index,  Up: Top
@@ -5912,138 +6018,139 @@ Ref: Linux notes-Footnote-121476
 Node: Build the Software21542
 Node: Install the Software22090
 Node: Basic commands23550
-Node: Config Commands24264
-Node: Basic Config Commands25126
-Node: Sample Config File27530
-Node: Common Invocation Options28300
-Node: Virtual Terminal Interfaces29707
-Node: VTY Overview30218
-Node: VTY Modes31469
-Node: VTY View Mode31919
-Node: VTY Enable Mode32169
-Node: VTY Other Modes32447
-Node: VTY CLI Commands32623
-Node: CLI Movement Commands33083
-Node: CLI Editing Commands33606
-Node: CLI Advanced Commands34194
-Node: Zebra34960
-Node: Invoking zebra35469
-Node: Interface Commands36048
-Node: Static Route Commands37580
-Node: zebra Terminal Mode Commands40853
-Node: RIP41818
-Node: Starting and Stopping ripd42755
-Node: RIP netmask44168
-Node: RIP Configuration45267
-Node: How to Announce RIP route49532
-Node: Filtering RIP Routes52095
-Node: RIP Metric Manipulation53562
-Node: RIP distance54475
-Node: RIP route-map55290
-Node: RIP Authentication57806
-Node: RIP Timers58913
-Node: Show RIP Information60199
-Node: RIP Debug Commands61572
-Node: RIPng62568
-Node: Invoking ripngd62888
-Node: ripngd Configuration63137
-Node: ripngd Terminal Mode Commands63888
-Node: ripngd Filtering Commands64252
-Node: OSPFv264761
-Node: Configuring ospfd65320
-Node: OSPF router65788
-Node: OSPF area68944
-Node: OSPF interface74126
-Node: Redistribute routes to OSPF77509
-Node: Showing OSPF information79672
-Node: Debugging OSPF80918
-Node: OSPFv381957
-Node: OSPF6 router82277
-Node: OSPF6 area82631
-Node: OSPF6 interface82809
-Node: Redistribute routes to OSPF683686
-Node: Showing OSPF6 information84002
-Node: BGP84822
-Node: Starting BGP85712
-Node: BGP router86289
-Node: BGP distance87533
-Node: BGP decision process87971
-Node: BGP network88241
-Node: BGP route88431
-Node: Route Aggregation88987
-Node: Redistribute to BGP89556
-Node: BGP Peer90083
-Node: Defining Peer90270
-Node: BGP Peer commands90883
-Node: Peer filtering93287
-Node: BGP Peer Group93795
-Node: BGP Address Family94108
-Node: Autonomous System94262
-Node: AS Path Regular Expression95099
-Node: Display BGP Routes by AS Path96346
-Node: AS Path Access List96786
-Node: Using AS Path in Route Map97253
-Node: Private AS Numbers97534
-Node: BGP Communities Attribute97692
-Node: BGP Community Lists100159
-Node: Numbered BGP Community Lists102813
-Node: BGP Community in Route Map104400
-Node: Display BGP Routes by Community106343
-Node: Using BGP Communities Attribute107512
-Node: BGP Extended Communities Attribute111080
-Node: BGP Extended Community Lists112852
-Node: BGP Extended Communities in Route Map114727
-Node: Displaying BGP routes115186
-Node: Show IP BGP115423
-Node: More Show IP BGP116123
-Node: Capability Negotiation117274
-Node: Route Reflector120578
-Node: Route Server120857
-Node: Multiple instance121923
-Node: BGP instance and view123734
-Node: Routing policy125114
-Node: Viewing the view125882
-Node: How to set up a 6-Bone connection126167
-Node: Dump BGP packets and table127539
-Node: Configuring Quagga as a Route Server128086
-Node: Description of the Route Server model129047
-Ref: fig:normal-processing130624
-Ref: fig:full-mesh130774
-Ref: fig:route-server130870
-Ref: filter-delegation131284
-Ref: Route Server tasks132468
-Ref: Route-server path filter process132839
-Ref: fig:rs-processing135153
-Node: Commands for configuring a Route Server135270
-Node: Example of Route Server Configuration138297
-Node: Configuration of the BGP routers without Route Server139218
-Node: Configuration of the BGP routers with Route Server142101
-Node: Configuration of the Route Server itself143402
-Node: Further considerations about Import and Export route-maps148401
-Node: VTY shell151445
-Node: VTY shell username152114
-Node: VTY shell integrated configuration152746
-Node: Filtering154124
-Node: IP Access List154477
-Node: IP Prefix List154863
-Node: ip prefix-list description157882
-Node: ip prefix-list sequential number control158409
-Node: Showing ip prefix-list158951
-Node: Clear counter of ip prefix-list160059
-Node: Route Map160498
-Node: Route Map Command161003
-Node: Route Map Match Command161200
-Node: Route Map Set Command161824
-Node: IPv6 Support162701
-Node: Router Advertisement163273
-Node: Kernel Interface167074
-Node: SNMP Support169031
-Node: Getting and installing an SNMP agent169603
-Node: SMUX configuration170176
-Node: MIB and command reference172312
-Node: Zebra Protocol173699
-Node: Packet Binary Dump Format175613
-Node: Command Index187223
-Node: VTY Key Index241352
+Node: Config Commands24325
+Node: Basic Config Commands25218
+Node: Sample Config File30316
+Node: Terminal Mode Commands31086
+Node: Common Invocation Options32183
+Node: Virtual Terminal Interfaces33590
+Node: VTY Overview34101
+Node: VTY Modes35352
+Node: VTY View Mode35802
+Node: VTY Enable Mode36052
+Node: VTY Other Modes36330
+Node: VTY CLI Commands36506
+Node: CLI Movement Commands36966
+Node: CLI Editing Commands37489
+Node: CLI Advanced Commands38077
+Node: Zebra38843
+Node: Invoking zebra39352
+Node: Interface Commands39931
+Node: Static Route Commands41463
+Node: zebra Terminal Mode Commands44736
+Node: RIP45701
+Node: Starting and Stopping ripd46638
+Node: RIP netmask48051
+Node: RIP Configuration49150
+Node: How to Announce RIP route53415
+Node: Filtering RIP Routes55978
+Node: RIP Metric Manipulation57445
+Node: RIP distance58358
+Node: RIP route-map59173
+Node: RIP Authentication61689
+Node: RIP Timers62796
+Node: Show RIP Information64082
+Node: RIP Debug Commands65455
+Node: RIPng66451
+Node: Invoking ripngd66771
+Node: ripngd Configuration67020
+Node: ripngd Terminal Mode Commands67771
+Node: ripngd Filtering Commands68135
+Node: OSPFv268644
+Node: Configuring ospfd69203
+Node: OSPF router69671
+Node: OSPF area72827
+Node: OSPF interface78009
+Node: Redistribute routes to OSPF81392
+Node: Showing OSPF information83555
+Node: Debugging OSPF84801
+Node: OSPFv385840
+Node: OSPF6 router86160
+Node: OSPF6 area86514
+Node: OSPF6 interface86692
+Node: Redistribute routes to OSPF687569
+Node: Showing OSPF6 information87885
+Node: BGP88705
+Node: Starting BGP89595
+Node: BGP router90172
+Node: BGP distance91416
+Node: BGP decision process91854
+Node: BGP network92124
+Node: BGP route92314
+Node: Route Aggregation92870
+Node: Redistribute to BGP93439
+Node: BGP Peer93966
+Node: Defining Peer94153
+Node: BGP Peer commands94766
+Node: Peer filtering97170
+Node: BGP Peer Group97678
+Node: BGP Address Family97991
+Node: Autonomous System98145
+Node: AS Path Regular Expression98982
+Node: Display BGP Routes by AS Path100229
+Node: AS Path Access List100669
+Node: Using AS Path in Route Map101136
+Node: Private AS Numbers101417
+Node: BGP Communities Attribute101575
+Node: BGP Community Lists104042
+Node: Numbered BGP Community Lists106696
+Node: BGP Community in Route Map108283
+Node: Display BGP Routes by Community110226
+Node: Using BGP Communities Attribute111395
+Node: BGP Extended Communities Attribute114963
+Node: BGP Extended Community Lists116735
+Node: BGP Extended Communities in Route Map118610
+Node: Displaying BGP routes119069
+Node: Show IP BGP119306
+Node: More Show IP BGP120006
+Node: Capability Negotiation121157
+Node: Route Reflector124461
+Node: Route Server124740
+Node: Multiple instance125806
+Node: BGP instance and view127617
+Node: Routing policy128997
+Node: Viewing the view129765
+Node: How to set up a 6-Bone connection130050
+Node: Dump BGP packets and table131422
+Node: Configuring Quagga as a Route Server131969
+Node: Description of the Route Server model132930
+Ref: fig:normal-processing134507
+Ref: fig:full-mesh134657
+Ref: fig:route-server134753
+Ref: filter-delegation135167
+Ref: Route Server tasks136351
+Ref: Route-server path filter process136722
+Ref: fig:rs-processing139036
+Node: Commands for configuring a Route Server139153
+Node: Example of Route Server Configuration142180
+Node: Configuration of the BGP routers without Route Server143101
+Node: Configuration of the BGP routers with Route Server145984
+Node: Configuration of the Route Server itself147285
+Node: Further considerations about Import and Export route-maps152284
+Node: VTY shell155328
+Node: VTY shell username155997
+Node: VTY shell integrated configuration156629
+Node: Filtering158007
+Node: IP Access List158360
+Node: IP Prefix List158746
+Node: ip prefix-list description161765
+Node: ip prefix-list sequential number control162292
+Node: Showing ip prefix-list162834
+Node: Clear counter of ip prefix-list163942
+Node: Route Map164381
+Node: Route Map Command164886
+Node: Route Map Match Command165083
+Node: Route Map Set Command165707
+Node: IPv6 Support166584
+Node: Router Advertisement167156
+Node: Kernel Interface170957
+Node: SNMP Support172914
+Node: Getting and installing an SNMP agent173486
+Node: SMUX configuration174059
+Node: MIB and command reference176195
+Node: Zebra Protocol177582
+Node: Packet Binary Dump Format179496
+Node: Command Index191106
+Node: VTY Key Index247299
 
 End Tag Table

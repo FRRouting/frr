@@ -184,7 +184,6 @@ main (int argc, char *argv[], char *envp[])
   int vty_port = 0;
   char *config_file = NULL;
   struct thread thread;
-  int flag;
 
   /* Set umask before anything for security */
   umask (0027);
@@ -250,12 +249,7 @@ main (int argc, char *argv[], char *envp[])
   master = thread_master_create ();
 
   /* Initializations. */
-  if (! daemon_mode)
-    flag = ZLOG_STDOUT;
-  else
-    flag = 0;
-
-  zlog_default = openzlog (progname, flag, ZLOG_OSPF6,
+  zlog_default = openzlog (progname, ZLOG_OSPF6,
                            LOG_CONS|LOG_NDELAY|LOG_PID,
                            LOG_DAEMON);
   zprivs_init (&ospf6d_privs);

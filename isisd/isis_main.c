@@ -218,7 +218,7 @@ main (int argc, char **argv, char **envp)
   /* Get the programname without the preceding path. */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
-  zlog_default = openzlog (progname, ZLOG_NOLOG, ZLOG_ISIS,
+  zlog_default = openzlog (progname, ZLOG_ISIS,
 			   LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
   /* for reload */

@@ -197,7 +197,7 @@ main (int argc, char **argv)
   /* get program name */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
-  zlog_default = openzlog(progname, ZLOG_NOLOG, ZLOG_RIPNG,
+  zlog_default = openzlog(progname, ZLOG_RIPNG,
 			  LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 
   while (1) 

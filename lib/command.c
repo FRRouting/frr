@@ -1,4 +1,7 @@
-/* Command interpreter routine for virtual terminal [aka TeletYpe]
+/*
+   $Id: command.c,v 1.28 2004/12/07 15:39:32 ajs Exp $
+
+   Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
 
 This file is part of GNU Zebra.
@@ -75,6 +78,70 @@ Hello, this is " QUAGGA_PROGNAME " (version " QUAGGA_VERSION ").\r\n\
 " QUAGGA_COPYRIGHT "\r\n\
 \r\n";
 
+
+static struct facility_map {
+  int facility;
+  const char *name;
+  size_t match;
+} syslog_facilities[] = 
+  {
+    { LOG_KERN, "kern", 1 },
+    { LOG_USER, "user", 2 },
+    { LOG_MAIL, "mail", 1 },
+    { LOG_DAEMON, "daemon", 1 },
+    { LOG_AUTH, "auth", 1 },
+    { LOG_SYSLOG, "syslog", 1 },
+    { LOG_LPR, "lpr", 2 },
+    { LOG_NEWS, "news", 1 },
+    { LOG_UUCP, "uucp", 2 },
+    { LOG_CRON, "cron", 1 },
+#ifdef LOG_FTP
+    { LOG_FTP, "ftp", 1 },
+#endif
+    { LOG_LOCAL0, "local0", 6 },
+    { LOG_LOCAL1, "local1", 6 },
+    { LOG_LOCAL2, "local2", 6 },
+    { LOG_LOCAL3, "local3", 6 },
+    { LOG_LOCAL4, "local4", 6 },
+    { LOG_LOCAL5, "local5", 6 },
+    { LOG_LOCAL6, "local6", 6 },
+    { LOG_LOCAL7, "local7", 6 },
+    { 0, NULL, 0 },
+  };
+
+static const char *
+facility_name(int facility)
+{
+  struct facility_map *fm;
+
+  for (fm = syslog_facilities; fm->name; fm++)
+    if (fm->facility == facility)
+      return fm->name;
+  return "";
+}
+
+static int
+facility_match(const char *str)
+{
+  struct facility_map *fm;
+
+  for (fm = syslog_facilities; fm->name; fm++)
+    if (!strncmp(str,fm->name,fm->match))
+      return fm->facility;
+  return -1;
+}
+
+static int
+level_match(const char *s)
+{
+  int level ;
+  
+  for ( level = 0 ; zlog_priority [level] != NULL ; level ++ )
+    if (!strncmp (s, zlog_priority[level], 2))
+      return level;
+  return ZLOG_DISABLED;
+}
+
 void
 print_version (const char *progname)
 {
@@ -128,7 +195,7 @@ install_node (struct cmd_node *node,
 }
 
 /* Compare two command's string.  Used in sort_node (). */
-int
+static int
 cmp_node (const void *p, const void *q)
 {
   struct cmd_element *a = *(struct cmd_element **)p;
@@ -137,7 +204,7 @@ cmp_node (const void *p, const void *q)
   return strcmp (a->string, b->string);
 }
 
-int
+static int
 cmp_desc (const void *p, const void *q)
 {
   struct desc *a = *(struct desc **)p;
@@ -241,7 +308,7 @@ cmd_free_strvec (vector v)
 }
 
 /* Fetch next description.  Used in cmd_make_descvec(). */
-char *
+static char *
 cmd_desc_str (const char **string)
 {
   const char *cp, *start;
@@ -277,7 +344,7 @@ cmd_desc_str (const char **string)
 }
 
 /* New string vector. */
-vector
+static vector
 cmd_make_descvec (const char *string, const char *descstr)
 {
   int multiple = 0;
@@ -370,7 +437,7 @@ cmd_make_descvec (const char *string, const char *descstr)
 
 /* Count mandantory string vector size.  This is to determine inputed
    command has enough command length. */
-int
+static int
 cmd_cmdsize (vector strvec)
 {
   unsigned int i;
@@ -430,7 +497,7 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
 static unsigned char itoa64[] =	
 "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-void
+static void
 to64(char *s, long v, int n)
 {
   while (--n >= 0) 
@@ -440,7 +507,8 @@ to64(char *s, long v, int n)
     }
 }
 
-char *zencrypt (const char *passwd)
+static char *
+zencrypt (const char *passwd)
 {
   char salt[6];
   struct timeval tv;
@@ -455,73 +523,8 @@ char *zencrypt (const char *passwd)
   return crypt (passwd, salt);
 }
 
-const char *
-syslog_facility_print (int facility)
-{
-  switch (facility)
-    {
-      case LOG_KERN:
-	return "kern";
-	break;
-      case LOG_USER:
-	return "user";
-	break;
-      case LOG_MAIL:
-	return "mail";
-	break;
-      case LOG_DAEMON:
-	return "daemon";
-	break;
-      case LOG_AUTH:
-	return "auth";
-	break;
-      case LOG_SYSLOG:
-	return "syslog";
-	break;
-      case LOG_LPR:
-	return "lpr";
-	break;
-      case LOG_NEWS:
-	return "news";
-	break;
-      case LOG_UUCP:
-	return "uucp";
-	break;
-      case LOG_CRON:
-	return "cron";
-	break;
-      case LOG_LOCAL0:
-	return "local0";
-	break;
-      case LOG_LOCAL1:
-	return "local1";
-	break;
-      case LOG_LOCAL2:
-	return "local2";
-	break;
-      case LOG_LOCAL3:
-	return "local3";
-	break;
-      case LOG_LOCAL4:
-	return "local4";
-	break;
-      case LOG_LOCAL5:
-	return "local5";
-	break;
-      case LOG_LOCAL6:
-	return "local6";
-	break;
-      case LOG_LOCAL7:
-	return "local7";
-	break;
-      default:
-	break;
-    }
-  return "";
-}
-
 /* This function write configuration of this host. */
-int
+static int
 config_write_host (struct vty *vty)
 {
   if (host.name)
@@ -542,21 +545,46 @@ config_write_host (struct vty *vty)
         vty_out (vty, "enable password %s%s", host.enable, VTY_NEWLINE);
     }
 
-  if (host.logfile)
-    vty_out (vty, "log file %s%s", host.logfile, VTY_NEWLINE);
+  if (zlog_default->default_lvl != LOG_DEBUG)
+    vty_out (vty, "log trap %s%s",
+	     zlog_priority[zlog_default->default_lvl], VTY_NEWLINE);
 
-  if (zlog_default->flags & ZLOG_STDOUT)
-    vty_out (vty, "log stdout%s", VTY_NEWLINE);
-
-  if (zlog_default->flags & ZLOG_SYSLOG)
+  if (host.logfile && (zlog_default->maxlvl[ZLOG_DEST_FILE] != ZLOG_DISABLED))
     {
-      vty_out (vty, "log syslog");
-      if (zlog_default->facility != LOG_DAEMON)
-	vty_out (vty, " facility %s", syslog_facility_print (zlog_default->facility));
+      vty_out (vty, "log file %s", host.logfile);
+      if (zlog_default->maxlvl[ZLOG_DEST_FILE] != zlog_default->default_lvl)
+	vty_out (vty, " %s",
+		 zlog_priority[zlog_default->maxlvl[ZLOG_DEST_FILE]]);
       vty_out (vty, "%s", VTY_NEWLINE);
     }
-  if (zlog_default->maskpri != LOG_DEBUG)
-    vty_out (vty, "log trap %s%s", zlog_priority[zlog_default->maskpri], VTY_NEWLINE);
+
+  if (zlog_default->maxlvl[ZLOG_DEST_STDOUT] != ZLOG_DISABLED)
+    {
+      vty_out (vty, "log stdout");
+      if (zlog_default->maxlvl[ZLOG_DEST_STDOUT] != zlog_default->default_lvl)
+	vty_out (vty, " %s",
+		 zlog_priority[zlog_default->maxlvl[ZLOG_DEST_STDOUT]]);
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+
+  if (zlog_default->maxlvl[ZLOG_DEST_MONITOR] == ZLOG_DISABLED)
+    vty_out(vty,"no log monitor%s",VTY_NEWLINE);
+  else if (zlog_default->maxlvl[ZLOG_DEST_MONITOR] != zlog_default->default_lvl)
+    vty_out(vty,"log monitor %s%s",
+	    zlog_priority[zlog_default->maxlvl[ZLOG_DEST_MONITOR]],VTY_NEWLINE);
+
+  if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != ZLOG_DISABLED)
+    {
+      vty_out (vty, "log syslog");
+      if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != zlog_default->default_lvl)
+	vty_out (vty, " %s",
+		 zlog_priority[zlog_default->maxlvl[ZLOG_DEST_SYSLOG]]);
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+
+  if (zlog_default->facility != LOG_DAEMON)
+    vty_out (vty, "log facility %s%s",
+	     facility_name(zlog_default->facility), VTY_NEWLINE);
 
   if (zlog_default->record_priority == 1)
     vty_out (vty, "log record-priority%s", VTY_NEWLINE);
@@ -578,15 +606,17 @@ config_write_host (struct vty *vty)
 }
 
 /* Utility function for getting command vector. */
-vector
+static vector
 cmd_node_vector (vector v, enum node_type ntype)
 {
   struct cmd_node *cnode = vector_slot (v, ntype);
   return cnode->cmd_vector;
 }
 
-/* Filter command vector by symbol */
-int
+#if 0
+/* Filter command vector by symbol.  This function is not actually used;
+ * should it be deleted? */
+static int
 cmd_filter_by_symbol (char *command, char *symbol)
 {
   int i, lim;
@@ -629,6 +659,7 @@ cmd_filter_by_symbol (char *command, char *symbol)
     }
   return 0;
 }
+#endif
 
 /* Completion match types. */
 enum match_type 
@@ -645,7 +676,7 @@ enum match_type
   exact_match 
 };
 
-enum match_type
+static enum match_type
 cmd_ipv4_match (const char *str)
 {
   const char *sp;
@@ -702,7 +733,7 @@ cmd_ipv4_match (const char *str)
   return exact_match;
 }
 
-enum match_type
+static enum match_type
 cmd_ipv4_prefix_match (const char *str)
 {
   const char *sp;
@@ -793,7 +824,7 @@ cmd_ipv4_prefix_match (const char *str)
 
 #ifdef HAVE_IPV6
 
-enum match_type
+static enum match_type
 cmd_ipv6_match (const char *str)
 {
   int state = STATE_START;
@@ -899,7 +930,7 @@ cmd_ipv6_match (const char *str)
   return exact_match;
 }
 
-enum match_type
+static enum match_type
 cmd_ipv6_prefix_match (const char *str)
 {
   int state = STATE_START;
@@ -1034,7 +1065,7 @@ cmd_ipv6_prefix_match (const char *str)
 
 #define DECIMAL_STRLEN_MAX 10
 
-int
+static int
 cmd_range_match (const char *range, const char *str)
 {
   char *p;
@@ -1080,7 +1111,7 @@ cmd_range_match (const char *range, const char *str)
 }
 
 /* Make completion match and return match type flag. */
-enum match_type
+static enum match_type
 cmd_filter_by_completion (char *command, vector v, unsigned int index)
 {
   unsigned int i;
@@ -1195,7 +1226,7 @@ cmd_filter_by_completion (char *command, vector v, unsigned int index)
 }
 
 /* Filter vector by command character with index. */
-enum match_type
+static enum match_type
 cmd_filter_by_string (char *command, vector v, unsigned int index)
 {
   unsigned int i;
@@ -1303,7 +1334,7 @@ cmd_filter_by_string (char *command, vector v, unsigned int index)
 }
 
 /* Check ambiguous match */
-int
+static int
 is_cmd_ambiguous (char *command, vector v, int index, enum match_type type)
 {
   unsigned int i;
@@ -1400,7 +1431,7 @@ is_cmd_ambiguous (char *command, vector v, int index, enum match_type type)
 }
 
 /* If src matches dst return dst string, otherwise return NULL */
-const char *
+static const char *
 cmd_entry_function (const char *src, const char *dst)
 {
   /* Skip variable arguments. */
@@ -1422,7 +1453,7 @@ cmd_entry_function (const char *src, const char *dst)
 /* If src matches dst return dst string, otherwise return NULL */
 /* This version will return the dst string always if it is
    CMD_VARIABLE for '?' key processing */
-const char *
+static const char *
 cmd_entry_function_desc (const char *src, const char *dst)
 {
   if (CMD_VARARG (dst))
@@ -1486,7 +1517,7 @@ cmd_entry_function_desc (const char *src, const char *dst)
 
 /* Check same string element existence.  If it isn't there return
     1. */
-int
+static int
 cmd_unique_string (vector v, const char *str)
 {
   unsigned int i;
@@ -1501,7 +1532,7 @@ cmd_unique_string (vector v, const char *str)
 
 /* Compare string to description vector.  If there is same string
    return 1 else return 0. */
-int
+static int
 desc_unique_string (vector v, const char *str)
 {
   unsigned int i;
@@ -1514,7 +1545,7 @@ desc_unique_string (vector v, const char *str)
   return 0;
 }
 
-int 
+static int 
 cmd_try_do_shortcut (enum node_type node, char* first_word) {
   if ( first_word != NULL &&
        node != AUTH_NODE &&
@@ -1527,7 +1558,7 @@ cmd_try_do_shortcut (enum node_type node, char* first_word) {
 }
 
 /* '?' describe command support. */
-vector
+static vector
 cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 {
   unsigned int i;
@@ -1690,7 +1721,7 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
 
 
 /* Check LCD of matched command. */
-int
+static int
 cmd_lcd (char **matched)
 {
   int i;
@@ -1723,7 +1754,7 @@ cmd_lcd (char **matched)
 }
 
 /* Command line completion support. */
-char **
+static char **
 cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 {
   unsigned int i;
@@ -1905,7 +1936,8 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
 
 /* return parent node */
 /* MUST eventually converge on CONFIG_NODE */
-enum node_type node_parent ( enum node_type node )
+static enum node_type
+node_parent ( enum node_type node )
 {
   enum node_type ret;
 
@@ -1930,7 +1962,7 @@ enum node_type node_parent ( enum node_type node )
 }
 
 /* Execute command by argument vline vector. */
-int
+static int
 cmd_execute_command_real (vector vline, struct vty *vty, struct cmd_element **cmd)
 {
   unsigned int i;
@@ -2959,40 +2991,158 @@ DEFUN (no_service_terminal_length, no_service_terminal_length_cmd,
   return CMD_SUCCESS;
 }
 
+DEFUN (config_logmsg,
+       config_logmsg_cmd,
+       "logmsg "LOG_LEVELS" .MESSAGE",
+       "Send a message to enabled logging destinations\n"
+       LOG_LEVEL_DESC
+       "The message to send\n")
+{
+  int level;
+  char *message;
+
+  if ((level = level_match(argv[0])) == ZLOG_DISABLED)
+    return CMD_ERR_NO_MATCH;
+
+  zlog(NULL, level, (message = argv_concat(argv, argc, 1)));
+  XFREE(MTYPE_TMP, message);
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_logging,
+       show_logging_cmd,
+       "show logging",
+       SHOW_STR
+       "Show current logging configuration\n")
+{
+  struct zlog *zl = zlog_default;
+
+  vty_out (vty, "Syslog logging: ");
+  if (zl->maxlvl[ZLOG_DEST_SYSLOG] == ZLOG_DISABLED)
+    vty_out (vty, "disabled");
+  else
+    vty_out (vty, "level %s, facility %s, ident %s",
+	     zlog_priority[zl->maxlvl[ZLOG_DEST_SYSLOG]],
+	     facility_name(zl->facility), zl->ident);
+  vty_out (vty, "%s", VTY_NEWLINE);
+
+  vty_out (vty, "Stdout logging: ");
+  if (zl->maxlvl[ZLOG_DEST_STDOUT] == ZLOG_DISABLED)
+    vty_out (vty, "disabled");
+  else
+    vty_out (vty, "level %s",
+	     zlog_priority[zl->maxlvl[ZLOG_DEST_STDOUT]]);
+  vty_out (vty, "%s", VTY_NEWLINE);
+
+  vty_out (vty, "Monitor logging: ");
+  if (zl->maxlvl[ZLOG_DEST_MONITOR] == ZLOG_DISABLED)
+    vty_out (vty, "disabled");
+  else
+    vty_out (vty, "level %s",
+	     zlog_priority[zl->maxlvl[ZLOG_DEST_MONITOR]]);
+  vty_out (vty, "%s", VTY_NEWLINE);
+
+  vty_out (vty, "File logging: ");
+  if ((zl->maxlvl[ZLOG_DEST_FILE] == ZLOG_DISABLED) ||
+      !zl->fp)
+    vty_out (vty, "disabled");
+  else
+    vty_out (vty, "level %s, filename %s",
+	     zlog_priority[zl->maxlvl[ZLOG_DEST_FILE]],
+	     zl->filename);
+  vty_out (vty, "%s", VTY_NEWLINE);
+
+  vty_out (vty, "Protocol name: %s%s",
+  	   zlog_proto_names[zl->protocol], VTY_NEWLINE);
+  vty_out (vty, "Record priority: %s%s",
+  	   (zl->record_priority ? "enabled" : "disabled"), VTY_NEWLINE);
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (config_log_stdout,
        config_log_stdout_cmd,
        "log stdout",
        "Logging control\n"
-       "Logging goes to stdout\n")
+       "Set stdout logging level\n")
 {
-  zlog_set_flag (NULL, ZLOG_STDOUT);
+  zlog_set_level (NULL, ZLOG_DEST_STDOUT, zlog_default->default_lvl);
+  return CMD_SUCCESS;
+}
+
+DEFUN (config_log_stdout_level,
+       config_log_stdout_level_cmd,
+       "log stdout "LOG_LEVELS,
+       "Logging control\n"
+       "Set stdout logging level\n"
+       LOG_LEVEL_DESC)
+{
+  int level;
+
+  if ((level = level_match(argv[0])) == ZLOG_DISABLED)
+    return CMD_ERR_NO_MATCH;
+  zlog_set_level (NULL, ZLOG_DEST_STDOUT, level);
   return CMD_SUCCESS;
 }
 
 DEFUN (no_config_log_stdout,
        no_config_log_stdout_cmd,
-       "no log stdout",
+       "no log stdout [LEVEL]",
        NO_STR
        "Logging control\n"
-       "Cancel logging to stdout\n")
+       "Cancel logging to stdout\n"
+       "Logging level\n")
 {
-  zlog_reset_flag (NULL, ZLOG_STDOUT);
+  zlog_set_level (NULL, ZLOG_DEST_STDOUT, ZLOG_DISABLED);
   return CMD_SUCCESS;
 }
 
-DEFUN (config_log_file,
-       config_log_file_cmd,
-       "log file FILENAME",
+DEFUN (config_log_monitor,
+       config_log_monitor_cmd,
+       "log monitor",
        "Logging control\n"
-       "Logging to file\n"
-       "Logging filename\n")
+       "Set terminal line (monitor) logging level\n")
+{
+  zlog_set_level (NULL, ZLOG_DEST_MONITOR, zlog_default->default_lvl);
+  return CMD_SUCCESS;
+}
+
+DEFUN (config_log_monitor_level,
+       config_log_monitor_level_cmd,
+       "log monitor "LOG_LEVELS,
+       "Logging control\n"
+       "Set terminal line (monitor) logging level\n"
+       LOG_LEVEL_DESC)
+{
+  int level;
+
+  if ((level = level_match(argv[0])) == ZLOG_DISABLED)
+    return CMD_ERR_NO_MATCH;
+  zlog_set_level (NULL, ZLOG_DEST_MONITOR, level);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_config_log_monitor,
+       no_config_log_monitor_cmd,
+       "no log monitor [LEVEL]",
+       NO_STR
+       "Logging control\n"
+       "Disable terminal line (monitor) logging\n"
+       "Logging level\n")
+{
+  zlog_set_level (NULL, ZLOG_DEST_MONITOR, ZLOG_DISABLED);
+  return CMD_SUCCESS;
+}
+
+static int
+set_log_file(struct vty *vty, const char *fname, int loglevel)
 {
   int ret;
   char *p = NULL;
   const char *fullpath;
   
   /* Path detection. */
-  if (! IS_DIRECTORY_SEP (*argv[0]))
+  if (! IS_DIRECTORY_SEP (*fname))
     {
       char cwd[MAXPATHLEN+1];
       cwd[MAXPATHLEN] = '\0';
@@ -3003,35 +3153,60 @@ DEFUN (config_log_file,
           return CMD_WARNING;
         }
       
-      if ( (p = XMALLOC (MTYPE_TMP, strlen (cwd) + strlen (argv[0]) + 2))
+      if ( (p = XMALLOC (MTYPE_TMP, strlen (cwd) + strlen (fname) + 2))
           == NULL)
         {
           zlog_err ("config_log_file: Unable to alloc mem!");
           return CMD_WARNING;
         }
-      sprintf (p, "%s/%s", cwd, argv[0]);
+      sprintf (p, "%s/%s", cwd, fname);
       fullpath = p;
     }
   else
-    fullpath = argv[0];
+    fullpath = fname;
 
-  ret = zlog_set_file (NULL, fullpath);
+  ret = zlog_set_file (NULL, fullpath, loglevel);
 
   if (p)
     XFREE (MTYPE_TMP, p);
 
   if (!ret)
     {
-      vty_out (vty, "can't open logfile %s\n", argv[0]);
+      vty_out (vty, "can't open logfile %s\n", fname);
       return CMD_WARNING;
     }
 
   if (host.logfile)
     XFREE (MTYPE_TMP, host.logfile);
 
-  host.logfile = XSTRDUP (MTYPE_TMP, argv[0]);
+  host.logfile = XSTRDUP (MTYPE_TMP, fname);
 
   return CMD_SUCCESS;
+}
+
+DEFUN (config_log_file,
+       config_log_file_cmd,
+       "log file FILENAME",
+       "Logging control\n"
+       "Logging to file\n"
+       "Logging filename\n")
+{
+  return set_log_file(vty, argv[0], zlog_default->default_lvl);
+}
+
+DEFUN (config_log_file_level,
+       config_log_file_level_cmd,
+       "log file FILENAME "LOG_LEVELS,
+       "Logging control\n"
+       "Logging to file\n"
+       "Logging filename\n"
+       LOG_LEVEL_DESC)
+{
+  int level;
+
+  if ((level = level_match(argv[1])) == ZLOG_DISABLED)
+    return CMD_ERR_NO_MATCH;
+  return set_log_file(vty, argv[0], level);
 }
 
 DEFUN (no_config_log_file,
@@ -3052,154 +3227,135 @@ DEFUN (no_config_log_file,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_config_log_file,
+       no_config_log_file_level_cmd,
+       "no log file FILENAME LEVEL",
+       NO_STR
+       "Logging control\n"
+       "Cancel logging to file\n"
+       "Logging file name\n"
+       "Logging level\n")
+
 DEFUN (config_log_syslog,
        config_log_syslog_cmd,
        "log syslog",
        "Logging control\n"
-       "Logging goes to syslog\n")
+       "Set syslog logging level\n")
 {
-  zlog_set_flag (NULL, ZLOG_SYSLOG);
-  zlog_default->facility = LOG_DAEMON;
+  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
   return CMD_SUCCESS;
 }
 
-DEFUN (config_log_syslog_facility,
-       config_log_syslog_facility_cmd,
-       "log syslog facility (kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)",
+DEFUN (config_log_syslog_level,
+       config_log_syslog_level_cmd,
+       "log syslog "LOG_LEVELS,
        "Logging control\n"
-       "Logging goes to syslog\n"
-       "Facility parameter for syslog messages\n"
-       "Kernel\n"
-       "User process\n"
-       "Mail system\n"
-       "System daemons\n"
-       "Authorization system\n"
-       "Syslog itself\n"
-       "Line printer system\n"
-       "USENET news\n"
-       "Unix-to-Unix copy system\n"
-       "Cron/at facility\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n")
+       "Set syslog logging level\n"
+       LOG_LEVEL_DESC)
 {
-  int facility = LOG_DAEMON;
+  int level;
 
-  zlog_set_flag (NULL, ZLOG_SYSLOG);
+  if ((level = level_match(argv[0])) == ZLOG_DISABLED)
+    return CMD_ERR_NO_MATCH;
+  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, level);
+  return CMD_SUCCESS;
+}
 
-  if (strncmp (argv[0], "kern", 1) == 0)
-    facility = LOG_KERN;
-  else if (strncmp (argv[0], "user", 2) == 0)
-    facility = LOG_USER;
-  else if (strncmp (argv[0], "mail", 1) == 0)
-    facility = LOG_MAIL;
-  else if (strncmp (argv[0], "daemon", 1) == 0)
-    facility = LOG_DAEMON;
-  else if (strncmp (argv[0], "auth", 1) == 0)
-    facility = LOG_AUTH;
-  else if (strncmp (argv[0], "syslog", 1) == 0)
-    facility = LOG_SYSLOG;
-  else if (strncmp (argv[0], "lpr", 2) == 0)
-    facility = LOG_LPR;
-  else if (strncmp (argv[0], "news", 1) == 0)
-    facility = LOG_NEWS;
-  else if (strncmp (argv[0], "uucp", 2) == 0)
-    facility = LOG_UUCP;
-  else if (strncmp (argv[0], "cron", 1) == 0)
-    facility = LOG_CRON;
-  else if (strncmp (argv[0], "local0", 6) == 0)
-    facility = LOG_LOCAL0;
-  else if (strncmp (argv[0], "local1", 6) == 0)
-    facility = LOG_LOCAL1;
-  else if (strncmp (argv[0], "local2", 6) == 0)
-    facility = LOG_LOCAL2;
-  else if (strncmp (argv[0], "local3", 6) == 0)
-    facility = LOG_LOCAL3;
-  else if (strncmp (argv[0], "local4", 6) == 0)
-    facility = LOG_LOCAL4;
-  else if (strncmp (argv[0], "local5", 6) == 0)
-    facility = LOG_LOCAL5;
-  else if (strncmp (argv[0], "local6", 6) == 0)
-    facility = LOG_LOCAL6;
-  else if (strncmp (argv[0], "local7", 6) == 0)
-    facility = LOG_LOCAL7;
+DEFUN_DEPRECATED (config_log_syslog_facility,
+		  config_log_syslog_facility_cmd,
+		  "log syslog facility "LOG_FACILITIES,
+		  "Logging control\n"
+		  "Logging goes to syslog\n"
+		  "(Deprecated) Facility parameter for syslog messages\n"
+		  LOG_FACILITY_DESC)
+{
+  int facility;
 
+  if ((facility = facility_match(argv[0])) < 0)
+    return CMD_ERR_NO_MATCH;
+
+  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
   zlog_default->facility = facility;
-
   return CMD_SUCCESS;
 }
 
 DEFUN (no_config_log_syslog,
        no_config_log_syslog_cmd,
-       "no log syslog",
+       "no log syslog [LEVEL]",
        NO_STR
        "Logging control\n"
-       "Cancel logging to syslog\n")
+       "Cancel logging to syslog\n"
+       "Logging level\n")
 {
-  zlog_reset_flag (NULL, ZLOG_SYSLOG);
-  zlog_default->facility = LOG_DAEMON;
+  zlog_set_level (NULL, ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
   return CMD_SUCCESS;
 }
 
 ALIAS (no_config_log_syslog,
        no_config_log_syslog_facility_cmd,
-       "no log syslog facility (kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)",
+       "no log syslog facility "LOG_FACILITIES,
        NO_STR
        "Logging control\n"
        "Logging goes to syslog\n"
        "Facility parameter for syslog messages\n"
-       "Kernel\n"
-       "User process\n"
-       "Mail system\n"
-       "System daemons\n"
-       "Authorization system\n"
-       "Syslog itself\n"
-       "Line printer system\n"
-       "USENET news\n"
-       "Unix-to-Unix copy system\n"
-       "Cron/at facility\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n"
-       "Local use\n")
+       LOG_FACILITY_DESC)
 
-DEFUN (config_log_trap,
-       config_log_trap_cmd,
-       "log trap (emergencies|alerts|critical|errors|warnings|notifications|informational|debugging)",
+DEFUN (config_log_facility,
+       config_log_facility_cmd,
+       "log facility "LOG_FACILITIES,
        "Logging control\n"
-       "Limit logging to specifed level\n")
+       "Facility parameter for syslog messages\n"
+       LOG_FACILITY_DESC)
 {
-  int new_level ;
-  
-  for ( new_level = 0 ; zlog_priority [new_level] != NULL ; new_level ++ )
-    {
-    if ( strcmp ( argv[0], zlog_priority [new_level] ) == 0 )
-      /* found new logging level */
-      {
-      zlog_default->maskpri = new_level;
-      return CMD_SUCCESS;
-      }
-    }
-  return CMD_ERR_NO_MATCH;
+  int facility;
+
+  if ((facility = facility_match(argv[0])) < 0)
+    return CMD_ERR_NO_MATCH;
+  zlog_default->facility = facility;
+  return CMD_SUCCESS;
 }
 
-DEFUN (no_config_log_trap,
-       no_config_log_trap_cmd,
-       "no log trap",
+DEFUN (no_config_log_facility,
+       no_config_log_facility_cmd,
+       "no log facility [FACILITY]",
        NO_STR
        "Logging control\n"
-       "Permit all logging information\n")
+       "Reset syslog facility to default (daemon)\n"
+       "Syslog facility\n")
 {
-  zlog_default->maskpri = LOG_DEBUG;
+  zlog_default->facility = LOG_DAEMON;
+  return CMD_SUCCESS;
+}
+
+DEFUN_DEPRECATED (config_log_trap,
+		  config_log_trap_cmd,
+		  "log trap "LOG_LEVELS,
+		  "Logging control\n"
+		  "(Deprecated) Set logging level and default for all destinations\n"
+		  LOG_LEVEL_DESC)
+{
+  int new_level ;
+  int i;
+  
+  if ((new_level = level_match(argv[0])) == ZLOG_DISABLED)
+    return CMD_ERR_NO_MATCH;
+
+  zlog_default->default_lvl = new_level;
+  for (i = 0; i < ZLOG_NUM_DESTS; i++)
+    if (zlog_default->maxlvl[i] != ZLOG_DISABLED)
+      zlog_default->maxlvl[i] = new_level;
+  return CMD_SUCCESS;
+}
+
+DEFUN_DEPRECATED (no_config_log_trap,
+		  no_config_log_trap_cmd,
+		  "no log trap [LEVEL]",
+		  NO_STR
+		  "Logging control\n"
+		  "Permit all logging information\n"
+		  "Logging level\n")
+{
+  zlog_default->default_lvl = LOG_DEBUG;
   return CMD_SUCCESS;
 }
 
@@ -3304,6 +3460,7 @@ cmd_init (int terminal)
       install_element (VIEW_NODE, &config_enable_cmd);
       install_element (VIEW_NODE, &config_terminal_length_cmd);
       install_element (VIEW_NODE, &config_terminal_no_length_cmd);
+      install_element (VIEW_NODE, &show_logging_cmd);
     }
 
   if (terminal)
@@ -3320,6 +3477,8 @@ cmd_init (int terminal)
     {
       install_element (ENABLE_NODE, &config_terminal_length_cmd);
       install_element (ENABLE_NODE, &config_terminal_no_length_cmd);
+      install_element (ENABLE_NODE, &show_logging_cmd);
+      install_element (ENABLE_NODE, &config_logmsg_cmd);
 
       install_default (CONFIG_NODE);
     }
@@ -3336,13 +3495,22 @@ cmd_init (int terminal)
       install_element (CONFIG_NODE, &no_enable_password_cmd);
 
       install_element (CONFIG_NODE, &config_log_stdout_cmd);
+      install_element (CONFIG_NODE, &config_log_stdout_level_cmd);
       install_element (CONFIG_NODE, &no_config_log_stdout_cmd);
+      install_element (CONFIG_NODE, &config_log_monitor_cmd);
+      install_element (CONFIG_NODE, &config_log_monitor_level_cmd);
+      install_element (CONFIG_NODE, &no_config_log_monitor_cmd);
       install_element (CONFIG_NODE, &config_log_file_cmd);
+      install_element (CONFIG_NODE, &config_log_file_level_cmd);
       install_element (CONFIG_NODE, &no_config_log_file_cmd);
+      install_element (CONFIG_NODE, &no_config_log_file_level_cmd);
       install_element (CONFIG_NODE, &config_log_syslog_cmd);
+      install_element (CONFIG_NODE, &config_log_syslog_level_cmd);
       install_element (CONFIG_NODE, &config_log_syslog_facility_cmd);
       install_element (CONFIG_NODE, &no_config_log_syslog_cmd);
       install_element (CONFIG_NODE, &no_config_log_syslog_facility_cmd);
+      install_element (CONFIG_NODE, &config_log_facility_cmd);
+      install_element (CONFIG_NODE, &no_config_log_facility_cmd);
       install_element (CONFIG_NODE, &config_log_trap_cmd);
       install_element (CONFIG_NODE, &no_config_log_trap_cmd);
       install_element (CONFIG_NODE, &config_log_record_priority_cmd);
