@@ -104,10 +104,10 @@ static void*
 cpu_record_hash_alloc (struct cpu_thread_history *a)
 {
   struct cpu_thread_history *new;
-  new = XMALLOC( MTYPE_TMP/*XXX*/, sizeof *new);
-  memset(new, 0, sizeof *new);
+  new = XMALLOC( MTYPE_THREAD_STATS, sizeof *new);
+  memset(new, 0, sizeof (struct cpu_thread_history));
   new->func = a->func;
-  new->funcname = XSTRDUP(MTYPE_TMP/*XXX*/,a->funcname);
+  new->funcname = XSTRDUP(MTYPE_THREAD_FUNCNAME, a->funcname);
   return new;
 }
 
@@ -317,6 +317,7 @@ thread_add_unuse (struct thread_master *m, struct thread *thread)
   assert (thread->prev == NULL);
   assert (thread->type == THREAD_UNUSED);
   thread_list_add (&m->unuse, thread);
+  /* XXX: Should we deallocate funcname here? */
 }
 
 /* Free all unused thread. */
@@ -329,7 +330,7 @@ thread_list_free (struct thread_master *m, struct thread_list *list)
   for (t = list->head; t; t = next)
     {
       next = t->next;
-      XFREE (MTYPE_STRVEC, t->funcname);
+      XFREE (MTYPE_THREAD_FUNCNAME, t->funcname);
       XFREE (MTYPE_THREAD, t);
       list->count--;
       m->alloc--;
@@ -401,7 +402,7 @@ strip_funcname (const char *funcname)
 
   tmp = *e;
   *e = '\0';
-  ret  = XSTRDUP (MTYPE_STRVEC, b);
+  ret  = XSTRDUP (MTYPE_THREAD_FUNCNAME, b);
   *e = tmp;
 
   return ret;
@@ -418,7 +419,7 @@ thread_get (struct thread_master *m, u_char type,
     {
       thread = thread_trim_head (&m->unuse);
       if (thread->funcname)
-        XFREE(MTYPE_STRVEC, thread->funcname);
+        XFREE(MTYPE_THREAD_FUNCNAME, thread->funcname);
     }
   else
     {
@@ -903,7 +904,7 @@ funcname_thread_execute (struct thread_master *m,
   dummy.funcname = strip_funcname (funcname);
   thread_call (&dummy);
 
-  XFREE (MTYPE_STRVEC, dummy.funcname);
+  XFREE (MTYPE_THREAD_FUNCNAME, dummy.funcname);
 
   return NULL;
 }
