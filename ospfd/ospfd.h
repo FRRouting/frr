@@ -64,6 +64,7 @@
 #define OSPF_MAX_SEQUENCE_NUMBER        0x7fffffff
 
 #define OSPF_LSA_MAXAGE_CHECK_INTERVAL          30
+#define OSPF_NSSA_TRANS_STABLE_DEFAULT		40
 
 #define OSPF_ALLSPFROUTERS              0xe0000005      /* 224.0.0.5 */
 #define OSPF_ALLDROUTERS                0xe0000006      /* 224.0.0.6 */
@@ -341,12 +342,15 @@ struct ospf_area
   u_int32_t default_cost;               /* StubDefaultCost. */
   int auth_type;                        /* Authentication type. */
 
-  u_char NSSATranslatorRole;          /* NSSA Role during configuration */
+  u_char NSSATranslatorRole;          /* NSSA configured role */
 #define OSPF_NSSA_ROLE_NEVER     0
 #define OSPF_NSSA_ROLE_ALWAYS    1
 #define OSPF_NSSA_ROLE_CANDIDATE 2
-  u_char NSSATranslator;              /* NSSA Role after election process */
-
+  u_char NSSATranslatorState;              /* NSSA operational role */
+#define OSPF_NSSA_STATE_DISABLED 0
+#define OSPF_NSSA_STATE_ENABLED  2
+  int NSSATranslatorStabilityInterval;
+  
   u_char transit;			/* TransitCapability. */
 #define OSPF_TRANSIT_FALSE      0
 #define OSPF_TRANSIT_TRUE       1
@@ -472,7 +476,7 @@ struct ospf_nbr_nbma
 #ifdef HAVE_NSSA
 #define LSA_NSSA_GET(area) \
         (((area)->external_routing == OSPF_AREA_NSSA) ? \
-          (area)->NSSATranslator : 0)
+          (area)->NSSATranslatorState : 0)
 #endif /* HAVE_NSSA */
 
 #define OSPF_TIMER_ON(T,F,V)                                                  \
