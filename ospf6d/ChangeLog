@@ -1,3 +1,9 @@
+2005-03-02 Vincent Jardin <Vincent.Jardin@6wind.com>
+
+	* ospf6_zebra.c: Fix core dump when router-id is provided with
+	  an empty ospf6d.conf file (no context router ospf6) because
+	  ospf6_create has not been called yet.
+
 2005-01-25 Paul Jakma <paul@dishone.st>
 
 	* ospf6_asbr.c: Add "hsls" to the zroute_name const char array.
