@@ -41,6 +41,11 @@ void ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
  **/
 static inline int
 addr6_cmp(struct in6_addr *A, struct in6_addr *B) {
+
+#ifndef s6_addr32
+#define s6_addr32 __u6_addr.__u6_addr32
+#endif /*s6_addr32*/
+
 #define a(i) A->s6_addr32[i]
 #define b(i) B->s6_addr32[i]
 
