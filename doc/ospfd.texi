@@ -211,8 +211,7 @@ With example above any intra-area paths from area 0.0.0.10 and from range
 10.10.0.0/16 (for example 10.10.1.0/24 and 10.10.2.128/30) are announced into
 other areas as Type-3 summary-LSA's, but any others (for example 10.11.0.0/16
 or 10.128.30.16/30) aren't.
-Note, that you can't configure export-list to backbone area and this command
-makes sense in ABR only.
+This command makes sense in ABR only.
 @end deffn
 
 @deffn {OSPF Command} {area @var{a.b.c.d} import-list NAME} {}
@@ -231,8 +230,8 @@ Type-3 summary-LSAs.
 @deffnx {OSPF Command} {no area @var{a.b.c.d} filter-list prefix NAME out} {}
 @deffnx {OSPF Command} {no area <0-4294967295> filter-list prefix NAME in} {}
 @deffnx {OSPF Command} {no area <0-4294967295> filter-list prefix NAME out} {}
-Filtering Type-3 summary-LSAs to/from area using prefix lists. Unlike export-
-and import-list, these commands can be used with backbone area as well.
+Filtering Type-3 summary-LSAs to/from area using prefix lists. This command
+makes sense in ABR only.
 @end deffn
 
 @deffn {OSPF Command} {area @var{a.b.c.d} authentication} {}

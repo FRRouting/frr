@@ -1,3 +1,9 @@
+2004-04-19 Hasso Tepper <hasso@estpak.ee>
+
+	* ospf_vty.c: Don't warn that export- and import-list can't be
+	  configured to backbone area if they are applied and are working
+	  fine.
+
 2004-02-19 Sowmini Varadhan <sowmini.varadhan@sun.com>
 
 	* ospf_packet.c: Don't drop packets in Solaris x86.

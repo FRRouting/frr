@@ -1702,8 +1702,6 @@ DEFUN (ospf_area_export_list,
   struct in_addr area_id;
   int format;
 
-  VTY_GET_OSPF_AREA_ID_NO_BB ("export-list", area_id, format, argv[0]);
-
   area = ospf_area_get (ospf, area_id, format);
   ospf_area_export_list_set (ospf, area, argv[1]);
 
@@ -1724,8 +1722,6 @@ DEFUN (no_ospf_area_export_list,
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
-
-  VTY_GET_OSPF_AREA_ID_NO_BB ("export-list", area_id, format, argv[0]);
 
   area = ospf_area_lookup_by_area_id (ospf, area_id);
   if (area == NULL)
@@ -1751,8 +1747,6 @@ DEFUN (ospf_area_import_list,
   struct in_addr area_id;
   int format;
 
-  VTY_GET_OSPF_AREA_ID_NO_BB ("import-list", area_id, format, argv[0]);
-
   area = ospf_area_get (ospf, area_id, format);
   ospf_area_import_list_set (ospf, area, argv[1]);
 
@@ -1774,7 +1768,6 @@ DEFUN (no_ospf_area_import_list,
   struct in_addr area_id;
   int format;
 
-  VTY_GET_OSPF_AREA_ID_NO_BB ("import-list", area_id, format, argv[0]);
   area = ospf_area_lookup_by_area_id (ospf, area_id);
   if (area == NULL)
     return CMD_SUCCESS;
