@@ -1,4 +1,4 @@
-.TH BGPD 8 "10 August 2004" "Quagga BGPD daemon" "Version 0.96.5"
+.TH BGPD 8 "25 November 2004" "Quagga BGPD daemon" "Version 0.97.3"
 .SH NAME
 bgpd \- a BGPv4, BGPv4\+, BGPv4\- routing engine for use with Quagga routing
 software
@@ -17,9 +17,6 @@ software
 .B \-p
 .I bgp-port-number
 ] [
-.B \--bgp_port=
-.I port-number
-] [
 .B \-P
 .I port-number
 ] [
@@ -28,6 +25,9 @@ software
 ] [
 .B \-u
 .I user
+] [
+.B \-g
+.I group
 ]
 .SH DESCRIPTION
 .B bgpd 
@@ -46,6 +46,9 @@ Runs in daemon mode, forking and exiting from tty.
 Specifies the config file to use for startup. If not specified this
 option will likely default to \fB\fI/usr/local/etc/bgpd.conf\fR.
 .TP
+\fB\-g\fR, \fB\-\-group \fR\fIgroup\fR
+Specify the group to run as. Default is \fIquagga\fR.
+.TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
 .TP
@@ -54,7 +57,7 @@ When bgpd starts its process idenifier is written to
 \fB\fIpid-file\fR.  The init system uses the recorded PID to stop or
 restart bgpd.  The likely default is \fB\fI/var/run/bgpd.pid\fR.
 .TP
-\fB\-p\fR, \fB\-\-bgp_port=\fR\fIport\fR
+\fB\-p\fR, \fB\-\-bgp_port \fR\fIbgp-port-number\fR
 Set the port that bgpd will listen to for bgp data.  
 .TP
 \fB\-P\fR, \fB\-\-vty_port \fR\fIport-number\fR 
@@ -66,8 +69,7 @@ Specify the address that the bgpd VTY will listen on. Default is all
 intrefaces.
 .TP
 \fB\-u\fR, \fB\-\-user \fR\fIuser\fR
-Specify the user and group to run as. User and group have to have same
-name at the moment. Default is \fIquagga\fR.
+Specify the user to run as. Default is \fIquagga\fR.
 .TP
 \fB\-r\fR, \fB\-\-retain\fR 
 When the program terminates, retain routes added by \fBbgpd\fR.

@@ -48,6 +48,7 @@ struct option longopts[] =
   { "retain",      no_argument,       NULL, 'r'},
   { "no_kernel",   no_argument,       NULL, 'n'},
   { "user",        required_argument, NULL, 'u'},
+  { "group",       required_argument, NULL, 'g'},
   { "version",     no_argument,       NULL, 'v'},
   { "help",        no_argument,       NULL, 'h'},
   { 0 }
@@ -137,7 +138,8 @@ redistribution between different routing protocols.\n\n\
 -P, --vty_port     Set vty's port number\n\
 -r, --retain       When program terminates, retain added route by bgpd.\n\
 -n, --no_kernel    Do not install route to kernel.\n\
--u, --user         User and group to run as\n\
+-u, --user         User to run as\n\
+-g, --group        Group to run as\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
@@ -212,7 +214,7 @@ main (int argc, char **argv)
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:i:hp:A:P:rnu:v", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hp:A:P:rnu:g:v", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -253,9 +255,12 @@ main (int argc, char **argv)
 	case 'n':
 	  bgp_option_set (BGP_OPT_NO_FIB);
 	  break;
-  case 'u':
-    bgpd_privs.user = bgpd_privs.group = optarg;
-    break;
+	case 'u':
+	  bgpd_privs.user = optarg;
+	  break;
+	case 'g':
+	  bgpd_privs.group = optarg;
+	  break;
 	case 'v':
 	  print_version (progname);
 	  exit (0);

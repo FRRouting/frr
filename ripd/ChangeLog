@@ -1,3 +1,7 @@
+2004-11-25 Hasso Tepper <hasso at quagga.net>
+
+	* rip_main.c: Make group to run as configurable.
+
 2004-10-22 Paul Jakma <paul@dishone.st>
 
 	* ripd.c: Collapse redundant passing of various address structs,

@@ -1,3 +1,8 @@
+2004-11-25 Hasso Tepper <hasso at quagga.net>
+
+	* *.8: Document -g/--group command line switch and some small
+	  cosmetical changes.
+
 2004-11-22 Paul Jakma <paul@dishone.st>
 
 	* bgpd.8: escape -/+ signs, reported by ESR to bug-zebra.

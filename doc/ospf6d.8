@@ -1,4 +1,4 @@
-.TH OSPF6D 8 "10 August 2004" "Quagga OSPFv3 daemon" "Version 0.96.5"
+.TH OSPF6D 8 "25 November 2004" "Quagga OSPFv3 daemon" "Version 0.97.3"
 .SH NAME
 ospf6d \- an OSPFv3 routing engine for use with Quagga routing software.
 .SH SYNOPSIS
@@ -20,6 +20,9 @@ ospf6d \- an OSPFv3 routing engine for use with Quagga routing software.
 ] [
 .B \-u
 .I user
+] [
+.B \-g
+.I group
 ]
 .SH DESCRIPTION
 .B ospf6d
@@ -39,6 +42,9 @@ Runs in daemon mode, forking and exiting from tty.
 Specifies the config file to use for startup. If not specified this
 option will likely default to \fB\fI/usr/local/etc/ospf6d.conf\fR.
 .TP
+\fB\-g\fR, \fB\-\-group \fR\fIgroup\fR
+Specify the group to run as. Default is \fIquagga\fR.
+.TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
 .TP
@@ -56,8 +62,7 @@ Specify the address that the ospf6d VTY will listen on. Default is all
 intrefaces.
 .TP
 \fB\-u\fR, \fB\-\-user \fR\fIuser\fR
-Specify the user and group to run as. User and group have to have same
-name at the moment. Default is \fIquagga\fR.
+Specify the user to run as. Default is \fIquagga\fR.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.

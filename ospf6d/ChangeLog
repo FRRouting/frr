@@ -1,3 +1,7 @@
+2004-11-25 Hasso Tepper <hasso at quagga.net>
+
+	* ospf6_main.c: Make group to run as configurable.
+
 2004-11-05 Phil Spagnolo <phillip.a.spagnolo@boeing.com>
        * ospf6_flood.c:  When adding a thread to retransmit an lsa after 
     rxmt_interval, the ospf6d used thread_add_event().  However, 

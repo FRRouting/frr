@@ -1,4 +1,4 @@
-.TH OSPFD 8 "10 August 2004" "Quagga OSPFv2 daemon" "Version 0.96.5"
+.TH OSPFD 8 "25 November 2004" "Quagga OSPFv2 daemon" "Version 0.97.3"
 .SH NAME
 ospfd \- an OSPFv2 routing engine for use with Quagga routing software.
 .SH SYNOPSIS
@@ -20,6 +20,9 @@ ospfd \- an OSPFv2 routing engine for use with Quagga routing software.
 ] [
 .B \-u
 .I user
+] [
+.B \-g
+.I group
 ]
 .SH DESCRIPTION
 .B ospfd
@@ -37,6 +40,9 @@ Runs in daemon mode, forking and exiting from tty.
 \fB\-f\fR, \fB\-\-config-file \fR\fIconfig-file\fR 
 Specifies the config file to use for startup. If not specified this
 option will likely default to \fB\fI/usr/local/etc/ospfd.conf\fR.
+.TP
+\fB\-g\fR, \fB\-\-group \fR\fIgroup\fR
+Specify the group to run as. Default is \fIquagga\fR.
 .TP
 \fB\-h\fR, \fB\-\-help\fR
 A brief message.
@@ -58,8 +64,7 @@ Specify the address that the ospfd VTY will listen on. Default is all
 intrefaces.
 .TP
 \fB\-u\fR, \fB\-\-user \fR\fIuser\fR
-Specify the user and group to run as. User and group have to have same
-name at the moment. Default is \fIquagga\fR.
+Specify the user to run as. Default is \fIquagga\fR.
 .TP
 \fB\-a\fR, \fB\-\-apiserver \fR
 Enable OSPF apiserver. Default is disabled.

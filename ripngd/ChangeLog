@@ -1,3 +1,7 @@
+2004-11-25 Hasso Tepper <hasso at quagga.net>
+
+	* ripng_main.c: Make group to run as configurable.
+
 2004-10-26 Hasso Tepper <hasso at quagga.net>
 
 	* ripng_debug.c: Fix help of "show debugging ripng" command.

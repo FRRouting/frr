@@ -53,6 +53,7 @@ struct option longopts[] =
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
   { "user",        required_argument, NULL, 'u'},
+  { "group",       required_argument, NULL, 'g'},
   { "version",     no_argument,       NULL, 'v'},
   { 0 }
 };
@@ -115,7 +116,8 @@ Daemon which manages RIPng.\n\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -r, --retain       When program terminates, retain added route by ripngd.\n\
--u, --user         User and group to run as\n\
+-u, --user         User to run as\n\
+-g, --group        Group to run as\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
@@ -203,7 +205,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "dlf:i:hA:P:u:v", longopts, 0);
+      opt = getopt_long (argc, argv, "dlf:i:hA:P:u:g:v", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -241,9 +243,12 @@ main (int argc, char **argv)
 	case 'r':
 	  retain_mode = 1;
 	  break;
-  case 'u':
-    ripngd_privs.group = ripngd_privs.user = optarg;
-    break;
+	case 'u':
+	  ripngd_privs.user = optarg;
+	  break;
+	case 'g':
+	  ripngd_privs.group = optarg;
+	  break;
 	case 'v':
 	  print_version (progname);
 	  exit (0);

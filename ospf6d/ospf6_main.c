@@ -74,6 +74,8 @@ struct option longopts[] =
   { "pid_file",    required_argument, NULL, 'i'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
+  { "user",        required_argument, NULL, 'u'},
+  { "group",       required_argument, NULL, 'g'},
   { "version",     no_argument,       NULL, 'v'},
   { "help",        no_argument,       NULL, 'h'},
   { 0 }
@@ -109,6 +111,8 @@ Daemon which manages OSPF version 3.\n\n\
 -i, --pid_file     Set process identifier file name\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
+-u, --user         User to run as\n\
+-g, --group        Group to run as\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
@@ -191,7 +195,7 @@ main (int argc, char *argv[], char *envp[])
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:i:hp:A:P:u:v", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hp:A:P:u:g:v", longopts, 0);
     
       if (opt == EOF)
         break;
@@ -224,8 +228,11 @@ main (int argc, char *argv[], char *envp[])
           vty_port = (vty_port ? vty_port : OSPF6_VTY_PORT);
           break;
         case 'u':
-          ospf6d_privs.user = ospf6d_privs.group = optarg;
+          ospf6d_privs.user = optarg;
           break;
+	case 'g':
+	  ospf6d_privs.group = optarg;
+	  break;
         case 'v':
           print_version (progname);
           exit (0);

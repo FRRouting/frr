@@ -87,6 +87,7 @@ struct option longopts[] =
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "user",        required_argument, NULL, 'u'},
+  { "group",       required_argument, NULL, 'g'},
   { "apiserver",   no_argument,       NULL, 'a'},
   { "version",     no_argument,       NULL, 'v'},
   { 0 }
@@ -119,7 +120,8 @@ Daemon which manages OSPF.\n\n\
 -i, --pid_file     Set process identifier file name\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
--u, --user         User and group to run as\n\
+-u, --user         User to run as\n\
+-g, --group        Group to run as\n\
 -a. --apiserver    Enable OSPF apiserver\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
@@ -215,7 +217,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "dlf:i:hA:P:u:av", longopts, 0);
+      opt = getopt_long (argc, argv, "dlf:i:hA:P:u:g:av", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -248,7 +250,10 @@ main (int argc, char **argv)
           vty_port = (vty_port ? vty_port : OSPF_VTY_PORT);
   	  break;
 	case 'u':
-	  ospfd_privs.group = ospfd_privs.user = optarg;
+	  ospfd_privs.user = optarg;
+	  break;
+	case 'g':
+	  ospfd_privs.group = optarg;
 	  break;
 #ifdef SUPPORT_OSPF_API
 	case 'a':

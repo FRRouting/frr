@@ -46,6 +46,7 @@ static struct option longopts[] =
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
   { "user",        required_argument, NULL, 'u'},
+  { "group",       required_argument, NULL, 'g'},
   { "version",     no_argument,       NULL, 'v'},
   { 0 }
 };
@@ -110,7 +111,8 @@ Daemon which manages RIP version 1 and 2.\n\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -r, --retain       When program terminates, retain added route by ripd.\n\
--u, --user         User and group to run as\n\
+-u, --user         User to run as\n\
+-g, --group        Group to run as\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
@@ -201,7 +203,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "df:i:hA:P:u:rv", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hA:P:u:g:rv", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -236,9 +238,12 @@ main (int argc, char **argv)
 	case 'r':
 	  retain_mode = 1;
 	  break;
-    case 'u':
-        ripd_privs.group = ripd_privs.user = optarg;
-        break;
+	case 'u':
+	  ripd_privs.user = optarg;
+	  break;
+	case 'g':
+	  ripd_privs.group = optarg;
+	  break;
 	case 'v':
 	  print_version (progname);
 	  exit (0);

@@ -1,3 +1,7 @@
+2004-11-25 Hasso Tepper <hasso at quagga.net>
+
+	* isis_main.c: Make group to run as configurable.
+
 2004-11-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* dict.c: Include "zassert.h" instead of <assert.h>.

@@ -1,3 +1,7 @@
+2004-11-25 Hasso Tepper <hasso at quagga.net>
+
+	* bgp_main.c: Make group to run as configurable.
+
 2004-11-09 Paul Jakma <paul@dishone.st>
 
 	* bgp_nexthop.c: collapse bgp_connected_ipvX, bgp_nexthop_cache_ipvX

@@ -79,6 +79,7 @@ struct option longopts[] =
   { "nl-bufsize",  no_argument,       NULL, 's'},
 #endif /* HAVE_NETLINK */
   { "user",        required_argument, NULL, 'u'},
+  { "group",       required_argument, NULL, 'g'},
   { "version",     no_argument,       NULL, 'v'},
   { 0 }
 };
@@ -133,7 +134,8 @@ usage (char *progname, int status)
 	      "-P, --vty_port     Set vty's port number\n"\
 	      "-r, --retain       When program terminates, retain added route "\
 				  "by zebra.\n"\
-	      "-u, --user         User and group to run as\n", progname);
+	      "-u, --user         User to run as\n"\
+	      "-g, --group	  Group to run as\n", progname);
 #ifdef HAVE_NETLINK
       printf ("-s, --nl-bufsize   Set netlink receive buffer size\n");
 #endif /* HAVE_NETLINK */
@@ -230,9 +232,9 @@ main (int argc, char **argv)
       int opt;
   
 #ifdef HAVE_NETLINK  
-      opt = getopt_long (argc, argv, "bdklf:i:hA:P:ru:vs:", longopts, 0);
+      opt = getopt_long (argc, argv, "bdklf:i:hA:P:ru:g:vs:", longopts, 0);
 #else
-      opt = getopt_long (argc, argv, "bdklf:i:hA:P:ru:v", longopts, 0);
+      opt = getopt_long (argc, argv, "bdklf:i:hA:P:ru:g:v", longopts, 0);
 #endif /* HAVE_NETLINK */
 
       if (opt == EOF)
@@ -281,9 +283,12 @@ main (int argc, char **argv)
 	  nl_rcvbufsize = atoi (optarg);
 	  break;
 #endif /* HAVE_NETLINK */
-  case 'u':
-    zserv_privs.user = zserv_privs.group = optarg;
-    break;
+	case 'u':
+	  zserv_privs.user = optarg;
+	  break;
+	case 'g':
+	  zserv_privs.group = optarg;
+	  break;
 	case 'v':
 	  print_version (progname);
 	  exit (0);

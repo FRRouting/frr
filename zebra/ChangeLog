@@ -2,6 +2,7 @@
 
 	* irdp_interface.c: Remove comment from DEFUN, it breaks vtysh because
 	  it confuses extract.pl.
+	* main.c: Make group to run as configurable.
 
 2004-10-28 Hasso Tepper <hasso at quagga.net>
 
