@@ -567,8 +567,8 @@ DEFUN (show_ipv6_ospf6_route_flapping,
   return CMD_SUCCESS;
 }
 
-DEFUN (flap_damping_route,
-       flap_damping_route_cmd,
+DEFUN (ospf6_flap_damping_route,
+       ospf6_flap_damping_route_cmd,
        "flap-damping route <0-4294967295> <0-4294967295> "
                           "<0-4294967295> <0-4294967295>",
        "enable flap dampening\n"
@@ -734,7 +734,7 @@ ospf6_damp_init ()
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_flapping_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_flapping_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_camp_config_cmd);
-  install_element (OSPF6_NODE, &flap_damping_route_cmd);
+  install_element (OSPF6_NODE, &ospf6_flap_damping_route_cmd);
 
   install_element (ENABLE_NODE, &show_debug_ospf6_damp_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_damp_cmd);

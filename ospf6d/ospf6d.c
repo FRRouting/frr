@@ -281,8 +281,8 @@ DEFUN (show_ipv6_ospf6_statistics,
 }
 
 /* change Router_ID commands. */
-DEFUN (router_id,
-       router_id_cmd,
+DEFUN (ospf6_router_id,
+       ospf6_router_id_cmd,
        "router-id ROUTER_ID",
        "Configure ospf Router-ID.\n"
        V4NOTATION_STR)
@@ -403,8 +403,8 @@ ospf6_interface_bind_area (struct vty *vty,
   return CMD_SUCCESS;
 }
 
-DEFUN (interface_area_plist,
-       interface_area_plist_cmd,
+DEFUN (ospf6_interface_area_plist,
+       ospf6_interface_area_plist_cmd,
        "interface IFNAME area A.B.C.D prefix-list WORD",
        "Enable routing on an IPv6 interface\n"
        IFNAME_STR
@@ -421,8 +421,8 @@ DEFUN (interface_area_plist,
   return ospf6_interface_bind_area (vty, argv[0], argv[1], argv[2], 0);
 }
 
-DEFUN (interface_area_plist_passive,
-       interface_area_plist_passive_cmd,
+DEFUN (ospf6_interface_area_plist_passive,
+       ospf6_interface_area_plist_passive_cmd,
        "interface IFNAME area A.B.C.D prefix-list WORD passive",
        "Enable routing on an IPv6 interface\n"
        IFNAME_STR
@@ -441,8 +441,8 @@ DEFUN (interface_area_plist_passive,
   return ospf6_interface_bind_area (vty, argv[0], argv[1], argv[2], 1);
 }
 
-DEFUN (interface_area,
-       interface_area_cmd,
+DEFUN (ospf6_interface_area,
+       ospf6_interface_area_cmd,
        "interface IFNAME area A.B.C.D",
        "Enable routing on an IPv6 interface\n"
        IFNAME_STR
@@ -476,8 +476,8 @@ DEFUN (interface_area,
                                     plist_name, passive);
 }
 
-DEFUN (interface_area_passive,
-       interface_area_passive_cmd,
+DEFUN (ospf6_interface_area_passive,
+       ospf6_interface_area_passive_cmd,
        "interface IFNAME area A.B.C.D passive",
        "Enable routing on an IPv6 interface\n"
        IFNAME_STR
@@ -493,8 +493,8 @@ DEFUN (interface_area_passive,
   return ospf6_interface_bind_area (vty, argv[0], argv[1], NULL, 1);
 }
 
-DEFUN (no_interface_area,
-       no_interface_area_cmd,
+DEFUN (no_ospf6_interface_area,
+       no_ospf6_interface_area_cmd,
        "no interface IFNAME area A.B.C.D",
        NO_STR
        "Disable routing on an IPv6 interface\n"
@@ -538,8 +538,8 @@ DEFUN (no_interface_area,
   return CMD_SUCCESS;
 }
 
-DEFUN (area_range,
-       area_range_cmd,
+DEFUN (ospf6_area_range,
+       ospf6_area_range_cmd,
        "area A.B.C.D range X:X::X:X/M",
        "OSPFv3 area parameters\n"
        "OSPFv3 area ID in IPv4 address format\n"
@@ -570,8 +570,8 @@ DEFUN (area_range,
   return CMD_SUCCESS;
 }
 
-DEFUN (passive_interface,
-       passive_interface_cmd,
+DEFUN (ospf6_passive_interface,
+       ospf6_passive_interface_cmd,
        "passive-interface IFNAME",
        OSPF6_PASSIVE_STR
        IFNAME_STR)
@@ -596,8 +596,8 @@ DEFUN (passive_interface,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_passive_interface,
-       no_passive_interface_cmd,
+DEFUN (no_ospf6_passive_interface,
+       no_ospf6_passive_interface_cmd,
        "no passive-interface IFNAME",
        NO_STR
        OSPF6_PASSIVE_STR
@@ -740,15 +740,15 @@ ospf6_init ()
 #endif /* HAVE_SETPROCTITLE */
 
   install_default (OSPF6_NODE);
-  install_element (OSPF6_NODE, &router_id_cmd);
-  install_element (OSPF6_NODE, &interface_area_cmd);
-  install_element (OSPF6_NODE, &interface_area_passive_cmd);
-  install_element (OSPF6_NODE, &interface_area_plist_cmd);
-  install_element (OSPF6_NODE, &interface_area_plist_passive_cmd);
-  install_element (OSPF6_NODE, &no_interface_area_cmd);
-  install_element (OSPF6_NODE, &passive_interface_cmd);
-  install_element (OSPF6_NODE, &no_passive_interface_cmd);
-  install_element (OSPF6_NODE, &area_range_cmd);
+  install_element (OSPF6_NODE, &ospf6_router_id_cmd);
+  install_element (OSPF6_NODE, &ospf6_interface_area_cmd);
+  install_element (OSPF6_NODE, &ospf6_interface_area_passive_cmd);
+  install_element (OSPF6_NODE, &ospf6_interface_area_plist_cmd);
+  install_element (OSPF6_NODE, &ospf6_interface_area_plist_passive_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_interface_area_cmd);
+  install_element (OSPF6_NODE, &ospf6_passive_interface_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_passive_interface_cmd);
+  install_element (OSPF6_NODE, &ospf6_area_range_cmd);
 
   /* Make empty list of top list. */
   if_init ();

@@ -223,7 +223,7 @@ DEFUN (ospf_router_id,
 }
 
 ALIAS (ospf_router_id,
-       router_id_cmd,
+       router_ospf_id_cmd,
        "router-id A.B.C.D",
        "router-id for the OSPF process\n"
        "OSPF router-id in IP address format\n")
@@ -245,13 +245,13 @@ DEFUN (no_ospf_router_id,
 }
 
 ALIAS (no_ospf_router_id,
-       no_router_id_cmd,
+       no_router_ospf_id_cmd,
        "no router-id",
        NO_STR
        "router-id for the OSPF process\n")
 
-DEFUN (passive_interface,
-       passive_interface_addr_cmd,
+DEFUN (ospf_passive_interface,
+       ospf_passive_interface_addr_cmd,
        "passive-interface IFNAME A.B.C.D",
        "Suppress routing updates on an interface\n"
        "Interface's name\n")
@@ -291,14 +291,14 @@ DEFUN (passive_interface,
  return CMD_SUCCESS;
 }
 
-ALIAS (passive_interface,
-       passive_interface_cmd,
+ALIAS (ospf_passive_interface,
+       ospf_passive_interface_cmd,
        "passive-interface IFNAME",
        "Suppress routing updates on an interface\n"
        "Interface's name\n")
 
-DEFUN (no_passive_interface,
-       no_passive_interface_addr_cmd,
+DEFUN (no_ospf_passive_interface,
+       no_ospf_passive_interface_addr_cmd,
        "no passive-interface IFNAME A.B.C.D",
        NO_STR
        "Allow routing updates on an interface\n"
@@ -346,15 +346,15 @@ DEFUN (no_passive_interface,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_passive_interface,
-       no_passive_interface_cmd,
+ALIAS (no_ospf_passive_interface,
+       no_ospf_passive_interface_cmd,
        "no passive-interface IFNAME",
        NO_STR
        "Allow routing updates on an interface\n"
        "Interface's name\n")
 
-DEFUN (network_area,
-       network_area_cmd,
+DEFUN (ospf_network_area,
+       ospf_network_area_cmd,
        "network A.B.C.D/M area (A.B.C.D|<0-4294967295>)",
        "Enable routing on an IP network\n"
        "OSPF network prefix\n"
@@ -381,8 +381,8 @@ DEFUN (network_area,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_network_area,
-       no_network_area_cmd,
+DEFUN (no_ospf_network_area,
+       no_ospf_network_area_cmd,
        "no network A.B.C.D/M area (A.B.C.D|<0-4294967295>)",
        NO_STR
        "Enable routing on an IP network\n"
@@ -412,8 +412,8 @@ DEFUN (no_network_area,
 }
 
 
-DEFUN (area_range,
-       area_range_cmd,
+DEFUN (ospf_area_range,
+       ospf_area_range_cmd,
        "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -440,8 +440,8 @@ DEFUN (area_range,
   return CMD_SUCCESS;
 }
 
-ALIAS (area_range,
-       area_range_advertise_cmd,
+ALIAS (ospf_area_range,
+       ospf_area_range_advertise_cmd,
        "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M advertise",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -450,8 +450,8 @@ ALIAS (area_range,
        "Area range prefix\n"
        "Advertise this range (default)\n")
 
-ALIAS (area_range,
-       area_range_cost_cmd,
+ALIAS (ospf_area_range,
+       ospf_area_range_cost_cmd,
        "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M cost <0-16777215>",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -461,8 +461,8 @@ ALIAS (area_range,
        "User specified metric for this range\n"
        "Advertised metric for this range\n")
 
-ALIAS (area_range,
-       area_range_advertise_cost_cmd,
+ALIAS (ospf_area_range,
+       ospf_area_range_advertise_cost_cmd,
        "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M advertise cost <0-16777215>",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -473,8 +473,8 @@ ALIAS (area_range,
        "User specified metric for this range\n"
        "Advertised metric for this range\n")
 
-DEFUN (area_range_not_advertise,
-       area_range_not_advertise_cmd,
+DEFUN (ospf_area_range_not_advertise,
+       ospf_area_range_not_advertise_cmd,
        "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M not-advertise",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -496,8 +496,8 @@ DEFUN (area_range_not_advertise,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_range,
-       no_area_range_cmd,
+DEFUN (no_ospf_area_range,
+       no_ospf_area_range_cmd,
        "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M",
        NO_STR
        "OSPF area parameters\n"
@@ -519,8 +519,8 @@ DEFUN (no_area_range,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_area_range,
-       no_area_range_advertise_cmd,
+ALIAS (no_ospf_area_range,
+       no_ospf_area_range_advertise_cmd,
        "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M (advertise|not-advertise)",
        NO_STR
        "OSPF area parameters\n"
@@ -531,8 +531,8 @@ ALIAS (no_area_range,
        "Advertise this range (default)\n"
        "DoNotAdvertise this range\n")
 
-ALIAS (no_area_range,
-       no_area_range_cost_cmd,
+ALIAS (no_ospf_area_range,
+       no_ospf_area_range_cost_cmd,
        "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M cost <0-16777215>",
        NO_STR
        "OSPF area parameters\n"
@@ -543,8 +543,8 @@ ALIAS (no_area_range,
        "User specified metric for this range\n"
        "Advertised metric for this range\n")
 
-ALIAS (no_area_range,
-       no_area_range_advertise_cost_cmd,
+ALIAS (no_ospf_area_range,
+       no_ospf_area_range_advertise_cost_cmd,
        "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M advertise cost <0-16777215>",
        NO_STR
        "OSPF area parameters\n"
@@ -556,8 +556,8 @@ ALIAS (no_area_range,
        "User specified metric for this range\n"
        "Advertised metric for this range\n")
 
-DEFUN (area_range_substitute,
-       area_range_substitute_cmd,
+DEFUN (ospf_area_range_substitute,
+       ospf_area_range_substitute_cmd,
        "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M substitute A.B.C.D/M",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -581,8 +581,8 @@ DEFUN (area_range_substitute,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_range_substitute,
-       no_area_range_substitute_cmd,
+DEFUN (no_ospf_area_range_substitute,
+       no_ospf_area_range_substitute_cmd,
        "no area (A.B.C.D|<0-4294967295>) range A.B.C.D/M substitute A.B.C.D/M",
        NO_STR
        "OSPF area parameters\n"
@@ -871,8 +871,8 @@ ospf_vl_set (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
        "Use MD5 algorithm\n" \
        "The OSPF password (key)"
 
-DEFUN (area_vlink,
-       area_vlink_cmd,
+DEFUN (ospf_area_vlink,
+       ospf_area_vlink_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D",
        VLINK_HELPSTR_IPADDR)
 {
@@ -1005,8 +1005,8 @@ DEFUN (area_vlink,
 
 }
 
-DEFUN (no_area_vlink,
-       no_area_vlink_cmd,
+DEFUN (no_ospf_area_vlink,
+       no_ospf_area_vlink_cmd,
        "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D",
        NO_STR
        VLINK_HELPSTR_IPADDR)
@@ -1121,23 +1121,23 @@ DEFUN (no_area_vlink,
   return ospf_vl_set (ospf, &vl_config);
 }
 
-ALIAS (area_vlink,
-       area_vlink_param1_cmd,
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_param1_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (no_area_vlink,
-       no_area_vlink_param1_cmd,
+ALIAS (no_ospf_area_vlink,
+       no_ospf_area_vlink_param1_cmd,
        "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval)",
        NO_STR
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (area_vlink,
-       area_vlink_param2_cmd,
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_param2_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
@@ -1145,8 +1145,8 @@ ALIAS (area_vlink,
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (no_area_vlink,
-       no_area_vlink_param2_cmd,
+ALIAS (no_ospf_area_vlink,
+       no_ospf_area_vlink_param2_cmd,
        "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval) "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval)",
@@ -1155,8 +1155,8 @@ ALIAS (no_area_vlink,
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (area_vlink,
-       area_vlink_param3_cmd,
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_param3_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
@@ -1166,35 +1166,9 @@ ALIAS (area_vlink,
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (no_area_vlink,
-       no_area_vlink_param3_cmd,
+ALIAS (no_ospf_area_vlink,
+       no_ospf_area_vlink_param3_cmd,
        "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval)",
-       NO_STR
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM)
-
-ALIAS (area_vlink,
-       area_vlink_param4_cmd,
-       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
-       VLINK_HELPSTR_IPADDR
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM
-       VLINK_HELPSTR_TIME_PARAM)
-
-ALIAS (no_area_vlink,
-       no_area_vlink_param4_cmd,
-       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
-       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval) "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval) "
        "(hello-interval|retransmit-interval|transmit-delay|dead-interval)",
@@ -1202,63 +1176,89 @@ ALIAS (no_area_vlink,
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM
+       VLINK_HELPSTR_TIME_PARAM)
+
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_param4_cmd,
+       "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535> "
+       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) <1-65535>",
+       VLINK_HELPSTR_IPADDR
+       VLINK_HELPSTR_TIME_PARAM
+       VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM
        VLINK_HELPSTR_TIME_PARAM)
 
-ALIAS (area_vlink,
-       area_vlink_authtype_args_cmd,
+ALIAS (no_ospf_area_vlink,
+       no_ospf_area_vlink_param4_cmd,
+       "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
+       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) "
+       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) "
+       "(hello-interval|retransmit-interval|transmit-delay|dead-interval) "
+       "(hello-interval|retransmit-interval|transmit-delay|dead-interval)",
+       NO_STR
+       VLINK_HELPSTR_IPADDR
+       VLINK_HELPSTR_TIME_PARAM
+       VLINK_HELPSTR_TIME_PARAM
+       VLINK_HELPSTR_TIME_PARAM
+       VLINK_HELPSTR_TIME_PARAM)
+
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_authtype_args_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication|) (message-digest|null)",
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_AUTHTYPE_ALL)
 
-ALIAS (area_vlink,
-       area_vlink_authtype_cmd,
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_authtype_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication|)",
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_AUTHTYPE_SIMPLE)
 
-ALIAS (no_area_vlink,
-       no_area_vlink_authtype_cmd,
+ALIAS (no_ospf_area_vlink,
+       no_ospf_area_vlink_authtype_cmd,
        "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication|)",
        NO_STR
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_AUTHTYPE_SIMPLE)
 
-ALIAS (area_vlink,
-       area_vlink_md5_cmd,
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_md5_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(message-digest-key|) <1-255> md5 KEY",
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_AUTH_MD5)
 
-ALIAS (no_area_vlink,
-       no_area_vlink_md5_cmd,
+ALIAS (no_ospf_area_vlink,
+       no_ospf_area_vlink_md5_cmd,
        "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(message-digest-key|) <1-255>",
        NO_STR
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_AUTH_MD5)
 
-ALIAS (area_vlink,
-       area_vlink_authkey_cmd,
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_authkey_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication-key|) AUTH_KEY",
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (no_area_vlink,
-       no_area_vlink_authkey_cmd,
+ALIAS (no_ospf_area_vlink,
+       no_ospf_area_vlink_authkey_cmd,
        "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication-key|)",
        NO_STR
        VLINK_HELPSTR_IPADDR
        VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (area_vlink,
-       area_vlink_authtype_args_authkey_cmd,
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_authtype_args_authkey_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication|) (message-digest|null) "
        "(authentication-key|) AUTH_KEY",
@@ -1266,8 +1266,8 @@ ALIAS (area_vlink,
        VLINK_HELPSTR_AUTHTYPE_ALL
        VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (area_vlink,
-       area_vlink_authtype_authkey_cmd,
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_authtype_authkey_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication|) "
        "(authentication-key|) AUTH_KEY",
@@ -1275,8 +1275,8 @@ ALIAS (area_vlink,
        VLINK_HELPSTR_AUTHTYPE_SIMPLE
        VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (no_area_vlink,
-       no_area_vlink_authtype_authkey_cmd,
+ALIAS (no_ospf_area_vlink,
+       no_ospf_area_vlink_authtype_authkey_cmd,
        "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication|) "
        "(authentication-key|)",
@@ -1285,8 +1285,8 @@ ALIAS (no_area_vlink,
        VLINK_HELPSTR_AUTHTYPE_SIMPLE
        VLINK_HELPSTR_AUTH_SIMPLE)
 
-ALIAS (area_vlink,
-       area_vlink_authtype_args_md5_cmd,
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_authtype_args_md5_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication|) (message-digest|null) "
        "(message-digest-key|) <1-255> md5 KEY",
@@ -1294,8 +1294,8 @@ ALIAS (area_vlink,
        VLINK_HELPSTR_AUTHTYPE_ALL
        VLINK_HELPSTR_AUTH_MD5)
 
-ALIAS (area_vlink,
-       area_vlink_authtype_md5_cmd,
+ALIAS (ospf_area_vlink,
+       ospf_area_vlink_authtype_md5_cmd,
        "area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication|) "
        "(message-digest-key|) <1-255> md5 KEY",
@@ -1303,8 +1303,8 @@ ALIAS (area_vlink,
        VLINK_HELPSTR_AUTHTYPE_SIMPLE
        VLINK_HELPSTR_AUTH_MD5)
 
-ALIAS (no_area_vlink,
-       no_area_vlink_authtype_md5_cmd,
+ALIAS (no_ospf_area_vlink,
+       no_ospf_area_vlink_authtype_md5_cmd,
        "no area (A.B.C.D|<0-4294967295>) virtual-link A.B.C.D "
        "(authentication|) "
        "(message-digest-key|)",
@@ -1314,8 +1314,8 @@ ALIAS (no_area_vlink,
        VLINK_HELPSTR_AUTH_MD5)
 
 
-DEFUN (area_shortcut,
-       area_shortcut_cmd,
+DEFUN (ospf_area_shortcut,
+       ospf_area_shortcut_cmd,
        "area (A.B.C.D|<0-4294967295>) shortcut (default|enable|disable)",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1354,8 +1354,8 @@ DEFUN (area_shortcut,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_shortcut,
-       no_area_shortcut_cmd,
+DEFUN (no_ospf_area_shortcut,
+       no_ospf_area_shortcut_cmd,
        "no area (A.B.C.D|<0-4294967295>) shortcut (enable|disable)",
        NO_STR
        "OSPF area parameters\n"
@@ -1382,8 +1382,8 @@ DEFUN (no_area_shortcut,
 }
 
 
-DEFUN (area_stub,
-       area_stub_cmd,
+DEFUN (ospf_area_stub,
+       ospf_area_stub_cmd,
        "area (A.B.C.D|<0-4294967295>) stub",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1409,8 +1409,8 @@ DEFUN (area_stub,
   return CMD_SUCCESS;
 }
 
-DEFUN (area_stub_no_summary,
-       area_stub_no_summary_cmd,
+DEFUN (ospf_area_stub_no_summary,
+       ospf_area_stub_no_summary_cmd,
        "area (A.B.C.D|<0-4294967295>) stub no-summary",
        "OSPF stub parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1437,8 +1437,8 @@ DEFUN (area_stub_no_summary,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_stub,
-       no_area_stub_cmd,
+DEFUN (no_ospf_area_stub,
+       no_ospf_area_stub_cmd,
        "no area (A.B.C.D|<0-4294967295>) stub",
        NO_STR
        "OSPF area parameters\n"
@@ -1458,8 +1458,8 @@ DEFUN (no_area_stub,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_stub_no_summary,
-       no_area_stub_no_summary_cmd,
+DEFUN (no_ospf_area_stub_no_summary,
+       no_ospf_area_stub_no_summary_cmd,
        "no area (A.B.C.D|<0-4294967295>) stub no-summary",
        NO_STR
        "OSPF area parameters\n"
@@ -1479,8 +1479,8 @@ DEFUN (no_area_stub_no_summary,
 }
 
 #ifdef HAVE_NSSA
-DEFUN (area_nssa,
-       area_nssa_cmd,
+DEFUN (ospf_area_nssa,
+       ospf_area_nssa_cmd,
        "area (A.B.C.D|<0-4294967295>) nssa",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1520,8 +1520,8 @@ DEFUN (area_nssa,
   return CMD_SUCCESS;
 }
 
-ALIAS (area_nssa,
-       area_nssa_translate_no_summary_cmd,
+ALIAS (ospf_area_nssa,
+       ospf_area_nssa_translate_no_summary_cmd,
        "area (A.B.C.D|<0-4294967295>) nssa (translate-candidate|translate-never|translate-always) (no-summary|)",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1533,8 +1533,8 @@ ALIAS (area_nssa,
        "Do not inject inter-area routes into nssa\n"
        "dummy\n")
 
-ALIAS (area_nssa,
-       area_nssa_translate_cmd,
+ALIAS (ospf_area_nssa,
+       ospf_area_nssa_translate_cmd,
        "area (A.B.C.D|<0-4294967295>) nssa (translate-candidate|translate-never|translate-always)",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1544,8 +1544,8 @@ ALIAS (area_nssa,
        "Configure NSSA-ABR to never translate\n"
        "Configure NSSA-ABR to always translate\n")
 
-DEFUN (area_nssa_no_summary,
-       area_nssa_no_summary_cmd,
+DEFUN (ospf_area_nssa_no_summary,
+       ospf_area_nssa_no_summary_cmd,
        "area (A.B.C.D|<0-4294967295>) nssa no-summary",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1572,8 +1572,8 @@ DEFUN (area_nssa_no_summary,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_nssa,
-       no_area_nssa_cmd,
+DEFUN (no_ospf_area_nssa,
+       no_ospf_area_nssa_cmd,
        "no area (A.B.C.D|<0-4294967295>) nssa",
        NO_STR
        "OSPF area parameters\n"
@@ -1593,8 +1593,8 @@ DEFUN (no_area_nssa,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_nssa_no_summary,
-       no_area_nssa_no_summary_cmd,
+DEFUN (no_ospf_area_nssa_no_summary,
+       no_ospf_area_nssa_no_summary_cmd,
        "no area (A.B.C.D|<0-4294967295>) nssa no-summary",
        NO_STR
        "OSPF area parameters\n"
@@ -1615,8 +1615,8 @@ DEFUN (no_area_nssa_no_summary,
 
 #endif /* HAVE_NSSA */
 
-DEFUN (area_default_cost,
-       area_default_cost_cmd,
+DEFUN (ospf_area_default_cost,
+       ospf_area_default_cost_cmd,
        "area (A.B.C.D|<0-4294967295>) default-cost <0-16777215>",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1646,8 +1646,8 @@ DEFUN (area_default_cost,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_default_cost,
-       no_area_default_cost_cmd,
+DEFUN (no_ospf_area_default_cost,
+       no_ospf_area_default_cost_cmd,
        "no area (A.B.C.D|<0-4294967295>) default-cost <0-16777215>",
        NO_STR
        "OSPF area parameters\n"
@@ -1682,8 +1682,8 @@ DEFUN (no_area_default_cost,
   return CMD_SUCCESS;
 }
 
-DEFUN (area_export_list,
-       area_export_list_cmd,
+DEFUN (ospf_area_export_list,
+       ospf_area_export_list_cmd,
        "area (A.B.C.D|<0-4294967295>) export-list NAME",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1704,8 +1704,8 @@ DEFUN (area_export_list,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_export_list,
-       no_area_export_list_cmd,
+DEFUN (no_ospf_area_export_list,
+       no_ospf_area_export_list_cmd,
        "no area (A.B.C.D|<0-4294967295>) export-list NAME",
        NO_STR
        "OSPF area parameters\n"
@@ -1731,8 +1731,8 @@ DEFUN (no_area_export_list,
 }
 
 
-DEFUN (area_import_list,
-       area_import_list_cmd,
+DEFUN (ospf_area_import_list,
+       ospf_area_import_list_cmd,
        "area (A.B.C.D|<0-4294967295>) import-list NAME",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1753,8 +1753,8 @@ DEFUN (area_import_list,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_import_list,
-       no_area_import_list_cmd,
+DEFUN (no_ospf_area_import_list,
+       no_ospf_area_import_list_cmd,
        "no area (A.B.C.D|<0-4294967295>) import-list NAME",
        NO_STR
        "OSPF area parameters\n"
@@ -1778,8 +1778,8 @@ DEFUN (no_area_import_list,
   return CMD_SUCCESS;
 }
 
-DEFUN (area_filter_list,
-       area_filter_list_cmd,
+DEFUN (ospf_area_filter_list,
+       ospf_area_filter_list_cmd,
        "area (A.B.C.D|<0-4294967295>) filter-list prefix WORD (in|out)",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1822,8 +1822,8 @@ DEFUN (area_filter_list,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_filter_list,
-       no_area_filter_list_cmd,
+DEFUN (no_ospf_area_filter_list,
+       no_ospf_area_filter_list_cmd,
        "no area (A.B.C.D|<0-4294967295>) filter-list prefix WORD (in|out)",
        NO_STR
        "OSPF area parameters\n"
@@ -1878,8 +1878,8 @@ DEFUN (no_area_filter_list,
 }
 
 
-DEFUN (area_authentication_message_digest,
-       area_authentication_message_digest_cmd,
+DEFUN (ospf_area_authentication_message_digest,
+       ospf_area_authentication_message_digest_cmd,
        "area (A.B.C.D|<0-4294967295>) authentication message-digest",
        "OSPF area parameters\n"
        "Enable authentication\n"
@@ -1898,8 +1898,8 @@ DEFUN (area_authentication_message_digest,
   return CMD_SUCCESS;
 }
 
-DEFUN (area_authentication,
-       area_authentication_cmd,
+DEFUN (ospf_area_authentication,
+       ospf_area_authentication_cmd,
        "area (A.B.C.D|<0-4294967295>) authentication",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1919,8 +1919,8 @@ DEFUN (area_authentication,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_area_authentication,
-       no_area_authentication_cmd,
+DEFUN (no_ospf_area_authentication,
+       no_ospf_area_authentication_cmd,
        "no area (A.B.C.D|<0-4294967295>) authentication",
        NO_STR
        "OSPF area parameters\n"
@@ -2059,8 +2059,8 @@ ALIAS (no_ospf_compatible_rfc1583,
        "OSPF specific commands\n"
        "Disable the RFC1583Compatibility flag\n")
 
-DEFUN (timers_spf,
-       timers_spf_cmd,
+DEFUN (ospf_timers_spf,
+       ospf_timers_spf_cmd,
        "timers spf <0-4294967295> <0-4294967295>",
        "Adjust routing timers\n"
        "OSPF SPF timers\n"
@@ -2078,8 +2078,8 @@ DEFUN (timers_spf,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_timers_spf,
-       no_timers_spf_cmd,
+DEFUN (no_ospf_timers_spf,
+       no_ospf_timers_spf_cmd,
        "no timers spf",
        NO_STR
        "Adjust routing timers\n"
@@ -2094,8 +2094,8 @@ DEFUN (no_timers_spf,
 }
 
 
-DEFUN (neighbor,
-       neighbor_cmd,
+DEFUN (ospf_neighbor,
+       ospf_neighbor_cmd,
        "neighbor A.B.C.D",
        NEIGHBOR_STR
        "Neighbor IP address\n")
@@ -2122,8 +2122,8 @@ DEFUN (neighbor,
   return CMD_SUCCESS;
 }
 
-ALIAS (neighbor,
-       neighbor_priority_poll_interval_cmd,
+ALIAS (ospf_neighbor,
+       ospf_neighbor_priority_poll_interval_cmd,
        "neighbor A.B.C.D priority <0-255> poll-interval <1-65535>",
        NEIGHBOR_STR
        "Neighbor IP address\n"
@@ -2132,16 +2132,16 @@ ALIAS (neighbor,
        "Dead Neighbor Polling interval\n"
        "Seconds\n")
 
-ALIAS (neighbor,
-       neighbor_priority_cmd,
+ALIAS (ospf_neighbor,
+       ospf_neighbor_priority_cmd,
        "neighbor A.B.C.D priority <0-255>",
        NEIGHBOR_STR
        "Neighbor IP address\n"
        "Neighbor Priority\n"
        "Seconds\n")
 
-DEFUN (neighbor_poll_interval,
-       neighbor_poll_interval_cmd,
+DEFUN (ospf_neighbor_poll_interval,
+       ospf_neighbor_poll_interval_cmd,
        "neighbor A.B.C.D poll-interval <1-65535>",
        NEIGHBOR_STR
        "Neighbor IP address\n"
@@ -2170,8 +2170,8 @@ DEFUN (neighbor_poll_interval,
   return CMD_SUCCESS;
 }
 
-ALIAS (neighbor_poll_interval,
-       neighbor_poll_interval_priority_cmd,
+ALIAS (ospf_neighbor_poll_interval,
+       ospf_neighbor_poll_interval_priority_cmd,
        "neighbor A.B.C.D poll-interval <1-65535> priority <0-255>",
        NEIGHBOR_STR
        "Neighbor address\n"
@@ -2180,8 +2180,8 @@ ALIAS (neighbor_poll_interval,
        "OSPF priority of non-broadcast neighbor\n"
        "Priority\n")
 
-DEFUN (no_neighbor,
-       no_neighbor_cmd,
+DEFUN (no_ospf_neighbor,
+       no_ospf_neighbor_cmd,
        "no neighbor A.B.C.D",
        NO_STR
        NEIGHBOR_STR
@@ -2198,8 +2198,8 @@ DEFUN (no_neighbor,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_neighbor,
-       no_neighbor_priority_cmd,
+ALIAS (no_ospf_neighbor,
+       no_ospf_neighbor_priority_cmd,
        "no neighbor A.B.C.D priority <0-255>",
        NO_STR
        NEIGHBOR_STR
@@ -2207,8 +2207,8 @@ ALIAS (no_neighbor,
        "Neighbor Priority\n"
        "Priority\n")
 
-ALIAS (no_neighbor,
-       no_neighbor_poll_interval_cmd,
+ALIAS (no_ospf_neighbor,
+       no_ospf_neighbor_poll_interval_cmd,
        "no neighbor A.B.C.D poll-interval <1-65535>",
        NO_STR
        NEIGHBOR_STR
@@ -2216,8 +2216,8 @@ ALIAS (no_neighbor,
        "Dead Neighbor Polling interval\n"
        "Seconds\n")
 
-ALIAS (no_neighbor,
-       no_neighbor_priority_pollinterval_cmd,
+ALIAS (no_ospf_neighbor,
+       no_ospf_neighbor_priority_pollinterval_cmd,
        "no neighbor A.B.C.D priority <0-255> poll-interval <1-65535>",
        NO_STR
        NEIGHBOR_STR
@@ -2228,7 +2228,7 @@ ALIAS (no_neighbor,
        "Seconds\n")
 
 
-DEFUN (refresh_timer, refresh_timer_cmd,
+DEFUN (ospf_refresh_timer, ospf_refresh_timer_cmd,
        "refresh timer <10-1800>",
        "Adjust refresh parameters\n"
        "Set refresh timer\n"
@@ -2245,7 +2245,7 @@ DEFUN (refresh_timer, refresh_timer_cmd,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_refresh_timer, no_refresh_timer_val_cmd,
+DEFUN (no_ospf_refresh_timer, no_ospf_refresh_timer_val_cmd,
        "no refresh timer <10-1800>",
        "Adjust refresh parameters\n"
        "Unset refresh timer\n"
@@ -2268,14 +2268,14 @@ DEFUN (no_refresh_timer, no_refresh_timer_val_cmd,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_refresh_timer,
-       no_refresh_timer_cmd,
+ALIAS (no_ospf_refresh_timer,
+       no_ospf_refresh_timer_cmd,
        "no refresh timer",
        "Adjust refresh parameters\n"
        "Unset refresh timer\n")
 
-DEFUN (auto_cost_reference_bandwidth,
-       auto_cost_reference_bandwidth_cmd,
+DEFUN (ospf_auto_cost_reference_bandwidth,
+       ospf_auto_cost_reference_bandwidth_cmd,
        "auto-cost reference-bandwidth <1-4294967>",
        "Calculate OSPF interface cost according to bandwidth\n"
        "Use reference bandwidth method to assign OSPF cost\n"
@@ -2306,8 +2306,8 @@ DEFUN (auto_cost_reference_bandwidth,
   return CMD_SUCCESS;
 }
 
-DEFUN (no_auto_cost_reference_bandwidth,
-       no_auto_cost_reference_bandwidth_cmd,
+DEFUN (no_ospf_auto_cost_reference_bandwidth,
+       no_ospf_auto_cost_reference_bandwidth_cmd,
        "no auto-cost reference-bandwidth",
        NO_STR
        "Calculate OSPF interface cost according to bandwidth\n"
@@ -7582,14 +7582,14 @@ ospf_vty_init ()
   /* "ospf router-id" commands. */
   install_element (OSPF_NODE, &ospf_router_id_cmd);
   install_element (OSPF_NODE, &no_ospf_router_id_cmd);
-  install_element (OSPF_NODE, &router_id_cmd);
-  install_element (OSPF_NODE, &no_router_id_cmd);
+  install_element (OSPF_NODE, &router_ospf_id_cmd);
+  install_element (OSPF_NODE, &no_router_ospf_id_cmd);
 
   /* "passive-interface" commands. */
-  install_element (OSPF_NODE, &passive_interface_addr_cmd);
-  install_element (OSPF_NODE, &passive_interface_cmd);
-  install_element (OSPF_NODE, &no_passive_interface_addr_cmd);
-  install_element (OSPF_NODE, &no_passive_interface_cmd);
+  install_element (OSPF_NODE, &ospf_passive_interface_addr_cmd);
+  install_element (OSPF_NODE, &ospf_passive_interface_cmd);
+  install_element (OSPF_NODE, &no_ospf_passive_interface_addr_cmd);
+  install_element (OSPF_NODE, &no_ospf_passive_interface_cmd);
 
   /* "ospf abr-type" commands. */
   install_element (OSPF_NODE, &ospf_abr_type_cmd);
@@ -7602,111 +7602,111 @@ ospf_vty_init ()
   install_element (OSPF_NODE, &no_ospf_compatible_rfc1583_cmd);
 
   /* "network area" commands. */
-  install_element (OSPF_NODE, &network_area_cmd);
-  install_element (OSPF_NODE, &no_network_area_cmd);
+  install_element (OSPF_NODE, &ospf_network_area_cmd);
+  install_element (OSPF_NODE, &no_ospf_network_area_cmd);
 
   /* "area authentication" commands. */
-  install_element (OSPF_NODE, &area_authentication_message_digest_cmd);
-  install_element (OSPF_NODE, &area_authentication_cmd);
-  install_element (OSPF_NODE, &no_area_authentication_cmd);
+  install_element (OSPF_NODE, &ospf_area_authentication_message_digest_cmd);
+  install_element (OSPF_NODE, &ospf_area_authentication_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_authentication_cmd);
 
   /* "area range" commands.  */
-  install_element (OSPF_NODE, &area_range_cmd);
-  install_element (OSPF_NODE, &area_range_advertise_cmd);
-  install_element (OSPF_NODE, &area_range_cost_cmd);
-  install_element (OSPF_NODE, &area_range_advertise_cost_cmd);
-  install_element (OSPF_NODE, &area_range_not_advertise_cmd);
-  install_element (OSPF_NODE, &no_area_range_cmd);
-  install_element (OSPF_NODE, &no_area_range_advertise_cmd);
-  install_element (OSPF_NODE, &no_area_range_cost_cmd);
-  install_element (OSPF_NODE, &no_area_range_advertise_cost_cmd);
-  install_element (OSPF_NODE, &area_range_substitute_cmd);
-  install_element (OSPF_NODE, &no_area_range_substitute_cmd);
+  install_element (OSPF_NODE, &ospf_area_range_cmd);
+  install_element (OSPF_NODE, &ospf_area_range_advertise_cmd);
+  install_element (OSPF_NODE, &ospf_area_range_cost_cmd);
+  install_element (OSPF_NODE, &ospf_area_range_advertise_cost_cmd);
+  install_element (OSPF_NODE, &ospf_area_range_not_advertise_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_range_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_range_advertise_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_range_cost_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_range_advertise_cost_cmd);
+  install_element (OSPF_NODE, &ospf_area_range_substitute_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_range_substitute_cmd);
 
   /* "area virtual-link" commands. */
-  install_element (OSPF_NODE, &area_vlink_cmd);
-  install_element (OSPF_NODE, &no_area_vlink_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_vlink_cmd);
 
-  install_element (OSPF_NODE, &area_vlink_param1_cmd);
-  install_element (OSPF_NODE, &no_area_vlink_param1_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_param1_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_vlink_param1_cmd);
 
-  install_element (OSPF_NODE, &area_vlink_param2_cmd);
-  install_element (OSPF_NODE, &no_area_vlink_param2_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_param2_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_vlink_param2_cmd);
 
-  install_element (OSPF_NODE, &area_vlink_param3_cmd);
-  install_element (OSPF_NODE, &no_area_vlink_param3_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_param3_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_vlink_param3_cmd);
 
-  install_element (OSPF_NODE, &area_vlink_param4_cmd);
-  install_element (OSPF_NODE, &no_area_vlink_param4_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_param4_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_vlink_param4_cmd);
 
-  install_element (OSPF_NODE, &area_vlink_authtype_args_cmd);
-  install_element (OSPF_NODE, &area_vlink_authtype_cmd);
-  install_element (OSPF_NODE, &no_area_vlink_authtype_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_authtype_args_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_authtype_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_vlink_authtype_cmd);
 
-  install_element (OSPF_NODE, &area_vlink_md5_cmd);
-  install_element (OSPF_NODE, &no_area_vlink_md5_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_md5_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_vlink_md5_cmd);
 
-  install_element (OSPF_NODE, &area_vlink_authkey_cmd);
-  install_element (OSPF_NODE, &no_area_vlink_authkey_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_authkey_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_vlink_authkey_cmd);
 
-  install_element (OSPF_NODE, &area_vlink_authtype_args_authkey_cmd);
-  install_element (OSPF_NODE, &area_vlink_authtype_authkey_cmd);
-  install_element (OSPF_NODE, &no_area_vlink_authtype_authkey_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_authtype_args_authkey_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_authtype_authkey_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_vlink_authtype_authkey_cmd);
 
-  install_element (OSPF_NODE, &area_vlink_authtype_args_md5_cmd);
-  install_element (OSPF_NODE, &area_vlink_authtype_md5_cmd);
-  install_element (OSPF_NODE, &no_area_vlink_authtype_md5_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_authtype_args_md5_cmd);
+  install_element (OSPF_NODE, &ospf_area_vlink_authtype_md5_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_vlink_authtype_md5_cmd);
 
   /* "area stub" commands. */
-  install_element (OSPF_NODE, &area_stub_no_summary_cmd);
-  install_element (OSPF_NODE, &area_stub_cmd);
-  install_element (OSPF_NODE, &no_area_stub_no_summary_cmd);
-  install_element (OSPF_NODE, &no_area_stub_cmd);
+  install_element (OSPF_NODE, &ospf_area_stub_no_summary_cmd);
+  install_element (OSPF_NODE, &ospf_area_stub_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_stub_no_summary_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_stub_cmd);
 
 #ifdef HAVE_NSSA
   /* "area nssa" commands. */
-  install_element (OSPF_NODE, &area_nssa_cmd);
-  install_element (OSPF_NODE, &area_nssa_translate_no_summary_cmd);
-  install_element (OSPF_NODE, &area_nssa_translate_cmd);
-  install_element (OSPF_NODE, &area_nssa_no_summary_cmd);
-  install_element (OSPF_NODE, &no_area_nssa_cmd);
-  install_element (OSPF_NODE, &no_area_nssa_no_summary_cmd);
+  install_element (OSPF_NODE, &ospf_area_nssa_cmd);
+  install_element (OSPF_NODE, &ospf_area_nssa_translate_no_summary_cmd);
+  install_element (OSPF_NODE, &ospf_area_nssa_translate_cmd);
+  install_element (OSPF_NODE, &ospf_area_nssa_no_summary_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_nssa_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_nssa_no_summary_cmd);
 #endif /* HAVE_NSSA */
 
-  install_element (OSPF_NODE, &area_default_cost_cmd);
-  install_element (OSPF_NODE, &no_area_default_cost_cmd);
+  install_element (OSPF_NODE, &ospf_area_default_cost_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_default_cost_cmd);
 
-  install_element (OSPF_NODE, &area_shortcut_cmd);
-  install_element (OSPF_NODE, &no_area_shortcut_cmd);
+  install_element (OSPF_NODE, &ospf_area_shortcut_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_shortcut_cmd);
 
-  install_element (OSPF_NODE, &area_export_list_cmd);
-  install_element (OSPF_NODE, &no_area_export_list_cmd);
+  install_element (OSPF_NODE, &ospf_area_export_list_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_export_list_cmd);
 
-  install_element (OSPF_NODE, &area_filter_list_cmd);
-  install_element (OSPF_NODE, &no_area_filter_list_cmd);
+  install_element (OSPF_NODE, &ospf_area_filter_list_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_filter_list_cmd);
 
-  install_element (OSPF_NODE, &area_import_list_cmd);
-  install_element (OSPF_NODE, &no_area_import_list_cmd);
+  install_element (OSPF_NODE, &ospf_area_import_list_cmd);
+  install_element (OSPF_NODE, &no_ospf_area_import_list_cmd);
 
-  install_element (OSPF_NODE, &timers_spf_cmd);
-  install_element (OSPF_NODE, &no_timers_spf_cmd);
+  install_element (OSPF_NODE, &ospf_timers_spf_cmd);
+  install_element (OSPF_NODE, &no_ospf_timers_spf_cmd);
 
-  install_element (OSPF_NODE, &refresh_timer_cmd);
-  install_element (OSPF_NODE, &no_refresh_timer_val_cmd);
-  install_element (OSPF_NODE, &no_refresh_timer_cmd);
+  install_element (OSPF_NODE, &ospf_refresh_timer_cmd);
+  install_element (OSPF_NODE, &no_ospf_refresh_timer_val_cmd);
+  install_element (OSPF_NODE, &no_ospf_refresh_timer_cmd);
   
-  install_element (OSPF_NODE, &auto_cost_reference_bandwidth_cmd);
-  install_element (OSPF_NODE, &no_auto_cost_reference_bandwidth_cmd);
+  install_element (OSPF_NODE, &ospf_auto_cost_reference_bandwidth_cmd);
+  install_element (OSPF_NODE, &no_ospf_auto_cost_reference_bandwidth_cmd);
 
   /* "neighbor" commands. */
-  install_element (OSPF_NODE, &neighbor_cmd);
-  install_element (OSPF_NODE, &neighbor_priority_poll_interval_cmd);
-  install_element (OSPF_NODE, &neighbor_priority_cmd);
-  install_element (OSPF_NODE, &neighbor_poll_interval_cmd);
-  install_element (OSPF_NODE, &neighbor_poll_interval_priority_cmd);
-  install_element (OSPF_NODE, &no_neighbor_cmd);
-  install_element (OSPF_NODE, &no_neighbor_priority_cmd);
-  install_element (OSPF_NODE, &no_neighbor_poll_interval_cmd);
+  install_element (OSPF_NODE, &ospf_neighbor_cmd);
+  install_element (OSPF_NODE, &ospf_neighbor_priority_poll_interval_cmd);
+  install_element (OSPF_NODE, &ospf_neighbor_priority_cmd);
+  install_element (OSPF_NODE, &ospf_neighbor_poll_interval_cmd);
+  install_element (OSPF_NODE, &ospf_neighbor_poll_interval_priority_cmd);
+  install_element (OSPF_NODE, &no_ospf_neighbor_cmd);
+  install_element (OSPF_NODE, &no_ospf_neighbor_priority_cmd);
+  install_element (OSPF_NODE, &no_ospf_neighbor_poll_interval_cmd);
 
   /* Init interface related vty commands. */
   ospf_vty_if_init ();
