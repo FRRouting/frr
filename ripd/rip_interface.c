@@ -145,19 +145,15 @@ rip_interface_multicast_set (int sock, struct connected *connected)
   struct sockaddr_in from;
   struct in_addr addr;
   struct prefix_ipv4 *p;
-
-  if (connected != NULL) 
-    {
-      if (if_is_pointopoint(connected->ifp) && CONNECTED_DEST_HOST(connected))
-	p = (struct prefix_ipv4 *) connected->destination;
-      else
-	p = (struct prefix_ipv4 *) connected->address;
-      addr = p->prefix;
-    }
-  else 
-    {
-      addr.s_addr = INADDR_ANY;
-    }
+  
+  assert (connected != NULL);
+  
+  if (if_is_pointopoint(connected->ifp) && CONNECTED_DEST_HOST(connected))
+    p = (struct prefix_ipv4 *) connected->destination;
+  else
+    p = (struct prefix_ipv4 *) connected->address;
+  
+  addr = p->prefix;
 
   if (setsockopt_multicast_ipv4 (sock, IP_MULTICAST_IF, addr, 0, 
                                  connected->ifp->ifindex) < 0) 
@@ -165,7 +161,7 @@ rip_interface_multicast_set (int sock, struct connected *connected)
       zlog_warn ("Can't setsockopt IP_MULTICAST_IF on fd %d to "
 		 "source address %s for interface %s",
 		 sock, inet_ntoa(addr),
-		 (connected ? connected->ifp->name : "(unknown)"));
+		 connected->ifp->name);
       return;
     }
 
@@ -181,9 +177,7 @@ rip_interface_multicast_set (int sock, struct connected *connected)
 
   /* Address should be any address. */
   from.sin_family = AF_INET;
-  if (connected)
-    addr = ((struct prefix_ipv4 *) connected->address)->prefix;
-  from.sin_addr = addr;
+  from.sin_addr = connected->address->u.prefix4;
 #ifdef HAVE_SIN_LEN
   from.sin_len = sizeof (struct sockaddr_in);
 #endif /* HAVE_SIN_LEN */
@@ -198,7 +192,7 @@ rip_interface_multicast_set (int sock, struct connected *connected)
 		 "interface %s: %s",
 	      	 sock,inet_ntoa(from.sin_addr),
 		 (int)ntohs(from.sin_port),
-		 (connected ? connected->ifp->name : "(unknown)"),
+		 connected->ifp->name,
 		  strerror (errno));
     }
 

@@ -1,3 +1,15 @@
+2004-10-22 Paul Jakma <paul@dishone.st>
+
+	* ripd.c: Collapse redundant passing of various address structs,
+          struct interface and struct connected as arguments to functions
+          down to two key arguments, namely struct connected and, possibly,
+          address of source/destination. Testing for RIPv1 would be useful.
+          (rip_read) lookup struct connected for the received packet, pass
+          it on.
+        * rip_interface.c: With previous changes, we no longer have to tread
+          carefully with struct connected, as it will always be there and
+          valid.
+
 2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
 
 	* ripd.c: (rip_update_interface) if connected->destination is NULL,
