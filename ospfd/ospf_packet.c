@@ -1125,7 +1125,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
        && (!CHECK_FLAG (dd->options, OSPF_OPTION_NP)) )
     {
       if (IS_DEBUG_OSPF_EVENT) 
-        zlog_notice ("Packet[DD]: Neighbour %s: Has NSSA capability, sends with N bit clear in DD options",
+        zlog_debug ("Packet[DD]: Neighbour %s: Has NSSA capability, sends with N bit clear in DD options",
                     inet_ntoa (nbr->router_id) );
       SET_FLAG (dd->options, OSPF_OPTION_NP);
     }

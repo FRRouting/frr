@@ -1,5 +1,10 @@
 2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf_packet.c: (ospf_db_desc) Reduce priority on a debug message
+	  from LOG_NOTICE to LOG_DEBUG.
+
+2004-12-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf_main.c: (sigint) Use zlog_notice for termination message.
 	  (main) Issue a startup announcement using zlog_notice.
 
