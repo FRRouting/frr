@@ -1,3 +1,7 @@
+2004-08-28  Hasso Tepper  <hasso at quagga.net>
+
+	* ospf6_main.c: Modify for sigevents.
+
 2004-08-26  Hasso Tepper  <hasso@estpak.ee>
 
 	* ospf6_interface.c, ospf6_top.c, ospf6d.c: for vtysh.

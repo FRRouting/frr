@@ -99,9 +99,10 @@ sigint (int sig)
     }
 }
 
-/* Signale wrapper. */
+/* Signale wrapper for vtysh. We don't use sigevent because
+ * vtysh doesn't use threads. TODO */
 RETSIGTYPE *
-signal_set (int signo, void (*func)(int))
+vtysh_signal_set (int signo, void (*func)(int))
 {
   int ret;
   struct sigaction sig;
@@ -124,11 +125,11 @@ signal_set (int signo, void (*func)(int))
 
 /* Initialization of signal handles. */
 void
-signal_init ()
+vtysh_signal_init ()
 {
-  signal_set (SIGINT, sigint);
-  signal_set (SIGTSTP, sigtstp);
-  signal_set (SIGPIPE, SIG_IGN);
+  vtysh_signal_set (SIGINT, sigint);
+  vtysh_signal_set (SIGTSTP, sigtstp);
+  vtysh_signal_set (SIGPIPE, SIG_IGN);
 }
 
 /* Help information display. */
@@ -243,7 +244,7 @@ main (int argc, char **argv, char **env)
   line_read = NULL;
 
   /* Signal and others. */
-  signal_init ();
+  vtysh_signal_init ();
 
   /* Make vty structure and register commands. */
   vtysh_init_vty ();

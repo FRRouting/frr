@@ -1,3 +1,8 @@
+2004-08-28 Hasso Tepper <hasso at quagga.net>
+
+	* vtysh_main.c: Rename signal handling functions not to conflict
+	  with functions from lib/sigevent.c.
+
 2004-08-27 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh.c: Make "terminal length <0-512>" command work in vtysh.
