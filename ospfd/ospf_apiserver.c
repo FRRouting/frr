@@ -1490,7 +1490,8 @@ ospf_apiserver_opaque_lsa_new (struct ospf_area *area,
     }
 
   /* Set opaque-LSA header fields. */
-  lsa_header_set (s, options, protolsa->type, protolsa->id);
+  lsa_header_set (s, options, protolsa->type, protolsa->id, 
+                  area->ospf->router_id);
 
   /* Set opaque-LSA body fields. */
   stream_put (s, ((u_char *) protolsa) + sizeof (struct lsa_header),

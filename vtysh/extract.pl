@@ -61,25 +61,6 @@ foreach (@ARGV) {
     @defun = ($line =~ /(?:DEFUN|ALIAS)\s*\((.+?)\);?\s?\s?\n/sg);
     @install = ($line =~ /install_element \(\s*[0-9A-Z_]+,\s*&[^;]*;\s*\n/sg);
 
-    # $protocol is VTYSH_PROTO format for redirection of user input
-    if ($file =~ /lib/) {
-	if ($file =~ /keychain.c/) {
-	    $protocol = "VTYSH_RIPD";
-	}
-	if ($file =~ /routemap.c/) {
-	    $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
-	}
-	if ($file =~ /filter.c/) {
-	    $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
-	}
-	if ($file =~ /plist.c/) {
-	    $protocol = "VTYSH_RIPD|VTYSH_BGPD";
-	}
-    } else {
-	($protocol) = ($file =~ /\/([a-z0-9]+)/);
-	$protocol = "VTYSH_" . uc $protocol;
-    }
-
     # DEFUN process
     foreach (@defun) {
 	my (@defun_array);
@@ -97,6 +78,33 @@ foreach (@ARGV) {
 	$cmd = "$defun_array[1]";
 	$cmd =~ s/^\s+//g;
 	$cmd =~ s/\s+$//g;
+
+        # $protocol is VTYSH_PROTO format for redirection of user input
+    	if ($file =~ /lib/) {
+           if ($file =~ /keychain.c/) {
+              $protocol = "VTYSH_RIPD";
+           }
+           if ($file =~ /routemap.c/) {
+              $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
+           }
+           if ($file =~ /filter.c/) {
+              if ($defun_array[1] =~ m/ipv6/) {
+                 $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD";
+	      } else {
+                 $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
+              }
+           }
+           if ($file =~ /plist.c/) {
+	      if ($defun_array[1] =~ m/ipv6/) {
+                 $protocol = "VTYSH_RIPNGD|VTYSH_BGPD";
+              } else {
+                 $protocol = "VTYSH_RIPD|VTYSH_BGPD";
+              }
+           }
+        } else {
+           ($protocol) = ($file =~ /\/([a-z0-9]+)/);
+           $protocol = "VTYSH_" . uc $protocol;
+        }
 
 	# Append _vtysh to structure then build DEFUN again
 	$defun_array[1] = $cmd . "_vtysh";

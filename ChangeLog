@@ -1,3 +1,7 @@
+2003-03-25 Paul Jakma <paul@dishone.st>
+
+	* Sync to Zebra CVS
+
 2003-03-17 Amir Guindehi <amir@datacore.ch>
 
 	* Extended SNMP checks in configure.ac so that net-snmp works

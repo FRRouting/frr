@@ -1081,6 +1081,20 @@ ALIAS (vtysh_exit_ripd,
        "quit",
        "Exit current mode and down to previous mode\n")
 
+DEFUNSH (VTYSH_RIPNGD,
+    vtysh_exit_ripngd,
+    vtysh_exit_ripngd_cmd,
+    "exit",
+    "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+ALIAS (vtysh_exit_ripngd,
+       vtysh_quit_ripngd_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n")
+
 DEFUNSH (VTYSH_RMAP,
 	 vtysh_exit_rmap,
 	 vtysh_exit_rmap_cmd,
@@ -1123,7 +1137,21 @@ ALIAS (vtysh_exit_ospfd,
        "quit",
        "Exit current mode and down to previous mode\n")
 
-DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
+DEFUNSH (VTYSH_OSPF6D,
+    vtysh_exit_ospf6d,
+    vtysh_exit_ospf6d_cmd,
+    "exit",
+    "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+ALIAS (vtysh_exit_ospf6d,
+       vtysh_quit_ospf6d_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n")
+
+DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D,
 	 vtysh_interface,
 	 vtysh_interface_cmd,
 	 "interface IFNAME",
@@ -1155,7 +1183,7 @@ DEFSH (VTYSH_RMAP,
        "Metric value for destination routing protocol\n"
        "Metric value\n")
 
-DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
+DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D,
 	 vtysh_exit_interface,
 	 vtysh_exit_interface_cmd,
 	 "exit",
@@ -1653,7 +1681,7 @@ vtysh_connect_all()
 
 /* To disable readline's filename completion */
 int
-vtysh_completion_entry_fucntion (int ignore, int invoking_key)
+vtysh_completion_entry_function (int ignore, int invoking_key)
 {
   return 0;
 }
@@ -1663,7 +1691,7 @@ vtysh_readline_init ()
 {
   /* readline related settings. */
   rl_bind_key ('?', vtysh_rl_describe);
-  rl_completion_entry_function = vtysh_completion_entry_fucntion;
+  rl_completion_entry_function = vtysh_completion_entry_function;
   rl_attempted_completion_function = (CPPFunction *)new_completion;
   /* do not append space after completion. It will be appended
      in new_completion() function explicitly */
@@ -1753,8 +1781,12 @@ vtysh_init_vty ()
   install_element (ENABLE_NODE, &vtysh_quit_all_cmd);
   install_element (RIP_NODE, &vtysh_exit_ripd_cmd);
   install_element (RIP_NODE, &vtysh_quit_ripd_cmd);
+  install_element (RIPNG_NODE, &vtysh_exit_ripngd_cmd);
+  install_element (RIPNG_NODE, &vtysh_quit_ripngd_cmd);
   install_element (OSPF_NODE, &vtysh_exit_ospfd_cmd);
   install_element (OSPF_NODE, &vtysh_quit_ospfd_cmd);
+  install_element (OSPF6_NODE, &vtysh_exit_ospf6d_cmd);
+  install_element (OSPF6_NODE, &vtysh_quit_ospf6d_cmd);
   install_element (BGP_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_exit_bgpd_cmd);

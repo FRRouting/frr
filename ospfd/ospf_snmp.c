@@ -496,15 +496,15 @@ struct variable ospf_variables[] =
 /* The administrative status of OSPF.  When OSPF is enbled on at least
    one interface return 1. */
 int
-ospf_admin_stat ()
+ospf_admin_stat (struct ospf *ospf)
 {
   listnode node;
   struct ospf_interface *oi;
 
-  if (! ospf_top)
+  if (ospf == NULL)
     return 0;
 
-  for (node = listhead (ospf_top->oiflist); node; nextnode (node))
+  for (node = listhead (ospf->oiflist); node; nextnode (node))
     {
       oi = getdata (node);
 
@@ -518,6 +518,8 @@ static u_char *
 ospfGeneralGroup (struct variable *v, oid *name, size_t *length,
 		  int exact, size_t *var_len, WriteMethod **write_method)
 {
+  struct ospf *ospf = ospf_top;
+
   /* Check whether the instance identifier is valid */
   if (smux_header_generic (v, name, length, exact, var_len, write_method)
       == MATCH_FAILED)
@@ -528,14 +530,14 @@ ospfGeneralGroup (struct variable *v, oid *name, size_t *length,
     {
     case OSPFROUTERID:		/* 1 */
       /* Router-ID of this OSPF instance. */
-      if (ospf_top)
-	return SNMP_IPADDRESS (ospf_top->router_id);
+      if (ospf)
+	return SNMP_IPADDRESS (ospf->router_id);
       else
 	return SNMP_IPADDRESS (ospf_empty_addr);
       break;
     case OSPFADMINSTAT:		/* 2 */
       /* The administrative status of OSPF in the router. */
-      if (ospf_admin_stat ())
+      if (ospf_admin_stat (ospf))
 	return SNMP_INTEGER (OSPF_STATUS_ENABLED);
       else
 	return SNMP_INTEGER (OSPF_STATUS_DISABLED);
@@ -546,22 +548,22 @@ ospfGeneralGroup (struct variable *v, oid *name, size_t *length,
       break;
     case OSPFAREABDRRTRSTATUS:	/* 4 */
       /* Area Border router status. */
-      if (ospf_top && CHECK_FLAG (ospf_top->flags, OSPF_FLAG_ABR))
+      if (ospf && CHECK_FLAG (ospf->flags, OSPF_FLAG_ABR))
 	return SNMP_INTEGER (SNMP_TRUE);
       else
 	return SNMP_INTEGER (SNMP_FALSE);
       break;
     case OSPFASBDRRTRSTATUS:	/* 5 */
       /* AS Border router status. */
-      if (ospf_top && CHECK_FLAG (ospf_top->flags, OSPF_FLAG_ASBR))
+      if (ospf && CHECK_FLAG (ospf->flags, OSPF_FLAG_ASBR))
 	return SNMP_INTEGER (SNMP_TRUE);
       else
 	return SNMP_INTEGER (SNMP_FALSE);
       break;
     case OSPFEXTERNLSACOUNT:	/* 6 */
       /* External LSA counts. */
-      if (ospf_top)
-	return SNMP_INTEGER (ospf_lsdb_count_all (ospf_top->lsdb));
+      if (ospf)
+	return SNMP_INTEGER (ospf_lsdb_count_all (ospf->lsdb));
       else
 	return SNMP_INTEGER (0);
       break;
@@ -575,16 +577,16 @@ ospfGeneralGroup (struct variable *v, oid *name, size_t *length,
       break;
     case OSPFORIGINATENEWLSAS:	/* 9 */
       /* The number of new link-state advertisements. */
-      if (ospf_top)
-	return SNMP_INTEGER (ospf_top->lsa_originate_count);
+      if (ospf)
+	return SNMP_INTEGER (ospf->lsa_originate_count);
       else
 	return SNMP_INTEGER (0);
       break;
     case OSPFRXNEWLSAS:		/* 10 */
       /* The number of link-state advertisements received determined
          to be new instantiations. */
-      if (ospf_top)
-	return SNMP_INTEGER (ospf_top->rx_lsa_count);
+      if (ospf)
+	return SNMP_INTEGER (ospf->rx_lsa_count);
       else
 	return SNMP_INTEGER (0);
       break;
@@ -612,7 +614,7 @@ ospfGeneralGroup (struct variable *v, oid *name, size_t *length,
 }
 
 struct ospf_area *
-ospf_area_lookup_next (struct in_addr *area_id, int first)
+ospf_area_lookup_next (struct ospf *ospf, struct in_addr *area_id, int first)
 {
   struct ospf_area *area;
   listnode node;
@@ -622,7 +624,7 @@ ospf_area_lookup_next (struct in_addr *area_id, int first)
 
   if (first)
     {
-      node = listhead (ospf_top->areas);
+      node = listhead (ospf->areas);
       if (node)
 	{
 	  area = getdata (node);
@@ -631,7 +633,7 @@ ospf_area_lookup_next (struct in_addr *area_id, int first)
 	}
       return NULL;
     }
-  for (node = listhead (ospf_top->areas); node; nextnode (node))
+  for (node = listhead (ospf->areas); node; nextnode (node))
     {
       area = getdata (node);
 
@@ -648,10 +650,11 @@ struct ospf_area *
 ospfAreaLookup (struct variable *v, oid name[], size_t *length,
 		struct in_addr *addr, int exact)
 {
-  int len;
+  struct ospf *ospf = ospf_top;
   struct ospf_area *area;
+  int len;
 
-  if (! ospf_top)
+  if (ospf == NULL)
     return NULL;
 
   if (exact)
@@ -662,7 +665,7 @@ ospfAreaLookup (struct variable *v, oid name[], size_t *length,
 
       oid2in_addr (name + v->namelen, sizeof (struct in_addr), addr);
 
-      area = ospf_area_lookup_by_area_id (*addr);
+      area = ospf_area_lookup_by_area_id (ospf, *addr);
 
       return area;
     }
@@ -674,7 +677,7 @@ ospfAreaLookup (struct variable *v, oid name[], size_t *length,
       
       oid2in_addr (name + v->namelen, len, addr);
 
-      area = ospf_area_lookup_next (addr, len == 0 ? 1 : 0);
+      area = ospf_area_lookup_next (ospf, addr, len == 0 ? 1 : 0);
 
       if (area == NULL)
 	return NULL;
@@ -779,8 +782,9 @@ struct ospf_area *
 ospfStubAreaLookup (struct variable *v, oid name[], size_t *length,
 		    struct in_addr *addr, int exact)
 {
-  int len;
+  struct ospf *ospf = ospf_top;
   struct ospf_area *area;
+  int len;
 
   if (! ospf_top)
     return NULL;
@@ -798,7 +802,7 @@ ospfStubAreaLookup (struct variable *v, oid name[], size_t *length,
 
       oid2in_addr (name + v->namelen, sizeof (struct in_addr), addr);
 
-      area = ospf_area_lookup_by_area_id (*addr);
+      area = ospf_area_lookup_by_area_id (ospf, *addr);
 
       if (area->external_routing == OSPF_AREA_STUB)
 	return area;
@@ -906,6 +910,7 @@ ospfLsdbLookup (struct variable *v, oid *name, size_t *length,
 		struct in_addr *area_id, u_char *type,
 		struct in_addr *ls_id, struct in_addr *router_id, int exact)
 {
+  struct ospf *ospf = ospf_top;
   struct ospf_area *area;
   struct ospf_lsa *lsa;
   int len;
@@ -929,7 +934,7 @@ ospfLsdbLookup (struct variable *v, oid *name, size_t *length,
 
       /* Lookup area first. */
       oid2in_addr (offset, IN_ADDR_SIZE, area_id);
-      area = ospf_area_lookup_by_area_id (*area_id);
+      area = ospf_area_lookup_by_area_id (ospf, *area_id);
       if (! area)
 	return NULL;
       offset += IN_ADDR_SIZE;
@@ -962,9 +967,9 @@ ospfLsdbLookup (struct variable *v, oid *name, size_t *length,
 
       /* First we search area. */
       if (len == IN_ADDR_SIZE)
-	area = ospf_area_lookup_by_area_id (*area_id);
+	area = ospf_area_lookup_by_area_id (ospf, *area_id);
       else
-	area = ospf_area_lookup_next (area_id, len == 0 ? 1 : 0);
+	area = ospf_area_lookup_next (ospf, area_id, len == 0 ? 1 : 0);
 
       if (area == NULL)
 	return NULL;
@@ -1038,7 +1043,7 @@ ospfLsdbLookup (struct variable *v, oid *name, size_t *length,
 	      return lsa;
 	    }
 	}
-      while ((area = ospf_area_lookup_next (area_id, 0)) != NULL);
+      while ((area = ospf_area_lookup_next (ospf, area_id, 0)) != NULL);
     }
   return NULL;
 }
@@ -1116,6 +1121,7 @@ ospfAreaRangeLookup (struct variable *v, oid *name, size_t *length,
   oid *offset;
   int offsetlen;
   int len;
+  struct ospf *ospf = ospf_top;
   struct ospf_area *area;
   struct ospf_area_range *range;
   struct prefix_ipv4 p;
@@ -1134,7 +1140,7 @@ ospfAreaRangeLookup (struct variable *v, oid *name, size_t *length,
       /* Lookup area first. */
       oid2in_addr (offset, IN_ADDR_SIZE, area_id);
 
-      area = ospf_area_lookup_by_area_id (*area_id);
+      area = ospf_area_lookup_by_area_id (ospf, *area_id);
       if (! area)
 	return NULL;
 
@@ -1160,9 +1166,9 @@ ospfAreaRangeLookup (struct variable *v, oid *name, size_t *length,
 
       /* First we search area. */
       if (len == IN_ADDR_SIZE)
-	area = ospf_area_lookup_by_area_id (*area_id);
+	area = ospf_area_lookup_by_area_id (ospf,*area_id);
       else
-	area = ospf_area_lookup_next (area_id, len == 0 ? 1 : 0);
+	area = ospf_area_lookup_next (ospf, area_id, len == 0 ? 1 : 0);
 
       if (area == NULL)
 	return NULL;
@@ -1197,7 +1203,7 @@ ospfAreaRangeLookup (struct variable *v, oid *name, size_t *length,
 	      return range;
 	    }
 	}
-      while ((area = ospf_area_lookup_next (area_id, 0)) != NULL);
+      while ((area = ospf_area_lookup_next (ospf, area_id, 0)) != NULL);
     }
   return NULL;
 }
@@ -1210,9 +1216,10 @@ ospfAreaRangeEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct in_addr area_id;
   struct in_addr range_net;
   struct in_addr mask;
+  struct ospf *ospf = ospf_top;
   
   /* Check OSPF instance. */
-  if (! ospf_top)
+  if (ospf == NULL)
     return NULL;
 
   memset (&area_id, 0, IN_ADDR_SIZE);
@@ -1258,8 +1265,9 @@ ospfHostLookup (struct variable *v, oid *name, size_t *length,
 {
   int len;
   struct ospf_nbr_nbma *nbr_nbma;
+  struct ospf *ospf = ospf_top;
 
-  if (! ospf_top)
+  if (ospf == NULL)
     return NULL;
 
   if (exact)
@@ -1274,7 +1282,7 @@ ospfHostLookup (struct variable *v, oid *name, size_t *length,
 
       oid2in_addr (name + v->namelen, IN_ADDR_SIZE, addr);
 
-      nbr_nbma = ospf_nbr_nbma_lookup (ospf_top, *addr);
+      nbr_nbma = ospf_nbr_nbma_lookup (ospf, *addr);
 
       return nbr_nbma;
     }
@@ -1286,7 +1294,7 @@ ospfHostLookup (struct variable *v, oid *name, size_t *length,
       
       oid2in_addr (name + v->namelen, len, addr);
 
-      nbr_nbma = ospf_nbr_nbma_lookup_next (addr, len == 0 ? 1 : 0);
+      nbr_nbma = ospf_nbr_nbma_lookup_next (ospf, addr, len == 0 ? 1 : 0);
 
       if (nbr_nbma == NULL)
 	return NULL;
@@ -1310,9 +1318,10 @@ ospfHostEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct ospf_nbr_nbma *nbr_nbma;
   struct ospf_interface *oi;
   struct in_addr addr;
+  struct ospf *ospf = ospf_top;
 
   /* Check OSPF instance. */
-  if (! ospf_top)
+  if (ospf == NULL)
     return NULL;
 
   memset (&addr, 0, sizeof (struct in_addr));
@@ -1600,19 +1609,20 @@ ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
   unsigned int ifindex;
   struct in_addr ifaddr;
   struct ospf_interface *oi;
+  struct ospf *ospf = ospf_top;
 
   ifindex = 0;
   memset (&ifaddr, 0, sizeof (struct in_addr));
 
   /* Check OSPF instance. */
-  if (! ospf_top)
+  if (ospf == NULL)
     return NULL;
 
   ifp = ospfIfLookup (v, name, length, &ifaddr, &ifindex, exact);
   if (ifp == NULL)
     return NULL;
 
-  oi = ospf_if_lookup_by_local_addr (ifp, ifaddr);
+  oi = ospf_if_lookup_by_local_addr (ospf, ifp, ifaddr);
   if (oi == NULL)
     return NULL;
 
@@ -1771,19 +1781,20 @@ ospfIfMetricEntry (struct variable *v, oid *name, size_t *length, int exact,
   unsigned int ifindex;
   struct in_addr ifaddr;
   struct ospf_interface *oi;
+  struct ospf *ospf = ospf_top;
 
   ifindex = 0;
   memset (&ifaddr, 0, sizeof (struct in_addr));
 
   /* Check OSPF instance. */
-  if (! ospf_top)
+  if (ospf == NULL)
     return NULL;
 
   ifp = ospfIfMetricLookup (v, name, length, &ifaddr, &ifindex, exact);
   if (ifp == NULL)
     return NULL;
 
-  oi = ospf_if_lookup_by_local_addr (ifp, ifaddr);
+  oi = ospf_if_lookup_by_local_addr (ospf, ifp, ifaddr);
   if (oi == NULL)
     return NULL;
 
@@ -2025,14 +2036,15 @@ ospfVirtIfEntry (struct variable *v, oid *name, size_t *length, int exact,
 }
 
 struct ospf_neighbor *
-ospf_snmp_nbr_lookup (struct in_addr *nbr_addr, unsigned int *ifindex)
+ospf_snmp_nbr_lookup (struct ospf *ospf, struct in_addr *nbr_addr,
+		      unsigned int *ifindex)
 {
   struct listnode *nn;
   struct ospf_interface *oi;
   struct ospf_neighbor *nbr;
   struct route_node *rn;
 
-  LIST_LOOP (ospf_top->oiflist, oi, nn)
+  LIST_LOOP (ospf->oiflist, oi, nn)
     {
       for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
 	if ((nbr = rn->info) != NULL
@@ -2059,8 +2071,9 @@ ospf_snmp_nbr_lookup_next (struct in_addr *nbr_addr, unsigned int *ifindex,
   struct ospf_neighbor *nbr;
   struct route_node *rn;
   struct ospf_neighbor *min = NULL;
+  struct ospf *ospf = ospf_top;
 
-  LIST_LOOP (ospf_top->oiflist, oi, nn)
+  LIST_LOOP (ospf->oiflist, oi, nn)
     {
       for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
 	if ((nbr = rn->info) != NULL
@@ -2100,6 +2113,7 @@ ospfNbrLookup (struct variable *v, oid *name, size_t *length,
   int len;
   int first;
   struct ospf_neighbor *nbr;
+  struct ospf *ospf = ospf_top;
 
   if (exact)
     {
@@ -2109,7 +2123,7 @@ ospfNbrLookup (struct variable *v, oid *name, size_t *length,
       oid2in_addr (name + v->namelen, IN_ADDR_SIZE, nbr_addr);
       *ifindex = name[v->namelen + IN_ADDR_SIZE];
 
-      return ospf_snmp_nbr_lookup (nbr_addr, ifindex);
+      return ospf_snmp_nbr_lookup (ospf, nbr_addr, ifindex);
     }
   else
     {
@@ -2210,12 +2224,13 @@ ospfVirtNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct ospf_vl_data *vl_data;
   struct in_addr area_id;
   struct in_addr neighbor;
+  struct ospf *ospf = ospf_top;
 
   memset (&area_id, 0, sizeof (struct in_addr));
   memset (&neighbor, 0, sizeof (struct in_addr));
 
   /* Check OSPF instance. */
-  if (! ospf_top)
+  if (ospf == NULL)
     return NULL;
 
   vl_data = ospfVirtIfLookup (v, name, length, &area_id, &neighbor, exact);
@@ -2266,6 +2281,7 @@ ospfExtLsdbLookup (struct variable *v, oid *name, size_t *length, u_char *type,
   u_char lsa_type;
   int len;
   struct ospf_lsa *lsa;
+  struct ospf *ospf = ospf_top;
 
   if (exact)
     {
@@ -2288,7 +2304,7 @@ ospfExtLsdbLookup (struct variable *v, oid *name, size_t *length, u_char *type,
       /* Router ID. */
       oid2in_addr (offset, IN_ADDR_SIZE, router_id);
 
-      return ospf_lsdb_lookup_by_id (ospf_top->lsdb, *type, *ls_id, *router_id);
+      return ospf_lsdb_lookup_by_id (ospf->lsdb, *type, *ls_id, *router_id);
     }
   else
     {
@@ -2322,7 +2338,7 @@ ospfExtLsdbLookup (struct variable *v, oid *name, size_t *length, u_char *type,
 
       oid2in_addr (offset, len, router_id);
 
-      lsa = ospf_lsdb_lookup_by_id_next (ospf_top->lsdb, *type, *ls_id,
+      lsa = ospf_lsdb_lookup_by_id_next (ospf->lsdb, *type, *ls_id,
 					*router_id, first);
 
       if (lsa)
@@ -2354,13 +2370,14 @@ ospfExtLsdbEntry (struct variable *v, oid *name, size_t *length, int exact,
   u_char type;
   struct in_addr ls_id;
   struct in_addr router_id;
+  struct ospf *ospf = ospf_top;
 
   type = OSPF_AS_EXTERNAL_LSA;
   memset (&ls_id, 0, sizeof (struct in_addr));
   memset (&router_id, 0, sizeof (struct in_addr));
 
   /* Check OSPF instance. */
-  if (! ospf_top)
+  if (ospf == NULL)
     return NULL;
 
   lsa = ospfExtLsdbLookup (v, name, length, &type, &ls_id, &router_id, exact);

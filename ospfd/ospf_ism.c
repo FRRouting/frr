@@ -192,7 +192,7 @@ ospf_dr_eligible_routers (struct route_table *nbrs, list el_list)
 
 /* Generate AdjOK? NSM event. */
 void
-ospf_dr_change (struct route_table *nbrs)
+ospf_dr_change (struct ospf *ospf, struct route_table *nbrs)
 {
   struct route_node *rn;
   struct ospf_neighbor *nbr;
@@ -204,7 +204,7 @@ ospf_dr_change (struct route_table *nbrs)
 	/* Is neighbor upper 2-Way? */
 	if (nbr->state >= NSM_TwoWay)
 	  /* Ignore myself. */
-	  if (!IPV4_ADDR_SAME (&nbr->router_id, &ospf_top->router_id))
+	  if (!IPV4_ADDR_SAME (&nbr->router_id, &ospf->router_id))
 	    OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_AdjOK);
 }
 
@@ -252,17 +252,17 @@ ospf_dr_election (struct ospf_interface *oi)
   /* if DR or BDR changes, cause AdjOK? neighbor event. */
   if (!IPV4_ADDR_SAME (&old_dr, &DR (oi)) ||
       !IPV4_ADDR_SAME (&old_bdr, &BDR (oi)))
-    ospf_dr_change (oi->nbrs);
+    ospf_dr_change (oi->ospf, oi->nbrs);
 
   if (oi->type == OSPF_IFTYPE_BROADCAST || oi->type == OSPF_IFTYPE_POINTOPOINT)
     {
       /* Multicast group change. */
       if ((old_state != ISM_DR && old_state != ISM_Backup) &&
 	  (new_state == ISM_DR || new_state == ISM_Backup))
-	ospf_if_add_alldrouters (ospf_top, oi->address, oi->ifp->ifindex);
+	ospf_if_add_alldrouters (oi->ospf, oi->address, oi->ifp->ifindex);
       else if ((old_state == ISM_DR || old_state == ISM_Backup) &&
 	       (new_state != ISM_DR && new_state != ISM_Backup))
-	ospf_if_drop_alldrouters (ospf_top, oi->address, oi->ifp->ifindex);
+	ospf_if_drop_alldrouters (oi->ospf, oi->address, oi->ifp->ifindex);
     }
 
   return new_state;
@@ -404,7 +404,7 @@ ism_interface_up (struct ospf_interface *oi)
     next_state = ISM_Waiting;
 
   if (oi->type == OSPF_IFTYPE_NBMA)
-    ospf_nbr_nbma_if_update (oi);
+    ospf_nbr_nbma_if_update (oi->ospf, oi);
 
   /*  ospf_ism_event (t); */
   return next_state;
@@ -582,7 +582,7 @@ ism_change_state (struct ospf_interface *oi, int state)
   oi->state_change++;
 
   if (old_state == ISM_Down || state == ISM_Down)
-    ospf_check_abr_status();
+    ospf_check_abr_status (oi->ospf);
 
   /* Originate router-LSA. */
   if (oi->area)
@@ -621,7 +621,7 @@ ism_change_state (struct ospf_interface *oi, int state)
 #endif /* HAVE_OPAQUE_LSA */
 
   /* Check area border status.  */
-  ospf_check_abr_status ();
+  ospf_check_abr_status (oi->ospf);
 }
 
 /* Execute ISM event process. */

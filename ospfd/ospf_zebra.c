@@ -59,6 +59,7 @@ int
 ospf_interface_add (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct interface *ifp;
+  struct ospf *ospf = ospf_top;
 
   ifp = zebra_interface_add_read (zclient->ibuf);
 
@@ -81,7 +82,7 @@ ospf_interface_add (int command, struct zclient *zclient, zebra_size_t length)
 	IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_LOOPBACK;
     }
 
-  ospf_if_update ();
+  ospf_if_update (ospf);
 
 #ifdef HAVE_SNMP
   ospf_snmp_if_update (ifp);
@@ -245,6 +246,7 @@ int
 ospf_interface_address_add (int command, struct zclient *zclient,
 			    zebra_size_t length)
 {
+  struct ospf *ospf = ospf_top;
   struct connected *c;
 
   c = zebra_interface_address_add_read (zclient->ibuf);
@@ -252,19 +254,7 @@ ospf_interface_address_add (int command, struct zclient *zclient,
   if (c == NULL)
     return 0;
 
-#if 0
-  if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-    {
-      struct prefix *p;
-
-      p = c->address;
-      if (p->family == AF_INET)
-	zlog_info (" connected address %s/%d", 
-		   inet_atop (p->u.prefix4), p->prefixlen);
-    }
-#endif
-
-  ospf_if_update ();
+  ospf_if_update (ospf);
 
 #ifdef HAVE_SNMP
   ospf_snmp_if_update (c->ifp);
@@ -277,6 +267,7 @@ int
 ospf_interface_address_delete (int command, struct zclient *zclient,
 			       zebra_size_t length)
 {
+  struct ospf *ospf = ospf_top;
   struct connected *c;
   struct interface *ifp;
   struct ospf_interface *oi;
@@ -308,7 +299,7 @@ ospf_interface_address_delete (int command, struct zclient *zclient,
 
   connected_free (c);
 
-  ospf_if_update();
+  ospf_if_update (ospf);
 
   return 0;
 }
@@ -482,42 +473,43 @@ ospf_is_type_redistributed (int type)
 int
 ospf_redistribute_set (int type, int mtype, int mvalue)
 {
+  struct ospf *ospf = ospf_top;
   int force = 0;
   
   if (ospf_is_type_redistributed (type))
     {
-      if (mtype != ospf_top->dmetric[type].type)
+      if (mtype != ospf->dmetric[type].type)
 	{
-	  ospf_top->dmetric[type].type = mtype;
+	  ospf->dmetric[type].type = mtype;
 	  force = LSA_REFRESH_FORCE;
 	}
-      if (mvalue != ospf_top->dmetric[type].value)
+      if (mvalue != ospf->dmetric[type].value)
 	{
-	  ospf_top->dmetric[type].value = mvalue;
+	  ospf->dmetric[type].value = mvalue;
 	  force = LSA_REFRESH_FORCE;
 	}
 	  
-      ospf_external_lsa_refresh_type (type, force);
+      ospf_external_lsa_refresh_type (ospf, type, force);
       
       if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
 	zlog_info ("Redistribute[%s]: Refresh  Type[%d], Metric[%d]",
 		   LOOKUP (ospf_redistributed_proto, type),
-		   metric_type (type), metric_value (type));
+		   metric_type (ospf, type), metric_value (ospf, type));
       
       return CMD_SUCCESS;
     }
 
-  ospf_top->dmetric[type].type = mtype;
-  ospf_top->dmetric[type].value = mvalue;
+  ospf->dmetric[type].type = mtype;
+  ospf->dmetric[type].value = mvalue;
 
   zclient_redistribute_set (zclient, type);
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
     zlog_info ("Redistribute[%s]: Start  Type[%d], Metric[%d]",
 	       LOOKUP (ospf_redistributed_proto, type),
-	       metric_type (type), metric_value (type));
+	       metric_type (ospf, type), metric_value (ospf, type));
   
-  ospf_asbr_status_update (++ospf_top->redistribute);
+  ospf_asbr_status_update (ospf, ++ospf->redistribute);
 
   return CMD_SUCCESS;
 }
@@ -525,6 +517,8 @@ ospf_redistribute_set (int type, int mtype, int mvalue)
 int
 ospf_redistribute_unset (int type)
 {
+  struct ospf *ospf = ospf_top;
+
   if (type == zclient->redist_default)
     return CMD_SUCCESS;
 
@@ -537,13 +531,13 @@ ospf_redistribute_unset (int type)
     zlog_info ("Redistribute[%s]: Stop",
 	       LOOKUP (ospf_redistributed_proto, type));
 
-  ospf_top->dmetric[type].type = -1;
-  ospf_top->dmetric[type].value = -1;
+  ospf->dmetric[type].type = -1;
+  ospf->dmetric[type].value = -1;
 
   /* Remove the routes from OSPF table. */
   ospf_redistribute_withdraw (type);
 
-  ospf_asbr_status_update (--ospf_top->redistribute);
+  ospf_asbr_status_update (ospf, --ospf->redistribute);
 
   return CMD_SUCCESS;
 }
@@ -551,48 +545,50 @@ ospf_redistribute_unset (int type)
 int
 ospf_redistribute_default_set (int originate, int mtype, int mvalue)
 {
+  struct ospf *ospf = ospf_top;
+
   int force = 0;
   if (ospf_is_type_redistributed (DEFAULT_ROUTE))
     {
-      if (mtype != ospf_top->dmetric[DEFAULT_ROUTE].type)
+      if (mtype != ospf->dmetric[DEFAULT_ROUTE].type)
 	{
-	  ospf_top->dmetric[DEFAULT_ROUTE].type = mtype;
+	  ospf->dmetric[DEFAULT_ROUTE].type = mtype;
 	  force = 1;
 	}
-      if (mvalue != ospf_top->dmetric[DEFAULT_ROUTE].value)
+      if (mvalue != ospf->dmetric[DEFAULT_ROUTE].value)
 	{
 	  force = 1;
-	  ospf_top->dmetric[DEFAULT_ROUTE].value = mvalue;
+	  ospf->dmetric[DEFAULT_ROUTE].value = mvalue;
 	}
       
-      ospf_external_lsa_refresh_default ();
+      ospf_external_lsa_refresh_default (ospf);
       
       if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
 	zlog_info ("Redistribute[%s]: Refresh  Type[%d], Metric[%d]",
 		   LOOKUP (ospf_redistributed_proto, DEFAULT_ROUTE),
-		   metric_type (DEFAULT_ROUTE),
-		   metric_value (DEFAULT_ROUTE));
+		   metric_type (ospf, DEFAULT_ROUTE),
+		   metric_value (ospf, DEFAULT_ROUTE));
       return CMD_SUCCESS;
     }
 
-  ospf_top->default_originate = originate;
-  ospf_top->dmetric[DEFAULT_ROUTE].type = mtype;
-  ospf_top->dmetric[DEFAULT_ROUTE].value = mvalue;
+  ospf->default_originate = originate;
+  ospf->dmetric[DEFAULT_ROUTE].type = mtype;
+  ospf->dmetric[DEFAULT_ROUTE].value = mvalue;
 
   zclient_redistribute_default_set (zclient);
   
   if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
     zlog_info ("Redistribute[DEFAULT]: Start  Type[%d], Metric[%d]",
-	       metric_type (DEFAULT_ROUTE), metric_value (DEFAULT_ROUTE));
+	       metric_type (ospf, DEFAULT_ROUTE),
+	       metric_value (ospf, DEFAULT_ROUTE));
 
-
-  if (ospf_top->router_id.s_addr == 0)
-    ospf_top->external_origin |= (1 << DEFAULT_ROUTE);
+  if (ospf->router_id.s_addr == 0)
+    ospf->external_origin |= (1 << DEFAULT_ROUTE);
   else
     thread_add_timer (master, ospf_default_originate_timer,
-		      &ospf_top->default_originate, 1);
+		      &ospf->default_originate, 1);
 
-  ospf_asbr_status_update (++ospf_top->redistribute);
+  ospf_asbr_status_update (ospf, ++ospf->redistribute);
 
   return CMD_SUCCESS;
 }
@@ -600,19 +596,21 @@ ospf_redistribute_default_set (int originate, int mtype, int mvalue)
 int
 ospf_redistribute_default_unset ()
 {
+  struct ospf *ospf = ospf_top;
+
   if (!ospf_is_type_redistributed (DEFAULT_ROUTE))
     return CMD_SUCCESS;
 
-  ospf_top->default_originate = DEFAULT_ORIGINATE_NONE;
-  ospf_top->dmetric[DEFAULT_ROUTE].type = -1;
-  ospf_top->dmetric[DEFAULT_ROUTE].value = -1;
+  ospf->default_originate = DEFAULT_ORIGINATE_NONE;
+  ospf->dmetric[DEFAULT_ROUTE].type = -1;
+  ospf->dmetric[DEFAULT_ROUTE].value = -1;
 
   zclient_redistribute_default_unset (zclient);
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
     zlog_info ("Redistribute[DEFAULT]: Stop");
   
-  ospf_asbr_status_update (--ospf_top->redistribute);
+  ospf_asbr_status_update (ospf, --ospf->redistribute);
 
   return CMD_SUCCESS;
 }
@@ -620,6 +618,8 @@ ospf_redistribute_default_unset ()
 int
 ospf_external_lsa_originate_check (struct external_info *ei)
 {
+  struct ospf *ospf = ospf_top;
+
   /* If prefix is multicast, then do not originate LSA. */
   if (IN_MULTICAST (htonl (ei->p.prefix.s_addr)))
     {
@@ -630,7 +630,7 @@ ospf_external_lsa_originate_check (struct external_info *ei)
 
   /* Take care of default-originate. */
   if (is_prefix_default (&ei->p))
-    if (ospf_top->default_originate == DEFAULT_ORIGINATE_NONE)
+    if (ospf->default_originate == DEFAULT_ORIGINATE_NONE)
       {
 	zlog_info ("LSA[Type5:0.0.0.0]: Not originate AS-exntenal-LSA "
 		   "for default");
@@ -642,21 +642,26 @@ ospf_external_lsa_originate_check (struct external_info *ei)
 
 /* If connected prefix is OSPF enable interface, then do not announce. */
 int
-ospf_distribute_check_connected (struct external_info *ei)
+ospf_distribute_check_connected (struct ospf *ospf,
+				 struct external_info *ei)
 {
   struct route_node *rn;
 
-  for (rn = route_top (ospf_top->networks); rn; rn = route_next (rn))
+  for (rn = route_top (ospf->networks); rn; rn = route_next (rn))
     if (rn->info != NULL)
       if (prefix_match (&rn->p, (struct prefix *)&ei->p))
-	return 0;
+	{
+	  route_unlock_node (rn);
+	  return 0;
+	}
 
   return 1;
 }
 
 /* return 1 if external LSA must be originated, 0 otherwise */
 int
-ospf_redistribute_check (struct external_info *ei, int *changed)
+ospf_redistribute_check (struct ospf *ospf,
+			 struct external_info *ei, int *changed)
 {
   struct route_map_set_values save_values;
   struct prefix_ipv4 *p = &ei->p;
@@ -669,7 +674,8 @@ ospf_redistribute_check (struct external_info *ei, int *changed)
     return 0;
 
   /* Take care connected route. */
-  if (type == ZEBRA_ROUTE_CONNECT && !ospf_distribute_check_connected (ei))
+  if (type == ZEBRA_ROUTE_CONNECT &&
+      !ospf_distribute_check_connected (ospf, ei))
     return 0;
 
   if (!DEFAULT_ROUTE_TYPE (type) && DISTRIBUTE_NAME (type))
@@ -746,6 +752,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
   struct in_addr nexthop;
   struct prefix_ipv4 p;
   struct external_info *ei;
+  struct ospf *ospf = ospf_top;
 
   s = zclient->ibuf;
   ifindex = 0;
@@ -782,25 +789,26 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
     {
       ei = ospf_external_info_add (api.type, p, ifindex, nexthop);
 
-      if (ospf_top->router_id.s_addr == 0)
+      if (ospf->router_id.s_addr == 0)
 	/* Set flags to generate AS-external-LSA originate event
 	   for each redistributed protocols later. */
-	ospf_top->external_origin |= (1 << api.type);
+	ospf->external_origin |= (1 << api.type);
       else
 	{
 	  if (ei)
 	    {
 	      if (is_prefix_default (&p))
-		ospf_external_lsa_refresh_default ();
+		ospf_external_lsa_refresh_default (ospf);
 	      else
 		{
 		  struct ospf_lsa *current;
 
-		  current = ospf_external_info_find_lsa (&ei->p);
+		  current = ospf_external_info_find_lsa (ospf, &ei->p);
 		  if (!current)
-		    ospf_external_lsa_originate (ei);
+		    ospf_external_lsa_originate (ospf, ei);
 		  else if (IS_LSA_MAXAGE (current))
-		    ospf_external_lsa_refresh (current, ei, LSA_REFRESH_FORCE);
+		    ospf_external_lsa_refresh (ospf, current,
+					       ei, LSA_REFRESH_FORCE);
 		  else
 		    zlog_warn ("ospf_zebra_read_ipv4() : %s already exists",
 			       inet_ntoa (p.prefix));
@@ -812,9 +820,9 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
     {
       ospf_external_info_delete (api.type, p);
       if ( !is_prefix_default (&p))
-	ospf_external_lsa_flush (api.type, &p, ifindex, nexthop);
+	ospf_external_lsa_flush (ospf, api.type, &p, ifindex, nexthop);
       else
-	ospf_external_lsa_refresh_default ();
+	ospf_external_lsa_refresh_default (ospf);
     }
 
   return 0;
@@ -822,7 +830,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
 
 
 int
-ospf_distribute_list_out_set (int type, char *name)
+ospf_distribute_list_out_set (struct ospf *ospf, int type, char *name)
 {
   /* Lookup access-list for distribute-list. */
   DISTRIBUTE_LIST (type) = access_list_lookup (AFI_IP, name);
@@ -836,17 +844,17 @@ ospf_distribute_list_out_set (int type, char *name)
 
   /* If access-list have been set, schedule update timer. */
   if (DISTRIBUTE_LIST (type))
-    ospf_distribute_list_update (type);
+    ospf_distribute_list_update (ospf, type);
 
   return CMD_SUCCESS;
 }
 
 int
-ospf_distribute_list_out_unset (int type, char *name)
+ospf_distribute_list_out_unset (struct ospf *ospf, int type, char *name)
 {
   /* Schedule update timer. */
   if (DISTRIBUTE_LIST (type))
-    ospf_distribute_list_update (type);
+    ospf_distribute_list_update (ospf, type);
 
   /* Unset distribute-list. */
   DISTRIBUTE_LIST (type) = NULL;
@@ -869,11 +877,12 @@ ospf_distribute_list_update_timer (struct thread *thread)
   struct route_table *rt;
   struct ospf_lsa *lsa;
   u_char type;
+  struct ospf *ospf = ospf_top;
 
   type = (int) THREAD_ARG (thread);
   rt = EXTERNAL_INFO (type);
 
-  ospf_top->t_distribute_update = NULL;
+  ospf->t_distribute_update = NULL;
 
   zlog_info ("Zebra[Redistribute]: distribute-list update timer fired!");
 
@@ -883,11 +892,11 @@ ospf_distribute_list_update_timer (struct thread *thread)
       if ((ei = rn->info) != NULL)
 	{
 	  if (is_prefix_default (&ei->p))
-	    ospf_external_lsa_refresh_default ();
-	  else if ((lsa = ospf_external_info_find_lsa (&ei->p)))
-	    ospf_external_lsa_refresh (lsa, ei, LSA_REFRESH_IF_CHANGED);
+	    ospf_external_lsa_refresh_default (ospf);
+	  else if ((lsa = ospf_external_info_find_lsa (ospf, &ei->p)))
+	    ospf_external_lsa_refresh (ospf, lsa, ei, LSA_REFRESH_IF_CHANGED);
 	  else
-	    ospf_external_lsa_originate (ei);
+	    ospf_external_lsa_originate (ospf, ei);
 	}
   return 0;
 }
@@ -896,41 +905,37 @@ ospf_distribute_list_update_timer (struct thread *thread)
 
 /* Update distribute-list and set timer to apply access-list. */
 void
-ospf_distribute_list_update (int type)
+ospf_distribute_list_update (struct ospf *ospf, int type)
 {
   struct route_table *rt;
   
-  zlog_info ("ospf_distribute_list_update(): start");
-
   /* External info does not exist. */
   if (!(rt = EXTERNAL_INFO (type)))
     return;
 
   /* If exists previously invoked thread, then cancel it. */
-  if (ospf_top->t_distribute_update)
-    OSPF_TIMER_OFF (ospf_top->t_distribute_update);
+  if (ospf->t_distribute_update)
+    OSPF_TIMER_OFF (ospf->t_distribute_update);
 
   /* Set timer. */
-  ospf_top->t_distribute_update =
+  ospf->t_distribute_update =
     thread_add_timer (master, ospf_distribute_list_update_timer,
 		      (void *) type, OSPF_DISTRIBUTE_UPDATE_DELAY);
-
-  zlog_info ("ospf_distribute_list_update(): stop");
 }
 
 /* If access-list is updated, apply some check. */
 void
 ospf_filter_update (struct access_list *access)
 {
+  struct ospf *ospf = ospf_top;
   int type;
   int abr_inv = 0;
   struct ospf_area *area;
   listnode node;
 
   /* If OSPF instatnce does not exist, return right now. */
-  if (!ospf_top)
+  if (ospf == NULL)
     return;
-
 
   /* Update distribute-list, and apply filter. */
   for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
@@ -938,7 +943,7 @@ ospf_filter_update (struct access_list *access)
       if (ROUTEMAP (type) != NULL)
 	{
 	  /* if route-map is not NULL it may be using this access list */
-	  ospf_distribute_list_update (type);
+	  ospf_distribute_list_update (ospf, type);
 	  continue;
 	}
       
@@ -959,12 +964,12 @@ ospf_filter_update (struct access_list *access)
 	  /* Schedule distribute-list update timer. */
 	  if (DISTRIBUTE_LIST (type) == NULL ||
 	      strcmp (DISTRIBUTE_NAME (type), access->name) == 0)
-	    ospf_distribute_list_update (type);
+	    ospf_distribute_list_update (ospf, type);
 	}
     }
 
   /* Update Area access-list. */
-  for (node = listhead (ospf_top->areas); node; nextnode (node))
+  for (node = listhead (ospf->areas); node; nextnode (node))
     if ((area = getdata (node)) != NULL)
       {
 	if (EXPORT_NAME (area))
@@ -982,7 +987,7 @@ ospf_filter_update (struct access_list *access)
 
   /* Schedule ABR tasks -- this will be changed -- takada. */
   if (OSPF_IS_ABR && abr_inv)
-    ospf_schedule_abr_task ();
+    ospf_schedule_abr_task (ospf);
 }
 
 
@@ -1010,6 +1015,7 @@ ospf_distance_set (struct vty *vty, char *distance_str, char *ip_str,
   u_char distance;
   struct route_node *rn;
   struct ospf_distance *odistance;
+  struct ospf *ospf = ospf_top;
 
   ret = str2prefix_ipv4 (ip_str, &p);
   if (ret == 0)
@@ -1021,7 +1027,7 @@ ospf_distance_set (struct vty *vty, char *distance_str, char *ip_str,
   distance = atoi (distance_str);
 
   /* Get OSPF distance node. */
-  rn = route_node_get (ospf_top->distance_table, (struct prefix *) &p);
+  rn = route_node_get (ospf->distance_table, (struct prefix *) &p);
   if (rn->info)
     {
       odistance = rn->info;
@@ -1057,6 +1063,7 @@ ospf_distance_unset (struct vty *vty, char *distance_str, char *ip_str,
   u_char distance;
   struct route_node *rn;
   struct ospf_distance *odistance;
+  struct ospf *ospf = ospf_top;
 
   ret = str2prefix_ipv4 (ip_str, &p);
   if (ret == 0)
@@ -1067,7 +1074,7 @@ ospf_distance_unset (struct vty *vty, char *distance_str, char *ip_str,
 
   distance = atoi (distance_str);
 
-  rn = route_node_lookup (ospf_top->distance_table, (struct prefix *)&p);
+  rn = route_node_lookup (ospf->distance_table, (struct prefix *)&p);
   if (! rn)
     {
       vty_out (vty, "Can't find specified prefix%s", VTY_NEWLINE);
@@ -1088,12 +1095,12 @@ ospf_distance_unset (struct vty *vty, char *distance_str, char *ip_str,
 }
 
 void
-ospf_distance_reset ()
+ospf_distance_reset (struct ospf *ospf)
 {
   struct route_node *rn;
   struct ospf_distance *odistance;
 
-  for (rn = route_top (ospf_top->distance_table); rn; rn = route_next (rn))
+  for (rn = route_top (ospf->distance_table); rn; rn = route_next (rn))
     if ((odistance = rn->info) != NULL)
       {
 	if (odistance->access_list)
@@ -1107,58 +1114,26 @@ ospf_distance_reset ()
 u_char
 ospf_distance_apply (struct prefix_ipv4 *p, struct ospf_route *or)
 {
-#if 0
-  struct route_node *rn;
-  struct ospf_distance *odistance;
-  struct access_list *alist;
-  struct prefix_ipv4 q;
+  struct ospf *ospf = ospf_top;
 
-  memset (&q, 0, sizeof (struct prefix_ipv4));
-  q.family = AF_INET;
-  /* q.prefix =  */
-  q.prefixlen = IPV4_MAX_BITLEN;
-#endif /* 0 */
-
-  if (! ospf_top)
+  if (ospf == NULL)
     return 0;
 
-#if 0
-  rn = route_node_match (ospf_top->distance_table, (struct prefix *) &q);
-  if (rn)
-    {
-      odistance = rn->info;
-      route_unlock_node (rn);
-
-      if (odistance->access_list)
-	{
-	  alist = access_list_lookup (AFI_IP, odistance->access_list);
-	  if (alist == NULL)
-	    return 0;
-	  if (access_list_apply (alist, (struct prefix *) p) == FILTER_DENY)
-	    return 0;
-
-	  return odistance->distance;
-	}
-      else
-	return odistance->distance;
-    }
-#endif /* 0 */
-
-  if (ospf_top->distance_intra)
+  if (ospf->distance_intra)
     if (or->path_type == OSPF_PATH_INTRA_AREA)
-      return ospf_top->distance_intra;
+      return ospf->distance_intra;
 
-  if (ospf_top->distance_inter)
+  if (ospf->distance_inter)
     if (or->path_type == OSPF_PATH_INTER_AREA)
-      return ospf_top->distance_inter;
+      return ospf->distance_inter;
 
-  if (ospf_top->distance_external)
+  if (ospf->distance_external)
     if (or->path_type == OSPF_PATH_TYPE1_EXTERNAL
 	|| or->path_type == OSPF_PATH_TYPE2_EXTERNAL)
-      return ospf_top->distance_external;
+      return ospf->distance_external;
   
-  if (ospf_top->distance_all)
-    return ospf_top->distance_all;
+  if (ospf->distance_all)
+    return ospf->distance_all;
 
   return 0;
 }

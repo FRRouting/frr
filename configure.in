@@ -69,8 +69,6 @@ AC_ARG_ENABLE(ripngd,
 [  --disable-ripngd        do not build ripngd])
 AC_ARG_ENABLE(ospfd,
 [  --disable-ospfd         do not build ospfd])
-AC_ARG_ENABLE(ospfclient,
-[  --disable-ospfclient         do not build ospfclient])
 AC_ARG_ENABLE(ospf6d,
 [  --disable-ospf6d        do not build ospf6d])
 AC_ARG_ENABLE(bgp-announce,
@@ -89,7 +87,13 @@ dnl Temporary option until OSPF NSSA implementation complete
 AC_ARG_ENABLE(nssa,
 [  --enable-nssa           enable OSPF NSSA option])
 AC_ARG_ENABLE(opaque-lsa,
-[  --enable-opaque-lsa     enable OSPF Opaque-LSA support (RFC2370)])
+[  --enable-opaque-lsa     enable OSPF Opaque-LSA with OSPFAPI support (RFC2370)])
+AC_ARG_ENABLE(ospfapi,
+[  --disable-ospfapi       do not build OSPFAPI to access the OSPF LSA Database, 
+                          (this is the default if --enable-opaque-lsa is not set)])
+AC_ARG_ENABLE(ospfclient,
+[  --disable-ospfclient    do not build OSPFAPI client for OSPFAPI, 
+                          (this is the default if --disable-ospfapi is set)])
 AC_ARG_ENABLE(ospf-te,
 [  --enable-ospf-te        enable Traffic Engineering Extension to OSPF])
 AC_ARG_ENABLE(multipath,
@@ -536,10 +540,17 @@ else
   OSPFD="ospfd"
 fi
 
-if test "${enable_ospfclient}" = "no";then
-  OSPFCLIENT=""
-else
-  OSPFCLIENT="ospfclient"
+OSPFAPI=""
+OSPFCLIENT=""
+if test "${enable_opaque_lsa}" = "yes"; then
+  if test "${enable_ospfapi}" != "no";then
+    OSPFAPI="-DSUPPORT_OSPF_API"
+
+    if test "${enable_ospfclient}" != "no";then
+      OSPFCLIENT="ospfclient"
+    fi
+  fi
+
 fi
 
 case "${enable_ripngd}" in
@@ -568,6 +579,7 @@ AC_SUBST(VTYSH)
 AC_SUBST(INCLUDES)
 AC_SUBST(CURSES)
 AC_SUBST(OSPFCLIENT)
+AC_SUBST(OSPFAPI)
 AC_CHECK_LIB(c, inet_ntop, [AC_DEFINE(HAVE_INET_NTOP,,inet_ntop)])
 AC_CHECK_LIB(c, inet_pton, [AC_DEFINE(HAVE_INET_PTON,,inet_pton)])
 AC_CHECK_LIB(crypt, crypt)
@@ -596,55 +608,64 @@ dnl check SNMP library
 dnl ------------------
 if test "${enable_snmp}" = "yes";then
 dnl  AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
-  old_libs="${LIBS}"
-  LIBS="-L/usr/local/lib"
-  unset ac_cv_lib_snmp_asn_parse_int
-  AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes, )
   if test "${HAVE_SNMP}" = ""; then
+    old_libs="${LIBS}"
+    LIBS="-L/usr/lib"
     unset ac_cv_lib_snmp_asn_parse_int
-    AC_CHECK_LIB(crypto, main, [NEED_CRYPTO=yes ], )
-	if test "${NEED_CRYPTO}" = ""; then 
-		AC_CHECK_LIB(snmp, asn_parse_int, [HAVE_SNMP=yes; NEED_CRYPTO=yes ],)
-	else
-	    AC_CHECK_LIB(snmp, asn_parse_int, [HAVE_SNMP=yes; NEED_CRYPTO=yes;LIBS="$LIBS -lcrypto" ],,"-lcrypto")
-	fi
+    AC_CHECK_LIB(crypto, main, NEED_CRYPTO=yes, )
+    if test "${NEED_CRYPTO}" = ""; then
+      AC_CHECK_LIB(netsnmp, asn_parse_int, [HAVE_NETSNMP=yes; HAVE_SNMP=yes ])
+    else
+      AC_CHECK_LIB(netsnmp, asn_parse_int, [HAVE_NETSNMP=yes; HAVE_SNMP=yes; NEED_CRYPTO=yes;LIBS="$LIBS -lcrypto" ],,"-lcrypto")
+    fi
+    LIBS="${old_libs}"
   fi
-  LIBS="${old_libs}"
+  if test "${HAVE_SNMP}" = ""; then
+    old_libs="${LIBS}"
+    LIBS="-L/usr/lib"
+    unset ac_cv_lib_snmp_asn_parse_int
+    AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes, )
+    if test "${HAVE_SNMP}" = ""; then
+      unset ac_cv_lib_snmp_asn_parse_int
+      AC_CHECK_LIB(crypto, main, NEED_CRYPTO=yes, )
+      if test "${NEED_CRYPTO}" = "yes"; then 
+        AC_CHECK_LIB(snmp, asn_parse_int, [HAVE_SNMP=yes; NEED_CRYPTO=yes; LIBS="$LIBS -lcrypto" ],,"-lcrypto")
+      fi
+    fi
+    LIBS="${old_libs}"
+  fi
 
   if test "${HAVE_SNMP}" = ""; then
-	old_libs="${LIBS}"
-	LIBS="-L/usr/local/lib"
-	AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
-	LIBS="${old_libs}"
+    old_libs="${LIBS}"
+    LIBS="-L/usr/local/lib"
+    unset ac_cv_lib_snmp_asn_parse_int
+    AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
+    if test "${HAVE_SNMP}" = ""; then
+      unset ac_cv_lib_snmp_asn_parse_int
+      AC_CHECK_LIB(crypto, main, NEED_CRYPTO=yes, )
+      if test "${NEED_CRYPTO}" = "yes"; then
+        AC_CHECK_LIB(snmp, asn_parse_int, [HAVE_SNMP=yes; NEED_CRYPTO=yes; LIBS="$LIBS -lcrypto" ],,"-lcrypto")
+      fi
+    fi
+    LIBS="${old_libs}"
   fi
-  if test "${HAVE_SNMP}" = ""; then
-	if test "${NEED_CRYPTO}" = ""; then
-	     old_libs="${LIBS}"
-	     LIBS="-L/usr/lib"
-	     AC_CHECK_LIB(netsnmp, asn_parse_int, [HAVE_NETSNMP=yes; HAVE_SNMP=yes ])
-	     LIBS="${old_libs}"
-	else
-	     old_libs="${LIBS}"
-	     LIBS="-L/usr/lib"
-       	     AC_CHECK_LIB(netsnmp, asn_parse_int, [HAVE_NETSNMP=yes; HAVE_SNMP=yes; NEED_CRYPTO=yes;LIBS="$LIBS -lcrypto" ],,"-lcrypto")
-	     LIBS="${old_libs}"
-	fi
-  fi
+
   if test "${HAVE_SNMP}" = "yes"; then
     for ac_snmp in /usr/include/net-snmp/library/asn1.h /usr/include/ucd-snmp/asn1.h /usr/local/include/ucd-snmp/asn1.h /dev/null
     do
       test -f "${ac_snmp}" && break
     done
+
     case ${ac_snmp} in
       /usr/include/net-snmp/*)
                   AC_DEFINE(HAVE_SNMP,,SNMP)
+		  AC_DEFINE(HAVE_NETSNMP,,SNMP)
                   AC_DEFINE(UCD_COMPATIBLE,,SNMP)
                   CFLAGS="${CFLAGS} -I/usr/include/net-snmp -I/usr/include/net-snmp/library"
 		  if test "${HAVE_NETSNMP}" = "yes"; then
-                       AC_DEFINE(HAVE_NETSNMP,,SNMP)
-                       LIBS="${LIBS} -lnetsnmp"
+		        LIBS="${LIBS} -lnetsnmp"
 		  else
-                  LIBS="${LIBS} -lsnmp"
+			LIBS="${LIBS} -lsnmp"
 		  fi
                   ;;
       /usr/include/ucd-snmp/*) 

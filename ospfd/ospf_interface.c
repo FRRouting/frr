@@ -32,6 +32,7 @@
 #include "stream.h"
 #include "log.h"
 
+#include "ospfd/ospfd.h"
 #include "ospfd/ospf_spf.h"
 #include "ospfd/ospf_interface.h"
 #include "ospfd/ospf_ism.h"
@@ -42,7 +43,6 @@
 #include "ospfd/ospf_nsm.h"
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_abr.h"
-#include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_dump.h"
 #ifdef HAVE_SNMP
@@ -58,7 +58,7 @@ ospf_if_get_output_cost (struct ospf_interface *oi)
   u_int32_t bw, refbw;
 
   bw = oi->ifp->bandwidth ? oi->ifp->bandwidth : OSPF_DEFAULT_BANDWIDTH;
-  refbw = ospf_top ? ospf_top->ref_bandwidth : OSPF_DEFAULT_REF_BANDWIDTH;
+  refbw = oi->ospf->ref_bandwidth;
 
   /* A specifed ip ospf cost overrides a calculated one. */
   if (OSPF_IF_PARAM_CONFIGURED (IF_DEF_PARAMS (oi->ifp), output_cost_cmd) ||
@@ -160,7 +160,7 @@ ospf_delete_from_if (struct interface *ifp, struct ospf_interface *oi)
 }
 
 struct ospf_interface *
-ospf_if_new (struct interface *ifp, struct prefix *p)
+ospf_if_new (struct ospf *ospf, struct interface *ifp, struct prefix *p)
 {
   struct ospf_interface *oi;
 
@@ -172,7 +172,7 @@ ospf_if_new (struct interface *ifp, struct prefix *p)
   oi->address = p;
   
   ospf_add_to_if (ifp, oi);
-  listnode_add (ospf_top->oiflist, oi);
+  listnode_add (ospf->oiflist, oi);
   
   /* Clear self-originated network-LSA. */
   oi->network_lsa_self = NULL;
@@ -193,7 +193,6 @@ ospf_if_new (struct interface *ifp, struct prefix *p)
   /* Add pseudo neighbor. */
   oi->nbr_self = ospf_nbr_new (oi);
   oi->nbr_self->state = NSM_TwoWay;
-  /*  oi->nbr_self->router_id = ospf_top->router_id; */
   oi->nbr_self->priority = OSPF_IF_PARAM (oi, priority);
   oi->nbr_self->options = OSPF_OPTION_E;
 
@@ -201,11 +200,13 @@ ospf_if_new (struct interface *ifp, struct prefix *p)
   oi->t_ls_upd_event = NULL;
   oi->t_ls_ack_direct = NULL;
 
+  oi->crypt_seqnum = time (NULL);
+
 #ifdef HAVE_OPAQUE_LSA
   ospf_opaque_type9_lsa_init (oi);
 #endif /* HAVE_OPAQUE_LSA */
 
-  oi->ospf = ospf_top;
+  oi->ospf = ospf;
   
   return oi;
 }
@@ -307,7 +308,7 @@ ospf_if_free (struct ospf_interface *oi)
   
   ospf_delete_from_if (oi->ifp, oi);
 
-  listnode_delete (ospf_top->oiflist, oi);
+  listnode_delete (oi->ospf->oiflist, oi);
   listnode_delete (oi->area->oiflist, oi);
 
   memset (oi, 0, sizeof (*oi));
@@ -320,13 +321,13 @@ ospf_if_free (struct ospf_interface *oi)
 *  return it if yes.
 */
 struct ospf_interface *
-ospf_if_is_configured (struct in_addr *address)
+ospf_if_is_configured (struct ospf *ospf, struct in_addr *address)
 {
   listnode node;
   struct ospf_interface *oi;
   struct prefix *addr;
   
-  for (node = listhead (ospf_top->oiflist); node; nextnode (node))
+  for (node = listhead (ospf->oiflist); node; nextnode (node))
     if ((oi = getdata (node)) != NULL && oi->type != OSPF_IFTYPE_VIRTUALLINK)
       {
 	if (oi->type == OSPF_IFTYPE_POINTOPOINT)
@@ -348,12 +349,13 @@ ospf_if_is_up (struct ospf_interface *oi)
 }
 
 struct ospf_interface *
-ospf_if_lookup_by_local_addr (struct interface *ifp, struct in_addr address)
+ospf_if_lookup_by_local_addr (struct ospf *ospf,
+			      struct interface *ifp, struct in_addr address)
 {
   listnode node;
   struct ospf_interface *oi;
   
-  for (node = listhead (ospf_top->oiflist); node; nextnode (node))
+  for (node = listhead (ospf->oiflist); node; nextnode (node))
     if ((oi = getdata (node)) != NULL && oi->type != OSPF_IFTYPE_VIRTUALLINK)
       {
 	if (ifp && oi->ifp != ifp)
@@ -367,34 +369,36 @@ ospf_if_lookup_by_local_addr (struct interface *ifp, struct in_addr address)
 }
 
 struct ospf_interface *
-ospf_if_lookup_by_prefix (struct prefix_ipv4 *p)
+ospf_if_lookup_by_prefix (struct ospf *ospf, struct prefix_ipv4 *p)
 {
   listnode node;
   struct ospf_interface *oi;
   struct prefix ptmp;
   
   /* Check each Interface. */
-  for (node = listhead (ospf_top->oiflist); node; nextnode (node)) {
-    if ((oi = getdata (node)) != NULL && oi->type != OSPF_IFTYPE_VIRTUALLINK)
-      {
-	if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
-	  prefix_copy (&ptmp, oi->connected->destination);
-	  ptmp.prefixlen = IPV4_MAX_BITLEN;
-	}
-	else
-	  prefix_copy (&ptmp, oi->address);
+  for (node = listhead (ospf->oiflist); node; nextnode (node))
+    {
+      if ((oi = getdata (node)) != NULL && oi->type != OSPF_IFTYPE_VIRTUALLINK)
+	{
+	  if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+	    {
+	      prefix_copy (&ptmp, oi->connected->destination);
+	      ptmp.prefixlen = IPV4_MAX_BITLEN;
+	    }
+	  else
+	    prefix_copy (&ptmp, oi->address);
 	
-	apply_mask (&ptmp);
-	if (prefix_same (&ptmp, (struct prefix *) p))
-	  return oi;
-      }
-  }
+	  apply_mask (&ptmp);
+	  if (prefix_same (&ptmp, (struct prefix *) p))
+	    return oi;
+	}
+    }
   return NULL;
 }
 
 /* determine receiving interface by source of packet */
 struct ospf_interface *
-ospf_if_lookup_recv_interface (struct in_addr src)
+ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src)
 {
   listnode node;
   struct prefix_ipv4 addr;
@@ -406,7 +410,7 @@ ospf_if_lookup_recv_interface (struct in_addr src)
 
   match = NULL;
 
-  for (node = listhead (ospf_top->oiflist); node; nextnode (node))
+  for (node = listhead (ospf->oiflist); node; nextnode (node))
     {
       oi = getdata (node);
       
@@ -439,6 +443,8 @@ ospf_if_stream_set (struct ospf_interface *oi)
 void
 ospf_if_stream_unset (struct ospf_interface *oi)
 {
+  struct ospf *ospf = oi->ospf;
+
   if (oi->obuf)
     {
      ospf_fifo_free (oi->obuf);
@@ -446,13 +452,14 @@ ospf_if_stream_unset (struct ospf_interface *oi)
 
      if (oi->on_write_q)
        {
-	 listnode_delete (ospf_top->oi_write_q, oi);
-         if (list_isempty(ospf_top->oi_write_q))
-           OSPF_TIMER_OFF (ospf_top->t_write);
+	 listnode_delete (ospf->oi_write_q, oi);
+         if (list_isempty(ospf->oi_write_q))
+           OSPF_TIMER_OFF (ospf->t_write);
 	 oi->on_write_q = 0;
        }
     }
 }
+
 
 struct ospf_if_params *
 ospf_new_if_params ()
@@ -662,7 +669,7 @@ ospf_if_up (struct ospf_interface *oi)
   else
     {
       if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
-	ospf_if_add_allspfrouters (ospf_top, oi->address, oi->ifp->ifindex);
+	ospf_if_add_allspfrouters (oi->ospf, oi->address, oi->ifp->ifindex);
       ospf_if_stream_set (oi);
       OSPF_ISM_EVENT_SCHEDULE (oi, ISM_InterfaceUp);
     }
@@ -680,7 +687,7 @@ ospf_if_down (struct ospf_interface *oi)
   /* Shutdown packet reception and sending */
   ospf_if_stream_unset (oi);
   if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
-    ospf_if_drop_allspfrouters (ospf_top, oi->address, oi->ifp->ifindex);
+    ospf_if_drop_allspfrouters (oi->ospf, oi->address, oi->ifp->ifindex);
 
 
   return 1;
@@ -713,7 +720,7 @@ ospf_vl_data_free (struct ospf_vl_data *vl_data)
 u_int vlink_count = 0;
 
 struct ospf_interface * 
-ospf_vl_new (struct ospf_vl_data *vl_data)
+ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
 {
   struct ospf_interface * voi;
   struct interface * vi;
@@ -748,7 +755,7 @@ ospf_vl_new (struct ospf_vl_data *vl_data)
  
   co->address = (struct prefix *)p;
   
-  voi = ospf_if_new (vi, co->address);
+  voi = ospf_if_new (ospf, vi, co->address);
   if (voi == NULL)
     {
       if (IS_DEBUG_OSPF_EVENT)
@@ -768,7 +775,7 @@ ospf_vl_new (struct ospf_vl_data *vl_data)
     zlog_info ("ospf_vl_new(): set if->name to %s", vi->name);
 
   area_id.s_addr = 0;
-  area = ospf_area_get (area_id, OSPF_AREA_ID_FORMAT_ADDRESS);
+  area = ospf_area_get (ospf, area_id, OSPF_AREA_ID_FORMAT_ADDRESS);
   voi->area = area;
 
   if (IS_DEBUG_OSPF_EVENT)
@@ -800,7 +807,7 @@ ospf_vl_lookup (struct ospf_area *area, struct in_addr vl_peer)
   struct ospf_vl_data *vl_data;
   listnode node;
 
-  for (node = listhead (ospf_top->vlinks); node; nextnode (node))
+  for (node = listhead (area->ospf->vlinks); node; nextnode (node))
     if ((vl_data = getdata (node)) != NULL)
       if (vl_data->vl_peer.s_addr == vl_peer.s_addr &&
           IPV4_ADDR_SAME (&vl_data->vl_area_id, &area->area_id))
@@ -826,16 +833,16 @@ ospf_vl_shutdown (struct ospf_vl_data *vl_data)
 }
 
 void
-ospf_vl_add (struct ospf_vl_data *vl_data)
+ospf_vl_add (struct ospf *ospf, struct ospf_vl_data *vl_data)
 {
-  listnode_add (ospf_top->vlinks, vl_data);
+  listnode_add (ospf->vlinks, vl_data);
 #ifdef HAVE_SNMP
   ospf_snmp_vl_add (vl_data);
 #endif /* HAVE_SNMP */
 }
 
 void
-ospf_vl_delete (struct ospf_vl_data *vl_data)
+ospf_vl_delete (struct ospf *ospf, struct ospf_vl_data *vl_data)
 {
   ospf_vl_shutdown (vl_data);
   ospf_vl_if_delete (vl_data);
@@ -843,7 +850,7 @@ ospf_vl_delete (struct ospf_vl_data *vl_data)
 #ifdef HAVE_SNMP
   ospf_snmp_vl_delete (vl_data);
 #endif /* HAVE_SNMP */
-  listnode_delete (ospf_top->vlinks, vl_data);
+  listnode_delete (ospf->vlinks, vl_data);
 
   ospf_vl_data_free (vl_data);
 }
@@ -899,9 +906,10 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
 
 
 void
-ospf_vl_up_check (struct ospf_area * area, struct in_addr rid,
+ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
                   struct vertex *v)
 {
+  struct ospf *ospf = area->ospf;
   listnode node;
   struct ospf_vl_data *vl_data;
   struct ospf_interface *oi;
@@ -913,7 +921,7 @@ ospf_vl_up_check (struct ospf_area * area, struct in_addr rid,
       zlog_info ("ospf_vl_up_check(): Area is %s", inet_ntoa (area->area_id));
     }
 
-  for (node = listhead (ospf_top->vlinks); node; nextnode (node))
+  for (node = listhead (ospf->vlinks); node; nextnode (node))
     {
       if ((vl_data = getdata (node)) == NULL)
         continue;
@@ -950,23 +958,23 @@ ospf_vl_up_check (struct ospf_area * area, struct in_addr rid,
 }
 
 void
-ospf_vl_unapprove ()
+ospf_vl_unapprove (struct ospf *ospf)
 {
   listnode node;
   struct ospf_vl_data *vl_data;
 
-  for (node = listhead (ospf_top->vlinks); node; nextnode (node))
+  for (node = listhead (ospf->vlinks); node; nextnode (node))
     if ((vl_data = getdata (node)) != NULL)
       UNSET_FLAG (vl_data->flags, OSPF_VL_FLAG_APPROVED);
 }
 
 void
-ospf_vl_shut_unapproved ()
+ospf_vl_shut_unapproved (struct ospf *ospf)
 {
   listnode node;
   struct ospf_vl_data *vl_data;
 
-  for (node = listhead (ospf_top->vlinks); node; nextnode (node))
+  for (node = listhead (ospf->vlinks); node; nextnode (node))
     if ((vl_data = getdata (node)) != NULL)
       if (!CHECK_FLAG (vl_data->flags, OSPF_VL_FLAG_APPROVED))
         ospf_vl_shutdown (vl_data);
@@ -992,7 +1000,7 @@ ospf_vls_in_area (struct ospf_area *area)
   struct ospf_vl_data *vl_data;
   int c = 0;
 
-  for (node = listhead (ospf_top->vlinks); node; nextnode (node))
+  for (node = listhead (area->ospf->vlinks); node; nextnode (node))
     if ((vl_data = getdata (node)) != NULL)
       if (IPV4_ADDR_SAME (&vl_data->vl_area_id, &area->area_id))
         c++;

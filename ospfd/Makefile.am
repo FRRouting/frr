@@ -1,7 +1,6 @@
 ## Process this file with automake to produce Makefile.in.
 
 INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib
-LOCAL_OPTS = @OSPFAPI@
 DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 

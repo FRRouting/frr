@@ -482,22 +482,21 @@ ospf_ls_ack_timer (struct thread *thread)
 int
 ospf_write (struct thread *thread)
 {
+  struct ospf *ospf = THREAD_ARG (thread);
   struct ospf_interface *oi;
   struct ospf_packet *op;
   struct sockaddr_in sa_dst;
-  u_char type;
-  int ret;
-  int flags = 0;
   struct ip iph;
   struct msghdr msg;
   struct iovec iov[2];
-  struct ospf *top;
+  u_char type;
+  int ret;
+  int flags = 0;
   listnode node;
   
-  top = THREAD_ARG (thread);
-  top->t_write = NULL;
+  ospf->t_write = NULL;
 
-  node = listhead (top->oi_write_q);
+  node = listhead (ospf->oi_write_q);
   assert (node);
   oi = getdata (node);
   assert (oi);
@@ -507,9 +506,9 @@ ospf_write (struct thread *thread)
   assert (op);
   assert (op->length >= OSPF_HEADER_SIZE);
 
-  if (op->dst.s_addr == htonl (OSPF_ALLSPFROUTERS) ||
-      op->dst.s_addr == htonl (OSPF_ALLDROUTERS))
-    ospf_if_ipmulticast (top, oi->address, oi->ifp->ifindex);
+  if (op->dst.s_addr == htonl (OSPF_ALLSPFROUTERS)
+      || op->dst.s_addr == htonl (OSPF_ALLDROUTERS))
+    ospf_if_ipmulticast (ospf, oi->address, oi->ifp->ifindex);
 
   /* Rewrite the md5 signature & update the seq */
   ospf_make_md5_digest (oi, op);
@@ -529,7 +528,7 @@ ospf_write (struct thread *thread)
 
   iph.ip_hl = sizeof (struct ip) >> 2;
   iph.ip_v = IPVERSION;
-  iph.ip_tos = 0;
+  iph.ip_tos = IPTOS_PREC_INTERNETCONTROL;
 #if defined(__NetBSD__) || defined(__FreeBSD__)
   iph.ip_len = iph.ip_hl*4 + op->length;
 #else
@@ -556,7 +555,7 @@ ospf_write (struct thread *thread)
   iov[1].iov_base = STREAM_DATA (op->s);
   iov[1].iov_len = op->length;
 
-  ret = sendmsg (top->fd, &msg, flags);
+  ret = sendmsg (ospf->fd, &msg, flags);
   
   if (ret < 0)
     zlog_warn ("*** sendmsg in ospf_write failed with %s", strerror (errno));
@@ -589,13 +588,13 @@ ospf_write (struct thread *thread)
   if (ospf_fifo_head (oi->obuf) == NULL)
     {
       oi->on_write_q = 0;
-      list_delete_node (top->oi_write_q, node);
+      list_delete_node (ospf->oi_write_q, node);
     }
   
   /* If packets still remain in queue, call write thread. */
-  if (!list_isempty (top->oi_write_q))
-    ospf_top->t_write =                                              
-      thread_add_write (master, ospf_write, top, top->fd);
+  if (!list_isempty (ospf->oi_write_q))
+    ospf->t_write =                                              
+      thread_add_write (master, ospf_write, ospf, ospf->fd);
 
   return 0;
 }
@@ -617,10 +616,8 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
   hello = (struct ospf_hello *) STREAM_PNT (s);
 
   /* If Hello is myself, silently discard. */
-  if (IPV4_ADDR_SAME (&ospfh->router_id, &ospf_top->router_id)) {
-    zlog_info ("Packet %s [Hello:RECV]: router_id matches our router id");
+  if (IPV4_ADDR_SAME (&ospfh->router_id, &oi->ospf->router_id))
     return;
-  }
 
   /* If incoming interface is passive one, ignore Hello. */
   if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE) {
@@ -681,7 +678,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 #endif /* REJECT_IF_TBIT_ON */
 
 #ifdef HAVE_OPAQUE_LSA
-  if (CHECK_FLAG (ospf_top->config, OSPF_OPAQUE_CAPABLE)
+  if (CHECK_FLAG (oi->ospf->config, OSPF_OPAQUE_CAPABLE)
       && CHECK_FLAG (hello->options, OSPF_OPTION_O))
     {
       /*
@@ -823,7 +820,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
       return;
     }
 
-  if (ospf_nbr_bidirectional (&ospf_top->router_id, hello->neighbors,
+  if (ospf_nbr_bidirectional (&oi->ospf->router_id, hello->neighbors,
 			      size - OSPF_HELLO_MIN_SIZE))
     {
       OSPF_NSM_EVENT_EXECUTE (nbr, NSM_TwoWayReceived);
@@ -1050,7 +1047,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 
 #ifdef HAVE_OPAQUE_LSA
   if (CHECK_FLAG (dd->options, OSPF_OPTION_O)
-      && !CHECK_FLAG (ospf_top->config, OSPF_OPAQUE_CAPABLE))
+      && !CHECK_FLAG (oi->ospf->config, OSPF_OPAQUE_CAPABLE))
     {
       /*
        * This node is not configured to handle O-bit, for now.
@@ -1081,7 +1078,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
       if ((IS_SET_DD_ALL (dd->flags) == OSPF_DD_FLAG_ALL) &&
 	  (size == OSPF_DB_DESC_MIN_SIZE))
 	{
-	  if (IPV4_ADDR_CMP (&nbr->router_id, &ospf_top->router_id) > 0)
+	  if (IPV4_ADDR_CMP (&nbr->router_id, &oi->ospf->router_id) > 0)
 	    {
 	      /* We're Slave---obey */
 	      zlog_warn ("Packet[DD]: Negotiation done (Slave).");
@@ -1098,7 +1095,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
       /* Ack from the Slave */
       else if (!IS_SET_DD_MS (dd->flags) && !IS_SET_DD_I (dd->flags) &&
 	       ntohl (dd->dd_seqnum) == nbr->dd_seqnum &&
-	       IPV4_ADDR_CMP (&nbr->router_id, &ospf_top->router_id) < 0)
+	       IPV4_ADDR_CMP (&nbr->router_id, &oi->ospf->router_id) < 0)
 	{
 	  zlog_warn ("Packet[DD]: Negotiation done (Master).");
 	  nbr->dd_flags &= ~OSPF_DD_FLAG_I;
@@ -1113,7 +1110,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
       nbr->options = dd->options;
 
 #ifdef HAVE_OPAQUE_LSA
-      if (CHECK_FLAG (ospf_top->config, OSPF_OPAQUE_CAPABLE))
+      if (CHECK_FLAG (oi->ospf->config, OSPF_OPAQUE_CAPABLE))
         {
           if (IS_DEBUG_OSPF_EVENT)
             zlog_info ("Neighbor[%s] is %sOpaque-capable.",
@@ -1610,8 +1607,8 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	 then take the following actions. */
 
       if (IS_LSA_MAXAGE (lsa) && !current &&
-	  (ospf_nbr_count (oi->nbrs, NSM_Exchange) +
-	   ospf_nbr_count (oi->nbrs, NSM_Loading)) == 0)
+	  (ospf_nbr_count (oi, NSM_Exchange) +
+	   ospf_nbr_count (oi, NSM_Loading)) == 0)
 	{
 	  /* Response Link State Acknowledgment. */
 	  ospf_ls_ack_send (nbr, lsa);
@@ -1623,7 +1620,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 
 #ifdef HAVE_OPAQUE_LSA
       if (IS_OPAQUE_LSA (lsa->data->type)
-      &&  IPV4_ADDR_SAME (&lsa->data->adv_router, &ospf_top->router_id))
+      &&  IPV4_ADDR_SAME (&lsa->data->adv_router, &oi->ospf->router_id))
         {
           /*
            * Even if initial flushing seems to be completed, there might
@@ -1676,7 +1673,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	  (ret = ospf_lsa_more_recent (current, lsa)) < 0)
 	{
 	  /* Actual flooding procedure. */
-	  if (ospf_flood (nbr, current, lsa) < 0)  /* Trap NSSA later. */
+	  if (ospf_flood (oi->ospf, nbr, current, lsa) < 0)  /* Trap NSSA later. */
 	    DISCARD_LSA (lsa, 4);
 	  continue;
 	}
@@ -1973,9 +1970,9 @@ ospf_associate_packet_vl (struct interface *ifp, struct ospf_interface *oi,
 			  struct ip *iph, struct ospf_header *ospfh)
 {
   struct ospf_interface *rcv_oi;
-  listnode node;
   struct ospf_vl_data *vl_data;
   struct ospf_area *vl_area;
+  listnode node;
 
   if (IN_MULTICAST (ntohl (iph->ip_dst.s_addr)) ||
       !OSPF_IS_AREA_BACKBONE (ospfh))
@@ -1983,16 +1980,17 @@ ospf_associate_packet_vl (struct interface *ifp, struct ospf_interface *oi,
 
   if ((rcv_oi = oi) == NULL)
     {
-     if ((rcv_oi = ospf_if_lookup_by_local_addr (ifp, iph->ip_dst)) == NULL)
+     if ((rcv_oi = ospf_if_lookup_by_local_addr (oi->ospf, ifp,
+						 iph->ip_dst)) == NULL)
        return NULL;
     }
 
-  for (node = listhead (ospf_top->vlinks); node; nextnode (node))
+  for (node = listhead (oi->ospf->vlinks); node; nextnode (node))
     {
       if ((vl_data = getdata (node)) == NULL)
 	continue;
       
-      vl_area = ospf_area_lookup_by_area_id (vl_data->vl_area_id);
+      vl_area = ospf_area_lookup_by_area_id (oi->ospf, vl_data->vl_area_id);
       if (!vl_area)
 	continue;
       
@@ -2195,7 +2193,7 @@ ospf_read (struct thread *thread)
 {
   int ret;
   struct stream *ibuf;
-  struct ospf *top;
+  struct ospf *ospf;
   struct ospf_interface *oi;
   struct ip *iph;
   struct ospf_header *ospfh;
@@ -2203,25 +2201,25 @@ ospf_read (struct thread *thread)
   struct interface *ifp;
 
   /* first of all get interface pointer. */
-  top = THREAD_ARG (thread);
-  top->t_read = NULL;
+  ospf = THREAD_ARG (thread);
+  ospf->t_read = NULL;
 
   /* read OSPF packet. */
-  ibuf = ospf_recv_packet (top->fd, &ifp);
+  ibuf = ospf_recv_packet (ospf->fd, &ifp);
   if (ibuf == NULL)
     return -1;
   
   iph = (struct ip *) STREAM_DATA (ibuf);
 
   /* prepare for next packet. */
-  top->t_read = thread_add_read (master, ospf_read, top, top->fd);
+  ospf->t_read = thread_add_read (master, ospf_read, ospf, ospf->fd);
 
   /* IP Header dump. */
     if (IS_DEBUG_OSPF_PACKET(0, RECV))
 	    ospf_ip_header_dump (ibuf);
 
   /* Self-originated packet should be discarded silently. */
-  if (ospf_if_lookup_by_local_addr (NULL, iph->ip_src))
+  if (ospf_if_lookup_by_local_addr (ospf, NULL, iph->ip_src))
     {
       stream_free (ibuf);
       return 0;
@@ -2234,7 +2232,7 @@ ospf_read (struct thread *thread)
   ospfh = (struct ospf_header *) STREAM_PNT (ibuf);
 
   /* associate packet with ospf interface */
-  oi = ospf_if_lookup_recv_interface (iph->ip_src);
+  oi = ospf_if_lookup_recv_if (ospf, iph->ip_src);
   if (ifp && oi && oi->ifp != ifp)
     {
       zlog_warn ("Packet from [%s] received on wrong link %s",
@@ -2336,7 +2334,7 @@ ospf_make_header (int type, struct ospf_interface *oi, struct stream *s)
   ospfh->version = (u_char) OSPF_VERSION;
   ospfh->type = (u_char) type;
 
-  ospfh->router_id = ospf_top->router_id;
+  ospfh->router_id = oi->ospf->router_id;
 
   ospfh->checksum = 0;
   ospfh->area_id = oi->area->area_id;
@@ -2453,25 +2451,21 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
 
   /* Add neighbor seen. */
   for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
-    if ((nbr = rn->info) != NULL) {
-      /* ignore 0.0.0.0 node. */
-      if (nbr->router_id.s_addr != 0)
-	if (nbr->state != NSM_Attempt)
-	/* ignore Down neighbor. */
-	if (nbr->state != NSM_Down)
-	  /* this is myself for DR election. */
-	  if (!IPV4_ADDR_SAME (&nbr->router_id, &ospf_top->router_id))
+    if ((nbr = rn->info))
+      if (nbr->router_id.s_addr != 0)	/* Ignore 0.0.0.0 node. */
+	if (nbr->state != NSM_Attempt)  /* Ignore Down neighbor. */
+	if (nbr->state != NSM_Down)     /* This is myself for DR election. */
+	  if (!IPV4_ADDR_SAME (&nbr->router_id, &oi->ospf->router_id))
 	    {
 	      /* Check neighbor is sane? */
-	      if (nbr->d_router.s_addr != 0 &&
-		  IPV4_ADDR_SAME (&nbr->d_router, &oi->address->u.prefix4) &&
-		  IPV4_ADDR_SAME (&nbr->bd_router, &oi->address->u.prefix4))
-		flag = 0;
+	      if (nbr->d_router.s_addr != 0
+		  && IPV4_ADDR_SAME (&nbr->d_router, &oi->address->u.prefix4)
+		  && IPV4_ADDR_SAME (&nbr->bd_router, &oi->address->u.prefix4))
+		flag = 1;
 
 	      stream_put_ipv4 (s, nbr->router_id.s_addr);
 	      length += 4;
 	    }
-    }
 
   /* Let neighbor generate BackupSeen. */
   if (flag == 1)
@@ -2503,7 +2497,7 @@ ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
   /* Set Options. */
   options = OPTIONS (oi);
 #ifdef HAVE_OPAQUE_LSA
-  if (CHECK_FLAG (ospf_top->config, OSPF_OPAQUE_CAPABLE))
+  if (CHECK_FLAG (oi->ospf->config, OSPF_OPAQUE_CAPABLE))
     {
       if (IS_SET_DD_I (nbr->dd_flags)
       ||  CHECK_FLAG (nbr->options, OSPF_OPTION_O))

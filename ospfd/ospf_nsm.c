@@ -222,13 +222,8 @@ ospf_db_summary_isempty (struct ospf_neighbor *nbr)
 }
 
 int
-ospf_db_summary_add (struct ospf_lsa *lsa, void *v, int i)
+ospf_db_summary_add (struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 {
-  struct ospf_neighbor *nbr = (struct ospf_neighbor *) v;
-
-  if (lsa == NULL)
-    return 0;
-
 #ifdef HAVE_OPAQUE_LSA
   switch (lsa->data->type)
     {
@@ -283,62 +278,51 @@ ospf_db_summary_clear (struct ospf_neighbor *nbr)
 
 
 
-#ifdef HAVE_OPAQUE_LSA
-/* The area link state database consists of the router-LSAs,
-   network-LSAs, summary-LSAs, and type-9/10 opaque-LSAs contained
-			     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   in the area structure, along with the AS-external and type-11
-						     ^^^^^^^^^^^
-   opaque LSAs contained in the global structure.
-   ^^^^^^
-   AS-external and type-11 opaque LSAs are omitted from a virtual
-	       ^^^^^^^^^^^^^^^^^^
-   neighbor's Database summary list. AS-external and type-11 opaque
-						 ^^^^^^^^^^^^^^^^^^
-   LSAs are omitted from the Database summary list if the area has
-   been configured as a stub. */
-#else /* HAVE_OPAQUE_LSA */
 /* The area link state database consists of the router-LSAs,
    network-LSAs and summary-LSAs contained in the area structure,
-   along with the AS-external- LSAs contained in the global structure.
-   AS- external-LSAs are omitted from a virtual neighbor's Database
+   along with the AS-external-LSAs contained in the global structure.
+   AS-external-LSAs are omitted from a virtual neighbor's Database
    summary list.  AS-external-LSAs are omitted from the Database
    summary list if the area has been configured as a stub. */
-#endif /* HAVE_OPAQUE_LSA */
 int
 nsm_negotiation_done (struct ospf_neighbor *nbr)
 {
-  struct ospf_area *area;
+  struct ospf_area *area = nbr->oi->area;
+  struct ospf_lsa *lsa;
+  struct route_node *rn;
 
-  area = nbr->oi->area;
+  LSDB_LOOP (ROUTER_LSDB (area), rn, lsa)
+    ospf_db_summary_add (nbr, lsa);
+  LSDB_LOOP (NETWORK_LSDB (area), rn, lsa)
+    ospf_db_summary_add (nbr, lsa);
+  LSDB_LOOP (SUMMARY_LSDB (area), rn, lsa)
+    ospf_db_summary_add (nbr, lsa);
+  LSDB_LOOP (ASBR_SUMMARY_LSDB (area), rn, lsa)
+    ospf_db_summary_add (nbr, lsa);
 
-  foreach_lsa (ROUTER_LSDB (area), nbr, 0, ospf_db_summary_add);
-  foreach_lsa (NETWORK_LSDB (area), nbr, 0, ospf_db_summary_add);
-  foreach_lsa (SUMMARY_LSDB (area), nbr, 0, ospf_db_summary_add);
-  foreach_lsa (ASBR_SUMMARY_LSDB (area), nbr, 0, ospf_db_summary_add);
-  
 #ifdef HAVE_OPAQUE_LSA
   /* Process only if the neighbor is opaque capable. */
   if (CHECK_FLAG (nbr->options, OSPF_OPTION_O))
     {
-      foreach_lsa (OPAQUE_LINK_LSDB (area), nbr, 0, ospf_db_summary_add);
-      foreach_lsa (OPAQUE_AREA_LSDB (area), nbr, 0, ospf_db_summary_add);
+      LSDB_LOOP (OPAQUE_LINK_LSDB (area), rn, lsa)
+	ospf_db_summary_add (nbr, lsa);
+      LSDB_LOOP (OPAQUE_AREA_LSDB (area), rn, lsa)
+	ospf_db_summary_add (nbr, lsa);
     }
 #endif /* HAVE_OPAQUE_LSA */
 
-  if (nbr->oi->type != OSPF_IFTYPE_VIRTUALLINK &&
-      area->external_routing == OSPF_AREA_DEFAULT)
-    foreach_lsa (EXTERNAL_LSDB (ospf_top), nbr, 0, ospf_db_summary_add);
+  if (nbr->oi->type != OSPF_IFTYPE_VIRTUALLINK
+      && area->external_routing == OSPF_AREA_DEFAULT)
+    LSDB_LOOP (EXTERNAL_LSDB (nbr->oi->ospf), rn, lsa)
+      ospf_db_summary_add (nbr, lsa);
 
 #ifdef HAVE_OPAQUE_LSA
-  if (CHECK_FLAG (nbr->options, OSPF_OPTION_O) &&
-      (nbr->oi->type != OSPF_IFTYPE_VIRTUALLINK &&
-       area->external_routing == OSPF_AREA_DEFAULT))
-    foreach_lsa (OPAQUE_AS_LSDB (ospf_top),
-		 nbr, 0, ospf_db_summary_add);
+  if (CHECK_FLAG (nbr->options, OSPF_OPTION_O)
+      && (nbr->oi->type != OSPF_IFTYPE_VIRTUALLINK
+	  && area->external_routing == OSPF_AREA_DEFAULT))
+    LSDB_LOOP (OPAQUE_AS_LSDB (nbr->oi->ospf), rn, lsa)
+      ospf_db_summary_add (nbr, lsa);
 #endif /* HAVE_OPAQUE_LSA */
-
-  /* OSPF_NSM_TIMER_OFF (nbr->t_db_desc); */
 
   return 0;
 }
@@ -346,10 +330,6 @@ nsm_negotiation_done (struct ospf_neighbor *nbr)
 int
 nsm_exchange_done (struct ospf_neighbor *nbr)
 {
-  struct ospf_interface *oi;
-
-  oi = nbr->oi;
-
   if (ospf_ls_request_isempty (nbr))
     return NSM_Full;
 
@@ -382,18 +362,18 @@ nsm_adj_ok (struct ospf_neighbor *nbr)
   next_state = nbr->state;
 
   /* These netowork types must be adjacency. */
-  if (oi->type == OSPF_IFTYPE_POINTOPOINT ||
-      oi->type == OSPF_IFTYPE_POINTOMULTIPOINT ||
-      oi->type == OSPF_IFTYPE_VIRTUALLINK)
+  if (oi->type == OSPF_IFTYPE_POINTOPOINT
+      || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
+      || oi->type == OSPF_IFTYPE_VIRTUALLINK)
     flag = 1;
 
   /* Router itself is the DRouter or the BDRouter. */
-  if (IPV4_ADDR_SAME (&oi->address->u.prefix4, &DR (oi)) ||
-      IPV4_ADDR_SAME (&oi->address->u.prefix4, &BDR (oi)))
+  if (IPV4_ADDR_SAME (&oi->address->u.prefix4, &DR (oi))
+      || IPV4_ADDR_SAME (&oi->address->u.prefix4, &BDR (oi)))
     flag = 1;
 
-  if (IPV4_ADDR_SAME (&nbr->address.u.prefix4, &DR (oi)) ||
-      IPV4_ADDR_SAME (&nbr->address.u.prefix4, &BDR (oi)))
+  if (IPV4_ADDR_SAME (&nbr->address.u.prefix4, &DR (oi))
+      || IPV4_ADDR_SAME (&nbr->address.u.prefix4, &BDR (oi)))
     flag = 1;
 
   if (nbr->state == NSM_TwoWay && flag == 1)
@@ -683,7 +663,7 @@ static char *ospf_nsm_event_str[] =
 void
 nsm_change_state (struct ospf_neighbor *nbr, int state)
 {
-  struct ospf_interface *oi;
+  struct ospf_interface *oi = nbr->oi;
   struct ospf_area *vl_area = NULL;
   u_char old_state;
   int x;
@@ -705,10 +685,8 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   /* Statistics. */
   nbr->state_change++;
 
-  oi = nbr->oi;
-
   if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-    vl_area = ospf_area_lookup_by_area_id (oi->vl_data->vl_area_id);
+    vl_area = ospf_area_lookup_by_area_id (oi->ospf, oi->vl_data->vl_area_id);
   
   /* One of the neighboring routers changes to/from the FULL state. */
   if ((old_state != NSM_Full && state == NSM_Full) ||
@@ -719,31 +697,31 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
 	  oi->full_nbrs++;
 	  oi->area->full_nbrs++;
 
-          ospf_check_abr_status ();
+          ospf_check_abr_status (oi->ospf);
 
 	  if (oi->type == OSPF_IFTYPE_VIRTUALLINK && vl_area)
             if (++vl_area->full_vls == 1)
-	      ospf_schedule_abr_task ();
+	      ospf_schedule_abr_task (oi->ospf);
 
 	  /* kevinm: refresh any redistributions */
-	  for (x = ZEBRA_ROUTE_SYSTEM; x < ZEBRA_ROUTE_MAX; x++) {
-	    if (x == ZEBRA_ROUTE_OSPF || x == ZEBRA_ROUTE_OSPF6)
-	      continue;
-	    ospf_external_lsa_refresh_type(x, force);
-	  }
-
+	  for (x = ZEBRA_ROUTE_SYSTEM; x < ZEBRA_ROUTE_MAX; x++)
+	    {
+	      if (x == ZEBRA_ROUTE_OSPF || x == ZEBRA_ROUTE_OSPF6)
+		continue;
+	      ospf_external_lsa_refresh_type (oi->ospf, x, force);
+	    }
 	}
       else
 	{
 	  oi->full_nbrs--;
 	  oi->area->full_nbrs--;
 
-          ospf_check_abr_status ();
+          ospf_check_abr_status (oi->ospf);
 
 	  if (oi->type == OSPF_IFTYPE_VIRTUALLINK && vl_area)
 	    if (vl_area->full_vls > 0)
 	      if (--vl_area->full_vls == 0)
-		ospf_schedule_abr_task ();
+		ospf_schedule_abr_task (oi->ospf);
  
           /* clear neighbor retransmit list */
           if (!ospf_ls_retransmit_isempty (nbr))
@@ -758,7 +736,7 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
       if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
 	{
 	  struct ospf_area *vl_area =
-	    ospf_area_lookup_by_area_id (oi->vl_data->vl_area_id);
+	    ospf_area_lookup_by_area_id (oi->ospf, oi->vl_data->vl_area_id);
 	  
 	  if (vl_area)
 	    ospf_router_lsa_timer_add (vl_area);

@@ -32,6 +32,11 @@
 #define IPPROTO_OSPFIGP         89
 #endif /* IPPROTO_OSPFIGP */
 
+/* IP precedence. */
+#ifndef IPTOS_PREC_INTERNETCONTROL
+#define IPTOS_PREC_INTERNETCONTROL	0xC0
+#endif /* IPTOS_PREC_INTERNETCONTROL */
+
 /* VTY port number. */
 #define OSPF_VTY_PORT          2604
 #define OSPF_VTYSH_PATH        "/tmp/.ospfd"
@@ -288,7 +293,7 @@ struct ospf
 struct ospf_area
 {
   /* OSPF instance. */
-  struct ospf *top;
+  struct ospf *ospf;
 
   /* Zebra interface list belonging to the area. */
   list oiflist;
@@ -456,7 +461,7 @@ struct ospf_nbr_nbma
 #define OSPF_TIMER_ON(T,F,V)                                                  \
     do {                                                                      \
       if (!(T))                                                               \
-	(T) = thread_add_timer (master, (F), NULL, (V));                      \
+	(T) = thread_add_timer (master, (F), ospf, (V));                      \
     } while (0)
 
 #define OSPF_AREA_TIMER_ON(T,F,V)                                             \
@@ -480,12 +485,6 @@ struct ospf_nbr_nbma
           thread_cancel (X);                                                  \
           (X) = NULL;                                                         \
         }                                                                     \
-    } while (0)
-
-#define OSPF_SCHEDULE_MAXAGE(T, F)                                            \
-    do {                                                                      \
-      if (!(T))                                                               \
-        (T) = thread_add_timer (master, (F), 0, 2);                           \
     } while (0)
 
 /* Messages */
@@ -521,12 +520,12 @@ int ospf_area_no_summary_unset (struct ospf *, struct in_addr);
 int ospf_area_nssa_set (struct ospf *, struct in_addr);
 int ospf_area_nssa_unset (struct ospf *, struct in_addr);
 int ospf_area_nssa_translator_role_set (struct ospf *, struct in_addr, int);
-int ospf_area_export_list_set (struct ospf_area *, char *);
-int ospf_area_export_list_unset (struct ospf_area *);
-int ospf_area_import_list_set (struct ospf_area *, char *);
-int ospf_area_import_list_unset (struct ospf_area *);
-int ospf_area_shortcut_set (struct ospf_area *, int);
-int ospf_area_shortcut_unset (struct ospf_area *);
+int ospf_area_export_list_set (struct ospf *, struct ospf_area *, char *);
+int ospf_area_export_list_unset (struct ospf *, struct ospf_area *);
+int ospf_area_import_list_set (struct ospf *, struct ospf_area *, char *);
+int ospf_area_import_list_unset (struct ospf *, struct ospf_area *);
+int ospf_area_shortcut_set (struct ospf *, struct ospf_area *, int);
+int ospf_area_shortcut_unset (struct ospf *, struct ospf_area *);
 int ospf_timers_spf_set (struct ospf *, u_int32_t, u_int32_t);
 int ospf_timers_spf_unset (struct ospf *);
 int ospf_timers_refresh_set (struct ospf *, int);
@@ -539,18 +538,18 @@ int ospf_nbr_nbma_poll_interval_set (struct ospf *, struct in_addr, int);
 int ospf_nbr_nbma_poll_interval_unset (struct ospf *, struct in_addr);
 void ospf_prefix_list_update (struct prefix_list *);
 void ospf_init ();
-void ospf_if_update ();
+void ospf_if_update (struct ospf *);
 void ospf_ls_upd_queue_empty (struct ospf_interface *);
 void ospf_terminate ();
-void ospf_nbr_nbma_if_update (struct ospf_interface *);
+void ospf_nbr_nbma_if_update (struct ospf *, struct ospf_interface *);
 struct ospf_nbr_nbma *ospf_nbr_nbma_lookup (struct ospf *, struct in_addr);
-struct ospf_nbr_nbma *ospf_nbr_nbma_lookup_next (struct in_addr *, int);
+struct ospf_nbr_nbma *ospf_nbr_nbma_lookup_next (struct ospf *,
+						 struct in_addr *, int);
 int ospf_oi_count (struct interface *);
 
-struct ospf_area *ospf_area_new (struct in_addr);
-struct ospf_area *ospf_area_get (struct in_addr, int);
-void ospf_area_check_free (struct in_addr);
-struct ospf_area *ospf_area_lookup_by_area_id (struct in_addr);
+struct ospf_area *ospf_area_get (struct ospf *, struct in_addr, int);
+void ospf_area_check_free (struct ospf *, struct in_addr);
+struct ospf_area *ospf_area_lookup_by_area_id (struct ospf *, struct in_addr);
 void ospf_area_add_if (struct ospf_area *, struct ospf_interface *);
 void ospf_area_del_if (struct ospf_area *, struct ospf_interface *);
 

@@ -202,20 +202,15 @@ ospf_nbr_add_self (struct ospf_interface *oi)
 /* Get neighbor count by status.
    Specify status = 0, get all neighbor other than myself. */
 int
-ospf_nbr_count (struct route_table *nbrs, int state)
+ospf_nbr_count (struct ospf_interface *oi, int state)
 {
-  struct route_node *rn;
   struct ospf_neighbor *nbr;
+  struct route_node *rn;
   int count = 0;
 
-  /* Sanity check. */
-  if (nbrs == NULL)
-    return 0;
-
-  for (rn = route_top (nbrs); rn; rn = route_next (rn))
-    if ((nbr = rn->info) != NULL)
-      /* Ignore myself. */
-      if (!IPV4_ADDR_SAME (&nbr->router_id, &ospf_top->router_id))
+  for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
+    if ((nbr = rn->info))
+      if (!IPV4_ADDR_SAME (&nbr->router_id, &oi->ospf->router_id))
 	if (state == 0 || nbr->state == state)
 	  count++;
 
@@ -224,23 +219,18 @@ ospf_nbr_count (struct route_table *nbrs, int state)
 
 #ifdef HAVE_OPAQUE_LSA
 int
-ospf_opaque_capable_nbr_count (struct route_table *nbrs, int state)
+ospf_nbr_count_opaque_capable (struct ospf_interface *oi)
 {
-  struct route_node *rn;
   struct ospf_neighbor *nbr;
+  struct route_node *rn;
   int count = 0;
 
-  /* Sanity check. */
-  if (nbrs == NULL)
-    return 0;
-
-  for (rn = route_top (nbrs); rn; rn = route_next (rn))
-    if ((nbr = rn->info) != NULL)
-      /* Ignore myself. */
-      if (!IPV4_ADDR_SAME (&nbr->router_id, &ospf_top->router_id))
-	if ((state == 0 || nbr->state == state)
-	&&  CHECK_FLAG (nbr->options, OSPF_OPTION_O))
-	  count++;
+  for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
+    if ((nbr = rn->info))
+      if (!IPV4_ADDR_SAME (&nbr->router_id, &oi->ospf->router_id))
+	if (nbr->state == NSM_Full)
+	  if (CHECK_FLAG (nbr->options, OSPF_OPTION_O))
+	    count++;
 
   return count;
 }

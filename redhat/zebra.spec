@@ -1,5 +1,5 @@
 # conditionals
-%define 	with_snmp	1
+%define 	with_snmp	0
 %define		with_vtysh	1
 %define		with_ospf_te	1
 %define		with_nssa	1
@@ -8,6 +8,8 @@
 %define		with_vtysh	1
 %define		with_pam	1
 %define		with_ipv6	1
+%define		with_ospfclient 0
+%define		with_ospfapi	0
 %define		with_multipath	64
 
 # path defines
@@ -24,7 +26,7 @@
 Summary: Routing daemon
 Name:		zebra
 Version:	0.94
-Release:	2003031801
+Release:	2003032501
 License:	GPL
 Group: System Environment/Daemons
 Source0:	ftp://ftp.zebra.org/pub/zebra/%{name}-%{version}.tar.gz
@@ -104,6 +106,16 @@ developing OSPF-API and zebra applications.
 %endif
 %if %with_vtysh
 	--enable-vtysh \
+%endif
+%if %with_ospfclient 
+	--enable-ospfclient=yes \
+%else
+	--enable-ospfclient=no\
+%endif
+%if %with_ospfapi
+	--enable-ospfapi=yes \
+%else
+	--enable-ospfapi=no \
 %endif
 %if %with_pam
 	--with-libpam
@@ -243,8 +255,10 @@ fi
 %files devel
 %defattr(-,root,root)
 %dir %{_libdir}/*
-%dir %{_includedir}/ospfd/* 
+%dir %{_includedir}/ospfd/*
+%if %with_ospfapi
 %dir %{_includedir}/ospfapi/*
+%endif
 
 %changelog
 * Mon Mar 18 2003 Paul Jakma <paul@dishone.st>
