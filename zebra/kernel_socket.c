@@ -48,7 +48,13 @@ extern struct zebra_t zebrad;
 #ifdef HAVE_SA_LEN
 #define WRAPUP(X)   ROUNDUP(((struct sockaddr *)(X))->sa_len)
 #else
-#define WRAPUP(X)   ROUNDUP(sizeof (struct sockaddr))
+#define WRAPUP(X) \
+    (((struct sockaddr *)(X))->sa_family == AF_INET ?   \
+      ROUNDUP(sizeof(struct sockaddr_in)):\
+      (((struct sockaddr *)(X))->sa_family == AF_INET6 ? \
+       ROUNDUP(sizeof(struct sockaddr_in6)) :  \
+       (((struct sockaddr *)(X))->sa_family == AF_LINK ? \
+         ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr))))
 #endif /* HAVE_SA_LEN */
 
 /* Routing socket message types. */
@@ -201,15 +207,55 @@ ifan_read (struct if_announcemsghdr *ifan)
 int
 ifm_read (struct if_msghdr *ifm)
 {
-  struct interface *ifp;
+  struct interface *ifp = NULL;
   struct sockaddr_dl *sdl = NULL;
+  char ifname[IFNAMSIZ];
 
+#ifdef SUNOS_5
+  int i;
+  struct sockaddr *sa;
+  u_char *cp = (u_char *)(ifm + 1);
+
+  /* 
+   * if_msghdr_t on 64 bit kernels in Solaris 9 and earlier versions
+   * is 12 bytes larger than the 32 bit version, so make adjustment
+   * here.
+   */
+  sa = (struct sockaddr *)cp;
+  if (sa->sa_family == AF_UNSPEC)
+  	cp = cp + 12;
+
+  for (i = 1; i != 0; i <<= 1) 
+    {
+      if (i & ifm->ifm_addrs) 
+        {
+          sa = (struct sockaddr *)cp;
+          cp += WRAPUP(sa);
+	  if (i & RTA_IFP)
+	    {
+	      sdl = (struct sockaddr_dl *)sa;
+	      break;
+            }
+        }
+    }
+#else
   sdl = (struct sockaddr_dl *)(ifm + 1);
+#endif
 
-  /* Use sdl index. */
-  ifp = if_lookup_by_index (ifm->ifm_index);
+  /* 
+   * Check if ifp already exists. If the interface has already been specified
+   * in the conf file, but is just getting created, we would have an
+   * entry in the iflist with incomplete data (e.g., ifindex == -1),
+   * so we lookup on name.
+   */
+  if (sdl != NULL)
+    {
+      bcopy(sdl->sdl_data, ifname, sdl->sdl_nlen);
+      ifname[sdl->sdl_nlen] = '\0';
+      ifp = if_lookup_by_name (ifname);
+    }
 
-  if (ifp == NULL)
+  if ((ifp == NULL) || (ifp->ifindex == -1))
     {
       /* Check interface's address.*/
       if (! (ifm->ifm_addrs & RTA_IFP))
@@ -219,7 +265,8 @@ ifm_read (struct if_msghdr *ifm)
 	  return -1;
 	}
 
-      ifp = if_create (sdl->sdl_data, sdl->sdl_nlen);
+      if (ifp == NULL)
+      	ifp = if_create (sdl->sdl_data, sdl->sdl_nlen);
 
       ifp->ifindex = ifm->ifm_index;
       ifp->flags = ifm->ifm_flags;
