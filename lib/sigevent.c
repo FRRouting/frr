@@ -191,7 +191,6 @@ trap_default_signals(void)
   static const int exit_signals[] = {
     SIGHUP,
     SIGINT,
-    SIGPIPE,
     SIGALRM,
     SIGTERM,
     SIGUSR1,
@@ -206,19 +205,23 @@ trap_default_signals(void)
     SIGSTKFLT, 
 #endif
   };
+  static const int ignore_signals[] = {
+    SIGPIPE,
+  };
   static const struct {
     const int *sigs;
-    int nsigs;
+    u_int nsigs;
     void (*handler)(int);
-  } sigmap[2] = {
+  } sigmap[] = {
     { core_signals, sizeof(core_signals)/sizeof(core_signals[0]),core_handler },
     { exit_signals, sizeof(exit_signals)/sizeof(exit_signals[0]),exit_handler },
+    { ignore_signals, sizeof(ignore_signals)/sizeof(ignore_signals[0]),SIG_IGN},
   };
-  int i;
+  u_int i;
 
-  for (i = 0; i < 2; i++)
+  for (i = 0; i < sizeof(sigmap)/sizeof(sigmap[0]); i++)
     {
-      int j;
+      u_int j;
 
       for (j = 0; j < sigmap[i].nsigs; j++)
         {

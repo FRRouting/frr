@@ -1,3 +1,7 @@
+2004-12-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* sigevent.c: (trap_default_signals) Ignore SIGPIPE instead of exiting.
+
 2004-12-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 	
 	* log.c: (zlog_signal,_zlog_assert_failed) Change logging level back to
