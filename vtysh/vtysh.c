@@ -1271,6 +1271,7 @@ int write_config_integrated(void)
   /* Move current configuration file to backup config file */
   unlink (integrate_sav);
   rename (integrate_default, integrate_sav);
+  free   (integrate_sav);
  
   fp = fopen (integrate_default, "w");
   if (fp == NULL)
@@ -1437,6 +1438,16 @@ DEFUN (vtysh_telnet_port,
        "TCP Port number\n")
 {
   execute_command ("telnet", 2, argv[0], argv[1]);
+  return CMD_SUCCESS;
+}
+
+DEFUN (vtysh_ssh,
+       vtysh_ssh_cmd,
+       "ssh WORD",
+       "Open an ssh connection\n"
+       "[user@]host\n")
+{
+  execute_command ("ssh", 1, argv[0], NULL);
   return CMD_SUCCESS;
 }
 
@@ -1843,6 +1854,7 @@ vtysh_init_vty ()
   install_element (VIEW_NODE, &vtysh_traceroute_cmd);
   install_element (VIEW_NODE, &vtysh_telnet_cmd);
   install_element (VIEW_NODE, &vtysh_telnet_port_cmd);
+  install_element (VIEW_NODE, &vtysh_ssh_cmd);
   install_element (ENABLE_NODE, &vtysh_ping_cmd);
   install_element (ENABLE_NODE, &vtysh_traceroute_cmd);
   install_element (ENABLE_NODE, &vtysh_telnet_cmd);
