@@ -290,6 +290,13 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
                 nl->name, msg.msg_namelen);
           return -1;
         }
+      
+      /* JF: Ignore messages that aren't from the kernel */
+      if ( snl.nl_pid != 0 )
+        {
+          zlog ( NULL, LOG_ERR, "Ignoring message from pid %u", snl.nl_pid );
+          continue;
+        }
 
       for (h = (struct nlmsghdr *) buf; NLMSG_OK (h, status);
            h = NLMSG_NEXT (h, status))
