@@ -4612,3 +4612,24 @@ bgp_init ()
   bgp_snmp_init ();
 #endif /* HAVE_SNMP */
 }
+
+void
+bgp_terminate ()
+{
+  struct bgp_master *bm;
+  struct bgp *bgp;
+  struct peer *peer;
+  struct listnode *nn;
+  struct listnode *mm;
+
+  bm = bgp_get_master ();
+
+  LIST_LOOP (bm->bgp, bgp, nn)
+    LIST_LOOP (bgp->peer, peer, mm)
+      if (peer->status == Established)
+          bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+                           BGP_NOTIFY_CEASE_PEER_UNCONFIG);
+
+  bgp_cleanup_routes ();
+}
+

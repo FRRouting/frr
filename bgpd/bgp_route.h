@@ -119,6 +119,7 @@ struct bgp_static
 
 /* Prototypes. */
 void bgp_route_init ();
+void bgp_cleanup_routes (void);
 void bgp_announce_route (struct peer *, afi_t, safi_t);
 void bgp_announce_route_all (struct peer *);
 void bgp_default_originate (struct peer *, afi_t, safi_t, int);

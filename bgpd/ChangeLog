@@ -1,3 +1,8 @@
+2004-04-16 rivo nurges <rix@estpak.ee>
+
+	* bgpd.h: update cease subcodes to draft-ietf-idr-cease-subcode-05
+	* bgpd.h, bgpd.c, bgp_route.c, bgp_route.h: fix UNH IOL BGP-4.1.6a
+
 2004-02-17 Paul Jakma <paul@dishone.st>
 
 	* bgpd.h: (bgp_peer) add fd_local and fd_accept 

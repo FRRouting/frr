@@ -1568,7 +1568,7 @@ bgp_clear_adj_in (struct peer *peer, afi_t afi, safi_t safi)
 
 /* Delete all kernel routes. */
 void
-bgp_terminate ()
+bgp_cleanup_routes ()
 {
   struct bgp *bgp;
   struct listnode *nn;
