@@ -1,3 +1,8 @@
+2003-12-03  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* rtadv.c: reorder includes to avoid compiler warning (define
+	structs before using them in prototypes)
+
 2003-05-25 Jim Crumpler <Jim.Crumpler@edion.com>
 
   * zserv.c: Add "ip forwarding" command.

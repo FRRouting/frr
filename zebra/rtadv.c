@@ -34,8 +34,8 @@
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/debug.h"
-#include "zebra/zserv.h"
 #include "zebra/rib.h"
+#include "zebra/zserv.h"
 
 extern struct zebra_privs_t zserv_privs;
 
