@@ -498,6 +498,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
   char options[3] = {0, 0, 0};
   u_int8_t prefix_options = 0;
   u_int32_t cost = 0;
+  u_char router_bits = 0;
   int i;
   char buf[64];
   int is_debug = 0;
@@ -543,6 +544,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
       options[1] = router_lsa->options[1];
       options[2] = router_lsa->options[2];
       cost = OSPF6_ABR_SUMMARY_METRIC (router_lsa);
+      SET_FLAG (router_bits, OSPF6_ROUTER_BIT_E);
     }
   else
     assert (0);
@@ -567,7 +569,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
       if (is_debug)
         zlog_info ("cost is LS_INFINITY, ignore");
       if (old)
-        ospf6_route_remove (old, oa->ospf6->route_table);
+        ospf6_route_remove (old, table);
       return;
     }
   if (OSPF6_LSA_IS_MAXAGE (lsa))
@@ -575,7 +577,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
       if (is_debug)
         zlog_info ("LSA is MaxAge, ignore");
       if (old)
-        ospf6_route_remove (old, oa->ospf6->route_table);
+        ospf6_route_remove (old, table);
       return;
     }
 
@@ -585,7 +587,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
       if (is_debug)
         zlog_info ("LSA is self-originated, ignore");
       if (old)
-        ospf6_route_remove (old, oa->ospf6->route_table);
+        ospf6_route_remove (old, table);
       return;
     }
 
@@ -598,7 +600,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
           if (is_debug)
             zlog_info ("Prefix is equal to address range, ignore");
           if (old)
-            ospf6_route_remove (old, oa->ospf6->route_table);
+            ospf6_route_remove (old, table);
           return;
         }
     }
@@ -613,7 +615,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
       if (is_debug)
         zlog_info ("ABR router entry does not exist, ignore");
       if (old)
-        ospf6_route_remove (old, oa->ospf6->route_table);
+        ospf6_route_remove (old, table);
       return;
     }
 
@@ -630,6 +632,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
   route->path.origin.type = lsa->header->type;
   route->path.origin.id = lsa->header->id;
   route->path.origin.adv_router = lsa->header->adv_router;
+  route->path.router_bits = router_bits;
   route->path.options[0] = options[0];
   route->path.options[1] = options[1];
   route->path.options[2] = options[2];

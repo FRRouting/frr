@@ -194,7 +194,8 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
 
   ospf6_linkstate_prefix (lsa->header->adv_router, htonl (0), &asbr_id);
   asbr_entry = ospf6_route_lookup (&asbr_id, ospf6->brouter_table);
-  if (asbr_entry == NULL)
+  if (asbr_entry == NULL ||
+      ! CHECK_FLAG (asbr_entry->path.router_bits, OSPF6_ROUTER_BIT_E))
     {
       if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
         {

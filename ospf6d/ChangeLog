@@ -1,5 +1,10 @@
 2004-09-02  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
+	* ospf6_asbr.c: E-bit check in examining AS-External-LSA
+	* ospf6_abr.c: E-bit set in receiving Inter-Area-Router-LSA
+
+2004-09-02  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
 	* *.[ch]: Logging LSAs of particular type is added.
 	lsa_handler is now using vector in order to adjust
 	existing LSA modules.
