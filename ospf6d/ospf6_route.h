@@ -137,6 +137,9 @@ struct ospf6_route
 
   /* route option */
   void *route_option;
+
+  /* link state id for advertising */
+  u_int32_t linkstate_id;
 };
 
 #define OSPF6_DEST_TYPE_NONE       0
@@ -150,6 +153,7 @@ struct ospf6_route
 #define OSPF6_ROUTE_ADD         0x02
 #define OSPF6_ROUTE_REMOVE      0x04
 #define OSPF6_ROUTE_BEST        0x08
+#define OSPF6_ROUTE_HAVE_LONGER 0x10
 
 struct ospf6_route_table
 {

@@ -41,6 +41,12 @@ struct ospf6_area
   /* OSPF Option */
   u_char options[3];
 
+  /* TransitCapability */
+  int transit_capability;
+
+  /* Summary routes to be originated (includes Configured Address Ranges) */
+  struct ospf6_route_table *summary_table;
+
   /* OSPF interface list */
   list if_list;
 

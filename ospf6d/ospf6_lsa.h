@@ -225,9 +225,6 @@ void ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa);
 void ospf6_lsa_show_dump (struct vty *vty, struct ospf6_lsa *lsa);
 void ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa);
 
-u_int32_t ospf6_lsa_new_seqnum (u_int16_t type, u_int32_t id,
-                                u_int32_t adv_router, void *scope);
-
 struct ospf6_lsa *ospf6_lsa_create (struct ospf6_lsa_header *header);
 struct ospf6_lsa *ospf6_lsa_create_headeronly (struct ospf6_lsa_header *header);
 void ospf6_lsa_delete (struct ospf6_lsa *lsa);

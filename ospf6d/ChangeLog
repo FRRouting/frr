@@ -1,3 +1,10 @@
+2004-08-01  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_abr.[ch]: add files for abr function.
+	* *.c: VTY_NEWLINE -> VNL
+	* ospf6d.h: version 0.9.7e
+	  show database functions are rewritten.
+
 2004-07-23  Hasso Tepper  <hasso@estpak.ee>
 
 	* ospf6_interface.c, ospf6_zebra.c: use ifp->mtu6 instead of

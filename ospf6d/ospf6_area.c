@@ -31,7 +31,6 @@
 #include "prefix.h"
 #include "table.h"
 
-#include "ospf6d.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -41,6 +40,8 @@
 #include "ospf6_area.h"
 #include "ospf6_interface.h"
 #include "ospf6_intra.h"
+#include "ospf6_abr.h"
+#include "ospf6d.h"
 
 int
 ospf6_area_cmp (void *va, void *vb)
@@ -137,12 +138,15 @@ struct ospf6_area *
 ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
 {
   struct ospf6_area *oa;
+  struct ospf6_route *route;
 
   oa = XCALLOC (MTYPE_OSPF6_AREA, sizeof (struct ospf6_area));
 
   inet_ntop (AF_INET, &area_id, oa->name, sizeof (oa->name));
   oa->area_id = area_id;
   oa->if_list = list_new ();
+
+  oa->summary_table = ospf6_route_table_create ();
 
   oa->lsdb = ospf6_lsdb_create ();
   oa->lsdb->hook_add = ospf6_area_lsdb_hook_add;
@@ -161,6 +165,11 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
   oa->ospf6 = o;
   listnode_add_sort (o->area_list, oa);
 
+  /* import athoer area's routes as inter-area routes */
+  for (route = ospf6_route_head (o->route_table); route;
+       route = ospf6_route_next (route))
+    ospf6_abr_originate_prefix_to_area (route, oa);
+
   return oa;
 }
 
@@ -169,6 +178,8 @@ ospf6_area_delete (struct ospf6_area *oa)
 {
   listnode n;
   struct ospf6_interface *oi;
+
+  ospf6_route_table_delete (oa->summary_table);
 
   /* ospf6 interface list */
   for (n = listhead (oa->if_list); n; nextnode (n))
@@ -250,9 +261,9 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
   listnode i;
   struct ospf6_interface *oi;
 
-  vty_out (vty, " Area %s%s", oa->name, VTY_NEWLINE);
+  vty_out (vty, " Area %s%s", oa->name, VNL);
   vty_out (vty, "     Number of Area scoped LSAs is %u%s",
-           oa->lsdb->count, VTY_NEWLINE);
+           oa->lsdb->count, VNL);
 
   vty_out (vty, "     Interface attached to this area:");
   for (i = listhead (oa->if_list); i; nextnode (i))
@@ -260,24 +271,24 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
       oi = (struct ospf6_interface *) getdata (i);
       vty_out (vty, " %s", oi->interface->name);
     }
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "%s", VNL);
 }
 
 
-#define OSPF6_CMD_AREA_LOOKUP(str, oa)                             \
-{                                                                  \
-  u_int32_t area_id = 0;                                           \
-  if (inet_pton (AF_INET, str, &area_id) != 1)                     \
-    {                                                              \
-      vty_out (vty, "Malformed Area-ID: %s%s", str, VTY_NEWLINE);  \
-      return CMD_SUCCESS;                                          \
-    }                                                              \
-  oa = ospf6_area_lookup (area_id, ospf6);                         \
-  if (oa == NULL)                                                  \
-    {                                                              \
-      vty_out (vty, "No such Area: %s%s", str, VTY_NEWLINE);       \
-      return CMD_SUCCESS;                                          \
-    }                                                              \
+#define OSPF6_CMD_AREA_LOOKUP(str, oa)                     \
+{                                                          \
+  u_int32_t area_id = 0;                                   \
+  if (inet_pton (AF_INET, str, &area_id) != 1)             \
+    {                                                      \
+      vty_out (vty, "Malformed Area-ID: %s%s", str, VNL);  \
+      return CMD_SUCCESS;                                  \
+    }                                                      \
+  oa = ospf6_area_lookup (area_id, ospf6);                 \
+  if (oa == NULL)                                          \
+    {                                                      \
+      vty_out (vty, "No such Area: %s%s", str, VNL);       \
+      return CMD_SUCCESS;                                  \
+    }                                                      \
 }
 
 DEFUN (show_ipv6_ospf6_area_route_intra,
@@ -396,7 +407,7 @@ DEFUN (show_ipv6_ospf6_route_intra,
   for (node = listhead (ospf6->area_list); node; nextnode (node))
     {
       oa = (struct ospf6_area *) getdata (node);
-      vty_out (vty, "Area %s%s", oa->name, VTY_NEWLINE);
+      vty_out (vty, "Area %s%s", oa->name, VNL);
       ospf6_route_table_show (vty, argc, argv, oa->route_table);
     }
 
@@ -508,7 +519,7 @@ DEFUN (show_ipv6_ospf6_spf_tree,
       if (route == NULL)
         {
           vty_out (vty, "LS entry for root not found in area %s%s",
-                   oa->name, VTY_NEWLINE);
+                   oa->name, VNL);
           continue;
         }
       root = (struct ospf6_vertex *) route->route_option;
@@ -539,13 +550,13 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
 
   if (inet_pton (AF_INET, argv[0], &area_id) != 1)
     {
-      vty_out (vty, "Malformed Area-ID: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "Malformed Area-ID: %s%s", argv[0], VNL);
       return CMD_SUCCESS;
     }
   oa = ospf6_area_lookup (area_id, ospf6);
   if (oa == NULL)
     {
-      vty_out (vty, "No such Area: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "No such Area: %s%s", argv[0], VNL);
       return CMD_SUCCESS;
     }
 
@@ -553,7 +564,7 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
   if (route == NULL)
     {
       vty_out (vty, "LS entry for root not found in area %s%s",
-               oa->name, VTY_NEWLINE);
+               oa->name, VNL);
       return CMD_SUCCESS;
     }
   root = (struct ospf6_vertex *) route->route_option;
@@ -579,13 +590,13 @@ DEFUN (show_ipv6_ospf6_area_spf_table,
 
   if (inet_pton (AF_INET, argv[0], &area_id) != 1)
     {
-      vty_out (vty, "Malformed Area-ID: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "Malformed Area-ID: %s%s", argv[0], VNL);
       return CMD_SUCCESS;
     }
   oa = ospf6_area_lookup (area_id, ospf6);
   if (oa == NULL)
     {
-      vty_out (vty, "No such Area: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "No such Area: %s%s", argv[0], VNL);
       return CMD_SUCCESS;
     }
 
@@ -651,13 +662,13 @@ DEFUN (show_ipv6_ospf6_area_spf_table_3,
 
   if (inet_pton (AF_INET, argv[0], &area_id) != 1)
     {
-      vty_out (vty, "Malformed Area-ID: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "Malformed Area-ID: %s%s", argv[0], VNL);
       return CMD_SUCCESS;
     }
   oa = ospf6_area_lookup (area_id, ospf6);
   if (oa == NULL)
     {
-      vty_out (vty, "No such Area: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "No such Area: %s%s", argv[0], VNL);
       return CMD_SUCCESS;
     }
 
@@ -785,13 +796,13 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 
   if (inet_pton (AF_INET, argv[1], &area_id) != 1)
     {
-      vty_out (vty, "Malformed Area-ID: %s%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "Malformed Area-ID: %s%s", argv[1], VNL);
       return CMD_SUCCESS;
     }
   oa = ospf6_area_lookup (area_id, ospf6);
   if (oa == NULL)
     {
-      vty_out (vty, "No such Area: %s%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "No such Area: %s%s", argv[1], VNL);
       return CMD_SUCCESS;
     }
 
@@ -866,3 +877,4 @@ ospf6_area_init ()
 
   install_element (ENABLE_NODE, &show_ipv6_ospf6_simulate_spf_tree_root_cmd);
 }
+

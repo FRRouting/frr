@@ -41,6 +41,7 @@ struct ospf6
 
   struct ospf6_route_table *route_table;
   struct ospf6_route_table *asbr_table;
+  struct ospf6_route_table *brouter_table;
 
   struct ospf6_route_table *external_table;
   struct route_table *external_id_table;

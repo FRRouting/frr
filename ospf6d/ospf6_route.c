@@ -28,10 +28,11 @@
 #include "vty.h"
 #include "command.h"
 
-#include "ospf6d.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
+#include "ospf6_lsdb.h"
 #include "ospf6_route.h"
+#include "ospf6d.h"
 
 unsigned char conf_debug_ospf6_route = 0;
 
@@ -627,7 +628,7 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
            (ospf6_route_is_best (route) ? '*' : ' '),
            OSPF6_DEST_TYPE_SUBSTR (route->type),
            OSPF6_PATH_TYPE_SUBSTR (route->path.type),
-           destination, nexthop, ifname, duration, VTY_NEWLINE);
+           destination, nexthop, ifname, duration, VNL);
 
   for (i = 1; ospf6_nexthop_is_set (&route->nexthop[i]) &&
        i < OSPF6_MULTI_PATH_LIMIT; i++)
@@ -639,7 +640,7 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
         snprintf (ifname, sizeof (ifname), "%d", route->nexthop[i].ifindex);
 
       vty_out (vty, "%c%1s %2s %-30s %-25s %6s %s%s",
-               ' ', "", "", "", nexthop, ifname, "", VTY_NEWLINE);
+               ' ', "", "", "", nexthop, ifname, "", VNL);
     }
 }
 
@@ -663,21 +664,21 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
                destination, sizeof (destination));
   else
     prefix2str (&route->prefix, destination, sizeof (destination));
-  vty_out (vty, "Destination: %s%s", destination, VTY_NEWLINE);
+  vty_out (vty, "Destination: %s%s", destination, VNL);
 
   /* destination type */
   vty_out (vty, "Destination type: %s%s",
            OSPF6_DEST_TYPE_NAME (route->type),
-           VTY_NEWLINE);
+           VNL);
 
   /* Time */
   timersub (&now, &route->installed, &res);
   timerstring (&res, duration, sizeof (duration));
-  vty_out (vty, "Installed Time: %s ago%s", duration, VTY_NEWLINE);
+  vty_out (vty, "Installed Time: %s ago%s", duration, VNL);
 
   timersub (&now, &route->changed, &res);
   timerstring (&res, duration, sizeof (duration));
-  vty_out (vty, "  Changed Time: %s ago%s", duration, VTY_NEWLINE);
+  vty_out (vty, "  Changed Time: %s ago%s", duration, VNL);
 
   /* Debugging info */
   vty_out (vty, "Lock: %d Flags: %s%s%s%s%s", route->lock,
@@ -685,19 +686,19 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
            (CHECK_FLAG (route->flag, OSPF6_ROUTE_ADD)    ? "A" : "-"),
            (CHECK_FLAG (route->flag, OSPF6_ROUTE_REMOVE) ? "R" : "-"),
            (CHECK_FLAG (route->flag, OSPF6_ROUTE_CHANGE) ? "C" : "-"),
-           VTY_NEWLINE);
+           VNL);
   vty_out (vty, "Memory: prev: %p this: %p next: %p%s",
-           route->prev, route, route->next, VTY_NEWLINE);
+           route->prev, route, route->next, VNL);
 
   /* Path section */
 
   /* Area-ID */
   inet_ntop (AF_INET, &route->path.area_id, area_id, sizeof (area_id));
-  vty_out (vty, "Associated Area: %s%s", area_id, VTY_NEWLINE);
+  vty_out (vty, "Associated Area: %s%s", area_id, VNL);
 
   /* Path type */
   vty_out (vty, "Path Type: %s%s",
-           OSPF6_PATH_TYPE_NAME (route->path.type), VTY_NEWLINE);
+           OSPF6_PATH_TYPE_NAME (route->path.type), VNL);
 
   /* LS Origin */
   inet_ntop (AF_INET, &route->path.origin.id, id, sizeof (id));
@@ -705,27 +706,27 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
              sizeof (adv_router));
   vty_out (vty, "LS Origin: %s Id: %s Adv: %s%s",
            OSPF6_LSTYPE_NAME (route->path.origin.type),
-           id, adv_router, VTY_NEWLINE);
+           id, adv_router, VNL);
 
   /* Options */
   ospf6_options_printbuf (route->path.options, options, sizeof (options));
-  vty_out (vty, "Options: %s%s", options, VTY_NEWLINE);
+  vty_out (vty, "Options: %s%s", options, VNL);
 
   /* Router Bits */
   ospf6_capability_printbuf (route->path.router_bits, capa, sizeof (capa));
-  vty_out (vty, "Router Bits: %s%s", capa, VTY_NEWLINE);
+  vty_out (vty, "Router Bits: %s%s", capa, VNL);
 
   /* Prefix Options */
-  vty_out (vty, "Prefix Options: xxx%s", VTY_NEWLINE);
+  vty_out (vty, "Prefix Options: xxx%s", VNL);
 
   /* Metrics */
   vty_out (vty, "Metric Type: %d%s", route->path.metric_type,
-           VTY_NEWLINE);
+           VNL);
   vty_out (vty, "Metric: %d (%d)%s",
-           route->path.cost, route->path.cost_e2, VTY_NEWLINE);
+           route->path.cost, route->path.cost_e2, VNL);
 
   /* Nexthops */
-  vty_out (vty, "Nexthop:%s", VTY_NEWLINE);
+  vty_out (vty, "Nexthop:%s", VNL);
   for (i = 0; ospf6_nexthop_is_set (&route->nexthop[i]) &&
        i < OSPF6_MULTI_PATH_LIMIT; i++)
     {
@@ -734,9 +735,9 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
                  sizeof (nexthop));
       if (! if_indextoname (route->nexthop[i].ifindex, ifname))
         snprintf (ifname, sizeof (ifname), "%d", route->nexthop[i].ifindex);
-      vty_out (vty, "  %s %s%s", nexthop, ifname, VTY_NEWLINE);
+      vty_out (vty, "  %s %s%s", nexthop, ifname, VNL);
     }
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "%s", VNL);
 }
 
 void
@@ -780,24 +781,24 @@ ospf6_route_show_table_summary (struct vty *vty,
 
   assert (number == table->count);
   vty_out (vty, "Number of Destination: %d (%d routes)%s",
-           destination, number, VTY_NEWLINE);
+           destination, number, VNL);
   if (multipath)
-    vty_out (vty, "  Number of Multi-path: %d%s", multipath, VTY_NEWLINE);
+    vty_out (vty, "  Number of Multi-path: %d%s", multipath, VNL);
   if (desttype_mismatch)
     vty_out (vty, "  Number of Different Dest-type: %d%s",
-             desttype_mismatch, VTY_NEWLINE);
+             desttype_mismatch, VNL);
   if (ecmp)
     vty_out (vty, "  Number of Equal Cost Multi Path: %d%s",
-             ecmp, VTY_NEWLINE);
+             ecmp, VNL);
   if (ecmp)
     vty_out (vty, "  Number of Invalid Nexthop: %d%s",
-             nhinval, VTY_NEWLINE);
+             nhinval, VNL);
 
   for (i = 0; i < OSPF6_PATH_TYPE_MAX; i++)
     {
       if (pathtype[i])
         vty_out (vty, "  Number of %s routes: %d%s",
-                 OSPF6_PATH_TYPE_NAME (i), pathtype[i], VTY_NEWLINE);
+                 OSPF6_PATH_TYPE_NAME (i), pathtype[i], VNL);
     }
 }
 
@@ -841,14 +842,14 @@ ospf6_route_table_show (struct vty *vty, int argc, char **argv,
 
       if (prefix.family)
         {
-          vty_out (vty, "Invalid argument: %s%s", argv[i], VTY_NEWLINE);
+          vty_out (vty, "Invalid argument: %s%s", argv[i], VNL);
           return CMD_SUCCESS;
         }
 
       ret = str2prefix (argv[i], &prefix);
       if (ret != 1 || prefix.family != AF_INET6)
         {
-          vty_out (vty, "Malformed argument: %s%s", argv[i], VTY_NEWLINE);
+          vty_out (vty, "Malformed argument: %s%s", argv[i], VNL);
           return CMD_SUCCESS;
         }
 
@@ -944,7 +945,7 @@ ospf6_lsentry_table_show (struct vty *vty, int argc, char **argv,
 
       if (adv_router.family && id.family)
         {
-          vty_out (vty, "Invalid argument: %s%s", argv[i], VTY_NEWLINE);
+          vty_out (vty, "Invalid argument: %s%s", argv[i], VNL);
           return CMD_SUCCESS;
         }
 
@@ -962,7 +963,7 @@ ospf6_lsentry_table_show (struct vty *vty, int argc, char **argv,
             }
           if (ret != 1)
             {
-              vty_out (vty, "Invalid Router-ID: %s%s", argv[i], VTY_NEWLINE);
+              vty_out (vty, "Invalid Router-ID: %s%s", argv[i], VNL);
               return CMD_SUCCESS;
             }
         }
@@ -985,7 +986,7 @@ ospf6_lsentry_table_show (struct vty *vty, int argc, char **argv,
           if (ret != 1)
             {
               vty_out (vty, "Invalid Link state ID: %s%s", argv[i],
-                       VTY_NEWLINE);
+                       VNL);
               return CMD_WARNING;
             }
         }
@@ -999,7 +1000,7 @@ ospf6_lsentry_table_show (struct vty *vty, int argc, char **argv,
         {
           vty_out (vty, "Specifying Link State ID by prefix is not allowed%s"
                    "when specifying Router-ID as wildcard%s",
-                   VTY_NEWLINE, VTY_NEWLINE);
+                   VNL, VNL);
           return CMD_SUCCESS;
         }
       else if (adv_router.prefixlen != 0 &&
@@ -1007,7 +1008,7 @@ ospf6_lsentry_table_show (struct vty *vty, int argc, char **argv,
         {
           vty_out (vty, "Specifying Link State ID is not allowed%s"
                    "when specifying Router-ID by prefix%s",
-                   VTY_NEWLINE, VTY_NEWLINE);
+                   VNL, VNL);
           return CMD_SUCCESS;
         }
 
@@ -1116,11 +1117,11 @@ int
 config_write_ospf6_debug_route (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-    vty_out (vty, "debug ospf6 route table%s", VTY_NEWLINE);
+    vty_out (vty, "debug ospf6 route table%s", VNL);
   if (IS_OSPF6_DEBUG_ROUTE (INTRA))
-    vty_out (vty, "debug ospf6 route intra-area%s", VTY_NEWLINE);
+    vty_out (vty, "debug ospf6 route intra-area%s", VNL);
   if (IS_OSPF6_DEBUG_ROUTE (INTER))
-    vty_out (vty, "debug ospf6 route inter-area%s", VTY_NEWLINE);
+    vty_out (vty, "debug ospf6 route inter-area%s", VNL);
   return 0;
 }
 

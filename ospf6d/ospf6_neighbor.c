@@ -28,7 +28,6 @@
 #include "vty.h"
 #include "command.h"
 
-#include "ospf6d.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -39,6 +38,7 @@
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"
 #include "ospf6_flood.h"
+#include "ospf6d.h"
 
 unsigned char conf_debug_ospf6_neighbor = 0;
 
@@ -625,14 +625,14 @@ ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
   /*
   vty_out (vty, "%-15s %3d %11s %6s/%-12s %11s %s[%s]%s",
            "Neighbor ID", "Pri", "DeadTime", "State", "", "Duration",
-           "I/F", "State", VTY_NEWLINE);
+           "I/F", "State", VNL);
   */
 
   vty_out (vty, "%-15s %3d %11s %6s/%-12s %11s %s[%s]%s",
            router_id, on->priority, deadtime,
            ospf6_neighbor_state_str[on->state], nstate, duration,
            on->ospf6_if->interface->name,
-           ospf6_interface_state_str[on->ospf6_if->state], VTY_NEWLINE);
+           ospf6_interface_state_str[on->ospf6_if->state], VNL);
 }
 
 void
@@ -646,7 +646,7 @@ ospf6_neighbor_show_drchoice (struct vty *vty, struct ospf6_neighbor *on)
 /*
     vty_out (vty, "%-15s %6s/%-11s %-15s %-15s %s[%s]%s",
              "RouterID", "State", "Duration", "DR", "BDR", "I/F",
-             "State", VTY_NEWLINE);
+             "State", VNL);
 */
 
   inet_ntop (AF_INET, &on->router_id, router_id, sizeof (router_id));
@@ -661,7 +661,7 @@ ospf6_neighbor_show_drchoice (struct vty *vty, struct ospf6_neighbor *on)
            router_id, ospf6_neighbor_state_str[on->state],
            duration, drouter, bdrouter, on->ospf6_if->interface->name,
            ospf6_interface_state_str[on->ospf6_if->state],
-           VTY_NEWLINE);
+           VNL);
 }
 
 void
@@ -682,45 +682,45 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
   timerstring (&res, duration, sizeof (duration));
 
   vty_out (vty, " Neighbor %s%s", on->name,
-           VTY_NEWLINE);
+           VNL);
   vty_out (vty, "    Area %s via interface %s (ifindex %d)%s",
            on->ospf6_if->area->name,
            on->ospf6_if->interface->name,
            on->ospf6_if->interface->ifindex,
-           VTY_NEWLINE);
+           VNL);
   vty_out (vty, "    His IfIndex: %d Link-local address: %s%s",
            on->ifindex, linklocal_addr,
-           VTY_NEWLINE);
+           VNL);
   vty_out (vty, "    State %s for a duration of %s%s",
            ospf6_neighbor_state_str[on->state], duration,
-           VTY_NEWLINE);
+           VNL);
   vty_out (vty, "    His choice of DR/BDR %s/%s, Priority %d%s",
            drouter, bdrouter, on->priority,
-           VTY_NEWLINE);
+           VNL);
   vty_out (vty, "    DbDesc status: %s%s%s SeqNum: %#lx%s",
            (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT) ? "Initial " : ""),
            (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MBIT) ? "More " : ""),
            (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT) ?
             "Master" : "Slave"), (u_long) ntohl (on->dbdesc_seqnum),
-           VTY_NEWLINE);
+           VNL);
 
   vty_out (vty, "    Summary-List: %d LSAs%s", on->summary_list->count,
-           VTY_NEWLINE);
+           VNL);
   for (lsa = ospf6_lsdb_head (on->summary_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
-    vty_out (vty, "      %s%s", lsa->name, VTY_NEWLINE);
+    vty_out (vty, "      %s%s", lsa->name, VNL);
 
   vty_out (vty, "    Request-List: %d LSAs%s", on->request_list->count,
-           VTY_NEWLINE);
+           VNL);
   for (lsa = ospf6_lsdb_head (on->request_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
-    vty_out (vty, "      %s%s", lsa->name, VTY_NEWLINE);
+    vty_out (vty, "      %s%s", lsa->name, VNL);
 
   vty_out (vty, "    Retrans-List: %d LSAs%s", on->retrans_list->count,
-           VTY_NEWLINE);
+           VNL);
   for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
-    vty_out (vty, "      %s%s", lsa->name, VTY_NEWLINE);
+    vty_out (vty, "      %s%s", lsa->name, VNL);
 
   timerclear (&res);
   if (on->thread_send_dbdesc)
@@ -729,10 +729,10 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
   vty_out (vty, "    %d Pending LSAs for DbDesc in Time %s [thread %s]%s",
            on->dbdesc_list->count, duration,
            (on->thread_send_dbdesc ? "on" : "off"),
-           VTY_NEWLINE);
+           VNL);
   for (lsa = ospf6_lsdb_head (on->dbdesc_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
-    vty_out (vty, "      %s%s", lsa->name, VTY_NEWLINE);
+    vty_out (vty, "      %s%s", lsa->name, VNL);
 
   timerclear (&res);
   if (on->thread_send_lsreq)
@@ -741,10 +741,10 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
   vty_out (vty, "    %d Pending LSAs for LSReq in Time %s [thread %s]%s",
            on->lsreq_list->count, duration,
            (on->thread_send_lsreq ? "on" : "off"),
-           VTY_NEWLINE);
+           VNL);
   for (lsa = ospf6_lsdb_head (on->lsreq_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
-    vty_out (vty, "      %s%s", lsa->name, VTY_NEWLINE);
+    vty_out (vty, "      %s%s", lsa->name, VNL);
 
   timerclear (&res);
   if (on->thread_send_lsupdate)
@@ -753,10 +753,10 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
   vty_out (vty, "    %d Pending LSAs for LSUpdate in Time %s [thread %s]%s",
            on->lsupdate_list->count, duration,
            (on->thread_send_lsupdate ? "on" : "off"),
-           VTY_NEWLINE);
+           VNL);
   for (lsa = ospf6_lsdb_head (on->lsupdate_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
-    vty_out (vty, "      %s%s", lsa->name, VTY_NEWLINE);
+    vty_out (vty, "      %s%s", lsa->name, VNL);
 
   timerclear (&res);
   if (on->thread_send_lsack)
@@ -765,10 +765,10 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
   vty_out (vty, "    %d Pending LSAs for LSAck in Time %s [thread %s]%s",
            on->lsack_list->count, duration,
            (on->thread_send_lsack ? "on" : "off"),
-           VTY_NEWLINE);
+           VNL);
   for (lsa = ospf6_lsdb_head (on->lsack_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
-    vty_out (vty, "      %s%s", lsa->name, VTY_NEWLINE);
+    vty_out (vty, "      %s%s", lsa->name, VNL);
 
 }
 
@@ -801,11 +801,11 @@ DEFUN (show_ipv6_ospf6_neighbor,
   if (showfunc == ospf6_neighbor_show)
     vty_out (vty, "%-15s %3s %11s %6s/%-12s %11s %s[%s]%s",
              "Neighbor ID", "Pri", "DeadTime", "State", "IfState", "Duration",
-             "I/F", "State", VTY_NEWLINE);
+             "I/F", "State", VNL);
   else if (showfunc == ospf6_neighbor_show_drchoice)
     vty_out (vty, "%-15s %6s/%-11s %-15s %-15s %s[%s]%s",
              "RouterID", "State", "Duration", "DR", "BDR", "I/F",
-             "State", VTY_NEWLINE);
+             "State", VNL);
 
   for (i = listhead (ospf6->area_list); i; nextnode (i))
     {
@@ -857,7 +857,7 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
   if ((inet_pton (AF_INET, argv[0], &router_id)) != 1)
     {
       vty_out (vty, "Router-ID is not parsable: %s%s", argv[0],
-               VTY_NEWLINE);
+               VNL);
       return CMD_SUCCESS;
     }
 
@@ -960,11 +960,11 @@ config_write_ospf6_debug_neighbor (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_NEIGHBOR (STATE) &&
       IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    vty_out (vty, "debug ospf6 neighbor%s", VTY_NEWLINE);
+    vty_out (vty, "debug ospf6 neighbor%s", VNL);
   else if (IS_OSPF6_DEBUG_NEIGHBOR (STATE))
-    vty_out (vty, "debug ospf6 neighbor state%s", VTY_NEWLINE);
+    vty_out (vty, "debug ospf6 neighbor state%s", VNL);
   else if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    vty_out (vty, "debug ospf6 neighbor event%s", VTY_NEWLINE);
+    vty_out (vty, "debug ospf6 neighbor event%s", VNL);
   return 0;
 }
 

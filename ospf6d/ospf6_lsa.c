@@ -28,7 +28,6 @@
 #include "memory.h"
 #include "thread.h"
 
-#include "ospf6d.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -40,6 +39,7 @@
 #include "ospf6_neighbor.h"
 
 #include "ospf6_flood.h"
+#include "ospf6d.h"
 
 unsigned char conf_debug_ospf6_lsa = 0;
 
@@ -283,24 +283,23 @@ ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   inet_ntop (AF_INET, &lsa->header->adv_router,
              adv_router, sizeof (adv_router));
 
-  vty_out (vty, "%s", VTY_NEWLINE);
   vty_out (vty, "Age: %4hu Type: %s%s", ospf6_lsa_age_current (lsa),
-           OSPF6_LSTYPE_NAME (lsa->header->type), VTY_NEWLINE);
-  vty_out (vty, "Link State ID: %s%s", id, VTY_NEWLINE);
-  vty_out (vty, "Advertising Router: %s%s", adv_router, VTY_NEWLINE);
+           OSPF6_LSTYPE_NAME (lsa->header->type), VNL);
+  vty_out (vty, "Link State ID: %s%s", id, VNL);
+  vty_out (vty, "Advertising Router: %s%s", adv_router, VNL);
   vty_out (vty, "LS Sequence Number: %#010lx%s",
-           (u_long) ntohl (lsa->header->seqnum), VTY_NEWLINE);
+           (u_long) ntohl (lsa->header->seqnum), VNL);
   vty_out (vty, "CheckSum: %#06hx Length: %hu%s",
            ntohs (lsa->header->checksum),
-           ntohs (lsa->header->length), VTY_NEWLINE);
+           ntohs (lsa->header->length), VNL);
 
   index = OSPF6_LSTYPE_INDEX (ntohs (lsa->header->type));
   if (ospf6_lstype[index].show)
     (*ospf6_lstype[index].show) (vty, lsa);
   else
-    vty_out (vty, "%sUnknown LSA type ...%s", VTY_NEWLINE, VTY_NEWLINE);
+    vty_out (vty, "%sUnknown LSA type ...%s", VNL, VNL);
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "%s", VNL);
 }
 
 void
@@ -308,7 +307,7 @@ ospf6_lsa_show_summary_header (struct vty *vty)
 {
   vty_out (vty, "%-12s %-15s %-15s %4s %8s %4s %4s %-8s%s",
            "Type", "LSId", "AdvRouter", "Age", "SeqNum",
-           "Cksm", "Len", "Duration", VTY_NEWLINE);
+           "Cksm", "Len", "Duration", VNL);
 }
 
 void
@@ -334,7 +333,7 @@ ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa)
            id, adv_router, ospf6_lsa_age_current (lsa),
            (u_long) ntohl (lsa->header->seqnum),
            ntohs (lsa->header->checksum), ntohs (lsa->header->length),
-           duration, VTY_NEWLINE);
+           duration, VNL);
 }
 
 void
@@ -346,13 +345,13 @@ ospf6_lsa_show_dump (struct vty *vty, struct ospf6_lsa *lsa)
   start = (char *) lsa->header;
   end = (char *) lsa->header + ntohs (lsa->header->length);
 
-  vty_out (vty, "%s", VTY_NEWLINE);
-  vty_out (vty, "%s:%s", lsa->name, VTY_NEWLINE);
+  vty_out (vty, "%s", VNL);
+  vty_out (vty, "%s:%s", lsa->name, VNL);
 
   for (current = start; current < end; current ++)
     {
       if ((current - start) % 16 == 0)
-        vty_out (vty, "%s        ", VTY_NEWLINE);
+        vty_out (vty, "%s        ", VNL);
       else if ((current - start) % 4 == 0)
         vty_out (vty, " ");
 
@@ -360,7 +359,7 @@ ospf6_lsa_show_dump (struct vty *vty, struct ospf6_lsa *lsa)
       vty_out (vty, "%s", byte);
     }
 
-  vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
+  vty_out (vty, "%s%s", VNL, VNL);
 }
 
 void
@@ -374,50 +373,22 @@ ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa)
   inet_ntop (AF_INET, &lsa->header->adv_router,
              adv_router, sizeof (adv_router));
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "%s", VNL);
   vty_out (vty, "Age: %4hu Type: %s%s", ospf6_lsa_age_current (lsa),
-           OSPF6_LSTYPE_NAME (lsa->header->type), VTY_NEWLINE);
-  vty_out (vty, "Link State ID: %s%s", id, VTY_NEWLINE);
-  vty_out (vty, "Advertising Router: %s%s", adv_router, VTY_NEWLINE);
+           OSPF6_LSTYPE_NAME (lsa->header->type), VNL);
+  vty_out (vty, "Link State ID: %s%s", id, VNL);
+  vty_out (vty, "Advertising Router: %s%s", adv_router, VNL);
   vty_out (vty, "LS Sequence Number: %#010lx%s",
-           (u_long) ntohl (lsa->header->seqnum), VTY_NEWLINE);
+           (u_long) ntohl (lsa->header->seqnum), VNL);
   vty_out (vty, "CheckSum: %#06hx Length: %hu%s",
            ntohs (lsa->header->checksum),
-           ntohs (lsa->header->length), VTY_NEWLINE);
+           ntohs (lsa->header->length), VNL);
   vty_out (vty, "    Prev: %p This: %p Next: %p%s",
-           lsa->prev, lsa, lsa->next, VTY_NEWLINE);
-  vty_out (vty, "%s", VTY_NEWLINE);
+           lsa->prev, lsa, lsa->next, VNL);
+  vty_out (vty, "%s", VNL);
 }
 
 /* OSPFv3 LSA creation/deletion function */
-
-/* calculate LS sequence number for my new LSA.
-   return value is network byte order */
-u_int32_t
-ospf6_lsa_new_seqnum (u_int16_t type, u_int32_t id, u_int32_t adv_router,
-                      void *scope)
-{
-  struct ospf6_lsdb *lsdb = NULL;
-  struct ospf6_lsa *lsa;
-  signed long seqnum = 0;
-
-  /* get current database copy */
-  lsdb = ospf6_get_scoped_lsdb (type, scope);
-  if (lsdb == NULL)
-    {
-      zlog_warn ("Can't decide scoped LSDB");
-      return ((u_int32_t) htonl (INITIAL_SEQUENCE_NUMBER));
-    }
-
-  /* if current database copy not found, return InitialSequenceNumber */
-  lsa = ospf6_lsdb_lookup (type, id, adv_router, lsdb);
-  if (lsa == NULL)
-    seqnum = INITIAL_SEQUENCE_NUMBER;
-  else
-    seqnum = (signed long) ntohl (lsa->header->seqnum) + 1;
-
-  return ((u_int32_t) htonl (seqnum));
-}
 
 struct ospf6_lsa *
 ospf6_lsa_create (struct ospf6_lsa_header *header)
@@ -752,11 +723,11 @@ ospf6_unknown_show (struct vty *vty, struct ospf6_lsa *lsa)
   start = (char *) lsa->header + sizeof (struct ospf6_lsa_header);
   end = (char *) lsa->header + ntohs (lsa->header->length);
 
-  vty_out (vty, "        Unknown contents:%s", VTY_NEWLINE);
+  vty_out (vty, "        Unknown contents:%s", VNL);
   for (current = start; current < end; current ++)
     {
       if ((current - start) % 16 == 0)
-        vty_out (vty, "%s        ", VTY_NEWLINE);
+        vty_out (vty, "%s        ", VNL);
       else if ((current - start) % 4 == 0)
         vty_out (vty, " ");
 
@@ -764,7 +735,7 @@ ospf6_unknown_show (struct vty *vty, struct ospf6_lsa *lsa)
       vty_out (vty, "%s", byte);
     }
 
-  vty_out (vty, "%s%s", VTY_NEWLINE, VTY_NEWLINE);
+  vty_out (vty, "%s%s", VNL, VNL);
   return 0;
 }
 
@@ -899,27 +870,27 @@ int
 config_write_ospf6_debug_lsa (struct vty *vty)
 {
   if (conf_debug_ospf6_lsa == OSPF6_DEBUG_LSA_ALL)
-    vty_out (vty, "debug ospf6 lsa all%s", VTY_NEWLINE);
+    vty_out (vty, "debug ospf6 lsa all%s", VNL);
   else
     {
       if (conf_debug_ospf6_lsa == OSPF6_DEBUG_LSA_DEFAULT)
-        vty_out (vty, "debug ospf6 lsa%s", VTY_NEWLINE);
+        vty_out (vty, "debug ospf6 lsa%s", VNL);
       else
         {
           if (IS_OSPF6_DEBUG_LSA (SEND))
-            vty_out (vty, "debug ospf6 lsa send%s", VTY_NEWLINE);
+            vty_out (vty, "debug ospf6 lsa send%s", VNL);
           if (IS_OSPF6_DEBUG_LSA (RECV))
-            vty_out (vty, "debug ospf6 lsa recv%s", VTY_NEWLINE);
+            vty_out (vty, "debug ospf6 lsa recv%s", VNL);
           if (IS_OSPF6_DEBUG_LSA (ORIGINATE))
-            vty_out (vty, "debug ospf6 lsa originate%s", VTY_NEWLINE);
+            vty_out (vty, "debug ospf6 lsa originate%s", VNL);
           if (IS_OSPF6_DEBUG_LSA (TIMER))
-            vty_out (vty, "debug ospf6 lsa timer%s", VTY_NEWLINE);
+            vty_out (vty, "debug ospf6 lsa timer%s", VNL);
         }
 
       if (IS_OSPF6_DEBUG_LSA (DATABASE))
-        vty_out (vty, "debug ospf6 lsa database%s", VTY_NEWLINE);
+        vty_out (vty, "debug ospf6 lsa database%s", VNL);
       if (IS_OSPF6_DEBUG_LSA (MEMORY))
-        vty_out (vty, "debug ospf6 lsa memory%s", VTY_NEWLINE);
+        vty_out (vty, "debug ospf6 lsa memory%s", VNL);
     }
 
   return 0;

@@ -26,11 +26,12 @@
 #include "command.h"
 #include "prefix.h"
 #include "table.h"
+#include "vty.h"
 
-#include "ospf6d.h"
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
+#include "ospf6d.h"
 
 struct ospf6_lsdb *
 ospf6_lsdb_create ()
@@ -403,6 +404,101 @@ ospf6_lsdb_remove_all (struct ospf6_lsdb *lsdb)
   struct ospf6_lsa *lsa;
   for (lsa = ospf6_lsdb_head (lsdb); lsa; lsa = ospf6_lsdb_next (lsa))
     ospf6_lsdb_remove (lsa, lsdb);
+}
+
+void
+ospf6_lsdb_show (struct vty *vty, int level,
+                 u_int16_t *type, u_int32_t *id, u_int32_t *adv_router,
+                 struct ospf6_lsdb *lsdb)
+{
+  struct ospf6_lsa *lsa;
+  void (*showfunc) (struct vty *, struct ospf6_lsa *) = NULL;
+
+  if (level == OSPF6_LSDB_SHOW_LEVEL_NORMAL)
+    showfunc = ospf6_lsa_show_summary;
+  else if (level == OSPF6_LSDB_SHOW_LEVEL_DETAIL)
+    showfunc = ospf6_lsa_show;
+  else if (level == OSPF6_LSDB_SHOW_LEVEL_INTERNAL)
+    showfunc = ospf6_lsa_show_internal;
+  else if (level == OSPF6_LSDB_SHOW_LEVEL_DUMP)
+    showfunc = ospf6_lsa_show_dump;
+
+  if (type && id && adv_router)
+    {
+      lsa = ospf6_lsdb_lookup (*type, *id, *adv_router, lsdb);
+      if (lsa)
+        {
+          if (level == OSPF6_LSDB_SHOW_LEVEL_NORMAL)
+            ospf6_lsa_show (vty, lsa);
+          else
+            (*showfunc) (vty, lsa);
+        }
+      return;
+    }
+
+  if (level == OSPF6_LSDB_SHOW_LEVEL_NORMAL)
+    ospf6_lsa_show_summary_header (vty);
+
+  if (type && adv_router)
+    lsa = ospf6_lsdb_type_router_head (*type, *adv_router, lsdb);
+  else if (type)
+    lsa = ospf6_lsdb_type_head (*type, lsdb);
+  else
+    lsa = ospf6_lsdb_head (lsdb);
+  while (lsa)
+    {
+      if ((! adv_router || lsa->header->adv_router == *adv_router) &&
+          (! id || lsa->header->id == *id))
+        (*showfunc) (vty, lsa);
+
+      if (type && adv_router)
+        lsa = ospf6_lsdb_type_router_next (*type, *adv_router, lsa);
+      else if (type)
+        lsa = ospf6_lsdb_type_next (*type, lsa);
+      else
+        lsa = ospf6_lsdb_next (lsa);
+    }
+}
+
+/* Decide new Link State ID to originate.
+   note return value is network byte order */
+u_int32_t
+ospf6_new_ls_id (u_int16_t type, u_int32_t adv_router,
+                 struct ospf6_lsdb *lsdb)
+{
+  struct ospf6_lsa *lsa;
+  u_int32_t id = 1;
+
+  for (lsa = ospf6_lsdb_type_router_head (type, adv_router, lsdb); lsa;
+       lsa = ospf6_lsdb_type_router_next (type, adv_router, lsa))
+    {
+      if (ntohl (lsa->header->id) < id)
+        continue;
+      if (ntohl (lsa->header->id) > id)
+        return ((u_int32_t) htonl (id));
+      id++;
+    }
+
+  return ((u_int32_t) htonl (id));
+}
+
+/* Decide new LS sequence number to originate.
+   note return value is network byte order */
+u_int32_t
+ospf6_new_ls_seqnum (u_int16_t type, u_int32_t id, u_int32_t adv_router,
+                     struct ospf6_lsdb *lsdb)
+{
+  struct ospf6_lsa *lsa;
+  signed long seqnum = 0;
+
+  /* if current database copy not found, return InitialSequenceNumber */
+  lsa = ospf6_lsdb_lookup (type, id, adv_router, lsdb);
+  if (lsa == NULL)
+    seqnum = INITIAL_SEQUENCE_NUMBER;
+  else
+    seqnum = (signed long) ntohl (lsa->header->seqnum) + 1;
+
+  return ((u_int32_t) htonl (seqnum));
 }
 
 

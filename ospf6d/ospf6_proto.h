@@ -1,4 +1,5 @@
 /*
+ * Common protocol data and data structures.
  * Copyright (C) 2003 Yasuhiro Ohara
  *
  * This file is part of GNU Zebra.

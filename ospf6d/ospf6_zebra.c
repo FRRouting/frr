@@ -29,14 +29,15 @@
 #include "zclient.h"
 #include "memory.h"
 
-#include "ospf6d.h"
 #include "ospf6_proto.h"
 #include "ospf6_top.h"
 #include "ospf6_interface.h"
 #include "ospf6_route.h"
 #include "ospf6_lsa.h"
+#include "ospf6_lsdb.h"
 #include "ospf6_asbr.h"
 #include "ospf6_zebra.h"
+#include "ospf6d.h"
 
 unsigned char conf_debug_ospf6_zebra = 0;
 
@@ -251,22 +252,22 @@ DEFUN (show_zebra,
   int i;
   if (zclient == NULL)
     {
-      vty_out (vty, "Not connected to zebra%s", VTY_NEWLINE);
+      vty_out (vty, "Not connected to zebra%s", VNL);
       return CMD_SUCCESS;
     }
 
-  vty_out (vty, "Zebra Infomation%s", VTY_NEWLINE);
+  vty_out (vty, "Zebra Infomation%s", VNL);
   vty_out (vty, "  enable: %d fail: %d%s",
-           zclient->enable, zclient->fail, VTY_NEWLINE);
+           zclient->enable, zclient->fail, VNL);
   vty_out (vty, "  redistribute default: %d%s", zclient->redist_default,
-           VTY_NEWLINE);
+           VNL);
   vty_out (vty, "  redistribute:");
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     {
       if (zclient->redist[i])
         vty_out (vty, " %s", zebra_route_name[i]);
     }
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "%s", VNL);
   return CMD_SUCCESS;
 }
 
@@ -300,14 +301,14 @@ config_write_ospf6_zebra (struct vty *vty)
 {
   if (! zclient->enable)
     {
-      vty_out (vty, "no router zebra%s", VTY_NEWLINE);
-      vty_out (vty, "!%s", VTY_NEWLINE);
+      vty_out (vty, "no router zebra%s", VNL);
+      vty_out (vty, "!%s", VNL);
     }
   else if (! zclient->redist[ZEBRA_ROUTE_OSPF6])
     {
-      vty_out (vty, "router zebra%s", VTY_NEWLINE);
-      vty_out (vty, " no redistribute ospf6%s", VTY_NEWLINE);
-      vty_out (vty, "!%s", VTY_NEWLINE);
+      vty_out (vty, "router zebra%s", VNL);
+      vty_out (vty, " no redistribute ospf6%s", VNL);
+      vty_out (vty, "!%s", VNL);
     }
   return 0;
 }
@@ -641,13 +642,13 @@ int
 config_write_ospf6_debug_zebra (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_ZEBRA (SEND) && IS_OSPF6_DEBUG_ZEBRA (RECV))
-    vty_out (vty, "debug ospf6 zebra%s", VTY_NEWLINE);
+    vty_out (vty, "debug ospf6 zebra%s", VNL);
   else
     {
       if (IS_OSPF6_DEBUG_ZEBRA (SEND))
-        vty_out (vty, "debug ospf6 zebra send%s", VTY_NEWLINE);
+        vty_out (vty, "debug ospf6 zebra send%s", VNL);
       if (IS_OSPF6_DEBUG_ZEBRA (RECV))
-        vty_out (vty, "debug ospf6 zebra recv%s", VTY_NEWLINE);
+        vty_out (vty, "debug ospf6 zebra recv%s", VNL);
     }
   return 0;
 }

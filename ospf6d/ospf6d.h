@@ -22,7 +22,7 @@
 #ifndef OSPF6D_H
 #define OSPF6D_H
 
-#define OSPF6_DAEMON_VERSION    "0.9.7d"
+#define OSPF6_DAEMON_VERSION    "0.9.7e"
 
 /* global variables */
 extern int errno;
@@ -97,6 +97,7 @@ extern struct thread_master *master;
 #define OSPF6_ROUTER_ID_STR "Specify Router-ID\n"
 #define OSPF6_LS_ID_STR     "Specify Link State ID\n"
 
+#define VNL VTY_NEWLINE
 #define OSPF6_CMD_CHECK_RUNNING() \
   if (ospf6 == NULL) \
     { \

@@ -32,7 +32,6 @@
 #include "linklist.h"
 #include "thread.h"
 
-#include "ospf6d.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_route.h"
@@ -40,6 +39,7 @@
 #include "ospf6_spf.h"
 #include "ospf6_intra.h"
 #include "ospf6_interface.h"
+#include "ospf6d.h"
 
 unsigned char conf_debug_ospf6_spf = 0;
 
@@ -532,13 +532,13 @@ ospf6_spf_display_subtree (struct vty *vty, char *prefix, int rest,
   int restnum;
 
   /* "prefix" is the space prefix of the display line */
-  vty_out (vty, "%s+-%s [%d]%s", prefix, v->name, v->cost, VTY_NEWLINE);
+  vty_out (vty, "%s+-%s [%d]%s", prefix, v->name, v->cost, VNL);
 
   len = strlen (prefix) + 4;
   next_prefix = (char *) malloc (len);
   if (next_prefix == NULL)
     {
-      vty_out (vty, "malloc failed%s", VTY_NEWLINE);
+      vty_out (vty, "malloc failed%s", VNL);
       return;
     }
   snprintf (next_prefix, len, "%s%s", prefix, (rest ? "|  " : "   "));
@@ -617,9 +617,9 @@ int
 config_write_ospf6_debug_spf (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_SPF (DETAIL))
-    vty_out (vty, "debug ospf6 spf detail%s", VTY_NEWLINE);
+    vty_out (vty, "debug ospf6 spf detail%s", VNL);
   else if (IS_OSPF6_DEBUG_SPF (SUMMARY))
-    vty_out (vty, "debug ospf6 spf%s", VTY_NEWLINE);
+    vty_out (vty, "debug ospf6 spf%s", VNL);
   return 0;
 }
 

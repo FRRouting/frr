@@ -31,7 +31,6 @@
 #include "vty.h"
 #include "command.h"
 
-#include "ospf6d.h"
 #include "ospf6_proto.h"
 #include "ospf6_message.h"
 #include "ospf6_route.h"
@@ -44,6 +43,7 @@
 #include "ospf6_neighbor.h"
 #include "ospf6_intra.h"
 #include "ospf6_asbr.h"
+#include "ospf6d.h"
 
 /******************************/
 /* RFC2740 3.4.3.1 Router-LSA */
@@ -62,7 +62,7 @@ ospf6_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 
   ospf6_capability_printbuf (router_lsa->bits, bits, sizeof (bits));
   ospf6_options_printbuf (router_lsa->options, options, sizeof (options));
-  vty_out (vty, "    Bits: %s Options: %s%s", bits, options, VTY_NEWLINE);
+  vty_out (vty, "    Bits: %s Options: %s%s", bits, options, VNL);
 
   start = (char *) router_lsa + sizeof (struct ospf6_router_lsa);
   end = (char *) lsa->header + ntohs (lsa->header->length);
@@ -83,16 +83,16 @@ ospf6_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
         snprintf (name, sizeof (name), "Unknown (%#x)", lsdesc->type);
 
       vty_out (vty, "    Type: %s Metric: %d%s",
-               name, ntohs (lsdesc->metric), VTY_NEWLINE);
+               name, ntohs (lsdesc->metric), VNL);
       vty_out (vty, "    Interface ID: %s%s",
                inet_ntop (AF_INET, &lsdesc->interface_id,
-                          buf, sizeof (buf)), VTY_NEWLINE);
+                          buf, sizeof (buf)), VNL);
       vty_out (vty, "    Neighbor Interface ID: %s%s",
                inet_ntop (AF_INET, &lsdesc->neighbor_interface_id,
-                          buf, sizeof (buf)), VTY_NEWLINE);
+                          buf, sizeof (buf)), VNL);
       vty_out (vty, "    Neighbor Router ID: %s%s",
                inet_ntop (AF_INET, &lsdesc->neighbor_router_id,
-                          buf, sizeof (buf)), VTY_NEWLINE);
+                          buf, sizeof (buf)), VNL);
     }
   return 0;
 }
@@ -180,8 +180,8 @@ ospf6_router_lsa_originate_sub (struct ospf6_area *oa, int force)
           lsa_header->id = htonl (link_state_id);
           lsa_header->adv_router = oa->ospf6->router_id;
           lsa_header->seqnum =
-            ospf6_lsa_new_seqnum (lsa_header->type, lsa_header->id,
-                                  lsa_header->adv_router, oa);
+            ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
+                                 lsa_header->adv_router, oa->lsdb);
           lsa_header->length = htons ((caddr_t) lsdesc - (caddr_t) buffer);
 
           /* LSA checksum */
@@ -268,8 +268,8 @@ ospf6_router_lsa_originate_sub (struct ospf6_area *oa, int force)
       lsa_header->id = htonl (link_state_id);
       lsa_header->adv_router = oa->ospf6->router_id;
       lsa_header->seqnum =
-        ospf6_lsa_new_seqnum (lsa_header->type, lsa_header->id,
-                              lsa_header->adv_router, oa);
+        ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
+                             lsa_header->adv_router, oa->lsdb);
       lsa_header->length = htons ((caddr_t) lsdesc - (caddr_t) buffer);
 
       /* LSA checksum */
@@ -341,7 +341,7 @@ ospf6_network_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
     ((caddr_t) lsa->header + sizeof (struct ospf6_lsa_header));
 
   ospf6_options_printbuf (network_lsa->options, options, sizeof (options));
-  vty_out (vty, "     Options: %s%s", options, VTY_NEWLINE);
+  vty_out (vty, "     Options: %s%s", options, VNL);
 
   start = (char *) network_lsa + sizeof (struct ospf6_network_lsa);
   end = (char *) lsa->header + ntohs (lsa->header->length);
@@ -350,7 +350,7 @@ ospf6_network_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
     {
       lsdesc = (struct ospf6_network_lsdesc *) current;
       inet_ntop (AF_INET, &lsdesc->router_id, buf, sizeof (buf));
-      vty_out (vty, "     Attached Router: %s%s", buf, VTY_NEWLINE);
+      vty_out (vty, "     Attached Router: %s%s", buf, VNL);
     }
   return 0;
 }
@@ -457,8 +457,8 @@ ospf6_network_lsa_originate_sub (struct ospf6_interface *oi, int force)
   lsa_header->id = htonl (oi->interface->ifindex);
   lsa_header->adv_router = oi->area->ospf6->router_id;
   lsa_header->seqnum =
-    ospf6_lsa_new_seqnum (lsa_header->type, lsa_header->id,
-                          lsa_header->adv_router, oi->area);
+    ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
+                         lsa_header->adv_router, oi->area->lsdb);
   lsa_header->length = htons ((caddr_t) lsdesc - (caddr_t) buffer);
 
   /* LSA checksum */
@@ -523,9 +523,9 @@ ospf6_link_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   prefixnum = ntohl (link_lsa->prefix_num);
 
   vty_out (vty, "     Priority: %d Options: %s%s",
-           link_lsa->priority, options, VTY_NEWLINE);
-  vty_out (vty, "     LinkLocal Address: %s%s", buf, VTY_NEWLINE);
-  vty_out (vty, "     Number of Prefix: %d%s", prefixnum, VTY_NEWLINE);
+           link_lsa->priority, options, VNL);
+  vty_out (vty, "     LinkLocal Address: %s%s", buf, VNL);
+  vty_out (vty, "     Number of Prefix: %d%s", prefixnum, VNL);
 
   start = (char *) link_lsa + sizeof (struct ospf6_link_lsa);
   end = (char *) lsa->header + ntohs (lsa->header->length); 
@@ -545,14 +545,14 @@ ospf6_link_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
       nu = (CHECK_FLAG (prefix->prefix_options, OSPF6_PREFIX_OPTION_NU) ?
            "NU" : "--");
       vty_out (vty, "     Prefix Options: %s|%s|%s|%s%s",
-               p, mc, la, nu, VTY_NEWLINE);
+               p, mc, la, nu, VNL);
 
       memset (&in6, 0, sizeof (in6));
       memcpy (&in6, OSPF6_PREFIX_BODY (prefix),
               OSPF6_PREFIX_SPACE (prefix->prefix_length));
       inet_ntop (AF_INET6, &in6, buf, sizeof (buf));
       vty_out (vty, "     Prefix: %s/%d%s",
-               buf, prefix->prefix_length, VTY_NEWLINE);
+               buf, prefix->prefix_length, VNL);
     }
 
   return 0;
@@ -632,8 +632,8 @@ ospf6_link_lsa_originate_sub (struct ospf6_interface *oi, int force)
   lsa_header->id = htonl (oi->interface->ifindex);
   lsa_header->adv_router = oi->area->ospf6->router_id;
   lsa_header->seqnum =
-    ospf6_lsa_new_seqnum (lsa_header->type, lsa_header->id,
-                          lsa_header->adv_router, oi);
+    ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
+                         lsa_header->adv_router, oi->lsdb);
   lsa_header->length = htons ((caddr_t) op - (caddr_t) buffer);
 
   /* LSA checksum */
@@ -696,14 +696,14 @@ ospf6_intra_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 
   prefixnum = ntohs (intra_prefix_lsa->prefix_num);
 
-  vty_out (vty, "     Number of Prefix: %d%s", prefixnum, VTY_NEWLINE);
+  vty_out (vty, "     Number of Prefix: %d%s", prefixnum, VNL);
 
   inet_ntop (AF_INET, &intra_prefix_lsa->ref_id, id, sizeof (id));
   inet_ntop (AF_INET, &intra_prefix_lsa->ref_adv_router,
              adv_router, sizeof (adv_router));
   vty_out (vty, "     Reference: %s Id: %s Adv: %s%s",
            OSPF6_LSTYPE_NAME (intra_prefix_lsa->ref_type), id, adv_router,
-           VTY_NEWLINE);
+           VNL);
 
   start = (char *) intra_prefix_lsa + sizeof (struct ospf6_intra_prefix_lsa);
   end = (char *) lsa->header + ntohs (lsa->header->length); 
@@ -723,14 +723,14 @@ ospf6_intra_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
       nu = (CHECK_FLAG (prefix->prefix_options, OSPF6_PREFIX_OPTION_NU) ?
            "NU" : "--");
       vty_out (vty, "     Prefix Options: %s|%s|%s|%s%s",
-               p, mc, la, nu, VTY_NEWLINE);
+               p, mc, la, nu, VNL);
 
       memset (&in6, 0, sizeof (in6));
       memcpy (&in6, OSPF6_PREFIX_BODY (prefix),
               OSPF6_PREFIX_SPACE (prefix->prefix_length));
       inet_ntop (AF_INET6, &in6, buf, sizeof (buf));
       vty_out (vty, "     Prefix: %s/%d%s",
-               buf, prefix->prefix_length, VTY_NEWLINE);
+               buf, prefix->prefix_length, VNL);
     }
 
   return 0;
@@ -868,8 +868,8 @@ ospf6_intra_prefix_lsa_originate_stub_sub (struct ospf6_area *oa,
   lsa_header->id = htonl (0);
   lsa_header->adv_router = oa->ospf6->router_id;
   lsa_header->seqnum =
-    ospf6_lsa_new_seqnum (lsa_header->type, lsa_header->id,
-                          lsa_header->adv_router, oa);
+    ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
+                         lsa_header->adv_router, oa->lsdb);
   lsa_header->length = htons ((caddr_t) op - (caddr_t) lsa_header);
 
   /* LSA checksum */
@@ -1064,8 +1064,8 @@ ospf6_intra_prefix_lsa_originate_transit_sub (struct ospf6_interface *oi,
   lsa_header->id = htonl (oi->interface->ifindex);
   lsa_header->adv_router = oi->area->ospf6->router_id;
   lsa_header->seqnum =
-    ospf6_lsa_new_seqnum (lsa_header->type, lsa_header->id,
-                          lsa_header->adv_router, oi->area);
+    ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
+                         lsa_header->adv_router, oi->area->lsdb);
   lsa_header->length = htons ((caddr_t) op - (caddr_t) lsa_header);
 
   /* LSA checksum */

@@ -30,7 +30,6 @@
 #include "thread.h"
 #include "command.h"
 
-#include "ospf6d.h"
 #include "ospf6_proto.h"
 #include "ospf6_message.h"
 #include "ospf6_lsa.h"
@@ -44,6 +43,8 @@
 #include "ospf6_neighbor.h"
 
 #include "ospf6_asbr.h"
+#include "ospf6_abr.h"
+#include "ospf6d.h"
 
 /* global ospf6d variable */
 struct ospf6 *ospf6;
@@ -80,6 +81,20 @@ ospf6_top_lsdb_hook_remove (struct ospf6_lsa *lsa)
     }
 }
 
+void
+ospf6_top_route_hook_add (struct ospf6_route *route)
+{
+  ospf6_abr_originate_prefix (route, ospf6);
+  ospf6_zebra_route_update_add (route);
+}
+
+void
+ospf6_top_route_hook_remove (struct ospf6_route *route)
+{
+  ospf6_abr_originate_prefix (route, ospf6);
+  ospf6_zebra_route_update_remove (route);
+}
+
 struct ospf6 *
 ospf6_create ()
 {
@@ -97,12 +112,14 @@ ospf6_create ()
   o->lsdb->hook_remove = ospf6_top_lsdb_hook_remove;
 
   o->route_table = ospf6_route_table_create ();
-  o->route_table->hook_add = ospf6_zebra_route_update_add;
-  o->route_table->hook_remove = ospf6_zebra_route_update_remove;
+  o->route_table->hook_add = ospf6_top_route_hook_add;
+  o->route_table->hook_remove = ospf6_top_route_hook_remove;
 
   o->asbr_table = ospf6_route_table_create ();
   o->asbr_table->hook_add = ospf6_asbr_lsentry_add;
   o->asbr_table->hook_remove = ospf6_asbr_lsentry_remove;
+
+  o->brouter_table = ospf6_route_table_create ();
 
   o->external_table = ospf6_route_table_create ();
   o->external_id_table = route_table_init ();
@@ -126,6 +143,7 @@ ospf6_delete (struct ospf6 *o)
 
   ospf6_route_table_delete (o->route_table);
   ospf6_route_table_delete (o->asbr_table);
+  ospf6_route_table_delete (o->brouter_table);
 
   ospf6_route_table_delete (o->external_table);
   route_table_finish (o->external_id_table);
@@ -257,7 +275,7 @@ DEFUN (no_router_ospf6,
        OSPF6_ROUTER_STR)
 {
   if (ospf6 == NULL || CHECK_FLAG (ospf6->flag, OSPF6_DISABLED))
-    vty_out (vty, "OSPFv3 is not running%s", VTY_NEWLINE);
+    vty_out (vty, "OSPFv3 is not running%s", VNL);
   else
     ospf6_disable (ospf6);
 
@@ -284,7 +302,7 @@ DEFUN (ospf6_router_id,
   ret = inet_pton (AF_INET, argv[0], &router_id);
   if (ret == 0)
     {
-      vty_out (vty, "malformed OSPF Router-ID: %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "malformed OSPF Router-ID: %s%s", argv[0], VNL);
       return CMD_SUCCESS;
     }
 
@@ -317,14 +335,14 @@ DEFUN (ospf6_interface_area,
   if (oi->area)
     {
       vty_out (vty, "%s already attached to Area %s%s",
-               oi->interface->name, oi->area->name, VTY_NEWLINE);
+               oi->interface->name, oi->area->name, VNL);
       return CMD_SUCCESS;
     }
 
   /* parse Area-ID */
   if (inet_pton (AF_INET, argv[1], &area_id) != 1)
     {
-      vty_out (vty, "Invalid Area-ID: %s%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "Invalid Area-ID: %s%s", argv[1], VNL);
       return CMD_SUCCESS;
     }
 
@@ -362,28 +380,28 @@ DEFUN (no_ospf6_interface_area,
   ifp = if_lookup_by_name (argv[0]);
   if (ifp == NULL)
     {
-      vty_out (vty, "No such interface %s%s", argv[0], VTY_NEWLINE);
+      vty_out (vty, "No such interface %s%s", argv[0], VNL);
       return CMD_SUCCESS;
     }
 
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
     {
-      vty_out (vty, "Interface %s not enabled%s", ifp->name, VTY_NEWLINE);
+      vty_out (vty, "Interface %s not enabled%s", ifp->name, VNL);
       return CMD_SUCCESS;
     }
 
   /* parse Area-ID */
   if (inet_pton (AF_INET, argv[1], &area_id) != 1)
     {
-      vty_out (vty, "Invalid Area-ID: %s%s", argv[1], VTY_NEWLINE);
+      vty_out (vty, "Invalid Area-ID: %s%s", argv[1], VNL);
       return CMD_SUCCESS;
     }
 
   if (oi->area->area_id != area_id)
     {
       vty_out (vty, "Wrong Area-ID: %s is attached to area %s%s",
-               oi->interface->name, oi->area->name, VTY_NEWLINE);
+               oi->interface->name, oi->area->name, VNL);
       return CMD_SUCCESS;
     }
 
@@ -406,24 +424,24 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
   /* process id, router id */
   inet_ntop (AF_INET, &o->router_id, router_id, sizeof (router_id));
   vty_out (vty, " OSPFv3 Routing Process (0) with Router-ID %s%s",
-           router_id, VTY_NEWLINE);
+           router_id, VNL);
 
   /* running time */
   gettimeofday (&now, (struct timezone *)NULL);
   timersub (&now, &o->starttime, &running);
   timerstring (&running, duration, sizeof (duration));
-  vty_out (vty, " Running %s%s", duration, VTY_NEWLINE);
+  vty_out (vty, " Running %s%s", duration, VNL);
 
   /* Redistribute configuration */
   /* XXX */
 
   /* LSAs */
   vty_out (vty, " Number of AS scoped LSAs is %u%s",
-           o->lsdb->count, VTY_NEWLINE);
+           o->lsdb->count, VNL);
 
   /* Areas */
   vty_out (vty, " Number of areas in this router is %u%s",
-           listcount (o->area_list), VTY_NEWLINE);
+           listcount (o->area_list), VNL);
   for (n = listhead (o->area_list); n; nextnode (n))
     {
       oa = (struct ospf6_area *) getdata (n);
@@ -540,8 +558,8 @@ config_write_ospf6 (struct vty *vty)
     return CMD_SUCCESS;
 
   inet_ntop (AF_INET, &ospf6->router_id, router_id, sizeof (router_id));
-  vty_out (vty, "router ospf6%s", VTY_NEWLINE);
-  vty_out (vty, " router-id %s%s", router_id, VTY_NEWLINE);
+  vty_out (vty, "router ospf6%s", VNL);
+  vty_out (vty, " router-id %s%s", router_id, VNL);
 
   ospf6_redistribute_config_write (vty);
 
@@ -552,10 +570,10 @@ config_write_ospf6 (struct vty *vty)
         {
           oi = (struct ospf6_interface *) getdata (k);
           vty_out (vty, " interface %s area %s%s",
-                   oi->interface->name, oa->name, VTY_NEWLINE);
+                   oi->interface->name, oa->name, VNL);
         }
     }
-  vty_out (vty, "!%s", VTY_NEWLINE);
+  vty_out (vty, "!%s", VNL);
   return 0;
 }
 
