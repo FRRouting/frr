@@ -1,3 +1,10 @@
+2004-07-23  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* sockopt.c (getsockopt_ipv4_pktinfo_ifindex): Make this compile
+	on NetBSD, and add comments to make it less confusing.  Change the
+	sense of the SUNOS_5 test to make parallel structure between the
+	variables and the code.
+
 2004-07-23 Paul Jakma <paul@dishone.st>
 
 	* sockopt.h: Add SOPT_SIZE_CMSG_PKTINFO{_IPV{4,6}} define, for

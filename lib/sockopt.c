@@ -272,28 +272,31 @@ getsockopt_ipv4_pktinfo_ifindex (struct msghdr *msgh)
   int ifindex = 0;
 #if defined (IP_PKTINFO)
   struct in_pktinfo *pktinfo;
-#elif defined (IP_REVCIF)
+#elif defined (IP_RECVIF)
 #ifndef SUNOS_5
+  /* RECVIF, but not SUNOS, so BSD */
   struct sockaddr_dl *sdl;
 #endif /* SUNOS_5 */
+  /* SUNOS_5 doesn't need a structure to extract ifindex */
 #else /* IP_RECVIF */
-  char *pktinfo;
+  /* XXX Neither, so we are going to lose. */
 #endif /* IP_PKTINFO */
   
 #ifdef IP_PKTINFO
   pktinfo = 
     (struct in_pktinfo *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_PKTINFO);
 #elif defined (IP_RECVIF)
-#ifdef SUNOS_5
-  ifindex = *(uint_t *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_RECVIF);
-#else
-  pktinfo = 
+#ifndef SUNOS_5
+  sdl = 
     (struct sockaddr_dl *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_RECVIF);
-  ifindex = pktinfo->sdl_index;
+  ifindex = sdl->sdl_index;
+#else
+  ifindex = *(uint_t *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_RECVIF);
 #endif /* SUNOS_5 */
 #else
 #warning "getsockopt_ipv4_pktinfo_ifindex: dont have PKTINFO or RECVIF"
-        ifindex = 0;
+  /* XXX why not -1 - this is a failure condition. */
+  ifindex = 0;
 #endif /* IP_PKTINFO */
  
   return ifindex;
