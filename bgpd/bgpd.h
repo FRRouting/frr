@@ -352,6 +352,9 @@ struct peer
 #define PEER_STATUS_ORF_PREFIX_SEND   (1 << 0) /* prefix-list send peer */
 #define PEER_STATUS_ORF_WAIT_REFRESH  (1 << 1) /* wait refresh received peer */
 #define PEER_STATUS_DEFAULT_ORIGINATE (1 << 2) /* default-originate peer */
+#define PEER_STATUS_PREFIX_THRESHOLD  (1 << 3) /* exceed prefix-threshold */
+#define PEER_STATUS_PREFIX_LIMIT      (1 << 4) /* exceed prefix-limit */
+
 
   /* Default attribute value for the peer. */
   u_int32_t config;
@@ -429,9 +432,35 @@ struct peer
 
   /* Max prefix count. */
   unsigned long pmax[AFI_MAX][SAFI_MAX];
+  u_char pmax_threshold[AFI_MAX][SAFI_MAX];
+#define MAXIMUM_PREFIX_THRESHOLD_DEFAULT 75
 
   /* allowas-in. */
   char allowas_in[AFI_MAX][SAFI_MAX];
+
+  /* peer reset cause */
+  char last_reset;
+#define PEER_DOWN_RID_CHANGE             1 /* bgp router-id command */
+#define PEER_DOWN_REMOTE_AS_CHANGE       2 /* neighbor remote-as command */
+#define PEER_DOWN_LOCAL_AS_CHANGE        3 /* neighbor local-as command */
+#define PEER_DOWN_CLID_CHANGE            4 /* bgp cluster-id command */
+#define PEER_DOWN_CONFED_ID_CHANGE       5 /* bgp confederation identifier command */
+#define PEER_DOWN_CONFED_PEER_CHANGE     6 /* bgp confederation peer command */
+#define PEER_DOWN_RR_CLIENT_CHANGE       7 /* neighbor route-reflector-client command */
+#define PEER_DOWN_RS_CLIENT_CHANGE       8 /* neighbor route-server-client command */
+#define PEER_DOWN_UPDATE_SOURCE_CHANGE   9 /* neighbor update-source command */
+#define PEER_DOWN_AF_ACTIVATE           10 /* neighbor activate command */
+#define PEER_DOWN_USER_SHUTDOWN         11 /* neighbor shutdown command */
+#define PEER_DOWN_USER_RESET            12 /* clear ip bgp command */
+#define PEER_DOWN_NOTIFY_RECEIVED       13 /* notification received */
+#define PEER_DOWN_NOTIFY_SEND           14 /* notification send */
+#define PEER_DOWN_CLOSE_SESSION         15 /* tcp session close */
+#define PEER_DOWN_NEIGHBOR_DELETE       16 /* neghbor delete */
+#define PEER_DOWN_RMAP_BIND             17 /* neghbor peer-group command */
+#define PEER_DOWN_RMAP_UNBIND           18 /* no neighbor peer-group command */
+#define PEER_DOWN_CAPABILITY_CHANGE     19 /* neighbor capability command */
+#define PEER_DOWN_PASSIVE_CHANGE        20 /* neighbor passive command */
+#define PEER_DOWN_MULTIHOP_CHANGE       21 /* neighbor multihop command */
 
   /* The kind of route-map Flags.*/
   u_char rmap_type;
@@ -830,7 +859,7 @@ int peer_route_map_unset (struct peer *, afi_t, safi_t, int);
 int peer_unsuppress_map_set (struct peer *, afi_t, safi_t, char *);
 int peer_unsuppress_map_unset (struct peer *, afi_t, safi_t);
 
-int peer_maximum_prefix_set (struct peer *, afi_t, safi_t, u_int32_t, int);
+int peer_maximum_prefix_set (struct peer *, afi_t, safi_t, u_int32_t, u_char, int);
 int peer_maximum_prefix_unset (struct peer *, afi_t, safi_t);
 
 int peer_clear (struct peer *);

@@ -451,11 +451,11 @@ bgp_scan_ipv4 ()
 	continue;
 
       if (peer->afc[AFI_IP][SAFI_UNICAST])
-	bgp_maximum_prefix_overflow (peer, AFI_IP, SAFI_UNICAST);
+	bgp_maximum_prefix_overflow (peer, AFI_IP, SAFI_UNICAST, 1);
       if (peer->afc[AFI_IP][SAFI_MULTICAST])
-	bgp_maximum_prefix_overflow (peer, AFI_IP, SAFI_MULTICAST);
+	bgp_maximum_prefix_overflow (peer, AFI_IP, SAFI_MULTICAST, 1);
       if (peer->afc[AFI_IP][SAFI_MPLS_VPN])
-	bgp_maximum_prefix_overflow (peer, AFI_IP, SAFI_MPLS_VPN);
+	bgp_maximum_prefix_overflow (peer, AFI_IP, SAFI_MPLS_VPN, 1);
     }
 
   for (rn = bgp_table_top (bgp->rib[AFI_IP][SAFI_UNICAST]); rn;
@@ -550,9 +550,9 @@ bgp_scan_ipv6 ()
 	continue;
 
       if (peer->afc[AFI_IP6][SAFI_UNICAST])
-	bgp_maximum_prefix_overflow (peer, AFI_IP6, SAFI_UNICAST);
+	bgp_maximum_prefix_overflow (peer, AFI_IP6, SAFI_UNICAST, 1);
       if (peer->afc[AFI_IP6][SAFI_MULTICAST])
-	bgp_maximum_prefix_overflow (peer, AFI_IP6, SAFI_MULTICAST);
+	bgp_maximum_prefix_overflow (peer, AFI_IP6, SAFI_MULTICAST, 1);
     }
 
   for (rn = bgp_table_top (bgp->rib[AFI_IP6][SAFI_UNICAST]); rn;

@@ -34,6 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_route.h"
@@ -3367,19 +3368,25 @@ DEFUN (no_neighbor_unsuppress_map,
 
 int
 peer_maximum_prefix_set_vty (struct vty *vty, char *ip_str, afi_t afi,
-			     safi_t safi, char *num_str, int warning)
+			     safi_t safi, char *num_str,  char *threshold_str,
+                             int warning)
 {
   int ret;
   struct peer *peer;
   u_int32_t max;
+  u_char threshold;
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
     return CMD_WARNING;
 
   VTY_GET_INTEGER ("maxmum number", max, num_str);
+  if (threshold_str)
+    threshold = atoi (threshold_str);
+  else
+    threshold = MAXIMUM_PREFIX_THRESHOLD_DEFAULT;
 
-  ret = peer_maximum_prefix_set (peer, afi, safi, max, warning);
+  ret = peer_maximum_prefix_set (peer, afi, safi, max, threshold, warning);
 
   return bgp_vty_return (vty, ret);
 }
@@ -3412,8 +3419,21 @@ DEFUN (neighbor_maximum_prefix,
        "maximum no. of prefix limit\n")
 {
   return peer_maximum_prefix_set_vty (vty, argv[0], bgp_node_afi (vty),
-				      bgp_node_safi (vty), argv[1], 0);
+                                     bgp_node_safi (vty), argv[1], NULL, 0);
 }
+
+DEFUN (neighbor_maximum_prefix_threshold,
+       neighbor_maximum_prefix_threshold_cmd,
+       NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> <1-100>",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Maximum number of prefix accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Threshold value (%) at which to generate a warning msg\n")
+{
+  return peer_maximum_prefix_set_vty (vty, argv[0], bgp_node_afi (vty),
+                                     bgp_node_safi (vty), argv[1], argv[2], 0);
+ }
 
 DEFUN (neighbor_maximum_prefix_warning,
        neighbor_maximum_prefix_warning_cmd,
@@ -3425,8 +3445,22 @@ DEFUN (neighbor_maximum_prefix_warning,
        "Only give warning message when limit is exceeded\n")
 {
   return peer_maximum_prefix_set_vty (vty, argv[0], bgp_node_afi (vty),
-				      bgp_node_safi (vty), argv[1], 1);
+                                     bgp_node_safi (vty), argv[1], NULL, 1);
 }
+
+DEFUN (neighbor_maximum_prefix_threshold_warning,
+       neighbor_maximum_prefix_threshold_warning_cmd,
+       NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> <1-100> warning-only",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Maximum number of prefix accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Threshold value (%) at which to generate a warning msg\n"
+       "Only give warning message when limit is exceeded\n")
+{
+  return peer_maximum_prefix_set_vty (vty, argv[0], bgp_node_afi (vty),
+                                     bgp_node_safi (vty), argv[1], argv[2], 1);
+ }
 
 DEFUN (no_neighbor_maximum_prefix,
        no_neighbor_maximum_prefix_cmd,
@@ -3451,6 +3485,17 @@ ALIAS (no_neighbor_maximum_prefix,
 
 ALIAS (no_neighbor_maximum_prefix,
        no_neighbor_maximum_prefix_val2_cmd,
+       NO_NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> <1-100> warning-only",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Maximum number of prefix accept from this peer\n"
+       "maximum no. of prefix limit\n"
+       "Threshold value (%) at which to generate a warning msg\n"
+       "Only give warning message when limit is exceeded\n")
+
+ALIAS (no_neighbor_maximum_prefix,
+       no_neighbor_maximum_prefix_val3_cmd,
        NO_NEIGHBOR_CMD2 "maximum-prefix <1-4294967295> warning-only",
        NO_STR
        NEIGHBOR_STR
@@ -6419,17 +6464,17 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
 	     filter->usmap.name, VTY_NEWLINE);
 
   /* Receive prefix count */
-  vty_out (vty, "  %ld accepted prefixes",
-	   p->pcount[afi][safi]);
+  vty_out (vty, "  %ld accepted prefixes%s", p->pcount[afi][safi], VTY_NEWLINE);
+
   /* Maximum prefix */
   if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
     {
-      vty_out (vty, ", maximum limit %ld%s",
-	       p->pmax[afi][safi],
+      vty_out (vty, "  maximum limit %ld%s%s", p->pmax[afi][safi],
 	       CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING)
-	       ? " (warning-only)" : "");
+               ? " (warning-only)" : "", VTY_NEWLINE);
+      vty_out (vty, "  Threshold for warning message %d%%%s", p->pmax_threshold [afi][safi],
+              VTY_NEWLINE);
     }
-  vty_out (vty, "%s", VTY_NEWLINE);
 
   vty_out (vty, "%s", VTY_NEWLINE);
 }
@@ -6476,7 +6521,8 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 	   VTY_NEWLINE);
 
   /* Confederation */
-  if (bgp_confederation_peers_check (bgp, p->as)) 
+  if (CHECK_FLAG (bgp->config, BGP_CONFIG_CONFEDERATION)
+      && bgp_confederation_peers_check (bgp, p->as))
     vty_out (vty, "  Neighbor under common administration%s", VTY_NEWLINE);
   
   /* Status. */
@@ -6688,8 +6734,12 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 	   p->established, p->dropped,
 	   VTY_NEWLINE);
 
-  vty_out (vty, "  Last reset %s%s", p->dropped ? peer_uptime (p->resettime, timebuf, BGP_UPTIME_LEN) : "never",
-	   VTY_NEWLINE);
+  if (! p->dropped)
+    vty_out (vty, "  Last reset never%s", VTY_NEWLINE);
+  else
+    vty_out (vty, "  Last reset %s, due to %s%s",
+            peer_uptime (p->resettime, timebuf, BGP_UPTIME_LEN),
+            peer_down_str[(int) p->last_reset], VTY_NEWLINE);
 
   if (CHECK_FLAG (p->sflags, PEER_STATUS_PREFIX_OVERFLOW))
     {
@@ -8254,30 +8304,45 @@ bgp_vty_init ()
 
   /* "neighbor maximum-prefix" commands. */
   install_element (BGP_NODE, &neighbor_maximum_prefix_cmd);
+  install_element (BGP_NODE, &neighbor_maximum_prefix_threshold_cmd);
   install_element (BGP_NODE, &neighbor_maximum_prefix_warning_cmd);
+  install_element (BGP_NODE, &neighbor_maximum_prefix_threshold_warning_cmd);
   install_element (BGP_NODE, &no_neighbor_maximum_prefix_cmd);
   install_element (BGP_NODE, &no_neighbor_maximum_prefix_val_cmd);
   install_element (BGP_NODE, &no_neighbor_maximum_prefix_val2_cmd);
+  install_element (BGP_NODE, &no_neighbor_maximum_prefix_val3_cmd);
   install_element (BGP_IPV4_NODE, &neighbor_maximum_prefix_cmd);
+  install_element (BGP_IPV4_NODE, &neighbor_maximum_prefix_threshold_cmd);
   install_element (BGP_IPV4_NODE, &neighbor_maximum_prefix_warning_cmd);
+  install_element (BGP_IPV4_NODE, &neighbor_maximum_prefix_threshold_warning_cmd);
   install_element (BGP_IPV4_NODE, &no_neighbor_maximum_prefix_cmd);
   install_element (BGP_IPV4_NODE, &no_neighbor_maximum_prefix_val_cmd);
   install_element (BGP_IPV4_NODE, &no_neighbor_maximum_prefix_val2_cmd);
+  install_element (BGP_IPV4_NODE, &no_neighbor_maximum_prefix_val3_cmd);
   install_element (BGP_IPV4M_NODE, &neighbor_maximum_prefix_cmd);
+  install_element (BGP_IPV4M_NODE, &neighbor_maximum_prefix_threshold_cmd);
   install_element (BGP_IPV4M_NODE, &neighbor_maximum_prefix_warning_cmd);
+  install_element (BGP_IPV4M_NODE, &neighbor_maximum_prefix_threshold_warning_cmd);
   install_element (BGP_IPV4M_NODE, &no_neighbor_maximum_prefix_cmd);
   install_element (BGP_IPV4M_NODE, &no_neighbor_maximum_prefix_val_cmd);
   install_element (BGP_IPV4M_NODE, &no_neighbor_maximum_prefix_val2_cmd);
+  install_element (BGP_IPV4M_NODE, &no_neighbor_maximum_prefix_val3_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_maximum_prefix_cmd);
+  install_element (BGP_IPV6_NODE, &neighbor_maximum_prefix_threshold_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_maximum_prefix_warning_cmd);
+  install_element (BGP_IPV6_NODE, &neighbor_maximum_prefix_threshold_warning_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_maximum_prefix_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_maximum_prefix_val_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_maximum_prefix_val2_cmd);
+  install_element (BGP_IPV6_NODE, &no_neighbor_maximum_prefix_val3_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_maximum_prefix_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_maximum_prefix_threshold_cmd);
   install_element (BGP_VPNV4_NODE, &neighbor_maximum_prefix_warning_cmd);
+  install_element (BGP_VPNV4_NODE, &neighbor_maximum_prefix_threshold_warning_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_maximum_prefix_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_maximum_prefix_val_cmd);
   install_element (BGP_VPNV4_NODE, &no_neighbor_maximum_prefix_val2_cmd);
+  install_element (BGP_VPNV4_NODE, &no_neighbor_maximum_prefix_val3_cmd);
 
   /* "neighbor allowas-in" */
   install_element (BGP_NODE, &neighbor_allowas_in_cmd);

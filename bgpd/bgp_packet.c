@@ -849,6 +849,17 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
     zlog_info ("%s send message type %d, length (incl. header) %d",
 	       peer->host, BGP_MSG_NOTIFY, length);
 
+  /* peer reset cause */
+  if (sub_code != BGP_NOTIFY_CEASE_CONFIG_CHANGE)
+    {
+      if (sub_code == BGP_NOTIFY_CEASE_ADMIN_RESET)
+      peer->last_reset = PEER_DOWN_USER_RESET;
+      else if (sub_code == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN)
+      peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+      else
+      peer->last_reset = PEER_DOWN_NOTIFY_SEND;
+    }
+
   /* Call imidiately. */
   BGP_WRITE_OFF (peer->t_write);
 
@@ -1094,7 +1105,7 @@ bgp_collision_detect (struct peer *new, struct in_addr remote_id)
 		 connection initiated by the remote system. */
 
 	      if (peer->fd >= 0)
-		bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
+		bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
 	      return 1;
 	    }
 	  else
@@ -1106,7 +1117,7 @@ bgp_collision_detect (struct peer *new, struct in_addr remote_id)
 		 OpenConfirm state). */
 
 	      if (new->fd >= 0)
-		bgp_notify_send (new, BGP_NOTIFY_CEASE, 0);
+		bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
 	      return -1;
 	    }
 	}
@@ -1643,6 +1654,9 @@ bgp_notify_receive (struct peer *peer, bgp_size_t size)
   /* peer count update */
   peer->notify_in++;
 
+  if (peer->status == Established)
+    peer->last_reset = PEER_DOWN_NOTIFY_RECEIVED;
+
   /* We have to check for Notify with Unsupported Optional Parameter.
      in that case we fallback to open without the capability option.
      But this done in bgp_stop. We just mark it here to avoid changing
@@ -2051,6 +2065,10 @@ bgp_read_packet (struct peer *peer)
       if (BGP_DEBUG (events, EVENTS))
 	plog_info (peer->log, "%s [Event] BGP connection closed fd %d",
 		   peer->host, peer->fd);
+
+      if (peer->status == Established) 
+       peer->last_reset = PEER_DOWN_CLOSE_SESSION;
+
       BGP_EVENT_ADD (peer, TCP_connection_closed);
       return -1;
     }

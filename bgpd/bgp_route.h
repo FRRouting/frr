@@ -131,7 +131,7 @@ void bgp_clear_adj_in (struct peer *, afi_t, safi_t);
 int bgp_nlri_sanity_check (struct peer *, int, u_char *, bgp_size_t);
 int bgp_nlri_parse (struct peer *, struct attr *, struct bgp_nlri *);
 
-int bgp_maximum_prefix_overflow (struct peer *, afi_t, safi_t);
+int bgp_maximum_prefix_overflow (struct peer *, afi_t, safi_t, int);
 
 void bgp_redistribute_add (struct prefix *, struct in_addr *, u_int32_t, u_char);
 void bgp_redistribute_delete (struct prefix *, u_char);

@@ -40,3 +40,4 @@ int bgp_event (struct thread *);
 int bgp_stop (struct peer *peer);
 void bgp_timer_set (struct peer *);
 void bgp_fsm_change_status (struct peer *peer, int status);
+extern char *peer_down_str[];

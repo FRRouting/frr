@@ -875,38 +875,61 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 }
 
 int
-bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, safi_t safi)
+bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, safi_t safi, int always)
 {
-  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
+  if (!CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
+    return 0;
+
+  if (peer->pcount[afi][safi] > peer->pmax[afi][safi])
     {
-      if (peer->pcount[afi][safi] > peer->pmax[afi][safi])
-	{
-	  zlog (peer->log, LOG_INFO,
-		"MAXPFXEXCEED: No. of prefix received from %s (afi %d): %ld exceed limit %ld", peer->host, afi, peer->pcount[afi][safi], peer->pmax[afi][safi]);
-	  if (! CHECK_FLAG (peer->af_flags[afi][safi],
-			    PEER_FLAG_MAX_PREFIX_WARNING))
-	    {
-	      char ndata[7];
+      if (CHECK_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT)
+         && ! always)
+       return 0;
 
-	      ndata[0] = (u_char)(afi >>  8);
-	      ndata[1] = (u_char) afi;
-	      ndata[3] = (u_char)(peer->pmax[afi][safi] >> 24);
-	      ndata[4] = (u_char)(peer->pmax[afi][safi] >> 16);
-	      ndata[5] = (u_char)(peer->pmax[afi][safi] >> 8);
-	      ndata[6] = (u_char)(peer->pmax[afi][safi]);
+      zlog (peer->log, LOG_INFO,
+           "%%MAXPFXEXCEED: No. of prefix received from %s (afi %d): %ld exceed limit %ld",
+           peer->host, afi, peer->pcount[afi][safi], peer->pmax[afi][safi]);
+      SET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT);
 
-	      if (safi == SAFI_MPLS_VPN)
-		safi = BGP_SAFI_VPNV4;
-	      ndata[2] = (u_char) safi;
+      if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
+       return 0;
 
-	      SET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
-	      bgp_notify_send_with_data (peer, BGP_NOTIFY_CEASE,
-					 BGP_NOTIFY_CEASE_MAX_PREFIX,
-					 ndata, 7);
-	      return 1;
-	    }
-	}
+      {
+       char ndata[7];
+
+       ndata[0] = (u_char)(afi >>  8);
+       ndata[1] = (u_char) afi;
+       ndata[3] = (u_char)(peer->pmax[afi][safi] >> 24);
+       ndata[4] = (u_char)(peer->pmax[afi][safi] >> 16);
+       ndata[5] = (u_char)(peer->pmax[afi][safi] >> 8);
+       ndata[6] = (u_char)(peer->pmax[afi][safi]);
+
+       if (safi == SAFI_MPLS_VPN)
+         safi = BGP_SAFI_VPNV4;
+       ndata[2] = (u_char) safi;
+
+       SET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
+       bgp_notify_send_with_data (peer, BGP_NOTIFY_CEASE,
+                                  BGP_NOTIFY_CEASE_MAX_PREFIX, ndata, 7);
+      }
+      return 1;
     }
+  else
+    UNSET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_LIMIT);
+
+  if (peer->pcount[afi][safi] > (peer->pmax[afi][safi] * peer->pmax_threshold[afi][safi] / 100))
+    {
+      if (CHECK_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_THRESHOLD)
+         && ! always)
+       return 0;
+
+      zlog (peer->log, LOG_INFO,
+           "%%MAXPFX: No. of prefix received from %s (afi %d) reaches %ld, max %ld",
+           peer->host, afi, peer->pcount[afi][safi], peer->pmax[afi][safi]);
+      SET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_THRESHOLD);
+    }
+  else
+    UNSET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_PREFIX_THRESHOLD);
   return 0;
 }
 
@@ -1232,9 +1255,8 @@ bgp_update (struct peer *peer, struct prefix *p, struct attr *attr,
 
   /* If maximum prefix count is configured and current prefix
      count exeed it. */
-  if (! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_WARNING))
-    if (bgp_maximum_prefix_overflow (peer, afi, safi))
-      return -1;
+  if (bgp_maximum_prefix_overflow (peer, afi, safi, 0))
+    return -1;
 
   /* Process change. */
   bgp_process (bgp, rn, afi, safi);

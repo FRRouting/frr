@@ -607,6 +607,10 @@ DEFUN (no_ip_as_path_all,
 
   as_list_delete (aslist);
 
+  /* Run hook function. */
+  if (as_list_master.delete_hook)
+    (*as_list_master.delete_hook) ();
+
   return CMD_SUCCESS;
 }
 
