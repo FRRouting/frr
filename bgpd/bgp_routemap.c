@@ -556,7 +556,7 @@ route_match_community (void *rule, struct prefix *prefix,
       bgp_info = object;
       rcom = rule;
 
-      list = community_list_lookup (bgp_clist, rcom->name, COMMUNITY_LIST_AUTO);
+      list = community_list_lookup (bgp_clist, rcom->name, COMMUNITY_LIST_MASTER);
       if (! list)
 	return RMAP_NOMATCH;
 
@@ -632,7 +632,7 @@ route_match_ecommunity (void *rule, struct prefix *prefix,
       bgp_info = object;
 
       list = community_list_lookup (bgp_clist, (char *) rule,
-				    EXTCOMMUNITY_LIST_AUTO);
+				    EXTCOMMUNITY_LIST_MASTER);
       if (! list)
 	return RMAP_NOMATCH;
 
@@ -1225,7 +1225,7 @@ struct route_map_rule_cmd route_set_community_cmd =
   route_set_community_free,
 };
 
-/* `set comm-list (<1-99>|<100-199>|WORD) delete' */
+/* `set comm-list (<1-99>|<100-500>|WORD) delete' */
 
 /* For community set mechanism. */
 route_map_result_t
@@ -1244,7 +1244,7 @@ route_set_community_delete (void *rule, struct prefix *prefix,
 	return RMAP_OKAY;
 
       binfo = object;
-      list = community_list_lookup (bgp_clist, rule, COMMUNITY_LIST_AUTO);
+      list = community_list_lookup (bgp_clist, rule, COMMUNITY_LIST_MASTER);
       old = binfo->attr->community;
 
       if (list && old)
@@ -2412,7 +2412,7 @@ ALIAS (no_match_metric,
 
 DEFUN (match_community, 
        match_community_cmd,
-       "match community (<1-99>|<100-199>|WORD)",
+       "match community (<1-99>|<100-500>|WORD)",
        MATCH_STR
        "Match BGP community list\n"
        "Community-list number (standard)\n"
@@ -2424,7 +2424,7 @@ DEFUN (match_community,
 
 DEFUN (match_community_exact, 
        match_community_exact_cmd,
-       "match community (<1-99>|<100-199>|WORD) exact-match",
+       "match community (<1-99>|<100-500>|WORD) exact-match",
        MATCH_STR
        "Match BGP community list\n"
        "Community-list number (standard)\n"
@@ -2459,7 +2459,7 @@ DEFUN (no_match_community,
 
 ALIAS (no_match_community,
        no_match_community_val_cmd,
-       "no match community (<1-99>|<100-199>|WORD)",
+       "no match community (<1-99>|<100-500>|WORD)",
        NO_STR
        MATCH_STR
        "Match BGP community list\n"
@@ -2469,7 +2469,7 @@ ALIAS (no_match_community,
 
 ALIAS (no_match_community,
        no_match_community_exact_cmd,
-       "no match community (<1-99>|<100-199>|WORD) exact-match",
+       "no match community (<1-99>|<100-500>|WORD) exact-match",
        NO_STR
        MATCH_STR
        "Match BGP community list\n"
@@ -2480,7 +2480,7 @@ ALIAS (no_match_community,
 
 DEFUN (match_ecommunity, 
        match_ecommunity_cmd,
-       "match extcommunity (<1-99>|<100-199>|WORD)",
+       "match extcommunity (<1-99>|<100-500>|WORD)",
        MATCH_STR
        "Match BGP/VPN extended community list\n"
        "Extended community-list number (standard)\n"
@@ -2502,7 +2502,7 @@ DEFUN (no_match_ecommunity,
 
 ALIAS (no_match_ecommunity,
        no_match_ecommunity_val_cmd,
-       "no match extcommunity (<1-99>|<100-199>|WORD)",
+       "no match extcommunity (<1-99>|<100-500>|WORD)",
        NO_STR
        MATCH_STR
        "Match BGP/VPN extended community list\n"
@@ -2913,7 +2913,7 @@ ALIAS (no_set_community,
 
 DEFUN (set_community_delete,
        set_community_delete_cmd,
-       "set comm-list (<1-99>|<100-199>|WORD) delete",
+       "set comm-list (<1-99>|<100-500>|WORD) delete",
        SET_STR
        "set BGP community list (for deletion)\n"
        "Community-list number (standard)\n"
@@ -2945,7 +2945,7 @@ DEFUN (no_set_community_delete,
 
 ALIAS (no_set_community_delete,
        no_set_community_delete_val_cmd,
-       "no set comm-list (<1-99>|<100-199>|WORD) delete",
+       "no set comm-list (<1-99>|<100-500>|WORD) delete",
        NO_STR
        SET_STR
        "set BGP community list (for deletion)\n"

@@ -9597,52 +9597,40 @@ community_list_set_vty (struct vty *vty, int argc, const char **argv,
   return CMD_SUCCESS;
 }
 
-/* Community-list delete with name.  */
-int
-community_list_unset_all_vty (struct vty *vty, const char *name)
-{
-  int ret;
-
-  ret = community_list_unset (bgp_clist, name, NULL, 0, COMMUNITY_LIST_AUTO);
-
-  if (ret < 0)
-    {
-      community_list_perror (vty, ret);
-      return CMD_WARNING;
-    }
-  return CMD_SUCCESS;
-}
-
 /* Communiyt-list entry delete.  */
 int
-community_list_unset_vty (struct vty *vty, int argc, const char **argv, 
-                          int style)
+community_list_unset_vty (struct vty *vty, int argc, const char **argv,
+			  int style)
 {
   int ret;
-  int direct;
-  char *str;
+  int direct = 0;
+  char *str = NULL;
 
-  /* Check the list direct. */
-  if (strncmp (argv[1], "p", 1) == 0)
-    direct = COMMUNITY_PERMIT;
-  else if (strncmp (argv[1], "d", 1) == 0)
-    direct = COMMUNITY_DENY;
-  else
+  if (argc > 1)
     {
-      vty_out (vty, "%% Matching condition must be permit or deny%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+      /* Check the list direct. */
+      if (strncmp (argv[1], "p", 1) == 0)
+	direct = COMMUNITY_PERMIT;
+      else if (strncmp (argv[1], "d", 1) == 0)
+	direct = COMMUNITY_DENY;
+      else
+	{
+	  vty_out (vty, "%% Matching condition must be permit or deny%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
 
-  /* Concat community string argument.  */
-  str = argv_concat (argv, argc, 2);
+      /* Concat community string argument.  */
+      str = argv_concat (argv, argc, 2);
+    }
 
   /* Unset community list.  */
   ret = community_list_unset (bgp_clist, argv[0], str, direct, style);
 
   /* Free temporary community list string allocated by
      argv_concat().  */
-  XFREE (MTYPE_TMP, str);
+  if (str)
+    XFREE (MTYPE_TMP, str);
 
   if (ret < 0)
     {
@@ -9656,19 +9644,6 @@ community_list_unset_vty (struct vty *vty, int argc, const char **argv,
 /* "community-list" keyword help string.  */
 #define COMMUNITY_LIST_STR "Add a community list entry\n"
 #define COMMUNITY_VAL_STR  "Community number in aa:nn format or internet|local-AS|no-advertise|no-export\n"
-
-DEFUN (ip_community_list,
-       ip_community_list_cmd,
-       "ip community-list WORD (deny|permit) .AA:NN",
-       IP_STR
-       COMMUNITY_LIST_STR
-       "Community list name\n"
-       "Specify community to reject\n"
-       "Specify community to accept\n"
-       COMMUNITY_VAL_STR)
-{
-  return community_list_set_vty (vty, argc, argv, COMMUNITY_LIST_AUTO, 1);
-}
 
 DEFUN (ip_community_list_standard,
        ip_community_list_standard_cmd,
@@ -9694,7 +9669,7 @@ ALIAS (ip_community_list_standard,
 
 DEFUN (ip_community_list_expanded,
        ip_community_list_expanded_cmd,
-       "ip community-list <100-199> (deny|permit) .LINE",
+       "ip community-list <100-500> (deny|permit) .LINE",
        IP_STR
        COMMUNITY_LIST_STR
        "Community list number (expanded)\n"
@@ -9743,44 +9718,50 @@ DEFUN (ip_community_list_name_expanded,
   return community_list_set_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED, 1);
 }
 
-DEFUN (no_ip_community_list_all,
-       no_ip_community_list_all_cmd,
-       "no ip community-list (WORD|<1-99>|<100-199>)",
+DEFUN (no_ip_community_list_standard_all,
+       no_ip_community_list_standard_all_cmd,
+       "no ip community-list <1-99>",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
-       "Community list name\n"
-       "Community list number (standard)\n"
-       "Community list number (expanded)\n")
+       "Community list number (standard)\n")
 {
-  return community_list_unset_all_vty (vty, argv[0]);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD);
 }
 
-DEFUN (no_ip_community_list_name_all,
-       no_ip_community_list_name_all_cmd,
-       "no ip community-list (standard|expanded) WORD",
+DEFUN (no_ip_community_list_expanded_all,
+       no_ip_community_list_expanded_all_cmd,
+       "no ip community-list <100-500>",
+       NO_STR
+       IP_STR
+       COMMUNITY_LIST_STR
+       "Community list number (expanded)\n")
+{
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
+}
+
+DEFUN (no_ip_community_list_name_standard_all,
+       no_ip_community_list_name_standard_all_cmd,
+       "no ip community-list standard WORD",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
        "Add a standard community-list entry\n"
-       "Add an expanded community-list entry\n"
        "Community list name\n")
 {
-  return community_list_unset_all_vty (vty, argv[1]);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_STANDARD);
 }
 
-DEFUN (no_ip_community_list,
-       no_ip_community_list_cmd,
-       "no ip community-list WORD (deny|permit) .AA:NN",
+DEFUN (no_ip_community_list_name_expanded_all,
+       no_ip_community_list_name_expanded_all_cmd,
+       "no ip community-list expanded WORD",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
-       "Community list name\n"
-       "Specify community to reject\n"
-       "Specify community to accept\n"
-       COMMUNITY_VAL_STR)
+       "Add an expanded community-list entry\n"
+       "Community list name\n")
 {
-  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_AUTO);
+  return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
 }
 
 DEFUN (no_ip_community_list_standard,
@@ -9799,7 +9780,7 @@ DEFUN (no_ip_community_list_standard,
 
 DEFUN (no_ip_community_list_expanded,
        no_ip_community_list_expanded_cmd,
-       "no ip community-list <100-199> (deny|permit) .LINE",
+       "no ip community-list <100-500> (deny|permit) .LINE",
        NO_STR
        IP_STR
        COMMUNITY_LIST_STR
@@ -9883,7 +9864,7 @@ DEFUN (show_ip_community_list,
   struct community_list *list;
   struct community_list_master *cm;
 
-  cm = community_list_master_lookup (bgp_clist, COMMUNITY_LIST_AUTO);
+  cm = community_list_master_lookup (bgp_clist, COMMUNITY_LIST_MASTER);
   if (! cm)
     return CMD_SUCCESS;
 
@@ -9898,7 +9879,7 @@ DEFUN (show_ip_community_list,
 
 DEFUN (show_ip_community_list_arg,
        show_ip_community_list_arg_cmd,
-       "show ip community-list (<1-199>|WORD)",
+       "show ip community-list (<1-500>|WORD)",
        SHOW_STR
        IP_STR
        "List community-list\n"
@@ -9907,7 +9888,7 @@ DEFUN (show_ip_community_list_arg,
 {
   struct community_list *list;
 
-  list = community_list_lookup (bgp_clist, argv[0], COMMUNITY_LIST_AUTO);
+  list = community_list_lookup (bgp_clist, argv[0], COMMUNITY_LIST_MASTER);
   if (! list)
     {
       vty_out (vty, "%% Can't find communit-list%s", VTY_NEWLINE);
@@ -9968,49 +9949,38 @@ extcommunity_list_set_vty (struct vty *vty, int argc, const char **argv,
 }
 
 int
-extcommunity_list_unset_all_vty (struct vty *vty, const char *name)
+extcommunity_list_unset_vty (struct vty *vty, int argc, const char **argv,
+			     int style)
 {
   int ret;
+  int direct = 0;
+  char *str = NULL;
 
-  ret = extcommunity_list_unset (bgp_clist, name, NULL, 0, EXTCOMMUNITY_LIST_AUTO);
-
-  if (ret < 0)
+  if (argc > 1)
     {
-      community_list_perror (vty, ret);
-      return CMD_WARNING;
+      /* Check the list direct. */
+      if (strncmp (argv[1], "p", 1) == 0)
+	direct = COMMUNITY_PERMIT;
+      else if (strncmp (argv[1], "d", 1) == 0)
+	direct = COMMUNITY_DENY;
+      else
+	{
+	  vty_out (vty, "%% Matching condition must be permit or deny%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+
+      /* Concat community string argument.  */
+      str = argv_concat (argv, argc, 2);
     }
-  return CMD_SUCCESS;
-}
-
-int
-extcommunity_list_unset_vty (struct vty *vty, int argc, const char **argv, 
-                             int style)
-{
-  int ret;
-  int direct;
-  char *str;
-
-  /* Check the list direct. */
-  if (strncmp (argv[1], "p", 1) == 0)
-    direct = COMMUNITY_PERMIT;
-  else if (strncmp (argv[1], "d", 1) == 0)
-    direct = COMMUNITY_DENY;
-  else
-    {
-      vty_out (vty, "%% Matching condition must be permit or deny%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  /* Concat community string argument.  */
-  str = argv_concat (argv, argc, 2);
 
   /* Unset community list.  */
   ret = extcommunity_list_unset (bgp_clist, argv[0], str, direct, style);
 
   /* Free temporary community list string allocated by
      argv_concat().  */
-  XFREE (MTYPE_TMP, str);
+  if (str)
+    XFREE (MTYPE_TMP, str);
 
   if (ret < 0)
     {
@@ -10049,7 +10019,7 @@ ALIAS (ip_extcommunity_list_standard,
 
 DEFUN (ip_extcommunity_list_expanded,
        ip_extcommunity_list_expanded_cmd,
-       "ip extcommunity-list <100-199> (deny|permit) .LINE",
+       "ip extcommunity-list <100-500> (deny|permit) .LINE",
        IP_STR
        EXTCOMMUNITY_LIST_STR
        "Extended Community list number (expanded)\n"
@@ -10098,29 +10068,50 @@ DEFUN (ip_extcommunity_list_name_expanded,
   return extcommunity_list_set_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED, 1);
 }
 
-DEFUN (no_ip_extcommunity_list_all,
-       no_ip_extcommunity_list_all_cmd,
-       "no ip extcommunity-list (<1-99>|<100-199>)",
+DEFUN (no_ip_extcommunity_list_standard_all,
+       no_ip_extcommunity_list_standard_all_cmd,
+       "no ip extcommunity-list <1-99>",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
-       "Extended Community list number (standard)\n"
-       "Extended Community list number (expanded)\n")
+       "Extended Community list number (standard)\n")
 {
-  return extcommunity_list_unset_all_vty (vty, argv[0]);
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD);
 }
 
-DEFUN (no_ip_extcommunity_list_name_all,
-       no_ip_extcommunity_list_name_all_cmd,
-       "no ip extcommunity-list (standard|expanded) WORD",
+DEFUN (no_ip_extcommunity_list_expanded_all,
+       no_ip_extcommunity_list_expanded_all_cmd,
+       "no ip extcommunity-list <100-500>",
+       NO_STR
+       IP_STR
+       EXTCOMMUNITY_LIST_STR
+       "Extended Community list number (expanded)\n")
+{
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
+}
+
+DEFUN (no_ip_extcommunity_list_name_standard_all,
+       no_ip_extcommunity_list_name_standard_all_cmd,
+       "no ip extcommunity-list standard WORD",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
        "Specify standard extcommunity-list\n"
+       "Extended Community list name\n")
+{
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_STANDARD);
+}
+
+DEFUN (no_ip_extcommunity_list_name_expanded_all,
+       no_ip_extcommunity_list_name_expanded_all_cmd,
+       "no ip extcommunity-list expanded WORD",
+       NO_STR
+       IP_STR
+       EXTCOMMUNITY_LIST_STR
        "Specify expanded extcommunity-list\n"
        "Extended Community list name\n")
 {
-  return extcommunity_list_unset_all_vty (vty, argv[1]);
+  return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
 }
 
 DEFUN (no_ip_extcommunity_list_standard,
@@ -10139,7 +10130,7 @@ DEFUN (no_ip_extcommunity_list_standard,
 
 DEFUN (no_ip_extcommunity_list_expanded,
        no_ip_extcommunity_list_expanded_cmd,
-       "no ip extcommunity-list <100-199> (deny|permit) .LINE",
+       "no ip extcommunity-list <100-500> (deny|permit) .LINE",
        NO_STR
        IP_STR
        EXTCOMMUNITY_LIST_STR
@@ -10223,7 +10214,7 @@ DEFUN (show_ip_extcommunity_list,
   struct community_list *list;
   struct community_list_master *cm;
 
-  cm = community_list_master_lookup (bgp_clist, EXTCOMMUNITY_LIST_AUTO);
+  cm = community_list_master_lookup (bgp_clist, EXTCOMMUNITY_LIST_MASTER);
   if (! cm)
     return CMD_SUCCESS;
 
@@ -10238,7 +10229,7 @@ DEFUN (show_ip_extcommunity_list,
 
 DEFUN (show_ip_extcommunity_list_arg,
        show_ip_extcommunity_list_arg_cmd,
-       "show ip extcommunity-list (<1-199>|WORD)",
+       "show ip extcommunity-list (<1-500>|WORD)",
        SHOW_STR
        IP_STR
        "List extended-community list\n"
@@ -10247,7 +10238,7 @@ DEFUN (show_ip_extcommunity_list_arg,
 {
   struct community_list *list;
 
-  list = community_list_lookup (bgp_clist, argv[0], EXTCOMMUNITY_LIST_AUTO);
+  list = community_list_lookup (bgp_clist, argv[0], EXTCOMMUNITY_LIST_MASTER);
   if (! list)
     {
       vty_out (vty, "%% Can't find extcommunit-list%s", VTY_NEWLINE);
@@ -10287,23 +10278,15 @@ community_list_config_write (struct vty *vty)
   int write = 0;
 
   /* Community-list.  */
-  cm = community_list_master_lookup (bgp_clist, COMMUNITY_LIST_AUTO);
+  cm = community_list_master_lookup (bgp_clist, COMMUNITY_LIST_MASTER);
 
   for (list = cm->num.head; list; list = list->next)
     for (entry = list->head; entry; entry = entry->next)
       {
-	if (atol (list->name) < 200)
-	  vty_out (vty, "ip community-list %s %s %s%s",
-		   list->name, community_direct_str (entry->direct),
-		   community_list_config_str (entry),
-		   VTY_NEWLINE);
-	else
-	  vty_out (vty, "ip community-list %s %s %s %s%s",
-		   entry->style == COMMUNITY_LIST_STANDARD
-		   ? "standard" : "expanded",
-		   list->name, community_direct_str (entry->direct),
-		   community_list_config_str (entry),
-		   VTY_NEWLINE);
+	vty_out (vty, "ip community-list %s %s %s%s",
+		 list->name, community_direct_str (entry->direct),
+		 community_list_config_str (entry),
+		 VTY_NEWLINE);
 	write++;
       }
   for (list = cm->str.head; list; list = list->next)
@@ -10319,21 +10302,14 @@ community_list_config_write (struct vty *vty)
       }
 
   /* Extcommunity-list.  */
-  cm = community_list_master_lookup (bgp_clist, EXTCOMMUNITY_LIST_AUTO);
+  cm = community_list_master_lookup (bgp_clist, EXTCOMMUNITY_LIST_MASTER);
 
   for (list = cm->num.head; list; list = list->next)
     for (entry = list->head; entry; entry = entry->next)
       {
-	if (atol (list->name) < 200)
-	  vty_out (vty, "ip extcommunity-list %s %s %s%s",
-		   list->name, community_direct_str (entry->direct),
-		   community_list_config_str (entry), VTY_NEWLINE);
-	else
-	  vty_out (vty, "ip extcommunity-list %s %s %s %s%s",
-		   entry->style == EXTCOMMUNITY_LIST_STANDARD
-		   ? "standard" : "expanded",
-		   list->name, community_direct_str (entry->direct),
-		   community_list_config_str (entry), VTY_NEWLINE);
+	vty_out (vty, "ip extcommunity-list %s %s %s%s",
+		 list->name, community_direct_str (entry->direct),
+		 community_list_config_str (entry), VTY_NEWLINE);
 	write++;
       }
   for (list = cm->str.head; list; list = list->next)
@@ -10362,16 +10338,16 @@ community_list_vty ()
   install_node (&community_list_node, community_list_config_write);
 
   /* Community-list.  */
-  install_element (CONFIG_NODE, &ip_community_list_cmd);
   install_element (CONFIG_NODE, &ip_community_list_standard_cmd);
   install_element (CONFIG_NODE, &ip_community_list_standard2_cmd);
   install_element (CONFIG_NODE, &ip_community_list_expanded_cmd);
   install_element (CONFIG_NODE, &ip_community_list_name_standard_cmd);
   install_element (CONFIG_NODE, &ip_community_list_name_standard2_cmd);
   install_element (CONFIG_NODE, &ip_community_list_name_expanded_cmd);
-  install_element (CONFIG_NODE, &no_ip_community_list_all_cmd);
-  install_element (CONFIG_NODE, &no_ip_community_list_name_all_cmd);
-  install_element (CONFIG_NODE, &no_ip_community_list_cmd);
+  install_element (CONFIG_NODE, &no_ip_community_list_standard_all_cmd);
+  install_element (CONFIG_NODE, &no_ip_community_list_expanded_all_cmd);
+  install_element (CONFIG_NODE, &no_ip_community_list_name_standard_all_cmd);
+  install_element (CONFIG_NODE, &no_ip_community_list_name_expanded_all_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_standard_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_expanded_cmd);
   install_element (CONFIG_NODE, &no_ip_community_list_name_standard_cmd);
@@ -10388,8 +10364,10 @@ community_list_vty ()
   install_element (CONFIG_NODE, &ip_extcommunity_list_name_standard_cmd);
   install_element (CONFIG_NODE, &ip_extcommunity_list_name_standard2_cmd);
   install_element (CONFIG_NODE, &ip_extcommunity_list_name_expanded_cmd);
-  install_element (CONFIG_NODE, &no_ip_extcommunity_list_all_cmd);
-  install_element (CONFIG_NODE, &no_ip_extcommunity_list_name_all_cmd);
+  install_element (CONFIG_NODE, &no_ip_extcommunity_list_standard_all_cmd);
+  install_element (CONFIG_NODE, &no_ip_extcommunity_list_expanded_all_cmd);
+  install_element (CONFIG_NODE, &no_ip_extcommunity_list_name_standard_all_cmd);
+  install_element (CONFIG_NODE, &no_ip_extcommunity_list_name_expanded_all_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_standard_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_expanded_cmd);
   install_element (CONFIG_NODE, &no_ip_extcommunity_list_name_standard_cmd);

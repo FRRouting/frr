@@ -1,5 +1,10 @@
 2005-02-02 Akihiro Mizutani <mizutani@net-chef.net>
 
+	* bgp_clist.[ch], bgp_route.c, bgp_routemap.c, bgp_vty.c:
+	  community-list cleanup.
+
+2005-02-02 Akihiro Mizutani <mizutani@net-chef.net>
+
 	* bgp_route.c, bgp_vty.c, bgp_zebra.c, bgpd.[ch]: "enforce-multihop"
 	  -> "disable-connected-check".
 

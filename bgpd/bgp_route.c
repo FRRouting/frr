@@ -7767,7 +7767,7 @@ bgp_show_community_list (struct vty *vty, const char *com, int exact,
 {
   struct community_list *list;
 
-  list = community_list_lookup (bgp_clist, com, COMMUNITY_LIST_AUTO);
+  list = community_list_lookup (bgp_clist, com, COMMUNITY_LIST_MASTER);
   if (list == NULL)
     {
       vty_out (vty, "%% %s is not a valid community-list name%s", com,
@@ -7782,11 +7782,12 @@ bgp_show_community_list (struct vty *vty, const char *com, int exact,
 
 DEFUN (show_ip_bgp_community_list,
        show_ip_bgp_community_list_cmd,
-       "show ip bgp community-list WORD",
+       "show ip bgp community-list (<1-500>|WORD)",
        SHOW_STR
        IP_STR
        BGP_STR
        "Display routes matching the community-list\n"
+       "community-list number\n"
        "community-list name\n")
 {
   return bgp_show_community_list (vty, argv[0], 0, AFI_IP, SAFI_UNICAST);
@@ -7794,7 +7795,7 @@ DEFUN (show_ip_bgp_community_list,
 
 DEFUN (show_ip_bgp_ipv4_community_list,
        show_ip_bgp_ipv4_community_list_cmd,
-       "show ip bgp ipv4 (unicast|multicast) community-list WORD",
+       "show ip bgp ipv4 (unicast|multicast) community-list (<1-500>|WORD)",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -7802,6 +7803,7 @@ DEFUN (show_ip_bgp_ipv4_community_list,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display routes matching the community-list\n"
+       "community-list number\n"
        "community-list name\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
@@ -7812,11 +7814,12 @@ DEFUN (show_ip_bgp_ipv4_community_list,
 
 DEFUN (show_ip_bgp_community_list_exact,
        show_ip_bgp_community_list_exact_cmd,
-       "show ip bgp community-list WORD exact-match",
+       "show ip bgp community-list (<1-500>|WORD) exact-match",
        SHOW_STR
        IP_STR
        BGP_STR
        "Display routes matching the community-list\n"
+       "community-list number\n"
        "community-list name\n"
        "Exact match of the communities\n")
 {
@@ -7825,7 +7828,7 @@ DEFUN (show_ip_bgp_community_list_exact,
 
 DEFUN (show_ip_bgp_ipv4_community_list_exact,
        show_ip_bgp_ipv4_community_list_exact_cmd,
-       "show ip bgp ipv4 (unicast|multicast) community-list WORD exact-match",
+       "show ip bgp ipv4 (unicast|multicast) community-list (<1-500>|WORD) exact-match",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -7833,6 +7836,7 @@ DEFUN (show_ip_bgp_ipv4_community_list_exact,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Display routes matching the community-list\n"
+       "community-list number\n"
        "community-list name\n"
        "Exact match of the communities\n")
 {
@@ -7845,10 +7849,11 @@ DEFUN (show_ip_bgp_ipv4_community_list_exact,
 #ifdef HAVE_IPV6
 DEFUN (show_bgp_community_list,
        show_bgp_community_list_cmd,
-       "show bgp community-list WORD",
+       "show bgp community-list (<1-500>|WORD)",
        SHOW_STR
        BGP_STR
        "Display routes matching the community-list\n"
+       "community-list number\n"
        "community-list name\n")
 {
   return bgp_show_community_list (vty, argv[0], 0, AFI_IP6, SAFI_UNICAST);
@@ -7856,12 +7861,13 @@ DEFUN (show_bgp_community_list,
 
 ALIAS (show_bgp_community_list,
        show_bgp_ipv6_community_list_cmd,
-       "show bgp ipv6 community-list WORD",
+       "show bgp ipv6 community-list (<1-500>|WORD)",
        SHOW_STR
        BGP_STR
        "Address family\n"
        "Display routes matching the community-list\n"
-       "community-list name\n")
+       "community-list number\n"
+       "community-list name\n");
 
 /* old command */
 DEFUN (show_ipv6_bgp_community_list,
@@ -7891,10 +7897,11 @@ DEFUN (show_ipv6_mbgp_community_list,
 
 DEFUN (show_bgp_community_list_exact,
        show_bgp_community_list_exact_cmd,
-       "show bgp community-list WORD exact-match",
+       "show bgp community-list (<1-500>|WORD) exact-match",
        SHOW_STR
        BGP_STR
        "Display routes matching the community-list\n"
+       "community-list number\n"
        "community-list name\n"
        "Exact match of the communities\n")
 {
@@ -7903,11 +7910,12 @@ DEFUN (show_bgp_community_list_exact,
 
 ALIAS (show_bgp_community_list_exact,
        show_bgp_ipv6_community_list_exact_cmd,
-       "show bgp ipv6 community-list WORD exact-match",
+       "show bgp ipv6 community-list (<1-500>|WORD) exact-match",
        SHOW_STR
        BGP_STR
        "Address family\n"
        "Display routes matching the community-list\n"
+       "community-list number\n"
        "community-list name\n"
        "Exact match of the communities\n")
 
