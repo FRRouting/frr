@@ -490,8 +490,6 @@ ospf_new_if_params ()
   UNSET_IF_PARAM (oip, auth_crypt);
   UNSET_IF_PARAM (oip, auth_type);
   
-  oip->auth_crypt = list_new ();
-
   return oip;
 }
 
