@@ -221,7 +221,7 @@ vty_prompt (struct vty *vty)
 void
 vty_will_echo (struct vty *vty)
 {
-  char cmd[] = { IAC, WILL, TELOPT_ECHO, '\0' };
+  unsigned char cmd[] = { IAC, WILL, TELOPT_ECHO, '\0' };
   vty_out (vty, "%s", cmd);
 }
 
@@ -229,7 +229,7 @@ vty_will_echo (struct vty *vty)
 static void
 vty_will_suppress_go_ahead (struct vty *vty)
 {
-  char cmd[] = { IAC, WILL, TELOPT_SGA, '\0' };
+  unsigned char cmd[] = { IAC, WILL, TELOPT_SGA, '\0' };
   vty_out (vty, "%s", cmd);
 }
 
@@ -237,7 +237,7 @@ vty_will_suppress_go_ahead (struct vty *vty)
 static void
 vty_dont_linemode (struct vty *vty)
 {
-  char cmd[] = { IAC, DONT, TELOPT_LINEMODE, '\0' };
+  unsigned char cmd[] = { IAC, DONT, TELOPT_LINEMODE, '\0' };
   vty_out (vty, "%s", cmd);
 }
 
@@ -245,7 +245,7 @@ vty_dont_linemode (struct vty *vty)
 static void
 vty_do_window_size (struct vty *vty)
 {
-  char cmd[] = { IAC, DO, TELOPT_NAWS, '\0' };
+  unsigned char cmd[] = { IAC, DO, TELOPT_NAWS, '\0' };
   vty_out (vty, "%s", cmd);
 }
 
@@ -254,7 +254,7 @@ vty_do_window_size (struct vty *vty)
 static void
 vty_dont_lflow_ahead (struct vty *vty)
 {
-  char cmd[] = { IAC, DONT, TELOPT_LFLOW, '\0' };
+  unsigned char cmd[] = { IAC, DONT, TELOPT_LFLOW, '\0' };
   vty_out (vty, "%s", cmd);
 }
 #endif /* 0 */

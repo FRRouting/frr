@@ -1,3 +1,21 @@
+2004-06-11 Sowmini Varadhan <sowmini.varadhan@sun.com>
+
+	* filter.c: (access_list_remark_cmd) buffer_putstr doesnt need cast
+	  to u_char. (ipv6_access_list_remark_cmd) ditto.
+	  if.c: ditto
+	* network.c: (readn/writen) pointer arg should be type u_char.
+	* plist.c: needs to include stream.h, not declare stream functions
+	  internally.
+	  (various) Add static qualifier to internal functions.
+	  (prefix_list_type_str) extraneous breaks in switch statement.
+	  (ip_prefix_list_description_cmd) buffer_putstr doesnt need cast
+	* stream.h: depends on plist.h and export stream_put_prefix
+	* vty.c: (vty_<telnet option build functions>) should use 
+	  unsigned char, telnet options are 0 -> 255.
+	* zclient.c: various u_char<->char type cleanups.
+	* zebra.h: Having to define CMSG_* can apply to more than just
+	  BSDI_NRL. 
+	  
 2004-06-09 Paul Jakma <paul@dishone.st>
 
 	* config.h: __attribute__ is a gcc'ism

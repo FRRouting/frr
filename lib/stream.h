@@ -23,6 +23,8 @@
 #ifndef _ZEBRA_STREAM_H
 #define _ZEBRA_STREAM_H
 
+#include "prefix.h"
+
 /* Stream buffer. */
 struct stream
 {
@@ -82,6 +84,7 @@ int stream_putl (struct stream *, u_int32_t);
 int stream_putl_at (struct stream *, unsigned long, u_int32_t);
 int stream_put_ipv4 (struct stream *, u_int32_t);
 int stream_put_in_addr (struct stream *, struct in_addr *);
+int stream_put_prefix (struct stream *, struct prefix *);
 
 void stream_get (void *, struct stream *, size_t);
 u_char stream_getc (struct stream *);

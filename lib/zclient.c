@@ -512,7 +512,7 @@ struct interface *
 zebra_interface_add_read (struct stream *s)
 {
   struct interface *ifp;
-  u_char ifname_tmp[INTERFACE_NAMSIZ];
+  char ifname_tmp[INTERFACE_NAMSIZ];
 
   /* Read interface name. */
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
@@ -556,7 +556,7 @@ struct interface *
 zebra_interface_state_read (struct stream *s)
 {
   struct interface *ifp;
-  u_char ifname_tmp[INTERFACE_NAMSIZ];
+  char ifname_tmp[INTERFACE_NAMSIZ];
 
   /* Read interface name. */
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);

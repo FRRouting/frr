@@ -1,3 +1,10 @@
+2004-06-11 Sowmini Varadhan <sowmini.varadhan@sun.com>
+
+	* ripd.c: (rip_distribute_update_all) distribute list hook
+	  function pointer prototype requires struct prefix_list * arg.
+	  (rip_distribute_update_all_wrapper) update to pass required arg,
+	  NULL.
+	 
 2004-06-06 Paul Jakma <paul.jakma@sun.com>
 
 	* ripd.h: Add define for the RIPv2 Authentication Data family

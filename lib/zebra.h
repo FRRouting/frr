@@ -207,13 +207,28 @@ typedef int socklen_t;
 
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
 
-/* BSD/OS 4.0 has lost belows defines, it should appear at
-   /usr/include/sys/socket.h.  */
-#define CMSG_ALIGN(n)           (((n) + 3) & ~3)
-#define CMSG_SPACE(l)   (CMSG_ALIGN(sizeof(struct cmsghdr)) + CMSG_ALIGN(l))
-#define CMSG_LEN(l)     (CMSG_ALIGN(sizeof(struct cmsghdr)) + (l))
-
 #endif /* BSDI_NRL */
+
+/* 
+ * RFC 2553-bis defines not available on some systems.
+ */
+#ifndef _CMSG_DATA_ALIGN
+#define _CMSG_DATA_ALIGN(n)           (((n) + 3) & ~3)
+#endif /* _CMSG_DATA_ALIGN */
+
+#ifndef _CMSG_HDR_ALIGN
+#define _CMSG_HDR_ALIGN(n)            (((n) + 3) & ~3)
+#endif /* _CMSG_HDR_ALIGN */
+
+#ifndef CMSG_SPACE
+#define CMSG_SPACE(l)       (_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + \
+                              _CMSG_HDR_ALIGN(l))
+#endif  /* CMSG_SPACE */
+
+
+#ifndef CMSG_LEN
+#define CMSG_LEN(l)         (_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + (l))
+#endif /* CMSG_LEN */
 
 #if !defined(__GNUC__) || __GNUC__ < 2 || __GNUC_MINOR__ < 5
 #define __attribute__(x)

@@ -3745,8 +3745,9 @@ rip_distribute_update_interface (struct interface *ifp)
 }
 
 /* Update all interface's distribute list. */
+/* ARGSUSED */
 void
-rip_distribute_update_all ()
+rip_distribute_update_all (struct prefix_list *notused)
 {
   struct interface *ifp;
   listnode node;
@@ -3761,7 +3762,7 @@ rip_distribute_update_all ()
 void
 rip_distribute_update_all_wrapper(struct access_list *notused)
 {
-        rip_distribute_update_all();
+        rip_distribute_update_all(NULL);
 }
 
 /* Delete all added rip route. */

@@ -23,7 +23,7 @@
 #ifndef _ZEBRA_NETWORK_H
 #define _ZEBRA_NETWORK_H
 
-int readn (int, char *, int);
-int writen (int, char *, int);
+int readn (int, u_char *, int);
+int writen (int, u_char *, int);
 
 #endif /* _ZEBRA_NETWORK_H */

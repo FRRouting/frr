@@ -462,7 +462,7 @@ DEFUN (interface_desc,
   b = buffer_new (1024);
   for (i = 0; i < argc; i++)
     {
-      buffer_putstr (b, (u_char *)argv[i]);
+      buffer_putstr (b, argv[i]);
       buffer_putc (b, ' ');
     }
   buffer_putc (b, '\0');
