@@ -226,14 +226,14 @@ zlog_signal(int signo, const char *action)
     }
 #undef DUMP
 
-  zlog_backtrace_safe(LOG_ERR);
+  zlog_backtrace_sigsafe(LOG_ERR);
 #undef LOC
 }
 
 /* Log a backtrace using only async-signal-safe functions.
    Needs to be enhanced to support syslog logging. */
 void
-zlog_backtrace_safe(int priority)
+zlog_backtrace_sigsafe(int priority)
 {
 #ifdef HAVE_GLIBC_BACKTRACE
   void *array[20];

@@ -1,5 +1,10 @@
 2004-11-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* log.c, log.h, memory.c: Change function name from zlog_backtrace_safe
+	  to the more self-explanatory zlog_backtrace_sigsafe.
+
+2004-11-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* debug.[ch]: Remove unused files.
 	* Makefile.am: Remove references to debug.c and debug.h
 

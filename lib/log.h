@@ -132,6 +132,6 @@ extern void zlog_backtrace(int priority);
    called unless the program is about to exit or abort, since it messes
    up the state of zlog file pointers.  This function needs to be enhanced
    to support syslog logging. */
-extern void zlog_backtrace_safe(int priority);
+extern void zlog_backtrace_sigsafe(int priority);
 
 #endif /* _ZEBRA_LOG_H */

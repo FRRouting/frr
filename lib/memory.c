@@ -46,9 +46,9 @@ zerror (const char *fname, int type, size_t size)
   zlog_err ("%s : can't allocate memory for `%s' size %d: %s\n", 
 	    fname, lookup (mstr, type), (int) size, safe_strerror(errno));
   log_memstats(LOG_WARNING);
-  /* N.B. It might be preferable to call zlog_backtrace_safe here, since
+  /* N.B. It might be preferable to call zlog_backtrace_sigsafe here, since
      that function should definitely be safe in an OOM condition.  But
-     unfortunately zlog_backtrace_safe does not support syslog logging at
+     unfortunately zlog_backtrace_sigsafe does not support syslog logging at
      this time... */
   zlog_backtrace(LOG_WARNING);
   abort();
