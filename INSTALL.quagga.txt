@@ -1,0 +1,50 @@
+--------------------------------------------------------------------------
+Building and Installing Quagga:
+
+The 'INSTALL' file contains generic instructions on how to use 'configure'
+scripts.
+
+For further Quagga specific information on 'configure' and build-time
+configuration of the software, please read the Quagga info documentation,
+(doc/quagga.info). To read the info page included with the Quagga sources
+without first installing Quagga:
+
+	cd doc/
+	pinfo -r quagga.info
+
+Assuming you have the user-friendly 'pinfo' info browser installed.
+
+You can also the standard GNU 'info' browser, if you prefer this browser you
+have no doubt already spent a lot of time reading its documentation and dont
+need to be told how to specify an info file by filename. ;)
+
+The Quagga website should also have recent versions of documentation
+available online.
+
+--------------------------------------------------------------------------
+Building Quagga from CVS checkouts:
+
+In order to build from CVS, you will need recent versions of several GNU
+tools, particularly autoconf, automake, libtool and texinfo. Note that the
+CVS snapshots on the Quagga website do not require these tools, everything
+is already setup ready to run 'configure', and if you have trouble building
+from CVS checkout it is recommended that you try a CVS snapshot instead.
+
+If you must build from plain CVS checkouts, the versions which should work
+at least with:
+
+	automake:	1.8.5
+	autoconf:	2.59
+	libtool:	1.5.6
+	texinfo:	4.7-4
+
+To create the required files, run either the 'update-autotools' script
+provided, or else the 'autoreconf' command supplied with your autoconf
+package. After this you may run configure. You will need a recentish version
+of GNU Texinfo in order to build doc/quagga.info, which is not supplied in
+CVS, but is supplied in the CVS snapshots on the Quagga website. You will
+need to run make to create this file.
+
+Please refer to "Building and Installing Quagga" above for further
+instructions.
+--------------------------------------------------------------------------
