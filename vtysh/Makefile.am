@@ -1,6 +1,6 @@
 ## Process this file with Automake to create Makefile.in
 
-INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib
+INCLUDES = @INCLUDES@ -I$(top_srcdir) -I$(top_srcdir)/lib
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 
 LIBS = @LIBS@ @CURSES@ @LIBPAM@
@@ -17,13 +17,13 @@ sysconf_DATA = vtysh.conf.sample
 EXTRA_DIST = extract.pl vtysh.conf.sample
 
 rebuild4:
-	./extract.pl ../zebra/*.c ../ripd/*.c ../ospfd/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c ../lib/filter.c ../lib/plist.c ../lib/distribute.c ../lib/if_rmap.c > vtysh_cmd.c
+	./extract.pl $(top_srcdir)/zebra/*.c $(top_srcdir)/ripd/*.c $(top_srcdir)/ospfd/*.c $(top_srcdir)/bgpd/*.c $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c $(top_srcdir)/lib/distribute.c $(top_srcdir)/lib/if_rmap.c > vtysh_cmd.c
 
-vtysh_cmd.c: ../zebra/*.c ../ripd/*.c ../ripngd/*.c ../ospfd/*.c \
-     ../ospf6d/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c \
-     ../lib/filter.c ../lib/plist.c ../lib/distribute.c ../lib/if_rmap.c
-	./extract.pl ../zebra/*.c ../ripd/*.c ../ripngd/*.c ../ospfd/*.c \
-          ../ospf6d/*.c ../bgpd/*.c ../lib/keychain.c ../lib/routemap.c \
-          ../lib/filter.c ../lib/plist.c ../lib/distribute.c \
-          ../lib/if_rmap.c > vtysh_cmd.c
+vtysh_cmd.c: $(top_srcdir)/zebra/*.c $(top_srcdir)/ripd/*.c $(top_srcdir)/ripngd/*.c $(top_srcdir)/ospfd/*.c \
+     $(top_srcdir)/ospf6d/*.c $(top_srcdir)/bgpd/*.c $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c \
+     $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c $(top_srcdir)/lib/distribute.c $(top_srcdir)/lib/if_rmap.c
+	$(srcdir)/extract.pl $(top_srcdir)/zebra/*.c $(top_srcdir)/ripd/*.c $(top_srcdir)/ripngd/*.c $(top_srcdir)/ospfd/*.c \
+          $(top_srcdir)/ospf6d/*.c $(top_srcdir)/bgpd/*.c $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c \
+          $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c $(top_srcdir)/lib/distribute.c \
+          $(top_srcdir)/lib/if_rmap.c > vtysh_cmd.c
 
