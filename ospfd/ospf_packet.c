@@ -1936,13 +1936,13 @@ ospf_recv_packet (int fd, struct interface **ifp)
       return NULL;
     }
 
-#if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__NetBSD__) || defined(__FreeBSD__) || (defined(__OpenBSD__) && (OpenBSD < 200311))
   ip_len = iph.ip_len;
 #else
   ip_len = ntohs (iph.ip_len);
 #endif
 
-#if !defined(GNU_LINUX)
+#if !defined(GNU_LINUX) && (OpenBSD < 200311)
   /*
    * Kernel network code touches incoming IP header parameters,
    * before protocol specific processing.

@@ -1,3 +1,8 @@
+2003-12-08 Mattias Amnefelt <mattiasa@kth.se?
+
+	* ospf_packet.c: (ospf_recv_packet) OpenBSD now leaves iph.ip_len 
+	  network byte order.
+
 2003-12-05  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* ospfd.c (ospf_network_match_iface): Rewrite code for clarity
