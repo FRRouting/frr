@@ -1,10 +1,12 @@
-# $Id: INSTALL.quagga.txt,v 1.7 2004/11/23 12:21:16 gdt Exp $
+# $Id: INSTALL.quagga.txt,v 1.8 2004/11/23 17:19:21 gdt Exp $
 
 --------------------------------------------------------------------------
 Building and Installing Quagga from releases or snapshots:
 
 The 'INSTALL' file contains generic instructions on how to use 'configure'
 scripts.
+
+Quagga requires a C compiler supporting the C99 standard.
 
 Quagga can be compiled with either BSD make or GNU make.
 GNU make 3.80 is known to work.
