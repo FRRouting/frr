@@ -7,8 +7,9 @@
 ##
 AC_PREREQ(2.53)
 
-AC_INIT(lib/zebra.h)
-AM_INIT_AUTOMAKE(quagga, 0.96.2)
+AC_INIT(quagga, 0.96.2, [bug-zebra@gnu.org])
+AC_CONFIG_SRCDIR(lib/zebra.h)
+AM_INIT_AUTOMAKE()
 AM_CONFIG_HEADER(config.h)
 
 dnl -----------------------------------
@@ -935,13 +936,6 @@ if test x"${ac_cv_header_execinfo_h}" = x"yes"; then
   )
 fi
 
-dnl -------------
-dnl check version
-dnl -------------
-file="${srcdir}/lib/version.h"
-VERSION=`sed -ne 's/^#.*QUAGGA_VERSION.*\"\([^\"]*\)\"$/\1/p' $file`
-AC_SUBST(VERSION)
-
 dnl ----------
 dnl configure date
 dnl ----------
@@ -1015,12 +1009,13 @@ AC_OUTPUT(Makefile lib/Makefile zebra/Makefile ripd/Makefile
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile 
 	  ospf6d/Makefile vtysh/Makefile doc/Makefile 
 	  ospfclient/Makefile
-	  redhat/quagga.spec)
+	  redhat/quagga.spec
+	  lib/version.h)
 
 echo "
 zebra configuration
 -------------------
-quagga version           : ${VERSION}
+quagga version           : ${PACKAGE_VERSION}
 host operationg system  : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}

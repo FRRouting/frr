@@ -22,13 +22,13 @@
 #ifndef _ZEBRA_VERSION_H
 #define _ZEBRA_VERSION_H
 
-#define QUAGGA_PROGNAME   "quagga"
+#define QUAGGA_PROGNAME   "@PACKAGE_NAME@"
 
-#define QUAGGA_VERSION     "0.96.2"
+#define QUAGGA_VERSION     "@PACKAGE_VERSION@"
 
-#define ZEBRA_BUG_ADDRESS "bug-zebra@gnu.org"
+#define ZEBRA_BUG_ADDRESS "@PACKAGE_BUGREPORT@"
 
-#define ZEBRA_URL "http://www.quagga.net"
+#define QUAGGA_URL "http://www.quagga.net"
 
 extern char *host_name;
 
