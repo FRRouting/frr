@@ -440,32 +440,6 @@ DEFUN (interface,
   return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (no_interface,
-           no_interface_cmd,
-           "no interface IFNAME",
-           NO_STR
-           "Delete a pseudo interface's configuration\n"
-           "Interface's name\n")
-{
-  // deleting interface
-  struct interface *ifp;
-
-  ifp = if_lookup_by_name (argv[0]);
-
-  if (ifp == NULL)
-    return CMD_SUCCESS;
-
-  if (if_is_up(ifp)) {
-    vty_out (vty, "%% Only inactive interfaces can be deleted%s",
-            VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-
-  if_delete(ifp);
-
-  return CMD_SUCCESS;
-}
-
 /* For debug purpose. */
 DEFUN (show_address,
        show_address_cmd,

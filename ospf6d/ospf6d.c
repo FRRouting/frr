@@ -729,7 +729,6 @@ ospf6_init ()
   install_element (ENABLE_NODE, &reload_cmd);
   install_element (CONFIG_NODE, &router_ospf6_cmd);
   install_element (CONFIG_NODE, &interface_cmd);
-  install_element (CONFIG_NODE, &no_interface_cmd);
 #ifdef OSPF6_STATISTICS
   install_element (VIEW_NODE, &show_ipv6_ospf6_statistics_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_statistics_cmd);

@@ -822,7 +822,6 @@ ripng_if_init ()
   install_node (&interface_node, interface_config_write);
 
   install_element (CONFIG_NODE, &interface_cmd);
-  install_element (CONFIG_NODE, &no_interface_cmd);
   install_element (INTERFACE_NODE, &config_end_cmd);
   install_element (INTERFACE_NODE, &config_exit_cmd);
   install_element (INTERFACE_NODE, &config_help_cmd);
