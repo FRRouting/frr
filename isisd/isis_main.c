@@ -78,6 +78,8 @@ struct option longopts[] =
 {
   { "daemon",      no_argument,       NULL, 'd'},
   { "config_file", required_argument, NULL, 'f'},
+  { "pid_file",    required_argument, NULL, 'i'},
+  { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "user",        required_argument, NULL, 'u'},
   { "version",     no_argument,       NULL, 'v'},
@@ -98,6 +100,8 @@ int daemon_mode = 0;
 /* Master of threads. */
 struct thread_master *master;
 
+/* Process ID saved for use by init system */
+char *pid_file = PATH_ISISD_PID;
 
 /* for reload */
 char _cwd[64];
@@ -119,6 +123,8 @@ usage (int status)
 Daemon which manages IS-IS routing\n\n\
 -d, --daemon       Runs in daemon mode\n\
 -f, --config_file  Set configuration file name\n\
+-i, --pid_file     Set process identifier file name\n\
+-A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -u, --user         User and group to run as\n\
 -v, --version      Print program version\n\
@@ -234,7 +240,7 @@ main (int argc, char **argv, char **envp)
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:hAp:P:u:v", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hA:p:P:u:v", longopts, 0);
     
       if (opt == EOF)
         break;
@@ -248,6 +254,9 @@ main (int argc, char **argv, char **envp)
           break;
         case 'f':
           config_file = optarg;
+          break;
+        case 'i':
+          pid_file = optarg;
           break;
         case 'A':
           vty_addr = optarg;
@@ -313,7 +322,7 @@ main (int argc, char **argv, char **envp)
     daemon (0, 0);
 
   /* Process ID file creation. */
-  pid_output (PATH_ISISD_PID);
+  pid_output (pid_file);
 
   /* Make isis vty socket. */
   vty_serv_sock (vty_addr, vty_port, ISIS_VTYSH_PATH);
