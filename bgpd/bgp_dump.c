@@ -696,6 +696,7 @@ struct cmd_node bgp_dump_node =
 {
   DUMP_NODE,
   "",
+  1
 };
 
 #if 0
