@@ -1,3 +1,7 @@
+2003-12-23  Vincent Jardin  <jardin@6wind.com>
+
+	* {command.c, memory.c, vty.c, zebra.h}: Add isisd support
+
 2003-12-22  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* vty.c (vty_use_backup_config): Don't free filenames before using
