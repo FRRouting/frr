@@ -1,4 +1,4 @@
-$Id: IMPLEMENTATION.txt,v 1.1 2005/02/10 16:38:09 gdt Exp $
+$Id: IMPLEMENTATION.txt,v 1.2 2005/02/15 17:10:03 gdt Exp $
 
 This file contains notes about the internals of the BGP
 implementation.  The initial impetus is understanding the memory usage
@@ -150,10 +150,18 @@ bgpd.c
 Question: How much memory does quagga's bgpd use as a function of
 state received from peers?
 
-It seems that a struct bgp_info is kept for each prefix, and this has
-its own struct attr.  aspath, etc. are 'interned' and shared.
-So, it seems that 144 bytes are used per received prefix, plus storage
-for all unique aspaths received.
+It seems that a struct bgp_info is kept for each prefix.  The "struct
+attr *" is interned, and variables within that are interned.  So, 40
+bytes are kept per received prefix, plus interned shared values.  This
+could be 36 if 'int suppress' where changed to a u_char and moved to
+be with the other u_chars.  Without MPLS, this could be 32 bytes.
+Note that 8 bytes of this is linked list overhead, meaning that 24
+bytes are the raw per-prefix storage requirements.
+
+Also, a struct bgp_damp_info is apparently maintained per route; this
+is fairly large (about 44 bytes).
+
+[TODO: the role of struct bgp_node.]
 
 * TIME COMPLEXITY
 
