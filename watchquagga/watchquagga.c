@@ -1,5 +1,5 @@
 /*
-    $Id: watchquagga.c,v 1.4 2004/12/22 16:17:16 ajs Exp $
+    $Id: watchquagga.c,v 1.5 2004/12/22 17:00:46 ajs Exp $
 
     Monitor status of quagga daemons and restart if necessary.
 
@@ -31,6 +31,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <time.h>
+#include <string.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 
@@ -113,7 +114,19 @@ static const char *phase_str[] =
 
 #define PHASE_TIMEOUT (3*gs.restart_timeout)
 
-static struct global_state {
+struct restart_info
+{
+  const char *name;
+  const char *what;
+  pid_t pid;
+  struct timeval time;
+  long interval;
+  struct thread *t_kill;
+  int kills;
+};
+
+static struct global_state
+{
   watch_mode_t mode;
   restart_phase_t phase;
   struct thread *t_phase_hanging;
@@ -128,16 +141,7 @@ static struct global_state {
   const char *restart_command;
   const char *start_command;
   const char *stop_command;
-  struct restart_info
-    {
-      const char *name;
-      const char *what;
-      pid_t pid;
-      struct timeval time;
-      long interval;
-      struct thread *t_kill;
-      int kills;
-    } restart;
+  struct restart_info restart;
   int unresponsive_restart;
   int loglevel;
   struct daemon *special;	/* points to zebra when doing phased restart */
@@ -155,7 +159,6 @@ static struct global_state {
   .min_restart_interval = DEFAULT_MIN_RESTART,
   .max_restart_interval = DEFAULT_MAX_RESTART,
   .do_ping = 1,
-  .restart.name = "all",
 };
 
 typedef enum
@@ -637,8 +640,8 @@ handle_read(struct thread *t_read)
   if (!dmn->echo_sent.tv_sec)
     {
       char why[sizeof(buf)+100];
-      snprintf(why,sizeof(why),"unexpected read returns %zd bytes: %.*s",
-	       rc,rc,buf);
+      snprintf(why,sizeof(why),"unexpected read returns %d bytes: %.*s",
+	       (int)rc,(int)rc,buf);
       daemon_down(dmn,why);
       return 0;
     }
@@ -649,9 +652,9 @@ handle_read(struct thread *t_read)
   if ((rc != sizeof(resp)) || memcmp(buf,resp,sizeof(resp)))
     {
       char why[100+sizeof(buf)];
-      snprintf(why,sizeof(why),"read returned bad echo response of %zd bytes "
-			       "(expecting %zu): %.*s",
-	       rc,sizeof(resp),rc,buf);
+      snprintf(why,sizeof(why),"read returned bad echo response of %d bytes "
+			       "(expecting %u): %.*s",
+	       (int)rc,(u_int)sizeof(resp),(int)rc,buf);
       daemon_down(dmn,why);
       return 0;
     }
@@ -993,8 +996,8 @@ wakeup_send_echo(struct thread *t_wakeup)
       ((size_t)rc != sizeof(echocmd)))
     {
       char why[100+sizeof(echocmd)];
-      snprintf(why,sizeof(why),"write '%s' returned %zd instead of %zu",
-               echocmd,rc,sizeof(echocmd));
+      snprintf(why,sizeof(why),"write '%s' returned %d instead of %u",
+               echocmd,(int)rc,(u_int)sizeof(echocmd));
       daemon_down(dmn,why);
     }
   else
@@ -1073,6 +1076,7 @@ main(int argc, char **argv)
   else
     progname = argv[0];
 
+  gs.restart.name = "all";
   while ((opt = getopt_long(argc, argv, "aAb:dek:l:m:M:i:p:r:R:S:s:t:T:zvh",
 			    longopts, 0)) != EOF)
     {
@@ -1311,8 +1315,8 @@ main(int argc, char **argv)
 
 	if (!(dmn = (struct daemon *)calloc(1,sizeof(*dmn))))
 	  {
-	    fprintf(stderr,"calloc(1,%zu) failed: %s\n",
-		    sizeof(*dmn), safe_strerror(errno));
+	    fprintf(stderr,"calloc(1,%u) failed: %s\n",
+		    (u_int)sizeof(*dmn), safe_strerror(errno));
 	    return 1;
 	  }
 	dmn->name = dmn->restart.name = argv[i];
