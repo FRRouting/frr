@@ -19,5 +19,5 @@ echo "UPDATING:"
 aclocal -I m4
 autoheader
 autoconf
-libtoolize
+libtoolize -c
 automake --foreign
