@@ -618,7 +618,16 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 
   /* If Hello is myself, silently discard. */
   if (IPV4_ADDR_SAME (&ospfh->router_id, &oi->ospf->router_id))
-    return;
+    {
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        {
+          zlog_info ("ospf_header[%s/%s]: selforiginated, "
+                     "dropping.",
+                     ospf_packet_type_str[ospfh->type],
+                     inet_ntoa (iph->ip_src));
+        }
+      return;
+    }
 
   /* If incoming interface is passive one, ignore Hello. */
   if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE) {
@@ -2250,6 +2259,11 @@ ospf_read (struct thread *thread)
   /* Self-originated packet should be discarded silently. */
   if (ospf_if_lookup_by_local_addr (ospf, NULL, iph->ip_src))
     {
+      if (IS_DEBUG_OSPF_PACKET (0, RECV))
+        {
+          zlog_info ("ospf_read[%s]: Dropping self-originated packet",
+                     inet_ntoa (iph->ip_src));
+        }
       stream_free (ibuf);
       return 0;
     }
@@ -2265,13 +2279,20 @@ ospf_read (struct thread *thread)
   if (ifp && oi && oi->ifp != ifp)
     {
       zlog_warn ("Packet from [%s] received on wrong link %s",
-		 inet_ntoa (iph->ip_src), ifp->name); 
+                 inet_ntoa (iph->ip_src), ifp->name); 
       stream_free (ibuf);
       return 0;
     }
   
   if ((oi = ospf_associate_packet_vl (ospf, ifp, oi, iph, ospfh)) == NULL)
     {
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        {
+          zlog_info ("ospf_read[%s/%s]: Could not associate packet with VL, "
+                     "dropping.",
+                     ospf_packet_type_str[ospfh->type],
+                     inet_ntoa (iph->ip_src));
+        }
       stream_free (ibuf);
       return 0;
     }
@@ -2314,6 +2335,13 @@ ospf_read (struct thread *thread)
   ret = ospf_verify_header (ibuf, oi, iph, ospfh);
   if (ret < 0)
     {
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        {
+          zlog_info ("ospf_read[%s/%s]: Header check failed, "
+                     "dropping.",
+                     ospf_packet_type_str[ospfh->type],
+                     inet_ntoa (iph->ip_src));
+        }
       stream_free (ibuf);
       return ret;
     }
