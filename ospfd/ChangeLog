@@ -1,3 +1,7 @@
+2004-11-15 Paul Jakma <paul@dishone.st>
+
+	* ospf_{apiserver,te}.c: ospf_lsa_free's should be ospf_lsa_unlock.
+
 2004-11-12 Paul Jakma <paul@dishone.st>
 
 	* ospf_ia.c: (process_summary_lsa) Only an ABR has any reason to

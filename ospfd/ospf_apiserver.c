@@ -1529,8 +1529,7 @@ ospf_apiserver_opaque_lsa_new (struct ospf_area *area,
   if ((new->data = ospf_lsa_data_new (length)) == NULL)
     {
       zlog_warn ("ospf_apiserver_opaque_lsa_new: ospf_lsa_data_new() ?");
-      ospf_lsa_free (new);
-      new = NULL;
+      ospf_lsa_unlock (new);
       stream_free (s);
       return NULL;
     }
@@ -1895,7 +1894,7 @@ ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa)
   if (ospf_lsa_install (ospf, new->oi, new) == NULL)
     {
       zlog_warn ("ospf_apiserver_lsa_refresher: ospf_lsa_install failed");
-      ospf_lsa_free (new);
+      ospf_lsa_unlock (new);
       goto out;
     }
 
