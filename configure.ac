@@ -609,11 +609,17 @@ dnl  AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
 	LIBS="${old_libs}"
   fi
   if test "${HAVE_SNMP}" = "yes"; then
-    for ac_snmp in /usr/include/ucd-snmp/asn1.h /usr/local/include/ucd-snmp/asn1.h /dev/null
+    for ac_snmp in /usr/include/net-snmp/library/asn1.h /usr/include/ucd-snmp/asn1.h /usr/local/include/ucd-snmp/asn1.h /dev/null
     do
       test -f "${ac_snmp}" && break
     done
     case ${ac_snmp} in
+      /usr/include/net-snmp/*)
+                  AC_DEFINE(HAVE_SNMP,,SNMP)
+                  AC_DEFINE(UCD_COMPATIBLE,,SNMP)
+                  CFLAGS="${CFLAGS} -I/usr/include/ucd-snmp"
+                  LIBS="${LIBS} -lsnmp"
+                  ;;
       /usr/include/ucd-snmp/*) 
                   AC_DEFINE(HAVE_SNMP,,SNMP)
                   CFLAGS="${CFLAGS} -I/usr/include/ucd-snmp"

@@ -53,7 +53,7 @@ $ignore{'"show route-map"'} = "ignore";
 foreach (@ARGV) {
     $file = $_;
 
-    open (FH, "cpp -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -I. -I.. -I../lib $file |");
+    open (FH, "cpp -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -DHAVE_IPV6 -I. -I.. -I../lib $file |");
     local $/; undef $/;
     $line = <FH>;
     close (FH);
