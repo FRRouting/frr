@@ -1,4 +1,4 @@
-/* BGP4 SNMP support
+/* FIB SNMP.
  * Copyright (C) 1999 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -22,6 +22,9 @@
 #include <zebra.h>
 
 #ifdef HAVE_SNMP
+#ifdef HAVE_NETSNMP
+#include <net-snmp/net-snmp-config.h>
+#endif
 #include <asn1.h>
 #include <snmp.h>
 #include <snmp_impl.h>
@@ -90,41 +93,41 @@ u_char * ipCidrNumber ();
 u_char * ipCidrTable ();
 
 struct variable zebra_variables[] = 
-{
-  {0, GAUGE32, RONLY, ipFwNumber, 1, {1}},
-  {IPFORWARDDEST, IPADDRESS, RONLY, ipFwTable, 3, {2, 1, 1}},
-  {IPFORWARDMASK, IPADDRESS, RONLY, ipFwTable, 3, {2, 1, 2}},
-  {IPFORWARDPOLICY, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 3}},
-  {IPFORWARDNEXTHOP, IPADDRESS, RONLY, ipFwTable, 3, {2, 1, 4}},
-  {IPFORWARDIFINDEX, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 5}},
-  {IPFORWARDTYPE, ENUMERATION, RONLY, ipFwTable, 3, {2, 1, 6}},
-  {IPFORWARDPROTO, ENUMERATION, RONLY, ipFwTable, 3, {2, 1, 7}},
-  {IPFORWARDAGE, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 8}},
-  {IPFORWARDINFO, OBJECTIDENTIFIER, RONLY, ipFwTable, 3, {2, 1, 9}},
-  {IPFORWARDNEXTHOPAS, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 10}},
-  {IPFORWARDMETRIC1, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 11}},
-  {IPFORWARDMETRIC2, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 12}},
-  {IPFORWARDMETRIC3, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 13}},
-  {IPFORWARDMETRIC4, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 14}},
-  {IPFORWARDMETRIC5, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 15}},
-  {0, GAUGE32, RONLY, ipCidrNumber, 1, {3}},
-  {IPCIDRROUTEDEST, IPADDRESS, RONLY, ipCidrTable, 3, {4, 1, 1}},
-  {IPCIDRROUTEMASK, IPADDRESS, RONLY, ipCidrTable, 3, {4, 1, 2}},
-  {IPCIDRROUTETOS, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 3}},
-  {IPCIDRROUTENEXTHOP, IPADDRESS, RONLY, ipCidrTable, 3, {4, 1, 4}},
-  {IPCIDRROUTEIFINDEX, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 5}},
-  {IPCIDRROUTETYPE, ENUMERATION, RONLY, ipCidrTable, 3, {4, 1, 6}},
-  {IPCIDRROUTEPROTO, ENUMERATION, RONLY, ipCidrTable, 3, {4, 1, 7}},
-  {IPCIDRROUTEAGE, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 8}},
-  {IPCIDRROUTEINFO, OBJECTIDENTIFIER, RONLY, ipCidrTable, 3, {4, 1, 9}},
-  {IPCIDRROUTENEXTHOPAS, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 10}},
-  {IPCIDRROUTEMETRIC1, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 11}},
-  {IPCIDRROUTEMETRIC2, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 12}},
-  {IPCIDRROUTEMETRIC3, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 13}},
-  {IPCIDRROUTEMETRIC4, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 14}},
-  {IPCIDRROUTEMETRIC5, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 15}},
-  {IPCIDRROUTESTATUS, ROWSTATUS, RONLY, ipCidrTable, 3, {4, 1, 16}}
-};
+  {
+    {0, GAUGE32, RONLY, ipFwNumber, 1, {1}},
+    {IPFORWARDDEST, IPADDRESS, RONLY, ipFwTable, 3, {2, 1, 1}},
+    {IPFORWARDMASK, IPADDRESS, RONLY, ipFwTable, 3, {2, 1, 2}},
+    {IPFORWARDPOLICY, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 3}},
+    {IPFORWARDNEXTHOP, IPADDRESS, RONLY, ipFwTable, 3, {2, 1, 4}},
+    {IPFORWARDIFINDEX, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 5}},
+    {IPFORWARDTYPE, ENUMERATION, RONLY, ipFwTable, 3, {2, 1, 6}},
+    {IPFORWARDPROTO, ENUMERATION, RONLY, ipFwTable, 3, {2, 1, 7}},
+    {IPFORWARDAGE, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 8}},
+    {IPFORWARDINFO, OBJECTIDENTIFIER, RONLY, ipFwTable, 3, {2, 1, 9}},
+    {IPFORWARDNEXTHOPAS, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 10}},
+    {IPFORWARDMETRIC1, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 11}},
+    {IPFORWARDMETRIC2, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 12}},
+    {IPFORWARDMETRIC3, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 13}},
+    {IPFORWARDMETRIC4, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 14}},
+    {IPFORWARDMETRIC5, INTEGER32, RONLY, ipFwTable, 3, {2, 1, 15}},
+    {0, GAUGE32, RONLY, ipCidrNumber, 1, {3}},
+    {IPCIDRROUTEDEST, IPADDRESS, RONLY, ipCidrTable, 3, {4, 1, 1}},
+    {IPCIDRROUTEMASK, IPADDRESS, RONLY, ipCidrTable, 3, {4, 1, 2}},
+    {IPCIDRROUTETOS, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 3}},
+    {IPCIDRROUTENEXTHOP, IPADDRESS, RONLY, ipCidrTable, 3, {4, 1, 4}},
+    {IPCIDRROUTEIFINDEX, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 5}},
+    {IPCIDRROUTETYPE, ENUMERATION, RONLY, ipCidrTable, 3, {4, 1, 6}},
+    {IPCIDRROUTEPROTO, ENUMERATION, RONLY, ipCidrTable, 3, {4, 1, 7}},
+    {IPCIDRROUTEAGE, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 8}},
+    {IPCIDRROUTEINFO, OBJECTIDENTIFIER, RONLY, ipCidrTable, 3, {4, 1, 9}},
+    {IPCIDRROUTENEXTHOPAS, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 10}},
+    {IPCIDRROUTEMETRIC1, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 11}},
+    {IPCIDRROUTEMETRIC2, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 12}},
+    {IPCIDRROUTEMETRIC3, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 13}},
+    {IPCIDRROUTEMETRIC4, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 14}},
+    {IPCIDRROUTEMETRIC5, INTEGER32, RONLY, ipCidrTable, 3, {4, 1, 15}},
+    {IPCIDRROUTESTATUS, ROWSTATUS, RONLY, ipCidrTable, 3, {4, 1, 16}}
+  };
 
 
 u_char *
@@ -132,16 +135,21 @@ ipFwNumber (struct variable *v, oid objid[], size_t *objid_len,
 	    int exact, size_t *val_len, WriteMethod **write_method)
 {
   static int result;
-  struct route_node *np;
+  struct route_table *table;
+  struct route_node *rn;
   struct rib *rib;
 
   if (smux_header_generic(v, objid, objid_len, exact, val_len, write_method) == MATCH_FAILED)
     return NULL;
 
+  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  if (! table)
+    return NULL;
+
   /* Return number of routing entries. */
   result = 0;
-  for (np = route_top (rib_table_ipv4); np; np = route_next (np))
-    for (rib = np->info; rib; rib = rib->next)
+  for (rn = route_top (table); rn; rn = route_next (rn))
+    for (rib = rn->info; rib; rib = rib->next)
       result++;
 
   return (u_char *)&result;
@@ -149,19 +157,24 @@ ipFwNumber (struct variable *v, oid objid[], size_t *objid_len,
 
 u_char *
 ipCidrNumber (struct variable *v, oid objid[], size_t *objid_len,
-	    int exact, size_t *val_len, WriteMethod **write_method)
+	      int exact, size_t *val_len, WriteMethod **write_method)
 {
   static int result;
-  struct route_node *np;
+  struct route_table *table;
+  struct route_node *rn;
   struct rib *rib;
 
   if (smux_header_generic(v, objid, objid_len, exact, val_len, write_method) == MATCH_FAILED)
     return NULL;
 
+  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  if (! table)
+    return 0;
+
   /* Return number of routing entries. */
   result = 0;
-  for (np = route_top (rib_table_ipv4); np; np = route_next (np))
-    for (rib = np->info; rib; rib = rib->next)
+  for (rn = route_top (table); rn; rn = route_next (rn))
+    for (rib = rn->info; rib; rib = rib->next)
       result++;
 
   return (u_char *)&result;
@@ -193,16 +206,16 @@ in_addr_add(u_char *p, int num)
   for (i = 3; 0 <= i; i--) {
     p--;
     if (*p + num > 255) {
-    	*p += num;
-    	num = 1;
+      *p += num;
+      num = 1;
     } else {
-    	*p += num;
-    	return 1;
+      *p += num;
+      return 1;
     }
   }
   if (ip0 > *p) {
-  	/* ip + num > 0xffffffff */
-  	return 0;
+    /* ip + num > 0xffffffff */
+    return 0;
   }
   
   return 1;
@@ -212,26 +225,26 @@ int proto_trans(int type)
 {
   switch (type)
     {
-      case ZEBRA_ROUTE_SYSTEM:
-        return 1; /* other */
-      case ZEBRA_ROUTE_KERNEL:
-        return 1; /* other */
-      case ZEBRA_ROUTE_CONNECT:
-        return 2; /* local interface */
-      case ZEBRA_ROUTE_STATIC:
-        return 3; /* static route */
-      case ZEBRA_ROUTE_RIP:
-        return 8; /* rip */
-      case ZEBRA_ROUTE_RIPNG:
-        return 1; /* shouldn't happen */
-      case ZEBRA_ROUTE_OSPF:
-        return 13; /* ospf */
-      case ZEBRA_ROUTE_OSPF6:
-        return 1; /* shouldn't happen */
-      case ZEBRA_ROUTE_BGP:
-        return 14; /* bgp */
-      default:
-        return 1; /* other */
+    case ZEBRA_ROUTE_SYSTEM:
+      return 1; /* other */
+    case ZEBRA_ROUTE_KERNEL:
+      return 1; /* other */
+    case ZEBRA_ROUTE_CONNECT:
+      return 2; /* local interface */
+    case ZEBRA_ROUTE_STATIC:
+      return 3; /* static route */
+    case ZEBRA_ROUTE_RIP:
+      return 8; /* rip */
+    case ZEBRA_ROUTE_RIPNG:
+      return 1; /* shouldn't happen */
+    case ZEBRA_ROUTE_OSPF:
+      return 13; /* ospf */
+    case ZEBRA_ROUTE_OSPF6:
+      return 1; /* shouldn't happen */
+    case ZEBRA_ROUTE_BGP:
+      return 14; /* bgp */
+    default:
+      return 1; /* other */
     }
 }
 
@@ -283,6 +296,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
 		       int exact, struct route_node **np, struct rib **rib)
 {
   struct in_addr dest;
+  struct route_table *table;
   struct route_node *np2;
   struct rib *rib2;
   int proto;
@@ -291,7 +305,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
   u_char *pnt;
   int i;
 
-/* Init index variables */
+  /* Init index variables */
 
   pnt = (u_char *) &dest;
   for (i = 0; i < 4; i++)
@@ -304,19 +318,23 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
   proto = 0;
   policy = 0;
  
-/* Init return variables */
+  /* Init return variables */
 
   *np = NULL;
   *rib = NULL;
 
-/* Short circuit exact matches of wrong length */
+  /* Short circuit exact matches of wrong length */
 
   if (exact && (*objid_len != v->namelen + 10))
     return;
 
-/* Get INDEX information out of OID.
- * ipForwardDest, ipForwardProto, ipForwardPolicy, ipForwardNextHop
- */
+  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  if (! table)
+    return;
+
+  /* Get INDEX information out of OID.
+   * ipForwardDest, ipForwardProto, ipForwardPolicy, ipForwardNextHop
+   */
 
   if (*objid_len > v->namelen)
     oid2in_addr (objid + v->namelen, MIN(4, *objid_len - v->namelen), &dest);
@@ -329,7 +347,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
 
   if (*objid_len > v->namelen + 6)
     oid2in_addr (objid + v->namelen + 6, MIN(4, *objid_len - v->namelen - 6),
-      &nexthop);
+		 &nexthop);
 
   /* Apply GETNEXT on not exact search */
 
@@ -345,14 +363,14 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
     {
       if (policy) /* Not supported (yet?) */
         return;
-      for (*np = route_top (rib_table_ipv4); *np; *np = route_next (*np))
+      for (*np = route_top (table); *np; *np = route_next (*np))
 	{
 	  if (!in_addr_cmp(&(*np)->p.u.prefix, (u_char *)&dest))
 	    {
 	      for (*rib = (*np)->info; *rib; *rib = (*rib)->next)
 	        {
 		  if (!in_addr_cmp((u_char *)&(*rib)->nexthop->gate.ipv4,
-		    (u_char *)&nexthop))
+				   (u_char *)&nexthop))
 		    if (proto == proto_trans((*rib)->type))
 		      return;
 		}
@@ -361,9 +379,9 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
       return;
     }
 
-/* Search next best entry */
+  /* Search next best entry */
 
-  for (np2 = route_top (rib_table_ipv4); np2; np2 = route_next (np2))
+  for (np2 = route_top (table); np2; np2 = route_next (np2))
     {
 
       /* Check destination first */
@@ -527,7 +545,7 @@ ipFwTable (struct variable *v, oid objid[], size_t *objid_len,
 
 u_char *
 ipCidrTable (struct variable *v, oid objid[], size_t *objid_len,
-	   int exact, size_t *val_len, WriteMethod **write_method)
+	     int exact, size_t *val_len, WriteMethod **write_method)
 {
   switch (v->magic)
     {

@@ -21,6 +21,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <zebra.h>
 
 #ifdef HAVE_SNMP
+#ifdef HAVE_NETSNMP
+#include <net-snmp/net-snmp-config.h>
+#endif
 #include <asn1.h>
 #include <snmp.h>
 #include <snmp_impl.h>
@@ -516,7 +519,7 @@ bgpPeerTable (struct variable *v, oid name[], size_t *length,
     case BGPPEEROUTTOTALMESSAGES:
       return SNMP_INTEGER (peer->open_out + peer->update_out
 			   + peer->keepalive_out + peer->notify_out
-			   + peer->refresh_out, peer->dynamic_cap_out);
+			   + peer->refresh_out + peer->dynamic_cap_out);
       break;
     case BGPPEERLASTERROR:
       {

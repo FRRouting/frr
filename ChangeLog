@@ -1,3 +1,11 @@
+2003-03-17 Amir Guindehi <amir@datacore.ch>
+
+	* Extended SNMP checks in configure.ac so that net-snmp works
+
+2003-03-17 Amir Guindehi <amir@datacore.ch>
+           Ralph Keller <keller@tik.ee.ethz.ch>
+	* merge OSPF-API 
+
 2003-02-07 Paul Jakma <paul@dishone.st>
 
 	* Sync to zebra CVS
