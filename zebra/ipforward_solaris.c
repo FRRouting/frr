@@ -21,57 +21,117 @@
  */
 
 #include <zebra.h>
+#include "log.h"
 
-#include "memory.h"
+/*
+** Solaris should define IP_DEV_NAME in <inet/ip.h>, but we'll save
+** configure.in changes for another day.  We can use the same device
+** for both IPv4 and IPv6.
+*/
+/* #include <inet/ip.h> */
+#ifndef IP_DEV_NAME
+#define IP_DEV_NAME "/dev/ip"
+#endif
+/*
+** This is a limited ndd style function that operates one integer
+** value only.  Errors return -1. ND_SET commands return 0 on
+** success. ND_GET commands return the value on success (which could
+** be -1 and be confused for an error).  The parameter is the string
+** name of the parameter being referenced.
+*/
 
-int
-ipforward ()
+static int
+solaris_nd(const int cmd, const char* parameter, const int value)
 {
-  int fd, ret;
-  int ipforwarding = 0;
-  char forward[] = "ip_forwarding";
-  char *buf;
-  struct strioctl si;
-
-  buf = (char *) XMALLOC (MTYPE_TMP, sizeof forward + 1);
-  strcpy (buf, forward);
-
-  fd = open ("/dev/ip", O_RDWR);
-  if (fd < 0) {
-    free (buf);
-    /* need logging here */
-    /* "I can't get ipforwarding value because can't open /dev/ip" */
+#define ND_BUFFER_SIZE 1024
+  int fd;
+  char nd_buf[ND_BUFFER_SIZE];
+  struct strioctl strioctl;
+  const char* device = IP_DEV_NAME;
+  int retval;
+  memset(nd_buf, '\0', ND_BUFFER_SIZE);
+  /*
+  ** ND_SET takes a NULL delimited list of strings further terminated
+  ** buy a NULL.  ND_GET returns a list in a similar layout, although
+  ** here we only use the first result.
+  */
+  if (cmd == ND_SET) {
+    snprintf(nd_buf, ND_BUFFER_SIZE, "%s%c%d%c", parameter, '\0', value,'\0');
+  } else if (cmd == ND_GET) {
+    snprintf(nd_buf, ND_BUFFER_SIZE, "%s", parameter);
+  } else {
+    zlog_err("internal error - inappropriate command given to solaris_nd()%s:%d", __FILE__, __LINE__);
     return -1;
   }
-
-  si.ic_cmd = ND_GET;
-  si.ic_timout = 0;
-  si.ic_len = strlen (buf) + 1;
-  si.ic_dp = (caddr_t) buf;
-
-  ret = ioctl (fd, I_STR, &si);
-  close (fd);
-
-  if (ret < 0) {
-    free (buf);
-    /* need logging here */
-    /* can't get ipforwarding value : ioctl failed */
+  strioctl.ic_cmd = cmd;
+  strioctl.ic_timout = 0;
+  strioctl.ic_len = ND_BUFFER_SIZE;
+  strioctl.ic_dp = nd_buf;
+  if ((fd = open (device, O_RDWR)) < 0) {
+    zlog_warn("failed to open device %s - %s", device, strerror(errno));
     return -1;
   }
+  if (ioctl (fd, I_STR, &strioctl) < 0) {
+    close (fd);
+    zlog_warn("ioctl I_STR failed on device %s - %s", device,strerror(errno));
+    return -1;
+  }
+  close(fd);
+  if (cmd == ND_GET) {
+    errno = 0;
+    retval = atoi(nd_buf);
+    if (errno) {
+      zlog_warn("failed to convert returned value to integer - %s",strerror(errno));
+      retval = -1;
+    }
+  } else {
+    retval = 0;
+  }
+  return retval;
+}
 
-  ipforwarding = atoi (buf);
-  free (buf);
-  return ipforwarding;
+static int
+solaris_nd_set(const char* parameter, const int value) {
+  return solaris_nd(ND_SET, parameter, value);
+}
+static int
+solaris_nd_get(const char* parameter) {
+  return solaris_nd(ND_GET, parameter, 0);
+}
+int
+ipforward()
+{
+  return solaris_nd_get("ip_forwarding");
 }
 
 int
 ipforward_on ()
 {
-  return 0;
+  (void) solaris_nd_set("ip_forwarding", 1);
+  return ipforward();
 }
 
 int
 ipforward_off ()
 {
-  return 0;
+  (void) solaris_nd_set("ip_forwarding", 0);
+  return ipforward();
 }
+#ifdef HAVE_IPV6
+int ipforward_ipv6()
+{
+  return solaris_nd_get("ip6_fowarding");
+}
+int
+ipforward_ipv6_on ()
+{
+  (void) solaris_nd_set("ip6_forwarding", 1);
+  return ipforward_ipv6();
+}
+int
+ipforward_ipv6_off ()
+{
+  (void) solaris_nd_set("ip6_forwarding", 0);
+  return ipforward_ipv6();
+}
+#endif /* HAVE_IPV6 */
