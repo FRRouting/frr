@@ -1902,12 +1902,30 @@ DEFUN (show_ipv6_forwarding,
   return CMD_SUCCESS;
 }
 
+DEFUN (ipv6_forwarding,
+       ipv6_forwarding_cmd,
+       "ipv6 forwarding",
+       IPV6_STR
+       "Turn on IPv6 forwarding")
+{
+  int ret;
+
+  ret = ipforward_ipv6_on ();
+  if (ret != 0)
+    {
+      vty_out (vty, "Can't turn on IPv6 forwarding%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (no_ipv6_forwarding,
        no_ipv6_forwarding_cmd,
        "no ipv6 forwarding",
        NO_STR
-       IP_STR
-       "Doesn't forward IPv6 protocol packet")
+       IPV6_STR
+       "Turn off IPv6 forwarding")
 {
   int ret;
 
@@ -1985,6 +2003,7 @@ zebra_init ()
 #ifdef HAVE_IPV6
   install_element (VIEW_NODE, &show_ipv6_forwarding_cmd);
   install_element (ENABLE_NODE, &show_ipv6_forwarding_cmd);
+  install_element (CONFIG_NODE, &ipv6_forwarding_cmd);
   install_element (CONFIG_NODE, &no_ipv6_forwarding_cmd);
 #endif /* HAVE_IPV6 */
 
