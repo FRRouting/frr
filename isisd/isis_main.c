@@ -124,7 +124,7 @@ Daemon which manages IS-IS routing\n\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to sambo@cs.tut.fi\n", progname);
+Report bugs to http://bugzilla.quagga.net\n", progname);
     }
 
   exit (status);
