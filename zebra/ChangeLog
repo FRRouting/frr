@@ -1,3 +1,7 @@
+2004-07-13  David Wiggins <dwiggins@bbn.com
+
+	* kernel_socket.c (rtm_flag_dump): terminate buffer with '\0', not '0'.
+
 2004-07-13 Hasso Tepper <hasso@estpak.ee>
 
 	* irdp_main.c: Add privilege change.
