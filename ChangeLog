@@ -1,3 +1,10 @@
+2004-08-19 Paul Jakma <paul@dishone.st>
+
+	* Makefile.am: add m4 directory to EXTRA_DIST, and define 
+	  ACLOCAL_AMFLAGS to have aclocal pull in m4/
+	* configure.ac: AM_PROG_LIBTOOL should be AC_...
+	* update-autotools: print a warning that this script is deprecated  
+	
 2004-08-17  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* update-autotools: print tools versions to aid people in sending
