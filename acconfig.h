@@ -32,13 +32,16 @@
 #undef HAVE_IPV6
 
 /* Define if you wish to support ipv6 router advertisment.  */
-/* #undef HAVE_RTADV */
+#undef HAVE_RTADV
 
 /* whether system has GNU regex */
 #undef HAVE_GNU_REGEX
 
 /* whether system has SNMP library */
 #undef HAVE_SNMP
+
+/* whether systme has a ifra_lifetime field */
+#undef HAVE_IFRA_LIFETIME
 
 /* whether sockaddr has a sa_len field */
 #undef HAVE_SA_LEN
@@ -87,6 +90,9 @@
 
 /* Define if you have KAME project ipv6 stack.  */
 #undef KAME
+
+/* Define if you have 6WIND MUSICA IPv6 stack. */
+#undef MUSICA
 
 /* Define if you have Linux ipv6 stack.  */
 #undef LINUX_IPV6
@@ -138,6 +144,12 @@
 
 /* Define if FreeBSD 3.2 */
 #undef FREEBSD_32
+
+/* Define if FreeBSD */
+#undef FREEBSD
+
+/* Define if SIXOS */
+#undef SIXOS
 
 /* Define if OpenBSD */
 #undef OPEN_BSD
