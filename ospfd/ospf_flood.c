@@ -441,7 +441,7 @@ ospf_flood_through_interface (struct ospf_interface *oi,
               continue;
             }
 
-          if (IS_OPAQUE_LSA_ORIGINATION_BLOCKED (ospf->opaque)
+          if (IS_OPAQUE_LSA_ORIGINATION_BLOCKED (oi->ospf->opaque)
           &&  IS_LSA_SELF (lsa)
           &&  onbr->state == NSM_Full)
             {
