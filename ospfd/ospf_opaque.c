@@ -2090,7 +2090,6 @@ ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa0)
     oipt->id_list->head = oipt->id_list->tail = NULL;
 
   /* Disassociate internal control information with the given lsa. */
-  oipi->lsa = NULL;
   free_opaque_info_per_id ((void *) oipi);
 
   /* Force given lsa's age to MaxAge. */

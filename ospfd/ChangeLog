@@ -1,3 +1,9 @@
+2004-07-27 Paul Jakma <paul@dishone.st>
+
+	* ospf_opaque.c: (ospf_opaque_lsa_flush_schedule) do not NULL out
+	  the LSA as then free_opaque_info_per_id() can never unlock (and
+	  free) the LSA. Reported by Gunnar Stigen.
+	  
 2004-07-23 Paul Jakma <paul@dishone.st>
 
 	* ospf_network.c: Replace PKTINFO/RECVIF with call to
