@@ -1,3 +1,16 @@
+2004-03-20 Michael Bruening <mike@vailsys.com>
+
+	* ospfd/ospf_vty.c: Completed array distribute_str of route types with
+	  addition of "isis". This array must be indexed by
+	  ZEBRA_ROUTE_(SYSTEM|KERNEL|...) defines in zebra.h, and should
+	  be updated with every route type addition. This fix allows
+	  commands redistributing routes from (bgp|isis), like "router ospf
+	  redistribute bgp ...", to be written to terminal, memory, file,
+	  which would otherwise result in a seg fault or, possibly, config
+	  file corruption. Overlooked in import of isisd.
+	* Similar fixes to bgpd/bgp_vty.c ospf6d/ospf6_asbr.c ripd/rip_zebra.c
+	  and ripngd/ripng_zebra.c.
+
 2004-03-17 Jean-Yves Simon <lethalwp@tiscali.be>
 	
 	* zebra/main.c, ripd/rip_main.c: Fix typos sigusr1 -> sigint,
