@@ -1468,7 +1468,8 @@ DEFUN (show_debugging_ospf,
 struct cmd_node debug_node =
 {
   DEBUG_NODE,
-  ""
+  "",
+  1 /* VTYSH */
 };
 
 int

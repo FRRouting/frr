@@ -1,3 +1,7 @@
+2004-12-22 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_dump.c: Show debug configuration in vtysh.
+
 2004-12-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_interface.h: Declare new function ospf_default_iftype.
