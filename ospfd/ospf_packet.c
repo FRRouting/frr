@@ -241,16 +241,25 @@ ospf_packet_dup (struct ospf_packet *op)
   return new;
 }
 
+/* XXX inline */
+unsigned int
+ospf_packet_authspace (struct ospf_interface *oi)
+{
+  int auth = 0;
+
+  if ( ospf_auth_type (oi) == OSPF_AUTH_CRYPTOGRAPHIC)
+    auth = OSPF_AUTH_MD5_SIZE;
+
+  return auth;
+}
+
 unsigned int
 ospf_packet_max (struct ospf_interface *oi)
 {
   int max;
 
-  if ( ospf_auth_type (oi) == OSPF_AUTH_CRYPTOGRAPHIC)
-    max = oi->ifp->mtu - OSPF_AUTH_MD5_SIZE;
-  else
-    max = oi->ifp->mtu;
-  
+  max = oi->ifp->mtu - ospf_packet_authspace(oi);
+
   max -= (OSPF_HEADER_SIZE + sizeof (struct ip));
 
   return max;
@@ -1410,8 +1419,8 @@ ospf_ls_req (struct ip *iph, struct ospf_header *ospfh,
 	  return;
 	}
 
-      /* Packet overflows MTU size, send immediatly. */
-      if (length + ntohs (find->data->length) > OSPF_PACKET_MAX (oi))
+      /* Packet overflows MTU size, send immediately. */
+      if (length + ntohs (find->data->length) > ospf_packet_max (oi))
 	{
 	  if (oi->type == OSPF_IFTYPE_NBMA)
 	    ospf_ls_upd_send (nbr, ls_upd, OSPF_SEND_PACKET_DIRECT);
@@ -2735,7 +2744,7 @@ ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
 		u_int16_t ls_age;
 		
 		/* DD packet overflows interface MTU. */
-		if (length + OSPF_LSA_HEADER_SIZE > OSPF_PACKET_MAX (oi))
+		if (length + OSPF_LSA_HEADER_SIZE > ospf_packet_max (oi))
 		  break;
 		
 		/* Keep pointer to LS age. */
@@ -2770,7 +2779,7 @@ ospf_make_ls_req_func (struct stream *s, u_int16_t *length,
   oi = nbr->oi;
 
   /* LS Request packet overflows interface MTU. */
-  if (*length + delta > OSPF_PACKET_MAX(oi))
+  if (*length + delta > ospf_packet_max(oi))
     return 0;
 
   stream_putl (s, lsa->data->type);
@@ -2827,6 +2836,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
   struct ospf_lsa *lsa;
   struct listnode *node;
   u_int16_t length = OSPF_LS_UPD_MIN_SIZE;
+  unsigned int size_noauth;
   unsigned long delta = stream_get_putp (s);
   unsigned long pp;
   int count = 0;
@@ -2836,6 +2846,9 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
 
   pp = stream_get_putp (s);
   ospf_output_forward (s, OSPF_LS_UPD_MIN_SIZE);
+
+  /* Calculate amount of packet usable for data. */
+  size_noauth = stream_get_size(s) - ospf_packet_authspace(oi);
 
   while ((node = listhead (update)) != NULL)
     {
@@ -2850,7 +2863,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
       assert (lsa->data);
 
       /* Will it fit? */
-      if (length + delta + ntohs (lsa->data->length) > stream_get_size (s))
+      if (length + delta + ntohs (lsa->data->length) > size_noauth)
         break;
 
       /* Keep pointer to LS age. */
@@ -2899,7 +2912,7 @@ ospf_make_ls_ack (struct ospf_interface *oi, struct list *ack, struct stream *s)
       lsa = getdata (node);
       assert (lsa);
       
-      if (length + delta > OSPF_PACKET_MAX (oi))
+      if (length + delta > ospf_packet_max (oi))
 	break;
       
       stream_put (s, lsa->data, OSPF_LSA_HEADER_SIZE);
@@ -3264,6 +3277,7 @@ ospf_ls_upd_packet_new (struct list *update, struct ospf_interface *oi)
   else
     size = oi->ifp->mtu;
 
+  /* XXX Should this be - sizeof(struct ip)?? -gdt */
   if (size > OSPF_MAX_PACKET_SIZE)
     {
       zlog_warn ("ospf_ls_upd_packet_new: oversized LSA id:%s too big,"

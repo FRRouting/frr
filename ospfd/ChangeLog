@@ -1,3 +1,15 @@
+2005-01-10  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* ospf_packet.h: Remove commented out definition of
+	OSPF_MAX_PACKET; neither it or the uncommented one are used any more.
+
+	* ospf_packet.c (ospf_make_ls_upd): Leave room for authentication
+	when deciding if an update will fit.
+	(ospf_packet_authspace): Factor out calculation of size required
+	for authentication.
+	(ospf_make_db_desc): Use ospf_max_packet, not OSPF_MAX_PACKET.
+	Don't confuse readers that there is a macro.
+
 2004-12-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_network.c: Improve all setsockopt error messages to give detailed
