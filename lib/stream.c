@@ -46,6 +46,11 @@ stream_new (size_t size)
 {
   struct stream *s;
 
+  assert (size > 0);
+  
+  if (size == 0)
+    return NULL;
+  
   s = XCALLOC (MTYPE_STREAM, sizeof (struct stream));
 
   s->data = XCALLOC (MTYPE_STREAM_DATA, size);
