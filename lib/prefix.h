@@ -23,6 +23,15 @@
 #ifndef _ZEBRA_PREFIX_H
 #define _ZEBRA_PREFIX_H
 
+/*
+ * A struct prefix contains an address family, a prefix length, and an
+ * address.  This can represent either a 'network prefix' as defined
+ * by CIDR, where the 'host bits' of the prefix are 0
+ * (e.g. AF_INET:10.0.0.0/8), or an address and netmask
+ * (e.g. AF_INET:10.0.0.9/8), such as might be configured on an
+ * interface.
+ */
+
 /* IPv4 and IPv6 unified prefix structure. */
 struct prefix
 {

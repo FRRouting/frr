@@ -118,7 +118,14 @@ prefix_copy (struct prefix *dest, struct prefix *src)
     }
 }
 
-/* If both prefix structure is same then return 1 else return 0. */
+/* 
+ * Return 1 if the address/netmask contained in the prefix structure
+ * is the same, and else return 0.  For this routine, 'same' requires
+ * that not only the prefix length and the network part be the same,
+ * but also the host part.  Thus, 10.0.0.1/8 and 10.0.0.2/8 are not
+ * the same.  Note that this routine has the same return value sense
+ * as '==' (which is different from prefix_cmp).
+ */
 int
 prefix_same (struct prefix *p1, struct prefix *p2)
 {
@@ -136,8 +143,16 @@ prefix_same (struct prefix *p1, struct prefix *p2)
   return 0;
 }
 
-/* When both prefix structure is not same, but will be same after
-   applying mask, return 0. otherwise, return 1 */
+/*
+ * Return 0 if the network prefixes represented by the struct prefix
+ * arguments are the same prefix, and 1 otherwise.  Network prefixes
+ * are considered the same if the prefix lengths are equal and the
+ * network parts are the same.  Host bits (which are considered masked
+ * by the prefix length) are not significant.  Thus, 10.0.0.1/8 and
+ * 10.0.0.2/8 are considered equivalent by this routine.  Note that
+ * this routine has the same return sense as strcmp (which is different
+ * from prefix_same).
+ */
 int
 prefix_cmp (struct prefix *p1, struct prefix *p2)
 {
