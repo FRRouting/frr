@@ -174,6 +174,7 @@ ospf6_router_lsa_originate (struct thread *thread)
       /* Multiple Router-LSA instance according to size limit setting */
       if ( (oa->router_lsa_size_limit != 0)
           && ((caddr_t) lsdesc + sizeof (struct ospf6_router_lsdesc) -
+	      /* XXX warning: comparison between signed and unsigned */
               (caddr_t) buffer > oa->router_lsa_size_limit))
         {
           if ((caddr_t) lsdesc == (caddr_t) router_lsa +
