@@ -1,5 +1,10 @@
 2004-12-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* NEWS: Note addition of watchquagga.
+	* HACKING: Note that watchquagga is in testing phase.
+
+2004-12-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* watchquagga: New watchquagga daemon.
 
 2004-12-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>

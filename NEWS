@@ -1,5 +1,10 @@
 * Changes in Quagga 0.98.0
 
+- Watchquagga daemon added.  This is not well tested yet.  Please try
+  monitor mode first before enabling restart features.  It is important
+  to make sure that the various timers are configured with appropriate
+  values for your site.
+
 - BGP route-server support added. See the texinfo documentation.
 
 - OSPF API initialisation is disabled by default even if compiled in. You

@@ -1,5 +1,5 @@
 -*- mode: text; -*-
-$Id: HACKING,v 1.13 2004/12/03 19:03:33 ajs Exp $
+$Id: HACKING,v 1.14 2004/12/22 03:16:59 ajs Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -158,6 +158,7 @@ Daemons which are in a testing phase are
 
   ospf6d
   isisd
+  watchquagga
 
 IMPORT OR UPDATE VENDOR SPECIFIC ROUTING PROTOCOLS
 
