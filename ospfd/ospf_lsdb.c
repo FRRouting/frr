@@ -88,6 +88,7 @@ ospf_lsdb_add (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
   struct route_table *table;
   struct prefix_ls lp;
   struct route_node *rn;
+  struct ospf_lsa *old;
 
   table = lsdb->type[lsa->data->type].db;
   lsdb_prefix_set (&lp, lsa);
@@ -97,7 +98,6 @@ ospf_lsdb_add (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
       if (IS_LSA_SELF (lsa))
 	lsdb->type[lsa->data->type].count_self++;
       lsdb->type[lsa->data->type].count++;
-      lsdb->type[lsa->data->type].checksum += ntohs(lsa->data->checksum);
       lsdb->total++;
     }
   else
@@ -105,6 +105,9 @@ ospf_lsdb_add (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
       if (rn->info == lsa)
 	return;
       
+      old = rn->info;
+      lsdb->type[old->data->type].checksum -= ntohs(old->data->checksum);
+
       ospf_lsa_unlock (rn->info);
       route_unlock_node (rn);
     }
@@ -113,6 +116,7 @@ ospf_lsdb_add (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
   if (lsdb->new_lsa_hook != NULL)
     (* lsdb->new_lsa_hook)(lsa);
 #endif /* MONITOR_LSDB_CHANGE */
+  lsdb->type[lsa->data->type].checksum += ntohs(lsa->data->checksum);
   rn->info = ospf_lsa_lock (lsa);
 }
 
