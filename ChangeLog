@@ -1,3 +1,8 @@
+2003-12-22 Hasso Tepper <hasso@estpak.ee>
+
+	* lib/linklist.c: Revert microfix I commited while reverting 
+	  [quagga-dev 227]. Caused by misreading code.
+
 2003-12-21 Hasso Tepper <hasso@estpak.ee>
 
 	* lib/linklist.c: Revert patch [quagga-dev 227]. listnode_add_sort()
