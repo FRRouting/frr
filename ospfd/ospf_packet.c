@@ -2093,11 +2093,10 @@ ospf_recv_packet (int fd, struct interface **ifp)
   ip_len = ip_len + (iph.ip_hl << 2);
 #endif
   
-  ibuf = stream_new (ip_len);
-  iov.iov_base = STREAM_DATA (ibuf);
-  iov.iov_len = ip_len;
   if ( (ibuf = stream_new (ip_len)) == NULL)
     return NULL;
+  iov.iov_base = STREAM_DATA (ibuf);
+  iov.iov_len = ip_len;
   
   ret = stream_recvmsg (ibuf, fd, &msgh, 0, ip_len);
   

@@ -1,3 +1,8 @@
+2005-02-15 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_packet.c: (ospf_recv_packet) Fix silly error wrt allocating
+	  ibuf. Thanks Andrew.
+
 2005-02-14 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_packet.c: (ospf_recv_packet) use stream_recvmsg.
