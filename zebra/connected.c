@@ -156,9 +156,9 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
     }
   else
     /* no broadcast or destination address was supplied */
-    if (prefixlen == IPV4_MAX_PREFIXLEN)
-      zlog_warn("warning: interface %s with addr %s/%d needs a peer address",
-		ifp->name,inet_ntoa(*addr),prefixlen);
+    if ((prefixlen == IPV4_MAX_PREFIXLEN) && if_is_pointopoint(ifp))
+      zlog_warn("warning: PtP interface %s with addr %s/%d needs a "
+      		"peer address",ifp->name,inet_ntoa(*addr),prefixlen);
 
   /* Label of this address. */
   if (label)

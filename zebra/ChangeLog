@@ -1,3 +1,8 @@
+2004-12-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* connected.c: (connected_add_ipv4) Limit warning about /32 addresses
+	  with no peer specified to PtP interfaces only.
+
 2004-12-18 Hasso Tepper <hasso at quagga.net>
 
 	* zebra_vty.c: Fix "show ipv6 route <proto>" command help and make it
