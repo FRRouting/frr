@@ -1,3 +1,9 @@
+2004-05-11 Paul Jakma <paul@dishone.st>
+
+	* ripng_nexthop.h: SUNOS_5 does not define s6_addr32
+	  catch ifndef(s6_addr32) && defined(SUNOS_5) and define
+	  it ourselves based on the S10 _KERNEL guarded define.
+	  
 2004-05-08 Paul Jakma <paul@dishone.st>
 
 	* ripng_{interface,zebra}.c: sync with zclient changes
