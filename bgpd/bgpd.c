@@ -4122,6 +4122,7 @@ peer_uptime (time_t uptime2, char *buf, size_t len)
   /* Check buffer length. */
   if (len < BGP_UPTIME_LEN)
     {
+      /* XXX: warning: long int format, size_t arg (arg 2) */
       zlog_warn ("peer_uptime (): buffer shortage %ld", len);
       /* XXX: should return status instead of buf... */
       snprintf (buf, len, "<error> "); 
