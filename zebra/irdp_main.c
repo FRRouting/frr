@@ -101,19 +101,21 @@ int
 irdp_sock_init (void)
 {
   int ret, i;
+  int save_errno;
 
   if ( zserv_privs.change (ZPRIVS_RAISE) )
        zlog_err ("irdp_sock_init: could not raise privs, %s",
                   safe_strerror (errno) );
 
   irdp_sock = socket (AF_INET, SOCK_RAW, IPPROTO_ICMP);
+  save_errno = errno;
 
   if ( zserv_privs.change (ZPRIVS_LOWER) )
        zlog_err ("irdp_sock_init: could not lower privs, %s",
              safe_strerror (errno) );
 
   if (irdp_sock < 0) {
-    zlog_warn ("IRDP: can't create irdp socket %s", safe_strerror(errno));
+    zlog_warn ("IRDP: can't create irdp socket %s", safe_strerror(save_errno));
     return irdp_sock;
   };
   

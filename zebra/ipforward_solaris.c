@@ -87,10 +87,12 @@ solaris_nd(const int cmd, const char* parameter, const int value)
     }
   if (ioctl (fd, I_STR, &strioctl) < 0) 
     {
+      int save_errno = errno;
       if ( zserv_privs.change (ZPRIVS_LOWER) )
         zlog_err ("solaris_nd: Can't lower privileges");
       close (fd);
-      zlog_warn("ioctl I_STR failed on device %s - %s", device,safe_strerror(errno));
+      zlog_warn("ioctl I_STR failed on device %s - %s",
+      		device, safe_strerror(save_errno));
       return -1;
     }
   close(fd);

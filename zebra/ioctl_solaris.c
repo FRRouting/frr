@@ -46,8 +46,8 @@ int
 if_ioctl (u_long request, caddr_t buffer)
 {
   int sock;
-  int ret = 0;
-  int err = 0;
+  int ret;
+  int err;
 
   if (zserv_privs.change(ZPRIVS_RAISE))
     zlog (NULL, LOG_ERR, "Can't raise privileges");
@@ -61,15 +61,12 @@ if_ioctl (u_long request, caddr_t buffer)
       exit (1);
     }
 
-  ret = ioctl (sock, request, buffer);
+  if ((ret = ioctl (sock, request, buffer)) < 0)
+    err = errno;
   
   if (zserv_privs.change(ZPRIVS_LOWER))
     zlog (NULL, LOG_ERR, "Can't lower privileges");
 
-  if (ret < 0)
-    {
-      err = errno;
-    }
   close (sock);
 
   if (ret < 0)
@@ -86,8 +83,8 @@ if_ioctl_ipv6 (u_long request, caddr_t buffer)
 {
 #ifdef HAVE_IPV6
   int sock;
-  int ret = 0;
-  int err = 0;
+  int ret;
+  int err;
 
   if (zserv_privs.change(ZPRIVS_RAISE))
     zlog (NULL, LOG_ERR, "Can't raise privileges");
@@ -101,15 +98,12 @@ if_ioctl_ipv6 (u_long request, caddr_t buffer)
       exit (1);
     }
 
-  ret = ioctl (sock, request, buffer);
+  if ((ret = ioctl (sock, request, buffer)) < 0)
+    err = errno;
 
   if (zserv_privs.change(ZPRIVS_LOWER))
     zlog (NULL, LOG_ERR, "Can't lower privileges");
 
-  if (ret < 0)
-    {
-      err = errno;
-    }
   close (sock);
 
   if (ret < 0)

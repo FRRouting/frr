@@ -1,5 +1,16 @@
 2005-01-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* if_ioctl_solaris.c: (interface_list_ioctl) Save errno before calling
+	  zserv_privs.change.
+	* ioctl{,_solaris}.c: (if_ioctl,if_ioctl_ipv6) Save errno before calling
+	  zserv_privs.change.
+	* ipforward_solaris.c: (solaris_nd) Save errno before calling
+	  zserv_privs.change.
+	* irdp_main.c: (irdp_sock_init) Save errno before calling
+	  zserv_privs.change.
+
+2005-01-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* rt_netlink.c: (netlink_socket,netlink_request,netlink_parse_info,
 	  netlink_talk) Save errno before calling zserv_privs.change.
 

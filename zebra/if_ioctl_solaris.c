@@ -50,6 +50,7 @@ interface_list_ioctl (int af)
   struct lifconf lifconf;
   struct interface *ifp;
   int n;
+  int save_errno;
   size_t needed, lastneeded = 0;
   char *buf = NULL;
 
@@ -72,6 +73,7 @@ calculate_lifc_len:     /* must hold privileges to enter here */
   lifn.lifn_family = af;
   lifn.lifn_flags = 0;
   ret = ioctl (sock, SIOCGLIFNUM, &lifn);
+  save_errno = errno;
   
   if (zserv_privs.change(ZPRIVS_LOWER))
     zlog (NULL, LOG_ERR, "Can't lower privileges");
@@ -79,7 +81,7 @@ calculate_lifc_len:     /* must hold privileges to enter here */
   if (ret < 0)
     {
       zlog_warn ("interface_list_ioctl: SIOCGLIFNUM failed %s",
-                 safe_strerror (errno));
+                 safe_strerror (save_errno));
       close (sock);
       return -1;
     }
