@@ -1,6 +1,14 @@
 
 		  Zebra OSPF daemon for IPv6 network
 
+			     2003/08/18
+
+README for newer code is not yet. General usage should remain
+the same. For further usage, see command helps by typing '?'
+in vty, and then imagin ! ;p) Previous README contents follows.
+
+		  Zebra OSPF daemon for IPv6 network
+
 			     2001/12/20
 
 Zebra OSPF6d is OSPF version 3 daemon which is specified by

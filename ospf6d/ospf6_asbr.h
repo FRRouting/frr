@@ -22,53 +22,29 @@
 #ifndef OSPF6_ASBR_H
 #define OSPF6_ASBR_H
 
-#include "thread.h"
+/* Debug option */
+extern unsigned char conf_debug_ospf6_asbr;
+#define OSPF6_DEBUG_ASBR_ON() \
+  (conf_debug_ospf6_asbr = 1)
+#define OSPF6_DEBUG_ASBR_OFF() \
+  (conf_debug_ospf6_asbr = 0)
+#define IS_OSPF6_DEBUG_ASBR \
+  (conf_debug_ospf6_asbr)
 
 struct ospf6_external_info
 {
-  int is_removed;
-  struct thread *thread_originate;
-
-  struct ospf6_external_route *route;
-
-  struct ospf6_external_info *prev;
-  struct ospf6_external_info *next;
-
-  /* external route type */
+  /* External route type */
   int type;
 
-  /* external route ifindex */
-  int ifindex;
-
-  /* LS-ID */
+  /* Originating Link State ID */
   u_int32_t id;
 
-  /* nexthops */
-  u_int nexthop_num;
-  struct in6_addr *nexthop;
-
-  u_int8_t  prefix_options;
-
-  u_int8_t  metric_type;
-  u_int32_t metric;
   struct in6_addr forwarding;
   /* u_int32_t tag; */
 };
 
-struct ospf6_external_route
-{
-  struct route_node *node;
-
-  /* prefix */
-  struct prefix prefix;
-
-  /* external information */
-  struct ospf6_external_info *info_head;
-  struct ospf6_external_info *info_tail;
-};
-
 /* AS-External-LSA */
-struct ospf6_lsa_as_external
+struct ospf6_as_external_lsa
 {
   u_int32_t bits_metric;
 
@@ -87,26 +63,24 @@ struct ospf6_lsa_as_external
   { (E)->bits_metric &= htonl (0xff000000); \
     (E)->bits_metric |= htonl (0x00ffffff) & htonl (C); }
 
-void ospf6_asbr_routemap_update ();
+void ospf6_asbr_lsa_add (struct ospf6_lsa *lsa);
+void ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa);
+void ospf6_asbr_lsentry_add (struct ospf6_route *asbr_entry);
+void ospf6_asbr_lsentry_remove (struct ospf6_route *asbr_entry);
+
+int ospf6_asbr_is_asbr (struct ospf6 *o);
+void
+ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
+                             u_int nexthop_num, struct in6_addr *nexthop);
+void
+ospf6_asbr_redistribute_remove (int type, int ifindex, struct prefix *prefix);
 
 int ospf6_redistribute_config_write (struct vty *vty);
-void ospf6_redistribute_show_config (struct vty *vty);
-
-void
-ospf6_asbr_route_add (int type, int ifindex, struct prefix *prefix,
-                      u_int nexthop_num, struct in6_addr *nexthop);
-void
-ospf6_asbr_route_remove (int type, int ifindex, struct prefix *prefix);
-
-void ospf6_asbr_external_lsa_add (struct ospf6_lsa *lsa);
-void ospf6_asbr_external_lsa_remove (struct ospf6_lsa *lsa);
-void ospf6_asbr_external_lsa_change (struct ospf6_lsa *old,
-                                     struct ospf6_lsa *new);
-
-void ospf6_asbr_asbr_entry_add (struct ospf6_route_req *topo_entry);
-void ospf6_asbr_asbr_entry_remove (struct ospf6_route_req *topo_entry);
 
 void ospf6_asbr_init ();
+
+int config_write_ospf6_debug_asbr (struct vty *vty);
+void install_element_ospf6_debug_asbr ();
 
 #endif /* OSPF6_ASBR_H */
 

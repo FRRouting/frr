@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999 Yasuhiro Ohara
+ * Copyright (C) 2003 Yasuhiro Ohara
  *
  * This file is part of GNU Zebra.
  *
@@ -22,10 +22,18 @@
 #ifndef OSPF6_INTERFACE_H
 #define OSPF6_INTERFACE_H
 
-#include "ospf6_message.h"
+#include "if.h"
 
-/* This file defines interface data structure. */
+/* Debug option */
+extern unsigned char conf_debug_ospf6_interface;
+#define OSPF6_DEBUG_INTERFACE_ON() \
+  (conf_debug_ospf6_interface = 1)
+#define OSPF6_DEBUG_INTERFACE_OFF() \
+  (conf_debug_ospf6_interface = 0)
+#define IS_OSPF6_DEBUG_INTERFACE \
+  (conf_debug_ospf6_interface)
 
+/* Interface structure */
 struct ospf6_interface
 {
   /* IF info from zebra */
@@ -38,10 +46,9 @@ struct ospf6_interface
   list neighbor_list;
 
   /* linklocal address of this I/F */
-  struct in6_addr *lladdr;
+  struct in6_addr *linklocal_addr;
 
-  /* Interface ID; same as ifindex */
-  u_int32_t if_id;
+  /* Interface ID; use interface->ifindex */
 
   /* ospf6 instance id */
   u_char instance_id;
@@ -52,7 +59,7 @@ struct ospf6_interface
   /* Router Priority */
   u_char priority;
 
-  /* Timers */
+  /* Time Interval */
   u_int16_t hello_interval;
   u_int16_t dead_interval;
   u_int32_t rxmt_interval;
@@ -70,84 +77,76 @@ struct ospf6_interface
   char flag;
 
   /* Decision of DR Election */
-  u_int32_t dr;
-  u_int32_t bdr;
-  u_int32_t prevdr;
-  u_int32_t prevbdr;
-
-  /* Ongoing Tasks */
-  struct thread *thread_send_hello;
-  struct thread *thread_send_lsack_delayed;
-
-  /* LSAs to Delayed Acknowledge */
-  struct ospf6_lsdb *ack_list;
+  u_int32_t drouter;
+  u_int32_t bdrouter;
+  u_int32_t prev_drouter;
+  u_int32_t prev_bdrouter;
 
   /* Linklocal LSA Database: includes Link-LSA */
   struct ospf6_lsdb *lsdb;
 
-  /* statistics */
-  u_int ospf6_stat_dr_election;
-  u_int ospf6_stat_delayed_lsack;
+  struct ospf6_lsdb *lsupdate_list;
+  struct ospf6_lsdb *lsack_list;
 
-  struct ospf6_message_stat message_stat[OSPF6_MESSAGE_TYPE_MAX];
+  /* Ongoing Tasks */
+  struct thread *thread_send_hello;
+  struct thread *thread_send_lsupdate;
+  struct thread *thread_send_lsack;
 
-  void (*foreach_nei) (struct ospf6_interface *, void *, int,
-                       void (*func) (void *, int, void *));
+  struct thread *thread_network_lsa;
+  struct thread *thread_link_lsa;
+  struct thread *thread_intra_prefix_lsa;
 
-  struct thread *maxage_remover;
+  struct ospf6_route_table *route_connected;
 
-  /* route-map to filter connected prefix */
+  /* prefix-list name to filter connected prefix */
   char *plist_name;
 };
 
-extern char *ospf6_interface_state_string[];
+/* interface state */
+#define OSPF6_INTERFACE_NONE             0
+#define OSPF6_INTERFACE_DOWN             1
+#define OSPF6_INTERFACE_LOOPBACK         2
+#define OSPF6_INTERFACE_WAITING          3
+#define OSPF6_INTERFACE_POINTTOPOINT     4
+#define OSPF6_INTERFACE_DROTHER          5
+#define OSPF6_INTERFACE_BDR              6
+#define OSPF6_INTERFACE_DR               7
+#define OSPF6_INTERFACE_MAX              8
 
-#define OSPF6_INTERFACE_FLAG_PASSIVE      0x01
-#define OSPF6_INTERFACE_FLAG_FORCE_PREFIX 0x02
+extern char *ospf6_interface_state_str[];
+
+/* flags */
+#define OSPF6_INTERFACE_DISABLE      0x01
+#define OSPF6_INTERFACE_PASSIVE      0x02
 
 
 /* Function Prototypes */
 
-void
-ospf6_interface_schedule_maxage_remover (void *arg, int val, void *obj);
+struct ospf6_interface *ospf6_interface_lookup_by_ifindex (int);
+struct ospf6_interface *ospf6_interface_lookup_by_name (char *);
+struct ospf6_interface *ospf6_interface_create (struct interface *);
+void ospf6_interface_delete (struct ospf6_interface *);
 
-struct ospf6_interface *
-ospf6_interface_create (struct interface *);
-void
-ospf6_interface_delete (struct ospf6_interface *);
-
-struct ospf6_interface *
-ospf6_interface_lookup_by_index (int);
-struct ospf6_interface *
-ospf6_interface_lookup_by_name (char *);
+void ospf6_interface_enable (struct ospf6_interface *);
+void ospf6_interface_disable (struct ospf6_interface *);
 
 void ospf6_interface_if_add (struct interface *);
 void ospf6_interface_if_del (struct interface *);
 void ospf6_interface_state_update (struct interface *);
-void ospf6_interface_address_update (struct interface *);
+void ospf6_interface_connected_route_update (struct interface *);
+
+/* interface event */
+int interface_up (struct thread *);
+int interface_down (struct thread *);
+int wait_timer (struct thread *);
+int backup_seen (struct thread *);
+int neighbor_change (struct thread *);
 
 void ospf6_interface_init ();
 
-#if 0
-int
-ospf6_interface_count_neighbor_in_state (u_char state,
-                                         struct ospf6_interface *o6i);
-int
-ospf6_interface_count_full_neighbor (struct ospf6_interface *);
-#endif
-
-int ospf6_interface_is_enabled (u_int32_t ifindex);
-
-void
-ospf6_interface_delayed_ack_add (struct ospf6_lsa *lsa,
-                                 struct ospf6_interface *o6i);
-void
-ospf6_interface_delayed_ack_remove (struct ospf6_lsa *lsa,
-                                    struct ospf6_interface *o6i);
-
-void
-ospf6_interface_statistics_show (struct vty *vty,
-                                 struct ospf6_interface *o6i);
+int config_write_ospf6_debug_interface (struct vty *vty);
+void install_element_ospf6_debug_interface ();
 
 #endif /* OSPF6_INTERFACE_H */
 

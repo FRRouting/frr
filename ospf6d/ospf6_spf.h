@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999 Yasuhiro Ohara
+ * Copyright (C) 2003 Yasuhiro Ohara
  *
  * This file is part of GNU Zebra.
  *
@@ -22,7 +22,16 @@
 #ifndef OSPF6_SPF_H
 #define OSPF6_SPF_H
 
-#include "prefix.h"
+/* Debug option */
+extern unsigned char conf_debug_ospf6_spf;
+#define OSPF6_DEBUG_SPF_SUMMARY   0x01
+#define OSPF6_DEBUG_SPF_DETAIL    0x02
+#define OSPF6_DEBUG_SPF_ON(level) \
+  (conf_debug_ospf6_spf |= (level))
+#define OSPF6_DEBUG_SPF_OFF(level) \
+  (conf_debug_ospf6_spf &= ~(level))
+#define IS_OSPF6_DEBUG_SPF(level) \
+  (conf_debug_ospf6_spf & OSPF6_DEBUG_SPF_ ## level)
 
 /* Transit Vertex */
 struct ospf6_vertex
@@ -31,74 +40,53 @@ struct ospf6_vertex
   u_int8_t type;
 
   /* Vertex Identifier */
-  struct prefix_ls vertex_id;
+  struct prefix vertex_id;
 
   /* Identifier String */
-  char string[128];
+  char name[128];
+
+  /* Associated Area */
+  struct ospf6_area *area;
 
   /* Associated LSA */
   struct ospf6_lsa *lsa;
 
-  /* Distance from Root (Cost) */
-  u_int16_t distance;
+  /* Distance from Root (i.e. Cost) */
+  u_int32_t cost;
 
-  /* Depth of this node */
-  u_char depth;
+  /* Router hops to this node */
+  u_char hops;
 
   /* nexthops to this node */
-  struct linklist *nexthop_list;
-
-  /* upper nodes in spf tree */
-  list parent_list;
-
-  /* lower nodes in spf tree */
-  list path_list;
+  struct ospf6_nexthop nexthop[OSPF6_MULTI_PATH_LIMIT];
 
   /* capability bits */
-  u_char capability_bits;
+  u_char capability;
 
   /* Optional capabilities */
-  u_char opt_capability[3];
+  u_char options[3];
+
+  /* For tree display */
+  struct ospf6_vertex *parent;
+  list child_list;
 };
 
 #define OSPF6_VERTEX_TYPE_ROUTER  0x01
 #define OSPF6_VERTEX_TYPE_NETWORK 0x02
+#define VERTEX_IS_TYPE(t, v) \
+  ((v)->type == OSPF6_VERTEX_TYPE_ ## t ? 1 : 0)
 
-struct ospf6_spftree
-{
-  /* calculation thread */
-  struct thread *t_spf_calculation;
+void ospf6_spf_table_finish (struct ospf6_route_table *result_table);
+void ospf6_spf_calculation (u_int32_t router_id,
+                            struct ospf6_route_table *result_table,
+                            struct ospf6_area *oa);
+void ospf6_spf_schedule (struct ospf6_area *oa);
 
-  /* root of this tree */
-  struct ospf6_vertex *root;
+void ospf6_spf_display_subtree (struct vty *vty, char *prefix,
+                                int rest, struct ospf6_vertex *v);
 
-  /* list for search */
-  list list;
-
-  /* statistics */
-  u_int32_t timerun;
-
-  struct timeval runtime_total;
-  struct timeval runtime_min;
-  struct timeval runtime_max;
-
-  struct timeval updated_time;
-  struct timeval interval_total;
-  struct timeval interval_min;
-  struct timeval interval_max;
-};
-
-int ospf6_spf_calculate_route (void *);
-
-void
-ospf6_spf_calculation_schedule (u_int32_t area_id);
-struct ospf6_spftree *ospf6_spftree_create ();
-void
-ospf6_spf_statistics_show (struct vty *vty, struct ospf6_spftree *spf_tree);
-void ospf6_spftree_delete (struct ospf6_spftree *spf_tree);
-
-void ospf6_spf_database_hook (struct ospf6_lsa *old, struct ospf6_lsa *new);
-
+int config_write_ospf6_debug_spf (struct vty *vty);
+void install_element_ospf6_debug_spf ();
 void ospf6_spf_init ();
 
 #endif /* OSPF6_SPF_H */

@@ -1,32 +1,20 @@
 !
 ! Zebra configuration saved from vty
-!   2000/05/11 02:09:37
+!   2003/11/28 00:49:49
 !
-hostname ospf6d@yasu3380
+hostname ospf6d@plant
 password zebra
-log file /var/log/zebra-ospf6d.log
 log stdout
+service advanced-vty
 !
-debug ospf6 message dbdesc
-debug ospf6 message lsreq
-debug ospf6 message lsupdate
-debug ospf6 message lsack
-debug ospf6 neighbor
-debug ospf6 spf
-debug ospf6 interface
-debug ospf6 area
-debug ospf6 lsa
-debug ospf6 zebra
-debug ospf6 config
-debug ospf6 dbex
-debug ospf6 route
+debug ospf6 neighbor state
 !
-interface ed0
+interface fxp0
  ipv6 ospf6 cost 1
  ipv6 ospf6 hello-interval 10
  ipv6 ospf6 dead-interval 40
  ipv6 ospf6 retransmit-interval 5
- ipv6 ospf6 priority 1
+ ipv6 ospf6 priority 0
  ipv6 ospf6 transmit-delay 1
  ipv6 ospf6 instance-id 0
 !
@@ -40,15 +28,25 @@ interface lo0
  ipv6 ospf6 instance-id 0
 !
 router ospf6
- router-id 0.0.0.1
+ router-id 255.1.1.1
  redistribute static route-map static-ospf6
- interface ed0 area 0.0.0.0
- interface lo0 area 0.0.0.0
+ interface fxp0 area 0.0.0.0
 !
-ipv6 prefix-list hostroute seq 10 permit 3ffe:501:100c:4380::/60 le 128 ge 128
+access-list access4 permit 127.0.0.1/32
 !
-route-map static-ospf6 permit 50
- match ipv6 address prefix-list hostroute
+ipv6 access-list access6 permit 3ffe:501::/32
+ipv6 access-list access6 permit 2001:200::/48
+ipv6 access-list access6 permit ::1/128
+!
+ipv6 prefix-list test-prefix seq 1000 deny any
+!
+route-map static-ospf6 permit 10
+ match ipv6 address prefix-list test-prefix
  set metric-type type-2
- set metric 30
+ set metric 2000
+!
+line vty
+ access-class access4
+ ipv6 access-class access6
+ exec-timeout 0 0
 !

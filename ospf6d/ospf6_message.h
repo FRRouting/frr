@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999 Yasuhiro Ohara
+ * Copyright (C) 1999-2003 Yasuhiro Ohara
  *
  * This file is part of GNU Zebra.
  *
@@ -22,87 +22,84 @@
 #ifndef OSPF6_MESSAGE_H
 #define OSPF6_MESSAGE_H
 
-#include "ospf6_prefix.h"
-#include "ospf6_lsa.h"
+#define OSPF6_MESSAGE_BUFSIZ  4096
+
+/* Debug option */
+extern unsigned char conf_debug_ospf6_message[];
+#define OSPF6_DEBUG_MESSAGE_SEND 0x01
+#define OSPF6_DEBUG_MESSAGE_RECV 0x02
+#define OSPF6_DEBUG_MESSAGE_ON(type, level) \
+  (conf_debug_ospf6_message[type] |= (level))
+#define OSPF6_DEBUG_MESSAGE_OFF(type, level) \
+  (conf_debug_ospf6_message[type] &= ~(level))
+#define IS_OSPF6_DEBUG_MESSAGE(t, e) \
+  (conf_debug_ospf6_message[t] & OSPF6_DEBUG_MESSAGE_ ## e)
 
 /* Type */
-#define OSPF6_MESSAGE_TYPE_NONE     0x0
 #define OSPF6_MESSAGE_TYPE_UNKNOWN  0x0
 #define OSPF6_MESSAGE_TYPE_HELLO    0x1  /* Discover/maintain neighbors */
 #define OSPF6_MESSAGE_TYPE_DBDESC   0x2  /* Summarize database contents */
-#define OSPF6_MESSAGE_TYPE_LSREQ    0x3  /* Database download */
+#define OSPF6_MESSAGE_TYPE_LSREQ    0x3  /* Database download request */
 #define OSPF6_MESSAGE_TYPE_LSUPDATE 0x4  /* Database update */
 #define OSPF6_MESSAGE_TYPE_LSACK    0x5  /* Flooding acknowledgment */
-#define OSPF6_MESSAGE_TYPE_MAX      0x6
+#define OSPF6_MESSAGE_TYPE_ALL      0x6  /* For debug option */
+
+#define OSPF6_MESSAGE_TYPE_CANONICAL(T) \
+  ((T) > OSPF6_MESSAGE_TYPE_LSACK ? OSPF6_MESSAGE_TYPE_UNKNOWN : (T))
+
+extern char *ospf6_message_type_str[];
+#define OSPF6_MESSAGE_TYPE_NAME(T) \
+  (ospf6_message_type_str[ OSPF6_MESSAGE_TYPE_CANONICAL (T) ])
 
 /* OSPFv3 packet header */
 struct ospf6_header
 {
   u_char    version;
   u_char    type;
-  u_int16_t len;
+  u_int16_t length;
   u_int32_t router_id;
   u_int32_t area_id;
-  u_int16_t cksum;
+  u_int16_t checksum;
   u_char    instance_id;
   u_char    reserved;
 };
 
+#define OSPF6_MESSAGE_END(H) ((caddr_t) (H) + ntohs ((H)->length))
+
 /* Hello */
-#define MAXLISTEDNBR     64
 struct ospf6_hello
 {
   u_int32_t interface_id;
-  u_char    rtr_pri;
+  u_char    priority;
   u_char    options[3];
   u_int16_t hello_interval;
-  u_int16_t router_dead_interval;
-  u_int32_t dr;
-  u_int32_t bdr;
+  u_int16_t dead_interval;
+  u_int32_t drouter;
+  u_int32_t bdrouter;
+  /* Followed by Router-IDs */
 };
 
 /* Database Description */
 struct ospf6_dbdesc
 {
-  u_char    mbz1;
+  u_char    reserved1;
   u_char    options[3];
   u_int16_t ifmtu;
-  u_char    mbz2;
+  u_char    reserved2;
   u_char    bits;
   u_int32_t seqnum;
-  /* Followed by LSAs */
+  /* Followed by LSA Headers */
 };
-#define DEFAULT_INTERFACE_MTU 1500
 
-#define DD_IS_MSBIT_SET(x) ((x) & (1 << 0))
-#define DD_MSBIT_SET(x) ((x) |= (1 << 0))
-#define DD_MSBIT_CLEAR(x) ((x) &= ~(1 << 0))
-#define DD_IS_MBIT_SET(x) ((x) & (1 << 1))
-#define DD_MBIT_SET(x) ((x) |= (1 << 1))
-#define DD_MBIT_CLEAR(x) ((x) &= ~(1 << 1))
-#define DD_IS_IBIT_SET(x) ((x) & (1 << 2))
-#define DD_IBIT_SET(x) ((x) |= (1 << 2))
-#define DD_IBIT_CLEAR(x) ((x) &= ~(1 << 2))
-
-#define DDBIT_IS_MASTER(x)   ((x) &   (1 << 0))
-#define DDBIT_IS_SLAVE(x)  (!((x) &   (1 << 0)))
-#define DDBIT_SET_MASTER(x)  ((x) |=  (1 << 0))
-#define DDBIT_SET_SLAVE(x)   ((x) |= ~(1 << 0))
-#define DDBIT_IS_MORE(x)     ((x) &   (1 << 1))
-#define DDBIT_SET_MORE(x)    ((x) |=  (1 << 1))
-#define DDBIT_CLR_MORE(x)    ((x) |= ~(1 << 1))
-#define DDBIT_IS_INITIAL(x)  ((x) &   (1 << 2))
-#define DDBIT_SET_INITIAL(x) ((x) |=  (1 << 2))
-#define DDBIT_CLR_INITIAL(x) ((x) |= ~(1 << 2))
-
-#define OSPF6_DBDESC_BIT_MASTER  0x01
-#define OSPF6_DBDESC_BIT_MORE    0x02
-#define OSPF6_DBDESC_BIT_INITIAL 0x04
+#define OSPF6_DBDESC_MSBIT (0x01) /* master/slave bit */
+#define OSPF6_DBDESC_MBIT  (0x02) /* more bit */
+#define OSPF6_DBDESC_IBIT  (0x04) /* initial bit */
 
 /* Link State Request */
-struct ospf6_lsreq
+/* It is just a sequence of entries below */
+struct ospf6_lsreq_entry
 {
-  u_int16_t mbz;          /* Must Be Zero */
+  u_int16_t reserved;     /* Must Be Zero */
   u_int16_t type;         /* LS type */
   u_int32_t id;           /* Link State ID */
   u_int32_t adv_router;   /* Advertising Router */
@@ -111,92 +108,33 @@ struct ospf6_lsreq
 /* Link State Update */
 struct ospf6_lsupdate
 {
-  u_int32_t lsupdate_num;
+  u_int32_t lsa_number;
+  /* Followed by LSAs */
 };
 
 /* Link State Acknowledgement */
-  /* no need for structure,
-     it will include only LSA header in the packet body.*/
+/* It is just a sequence of LSA Headers */
 
-/* definition for ospf6_message.c */
-#define OSPF6_MESSAGE_RECEIVE_BUFSIZE 5120
-#define OSPF6_MESSAGE_IOVEC_END       1024
+/* Function definition */
+void ospf6_hello_print (struct ospf6_header *);
+void ospf6_dbdesc_print (struct ospf6_header *);
+void ospf6_lsreq_print (struct ospf6_header *);
+void ospf6_lsupdate_print (struct ospf6_header *);
+void ospf6_lsack_print (struct ospf6_header *);
 
-#define IS_OVER_MTU(message,mtu,addsize) \
-          (iov_totallen(message)+(addsize) >= \
-            (mtu)-sizeof(struct ospf6_header))
+int ospf6_receive (struct thread *thread);
 
-#define OSPF6_MESSAGE_IOVEC_SIZE  1024
-#define OSPF6_MESSAGE_CLEAR(msg) \
-do { \
-  int x; \
-  for (x = 0; x < OSPF6_MESSAGE_IOVEC_SIZE; x++) \
-    { \
-      (msg)[x].iov_base = NULL; \
-      (msg)[x].iov_len = 0; \
-    } \
-} while (0)
+int ospf6_hello_send (struct thread *thread);
+int ospf6_dbdesc_send (struct thread *thread);
+int ospf6_dbdesc_send_newone (struct thread *thread);
+int ospf6_lsreq_send (struct thread *thread);
+int ospf6_lsupdate_send_interface (struct thread *thread);
+int ospf6_lsupdate_send_neighbor (struct thread *thread);
+int ospf6_lsack_send_interface (struct thread *thread);
+int ospf6_lsack_send_neighbor (struct thread *thread);
 
-#define OSPF6_MESSAGE_ATTACH(msg,buf,bufsize) \
-do { \
-  int x; \
-  for (x = 0; x < OSPF6_MESSAGE_IOVEC_SIZE; x++) \
-    if ((msg)[x].iov_base == (void *)NULL && (msg)[x].iov_len == 0) \
-      break; \
-  if (x < OSPF6_MESSAGE_IOVEC_SIZE - 1) \
-    { \
-      (msg)[x].iov_base = (void *)(buf); \
-      (msg)[x].iov_len = (bufsize); \
-    } \
-} while (0)
-
-#define OSPF6_MESSAGE_JOIN(msg,join) \
-do { \
-  int x,y; \
-  for (x = 0; x < OSPF6_MESSAGE_IOVEC_SIZE; x++) \
-    if ((msg)[x].iov_base == NULL && (msg)[x].iov_len == 0) \
-      break; \
-  for (y = x; y < OSPF6_MESSAGE_IOVEC_SIZE; y++) \
-    { \
-      (msg)[y].iov_base = (join)[y - x].iov_base; \
-      (msg)[y].iov_len = (join)[y - x].iov_len; \
-    } \
-} while (0)
-
-
-/* Statistics */
-struct ospf6_message_stat
-{
-  u_int32_t send;
-  u_int32_t send_octet;
-  u_int32_t recv;
-  u_int32_t recv_octet;
-};
-
-/* Type string */
-extern char *ospf6_message_type_string[];
-
-/* Function Prototypes */
-int ospf6_receive (struct thread *);
-
-int ospf6_send_hello (struct thread *);
-int ospf6_send_dbdesc_rxmt (struct thread *);
-int ospf6_send_dbdesc (struct thread *);
-int ospf6_send_lsreq (struct thread *);
-
-struct ospf6_neighbor;
-struct ospf6_interface;
-int
-ospf6_send_lsupdate_rxmt (struct thread *);
-void
-ospf6_send_lsupdate_direct (struct ospf6_lsa *, struct ospf6_neighbor *);
-void
-ospf6_send_lsupdate_flood (struct ospf6_lsa *, struct ospf6_interface *);
-
-int ospf6_send_lsack_delayed (struct thread *);
-int ospf6_send_lsack_direct (struct thread *);
-
-void ospf6_message_send (u_char, struct iovec *, struct in6_addr *, u_int);
+int config_write_ospf6_debug_message (struct vty *);
+void install_element_ospf6_debug_message ();
 
 #endif /* OSPF6_MESSAGE_H */
 

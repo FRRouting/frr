@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999 Yasuhiro Ohara
+ * Copyright (C) 2003 Yasuhiro Ohara
  *
  * This file is part of GNU Zebra.
  *
@@ -21,20 +21,62 @@
 
 #include <zebra.h>
 
+#include "log.h"
+
 #include "ospf6_proto.h"
 
-char *
-ospf6_options_string (u_char opt_capability[3], char *buffer, int size)
+void
+ospf6_prefix_apply_mask (struct ospf6_prefix *op)
+{
+  u_char *pnt, mask;
+  int index, offset;
+
+  pnt = (u_char *)((caddr_t) op + sizeof (struct ospf6_prefix));
+  index = op->prefix_length / 8;
+  offset = op->prefix_length % 8;
+  mask = 0xff << (8 - offset);
+
+  if (index >= 16)
+    {
+      zlog_warn ("Apply mask to ospf6_prefix failed");
+      return;
+    }
+
+  pnt[index] &= mask;
+  index ++;
+
+  while (index < OSPF6_PREFIX_SPACE (op->prefix_length))
+    pnt[index++] = 0;
+}
+
+void
+ospf6_prefix_options_printbuf (u_int8_t prefix_options, char *buf, int size)
+{
+  snprintf (buf, size, "xxx");
+}
+
+void
+ospf6_capability_printbuf (char capability, char *buf, int size)
+{
+  char w, v, e, b;
+  w = (capability & OSPF6_ROUTER_BIT_W ? 'W' : '-');
+  v = (capability & OSPF6_ROUTER_BIT_V ? 'V' : '-');
+  e = (capability & OSPF6_ROUTER_BIT_E ? 'E' : '-');
+  b = (capability & OSPF6_ROUTER_BIT_B ? 'B' : '-');
+  snprintf (buf, size, "----%c%c%c%c", w, v, e, b);
+}
+
+void
+ospf6_options_printbuf (char *options, char *buf, int size)
 {
   char *dc, *r, *n, *mc, *e, *v6;
-
-  dc = (OSPF6_OPT_ISSET (opt_capability, OSPF6_OPT_DC) ? "DC" : "--");
-  r  = (OSPF6_OPT_ISSET (opt_capability, OSPF6_OPT_R) ? "R" : "-");
-  n  = (OSPF6_OPT_ISSET (opt_capability, OSPF6_OPT_N) ? "N" : "-");
-  mc = (OSPF6_OPT_ISSET (opt_capability, OSPF6_OPT_MC) ? "MC" : "--");
-  e  = (OSPF6_OPT_ISSET (opt_capability, OSPF6_OPT_E) ? "E" : "-");
-  v6 = (OSPF6_OPT_ISSET (opt_capability, OSPF6_OPT_V6) ? "V6" : "--");
-  snprintf (buffer, size, "%s|%s|%s|%s|%s|%s", dc, r, n, mc, e, v6);
-  return buffer;
+  dc = (OSPF6_OPT_ISSET (options, OSPF6_OPT_DC) ? "DC" : "--");
+  r  = (OSPF6_OPT_ISSET (options, OSPF6_OPT_R)  ? "R"  : "-" );
+  n  = (OSPF6_OPT_ISSET (options, OSPF6_OPT_N)  ? "N"  : "-" );
+  mc = (OSPF6_OPT_ISSET (options, OSPF6_OPT_MC) ? "MC" : "--");
+  e  = (OSPF6_OPT_ISSET (options, OSPF6_OPT_E)  ? "E"  : "-" );
+  v6 = (OSPF6_OPT_ISSET (options, OSPF6_OPT_V6) ? "V6" : "--");
+  snprintf (buf, size, "%s|%s|%s|%s|%s|%s", dc, r, n, mc, e, v6);
 }
+
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2002 Yasuhiro Ohara
+ * Copyright (C) 2003 Yasuhiro Ohara
  *
  * This file is part of GNU Zebra.
  *
@@ -25,64 +25,146 @@
 #include "prefix.h"
 #include "table.h"
 
-#include "ospf6_prefix.h"
-#include "ospf6_lsa.h"
-
-struct ospf6_lsdb_node
-{
-  struct prefix_ipv6 key;
-
-  struct route_node *node;
-  struct route_node *next;
-
-  struct ospf6_lsa *lsa;
-};
-
 struct ospf6_lsdb
 {
   struct route_table *table;
   u_int32_t count;
-  void (*hook) (struct ospf6_lsa *);
+  void (*hook_add) (struct ospf6_lsa *);
+  void (*hook_remove) (struct ospf6_lsa *);
 };
 
-/* int  ospf6_lsdb_is_end (struct ospf6_lsdb_node *lsdb_node); */
-#define ospf6_lsdb_is_end(lsdb_node) ((lsdb_node)->node == NULL ? 1 : 0)
+#define LSDB_FOREACH_LSA(vty, func, lsdb)                             \
+  do {                                                                \
+    struct ospf6_lsa *lsa;                                            \
+    for (lsa = ospf6_lsdb_head (lsdb); lsa;                           \
+         lsa = ospf6_lsdb_next (lsa))                                 \
+      {                                                               \
+        (*(func)) (vty, lsa);                                         \
+      }                                                               \
+  } while (0)
+#define LSDB_FOREACH_LSA_T(vty, func, lsdb, type)                     \
+  do {                                                                \
+    struct ospf6_lsa *lsa;                                            \
+    for (lsa = ospf6_lsdb_type_head (type, lsdb); lsa;                \
+         lsa = ospf6_lsdb_type_next (type, lsa))                      \
+      {                                                               \
+        (*(func)) (vty, lsa);                                         \
+      }                                                               \
+  } while (0)
+#define LSDB_FOREACH_LSA_I(vty, func, lsdb, id)                       \
+  do {                                                                \
+    struct ospf6_lsa *lsa;                                            \
+    for (lsa = ospf6_lsdb_head (lsdb); lsa;                           \
+         lsa = ospf6_lsdb_next (lsa))                                 \
+      {                                                               \
+        if (lsa->header->id != id)                                    \
+          continue;                                                   \
+        (*(func)) (vty, lsa);                                         \
+      }                                                               \
+  } while (0)
+#define LSDB_FOREACH_LSA_R(vty, func, lsdb, router)                   \
+  do {                                                                \
+    struct ospf6_lsa *lsa;                                            \
+    for (lsa = ospf6_lsdb_head (lsdb); lsa;                           \
+         lsa = ospf6_lsdb_next (lsa))                                 \
+      {                                                               \
+        if (lsa->header->adv_router != router)                        \
+          continue;                                                   \
+        (*(func)) (vty, lsa);                                         \
+      }                                                               \
+  } while (0)
+#define LSDB_FOREACH_LSA_TI(vty, func, lsdb, type, id)                \
+  do {                                                                \
+    struct ospf6_lsa *lsa;                                            \
+    for (lsa = ospf6_lsdb_type_head (type, lsdb); lsa;                \
+         lsa = ospf6_lsdb_type_next (type, lsa))                      \
+      {                                                               \
+        if (lsa->header->id != id)                                    \
+          continue;                                                   \
+        (*(func)) (vty, lsa);                                         \
+      }                                                               \
+  } while (0)
+#define LSDB_FOREACH_LSA_TR(vty, func, lsdb, type, router)            \
+  do {                                                                \
+    struct ospf6_lsa *lsa;                                            \
+    for (lsa = ospf6_lsdb_type_router_head (type, router, lsdb); lsa; \
+         lsa = ospf6_lsdb_type_router_next (type, router, lsa))       \
+      {                                                               \
+        (*(func)) (vty, lsa);                                         \
+      }                                                               \
+  } while (0)
+#define LSDB_FOREACH_LSA_IR(vty, func, lsdb, id, router)              \
+  do {                                                                \
+    struct ospf6_lsa *lsa;                                            \
+    for (lsa = ospf6_lsdb_head (lsdb); lsa;                           \
+         lsa = ospf6_lsdb_next (lsa))                                 \
+      {                                                               \
+        if (lsa->header->adv_router != router)                        \
+          continue;                                                   \
+        if (lsa->header->id != id)                                    \
+          continue;                                                   \
+        (*(func)) (vty, lsa);                                         \
+      }                                                               \
+  } while (0)
+#define LSDB_FOREACH_LSA_TIR(vty, func, lsdb, type, id, router)       \
+  do {                                                                \
+    struct ospf6_lsa *lsa;                                            \
+    lsa = ospf6_lsdb_lookup (type, id, router, lsdb);                 \
+    if (lsa)                                                          \
+      (*(func)) (vty, lsa);                                           \
+  } while (0)
 
-/* global holding hooks for each LS type */
-struct ospf6_lsdb_hook_t
-{
-  void (*hook) (struct ospf6_lsa *old, struct ospf6_lsa *new);
-};
-extern struct ospf6_lsdb_hook_t *ospf6_lsdb_hook;
+#define OSPF6_LSDB_MAXAGE_REMOVER(lsdb)                                  \
+  do {                                                                   \
+    struct ospf6_lsa *lsa;                                               \
+    for (lsa = ospf6_lsdb_head (lsdb); lsa; lsa = ospf6_lsdb_next (lsa)) \
+      {                                                                  \
+        if (! OSPF6_LSA_IS_MAXAGE (lsa))                                 \
+          continue;                                                      \
+        if (lsa->refcnt != 0)                                            \
+          continue;                                                      \
+        if (IS_OSPF6_DEBUG_LSA (TIMER))                                  \
+          zlog_info (" remove maxage %s", lsa->name);                    \
+        ospf6_lsdb_remove (lsa, lsdb);                                   \
+      }                                                                  \
+  } while (0)
 
 /* Function Prototypes */
-struct ospf6_lsdb * ospf6_lsdb_create ();
+struct ospf6_lsdb *ospf6_lsdb_create ();
 void ospf6_lsdb_delete (struct ospf6_lsdb *lsdb);
 
-void ospf6_lsdb_remove_maxage (struct ospf6_lsdb *lsdb);
-
-struct ospf6_lsa *
-ospf6_lsdb_lookup (u_int16_t type, u_int32_t id, u_int32_t adv_router,
-                   void *scope);
-
-void ospf6_lsdb_install (struct ospf6_lsa *new);
-
-void ospf6_lsdb_head (struct ospf6_lsdb_node *node, struct ospf6_lsdb *lsdb);
-void ospf6_lsdb_type (struct ospf6_lsdb_node *node, u_int16_t type,
-                      struct ospf6_lsdb *lsdb);
-void ospf6_lsdb_type_router (struct ospf6_lsdb_node *node, u_int16_t type,
-                             u_int32_t adv_router, struct ospf6_lsdb *lsdb);
-void ospf6_lsdb_next (struct ospf6_lsdb_node *node);
+struct ospf6_lsa *ospf6_lsdb_lookup (u_int16_t type, u_int32_t id,
+                                     u_int32_t adv_router,
+                                     struct ospf6_lsdb *lsdb);
 
 void ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
 void ospf6_lsdb_remove (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
+
+struct ospf6_lsa *ospf6_lsdb_head (struct ospf6_lsdb *lsdb);
+struct ospf6_lsa *ospf6_lsdb_next (struct ospf6_lsa *lsa);
+
+struct ospf6_lsa *ospf6_lsdb_type_router_head (u_int16_t type,
+                                               u_int32_t adv_router,
+                                               struct ospf6_lsdb *lsdb);
+struct ospf6_lsa *ospf6_lsdb_type_router_next (u_int16_t type,
+                                               u_int32_t adv_router,
+                                               struct ospf6_lsa *lsa);
+
+struct ospf6_lsa *ospf6_lsdb_type_head (u_int16_t type,
+                                        struct ospf6_lsdb *lsdb);
+struct ospf6_lsa *ospf6_lsdb_type_next (u_int16_t type,
+                                        struct ospf6_lsa *lsa);
+
 void ospf6_lsdb_remove_all (struct ospf6_lsdb *lsdb);
 
-struct ospf6_lsa *
-ospf6_lsdb_lookup_lsdb (u_int16_t type, u_int32_t id, u_int32_t adv_router,
-                        struct ospf6_lsdb *lsdb);
+int ospf6_lsdb_show (struct vty *vty, int argc, char **argv,
+                     struct ospf6_lsdb *lsdb);
 
+#if 0
 void ospf6_lsdb_init ();
+void ospf6_lsdb_remove_maxage (struct ospf6_lsdb *lsdb);
+#endif
 
 #endif /* OSPF6_LSDB_H */
+
 

@@ -1,6 +1,5 @@
 /*
- * OSPF6 Area Data Structure
- * Copyright (C) 1999 Yasuhiro Ohara
+ * Copyright (C) 2003 Yasuhiro Ohara
  *
  * This file is part of GNU Zebra.
  *
@@ -23,67 +22,54 @@
 #ifndef OSPF_AREA_H
 #define OSPF_AREA_H
 
-/* This file defines area parameters and data structures. */
-
-#define OSPF6_AREA_RANGE_ADVERTISE     0
-#define OSPF6_AREA_RANGE_NOT_ADVERTISE 1
-
-#include "ospf6_spf.h"
 #include "ospf6_top.h"
 
 struct ospf6_area
 {
-  char            str[16];
+  /* Reference to Top data structure */
+  struct ospf6 *ospf6;
 
-  struct ospf6   *ospf6;      /* back pointer */
-  u_int32_t       area_id;
-  u_char          options[3]; /* OSPF Option including ExternalCapability */
+  /* Area-ID */
+  u_int32_t area_id;
 
-  list            if_list; /* OSPF interface to this area */
+  /* Area-ID string */
+  char name[16];
 
-  struct ospf6_lsdb *lsdb;
+  /* flag */
+  u_char flag;
 
-  struct thread  *spf_calc;
-  struct thread  *route_calc;
-  int             stat_spf_execed;
-  int             stat_route_execed;
+  /* OSPF Option */
+  u_char options[3];
 
-  struct route_table *table; /* new route table */
+  /* OSPF interface list */
+  list if_list;
 
-  struct prefix_ipv6 area_range;
-  struct ospf6_spftree *spf_tree;
-
+  struct ospf6_lsdb        *lsdb;
+  struct ospf6_route_table *spf_table;
   struct ospf6_route_table *route_table;
-  struct ospf6_route_table *table_topology;
 
-  void (*foreach_if)  (struct ospf6_area *, void *, int,
-                       void (*func) (void *, int, void *));
-  void (*foreach_nei) (struct ospf6_area *, void *, int,
-                       void (*func) (void *, int, void *));
-
-  struct thread *maxage_remover;
+  struct thread  *thread_spf_calculation;
+  struct thread  *thread_route_calculation;
 
   struct thread *thread_router_lsa;
+  struct thread *thread_intra_prefix_lsa;
+  u_int32_t router_lsa_size_limit;
 };
 
+#define OSPF6_AREA_DISABLE 0x01
+#define OSPF6_AREA_STUB    0x02
 
 /* prototypes */
-
-int
-ospf6_area_count_neighbor_in_state (u_char state, struct ospf6_area *o6a);
-
-void
-ospf6_area_schedule_maxage_remover (void *arg, int val, void *obj);
-
+int ospf6_area_cmp (void *va, void *vb);
 int ospf6_area_is_stub (struct ospf6_area *o6a);
-int ospf6_area_is_transit (struct ospf6_area *o6a);
-struct ospf6_area *ospf6_area_lookup (u_int32_t, struct ospf6 *);
-struct ospf6_area *ospf6_area_create (u_int32_t);
+struct ospf6_area *ospf6_area_create (u_int32_t, struct ospf6 *);
 void ospf6_area_delete (struct ospf6_area *);
-void ospf6_area_show (struct vty *, struct ospf6_area *);
-void
-ospf6_area_statistics_show (struct vty *vty, struct ospf6_area *o6a);
+struct ospf6_area *ospf6_area_lookup (u_int32_t, struct ospf6 *);
 
+void ospf6_area_enable (struct ospf6_area *);
+void ospf6_area_disable (struct ospf6_area *);
+
+void ospf6_area_show (struct vty *, struct ospf6_area *);
 void ospf6_area_init ();
 
 #endif /* OSPF_AREA_H */

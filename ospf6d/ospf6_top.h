@@ -1,6 +1,5 @@
 /*
- * OSPFv3 Top Level Data Structure
- * Copyright (C) 1999 Yasuhiro Ohara
+ * Copyright (C) 2003 Yasuhiro Ohara
  *
  * This file is part of GNU Zebra.
  *
@@ -25,26 +24,27 @@
 
 #include "routemap.h"
 
-/* ospfv3 top level data structure */
+/* OSPFv3 top level data structure */
 struct ospf6
 {
-  /* process id */
-  u_long process_id;
+  /* my router id */
+  u_int32_t router_id;
 
   /* start time */
   struct timeval starttime;
-
-  /* ospf version must be 3 */
-  unsigned char version;
-
-  /* my router id */
-  u_int32_t router_id;
 
   /* list of areas */
   list area_list;
 
   /* AS scope link state database */
   struct ospf6_lsdb *lsdb;
+
+  struct ospf6_route_table *route_table;
+  struct ospf6_route_table *asbr_table;
+
+  struct ospf6_route_table *external_table;
+  struct route_table *external_id_table;
+  u_int32_t external_id;
 
   /* redistribute route-map */
   struct
@@ -53,44 +53,21 @@ struct ospf6
     struct route_map *map;
   } rmap[ZEBRA_ROUTE_MAX];
 
-  struct thread *t_route_calculation;
-  u_int stat_route_calculation_execed;
-
-  struct ospf6_route_table *route_table;
-  struct ospf6_route_table *topology_table;
-  struct ospf6_route_table *external_table;
-
-  void (*foreach_area) (struct ospf6 *, void *arg, int val,
-                        void (*func) (void *, int, void *));
-  void (*foreach_if)   (struct ospf6 *, void *arg, int val,
-                        void (*func) (void *, int, void *));
-  void (*foreach_nei)  (struct ospf6 *, void *arg, int val,
-                        void (*func) (void *, int, void *));
+  u_char flag;
 
   struct thread *maxage_remover;
-
-  list nexthop_list;
 };
- 
+
+#define OSPF6_DISABLED    0x01
+
+/* global pointer for OSPF top data structure */
 extern struct ospf6 *ospf6;
 
 /* prototypes */
-int
-ospf6_top_count_neighbor_in_state (u_char state, struct ospf6 *o6);
-
-void
-ospf6_top_schedule_maxage_remover (void *arg, int val, struct ospf6 *o6);
-
-void ospf6_show (struct vty *);
-void ospf6_statistics_show (struct vty *vty, struct ospf6 *o6);
-
-struct ospf6 *ospf6_start ();
-void ospf6_stop ();
-
-void ospf6_delete (struct ospf6 *);
-int ospf6_is_asbr (struct ospf6 *);
-
 void ospf6_top_init ();
 
+void ospf6_maxage_remove (struct ospf6 *o);
+
 #endif /* OSPF6_TOP_H */
+
 
