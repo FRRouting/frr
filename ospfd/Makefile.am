@@ -32,5 +32,6 @@ ospfd_LDADD = -L../lib -lzebra @LIBCAP@
 
 EXTRA_DIST = OSPF-MIB.txt OSPF-TRAP-MIB.txt ChangeLog.opaque.txt
 
-dist_sysconf_DATA = ospfd.conf.sample
+examplesdir = $(exampledir)
+dist_examples_DATA = ospfd.conf.sample
 

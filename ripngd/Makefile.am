@@ -19,5 +19,6 @@ ripngd_SOURCES = \
 
 ripngd_LDADD = -L../lib -lzebra @LIBCAP@
 
-dist_sysconf_DATA = ripngd.conf.sample
+examplesdir = $(exampledir)
+dist_examples_DATA = ripngd.conf.sample
 

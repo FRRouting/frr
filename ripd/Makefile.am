@@ -19,7 +19,8 @@ ripd_SOURCES = \
 
 ripd_LDADD = -L../lib -lzebra @LIBCAP@
 
-dist_sysconf_DATA = ripd.conf.sample
+examplesdir = $(exampledir)
+dist_examples_DATA = ripd.conf.sample
 
 EXTRA_DIST = RIPv2-MIB.txt
 

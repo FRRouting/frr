@@ -26,7 +26,8 @@ bgpd_SOURCES = \
 
 bgpd_LDADD = ../lib/libzebra.a @LIBCAP@
 
-dist_sysconf_DATA = bgpd.conf.sample bgpd.conf.sample2
+examplesdir = $(exampledir)
+dist_examples_DATA = bgpd.conf.sample bgpd.conf.sample2
 
 EXTRA_DIST = BGP4-MIB.txt
 

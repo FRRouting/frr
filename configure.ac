@@ -12,6 +12,15 @@ AC_CONFIG_SRCDIR(lib/zebra.h)
 AM_INIT_AUTOMAKE()
 AM_CONFIG_HEADER(config.h)
 
+dnl default is to match previous behavior
+exampledir='${sysconfdir}'
+AC_ARG_ENABLE([exampledir],
+	  AC_HELP_STRING([--enable-exampledir],
+			 [specify alternate directory for examples]),
+			 exampledir="$enableval",)
+dnl XXX hook into argument processing
+AC_SUBST(exampledir)
+
 dnl -----------------------------------
 dnl Get hostname and other information.
 dnl -----------------------------------
@@ -1056,6 +1065,7 @@ compiler flags          : ${CFLAGS}
 linker flags            : ${LDFLAGS} ${LIBS}
 state file directory    : ${quagga_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
+example directory       : `eval echo \`echo ${exampledir}\``
 user to run as		: ${enable_user}
 group to run as		: ${enable_group}
 group for vty sockets	: ${enable_vty_group}

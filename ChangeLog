@@ -1,3 +1,10 @@
+2003-12-03  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* configure.ac: Add --enable-exampledir to specify where example
+	config files should go, defaulting to sysconfdir.
+
+	* */Makefile.am: use exampledir instead of sysconfdif for examples
+
 2003-11-02 Paul Jakma <paul@dishone.st>
 
         * bgpd/bgp_routemap.c: Fix up 'set ip next-hop A.B.C.D|peer-address'

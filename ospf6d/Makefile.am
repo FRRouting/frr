@@ -30,4 +30,5 @@ ospf6d_SOURCES = \
 
 ospf6d_LDADD = -L../lib -lzebra @LIBCAP@
 
-dist_sysconf_DATA = ospf6d.conf.sample
+examplesdir = $(exampledir)
+dist_examples_DATA = ospf6d.conf.sample

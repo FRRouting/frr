@@ -43,4 +43,6 @@ EXTRA_DIST = if_ioctl.c if_netlink.c if_proc.c if_sysctl.c \
 #	$(CC) -g -o client client_main.o ../lib/libzebra.a $(LIBS) $(LIB_IPV6)
 
 quaggaconfdir = $(sysconfdir)
-dist_quaggaconf_DATA = zebra.conf.sample
+
+examplesdir = $(exampledir)
+dist_examples_DATA = zebra.conf.sample
