@@ -2702,8 +2702,8 @@ ospf_make_ls_upd (struct ospf_interface *oi, list update, struct stream *s)
   int count = 0;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info("ospf_make_ls_upd: Start");
-  
+    zlog_info ("ospf_make_ls_upd: Start");
+
   pp = stream_get_putp (s);
   ospf_output_forward (s, 4);
 
@@ -2713,16 +2713,20 @@ ospf_make_ls_upd (struct ospf_interface *oi, list update, struct stream *s)
       u_int16_t ls_age;
 
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info("ospf_make_ls_upd: List Iteration");
+        zlog_info ("ospf_make_ls_upd: List Iteration");
 
       lsa = getdata (node);
       assert (lsa);
       assert (lsa->data);
 
       /* Check packet size. */
+      /* XXX: LSA can be > packet-headers, eg router-lsas for machines
+       * with hundreds of interfaces, received as several
+       * fragmented packets.
+       */
       if (length + delta + ntohs (lsa->data->length) > OSPF_PACKET_MAX (oi))
-	break;
-      
+        break;
+
       /* Keep pointer to LS age. */
       lsah = (struct lsa_header *) (STREAM_DATA (s) + stream_get_putp (s));
 
@@ -2749,7 +2753,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, list update, struct stream *s)
   stream_set_putp (s, s->endp);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info("ospf_make_ls_upd: Stop");
+    zlog_info ("ospf_make_ls_upd: Stop");
   return length;
 }
 
@@ -3100,8 +3104,9 @@ ospf_ls_upd_queue_send (struct ospf_interface *oi, list update,
   /* Prepare OSPF common header. */
   ospf_make_header (OSPF_MSG_LS_UPD, oi, op->s);
 
-  /* Prepare OSPF Link State Update body. */
-  /* Includes Type-7 translation. */
+  /* Prepare OSPF Link State Update body.
+   * Includes Type-7 translation. 
+   */
   length += ospf_make_ls_upd (oi, update, op->s);
 
   /* Fill OSPF header. */
@@ -3126,6 +3131,9 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
   struct ospf_interface *oi = THREAD_ARG(thread);
   struct route_node *rn;
   struct route_node *rnext;
+  struct list *update;
+  struct listnode *tn, *nn;
+  unsigned int again = 0;
   
   oi->t_ls_upd_event = NULL;
 
@@ -3134,23 +3142,43 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
 
   for (rn = route_top (oi->ls_upd_queue); rn; rn = rnext)
     {
-      
+      update = (struct list *)rn->info;
       rnext = route_next (rn);
       
       if (rn->info == NULL)
         continue;
 
-      while (!list_isempty ((list)rn->info))
-        ospf_ls_upd_queue_send (oi, rn->info, rn->p.u.prefix4);
-
-      list_delete (rn->info);
-      rn->info = NULL;
+      for (tn = update->head; tn; tn = nn)
+        {
+          nn = tn->next;
+          ospf_ls_upd_queue_send (oi, update, rn->p.u.prefix4);
+        }
       
-      route_unlock_node (rn);
+      /* list might not be empty.
+       * TODO: work out what to do about oversized LSAs.
+       */
+      if (listcount(update) == 0)
+        {
+          list_delete (rn->info);
+          rn->info = NULL;
+          route_unlock_node (rn);
+        }
+      else
+        again++;
+    }
+
+  if (again != 0)
+    {
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_info ("ospf_ls_upd_send_queue: update lists not cleared,"
+                   " %d nodes to try again, raising new event", again);
+      oi->t_ls_upd_event = 
+        thread_add_event (master, ospf_ls_upd_send_queue_event, oi, 0);
     }
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("ospf_ls_upd_send_queue stop");
+  
   return 0;
 }
 

@@ -1,3 +1,13 @@
+2004-07-14 Paul Jakma <paul@dishone.st>
+
+	* ospf_packet.c: (ospf_ls_upd_send_queue_event) Partial fix for 
+	  problem reported by Peter Frost amongst others, where function
+	  will spin indefinitely if update list contains LSAs greater than
+	  MTU-headers or other condition leading to update list never being
+          cleared. Problem of what to do with these LSAs remains.
+          (ospf_make_ls_upd) add comment about large LSA problem,
+	  indentation cleanup.
+
 2004-07-01  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* Makefile.am (lib_LTLIBRARIES): make libospf shared
