@@ -74,9 +74,13 @@ if_cmp_func (struct interface *ifp1, struct interface *ifp2)
       return res;
 
     /* with identical name part, go to numeric part */
-
     p1 += l1;
     p2 += l1;
+
+    if (!*p1) 
+      return -1;
+    if (!*p2) 
+      return 1;
 
     x1 = strtol(p1, &p1, 10);
     x2 = strtol(p2, &p2, 10);

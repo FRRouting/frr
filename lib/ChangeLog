@@ -1,3 +1,8 @@
+2004-07-09 Juris Kalnins <juris@mt.lv>
+
+	* if.c: (if_cmp_func) fix for interface names where name is same,
+	  but one has no number, eg "devtyp" and "devtyp0".
+	  
 2004-06-30  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* Makefile.am: Make libzebra shared.
