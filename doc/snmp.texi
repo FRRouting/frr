@@ -103,7 +103,7 @@ ospfd .1.3.6.1.4.1.3317.1.2.5 .gnome.gnomeProducts.zebra.ospfd
 
 The following OID numbers are used for querying the SNMP daemon by a client:
 @example
-zebra .1,3,6,1,2,1,4,24  .iso.org.dot.internet.mgmt.mib-2.ip.ipForward
+zebra .1.3.6.1.2.1.4.24  .iso.org.dot.internet.mgmt.mib-2.ip.ipForward
 ospfd .1.3.6.1.2.1.14    .iso.org.dot.internet.mgmt.mib-2.ospf
 bgpd  .1.3.6.1.2.1.15    .iso.org.dot.internet.mgmt.mib-2.bgp 
 ripd  .1.3.6.1.2.1.23    .iso.org.dot.internet.mgmt.mib-2.rip2 
