@@ -2033,7 +2033,7 @@ DEFUN (show_ipv6_ripng,
        show_ipv6_ripng_cmd,
        "show ipv6 ripng",
        SHOW_STR
-       IP_STR
+       IPV6_STR
        "Show RIPng routes\n")
 {
   struct route_node *rp;
@@ -2153,7 +2153,7 @@ DEFUN (show_ipv6_ripng_status,
        show_ipv6_ripng_status_cmd,
        "show ipv6 ripng status",
        SHOW_STR
-       IP_STR
+       IPV6_STR
        "Show RIPng routes\n"
        "IPv6 routing protocol process parameters and statistics\n")
 {
@@ -2603,7 +2603,7 @@ ALIAS (no_ripng_timers,
 DEFUN (show_ipv6_protocols, show_ipv6_protocols_cmd,
        "show ipv6 protocols",
        SHOW_STR
-       IP_STR
+       IPV6_STR
        "Routing protocol information")
 {
   if (! ripng)

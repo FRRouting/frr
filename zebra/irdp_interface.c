@@ -411,6 +411,7 @@ DEFUN (ip_irdp_broadcast,
 DEFUN (no_ip_irdp,
        no_ip_irdp_cmd,
        "no ip irdp",
+       NO_STR
        IP_STR
        "Disable ICMP Router discovery on this interface\n")
 {
@@ -445,6 +446,7 @@ DEFUN (ip_irdp_shutdown,
 DEFUN (no_ip_irdp_shutdown,
        no_ip_irdp_shutdown_cmd,
        "no ip irdp shutdown",
+       NO_STR
        IP_STR
        "ICMP Router discovery no shutdown on this interface\n")
 {
@@ -628,6 +630,7 @@ DEFUN (ip_irdp_address_preference,
 DEFUN (no_ip_irdp_address_preference,
        no_ip_irdp_address_preference_cmd,
        "no ip irdp address A.B.C.D preference <0-2147483647>",
+       NO_STR
        IP_STR
        "Alter ICMP Router discovery preference this interface\n"
        "Removes IRDP non-default preference\n"
