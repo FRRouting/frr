@@ -857,7 +857,7 @@ ospf_vl_delete (struct ospf *ospf, struct ospf_vl_data *vl_data)
   ospf_vl_data_free (vl_data);
 }
 
-void
+int
 ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
 {
   int changed = 0;
@@ -891,19 +891,21 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
   for (i = 0; i < ntohs (rl->links); i++)
     {
       switch (rl->link[i].type)
-	{
-	case LSA_LINK_TYPE_VIRTUALLINK:
-	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("found back link through VL");
-	case LSA_LINK_TYPE_TRANSIT:
-	case LSA_LINK_TYPE_POINTOPOINT:
-	  vl_data->peer_addr = rl->link[i].link_data;
-	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("%s peer address is %s\n",
-		       vl_data->vl_oi->ifp->name, inet_ntoa(vl_data->peer_addr));
-	  return;
-	}
+        {
+          case LSA_LINK_TYPE_VIRTUALLINK:
+            if (IS_DEBUG_OSPF_EVENT)
+              zlog_info ("found back link through VL");
+          case LSA_LINK_TYPE_TRANSIT:
+          case LSA_LINK_TYPE_POINTOPOINT:
+            vl_data->peer_addr = rl->link[i].link_data;
+          if (IS_DEBUG_OSPF_EVENT)
+            zlog_info ("%s peer address is %s\n",
+        	           vl_data->vl_oi->ifp->name, 
+        	           inet_ntoa(vl_data->peer_addr));
+          return changed;
+        }
     }
+  return changed;
 }
 
 
@@ -951,10 +953,18 @@ ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
 	      if (IS_DEBUG_OSPF_EVENT)
 		zlog_info ("ospf_vl_up_check(): VL is down, waking it up");
               SET_FLAG (oi->ifp->flags, IFF_UP);
-              OSPF_ISM_EVENT_SCHEDULE (oi, ISM_InterfaceUp);
+              OSPF_ISM_EVENT_EXECUTE(oi,ISM_InterfaceUp);
             }
 
-          ospf_vl_set_params (vl_data, v);
+         if (ospf_vl_set_params (vl_data, v))
+           {
+             if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
+               zlog_info ("ospf_vl_up_check: VL cost change, scheduling router lsa refresh");
+             if(ospf->backbone)
+               ospf_router_lsa_timer_add(ospf->backbone);
+             else if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
+               zlog_info ("ospf_vl_up_check: VL cost change, no backbone!");
+           }
         }
     }
 }
