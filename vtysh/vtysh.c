@@ -1382,6 +1382,11 @@ ALIAS (vtysh_write_memory,
        "Write running configuration to memory, network, or terminal\n"
        "Write configuration to the file (same as write memory)\n")
 
+ALIAS (vtysh_write_memory,
+       vtysh_write_cmd,
+       "write",
+       "Write running configuration to memory, network, or terminal\n")
+
 ALIAS (vtysh_write_terminal,
        vtysh_show_running_config_cmd,
        "show running-config",
@@ -1849,6 +1854,7 @@ vtysh_init_vty ()
   install_element (ENABLE_NODE, &vtysh_show_running_config_cmd);
   install_element (ENABLE_NODE, &vtysh_copy_runningconfig_startupconfig_cmd);
   install_element (ENABLE_NODE, &vtysh_write_file_cmd);
+  install_element (ENABLE_NODE, &vtysh_write_cmd);
 
   /* write terminal command */
   install_element (ENABLE_NODE, &vtysh_write_terminal_cmd);
