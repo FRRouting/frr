@@ -1,3 +1,8 @@
+2005-03-28 Hasso Tepper <hasso at quagga.net>
+
+	* extract.pl.in: Use SNMP_INCLUDES to avoid warnings if compiling with
+	  snmp support.
+
 2005-03-09 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh_config.c: Move password commands to the AAA_NODE. It
