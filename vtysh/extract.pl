@@ -96,9 +96,9 @@ foreach (@ARGV) {
            }
            if ($file =~ /plist.c/) {
 	      if ($defun_array[1] =~ m/ipv6/) {
-                 $protocol = "VTYSH_RIPNGD|VTYSH_BGPD";
+                 $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD";
               } else {
-                 $protocol = "VTYSH_RIPD|VTYSH_BGPD";
+                 $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
               }
            }
            if ($file =~ /distribute.c/) {
