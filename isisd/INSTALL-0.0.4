@@ -1,0 +1,18 @@
+ISISd package for zebra 0.92a installation instructions:
+
+1. grab the zebra 0.92a package from www.zebra.org
+2. unpack the package using tar -zxvf zebra-0.92a.tar.gz
+3. enter the zebra-092a directory
+4. copy the contents of the isisd package into the zebra dir
+5. enter the isisd/modified directory
+6. use the README file and copy the files to the appropriate zebra dirs
+   (the simplest way to do so would be 'source README')
+7. enter the main zebra directory and issue 'automake','autoconf' and 
+   'autoheader'. if using automake version 1.5 and up use the '-i' option.
+8. run './configure --enable-isisd' (you may use other zebra config commands)
+9. run 'make'
+10. find your self something entertaining to do for the next couple of minutes
+11. you can issue 'make install' or simply work from the isisd directory
+
+for any problems, contact the developers at the sourceforge site
+http://www.sf.net/projects/isisd

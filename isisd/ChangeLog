@@ -1,0 +1,69 @@
+Version 0.0.7 to 0.0.8
+======================
+
+o A bug in handling of other ISs fragments fixed
+o hello interval now specified in *seconds*
+o replaced the adj->ipv[46]_addr tables with linked lists
+
+Version 0.0.6 to 0.0.7 (Oct 29 2002)
+======================
+
+o changed to zebra-0.93b
+o fixed a seg in SPF
+o handling/generation of LSP fragments
+o domain/area/circuit password
+
+Version 0.0.5 to 0.0.6 (Jul 4 2002)
+======================
+
+o lots of changes to SPF
+ - runs the SPF for IPv4 and IPv6 separately
+ - a number of bugs fixed
+ - simplified the implementation 
+ - "7.2.7 Removal of excess paths" implemented
+o ported to freebsd  (tested in 4.5-STABLE and 4.6-STABLE) 
+o moved to zebra-0.93-pre2
+o "show isis topology" command added 
+o "show (ip|ipv6) route isis commands added to zebra
+o a number of fixes and additions (e.g. checksum calculation and DIS state
+change event) by BeomSeok Gwak added
+
+Version 0.0.4 to 0.0.5 (Apr 26 2002)
+======================
+
+o changed to zebra-0.93-pre1
+o number of memory leaks + small bugs fixed
+o a bug related to processing of neigbors when installing routes fixed
+
+Version 0.0.3 to 0.0.4 (Feb 27 2002)
+======================
+
+o initial version of SPT algorithm
+o installing routes though zebrad
+o isis debug commands
+o work on IS-IS events (e.g. circuit state change)
+
+Version 0.0.2 to 0.0.3 (Jan 17 2002)
+======================
+
+o LSP handling improved
+o generation of pseudonode LSPs
+o DR election enhanced
+o support for p2p interfaces
+o support for topology simulation 
+o more detailed output for show commands
+
+Version 0.0.1 to 0.0.2 (Dec 13 2001)
+======================
+
+o circuit state machine (isis_csm.[ch]) added
+o lot of work on LSP generation 
+o ISO checksum 
+o uses DGRAM sockets instead of RAW
+o gets IP(v6) addresses from zebra
+o debug can be controlled with "debug isis" command
+o read support for TE tlvs
+o work started on p2p interfaces
+o work started on isis events 
+
+

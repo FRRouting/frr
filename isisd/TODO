@@ -1,0 +1,10 @@
+Things in the TODO list for the near future
+
+o select nearest L2 when running SPF for L1
+o remove the routes when holding time for nexthop expires
+o redist 
+o autosummary
+
+Not so urgent:
+
+o Mesh groups

@@ -1,0 +1,4 @@
+cp config.h.in acconfig.h configure.in Makefile.am Makefile.in configure ../../
+cp command.h command.c memory.c memory.h log.h log.c vty.c ../../lib/
+cp thread.h thread.c zebra.h ../../lib
+cp rib.c ../../zebra/
