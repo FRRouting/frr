@@ -1,8 +1,25 @@
+2004-02-17 Paul Jakma <paul@dishone.st>
+
+	* bgpd.h: (bgp_peer) add fd_local and fd_accept 
+	  file descriptor's, fd becomes a pointer to one of these.
+	* bgpd.c: (global) adjust for fact that fd is now a pointer.
+	  (peer_create_accept) removed.
+	* bgp_route.c: (global) adjust for change of peer fd to pointer
+	* bgp_packet.c: (bgp_collision_detect) adjust and remove the 
+	  "replace with other peer" hack. 
+	* bgp_network.c: (bgp_accept) Remove the dummy peer hack. 
+	  Update peer->fd_accept instead. 
+	  (global) Adjust fd references - now a pointer.
+	* bgp_fsm.c: (global) adjust peer fd to pointer.
+	  (bgp_connection_stop) new function, to stop connection.
+	  (global) adjust everything which closed peer fd to use
+	  bgp_connection_stop().
+	  
 2003-12-23 Krzysztof Oledzki <oleq@ans.pl>
 
 	* bgp_network.c: drop privs on error cases
 
-2003-08-11 kunihiro <kunihiro@zebra.org
+2003-08-11 kunihiro <kunihiro@zebra.org>
 
 	* bgp_route{,map}.c: Extend 'set ip next-hop' in route-maps with
 	  ability to specify 'peer-address' rather than IP. 

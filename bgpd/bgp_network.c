@@ -46,7 +46,6 @@ bgp_accept (struct thread *thread)
   int accept_sock;
   union sockunion su;
   struct peer *peer;
-  struct peer *peer1;
   struct bgp *bgp;
   char buf[SU_ADDRSTRLEN];
 
@@ -73,12 +72,12 @@ bgp_accept (struct thread *thread)
     zlog_info ("[Event] BGP connection from host %s", inet_sutop (&su, buf));
   
   /* Check remote IP address */
-  peer1 = peer_lookup (bgp, &su);
-  if (! peer1 || peer1->status == Idle)
+  peer = peer_lookup (bgp, &su);
+  if (! peer || peer->status == Idle)
     {
       if (BGP_DEBUG (events, EVENTS))
 	{
-	  if (! peer1)
+	  if (! peer)
 	    zlog_info ("[Event] BGP connection IP address %s is not configured",
 		       inet_sutop (&su, buf));
 	  else
@@ -90,30 +89,13 @@ bgp_accept (struct thread *thread)
     }
 
   /* In case of peer is EBGP, we should set TTL for this connection.  */
-  if (peer_sort (peer1) == BGP_PEER_EBGP)
-    sockopt_ttl (peer1->su.sa.sa_family, bgp_sock, peer1->ttl);
+  if (peer_sort (peer) == BGP_PEER_EBGP)
+    sockopt_ttl (peer->su.sa.sa_family, bgp_sock, peer->ttl);
 
   if (! bgp)
-    bgp = peer1->bgp;
+    bgp = peer->bgp;
 
-  /* Make dummy peer until read Open packet. */
-  if (BGP_DEBUG (events, EVENTS))
-    zlog_info ("[Event] Make dummy peer structure until read Open packet");
-
-  {
-    char buf[SU_ADDRSTRLEN + 1];
-
-    peer = peer_create_accept (bgp);
-    SET_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER);
-    peer->su = su;
-    peer->fd = bgp_sock;
-    peer->status = Active;
-    peer->local_id = peer1->local_id;
-
-    /* Make peer's address string. */
-    sockunion2str (&su, buf, SU_ADDRSTRLEN);
-    peer->host = strdup (buf);
-  }
+  peer->fd_accept = bgp_sock;
 
   BGP_EVENT_ADD (peer, TCP_connection_open);
 
@@ -133,7 +115,7 @@ bgp_bind (struct peer *peer)
 
   strncpy ((char *)&ifreq.ifr_name, peer->ifname, sizeof (ifreq.ifr_name));
 
-  ret = setsockopt (peer->fd, SOL_SOCKET, SO_BINDTODEVICE, 
+  ret = setsockopt (*peer->fd, SOL_SOCKET, SO_BINDTODEVICE, 
 		    &ifreq, sizeof (ifreq));
   if (ret < 0)
     {
@@ -207,12 +189,12 @@ bgp_update_source (struct peer *peer)
       if (! addr)
 	return;
 
-      bgp_bind_address (peer->fd, addr);
+      bgp_bind_address (*peer->fd, addr);
     }
 
   /* Source is specified with IP address.  */
   if (peer->update_source)
-    sockunion_bind (peer->fd, peer->update_source, 0, peer->update_source);
+    sockunion_bind (*peer->fd, peer->update_source, 0, peer->update_source);
 }
 
 /* BGP try to connect to the peer.  */
@@ -222,16 +204,16 @@ bgp_connect (struct peer *peer)
   unsigned int ifindex = 0;
 
   /* Make socket for the peer. */
-  peer->fd = sockunion_socket (&peer->su);
-  if (peer->fd < 0)
+  *peer->fd = sockunion_socket (&peer->su);
+  if (*peer->fd < 0)
     return -1;
 
   /* If we can get socket for the peer, adjest TTL and make connection. */
   if (peer_sort (peer) == BGP_PEER_EBGP)
-    sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
+    sockopt_ttl (peer->su.sa.sa_family, *peer->fd, peer->ttl);
 
-  sockopt_reuseaddr (peer->fd);
-  sockopt_reuseport (peer->fd);
+  sockopt_reuseaddr (*peer->fd);
+  sockopt_reuseport (*peer->fd);
 
   /* Bind socket. */
   bgp_bind (peer);
@@ -246,10 +228,10 @@ bgp_connect (struct peer *peer)
 
   if (BGP_DEBUG (events, EVENTS))
     plog_info (peer->log, "%s [Event] Connect start to %s fd %d",
-	       peer->host, peer->host, peer->fd);
+	       peer->host, peer->host, *peer->fd);
 
   /* Connect to the remote peer. */
-  return sockunion_connect (peer->fd, &peer->su, htons (peer->port), ifindex);
+  return sockunion_connect (*peer->fd, &peer->su, htons (peer->port), ifindex);
 }
 
 /* After TCP connection is established.  Get local address and port. */
@@ -268,8 +250,8 @@ bgp_getsockname (struct peer *peer)
       peer->su_remote = NULL;
     }
 
-  peer->su_local = sockunion_getsockname (peer->fd);
-  peer->su_remote = sockunion_getpeername (peer->fd);
+  peer->su_local = sockunion_getsockname (*peer->fd);
+  peer->su_remote = sockunion_getpeername (*peer->fd);
 
   bgp_nexthop_set (peer->su_local, peer->su_remote, &peer->nexthop, peer);
 }

@@ -504,11 +504,10 @@ bgp_default_local_preference_unset (struct bgp *bgp)
   return 0;
 }
 
-/* Peer comparison function for sorting.  */
 static int
 peer_cmp (struct peer *p1, struct peer *p2)
 {
-  return sockunion_cmp (&p1->su, &p2->su);
+  return sockunion_cmp (&p1->su, &p2->su);  
 }
 
 int
@@ -684,8 +683,11 @@ peer_new ()
   peer = XMALLOC (MTYPE_BGP_PEER, sizeof (struct peer));
   memset (peer, 0, sizeof (struct peer));
 
+  peer->fd = &peer->fd_local;
+
   /* Set default value. */
-  peer->fd = -1;
+  peer->fd_local = -1;
+  peer->fd_accept = -1;
   peer->v_start = BGP_INIT_START_TIMER;
   peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
   peer->v_asorig = BGP_DEFAULT_ASORIGINATE;
@@ -765,19 +767,6 @@ peer_create (union sockunion *su, struct bgp *bgp, as_t local_as,
   /* Set up peer's events and timers. */
   if (! active && peer_active (peer))
     bgp_timer_set (peer);
-
-  return peer;
-}
-
-/* Make accept BGP peer.  Called from bgp_accept (). */
-struct peer *
-peer_create_accept (struct bgp *bgp)
-{
-  struct peer *peer;
-
-  peer = peer_new ();
-  peer->bgp = bgp;
-  listnode_add_sort (bgp->peer, peer);
 
   return peer;
 }
@@ -1810,9 +1799,8 @@ peer_lookup (struct bgp *bgp, union sockunion *su)
   
   LIST_LOOP (bgp->peer, peer, nn)
     {
-      if (sockunion_same (&peer->su, su)
-	  && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-	return peer;
+      if (sockunion_same (&peer->su, su))
+        return peer;
     }
   return NULL;
 }
@@ -1831,27 +1819,25 @@ peer_lookup_with_open (union sockunion *su, as_t remote_as,
 
   LIST_LOOP (bgp->peer, peer, nn)
     {
-      if (sockunion_same (&peer->su, su)
-	  && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-	{
-	  if (peer->as == remote_as
-	      && peer->remote_id.s_addr == remote_id->s_addr)
-	    return peer;
-	  if (peer->as == remote_as)
-	    *as = 1;
-	}
+      if (sockunion_same (&peer->su, su))
+        {
+          if (peer->as == remote_as
+              && peer->remote_id.s_addr == remote_id->s_addr)
+            return peer;
+          if (peer->as == remote_as)
+            *as = 1;
+        }
     }
   LIST_LOOP (bgp->peer, peer, nn)
     {
-      if (sockunion_same (&peer->su, su)
-	  &&  ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-	{
-	  if (peer->as == remote_as
-	      && peer->remote_id.s_addr == 0)
-	    return peer;
-	  if (peer->as == remote_as)
-	    *as = 1;
-	}
+      if (sockunion_same (&peer->su, su))
+        {
+          if (peer->as == remote_as
+              && peer->remote_id.s_addr == 0)
+            return peer;
+          if (peer->as == remote_as)
+            *as = 1;
+        }
     }
   return NULL;
 }
@@ -2278,22 +2264,24 @@ peer_ebgp_multihop_set (struct peer *peer, int ttl)
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (peer->fd >= 0 && peer_sort (peer) != BGP_PEER_IBGP)
-	sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
+      if (*peer->fd >= 0 && peer_sort (peer) != BGP_PEER_IBGP)
+        sockopt_ttl (peer->su.sa.sa_family, *peer->fd, 
+                     peer->ttl);
     }
   else
     {
       group = peer->group;
       LIST_LOOP (group->peer, peer, nn)
-	{
-	  if (peer_sort (peer) == BGP_PEER_IBGP)
-	    continue;
+        {
+          if (peer_sort (peer) == BGP_PEER_IBGP)
+            continue;
 
-	  peer->ttl = group->conf->ttl;
+          peer->ttl = group->conf->ttl;
 
-	  if (peer->fd >= 0)
-	    sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
-	}
+          if (*peer->fd >= 0)
+            sockopt_ttl (peer->su.sa.sa_family,
+                         *peer->fd, peer->ttl);
+        }
     }
   return 0;
 }
@@ -2314,22 +2302,24 @@ peer_ebgp_multihop_unset (struct peer *peer)
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (peer->fd >= 0 && peer_sort (peer) != BGP_PEER_IBGP)
-	sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
+      if (*peer->fd >= 0 && peer_sort (peer) != BGP_PEER_IBGP)
+        sockopt_ttl (peer->su.sa.sa_family, 
+                     *peer->fd, peer->ttl);
     }
   else
     {
       group = peer->group;
       LIST_LOOP (group->peer, peer, nn)
-	{
-	  if (peer_sort (peer) == BGP_PEER_IBGP)
-	    continue;
+        {
+          if (peer_sort (peer) == BGP_PEER_IBGP)
+            continue;
 
-	  peer->ttl = 1;
-	  
-	  if (peer->fd >= 0)
-	    sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
-	}
+          peer->ttl = 1;
+          
+          if (*peer->fd >= 0)
+            sockopt_ttl (peer->su.sa.sa_family,
+                         *peer->fd, peer->ttl);
+        }
     }
   return 0;
 }

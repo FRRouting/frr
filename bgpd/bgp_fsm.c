@@ -292,7 +292,7 @@ bgp_routeadv_timer (struct thread *thread)
 
   peer->synctime = time (NULL);
 
-  BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+  BGP_WRITE_ON (peer->t_write, bgp_write, *peer->fd);
 
   BGP_TIMER_ON (peer->t_routeadv, bgp_routeadv_timer,
 		peer->v_routeadv);
@@ -305,6 +305,21 @@ static void
 bgp_uptime_reset (struct peer *peer)
 {
   peer->uptime = time (NULL);
+}
+
+void
+bgp_connection_stop (struct peer *peer)
+{
+  if (peer->fd_local >= 0)
+    {
+      close (peer->fd_local);
+      peer->fd_local = -1;
+    }
+  if (peer->fd_accept >= 0)
+    {
+      close (peer->fd_accept);
+      peer->fd_accept = -1;
+    }
 }
 
 /* Administrative BGP peer stop event. */
@@ -367,12 +382,8 @@ bgp_stop (struct peer *peer)
     stream_reset (peer->work);
   stream_fifo_clean (peer->obuf);
 
-  /* Close of file descriptor. */
-  if (peer->fd >= 0)
-    {
-      close (peer->fd);
-      peer->fd = -1;
-    }
+  /* Close of connections. */
+  bgp_connection_stop (peer);
 
   /* Connection information. */
   if (peer->su_local)
@@ -386,7 +397,7 @@ bgp_stop (struct peer *peer)
       XFREE (MTYPE_SOCKUNION, peer->su_remote);
       peer->su_remote = NULL;
     }
-
+    
   /* Clear remote router-id. */
   peer->remote_id.s_addr = 0;
 
@@ -477,13 +488,13 @@ bgp_stop_with_error (struct peer *peer)
 int
 bgp_connect_success (struct peer *peer)
 {
-  if (peer->fd < 0)
+  if (peer->fd_local < 0)
     {
       zlog_err ("bgp_connect_success peer's fd is negative value %d",
-		peer->fd);
+                peer->fd_local);
       return -1;
     }
-  BGP_READ_ON (peer->t_read, bgp_read, peer->fd);
+  BGP_READ_ON (peer->t_read, bgp_read, peer->fd_local);
 
   /* bgp_getsockname (peer); */
 
@@ -521,29 +532,29 @@ bgp_start (struct peer *peer)
     {
     case connect_error:
       if (BGP_DEBUG (fsm, FSM))
-	plog_info (peer->log, "%s [FSM] Connect error", peer->host);
+        plog_info (peer->log, "%s [FSM] Connect error", peer->host);
       BGP_EVENT_ADD (peer, TCP_connection_open_failed);
       break;
     case connect_success:
       if (BGP_DEBUG (fsm, FSM))
-	plog_info (peer->log, "%s [FSM] Connect immediately success",
-		   peer->host);
+        plog_info (peer->log, "%s [FSM] Connect immediately success",
+                   peer->host);
       BGP_EVENT_ADD (peer, TCP_connection_open);
       break;
     case connect_in_progress:
       /* To check nonblocking connect, we wait until socket is
          readable or writable. */
       if (BGP_DEBUG (fsm, FSM))
-	plog_info (peer->log, "%s [FSM] Non blocking connect waiting result",
-		   peer->host);
-      if (peer->fd < 0)
+        plog_info (peer->log, "%s [FSM] Non blocking connect waiting result",
+                   peer->host);
+      if (*peer->fd < 0)
 	{
 	  zlog_err ("bgp_start peer's fd is negative value %d",
-		    peer->fd);
+		    *peer->fd);
 	  return -1;
 	}
-      BGP_READ_ON (peer->t_read, bgp_read, peer->fd);
-      BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+      BGP_READ_ON (peer->t_read, bgp_read, *peer->fd);
+      BGP_WRITE_ON (peer->t_write, bgp_write, *peer->fd);
       break;
     }
   return 0;
