@@ -1,3 +1,10 @@
+2004-04-06 Hasso Tepper <hasso@estpak.ee>
+
+	* vtysh_main.c: Don't save command to history if last command already
+	  there is same.
+	* vtysh_main.c: Replace -e with -c.
+	* vtysh_main.c: Fix help.
+
 2004-03-04 Hasso Tepper <hasso@estpak.ee>
 
 	* vtysh.c: Remove using PAGER.

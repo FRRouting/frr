@@ -144,10 +144,9 @@ usage (int status)
   else
     {    
       printf ("Usage : %s [OPTION...]\n\n\
-Daemon which manages kernel routing table management and \
-redistribution between different routing protocols.\n\n\
+Integrated shell for Quagga routing software suite. \n\n\
 -b, --boot               Execute boot startup configuration\n\
--e, --eval               Execute argument as command\n\
+-c, --command            Execute argument as command\n\
 -h, --help               Display this help and exit\n\
 \n\
 Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
@@ -159,7 +158,9 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 struct option longopts[] = 
 {
   { "boot",                no_argument,             NULL, 'b'},
+  /* For compatibility with older zebra/quagga versions */
   { "eval",                 required_argument,       NULL, 'e'},
+  { "command",              required_argument,       NULL, 'c'},
   { "help",                 no_argument,             NULL, 'h'},
   { 0 }
 };
@@ -168,6 +169,7 @@ struct option longopts[] =
 char *
 vtysh_rl_gets ()
 {
+  HIST_ENTRY *last;
   /* If the buffer has already been allocated, return the memory
      to the free pool. */
   if (line_read)
@@ -179,9 +181,16 @@ vtysh_rl_gets ()
   /* Get a line from the user.  Change prompt according to node.  XXX. */
   line_read = readline (vtysh_prompt ());
      
-  /* If the line has any text in it, save it on the history. */
+  /* If the line has any text in it, save it on the history. But only if
+   * last command in history isn't the same one.
+   */
   if (line_read && *line_read)
-    add_history (line_read);
+    {
+      using_history();
+      last = previous_history();
+      if (!last || strcmp (last->line, line_read) != 0)
+	add_history (line_read);
+    }
      
   return (line_read);
 }
@@ -203,7 +212,7 @@ main (int argc, char **argv, char **env)
   /* Option handling. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "be:h", longopts, 0);
+      opt = getopt_long (argc, argv, "be:c:h", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -216,6 +225,7 @@ main (int argc, char **argv, char **env)
 	  boot_flag = 1;
 	  break;
 	case 'e':
+	case 'c':
 	  eval_flag = 1;
 	  eval_line = optarg;
 	  break;
