@@ -1,3 +1,16 @@
+2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
+
+	* ospf_snmp.c: (ospf_snmp_if_update) Fix logic to handle PtP links
+	  with dedicated subnets properly.
+	* ospf_lsa.c: (lsa_link_ptop_set) ditto.
+	* ospfd.c: (ospf_network_match_iface) ditto.
+	  (ospf_network_run) ditto.
+	* ospf_interface.c: (ospf_if_is_configured) ditto.
+	  (ospf_if_lookup_by_prefix) ditto.
+	  (ospf_if_lookup_recv_if) ditto.
+	* ospf_vty.c: (show_ip_ospf_interface_sub) Display the peer or
+	  broadcast address if present.
+
 2004-10-13 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_main.c: Unbreak compilation with ospfapi disabled.

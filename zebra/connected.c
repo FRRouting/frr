@@ -70,7 +70,7 @@ connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
   p.prefixlen = addr->prefixlen;
 
   /* Point-to-point check. */
-  if (if_is_pointopoint (ifp) && dest)
+  if (CONNECTED_POINTOPOINT_HOST(ifc))
     p.prefix = dest->prefix;
   else
     p.prefix = addr->prefix;
@@ -116,7 +116,49 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
       p->family = AF_INET;
       p->prefix = *broad;
       ifc->destination = (struct prefix *) p;
+
+      /* validate the destination address */
+      if (ifp->flags & IFF_POINTOPOINT)
+        {
+	  if (IPV4_ADDR_SAME(addr,broad))
+	    zlog_warn("warning: PtP interface %s has same local and peer "
+		      "address %s, routing protocols may malfunction",
+		      ifp->name,inet_ntoa(*addr));
+	  else if ((prefixlen != IPV4_MAX_PREFIXLEN) &&
+	   	   (ipv4_network_addr(addr->s_addr,prefixlen) !=
+	   	    ipv4_network_addr(broad->s_addr,prefixlen)))
+	    {
+	      char buf[2][INET_ADDRSTRLEN];
+	      zlog_warn("warning: PtP interface %s network mismatch: local "
+	      		"%s/%d vs. peer %s, routing protocols may malfunction",
+	    		ifp->name,
+			inet_ntop (AF_INET, addr, buf[0], sizeof(buf[0])),
+			prefixlen,
+			inet_ntop (AF_INET, broad, buf[1], sizeof(buf[1])));
+	    }
+        }
+      else
+        {
+	  if (broad->s_addr != ipv4_broadcast_addr(addr->s_addr,prefixlen))
+	    {
+	      char buf[2][INET_ADDRSTRLEN];
+	      struct in_addr bcalc;
+	      bcalc.s_addr = ipv4_broadcast_addr(addr->s_addr,prefixlen);
+	      zlog_warn("warning: interface %s broadcast addr %s/%d != "
+	       		"calculated %s, routing protocols may malfunction",
+	    		ifp->name,
+			inet_ntop (AF_INET, broad, buf[0], sizeof(buf[0])),
+			prefixlen,
+			inet_ntop (AF_INET, &bcalc, buf[1], sizeof(buf[1])));
+	    }
+        }
+
     }
+  else
+    /* no broadcast or destination address was supplied */
+    if (prefixlen == IPV4_MAX_PREFIXLEN)
+      zlog_warn("warning: interface %s with addr %s/%d needs a peer address",
+		ifp->name,inet_ntoa(*addr),prefixlen);
 
   /* Label of this address. */
   if (label)
@@ -166,7 +208,7 @@ connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
   p.prefixlen = addr->prefixlen;
 
   /* Point-to-point check. */
-  if (dest && if_is_pointopoint (ifp))
+  if (CONNECTED_POINTOPOINT_HOST(ifc))
     p.prefix = dest->prefix;
   else
     p.prefix = addr->prefix;

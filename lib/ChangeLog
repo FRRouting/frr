@@ -1,3 +1,18 @@
+2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
+
+	* zclient.c: (zebra_interface_address_read) If the destination address
+	  is encoded as all zeroes, load it as a NULL pointer.
+	* if.h: Add comment describing struct connected destination field
+	  and indicating that it may be NULL.  Define macros
+	  CONNECTED_DEST_HOST and CONNECTED_POINTOPOINT_HOST to help
+	  with PtP logic (distinguish between host and subnet addressing).
+	* if.c: (if_lookup_address) Fix PtP logic to handle subnet addressing
+	  properly,
+	  (connected_lookup_address) ditto.
+	  (connected_add_by_prefix) Handle case where destination is NULL,
+	* prefix.[c|h]: New functions ipv4_network_addr and
+	  ipv4_broadcast_addr.
+
 2004-10-13 Hasso Tepper <hasso at quagga.net>
 
 	* command.c: Make CMD_ERR_NOTHING_TODO nonfatal if reading

@@ -2550,6 +2550,11 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
       vty_out (vty, "  Internet Address %s/%d,",
 	       inet_ntoa (oi->address->u.prefix4), oi->address->prefixlen);
 
+      if (oi->connected->destination)
+	 vty_out (vty, " %s %s,",
+		  ((ifp->flags & IFF_POINTOPOINT) ? "Peer" : "Broadcast"),
+		  inet_ntoa (oi->connected->destination->u.prefix4));
+
       vty_out (vty, " Area %s%s", ospf_area_desc_string (oi->area),
 	       VTY_NEWLINE);
 

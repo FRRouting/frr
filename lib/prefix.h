@@ -153,6 +153,14 @@ void apply_classful_mask_ipv4 (struct prefix_ipv4 *);
 
 u_char ip_masklen (struct in_addr);
 void masklen2ip (int, struct in_addr *);
+/* returns the network portion of the host address */
+in_addr_t ipv4_network_addr (in_addr_t hostaddr, int masklen);
+/* given the address of a host on a network and the network mask length,
+ * calculate the broadcast address for that network;
+ * special treatment for /31: returns the address of the other host
+ * on the network by flipping the host bit */
+in_addr_t ipv4_broadcast_addr (in_addr_t hostaddr, int masklen);
+
 int netmask_str2prefix_str (const char *, const char *, char *);
 
 #ifdef HAVE_IPV6

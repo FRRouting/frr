@@ -258,16 +258,12 @@ if_lookup_address (struct in_addr src)
 {
   struct listnode *node;
   struct prefix addr;
-  struct prefix best;
+  int bestlen = 0;
   struct listnode *cnode;
   struct interface *ifp;
   struct prefix *p;
   struct connected *c;
   struct interface *match;
-
-  /* Zero structures - get rid of rubbish from stack */
-  memset(&addr, 0, sizeof(addr));
-  memset(&best, 0, sizeof(best));
 
   addr.family = AF_INET;
   addr.u.prefix4 = src;
@@ -283,31 +279,22 @@ if_lookup_address (struct in_addr src)
 	{
 	  c = getdata (cnode);
 
-	  if (if_is_pointopoint (ifp))
+	  if (c->address && (c->address->family == AF_INET))
 	    {
-	      p = c->address;
-
-	      if (p && p->family == AF_INET)
+	      if (CONNECTED_POINTOPOINT_HOST(c))
 		{
-#ifdef OLD_RIB	 /* PTP  links are conventionally identified 
-		     by the address of the far end - MAG */
-		  if (IPV4_ADDR_SAME (&p->u.prefix4, &src))
-		    return ifp;
-#endif
-		  p = c->destination;
-		  if (p && IPV4_ADDR_SAME (&p->u.prefix4, &src))
+		 /* PTP  links are conventionally identified 
+		    by the address of the far end - MAG */
+		  if (IPV4_ADDR_SAME (&c->destination->u.prefix4, &src))
 		    return ifp;
 		}
-	    }
-	  else
-	    {
-	      p = c->address;
-
-	      if (p->family == AF_INET)
+	      else
 		{
-		  if (prefix_match (p, &addr) && p->prefixlen > best.prefixlen)
+		  p = c->address;
+
+		  if (prefix_match (p, &addr) && p->prefixlen > bestlen)
 		    {
-		      best = *p;
+		      bestlen = p->prefixlen;
 		      match = ifp;
 		    }
 		}
@@ -680,15 +667,10 @@ struct connected *
 connected_lookup_address (struct interface *ifp, struct in_addr dst)
 {
   struct prefix addr;
-  struct prefix best;
   struct listnode *cnode;
   struct prefix *p;
   struct connected *c;
   struct connected *match;
-
-  /* Zero structures - get rid of rubbish from stack */
-  memset(&addr, 0, sizeof(addr));
-  memset(&best, 0, sizeof(best));
 
   addr.family = AF_INET;
   addr.u.prefix4 = dst;
@@ -700,35 +682,24 @@ connected_lookup_address (struct interface *ifp, struct in_addr dst)
     {
       c = getdata (cnode);
 
-      if (if_is_pointopoint (ifp))
-	{
-	  p = c->address;
-
-	  if (p && p->family == AF_INET)
+      if (c->address && (c->address->family == AF_INET))
+        {
+	  if (CONNECTED_POINTOPOINT_HOST(c))
 	    {
-#ifdef OLD_RIB	 /* PTP  links are conventionally identified 
-		    by the address of the far end - MAG */
-	      if (IPV4_ADDR_SAME (&p->u.prefix4, &dst))
-		return c;
-#endif
-	      p = c->destination;
-	      if (p && IPV4_ADDR_SAME (&p->u.prefix4, &dst))
+		     /* PTP  links are conventionally identified 
+			by the address of the far end - MAG */
+	      if (IPV4_ADDR_SAME (&c->destination->u.prefix4, &dst))
 		return c;
 	    }
-	}
-      else
-	{
-	  p = c->address;
-
-	  if (p->family == AF_INET)
+	  else
 	    {
-	      if (prefix_match (p, &addr) && p->prefixlen > best.prefixlen)
-		{
-		  best = *p;
-		  match = c;
-		}
+	      p = c->address;
+
+	      if (prefix_match (p, &addr) &&
+	      	  (!match || (p->prefixlen > match->address->prefixlen)))
+		match = c;
 	    }
-	}
+        }
     }
   return match;
 }
@@ -748,8 +719,11 @@ connected_add_by_prefix (struct interface *ifp, struct prefix *p,
   memcpy (ifc->address, p, sizeof(struct prefix));
 
   /* Fetch dest address */
-  ifc->destination = prefix_new();
-  memcpy (ifc->destination, destination, sizeof(struct prefix));
+  if (destination)
+    {
+      ifc->destination = prefix_new();
+      memcpy (ifc->destination, destination, sizeof(struct prefix));
+    }
 
   /* Add connected address to the interface. */
   listnode_add (ifp->connected, ifc);

@@ -2391,7 +2391,6 @@ void
 rip_update_interface (struct interface *ifp, u_char version, int route_type,
                       struct connected *sconn)
 {
-  struct prefix_ipv4 *p;
   struct connected *connected;
   struct listnode *node;
   struct sockaddr_in to;
@@ -2415,15 +2414,18 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type,
 	{	    
 	  connected = getdata (node);
 
-	  /* Fetch broadcast address or poin-to-point destination
-             address . */
-	  p = (struct prefix_ipv4 *) connected->destination;
-
-	  if (p->family == AF_INET)
+	  if (connected->address->family == AF_INET)
 	    {
 	      /* Destination address and port setting. */
 	      memset (&to, 0, sizeof (struct sockaddr_in));
-	      to.sin_addr = p->prefix;
+	      if (connected->destination)
+		/* use specified broadcast or point-to-point destination addr */
+	        to.sin_addr = connected->destination->u.prefix4;
+	      else
+		/* calculate the appropriate broadcast address */
+	        to.sin_addr.s_addr =
+		  ipv4_broadcast_addr(connected->address->u.prefix4.s_addr,
+				      connected->address->prefixlen);
 	      to.sin_port = htons (RIP_PORT_DEFAULT);
 
 	      if (IS_RIP_DEBUG_EVENT)

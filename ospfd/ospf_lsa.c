@@ -517,7 +517,7 @@ lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
 	links++;
       }
 
-  if (oi->connected->destination != NULL)
+  if (CONNECTED_DEST_HOST(oi->connected))
     {
       /* Option 1:
 	 link_type = LSA_LINK_TYPE_STUB;

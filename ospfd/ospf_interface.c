@@ -338,27 +338,45 @@ ospf_if_free (struct ospf_interface *oi)
 
 /*
 *  check if interface with given address is configured and
-*  return it if yes.
+*  return it if yes.  special treatment for PtP networks.
 */
 struct ospf_interface *
 ospf_if_is_configured (struct ospf *ospf, struct in_addr *address)
 {
   struct listnode *node;
   struct ospf_interface *oi;
-  struct prefix *addr;
+  struct prefix_ipv4 addr;
+
+  addr.family = AF_INET;
+  addr.prefix = *address;
+  addr.prefixlen = IPV4_MAX_PREFIXLEN;
   
   for (node = listhead (ospf->oiflist); node; nextnode (node))
     if ((oi = getdata (node)) != NULL && oi->type != OSPF_IFTYPE_VIRTUALLINK)
       {
 	if (oi->type == OSPF_IFTYPE_POINTOPOINT)
-	  addr = oi->connected->destination;
+	  {
+	    if (CONNECTED_DEST_HOST(oi->connected))
+	      {
+		/* match only destination addr, since local addr is most likely
+		 * not unique (borrowed from another interface) */
+		if (IPV4_ADDR_SAME (address,
+				    &oi->connected->destination->u.prefix4))
+		return oi;
+	      }
+	    else
+	      {
+		/* special leniency: match if addr is anywhere on PtP subnet */
+		if (prefix_match(oi->address,(struct prefix *)&addr))
+		  return oi;
+	      }
+	  }
 	else
-	  addr = oi->address;
-	
-	if (IPV4_ADDR_SAME (address, &addr->u.prefix4))
-	  return oi;
+	  {
+	    if (IPV4_ADDR_SAME (address, &oi->address->u.prefix4))
+	      return oi;
+	  }
       }
-
   return NULL;
 }
 
@@ -417,7 +435,8 @@ ospf_if_lookup_by_prefix (struct ospf *ospf, struct prefix_ipv4 *p)
     {
       if ((oi = getdata (node)) != NULL && oi->type != OSPF_IFTYPE_VIRTUALLINK)
 	{
-	  if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+	  if ((oi->type == OSPF_IFTYPE_POINTOPOINT) &&
+	      CONNECTED_DEST_HOST(oi->connected))
 	    {
 	      prefix_copy (&ptmp, oi->connected->destination);
 	      ptmp.prefixlen = IPV4_MAX_BITLEN;
@@ -454,7 +473,8 @@ ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src)
       if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
 	continue;
       
-      if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+      if ((oi->type == OSPF_IFTYPE_POINTOPOINT) &&
+	  CONNECTED_DEST_HOST(oi->connected))
 	{
 	  if (IPV4_ADDR_SAME (&oi->connected->destination->u.prefix4, &src))
 	    return oi;

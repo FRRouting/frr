@@ -1107,7 +1107,6 @@ ip_address_install (struct vty *vty, struct interface *ifp,
   struct prefix_ipv4 cp;
   struct connected *ifc;
   struct prefix_ipv4 *p;
-  struct in_addr mask;
   int ret;
 
   ret = str2prefix_ipv4 (addr_str, &cp);
@@ -1129,12 +1128,11 @@ ip_address_install (struct vty *vty, struct interface *ifp,
       ifc->address = (struct prefix *) p;
 
       /* Broadcast. */
-      if (p->prefixlen <= 30)
+      if (p->prefixlen <= IPV4_MAX_PREFIXLEN-2)
 	{
 	  p = prefix_ipv4_new ();
 	  *p = cp;
-	  masklen2ip (p->prefixlen, &mask);
-	  p->prefix.s_addr |= ~mask.s_addr;
+	  p->prefix.s_addr = ipv4_broadcast_addr(p->prefix.s_addr,p->prefixlen);
 	  ifc->destination = (struct prefix *) p;
 	}
 

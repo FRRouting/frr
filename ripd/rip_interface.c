@@ -143,16 +143,16 @@ rip_interface_multicast_set (int sock, struct connected *connected)
   int ret;
   struct servent *sp;
   struct sockaddr_in from;
-      struct in_addr addr;
+  struct in_addr addr;
   struct prefix_ipv4 *p;
 
   if (connected != NULL) 
     {
-  if (if_is_pointopoint(connected->ifp))
-    p = (struct prefix_ipv4 *) connected->destination;
-  else
-      p = (struct prefix_ipv4 *) connected->address;
-	  addr = p->prefix;
+      if (if_is_pointopoint(connected->ifp) && CONNECTED_DEST_HOST(connected))
+	p = (struct prefix_ipv4 *) connected->destination;
+      else
+	p = (struct prefix_ipv4 *) connected->address;
+      addr = p->prefix;
     }
   else 
     {
@@ -161,46 +161,52 @@ rip_interface_multicast_set (int sock, struct connected *connected)
 
   if (setsockopt_multicast_ipv4 (sock, IP_MULTICAST_IF, addr, 0, 
                                  connected->ifp->ifindex) < 0) 
-	    {
-	      zlog_warn ("Can't setsockopt IP_MULTICAST_IF to fd %d, ifindex %d", 
-	                 sock, connected->ifp->ifindex);
-	      return;
-	    }
+    {
+      zlog_warn ("Can't setsockopt IP_MULTICAST_IF on fd %d to "
+		 "source address %s for interface %s",
+		 sock, inet_ntoa(addr),
+		 (connected ? connected->ifp->name : "(unknown)"));
+      return;
+    }
 
-	  /* Bind myself. */
-	  memset (&from, 0, sizeof (struct sockaddr_in));
+  /* Bind myself. */
+  memset (&from, 0, sizeof (struct sockaddr_in));
 
-	  /* Set RIP port. */
-	  sp = getservbyname ("router", "udp");
-	  if (sp) 
-	    from.sin_port = sp->s_port;
-	  else 
-	    from.sin_port = htons (RIP_PORT_DEFAULT);
+  /* Set RIP port. */
+  sp = getservbyname ("router", "udp");
+  if (sp) 
+    from.sin_port = sp->s_port;
+  else 
+    from.sin_port = htons (RIP_PORT_DEFAULT);
 
   /* Address should be any address. */
-	  from.sin_family = AF_INET;
+  from.sin_family = AF_INET;
   if (connected)
-  addr = ((struct prefix_ipv4 *) connected->address)->prefix;
-	  from.sin_addr = addr;
+    addr = ((struct prefix_ipv4 *) connected->address)->prefix;
+  from.sin_addr = addr;
 #ifdef HAVE_SIN_LEN
-	  from.sin_len = sizeof (struct sockaddr_in);
+  from.sin_len = sizeof (struct sockaddr_in);
 #endif /* HAVE_SIN_LEN */
 
-    if (ripd_privs.change (ZPRIVS_RAISE))
-      zlog_err ("rip_interface_multicast_set: could not raise privs");
+  if (ripd_privs.change (ZPRIVS_RAISE))
+    zlog_err ("rip_interface_multicast_set: could not raise privs");
       
   ret = bind (sock, (struct sockaddr *) & from, sizeof (struct sockaddr_in));
-	  if (ret < 0)
-	    {
-	      zlog_warn ("Can't bind socket: %s", strerror (errno));
-	    }
+  if (ret < 0)
+    {
+      zlog_warn ("Can't bind socket fd %d to %s port %d for "
+		 "interface %s: %s",
+	      	 sock,inet_ntoa(from.sin_addr),
+		 (int)ntohs(from.sin_port),
+		 (connected ? connected->ifp->name : "(unknown)"),
+		  strerror (errno));
+    }
 
-    if (ripd_privs.change (ZPRIVS_LOWER))
-        zlog_err ("rip_interface_multicast_set: could not lower privs");
+  if (ripd_privs.change (ZPRIVS_LOWER))
+    zlog_err ("rip_interface_multicast_set: could not lower privs");
 
-	  return;
-
-	}
+  return;
+}
 
 /* Send RIP request packet to specified interface. */
 void
@@ -229,17 +235,22 @@ rip_request_interface_send (struct interface *ifp, u_char version)
 
       for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
 	{
-	  struct prefix_ipv4 *p;
 	  struct connected *connected;
 
 	  connected = getdata (cnode);
-	  p = (struct prefix_ipv4 *) connected->destination;
 
-	  if (p->family == AF_INET)
+	  if (connected->address->family == AF_INET)
 	    {
 	      memset (&to, 0, sizeof (struct sockaddr_in));
 	      to.sin_port = htons (RIP_PORT_DEFAULT);
-	      to.sin_addr = p->prefix;
+              if (connected->destination)
+                /* use specified broadcast or point-to-point destination addr */
+                to.sin_addr = connected->destination->u.prefix4;
+              else
+	        /* calculate the appropriate broadcast address */
+                to.sin_addr.s_addr =
+		  ipv4_broadcast_addr(connected->address->u.prefix4.s_addr,
+				      connected->address->prefixlen);
 
 	      if (IS_RIP_DEBUG_EVENT)
 		zlog_info ("SEND request to %s", inet_ntoa (to.sin_addr));
@@ -439,6 +450,11 @@ if_valid_neighbor (struct in_addr addr)
   struct listnode *node;
   struct connected *connected = NULL;
   struct prefix_ipv4 *p;
+  struct prefix_ipv4 pa;
+
+  pa.family = AF_INET;
+  pa.prefix = addr;
+  pa.prefixlen = IPV4_MAX_PREFIXLEN;
 
   for (node = listhead (iflist); node; nextnode (node))
     {
@@ -449,9 +465,6 @@ if_valid_neighbor (struct in_addr addr)
 
       for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
 	{
-	  struct prefix *pxn = NULL; /* Prefix of the neighbor */
-	  struct prefix *pxc = NULL; /* Prefix of the connected network */
-
 	  connected = getdata (cnode);
 
 	  if (if_is_pointopoint (ifp))
@@ -464,34 +477,23 @@ if_valid_neighbor (struct in_addr addr)
 		    return 1;
 
 		  p = (struct prefix_ipv4 *) connected->destination;
-		  if (p && IPV4_ADDR_SAME (&p->prefix, &addr))
-		    return 1;
+		  if (p)
+		    {
+		      if (IPV4_ADDR_SAME (&p->prefix, &addr))
+			return 1;
+		    }
+		  else
+		    {
+		      if (prefix_match(connected->address,(struct prefix *)&pa))
+			return 1;
+		    }
 		}
 	    }
 	  else
 	    {
-	      p = (struct prefix_ipv4 *) connected->address;
-
-	      if (p->family != AF_INET)
-		continue;
-
-	      pxn = prefix_new();
-	      pxn->family = AF_INET;
-	      pxn->prefixlen = 32;
-	      pxn->u.prefix4 = addr;
-	      
-	      pxc = prefix_new();
-	      prefix_copy(pxc, (struct prefix *) p);
-	      apply_mask(pxc);
-	  
-	      if (prefix_match (pxc, pxn)) 
-		{
-		  prefix_free (pxn);
-		  prefix_free (pxc);
-		  return 1;
-		}
-	      prefix_free(pxc);
-	      prefix_free(pxn);
+	      if ((connected->address->family == AF_INET) &&
+		  prefix_match(connected->address,(struct prefix *)&pa))
+		return 1;
 	    }
 	}
     }

@@ -644,6 +644,17 @@ zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
   ifp->bandwidth = stream_getl (s);
 }
 
+static int
+memconstant(const void *s, int c, size_t n)
+{
+  const u_char *p = s;
+
+  while (n-- > 0)
+    if (*p++ != c)
+      return 0;
+  return 1;
+}
+
 struct connected *
 zebra_interface_address_read (int type, struct stream *s)
 {
@@ -688,7 +699,9 @@ zebra_interface_address_read (int type, struct stream *s)
 
   if (type == ZEBRA_INTERFACE_ADDRESS_ADD) 
     {
-       ifc = connected_add_by_prefix(ifp, &p, &d);
+       /* N.B. NULL destination pointers are encoded as all zeroes */
+       ifc = connected_add_by_prefix(ifp, &p,(memconstant(&d.u.prefix,0,plen) ?
+					      NULL : &d));
        if (ifc != NULL)
        ifc->flags = ifc_flags;
     }

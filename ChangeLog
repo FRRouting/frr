@@ -1,3 +1,10 @@
+2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
+
+	* lib, zebra, ripd, ospfd, bgpd: Support NULL connected destination
+	  pointers properly everywhere.  Fix point-to-point logic to
+	  support links where a dedicated subnet has been assigned.
+	  PtP links with /31 subnets should now work where supported by O/S.
+
 2004-10-11 Paul Jakma <paul@dishone.st>
 
 	* bump version to 0.97.1, release imminent.

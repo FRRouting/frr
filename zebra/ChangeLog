@@ -1,3 +1,15 @@
+2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
+
+	* rt_netlink.c: (netlink_interface_addr) For PtP interfaces, ignore
+	  tb[IFA_ADDRESS] if it's the same as tb[IFA_LOCAL].
+	* interface.c: (ip_address_install) Use new ipv4_broadcast_addr
+	  function.
+	* connected.c: (connected_up_ipv4) Use CONNECTED_POINTOPOINT_HOST
+	  macro.
+	  (connected_down_ipv4) ditto.
+	  (connected_add_ipv4) Validate destination address, print warnings
+	  if it does not make sense.
+
 2004-10-19 Hasso Tepper <hasso at quagga.net>
 
 	* zserv.c: Fix regression introduced with zserv cleanup.

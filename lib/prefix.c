@@ -247,7 +247,7 @@ str2prefix_ipv4 (const char *str, struct prefix_ipv4 *p)
 
       /* Get prefix length. */
       plen = (u_char) atoi (++pnt);
-      if (plen > 32)
+      if (plen > IPV4_MAX_PREFIXLEN)
 	return 0;
 
       p->family = AF_INET;
@@ -648,7 +648,7 @@ void apply_classful_mask_ipv4 (struct prefix_ipv4 *p)
   
   destination = ntohl (p->prefix.s_addr);
   
-  if (p->prefixlen == 32);
+  if (p->prefixlen == IPV4_MAX_PREFIXLEN);
   /* do nothing for host routes */
   else if (IN_CLASSC (destination)) 
     {
@@ -665,6 +665,28 @@ void apply_classful_mask_ipv4 (struct prefix_ipv4 *p)
       p->prefixlen=8;
       apply_mask_ipv4(p);
     }
+}
+
+in_addr_t
+ipv4_network_addr (in_addr_t hostaddr, int masklen)
+{
+  struct in_addr mask;
+
+  masklen2ip (masklen, &mask);
+  return hostaddr & mask.s_addr;
+}
+
+in_addr_t
+ipv4_broadcast_addr (in_addr_t hostaddr, int masklen)
+{
+  struct in_addr mask;
+
+  masklen2ip (masklen, &mask);
+  return (masklen != IPV4_MAX_PREFIXLEN-1) ?
+	 /* normal case */
+         (hostaddr | ~mask.s_addr) :
+	 /* special case for /31 */
+         (hostaddr ^ ~mask.s_addr);
 }
 
 /* Utility function to convert ipv4 netmask to prefixes 

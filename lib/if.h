@@ -148,11 +148,22 @@ struct connected
 
   /* Address of connected network. */
   struct prefix *address;
-  struct prefix *destination;
+  struct prefix *destination; /* broadcast or peer address; may be NULL */
 
   /* Label for Linux 2.2.X and upper. */
   char *label;
 };
+
+/* Given an IPV4 struct connected, this macro determines whether a /32
+   peer address has been supplied (i.e. there is no subnet assigned) */
+#define CONNECTED_DEST_HOST(C) \
+	((C)->destination && ((C)->address->prefixlen == IPV4_MAX_PREFIXLEN))
+
+/* Given an IPV4 struct connected, this macro determins whether it is
+   a point-to-point link with a /32 peer address (i.e. there
+   is no dedicated subnet for the PtP link) */
+#define CONNECTED_POINTOPOINT_HOST(C) \
+	(((C)->ifp->flags & IFF_POINTOPOINT) && CONNECTED_DEST_HOST(C))
 
 /* Interface hook sort. */
 #define IF_NEW_HOOK   0

@@ -596,7 +596,9 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
       if (tb[IFA_LOCAL])
         {
           addr = RTA_DATA (tb[IFA_LOCAL]);
-          if (tb[IFA_ADDRESS])
+          if (tb[IFA_ADDRESS] &&
+	      memcmp(RTA_DATA(tb[IFA_ADDRESS]),RTA_DATA(tb[IFA_LOCAL]),4))
+	    /* if IFA_ADDRESS != IFA_LOCAL, then it's the peer address */
             broad = RTA_DATA (tb[IFA_ADDRESS]);
           else
             broad = NULL;

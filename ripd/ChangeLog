@@ -1,3 +1,15 @@
+2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
+
+	* ripd.c: (rip_update_interface) if connected->destination is NULL,
+	  get the broadcast address with ipv4_broadcast_addr()
+	* rip_interface.c: (rip_interface_multicast_set)
+	  connected->destination may be NULL. Improve message if
+	  setsockopt_multicast_ipv4 fails. Improve message if bind fails.
+	  (rip_request_interface_send) If connected->destination is NULL,
+	  get the broadcast address with ipv4_broadcast_addr().
+	  (if_valid_neighbor) Handle PtP subnet addressing properly.
+	  Speed up code by using prefix_match properly.
+
 2004-10-13 Hasso Tepper <hasso at quagga.net>
 
 	* ripd_snmp.c: Remove defaults used to initialize smux connection to

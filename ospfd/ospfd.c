@@ -686,31 +686,17 @@ ospf_network_match_iface(struct connected *co, struct prefix *net)
    *   PtP special case: network specified == iface peer addr -> ospf
    */
 
-  /* For PtP, match if peer address matches network address exactly.
-   * This can be addr/32 or addr/p for p < 32, but the addr must match
-   * exactly; this is not a test for falling within the prefix.  This
+  /* For PtP, match if peer address matches network address exactly
+   * in situations where the peer address is available and the prefix
+   * length is 32 (i.e. a dedicated subnet has not been assigned).
+   * This is not a test for falling within the prefix.  This
    * test is solely for compatibility with zebra.
-  */
-  if (if_is_pointopoint (co->ifp) && 
-      IPV4_ADDR_SAME ( &(co->destination->u.prefix4), &(net->u.prefix4)))
-    return 1;
-
-#if 0
-  /* Decline to accept PtP if dst address does not match the
-   * prefix. (ifdefed out because this is a workaround, not the
-   * desired behavior.) */
-  if (if_is_pointopoint (co->ifp) &&
-      ! prefix_match (net, co->destination))
-    return 0;
-#endif
-
-  /* If the address is within the prefix, accept.  Note that this
-   * applies to PtP as well as other types.
+   *
+   * If not PtP, accept if the address is within the prefix.
    */
-  if (prefix_match (net, co->address))
-    return 1;
-
-  return 0;			/* no match */
+  return CONNECTED_POINTOPOINT_HOST(co) ?
+	 IPV4_ADDR_SAME ( &(co->destination->u.prefix4), &(net->u.prefix4)) :
+	 prefix_match (net, co->address);
 }
 
 void
@@ -748,7 +734,7 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
           if (CHECK_FLAG(co->flags,ZEBRA_IFA_SECONDARY))
             continue;
 
-	  if (if_is_pointopoint (co->ifp))
+	  if (CONNECTED_POINTOPOINT_HOST(co))
 	    addr = co->destination;
 	  else 
 	    addr = co->address;

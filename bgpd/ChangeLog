@@ -1,3 +1,9 @@
+2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
+
+	* bgp_nexthop.c: (bgp_connected_add) Connected destination pointer
+	  may be NULL.
+	  (bgp_connected_delete) ditto.
+
 2004-10-14 Hasso Tepper <hasso at quagga.net>
 
 	* bgp_dump.c: Make dump configuration appear in vtysh.
