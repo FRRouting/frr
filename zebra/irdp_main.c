@@ -124,9 +124,7 @@ irdp_sock_init (void)
     return ret;
   };
   
-  i = 1;
-  ret = setsockopt (irdp_sock, IPPROTO_IP, IP_PKTINFO, 
-                        (void *) &i, sizeof (i));
+  ret = setsockopt_pktinfo_ipv4 (irdp_sock, 1);
   if (ret < 0) {
     zlog_warn ("IRDP: can't do irdp sockopt %s", strerror(errno));
     return ret;

@@ -186,7 +186,7 @@ int irdp_recvmsg (int sock,
   struct msghdr msg;
   struct iovec iov;
   struct cmsghdr *ptr;
-  char adata[1024];
+  char adata[CMSG_SPACE( SOPT_SIZE_CMSG_PKTINFO_IPV4() )];
   int ret;
 
   msg.msg_name = (void *)0;
@@ -214,13 +214,8 @@ int irdp_recvmsg (int sock,
     return ret;
   }
 
-  for (ptr = CMSG_FIRSTHDR(&msg); ptr ; ptr = CMSG_NXTHDR(&msg, ptr))
-    if (ptr->cmsg_level == SOL_IP && ptr->cmsg_type == IP_PKTINFO) 
-      {
-        struct in_pktinfo *pktinfo;
-           pktinfo = (struct in_pktinfo *) CMSG_DATA (ptr);
-        *ifindex = pktinfo->ipi_ifindex;
-      }
+  ifindex = getsockopt_pktinfo_ifindex (AF_INET, &msg);
+
   return ret;
 }
 
