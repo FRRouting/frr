@@ -191,8 +191,10 @@ isis_circuit_del (struct isis_circuit *circuit)
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
       /* destroy adjacency databases */
-      list_delete (circuit->u.bc.adjdb[0]);
-      list_delete (circuit->u.bc.adjdb[1]);
+      if (circuit->u.bc.adjdb[0])
+	list_delete (circuit->u.bc.adjdb[0]);
+      if (circuit->u.bc.adjdb[1])
+	list_delete (circuit->u.bc.adjdb[1]);
       /* destroy neighbour lists */
       if (circuit->u.bc.lan_neighs[0])
 	list_delete (circuit->u.bc.lan_neighs[0]);
@@ -428,7 +430,12 @@ void
 isis_circuit_update_params (struct isis_circuit *circuit,
 			    struct interface *ifp)
 {
-  assert (circuit);
+  /* HT: It can happen at the moment during interface up event because we
+   * actually delete circuit during interface down event. Should be really
+   * cleaned up. TODO */
+  /* assert (circuit); */
+  if (!circuit)
+    return;
 
   if (circuit->circuit_id != ifp->ifindex)
     {

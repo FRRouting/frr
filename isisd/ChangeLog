@@ -1,3 +1,9 @@
+2004-12-29 Hasso Tepper <hasso at quagga.net>
+
+	* isis_circuit.c, isis_csm.c, isis_zebra.c: Don't crash during
+	  interface up/down events. I'm not sure whether logic is correct
+	  though. Needs rethink anyway, seems.
+
 2004-12-24 Hasso Tepper <hasso at quagga.net>
 
 	* *.c: zlog_* cleanup. Mostly changed level of debug messages to

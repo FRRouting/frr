@@ -125,6 +125,7 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	  isis_circuit_if_del (circuit);
 	  listnode_delete (isis->init_circ_list, circuit);
 	  isis_circuit_del (circuit);
+	  circuit = NULL;
 	  break;
 	}
       break;
@@ -143,6 +144,7 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	case ISIS_DISABLE:
 	  isis_circuit_deconfigure (circuit, (struct isis_area *) arg);
 	  isis_circuit_del (circuit);
+	  circuit = NULL;
 	  break;
 	case IF_DOWN_FROM_Z:
 	  zlog_warn ("circuit already disconnected");

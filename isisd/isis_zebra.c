@@ -135,6 +135,9 @@ isis_zebra_if_state_up (int command, struct zclient *zclient,
   if (if_is_up (ifp))
     {
       zebra_interface_if_set_value (zclient->ibuf, ifp);
+      /* HT: This is wrong actually. We can't assume that circuit exist
+       * if we delete circuit during if_state_down event. Needs rethink.
+       * TODO */
       isis_circuit_update_params (circuit_scan_by_ifp (ifp), ifp);
       return 0;
     }
