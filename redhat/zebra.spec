@@ -8,8 +8,8 @@
 %define		with_vtysh	1
 %define		with_pam	1
 %define		with_ipv6	1
-%define		with_ospfclient 0
-%define		with_ospfapi	0
+%define		with_ospfclient 1
+%define		with_ospfapi	1
 %define		with_multipath	64
 
 # path defines
@@ -22,6 +22,7 @@
 %define		_libexecdir	%{_exec_prefix}/libexec/zebra
 %define		_includedir	%{_prefix}/include/zebra
 %define		_libdir		%{_exec_prefix}/%{_lib}/zebra
+%define		_localstatedir	%{_prefix}/var/run
 
 Summary: Routing daemon
 Name:		zebra
