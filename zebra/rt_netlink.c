@@ -488,6 +488,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h)
   memset (tb, 0, sizeof tb);
   netlink_parse_rtattr (tb, IFLA_MAX, IFLA_RTA (ifi), len);
   
+#ifdef IFLA_WIRELESS
   /* check for wireless messages to ignore */
   if ((tb[IFLA_WIRELESS] != NULL) && (ifi->ifi_change == 0))
     {
@@ -495,6 +496,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h)
         zlog_debug ("%s: ignoring IFLA_WIRELESS message", __func__);
       return 0;
     }
+#endif /* IFLA_WIRELESS */
 
   if (tb[IFLA_IFNAME] == NULL)
     return -1;
@@ -955,6 +957,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
   memset (tb, 0, sizeof tb);
   netlink_parse_rtattr (tb, IFLA_MAX, IFLA_RTA (ifi), len);
 
+#ifdef IFLA_WIRELESS
   /* check for wireless messages to ignore */
   if ((tb[IFLA_WIRELESS] != NULL) && (ifi->ifi_change == 0))
     {
@@ -962,6 +965,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
         zlog_debug ("%s: ignoring IFLA_WIRELESS message", __func__);
       return 0;
     }
+#endif /* IFLA_WIRELESS */
   
   if (tb[IFLA_IFNAME] == NULL)
     return -1;

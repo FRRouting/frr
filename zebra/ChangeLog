@@ -1,3 +1,7 @@
+2005-02-14 Paul Jakma <paul@dishone.st>
+
+	* Not all Linux netlink systems have IFLA_WIRELESS
+
 2005-01-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ioctl.c: (if_ioctl,if_ioctl_ipv6,if_get_flags) Replace perror with
