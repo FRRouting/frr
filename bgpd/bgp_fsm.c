@@ -329,14 +329,13 @@ bgp_stop (struct peer *peer)
 
       /* set last reset time */
       peer->resettime = time (NULL);
+      /* Reset uptime. */
+      bgp_uptime_reset (peer);
 
 #ifdef HAVE_SNMP
       bgpTrapBackwardTransition (peer);
 #endif /* HAVE_SNMP */
     }
-
-  /* Reset uptime. */
-  bgp_uptime_reset (peer);
 
   /* Need of clear of peer. */
   if (established)
