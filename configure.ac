@@ -4,7 +4,7 @@
 ##
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##
-AC_PREREQ(2.53)
+AC_PREREQ(2.52)
 
 AC_INIT(lib/zebra.h)
 AM_INIT_AUTOMAKE(zebra, 0.94)
