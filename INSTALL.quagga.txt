@@ -1,3 +1,5 @@
+# $Id: INSTALL.quagga.txt,v 1.2 2004/11/15 15:34:50 gdt Exp $
+
 --------------------------------------------------------------------------
 Building and Installing Quagga:
 
@@ -26,7 +28,7 @@ Building Quagga from CVS checkouts:
 
 In order to build from CVS, you will need recent versions of several GNU
 tools, particularly autoconf, automake, libtool and texinfo. Note that the
-CVS snapshots on the Quagga website do not require these tools, everything
+CVS snapshots on the Quagga website do not require these tools; everything
 is already setup ready to run 'configure', and if you have trouble building
 from CVS checkout it is recommended that you try a CVS snapshot instead.
 
@@ -47,4 +49,18 @@ need to run make to create this file.
 
 Please refer to "Building and Installing Quagga" above for further
 instructions.
+
+--------------------------------------------------------------------------
+Notes on required versions:
+
+The general goal is to use a modern baseline of tools, while not
+imposing pain on those tracking stable distributions.  The notes below
+explain what versions are present in various environments.
+
+TODO:
+texinfo 4.7-4 is not a version of texinfo, per
+http://ftp.gnu.org/gnu/texinfo/.
+
+NetBSD pkgsrc provides automake 1.9.1 autoconf 2.59 libtool 1.5.6
+NetBSD 1.6.2 and 2.0 provide texinfo 4.6.
 --------------------------------------------------------------------------
