@@ -1,3 +1,20 @@
+2004-11-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* log.c: (vzlog) Take a single va_list argument and use va_copy
+	  as necessary for multiple traversals.
+	  (zlog) Pass only one va_list to vzlog.
+	  (zlog_*,plog_*) Use a macro for boilerplate code; pass only one
+	  va_list to vzlog.
+	  (zlog_set_file) Remove unused 2nd argument (flags).
+	  (zlog_save_cwd,zlog_get_cwd,zlog_free_cwd) Remove unused functions.
+	* log.h: Remove ZLOG_*_INDEX defines (no longer used).
+	  Remove unused 2nd argument from zlog_set_file prototype.
+	  Fix prototype for zlog_rotate.
+	* command.c: (config_log_file) Remove unused 2nd arg to zlog_set_file.
+	* vty.c: (vty_out) Fix stdarg usage to perform multiple traversals
+	  properly.
+	  (vty_log) Must use va_copy for multiple traversals of va_list arg.
+
 2004-11-19 David Young <dyoung@pobox.com>
 
 	* log.c: (safe_strerror) New function: safe wrapper for strerror.

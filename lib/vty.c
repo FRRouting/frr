@@ -95,21 +95,27 @@ vty_out (struct vty *vty, const char *format, ...)
   int size = 1024;
   char buf[1024];
   char *p = NULL;
-  
-  va_start (args, format);
 
   if (vty_shell (vty))
-    vprintf (format, args);
+    {
+      va_start (args, format);
+      vprintf (format, args);
+      va_end (args);
+    }
   else
     {
       /* Try to write to initial buffer.  */
+      va_start (args, format);
       len = vsnprintf (buf, sizeof buf, format, args);
+      va_end (args);
 
       /* Initial buffer is not enough.  */
       if (len < 0 || len >= size)
 	{
 	  while (1)
 	    {
+	      va_list ac;
+
 	      if (len > -1)
 		size = len + 1;
 	      else
@@ -119,7 +125,9 @@ vty_out (struct vty *vty, const char *format, ...)
 	      if (! p)
 		return -1;
 
+	      va_start (args, format);
 	      len = vsnprintf (p, size, format, args);
+	      va_end (args);
 
 	      if (len > -1 && len < size)
 		break;
@@ -138,12 +146,10 @@ vty_out (struct vty *vty, const char *format, ...)
 	XFREE (MTYPE_VTY_OUT_BUF, p);
     }
 
-  va_end (args);
-
   return len;
 }
 
-int
+static int
 vty_log_out (struct vty *vty, const char *proto_str, const char *format,
 	     va_list va)
 {
@@ -2277,7 +2283,12 @@ vty_log (const char *proto_str, const char *format, va_list va)
   for (i = 0; i < vector_max (vtyvec); i++)
     if ((vty = vector_slot (vtyvec, i)) != NULL)
       if (vty->monitor)
-	vty_log_out (vty, proto_str, format, va);
+	{
+	  va_list ac;
+	  va_copy(ac, va);
+	  vty_log_out (vty, proto_str, format, ac);
+	  va_end(ac);
+	}
 }
 
 int

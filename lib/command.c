@@ -3017,7 +3017,7 @@ DEFUN (config_log_file,
   else
     fullpath = argv[0];
 
-  ret = zlog_set_file (NULL, ZLOG_FILE, fullpath);
+  ret = zlog_set_file (NULL, fullpath);
 
   if (p)
     XFREE (MTYPE_TMP, p);

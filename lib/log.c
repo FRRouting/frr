@@ -81,8 +81,8 @@ time_print (FILE *fp)
 }
 
 /* va_list version of zlog. */
-void
-vzlog (struct zlog *zl, int priority, const char *format, va_list *args)
+static void
+vzlog (struct zlog *zl, int priority, const char *format, va_list args)
 {
   /* If zlog is not specified, use default one. */
   if (zl == NULL)
@@ -93,7 +93,7 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list *args)
     {
       time_print (stderr);
       fprintf (stderr, "%s: ", "unknown");
-      vfprintf (stderr, format, args[ZLOG_NOLOG_INDEX]);
+      vfprintf (stderr, format, args);
       fprintf (stderr, "\n");
       fflush (stderr);
 
@@ -107,16 +107,24 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list *args)
 		
   /* Syslog output */
   if (zl->flags & ZLOG_SYSLOG)
-    vsyslog (priority|zlog_default->facility, format, args[ZLOG_SYSLOG_INDEX]);
+    {
+      va_list ac;
+      va_copy(ac, args);
+      vsyslog (priority|zlog_default->facility, format, ac);
+      va_end(ac);
+    }
 
   /* File output. */
   if (zl->flags & ZLOG_FILE)
     {
+      va_list ac;
       time_print (zl->fp);
       if (zl->record_priority)
 	fprintf (zl->fp, "%s: ", zlog_priority[priority]);
       fprintf (zl->fp, "%s: ", zlog_proto_names[zl->protocol]);
-      vfprintf (zl->fp, format, args[ZLOG_FILE_INDEX]);
+      va_copy(ac, args);
+      vfprintf (zl->fp, format, ac);
+      va_end(ac);
       fprintf (zl->fp, "\n");
       fflush (zl->fp);
     }
@@ -124,11 +132,14 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list *args)
   /* stdout output. */
   if (zl->flags & ZLOG_STDOUT)
     {
+      va_list ac;
       time_print (stdout);
       if (zl->record_priority)
 	fprintf (stdout, "%s: ", zlog_priority[priority]);
       fprintf (stdout, "%s: ", zlog_proto_names[zl->protocol]);
-      vfprintf (stdout, format, args[ZLOG_STDOUT_INDEX]);
+      va_copy(ac, args);
+      vfprintf (stdout, format, ac);
+      va_end(ac);
       fprintf (stdout, "\n");
       fflush (stdout);
     }
@@ -136,183 +147,75 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list *args)
   /* stderr output. */
   if (zl->flags & ZLOG_STDERR)
     {
+      va_list ac;
       time_print (stderr);
       if (zl->record_priority)
 	fprintf (stderr, "%s: ", zlog_priority[priority]);
       fprintf (stderr, "%s: ", zlog_proto_names[zl->protocol]);
-      vfprintf (stderr, format, args[ZLOG_STDERR_INDEX]);
+      va_copy(ac, args);
+      vfprintf (stderr, format, ac);
+      va_end(ac);
       fprintf (stderr, "\n");
       fflush (stderr);
     }
 
   /* Terminal monitor. */
-  vty_log (zlog_proto_names[zl->protocol], format, args[ZLOG_NOLOG_INDEX]);
+  vty_log (zlog_proto_names[zl->protocol], format, args);
 }
 
 void
 zlog (struct zlog *zl, int priority, const char *format, ...)
 {
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
+  va_list args;
 
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
-
+  va_start(args, format);
   vzlog (zl, priority, format, args);
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
+  va_end (args);
 }
 
-void
-zlog_err (const char *format, ...)
-{
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
-
-  vzlog (NULL, LOG_ERR, format, args);
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
+#define ZLOG_FUNC(FUNCNAME,PRIORITY) \
+void \
+FUNCNAME(const char *format, ...) \
+{ \
+  va_list args; \
+  va_start(args, format); \
+  vzlog (NULL, PRIORITY, format, args); \
+  va_end(args); \
 }
 
-void
-zlog_warn (const char *format, ...)
-{
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
+ZLOG_FUNC(zlog_err, LOG_ERR)
 
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
+ZLOG_FUNC(zlog_warn, LOG_WARNING)
 
-  vzlog (NULL, LOG_WARNING, format, args);
+ZLOG_FUNC(zlog_info, LOG_INFO)
 
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
+ZLOG_FUNC(zlog_notice, LOG_NOTICE)
+
+ZLOG_FUNC(zlog_debug, LOG_DEBUG)
+
+#undef ZLOG_FUNC
+
+#define PLOG_FUNC(FUNCNAME,PRIORITY) \
+void \
+FUNCNAME(struct zlog *zl, const char *format, ...) \
+{ \
+  va_list args; \
+  va_start(args, format); \
+  vzlog (zl, PRIORITY, format, args); \
+  va_end(args); \
 }
 
-void
-zlog_info (const char *format, ...)
-{
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
+PLOG_FUNC(plog_err, LOG_ERR)
 
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
+PLOG_FUNC(plog_warn, LOG_WARNING)
 
-  vzlog (NULL, LOG_INFO, format, args);
+PLOG_FUNC(plog_info, LOG_INFO)
 
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
-}
+PLOG_FUNC(plog_notice, LOG_NOTICE)
 
-void
-zlog_notice (const char *format, ...)
-{
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
+PLOG_FUNC(plog_debug, LOG_DEBUG)
 
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
-
-  vzlog (NULL, LOG_NOTICE, format, args);
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
-}
-
-void
-zlog_debug (const char *format, ...)
-{
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
-
-  vzlog (NULL, LOG_DEBUG, format, args);
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
-}
-
-void
-plog_err (struct zlog *zl, const char *format, ...)
-{
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
-
-  vzlog (zl, LOG_ERR, format, args);
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
-}
-
-void
-plog_warn (struct zlog *zl, const char *format, ...)
-{
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
-
-  vzlog (zl, LOG_WARNING, format, args);
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
-}
-
-void
-plog_info (struct zlog *zl, const char *format, ...)
-{
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
-
-  vzlog (zl, LOG_INFO, format, args);
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
-}
-
-void
-plog_notice (struct zlog *zl, const char *format, ...)
-{
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
-
-  vzlog (zl, LOG_NOTICE, format, args);
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
-}
-
-void
-plog_debug (struct zlog *zl, const char *format, ...)
-{
-  va_list args[ZLOG_MAX_INDEX];
-  int index;
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_start(args[index], format);
-
-  vzlog (zl, LOG_DEBUG, format, args);
-
-  for (index = 0; index < ZLOG_MAX_INDEX; index++)
-    va_end (args[index]);
-}
+#undef PLOG_FUNC
 
 
 /* Open log stream */
@@ -366,7 +269,7 @@ zlog_reset_flag (struct zlog *zl, int flags)
 }
 
 int
-zlog_set_file (struct zlog *zl, int flags, const char *filename)
+zlog_set_file (struct zlog *zl, const char *filename)
 {
   FILE *fp;
   mode_t oldumask;
@@ -445,32 +348,6 @@ zlog_rotate (struct zlog *zl)
     }
 
   return 1;
-}
-
-static char *zlog_cwd = NULL;
-
-void
-zlog_save_cwd ()
-{
-  char *cwd;
-
-  cwd = getcwd (NULL, MAXPATHLEN);
-
-  zlog_cwd = XMALLOC (MTYPE_TMP, strlen (cwd) + 1);
-  strcpy (zlog_cwd, cwd);
-}
-
-char *
-zlog_get_cwd ()
-{
-  return zlog_cwd;
-}
-
-void
-zlog_free_cwd ()
-{
-  if (zlog_cwd)
-    XFREE (MTYPE_TMP, zlog_cwd);
 }
 
 /* Message lookup function. */
