@@ -40,7 +40,7 @@ struct host host;
 char *default_motd = 
 "\r\n\
 Hello, this is " QUAGGA_PROGNAME " (version " QUAGGA_VERSION ").\r\n\
-Copyright 1996-2002 Kunihiro Ishiguro.\r\n\
+Copyright 1996-2004 Kunihiro Ishiguro, et al.\r\n\
 \r\n";
 
 /* Standard command node structures. */

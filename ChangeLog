@@ -1,3 +1,8 @@
+2004-09-13 Paul Jakma <paul@dishone.st>
+
+	* configure.ac: capitalise the package name. autoconf lowercases
+          it for PACKAGE_TARNAME.
+
 2004-09-13 Jose Luis Rubio <jrubio@dit.upm.es>
            (at Technical University of Madrid as part of Euro6ix Project)
 

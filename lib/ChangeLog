@@ -1,3 +1,7 @@
+2004-09-13 Paul Jakma <paul@dishone.st>
+
+	* command.c: Update the copyright string in the default motd.
+
 2004-08-31  David Wiggins  <dwiggins@bbn.com>
 
 	* hash.c (hash_iterate): Save next pointer before calling
