@@ -7326,8 +7326,9 @@ ospf_config_write (struct vty *vty)
 
 	  if (OSPF_IF_PARAM_CONFIGURED (oi->params, passive_interface) &&
 	      oi->params->passive_interface == OSPF_IF_PASSIVE)
-	    vty_out (vty, " passive-interface %s%s",
-		     inet_ntoa (oi->address->u.prefix4), VTY_NEWLINE);
+	    vty_out (vty, " passive-interface %s %s%s",
+	             oi->ifp->name,
+               inet_ntoa (oi->address->u.prefix4), VTY_NEWLINE);
         }
 
       
