@@ -1323,13 +1323,24 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
     {
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
 	{
+
 	  if ((cmd == RTM_NEWROUTE 
 	       && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 	      || (cmd == RTM_DELROUTE
 		  && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
 	    {
+
 	      if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 		{
+		  if (IS_ZEBRA_DEBUG_KERNEL) {
+			zlog_info ("netlink_route_multipath(): %s %s/%d via %s if %u",
+		          lookup (nlmsg_str, cmd),
+		          inet_ntoa (p->u.prefix4),
+		          p->prefixlen, 
+		          inet_ntoa (nexthop->rgate.ipv4),
+		          nexthop->rifindex);
+		  }
+
 		  if (nexthop->rtype == NEXTHOP_TYPE_IPV4 
 		      || nexthop->rtype == NEXTHOP_TYPE_IPV4_IFINDEX)
 		    addattr_l (&req.n, sizeof req, RTA_GATEWAY,
@@ -1351,6 +1362,15 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 		}
 	      else
 		{
+		  if (IS_ZEBRA_DEBUG_KERNEL) {
+            zlog_info ("netlink_route_multipath(): %s %s/%d via %s if %u",
+		                lookup (nlmsg_str, cmd),
+		                inet_ntoa (p->u.prefix4),
+		                p->prefixlen,
+		                inet_ntoa (nexthop->gate.ipv4), 
+		                nexthop->ifindex);
+		  }
+
 		  if (nexthop->type == NEXTHOP_TYPE_IPV4 
 		      || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
 		    addattr_l (&req.n, sizeof req, RTA_GATEWAY,

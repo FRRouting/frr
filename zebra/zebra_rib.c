@@ -1146,6 +1146,13 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   /* Apply mask. */
   apply_mask_ipv4 (p);
 
+  if (IS_ZEBRA_DEBUG_KERNEL && gate)
+    zlog_info ("rib_delete_ipv4(): route delete %s/%d via %s ifindex %d",
+		       inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
+		       p->prefixlen, 
+		       inet_ntoa (*gate), 
+		       ifindex);
+
   /* Lookup route node. */
   rn = route_node_lookup (table, (struct prefix *) p);
   if (! rn)
@@ -1188,6 +1195,20 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
 		  route_unlock_node (rn);
 		  return 0;
 		}
+	      same = rib;
+	      break;
+	    }
+	}
+      else if (gate) 
+        {
+          nexthop = rib->nexthop;
+
+	  /* Make sure that the route found has the same gateway. */
+	  if (rib->type == type
+	      && nexthop &&
+	          (IPV4_ADDR_SAME (&nexthop->gate.ipv4, gate) || 
+		    IPV4_ADDR_SAME (&nexthop->rgate.ipv4, gate)) )
+	    {
 	      same = rib;
 	      break;
 	    }
