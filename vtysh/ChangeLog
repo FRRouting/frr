@@ -1,7 +1,9 @@
 2004-12-22 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh_config.c: No delimiter between "ip forwarding" and "ipv6
-	  forwarding".
+	  forwarding". Show common router-id before router nodes. Fix router
+	  bgp node parsing. Move debug commands into debug node and no
+	  delimiter between lines there.
 
 2004-12-09 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

@@ -188,6 +188,8 @@ vtysh_config_parse_line (const char *line)
     default:
       if (strncmp (line, "interface", strlen ("interface")) == 0)
 	config = config_get (INTERFACE_NODE, line);
+      else if (strncmp (line, "router-id", strlen ("router-id")) == 0)
+	config = config_get (ZEBRA_NODE, line);
       else if (strncmp (line, "router rip", strlen ("router rip")) == 0)
 	config = config_get (RIP_NODE, line);
       else if (strncmp (line, "router ripng", strlen ("router ripng")) == 0)
@@ -200,7 +202,7 @@ vtysh_config_parse_line (const char *line)
 	config = config_get (BGP_NODE, line);
       else if (strncmp (line, "router isis", strlen ("router isis")) == 0)
   	config = config_get (ISIS_NODE, line);
-      else if (strncmp (line, "router", strlen ("router")) == 0)
+      else if (strncmp (line, "router bgp", strlen ("router bgp")) == 0)
 	config = config_get (BGP_NODE, line);
       else if (strncmp (line, "route-map", strlen ("route-map")) == 0)
 	config = config_get (RMAP_NODE, line);
@@ -236,6 +238,8 @@ vtysh_config_parse_line (const char *line)
 	config = config_get (FORWARDING_NODE, line);
       else if (strncmp (line, "service", strlen ("service")) == 0)
 	config = config_get (SERVICE_NODE, line);
+      else if (strncmp (line, "debug", strlen ("debug")) == 0)
+	config = config_get (DEBUG_NODE, line);
       else
 	{
 	  if (strncmp (line, "log", strlen ("log")) == 0
@@ -283,7 +287,7 @@ vtysh_config_parse (char *line)
   ((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE \
    || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE || \
    (I) == ACCESS_IPV6_NODE || (I) == PREFIX_IPV6_NODE \
-   || (I) == SERVICE_NODE || (I) == FORWARDING_NODE)
+   || (I) == SERVICE_NODE || (I) == FORWARDING_NODE || (I) == DEBUG_NODE)
 
 /* Display configuration to file pointer. */
 void
