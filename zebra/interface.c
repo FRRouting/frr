@@ -674,36 +674,6 @@ DEFUN_NOSH (zebra_interface,
   return ret;
 }
 
-DEFUN_NOSH (no_zebra_interface,
-       no_zebra_interface_cmd,
-       "no interface IFNAME",
-       "Delete a pseudo interface's configuration\n"
-       "Interface's name\n")
-{
-  struct interface *ifp;
-  
-  ifp = if_lookup_by_name(argv[0]);
-  
-  if (ifp == NULL) 
-    {
-      vty_out (vty, "Inteface %s does not exist%s", 
-              argv[0],
-              VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
-    {
-      vty_out(vty, "%% Only inactive interfaces can be deleted%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  /* Delete interface */
-  if_delete(ifp);
-
-  return CMD_SUCCESS;
-} 
-
 struct cmd_node interface_node =
 {
   INTERFACE_NODE,
@@ -1431,7 +1401,7 @@ zebra_if_init ()
   install_element (VIEW_NODE, &show_interface_cmd);
   install_element (ENABLE_NODE, &show_interface_cmd);
   install_element (CONFIG_NODE, &zebra_interface_cmd);
-  install_element (CONFIG_NODE, &no_zebra_interface_cmd);
+  install_element (CONFIG_NODE, &no_interface_cmd);
   install_default (INTERFACE_NODE);
   install_element (INTERFACE_NODE, &interface_desc_cmd);
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);

@@ -453,9 +453,13 @@ DEFUN_NOSH (no_interface,
   ifp = if_lookup_by_name (argv[0]);
 
   if (ifp == NULL)
-    return CMD_SUCCESS;
+  {
+    vty_out (vty, "%% Inteface %s does not exist%s", argv[0], VTY_NEWLINE);
+    return CMD_WARNING;
+  }
 
-  if (if_is_up(ifp)) {
+  if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE)) 
+  {
     vty_out (vty, "%% Only inactive interfaces can be deleted%s",
             VTY_NEWLINE);
     return CMD_WARNING;
