@@ -1427,7 +1427,7 @@ DEFUN (ospf_area_stub_no_summary,
   ret = ospf_area_stub_set (ospf, area_id);
   if (ret == 0)
     {
-      vty_out (vty, "%% Area cannot be nssa as it contains a virtual link%s",
+      vty_out (vty, "%% Area cannot be stub as it contains a virtual link%s",
 	       VTY_NEWLINE);
       return CMD_WARNING;
     }
@@ -1479,13 +1479,8 @@ DEFUN (no_ospf_area_stub_no_summary,
 }
 
 #ifdef HAVE_NSSA
-DEFUN (ospf_area_nssa,
-       ospf_area_nssa_cmd,
-       "area (A.B.C.D|<0-4294967295>) nssa",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Configure OSPF area as nssa\n")
+int
+ospf_area_nssa_cmd_handler (struct vty *vty, int argc, char **argv, int nosum)
 {
   struct ospf *ospf = vty->index;
   struct in_addr area_id;
@@ -1504,25 +1499,34 @@ DEFUN (ospf_area_nssa,
   if (argc > 1)
     {
       if (strncmp (argv[1], "translate-c", 11) == 0)
-	ospf_area_nssa_translator_role_set (ospf, area_id,
+        ospf_area_nssa_translator_role_set (ospf, area_id,
 					    OSPF_NSSA_ROLE_CANDIDATE);
       else if (strncmp (argv[1], "translate-n", 11) == 0)
-	ospf_area_nssa_translator_role_set (ospf, area_id,
+        ospf_area_nssa_translator_role_set (ospf, area_id,
 					    OSPF_NSSA_ROLE_NEVER);
       else if (strncmp (argv[1], "translate-a", 11) == 0)
-	ospf_area_nssa_translator_role_set (ospf, area_id,
+        ospf_area_nssa_translator_role_set (ospf, area_id,
 					    OSPF_NSSA_ROLE_ALWAYS);
     }
+  else
+    {
+      ospf_area_nssa_translator_role_set (ospf, area_id,
+                        OSPF_NSSA_ROLE_CANDIDATE);
+    }
 
-  if (argc > 2)
+  if (nosum)
     ospf_area_no_summary_set (ospf, area_id);
+  else
+    ospf_area_no_summary_unset (ospf, area_id);
 
+  ospf_schedule_abr_task (ospf);
+    
   return CMD_SUCCESS;
 }
 
-ALIAS (ospf_area_nssa,
+DEFUN (ospf_area_nssa_translate_no_summary,
        ospf_area_nssa_translate_no_summary_cmd,
-       "area (A.B.C.D|<0-4294967295>) nssa (translate-candidate|translate-never|translate-always) (no-summary|)",
+       "area (A.B.C.D|<0-4294967295>) nssa (translate-candidate|translate-never|translate-always) no-summary",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1530,10 +1534,12 @@ ALIAS (ospf_area_nssa,
        "Configure NSSA-ABR for translate election (default)\n"
        "Configure NSSA-ABR to never translate\n"
        "Configure NSSA-ABR to always translate\n"
-       "Do not inject inter-area routes into nssa\n"
-       "dummy\n")
+       "Do not inject inter-area routes into nssa\n")
+{
+   return ospf_area_nssa_cmd_handler (vty, argc, argv, 1);
+}
 
-ALIAS (ospf_area_nssa,
+DEFUN (ospf_area_nssa_translate,
        ospf_area_nssa_translate_cmd,
        "area (A.B.C.D|<0-4294967295>) nssa (translate-candidate|translate-never|translate-always)",
        "OSPF area parameters\n"
@@ -1543,6 +1549,20 @@ ALIAS (ospf_area_nssa,
        "Configure NSSA-ABR for translate election (default)\n"
        "Configure NSSA-ABR to never translate\n"
        "Configure NSSA-ABR to always translate\n")
+{
+  return ospf_area_nssa_cmd_handler (vty, argc, argv, 0);
+}
+
+DEFUN (ospf_area_nssa,
+       ospf_area_nssa_cmd,
+       "area (A.B.C.D|<0-4294967295>) nssa",
+       "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
+       "Configure OSPF area as nssa\n")
+{
+  return ospf_area_nssa_cmd_handler (vty, argc, argv, 0);
+}
 
 DEFUN (ospf_area_nssa_no_summary,
        ospf_area_nssa_no_summary_cmd,
@@ -1553,23 +1573,7 @@ DEFUN (ospf_area_nssa_no_summary,
        "Configure OSPF area as nssa\n"
        "Do not inject inter-area routes into nssa\n")
 {
-  struct ospf *ospf = vty->index;
-  struct in_addr area_id;
-  int ret, format;
-
-  VTY_GET_OSPF_AREA_ID_NO_BB ("NSSA", area_id, format, argv[0]);
-
-  ret = ospf_area_nssa_set (ospf, area_id);
-  if (ret == 0)
-    {
-      vty_out (vty, "%% Area cannot be nssa as it contains a virtual link%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  ospf_area_no_summary_set (ospf, area_id);
-
-  return CMD_SUCCESS;
+  return ospf_area_nssa_cmd_handler (vty, argc, argv, 1);
 }
 
 DEFUN (no_ospf_area_nssa,
@@ -1589,6 +1593,8 @@ DEFUN (no_ospf_area_nssa,
 
   ospf_area_nssa_unset (ospf, area_id);
   ospf_area_no_summary_unset (ospf, area_id);
+
+  ospf_schedule_abr_task (ospf);
 
   return CMD_SUCCESS;
 }
@@ -2359,24 +2365,23 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
   else
     {
       if (area->external_routing == OSPF_AREA_STUB)
-	vty_out (vty, " (Stub%s%s)",
-		 area->no_summary ? ", no summary" : "",
-		 area->shortcut_configured ? "; " : "");
+        vty_out (vty, " (Stub%s%s)",
+		         area->no_summary ? ", no summary" : "",
+		         area->shortcut_configured ? "; " : "");
 
 #ifdef HAVE_NSSA
 
-      else
-      if (area->external_routing == OSPF_AREA_NSSA)
-	vty_out (vty, " (NSSA%s%s)",
-		 area->no_summary ? ", no summary" : "",
-		 area->shortcut_configured ? "; " : "");
+      else if (area->external_routing == OSPF_AREA_NSSA)
+        vty_out (vty, " (NSSA%s%s)",
+                 area->no_summary ? ", no summary" : "",
+                 area->shortcut_configured ? "; " : "");
 #endif /* HAVE_NSSA */
 
       vty_out (vty, "%s", VTY_NEWLINE);
       vty_out (vty, "   Shortcutting mode: %s",
-	       ospf_shortcut_mode_descr_str[area->shortcut_configured]);
+               ospf_shortcut_mode_descr_str[area->shortcut_configured]);
       vty_out (vty, ", S-bit consensus: %s%s",
-	       area->shortcut_capability ? "ok" : "no", VTY_NEWLINE);
+               area->shortcut_capability ? "ok" : "no", VTY_NEWLINE);
     }
 
   /* Show number of interfaces. */
@@ -2389,21 +2394,34 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
     {
       vty_out (vty, "   It is an NSSA configuration. %s   Elected NSSA/ABR performs type-7/type-5 LSA translation. %s", VTY_NEWLINE, VTY_NEWLINE);
       if (! IS_OSPF_ABR (area->ospf))
-	vty_out (vty, "   It is not ABR, therefore not Translator. %s",
-		 VTY_NEWLINE);
+        vty_out (vty, "   It is not ABR, therefore not Translator. %s",
+                 VTY_NEWLINE);
+      else if (area->NSSATranslatorState)
+       {
+         vty_out (vty, "   We are an ABR and ");
+         if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_CANDIDATE)
+           vty_out (vty, "the NSSA Elected Translator. %s", 
+	                VTY_NEWLINE);
+         else if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_ALWAYS)
+           vty_out (vty, "always an NSSA Translator. %s",
+                    VTY_NEWLINE);
+       }
       else
-	{
-	  if (area->NSSATranslator)
-	    vty_out (vty, "   We are an ABR and the NSSA Elected Translator. %s", VTY_NEWLINE);
-	  else
-	    vty_out (vty, "   We are an ABR, but not the NSSA Elected Translator. %s", VTY_NEWLINE);
-	}
+       {
+         vty_out (vty, "   We are an ABR, but ");
+         if (area->NSSATranslatorRole == OSPF_NSSA_ROLE_CANDIDATE)
+           vty_out (vty, "not the NSSA Elected Translator. %s",
+                    VTY_NEWLINE);
+         else
+           vty_out (vty, "not the NSSA Elected Translator. %s", 
+	             VTY_NEWLINE);
+	   }
     }
 #endif /* HAVE_NSSA */
 
   /* Show number of fully adjacent neighbors. */
   vty_out (vty, "   Number of fully adjacent neighbors in this area:"
-	   " %d%s", area->full_nbrs, VTY_NEWLINE);
+                " %d%s", area->full_nbrs, VTY_NEWLINE);
 
   /* Show authentication type. */
   vty_out (vty, "   Area has ");
@@ -3278,6 +3296,7 @@ show_router_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 	       VTY_NEWLINE, VTY_NEWLINE);
 
       show_ip_ospf_database_router_links (vty, rl);
+      vty_out (vty, "%s", VTY_NEWLINE);
     }
 
   return 0;
@@ -3324,6 +3343,7 @@ show_summary_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 	       VTY_NEWLINE);
       vty_out (vty, "        TOS: 0  Metric: %d%s", GET_METRIC (sl->metric),
 	       VTY_NEWLINE);
+	  vty_out (vty, "%s", VTY_NEWLINE);
     }
 
   return 0;
@@ -3343,6 +3363,7 @@ show_summary_asbr_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 	       ip_masklen (sl->mask), VTY_NEWLINE);
       vty_out (vty, "        TOS: 0  Metric: %d%s", GET_METRIC (sl->metric),
 	       VTY_NEWLINE);
+	  vty_out (vty, "%s", VTY_NEWLINE);
     }
 
   return 0;
@@ -6514,7 +6535,7 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
 	  if ((or = getdata (nn)) != NULL)
 	    {
 	      if (flag++)
-		vty_out(vty,"                              " );
+            vty_out (vty, "%24s", "");
 
 	      /* Show path. */
 	      vty_out (vty, "%s [%d] area: %s",
@@ -6945,12 +6966,26 @@ config_write_ospf_area (struct vty *vty, struct ospf *ospf)
 #endif /* HAVE_NSSA */
 	  )
 	{
-#ifdef HAVE_NSSA
-	  if (area->external_routing == OSPF_AREA_NSSA)
-	    vty_out (vty, " area %s nssa", buf);
-	  else
-#endif /* HAVE_NSSA */
+	  if (area->external_routing == OSPF_AREA_STUB)
 	    vty_out (vty, " area %s stub", buf);
+#ifdef HAVE_NSSA
+	  else if (area->external_routing == OSPF_AREA_NSSA)
+	    {
+	      vty_out (vty, " area %s nssa", buf);
+	      switch (area->NSSATranslatorRole)
+	        {
+	          case OSPF_NSSA_ROLE_NEVER:
+	            vty_out (vty, " translate-never");
+	            break;
+	          case OSPF_NSSA_ROLE_ALWAYS:
+	            vty_out (vty, " translate-always");
+	            break;
+	          case OSPF_NSSA_ROLE_CANDIDATE:
+	          default:
+	            vty_out (vty, " translate-candidate");
+	        }
+	    }
+#endif /* HAVE_NSSA */
 
 	  if (area->no_summary)
 	    vty_out (vty, " no-summary");
