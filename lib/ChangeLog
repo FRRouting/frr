@@ -1,3 +1,8 @@
+2005-02-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* network.c: (set_nonblocking) Should check return code from
+	  fcntl(F_GETFL).
+
 2005-02-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 	
 	* network.h: Declare new function set_nonblocking.  Indicate that
