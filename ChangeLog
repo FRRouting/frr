@@ -1,3 +1,8 @@
+2004-11-17 Paul Jakma <paul@dishone.st>
+
+	* INSTALL.quagga.txt: texinfo version corrected, so section on
+          that 4.7-x being unknown is not needed.
+
 2004-11-12 Paul Jakma <paul@dishone.st>
 
 	* configure.ac: Fix AC_CONFIG_FILES, the chmod seems to run for
