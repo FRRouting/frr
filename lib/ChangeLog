@@ -1,3 +1,11 @@
+2004-11-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zassert.h: New header file to declare a quagga-specific assert macro.
+	* log.c: (_zlog_assert_failed) New function called when assert fails
+	  to log the error and abort.
+	* zebra.h: Include "zassert.h" instead of <assert.h>.
+	* regex.c: Include "zassert.h" instead of <assert.h>.
+
 2004-11-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* sigevent.c: (signal_init) Set up some default signal handlers

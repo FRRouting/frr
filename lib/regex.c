@@ -613,7 +613,7 @@ extract_number_and_incr (destination, source)
 # include <stdio.h>
 
 /* It is useful to test things that ``must'' be true when debugging.  */
-# include <assert.h>
+# include "zassert.h"
 
 static int debug;
 

@@ -95,7 +95,7 @@ typedef int socklen_t;
 
 /* misc include group */
 #include <stdarg.h>
-#include <assert.h>
+#include "zassert.h"
 
 #ifdef HAVE_LCAPS
 #include <sys/capability.h>

@@ -1,3 +1,7 @@
+2004-11-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* dict.c: Include "zassert.h" instead of <assert.h>.
+
 2004-10-13 Hasso Tepper <hasso at quagga.net>
 
 	* isis_main.c: Initialize access list. Although we haven't route

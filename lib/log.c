@@ -315,6 +315,15 @@ PLOG_FUNC(plog_debug, LOG_DEBUG)
 
 #undef PLOG_FUNC
 
+void
+_zlog_assert_failed (const char *assertion, const char *file,
+		     unsigned int line, const char *function)
+{
+  zlog_err("Assertion `%s' failed in file %s, line %u, function %s",
+	   assertion,file,line,(function ? function : "?"));
+  abort();
+}
+
 
 /* Open log stream */
 struct zlog *

@@ -14,19 +14,19 @@
  * into proprietary software; there is no requirement for such software to
  * contain a copyright notice related to this source.
  *
- * $Id: dict.c,v 1.2 2004/09/10 20:48:21 hasso Exp $
+ * $Id: dict.c,v 1.3 2004/11/24 17:14:49 ajs Exp $
  * $Name:  $
  */
 
 #include <stdlib.h>
 #include <stddef.h>
-#include <assert.h>
+#include "zassert.h"
 #define DICT_IMPLEMENTATION
 #include "dict.h"
 
 #ifdef KAZLIB_RCSID
 static const char rcsid[] =
-  "$Id: dict.c,v 1.2 2004/09/10 20:48:21 hasso Exp $";
+  "$Id: dict.c,v 1.3 2004/11/24 17:14:49 ajs Exp $";
 #endif
 
 /*
