@@ -480,6 +480,15 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h)
   /* Looking up interface name. */
   memset (tb, 0, sizeof tb);
   netlink_parse_rtattr (tb, IFLA_MAX, IFLA_RTA (ifi), len);
+  
+  /* check for wireless messages to ignore */
+  if ((tb[IFLA_WIRELESS] != NULL) && (ifi->ifi_change == 0))
+    {
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug ("%s: ignoring IFLA_WIRELESS message", __func__);
+      return 0;
+    }
+
   if (tb[IFLA_IFNAME] == NULL)
     return -1;
   name = (char *) RTA_DATA (tb[IFLA_IFNAME]);
@@ -938,6 +947,15 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
   /* Looking up interface name. */
   memset (tb, 0, sizeof tb);
   netlink_parse_rtattr (tb, IFLA_MAX, IFLA_RTA (ifi), len);
+
+  /* check for wireless messages to ignore */
+  if ((tb[IFLA_WIRELESS] != NULL) && (ifi->ifi_change == 0))
+    {
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug ("%s: ignoring IFLA_WIRELESS message", __func__);
+      return 0;
+    }
+  
   if (tb[IFLA_IFNAME] == NULL)
     return -1;
   name = (char *) RTA_DATA (tb[IFLA_IFNAME]);

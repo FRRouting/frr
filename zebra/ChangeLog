@@ -1,3 +1,7 @@
+2005-01-24 Martin Pot <mpot at martybugs.net>
+
+	* zebra/rt_netlink.c: ignore wireless newlink netlink messages.
+
 2005-01-18 Hasso Tepper <hasso at quagga.net>
 
 	* interface.c: Better statistics output in "show interface" command in
