@@ -347,7 +347,6 @@ ospf_act_bb_connection (struct ospf *ospf)
   return ospf->backbone->full_nbrs;
 }
 
-#ifdef HAVE_NSSA
 /* Determine whether this router is elected translator or not for area */
 int
 ospf_abr_nssa_am_elected (struct ospf_area *area)
@@ -472,7 +471,6 @@ ospf_abr_nssa_check_status (struct ospf *ospf)
          }
     }
 }
-#endif /* HAVE_NSSA */
 
 /* Check area border router status. */
 void
@@ -604,7 +602,6 @@ set_metric (struct ospf_lsa *lsa, u_int32_t metric)
   memcpy(header->metric, mp, 3);
 }
 
-#ifdef HAVE_NSSA
 int
 ospf_abr_check_nssa_range (struct prefix_ipv4 *p, u_int32_t cost,
 				   struct ospf_area *area)
@@ -710,7 +707,6 @@ ospf_abr_translate_nssa_range (struct prefix_ipv4 *p, u_int32_t cost)
   /* The Type-7 is created from the aggregated prefix and forwarded
      for lsa installation and flooding... to be added... */
 }
-#endif /* HAVE_NSSA */
 
 void
 ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
@@ -945,7 +941,6 @@ ospf_abr_should_announce (struct ospf *ospf,
   return 1;
 }
 
-#ifdef HAVE_NSSA
 void
 ospf_abr_process_nssa_translates (struct ospf *ospf)
 {
@@ -985,7 +980,6 @@ ospf_abr_process_nssa_translates (struct ospf *ospf)
     zlog_info ("ospf_abr_process_nssa_translates(): Stop");
 
 }
-#endif /* HAVE_NSSA */
 
 void
 ospf_abr_process_network_rt (struct ospf *ospf,
@@ -1303,7 +1297,6 @@ ospf_abr_process_router_rt (struct ospf *ospf, struct route_table *rt)
     zlog_info ("ospf_abr_process_router_rt(): Stop");
 }
 
-#ifdef HAVE_NSSA
 void
 ospf_abr_unapprove_translates (struct ospf *ospf) /* For NSSA Translations */
 {
@@ -1329,7 +1322,6 @@ ospf_abr_unapprove_translates (struct ospf *ospf) /* For NSSA Translations */
   if (IS_DEBUG_OSPF_NSSA)
     zlog_info ("ospf_abr_unapprove_translates(): Stop");
 }
-#endif /* HAVE_NSSA */
 
 void
 ospf_abr_unapprove_summaries (struct ospf *ospf)
@@ -1484,7 +1476,6 @@ ospf_abr_announce_aggregates (struct ospf *ospf)
     zlog_info ("ospf_abr_announce_aggregates(): Stop");
 }
 
-#ifdef HAVE_NSSA
 void
 ospf_abr_send_nssa_aggregates (struct ospf *ospf) /* temporarily turned off */
 {
@@ -1592,7 +1583,6 @@ ospf_abr_announce_nssa_defaults (struct ospf *ospf) /* By ABR-Translator */
         }
     }
 }
-#endif /* HAVE_NSSA */
 
 void
 ospf_abr_announce_stub_defaults (struct ospf *ospf)
@@ -1619,9 +1609,7 @@ ospf_abr_announce_stub_defaults (struct ospf *ospf)
                  inet_ntoa (area->area_id));
 
      if ( (area->external_routing != OSPF_AREA_STUB)
-#ifdef HAVE_NSSA
           && (area->external_routing != OSPF_AREA_NSSA)
-#endif /* HAVE_NSSA */
         )
        continue;
 
@@ -1639,7 +1627,6 @@ ospf_abr_announce_stub_defaults (struct ospf *ospf)
     zlog_info ("ospf_abr_announce_stub_defaults(): Stop");
 }
 
-#ifdef HAVE_NSSA
 int
 ospf_abr_remove_unapproved_translates_apply (struct ospf *ospf,
 					     struct ospf_lsa *lsa)
@@ -1676,7 +1663,6 @@ ospf_abr_remove_unapproved_translates (struct ospf *ospf)
   if (IS_DEBUG_OSPF_NSSA)
     zlog_info ("ospf_abr_remove_unapproved_translates(): Stop");
 }
-#endif /* HAVE_NSSA */
 
 void
 ospf_abr_remove_unapproved_summaries (struct ospf *ospf)
@@ -1734,7 +1720,6 @@ ospf_abr_manage_discard_routes (struct ospf *ospf)
 	    }
 }
 
-#ifdef HAVE_NSSA
 /* This is the function taking care about ABR NSSA, i.e.  NSSA
    Translator, -LSA aggregation and flooding. For all NSSAs
 
@@ -1821,7 +1806,6 @@ ospf_abr_nssa_task (struct ospf *ospf) /* called only if any_nssa */
   if (IS_DEBUG_OSPF_NSSA)
     zlog_info ("ospf_abr_nssa_task(): Stop");
 }
-#endif /* HAVE_NSSA */
 
 /* This is the function taking care about ABR stuff, i.e.
    summary-LSA origination and flooding. */
@@ -1887,14 +1871,10 @@ ospf_abr_task_timer (struct thread *thread)
     zlog_info ("Running ABR task on timer");
 
   ospf_check_abr_status (ospf);
-#ifdef HAVE_NSSA
   ospf_abr_nssa_check_status (ospf);
-#endif /* HAVE_NSSA */
 
   ospf_abr_task (ospf);
-#ifdef HAVE_NSSA  
   ospf_abr_nssa_task (ospf); /* if nssa-abr, then scan Type-7 LSDB */
-#endif /* HAVE_NSSA */
 
   return 0;
 }

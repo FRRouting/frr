@@ -562,11 +562,9 @@ ospf_packet_ls_upd_dump (struct stream *s, u_int16_t length)
 	case OSPF_AS_EXTERNAL_LSA:
 	  ospf_as_external_lsa_dump (s, length);
 	  break;
-#ifdef HAVE_NSSA
 	case OSPF_AS_NSSA_LSA:
 	  ospf_as_external_lsa_dump (s, length);
 	  break;
-#endif /* HAVE_NSSA */
 #ifdef HAVE_OPAQUE_LSA
 	case OSPF_OPAQUE_LINK_LSA:
 	case OSPF_OPAQUE_AREA_LSA:
@@ -1624,9 +1622,7 @@ debug_init ()
   install_element (ENABLE_NODE, &debug_ospf_zebra_sub_cmd);
   install_element (ENABLE_NODE, &debug_ospf_zebra_cmd);
   install_element (ENABLE_NODE, &debug_ospf_event_cmd);
-#ifdef HAVE_NSSA
   install_element (ENABLE_NODE, &debug_ospf_nssa_cmd);
-#endif /* HAVE_NSSA */
   install_element (ENABLE_NODE, &no_debug_ospf_packet_send_recv_detail_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_packet_send_recv_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_packet_all_cmd);
@@ -1639,9 +1635,7 @@ debug_init ()
   install_element (ENABLE_NODE, &no_debug_ospf_zebra_sub_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf_event_cmd);
-#ifdef HAVE_NSSA
   install_element (ENABLE_NODE, &no_debug_ospf_nssa_cmd);
-#endif /* HAVE_NSSA */
 
   install_element (CONFIG_NODE, &debug_ospf_packet_send_recv_detail_cmd);
   install_element (CONFIG_NODE, &debug_ospf_packet_send_recv_cmd);
@@ -1655,9 +1649,7 @@ debug_init ()
   install_element (CONFIG_NODE, &debug_ospf_zebra_sub_cmd);
   install_element (CONFIG_NODE, &debug_ospf_zebra_cmd);
   install_element (CONFIG_NODE, &debug_ospf_event_cmd);
-#ifdef HAVE_NSSA
   install_element (CONFIG_NODE, &debug_ospf_nssa_cmd);
-#endif /* HAVE_NSSA */
   install_element (CONFIG_NODE, &no_debug_ospf_packet_send_recv_detail_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_packet_send_recv_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_packet_all_cmd);
@@ -1670,7 +1662,5 @@ debug_init ()
   install_element (CONFIG_NODE, &no_debug_ospf_zebra_sub_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_zebra_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf_event_cmd);
-#ifdef HAVE_NSSA
   install_element (CONFIG_NODE, &no_debug_ospf_nssa_cmd);
-#endif /* HAVE_NSSA */
 }

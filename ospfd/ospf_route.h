@@ -62,10 +62,8 @@ struct route_standard
   /* Associated Area. */
   struct in_addr area_id;	/* The area the route belongs to */
 
-#ifdef HAVE_NSSA
   /*  Area Type */
   int external_routing;
-#endif /* HAVE_NSSA */
 
   /* Optional Capability. */
   u_char options;		/* Get from LSA header. */

@@ -503,10 +503,8 @@ ospf_area_free (struct ospf_area *area)
   LSDB_LOOP (ASBR_SUMMARY_LSDB (area), rn, lsa)
     ospf_discard_from_db (area->ospf, area->lsdb, lsa);
 
-#ifdef HAVE_NSSA
   LSDB_LOOP (NSSA_LSDB (area), rn, lsa)
     ospf_discard_from_db (area->ospf, area->lsdb, lsa);
-#endif /* HAVE_NSSA */
 #ifdef HAVE_OPAQUE_LSA
   LSDB_LOOP (OPAQUE_AREA_LSDB (area), rn, lsa)
     ospf_discard_from_db (area->ospf, area->lsdb, lsa);
@@ -825,12 +823,10 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 		  case OSPF_AREA_STUB:
 		    UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
 		    break;
-#ifdef HAVE_NSSA
 		  case OSPF_AREA_NSSA:
 		    UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
 		    SET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
 		    break;
-#endif /* HAVE_NSSA */
 		  }
 
 		ospf_area_add_if (oi->area, oi);
@@ -983,9 +979,7 @@ ospf_area_type_set (struct ospf_area *area, int type)
 	if ((oi = getdata (node)) != NULL)
 	  if (oi->nbr_self != NULL)
 	    {
-#ifdef HAVE_NSSA
 	      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
-#endif /* HAVE_NSSA */
 	      SET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
 	    }
       break;
@@ -996,9 +990,7 @@ ospf_area_type_set (struct ospf_area *area, int type)
 	    {
 	      if (IS_DEBUG_OSPF_EVENT)
 		zlog_info ("setting options on %s accordingly", IF_NAME (oi));
-#ifdef HAVE_NSSA
 	      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
-#endif /* HAVE_NSSA */
 	      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
 	      if (IS_DEBUG_OSPF_EVENT)
 		zlog_info ("options set on %s: %x",
@@ -1006,7 +998,6 @@ ospf_area_type_set (struct ospf_area *area, int type)
 	    }
       break;
     case OSPF_AREA_NSSA:
-#ifdef HAVE_NSSA
       for (node = listhead (area->oiflist); node; nextnode (node))
 	if ((oi = getdata (node)) != NULL)
 	  if (oi->nbr_self != NULL)
@@ -1016,7 +1007,6 @@ ospf_area_type_set (struct ospf_area *area, int type)
 	      SET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
 	      zlog_info ("options set on %s: %x", IF_NAME (oi), OPTIONS (oi));
 	    }
-#endif /* HAVE_NSSA */
       break;
     default:
       break;

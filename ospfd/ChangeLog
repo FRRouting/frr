@@ -1,3 +1,7 @@
+2004-06-10 Hasso Tepper <hasso@estpak.ee>
+
+	* *: Removed ifdefs HAVE_NSSA.
+
 2004-06-06 Paul Jakma <paul@dishone.st>
 
 	* ospf_dump.c,ospf_lsa.c: Fix typos of merge of previous.

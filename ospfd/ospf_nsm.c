@@ -244,11 +244,9 @@ ospf_db_summary_add (struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
     }
 #endif /* HAVE_OPAQUE_LSA */
 
-#ifdef HAVE_NSSA
   /* Stay away from any Local Translated Type-7 LSAs */
   if (CHECK_FLAG (lsa->flags, OSPF_LSA_LOCAL_XLT))
     return 0;
-#endif /* HAVE_NSSA */
 
   if (IS_LSA_MAXAGE (lsa))
     ospf_ls_retransmit_add (nbr, lsa);                      

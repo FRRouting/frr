@@ -265,9 +265,7 @@ process_summary_lsa (struct ospf_area *area, struct route_table *rt,
   new_or->u.std.origin = (struct lsa_header *) sl;
   new_or->cost = abr_or->cost + metric;
   new_or->u.std.area_id = area->area_id;
-#ifdef HAVE_NSSA
   new_or->u.std.external_routing = area->external_routing;
-#endif /* HAVE_NSSA */
   new_or->path_type = OSPF_PATH_INTER_AREA;
 
   if (sl->header.type == OSPF_SUMMARY_LSA)
@@ -349,9 +347,7 @@ ospf_update_network_route (struct ospf *ospf,
       new_or->u.std.origin = (struct lsa_header *) lsa;
       new_or->cost = cost;
       new_or->u.std.area_id = area->area_id;
-#ifdef HAVE_NSSA
       new_or->u.std.external_routing = area->external_routing;
-#endif /* HAVE_NSSA */
       new_or->path_type = OSPF_PATH_INTER_AREA;
       ospf_route_add (rt, p, new_or, abr_or);
 
@@ -424,9 +420,7 @@ ospf_update_network_route (struct ospf *ospf,
 	{
 	  or->path_type = OSPF_PATH_INTER_AREA;
 	  or->u.std.area_id = area->area_id;
-#ifdef HAVE_NSSA
 	  or->u.std.external_routing = area->external_routing;
-#endif /* HAVE_NSSA */
           /* Note that we can do this only in Shortcut ABR mode,
              because standard ABR must leave the route type and area
              unchanged
@@ -495,9 +489,7 @@ ospf_update_router_route (struct ospf *ospf,
 	  new_or->u.std.origin = (struct lsa_header *)lsa;
 	  new_or->cost = cost;
 	  new_or->u.std.area_id = area->area_id;
-#ifdef HAVE_NSSA
 	  new_or->u.std.external_routing = area->external_routing;
-#endif /* HAVE_NSSA */
 	  new_or->path_type = OSPF_PATH_INTER_AREA;
 	  new_or->u.std.flags = ROUTER_LSA_EXTERNAL;
 	  ospf_ia_router_route (ospf, rtrs, p, new_or, abr_or);

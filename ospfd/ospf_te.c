@@ -878,9 +878,7 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
   lsah = (struct lsa_header *) STREAM_DATA (s);
 
   options  = LSA_OPTIONS_GET (area);
-#ifdef HAVE_NSSA
   options |= LSA_OPTIONS_NSSA_GET (area);
-#endif /* HAVE_NSSA */
   options |= OSPF_OPTION_O; /* Don't forget this :-) */
 
   lsa_type = OSPF_OPAQUE_AREA_LSA;

@@ -675,20 +675,12 @@ ospf_find_vl_data (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
       if (vl_config->format == OSPF_AREA_ID_FORMAT_ADDRESS)
 	vty_out (vty, "Area %s is %s%s",
 		 inet_ntoa (area_id),
-#ifdef HAVE_NSSA
 		 area->external_routing == OSPF_AREA_NSSA?"nssa":"stub",
-#else
-		 "stub",
-#endif /* HAVE_NSSA */		 
 		 VTY_NEWLINE);
       else
 	vty_out (vty, "Area %ld is %s%s",
 		 (u_long)ntohl (area_id.s_addr),
-#ifdef HAVE_NSSA
 		 area->external_routing == OSPF_AREA_NSSA?"nssa":"stub",
-#else
-		 "stub",
-#endif /* HAVE_NSSA */		 
 		 VTY_NEWLINE);	
       return NULL;
     }
@@ -1478,7 +1470,6 @@ DEFUN (no_ospf_area_stub_no_summary,
   return CMD_SUCCESS;
 }
 
-#ifdef HAVE_NSSA
 int
 ospf_area_nssa_cmd_handler (struct vty *vty, int argc, char **argv, int nosum)
 {
@@ -1618,8 +1609,6 @@ DEFUN (no_ospf_area_nssa_no_summary,
 
   return CMD_SUCCESS;
 }
-
-#endif /* HAVE_NSSA */
 
 DEFUN (ospf_area_default_cost,
        ospf_area_default_cost_cmd,
@@ -2370,13 +2359,10 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
 		         area->no_summary ? ", no summary" : "",
 		         area->shortcut_configured ? "; " : "");
 
-#ifdef HAVE_NSSA
-
       else if (area->external_routing == OSPF_AREA_NSSA)
         vty_out (vty, " (NSSA%s%s)",
                  area->no_summary ? ", no summary" : "",
                  area->shortcut_configured ? "; " : "");
-#endif /* HAVE_NSSA */
 
       vty_out (vty, "%s", VTY_NEWLINE);
       vty_out (vty, "   Shortcutting mode: %s",
@@ -2390,7 +2376,6 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
 	   "Active: %d%s", listcount (area->oiflist),
 	   area->act_ints, VTY_NEWLINE);
 
-#ifdef HAVE_NSSA
   if (area->external_routing == OSPF_AREA_NSSA)
     {
       vty_out (vty, "   It is an NSSA configuration. %s   Elected NSSA/ABR performs type-7/type-5 LSA translation. %s", VTY_NEWLINE, VTY_NEWLINE);
@@ -2418,7 +2403,6 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
 	             VTY_NEWLINE);
 	   }
     }
-#endif /* HAVE_NSSA */
 
   /* Show number of fully adjacent neighbors. */
   vty_out (vty, "   Number of fully adjacent neighbors in this area:"
@@ -3119,9 +3103,7 @@ show_lsa_summary (struct vty *vty, struct ospf_lsa *lsa, int self)
 	    vty_out (vty, " %s/%d", inet_ntoa (p.prefix), p.prefixlen);
 	    break;
 	  case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_NSSA
 	  case OSPF_AS_NSSA_LSA:
-#endif /* HAVE_NSSA */
 	    asel = (struct as_external_lsa *) lsa->data;
 
 	    p.family = AF_INET;
@@ -3158,10 +3140,8 @@ char *show_database_desc[] =
   "Summary Link States",
   "ASBR-Summary Link States",
   "AS External Link States",
-#if defined  (HAVE_NSSA) || defined (HAVE_OPAQUE_LSA)
   "Group Membership LSA",
   "NSSA-external Link States",
-#endif /* HAVE_NSSA */
 #ifdef HAVE_OPAQUE_LSA
   "Type-8 LSA",
   "Link-Local Opaque-LSA",
@@ -3181,15 +3161,9 @@ char *show_database_header[] =
   "Link ID         ADV Router      Age  Seq#       CkSum  Route",
   "Link ID         ADV Router      Age  Seq#       CkSum",
   "Link ID         ADV Router      Age  Seq#       CkSum  Route",
-#ifdef HAVE_NSSA
   " --- header for Group Member ----",
   "Link ID         ADV Router      Age  Seq#       CkSum  Route",
-#endif /* HAVE_NSSA */
 #ifdef HAVE_OPAQUE_LSA
-#ifndef HAVE_NSSA
-  " --- type-6 ---",
-  " --- type-7 ---",
-#endif /* HAVE_NSSA */
   " --- type-8 ---",
   "Opaque-Type/Id  ADV Router      Age  Seq#       CkSum",
   "Opaque-Type/Id  ADV Router      Age  Seq#       CkSum",
@@ -3204,9 +3178,7 @@ char *show_lsa_flags[] =
   "Received",
   "Approved",
   "Discard",
-#ifdef HAVE_NSSA
   "Translated",
-#endif
 };
 
 void
@@ -3221,11 +3193,7 @@ show_ip_ospf_database_header (struct vty *vty, struct ospf_lsa *lsa)
            VTY_NEWLINE);
   vty_out (vty, "  LS Flags: 0x%-2x %s%s",
            lsa->flags,
-#ifdef HAVE_NSSA
            ((lsa->flags & OSPF_LSA_LOCAL_XLT) ? "(Translated from Type-7)" : ""),
-#else
-           "",
-#endif /* HAVE_NSSA */
            VTY_NEWLINE);
 
   if (lsa->data->type == OSPF_ROUTER_LSA)
@@ -3421,7 +3389,6 @@ show_as_external_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
   return 0;
 }
 
-#ifdef HAVE_NSSA
 int
 show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
 {
@@ -3474,8 +3441,6 @@ show_as_nssa_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
   return 0;
 }
 
-#endif /* HAVE_NSSA */
-
 int
 show_func_dummy (struct vty *vty, struct ospf_lsa *lsa)
 {
@@ -3505,15 +3470,9 @@ int (*show_function[])(struct vty *, struct ospf_lsa *) =
   show_summary_lsa_detail,
   show_summary_asbr_lsa_detail,
   show_as_external_lsa_detail,
-#ifdef HAVE_NSSA
   show_func_dummy,
   show_as_nssa_lsa_detail,  /* almost same as external */
-#endif /* HAVE_NSSA */
 #ifdef HAVE_OPAQUE_LSA
-#ifndef HAVE_NSSA
-  show_func_dummy,
-  show_func_dummy,
-#endif /* HAVE_NSSA */
   NULL,				/* type-8 */
   show_opaque_lsa_detail,
   show_opaque_lsa_detail,
@@ -3608,10 +3567,8 @@ show_lsa_detail_adv_router_proc (struct vty *vty, struct route_table *rt,
     if ((lsa = rn->info))
       if (IPV4_ADDR_SAME (adv_router, &lsa->data->adv_router))
 	{
-#ifdef HAVE_NSSA
 	  if (CHECK_FLAG (lsa->flags, OSPF_LSA_LOCAL_XLT))
 	    continue;
-#endif /* HAVE_NSSA */
 	  if (show_function[lsa->data->type] != NULL)
 	    show_function[lsa->data->type] (vty, lsa);
 	}
@@ -3743,13 +3700,8 @@ show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
       }
 }
 
-#ifdef HAVE_NSSA
 #define OSPF_LSA_TYPE_NSSA_DESC      "NSSA external link state\n"
 #define OSPF_LSA_TYPE_NSSA_CMD_STR   "|nssa-external"
-#else  /* HAVE_NSSA */
-#define OSPF_LSA_TYPE_NSSA_DESC      ""
-#define OSPF_LSA_TYPE_NSSA_CMD_STR   ""
-#endif /* HAVE_NSSA */
 
 #ifdef HAVE_OPAQUE_LSA
 #define OSPF_LSA_TYPE_OPAQUE_LINK_DESC "Link local Opaque-LSA\n"
@@ -3810,10 +3762,8 @@ DEFUN (show_ip_ospf_database,
     type = OSPF_ROUTER_LSA;
   else if (strncmp (argv[0], "ne", 2) == 0)
     type = OSPF_NETWORK_LSA;
-#ifdef HAVE_NSSA
   else if (strncmp (argv[0], "ns", 2) == 0)
     type = OSPF_AS_NSSA_LSA;
-#endif /* HAVE_NSSA */
   else if (strncmp (argv[0], "su", 2) == 0)
     type = OSPF_SUMMARY_LSA;
   else if (strncmp (argv[0], "a", 1) == 0)
@@ -3946,10 +3896,8 @@ DEFUN (show_ip_ospf_database_type_adv_router,
     type = OSPF_ROUTER_LSA;
   else if (strncmp (argv[0], "ne", 2) == 0)
     type = OSPF_NETWORK_LSA;
-#ifdef HAVE_NSSA
   else if (strncmp (argv[0], "ns", 2) == 0)
     type = OSPF_AS_NSSA_LSA;
-#endif /* HAVE_NSSA */
   else if (strncmp (argv[0], "s", 1) == 0)
     type = OSPF_SUMMARY_LSA;
   else if (strncmp (argv[0], "a", 1) == 0)
@@ -6625,7 +6573,6 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
-#ifdef HAVE_NSSA
 DEFUN (show_ip_ospf_border_routers,
        show_ip_ospf_border_routers_cmd,
        "show ip ospf border-routers",
@@ -6657,7 +6604,6 @@ DEFUN (show_ip_ospf_border_routers,
 
   return CMD_SUCCESS;
 }
-#endif /* HAVE_NSSA */
 
 DEFUN (show_ip_ospf_route,
        show_ip_ospf_route_cmd,
@@ -6976,14 +6922,11 @@ config_write_ospf_area (struct vty *vty, struct ospf *ospf)
 		 VTY_NEWLINE);
 
       if ((area->external_routing == OSPF_AREA_STUB)
-#ifdef HAVE_NSSA
 	  || (area->external_routing == OSPF_AREA_NSSA)
-#endif /* HAVE_NSSA */
 	  )
 	{
 	  if (area->external_routing == OSPF_AREA_STUB)
 	    vty_out (vty, " area %s stub", buf);
-#ifdef HAVE_NSSA
 	  else if (area->external_routing == OSPF_AREA_NSSA)
 	    {
 	      vty_out (vty, " area %s nssa", buf);
@@ -7000,7 +6943,6 @@ config_write_ospf_area (struct vty *vty, struct ospf *ospf)
 	            vty_out (vty, " translate-candidate");
 	        }
 	    }
-#endif /* HAVE_NSSA */
 
 	  if (area->no_summary)
 	    vty_out (vty, " no-summary");
@@ -7405,10 +7347,8 @@ ospf_vty_show_init ()
   /* "show ip ospf route" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_route_cmd);
   install_element (ENABLE_NODE, &show_ip_ospf_route_cmd);
-#ifdef HAVE_NSSA
   install_element (VIEW_NODE, &show_ip_ospf_border_routers_cmd);
   install_element (ENABLE_NODE, &show_ip_ospf_border_routers_cmd);
-#endif /* HAVE_NSSA */
 }
 
 
@@ -7718,7 +7658,6 @@ ospf_vty_init ()
   install_element (OSPF_NODE, &no_ospf_area_stub_no_summary_cmd);
   install_element (OSPF_NODE, &no_ospf_area_stub_cmd);
 
-#ifdef HAVE_NSSA
   /* "area nssa" commands. */
   install_element (OSPF_NODE, &ospf_area_nssa_cmd);
   install_element (OSPF_NODE, &ospf_area_nssa_translate_no_summary_cmd);
@@ -7726,7 +7665,6 @@ ospf_vty_init ()
   install_element (OSPF_NODE, &ospf_area_nssa_no_summary_cmd);
   install_element (OSPF_NODE, &no_ospf_area_nssa_cmd);
   install_element (OSPF_NODE, &no_ospf_area_nssa_no_summary_cmd);
-#endif /* HAVE_NSSA */
 
   install_element (OSPF_NODE, &ospf_area_default_cost_cmd);
   install_element (OSPF_NODE, &no_ospf_area_default_cost_cmd);

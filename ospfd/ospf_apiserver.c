@@ -1495,9 +1495,7 @@ ospf_apiserver_opaque_lsa_new (struct ospf_area *area,
   if (area)
     {
       options = LSA_OPTIONS_GET (area);
-#ifdef HAVE_NSSA
       options |= LSA_OPTIONS_NSSA_GET (area);
-#endif /* HAVE_NSSA */
     }
 
   options |= OSPF_OPTION_O;	/* Don't forget to set option bit */

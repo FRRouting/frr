@@ -42,10 +42,7 @@
 
 #define OSPF_SEND_PACKET_DIRECT         1
 #define OSPF_SEND_PACKET_INDIRECT       2
-
-#ifdef HAVE_NSSA
 #define OSPF_SEND_PACKET_LOOP           3
-#endif /* HAVE_NSSA */
 
 #define OSPF_HELLO_REPLY_DELAY          1
 

@@ -707,7 +707,6 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 
   /* new for NSSA is to ensure that NP is on and E is off */
 
-#ifdef HAVE_NSSA
   if (oi->area->external_routing == OSPF_AREA_NSSA) 
     {
       if (! (CHECK_FLAG (OPTIONS (oi), OSPF_OPTION_NP)
@@ -722,7 +721,6 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
         zlog_info ("NSSA-Hello:RECV:Packet from %s:", inet_ntoa(ospfh->router_id));
     }
   else    
-#endif /* HAVE_NSSA */
     /* The setting of the E-bit found in the Hello Packet's Options
        field must match this area's ExternalRoutingCapability A
        mismatch causes processing to stop and the packet to be
@@ -873,13 +871,9 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
 #ifdef HAVE_OPAQUE_LSA
 	case OSPF_OPAQUE_AS_LSA:
 #endif /* HAVE_OPAQUE_LSA */
-#ifdef HAVE_NSSA
           /* Check for stub area.  Reject if AS-External from stub but
              allow if from NSSA. */
           if (oi->area->external_routing == OSPF_AREA_STUB)
-#else /* ! HAVE_NSSA */
-          if (oi->area->external_routing != OSPF_AREA_DEFAULT)
-#endif /* HAVE_NSSA */
             {
               zlog_warn ("Packet [DD:RECV]: LSA[Type%d:%s] from %s area.",
                          lsah->type, inet_ntoa (lsah->id),
@@ -985,7 +979,6 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
       return;
     }
 
-#ifdef HAVE_NSSA
   /* 
    * XXX HACK by Hasso Tepper. Setting N/P bit in NSSA area DD packets is not
    * required. In fact at least JunOS sends DD packets with P bit clear. 
@@ -1008,7 +1001,6 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
                     inet_ntoa (nbr->router_id) );
       SET_FLAG (dd->options, OSPF_OPTION_NP);
     }
-#endif /* HAVE_NSSA */
 
 #ifdef REJECT_IF_TBIT_ON
   if (CHECK_FLAG (dd->options, OSPF_OPTION_T))
@@ -1518,7 +1510,6 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 
       lsa = getdata (node);
 
-#ifdef HAVE_NSSA
       if (IS_DEBUG_OSPF_NSSA)
 	{
 	  char buf1[INET_ADDRSTRLEN];
@@ -1534,7 +1525,6 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 		  inet_ntop (AF_INET, &lsa->data->adv_router,
 			     buf3, INET_ADDRSTRLEN));
 	}
-#endif /* HAVE_NSSA */
 
       listnode_delete (lsas, lsa); /* We don't need it in list anymore */
 
@@ -1558,13 +1548,10 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
         if (nbr->oi->area->external_routing != OSPF_AREA_DEFAULT) 
 	  {
 	    DISCARD_LSA (lsa, 1);
-#ifdef HAVE_NSSA
 	    if (IS_DEBUG_OSPF_NSSA)
 	      zlog_info("Incoming External LSA Discarded: We are NSSA/STUB Area");
-#endif /* HAVE_NSSA */
 	  }
 
-#ifdef  HAVE_NSSA 
       if (lsa->data->type == OSPF_AS_NSSA_LSA)
 	if (nbr->oi->area->external_routing != OSPF_AREA_NSSA)
 	  {
@@ -1572,7 +1559,6 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	    if (IS_DEBUG_OSPF_NSSA)
 	      zlog_info("Incoming NSSA LSA Discarded:  Not NSSA Area");
 	  }
-#endif /* HAVE_NSSA */
 
       /* Find the LSA in the current database. */
 

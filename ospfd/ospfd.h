@@ -69,9 +69,9 @@
 #define OSPF_ALLSPFROUTERS              0xe0000005      /* 224.0.0.5 */
 #define OSPF_ALLDROUTERS                0xe0000006      /* 224.0.0.6 */
 
-#ifdef HAVE_NSSA
+/* XXX Where is this used? And why it was used only if compiled with
+ * NSSA support. */
 #define OSPF_LOOPer                     0x7f000000      /* 127.0.0.0 */
-#endif /* HAVE_NSSA */
 
 #define OSPF_AREA_BACKBONE              0x00000000      /* 0.0.0.0 */
 
@@ -473,10 +473,8 @@ struct ospf_nbr_nbma
 
 #define LSA_OPTIONS_GET(area) \
         (((area)->external_routing == OSPF_AREA_DEFAULT) ? OSPF_OPTION_E : 0)
-#ifdef HAVE_NSSA
 #define LSA_OPTIONS_NSSA_GET(area) \
         (((area)->external_routing == OSPF_AREA_NSSA)  ? OSPF_OPTION_NP : 0)
-#endif /* HAVE_NSSA */
 
 #define OSPF_TIMER_ON(T,F,V)                                                  \
     do {                                                                      \

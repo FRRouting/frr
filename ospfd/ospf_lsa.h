@@ -27,10 +27,8 @@
 #define OSPF_MIN_LSA		1  /* begin range here */
 #if defined (HAVE_OPAQUE_LSA)
 #define OSPF_MAX_LSA           12
-#elif defined (HAVE_NSSA)
-#define OSPF_MAX_LSA		8
 #else
-#define OSPF_MAX_LSA		6
+#define OSPF_MAX_LSA		8
 #endif
 
 /* OSPF LSA Type definition. */
@@ -77,9 +75,7 @@ struct ospf_lsa
 #define OSPF_LSA_RECEIVED	  0x04
 #define OSPF_LSA_APPROVED	  0x08
 #define OSPF_LSA_DISCARD	  0x10
-#ifdef HAVE_NSSA
 #define OSPF_LSA_LOCAL_XLT	  0x20
-#endif /* HAVE_NSSA */
 #define OSPF_LSA_PREMATURE_AGE	  0x40
 
   /* LSA data. */
@@ -320,12 +316,10 @@ int is_prefix_default (struct prefix_ipv4 *);
 int metric_type (struct ospf *, u_char);
 int metric_value (struct ospf *, u_char);
 
-#ifdef HAVE_NSSA
 struct in_addr ospf_get_nssa_ip (struct ospf_area *);
 int ospf_translated_nssa_compare (struct ospf_lsa *, struct ospf_lsa *);
 struct ospf_lsa *ospf_translated_nssa_refresh (struct ospf *, struct ospf_lsa *,
                                    struct ospf_lsa *);
 struct ospf_lsa *ospf_translated_nssa_originate (struct ospf *, struct ospf_lsa *);
-#endif
 
 #endif /* _ZEBRA_OSPF_LSA_H */

@@ -293,7 +293,6 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
   assert (lsa);
   al = (struct as_external_lsa *) lsa->data;
 
-#ifdef HAVE_NSSA
   if (lsa->data->type == OSPF_AS_NSSA_LSA)
     if (IS_DEBUG_OSPF_NSSA)
       zlog_info ("ospf_ase_calc(): Processing Type-7");
@@ -305,7 +304,6 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
 	zlog_info ("ospf_ase_calc(): Rejecting Local Xlt'd");
       return 0;
     }
-#endif /* HAVE_NSSA */
 
   zlog_info ("Route[External]: Calculate AS-external-LSA to %s/%d",
 	     inet_ntoa (al->header.id), ip_masklen (al->mask));
@@ -613,10 +611,8 @@ ospf_ase_calculate_timer (struct thread *t)
   struct ospf *ospf;
   struct ospf_lsa *lsa;
   struct route_node *rn;
-#ifdef HAVE_NSSA
   listnode node;
   struct ospf_area *area;
-#endif /* HAVE_NSSA */
 
   ospf = THREAD_ARG (t);
   ospf->t_ase_calc = NULL;
@@ -629,7 +625,6 @@ ospf_ase_calculate_timer (struct thread *t)
       LSDB_LOOP (EXTERNAL_LSDB (ospf), rn, lsa)
 	ospf_ase_calculate_route (ospf, lsa);
 
-#ifdef HAVE_NSSA
       /*  This version simple adds to the table all NSSA areas  */
       if (ospf->anyNSSA)
 	for (node = listhead (ospf->areas); node; nextnode (node))
@@ -646,8 +641,6 @@ ospf_ase_calculate_timer (struct thread *t)
       /* kevinm: And add the NSSA routes in ospf_top */
       LSDB_LOOP (NSSA_LSDB (ospf),rn,lsa)
       		ospf_ase_calculate_route(ospf,lsa);
-
-#endif /* HAVE_NSSA */
 
       /* Compare old and new external routing table and install the
 	 difference info zebra/kernel */

@@ -292,12 +292,10 @@ ospf_if_cleanup (struct ospf_interface *oi)
     case OSPF_AREA_STUB:
       UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
       break;
-#ifdef HAVE_NSSA
     case OSPF_AREA_NSSA:
       UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
       SET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
       break;
-#endif /* HAVE_NSSA */
     }
 
   ospf_lsa_unlock (oi->network_lsa_self);

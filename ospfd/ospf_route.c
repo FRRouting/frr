@@ -319,9 +319,7 @@ ospf_intra_route_add (struct route_table *rt, struct vertex *v,
 
   or->id = v->id;
   or->u.std.area_id = area->area_id;
-#ifdef HAVE_NSSA
   or->u.std.external_routing= area->external_routing;
-#endif /* HAVE_NSSA */
   or->path_type = OSPF_PATH_INTRA_AREA;
   or->cost = v->distance;
 
@@ -376,9 +374,7 @@ ospf_intra_add_router (struct route_table *rt, struct vertex *v,
 
   or->id = v->id;
   or->u.std.area_id = area->area_id;
-#ifdef HAVE_NSSA
   or->u.std.external_routing = area->external_routing;
-#endif /* HAVE_NSSA */
   or->path_type = OSPF_PATH_INTRA_AREA;
   or->cost = v->distance;
   or->type = OSPF_DESTINATION_ROUTER;
@@ -471,9 +467,7 @@ ospf_intra_add_transit (struct route_table *rt, struct vertex *v,
 
   or->id = v->id;
   or->u.std.area_id = area->area_id;
-#ifdef HAVE_NSSA
   or->u.std.external_routing = area->external_routing;
-#endif /* HAVE_NSSA */
   or->path_type = OSPF_PATH_INTRA_AREA;
   or->cost = v->distance;
   or->type = OSPF_DESTINATION_NETWORK;
@@ -603,9 +597,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
 
   or->id = v->id;
   or->u.std.area_id = area->area_id;
-#ifdef HAVE_NSSA
   or->u.std.external_routing = area->external_routing;
-#endif /* HAVE_NSSA */
   or->path_type = OSPF_PATH_INTRA_AREA;
   or->cost = cost;
   or->type = OSPF_DESTINATION_NETWORK;
@@ -1029,9 +1021,7 @@ ospf_add_discard_route (struct route_table *rt, struct ospf_area *area,
   new_or->id.s_addr = 0;
   new_or->cost = 0;
   new_or->u.std.area_id = area->area_id;
-#ifdef HAVE_NSSA
   new_or->u.std.external_routing = area->external_routing;
-#endif /* HAVE_NSSA */
   new_or->path_type = OSPF_PATH_INTER_AREA;
   rn->info = new_or;
 
