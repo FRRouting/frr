@@ -125,6 +125,21 @@ ospf_if_reset_variables (struct ospf_interface *oi)
   oi->v_ls_ack = 1;  
 }
 
+/* lookup oi for specified prefix/ifp */
+struct ospf_interface *
+ospf_if_table_lookup (struct interface *ifp, struct prefix *prefix)
+{
+  struct prefix p;
+  struct route_node rn;
+  
+  p = *prefix;
+
+  rn = route_node_get (IF_OIFS (ifp), &p));
+  /* route_node_get implicitely locks */
+  route_node_unlock (rn);
+  return (struct ospf_interface *) rn->info;
+}
+
 void
 ospf_add_to_if (struct interface *ifp, struct ospf_interface *oi)
 {
@@ -138,7 +153,7 @@ ospf_add_to_if (struct interface *ifp, struct ospf_interface *oi)
   /* rn->info should either be NULL or equal to this oi
    * as route_node_get may return an existing node
    */
-  assert (! rn->info || rn->info == oi);
+  assert (!rn->info || rn->info == oi);
   rn->info = oi;
 }
 
@@ -164,9 +179,14 @@ ospf_if_new (struct ospf *ospf, struct interface *ifp, struct prefix *p)
 {
   struct ospf_interface *oi;
 
-  oi = XCALLOC (MTYPE_OSPF_IF, sizeof (struct ospf_interface));
-  memset (oi, 0, sizeof (struct ospf_interface));
-
+  if ((oi = ospf_if_table_lookup (ifp, p)) == NULL)
+    {
+      oi = XCALLOC (MTYPE_OSPF_IF, sizeof (struct ospf_interface));
+      memset (oi, 0, sizeof (struct ospf_interface));
+    }
+  else
+    return oi;
+    
   /* Set zebra interface pointer. */
   oi->ifp = ifp;
   oi->address = p;
