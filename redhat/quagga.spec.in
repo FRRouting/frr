@@ -42,6 +42,8 @@ Release:	@CONFDATE@01
 License:	GPL
 Group: System Environment/Daemons
 Source0:	http://www.quagga.net/snapshots/cvs/%{name}-%{version}.tar.gz
+Patch0:		quagga-ospfd-dump-nsm-ignore.diff
+Patch1:		quagga-ospfd-iface-config-persist.diff
 URL:		http://www.quagga.net
 %if %with_snmp
 BuildRequires:	ucd-snmp-devel
@@ -90,6 +92,8 @@ developing OSPF-API and quagga applications.
 
 %prep
 %setup  -q
+%patch0 -p0 -b .dump_nsm
+%patch0 -p1 -b .iface_persist
 
 %build
 %configure \
@@ -292,6 +296,11 @@ fi
 
 %changelog
 %changelog
+* Thu Jan 08 2004 Paul Jakma <paul@dishone.st>
+- updated sysconfig files to specify local dir
+- added ospf_dump.c crash quick fix patch
+- added ospfd persistent interface configuration patch
+
 * Tue Dec 30 2003 Paul Jakma <paul@dishone.st>
 - sync to CVS
 - integrate RH sysconfig patch to specify daemon options (RH)

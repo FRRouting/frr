@@ -1,3 +1,12 @@
+2004-01-08 Paul Jakma <paul@dishone.st>
+
+	* Makefile.am: as per gdt, specify the redhat dir as a DIST_SUBDIR,
+	  remove the redhat/... dist targets - instead these now go in..
+	  redhat/Makefile.am: (new) proper place to describe redhat/ dist 
+	  files, as well as allow quagga.spec to be regenerated properly.
+	  redhat/quagga.sysconfig: specify conf file location.
+	  redhat/quagga.spec.in: Add 2 patches to RPM build.
+	  
 2003-12-30 Paul Jakma <paul@dishone.st>
 
 	* redhat/isisd.init: new file, init script for isisd.
