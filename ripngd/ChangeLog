@@ -1,3 +1,10 @@
+2004-12-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripng_nexthop.c: Replace NEXTHOP_OUT macro with NEXTHOP_OUT_PTR,
+	  since it's not really OK to take the address of a ternary expression.
+	  (_ripng_rte_cmp,ripng_rte_send) Use new NEXTHOP_OUT_PTR macro
+	  instead of NEXTHOP_OUT.
+
 2004-12-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* *.c: Change level of debug messages to LOG_DEBUG.

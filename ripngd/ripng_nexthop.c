@@ -54,11 +54,11 @@ void _ripng_rte_del(struct ripng_rte_data *A);
 int _ripng_rte_cmp(struct ripng_rte_data *A, struct ripng_rte_data *B);
 
 #define METRIC_OUT(a) \
-    (a->rinfo ?  a->rinfo->metric_out : a->aggregate->metric_out)
-#define NEXTHOP_OUT(a) \
-    (a->rinfo ?  a->rinfo->nexthop_out : a->aggregate->nexthop_out)
+    ((a)->rinfo ?  (a)->rinfo->metric_out : (a)->aggregate->metric_out)
+#define NEXTHOP_OUT_PTR(a) \
+    ((a)->rinfo ?  &((a)->rinfo->nexthop_out) : &((a)->aggregate->nexthop_out))
 #define TAG_OUT(a) \
-    (a->rinfo ?  a->rinfo->tag_out : a->aggregate->tag_out)
+    ((a)->rinfo ?  (a)->rinfo->tag_out : (a)->aggregate->tag_out)
 
 struct list *
 ripng_rte_new(void) {
@@ -89,7 +89,7 @@ _ripng_rte_del(struct ripng_rte_data *A) {
  */
 int
 _ripng_rte_cmp(struct ripng_rte_data *A, struct ripng_rte_data *B) {
-  return addr6_cmp(&NEXTHOP_OUT(A), &NEXTHOP_OUT(B));
+  return addr6_cmp(NEXTHOP_OUT_PTR(A), NEXTHOP_OUT_PTR(B));
 }
 
 /* Add routing table entry */
@@ -157,7 +157,7 @@ ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
   LIST_LOOP(ripng_rte_list, data, nn) {
 
     /* (2.1) Next hop support */
-    if (!IPV6_ADDR_SAME(&last_nexthop, &NEXTHOP_OUT(data))) {
+    if (!IPV6_ADDR_SAME(&last_nexthop, NEXTHOP_OUT_PTR(data))) {
 
       /* A nexthop entry should be at least followed by 1 RTE */
       if (num == (rtemax-1)) {
@@ -176,10 +176,10 @@ ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
       /* If the received next hop address is not a link-local address,
        * it should be treated as 0:0:0:0:0:0:0:0.
        */
-      if (!IN6_IS_ADDR_LINKLOCAL(&NEXTHOP_OUT(data)))
+      if (!IN6_IS_ADDR_LINKLOCAL(NEXTHOP_OUT_PTR(data)))
         last_nexthop = myself_nexthop;
       else
-	last_nexthop = NEXTHOP_OUT(data);
+	last_nexthop = *NEXTHOP_OUT_PTR(data);
 
       num = ripng_write_rte(num, s, NULL, &last_nexthop, 0, RIPNG_METRIC_NEXTHOP);
     } else {
