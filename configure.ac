@@ -117,7 +117,7 @@ AC_ARG_ENABLE(vty_group,
 [  --enable-vty-group=ARG      set vty sockets to have specified group as owner])
 
 AC_ARG_ENABLE(rtadv,
-[  --enable-rtadv         enable IPV6 router advertisement feature])
+[  --disable-rtadv         disable IPV6 router advertisement feature])
 
 if test "${enable_broken_aliases}" = "yes"; then
   if test "${enable_netlink}" = "yes"
@@ -146,10 +146,10 @@ if test "${enable_ospf_te}" = "yes"; then
   AC_DEFINE(HAVE_OSPF_TE,,OSPF TE)
 fi
 
-AC_MSG_CHECKING(Should zebra's RTADV be used)
-if test "${enable_rtadv}" = "yes"; then
+AC_MSG_CHECKING(if zebra should be configurable to send Route Advertisements)
+if test "${enable_rtadv}" != "no"; then
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_RTADV,,Enable zebra IPv6 Routing Advertisements)
+  AC_DEFINE(HAVE_RTADV,,Enable IPv6 Routing Advertisement support)
 else
   AC_MSG_RESULT(no)
 fi
