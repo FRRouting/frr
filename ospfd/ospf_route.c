@@ -528,7 +528,8 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
 
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_info ("ospf_intra_add_stub(): "
-		   "another route to the same prefix found");
+		   "another route to the same prefix found with cost %u",
+		   cur_or->cost);
 
       /* Compare this distance to the current best cost to the stub
 	 network.  This is done by looking up the stub network's

@@ -48,6 +48,7 @@ struct list
 
 #define nextnode(X) ((X) = (X)->next)
 #define listhead(X) ((X)->head)
+#define listtail(X) ((X)->tail)
 #define listcount(X) ((X)->count)
 #define list_isempty(X) ((X)->head == NULL && (X)->tail == NULL)
 #define getdata(X) ((X)->data)

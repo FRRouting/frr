@@ -20,29 +20,34 @@
  * 02111-1307, USA.
  */
 
-#define OSPF_VERTEX_ROUTER  1
-#define OSPF_VERTEX_NETWORK 2
+/* values for vertex->type */
+#define OSPF_VERTEX_ROUTER  1  /* for a Router-LSA */
+#define OSPF_VERTEX_NETWORK 2  /* for a Network-LSA */
 
+/* values for vertex->flags */
 #define OSPF_VERTEX_PROCESSED      0x01
 
+/* The "root" is the node running the SPF calculation */
 
+/* A router or network in an area */
 struct vertex
 {
   u_char flags;
-  u_char type;
-  struct in_addr id;
-  struct lsa_header *lsa;
-  u_int32_t distance;
+  u_char type;		/* copied from LSA header */
+  struct in_addr id;	/* copied from LSA header */
+  struct lsa_header *lsa; /* Router or Network LSA */
+  u_int32_t distance;	/* from root to this vertex */
   int backlink;        /* link index of back-link */
-  list child;
-  list nexthop;
+  list child;		/* list of vertex: children in SPF tree*/
+  list nexthop;		/* list of vertex_nexthop from root to this vertex */
 };
 
+/* A nexthop taken on the root node to get to this (parent) vertex */
 struct vertex_nexthop
 {
-  struct ospf_interface *oi;
-  struct in_addr router;
-  struct vertex *parent;
+  struct ospf_interface *oi;	/* output intf on root node */
+  struct in_addr router;	/* router address to send to */
+  struct vertex *parent;	/* parent in SPF tree */
 };
 
 void ospf_spf_calculate_schedule (struct ospf *);

@@ -142,10 +142,17 @@ hash_iterate (struct hash *hash,
 {
   int i;
   struct hash_backet *hb;
+  struct hash_backet *hbnext;
 
   for (i = 0; i < hash->size; i++)
-    for (hb = hash->index[i]; hb; hb = hb->next)
-      (*func) (hb, arg);
+    for (hb = hash->index[i]; hb; hb = hbnext)
+      {
+	/* get pointer to next hash backet here, in case (*func)
+	 * decides to delete hb by calling hash_release
+	 */
+	hbnext = hb->next;
+	(*func) (hb, arg);
+      }
 }
 
 /* Clean up hash.  */

@@ -1,3 +1,26 @@
+2004-08-31  David Wiggins  <dwiggins@bbn.com>
+
+	* ospf_spf.c (ospf_spf_calculate): Many more comments and debug
+	  print statements.  New function ospf_vertex_dump used in debugging.
+
+2004-08-31  David Wiggins  <dwiggins@bbn.com>
+
+	* ospf_spf.h (struct vertex): Comments for flags and structure members.
+
+2004-08-31  David Wiggins  <dwiggins@bbn.com>
+
+	* ospf_route.c: When finding an alternate route, log cost as well.
+
+2004-08-31  David Wiggins  <dwiggins@bbn.com>
+
+	* ospf_interface.c (ospf_lookup_if_params): Initialize af in
+	  struct prefix allocated on stack.
+
+2004-08-31  David Wiggins  <dwiggins@bbn.com>
+
+	* ospf_packet.c (ospf_ls_ack_send_delayed): In p2mp mode, send
+	  acks to AllSPFRouters, rather than All-DR.
+
 2004-08-27  Hasso Tepper  <hasso at quagga.net>
 
 	* ospf_vty.c: Don't print ospf network type under interface only

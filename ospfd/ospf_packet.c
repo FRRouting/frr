@@ -3295,6 +3295,8 @@ ospf_ls_ack_send_delayed (struct ospf_interface *oi)
     dst.s_addr = htonl (OSPF_ALLSPFROUTERS);
   else if (oi->type == OSPF_IFTYPE_POINTOPOINT)
     dst.s_addr = htonl (OSPF_ALLSPFROUTERS);
+  else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+    dst.s_addr = htonl (OSPF_ALLSPFROUTERS);
   else
     dst.s_addr = htonl (OSPF_ALLDROUTERS);
 

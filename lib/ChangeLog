@@ -1,3 +1,11 @@
+2004-08-31  David Wiggins  <dwiggins@bbn.com>
+
+	* hash.c (hash_iterate): Save next pointer before calling
+	procedure, so that iteration works even if the called procedure
+	deletes the hash backet.
+
+	* linklist.h (listtail): new macro, not yet used.
+
 2004-08-27 Hasso Tepper <hasso at quagga.net>
 
 	* command.c: Install "terminal length" commands only if vty is used.

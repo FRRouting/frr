@@ -115,6 +115,58 @@ ospf_vertex_free (struct vertex *v)
 }
 
 void
+ospf_vertex_dump(char *msg, struct vertex *v,
+		 int print_nexthops, int print_children)
+{
+  if ( ! IS_DEBUG_OSPF_EVENT)
+    return;
+
+  zlog_info("%s %s vertex %s  distance %u backlink %d flags %u",
+            msg,
+	    v->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
+	    inet_ntoa(v->lsa->id),
+	    v->distance,
+	    v->backlink,
+	    (unsigned int)v->flags);
+
+  if (print_nexthops)
+    {
+      listnode nnode;
+      for (nnode = listhead (v->nexthop); nnode; nextnode (nnode))
+        {
+	  char buf1[BUFSIZ];
+	  char buf2[BUFSIZ];
+	  struct vertex_nexthop *nexthop;
+
+	  nexthop = getdata (nnode);
+	  if (nexthop)
+	    {
+	      zlog_info (" nexthop %s  interface %s  parent %s",
+			 inet_ntop(AF_INET, &nexthop->router, buf1, BUFSIZ),
+			 nexthop->oi ? IF_NAME(nexthop->oi) : "NULL",
+			 nexthop->parent ? inet_ntop(AF_INET, 
+						     &nexthop->parent->id,
+						     buf2, BUFSIZ)
+			                 : "NULL");
+	    }
+	}
+    }
+
+  if (print_children)
+    {
+      listnode cnode;
+      for (cnode = listhead (v->child); cnode; nextnode (cnode))
+        {
+          struct vertex *cv = getdata (cnode);
+	  if (cv)
+	    ospf_vertex_dump(" child:", cv, 0, 0);
+        }
+    }
+}
+
+
+/* Add a vertex to the list of children in each of its parents. */
+void
 ospf_vertex_add_parent (struct vertex *v)
 {
   struct vertex_nexthop *nh;
@@ -145,6 +197,7 @@ ospf_spf_init (struct ospf_area *area)
   area->asbr_count = 0;
 }
 
+/* Check if the vertex represented by lsa is on the SPF tree. */
 int
 ospf_spf_has_vertex (struct route_table *rv, struct route_table *nv,
                      struct lsa_header *lsa)
@@ -169,6 +222,9 @@ ospf_spf_has_vertex (struct route_table *rv, struct route_table *nv,
   return 0;
 }
 
+/* Find the vertex specified by the given id and LSA type
+ * in vlist (the candidate list).
+ */
 listnode
 ospf_vertex_lookup (list vlist, struct in_addr id, int type)
 {
@@ -300,6 +356,10 @@ ospf_nexthop_merge (list a, list b)
 #define ROUTER_LSA_MIN_SIZE 12
 #define ROUTER_LSA_TOS_SIZE 4
 
+/* Find the next link after prev_link from v to w.  If prev_link is
+ * NULL, return the first link from v to w.  Ignore stub and virtual links;
+ * these link types will never be returned.
+ */
 struct router_lsa_link *
 ospf_get_next_link (struct vertex *v, struct vertex *w,
                     struct router_lsa_link *prev_link)
@@ -309,7 +369,7 @@ ospf_get_next_link (struct vertex *v, struct vertex *w,
   struct router_lsa_link *l;
 
   if (prev_link == NULL)
-    p = ((u_char *) v->lsa) + 24;
+    p = ((u_char *) v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
   else
     {
       p = (u_char *) prev_link;
@@ -393,7 +453,9 @@ ospf_spf_consider_nexthop (struct list *nexthops,
   return;
 }
 
-/* Calculate nexthop from root to vertex W. */
+/* 16.1.1.  Calculate nexthop from root through V (parent) to
+ * vertex W (destination).
+ */
 void
 ospf_nexthop_calculation (struct ospf_area *area,
                           struct vertex *v, struct vertex *w)
@@ -405,29 +467,72 @@ ospf_nexthop_calculation (struct ospf_area *area,
 
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_nexthop_calculation(): Start");
+    {
+      zlog_info ("ospf_nexthop_calculation(): Start");
+      ospf_vertex_dump("V (parent):", v, 1, 1);
+      ospf_vertex_dump("W (dest)  :", w, 1, 1);
+    }
 
-  /* W's parent is root. */
   if (v == area->spf)
     {
+      /* 16.1.1 para 4.  In the first case, the parent vertex (V) is the
+	 root (the calculating router itself).  This means that the 
+	 destination is either a directly connected network or directly
+	 connected router.  The outgoing interface in this case is simply 
+         the OSPF interface connecting to the destination network/router.
+      */
+
       if (w->type == OSPF_VERTEX_ROUTER)
         {
           while ((l = ospf_get_next_link (v, w, l)))
             {
+	      /* l  is a link from v to w
+	       * l2 will be link from w to v
+	       */
               struct router_lsa_link *l2 = NULL;
+
+	      if (IS_DEBUG_OSPF_EVENT)
+	        {
+		  char buf1[BUFSIZ];
+		  char buf2[BUFSIZ];
+		  zlog_info("ospf_nexthop_calculation(): considering link "
+			    "type %d link_id %s link_data %s",
+			    l->m[0].type,
+			    inet_ntop (AF_INET, &l->link_id, buf1, BUFSIZ),
+			    inet_ntop (AF_INET, &l->link_data, buf1, BUFSIZ));
+		}
 
               if (l->m[0].type == LSA_LINK_TYPE_POINTOPOINT)
                 {
-                  /* Check for PtMP, signified by PtP link V->W
-                     with link_data our PtMP interface. */
+		  /* If the destination is a router which connects to
+		     the calculating router via a Point-to-MultiPoint
+		     network, the destination's next hop IP address(es)
+		     can be determined by examining the destination's
+		     router-LSA: each link pointing back to the
+		     calculating router and having a Link Data field
+		     belonging to the Point-to-MultiPoint network
+		     provides an IP address of the next hop router.
+
+		     At this point l is a link from V to W, and V is the
+		     root ("us").  Find the local interface associated 
+		     with l (its address is in l->link_data).  If it
+		     is a point-to-multipoint interface, then look through
+		     the links in the opposite direction (W to V).  If
+		     any of them have an address that lands within the
+		     subnet declared by the PtMP link, then that link
+		     is a constituent of the PtMP link, and its address is 
+		     a nexthop address for V.
+		  */
                   oi = ospf_if_is_configured (area->ospf, &l->link_data);
                   if (oi && oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
                     {
                       struct prefix_ipv4 la;
-                      la.family = AF_INET;
+
+		      la.family = AF_INET;
                       la.prefixlen = oi->address->prefixlen;
-                      /* We link to them on PtMP interface
-                         - find the interface on w */
+
+                      /* V links to W on PtMP interface
+                         - find the interface address on W */
                       while ((l2 = ospf_get_next_link (w, v, l2)))
                         {
                           la.prefix = l2->link_data;
@@ -437,9 +542,12 @@ ospf_nexthop_calculation (struct ospf_area *area,
                             /* link_data is on our PtMP network */
                             break;
                         }
-                    }
+                    } /* end l is on point-to-multipoint link */
                   else
                     {
+		      /* l is a regular point-to-point link.
+			 Look for a link from W to V.
+		       */
                       while ((l2 = ospf_get_next_link (w, v, l2)))
                         {
                           oi = ospf_if_is_configured (area->ospf,
@@ -458,16 +566,23 @@ ospf_nexthop_calculation (struct ospf_area *area,
 
                   if (oi && l2)
                     {
+		      /* found all necessary info to build nexthop */
                       nh = vertex_nexthop_new (v);
                       nh->oi = oi;
                       nh->router = l2->link_data;
                       ospf_spf_consider_nexthop (w->nexthop, nh);
                     }
-                }
-            }
-        }
+		  else
+		    {
+		      zlog_info("ospf_nexthop_calculation(): "
+				"could not determine nexthop for link");
+		    }
+                } /* end point-to-point link from V to W */
+            } /* end iterate over links in W */
+        } /* end W is a Router vertex */
       else
         {
+	  assert(w->type == OSPF_VERTEX_NETWORK);
           while ((l = ospf_get_next_link (v, w, l)))
             {
               oi = ospf_if_is_configured (area->ospf, &(l->link_data));
@@ -481,17 +596,32 @@ ospf_nexthop_calculation (struct ospf_area *area,
             }
         }
       return;
-    }
-  /* In case of W's parent is network connected to root. */
+    } /* end V is the root */
+
+  /* Check if W's parent is a network connected to root. */
   else if (v->type == OSPF_VERTEX_NETWORK)
     {
+      /* See if any of V's parents are the root. */
       for (node = listhead (v->nexthop); node; nextnode (node))
         {
-          x = (struct vertex_nexthop *) getdata (node);
-          if (x->parent == area->spf)
-            {
+	  x = (struct vertex_nexthop *) getdata (node);
+          if (x->parent == area->spf) /* connects to root? */
+	    {
+	      /* 16.1.1 para 5. ...the parent vertex is a network that
+	       * directly connects the calculating router to the destination
+	       * router.  The list of next hops is then determined by
+	       * examining the destination's router-LSA...
+	       */
+
+	      assert(w->type == OSPF_VERTEX_ROUTER);
               while ((l = ospf_get_next_link (w, v, l)))
                 {
+		  /* ...For each link in the router-LSA that points back to the
+		   * parent network, the link's Link Data field provides the IP
+		   * address of a next hop router.  The outgoing interface to
+		   * use can then be derived from the next hop IP address (or 
+		   * it can be inherited from the parent network).
+		   */
                   nh = vertex_nexthop_new (v);
                   nh->oi = x->oi;
                   nh->router = l->link_data;
@@ -502,7 +632,11 @@ ospf_nexthop_calculation (struct ospf_area *area,
         }
     }
 
-  /* Inherit V's nexthop. */
+  /* 16.1.1 para 4.  If there is at least one intervening router in the
+   * current shortest path between the destination and the root, the
+   * destination simply inherits the set of next hops from the
+   * parent.
+   */
   for (node = listhead (v->nexthop); node; nextnode (node))
     {
       nh = vertex_nexthop_dup (node->data);
@@ -511,11 +645,14 @@ ospf_nexthop_calculation (struct ospf_area *area,
     }
 }
 
+/* Add a vertex to the SPF candidate list. */
 void
 ospf_install_candidate (list candidate, struct vertex *w)
 {
   listnode node;
   struct vertex *cw;
+
+  ospf_vertex_dump("ospf_install_candidate(): add to candidate list", w, 1, 1);
 
   if (list_isempty (candidate))
     {
@@ -538,9 +675,23 @@ ospf_install_candidate (list candidate, struct vertex *w)
           break;
         }
     }
+
+  if (IS_DEBUG_OSPF_EVENT)
+    {
+      zlog_info("ospf_install_candidate(): candidate list now contains:");
+      for (node = listhead (candidate); node; nextnode (node))
+        {
+	  cw = (struct vertex *) getdata (node);
+	  ospf_vertex_dump(" candidate:", cw, 0, 0);
+	}
+    }
 }
 
-/* RFC2328 Section 16.1 (2). */
+/* RFC2328 Section 16.1 (2).
+ * v is on the SPF tree.  Examine the links in v's LSA.  Update the list
+ * of candidates with any vertices not already on the list.  If a lower-cost
+ * path is found to a vertex already on the candidate list, store the new cost.
+ */
 void
 ospf_spf_next (struct vertex *v, struct ospf_area *area,
                list candidate, struct route_table *rv, struct route_table *nv)
@@ -603,7 +754,7 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
               if (w_lsa)
                 {
                   if (IS_DEBUG_OSPF_EVENT)
-                    zlog_info ("found the LSA");
+                    zlog_info ("found Router LSA %s", inet_ntoa (l->link_id));
                 }
               break;
             case LSA_LINK_TYPE_TRANSIT:
@@ -671,53 +822,60 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
 
       /* calculate link cost D. */
       if (v->lsa->type == OSPF_ROUTER_LSA)
-        w->distance = v->distance + ntohs (l->m[0].metric);
-      else
-        w->distance = v->distance;
+	w->distance = v->distance + ntohs (l->m[0].metric);
+      else /* v is not a Router-LSA */
+	w->distance = v->distance;
 
       /* Is there already vertex W in candidate list? */
       node = ospf_vertex_lookup (candidate, w->id, w->type);
       if (node == NULL)
         {
-          /* Calculate nexthop to W. */
+          /* W is a new candidate.  Calculate nexthop to W and add W
+	   * to the candidate list.
+	   */
           ospf_nexthop_calculation (area, v, w);
 
           ospf_install_candidate (candidate, w);
         }
       else
         {
+	  /* W is already on the candidate list; call it cw.
+	   * Compare the previously calculated cost (cw->distance)
+	   * with the cost we just determined (w->distance) to see
+	   * if we've found a shorter path.
+	   */
           cw = (struct vertex *) getdata (node);
 
-          /* if D is greater than. */
+          /* If the previous cost was lower, we didn't find a
+	   * shorter path, so we're done with w.
+	   */
           if (cw->distance < w->distance)
             {
               ospf_vertex_free (w);
               continue;
             }
-          /* equal to. */
           else if (cw->distance == w->distance)
             {
-              /* Calculate nexthop to W. */
+	      /* Found an equal-cost path to W.  Calculate nexthop to W. */
               ospf_nexthop_calculation (area, v, w);
               ospf_nexthop_merge (cw->nexthop, w->nexthop);
               list_delete_all_node (w->nexthop);
               ospf_vertex_free (w);
             }
-          /* less than. */
           else
             {
-              /* Calculate nexthop. */
+	      /* Found a lower-cost path to W.  Calculate nexthop to W. */
               ospf_nexthop_calculation (area, v, w);
 
               /* Remove old vertex from candidate list. */
               ospf_vertex_free (cw);
               listnode_delete (candidate, cw);
 
-              /* Install new to candidate. */
+              /* Install new W to candidate list. */
               ospf_install_candidate (candidate, w);
             }
-        }
-    }
+        } /* end W is already on the candidate list */
+    } /* end loop over the links in V's LSA */
 }
 
 /* Add vertex V to SPF tree. */
@@ -727,6 +885,8 @@ ospf_spf_register (struct vertex *v, struct route_table *rv,
 {
   struct prefix p;
   struct route_node *rn;
+
+  ospf_vertex_dump("ospf_spf_register(): adding to SPF tree:", v, 1, 1);
 
   p.family = AF_INET;
   p.prefixlen = IPV4_MAX_BITLEN;
@@ -778,13 +938,13 @@ ospf_spf_dump (struct vertex *v, int i)
       if (IS_DEBUG_OSPF_EVENT)
         zlog_info ("SPF Result: %d [N] %s/%d", i, inet_ntoa (v->lsa->id),
                    ip_masklen (lsa->mask));
+    }
 
-      for (nnode = listhead (v->nexthop); nnode; nextnode (nnode))
-        {
-          nexthop = getdata (nnode);
-          if (IS_DEBUG_OSPF_EVENT)
-            zlog_info (" nexthop %s", inet_ntoa (nexthop->router));
-        }
+  for (nnode = listhead (v->nexthop); nnode; nextnode (nnode))
+    {
+      nexthop = getdata (nnode);
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_info (" nexthop %s", inet_ntoa (nexthop->router));
     }
 
   i++;
@@ -815,15 +975,15 @@ ospf_spf_process_stubs (struct ospf_area *area, struct vertex *v,
       struct router_lsa *rlsa;
 
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("ospf_process_stub():processing router LSA, id: %s",
+        zlog_info ("ospf_process_stubs():processing router LSA, id: %s",
                    inet_ntoa (v->lsa->id));
       rlsa = (struct router_lsa *) v->lsa;
 
 
       if (IS_DEBUG_OSPF_EVENT)
-        zlog_info ("ospf_process_stub(): we have %d links to process",
+        zlog_info ("ospf_process_stubs(): we have %d links to process",
                    ntohs (rlsa->links));
-      p = ((u_char *) v->lsa) + 24;
+      p = ((u_char *) v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
       lim = ((u_char *) v->lsa) + ntohs (v->lsa->length);
 
       while (p < lim)
@@ -838,14 +998,7 @@ ospf_spf_process_stubs (struct ospf_area *area, struct vertex *v,
         }
     }
 
-  if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("children of V:");
-  for (cnode = listhead (v->child); cnode; nextnode (cnode))
-    {
-      child = getdata (cnode);
-      if (IS_DEBUG_OSPF_EVENT)
-        zlog_info (" child : %s", inet_ntoa (child->id));
-    }
+  ospf_vertex_dump("ospf_process_stubs(): after examining links: ", v, 1, 1);
 
   for (cnode = listhead (v->child); cnode; nextnode (cnode))
     {
@@ -1014,7 +1167,7 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
       v = getdata (node);
       ospf_vertex_add_parent (v);
 
-      /* Reveve from the candidate list. */
+      /* Remove from the candidate list. */
       listnode_delete (candidate, v);
 
       /* Add to SPF tree. */
@@ -1034,7 +1187,8 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
 
       /* RFC2328 16.1. (5). */
       /* Iterate the algorithm by returning to Step 2. */
-    }
+
+    } /* end loop until no more candidate vertices */
 
   if (IS_DEBUG_OSPF_EVENT)
     {

@@ -545,6 +545,8 @@ ospf_free_if_params (struct interface *ifp, struct in_addr addr)
   struct ospf_if_params *oip;
   struct prefix_ipv4 p;
   struct route_node *rn;
+
+  p.family = AF_INET;
   p.prefixlen = IPV4_MAX_PREFIXLEN;
   p.prefix = addr;
   rn = route_node_lookup (IF_OIFS_PARAMS (ifp), (struct prefix*)&p);
@@ -578,6 +580,7 @@ ospf_lookup_if_params (struct interface *ifp, struct in_addr addr)
   struct prefix_ipv4 p;
   struct route_node *rn;
 
+  p.family = AF_INET;
   p.prefixlen = IPV4_MAX_PREFIXLEN;
   p.prefix = addr;
 
