@@ -219,7 +219,16 @@ DEFUN (if_rmap,
   if_rmap = if_rmap_set (argv[2], type, argv[0]);
 
   return CMD_SUCCESS;
-}       
+}      
+
+ALIAS (if_rmap,
+       if_ipv6_rmap_cmd,
+       "route-map RMAP_NAME (in|out) IFNAME",
+       "Route map set\n"
+       "Route map name\n"
+       "Route map set for input filtering\n"
+       "Route map set for output filtering\n"
+       "Route map interface name\n")
 
 DEFUN (no_if_rmap,
        no_if_rmap_cmd,
@@ -251,7 +260,17 @@ DEFUN (no_if_rmap,
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
-}       
+}      
+
+ALIAS (no_if_rmap,
+       no_if_ipv6_rmap_cmd,
+       "no route-map ROUTEMAP_NAME (in|out) IFNAME",
+       NO_STR
+       "Route map unset\n"
+       "Route map name\n"
+       "Route map for input filtering\n"
+       "Route map for output filtering\n"
+       "Route map interface name\n")
 
 /* Configuration write function. */
 int
@@ -300,7 +319,10 @@ if_rmap_init (int node)
 {
   ifrmaphash = hash_create (if_rmap_hash_make, if_rmap_hash_cmp);
   if (node == RIPNG_NODE) {
-    install_element (RIPNG_NODE, &if_rmap_cmd);
-    install_element (RIPNG_NODE, &no_if_rmap_cmd);
+    install_element (RIPNG_NODE, &if_ipv6_rmap_cmd);
+    install_element (RIPNG_NODE, &no_if_ipv6_rmap_cmd);
+  } else if (node == RIP_NODE) {
+    install_element (RIP_NODE, &if_rmap_cmd);
+    install_element (RIP_NODE, &no_if_rmap_cmd);
   }
 }

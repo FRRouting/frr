@@ -109,7 +109,11 @@ foreach (@ARGV) {
               }
            }
            if ($file =~ /if_rmap.c/) {
-              $protocol = "VTYSH_RIPNGD";
+              if ($defun_array[1] =~ m/ipv6/) {
+                 $protocol = "VTYSH_RIPNGD";
+              } else {
+                 $protocol = "VTYSH_RIPD";
+              }
            }
         } else {
            ($protocol) = ($file =~ /\/([a-z0-9]+)/);
