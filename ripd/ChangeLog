@@ -1,7 +1,12 @@
+2004-05-03 Paul Jakma <paul@dishone.st>
+
+	* ripd.c: (rip_rte_process) fix typo in merge of previous patch
+	  and run function through indent.
+	
 2004-03-19 Jean-Yves Simon <lethalwp@tiscali.be>
 
-	* ripd.c: make ripd also check on administrative distance of his
-	  own links to update routes.
+	* ripd.c: (rip_rte_process) make ripd also check on 
+	  administrative distance of his own links to update routes.
 
 2004-03-18 sowmini.varadhan@sun.com
 

@@ -381,8 +381,7 @@ rip_nexthop_check (struct in_addr *addr)
 /* RIP add route to routing table. */
 void
 rip_rte_process (struct rte *rte, struct sockaddr_in *from,
-		 struct interface *ifp)
-
+                 struct interface *ifp)
 {
   int ret;
   struct prefix_ipv4 p;
@@ -418,29 +417,29 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
       memset (&newinfo, 0, sizeof (newinfo));
       newinfo.type = ZEBRA_ROUTE_RIP;
       newinfo.sub_type = RIP_ROUTE_RTE;
-      newinfo.nexthop= rte->nexthop;
-      newinfo.from   = from->sin_addr;
-      newinfo.ifindex= ifp->ifindex;
+      newinfo.nexthop = rte->nexthop;
+      newinfo.from = from->sin_addr;
+      newinfo.ifindex = ifp->ifindex;
       newinfo.metric = rte->metric;
       newinfo.metric_out = rte->metric; /* XXX */
-      newinfo.tag    = ntohs(rte->tag); /* XXX */
+      newinfo.tag = ntohs (rte->tag);   /* XXX */
 
       /* The object should be of the type of rip_info */
-      ret = route_map_apply (ri->routemap[RIP_FILTER_IN], 
-			     (struct prefix *)&p, RMAP_RIP, &newinfo);
+      ret = route_map_apply (ri->routemap[RIP_FILTER_IN],
+                             (struct prefix *) &p, RMAP_RIP, &newinfo);
 
       if (ret == RMAP_DENYMATCH)
-	{
-	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_info ("RIP %s/%d is filtered by route-map in",
-		       inet_ntoa (p.prefix), p.prefixlen);
-	  return;
-	}
+        {
+          if (IS_RIP_DEBUG_PACKET)
+            zlog_info ("RIP %s/%d is filtered by route-map in",
+                       inet_ntoa (p.prefix), p.prefixlen);
+          return;
+        }
 
       /* Get back the object */
-      rte->nexthop    = newinfo.nexthop_out;
-      rte->tag        = htons(newinfo.tag_out); /* XXX */
-      rte->metric     = newinfo.metric_out; /* XXX: the routemap uses the metric_out field */
+      rte->nexthop = newinfo.nexthop_out;
+      rte->tag = htons (newinfo.tag_out);       /* XXX */
+      rte->metric = newinfo.metric_out; /* XXX: the routemap uses the metric_out field */
     }
 
   /* Once the entry has been validated, update the metric by
@@ -452,7 +451,7 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
 
   /* If offset-list does not modify the metric use interface's
      metric. */
-  if (! ret)
+  if (!ret)
     rte->metric += ifp->metric;
 
   if (rte->metric > RIP_METRIC_INFINITY)
@@ -468,7 +467,7 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
   if (rip_nexthop_check (nexthop) < 0)
     {
       if (IS_RIP_DEBUG_PACKET)
-	zlog_info ("Nexthop address %s is myself", inet_ntoa (*nexthop));
+        zlog_info ("Nexthop address %s is myself", inet_ntoa (*nexthop));
       return;
     }
 
@@ -482,191 +481,191 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
     {
       /* Redistributed route check. */
       if (rinfo->type != ZEBRA_ROUTE_RIP
-	  && rinfo->metric != RIP_METRIC_INFINITY)
-	return;
+          && rinfo->metric != RIP_METRIC_INFINITY)
+        return;
 
       /* Local static route. */
       if (rinfo->type == ZEBRA_ROUTE_RIP
-	  && ((rinfo->sub_type == RIP_ROUTE_STATIC) ||
-	      (rinfo->sub_type == RIP_ROUTE_DEFAULT))
-	  && rinfo->metric != RIP_METRIC_INFINITY)
-	return;
+          && ((rinfo->sub_type == RIP_ROUTE_STATIC) ||
+              (rinfo->sub_type == RIP_ROUTE_DEFAULT))
+          && rinfo->metric != RIP_METRIC_INFINITY)
+        return;
     }
-  
-  if (! rinfo)
+
+  if (!rinfo)
     {
       /* Now, check to see whether there is already an explicit route
-	 for the destination prefix.  If there is no such route, add
-	 this route to the routing table, unless the metric is
-	 infinity (there is no point in adding a route which
-	 unusable). */
+         for the destination prefix.  If there is no such route, add
+         this route to the routing table, unless the metric is
+         infinity (there is no point in adding a route which
+         unusable). */
       if (rte->metric != RIP_METRIC_INFINITY)
-	{
-	  rinfo = rip_info_new ();
-	  
-	  /* - Setting the destination prefix and length to those in
-	     the RTE. */
-	  rinfo->rp = rp;
+        {
+          rinfo = rip_info_new ();
 
-	  /* - Setting the metric to the newly calculated metric (as
-	     described above). */
-	  rinfo->metric = rte->metric;
-	  rinfo->tag = ntohs (rte->tag);
+          /* - Setting the destination prefix and length to those in
+             the RTE. */
+          rinfo->rp = rp;
 
-	  /* - Set the next hop address to be the address of the router
-	     from which the datagram came or the next hop address
-	     specified by a next hop RTE. */
-	  IPV4_ADDR_COPY (&rinfo->nexthop, nexthop);
-	  IPV4_ADDR_COPY (&rinfo->from, &from->sin_addr);
-	  rinfo->ifindex = ifp->ifindex;
+          /* - Setting the metric to the newly calculated metric (as
+             described above). */
+          rinfo->metric = rte->metric;
+          rinfo->tag = ntohs (rte->tag);
 
-	  /* - Initialize the timeout for the route.  If the
-	     garbage-collection timer is running for this route, stop it
-	     (see section 2.3 for a discussion of the timers). */
-	  rip_timeout_update (rinfo);
+          /* - Set the next hop address to be the address of the router
+             from which the datagram came or the next hop address
+             specified by a next hop RTE. */
+          IPV4_ADDR_COPY (&rinfo->nexthop, nexthop);
+          IPV4_ADDR_COPY (&rinfo->from, &from->sin_addr);
+          rinfo->ifindex = ifp->ifindex;
 
-	  /* - Set the route change flag. */
-	  rinfo->flags |= RIP_RTF_CHANGED;
+          /* - Initialize the timeout for the route.  If the
+             garbage-collection timer is running for this route, stop it
+             (see section 2.3 for a discussion of the timers). */
+          rip_timeout_update (rinfo);
 
-	  /* - Signal the output process to trigger an update (see section
-	     2.5). */
-	  rip_event (RIP_TRIGGERED_UPDATE, 0);
+          /* - Set the route change flag. */
+          rinfo->flags |= RIP_RTF_CHANGED;
 
-	  /* Finally, route goes into the kernel. */
-	  rinfo->type = ZEBRA_ROUTE_RIP;
-	  rinfo->sub_type = RIP_ROUTE_RTE;
+          /* - Signal the output process to trigger an update (see section
+             2.5). */
+          rip_event (RIP_TRIGGERED_UPDATE, 0);
 
-	  /* Set distance value. */
-	  rinfo->distance = rip_distance_apply (rinfo);
+          /* Finally, route goes into the kernel. */
+          rinfo->type = ZEBRA_ROUTE_RIP;
+          rinfo->sub_type = RIP_ROUTE_RTE;
 
-	  rp->info = rinfo;
-	  rip_zebra_ipv4_add (&p, &rinfo->nexthop, rinfo->metric,
-			      rinfo->distance);
-	  rinfo->flags |= RIP_RTF_FIB;
-	}
+          /* Set distance value. */
+          rinfo->distance = rip_distance_apply (rinfo);
+
+          rp->info = rinfo;
+          rip_zebra_ipv4_add (&p, &rinfo->nexthop, rinfo->metric,
+                              rinfo->distance);
+          rinfo->flags |= RIP_RTF_FIB;
+        }
     }
   else
     {
       /* Route is there but we are not sure the route is RIP or not. */
       rinfo = rp->info;
-	  
+
       /* If there is an existing route, compare the next hop address
-	 to the address of the router from which the datagram came.
-	 If this datagram is from the same router as the existing
-	 route, reinitialize the timeout.  */
+         to the address of the router from which the datagram came.
+         If this datagram is from the same router as the existing
+         route, reinitialize the timeout.  */
       same = (IPV4_ADDR_SAME (&rinfo->from, &from->sin_addr)
-      	      && (rinfo->ifindex == ifp->ifindex));
+              && (rinfo->ifindex == ifp->ifindex));
 
       if (same)
-	rip_timeout_update (rinfo);
+        rip_timeout_update (rinfo);
 
 
       /* Fill in a minimaly temporary rip_info structure, for a future
          rip_distance_apply() use) */
-      memset (&rinfo,0,sizeof(rinfotmp));
+      memset (&rinfotmp, 0, sizeof (rinfotmp));
       IPV4_ADDR_COPY (&rinfotmp.from, &from->sin_addr);
-      rinfotmp.rp=rinfo->rp;
+      rinfotmp.rp = rinfo->rp;
 
 
       /* Next, compare the metrics.  If the datagram is from the same
-	 router as the existing route, and the new metric is different
-	 than the old one; or, if the new metric is lower than the old
-	 one, or if the tag has been changed; or if there is a route
-	 with a lower administrave distance; or an update of the
-	 distance on the actual route; do the following actions: */
-      if (( same && rinfo->metric != rte->metric ) 
-          || ( rte->metric < rinfo->metric ) 
-          || ( (same)
-               && (rinfo->metric == rte->metric) 
-               && ntohs(rte->tag) != rinfo->tag ) 
-          || ( rinfo->distance > rip_distance_apply (&rinfotmp) ) 
-          || ( (rinfo->distance != rip_distance_apply (rinfo)) && same ))
-	{
-	  /* - Adopt the route from the datagram.  That is, put the
-	     new metric in, and adjust the next hop address (if
-	     necessary). */
-	  oldmetric = rinfo->metric;
-	  rinfo->metric = rte->metric;
-	  rinfo->tag = ntohs (rte->tag);
-	  IPV4_ADDR_COPY (&rinfo->from, &from->sin_addr);
-	  rinfo->ifindex = ifp->ifindex;
-	  rinfo->distance = rip_distance_apply (rinfo);
+         router as the existing route, and the new metric is different
+         than the old one; or, if the new metric is lower than the old
+         one, or if the tag has been changed; or if there is a route
+         with a lower administrave distance; or an update of the
+         distance on the actual route; do the following actions: */
+      if ((same && rinfo->metric != rte->metric)
+          || (rte->metric < rinfo->metric)
+          || ((same)
+              && (rinfo->metric == rte->metric)
+              && ntohs (rte->tag) != rinfo->tag)
+          || (rinfo->distance > rip_distance_apply (&rinfotmp))
+          || ((rinfo->distance != rip_distance_apply (rinfo)) && same))
+        {
+          /* - Adopt the route from the datagram.  That is, put the
+             new metric in, and adjust the next hop address (if
+             necessary). */
+          oldmetric = rinfo->metric;
+          rinfo->metric = rte->metric;
+          rinfo->tag = ntohs (rte->tag);
+          IPV4_ADDR_COPY (&rinfo->from, &from->sin_addr);
+          rinfo->ifindex = ifp->ifindex;
+          rinfo->distance = rip_distance_apply (rinfo);
 
-	  /* Should a new route to this network be established
-	     while the garbage-collection timer is running, the
-	     new route will replace the one that is about to be
-	     deleted.  In this case the garbage-collection timer
-	     must be cleared. */
+          /* Should a new route to this network be established
+             while the garbage-collection timer is running, the
+             new route will replace the one that is about to be
+             deleted.  In this case the garbage-collection timer
+             must be cleared. */
 
-	  if (oldmetric == RIP_METRIC_INFINITY &&
-	      rinfo->metric < RIP_METRIC_INFINITY)
-	    {
-	      rinfo->type = ZEBRA_ROUTE_RIP;
-	      rinfo->sub_type = RIP_ROUTE_RTE;
+          if (oldmetric == RIP_METRIC_INFINITY &&
+              rinfo->metric < RIP_METRIC_INFINITY)
+            {
+              rinfo->type = ZEBRA_ROUTE_RIP;
+              rinfo->sub_type = RIP_ROUTE_RTE;
 
-	      RIP_TIMER_OFF (rinfo->t_garbage_collect);
+              RIP_TIMER_OFF (rinfo->t_garbage_collect);
 
-	      if (! IPV4_ADDR_SAME (&rinfo->nexthop, nexthop))
-		IPV4_ADDR_COPY (&rinfo->nexthop, nexthop);
+              if (!IPV4_ADDR_SAME (&rinfo->nexthop, nexthop))
+                IPV4_ADDR_COPY (&rinfo->nexthop, nexthop);
 
-	      rip_zebra_ipv4_add (&p, nexthop, rinfo->metric,
-				  rinfo->distance);
-	      rinfo->flags |= RIP_RTF_FIB;
-	    }
+              rip_zebra_ipv4_add (&p, nexthop, rinfo->metric,
+                                  rinfo->distance);
+              rinfo->flags |= RIP_RTF_FIB;
+            }
 
-	  /* Update nexthop and/or metric value.  */
-	  if (oldmetric != RIP_METRIC_INFINITY)
-	    {
-	      rip_zebra_ipv4_delete (&p, &rinfo->nexthop, oldmetric);
-	      rip_zebra_ipv4_add (&p, nexthop, rinfo->metric,
-				  rinfo->distance);
-	      rinfo->flags |= RIP_RTF_FIB;
+          /* Update nexthop and/or metric value.  */
+          if (oldmetric != RIP_METRIC_INFINITY)
+            {
+              rip_zebra_ipv4_delete (&p, &rinfo->nexthop, oldmetric);
+              rip_zebra_ipv4_add (&p, nexthop, rinfo->metric,
+                                  rinfo->distance);
+              rinfo->flags |= RIP_RTF_FIB;
 
-	      if (! IPV4_ADDR_SAME (&rinfo->nexthop, nexthop))
-		IPV4_ADDR_COPY (&rinfo->nexthop, nexthop);
-	    }
+              if (!IPV4_ADDR_SAME (&rinfo->nexthop, nexthop))
+                IPV4_ADDR_COPY (&rinfo->nexthop, nexthop);
+            }
 
-	  /* - Set the route change flag and signal the output process
-	     to trigger an update. */
-	  rinfo->flags |= RIP_RTF_CHANGED;
-	  rip_event (RIP_TRIGGERED_UPDATE, 0);
+          /* - Set the route change flag and signal the output process
+             to trigger an update. */
+          rinfo->flags |= RIP_RTF_CHANGED;
+          rip_event (RIP_TRIGGERED_UPDATE, 0);
 
-	  /* - If the new metric is infinity, start the deletion
-	     process (described above); */
-	  if (rinfo->metric == RIP_METRIC_INFINITY)
-	    {
-	      /* If the new metric is infinity, the deletion process
-		 begins for the route, which is no longer used for
-		 routing packets.  Note that the deletion process is
-		 started only when the metric is first set to
-		 infinity.  If the metric was already infinity, then a
-		 new deletion process is not started. */
-	      if (oldmetric != RIP_METRIC_INFINITY)
-		{
-		  /* - The garbage-collection timer is set for 120 seconds. */
-		  RIP_TIMER_ON (rinfo->t_garbage_collect, 
-				rip_garbage_collect, rip->garbage_time);
-		  RIP_TIMER_OFF (rinfo->t_timeout);
+          /* - If the new metric is infinity, start the deletion
+             process (described above); */
+          if (rinfo->metric == RIP_METRIC_INFINITY)
+            {
+              /* If the new metric is infinity, the deletion process
+                 begins for the route, which is no longer used for
+                 routing packets.  Note that the deletion process is
+                 started only when the metric is first set to
+                 infinity.  If the metric was already infinity, then a
+                 new deletion process is not started. */
+              if (oldmetric != RIP_METRIC_INFINITY)
+                {
+                  /* - The garbage-collection timer is set for 120 seconds. */
+                  RIP_TIMER_ON (rinfo->t_garbage_collect,
+                                rip_garbage_collect, rip->garbage_time);
+                  RIP_TIMER_OFF (rinfo->t_timeout);
 
-		  /* - The metric for the route is set to 16
-		     (infinity).  This causes the route to be removed
-		     from service.*/
-		  rip_zebra_ipv4_delete (&p, &rinfo->nexthop, oldmetric);
-		  rinfo->flags &= ~RIP_RTF_FIB;
+                  /* - The metric for the route is set to 16
+                     (infinity).  This causes the route to be removed
+                     from service. */
+                  rip_zebra_ipv4_delete (&p, &rinfo->nexthop, oldmetric);
+                  rinfo->flags &= ~RIP_RTF_FIB;
 
-		  /* - The route change flag is to indicate that this
-		     entry has been changed. */
-		  /* - The output process is signalled to trigger a
+                  /* - The route change flag is to indicate that this
+                     entry has been changed. */
+                  /* - The output process is signalled to trigger a
                      response. */
-		  ;  /* Above processes are already done previously. */
-		}
-	    }
-	  else
-	    {
-	      /* otherwise, re-initialize the timeout. */
-	      rip_timeout_update (rinfo);
-	    }
-	}
+                  ;             /* Above processes are already done previously. */
+                }
+            }
+          else
+            {
+              /* otherwise, re-initialize the timeout. */
+              rip_timeout_update (rinfo);
+            }
+        }
       /* Unlock tempolary lock of the route. */
       route_unlock_node (rp);
     }
