@@ -211,7 +211,15 @@ main (int argc, char **argv)
           pid_file = optarg;
           break;
 	case 'P':
-	  vty_port = atoi (optarg);
+          /* Deal with atoi() returning 0 on failure, and ripd not
+             listening on rip port... */
+          if (strcmp(optarg, "0") == 0) 
+            {
+              vty_port = 0;
+              break;
+            } 
+          vty_port = atoi (optarg);
+          vty_port = (vty_port ? vty_port : RIP_VTY_PORT);
 	  break;
 	case 'r':
 	  retain_mode = 1;

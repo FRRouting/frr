@@ -174,7 +174,7 @@ main (int argc, char **argv)
 {
   char *p;
   char *vty_addr = NULL;
-  int vty_port = 0;
+  int vty_port = ZEBRA_VTY_PORT;
   int batch_mode = 0;
   int daemon_mode = 0;
   char *config_file = NULL;
@@ -226,7 +226,15 @@ main (int argc, char **argv)
           pid_file = optarg;
           break;
 	case 'P':
+	  /* Deal with atoi() returning 0 on failure, and zebra not
+	     listening on zebra port... */
+	  if (strcmp(optarg, "0") == 0) 
+	    {
+	      vty_port = 0;
+	      break;
+	    } 
 	  vty_port = atoi (optarg);
+	  vty_port = (vty_port ? vty_port : ZEBRA_VTY_PORT);
 	  break;
 	case 'r':
 	  retain_mode = 1;
@@ -305,8 +313,7 @@ main (int argc, char **argv)
   pid = getpid ();
 
   /* Make vty server socket. */
-  vty_serv_sock (vty_addr,
-		 vty_port ? vty_port : ZEBRA_VTY_PORT, ZEBRA_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, ZEBRA_VTYSH_PATH);
 
   while (thread_fetch (master, &thread))
     thread_call (&thread);

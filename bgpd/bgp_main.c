@@ -113,7 +113,7 @@ sighup (int sig)
   vty_read_config (config_file, config_current, config_default);
 
   /* Create VTY's socket */
-  vty_serv_sock (vty_addr, vty_port ? vty_port : BGP_VTY_PORT, BGP_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, BGP_VTYSH_PATH);
 
   /* Try to return to normal operation. */
 }
@@ -222,7 +222,15 @@ main (int argc, char **argv)
 	  vty_addr = optarg;
 	  break;
 	case 'P':
-	  vty_port = atoi (optarg);
+          /* Deal with atoi() returning 0 on failure, and bgpd not
+             listening on bgp port... */
+          if (strcmp(optarg, "0") == 0) 
+            {
+              vty_port = 0;
+              break;
+            } 
+          vty_port = atoi (optarg);
+          vty_port = (vty_port ? vty_port : BGP_VTY_PORT);
 	  break;
 	case 'r':
 	  retain_mode = 1;

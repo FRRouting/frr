@@ -155,7 +155,7 @@ main (int argc, char **argv)
 {
   char *p;
   char *vty_addr = NULL;
-  int vty_port = 0;
+  int vty_port = RIPNG_VTY_PORT;
   int daemon_mode = 0;
   char *config_file = NULL;
   char *progname;
@@ -197,10 +197,18 @@ main (int argc, char **argv)
 	  break;
         case 'i':
           pid_file = optarg;
-          break;
+          break; 
 	case 'P':
-	  vty_port = atoi (optarg);
-	  break;
+          /* Deal with atoi() returning 0 on failure, and ripngd not
+             listening on ripngd port... */
+          if (strcmp(optarg, "0") == 0) 
+            {
+              vty_port = 0;
+              break;
+            } 
+          vty_port = atoi (optarg);
+          vty_port = (vty_port ? vty_port : RIPNG_VTY_PORT);
+          break;
 	case 'r':
 	  retain_mode = 1;
 	  break;
@@ -237,8 +245,7 @@ main (int argc, char **argv)
     daemon (0, 0);
 
   /* Create VTY socket */
-  vty_serv_sock (vty_addr,
-		 vty_port ? vty_port : RIPNG_VTY_PORT, RIPNG_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, RIPNG_VTYSH_PATH);
 
   /* Process id file create. */
   pid_output (pid_file);

@@ -170,7 +170,7 @@ main (int argc, char **argv)
 {
   char *p;
   char *vty_addr = NULL;
-  int vty_port = 0;
+  int vty_port = OSPF_VTY_PORT;
   int daemon_mode = 0;
   char *config_file = NULL;
   char *progname;
@@ -219,8 +219,16 @@ main (int argc, char **argv)
           pid_file = optarg;
           break;
 	case 'P':
-	  vty_port = atoi (optarg);
-	  break;
+          /* Deal with atoi() returning 0 on failure, and ospfd not
+             listening on ospfd port... */
+          if (strcmp(optarg, "0") == 0) 
+            {
+              vty_port = 0;
+              break;
+            } 
+          vty_port = atoi (optarg);
+          vty_port = (vty_port ? vty_port : OSPF_VTY_PORT);
+  	  break;
 	case 'v':
 	  print_version (progname);
 	  exit (0);
@@ -277,8 +285,7 @@ main (int argc, char **argv)
   pid_output (pid_file);
 
   /* Create VTY socket */
-  vty_serv_sock (vty_addr,
-		 vty_port ? vty_port : OSPF_VTY_PORT, OSPF_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, OSPF_VTYSH_PATH);
 
   /* Print banner. */
   zlog (NULL, LOG_INFO, "OSPFd (%s) starts", ZEBRA_VERSION);

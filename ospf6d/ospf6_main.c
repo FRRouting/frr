@@ -206,7 +206,7 @@ main (int argc, char *argv[], char *envp[])
   char *p;
   int opt;
   char *vty_addr = NULL;
-  int vty_port = 0;
+  int vty_port = OSPF6_VTY_PORT;
   char *config_file = NULL;
   char *progname;
   struct thread thread;
@@ -253,8 +253,16 @@ main (int argc, char *argv[], char *envp[])
           pid_file = optarg;
           break;
         case 'P':
+         /* Deal with atoi() returning 0 on failure, and ospf6d not
+             listening on ospf6d port... */
+          if (strcmp(optarg, "0") == 0) 
+            {
+              vty_port = 0;
+              break;
+            } 
           vty_port = atoi (optarg);
-          break;
+          vty_port = (vty_port ? vty_port : OSPF6_VTY_PORT);
+	  break;
         case 'v':
           print_version (progname);
           exit (0);
@@ -305,8 +313,7 @@ main (int argc, char *argv[], char *envp[])
   thread_add_read (master, ospf6_receive, NULL, ospf6_sock);
 
   /* Make ospf vty socket. */
-  vty_serv_sock (vty_addr,
-		 vty_port ? vty_port : OSPF6_VTY_PORT, OSPF6_VTYSH_PATH);
+  vty_serv_sock (vty_addr, vty_port, OSPF6_VTYSH_PATH);
 
   /* Print start message */
   zlog_notice ("OSPF6d (Zebra-%s ospf6d-%s) starts",
