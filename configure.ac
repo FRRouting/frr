@@ -158,13 +158,10 @@ fi
 AC_DEFINE_UNQUOTED(ZEBRA_GROUP, "${enable_group}", Zebra Group)
 
 if test x"${enable_vty_group}" = x"yes" ; then
-  AC_MSG_ERROR([--enable-vty-group requires a group as argument])
+  AC_MSG_ERROR([--enable-vty-group requires a group as argument, not yes])
 fi
-if test "${enable_vty_group}" = ""; then
-  AC_MSG_ERROR([--enable-vty-group requires a group as argument])
-fi
-if test x"${enable_vty_group}" != x"no"; then
-  if test "${enable_vty_group}" != ""; then
+if test x"${enable_vty_group}" != x""; then
+  if test x"${enable_vty_group}" != x"no"; then
     AC_DEFINE_UNQUOTED(VTY_GROUP, "${enable_vty_group}", VTY Sockets Group)
   fi
 fi
@@ -1023,4 +1020,7 @@ compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 linker flags            : ${LDFLAGS} ${LIBS}
 state file directory    : ${zebra_statedir}
+user to run as		: ${enable_user}
+group to run as		: ${enable_group}
+group for vty sockets	: ${enable_vty_group}
 "
