@@ -1,6 +1,6 @@
 -*- mode: text; -*-
 
-$Id: HACKING,v 1.5 2004/01/09 16:34:54 paul Exp $
+$Id: HACKING,v 1.6 2004/05/13 13:38:06 paul Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -62,6 +62,9 @@ PATCH APPLICATION TO CVS
 
 * If the patch might break something, issue a call for testing on the
   mailinglist.
+
+* Give an appropriate commit message, eg the ChangeLog entry should suffice,
+  if it does not, then the ChangeLog entry itself needs to be corrected.
 
 * By committing a patch, you are responsible for fixing problems
   resulting from it (or backing it out).
