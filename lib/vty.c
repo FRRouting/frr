@@ -1776,14 +1776,37 @@ vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
 
 /* Make vty server socket. */
 void
-vty_serv_sock_family (unsigned short port, int family)
+vty_serv_sock_family (const char* addr, unsigned short port, int family)
 {
   int ret;
   union sockunion su;
   int accept_sock;
+  void* naddr=NULL;
 
   memset (&su, 0, sizeof (union sockunion));
   su.sa.sa_family = family;
+  if(addr)
+    switch(family)
+    {
+      case AF_INET:
+        naddr=&su.sin.sin_addr;
+#ifdef HAVE_IPV6
+      case AF_INET6:
+        naddr=&su.sin6.sin6_addr;
+#endif	
+    }
+
+  if(naddr)
+    switch(inet_pton(family,addr,naddr))
+    {
+      case -1:
+        zlog_err("bad address %s",addr);
+	naddr=NULL;
+	break;
+      case 0:
+        zlog_err("error translating address %s: %s",addr,strerror(errno));
+	naddr=NULL;
+    }
 
   /* Make new socket. */
   accept_sock = sockunion_stream_socket (&su);
@@ -1795,9 +1818,10 @@ vty_serv_sock_family (unsigned short port, int family)
   sockopt_reuseport (accept_sock);
 
   /* Bind socket to universal address and given port. */
-  ret = sockunion_bind (accept_sock, &su, port, NULL);
+  ret = sockunion_bind (accept_sock, &su, port, naddr);
   if (ret < 0)
     {
+      zlog_warn("can't bind socket");
       close (accept_sock);	/* Avoid sd leak. */
       return;
     }
@@ -1966,7 +1990,7 @@ vtysh_read (struct thread *thread)
 
 /* Determine address family to bind. */
 void
-vty_serv_sock (const char *hostname, unsigned short port, char *path)
+vty_serv_sock (const char *addr, unsigned short port, char *path)
 {
   /* If port is set to 0, do not listen on TCP/IP at all! */
   if (port)
@@ -1974,13 +1998,13 @@ vty_serv_sock (const char *hostname, unsigned short port, char *path)
 
 #ifdef HAVE_IPV6
 #ifdef NRL
-      vty_serv_sock_family (port, AF_INET);
-      vty_serv_sock_family (port, AF_INET6);
+      vty_serv_sock_family (addr, port, AF_INET);
+      vty_serv_sock_family (addr, port, AF_INET6);
 #else /* ! NRL */
-      vty_serv_sock_addrinfo (hostname, port);
+      vty_serv_sock_addrinfo (addr, port);
 #endif /* NRL*/
 #else /* ! HAVE_IPV6 */
-      vty_serv_sock_family (port, AF_INET);
+      vty_serv_sock_family (addr,port, AF_INET);
 #endif /* HAVE_IPV6 */
     }
 
