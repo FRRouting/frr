@@ -5,3 +5,4 @@ vtysh
 tags
 TAGS
 .deps
+vtysh_cmd.c
