@@ -82,7 +82,7 @@ void ospf6_spf_calculation (u_int32_t router_id,
                             struct ospf6_area *oa);
 void ospf6_spf_schedule (struct ospf6_area *oa);
 
-void ospf6_spf_display_subtree (struct vty *vty, char *prefix,
+void ospf6_spf_display_subtree (struct vty *vty, const char *prefix,
                                 int rest, struct ospf6_vertex *v);
 
 int config_write_ospf6_debug_spf (struct vty *vty);

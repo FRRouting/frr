@@ -72,7 +72,7 @@ ospf6_capability_printbuf (char capability, char *buf, int size)
 void
 ospf6_options_printbuf (u_char *options, char *buf, int size)
 {
-  char *dc, *r, *n, *mc, *e, *v6;
+  const char *dc, *r, *n, *mc, *e, *v6;
   dc = (OSPF6_OPT_ISSET (options, OSPF6_OPT_DC) ? "DC" : "--");
   r  = (OSPF6_OPT_ISSET (options, OSPF6_OPT_R)  ? "R"  : "-" );
   n  = (OSPF6_OPT_ISSET (options, OSPF6_OPT_N)  ? "N"  : "-" );

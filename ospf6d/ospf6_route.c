@@ -63,16 +63,16 @@ ospf6_linkstate_prefix2str (struct prefix *prefix, char *buf, int size)
 }
 
 /* Global strings for logging */
-char *ospf6_dest_type_str[OSPF6_DEST_TYPE_MAX] =
+const char *ospf6_dest_type_str[OSPF6_DEST_TYPE_MAX] =
 { "Unknown", "Router", "Network", "Discard", "Linkstate", "AddressRange", };
 
-char *ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX] =
+const char *ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX] =
 { "?", "R", "N", "D", "L", "A", };
 
-char *ospf6_path_type_str[OSPF6_PATH_TYPE_MAX] =
+const char *ospf6_path_type_str[OSPF6_PATH_TYPE_MAX] =
 { "Unknown", "Intra-Area", "Inter-Area", "External-1", "External-2", };
 
-char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX] =
+const char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX] =
 { "??", "IA", "IE", "E1", "E2", };
 
 
@@ -206,7 +206,7 @@ _route_count_assert (struct ospf6_route_table *table)
 {
   struct ospf6_route *debug;
   char buf[64];
-  int num = 0;
+  unsigned int num = 0;
   for (debug = ospf6_route_head (table); debug;
        debug = ospf6_route_next (debug))
     num++;
@@ -769,7 +769,7 @@ ospf6_route_show_table_summary (struct vty *vty,
 {
   struct ospf6_route *route, *prev = NULL;
   int i, pathtype[OSPF6_PATH_TYPE_MAX];
-  int number = 0;
+  unsigned int number = 0;
   int nhinval = 0, ecmp = 0;
   int alternative = 0, destination = 0;
 
@@ -908,7 +908,7 @@ ospf6_route_show_table (struct vty *vty, int detail,
 }
 
 int
-ospf6_route_table_show (struct vty *vty, int argc, char **argv,
+ospf6_route_table_show (struct vty *vty, int argc, const char *argv[],
                         struct ospf6_route_table *table)
 {
   int summary = 0;
@@ -1083,7 +1083,7 @@ ospf6_linkstate_show_table (struct vty *vty, int detail,
 }
 
 int
-ospf6_linkstate_table_show (struct vty *vty, int argc, char **argv,
+ospf6_linkstate_table_show (struct vty *vty, int argc, const char *argv[],
                             struct ospf6_route_table *table)
 {
   int detail = 0;

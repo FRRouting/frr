@@ -129,7 +129,7 @@ config_write_ospf6_debug (struct vty *vty)
   "%s        AS Scoped Link State Database%s%s"
 
 static int
-parse_show_level (int argc, char **argv)
+parse_show_level (int argc, const char *argv[])
 {
   int level = 0;
   if (argc)
@@ -147,7 +147,7 @@ parse_show_level (int argc, char **argv)
 }
 
 static u_int16_t
-parse_type_spec (int argc, char **argv)
+parse_type_spec (int argc, const char *argv[])
 {
   u_int16_t type = 0;
   assert (argc);
@@ -1775,7 +1775,7 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
        "Display linkstate routing table\n"
       )
 {
-  char *sargv[CMD_ARGC_MAX];
+  const char *sargv[CMD_ARGC_MAX];
   int i, sargc;
   struct listnode *node;
   struct ospf6_area *oa;
@@ -1817,7 +1817,7 @@ ospf6_init ()
   ospf6_abr_init ();
 
 #ifdef HAVE_SNMP
-  ospf6_snmp_init ();
+  ospf6_snmp_init (master);
 #endif /*HAVE_SNMP*/
 
   install_node (&debug_node, config_write_ospf6_debug);

@@ -527,7 +527,7 @@ ospf6_spf_schedule (struct ospf6_area *oa)
 }
 
 void
-ospf6_spf_display_subtree (struct vty *vty, char *prefix, int rest,
+ospf6_spf_display_subtree (struct vty *vty, const char *prefix, int rest,
                            struct ospf6_vertex *v)
 {
   struct listnode *node;

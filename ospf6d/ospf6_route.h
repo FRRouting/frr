@@ -173,8 +173,8 @@ struct ospf6_route_table
   void (*hook_remove) (struct ospf6_route *);
 };
 
-extern char *ospf6_dest_type_str[OSPF6_DEST_TYPE_MAX];
-extern char *ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX];
+extern const char *ospf6_dest_type_str[OSPF6_DEST_TYPE_MAX];
+extern const char *ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX];
 #define OSPF6_DEST_TYPE_NAME(x)                       \
   (0 < (x) && (x) < OSPF6_DEST_TYPE_MAX ?             \
    ospf6_dest_type_str[(x)] : ospf6_dest_type_str[0])
@@ -182,8 +182,8 @@ extern char *ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX];
   (0 < (x) && (x) < OSPF6_DEST_TYPE_MAX ?                   \
    ospf6_dest_type_substr[(x)] : ospf6_dest_type_substr[0])
 
-extern char *ospf6_path_type_str[OSPF6_PATH_TYPE_MAX];
-extern char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
+extern const char *ospf6_path_type_str[OSPF6_PATH_TYPE_MAX];
+extern const char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 #define OSPF6_PATH_TYPE_NAME(x)                       \
   (0 < (x) && (x) < OSPF6_PATH_TYPE_MAX ?             \
    ospf6_path_type_str[(x)] : ospf6_path_type_str[0])
@@ -266,9 +266,9 @@ void ospf6_route_dump (struct ospf6_route_table *table);
 void ospf6_route_show (struct vty *vty, struct ospf6_route *route);
 void ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route);
 
-int ospf6_route_table_show (struct vty *, int, char **,
+int ospf6_route_table_show (struct vty *, int, const char *[],
                             struct ospf6_route_table *);
-int ospf6_linkstate_table_show (struct vty *vty, int argc, char **argv,
+int ospf6_linkstate_table_show (struct vty *vty, int argc, const char *argv[],
                             struct ospf6_route_table *table);
 
 void ospf6_brouter_show_header (struct vty *vty);

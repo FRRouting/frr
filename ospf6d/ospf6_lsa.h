@@ -143,7 +143,7 @@ struct ospf6_lsa
 struct ospf6_lsa_handler
 {
   u_int16_t type; /* host byte order */
-  char *name;
+  const char *name;
   int (*show) (struct vty *, struct ospf6_lsa *);
   u_char debug;
 };
@@ -202,7 +202,7 @@ struct ospf6_lsa_handler
 
 
 /* Function Prototypes */
-char *ospf6_lstype_name (u_int16_t type);
+const char *ospf6_lstype_name (u_int16_t type);
 u_char ospf6_lstype_debug (u_int16_t type);
 int ospf6_lsa_is_differ (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 int ospf6_lsa_is_changed (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);

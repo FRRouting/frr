@@ -90,7 +90,7 @@ struct ospf6_lsa_handler *
 ospf6_get_lsa_handler (u_int16_t type)
 {
   struct ospf6_lsa_handler *handler = NULL;
-  int index = ntohs (type) & OSPF6_LSTYPE_FCODE_MASK;
+  unsigned int index = ntohs (type) & OSPF6_LSTYPE_FCODE_MASK;
 
   if (index >= vector_max (ospf6_lsa_handler_vector))
     handler = &unknown_handler;
@@ -100,7 +100,7 @@ ospf6_get_lsa_handler (u_int16_t type)
   return handler;
 }
 
-char *
+const char *
 ospf6_lstype_name (u_int16_t type)
 {
   static char buf[8];
@@ -711,7 +711,8 @@ char *
 ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)
 {
   static char buf[64];
-  int i, size = strlen (h->name);
+  unsigned int i; 
+  unsigned int size = strlen (h->name);
 
   if (h->name == "Unknown" &&
       h->type != OSPF6_LSTYPE_UNKNOWN)
@@ -740,7 +741,7 @@ DEFUN (debug_ospf6_lsa_type,
        "Specify LS type as Hexadecimal\n"
       )
 {
-  int i;
+  unsigned int i;
   struct ospf6_lsa_handler *handler = NULL;
   unsigned long val;
   char *endptr = NULL;
@@ -808,7 +809,7 @@ DEFUN (no_debug_ospf6_lsa_type,
        "Specify LS type as Hexadecimal\n"
       )
 {
-  int i;
+  u_int i;
   struct ospf6_lsa_handler *handler = NULL;
   unsigned long val;
   char *endptr = NULL;
@@ -868,7 +869,7 @@ struct cmd_element no_debug_ospf6_lsa_type_detail_cmd;
 void
 install_element_ospf6_debug_lsa ()
 {
-  int i;
+  u_int i;
   struct ospf6_lsa_handler *handler;
 #define STRSIZE  256
 #define DOCSIZE  1024
@@ -969,7 +970,7 @@ install_element_ospf6_debug_lsa ()
 int
 config_write_ospf6_debug_lsa (struct vty *vty)
 {
-  int i;
+  u_int i;
   struct ospf6_lsa_handler *handler;
 
   for (i = 0; i < vector_max (ospf6_lsa_handler_vector); i++)

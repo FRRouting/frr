@@ -172,9 +172,9 @@ ospf6_router_lsa_originate (struct thread *thread)
         continue;
 
       /* Multiple Router-LSA instance according to size limit setting */
-      if (oa->router_lsa_size_limit != 0 &&
-          (caddr_t) lsdesc + sizeof (struct ospf6_router_lsdesc) -
-          (caddr_t) buffer > oa->router_lsa_size_limit)
+      if ( (oa->router_lsa_size_limit != 0)
+          && ((caddr_t) lsdesc + sizeof (struct ospf6_router_lsdesc) -
+              (caddr_t) buffer > oa->router_lsa_size_limit))
         {
           if ((caddr_t) lsdesc == (caddr_t) router_lsa +
                                   sizeof (struct ospf6_router_lsa))
@@ -471,7 +471,7 @@ ospf6_link_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   int prefixnum;
   char buf[128], options[32];
   struct ospf6_prefix *prefix;
-  char *p, *mc, *la, *nu;
+  const char *p, *mc, *la, *nu;
   struct in6_addr in6;
 
   link_lsa = (struct ospf6_link_lsa *)
@@ -625,7 +625,7 @@ ospf6_intra_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   char buf[128];
   struct ospf6_prefix *prefix;
   char id[16], adv_router[16];
-  char *p, *mc, *la, *nu;
+  const char *p, *mc, *la, *nu;
   struct in6_addr in6;
 
   intra_prefix_lsa = (struct ospf6_intra_prefix_lsa *)

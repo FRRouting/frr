@@ -47,7 +47,7 @@ extern unsigned char conf_debug_ospf6_message[];
 #define OSPF6_MESSAGE_TYPE_CANONICAL(T) \
   ((T) > OSPF6_MESSAGE_TYPE_LSACK ? OSPF6_MESSAGE_TYPE_UNKNOWN : (T))
 
-extern char *ospf6_message_type_str[];
+extern const char *ospf6_message_type_str[];
 #define OSPF6_MESSAGE_TYPE_NAME(T) \
   (ospf6_message_type_str[ OSPF6_MESSAGE_TYPE_CANONICAL (T) ])
 
@@ -122,7 +122,7 @@ void ospf6_lsreq_print (struct ospf6_header *);
 void ospf6_lsupdate_print (struct ospf6_header *);
 void ospf6_lsack_print (struct ospf6_header *);
 
-int ospf6_iobuf_size (int size);
+int ospf6_iobuf_size (unsigned int size);
 int ospf6_receive (struct thread *thread);
 
 int ospf6_hello_send (struct thread *thread);

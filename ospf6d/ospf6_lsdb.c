@@ -75,7 +75,7 @@ static void
 _lsdb_count_assert (struct ospf6_lsdb *lsdb)
 {
   struct ospf6_lsa *debug;
-  int num = 0;
+  unsigned int num = 0;
   for (debug = ospf6_lsdb_head (lsdb); debug;
        debug = ospf6_lsdb_next (debug))
     num++;

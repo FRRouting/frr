@@ -42,7 +42,7 @@
 
 unsigned char conf_debug_ospf6_neighbor = 0;
 
-char *ospf6_neighbor_state_str[] =
+const char *ospf6_neighbor_state_str[] =
 { "None", "Down", "Attempt", "Init", "Twoway", "ExStart", "ExChange",
   "Loading", "Full", NULL };
 

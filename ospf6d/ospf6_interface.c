@@ -44,7 +44,7 @@
 
 unsigned char conf_debug_ospf6_interface = 0;
 
-char *ospf6_interface_state_str[] =
+const char *ospf6_interface_state_str[] =
 {
   "None",
   "Down",
@@ -107,7 +107,7 @@ struct ospf6_interface *
 ospf6_interface_create (struct interface *ifp)
 {
   struct ospf6_interface *oi;
-  int iobuflen;
+  unsigned int iobuflen;
 
   oi = (struct ospf6_interface *)
     XMALLOC (MTYPE_OSPF6_IF, sizeof (struct ospf6_interface));
@@ -261,7 +261,7 @@ void
 ospf6_interface_if_add (struct interface *ifp)
 {
   struct ospf6_interface *oi;
-  int iobuflen;
+  unsigned int iobuflen;
 
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
@@ -774,8 +774,8 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   struct prefix *p;
   struct listnode *i;
   char strbuf[64], drouter[32], bdrouter[32];
-  char *updown[3] = {"down", "up", NULL};
-  char *type;
+  const char *updown[3] = {"down", "up", NULL};
+  const char *type;
   struct timeval res, now;
   char duration[32];
   struct ospf6_lsa *lsa;
@@ -1058,7 +1058,7 @@ DEFUN (ipv6_ospf6_ifmtu,
 {
   struct ospf6_interface *oi;
   struct interface *ifp;
-  int ifmtu, iobuflen;
+  unsigned int ifmtu, iobuflen;
   struct listnode *node;
   struct ospf6_neighbor *on;
 
@@ -1119,7 +1119,7 @@ DEFUN (no_ipv6_ospf6_ifmtu,
 {
   struct ospf6_interface *oi;
   struct interface *ifp;
-  int iobuflen;
+  unsigned int iobuflen;
   struct listnode *node;
   struct ospf6_neighbor *on;
 
@@ -1168,6 +1168,7 @@ DEFUN (ipv6_ospf6_cost,
 {
   struct ospf6_interface *oi;
   struct interface *ifp;
+  unsigned long int lcost;
 
   ifp = (struct interface *) vty->index;
   assert (ifp);
@@ -1177,11 +1178,19 @@ DEFUN (ipv6_ospf6_cost,
     oi = ospf6_interface_create (ifp);
   assert (oi);
 
-  if (oi->cost == strtol (argv[0], NULL, 10))
+  lcost = strtol (argv[0], NULL, 10);
+
+  if (lcost > UINT32_MAX)
+    {
+      vty_out (vty, "Cost %ld is out of range%s", lcost, VNL);
+      return CMD_WARNING;
+    }
+  
+  if (oi->cost == lcost)
     return CMD_SUCCESS;
-
-  oi->cost = strtol (argv[0], NULL, 10);
-
+  
+  oi->cost = lcost;
+  
   /* update cost held in route_connected list in ospf6_interface */
   ospf6_interface_connected_route_update (oi->interface);
 

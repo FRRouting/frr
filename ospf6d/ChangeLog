@@ -1,7 +1,29 @@
 2004-10-10 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: fix listing of ospf_snmp.c in noinst_HEADERS
-
+	* ospf6_route.c: Add const qualifier to various char arrays of
+          constants. signed/unsigned fixes.
+          (ospf6_linkstate_table_show) argv is const
+        * ospf6_snmp.c: listnode typedef is dead.
+          (ospf6_snmp_init) Take struct thread_master arg, needed for
+          smux_init.
+        * ospf6_snmp.h: update ospf6_snmp_init declaration.
+        * ospf6d.c: (ospf6_init) add const qualifier to sargv, pass master
+          to ospf_snmp6_init.
+	* ospf6_asbr.c: const char update.
+	* ospf6_interface.c: ditto, plus signed/unsigned fixes.
+	  (ipv6_ospf6_cost) Check whether cost fits in u_int32_t and use
+          strtoul.
+	* ospf6_intra.c: const char update. Parenthesise expression.
+	* ospf6_lsa.c: signed/unsigned and const char updates.
+	* ospf6_proto.c: ditto.
+	* ospf6_message.c: ditto.
+	* ospf6_lsdb.c: signed/unsigned update.
+	* ospf6_main.c: const char update.
+	* ospf6_neighbor.c: ditto.
+	* ospf6_spf.c: ditto.
+	* ospf6_top.c: ditto.
+	
 2004-10-06  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
 	* ospf6_snmp.[ch], OSPFV3-MIB.txt: start supporting SNMP.

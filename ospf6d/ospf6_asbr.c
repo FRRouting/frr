@@ -50,11 +50,11 @@
 
 unsigned char conf_debug_ospf6_asbr = 0;
 
-char *zroute_name[] =
+const char *zroute_name[] =
 { "system", "kernel", "connected", "static",
   "rip", "ripng", "ospf", "ospf6", "isis", "bgp", "unknown" };
 
-char *zroute_abname[] =
+const char *zroute_abname[] =
 { "X", "K", "C", "S", "R", "R", "O", "O", "I", "B", "?" };
 
 #define ZROUTE_NAME(x)                                     \
@@ -365,7 +365,7 @@ ospf6_asbr_lsentry_remove (struct ospf6_route *asbr_entry)
 /* redistribute function */
 
 void
-ospf6_asbr_routemap_set (int type, char *mapname)
+ospf6_asbr_routemap_set (int type, const char *mapname)
 {
   if (ospf6->rmap[type].name)
     free (ospf6->rmap[type].name);
@@ -383,7 +383,7 @@ ospf6_asbr_routemap_unset (int type)
 }
 
 void
-ospf6_asbr_routemap_update (char *mapname)
+ospf6_asbr_routemap_update (const char *mapname)
 {
   int type;
 
@@ -828,7 +828,7 @@ ospf6_routemap_rule_match_address_prefixlist (void *rule,
 }
 
 void *
-ospf6_routemap_rule_match_address_prefixlist_compile (char *arg)
+ospf6_routemap_rule_match_address_prefixlist_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -867,7 +867,7 @@ ospf6_routemap_rule_set_metric_type (void *rule, struct prefix *prefix,
 }
 
 void *
-ospf6_routemap_rule_set_metric_type_compile (char *arg)
+ospf6_routemap_rule_set_metric_type_compile (const char *arg)
 {
   if (strcmp (arg, "type-2") && strcmp (arg, "type-1"))
     return NULL;
@@ -904,7 +904,7 @@ ospf6_routemap_rule_set_metric (void *rule, struct prefix *prefix,
 }
 
 void *
-ospf6_routemap_rule_set_metric_compile (char *arg)
+ospf6_routemap_rule_set_metric_compile (const char *arg)
 {
   u_int32_t metric;
   char *endp;
@@ -950,7 +950,7 @@ ospf6_routemap_rule_set_forwarding (void *rule, struct prefix *prefix,
 }
 
 void *
-ospf6_routemap_rule_set_forwarding_compile (char *arg)
+ospf6_routemap_rule_set_forwarding_compile (const char *arg)
 {
   struct in6_addr a;
   if (inet_pton (AF_INET6, arg, &a) != 1)

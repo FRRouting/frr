@@ -115,7 +115,7 @@ struct ospf6_interface
 #define OSPF6_INTERFACE_DR               7
 #define OSPF6_INTERFACE_MAX              8
 
-extern char *ospf6_interface_state_str[];
+extern const char *ospf6_interface_state_str[];
 
 /* flags */
 #define OSPF6_INTERFACE_DISABLE      0x01

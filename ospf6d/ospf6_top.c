@@ -521,7 +521,7 @@ DEFUN (show_ipv6_ospf6_route_match,
        "Display routes which match the specified route\n"
        )
 {
-  char *sargv[CMD_ARGC_MAX];
+  const char *sargv[CMD_ARGC_MAX];
   int i, sargc;
 
   /* copy argv to sargv and then append "match" */
@@ -547,7 +547,7 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
        "Detailed information\n"
        )
 {
-  char *sargv[CMD_ARGC_MAX];
+  const char *sargv[CMD_ARGC_MAX];
   int i, sargc;
 
   /* copy argv to sargv and then append "match" and "detail" */
@@ -589,7 +589,7 @@ DEFUN (show_ipv6_ospf6_route_type_detail,
        "Detailed information\n"
        )
 {
-  char *sargv[CMD_ARGC_MAX];
+  const char *sargv[CMD_ARGC_MAX];
   int i, sargc;
 
   /* copy argv to sargv and then append "detail" */

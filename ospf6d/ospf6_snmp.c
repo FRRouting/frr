@@ -234,8 +234,8 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
 {
   struct ospf6_area *oa, *area = NULL;
   u_int32_t area_id = 0;
-  listnode node;
-  int len;
+  struct listnode *node;
+  unsigned int len;
 
   if (ospf6 == NULL)
     return NULL;
@@ -293,9 +293,9 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
 
 /* Register OSPFv3-MIB. */
 void
-ospf6_snmp_init ()
+ospf6_snmp_init (struct thread_master *master)
 {
-  smux_init (ospf6d_oid, sizeof (ospf6d_oid) / sizeof (oid));
+  smux_init (master, ospf6d_oid, sizeof (ospf6d_oid) / sizeof (oid));
   REGISTER_MIB ("OSPFv3MIB", ospfv3_variables, variable, ospfv3_oid);
   smux_start ();
 }

@@ -43,7 +43,7 @@
 #include "ospf6d.h"
 
 unsigned char conf_debug_ospf6_message[6] = {0x03, 0, 0, 0, 0, 0};
-char *ospf6_message_type_str[] =
+const char *ospf6_message_type_str[] =
   { "Unknown", "Hello", "DbDesc", "LSReq", "LSUpdate", "LSAck" };
 
 /* print functions */
@@ -1160,12 +1160,12 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
     }
 }
 
-char *recvbuf = NULL;
-char *sendbuf = NULL;
-int iobuflen = 0;
+u_char *recvbuf = NULL;
+u_char *sendbuf = NULL;
+unsigned int iobuflen = 0;
 
 int
-ospf6_iobuf_size (int size)
+ospf6_iobuf_size (unsigned int size)
 {
   char *recvnew, *sendnew;
 
@@ -1198,7 +1198,8 @@ ospf6_iobuf_size (int size)
 int
 ospf6_receive (struct thread *thread)
 {
-  int sockfd, len;
+  int sockfd;
+  unsigned int len;
   char srcname[64], dstname[64];
   struct in6_addr src, dst;
   unsigned int ifindex;
@@ -1386,7 +1387,7 @@ ospf6_hello_send (struct thread *thread)
   struct ospf6_interface *oi;
   struct ospf6_header *oh;
   struct ospf6_hello *hello;
-  char *p;
+  u_char *p;
   struct listnode *node;
   struct ospf6_neighbor *on;
 
@@ -1452,7 +1453,7 @@ ospf6_dbdesc_send (struct thread *thread)
   struct ospf6_neighbor *on;
   struct ospf6_header *oh;
   struct ospf6_dbdesc *dbdesc;
-  char *p;
+  u_char *p;
   struct ospf6_lsa *lsa;
 
   on = (struct ospf6_neighbor *) THREAD_ARG (thread);
@@ -1568,7 +1569,7 @@ ospf6_lsreq_send (struct thread *thread)
   struct ospf6_neighbor *on;
   struct ospf6_header *oh;
   struct ospf6_lsreq_entry *e;
-  char *p;
+  u_char *p;
   struct ospf6_lsa *lsa;
 
   on = (struct ospf6_neighbor *) THREAD_ARG (thread);
@@ -1632,7 +1633,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
   struct ospf6_neighbor *on;
   struct ospf6_header *oh;
   struct ospf6_lsupdate *lsupdate;
-  char *p;
+  u_char *p;
   int num;
   struct ospf6_lsa *lsa;
 
@@ -1673,7 +1674,8 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
        lsa = ospf6_lsdb_next (lsa))
     {
       /* MTU check */
-      if (p - sendbuf + OSPF6_LSA_SIZE (lsa->header) > on->ospf6_if->ifmtu)
+      if ( (p - sendbuf + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
+          > on->ospf6_if->ifmtu)
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -1692,7 +1694,8 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
        lsa = ospf6_lsdb_next (lsa))
     {
       /* MTU check */
-      if (p - sendbuf + OSPF6_LSA_SIZE (lsa->header) > on->ospf6_if->ifmtu)
+      if ( (p - sendbuf + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
+          > on->ospf6_if->ifmtu)
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -1733,7 +1736,7 @@ ospf6_lsupdate_send_interface (struct thread *thread)
   struct ospf6_interface *oi;
   struct ospf6_header *oh;
   struct ospf6_lsupdate *lsupdate;
-  char *p;
+  u_char *p;
   int num;
   struct ospf6_lsa *lsa;
 
@@ -1764,7 +1767,8 @@ ospf6_lsupdate_send_interface (struct thread *thread)
        lsa = ospf6_lsdb_next (lsa))
     {
       /* MTU check */
-      if (p - sendbuf + OSPF6_LSA_SIZE (lsa->header) > oi->ifmtu)
+      if ( (p - sendbuf + ((unsigned int)OSPF6_LSA_SIZE (lsa->header)))
+          > oi->ifmtu)
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -1804,7 +1808,7 @@ ospf6_lsack_send_neighbor (struct thread *thread)
 {
   struct ospf6_neighbor *on;
   struct ospf6_header *oh;
-  char *p;
+  u_char *p;
   struct ospf6_lsa *lsa;
 
   on = (struct ospf6_neighbor *) THREAD_ARG (thread);
@@ -1864,7 +1868,7 @@ ospf6_lsack_send_interface (struct thread *thread)
 {
   struct ospf6_interface *oi;
   struct ospf6_header *oh;
-  char *p;
+  u_char *p;
   struct ospf6_lsa *lsa;
 
   oi = (struct ospf6_interface *) THREAD_ARG (thread);
@@ -2082,7 +2086,7 @@ ALIAS (no_debug_ospf6_message,
 int
 config_write_ospf6_debug_message (struct vty *vty)
 {
-  char *type_str[] = {"unknown", "hello", "dbdesc",
+  const char *type_str[] = {"unknown", "hello", "dbdesc",
                       "lsreq", "lsupdate", "lsack"};
   unsigned char s = 0, r = 0;
   int i;
