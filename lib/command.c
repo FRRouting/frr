@@ -1529,6 +1529,9 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
   vector matchvec;
   struct cmd_element *cmd_element;
   int index;
+  int ret;
+  enum match_type match;
+  char *command;
   static struct desc desc_cr = { "<cr>", "" };
 
   /* Set index. */
@@ -1541,14 +1544,10 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
   matchvec = vector_init (INIT_MATCHVEC_SIZE);
 
   /* Filter commands. */
+  /* Only words precedes current word will be checked in this loop. */
   for (i = 0; i < index; i++)
     {
-      enum match_type match;
-      char *command;
-      int ret;
-
       command = vector_slot (vline, i);
-
       match = cmd_filter_by_completion (command, cmd_vector, i);
 
       if (match == vararg_match)
@@ -1570,7 +1569,6 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 	      }
 
 	  vector_set (matchvec, &desc_cr);
-
 	  vector_free (cmd_vector);
 
 	  return matchvec;
@@ -1593,6 +1591,11 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
   /* Prepare match vector */
   /*  matchvec = vector_init (INIT_MATCHVEC_SIZE); */
 
+  /* Make sure that cmd_vector is filtered based on current word */
+  command = vector_slot (vline, index);
+  if (command)
+    match = cmd_filter_by_completion (command, cmd_vector, index);
+
   /* Make description vector. */
   for (i = 0; i < vector_max (cmd_vector); i++)
     if ((cmd_element = vector_slot (cmd_vector, i)) != NULL)
@@ -1600,12 +1603,13 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 	char *string = NULL;
 	vector strvec = cmd_element->strvec;
 
-	if (index > vector_max (strvec))
+        /* if command is NULL, index may be equal to vector_max */
+	if (command && index >= vector_max (strvec))
 	  vector_slot (cmd_vector, i) = NULL;
 	else
 	  {
-	    /* Check is command is completed. */
-	    if (index == vector_max (strvec))
+	    /* Check if command is completed. */
+            if (command == NULL && index == vector_max (strvec))
 	      {
 		string = "<cr>";
 		if (! desc_unique_string (matchvec, string))
@@ -1620,7 +1624,7 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 		for (j = 0; j < vector_max (descvec); j++)
 		  {
 		    desc = vector_slot (descvec, j);
-		    string = cmd_entry_function_desc (vector_slot (vline, index), desc->cmd);
+		    string = cmd_entry_function_desc (command, desc->cmd);
 		    if (string)
 		      {
 			/* Uniqueness check */

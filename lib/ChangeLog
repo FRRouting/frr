@@ -1,3 +1,8 @@
+2003-08-20 Yasuhiro Ohara <yasu@sfc.wide.ad.jp>
+
+	* command.c: Fix <cr> display problem for command line
+	  description
+
 2003-05-24 Anil Madhavapeddy
 
 	* (sockunion.c): Incorrect bounds specified in sockunion_log()
