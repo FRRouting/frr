@@ -497,7 +497,7 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
                     || cmd == ZEBRA_IPV4_ROUTE_DELETE)
                   {
                     struct in_addr empty;
-                    memset (&empty, 0, sizeof (struct in6_addr));
+                    memset (&empty, 0, sizeof (struct in_addr));
                     stream_write (s, (u_char *) &empty, IPV4_MAX_BYTELEN);
                   }
                 else

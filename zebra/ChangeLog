@@ -1,3 +1,9 @@
+2004-09-22 Paul Jakma <paul.jakma@sun.com>
+
+	* zserv.c: (zsend_route_multipath) fix nasty bad memset of struct
+	  in_addr to sizeof(struct in6_addr), causing odd and hard to debug
+          crash.
+
 2004-08-31 Hasso Tepper <hasso at quagga.net>
 
 	* main.c, rt_netlink.c: Added -s command line switch for tuning
