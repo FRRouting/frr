@@ -318,7 +318,7 @@ ospf_renegotiate_optional_capabilities (struct ospf *top)
             continue;
 
           if (IS_DEBUG_OSPF_EVENT)
-            zlog_info ("Renegotiate optional capabilities with neighbor(%s)", inet_ntoa (nbr->router_id));
+            zlog_debug ("Renegotiate optional capabilities with neighbor(%s)", inet_ntoa (nbr->router_id));
 
           OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
         }
@@ -378,7 +378,7 @@ ospf_nbr_add (struct ospf_interface *oi, struct ospf_header *ospfh,
     nbr->crypt_seqnum = ospfh->u.crypt.crypt_seqnum;
   
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("NSM[%s:%s]: start", IF_NAME (nbr->oi),
+    zlog_debug ("NSM[%s:%s]: start", IF_NAME (nbr->oi),
                inet_ntoa (nbr->router_id));
   
   return nbr;
