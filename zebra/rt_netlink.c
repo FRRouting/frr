@@ -94,6 +94,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
   struct sockaddr_nl snl;
   int sock;
   int namelen;
+  int save_errno;
 
   sock = socket (AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
   if (sock < 0)
@@ -166,13 +167,14 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
     }
 
   ret = bind (sock, (struct sockaddr *) &snl, sizeof snl);
+  save_errno = errno;
   if (zserv_privs.change (ZPRIVS_LOWER))
     zlog (NULL, LOG_ERR, "Can't lower privileges");
 
   if (ret < 0)
     {
       zlog (NULL, LOG_ERR, "Can't bind %s socket to group 0x%x: %s",
-            nl->name, snl.nl_groups, safe_strerror (errno));
+            nl->name, snl.nl_groups, safe_strerror (save_errno));
       close (sock);
       return -1;
     }
@@ -234,6 +236,7 @@ netlink_request (int family, int type, struct nlsock *nl)
 {
   int ret;
   struct sockaddr_nl snl;
+  int save_errno;
 
   struct
   {
@@ -270,6 +273,7 @@ netlink_request (int family, int type, struct nlsock *nl)
 
   ret = sendto (nl->sock, (void *) &req, sizeof req, 0,
                 (struct sockaddr *) &snl, sizeof snl);
+  save_errno = errno;
 
   if (zserv_privs.change (ZPRIVS_LOWER))
     zlog (NULL, LOG_ERR, "Can't lower privileges");
@@ -277,7 +281,7 @@ netlink_request (int family, int type, struct nlsock *nl)
   if (ret < 0)
     {
       zlog (NULL, LOG_ERR, "%s sendto failed: %s", nl->name,
-            safe_strerror (errno));
+            safe_strerror (save_errno));
       return -1;
     }
 
@@ -301,22 +305,25 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
       struct sockaddr_nl snl;
       struct msghdr msg = { (void *) &snl, sizeof snl, &iov, 1, NULL, 0, 0 };
       struct nlmsghdr *h;
+      int save_errno;
 
       if (zserv_privs.change (ZPRIVS_RAISE))
         zlog (NULL, LOG_ERR, "Can't raise privileges");
 
       status = recvmsg (nl->sock, &msg, 0);
+      save_errno = errno;
 
       if (zserv_privs.change (ZPRIVS_LOWER))
         zlog (NULL, LOG_ERR, "Can't lower privileges");
 
       if (status < 0)
         {
-          if (errno == EINTR)
+          if (save_errno == EINTR)
             continue;
-          if (errno == EWOULDBLOCK || errno == EAGAIN)
+          if (save_errno == EWOULDBLOCK || save_errno == EAGAIN)
             break;
-          zlog (NULL, LOG_ERR, "%s recvmsg overrun", nl->name);
+          zlog (NULL, LOG_ERR, "%s recvmsg overrun: %s",
+	  	nl->name, safe_strerror(save_errno));
           continue;
         }
 
@@ -1221,6 +1228,7 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
   struct msghdr msg = { (void *) &snl, sizeof snl, &iov, 1, NULL, 0, 0 };
   int flags = 0;
   int snb_ret;
+  int save_errno;
 
   memset (&snl, 0, sizeof snl);
   snl.nl_family = AF_NETLINK;
@@ -1239,13 +1247,14 @@ netlink_talk (struct nlmsghdr *n, struct nlsock *nl)
   if (zserv_privs.change (ZPRIVS_RAISE))
     zlog (NULL, LOG_ERR, "Can't raise privileges");
   status = sendmsg (nl->sock, &msg, 0);
+  save_errno = errno;
   if (zserv_privs.change (ZPRIVS_LOWER))
     zlog (NULL, LOG_ERR, "Can't lower privileges");
 
   if (status < 0)
     {
       zlog (NULL, LOG_ERR, "netlink_talk sendmsg() error: %s",
-            safe_strerror (errno));
+            safe_strerror (save_errno));
       return -1;
     }
 
