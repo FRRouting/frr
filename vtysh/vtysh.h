@@ -51,8 +51,8 @@ void vtysh_connect_all ();
 void vtysh_readline_init ();
 void vtysh_user_init ();
 
-void vtysh_execute (char *);
-void vtysh_execute_no_pager (char *);
+void vtysh_execute (const char *);
+void vtysh_execute_no_pager (const char *);
 
 char *vtysh_prompt ();
 

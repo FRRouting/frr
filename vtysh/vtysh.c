@@ -161,7 +161,7 @@ vtysh_client_config (struct vtysh_client *vclient, char *line)
 }
 
 int
-vtysh_client_execute (struct vtysh_client *vclient, char *line, FILE *fp)
+vtysh_client_execute (struct vtysh_client *vclient, const char *line, FILE *fp)
 {
   int ret;
   char buf[1001];
@@ -245,7 +245,7 @@ vtysh_pager_init ()
 
 /* Command execution over the vty interface. */
 void
-vtysh_execute_func (char *line, int pager)
+vtysh_execute_func (const char *line, int pager)
 {
   int ret, cmd_stat;
   vector vline;
@@ -390,13 +390,13 @@ vtysh_execute_func (char *line, int pager)
 }
 
 void
-vtysh_execute_no_pager (char *line)
+vtysh_execute_no_pager (const char *line)
 {
   vtysh_execute_func (line, 0);
 }
 
 void
-vtysh_execute (char *line)
+vtysh_execute (const char *line)
 {
   vtysh_execute_func (line, 1);
 }
@@ -512,7 +512,7 @@ int
 vtysh_rl_describe ()
 {
   int ret;
-  int i;
+  unsigned int i;
   vector vline;
   vector describe;
   int width;
@@ -1576,9 +1576,6 @@ DEFUN (vtysh_write_memory,
 {
   int ret = CMD_SUCCESS;
   char line[] = "write memory\n";
-  char *vtysh_conf;
-  extern struct host host;
-  FILE *fp;
   
   /* If integrated Quagga.conf explicitely set. */
   if (vtysh_writeconfig_integrated)
@@ -1700,7 +1697,7 @@ DEFUN (vtysh_show_running_daemons,
 
 /* Execute command in child process. */
 int
-execute_command (char *command, int argc, char *arg1, char *arg2)
+execute_command (const char *command, int argc, char *arg1, char *arg2)
 {
   int ret;
   pid_t pid;
@@ -1871,7 +1868,7 @@ vtysh_install_default (enum node_type node)
 
 /* Making connection to protocol daemon. */
 int
-vtysh_connect (struct vtysh_client *vclient, char *path)
+vtysh_connect (struct vtysh_client *vclient, const char *path)
 {
   int ret;
   int sock, len;

@@ -190,7 +190,6 @@ main (int argc, char **argv, char **env)
   int eval_flag = 0;
   int boot_flag = 0;
   char *eval_line = NULL;
-  char *integrated_file = NULL;
 
   /* Preserve name of myself. */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);

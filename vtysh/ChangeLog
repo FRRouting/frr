@@ -1,3 +1,10 @@
+2004-10-07 Hasso Tepper <hasso at quagga.net>
+
+	* vtysh.c, vtysh.h, vtysh_config.c, vtysh_main.c: Fix compiler
+	  warnings: make strings const, signed -> unsigned, remove unused
+	  variables.
+	* vtysh_config.c: Fix crash introduced with previous patch.
+
 2004-10-03 Hasso Tepper <hasso at quagga.net>
 
 	* vtsyh_main.c: Enter into enable node by default. Disable node doesn't

@@ -83,7 +83,7 @@ config_del (struct config* config)
 }
 
 struct config *
-config_get (int index, char *line)
+config_get (int index, const char *line)
 {
   struct config *config;
   struct config *config_loop;
@@ -122,13 +122,13 @@ config_get (int index, char *line)
 }
 
 void
-config_add_line (struct list *config, char *line)
+config_add_line (struct list *config, const char *line)
 {
   listnode_add (config, XSTRDUP (MTYPE_VTYSH_CONFIG_LINE, line));
 }
 
 void
-config_add_line_uniq (struct list *config, char *line)
+config_add_line_uniq (struct list *config, const char *line)
 {
   struct listnode *nn;
   char *pnt;
@@ -142,7 +142,7 @@ config_add_line_uniq (struct list *config, char *line)
 }
 
 void
-vtysh_config_parse_line (char *line)
+vtysh_config_parse_line (const char *line)
 {
   char c;
   static struct config *config = NULL;
@@ -294,7 +294,7 @@ vtysh_config_dump (FILE *fp)
   struct config *config;
   struct list *master;
   char *line;
-  int i;
+  unsigned int i;
 
   LIST_LOOP (config_top, line, nn)
     {
@@ -403,7 +403,7 @@ vtysh_read_config (char *config_default_dir)
 void
 vtysh_config_write ()
 {
-  char *line;
+  char line[81];
   extern struct host host;
 
   if (host.name)
