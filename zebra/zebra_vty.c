@@ -128,7 +128,7 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd,
     distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
 
   /* Null0 static route.  */
-  if (strncasecmp (gate_str, "Null0", strlen (gate_str)) == 0)
+  if ((gate_str != NULL) && (strncasecmp (gate_str, "Null0", strlen (gate_str)) == 0))
     {
       if (flag_str)
         {
@@ -159,6 +159,16 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd,
     }
   }
 
+  if (gate_str == NULL)
+  {
+    if (add_cmd)
+      static_add_ipv4 (&p, NULL, NULL, flag, distance, 0);
+    else
+      static_delete_ipv4 (&p, NULL, NULL, distance, 0);
+
+    return CMD_SUCCESS;
+  }
+  
   /* When gateway is A.B.C.D format, gate is treated as nexthop
      address other case gate is treated as interface name. */
   ret = inet_aton (gate_str, &gate);
@@ -203,6 +213,18 @@ DEFUN (ip_route_flags,
   return zebra_static_ipv4 (vty, 1, argv[0], NULL, argv[1], argv[2], NULL);
 }
 
+DEFUN (ip_route_flags2,
+       ip_route_flags2_cmd,
+       "ip route A.B.C.D/M (reject|blackhole)",
+       IP_STR
+       "Establish static routes\n"
+       "IP destination prefix (e.g. 10.0.0.0/8)\n"
+       "Emit an ICMP unreachable when matched\n"
+       "Silently discard pkts when matched\n")
+{
+  return zebra_static_ipv4 (vty, 1, argv[0], NULL, NULL, argv[1], NULL);
+}
+
 /* Mask as A.B.C.D format.  */
 DEFUN (ip_route_mask,
        ip_route_mask_cmd,
@@ -233,6 +255,19 @@ DEFUN (ip_route_mask_flags,
   return zebra_static_ipv4 (vty, 1, argv[0], argv[1], argv[2], argv[3], NULL);
 }
 
+DEFUN (ip_route_mask_flags2,
+       ip_route_mask_flags2_cmd,
+       "ip route A.B.C.D A.B.C.D (reject|blackhole)",
+       IP_STR
+       "Establish static routes\n"
+       "IP destination prefix\n"
+       "IP destination prefix mask\n"
+       "Emit an ICMP unreachable when matched\n"
+       "Silently discard pkts when matched\n")
+{
+  return zebra_static_ipv4 (vty, 1, argv[0], argv[1], NULL, argv[2], NULL);
+}
+
 /* Distance option value.  */
 DEFUN (ip_route_distance,
        ip_route_distance_cmd,
@@ -261,6 +296,19 @@ DEFUN (ip_route_flags_distance,
        "Distance value for this route\n")
 {
   return zebra_static_ipv4 (vty, 1, argv[0], NULL, argv[1], argv[2], argv[3]);
+}
+
+DEFUN (ip_route_flags_distance2,
+       ip_route_flags_distance2_cmd,
+       "ip route A.B.C.D/M (reject|blackhole) <1-255>",
+       IP_STR
+       "Establish static routes\n"
+       "IP destination prefix (e.g. 10.0.0.0/8)\n"
+       "Emit an ICMP unreachable when matched\n"
+       "Silently discard pkts when matched\n"
+       "Distance value for this route\n")
+{
+  return zebra_static_ipv4 (vty, 1, argv[0], NULL, NULL, argv[1], argv[2]);
 }
 
 DEFUN (ip_route_mask_distance,
@@ -294,6 +342,20 @@ DEFUN (ip_route_mask_flags_distance,
   return zebra_static_ipv4 (vty, 1, argv[0], argv[1], argv[2], argv[3], argv[4]);
 }
 
+DEFUN (ip_route_mask_flags_distance2,
+       ip_route_mask_flags_distance2_cmd,
+       "ip route A.B.C.D A.B.C.D (reject|blackhole) <1-255>",
+       IP_STR
+       "Establish static routes\n"
+       "IP destination prefix\n"
+       "IP destination prefix mask\n"
+       "Distance value for this route\n"
+       "Emit an ICMP unreachable when matched\n"
+       "Silently discard pkts when matched\n")
+{
+  return zebra_static_ipv4 (vty, 1, argv[0], argv[1], NULL, argv[2], argv[3]);
+}
+
 DEFUN (no_ip_route, 
        no_ip_route_cmd,
        "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0)",
@@ -319,6 +381,19 @@ ALIAS (no_ip_route,
        "IP gateway interface name\n"
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
+
+DEFUN (no_ip_route_flags2,
+       no_ip_route_flags2_cmd,
+       "no ip route A.B.C.D/M (reject|blackhole)",
+       NO_STR
+       IP_STR
+       "Establish static routes\n"
+       "IP destination prefix (e.g. 10.0.0.0/8)\n"
+       "Emit an ICMP unreachable when matched\n"
+       "Silently discard pkts when matched\n")
+{
+  return zebra_static_ipv4 (vty, 0, argv[0], NULL, NULL, NULL, NULL);
+}
 
 DEFUN (no_ip_route_mask,
        no_ip_route_mask_cmd,
@@ -347,6 +422,20 @@ ALIAS (no_ip_route_mask,
        "IP gateway interface name\n"
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n")
+
+DEFUN (no_ip_route_mask_flags2,
+       no_ip_route_mask_flags2_cmd,
+       "no ip route A.B.C.D A.B.C.D (reject|blackhole)",
+       NO_STR
+       IP_STR
+       "Establish static routes\n"
+       "IP destination prefix\n"
+       "IP destination prefix mask\n"
+       "Emit an ICMP unreachable when matched\n"
+       "Silently discard pkts when matched\n")
+{
+  return zebra_static_ipv4 (vty, 0, argv[0], argv[1], NULL, NULL, NULL);
+}
 
 DEFUN (no_ip_route_distance,
        no_ip_route_distance_cmd,
@@ -377,6 +466,20 @@ DEFUN (no_ip_route_flags_distance,
        "Distance value for this route\n")
 {
   return zebra_static_ipv4 (vty, 0, argv[0], NULL, argv[1], argv[2], argv[3]);
+}
+
+DEFUN (no_ip_route_flags_distance2,
+       no_ip_route_flags_distance2_cmd,
+       "no ip route A.B.C.D/M (reject|blackhole) <1-255>",
+       NO_STR
+       IP_STR
+       "Establish static routes\n"
+       "IP destination prefix (e.g. 10.0.0.0/8)\n"
+       "Emit an ICMP unreachable when matched\n"
+       "Silently discard pkts when matched\n"
+       "Distance value for this route\n")
+{
+  return zebra_static_ipv4 (vty, 0, argv[0], NULL, NULL, argv[1], argv[2]);
 }
 
 DEFUN (no_ip_route_mask_distance,
@@ -410,6 +513,21 @@ DEFUN (no_ip_route_mask_flags_distance,
        "Distance value for this route\n")
 {
   return zebra_static_ipv4 (vty, 0, argv[0], argv[1], argv[2], argv[3], argv[4]);
+}
+
+DEFUN (no_ip_route_mask_flags_distance2,
+       no_ip_route_mask_flags_distance2_cmd,
+       "no ip route A.B.C.D A.B.C.D (reject|blackhole) <1-255>",
+       NO_STR
+       IP_STR
+       "Establish static routes\n"
+       "IP destination prefix\n"
+       "IP destination prefix mask\n"
+       "Emit an ICMP unreachable when matched\n"
+       "Silently discard pkts when matched\n"
+       "Distance value for this route\n")
+{
+  return zebra_static_ipv4 (vty, 0, argv[0], argv[1], NULL, argv[2], argv[3]);
 }
 
 /* New RIB.  Detailed information for IPv4 route. */
@@ -485,7 +603,9 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 	      vty_out (vty, " directly connected, %s", nexthop->ifname);
 	      break;
       case NEXTHOP_TYPE_BLACKHOLE:
-        vty_out (vty, " directly connected, via Null0");
+        vty_out (vty, " directly connected");
+        if (!rib->flags)
+          vty_out (vty, ", Null0");
         break;
 	    default:
 	      break;
@@ -568,7 +688,9 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	  vty_out (vty, " is directly connected, %s", nexthop->ifname);
 	  break;
   case NEXTHOP_TYPE_BLACKHOLE:
-    vty_out (vty, " is directly connected, Null0");
+    vty_out (vty, " is directly connected");
+    if (!rib->flags)
+      vty_out (vty, ", Null0");
     break;
 	default:
 	  break;
@@ -960,7 +1082,8 @@ static_config_ipv4 (struct vty *vty)
 	    vty_out (vty, " %s", si->gate.ifname);
 	    break;
     case STATIC_IPV4_BLACKHOLE:
-      vty_out (vty, " Null0");
+      if (!si->flags)
+        vty_out (vty, " Null0");
       break;
 	  }
 
@@ -1805,19 +1928,27 @@ zebra_vty_route_init ()
 
   install_element (CONFIG_NODE, &ip_route_cmd);
   install_element (CONFIG_NODE, &ip_route_flags_cmd);
+  install_element (CONFIG_NODE, &ip_route_flags2_cmd);
   install_element (CONFIG_NODE, &ip_route_mask_cmd);
   install_element (CONFIG_NODE, &ip_route_mask_flags_cmd);
+  install_element (CONFIG_NODE, &ip_route_mask_flags2_cmd);
   install_element (CONFIG_NODE, &no_ip_route_cmd);
   install_element (CONFIG_NODE, &no_ip_route_flags_cmd);
+  install_element (CONFIG_NODE, &no_ip_route_flags2_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_cmd);
+  install_element (CONFIG_NODE, &no_ip_route_mask_flags2_cmd);
   install_element (CONFIG_NODE, &ip_route_distance_cmd);
   install_element (CONFIG_NODE, &ip_route_flags_distance_cmd);
+  install_element (CONFIG_NODE, &ip_route_flags_distance2_cmd);
   install_element (CONFIG_NODE, &ip_route_mask_distance_cmd);
   install_element (CONFIG_NODE, &ip_route_mask_flags_distance_cmd);
+  install_element (CONFIG_NODE, &ip_route_mask_flags_distance2_cmd);
   install_element (CONFIG_NODE, &no_ip_route_distance_cmd);
   install_element (CONFIG_NODE, &no_ip_route_flags_distance_cmd);
+  install_element (CONFIG_NODE, &no_ip_route_flags_distance2_cmd);
   install_element (CONFIG_NODE, &no_ip_route_mask_flags_distance_cmd);
+  install_element (CONFIG_NODE, &no_ip_route_mask_flags_distance2_cmd);
 
   install_element (VIEW_NODE, &show_ip_route_cmd);
   install_element (VIEW_NODE, &show_ip_route_addr_cmd);
