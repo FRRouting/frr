@@ -1,0 +1,75 @@
+/* 
+ * Zebra privileges header.
+ *
+ * Copyright (C) 2003 Paul Jakma.
+ *
+ * This file is part of GNU Zebra.
+ *
+ * GNU Zebra is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * GNU Zebra is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with GNU Zebra; see the file COPYING.  If not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.  
+ */
+
+#ifndef _ZEBRA_PRIVS_H
+#define _ZEBRA_PRIVS_H
+
+/* list of zebra capabilities */
+typedef enum 
+{
+  ZCAP_SETGID,
+  ZCAP_SETUID,
+  ZCAP_BIND,
+  ZCAP_BROADCAST,
+  ZCAP_ADMIN,
+  ZCAP_RAW,
+  ZCAP_CHROOT,
+  ZCAP_NICE,
+  ZCAP_PTRACE,
+  ZCAP_MAX
+} zebra_capabilities_t;
+
+typedef enum
+{
+  ZPRIVS_LOWERED,
+  ZPRIVS_RAISED
+} zebra_privs_current_t;
+
+typedef enum
+{
+  ZPRIVS_RAISE,
+  ZPRIVS_LOWER,
+} zebra_privs_ops_t;
+
+struct zebra_privs_t
+{
+  zebra_capabilities_t *caps_p;       /* caps required for operation */
+  zebra_capabilities_t *caps_i;       /* caps to allow inheritance of */
+  int cap_num_p;                      /* number of caps in arrays */
+  int cap_num_i;                    
+  char *user;                         /* user and group to run as */
+  char *group;
+
+  /* methods */
+  int 
+    (*change) (zebra_privs_ops_t);    /* change privileges, 0 on success */
+  zebra_privs_current_t 
+    (*current_state) (void);          /* current privilege state */
+};
+
+  /* initialise zebra privileges */
+void zprivs_init (struct zebra_privs_t *zprivs);
+  /* drop all and terminate privileges */ 
+void zprivs_terminate (void);
+
+#endif /* _ZEBRA_PRIVS_H */
