@@ -2,6 +2,7 @@
 
 	* bgp_snmp.c: Remove defaults used to initialize smux connection to
 	  snmpd. Connection is initialized only if smux peer is configured.
+	* bgp_view.c: It's dead file. Reomved.
 
 2004-10-13 Paul Jakma <paul@dishone.st>
 
