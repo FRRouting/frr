@@ -48,46 +48,42 @@ int setsockopt_ipv6_multicast_loop (int, int);
  */
 #if defined (IP_PKTINFO)
 /* Linux in_pktinfo. */
-#define SOPT_SIZE_CMSG_PKTINFO_IPV4()  (sizeof (struct in_pktinfo))
-
+#define SOPT_SIZE_CMSG_PKTINFO_IPV4()  (CMSG_SPACE(sizeof (struct in_pktinfo)))
 /* XXX This should perhaps be defined even if IP_PKTINFO is not. */
 #define SOPT_SIZE_CMSG_PKTINFO(af) \
   ((af == AF_INET) ? SOPT_SIZE_CMSG_PKTINFO_IPV4() \
                    : SOPT_SIZE_CMSG_PKTINFO_IPV6()
+#endif /* IP_PKTINFO */
 
-#define SOPT_SIZE_CMSG_IFINDEX_IPV4()	SOPT_SIZE_CMSG_PKTINFO_IPV4()
-
-#elif defined (IP_RECVIF)
-/* BSD/Solaris.  Arguably these should say RECVIF rather than IFINDEX. */
+#if defined (IP_RECVIF)
+/* BSD/Solaris */
 
 #if defined (SUNOS_5)
-#define SOPT_SIZE_CMSG_IFINDEX_IPV4()  (sizeof (uint_t))
+#define SOPT_SIZE_CMSG_RECVIF_IPV4()  (sizeof (uint_t))
 #else
-#define SOPT_SIZE_CMSG_IFINDEX_IPV4()	\
+#define SOPT_SIZE_CMSG_RECVIF_IPV4()	\
 	__CMSG_ALIGN((sizeof (struct sockaddr_dl)))
 #endif /* SUNOS_5 */
+#endif /* IP_RECVIF */
 
-#endif
+/* SOPT_SIZE_CMSG_IFINDEX_IPV4 - portable type */
+#if defined (SOPT_SIZE_CMSG_PKTINFO)
+#define SOPT_SIZE_CMSG_IFINDEX_IPV4() SOPT_SIZE_CMSG_PKTINFO_IPV4()
+#elif defined (SOPT_SIZE_CMSG_RECVIF_IPV4)
+#define SOPT_SIZE_CMSG_IFINDEX_IPV4() SOPT_SIZE_CMSG_RECVIF_IPV4()
+#elif /* Nothing available */
+#define SOPT_SIZE_CMSG_IFINDEX_IPV4() (sizeof (char *))
+#endif /* SOPT_SIZE_CMSG_IFINDEX_IPV4 */
 
-/*
- * AF-parameterized message size.
- * XXX Why is this here?  Is it used?  The v6 case is not defined. 
- */
 #define SOPT_SIZE_CMSG_IFINDEX(af) \
-  ((af == AF_INET) ? SOPT_SIZE_CMSG_IFINDEX_IPV4() \
-                   : SOPT_SIZE_CMSG_IFINDEX_IPV6()
+  (((af) == AF_INET) : SOPT_SIZE_CMSG_IFINDEX_IPV4() \
+                    ? SOPT_SIZE_CMSG_PKTINFO_IPV6())
 
 int setsockopt_multicast_ipv4(int sock, 
 			     int optname, 
 			     struct in_addr if_addr,
 			     unsigned int mcast_addr,
 			     unsigned int ifindex);
-
-/*
- * XXX Exactly what is this an interface to?  Specifically, what calls
- * can be made after calling it?
- */
-int setsockopt_pktinfo (int, int, int);
 
 /* Ask for, and get, ifindex, by whatever method is supported. */
 int setsockopt_ifindex (int, int, int);

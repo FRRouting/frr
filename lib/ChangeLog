@@ -1,7 +1,11 @@
-2004-10-13 Paul Jakma <paul@dishone.st>
+2004-10-22 Paul Jakma <paul@dishone.st>
 
 	* sockopt.c: (getsockopt_ipv4_ifindex) no ifindex should be 0, not
-          -1.
+          -1. 
+          (setsockopt_pktinfo) unexported
+	* sockopt.h: Cleanup SOCKOPT_CMSG defines a bit. Add a throwaway
+          define for SOPT_SIZE_CMSG_IFINDEX_IPV4 for systems which have
+          neither IP_RECVIF nor IP_PKTINFO (eg openbsd).
 
 2004-10-19 Hasso Tepper <hasso at quagga.net>
 

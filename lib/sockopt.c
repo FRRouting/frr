@@ -260,7 +260,7 @@ setsockopt_ipv4_ifindex (int sock, int val)
  * interface index.
  * Not portable for IPv4, use only setsockopt_ifindex for v4.
  */
-int 
+static int 
 setsockopt_pktinfo (int af, int sock, int val)
 {
   int ret = -1;
