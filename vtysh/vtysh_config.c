@@ -240,14 +240,14 @@ vtysh_config_parse_line (const char *line)
 	config = config_get (SERVICE_NODE, line);
       else if (strncmp (line, "debug", strlen ("debug")) == 0)
 	config = config_get (DEBUG_NODE, line);
+      else if (strncmp (line, "password", strlen ("password")) == 0
+	       || strncmp (line, "enable password",
+			   strlen ("enable password")) == 0)
+	config = config_get (AAA_NODE, line);
       else
 	{
 	  if (strncmp (line, "log", strlen ("log")) == 0
 	      || strncmp (line, "hostname", strlen ("hostname")) == 0
-	      || strncmp (line, "password", strlen ("password")) == 0
-	      || strncmp (line, "enable password",
-		          strlen ("enable password")) == 0
-	      || strncmp (line, "service", strlen ("service")) == 0
 	     )
 	    config_add_line_uniq (config_top, line);
 	  else
@@ -287,7 +287,8 @@ vtysh_config_parse (char *line)
   ((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE \
    || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE || \
    (I) == ACCESS_IPV6_NODE || (I) == PREFIX_IPV6_NODE \
-   || (I) == SERVICE_NODE || (I) == FORWARDING_NODE || (I) == DEBUG_NODE)
+   || (I) == SERVICE_NODE || (I) == FORWARDING_NODE || (I) == DEBUG_NODE \
+   || (I) == AAA_NODE)
 
 /* Display configuration to file pointer. */
 void
