@@ -1,5 +1,5 @@
 /*
- * $Id: log.c,v 1.24 2005/02/03 16:42:40 ajs Exp $
+ * $Id: log.c,v 1.25 2005/02/03 19:22:05 ajs Exp $
  *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -31,8 +31,7 @@
 #include <sys/un.h>
 #endif
 
-static int crashlog_fd = -1;   /* Used for last-resort crash logfile when a
-				  signal is caught. */
+static int logfile_fd = -1;	/* Used in signal handler. */
 
 struct zlog *zlog_default = NULL;
 
@@ -339,17 +338,14 @@ zlog_signal(int signo, const char *action
 
 #define DUMP(FD) write(FD, buf, s-buf);
   /* If no file logging configured, try to write to fallback log file. */
-  if ((!zlog_default || !zlog_default->fp) &&
-      ((crashlog_fd = open_crashlog()) >= 0))
-    DUMP(crashlog_fd)
+  if ((logfile_fd >= 0) || ((logfile_fd = open_crashlog()) >= 0))
+    DUMP(logfile_fd)
   if (!zlog_default)
-    DUMP(fileno(stderr))
+    DUMP(STDERR_FILENO)
   else
     {
-      if ((PRI <= zlog_default->maxlvl[ZLOG_DEST_FILE]) && zlog_default->fp)
-        DUMP(fileno(zlog_default->fp))
       if (PRI <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
-        DUMP(fileno(stdout))
+        DUMP(STDOUT_FILENO)
       /* Remove trailing '\n' for monitor and syslog */
       *--s = '\0';
       if (PRI <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
@@ -401,17 +397,14 @@ zlog_backtrace_sigsafe(int priority, void *program_counter)
   backtrace_symbols_fd(array, size, FD); \
 }
 
-  if (crashlog_fd >= 0)
-    DUMP(crashlog_fd)
+  if ((logfile_fd >= 0) || ((logfile_fd = open_crashlog()) >= 0))
+    DUMP(logfile_fd)
   if (!zlog_default)
-    DUMP(fileno(stderr))
+    DUMP(STDERR_FILENO)
   else
     {
-      if ((priority <= zlog_default->maxlvl[ZLOG_DEST_FILE]) &&
-	  zlog_default->fp)
-	DUMP(fileno(zlog_default->fp))
       if (priority <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
-	DUMP(fileno(stdout))
+	DUMP(STDOUT_FILENO)
       /* Remove trailing '\n' for monitor and syslog */
       *--s = '\0';
       if (priority <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
@@ -533,18 +526,11 @@ void
 _zlog_assert_failed (const char *assertion, const char *file,
 		     unsigned int line, const char *function)
 {
-  if (zlog_default && !zlog_default->fp)
-    {
-      /* Force fallback file logging. */
-      int fd;
-      FILE *fp;
-
-      if (((fd = open_crashlog()) >= 0) && ((fp = fdopen(fd, "w")) != NULL))
-	{
-	  zlog_default->fp = fp;
-	  zlog_default->maxlvl[ZLOG_DEST_FILE] = LOG_ERR;
-        }
-    }
+  /* Force fallback file logging? */
+  if (zlog_default && !zlog_default->fp &&
+      ((logfile_fd = open_crashlog()) >= 0) &&
+      ((zlog_default->fp = fdopen(logfile_fd, "w")) != NULL))
+    zlog_default->maxlvl[ZLOG_DEST_FILE] = LOG_ERR;
   zlog(NULL, LOG_CRIT, "Assertion `%s' failed in file %s, line %u, function %s",
        assertion,file,line,(function ? function : "?"));
   zlog_backtrace(LOG_CRIT);
@@ -621,6 +607,7 @@ zlog_set_file (struct zlog *zl, const char *filename, int log_level)
   zl->filename = strdup (filename);
   zl->maxlvl[ZLOG_DEST_FILE] = log_level;
   zl->fp = fp;
+  logfile_fd = fileno(fp);
 
   return 1;
 }
@@ -635,6 +622,7 @@ zlog_reset_file (struct zlog *zl)
   if (zl->fp)
     fclose (zl->fp);
   zl->fp = NULL;
+  logfile_fd = -1;
   zl->maxlvl[ZLOG_DEST_FILE] = ZLOG_DISABLED;
 
   if (zl->filename)
@@ -656,6 +644,7 @@ zlog_rotate (struct zlog *zl)
   if (zl->fp)
     fclose (zl->fp);
   zl->fp = NULL;
+  logfile_fd = -1;
   level = zl->maxlvl[ZLOG_DEST_FILE];
   zl->maxlvl[ZLOG_DEST_FILE] = ZLOG_DISABLED;
 
@@ -674,6 +663,7 @@ zlog_rotate (struct zlog *zl)
 	  	   zl->filename, safe_strerror(save_errno));
 	  return -1;
         }	
+      logfile_fd = fileno(zl->fp);
       zl->maxlvl[ZLOG_DEST_FILE] = level;
     }
 

@@ -1,5 +1,13 @@
 2005-02-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* log.c: (zlog_signal,zlog_backtrace_sigsafe) Eliminate use of fileno()
+	  since it is not async-signal-safe.
+	  (_zlog_assert_failed) Rewrite crashlog logic more compactly.
+	  (zlog_set_file,zlog_reset_file,zlog_rotate) Update logfile_fd
+	  for use in signal handler.
+
+2005-02-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* log.c: (syslog_sigsafe) Reduce scope of syslog_fd: it is accessed
 	  inside this function only.
 	  (open_crashlog) New function to open /var/tmp/quagga.<daemon>.crashlog
