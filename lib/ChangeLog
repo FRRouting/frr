@@ -13,6 +13,7 @@
 	  cmd_element to support, eg hidden or deprecated commands, add
           defun defines for such. All that's left to do is add logic
           to command.c to check these attributes... ;)
+	* zebra.h: reserve ZEBRA_ROUTE_HSLS
 
 2004-10-19 Hasso Tepper <hasso at quagga.net>
 

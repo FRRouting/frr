@@ -329,7 +329,8 @@ struct in_pktinfo
 #define ZEBRA_ROUTE_OSPF6                7
 #define ZEBRA_ROUTE_ISIS                 8
 #define ZEBRA_ROUTE_BGP                  9
-#define ZEBRA_ROUTE_MAX                  10
+#define ZEBRA_ROUTE_HSLS		 10
+#define ZEBRA_ROUTE_MAX                  11
 
 /* Zebra's family types. */
 #define ZEBRA_FAMILY_IPV4                1
