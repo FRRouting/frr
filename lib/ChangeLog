@@ -1,5 +1,9 @@
 2005-02-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* stream.c: (stream_read_try) Use new ERRNO_IO_RETRY macro.
+
+2005-02-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* network.h: Define a new ERRNO_IO_RETRY macro to test whether an I/O
 	  operation should be retried.  This eliminates the need to duplicate
 	  the same logic testing for EAGAIN or EINTR in multiple places.
