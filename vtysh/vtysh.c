@@ -212,8 +212,13 @@ vtysh_exit_ripd_only ()
 void
 vtysh_pager_init ()
 {
-  vtysh_pager_name = strdup (getenv ("VTYSH_PAGER"));
-  if (! vtysh_pager_name)
+  char *pager_defined;
+
+  pager_defined = getenv ("VTYSH_PAGER");
+
+  if (pager_defined)
+    vtysh_pager_name = strdup (pager_defined);
+  else
     vtysh_pager_name = strdup ("more");
 }
 
