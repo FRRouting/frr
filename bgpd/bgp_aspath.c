@@ -136,7 +136,7 @@ aspath_make_str_count (struct aspath *as)
   struct assegment *assegment;
   int str_size = ASPATH_STR_DEFAULT_LEN;
   int str_pnt;
-  u_char *str_buf;
+  char *str_buf;
   int count = 0;
 
   /* Empty aspath. */

@@ -1585,9 +1585,9 @@ ripng_write_rte (int num, struct stream *s, struct prefix_ipv6 *p,
 
   /* Write routing table entry. */
   if (!nexthop)
-    stream_write (s, (caddr_t) &p->prefix, sizeof (struct in6_addr));
+    stream_write (s, (u_char *) &p->prefix, sizeof (struct in6_addr));
   else
-    stream_write (s, (caddr_t) nexthop, sizeof (struct in6_addr));
+    stream_write (s, (u_char *) nexthop, sizeof (struct in6_addr));
   stream_putw (s, tag);
   if (p)
     stream_putc (s, p->prefixlen);
@@ -2813,7 +2813,7 @@ ripng_distribute_update_interface (struct interface *ifp)
 
 /* Update all interface's distribute list. */
 void
-ripng_distribute_update_all ()
+ripng_distribute_update_all (struct prefix_list *notused)
 {
   struct interface *ifp;
   struct listnode *node;
@@ -2823,6 +2823,12 @@ ripng_distribute_update_all ()
       ifp = getdata (node);
       ripng_distribute_update_interface (ifp);
     }
+}
+
+void
+ripng_distribute_update_all_wrapper (struct access_list *notused)
+{
+  ripng_distribute_update_all(NULL);
 }
 
 /* delete all the added ripng routes. */
@@ -2985,7 +2991,7 @@ ripng_routemap_update_redistribute (void)
 }
 
 void
-ripng_routemap_update ()
+ripng_routemap_update (char *unused)
 {
   struct interface *ifp;
   struct listnode *node;
@@ -3049,8 +3055,8 @@ ripng_init ()
 
   /* Access list install. */
   access_list_init ();
-  access_list_add_hook (ripng_distribute_update_all);
-  access_list_delete_hook (ripng_distribute_update_all);
+  access_list_add_hook (ripng_distribute_update_all_wrapper);
+  access_list_delete_hook (ripng_distribute_update_all_wrapper);
 
   /* Prefix list initialize.*/
   prefix_list_init ();

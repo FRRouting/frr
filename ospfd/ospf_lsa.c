@@ -186,7 +186,7 @@ ospf_lsa_checksum (struct lsa_header *lsa)
 
   lsa->checksum = 0;
   length = ntohs (lsa->length) - 2;
-  sp = (char *) &lsa->options;
+  sp = (u_char *) &lsa->options;
 
   for (ep = sp + length; sp < ep; sp = q)
     {

@@ -1,3 +1,9 @@
+2004-09-26 Hasso Tepper <hasso at quagga.net>
+
+	* ripingd.c: Access list hook argument function must have struct
+	  access_list * argument. Solution taken from ripd.
+	* ripngd.c, ripnf_nexthop.c: Fix compiler warnings.
+
 2004-09-23 Hasso Tepper <hasso at quagga.net>
 
 	* *.[c|h]: list -> struct list *, listnode -> struct listnode *.

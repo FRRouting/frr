@@ -1,3 +1,8 @@
+2004-09-26 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_abr.c, ospf_dump.c, ospf_lsa.c, ospf_packet.c, ospf_vty.c,
+	  ospf_zebra.c: Fix compiler warnings.
+
 2004-09-24 Paul Jakma <paul@dishone.st>
 
         * ospf_apiserver.{c,h}: lists typedef removal cleanup.

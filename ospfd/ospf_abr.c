@@ -596,7 +596,7 @@ set_metric (struct ospf_lsa *lsa, u_int32_t metric)
   struct summary_lsa *header;
   u_char *mp;
   metric = htonl (metric);
-  mp = (char *) &metric;
+  mp = (u_char *) &metric;
   mp++;
   header = (struct summary_lsa *) lsa->data;
   memcpy(header->metric, mp, 3);

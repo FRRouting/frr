@@ -649,7 +649,7 @@ ospf_header_dump (struct ospf_header *ospfh)
       break;
     case OSPF_AUTH_SIMPLE:
       memset (buf, 0, 9);
-      strncpy (buf, ospfh->u.auth_data, 8);
+      strncpy (buf, (char *) ospfh->u.auth_data, 8);
       zlog_info ("  Simple Password %s", buf);
       break;
     case OSPF_AUTH_CRYPTOGRAPHIC:

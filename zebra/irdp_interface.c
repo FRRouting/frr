@@ -245,7 +245,7 @@ void irdp_if_start(struct interface *ifp, int multicast, int set_defaults)
   timer =  (random () % IRDP_DEFAULT_INTERVAL) + 1; 
 
   irdp->AdvPrefList = list_new();
-  irdp->AdvPrefList->del =  (void *) Adv_free; /* Destructor */
+  irdp->AdvPrefList->del =  (void (*)(void *)) Adv_free; /* Destructor */
 
 
   /* And this for startup. Speed limit from 1991 :-). But it's OK*/

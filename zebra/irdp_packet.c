@@ -227,7 +227,7 @@ int irdp_read_raw(struct thread *r)
   int irdp_sock = THREAD_FD (r);
   t_irdp_raw = thread_add_read (zebrad.master, irdp_read_raw, NULL, irdp_sock);
   
-  ret = irdp_recvmsg (irdp_sock, buf, IRDP_RX_BUF,  &ifindex);
+  ret = irdp_recvmsg (irdp_sock, (u_char *) buf, IRDP_RX_BUF,  &ifindex);
  
   if (ret < 0) zlog_warn ("IRDP: RX Error length = %d", ret);
 

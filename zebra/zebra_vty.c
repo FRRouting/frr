@@ -59,7 +59,7 @@ route_type_str (u_char type)
 };
 
 /* Return route type string for VTY output.  */
-const char
+char
 route_type_char (u_char type)
 {
   switch (type)

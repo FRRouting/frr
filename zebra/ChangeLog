@@ -1,3 +1,8 @@
+2004-09-26 Hasso Tepper <hasso at quagga.net>
+
+	* irdp_interface.c, irdp_main.c, irdp_packet.c, rt_netlink.c,
+	  rtadv.c, zebra_vty.c: Fix compiler warnings.
+
 2004-09-24 Paul Jakma <paul@dishone.st>
 
 	* irdp_interface.c: (no_ip_irdp_address_preference_cmd)

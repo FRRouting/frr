@@ -41,6 +41,7 @@
 #include "if.h"
 #include "vty.h"
 #include "sockunion.h"
+#include "sockopt.h"
 #include "prefix.h"
 #include "command.h"
 #include "memory.h"

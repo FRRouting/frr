@@ -2253,7 +2253,7 @@ bgp_read (struct thread *thread)
 	  bgp_notify_send_with_data (peer,
 				     BGP_NOTIFY_HEADER_ERR,
 			  	     BGP_NOTIFY_HEADER_BAD_MESLEN,
-				     notify_data_length, 2);
+				     (u_char *) notify_data_length, 2);
 	  goto done;
 	}
 

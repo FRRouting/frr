@@ -351,7 +351,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
   else
     {
       ck = getdata (OSPF_IF_PARAM (oi, auth_crypt)->tail);
-      auth_key = ck->auth_key;
+      auth_key = (char *) ck->auth_key;
     }
 
   /* Generate a digest for the entire packet + our secret key. */

@@ -139,7 +139,7 @@ zebra_interface_if_lookup (struct stream *s)
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
   /* Lookup this by interface index. */
-  ifp = if_lookup_by_name (ifname_tmp);
+  ifp = if_lookup_by_name ((char *) ifname_tmp);
 
   /* If such interface does not exist, indicate an error */
   if (!ifp)

@@ -718,7 +718,7 @@ ospf_vl_set_security (struct ospf_vl_data *vl_data,
   if (vl_config->auth_key)
     {
       memset(IF_DEF_PARAMS (ifp)->auth_simple, 0, OSPF_AUTH_SIMPLE_SIZE+1);
-      strncpy (IF_DEF_PARAMS (ifp)->auth_simple, vl_config->auth_key, 
+      strncpy ((char *) IF_DEF_PARAMS (ifp)->auth_simple, vl_config->auth_key, 
 	       OSPF_AUTH_SIMPLE_SIZE);
     }
   else if (vl_config->md5_key)
@@ -733,7 +733,7 @@ ospf_vl_set_security (struct ospf_vl_data *vl_data,
       ck = ospf_crypt_key_new ();
       ck->key_id = vl_config->crypto_key_id;
       memset(ck->auth_key, 0, OSPF_AUTH_MD5_SIZE+1);
-      strncpy (ck->auth_key, vl_config->md5_key, OSPF_AUTH_MD5_SIZE);
+      strncpy ((char *) ck->auth_key, vl_config->md5_key, OSPF_AUTH_MD5_SIZE);
       
       ospf_crypt_key_add (IF_DEF_PARAMS (ifp)->auth_crypt, ck);
     }
@@ -4130,7 +4130,7 @@ DEFUN (ip_ospf_authentication_key,
 
 
   memset (params->auth_simple, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
-  strncpy (params->auth_simple, argv[0], OSPF_AUTH_SIMPLE_SIZE);
+  strncpy ((char *) params->auth_simple, argv[0], OSPF_AUTH_SIMPLE_SIZE);
   SET_IF_PARAM (params, auth_simple);
 
   return CMD_SUCCESS;
@@ -4255,7 +4255,7 @@ DEFUN (ip_ospf_message_digest_key,
   ck = ospf_crypt_key_new ();
   ck->key_id = (u_char) key_id;
   memset (ck->auth_key, 0, OSPF_AUTH_MD5_SIZE+1);
-  strncpy (ck->auth_key, argv[1], OSPF_AUTH_MD5_SIZE);
+  strncpy ((char *) ck->auth_key, argv[1], OSPF_AUTH_MD5_SIZE);
 
   ospf_crypt_key_add (params->auth_crypt, ck);
   SET_IF_PARAM (params, auth_crypt);
@@ -6882,9 +6882,9 @@ config_write_network_area (struct vty *vty, struct ospf *ospf)
 
 	/* Create Area ID string by specified Area ID format. */
 	if (n->format == OSPF_AREA_ID_FORMAT_ADDRESS)
-	  strncpy (buf, inet_ntoa (n->area_id), INET_ADDRSTRLEN);
+	  strncpy ((char *) buf, inet_ntoa (n->area_id), INET_ADDRSTRLEN);
 	else
-	  sprintf (buf, "%lu", 
+	  sprintf ((char *) buf, "%lu", 
 		   (unsigned long int) ntohl (n->area_id.s_addr));
 
 	/* Network print. */
@@ -6908,7 +6908,7 @@ config_write_ospf_area (struct vty *vty, struct ospf *ospf)
       struct ospf_area *area = getdata (node);
       struct route_node *rn1;
 
-      area_id2str (buf, INET_ADDRSTRLEN, area);
+      area_id2str ((char *) buf, INET_ADDRSTRLEN, area);
 
       if (area->auth_type != OSPF_AUTH_NULL)
 	{
@@ -7041,9 +7041,9 @@ config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 	  memset (buf, 0, INET_ADDRSTRLEN);
 	  
 	  if (vl_data->format == OSPF_AREA_ID_FORMAT_ADDRESS)
-	    strncpy (buf, inet_ntoa (vl_data->vl_area_id), INET_ADDRSTRLEN);
+	    strncpy ((char *) buf, inet_ntoa (vl_data->vl_area_id), INET_ADDRSTRLEN);
 	  else
-	    sprintf (buf, "%lu", 
+	    sprintf ((char *) buf, "%lu", 
 		     (unsigned long int) ntohl (vl_data->vl_area_id.s_addr));
 	  oi = vl_data->vl_oi;
 

@@ -179,7 +179,7 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
 
   /* multiple netlink sockets will have different nl_pid */
   namelen = sizeof snl;
-  ret = getsockname (sock, (struct sockaddr *) &snl, &namelen);
+  ret = getsockname (sock, (struct sockaddr *) &snl, (socklen_t *) &namelen);
   if (ret < 0 || namelen != sizeof snl)
     {
       zlog (NULL, LOG_ERR, "Can't get %s socket name: %s", nl->name,

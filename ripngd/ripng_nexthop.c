@@ -161,7 +161,7 @@ ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
 
       /* A nexthop entry should be at least followed by 1 RTE */
       if (num == (rtemax-1)) {
-	ret = ripng_send_packet (STREAM_DATA (s), stream_get_endp (s),
+	ret = ripng_send_packet ((caddr_t) STREAM_DATA (s), stream_get_endp (s),
 				 to, ifp);
 
         if (ret >= 0 && IS_RIPNG_DEBUG_SEND)
@@ -191,7 +191,7 @@ ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
 			  TAG_OUT(data), METRIC_OUT(data));
 
     if (num == rtemax) {
-      ret = ripng_send_packet (STREAM_DATA (s), stream_get_endp (s),
+      ret = ripng_send_packet ((caddr_t) STREAM_DATA (s), stream_get_endp (s),
 			       to, ifp);
 
       if (ret >= 0 && IS_RIPNG_DEBUG_SEND)
@@ -204,7 +204,7 @@ ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
 
   /* If unwritten RTE exist, flush it. */
   if (num != 0) {
-    ret = ripng_send_packet (STREAM_DATA (s), stream_get_endp (s),
+    ret = ripng_send_packet ((caddr_t) STREAM_DATA (s), stream_get_endp (s),
 			     to, ifp);
 
     if (ret >= 0 && IS_RIPNG_DEBUG_SEND)
