@@ -1,3 +1,10 @@
+2004-10-22 Paul Jakma <paul@dishone.st>
+
+	* configure.ac: fix up enable help alignment slightly
+          Add --enable-gcc-ultra-verbose to set various gcc warnings which
+          should one day be fixed but are not serious problems or which
+          could be false-positives.
+
 2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
 
 	* lib, zebra, ripd, ospfd, bgpd: Support NULL connected destination

@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.70 2004/10/11 18:26:59 paul Exp $
+## $Id: configure.ac,v 1.71 2004/10/22 04:55:05 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.97.1, [http://bugzilla.quagga.net])
@@ -139,18 +139,27 @@ AC_ARG_ENABLE(quagga_user,
 AC_ARG_ENABLE(quagga_group,
 [  --enable-group=ARG      group to run Quagga suite as (default quagga)])
 AC_ARG_ENABLE(vty_group,
-[  --enable-vty-group=ARG      set vty sockets to have specified group as owner])
+[  --enable-vty-group=ARG  set vty sockets to have specified group as owner])
 AC_ARG_ENABLE(configfile_mask,
 [  --enable-configfile-mask=ARG  set mask for config files])
 AC_ARG_ENABLE(logfile_mask,
 [  --enable-logfile-mask=ARG     set mask for log files])
 
 AC_ARG_ENABLE(rtadv,
-[  --disable-rtadv         disable IPV6 router advertisement feature])
+[  --disable-rtadv               disable IPV6 router advertisement feature])
 AC_ARG_ENABLE(irdp,
-[  --enable-irdp           enable IRDP server support in zebra])
+[  --enable-irdp                 enable IRDP server support in zebra])
 AC_ARG_ENABLE(capabilities,
 [  --disable-capabilities        disable using POSIX capabilities])
+AC_ARG_ENABLE(gcc_ultra_verbose,
+[  --enable-gcc-ultra-verbose    enable ultra verbose GCC warnings])
+
+if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
+  CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"
+  CFLAGS="${CFLAGS} -Wmissing-declarations -Wmissing-noreturn"
+  CFLAGS="${CFLAGS} -Wmissing-format-attribute -Wunreachable-code"
+  CFLAGS="${CFLAGS} -Wpacked -Wpadded"
+fi
 
 if test "${enable_broken_aliases}" = "yes"; then
   if test "${enable_netlink}" = "yes"
