@@ -1,3 +1,11 @@
+2004-10-19 Hasso Tepper <hasso at quagga.net>
+
+	* version.h.in: Define copyright string QUAGGA_COPYRIGHT.
+	* print_version.c: Remove. print_version () function moved to
+	  command.[c|h].
+	* command.c: Use QUAGGA_COPYRIGHT.
+	* Makefile.am: Remove useless version.c and print_version.c files.
+
 2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
 
 	* zclient.c: (zebra_interface_address_read) If the destination address

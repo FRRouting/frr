@@ -30,9 +30,8 @@
 
 #define QUAGGA_URL "http://www.quagga.net"
 
-extern char *host_name;
+#define QUAGGA_COPYRIGHT "Copyright 1996-2004 Kunihiro Ishiguro, et al."
 
-void print_version (const char *);
 pid_t pid_output (const char *);
 pid_t pid_output_lock (const char *);
 

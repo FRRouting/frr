@@ -309,4 +309,6 @@ int config_help (struct cmd_element *, struct vty *, int, const char *[]);
 char *host_config_file ();
 void host_config_set (char *);
 
+void print_version (const char *);
+
 #endif /* _ZEBRA_COMMAND_H */

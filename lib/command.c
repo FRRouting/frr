@@ -36,13 +36,6 @@ vector cmdvec;
 /* Host information structure. */
 struct host host;
 
-/* Default motd string. */
-const char *default_motd = 
-"\r\n\
-Hello, this is " QUAGGA_PROGNAME " (version " QUAGGA_VERSION ").\r\n\
-Copyright 1996-2004 Kunihiro Ishiguro, et al.\r\n\
-\r\n";
-
 /* Standard command node structures. */
 struct cmd_node auth_node =
 {
@@ -74,6 +67,21 @@ struct cmd_node config_node =
   "%s(config)# ",
   1
 };
+
+/* Default motd string. */
+const char *default_motd =
+"\r\n\
+Hello, this is " QUAGGA_PROGNAME " (version " QUAGGA_VERSION ").\r\n\
+" QUAGGA_COPYRIGHT "\r\n\
+\r\n";
+
+void
+print_version (const char *progname)
+{
+  printf ("%s version %s (%s)\n", progname, QUAGGA_VERSION, host.name);
+  printf ("%s\n", QUAGGA_COPYRIGHT);
+}
+
 
 /* Utility function to concatenate argv argument into a single string
    with inserting ' ' character between each argument.  */
@@ -2397,10 +2405,8 @@ DEFUN (show_version,
        SHOW_STR
        "Displays zebra version\n")
 {
-  vty_out (vty, "Quagga %s (%s).%s", QUAGGA_VERSION,
-	   host_name,
-	   VTY_NEWLINE);
-  vty_out (vty, "Copyright 1996-2002, Kunihiro Ishiguro.%s", VTY_NEWLINE);
+  vty_out (vty, "Quagga %s (%s).%s", QUAGGA_VERSION, host.name, VTY_NEWLINE);
+  vty_out (vty, "%s%s", QUAGGA_COPYRIGHT, VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
@@ -2412,7 +2418,7 @@ DEFUN (config_help,
        "Description of the interactive help system\n")
 {
   vty_out (vty, 
-	   "Zebra VTY provides advanced help feature.  When you need help,%s\
+	   "Quagga VTY provides advanced help feature.  When you need help,%s\
 anytime at the command line please press '?'.%s\
 %s\
 If nothing matches, the help list will be empty and you must backup%s\
