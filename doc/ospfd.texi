@@ -52,10 +52,26 @@ number.
 @deffn {OSPF Command} {ospf abr-type @var{type}} {}
 @deffnx {OSPF Command} {no ospf abr-type @var{type}} {}
 @var{type} can be cisco|ibm|shortcut|standard
+More information regarding the behaviour controlled by this command can
+be found in draft-ietf-ospf-abr-alt-05.txt and 
+draft-ietf-ospf-shortcut-abr-02.txt
+Quote: "Though the definition of the Area Border Router (ABR)
+in the OSPF specification does not require a router with multiple
+attached areas to have a backbone connection, it is actually
+necessary to provide successful routing to the inter-area and
+external destinations. If this requirement is not met, all traffic
+destined for the areas not connected to such an ABR or out of the
+OSPF domain, is dropped.  This document describes alternative ABR
+behaviors implemented in Cisco and IBM routers."
 @end deffn
 
 @deffn {OSPF Command} {ospf rfc1583compatibility} {}
 @deffnx {OSPF Command} {no ospf rfc1583compatibility} {}
+This rfc2328, the sucessor to rfc1583, suggests according to section G.2
+(changes) in section 16.4 a change to the path preference algorithm that
+prevents possible routing loops that were possible in the old version of
+OSPFv2. More specificly it demands that inter-area paths and intra-area path
+are now of equal preference but still both preferred to external paths.
 @end deffn
 
 @deffn {OSPF Command} {passive interface @var{interface}} {}
