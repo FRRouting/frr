@@ -104,8 +104,7 @@ static void*
 cpu_record_hash_alloc (struct cpu_thread_history *a)
 {
   struct cpu_thread_history *new;
-  new = XMALLOC( MTYPE_THREAD_STATS, sizeof *new);
-  memset(new, 0, sizeof (struct cpu_thread_history));
+  new = XCALLOC (MTYPE_THREAD_STATS, sizeof (struct cpu_thread_history));
   new->func = a->func;
   new->funcname = XSTRDUP(MTYPE_THREAD_FUNCNAME, a->funcname);
   return new;

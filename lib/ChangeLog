@@ -6,7 +6,8 @@
 	* keychain.c: Convert some more strtoul users to VTY_GET_INTEGER.
 	* memory.h: Add MTYPE_THREAD_FUNCNAME and MTYPE_THREAD_STATS
 	* thread.c: Update stats and funcname alloc/free to use previous
-	  specific memory type defines
+	  specific memory type defines. Use XCALLOC and sizeof the type,
+          not the pointer.
 	* smux.c: fix int to size_t compile warnings
 
 2004-10-29 Paul Jakma <paul@dishone.st>
