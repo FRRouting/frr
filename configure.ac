@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.64 2004/09/13 11:27:57 paul Exp $
+## $Id: configure.ac,v 1.65 2004/09/13 20:22:18 hasso Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.96.5, [http://bugzilla.quagga.net])
@@ -103,7 +103,7 @@ AC_ARG_ENABLE(ospfd,
 AC_ARG_ENABLE(ospf6d,
 [  --disable-ospf6d        do not build ospf6d])
 AC_ARG_ENABLE(isisd,
-[  --disable-isisd         do not build isisd])
+[  --enable-isisd          build isisd])
 AC_ARG_ENABLE(bgp-announce,
 [  --disable-bgp-announce, turn off BGP route announcement])
 AC_ARG_ENABLE(netlink,
@@ -762,7 +762,7 @@ esac
 case "${enable_isisd}" in
   "yes") ISISD="isisd";;
   "no" ) ISISD="";;
-  *    ) ISISD="isisd";;
+  *    ) ;;
 esac
 
 if test "${enable_bgp_announce}" = "no";then
