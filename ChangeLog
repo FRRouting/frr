@@ -1,3 +1,11 @@
+2005-03-27 Hasso Tepper <hasso at quagga.net>
+
+	* configure.ac: Add Intel compiler (icc) support. Although Intel
+	  tries really hard to make icc look like gcc, there are some
+	  differences. It's very verbose with -Wall and it doesn't support
+	  the individual -W options. We are going to ignore some of these
+	  warnings.
+
 2005-03-26 Hasso Tepper <hasso at quagga.net>
 
 	* doc/defines.texi.in, lib/version.h.in: Update copyright string to

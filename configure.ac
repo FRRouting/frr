@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.91 2005/03/25 13:05:47 vincent Exp $
+## $Id: configure.ac,v 1.92 2005/03/27 13:07:23 hasso Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.0, [http://bugzilla.quagga.net])
@@ -49,10 +49,25 @@ elif test -n "$CFLAGS" ; then
   cflags_specified=yes ;
 fi
 
-dnl --------
-dnl Check CC
-dnl --------
+dnl --------------------
+dnl Check CC and friends
+dnl --------------------
 AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_EGREP
+
+dnl ------------------------------------------------------------------
+dnl Intel compiler check. Although Intel tries really hard to make icc
+dnl look like gcc, there are some differences. It's very verbose with
+dnl -Wall and it doesn't support the individual -W options.
+dnl ------------------------------------------------------------------
+AC_MSG_CHECKING([whether we are using the Intel compiler])
+AC_EGREP_CPP([^__INTEL_COMPILER], [__INTEL_COMPILER],
+    ICC="no"
+    AC_MSG_RESULT([no]),
+    ICC="yes"
+    AC_MSG_RESULT([yes])
+)
 
 dnl ---------------------------------------------
 dnl If CLFAGS doesn\'t exist set default value
@@ -60,20 +75,34 @@ dnl AC_PROG_CC will have set minimal default
 dnl already, eg "-O2 -g" for gcc, "-g" for others
 dnl (Wall is gcc specific... have to make sure
 dnl  gcc is being used before setting it)
+dnl Intel icc 8.0 also sets __GNUC__, but
+dnl doesn't support all these fancy -W options.
 dnl ---------------------------------------------
 dnl
 if test "x$cflags_specified" = "x" ; then
-  if test "x${GCC}" = "xyes"; then
+  if test "x${GCC}" = "xyes" && test "x${ICC}" = "xno"; then
   	CFLAGS="-Os -g  -Wall -Wsign-compare -Wpointer-arith"
   	CFLAGS="${CFLAGS} -Wbad-function-cast -Wwrite-strings"
   fi
   # TODO: conditionally addd -Wpacked if handled
 fi
 
+dnl ---------------------------------------------------------------------
+dnl Intel compiler warnings we ignore:
+dnl 279: controlling expression is constant.
+dnl 869: parameter "xxx" was never referenced - to avoid massive warnings
+dnl      about "self", "vty", "argc" and "argv" never referenced in DEFUN
+dnl      macro.
+dnl 981: operands are evaluated in unspecified order.
+dnl ---------------------------------------------------------------------
+
+if test "$ICC" = "yes"; then
+    CFLAGS="-Os -g -Wall -wd 279,869,981"
+fi
+
 dnl --------------
 dnl Check programs
 dnl --------------
-AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 AC_CHECK_TOOL(AR, ar)
