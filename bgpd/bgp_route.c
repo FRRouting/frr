@@ -8308,7 +8308,7 @@ ALIAS (show_bgp_view_neighbor_damp,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
-       "Display the dampened routes received from neighbor\n")      
+       "Display the dampened routes received from neighbor\n")
 #endif /* HAVE_IPV6 */
 
 struct bgp_table *bgp_distance_table;
