@@ -55,8 +55,8 @@ long rip_global_queries = 0;
 /* Prototypes. */
 void rip_event (enum rip_event, int);
 
-void rip_output_process (struct interface *, struct sockaddr_in *, 
-			 int, u_char);
+void rip_output_process (struct interface *, struct prefix *,
+			 struct sockaddr_in *, int, u_char);
 
 /* RIP output routes type. */
 enum
@@ -955,7 +955,14 @@ rip_response_process (struct rip_packet *packet, int size,
 {
   caddr_t lim;
   struct rte *rte;
+  struct prefix_ipv4 ifaddr;
+  struct prefix_ipv4 ifaddrclass;
+  struct connected *c;
+  int subnetted;
       
+  /* We don't know yet. */
+  subnetted = -1;
+
   /* The Response must be ignored if it is not from the RIP
      port. (RFC2453 - Sec. 3.9.2)*/
   if (ntohs (from->sin_port) != RIP_PORT_DEFAULT) 
@@ -1108,23 +1115,51 @@ rip_response_process (struct rip_packet *packet, int size,
 	{
 	  u_int32_t destination;
 
+	  if (subnetted == -1)
+	    {
+	      c = connected_lookup_address (ifp, from->sin_addr);
+	      if (c != NULL)
+		{
+		  memcpy (&ifaddr, c->address, sizeof (struct prefix_ipv4));
+		  memcpy (&ifaddrclass, &ifaddr, sizeof (struct prefix_ipv4));
+		  apply_classful_mask_ipv4 (&ifaddrclass);
+		  subnetted = 0;
+		  if (ifaddr.prefixlen > ifaddrclass.prefixlen)
+		    subnetted = 1;
+		}
+	    }
+
 	  destination = ntohl (rte->prefix.s_addr);
 
-	  if (destination & 0xff) 
-	    {
-	      masklen2ip (32, &rte->mask);
-	    }
-	  else if ((destination & 0xff00) || IN_CLASSC (destination)) 
-	    {
-	      masklen2ip (24, &rte->mask);
-	    }
-	  else if ((destination & 0xff0000) || IN_CLASSB (destination)) 
-	    {
-	      masklen2ip (16, &rte->mask);
-	    }
-	  else 
-	    {
+	  if (IN_CLASSA (destination))
 	      masklen2ip (8, &rte->mask);
+	  else if (IN_CLASSB (destination))
+	      masklen2ip (16, &rte->mask);
+	  else if (IN_CLASSC (destination))
+	      masklen2ip (24, &rte->mask);
+
+	  if (subnetted == 1)
+	    masklen2ip (ifaddrclass.prefixlen,
+			(struct in_addr *) &destination);
+	  if ((subnetted == 1) && ((rte->prefix.s_addr & destination) ==
+	      ifaddrclass.prefix.s_addr))
+	    {
+	      masklen2ip (ifaddr.prefixlen, &rte->mask);
+	      if ((rte->prefix.s_addr & rte->mask.s_addr) != rte->prefix.s_addr)
+		masklen2ip (32, &rte->mask);
+	      if (IS_RIP_DEBUG_EVENT)
+		zlog_info ("Subnetted route %s", inet_ntoa (rte->prefix));
+	    }
+	  else
+	    {
+	      if ((rte->prefix.s_addr & rte->mask.s_addr) != rte->prefix.s_addr)
+		continue;
+	    }
+
+	  if (IS_RIP_DEBUG_EVENT)
+	    {
+	      zlog_info ("Resultant route %s", inet_ntoa (rte->prefix));
+	      zlog_info ("Resultant mask %s", inet_ntoa (rte->mask));
 	    }
 	}
 
@@ -1353,7 +1388,7 @@ rip_request_process (struct rip_packet *packet, int size,
       ntohl (rte->metric) == RIP_METRIC_INFINITY)
     {	
       /* All route with split horizon */
-      rip_output_process (ifp, from, rip_all_route, packet->version);
+      rip_output_process (ifp, NULL, from, rip_all_route, packet->version);
     }
   else
     {
@@ -1884,8 +1919,8 @@ rip_write_rte (int num, struct stream *s, struct prefix_ipv4 *p,
 
 /* Send update to the ifp or spcified neighbor. */
 void
-rip_output_process (struct interface *ifp, struct sockaddr_in *to,
-		    int route_type, u_char version)
+rip_output_process (struct interface *ifp, struct prefix *ifaddr,
+		    struct sockaddr_in *to, int route_type, u_char version)
 {
   int ret;
   struct stream *s;
@@ -1894,8 +1929,11 @@ rip_output_process (struct interface *ifp, struct sockaddr_in *to,
   struct rip_interface *ri;
   struct prefix_ipv4 *p;
   struct prefix_ipv4 classfull;
+  struct prefix_ipv4 ifaddrclass;
+  struct connected *c;
   int num;
   int rtemax;
+  int subnetted;
 
   /* Logging output event. */
   if (IS_RIP_DEBUG_EVENT)
@@ -1946,29 +1984,60 @@ rip_output_process (struct interface *ifp, struct sockaddr_in *to,
          rtemax -=1;
     }
 
+  if (version == RIPv1)
+    {
+      if (ifaddr == NULL)
+	{
+	  c = connected_lookup_address (ifp, to->sin_addr);
+	  if (c != NULL)
+	    ifaddr = c->address;
+	}
+      if (ifaddr == NULL)
+	{
+	  zlog_warn ("cannot find source address for packets to neighbor %s",
+		     inet_ntoa (to->sin_addr));
+	  return;
+	}
+      memcpy (&ifaddrclass, ifaddr, sizeof (struct prefix_ipv4));
+      apply_classful_mask_ipv4 (&ifaddrclass);
+      subnetted = 0;
+      if (ifaddr->prefixlen > ifaddrclass.prefixlen)
+	subnetted = 1;
+    }
+
   for (rp = route_top (rip->table); rp; rp = route_next (rp))
     if ((rinfo = rp->info) != NULL)
       {
-	/* Some inheritance stuff:                                          */
-	/* Before we process with ipv4 prefix we should mask it             */
-	/* with Classful mask if we send RIPv1 packet.That's because        */
-	/* user could set non-classful mask or we could get it by RIPv2     */
-	/* or other protocol. checked with Cisco's way of life :)           */
+	/* For RIPv1, if we are subnetted, output subnets in our network    */
+	/* that have the same mask as the output "interface". For other     */
+	/* networks, only the classfull version is output.                  */
 	
 	if (version == RIPv1)
 	  {
-	    memcpy (&classfull, &rp->p, sizeof (struct prefix_ipv4));
+	    p = (struct prefix_ipv4 *) &rp->p;
 
 	    if (IS_RIP_DEBUG_PACKET)
-	      zlog_info("%s/%d before RIPv1 mask check ",
-			inet_ntoa (classfull.prefix), classfull.prefixlen);
+	      zlog_info("RIPv1 mask check, %s/%d considered for output",
+			inet_ntoa (rp->p.u.prefix4), rp->p.prefixlen);
 
-	    apply_classful_mask_ipv4 (&classfull);
-	    p = &classfull;
-
+	    if (subnetted &&
+		prefix_match ((struct prefix *) &ifaddrclass, &rp->p))
+	      {
+		if ((ifaddr->prefixlen != rp->p.prefixlen) &&
+		    (rp->p.prefixlen != 32))
+		  continue;
+	      }
+	    else
+	      {
+		memcpy (&classfull, &rp->p, sizeof(struct prefix_ipv4));
+		apply_classful_mask_ipv4(&classfull);
+		if (rp->p.u.prefix4.s_addr != 0 &&
+		    classfull.prefixlen != rp->p.prefixlen)
+		  continue;
+	      }
 	    if (IS_RIP_DEBUG_PACKET)
-	      zlog_info("%s/%d after RIPv1 mask check",
-			inet_ntoa (p->prefix), p->prefixlen);
+	      zlog_info("RIPv1 mask check, %s/%d made it through",
+			inet_ntoa (rp->p.u.prefix4), rp->p.prefixlen);
 	  }
 	else 
 	  p = (struct prefix_ipv4 *) &rp->p;
@@ -2109,7 +2178,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type)
       if (IS_RIP_DEBUG_EVENT)
 	zlog_info ("multicast announce on %s ", ifp->name);
 
-      rip_output_process (ifp, NULL, route_type, version);
+      rip_output_process (ifp, NULL, NULL, route_type, version);
       return;
     }
 
@@ -2136,7 +2205,8 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type)
 			   if_is_pointopoint (ifp) ? "unicast" : "broadcast",
 			   inet_ntoa (to.sin_addr), ifp->name);
 
-	      rip_output_process (ifp, &to, route_type, version);
+	      rip_output_process (ifp, connected->address, &to, route_type,
+				  version);
 	    }
 	}
     }
@@ -2224,7 +2294,7 @@ rip_update_process (int route_type)
 	to.sin_port = htons (RIP_PORT_DEFAULT);
 
 	/* RIP version is rip's configuration. */
-	rip_output_process (ifp, &to, route_type, rip->version);
+	rip_output_process (ifp, NULL, &to, route_type, rip->version);
       }
 }
 

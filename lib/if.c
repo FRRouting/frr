@@ -553,6 +553,65 @@ connected_delete_by_prefix (struct interface *ifp, struct prefix *p)
   return NULL;
 }
 
+/* Find the IPv4 address on our side that will be used when packets
+   are sent to dst. */
+struct connected *
+connected_lookup_address (struct interface *ifp, struct in_addr dst)
+{
+  struct prefix addr;
+  struct prefix best;
+  listnode cnode;
+  struct prefix *p;
+  struct connected *c;
+  struct connected *match;
+
+  /* Zero structures - get rid of rubbish from stack */
+  memset(&addr, 0, sizeof(addr));
+  memset(&best, 0, sizeof(best));
+
+  addr.family = AF_INET;
+  addr.u.prefix4 = dst;
+  addr.prefixlen = IPV4_MAX_BITLEN;
+
+  match = NULL;
+
+  for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+    {
+      c = getdata (cnode);
+
+      if (if_is_pointopoint (ifp))
+	{
+	  p = c->address;
+
+	  if (p && p->family == AF_INET)
+	    {
+#ifdef OLD_RIB	 /* PTP  links are conventionally identified 
+		    by the address of the far end - MAG */
+	      if (IPV4_ADDR_SAME (&p->u.prefix4, &dst))
+		return c;
+#endif
+	      p = c->destination;
+	      if (p && IPV4_ADDR_SAME (&p->u.prefix4, &dst))
+		return c;
+	    }
+	}
+      else
+	{
+	  p = c->address;
+
+	  if (p->family == AF_INET)
+	    {
+	      if (prefix_match (p, &addr) && p->prefixlen > best.prefixlen)
+		{
+		  best = *p;
+		  match = c;
+		}
+	    }
+	}
+    }
+  return match;
+}
+
 /* Check the connected information is PtP style or not.  */
 int
 ifc_pointopoint (struct connected *ifc)
