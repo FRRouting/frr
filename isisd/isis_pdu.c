@@ -839,16 +839,18 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       if (memcmp (circuit->u.bc.l1_desig_is, hdr.lan_id, ISIS_SYS_ID_LEN + 1))
 	{
 	  thread_add_event (master, isis_event_dis_status_change, circuit, 0);
-	  memcpy (&circuit->u.bc.l1_desig_is, hdr.lan_id,
-		  ISIS_SYS_ID_LEN + 1);
+	  if (adj->dis_record[level-1].dis == ISIS_IS_DIS)
+	    memcpy (&circuit->u.bc.l1_desig_is, hdr.lan_id,
+		    ISIS_SYS_ID_LEN + 1);
 	}
       break;
     case 2:
       if (memcmp (circuit->u.bc.l2_desig_is, hdr.lan_id, ISIS_SYS_ID_LEN + 1))
 	{
 	  thread_add_event (master, isis_event_dis_status_change, circuit, 0);
-	  memcpy (&circuit->u.bc.l2_desig_is, hdr.lan_id,
-		  ISIS_SYS_ID_LEN + 1);
+	  if (adj->dis_record[level-1].dis == ISIS_IS_DIS)
+	    memcpy (&circuit->u.bc.l2_desig_is, hdr.lan_id,
+		    ISIS_SYS_ID_LEN + 1);
 	}
       break;
     }

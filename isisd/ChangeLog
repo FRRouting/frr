@@ -1,3 +1,7 @@
+2004-09-14 LIU Xin <lx at ns.6test.edu.cn>
+
+	* isis_pdu.c: Update l1_desig_is only if neighbor really is DIS.
+
 2004-09-10 LIU Xin <lx at ns.6test.edu.cn>
 	
 	* isis_pdu.c: Goto out only if no adjacency exist.
