@@ -1,3 +1,26 @@
+2005-03-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* irdp.h: Add prototype for irdp_sock_init, and fix protos for
+	  other irdp_* functions.
+	* irdp_interface.c: (irdp_if_start) If irdp_sock is negative,
+	  call irdp_sock_init to create the IRDP socket.
+	  (irdp_if_init) Rename to irdp_init().
+	  (get_iflist_ifp) Remove function that is a duplicate of
+	  if_lookup_by_index.
+	  (*) Make many functions static.  And remove superfluous "\n" from
+	  several zlog messages.
+	* irdp_main.c: (irdp_init) Remove function that used to call
+	  irdp_if_init() and irdp_sock_init(), since we will now create
+	  the socket only upon first use.
+	  (irdp_sock_init) Do not update global irdp_sock variable, just
+	  return the fd and assume that the caller will do so.  If setsockopt
+	  calls fail, close the socket before returning -1.
+	  (*) Make many functions static.
+	* irdp_packet.c: Initialize irdp_sock to -1.
+	  (irdp_read_raw) Call standard library function if_lookup_by_index
+	  instead of get_iflist_ifp.
+	  (irdp_recvmsg) Should be static, not global.
+
 2005-03-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* rt_netlink.c: (netlink_link_change) If the status of an

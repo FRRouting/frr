@@ -77,14 +77,11 @@ int irdp_timer_interval = IRDP_DEFAULT_INTERVAL;
 
 int irdp_read_raw(struct thread *r);
 int in_cksum (void *ptr, int nbytes);
-extern int irdp_sock;
 void send_packet(struct interface *ifp, 
 		 struct stream *s,
 		 u_int32_t dst,
 		 struct prefix *p,
 		 u_int32_t ttl);
-
-void irdp_if_init ();
 
 char *
 inet_2a(u_int32_t a, char *b)
@@ -102,44 +99,48 @@ irdp_sock_init (void)
 {
   int ret, i;
   int save_errno;
+  int sock;
 
   if ( zserv_privs.change (ZPRIVS_RAISE) )
        zlog_err ("irdp_sock_init: could not raise privs, %s",
                   safe_strerror (errno) );
 
-  irdp_sock = socket (AF_INET, SOCK_RAW, IPPROTO_ICMP);
+  sock = socket (AF_INET, SOCK_RAW, IPPROTO_ICMP);
   save_errno = errno;
 
   if ( zserv_privs.change (ZPRIVS_LOWER) )
        zlog_err ("irdp_sock_init: could not lower privs, %s",
              safe_strerror (errno) );
 
-  if (irdp_sock < 0) {
+  if (sock < 0) {
     zlog_warn ("IRDP: can't create irdp socket %s", safe_strerror(save_errno));
-    return irdp_sock;
+    return sock;
   };
   
   i = 1;
-  ret = setsockopt (irdp_sock, IPPROTO_IP, IP_TTL, 
+  ret = setsockopt (sock, IPPROTO_IP, IP_TTL, 
                         (void *) &i, sizeof (i));
   if (ret < 0) {
     zlog_warn ("IRDP: can't do irdp sockopt %s", safe_strerror(errno));
+    close(sock);
     return ret;
   };
   
-  ret = setsockopt_ifindex (AF_INET, irdp_sock, 1);
+  ret = setsockopt_ifindex (AF_INET, sock, 1);
   if (ret < 0) {
     zlog_warn ("IRDP: can't do irdp sockopt %s", safe_strerror(errno));
+    close(sock);
     return ret;
   };
 
-  t_irdp_raw = thread_add_read (zebrad.master, irdp_read_raw, NULL, irdp_sock); 
+  t_irdp_raw = thread_add_read (zebrad.master, irdp_read_raw, NULL, sock); 
 
-  return irdp_sock;
+  return sock;
 }
 
 
-int get_pref(struct irdp_interface *irdp, struct prefix *p)
+static int
+get_pref(struct irdp_interface *irdp, struct prefix *p)
 {
   struct listnode *node;
   struct Adv *adv;
@@ -157,9 +158,10 @@ int get_pref(struct irdp_interface *irdp, struct prefix *p)
 }
 
 /* Make ICMP Router Advertisement Message. */
-int make_advertisement_packet (struct interface *ifp, 
-			       struct prefix *p,
-			       struct stream *s)
+static int
+make_advertisement_packet (struct interface *ifp, 
+			   struct prefix *p,
+			   struct stream *s)
 {
   struct zebra_if *zi=ifp->info;
   struct irdp_interface *irdp=&zi->irdp;
@@ -191,9 +193,8 @@ int make_advertisement_packet (struct interface *ifp,
   return size;
 }
 
-void irdp_send(struct interface *ifp, 
-	       struct prefix *p, 
-	       struct stream *s)
+static void
+irdp_send(struct interface *ifp, struct prefix *p, struct stream *s)
 {
   struct zebra_if *zi=ifp->info;
   struct irdp_interface *irdp=&zi->irdp;
@@ -218,8 +219,7 @@ void irdp_send(struct interface *ifp,
   send_packet (ifp, s, dst, p, ttl);
 }
 
-void irdp_advertisement (struct interface *ifp, 
-		   struct prefix *p)
+static void irdp_advertisement (struct interface *ifp, struct prefix *p)
 {
   struct stream *s;
   s = stream_new (128);
@@ -345,14 +345,4 @@ void irdp_finish()
     }
 }
 
-void irdp_init()
-{
-  irdp_sock_init();
-  irdp_if_init ();
-}
-
 #endif /* HAVE_IRDP */
-
-
-
-

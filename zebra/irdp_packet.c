@@ -66,16 +66,16 @@
 
 /* GLOBAL VARS */
 
-int irdp_sock;
+int irdp_sock = -1;
 char b1[16], b2[16], b3[16], b4[16];  /* For inet_2a */
 
 extern struct zebra_t zebrad;
 extern struct thread *t_irdp_raw;
-extern struct interface *get_iflist_ifp(int idx);
 int in_cksum (void *ptr, int nbytes);
 void process_solicit (struct interface *ifp);
 
-void parse_irdp_packet(char *p, 
+static void
+parse_irdp_packet(char *p, 
 		  int len, 
 		  struct interface *ifp)
 {
@@ -187,7 +187,8 @@ void parse_irdp_packet(char *p,
     }
 }
 
-int irdp_recvmsg (int sock, u_char *buf, int size, int *ifindex)
+static int
+irdp_recvmsg (int sock, u_char *buf, int size, int *ifindex)
 {
   struct msghdr msg;
   struct iovec iov;
@@ -239,7 +240,7 @@ int irdp_read_raw(struct thread *r)
  
   if (ret < 0) zlog_warn ("IRDP: RX Error length = %d", ret);
 
-  ifp = get_iflist_ifp(ifindex);
+  ifp = if_lookup_by_index(ifindex);
   if(! ifp ) return ret;
 
   zi= ifp->info;

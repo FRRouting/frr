@@ -142,12 +142,9 @@ struct Adv
   int pref;
 };
 
-void irdp_init();
-void irdp_finish();
-void irdp_config_write (struct vty *, struct interface *);
+extern void irdp_init(void);
+extern int irdp_sock_init(void);
+extern void irdp_finish(void);
+extern void irdp_config_write (struct vty *, struct interface *);
+
 #endif /* _IRDP_H */
-
-
-
-
-
