@@ -246,4 +246,6 @@ struct crypt_key *ospf_crypt_key_new ();
 void ospf_crypt_key_add (struct list *, struct crypt_key *);
 int ospf_crypt_key_delete (struct list *, u_char);
 
+u_char ospf_default_iftype(struct interface *ifp);
+
 #endif /* _ZEBRA_OSPF_INTERFACE_H */

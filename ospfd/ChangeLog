@@ -1,3 +1,13 @@
+2004-12-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_interface.h: Declare new function ospf_default_iftype.
+	* ospf_interface.c: (ospf_default_iftype) New function to centralize
+	  this logic in one place.
+	* ospf_zebra.c: (ospf_interface_add) Use new function
+	  ospf_default_iftype.
+	* ospf_vty.c: (no_ip_ospf_network,config_write_interface) Fix logic
+	  by using new function ospf_default_iftype.
+
 2004-12-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_packet.c: (ospf_db_desc) Should be static, not global.

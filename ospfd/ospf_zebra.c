@@ -95,14 +95,7 @@ ospf_interface_add (int command, struct zclient *zclient, zebra_size_t length)
   if (!OSPF_IF_PARAM_CONFIGURED (IF_DEF_PARAMS (ifp), type))
     {
       SET_IF_PARAM (IF_DEF_PARAMS (ifp), type);
-      IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_BROADCAST;
-
-      if (if_is_broadcast (ifp))
-        IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_BROADCAST;
-      else if (if_is_pointopoint (ifp))
-        IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_POINTOPOINT;
-      else if (if_is_loopback (ifp))
-        IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_LOOPBACK;
+      IF_DEF_PARAMS (ifp)->type = ospf_default_iftype(ifp);
     }
 
   ospf = ospf_lookup ();

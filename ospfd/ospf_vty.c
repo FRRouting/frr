@@ -4853,7 +4853,7 @@ DEFUN (no_ip_ospf_network,
   int old_type = IF_DEF_PARAMS (ifp)->type;
   struct route_node *rn;
 
-  IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_BROADCAST;
+  IF_DEF_PARAMS (ifp)->type = ospf_default_iftype(ifp);
 
   if (IF_DEF_PARAMS (ifp)->type == old_type)
     return CMD_SUCCESS;
@@ -6722,8 +6722,7 @@ config_write_interface (struct vty *vty)
 	if (OSPF_IF_PARAM_CONFIGURED (params, type) &&
 	    params->type != OSPF_IFTYPE_LOOPBACK)
 	  {
-	    if ((!if_is_broadcast(ifp)) && 
-		(params->type != OSPF_IFTYPE_BROADCAST))
+	    if (params->type != ospf_default_iftype(ifp))
 	      {
 		vty_out (vty, " ip ospf network %s",
 			 ospf_int_type_str[params->type]);

@@ -1174,6 +1174,17 @@ ospf_crypt_key_delete (struct list *auth_crypt, u_char key_id)
   return 0;
 }
 
+u_char
+ospf_default_iftype(struct interface *ifp)
+{
+  if (if_is_pointopoint (ifp))
+    return OSPF_IFTYPE_POINTOPOINT;
+  else if (if_is_loopback (ifp))
+    return OSPF_IFTYPE_LOOPBACK;
+  else
+    return OSPF_IFTYPE_BROADCAST;
+}
+
 void
 ospf_if_init ()
 {
