@@ -1,13 +1,14 @@
 ##
-## Configure template file for Zebra.
+## Configure template file for Quagga.
 ## autoconf will generate configure script.
 ##
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
+##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-AC_PREREQ(2.13)
+AC_PREREQ(2.53)
 
 AC_INIT(lib/zebra.h)
-AM_INIT_AUTOMAKE(zebra, 0.94)
+AM_INIT_AUTOMAKE(quagga, 0.96)
 AM_CONFIG_HEADER(config.h)
 
 dnl -----------------------------------
@@ -56,7 +57,7 @@ dnl ----------------------
 dnl Packages configuration
 dnl ----------------------
 AC_ARG_ENABLE(vtysh,
-[  --enable-vtysh,       Make integrated VTY version of zebra])
+[  --enable-vtysh,       Make integrated vty shell for Quagga])
 AC_ARG_ENABLE(ipv6,
 [  --disable-ipv6          turn off IPv6 related features and daemons])
 AC_ARG_ENABLE(zebra,
@@ -98,10 +99,10 @@ AC_ARG_ENABLE(ospf-te,
 [  --enable-ospf-te        enable Traffic Engineering Extension to OSPF])
 AC_ARG_ENABLE(multipath,
 [  --enable-multipath=ARG  enable multipath function, ARG must be digit])
-AC_ARG_ENABLE(zebra_user,
-[  --enable-user=ARG       user to run zebra suite as (default zebra)])
-AC_ARG_ENABLE(zebra_group,
-[  --enable-group=ARG      group to run zebra suite as (default zebra)])
+AC_ARG_ENABLE(quagga_user,
+[  --enable-user=ARG       user to run Quagga suite as (default quagga)])
+AC_ARG_ENABLE(quagga_group,
+[  --enable-group=ARG      group to run Quagga suite as (default quagga)])
 AC_ARG_ENABLE(vty_group,
 [  --enable-vty-group=ARG      set vty sockets to have specified group as owner])
 
@@ -135,27 +136,27 @@ if test "${enable_ospf_te}" = "yes"; then
   AC_DEFINE(HAVE_OSPF_TE,,OSPF TE)
 fi
 
-AC_MSG_CHECKING(Should Zebra's RTADV be used)
+AC_MSG_CHECKING(Should zebra's RTADV be used)
 if test "${enable_rtadv}" = "yes"; then
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_RTADV,,Enable Zebra IPv6 Routing Advertisements)
+  AC_DEFINE(HAVE_RTADV,,Enable zebra IPv6 Routing Advertisements)
 else
   AC_MSG_RESULT(no)
 fi
 
 if test "${enable_user}" = "yes" || test x"${enable_user}" = x""; then
-  enable_user="zebra"
+  enable_user="quagga"
 elif test "${enable_user}" = "no"; then
   enable_user="root"
 fi
-AC_DEFINE_UNQUOTED(ZEBRA_USER, "${enable_user}", Zebra User)
+AC_DEFINE_UNQUOTED(QUAGGA_USER, "${enable_user}", Quagga User)
 
 if test "${enable_group}" = "yes" || test x"${enable_group}" = x""; then
-  enable_group="zebra"
+  enable_group="quagga"
 elif test "${enable_group}" = "no"; then
   enable_group="root"
 fi
-AC_DEFINE_UNQUOTED(ZEBRA_GROUP, "${enable_group}", Zebra Group)
+AC_DEFINE_UNQUOTED(QUAGGA_GROUP, "${enable_group}", Quagga Group)
 
 if test x"${enable_vty_group}" = x"yes" ; then
   AC_MSG_ERROR([--enable-vty-group requires a group as argument, not yes])
@@ -907,10 +908,10 @@ AC_MSG_CHECKING(whether prctl PR_SET_KEEPCAPS is available)
 AC_TRY_COMPILE([#include <sys/prctl.h>],[prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0);],
   [AC_MSG_RESULT(yes)
    AC_DEFINE(HAVE_PR_SET_KEEPCAPS,,prctl)
-   zebra_ac_keepcaps="yes"],
+   quagga_ac_keepcaps="yes"],
    AC_MSG_RESULT(no)
 )
-if test x"${zebra_ac_keepcaps}" = x"yes"; then
+if test x"${quagga_ac_keepcaps}" = x"yes"; then
   AC_CHECK_HEADERS(sys/capability.h)
 fi
 if test x"${ac_cv_header_sys_capability_h}" = x"yes"; then
@@ -938,7 +939,7 @@ dnl -------------
 dnl check version
 dnl -------------
 file="${srcdir}/lib/version.h"
-VERSION=`sed -ne 's/^#.*ZEBRA_VERSION.*\"\([^\"]*\)\"$/\1/p' $file`
+VERSION=`sed -ne 's/^#.*QUAGGA_VERSION.*\"\([^\"]*\)\"$/\1/p' $file`
 AC_SUBST(VERSION)
 
 dnl ----------
@@ -951,45 +952,45 @@ dnl ------------------------------
 dnl set paths for state directory
 dnl ------------------------------
 if test "${prefix}" = "NONE"; then
-  zebra_statedir_prefix="";
+  quagga_statedir_prefix="";
 else
-  zebra_statedir_prefix=${prefix}
+  quagga_statedir_prefix=${prefix}
 fi
 if test "${localstatedir}" = '${prefix}/var'; then
   AC_CACHE_CHECK(state directory,ac_statedir,
-  [for ZEBRA_STATE_DIR in ${zebra_statedir_prefix}/var/run dnl
-			${zebra_statedir_prefix}/var/adm dnl
-			${zebra_statedir_prefix}/etc dnl
+  [for QUAGGA_STATE_DIR in ${quagga_statedir_prefix}/var/run dnl
+			${quagga_statedir_prefix}/var/adm dnl
+			${quagga_statedir_prefix}/etc dnl
 			/var/run	dnl
                         /var/adm	dnl
                         /etc		dnl
                         /dev/null;
   do
-    test -d $ZEBRA_STATE_DIR && break
+    test -d $QUAGGA_STATE_DIR && break
   done
-  zebra_statedir=$ZEBRA_STATE_DIR])
+  quagga_statedir=$QUAGGA_STATE_DIR])
 else
-  zebra_statedir=${localstatedir}
+  quagga_statedir=${localstatedir}
   AC_MSG_CHECKING(directory to use for state file)
-  AC_MSG_RESULT(${zebra_statedir})
+  AC_MSG_RESULT(${quagga_statedir})
 fi
-if test $zebra_statedir = "/dev/null"; then
+if test $quagga_statedir = "/dev/null"; then
     AC_MSG_ERROR('STATE DIRECTORY NOT FOUND! FIX OR SPECIFY --localstatedir!')
 fi
 
-AC_DEFINE_UNQUOTED(PATH_ZEBRA_PID, "$zebra_statedir/zebra.pid",zebra PID)
-AC_DEFINE_UNQUOTED(PATH_RIPD_PID, "$zebra_statedir/ripd.pid",ripd PID)
-AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$zebra_statedir/ripngd.pid",ripngd PID)
-AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$zebra_statedir/bgpd.pid",bgpd PID)
-AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$zebra_statedir/ospfd.pid",ospfd PID)
-AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$zebra_statedir/ospf6d.pid",ospf6d PID)
-AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$zebra_statedir/zserv.api",zebra api socket)
-AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$zebra_statedir/zebra.vty",zebra vty socket)
-AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$zebra_statedir/ripd.vty",rip vty socket)
-AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$zebra_statedir/ripngd.vty",ripng vty socket)
-AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$zebra_statedir/bgpd.vty",bgpd vty socket)
-AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$zebra_statedir/ospfd.vty",ospfd vty socket)
-AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$zebra_statedir/ospf6d.vty",ospf6d vty socket)
+AC_DEFINE_UNQUOTED(PATH_ZEBRA_PID, "$quagga_statedir/zebra.pid",zebra PID)
+AC_DEFINE_UNQUOTED(PATH_RIPD_PID, "$quagga_statedir/ripd.pid",ripd PID)
+AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$quagga_statedir/ripngd.pid",ripngd PID)
+AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$quagga_statedir/bgpd.pid",bgpd PID)
+AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$quagga_statedir/ospfd.pid",ospfd PID)
+AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$quagga_statedir/ospf6d.pid",ospf6d PID)
+AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$quagga_statedir/zserv.api",zebra api socket)
+AC_DEFINE_UNQUOTED(ZEBRA_VTYSH_PATH, "$quagga_statedir/zebra.vty",zebra vty socket)
+AC_DEFINE_UNQUOTED(RIP_VTYSH_PATH, "$quagga_statedir/ripd.vty",rip vty socket)
+AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$quagga_statedir/ripngd.vty",ripng vty socket)
+AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$quagga_statedir/bgpd.vty",bgpd vty socket)
+AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$quagga_statedir/ospfd.vty",ospfd vty socket)
+AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$quagga_statedir/ospf6d.vty",ospf6d vty socket)
 
 dnl ---------------------------
 dnl Check htonl works correctly
@@ -1014,18 +1015,18 @@ AC_OUTPUT(Makefile lib/Makefile zebra/Makefile ripd/Makefile
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile 
 	  ospf6d/Makefile vtysh/Makefile doc/Makefile 
 	  ospfclient/Makefile
-	  redhat/zebra.spec)
+	  redhat/quagga.spec)
 
 echo "
 zebra configuration
 -------------------
-zebra version           : ${VERSION}
+quagga version           : ${VERSION}
 host operationg system  : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 linker flags            : ${LDFLAGS} ${LIBS}
-state file directory    : ${zebra_statedir}
+state file directory    : ${quagga_statedir}
 user to run as		: ${enable_user}
 group to run as		: ${enable_group}
 group for vty sockets	: ${enable_vty_group}

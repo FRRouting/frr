@@ -130,7 +130,7 @@ void
 _reload ()
 {
   zlog_notice ("OSPF6d (Zebra-%s ospf6d-%s) reloaded",
-               ZEBRA_VERSION, OSPF6_DAEMON_VERSION);
+               QUAGGA_VERSION, OSPF6_DAEMON_VERSION);
   ospf6_zebra_finish ();
   vty_finish ();
   execve (_progpath, _argv, _envp);
@@ -142,7 +142,7 @@ terminate (int i)
   ospf6_delete (ospf6);
   unlink (PATH_OSPF6D_PID);
   zlog_notice ("OSPF6d (Zebra-%s ospf6d-%s) terminated",
-               ZEBRA_VERSION, OSPF6_DAEMON_VERSION);
+               QUAGGA_VERSION, OSPF6_DAEMON_VERSION);
   exit (i);
 }
 
@@ -345,7 +345,7 @@ main (int argc, char *argv[], char *envp[])
 #ifdef DEBUG
   /* Print start message */
   zlog_notice ("OSPF6d (Zebra-%s ospf6d-%s) starts",
-               ZEBRA_VERSION, OSPF6_DAEMON_VERSION);
+               QUAGGA_VERSION, OSPF6_DAEMON_VERSION);
 #endif
 
   /* Start finite state machine, here we go! */

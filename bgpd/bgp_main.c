@@ -305,7 +305,7 @@ main (int argc, char **argv)
   vty_serv_sock (vty_addr, vty_port, BGP_VTYSH_PATH);
 
   /* Print banner. */
-  zlog_info ("BGPd %s starting: vty@%d, bgp@%d", ZEBRA_VERSION,
+  zlog_info ("BGPd %s starting: vty@%d, bgp@%d", QUAGGA_VERSION,
 	     vty_port, bm->port);
 
   /* Start finite state machine, here we go! */

@@ -39,7 +39,7 @@ struct host host;
 /* Default motd string. */
 char *default_motd = 
 "\r\n\
-Hello, this is zebra (version " ZEBRA_VERSION ").\r\n\
+Hello, this is quagga (version " QUAGGA_VERSION ").\r\n\
 Copyright 1996-2002 Kunihiro Ishiguro.\r\n\
 \r\n";
 
@@ -2393,7 +2393,7 @@ DEFUN (show_version,
        SHOW_STR
        "Displays zebra version\n")
 {
-  vty_out (vty, "Zebra %s (%s).%s", ZEBRA_VERSION,
+  vty_out (vty, "Quagga %s (%s).%s", QUAGGA_VERSION,
 	   host_name,
 	   VTY_NEWLINE);
   vty_out (vty, "Copyright 1996-2002, Kunihiro Ishiguro.%s", VTY_NEWLINE);

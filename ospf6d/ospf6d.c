@@ -637,7 +637,7 @@ DEFUN (set_proctitle,
   if (strncmp (argv[0], "v", 1) == 0)
     {
       proctitle_mode = 1;
-      setproctitle ("%s Zebra: %s", OSPF6_DAEMON_VERSION, ZEBRA_VERSION);
+      setproctitle ("%s Zebra: %s", OSPF6_DAEMON_VERSION, QUAGGA_VERSION);
     }
   else if (strncmp (argv[0], "nor", 3) == 0)
     {

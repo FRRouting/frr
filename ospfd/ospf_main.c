@@ -328,7 +328,7 @@ main (int argc, char **argv)
 
 #ifdef DEBUG
   /* Print banner. */
-  zlog (NULL, LOG_INFO, "OSPFd (%s) starts", ZEBRA_VERSION);
+  zlog (NULL, LOG_INFO, "OSPFd (%s) starts", QUAGGA_VERSION);
 #endif
 
   /* Fetch next active thread. */

@@ -15,5 +15,5 @@ dist-hook:
 	cp -p $(srcdir)/tools/*.el $(distdir)/tools
 	cp -p $(srcdir)/tools/*.cgi $(distdir)/tools
 	cp -p $(srcdir)/redhat/*.init $(distdir)/redhat
-	cp -p $(srcdir)/redhat/zebra.* $(distdir)/redhat
+	cp -p $(srcdir)/redhat/quagga.* $(distdir)/redhat
 	rm -rf `find $(distdir)/doc -type d -name CVS`

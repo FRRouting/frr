@@ -26,6 +26,6 @@
 void
 print_version (char *progname)
 {
-  printf ("%s version %s (%s)\n", progname, ZEBRA_VERSION, host_name);
+  printf ("%s version %s (%s)\n", progname, QUAGGA_VERSION, host_name);
   printf ("Copyright 1996-2001, Kunihiro Ishiguro\n");
 }
