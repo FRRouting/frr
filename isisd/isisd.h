@@ -90,7 +90,7 @@ struct isis_area
   struct isis_spftree *spftree6[ISIS_LEVELS];	/* The v4 SPTs */
   struct route_table *route_table6;	/* IPv6 routes */
 #endif
-  int min_bcast_mtu;
+  unsigned int min_bcast_mtu;
   struct list *circuit_list;	/* IS-IS circuits */
   struct flags flags;
   struct thread *t_tick;	/* LSP walker */
@@ -134,7 +134,7 @@ struct isis_area
 };
 
 void isis_init (void);
-struct isis_area *isis_area_lookup (char *);
+struct isis_area *isis_area_lookup (const char *);
 
 #define DEBUG_ADJ_PACKETS                (1<<0)
 #define DEBUG_CHECKSUM_ERRORS            (1<<1)

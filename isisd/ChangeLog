@@ -1,3 +1,8 @@
+2004-10-11 Hasso Tepper <hasso at quagga.net>
+
+	* isis_routemap.c, isisd.c: Make more strings const.
+	* isisd.h: Make min_bcast_mtu unsigned.
+
 2004-10-07 Hasso Tepper <hasso at quagga.net>
 
 	* *.[c|h]: Fix warnings: make strings const, signed -> unsigned,

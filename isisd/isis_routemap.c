@@ -52,7 +52,7 @@
 extern struct isis *isis;
 
 void
-isis_route_map_upd (char *name)
+isis_route_map_upd (const char *name)
 {
   int i = 0;
 
@@ -71,7 +71,7 @@ isis_route_map_upd (char *name)
 }
 
 void
-isis_route_map_event (route_map_event_t event, char *name)
+isis_route_map_event (route_map_event_t event, const char *name)
 {
   int type;
 

@@ -141,7 +141,7 @@ isis_area_create ()
 }
 
 struct isis_area *
-isis_area_lookup (char *area_tag)
+isis_area_lookup (const char *area_tag)
 {
   struct isis_area *area;
   struct listnode *node;
@@ -156,7 +156,7 @@ isis_area_lookup (char *area_tag)
 }
 
 int
-isis_area_get (struct vty *vty, char *area_tag)
+isis_area_get (struct vty *vty, const char *area_tag)
 {
   struct isis_area *area;
 
@@ -182,7 +182,7 @@ isis_area_get (struct vty *vty, char *area_tag)
 }
 
 int
-isis_area_destroy (struct vty *vty, char *area_tag)
+isis_area_destroy (struct vty *vty, const char *area_tag)
 {
   struct isis_area *area;
   struct listnode *node;
