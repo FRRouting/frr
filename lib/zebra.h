@@ -280,7 +280,6 @@ struct in_pktinfo
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 
-/* 
 /* MAX / MIN are not commonly defined, but useful */
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
