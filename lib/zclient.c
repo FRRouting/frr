@@ -636,11 +636,13 @@ zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
 {
   /* Read interface's index. */
   ifp->ifindex = stream_getl (s);
+  ifp->status = stream_getc (s);
 
   /* Read interface's value. */
   ifp->flags = stream_getl (s);
   ifp->metric = stream_getl (s);
   ifp->mtu = stream_getl (s);
+  ifp->mtu6 = stream_getl (s);
   ifp->bandwidth = stream_getl (s);
 }
 

@@ -1,3 +1,8 @@
+2004-10-23 Hasso Tepper <hasso at quagga.net>
+
+	* zclient.c: Unbreak reading interface update message. Might fix
+	blocker bugzilla #109.
+
 2004-10-22 Paul Jakma <paul@dishone.st>
 
 	* sockopt.c: (getsockopt_ipv4_ifindex) no ifindex should be 0, not
