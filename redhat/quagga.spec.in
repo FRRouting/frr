@@ -35,7 +35,7 @@
 %define		daemon_list	zebra ripd ospfd bgpd
 
 %if %{with_ipv6}
-%define		daemonv6_list	%{daemon_list} ripngd ospf6d
+%define		daemonv6_list	ripngd ospf6d
 %else
 %define		daemonv6_list	""
 %endif
@@ -362,6 +362,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 %changelog
+* Wed Dec 22 2004 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+- daemonv6_list should contain only IPv6 daemons
+
 * Wed Dec 22 2004 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 - watchquagga added
 - on upgrade, all daemons should be condrestart'ed

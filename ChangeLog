@@ -1,5 +1,9 @@
 2004-12-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* redhat/quagga.spec.in: daemonv6_list should contain only IPv6 daemons.
+
+2004-12-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* redhat/quagga.spec.in: Add watchquagga, and fix some other
 	  logic to make sure that all daemons are restarted on upgrades
 	  and stopped on package removal.
