@@ -32,6 +32,9 @@ o OSPF MIB [SNMP get is amost finished].
 o HUP signal treatment.
 o Fragment Oversized LSAs 
 o move SPF to common code
+o NSSA priority rules (RFC3101 2.4)
+o Type-7 address ranges (RFC3101 2.2)
+o Originating Type-7 default into area (RFC3101 2.7)
 
 ospf6d:
 
