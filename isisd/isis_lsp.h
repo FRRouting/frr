@@ -120,9 +120,6 @@ int lsp_print_all (struct vty *vty, dict_t * lspdb, char detail,
 		   char dynhost);
 char *lsp_bits2string (u_char *);
 
-/* staticly assigned vars for printing purposes */
-char lsp_bits_string[200];	/* FIXME: enough ? */
-
 #ifdef TOPOLOGY_GENERATE
 void generate_topology_lsps (struct isis_area *area);
 void remove_topology_lsps (struct isis_area *area);

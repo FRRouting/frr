@@ -60,6 +60,9 @@
 extern struct isis *isis;
 extern struct thread_master *master;
 
+/* staticly assigned vars for printing purposes */
+char lsp_bits_string[200];     /* FIXME: enough ? */
+
 int
 lsp_id_cmp (u_char * id1, u_char * id2)
 {

@@ -60,7 +60,7 @@ u_char DEFAULT_TOPOLOGY_BASEIS[6] = { 0xFE, 0xED, 0xFE, 0xED, 0x00, 0x00 };
 #endif /* TOPOLOGY_GENERATE */
 
 struct isis *isis = NULL;
-struct thread_master *master;
+extern struct thread_master *master;
 
 void
 isis_new (unsigned long process_id)

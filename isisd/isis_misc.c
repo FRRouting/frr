@@ -46,6 +46,21 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_adjacency.h"
 
+/* staticly assigned vars for printing purposes */
+struct in_addr new_prefix;
+/* len of xxxx.xxxx.xxxx + place for #0 termination */
+char sysid[15];
+/* len of xxxx.xxxx.xxxx + place for #0 termination */
+char snpa[15];
+/* len of xx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xx */
+char isonet[51];
+/* + place for #0 termination */
+/* len of xxxx.xxxx.xxxx.xx.xx + place for #0 termination */
+char lspid[21];
+/* len of xxYxxMxWxdxxhxxmxxs + place for #0 termination */
+char datestring[20];
+char nlpidstring[30];
+
 /*
  * This converts the isonet to its printable format
  */
