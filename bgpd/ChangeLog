@@ -1,5 +1,10 @@
 2005-02-02 Akihiro Mizutani <mizutani@net-chef.net>
 
+	* bgp_vty.c: Deprecate "neighbor transparent-as" and "neighbor
+	  transparent-nexthop" commands.
+
+2005-02-02 Akihiro Mizutani <mizutani@net-chef.net>
+
 	* bgp_routemap.c: New route-map command - "match ip route-source".
 
 2005-02-02 Akihiro Mizutani <mizutani@net-chef.net>

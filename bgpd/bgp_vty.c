@@ -2502,24 +2502,24 @@ ALIAS (no_neighbor_attr_unchanged,
        "Nexthop attribute\n")
 
 /* For old version Zebra compatibility.  */
-DEFUN (neighbor_transparent_as,
-       neighbor_transparent_as_cmd,
-       NEIGHBOR_CMD "transparent-as",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
-       "Do not append my AS number even peer is EBGP peer\n")
+DEFUN_DEPRECATED (neighbor_transparent_as,
+		  neighbor_transparent_as_cmd,
+		  NEIGHBOR_CMD "transparent-as",
+		  NEIGHBOR_STR
+		  NEIGHBOR_ADDR_STR
+		  "Do not append my AS number even peer is EBGP peer\n")
 {
   return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
 			       bgp_node_safi (vty),
 			       PEER_FLAG_AS_PATH_UNCHANGED);
 }
 
-DEFUN (neighbor_transparent_nexthop,
-       neighbor_transparent_nexthop_cmd,
-       NEIGHBOR_CMD "transparent-nexthop",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR
-       "Do not change nexthop even peer is EBGP peer\n")
+DEFUN_DEPRECATED (neighbor_transparent_nexthop,
+		  neighbor_transparent_nexthop_cmd,
+		  NEIGHBOR_CMD "transparent-nexthop",
+		  NEIGHBOR_STR
+		  NEIGHBOR_ADDR_STR
+		  "Do not change nexthop even peer is EBGP peer\n")
 {
   return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
 			       bgp_node_safi (vty),
