@@ -1393,7 +1393,8 @@ bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
   if (! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY) &&
           rn->table->type == BGP_TABLE_MAIN)
     {
-      peer->pcount[afi][safi]--;
+      if (! CHECK_FLAG (ri->flags, BGP_INFO_STALE))
+	peer->pcount[afi][safi]--;
       bgp_aggregate_decrement (peer->bgp, &rn->p, ri, afi, safi);
     }
 
@@ -1780,6 +1781,13 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 		peer->host,
 		inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 		p->prefixlen);
+
+	      /* graceful restart STALE flag unset. */
+	      if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
+		{
+		  UNSET_FLAG (ri->flags, BGP_INFO_STALE);
+		  peer->pcount[afi][safi]++;
+		}
 	    }
 
 	  bgp_unlock_node (rn);
@@ -1793,6 +1801,13 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	      peer->host,
 	      inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 	      p->prefixlen);
+
+      /* graceful restart STALE flag unset. */
+      if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
+	{
+	  UNSET_FLAG (ri->flags, BGP_INFO_STALE);
+	  peer->pcount[afi][safi]++;
+	}
 
       /* The attribute is changed. */
       SET_FLAG (ri->flags, BGP_INFO_ATTR_CHANGED);
@@ -2255,7 +2270,18 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
       for (ri = rn->info; ri; ri = ri->next)
 	if (ri->peer == peer)
 	  {
-	    bgp_rib_remove (rn, ri, peer, afi, safi);
+	    /* graceful restart STALE flag set. */
+	    if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT)
+		&& peer->nsf[afi][safi]
+		&& ! CHECK_FLAG (ri->flags, BGP_INFO_STALE)
+		&& ! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY)
+		&& ! CHECK_FLAG (ri->flags, BGP_INFO_DAMPED))
+	      {
+		SET_FLAG (ri->flags, BGP_INFO_STALE);
+		peer->pcount[afi][safi]--;
+	      }
+	    else
+	      bgp_rib_remove (rn, ri, peer, afi, safi);
 	    break;
 	  }
       for (ain = rn->adj_in; ain; ain = ain->next)
@@ -2326,6 +2352,27 @@ bgp_clear_adj_in (struct peer *peer, afi_t afi, safi_t safi)
           bgp_unlock_node (rn);
           break;
 	}
+}
+
+void
+bgp_clear_stale_route (struct peer *peer, afi_t afi, safi_t safi)
+{
+  struct bgp_node *rn;
+  struct bgp_info *ri;
+  struct bgp_table *table;
+
+  table = peer->bgp->rib[afi][safi];
+
+  for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
+    {
+      for (ri = rn->info; ri; ri = ri->next)
+	if (ri->peer == peer)
+	  {
+	    if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
+	      bgp_rib_remove (rn, ri, peer, afi, safi);
+	    break;
+	  }
+    }
 }
 
 /* Delete all kernel routes. */
@@ -4725,7 +4772,9 @@ route_vty_out (struct vty *vty, struct prefix *p,
   struct attr *attr;
 
   /* Route status display. */
-  if (binfo->suppress)
+  if (CHECK_FLAG (binfo->flags, BGP_INFO_STALE))
+    vty_out (vty, "S");
+  else if (binfo->suppress)
     vty_out (vty, "s");
   else if (! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
     vty_out (vty, "*");
@@ -5106,26 +5155,19 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	    aspath_print_vty (vty, attr->aspath);
 	}
 
-      if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR)
-	  || CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)
-	  || CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)
-	  || CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY)
-	  || CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED))
-	{
-	  vty_out (vty, ",");
-
-	  if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))
-	    vty_out (vty, " (aggregated by %d %s)", attr->aggregator_as,
-		     inet_ntoa (attr->aggregator_addr));
-	  if (CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
-	    vty_out (vty, " (Received from a RR-client)");
-	  if (CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
-	    vty_out (vty, " (Received from a RS-client)");
-	  if (CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
-	    vty_out (vty, " (history entry)");
-	  else if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED))
-	    vty_out (vty, " (suppressed due to dampening)");
-	}
+      if (CHECK_FLAG (binfo->flags, BGP_INFO_STALE))
+	vty_out (vty, ", (stale)");
+      if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR)))
+	vty_out (vty, ", (aggregated by %d %s)", attr->aggregator_as,
+		 inet_ntoa (attr->aggregator_addr));
+      if (CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))
+	vty_out (vty, ", (Received from a RR-client)");
+      if (CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+	vty_out (vty, ", (Received from a RS-client)");
+      if (CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
+	vty_out (vty, ", (history entry)");
+      else if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED))
+	vty_out (vty, ", (suppressed due to dampening)");
       vty_out (vty, "%s", VTY_NEWLINE);
 	  
       /* Line2 display Next-hop, Neighbor, Router-id */
@@ -5251,6 +5293,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
   vty_out (vty, "%s", VTY_NEWLINE);
 }  
 
+#define BGP_SHOW_SCODE_HEADER "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal,%s              r RIB-failure, S Stale%s"
+#define BGP_SHOW_OCODE_HEADER "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s"
 #define BGP_SHOW_HEADER "   Network          Next Hop            Metric LocPrf Weight Path%s"
 #define BGP_SHOW_DAMP_HEADER "   Network          From             Reuse    Path%s"
 #define BGP_SHOW_FLAP_HEADER "   Network          From            Flaps Duration Reuse    Path%s"
@@ -5449,9 +5493,9 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 
 	    if (header)
 	      {
-               vty_out (vty, "BGP table version is 0, local router ID is %s%s", inet_ntoa (*router_id), VTY_NEWLINE);
-		vty_out (vty, "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal%s", VTY_NEWLINE);
-		vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s", VTY_NEWLINE, VTY_NEWLINE);
+		vty_out (vty, "BGP table version is 0, local router ID is %s%s", inet_ntoa (*router_id), VTY_NEWLINE);
+		vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
+		vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
 		if (type == bgp_show_type_dampend_paths
 		    || type == bgp_show_type_damp_neighbor)
 		  vty_out (vty, BGP_SHOW_DAMP_HEADER, VTY_NEWLINE);
@@ -8114,8 +8158,8 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 			  PEER_STATUS_DEFAULT_ORIGINATE))
     {
       vty_out (vty, "BGP table version is 0, local router ID is %s%s", inet_ntoa (bgp->router_id), VTY_NEWLINE);
-      vty_out (vty, "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal%s", VTY_NEWLINE);
-      vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s", VTY_NEWLINE, VTY_NEWLINE);
+      vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
+      vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
 
       vty_out (vty, "Originating default network 0.0.0.0%s%s",
 	       VTY_NEWLINE, VTY_NEWLINE);
@@ -8131,8 +8175,8 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 	      if (header1)
 		{
 		  vty_out (vty, "BGP table version is 0, local router ID is %s%s", inet_ntoa (bgp->router_id), VTY_NEWLINE);
-		  vty_out (vty, "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal%s", VTY_NEWLINE);
-		  vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s", VTY_NEWLINE, VTY_NEWLINE);
+		  vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
+		  vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
 		  header1 = 0;
 		}
 	      if (header2)
@@ -8155,8 +8199,8 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 	      if (header1)
 		{
 		  vty_out (vty, "BGP table version is 0, local router ID is %s%s", inet_ntoa (bgp->router_id), VTY_NEWLINE);
-		  vty_out (vty, "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal%s", VTY_NEWLINE);
-		  vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s", VTY_NEWLINE, VTY_NEWLINE);
+		  vty_out (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
+		  vty_out (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE, VTY_NEWLINE);
 		  header1 = 0;
 		}
 	      if (header2)

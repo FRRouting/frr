@@ -401,7 +401,6 @@ bgp_capability_parse (struct peer *peer, u_char *pnt, u_char length,
          struct graceful_restart_af graf;
          u_int16_t restart_flag_time;
          int restart_bit = 0;
-         int forwarding_bit = 0;
          u_char *restart_pnt;
          u_char *restart_end;
 
@@ -418,15 +417,15 @@ bgp_capability_parse (struct peer *peer, u_char *pnt, u_char length,
          restart_flag_time = ntohs(cap.mpc.afi);
          if (CHECK_FLAG (restart_flag_time, RESTART_R_BIT))
            restart_bit = 1;
-         UNSET_FLAG (restart_flag_time, 0xF000); 
-         peer->restart_time_rcv = restart_flag_time;
+         UNSET_FLAG (restart_flag_time, 0xF000);
+	 peer->v_gr_restart = restart_flag_time;
 
          if (BGP_DEBUG (normal, NORMAL))
            {
              zlog_debug ("%s OPEN has Graceful Restart capability", peer->host);
              zlog_debug ("%s Peer has%srestarted. Restart Time : %d",
                         peer->host, restart_bit ? " " : " not ",
-                        peer->restart_time_rcv);
+			peer->v_gr_restart);
            }
 
          restart_pnt = pnt + 4;
@@ -440,7 +439,7 @@ bgp_capability_parse (struct peer *peer, u_char *pnt, u_char length,
              safi = graf.safi;
 
              if (CHECK_FLAG (graf.flag, RESTART_F_BIT))
-               forwarding_bit = 1;
+		SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_PRESERVE_RCV);
 
              if (strcmp (afi_safi_print (afi, safi), "Unknown") == 0)
                {
@@ -458,12 +457,13 @@ bgp_capability_parse (struct peer *peer, u_char *pnt, u_char length,
                {
                  if (BGP_DEBUG (normal, NORMAL))
                    zlog_debug ("%s Address family %s is%spreserved", peer->host,
-                              afi_safi_print (afi, safi), forwarding_bit ? " " : " not ");
+			       afi_safi_print (afi, safi),
+			       CHECK_FLAG (peer->af_cap[afi][safi],
+			       PEER_CAP_RESTART_AF_PRESERVE_RCV)
+			       ? " " : " not ");
 
-                 if (forwarding_bit)
                    SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV);
                }
-             forwarding_bit = 0;
              restart_pnt += 4;
            }
        }

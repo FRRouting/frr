@@ -806,6 +806,53 @@ DEFUN (no_bgp_graceful_restart,
   return CMD_SUCCESS;
 }
 
+DEFUN (bgp_graceful_restart_stalepath_time,
+       bgp_graceful_restart_stalepath_time_cmd,
+       "bgp graceful-restart stalepath-time <1-3600>",
+       "BGP specific commands\n"
+       "Graceful restart capability parameters\n"
+       "Set the max time to hold onto restarting peer's stale paths\n"
+       "Delay value (seconds)\n")
+{
+  struct bgp *bgp;
+  u_int32_t stalepath;
+
+  bgp = vty->index;
+  if (! bgp)
+    return CMD_WARNING;
+
+  VTY_GET_INTEGER_RANGE ("stalepath-time", stalepath, argv[0], 1, 3600);
+  bgp->stalepath_time = stalepath;
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_graceful_restart_stalepath_time,
+       no_bgp_graceful_restart_stalepath_time_cmd,
+       "no bgp graceful-restart stalepath-time",
+       NO_STR
+       "BGP specific commands\n"
+       "Graceful restart capability parameters\n"
+       "Set the max time to hold onto restarting peer's stale paths\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  if (! bgp)
+    return CMD_WARNING;
+
+  bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_bgp_graceful_restart_stalepath_time,
+       no_bgp_graceful_restart_stalepath_time_val_cmd,
+       "no bgp graceful-restart stalepath-time <1-3600>",
+       NO_STR
+       "BGP specific commands\n"
+       "Graceful restart capability parameters\n"
+       "Set the max time to hold onto restarting peer's stale paths\n"
+       "Delay value (seconds)\n")
+
 /* "bgp fast-external-failover" configuration. */
 DEFUN (bgp_fast_external_failover,
        bgp_fast_external_failover_cmd,
@@ -6950,6 +6997,13 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   if (p->status == Established) 
     vty_out (vty, ", up for %8s", 
 	     peer_uptime (p->uptime, timebuf, BGP_UPTIME_LEN));
+  else if (p->status == Active)
+    {
+      if (CHECK_FLAG (p->flags, PEER_FLAG_PASSIVE))
+	vty_out (vty, " (passive)"); 
+      else if (CHECK_FLAG (p->sflags, PEER_STATUS_NSF_WAIT))
+	vty_out (vty, " (NSF passive)"); 
+    }
   vty_out (vty, "%s", VTY_NEWLINE);
   
   /* read timer */
@@ -6964,7 +7018,7 @@ bgp_show_peer (struct vty *vty, struct peer *p)
       vty_out (vty, ", keepalive interval is %d seconds%s",
 	       p->keepalive, VTY_NEWLINE);
     }
-  
+
   /* Capability. */
   if (p->status == Established) 
     {
@@ -7046,17 +7100,19 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 		  int restart_af_count = 0;
 
 		  vty_out (vty, "      Remote Restart timer is %d seconds%s",
-			   p->restart_time_rcv, VTY_NEWLINE);	
-		  vty_out (vty, "      Address families preserved by peer:%s        ", VTY_NEWLINE);
+			   p->v_gr_restart, VTY_NEWLINE);	
+		  vty_out (vty, "      Address families by peer:%s        ", VTY_NEWLINE);
 
 		  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
 		    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
 		      if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV))
 			{
-			  vty_out (vty, "%s%s", restart_af_count ? ", " : "",
-				   afi_safi_print (afi, safi));
+			  vty_out (vty, "%s%s(%s)", restart_af_count ? ", " : "",
+				   afi_safi_print (afi, safi),
+				   CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_RESTART_AF_PRESERVE_RCV) ?
+				   "preserved" : "not preserved");
 			  restart_af_count++;
-		      }
+			}
 		  if (! restart_af_count)
 		    vty_out (vty, "none");
 		  vty_out (vty, "%s", VTY_NEWLINE);
@@ -7065,15 +7121,67 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 	}
     }
 
+  /* graceful restart information */
+  if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV)
+      || p->t_gr_restart
+      || p->t_gr_stale)
+    {
+      int eor_send_af_count = 0;
+      int eor_receive_af_count = 0;
+
+      vty_out (vty, "  Graceful restart informations:%s", VTY_NEWLINE);
+      if (p->status == Established) 
+	{
+	  vty_out (vty, "    End-of-RIB send: ");
+	  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+	    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_EOR_SEND))
+		{
+		  vty_out (vty, "%s%s", eor_send_af_count ? ", " : "",
+			   afi_safi_print (afi, safi));
+		  eor_send_af_count++;
+		}
+	  vty_out (vty, "%s", VTY_NEWLINE);
+
+	  vty_out (vty, "    End-of-RIB received: ");
+	  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+	    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	      if (CHECK_FLAG (p->af_sflags[afi][safi], PEER_STATUS_EOR_RECEIVED))
+		{
+		  vty_out (vty, "%s%s", eor_receive_af_count ? ", " : "",
+			   afi_safi_print (afi, safi));
+		  eor_receive_af_count++;
+		}
+	  vty_out (vty, "%s", VTY_NEWLINE);
+	}
+
+      if (p->t_gr_restart)
+        {
+	  vty_out (vty, "    The remaining time of restart timer is %ld%s",
+		   thread_timer_remain_second (p->t_gr_restart), VTY_NEWLINE);
+	}
+      if (p->t_gr_stale)
+	{
+	  vty_out (vty, "    The remaining time of stalepath timer is %ld%s",
+		   thread_timer_remain_second (p->t_gr_stale), VTY_NEWLINE);
+	}
+    }
+
   /* Packet counts. */
-  vty_out(vty, "  Received %d messages, %d notifications, %d in queue%s",
-	  p->open_in + p->update_in + p->keepalive_in + p->refresh_in
-	  + p->dynamic_cap_in, p->notify_in, 0, VTY_NEWLINE);
-  vty_out(vty, "  Sent %d messages, %d notifications, %ld in queue%s",
-	  p->open_out + p->update_out + p->keepalive_out + p->refresh_out
-	  + p->dynamic_cap_out, p->notify_out, p->obuf->count, VTY_NEWLINE);
-  vty_out(vty, "  Route refresh request: received %d, sent %d%s",
-	  p->refresh_in, p->refresh_out, VTY_NEWLINE);
+  vty_out (vty, "  Message statistics:%s", VTY_NEWLINE);
+  vty_out (vty, "    Inq depth is 0%s", VTY_NEWLINE);
+  vty_out (vty, "    Outq depth is %ld%s", p->obuf->count, VTY_NEWLINE);
+  vty_out (vty, "                         Sent       Rcvd%s", VTY_NEWLINE);
+  vty_out (vty, "    Opens:         %10d %10d%s", p->open_out, p->open_in, VTY_NEWLINE);
+  vty_out (vty, "    Notifications: %10d %10d%s", p->notify_out, p->notify_in, VTY_NEWLINE);
+  vty_out (vty, "    Updates:       %10d %10d%s", p->update_out, p->update_in, VTY_NEWLINE);
+  vty_out (vty, "    Keepalives:    %10d %10d%s", p->keepalive_out, p->keepalive_in, VTY_NEWLINE);
+  vty_out (vty, "    Route Refresh: %10d %10d%s", p->refresh_out, p->refresh_in, VTY_NEWLINE);
+  vty_out (vty, "    Capability:    %10d %10d%s", p->dynamic_cap_out, p->dynamic_cap_in, VTY_NEWLINE);
+  vty_out (vty, "    Total:         %10d %10d%s", p->open_out + p->notify_out +
+	   p->update_out + p->keepalive_out + p->refresh_out + p->dynamic_cap_out,
+	   p->open_in + p->notify_in + p->update_in + p->keepalive_in + p->refresh_in +
+	   p->dynamic_cap_in, VTY_NEWLINE);
 
   /* advertisement-interval */
   vty_out (vty, "  Minimum time between advertisement runs is %d seconds%s",
@@ -7136,11 +7244,9 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   /* Local address. */
   if (p->su_local)
     {
-      vty_out (vty, "Local host: %s, Local port: %d%s%s",
+      vty_out (vty, "Local host: %s, Local port: %d%s",
 	       sockunion2str (p->su_local, buf1, SU_ADDRSTRLEN),
 	       ntohs (p->su_local->sin.sin_port),
-	       CHECK_FLAG (p->flags, PEER_FLAG_PASSIVE) ?
-	       ", passive-mode" : "", 
 	       VTY_NEWLINE);
     }
       
@@ -8480,11 +8586,12 @@ bgp_vty_init ()
   install_element (BGP_NODE, &bgp_deterministic_med_cmd);
   install_element (BGP_NODE, &no_bgp_deterministic_med_cmd);
 
-#if 0
   /* "bgp graceful-restart" commands */
   install_element (BGP_NODE, &bgp_graceful_restart_cmd);
   install_element (BGP_NODE, &no_bgp_graceful_restart_cmd);
-#endif /* 0 */
+  install_element (BGP_NODE, &bgp_graceful_restart_stalepath_time_cmd);
+  install_element (BGP_NODE, &no_bgp_graceful_restart_stalepath_time_cmd);
+  install_element (BGP_NODE, &no_bgp_graceful_restart_stalepath_time_val_cmd);
  
   /* "bgp fast-external-failover" commands */
   install_element (BGP_NODE, &bgp_fast_external_failover_cmd);

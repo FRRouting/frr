@@ -118,7 +118,8 @@ bgp_timer_set (struct peer *peer)
          connect timer is expired, change status to Connect. */
       BGP_TIMER_OFF (peer->t_start);
       /* If peer is passive mode, do not set connect timer. */
-      if (CHECK_FLAG (peer->flags, PEER_FLAG_PASSIVE))
+      if (CHECK_FLAG (peer->flags, PEER_FLAG_PASSIVE)
+	  || CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT))
 	{
 	  BGP_TIMER_OFF (peer->t_connect);
 	}
@@ -331,8 +332,61 @@ const char *peer_down_str[] =
   "Peer-group delete member",
   "Capability changed",
   "Passive config change",
-  "Multihop config change"
+  "Multihop config change",
+  "NSF peer closed the session"
 };
+
+int
+bgp_graceful_restart_timer_expire (struct thread *thread)
+{
+  struct peer *peer;
+  afi_t afi;
+  safi_t safi;
+
+  peer = THREAD_ARG (thread);
+  peer->t_gr_restart = NULL;
+
+  /* NSF delete stale route */
+  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_UNICAST_MULTICAST ; safi++)
+      if (peer->nsf[afi][safi])
+	bgp_clear_stale_route (peer, afi, safi);
+
+  UNSET_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT);
+  BGP_TIMER_OFF (peer->t_gr_stale);
+
+  if (BGP_DEBUG (events, EVENTS))
+    {
+      zlog_debug ("%s graceful restart timer expired", peer->host);
+      zlog_debug ("%s graceful restart stalepath timer stopped", peer->host);
+    }
+
+  bgp_timer_set (peer);
+
+  return 0;
+}
+
+int
+bgp_graceful_stale_timer_expire (struct thread *thread)
+{
+  struct peer *peer;
+  afi_t afi;
+  safi_t safi;
+
+  peer = THREAD_ARG (thread);
+  peer->t_gr_stale = NULL;
+
+  if (BGP_DEBUG (events, EVENTS))
+    zlog_debug ("%s graceful restart stalepath timer expired", peer->host);
+
+  /* NSF delete stale route */
+  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_UNICAST_MULTICAST ; safi++)
+      if (peer->nsf[afi][safi])
+	bgp_clear_stale_route (peer, afi, safi);
+
+  return 0;
+}
 
 /* Administrative BGP peer stop event. */
 int
@@ -352,6 +406,36 @@ bgp_stop (struct peer *peer)
       if (bgp_flag_check (peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
 	zlog_info ("%%ADJCHANGE: neighbor %s Down %s", peer->host,
                    peer_down_str [(int) peer->last_reset]);
+
+      /* graceful restart */
+      if (peer->t_gr_stale)
+	{
+	  BGP_TIMER_OFF (peer->t_gr_stale);
+	  if (BGP_DEBUG (events, EVENTS))
+	    zlog_debug ("%s graceful restart stalepath timer stopped", peer->host);
+	}
+      if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT))
+	{
+	  if (BGP_DEBUG (events, EVENTS))
+	    {
+	      zlog_debug ("%s graceful restart timer started for %d sec",
+			  peer->host, peer->v_gr_restart);
+	      zlog_debug ("%s graceful restart stalepath timer started for %d sec",
+			  peer->host, peer->bgp->stalepath_time);
+	    }
+	  BGP_TIMER_ON (peer->t_gr_restart, bgp_graceful_restart_timer_expire,
+			peer->v_gr_restart);
+	  BGP_TIMER_ON (peer->t_gr_stale, bgp_graceful_stale_timer_expire,
+			peer->bgp->stalepath_time);
+	}
+      else
+	{
+	  UNSET_FLAG (peer->sflags, PEER_STATUS_NSF_MODE);
+
+	  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+	    for (safi = SAFI_UNICAST ; safi < SAFI_UNICAST_MULTICAST ; safi++)
+	      peer->nsf[afi][safi] = 0;
+	}
 
       /* set last reset time */
       peer->resettime = time (NULL);
@@ -655,6 +739,7 @@ bgp_establish (struct peer *peer)
   struct bgp_notify *notify;
   afi_t afi;
   safi_t safi;
+  int nsf_af_count = 0;
 
   /* Reset capability open status flag. */
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_CAPABILITY_OPEN))
@@ -676,6 +761,50 @@ bgp_establish (struct peer *peer)
   /* bgp log-neighbor-changes of neighbor Up */
   if (bgp_flag_check (peer->bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES))
     zlog_info ("%%ADJCHANGE: neighbor %s Up", peer->host);
+
+  /* graceful restart */
+  UNSET_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT);
+  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_UNICAST_MULTICAST ; safi++)
+      {
+	if (peer->afc_nego[afi][safi]
+	    && CHECK_FLAG (peer->cap, PEER_CAP_RESTART_ADV)
+	    && CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV))
+	  {
+	    if (peer->nsf[afi][safi]
+		&& ! CHECK_FLAG (peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_PRESERVE_RCV))
+	      bgp_clear_stale_route (peer, afi, safi);
+
+	    peer->nsf[afi][safi] = 1;
+	    nsf_af_count++;
+	  }
+	else
+	  {
+	    if (peer->nsf[afi][safi])
+	      bgp_clear_stale_route (peer, afi, safi);
+	    peer->nsf[afi][safi] = 0;
+	  }
+      }
+
+  if (nsf_af_count)
+    SET_FLAG (peer->sflags, PEER_STATUS_NSF_MODE);
+  else
+    {
+      UNSET_FLAG (peer->sflags, PEER_STATUS_NSF_MODE);
+      if (peer->t_gr_stale)
+	{
+	  BGP_TIMER_OFF (peer->t_gr_stale);
+	  if (BGP_DEBUG (events, EVENTS))
+	    zlog_debug ("%s graceful restart stalepath timer stopped", peer->host);
+	}
+    }
+
+  if (peer->t_gr_restart)
+    {
+      BGP_TIMER_OFF (peer->t_gr_restart);
+      if (BGP_DEBUG (events, EVENTS))
+	zlog_debug ("%s graceful restart timer stopped", peer->host);
+    }
 
 #ifdef HAVE_SNMP
   bgpTrapEstablished (peer);

@@ -46,6 +46,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_advertise.h"
+#include "bgpd/bgp_vty.h"
 
 int stream_put_prefix (struct stream *, struct prefix *);
 
@@ -243,7 +244,50 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
       return packet;
     }
   return NULL;
+}
 
+struct stream *
+bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
+{
+  struct stream *s;
+  struct stream *packet;
+
+#ifdef DISABLE_BGP_ANNOUNCE
+  return;
+#endif /* DISABLE_BGP_ANNOUNCE */
+
+  if (BGP_DEBUG (normal, NORMAL))
+    zlog_debug ("send End-of-RIB for %s to %s", afi_safi_print (afi, safi), peer->host);
+
+  s = stream_new (BGP_MAX_PACKET_SIZE);
+
+  /* Make BGP update packet. */
+  bgp_packet_set_marker (s, BGP_MSG_UPDATE);
+
+  /* Unfeasible Routes Length */
+  stream_putw (s, 0);
+
+  if (afi == AFI_IP && safi == SAFI_UNICAST)
+    {
+      /* Total Path Attribute Length */
+      stream_putw (s, 0);
+    }
+  else
+    {
+      /* Total Path Attribute Length */
+      stream_putw (s, 6);
+      stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
+      stream_putc (s, BGP_ATTR_MP_UNREACH_NLRI);
+      stream_putc (s, 3);
+      stream_putw (s, afi);
+      stream_putc (s, safi);
+    }
+
+  bgp_packet_set_size (s);
+  packet = bgp_packet_dup (s);
+  bgp_packet_add (peer, packet);
+  stream_free (s);
+  return packet;
 }
 
 /* Make BGP withdraw packet.  */
@@ -504,10 +548,33 @@ bgp_write_packet (struct peer *peer)
 	if (adv)
 	  {
             if (adv->binfo && adv->binfo->uptime < peer->synctime)
-              s = bgp_update_packet (peer, afi, safi);
+	      {
+		if (CHECK_FLAG (adv->binfo->peer->cap, PEER_CAP_RESTART_RCV)
+		    && CHECK_FLAG (adv->binfo->peer->cap, PEER_CAP_RESTART_ADV)
+		    && ! CHECK_FLAG (adv->binfo->flags, BGP_INFO_STALE)
+		    && safi != SAFI_MPLS_VPN)
+		  {
+		    if (CHECK_FLAG (adv->binfo->peer->af_sflags[afi][safi],
+			PEER_STATUS_EOR_RECEIVED))
+		      s = bgp_update_packet (peer, afi, safi);
+		  }
+		else
+		  s = bgp_update_packet (peer, afi, safi);
+	      }
 
 	    if (s)
 	      return s;
+	  }
+
+	if (CHECK_FLAG (peer->cap, PEER_CAP_RESTART_RCV))
+	  {
+	    if (peer->afc_nego[afi][safi] && peer->synctime
+		&& ! CHECK_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_EOR_SEND)
+		&& safi != SAFI_MPLS_VPN)
+	      {
+		SET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_EOR_SEND);
+		return bgp_update_packet_eor (peer, afi, safi);
+	      }
 	  }
       }
 
@@ -1192,13 +1259,24 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   /* Hack part. */
   if (CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
     {
-      if (ret == 0 && realpeer->status != Active
-	  && realpeer->status != OpenSent
-	  && realpeer->status != OpenConfirm)
+	if (realpeer->status == Established
+	    && CHECK_FLAG (realpeer->sflags, PEER_STATUS_NSF_MODE))
+	{
+	  realpeer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+	  SET_FLAG (realpeer->sflags, PEER_STATUS_NSF_WAIT);
+	}
+	else if (ret == 0 && realpeer->status != Active
+	         && realpeer->status != OpenSent
+		 && realpeer->status != OpenConfirm)
+
  	{
  	  if (BGP_DEBUG (events, EVENTS))
- 	    zlog_debug ("%s [Event] peer's status is %s close connection",
-		       realpeer->host, LOOKUP (bgp_status_msg, peer->status));
+	    zlog_debug ("%s peer status is %s close connection",
+			realpeer->host, LOOKUP (bgp_status_msg,
+			realpeer->status));
+	  bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+			   BGP_NOTIFY_CEASE_CONNECT_REJECT);
+
  	  return -1;
  	}
 
@@ -1524,8 +1602,14 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       if (! attribute_len && ! withdraw_len)
 	{
 	  /* End-of-RIB received */
+	  SET_FLAG (peer->af_sflags[AFI_IP][SAFI_UNICAST],
+		    PEER_STATUS_EOR_RECEIVED);
 
-	  if (BGP_DEBUG (update, UPDATE_IN))
+	  /* NSF delete stale route */
+	  if (peer->nsf[AFI_IP][SAFI_UNICAST])
+	    bgp_clear_stale_route (peer, AFI_IP, SAFI_UNICAST);
+
+	  if (BGP_DEBUG (normal, NORMAL))
 	    zlog (peer->log, LOG_DEBUG, "rcvd End-of-RIB for IPv4 Unicast from %s",
 		  peer->host);
 	}
@@ -1542,14 +1626,20 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  && mp_withdraw.safi == SAFI_MULTICAST)
 	bgp_nlri_parse (peer, NULL, &mp_withdraw);
 
-      if (attribute_len == 6 && ! withdraw_len
+      if (! withdraw_len
 	  && mp_withdraw.afi == AFI_IP
 	  && mp_withdraw.safi == SAFI_MULTICAST
 	  && mp_withdraw.length == 0)
 	{
 	  /* End-of-RIB received */
+	  SET_FLAG (peer->af_sflags[AFI_IP][SAFI_MULTICAST],
+		    PEER_STATUS_EOR_RECEIVED);
 
-	  if (BGP_DEBUG (update, UPDATE_IN))
+	  /* NSF delete stale route */
+	  if (peer->nsf[AFI_IP][SAFI_MULTICAST])
+	    bgp_clear_stale_route (peer, AFI_IP, SAFI_MULTICAST);
+
+	  if (BGP_DEBUG (normal, NORMAL))
 	    zlog (peer->log, LOG_DEBUG, "rcvd End-of-RIB for IPv4 Multicast from %s",
 		  peer->host);
 	}
@@ -1566,14 +1656,19 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  && mp_withdraw.safi == SAFI_UNICAST)
 	bgp_nlri_parse (peer, NULL, &mp_withdraw);
 
-      if (attribute_len == 6 && ! withdraw_len
+      if (! withdraw_len
 	  && mp_withdraw.afi == AFI_IP6
 	  && mp_withdraw.safi == SAFI_UNICAST
 	  && mp_withdraw.length == 0)
 	{
 	  /* End-of-RIB received */
+	  SET_FLAG (peer->af_sflags[AFI_IP6][SAFI_UNICAST], PEER_STATUS_EOR_RECEIVED);
 
-	  if (BGP_DEBUG (update, UPDATE_IN))
+	  /* NSF delete stale route */
+	  if (peer->nsf[AFI_IP6][SAFI_UNICAST])
+	    bgp_clear_stale_route (peer, AFI_IP6, SAFI_UNICAST);
+
+	  if (BGP_DEBUG (normal, NORMAL))
 	    zlog (peer->log, LOG_DEBUG, "rcvd End-of-RIB for IPv6 Unicast from %s",
 		  peer->host);
 	}
@@ -1590,12 +1685,16 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  && mp_withdraw.safi == SAFI_MULTICAST)
 	bgp_nlri_parse (peer, NULL, &mp_withdraw);
 
-      if (attribute_len == 6 && ! withdraw_len
+      if (! withdraw_len
 	  && mp_withdraw.afi == AFI_IP6
 	  && mp_withdraw.safi == SAFI_MULTICAST
 	  && mp_withdraw.length == 0)
 	{
 	  /* End-of-RIB received */
+
+	  /* NSF delete stale route */
+	  if (peer->nsf[AFI_IP6][SAFI_MULTICAST])
+	    bgp_clear_stale_route (peer, AFI_IP6, SAFI_MULTICAST);
 
 	  if (BGP_DEBUG (update, UPDATE_IN))
 	    zlog (peer->log, LOG_DEBUG, "rcvd End-of-RIB for IPv6 Multicast from %s",
@@ -1614,7 +1713,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  && mp_withdraw.safi == BGP_SAFI_VPNV4)
 	bgp_nlri_parse_vpnv4 (peer, NULL, &mp_withdraw);
 
-      if (attribute_len == 6 && ! withdraw_len
+      if (! withdraw_len
 	  && mp_withdraw.afi == AFI_IP
 	  && mp_withdraw.safi == BGP_SAFI_VPNV4
 	  && mp_withdraw.length == 0)
@@ -2080,6 +2179,18 @@ bgp_read_packet (struct peer *peer)
 
       plog_err (peer->log, "%s [Error] bgp_read_packet error: %s",
 		 peer->host, safe_strerror (errno));
+
+      if (peer->status == Established) 
+	{
+	  if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_MODE))
+	    {
+	      peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+	      SET_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT);
+	    }
+	  else
+	    peer->last_reset = PEER_DOWN_CLOSE_SESSION;
+	}
+
       BGP_EVENT_ADD (peer, TCP_fatal_error);
       return -1;
     }  
@@ -2092,7 +2203,15 @@ bgp_read_packet (struct peer *peer)
 		   peer->host, peer->fd);
 
       if (peer->status == Established) 
-       peer->last_reset = PEER_DOWN_CLOSE_SESSION;
+	{
+	  if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_MODE))
+	    {
+	      peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+	      SET_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT);
+	    }
+	  else
+	    peer->last_reset = PEER_DOWN_CLOSE_SESSION;
+	}
 
       BGP_EVENT_ADD (peer, TCP_connection_closed);
       return -1;

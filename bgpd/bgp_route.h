@@ -36,7 +36,7 @@ struct bgp_info
 #define BGP_ROUTE_REDISTRIBUTE 3 
 
   /* BGP information status.  */
-  u_char flags;
+  u_int16_t flags;
 #define BGP_INFO_IGP_CHANGED    (1 << 0)
 #define BGP_INFO_DAMPED         (1 << 1)
 #define BGP_INFO_HISTORY        (1 << 2)
@@ -45,6 +45,7 @@ struct bgp_info
 #define BGP_INFO_ATTR_CHANGED   (1 << 5)
 #define BGP_INFO_DMED_CHECK     (1 << 6)
 #define BGP_INFO_DMED_SELECTED  (1 << 7)
+#define BGP_INFO_STALE          (1 << 8)
 
   /* Peer structure.  */
   struct peer *peer;
@@ -134,6 +135,7 @@ void bgp_check_local_routes_rsclient (struct peer *rsclient, afi_t afi, safi_t s
 void bgp_clear_route (struct peer *, afi_t, safi_t);
 void bgp_clear_route_all (struct peer *);
 void bgp_clear_adj_in (struct peer *, afi_t, safi_t);
+void bgp_clear_stale_route (struct peer *, afi_t, safi_t);
 
 int bgp_nlri_sanity_check (struct peer *, int, u_char *, bgp_size_t);
 int bgp_nlri_parse (struct peer *, struct attr *, struct bgp_nlri *);

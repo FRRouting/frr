@@ -1040,6 +1040,34 @@ peer_deactivate (struct peer *peer, afi_t afi, safi_t safi)
   return 0;
 }
 
+void
+peer_nsf_stop (struct peer *peer)
+{
+  afi_t afi;
+  safi_t safi;
+
+  UNSET_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT);
+  UNSET_FLAG (peer->sflags, PEER_STATUS_NSF_MODE);
+
+  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_UNICAST_MULTICAST ; safi++)
+      peer->nsf[afi][safi] = 0;
+
+  if (peer->t_gr_restart)
+    {
+      BGP_TIMER_OFF (peer->t_gr_restart);
+      if (BGP_DEBUG (events, EVENTS))
+	zlog_debug ("%s graceful restart timer stopped", peer->host);
+    }
+  if (peer->t_gr_stale)
+    {
+      BGP_TIMER_OFF (peer->t_gr_stale);
+      if (BGP_DEBUG (events, EVENTS))
+	zlog_debug ("%s graceful restart stalepath timer stopped", peer->host);
+    }
+  bgp_clear_route_all (peer);
+}
+
 /* Delete peer from confguration. */
 int
 peer_delete (struct peer *peer)
@@ -1051,6 +1079,9 @@ peer_delete (struct peer *peer)
   struct bgp_filter *filter;
 
   bgp = peer->bgp;
+
+  if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT))
+    peer_nsf_stop (peer);
 
   /* If this peer belongs to peer group.  Clearn up the
      relationship.  */
@@ -1075,6 +1106,8 @@ peer_delete (struct peer *peer)
   BGP_TIMER_OFF (peer->t_asorig);
   BGP_TIMER_OFF (peer->t_routeadv);
   BGP_TIMER_OFF (peer->t_pmax_restart);
+  BGP_TIMER_OFF (peer->t_gr_restart);
+  BGP_TIMER_OFF (peer->t_gr_stale);
 
   /* Delete from all peer list. */
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
@@ -2148,6 +2181,9 @@ peer_flag_modify_action (struct peer *peer, u_int32_t flag)
     {
       if (CHECK_FLAG (peer->flags, flag))
 	{
+	  if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT))
+	    peer_nsf_stop (peer);
+
 	  UNSET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
 	  if (peer->t_pmax_restart)
 	    {
@@ -2156,6 +2192,9 @@ peer_flag_modify_action (struct peer *peer, u_int32_t flag)
 		zlog_debug ("%s Maximum-prefix restart timer canceled",
 			    peer->host);
 	    }
+
+      if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT))
+	peer_nsf_stop (peer);
 
 	  if (peer->status == Established)
 	    bgp_notify_send (peer, BGP_NOTIFY_CEASE,
@@ -4703,6 +4742,9 @@ bgp_config_write (struct vty *vty)
 	vty_out (vty, " bgp deterministic-med%s", VTY_NEWLINE);
 
       /* BGP graceful-restart. */
+      if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
+	vty_out (vty, " bgp graceful-restart stalepath-time %d%s",
+		 bgp->stalepath_time, VTY_NEWLINE);
       if (bgp_flag_check (bgp, BGP_FLAG_GRACEFUL_RESTART))
        vty_out (vty, " bgp graceful-restart%s", VTY_NEWLINE);
 

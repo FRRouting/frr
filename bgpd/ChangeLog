@@ -1,3 +1,11 @@
+2005-02-02 Akihiro Mizutani <mizutani@net-chef.net
+
+	* bgp_fsm.c, bgp_open.c, bgp_packet.c, bgp_route.[ch], bgp_vty.c,
+	  bgpd.[ch]: Add BGP_INFO_STALE flag and end-of-rib support. "bgp
+	  graceful-restart" commands added. Show numbers of individual
+	  messages in "show ip bgp neighbor" command. Final pieces of graceful
+	  restart.
+
 2005-02-01 Akihiro Mizutani <mizutani@net-chef.net>
 
 	* bgp_open.c, bgp_packet.c, bgp_vty.c, bgpd.[ch]: Remove "no neighbor

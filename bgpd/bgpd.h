@@ -142,8 +142,8 @@ struct bgp
   u_int32_t default_keepalive;
 
   /* BGP graceful restart */
-  u_int16_t restart_time;
-  u_int16_t stalepath_time;
+  u_int32_t restart_time;
+  u_int32_t stalepath_time;
 };
 
 /* BGP peer-group support. */
@@ -318,10 +318,8 @@ struct peer
 #define PEER_CAP_ORF_PREFIX_RM_RCV          (1 << 3) /* receive-mode received */
 #define PEER_CAP_ORF_PREFIX_SM_OLD_RCV      (1 << 4) /* send-mode received */
 #define PEER_CAP_ORF_PREFIX_RM_OLD_RCV      (1 << 5) /* receive-mode received */
-#define PEER_CAP_RESTART_AF_RCV             (1 << 6) /* graceful restart received */
-
-  /* Gracefull Restart */
-  u_int16_t restart_time_rcv;
+#define PEER_CAP_RESTART_AF_RCV             (1 << 6) /* graceful restart afi/safi received */
+#define PEER_CAP_RESTART_AF_PRESERVE_RCV    (1 << 7) /* graceful restart afi/safi F-bit received */
 
   /* Global configuration flags. */
   u_int32_t flags;
@@ -333,6 +331,9 @@ struct peer
 #define PEER_FLAG_DYNAMIC_CAPABILITY        (1 << 5) /* dynamic capability */
 #define PEER_FLAG_ENFORCE_MULTIHOP          (1 << 6) /* enforce-multihop */
 #define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1 << 7) /* local-as no-prepend */
+
+  /* NSF mode (graceful restart) */
+  u_char nsf[AFI_MAX][SAFI_MAX];
 
   /* Per AF configuration flags. */
   u_int32_t af_flags[AFI_MAX][SAFI_MAX];
@@ -368,6 +369,8 @@ struct peer
 #define PEER_STATUS_CAPABILITY_OPEN   (1 << 2) /* capability open send */
 #define PEER_STATUS_HAVE_ACCEPT       (1 << 3) /* accept peer's parent */
 #define PEER_STATUS_GROUP             (1 << 4) /* peer-group conf */
+#define PEER_STATUS_NSF_MODE          (1 << 5) /* NSF aware peer */
+#define PEER_STATUS_NSF_WAIT          (1 << 6) /* wait comeback peer */
 
   /* Peer status af flags (reset in bgp_stop) */
   u_int16_t af_sflags[AFI_MAX][SAFI_MAX];
@@ -376,6 +379,8 @@ struct peer
 #define PEER_STATUS_DEFAULT_ORIGINATE (1 << 2) /* default-originate peer */
 #define PEER_STATUS_PREFIX_THRESHOLD  (1 << 3) /* exceed prefix-threshold */
 #define PEER_STATUS_PREFIX_LIMIT      (1 << 4) /* exceed prefix-limit */
+#define PEER_STATUS_EOR_SEND          (1 << 5) /* end-of-rib send to peer */
+#define PEER_STATUS_EOR_RECEIVED      (1 << 6) /* end-of-rib received from peer */
 
 
   /* Default attribute value for the peer. */
@@ -398,6 +403,7 @@ struct peer
   u_int32_t v_asorig;
   u_int32_t v_routeadv;
   u_int32_t v_pmax_restart;
+  u_int32_t v_gr_restart;
 
   /* Threads. */
   struct thread *t_read;
@@ -409,6 +415,8 @@ struct peer
   struct thread *t_asorig;
   struct thread *t_routeadv;
   struct thread *t_pmax_restart;
+  struct thread *t_gr_restart;
+  struct thread *t_gr_stale;
 
   /* Statistics field */
   u_int32_t open_in;		/* Open message input count */
@@ -486,6 +494,7 @@ struct peer
 #define PEER_DOWN_CAPABILITY_CHANGE     19 /* neighbor capability command */
 #define PEER_DOWN_PASSIVE_CHANGE        20 /* neighbor passive command */
 #define PEER_DOWN_MULTIHOP_CHANGE       21 /* neighbor multihop command */
+#define PEER_DOWN_NSF_CLOSE_SESSION     22 /* NSF tcp session close */
 
   /* The kind of route-map Flags.*/
   u_char rmap_type;
@@ -893,3 +902,5 @@ int peer_maximum_prefix_unset (struct peer *, afi_t, safi_t);
 
 int peer_clear (struct peer *);
 int peer_clear_soft (struct peer *, afi_t, safi_t, enum bgp_clear_type);
+
+void peer_nsf_stop (struct peer *);
