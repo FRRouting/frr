@@ -276,6 +276,7 @@ ifm_read (struct if_msghdr *ifm)
 	      sdl = (struct sockaddr_dl *)cp;
 	      break;
             }
+	  /* XXX warning: pointer of type `void *' used in arithmetic */
 	  cp += SAROUNDUP(cp);
         }
     }
@@ -323,6 +324,10 @@ ifm_read (struct if_msghdr *ifm)
   /*
    * If ifp does not exist or has an invalid index (-1), create or
    * fill in an interface.
+   */
+  /*
+   * XXX warning: comparison between signed and unsigned
+   * ifindex should probably be signed
    */
   if ((ifp == NULL) || (ifp->ifindex == -1))
     {
@@ -812,7 +817,7 @@ rtm_write (int message,
 static void
 rtmsg_debug (struct rt_msghdr *rtm)
 {
-  char *type = "Unknown";
+  const char *type = "Unknown";
   struct message *mes;
 
   for (mes = rtm_type_str; mes->str; mes++)

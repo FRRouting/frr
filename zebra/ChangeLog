@@ -1,3 +1,7 @@
+2004-12-09  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* kernel_socket.c (rtmsg_debug): char * => const char *
+
 2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* *.c: Change level of debug messages to LOG_DEBUG.
