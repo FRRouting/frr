@@ -23,8 +23,7 @@
 #include <zebra.h>
 #include <fcntl.h>
 #include <log.h>
-
-pid_t pid_output_lock(const char *);
+#include "version.h"
 
 pid_t
 pid_output (const char *path)
@@ -77,11 +76,13 @@ pid_output_lock (const char *path)
     }
   else
     {
+      size_t pidsize;
+
       umask(oldumask);
       memset (&lock, 0, sizeof(lock));
 
       lock.l_type = F_WRLCK;
-      lock.l_whence = SEEK_END;
+      lock.l_whence = SEEK_SET;
 
       if (fcntl(fd, F_SETLK, &lock) < 0)
         {
@@ -90,7 +91,13 @@ pid_output_lock (const char *path)
         }
 
       sprintf (buf, "%d\n", (int) pid);
-      tmp = write (fd, buf, strlen (buf));
+      pidsize = strlen(buf);
+      if ((tmp = write (fd, buf, pidsize)) != (int)pidsize)
+        zlog_err("Could not write pid %d to pid_file %s, rc was %d: %s",
+	         (int)pid,path,tmp,safe_strerror(errno));
+      else if (ftruncate(fd, pidsize) < 0)
+        zlog_err("Could not truncate pid_file %s to %u bytes: %s",
+	         path,(u_int)pidsize,safe_strerror(errno));
     }
   return pid;
 }

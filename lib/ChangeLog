@@ -1,3 +1,10 @@
+2004-11-25 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* pid_output.c: (pid_output_lock) Fix 2 bugs: when locking, should
+	  set l_whence to SEEK_SET, not SEEK_END.  And after writing new
+	  pid to file, must ftruncate to eliminate any extraneous bytes left
+	  over from the last time a pid was written.
+
 2004-11-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zassert.h: New header file to declare a quagga-specific assert macro.
