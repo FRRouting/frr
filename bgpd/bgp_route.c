@@ -146,7 +146,7 @@ bgp_med_value (struct attr *attr, struct bgp *bgp)
   else
     {
       if (bgp_flag_check (bgp, BGP_FLAG_MED_MISSING_AS_WORST))
-	return 4294967295ul;
+	return BGP_MED_MAX;
       else
 	return 0;
     }

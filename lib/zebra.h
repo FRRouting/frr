@@ -178,6 +178,11 @@ typedef int socklen_t;
 #include <netinet6/nd6.h>
 #endif /* HAVE_NETINET6_ND6_H */
 
+/* Some systems do not define UINT32_MAX */
+#ifndef UINT32_MAX
+#define UINT32_MAX 0xFFFFFFFFU
+#endif /* UINT32_MAX */
+
 #ifdef HAVE_LIBUTIL_H
 #include <libutil.h>
 #endif /* HAVE_LIBUTIL_H */

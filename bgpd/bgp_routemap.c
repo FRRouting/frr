@@ -310,14 +310,13 @@ route_match_metric_compile (char *arg)
 {
   u_int32_t *med;
   char *endptr = NULL;
+  unsigned long tmpval;
 
+  tmpval = strtoul (arg, &endptr, 10);
+  if (*endptr != '\0' || tmpval == ULONG_MAX)
+    return NULL;
   med = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
-  *med = strtoul (arg, &endptr, 10);
-  if (*endptr != '\0' || *med == ULONG_MAX)
-    {
-      XFREE (MTYPE_ROUTE_MAP_COMPILED, med);
-      return NULL;
-    }
+  *med = tmpval;
   return med;
 }
 
@@ -879,8 +878,8 @@ route_set_metric (void *rule, struct prefix *prefix,
 
 	  if (strncmp (metric, "+", 1) == 0)
 	    {
-	      if (bgp_info->attr->med/2 + metric_val/2 > UINT32_MAX/2)
-	        bgp_info->attr->med = UINT32_MAX-1;
+	      if (bgp_info->attr->med/2 + metric_val/2 > BGP_MED_MAX/2)
+	        bgp_info->attr->med = BGP_MED_MAX - 1;
 	      else
 	        bgp_info->attr->med += metric_val;
 	    }

@@ -27,6 +27,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define CHECK_BITMAP(MAP, NUM) \
         CHECK_FLAG (MAP[(NUM) / BITMAP_NBBY], 1 << ((NUM) % BITMAP_NBBY))
 
+#define BGP_MED_MAX UINT32_MAX
+
 /* BGP Attribute type range. */
 #define BGP_ATTR_TYPE_RANGE     256
 #define BGP_ATTR_BITMAP_SIZE    (BGP_ATTR_TYPE_RANGE / BITMAP_NBBY)
