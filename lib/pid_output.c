@@ -56,8 +56,7 @@ pid_output_lock (char *path)
   int fd;
   pid_t pid;
   char buf[16];
-  struct flock lock = { .l_type = F_WRLCK,
-                        .l_whence = SEEK_END };
+  struct flock lock;  
 
   pid = getpid ();
 
@@ -71,6 +70,9 @@ pid_output_lock (char *path)
   else
     {
       memset (&lock, 0, sizeof(lock));
+
+      lock.l_type = F_WRLCK;
+      lock.l_whence = SEEK_END;
 
       if (fcntl(fd, F_SETLK, &lock) < 0)
         {
