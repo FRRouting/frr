@@ -1,3 +1,9 @@
+2004-12-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* prefix.c: (prefix_copy) Error message before abort should
+	  have severity LOG_ERR, not LOG_INFO.
+	* memory.c: (mtype_log) Log level should be LOG_DEBUG, not LOG_INFO.
+
 2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* {smux.c,zclient.c}: Change level of debug messages to LOG_DEBUG.

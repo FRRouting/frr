@@ -112,7 +112,7 @@ prefix_copy (struct prefix *dest, const struct prefix *src)
     }
   else
     {
-      zlog (NULL, LOG_INFO, "prefix_copy(): Unknown address family %d",
+      zlog (NULL, LOG_ERR, "prefix_copy(): Unknown address family %d",
 	      src->family);
       assert (0);
     }

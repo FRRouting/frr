@@ -136,7 +136,7 @@ static struct
 static void
 mtype_log (char *func, void *memory, const char *file, int line, int type)
 {
-  zlog_info ("%s: %s %p %s %d", func, lookup (mstr, type), memory, file, line);
+  zlog_debug ("%s: %s %p %s %d", func, lookup (mstr, type), memory, file, line);
 }
 
 void *
