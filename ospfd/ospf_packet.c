@@ -2009,8 +2009,8 @@ ospf_associate_packet_vl (struct ospf *ospf,
 
   if ((rcv_oi = oi) == NULL)
     {
-     if ((rcv_oi = ospf_if_lookup_by_local_addr (ospf, ifp,
-						 iph->ip_dst)) == NULL)
+     if ((rcv_oi = ospf_if_lookup_by_local_addr (ospf, NULL, 
+                                                 iph->ip_dst)) == NULL)
        return NULL;
     }
 
