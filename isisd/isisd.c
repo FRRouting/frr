@@ -22,7 +22,6 @@
 
 #include <string.h>
 #include <zebra.h>
-#include <net/ethernet.h>
 
 #include "thread.h"
 #include "vty.h"

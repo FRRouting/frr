@@ -21,7 +21,6 @@
  */
 
 #include <zebra.h>
-#include <net/ethernet.h>
 
 #include "thread.h"
 #include "command.h"

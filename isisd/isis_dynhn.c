@@ -22,7 +22,6 @@
 
 #include <time.h>
 #include <zebra.h>
-#include <net/ethernet.h>
 
 #include "vty.h"
 #include "linklist.h"

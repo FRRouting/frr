@@ -23,7 +23,6 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <zebra.h>
-#include <net/ethernet.h>
 
 #include "log.h"
 #include "memory.h"

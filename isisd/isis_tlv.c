@@ -22,7 +22,6 @@
  */
 
 #include <zebra.h>
-#include <net/ethernet.h>
 
 #include "log.h"
 #include "linklist.h"

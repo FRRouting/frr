@@ -27,7 +27,6 @@
 #include <time.h>
 #include <ctype.h>
 #include <zebra.h>
-#include <net/ethernet.h>
 #include <sys/utsname.h>
 
 #include "stream.h"

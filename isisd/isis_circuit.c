@@ -23,7 +23,11 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <zebra.h>
+#ifdef GNU_LINUX
 #include <net/ethernet.h>
+#else
+#include <netinet/if_ether.h>
+#endif
 
 #include "log.h"
 #include "memory.h"

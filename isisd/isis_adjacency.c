@@ -25,8 +25,6 @@
 #include <limits.h>
 #include <string.h>
 #include <zebra.h>
-#include <net/ethernet.h>
-
 
 #include "log.h"
 #include "memory.h"

@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <zebra.h>
-#include <net/ethernet.h>
 
 #include "linklist.h"
 #include "thread.h"

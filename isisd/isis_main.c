@@ -22,7 +22,6 @@
 
 #include <stdio.h>
 #include <zebra.h>
-#include <net/ethernet.h>
 
 #include "getopt.h"
 #include "thread.h"
@@ -104,8 +103,8 @@ struct thread_master *master;
 char *pid_file = PATH_ISISD_PID;
 
 /* for reload */
-char _cwd[64];
-char _progpath[64];
+char _cwd[MAXPATHLEN];
+char _progpath[MAXPATHLEN];
 int _argc;
 char **_argv;
 char **_envp;

@@ -24,7 +24,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <zebra.h>
-#include <net/ethernet.h>
 
 #include "memory.h"
 #include "thread.h"

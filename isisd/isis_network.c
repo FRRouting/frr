@@ -24,7 +24,13 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <zebra.h>
+#ifdef GNU_LINUX
 #include <net/ethernet.h>     /* the L2 protocols */
+#else
+#include <net/if.h>
+#include <netinet/if_ether.h>
+#endif
+
 
 #include "log.h"
 #include "stream.h"
@@ -237,12 +243,14 @@ open_bpf_dev (struct isis_circuit *circuit)
     zlog_warn ("failed to set BPF dev to immediate mode");
   }
 
+#ifdef BIOCSSEESENT
   /*
    * We want to see only incoming packets
    */
   if (ioctl (fd, BIOCSSEESENT, (caddr_t)&false) < 0) {
     zlog_warn ("failed to set BPF dev to incoming only mode");
   }
+#endif
 
   /*
    * ...but all of them
