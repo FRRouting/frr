@@ -11,4 +11,4 @@ EXTRA_DIST = aclocal.m4 SERVICES TODO REPORTING-BUGS vtysh/Makefile.in \
 	tools/mrlg.cgi tools/rrcheck.pl tools/rrlookup.pl tools/zc.pl \
 	tools/zebra.el
 
-ACLOCAL_AMFLAGS = -I m4
+ACLOCAL_AMFLAGS = -I $(top_srcdir)/m4
