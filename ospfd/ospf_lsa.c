@@ -2839,7 +2839,7 @@ ospf_lsa_different (struct ospf_lsa *l1, struct ospf_lsa *l2)
   if (l1->data->length ==  0)
     return 1;
 
-  assert (l1->data->length > OSPF_LSA_HEADER_SIZE);
+  assert ( ntohs(l1->data->length) > OSPF_LSA_HEADER_SIZE);
 
   p1 = (char *) l1->data;
   p2 = (char *) l2->data;
