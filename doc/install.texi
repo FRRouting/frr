@@ -72,8 +72,6 @@ file does not match to the current running kernel, configure script will
 not turn on netlink support.
 @item --enable-snmp
 Enable SNMP support.  By default, SNMP support is disabled.
-@item --enable-nssa
-Enable support for Not So Stubby Area (see RC3101) in ospfd.
 @item --enable-opaque-lsa
 Enable support for Opaque LSAs (RFC2370) in ospfd.
 @item --disable-ospfapi
