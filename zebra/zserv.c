@@ -1086,9 +1086,6 @@ zread_ipv4_add (struct zserv *client, u_short length)
 	    case ZEBRA_NEXTHOP_IPV6:
 	      stream_forward (s, IPV6_MAX_BYTELEN);
 	      break;
-	    case ZEBRA_NEXTHOP_BLACKHOLE:
-	      nexthop_blackhole_add (rib);
-	      break;
 	    }
 	}
     }

@@ -76,7 +76,6 @@ struct static_ipv4
   u_char type;
 #define STATIC_IPV4_GATEWAY     1
 #define STATIC_IPV4_IFNAME      2
-#define STATIC_IPV4_BLACKHOLE   3
 
   /* Nexthop value. */
   union 
@@ -84,6 +83,13 @@ struct static_ipv4
     struct in_addr ipv4;
     char *ifname;
   } gate;
+
+  /* bit flags */
+  u_char flags;
+/*
+ see ZEBRA_FLAG_REJECT
+     ZEBRA_FLAG_BLACKHOLE
+ */
 };
 
 #ifdef HAVE_IPV6
@@ -106,6 +112,13 @@ struct static_ipv6
   /* Nexthop value. */
   struct in6_addr ipv6;
   char *ifname;
+
+  /* bit flags */
+  u_char flags;
+/*
+ see ZEBRA_FLAG_REJECT
+     ZEBRA_FLAG_BLACKHOLE
+ */
 };
 #endif /* HAVE_IPV6 */
 
@@ -124,7 +137,6 @@ struct nexthop
 #define NEXTHOP_TYPE_IPV6           6 /* IPv6 nexthop.  */
 #define NEXTHOP_TYPE_IPV6_IFINDEX   7 /* IPv6 nexthop with ifindex.  */
 #define NEXTHOP_TYPE_IPV6_IFNAME    8 /* IPv6 nexthop with ifname.  */
-#define NEXTHOP_TYPE_BLACKHOLE      9 /* Null0 nexthop.  */
 
   u_char flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
@@ -182,7 +194,6 @@ struct vrf
 
 struct nexthop *nexthop_ifindex_add (struct rib *, unsigned int);
 struct nexthop *nexthop_ifname_add (struct rib *, char *);
-struct nexthop *nexthop_blackhole_add (struct rib *);
 struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *);
 #ifdef HAVE_IPV6
 struct nexthop *nexthop_ipv6_add (struct rib *, struct in6_addr *);
@@ -217,7 +228,7 @@ void rib_init ();
 
 int
 static_add_ipv4 (struct prefix *p, struct in_addr *gate, char *ifname,
-		 u_char distance, u_int32_t vrf_id);
+       u_char flags, u_char distance, u_int32_t vrf_id);
 
 int
 static_delete_ipv4 (struct prefix *p, struct in_addr *gate, char *ifname,
@@ -240,7 +251,7 @@ extern struct route_table *rib_table_ipv6;
 
 int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		 char *ifname, u_char distance, u_int32_t vrf_id);
+		 char *ifname, u_char flags, u_char distance, u_int32_t vrf_id);
 
 int
 static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,

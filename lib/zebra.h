@@ -256,6 +256,7 @@ struct in_pktinfo
 #define ZEBRA_FLAG_SELECTED           0x10
 #define ZEBRA_FLAG_CHANGED            0x20
 #define ZEBRA_FLAG_STATIC             0x40
+#define ZEBRA_FLAG_REJECT             0x80
 
 /* Zebra nexthop flags. */
 #define ZEBRA_NEXTHOP_IFINDEX            1
@@ -266,7 +267,6 @@ struct in_pktinfo
 #define ZEBRA_NEXTHOP_IPV6               6
 #define ZEBRA_NEXTHOP_IPV6_IFINDEX       7
 #define ZEBRA_NEXTHOP_IPV6_IFNAME        8
-#define ZEBRA_NEXTHOP_BLACKHOLE          9 
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
