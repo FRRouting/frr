@@ -204,7 +204,7 @@ struct desc
   DEFUN_ATTR (funcname, cmdname, cmdstr, helpstr, CMD_ATTR_HIDDEN)
 
 #define DEFUN_DEPRECATED(funcname, cmdname, cmdstr, helpstr) \
-  DEFUN (funcname, cmdname, cmdstr, helpstr, CMD_ATTR_DEPRECATED) \
+  DEFUN_ATTR (funcname, cmdname, cmdstr, helpstr, CMD_ATTR_DEPRECATED) \
 
 /* DEFUN_NOSH for commands that vtysh should ignore */
 #define DEFUN_NOSH(funcname, cmdname, cmdstr, helpstr) \

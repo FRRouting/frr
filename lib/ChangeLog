@@ -1,3 +1,7 @@
+2004-11-28 Hasso Tepper <hasso at quagga.net>
+
+	* command.h: DEFUN_DEPRECATED passes attribute to DEFUN as well.
+
 2004-11-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* log.c, log.h, memory.c: Change function name from zlog_backtrace_safe
