@@ -2334,7 +2334,9 @@ ospf_external_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa,
    * Translated LSAs should not be registered, but refreshed upon 
    * refresh of the Type-7
    */
+#ifdef HAVE_NSSA
   if ( !CHECK_FLAG (new->flags, OSPF_LSA_LOCAL_XLT) )
+#endif
     ospf_refresher_register_lsa (ospf, new);
 
   /* Debug logging. */
@@ -2523,9 +2525,14 @@ ospf_external_lsa_install (struct ospf *ospf, struct ospf_lsa *new,
 #endif /* HAVE_NSSA */
 
   /* Register self-originated LSA to refresh queue. 
-   * Leave Translated LSAs alone
+   * Leave Translated LSAs alone if NSSA is enabled
    */
-  if (IS_LSA_SELF (new) && !CHECK_FLAG (new->flags, OSPF_LSA_LOCAL_XLT ) )
+  if (IS_LSA_SELF (new) 
+#ifdef HAVE_NSSA
+      && !CHECK_FLAG (new->flags, OSPF_LSA_LOCAL_XLT ) 
+#endif /* HAVE_NSSA */
+      )
+
     ospf_refresher_register_lsa (ospf, new);
 
   return new;
