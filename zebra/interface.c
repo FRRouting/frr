@@ -39,6 +39,7 @@
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
+#include "zebra/irdp.h"
 
 /* Allocate a new internal interface index 
  * This works done from the top so that %d macros
@@ -1418,6 +1419,10 @@ if_config_write (struct vty *vty)
 #ifdef RTADV
       rtadv_config_write (vty, ifp);
 #endif /* RTADV */
+
+#ifdef HAVE_IRDP
+      irdp_config_write (vty, ifp);
+#endif /* IRDP */
 
       vty_out (vty, "!%s", VTY_NEWLINE);
     }

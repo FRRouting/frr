@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.51 2004/05/11 10:49:35 paul Exp $
+## $Id: configure.ac,v 1.52 2004/06/12 14:33:05 hasso Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(quagga, 0.96.5, [http://bugzilla.quagga.net])
@@ -125,6 +125,8 @@ AC_ARG_ENABLE(logfile_mask,
 
 AC_ARG_ENABLE(rtadv,
 [  --disable-rtadv         disable IPV6 router advertisement feature])
+AC_ARG_ENABLE(irdp,
+[  --enable-irdp           enable IRDP server support in zebra])
 AC_ARG_ENABLE(capabilities,
 [  --disable-capabilities        disable using POSIX capabilities])
 
@@ -161,6 +163,10 @@ if test "${enable_rtadv}" != "no"; then
   AC_DEFINE(HAVE_RTADV,,Enable IPv6 Routing Advertisement support)
 else
   AC_MSG_RESULT(no)
+fi
+
+if test "${enable_irdp}" = "yes"; then
+  AC_DEFINE(HAVE_IRDP,, IRDP )
 fi
 
 if test "${enable_user}" = "yes" || test x"${enable_user}" = x""; then

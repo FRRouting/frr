@@ -36,6 +36,7 @@
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
 #include "zebra/rib.h"
+#include "zebra/irdp.h"
 
 /* Zebra instance */
 struct zebra_t zebrad =
@@ -151,6 +152,9 @@ sigint (void)
 
   if (!retain_mode)
     rib_close ();
+#ifdef HAVE_IRDP
+  irdp_finish();
+#endif
 
   exit (0);
 }
@@ -289,6 +293,9 @@ main (int argc, char **argv)
   zebra_vty_init ();
   access_list_init ();
   rtadv_init ();
+#ifdef HAVE_IRDP
+  irdp_init();
+#endif
 
   /* For debug purpose. */
   /* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */

@@ -19,6 +19,10 @@
  * 02111-1307, USA.  
  */
 
+#ifdef HAVE_IRDP
+#include "zebra/irdp.h"
+#endif
+
 /* For interface multicast configuration. */
 #define IF_ZEBRA_MULTICAST_UNSPEC 0
 #define IF_ZEBRA_MULTICAST_ON     1
@@ -153,6 +157,11 @@ struct zebra_if
 #ifdef RTADV
   struct rtadvconf rtadv;
 #endif /* RTADV */
+
+#ifdef HAVE_IRDP
+  struct irdp_interface irdp;
+#endif
+
 };
 
 void if_delete_update (struct interface *ifp);
