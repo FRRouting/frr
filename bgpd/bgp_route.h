@@ -167,3 +167,7 @@ u_char bgp_distance_apply (struct prefix *, struct bgp_info *, struct bgp *);
 
 afi_t bgp_node_afi (struct vty *);
 safi_t bgp_node_safi (struct vty *);
+
+void route_vty_out (struct vty *, struct prefix *, struct bgp_info *, int, safi_t);
+void route_vty_out_tag (struct vty *, struct prefix *, struct bgp_info *, int, safi_t);
+void route_vty_out_tmp (struct vty *, struct prefix *, struct attr *, safi_t);

@@ -1206,9 +1206,7 @@ vty_execute (struct vty *vty)
   vty->cp = vty->length = 0;
   vty_clear_buf (vty);
 
-  if (vty->status != VTY_CLOSE 
-      && vty->status != VTY_START
-      && vty->status != VTY_CONTINUE)
+  if (vty->status != VTY_CLOSE )
     vty_prompt (vty);
 
   return ret;
@@ -1310,8 +1308,6 @@ vty_read (struct thread *thread)
 	    case CONTROL('C'):
 	    case 'q':
 	    case 'Q':
-	      if (vty->output_func)
-		(*vty->output_func) (vty, 1);
 	      vty_buffer_reset (vty);
 	      break;
 #if 0 /* More line does not work for "show ip bgp".  */
@@ -1321,8 +1317,6 @@ vty_read (struct thread *thread)
 	      break;
 #endif
 	    default:
-	      if (vty->output_func)
-		(*vty->output_func) (vty, 0);
 	      break;
 	    }
 	  continue;
@@ -1472,55 +1466,6 @@ vty_flush (struct thread *thread)
       }
 
   /* Function execution continue. */
-  if (vty->status == VTY_START || vty->status == VTY_CONTINUE)
-    {
-      if (vty->status == VTY_CONTINUE)
-	erase = 1;
-      else
-	erase = 0;
-
-      if (vty->output_func == NULL)
-	dont_more = 1;
-      else
-	dont_more = 0;
-
-      if (vty->lines == 0)
-	{
-	  erase = 0;
-	  dont_more = 1;
-	}
-
-      buffer_flush_vty_all (vty->obuf, vty->fd, erase, dont_more);
-
-      if (vty->status == VTY_CLOSE)
-	{
-	  vty_close (vty);
-	  return 0;
-	}
-
-      if (vty->output_func == NULL)
-	{
-	  vty->status = VTY_NORMAL;
-	  vty_prompt (vty);
-	  vty_event (VTY_WRITE, vty_sock, vty);
-	}
-      else
-	vty->status = VTY_MORE;
-
-      if (vty->lines == 0)
-	{
-	  if (vty->output_func == NULL)
-	    vty_event (VTY_READ, vty_sock, vty);
-	  else
-	    {
-	      if (vty->output_func)
-		(*vty->output_func) (vty, 0);
-	      vty_event (VTY_WRITE, vty_sock, vty);
-	    }
-	}
-    }
-  else
-    {
       if (vty->status == VTY_MORE || vty->status == VTY_MORELINE)
 	erase = 1;
       else
@@ -1554,7 +1499,6 @@ vty_flush (struct thread *thread)
 	  if (vty->lines == 0)
 	    vty_event (VTY_WRITE, vty_sock, vty);
 	}
-    }
 
   return 0;
 }
@@ -2075,8 +2019,6 @@ vty_close (struct vty *vty)
     thread_cancel (vty->t_write);
   if (vty->t_timeout)
     thread_cancel (vty->t_timeout);
-  if (vty->t_output)
-    thread_cancel (vty->t_output);
 
   /* Flush buffer. */
   if (! buffer_empty (vty->obuf))

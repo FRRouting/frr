@@ -41,9 +41,6 @@ struct vty
   /* What address is this vty comming from. */
   char *address;
 
-  /* Privilege level of this vty. */
-  int privilege;
-
   /* Failure count */
   int fail;
 
@@ -82,8 +79,7 @@ struct vty
   unsigned char escape;
 
   /* Current vty status. */
-  enum {VTY_NORMAL, VTY_CLOSE, VTY_MORE, VTY_MORELINE,
-        VTY_START, VTY_CONTINUE} status;
+  enum {VTY_NORMAL, VTY_CLOSE, VTY_MORE, VTY_MORELINE} status;
 
   /* IAC handling */
   unsigned char iac;
@@ -96,13 +92,8 @@ struct vty
   int width;
   int height;
 
-  int scroll_one;
-
   /* Configure lines. */
   int lines;
-
-  /* Current executing function pointer. */
-  int (*func) (struct vty *, void *arg);
 
   /* Terminal monitor. */
   int monitor;
@@ -117,17 +108,6 @@ struct vty
   /* Timeout seconds and thread. */
   unsigned long v_timeout;
   struct thread *t_timeout;
-
-  /* Thread output function. */
-  struct thread *t_output;
-
-  /* Output data pointer. */
-  int (*output_func) (struct vty *, int);
-  void (*output_clean) (struct vty *);
-  void *output_rn;
-  unsigned long output_count;
-  int output_type;
-  void *output_arg;
 };
 
 /* Integrated configuration file. */

@@ -1,5 +1,19 @@
 2004-11-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* vty.h: Remove fields in struct vty that were related to VTY_CONTINUE
+	  capabilities (that were used only in bgpd/bgp_route.c and are now
+	  removed).  Also remove some other fields that were not being
+	  used at all.
+	* vty.c: (vty_execute) Do not test for obsolete status values VTY_START
+	  and VTY_CONTINUE.
+	  (vty_read) Remove calls to vty->output_func since that was part
+	  of the VTY_CONTINUE infrastructure that has been removed.
+	  (vty_flush) Remove code to support VTY_START and VTY_CONTINUE.
+	  (vty_close) Remove code to cancel vty->t_output thread, since that
+	  thread was never actually used.
+
+2004-11-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* vty.c: Vtysh connections to daemons should use buffering.
 	  (vty_out) Remove exception for vty_shell_serv, just use buffer_write.
 	  (vty_new) Increase output buffer size to 4096 rounded up to a

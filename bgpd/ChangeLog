@@ -1,3 +1,25 @@
+2004-11-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* bgp_route.c: Remove all code related to VTY_CONTINUE; this feature
+	  is deprecated because the output did not represent a single point
+	  in time.  All output needs to be generated inline and buffered
+	  by the library code.
+	  (route_vty_out,route_vty_out_tag,damp_route_vty_out,
+	   flap_route_vty_out) Remove code to count number of lines of output,
+	   since this was only useful for VTY_CONTINUE behavior.
+	  (bgp_show_callback,vty_calc_line) Removed.
+	  (bgp_show_table) Remove hooks for VTY_CONTINUE callback support.
+	  As a result, there's a new output_arg argument to this function.
+	  Make function static.
+	  (bgp_show) Make function static and add a new output_arg argument.
+	  Change all functions that call bgp_show or bgp_show_table to
+	  pass the new output_arg argument (that used to be passed inside
+	  vty->output_arg).
+	* bgp_mplsvpn.c: Remove declarations of functions defined in
+	  bgp_route.c; these declarations belong in bgp_route.h.
+	* bgp_route.h: Declare 3 global functions used in both bgp_route.c
+	  and in bgp_mplsvpn.c.
+
 2004-10-31 Paul Jakma <paul@dishone.st>
 
 	* {bgpd,bgp_attr}.c: size_t printf format should be ld.

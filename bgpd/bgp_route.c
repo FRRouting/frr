@@ -4680,27 +4680,17 @@ route_vty_out_route (struct prefix *p, struct vty *vty)
     vty_out (vty, "%*s", len, " ");
 }
 
-/* Calculate line number of output data. */
-int
-vty_calc_line (struct vty *vty, unsigned long length)
-{
-  return vty->width ? (((vty->obuf->length - length) / vty->width) + 1) : 1;
-}
-
 enum bgp_display_type
 {
   normal_list,
 };
 
 /* called from terminal list command */
-int
+void
 route_vty_out (struct vty *vty, struct prefix *p,
 	       struct bgp_info *binfo, int display, safi_t safi)
 {
   struct attr *attr;
-  unsigned long length = 0;
-
-  length = vty->obuf->length;
 
   /* Route status display. */
   if (binfo->suppress)
@@ -4782,8 +4772,6 @@ route_vty_out (struct vty *vty, struct prefix *p,
       vty_out (vty, " %s", bgp_origin_str[attr->origin]);
   }
   vty_out (vty, "%s", VTY_NEWLINE);
-
-  return vty_calc_line (vty, length);
 }  
 
 /* called from terminal list command */
@@ -4851,15 +4839,12 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p,
   vty_out (vty, "%s", VTY_NEWLINE);
 }  
 
-int
+void
 route_vty_out_tag (struct vty *vty, struct prefix *p,
 		   struct bgp_info *binfo, int display, safi_t safi)
 {
   struct attr *attr;
-  unsigned long length = 0;
   u_int32_t label = 0;
-
-  length = vty->obuf->length;
 
   /* Route status display. */
   if (binfo->suppress)
@@ -4924,20 +4909,15 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
   vty_out (vty, "notag/%d", label);
 
   vty_out (vty, "%s", VTY_NEWLINE);
-
-  return vty_calc_line (vty, length);
 }  
 
 /* dampening route */
-int
+static void
 damp_route_vty_out (struct vty *vty, struct prefix *p,
 		    struct bgp_info *binfo, int display, safi_t safi)
 {
   struct attr *attr;
-  unsigned long length = 0;
   int len;
-
-  length = vty->obuf->length;
 
   /* Route status display. */
   if (binfo->suppress)
@@ -4989,24 +4969,20 @@ damp_route_vty_out (struct vty *vty, struct prefix *p,
 	vty_out (vty, " %s", bgp_origin_str[attr->origin]);
     }
   vty_out (vty, "%s", VTY_NEWLINE);
-
-  return vty_calc_line (vty, length);
 }
 
 #define BGP_UPTIME_LEN 25
 
 /* flap route */
-int
+static void
 flap_route_vty_out (struct vty *vty, struct prefix *p,
 		    struct bgp_info *binfo, int display, safi_t safi)
 {
   struct attr *attr;
   struct bgp_damp_info *bdi;
-  unsigned long length = 0;
   char timebuf[BGP_UPTIME_LEN];
   int len;
 
-  length = vty->obuf->length;
   bdi = binfo->damp_info;
 
   /* Route status display. */
@@ -5073,8 +5049,6 @@ flap_route_vty_out (struct vty *vty, struct prefix *p,
 	vty_out (vty, " %s", bgp_origin_str[attr->origin]);
     }
   vty_out (vty, "%s", VTY_NEWLINE);
-
-  return vty_calc_line (vty, length);
 }
 
 void
@@ -5278,254 +5252,18 @@ enum bgp_show_type
   bgp_show_type_damp_neighbor
 };
 
-int
-bgp_show_callback (struct vty *vty, int unlock)
-{
-  struct bgp_node *rn;
-  struct bgp_info *ri;
-  int count;
-  int limit;
-  int display;
-
-  rn = (struct bgp_node *) vty->output_rn;
-  count = 0;
-  limit = ((vty->lines == 0) 
-	   ? 10 : (vty->lines > 0 
-		   ? vty->lines : vty->height - 2));
-  limit = limit > 0 ? limit : 2;
-
-  /* Quit of display. */
-  if (unlock && rn)
-    {
-      bgp_unlock_node (rn);
-      if (vty->output_clean)
-	(*vty->output_clean) (vty);
-      vty->output_rn = NULL;
-      vty->output_func = NULL;
-      vty->output_clean = NULL;
-      vty->output_arg = NULL;
-      return 0;
-    }
-
-  for (; rn; rn = bgp_route_next (rn)) 
-    if (rn->info != NULL)
-      {
-	display = 0;
-
-	for (ri = rn->info; ri; ri = ri->next)
-	  {
-	    if (vty->output_type == bgp_show_type_flap_statistics
-		|| vty->output_type == bgp_show_type_flap_address
-		|| vty->output_type == bgp_show_type_flap_prefix
-		|| vty->output_type == bgp_show_type_flap_cidr_only
-		|| vty->output_type == bgp_show_type_flap_regexp
-		|| vty->output_type == bgp_show_type_flap_filter_list
-		|| vty->output_type == bgp_show_type_flap_prefix_list
-		|| vty->output_type == bgp_show_type_flap_prefix_longer
-		|| vty->output_type == bgp_show_type_flap_route_map
-		|| vty->output_type == bgp_show_type_flap_neighbor
-		|| vty->output_type == bgp_show_type_dampend_paths
-		|| vty->output_type == bgp_show_type_damp_neighbor)
-	      {
-		if (! ri->damp_info)
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_regexp
-		|| vty->output_type == bgp_show_type_flap_regexp)
-	      {
-		regex_t *regex = vty->output_arg;
-
-		if (bgp_regexec (regex, ri->attr->aspath) == REG_NOMATCH)
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_prefix_list
-		|| vty->output_type == bgp_show_type_flap_prefix_list)
-	      {
-		struct prefix_list *plist = vty->output_arg;
-
-		if (prefix_list_apply (plist, &rn->p) != PREFIX_PERMIT)
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_filter_list
-		|| vty->output_type == bgp_show_type_flap_filter_list)
-	      {
-		struct as_list *as_list = vty->output_arg;
-
-		if (as_list_apply (as_list, ri->attr->aspath) != AS_FILTER_PERMIT)
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_route_map
-		|| vty->output_type == bgp_show_type_flap_route_map)
-	      {
-		struct route_map *rmap = vty->output_arg;
-		struct bgp_info binfo;
-		struct attr dummy_attr; 
-		int ret;
-
-		dummy_attr = *ri->attr;
-		binfo.peer = ri->peer;
-		binfo.attr = &dummy_attr;
-
-		ret = route_map_apply (rmap, &rn->p, RMAP_BGP, &binfo);
-
-		if (ret == RMAP_DENYMATCH)
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_neighbor
-		|| vty->output_type == bgp_show_type_flap_neighbor
-		|| vty->output_type == bgp_show_type_damp_neighbor)
-	      {
-		union sockunion *su = vty->output_arg;
-
-		if (ri->peer->su_remote == NULL || ! sockunion_same(ri->peer->su_remote, su))
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_cidr_only
-		|| vty->output_type == bgp_show_type_flap_cidr_only)
-	      {
-		u_int32_t destination;
-
-		destination = ntohl (rn->p.u.prefix4.s_addr);
-		if (IN_CLASSC (destination) && rn->p.prefixlen == 24)
-		  continue;
-		if (IN_CLASSB (destination) && rn->p.prefixlen == 16)
-		  continue;
-		if (IN_CLASSA (destination) && rn->p.prefixlen == 8)
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_prefix_longer
-		|| vty->output_type == bgp_show_type_flap_prefix_longer)
-	      {
-		struct prefix *p = vty->output_arg;
-
-		if (! prefix_match (p, &rn->p))
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_community_all)
-	      {
-		if (! ri->attr->community)
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_community)
-	      {
-		struct community *com = vty->output_arg;
-
-		if (! ri->attr->community ||
-		    ! community_match (ri->attr->community, com))
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_community_exact)
-	      {
-		struct community *com = vty->output_arg;
-
-		if (! ri->attr->community ||
-		    ! community_cmp (ri->attr->community, com))
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_community_list)
-	      {
-		struct community_list *list = vty->output_arg;
-
-		if (! community_list_match (ri->attr->community, list))
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_community_list_exact)
-	      {
-		struct community_list *list = vty->output_arg;
-
-		if (! community_list_exact_match (ri->attr->community, list))
-		  continue;
-	      }
-	    if (vty->output_type == bgp_show_type_flap_address
-		|| vty->output_type == bgp_show_type_flap_prefix)
-	      {
-		struct prefix *p = vty->output_arg;
-
-		if (! prefix_match (&rn->p, p))
-		  continue;
-
-		if (vty->output_type == bgp_show_type_flap_prefix)
-		  if (p->prefixlen != rn->p.prefixlen)
-		    continue;
-	      }
-	    if (vty->output_type == bgp_show_type_dampend_paths
-		|| vty->output_type == bgp_show_type_damp_neighbor)
-	      {
-		if (! CHECK_FLAG (ri->flags, BGP_INFO_DAMPED)
-		    || CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
-		  continue;
-	      }
-
-	    if (vty->output_type == bgp_show_type_dampend_paths
-		|| vty->output_type == bgp_show_type_damp_neighbor)
-	      count += damp_route_vty_out (vty, &rn->p, ri, display, SAFI_UNICAST);
-	    else if (vty->output_type == bgp_show_type_flap_statistics
-		     || vty->output_type == bgp_show_type_flap_address
-		     || vty->output_type == bgp_show_type_flap_prefix
-		     || vty->output_type == bgp_show_type_flap_cidr_only
-		     || vty->output_type == bgp_show_type_flap_regexp
-		     || vty->output_type == bgp_show_type_flap_filter_list
-		     || vty->output_type == bgp_show_type_flap_prefix_list
-		     || vty->output_type == bgp_show_type_flap_prefix_longer
-		     || vty->output_type == bgp_show_type_flap_route_map
-		     || vty->output_type == bgp_show_type_flap_neighbor)
-	      count += flap_route_vty_out (vty, &rn->p, ri, display, SAFI_UNICAST);
-	    else
-	      count += route_vty_out (vty, &rn->p, ri, display, SAFI_UNICAST);
-	    display++;
-	  }
-
-	if (display)
-	  vty->output_count++;
-
-	/* Remember current pointer then suspend output. */
-	if (count >= limit)
-	  {
-	    vty->status = VTY_CONTINUE;
-	    vty->output_rn = (struct route_node *) bgp_route_next (rn);;
-	    vty->output_func = bgp_show_callback;
-	    return 0;
-	  }
-      }
-
-  /* Total line display. */
-  if (vty->output_count)
-    vty_out (vty, "%sTotal number of prefixes %ld%s",
-	     VTY_NEWLINE, vty->output_count, VTY_NEWLINE);
-
-  if (vty->output_clean)
-    (*vty->output_clean) (vty);
-
-  vty->status = VTY_CONTINUE;
-  vty->output_rn = NULL;
-  vty->output_func = NULL;
-  vty->output_clean = NULL;
-  vty->output_arg = NULL;
-
-  return 0;
-}
-
-int
+static int
 bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router_id,
-	  enum bgp_show_type type)
+	  enum bgp_show_type type, void *output_arg)
 {
   struct bgp_info *ri;
   struct bgp_node *rn;
   int header = 1;
-  int count;
-  int limit;
   int display;
-
-  limit = ((vty->lines == 0) 
-	   ? 10 : (vty->lines > 0 
-		   ? vty->lines : vty->height - 2));
-  limit = limit > 0 ? limit : 2;
-
-  count = 0;
+  unsigned long output_count;
 
   /* This is first entry point, so reset total line. */
-  vty->output_count = 0;
-  vty->output_type = type;
+  output_count = 0;
 
   /* Start processing of routes. */
   for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn)) 
@@ -5535,7 +5273,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 
 	for (ri = rn->info; ri; ri = ri->next)
 	  {
-	    if (vty->output_type == bgp_show_type_flap_statistics
+	    if (type == bgp_show_type_flap_statistics
 		|| type == bgp_show_type_flap_address
 		|| type == bgp_show_type_flap_prefix
 		|| type == bgp_show_type_flap_cidr_only
@@ -5554,7 +5292,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	    if (type == bgp_show_type_regexp
 		|| type == bgp_show_type_flap_regexp)
 	      {
-		regex_t *regex = vty->output_arg;
+		regex_t *regex = output_arg;
 		    
 		if (bgp_regexec (regex, ri->attr->aspath) == REG_NOMATCH)
 		  continue;
@@ -5562,7 +5300,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	    if (type == bgp_show_type_prefix_list
 		|| type == bgp_show_type_flap_prefix_list)
 	      {
-		struct prefix_list *plist = vty->output_arg;
+		struct prefix_list *plist = output_arg;
 		    
 		if (prefix_list_apply (plist, &rn->p) != PREFIX_PERMIT)
 		  continue;
@@ -5570,7 +5308,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	    if (type == bgp_show_type_filter_list
 		|| type == bgp_show_type_flap_filter_list)
 	      {
-		struct as_list *as_list = vty->output_arg;
+		struct as_list *as_list = output_arg;
 
 		if (as_list_apply (as_list, ri->attr->aspath) != AS_FILTER_PERMIT)
 		  continue;
@@ -5578,7 +5316,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	    if (type == bgp_show_type_route_map
 		|| type == bgp_show_type_flap_route_map)
 	      {
-		struct route_map *rmap = vty->output_arg;
+		struct route_map *rmap = output_arg;
 		struct bgp_info binfo;
 		struct attr dummy_attr; 
 		int ret;
@@ -5596,7 +5334,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 		|| type == bgp_show_type_flap_neighbor
 		|| type == bgp_show_type_damp_neighbor)
 	      {
-		union sockunion *su = vty->output_arg;
+		union sockunion *su = output_arg;
 
 		if (ri->peer->su_remote == NULL || ! sockunion_same(ri->peer->su_remote, su))
 		  continue;
@@ -5617,7 +5355,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	    if (type == bgp_show_type_prefix_longer
 		|| type == bgp_show_type_flap_prefix_longer)
 	      {
-		struct prefix *p = vty->output_arg;
+		struct prefix *p = output_arg;
 
 		if (! prefix_match (p, &rn->p))
 		  continue;
@@ -5629,7 +5367,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	      }
 	    if (type == bgp_show_type_community)
 	      {
-		struct community *com = vty->output_arg;
+		struct community *com = output_arg;
 
 		if (! ri->attr->community ||
 		    ! community_match (ri->attr->community, com))
@@ -5637,7 +5375,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	      }
 	    if (type == bgp_show_type_community_exact)
 	      {
-		struct community *com = vty->output_arg;
+		struct community *com = output_arg;
 
 		if (! ri->attr->community ||
 		    ! community_cmp (ri->attr->community, com))
@@ -5645,14 +5383,14 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	      }
 	    if (type == bgp_show_type_community_list)
 	      {
-		struct community_list *list = vty->output_arg;
+		struct community_list *list = output_arg;
 
 		if (! community_list_match (ri->attr->community, list))
 		  continue;
 	      }
 	    if (type == bgp_show_type_community_list_exact)
 	      {
-		struct community_list *list = vty->output_arg;
+		struct community_list *list = output_arg;
 
 		if (! community_list_exact_match (ri->attr->community, list))
 		  continue;
@@ -5660,7 +5398,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	    if (type == bgp_show_type_flap_address
 		|| type == bgp_show_type_flap_prefix)
 	      {
-		struct prefix *p = vty->output_arg;
+		struct prefix *p = output_arg;
 
 		if (! prefix_match (&rn->p, p))
 		  continue;
@@ -5698,13 +5436,12 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 		  vty_out (vty, BGP_SHOW_FLAP_HEADER, VTY_NEWLINE);
 		else
 		  vty_out (vty, BGP_SHOW_HEADER, VTY_NEWLINE);
-		count += 5;
 		header = 0;
 	      }
 
 	    if (type == bgp_show_type_dampend_paths
 		|| type == bgp_show_type_damp_neighbor)
-	      count += damp_route_vty_out (vty, &rn->p, ri, display, SAFI_UNICAST);
+	      damp_route_vty_out (vty, &rn->p, ri, display, SAFI_UNICAST);
 	    else if (type == bgp_show_type_flap_statistics
 		     || type == bgp_show_type_flap_address
 		     || type == bgp_show_type_flap_prefix
@@ -5715,52 +5452,31 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 		     || type == bgp_show_type_flap_prefix_longer
 		     || type == bgp_show_type_flap_route_map
 		     || type == bgp_show_type_flap_neighbor)
-	      count += flap_route_vty_out (vty, &rn->p, ri, display, SAFI_UNICAST);
+	      flap_route_vty_out (vty, &rn->p, ri, display, SAFI_UNICAST);
 	    else
-	      count += route_vty_out (vty, &rn->p, ri, display, SAFI_UNICAST);
+	      route_vty_out (vty, &rn->p, ri, display, SAFI_UNICAST);
 	    display++;
 	  }
 	if (display)
-	  vty->output_count++;
-
-	/* Remember current pointer then suspend output. */
-	if (count >= limit  && vty->type != VTY_SHELL_SERV)
-	  {
-	    vty->status = VTY_START;
-	    vty->output_rn = (struct route_node *) bgp_route_next (rn);
-	    vty->output_func = bgp_show_callback;
-	    vty->output_type = type;
-
-	    return CMD_SUCCESS;
-	  }
+	  output_count++;
       }
 
   /* No route is displayed */
-  if (vty->output_count == 0)
+  if (output_count == 0)
     {
       if (type == bgp_show_type_normal)
 	vty_out (vty, "No BGP network exists%s", VTY_NEWLINE);
     }
   else
     vty_out (vty, "%sTotal number of prefixes %ld%s",
-	     VTY_NEWLINE, vty->output_count, VTY_NEWLINE);
-
-  /* Clean up allocated resources. */
-  if (vty->output_clean)
-    (*vty->output_clean) (vty);
-
-  vty->status = VTY_START;
-  vty->output_rn = NULL;
-  vty->output_func = NULL;
-  vty->output_clean = NULL;
-  vty->output_arg = NULL;
+	     VTY_NEWLINE, output_count, VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
 
-int
+static int
 bgp_show (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
-         enum bgp_show_type type)
+         enum bgp_show_type type, void *output_arg)
 {
   struct bgp_table *table;
 
@@ -5777,7 +5493,7 @@ bgp_show (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 
   table = bgp->rib[afi][safi];
 
-  return bgp_show_table (vty, table, &bgp->router_id, type);
+  return bgp_show_table (vty, table, &bgp->router_id, type, output_arg);
 }
 
 /* Header of detailed BGP route information */
@@ -5992,7 +5708,7 @@ DEFUN (show_ip_bgp,
        IP_STR
        BGP_STR)
 {
-  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_normal);
+  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL);
 }
 
 DEFUN (show_ip_bgp_ipv4,
@@ -6006,9 +5722,10 @@ DEFUN (show_ip_bgp_ipv4,
        "Address Family modifier\n")
 {
   if (strncmp (argv[0], "m", 1) == 0)
-    return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST, bgp_show_type_normal);
+    return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST, bgp_show_type_normal,
+                     NULL);
  
-  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_normal);
+  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL);
 }
 
 DEFUN (show_ip_bgp_route,
@@ -6158,7 +5875,7 @@ DEFUN (show_ip_bgp_view,
 	  return CMD_WARNING;
 	}
 
-  return bgp_show (vty, bgp, AFI_IP, SAFI_UNICAST, bgp_show_type_normal);
+  return bgp_show (vty, bgp, AFI_IP, SAFI_UNICAST, bgp_show_type_normal, NULL);
 }
 
 DEFUN (show_ip_bgp_view_route,
@@ -6194,7 +5911,8 @@ DEFUN (show_bgp,
        SHOW_STR
        BGP_STR)
 {
-  return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal);
+  return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal,
+                   NULL);
 }
 
 ALIAS (show_bgp,
@@ -6212,7 +5930,8 @@ DEFUN (show_ipv6_bgp,
        IP_STR
        BGP_STR)
 {
-  return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal);
+  return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal,
+                   NULL);
 }
 
 DEFUN (show_bgp_route,
@@ -6293,7 +6012,7 @@ DEFUN (show_bgp_view,
 	  return CMD_WARNING;
 	}
   
-  return bgp_show (vty, bgp, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal);
+  return bgp_show (vty, bgp, AFI_IP6, SAFI_UNICAST, bgp_show_type_normal, NULL);
 }
 
 ALIAS (show_bgp_view,
@@ -6357,7 +6076,8 @@ DEFUN (show_ipv6_mbgp,
        IP_STR
        MBGP_STR)
 {
-  return bgp_show (vty, NULL, AFI_IP6, SAFI_MULTICAST, bgp_show_type_normal);
+  return bgp_show (vty, NULL, AFI_IP6, SAFI_MULTICAST, bgp_show_type_normal,
+                   NULL);
 }
 
 /* old command */
@@ -6385,11 +6105,6 @@ DEFUN (show_ipv6_mbgp_prefix,
 }
 #endif
 
-void
-bgp_show_regexp_clean (struct vty *vty)
-{
-  bgp_regex_free (vty->output_arg);
-}
 
 int
 bgp_show_regexp (struct vty *vty, int argc, const char **argv, afi_t afi,
@@ -6400,6 +6115,7 @@ bgp_show_regexp (struct vty *vty, int argc, const char **argv, afi_t afi,
   char *regstr;
   int first;
   regex_t *regex;
+  int rc;
   
   first = 0;
   b = buffer_new (1024);
@@ -6429,10 +6145,9 @@ bgp_show_regexp (struct vty *vty, int argc, const char **argv, afi_t afi,
       return CMD_WARNING;
     }
 
-  vty->output_arg = regex;
-  vty->output_clean = bgp_show_regexp_clean;
-
-  return bgp_show (vty, NULL, afi, safi, type);
+  rc = bgp_show (vty, NULL, afi, safi, type, regex);
+  bgp_regex_free (regex);
+  return rc;
 }
 
 DEFUN (show_ip_bgp_regexp, 
@@ -6547,9 +6262,7 @@ bgp_show_prefix_list (struct vty *vty, const char *prefix_list_str, afi_t afi,
       return CMD_WARNING;
     }
 
-  vty->output_arg = plist;
-
-  return bgp_show (vty, NULL, afi, safi, type);
+  return bgp_show (vty, NULL, afi, safi, type, plist);
 }
 
 DEFUN (show_ip_bgp_prefix_list, 
@@ -6663,9 +6376,7 @@ bgp_show_filter_list (struct vty *vty, const char *filter, afi_t afi,
       return CMD_WARNING;
     }
 
-  vty->output_arg = as_list;
-
-  return bgp_show (vty, NULL, afi, safi, type);
+  return bgp_show (vty, NULL, afi, safi, type, as_list);
 }
 
 DEFUN (show_ip_bgp_filter_list, 
@@ -6780,9 +6491,7 @@ bgp_show_route_map (struct vty *vty, const char *rmap_str, afi_t afi,
       return CMD_WARNING;
     }
 
-  vty->output_arg = rmap;
-
-  return bgp_show (vty, NULL, afi, safi, type);
+  return bgp_show (vty, NULL, afi, safi, type, rmap);
 }
 
 DEFUN (show_ip_bgp_route_map, 
@@ -6862,7 +6571,7 @@ DEFUN (show_ip_bgp_cidr_only,
        "Display only routes with non-natural netmasks\n")
 {
     return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST,
-		     bgp_show_type_cidr_only);
+		     bgp_show_type_cidr_only, NULL);
 }
 
 DEFUN (show_ip_bgp_flap_cidr_only,
@@ -6875,7 +6584,7 @@ DEFUN (show_ip_bgp_flap_cidr_only,
        "Display only routes with non-natural netmasks\n")
 {
   return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST,
-		   bgp_show_type_flap_cidr_only);
+		   bgp_show_type_flap_cidr_only, NULL);
 }
 
 DEFUN (show_ip_bgp_ipv4_cidr_only,
@@ -6891,10 +6600,10 @@ DEFUN (show_ip_bgp_ipv4_cidr_only,
 {
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST,
-		     bgp_show_type_cidr_only);
+		     bgp_show_type_cidr_only, NULL);
 
   return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST,
-		     bgp_show_type_cidr_only);
+		     bgp_show_type_cidr_only, NULL);
 }
 
 DEFUN (show_ip_bgp_community_all,
@@ -6906,7 +6615,7 @@ DEFUN (show_ip_bgp_community_all,
        "Display routes matching the communities\n")
 {
   return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST,
-		     bgp_show_type_community_all);
+		     bgp_show_type_community_all, NULL);
 }
 
 DEFUN (show_ip_bgp_ipv4_community_all,
@@ -6922,10 +6631,10 @@ DEFUN (show_ip_bgp_ipv4_community_all,
 {
   if (strncmp (argv[0], "m", 1) == 0)
     return bgp_show (vty, NULL, AFI_IP, SAFI_MULTICAST,
-		     bgp_show_type_community_all);
+		     bgp_show_type_community_all, NULL);
  
   return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST,
-		   bgp_show_type_community_all);
+		   bgp_show_type_community_all, NULL);
 }
 
 #ifdef HAVE_IPV6
@@ -6937,7 +6646,7 @@ DEFUN (show_bgp_community_all,
        "Display routes matching the communities\n")
 {
   return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST,
-		   bgp_show_type_community_all);
+		   bgp_show_type_community_all, NULL);
 }
 
 ALIAS (show_bgp_community_all,
@@ -6958,7 +6667,7 @@ DEFUN (show_ipv6_bgp_community_all,
        "Display routes matching the communities\n")
 {
   return bgp_show (vty, NULL, AFI_IP6, SAFI_UNICAST,
-		   bgp_show_type_community_all);
+		   bgp_show_type_community_all, NULL);
 }
 
 /* old command */
@@ -6971,7 +6680,7 @@ DEFUN (show_ipv6_mbgp_community_all,
        "Display routes matching the communities\n")
 {
   return bgp_show (vty, NULL, AFI_IP6, SAFI_MULTICAST,
-		   bgp_show_type_community_all);
+		   bgp_show_type_community_all, NULL);
 }
 #endif /* HAVE_IPV6 */
 
@@ -7012,12 +6721,9 @@ bgp_show_community (struct vty *vty, int argc, const char **argv, int exact,
       return CMD_WARNING;
     }
 
-  vty->output_arg = com;
-
-  if (exact)
-    return bgp_show (vty, NULL, afi, safi, bgp_show_type_community_exact);
-
-  return bgp_show (vty, NULL, afi, safi, bgp_show_type_community);
+  return bgp_show (vty, NULL, afi, safi,
+                   (exact ? bgp_show_type_community_exact :
+		            bgp_show_type_community), com);
 }
 
 DEFUN (show_ip_bgp_community,
@@ -7992,12 +7698,9 @@ bgp_show_community_list (struct vty *vty, const char *com, int exact,
       return CMD_WARNING;
     }
 
-  vty->output_arg = list;
-
-  if (exact)
-    return bgp_show (vty, NULL, afi, safi, bgp_show_type_community_list_exact);
-
-  return bgp_show (vty, NULL, afi, safi, bgp_show_type_community_list);
+  return bgp_show (vty, NULL, afi, safi,
+                   (exact ? bgp_show_type_community_list_exact :
+		            bgp_show_type_community_list), list);
 }
 
 DEFUN (show_ip_bgp_community_list,
@@ -8160,15 +7863,6 @@ DEFUN (show_ipv6_mbgp_community_list_exact,
 }
 #endif /* HAVE_IPV6 */
 
-void
-bgp_show_prefix_longer_clean (struct vty *vty)
-{
-  struct prefix *p;
-
-  p = vty->output_arg;
-  prefix_free (p);
-}
-
 int
 bgp_show_prefix_longer (struct vty *vty, const char *prefix, afi_t afi,
 			safi_t safi, enum bgp_show_type type)
@@ -8185,10 +7879,9 @@ bgp_show_prefix_longer (struct vty *vty, const char *prefix, afi_t afi,
       return CMD_WARNING;
     }
 
-  vty->output_arg = p;
-  vty->output_clean = bgp_show_prefix_longer_clean;
-
-  return bgp_show (vty, NULL, afi, safi, type);
+  ret = bgp_show (vty, NULL, afi, safi, type, p);
+  prefix_free(p);
+  return ret;
 }
 
 DEFUN (show_ip_bgp_prefix_longer,
@@ -8948,15 +8641,6 @@ ALIAS (show_bgp_view_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n")
 #endif /* HAVE_IPV6 */
 
-void
-bgp_show_neighbor_route_clean (struct vty *vty)
-{
-  union sockunion *su;
-
-  su = vty->output_arg;
-  XFREE (MTYPE_SOCKUNION, su);
-}
-
 int
 bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
 			 safi_t safi, enum bgp_show_type type)
@@ -8967,10 +8651,7 @@ bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
       return CMD_WARNING;
     }
  
-  vty->output_arg = sockunion_dup (&peer->su);
-  vty->output_clean = bgp_show_neighbor_route_clean;
-
-  return bgp_show (vty, peer->bgp, afi, safi, type);
+  return bgp_show (vty, peer->bgp, afi, safi, type, &peer->su);
 }
 
 DEFUN (show_ip_bgp_neighbor_routes,
@@ -9103,7 +8784,7 @@ DEFUN (show_ip_bgp_view_rsclient,
 
   table = peer->rib[AFI_IP][SAFI_UNICAST];
 
-  return bgp_show_table (vty, table, &peer->remote_id, bgp_show_type_normal);
+  return bgp_show_table (vty, table, &peer->remote_id, bgp_show_type_normal, NULL);
 }
 
 ALIAS (show_ip_bgp_view_rsclient,
@@ -9516,7 +9197,7 @@ DEFUN (show_bgp_view_rsclient,
 
   table = peer->rib[AFI_IP6][SAFI_UNICAST];
 
-  return bgp_show_table (vty, table, &peer->remote_id, bgp_show_type_normal);
+  return bgp_show_table (vty, table, &peer->remote_id, bgp_show_type_normal, NULL);
 }
 
 ALIAS (show_bgp_view_rsclient,
@@ -10047,7 +9728,8 @@ DEFUN (show_ip_bgp_dampened_paths,
        BGP_STR
        "Display paths suppressed due to dampening\n")
 {
-  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_dampend_paths);
+  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_dampend_paths,
+                   NULL);
 }
 
 DEFUN (show_ip_bgp_flap_statistics,
@@ -10058,7 +9740,8 @@ DEFUN (show_ip_bgp_flap_statistics,
        BGP_STR
        "Display flap statistics of routes\n")
 {
-  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST, bgp_show_type_flap_statistics);
+  return bgp_show (vty, NULL, AFI_IP, SAFI_UNICAST,
+                   bgp_show_type_flap_statistics, NULL);
 }
 
 /* Display specified route of BGP table. */

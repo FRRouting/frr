@@ -32,10 +32,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_mplsvpn.h"
 
-int route_vty_out (struct vty *, struct prefix *, struct bgp_info *, int, safi_t);
-int route_vty_out_tag (struct vty *, struct prefix *, struct bgp_info *, int, safi_t);
-void route_vty_out_tmp (struct vty *, struct prefix *, struct attr *, safi_t);
-
 u_int16_t
 decode_rd_type (u_char *pnt)
 {
