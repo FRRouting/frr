@@ -21,10 +21,15 @@
  */
 
 #include <zebra.h>
+#include <fcntl.h>
+#include <log.h>
+
+pid_t pid_output_lock(char *);
 
 pid_t
 pid_output (char *path)
 {
+#ifndef HAVE_FCNTL
   FILE *fp;
   pid_t pid;
 
@@ -38,40 +43,44 @@ pid_output (char *path)
       return -1;
     }
   return pid;
+#else
+  return pid_output_lock(path);
+#endif /* HAVE_FCNTL */
 }
 
+#ifdef HAVE_FCNTL
 pid_t
 pid_output_lock (char *path)
 {
   int tmp;
   int fd;
   pid_t pid;
-  char buf[16], *p;
+  char buf[16];
+  struct flock lock = { .l_type = F_WRLCK,
+                        .l_whence = SEEK_END };
 
   pid = getpid ();
 
-  fd = open (path, O_RDWR | O_CREAT | O_EXCL, 0644);
-  if (fd < 0)
-    {
-      fd = open (path, O_RDONLY);
+  fd = open (path, O_RDWR | O_CREAT, 0644);
       if (fd < 0)
-        fprintf (stderr, "Can't creat pid lock file, exit\n");
-      else
         {
-          read (fd, buf, sizeof (buf));
-          if ((p = index (buf, '\n')) != NULL)
-            *p = 0;
-          fprintf (stderr, "Another process(%s) running, exit\n", buf);
-        }
+        zlog_err( "Can't creat pid lock file %s (%s), exit", 
+                 path, strerror(errno));
       exit (-1);
     }
   else
     {
+      memset (&lock, 0, sizeof(lock));
+
+      if (fcntl(fd, F_SETLK, &lock) < 0)
+        {
+          zlog_err("Could not lock pid_file %s, exit", path);
+          exit (-1);
+        }
+
       sprintf (buf, "%d\n", (int) pid);
       tmp = write (fd, buf, strlen (buf));
-      close (fd);
     }
-
   return pid;
 }
-
+#endif /* HAVE_FCNTL */
