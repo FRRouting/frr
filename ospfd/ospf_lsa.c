@@ -2258,7 +2258,7 @@ ospf_discard_from_db (struct ospf *ospf,
     case OSPF_OPAQUE_AS_LSA:
 #endif /* HAVE_OPAQUE_LSA */
 #ifdef HAVE_NSSA
-    case case OSPF_AS_NSSA_LSA:
+    case OSPF_AS_NSSA_LSA:
 #endif /* HAVE_NSSA */
       ospf_ls_retransmit_delete_nbr_as (ospf, old);
       ospf_ase_unregister_external_lsa (old, ospf);
