@@ -1738,7 +1738,8 @@ bgp_attr_init ()
 
 /* Make attribute packet. */
 void
-bgp_dump_routes_attr (struct stream *s, struct attr *attr)
+bgp_dump_routes_attr (struct stream *s, struct attr *attr, 
+                      struct prefix *prefix)
 {
   unsigned long cp;
   unsigned long len;
@@ -1773,10 +1774,18 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr)
   stream_put (s, aspath->data, aspath->length);
 
   /* Nexthop attribute. */
-  stream_putc (s, BGP_ATTR_FLAG_TRANS);
-  stream_putc (s, BGP_ATTR_NEXT_HOP);
-  stream_putc (s, 4);
-  stream_put_ipv4 (s, attr->nexthop.s_addr);
+  /* If it's an IPv6 prefix, don't dump the IPv4 nexthop to save space */
+  if(prefix != NULL
+#ifdef HAVE_IPV6
+     && prefix->family != AF_INET6
+#endif /* HAVE_IPV6 */
+     )
+    {
+      stream_putc (s, BGP_ATTR_FLAG_TRANS);
+      stream_putc (s, BGP_ATTR_NEXT_HOP);
+      stream_putc (s, 4);
+      stream_put_ipv4 (s, attr->nexthop.s_addr);
+    }
 
   /* MED attribute. */
   if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
@@ -1831,6 +1840,39 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr)
 	}
       stream_put (s, attr->community->val, attr->community->size * 4);
     }
+
+#ifdef HAVE_IPV6
+  /* Add a MP_NLRI attribute to dump the IPv6 next hop */
+  if(prefix != NULL && prefix->family == AF_INET6 && 
+     (attr->mp_nexthop_len == 16 || attr->mp_nexthop_len == 32) )
+    {
+      int sizep;
+
+      stream_putc(s, BGP_ATTR_FLAG_OPTIONAL);
+      stream_putc(s, BGP_ATTR_MP_REACH_NLRI);
+      sizep = stream_get_putp (s);
+
+      /* MP header */
+      stream_putc (s, 0);		/* Length of this attribute. */
+      stream_putw(s, AFI_IP6);		/* AFI */
+      stream_putc(s, SAFI_UNICAST);	/* SAFI */
+
+      /* Next hop */
+      stream_putc(s, attr->mp_nexthop_len);
+      stream_put(s, &attr->mp_nexthop_global, 16);
+      if(attr->mp_nexthop_len == 32)
+        stream_put(s, &attr->mp_nexthop_local, 16);
+
+      /* SNPA */
+      stream_putc(s, 0);
+
+      /* Prefix */
+      stream_put_prefix(s, prefix);
+
+      /* Set MP attribute length. */
+      stream_putc_at (s, sizep, (stream_get_putp (s) - sizep) - 1);
+    }
+#endif /* HAVE_IPV6 */
 
   /* Return total size of attribute. */
   len = stream_get_putp (s) - cp - 2;

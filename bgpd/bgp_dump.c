@@ -236,7 +236,7 @@ bgp_dump_routes_entry (struct prefix *p, struct bgp_info *info, int afi,
 	  stream_putw (obuf, peer->as);
 
 	  /* Dump attribute. */
-	  bgp_dump_routes_attr (obuf, attr);
+	  bgp_dump_routes_attr (obuf, attr, NULL);
 	}
       else
 	{
@@ -246,7 +246,7 @@ bgp_dump_routes_entry (struct prefix *p, struct bgp_info *info, int afi,
 	  stream_putc (obuf, p->prefixlen);
 	  plen = PSIZE (p->prefixlen);
 	  stream_put (obuf, &p->u.prefix4, plen);
-	  bgp_dump_routes_attr (obuf, attr);
+	  bgp_dump_routes_attr (obuf, attr, NULL);
 	}
     }
 #ifdef HAVE_IPV6
@@ -272,7 +272,7 @@ bgp_dump_routes_entry (struct prefix *p, struct bgp_info *info, int afi,
 	  stream_putw (obuf, peer->as);
 
 	  /* Dump attribute. */
-	  bgp_dump_routes_attr (obuf, attr);
+	  bgp_dump_routes_attr (obuf, attr, p);
 	}
       else
 	{
@@ -330,7 +330,9 @@ bgp_dump_interval_func (struct thread *t)
       if (bgp_dump->type == BGP_DUMP_ROUTES)
 	{
 	  bgp_dump_routes_func (AFI_IP);
+#ifdef HAVE_IPV6
 	  bgp_dump_routes_func (AFI_IP6);
+#endif /* HAVE_IPV6 */
 	  /* Close the file now. For a RIB dump there's no point in leaving
 	   * it open until the next scheduled dump starts. */
 	  fclose(bgp_dump->fp); bgp_dump->fp = NULL;
@@ -354,7 +356,7 @@ bgp_dump_common (struct stream *obuf, struct peer *peer)
   stream_putw (obuf, peer->as);
   stream_putw (obuf, peer->local_as);
 
-  if (peer->afc[AFI_IP][SAFI_UNICAST])
+  if (peer->su.sa.sa_family == AF_INET)
     {
       stream_putw (obuf, peer->ifindex);
       stream_putw (obuf, AFI_IP);
@@ -367,7 +369,7 @@ bgp_dump_common (struct stream *obuf, struct peer *peer)
 	stream_put (obuf, empty, IPV4_MAX_BYTELEN);
     }
 #ifdef HAVE_IPV6
-  else if (peer->afc[AFI_IP6][SAFI_UNICAST])
+  else if (peer->su.sa.sa_family == AF_INET6)
     {
       /* Interface Index and Address family. */
       stream_putw (obuf, peer->ifindex);
