@@ -870,11 +870,6 @@ bgpTrapBackwardTransition (struct peer *peer)
 void
 bgp_snmp_init ()
 {
-  struct bgp_master *bm;
-  
-  if ( !(bm = bgp_get_master ()) )
-    return;
-    
   smux_init (bm->master);
   REGISTER_MIB("mibII/bgp", bgp_variables, variable, bgp_oid);
 }

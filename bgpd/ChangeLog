@@ -1,3 +1,15 @@
+2005-02-01 Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_nexthop.c: Improve debug.
+	* bgpd.[ch], bgp_nexthop.c, bgp_snmp.c: Remove useless bgp_get_master()
+	  function.
+	* bgp_packet.c: MP AFI_IP update and withdraw parsing.
+	* bgp_fsm.c: Reset peer synctime in bgp_stop(). bgp_fsm_change_status()
+	  is better place to log about peer status change than bgp_event().
+	  Log in bgp_connect_success().
+	* bgp_vty.c: Fix typo in comment.
+	* bgp_attr.c: Better log about unknown attribute.
+
 2005-01-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* bgp_filter.c: (ip_as_path,no_ip_as_path) Use argv_concat instead

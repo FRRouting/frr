@@ -367,6 +367,9 @@ bgp_stop (struct peer *peer)
 
       /* Need of clear of peer. */
       bgp_clear_route_all (peer);
+
+      /* Reset peer synctime */
+      peer->synctime = 0;
     }
 
   /* Stop read and write threads when exists. */
@@ -491,6 +494,8 @@ bgp_stop_with_error (struct peer *peer)
 int
 bgp_connect_success (struct peer *peer)
 {
+  char buf1[BUFSIZ];
+
   if (peer->fd < 0)
     {
       zlog_err ("bgp_connect_success peer's fd is negative value %d",
@@ -499,7 +504,17 @@ bgp_connect_success (struct peer *peer)
     }
   BGP_READ_ON (peer->t_read, bgp_read, peer->fd);
 
-  /* bgp_getsockname (peer); */
+  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
+    bgp_getsockname (peer);
+
+  if (BGP_DEBUG (normal, NORMAL))
+    {
+      if (! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
+	zlog_debug ("%s open active, local address %s", peer->host,
+		    sockunion2str (peer->su_local, buf1, SU_ADDRSTRLEN));
+      else
+	zlog_debug ("%s passive open", peer->host);
+    }
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
     bgp_open_send (peer);
@@ -594,6 +609,12 @@ bgp_fsm_change_status (struct peer *peer, int status)
   /* Preserve old status and change into new status. */
   peer->ostatus = peer->status;
   peer->status = status;
+
+  if (BGP_DEBUG (normal, NORMAL))
+    zlog_debug ("%s went from %s to %s",
+		peer->host,
+		LOOKUP (bgp_status_msg, peer->ostatus),
+		LOOKUP (bgp_status_msg, peer->status));
 }
 
 /* Keepalive send to peer. */
@@ -864,12 +885,6 @@ bgp_event (struct thread *thread)
   if (BGP_DEBUG (fsm, FSM))
     plog_debug (peer->log, "%s [FSM] %s (%s->%s)", peer->host, 
 	       bgp_event_str[event],
-	       LOOKUP (bgp_status_msg, peer->status),
-	       LOOKUP (bgp_status_msg, next));
-  if (BGP_DEBUG (normal, NORMAL)
-      && strcmp (LOOKUP (bgp_status_msg, peer->status), LOOKUP (bgp_status_msg, next)))
-    zlog_debug ("%s went from %s to %s",
-	       peer->host,
 	       LOOKUP (bgp_status_msg, peer->status),
 	       LOOKUP (bgp_status_msg, next));
 

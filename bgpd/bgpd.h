@@ -764,7 +764,6 @@ void bgp_reset (void);
 void bgp_zclient_reset ();
 int bgp_nexthop_set (union sockunion *, union sockunion *, 
 		     struct bgp_nexthop *, struct peer *);
-struct bgp_master *bgp_get_master ();
 struct bgp *bgp_get_default ();
 struct bgp *bgp_lookup (as_t, const char *);
 struct bgp *bgp_lookup_by_name (const char *);

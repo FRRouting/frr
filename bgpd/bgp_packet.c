@@ -1527,6 +1527,16 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  bgp_nlri_parse (peer, &attr, &update);
 	}
 
+      if (mp_update.length
+	  && mp_update.afi == AFI_IP 
+	  && mp_update.safi == SAFI_UNICAST)
+	bgp_nlri_parse (peer, &attr, &mp_update);
+
+      if (mp_withdraw.length
+	  && mp_withdraw.afi == AFI_IP 
+	  && mp_withdraw.safi == SAFI_UNICAST)
+	bgp_nlri_parse (peer, NULL, &mp_withdraw);
+
       if (! attribute_len && ! withdraw_len)
 	{
 	  /* End-of-RIB received */

@@ -2770,7 +2770,7 @@ peer_port_vty (struct vty *vty, const char *ip_str, int afi,
   return CMD_SUCCESS;
 }
 
-/* Set specified peer's BGP version.  */
+/* Set specified peer's BGP port.  */
 DEFUN (neighbor_port,
        neighbor_port_cmd,
        NEIGHBOR_CMD "port <0-65535>",

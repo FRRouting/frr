@@ -507,6 +507,14 @@ bgp_scan (afi_t afi, safi_t safi)
     bgp_nexthop_cache_reset (cache2_table[afi]);
   else
     bgp_nexthop_cache_reset (cache1_table[afi]);
+
+  if (BGP_DEBUG (events, EVENTS))
+    {
+      if (afi == AFI_IP)
+	zlog_debug ("scanning IPv4 Unicast routing tables");
+      else if (afi == AFI_IP6)
+	zlog_debug ("scanning IPv6 Unicast routing tables");
+    }
 }
 
 /* BGP scan thread.  This thread check nexthop reachability. */
@@ -516,7 +524,7 @@ bgp_scan_timer (struct thread *t)
   bgp_scan_thread =
     thread_add_timer (master, bgp_scan_timer, NULL, bgp_scan_interval);
 
-  if (BGP_DEBUG (normal, NORMAL))
+  if (BGP_DEBUG (events, EVENTS))
     zlog_debug ("Performing BGP general scanning");
 
   bgp_scan (AFI_IP, SAFI_UNICAST);
@@ -1022,7 +1030,6 @@ bgp_import_check (struct prefix *p, u_int32_t *igpmetric, struct in_addr *igpnex
 int
 bgp_import (struct thread *t)
 {
-  struct bgp_master *bm;
   struct bgp *bgp;
   struct bgp_node *rn;
   struct bgp_static *bgp_static;
@@ -1036,9 +1043,8 @@ bgp_import (struct thread *t)
   bgp_import_thread = 
     thread_add_timer (master, bgp_import, NULL, bgp_import_interval);
 
-  bm = bgp_get_master ();
-  if (! bm)
-    return 0;
+  if (BGP_DEBUG (events, EVENTS))
+    zlog_debug ("Import timer expired.");
 
   LIST_LOOP (bm->bgp, bgp, nn)
     {

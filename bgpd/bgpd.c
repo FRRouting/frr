@@ -1780,15 +1780,6 @@ bgp_create (as_t *as, const char *name)
   return bgp;
 }
 
-/* Return master of BGP. */
-struct bgp_master *
-bgp_get_master ()
-{
-  if (bm)
-    return bm;
-  return NULL;
-}
-
 /* Return first entry of BGP. */
 struct bgp *
 bgp_get_default ()
@@ -4870,13 +4861,10 @@ bgp_init ()
 void
 bgp_terminate ()
 {
-  struct bgp_master *bm;
   struct bgp *bgp;
   struct peer *peer;
   struct listnode *nn;
   struct listnode *mm;
-
-  bm = bgp_get_master ();
 
   LIST_LOOP (bm->bgp, bgp, nn)
     LIST_LOOP (bgp->peer, peer, mm)

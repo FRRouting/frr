@@ -1084,6 +1084,10 @@ bgp_attr_unknown (struct peer *peer, struct attr *attr, u_char flag,
   bgp_size_t total;
   struct transit *transit;
 
+  if (BGP_DEBUG (normal, NORMAL))
+  zlog_debug ("%s Unknown attribute is received (type %d, length %d)",
+	      peer->host, type, length);
+  
   if (BGP_DEBUG (events, EVENTS))
     zlog (peer->log, LOG_DEBUG, 
 	  "Unknown attribute type %d length %d is received", type, length);
