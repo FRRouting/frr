@@ -674,7 +674,7 @@ DEFUN_NOSH (zebra_interface,
   return ret;
 }
 
-DEFUN (no_zebra_interface,
+DEFUN_NOSH (no_zebra_interface,
        no_zebra_interface_cmd,
        "no interface IFNAME",
        "Delete a pseudo interface's configuration\n"
@@ -694,7 +694,7 @@ DEFUN (no_zebra_interface,
 
   if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
-      vty_out(vty, "Only inactive interfaces can be deleted%s", VTY_NEWLINE);
+      vty_out(vty, "%% Only inactive interfaces can be deleted%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
