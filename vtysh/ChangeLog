@@ -2,6 +2,8 @@
 
 	* vtysh.conf.sample: Fix typo "integrated-vtysh-conf" ->
 	  "integrated-vtysh-config".
+	* vtysh/vtysh.c: Implement walkup in node tree for vtysh as it
+	  already works in vty.
 
 2005-01-10 Hasso Tepper <hasso at quagga.net>
 

@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.34 2005/01/16 23:31:54 hasso Exp $
+   $Id: command.c,v 1.35 2005/01/23 21:42:25 hasso Exp $
 
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -1941,7 +1941,7 @@ cmd_complete_command (vector vline, struct vty *vty, int *status)
 
 /* return parent node */
 /* MUST eventually converge on CONFIG_NODE */
-static enum node_type
+enum node_type
 node_parent ( enum node_type node )
 {
   enum node_type ret;

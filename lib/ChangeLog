@@ -1,3 +1,8 @@
+2005-01-23 Hasso Tepper <hasso at quagga.net>
+
+	* lib/command.[ch]: Make node_parent() function nonstatic. vtyh.c will
+	  use it as well.
+
 2005-01-18 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* log.h: Test for SA_SIGINFO to see whether zlog_signal takes final

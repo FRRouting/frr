@@ -254,7 +254,9 @@ vtysh_execute_func (const char *line, int pager)
   vector vline;
   struct cmd_element *cmd;
   FILE *fp = NULL;
-  int closepager=0;
+  int closepager = 0;
+  int tried = 0;
+  int saved_ret, saved_node;
 
   /* Split readline string up into the vector. */
   vline = cmd_make_strvec (line);
@@ -262,7 +264,48 @@ vtysh_execute_func (const char *line, int pager)
   if (vline == NULL)
     return;
 
-  ret = cmd_execute_command (vline, vty, &cmd, 1);
+  saved_ret = ret = cmd_execute_command (vline, vty, &cmd, 1);
+  saved_node = vty->node;
+
+  /* If command doesn't succeeded in current node, try to walk up in node tree.
+   * Changing vty->node is enough to try it just out without actual walkup in
+   * the vtysh. */
+  while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON && ret != CMD_WARNING
+	 && vty->node > CONFIG_NODE)
+    {
+      vty->node = node_parent(vty->node);
+      ret = cmd_execute_command (vline, vty, &cmd, 1);
+      tried++;
+    }
+
+  vty->node = saved_node;
+
+  /* If command succeeded in any other node than current (tried > 0) we have
+   * to move into node in the vtysh where it succeeded. */
+  if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON || ret == CMD_WARNING)
+    {
+      if ((saved_node == BGP_VPNV4_NODE || saved_node == BGP_IPV4_NODE
+	   || saved_node == BGP_IPV6_NODE || saved_node == BGP_IPV4M_NODE)
+	  && (tried == 1))
+	{
+	  vtysh_execute("exit-address-family");
+	}
+      else if ((saved_node == KEYCHAIN_KEY_NODE) && (tried == 1))
+	{
+	  vtysh_execute("exit");
+	}
+      else if (tried)
+	{
+	  vtysh_execute ("end");
+	  vtysh_execute ("configure terminal");
+	}
+    }
+  /* If command didn't succeed in any node, continue with return value from
+   * first try. */
+  else if (tried)
+    {
+      ret = saved_ret;
+    }
 
   cmd_free_strvec (vline);
 
