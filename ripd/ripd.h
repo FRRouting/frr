@@ -395,7 +395,7 @@ void rip_redistribute_delete (int, int, struct prefix_ipv4 *, unsigned int);
 void rip_redistribute_withdraw (int);
 void rip_zebra_ipv4_add (struct prefix_ipv4 *, struct in_addr *, u_int32_t, u_char);
 void rip_zebra_ipv4_delete (struct prefix_ipv4 *, struct in_addr *, u_int32_t);
-void rip_interface_multicast_set (int, struct connected *, int);
+void rip_interface_multicast_set (int, struct connected *);
 void rip_distribute_update_interface (struct interface *);
 void rip_if_rmap_update_interface (struct interface *);
 

@@ -1355,7 +1355,7 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
 #ifdef RIP_RECVMSG
       setsockopt_pktinfo (send_sock);
 #endif /* RIP_RECVMSG */
-      rip_interface_multicast_set(send_sock, connected, if_is_pointopoint(ifp));
+      rip_interface_multicast_set (send_sock, connected);
     }
 
   ret = sendto (send_sock, buf, size, 0, (struct sockaddr *)&sin,

@@ -1,3 +1,12 @@
+2004-08-19 Paul Jakma <paul@dishone.st>
+
+	* rip_interface.c: (rip_interface_multicast_set) get rid
+	  of extraneous if_pointopoint arg. ifp is accessible via connected.
+	  pass connected->ifp->ifindex to setsockopt_multicast_ipv4.
+	* ripd.c: (rip_send_packet) update call to
+	  rip_interface_multicast_set
+	* ripd.h: update rip_interface_multicast_set prototype
+	
 2004-06-11 Sowmini Varadhan <sowmini.varadhan@sun.com>
 
 	* ripd.c: (rip_distribute_update_all) distribute list hook

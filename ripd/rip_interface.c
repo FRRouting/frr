@@ -138,8 +138,7 @@ rip_interface_new ()
 }
 
 void
-rip_interface_multicast_set (int sock, struct connected *connected, 
-                             int if_pointopoint)
+rip_interface_multicast_set (int sock, struct connected *connected)
 {
   int ret;
   struct servent *sp;
@@ -149,7 +148,7 @@ rip_interface_multicast_set (int sock, struct connected *connected,
 
   if (connected != NULL) 
     {
-  if (if_pointopoint)
+  if (if_is_pointopoint(connected->ifp))
     p = (struct prefix_ipv4 *) connected->destination;
   else
       p = (struct prefix_ipv4 *) connected->address;
@@ -160,9 +159,11 @@ rip_interface_multicast_set (int sock, struct connected *connected,
       addr.s_addr = INADDR_ANY;
     }
 
-  if (setsockopt_multicast_ipv4 (sock, IP_MULTICAST_IF, addr, 0, 0) < 0) 
+  if (setsockopt_multicast_ipv4 (sock, IP_MULTICAST_IF, addr, 0, 
+                                 connected->ifp->ifindex) < 0) 
 	    {
-	      zlog_warn ("Can't setsockopt IP_MULTICAST_IF to fd %d", sock);
+	      zlog_warn ("Can't setsockopt IP_MULTICAST_IF to fd %d, ifindex %d", 
+	                 sock, connected->ifp->ifindex);
 	      return;
 	    }
 
