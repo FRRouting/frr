@@ -24,6 +24,7 @@ Boston, MA 02111-1307, USA.  */
 #include "memory.h"
 #include "log.h"
 #include "version.h"
+#include "thread.h"
 
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */
@@ -1582,40 +1583,6 @@ cmd_describe_command (vector vline, struct vty *vty, int *status)
 }
 
 
-vector
-cmd_describe_command (vector vline, struct vty *vty, int *status)
-{
-  vector ret;
-
-  if ( cmd_try_do_shortcut(vty->node, vector_slot(vline, 0) ) )
-    {
-      enum node_type onode;
-      vector shifted_vline;
-      int index;
-
-      onode = vty->node;
-      vty->node = ENABLE_NODE;
-      /* We can try it on enable node, cos' the vty is authenticated */
-
-      shifted_vline = vector_init (vector_count(vline));
-      /* use memcpy? */
-      for (index = 1; index < vector_max (vline); index++) 
-	{
-	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
-	}
-
-      ret = cmd_describe_command_real (shifted_vline, vty, status);
-
-      vector_free(shifted_vline);
-      vty->node = onode;
-      return ret;
-  }
-
-
-  return cmd_describe_command_real (vline, vty, status);
-}
-
-
 /* Check LCD of matched command. */
 int
 cmd_lcd (char **matched)
@@ -1798,7 +1765,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 }
 
 char **
-cmd_complete_command_real (vector vline, struct vty *vty, int *status)
+cmd_complete_command (vector vline, struct vty *vty, int *status)
 {
   char **ret;
 
@@ -1836,12 +1803,21 @@ enum node_type node_parent ( enum node_type node )
 {
   enum node_type ret;
 
-  switch ( node ) {
-  case KEYCHAIN_KEY_NODE:
-    ret = KEYCHAIN_NODE;
-    break;
-  default:
-    ret = CONFIG_NODE;
+  assert (node > CONFIG_NODE);
+
+  switch (node)
+    {
+    case BGP_VPNV4_NODE:
+    case BGP_IPV4_NODE:
+    case BGP_IPV4M_NODE:
+    case BGP_IPV6_NODE:
+      ret = BGP_NODE;
+      break;
+    case KEYCHAIN_KEY_NODE:
+      ret = KEYCHAIN_NODE;
+      break;
+    default:
+      ret = CONFIG_NODE;
     }
 
   return ret;
@@ -1975,8 +1951,10 @@ cmd_execute_command_real (vector vline, struct vty *vty, struct cmd_element **cm
 
 int
 cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd) {
-  int ret;
-  enum node_type onode = vty->node;
+  int ret, saved_ret, tried = 0;
+  enum node_type onode, try_node;
+
+  onode = try_node = vty->node;
 
   if ( cmd_try_do_shortcut(vty->node, vector_slot(vline, 0) ) )
     {
@@ -2001,81 +1979,27 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd) {
   }
 
 
-  ret = cmd_execute_command_real (vline, vty, cmd);
+  saved_ret = ret = cmd_execute_command_real (vline, vty, cmd);
 
   /* This assumes all nodes above CONFIG_NODE are childs of CONFIG_NODE */
-  if ( ret != CMD_SUCCESS && ret != CMD_WARNING 
+  while ( ret != CMD_SUCCESS && ret != CMD_WARNING 
 	  && vty->node > CONFIG_NODE )
     {
-      /* XXX try node_parent(vty->node)? */
-      vty->node = CONFIG_NODE;
+      try_node = node_parent(try_node);
+      vty->node = try_node;
       ret = cmd_execute_command_real (vline, vty, cmd);
-      if (ret != CMD_SUCCESS && ret != CMD_WARNING)
+      tried = 1;
+      if (ret == CMD_SUCCESS || ret == CMD_WARNING)
 	{
-	  /* if the command changed the node dont reset it */
-	  if( vty->node == CONFIG_NODE )
-	    vty->node = onode;
+	  /* succesfull command, leave the node as is */
 	  return ret;
 	}
-      else
-	if( vty->node == CONFIG_NODE )
-	  vty->node = onode;
-      /* if the command changed the node dont reset it */
     }
-  return ret;
-}
-
-
-int
-cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd) {
-  int ret;
-  enum node_type onode = vty->node;
-
-  if ( cmd_try_do_shortcut(vty->node, vector_slot(vline, 0) ) )
-    {
-      vector shifted_vline;
-      int index;
-
-      vty->node = ENABLE_NODE;
-      /* We can try it on enable node, cos' the vty is authenticated */
-
-      shifted_vline = vector_init (vector_count(vline));
-      /* use memcpy? */
-      for (index = 1; index < vector_max (vline); index++) 
-	{
-	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
-	}
-
-      ret = cmd_execute_command_real (shifted_vline, vty, cmd);
-
-      vector_free(shifted_vline);
-      vty->node = onode;
-      return ret;
-  }
-
-
-  ret = cmd_execute_command_real (vline, vty, cmd);
-
-  /* This assumes all nodes above CONFIG_NODE are childs of CONFIG_NODE */
-  if ( ret != CMD_SUCCESS && ret != CMD_WARNING 
-	  && vty->node > CONFIG_NODE )
-    {
-      /* XXX try node_parent(vty->node)? */
-      vty->node = CONFIG_NODE;
-      ret = cmd_execute_command_real (vline, vty, cmd);
-      if (ret != CMD_SUCCESS && ret != CMD_WARNING)
-	{
-	  /* if the command changed the node dont reset it */
-	  if( vty->node == CONFIG_NODE )
-	    vty->node = onode;
-	  return ret;
-	}
-      else
-	if( vty->node == CONFIG_NODE )
-	  vty->node = onode;
-      /* if the command changed the node dont reset it */
-    }
-  return ret;
+  /* no command succeeded, reset the vty to the original node and
+     return the error for this node */
+  if ( tried )
+    vty->node = onode;
+  return saved_ret;
 }
 
 /* Execute command by argument readline. */
@@ -2219,11 +2143,11 @@ config_from_file (struct vty *vty, FILE *fp)
       /* Try again with setting node to CONFIG_NODE */
       while (ret != CMD_SUCCESS && ret != CMD_WARNING
 	     && vty->node != CONFIG_NODE)
-	{
+		{
 	  vty->node = node_parent(vty->node);
-	  ret = cmd_execute_command_strict (vline, vty, NULL);
-	}	  
-      
+		  ret = cmd_execute_command_strict (vline, vty, NULL);
+		}
+
       cmd_free_strvec (vline);
 
       if (ret != CMD_SUCCESS && ret != CMD_WARNING)
@@ -3199,5 +3123,10 @@ cmd_init (int terminal)
       install_element (CONFIG_NODE, &no_service_terminal_length_cmd);
     }
 
+  if (terminal)
+    {
+      install_element(VIEW_NODE, &show_thread_cpu_cmd);
+      install_element(ENABLE_NODE, &show_thread_cpu_cmd);
+    }
   srand(time(NULL));
 }
