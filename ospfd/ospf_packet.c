@@ -480,7 +480,7 @@ ospf_ls_ack_timer (struct thread *thread)
 }
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
-void
+static void
 ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph, 
                   struct msghdr *msg, unsigned int maxdatasize, 
                   unsigned int mtu, int flags, u_char type)
@@ -531,12 +531,13 @@ ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph,
       
       if (ret < 0)
         zlog_warn ("*** ospf_write_frags: sendmsg failed to %s,"
-                   " id %d, off %d, len %d failed with %s",
-                   inet_ntoa (iph->ip_dst),
-                   iph->ip_id,
-                   iph->ip_off,
-                   iph->ip_len,
-                   safe_strerror (errno));
+		   " id %d, off %d, len %d, mtu %u failed with %s",
+		   inet_ntoa (iph->ip_dst),
+		   iph->ip_id,
+		   iph->ip_off,
+		   iph->ip_len,
+		   mtu,
+		   safe_strerror (errno));
       
       if (IS_DEBUG_OSPF_PACKET (type - 1, SEND))
         {
@@ -563,7 +564,7 @@ ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph,
 }
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 
-int
+static int
 ospf_write (struct thread *thread)
 {
   struct ospf *ospf = THREAD_ARG (thread);
@@ -687,9 +688,9 @@ ospf_write (struct thread *thread)
   
   if (ret < 0)
     zlog_warn ("*** sendmsg in ospf_write failed to %s, "
-	       "id %d, off %d, len %d: %s",
+	       "id %d, off %d, len %d, interface %s, mtu %u: %s",
 	       inet_ntoa (iph.ip_dst), iph.ip_id, iph.ip_off, iph.ip_len,
-	       safe_strerror (errno));
+	       oi->ifp->name, oi->ifp->mtu, safe_strerror (errno));
 
   /* Show debug sending packet. */
   if (IS_DEBUG_OSPF_PACKET (type - 1, SEND))
