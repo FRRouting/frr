@@ -1389,7 +1389,7 @@ OspfIfEntry ::=
         STATUS   current
         DESCRIPTION
            "Indicates whether Demand OSPF procedures (hel-
-           lo supression to FULL neighbors and setting the
+           lo suppression to FULL neighbors and setting the
            DoNotAge flag on proogated LSAs) should be per-
            formed on this interface."
        DEFVAL { false }
