@@ -49,7 +49,7 @@
 #include "ospfd/ospf_dump.h"
 
 
-static char *ospf_network_type_str[] =
+const static char *ospf_network_type_str[] =
 {
   "Null",
   "POINTOPOINT",
@@ -2098,8 +2098,8 @@ DEFUN (ospf_neighbor,
 {
   struct ospf *ospf = vty->index;
   struct in_addr nbr_addr;
-  int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
-  int interval = OSPF_POLL_INTERVAL_DEFAULT;
+  unsigned int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
+  unsigned int interval = OSPF_POLL_INTERVAL_DEFAULT;
 
   VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[0]);
 
@@ -2146,8 +2146,8 @@ DEFUN (ospf_neighbor_poll_interval,
 {
   struct ospf *ospf = vty->index;
   struct in_addr nbr_addr;
-  int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
-  int interval = OSPF_POLL_INTERVAL_DEFAULT;
+  unsigned int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
+  unsigned int interval = OSPF_POLL_INTERVAL_DEFAULT;
 
   VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[0]);
 
@@ -2231,7 +2231,7 @@ DEFUN (ospf_refresh_timer, ospf_refresh_timer_cmd,
        "Timer value in seconds\n")
 {
   struct ospf *ospf = vty->index;
-  int interval;
+  unsigned int interval;
   
   VTY_GET_INTEGER_RANGE ("refresh timer", interval, argv[0], 10, 1800);
   interval = (interval / 10) * 10;
@@ -2248,7 +2248,7 @@ DEFUN (no_ospf_refresh_timer, no_ospf_refresh_timer_val_cmd,
        "Timer value in seconds\n")
 {
   struct ospf *ospf = vty->index;
-  int interval;
+  unsigned int interval;
 
   if (argc == 1)
     {
@@ -2325,7 +2325,7 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
   return CMD_SUCCESS;
 }
 
-char *ospf_abr_type_descr_str[] = 
+const char *ospf_abr_type_descr_str[] = 
 {
   "Unknown",
   "Standard (RFC2328)",
@@ -2334,7 +2334,7 @@ char *ospf_abr_type_descr_str[] =
   "Alternative Shortcut"
 };
 
-char *ospf_shortcut_mode_descr_str[] = 
+const char *ospf_shortcut_mode_descr_str[] = 
 {
   "Default",
   "Enabled",
@@ -3132,7 +3132,7 @@ show_lsa_summary (struct vty *vty, struct ospf_lsa *lsa, int self)
   return 0;
 }
 
-char *show_database_desc[] =
+const char *show_database_desc[] =
 {
   "unknown",
   "Router Link States",
@@ -3153,7 +3153,7 @@ char *show_database_desc[] =
 #define SHOW_OSPF_COMMON_HEADER \
   "Link ID         ADV Router      Age  Seq#       CkSum"
 
-char *show_database_header[] =
+const char *show_database_header[] =
 {
   "",
   "Link ID         ADV Router      Age  Seq#       CkSum  Link count",
@@ -3171,7 +3171,7 @@ char *show_database_header[] =
 #endif /* HAVE_OPAQUE_LSA */
 };
 
-char *show_lsa_flags[] =
+const char *show_lsa_flags[] =
 {
   "Self-originated",
   "Checked",
@@ -3222,7 +3222,7 @@ show_ip_ospf_database_header (struct vty *vty, struct ospf_lsa *lsa)
   vty_out (vty, "  Length: %d%s", ntohs (lsa->data->length), VTY_NEWLINE);
 }
 
-char *link_type_desc[] =
+const char *link_type_desc[] =
 {
   "(null)",
   "another Router (point-to-point)",
@@ -3231,7 +3231,7 @@ char *link_type_desc[] =
   "a Virtual Link",
 };
 
-char *link_id_desc[] =
+const char *link_id_desc[] =
 {
   "(null)",
   "Neighboring Router ID",
@@ -3240,7 +3240,7 @@ char *link_id_desc[] =
   "Neighboring Router ID",
 };
 
-char *link_data_desc[] =
+const char *link_data_desc[] =
 {
   "(null)",
   "Router Interface address",
@@ -6641,7 +6641,7 @@ DEFUN (show_ip_ospf_route,
 }
 
 
-char *ospf_abr_type_str[] = 
+const char *ospf_abr_type_str[] = 
 {
   "unknown",
   "standard",
@@ -6650,7 +6650,7 @@ char *ospf_abr_type_str[] =
   "shortcut"
 };
 
-char *ospf_shortcut_mode_str[] = 
+const char *ospf_shortcut_mode_str[] = 
 {
   "default",
   "enable",
@@ -6670,7 +6670,7 @@ area_id2str (char *buf, int length, struct ospf_area *area)
 }
 
 
-char *ospf_int_type_str[] = 
+const char *ospf_int_type_str[] = 
 {
   "unknown",		/* should never be used. */
   "point-to-point",
@@ -6730,7 +6730,7 @@ config_write_interface (struct vty *vty)
 	if (OSPF_IF_PARAM_CONFIGURED (params, auth_type) &&
 	    params->auth_type != OSPF_AUTH_NOTSET)
 	  {
-	    char *auth_str;
+	    const char *auth_str;
 	    
 	    /* Translation tables are not that much help here due to syntax
 	       of the simple option */
@@ -7087,8 +7087,8 @@ config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 }
 
 
-char *distribute_str[] = { "system", "kernel", "connected", "static", "rip",
-			   "ripng", "ospf", "ospf6", "isis", "bgp"};
+const char *distribute_str[] = { "system", "kernel", "connected", "static",
+				"rip", "ripng", "ospf", "ospf6", "isis", "bgp"};
 int
 config_write_ospf_redistribute (struct vty *vty, struct ospf *ospf)
 {

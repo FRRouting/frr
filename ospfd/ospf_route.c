@@ -640,7 +640,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
     zlog_info("ospf_intra_add_stub(): Stop");
 }
 
-char *ospf_path_type_str[] =
+const char *ospf_path_type_str[] =
 {
   "unknown-type",
   "intra-area",

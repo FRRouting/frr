@@ -115,7 +115,7 @@ ospf_vertex_free (struct vertex *v)
 }
 
 void
-ospf_vertex_dump(char *msg, struct vertex *v,
+ospf_vertex_dump(const char *msg, struct vertex *v,
 		 int print_nexthops, int print_children)
 {
   if ( ! IS_DEBUG_OSPF_EVENT)
@@ -245,8 +245,7 @@ ospf_vertex_lookup (struct list *vlist, struct in_addr id, int type)
 int
 ospf_lsa_has_link (struct lsa_header *w, struct lsa_header *v)
 {
-  int i;
-  int length;
+  unsigned int i, length;
   struct router_lsa *rl;
   struct network_lsa *nl;
 
@@ -494,7 +493,6 @@ ospf_nexthop_calculation (struct ospf_area *area,
 	      if (IS_DEBUG_OSPF_EVENT)
 	        {
 		  char buf1[BUFSIZ];
-		  char buf2[BUFSIZ];
 		  zlog_info("ospf_nexthop_calculation(): considering link "
 			    "type %d link_id %s link_data %s",
 			    l->m[0].type,

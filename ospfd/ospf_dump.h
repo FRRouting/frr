@@ -121,16 +121,16 @@ extern unsigned long term_debug_ospf_zebra;
 extern unsigned long term_debug_ospf_nssa;
 
 /* Message Strings. */
-extern char *ospf_packet_type_str[];
+extern const char *ospf_packet_type_str[];
 extern char *ospf_lsa_type_str[];
 
 /* Prototypes. */
-char *ospf_area_name_string (struct ospf_area *);
-char *ospf_area_desc_string (struct ospf_area *);
-char *ospf_if_name_string (struct ospf_interface *);
+const char *ospf_area_name_string (struct ospf_area *);
+const char *ospf_area_desc_string (struct ospf_area *);
+const char *ospf_if_name_string (struct ospf_interface *);
 void ospf_nbr_state_message (struct ospf_neighbor *, char *, size_t);
 char *ospf_options_dump (u_char);
-char *ospf_timer_dump (struct thread *, char *, size_t);
+const char *ospf_timer_dump (struct thread *, char *, size_t);
 void ospf_ip_header_dump (struct stream *);
 void ospf_packet_dump (struct stream *);
 void ospf_lsa_header_dump (struct lsa_header *);

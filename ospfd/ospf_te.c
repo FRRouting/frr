@@ -1872,8 +1872,10 @@ DEFUN (show_mpls_te_link,
 
   /* Show All Interfaces. */
   if (argc == 0)
-    LIST_LOOP (iflist, ifp, node)
-      show_mpls_te_link_sub (vty, ifp);
+    {
+      LIST_LOOP (iflist, ifp, node)
+	show_mpls_te_link_sub (vty, ifp);
+    }
   /* Interface name is specified. */
   else
     {

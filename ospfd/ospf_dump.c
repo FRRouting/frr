@@ -149,7 +149,7 @@ unsigned long term_debug_ospf_nssa = 0;
 
 
 #define OSPF_AREA_STRING_MAXLEN  16
-char *
+const char *
 ospf_area_name_string (struct ospf_area *area)
 {
   static char buf[OSPF_AREA_STRING_MAXLEN] = "";
@@ -166,7 +166,7 @@ ospf_area_name_string (struct ospf_area *area)
 }
 
 #define OSPF_AREA_DESC_STRING_MAXLEN  23
-char *
+const char *
 ospf_area_desc_string (struct ospf_area *area)
 {
   static char buf[OSPF_AREA_DESC_STRING_MAXLEN] = "";
@@ -195,7 +195,7 @@ ospf_area_desc_string (struct ospf_area *area)
 }
 
 #define OSPF_IF_STRING_MAXLEN  40
-char *
+const char *
 ospf_if_name_string (struct ospf_interface *oi)
 {
   static char buf[OSPF_IF_STRING_MAXLEN] = "";
@@ -236,7 +236,7 @@ ospf_nbr_state_message (struct ospf_neighbor *nbr, char *buf, size_t size)
 	    LOOKUP (ospf_ism_state_msg, state));
 }
 
-char *
+const char *
 ospf_timer_dump (struct thread *t, char *buf, size_t size)
 {
   struct timeval now;
@@ -326,7 +326,7 @@ ospf_dd_flags_dump (u_char flags, char *buf, size_t size)
 void
 ospf_lsa_header_dump (struct lsa_header *lsah)
 {
-  char *lsah_type = LOOKUP (ospf_lsa_type_msg, lsah->type);
+  const char *lsah_type = LOOKUP (ospf_lsa_type_msg, lsah->type);
   
   zlog_info ("  LSA Header");
   zlog_info ("    LS age %d", ntohs (lsah->ls_age));
@@ -1484,8 +1484,8 @@ config_write_debug (struct vty *vty)
   int write = 0;
   int i, r;
 
-  char *type_str[] = {"hello", "dd", "ls-request", "ls-update", "ls-ack"};
-  char *detail_str[] = {"", " send", " recv", "", " detail",
+  const char *type_str[] = {"hello", "dd", "ls-request", "ls-update", "ls-ack"};
+  const char *detail_str[] = {"", " send", " recv", "", " detail",
 			" send detail", " recv detail", " detail"};
 
   /* debug ospf ism (status|events|timers). */

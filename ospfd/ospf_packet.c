@@ -52,7 +52,7 @@ static void ospf_ls_ack_send_list (struct ospf_interface *, struct list *,
 				   struct in_addr);
 
 /* Packet Type String. */
-char *ospf_packet_type_str[] =
+const char *ospf_packet_type_str[] =
 {
   "unknown",
   "Hello",
@@ -347,7 +347,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
 
   /* Get MD5 Authentication key from auth_key list. */
   if (list_isempty (OSPF_IF_PARAM (oi, auth_crypt)))
-    auth_key = "";
+    auth_key = (char *) "";
   else
     {
       ck = getdata (OSPF_IF_PARAM (oi, auth_crypt)->tail);
@@ -1991,12 +1991,11 @@ ospf_recv_packet (int fd, struct interface **ifp)
   struct stream *ibuf;
   unsigned int ifindex = 0;
   struct iovec iov;
-  struct cmsghdr *cmsg;
 #if defined(CMSG_SPACE)
   /* Header and data both require alignment. */
   char buff [CMSG_SPACE(SOPT_SIZE_CMSG_IFINDEX_IPV4())];
 #else
-  char buff [sizeof (*cmsg) + SOPT_SIZE_CMSG_IFINDEX_IPV4()];
+  char buff [sizeof (struct cmsghdr) + SOPT_SIZE_CMSG_IFINDEX_IPV4()];
 #endif
   struct msghdr msgh;
 

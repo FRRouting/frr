@@ -1,3 +1,8 @@
+2004-10-08 Hasso Tepper <hasso at quagga.net>
+	
+	* *.[c|h]: Fix compiler warnings: make some strings const, signed ->
+	  unsigned, remove unused variables etc.
+
 2004-10-07  Greg Troxel  <gdt@claude.ir.bbn.com>
 
 	* ospf_apiserver.c (ospf_apiserver_unregister_opaque_type): Don't

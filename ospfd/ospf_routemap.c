@@ -98,7 +98,7 @@ ospf_route_map_event (route_map_event_t event, char *name)
 /* Delete rip route map rule. */
 int
 ospf_route_match_delete (struct vty *vty, struct route_map_index *index,
-			 char *command, char *arg)
+			 const char *command, char *arg)
 {
   int ret;
 
@@ -123,7 +123,7 @@ ospf_route_match_delete (struct vty *vty, struct route_map_index *index,
 
 int
 ospf_route_match_add (struct vty *vty, struct route_map_index *index,
-		      char *command, char *arg)
+		      const char *command, char *arg)
 {                                                                              
   int ret;
 
@@ -148,7 +148,7 @@ ospf_route_match_add (struct vty *vty, struct route_map_index *index,
 
 int
 ospf_route_set_add (struct vty *vty, struct route_map_index *index,
-		    char *command, char *arg)
+		    const char *command, char *arg)
 {
   int ret;
 
@@ -174,7 +174,7 @@ ospf_route_set_add (struct vty *vty, struct route_map_index *index,
 /* Delete rip route map rule. */
 int
 ospf_route_set_delete (struct vty *vty, struct route_map_index *index,
-		       char *command, char *arg)
+		       const char *command, char *arg)
 {                                              
   int ret;
 
@@ -760,9 +760,11 @@ DEFUN (set_metric_type,
        "OSPF[6] external type 2 metric\n")
 {
   if (strcmp (argv[0], "1") == 0)
-    return ospf_route_set_add (vty, vty->index, "metric-type", "type-1");
+    return ospf_route_set_add (vty, vty->index, "metric-type",
+			       (char *) "type-1");
   if (strcmp (argv[0], "2") == 0)
-    return ospf_route_set_add (vty, vty->index, "metric-type", "type-2");
+    return ospf_route_set_add (vty, vty->index, "metric-type",
+			       (char *) "type-2");
 
   return ospf_route_set_add (vty, vty->index, "metric-type", argv[0]);
 }

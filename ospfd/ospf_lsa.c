@@ -902,7 +902,7 @@ ospf_router_lsa_update_timer (struct thread *thread)
       struct ospf_area *area = getdata (node);
       struct ospf_lsa *lsa = area->router_lsa_self;
       struct router_lsa *rl;
-      char *area_str;
+      const char *area_str;
 
       /* Keep Area ID string. */
       area_str = AREA_NAME (area);

@@ -97,7 +97,7 @@ struct option longopts[] =
 struct thread_master *master;
 
 /* Process ID saved for use by init system */
-char *pid_file = PATH_OSPFD_PID;
+const char *pid_file = PATH_OSPFD_PID;
 
 /* Help information display. */
 static void
