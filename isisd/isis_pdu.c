@@ -825,40 +825,26 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
 				 circuit->u.bc.lan_neighs[level - 1]);
     }
 
-  switch (level)
-    {
-    case 1:
-      if (memcmp (circuit->u.bc.l1_desig_is, hdr.lan_id, ISIS_SYS_ID_LEN + 1))
-	{
-	  thread_add_event (master, isis_event_dis_status_change, circuit, 0);
-	  if (adj->dis_record[level-1].dis == ISIS_IS_DIS)
+  if(adj->dis_record[level-1].dis==ISIS_IS_DIS)
+    switch (level)
+      {
+      case 1:
+	if (memcmp (circuit->u.bc.l1_desig_is, hdr.lan_id, ISIS_SYS_ID_LEN + 1))
+	  {
+	    thread_add_event (master, isis_event_dis_status_change, circuit, 0);
 	    memcpy (&circuit->u.bc.l1_desig_is, hdr.lan_id,
 		    ISIS_SYS_ID_LEN + 1);
-	}
-      break;
-    case 2:
-      if (memcmp (circuit->u.bc.l2_desig_is, hdr.lan_id, ISIS_SYS_ID_LEN + 1))
-	{
-	  thread_add_event (master, isis_event_dis_status_change, circuit, 0);
-	  if (adj->dis_record[level-1].dis == ISIS_IS_DIS)
+	  }
+	break;
+      case 2:
+	if (memcmp (circuit->u.bc.l2_desig_is, hdr.lan_id, ISIS_SYS_ID_LEN + 1))
+	  {
+	    thread_add_event (master, isis_event_dis_status_change, circuit, 0);
 	    memcpy (&circuit->u.bc.l2_desig_is, hdr.lan_id,
 		    ISIS_SYS_ID_LEN + 1);
-	}
-      break;
-    }
-
-#if 0
-  /* Old solution: believe the lan-header always
-   */
-  if (level == 1)
-    {
-      memcpy (circuit->u.bc.l1_desig_is, hdr.lan_id, ISIS_SYS_ID_LEN + 1);
-    }
-  else if (level == 2)
-    {
-      memcpy (circuit->u.bc.l2_desig_is, hdr.lan_id, ISIS_SYS_ID_LEN + 1);
-    }
-#endif
+	  }
+	break;
+      }
 
   adj->hold_time = hdr.hold_time;
   adj->last_upd = time (NULL);

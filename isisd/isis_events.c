@@ -146,8 +146,6 @@ isis_event_area_addr_change (struct isis_area *area)
 void
 circuit_commence_level (struct isis_circuit *circuit, int level)
 {
-  uint32_t interval;
-
   if (level == 1)
     {
       THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
@@ -155,11 +153,8 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	{
-	  interval =
-	    circuit->hello_multiplier[0] * (circuit->hello_interval[0]);
-
 	  THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-			   circuit, interval);
+			   circuit, 2 * circuit->hello_interval[1]);
 
 	  THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[0],
 			   send_lan_l1_hello, circuit,
@@ -176,11 +171,8 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	{
-	  interval =
-	    circuit->hello_multiplier[1] * (circuit->hello_interval[1]);
-
 	  THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
-			   circuit, interval);
+			   circuit, 2 * circuit->hello_interval[1]);
 
 	  THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[1],
 			   send_lan_l2_hello, circuit,
