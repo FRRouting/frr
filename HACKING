@@ -1,5 +1,5 @@
 -*- mode: text; -*-
-$Id: HACKING,v 1.14 2004/12/22 03:16:59 ajs Exp $
+$Id: HACKING,v 1.15 2005/02/23 11:54:12 hasso Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -93,7 +93,7 @@ installed together.
 PATCH SUBMISSION
 
 * Send a clean diff against the head of CVS in unified diff format, eg by:
-  cvs <cvs opts> diff -uwb ....
+  cvs <cvs opts> diff -upwb ....
 
 * Include ChangeLog and NEWS entries as appropriate before the patch
   (or in it if you are 100% up to date).
