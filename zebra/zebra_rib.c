@@ -1038,6 +1038,7 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   rib->distance = distance;
   rib->flags = flags;
   rib->metric = metric;
+  rib->table = vrf_id;
   rib->nexthop_num = 0;
   rib->uptime = time (NULL);
 
@@ -1682,6 +1683,7 @@ rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
   rib->distance = distance;
   rib->flags = flags;
   rib->metric = metric;
+  rib->table = vrf_id;
   rib->nexthop_num = 0;
   rib->uptime = time (NULL);
 
