@@ -160,7 +160,7 @@ extern struct ospf6_lsa_handler unknown_handler;
       char buf[64];                                    \
       prefix2str (addr, buf, sizeof (buf));            \
       if (debug)                                       \
-        zlog_info ("Filter out Linklocal: %s", buf);   \
+        zlog_debug ("Filter out Linklocal: %s", buf);  \
       continue;                                        \
     }
 
@@ -170,7 +170,7 @@ extern struct ospf6_lsa_handler unknown_handler;
       char buf[64];                                    \
       prefix2str (addr, buf, sizeof (buf));            \
       if (debug)                                       \
-        zlog_info ("Filter out Unspecified: %s", buf); \
+        zlog_debug ("Filter out Unspecified: %s", buf);\
       continue;                                        \
     }
 
@@ -180,7 +180,7 @@ extern struct ospf6_lsa_handler unknown_handler;
       char buf[64];                                    \
       prefix2str (addr, buf, sizeof (buf));            \
       if (debug)                                       \
-        zlog_info ("Filter out Loopback: %s", buf);    \
+        zlog_debug ("Filter out Loopback: %s", buf);   \
       continue;                                        \
     }
 
@@ -190,7 +190,7 @@ extern struct ospf6_lsa_handler unknown_handler;
       char buf[64];                                    \
       prefix2str (addr, buf, sizeof (buf));            \
       if (debug)                                       \
-        zlog_info ("Filter out V4Compat: %s", buf);    \
+        zlog_debug ("Filter out V4Compat: %s", buf);   \
       continue;                                        \
     }
 
@@ -200,7 +200,7 @@ extern struct ospf6_lsa_handler unknown_handler;
       char buf[64];                                    \
       prefix2str (addr, buf, sizeof (buf));            \
       if (debug)                                       \
-        zlog_info ("Filter out V4Mapped: %s", buf);    \
+        zlog_debug ("Filter out V4Mapped: %s", buf);   \
       continue;                                        \
     }
 
