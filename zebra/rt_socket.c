@@ -129,7 +129,14 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 		  || nexthop->type == NEXTHOP_TYPE_IFNAME
 		  || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
 		ifindex = nexthop->ifindex;
-	    }
+	  if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+      {
+        struct in_addr loopback;
+        loopback.s_addr = htonl (INADDR_LOOPBACK);
+        sin_gate.sin_addr = loopback;
+        gate = 1;
+      }
+	  }
 
 	  if (cmd == RTM_ADD)
 	    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);

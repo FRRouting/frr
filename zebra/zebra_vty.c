@@ -111,15 +111,36 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd,
     {
       ret = inet_aton (mask_str, &mask);
       if (ret == 0)
-	{
-	  vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
+        {
+          vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
+          return CMD_WARNING;
+        }
       p.prefixlen = ip_masklen (mask);
     }
 
   /* Apply mask for given prefix. */
   apply_mask (&p);
+
+  /* Administrative distance. */
+  if (distance_str)
+    distance = atoi (distance_str);
+  else
+    distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
+
+  /* Null0 static route.  */
+  if (strncasecmp (gate_str, "Null0", strlen (gate_str)) == 0)
+    {
+      if (flag_str)
+        {
+          vty_out (vty, "%% can not have flag %s with Null0%s", flag_str, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      if (add_cmd)
+        static_add_ipv4 (&p, NULL, NULL, 0, distance, 0);
+      else
+        static_delete_ipv4 (&p, NULL, NULL, distance, 0);
+      return CMD_SUCCESS;
+    }
 
   /* Route flags */
   if (flag_str) {
@@ -134,15 +155,9 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd,
         break;
       default:
         vty_out (vty, "%% Malformed flag %s %s", flag_str, VTY_NEWLINE);
-           break;
+        return CMD_WARNING;
     }
   }
-
-  /* Administrative distance. */
-  if (distance_str)
-    distance = atoi (distance_str);
-  else
-    distance = ZEBRA_STATIC_DISTANCE_DEFAULT;
 
   /* When gateway is A.B.C.D format, gate is treated as nexthop
      address other case gate is treated as interface name. */
@@ -163,12 +178,13 @@ zebra_static_ipv4 (struct vty *vty, int add_cmd,
 /* Static route configuration.  */
 DEFUN (ip_route, 
        ip_route_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE)",
+       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0)",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
        "IP gateway address\n"
-       "IP gateway interface name\n")
+       "IP gateway interface name\n"
+       "Null interface\n")
 {
   return zebra_static_ipv4 (vty, 1, argv[0], NULL, argv[1], NULL, NULL);
 }
@@ -190,13 +206,14 @@ DEFUN (ip_route_flags,
 /* Mask as A.B.C.D format.  */
 DEFUN (ip_route_mask,
        ip_route_mask_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE)",
+       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0)",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
        "IP destination prefix mask\n"
        "IP gateway address\n"
-       "IP gateway interface name\n")
+       "IP gateway interface name\n"
+       "Null interface\n")
 {
   return zebra_static_ipv4 (vty, 1, argv[0], argv[1], argv[2], NULL, NULL);
 }
@@ -219,12 +236,13 @@ DEFUN (ip_route_mask_flags,
 /* Distance option value.  */
 DEFUN (ip_route_distance,
        ip_route_distance_cmd,
-       "ip route A.B.C.D/M (A.B.C.D|INTERFACE) <1-255>",
+       "ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) <1-255>",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
        "IP gateway address\n"
        "IP gateway interface name\n"
+       "Null interface\n"
        "Distance value for this route\n")
 {
   return zebra_static_ipv4 (vty, 1, argv[0], NULL, argv[1], NULL, argv[2]);
@@ -247,13 +265,14 @@ DEFUN (ip_route_flags_distance,
 
 DEFUN (ip_route_mask_distance,
        ip_route_mask_distance_cmd,
-       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) <1-255>",
+       "ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) <1-255>",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
        "IP destination prefix mask\n"
        "IP gateway address\n"
        "IP gateway interface name\n"
+       "Null interface\n"
        "Distance value for this route\n")
 {
   return zebra_static_ipv4 (vty, 1, argv[0], argv[1], argv[2], NULL, argv[3]);
@@ -277,13 +296,14 @@ DEFUN (ip_route_mask_flags_distance,
 
 DEFUN (no_ip_route, 
        no_ip_route_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE)",
+       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0)",
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
        "IP gateway address\n"
-       "IP gateway interface name\n")
+       "IP gateway interface name\n"
+       "Null interface\n")
 {
   return zebra_static_ipv4 (vty, 0, argv[0], NULL, argv[1], NULL, NULL);
 }
@@ -302,14 +322,15 @@ ALIAS (no_ip_route,
 
 DEFUN (no_ip_route_mask,
        no_ip_route_mask_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE)",
+       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0)",
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IP destination prefix\n"
        "IP destination prefix mask\n"
        "IP gateway address\n"
-       "IP gateway interface name\n")
+       "IP gateway interface name\n"
+       "Null interface\n")
 {
   return zebra_static_ipv4 (vty, 0, argv[0], argv[1], argv[2], NULL, NULL);
 }
@@ -329,13 +350,14 @@ ALIAS (no_ip_route_mask,
 
 DEFUN (no_ip_route_distance,
        no_ip_route_distance_cmd,
-       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE) <1-255>",
+       "no ip route A.B.C.D/M (A.B.C.D|INTERFACE|null0) <1-255>",
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
        "IP gateway address\n"
        "IP gateway interface name\n"
+       "Null interface\n"
        "Distance value for this route\n")
 {
   return zebra_static_ipv4 (vty, 0, argv[0], NULL, argv[1], NULL, argv[2]);
@@ -359,7 +381,7 @@ DEFUN (no_ip_route_flags_distance,
 
 DEFUN (no_ip_route_mask_distance,
        no_ip_route_mask_distance_cmd,
-       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE) <1-255>",
+       "no ip route A.B.C.D A.B.C.D (A.B.C.D|INTERFACE|null0) <1-255>",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -367,6 +389,7 @@ DEFUN (no_ip_route_mask_distance,
        "IP destination prefix mask\n"
        "IP gateway address\n"
        "IP gateway interface name\n"
+       "Null interface\n"
        "Distance value for this route\n")
 {
   return zebra_static_ipv4 (vty, 0, argv[0], argv[1], argv[2], NULL, argv[3]);
@@ -461,6 +484,9 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 	    case NEXTHOP_TYPE_IFNAME:
 	      vty_out (vty, " directly connected, %s", nexthop->ifname);
 	      break;
+      case NEXTHOP_TYPE_BLACKHOLE:
+        vty_out (vty, " directly connected, via Null0");
+        break;
 	    default:
 	      break;
 	    }
@@ -541,6 +567,9 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	case NEXTHOP_TYPE_IFNAME:
 	  vty_out (vty, " is directly connected, %s", nexthop->ifname);
 	  break;
+  case NEXTHOP_TYPE_BLACKHOLE:
+    vty_out (vty, " is directly connected, Null0");
+    break;
 	default:
 	  break;
 	}
@@ -930,6 +959,9 @@ static_config_ipv4 (struct vty *vty)
 	  case STATIC_IPV4_IFNAME:
 	    vty_out (vty, " %s", si->gate.ifname);
 	    break;
+    case STATIC_IPV4_BLACKHOLE:
+      vty_out (vty, " Null0");
+      break;
 	  }
 
        if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
@@ -985,7 +1017,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, char *dest_str,
         break;
       default:
         vty_out (vty, "%% Malformed flag %s %s", flag_str, VTY_NEWLINE);
-           break;
+        return CMD_WARNING;
     }
   }
 
@@ -1252,7 +1284,7 @@ DEFUN (no_ipv6_route_ifname_flags_pref,
   return static_ipv6_func (vty, 0, argv[0], argv[1], argv[2], argv[3], argv[4]);
 }
 
-/* New RIB.  Detailed information for IPv4 route. */
+/* New RIB.  Detailed information for IPv6 route. */
 void
 vty_show_ipv6_route_detail (struct vty *vty, struct route_node *rn)
 {

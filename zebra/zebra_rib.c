@@ -305,6 +305,21 @@ nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
 }
 #endif /* HAVE_IPV6 */
 
+struct nexthop *
+nexthop_blackhole_add (struct rib *rib)
+{
+  struct nexthop *nexthop;
+
+  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
+  memset (nexthop, 0, sizeof (struct nexthop));
+  nexthop->type = NEXTHOP_TYPE_BLACKHOLE;
+  SET_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE);
+
+  nexthop_add (rib, nexthop);
+
+  return nexthop;
+}
+
 /* If force flag is not set, do not modify falgs at all for uninstall
    the route from FIB. */
 int
@@ -723,6 +738,9 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
 	}
       break;
 #endif /* HAVE_IPV6 */
+    case NEXTHOP_TYPE_BLACKHOLE:
+      SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+      break;
     default:
       break;
     }
@@ -1270,6 +1288,9 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
 	case STATIC_IPV4_IFNAME:
 	  nexthop_ifname_add (rib, si->gate.ifname);
 	  break;
+  case STATIC_IPV4_BLACKHOLE:
+    nexthop_blackhole_add (rib);
+    break;
 	}
       rib_process (rn, NULL);
     }
@@ -1292,6 +1313,9 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
 	case STATIC_IPV4_IFNAME:
 	  nexthop_ifname_add (rib, si->gate.ifname);
 	  break;
+  case STATIC_IPV4_BLACKHOLE:
+    nexthop_blackhole_add (rib);
+    break;
 	}
 
       /* Save the flags of this static routes (reject, blackhole) */
@@ -1315,6 +1339,9 @@ static_ipv4_nexthop_same (struct nexthop *nexthop, struct static_ipv4 *si)
   if (nexthop->type == NEXTHOP_TYPE_IFNAME
       && si->type == STATIC_IPV4_IFNAME
       && strcmp (nexthop->ifname, si->gate.ifname) == 0)
+    return 1;
+  if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE
+      && si->type == STATIC_IPV4_BLACKHOLE)
     return 1;
   return 0;;
 }
@@ -1406,6 +1433,8 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, char *ifname,
     type = STATIC_IPV4_GATEWAY;
   if (ifname)
     type = STATIC_IPV4_IFNAME;
+  else
+    type = STATIC_IPV4_BLACKHOLE;
 
   /* Do nothing if there is a same static route.  */
   for (si = rn->info; si; si = si->next)
@@ -1499,6 +1528,8 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, char *ifname,
     type = STATIC_IPV4_GATEWAY;
   else if (ifname)
     type = STATIC_IPV4_IFNAME;
+  else
+    type = STATIC_IPV4_BLACKHOLE;
 
   /* Find same static route is the tree */
   for (si = rn->info; si; si = si->next)

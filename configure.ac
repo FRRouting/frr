@@ -160,7 +160,7 @@ dnl -------------------
 dnl Check header files.
 dnl -------------------
 AC_STDC_HEADERS
-AC_CHECK_HEADERS(string.h stropts.h sys/conf.h sys/ksym.h sys/time.h sys/times.h sys/select.h sys/sysctl.h sys/sockio.h sys/types.h net/if_dl.h net/if_var.h linux/version.h kvm.h netdb.h netinet/in.h net/netopt.h netinet/in_var.h netinet/in6_var.h netinet6/in6_var.h netinet/in6.h netinet6/in6.h inet/nd.h asm/types.h netinet/icmp6.h netinet6/nd6.h libutil.h)
+AC_CHECK_HEADERS(string.h stropts.h sys/conf.h sys/ksym.h sys/time.h sys/times.h sys/select.h sys/sysctl.h sys/sockio.h sys/types.h net/if_dl.h net/if_var.h linux/version.h kvm.h netdb.h netinet/in.h net/netopt.h netinet/in_var.h netinet/in6_var.h netinet6/in6_var.h netinet/in6.h inet/nd.h asm/types.h netinet/icmp6.h netinet6/nd6.h libutil.h)
 
 dnl check some types
 AC_C_CONST

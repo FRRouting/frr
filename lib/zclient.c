@@ -317,18 +317,24 @@ zapi_ipv4_add (struct zclient *zclient, struct prefix_ipv4 *p,
   /* Nexthop, ifindex, distance and metric information. */
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP))
     {
-	stream_putc (s, api->nexthop_num + api->ifindex_num);
-
+      if (CHECK_FLAG (api->flags, ZEBRA_FLAG_BLACKHOLE))
+        {
+          stream_putc (s, 1);
+          stream_putc (s, ZEBRA_NEXTHOP_BLACKHOLE);
+        }
+      else
+        stream_putc (s, api->nexthop_num + api->ifindex_num);
+        
       for (i = 0; i < api->nexthop_num; i++)
-	{
-	  stream_putc (s, ZEBRA_NEXTHOP_IPV4);
-	  stream_put_in_addr (s, api->nexthop[i]);
-	}
+        {
+          stream_putc (s, ZEBRA_NEXTHOP_IPV4);
+          stream_put_in_addr (s, api->nexthop[i]);
+        }
       for (i = 0; i < api->ifindex_num; i++)
-	{
-	  stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
-	  stream_putl (s, api->ifindex[i]);
-	}
+        {
+          stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+          stream_putl (s, api->ifindex[i]);
+        }
     }
 
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_DISTANCE))
@@ -371,18 +377,24 @@ zapi_ipv4_delete (struct zclient *zclient, struct prefix_ipv4 *p,
   /* Nexthop, ifindex, distance and metric information. */
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_NEXTHOP))
     {
-	stream_putc (s, api->nexthop_num + api->ifindex_num);
+      if (CHECK_FLAG (api->flags, ZEBRA_FLAG_BLACKHOLE))
+        {
+          stream_putc (s, 1);
+          stream_putc (s, ZEBRA_NEXTHOP_BLACKHOLE);
+        }
+      else
+        stream_putc (s, api->nexthop_num + api->ifindex_num);
 
       for (i = 0; i < api->nexthop_num; i++)
-	{
-	  stream_putc (s, ZEBRA_NEXTHOP_IPV4);
-	  stream_put_in_addr (s, api->nexthop[i]);
-	}
+        {
+          stream_putc (s, ZEBRA_NEXTHOP_IPV4);
+          stream_put_in_addr (s, api->nexthop[i]);
+        }
       for (i = 0; i < api->ifindex_num; i++)
-	{
-	  stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
-	  stream_putl (s, api->ifindex[i]);
-	}
+        {
+          stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
+          stream_putl (s, api->ifindex[i]);
+        }
     }
 
   if (CHECK_FLAG (api->message, ZAPI_MESSAGE_DISTANCE))

@@ -76,6 +76,7 @@ struct static_ipv4
   u_char type;
 #define STATIC_IPV4_GATEWAY     1
 #define STATIC_IPV4_IFNAME      2
+#define STATIC_IPV4_BLACKHOLE   3
 
   /* Nexthop value. */
   union 
@@ -137,6 +138,7 @@ struct nexthop
 #define NEXTHOP_TYPE_IPV6           6 /* IPv6 nexthop.  */
 #define NEXTHOP_TYPE_IPV6_IFINDEX   7 /* IPv6 nexthop with ifindex.  */
 #define NEXTHOP_TYPE_IPV6_IFNAME    8 /* IPv6 nexthop with ifname.  */
+#define NEXTHOP_TYPE_BLACKHOLE      9 /* Null0 nexthop.  */
 
   u_char flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
@@ -194,6 +196,7 @@ struct vrf
 
 struct nexthop *nexthop_ifindex_add (struct rib *, unsigned int);
 struct nexthop *nexthop_ifname_add (struct rib *, char *);
+struct nexthop *nexthop_blackhole_add (struct rib *);
 struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *);
 #ifdef HAVE_IPV6
 struct nexthop *nexthop_ipv6_add (struct rib *, struct in6_addr *);
