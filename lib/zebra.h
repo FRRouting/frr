@@ -75,10 +75,12 @@ typedef int socklen_t;
 #ifdef HAVE_RUSAGE
 #include <sys/resource.h>
 #endif /* HAVE_RUSAGE */
+#ifdef HAVE_LIMITS_H
+#include <limits.h>
+#endif /* HAVE_LIMITS_H */
 
 /* machine dependent includes */
 #ifdef SUNOS_5
-#include <limits.h>
 #include <strings.h>
 #endif /* SUNOS_5 */
 
@@ -129,7 +131,9 @@ typedef int socklen_t;
 #include <net/if_var.h>
 #endif /* HAVE_NET_IF_VAR_H */
 
+#ifdef HAVE_NET_ROUTE_H
 #include <net/route.h>
+#endif /* HAVE_NET_ROUTE_H */
 
 #ifdef HAVE_NETLINK
 #include <linux/netlink.h>
