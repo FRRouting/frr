@@ -111,9 +111,16 @@ void bgp_attr_unintern (struct attr *);
 void bgp_attr_flush (struct attr *);
 struct attr *bgp_attr_default_set (struct attr *attr, u_char);
 struct attr *bgp_attr_default_intern (u_char);
-struct attr *bgp_attr_aggregate_intern (struct bgp *, u_char, struct aspath *, struct community *, int as_set);
-bgp_size_t bgp_packet_attribute (struct bgp *bgp, struct peer *, struct stream *, struct attr *, struct prefix *, afi_t, safi_t, struct peer *, struct prefix_rd *, u_char *);
-bgp_size_t bgp_packet_withdraw (struct peer *peer, struct stream *s, struct prefix *p, afi_t, safi_t, struct prefix_rd *, u_char *);
+struct attr *bgp_attr_aggregate_intern (struct bgp *, u_char,
+                                        struct aspath *, 
+                                        struct community *, int as_set);
+bgp_size_t bgp_packet_attribute (struct bgp *bgp, struct peer *, 
+                                 struct stream *, struct attr *, 
+                                 struct prefix *, afi_t, safi_t, 
+                                 struct peer *, struct prefix_rd *, char *);
+bgp_size_t bgp_packet_withdraw (struct peer *peer, struct stream *s, 
+                                struct prefix *p, afi_t, safi_t, 
+                                struct prefix_rd *, char *);
 void bgp_dump_routes_attr (struct stream *, struct attr *, struct prefix *);
 unsigned int attrhash_key_make (struct attr *);
 int attrhash_cmp (struct attr *, struct attr *);

@@ -40,8 +40,9 @@ int bgp_write (struct thread *);
 
 void bgp_keepalive_send (struct peer *);
 void bgp_open_send (struct peer *);
-void bgp_notify_send (struct peer *, u_char, u_char);
-void bgp_notify_send_with_data (struct peer *, u_char, u_char, u_char *, size_t);
+void bgp_notify_send (struct peer *, u_int8_t, u_int8_t);
+void bgp_notify_send_with_data (struct peer *, u_int8_t, u_int8_t, 
+                                u_int8_t *, size_t);
 void bgp_route_refresh_send (struct peer *, afi_t, safi_t, u_char, u_char, int);
 void bgp_capability_send (struct peer *, afi_t, safi_t, int, int);
 void bgp_default_update_send (struct peer *, struct attr *,

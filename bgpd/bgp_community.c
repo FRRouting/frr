@@ -338,7 +338,7 @@ community_unintern (struct community *com)
 
 /* Create new community attribute. */
 struct community *
-community_parse (char *pnt, u_short length)
+community_parse (u_int32_t *pnt, u_short length)
 {
   struct community tmp;
   struct community *new;
@@ -349,7 +349,7 @@ community_parse (char *pnt, u_short length)
 
   /* Make temporary community for hash look up. */
   tmp.size = length / 4;
-  tmp.val = (u_int32_t *) pnt;
+  tmp.val = pnt;
 
   new = community_uniq_sort (&tmp);
 

@@ -1950,7 +1950,7 @@ bgp_route_set_delete (struct vty *vty, struct route_map_index *index,
 
 /* Hook function for updating route_map assignment. */
 void
-bgp_route_map_update ()
+bgp_route_map_update (char *unused)
 {
   int i;
   afi_t afi;

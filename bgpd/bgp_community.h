@@ -51,7 +51,7 @@ struct community
 void community_init ();
 void community_free (struct community *);
 struct community *community_uniq_sort (struct community *);
-struct community *community_parse (char *, u_short);
+struct community *community_parse (u_int32_t *, u_short);
 struct community *community_intern (struct community *);
 void community_unintern (struct community *);
 char *community_str (struct community *);

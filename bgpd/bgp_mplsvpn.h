@@ -40,6 +40,6 @@ struct rd_ip
 void bgp_mplsvpn_init ();
 int bgp_nlri_parse_vpnv4 (struct peer *, struct attr *, struct bgp_nlri *);
 u_int32_t decode_label (u_char *);
-int str2prefix_rd (u_char *, struct prefix_rd *);
-int str2tag (u_char *, u_char *);
+int str2prefix_rd (char *, struct prefix_rd *);
+int str2tag (char *, u_char *);
 char *prefix_rd2str (struct prefix_rd *, char *, size_t);

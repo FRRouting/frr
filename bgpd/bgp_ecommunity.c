@@ -58,7 +58,7 @@ ecommunity_free (struct ecommunity *ecom)
 static int
 ecommunity_add_val (struct ecommunity *ecom, struct ecommunity_val *eval)
 {
-  u_char *p;
+  u_int8_t *p;
   int ret;
   int c;
 
@@ -119,7 +119,7 @@ ecommunity_uniq_sort (struct ecommunity *ecom)
 
 /* Parse Extended Communites Attribute in BGP packet.  */
 struct ecommunity *
-ecommunity_parse (char *pnt, u_short length)
+ecommunity_parse (u_int8_t *pnt, u_short length)
 {
   struct ecommunity tmp;
   struct ecommunity *new;
@@ -232,7 +232,7 @@ ecommunity_hash_make (struct ecommunity *ecom)
 {
   int c;
   unsigned int key;
-  unsigned char *pnt;
+  u_int8_t *pnt;
 
   key = 0;
   pnt = ecom->val;
@@ -530,13 +530,13 @@ char *
 ecommunity_ecom2str (struct ecommunity *ecom, int format)
 {
   int i;
-  u_char *pnt;
+  u_int8_t *pnt;
   int encode = 0;
   int type = 0;
 #define ECOMMUNITY_STR_DEFAULT_LEN  26
   int str_size;
   int str_pnt;
-  u_char *str_buf;
+  char *str_buf;
   char *prefix;
   int len = 0;
   int first = 1;

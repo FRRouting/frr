@@ -63,11 +63,11 @@ struct buffer_data
 
 /* Buffer prototypes. */
 struct buffer *buffer_new (size_t);
-int buffer_write (struct buffer *, u_char *, size_t);
+int buffer_write (struct buffer *, void *, size_t);
 void buffer_free (struct buffer *);
 char *buffer_getstr (struct buffer *);
 int buffer_putc (struct buffer *, u_char);
-int buffer_putstr (struct buffer *, u_char *);
+int buffer_putstr (struct buffer *, char *);
 void buffer_reset (struct buffer *);
 int buffer_flush_all (struct buffer *, int);
 int buffer_flush_vty_all (struct buffer *, int, int, int);

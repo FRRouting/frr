@@ -48,8 +48,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 void
 bgp_capability_vty_out (struct vty *vty, struct peer *peer)
 {
-  u_char *pnt;
-  u_char *end;
+  char *pnt;
+  char *end;
   struct capability cap;
 
   pnt = peer->notify.data;

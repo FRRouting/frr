@@ -875,7 +875,8 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 }
 
 int
-bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, safi_t safi, int always)
+bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, 
+                             safi_t safi, int always)
 {
   if (!CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
     return 0;
@@ -895,18 +896,18 @@ bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi, safi_t safi, int alwa
        return 0;
 
       {
-       char ndata[7];
-
-       ndata[0] = (u_char)(afi >>  8);
-       ndata[1] = (u_char) afi;
-       ndata[3] = (u_char)(peer->pmax[afi][safi] >> 24);
-       ndata[4] = (u_char)(peer->pmax[afi][safi] >> 16);
-       ndata[5] = (u_char)(peer->pmax[afi][safi] >> 8);
-       ndata[6] = (u_char)(peer->pmax[afi][safi]);
+       u_int8_t ndata[7];
 
        if (safi == SAFI_MPLS_VPN)
          safi = BGP_SAFI_VPNV4;
-       ndata[2] = (u_char) safi;
+         
+       ndata[0] = (afi >>  8);
+       ndata[1] = afi;
+       ndata[2] = safi;
+       ndata[3] = (peer->pmax[afi][safi] >> 24);
+       ndata[4] = (peer->pmax[afi][safi] >> 16);
+       ndata[5] = (peer->pmax[afi][safi] >> 8);
+       ndata[6] = (peer->pmax[afi][safi]);
 
        SET_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW);
        bgp_notify_send_with_data (peer, BGP_NOTIFY_CEASE,
@@ -4371,7 +4372,7 @@ bgp_show_callback (struct vty *vty, int unlock)
   int limit;
   int display;
 
-  rn = vty->output_rn;
+  rn = (struct bgp_node *) vty->output_rn;
   count = 0;
   limit = ((vty->lines == 0) 
 	   ? 10 : (vty->lines > 0 
@@ -4566,7 +4567,7 @@ bgp_show_callback (struct vty *vty, int unlock)
 	if (count >= limit)
 	  {
 	    vty->status = VTY_CONTINUE;
-	    vty->output_rn = bgp_route_next (rn);;
+	    vty->output_rn = (struct route_node *) bgp_route_next (rn);;
 	    vty->output_func = bgp_show_callback;
 	    return 0;
 	  }
@@ -4824,7 +4825,7 @@ bgp_show (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	if (count >= limit  && vty->type != VTY_SHELL_SERV)
 	  {
 	    vty->status = VTY_START;
-	    vty->output_rn = bgp_route_next (rn);
+	    vty->output_rn = (struct route_node *) bgp_route_next (rn);
 	    vty->output_func = bgp_show_callback;
 	    vty->output_type = type;
 
@@ -7395,7 +7396,7 @@ peer_lookup_in_view (struct vty *vty, char *view_name, char *ip_str)
           return NULL;
         }      
     }
-  else  // view_name==NULL
+  else
     {
       bgp = bgp_get_default ();
       if (! bgp)

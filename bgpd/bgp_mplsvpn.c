@@ -180,13 +180,13 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
 }
 
 int
-str2prefix_rd (u_char *str, struct prefix_rd *prd)
+str2prefix_rd (char *str, struct prefix_rd *prd)
 {
   int ret;
-  u_char *p;
-  u_char *p2;
+  char *p;
+  char *p2;
   struct stream *s;
-  u_char *half;
+  char *half;
   struct in_addr addr;
 
   s = stream_new (8);
@@ -236,7 +236,7 @@ str2prefix_rd (u_char *str, struct prefix_rd *prd)
 }
 
 int
-str2tag (u_char *str, u_char *tag)
+str2tag (char *str, u_char *tag)
 {
   u_int32_t l;
 

@@ -84,13 +84,13 @@ cluster_hash_alloc (struct cluster_list *val)
 
 /* Cluster list related functions. */
 struct cluster_list *
-cluster_parse (caddr_t pnt, int length)
+cluster_parse (struct in_addr * pnt, int length)
 {
   struct cluster_list tmp;
   struct cluster_list *cluster;
 
   tmp.length = length;
-  tmp.list = (struct in_addr *) pnt;
+  tmp.list = pnt;
 
   cluster = hash_get (cluster_hash, &tmp, cluster_hash_alloc);
   cluster->refcnt++;
@@ -857,7 +857,8 @@ bgp_attr_community (struct peer *peer, bgp_size_t length,
     attr->community = NULL;
   else
     {
-      attr->community = community_parse (stream_pnt (peer->ibuf), length);
+      attr->community = 
+        community_parse ((u_int32_t *)stream_pnt (peer->ibuf), length);
       stream_forward (peer->ibuf, length);
     }
 
@@ -904,7 +905,8 @@ bgp_attr_cluster_list (struct peer *peer, bgp_size_t length,
       return -1;
     }
 
-  attr->cluster = cluster_parse (stream_pnt (peer->ibuf), length);
+  attr->cluster = cluster_parse ((struct in_addr *)stream_pnt (peer->ibuf), 
+                                 length);
 
   stream_forward (peer->ibuf, length);;
 
@@ -1065,7 +1067,8 @@ bgp_attr_ext_communities (struct peer *peer, bgp_size_t length,
     attr->ecommunity = NULL;
   else
     {
-      attr->ecommunity = ecommunity_parse (stream_pnt (peer->ibuf), length);
+      attr->ecommunity = 
+        ecommunity_parse ((u_int8_t *)stream_pnt (peer->ibuf), length);
       stream_forward (peer->ibuf, length);
     }
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
@@ -1339,7 +1342,7 @@ bgp_size_t
 bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 		      struct stream *s, struct attr *attr, struct prefix *p,
 		      afi_t afi, safi_t safi, struct peer *from,
-		      struct prefix_rd *prd, u_char *tag)
+		      struct prefix_rd *prd, char *tag)
 {
   unsigned long cp;
   struct aspath *aspath;
@@ -1671,7 +1674,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 	}
       else
 	{
-	  u_char *pnt;
+	  u_int8_t *pnt;
 	  int tbit;
 	  int ecom_tr_size = 0;
 	  int i;
@@ -1727,7 +1730,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 bgp_size_t
 bgp_packet_withdraw (struct peer *peer, struct stream *s, struct prefix *p,
 		     afi_t afi, safi_t safi, struct prefix_rd *prd,
-		     u_char *tag)
+		     char *tag)
 {
   unsigned long cp;
   unsigned long attrlen_pnt;

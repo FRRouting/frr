@@ -124,7 +124,7 @@ static void
 bgp_connect_check (struct peer *peer)
 {
   int status;
-  int slen;
+  socklen_t slen;
   int ret;
 
   /* Anyway I have to reset read and write thread. */
@@ -203,10 +203,10 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 	  stream_putw (s, 0);		
 	  pos = stream_get_putp (s);
 	  stream_putw (s, 0);
-	  total_attr_len = bgp_packet_attribute (NULL, peer, s,
-	                			 adv->baa->attr,
-						 &rn->p, afi, safi,
-						 binfo->peer, prd, tag);
+	  total_attr_len = bgp_packet_attribute (NULL, peer, s, 
+	                                         adv->baa->attr,
+	                                         &rn->p, afi, safi, 
+	                                         binfo->peer, prd, tag);
 	  stream_putw_at (s, pos, total_attr_len);
 	}
 
@@ -1137,8 +1137,8 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   struct peer *realpeer;
   struct in_addr remote_id;
   int capability;
-  char notify_data_remote_as[2];
-  char notify_data_remote_id[4];
+  u_int8_t notify_data_remote_as[2];
+  u_int8_t notify_data_remote_id[4];
 
   realpeer = NULL;
   
@@ -1171,22 +1171,22 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
 	  if (as)
 	    {
 	      if (BGP_DEBUG (normal, NORMAL))
-		zlog_info ("%s bad OPEN, wrong router identifier %s",
-			   peer->host, inet_ntoa (remote_id));
-	      bgp_notify_send_with_data (peer, 
-					 BGP_NOTIFY_OPEN_ERR, 
-					 BGP_NOTIFY_OPEN_BAD_BGP_IDENT,
-					 notify_data_remote_id, 4);
+          zlog_info ("%s bad OPEN, wrong router identifier %s",
+		                 peer->host, inet_ntoa (remote_id));
+          bgp_notify_send_with_data (peer, 
+                                     BGP_NOTIFY_OPEN_ERR, 
+					                           BGP_NOTIFY_OPEN_BAD_BGP_IDENT,
+					                           notify_data_remote_id, 4);
 	    }
 	  else
 	    {
 	      if (BGP_DEBUG (normal, NORMAL))
-		zlog_info ("%s bad OPEN, remote AS is %d, expected %d",
-			   peer->host, remote_as, peer->as);
-	      bgp_notify_send_with_data (peer, 
-					 BGP_NOTIFY_OPEN_ERR, 
-					 BGP_NOTIFY_OPEN_BAD_PEER_AS,
-					 notify_data_remote_as, 2);
+          zlog_info ("%s bad OPEN, remote AS is %d, expected %d",
+                     peer->host, remote_as, peer->as);
+        bgp_notify_send_with_data (peer,
+                                   BGP_NOTIFY_OPEN_ERR,
+                                   BGP_NOTIFY_OPEN_BAD_PEER_AS,
+                                   notify_data_remote_as, 2);
 	    }
 	  return -1;
 	}
@@ -1264,13 +1264,14 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   /* Peer BGP version check. */
   if (version != BGP_VERSION_4)
     {
+      u_int8_t maxver = BGP_VERSION_4;
       if (BGP_DEBUG (normal, NORMAL))
 	zlog_info ("%s bad protocol version, remote requested %d, local request %d",
 		   peer->host, version, BGP_VERSION_4);
       bgp_notify_send_with_data (peer, 
 				 BGP_NOTIFY_OPEN_ERR, 
 				 BGP_NOTIFY_OPEN_UNSUP_VERSION,
-				 "\x04", 1);
+				 &maxver, 1);
       return -1;
     }
 

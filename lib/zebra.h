@@ -337,7 +337,7 @@ struct in_pktinfo
 
 /* AFI and SAFI type. */
 typedef u_int16_t afi_t;
-typedef u_char safi_t;
+typedef u_int8_t safi_t;
 
 /* Zebra types. */
 typedef u_int16_t zebra_size_t;

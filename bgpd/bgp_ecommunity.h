@@ -47,7 +47,7 @@ struct ecommunity
   int size;
 
   /* Extended Communities value.  */
-  u_char *val;
+  u_int8_t *val;
 
   /* Human readable format string.  */
   char *str;
@@ -64,7 +64,7 @@ struct ecommunity_val
 void ecommunity_init (void);
 void ecommunity_free (struct ecommunity *);
 struct ecommunity *ecommunity_new (void);
-struct ecommunity *ecommunity_parse (char *, u_short);
+struct ecommunity *ecommunity_parse (u_int8_t *, u_short);
 struct ecommunity *ecommunity_dup (struct ecommunity *);
 struct ecommunity *ecommunity_merge (struct ecommunity *, struct ecommunity *);
 struct ecommunity *ecommunity_intern (struct ecommunity *);
