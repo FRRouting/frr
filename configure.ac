@@ -215,7 +215,6 @@ case "${enable_vtysh}" in
 	 if test $ac_cv_header_readline_history_h = no;then
            AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
 	 fi
-         ;;
 	 AC_CHECK_LIB(readline, rl_completion_matches)
          if test $ac_cv_lib_readline_rl_completion_matches = no; then
            AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
