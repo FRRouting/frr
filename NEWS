@@ -1,4 +1,21 @@
-GNU Zebra is not yet released, so this NEWS is about beta version.
+* Changes in Quagga 0.96.2
+
+- Fix crash in ospfd
+
+* Changes in Quagga 0.96.1
+
+- Iron out problem with the privileges definitions
+
+* Changes in Quagga 0.96
+
+- Privilege support, daemons now run with the minimal privileges needed, see
+  the documentation for details.
+  
+- NSSA ABR support in ospfd.
+
+- OSPF-API support merged in.
+
+- 6WIND patch merged in.
 
 * Changes in zebra-0.93
 
