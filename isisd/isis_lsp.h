@@ -104,8 +104,8 @@ void lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
 #define LSP_NEWER 2
 #define LSP_OLDER 3
 
-#define LSP_PSEUDO_ID(I) ((u_char)(I)[ISIS_SYS_ID_LEN])
-#define LSP_FRAGMENT(I) ((u_char)(I)[ISIS_SYS_ID_LEN + 1])
+#define LSP_PSEUDO_ID(I) ((I)[ISIS_SYS_ID_LEN])
+#define LSP_FRAGMENT(I) ((I)[ISIS_SYS_ID_LEN + 1])
 #define OWNLSPID(I) \
         memcpy ((I), isis->sysid, ISIS_SYS_ID_LEN);\
         (I)[ISIS_SYS_ID_LEN] = 0;\

@@ -1,3 +1,8 @@
+2004-09-26 Hasso Tepper <hasso at quagga.net>
+
+	* isis_lsp.h: Cast-as-lvalue extension is deprecated and is not
+	  accpted any more in gcc-4.0.
+
 2004-09-24 Hasso Tepper <hasso at quagga.net>
 
 	* isisd.c: thread_master *master is already defined in isis_main.c.
