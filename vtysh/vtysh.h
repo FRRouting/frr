@@ -39,14 +39,6 @@
 #define VTYSH_INDEX_BGP   5
 #define VTYSH_INDEX_MAX   6
 
-/* UNIX domain socket path. */
-#define ZEBRA_PATH "/tmp/.zebra"
-#define RIP_PATH "/tmp/.ripd"
-#define RIPNG_PATH "/tmp/.ripngd"
-#define OSPF_PATH "/tmp/.ospfd"
-#define OSPF6_PATH "/tmp/.ospf6d"
-#define BGP_PATH "/tmp/.bgpd"
-
 /* vtysh local configuration file. */
 #define VTYSH_DEFAULT_CONFIG "vtysh.conf"
 
