@@ -1117,7 +1117,8 @@ bgp_collision_detect (struct peer *new, struct in_addr remote_id)
 		 OpenConfirm state). */
 
 	      if (new->fd >= 0)
-		bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
+		bgp_notify_send (new, BGP_NOTIFY_CEASE, 
+			         BGP_NOTIFY_CEASE_COLLISION_RESOLUTION);
 	      return -1;
 	    }
 	}
@@ -2147,7 +2148,7 @@ bgp_read (struct thread *thread)
 		   peer->host, type, size - BGP_HEADER_SIZE);
 
       /* Marker check */
-      if (type == BGP_MSG_OPEN
+      if (((type == BGP_MSG_OPEN) || (type == BGP_MSG_KEEPALIVE))
 	  && ! bgp_marker_all_one (peer->ibuf, BGP_MARKER_SIZE))
 	{
 	  bgp_notify_send (peer,
@@ -2219,7 +2220,7 @@ bgp_read (struct thread *thread)
     {
     case BGP_MSG_OPEN:
       peer->open_in++;
-      bgp_open_receive (peer, size);
+      bgp_open_receive (peer, size); /* XXX return value ignored! */
       break;
     case BGP_MSG_UPDATE:
       peer->readtime = time(NULL);    /* Last read timer reset */

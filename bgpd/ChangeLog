@@ -1,3 +1,10 @@
+2004-07-09 Sowmini Varadhan <sowmini.varadhan@sun.com>
+
+	* bgp_packet.c: (bgp_collision_detect) Send NOTIFY on new socket
+	  if that is connection we're closing.
+	  (bgp_read) invalid marker check applies to KEEPALIVE too.
+	* bgp_route.c: Ignore multicast NRLI, dont send NOTIFY.
+	
 2004-06-04 Paul Jakma <paul@dishone.st>
 
 	* type mismatch fixes

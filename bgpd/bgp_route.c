@@ -1688,12 +1688,17 @@ bgp_nlri_parse (struct peer *peer, struct attr *attr, struct bgp_nlri *packet)
 	{
 	  if (IN_CLASSD (ntohl (p.u.prefix4.s_addr)))
 	    {
+	     /* 
+ 	      * From draft-ietf-idr-bgp4-22, Section 6.3: 
+	      * If a BGP router receives an UPDATE message with a
+	      * semantically incorrect NLRI field, in which a prefix is
+	      * semantically incorrect (eg. an unexpected multicast IP
+	      * address), it should ignore the prefix.
+	      */
 	      zlog (peer->log, LOG_ERR, 
 		    "IPv4 unicast NLRI is multicast address %s",
 		    inet_ntoa (p.u.prefix4));
-	      bgp_notify_send (peer, 
-			       BGP_NOTIFY_UPDATE_ERR, 
-			       BGP_NOTIFY_UPDATE_INVAL_NETWORK);
+
 	      return -1;
 	    }
 	}
