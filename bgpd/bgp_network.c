@@ -279,7 +279,7 @@ bgp_getsockname (struct peer *peer)
 int
 bgp_socket (struct bgp *bgp, unsigned short port)
 {
-  int ret;
+  int ret, en;
   struct addrinfo req;
   struct addrinfo *ainfo;
   struct addrinfo *ainfo_save;
@@ -322,16 +322,17 @@ bgp_socket (struct bgp *bgp, unsigned short port)
         zlog_err ("bgp_socket: could not raise privs");
 
       ret = bind (sock, ainfo->ai_addr, ainfo->ai_addrlen);
+      en = errno;
+      if (bgpd_privs.change (ZPRIVS_LOWER) )
+	zlog_err ("bgp_bind_address: could not lower privs");
+
       if (ret < 0)
 	{
-	  zlog_err ("bind: %s", strerror (errno));
-	  close (sock);
+	  zlog_err ("bind: %s", strerror (en));
+	  close(sock);
 	  continue;
 	}
       
-      if (bgpd_privs.change (ZPRIVS_LOWER) )
-        zlog_err ("bgp_bind_address: could not lower privs");
-        
       ret = listen (sock, 3);
       if (ret < 0) 
 	{
@@ -381,16 +382,18 @@ bgp_socket (struct bgp *bgp, unsigned short port)
     zlog_err ("bgp_socket: could not raise privs");
 
   ret = bind (sock, (struct sockaddr *) &sin, socklen);
+  en = errno;
+
+  if (bgpd_privs.change (ZPRIVS_LOWER) )
+    zlog_err ("bgp_socket: could not lower privs");
+
   if (ret < 0)
     {
-      zlog_err ("bind: %s", strerror (errno));
+      zlog_err ("bind: %s", strerror (en));
       close (sock);
       return ret;
     }
   
-  if (bgpd_privs.change (ZPRIVS_LOWER) )
-    zlog_err ("bgp_socket: could not lower privs");
-    
   ret = listen (sock, 3);
   if (ret < 0) 
     {

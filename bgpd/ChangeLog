@@ -1,3 +1,7 @@
+2003-12-23 Krzysztof Oledzki <oleq@ans.pl>
+
+	* bgp_network.c: drop privs on error cases
+
 2003-08-11 kunihiro <kunihiro@zebra.org
 
 	* bgp_route{,map}.c: Extend 'set ip next-hop' in route-maps with
