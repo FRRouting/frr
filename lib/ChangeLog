@@ -1,3 +1,8 @@
+2004-11-19 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* sockopt.c: (setsockopt_so_recvbuf) Stop error message from being
+	  printed every time.
+
 2004-11-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* memory.h: Fix prototype for memory_init().
