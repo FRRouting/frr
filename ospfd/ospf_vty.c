@@ -7142,7 +7142,7 @@ config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 
 
 char *distribute_str[] = { "system", "kernel", "connected", "static", "rip",
-			   "ripng", "ospf", "ospf6", "bgp"};
+			   "ripng", "ospf", "ospf6", "isis", "bgp"};
 int
 config_write_ospf_redistribute (struct vty *vty, struct ospf *ospf)
 {

@@ -1,3 +1,14 @@
+2004-03-20 Michael Bruening <mike@vailsys.com>
+
+	* ospf_vty.c: Completed array distribute_str of route types with
+	  addition of "isis". This array must be indexed by
+	  ZEBRA_ROUTE_(SYSTEM|KERNEL|...) defines in zebra.h, and should
+	  be updated with every route type addition. This fix allows
+	  commands redistributing routes from (bgp|isis), like "router ospf
+	  redistribute bgp ...", to be written to terminal, memory, file,
+	  which would otherwise result in a seg fault or, possibly, config
+	  file corruption. Overlooked in import of isisd.
+
 2004-03-18 Amir Guindehi <amir@datacore.ch>
 
 	* ospf_opaque.c: Attempt to correct the incorrect behavior of
