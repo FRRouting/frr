@@ -2,7 +2,7 @@
 
 info_TEXINFOS = quagga.texi
 
-zebra_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi install.texi \
+quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi install.texi \
 	ipv6.texi kernel.texi main.texi ospf6d.texi ospfd.texi overview.texi \
 	protocol.texi ripd.texi ripngd.texi routemap.texi snmp.texi vtysh.texi
 
