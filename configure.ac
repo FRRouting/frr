@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.59 2004/08/19 04:41:21 paul Exp $
+## $Id: configure.ac,v 1.60 2004/08/26 12:21:28 hasso Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(quagga, 0.96.5, [http://bugzilla.quagga.net])
@@ -1130,9 +1130,9 @@ AC_OUTPUT(Makefile lib/Makefile zebra/Makefile ripd/Makefile
 	  [chmod +x vtysh/extract.pl])
 
 echo "
-zebra configuration
--------------------
-quagga version           : ${PACKAGE_VERSION}
+Quagga configuration
+--------------------
+quagga version          : ${PACKAGE_VERSION}
 host operationg system  : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
