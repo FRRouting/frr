@@ -1,5 +1,5 @@
 # conditionals
-%define 	with_snmp	0
+%define 	with_snmp	1
 %define		with_vtysh	1
 %define		with_ospf_te	1
 %define		with_nssa	1
@@ -19,7 +19,7 @@
 Summary: Routing daemon
 Name:		zebra
 Version:	0.94
-Release:	2003021301
+Release:	2003030101
 License:	GPL
 Group: System Environment/Daemons
 Source0:	ftp://ftp.zebra.org/pub/zebra/%{name}-%{version}.tar.gz
@@ -52,6 +52,13 @@ GNU Zebra is intended to be used as a Route Server and a Route
 Reflector. It is not a toolkit, it provides full routing power under
 a new architecture. GNU Zebra is unique in design in that it has a
 process for each protocol.
+
+%package contrib
+Summary: contrib tools for zebra
+Group: System Environment/Daemons
+
+%description contrib
+Contributed/3rd party tools which may be of use with zebra.
 
 %prep
 %setup  -q
@@ -197,7 +204,7 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc */*.sample* tools AUTHORS COPYING
+%doc */*.sample* AUTHORS COPYING
 %doc doc/zebra.html
 %doc doc/mpls
 %doc ChangeLog INSTALL NEWS README REPORTING-BUGS SERVICES TODO
@@ -215,7 +222,16 @@ fi
 %config(noreplace) /etc/pam.d/zebra
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
 
+%files contrib
+%defattr(-,root,root)
+%doc tools
+
 %changelog
+* Sat Mar 1 2003 Paul Jakma <paul@dishone.st>
+- ospfd IOS prefix to interface matching for 'network' statement
+- temporary fix for PtP and IPv6
+- sync to zebra.org CVS
+
 * Mon Jan 20 2003 Paul Jakma <paul@dishone.st>
 - update to latest cvs
 - Yon's "show thread cpu" patch - 17217
