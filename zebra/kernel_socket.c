@@ -45,16 +45,24 @@ extern struct zebra_t zebrad;
   ((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
 
 /* And this macro is wrapper for handling sa_len. */
-#ifdef HAVE_SA_LEN
+#if defined(HAVE_SA_LEN)
 #define WRAPUP(X)   ROUNDUP(((struct sockaddr *)(X))->sa_len)
-#else
+#elif defined(HAVE_IPV6)
 #define WRAPUP(X) \
+    do { \
     (((struct sockaddr *)(X))->sa_family == AF_INET ?   \
       ROUNDUP(sizeof(struct sockaddr_in)):\
       (((struct sockaddr *)(X))->sa_family == AF_INET6 ? \
        ROUNDUP(sizeof(struct sockaddr_in6)) :  \
        (((struct sockaddr *)(X))->sa_family == AF_LINK ? \
-         ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr))))
+         ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr)))) \
+    } while (0)
+#else /* HAVE_IPV6 */ 
+#define WRAPUP(X) \
+      (((struct sockaddr *)(X))->sa_family == AF_INET ?   \
+        ROUNDUP(sizeof(struct sockaddr_in)):\
+         (((struct sockaddr *)(X))->sa_family == AF_LINK ? \
+           ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr)))
 #endif /* HAVE_SA_LEN */
 
 /* Routing socket message types. */
@@ -250,7 +258,7 @@ ifm_read (struct if_msghdr *ifm)
    */
   if (sdl != NULL)
     {
-      bcopy(sdl->sdl_data, ifname, sdl->sdl_nlen);
+      memcpy (ifname, sdl->sdl_data, sdl->sdl_nlen);
       ifname[sdl->sdl_nlen] = '\0';
       ifp = if_lookup_by_name (ifname);
     }
