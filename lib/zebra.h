@@ -228,6 +228,7 @@ typedef int socklen_t;
 #endif  /* !__GNUC__ || VTYSH_EXTRACT_PL */
 
 #include "zassert.h"
+#include "str.h"
 
 
 #ifdef HAVE_BROKEN_CMSG_FIRSTHDR

@@ -8,8 +8,6 @@
 
 #include <zebra.h>
 
-#include "str.h"
-
 #ifndef HAVE_SNPRINTF
 /*
  * snprint() is a real basic wrapper around the standard sprintf()
@@ -58,5 +56,14 @@ strlcat(char *dst, const char *src, size_t size)
   strcat (dst, src);
 
   return (strlen(dst));
+}
+#endif
+
+#ifndef HAVE_STRNLEN
+size_t
+strnlen(const char *s, size_t maxlen)
+{
+  const char *p;
+  return (p = (const char *)memchr(s, '\0', maxlen)) ? (size_t)(p-s) : maxlen;
 }
 #endif

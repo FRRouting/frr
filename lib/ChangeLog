@@ -1,3 +1,10 @@
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zebra.h: Should include str.h to pick up missing functions.
+	* str.h: Declare strnlen if needed.
+	* str.c: Do not include str.h since zebra.h now includes it.
+	  (strnlen) New function.
+
 2005-03-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zebra.h: Must check whether __attribute__ should be defined before

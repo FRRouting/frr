@@ -1,3 +1,7 @@
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* configure.ac: Add strnlen to AC_CHECK_FUNCS.
+
 2005-03-28 Hasso Tepper <hasso at quagga.net>
 
 	* configure.ac, */Makefile.am: Fix previous commit. SNMP includes
