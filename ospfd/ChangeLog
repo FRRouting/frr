@@ -12,7 +12,10 @@
 	  not by peer_addr (which breaks for asymmetric vlinks)
 	  (ospf_nbr_lookup) add a wrapper for nbr lookups to deal with
 	  above.
-
+	* ospf_interface.c: (ospf_vl_set_params) Catch changes of interface
+	  address for either end of a virtual-link, and hence potential cost
+	  changes.
+	  
 2004-04-22 Hasso Tepper <hasso@estpak.ee>
 
 	* ospf_zebra.c: Don't ignore reject/bh routes, it's the only way

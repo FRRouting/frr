@@ -917,6 +917,7 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
 
   if (voi->output_cost != v->distance)
     {
+     
       voi->output_cost = v->distance;
       changed = 1;
     }
@@ -924,12 +925,16 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
   for (node = listhead (v->nexthop); node; nextnode (node))
     if ((nh = getdata (node)) != NULL)
       {
-	vl_data->out_oi = (struct ospf_interface *) nh->oi;
+        vl_data->out_oi = (struct ospf_interface *) nh->oi;
+        
+        if (!IPV4_ADDR_SAME(&voi->address->u.prefix4,
+                            &vl_data->out_oi->address->u.prefix4))
+          changed = 1;
+          
+        voi->address->u.prefix4 = vl_data->out_oi->address->u.prefix4;
+        voi->address->prefixlen = vl_data->out_oi->address->prefixlen;
 
-	voi->address->u.prefix4 = vl_data->out_oi->address->u.prefix4;
-	voi->address->prefixlen = vl_data->out_oi->address->prefixlen;
-
-	break; /* We take the first interface. */
+        break; /* We take the first interface. */
       }
 
   rl = (struct router_lsa *)v->lsa;
@@ -961,9 +966,12 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
                   zlog_info ("found back link through VL");
               case LSA_LINK_TYPE_TRANSIT:
               case LSA_LINK_TYPE_POINTOPOINT:
+                if (!IPV4_ADDR_SAME (&vl_data->peer_addr,
+                                     &rl->link[i].link_data))
+                  changed = 1;
                 vl_data->peer_addr = rl->link[i].link_data;
               if (IS_DEBUG_OSPF_EVENT)
-                zlog_info ("%s peer address is %s\n",
+                zlog_info ("ospf_vl_set_params: %s peer address is %s\n",
                                vl_data->vl_oi->ifp->name, 
                                inet_ntoa(vl_data->peer_addr));
               return changed;
@@ -1030,9 +1038,10 @@ ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
          if (ospf_vl_set_params (vl_data, v))
            {
              if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
-               zlog_info ("ospf_vl_up_check: VL cost change, scheduling router lsa refresh");
+               zlog_info ("ospf_vl_up_check: VL cost change,"
+                          " scheduling router lsa refresh");
              if(ospf->backbone)
-               ospf_router_lsa_timer_add(ospf->backbone);
+               ospf_router_lsa_timer_add (ospf->backbone);
              else if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
                zlog_info ("ospf_vl_up_check: VL cost change, no backbone!");
            }
