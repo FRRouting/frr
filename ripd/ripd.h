@@ -377,7 +377,8 @@ void rip_offset_init ();
 int if_check_address (struct in_addr addr);
 int if_valid_neighbor (struct in_addr addr);
 
-int rip_request_send (struct sockaddr_in *, struct interface *, u_char);
+int rip_request_send (struct sockaddr_in *, struct interface *, u_char,
+                      struct connected *);
 int rip_neighbor_lookup (struct sockaddr_in *);
 void rip_redistribute_add (int, int, struct prefix_ipv4 *, unsigned int, 
 			   struct in_addr *);

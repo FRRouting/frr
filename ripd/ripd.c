@@ -61,7 +61,7 @@ void rip_event (enum rip_event, int);
 
 void rip_output_process (struct interface *, struct prefix *,
 			 struct sockaddr_in *, int, u_char, 
-                         struct prefix_ipv4 *);
+                         struct connected *, struct prefix_ipv4 *);
 
 /* RIP output routes type. */
 enum
@@ -1235,10 +1235,43 @@ rip_response_process (struct rip_packet *packet, int size,
 /* RIP packet send to destination address. */
 int
 rip_send_packet (caddr_t buf, int size, struct sockaddr_in *to, 
-		 struct interface *ifp)
+		 struct interface *ifp, struct connected *connected)
 {
-  int ret;
+  int ret, send_sock;
   struct sockaddr_in sin;
+
+  if (IS_RIP_DEBUG_PACKET)
+    {
+      char dst[20];
+      if (to)
+        {
+          strcpy(dst, inet_ntoa(to->sin_addr));
+        }
+      else
+        {
+          sin.sin_addr.s_addr = htonl (INADDR_RIP_GROUP);
+          strcpy(dst, inet_ntoa(sin.sin_addr));
+        }
+      zlog_info("rip_send_packet %s > %s (%s)",
+                inet_ntoa(connected->address->u.prefix4), dst, ifp->name);
+    }
+  if (connected->flags & ZEBRA_IFA_SECONDARY)
+    {
+      /*
+       * ZEBRA_IFA_SECONDARY is set on linux when an interface is configured
+       * with multiple addresses on the same subnet: the first address
+       * on the subnet is configured "primary", and all subsequent addresses
+       * on that subnet are treated as "secondary" addresses. 
+       * In order to avoid routing-table bloat on other rip listeners, 
+       * we do not send out RIP packets with ZEBRA_IFA_SECONDARY source addrs.
+       * XXX Since Linux is the only system for which the ZEBRA_IFA_SECONDARY
+       * flag is set, we would end up sending a packet for a "secondary"
+       * source address on non-linux systems.  
+       */
+      if (IS_RIP_DEBUG_PACKET)
+        zlog_info("duplicate dropped");
+      return 0;
+    }
 
   /* Make destination address. */
   memset (&sin, 0, sizeof (struct sockaddr_in));
@@ -1252,6 +1285,7 @@ rip_send_packet (caddr_t buf, int size, struct sockaddr_in *to,
     {
       sin.sin_port = to->sin_port;
       sin.sin_addr = to->sin_addr;
+      send_sock = rip->sock;
     }
   else
     {
@@ -1259,11 +1293,28 @@ rip_send_packet (caddr_t buf, int size, struct sockaddr_in *to,
       sin.sin_port = htons (RIP_PORT_DEFAULT);
       sin.sin_addr.s_addr = htonl (INADDR_RIP_GROUP);
 
-      /* caller has set multicast interface */
-
+      /*
+       * we have to open a new socket for each packet because this
+       * is the most portable way to bind to a different source
+       * ipv4 address for each packet. 
+       */
+      send_sock = socket(AF_INET, SOCK_DGRAM, 0);
+      if (send_sock < 0)
+        {
+          zlog_warn("rip_send_packet could not create socket %s",
+                    strerror(errno));
+          return -1;
+    }
+      sockopt_broadcast (send_sock);
+      sockopt_reuseaddr (send_sock);
+      sockopt_reuseport (send_sock);
+#ifdef RIP_RECVMSG
+      setsockopt_pktinfo (send_sock);
+#endif /* RIP_RECVMSG */
+      rip_interface_multicast_set(send_sock, connected, if_is_pointopoint(ifp));
     }
 
-  ret = sendto (rip->sock, buf, size, 0, (struct sockaddr *)&sin,
+  ret = sendto (send_sock, buf, size, 0, (struct sockaddr *)&sin,
 		sizeof (struct sockaddr_in));
 
   if (IS_RIP_DEBUG_EVENT)
@@ -1272,6 +1323,9 @@ rip_send_packet (caddr_t buf, int size, struct sockaddr_in *to,
 
   if (ret < 0)
     zlog_warn ("can't send packet : %s", strerror (errno));
+
+  if (!to)
+    close(send_sock);
 
   return ret;
 }
@@ -1456,7 +1510,7 @@ rip_request_process (struct rip_packet *packet, int size,
 
       /* All route with split horizon */
       rip_output_process (ifp, NULL, from, rip_all_route, packet->version, 
-                          &saddr);
+                          NULL, &saddr);
     }
   else
     {
@@ -1488,7 +1542,7 @@ rip_request_process (struct rip_packet *packet, int size,
 	}
       packet->command = RIP_RESPONSE;
 
-      rip_send_packet ((caddr_t) packet, size, from, ifp);
+      rip_send_packet ((caddr_t) packet, size, from, ifp, NULL);
     }
   rip_global_queries++;
 }
@@ -1983,7 +2037,7 @@ rip_write_rte (int num, struct stream *s, struct prefix_ipv4 *p,
 void
 rip_output_process (struct interface *ifp, struct prefix *ifaddr,
 		    struct sockaddr_in *to, int route_type, u_char version,
-                    struct prefix_ipv4 *saddr)
+                    struct connected *connected, struct prefix_ipv4 *saddr)
 {
   int ret;
   struct stream *s;
@@ -2243,7 +2297,7 @@ rip_output_process (struct interface *ifp, struct prefix *ifaddr,
 	      rip_auth_md5_set (s, ifp);
 
 	    ret = rip_send_packet (STREAM_DATA (s), stream_get_endp (s),
-				   to, ifp);
+				   to, ifp, connected);
 
 	    if (ret >= 0 && IS_RIP_DEBUG_SEND)
 	      rip_packet_dump ((struct rip_packet *)STREAM_DATA (s),
@@ -2259,7 +2313,8 @@ rip_output_process (struct interface *ifp, struct prefix *ifaddr,
       if (version == RIPv2 && ri->auth_type == RIP_AUTH_MD5)
 	rip_auth_md5_set (s, ifp);
 
-      ret = rip_send_packet (STREAM_DATA (s), stream_get_endp (s), to, ifp);
+      ret = rip_send_packet (STREAM_DATA (s), stream_get_endp (s), to, ifp, 
+			     connected);
 
       if (ret >= 0 && IS_RIP_DEBUG_SEND)
 	rip_packet_dump ((struct rip_packet *)STREAM_DATA (s),
@@ -2275,12 +2330,13 @@ rip_output_process (struct interface *ifp, struct prefix *ifaddr,
 /* Send RIP packet to the interface. */
 void
 rip_update_interface (struct interface *ifp, u_char version, int route_type,
-                      struct prefix_ipv4 *saddr)
+                      struct connected *sconn)
 {
   struct prefix_ipv4 *p;
   struct connected *connected;
   listnode node;
   struct sockaddr_in to;
+  struct prefix_ipv4 *saddr = (struct prefix_ipv4 *) sconn->address;
 
   /* When RIP version is 2 and multicast enable interface. */
   if (version == RIPv2 && if_is_multicast (ifp)) 
@@ -2289,7 +2345,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type,
 	zlog_info ("multicast announce on %s ", ifp->name);
 
       rip_output_process (ifp, NULL, NULL, route_type, rip->version_send, 
-                          saddr);
+                          sconn, saddr);
       return;
     }
 
@@ -2317,7 +2373,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type,
 			   inet_ntoa (to.sin_addr), ifp->name);
 
 	      rip_output_process (ifp, connected->address, &to, route_type,
-				 rip->version_send, saddr);
+				 rip->version_send, connected, saddr);
 	    }
 	}
     }
@@ -2371,10 +2427,11 @@ rip_update_process (int route_type)
 	  LIST_LOOP(ifp->connected, connected, ifnode)
 	    {
 	      struct prefix_ipv4 *ifaddr;
-          
-
-	  /* If there is no version configuration in the interface,
-             use rip's version setting. */
+              int done = 0;
+	      /* 
+               * If there is no version configuration in the interface,
+               * use rip's version setting. 
+               */
 	      int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ?
 			   rip->version_send : ri->ri_send);
 
@@ -2383,12 +2440,14 @@ rip_update_process (int route_type)
 	      if (ifaddr->family != AF_INET)
 		continue;
 
-	      rip_interface_multicast_set(rip->sock, connected,
-					  if_is_pointopoint(ifp));
-	      if (vsend & RIPv1)
-		rip_update_interface (ifp, RIPv1, route_type, ifaddr);
-	      if (vsend & RIPv2)
-		rip_update_interface (ifp, RIPv2, route_type, ifaddr);
+              if ((vsend & RIPv1) && !done)
+	        rip_update_interface (ifp, RIPv1, route_type, connected);
+              if ((vsend & RIPv2) && if_is_multicast(ifp))
+	        rip_update_interface (ifp, RIPv2, route_type, connected);
+              done = 1;
+              if (!(vsend & RIPv2) || !if_is_multicast(ifp))
+                break;
+		
 	  }
 	}
     }
@@ -2413,7 +2472,8 @@ rip_update_process (int route_type)
 	to.sin_port = htons (RIP_PORT_DEFAULT);
 
 	/* RIP version is rip's configuration. */
-	rip_output_process (ifp, NULL, &to, route_type, rip->version_send, p);
+	rip_output_process (ifp, NULL, &to, route_type, rip->version_send, 
+                            NULL, p);
       }
 }
 
@@ -2589,12 +2649,11 @@ rip_create ()
 /* Sned RIP request to the destination. */
 int
 rip_request_send (struct sockaddr_in *to, struct interface *ifp,
-		  u_char version)
+		  u_char version, struct connected *connected)
 {
   struct rte *rte;
   struct rip_packet rip_packet;
   listnode node;
-  struct connected *connected;
 
   memset (&rip_packet, 0, sizeof (rip_packet));
 
@@ -2603,6 +2662,20 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
   rte = rip_packet.rte;
   rte->metric = htonl (RIP_METRIC_INFINITY);
 
+  if (connected) 
+    {
+      /* 
+       * connected is only sent for ripv1 case, or when
+       * interface does not support multicast.  Caller loops
+       * over each connected address for this case.
+       */
+      if (rip_send_packet ((caddr_t) &rip_packet, sizeof (rip_packet), 
+                            to, ifp, connected) != sizeof (rip_packet))
+        return -1;
+      else
+        return sizeof (rip_packet);
+    }
+	
   /* send request on each connected network */
   LIST_LOOP(ifp->connected, connected, node)
     {
@@ -2613,10 +2686,8 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
       if (p->family != AF_INET)
         continue;
 
-      rip_interface_multicast_set(rip->sock, connected,
-				  if_is_pointopoint(ifp));
       if (rip_send_packet ((caddr_t) &rip_packet, sizeof (rip_packet), 
-                            to, ifp) != sizeof (rip_packet))
+                            to, ifp, connected) != sizeof (rip_packet))
         return -1;
     }
   return sizeof (rip_packet);

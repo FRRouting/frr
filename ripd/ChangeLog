@@ -1,3 +1,16 @@
+2004-01-23 sowmini.varadhan@sun.com
+
+	* rip_interface.c: obsolete unbind code in
+  	rip_interface_multicast_set, and instead do the more portable
+  	(though slower) method of creating a socket for each outgoing packet
+  	and binding the source address on the new socket.
+        * rip_interface.c, ripd.c, ripd.h: Modify rip_request_send so that
+        source address is determined by the caller of rip_request_send for
+        ripv1 packets and non-multicast interfaces (rip_request_send loops
+        over all connected address in all other cases).
+        * rip_send_packet: don't send packets with source set to
+        ZEBRA_IFA_SECONDARY connected addresses; improved debug messages;
+
 2003-06-07 Andrew J. Schorr <aschorr@telemetry-investments.com>
 
 	* Allow ripd to receive RIPv1

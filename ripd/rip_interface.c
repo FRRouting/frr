@@ -146,16 +146,20 @@ rip_interface_multicast_set (int sock, struct connected *connected,
       struct in_addr addr;
   struct prefix_ipv4 *p;
 
+  if (connected != NULL) 
+    {
   if (if_pointopoint)
     p = (struct prefix_ipv4 *) connected->destination;
   else
       p = (struct prefix_ipv4 *) connected->address;
-
 	  addr = p->prefix;
+    }
+  else 
+    {
+      addr.s_addr = INADDR_ANY;
+    }
 
-
-	  if (setsockopt_multicast_ipv4 (sock, IP_MULTICAST_IF,
-				 addr, 0, 0) < 0) 
+  if (setsockopt_multicast_ipv4 (sock, IP_MULTICAST_IF, addr, 0, 0) < 0) 
 	    {
 	      zlog_warn ("Can't setsockopt IP_MULTICAST_IF to fd %d", sock);
 	      return;
@@ -171,8 +175,9 @@ rip_interface_multicast_set (int sock, struct connected *connected,
 	  else 
 	    from.sin_port = htons (RIP_PORT_DEFAULT);
 
-	  /* Address shoud be any address. */
+  /* Address should be any address. */
 	  from.sin_family = AF_INET;
+  if (connected)
   addr = ((struct prefix_ipv4 *) connected->address)->prefix;
 	  from.sin_addr = addr;
 #ifdef HAVE_SIN_LEN
@@ -182,7 +187,6 @@ rip_interface_multicast_set (int sock, struct connected *connected,
     if (ripd_privs.change (ZPRIVS_RAISE))
       zlog_err ("rip_interface_multicast_set: could not raise privs");
       
-  bind (sock, NULL, 0); /* unbind any previous association */
   ret = bind (sock, (struct sockaddr *) & from, sizeof (struct sockaddr_in));
 	  if (ret < 0)
 	    {
@@ -209,7 +213,7 @@ rip_request_interface_send (struct interface *ifp, u_char version)
       if (IS_RIP_DEBUG_EVENT)
 	zlog_info ("multicast request on %s", ifp->name);
 
-      rip_request_send (NULL, ifp, version);
+      rip_request_send (NULL, ifp, version, NULL);
       return;
     }
 
@@ -238,7 +242,7 @@ rip_request_interface_send (struct interface *ifp, u_char version)
 	      if (IS_RIP_DEBUG_EVENT)
 		zlog_info ("SEND request to %s", inet_ntoa (to.sin_addr));
 	      
-	      rip_request_send (&to, ifp, version);
+	      rip_request_send (&to, ifp, version, connected);
 	    }
 	}
     }
@@ -284,7 +288,7 @@ rip_request_neighbor (struct in_addr addr)
   to.sin_port = htons (RIP_PORT_DEFAULT);
   to.sin_addr = addr;
 
-  rip_request_send (&to, NULL, rip->version_send);
+  rip_request_send (&to, NULL, rip->version_send, NULL);
 }
 
 /* Request routes at all interfaces. */
