@@ -7658,7 +7658,7 @@ bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
 {
   int i;
   char *str[] = { "system", "kernel", "connected", "static", "rip",
-		  "ripng", "ospf", "ospf6", "bgp"};
+		  "ripng", "ospf", "ospf6", "isis", "bgp"};
 
   /* Unicast redistribution only.  */
   if (safi != SAFI_UNICAST)

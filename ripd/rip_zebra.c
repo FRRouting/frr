@@ -647,7 +647,7 @@ config_write_rip_redistribute (struct vty *vty, int config_mode)
 {
   int i;
   char *str[] = { "system", "kernel", "connected", "static", "rip",
-		  "ripng", "ospf", "ospf6", "bgp"};
+		  "ripng", "ospf", "ospf6", "isis", "bgp"};
 
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     if (i != zclient->redist_default && zclient->redist[i])
