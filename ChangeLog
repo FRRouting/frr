@@ -1,3 +1,9 @@
+2005-04-04 Hasso Tepper <hasso at quagga.net>
+
+	* configure.ac: Fix AC_LANG_SOURCE usage. It needs double square
+	  brackets around source. Single ones broke square brackets in the
+	  code (arrays).
+
 2005-04-03 Hasso Tepper <hasso at quagga.net>
 
 	* configure.ac: Use AC_RUN_IFELSE instead of obsolete AC_TRY_RUN macro

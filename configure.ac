@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.97 2005/04/03 13:07:21 hasso Exp $
+## $Id: configure.ac,v 1.98 2005/04/03 23:46:37 hasso Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.0, [http://bugzilla.quagga.net])
@@ -540,7 +540,7 @@ dnl ------------------------------------
 dnl check for broken CMSG_FIRSTHDR macro
 dnl ------------------------------------
 AC_MSG_CHECKING(for broken CMSG_FIRSTHDR)
-AC_RUN_IFELSE([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #ifdef SUNOS_5
 #define _XPG4_2
 #define __EXTENSIONS__
@@ -560,7 +560,7 @@ main()
   if (CMSG_FIRSTHDR(&msg) != NULL)
     exit(0);
   exit (1);
-}],[AC_MSG_RESULT(yes - using workaround) AC_DEFINE(HAVE_BROKEN_CMSG_FIRSTHDR,,Broken CMSG_FIRSTHDR)],
+}]])],[AC_MSG_RESULT(yes - using workaround) AC_DEFINE(HAVE_BROKEN_CMSG_FIRSTHDR,,Broken CMSG_FIRSTHDR)],
 [AC_MSG_RESULT(no)],[AC_MSG_RESULT(no)])
 
 dnl ------------------------------
