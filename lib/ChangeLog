@@ -1,3 +1,8 @@
+2003-12-22  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* vty.c (vty_use_backup_config): Don't free filenames before using
+	them for unlink.
+
 2003-08-20 Yasuhiro Ohara <yasu@sfc.wide.ad.jp>
 
 	* command.c: Fix <cr> display problem for command line

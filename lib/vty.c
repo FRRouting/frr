@@ -2173,9 +2173,9 @@ vty_use_backup_config (char *fullpath)
   sav = open (fullpath_sav, O_RDONLY);
   if (sav < 0)
     {
+      unlink (fullpath_tmp);
       free (fullpath_sav);
       free (fullpath_tmp);
-      unlink (fullpath_tmp);
       return NULL;
     }
   
@@ -2187,9 +2187,9 @@ vty_use_backup_config (char *fullpath)
   
   if (chmod(fullpath_tmp, CONFIGFILE_MASK) != 0)
     {
+      unlink (fullpath_tmp);
       free (fullpath_sav);
       free (fullpath_tmp);
-      unlink (fullpath_tmp);
       return NULL;
     }
   
