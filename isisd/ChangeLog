@@ -1,3 +1,8 @@
+2004-10-13 Hasso Tepper <hasso at quagga.net>
+
+	* isis_main.c: Initialize access list. Although we haven't route
+	  filtering yet, it's needed to limit access to vty.
+
 2004-10-11 Hasso Tepper <hasso at quagga.net>
 
 	* isis_routemap.c, isisd.c: Make more strings const.
