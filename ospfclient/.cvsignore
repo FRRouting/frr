@@ -1,7 +1,7 @@
 Makefile
+Makefile.in
 *.o
-ospfd
-ospfd.conf
+ospfclient
 tags
 TAGS
 .deps

@@ -1,4 +1,5 @@
 Makefile
+Makefile.in
 *.o
 *.patch
 ospf6d

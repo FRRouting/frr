@@ -1,4 +1,5 @@
 Makefile
+Makefile.in
 *.o
 ospfd
 ospfd.conf
