@@ -1697,7 +1697,8 @@ DEFUN (vtysh_show_running_daemons,
 
 /* Execute command in child process. */
 int
-execute_command (const char *command, int argc, char *arg1, char *arg2)
+execute_command (const char *command, int argc, const char *arg1,
+		 const char *arg2)
 {
   int ret;
   pid_t pid;

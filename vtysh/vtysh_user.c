@@ -46,7 +46,7 @@ static struct pam_conv conv =
 };
 
 int
-vtysh_pam (char *user)
+vtysh_pam (const char *user)
 {
   int ret;
   pam_handle_t *pamh = NULL;
@@ -114,7 +114,7 @@ user_free (struct user *user)
 }
 
 struct user *
-user_lookup (char *name)
+user_lookup (const char *name)
 {
   struct listnode *nn;
   struct user *user;
@@ -141,7 +141,7 @@ user_config_write ()
 }
 
 struct user *
-user_get (char *name)
+user_get (const char *name)
 {
   struct user *user;
   user = user_lookup (name);

@@ -1,3 +1,7 @@
+2004-10-11 Hasso Tepper <hasso at quagga.net>
+
+	* vtysh.c, vtysh_user.c: Make more strings const.
+	
 2004-10-07 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh.c, vtysh.h, vtysh_config.c, vtysh_main.c: Fix compiler
