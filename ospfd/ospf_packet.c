@@ -1018,17 +1018,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
   oi->db_desc_in++;
 
   dd = (struct ospf_db_desc *) STREAM_PNT (s);
-#ifdef HAVE_NSSA
-  /* 
-   * XXX HACK by Hasso Tepper. Setting P bit in NSSA area DD packets is not
-   * required. In fact at least JunOS sends DD packets with P bit clear. 
-   * Until proper solution is developped, this hack should help.
-   */
-  if (oi->area->external_routing == OSPF_AREA_NSSA)
-  {
-     dd->options = (dd->options | ((short)(8)));
-  }
-#endif /* HAVE_NSSA */  
+
   nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &iph->ip_src);
   if (nbr == NULL)
     {
@@ -1043,6 +1033,32 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
       zlog_warn ("Packet[DD]: MTU is larger than [%s]'s MTU", IF_NAME (oi));
       return;
     }
+
+#ifdef HAVE_NSSA
+  /* 
+   * XXX HACK by Hasso Tepper. Setting N/P bit in NSSA area DD packets is not
+   * required. In fact at least JunOS sends DD packets with P bit clear. 
+   * Until proper solution is developped, this hack should help.
+   *
+   * Update: According to the RFCs, N bit is specified /only/ for Hello
+   * options, unfortunately its use in DD options is not specified. Hence some
+   * implementations follow E-bit semantics and set it in DD options, and some
+   * treat it as unspecified and hence follow the directive "default for 
+   * options is clear", ie unset.
+   *
+   * Reset the flag, as ospfd follows E-bit semantics.
+   */
+  if ( (oi->area->external_routing == OSPF_AREA_NSSA)
+       && (CHECK_FLAG (nbr->options, OSPF_OPTION_NP))
+       && (!CHECK_FLAG (dd->options, OSPF_OPTION_NP)) )
+    {
+      if (IS_DEBUG_OSPF_EVENT) 
+        zlog_notice ("Packet[DD]: Neighbour %s: Has NSSA capability, sends with N bit clear in DD options");
+                    inet_ntoa (nbr->router_id) );
+      SET_FLAG (dd->options, OSPF_OPTION_NP);
+    }
+  }
+#endif /* HAVE_NSSA */
 
 #ifdef REJECT_IF_TBIT_ON
   if (CHECK_FLAG (dd->options, OSPF_OPTION_T))
