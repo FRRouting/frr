@@ -85,8 +85,11 @@ ospf_apiserver_if_lookup_by_addr (struct in_addr address)
 {
   listnode node;
   struct ospf_interface *oi;
+  struct ospf *ospf;
 
-  for (node = listhead (ospf_top->oiflist); node; nextnode (node))
+  ospf = ospf_lookup ();
+
+  for (node = listhead (ospf->oiflist); node; nextnode (node))
     {
       if ((oi = getdata (node)) != NULL
 	  && oi->type != OSPF_IFTYPE_VIRTUALLINK)
@@ -103,8 +106,11 @@ ospf_apiserver_if_lookup_by_ifp (struct interface *ifp)
 {
   listnode node;
   struct ospf_interface *oi;
+  struct ospf *ospf;
 
-  for (node = listhead (ospf_top->oiflist); node; nextnode (node))
+  ospf = ospf_lookup ();
+
+  for (node = listhead (ospf->oiflist); node; nextnode (node))
     {
       if ((oi = getdata (node)) && oi->ifp == ifp)
 	{
@@ -1061,8 +1067,11 @@ ospf_apiserver_notify_ready_type9 (struct ospf_apiserver *apiserv)
 {
   listnode node;
   listnode n2;
+  struct ospf *ospf;
 
-  for (node = listhead (ospf_top->oiflist); node; nextnode (node))
+  ospf = ospf_lookup ();
+
+  for (node = listhead (ospf->oiflist); node; nextnode (node))
     {
       struct ospf_interface *oi = (struct ospf_interface *) getdata (node);
 
@@ -1110,8 +1119,11 @@ ospf_apiserver_notify_ready_type10 (struct ospf_apiserver *apiserv)
 {
   listnode node;
   listnode n2;
+  struct ospf *ospf;
 
-  for (node = listhead (ospf_top->areas); node; nextnode (node))
+  ospf = ospf_lookup ();
+
+  for (node = listhead (ospf->areas); node; nextnode (node))
     {
       struct ospf_area *area = getdata (node);
 
@@ -1157,9 +1169,12 @@ void
 ospf_apiserver_notify_ready_type11 (struct ospf_apiserver *apiserv)
 {
   listnode n2;
+  struct ospf *ospf;
+
+  ospf = ospf_lookup ();
 
   /* Can type 11 be originated? */
-  if (!ospf_apiserver_is_ready_type11 (ospf_top))
+  if (!ospf_apiserver_is_ready_type11 (ospf))
     goto out;;
 
   /* Check for registered opaque type 11 types */
@@ -1343,6 +1358,11 @@ ospf_apiserver_handle_sync_lsdb (struct ospf_apiserver *apiserv,
   }
   param;
   u_int16_t mask;
+  struct route_node *rn;
+  struct ospf_lsa *lsa;
+  struct ospf *ospf;
+
+  ospf = ospf_lookup ();
 
   /* Get request sequence number */
   seqnum = msg_get_seq (msg);
@@ -1357,7 +1377,7 @@ ospf_apiserver_handle_sync_lsdb (struct ospf_apiserver *apiserv,
   mask = ntohs (smsg->filter.typemask);
 
   /* Iterate over all areas. */
-  for (node = listhead (ospf_top->areas); node; nextnode (node))
+  for (node = listhead (ospf->areas); node; nextnode (node))
     {
       struct ospf_area *area = node->data;
       int i;
@@ -1388,40 +1408,40 @@ ospf_apiserver_handle_sync_lsdb (struct ospf_apiserver *apiserv,
 	{
 	  /* Check msg type. */
 	  if (mask & Power2[OSPF_ROUTER_LSA])
-	    foreach_lsa (ROUTER_LSDB (area), (void *) &param, seqnum,
-			 apiserver_sync_callback);
+	    LSDB_LOOP (ROUTER_LSDB (area), rn, lsa)
+	      apiserver_sync_callback(lsa, (void *) &param, seqnum);
 	  if (mask & Power2[OSPF_NETWORK_LSA])
-	    foreach_lsa (NETWORK_LSDB (area), (void *) &param, seqnum,
-			 apiserver_sync_callback);
+            LSDB_LOOP (NETWORK_LSDB (area), rn, lsa)
+              apiserver_sync_callback(lsa, (void *) &param, seqnum);
 	  if (mask & Power2[OSPF_SUMMARY_LSA])
-	    foreach_lsa (SUMMARY_LSDB (area), (void *) &param, seqnum,
-			 apiserver_sync_callback);
+            LSDB_LOOP (SUMMARY_LSDB (area), rn, lsa)
+              apiserver_sync_callback(lsa, (void *) &param, seqnum);
 	  if (mask & Power2[OSPF_ASBR_SUMMARY_LSA])
-	    foreach_lsa (ASBR_SUMMARY_LSDB (area), (void *) &param, seqnum,
-			 apiserver_sync_callback);
+            LSDB_LOOP (ASBR_SUMMARY_LSDB (area), rn, lsa)
+              apiserver_sync_callback(lsa, (void *) &param, seqnum);
 	  if (mask & Power2[OSPF_OPAQUE_LINK_LSA])
-	    foreach_lsa (OPAQUE_LINK_LSDB (area), (void *) &param,
-			 seqnum, apiserver_sync_callback);
+            LSDB_LOOP (OPAQUE_LINK_LSDB (area), rn, lsa)
+              apiserver_sync_callback(lsa, (void *) &param, seqnum);
 	  if (mask & Power2[OSPF_OPAQUE_AREA_LSA])
-	    foreach_lsa (OPAQUE_AREA_LSDB (area), (void *) &param,
-			 seqnum, apiserver_sync_callback);
+            LSDB_LOOP (OPAQUE_AREA_LSDB (area), rn, lsa)
+              apiserver_sync_callback(lsa, (void *) &param, seqnum);
 	}
     }
 
   /* For AS-external LSAs */
-  if (ospf_top->lsdb)
+  if (ospf->lsdb)
     {
       if (mask & Power2[OSPF_AS_EXTERNAL_LSA])
-	foreach_lsa (EXTERNAL_LSDB (ospf_top), (void *) &param, seqnum,
-		     apiserver_sync_callback);
+	LSDB_LOOP (EXTERNAL_LSDB (ospf), rn, lsa)
+	  apiserver_sync_callback(lsa, (void *) &param, seqnum);
     }
 
   /* For AS-external opaque LSAs */
-  if (ospf_top->lsdb)
+  if (ospf->lsdb)
     {
       if (mask & Power2[OSPF_OPAQUE_AS_LSA])
-	foreach_lsa (OPAQUE_AS_LSDB (ospf_top), (void *) &param,
-		     seqnum, apiserver_sync_callback);
+	LSDB_LOOP (OPAQUE_AS_LSDB (ospf), rn, lsa)
+	  apiserver_sync_callback(lsa, (void *) &param, seqnum);
     }
 
   /* Send a reply back to client with return code */
@@ -1453,25 +1473,9 @@ ospf_apiserver_opaque_lsa_new (struct ospf_area *area,
   u_char options = 0x0;
   u_int16_t length;
 
-  struct ospf *ospf = ospf_top;
+  struct ospf *ospf;
 
-#if 0
-  struct ospf *ospf = NULL;
-
-  switch(protolsa->type)
-    {
-    case OSPF_OPAQUE_LINK_LSA:
-      ospf = oi_to_top (oi); /* ospf_opaque.c */
-      break;
-    case OSPF_OPAQUE_AREA_LSA:
-      ospf = area->ospf;
-      break;
-    case OSPF_OPAQUE_AS_LSA:
-      ospf = ospf_top; /* XXX */
-      break;
-    }
-#endif
-
+  ospf = ospf_lookup();
   assert(ospf);
 
   /* Create a stream for internal opaque LSA */
@@ -1605,10 +1609,13 @@ ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
   struct ospf_area *area = NULL;
   struct ospf_interface *oi = NULL;
   struct ospf_lsdb *lsdb = NULL;
+  struct ospf *ospf;
   int lsa_type, opaque_type;
   int ready = 0;
   int rc = 0;
   
+  ospf = ospf_lookup();
+
   /* Extract opaque LSA data from message */
   omsg = (struct msg_originate_request *) STREAM_DATA (msg->s);
   data = &omsg->data;
@@ -1629,7 +1636,7 @@ ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
       lsdb = area->lsdb;
       break;
     case OSPF_OPAQUE_AREA_LSA:
-      area = ospf_area_lookup_by_area_id (ospf_top, omsg->area_id);
+      area = ospf_area_lookup_by_area_id (ospf, omsg->area_id);
       if (!area)
 	{
 	  zlog_warn ("apiserver_originate: unknown area %s",
@@ -1640,7 +1647,7 @@ ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
       lsdb = area->lsdb;
       break;
     case OSPF_OPAQUE_AS_LSA:
-      lsdb = ospf_top->lsdb;
+      lsdb = ospf->lsdb;
       break;
     default:
       /* We can only handle opaque types here */
@@ -1671,7 +1678,7 @@ ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
       ready = ospf_apiserver_is_ready_type10 (area);
       break;
     case OSPF_OPAQUE_AS_LSA:
-      ready = ospf_apiserver_is_ready_type11 (ospf_top);
+      ready = ospf_apiserver_is_ready_type11 (ospf);
       break;
     default:
       break;
@@ -1754,10 +1761,15 @@ ospf_apiserver_flood_opaque_lsa (struct ospf_lsa *lsa)
       break;
     case OSPF_OPAQUE_AS_LSA:
       {
+	struct ospf *ospf;
+
+	ospf = ospf_lookup();
+	assert(ospf);
+
 	/* Increment counters? XXX */
 
 	/* Flood LSA through AS. */
-	ospf_flood_through_as (ospf_top, NULL /*nbr */ , lsa);
+	ospf_flood_through_as (ospf, NULL /*nbr */ , lsa);
 	break;
       }
     }
@@ -1766,8 +1778,13 @@ ospf_apiserver_flood_opaque_lsa (struct ospf_lsa *lsa)
 int
 ospf_apiserver_originate1 (struct ospf_lsa *lsa)
 {
+  struct ospf *ospf;
+
+  ospf = ospf_lookup();
+  assert(ospf);
+
   /* Install this LSA into LSDB. */
-  if (ospf_lsa_install (ospf_top, lsa->oi, lsa) == NULL)
+  if (ospf_lsa_install (ospf, lsa->oi, lsa) == NULL)
     {
       zlog_warn ("ospf_apiserver_originate1: ospf_lsa_install failed");
       return -1;
@@ -1836,6 +1853,10 @@ ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa)
 {
   struct ospf_apiserver *apiserv;
   struct ospf_lsa *new = NULL;
+  struct ospf * ospf;
+
+  ospf = ospf_lookup();
+  assert(ospf);
 
   apiserv = lookup_apiserver_by_lsa (lsa);
   if (!apiserv)
@@ -1877,7 +1898,7 @@ ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa)
   SET_FLAG (new->flags, OSPF_LSA_SELF);
 
   /* Install LSA into LSDB. */
-  if (ospf_lsa_install (ospf_top, new->oi, new) == NULL)
+  if (ospf_lsa_install (ospf, new->oi, new) == NULL)
     {
       zlog_warn ("ospf_apiserver_lsa_refresher: ospf_lsa_install failed");
       ospf_lsa_free (new);
@@ -1919,6 +1940,10 @@ ospf_apiserver_handle_delete_request (struct ospf_apiserver *apiserv,
   struct in_addr id;
   int lsa_type, opaque_type;
   int rc = 0;
+  struct ospf * ospf;
+
+  ospf = ospf_lookup();
+  assert(ospf);
 
   /* Extract opaque LSA from message */
   dmsg = (struct msg_delete_request *) STREAM_DATA (msg->s);
@@ -1928,7 +1953,7 @@ ospf_apiserver_handle_delete_request (struct ospf_apiserver *apiserv,
     {
     case OSPF_OPAQUE_LINK_LSA:
     case OSPF_OPAQUE_AREA_LSA:
-      area = ospf_area_lookup_by_area_id (ospf_top, dmsg->area_id);
+      area = ospf_area_lookup_by_area_id (ospf, dmsg->area_id);
       if (!area)
 	{
 	  zlog_warn ("ospf_apiserver_lsa_delete: unknown area %s",
@@ -1969,7 +1994,7 @@ ospf_apiserver_handle_delete_request (struct ospf_apiserver *apiserv,
    * the LSDB until it is finally handled by the maxage remover thread.
    * Therefore, the lookup function below may return non-NULL result.
    */
-  old = ospf_lsa_lookup (area, dmsg->lsa_type, id, ospf_top->router_id);
+  old = ospf_lsa_lookup (area, dmsg->lsa_type, id, ospf->router_id);
   if (!old)
     {
       zlog_warn ("ospf_apiserver_lsa_delete: LSA[Type%d:%s] not in LSDB",
@@ -2032,6 +2057,10 @@ ospf_apiserver_flush_opaque_lsa (struct ospf_apiserver *apiserv,
   }
   param;
   listnode node;
+  struct ospf * ospf;
+
+  ospf = ospf_lookup();
+  assert(ospf);
 
   /* Set parameter struct. */
   param.apiserv = apiserv;
@@ -2051,7 +2080,7 @@ ospf_apiserver_flush_opaque_lsa (struct ospf_apiserver *apiserv,
     }
 
   /* For AS-external opaque LSAs */
-  if (ospf_top->lsdb)
+  if (ospf->lsdb)
     {
       foreach_lsa (OPAQUE_AS_LSDB (ospf_top), (void *) &param, 0,
 		   apiserver_flush_opaque_type_callback);
@@ -2059,25 +2088,28 @@ ospf_apiserver_flush_opaque_lsa (struct ospf_apiserver *apiserv,
 #else /* ORIGINAL_CODING */
   switch (lsa_type)
     {
+      struct route_node *rn;
+      struct ospf_lsa *lsa;
+
     case OSPF_OPAQUE_LINK_LSA:
-      for (node = listhead (ospf_top->areas); node; nextnode (node))
+      for (node = listhead (ospf->areas); node; nextnode (node))
         {
           struct ospf_area *area = node->data;
-          foreach_lsa (OPAQUE_LINK_LSDB (area), (void *) &param, 0,
-    		   apiserver_flush_opaque_type_callback);
+	  LSDB_LOOP (OPAQUE_LINK_LSDB (area), rn, lsa)
+	    apiserver_flush_opaque_type_callback(lsa, (void *) &param, 0);
         }
       break;
     case OSPF_OPAQUE_AREA_LSA:
-      for (node = listhead (ospf_top->areas); node; nextnode (node))
+      for (node = listhead (ospf->areas); node; nextnode (node))
         {
           struct ospf_area *area = node->data;
-          foreach_lsa (OPAQUE_AREA_LSDB (area), (void *) &param, 0,
-    		   apiserver_flush_opaque_type_callback);
+	  LSDB_LOOP (OPAQUE_AREA_LSDB (area), rn, lsa)
+	    apiserver_flush_opaque_type_callback(lsa, (void *) &param, 0);
         }
       break;
     case OSPF_OPAQUE_AS_LSA:
-      foreach_lsa (OPAQUE_AS_LSDB (ospf_top), (void *) &param, 0,
-		   apiserver_flush_opaque_type_callback);
+      LSDB_LOOP (OPAQUE_LINK_LSDB (ospf), rn, lsa)
+	apiserver_flush_opaque_type_callback(lsa, (void *) &param, 0);
       break;
     default:
       break;
