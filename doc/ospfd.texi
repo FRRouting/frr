@@ -96,17 +96,20 @@ preferred to external paths.
 @deffnx {OSPF Command} {network @var{a.b.c.d/m} area @var{<0-4294967295>}} {}
 @deffnx {OSPF Command} {no network @var{a.b.c.d/m} area @var{a.b.c.d}} {}
 @deffnx {OSPF Command} {no network @var{a.b.c.d/m} area @var{<0-4294967295>}} {}
-This command specifies the OSPF enabled interface.  If the interface has
-an address of 10.0.0.1/8 then the command below provides network
-information to the ospf routers
+This command specifies the OSPF enabled interface(s).  If the interface has
+an address from range 192.168.1.0/24 then the command below enables ospf
+on this interface so router can provide network information to the other
+ospf routers via this interface.
 @example
 @group
 router ospf
- network 10.0.0.0/8 area 0
+ network 192.168.1.0/24 area 0.0.0.0
 @end group
 @end example
-the network command's mask length should be the same as the interface
-address's mask.
+Prefix length in interface must be equal or bigger (ie. smaller network) than
+prefix length in network statement. For example statement above doesn't enable
+ospf on interface with address 192.168.1.1/23, but it does on interface with
+address 192.168.1.129/25.
 @end deffn
 
 @node OSPF area, OSPF interface, OSPF router, OSPFv2
