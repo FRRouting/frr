@@ -2,7 +2,8 @@
 
 	* HACKING: remove the 'manually patch redhat/quagga.spec' bit
 	  from RELEASE section. Let the rpm revision be CONFDATE, will work
-	  fine.
+	  fine. Expand on the importance of supplying good ChangeLog's in
+	  the PATCH SUBMISSION section.
 
 2005-04-04 Hasso Tepper <hasso at quagga.net>
 

@@ -1,5 +1,5 @@
 -*- mode: text; -*-
-$Id: HACKING,v 1.17 2005/04/05 10:10:06 paul Exp $
+$Id: HACKING,v 1.18 2005/04/05 10:14:50 paul Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -113,7 +113,9 @@ PATCH SUBMISSION
   cvs <cvs opts> diff -upwb ....
 
 * Include ChangeLog and NEWS entries as appropriate before the patch
-  (or in it if you are 100% up to date).
+  (or in it if you are 100% up to date). A good ChangeLog makes it easier to
+  review a patch, hence failure to include a good ChangeLog is prejudicial
+  to proper review of the patch, and hence the possibility of inclusion.
 
 * Include only one semantic change or group of changes per patch.
 
