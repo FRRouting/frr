@@ -1,14 +1,29 @@
 -*- mode: text; -*-
 
-$Id: HACKING,v 1.7 2004/07/23 16:23:56 gdt Exp $
+$Id: HACKING,v 1.8 2004/09/01 20:13:23 hasso Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
 [this is a draft in progress]
 
-Generally, GNU coding standards apply.  The indentation style is a bit
-different from standard GNU style, and the existing style should be
-maintained and used for new code.
+GNU coding standards apply.  Indentation follows the result of
+invoking GNU indent (as of 2.2.8a) with no arguments.  Note that this
+uses tabs instead of spaces where possible for leading whitespace, and
+assumes that tabs are every 8 columns.  Do not attempt to redefine the
+location of tab stops.  Note also that some indentation does not
+follow GNU style.  This is a historical accident, and we generally
+only clean up whitespace when code is unmaintainable due to whitespace
+issues, as fewer changes from zebra lead to easier merges.
+
+For GNU emacs, use indentation style "gnu".
+
+For Vim, use the following lines (note that tabs are at 8, and that
+softtabstop sets the indentation level):
+
+set tabstop=8
+set softtabstop=2
+set shiftwidth=2
+set noexpandtab
 
 Be particularly careful not to break platforms/protocols that you
 cannot test.
