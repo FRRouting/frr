@@ -2217,7 +2217,7 @@ ospf_read (struct thread *thread)
   top->t_read = thread_add_read (master, ospf_read, top, top->fd);
 
   /* IP Header dump. */
-    if (ospf_debug_packet & OSPF_DEBUG_RECV)
+    if (IS_DEBUG_OSPF_PACKET(0, RECV))
 	    ospf_ip_header_dump (ibuf);
 
   /* Self-originated packet should be discarded silently. */
