@@ -1,3 +1,25 @@
+2005-01-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* vtysh.h: Remove obsolete VTYSH_INDEX_* defines.  Fix many prototypes
+	  for functions with no arguments (must specify argument list as void).
+	* vtysh.c: Enhance vtysh_client array to include the daemon's name
+	  and bitmask and socket path (in addition to the fd).  This allows
+	  us to use loop constructs for various operations that need to be
+	  applied to all client daemons, and it facilitates better error
+	  messages.  Also fix some prototypes with void argument lists.
+	  (vclient_close) Issue a warning message indicating which daemon's
+	  socket is being closed.
+	  (vtysh_execute_func,vtysh_config_from_file) Use a for loop to
+	  call vtysh_client_execute.
+	  (vtysh_write_terminal,write_config_integrated) Use a for loop to
+	  call vtysh_client_config.
+	  (vtysh_write_memory) Use a for loop to call vtysh_client_execute.
+	  (vtysh_show_daemons) Use a for loop.
+	  (vtysh_connect) The struct vtysh_client is now statically initialized,
+	  so do not initialize it here.
+	  (vtysh_connect_all) Use a for loop to call vtysh_connect.  Set
+	  ripd_client pointer for use in vtysh_exit_ripd_only.
+
 2005-01-23 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh.conf.sample: Fix typo "integrated-vtysh-conf" ->

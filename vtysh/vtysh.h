@@ -33,30 +33,21 @@
 #define VTYSH_RMAP	  VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD
 #define VTYSH_INTERFACE	  VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_ISISD
 
-#define VTYSH_INDEX_ZEBRA 0
-#define VTYSH_INDEX_RIP   1
-#define VTYSH_INDEX_RIPNG 2
-#define VTYSH_INDEX_OSPF  3
-#define VTYSH_INDEX_OSPF6 4
-#define VTYSH_INDEX_BGP   5
-#define VTYSH_INDEX_ISIS  6
-#define VTYSH_INDEX_MAX   7
-
 /* vtysh local configuration file. */
 #define VTYSH_DEFAULT_CONFIG "vtysh.conf"
 
-void vtysh_init_vty ();
-void vtysh_init_cmd ();
-void vtysh_connect_all ();
-void vtysh_readline_init ();
-void vtysh_user_init ();
+void vtysh_init_vty (void);
+void vtysh_init_cmd (void);
+void vtysh_connect_all (void);
+void vtysh_readline_init (void);
+void vtysh_user_init (void);
 
 void vtysh_execute (const char *);
 void vtysh_execute_no_pager (const char *);
 
-char *vtysh_prompt ();
+char *vtysh_prompt (void);
 
-void vtysh_config_write ();
+void vtysh_config_write (void);
 
 int vtysh_config_from_file (struct vty *, FILE *);
 
@@ -66,9 +57,9 @@ void vtysh_config_parse (char *);
 
 void vtysh_config_dump (FILE *);
 
-void vtysh_config_init ();
+void vtysh_config_init (void);
 
-void vtysh_pager_init ();
+void vtysh_pager_init (void);
 
 /* Child process execution flag. */
 extern int execute_flag;
