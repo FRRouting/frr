@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.50 2004/05/03 12:50:39 paul Exp $
+## $Id: configure.ac,v 1.51 2004/05/11 10:49:35 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(quagga, 0.96.5, [http://bugzilla.quagga.net])
@@ -233,14 +233,24 @@ AC_TYPE_SIGNAL
 
 dnl Some systems (Solaris 2.x) require libnsl (Network Services Library)
 case "$host" in
-  *-sunos5.6* | *-solaris2.6*)
+  [*-sunos5.[6-8]*] | [*-solaris2.[6-8]*])
       opsys=sol2-6
-      AC_DEFINE(SUNOS_5,,SunOS 5)
+      AC_DEFINE(SUNOS_56, 1, SunOS 5.6 to 5.8)
+      AC_DEFINE(SUNOS_5, 1, SunOS 5)
       AC_CHECK_LIB(xnet, main)
       CURSES=-lcurses
   ;;
+  [*-sunos5.[8-9]] | [*-sunos5.1[0-9]] \
+  | [*-solaris2.[8-9]] | [*-solaris2.1[0-9]])
+      opsys=sol9
+      AC_DEFINE(SUNOS_59,,SunOS 5.9 up)
+      AC_DEFINE(SUNOS_5, 1, SunOS 5)
+      AC_CHECK_LIB(socket, main)
+      AC_CHECK_LIB(nsl, main)
+      CURSES=-lcurses
+  ;;
   *-sunos5* | *-solaris2*)
-      AC_DEFINE(SUNOS_5,,SunOS 5)
+      AC_DEFINE(SUNOS_5,,SunOS 5, Unknown SunOS)
       AC_CHECK_LIB(socket, main)
       AC_CHECK_LIB(nsl, main)
       CURSES=-lcurses
@@ -396,17 +406,20 @@ if test x"$opsys" = x"gnu-linux"; then
     AC_DEFINE(HAVE_NETLINK,,netlink)
     netlink=yes
   fi
+elif test x"$opsys" = x"sol2-6";then
+  AC_MSG_RESULT(Route socket)
+  KERNEL_METHOD="kernel_socket.o"
+  RT_METHOD="rt_socket.o"
+elif test x"$opsys" = x"sol9";then
+  AC_MSG_RESULT(Route socket)
+  KERNEL_METHOD="kernel_socket.o"
+  RT_METHOD="rt_socket.o"
+elif test "$opsys" = "irix" ; then
+  AC_MSG_RESULT(Route socket)
+  KERNEL_METHOD="kernel_socket.o"
+  RT_METHOD="rt_socket.o"
 else
-  if test "$opsys" = "sol2-6";then
-    AC_MSG_RESULT(solaris)
-    KERNEL_METHOD="kernel_socket.o"
-    RT_METHOD="rt_socket.o"
-  elif test "$opsys" = "irix" ; then
-    AC_MSG_RESULT(irix)
-    KERNEL_METHOD="kernel_socket.o"
-    RT_METHOD="rt_socket.o"
-  else
-    AC_TRY_RUN([#include <errno.h>
+  AC_TRY_RUN([#include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -427,7 +440,6 @@ main ()
   [KERNEL_METHOD=kernel_socket.o
    RT_METHOD=rt_socket.o
    AC_MSG_RESULT(socket)])
-  fi
 fi
 AC_SUBST(RT_METHOD)
 AC_SUBST(KERNEL_METHOD)
@@ -464,30 +476,34 @@ AC_SUBST(RTREAD_METHOD)
 dnl -----------------------------
 dnl check interface lookup method
 dnl -----------------------------
+IOCTL_METHOD=ioctl.o
 AC_MSG_CHECKING(interface looking up method)
 if test "$netlink" = yes; then
   AC_MSG_RESULT(netlink)
   IF_METHOD=if_netlink.o
-else
-  if test "$opsys" = "sol2-6";then
-    AC_MSG_RESULT(solaris)
-    IF_METHOD=if_ioctl.o
-  elif test "$opsys" = "irix" ; then
-    AC_MSG_RESULT(irix)
-     IF_METHOD=if_ioctl.o
-  elif test "$opsys" = "openbsd";then
-    AC_MSG_RESULT(openbsd)
-    IF_METHOD=if_ioctl.o
-  elif grep NET_RT_IFLIST /usr/include/sys/socket.h >/dev/null 2>&1; then
-    AC_MSG_RESULT(sysctl)
+elif test "$opsys" = "sol2-6";then
+  AC_MSG_RESULT(Solaris GIF)
+  IF_METHOD=if_ioctl.o
+elif test "$opsys" = "sol9";then
+  AC_MSG_RESULT(Solaris GLIF)
+  IF_METHOD=if_ioctl_solaris.o
+  IOCTL_METHOD=ioctl_solaris.o
+elif test "$opsys" = "irix" ; then
+  AC_MSG_RESULT(IRIX)
+  IF_METHOD=if_ioctl.o
+elif test "$opsys" = "openbsd";then
+  AC_MSG_RESULT(openbsd)
+  IF_METHOD=if_ioctl.o
+elif grep NET_RT_IFLIST /usr/include/sys/socket.h >/dev/null 2>&1; then
+  AC_MSG_RESULT(sysctl)
     IF_METHOD=if_sysctl.o
     AC_DEFINE(HAVE_NET_RT_IFLIST,,NET_RT_IFLIST)
-  else
+else
     AC_MSG_RESULT(ioctl)
     IF_METHOD=if_ioctl.o
-  fi
 fi
 AC_SUBST(IF_METHOD)
+AC_SUBST(IOCTL_METHOD)
 
 dnl -----------------------
 dnl check proc file system.
@@ -592,6 +608,16 @@ dnl ---------
     else
       AC_MSG_RESULT(NRL)
     fi
+dnl ------------------------------------
+dnl Solaris 9, 10 and potentially higher
+dnl ------------------------------------
+  elif test x"$opsys" = x"sol9"; then
+    zebra_cv_ipv6=yes;
+    AC_DEFINE(HAVE_IPV6, 1, IPv6)
+    AC_DEFINE(SOLARIS_IPV6, 1, Solaris IPv6)
+    RIPNGD="ripngd"
+    OSPF6D="ospf6d"
+    AC_MSG_RESULT(Solaris IPv6)
 dnl ----------
 dnl Linux IPv6
 dnl ----------

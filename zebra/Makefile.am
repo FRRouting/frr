@@ -14,14 +14,15 @@ rt_method = @RT_METHOD@
 rtread_method = @RTREAD_METHOD@
 kernel_method = @KERNEL_METHOD@
 other_method = @OTHER_METHOD@
+ioctl_method = @IOCTL_METHOD@
 
-otherobj = $(ipforward) $(if_method) $(if_proc) $(rt_method) \
-	$(rtread_method) $(kernel_method) $(other_method)
+otherobj = $(ioctl_method) $(ipforward) $(if_method) $(if_proc) \
+	$(rt_method) $(rtread_method) $(kernel_method) $(other_method)
 
 sbin_PROGRAMS = zebra
 
 zebra_SOURCES = \
-	zserv.c main.c interface.c connected.c ioctl.c zebra_rib.c \
+	zserv.c main.c interface.c connected.c zebra_rib.c \
 	redistribute.c debug.c rtadv.c zebra_snmp.c zebra_vty.c
 
 noinst_HEADERS = \
@@ -32,11 +33,12 @@ zebra_LDADD = ../lib/libzebra.a $(otherobj) $(LIBCAP) $(LIB_IPV6)
 
 zebra_DEPENDENCIES = $(otherobj)
 
-EXTRA_DIST = if_ioctl.c if_netlink.c if_proc.c if_sysctl.c \
-	ipforward_aix.c ipforward_ews.c ipforward_proc.c \
+EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c if_proc.c \
+        if_sysctl.c ipforward_aix.c ipforward_ews.c ipforward_proc.c \
 	ipforward_solaris.c ipforward_sysctl.c rt_ioctl.c rt_netlink.c \
 	rt_socket.c rtread_netlink.c rtread_proc.c rtread_sysctl.c \
 	rtread_getmsg.c kernel_socket.c kernel_netlink.c mtu_kvm.c \
+	ioctl.c ioctl_solaris.c \
 	GNOME-SMI GNOME-PRODUCT-ZEBRA-MIB
 
 #client : client_main.o ../lib/libzebra.a
