@@ -2265,23 +2265,23 @@ ospf_read (struct thread *thread)
     }
 
   /* Show debug receiving packet. */
-  /*  if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
-      {*/
+  if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+    {
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, DETAIL))
-	{
-	  zlog_info ("-----------------------------------------------------");
-	  ospf_packet_dump (ibuf);
-	}
+        {
+          zlog_info ("-----------------------------------------------------");
+          ospf_packet_dump (ibuf);
+        }
 
       zlog_info ("%s received from [%s] via [%s]",
-		 ospf_packet_type_str[ospfh->type],
-		 inet_ntoa (ospfh->router_id), IF_NAME (oi));
+                 ospf_packet_type_str[ospfh->type],
+                 inet_ntoa (ospfh->router_id), IF_NAME (oi));
       zlog_info (" src [%s],", inet_ntoa (iph->ip_src));
       zlog_info (" dst [%s]", inet_ntoa (iph->ip_dst));
 
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, DETAIL))
 	zlog_info ("-----------------------------------------------------");
-      /*    }*/
+  }
 
   /* Some header verification. */
   ret = ospf_verify_header (ibuf, oi, iph, ospfh);
