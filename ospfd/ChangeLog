@@ -1,3 +1,8 @@
+2004-10-12 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_main.c, ospf_opaque.c: Unbreak ospfclient compilation - move
+	  static variable from ospf_main.c into ospf_opaque.c.
+
 2004-10-11 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_main.c, ospf_opaque.c: Disable ospfapi init by default. New

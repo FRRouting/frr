@@ -100,8 +100,7 @@ struct thread_master *master;
 /* Process ID saved for use by init system */
 const char *pid_file = PATH_OSPFD_PID;
 
-/* OSPF apiserver is disabled by default. */
-int ospf_apiserver_enable = 0;
+extern int ospf_apiserver_enable;
 
 /* Help information display. */
 static void
@@ -204,6 +203,9 @@ main (int argc, char **argv)
 
   /* OSPF master init. */
   ospf_master_init ();
+
+  /* OSPF apiserver is disabled by default. */
+  ospf_apiserver_enable = 0;
 
   while (1) 
     {
