@@ -1,8 +1,12 @@
 2004-12-29  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
-	* sockopt.c (getsockopt_ipv4_ifindex): Return 0 when passed a NULL
-	  cmsghdr pointer.
-
+	* sockopt.c (getsockopt_ipv4_ifindex): Document calling
+	convention.  Beef up comments.  Handle the case where the cmsghdr
+	has a zero controllen, or more specifically when the wanted option
+	is not present.  This is needed for Solaris 8, and in general for
+	any platform for which configure finds a method and it can fail.
+	Mark some changes with XXX to be cleaned up post 0.98.	
+	
 2004-12-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* sockopt.c: (setsockopt_ipv4_ifindex) Improve error message.

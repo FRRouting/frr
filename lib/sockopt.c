@@ -280,63 +280,74 @@ setsockopt_ifindex (int af, int sock, int val)
   return ret;
 }
   
+/*
+ * Requires: msgh is not NULL and points to a valid struct msghdr, which
+ * may or may not have control data about the incoming interface.
+ *
+ * Returns the interface index (small integer >= 1) if it can be
+ * determined, or else 0.
+ */
 static int
 getsockopt_ipv4_ifindex (struct msghdr *msgh)
 {
-  /*
-   * XXX: This routine's semantics are ill-defined, in particular how
-   * the results "can't determine interface due to runtime behavior"
-   * and "OS has no support for how to determine behavior" are
-   * encoded.  For now, return 0 for either case; caller must handle
-   * as "don't know".
-   */
+  /* XXX: initialize to zero?  (Always overwritten, so just cosmetic.) */
   int ifindex = -1;
-
-  /*
-   * If autoconf found a method to get ifindex, but it didn't work for
-   * this packet, or on this OS, this routine can be entered with a
-   * NULL cmsghdr pointer.  Check msgh before using in each case
-   * below, rather than here, to avoid having to ifdef twice, once for
-   * declarations and once for code.
-   */
 
 #if defined(IP_PKTINFO)
 /* Linux pktinfo based ifindex retrieval */
   struct in_pktinfo *pktinfo;
   
-  if (msgh == NULL)
-    return 0;
-
   pktinfo = 
     (struct in_pktinfo *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_PKTINFO);
+  /* XXX Can pktinfo be NULL?  Clean up post 0.98. */
   ifindex = pktinfo->ipi_ifindex;
   
 #elif defined(IP_RECVIF)
-/* BSD/other IP_RECVIF based ifindex retrieval */
+
+  /* retrieval based on IP_RECVIF */
+
 #ifndef SUNOS_5
-  /* RECVIF, but not SUNOS, so BSD */
+  /* BSD systems use a sockaddr_dl as the control message payload. */
   struct sockaddr_dl *sdl;
+#else
+  /* SUNOS_5 uses an integer with the index. */
+  int *ifindex_p;
 #endif /* SUNOS_5 */
-  /* SUNOS_5 doesn't need a structure to extract ifindex */
-
-  if (msgh == NULL)
-    return 0;
 
 #ifndef SUNOS_5
+  /* BSD */
   sdl = 
     (struct sockaddr_dl *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_RECVIF);
-  ifindex = sdl->sdl_index;
-#else /* !SUNOS_5 */
-  ifindex = *(uint_t *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_RECVIF);
+  if (sdl != NULL)
+    ifindex = sdl->sdl_index;
+  else
+    ifindex = 0;
+#else
+  /*
+   * Solaris.  On Solaris 8, IP_RECVIF is defined, but the call to
+   * enable it fails with errno=99, and the struct msghdr has
+   * controllen 0.
+   */
+  ifindex_p = (uint_t *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_RECVIF); 
+  if (ifindex_p != NULL)
+    ifindex = *ifindex_p;
+  else
+    ifindex = 0;
 #endif /* SUNOS_5 */
 
-#else /* neither IP_PKTINFO nor IP_RECVIF, broken */
-
-#warning "getsockopt_ipv4_pktinfo_ifindex: dont have PKTINFO or RECVIF"
-#warning "things probably will be broken on this platform!"
-  /* XXX why not -1 - this is a failure condition. */
+#else
+  /*
+   * Neither IP_PKTINFO nor IP_RECVIF defined - warn at compile time.
+   * XXX Decide if this is a core service, or if daemons have to cope.
+   * Since Solaris 8 and OpenBSD seem not to provide it, it seems that
+   * daemons have to cope.
+   */
+#warning "getsockopt_ipv4_ifindex: Neither IP_PKTINFO nor IP_RECVIF defined."
+#warning "Some daemons may fail to operate correctly!"
   ifindex = 0;
+
 #endif /* IP_PKTINFO */ 
+
   return ifindex;
 }
 
