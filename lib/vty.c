@@ -1452,7 +1452,6 @@ static int
 vty_flush (struct thread *thread)
 {
   int erase;
-  int dont_more;
   int vty_sock = THREAD_FD (thread);
   struct vty *vty = THREAD_ARG (thread);
   vty->t_write = NULL;
@@ -1977,6 +1976,7 @@ vtysh_write (struct thread *thread)
   vty->t_write = NULL;
   if (buffer_flush_available(vty->obuf, vty->fd))
     vty_event (VTYSH_WRITE, vty->fd, vty);
+  return 0;
 }
 
 #endif /* VTYSH */
