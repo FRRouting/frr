@@ -1,3 +1,25 @@
+2005-03-14 Paul Jakma <paul.jakma@sun.com>
+
+	* command.c: (sort_node) use vector_max instead of referencing 
+	  (struct vector *)->max directly. Test that vector_max is > 0 
+	  before using it to calculate an index.
+	  Fixup vector loop to make main body conditional on vector slot
+	  not being empty.
+	  (cmd_cmdsize) Fixup vector loop to make main body conditional on
+	  vector slot not being empty.
+	  (cmd_filter_by_completion) ditto
+	  (cmd_filter_by_string) ditto 
+	  (is_cmd_ambiguous) ditto
+	  (cmd_describe_command_real) Change index integers to unsigned.
+	  Test that vector_max is > 0 before using it to calculate an index.
+	  Return immediately with CMD_ERR_NO_MATCH if vline has no 
+	  active slots.
+	  Fixup vector loop to make main body conditional on vector slot
+	  not being empty.
+	  (cmd_complete_command_real) ditto.
+	  (cmd_execute_command_strict) Fixup vector loop to be conditional
+	  on non-null slot.
+
 2005-03-09 Paul Jakma <paul.jakma@sun.com>
 
 	* command.c: Undo commit of sign warning fix and hidden command

@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.43 2005/03/09 13:42:23 paul Exp $
+   $Id: command.c,v 1.44 2005/03/14 17:35:52 paul Exp $
  
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -220,14 +220,17 @@ sort_node ()
     if ((cnode = vector_slot (cmdvec, i)) != NULL)
       {	
 	vector cmd_vector = cnode->cmd_vector;
-	qsort (cmd_vector->index, cmd_vector->max, sizeof (void *), cmp_node);
+	qsort (cmd_vector->index, vector_max (cmd_vector), 
+	       sizeof (void *), cmp_node);
 
 	for (j = 0; j < vector_max (cmd_vector); j++)
-	  if ((cmd_element = vector_slot (cmd_vector, j)) != NULL)
+	  if ((cmd_element = vector_slot (cmd_vector, j)) != NULL
+	      && vector_max (cmd_element->strvec))
 	    {
 	      descvec = vector_slot (cmd_element->strvec,
 				     vector_max (cmd_element->strvec) - 1);
-	      qsort (descvec->index, descvec->max, sizeof (void *), cmp_desc);
+	      qsort (descvec->index, vector_max (descvec), 
+	             sizeof (void *), cmp_desc);
 	    }
       }
 }
@@ -437,15 +440,14 @@ cmd_cmdsize (vector strvec)
   unsigned int i;
   int size = 0;
   vector descvec;
+  struct desc *desc;
 
   for (i = 0; i < vector_max (strvec); i++)
+    if ((descvec = vector_slot (strvec, i)) != NULL)
     {
-      descvec = vector_slot (strvec, i);
-
-      if (vector_max (descvec) == 1)
+      if ((vector_max (descvec)) == 1
+        && (desc = vector_slot (descvec, 0)) != NULL)
 	{
-	  struct desc *desc = vector_slot (descvec, 0);
-
 	  if (desc->cmd == NULL || CMD_OPTION (desc->cmd))
 	    return size;
 	  else
@@ -1137,8 +1139,8 @@ cmd_filter_by_completion (char *command, vector v, unsigned int index)
 	    descvec = vector_slot (cmd_element->strvec, index);
 	    
 	    for (j = 0; j < vector_max (descvec); j++)
+	      if ((desc = vector_slot (descvec, j)))
 	      {
-		desc = vector_slot (descvec, j);
 		str = desc->cmd;
 
 		if (CMD_VARARG (str))
@@ -1254,8 +1256,8 @@ cmd_filter_by_string (char *command, vector v, unsigned int index)
 	    descvec = vector_slot (cmd_element->strvec, index);
 
 	    for (j = 0; j < vector_max (descvec); j++)
+	      if ((desc = vector_slot (descvec, j)))
 	      {
-		desc = vector_slot (descvec, j);
 		str = desc->cmd;
 
 		if (CMD_VARARG (str))
@@ -1353,10 +1355,10 @@ is_cmd_ambiguous (char *command, vector v, int index, enum match_type type)
 	descvec = vector_slot (cmd_element->strvec, index);
 
 	for (j = 0; j < vector_max (descvec); j++)
+	  if ((desc = vector_slot (descvec, j)))
 	  {
 	    enum match_type ret;
 
-	    desc = vector_slot (descvec, j);
 	    str = desc->cmd;
 
 	    switch (type)
@@ -1561,18 +1563,24 @@ cmd_try_do_shortcut (enum node_type node, char* first_word) {
 static vector
 cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 {
-  int i;
+  unsigned int i;
   vector cmd_vector;
 #define INIT_MATCHVEC_SIZE 10
   vector matchvec;
   struct cmd_element *cmd_element;
-  int index;
+  unsigned int index;
   int ret;
   enum match_type match;
   char *command;
   static struct desc desc_cr = { "<cr>", "" };
 
   /* Set index. */
+  if (vector_max (vline) == 0)
+    {
+      *status = CMD_ERR_NO_MATCH;
+      return NULL;
+    }
+  else
   index = vector_max (vline) - 1;
 
   /* Make copy vector of current node's command vector. */
@@ -1584,8 +1592,8 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
   /* Filter commands. */
   /* Only words precedes current word will be checked in this loop. */
   for (i = 0; i < index; i++)
+    if ((command = vector_slot (vline, i)))
     {
-      command = vector_slot (vline, i);
       match = cmd_filter_by_completion (command, cmd_vector, i);
 
       if (match == vararg_match)
@@ -1595,7 +1603,8 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 	  unsigned int j, k;
 
 	  for (j = 0; j < vector_max (cmd_vector); j++)
-	    if ((cmd_element = vector_slot (cmd_vector, j)) != NULL)
+	      if ((cmd_element = vector_slot (cmd_vector, j)) != NULL
+		  && (vector_max (cmd_element->strvec)))
 	      {
 		descvec = vector_slot (cmd_element->strvec,
 				       vector_max (cmd_element->strvec) - 1);
@@ -1660,8 +1669,8 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 		struct desc *desc;
 
 		for (j = 0; j < vector_max (descvec); j++)
+		  if ((desc = vector_slot (descvec, j)))
 		  {
-		    desc = vector_slot (descvec, j);
 		    string = cmd_entry_function_desc (command, desc->cmd);
 		    if (string)
 		      {
@@ -1757,25 +1766,32 @@ cmd_lcd (char **matched)
 static char **
 cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 {
-  int i;
+  unsigned int i;
   vector cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
 #define INIT_MATCHVEC_SIZE 10
   vector matchvec;
   struct cmd_element *cmd_element;
-  int index = vector_max (vline) - 1;
+  unsigned int index;
   char **match_str;
   struct desc *desc;
   vector descvec;
   char *command;
   int lcd;
 
+  if (vector_max (vline) == 0)
+    {
+      *status = CMD_ERR_NO_MATCH;
+      return NULL;
+    }
+  else
+    index = vector_max (vline) - 1;
+
   /* First, filter by preceeding command string */
   for (i = 0; i < index; i++)
+    if ((command = vector_slot (vline, i)))
     {
       enum match_type match;
       int ret;
-
-      command = vector_slot (vline, i);
 
       /* First try completion match, if there is exactly match return 1 */
       match = cmd_filter_by_completion (command, cmd_vector, i);
@@ -1803,7 +1819,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 
   /* Now we got into completion */
   for (i = 0; i < vector_max (cmd_vector); i++)
-    if ((cmd_element = vector_slot (cmd_vector, i)) != NULL)
+    if ((cmd_element = vector_slot (cmd_vector, i)))
       {
 	const char *string;
 	vector strvec = cmd_element->strvec;
@@ -1817,10 +1833,10 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 
 	    descvec = vector_slot (strvec, index);
 	    for (j = 0; j < vector_max (descvec); j++)
+	      if ((desc = vector_slot (descvec, j)))
 	      {
-		desc = vector_slot (descvec, j);
-
-		if ((string = cmd_entry_function (vector_slot (vline, index),
+		  if ((string = 
+		       cmd_entry_function (vector_slot (vline, index),
 						  desc->cmd)))
 		  if (cmd_unique_string (matchvec, string))
 		    vector_set (matchvec, XSTRDUP (MTYPE_TMP, string));
@@ -1963,7 +1979,8 @@ node_parent ( enum node_type node )
 
 /* Execute command by argument vline vector. */
 static int
-cmd_execute_command_real (vector vline, struct vty *vty, struct cmd_element **cmd)
+cmd_execute_command_real (vector vline, struct vty *vty,
+			  struct cmd_element **cmd)
 {
   unsigned int i;
   unsigned int index;
@@ -1981,10 +1998,9 @@ cmd_execute_command_real (vector vline, struct vty *vty, struct cmd_element **cm
   cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
 
   for (index = 0; index < vector_max (vline); index++) 
+    if ((command = vector_slot (vline, index)))
     {
       int ret;
-
-      command = vector_slot (vline, index);
 
       match = cmd_filter_by_completion (command, cmd_vector, index);
 
@@ -2011,10 +2027,8 @@ cmd_execute_command_real (vector vline, struct vty *vty, struct cmd_element **cm
   incomplete_count = 0;
 
   for (i = 0; i < vector_max (cmd_vector); i++) 
-    if (vector_slot (cmd_vector,i) != NULL)
+    if ((cmd_element = vector_slot (cmd_vector, i)))
       {
-	cmd_element = vector_slot (cmd_vector,i);
-
 	if (match == vararg_match || index >= cmd_element->cmdsize)
 	  {
 	    matched_element = cmd_element;
@@ -2084,7 +2098,6 @@ cmd_execute_command_real (vector vline, struct vty *vty, struct cmd_element **cm
   /* Execute matched command. */
   return (*matched_element->func) (matched_element, vty, argc, argv);
 }
-
 
 int
 cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
@@ -2164,10 +2177,9 @@ cmd_execute_command_strict (vector vline, struct vty *vty,
   cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
 
   for (index = 0; index < vector_max (vline); index++) 
+    if ((command = vector_slot (vline, index)))
     {
       int ret;
-
-      command = vector_slot (vline, index);
 
       match = cmd_filter_by_string (vector_slot (vline, index), 
 				    cmd_vector, index);
