@@ -448,6 +448,71 @@ char *zencrypt (char *passwd)
   return crypt (passwd, salt);
 }
 
+char *
+syslog_facility_print (int facility)
+{
+  switch (facility)
+    {
+      case LOG_KERN:
+	return "kern";
+	break;
+      case LOG_USER:
+	return "user";
+	break;
+      case LOG_MAIL:
+	return "mail";
+	break;
+      case LOG_DAEMON:
+	return "daemon";
+	break;
+      case LOG_AUTH:
+	return "auth";
+	break;
+      case LOG_SYSLOG:
+	return "syslog";
+	break;
+      case LOG_LPR:
+	return "lpr";
+	break;
+      case LOG_NEWS:
+	return "news";
+	break;
+      case LOG_UUCP:
+	return "uucp";
+	break;
+      case LOG_CRON:
+	return "cron";
+	break;
+      case LOG_LOCAL0:
+	return "local0";
+	break;
+      case LOG_LOCAL1:
+	return "local1";
+	break;
+      case LOG_LOCAL2:
+	return "local2";
+	break;
+      case LOG_LOCAL3:
+	return "local3";
+	break;
+      case LOG_LOCAL4:
+	return "local4";
+	break;
+      case LOG_LOCAL5:
+	return "local5";
+	break;
+      case LOG_LOCAL6:
+	return "local6";
+	break;
+      case LOG_LOCAL7:
+	return "local7";
+	break;
+      default:
+	break;
+    }
+  return "";
+}
+
 /* This function write configuration of this host. */
 int
 config_write_host (struct vty *vty)
@@ -477,8 +542,12 @@ config_write_host (struct vty *vty)
     vty_out (vty, "log stdout%s", VTY_NEWLINE);
 
   if (host.log_syslog)
-    vty_out (vty, "log syslog%s", VTY_NEWLINE);
-
+    {
+      vty_out (vty, "log syslog");
+      if (zlog_default->facility != LOG_DAEMON)
+	vty_out (vty, " facility %s", syslog_facility_print (zlog_default->facility));
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
   if (zlog_default->maskpri != LOG_DEBUG)
     vty_out (vty, "log trap %s%s", zlog_priority[zlog_default->maskpri], VTY_NEWLINE);
 
@@ -2959,6 +3028,79 @@ DEFUN (config_log_syslog,
 {
   zlog_set_flag (NULL, ZLOG_SYSLOG);
   host.log_syslog = 1;
+  zlog_default->facility = LOG_DAEMON;
+  return CMD_SUCCESS;
+}
+
+DEFUN (config_log_syslog_facility,
+       config_log_syslog_facility_cmd,
+       "log syslog facility (kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)",
+       "Logging control\n"
+       "Logging goes to syslog\n"
+       "Facility parameter for syslog messages\n"
+       "Kernel\n"
+       "User process\n"
+       "Mail system\n"
+       "System daemons\n"
+       "Authorization system\n"
+       "Syslog itself\n"
+       "Line printer system\n"
+       "USENET news\n"
+       "Unix-to-Unix copy system\n"
+       "Cron/at facility\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n")
+{
+  int facility = LOG_DAEMON;
+
+  zlog_set_flag (NULL, ZLOG_SYSLOG);
+  host.log_syslog = 1;
+
+  if (strncmp (argv[0], "kern", 1) == 0)
+    facility = LOG_KERN;
+  else if (strncmp (argv[0], "user", 2) == 0)
+    facility = LOG_USER;
+  else if (strncmp (argv[0], "mail", 1) == 0)
+    facility = LOG_MAIL;
+  else if (strncmp (argv[0], "daemon", 1) == 0)
+    facility = LOG_DAEMON;
+  else if (strncmp (argv[0], "auth", 1) == 0)
+    facility = LOG_AUTH;
+  else if (strncmp (argv[0], "syslog", 1) == 0)
+    facility = LOG_SYSLOG;
+  else if (strncmp (argv[0], "lpr", 2) == 0)
+    facility = LOG_LPR;
+  else if (strncmp (argv[0], "news", 1) == 0)
+    facility = LOG_NEWS;
+  else if (strncmp (argv[0], "uucp", 2) == 0)
+    facility = LOG_UUCP;
+  else if (strncmp (argv[0], "cron", 1) == 0)
+    facility = LOG_CRON;
+  else if (strncmp (argv[0], "local0", 6) == 0)
+    facility = LOG_LOCAL0;
+  else if (strncmp (argv[0], "local1", 6) == 0)
+    facility = LOG_LOCAL1;
+  else if (strncmp (argv[0], "local2", 6) == 0)
+    facility = LOG_LOCAL2;
+  else if (strncmp (argv[0], "local3", 6) == 0)
+    facility = LOG_LOCAL3;
+  else if (strncmp (argv[0], "local4", 6) == 0)
+    facility = LOG_LOCAL4;
+  else if (strncmp (argv[0], "local5", 6) == 0)
+    facility = LOG_LOCAL5;
+  else if (strncmp (argv[0], "local6", 6) == 0)
+    facility = LOG_LOCAL6;
+  else if (strncmp (argv[0], "local7", 6) == 0)
+    facility = LOG_LOCAL7;
+
+  zlog_default->facility = facility;
+
   return CMD_SUCCESS;
 }
 
@@ -2971,8 +3113,35 @@ DEFUN (no_config_log_syslog,
 {
   zlog_reset_flag (NULL, ZLOG_SYSLOG);
   host.log_syslog = 0;
+  zlog_default->facility = LOG_DAEMON;
   return CMD_SUCCESS;
 }
+
+ALIAS (no_config_log_syslog,
+       no_config_log_syslog_facility_cmd,
+       "no log syslog facility (kern|user|mail|daemon|auth|syslog|lpr|news|uucp|cron|local0|local1|local2|local3|local4|local5|local6|local7)",
+       NO_STR
+       "Logging control\n"
+       "Logging goes to syslog\n"
+       "Facility parameter for syslog messages\n"
+       "Kernel\n"
+       "User process\n"
+       "Mail system\n"
+       "System daemons\n"
+       "Authorization system\n"
+       "Syslog itself\n"
+       "Line printer system\n"
+       "USENET news\n"
+       "Unix-to-Unix copy system\n"
+       "Cron/at facility\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n"
+       "Local use\n")
 
 DEFUN (config_log_trap,
        config_log_trap_cmd,
@@ -3136,7 +3305,9 @@ cmd_init (int terminal)
       install_element (CONFIG_NODE, &config_log_file_cmd);
       install_element (CONFIG_NODE, &no_config_log_file_cmd);
       install_element (CONFIG_NODE, &config_log_syslog_cmd);
+      install_element (CONFIG_NODE, &config_log_syslog_facility_cmd);
       install_element (CONFIG_NODE, &no_config_log_syslog_cmd);
+      install_element (CONFIG_NODE, &no_config_log_syslog_facility_cmd);
       install_element (CONFIG_NODE, &config_log_trap_cmd);
       install_element (CONFIG_NODE, &no_config_log_trap_cmd);
       install_element (CONFIG_NODE, &config_log_record_priority_cmd);
