@@ -80,9 +80,12 @@ zebra_capabilities_t _caps_p [] =
 
 struct zebra_privs_t bgpd_privs =
 {
-#if defined(ZEBRA_USER) && defined(ZEBRA_GROUP)
-  .user = ZEBRA_USER,
-  .group = ZEBRA_GROUP,
+#if defined(QUAGGA_USER) && defined(QUAGGA_GROUP)
+  .user = QUAGGA_USER,
+  .group = QUAGGA_GROUP,
+#endif
+#ifdef VTY_GROUP
+  .vty_group = VTY_GROUP,
 #endif
   .caps_p = _caps_p,
   .cap_num_p = sizeof(_caps_p)/sizeof(_caps_p[0]),

@@ -58,11 +58,14 @@ zebra_capabilities_t _caps_p [] =
 
 struct zebra_privs_t ripd_privs =
 {
-#if defined(ZEBRA_USER)
-  .user = ZEBRA_USER,
+#if defined(QUAGGA_USER)
+  .user = QUAGGA_USER,
 #endif
-#if defined ZEBRA_GROUP
-  .group = ZEBRA_GROUP,
+#if defined QUAGGA_GROUP
+  .group = QUAGGA_GROUP,
+#endif
+#ifdef VTY_GROUP
+  .vty_group = VTY_GROUP,
 #endif
   .caps_p = _caps_p,
   .cap_num_p = 2,
