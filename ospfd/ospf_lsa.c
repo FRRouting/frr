@@ -615,7 +615,8 @@ lsa_link_ptomp_set (struct stream *s, struct ospf_interface *oi)
   link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
   links++;
 
-  zlog_info ("PointToMultipoint: running ptomultip_set");
+  if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+    zlog_info ("PointToMultipoint: running ptomultip_set");
 
   /* Search neighbor, */
   for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
@@ -628,8 +629,9 @@ lsa_link_ptomp_set (struct stream *s, struct ospf_interface *oi)
 	    link_info_set (s, nbr->router_id, oi->address->u.prefix4,
 			   LSA_LINK_TYPE_POINTOPOINT, 0, oi->output_cost);
 	    links++;
-	    zlog_info ("PointToMultipoint: set link to %s",
-		       inet_ntoa(oi->address->u.prefix4));
+            if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+ 	      zlog_info ("PointToMultipoint: set link to %s",
+		         inet_ntoa(oi->address->u.prefix4));
 	  }
   
   return links;
