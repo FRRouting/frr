@@ -338,7 +338,6 @@ char *peer_down_str[] =
 int
 bgp_stop (struct peer *peer)
 {
-  int established = 0;
   afi_t afi;
   safi_t safi;
   char orf_name[BUFSIZ];
@@ -346,7 +345,6 @@ bgp_stop (struct peer *peer)
   /* Increment Dropped count. */
   if (peer->status == Established)
     {
-      established = 1;
       peer->dropped++;
       bgp_fsm_change_status (peer, Idle);
 
@@ -363,11 +361,13 @@ bgp_stop (struct peer *peer)
 #ifdef HAVE_SNMP
       bgpTrapBackwardTransition (peer);
 #endif /* HAVE_SNMP */
-    }
 
-  /* Need of clear of peer. */
-  if (established)
-    bgp_clear_route_all (peer);
+      /* Reset uptime. */
+      bgp_uptime_reset (peer);
+
+      /* Need of clear of peer. */
+      bgp_clear_route_all (peer);
+    }
 
   /* Stop read and write threads when exists. */
   BGP_READ_OFF (peer->t_read);
@@ -417,39 +417,26 @@ bgp_stop (struct peer *peer)
   /* Clear remote router-id. */
   peer->remote_id.s_addr = 0;
 
-  /* Reset all negotiated variables */
-  peer->afc_nego[AFI_IP][SAFI_UNICAST] = 0;
-  peer->afc_nego[AFI_IP][SAFI_MULTICAST] = 0;
-  peer->afc_nego[AFI_IP][SAFI_MPLS_VPN] = 0;
-  peer->afc_nego[AFI_IP6][SAFI_UNICAST] = 0;
-  peer->afc_nego[AFI_IP6][SAFI_MULTICAST] = 0;
-  peer->afc_adv[AFI_IP][SAFI_UNICAST] = 0;
-  peer->afc_adv[AFI_IP][SAFI_MULTICAST] = 0;
-  peer->afc_adv[AFI_IP][SAFI_MPLS_VPN] = 0;
-  peer->afc_adv[AFI_IP6][SAFI_UNICAST] = 0;
-  peer->afc_adv[AFI_IP6][SAFI_MULTICAST] = 0;
-  peer->afc_recv[AFI_IP][SAFI_UNICAST] = 0;
-  peer->afc_recv[AFI_IP][SAFI_MULTICAST] = 0;
-  peer->afc_recv[AFI_IP][SAFI_MPLS_VPN] = 0;
-  peer->afc_recv[AFI_IP6][SAFI_UNICAST] = 0;
-  peer->afc_recv[AFI_IP6][SAFI_MULTICAST] = 0;
-
-  /* Reset route refresh flag. */
-  UNSET_FLAG (peer->cap, PEER_CAP_REFRESH_ADV);
-  UNSET_FLAG (peer->cap, PEER_CAP_REFRESH_OLD_RCV);
-  UNSET_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV);
-  UNSET_FLAG (peer->cap, PEER_CAP_DYNAMIC_ADV);
-  UNSET_FLAG (peer->cap, PEER_CAP_DYNAMIC_RCV);
+  /* Clear peer capability flag. */
+  peer->cap = 0;
 
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
     for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
       {
+        /* Reset all negotiated variables */
+        peer->afc_nego[afi][safi] = 0;
+        peer->afc_adv[afi][safi] = 0;
+        peer->afc_recv[afi][safi] = 0;
+
 	/* peer address family capability flags*/
 	peer->af_cap[afi][safi] = 0;
+
 	/* peer address family status flags*/
 	peer->af_sflags[afi][safi] = 0;
+
 	/* Received ORF prefix-filter */
 	peer->orf_plist[afi][safi] = NULL;
+
         /* ORF received prefix-filter pnt */
         sprintf (orf_name, "%s.%d.%d", peer->host, afi, safi);
         prefix_bgp_orf_remove_all (orf_name);

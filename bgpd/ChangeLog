@@ -1,3 +1,8 @@
+2004-05-21  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgpd.h, bgp_open.[ch], bgp_debug.c, bgp_vty.[ch], bgp_fsm.c:
+	  Graceful restart capability display.
+
 2005-05-20 Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* bgp_debug.c: Cosmetical fixes and log neighbor changes.

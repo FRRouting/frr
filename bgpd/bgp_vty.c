@@ -760,7 +760,35 @@ DEFUN (no_bgp_deterministic_med,
   bgp_flag_unset (bgp, BGP_FLAG_DETERMINISTIC_MED);
   return CMD_SUCCESS;
 }
-
+
+/* "bgp graceful-restart" configuration. */
+DEFUN (bgp_graceful_restart,
+       bgp_graceful_restart_cmd,
+       "bgp graceful-restart",
+       "BGP specific commands\n"
+       "Graceful restart capability parameters\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_set (bgp, BGP_FLAG_GRACEFUL_RESTART);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_graceful_restart,
+       no_bgp_graceful_restart_cmd,
+       "no bgp graceful-restart",
+       NO_STR
+       "BGP specific commands\n"
+       "Graceful restart capability parameters\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_unset (bgp, BGP_FLAG_GRACEFUL_RESTART);
+  return CMD_SUCCESS;
+}
+
 /* "bgp fast-external-failover" configuration. */
 DEFUN (bgp_fast_external_failover,
        bgp_fast_external_failover_cmd,
@@ -6245,6 +6273,23 @@ DEFUN (show_ipv6_mbgp_summary,
 }
 #endif /* HAVE_IPV6 */
 
+char *
+afi_safi_print (afi_t afi, safi_t safi)
+{
+  if (afi == AFI_IP && safi == SAFI_UNICAST)
+    return "IPv4 Unicast";
+  else if (afi == AFI_IP && safi == SAFI_MULTICAST)
+    return "IPv4 Multicast";
+  else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
+    return "VPNv4 Unicast";
+  else if (afi == AFI_IP6 && safi == SAFI_UNICAST)
+    return "IPv6 Unicast";
+  else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
+    return "IPv6 Multicast";
+  else
+    return "Unknown";
+}
+
 /* Show BGP peer's information. */
 enum show_type
 {
@@ -6296,11 +6341,9 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
 
   filter = &p->filter[afi][safi];
 
-  vty_out (vty, " For address family: %s %s%s",
-	   afi == AFI_IP6 ? "IPv6" :
-	   safi == SAFI_MPLS_VPN ? "VPNv4" : "IPv4",
-	   safi == SAFI_MULTICAST ? "Multicast" : "Unicast",
+  vty_out (vty, " For address family: %s%s", afi_safi_print (afi, safi),
 	   VTY_NEWLINE);
+
   if (p->af_group[afi][safi])
     vty_out (vty, "  %s peer-group member%s", p->group->name, VTY_NEWLINE);
 
@@ -6377,11 +6420,11 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
       vty_out (vty, "  Community attribute sent to this neighbor");
       if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)
 	&& CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
-	vty_out (vty, " (both)%s", VTY_NEWLINE);
+	vty_out (vty, "(both)%s", VTY_NEWLINE);
       else if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY))
-	vty_out (vty, " (extended)%s", VTY_NEWLINE);
+	vty_out (vty, "(extended)%s", VTY_NEWLINE);
       else 
-	vty_out (vty, " (standard)%s", VTY_NEWLINE);
+	vty_out (vty, "(standard)%s", VTY_NEWLINE);
     }
   if (CHECK_FLAG (p->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
     {
@@ -6485,6 +6528,8 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   struct bgp *bgp;
   char buf1[BUFSIZ];
   char timebuf[BGP_UPTIME_LEN];
+  afi_t afi;
+  safi_t safi;
 
   bgp = p->bgp;
 
@@ -6549,11 +6594,7 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   /* Capability. */
   if (p->status == Established) 
     {
-      if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV)
-	  || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)
-	  || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV)
-	  || CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV)
-	  || CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_RCV)
+      if (p->cap
 	  || p->afc_adv[AFI_IP][SAFI_UNICAST]
 	  || p->afc_recv[AFI_IP][SAFI_UNICAST]
 	  || p->afc_adv[AFI_IP][SAFI_MULTICAST]
@@ -6577,11 +6618,8 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 	      if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV))
 		vty_out (vty, " advertised");
 	      if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_RCV))
-		{
-		  if (CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV))
-		    vty_out (vty, " and");
-		  vty_out (vty, " received");
-		}
+		vty_out (vty, " %sreceived",
+			 CHECK_FLAG (p->cap, PEER_CAP_DYNAMIC_ADV) ? "and " : "");
 	      vty_out (vty, "%s", VTY_NEWLINE);
 	    }
 
@@ -6595,91 +6633,61 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 		vty_out (vty, " advertised");
 	      if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)
 		  || CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV))
-		{
-		  if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV))
-		    vty_out (vty, " and");
-		  vty_out (vty, " received");
-		  if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)
-		      && CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV))
-		    vty_out (vty, " (old and new)");
-		  else if (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV))
-		    vty_out (vty, " (old)");
-		  else 
-		    vty_out (vty, " (new)");
-		}
+		vty_out (vty, " %sreceived(%s)",
+			 CHECK_FLAG (p->cap, PEER_CAP_REFRESH_ADV) ? "and " : "",
+			 (CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV)
+			  && CHECK_FLAG (p->cap, PEER_CAP_REFRESH_NEW_RCV)) ?
+			 "old & new" : CHECK_FLAG (p->cap, PEER_CAP_REFRESH_OLD_RCV) ? "old" : "new");
+
 	      vty_out (vty, "%s", VTY_NEWLINE);
 	    }
 
-	  /* IPv4 */
-	  if (p->afc_adv[AFI_IP][SAFI_UNICAST]
-	      || p->afc_recv[AFI_IP][SAFI_UNICAST]) 
-	    {
-	      vty_out (vty, "    Address family IPv4 Unicast:");
-	      if (p->afc_adv[AFI_IP][SAFI_UNICAST]) 
-		vty_out (vty, " advertised");
-	      if (p->afc_recv[AFI_IP][SAFI_UNICAST])
+	  /* Multiprotocol Extensions */
+	  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+	    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+	      if (p->afc_adv[afi][safi] || p->afc_recv[afi][safi])
 		{
-		  if (p->afc_adv[AFI_IP][SAFI_UNICAST])
-		    vty_out (vty, " and");
-		  vty_out (vty, " received");
-		}
-	      vty_out (vty, "%s", VTY_NEWLINE);
-	    }
-	  if (p->afc_adv[AFI_IP][SAFI_MULTICAST] || p->afc_recv[AFI_IP][SAFI_MULTICAST]) 
+		  vty_out (vty, "    Address family %s:", afi_safi_print (afi, safi));
+		  if (p->afc_adv[afi][safi]) 
+		    vty_out (vty, " advertised");
+		  if (p->afc_recv[afi][safi])
+		    vty_out (vty, " %sreceived", p->afc_adv[afi][safi] ? "and " : "");
+		  vty_out (vty, "%s", VTY_NEWLINE);
+		} 
+
+	  /* Gracefull Restart */
+	  if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV)
+	      || CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV))
 	    {
-	      vty_out (vty, "    Address family IPv4 Multicast:");
-	      if (p->afc_adv[AFI_IP][SAFI_MULTICAST]) 
+	      vty_out (vty, "    Graceful Restart Capabilty:");
+	      if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV))
 		vty_out (vty, " advertised");
-	      if (p->afc_recv[AFI_IP][SAFI_MULTICAST])
-		{
-		  if (p->afc_adv[AFI_IP][SAFI_MULTICAST])
-		    vty_out (vty, " and");
-		  vty_out (vty, " received");
-		}
+	      if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV))
+		vty_out (vty, " %sreceived",
+			 CHECK_FLAG (p->cap, PEER_CAP_RESTART_ADV) ? "and " : "");
 	      vty_out (vty, "%s", VTY_NEWLINE);
-	    }
-	  if (p->afc_adv[AFI_IP][SAFI_MPLS_VPN] || p->afc_recv[AFI_IP][SAFI_MPLS_VPN]) 
-	    {
-	      vty_out (vty, "    Address family VPNv4 Unicast:");
-	      if (p->afc_adv[AFI_IP][SAFI_MPLS_VPN]) 
-		vty_out (vty, " advertised");
-	      if (p->afc_recv[AFI_IP][SAFI_MPLS_VPN])
+
+	      if (CHECK_FLAG (p->cap, PEER_CAP_RESTART_RCV))
 		{
-		  if (p->afc_adv[AFI_IP][SAFI_MPLS_VPN])
-		    vty_out (vty, " and");
-		  vty_out (vty, " received");
+		  int restart_af_count = 0;
+
+		  vty_out (vty, "      Remote Restart timer is %d seconds%s",
+			   p->restart_time_rcv, VTY_NEWLINE);	
+		  vty_out (vty, "      Address families preserved by peer:%s        ", VTY_NEWLINE);
+
+		  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+		    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+		      if (CHECK_FLAG (p->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV))
+			{
+			  vty_out (vty, "%s%s", restart_af_count ? ", " : "",
+				   afi_safi_print (afi, safi));
+			  restart_af_count++;
+		      }
+		  if (! restart_af_count)
+		    vty_out (vty, "none");
+		  vty_out (vty, "%s", VTY_NEWLINE);
 		}
-	      vty_out (vty, "%s", VTY_NEWLINE);
 	    }
-	  /* IPv6 */
-#ifdef HAVE_IPV6
-	  if (p->afc_adv[AFI_IP6][SAFI_UNICAST] || p->afc_recv[AFI_IP6][SAFI_UNICAST]) 
-	    {
-	      vty_out (vty, "    Address family IPv6 Unicast:");
-	      if (p->afc_adv[AFI_IP6][SAFI_UNICAST]) 
-		vty_out (vty, " advertised");
-	      if (p->afc_recv[AFI_IP6][SAFI_UNICAST])
-		{
-		  if (p->afc_adv[AFI_IP6][SAFI_UNICAST])
-		    vty_out (vty, " and");
-		  vty_out (vty, " received");
-		}
-	      vty_out (vty, "%s", VTY_NEWLINE);
-	    }
-	  if (p->afc_adv[AFI_IP6][SAFI_MULTICAST] || p->afc_recv[AFI_IP6][SAFI_MULTICAST]) 
-	    {
-	      vty_out (vty, "    Address family IPv6 Multicast:");
-	      if (p->afc_adv[AFI_IP6][SAFI_MULTICAST]) 
-		vty_out (vty, " advertised");
-	      if (p->afc_recv[AFI_IP6][SAFI_MULTICAST])
-		{
-		  if (p->afc_adv[AFI_IP6][SAFI_MULTICAST])
-		    vty_out (vty, " and");
-		  vty_out (vty, " received");
-		}
-	      vty_out (vty, "%s", VTY_NEWLINE);
-	    }
-#endif /* HAVE_IPV6 */
 	}
     }
 
@@ -6717,18 +6725,10 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   vty_out (vty, "%s", VTY_NEWLINE);
 
   /* Address Family Information */
-  if (p->afc[AFI_IP][SAFI_UNICAST])
-    bgp_show_peer_afi (vty, p, AFI_IP, SAFI_UNICAST);
-  if (p->afc[AFI_IP][SAFI_MULTICAST])
-    bgp_show_peer_afi (vty, p, AFI_IP, SAFI_MULTICAST);
-  if (p->afc[AFI_IP][SAFI_MPLS_VPN])
-    bgp_show_peer_afi (vty, p, AFI_IP, SAFI_MPLS_VPN);
-#ifdef HAVE_IPV6
-  if (p->afc[AFI_IP6][SAFI_UNICAST])
-    bgp_show_peer_afi (vty, p, AFI_IP6, SAFI_UNICAST);
-  if (p->afc[AFI_IP6][SAFI_MULTICAST])
-    bgp_show_peer_afi (vty, p, AFI_IP6, SAFI_MULTICAST);
-#endif /* HAVE_IPV6 */
+  for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
+      if (p->afc[afi][safi])
+	bgp_show_peer_afi (vty, p, afi, safi);
 
   vty_out (vty, "  Connections established %d; dropped %d%s",
 	   p->established, p->dropped,
@@ -7849,6 +7849,12 @@ bgp_vty_init ()
   /* "bgp deterministic-med" commands */
   install_element (BGP_NODE, &bgp_deterministic_med_cmd);
   install_element (BGP_NODE, &no_bgp_deterministic_med_cmd);
+
+#if 0
+  /* "bgp graceful-restart" commands */
+  install_element (BGP_NODE, &bgp_graceful_restart_cmd);
+  install_element (BGP_NODE, &no_bgp_graceful_restart_cmd);
+#endif /* 0 */
  
   /* "bgp fast-external-failover" commands */
   install_element (BGP_NODE, &bgp_fast_external_failover_cmd);

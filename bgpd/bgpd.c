@@ -515,7 +515,6 @@ bgp_default_local_preference_set (struct bgp *bgp, u_int32_t local_pref)
   if (! bgp)
     return -1;
 
-  bgp_config_set (bgp, BGP_CONFIG_DEFAULT_LOCAL_PREF);
   bgp->default_local_pref = local_pref;
 
   return 0;
@@ -527,7 +526,6 @@ bgp_default_local_preference_unset (struct bgp *bgp)
   if (! bgp)
     return -1;
 
-  bgp_config_unset (bgp, BGP_CONFIG_DEFAULT_LOCAL_PREF);
   bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
 
   return 0;
@@ -1685,6 +1683,8 @@ bgp_create (as_t *as, char *name)
   bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
   bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
   bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
+  bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
+  bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 
   bgp->as = *as;
 
@@ -4612,7 +4612,11 @@ bgp_config_write (struct vty *vty)
       /* BGP deterministic-med. */
       if (bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
 	vty_out (vty, " bgp deterministic-med%s", VTY_NEWLINE);
-      
+
+      /* BGP graceful-restart. */
+      if (bgp_flag_check (bgp, BGP_FLAG_GRACEFUL_RESTART))
+       vty_out (vty, " bgp graceful-restart%s", VTY_NEWLINE);
+
       /* BGP bestpath method. */
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_IGNORE))
 	vty_out (vty, " bgp bestpath as-path ignore%s", VTY_NEWLINE);

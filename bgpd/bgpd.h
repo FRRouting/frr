@@ -70,7 +70,6 @@ struct bgp
 #define BGP_CONFIG_ROUTER_ID              (1 << 0)
 #define BGP_CONFIG_CLUSTER_ID             (1 << 1)
 #define BGP_CONFIG_CONFEDERATION          (1 << 2)
-#define BGP_CONFIG_DEFAULT_LOCAL_PREF     (1 << 3)
 
   /* BGP router identifier.  */
   struct in_addr router_id;
@@ -97,6 +96,7 @@ struct bgp
 #define BGP_FLAG_IMPORT_CHECK             (1 << 9)
 #define BGP_FLAG_NO_FAST_EXT_FAILOVER     (1 << 10)
 #define BGP_FLAG_LOG_NEIGHBOR_CHANGES     (1 << 11)
+#define BGP_FLAG_GRACEFUL_RESTART         (1 << 12)
 
   /* BGP Per AF flags */
   u_int16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -136,6 +136,10 @@ struct bgp
   /* BGP default timer.  */
   u_int32_t default_holdtime;
   u_int32_t default_keepalive;
+
+  /* BGP graceful restart */
+  u_int16_t restart_time;
+  u_int16_t stalepath_time;
 };
 
 /* BGP peer-group support. */
@@ -291,6 +295,8 @@ struct peer
 #define PEER_CAP_REFRESH_NEW_RCV            (1 << 2) /* refresh rfc received */
 #define PEER_CAP_DYNAMIC_ADV                (1 << 3) /* dynamic advertised */
 #define PEER_CAP_DYNAMIC_RCV                (1 << 4) /* dynamic received */
+#define PEER_CAP_RESTART_ADV                (1 << 5) /* restart advertised */
+#define PEER_CAP_RESTART_RCV                (1 << 6) /* restart received */
 
   /* Capability Flags.*/
   u_int16_t af_cap[AFI_MAX][SAFI_MAX];
@@ -300,6 +306,10 @@ struct peer
 #define PEER_CAP_ORF_PREFIX_RM_RCV          (1 << 3) /* receive-mode received */
 #define PEER_CAP_ORF_PREFIX_SM_OLD_RCV      (1 << 4) /* send-mode received */
 #define PEER_CAP_ORF_PREFIX_RM_OLD_RCV      (1 << 5) /* receive-mode received */
+#define PEER_CAP_RESTART_AF_RCV             (1 << 6) /* graceful restart received */
+
+  /* Gracefull Restart */
+  u_int16_t restart_time_rcv;
 
   /* Global configuration flags. */
   u_int32_t flags;
@@ -640,6 +650,10 @@ struct bgp_nlri
 
 /* BGP default local preference.  */
 #define BGP_DEFAULT_LOCAL_PREF                 100
+
+/* BGP graceful restart  */
+#define BGP_DEFAULT_RESTART_TIME               120
+#define BGP_DEFAULT_STALEPATH_TIME             360
 
 /* SAFI which used in open capability negotiation.  */
 #define BGP_SAFI_VPNV4                         128

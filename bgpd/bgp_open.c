@@ -33,7 +33,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_open.h"
-
+#include "bgpd/bgp_vty.h"
+
 /* BGP-4 Multiprotocol Extentions lead us to the complex world. We can
    negotiate remote peer supports extentions or not. But if
    remote-peer doesn't supports negotiation process itself.  We would
@@ -373,7 +374,7 @@ bgp_capability_parse (struct peer *peer, u_char *pnt, u_char length,
 	       || cap.code == CAPABILITY_CODE_REFRESH_OLD)
 	{
 	  /* Check length. */
-	  if (cap.length != 0)
+	  if (cap.length != CAPABILITY_CODE_REFRESH_LEN)
 	    {
 	      zlog_info ("%s Route Refresh Capability length error %d",
 			 peer->host, cap.length);
@@ -395,10 +396,81 @@ bgp_capability_parse (struct peer *peer, u_char *pnt, u_char length,
       else if (cap.code == CAPABILITY_CODE_ORF
 	       || cap.code == CAPABILITY_CODE_ORF_OLD)
 	bgp_capability_orf (peer, &cap, pnt + sizeof (struct capability));
+      else if (cap.code == CAPABILITY_CODE_RESTART)
+       {
+         struct graceful_restart_af graf;
+         u_int16_t restart_flag_time;
+         int restart_bit = 0;
+         int forwarding_bit = 0;
+         u_char *restart_pnt;
+         u_char *restart_end;
+
+         /* Check length. */
+         if (cap.length < CAPABILITY_CODE_RESTART_LEN)
+           {
+             zlog_info ("%s Graceful Restart Capability length error %d",
+                        peer->host, cap.length);
+             bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
+             return -1;
+           }
+
+         SET_FLAG (peer->cap, PEER_CAP_RESTART_RCV);
+         restart_flag_time = ntohs(cap.mpc.afi);
+         if (CHECK_FLAG (restart_flag_time, RESTART_R_BIT))
+           restart_bit = 1;
+         UNSET_FLAG (restart_flag_time, 0xF000); 
+         peer->restart_time_rcv = restart_flag_time;
+
+         if (BGP_DEBUG (normal, NORMAL))
+           {
+             zlog_info ("%s OPEN has Graceful Restart capability", peer->host);
+             zlog_info ("%s Peer has%srestarted. Restart Time : %d",
+                        peer->host, restart_bit ? " " : " not ",
+                        peer->restart_time_rcv);
+           }
+
+         restart_pnt = pnt + 4;
+         restart_end = pnt + cap.length + 2;
+
+         while (restart_pnt < restart_end)
+           {
+             memcpy (&graf, restart_pnt, sizeof (struct graceful_restart_af));
+
+             afi = ntohs(graf.afi);
+             safi = graf.safi;
+
+             if (CHECK_FLAG (graf.flag, RESTART_F_BIT))
+               forwarding_bit = 1;
+
+             if (strcmp (afi_safi_print (afi, safi), "Unknown") == 0)
+               {
+                  if (BGP_DEBUG (normal, NORMAL))
+                    zlog_info ("%s Addr-family %d/%d(afi/safi) not supported. I gnore the Graceful Restart capability",
+                               peer->host, afi, safi);
+               }
+             else if (! peer->afc[afi][safi])
+               {
+                  if (BGP_DEBUG (normal, NORMAL))
+                     zlog_info ("%s Addr-family %d/%d(afi/safi) not enabled. Ignore the Graceful Restart capability",
+                                peer->host, afi, safi);
+               }
+             else
+               {
+                 if (BGP_DEBUG (normal, NORMAL))
+                   zlog_info ("%s Address family %s is%spreserved", peer->host,
+                              afi_safi_print (afi, safi), forwarding_bit ? " " : " not ");
+
+                 if (forwarding_bit)
+                   SET_FLAG (peer->af_cap[afi][safi], PEER_CAP_RESTART_AF_RCV);
+               }
+             forwarding_bit = 0;
+             restart_pnt += 4;
+           }
+       }
       else if (cap.code == CAPABILITY_CODE_DYNAMIC)
 	{
 	  /* Check length. */
-	  if (cap.length != 0)
+	  if (cap.length != CAPABILITY_CODE_DYNAMIC_LEN)
 	    {
 	      zlog_info ("%s Dynamic Capability length error %d",
 			 peer->host, cap.length);
@@ -786,6 +858,17 @@ bgp_open_capability (struct stream *s, struct peer *peer)
       stream_putc (s, CAPABILITY_CODE_DYNAMIC);
       stream_putc (s, CAPABILITY_CODE_DYNAMIC_LEN);
     }
+
+  /* Graceful restart capability */
+  if (bgp_flag_check (peer->bgp, BGP_FLAG_GRACEFUL_RESTART))
+    {
+      SET_FLAG (peer->cap, PEER_CAP_RESTART_ADV);
+      stream_putc (s, BGP_OPEN_OPT_CAP);
+      stream_putc (s, CAPABILITY_CODE_RESTART_LEN + 2);
+      stream_putc (s, CAPABILITY_CODE_RESTART);
+      stream_putc (s, CAPABILITY_CODE_RESTART_LEN);
+      stream_putw (s, peer->bgp->restart_time);
+     }
 
   /* Total Opt Parm Len. */
   len = stream_get_putp (s) - cp - 1;
