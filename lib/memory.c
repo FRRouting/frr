@@ -101,7 +101,7 @@ zfree (int type, void *ptr)
 
 /* String duplication. */
 char *
-zstrdup (int type, char *str)
+zstrdup (int type, const char *str)
 {
   void *dup;
 
@@ -115,7 +115,7 @@ zstrdup (int type, char *str)
 #ifdef MEMORY_LOG
 struct 
 {
-  char *name;
+  const char *name;
   unsigned long alloc;
   unsigned long t_malloc;
   unsigned long c_malloc;
@@ -187,7 +187,7 @@ mtype_zfree (const char *file, int line, int type, void *ptr)
 }
 
 char *
-mtype_zstrdup (const char *file, int line, int type, char *str)
+mtype_zstrdup (const char *file, int line, int type, const char *str)
 {
   char *memory;
 
@@ -230,7 +230,7 @@ alloc_dec (int type)
 struct memory_list
 {
   int index;
-  char *format;
+  const char *format;
 };
 
 struct memory_list memory_list_lib[] =

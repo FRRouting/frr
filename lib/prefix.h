@@ -128,43 +128,45 @@ struct prefix_rd
 int afi2family (int);
 int family2afi (int);
 
-int prefix2str (struct prefix *, char *, int);
-int str2prefix (char *, struct prefix *);
 struct prefix *prefix_new ();
-void prefix_free (struct prefix *p);
+void prefix_free (struct prefix *);
+const char *prefix_family_str (const struct prefix *);
+int prefix_blen (const struct prefix *);
+int str2prefix (const char *, struct prefix *);
+int prefix2str (const struct prefix *, char *, int);
+int prefix_match (const struct prefix *, const struct prefix *);
+int prefix_same (const struct prefix *, const struct prefix *);
+int prefix_cmp (const struct prefix *, const struct prefix *);
+void prefix_copy (struct prefix *dest, const struct prefix *src);
+void apply_mask (struct prefix *);
 
-struct prefix_ipv4 *prefix_ipv4_new ();
-void prefix_ipv4_free ();
-int str2prefix_ipv4 (char *, struct prefix_ipv4 *);
-void apply_mask_ipv4 (struct prefix_ipv4 *);
-int prefix_blen (struct prefix *);
-u_char ip_masklen (struct in_addr);
-int prefix_ipv4_any (struct prefix_ipv4 *);
-void masklen2ip (int, struct in_addr *);
-void apply_classful_mask_ipv4 (struct prefix_ipv4 *);
-
-char *prefix_family_str (struct prefix *p);
 struct prefix *sockunion2prefix ();
 struct prefix *sockunion2hostprefix ();
 
+struct prefix_ipv4 *prefix_ipv4_new ();
+void prefix_ipv4_free (struct prefix_ipv4 *);
+int str2prefix_ipv4 (const char *, struct prefix_ipv4 *);
+void apply_mask_ipv4 (struct prefix_ipv4 *);
+
+int prefix_ipv4_any (const struct prefix_ipv4 *);
+void apply_classful_mask_ipv4 (struct prefix_ipv4 *);
+
+u_char ip_masklen (struct in_addr);
+void masklen2ip (int, struct in_addr *);
+int netmask_str2prefix_str (const char *, const char *, char *);
+
 #ifdef HAVE_IPV6
 struct prefix_ipv6 *prefix_ipv6_new ();
-void prefix_ipv6_free ();
-struct prefix *str2routev6 (char *);
-int str2prefix_ipv6 (char *str, struct prefix_ipv6 *p);
-void apply_mask_ipv6 (struct prefix_ipv6 *p);
-void str2in6_addr (char *str, struct in6_addr *addr);
-void masklen2ip6 (int masklen, struct in6_addr *netmask);
-int ip6_masklen (struct in6_addr netmask);
+void prefix_ipv6_free (struct prefix_ipv6 *);
+int str2prefix_ipv6 (const char *, struct prefix_ipv6 *);
+void apply_mask_ipv6 (struct prefix_ipv6 *);
+
+int ip6_masklen (struct in6_addr);
+void masklen2ip6 (int, struct in6_addr *);
+
+void str2in6_addr (const char *, struct in6_addr *);
 #endif /* HAVE_IPV6 */
 
-void apply_mask (struct prefix *);
-int prefix_match (struct prefix *n, struct prefix *p);
-int prefix_same (struct prefix *, struct prefix *);
-int prefix_cmp (struct prefix *, struct prefix *);
-void prefix_copy (struct prefix *, struct prefix *);
-
-int all_digit (char *);
-int netmask_str2prefix_str (char *, char *, char *);
+int all_digit (const char *);
 
 #endif /* _ZEBRA_PREFIX_H */

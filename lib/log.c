@@ -113,7 +113,8 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list *args)
   if (zl->flags & ZLOG_FILE)
     {
       time_print (zl->fp);
-      if (zl->record_priority) fprintf (zl->fp, "%s: ", zlog_priority[priority]);
+      if (zl->record_priority)
+	fprintf (zl->fp, "%s: ", zlog_priority[priority]);
       fprintf (zl->fp, "%s: ", zlog_proto_names[zl->protocol]);
       vfprintf (zl->fp, format, args[ZLOG_FILE_INDEX]);
       fprintf (zl->fp, "\n");
@@ -124,7 +125,8 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list *args)
   if (zl->flags & ZLOG_STDOUT)
     {
       time_print (stdout);
-      if (zl->record_priority) fprintf (stdout, "%s: ", zlog_priority[priority]);
+      if (zl->record_priority)
+	fprintf (stdout, "%s: ", zlog_priority[priority]);
       fprintf (stdout, "%s: ", zlog_proto_names[zl->protocol]);
       vfprintf (stdout, format, args[ZLOG_STDOUT_INDEX]);
       fprintf (stdout, "\n");
@@ -135,7 +137,8 @@ vzlog (struct zlog *zl, int priority, const char *format, va_list *args)
   if (zl->flags & ZLOG_STDERR)
     {
       time_print (stderr);
-      if (zl->record_priority) fprintf (stderr, "%s: ", zlog_priority[priority]);
+      if (zl->record_priority)
+	fprintf (stderr, "%s: ", zlog_priority[priority]);
       fprintf (stderr, "%s: ", zlog_proto_names[zl->protocol]);
       vfprintf (stderr, format, args[ZLOG_STDERR_INDEX]);
       fprintf (stderr, "\n");
@@ -484,7 +487,7 @@ lookup (struct message *mes, int key)
 }
 
 /* Very old hacky version of message lookup function.  Still partly
-   used in bgpd and ospfd. */
+   used in bgpd and ospfd. FIXME Seems that it's not used any more. */
 char *
 mes_lookup (struct message *meslist, int max, int index)
 {

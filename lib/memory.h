@@ -236,7 +236,7 @@ void *zmalloc (int type, size_t size);
 void *zcalloc (int type, size_t size);
 void *zrealloc (int type, void *ptr, size_t size);
 void  zfree (int type, void *ptr);
-char *zstrdup (int type, char *str);
+char *zstrdup (int type, const char *str);
 
 void *mtype_zmalloc (const char *file,
 		     int line,
@@ -263,7 +263,7 @@ void mtype_zfree (const char *file,
 char *mtype_zstrdup (const char *file,
 		     int line,
 		     int type,
-		     char *str);
+		     const char *str);
 void memory_init ();
 
 #endif /* _ZEBRA_MEMORY_H */

@@ -1,3 +1,12 @@
+2004-10-04 Hasso Tepper <hasso at quagga.net>
+
+	* memory.c, memory.h: Make char * argument of strdup functions const.
+	* prefix.c, prefix.h: Make many arguments const. Reorder stuff in
+	  header.
+	* log.h: Make log message const in struct message.
+	* log.c: Fix some indenting.
+	* network.c, network.h: Make second argument of writen() const.
+
 2004-10-03  Hasso Tepper  <hasso at quagga.net>
 
 	* command.h: Introduce SERVICE_NODE for "service <...>" commands.

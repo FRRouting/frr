@@ -24,6 +24,6 @@
 #define _ZEBRA_NETWORK_H
 
 int readn (int, u_char *, int);
-int writen (int, u_char *, int);
+int writen (int, const u_char *, int);
 
 #endif /* _ZEBRA_NETWORK_H */

@@ -71,7 +71,7 @@ struct zlog
 struct message
 {
   int key;
-  char *str;
+  const char *str;
 };
 
 /* Default logging strucutre. */

@@ -50,7 +50,7 @@ readn (int fd, u_char *ptr, int nbytes)
 
 /* Write nbytes from ptr to fd. */
 int
-writen(int fd, u_char *ptr, int nbytes)
+writen(int fd, const u_char *ptr, int nbytes)
 {
   int nleft;
   int nwritten;
