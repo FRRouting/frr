@@ -70,7 +70,7 @@ bgp_accept (struct thread *thread)
     }
 
   if (BGP_DEBUG (events, EVENTS))
-    zlog_info ("[Event] BGP connection from host %s", inet_sutop (&su, buf));
+    zlog_debug ("[Event] BGP connection from host %s", inet_sutop (&su, buf));
   
   /* Check remote IP address */
   peer1 = peer_lookup (bgp, &su);
@@ -79,10 +79,10 @@ bgp_accept (struct thread *thread)
       if (BGP_DEBUG (events, EVENTS))
 	{
 	  if (! peer1)
-	    zlog_info ("[Event] BGP connection IP address %s is not configured",
+	    zlog_debug ("[Event] BGP connection IP address %s is not configured",
 		       inet_sutop (&su, buf));
 	  else
-	    zlog_info ("[Event] BGP connection IP address %s is Idle state",
+	    zlog_debug ("[Event] BGP connection IP address %s is Idle state",
 		       inet_sutop (&su, buf));
 	}
       close (bgp_sock);
@@ -98,7 +98,7 @@ bgp_accept (struct thread *thread)
 
   /* Make dummy peer until read Open packet. */
   if (BGP_DEBUG (events, EVENTS))
-    zlog_info ("[Event] Make dummy peer structure until read Open packet");
+    zlog_debug ("[Event] Make dummy peer structure until read Open packet");
 
   {
     char buf[SU_ADDRSTRLEN + 1];
@@ -252,7 +252,7 @@ bgp_connect (struct peer *peer)
 #endif /* HAVE_IPV6 */
 
   if (BGP_DEBUG (events, EVENTS))
-    plog_info (peer->log, "%s [Event] Connect start to %s fd %d",
+    plog_debug (peer->log, "%s [Event] Connect start to %s fd %d",
 	       peer->host, peer->host, peer->fd);
 
   /* Connect to the remote peer. */

@@ -517,7 +517,7 @@ bgp_scan_timer (struct thread *t)
     thread_add_timer (master, bgp_scan_timer, NULL, bgp_scan_interval);
 
   if (BGP_DEBUG (normal, NORMAL))
-    zlog_info ("Performing BGP general scanning");
+    zlog_debug ("Performing BGP general scanning");
 
   bgp_scan (AFI_IP, SAFI_UNICAST);
 
