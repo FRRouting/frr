@@ -1,3 +1,9 @@
+2005-01-05 Paul Jakma <paul@dishone.st>
+
+	* bgp_packet.c: (bgp_write) set socket to nonblock while writing
+          this should be generalised. See bugzilla #102. Fix supplied by
+	  wawa@yandex-team.ru (Vladimir Ivanov).
+
 2004-12-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* *.c: Change level of debug messages to LOG_DEBUG.

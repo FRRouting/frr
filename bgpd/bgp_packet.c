@@ -566,10 +566,17 @@ bgp_write (struct thread *thread)
   while (1)
     {
       int writenum;
+      int val;
 
       s = bgp_write_packet (peer);
       if (! s)
 	return 0;
+      
+      /* XXX: FIXME, the socket should be NONBLOCK from the start
+       * status shouldnt need to be toggled on each write
+       */
+      val = fcntl (peer->fd, F_GETFL, 0);
+      fcntl (peer->fd, F_SETFL, val|O_NONBLOCK);
 
       /* Number of bytes to be sent.  */
       writenum = stream_get_endp (s) - stream_get_getp (s);
@@ -577,6 +584,7 @@ bgp_write (struct thread *thread)
       /* Call write() system call.  */
       num = write (peer->fd, STREAM_PNT (s), writenum);
       write_errno = errno;
+      fcntl (peer->fd, F_SETFL, val);
       if (num <= 0)
 	{
 	  /* Partial write. */
