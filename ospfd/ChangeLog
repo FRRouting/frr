@@ -1,3 +1,10 @@
+2004-05-10 Hasso Tepper <hasso@estpak.ee>
+
+	* ospf_zebra.c, ospfd.c: Move ospf_prefix_list_update() function
+	  to ospf_zebra.c from ospfd.c and add redistribution updates if
+	  route-map is used in redistribution.
+	* ospf_main.c: Remove now useless call to ospf_init().
+
 2004-05-08 Paul Jakma <paul@dishone.st>
 
 	* ospf_zebra.c: Sync with lib/zclient changes

@@ -1638,49 +1638,6 @@ ospf_nbr_nbma_poll_interval_unset (struct ospf *ospf, struct in_addr addr)
   return 1;
 }
 
-
-void
-ospf_prefix_list_update (struct prefix_list *plist)
-{
-  struct ospf *ospf;
-  struct ospf_area *area;
-  listnode node;
-  int abr_inv = 0;
-
-  /* If OSPF instatnce does not exist, return right now. */
-  ospf = ospf_lookup ();
-  if (ospf == NULL)
-    return;
-
-  /* Update Area prefix-list. */
-  for (node = listhead (ospf->areas); node; nextnode (node))
-    {
-      area = getdata (node);
-
-      /* Update filter-list in. */
-      if (PREFIX_NAME_IN (area))
-	if (strcmp (PREFIX_NAME_IN (area), plist->name) == 0)
-	  {
-	    PREFIX_LIST_IN (area) = 
-	      prefix_list_lookup (AFI_IP, PREFIX_NAME_IN (area));
-	    abr_inv++;
-	  }
-
-      /* Update filter-list out. */
-      if (PREFIX_NAME_OUT (area))
-	if (strcmp (PREFIX_NAME_OUT (area), plist->name) == 0)
-	  {
-	    PREFIX_LIST_IN (area) = 
-	      prefix_list_lookup (AFI_IP, PREFIX_NAME_OUT (area));
-	    abr_inv++;
-	  }
-    }
-
-  /* Schedule ABR tasks. */
-  if (IS_OSPF_ABR (ospf) && abr_inv)
-    ospf_schedule_abr_task (ospf);
-}
-
 void
 ospf_master_init ()
 {
@@ -1690,11 +1647,4 @@ ospf_master_init ()
   om->ospf = list_new ();
   om->master = thread_master_create ();
   om->start_time = time (NULL);
-}
-
-void
-ospf_init ()
-{
-  prefix_list_add_hook (ospf_prefix_list_update);
-  prefix_list_delete_hook (ospf_prefix_list_update);
 }

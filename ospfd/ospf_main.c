@@ -268,7 +268,6 @@ main (int argc, char **argv)
   prefix_list_init ();
 
   /* OSPFd inits. */
-  ospf_init ();
   ospf_if_init ();
   ospf_zebra_init ();
 

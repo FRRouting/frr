@@ -32,6 +32,7 @@
 #include "memory.h"
 #include "zclient.h"
 #include "filter.h"
+#include "plist.h"
 #include "log.h"
 
 #include "ospfd/ospfd.h"
@@ -1038,7 +1039,62 @@ ospf_filter_update (struct access_list *access)
   if (IS_OSPF_ABR (ospf) && abr_inv)
     ospf_schedule_abr_task (ospf);
 }
-
+
+/* If prefix-list is updated, do some updates. */
+void
+ospf_prefix_list_update (struct prefix_list *plist)
+{
+  struct ospf *ospf;
+  int type;
+  int abr_inv = 0;
+  struct ospf_area *area;
+  listnode node;
+
+  /* If OSPF instatnce does not exist, return right now. */
+  ospf = ospf_lookup ();
+  if (ospf == NULL)
+    return;
+
+  /* Update all route-maps which are used as redistribution filters.
+   * They might use prefix-list.
+   */
+  for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
+    {
+      if (ROUTEMAP (ospf, type) != NULL)
+        {
+          /* If route-map is not NULL it may be using this prefix list */
+          ospf_distribute_list_update (ospf, type);
+          continue;
+        }
+    }
+
+  /* Update area filter-lists. */
+  for (node = listhead (ospf->areas); node; nextnode (node))
+    if ((area = getdata (node)) != NULL)
+      {
+      	/* Update filter-list in. */
+      	if (PREFIX_NAME_IN (area))
+          if (strcmp (PREFIX_NAME_IN (area), plist->name) == 0)
+            {
+              PREFIX_LIST_IN (area) =
+                prefix_list_lookup (AFI_IP, PREFIX_NAME_IN (area));
+              abr_inv++;
+            }
+
+        /* Update filter-list out. */
+        if (PREFIX_NAME_OUT (area))
+          if (strcmp (PREFIX_NAME_OUT (area), plist->name) == 0)
+            {
+              PREFIX_LIST_IN (area) =
+                prefix_list_lookup (AFI_IP, PREFIX_NAME_OUT (area));
+              abr_inv++;
+            }
+      }
+
+  /* Schedule ABR task. */
+  if (IS_OSPF_ABR (ospf) && abr_inv)
+    ospf_schedule_abr_task (ospf);
+}
 
 struct ospf_distance *
 ospf_distance_new ()
@@ -1203,4 +1259,6 @@ ospf_zebra_init ()
 
   access_list_add_hook (ospf_filter_update);
   access_list_delete_hook (ospf_filter_update);
+  prefix_list_add_hook (ospf_prefix_list_update);
+  prefix_list_delete_hook (ospf_prefix_list_update);
 }
