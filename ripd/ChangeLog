@@ -1,3 +1,35 @@
+2004-06-06 Paul Jakma <paul.jakma@sun.com>
+
+	* ripd.h: Add define for the RIPv2 Authentication Data family
+	  Move the auth type defines up to where other defines live.
+	  Add RIP_AUTH_MD5_COMPAT_SIZE, for backwards compatible
+	  md5->auth_len size. Add md5_auth_len field to struct
+          rip_interface: (rip_interface_new) Init md5_auth_len to compatible 
+          size.
+          (ip_rip_authentication_mode_cmd) Extended to handle setting
+          md5 auth-length. Appropriate aliases added.
+          (no_ip_rip_authentication_mode_cmd) Reset md5_auth_len to
+          compatible size.
+          (rip_interface_config_write) Teach it about md5_auth_len.
+          _always_ write out the auth-length, so that everyone will get
+          the setting in their config file, and hence allow for a future
+          change of default for md5_auth_len to be less painful - every md5
+          user will have this setting in their config file.
+          ripd.c: (rip_packet_dump) Change nasty hard coded constants to 
+          symbolic defines. Change various tests of 'ntoh.(variable) ==
+          constant' to test 'variable == ntoh.(constant)'. Clean up
+          indentation on some long lines.
+          (rip_auth_simple_password) ditto.
+          (rip_auth_md5) ditto, also add length argument and sanity check 
+          md5 data offset field. Sanity check md5 auth length, accept RFC
+          or old-ripd/cisco lengths.
+          (rip_auth_md5_set) as per (rip_packet_dump), also write out
+          the configured md5 auth length for the interface (old-ripd or rfc)
+          (rip_read) as per (rip_packet_dump)
+          (rip_write_rte) ditto
+          (rip_response_process) ditto
+          (rip_write_rte) ditto
+          
 2004-06-04 JJ Ludman <jacques.ludman@sun.com>
 
 	* ripd.c: Interoperability fix. Correct value for MD5 auth length

@@ -701,16 +701,16 @@ rip_packet_dump (struct rip_packet *packet, int size, char *sndrcv)
 	{
 	  netmask = ip_masklen (rte->mask);
 
-	  if (ntohs (rte->family) == 0xffff)
+          if (rte->family == htons (RIP_FAMILY_AUTH))
             {
-	      if (ntohs (rte->tag) == RIP_AUTH_SIMPLE_PASSWORD)
+              if (rte->tag == htons (RIP_AUTH_SIMPLE_PASSWORD))
 		{
 		  p = (u_char *)&rte->prefix;
 
 		  zlog_info ("  family 0x%X type %d auth string: %s",
 			     ntohs (rte->family), ntohs (rte->tag), p);
 		}
-	      else if (ntohs (rte->tag) == RIP_AUTH_MD5)
+              else if (rte->tag == htons (RIP_AUTH_MD5))
 		{
 		  struct rip_md5_info *md5;
 
@@ -719,11 +719,13 @@ rip_packet_dump (struct rip_packet *packet, int size, char *sndrcv)
 		  zlog_info ("  family 0x%X type %d (MD5 authentication)",
 			     ntohs (md5->family), ntohs (md5->type));
 		  zlog_info ("    RIP-2 packet len %d Key ID %d"
-			     " Auth Data len %d", ntohs (md5->packet_len),
-			     md5->keyid, md5->auth_len);
-		  zlog_info ("    Sequence Number %ld", (u_long)ntohl (md5->sequence));
+                             " Auth Data len %d",
+                             ntohs (md5->packet_len), md5->keyid,
+                             md5->auth_len);
+                  zlog_info ("    Sequence Number %ld",
+                             (u_long) ntohl (md5->sequence));
 		}
-	      else if (ntohs (rte->tag) == RIP_AUTH_DATA)
+              else if (rte->tag == htons (RIP_AUTH_DATA))
 		{
 		  p = (u_char *)&rte->prefix;
 
@@ -731,8 +733,9 @@ rip_packet_dump (struct rip_packet *packet, int size, char *sndrcv)
 			     ntohs (rte->family), ntohs (rte->tag));
 		  zlog_info ("    MD5: %02X%02X%02X%02X%02X%02X%02X%02X"
 			     "%02X%02X%02X%02X%02X%02X%02X",
-			     p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],
-			     p[9],p[10],p[11],p[12],p[13],p[14],p[15]);
+                             p[0], p[1], p[2], p[3], p[4], p[5], p[6],
+                             p[7], p[9], p[10], p[11], p[12], p[13],
+                             p[14], p[15]);
 		}
 	      else
 		{
@@ -742,10 +745,10 @@ rip_packet_dump (struct rip_packet *packet, int size, char *sndrcv)
             }
 	  else
 	    zlog_info ("  %s/%d -> %s family %d tag %d metric %ld",
-		       inet_ntop (AF_INET, &rte->prefix, pbuf, BUFSIZ),netmask,
-		       inet_ntop (AF_INET, &rte->nexthop, nbuf, BUFSIZ),
-		       ntohs (rte->family), ntohs (rte->tag), 
-		       (u_long)ntohl (rte->metric));
+                       inet_ntop (AF_INET, &rte->prefix, pbuf, BUFSIZ),
+                       netmask, inet_ntop (AF_INET, &rte->nexthop, nbuf,
+                                           BUFSIZ), ntohs (rte->family),
+                       ntohs (rte->tag), (u_long) ntohl (rte->metric));
 	}
       else
 	{
@@ -801,7 +804,7 @@ rip_auth_simple_password (struct rte *rte, struct sockaddr_in *from,
   ri = ifp->info;
 
   if (ri->auth_type != RIP_AUTH_SIMPLE_PASSWORD
-      || ntohs (rte->tag) != RIP_AUTH_SIMPLE_PASSWORD)
+      || rte->tag != htons(RIP_AUTH_SIMPLE_PASSWORD))
     return 0;
 
   /* Simple password authentication. */
@@ -831,7 +834,7 @@ rip_auth_simple_password (struct rte *rte, struct sockaddr_in *from,
 /* RIP version 2 authentication with MD5. */
 int
 rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
-	      struct interface *ifp)
+              int length, struct interface *ifp)
 {
   struct rip_interface *ri;
   struct rip_md5_info *md5;
@@ -845,26 +848,43 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   char *auth_str = NULL;
   
   if (IS_RIP_DEBUG_EVENT)
-    zlog_info ("RIPv2 MD5 authentication from %s", inet_ntoa (from->sin_addr));
+    zlog_info ("RIPv2 MD5 authentication from %s",
+               inet_ntoa (from->sin_addr));
 
   ri = ifp->info;
   md5 = (struct rip_md5_info *) &packet->rte;
 
   /* Check auth type. */
-  if (ri->auth_type != RIP_AUTH_MD5 || ntohs (md5->type) != RIP_AUTH_MD5)
+  if (ri->auth_type != RIP_AUTH_MD5 || md5->type != htons(RIP_AUTH_MD5))
     return 0;
 
-/*
- * If the authentication length is less than 16, then it must be wrong for
- * any interpretation of rfc2082.
+  /* If the authentication length is less than 16, then it must be wrong for
+   * any interpretation of rfc2082. Some implementations also interpret
+   * this as RIP_HEADER_SIZE+ RIP_AUTH_MD5_SIZE, aka RIP_AUTH_MD5_COMPAT_SIZE.
  */
-  if (md5->auth_len < RIP_AUTH_MD5_SIZE)
+  if ( !((md5->auth_len == RIP_AUTH_MD5_SIZE)
+         || (md5->auth_len == RIP_AUTH_MD5_COMPAT_SIZE)))
     {
       if (IS_RIP_DEBUG_EVENT)
-       zlog_info ("RIPv2 MD5 authentication, authentication length field too \
-         short");
+        zlog_warn ("RIPv2 MD5 authentication, strange authentication "
+                   "length field %d", md5->auth_len);
     return 0;
     }
+
+  /* grab and verify check packet length */
+  packet_len = ntohs (md5->packet_len);
+
+  if (packet_len > (length - RIP_HEADER_SIZE - RIP_AUTH_MD5_SIZE))
+    {
+      if (IS_RIP_DEBUG_EVENT)
+        zlog_warn ("RIPv2 MD5 authentication, packet length field %d "
+                   "greater than received length %d!",
+                   md5->packet_len, length);
+      return 0;
+    }
+
+  /* retrieve authentication data */
+  md5data = (struct rip_md5_data *) (((u_char *) packet) + packet_len);
 
   if (ri->key_chain)
     {
@@ -886,8 +906,6 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
     return 0;
 
   /* MD5 digest authentication. */
-  packet_len = ntohs (md5->packet_len);
-  md5data = (struct rip_md5_data *)(((u_char *) packet) + packet_len);
 
   /* Save digest to pdigest. */
   memcpy (pdigest, md5data->digest, RIP_AUTH_MD5_SIZE);
@@ -897,7 +915,7 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   strncpy ((char *)md5data->digest, auth_str, RIP_AUTH_MD5_SIZE);
 
   md5_init_ctx (&ctx);
-  md5_process_bytes (packet, packet_len + RIP_HEADER_SIZE + RIP_AUTH_MD5_SIZE, \
+  md5_process_bytes (packet, packet_len + RIP_HEADER_SIZE + RIP_AUTH_MD5_SIZE,
     &ctx);
   md5_finish_ctx (&ctx, digest);
 
@@ -967,7 +985,7 @@ rip_auth_md5_set (struct stream *s, struct interface *ifp)
   len += RIP_RTE_SIZE;
 
   /* MD5 authentication. */
-  stream_putw (s, 0xffff);
+  stream_putw (s, RIP_FAMILY_AUTH);
   stream_putw (s, RIP_AUTH_MD5);
 
   /* RIP-2 Packet length.  Actual value is filled in
@@ -980,9 +998,11 @@ rip_auth_md5_set (struct stream *s, struct interface *ifp)
   else
     stream_putc (s, 1);
 
-  /* Auth Data Len.  Set 16 for MD5 authentication
-     data. */
-  stream_putc (s, RIP_AUTH_MD5_SIZE);
+  /* Auth Data Len.  Set 16 for MD5 authentication data. Older ripds 
+   * however expect RIP_HEADER_SIZE + RIP_AUTH_MD5_SIZE so we allow for this
+   * to be configurable. 
+   */
+  stream_putc (s, ri->md5_auth_len);
 
   /* Sequence Number (non-decreasing). */
   /* RFC2080: The value used in the sequence number is
@@ -998,8 +1018,8 @@ rip_auth_md5_set (struct stream *s, struct interface *ifp)
   stream_set_putp (s, len);
 
   /* Set authentication data. */
-  stream_putw (s, 0xffff);
-  stream_putw (s, 0x01);
+  stream_putw (s, RIP_FAMILY_AUTH);
+  stream_putw (s, RIP_AUTH_DATA);
 
   /* Generate a digest for the RIP packet. */
   memset (secret, 0, RIP_AUTH_MD5_SIZE);
@@ -1030,7 +1050,7 @@ rip_response_process (struct rip_packet *packet, int size,
 
   /* The Response must be ignored if it is not from the RIP
      port. (RFC2453 - Sec. 3.9.2)*/
-  if (ntohs (from->sin_port) != RIP_PORT_DEFAULT) 
+  if (from->sin_port != htons(RIP_PORT_DEFAULT))
     {
       zlog_info ("response doesn't come from RIP port: %d",
 		 from->sin_port);
@@ -1070,10 +1090,10 @@ rip_response_process (struct rip_packet *packet, int size,
       /* Check is done in rip_read(). So, just skipping it */
       if (packet->version == RIPv2 &&
 	  rte == packet->rte &&
-	  rte->family == 0xffff)
+	  rte->family == htons(RIP_FAMILY_AUTH))
 	continue;
 
-      if (ntohs (rte->family) != AF_INET)
+      if (rte->family != htons(AF_INET))
 	{
 	  /* Address family check.  RIP only supports AF_INET. */
 	  zlog_info ("Unsupported family %d from %s.",
@@ -1795,7 +1815,8 @@ rip_read (struct thread *t)
 
   if ((ri->auth_type == RIP_NO_AUTH) 
       && rtenum 
-      && (packet->version == RIPv2) && (packet->rte->family == 0xffff))
+      && (packet->version == RIPv2) 
+      && (packet->rte->family == htons(RIP_FAMILY_AUTH)))
     {
       if (IS_RIP_DEBUG_EVENT)
 	zlog_warn ("packet RIPv%d is dropped because authentication disabled", 
@@ -1814,14 +1835,16 @@ rip_read (struct thread *t)
      unauthenticated manner. */
 
   if ((ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD 
-       || ri->auth_type == RIP_AUTH_MD5)
-      && rtenum)
+       || ri->auth_type == RIP_AUTH_MD5) && rtenum)
     {
       /* We follow maximum security. */
-      if (packet->version == RIPv1 && packet->rte->family == 0xffff)
+      if (packet->version == RIPv1 
+      && packet->rte->family == htons(RIP_FAMILY_AUTH))
 	{
 	  if (IS_RIP_DEBUG_PACKET)
-	    zlog_warn ("packet RIPv%d is dropped because authentication enabled", packet->version);
+            zlog_warn
+              ("packet RIPv%d is dropped because authentication enabled",
+               packet->version);
 	  rip_peer_bad_packet (&from);
 	  return -1;
 	}
@@ -1829,27 +1852,29 @@ rip_read (struct thread *t)
       /* Check RIPv2 authentication. */
       if (packet->version == RIPv2)
 	{
-	  if (packet->rte->family == 0xffff)
+          if (packet->rte->family == htons(RIP_FAMILY_AUTH))
 	    {
-	      if (ntohs (packet->rte->tag) == RIP_AUTH_SIMPLE_PASSWORD)
+              if (packet->rte->tag == htons(RIP_AUTH_SIMPLE_PASSWORD))
                 {
 		  ret = rip_auth_simple_password (packet->rte, &from, ifp);
 		  if (! ret)
 		    {
 		      if (IS_RIP_DEBUG_EVENT)
-			zlog_warn ("RIPv2 simple password authentication failed");
+                        zlog_warn
+                          ("RIPv2 simple password authentication failed");
 		      rip_peer_bad_packet (&from);
 		      return -1;
 		    }
 		  else
 		    {
 		      if (IS_RIP_DEBUG_EVENT)
-			zlog_info ("RIPv2 simple password authentication success");
+                        zlog_info
+                          ("RIPv2 simple password authentication success");
 		    }
                 }
-	      else if (ntohs (packet->rte->tag) == RIP_AUTH_MD5)
+              else if (packet->rte->tag == htons(RIP_AUTH_MD5))
                 {
-		  ret = rip_auth_md5 (packet, &from, ifp);
+                  ret = rip_auth_md5 (packet, &from, len, ifp);
 		  if (! ret)
 		    {
 		      if (IS_RIP_DEBUG_EVENT)
@@ -1880,7 +1905,8 @@ rip_read (struct thread *t)
 	      if (ri->auth_str || ri->key_chain)
 		{
 		  if (IS_RIP_DEBUG_EVENT)
-		    zlog_warn ("RIPv2 authentication failed: no authentication in packet");
+                    zlog_warn
+                      ("RIPv2 authentication failed: no authentication in packet");
 		  rip_peer_bad_packet (&from);
 		  return -1;
 		}
@@ -1996,7 +2022,7 @@ rip_write_rte (int num, struct stream *s, struct prefix_ipv4 *p,
 	    {
 	      if (ri->auth_str)
 		{
-		  stream_putw (s, 0xffff);
+		  stream_putw (s, RIP_FAMILY_AUTH);
 		  stream_putw (s, RIP_AUTH_SIMPLE_PASSWORD);
 
 		  memset ((s->data + s->putp), 0, 16);
@@ -2018,7 +2044,7 @@ rip_write_rte (int num, struct stream *s, struct prefix_ipv4 *p,
 		      
 		      if (key)
 			{
-			  stream_putw (s, 0xffff);
+			  stream_putw (s, RIP_FAMILY_AUTH);
 			  stream_putw (s, RIP_AUTH_SIMPLE_PASSWORD);
 
 			  memset ((s->data + s->putp), 0, 16);

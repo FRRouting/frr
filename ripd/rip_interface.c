@@ -125,6 +125,7 @@ rip_interface_new ()
      compatibility. */
   /* ri->auth_type = RIP_NO_AUTH; */
   ri->auth_type = RIP_AUTH_SIMPLE_PASSWORD;
+  ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
 
   /* Set default split-horizon behavior.  If the interface is Frame
      Relay or SMDS is enabled, the default value for split-horizon is
@@ -1678,6 +1679,12 @@ DEFUN (ip_rip_authentication_mode,
   ifp = (struct interface *)vty->index;
   ri = ifp->info;
 
+  if ( (argc < 1) || (argc > 2) )
+    {
+      vty_out (vty, "incorrect argument count%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+    
   if (strncmp ("md5", argv[0], strlen (argv[0])) == 0)
     ri->auth_type = RIP_AUTH_MD5;
   else if (strncmp ("text", argv[0], strlen (argv[0])) == 0)
@@ -1688,8 +1695,37 @@ DEFUN (ip_rip_authentication_mode,
       return CMD_WARNING;
     }
 
+  if (argc == 1)
+  return CMD_SUCCESS;
+
+  if ( (argc == 2) && (ri->auth_type != RIP_AUTH_MD5) )
+    {
+      vty_out (vty, "auth length argument only valid for md5%s", VTY_NEWLINE);
+      return CMD_WARNING;
+}
+
+  if (strncmp ("r", argv[1], 1) == 0)
+    ri->md5_auth_len = RIP_AUTH_MD5_SIZE;
+  else if (strncmp ("o", argv[1], 1) == 0)
+    ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
+  else 
+    return CMD_WARNING;
+
   return CMD_SUCCESS;
 }
+
+ALIAS (ip_rip_authentication_mode,
+       ip_rip_authentication_mode_authlen_cmd,
+       "ip rip authentication mode (md5|text) auth-length (rfc|old-ripd)",
+       IP_STR
+       "Routing Information Protocol\n"
+       "Authentication control\n"
+       "Authentication mode\n"
+       "Keyed message digest\n"
+       "Clear text authentication\n"
+       "MD5 authentication data length\n"
+       "RFC compatible\n"
+       "Old ripd compatible\n")
 
 DEFUN (no_ip_rip_authentication_mode,
        no_ip_rip_authentication_mode_cmd,
@@ -1708,6 +1744,7 @@ DEFUN (no_ip_rip_authentication_mode,
 
   /* ri->auth_type = RIP_NO_AUTH; */
   ri->auth_type = RIP_AUTH_SIMPLE_PASSWORD;
+  ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
 
   return CMD_SUCCESS;
 }
@@ -1722,6 +1759,20 @@ ALIAS (no_ip_rip_authentication_mode,
        "Authentication mode\n"
        "Keyed message digest\n"
        "Clear text authentication\n")
+
+ALIAS (no_ip_rip_authentication_mode,
+       no_ip_rip_authentication_mode_type_authlen_cmd,
+       "no ip rip authentication mode (md5|text) auth-length (rfc|old-ripd)",
+       NO_STR
+       IP_STR
+       "Routing Information Protocol\n"
+       "Authentication control\n"
+       "Authentication mode\n"
+       "Keyed message digest\n"
+       "Clear text authentication\n"
+       "MD5 authentication data length\n"
+       "RFC compatible\n"
+       "Old ripd compatible\n")
 
 DEFUN (ip_rip_authentication_string,
        ip_rip_authentication_string_cmd,
@@ -1988,6 +2039,7 @@ rip_interface_config_write (struct vty *vty)
           (ri->ri_send == RI_RIP_UNSPEC)                   &&
           (ri->ri_receive == RI_RIP_UNSPEC)                &&
           (ri->auth_type != RIP_AUTH_MD5)                  &&
+          (ri->md5_auth_len != RIP_AUTH_MD5_SIZE)          &&
           (!ri->auth_str)                                  &&
           (!ri->key_chain)                                 )
         continue;
@@ -2034,8 +2086,16 @@ rip_interface_config_write (struct vty *vty)
       if (ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD)
 	vty_out (vty, " ip rip authentication mode text%s", VTY_NEWLINE);
 #endif /* 0 */
+
       if (ri->auth_type == RIP_AUTH_MD5)
-	vty_out (vty, " ip rip authentication mode md5%s", VTY_NEWLINE);
+        {
+          vty_out (vty, " ip rip authentication mode md5");
+          if (ri->md5_auth_len == RIP_AUTH_MD5_COMPAT_SIZE)
+            vty_out (vty, " auth-length old-ripd");
+          else 
+            vty_out (vty, " auth-length rfc");
+          vty_out (vty, "%s", VTY_NEWLINE);
+        }
 
       if (ri->auth_str)
 	vty_out (vty, " ip rip authentication string %s%s",
@@ -2165,8 +2225,10 @@ rip_if_init ()
   install_element (INTERFACE_NODE, &no_ip_rip_receive_version_num_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_authentication_mode_cmd);
+  install_element (INTERFACE_NODE, &ip_rip_authentication_mode_authlen_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_authentication_mode_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_authentication_mode_type_cmd);
+  install_element (INTERFACE_NODE, &no_ip_rip_authentication_mode_type_authlen_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_authentication_key_chain_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_authentication_key_chain_cmd);
