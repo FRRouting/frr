@@ -1,3 +1,7 @@
+/*
+ * $Id: zassert.h,v 1.2 2004/12/03 18:01:04 ajs Exp $
+ */
+
 #ifndef _QUAGGA_ASSERT_H
 #define _QUAGGA_ASSERT_H
 
