@@ -29,9 +29,6 @@
 /* #define EXTREME_DEBUG  */
 /* #define EXTREME_TLV_DEBUG */
 
-/* If you want topology stuff compiled in */
-/* #define TOPOLOGY_GENERATE */
-
 struct rmap
 {
   char *name;

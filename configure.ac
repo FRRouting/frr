@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.95 2005/04/02 16:01:05 ajs Exp $
+## $Id: configure.ac,v 1.96 2005/04/02 19:03:39 hasso Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.0, [http://bugzilla.quagga.net])
@@ -180,6 +180,8 @@ AC_ARG_ENABLE(rtadv,
 [  --disable-rtadv               disable IPV6 router advertisement feature])
 AC_ARG_ENABLE(irdp,
 [  --enable-irdp                 enable IRDP server support in zebra])
+AC_ARG_ENABLE(isis_topology,
+[  --enable-isis-topology        enable IS-IS topology generator])
 AC_ARG_ENABLE(capabilities,
 [  --disable-capabilities        disable using POSIX capabilities])
 AC_ARG_ENABLE(gcc_ultra_verbose,
@@ -232,6 +234,17 @@ fi
 if test "${enable_irdp}" = "yes"; then
   AC_DEFINE(HAVE_IRDP,, IRDP )
 fi
+
+if test "${enable_isisd}" = "yes" && test "${enable_isis_topology}" = yes; then
+  AC_DEFINE(TOPOLOGY_GENERATE,,Enable IS-IS topology generator code)
+  ISIS_TOPOLOGY_INCLUDES="-I./topology"
+  ISIS_TOPOLOGY_DIR="topology"
+  ISIS_TOPOLOGY_LIB="./topology/libtopology.a"
+fi
+
+AC_SUBST(ISIS_TOPOLOGY_INCLUDES)
+AC_SUBST(ISIS_TOPOLOGY_DIR)
+AC_SUBST(ISIS_TOPOLOGY_LIB)
 
 if test "${enable_user}" = "yes" || test x"${enable_user}" = x""; then
   enable_user="quagga"
@@ -1266,6 +1279,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile
 	  redhat/quagga.spec 
 	  lib/version.h
 	  doc/defines.texi
+	  isisd/topology/Makefile
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])

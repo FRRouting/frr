@@ -1595,9 +1595,9 @@ DEFUN (topology_generate_grid,
   return CMD_SUCCESS;
 }
 
-DEFUN (show_isis_topology,
-       show_isis_topology_cmd,
-       "show isis topology",
+DEFUN (show_isis_generated_topology,
+       show_isis_generated_topology_cmd,
+       "show isis generated-topology",
        SHOW_STR
        "clns network information\n"
        "CLNS neighbor adjacencies\n")
@@ -2138,8 +2138,8 @@ isis_init ()
   install_element (ISIS_NODE, &topology_generate_grid_cmd);
   install_element (ISIS_NODE, &topology_baseis_cmd);
   install_element (ISIS_NODE, &no_topology_baseis_cmd);
-  install_element (VIEW_NODE, &show_isis_topology_cmd);
-  install_element (ENABLE_NODE, &show_isis_topology_cmd);
+  install_element (VIEW_NODE, &show_isis_generated_topology_cmd);
+  install_element (ENABLE_NODE, &show_isis_generated_topology_cmd);
 #endif /* TOPOLOGY_GENERATE */
 
   isis_new (0);

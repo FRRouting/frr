@@ -1,12 +1,13 @@
 ## Process this file with automake to produce Makefile.in.
 
-# INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -Itopology
-INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib
+INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib \
+	   @ISIS_TOPOLOGY_INCLUDES@
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 LIBS = @LIBS@ 
 noinst_LIBRARIES = libisis.a
 sbin_PROGRAMS = isisd 
+SUBDIRS = @ISIS_TOPOLOGY_DIR@
 
 libisis_a_SOURCES = \
 	isis_adjacency.c isis_lsp.c dict.c isis_circuit.c isis_pdu.c \
@@ -25,7 +26,7 @@ noinst_HEADERS = \
 isisd_SOURCES = \
 	isis_main.c $(libisis_a_SOURCES)
 
-isisd_LDADD = ../lib/libzebra.la @LIBCAP@
+isisd_LDADD = @ISIS_TOPOLOGY_LIB@ ../lib/libzebra.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = isisd.conf.sample

@@ -10,7 +10,7 @@ libtopology_a_SOURCES = \
 
 libtopology_a_DEPENDENCIES = @LIB_REGEX@
 
-libtopology_a_LIBADD = @LIB_REGEX@ ../../lib/libzebra.a
+libtopology_a_LIBADD = @LIB_REGEX@ ../../lib/libzebra.la
 
 noinst_HEADERS = \
 	spgrid.h

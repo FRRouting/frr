@@ -1,3 +1,14 @@
+2005-04-02 Hasso Tepper <hasso at quagga.net>
+
+	* Makefile.am: Variables to handle conditonal compiling of topology
+	  generator code.
+	* isis_lsp.c: lsppdu_realloc() is used by topology generator.
+	* isisd.c: Rename show_isis_topology_cmd to not conflict the one in
+	  the isis_spf.c.
+	* isisd.h: Remove TOPOLOGY_GENERATE define, it will be defined in
+	  toplevel config.h if topology generator is enabled.
+	* topology/Makefile.am: Handle the libtoolized Quagga libraries.
+
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* isis_zebra.c: (isis_zebra_if_del) Call if_delete_retain instead

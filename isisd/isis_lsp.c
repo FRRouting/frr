@@ -913,7 +913,6 @@ lsp_print_all (struct vty *vty, dict_t * lspdb, char detail, char dynhost)
   return lsp_count;
 }
 
-#if 0 /* Seems to be old code */
 /* this function reallocate memory to an lsp pdu, with an additional
  * size of memory, it scans the lsp and moves all pointers the
  * way they should */
@@ -940,7 +939,6 @@ lsppdu_realloc (struct isis_lsp * lsp, int memorytype, int size)
   return STREAM_DATA (lsp->pdu) + (lsp->lsp_header->pdu_len - size);
 #endif /* LSP_MEMORY_PREASSIGN */
 }
-#endif /* 0 */
 
 #if 0				/* Saving the old one just in case :) */
 /*
