@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.53)
 
-AC_INIT(quagga, 0.96.3, [bug-zebra@gnu.org])
+AC_INIT(quagga, 0.96.4, [bug-zebra@gnu.org])
 AC_CONFIG_SRCDIR(lib/zebra.h)
 AM_INIT_AUTOMAKE()
 AM_CONFIG_HEADER(config.h)
