@@ -172,6 +172,10 @@ typedef int socklen_t;
 #include <libutil.h>
 #endif /* HAVE_LIBUTIL_H */
 
+#ifdef HAVE_GLIBC_BACKTRACE
+#include <execinfo.h>
+#endif /* HAVE_GLIBC_BACKTRACE */
+
 #ifdef BSDI_NRL
 
 #ifdef HAVE_NETINET6_IN6_H

@@ -856,6 +856,18 @@ AC_TRY_COMPILE([#include <sys/resource.h>
  AC_DEFINE(HAVE_RUSAGE,,rusage)],
  AC_MSG_RESULT(no))
 
+dnl ---------------------------
+dnl check for glibc 'backtrace'
+dnl --------------------------- 
+if test "${glibc}" = "yes"; then
+   AC_CHECK_HEADER(execinfo.h)
+fi
+if test x"${ac_cv_header_execinfo_h}" = x"yes"; then
+  AC_CHECK_FUNC(backtrace,
+    [AC_DEFINE(HAVE_GLIBC_BACKTRACE,,Glibc backtrace)]
+  )
+fi
+
 dnl -------------
 dnl check version
 dnl -------------
