@@ -63,7 +63,7 @@ char * isonet_print (u_char *from, int len) {
       sprintf ( pos, "%02x", *(from + i));
       pos += 2;
     } else {
-      if (i == 0) { /* if the area addr is just one byte, eg. 47. */
+      if (i == (len - 1)) { /* No dot at the end of address */
         sprintf ( pos, "%02x", *(from + i));
         pos += 2;
       } else {
@@ -186,6 +186,15 @@ nlpid2string (struct nlpids *nlpids) {
       break;
     case NLPID_IPV6:
       pos += sprintf (pos, "IPv6");
+      break;
+    case NLPID_SNAP:
+      pos += sprintf (pos, "SNAP");
+      break;
+    case NLPID_CLNP:
+      pos += sprintf (pos, "CLNP");
+      break;
+    case NLPID_ESIS:
+      pos += sprintf (pos, "ES-IS");
       break;
     default:
       pos += sprintf (pos, "unknown");

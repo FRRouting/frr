@@ -232,7 +232,9 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
     
     SET_FLAG (message, ZAPI_MESSAGE_NEXTHOP);
     SET_FLAG (message, ZAPI_MESSAGE_METRIC);
+#if 0
     SET_FLAG (message, ZAPI_MESSAGE_DISTANCE);
+#endif
     
     stream = zclient->obuf;
     stream_reset (stream);
@@ -265,8 +267,10 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
         stream_putl (stream, nexthop->ifindex);
       }
     }
+#if 0
     if (CHECK_FLAG (message, ZAPI_MESSAGE_DISTANCE))
       stream_putc (stream, route_info->depth);
+#endif
     if (CHECK_FLAG (message, ZAPI_MESSAGE_METRIC))
       stream_putl (stream, route_info->cost);
     

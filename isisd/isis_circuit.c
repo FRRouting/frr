@@ -553,35 +553,6 @@ isis_interface_config_write (struct vty *vty)
           write++;
         }
 #endif /* HAVE_IPV6 */
-        /* ipv4 addresses - FIXME: those should be related to interface*/
-        if (c->ip_addrs) {LIST_LOOP (c->ip_addrs,ip, node3)
-        {
-           vty_out (vty, " ip%s address %s/%d%s",
-           ip->family == AF_INET ? "" : "v6",
-           inet_ntop (ip->family, &ip->prefix, buf, BUFSIZ), ip->prefixlen, 
-		    VTY_NEWLINE);
-           write++;
-        }}
-
-        /* ipv6 addresses - FIXME: those should be related to interface*/
-#ifdef HAVE_IPV6
-        if (c->ipv6_link) {LIST_LOOP (c->ipv6_link, ipv6, node3)
-          {
-            vty_out (vty, " ip%s address %s/%d%s",
-                     ipv6->family == AF_INET ? "" : "v6",
-                     inet_ntop (ipv6->family, &ipv6->prefix, buf, BUFSIZ),
-                     ipv6->prefixlen,VTY_NEWLINE);
-            write++;
-          }}
-        if (c->ipv6_non_link) {LIST_LOOP (c->ipv6_non_link, ipv6, node3)
-          {
-            vty_out (vty, " ip%s address %s/%d%s",
-                     ipv6->family == AF_INET ? "" : "v6",
-                     inet_ntop (ipv6->family, &ipv6->prefix, buf, BUFSIZ),
-                     ipv6->prefixlen, VTY_NEWLINE);
-            write++;
-          }}        
-#endif /* HAVE_IPV6 */
 
         /* ISIS - circuit type */
         if (c->circuit_is_type  == IS_LEVEL_1) {
@@ -690,6 +661,7 @@ isis_interface_config_write (struct vty *vty)
 
       }
     }
+    vty_out (vty, "!%s",VTY_NEWLINE);
   }
   
   return write;

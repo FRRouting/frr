@@ -1,3 +1,19 @@
+2003-12-23 Hasso Tepper <hasso@estpak.ee>
+  Some fixes done by me and Cougar <cougar@random.ee>.
+  * isis_adjacency.c: Two bugfixes by Cougar:
+    After down state neigbour was deleted but not removed from neighbours list.
+    Don't show random expire time during neighbour initialisation.
+  * isis_circuit.c: Don't show interface addresses in config by Cougar.
+  * isis_constants.h, isis_misc.c: Show other well-known NLPID names as well
+    by Cougar.
+  * isisd.c: Two tiny CLI fixes by me.
+  * isis_lsp.c: Bugfix in lsp_print_detail() by Cougar.
+    Show IPv4 external and IPv6 TLV's in "show isis database detail" by me.
+  * isis_misc.c: Net address format fix by Cougar.
+  * isis_spf.c: Dead loop fix in isis_spf_preload_tent() by Cougar
+  * isis_zebra.c: Ignore distance when adding route to zebra for now by me.
+  * isis_tlv.c: Parse external IPv4 TLV's correctly by me.
+
 Version 0.0.7 to 0.0.8
 ======================
 

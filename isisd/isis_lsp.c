@@ -764,7 +764,7 @@ lsp_print_detail (dnode_t *node, struct vty *vty, char dynhost)
 
   if (lsp->tlv_data.ipv4_addrs) {
     LIST_LOOP(lsp->tlv_data.ipv4_addrs, ipv4_addr, lnode) {
-      memcpy (ipv4_address, inet_ntoa (*ipv4_addr), sizeof (ipv4_addr));
+      memcpy (ipv4_address, inet_ntoa (*ipv4_addr), sizeof (ipv4_address));
       vty_out (vty, "  IP:        %s%s",
                ipv4_address,
                VTY_NEWLINE);
@@ -776,7 +776,19 @@ lsp_print_detail (dnode_t *node, struct vty *vty, char dynhost)
     LIST_LOOP(lsp->tlv_data.ipv4_int_reachs, ipv4_reach, lnode) {
       memcpy (ipv4_reach_prefix, inet_ntoa (ipv4_reach->prefix), sizeof (ipv4_reach_prefix));
       memcpy (ipv4_reach_mask, inet_ntoa (ipv4_reach->mask), sizeof (ipv4_reach_mask));
-      vty_out (vty, "  Matric: %d IP %s %s%s",
+      vty_out (vty, "  Metric: %d IP %s %s%s",
+             ipv4_reach->metrics.metric_default,
+             ipv4_reach_prefix,
+             ipv4_reach_mask,
+             VTY_NEWLINE);
+  }
+
+  /* for the external reachable tlv */
+  if (lsp->tlv_data.ipv4_ext_reachs)
+    LIST_LOOP(lsp->tlv_data.ipv4_ext_reachs, ipv4_reach, lnode) {
+      memcpy (ipv4_reach_prefix, inet_ntoa (ipv4_reach->prefix), sizeof (ipv4_reach_prefix));
+      memcpy (ipv4_reach_mask, inet_ntoa (ipv4_reach->mask), sizeof (ipv4_reach_mask));
+      vty_out (vty, "  Metric: %d IP-External %s %s%s",
              ipv4_reach->metrics.metric_default,
              ipv4_reach_prefix,
              ipv4_reach_mask,
@@ -793,6 +805,29 @@ lsp_print_detail (dnode_t *node, struct vty *vty, char dynhost)
               VTY_NEWLINE);
     }
   }
+
+  /* IPv6 tlv */
+#ifdef HAVE_IPV6
+  if (lsp->tlv_data.ipv6_reachs)
+    LIST_LOOP(lsp->tlv_data.ipv6_reachs, ipv6_reach, lnode) {
+      memset(&in6, 0, sizeof(in6));
+      memcpy (in6.s6_addr, ipv6_reach->prefix, PSIZE(ipv6_reach->prefix_len));
+      inet_ntop (AF_INET6, &in6, buff, BUFSIZ);
+      if ((ipv6_reach->control_info &&
+            CTRL_INFO_DISTRIBUTION) == DISTRIBUTION_INTERNAL)
+        vty_out (vty, "  Metric: %d IPv6-Intern %s/%d%s",
+               ntohl (ipv6_reach->metric),
+               buff,
+               ipv6_reach->prefix_len,
+               VTY_NEWLINE);
+      else
+        vty_out (vty, "  Metric: %d IPv6-Extern %s/%d%s",
+               ntohl (ipv6_reach->metric),
+               buff,
+               ipv6_reach->prefix_len,
+               VTY_NEWLINE);
+    }
+#endif
 
 /* FIXME: Other tlvs such as te or external tlv will be added later */
 #if 0  

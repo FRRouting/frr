@@ -146,7 +146,7 @@ isis_delete_adj (struct isis_adjacency *adj, struct list *adjdb)
       if (adj2 == adj)
         break;
     }
-    listnode_delete (adjdb, node);
+    listnode_delete (adjdb, adj);
   }
   
   if (adj->ipv4_addrs)
@@ -336,7 +336,10 @@ isis_adj_print_vty2 (struct isis_adjacency *adj, struct vty *vty, char detail)
     vty_out (vty, "%-3u", adj->level); /* level */
     vty_out (vty, "%-13s", adj_state2string (adj->adj_state));
     now = time (NULL);
-    vty_out (vty, "%-9lu", adj->last_upd + adj->hold_time - now);
+    if (adj->last_upd)
+      vty_out (vty, "%-9lu", adj->last_upd + adj->hold_time - now);
+    else
+      vty_out (vty, "-        ");
     vty_out (vty, "%-10s", snpa_print (adj->snpa)); 
     vty_out (vty, "%s", VTY_NEWLINE);
   }
@@ -352,8 +355,12 @@ isis_adj_print_vty2 (struct isis_adjacency *adj, struct vty *vty, char detail)
     vty_out (vty, ", Level: %u", adj->level); /* level */
     vty_out (vty, ", State: %s", adj_state2string (adj->adj_state));
     now = time (NULL);
-    vty_out (vty, ", Expires in %s", 
-             time2string (adj->last_upd + adj->hold_time - now));
+    if (adj->last_upd)
+      vty_out (vty, ", Expires in %s", 
+               time2string (adj->last_upd + adj->hold_time - now));
+    else
+      vty_out (vty, ", Expires in %s", 
+               time2string (adj->hold_time));
     vty_out (vty, "%s    Adjacency flaps: %u",
 	     VTY_NEWLINE,
 	     adj->flaps);

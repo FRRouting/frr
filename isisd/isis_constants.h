@@ -82,6 +82,9 @@
  */
 #define NLPID_IP   204
 #define NLPID_IPV6 142
+#define NLPID_SNAP 128
+#define NLPID_CLNP 129
+#define NLPID_ESIS 130
 
 /*
  * Return values for functions

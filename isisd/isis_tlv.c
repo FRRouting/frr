@@ -511,16 +511,17 @@ parse_tlvs (char *areatag, u_char *stream, int size, u_int32_t *expected,
        * +---------------------------------------------------------------+
        * :                                                               :
        */
-      *found |= TLVFLAG_TE_IPV4_REACHABILITY;
+      *found |= TLVFLAG_IPV4_EXT_REACHABILITY;
 #ifdef EXTREME_TLV_DEBUG
       zlog_info ("ISIS-TLV (%s): IPv4 external Reachability length %d",
 		 areatag,
 		 length);
 #endif /* EXTREME_TLV_DEBUG */
-      if (*expected & TLVFLAG_TE_IPV4_REACHABILITY) {
+      if (*expected & TLVFLAG_IPV4_EXT_REACHABILITY) {
         while (length > value_len) {
           ipv4_reach = (struct ipv4_reachability*)pnt;
-          if (!tlvs->ipv4_ext_reachs) tlvs->ipv4_ext_reachs = list_new();
+          if (!tlvs->ipv4_ext_reachs) 
+            tlvs->ipv4_ext_reachs = list_new();
           listnode_add (tlvs->ipv4_ext_reachs, ipv4_reach);
           value_len += 12;
           pnt += 12;

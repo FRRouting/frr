@@ -1419,7 +1419,7 @@ DEFUN (no_dynamic_hostname,
 DEFUN (spf_interval,
        spf_interval_cmd,
        "spf-interval <1-120>",
-       "Minimum interval between SPF calculations"
+       "Minimum interval between SPF calculations\n"
        "Minimum interval between consecutive SPFs in seconds\n")
 {
   struct isis_area *area;
@@ -1936,7 +1936,7 @@ isis_config_write (struct vty *vty)
 struct cmd_node isis_node =
 {
   ISIS_NODE,
-  "%s(config_router)# ",
+  "%s(config-router)# ",
   1
 };
 

@@ -743,8 +743,10 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
       anode = listhead (adj_list);
       while (anode) {
         adj = getdata (anode);
-        if (!speaks (&adj->nlpids, family))
+        if (!speaks (&adj->nlpids, family)) {
+          anode = nextnode (anode); 
           continue;
+        }
         switch (adj->sys_type) {
         case ISIS_SYSTYPE_ES:
           isis_spf_add_local (spftree, VTYPE_ES, adj->sysid, adj, 
