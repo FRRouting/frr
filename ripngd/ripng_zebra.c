@@ -184,7 +184,7 @@ ripng_redistribute_metric_unset (int type)
 }
 
 void
-ripng_redistribute_routemap_set (int type, char *name)
+ripng_redistribute_routemap_set (int type, const char *name)
 {
   if (ripng->route_map[type].name)
     free (ripng->route_map[type].name);

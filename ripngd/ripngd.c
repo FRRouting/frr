@@ -2992,7 +2992,7 @@ ripng_routemap_update_redistribute (void)
 }
 
 void
-ripng_routemap_update (char *unused)
+ripng_routemap_update (const char *unused)
 {
   struct interface *ifp;
   struct listnode *node;

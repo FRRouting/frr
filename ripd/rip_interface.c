@@ -44,7 +44,7 @@
 void rip_enable_apply (struct interface *);
 void rip_passive_interface_apply (struct interface *);
 int rip_if_down(struct interface *ifp);
-int rip_enable_if_lookup (char *ifname);
+int rip_enable_if_lookup (const char *ifname);
 int rip_enable_network_lookup2 (struct connected *connected);
 void rip_enable_apply_all ();
 
@@ -986,7 +986,7 @@ rip_enable_network_delete (struct prefix *p)
 
 /* Check interface is enabled by ifname statement. */
 int
-rip_enable_if_lookup (char *ifname)
+rip_enable_if_lookup (const char *ifname)
 {
   unsigned int i;
   char *str;
@@ -1000,7 +1000,7 @@ rip_enable_if_lookup (char *ifname)
 
 /* Add interface to rip_enable_if. */
 int
-rip_enable_if_add (char *ifname)
+rip_enable_if_add (const char *ifname)
 {
   int ret;
 
@@ -1017,7 +1017,7 @@ rip_enable_if_add (char *ifname)
 
 /* Delete interface from rip_enable_if. */
 int
-rip_enable_if_delete (char *ifname)
+rip_enable_if_delete (const char *ifname)
 {
   int index;
   char *str;
@@ -1268,7 +1268,7 @@ rip_clean_network ()
 
 /* Utility function for looking up passive interface settings. */
 int
-rip_passive_nondefault_lookup (char *ifname)
+rip_passive_nondefault_lookup (const char *ifname)
 {
   unsigned int i;
   char *str;
@@ -1309,7 +1309,7 @@ rip_passive_interface_apply_all ()
 
 /* Passive interface. */
 int
-rip_passive_nondefault_set (struct vty *vty, char *ifname)
+rip_passive_nondefault_set (struct vty *vty, const char *ifname)
 {
   if (rip_passive_nondefault_lookup (ifname) >= 0)
     return CMD_WARNING;
@@ -1322,7 +1322,7 @@ rip_passive_nondefault_set (struct vty *vty, char *ifname)
 }
 
 int
-rip_passive_nondefault_unset (struct vty *vty, char *ifname)
+rip_passive_nondefault_unset (struct vty *vty, const char *ifname)
 {
   int i;
   char *str;
@@ -1984,7 +1984,7 @@ DEFUN (rip_passive_interface,
        "Interface name\n"
        "default for all interfaces\n")
 {
-  char *ifname = argv[0];
+  const char *ifname = argv[0];
 
   if (!strcmp(ifname,"default")) {
     passive_default = 1;
@@ -2005,7 +2005,7 @@ DEFUN (no_rip_passive_interface,
        "Interface name\n"
        "default for all interfaces\n")
 {
-  char *ifname = argv[0];
+  const char *ifname = argv[0];
 
   if (!strcmp(ifname,"default")) {
     passive_default = 0;

@@ -45,7 +45,7 @@ struct rip_metric_modifier
 
 int
 ripng_route_match_add (struct vty *vty, struct route_map_index *index,
-		       const char *command, char *arg)
+		       const char *command, const char *arg)
 {
   int ret;
 
@@ -69,7 +69,7 @@ ripng_route_match_add (struct vty *vty, struct route_map_index *index,
 
 int
 ripng_route_match_delete (struct vty *vty, struct route_map_index *index,
-			  const char *command, char *arg)
+			  const char *command, const char *arg)
 {
   int ret;
 
@@ -93,7 +93,7 @@ ripng_route_match_delete (struct vty *vty, struct route_map_index *index,
 
 int
 ripng_route_set_add (struct vty *vty, struct route_map_index *index,
-		     const char *command, char *arg)
+		     const char *command, const char *arg)
 {
   int ret;
 
@@ -117,7 +117,7 @@ ripng_route_set_add (struct vty *vty, struct route_map_index *index,
 
 int
 ripng_route_set_delete (struct vty *vty, struct route_map_index *index,
-			const char *command, char *arg)
+			const char *command, const char *arg)
 {
   int ret;
 
@@ -163,7 +163,7 @@ route_match_metric (void *rule, struct prefix *prefix,
 
 /* Route map `match metric' match statement. `arg' is METRIC value */
 void *
-route_match_metric_compile (char *arg)
+route_match_metric_compile (const char *arg)
 {
   u_int32_t *metric;
 
@@ -223,7 +223,7 @@ route_match_interface (void *rule, struct prefix *prefix,
 
 /* Route map `match interface' match statement. `arg' is IFNAME value */
 void *
-route_match_interface_compile (char *arg)
+route_match_interface_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -267,7 +267,7 @@ route_match_tag (void *rule, struct prefix *prefix,
 
 /* Route map `match tag' match statement. `arg' is TAG value */
 void *
-route_match_tag_compile (char *arg)
+route_match_tag_compile (const char *arg)
 {
   u_short *tag;
 
@@ -327,10 +327,10 @@ route_set_metric (void *rule, struct prefix *prefix,
 
 /* set metric compilation. */
 void *
-route_set_metric_compile (char *arg)
+route_set_metric_compile (const char *arg)
 {
   int len;
-  char *pnt;
+  const char *pnt;
   int type;
   long metric;
   char *endptr = NULL;
@@ -419,7 +419,7 @@ route_set_ipv6_nexthop_local (void *rule, struct prefix *prefix,
 /* Route map `ipv6 nexthop local' compile function.  Given string is converted
    to struct in6_addr structure. */
 void *
-route_set_ipv6_nexthop_local_compile (char *arg)
+route_set_ipv6_nexthop_local_compile (const char *arg)
 {
   int ret;
   struct in6_addr *address;
@@ -479,7 +479,7 @@ route_set_tag (void *rule, struct prefix *prefix,
 /* Route map `tag' compile function.  Given string is converted
    to u_short. */
 void *
-route_set_tag_compile (char *arg)
+route_set_tag_compile (const char *arg)
 {
   u_short *tag;
 

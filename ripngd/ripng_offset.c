@@ -51,7 +51,7 @@ struct ripng_offset_list
 static struct list *ripng_offset_list_master;
 
 int
-strcmp_safe (char *s1, char *s2)
+strcmp_safe (const char *s1, const char *s2)
 {
   if (s1 == NULL && s2 == NULL)
     return 0;
@@ -78,7 +78,7 @@ ripng_offset_list_free (struct ripng_offset_list *offset)
 }
 
 struct ripng_offset_list *
-ripng_offset_list_lookup (char *ifname)
+ripng_offset_list_lookup (const char *ifname)
 {
   struct ripng_offset_list *offset;
   struct listnode *nn;
@@ -92,7 +92,7 @@ ripng_offset_list_lookup (char *ifname)
 }
 
 struct ripng_offset_list *
-ripng_offset_list_get (char *ifname)
+ripng_offset_list_get (const char *ifname)
 {
   struct ripng_offset_list *offset;
   
@@ -109,8 +109,9 @@ ripng_offset_list_get (char *ifname)
 }
 
 int
-ripng_offset_list_set (struct vty *vty, char *alist, char *direct_str,
-		       char *metric_str, char *ifname)
+ripng_offset_list_set (struct vty *vty, const char *alist,
+		       const char *direct_str, const char *metric_str,
+		       const char *ifname)
 {
   int direct;
   int metric;
@@ -147,8 +148,9 @@ ripng_offset_list_set (struct vty *vty, char *alist, char *direct_str,
 }
 
 int
-ripng_offset_list_unset (struct vty *vty, char *alist, char *direct_str,
-		         char *metric_str, char *ifname)
+ripng_offset_list_unset (struct vty *vty, const char *alist,
+			 const char *direct_str, const char *metric_str,
+			 const char *ifname)
 {
   int direct;
   int metric;

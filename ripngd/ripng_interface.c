@@ -52,7 +52,7 @@ extern struct zebra_privs_t ripngd_privs;
 /* Static utility function. */
 static void ripng_enable_apply (struct interface *);
 static void ripng_passive_interface_apply (struct interface *);
-int ripng_enable_if_lookup (char *ifname);
+int ripng_enable_if_lookup (const char *ifname);
 int ripng_enable_network_lookup2 (struct connected *connected);
 void ripng_enable_apply_all ();
 
@@ -155,12 +155,12 @@ ripng_if_ipv6_lladdress_check (struct interface *ifp)
 }
 
 /* Check max mtu size. */
-int
+unsigned int
 ripng_check_max_mtu ()
 {
   struct listnode *node;
   struct interface *ifp;
-  int mtu;
+  unsigned int mtu;
 
   mtu = 0;
   for (node = listhead (iflist); node; nextnode (node))
@@ -636,7 +636,7 @@ ripng_enable_network_delete (struct prefix *p)
 
 /* Lookup function. */
 int
-ripng_enable_if_lookup (char *ifname)
+ripng_enable_if_lookup (const char *ifname)
 {
   unsigned int i;
   char *str;
@@ -650,7 +650,7 @@ ripng_enable_if_lookup (char *ifname)
 
 /* Add interface to ripng_enable_if. */
 int
-ripng_enable_if_add (char *ifname)
+ripng_enable_if_add (const char *ifname)
 {
   int ret;
 
@@ -667,7 +667,7 @@ ripng_enable_if_add (char *ifname)
 
 /* Delete interface from ripng_enable_if. */
 int
-ripng_enable_if_delete (char *ifname)
+ripng_enable_if_delete (const char *ifname)
 {
   int index;
   char *str;
@@ -860,7 +860,7 @@ vector Vripng_passive_interface;
 
 /* Utility function for looking up passive interface settings. */
 int
-ripng_passive_interface_lookup (char *ifname)
+ripng_passive_interface_lookup (const char *ifname)
 {
   unsigned int i;
   char *str;
@@ -902,7 +902,7 @@ ripng_passive_interface_apply_all (void)
 
 /* Passive interface. */
 int
-ripng_passive_interface_set (struct vty *vty, char *ifname)
+ripng_passive_interface_set (struct vty *vty, const char *ifname)
 {
   if (ripng_passive_interface_lookup (ifname) >= 0)
     return CMD_WARNING;
@@ -915,7 +915,7 @@ ripng_passive_interface_set (struct vty *vty, char *ifname)
 }
 
 int
-ripng_passive_interface_unset (struct vty *vty, char *ifname)
+ripng_passive_interface_unset (struct vty *vty, const char *ifname)
 {
   int i;
   char *str;
@@ -954,7 +954,7 @@ int
 ripng_network_write (struct vty *vty, int config_mode)
 {
   unsigned int i;
-  char *ifname;
+  const char *ifname;
   struct route_node *node;
   char buf[BUFSIZ];
 

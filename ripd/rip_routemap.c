@@ -47,7 +47,7 @@ struct rip_metric_modifier
 /* Add rip route map rule. */
 int
 rip_route_match_add (struct vty *vty, struct route_map_index *index,
-		     const char *command, char *arg)
+		     const char *command, const char *arg)
 {
   int ret;
 
@@ -70,7 +70,7 @@ rip_route_match_add (struct vty *vty, struct route_map_index *index,
 /* Delete rip route map rule. */
 int
 rip_route_match_delete (struct vty *vty, struct route_map_index *index,
-			const char *command, char *arg)
+			const char *command, const char *arg)
 {
   int ret;
 
@@ -93,7 +93,7 @@ rip_route_match_delete (struct vty *vty, struct route_map_index *index,
 /* Add rip route map rule. */
 int
 rip_route_set_add (struct vty *vty, struct route_map_index *index,
-		   const char *command, char *arg)
+		   const char *command, const char *arg)
 {
   int ret;
 
@@ -116,7 +116,7 @@ rip_route_set_add (struct vty *vty, struct route_map_index *index,
 /* Delete rip route map rule. */
 int
 rip_route_set_delete (struct vty *vty, struct route_map_index *index,
-		      const char *command, char *arg)
+		      const char *command, const char *arg)
 {
   int ret;
 
@@ -139,7 +139,7 @@ rip_route_set_delete (struct vty *vty, struct route_map_index *index,
 /* Hook function for updating route_map assignment. */
 /* ARGSUSED */
 void
-rip_route_map_update (char *notused)
+rip_route_map_update (const char *notused)
 {
   int i;
 
@@ -178,7 +178,7 @@ route_match_metric (void *rule, struct prefix *prefix,
 
 /* Route map `match metric' match statement. `arg' is METRIC value */
 void *
-route_match_metric_compile (char *arg)
+route_match_metric_compile (const char *arg)
 {
   u_int32_t *metric;
 
@@ -239,7 +239,7 @@ route_match_interface (void *rule, struct prefix *prefix,
 /* Route map `match interface' match statement. `arg' is IFNAME value */
 /* XXX I don`t know if I need to check does interface exist? */
 void *
-route_match_interface_compile (char *arg)
+route_match_interface_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -291,7 +291,7 @@ route_match_ip_next_hop (void *rule, struct prefix *prefix,
 /* Route map `ip next-hop' match statement.  `arg' should be
    access-list name. */
 void *
-route_match_ip_next_hop_compile (char *arg)
+route_match_ip_next_hop_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -340,7 +340,7 @@ route_match_ip_next_hop_prefix_list (void *rule, struct prefix *prefix,
 }
 
 void *
-route_match_ip_next_hop_prefix_list_compile (char *arg)
+route_match_ip_next_hop_prefix_list_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -384,7 +384,7 @@ route_match_ip_address (void *rule, struct prefix *prefix,
 /* Route map `ip address' match statement.  `arg' should be
    access-list name. */
 void *
-route_match_ip_address_compile (char *arg)
+route_match_ip_address_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -426,7 +426,7 @@ route_match_ip_address_prefix_list (void *rule, struct prefix *prefix,
 }
 
 void *
-route_match_ip_address_prefix_list_compile (char *arg)
+route_match_ip_address_prefix_list_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -470,7 +470,7 @@ route_match_tag (void *rule, struct prefix *prefix,
 
 /* Route map `match tag' match statement. `arg' is TAG value */
 void *
-route_match_tag_compile (char *arg)
+route_match_tag_compile (const char *arg)
 {
   u_short *tag;
 
@@ -530,10 +530,10 @@ route_set_metric (void *rule, struct prefix *prefix,
 
 /* set metric compilation. */
 void *
-route_set_metric_compile (char *arg)
+route_set_metric_compile (const char *arg)
 {
   int len;
-  char *pnt;
+  const char *pnt;
   int type;
   long metric;
   char *endptr = NULL;
@@ -621,7 +621,7 @@ route_set_ip_nexthop (void *rule, struct prefix *prefix,
 /* Route map `ip nexthop' compile function.  Given string is converted
    to struct in_addr structure. */
 void *
-route_set_ip_nexthop_compile (char *arg)
+route_set_ip_nexthop_compile (const char *arg)
 {
   int ret;
   struct in_addr *address;
@@ -681,7 +681,7 @@ route_set_tag (void *rule, struct prefix *prefix,
 /* Route map `tag' compile function.  Given string is converted
    to u_short. */
 void *
-route_set_tag_compile (char *arg)
+route_set_tag_compile (const char *arg)
 {
   u_short *tag;
 

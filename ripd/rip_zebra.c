@@ -154,7 +154,7 @@ rip_zclient_reset ()
 
 /* RIP route-map set for redistribution */
 void
-rip_routemap_set (int type, char *name)
+rip_routemap_set (int type, const char *name)
 {
   if (rip->route_map[type].name)
     free(rip->route_map[type].name);
@@ -184,7 +184,7 @@ rip_metric_unset (int type, unsigned int metric)
 
 /* RIP route-map unset for redistribution */
 int
-rip_routemap_unset (int type,char *name)
+rip_routemap_unset (int type, const char *name)
 {
   if (! rip->route_map[type].name ||
       (name != NULL && strcmp(rip->route_map[type].name,name)))

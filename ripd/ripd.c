@@ -3107,8 +3107,8 @@ rip_distance_free (struct rip_distance *rdistance)
 }
 
 int
-rip_distance_set (struct vty *vty, char *distance_str, char *ip_str,
-		  char *access_list_str)
+rip_distance_set (struct vty *vty, const char *distance_str, const char *ip_str,
+		  const char *access_list_str)
 {
   int ret;
   struct prefix_ipv4 p;
@@ -3154,8 +3154,8 @@ rip_distance_set (struct vty *vty, char *distance_str, char *ip_str,
 }
 
 int
-rip_distance_unset (struct vty *vty, char *distance_str, char *ip_str,
-		    char *access_list_str)
+rip_distance_unset (struct vty *vty, const char *distance_str,
+		    const char *ip_str, const char *access_list_str)
 {
   int ret;
   struct prefix_ipv4 p;
@@ -3948,7 +3948,7 @@ rip_routemap_update_redistribute (void)
 
 /* ARGSUSED */
 void
-rip_routemap_update (char *notused)
+rip_routemap_update (const char *notused)
 {
   struct interface *ifp;
   struct listnode *node;
