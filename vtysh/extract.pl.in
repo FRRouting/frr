@@ -1,4 +1,4 @@
-#! /usr/bin/perl
+#! @PERL@
 ##
 ## Virtual terminal interface shell command extractor.
 ## Copyright (C) 2000 Kunihiro Ishiguro

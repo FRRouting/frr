@@ -1,3 +1,9 @@
+2004-06-30  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
+	* extract.pl.in: Rename from extract.pl, with @PERL@.
+
+	* Makefile.am: Add vtysh_cmds.c to CLEANFILES.
+
 2004-06-20 Hasso Tepper <hasso@estpak.ee>
 
 	* extract.pl: Zebra daemon has access lists as well.
