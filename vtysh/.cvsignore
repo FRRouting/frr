@@ -7,3 +7,4 @@ TAGS
 .deps
 vtysh_cmd.c
 .nfs*
+extract.pl

@@ -7,3 +7,4 @@ version.c
 version.h
 .deps
 .nfs*
+.libs
