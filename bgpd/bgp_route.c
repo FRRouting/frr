@@ -2270,6 +2270,10 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
   if (! table)
     table = (rsclient) ? rsclient->rib[afi][safi] : peer->bgp->rib[afi][safi];
 
+  /* If still no table => afi/safi isn't configured at all or smth. */
+  if (! table)
+    return;
+
   for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
     {
       for (ri = rn->info; ri; ri = ri->next)
