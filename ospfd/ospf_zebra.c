@@ -125,12 +125,6 @@ ospf_interface_delete (int command, struct zclient *zclient,
     if (rn->info)
       ospf_if_free ((struct ospf_interface *) rn->info);
 
-  for (rn = route_top (IF_OIFS_PARAMS (ifp)); rn; rn = route_next (rn))
-    if (rn->info)
-      ospf_del_if_params (rn->info);
-
-  if_delete (ifp);
-
   return 0;
 }
 

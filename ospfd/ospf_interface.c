@@ -677,11 +677,18 @@ int
 ospf_if_delete_hook (struct interface *ifp)
 {
   int rc = 0;
+  struct route_node *rn;
 #ifdef HAVE_OPAQUE_LSA
   rc = ospf_opaque_del_if (ifp);
 #endif /* HAVE_OPAQUE_LSA */
+
   route_table_finish (IF_OIFS (ifp));
+
+  for (rn = route_top (IF_OIFS_PARAMS (ifp)); rn; rn = route_next (rn))
+    if (rn->info)
+      ospf_del_if_params (rn->info);
   route_table_finish (IF_OIFS_PARAMS (ifp));
+
   ospf_del_if_params ((struct ospf_if_params *) IF_DEF_PARAMS (ifp));
   XFREE (MTYPE_OSPF_IF_INFO, ifp->info);
   ifp->info = NULL;

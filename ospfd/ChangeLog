@@ -1,3 +1,12 @@
+2004-02-17 Paul Jakma <paul@dishone.st>
+
+	* ospf_zebra.c: (ospf_interface_delete) Do not delete the interface
+	  params, nor the interface structure, if an interface delete 
+	  message is received from zebra.
+	* ospf_interface.c: (ospf_if_delete_hook) Delete the interface
+	  params and interface, ie that which was previously removed in
+	  (ospf_interface_delete) above.
+
 2004-02-11 Hasso Tepper <hasso@estpak.ee>
 	* ospf_interface.c, ospf_zebra.c: Don't attempt to read path->oi->ifp
 	  if oi doesn't exist any more.
