@@ -1122,7 +1122,7 @@ ospf_area_nssa_set (struct ospf *ospf, struct in_addr area_id)
   /* set NSSA area defaults */
   area->no_summary = 0;
   area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
-  area->NSSATranslatorState = OSPF_NSSA_STATE_DISABLED;
+  area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
   area->NSSATranslatorStabilityInterval = OSPF_NSSA_TRANS_STABLE_DEFAULT;
 
   return 1;

@@ -344,11 +344,11 @@ struct ospf_area
 
   u_char NSSATranslatorRole;          /* NSSA configured role */
 #define OSPF_NSSA_ROLE_NEVER     0
-#define OSPF_NSSA_ROLE_ALWAYS    1
-#define OSPF_NSSA_ROLE_CANDIDATE 2
+#define OSPF_NSSA_ROLE_CANDIDATE 1
+#define OSPF_NSSA_ROLE_ALWAYS    2
   u_char NSSATranslatorState;              /* NSSA operational role */
-#define OSPF_NSSA_STATE_DISABLED 0
-#define OSPF_NSSA_STATE_ENABLED  2
+#define OSPF_NSSA_TRANSLATE_DISABLED 0
+#define OSPF_NSSA_TRANSLATE_ENABLED  1
   int NSSATranslatorStabilityInterval;
   
   u_char transit;			/* TransitCapability. */
@@ -474,9 +474,8 @@ struct ospf_nbr_nbma
 #define LSA_OPTIONS_GET(area) \
         (((area)->external_routing == OSPF_AREA_DEFAULT) ? OSPF_OPTION_E : 0)
 #ifdef HAVE_NSSA
-#define LSA_NSSA_GET(area) \
-        (((area)->external_routing == OSPF_AREA_NSSA) ? \
-          (area)->NSSATranslatorState : 0)
+#define LSA_OPTIONS_NSSA_GET(area) \
+        (((area)->external_routing == OSPF_AREA_NSSA)  ? OSPF_OPTION_NP : 0)
 #endif /* HAVE_NSSA */
 
 #define OSPF_TIMER_ON(T,F,V)                                                  \

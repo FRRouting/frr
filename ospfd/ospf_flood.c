@@ -185,12 +185,18 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
     case OSPF_AS_EXTERNAL_LSA :
 #ifdef HAVE_NSSA
     case OSPF_AS_NSSA_LSA:
+       if ( (new->data->type == OSPF_AS_EXTERNAL_LSA)
+             && CHECK_FLAG (new->flags, OSPF_LSA_LOCAL_XLT))
+         {
+           ospf_translated_nssa_refresh (ospf, NULL, new);
+           return;
+         }
 #endif /* HAVE_NSSA */
       ei = ospf_external_info_check (new);
       if (ei)
-	ospf_external_lsa_refresh (ospf, new, ei, LSA_REFRESH_FORCE);
+        ospf_external_lsa_refresh (ospf, new, ei, LSA_REFRESH_FORCE);
       else
-	ospf_lsa_flush_as (ospf, new);
+        ospf_lsa_flush_as (ospf, new);
       break;
 #ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AREA_LSA:

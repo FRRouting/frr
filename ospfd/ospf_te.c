@@ -414,8 +414,8 @@ set_linkparams_link_id (struct ospf_interface *oi, struct mpls_te_link *lp)
     {
     case OSPF_IFTYPE_POINTOPOINT:
       /* Take the router ID of the neighbor. */
-      if (((nbr = ospf_nbr_lookup_ptop (oi->nbrs, oi->area->top->router_id)))
-      &&  (nbr->state == NSM_Full))
+      if ((nbr = ospf_nbr_lookup_ptop (oi))
+	  && nbr->state == NSM_Full)
         {
           lp->link_id.value = nbr->router_id;
           done = 1;
@@ -429,7 +429,7 @@ set_linkparams_link_id (struct ospf_interface *oi, struct mpls_te_link *lp)
 
       if (nbr->state == NSM_Full
       || (IPV4_ADDR_SAME (&oi->address->u.prefix4, &DR (oi))
-      &&  ospf_nbr_count (oi->nbrs, NSM_Full) > 0))
+      &&  ospf_nbr_count (oi, NSM_Full) > 0))
         {
           lp->link_id.value = DR (oi);
           done = 1;
@@ -628,7 +628,7 @@ ospf_mpls_te_ism_change (struct ospf_interface *oi, int old_state)
       zlog_warn ("ospf_mpls_te_ism_change: Cannot get linkparams from OI(%s)?", IF_NAME (oi));
       goto out;
     }
-  if (oi->area == NULL || oi->area->top == NULL)
+  if (oi->area == NULL || oi->area->ospf == NULL)
     {
       zlog_warn ("ospf_mpls_te_ism_change: Cannot refer to OSPF from OI(%s)?",
 IF_NAME (oi));
@@ -879,7 +879,7 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
 
   options  = LSA_OPTIONS_GET (area);
 #ifdef HAVE_NSSA
-  options |= LSA_NSSA_GET (area);
+  options |= LSA_OPTIONS_NSSA_GET (area);
 #endif /* HAVE_NSSA */
   options |= OSPF_OPTION_O; /* Don't forget this :-) */
 
@@ -891,7 +891,7 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
     zlog_info ("LSA[Type%d:%s]: Create an Opaque-LSA/MPLS-TE instance", lsa_type, inet_ntoa (lsa_id));
 
   /* Set opaque-LSA header fields. */
-  lsa_header_set (s, options, lsa_type, lsa_id);
+  lsa_header_set (s, options, lsa_type, lsa_id, area->ospf->router_id);
 
   /* Set opaque-LSA body fields. */
   ospf_mpls_te_lsa_body_set (s, lp);
@@ -939,7 +939,7 @@ ospf_mpls_te_lsa_originate1 (struct ospf_area *area, struct mpls_te_link *lp)
     }
 
   /* Install this LSA into LSDB. */
-  if (ospf_lsa_install (NULL/*oi*/, new) == NULL)
+  if (ospf_lsa_install (area->ospf, NULL/*oi*/, new) == NULL)
     {
       zlog_warn ("ospf_mpls_te_lsa_originate1: ospf_lsa_install() ?");
       ospf_lsa_free (new);
@@ -950,7 +950,7 @@ ospf_mpls_te_lsa_originate1 (struct ospf_area *area, struct mpls_te_link *lp)
   lp->flags |= LPFLG_LSA_ENGAGED;
 
   /* Update new LSA origination count. */
-  area->top->lsa_originate_count++;
+  area->ospf->lsa_originate_count++;
 
   /* Flood new LSA through area. */
   ospf_flood_through_area (area, NULL/*nbr*/, new);
@@ -1059,7 +1059,7 @@ ospf_mpls_te_lsa_refresh (struct ospf_lsa *lsa)
 
   /* Install this LSA into LSDB. */
   /* Given "lsa" will be freed in the next function. */
-  if (ospf_lsa_install (NULL/*oi*/, new) == NULL)
+  if (ospf_lsa_install (area->ospf, NULL/*oi*/, new) == NULL)
     {
       zlog_warn ("ospf_mpls_te_lsa_refresh: ospf_lsa_install() ?");
       ospf_lsa_free (new);

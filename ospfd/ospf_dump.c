@@ -425,8 +425,7 @@ ospf_as_external_lsa_dump (struct stream *s, u_int16_t length)
   int i;
 
   al = (struct as_external_lsa *) STREAM_PNT (s);
-
-  zlog_info ("  AS-external-LSA");
+  zlog_info ("  %s", ospf_lsa_type_msg[al->header.type].str);
   zlog_info ("    Network Mask %s", inet_ntoa (al->mask));
 
   size = ntohs (al->header.length) - OSPF_LSA_HEADER_SIZE -4;
@@ -563,7 +562,7 @@ ospf_packet_ls_upd_dump (struct stream *s, u_int16_t length)
 	  break;
 #ifdef HAVE_NSSA
 	case OSPF_AS_NSSA_LSA:
-	  /* XXX */
+	  ospf_as_external_lsa_dump (s, length);
 	  break;
 #endif /* HAVE_NSSA */
 #ifdef HAVE_OPAQUE_LSA

@@ -277,7 +277,9 @@ struct ospf_lsa *ospf_external_lsa_originate (struct ospf *, struct external_inf
 int ospf_external_lsa_originate_timer (struct thread *);
 struct ospf_lsa *ospf_lsa_lookup (struct ospf_area *, u_int32_t,
 				  struct in_addr, struct in_addr);
-struct ospf_lsa *ospf_lsa_lookup_by_id (struct ospf_area *,u_int32_t, struct in_addr);
+struct ospf_lsa *ospf_lsa_lookup_by_id (struct ospf_area *,
+                                        u_int32_t, 
+                                        struct in_addr);
 struct ospf_lsa *ospf_lsa_lookup_by_header (struct ospf_area *,
 					    struct lsa_header *);
 int ospf_lsa_more_recent (struct ospf_lsa *, struct ospf_lsa *);
@@ -319,10 +321,10 @@ int metric_value (struct ospf *, u_char);
 
 #ifdef HAVE_NSSA
 struct in_addr ospf_get_nssa_ip (struct ospf_area *);
-#endif /* HAVE NSSA */
-
-#ifdef HAVE_NSSA
-struct in_addr ospf_get_nssa_ip (struct ospf_area *);
+int ospf_translated_nssa_compare (struct ospf_lsa *, struct ospf_lsa *);
+struct ospf_lsa *ospf_translated_nssa_refresh (struct ospf *, struct ospf_lsa *,
+                                   struct ospf_lsa *);
+struct ospf_lsa *ospf_translated_nssa_originate (struct ospf *, struct ospf_lsa *);
 #endif
 
 #endif /* _ZEBRA_OSPF_LSA_H */
