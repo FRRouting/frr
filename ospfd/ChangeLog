@@ -3,7 +3,8 @@
 	* ospf_network.c: (ospf_sock_init) call neutral setsock_ifindex()
           function.
         * ospf_packet.c: (ospf_read) manually look up ifindex
-          if system could not have returned one, eg openbsd.
+          if system could not have returned one, eg openbsd, thanks to Rivo
+	  Nurges for highlighting problem and fix.
           Change setsockopt_pktinfo to setsockopt_ifindex.
 
 2004-10-19 Andrew J. Schorr <aschorr@telemetry-investments.com>
