@@ -1076,7 +1076,7 @@ AC_OUTPUT(Makefile lib/Makefile zebra/Makefile ripd/Makefile
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile 
 	  ospf6d/Makefile isisd/Makefile vtysh/Makefile doc/Makefile 
 	  ospfclient/Makefile
-	  redhat/quagga.spec
+	  redhat/Makefile redhat/quagga.spec
 	  lib/version.h)
 
 echo "

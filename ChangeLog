@@ -1,3 +1,8 @@
+2004-01-10 Vincent Jardin <jardin@6wind.com>
+
+	* configure.ac: add the redhat/Makefile as a AC_OUTPUT() argument.
+	It fixes build on FreeBSD 5.1 and FreeBSD 4.7
+
 2004-01-08 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: as per gdt, specify the redhat dir as a DIST_SUBDIR,
