@@ -2067,7 +2067,6 @@ struct peer_flag_action peer_flag_action_list[] =
     { PEER_FLAG_DONT_CAPABILITY,          0, peer_change_none },
     { PEER_FLAG_OVERRIDE_CAPABILITY,      0, peer_change_none },
     { PEER_FLAG_STRICT_CAP_MATCH,         0, peer_change_none },
-    { PEER_FLAG_NO_ROUTE_REFRESH_CAP,     0, peer_change_reset },
     { PEER_FLAG_DYNAMIC_CAPABILITY,       0, peer_change_reset },
     { PEER_FLAG_ENFORCE_MULTIHOP,         0, peer_change_reset },
     { 0, 0, 0 }
@@ -2172,33 +2171,15 @@ peer_flag_modify_action (struct peer *peer, u_int32_t flag)
     }
   else if (peer->status == Established)
     {
-      if (flag == PEER_FLAG_NO_ROUTE_REFRESH_CAP
-	  && CHECK_FLAG (peer->cap, PEER_CAP_DYNAMIC_RCV))
-	{
-	  if (CHECK_FLAG (peer->flags, flag))
-	    UNSET_FLAG (peer->cap, PEER_CAP_REFRESH_ADV);
-	  else
-	    SET_FLAG (peer->cap, PEER_CAP_REFRESH_ADV);
+      if (flag == PEER_FLAG_DYNAMIC_CAPABILITY)
+	peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
+      else if (flag == PEER_FLAG_PASSIVE)
+	peer->last_reset = PEER_DOWN_PASSIVE_CHANGE;
+      else if (flag == PEER_FLAG_ENFORCE_MULTIHOP)
+	peer->last_reset = PEER_DOWN_MULTIHOP_CHANGE;
 
-	  bgp_capability_send (peer, AFI_IP, SAFI_UNICAST,
-			       CAPABILITY_CODE_REFRESH,
-			       CHECK_FLAG (peer->flags, flag) ?
-			       CAPABILITY_ACTION_UNSET : CAPABILITY_ACTION_SET);
-	}
-      else
-       {
-         if (flag == PEER_FLAG_NO_ROUTE_REFRESH_CAP)
-           peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
-         else if (flag == PEER_FLAG_DYNAMIC_CAPABILITY)
-           peer->last_reset = PEER_DOWN_CAPABILITY_CHANGE;
-         else if (flag == PEER_FLAG_PASSIVE)
-           peer->last_reset = PEER_DOWN_PASSIVE_CHANGE;
-         else if (flag == PEER_FLAG_ENFORCE_MULTIHOP)
-           peer->last_reset = PEER_DOWN_MULTIHOP_CHANGE;
-
-         bgp_notify_send (peer, BGP_NOTIFY_CEASE,
-                          BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-       }
+      bgp_notify_send (peer, BGP_NOTIFY_CEASE,
+		       BGP_NOTIFY_CEASE_CONFIG_CHANGE);
     }
   else
     BGP_EVENT_ADD (peer, BGP_Stop);
@@ -4352,13 +4333,6 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	    g_peer->weight != peer->weight)
 	  vty_out (vty, " neighbor %s weight %d%s", addr, peer->weight,
 		   VTY_NEWLINE);
-
-      /* Route refresh. */
-      if (CHECK_FLAG (peer->flags, PEER_FLAG_NO_ROUTE_REFRESH_CAP))
-        if (! peer_group_active (peer) ||
-	    ! CHECK_FLAG (g_peer->flags, PEER_FLAG_NO_ROUTE_REFRESH_CAP))
-	  vty_out (vty, " no neighbor %s capability route-refresh%s", addr,
-	  VTY_NEWLINE);
 
       /* Dynamic capability.  */
       if (CHECK_FLAG (peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY))

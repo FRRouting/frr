@@ -1037,22 +1037,6 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
 		   "Advertising" : "Removing", afi, safi);
     }
 
-  /* Encode Route Refresh capability. */
-  if (capability_code == CAPABILITY_CODE_REFRESH)
-    {
-      stream_putc (s, action);
-      stream_putc (s, CAPABILITY_CODE_REFRESH);
-      stream_putc (s, CAPABILITY_CODE_REFRESH_LEN);
-      stream_putc (s, action);
-      stream_putc (s, CAPABILITY_CODE_REFRESH_OLD);
-      stream_putc (s, CAPABILITY_CODE_REFRESH_LEN);
-
-      if (BGP_DEBUG (normal, NORMAL))
-        zlog_debug ("%s sending CAPABILITY has %s ROUTE-REFRESH capability",
-		   peer->host, action == CAPABILITY_ACTION_SET ?
-		   "Advertising" : "Removing");
-    }
-
   /* Set packet size. */
   length = bgp_packet_set_size (s);
 
@@ -2023,42 +2007,6 @@ bgp_capability_msg_parse (struct peer *peer, u_char *pnt, bgp_size_t length)
 		  else
 		    BGP_EVENT_ADD (peer, BGP_Stop);
 		} 
-	    }
-        }
-      else if (cap.code == CAPABILITY_CODE_REFRESH
-	       || cap.code == CAPABILITY_CODE_REFRESH_OLD)
-        {
-          /* Check length. */
-          if (cap.length != 0)
-            {
-              zlog_info ("%s Route Refresh Capability length error %d",
-                         peer->host, cap.length);
-              bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
-              return -1;
-            }
-	  
-          if (BGP_DEBUG (normal, NORMAL))
-            zlog_debug ("%s CAPABILITY has %s ROUTE-REFRESH capability(%s) for all address-families",
-		       peer->host,
-		       action == CAPABILITY_ACTION_SET
-		       ? "Advertising" : "Removing",
-		       cap.code == CAPABILITY_CODE_REFRESH_OLD
-		       ? "old" : "new");
-	  
-          /* BGP refresh capability */
-	  if (action == CAPABILITY_ACTION_SET)
-	    {
-	      if (cap.code == CAPABILITY_CODE_REFRESH_OLD)
-		SET_FLAG (peer->cap, PEER_CAP_REFRESH_OLD_RCV);
-	      else
-		SET_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV);
-	    }
-	  else
-	    {
-	      if (cap.code == CAPABILITY_CODE_REFRESH_OLD)
-		UNSET_FLAG (peer->cap, PEER_CAP_REFRESH_OLD_RCV);
-	      else
-		UNSET_FLAG (peer->cap, PEER_CAP_REFRESH_NEW_RCV);
 	    }
         }
       else

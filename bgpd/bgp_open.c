@@ -745,23 +745,6 @@ bgp_open_capability (struct stream *s, struct peer *peer)
       || CHECK_FLAG (peer->flags, PEER_FLAG_DONT_CAPABILITY))
     return;
 
-  /* When the peer is IPv4 unicast only, do not send capability. */
-  if (! peer->afc[AFI_IP][SAFI_MULTICAST] 
-      && ! peer->afc[AFI_IP][SAFI_MPLS_VPN]
-      && ! peer->afc[AFI_IP6][SAFI_UNICAST] 
-      && ! peer->afc[AFI_IP6][SAFI_MULTICAST]
-      && CHECK_FLAG (peer->flags, PEER_FLAG_NO_ROUTE_REFRESH_CAP)
-      && ! CHECK_FLAG (peer->af_flags[AFI_IP][SAFI_UNICAST],
-		       PEER_FLAG_ORF_PREFIX_SM)
-      && ! CHECK_FLAG (peer->af_flags[AFI_IP][SAFI_UNICAST],
-		       PEER_FLAG_ORF_PREFIX_RM)
-      && ! CHECK_FLAG (peer->af_flags[AFI_IP][SAFI_MULTICAST],
-		       PEER_FLAG_ORF_PREFIX_SM)
-      && ! CHECK_FLAG (peer->af_flags[AFI_IP][SAFI_MULTICAST],
-		       PEER_FLAG_ORF_PREFIX_RM)
-      && ! CHECK_FLAG (peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY))
-    return;
-
   /* IPv4 unicast. */
   if (peer->afc[AFI_IP][SAFI_UNICAST])
     {
@@ -826,18 +809,15 @@ bgp_open_capability (struct stream *s, struct peer *peer)
 #endif /* HAVE_IPV6 */
 
   /* Route refresh. */
-  if (! CHECK_FLAG (peer->flags, PEER_FLAG_NO_ROUTE_REFRESH_CAP))
-    {
-      SET_FLAG (peer->cap, PEER_CAP_REFRESH_ADV);
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_REFRESH_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_REFRESH_OLD);
-      stream_putc (s, CAPABILITY_CODE_REFRESH_LEN);
-      stream_putc (s, BGP_OPEN_OPT_CAP);
-      stream_putc (s, CAPABILITY_CODE_REFRESH_LEN + 2);
-      stream_putc (s, CAPABILITY_CODE_REFRESH);
-      stream_putc (s, CAPABILITY_CODE_REFRESH_LEN);
-    }
+  SET_FLAG (peer->cap, PEER_CAP_REFRESH_ADV);
+  stream_putc (s, BGP_OPEN_OPT_CAP);
+  stream_putc (s, CAPABILITY_CODE_REFRESH_LEN + 2);
+  stream_putc (s, CAPABILITY_CODE_REFRESH_OLD);
+  stream_putc (s, CAPABILITY_CODE_REFRESH_LEN);
+  stream_putc (s, BGP_OPEN_OPT_CAP);
+  stream_putc (s, CAPABILITY_CODE_REFRESH_LEN + 2);
+  stream_putc (s, CAPABILITY_CODE_REFRESH);
+  stream_putc (s, CAPABILITY_CODE_REFRESH_LEN);
 
   /* ORF capability. */
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)

@@ -1,5 +1,11 @@
 2005-02-01 Akihiro Mizutani <mizutani@net-chef.net>
 
+	* bgp_open.c, bgp_packet.c, bgp_vty.c, bgpd.[ch]: Remove "no neighbor
+	  capability route-refresh" commands. Route refresh capability is sent
+	  anyway now. Preserve dummy deprecated commands.
+
+2005-02-01 Akihiro Mizutani <mizutani@net-chef.net>
+
 	* bgp_attr.c, bgp_snmp.c, bgp_vty.c, bgpd.[ch]: Remove support for old
 	  draft - ie. "neighbor version 4-" commands. Preserve dummy "neighbor
 	  version" command as deprecated.

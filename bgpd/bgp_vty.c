@@ -1594,28 +1594,28 @@ DEFUN (no_neighbor_shutdown,
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_SHUTDOWN);
 }
 
-/* neighbor capability route-refresh. */
-DEFUN (neighbor_capability_route_refresh,
-       neighbor_capability_route_refresh_cmd,
-       NEIGHBOR_CMD2 "capability route-refresh",
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Advertise capability to the peer\n"
-       "Advertise route-refresh capability to this neighbor\n")
+/* Deprecated neighbor capability route-refresh. */
+DEFUN_DEPRECATED (neighbor_capability_route_refresh,
+		  neighbor_capability_route_refresh_cmd,
+		  NEIGHBOR_CMD2 "capability route-refresh",
+		  NEIGHBOR_STR
+		  NEIGHBOR_ADDR_STR2
+		  "Advertise capability to the peer\n"
+		  "Advertise route-refresh capability to this neighbor\n")
 {
-  return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_NO_ROUTE_REFRESH_CAP);
+  return CMD_SUCCESS;
 }
 
-DEFUN (no_neighbor_capability_route_refresh,
-       no_neighbor_capability_route_refresh_cmd,
-       NO_NEIGHBOR_CMD2 "capability route-refresh",
-       NO_STR
-       NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
-       "Advertise capability to the peer\n"
-       "Advertise route-refresh capability to this neighbor\n")
+DEFUN_DEPRECATED (no_neighbor_capability_route_refresh,
+		  no_neighbor_capability_route_refresh_cmd,
+		  NO_NEIGHBOR_CMD2 "capability route-refresh",
+		  NO_STR
+		  NEIGHBOR_STR
+		  NEIGHBOR_ADDR_STR2
+		  "Advertise capability to the peer\n"
+		  "Advertise route-refresh capability to this neighbor\n")
 {
-  return peer_flag_set_vty (vty, argv[0], PEER_FLAG_NO_ROUTE_REFRESH_CAP);
+  return CMD_SUCCESS;
 }
 
 /* neighbor capability dynamic. */
@@ -8783,7 +8783,7 @@ bgp_vty_init ()
   install_element (BGP_NODE, &neighbor_shutdown_cmd);
   install_element (BGP_NODE, &no_neighbor_shutdown_cmd);
 
-  /* "neighbor capability route-refresh" commands.*/
+  /* Deprecated "neighbor capability route-refresh" commands.*/
   install_element (BGP_NODE, &neighbor_capability_route_refresh_cmd);
   install_element (BGP_NODE, &no_neighbor_capability_route_refresh_cmd);
 

@@ -330,10 +330,9 @@ struct peer
 #define PEER_FLAG_DONT_CAPABILITY           (1 << 2) /* dont-capability */
 #define PEER_FLAG_OVERRIDE_CAPABILITY       (1 << 3) /* override-capability */
 #define PEER_FLAG_STRICT_CAP_MATCH          (1 << 4) /* strict-match */
-#define PEER_FLAG_NO_ROUTE_REFRESH_CAP      (1 << 5) /* route-refresh */
-#define PEER_FLAG_DYNAMIC_CAPABILITY        (1 << 6) /* dynamic capability */
-#define PEER_FLAG_ENFORCE_MULTIHOP          (1 << 7) /* enforce-multihop */
-#define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1 << 8) /* local-as no-prepend */
+#define PEER_FLAG_DYNAMIC_CAPABILITY        (1 << 5) /* dynamic capability */
+#define PEER_FLAG_ENFORCE_MULTIHOP          (1 << 6) /* enforce-multihop */
+#define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1 << 7) /* local-as no-prepend */
 
   /* Per AF configuration flags. */
   u_int32_t af_flags[AFI_MAX][SAFI_MAX];
