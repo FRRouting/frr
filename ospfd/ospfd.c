@@ -78,7 +78,7 @@ ospf_router_id_update (struct ospf *ospf)
   struct listnode *node;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("Router-ID[OLD:%s]: Update", inet_ntoa (ospf->router_id));
+    zlog_debug ("Router-ID[OLD:%s]: Update", inet_ntoa (ospf->router_id));
 
   router_id_old = ospf->router_id;
 
@@ -90,7 +90,7 @@ ospf_router_id_update (struct ospf *ospf)
   ospf->router_id = router_id;
   
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("Router-ID[NEW:%s]: Update", inet_ntoa (ospf->router_id));
+    zlog_debug ("Router-ID[NEW:%s]: Update", inet_ntoa (ospf->router_id));
 
   if (!IPV4_ADDR_SAME (&router_id_old, &router_id))
     {
@@ -130,7 +130,7 @@ ospf_router_id_update_timer (struct thread *thread)
   struct ospf *ospf = THREAD_ARG (thread);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("Router-ID: Update timer fired!");
+    zlog_debug ("Router-ID: Update timer fired!");
 
   ospf->t_router_id_update = NULL;
   ospf_router_id_update (ospf);
@@ -935,7 +935,7 @@ ospf_area_type_set (struct ospf_area *area, int type)
   if (area->external_routing == type)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("Area[%s]: Types are the same, ignored.",
+	zlog_debug ("Area[%s]: Types are the same, ignored.",
 		   inet_ntoa (area->area_id));
       return;
     }
@@ -943,7 +943,7 @@ ospf_area_type_set (struct ospf_area *area, int type)
   area->external_routing = type;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("Area[%s]: Configured as %s", inet_ntoa (area->area_id),
+    zlog_debug ("Area[%s]: Configured as %s", inet_ntoa (area->area_id),
 	       LOOKUP (ospf_area_type_msg, type));
 
   switch (area->external_routing)
@@ -963,11 +963,11 @@ ospf_area_type_set (struct ospf_area *area, int type)
 	  if (oi->nbr_self != NULL)
 	    {
 	      if (IS_DEBUG_OSPF_EVENT)
-		zlog_info ("setting options on %s accordingly", IF_NAME (oi));
+		zlog_debug ("setting options on %s accordingly", IF_NAME (oi));
 	      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
 	      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
 	      if (IS_DEBUG_OSPF_EVENT)
-		zlog_info ("options set on %s: %x",
+		zlog_debug ("options set on %s: %x",
 			   IF_NAME (oi), OPTIONS (oi));
 	    }
       break;
@@ -976,10 +976,12 @@ ospf_area_type_set (struct ospf_area *area, int type)
 	if ((oi = getdata (node)) != NULL)
 	  if (oi->nbr_self != NULL)
 	    {
-	      zlog_info ("setting nssa options on %s accordingly", IF_NAME (oi));
+	      if (IS_DEBUG_OSPF_EVENT)
+	        zlog_debug ("setting nssa options on %s accordingly", IF_NAME (oi));
 	      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
 	      SET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
-	      zlog_info ("options set on %s: %x", IF_NAME (oi), OPTIONS (oi));
+	      if (IS_DEBUG_OSPF_EVENT)
+	        zlog_debug ("options set on %s: %x", IF_NAME (oi), OPTIONS (oi));
 	    }
       break;
     default:
