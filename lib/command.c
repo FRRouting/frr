@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.32 2005/01/14 15:47:33 gdt Exp $
+   $Id: command.c,v 1.33 2005/01/14 17:09:38 ajs Exp $
 
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -142,13 +142,12 @@ level_match(const char *s)
   return ZLOG_DISABLED;
 }
 
+/* This is called from main when a daemon is invoked with -v or --version. */
 void
 print_version (const char *progname)
 {
-  printf ("%s version %s", progname, QUAGGA_VERSION);
-  if (host.name != NULL)
-    printf (" (%s)", host.name);
-  printf ("\n%s\n", QUAGGA_COPYRIGHT);
+  printf ("%s version %s\n", progname, QUAGGA_VERSION);
+  printf ("%s\n", QUAGGA_COPYRIGHT);
 }
 
 

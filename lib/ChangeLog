@@ -1,3 +1,8 @@
+2005-01-14 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* command.c (print_version): Do not bother even to examine host.name,
+	  since it is always NULL when this function is called from main.
+
 2005-01-14  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* command.c (print_version): Don't print host.name if it is NULL.
