@@ -184,7 +184,7 @@ init_syntax_once ()
    if (done)
      return;
 
-   bzero (re_syntax_table, sizeof re_syntax_table);
+   memset (re_syntax_table, 0, sizeof re_syntax_table);
 
    for (c = 'a'; c <= 'z'; c++)
      re_syntax_table[c] = Sword;
@@ -2194,7 +2194,7 @@ regex_compile (pattern, size, syntax, bufp)
             BUF_PUSH ((1 << BYTEWIDTH) / BYTEWIDTH);
 
             /* Clear the whole map.  */
-            bzero (b, (1 << BYTEWIDTH) / BYTEWIDTH);
+            memset (b, 0, (1 << BYTEWIDTH) / BYTEWIDTH);
 
             /* charset_not matches newline according to a syntax bit.  */
             if ((re_opcode_t) b[-2] == charset_not
@@ -3223,7 +3223,7 @@ re_compile_fastmap (bufp)
   assert (fastmap != NULL && p != NULL);
 
   INIT_FAIL_STACK ();
-  bzero (fastmap, 1 << BYTEWIDTH);  /* Assume nothing's valid.  */
+  memset (fastmap, 0, 1 << BYTEWIDTH);  /* Assume nothing's valid.  */
   bufp->fastmap_accurate = 1;	    /* It will be when we're done.  */
   bufp->can_be_null = 0;
 

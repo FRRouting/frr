@@ -364,7 +364,7 @@ if_set_flags (struct interface *ifp, unsigned long flags)
   int ret;
   struct ifreq ifreq;
 
-  bzero(&ifreq, sizeof(struct ifreq));
+  memset (&ifreq, 0, sizeof(struct ifreq));
   ifreq_set_name (&ifreq, ifp);
 
   ifreq.ifr_flags = ifp->flags;
@@ -387,7 +387,7 @@ if_unset_flags (struct interface *ifp, unsigned long flags)
   int ret;
   struct ifreq ifreq;
 
-  bzero(&ifreq, sizeof(struct ifreq));
+  memset (&ifreq, 0, sizeof(struct ifreq));
   ifreq_set_name (&ifreq, ifp);
 
   ifreq.ifr_flags = ifp->flags;
