@@ -19,6 +19,7 @@
 	  (cmd_complete_command_real) ditto.
 	  (cmd_execute_command_strict) Fixup vector loop to be conditional
 	  on non-null slot.
+	  (various) Fix indentation and other whitespace.
 
 2005-03-09 Paul Jakma <paul.jakma@sun.com>
 
