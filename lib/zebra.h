@@ -85,6 +85,10 @@ typedef int socklen_t;
 #include <linux/version.h>
 #endif /* HAVE_LINUX_VERSION_H */
 
+#ifdef HAVE_ASM_TYPES_H
+#include <asm/types.h>
+#endif /* HAVE_ASM_TYPES_H */
+
 /* misc include group */
 #include <stdarg.h>
 #include <assert.h>
