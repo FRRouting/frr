@@ -25,11 +25,11 @@
 #include "log.h"
 #include "memory.h"
 
-void alloc_inc (int);
-void alloc_dec (int);
+static void alloc_inc (int);
+static void alloc_dec (int);
 static void log_memstats(int log_priority);
 
-struct message mstr [] =
+static struct message mstr [] =
 {
   { MTYPE_THREAD, "thread" },
   { MTYPE_THREAD_MASTER, "thread_master" },
@@ -115,7 +115,7 @@ zstrdup (int type, const char *str)
 }
 
 #ifdef MEMORY_LOG
-struct 
+static struct 
 {
   const char *name;
   unsigned long alloc;
@@ -128,7 +128,7 @@ struct
   unsigned long c_strdup;
 } mstat [MTYPE_MAX];
 
-void
+static void
 mtype_log (char *func, void *memory, const char *file, int line, int type)
 {
   zlog_info ("%s: %s %p %s %d", func, lookup (mstr, type), memory, file, line);
@@ -202,7 +202,7 @@ mtype_zstrdup (const char *file, int line, int type, const char *str)
   return memory;
 }
 #else
-struct 
+static struct 
 {
   char *name;
   unsigned long alloc;
@@ -210,14 +210,14 @@ struct
 #endif /* MTPYE_LOG */
 
 /* Increment allocation counter. */
-void
+static void
 alloc_inc (int type)
 {
   mstat[type].alloc++;
 }
 
 /* Decrement allocation counter. */
-void
+static void
 alloc_dec (int type)
 {
   mstat[type].alloc--;
@@ -235,7 +235,7 @@ struct memory_list
   const char *format;
 };
 
-struct memory_list memory_list_lib[] =
+static struct memory_list memory_list_lib[] =
 {
   { MTYPE_TMP,                "Temporary memory" },
   { MTYPE_ROUTE_TABLE,        "Route table     " },
@@ -270,7 +270,7 @@ struct memory_list memory_list_lib[] =
   { -1, NULL }
 };
 
-struct memory_list memory_list_bgp[] =
+static struct memory_list memory_list_bgp[] =
 {
   { MTYPE_BGP_PEER,               "BGP peer" },
   { MTYPE_ATTR,                   "BGP attribute" },
@@ -317,7 +317,7 @@ struct memory_list memory_list_bgp[] =
   { -1, NULL }
 };
 
-struct memory_list memory_list_rip[] =
+static struct memory_list memory_list_rip[] =
 {
   { MTYPE_RIP,                "RIP structure   " },
   { MTYPE_RIP_INFO,           "RIP route info  " },
@@ -328,7 +328,7 @@ struct memory_list memory_list_rip[] =
   { -1, NULL }
 };
 
-struct memory_list memory_list_ripng[] =
+static struct memory_list memory_list_ripng[] =
 {
   { MTYPE_RIPNG,              "RIPng structure " },
   { MTYPE_RIPNG_ROUTE,        "RIPng route info" },
@@ -339,7 +339,7 @@ struct memory_list memory_list_ripng[] =
   { -1, NULL }
 };
 
-struct memory_list memory_list_ospf[] =
+static struct memory_list memory_list_ospf[] =
 {
   { MTYPE_OSPF_TOP,           "OSPF top        " },
   { MTYPE_OSPF_AREA,          "OSPF area       " },
@@ -369,7 +369,7 @@ struct memory_list memory_list_ospf[] =
   { -1, NULL },
 };
 
-struct memory_list memory_list_ospf6[] =
+static struct memory_list memory_list_ospf6[] =
 {
   { MTYPE_OSPF6_TOP,          "OSPF6 top         " },
   { MTYPE_OSPF6_AREA,         "OSPF6 area        " },
@@ -389,7 +389,7 @@ struct memory_list memory_list_ospf6[] =
   { -1, NULL },
 };
 
-struct memory_list memory_list_isis[] =
+static struct memory_list memory_list_isis[] =
 {
   { MTYPE_ISIS,               "ISIS              " },
   { MTYPE_ISIS_TMP,           "ISIS TMP          " },
@@ -438,13 +438,13 @@ log_memstats(int pri)
     }
 }
 
-struct memory_list memory_list_separator[] =
+static struct memory_list memory_list_separator[] =
 {
   { 0, NULL},
   {-1, NULL}
 };
 
-void
+static void
 show_memory_vty (struct vty *vty, struct memory_list *list)
 {
   struct memory_list *m;
@@ -559,7 +559,7 @@ DEFUN (show_memory_isis,
 }
 
 void
-memory_init ()
+memory_init (void)
 {
   install_element (VIEW_NODE, &show_memory_cmd);
   install_element (VIEW_NODE, &show_memory_all_cmd);

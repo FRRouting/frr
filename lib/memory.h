@@ -268,6 +268,6 @@ char *mtype_zstrdup (const char *file,
 		     int line,
 		     int type,
 		     const char *str);
-void memory_init ();
+void memory_init (void);
 
 #endif /* _ZEBRA_MEMORY_H */

@@ -1,3 +1,9 @@
+2004-11-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* memory.h: Fix prototype for memory_init().
+	* memory.c: Declare many functions and data structures static instead
+	  of global.  Fix prototype for memory_init().
+
 2004-11-15  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* sockopt.h: Avoid CMSG_ALIGN, and declare that sizes are without
