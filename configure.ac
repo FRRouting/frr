@@ -9,7 +9,7 @@ AC_PREREQ(2.53)
 
 AC_INIT(quagga, 0.96.4, [http://bugzilla.quagga.net])
 AC_CONFIG_SRCDIR(lib/zebra.h)
-AM_INIT_AUTOMAKE()
+AM_INIT_AUTOMAKE(1.7)
 AM_CONFIG_HEADER(config.h)
 
 dnl default is to match previous behavior
