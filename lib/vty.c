@@ -1856,7 +1856,7 @@ vty_serv_un (char *path)
   unlink (path);
 
   /* Set umask */
-  old_mask = umask (0077);
+  old_mask = umask (0007);
 
   /* Make UNIX domain socket. */
   sock = socket (AF_UNIX, SOCK_STREAM, 0);
