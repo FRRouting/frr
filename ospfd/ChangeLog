@@ -1,5 +1,10 @@
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf_zebra.c: (zebra_interface_if_lookup) Must use
+	  if_lookup_by_name_len.
+
+2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf_interface.c: (ospf_vl_new) Use strnlen to fix call to if_create.
 
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>

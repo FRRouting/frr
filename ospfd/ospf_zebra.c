@@ -148,13 +148,14 @@ ospf_interface_delete (int command, struct zclient *zclient,
 static struct interface *
 zebra_interface_if_lookup (struct stream *s)
 {
-  u_char ifname_tmp[INTERFACE_NAMSIZ];
+  char ifname_tmp[INTERFACE_NAMSIZ];
 
   /* Read interface name. */
   stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
 
   /* And look it up. */
-  return if_lookup_by_name ((char *) ifname_tmp);
+  return if_lookup_by_name_len(ifname_tmp,
+			       strnlen(ifname_tmp, INTERFACE_NAMSIZ));
 }
 
 int
