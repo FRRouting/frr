@@ -1,3 +1,9 @@
+2005-01-04  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* configure.ac: Use AC_MSG_CHECKING/AC_MSG_RESULT around
+	CMSG_FIRSTHDR check, so it shows up in the output of configure.
+	Tested on NetBSD, which doesn't define HAVE_BROKEN_CMSG_FIRSTHDR.
+
 2005-01-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* configure.ac: Added test for broken CMSG_FIRSTHDR macro
