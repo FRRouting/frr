@@ -192,7 +192,7 @@ struct desc
 
 /* DEFUN + DEFSH */
 #define DEFUNSH(daemon, funcname, cmdname, cmdstr, helpstr) \
-  int funcname (struct cmd_element *, struct vty *, int, char **); \
+  int funcname (struct cmd_element *, struct vty *, int, const char *[]); \
   struct cmd_element cmdname = \
   { \
     cmdstr, \
@@ -201,7 +201,7 @@ struct desc
     daemon \
   }; \
   int funcname \
-  (struct cmd_element *self, struct vty *vty, int argc, char **argv)
+  (struct cmd_element *self, struct vty *vty, int argc, const char *argv[])
 
 /* ALIAS macro which define existing command's alias. */
 #define ALIAS(funcname, cmdname, cmdstr, helpstr) \

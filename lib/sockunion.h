@@ -87,7 +87,7 @@ enum connect_result
 #define sockunion_family(X)  (X)->sa.sa_family
 
 /* Prototypes. */
-int str2sockunion (char *, union sockunion *);
+int str2sockunion (const char *, union sockunion *);
 const char *sockunion2str (union sockunion *, char *, size_t);
 int sockunion_cmp (union sockunion *, union sockunion *);
 int sockunion_same (union sockunion *, union sockunion *);

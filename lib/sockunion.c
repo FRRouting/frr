@@ -133,7 +133,7 @@ inet_sutop (union sockunion *su, char *str)
 }
 
 int
-str2sockunion (char *str, union sockunion *su)
+str2sockunion (const char *str, union sockunion *su)
 {
   int ret;
 
