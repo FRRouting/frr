@@ -187,8 +187,8 @@ nexthop_delete (struct rib *rib, struct nexthop *nexthop)
 void
 nexthop_free (struct nexthop *nexthop)
 {
-  if (nexthop->type == NEXTHOP_TYPE_IFNAME && nexthop->ifname)
-    free (nexthop->ifname);
+  if (nexthop->ifname)
+    XFREE (0, nexthop->ifname);
   XFREE (MTYPE_NEXTHOP, nexthop);
 }
 
@@ -215,7 +215,7 @@ nexthop_ifname_add (struct rib *rib, char *ifname)
   nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
   memset (nexthop, 0, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IFNAME;
-  nexthop->ifname = strdup (ifname);
+  nexthop->ifname = XSTRDUP (0, ifname);
 
   nexthop_add (rib, nexthop);
 
