@@ -45,8 +45,8 @@
 #define OSPF_OPAQUE_AREA_LSA	     10
 #define OSPF_OPAQUE_AS_LSA	     11
 
-#define OSPF_LSA_HEADER_SIZE	20
-#define OSPF_MAX_LSA_SIZE	1500
+#define OSPF_LSA_HEADER_SIZE	20U
+#define OSPF_MAX_LSA_SIZE	1500U
 
 /* AS-external-LSA refresh method. */
 #define LSA_REFRESH_IF_CHANGED	0
@@ -60,7 +60,7 @@ struct lsa_header
   u_char type;
   struct in_addr id;
   struct in_addr adv_router;
-  int ls_seqnum;
+  u_int32_t ls_seqnum;
   u_int16_t checksum;
   u_int16_t length;
 };

@@ -756,7 +756,7 @@ ospf_redistribute_check (struct ospf *ospf,
 
 /* OSPF route-map set for redistribution */
 void
-ospf_routemap_set (struct ospf *ospf, int type, char *name)
+ospf_routemap_set (struct ospf *ospf, int type, const char *name)
 {
   if (ROUTEMAP_NAME (ospf, type))
     free (ROUTEMAP_NAME (ospf, type));
@@ -883,7 +883,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
 
 
 int
-ospf_distribute_list_out_set (struct ospf *ospf, int type, char *name)
+ospf_distribute_list_out_set (struct ospf *ospf, int type, const char *name)
 {
   /* Lookup access-list for distribute-list. */
   DISTRIBUTE_LIST (ospf, type) = access_list_lookup (AFI_IP, name);
@@ -903,7 +903,7 @@ ospf_distribute_list_out_set (struct ospf *ospf, int type, char *name)
 }
 
 int
-ospf_distribute_list_out_unset (struct ospf *ospf, int type, char *name)
+ospf_distribute_list_out_unset (struct ospf *ospf, int type, const char *name)
 {
   /* Schedule update timer. */
   if (DISTRIBUTE_LIST (ospf, type))
@@ -1120,8 +1120,10 @@ ospf_distance_free (struct ospf_distance *odistance)
 }
 
 int
-ospf_distance_set (struct vty *vty, struct ospf *ospf, char *distance_str,
-                   char *ip_str, char *access_list_str)
+ospf_distance_set (struct vty *vty, struct ospf *ospf, 
+                   const char *distance_str,
+                   const char *ip_str, 
+                   const char *access_list_str)
 {
   int ret;
   struct prefix_ipv4 p;
@@ -1167,8 +1169,10 @@ ospf_distance_set (struct vty *vty, struct ospf *ospf, char *distance_str,
 }
 
 int
-ospf_distance_unset (struct vty *vty, struct ospf *ospf, char *distance_str,
-                     char *ip_str, char *access_list_str)
+ospf_distance_unset (struct vty *vty, struct ospf *ospf, 
+                     const char *distance_str,
+                     const char *ip_str, char 
+                     const *access_list_str)
 {
   int ret;
   struct prefix_ipv4 p;

@@ -63,7 +63,7 @@ const static char *ospf_network_type_str[] =
 
 /* Utility functions. */
 int
-ospf_str2area_id (char *str, struct in_addr *area_id, int *format)
+ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
 {
   char *endptr = NULL;
   unsigned long ret;
@@ -92,7 +92,7 @@ ospf_str2area_id (char *str, struct in_addr *area_id, int *format)
 
 
 int
-str2distribute_source (char *str, int *source)
+str2distribute_source (const char *str, int *source)
 {
   /* Sanity check. */
   if (str == NULL)
@@ -115,7 +115,7 @@ str2distribute_source (char *str, int *source)
 }
 
 int
-str2metric (char *str, int *metric)
+str2metric (const char *str, int *metric)
 {
   /* Sanity check. */
   if (str == NULL)
@@ -132,7 +132,7 @@ str2metric (char *str, int *metric)
 }
 
 int
-str2metric_type (char *str, int *metric_type)
+str2metric_type (const char *str, int *metric_type)
 {
   /* Sanity check. */
   if (str == NULL)
@@ -1471,7 +1471,8 @@ DEFUN (no_ospf_area_stub_no_summary,
 }
 
 int
-ospf_area_nssa_cmd_handler (struct vty *vty, int argc, char **argv, int nosum)
+ospf_area_nssa_cmd_handler (struct vty *vty, int argc, const char *argv[], 
+                            int nosum)
 {
   struct ospf *ospf = vty->index;
   struct in_addr area_id;
@@ -6965,7 +6966,7 @@ config_write_ospf_area (struct vty *vty, struct ospf *ospf)
 	    vty_out (vty, " area %s range %s/%d", buf,
 		     inet_ntoa (rn1->p.u.prefix4), rn1->p.prefixlen);
 
-	    if (range->cost_config != -1)
+	    if (range->cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
 	      vty_out (vty, " cost %d", range->cost_config);
 
 	    if (!CHECK_FLAG (range->flags, OSPF_AREA_RANGE_ADVERTISE))

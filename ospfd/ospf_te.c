@@ -267,7 +267,7 @@ lookup_linkparams_by_instance (struct ospf_lsa *lsa)
 {
   struct listnode *node;
   struct mpls_te_link *lp;
-  int key = GET_OPAQUE_ID (ntohl (lsa->data->id.s_addr));
+  unsigned int key = GET_OPAQUE_ID (ntohl (lsa->data->id.s_addr));
 
   LIST_LOOP (OspfMplsTE.iflist, lp, node)
     if (lp->instance == key)

@@ -565,7 +565,7 @@ ospf_abr_update_aggregate (struct ospf_area_range *range,
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("ospf_abr_update_aggregate(): Start");
 
-  if (range->cost_config != -1)
+  if (range->cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
     {
       if (IS_DEBUG_OSPF_EVENT)
         zlog_info ("ospf_abr_update_aggregate(): use configured cost %d",

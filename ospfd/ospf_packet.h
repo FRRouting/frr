@@ -23,16 +23,16 @@
 #ifndef _ZEBRA_OSPF_PACKET_H
 #define _ZEBRA_OSPF_PACKET_H
 
-#define OSPF_HEADER_SIZE         24
-#define OSPF_AUTH_SIMPLE_SIZE     8
-#define OSPF_AUTH_MD5_SIZE       16
+#define OSPF_HEADER_SIZE         24U
+#define OSPF_AUTH_SIMPLE_SIZE     8U
+#define OSPF_AUTH_MD5_SIZE       16U
 
-#define OSPF_MAX_PACKET_SIZE  65535   /* includes IP Header size. */
-#define OSPF_HELLO_MIN_SIZE      20   /* not including neighbors */
-#define OSPF_DB_DESC_MIN_SIZE     8
-#define OSPF_LS_REQ_MIN_SIZE      0
-#define OSPF_LS_UPD_MIN_SIZE      4
-#define OSPF_LS_ACK_MIN_SIZE      0
+#define OSPF_MAX_PACKET_SIZE  65535U   /* includes IP Header size. */
+#define OSPF_HELLO_MIN_SIZE      20U   /* not including neighbors */
+#define OSPF_DB_DESC_MIN_SIZE     8U
+#define OSPF_LS_REQ_MIN_SIZE      0U
+#define OSPF_LS_UPD_MIN_SIZE      4U
+#define OSPF_LS_ACK_MIN_SIZE      0U
 
 #define OSPF_MSG_HELLO         1  /* OSPF Hello Message. */
 #define OSPF_MSG_DB_DESC       2  /* OSPF Database Descriptoin Message. */

@@ -23,8 +23,7 @@
 #ifndef _ZEBRA_OSPF_INTERFACE_H
 #define _ZEBRA_OSPF_INTERFACE_H
 
-#define OSPF_AUTH_SIMPLE_SIZE           8
-#define OSPF_AUTH_MD5_SIZE             16
+#include "ospfd/ospf_packet.h"
 
 #define IF_OSPF_IF_INFO(I) ((struct ospf_if_info *)((I)->info))
 #define IF_DEF_PARAMS(I) (IF_OSPF_IF_INFO (I)->def_params)

@@ -10,6 +10,13 @@
 	  (ospf_recv_packet) ip_len is needed for old OpenBSD fixup.
 	  (ospf_read) sockopt_iphdrincl_swab_systoh ip header as soon as
 	  we have it.
+	* (global) Const char update and signed/unsigned fixes.
+	* (various headers) size defines should be unsigned.
+	* ospf_interface.h: remove duplicated defines, include the
+	  authoritative header - though, these defines should probably
+          be moved to a dedicated header, or ospfd.h.
+	* ospf_lsa.h: (struct lsa) ls_seqnum should be unsigned.
+	* ospf_packet.c: (ospf_write) cast result of shift to unsigned.
 	  
 2004-10-08 Hasso Tepper <hasso at quagga.net>
 	

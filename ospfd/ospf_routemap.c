@@ -41,7 +41,7 @@
 
 /* Hook function for updating route_map assignment. */
 void
-ospf_route_map_update (char *name)
+ospf_route_map_update (const char *name)
 {
   struct ospf *ospf;
   int type;
@@ -74,7 +74,7 @@ ospf_route_map_update (char *name)
 }
 
 void
-ospf_route_map_event (route_map_event_t event, char *name)
+ospf_route_map_event (route_map_event_t event, const char *name)
 {
   struct ospf *ospf;
   int type;
@@ -98,7 +98,7 @@ ospf_route_map_event (route_map_event_t event, char *name)
 /* Delete rip route map rule. */
 int
 ospf_route_match_delete (struct vty *vty, struct route_map_index *index,
-			 const char *command, char *arg)
+			 const char *command, const char *arg)
 {
   int ret;
 
@@ -123,7 +123,7 @@ ospf_route_match_delete (struct vty *vty, struct route_map_index *index,
 
 int
 ospf_route_match_add (struct vty *vty, struct route_map_index *index,
-		      const char *command, char *arg)
+		      const char *command, const char *arg)
 {                                                                              
   int ret;
 
@@ -148,7 +148,7 @@ ospf_route_match_add (struct vty *vty, struct route_map_index *index,
 
 int
 ospf_route_set_add (struct vty *vty, struct route_map_index *index,
-		    const char *command, char *arg)
+		    const char *command, const char *arg)
 {
   int ret;
 
@@ -174,7 +174,7 @@ ospf_route_set_add (struct vty *vty, struct route_map_index *index,
 /* Delete rip route map rule. */
 int
 ospf_route_set_delete (struct vty *vty, struct route_map_index *index,
-		       const char *command, char *arg)
+		       const char *command, const char *arg)
 {                                              
   int ret;
 
@@ -226,7 +226,7 @@ route_match_ip_nexthop (void *rule, struct prefix *prefix,
 /* Route map `ip next-hop' match statement. `arg' should be
    access-list name. */
 void *
-route_match_ip_nexthop_compile (char *arg)
+route_match_ip_nexthop_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -274,7 +274,7 @@ route_match_ip_next_hop_prefix_list (void *rule, struct prefix *prefix,
 }
 
 void *
-route_match_ip_next_hop_prefix_list_compile (char *arg)
+route_match_ip_next_hop_prefix_list_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -318,7 +318,7 @@ route_match_ip_address (void *rule, struct prefix *prefix,
 /* Route map `ip address' match statement.  `arg' should be
    access-list name. */
 void *
-route_match_ip_address_compile (char *arg)
+route_match_ip_address_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -359,7 +359,7 @@ route_match_ip_address_prefix_list (void *rule, struct prefix *prefix,
 }
 
 void *
-route_match_ip_address_prefix_list_compile (char *arg)
+route_match_ip_address_prefix_list_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -404,7 +404,7 @@ route_match_interface (void *rule, struct prefix *prefix,
 /* Route map `interface' match statement.  `arg' should be
    interface name. */
 void *
-route_match_interface_compile (char *arg)
+route_match_interface_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
@@ -448,7 +448,7 @@ route_set_metric (void *rule, struct prefix *prefix,
 
 /* set metric compilation. */
 void *
-route_set_metric_compile (char *arg)
+route_set_metric_compile (const char *arg)
 {
   u_int32_t *metric;
 
@@ -501,7 +501,7 @@ route_set_metric_type (void *rule, struct prefix *prefix,
 
 /* set metric-type compilation. */
 void *
-route_set_metric_type_compile (char *arg)
+route_set_metric_type_compile (const char *arg)
 {
   u_int32_t *metric_type;
 

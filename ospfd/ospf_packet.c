@@ -241,7 +241,7 @@ ospf_packet_dup (struct ospf_packet *op)
   return new;
 }
 
-int
+unsigned int
 ospf_packet_max (struct ospf_interface *oi)
 {
   int max;
@@ -261,7 +261,7 @@ int
 ospf_check_md5_digest (struct ospf_interface *oi, struct stream *s,
                        u_int16_t length)
 {
-  void *ibuf;
+  unsigned char *ibuf;
   struct md5_ctx ctx;
   unsigned char digest[OSPF_AUTH_MD5_SIZE];
   unsigned char *pdigest;
@@ -486,7 +486,8 @@ ospf_ls_ack_timer (struct thread *thread)
 void
 ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph, 
                   struct msghdr *msg, struct iovec **iov, 
-                  int maxdatasize, int mtu, int flags)
+                  unsigned int maxdatasize, 
+                  unsigned int mtu, int flags)
 {
 #define OSPF_WRITE_FRAG_SHIFT 3
   u_int16_t offset;
@@ -617,7 +618,8 @@ ospf_write (struct thread *thread)
 
   iph.ip_hl = sizeof (struct ip) >> OSPF_WRITE_IPHL_SHIFT;
   /* it'd be very strange for header to not be 4byte-word aligned but.. */
-  if ( sizeof (struct ip) > (iph.ip_hl << OSPF_WRITE_IPHL_SHIFT) )
+  if ( sizeof (struct ip) 
+        > (unsigned int)(iph.ip_hl << OSPF_WRITE_IPHL_SHIFT) )
     iph.ip_hl++; /* we presume sizeof struct ip cant overflow ip_hl.. */
   
   iph.ip_v = IPVERSION;
@@ -1326,7 +1328,7 @@ ospf_ls_req (struct ip *iph, struct ospf_header *ospfh,
   struct in_addr adv_router;
   struct ospf_lsa *find;
   struct list *ls_upd;
-  int length;
+  unsigned int length;
 
   /* Increment statistics. */
   oi->ls_req_in++;

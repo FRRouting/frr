@@ -52,7 +52,7 @@ struct ospf_area_range
 
   /* Configured range cost. */
   u_int32_t cost_config;
-#define OSPF_AREA_RANGE_COST_UNSPEC	-1
+#define OSPF_AREA_RANGE_COST_UNSPEC	-1U
 };
 
 /* Prototypes. */
@@ -75,10 +75,10 @@ int ospf_area_range_substitute_unset (struct ospf *, struct in_addr,
 struct ospf_area_range *ospf_area_range_match_any (struct ospf *,
 						   struct prefix_ipv4 *);
 int ospf_area_range_active (struct ospf_area_range *);
-int ospf_act_bb_connection ();
+int ospf_act_bb_connection (struct ospf *);
 
-void ospf_check_abr_status ();
-void ospf_abr_task ();
-void ospf_schedule_abr_task ();
+void ospf_check_abr_status (struct ospf *);
+void ospf_abr_task (struct ospf *);
+void ospf_schedule_abr_task (struct ospf *);
 
 #endif /* _ZEBRA_OSPF_ABR_H */

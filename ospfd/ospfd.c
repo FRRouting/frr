@@ -1172,7 +1172,7 @@ ospf_area_nssa_translator_role_unset (struct ospf *ospf,
 
 int
 ospf_area_export_list_set (struct ospf *ospf,
-			   struct ospf_area *area, char *list_name)
+			   struct ospf_area *area, const char *list_name)
 {
   struct access_list *list;
   list = access_list_lookup (AFI_IP, list_name);
@@ -1207,8 +1207,8 @@ ospf_area_export_list_unset (struct ospf *ospf, struct ospf_area * area)
 }
 
 int
-ospf_area_import_list_set (struct ospf *ospf,
-			   struct ospf_area *area, char *name)
+ospf_area_import_list_set (struct ospf *ospf, struct ospf_area *area, 
+                           const char *name)
 {
   struct access_list *list;
   list = access_list_lookup (AFI_IP, name);
@@ -1565,7 +1565,7 @@ ospf_nbr_nbma_priority_unset (struct ospf *ospf, struct in_addr nbr_addr)
 
 int
 ospf_nbr_nbma_poll_interval_set (struct ospf *ospf, struct in_addr nbr_addr,
-				 int interval)
+				 unsigned int interval)
 {
   struct ospf_nbr_nbma *nbr_nbma;
 

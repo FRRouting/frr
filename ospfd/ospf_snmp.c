@@ -919,7 +919,7 @@ ospfLsdbLookup (struct variable *v, oid *name, size_t *length,
   struct ospf *ospf;
   struct ospf_area *area;
   struct ospf_lsa *lsa;
-  int len;
+  unsigned int len;
   int type_next;
   int ls_id_next;
   int router_id_next;
@@ -1130,7 +1130,7 @@ ospfAreaRangeLookup (struct variable *v, oid *name, size_t *length,
 {
   oid *offset;
   int offsetlen;
-  int len;
+  unsigned int len;
   struct ospf *ospf;
   struct ospf_area *area;
   struct ospf_area_range *range;
@@ -1566,7 +1566,7 @@ struct interface *
 ospfIfLookup (struct variable *v, oid *name, size_t *length,
 	      struct in_addr *ifaddr, unsigned int *ifindex, int exact)
 {
-  int len;
+  unsigned int len;
   int ifaddr_next = 0;
   int ifindex_next = 0;
   struct interface *ifp;
@@ -1731,7 +1731,7 @@ struct interface *
 ospfIfMetricLookup (struct variable *v, oid *name, size_t *length,
 		    struct in_addr *ifaddr, unsigned int *ifindex, int exact)
 {
-  int len;
+  unsigned int len;
   int ifaddr_next = 0;
   int ifindex_next = 0;
   struct interface *ifp;
@@ -1943,7 +1943,7 @@ ospfVirtIfLookup (struct variable *v, oid *name, size_t *length,
 		  struct in_addr *area_id, struct in_addr *neighbor, int exact)
 {
   int first;
-  int len;
+  unsigned int len;
   struct ospf_vl_data *vl_data;
 
   if (exact)
@@ -2128,7 +2128,7 @@ struct ospf_neighbor *
 ospfNbrLookup (struct variable *v, oid *name, size_t *length,
 	       struct in_addr *nbr_addr, unsigned int *ifindex, int exact)
 {
-  int len;
+  unsigned int len;
   int first;
   struct ospf_neighbor *nbr;
   struct ospf *ospf;
@@ -2300,7 +2300,7 @@ ospfExtLsdbLookup (struct variable *v, oid *name, size_t *length, u_char *type,
   oid *offset;
   int offsetlen;
   u_char lsa_type;
-  int len;
+  unsigned int len;
   struct ospf_lsa *lsa;
   struct ospf *ospf;
 
@@ -2477,8 +2477,6 @@ ospfAreaAggregateEntry (struct variable *v, oid *name, size_t *length,
 void
 ospf_snmp_init ()
 {
-  struct ospf *ospf;
-
   ospf_snmp_iflist = list_new ();
   ospf_snmp_vl_table = route_table_init ();
   smux_init (om->master, ospfd_oid, sizeof (ospfd_oid) / sizeof (oid));
