@@ -2043,7 +2043,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 #endif /* HAVE_OPAQUE_LSA */
 }
 
-struct stream *
+static struct stream *
 ospf_recv_packet (int fd, struct interface **ifp)
 {
   int ret;
@@ -2062,12 +2062,24 @@ ospf_recv_packet (int fd, struct interface **ifp)
   msgh.msg_control = (caddr_t) buff;
   msgh.msg_controllen = sizeof (buff);
   
+  /* XXX Is there an upper limit on the size of these packets?  If there is,
+     it would be more efficient to read the whole packet in one shot without
+     peeking (this would cut down from 2 system calls to 1).  And this would
+     make the error-handling logic a bit more robust. */
   ret = recvfrom (fd, (void *)&iph, sizeof (iph), MSG_PEEK, NULL, 0);
   
   if (ret != sizeof (iph))
     {
-      zlog_warn ("ospf_recv_packet packet smaller than ip header");
-      /* XXX: We peeked, and thus perhaps should discard this packet. */
+      if (ret > 0)
+        {
+	  zlog_warn("ospf_recv_packet: discarding runt packet of length %d "
+		    "(ip header size is %u)",
+		    ret, (u_int)sizeof(iph));
+	  recvfrom (fd, (void *)&iph, ret, 0, NULL, 0);
+        }
+      else
+	zlog_warn("ospf_recv_packet: recvfrom returned %d: %s",
+		  ret, safe_strerror(errno));
       return NULL;
     }
   
@@ -2354,7 +2366,9 @@ ospf_read (struct thread *thread)
 
   /* first of all get interface pointer. */
   ospf = THREAD_ARG (thread);
-  ospf->t_read = NULL;
+
+  /* prepare for next packet. */
+  ospf->t_read = thread_add_read (master, ospf_read, ospf, ospf->fd);
 
   /* read OSPF packet. */
   ibuf = ospf_recv_packet (ospf->fd, &ifp);
@@ -2375,9 +2389,6 @@ ospf_read (struct thread *thread)
       stream_free (ibuf);
       return 0;
     }
-  
-  /* prepare for next packet. */
-  ospf->t_read = thread_add_read (master, ospf_read, ospf, ospf->fd);
 
   /* IP Header dump. */
     if (IS_DEBUG_OSPF_PACKET(0, RECV))

@@ -1,3 +1,11 @@
+2005-02-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_packet.c: (ospf_recv_packet) If there is somehow a runt
+	  packet in the queue, it must be discarded.  Improve warning messages.
+	  Fix scope to static.
+	  (ospf_read) Fix bug: should reset the read thread in all cases
+	  to make sure we continue to get incoming messages.
+
 2005-02-15 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_packet.c: (ospf_recv_packet) Fix silly error wrt allocating
