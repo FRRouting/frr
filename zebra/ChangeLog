@@ -1,3 +1,9 @@
+2004-08-19 Paul Jakma <paul@dishone.st>
+
+        * irdp_main.c: update to match sockopt renames.
+        * irdp_packet.c: include sockopt.h and update to match sockopt
+	  renames.
+                
 2004-08-11  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* rtadv.c (rtadv_send_packet): Allocate space for control messages

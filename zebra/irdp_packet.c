@@ -61,7 +61,7 @@
 #include "if.h"
 #include "sockunion.h"
 #include "log.h"
-
+#include "sockopt.h"
 
 
 /* GLOBAL VARS */
@@ -214,7 +214,7 @@ int irdp_recvmsg (int sock,
     return ret;
   }
 
-  ifindex = getsockopt_pktinfo_ifindex (AF_INET, &msg);
+  ifindex = getsockopt_ifindex (AF_INET, &msg);
 
   return ret;
 }
