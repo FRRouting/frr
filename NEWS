@@ -1,4 +1,7 @@
-* Changes in Quagga 0.96.6
+* Changes in Quagga 0.98.0
+
+- OSPF API initialisation is disabled by default even if compiled in. You
+  can enable it with -a/--apiserver command line switch.
 
 - "write-config integrated" vtysh command replaced with "service
   integrated-vtysh-config" command.
