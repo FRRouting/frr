@@ -1,3 +1,7 @@
+2004-11-08 Paul Jakma <paul@dishone.st>
+
+	* configure.ac: bump version to 0.97.3, release imminent.
+
 2004-11-06 Paul Jakma <paul@dishone.st>
 
 	* configure.ac: Arguments to AC_OUTPUT is deprecated, use
