@@ -128,8 +128,7 @@ extern void zlog_backtrace(int priority);
 
 /* Log a backtrace, but in an async-signal-safe way.  Should not be
    called unless the program is about to exit or abort, since it messes
-   up the state of zlog file pointers.  This function needs to be enhanced
-   to support syslog logging. */
+   up the state of zlog file pointers. */
 extern void zlog_backtrace_sigsafe(int priority);
 
 #endif /* _ZEBRA_LOG_H */
