@@ -20,6 +20,7 @@
  */
 
 #include <zebra.h>
+#include <lib/version.h>
 
 #include <pwd.h>
 
