@@ -84,6 +84,8 @@ extern struct zebra_t zebrad;
 
 extern struct zebra_privs_t zserv_privs;
 
+extern u_int32_t nl_rcvbufsize;
+
 /* Make socket for Linux netlink interface. */
 static int
 netlink_socket (struct nlsock *nl, unsigned long groups)
@@ -108,6 +110,48 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
             strerror (errno));
       close (sock);
       return -1;
+    }
+
+  /* Set receive buffer size if it's set from command line */
+  if (nl_rcvbufsize)
+    {
+      u_int32_t oldsize, oldlen;
+      u_int32_t newsize, newlen;
+
+      oldlen = sizeof(oldsize);
+      newlen = sizeof(newsize);
+
+      ret = getsockopt(sock, SOL_SOCKET, SO_RCVBUF, &oldsize, &oldlen);
+      if (ret < 0)
+	{
+	  zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
+		strerror (errno));
+	  close (sock);
+	  return -1;
+	}
+
+      ret = setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &nl_rcvbufsize,
+		       sizeof(nl_rcvbufsize));
+      if (ret < 0)
+	{
+	  zlog (NULL, LOG_ERR, "Can't set %s receive buffer size: %s", nl->name,
+		strerror (errno));
+	  close (sock);
+	  return -1;
+	}
+
+      ret = getsockopt(sock, SOL_SOCKET, SO_RCVBUF, &newsize, &newlen);
+      if (ret < 0)
+	{
+	  zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
+		strerror (errno));
+	  close (sock);
+	  return -1;
+	}
+
+      zlog (NULL, LOG_INFO,
+	    "Setting netlink socket receive buffer size: %u -> %u",
+	    oldsize, newsize);
     }
 
   memset (&snl, 0, sizeof snl);

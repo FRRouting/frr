@@ -57,6 +57,11 @@ int retain_mode = 0;
 /* Don't delete kernel route. */
 int keep_kernel_mode = 0;
 
+#ifdef HAVE_NETLINK
+/* Receive buffer size for netlink socket */
+u_int32_t nl_rcvbufsize = 0;
+#endif /* HAVE_NETLINK */
+
 /* Command line options. */
 struct option longopts[] = 
 {
@@ -70,6 +75,9 @@ struct option longopts[] =
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
+#ifdef HAVE_NETLINK
+  { "nl-bufsize",  no_argument,       NULL, 's'},
+#endif /* HAVE_NETLINK */
   { "user",        required_argument, NULL, 'u'},
   { "version",     no_argument,       NULL, 'v'},
   { 0 }
@@ -111,23 +119,28 @@ usage (char *progname, int status)
     fprintf (stderr, "Try `%s --help' for more information.\n", progname);
   else
     {    
-      printf ("Usage : %s [OPTION...]\n\n\
-Daemon which manages kernel routing table management and \
-redistribution between different routing protocols.\n\n\
--b, --batch        Runs in batch mode\n\
--d, --daemon       Runs in daemon mode\n\
--f, --config_file  Set configuration file name\n\
--i, --pid_file     Set process identifier file name\n\
--k, --keep_kernel  Don't delete old routes which installed by zebra.\n\
--l, --log_mode     Set verbose log mode flag\n\
--A, --vty_addr     Set vty's bind address\n\
--P, --vty_port     Set vty's port number\n\
--r, --retain       When program terminates, retain added route by zebra.\n\
--u, --user         User and group to run as\n\
--v, --version      Print program version\n\
--h, --help         Display this help and exit\n\
-\n\
-Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+      printf ("Usage : %s [OPTION...]\n\n"\
+	      "Daemon which manages kernel routing table management and "\
+	      "redistribution between different routing protocols.\n\n"\
+	      "-b, --batch        Runs in batch mode\n"\
+	      "-d, --daemon       Runs in daemon mode\n"\
+	      "-f, --config_file  Set configuration file name\n"\
+	      "-i, --pid_file     Set process identifier file name\n"\
+	      "-k, --keep_kernel  Don't delete old routes which installed by "\
+				  "zebra.\n"\
+	      "-l, --log_mode     Set verbose log mode flag\n"\
+	      "-A, --vty_addr     Set vty's bind address\n"\
+	      "-P, --vty_port     Set vty's port number\n"\
+	      "-r, --retain       When program terminates, retain added route "\
+				  "by zebra.\n"\
+	      "-u, --user         User and group to run as\n", progname);
+#ifdef HAVE_NETLINK
+      printf ("-s, --nl-bufsize   Set netlink receive buffer size\n");
+#endif /* HAVE_NETLINK */
+      printf ("-v, --version      Print program version\n"\
+	      "-h, --help         Display this help and exit\n"\
+	      "\n"\
+	      "Report bugs to %s\n", ZEBRA_BUG_ADDRESS);
     }
 
   exit (status);
@@ -216,7 +229,11 @@ main (int argc, char **argv)
     {
       int opt;
   
+#ifdef HAVE_NETLINK  
+      opt = getopt_long (argc, argv, "bdklf:i:hA:P:ru:vs:", longopts, 0);
+#else
       opt = getopt_long (argc, argv, "bdklf:i:hA:P:ru:v", longopts, 0);
+#endif /* HAVE_NETLINK */
 
       if (opt == EOF)
 	break;
@@ -259,6 +276,11 @@ main (int argc, char **argv)
 	case 'r':
 	  retain_mode = 1;
 	  break;
+#ifdef HAVE_NETLINK
+	case 's':
+	  nl_rcvbufsize = atoi (optarg);
+	  break;
+#endif /* HAVE_NETLINK */
   case 'u':
     zserv_privs.user = zserv_privs.group = optarg;
     break;
