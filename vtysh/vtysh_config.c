@@ -44,7 +44,7 @@ struct config
 };
 
 struct list *config_top;
-
+
 int
 line_cmp (char *c1, char *c2)
 {
@@ -164,13 +164,17 @@ vtysh_config_parse_line (char *line)
       /* Store line to current configuration. */
       if (config)
 	{
-	  if (strncmp (line, " address-family vpnv4", strlen (" address-family vpnv4")) == 0)
+	  if (strncmp (line, " address-family vpnv4",
+	      strlen (" address-family vpnv4")) == 0)
 	    config = config_get (BGP_VPNV4_NODE, line);
-	  else if (strncmp (line, " address-family ipv4 multicast", strlen (" address-family ipv4 multicast")) == 0)
+	  else if (strncmp (line, " address-family ipv4 multicast",
+		   strlen (" address-family ipv4 multicast")) == 0)
 	    config = config_get (BGP_IPV4M_NODE, line);
-	  else if (strncmp (line, " address-family ipv6", strlen (" address-family ipv6")) == 0)
+	  else if (strncmp (line, " address-family ipv6",
+		   strlen (" address-family ipv6")) == 0)
 	    config = config_get (BGP_IPV6_NODE, line);
-	  else if (config->index == RMAP_NODE || config->index == INTERFACE_NODE )
+	  else if (config->index == RMAP_NODE ||
+	           config->index == INTERFACE_NODE )
 	    config_add_line_uniq (config->line, line);
 	  else
 	    config_add_line (config->line, line);
@@ -199,15 +203,20 @@ vtysh_config_parse_line (char *line)
 	config = config_get (RMAP_NODE, line);
       else if (strncmp (line, "access-list", strlen ("access-list")) == 0)
 	config = config_get (ACCESS_NODE, line);
-      else if (strncmp (line, "ipv6 access-list", strlen ("ipv6 access-list")) == 0)
+      else if (strncmp (line, "ipv6 access-list",
+	       strlen ("ipv6 access-list")) == 0)
 	config = config_get (ACCESS_IPV6_NODE, line);
-      else if (strncmp (line, "ip prefix-list", strlen ("ip prefix-list")) == 0)
+      else if (strncmp (line, "ip prefix-list",
+	       strlen ("ip prefix-list")) == 0)
 	config = config_get (PREFIX_NODE, line);
-      else if (strncmp (line, "ipv6 prefix-list", strlen ("ipv6 prefix-list")) == 0)
+      else if (strncmp (line, "ipv6 prefix-list",
+	       strlen ("ipv6 prefix-list")) == 0)
 	config = config_get (PREFIX_IPV6_NODE, line);
-      else if (strncmp (line, "ip as-path access-list", strlen ("ip as-path access-list")) == 0)
+      else if (strncmp (line, "ip as-path access-list",
+	       strlen ("ip as-path access-list")) == 0)
 	config = config_get (AS_LIST_NODE, line);
-      else if (strncmp (line, "ip community-list", strlen ("ip community-list")) == 0)
+      else if (strncmp (line, "ip community-list",
+	       strlen ("ip community-list")) == 0)
 	config = config_get (COMMUNITY_LIST_NODE, line);
       else if (strncmp (line, "ip route", strlen ("ip route")) == 0)
 	config = config_get (IP_NODE, line);
@@ -253,13 +262,13 @@ vtysh_config_parse (char *line)
 }
 
 /* Macro to check delimiter is needed between each configuration line
-   or not.  */
+ * or not. */
 #define NO_DELIMITER(I)  \
   ((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE \
    || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE || \
    (I) == ACCESS_IPV6_NODE || (I) == PREFIX_IPV6_NODE)
 
-/* Display configuration to file pointer.  */
+/* Display configuration to file pointer. */
 void
 vtysh_config_dump (FILE *fp)
 {
@@ -328,7 +337,7 @@ vtysh_read_file (FILE *confp)
   vtysh_execute_no_pager ("enable");
   vtysh_execute_no_pager ("configure terminal");
 
-  /* Execute configuration file */
+  /* Execute configuration file. */
   ret = vtysh_config_from_file (vty, confp);
 
   vtysh_execute_no_pager ("end");

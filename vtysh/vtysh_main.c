@@ -40,7 +40,7 @@
 char *progname;
 
 /* Configuration file name.  Usually this is configurable, but vtysh
-   has static configuration file only.  */
+ * has static configuration file only. */
 char *config_file = NULL;
 
 /* Configuration file and directory. */
@@ -142,15 +142,13 @@ usage (int status)
   if (status != 0)
     fprintf (stderr, "Try `%s --help' for more information.\n", progname);
   else
-    {    
-      printf ("Usage : %s [OPTION...]\n\n\
-Integrated shell for Quagga routing software suite. \n\n\
--b, --boot               Execute boot startup configuration\n\
--c, --command            Execute argument as command\n\
--h, --help               Display this help and exit\n\
-\n\
-Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
-    }
+    printf ("Usage : %s [OPTION...]\n\n" \
+	    "Integrated shell for Quagga routing software suite. \n\n"\
+	    "-b, --boot               Execute boot startup configuration\n" \
+	    "-c, --command            Execute argument as command\n "\
+	    "-h, --help               Display this help and exit\n\n" \
+	    "Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+
   exit (status);
 }
 
@@ -171,7 +169,7 @@ vtysh_rl_gets ()
 {
   HIST_ENTRY *last;
   /* If the buffer has already been allocated, return the memory
-     to the free pool. */
+   * to the free pool. */
   if (line_read)
     {
       free (line_read);
@@ -182,8 +180,7 @@ vtysh_rl_gets ()
   line_read = readline (vtysh_prompt ());
      
   /* If the line has any text in it, save it on the history. But only if
-   * last command in history isn't the same one.
-   */
+   * last command in history isn't the same one. */
   if (line_read && *line_read)
     {
       using_history();
@@ -261,7 +258,7 @@ main (int argc, char **argv, char **env)
   /* Read vtysh configuration file. */
   vtysh_read_config (config_file, config_current, config_default);
 
-  /* If eval mode */
+  /* If eval mode. */
   if (eval_flag)
     {
       vtysh_execute_no_pager (eval_line);

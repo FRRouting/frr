@@ -46,139 +46,6 @@ struct vtysh_client
   int fd;
 } vtysh_client[VTYSH_INDEX_MAX];
 
-/* When '^Z' is received from vty, move down to the enable mode. */
-int
-vtysh_end ()
-{
-  switch (vty->node)
-    {
-    case VIEW_NODE:
-    case ENABLE_NODE:
-      /* Nothing to do. */
-      break;
-    default:
-      vty->node = ENABLE_NODE;
-      break;
-    }
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_end_all,
-	 vtysh_end_all_cmd,
-	 "end",
-	 "End current mode and down to previous mode\n")
-{
-  return vtysh_end (vty);
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_log_stdout,
-	 vtysh_log_stdout_cmd,
-	 "log stdout",
-	 "Logging control\n"
-	 "Logging goes to stdout\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 no_vtysh_log_stdout,
-	 no_vtysh_log_stdout_cmd,
-	 "no log stdout",
-	 NO_STR
-	 "Logging control\n"
-	 "Logging goes to stdout\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_log_file,
-	 vtysh_log_file_cmd,
-	 "log file FILENAME",
-	 "Logging control\n"
-	 "Logging to file\n"
-	 "Logging filename\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 no_vtysh_log_file,
-	 no_vtysh_log_file_cmd,
-	 "no log file [FILENAME]",
-	 NO_STR
-	 "Logging control\n"
-	 "Cancel logging to file\n"
-	 "Logging file name\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_log_syslog,
-	 vtysh_log_syslog_cmd,
-	 "log syslog",
-	 "Logging control\n"
-	 "Logging goes to syslog\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 no_vtysh_log_syslog,
-	 no_vtysh_log_syslog_cmd,
-	 "no log syslog",
-	 NO_STR
-	 "Logging control\n"
-	 "Cancel logging to syslog\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_log_trap,
-	 vtysh_log_trap_cmd,
-	 "log trap (emergencies|alerts|critical|errors|warnings|notifications|informational|debugging)",
-	 "Logging control\n"
-	 "Limit logging to specifed level\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 no_vtysh_log_trap,
-	 no_vtysh_log_trap_cmd,
-	 "no log trap",
-	 NO_STR
-	 "Logging control\n"
-	 "Permit all logging information\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_log_record_priority,
-	 vtysh_log_record_priority_cmd,
-	 "log record-priority",
-	 "Logging control\n"
-	 "Log the priority of the message within the message\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 no_vtysh_log_record_priority,
-	 no_vtysh_log_record_priority_cmd,
-	 "no log record-priority",
-	 NO_STR
-	 "Logging control\n"
-	 "Do not log the priority of the message within the message\n")
-{
-  return CMD_SUCCESS;
-}
-
 void
 vclient_close (struct vtysh_client *vclient)
 {
@@ -187,10 +54,8 @@ vclient_close (struct vtysh_client *vclient)
   vclient->fd = -1;
 }
 
-
 /* Following filled with debug code to trace a problematic condition
-   under load - it SHOULD handle it.
-*/
+ * under load - it SHOULD handle it. */
 #define ERR_WHERE_STRING "vtysh(): vtysh_client_config(): "
 int
 vtysh_client_config (struct vtysh_client *vclient, char *line)
@@ -215,8 +80,7 @@ vtysh_client_config (struct vtysh_client *vclient, char *line)
       return CMD_SUCCESS;
     }
 	
-  /* Allow enough room for buffer to read more than a few pages from socket
-   */
+  /* Allow enough room for buffer to read more than a few pages from socket. */
   bufsz = 5 * getpagesize() + 1;
   buf = XMALLOC(MTYPE_TMP, bufsz);
   memset(buf, 0, bufsz);
@@ -265,7 +129,7 @@ vtysh_client_config (struct vtysh_client *vclient, char *line)
       pbuf += nbytes;
 
       /* See if a line exists in buffer, if so parse and consume it, and
-	 reset read position */
+       * reset read position. */
       if ((eoln = strrchr(buf, '\n')) == NULL)
 	continue;
 
@@ -283,7 +147,7 @@ vtysh_client_config (struct vtysh_client *vclient, char *line)
       pbuf = buf + strlen(buf);
     }
 
-  /* parse anything left in the buffer */
+  /* Parse anything left in the buffer. */
   vtysh_config_parse (buf);
 
   XFREE(MTYPE_TMP, buf);
@@ -363,7 +227,7 @@ vtysh_execute_func (char *line, int pager)
   FILE *fp = NULL;
   int closepager=0;
 
-  /* Split readline string up into the vector */
+  /* Split readline string up into the vector. */
   vline = cmd_make_strvec (line);
 
   if (vline == NULL)
@@ -412,17 +276,20 @@ vtysh_execute_func (char *line, int pager)
 	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_RIP],
 					       line, fp);
 	    if (cmd_stat != CMD_WARNING)
-	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_RIPNG], line, fp);
+	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_RIPNG],
+					       line, fp);
 	    if (cmd_stat != CMD_WARNING)
 	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_OSPF],
 					       line, fp);
 	    if (cmd_stat != CMD_WARNING)
-	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_OSPF6], line, fp);
+	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_OSPF6],
+					       line, fp);
 	    if (cmd_stat != CMD_WARNING)
 	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_BGP],
 					       line, fp);
 	    if (cmd_stat != CMD_WARNING)
-	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS], line, fp);
+	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS],
+					       line, fp);
 	    if (cmd_stat)
 	      {
 		line = "end";
@@ -523,14 +390,14 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 
       vline = cmd_make_strvec (vty->buf);
 
-      /* In case of comment line */
+      /* In case of comment line. */
       if (vline == NULL)
 	continue;
 
-      /* Execute configuration command : this is strict match */
+      /* Execute configuration command : this is strict match. */
       ret = cmd_execute_command_strict (vline, vty, &cmd);
 
-      /* Try again with setting node to CONFIG_NODE */
+      /* Try again with setting node to CONFIG_NODE. */
       if (ret != CMD_SUCCESS 
 	  && ret != CMD_SUCCESS_DAEMON
 	  && ret != CMD_WARNING)
@@ -700,9 +567,9 @@ vtysh_rl_describe ()
   return 0;
 }
 
-/* result of cmd_complete_command() call will be stored here
-   and used in new_completion() in order to put the space in
-   correct places only */
+/* Result of cmd_complete_command() call will be stored here
+ * and used in new_completion() in order to put the space in
+ * correct places only. */
 int complete_status;
 
 char *
@@ -778,26 +645,23 @@ vtysh_completion (char *text, int start, int end)
   return (char **) matched;
 }
 
-/* BGP node structure. */
+/* Vty node structures. */
 struct cmd_node bgp_node =
 {
   BGP_NODE,
   "%s(config-router)# ",
 };
 
-/* BGP node structure. */
 struct cmd_node rip_node =
 {
   RIP_NODE,
   "%s(config-router)# ",
 };
 
-/* ISIS node structure. */
 struct cmd_node isis_node =
 {
   ISIS_NODE,
   "%s(config-router)# ",
-  1
 };
 
 struct cmd_node interface_node =
@@ -805,6 +669,98 @@ struct cmd_node interface_node =
   INTERFACE_NODE,
   "%s(config-if)# ",
 };
+
+struct cmd_node rmap_node =
+{
+  RMAP_NODE,
+  "%s(config-route-map)# "
+};
+
+struct cmd_node zebra_node =
+{
+  ZEBRA_NODE,
+  "%s(config-router)# "
+};
+
+struct cmd_node bgp_vpnv4_node =
+{
+  BGP_VPNV4_NODE,
+  "%s(config-router-af)# "
+};
+
+struct cmd_node bgp_ipv4_node =
+{
+  BGP_IPV4_NODE,
+  "%s(config-router-af)# "
+};
+
+struct cmd_node bgp_ipv4m_node =
+{
+  BGP_IPV4M_NODE,
+  "%s(config-router-af)# "
+};
+
+struct cmd_node bgp_ipv6_node =
+{
+  BGP_IPV6_NODE,
+  "%s(config-router-af)# "
+};
+
+struct cmd_node ospf_node =
+{
+  OSPF_NODE,
+  "%s(config-router)# "
+};
+
+struct cmd_node ripng_node =
+{
+  RIPNG_NODE,
+  "%s(config-router)# "
+};
+
+struct cmd_node ospf6_node =
+{
+  OSPF6_NODE,
+  "%s(config-ospf6)# "
+};
+
+struct cmd_node keychain_node =
+{
+  KEYCHAIN_NODE,
+  "%s(config-keychain)# "
+};
+
+struct cmd_node keychain_key_node =
+{
+  KEYCHAIN_KEY_NODE,
+  "%s(config-keychain-key)# "
+};
+
+/* When '^Z' is received from vty, move down to the enable mode. */
+int
+vtysh_end ()
+{
+  switch (vty->node)
+    {
+    case VIEW_NODE:
+    case ENABLE_NODE:
+      /* Nothing to do. */
+      break;
+    default:
+      vty->node = ENABLE_NODE;
+      break;
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_end_all,
+	 vtysh_end_all_cmd,
+	 "end",
+	 "End current mode and down to previous mode\n")
+{
+  return vtysh_end (vty);
+}
 
 DEFUNSH (VTYSH_BGPD,
 	 router_bgp,
@@ -981,7 +937,6 @@ DEFUNSH (VTYSH_RMAP,
   return CMD_SUCCESS;
 }
 
-/* Enable command */
 DEFUNSH (VTYSH_ALL,
 	 vtysh_enable, 
 	 vtysh_enable_cmd,
@@ -992,7 +947,6 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
-/* Disable command */
 DEFUNSH (VTYSH_ALL,
 	 vtysh_disable, 
 	 vtysh_disable_cmd,
@@ -1004,7 +958,6 @@ DEFUNSH (VTYSH_ALL,
   return CMD_SUCCESS;
 }
 
-/* Configration from terminal */
 DEFUNSH (VTYSH_ALL,
 	 vtysh_config_terminal,
 	 vtysh_config_terminal_cmd,
@@ -1199,7 +1152,7 @@ ALIAS (vtysh_exit_isisd,
        "quit",
        "Exit current mode and down to previous mode\n")
 
-DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_ISISD,
+DEFUNSH (VTYSH_INTERFACE,
 	 vtysh_interface,
 	 vtysh_interface_cmd,
 	 "interface IFNAME",
@@ -1210,6 +1163,7 @@ DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_ISIS
   return CMD_SUCCESS;
 }
 
+/* TODO Implement "no interface command in isisd. */
 DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
        vtysh_no_interface_cmd,
        "no interface IFNAME",
@@ -1217,6 +1171,8 @@ DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
        "Delete a pseudo interface's configuration\n"
        "Interface's name\n")
 
+/* TODO Implement interface description commands in ripngd, ospf6d
+ * and isisd. */
 DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
        interface_desc_cmd,
        "description .LINE",
@@ -1229,7 +1185,7 @@ DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
        NO_STR
        "Interface specific description\n")
 
-DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_ISISD,
+DEFUNSH (VTYSH_INTERFACE,
 	 vtysh_exit_interface,
 	 vtysh_exit_interface_cmd,
 	 "exit",
@@ -1242,6 +1198,115 @@ ALIAS (vtysh_exit_interface,
        vtysh_quit_interface_cmd,
        "quit",
        "Exit current mode and down to previous mode\n")
+
+/* Logging commands. */
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_stdout,
+	 vtysh_log_stdout_cmd,
+	 "log stdout",
+	 "Logging control\n"
+	 "Logging goes to stdout\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 no_vtysh_log_stdout,
+	 no_vtysh_log_stdout_cmd,
+	 "no log stdout",
+	 NO_STR
+	 "Logging control\n"
+	 "Logging goes to stdout\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_file,
+	 vtysh_log_file_cmd,
+	 "log file FILENAME",
+	 "Logging control\n"
+	 "Logging to file\n"
+	 "Logging filename\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 no_vtysh_log_file,
+	 no_vtysh_log_file_cmd,
+	 "no log file [FILENAME]",
+	 NO_STR
+	 "Logging control\n"
+	 "Cancel logging to file\n"
+	 "Logging file name\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_syslog,
+	 vtysh_log_syslog_cmd,
+	 "log syslog",
+	 "Logging control\n"
+	 "Logging goes to syslog\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 no_vtysh_log_syslog,
+	 no_vtysh_log_syslog_cmd,
+	 "no log syslog",
+	 NO_STR
+	 "Logging control\n"
+	 "Cancel logging to syslog\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_trap,
+	 vtysh_log_trap_cmd,
+	 "log trap (emergencies|alerts|critical|errors|warnings|\
+		    notifications|informational|debugging)",
+	 "Logging control\n"
+	 "Limit logging to specifed level\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 no_vtysh_log_trap,
+	 no_vtysh_log_trap_cmd,
+	 "no log trap",
+	 NO_STR
+	 "Logging control\n"
+	 "Permit all logging information\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_record_priority,
+	 vtysh_log_record_priority_cmd,
+	 "log record-priority",
+	 "Logging control\n"
+	 "Log the priority of the message within the message\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 no_vtysh_log_record_priority,
+	 no_vtysh_log_record_priority_cmd,
+	 "no log record-priority",
+	 NO_STR
+	 "Logging control\n"
+	 "Do not log the priority of the message within the message\n")
+{
+  return CMD_SUCCESS;
+}
 
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
@@ -1305,28 +1370,26 @@ DEFUN (vtysh_write_config,
        "write-config (daemon|integrated)",
        "Specify config files to write to\n"
        "Write per daemon file\n"
-       "Write integrated file\n"
-      )
+       "Write integrated file\n")
 {
-	if (!strncmp(argv[0],"d",1)) {
-		vtysh_wc.daemon = 1;
-	} else if (!strncmp(argv[0],"i",1)) {
-		vtysh_wc.integrated = 1;
-	}
+	if (!strncmp(argv[0],"d",1))
+	  vtysh_wc.daemon = 1;
+	else if (!strncmp(argv[0],"i",1))
+	  vtysh_wc.integrated = 1;
+
 	return CMD_SUCCESS;
 }
 
 DEFUN (no_vtysh_write_config,
        no_vtysh_write_config_cmd,
        "no write-config (daemon|integrated)",
-       "Negate per daemon and/or integrated config files\n"
-      )
+       "Negate per daemon and/or integrated config files\n")
 {
-	if (!strncmp(argv[0],"d",1)) {
-		vtysh_wc.daemon = 0;
-	} else if (!strncmp(argv[0],"i",1)) {
-		vtysh_wc.integrated = 0;
-	}
+	if (!strncmp(argv[0],"d",1))
+	  vtysh_wc.daemon = 0;
+	else if (!strncmp(argv[0],"i",1))
+	  vtysh_wc.integrated = 0;
+
 	return CMD_SUCCESS;
 }
 
@@ -1337,23 +1400,23 @@ int write_config_integrated(void)
   FILE *fp;
   char *integrate_sav = NULL;
 
-  integrate_sav = malloc (strlen (integrate_default) 
-			    + strlen (CONF_BACKUP_EXT) + 1);
+  integrate_sav = malloc (strlen (integrate_default) +
+			  strlen (CONF_BACKUP_EXT) + 1);
   strcpy (integrate_sav, integrate_default);
   strcat (integrate_sav, CONF_BACKUP_EXT);
 
-
   fprintf (stdout,"Building Configuration...\n");
 
-  /* Move current configuration file to backup config file */
+  /* Move current configuration file to backup config file. */
   unlink (integrate_sav);
   rename (integrate_default, integrate_sav);
-  free   (integrate_sav);
+  free (integrate_sav);
  
   fp = fopen (integrate_default, "w");
   if (fp == NULL)
     {
-      fprintf (stdout,"%% Can't open configuration file %s.\n", integrate_default);
+      fprintf (stdout,"%% Can't open configuration file %s.\n",
+	       integrate_default);
       return CMD_SUCCESS;
     }
 
@@ -1394,14 +1457,12 @@ DEFUN (vtysh_write_memory,
   int ret = CMD_SUCCESS;
   char line[] = "write memory\n";
   
-  /* if integrated Zebra.conf explicitely set */
-  if (vtysh_wc.integrated == 1) {
-  	ret = write_config_integrated();
-  }
+  /* If integrated Zebra.conf explicitely set. */
+  if (vtysh_wc.integrated == 1)
+    ret = write_config_integrated();
 
-  if (!vtysh_wc.daemon) {
-  	return ret;
-  }
+  if (!vtysh_wc.daemon)
+    return ret;
 
   fprintf (stdout,"Building Configuration...\n");
 	  
@@ -1607,76 +1668,6 @@ DEFUN (vtysh_start_zsh,
   return CMD_SUCCESS;
 }
 
-/* Route map node structure. */
-struct cmd_node rmap_node =
-{
-  RMAP_NODE,
-  "%s(config-route-map)# "
-};
-
-/* Zebra node structure. */
-struct cmd_node zebra_node =
-{
-  ZEBRA_NODE,
-  "%s(config-router)# "
-};
-
-struct cmd_node bgp_vpnv4_node =
-{
-  BGP_VPNV4_NODE,
-  "%s(config-router-af)# "
-};
-
-struct cmd_node bgp_ipv4_node =
-{
-  BGP_IPV4_NODE,
-  "%s(config-router-af)# "
-};
-
-struct cmd_node bgp_ipv4m_node =
-{
-  BGP_IPV4M_NODE,
-  "%s(config-router-af)# "
-};
-
-struct cmd_node bgp_ipv6_node =
-{
-  BGP_IPV6_NODE,
-  "%s(config-router-af)# "
-};
-
-struct cmd_node ospf_node =
-{
-  OSPF_NODE,
-  "%s(config-router)# "
-};
-
-/* RIPng node structure. */
-struct cmd_node ripng_node =
-{
-  RIPNG_NODE,
-  "%s(config-router)# "
-};
-
-/* OSPF6 node structure. */
-struct cmd_node ospf6_node =
-{
-  OSPF6_NODE,
-  "%s(config-ospf6)# "
-};
-
-struct cmd_node keychain_node =
-{
-  KEYCHAIN_NODE,
-  "%s(config-keychain)# "
-};
-
-struct cmd_node keychain_key_node =
-{
-  KEYCHAIN_KEY_NODE,
-  "%s(config-keychain-key)# "
-};
-
 void
 vtysh_install_default (enum node_type node)
 {
@@ -1723,7 +1714,8 @@ vtysh_connect (struct vtysh_client *vclient, char *path)
   if (sock < 0)
     {
 #ifdef DEBUG
-      fprintf(stderr, "vtysh_connect(%s): socket = %s\n", path, strerror(errno));
+      fprintf(stderr, "vtysh_connect(%s): socket = %s\n", path,
+	      strerror(errno));
 #endif /* DEBUG */
       return -1;
     }
@@ -1741,7 +1733,8 @@ vtysh_connect (struct vtysh_client *vclient, char *path)
   if (ret < 0)
     {
 #ifdef DEBUG
-      fprintf(stderr, "vtysh_connect(%s): connect = %s\n", path, strerror(errno));
+      fprintf(stderr, "vtysh_connect(%s): connect = %s\n", path,
+	      strerror(errno));
 #endif /* DEBUG */
       close (sock);
       return -1;
@@ -1764,8 +1757,7 @@ vtysh_connect_all()
   vtysh_connect (&vtysh_client[VTYSH_INDEX_ISIS], ISIS_VTYSH_PATH);
 }
 
-
-/* To disable readline's filename completion */
+/* To disable readline's filename completion. */
 char *
 vtysh_completion_entry_function (const char *ignore, int invoking_key)
 {
@@ -1780,7 +1772,7 @@ vtysh_readline_init ()
   rl_completion_entry_function = vtysh_completion_entry_function;
   rl_attempted_completion_function = (CPPFunction *)new_completion;
   /* do not append space after completion. It will be appended
-     in new_completion() function explicitly */
+   * in new_completion() function explicitly. */
   rl_completion_append_character = '\0';
 }
 
@@ -1950,7 +1942,7 @@ vtysh_init_vty ()
   install_element (ENABLE_NODE, &vtysh_write_file_cmd);
   install_element (ENABLE_NODE, &vtysh_write_cmd);
 
-  /* write terminal command */
+  /* "write terminal" command. */
   install_element (ENABLE_NODE, &vtysh_write_terminal_cmd);
   install_element (CONFIG_NODE, &vtysh_write_terminal_cmd);
   install_element (BGP_NODE, &vtysh_write_terminal_cmd);
@@ -1968,7 +1960,7 @@ vtysh_init_vty ()
   install_element (KEYCHAIN_NODE, &vtysh_write_terminal_cmd);
   install_element (KEYCHAIN_KEY_NODE, &vtysh_write_terminal_cmd);
 
-  /* write memory command */
+  /* "write memory" command. */
   install_element (ENABLE_NODE, &vtysh_write_memory_cmd);
   install_element (CONFIG_NODE, &vtysh_write_memory_cmd);
   install_element (BGP_NODE, &vtysh_write_memory_cmd);

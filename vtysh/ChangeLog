@@ -1,3 +1,14 @@
+2004-08-26 Hasso Tepper <hasso@estpak.ee>
+
+	* *.c: Cosmetical changes - strip long lines, fix multiline comments
+	  style, indentation fixes, remove useless comments.
+	* vtysh.h: define VTYSH_INTERFACE.
+	* vtysh.c: Use VTYSH_INTERFACE where possible. Added some related TODO
+	  items.
+	* vtysh.c: Move things around a little to reduce spaghetti mess.
+	* Makefile.am: Parse only needed files from zebra daemon while
+	  building vtysh_cmd.c file to supress warnings.
+
 2004-06-30  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
 	* extract.pl.in: Rename from extract.pl, with @PERL@.
