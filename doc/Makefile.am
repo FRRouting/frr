@@ -15,7 +15,7 @@ BUILT_SOURCES = defines.texi
 
 info_TEXINFOS = quagga.texi
 
-CLEANFILES = *.pdf
+CLEANFILES = *.pdf quagga.info
 
 # The figure sources
 figures_SOURCES = fig-normal-processing.eps \
@@ -31,8 +31,8 @@ quagga.pdf: quagga.texi \
 
 quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi install.texi \
 	ipv6.texi kernel.texi main.texi ospf6d.texi ospfd.texi overview.texi \
-	protocol.texi ripd.texi ripngd.texi routemap.texi snmp.texi vtysh.texi \
-	defines.texi $(figures_SOURCES)
+	protocol.texi ripd.texi ripngd.texi routemap.texi snmp.texi \
+	vtysh.texi routeserver.texi defines.texi $(figures_SOURCES)
 
 %.pdf: %.eps
 	$(EPSTOPDF) --outfile="$@" $<

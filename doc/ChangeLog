@@ -1,5 +1,11 @@
 2004-11-07 Paul Jakma <paul@dishone.st>
 
+	* Makefile.am: Add routeserver.texi to quagga_TEXINFOS.
+	  Add quagga.info to clean files list (would have thought automake
+          would have done this, but it doesnt seem to)
+
+2004-11-07 Paul Jakma <paul@dishone.st>
+
 	* quagga.texi: include routeserver.texi. TODO: integrate the current
           multiple-instance orientated bgpd route-server section with the
           new route-server docs.
