@@ -302,16 +302,16 @@ sockunion_log (union sockunion *su)
   switch (su->sa.sa_family) 
     {
     case AF_INET:
-      snprintf (buf, BUFSIZ, "%s", inet_ntoa (su->sin.sin_addr));
+      snprintf (buf, SU_ADDRSTRLEN, "%s", inet_ntoa (su->sin.sin_addr));
       break;
 #ifdef HAVE_IPV6
     case AF_INET6:
-      snprintf (buf, BUFSIZ, "%s",
-		inet_ntop (AF_INET6, &(su->sin6.sin6_addr), buf, BUFSIZ));
+      snprintf (buf, SU_ADDRSTRLEN, "%s",
+		inet_ntop (AF_INET6, &(su->sin6.sin6_addr), buf, SU_ADDRSTRLEN));
       break;
 #endif /* HAVE_IPV6 */
     default:
-      snprintf (buf, BUFSIZ, "af_unknown %d ", su->sa.sa_family);
+      snprintf (buf, SU_ADDRSTRLEN, "af_unknown %d ", su->sa.sa_family);
       break;
     }
   return buf;
