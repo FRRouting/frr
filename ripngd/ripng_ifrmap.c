@@ -25,7 +25,7 @@
 #include "command.h"
 #include "memory.h"
 #include "if.h"
-#include "if_rmap.h"
+#include "ripng_ifrmap.h"
 
 struct hash *ifrmaphash;
 
@@ -296,10 +296,10 @@ if_rmap_reset ()
 }
 
 void
-if_rmap_init (int node)
+if_rmap_init (void)
 {
   ifrmaphash = hash_create (if_rmap_hash_make, if_rmap_hash_cmp);
 
-  install_element (node, &if_rmap_cmd);
-  install_element (node, &no_if_rmap_cmd);
+  install_element (RIPNG_NODE, &if_rmap_cmd);
+  install_element (RIPNG_NODE, &no_if_rmap_cmd);
 }
