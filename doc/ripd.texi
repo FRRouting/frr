@@ -117,7 +117,7 @@ RIP, use the @code{no router rip} command.  RIP must be enabled before
 carrying out any of the RIP commands.
 @end deffn
 
-@deffn Command {no rouer rip} {}
+@deffn Command {no router rip} {}
 Disable RIP.
 @end deffn
 
@@ -126,7 +126,12 @@ the default mode is Version 2.  If no version is specified, then the RIP
 daemon will default to Version 2.  If RIP is set to Version
 1, the setting "Version 1" will be displayed, but the setting "Version
 2" will not be displayed whether or not Version 2 is set explicitly as
-the version of RIP being used.
+the version of RIP being used. The version can be specified globally, and
+also on a per-interface basis (see below).
+
+@deffn {RIP Command} {version @var{version}} {}
+Set RIP process's version.  @var{version} can be `1'' or `2''.
+@end deffn
 
 @deffn {RIP Command} {network @var{network}} {}
 @deffnx {RIP Command} {no network @var{network}} {}
@@ -175,19 +180,18 @@ router rip
 
 Passive interface
 
-@deffn {RIP command} {passive-interface @var{IFNAME}} {}
+@deffn {RIP command} {passive-interface (@var{IFNAME}|default)} {}
 @deffnx {RIP command} {no passive-interface @var{IFNAME}} {}
 This command sets the specified interface to passive mode.  On passive mode
 interface, all receiving packets are processed as normal and ripd does
 not send either multicast or unicast RIP packets except to RIP neighbors
-specified with @code{neighbor} command.
+specified with @code{neighbor} command. The interface may be specified
+as @var{default} to make ripd default to passive on all interfaces. 
+
+The default is to be passive on all interfaces.
 @end deffn
 
 RIP version handling
-
-@deffn {RIP Command} {version @var{version}} {}
-Set RIP process's version.  @var{version} can be ``1'' or ``2''.
-@end deffn
 
 @deffn {Interface command} {ip rip send version @var{version}} {}
 @var{version} can be `1', `2', `1 2'.  This configuration command
@@ -195,12 +199,16 @@ overrides the router's rip version setting.  The command will enable the
 selected interface to send packets with RIP Version 1, RIP Version 2, or
 both.  In the case of '1 2', packets will be both broadcast and
 multicast.
+
+The default is to send only version 2.
 @end deffn
 
 @deffn {Interface command} {ip rip receive version @var{version}} {}
 Version setting for incoming RIP packets.  This command will enable the
 selected interface to receive packets in RIP Version 1, RIP Version 2,
 or both.
+
+The default is to receive both versions.
 @end deffn
 
 RIP split-horizon

@@ -245,9 +245,19 @@ useful when using Zebra to implement a routing looking glass.  One
 machine can be used to collect differing routing views from differing
 points in the network.
 
+@item -A @var{address}
+@itemx --vty_addr=@var{address}
+Set the VTY local address to bind to. If set, the VTY socket will only
+be bound to this address. 
+
 @item -P @var{port}
 @itemx --vty_port=@var{port}
-Set the VTY port number.
+Set the VTY TCP port number. If set to 0 then the TCP VTY sockets will not
+be opened.
+
+@item -u @var{user}
+@itemx --vty_addr=@var{user}
+Set the user and group to run as.
 
 @item -v
 @itemx --version

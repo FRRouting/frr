@@ -72,6 +72,23 @@ file does not match to the current running kernel, configure script will
 not turn on netlink support.
 @item --enable-snmp
 Enable SNMP support.  By default, SNMP support is disabled.
+@item --enable-nssa
+Enable support for Not So Stubby Area (see RC3101) in ospfd.
+@item --enable-opaque-lsa
+Enable support for Opaque LSAs (RFC2370) in ospfd.
+@item --disable-ospfapi
+Disable support for OSPF-API, an API to interface directly with ospfd.
+OSPF-API is enabled if --enable-opaque-lsa is set.
+@item --disable-ospfclient
+Disable building of the example OSPF-API client.
+@item --enable-ospf-te
+Enable support for OSPF Traffic Engineering Extension (internet-draft) this
+requires support for Opaque LSAs.
+@item --enable-multipath=@var{ARG}
+Enable support for Equal Cost Multipath. @var{ARG} is the maximum number
+of ECMP paths to allow, set to 0 to allow unlimited number of paths.
+@item --enable-rtadv
+Enable support IPV6 router advertisement in zebra.
 @end table
 
 You may specify any combination of the above options to the configure
@@ -84,8 +101,46 @@ options to the configuration script.
 @item --prefix=@var{prefix}
 Install architecture-independent files in @var{prefix} [/usr/local].
 @item --sysconfdir=@var{dir}
-Read-only sample configuration file in @var{dir} [@var{prefix}/etc].
+Look for configuration files in @var{dir} [@var{prefix}/etc]. Note
+that sample configuration files will be installed here.
+@item --localstatedir=@var{dir}
+Configure zebra to use @var{dir} for local state files, such
+as pid files and unix sockets.
 @end table
+
+Additionally, you may configure zebra to drop its elevated
+privileges shortly after startup and switch
+to another user, there are three configure options
+to control zebra's behaviour.
+
+@table @option
+@item --enable-user=@var{user}
+Switch to user @var{ARG} shortly after startup, and run as user @var{ARG}
+in normal operation.
+@item --enable-group=@var{group}
+Switch real and effective group to @var{group} shortly after
+startup. 
+@item --enable-vty-group=@var{group}
+Create Unix Vty sockets (for use with vtysh) with group owndership set to
+@var{group}. This allows one to create a seperate group which is
+restricted to accessing only the Vty sockets, hence allowing one to
+delegate this group to individual users, or to run vtysh setgid to
+this group.
+@end table
+
+The default user and group which will be configured is 'zebra' if no user
+or group is specified. Note that this user or group requires write access
+to the local state directory (see --localstatedir) and requires at least
+read access, and write access if you wish to allow daemons
+to write out their configuration, to the configuration directory
+(see --sysconfdir).
+
+On systems which have the 'libcap' capabilities manipulation library
+(currently only linux), the zebra system will retain
+only minimal capabilities required, further it will only raise these
+capabilities for brief periods. On systems without libcap, zebra will run
+as the user specified and only raise its uid back to uid 0 for brief
+periods.
 
 @example
 % ./configure --disable-ipv6

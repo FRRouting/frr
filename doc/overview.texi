@@ -270,25 +270,26 @@ November 1995.}
 @comment  node-name,  next,  previous,  up
 @section How to get Zebra
 
-  Zebra is still beta software and there is no officially
-released version.  So currently Zebra is distributed from Zebra beta ftp
-site located at:
-
-@url{ftp://ftp.zebra.org/pub/zebra}
-
-  Once Zebra is released you can get it from @sc{gnu} FTP site and
-its mirror sites.  We are planning Zebra-1.0 as the first released
-version.
+  Zebra is still beta software and there is no officially released
+version. Once Zebra is released you can get it from @sc{gnu} FTP
+site and its mirror sites.  We are planning Zebra-1.0 as the first
+released version.
 
   Zebra's official web page is located at:
 
 @url{http://www.gnu.org/software/zebra/zebra.html}.
 
-  There is a Zebra beta tester web page at: 
+  The original Zebra web site is located at: 
 
 @url{http://www.zebra.org/}.
 
-  You can get the latest beta software information from this page.
+  As of this writing, development by zebra.org on Zebra has slowed down.
+There is some work being done by third-parties to try maintain bug-fixes and
+enhancements to the current Zebra code-base. Please see:
+
+@url{http://zebra.dishone.st/}.
+
+for further information, as well as links to additional zebra resources.
 
 @node Mailing List, Bug Reports, How to get Zebra, Overview
 @comment  node-name,  next,  previous,  up
@@ -317,6 +318,26 @@ subscribe zebra
 @quotation
 unsubscribe zebra
 @end quotation
+
+  There is an additional mailing list, @email{znog@@dishone.st,ZNOG} for 
+discussion of zebra related issues and network operation. To subscribe
+send an email to @email{znog-subscribe@@dishone.st} with a message body that 
+includes only:
+
+@quotation
+subscribe znog
+@end quotation
+
+ To unsubscribe, send an email to @email{znog-unsubscribe@@dishone.st}
+with a message body that includes only:
+
+@quotation
+unsubscribe znog
+@end quotation
+
+ Alternatively, you may use the web interface located at
+@url{http://www.dishone.st/mailman/listinfo/znog}. Links to archives of the
+znog list are available at this URL.
 
 @node Bug Reports,  , Mailing List, Overview
 @comment  node-name,  next,  previous,  up

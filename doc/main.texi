@@ -54,8 +54,17 @@ When program terminates, retain routes added by zebra.
 Up or down the current interface.
 @end deffn
 
-@deffn {Interface Command} {ip address @var{address}} {}
-Set ip address for the interface.
+@deffn {Interface Command} {ip address @var{address/prefix}} {}
+@deffnx {Interface Command} {ip6 address @var{address/prefix}} {}
+@deffnx {Interface Command} {no ip address @var{address/prefix}} {}
+@deffnx {Interface Command} {no ip6 address @var{address/prefix}} {}
+Set the IPv4 or IPv6 address/prefix for the interface.
+@end deffn
+
+@deffn {Interface Command} {ip address @var{address/prefix} secondary} {}
+@deffnx {Interface Command} {no ip address @var{address/prefix} secondary} {}
+Set the secondary flag for this address. This causes ospfd to not treat the
+address as a distinct subnet.
 @end deffn
 
 @deffn {Interface Command} {description @var{description} ...} {}
@@ -69,8 +78,16 @@ Enable or disables multicast flag for the interface.
 
 @deffn {Interface Command} {bandwidth <1-10000000>} {}
 @deffnx {Interface Command} {no bandwidth <1-10000000>} {}
-Set bandwidth value to the interface.  This is for calculating OSPF
-cost.  This command does not affect the actual device configuration.
+Set bandwidth value of the interface in kilobits/sec.  This is for 
+calculating OSPF cost. This command does not affect the actual device 
+configuration.
+@end deffn
+
+@deffn {Interface Command} {link-detect} {}
+@deffnx {Interface Command} {no link-detect} {}
+Enable/disable link-detect on platforms which support this. Currently 
+only linux and with certain drivers - those which properly support the 
+IFF_RUNNING flag.
 @end deffn
 
 @node Static Route Commands, zebra Terminal Mode Commands, Interface Commands, Zebra
@@ -84,15 +101,18 @@ defines static prefix and gateway.
 @var{network} is destination prefix with format of A.B.C.D/M.
 @var{gateway} is gateway for the prefix.  When @var{gateway} is
 A.B.C.D format.  It is taken as a IPv4 address gateway.  Otherwise it
-is treated as an interface name.
+is treated as an interface name. If the interface name is @var{null0} then
+zebra installs a blackhole route.
 
 @example
 ip route 10.0.0.0/8 10.0.0.2
 ip route 10.0.0.0/8 ppp0
+ip route 10.0.0.0/8 null0
 @end example
 
 First example defines 10.0.0.0/8 static route with gateway 10.0.0.2.
-Second one defines the same prefix but with gateway to interface ppp0.
+Second one defines the same prefix but with gateway to interface ppp0. The
+third install a blackhole route.
 @end deffn
 
 @deffn Command {ip route @var{network} @var{netmask} @var{gateway}} {}
@@ -103,13 +123,14 @@ format.  @var{gateway} is same option as above command
 @example
 ip route 10.0.0.0 255.255.255.0 10.0.0.2
 ip route 10.0.0.0 255.255.255.0 ppp0
+ip route 10.0.0.0 255.255.255.0 null0
 @end example
 
-This is a same setting using this statement.
+These statements are equivalent to those in the previous example.
 @end deffn
 
 @deffn Command {ip route @var{network} @var{gateway} @var{distance}} {}
-
+Installs the route with the specified distance.
 @end deffn
 
 Multiple nexthop static route
@@ -123,6 +144,10 @@ ip route 10.0.0.1/32 eth0
 If there is no route to 10.0.0.2 and 10.0.0.3, and interface eth0
 is reachable, then the last route is installed into the kernel.
 
+If zebra has been compiled with multipath support, and both 10.0.0.2 and
+10.0.0.3 are reachable, zebra will install a multipath route via both
+nexthops, if the platform supports this.
+
 @example
 zebra> show ip route
 S>  10.0.0.1/32 [1/0] via 10.0.0.2 inactive
@@ -130,14 +155,32 @@ S>  10.0.0.1/32 [1/0] via 10.0.0.2 inactive
   *                   is directly connected, eth0
 @end example
 
-Floating static route
+@example
+ip route 10.0.0.0/8 10.0.0.2
+ip route 10.0.0.0/8 10.0.0.3
+ip route 10.0.0.0/8 null0 255
+@end example
+
+This will install a multihop route via the specified next-hops if they are
+reachable, as well as a high-metric blackhole route, which can be useful to
+prevent traffic destined for a prefix to match less-specific routes (eg
+default) should the specified gateways not be reachable. Eg:
+
+@example
+zebra> show ip route 10.0.0.0/8             
+Routing entry for 10.0.0.0/8
+  Known via "static", distance 1, metric 0
+    10.0.0.2 inactive
+    10.0.0.3 inactive
+
+Routing entry for 10.0.0.0/8
+  Known via "static", distance 255, metric 0
+    directly connected, Null0
+@end example
 
 @deffn Command {ipv6 route @var{network} @var{gateway}} {}
-
-@end deffn
-
-@deffn Command {ipv6 route @var{network} @var{gateway} @var{distance}} {}
-
+@deffnx Command {ipv6 route @var{network} @var{gateway} @var{distance}} {}
+These behave similarly to their ipv4 counterparts.
 @end deffn
 
 
