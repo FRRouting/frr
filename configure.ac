@@ -99,7 +99,7 @@ AC_ARG_ENABLE(ospf-te,
 AC_ARG_ENABLE(multipath,
 [  --enable-multipath=ARG  enable multipath function, ARG must be digit])
 AC_ARG_ENABLE(rtadv,
-[  --disable-rtadv         disable IPV6 router advertisment feature])
+[  --enable-rtadv         disable IPV6 router advertisment feature])
 
 if test "${enable_broken_aliases}" = "yes"; then
   if test "${enable_netlink}" = "yes"
@@ -129,11 +129,11 @@ if test "${enable_ospf_te}" = "yes"; then
 fi
 
 AC_MSG_CHECKING(Should Zebra's RTADV be used)
-if test "${enable_rtadv}" = "no"; then
-  AC_MSG_RESULT(no)
-else
-  AC_DEFINE(HAVE_RTADV)
+if test "${enable_rtadv}" = "yes"; then
   AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_RTADV)
+else
+  AC_MSG_RESULT(no)
 fi
 
 changequote(, )dnl
