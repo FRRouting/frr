@@ -1,3 +1,4 @@
+# conditionals
 %define 	with_snmp	0
 %define		with_vtysh	1
 %define		with_ospf_te	1
@@ -7,32 +8,18 @@
 %define		with_vtysh	1
 %define		with_pam	1
 %define		with_ipv6	1
-%define		with_multipath	32
+%define		with_multipath	64
 
 # path defines
 %define		_sysconfdir	/etc/zebra
-%define		zeb_builddir	%{_builddir}/%{name}-%{version}
-%define		zeb_rh_src	%{zeb_builddir}/redhat
-%define		zeb_docs	%{zeb_builddir}/doc
-
-# files
-%define		zebra.ini
-%define		zebra_init	%{zeb_rh_src}/zebra.init
-%define		bgpd_init 	%{zeb_rh_src}/bgpd.init
-%define		ospf6d_init	%{zeb_rh_src}/ospf6d.init
-%define		ospfd_init	%{zeb_rh_src}/ospfd.init
-%define		ripd_init 	%{zeb_rh_src}/ripd.init
-%define		ripngd_init	%{zeb_rh_src}/ripngd.init
-%define		zebra_pam	%{zeb_rh_src}/zebra.pam
-%define		zebra_logrotate	%{zeb_rh_src}/zebra.logrotate
-
-#echo %{zeb_docs}
-#echo %{zeb_rh_src}
+%define		zeb_src		%{_builddir}/%{name}-%{version}
+%define		zeb_rh_src	%{zeb_src}/redhat
+%define		zeb_docs	%{zeb_src}/doc
 
 Summary: Routing daemon
 Name:		zebra
 Version:	0.93b
-Release:	2003011801
+Release:	2003012001
 License:	GPL
 Group: System Environment/Daemons
 Source0:	ftp://ftp.zebra.org/pub/zebra/%{name}-%{version}.tar.gz
@@ -120,16 +107,16 @@ install -d $RPM_BUILD_ROOT/etc/{rc.d/init.d,sysconfig,logrotate.d,pam.d} \
 make install \
 	DESTDIR=$RPM_BUILD_ROOT
 
-install %{zebra_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/zebra
-install %{bgpd_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/bgpd
+install %{zeb_rh_src}/zebra.init $RPM_BUILD_ROOT/etc/rc.d/init.d/zebra
+install %{zeb_rh_src}/bgpd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/bgpd
 %if %with_ipv6
-install %{ospf6d_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/ospf6d
-install %{ripngd_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/ripngd
+install %{zeb_rh_src}/ospf6d.init $RPM_BUILD_ROOT/etc/rc.d/init.d/ospf6d
+install %{zeb_rh_src}/ripngd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/ripngd
 %endif
-install %{ospfd_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/ospfd
-install %{ripd_init} $RPM_BUILD_ROOT/etc/rc.d/init.d/ripd
-install -m644 %{zebra_pam} $RPM_BUILD_ROOT/etc/pam.d/zebra
-install -m644 %{zebra_logrotate} $RPM_BUILD_ROOT/etc/logrotate.d/zebra
+install %{zeb_rh_src}/ospfd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/ospfd
+install %{zeb_rh_src}/ripd.init $RPM_BUILD_ROOT/etc/rc.d/init.d/ripd
+install -m644 %{zeb_rh_src}/zebra.pam $RPM_BUILD_ROOT/etc/pam.d/zebra
+install -m644 %{zeb_rh_src}/zebra.logrotate $RPM_BUILD_ROOT/etc/logrotate.d/zebra
 
 %post
 # zebra_spec_add_service <service name> <port/proto> <comment>
@@ -210,9 +197,10 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc */*.sample* doc/zebra.html tools AUTHORS COPYING
-%doc ChangeLog INSTALL NEWS README REPORTING-BUGS SERVICES TODO
+%doc */*.sample* tools AUTHORS COPYING
+%doc doc/zebra.html
 %doc doc/mpls
+%doc ChangeLog INSTALL NEWS README REPORTING-BUGS SERVICES TODO
 %dir %attr(750,root,root) %{_sysconfdir}
 %dir %attr(750,root,root) /var/log/zebra
 %dir %attr(755,root,root) /usr/share/info
@@ -228,6 +216,16 @@ fi
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
 
 %changelog
+* Mon Jan 20 2003 Paul Jakma <paul@dishone.st>
+- update to latest cvs
+- Yon's "show thread cpu" patch - 17217
+- walk up tree - 17218
+- ospfd NSSA fixes - 16681
+- ospfd nsm fixes - 16824
+- ospfd OLSA fixes and new feature - 16823 
+- KAME and ifindex fixes - 16525
+- spec file changes to allow redhat files to be in tree
+
 * Sat Dec 28 2002 Alexander Hoogerhuis <alexh@ihatent.com>
 - Added conditionals for building with(out) IPv6, vtysh, RIP, BGP
 - Fixed up some build requirements (patch)
