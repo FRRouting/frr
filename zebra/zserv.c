@@ -526,7 +526,7 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
 
   /* Write next-hop number */
   if (nhnummark)
-    stream_putw_at (s, nhnummark, nhnum);
+    stream_putc_at (s, nhnummark, nhnum);
   
   /* Write packet size. */
   stream_putw_at (s, 0, stream_get_endp (s));
