@@ -182,6 +182,14 @@ if_addr_wakeup (struct interface *ifp)
 void
 if_add_update (struct interface *ifp)
 {
+  struct zebra_if *if_data;
+
+  if_data = ifp->info;
+  if (if_data->multicast == IF_ZEBRA_MULTICAST_ON)
+    if_set_flags (ifp, IFF_MULTICAST);
+  else if (if_data->multicast == IF_ZEBRA_MULTICAST_OFF)
+    if_unset_flags (ifp, IFF_MULTICAST);
+
   zebra_interface_add_update (ifp);
 
   if (! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
@@ -739,16 +747,19 @@ DEFUN (multicast,
   struct zebra_if *if_data;
 
   ifp = (struct interface *) vty->index;
-  ret = if_set_flags (ifp, IFF_MULTICAST);
-  if (ret < 0)
+  if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
-      vty_out (vty, "Can't set multicast flag%s", VTY_NEWLINE);
-      return CMD_WARNING;
+      ret = if_set_flags (ifp, IFF_MULTICAST);
+      if (ret < 0)
+	{
+	  vty_out (vty, "Can't set multicast flag%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+      if_refresh (ifp);
     }
-  if_refresh (ifp);
   if_data = ifp->info;
   if_data->multicast = IF_ZEBRA_MULTICAST_ON;
-  
+
   return CMD_SUCCESS;
 }
 
@@ -763,13 +774,16 @@ DEFUN (no_multicast,
   struct zebra_if *if_data;
 
   ifp = (struct interface *) vty->index;
-  ret = if_unset_flags (ifp, IFF_MULTICAST);
-  if (ret < 0)
+  if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
-      vty_out (vty, "Can't unset multicast flag%s", VTY_NEWLINE);
-      return CMD_WARNING;
+      ret = if_unset_flags (ifp, IFF_MULTICAST);
+      if (ret < 0)
+	{
+	  vty_out (vty, "Can't unset multicast flag%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+      if_refresh (ifp);
     }
-  if_refresh (ifp);
   if_data = ifp->info;
   if_data->multicast = IF_ZEBRA_MULTICAST_OFF;
 
