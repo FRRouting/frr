@@ -1,3 +1,10 @@
+2004-11-07 Paul Jakma <paul@dishone.st>
+
+	* Add the route server docs.
+	* routeserver.texi: new file, texinfo'fied and slightly modified 
+          version of the original TeX from James Luis Rubio.
+	* fig-*.eps: new files, diagrammes.
+        
 2004-11-06 Paul Jakma <paul@dishone.st>
 
 	* defines.texi.in: New file, texi variables should be set here,
