@@ -2033,12 +2033,11 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 }
 
 static struct stream *
-ospf_recv_packet (int fd, struct interface **ifp)
+ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
 {
   int ret;
-  struct ip iph;
+  struct ip *iph;
   u_int16_t ip_len;
-  struct stream *ibuf;
   unsigned int ifindex = 0;
   struct iovec iov;
   /* Header and data both require alignment. */
@@ -2051,30 +2050,26 @@ ospf_recv_packet (int fd, struct interface **ifp)
   msgh.msg_control = (caddr_t) buff;
   msgh.msg_controllen = sizeof (buff);
   
-  /* XXX Is there an upper limit on the size of these packets?  If there is,
-     it would be more efficient to read the whole packet in one shot without
-     peeking (this would cut down from 2 system calls to 1).  And this would
-     make the error-handling logic a bit more robust. */
-  ret = recvfrom (fd, (void *)&iph, sizeof (iph), MSG_PEEK, NULL, 0);
-  
-  if (ret != sizeof (iph))
+  ret = stream_recvmsg (ibuf, fd, &msgh, 0, OSPF_MAX_PACKET_SIZE+1);
+  if (ret < 0)
     {
-      if (ret > 0)
-        {
-	  zlog_warn("ospf_recv_packet: discarding runt packet of length %d "
-		    "(ip header size is %u)",
-		    ret, (u_int)sizeof(iph));
-	  recvfrom (fd, (void *)&iph, ret, 0, NULL, 0);
-        }
-      else
-	zlog_warn("ospf_recv_packet: recvfrom returned %d: %s",
-		  ret, safe_strerror(errno));
+      zlog_warn("stream_recvmsg failed: %s", safe_strerror(errno));
+      return NULL;
+    }
+  if (ret < sizeof(iph))
+    {
+      zlog_warn("ospf_recv_packet: discarding runt packet of length %d "
+		"(ip header size is %u)",
+		ret, (u_int)sizeof(iph));
       return NULL;
     }
   
-  sockopt_iphdrincl_swab_systoh (&iph);
+  /* Note that there should not be alignment problems with this assignment
+     because this is at the beginning of the stream data buffer. */
+  iph = (struct ip *) STREAM_DATA(ibuf);
+  sockopt_iphdrincl_swab_systoh (iph);
   
-  ip_len = iph.ip_len;
+  ip_len = iph->ip_len;
   
 #if !defined(GNU_LINUX) && (OpenBSD < 200311)
   /*
@@ -2091,15 +2086,8 @@ ospf_recv_packet (int fd, struct interface **ifp)
    *
    * For more details, see <netinet/ip_input.c>.
    */
-  ip_len = ip_len + (iph.ip_hl << 2);
+  ip_len = ip_len + (iph->ip_hl << 2);
 #endif
-  
-  if ( (ibuf = stream_new (ip_len)) == NULL)
-    return NULL;
-  iov.iov_base = STREAM_DATA (ibuf);
-  iov.iov_len = ip_len;
-  
-  ret = stream_recvmsg (ibuf, fd, &msgh, 0, ip_len);
   
   ifindex = getsockopt_ifindex (AF_INET, &msgh);
   
@@ -2107,9 +2095,8 @@ ospf_recv_packet (int fd, struct interface **ifp)
 
   if (ret != ip_len)
     {
-      zlog_warn ("ospf_recv_packet short read. "
-		 "ip_len %d bytes read %d", ip_len, ret);
-      stream_free (ibuf);
+      zlog_warn ("ospf_recv_packet read length mismatch: ip_len is %d, "
+       		 "but recvmsg returned %d", ip_len, ret);
       return NULL;
     }
   
@@ -2360,12 +2347,14 @@ ospf_read (struct thread *thread)
   ospf->t_read = thread_add_read (master, ospf_read, ospf, ospf->fd);
 
   /* read OSPF packet. */
-  ibuf = ospf_recv_packet (ospf->fd, &ifp);
-  if (ibuf == NULL)
+  stream_reset(ospf->ibuf);
+  if (!(ibuf = ospf_recv_packet (ospf->fd, &ifp, ospf->ibuf)))
     return -1;
   
+  /* Note that there should not be alignment problems with this assignment
+     because this is at the beginning of the stream data buffer. */
   iph = (struct ip *) STREAM_DATA (ibuf);
-  sockopt_iphdrincl_swab_systoh (iph);
+  /* Note that sockopt_iphdrincl_swab_systoh was called in ospf_recv_packet. */
 
   if (ifp == NULL)
     /* Handle cases where the platform does not support retrieving the ifindex,
@@ -2374,10 +2363,7 @@ ospf_read (struct thread *thread)
     ifp = if_lookup_address (iph->ip_src);
   
   if (ifp == NULL)
-    {
-      stream_free (ibuf);
-      return 0;
-    }
+    return 0;
 
   /* IP Header dump. */
     if (IS_DEBUG_OSPF_PACKET(0, RECV))
@@ -2391,7 +2377,6 @@ ospf_read (struct thread *thread)
           zlog_debug ("ospf_read[%s]: Dropping self-originated packet",
                      inet_ntoa (iph->ip_src));
         }
-      stream_free (ibuf);
       return 0;
     }
 
@@ -2418,7 +2403,6 @@ ospf_read (struct thread *thread)
           zlog_warn ("Packet from [%s] received on link %s"
                      " but no ospf_interface",
                      inet_ntoa (iph->ip_src), ifp->name);
-          stream_free (ibuf);
           return 0;
         }
     }
@@ -2430,7 +2414,6 @@ ospf_read (struct thread *thread)
     {
       zlog_warn ("Packet from [%s] received on wrong link %s",
                  inet_ntoa (iph->ip_src), ifp->name); 
-      stream_free (ibuf);
       return 0;
     }
   else if (oi->state == ISM_Down)
@@ -2441,7 +2424,6 @@ ospf_read (struct thread *thread)
 		 inet_ntop(AF_INET, &iph->ip_src, buf[0], sizeof(buf[0])),
 		 inet_ntop(AF_INET, &iph->ip_dst, buf[1], sizeof(buf[1])),
 	         ifp->name, if_flag_dump(ifp->flags));
-      stream_free (ibuf);
       /* Fix multicast memberships? */
       if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS))
 	SET_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS);
@@ -2463,7 +2445,6 @@ ospf_read (struct thread *thread)
       zlog_warn ("Dropping packet for AllDRouters from [%s] via [%s] (ISM: %s)",
                  inet_ntoa (iph->ip_src), IF_NAME (oi),
                  LOOKUP (ospf_ism_state_msg, oi->state));
-      stream_free (ibuf);
       /* Try to fix multicast membership. */
       SET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
       ospf_if_set_multicast(oi);
@@ -2500,7 +2481,6 @@ ospf_read (struct thread *thread)
                      ospf_packet_type_str[ospfh->type],
                      inet_ntoa (iph->ip_src));
         }
-      stream_free (ibuf);
       return ret;
     }
 
@@ -2534,7 +2514,6 @@ ospf_read (struct thread *thread)
       break;
     }
 
-  stream_free (ibuf);
   return 0;
 }
 

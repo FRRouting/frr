@@ -1,3 +1,20 @@
+2005-02-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospfd.h: Add new field struct stream *ibuf to struct ospf.
+	* ospfd.c: (ospf_new) Check return code from ospf_sock_init.
+	  Allocate ibuf using stream_new(OSPF_MAX_PACKET_SIZE+1).
+	  (ospf_finish) Call stream_free(ospf->ibuf.
+	* ospf_packet.c: (ospf_read) Call stream_reset(ospf->ibuf) and then
+	  pass it to ospf_recv_packet for use in receiving the packet
+	  (instead of allocating a new stream for each packet received).
+	  Eliminate all calls to stream_free(ibuf).
+	  (ospf_recv_packet) The struct stream *ibuf is now passed in as
+	  an argument.  No need to use recvfrom to peek at the packet
+	  header (to see how big it is), just use ospf->ibuf which is
+	  always large enough (this eliminates a system call to recvfrom).
+	  Therefore, no need to allocate a stream just for this packet,
+	  and no need to free it when done.
+
 2005-02-23 Vincenzo Eramo <eramo at infocom.ing.uniroma1.it>
 
 	* ospf_lsa.h: New flag to the LSA structure for the SPF calculation.

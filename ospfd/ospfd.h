@@ -248,6 +248,7 @@ struct ospf
   struct thread *t_write;
   struct thread *t_read;
   int fd;
+  struct stream *ibuf;
   struct list *oi_write_q;
   
   /* Distribute lists out of other route sources. */

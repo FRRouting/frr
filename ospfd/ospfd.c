@@ -204,9 +204,19 @@ ospf_new ()
 					   new, new->lsa_refresh_interval);
   new->lsa_refresher_started = time (NULL);
 
-  new->fd = ospf_sock_init ();
-  if (new->fd >= 0)
-    new->t_read = thread_add_read (master, ospf_read, new, new->fd);
+  if ((new->fd = ospf_sock_init()) < 0)
+    {
+      zlog_err("ospf_new: fatal error: ospf_sock_init was unable to open "
+	       "a socket");
+      exit(1);
+    }
+  if ((new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE+1)) == NULL)
+    {
+      zlog_err("ospf_new: fatal error: stream_new(%u) failed allocating ibuf",
+	       OSPF_MAX_PACKET_SIZE+1);
+      exit(1);
+    }
+  new->t_read = thread_add_read (master, ospf_read, new, new->fd);
   new->oi_write_q = list_new ();
   
   return new;
@@ -360,6 +370,7 @@ ospf_finish (struct ospf *ospf)
   OSPF_TIMER_OFF (ospf->t_write);
 
   close (ospf->fd);
+  stream_free(ospf->ibuf);
    
 #ifdef HAVE_OPAQUE_LSA
   LSDB_LOOP (OPAQUE_AS_LSDB (ospf), rn, lsa)
