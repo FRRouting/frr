@@ -885,7 +885,7 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
 
   /* Overwrite digest by my secret. */
   memset (md5data->digest, 0, RIP_AUTH_MD5_SIZE);
-  strncpy (md5data->digest, auth_str, RIP_AUTH_MD5_SIZE);
+  strncpy ((char *)md5data->digest, auth_str, RIP_AUTH_MD5_SIZE);
 
   md5_init_ctx (&ctx);
   md5_process_bytes (packet, packet_len + md5->auth_len, &ctx);
@@ -993,7 +993,7 @@ rip_auth_md5_set (struct stream *s, struct interface *ifp)
 
   /* Generate a digest for the RIP packet. */
   memset (secret, 0, RIP_AUTH_MD5_SIZE);
-  strncpy (secret, auth_str, RIP_AUTH_MD5_SIZE);
+  strncpy ((char *)secret, auth_str, RIP_AUTH_MD5_SIZE);
   md5_init_ctx (&ctx);
   md5_process_bytes (s->data, s->endp, &ctx);
   md5_process_bytes (secret, RIP_AUTH_MD5_SIZE, &ctx);
@@ -1247,7 +1247,7 @@ rip_response_process (struct rip_packet *packet, int size,
 
 /* RIP packet send to destination address. */
 int
-rip_send_packet (caddr_t buf, int size, struct sockaddr_in *to, 
+rip_send_packet (u_char * buf, int size, struct sockaddr_in *to, 
 		 struct interface *ifp, struct connected *connected)
 {
   int ret, send_sock;
@@ -1556,7 +1556,7 @@ rip_request_process (struct rip_packet *packet, int size,
 	}
       packet->command = RIP_RESPONSE;
 
-      rip_send_packet ((caddr_t) packet, size, from, ifp, NULL);
+      rip_send_packet ((u_char *)packet, size, from, ifp, NULL);
     }
   rip_global_queries++;
 }
@@ -1647,7 +1647,8 @@ rip_read (struct thread *t)
   union rip_buf rip_buf;
   struct rip_packet *packet;
   struct sockaddr_in from;
-  int fromlen, len;
+  int len;
+  socklen_t fromlen;
   struct interface *ifp;
   struct rip_interface *ri;
 
@@ -1989,7 +1990,7 @@ rip_write_rte (int num, struct stream *s, struct prefix_ipv4 *p,
 		  stream_putw (s, RIP_AUTH_SIMPLE_PASSWORD);
 
 		  memset ((s->data + s->putp), 0, 16);
-		  strncpy ((s->data + s->putp), ri->auth_str, 16);
+		  strncpy ((char *)(s->data + s->putp), ri->auth_str, 16);
 		  stream_set_putp (s, s->putp + 16);
 
 		  num++;
@@ -2011,7 +2012,8 @@ rip_write_rte (int num, struct stream *s, struct prefix_ipv4 *p,
 			  stream_putw (s, RIP_AUTH_SIMPLE_PASSWORD);
 
 			  memset ((s->data + s->putp), 0, 16);
-			  strncpy ((s->data + s->putp), key->string, 16);
+			  strncpy ((char *)(s->data + s->putp), 
+				   key->string, 16);
 			  stream_set_putp (s, s->putp + 16);
 
 			  num++;
@@ -2683,7 +2685,7 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
        * interface does not support multicast.  Caller loops
        * over each connected address for this case.
        */
-      if (rip_send_packet ((caddr_t) &rip_packet, sizeof (rip_packet), 
+      if (rip_send_packet ((u_char *) &rip_packet, sizeof (rip_packet), 
                             to, ifp, connected) != sizeof (rip_packet))
         return -1;
       else
@@ -2700,7 +2702,7 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
       if (p->family != AF_INET)
         continue;
 
-      if (rip_send_packet ((caddr_t) &rip_packet, sizeof (rip_packet), 
+      if (rip_send_packet ((u_char *) &rip_packet, sizeof (rip_packet), 
                             to, ifp, connected) != sizeof (rip_packet))
         return -1;
     }
@@ -3719,6 +3721,12 @@ rip_distribute_update_all ()
       rip_distribute_update_interface (ifp);
     }
 }
+/* ARGSUSED */
+void
+rip_distribute_update_all_wrapper(struct access_list *notused)
+{
+        rip_distribute_update_all();
+}
 
 /* Delete all added rip route. */
 void
@@ -3894,8 +3902,9 @@ rip_routemap_update_redistribute (void)
     }
 }
 
+/* ARGSUSED */
 void
-rip_routemap_update ()
+rip_routemap_update (char *notused)
 {
   struct interface *ifp;
   listnode node;
@@ -3956,8 +3965,8 @@ rip_init ()
 
   /* Access list install. */
   access_list_init ();
-  access_list_add_hook (rip_distribute_update_all);
-  access_list_delete_hook (rip_distribute_update_all);
+  access_list_add_hook (rip_distribute_update_all_wrapper);
+  access_list_delete_hook (rip_distribute_update_all_wrapper);
 
   /* Prefix list initialize.*/
   prefix_list_init ();
