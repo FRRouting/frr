@@ -1455,25 +1455,6 @@ DEFUN (no_ipv6_address,
 }
 #endif /* HAVE_IPV6 */
 
-#ifdef KAME
-DEFUN (ip_tunnel,
-       ip_tunnel_cmd,
-       "ip tunnel IP_address IP_address",
-       "KAME ip tunneling configuration commands\n"
-       "Set FROM IP address and TO IP address\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_tunnel, no_ip_tunnel_cmd,
-       "no ip tunnel",
-       NO_STR
-       "Set FROM IP address and TO IP address\n")
-{
-  return CMD_SUCCESS;
-}
-#endif /* KAME */
-
 int
 if_config_write (struct vty *vty)
 {
@@ -1582,10 +1563,6 @@ zebra_if_init ()
   install_element (INTERFACE_NODE, &ipv6_address_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_address_cmd);
 #endif /* HAVE_IPV6 */
-#ifdef KAME
-  install_element (INTERFACE_NODE, &ip_tunnel_cmd);
-  install_element (INTERFACE_NODE, &no_ip_tunnel_cmd);
-#endif /* KAME */
 #ifdef HAVE_NETLINK
   install_element (INTERFACE_NODE, &ip_address_label_cmd);
   install_element (INTERFACE_NODE, &no_ip_address_label_cmd);
