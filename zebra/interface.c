@@ -728,6 +728,14 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	}
     }
 
+  for (node = listhead (ifp->connected); node; nextnode (node))
+    {
+      connected = getdata (node);
+      if (CHECK_FLAG (connected->conf, ZEBRA_IFC_REAL) &&
+	  (connected->address->family == AF_INET6))
+	connected_dump_vty (vty, connected);
+    }
+
 #ifdef RTADV
   nd_dump_vty (vty, ifp);
 #endif /* RTADV */
@@ -1092,8 +1100,9 @@ ALIAS (no_bandwidth_if,
        "Bandwidth in kilobits\n")
 
 int
-ip_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
-		    char *peer_str, char *label)
+ip_address_install (struct vty *vty, struct interface *ifp,
+		    const char *addr_str, const char *peer_str,
+		    const char *label)
 {
   struct prefix_ipv4 cp;
   struct connected *ifc;
@@ -1178,8 +1187,9 @@ ip_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
 }
 
 int
-ip_address_uninstall (struct vty *vty, struct interface *ifp, char *addr_str,
-		      char *peer_str, char *label)
+ip_address_uninstall (struct vty *vty, struct interface *ifp,
+		      const char *addr_str, const char *peer_str,
+		      const char *label)
 {
   struct prefix_ipv4 cp;
   struct connected *ifc;
@@ -1288,8 +1298,9 @@ DEFUN (no_ip_address_label,
 
 #ifdef HAVE_IPV6
 int
-ipv6_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
-		      char *peer_str, char *label, int secondary)
+ipv6_address_install (struct vty *vty, struct interface *ifp,
+		      const char *addr_str, const char *peer_str,
+		      const char *label, int secondary)
 {
   struct prefix_ipv6 cp;
   struct connected *ifc;
@@ -1365,8 +1376,9 @@ ipv6_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
 }
 
 int
-ipv6_address_uninstall (struct vty *vty, struct interface *ifp, char *addr_str,
-			char *peer_str, char *label, int secondry)
+ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
+			const char *addr_str, const char *peer_str,
+			const char *label, int secondry)
 {
   struct prefix_ipv6 cp;
   struct connected *ifc;

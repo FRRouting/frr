@@ -2,6 +2,10 @@
 
 	* zebra_vty.c: Unbreak "show ip route" command help and make it work
 	  for isis routes.
+	* interface.c(if_dump_vty): Show IPv6 addresses in "show interface"
+	  output. Fixes Bugzilla #119.
+	* *.c: Make some strings const and some (unsigned) casts to fix
+	  compiler warnings.
 
 2004-10-07 Hasso Tepper <hasso at quagga.net>
 

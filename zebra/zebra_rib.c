@@ -1437,7 +1437,7 @@ static_uninstall_ipv4 (struct prefix *p, struct static_ipv4 *si)
 
 /* Add static route into static route configuration. */
 int
-static_add_ipv4 (struct prefix *p, struct in_addr *gate, char *ifname,
+static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 		 u_char flags, u_char distance, u_int32_t vrf_id)
 {
   u_char type = 0;
@@ -1533,7 +1533,7 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, char *ifname,
 
 /* Delete static route from static route configuration. */
 int
-static_delete_ipv4 (struct prefix *p, struct in_addr *gate, char *ifname,
+static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 		    u_char distance, u_int32_t vrf_id)
 {
   u_char type = 0;
@@ -2002,7 +2002,8 @@ static_uninstall_ipv6 (struct prefix *p, struct static_ipv6 *si)
 /* Add static route into static route configuration. */
 int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		 char *ifname, u_char flags, u_char distance, u_int32_t vrf_id)
+		 const char *ifname, u_char flags, u_char distance,
+		 u_int32_t vrf_id)
 {
   struct route_node *rn;
   struct static_ipv6 *si;
@@ -2082,7 +2083,7 @@ static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 /* Delete static route from static route configuration. */
 int
 static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
-		    char *ifname, u_char distance, u_int32_t vrf_id)
+		    const char *ifname, u_char distance, u_int32_t vrf_id)
 {
   struct route_node *rn;
   struct static_ipv6 *si;

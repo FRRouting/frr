@@ -91,16 +91,16 @@ route_type_char (u_char type)
 
 /* General fucntion for static route. */
 int
-zebra_static_ipv4 (struct vty *vty, int add_cmd,
-		   char *dest_str, char *mask_str, char *gate_str,
-		   char *flag_str, char *distance_str)
+zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
+		   const char *mask_str, const char *gate_str,
+		   const char *flag_str, const char *distance_str)
 {
   int ret;
   u_char distance;
   struct prefix p;
   struct in_addr gate;
   struct in_addr mask;
-  char *ifname;
+  const char *ifname;
   u_char flag = 0;
   
   ret = str2prefix (dest_str, &p);
@@ -754,7 +754,9 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
     }
 }
 
-#define SHOW_ROUTE_V4_HEADER "Codes: K - kernel route, C - connected, S - static, R - RIP, O - OSPF,%s       I - ISIS, B - BGP, > - selected route, * - FIB route%s%s"
+#define SHOW_ROUTE_V4_HEADER "Codes: K - kernel route, C - connected, " \
+  "S - static, R - RIP, O - OSPF,%s       I - ISIS, B - BGP, " \
+  "> - selected route, * - FIB route%s%s"
 
 DEFUN (show_ip_route,
        show_ip_route_cmd,
@@ -1114,8 +1116,9 @@ static_config_ipv4 (struct vty *vty)
 #ifdef HAVE_IPV6
 /* General fucntion for IPv6 static route. */
 int
-static_ipv6_func (struct vty *vty, int add_cmd, char *dest_str,
-		  char *gate_str, char *ifname, char *flag_str, char *distance_str)
+static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
+		  const char *gate_str, const char *ifname,
+		  const char *flag_str, const char *distance_str)
 {
   int ret;
   u_char distance;

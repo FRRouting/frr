@@ -328,7 +328,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
 
   /* Short circuit exact matches of wrong length */
 
-  if (exact && (*objid_len != v->namelen + 10))
+  if (exact && (*objid_len != (unsigned) v->namelen + 10))
     return;
 
   table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
@@ -342,19 +342,19 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
   if (*objid_len > v->namelen)
     oid2in_addr (objid + v->namelen, MIN(4, *objid_len - v->namelen), &dest);
 
-  if (*objid_len > v->namelen + 4)
+  if (*objid_len > (unsigned) v->namelen + 4)
     proto = objid[v->namelen + 4];
 
-  if (*objid_len > v->namelen + 5)
+  if (*objid_len > (unsigned) v->namelen + 5)
     policy = objid[v->namelen + 5];
 
-  if (*objid_len > v->namelen + 6)
+  if (*objid_len > (unsigned) v->namelen + 6)
     oid2in_addr (objid + v->namelen + 6, MIN(4, *objid_len - v->namelen - 6),
 		 &nexthop);
 
   /* Apply GETNEXT on not exact search */
 
-  if (!exact && (*objid_len >= v->namelen + 10))
+  if (!exact && (*objid_len >= (unsigned) v->namelen + 10))
     {
       if (! in_addr_add((u_char *) &nexthop, 1)) 
         return;

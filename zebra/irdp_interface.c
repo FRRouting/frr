@@ -155,7 +155,7 @@ int if_drop_group (struct interface *ifp)
   return 0;
 }
 
-struct interface *get_iflist_ifp(int idx)
+struct interface *get_iflist_ifp(unsigned int idx)
 {
   struct listnode *node;
   struct interface *ifp;
@@ -500,7 +500,7 @@ DEFUN (ip_irdp_minadvertinterval,
   zi=ifp->info;
   irdp=&zi->irdp;
 
-  if( atoi(argv[0]) <= irdp->MaxAdvertInterval) {
+  if( (unsigned) atoi(argv[0]) <= irdp->MaxAdvertInterval) {
       irdp->MinAdvertInterval = atoi(argv[0]);
 
       return CMD_SUCCESS;
@@ -534,7 +534,7 @@ DEFUN (ip_irdp_maxadvertinterval,
   irdp=&zi->irdp;
 
 
-  if( irdp->MinAdvertInterval <= atoi(argv[0]) ) {
+  if( irdp->MinAdvertInterval <= (unsigned) atoi(argv[0]) ) {
     irdp->MaxAdvertInterval = atoi(argv[0]);
 
       return CMD_SUCCESS;
