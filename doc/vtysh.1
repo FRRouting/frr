@@ -1,13 +1,21 @@
-.TH VTYSH 1 "10 August 2004" "Quagga VTY shell" "Version 0.96.5"
+.TH VTYSH 1 "27 August 2004" "Quagga VTY shell" "Version 0.96.5"
 .SH NAME
 vtysh \- a integrated shell for Quagga routing software
 .SH SYNOPSIS
 .B vtysh
 [
+.B \-f
+.I config-file
+]
+[
 .B \-b
 ]
 .br
 .B vtysh
+[
+.B \-f
+.I config-file
+]
 [
 .B \-c
 .I command
@@ -34,8 +42,11 @@ is executed and vtysh exits.
 It's useful for gathering info from Quagga routing software from shell scripts
 etc.
 .IP "\fB\-e, \-\-execute \fIcommand\fP"
-Alias for -c. It's only for compatibility with Zebra routing software and older
-Quagga versions and this might be removed in future.
+Alias for -c. It's here only for compatibility with Zebra routing software and
+older Quagga versions. This will be removed in future.
+.IP "\fB\-f, \-\-config-file \fIconfig-file\fP"
+Specifies the config file to use for startup. If not specified this option will
+likely default to \fB\fI/usr/local/etc/vtysh.conf\fR.
 .IP "\fB\-h, \-\-help\fP"
 Display a usage message on standard output and exit.
 .SH ENVIRONMENT VARIABLES

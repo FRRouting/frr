@@ -1,4 +1,13 @@
-2004-08-26 Hasso Tepper <hasso@estpak.ee>
+2004-08-27 Hasso Tepper <hasso at quagga.net>
+
+	* vtysh.c: Enable using ssh from ENABLE_NODE.
+	* vtysh_config.c: Make enable password uniq lines appear only once in
+	  configuration.
+	* vtysh_main.c, vtysh_config.c, vtysh.h: Remove useless code which
+	  searched configuration files from current directory. Add -f to
+	  specify conf from command line.
+
+2004-08-26 Hasso Tepper <hasso at quagga.net>
 
 	* *.c: Cosmetical changes - strip long lines, fix multiline comments
 	  style, indentation fixes, remove useless comments.

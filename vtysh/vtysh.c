@@ -1999,6 +1999,7 @@ vtysh_init_vty ()
 #endif
   install_element (ENABLE_NODE, &vtysh_telnet_cmd);
   install_element (ENABLE_NODE, &vtysh_telnet_port_cmd);
+  install_element (ENABLE_NODE, &vtysh_ssh_cmd);
   install_element (ENABLE_NODE, &vtysh_start_shell_cmd);
   install_element (ENABLE_NODE, &vtysh_start_bash_cmd);
   install_element (ENABLE_NODE, &vtysh_start_zsh_cmd);

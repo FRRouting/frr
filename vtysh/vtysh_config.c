@@ -228,7 +228,9 @@ vtysh_config_parse_line (char *line)
 	{
 	  if (strncmp (line, "log", strlen ("log")) == 0
 	      || strncmp (line, "hostname", strlen ("hostname")) == 0
-	      || strncmp (line, "password", strlen ("hostname")) == 0)
+	      || strncmp (line, "password", strlen ("password")) == 0
+	      || strncmp (line, "enable password",
+		          strlen ("enable password")) == 0)
 	    config_add_line_uniq (config_top, line);
 	  else
 	    config_add_line (config_top, line);
@@ -365,7 +367,6 @@ vtysh_read_file (FILE *confp)
 /* Read up configuration file from file_name. */
 void
 vtysh_read_config (char *config_file,
-		   char *config_current_dir,
 		   char *config_default_dir)
 {
   char *cwd;
@@ -396,32 +397,19 @@ vtysh_read_config (char *config_file,
     }
   else
     {
-      /* Relative path configuration file open. */
-      if (config_current_dir)
-	confp = fopen (config_current_dir, "r");
-
-      /* If there is no relative path exists, open system default file. */
+      /* No configuration specified from command line. Open system
+       * default file. */
+      confp = fopen (config_default_dir, "r");
       if (confp == NULL)
 	{
-	  confp = fopen (config_default_dir, "r");
-	  if (confp == NULL)
-	    {
-	      fprintf (stderr, "can't open configuration file [%s]\n",
-		       config_default_dir);
-	      exit (1);
-	    }      
-	  else
-	    fullpath = config_default_dir;
-	}
+	  fprintf (stderr, "can't open configuration file [%s]\n",
+		   config_default_dir);
+	  exit (1);
+	}      
       else
-	{
-	  /* Rleative path configuration file. */
-	  cwd = getcwd (NULL, MAXPATHLEN);
-	  fullpath = XMALLOC (MTYPE_TMP, 
-			      strlen (cwd) + strlen (config_current_dir) + 2);
-	  sprintf (fullpath, "%s/%s", cwd, config_current_dir);
-	}  
-    }  
+	fullpath = config_default_dir;
+    }
+
   vtysh_read_file (confp);
 
   fclose (confp);
