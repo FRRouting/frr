@@ -1,5 +1,5 @@
 /*
- * $Id: bgp_view.c,v 1.1 2002/12/13 20:15:29 paul Exp $
+ * $Id: bgp_view.c,v 1.2 2004/08/26 11:22:19 hasso Exp $
  *
  * Multiple view function for route server.
  * Copyright (C) 1997 Kunihiro Ishiguro
@@ -29,7 +29,6 @@
 #include "vty.h"
 #include "command.h"
 #include "prefix.h"
-#include "zebra/zebra.h"
 #include "table.h"
 #include "log.h"
 
