@@ -708,30 +708,6 @@ connected_lookup_address (struct interface *ifp, struct in_addr dst)
   return match;
 }
 
-/* Check the connected information is PtP style or not.  */
-int
-ifc_pointopoint (struct connected *ifc)
-{
-  struct prefix *p;
-  int ptp = 0;
-
-  /* When interface has PtP flag.  */
-  if (if_is_pointopoint (ifc->ifp))
-    return 1;
-
-  /* RFC3021 PtP check.  */
-  p = ifc->address;
-
-  if (p->family == AF_INET)
-    ptp = (p->prefixlen >= IPV4_MAX_PREFIXLEN - 1);
-#ifdef HAVE_IPV6
-  if (p->family == AF_INET6)
-    ptp = (p->prefixlen >= IPV6_MAX_PREFIXLEN - 1);
-#endif /* HAVE_IPV6 */
-
-  return ptp;
-}
-
 #ifndef HAVE_IF_NAMETOINDEX
 unsigned int
 if_nametoindex (const char *name)

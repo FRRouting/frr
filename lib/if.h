@@ -207,7 +207,6 @@ void connected_free (struct connected *);
 void connected_add (struct interface *, struct connected *);
 struct connected  *connected_delete_by_prefix (struct interface *, struct prefix *);
 struct connected  *connected_lookup_address (struct interface *, struct in_addr);
-int ifc_pointopoint (struct connected *);
 
 #ifndef HAVE_IF_NAMETOINDEX
 unsigned int if_nametoindex (const char *);
