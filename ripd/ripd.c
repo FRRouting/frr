@@ -3343,7 +3343,7 @@ DEFUN (show_ip_rip,
 	   "Sub-codes:%s"
            "      (n) - normal, (s) - static, (d) - default, (r) - redistribute,%s"
 	   "      (i) - interface%s%s"
-	   "     Network         Next Hop         Metric From            Tag Time%s",
+	   "     Network            Next Hop         Metric From            Tag Time%s",
 	   VTY_NEWLINE, VTY_NEWLINE,  VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
   
   for (np = route_top (rip->table); np; np = route_next (np))
@@ -3357,7 +3357,7 @@ DEFUN (show_ip_rip,
 		       rip_route_type_print (rinfo->sub_type),
 		       inet_ntoa (np->p.u.prefix4), np->p.prefixlen);
 	
-	len = 21 - len;
+	len = 24 - len;
 
 	if (len > 0)
 	  vty_out (vty, "%*s", len, " ");

@@ -1,3 +1,7 @@
+2004-03-03 Krzysztof Oledzki <oleq@ans.pl>
+
+	* ripd.c: fix "show ip rip".
+
 2004-01-23 sowmini.varadhan@sun.com
 
 	* rip_interface.c: obsolete unbind code in
