@@ -1,3 +1,12 @@
+2004-05-08 Sowmini Varadhan <sowmini.varadhan@sun.com>
+
+	* if.h: Add mtu6 field to struct interface, IPv6 MTU may differ
+	  from IPv4, and Solaris treats the MTU's differently.
+	  Add connected_add_by_prefix, for use by later patch.
+	* if.c: (connected_add_by_prefix) Add prefix to connected list.
+	  (if_flag_dump) Solaris: Dump IFF_IPv4/6 flag
+	  (if_dump) Dump mtu6 flag, for HAVE_IPV6.
+
 2004-04-21 Boris Kovalenko <boris@tagnet.ru>
 
 	* daemon.c: (daemon) fix check for error return from setsid

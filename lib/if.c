@@ -30,7 +30,6 @@
 #include "if.h"
 #include "sockunion.h"
 #include "prefix.h"
-#include "zebra/connected.h"
 #include "memory.h"
 #include "table.h"
 #include "buffer.h"
@@ -402,6 +401,10 @@ if_flag_dump (unsigned long flag)
   IFF_OUT_LOG (IFF_LINK1, "LINK1");
   IFF_OUT_LOG (IFF_LINK2, "LINK2");
   IFF_OUT_LOG (IFF_MULTICAST, "MULTICAST");
+#ifdef SOLARIS_IPV6
+  IFF_OUT_LOG (IFF_IPV4, "IFF_IPv4");
+  IFF_OUT_LOG (IFF_IPV6, "IFF_IPv6");
+#endif /* SOLARIS_IPV6 */
 
   strlcat (logbuf, ">", BUFSIZ);
 
@@ -414,8 +417,15 @@ if_dump (struct interface *ifp)
 {
   listnode node;
 
-  zlog_info ("Interface %s index %d metric %d mtu %d %s",
+  zlog_info ("Interface %s index %d metric %d mtu %d "
+#ifdef HAVE_IPV6
+             "mtu6 %d "
+#endif /* HAVE_IPV6 */
+             "%s",
 	     ifp->name, ifp->ifindex, ifp->metric, ifp->mtu, 
+#ifdef HAVE_IPV6
+	     ifp->mtu6,
+#endif /* HAVE_IPV6 */
 	     if_flag_dump (ifp->flags));
   
   for (node = listhead (ifp->connected); node; nextnode (node))
@@ -707,6 +717,29 @@ connected_lookup_address (struct interface *ifp, struct in_addr dst)
 	}
     }
   return match;
+}
+
+struct connected *
+connected_add_by_prefix (struct interface *ifp, struct prefix *p, 
+                         struct prefix *destination)
+{
+  struct connected *ifc;
+
+  /* Allocate new connected address. */
+  ifc = connected_new ();
+  ifc->ifp = ifp;
+
+  /* Fetch interface address */
+  ifc->address = prefix_new();
+  memcpy (ifc->address, p, sizeof(struct prefix));
+
+  /* Fetch dest address */
+  ifc->destination = prefix_new();
+  memcpy (ifc->destination, destination, sizeof(struct prefix));
+
+  /* Add connected address to the interface. */
+  listnode_add (ifp->connected, ifc);
+  return ifc;
 }
 
 #ifndef HAVE_IF_NAMETOINDEX

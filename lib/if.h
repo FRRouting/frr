@@ -94,7 +94,8 @@ struct interface
   int metric;
 
   /* Interface MTU. */
-  int mtu;
+  int mtu;    /* IPv4 MTU */
+  int mtu6;   /* IPv6 MTU - probably, but not neccessarily same as mtu */
 
   /* Hardware address. */
 #ifdef HAVE_SOCKADDR_DL
@@ -205,8 +206,13 @@ char *ifindex2ifname (unsigned int);
 struct connected *connected_new ();
 void connected_free (struct connected *);
 void connected_add (struct interface *, struct connected *);
-struct connected  *connected_delete_by_prefix (struct interface *, struct prefix *);
-struct connected  *connected_lookup_address (struct interface *, struct in_addr);
+struct connected  *connected_add_by_prefix (struct interface *,
+                                            struct prefix *,
+                                            struct prefix *);
+struct connected  *connected_delete_by_prefix (struct interface *, 
+                                               struct prefix *);
+struct connected  *connected_lookup_address (struct interface *, 
+                                             struct in_addr);
 
 #ifndef HAVE_IF_NAMETOINDEX
 unsigned int if_nametoindex (const char *);
