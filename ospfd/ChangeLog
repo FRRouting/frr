@@ -1,3 +1,8 @@
+2004-11-04 Paul Jakma <paul@dishone.st>
+
+	* ospfd.c: (ospf_network_match_iface) revert to previous network
+          statement match behaviour.
+
 2004-11-02 Paul Jakma <paul@dishone.st>
 
 	* ospf_packet.c: (ospf_write_frags) remove iov arg, msg already points
