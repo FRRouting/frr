@@ -24,6 +24,7 @@
 #define _ZEBRA_OSPFD_H
 
 #include "filter.h"
+#include "log.h"
 
 #define OSPF_VERSION            2
 

@@ -1,3 +1,7 @@
+2005-03-25 Hasso Tepper <hasso at quagga.net>
+
+	* ospfd.h: Include log.h, fixes compile with gcc-4.0.
+
 2005-03-13 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_lsa.c: (ospf_lsa_refresh_walker) If the system clock jumps
