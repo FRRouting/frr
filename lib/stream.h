@@ -33,19 +33,19 @@ struct stream
   unsigned char *data;
   
   /* Get pointer. */
-  unsigned long getp;
+  size_t getp;
 
   /* End of pointer. */
-  unsigned long endp;
+  size_t endp;
 
   /* Data size. */
-  unsigned long size;
+  size_t size;
 };
 
 /* First in first out queue structure. */
 struct stream_fifo
 {
-  unsigned long count;
+  size_t count;
 
   struct stream *head;
   struct stream *tail;
@@ -61,31 +61,31 @@ struct stream_fifo
 struct stream *stream_new (size_t);
 void stream_free (struct stream *);
 
-unsigned long stream_get_getp (struct stream *);
-unsigned long stream_get_endp (struct stream *);
-unsigned long stream_get_size (struct stream *);
+size_t stream_get_getp (struct stream *);
+size_t stream_get_endp (struct stream *);
+size_t stream_get_size (struct stream *);
 u_char *stream_get_data (struct stream *);
 
-void stream_set_getp (struct stream *, unsigned long);
+void stream_set_getp (struct stream *, size_t);
 void stream_forward_getp (struct stream *, int);
 void stream_forward_endp (struct stream *, int);
 
 void stream_put (struct stream *, void *, size_t);
 int stream_putc (struct stream *, u_char);
-int stream_putc_at (struct stream *, unsigned long, u_char);
+int stream_putc_at (struct stream *, size_t, u_char);
 int stream_putw (struct stream *, u_int16_t);
-int stream_putw_at (struct stream *, unsigned long, u_int16_t);
+int stream_putw_at (struct stream *, size_t, u_int16_t);
 int stream_putl (struct stream *, u_int32_t);
-int stream_putl_at (struct stream *, unsigned long, u_int32_t);
+int stream_putl_at (struct stream *, size_t, u_int32_t);
 int stream_put_ipv4 (struct stream *, u_int32_t);
 int stream_put_in_addr (struct stream *, struct in_addr *);
 int stream_put_prefix (struct stream *, struct prefix *);
 
 void stream_get (void *, struct stream *, size_t);
 u_char stream_getc (struct stream *);
-u_char stream_getc_from (struct stream *, unsigned long);
+u_char stream_getc_from (struct stream *, size_t);
 u_int16_t stream_getw (struct stream *);
-u_int16_t stream_getw_from (struct stream *, unsigned long);
+u_int16_t stream_getw_from (struct stream *, size_t);
 u_int32_t stream_getl (struct stream *);
 u_int32_t stream_get_ipv4 (struct stream *);
 

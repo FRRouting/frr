@@ -1,3 +1,8 @@
+2005-02-12 Paul Jakma <paul.jakma@sun.com>
+
+	* stream.h: Unsigned long updated to size_t
+	* stream.c: ditto
+
 2005-02-09 Paul Jakma <paul.jakma@sun.com>
 
 	* stream.h: Remove putp. Update reference to putp with endp.

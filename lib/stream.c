@@ -66,19 +66,19 @@ stream_free (struct stream *s)
   XFREE (MTYPE_STREAM, s);
 }
 
-unsigned long
+size_t
 stream_get_getp (struct stream *s)
 {
   return s->getp;
 }
 
-unsigned long
+size_t
 stream_get_endp (struct stream *s)
 {
   return s->endp;
 }
 
-unsigned long
+size_t
 stream_get_size (struct stream *s)
 {
   return s->size;
@@ -86,7 +86,7 @@ stream_get_size (struct stream *s)
 
 /* Stream structre' stream pointer related functions.  */
 void
-stream_set_getp (struct stream *s, unsigned long pos)
+stream_set_getp (struct stream *s, size_t pos)
 {
   s->getp = pos;
 }
@@ -125,7 +125,7 @@ stream_getc (struct stream *s)
 
 /* Get next character from the stream. */
 u_char
-stream_getc_from (struct stream *s, unsigned long from)
+stream_getc_from (struct stream *s, size_t from)
 {
   u_char c;
 
@@ -146,7 +146,7 @@ stream_getw (struct stream *s)
 
 /* Get next word from the stream. */
 u_int16_t
-stream_getw_from (struct stream *s, unsigned long from)
+stream_getw_from (struct stream *s, size_t from)
 {
   u_int16_t w;
 
@@ -234,14 +234,14 @@ stream_putl (struct stream *s, u_int32_t l)
 }
 
 int
-stream_putc_at (struct stream *s, unsigned long putp, u_char c)
+stream_putc_at (struct stream *s, size_t putp, u_char c)
 {
   s->data[putp] = c;
   return 1;
 }
 
 int
-stream_putw_at (struct stream *s, unsigned long putp, u_int16_t w)
+stream_putw_at (struct stream *s, size_t putp, u_int16_t w)
 {
   s->data[putp] = (u_char)(w >>  8);
   s->data[putp + 1] = (u_char) w;
@@ -249,7 +249,7 @@ stream_putw_at (struct stream *s, unsigned long putp, u_int16_t w)
 }
 
 int
-stream_putl_at (struct stream *s, unsigned long putp, u_int32_t l)
+stream_putl_at (struct stream *s, size_t putp, u_int32_t l)
 {
   s->data[putp] = (u_char)(l >> 24);
   s->data[putp + 1] = (u_char)(l >> 16);
