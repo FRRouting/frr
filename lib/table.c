@@ -185,8 +185,8 @@ check_bit (u_char *prefix, u_char prefixlen)
 }
 
 /* Macro version of set_link (). */
-#define SET_LINK(X,Y) (X)->link[CHECK_BIT(&(Y)->prefix,(X)->prefixlen)] = (Y);\
-                      (Y)->parent = (X)
+#define SET_LINK(X,Y) do { (X)->link[CHECK_BIT(&(Y)->p.u.prefix,(X)->p.prefixlen)] = (Y);\
+                      (Y)->parent = (X); } while (0)
 
 static void
 set_link (struct route_node *node, struct route_node *new)
