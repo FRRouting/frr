@@ -1,3 +1,8 @@
+2004-12-09 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* vtysh.c: (vtysh_connect) No reason to call geteuid and getegid,
+	  the results were never used.
+
 2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* vtysh.c: Make several functions static instead of global.

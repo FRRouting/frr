@@ -1991,15 +1991,11 @@ vtysh_connect (struct vtysh_client *vclient, const char *path)
   int sock, len;
   struct sockaddr_un addr;
   struct stat s_stat;
-  uid_t euid;
-  gid_t egid;
 
   memset (vclient, 0, sizeof (struct vtysh_client));
   vclient->fd = -1;
 
   /* Stat socket to see if we have permission to access it. */
-  euid = geteuid();
-  egid = getegid();
   ret = stat (path, &s_stat);
   if (ret < 0 && errno != ENOENT)
     {
