@@ -283,11 +283,30 @@ setsockopt_ifindex (int af, int sock, int val)
 static int
 getsockopt_ipv4_ifindex (struct msghdr *msgh)
 {
+  /*
+   * XXX: This routine's semantics are ill-defined, in particular how
+   * the results "can't determine interface due to runtime behavior"
+   * and "OS has no support for how to determine behavior" are
+   * encoded.  For now, return 0 for either case; caller must handle
+   * as "don't know".
+   */
   int ifindex = -1;
+
+  /*
+   * If autoconf found a method to get ifindex, but it didn't work for
+   * this packet, or on this OS, this routine can be entered with a
+   * NULL cmsghdr pointer.  Check msgh before using in each case
+   * below, rather than here, to avoid having to ifdef twice, once for
+   * declarations and once for code.
+   */
+
 #if defined(IP_PKTINFO)
 /* Linux pktinfo based ifindex retrieval */
   struct in_pktinfo *pktinfo;
   
+  if (msgh == NULL)
+    return 0;
+
   pktinfo = 
     (struct in_pktinfo *)getsockopt_cmsg_data (msgh, IPPROTO_IP, IP_PKTINFO);
   ifindex = pktinfo->ipi_ifindex;
@@ -299,6 +318,9 @@ getsockopt_ipv4_ifindex (struct msghdr *msgh)
   struct sockaddr_dl *sdl;
 #endif /* SUNOS_5 */
   /* SUNOS_5 doesn't need a structure to extract ifindex */
+
+  if (msgh == NULL)
+    return 0;
 
 #ifndef SUNOS_5
   sdl = 
