@@ -10,6 +10,7 @@
 %define		with_ipv6	1
 %define		with_ospfclient 1
 %define		with_ospfapi	1
+%define		with_irdp	1
 %define		with_multipath	64
 %define		quagga_user	quagga
 %define		vty_group	quaggavty
@@ -126,6 +127,11 @@ developing OSPF-API and quagga applications.
 	--enable-ospfapi=yes \
 %else
 	--enable-ospfapi=no \
+%endif
+%if %with_irdp
+	--enable-irdp=yes \
+%else
+	--enable-irdp=no \
 %endif
 %if %with_pam
 	--with-libpam \
