@@ -1,3 +1,10 @@
+2004-10-07  Greg Troxel  <gdt@claude.ir.bbn.com>
+
+	* ospf_apiserver.c (ospf_apiserver_unregister_opaque_type): Don't
+	use of variable names 'node' and 'nextnode' to avoid possible
+	conflict with list macros.  Move variable declaration inside for
+	loop after a statement to top of function.
+
 2004-10-07 Paul Jakma <paul@dishone.st>
 
 	* ospf_snmp.c: Missed list typedef update

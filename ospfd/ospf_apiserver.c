@@ -962,13 +962,14 @@ int
 ospf_apiserver_unregister_opaque_type (struct ospf_apiserver *apiserv,
 				       u_char lsa_type, u_char opaque_type)
 {
-  struct listnode *node, *nextnode;
+  struct listnode *n1, *n1_next;
+  struct registered_opaque_type *regtype;
 
-  for (node = listhead (apiserv->opaque_types); node; node = nextnode)
+  for (n1 = listhead (apiserv->opaque_types); n1; n1 = n1_next)
     {
-      nextnode = node->next;
+      n1_next = n1->next;
       
-      struct registered_opaque_type *regtype = node->data;
+      regtype = (struct registered_opaque_type *) getdata(n1);
 
       /* Check if we really registered this opaque type */
       if (regtype->lsa_type == lsa_type &&
