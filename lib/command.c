@@ -2238,15 +2238,16 @@ config_from_file (struct vty *vty, FILE *fp)
 
       /* Try again with setting node to CONFIG_NODE */
       while (ret != CMD_SUCCESS && ret != CMD_WARNING
-	     && vty->node != CONFIG_NODE)
-		{
+	     && ret != CMD_ERR_NOTHING_TODO && vty->node != CONFIG_NODE)
+	{
 	  vty->node = node_parent(vty->node);
-		  ret = cmd_execute_command_strict (vline, vty, NULL);
-		}
+	  ret = cmd_execute_command_strict (vline, vty, NULL);
+	}
 
       cmd_free_strvec (vline);
 
-      if (ret != CMD_SUCCESS && ret != CMD_WARNING)
+      if (ret != CMD_SUCCESS && ret != CMD_WARNING
+	  && ret != CMD_ERR_NOTHING_TODO)
 	return ret;
     }
   return CMD_SUCCESS;
