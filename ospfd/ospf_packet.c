@@ -1018,7 +1018,17 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
   oi->db_desc_in++;
 
   dd = (struct ospf_db_desc *) STREAM_PNT (s);
-
+#ifdef HAVE_NSSA
+  /* 
+   * XXX HACK by Hasso Tepper. Setting P bit in NSSA area DD packets is not
+   * required. In fact at least JunOS sends DD packets with P bit clear. 
+   * Until proper solution is developped, this hack should help.
+   */
+  if (oi->area->external_routing == OSPF_AREA_NSSA)
+  {
+     dd->options = (dd->options | ((short)(8)));
+  }
+#endif /* HAVE_NSSA */  
   nbr = ospf_nbr_lookup_by_addr (oi->nbrs, &iph->ip_src);
   if (nbr == NULL)
     {
