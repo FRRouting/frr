@@ -194,9 +194,10 @@ ospf6_decrement_retrans_count (struct ospf6_lsa *lsa)
   orig = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
                            lsa->header->adv_router, lsdb);
   if (orig)
-    orig->retrans_count--;
-
-  assert (orig->retrans_count >= 0);
+    {
+      orig->retrans_count--;
+      assert (orig->retrans_count >= 0);
+    }
 }
 
 /* RFC2328 section 13.2 Installing LSAs in the database */
