@@ -10,6 +10,7 @@ o Multiple (alias) address configuration for the interface when kernel
 o improve rtnetlink to handle sequence number tracking and reconciliation
   and resyncs.
 o Add support for valid and preferred lifetimes to IPv6 addresses 
+o proper support for (at least) 1-level recursive routes
 
 bgpd:
 
