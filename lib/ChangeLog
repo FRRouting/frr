@@ -1,3 +1,7 @@
+2004-11-07 Paul Jakma <paul@dishone.st>
+
+	* lib/version.h.in: add autoconf configure_input output var
+
 2004-11-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* vty.h: Remove fields in struct vty that were related to VTY_CONTINUE

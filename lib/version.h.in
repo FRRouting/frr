@@ -1,6 +1,8 @@
-/* Zebra version
- * Copyright (C) 1997, 1999 Kunihiro Ishiguro
+/* @configure_input@
  *
+ * Quagga version
+ * Copyright (C) 1997, 1999 Kunihiro Ishiguro
+ * 
  * This file is part of GNU Zebra.
  *
  * GNU Zebra is free software; you can redistribute it and/or modify it
