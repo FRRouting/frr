@@ -177,11 +177,12 @@ ospf_sock_init (void)
   ospf_sock = socket (AF_INET, SOCK_RAW, IPPROTO_OSPFIGP);
   if (ospf_sock < 0)
     {
+      int save_errno = errno;
       if ( ospfd_privs.change (ZPRIVS_LOWER) )
         zlog_err ("ospf_sock_init: could not lower privs, %s",
                    safe_strerror (errno) );
-      zlog_err ("ospf_read_sock_init: socket: %s", safe_strerror (errno));
-      exit(-1);
+      zlog_err ("ospf_read_sock_init: socket: %s", safe_strerror (save_errno));
+      exit(1);
     }
     
 #ifdef IP_HDRINCL
@@ -189,10 +190,12 @@ ospf_sock_init (void)
   ret = setsockopt (ospf_sock, IPPROTO_IP, IP_HDRINCL, &hincl, sizeof (hincl));
   if (ret < 0)
     {
+      int save_errno = errno;
       if ( ospfd_privs.change (ZPRIVS_LOWER) )
         zlog_err ("ospf_sock_init: could not lower privs, %s",
                    safe_strerror (errno) );
-      zlog_warn ("Can't set IP_HDRINCL option for fd %d",ospf_sock);
+      zlog_warn ("Can't set IP_HDRINCL option for fd %d: %s",
+      		 ospf_sock, safe_strerror(save_errno));
     }
 #elif defined (IPTOS_PREC_INTERNETCONTROL)
 #warning "IP_HDRINCL not available on this system"
@@ -203,10 +206,12 @@ ospf_sock_init (void)
 		    (char *) &tos, sizeof (int));
   if (ret < 0)
     {
+      int save_errno = errno;
       if ( ospfd_privs.change (ZPRIVS_LOWER) )
         zlog_err ("ospf_sock_init: could not lower privs, %s",
                    safe_strerror (errno) );
-      zlog_warn ("can't set sockopt IP_TOS %d to socket %d", tos, ospf_sock);
+      zlog_warn ("can't set sockopt IP_TOS %d to socket %d: %s",
+      		 tos, ospf_sock, safe_strerror(save_errno));
       close (ospf_sock);	/* Prevent sd leak. */
       return ret;
     }
