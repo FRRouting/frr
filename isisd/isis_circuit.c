@@ -430,12 +430,7 @@ void
 isis_circuit_update_params (struct isis_circuit *circuit,
 			    struct interface *ifp)
 {
-  /* HT: It can happen at the moment during interface up event because we
-   * actually delete circuit during interface down event. Should be really
-   * cleaned up. TODO */
-  /* assert (circuit); */
-  if (!circuit)
-    return;
+  assert (circuit);
 
   if (circuit->circuit_id != ifp->ifindex)
     {

@@ -70,7 +70,7 @@ isis_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
   zlog_debug ("Zebra I/F add: %s index %d flags %ld metric %d mtu %d",
 	      ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
 
-  if (if_is_up (ifp))
+  if (if_is_operative (ifp))
     isis_csm_state_change (IF_UP_FROM_Z, circuit_scan_by_ifp (ifp), ifp);
 
   return 0;
@@ -88,7 +88,7 @@ isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
   if (!ifp)
     return 0;
 
-  if (if_is_up (ifp))
+  if (if_is_operative (ifp))
     zlog_warn ("Zebra: got delete of %s, but interface is still up",
 	       ifp->name);
 
@@ -132,7 +132,7 @@ isis_zebra_if_state_up (int command, struct zclient *zclient,
   if (!ifp)
     return 0;
 
-  if (if_is_up (ifp))
+  if (if_is_operative (ifp))
     {
       zebra_interface_if_set_value (zclient->ibuf, ifp);
       /* HT: This is wrong actually. We can't assume that circuit exist
@@ -159,7 +159,7 @@ isis_zebra_if_state_down (int command, struct zclient *zclient,
   if (ifp == NULL)
     return 0;
 
-  if (if_is_up (ifp))
+  if (if_is_operative (ifp))
     {
       zebra_interface_if_set_value (zclient->ibuf, ifp);
       isis_csm_state_change (IF_DOWN_FROM_Z, circuit_scan_by_ifp (ifp), ifp);
@@ -193,7 +193,8 @@ isis_zebra_if_address_add (int command, struct zclient *zclient,
     zlog_debug ("connected IPv6 address %s", buf);
 #endif /* HAVE_IPV6 */
 #endif /* EXTREME_DEBUG */
-  isis_circuit_add_addr (circuit_scan_by_ifp (c->ifp), c);
+  if (if_is_operative (c->ifp))
+    isis_circuit_add_addr (circuit_scan_by_ifp (c->ifp), c);
 
   return 0;
 }
@@ -229,7 +230,8 @@ isis_zebra_if_address_del (int command, struct zclient *client,
 #endif /* HAVE_IPV6 */
 #endif /* EXTREME_DEBUG */
 
-  isis_circuit_del_addr (circuit_scan_by_ifp (ifp), c);
+  if (if_is_operative (ifp))
+    isis_circuit_del_addr (circuit_scan_by_ifp (ifp), c);
   connected_free (c);
 
   return 0;
