@@ -5,6 +5,7 @@ DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DMULTIPATH_NUM=@MULTIPATH_NUM@
 INSTALL_SDATA=@INSTALL@ -m 600
 
 LIB_IPV6 = @LIB_IPV6@
+LIBCAP = @LIBCAP@
 
 ipforward = @IPFORWARD@
 if_method = @IF_METHOD@
@@ -13,10 +14,9 @@ rt_method = @RT_METHOD@
 rtread_method = @RTREAD_METHOD@
 kernel_method = @KERNEL_METHOD@
 other_method = @OTHER_METHOD@
-libcap = @LIBCAP@
 
 otherobj = $(ipforward) $(if_method) $(if_proc) $(rt_method) \
-	$(rtread_method) $(kernel_method) $(other_method) $(libcap)
+	$(rtread_method) $(kernel_method) $(other_method)
 
 sbin_PROGRAMS = zebra
 
@@ -28,7 +28,7 @@ noinst_HEADERS = \
 	connected.h ioctl.h rib.h rt.h zserv.h redistribute.h debug.h rtadv.h \
 	interface.h ipforward.h
 
-zebra_LDADD = ../lib/libzebra.a $(otherobj) $(LIB_IPV6)
+zebra_LDADD = ../lib/libzebra.a $(otherobj) $(LIBCAP) $(LIB_IPV6)
 
 zebra_DEPENDENCIES = $(otherobj)
 

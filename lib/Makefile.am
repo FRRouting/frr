@@ -12,7 +12,7 @@ libzebra_a_SOURCES = \
 	filter.c routemap.c distribute.c stream.c str.c log.c plist.c \
 	zclient.c sockopt.c smux.c md5.c if_rmap.c keychain.c privs.c debug.c
 
-libzebra_a_DEPENDENCIES = @LIB_REGEX@ @LIBCAP@
+libzebra_a_DEPENDENCIES = @LIB_REGEX@
 
 libzebra_a_LIBADD = @LIB_REGEX@
 
