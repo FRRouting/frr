@@ -1,5 +1,9 @@
 2004-12-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* configure.ac: Add a define for DAEMON_VTY_DIR in config.h.
+
+2004-12-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* {configure.ac,Makefile.am}: Build watchquagga by default.
 
 2004-12-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
