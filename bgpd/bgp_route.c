@@ -1097,7 +1097,8 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn, struct bgp_info_pair *
 	new_select = ri;
     }
 
-    if ( (! old_select) || old_select != new_select)
+    if ( (! old_select) || old_select != new_select
+	|| CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
 	{
   if (old_select)
     UNSET_FLAG (old_select->flags, BGP_INFO_SELECTED);
