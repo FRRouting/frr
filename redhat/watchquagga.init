@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+# chkconfig: 2345 17 83
+# description: A Quagga watchdog for use with Zebra
+#
+# processname: watchquagga
+
+# source function library
+. /etc/rc.d/init.d/functions
+
+# Get network config
+. /etc/sysconfig/network
+
+# quagga command line options
+. /etc/sysconfig/quagga
+
+# Check that networking is up.
+[ "${NETWORKING}" = "no" ] && exit 0
+
+# Check that there are daemons to be monitored.
+[ -z "$WATCH_DAEMONS" ] && exit 0
+
+RETVAL=0
+prog="watchquagga"
+
+case "$1" in
+  start)
+	echo -n $"Starting $prog: "
+        daemon /usr/sbin/watchquagga -d $WATCH_OPTS $WATCH_DAEMONS
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/watchquagga
+	echo
+	;;
+  stop)
+	echo -n $"Shutting down $prog: "
+	killproc watchquagga
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/watchquagga
+	echo
+	;;
+  restart|reload)
+        $0 stop
+        $0 start
+	RETVAL=$?
+        ;;
+  condrestart)
+        if [ -f /var/lock/subsys/watchquagga ]; then
+                $0 stop
+		$0 start
+        fi
+	RETVAL=$?
+        ;;
+  status)
+        status watchquagga
+	RETVAL=$?
+        ;;
+  *)
+	echo $"Usage: $0 {start|stop|restart|reload|condrestart|status}"
+	exit 1
+esac
+
+exit $RETVAL
