@@ -1,3 +1,12 @@
+2005-03-25 Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
+	* ipv6.texi: Add new commands for neighbor discovery
+	    interface ipv6 nd prefix X:X::X:X/M router-address
+	    interface ipv6 nd ra-interval msec
+	    interface ipv6 nd home-agent-config-flag
+	    interface ipv6 nd home-agent-lifetime
+	    interface ipv6 nd home-agent-preference
+	    interface ipv6 nd adv-interval-option
+
 2005-02-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* basic.texi: Add note about last-resort crash logging to /var/tmp

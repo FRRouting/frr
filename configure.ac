@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.90 2005/03/12 06:36:10 paul Exp $
+## $Id: configure.ac,v 1.91 2005/03/25 13:05:47 vincent Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.0, [http://bugzilla.quagga.net])
@@ -1071,6 +1071,36 @@ AC_TRY_COMPILE([#include <netinet/in.h>
 ],[struct in_pktinfo ac_x;],
 [AC_MSG_RESULT(yes)
  AC_DEFINE(HAVE_INPKTINFO,,in_pktinfo)],
+ AC_MSG_RESULT(no))
+
+dnl ----------------------------------
+dnl check struct nd_opt_homeagent_info
+dnl ----------------------------------
+AC_MSG_CHECKING(whether struct nd_opt_homeagent_info exist)
+AC_EGREP_HEADER(nd_opt_homeagent_info,
+netinet/icmp6.h,
+[AC_MSG_RESULT(yes)
+ AC_DEFINE(HAVE_ND_OPT_HOMEAGENT_INFO,,nd_opt_homeagent_info)],
+ AC_MSG_RESULT(no))
+
+dnl --------------------------------
+dnl check struct nd_opt_adv_interval
+dnl --------------------------------
+AC_MSG_CHECKING(whether struct nd_opt_adv_interval exist)
+AC_EGREP_HEADER(nd_opt_adv_interval,
+netinet/icmp6.h,
+[AC_MSG_RESULT(yes)
+ AC_DEFINE(HAVE_ND_OPT_ADV_INTERVAL,,nd_opt_adv_interval)],
+ AC_MSG_RESULT(no))
+
+dnl ------------------------------------
+dnl check fields in  nd_opt_adv_interval
+dnl ------------------------------------
+AC_MSG_CHECKING(whether nd_opt_ai_type field exist)
+AC_EGREP_HEADER(nd_opt_ai_type,
+netinet/icmp6.h,
+[AC_MSG_RESULT(yes)
+ AC_DEFINE(HAVE_ND_OPT_ADV_INTERVAL_AI_FIELDS,,nd_opt_ai_type)],
  AC_MSG_RESULT(no))
 
 dnl --------------------------------------

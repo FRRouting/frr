@@ -1,3 +1,7 @@
+2005-03-25 Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
+	* configure.ac: add struct nd_opt_interval and struct
+	  nd_opt_homeagent_info detection.
+
 2005-03-14 Paul Jakma <paul.jakma@sun.com>
 
 	* (global) update all c files to match the lib/vector.h rename of

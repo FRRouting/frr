@@ -23,7 +23,7 @@ Send router advertisment messages.
 Don't send router advertisment messages.
 @end deffn
 
-@deffn {Interface Command} {ipv6 nd prefix @var{ipv6prefix} [@var{valid-lifetime}] [@var{preferred-lifetime}] [off-link] [no-autconfig]} {}
+@deffn {Interface Command} {ipv6 nd prefix @var{ipv6prefix} [@var{valid-lifetime}] [@var{preferred-lifetime}] [off-link] [no-autoconfig] [router-address]} {}
 Configuring the IPv6 prefix to include in router advertisements. Several prefix
 specific optional parameters and flags may follow:
 @itemize @bullet
@@ -52,6 +52,13 @@ Default: not set, i.e. this prefix can be used for on-link determination.
 cannot be used for IPv6 autoconfiguration.
 
 Default: not set, i.e. prefix can be used for autoconfiguration.
+
+@item
+@var{router-address} - indicates to hosts on the local link that the specified 
+prefix 
+contains a complete IP address by setting R flag.
+
+Default: not set, i.e. hosts do not assume a complete IP address is placed.
 @end itemize
 @end deffn
 
@@ -63,6 +70,13 @@ advertisements from the interface, in seconds. Must be no less than 3 seconds.
 Default: @code{600}
 @end deffn
 
+@deffn {Interface Command} {ipv6 nd ra-interval msec MILLISECONDS} {}
+@deffnx {Interface Command} {no ipv6 nd ra-interval msec} {}
+The  maximum  time allowed between sending unsolicited multicast router
+advertisements from the interface, in milliseconds. Must be no less than 30 milliseconds.
+
+Default: @code{600000}
+@end deffn
 @deffn {Interface Command} {ipv6 nd ra-lifetime SECONDS} {}
 @deffnx {Interface Command} {no ipv6 nd ra-lifetime} {}
 The value to be placed in the Router Lifetime field of router advertisements
@@ -104,6 +118,38 @@ information other than addresses.
 Default: not set
 @end deffn
 
+@deffn {Interface Command} {ipv6 nd home-agent-config-flag} {}
+@deffnx {Interface Command} {no ipv6 nd home-agent-config-flag} {}
+Set/unset flag in IPv6 router advertisements which indicates to hosts that
+the router acts as a Home Agent and includes a Home Agent Option.
+
+Default: not set
+@end deffn
+
+@deffn {Interface Command} {ipv6 nd home-agent-preference} {}
+@deffnx {Interface Command} {no ipv6 nd home-agent-preference} {}
+The value to be placed in Home Agent Option, when Home Agent config flag is set, 
+which indicates to hosts Home Agent preference.
+
+Default: 0
+@end deffn
+
+@deffn {Interface Command} {ipv6 nd home-agent-lifetime} {}
+@deffnx {Interface Command} {no ipv6 nd home-agent-lifetime} {}
+The value to be placed in Home Agent Option, when Home Agent config flag is set, 
+which indicates to hosts Home Agent Lifetime. A value of 0 means to place Router Lifetime value.
+
+Default: 0
+@end deffn
+
+@deffn {Interface Command} {ipv6 nd adv-interval-option} {}
+@deffnx {Interface Command} {no ipv6 nd adv-interval-option} {}
+Include an Advertisement Interval option which indicates to hosts the maximum time, 
+in milliseconds, between successive unsolicited Router Advertisements.
+
+Default: not set
+@end deffn
+
 @example
 @group
 interface eth0
@@ -113,4 +159,5 @@ interface eth0
 @end example
 
 For more information see @cite{RFC2462 (IPv6 Stateless Address Autoconfiguration)}
-and @cite{RFC2461 (Neighbor Discovery for IP Version 6 (IPv6))}.
+, @cite{RFC2461 (Neighbor Discovery for IP Version 6 (IPv6))}
+and @cite{RFC3775 (Mobility Support in IPv6 (Mobile IPv6))}.
