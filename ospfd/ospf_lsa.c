@@ -589,6 +589,44 @@ lsa_link_virtuallink_set (struct stream *s, struct ospf_interface *oi)
 
 #define lsa_link_nbma_set(S,O)  lsa_link_broadcast_set (S, O)
 
+/* this function add for support point-to-multipoint ,see rfc2328 
+12.4.1.4.*/
+/* from "edward rrr" <edward_rrr@hotmail.com>
+   http://marc.theaimsgroup.com/?l=zebra&m=100739222210507&w=2 */
+int lsa_link_ptomultip_set (struct stream *s, struct ospf_interface *oi)
+{
+  int links = 0;
+  struct route_node *rn;
+  struct ospf_neighbor *nbr = NULL;
+  struct in_addr id, mask;
+
+  mask.s_addr = 0xffffffff;
+  id.s_addr = oi->address->u.prefix4.s_addr;
+  link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
+  links++;
+
+  zlog_info ("PointToMultipoint: running ptomultip_set");
+
+  /* Search neighbor, */
+  for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
+    if ((nbr = rn->info) != NULL)
+      /* Ignore myself. */
+      if (!IPV4_ADDR_SAME (&nbr->router_id, &ospf_top->router_id))
+	if (nbr->state == NSM_Full)
+
+	  {
+	    
+	    link_info_set (s, nbr->router_id, oi->address->u.prefix4,
+			   LSA_LINK_TYPE_POINTOPOINT, 0, oi->output_cost);
+	    links++;
+	    zlog_info ("PointToMultipoint: set link to %s",
+		       inet_ntoa(oi->address->u.prefix4));
+	  }
+  
+  return links;
+  
+}
+
 /* Set router-LSA link information. */
 int
 router_lsa_link_set (struct stream *s, struct ospf_area *area)
@@ -619,7 +657,7 @@ router_lsa_link_set (struct stream *s, struct ospf_area *area)
 		  links += lsa_link_nbma_set (s, oi);
 		  break;
 		case OSPF_IFTYPE_POINTOMULTIPOINT:
-		  /* Not supproted yet. */
+		  links += lsa_link_ptomultip_set (s, oi);
 		  break;
 		case OSPF_IFTYPE_VIRTUALLINK:
 		  links += lsa_link_virtuallink_set (s, oi);

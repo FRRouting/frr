@@ -3137,6 +3137,8 @@ ospf_ls_upd_send (struct ospf_neighbor *nbr, list update, int flag)
   else if ((oi->type == OSPF_IFTYPE_POINTOPOINT) 
 	   && (flag == OSPF_SEND_PACKET_INDIRECT))
      p.prefix.s_addr = htonl (OSPF_ALLSPFROUTERS);
+  else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+     p.prefix.s_addr = htonl (OSPF_ALLSPFROUTERS);
   else
      p.prefix.s_addr = htonl (OSPF_ALLDROUTERS);
 

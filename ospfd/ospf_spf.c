@@ -365,18 +365,39 @@ ospf_nexthop_calculation (struct ospf_area *area,
 	      
 	      if (l->m[0].type == LSA_LINK_TYPE_POINTOPOINT)
 		{
-		  while ((l2 = ospf_get_next_link (w, v, l2)))
+		  /* check for PtMP, signified by PtP link V->W with link_data our PtMP interface */
+                  oi = ospf_if_is_configured(&l->link_data);
+                  if (oi && oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
 		    {
-		      oi = ospf_if_is_configured (&(l2->link_data));
+		    
+		      struct prefix_ipv4 * la = prefix_ipv4_new();
+		      la->prefixlen = oi->address->prefixlen;
 		      
-		      if (oi == NULL)
-			continue;
-		      
-		      if (! IPV4_ADDR_SAME (&oi->address->u.prefix4,
-					    &l->link_data))
-			continue;
-		      
-		      break;
+		      /* we link to them on PtMP interface - find the interface on w */
+		      while ((l2 = ospf_get_next_link (w, v, l2)))
+			{
+			  la->prefix = l2->link_data;
+			  
+			  if (prefix_cmp((struct prefix *)la, oi->address) == 0)
+			    /* link_data is on our PtMP network */
+			    break;
+			  
+			}
+		    }
+		  else
+		    {                                
+		      while ((l2 = ospf_get_next_link (w, v, l2)))
+			{
+			  oi = ospf_if_is_configured (&(l2->link_data));
+			  
+			  if (oi == NULL)
+			    continue;
+			  
+			  if (!IPV4_ADDR_SAME (&oi->address->u.prefix4, &l->link_data))
+			    continue;
+			  
+			  break;
+                      }
 		    }
 		  
 		  if (oi && l2)
