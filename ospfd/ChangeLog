@@ -1,3 +1,8 @@
+2005-02-21 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_ase.c: Don't show messages related to the ase calculations if
+	  we are not debugging.
+
 2005-02-19 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_api.h: char isn't always signed, but it has to be it here.

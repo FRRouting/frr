@@ -184,31 +184,36 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
 
   if (asbr_route == NULL)
     {
-      zlog_info ("ospf_ase_calculate(): Route to ASBR %s not found",
-		 inet_ntoa (asbr.prefix));
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("ospf_ase_calculate(): Route to ASBR %s not found",
+		    inet_ntoa (asbr.prefix));
       return NULL;
     }
 
   if (!(asbr_route->u.std.flags & ROUTER_LSA_EXTERNAL))
     {
-      zlog_info ("ospf_ase_calculate(): Originating router is not an ASBR");
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("ospf_ase_calculate(): Originating router is not an ASBR");
       return NULL;
     }
    
   if (al->e[0].fwd_addr.s_addr != 0)
     {
-      zlog_info ("ospf_ase_calculate(): "
-		 "Forwarding address is not 0.0.0.0.");
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("ospf_ase_calculate(): "
+		    "Forwarding address is not 0.0.0.0.");
 
       if (! ospf_ase_forward_address_check (ospf, al->e[0].fwd_addr))
 	{
-	  zlog_info ("ospf_ase_calculate(): "
-		     "Forwarding address is one of our addresses, Ignore.");
+	  if (IS_DEBUG_OSPF (lsa, LSA))
+	    zlog_debug ("ospf_ase_calculate(): "
+			"Forwarding address is one of our addresses, Ignore.");
 	  return NULL;
         }
 
-      zlog_info ("ospf_ase_calculate(): "
-		 "Looking up in the Network Routing Table.");
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("ospf_ase_calculate(): "
+		    "Looking up in the Network Routing Table.");
 
       /* Looking up the path to the fwd_addr from Network route. */
       asbr.family = AF_INET;
@@ -219,8 +224,9 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
    
       if (rn == NULL)
 	{
-	  zlog_info ("ospf_ase_calculate(): "
-		     "Couldn't find a route to the forwarding address.");
+	  if (IS_DEBUG_OSPF (lsa, LSA))
+	    zlog_debug ("ospf_ase_calculate(): "
+			"Couldn't find a route to the forwarding address.");
 	  return NULL;
 	}
 
@@ -228,8 +234,9 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
 
       if ((asbr_route = rn->info) == NULL)
 	{
-	  zlog_info ("ospf_ase_calculate(): "
-		     "Somehow OSPF route to ASBR is lost");
+	  if (IS_DEBUG_OSPF (lsa, LSA))
+	    zlog_debug ("ospf_ase_calculate(): "
+			"Somehow OSPF route to ASBR is lost");
 	  return NULL;
 	}
     }
@@ -255,13 +262,15 @@ ospf_ase_calculate_new_route (struct ospf_lsa *lsa,
 
   if (!IS_EXTERNAL_METRIC (al->e[0].tos))
     {
-      zlog_info ("Route[External]: type-1 created.");
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("Route[External]: type-1 created.");
       new->path_type = OSPF_PATH_TYPE1_EXTERNAL;
       new->cost = asbr_route->cost + metric;		/* X + Y */
     }
   else
     {
-      zlog_info ("Route[External]: type-2 created.");
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("Route[External]: type-2 created.");
       new->path_type = OSPF_PATH_TYPE2_EXTERNAL;
       new->cost = asbr_route->cost;			/* X */
       new->u.ext.type2_cost = metric;			/* Y */
@@ -305,18 +314,21 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
       return 0;
     }
 
-  zlog_info ("Route[External]: Calculate AS-external-LSA to %s/%d",
-	     inet_ntoa (al->header.id), ip_masklen (al->mask));
+  if (IS_DEBUG_OSPF (lsa, LSA))
+    zlog_debug ("Route[External]: Calculate AS-external-LSA to %s/%d",
+		inet_ntoa (al->header.id), ip_masklen (al->mask));
   /* (1) If the cost specified by the LSA is LSInfinity, or if the
          LSA's LS age is equal to MaxAge, then examine the next LSA. */
   if ((metric = GET_METRIC (al->e[0].metric)) >= OSPF_LS_INFINITY)
     {
-      zlog_info ("Route[External]: Metric is OSPF_LS_INFINITY");
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("Route[External]: Metric is OSPF_LS_INFINITY");
       return 0;
     }
   if (IS_LSA_MAXAGE (lsa))
     {
-      zlog_info ("Route[External]: AS-external-LSA is MAXAGE");
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("Route[External]: AS-external-LSA is MAXAGE");
       return 0;
     }
   
@@ -324,7 +336,8 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
      examine the next LSA. */
   if (IS_LSA_SELF (lsa))
     {
-      zlog_info ("Route[External]: AS-external-LSA is self originated");
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("Route[External]: AS-external-LSA is self originated");
       return 0;
     }
 
@@ -345,12 +358,14 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
   asbr_route = ospf_find_asbr_route (ospf, ospf->new_rtrs, &asbr);
   if (asbr_route == NULL)
     {
-      zlog_info ("Route[External]: Can't find originating ASBR route");
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("Route[External]: Can't find originating ASBR route");
       return 0;
     }
   if (!(asbr_route->u.std.flags & ROUTER_LSA_EXTERNAL))
     {
-      zlog_info ("Route[External]: Originating router is not an ASBR");
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("Route[External]: Originating router is not an ASBR");
       return 0;
     }
   
@@ -384,7 +399,9 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
 	 consider the next in the list. */
       if (! ospf_ase_forward_address_check (ospf, al->e[0].fwd_addr))
 	{
-	  zlog_info ("Route[External]: Forwarding address is our router address");
+	  if (IS_DEBUG_OSPF (lsa, LSA))
+	    zlog_debug ("Route[External]: Forwarding address is our router "
+			"address");
 	  return 0;
 	}
       
@@ -396,7 +413,9 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
       
       if (rn == NULL || (asbr_route = rn->info) == NULL)
 	{
-	  zlog_info ("Route[External]: Can't find route to forwarding address");
+	  if (IS_DEBUG_OSPF (lsa, LSA))
+	    zlog_debug ("Route[External]: Can't find route to forwarding "
+			"address");
 	  if (rn)
 	    route_unlock_node (rn);
 	  return 0;
@@ -451,8 +470,9 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
 			       (struct prefix *) &p)) == NULL 
       || (or = rn->info) == NULL)
     {
-      zlog_info ("Route[External]: Adding a new route %s/%d",
-		 inet_ntoa (p.prefix), p.prefixlen);
+      if (IS_DEBUG_OSPF (lsa, LSA))
+	zlog_debug ("Route[External]: Adding a new route %s/%d",
+		    inet_ntoa (p.prefix), p.prefixlen);
 
       ospf_route_add (ospf->new_external_route, &p, new, asbr_route);
 
@@ -491,7 +511,8 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
       /* New route is better */
       if (ret < 0)
 	{
-	  zlog_info ("Route[External]: New route is better");
+	  if (IS_DEBUG_OSPF (lsa, LSA))
+	    zlog_debug ("Route[External]: New route is better");
 	  ospf_route_subst (rn, new, asbr_route);
 	  if (al->e[0].fwd_addr.s_addr)
 	    ospf_ase_complete_direct_routes (new, al->e[0].fwd_addr);
@@ -501,13 +522,15 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
       /* Old route is better */
       else if (ret > 0)
 	{
-	  zlog_info ("Route[External]: Old route is better");
+	  if (IS_DEBUG_OSPF (lsa, LSA))
+	    zlog_debug ("Route[External]: Old route is better");
 	  /* do nothing */
 	}
       /* Routes are equal */
       else
 	{
-	  zlog_info ("Route[External]: Routes are equal");
+	  if (IS_DEBUG_OSPF (lsa, LSA))
+	    zlog_debug ("Route[External]: Routes are equal");
 	  ospf_route_copy_nexthops (or, asbr_route->paths);
 	  if (al->e[0].fwd_addr.s_addr)
 	    ospf_ase_complete_direct_routes (or, al->e[0].fwd_addr);
