@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.40 2005/03/08 15:56:42 paul Exp $
+   $Id: command.c,v 1.41 2005/03/08 16:00:12 paul Exp $
 
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -3437,7 +3437,8 @@ DEFUN (no_banner_motd,
        "Strings for motd\n")
 {
   host.motd = NULL;
-  if (host.motdfile) free(host.motdfile);
+  if (host.motdfile) 
+    XFREE (MTYPE_TMP, host.motdfile);
   host.motdfile = NULL;
   return CMD_SUCCESS;
 }

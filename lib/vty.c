@@ -220,19 +220,19 @@ vty_hello (struct vty *vty)
     {
       FILE *f;
       char buf[4096];
-      
+
       f = fopen (host.motdfile, "r");
       if (f)
 	{
 	  while (fgets (buf, sizeof (buf), f))
 	    {
 	      char *s;
-	      /* work backwards and squash all isspace() chars
-	       * we want nul terminated for vty_out */
-	      for (s = buf+strlen(buf); (s > buf) && isspace(*(s-1)); s--);
-	        *s = '\0';
-              vty_out (vty, "%s%s", buf, VTY_NEWLINE);
-            }
+	      /* work backwards to ignore trailling isspace() */
+	      for (s = buf + strlen (buf); (s > buf) && isspace (*(s - 1));
+		   s--);
+	      *s = '\0';
+	      vty_out (vty, "%s%s", buf, VTY_NEWLINE);
+	    }
 	  fclose (f);
 	}
       else

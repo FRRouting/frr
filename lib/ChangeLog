@@ -1,6 +1,7 @@
 2005-03-08 Paul Jakma <paul.jakma@sun.com>
 
 	* command.c: (banner_motd_file_cmd) use XSTRDUP/XFREE.
+	  (no_banner_motd_cmd) use XFREE.
 	  (cmd_describe_command_real) sign compile warning fix
 	  (cmd_complete_command_real) ditto.
 	  (config_list_cmd) Don't list hidden or deprecated commands,
