@@ -1789,6 +1789,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
     ospf_opaque_self_originated_lsa_received (nbr, mylsa_upds);
 
   list_delete (mylsa_upds);
+  list_delete (mylsa_acks);
 #endif /* HAVE_OPAQUE_LSA */
 
   assert (listcount (lsas) == 0);
