@@ -27,7 +27,7 @@
 /*
  * Structures found in TLV's.
  * this header is fully complient with
- * draft-ietf-isis-wg-tlv-codepoints-02.txt
+ * RFC 3359
  1.  TLV Codepoints reserved
      ____________________________________________________
      Name                 Value   IIH   LSP  SNP   Status
@@ -46,6 +46,7 @@
      LSPBufferSize            14  n     y    n  ISO 10589 Rev 2 Draft
      TE IIS Neigh.            22  n     y    n  IETF-draft
      DECnet Phase IV          42  y     n    n  DEC (ancient)
+     Lucent Proprietary       66  n     y    n
      IP Int. Reach           128  n     y    n  RFC 1195
      Prot. Supported         129  y     y    n  RFC 1195
      IP Ext. Address         130  n     y    n  RFC 1195
@@ -87,6 +88,7 @@
 #define TE_ROUTER_ID              134
 #define TE_IPV4_REACHABILITY      135
 #define DYNAMIC_HOSTNAME          137
+#define GRACEFUL_RESTART          211
 #define IPV6_REACHABILITY         236
 #define IPV6_ADDR                 232
 #define WAY3_HELLO                240
@@ -236,6 +238,7 @@ struct tlvs {
 #define TLVFLAG_3WAY_HELLO                (1<<18)
 #define TLVFLAG_TE_ROUTER_ID              (1<<19)
 #define TLVFLAG_CHECKSUM                  (1<<20)
+#define TLVFLAG_GRACEFUL_RESTART          (1<<21)
 
 void init_tlvs  (struct tlvs *tlvs, uint32_t expected);
 void free_tlvs  (struct tlvs *tlvs);

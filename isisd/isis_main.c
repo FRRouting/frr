@@ -312,10 +312,9 @@ main (int argc, char **argv, char **envp)
   /* parse config file */ 
   /* this is needed three times! because we have interfaces before the areas */
   vty_read_config (config_file, config_current, config_default);
-#if 0
   vty_read_config (config_file, config_current, config_default);
   vty_read_config (config_file, config_current, config_default);
-#endif
+
   /* demonize */
   if (daemon_mode)
     daemon (0, 0);

@@ -65,7 +65,7 @@
 #define ISIS_LEVEL1                   1
 #define ISIS_LEVEL2                   2
 
-#define HELLO_INTERVAL                1
+#define HELLO_INTERVAL                10
 #define HELLO_MINIMAL HELLO_INTERVAL
 #define HELLO_MULTIPLIER              3
 #define DEFAULT_PRIORITY              64

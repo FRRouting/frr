@@ -651,6 +651,21 @@ parse_tlvs (char *areatag, u_char *stream, int size, u_int32_t *expected,
       }
 
       break;
+    case GRACEFUL_RESTART:
+      /* +-------+-------+-------+-------+-------+-------+-------+-------+
+       * |         Reserved                      |  SA   |  RA   |  RR   | 1
+       * +-------+-------+-------+-------+-------+-------+-------+-------+
+       * |                          Remaining Time                       | 2
+       * +---------------------------------------------------------------+
+       * |                Restarting Neighbor ID (If known)              | 0-8
+       * +---------------------------------------------------------------+
+       */
+      *found |= TLVFLAG_GRACEFUL_RESTART;
+      if (*expected & TLVFLAG_GRACEFUL_RESTART) {
+        /* FIXME: make this work */
+      }
+      pnt += length;
+      break;
 
     default:
       zlog_warn ("ISIS-TLV (%s): unsupported TLV type %d, length %d",

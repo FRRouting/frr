@@ -1037,7 +1037,9 @@ isis_spf_schedule (struct isis_area *area, int level)
     spftree->pending = 1;
     return retval;
   }
-  THREAD_TIMER_OFF(spftree->t_spf_periodic);
+  /* FIXME: This stuff is just mess. All spf thread add/cancel
+     logic should be reviewed. */
+  /* THREAD_TIMER_OFF(spftree->t_spf_periodic); */
 
   if (diff < MINIMUM_SPF_INTERVAL) {
     if (level == 1)
