@@ -1,3 +1,24 @@
+2004-09-12 Paul Jakma <paul@dishone.st>
+
+	* ospf_packet.c: Fix bugzilla #107
+ 	  (ospf_packet_max) get rid of the magic 88 constant
+	  (ospf_swab_iph_ton) new function. set ip header to network order,
+	  taking BSDisms into account.  
+	  (ospf_swab_iph_toh) the inverse. 
+	  (ospf_write) Add support for IP fragmentation, will only work on
+	  linux though, other kernels make it impossible. get rid of the
+	  magic 4 constant.  
+	  (ospf_make_ls_upd) Bound check to end of stream, not to 
+	  interface mtu.  
+	  (ospf_ls_upd_packet_new) New function, allocate upd packet
+	  taking oversized LSAs into account.
+	  (ospf_ls_upd_queue_send) use ospf_ls_upd_packet_new to allocate,
+	  rather than statically allocating mtu sized packet buffer, which
+	  actually was wrong - it didnt take ip header into account, which
+	  should not be included in packet buffer.
+	  (ospf_ls_upd_send_queue_event) minor tweaks and remove
+	  TODO comment.
+	  
 2004-08-31  David Wiggins  <dwiggins@bbn.com>
 
 	* ospf_spf.c (ospf_spf_calculate): Many more comments and debug

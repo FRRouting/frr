@@ -247,9 +247,11 @@ ospf_packet_max (struct ospf_interface *oi)
   int max;
 
   if ( ospf_auth_type (oi) == OSPF_AUTH_CRYPTOGRAPHIC)
-    max = oi->ifp->mtu - OSPF_AUTH_MD5_SIZE - 88;
+    max = oi->ifp->mtu - OSPF_AUTH_MD5_SIZE;
   else
-    max = oi->ifp->mtu - 88;
+    max = oi->ifp->mtu;
+  
+  max -= (OSPF_HEADER_SIZE + sizeof (struct ip));
 
   return max;
 }
@@ -480,6 +482,31 @@ ospf_ls_ack_timer (struct thread *thread)
   return 0;
 }
 
+/* swab ip header fields to required order for sendmsg */
+void
+ospf_swab_iph_ton (struct ip *iph)
+{
+  /* BSD and derived take iph in network order, except for 
+   * ip_len and ip_off
+   */
+#ifdef GNU_LINUX
+  iph->ip_len = htons(iph->ip_len);
+  iph->ip_off = htons(iph->ip_off);
+#endif
+  iph->ip_id = htons(iph->ip_id);
+}
+
+/* swab ip header fields to host order, as required */
+void
+ospf_swab_iph_toh (struct ip *iph)
+{
+#ifdef GNU_LINUX
+  iph->ip_len = ntohs(iph->ip_len);
+  iph->ip_off = ntohs(iph->ip_off);
+#endif  
+  iph->ip_id = ntohs(iph->ip_id);
+}
+
 int
 ospf_write (struct thread *thread)
 {
@@ -494,6 +521,10 @@ ospf_write (struct thread *thread)
   int ret;
   int flags = 0;
   listnode node;
+  static u_int16_t ipid = 0;
+  u_int16_t maxdatasize, offset;
+#define OSPF_WRITE_IPHL_SHIFT 2
+#define OSPF_WRITE_FRAG_SHIFT 3
   
   ospf->t_write = NULL;
 
@@ -502,6 +533,13 @@ ospf_write (struct thread *thread)
   oi = getdata (node);
   assert (oi);
   
+  /* seed ipid static with low order bits of time */
+  if (ipid == 0)
+    ipid = (time(NULL) & 0xffff);
+  
+  /* convenience - max OSPF data per packet */
+  maxdatasize = oi->ifp->mtu - sizeof (struct ip);
+  
   /* Get one packet from queue. */
   op = ospf_fifo_head (oi->obuf);
   assert (op);
@@ -509,12 +547,17 @@ ospf_write (struct thread *thread)
 
   if (op->dst.s_addr == htonl (OSPF_ALLSPFROUTERS)
       || op->dst.s_addr == htonl (OSPF_ALLDROUTERS))
-    ospf_if_ipmulticast (ospf, oi->address, oi->ifp->ifindex);
-
+      ospf_if_ipmulticast (ospf, oi->address, oi->ifp->ifindex);
+    
   /* Rewrite the md5 signature & update the seq */
   ospf_make_md5_digest (oi, op);
 
+  /* reset get pointer */
+  stream_set_getp (op->s, 0);
+
+  memset (&iph, 0, sizeof (struct ip));
   memset (&sa_dst, 0, sizeof (sa_dst));
+  
   sa_dst.sin_family = AF_INET;
 #ifdef HAVE_SIN_LEN
   sa_dst.sin_len = sizeof(sa_dst);
@@ -527,15 +570,22 @@ ospf_write (struct thread *thread)
     if (!IN_MULTICAST (htonl (op->dst.s_addr)))
       flags = MSG_DONTROUTE;
 
-  iph.ip_hl = sizeof (struct ip) >> 2;
+  iph.ip_hl = sizeof (struct ip) >> OSPF_WRITE_IPHL_SHIFT;
+  /* it'd be very strange for header to not be 4byte-word aligned but.. */
+  if ( sizeof (struct ip) > (iph.ip_hl << OSPF_WRITE_IPHL_SHIFT) )
+    iph.ip_hl++; /* we presume sizeof struct ip cant overflow ip_hl.. */
+  
   iph.ip_v = IPVERSION;
   iph.ip_tos = IPTOS_PREC_INTERNETCONTROL;
-#if defined(__NetBSD__) || defined(__FreeBSD__)
-  iph.ip_len = iph.ip_hl*4 + op->length;
-#else
-  iph.ip_len = htons (iph.ip_hl*4 + op->length);
-#endif
+  iph.ip_len = (iph.ip_hl << OSPF_WRITE_IPHL_SHIFT) + op->length;
   iph.ip_id = 0;
+
+  /* XXX-MT: not thread-safe at all..
+   * XXX: this presumes this is only programme sending OSPF packets 
+   * otherwise, no guarantee ipid will be unique
+   */
+  iph.ip_id = ++ipid;
+  
   iph.ip_off = 0;
   if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
     iph.ip_ttl = OSPF_VL_IP_TTL;
@@ -552,15 +602,79 @@ ospf_write (struct thread *thread)
   msg.msg_iov = iov;
   msg.msg_iovlen = 2;
   iov[0].iov_base = (char*)&iph;
-  iov[0].iov_len = iph.ip_hl*4;
-  iov[1].iov_base = STREAM_DATA (op->s);
+  iov[0].iov_len = iph.ip_hl << OSPF_WRITE_IPHL_SHIFT;
+  iov[1].iov_base = STREAM_PNT (op->s);
   iov[1].iov_len = op->length;
+  
+  /* Sadly we can not rely on kernels to fragment packets because of either
+   * IP_HDRINCL and/or multicast destination being set.
+   */
+  if ( op->length > maxdatasize )
+    {
+      assert ( op->length == stream_get_endp(op->s) );
 
+      /* we can but try.
+       *
+       * SunOS, BSD and BSD derived kernels likely will clear ip_id, as
+       * well as the IP_MF flag, making this all quite pointless.
+       *
+       * However, for a system on which IP_MF is left alone, and ip_id left
+       * alone or else which sets same ip_id for each fragment this might
+       * work, eg linux.
+       *
+       * XXX-TODO: It would be much nicer to have the kernel's use their
+       * existing fragmentation support to do this for us. Bugs/RFEs need to
+       * be raised against the various kernels.
+       */
+      
+      /* set More Frag */
+      iph.ip_off |= IP_MF;
+      
+      /* ip frag offset is expressed in units of 8byte words */
+      offset = maxdatasize >> OSPF_WRITE_FRAG_SHIFT;      
+      
+      while ( (stream_get_endp(op->s) - stream_get_getp (op->s)) 
+             > maxdatasize )
+        {
+          /* data length of this frag is to next offset value */
+          iov[1].iov_len = offset << OSPF_WRITE_FRAG_SHIFT;
+          iph.ip_len = iov[1].iov_len + sizeof (struct ip);
+          assert (iph.ip_len <= oi->ifp->mtu);
+
+          ospf_swab_iph_ton (&iph);
+
+          ret = sendmsg (ospf->fd, &msg, flags);
+          
+          ospf_swab_iph_toh (&iph);
+          
+          if (ret < 0)
+            zlog_warn ("*** sendmsg in ospf_write to %s,"
+                       " id %d, off %d, len %d failed with %s",
+                       inet_ntoa (iph.ip_dst),
+                       iph.ip_id,
+                       iph.ip_off,
+                       iph.ip_len,
+                       strerror (errno));
+          
+          iph.ip_off += offset;
+          stream_forward (op->s, iov[1].iov_len);
+          iov[1].iov_base = STREAM_PNT (op->s); 
+        }
+        
+      /* setup for final fragment */
+      iov[1].iov_len = stream_get_endp(op->s) - stream_get_getp (op->s);
+      iph.ip_len = iov[1].iov_len + sizeof (struct ip);
+      iph.ip_off &= (~IP_MF);
+    }
+
+  /* send final fragment (could be first) */
+  ospf_swab_iph_ton (&iph);
   ret = sendmsg (ospf->fd, &msg, flags);
+  ospf_swab_iph_toh (&iph);
   
   if (ret < 0)
-    zlog_warn ("*** sendmsg in ospf_write to %s failed with %s", 
-               inet_ntoa (iph.ip_dst), strerror (errno));
+    zlog_warn ("*** sendmsg in ospf_write to %s failed with %s",
+      inet_ntoa (iph.ip_dst), strerror (errno));
 
   /* Retrieve OSPF packet type. */
   stream_set_getp (op->s, 1);
@@ -2685,7 +2799,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, list update, struct stream *s)
     zlog_info ("ospf_make_ls_upd: Start");
 
   pp = stream_get_putp (s);
-  ospf_output_forward (s, 4);
+  ospf_output_forward (s, OSPF_LS_UPD_MIN_SIZE);
 
   while ((node = listhead (update)) != NULL)
     {
@@ -2699,12 +2813,8 @@ ospf_make_ls_upd (struct ospf_interface *oi, list update, struct stream *s)
       assert (lsa);
       assert (lsa->data);
 
-      /* Check packet size. */
-      /* XXX: LSA can be > packet-headers, eg router-lsas for machines
-       * with hundreds of interfaces, received as several
-       * fragmented packets.
-       */
-      if (length + delta + ntohs (lsa->data->length) > OSPF_PACKET_MAX (oi))
+      /* Will it fit? */
+      if (length + delta + ntohs (lsa->data->length) > stream_get_size (s))
         break;
 
       /* Keep pointer to LS age. */
@@ -3069,6 +3179,68 @@ ospf_ls_upd_send_lsa (struct ospf_neighbor *nbr, struct ospf_lsa *lsa,
   list_delete (update);
 }
 
+/* Determine size for packet. Must be at least big enough to accomodate next
+ * LSA on list, which may be bigger than MTU size.
+ *
+ * Return pointer to new ospf_packet
+ * NULL if we can not allocate, eg because LSA is bigger than imposed limit
+ * on packet sizes (in which case offending LSA is deleted from update list)
+ */
+static struct ospf_packet *
+ospf_ls_upd_packet_new (struct list *update, struct ospf_interface *oi)
+{
+  struct ospf_lsa *lsa;
+  struct listnode *ln;
+  size_t size;
+  static char warned = 0;
+
+  ln = listhead (update);
+  lsa = getdata (ln);
+  assert (lsa);
+  assert (lsa->data);
+
+  if ((OSPF_LS_UPD_MIN_SIZE + ntohs (lsa->data->length))
+      > ospf_packet_max (oi))
+    {
+      if (!warned)
+        {
+          zlog_warn ("ospf_ls_upd_packet_new: oversized LSA encountered!"
+                     "will need to fragment. Not optimal. Try divide up"
+                     " your network with areas. Use 'debug ospf packet send'"
+                     " to see details, or look at 'show ip ospf database ..'");
+          warned = 1;
+        }
+
+      if (IS_DEBUG_OSPF_PACKET (0, SEND))
+        zlog_warn ("ospf_ls_upd_packet_new: oversized LSA id:%s,"
+                   " %d bytes originated by %s, will be fragmented!",
+                   inet_ntoa (lsa->data->id),
+                   ntohs (lsa->data->length),
+                   inet_ntoa (lsa->data->adv_router));
+
+      /* 
+       * Allocate just enough to fit this LSA only, to avoid including other
+       * LSAs in fragmented LSA Updates.
+       */
+      size = ntohs (lsa->data->length) + (oi->ifp->mtu - ospf_packet_max (oi))
+             + OSPF_LS_UPD_MIN_SIZE;
+    }
+  else
+    size = oi->ifp->mtu;
+
+  if (size > OSPF_MAX_PACKET_SIZE)
+    {
+      zlog_warn ("ospf_ls_upd_packet_new: oversized LSA id:%s too big,"
+                 " %d bytes, dropping it completely."
+                 " OSPF routing is broken!",
+                 inet_ntoa (lsa->data->id), ntohs (lsa->data->length));
+      list_delete_node (update, ln);
+      return NULL;
+    }
+
+  return ospf_packet_new (size);
+}
+
 static void
 ospf_ls_upd_queue_send (struct ospf_interface *oi, list update,
 			struct in_addr addr)
@@ -3078,8 +3250,8 @@ ospf_ls_upd_queue_send (struct ospf_interface *oi, list update,
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("listcount = %d, dst %s", listcount (update), inet_ntoa(addr));
-
-  op = ospf_packet_new (oi->ifp->mtu);
+  
+  op = ospf_ls_upd_packet_new (update, oi);
 
   /* Prepare OSPF common header. */
   ospf_make_header (OSPF_MSG_LS_UPD, oi, op->s);
@@ -3112,8 +3284,7 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
   struct route_node *rn;
   struct route_node *rnext;
   struct list *update;
-  struct listnode *tn, *nn;
-  unsigned int again = 0;
+  char again = 0;
   
   oi->t_ls_upd_event = NULL;
 
@@ -3122,17 +3293,16 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
 
   for (rn = route_top (oi->ls_upd_queue); rn; rn = rnext)
     {
-      update = (struct list *)rn->info;
       rnext = route_next (rn);
       
       if (rn->info == NULL)
         continue;
+      
+      update = (struct list *)rn->info;
 
       ospf_ls_upd_queue_send (oi, update, rn->p.u.prefix4);
       
-      /* list might not be empty.
-       * TODO: work out what to do about oversized LSAs.
-       */
+      /* list might not be empty. */
       if (listcount(update) == 0)
         {
           list_delete (rn->info);
@@ -3140,7 +3310,7 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
           route_unlock_node (rn);
         }
       else
-        again++;
+        again = 1;
     }
 
   if (again != 0)
