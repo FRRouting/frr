@@ -7,6 +7,10 @@
 	  (zsend_ipv4_delete) ditto.
 	  (zsend_ipv6_add) ditto.
 	  (zsend_ipv6_delete) ditto.
+	* ioctl.c: (if_get_mtu) set mtu6 to mtu
+	* mtu_kvm.c: (if_kvm_get_mtu) set mtu6 to mtu
+	* rt_netlink.c: (netlink_interface) set mtu6 to mtu
+	  (netlink_link_change) ditto 
 	  
 2004-05-09 Sowmini Varadhan <sowmini.varadhan@sun.com>
 
@@ -21,6 +25,10 @@
 	  (various) Apply static qualifier. Add comments.
 	* zserv.h: Definitions changed as per above.
 	* redistribute.c: Changes as per zserv.c.
+	* interface.c: (if_delete_update) only used with HAVE_NETLINK
+	  and RTM_IFANNOUNCE.
+	  (if_flag_dump_vty) Solaris IFF_IPV4 and IFF_IPV6 if flags
+	  (if_dump_vty) print mtu6 if not same as mtu	  
 	  
 2004-04-06  Krzysztof Oledzki <oleq@ans.pl>
 

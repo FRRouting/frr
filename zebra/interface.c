@@ -209,7 +209,14 @@ if_add_update (struct interface *ifp)
     }
 }
 
-/* Handle an interface delete event */
+
+/* Handle an interface delete event
+ * 
+ * This function is only called  when support for
+ * RTM_IFANNOUNCE or AF_NETLINK sockets (RTM_DELLINK message)
+ * is available. It is not called on, eg, Solaris.
+ */
+#if (defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK))
 void 
 if_delete_update (struct interface *ifp)
 {
@@ -261,6 +268,7 @@ if_delete_update (struct interface *ifp)
     }
   zebra_interface_delete_update (ifp);
 }
+#endif /* (defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK) */
 
 /* Interface is up. */
 void
@@ -381,6 +389,10 @@ if_flag_dump_vty (struct vty *vty, unsigned long flag)
   IFF_OUT_VTY (IFF_LINK1, "LINK1");
   IFF_OUT_VTY (IFF_LINK2, "LINK2");
   IFF_OUT_VTY (IFF_MULTICAST, "MULTICAST");
+#ifdef SOLARIS_IPV6
+  IFF_OUT_VTY (IFF_IPV4, "IFF_IPv4");
+  IFF_OUT_VTY (IFF_IPV6, "IFF_IPv6");
+#endif /* SOLARIS_IPV6 */
   vty_out (vty, ">");
 }
 
@@ -514,6 +526,11 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
   vty_out (vty, "  index %d metric %d mtu %d ",
 	   ifp->ifindex, ifp->metric, ifp->mtu);
   if_flag_dump_vty (vty, ifp->flags);
+#ifdef HAVE_IPV6
+  if (ifp->mtu6 != ifp->mtu)
+    vty_out (vty, "mtu6 %d ", ifp->mtu6);
+#endif 
+
   vty_out (vty, "%s", VTY_NEWLINE);
 
   /* Hardware address. */

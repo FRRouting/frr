@@ -148,19 +148,19 @@ if_get_mtu (struct interface *ifp)
   if (if_ioctl (SIOCGIFMTU, (caddr_t) & ifreq) < 0) 
     {
       zlog_info ("Can't lookup mtu by ioctl(SIOCGIFMTU)");
-      ifp->mtu = -1;
+      ifp->mtu6 = ifp->mtu = -1;
       return;
     }
 
 #ifdef SUNOS_5
-  ifp->mtu = ifreq.ifr_metric;
+  ifp->mtu6 = ifp->mtu = ifreq.ifr_metric;
 #else
-  ifp->mtu = ifreq.ifr_mtu;
+  ifp->mtu6 = ifp->mtu = ifreq.ifr_mtu;
 #endif /* SUNOS_5 */
 
 #else
   zlog (NULL, LOG_INFO, "Can't lookup mtu on this system");
-  ifp->mtu = -1;
+  ifp->mtu6 = ifp->mtu = -1;
 #endif
 }
 

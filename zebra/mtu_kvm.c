@@ -46,7 +46,7 @@ if_kvm_get_mtu (struct interface *ifp)
     {""}
   };
 
-  ifp->mtu = -1;
+  ifp->mtu6 = ifp->mtu = -1;
   
   kvmd = kvm_openfiles (NULL, NULL, NULL, O_RDONLY, buf);
 
@@ -93,5 +93,5 @@ if_kvm_get_mtu (struct interface *ifp)
       return ;
     }
 
-  ifp->mtu = ifnet.if_mtu;
+  ifp->mtu6 = ifp->mtu = ifnet.if_mtu;
 }
