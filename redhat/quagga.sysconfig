@@ -3,7 +3,7 @@
 #
 QCONFDIR="/etc/quagga"
 BGPD_OPTS="-A 127.0.0.1 -f ${QCONFDIR}/bgpd.conf"
-OSPF6D_OPTS="-A ::1$ -f ${QCONFDIR}/ospf6d.conf"
+OSPF6D_OPTS="-A ::1 -f ${QCONFDIR}/ospf6d.conf"
 OSPFD_OPTS="-A 127.0.0.1 -f ${QCONFDIR}/ospfd.conf"
 RIPD_OPTS="-A 127.0.0.1 -f ${QCONFDIR}/ripd.conf"
 RIPNGD_OPTS="-A ::1 -f ${QCONFDIR}/ripngd.conf"
