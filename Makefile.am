@@ -10,7 +10,6 @@ dist-hook:
 	cp -p $(srcdir)/tools/*.pl $(distdir)/tools
 	cp -p $(srcdir)/tools/*.el $(distdir)/tools
 	cp -p $(srcdir)/tools/*.cgi $(distdir)/tools
-	mkdir $(distdir)/init
-	mkdir $(distdir)/init/redhat
-	cp -p $(srcdir)/init/redhat/*.init $(distdir)/init/redhat
-	cp -p $(srcdir)/init/redhat/zebra.* $(distdir)/init/redhat
+	mkdir $(distdir)/redhat
+	cp -p $(srcdir)/redhat/*.init $(distdir)/redhat
+	cp -p $(srcdir)/redhat/zebra.* $(distdir)/redhat
