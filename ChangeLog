@@ -1,3 +1,9 @@
+2004-11-12 Paul Jakma <paul@dishone.st>
+
+	* configure.ac: Fix AC_CONFIG_FILES, the chmod seems to run for
+          every input file, should be only be for vtysh/extract.pl, so that
+	  should be a seperate AC_CONFIG_FILES.
+
 2004-11-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* redhat/quagga.spec.in: add comments showing how to get gcc verbosity
