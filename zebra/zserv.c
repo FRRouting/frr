@@ -862,6 +862,9 @@ zsend_ipv6_nexthop_lookup (struct zserv *client, struct in6_addr *addr)
 	      case ZEBRA_NEXTHOP_IFNAME:
 		stream_putl (s, nexthop->ifindex);
 		break;
+	      default:
+                /* do nothing */
+		break;
 	      }
 	    num++;
 	  }
@@ -921,6 +924,9 @@ zsend_ipv4_nexthop_lookup (struct zserv *client, struct in_addr addr)
 	      case ZEBRA_NEXTHOP_IFNAME:
 		stream_putl (s, nexthop->ifindex);
 		break;
+	      default:
+                /* do nothing */
+		break;
 	      }
 	    num++;
 	  }
@@ -978,6 +984,9 @@ zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p)
 	      case ZEBRA_NEXTHOP_IFINDEX:
 	      case ZEBRA_NEXTHOP_IFNAME:
 		stream_putl (s, nexthop->ifindex);
+		break;
+	      default:
+                /* do nothing */
 		break;
 	      }
 	    num++;

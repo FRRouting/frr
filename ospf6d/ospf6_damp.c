@@ -279,7 +279,7 @@ ospf6_damp_stop (struct ospf6_damp_info *di)
       gettimeofday (&now, NULL);
       zlog_info ("DAMP: %lu.%06lu stop damping: %ld: type: %d, name: %s",
                  now.tv_sec, now.tv_usec,
-                 t_now, di->type, namebuf);
+                 (long)t_now, di->type, namebuf);
     }
 
   /* set flag indicates that we're damping this target */
@@ -435,7 +435,7 @@ ospf6_damp_event (damp_event_t event_type,
           gettimeofday (&now, NULL);
           zlog_info ("DAMP: %lu.%06lu stop damping: %ld: type: %d, name: %s",
                      now.tv_sec, now.tv_usec,
-                     t_now, di->type, namebuf);
+                     (long)t_now, di->type, namebuf);
         }
       di->damping = OFF;
     }
@@ -450,7 +450,7 @@ ospf6_damp_event (damp_event_t event_type,
           gettimeofday (&now, NULL);
           zlog_info ("DAMP: %lu.%06lu start damping: %ld: type: %d, name: %s",
                      now.tv_sec, now.tv_usec,
-                     t_now, type, namebuf);
+                     (long)t_now, type, namebuf);
         }
       di->damping = ON;
     }
@@ -471,7 +471,7 @@ ospf6_damp_event (damp_event_t event_type,
           gettimeofday (&now, NULL);
           zlog_info ("DAMP: %lu.%06lu start damping: %ld: type: %d, name: %s",
                      now.tv_sec, now.tv_usec,
-                     t_now, type, namebuf);
+                    (long) t_now, type, namebuf);
         }
       di->damping = ON;
     }

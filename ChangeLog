@@ -1,3 +1,33 @@
+2004-03-03 PC Drew <pc@superiorcomm.net>
+
+	* lib/keychain.c: typecast time_t function to long, fixes compile
+	  warning.
+	* lib/debug.c: wrapped function with ifdef HAVE_GLIBC_BACKTRACE fixes
+	  compile warning when backtrace doesn't exist for that system.
+	* zebra/rtadv.c: for OpenBSD, added include statement for
+	  netinet/icmp6.h
+	* zebra/zserv.c: added default case to switch statements, fixes compile
+	  warning about certain NEXTHOP_TYPE enumeration values not being
+	  handled.
+	* zebra/rt_socket.c: set *mask = NULL by default, fixes compile
+	  warning, about mask possibly being used uninitialized.
+	* bgpd/bgp_nexthop.c: added default case to switch statements, fixes
+	  compile warning about certain NEXTHOP_TYPE enumeration values not
+	  being handled.
+	* ospfd/ospf_spf.c: typecast time_t to long, fixes compile warning.
+	* ospfd/ospf_route.c: typecast route_node->prefix to prefix_ipv4, fixes
+	  compile warning.
+	* ospfd/ospf_route.c: typecast prefix_ipv4 to prefix, fixes compile
+	  warning.
+	* ospfd/ospf_abr.c: typecast prefix to prefix_ipv4 in two instances,
+	  fixes compile warning.
+	* vtysh/vtysh.c: fixed null pointer sentinel value when doing execl and
+	  friends, fixes compile warning.
+	* ospf6d/ospf6_damp.c: typecast time_t to long in 4 instances, fixes
+	  compile warning.
+	* ospf6d/ospf6_main.c: use MAXPATHLEN (if set) instead of 64 for the
+	  _cwd array, fixes compile warning.
+
 2004-01-19 Paul Jakma <paul@dishone.st>
 
 	* tests/test-sig.c: New file, regression test for sigevents.

@@ -4,6 +4,7 @@
 void 
 debug_print_trace (int signal)
 {
+#ifdef HAVE_GLIBC_BACKTRACE
     void *array[10];
     size_t size;
     char **strings;   
@@ -18,6 +19,7 @@ debug_print_trace (int signal)
       printf ("%s\n", strings[i]);
 
     free (strings);
+#endif /* HAVE_GLIBC_BACKTRACE */
     
     exit(1);
 }

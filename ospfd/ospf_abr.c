@@ -1078,7 +1078,7 @@ ospf_abr_process_network_rt (struct ospf *ospf,
 
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_info ("ospf_abr_process_network_rt(): announcing");
-      ospf_abr_announce_network (ospf, &rn->p, or);
+      ospf_abr_announce_network (ospf, (struct prefix_ipv4 *)&rn->p, or);
     }
 
   if (IS_DEBUG_OSPF_EVENT)
@@ -1474,7 +1474,7 @@ ospf_abr_announce_aggregates (struct ospf *ospf)
 				     " a transit area");
 			continue; 
 		      }
-		    ospf_abr_announce_network_to_area (&p, range->cost, ar);
+		    ospf_abr_announce_network_to_area ((struct prefix_ipv4 *)&p, range->cost, ar);
 		  }
 	      }
 	  }

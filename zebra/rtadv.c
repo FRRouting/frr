@@ -41,6 +41,10 @@ extern struct zebra_privs_t zserv_privs;
 
 #if defined (HAVE_IPV6) && defined (RTADV)
 
+#ifdef OPEN_BSD
+#include <netinet/icmp6.h>
+#endif
+
 /* If RFC2133 definition is used. */
 #ifndef IPV6_JOIN_GROUP
 #define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP 

@@ -71,7 +71,7 @@ int
 kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 
 {
-  struct sockaddr_in *mask;
+  struct sockaddr_in *mask = NULL;
   struct sockaddr_in sin_dest, sin_mask, sin_gate;
   struct nexthop *nexthop;
   int nexthop_num = 0;

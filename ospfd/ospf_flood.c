@@ -355,7 +355,6 @@ ospf_flood_through_interface (struct ospf_interface *oi,
 			      struct ospf_neighbor *inbr,
 			      struct ospf_lsa *lsa)
 {
-  struct ospf *ospf = oi->ospf;
   struct ospf_neighbor *onbr;
   struct route_node *rn;
   int retx_flag;

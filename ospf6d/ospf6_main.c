@@ -97,7 +97,13 @@ struct thread_master *master;
 char *pid_file = PATH_OSPF6D_PID;
 
 /* for reload */
+
+#ifdef MAXPATHLEN
+char _cwd[MAXPATHLEN];
+#else
 char _cwd[64];
+#endif
+
 char _progpath[64];
 int _argc;
 char **_argv;

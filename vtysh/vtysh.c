@@ -350,8 +350,6 @@ vtysh_pager_init ()
 {
   vtysh_pager_name = getenv ("VTYSH_PAGER");
   if (! vtysh_pager_name)
-    vtysh_pager_name = getenv ("PAGER");
-  if (! vtysh_pager_name)
     vtysh_pager_name = "more";
 }
 
@@ -1465,13 +1463,13 @@ execute_command (char *command, int argc, char *arg1, char *arg2)
       switch (argc)
 	{
 	case 0:
-	  ret = execlp (command, command, NULL);
+	  ret = execlp (command, command, (const char *)NULL);
 	  break;
 	case 1:
-	  ret = execlp (command, command, arg1, NULL);
+	  ret = execlp (command, command, arg1, (const char *)NULL);
 	  break;
 	case 2:
-	  ret = execlp (command, command, arg1, arg2, NULL);
+	  ret = execlp (command, command, arg1, arg2, (const char *)NULL);
 	  break;
 	}
 

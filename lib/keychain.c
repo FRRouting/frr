@@ -921,7 +921,7 @@ keychain_config_write (struct vty *vty)
 		vty_out (vty, " infinite");
 	      else if (key->accept.duration)
 		vty_out (vty, " duration %ld",
-			 key->accept.end - key->accept.start);
+			 (long)(key->accept.end - key->accept.start));
 	      else
 		{
 		  keychain_strftime (buf, BUFSIZ, &key->accept.end);
@@ -938,7 +938,7 @@ keychain_config_write (struct vty *vty)
 	      if (key->send.end == -1)
 		vty_out (vty, " infinite");
 	      else if (key->send.duration)
-		vty_out (vty, " duration %ld", key->send.end - key->send.start);
+		vty_out (vty, " duration %ld", (long)(key->send.end - key->send.start));
 	      else
 		{
 		  keychain_strftime (buf, BUFSIZ, &key->send.end);

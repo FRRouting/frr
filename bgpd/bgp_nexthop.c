@@ -153,6 +153,9 @@ bgp_nexthop_same (struct nexthop *next1, struct nexthop *next2)
 	return 0;
       break;
 #endif /* HAVE_IPV6 */
+    default:
+      /* do nothing */
+      break;
     }
   return 1;
 }
@@ -882,6 +885,9 @@ zlookup_read ()
 	    case ZEBRA_NEXTHOP_IFNAME:
 	      nexthop->ifindex = stream_getl (s);
 	      break;
+            default:
+              /* do nothing */
+              break;
 	    }
 	  bnc_nexthop_add (bnc, nexthop);
 	}
@@ -981,6 +987,9 @@ zlookup_read_ipv6 ()
 	    case ZEBRA_NEXTHOP_IFINDEX:
 	    case ZEBRA_NEXTHOP_IFNAME:
 	      nexthop->ifindex = stream_getl (s);
+	      break;
+	    default:
+	      /* do nothing */
 	      break;
 	    }
 	  bnc_nexthop_add (bnc, nexthop);
