@@ -197,7 +197,7 @@ AC_CHECK_HEADERS([string.h stropts.h sys/conf.h sys/ksym.h sys/time.h \
                  libutil.h limits.h])
 
 AC_CHECK_HEADERS([sys/socket.h netinet/in_systm.h netinet/in.h \
-		 net/if_dl.hnet/netopt.h inet/nd.h net/route.h \
+		 net/if_dl.h net/netopt.h inet/nd.h net/route.h \
 		 net/if.h net/if_var.h netinet/in_var.h])
 
 if test "x${enable_ipv6}" = "xyes"; then
@@ -792,6 +792,13 @@ dnl  AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
   	          CFLAGS="${CFLAGS} -I/usr/local/include/ucd-snmp"
   		  LIBS="${LIBS} -L/usr/local/lib -lsnmp"
                   ;;
+      /usr/local/include/net-snmp/*)
+      		AC_DEFINE(HAVE_SNMP,,SNMP)
+      		AC_DEFINE(HAVE_NET_SNMP,,SNMP)
+      		AC_DEFINE(UCD_COMPATIBLE,,SNMP)
+      		CFLAGS="${CFLAGS} -I/usr/local/include/net-snmp"
+      		LIBS="${LIBS} -L/usr/local/lib -lnetsnmp"
+      		;;
     esac
     if test "${NEED_CRYPTO}" = "yes"; then
       LIBS="${LIBS} -lcrypto"
