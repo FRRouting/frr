@@ -85,6 +85,7 @@ struct interface
   u_char status;
 #define ZEBRA_INTERFACE_ACTIVE     (1 << 0)
 #define ZEBRA_INTERFACE_SUB        (1 << 1)
+#define ZEBRA_INTERFACE_LINKDETECTION (1 << 2)
   
   /* Interface flags. */
   unsigned long flags;
@@ -188,6 +189,8 @@ struct interface *if_lookup_address (struct in_addr);
 struct interface *if_get_by_name (char *);
 void if_delete (struct interface *);
 int if_is_up (struct interface *);
+int if_is_running (struct interface *);
+int if_is_operative (struct interface *);
 int if_is_loopback (struct interface *);
 int if_is_broadcast (struct interface *);
 int if_is_pointopoint (struct interface *);

@@ -564,6 +564,7 @@ zebra_interface_add_read (struct stream *s)
   ifp->ifindex = stream_getl (s);
 
   /* Read interface's value. */
+  ifp->status = stream_getc (s);
   ifp->flags = stream_getl (s);
   ifp->metric = stream_getl (s);
   ifp->mtu = stream_getl (s);
@@ -600,6 +601,7 @@ zebra_interface_state_read (struct stream *s)
   ifp->ifindex = stream_getl (s);
 
   /* Read interface's value. */
+  ifp->status = stream_getc (s);
   ifp->flags = stream_getl (s);
   ifp->metric = stream_getl (s);
   ifp->mtu = stream_getl (s);

@@ -2231,7 +2231,7 @@ rip_update_process (int route_type)
       if (if_is_loopback (ifp))
 	continue;
 
-      if (! if_is_up (ifp))
+      if (! if_is_operative (ifp))
 	continue;
 
       /* Fetch RIP interface information. */

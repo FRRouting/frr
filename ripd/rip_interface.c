@@ -248,7 +248,7 @@ rip_request_interface (struct interface *ifp)
     return;
 
   /* If interface is down, don't send RIP packet. */
-  if (! if_is_up (ifp))
+  if (! if_is_operative (ifp))
     return;
 
   /* Fetch RIP interface information. */
@@ -311,7 +311,7 @@ rip_multicast_join (struct interface *ifp, int sock)
 {
   listnode cnode;
 
-  if (if_is_up (ifp) && if_is_multicast (ifp))
+  if (if_is_operative (ifp) && if_is_multicast (ifp))
     {
       if (IS_RIP_DEBUG_EVENT)
 	zlog_info ("multicast join at %s", ifp->name);
@@ -705,7 +705,7 @@ rip_if_down(struct interface *ifp)
 	      {
 		/* All redistributed routes but static and system */
 		if ((rinfo->ifindex == ifp->ifindex) &&
-		    (rinfo->type != ZEBRA_ROUTE_STATIC) &&
+		    /* (rinfo->type != ZEBRA_ROUTE_STATIC) && */
 		    (rinfo->type != ZEBRA_ROUTE_SYSTEM))
 		  rip_redistribute_delete (rinfo->type,rinfo->sub_type,
 					   (struct prefix_ipv4 *)&rp->p,
@@ -1008,7 +1008,7 @@ rip_enable_apply (struct interface *ifp)
   if (if_is_loopback (ifp))
     return;
 
-  if (! if_is_up (ifp))
+  if (! if_is_operative (ifp))
     return;
 
   ri = ifp->info;

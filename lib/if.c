@@ -270,6 +270,22 @@ if_is_up (struct interface *ifp)
   return ifp->flags & IFF_UP;
 }
 
+/* Is interface running? */
+int
+if_is_running (struct interface *ifp)
+{
+  return ifp->flags & IFF_RUNNING;
+}
+
+/* Is the interface operative, eg. either UP & RUNNING
+   or UP & !ZEBRA_INTERFACE_LINK_DETECTION */
+int
+if_is_operative (struct interface *ifp)
+{
+  return ((ifp->flags & IFF_UP) &&
+	  (ifp->flags & IFF_RUNNING || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)));
+}
+
 /* Is this loopback interface ? */
 int
 if_is_loopback (struct interface *ifp)

@@ -147,7 +147,7 @@ if_addr_wakeup (struct interface *ifp)
 
 	      zebra_interface_address_add_update (ifp, ifc);
 
-	      if (if_is_up(ifp))
+	      if (if_is_operative(ifp))
 		connected_up_ipv4 (ifp, ifc);
 	    }
 #ifdef HAVE_IPV6
@@ -170,7 +170,7 @@ if_addr_wakeup (struct interface *ifp)
 
 	      zebra_interface_address_add_update (ifp, ifc);
 
-	      if (if_is_up(ifp))
+	      if (if_is_operative(ifp))
 		connected_up_ipv6 (ifp, ifc);
 	    }
 #endif /* HAVE_IPV6 */
@@ -334,16 +334,16 @@ if_down (struct interface *ifp)
 void
 if_refresh (struct interface *ifp)
 {
-  if (if_is_up (ifp))
+  if (if_is_operative (ifp))
     {
       if_get_flags (ifp);
-      if (! if_is_up (ifp))
+      if (! if_is_operative (ifp))
 	if_down (ifp);
     }
   else
     {
       if_get_flags (ifp);
-      if (if_is_up (ifp))
+      if (if_is_operative (ifp))
 	if_up (ifp);
     }
 }
@@ -479,8 +479,22 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
   struct connected *connected;
   listnode node;
 
-  vty_out (vty, "Interface %s%s", ifp->name,
-	   VTY_NEWLINE);
+  vty_out (vty, "Interface %s is ", ifp->name);
+  if (if_is_up(ifp)) {
+    vty_out (vty, "up, line protocol ");
+    
+    if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)) {
+      if (if_is_running(ifp))
+       vty_out (vty, "is up%s", VTY_NEWLINE);
+      else
+	vty_out (vty, "is down%s", VTY_NEWLINE);
+    } else {
+      vty_out (vty, "detection is disabled%s", VTY_NEWLINE);
+    }
+  } else {
+    vty_out (vty, "down%s", VTY_NEWLINE);
+  }
+
   if (ifp->desc)
     vty_out (vty, "  Description: %s%s", ifp->desc,
 	     VTY_NEWLINE);
@@ -790,6 +804,51 @@ DEFUN (no_multicast,
   return CMD_SUCCESS;
 }
 
+DEFUN (linkdetect,
+       linkdetect_cmd,
+       "link-detect",
+       "Enable link detection on interface\n")
+{
+  int ret;
+  struct interface *ifp;
+  int if_was_operative;
+  
+  ifp = (struct interface *) vty->index;
+  if_was_operative = if_is_operative(ifp);
+  SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
+
+  /* When linkdetection is enabled, if might come down */
+  if (!if_is_operative(ifp) && if_was_operative) if_down(ifp);
+
+  /* FIXME: Will defer status change forwarding if interface
+     does not come down! */
+
+  return CMD_SUCCESS;
+}
+
+
+DEFUN (no_linkdetect,
+       no_linkdetect_cmd,
+       "no link-detect",
+       NO_STR
+       "Disable link detection on interface\n")
+{
+  int ret;
+  struct interface *ifp;
+  int if_was_operative;
+
+  ifp = (struct interface *) vty->index;
+  if_was_operative = if_is_operative(ifp);
+  UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
+  
+  /* Interface may come up after disabling link detection */
+  if (if_is_operative(ifp) && !if_was_operative) if_up(ifp);
+
+  /* FIXME: see linkdetect_cmd */
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (shutdown_if,
        shutdown_if_cmd,
        "shutdown",
@@ -859,7 +918,7 @@ DEFUN (bandwidth_if,
   ifp->bandwidth = bandwidth;
 
   /* force protocols to recalculate routes due to cost change */
-  if (if_is_up (ifp))
+  if (if_is_operative (ifp))
     zebra_interface_up_update (ifp);
   
   return CMD_SUCCESS;
@@ -878,7 +937,7 @@ DEFUN (no_bandwidth_if,
   ifp->bandwidth = 0;
   
   /* force protocols to recalculate routes due to cost change */
-  if (if_is_up (ifp))
+  if (if_is_operative (ifp))
     zebra_interface_up_update (ifp);
 
   return CMD_SUCCESS;
@@ -971,7 +1030,7 @@ ip_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
       zebra_interface_address_add_update (ifp, ifc);
 
       /* If interface is up register connected route. */
-      if (if_is_up(ifp))
+      if (if_is_operative(ifp))
 	connected_up_ipv4 (ifp, ifc);
     }
 
@@ -1179,7 +1238,7 @@ ipv6_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
       zebra_interface_address_add_update (ifp, ifc);
 
       /* If interface is up register connected route. */
-      if (if_is_up(ifp))
+      if (if_is_operative(ifp))
 	connected_up_ipv6 (ifp, ifc);
     }
 
@@ -1315,6 +1374,9 @@ if_config_write (struct vty *vty)
       if (ifp->bandwidth != 0)
 	vty_out(vty, " bandwidth %u%s", ifp->bandwidth, VTY_NEWLINE); 
 
+      if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
+	vty_out(vty, " link-detect%s", VTY_NEWLINE);
+
       for (addrnode = listhead (ifp->connected); addrnode; nextnode (addrnode))
 	  {
 	    ifc = getdata (addrnode);
@@ -1377,6 +1439,8 @@ zebra_if_init ()
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &multicast_cmd);
   install_element (INTERFACE_NODE, &no_multicast_cmd);
+  install_element (INTERFACE_NODE, &linkdetect_cmd);
+  install_element (INTERFACE_NODE, &no_linkdetect_cmd);
   install_element (INTERFACE_NODE, &shutdown_if_cmd);
   install_element (INTERFACE_NODE, &no_shutdown_if_cmd);
   install_element (INTERFACE_NODE, &bandwidth_if_cmd);

@@ -640,7 +640,7 @@ router_lsa_link_set (struct stream *s, struct ospf_area *area)
       struct interface *ifp = oi->ifp;
 
       /* Check interface is up, OSPF is enable. */
-      if (if_is_up (ifp))
+      if (if_is_operative (ifp))
 	{
 	  if (oi->state != ISM_Down)
 	    {
@@ -1391,7 +1391,7 @@ ospf_external_lsa_nexthop_get (struct in_addr nexthop)
     {
       struct ospf_interface *oi = getdata (n1);
 
-      if (if_is_up (oi->ifp))
+      if (if_is_operative (oi->ifp))
 	if (oi->address->family == AF_INET)
 	  if (prefix_match (oi->address, &nh))
 	    return nexthop;
@@ -1412,7 +1412,7 @@ ospf_get_ip_from_ifp (struct ospf_interface *oi)
 
   fwd.s_addr = 0;
 
-  if (if_is_up (oi->ifp))
+  if (if_is_operative (oi->ifp))
     return oi->address->u.prefix4;
   
   return fwd;
@@ -1432,7 +1432,7 @@ ospf_get_nssa_ip (void)
     {
       struct ospf_interface *oi = getdata (n1);
 
-      if (if_is_up (oi->ifp))
+      if (if_is_operative (oi->ifp))
 	if (oi->area->external_routing == OSPF_AREA_NSSA)
 	  if (oi->address && oi->address->family == AF_INET)
 	    return (oi->address->u.prefix4 );

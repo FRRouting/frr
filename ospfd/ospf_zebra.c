@@ -154,6 +154,7 @@ zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
   ifp->ifindex = stream_getl (s);
 
   /* Read interface's value. */
+  ifp->status = stream_getc (s);
   ifp->flags = stream_getl (s);
   ifp->metric = stream_getl (s);
   ifp->mtu = stream_getl (s);
@@ -175,7 +176,7 @@ ospf_interface_state_up (int command, struct zclient *zclient,
     return 0;
 
   /* Interface is already up. */
-  if (if_is_up (ifp))
+  if (if_is_operative (ifp))
     {
       /* Temporarily keep ifp values. */
       memcpy (&if_tmp, ifp, sizeof (struct interface));

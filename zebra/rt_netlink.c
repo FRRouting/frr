@@ -787,16 +787,16 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
 	  ifp->mtu = *(int *)RTA_DATA (tb[IFLA_MTU]);
 	  ifp->metric = 1;
 
-	  if (if_is_up (ifp))
+	  if (if_is_operative (ifp))
 	    {
 	      ifp->flags = ifi->ifi_flags & 0x0000fffff;
-	      if (! if_is_up (ifp))
+	      if (! if_is_operative (ifp))
 		if_down (ifp);
 	    }
 	  else
 	    {
 	      ifp->flags = ifi->ifi_flags & 0x0000fffff;
-	      if (if_is_up (ifp))
+	      if (if_is_operative (ifp))
 		if_up (ifp);
 	    }
 	}

@@ -154,7 +154,7 @@ ospf_ase_forward_address_check (struct in_addr fwd_addr)
 
   for (ifn = listhead (ospf_top->oiflist); ifn; nextnode (ifn))
     if ((oi = getdata (ifn)) != NULL)
-      if (if_is_up (oi->ifp))
+      if (if_is_operative (oi->ifp))
 	if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
 	  if (IPV4_ADDR_SAME (&oi->address->u.prefix4, &fwd_addr))
 	    return 0;

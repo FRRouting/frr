@@ -2526,12 +2526,11 @@ show_ip_ospf_interface_sub (struct vty *vty, struct interface *ifp)
   oi_count = ospf_oi_count (ifp);
   
   /* Is interface up? */
-  if (if_is_up (ifp))
-    vty_out (vty, "%s is up, line protocol is up%s", ifp->name, VTY_NEWLINE);
-  else
-    {
-      vty_out (vty, "%s is down, line protocol is down%s", ifp->name,
-	       VTY_NEWLINE);
+  if (if_is_operative (ifp)) {
+  	vty_out (vty, "%s is up%s", ifp->name, VTY_NEWLINE);
+  } else
+  	{
+  		vty_out (vty, "%s is down%s", ifp->name, VTY_NEWLINE);
 
       
       if (oi_count == 0)

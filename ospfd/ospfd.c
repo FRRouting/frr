@@ -761,7 +761,7 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 
 		ospf_area_add_if (oi->area, oi);
 
-		if (if_is_up (ifp)) 
+		if (if_is_operative (ifp)) 
 		  ospf_if_up (oi);
 
 		break;

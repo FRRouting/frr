@@ -208,7 +208,7 @@ bgp_interface_address_add (int command, struct zclient *zclient,
 
   bgp_if_update (ifc->ifp);
 
-  if (if_is_up (ifc->ifp))
+  if (if_is_operative (ifc->ifp))
     bgp_connected_add (ifc);
 
   return 0;
@@ -227,7 +227,7 @@ bgp_interface_address_delete (int command, struct zclient *zclient,
 
   bgp_if_update (ifc->ifp);
 
-  if (if_is_up (ifc->ifp))
+  if (if_is_operative (ifc->ifp))
     bgp_connected_delete (ifc);
 
   connected_free (ifc);
