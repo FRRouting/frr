@@ -245,11 +245,26 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
 			nl->name);
 		  return -1;
 		}
-	      zlog (NULL, LOG_ERR, "%s error: %s, type=%s(%u), seq=%u, pid=%d",
-		    nl->name, strerror (-err->error),
-		    lookup (nlmsg_str, err->msg.nlmsg_type),
-		    err->msg.nlmsg_type, err->msg.nlmsg_seq,
+	      
+	      /* Deal with Error Noise  - MAG*/
+	      {
+		int loglvl = LOG_ERR;
+		int errnum = err->error;
+		int msg_type = err->msg.nlmsg_type;
+		
+		if (nl == &netlink_cmd 
+		    && (-errnum == ENODEV || -errnum == ESRCH)
+		    && (msg_type == RTM_NEWROUTE 
+			|| msg_type == RTM_DELROUTE)) 
+		    loglvl = LOG_DEBUG;
+
+		zlog (NULL, loglvl, "%s error: %s, type=%s(%u), "
+		      "seq=%u, pid=%d",
+		      nl->name, strerror (-errnum),
+		      lookup (nlmsg_str, msg_type),
+		      msg_type, err->msg.nlmsg_seq,
 		    err->msg.nlmsg_pid);
+	      }
 	      /*
 	      ret = -1;
 	      continue;

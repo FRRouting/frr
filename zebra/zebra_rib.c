@@ -855,11 +855,13 @@ rib_process (struct route_node *rn, struct rib *del)
   struct rib *next;
   struct rib *fib = NULL;
   struct rib *select = NULL;
+  int installed = 0;
+  struct nexthop *nexthop = NULL;
 
   for (rib = rn->info; rib; rib = next)
     {
       next = rib->next;
-
+      
       /* Currently installed rib. */
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	fib = rib;
@@ -897,6 +899,22 @@ rib_process (struct route_node *rn, struct rib *del)
 	  if (! RIB_SYSTEM_ROUTE (select))
 	    rib_install_kernel (rn, select);
 	  redistribute_add (&rn->p, select);
+	}
+      else if (! RIB_SYSTEM_ROUTE (select))
+	{
+	  /* Housekeeping code to deal with 
+	     race conditions in kernel with linux
+	     netlink reporting interface up before IPv4 or IPv6 protocol
+	     is ready to add routes.
+	     This makes sure the routes are IN the kernel.
+	  */
+
+	  for (nexthop = select->nexthop; nexthop; nexthop = nexthop->next)
+	    {
+	      if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
+		installed = 1;
+	    }
+	    if (! installed) rib_install_kernel (rn, select);
 	}
       return;
     }
