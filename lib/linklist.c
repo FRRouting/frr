@@ -87,15 +87,17 @@ listnode_add_sort (struct list *list, void *val)
   struct listnode *n;
   struct listnode *new;
 
-  new = listnode_new ();
-  new->data = val;
 
   if (list->cmp)
     {
       for (n = list->head; n; n = n->next)
 	{
+	  if ((*list->cmp) (val, n->data) == 0)
+	    return;
 	  if ((*list->cmp) (val, n->data) < 0)
 	    {	    
+  	      new = listnode_new ();
+  	      new->data = val;
 	      new->next = n;
 	      new->prev = n->prev;
 
@@ -110,6 +112,8 @@ listnode_add_sort (struct list *list, void *val)
 	}
     }
 
+  new = listnode_new ();
+  new->data = val;
   new->prev = list->tail;
 
   if (list->tail)
