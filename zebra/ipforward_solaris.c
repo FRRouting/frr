@@ -61,12 +61,13 @@ solaris_nd(const int cmd, const char* parameter, const int value)
   ** buy a NULL.  ND_GET returns a list in a similar layout, although
   ** here we only use the first result.
   */
-  if (cmd == ND_SET) {
+  if (cmd == ND_SET)
     snprintf(nd_buf, ND_BUFFER_SIZE, "%s%c%d%c", parameter, '\0', value,'\0');
-  } else if (cmd == ND_GET) {
+  else if (cmd == ND_GET)
     snprintf(nd_buf, ND_BUFFER_SIZE, "%s", parameter);
-  } else {
-    zlog_err("internal error - inappropriate command given to solaris_nd()%s:%d", __FILE__, __LINE__);
+  else {
+    zlog_err("internal error - inappropriate command given to "
+             "solaris_nd()%s:%d", __FILE__, __LINE__);
     return -1;
   }
 
@@ -144,7 +145,7 @@ ipforward_off ()
 #ifdef HAVE_IPV6
 int ipforward_ipv6()
 {
-  return solaris_nd_get("ip6_fowarding");
+  return solaris_nd_get("ip6_forwarding");
 }
 int
 ipforward_ipv6_on ()

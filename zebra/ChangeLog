@@ -11,7 +11,8 @@
 	* mtu_kvm.c: (if_kvm_get_mtu) set mtu6 to mtu
 	* rt_netlink.c: (netlink_interface) set mtu6 to mtu
 	  (netlink_link_change) ditto 
-	  
+	* ipforward_solaris.c: fix typo of ND variable.
+		  
 2004-05-09 Sowmini Varadhan <sowmini.varadhan@sun.com>
 
 	* zserv.c: (zsend_ipv{4,6}_{add,delete}_multipath) collapsed
