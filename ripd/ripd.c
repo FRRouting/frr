@@ -3362,6 +3362,25 @@ DEFUN (show_ip_rip_status,
   vty_out (vty, "  Routing for Networks:%s", VTY_NEWLINE);
   config_write_rip_network (vty, 0);  
 
+  {
+    int found_passive = 0;
+    for (node = listhead (iflist); node; node = nextnode (node))
+      {
+	ifp = getdata (node);
+	ri = ifp->info;
+
+	if ((ri->enable_network || ri->enable_interface) && ri->passive)
+	  {
+	    if (!found_passive)
+	      {
+		vty_out (vty, "  Passive Interface(s):%s", VTY_NEWLINE);
+		found_passive = 1;
+	      }
+	    vty_out (vty, "    %s%s", ifp->name, VTY_NEWLINE);
+	  }
+      }
+  }
+
   vty_out (vty, "  Routing Information Sources:%s", VTY_NEWLINE);
   vty_out (vty, "    Gateway          BadPackets BadRoutes  Distance Last Update%s", VTY_NEWLINE);
   rip_peer_display (vty);
@@ -3630,7 +3649,7 @@ rip_clean ()
     }
 
   rip_clean_network ();
-  rip_passive_interface_clean ();
+  rip_passive_nondefault_clean ();
   rip_offset_clean ();
   rip_interface_clean ();
   rip_distance_reset ();

@@ -66,7 +66,8 @@ vector rip_enable_interface;
 struct route_table *rip_enable_network;
 
 /* Vector to store passive-interface name. */
-vector Vrip_passive_interface;
+static int passive_default;	/* are we in passive-interface default mode? */
+vector Vrip_passive_nondefault;
 
 /* Join to the RIP version 2 multicast group. */
 int
@@ -1170,13 +1171,13 @@ rip_clean_network ()
 
 /* Utility function for looking up passive interface settings. */
 int
-rip_passive_interface_lookup (char *ifname)
+rip_passive_nondefault_lookup (char *ifname)
 {
   int i;
   char *str;
 
-  for (i = 0; i < vector_max (Vrip_passive_interface); i++)
-    if ((str = vector_slot (Vrip_passive_interface, i)) != NULL)
+  for (i = 0; i < vector_max (Vrip_passive_nondefault); i++)
+    if ((str = vector_slot (Vrip_passive_nondefault, i)) != NULL)
       if (strcmp (str, ifname) == 0)
 	return i;
   return -1;
@@ -1185,16 +1186,15 @@ rip_passive_interface_lookup (char *ifname)
 void
 rip_passive_interface_apply (struct interface *ifp)
 {
-  int ret;
   struct rip_interface *ri;
 
   ri = ifp->info;
 
-  ret = rip_passive_interface_lookup (ifp->name);
-  if (ret < 0)
-    ri->passive = 0;
-  else
-    ri->passive = 1;
+  ri->passive = ((rip_passive_nondefault_lookup (ifp->name) < 0) ?
+		 passive_default : !passive_default);
+
+  if (IS_RIP_DEBUG_ZEBRA)
+    zlog_info ("interface %s: passive = %d",ifp->name,ri->passive);
 }
 
 void
@@ -1212,12 +1212,12 @@ rip_passive_interface_apply_all ()
 
 /* Passive interface. */
 int
-rip_passive_interface_set (struct vty *vty, char *ifname)
+rip_passive_nondefault_set (struct vty *vty, char *ifname)
 {
-  if (rip_passive_interface_lookup (ifname) >= 0)
+  if (rip_passive_nondefault_lookup (ifname) >= 0)
     return CMD_WARNING;
 
-  vector_set (Vrip_passive_interface, strdup (ifname));
+  vector_set (Vrip_passive_nondefault, strdup (ifname));
 
   rip_passive_interface_apply_all ();
 
@@ -1225,18 +1225,18 @@ rip_passive_interface_set (struct vty *vty, char *ifname)
 }
 
 int
-rip_passive_interface_unset (struct vty *vty, char *ifname)
+rip_passive_nondefault_unset (struct vty *vty, char *ifname)
 {
   int i;
   char *str;
 
-  i = rip_passive_interface_lookup (ifname);
+  i = rip_passive_nondefault_lookup (ifname);
   if (i < 0)
     return CMD_WARNING;
 
-  str = vector_slot (Vrip_passive_interface, i);
+  str = vector_slot (Vrip_passive_nondefault, i);
   free (str);
-  vector_unset (Vrip_passive_interface, i);
+  vector_unset (Vrip_passive_nondefault, i);
 
   rip_passive_interface_apply_all ();
 
@@ -1245,16 +1245,16 @@ rip_passive_interface_unset (struct vty *vty, char *ifname)
 
 /* Free all configured RIP passive-interface settings. */
 void
-rip_passive_interface_clean ()
+rip_passive_nondefault_clean ()
 {
   int i;
   char *str;
 
-  for (i = 0; i < vector_max (Vrip_passive_interface); i++)
-    if ((str = vector_slot (Vrip_passive_interface, i)) != NULL)
+  for (i = 0; i < vector_max (Vrip_passive_nondefault); i++)
+    if ((str = vector_slot (Vrip_passive_nondefault, i)) != NULL)
       {
 	free (str);
-	vector_slot (Vrip_passive_interface, i) = NULL;
+	vector_slot (Vrip_passive_nondefault, i) = NULL;
       }
   rip_passive_interface_apply_all ();
 }
@@ -1836,7 +1836,17 @@ DEFUN (rip_passive_interface,
        "Suppress routing updates on an interface\n"
        "Interface name\n")
 {
-  return rip_passive_interface_set (vty, argv[0]);
+  char *ifname = argv[0];
+
+  if (!strcmp(ifname,"default")) {
+    passive_default = 1;
+    rip_passive_nondefault_clean();
+    return CMD_SUCCESS;
+  }
+  if (passive_default)
+    return rip_passive_nondefault_unset (vty, ifname);
+  else
+    return rip_passive_nondefault_set (vty, ifname);
 }
 
 DEFUN (no_rip_passive_interface,
@@ -1846,7 +1856,17 @@ DEFUN (no_rip_passive_interface,
        "Suppress routing updates on an interface\n"
        "Interface name\n")
 {
-  return rip_passive_interface_unset (vty, argv[0]);
+  char *ifname = argv[0];
+
+  if (!strcmp(ifname,"default")) {
+    passive_default = 0;
+    rip_passive_nondefault_clean();
+    return CMD_SUCCESS;
+  }
+  if (passive_default)
+    return rip_passive_nondefault_set (vty, ifname);
+  else
+    return rip_passive_nondefault_unset (vty, ifname);
 }
 
 /* Write rip configuration of each interface. */
@@ -1966,10 +1986,14 @@ config_write_rip_network (struct vty *vty, int config_mode)
 	       VTY_NEWLINE);
 
   /* RIP passive interface listing. */
-  if (config_mode)
-    for (i = 0; i < vector_max (Vrip_passive_interface); i++)
-      if ((ifname = vector_slot (Vrip_passive_interface, i)) != NULL)
-	vty_out (vty, " passive-interface %s%s", ifname, VTY_NEWLINE);
+  if (config_mode) {
+    if (passive_default)
+      vty_out (vty, " passive-interface default%s", ifname, VTY_NEWLINE);
+    for (i = 0; i < vector_max (Vrip_passive_nondefault); i++)
+      if ((ifname = vector_slot (Vrip_passive_nondefault, i)) != NULL)
+	vty_out (vty, " %spassive-interface %s%s",
+		 (passive_default ? "no " : ""), ifname, VTY_NEWLINE);
+  }
 
   return 0;
 }
@@ -2012,7 +2036,7 @@ rip_if_init ()
   rip_enable_network = route_table_init ();
 
   /* RIP passive interface. */
-  Vrip_passive_interface = vector_init (1);
+  Vrip_passive_nondefault = vector_init (1);
 
   /* Install interface node. */
   install_node (&interface_node, rip_interface_config_write);

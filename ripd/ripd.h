@@ -358,7 +358,7 @@ void rip_clean ();
 void rip_clean_network ();
 void rip_interface_clean ();
 void rip_interface_reset ();
-void rip_passive_interface_clean ();
+void rip_passive_nondefault_clean ();
 void rip_if_init ();
 void rip_if_down_all ();
 void rip_route_map_init ();
