@@ -1,4 +1,4 @@
-2004-11-07 Paul Jakma <paul@dishone.st>
+2004-11-08 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: Add routeserver.texi to quagga_TEXINFOS.
 	  Add quagga.info to clean files list (would have thought automake

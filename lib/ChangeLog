@@ -1,4 +1,4 @@
-2004-11-07 Paul Jakma <paul@dishone.st>
+2004-11-08 Paul Jakma <paul@dishone.st>
 
 	* buffer.c: Add missing include of log.h.
 	  (buffer_flush_available) written is compared against
