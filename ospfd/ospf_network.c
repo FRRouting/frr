@@ -166,8 +166,8 @@ ospf_sock_init (void)
       if ( ospfd_privs.change (ZPRIVS_LOWER) )
         zlog_err ("ospf_sock_init: could not lower privs, %s",
                    strerror (errno) );
-      zlog_warn ("ospf_read_sock_init: socket: %s", strerror (errno));
-      return -1;
+      zlog_err ("ospf_read_sock_init: socket: %s", strerror (errno));
+      exit(-1);
     }
     
 
