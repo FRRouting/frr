@@ -260,6 +260,7 @@ int parse_tlvs (char *areatag, u_char * stream, int size,
 		u_int32_t * expected, u_int32_t * found, struct tlvs *tlvs);
 void free_tlv (void *val);
 
+int add_tlv (u_char, u_char, u_char *, struct stream *);
 int tlv_add_area_addrs (struct list *area_addrs, struct stream *stream);
 int tlv_add_is_neighs (struct list *is_neighs, struct stream *stream);
 int tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream);

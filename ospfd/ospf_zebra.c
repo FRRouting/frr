@@ -54,6 +54,28 @@ struct zclient *zclient = NULL;
 
 /* For registering threads. */
 extern struct thread_master *master;
+struct in_addr router_id_zebra;
+
+/* Router-id update message from zebra. */
+int
+ospf_router_id_update_zebra (int command, struct zclient *zclient,
+			     zebra_size_t length)
+{
+  struct ospf *ospf;
+  struct prefix router_id;
+  zebra_router_id_update_read(zclient->ibuf,&router_id);
+
+  router_id_zebra = router_id.u.prefix4;
+
+  ospf = ospf_lookup ();
+  if (ospf != NULL)
+    {
+      if (ospf->t_router_id_update == NULL)
+	OSPF_TIMER_ON (ospf->t_router_id_update, ospf_router_id_update_timer,
+                       OSPF_ROUTER_ID_UPDATE_DELAY);
+    }
+  return 0;
+}
 
 /* Inteface addition message from zebra. */
 int
@@ -146,20 +168,6 @@ zebra_interface_if_lookup (struct stream *s)
     return NULL;
 
   return ifp;
-}
-
-void
-zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
-{
-  /* Read interface's index. */
-  ifp->ifindex = stream_getl (s);
-
-  /* Read interface's value. */
-  ifp->status = stream_getc (s);
-  ifp->flags = stream_getl (s);
-  ifp->metric = stream_getl (s);
-  ifp->mtu = stream_getl (s);
-  ifp->bandwidth = stream_getl (s);
 }
 
 int
@@ -1248,6 +1256,7 @@ ospf_zebra_init ()
   /* Allocate zebra structure. */
   zclient = zclient_new ();
   zclient_init (zclient, ZEBRA_ROUTE_OSPF);
+  zclient->router_id_update = ospf_router_id_update_zebra;
   zclient->interface_add = ospf_interface_add;
   zclient->interface_delete = ospf_interface_delete;
   zclient->interface_up = ospf_interface_state_up;

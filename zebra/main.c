@@ -35,7 +35,7 @@
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
-#include "zebra/rib.h"
+#include "zebra/router-id.h"
 #include "zebra/irdp.h"
 
 /* Zebra instance */
@@ -314,6 +314,7 @@ main (int argc, char **argv)
   rib_init ();
   zebra_if_init ();
   zebra_debug_init ();
+  router_id_init();
   zebra_vty_init ();
   access_list_init ();
   rtadv_init ();

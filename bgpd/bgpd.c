@@ -63,6 +63,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
 
+extern struct in_addr router_id_zebra;
+
 /* BGP process wide configuration pointer to export.  */
 struct bgp_master *bm;
 
@@ -182,42 +184,6 @@ bgp_router_id_set (struct bgp *bgp, struct in_addr *id)
   return 0;
 }
 
-/* Unset BGP router identifier. */
-int
-bgp_router_id_unset (struct bgp *bgp)
-{
-  struct peer *peer;
-  struct listnode *nn;
-
-  if (! bgp_config_check (bgp, BGP_CONFIG_ROUTER_ID))
-    return 0;
-
-  bgp->router_id.s_addr = 0;
-  bgp_config_unset (bgp, BGP_CONFIG_ROUTER_ID);
-
-  /* Clear peer router id configuration.  */
-  LIST_LOOP (bgp->peer, peer, nn)
-    {
-      peer->local_id.s_addr = 0;
-    }
-
-  /* Set router-id from interface's address. */
-  bgp_if_update_all ();
-
-  /* Reset all BGP sessions to use new router-id.  */
-  LIST_LOOP (bgp->peer, peer, nn)
-    {
-      if (peer->status == Established)
-       {
-         peer->last_reset = PEER_DOWN_RID_CHANGE;
-         bgp_notify_send (peer, BGP_NOTIFY_CEASE,
-                          BGP_NOTIFY_CEASE_CONFIG_CHANGE);
-       }
-    }
-
-  return 0;
-}
-
 /* BGP's cluster-id control. */
 int
 bgp_cluster_id_set (struct bgp *bgp, struct in_addr *cluster_id)
@@ -1910,7 +1876,7 @@ bgp_get (struct bgp **bgp_val, as_t *as, char *name)
 
   bgp = bgp_create (as, name);
   listnode_add (bm->bgp, bgp);
-  bgp_if_update_all ();
+  bgp_router_id_set(bgp, &router_id_zebra);
   *bgp_val = bgp;
 
   return 0;

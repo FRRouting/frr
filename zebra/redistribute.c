@@ -35,6 +35,7 @@
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
+#include "zebra/router-id.h"
 
 /* master zebra server structure */
 extern struct zebra_t zebrad;
@@ -387,6 +388,8 @@ zebra_interface_address_add_update (struct interface *ifp,
 		 p->prefixlen, ifc->ifp->name);
     }
 
+  router_id_add_address(ifc);
+
   for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)
       if (client->ifinfo && CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
@@ -410,6 +413,8 @@ zebra_interface_address_delete_update (struct interface *ifp,
 		 inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 		 p->prefixlen, ifc->ifp->name);
     }
+
+  router_id_del_address(ifc);
 
   for (node = listhead (zebrad.client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)

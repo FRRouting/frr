@@ -62,6 +62,7 @@ struct zclient
   u_char default_information;
 
   /* Pointer to the callback functions. */
+  int (*router_id_update) (int, struct zclient *, zebra_size_t);
   int (*interface_add) (int, struct zclient *, zebra_size_t);
   int (*interface_delete) (int, struct zclient *, zebra_size_t);
   int (*interface_up) (int, struct zclient *, zebra_size_t);
@@ -119,6 +120,8 @@ int zebra_redistribute_send (int, int, int);
 struct interface *zebra_interface_add_read (struct stream *);
 struct interface *zebra_interface_state_read (struct stream *s);
 struct connected *zebra_interface_address_read (int, struct stream *);
+void zebra_interface_if_set_value (struct stream *, struct interface *);
+void zebra_router_id_update_read (struct stream *s, struct prefix *rid);
 int zapi_ipv4_route (u_char, struct zclient *, struct prefix_ipv4 *, 
                      struct zapi_ipv4 *);
 

@@ -1,3 +1,10 @@
+2004-10-03 Hasso Tepper <hasso at quagga.net>
+
+	* isis_zebra.c: Read router id related messages from zebra daemon.
+	* isis_lsp.c: Use router id in IP address TLV in LSP's. It's how Junos
+	  routers behave as well.
+	* isis_tlv.h: Export add_tlv() function.
+
 2004-09-27 Hasso Tepper <hasso at quagga.net>
 
 	* isis_pdu.c: Fix accessing NULL found by valgrind.

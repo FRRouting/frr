@@ -39,61 +39,25 @@ Boston, MA 02111-1307, USA.  */
 
 /* All information about zebra. */
 static struct zclient *zclient = NULL;
+struct in_addr router_id_zebra;
 
-/* Update default router id. */
+/* Router-id update message from zebra. */
 int
-bgp_if_update (struct interface *ifp)
+bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length)
 {
-  struct bgp *bgp;
-  struct listnode *cn;
+  struct prefix router_id;
   struct listnode *nn;
-  struct listnode *nm;
-  struct peer *peer;
+  struct bgp *bgp;
 
-  for (cn = listhead (ifp->connected); cn; nextnode (cn))
+  zebra_router_id_update_read(zclient->ibuf,&router_id);
+  router_id_zebra = router_id.u.prefix4;
+
+  LIST_LOOP (bm->bgp, bgp, nn)
     {
-      struct connected *co;
-      struct in_addr addr;
-
-      co = getdata (cn);
-
-      if (co->address->family == AF_INET)
-	{
-	  addr = co->address->u.prefix4;
-
-	  /* Ignore NET127. */
-	  if (IPV4_NET127 (ntohl (addr.s_addr)))
-	    continue;
-
-	  LIST_LOOP (bm->bgp, bgp, nn)
-	    {
-	      /* Respect configured router id */
-	      if (! (bgp->config & BGP_CONFIG_ROUTER_ID))
-		if (ntohl (bgp->router_id.s_addr) < ntohl (addr.s_addr))
-		  {
-		    bgp->router_id = addr;
-		    LIST_LOOP (bgp->peer, peer, nm)
-		      {
-			peer->local_id = addr;
-		      }
-		  }
-	    }
-	}
+      if (!bgp->router_id_static.s_addr)
+      bgp_router_id_set (bgp, &router_id.u.prefix4);
     }
-  return 0;
-}
 
-int
-bgp_if_update_all ()
-{
-  struct listnode *node;
-  struct interface *ifp;
-
-  for (node = listhead (iflist); node; node = nextnode (node))
-    {
-      ifp = getdata (node);
-      bgp_if_update (ifp);
-    }
   return 0;
 }
 
@@ -104,7 +68,6 @@ bgp_interface_add (int command, struct zclient *zclient, zebra_size_t length)
   struct interface *ifp;
 
   ifp = zebra_interface_add_read (zclient->ibuf);
-  bgp_if_update (ifp);
 
   return 0;
 }
@@ -206,8 +169,6 @@ bgp_interface_address_add (int command, struct zclient *zclient,
   if (ifc == NULL)
     return 0;
 
-  bgp_if_update (ifc->ifp);
-
   if (if_is_operative (ifc->ifp))
     bgp_connected_add (ifc);
 
@@ -224,8 +185,6 @@ bgp_interface_address_delete (int command, struct zclient *zclient,
 
   if (ifc == NULL)
     return 0;
-
-  bgp_if_update (ifc->ifp);
 
   if (if_is_operative (ifc->ifp))
     bgp_connected_delete (ifc);
@@ -987,6 +946,7 @@ bgp_zebra_init (int enable)
   /* Set default values. */
   zclient = zclient_new ();
   zclient_init (zclient, ZEBRA_ROUTE_BGP);
+  zclient->router_id_update = bgp_router_id_update;
   zclient->interface_add = bgp_interface_add;
   zclient->interface_delete = bgp_interface_delete;
   zclient->interface_address_add = bgp_interface_address_add;

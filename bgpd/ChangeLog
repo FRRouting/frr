@@ -1,3 +1,11 @@
+2004-10-03 James R. Leu <jleu at mindspring.com>
+
+	* bgp_vty.c: Router id from zebra can be manually overriden.
+	* bgp_zebra.c: Read router id related messages from zebra daemon.
+	  Remove own code related with router id selection.
+	* bgpd.c, bgpd.h: Remove own router id selection code. Use the one
+	  from zebra daemon if it isn't manually overriden.
+
 2004-09-26 Hasso Tepper <hasso at quagga.net>
 
 	* bgp_aspath.c, bgp_packet.c, bgp_vty.c: Fix compiler warnings.

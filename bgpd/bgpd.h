@@ -76,6 +76,7 @@ struct bgp
 
   /* BGP router identifier.  */
   struct in_addr router_id;
+  struct in_addr router_id_static;
 
   /* BGP route reflector cluster ID.  */
   struct in_addr cluster_id;

@@ -43,6 +43,22 @@
 struct zclient *zclient = NULL;
 
 extern struct thread_master *master;
+struct in_addr router_id_zebra;
+
+/* Router-id update message from zebra. */
+int
+isis_router_id_update_zebra (int command, struct zclient *zclient,
+			     zebra_size_t length)
+{
+  struct prefix router_id;
+  char buf[BUFSIZ];
+
+  zebra_router_id_update_read (zclient->ibuf,&router_id);
+  router_id_zebra = router_id.u.prefix4;
+
+  /* FIXME: Do we react somehow? */
+  return 0;
+}
 
 int
 isis_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
@@ -104,19 +120,6 @@ zebra_interface_if_lookup (struct stream *s)
     return NULL;
 
   return ifp;
-}
-
-void
-zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
-{
-  /* Read interface's index. */
-  ifp->ifindex = stream_getl (s);
-
-  /* Read interface's value. */
-  ifp->flags = stream_getl (s);
-  ifp->metric = stream_getl (s);
-  ifp->mtu = stream_getl (s);
-  ifp->bandwidth = stream_getl (s);
 }
 
 int
@@ -591,6 +594,7 @@ isis_zebra_init ()
 {
   zclient = zclient_new ();
   zclient_init (zclient, ZEBRA_ROUTE_ISIS);
+  zclient->router_id_update = isis_router_id_update_zebra;
   zclient->interface_add = isis_zebra_if_add;
   zclient->interface_delete = isis_zebra_if_del;
   zclient->interface_up = isis_zebra_if_state_up;

@@ -56,6 +56,9 @@ struct zserv
 
   /* Interface information. */
   u_char ifinfo;
+
+  /* Router-id information. */
+  u_char ridinfo;
 };
 
 /* Zebra instance */
@@ -92,6 +95,7 @@ int zsend_interface_address (int, struct zserv *, struct interface *,
                              struct connected *);
 int zsend_interface_update (int, struct zserv *, struct interface *);
 int zsend_route_multipath (int, struct zserv *, struct prefix *, struct rib *);
+int zsend_router_id_update(struct zserv *, struct prefix *);
 
 extern pid_t pid;
 extern pid_t old_pid;

@@ -314,7 +314,10 @@ struct in_pktinfo
 #define ZEBRA_IPV4_IMPORT_LOOKUP          17
 #define ZEBRA_IPV6_IMPORT_LOOKUP          18
 #define ZEBRA_INTERFACE_RENAME            19
-#define ZEBRA_MESSAGE_MAX                 20
+#define ZEBRA_ROUTER_ID_ADD               20
+#define ZEBRA_ROUTER_ID_DELETE            21
+#define ZEBRA_ROUTER_ID_UPDATE            22
+#define ZEBRA_MESSAGE_MAX                 23
 
 /* Zebra route's types. */
 #define ZEBRA_ROUTE_SYSTEM               0

@@ -1,3 +1,8 @@
+2004-10-03 Hasso Tepper <hasso at quagga.net>
+
+	* ospf6_zebra.c: Use router id from zebra daemon if it wasn't set in
+	configuration.
+
 2004-09-25  Hasso Tepper  <hasso at estpak.ee>
 
 	* ospf6_asbr.c, ospf6_lsa.c, ospf6_proto.c, ospf6_proto.h: Fix

@@ -36,6 +36,7 @@
 #include "privs.h"
 
 #include "zebra/zserv.h"
+#include "zebra/router-id.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/ipforward.h"
@@ -70,7 +71,10 @@ static char *zebra_command_str [] =
   "ZEBRA_IPV4_NEXTHOP_LOOKUP",
   "ZEBRA_IPV6_NEXTHOP_LOOKUP",
   "ZEBRA_IPV4_IMPORT_LOOKUP",
-  "ZEBRA_IPV6_IMPORT_LOOKUP"
+  "ZEBRA_IPV6_IMPORT_LOOKUP",
+  "ZEBRA_ROUTER_ID_ADD",
+  "ZEBRA_ROUTER_ID_DELETE",
+  "ZEBRA_ROUTER_ID_UPDATE"
 };
 
 struct zebra_message_queue
@@ -721,6 +725,38 @@ zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p)
   return 0;
 }
 
+/* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
+int
+zsend_router_id_update (struct zserv *client, struct prefix *p)
+{
+  struct stream *s;
+  int blen;
+
+  /* Check this client need interface information. */
+  if (!client->ridinfo)
+    return -1;
+
+  s = client->obuf;
+  stream_reset (s);
+
+  /* Place holder for size. */
+  stream_putw (s, 0);
+
+  /* Message type. */
+  stream_putc (s, ZEBRA_ROUTER_ID_UPDATE);
+
+  /* Prefix information. */
+  stream_putc (s, p->family);
+  blen = prefix_blen (p);
+  stream_put (s, &p->u.prefix, blen);
+  stream_putc (s, p->prefixlen);
+
+  /* Write packet size. */
+  stream_putw_at (s, 0, stream_get_endp (s));
+
+  return writen (client->sock, s->data, stream_get_endp (s));
+}
+
 /* Register zebra server interface information.  Send current all
    interface and address information. */
 static void
@@ -1122,6 +1158,27 @@ zread_ipv6_nexthop_lookup (struct zserv *client, u_short length)
 }
 #endif /* HAVE_IPV6 */
 
+/* Register zebra server router-id information.  Send current router-id */
+void
+zread_router_id_add (struct zserv *client, u_short length)
+{
+  struct prefix p;
+
+  /* Router-id information is needed. */
+  client->ridinfo = 1;
+
+  router_id_get (&p);
+
+  zsend_router_id_update (client,&p);
+}
+
+/* Unregister zebra server router-id information. */
+void
+zread_router_id_delete (struct zserv *client, u_short length)
+{
+  client->ridinfo = 0;
+}
+
 /* Close zebra client. */
 static void
 zebra_client_close (struct zserv *client)
@@ -1233,6 +1290,12 @@ zebra_client_read (struct thread *thread)
 
   switch (command) 
     {
+    case ZEBRA_ROUTER_ID_ADD:
+      zread_router_id_add (client, length);
+      break;
+    case ZEBRA_ROUTER_ID_DELETE:
+      zread_router_id_delete (client, length);
+      break;
     case ZEBRA_INTERFACE_ADD:
       zread_interface_add (client, length);
       break;
@@ -1676,6 +1739,9 @@ DEFUN (no_ipv6_forwarding,
 int
 config_write_forwarding (struct vty *vty)
 {
+  /* FIXME: Find better place for that. */
+  router_id_write (vty);
+
   if (ipforward ())
     vty_out (vty, "ip forwarding%s", VTY_NEWLINE);
 #ifdef HAVE_IPV6

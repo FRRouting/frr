@@ -1,3 +1,15 @@
+2004-10-03 James R. Leu <jleu at mindspring.com>
+
+	* router-id.c, router-id.h: New files. Router id selection process. If
+	  there is non 127.x.x.x address in loopack interface, lowest of them
+	  is chosen. If there isn't, lowest from other interfaces addresses
+	  are chosen. "router-id x.x.x.x" vty command to manual override.
+	* Makefile.am: Compile new files.
+	* main.c: Initialize router id.
+	* redistribute.c: Add interface addresses into router id selection
+	  lists as they (dis)appear.
+	* zserv.c, zserv.h: Sending router id related messages to daemons.
+
 2004-09-26 Hasso Tepper <hasso at quagga.net>
 
 	* irdp_interface.c, irdp_main.c, irdp_packet.c, rt_netlink.c,

@@ -41,6 +41,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_table.h"
 
+extern struct in_addr router_id_zebra;
+
 /* Utility function to get address family from current node.  */
 afi_t
 bgp_node_afi (struct vty *vty)
@@ -400,6 +402,7 @@ DEFUN (bgp_router_id,
       return CMD_WARNING;
     }
 
+  bgp->router_id_static = id;
   bgp_router_id_set (bgp, &id);
 
   return CMD_SUCCESS;
@@ -427,14 +430,15 @@ DEFUN (no_bgp_router_id,
 	  return CMD_WARNING;
 	}
 
-      if (! IPV4_ADDR_SAME (&bgp->router_id, &id))
+      if (! IPV4_ADDR_SAME (&bgp->router_id_static, &id))
 	{
 	  vty_out (vty, "%% BGP router-id doesn't match%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
     }
 
-  bgp_router_id_unset (bgp);
+  bgp->router_id_static.s_addr = 0;
+  bgp_router_id_set (bgp, &router_id_zebra);
 
   return CMD_SUCCESS;
 }

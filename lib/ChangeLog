@@ -1,3 +1,8 @@
+2004-10-03 James R. Leu <jleu at mindspring.com>
+
+	* zclient.c, zclient.h: zclient functions for router id handling.
+	* zebra.h: New message types for router id handling.
+
 2004-09-27 Paul Jakma <paul@dishone.st>
 
 	* zebra.h: Add WANT_OSPF_WRITE_FRAGMENT for ospfd

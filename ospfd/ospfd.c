@@ -61,39 +61,13 @@ static struct ospf_master ospf_master;
 struct ospf_master *om;
 
 extern struct zclient *zclient;
+extern struct in_addr router_id_zebra;
 
 
 void ospf_remove_vls_through_area (struct ospf *, struct ospf_area *);
 void ospf_network_free (struct ospf *, struct ospf_network *);
 void ospf_area_free (struct ospf_area *);
 void ospf_network_run (struct ospf *, struct prefix *, struct ospf_area *);
-
-/* Get Router ID from ospf interface list. */
-struct in_addr
-ospf_router_id_get (struct list *if_list)
-{
-  struct listnode *node;
-  struct in_addr router_id;
-
-  memset (&router_id, 0, sizeof (struct in_addr));
-
-  for (node = listhead (if_list); node; nextnode (node))
-    {
-      struct ospf_interface *oi = getdata (node);
-
-      if (!if_is_up (oi->ifp) ||
-	  OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE)
-	continue;
-      
-      /* Ignore virtual link interface. */
-      if (oi->type != OSPF_IFTYPE_VIRTUALLINK &&
-	  oi->type != OSPF_IFTYPE_LOOPBACK) 
-	if (IPV4_ADDR_CMP (&router_id, &oi->address->u.prefix4) < 0)
-	  router_id = oi->address->u.prefix4;
-    }
-
-  return router_id;
-}
 
 #define OSPF_EXTERNAL_LSA_ORIGINATE_DELAY 1
 
@@ -111,7 +85,7 @@ ospf_router_id_update (struct ospf *ospf)
   if (ospf->router_id_static.s_addr != 0)
     router_id = ospf->router_id_static;
   else
-    router_id = ospf_router_id_get (ospf->oiflist);
+    router_id = router_id_zebra;
 
   ospf->router_id = router_id;
   

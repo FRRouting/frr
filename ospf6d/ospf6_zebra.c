@@ -44,6 +44,25 @@ unsigned char conf_debug_ospf6_zebra = 0;
 /* information about zebra. */
 struct zclient *zclient = NULL;
 
+struct in_addr router_id_zebra;
+
+/* Router-id update message from zebra. */
+int
+ospf6_router_id_update_zebra (int command, struct zclient *zclient,
+			      zebra_size_t length)
+{
+  struct prefix router_id;
+  struct ospf6 *o = ospf6;
+
+  zebra_router_id_update_read(zclient->ibuf,&router_id);
+  router_id_zebra = router_id.u.prefix4;
+
+  if (o->router_id  == 0)
+    o->router_id = (u_int32_t) router_id_zebra.s_addr;
+
+  return 0;
+}
+
 /* redistribute function */
 void
 ospf6_zebra_redistribute (int type)
@@ -535,6 +554,7 @@ ospf6_zebra_init ()
   /* Allocate zebra structure. */
   zclient = zclient_new ();
   zclient_init (zclient, ZEBRA_ROUTE_OSPF6);
+  zclient->router_id_update = ospf6_router_id_update_zebra;
   zclient->interface_add = ospf6_zebra_if_add;
   zclient->interface_delete = ospf6_zebra_if_del;
   zclient->interface_up = ospf6_zebra_if_state_update;

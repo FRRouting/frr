@@ -1,3 +1,10 @@
+2004-10-03 James R. Leu <jleu at mindspring.com>
+
+	* ospf_zebra.c: Read router id related messages from zebra daemon.
+	  Schedule router-id update thread if it's changed.
+	* ospfd.c: Remove own router-id selection function. Use router id from
+	  zebra daemon if it isn't manually overriden in configuration.
+
 2004-09-27 Paul Jakma <paul@dishone.st>
 
 	* ospf_dump.c: (ospf_ip_header_dump) Use HAVE_IP_HDRINCL_BSD_ORDER

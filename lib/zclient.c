@@ -260,6 +260,9 @@ zclient_start (struct zclient *zclient)
   /* We need interface information. */
   zebra_message_send (zclient, ZEBRA_INTERFACE_ADD);
 
+  /* We need router-id information. */
+  zebra_message_send (zclient, ZEBRA_ROUTER_ID_ADD);
+
   /* Flush all redistribute request. */
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     if (i != zclient->redist_default && zclient->redist[i])
@@ -477,6 +480,20 @@ zebra_redistribute_send (int command, int sock, int type)
   return ret;
 }
 
+/* Router-id update from zebra daemon. */
+void
+zebra_router_id_update_read (struct stream *s, struct prefix *rid)
+{
+  int plen;
+
+  /* Fetch interface address. */
+  rid->family = stream_getc (s);
+
+  plen = prefix_blen (rid);
+  stream_get (&rid->u.prefix, s, plen);
+  rid->prefixlen = stream_getc (s);
+}
+
 /* Interface addition from zebra daemon. */
 /*  
  * The format of the message sent with type ZEBRA_INTERFACE_ADD or
@@ -614,6 +631,19 @@ zebra_interface_state_read (struct stream *s)
  *
  */
 
+void
+zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
+{
+  /* Read interface's index. */
+  ifp->ifindex = stream_getl (s);
+
+  /* Read interface's value. */
+  ifp->flags = stream_getl (s);
+  ifp->metric = stream_getl (s);
+  ifp->mtu = stream_getl (s);
+  ifp->bandwidth = stream_getl (s);
+}
+
 struct connected *
 zebra_interface_address_read (int type, struct stream *s)
 {
@@ -745,6 +775,10 @@ zclient_read (struct thread *thread)
 
   switch (command)
     {
+    case ZEBRA_ROUTER_ID_UPDATE:
+      if (zclient->router_id_update)
+	ret = (*zclient->router_id_update) (command, zclient, length);
+      break;
     case ZEBRA_INTERFACE_ADD:
       if (zclient->interface_add)
 	ret = (*zclient->interface_add) (command, zclient, length);

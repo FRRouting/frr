@@ -59,6 +59,7 @@
 
 extern struct isis *isis;
 extern struct thread_master *master;
+extern struct in_addr router_id_zebra;
 
 /* staticly assigned vars for printing purposes */
 char lsp_bits_string[200];     /* FIXME: enough ? */
@@ -1380,6 +1381,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   struct tlvs tlv_data;
   struct isis_lsp *lsp0 = lsp;
   struct isis_passwd *passwd;
+  struct in_addr *routerid;
 
   /*
    * First add the tlvs related to area
@@ -1445,6 +1447,30 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
     tlv_add_area_addrs (lsp->tlv_data.area_addrs, lsp->pdu);
 
   memset (&tlv_data, 0, sizeof (struct tlvs));
+  /*
+   * IPv4 address TLV. We don't follow "C" vendor, but "J" vendor behavior -
+   * one IPv4 address is put into LSP and this address is same as router id.
+   */
+  if (router_id_zebra.s_addr != 0)
+    {
+      u_char value[4];
+
+      if (lsp->tlv_data.ipv4_addrs == NULL)
+	lsp->tlv_data.ipv4_addrs = list_new ();
+
+      routerid = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct in_addr));
+      routerid->s_addr = router_id_zebra.s_addr;
+
+      listnode_add (lsp->tlv_data.ipv4_addrs, routerid);
+
+      /* 
+       * FIXME: Using add_tlv() directly is hack, but tlv_add_ip_addrs()
+       * expects list of prefix_ipv4 structures, but we have list of
+       * in_addr structures.
+       */
+      add_tlv (IPV4_ADDR, IPV4_MAX_BYTELEN, (u_char *) &routerid->s_addr,
+	       lsp->pdu);
+    }
   /*
    * Then build lists of tlvs related to circuits
    */
