@@ -1,3 +1,7 @@
+2004-10-12 Hasso Tepper <hasso at quagga.net>
+
+	* snmp.texi: ospf6d supports SNMP as well now.
+
 2004-10-11 Hasso Tepper <hasso at quagga.net>
 
 	* ospfd.8: Update manpage: add info about new -a/--apiserver command
