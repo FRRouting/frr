@@ -1,5 +1,11 @@
 2004-12-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* watchquagga.c: Add -b option to circumvent difficulties passing
+	  embedded spaces in command-line arguments.  This is an ugly hack,
+	  we should probably use a config file instead.
+
+2004-12-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* watchquagga.c: Use new config.h define for DAEMON_VTY_DIR.
 
 2004-12-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>

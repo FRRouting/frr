@@ -1,5 +1,5 @@
 /*
-    $Id: watchquagga.c,v 1.3 2004/12/22 15:37:44 ajs Exp $
+    $Id: watchquagga.c,v 1.4 2004/12/22 16:17:16 ajs Exp $
 
     Monitor status of quagga daemons and restart if necessary.
 
@@ -211,6 +211,7 @@ static const struct option longopts[] =
   { "min-restart-interval", required_argument, NULL, 'm'},
   { "max-restart-interval", required_argument, NULL, 'M'},
   { "pid-file", required_argument, NULL, 'p'},
+  { "blank-string", required_argument, NULL, 'b'},
   { "help", no_argument, NULL, 'h'},
   { "version", no_argument, NULL, 'v'},
   { NULL, 0, NULL, 0 }
@@ -324,6 +325,11 @@ Options:\n\
 		Requires -r, -s, and -k.\n\
 -p, --pid-file	Set process identifier file name\n\
 		(default is %s).\n\
+-b, --blank-string\n\
+		When the supplied argument string is found in any of the\n\
+		various shell command arguments (-r, -s, -k, or -R), replace\n\
+		it with a space.  This is an ugly hack to circumvent problems\n\
+		passing command-line arguments with embedded spaces.\n\
 -v, --version	Print program version\n\
 -h, --help	Display this help and exit\n\
 ", progname,mode_str[0],progname,mode_str[1],progname,mode_str[2],
@@ -1014,6 +1020,29 @@ valid_command(const char *cmd)
   return ((p = strchr(cmd,'%')) != NULL) && (*(p+1) == 's') && !strchr(p+1,'%');
 }
 
+/* This is an ugly hack to circumvent problems with passing command-line
+   arguments that contain spaces.  The fix is to use a configuration file. */
+static char *
+translate_blanks(const char *cmd, const char *blankstr)
+{
+  char *res;
+  char *p;
+  size_t bslen = strlen(blankstr);
+
+  if (!(res = strdup(cmd)))
+    {
+      perror("strdup");
+      exit(1);
+    }
+  while ((p = strstr(res,blankstr)) != NULL)
+    {
+      *p = ' ';
+      if (bslen != 1)
+	 memmove(p+1,p+bslen,strlen(p+bslen)+1);
+    }
+  return res;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -1022,6 +1051,7 @@ main(int argc, char **argv)
   int daemon_mode = 0;
   const char *pidfile = DEFAULT_PIDFILE;
   const char *special = "zebra";
+  const char *blankstr = NULL;
   static struct quagga_signal_t my_signals[] =
   {
     {
@@ -1043,7 +1073,7 @@ main(int argc, char **argv)
   else
     progname = argv[0];
 
-  while ((opt = getopt_long(argc, argv, "aAdek:l:m:M:i:p:r:R:S:s:t:T:zvh",
+  while ((opt = getopt_long(argc, argv, "aAb:dek:l:m:M:i:p:r:R:S:s:t:T:zvh",
 			    longopts, 0)) != EOF)
     {
       switch (opt)
@@ -1065,6 +1095,9 @@ main(int argc, char **argv)
 	      return usage(progname,1);
 	    }
 	  gs.mode = MODE_PHASED_ALL_RESTART;
+	  break;
+	case 'b':
+	  blankstr = optarg;
 	  break;
         case 'd':
 	  daemon_mode = 1;
@@ -1253,6 +1286,16 @@ main(int argc, char **argv)
       break;
     }
 
+  if (blankstr)
+    {
+      if (gs.restart_command)
+        gs.restart_command = translate_blanks(gs.restart_command,blankstr);
+      if (gs.start_command)
+        gs.start_command = translate_blanks(gs.start_command,blankstr);
+      if (gs.stop_command)
+        gs.stop_command = translate_blanks(gs.stop_command,blankstr);
+    }
+      
   gs.restart.interval = gs.min_restart_interval;
   master = thread_master_create();
   signal_init (master, Q_SIGC(my_signals), my_signals);
