@@ -99,7 +99,7 @@ stream_new (size_t size)
       return NULL;
     }
   
-  s = XCALLOC (MTYPE_STREAM, offsetof(struct stream, size));
+  s = XCALLOC (MTYPE_STREAM, offsetof(struct stream, data[size]));
 
   if (s == NULL)
     return s;
