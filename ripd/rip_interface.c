@@ -700,6 +700,7 @@ rip_interface_address_add (int command, struct zclient *zclient,
 	zlog_info ("connected address %s/%d is added", 
 		   inet_ntoa (p->u.prefix4), p->prefixlen);
 
+      rip_enable_apply(ifc->ifp);
       /* Check if this prefix needs to be redistributed */
       rip_apply_address_add(ifc);
 
