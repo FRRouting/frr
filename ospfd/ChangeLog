@@ -1,3 +1,7 @@
+2005-02-19 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_api.h: char isn't always signed, but it has to be it here.
+
 2005-02-19 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_packet.c: (ospf_stream_copy) remove

@@ -205,7 +205,7 @@ struct msg_delete_request
 
 struct msg_reply
 {
-  char errcode;
+  signed char errcode;
 #define OSPF_API_OK                         0
 #define OSPF_API_NOSUCHINTERFACE          (-1)
 #define OSPF_API_NOSUCHAREA               (-2)
