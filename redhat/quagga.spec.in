@@ -33,9 +33,13 @@
 %define         quagga_uid      92
 %define         quagga_gid      92
 %define		daemon_list	zebra ripd ospfd bgpd
+
 %if %{with_ipv6}
 %define		daemonv6_list	%{daemon_list} ripngd ospf6d
+%else
+%define		daemonv6_list	""
 %endif
+
 %if %{with_isisd}
 %define		daemon_other	isisd
 %else
@@ -344,6 +348,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 %changelog
+* Sun Nov 07 2004 Paul Jakma <paul@dishone.st>
+- Fix with_ipv6 set to 0 build
+
 * Sat Oct 23 2004 Paul Jakma <paul@dishone.st>
 - Update to 0.97.2
 
