@@ -114,8 +114,6 @@ vty_out (struct vty *vty, const char *format, ...)
 	{
 	  while (1)
 	    {
-	      va_list ac;
-
 	      if (len > -1)
 		size = len + 1;
 	      else
