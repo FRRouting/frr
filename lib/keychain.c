@@ -278,16 +278,10 @@ DEFUN (key,
   struct keychain *keychain;
   struct key *key;
   u_int32_t index;
-  char *endptr = NULL;
 
   keychain = vty->index;
 
-  index = strtoul (argv[0], &endptr, 10);
-  if (index == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "Key identifier number error%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  VTY_GET_INTEGER ("key identifier", index, argv[0]);
   key = key_get (keychain, index);
   vty->index_sub = key;
   vty->node = KEYCHAIN_KEY_NODE;
@@ -305,17 +299,10 @@ DEFUN (no_key,
   struct keychain *keychain;
   struct key *key;
   u_int32_t index;
-  char *endptr = NULL;
   
   keychain = vty->index;
 
-  index = strtoul (argv[0], &endptr, 10);
-  if (index == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "Key identifier number error%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
+  VTY_GET_INTEGER ("key identifier", index, argv[0]);
   key = key_lookup (keychain, index);
   if (! key)
     {
@@ -462,7 +449,7 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
   tm.tm_year = year - 1900;
     
   time = mktime (&tm);
-
+  
   return time;
 }
 
@@ -475,7 +462,7 @@ key_lifetime_set (struct vty *vty, struct key_range *krange,
 {
   time_t time_start;
   time_t time_end;
-    
+  
   time_start = key_str2time (stime_str, sday_str, smonth_str, syear_str);
   if (time_start < 0)
     {
@@ -510,7 +497,6 @@ key_lifetime_duration_set (struct vty *vty, struct key_range *krange,
 {
   time_t time_start;
   u_int32_t duration;
-  char *endptr = NULL;
     
   time_start = key_str2time (stime_str, sday_str, smonth_str, syear_str);
   if (time_start < 0)
@@ -520,12 +506,7 @@ key_lifetime_duration_set (struct vty *vty, struct key_range *krange,
     }
   krange->start = time_start;
 
-  duration = strtoul (duration_str, &endptr, 10);
-  if (duration == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "Malformed duration%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  VTY_GET_INTEGER ("duration", duration, duration_str);
   krange->duration = 1;
   krange->end = time_start + duration;
 

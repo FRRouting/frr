@@ -3,6 +3,7 @@
 	* vty.c: As per Andrew's suggestions..
 	  (vty_serv_un) remove flags.
 	  (vtysh_accept) close socket if we cant set NONBLOCK. Add flags.
+	* keychain.c: Convert some more strtoul users to VTY_GET_INTEGER.
 
 2004-10-29 Paul Jakma <paul@dishone.st>
 
