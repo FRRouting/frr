@@ -1,5 +1,5 @@
 /*
-    $Id: watchquagga.c,v 1.5 2004/12/22 17:00:46 ajs Exp $
+    $Id: watchquagga.c,v 1.6 2004/12/23 19:35:56 paul Exp $
 
     Monitor status of quagga daemons and restart if necessary.
 
@@ -44,6 +44,7 @@
 #include <log.h>
 #include <sigevent.h>
 #include <version.h>
+#include <getopt.h>
 
 #ifndef MIN
 #define MIN(X,Y) (((X) <= (Y)) ? (X) : (Y))
