@@ -18,13 +18,13 @@ dist_examples_DATA = vtysh.conf.sample
 EXTRA_DIST = extract.pl
 
 rebuild4:
-	./extract.pl $(top_srcdir)/zebra/*.c $(top_srcdir)/ripd/*.c $(top_srcdir)/ospfd/*.c $(top_srcdir)/bgpd/*.c $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c $(top_srcdir)/lib/distribute.c $(top_srcdir)/lib/if_rmap.c > vtysh_cmd.c
+	./extract.pl $(top_srcdir)/zebra/*.c $(top_srcdir)/ripd/*.c $(top_srcdir)/ospfd/*.c $(top_srcdir)/bgpd/*.c $(top_srcdir)/isisd/*.c $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c $(top_srcdir)/lib/distribute.c $(top_srcdir)/lib/if_rmap.c > vtysh_cmd.c
 
 vtysh_cmd.c: $(top_srcdir)/zebra/*.c $(top_srcdir)/ripd/*.c $(top_srcdir)/ripngd/*.c $(top_srcdir)/ospfd/*.c \
-     $(top_srcdir)/ospf6d/*.c $(top_srcdir)/bgpd/*.c $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c \
+     $(top_srcdir)/ospf6d/*.c $(top_srcdir)/bgpd/*.c $(top_srcdir)/isisd/*.c $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c \
      $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c $(top_srcdir)/lib/distribute.c $(top_srcdir)/lib/if_rmap.c
 	$(srcdir)/extract.pl $(top_srcdir)/zebra/*.c $(top_srcdir)/ripd/*.c $(top_srcdir)/ripngd/*.c $(top_srcdir)/ospfd/*.c \
-          $(top_srcdir)/ospf6d/*.c $(top_srcdir)/bgpd/*.c $(top_srcdir)/lib/keychain.c $(top_srcdir)/lib/routemap.c \
-          $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c $(top_srcdir)/lib/distribute.c \
+          $(top_srcdir)/ospf6d/*.c $(top_srcdir)/isisd/*.c $(top_srcdir)/bgpd/*.c $(top_srcdir)/lib/keychain.c \
+          $(top_srcdir)/lib/routemap.c $(top_srcdir)/lib/filter.c $(top_srcdir)/lib/plist.c $(top_srcdir)/lib/distribute.c \
           $(top_srcdir)/lib/if_rmap.c > vtysh_cmd.c
 

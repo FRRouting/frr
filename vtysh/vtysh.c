@@ -423,6 +423,8 @@ vtysh_execute_func (char *line, int pager)
 	    if (cmd_stat != CMD_WARNING)
 	      cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_BGP],
 					       line, fp);
+      if (cmd_stat != CMD_WARNING)
+        cmd_stat = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS], line, fp);
 	    if (cmd_stat)
 	      {
                 line = "end";
@@ -478,6 +480,10 @@ vtysh_execute_func (char *line, int pager)
 	  if (vtysh_client_execute (&vtysh_client[VTYSH_INDEX_BGP], line, fp)
 	      != CMD_SUCCESS)
 	    break;
+  if (cmd->daemon & VTYSH_ISISD)
+    if (vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS], line, fp)
+        != CMD_SUCCESS)
+      break;
 	if (cmd->func)
 	  (*cmd->func) (cmd, vty, 0, NULL);
       }
@@ -598,6 +604,10 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	      if (vtysh_client_execute (&vtysh_client[VTYSH_INDEX_BGP],
 					vty->buf, stdout) != CMD_SUCCESS)
 		break;
+      if (cmd->daemon & VTYSH_ISISD)
+        if (vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS],
+          vty->buf, stdout) != CMD_SUCCESS)
+    break;
 	    if (cmd->func)
 	      (*cmd->func) (cmd, vty, 0, NULL);
 	  }
@@ -784,6 +794,14 @@ struct cmd_node rip_node =
   "%s(config-router)# ",
 };
 
+/* ISIS node structure. */
+struct cmd_node isis_node =
+{
+  ISIS_NODE,
+  "%s(config-router)# ",
+  1
+};
+
 struct cmd_node interface_node =
 {
   INTERFACE_NODE,
@@ -939,6 +957,18 @@ DEFUNSH (VTYSH_OSPF6D,
   return CMD_SUCCESS;
 }
 
+DEFUNSH (VTYSH_ISISD,
+   router_isis,
+   router_isis_cmd,
+   "router isis WORD",
+   ROUTER_STR
+   "ISO IS-IS\n"
+   "ISO Routing area tag")
+{
+  vty->node = ISIS_NODE;
+  return CMD_SUCCESS;
+}
+
 DEFUNSH (VTYSH_RMAP,
 	 route_map,
 	 route_map_cmd,
@@ -1007,6 +1037,7 @@ vtysh_exit (struct vty *vty)
     case RIPNG_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
+    case ISIS_NODE:
     case MASC_NODE:
     case RMAP_NODE:
     case VTY_NODE:
@@ -1154,7 +1185,21 @@ ALIAS (vtysh_exit_ospf6d,
        "quit",
        "Exit current mode and down to previous mode\n")
 
-DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
+DEFUNSH (VTYSH_ISISD,
+    vtysh_exit_isisd,
+    vtysh_exit_isisd_cmd,
+    "exit",
+    "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+ALIAS (vtysh_exit_isisd,
+       vtysh_quit_isisd_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n")
+
+DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_ISISD,
 	 vtysh_interface,
 	 vtysh_interface_cmd,
 	 "interface IFNAME",
@@ -1184,7 +1229,7 @@ DEFSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
        NO_STR
        "Interface specific description\n")
 
-DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D,
+DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_ISISD,
 	 vtysh_exit_interface,
 	 vtysh_exit_interface_cmd,
 	 "exit",
@@ -1232,6 +1277,7 @@ DEFUN (vtysh_write_terminal,
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_OSPF], line);
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_OSPF6], line);
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_BGP], line);
+  ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_ISIS], line);
 
   vtysh_config_dump (fp);
 
@@ -1319,6 +1365,7 @@ int write_config_integrated(void)
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_OSPF], line);
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_OSPF6], line);
   ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_BGP], line);
+  ret = vtysh_client_config (&vtysh_client[VTYSH_INDEX_ISIS], line);
 
   vtysh_config_dump (fp);
 
@@ -1364,6 +1411,7 @@ DEFUN (vtysh_write_memory,
   ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_OSPF], line, stdout);
   ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_OSPF6], line, stdout);
   ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_BGP], line, stdout);
+  ret = vtysh_client_execute (&vtysh_client[VTYSH_INDEX_ISIS], line, stdout);
 
   fprintf (stdout,"[OK]\n");
 
@@ -1713,6 +1761,7 @@ vtysh_connect_all()
   vtysh_connect (&vtysh_client[VTYSH_INDEX_OSPF], OSPF_VTYSH_PATH);
   vtysh_connect (&vtysh_client[VTYSH_INDEX_OSPF6], OSPF6_VTYSH_PATH);
   vtysh_connect (&vtysh_client[VTYSH_INDEX_BGP], BGP_VTYSH_PATH);
+  vtysh_connect (&vtysh_client[VTYSH_INDEX_ISIS], ISIS_VTYSH_PATH);
 }
 
 
@@ -1786,6 +1835,7 @@ vtysh_init_vty ()
 /* #endif */
   install_node (&keychain_node, NULL);
   install_node (&keychain_key_node, NULL);
+  install_node (&isis_node, NULL);
 
   vtysh_install_default (VIEW_NODE);
   vtysh_install_default (ENABLE_NODE);
@@ -1802,6 +1852,7 @@ vtysh_init_vty ()
   vtysh_install_default (OSPF_NODE);
   vtysh_install_default (RIPNG_NODE);
   vtysh_install_default (OSPF6_NODE);
+  vtysh_install_default (ISIS_NODE);
   vtysh_install_default (KEYCHAIN_NODE);
   vtysh_install_default (KEYCHAIN_KEY_NODE);
 
@@ -1834,6 +1885,8 @@ vtysh_init_vty ()
   install_element (BGP_IPV4M_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_quit_bgpd_cmd);
+  install_element (ISIS_NODE, &vtysh_exit_isisd_cmd);
+  install_element (ISIS_NODE, &vtysh_quit_isisd_cmd);
   install_element (KEYCHAIN_NODE, &vtysh_exit_ripd_cmd);
   install_element (KEYCHAIN_NODE, &vtysh_quit_ripd_cmd);
   install_element (KEYCHAIN_KEY_NODE, &vtysh_exit_ripd_cmd);
@@ -1853,6 +1906,7 @@ vtysh_init_vty ()
   install_element (BGP_IPV4M_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_end_all_cmd);
+  install_element (ISIS_NODE, &vtysh_end_all_cmd);
   install_element (KEYCHAIN_NODE, &vtysh_end_all_cmd);
   install_element (KEYCHAIN_KEY_NODE, &vtysh_end_all_cmd);
   install_element (RMAP_NODE, &vtysh_end_all_cmd);
@@ -1870,6 +1924,7 @@ vtysh_init_vty ()
 #ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &router_ospf6_cmd);
 #endif
+  install_element (CONFIG_NODE, &router_isis_cmd);
   install_element (CONFIG_NODE, &router_bgp_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_unicast_cmd);
@@ -1907,6 +1962,7 @@ vtysh_init_vty ()
   install_element (RIPNG_NODE, &vtysh_write_terminal_cmd);
   install_element (OSPF_NODE, &vtysh_write_terminal_cmd);
   install_element (OSPF6_NODE, &vtysh_write_terminal_cmd);
+  install_element (ISIS_NODE, &vtysh_write_terminal_cmd);
   install_element (INTERFACE_NODE, &vtysh_write_terminal_cmd);
   install_element (RMAP_NODE, &vtysh_write_terminal_cmd);
   install_element (KEYCHAIN_NODE, &vtysh_write_terminal_cmd);
@@ -1924,6 +1980,7 @@ vtysh_init_vty ()
   install_element (RIPNG_NODE, &vtysh_write_memory_cmd);
   install_element (OSPF_NODE, &vtysh_write_memory_cmd);
   install_element (OSPF6_NODE, &vtysh_write_memory_cmd);
+  install_element (ISIS_NODE, &vtysh_write_memory_cmd);
   install_element (INTERFACE_NODE, &vtysh_write_memory_cmd);
   install_element (RMAP_NODE, &vtysh_write_memory_cmd);
   install_element (KEYCHAIN_NODE, &vtysh_write_memory_cmd);

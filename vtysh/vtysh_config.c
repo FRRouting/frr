@@ -191,6 +191,8 @@ vtysh_config_parse_line (char *line)
    config = config_get (OSPF6_NODE, line);
       else if (strncmp (line, "router bgp", strlen ("router bgp")) == 0)
 	config = config_get (BGP_NODE, line);
+      else if (strncmp (line, "router isis", strlen ("router bgp")) == 0)
+  	config = config_get (ISIS_NODE, line);
       else if (strncmp (line, "router", strlen ("router")) == 0)
 	config = config_get (BGP_NODE, line);
       else if (strncmp (line, "route-map", strlen ("route-map")) == 0)

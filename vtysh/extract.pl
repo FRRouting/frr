@@ -37,6 +37,7 @@ $ignore{'"router ospf <0-65535>"'} = "ignore";
 $ignore{'"router ospf6"'} = "ignore";
 $ignore{'"router bgp <1-65535>"'} = "ignore";
 $ignore{'"router bgp <1-65535> view WORD"'} = "ignore";
+$ignore{'"router isis WORD"'} = "ignore";
 $ignore{'"address-family ipv4"'} = "ignore";
 $ignore{'"address-family ipv4 (unicast|multicast)"'} = "ignore";
 $ignore{'"address-family ipv6"'} = "ignore";
