@@ -42,9 +42,10 @@
      Padding                   8  y     n    n  ISO 10589
      LSP Entries               9  n     n    y  ISO 10589
      Authentication           10  y     y    y  ISO 10589
-     Opt. Checksum            12  y     n    y  IETF-draft
+     Opt. Checksum            12  y     n    y  RFC 3358
      LSPBufferSize            14  n     y    n  ISO 10589 Rev 2 Draft
-     TE IIS Neigh.            22  n     y    n  IETF-draft
+     TE IIS Neigh.            22  n     y    n  RFC 3784
+     IS Alias ID              24  n     y    n  RFC 3786
      DECnet Phase IV          42  y     n    n  DEC (ancient)
      Lucent Proprietary       66  n     y    n
      IP Int. Reach           128  n     y    n  RFC 1195
@@ -53,19 +54,19 @@
      IDRPI                   131  n     y    y  RFC 1195
      IP Intf. Address        132  y     y    n  RFC 1195
      Illegal                 133  n     n    n  RFC 1195 (not used)
-     Router ID               134  n     y    n  IETF-draft
-     TE IP. Reach            135  n     y    n  IETF-draft
+     Router ID               134  n     y    n  RFC 3784
+     TE IP. Reach            135  n     y    n  RFC 3784
      Dynamic Name            137  n     y    n  RFC 2763
      Nortel Proprietary      176  n     y    n
      Nortel Proprietary      177  n     y    n
-     Restart TLV             211  y     n    n  IETF-draft
+     Restart TLV             211  y     n    n  RFC 3847
      MT-ISN                  222  n     y    n  IETF-draft
      M-Topologies            229  y     y    n  IETF-draft
      IPv6 Intf. Addr.        232  y     y    n  IETF-draft
      MT IP. Reach            235  n     y    n  IETF-draft
      IPv6 IP. Reach          236  n     y    n  IETF-draft
      MT IPv6 IP. Reach       237  n     y    n  IETF-draft
-     P2P Adjacency State     240  y     n    n  IETF-draft
+     P2P Adjacency State     240  y     n    n  RFC 3373
 
  */
 
