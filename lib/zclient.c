@@ -555,10 +555,7 @@ zebra_interface_add_read (struct stream *s)
 
   /* If such interface does not exist, make new one. */
   if (! ifp)
-    {
-      ifp = if_create ();
-      strncpy (ifp->name, ifname_tmp, IFNAMSIZ);
-    }
+    ifp = if_create (ifname_tmp, IFNAMSIZ);
 
   /* Read interface's index. */
   ifp->ifindex = stream_getl (s);

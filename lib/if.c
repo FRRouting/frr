@@ -46,6 +46,52 @@ struct if_master
   int (*if_delete_hook) (struct interface *);
 } if_master;
 
+/* Compare interface names */
+int
+if_cmp_func (struct interface *ifp1, struct interface *ifp2)
+{
+  unsigned int l1, l2;
+  long int x1, x2;
+  char *p1, *p2;
+  int res;
+
+  p1 = ifp1->name;
+  p2 = ifp2->name;
+
+  while (1) {
+    /* look up to any number */
+    l1 = strcspn(p1, "0123456789");
+    l2 = strcspn(p2, "0123456789");
+
+    /* name lengths are different -> compare names */
+    if (l1 != l2)
+      return (strcmp(p1, p2));
+
+    res = strncmp(p1, p2, l1);
+
+    /* names are different -> compare them */
+    if (res)
+      return res;
+
+    /* with identical name part, go to numeric part */
+
+    p1 += l1;
+    p2 += l1;
+
+    x1 = strtol(p1, &p1, 10);
+    x2 = strtol(p2, &p2, 10);
+
+    /* let's compare numbers now */
+    if (x1 < x2)
+      return -1;
+    if (x1 > x2)
+      return 1;
+
+    /* numbers were equal, lets do it again..
+    (it happens with name like "eth123.456:789") */
+  }
+}
+
 /* Create new interface structure. */
 struct interface *
 if_new ()
@@ -58,13 +104,18 @@ if_new ()
 }
 
 struct interface *
-if_create ()
+if_create (char *name, int namelen)
 {
   struct interface *ifp;
 
   ifp = if_new ();
   
-  listnode_add (iflist, ifp);
+  if (name) {
+    strncpy (ifp->name, name, namelen);
+    listnode_add_sort (iflist, ifp);
+  } else {
+    listnode_add (iflist, ifp);
+  }
   ifp->connected = list_new ();
   ifp->connected->del = (void (*) (void *)) connected_free;
 
@@ -248,10 +299,7 @@ if_get_by_name (char *name)
 
   ifp = if_lookup_by_name (name);
   if (ifp == NULL)
-    {
-      ifp = if_create ();
-      strncpy (ifp->name, name, IFNAMSIZ);
-    }
+    ifp = if_create (name, IFNAMSIZ);
   return ifp;
 }
 
@@ -430,10 +478,7 @@ DEFUN (interface,
   ifp = if_lookup_by_name (argv[0]);
 
   if (ifp == NULL)
-    {
-      ifp = if_create ();
-      strncpy (ifp->name, argv[0], INTERFACE_NAMSIZ);
-    }
+    ifp = if_create (argv[0], INTERFACE_NAMSIZ);
   vty->index = ifp;
   vty->node = INTERFACE_NODE;
 
@@ -803,8 +848,10 @@ if_init ()
   iflist = list_new ();
   ifaddr_ipv4_table = route_table_init ();
 
-  if (iflist)
+  if (iflist) {
+    iflist->cmp = (int (*)(void *, void *))if_cmp_func;
     return;
+  }
 
   memset (&if_master, 0, sizeof if_master);
 }

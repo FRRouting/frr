@@ -1,3 +1,8 @@
+2003-06-05 Hasso Tepper <hasso@linux.ee>
+  
+  * Patch from Cougar <cougar@random.ee>: Sort interface lists (iflist)
+    by name.
+
 2003-04-13 Paul Jakma <paul@dishone.st>
 
 	* Amir: Opaque LSA bug fix for deletion of Type11's
