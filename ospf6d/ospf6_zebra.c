@@ -161,10 +161,10 @@ ospf6_zebra_if_address_update_delete (int command, struct zclient *zclient,
 
 const char *zebra_route_name[ZEBRA_ROUTE_MAX] =
   { "System", "Kernel", "Connect", "Static", "RIP", "RIPng", "OSPF",
-    "OSPF6", "BGP" };
+    "OSPF6", "ISIS", "BGP" };
 
 const char *zebra_route_abname[ZEBRA_ROUTE_MAX] =
-  { "X", "K", "C", "S", "r", "R", "o", "O", "B" };
+  { "X", "K", "C", "S", "r", "R", "o", "O", "I", "B" };
 
 int
 ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
