@@ -145,7 +145,7 @@ range are not advertised into other areas.
 This command makes sense in ABR only.
 @end deffn
 
-@deffnx {OSPF Command} {area @var{a.b.c.d} range IPV4_PREFIX substitute IPV4_PREFIX} {}
+@deffn {OSPF Command} {area @var{a.b.c.d} range IPV4_PREFIX substitute IPV4_PREFIX} {}
 @deffnx {OSPF Command} {no area @var{a.b.c.d} range IPV4_PREFIX substitute IPV4_PREFIX} {}
 Substitute summarized prefix with another prefix.
 @example
