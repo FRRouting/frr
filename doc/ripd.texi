@@ -41,7 +41,7 @@ The default configuration file name of @command{ripd}'s is
 @value{INSTALL_PREFIX_ETC}.  If @file{ripd.conf} is not there next
 search current directory.
 
-RIP uses UDP port 521 to send and receive RIP packets.  So the user must have
+RIP uses UDP port 520 to send and receive RIP packets.  So the user must have
 the capability to bind the port, generally this means that the user must
 have superuser privileges.  RIP protocol requires interface information
 maintained by @command{zebra} daemon.  So running @command{zebra}
