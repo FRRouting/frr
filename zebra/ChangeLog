@@ -1,10 +1,15 @@
 2004-09-24 Paul Jakma <paul@dishone.st>
 
+	* irdp_interface.c: (no_ip_irdp_address_preference_cmd)
+          add missing listnode declaration.
+
+2004-09-24 Paul Jakma <paul@dishone.st>
+
         * irdp_{interface,main}.c: lists typedef removal cleanup.        
           update some list loops to LIST_LOOP. some miscellaneous style
           and indent fixups.
           (no_ip_irdp_address_preference_cmd) Fix delete of referenced node    
-          in loop.       
+          in loop.
         * irdp_packet.c: (irdp_recvmsg) Fix buggy assignment of integer
           to pointer.
         * if_ioctl{,_solaris}.c: lists typedef removal cleanup. 

@@ -633,7 +633,7 @@ DEFUN (no_ip_irdp_address_preference,
        "Select IRDP address\n"
        "Old preference level\n")
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct in_addr ip; 
   int pref;
   int ret;
