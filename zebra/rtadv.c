@@ -121,7 +121,7 @@ rtadv_recv_packet (int sock, u_char *buf, int buflen,
   if (ret < 0)
     return ret;
 
-  for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL;
+  for (cmsgptr = ZCMSG_FIRSTHDR(&msg); cmsgptr != NULL;
        cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) 
     {
       /* I want interface index which this packet comes from. */
@@ -288,7 +288,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
   iov.iov_base = buf;
   iov.iov_len = len;
 
-  cmsgptr = CMSG_FIRSTHDR(&msg);
+  cmsgptr = ZCMSG_FIRSTHDR(&msg);
   cmsgptr->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
   cmsgptr->cmsg_level = IPPROTO_IPV6;
   cmsgptr->cmsg_type = IPV6_PKTINFO;

@@ -1,3 +1,11 @@
+2005-01-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zebra.h: Define ZCMSG_FIRSTHDR appropriately based on whether
+	  config.h indicates HAVE_BROKEN_CMSG_FIRSTHDR (as determined
+	  by the configure test program).
+	* sockopt.c: (getsockopt_cmsg_data) Use ZCMSG_FIRSTHDR instead
+	  of CMSG_FIRSTHDR.
+
 2005-01-02 Hasso Tepper <hasso at quagga.net>
 
 	* command.c: Revert int -> unsigned int fixes in

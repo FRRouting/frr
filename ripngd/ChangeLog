@@ -1,3 +1,8 @@
+2005-01-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripngd.c: (ripng_recv_packet) Use ZCMSG_FIRSTHDR instead of
+	  CMSG_FIRSTHDR.
+
 2004-12-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripng_nexthop.c: Replace NEXTHOP_OUT macro with NEXTHOP_OUT_PTR,

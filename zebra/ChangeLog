@@ -1,3 +1,8 @@
+2005-01-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* rtadv.c: (rtadv_recv_packet,rtadv_send_packet) Use ZCMSG_FIRSTHDR
+	  instead of CMSG_FIRSTHDR.
+
 2004-12-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* connected.c: (connected_add_ipv4) Limit warning about /32 addresses

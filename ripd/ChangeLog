@@ -1,3 +1,7 @@
+2005-01-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripd.c: (rip_recvmsg) Use ZCMSG_FIRSTHDR instead of CMSG_FIRSTHDR.
+
 2004-12-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripd.c: (rip_read) Improve 2 error messages to show the source of

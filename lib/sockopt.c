@@ -42,7 +42,7 @@ getsockopt_cmsg_data (struct msghdr *msgh, int level, int type)
   struct cmsghdr *cmsg;
   void *ptr = NULL;
   
-  for (cmsg = CMSG_FIRSTHDR(msgh); 
+  for (cmsg = ZCMSG_FIRSTHDR(msgh); 
        cmsg != NULL;
        cmsg = CMSG_NXTHDR(msgh, cmsg))
     if (cmsg->cmsg_level == level && cmsg->cmsg_type)

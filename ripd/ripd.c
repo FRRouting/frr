@@ -1632,7 +1632,7 @@ rip_recvmsg (int sock, u_char *buf, int size, struct sockaddr_in *from,
   if (ret < 0)
     return ret;
 
-  for (ptr = CMSG_FIRSTHDR(&msg); ptr != NULL; ptr = CMSG_NXTHDR(&msg, ptr))
+  for (ptr = ZCMSG_FIRSTHDR(&msg); ptr != NULL; ptr = CMSG_NXTHDR(&msg, ptr))
     if (ptr->cmsg_level == IPPROTO_IP && ptr->cmsg_type == IP_PKTINFO) 
       {
 	struct in_pktinfo *pktinfo;

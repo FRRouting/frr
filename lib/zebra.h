@@ -215,6 +215,23 @@ typedef int socklen_t;
 
 #endif /* BSDI_NRL */
 
+#ifdef HAVE_BROKEN_CMSG_FIRSTHDR
+/* This bug is present in Solaris 8 and pre-patch Solaris 9 <sys/socket.h>;
+   please refer to http://bugzilla.quagga.net/show_bug.cgi?id=142 */
+
+/* Check that msg_controllen is large enough. */
+#define ZCMSG_FIRSTHDR(mhdr) \
+  (((size_t)((mhdr)->msg_controllen) >= sizeof(struct cmsghdr)) ? \
+   CMSG_FIRSTHDR(mhdr) : (struct cmsghdr *)NULL)
+
+#warning "CMSG_FIRSTHDR is broken on this platform, using a workaround"
+
+#else /* HAVE_BROKEN_CMSG_FIRSTHDR */
+#define ZCMSG_FIRSTHDR(M) CMSG_FIRSTHDR(M)
+#endif /* HAVE_BROKEN_CMSG_FIRSTHDR */
+
+
+
 /* 
  * RFC 3542 defines several macros for using struct cmsghdr.
  * Here, we define those that are not present

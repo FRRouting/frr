@@ -263,7 +263,7 @@ ripng_recv_packet (int sock, u_char *buf, int bufsize,
   if (ret < 0)
     return ret;
 
-  for (cmsgptr = CMSG_FIRSTHDR(&msg); cmsgptr != NULL;
+  for (cmsgptr = ZCMSG_FIRSTHDR(&msg); cmsgptr != NULL;
        cmsgptr = CMSG_NXTHDR(&msg, cmsgptr)) 
     {
       /* I want interface index which this packet comes from. */

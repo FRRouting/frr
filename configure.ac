@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.81 2004/12/29 17:50:22 ajs Exp $
+## $Id: configure.ac,v 1.82 2005/01/04 16:24:43 ajs Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.97.4, [http://bugzilla.quagga.net])
@@ -493,6 +493,31 @@ fi
 AC_SUBST(RT_METHOD)
 AC_SUBST(KERNEL_METHOD)
 AC_SUBST(OTHER_METHOD)
+
+dnl ------------------------------------
+dnl check for broken CMSG_FIRSTHDR macro
+dnl ------------------------------------
+AC_TRY_RUN([
+#ifdef SUNOS_5
+#define _XPG4_2
+#define __EXTENSIONS__
+#endif
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+
+main()
+{
+  struct msghdr msg;
+  char buf[4];
+
+  msg.msg_control = buf;
+  msg.msg_controllen = 0;
+
+  if (CMSG_FIRSTHDR(&msg) != NULL)
+    exit(0);
+  exit (1);
+}],[AC_DEFINE(HAVE_BROKEN_CMSG_FIRSTHDR,,Broken CMSG_FIRSTHDR)])
 
 dnl ------------------------------
 dnl check kernel route read method
