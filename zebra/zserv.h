@@ -82,65 +82,14 @@ void route_read ();
 void rtadv_init ();
 void zebra_snmp_init ();
 
-int
-zsend_interface_add (struct zserv *, struct interface *);
-int
-zsend_interface_delete (struct zserv *, struct interface *);
-
-int
-zsend_interface_address_add (struct zserv *, struct interface *,
-			     struct connected *);
-
-int
-zsend_interface_address_delete (struct zserv *, struct interface *,
-				struct connected *);
-
-int
-zsend_interface_up (struct zserv *, struct interface *);
-
-int
-zsend_interface_down (struct zserv *, struct interface *);
-
-#if 0
-#warning oldies
-int
-zsend_ipv4_add (struct zserv *client, int type, int flags,
-		struct prefix_ipv4 *p, struct in_addr *nexthop,
-		unsigned int ifindex);
-
-int
-zsend_ipv4_delete (struct zserv *client, int type, int flags,
-		   struct prefix_ipv4 *p, struct in_addr *nexthop,
-		   unsigned int ifindex);
+int zsend_interface_add (struct zserv *, struct interface *);
+#if (defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK))
+int zsend_interface_delete (struct zserv *, struct interface *);
 #endif
-
-int
-zsend_ipv4_add_multipath (struct zserv *, struct prefix *, struct rib *);
-
-int
-zsend_ipv4_delete_multipath (struct zserv *, struct prefix *, struct rib *);
-
-#ifdef HAVE_IPV6
-#if 0
-#warning oldies
-int
-zsend_ipv6_add (struct zserv *client, int type, int flags,
-		struct prefix_ipv6 *p, struct in6_addr *nexthop,
-		unsigned int ifindex);
-
-int
-zsend_ipv6_delete (struct zserv *client, int type, int flags,
-		   struct prefix_ipv6 *p, struct in6_addr *nexthop,
-		   unsigned int ifindex);
-#endif
-
-int
-zsend_ipv6_add_multipath (struct zserv *, struct prefix *, struct rib *);
-
-int
-zsend_ipv6_delete_multipath (struct zserv *, struct prefix *, struct rib *);
-
-#endif /* HAVE_IPV6 */
+int zsend_interface_address (int, struct zserv *, struct interface *,
+                             struct connected *);
+int zsend_interface_update (int, struct zserv *, struct interface *);
+int zsend_route_multipath (int, struct zserv *, struct prefix *, struct rib *);
 
 extern pid_t pid;
 extern pid_t old_pid;

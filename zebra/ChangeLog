@@ -1,3 +1,27 @@
+2004-05-09 Paul Jakma <paul@dishone.st>
+
+	* zserv.c: (zsend_route_multipath) Set the nexthop_num
+	  field correctly. Add NEXTHOP_TYPE_IPV6_IFNAME for v6.
+	  Conditionally set ZAPI_MESSAGE_METRIC flag - only for adds.
+	  (zsend_ipv4_add) cruft, deleted.
+	  (zsend_ipv4_delete) ditto.
+	  (zsend_ipv6_add) ditto.
+	  (zsend_ipv6_delete) ditto.
+	  
+2004-05-09 Sowmini Varadhan <sowmini.varadhan@sun.com>
+
+	* zserv.c: (zsend_ipv{4,6}_{add,delete}_multipath) collapsed
+	  into single zsend_route_multipath function.
+	  (zsend_interface_{up,down}) collapsed into zsend_interface_update.
+	  (zsend_interface_address_{add,delete}) collapsed into 
+	  zsend_interface_address.
+	  (zsend_interface_add) send mtu6.
+	  (zsend_interface_delete) ditto.
+	  (zebra_write) remove unused function.
+	  (various) Apply static qualifier. Add comments.
+	* zserv.h: Definitions changed as per above.
+	* redistribute.c: Changes as per zserv.c.
+	  
 2004-04-06  Krzysztof Oledzki <oleq@ans.pl>
 
 	* rt_netlink.c: Do not ignore metric when reading kernel routing
