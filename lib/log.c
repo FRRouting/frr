@@ -1,5 +1,5 @@
 /*
- * $Id: log.c,v 1.23 2005/01/18 22:18:59 ajs Exp $
+ * $Id: log.c,v 1.24 2005/02/03 16:42:40 ajs Exp $
  *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -30,6 +30,9 @@
 #ifndef SUNOS_5
 #include <sys/un.h>
 #endif
+
+static int crashlog_fd = -1;   /* Used for last-resort crash logfile when a
+				  signal is caught. */
 
 struct zlog *zlog_default = NULL;
 
@@ -197,8 +200,6 @@ hex_append(char *s, int len, u_long x)
 }
 #endif
 
-static int syslog_fd = -1;
-
 /* Needs to be enhanced to support Solaris. */
 static int
 syslog_connect(void)
@@ -233,6 +234,7 @@ syslog_connect(void)
 static void
 syslog_sigsafe(int priority, const char *msg, size_t msglen)
 {
+  static int syslog_fd = -1;
   char buf[sizeof("<1234567890>ripngd[1234567890]: ")+msglen+50];
   char *s;
 
@@ -256,6 +258,38 @@ syslog_sigsafe(int priority, const char *msg, size_t msglen)
   s = str_append(LOC,msg);
   write(syslog_fd,buf,s-buf);
 #undef LOC
+}
+
+static int
+open_crashlog(void)
+{
+#define CRASHLOG_PREFIX "/var/tmp/quagga."
+#define CRASHLOG_SUFFIX "crashlog"
+  if (zlog_default && zlog_default->ident)
+    {
+      /* Avoid strlen since it is not async-signal-safe. */
+      const char *p;
+      size_t ilen;
+
+      for (p = zlog_default->ident, ilen = 0; *p; p++)
+	ilen++;
+      {
+	char buf[sizeof(CRASHLOG_PREFIX)+ilen+sizeof(CRASHLOG_SUFFIX)+3];
+	char *s = buf;
+#define LOC s,buf+sizeof(buf)-s
+	s = str_append(LOC, CRASHLOG_PREFIX);
+	s = str_append(LOC, zlog_default->ident);
+	s = str_append(LOC, ".");
+	s = str_append(LOC, CRASHLOG_SUFFIX);
+#undef LOC
+	*s = '\0';
+	return open(buf, O_WRONLY|O_CREAT|O_EXCL, LOGFILE_MASK);
+      }
+    }
+  return open(CRASHLOG_PREFIX CRASHLOG_SUFFIX, O_WRONLY|O_CREAT|O_EXCL,
+	      LOGFILE_MASK);
+#undef CRASHLOG_SUFFIX
+#undef CRASHLOG_PREFIX
 }
 
 /* Note: the goal here is to use only async-signal-safe functions. */
@@ -301,17 +335,21 @@ zlog_signal(int signo, const char *action
     *s++ = '\n';
 
   /* N.B. implicit priority is most severe */
-#define PRI LOG_ERR
+#define PRI LOG_CRIT
 
-#define DUMP(FP) write(fileno(FP),buf,s-buf);
+#define DUMP(FD) write(FD, buf, s-buf);
+  /* If no file logging configured, try to write to fallback log file. */
+  if ((!zlog_default || !zlog_default->fp) &&
+      ((crashlog_fd = open_crashlog()) >= 0))
+    DUMP(crashlog_fd)
   if (!zlog_default)
-    DUMP(stderr)
+    DUMP(fileno(stderr))
   else
     {
       if ((PRI <= zlog_default->maxlvl[ZLOG_DEST_FILE]) && zlog_default->fp)
-        DUMP(zlog_default->fp)
+        DUMP(fileno(zlog_default->fp))
       if (PRI <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
-        DUMP(stdout)
+        DUMP(fileno(stdout))
       /* Remove trailing '\n' for monitor and syslog */
       *--s = '\0';
       if (PRI <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
@@ -353,25 +391,27 @@ zlog_backtrace_sigsafe(int priority, void *program_counter)
   s = num_append(LOC,size);
   s = str_append(LOC," stack frames:\n");
 
-#define DUMP(FP) { \
+#define DUMP(FD) { \
   if (program_counter) \
     { \
-      write(fileno(FP),pclabel,sizeof(pclabel)-1); \
-      backtrace_symbols_fd(&program_counter, 1, fileno(FP)); \
+      write(FD, pclabel, sizeof(pclabel)-1); \
+      backtrace_symbols_fd(&program_counter, 1, FD); \
     } \
-  write(fileno(FP),buf,s-buf);	\
-  backtrace_symbols_fd(array, size, fileno(FP)); \
+  write(FD, buf, s-buf);	\
+  backtrace_symbols_fd(array, size, FD); \
 }
 
+  if (crashlog_fd >= 0)
+    DUMP(crashlog_fd)
   if (!zlog_default)
-    DUMP(stderr)
+    DUMP(fileno(stderr))
   else
     {
       if ((priority <= zlog_default->maxlvl[ZLOG_DEST_FILE]) &&
 	  zlog_default->fp)
-	DUMP(zlog_default->fp)
+	DUMP(fileno(zlog_default->fp))
       if (priority <= zlog_default->maxlvl[ZLOG_DEST_STDOUT])
-	DUMP(stdout)
+	DUMP(fileno(stdout))
       /* Remove trailing '\n' for monitor and syslog */
       *--s = '\0';
       if (priority <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
@@ -493,9 +533,21 @@ void
 _zlog_assert_failed (const char *assertion, const char *file,
 		     unsigned int line, const char *function)
 {
-  zlog_err("Assertion `%s' failed in file %s, line %u, function %s",
-	   assertion,file,line,(function ? function : "?"));
-  zlog_backtrace(LOG_ERR);
+  if (zlog_default && !zlog_default->fp)
+    {
+      /* Force fallback file logging. */
+      int fd;
+      FILE *fp;
+
+      if (((fd = open_crashlog()) >= 0) && ((fp = fdopen(fd, "w")) != NULL))
+	{
+	  zlog_default->fp = fp;
+	  zlog_default->maxlvl[ZLOG_DEST_FILE] = LOG_ERR;
+        }
+    }
+  zlog(NULL, LOG_CRIT, "Assertion `%s' failed in file %s, line %u, function %s",
+       assertion,file,line,(function ? function : "?"));
+  zlog_backtrace(LOG_CRIT);
   abort();
 }
 

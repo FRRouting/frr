@@ -1,3 +1,15 @@
+2005-02-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* log.c: (syslog_sigsafe) Reduce scope of syslog_fd: it is accessed
+	  inside this function only.
+	  (open_crashlog) New function to open /var/tmp/quagga.<daemon>.crashlog
+	  with flags O_WRONLY|O_CREAT|O_EXCL to save some crash info.
+	  (zlog_signal,_zlog_assert_failed) Increase logging priority from
+	  LOG_ERR to LOG_CRIT.  If no file logging is configured, try to use
+	  open_crashlog to create a crash logfile.
+	  (zlog_backtrace_sigsafe) If a crashlog file descriptor is open,
+	  dump a backtrace to that file.
+
 2005-02-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* if.h: Declare if_flag_dump.
