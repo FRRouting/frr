@@ -1384,6 +1384,10 @@ DEFUN (show_debugging_ospf,
 
   vty_out (vty, "OSPF debugging status:%s", VTY_NEWLINE);
 
+  /* Show debug status for events. */
+  if (IS_DEBUG_OSPF(event,EVENT))
+    vty_out (vty, "  OSPF event debugging is on%s", VTY_NEWLINE);
+
   /* Show debug status for ISM. */
   if (IS_DEBUG_OSPF (ism, ISM) == OSPF_DEBUG_ISM)
     vty_out (vty, "  OSPF ISM debugging is on%s", VTY_NEWLINE);
@@ -1458,6 +1462,8 @@ DEFUN (show_debugging_ospf,
       if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
 	vty_out (vty, "  OSPF Zebra redistribute debugging is on%s", VTY_NEWLINE);
     }
+
+  /* Show debug status for NSSA. */
   if (IS_DEBUG_OSPF (nssa, NSSA) == OSPF_DEBUG_NSSA)
     vty_out (vty, "  OSPF NSSA debugging is on%s", VTY_NEWLINE);
 

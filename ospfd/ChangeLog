@@ -1,3 +1,8 @@
+2005-03-31 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_dump.c: (show_debugging_ospf) Show if ospf event debugging
+	  is turned on.
+
 2005-03-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_zebra.c: (ospf_interface_state_up) If the MTU of an operative
