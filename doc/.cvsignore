@@ -8,6 +8,7 @@ defines.texi
 version.texi
 quagga.html
 *.pdf
+*.eps
 quagga.ps
 quagga.dvi
 stamp-vti
