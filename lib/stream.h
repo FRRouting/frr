@@ -196,7 +196,7 @@ int stream_empty (struct stream *); /* is the stream empty? */
 u_char *stream_pnt (struct stream *);
 
 /* Stream fifo. */
-struct stream_fifo *stream_fifo_new ();
+struct stream_fifo *stream_fifo_new (void);
 void stream_fifo_push (struct stream_fifo *fifo, struct stream *s);
 struct stream *stream_fifo_pop (struct stream_fifo *fifo);
 struct stream *stream_fifo_head (struct stream_fifo *fifo);

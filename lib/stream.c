@@ -624,7 +624,10 @@ stream_read_try(struct stream *s, int fd, size_t size)
       return nbytes;
     }
   /* Error: was it transient (return -2) or fatal (return -1)? */
-  return ERRNO_IO_RETRY(errno) ? -2 : -1;
+  if (ERRNO_IO_RETRY(errno))
+    return -2;
+  zlog_warn("%s: read failed on fd %d: %s", __func__, fd, safe_strerror(errno));
+  return -1;
 }
 
 /* Read up to smaller of size or SIZE_REMAIN() bytes to the stream, starting
@@ -729,7 +732,7 @@ stream_flush (struct stream *s, int fd)
 /* Stream first in first out queue. */
 
 struct stream_fifo *
-stream_fifo_new ()
+stream_fifo_new (void)
 {
   struct stream_fifo *new;
  

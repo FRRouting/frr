@@ -1,3 +1,10 @@
+2005-02-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* stream.c: (stream_read_try) Log a warning message if a fatal
+	  I/O error occurs.
+	  (stream_fifo_new) Fix prototype.
+	* stream.h: Fix prototype for stream_fifo_new (need void arg).
+
 2005-02-23 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* {vty.h,vty.c}: Remove vty_finish (duplicate of vty_reset).
