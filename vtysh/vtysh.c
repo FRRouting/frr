@@ -1618,14 +1618,6 @@ vtysh_connect (struct vtysh_client *vclient, char *path)
 	  exit (1);
 	}
       
-      if (euid != s_stat.st_uid 
-	  || !(s_stat.st_mode & S_IWUSR)
-	  || !(s_stat.st_mode & S_IRUSR))
-	{
-	  fprintf (stderr, "vtysh_connect(%s): No permission to access socket\n",
-		   path);
-	  exit (1);
-	}
     }
 
   sock = socket (AF_UNIX, SOCK_STREAM, 0);
