@@ -183,7 +183,7 @@ main (int argc, char **argv)
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
   /* Invoked by a priviledged user? -- endo. */
-  if (getuid () != 0)
+  if (geteuid () != 0)
     {
       errno = EPERM;
       perror (progname);
@@ -290,8 +290,10 @@ main (int argc, char **argv)
   /* Create VTY socket */
   vty_serv_sock (vty_addr, vty_port, OSPF_VTYSH_PATH);
 
+#ifdef DEBUG
   /* Print banner. */
   zlog (NULL, LOG_INFO, "OSPFd (%s) starts", ZEBRA_VERSION);
+#endif
 
   /* Fetch next active thread. */
   while (thread_fetch (master, &thread))
