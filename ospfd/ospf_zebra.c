@@ -417,7 +417,6 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
       api.message = 0;
       api.ifindex_num = 0;
       api.nexthop_num = 0;
-      SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
 
       for (node = listhead (or->paths); node; nextnode (node))
         {
@@ -425,16 +424,10 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
 
           if (path->nexthop.s_addr != INADDR_ANY)
             {
+              SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
               api.nexthop_num = 1;
               nexthop = &path->nexthop;
               api.nexthop = &nexthop;
-            }
-          else
-            {
-              /* Commented out by Hasso because it introduces segfault.
-               * See bug #29 in bugzilla for details. */
-              /* api.ifindex_num = 1;
-                 api.ifindex = &path->oi->ifp->ifindex; */
             }
 
           zapi_ipv4_delete (zclient, p, &api);
