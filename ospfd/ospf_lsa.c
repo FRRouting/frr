@@ -2377,6 +2377,11 @@ ospf_lsa_install (struct ospf_interface *oi, struct ospf_lsa *lsa)
       break;
 #ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_LINK_LSA:
+      if (IS_LSA_SELF (lsa))
+          lsa->oi = oi; /* Specify outgoing ospf-interface for this LSA. */
+      else
+          ; /* Incoming "oi" for this LSA has set at LSUpd reception. */
+      /* Fallthrough */
     case OSPF_OPAQUE_AREA_LSA:
     case OSPF_OPAQUE_AS_LSA:
       new = ospf_opaque_lsa_install (lsa, rt_recalc);
@@ -2611,21 +2616,32 @@ ospf_lsa_maxage_walker_remover (struct ospf_lsa *lsa, void *p_arg, int int_arg)
 
         switch (lsa->data->type)
           {
-          case OSPF_AS_EXTERNAL_LSA:
 #ifdef HAVE_OPAQUE_LSA
           case OSPF_OPAQUE_AS_LSA:
+          case OSPF_OPAQUE_LINK_LSA:
+          case OSPF_OPAQUE_AREA_LSA:
+            /*
+             * As a general rule, whenever network topology has changed
+             * (due to an LSA removal in this case), routing recalculation
+             * should be triggered. However, this is not true for opaque
+             * LSAs. Even if an opaque LSA instance is going to be removed
+             * from the routing domain, it does not mean a change in network
+             * topology, and thus, routing recalculation is not needed here.
+             */
+            break;
 #endif /* HAVE_OPAQUE_LSA */
 #ifdef HAVE_NSSA
-	  case OSPF_AS_NSSA_LSA:
+	      case OSPF_AS_NSSA_LSA:
 #endif
-	    ospf_ase_incremental_update (lsa, ospf_top);
-            break;
+          case OSPF_AS_EXTERNAL_LSA:
+	       ospf_ase_incremental_update (lsa, ospf_top);
+           break;
           default:
-	    ospf_spf_calculate_schedule ();
-            break;
+	       ospf_spf_calculate_schedule ();
+           break;
           }
 
-	ospf_lsa_maxage (lsa);
+	   ospf_lsa_maxage (lsa);
       }
 
   return 0;

@@ -239,6 +239,7 @@ struct ospf_opaque_functab
   int (* del_lsa_hook)(struct ospf_lsa *lsa);
 };
 
+static list ospf_opaque_wildcard_funclist; /* Handle LSA-9/10/11 altogether. */
 static list ospf_opaque_type9_funclist;
 static list ospf_opaque_type10_funclist;
 static list ospf_opaque_type11_funclist;
@@ -255,6 +256,9 @@ ospf_opaque_funclist_init (void)
 {
   list funclist;
 
+  funclist = ospf_opaque_wildcard_funclist = list_new ();
+  funclist->del = ospf_opaque_del_functab;
+
   funclist = ospf_opaque_type9_funclist  = list_new ();
   funclist->del = ospf_opaque_del_functab;
 
@@ -270,6 +274,9 @@ static void
 ospf_opaque_funclist_term (void)
 {
   list funclist;
+
+  funclist = ospf_opaque_wildcard_funclist;
+  list_delete (funclist);
 
   funclist = ospf_opaque_type9_funclist;
   list_delete (funclist);
@@ -289,6 +296,16 @@ ospf_get_opaque_funclist (u_char lsa_type)
 
   switch (lsa_type)
     {
+    case OPAQUE_TYPE_WILDCARD:
+      /* XXX
+       * This is an ugly trick to handle type-9/10/11 LSA altogether.
+       * Yes, "OPAQUE_TYPE_WILDCARD (value 0)" is not an LSA-type, nor
+       * an officially assigned opaque-type.
+       * Though it is possible that the value might be officially used
+       * in the future, we use it internally as a special label, for now.
+       */
+      funclist = ospf_opaque_wildcard_funclist;
+      break;
     case OSPF_OPAQUE_LINK_LSA:
       funclist = ospf_opaque_type9_funclist;
       break;
@@ -434,6 +451,7 @@ ospf_opaque_functab_lookup (struct ospf_lsa *lsa)
  */
 struct opaque_info_per_type
 {
+  u_char lsa_type;
   u_char opaque_type;
 
   enum { PROC_NORMAL, PROC_SUSPEND } status;
@@ -451,7 +469,7 @@ struct opaque_info_per_type
   struct thread *t_opaque_lsa_self;
 
   /*
-   * Backpointer to an "owner" which is opaque-type dependent.
+   * Backpointer to an "owner" which is LSA-type dependent.
    *   type-9:  struct ospf_interface
    *   type-10: struct ospf_area
    *   type-11: struct ospf
@@ -523,11 +541,13 @@ register_opaque_info_per_type (struct ospf_opaque_functab *functab,
       listnode_add (top->opaque_lsa_self, oipt);
       break;
     default:
+      zlog_warn ("register_opaque_info_per_type: Unexpected LSA-type(%u)", new->data->type);
       free_opaque_info_per_type ((void *) oipt);
       oipt = NULL;
       goto out; /* This case may not exist. */
     }
 
+  oipt->lsa_type = new->data->type;
   oipt->opaque_type = GET_OPAQUE_TYPE (ntohl (new->data->id.s_addr));
   oipt->status = PROC_NORMAL;
   oipt->t_opaque_lsa_self = NULL;
@@ -558,6 +578,32 @@ free_opaque_info_per_type (void *val)
       if (IS_LSA_MAXAGE (lsa))
         continue;
       ospf_opaque_lsa_flush_schedule (lsa);
+    }
+
+  /* Remove "oipt" from its owner's self-originated LSA list. */
+  switch (oipt->lsa_type)
+    {
+    case OSPF_OPAQUE_LINK_LSA:
+      {
+        struct ospf_interface *oi = (struct ospf_interface *)(oipt->owner);
+        listnode_delete (oi->opaque_lsa_self, oipt);
+        break;
+      }
+    case OSPF_OPAQUE_AREA_LSA:
+      {
+        struct ospf_area *area = (struct ospf_area *)(oipt->owner);
+        listnode_delete (area->opaque_lsa_self, oipt);
+        break;
+      }
+    case OSPF_OPAQUE_AS_LSA:
+      {
+        struct ospf *top = (struct ospf *)(oipt->owner);
+        listnode_delete (top->opaque_lsa_self, oipt);
+        break;
+      }
+    default:
+      zlog_warn ("free_opaque_info_per_type: Unexpected LSA-type(%u)", oipt->lsa_type);
+      break; /* This case may not exist. */
     }
 
   OSPF_TIMER_OFF (oipt->t_opaque_lsa_self);
@@ -923,6 +969,10 @@ ospf_opaque_new_if (struct interface *ifp)
   list funclist;
   int rc = -1;
 
+  funclist = ospf_opaque_wildcard_funclist;
+  if (opaque_lsa_new_if_callback (funclist, ifp) != 0)
+    goto out;
+
   funclist = ospf_opaque_type9_funclist;
   if (opaque_lsa_new_if_callback (funclist, ifp) != 0)
     goto out;
@@ -946,6 +996,10 @@ ospf_opaque_del_if (struct interface *ifp)
   list funclist;
   int rc = -1;
 
+  funclist = ospf_opaque_wildcard_funclist;
+  if (opaque_lsa_del_if_callback (funclist, ifp) != 0)
+    goto out;
+
   funclist = ospf_opaque_type9_funclist;
   if (opaque_lsa_del_if_callback (funclist, ifp) != 0)
     goto out;
@@ -967,6 +1021,9 @@ void
 ospf_opaque_ism_change (struct ospf_interface *oi, int old_status)
 {
   list funclist;
+
+  funclist = ospf_opaque_wildcard_funclist;
+  opaque_lsa_ism_change_callback (funclist, oi, old_status);
 
   funclist = ospf_opaque_type9_funclist;
   opaque_lsa_ism_change_callback (funclist, oi, old_status);
@@ -1017,6 +1074,9 @@ ospf_opaque_nsm_change (struct ospf_neighbor *nbr, int old_state)
       ;
     }
 
+  funclist = ospf_opaque_wildcard_funclist;
+  opaque_lsa_nsm_change_callback (funclist, nbr, old_state);
+
   funclist = ospf_opaque_type9_funclist;
   opaque_lsa_nsm_change_callback (funclist, nbr, old_state);
 
@@ -1038,6 +1098,9 @@ ospf_opaque_config_write_router (struct vty *vty, struct ospf *ospf)
   if (CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE))
     vty_out (vty, " capability opaque%s", VTY_NEWLINE);
 
+  funclist = ospf_opaque_wildcard_funclist;
+  opaque_lsa_config_write_router_callback (funclist, vty);
+
   funclist = ospf_opaque_type9_funclist;
   opaque_lsa_config_write_router_callback (funclist, vty);
 
@@ -1055,6 +1118,9 @@ ospf_opaque_config_write_if (struct vty *vty, struct interface *ifp)
 {
   list funclist;
 
+  funclist = ospf_opaque_wildcard_funclist;
+  opaque_lsa_config_write_if_callback (funclist, vty, ifp);
+
   funclist = ospf_opaque_type9_funclist;
   opaque_lsa_config_write_if_callback (funclist, vty, ifp);
 
@@ -1071,6 +1137,9 @@ void
 ospf_opaque_config_write_debug (struct vty *vty)
 {
   list funclist;
+
+  funclist = ospf_opaque_wildcard_funclist;
+  opaque_lsa_config_write_debug_callback (funclist, vty);
 
   funclist = ospf_opaque_type9_funclist;
   opaque_lsa_config_write_debug_callback (funclist, vty);
@@ -1142,6 +1211,10 @@ ospf_opaque_lsa_install_hook (struct ospf_lsa *lsa)
    * Some Opaque-LSA user may want to monitor every LSA installation
    * into the LSDB, regardless with target LSA type.
    */
+  funclist = ospf_opaque_wildcard_funclist;
+  if (new_lsa_callback (funclist, lsa) != 0)
+    goto out;
+
   funclist = ospf_opaque_type9_funclist;
   if (new_lsa_callback (funclist, lsa) != 0)
     goto out;
@@ -1169,6 +1242,10 @@ ospf_opaque_lsa_delete_hook (struct ospf_lsa *lsa)
    * Some Opaque-LSA user may want to monitor every LSA deletion
    * from the LSDB, regardless with target LSA type.
    */
+  funclist = ospf_opaque_wildcard_funclist;
+  if (del_lsa_callback (funclist, lsa) != 0)
+    goto out;
+
   funclist = ospf_opaque_type9_funclist;
   if (del_lsa_callback (funclist, lsa) != 0)
     goto out;
@@ -1473,6 +1550,13 @@ ospf_opaque_lsa_install (struct ospf_lsa *lsa, int rt_recalc)
   switch (lsa->data->type)
     {
     case OSPF_OPAQUE_LINK_LSA:
+      if ((top = oi_to_top (lsa->oi)) == NULL)
+        {
+          /* Above conditions must have passed. */
+          zlog_warn ("ospf_opaque_lsa_install: Sonmething wrong?");
+          goto out;
+        }
+      break;
     case OSPF_OPAQUE_AREA_LSA:
       if (lsa->area == NULL || (top = lsa->area->top) == NULL)
         {

@@ -229,6 +229,26 @@ ospf_db_summary_add (struct ospf_lsa *lsa, void *v, int i)
   if (lsa == NULL)
     return 0;
 
+#ifdef HAVE_OPAQUE_LSA
+  switch (lsa->data->type)
+    {
+    case OSPF_OPAQUE_LINK_LSA:
+      /* Exclude type-9 LSAs that does not have the same "oi" with "nbr". */
+      if (lsa->oi != nbr->oi)
+          return 0;
+      break;
+    case OSPF_OPAQUE_AREA_LSA:
+      /*
+       * It is assured by the caller function "nsm_negotiation_done()"
+       * that every given LSA belongs to the same area with "nbr".
+       */
+      break;
+    case OSPF_OPAQUE_AS_LSA:
+    default:
+      break;
+    }
+#endif /* HAVE_OPAQUE_LSA */
+
 #ifdef HAVE_NSSA
   /* Stay away from any Local Translated Type-7 LSAs */
   if (CHECK_FLAG (lsa->flags, OSPF_LSA_LOCAL_XLT))
