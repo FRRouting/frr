@@ -230,7 +230,7 @@ zlog_signal(int signo, const char *action)
 #ifdef HAVE_GLIBC_BACKTRACE
   {
     void *array[20];
-    size_t size;
+    int size;
 
     size = backtrace(array,sizeof(array)/sizeof(array[0]));
     s = buf;
