@@ -46,7 +46,14 @@ struct if_master
   int (*if_delete_hook) (struct interface *);
 } if_master;
 
-/* Compare interface names */
+/* Compare interface names, returning an integer greater than, equal to, or
+ * less than 0, (following the strcmp convention), according to the
+ * relationship between ifp1 and ifp2.  Interface names consist of an
+ * alphabetic prefix and a numeric suffix.  The primary sort key is
+ * lexicographic by name, and then numeric by number.  No number sorts
+ * before all numbers.  Examples: de0 < de1, de100 < fxp0 < xl0, devpty <
+ * devpty0, de0 < del0
+ */         
 int
 if_cmp_func (struct interface *ifp1, struct interface *ifp2)
 {
@@ -67,6 +74,9 @@ if_cmp_func (struct interface *ifp1, struct interface *ifp2)
     if (l1 != l2)
       return (strcmp(p1, p2));
 
+    /* Note that this relies on all numbers being less than all letters, so
+     * that de0 < del0.
+     */
     res = strncmp(p1, p2, l1);
 
     /* names are different -> compare them */
