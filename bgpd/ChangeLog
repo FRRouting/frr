@@ -1,5 +1,9 @@
 2005-02-02 Akihiro Mizutani <mizutani@net-chef.net>
 
+	* bgp_routemap.c: New route-map command - "match ip route-source".
+
+2005-02-02 Akihiro Mizutani <mizutani@net-chef.net>
+
 	* bgp_clist.[ch], bgp_route.c, bgp_routemap.c, bgp_vty.c:
 	  community-list cleanup.
 
