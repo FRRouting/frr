@@ -31,7 +31,8 @@ int isis_dr_resign (struct isis_circuit *circuit, int level);
 int isis_dr_commence (struct isis_circuit *circuit, int level);
 char *isis_disflag2string (int disflag);
 
-enum isis_dis_state {     
+enum isis_dis_state
+{
   ISIS_IS_NOT_DIS,
   ISIS_IS_DIS,
   ISIS_WAS_DIS,
@@ -39,4 +40,3 @@ enum isis_dis_state {
 };
 
 #endif /* _ZEBRA_ISIS_DR_H */
-

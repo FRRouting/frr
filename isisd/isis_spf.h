@@ -24,17 +24,18 @@
 #ifndef _ZEBRA_ISIS_SPF_H
 #define _ZEBRA_ISIS_SPF_H
 
-enum vertextype {
+enum vertextype
+{
   VTYPE_PSEUDO_IS = 1,
   VTYPE_NONPSEUDO_IS,
   VTYPE_ES,
   VTYPE_IPREACH_INTERNAL,
   VTYPE_IPREACH_EXTERNAL
 #ifdef HAVE_IPV6
-  , 
+    ,
   VTYPE_IP6REACH_INTERNAL,
   VTYPE_IP6REACH_EXTERNAL
-#endif /* HAVE_IPV6 */ 
+#endif /* HAVE_IPV6 */
 };
 
 /*
@@ -44,28 +45,28 @@ struct isis_vertex
 {
   enum vertextype type;
 
-  union {
-    u_char id [ISIS_SYS_ID_LEN + 1];
+  union
+  {
+    u_char id[ISIS_SYS_ID_LEN + 1];
     struct prefix prefix;
   } N;
-  
+
   struct isis_lsp *lsp;
-  u_int32_t d_N;   /* d(N) Distance from this IS      */
-  u_int16_t depth; /* The depth in the imaginary tree */
+  u_int32_t d_N;		/* d(N) Distance from this IS      */
+  u_int16_t depth;		/* The depth in the imaginary tree */
 
-  struct list *Adj_N; /* {Adj(N)}  */
-}; 
-
+  struct list *Adj_N;		/* {Adj(N)}  */
+};
 
 struct isis_spftree
 {
-  struct thread *t_spf_periodic;  /* periodic spf threads  */
-  time_t                lastrun;  /* for scheduling */
-  int                   pending;  /* already scheduled */
-  struct list            *paths;  /* the SPT */
-  struct list            *tents;  /* TENT */
+  struct thread *t_spf_periodic;	/* periodic spf threads  */
+  time_t lastrun;		/* for scheduling */
+  int pending;			/* already scheduled */
+  struct list *paths;		/* the SPT */
+  struct list *tents;		/* TENT */
 
-  u_int32_t             timerun;  /* statistics */
+  u_int32_t timerun;		/* statistics */
 };
 
 void spftree_area_init (struct isis_area *area);
@@ -75,11 +76,3 @@ void isis_spf_cmds_init (void);
 int isis_spf_schedule6 (struct isis_area *area, int level);
 #endif
 #endif /* _ZEBRA_ISIS_SPF_H */
-
-
-
-
-
-
-
-

@@ -31,14 +31,15 @@ void isis_event_area_addr_change (struct isis_area *area);
 /*
  * Events related to circuit
  */
-void isis_event_circuit_state_change (struct isis_circuit *circuit, int state);
-void isis_event_circuit_type_change (struct isis_circuit *circuit, 
-                                     int newtype);
+void isis_event_circuit_state_change (struct isis_circuit *circuit,
+				      int state);
+void isis_event_circuit_type_change (struct isis_circuit *circuit,
+				     int newtype);
 /*
  * Events related to adjacencies
  */
-void isis_event_adjacency_state_change(struct isis_adjacency *adj, 
-                                       int newstate);
+void isis_event_adjacency_state_change (struct isis_adjacency *adj,
+					int newstate);
 
 int isis_event_dis_status_change (struct thread *thread);
 
@@ -48,7 +49,7 @@ int isis_event_dis_status_change (struct thread *thread);
 #define AUTH_ERROR_TYPE_LSP   3
 #define AUTH_ERROR_TYPE_SNP   2
 #define AUTH_ERROR_TYPE_HELLO 1
-void isis_event_auth_failure (char *area_tag, char *error_string, char *sysid);
+void isis_event_auth_failure (char *area_tag, char *error_string,
+			      char *sysid);
 
 #endif /* _ZEBRA_ISIS_EVENTS_H */
-

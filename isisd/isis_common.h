@@ -23,13 +23,15 @@
 
 /*
  * Area Address
- */ 
-struct area_addr {
-  u_char             addr_len;
-  u_char             area_addr[20];
+ */
+struct area_addr
+{
+  u_char addr_len;
+  u_char area_addr[20];
 };
 
-struct isis_passwd {
+struct isis_passwd
+{
   u_char len;
 #define ISIS_PASSWD_TYPE_UNUSED   0
 #define ISIS_PASSWD_TYPE_CLEARTXT 1
@@ -43,7 +45,8 @@ struct isis_passwd {
  * one struct for cache list
  * one struct for LSP TLV
  */
-struct hostname {
+struct hostname
+{
   u_char namelen;
   u_char name[255];
 };
@@ -51,15 +54,17 @@ struct hostname {
 /*
  * Supported Protocol IDs
  */
-struct nlpids {
+struct nlpids
+{
   u_char count;
-  u_char nlpids[4]; /* FIXME: enough ? */ 
+  u_char nlpids[4];		/* FIXME: enough ? */
 };
 
 /*
  * Flags structure for SSN and SRM flags
- */ 
-struct flags {
+ */
+struct flags
+{
   int maxindex;
   struct list *free_idcs;
 };

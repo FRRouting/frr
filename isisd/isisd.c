@@ -56,19 +56,16 @@
 
 #ifdef TOPOLOGY_GENERATE
 #include "spgrid.h"
-u_char DEFAULT_TOPOLOGY_BASEIS[6] = {0xFE, 0xED, 0xFE, 0xED, 0x00, 0x00};
+u_char DEFAULT_TOPOLOGY_BASEIS[6] = { 0xFE, 0xED, 0xFE, 0xED, 0x00, 0x00 };
 #endif /* TOPOLOGY_GENERATE */
-
 
 struct isis *isis = NULL;
 struct thread_master *master;
 
-
 void
 isis_new (unsigned long process_id)
 {
-  
-  isis = XMALLOC (MTYPE_ISIS, sizeof(struct isis));
+  isis = XMALLOC (MTYPE_ISIS, sizeof (struct isis));
   bzero (isis, sizeof (struct isis));
   /*
    * Default values
@@ -86,15 +83,14 @@ isis_new (unsigned long process_id)
   /*
    * uncomment the next line for full debugs
    */
-   /* isis->debugs = 0xFFFF; */  
+  /* isis->debugs = 0xFFFF; */
 }
 
 struct isis_area *
 isis_area_create ()
 {
-
   struct isis_area *area;
-  
+
   area = XMALLOC (MTYPE_ISIS_AREA, sizeof (struct isis_area));
   memset (area, 0, sizeof (struct isis_area));
 
@@ -111,7 +107,7 @@ isis_area_create ()
    */
   area->lspdb[0] = lsp_db_init ();
   area->lspdb[1] = lsp_db_init ();
-  
+
   spftree_area_init (area);
   area->route_table = route_table_init ();
 #ifdef HAVE_IPV6
@@ -119,17 +115,17 @@ isis_area_create ()
 #endif /* HAVE_IPV6 */
   area->circuit_list = list_new ();
   area->area_addrs = list_new ();
-  THREAD_TIMER_ON(master, area->t_tick, lsp_tick, area, 1);
+  THREAD_TIMER_ON (master, area->t_tick, lsp_tick, area, 1);
   area->flags.maxindex = -1;
   /*
    * Default values
    */
-  area->max_lsp_lifetime[0] = MAX_AGE; /* 1200 */
-  area->max_lsp_lifetime[1] = MAX_AGE; /* 1200 */
+  area->max_lsp_lifetime[0] = MAX_AGE;	/* 1200 */
+  area->max_lsp_lifetime[1] = MAX_AGE;	/* 1200 */
   area->lsp_gen_interval[0] = LSP_GEN_INTERVAL_DEFAULT;
   area->lsp_gen_interval[1] = LSP_GEN_INTERVAL_DEFAULT;
-  area->lsp_refresh[0] = MAX_LSP_GEN_INTERVAL; /* 900 */
-  area->lsp_refresh[1] = MAX_LSP_GEN_INTERVAL; /* 900 */
+  area->lsp_refresh[0] = MAX_LSP_GEN_INTERVAL;	/* 900 */
+  area->lsp_refresh[1] = MAX_LSP_GEN_INTERVAL;	/* 900 */
   area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
   area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
   area->dynhostname = 1;
@@ -149,81 +145,83 @@ isis_area_lookup (char *area_tag)
 {
   struct isis_area *area;
   struct listnode *node;
-  
+
   LIST_LOOP (isis->area_list, area, node)
     if ((area->area_tag == NULL && area_tag == NULL) ||
-	(area->area_tag && area_tag && strcmp (area->area_tag, area_tag) == 0))
-      return area;
-  
+	(area->area_tag && area_tag
+	 && strcmp (area->area_tag, area_tag) == 0))
+    return area;
+
   return NULL;
 }
 
-int 
+int
 isis_area_get (struct vty *vty, char *area_tag)
 {
-
   struct isis_area *area;
-  
+
   area = isis_area_lookup (area_tag);
-  
-  if (area) {
-    vty->node = ISIS_NODE;
-    vty->index = area;
-    return CMD_SUCCESS;
-  }
-  
+
+  if (area)
+    {
+      vty->node = ISIS_NODE;
+      vty->index = area;
+      return CMD_SUCCESS;
+    }
+
   area = isis_area_create ();
   area->area_tag = strdup (area_tag);
   listnode_add (isis->area_list, area);
-  
+
   zlog_info ("new IS-IS area instance %s", area->area_tag);
 
   vty->node = ISIS_NODE;
   vty->index = area;
-  
+
   return CMD_SUCCESS;
 }
 
 int
 isis_area_destroy (struct vty *vty, char *area_tag)
 {
-  
   struct isis_area *area;
   struct listnode *node;
   struct isis_circuit *circuit;
 
   area = isis_area_lookup (area_tag);
-  
-  if (area == NULL) {
-    vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
 
-  if (area->circuit_list) {
-    node = listhead (area->circuit_list);
-    while (node) {
-      circuit = getdata (node);
-      nextnode (node);
-      isis_circuit_del (circuit);
+  if (area == NULL)
+    {
+      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+      return CMD_WARNING;
     }
-    list_delete (area->circuit_list);
-  }
+
+  if (area->circuit_list)
+    {
+      node = listhead (area->circuit_list);
+      while (node)
+	{
+	  circuit = getdata (node);
+	  nextnode (node);
+	  isis_circuit_del (circuit);
+	}
+      list_delete (area->circuit_list);
+    }
   listnode_delete (isis->area_list, area);
-  THREAD_TIMER_OFF(area->t_tick);
+  THREAD_TIMER_OFF (area->t_tick);
   if (area->t_remove_aged)
     thread_cancel (area->t_remove_aged);
-  THREAD_TIMER_OFF(area->t_lsp_refresh[0]);
-  THREAD_TIMER_OFF(area->t_lsp_refresh[1]);
+  THREAD_TIMER_OFF (area->t_lsp_refresh[0]);
+  THREAD_TIMER_OFF (area->t_lsp_refresh[1]);
 
   XFREE (MTYPE_ISIS_AREA, area);
-  
+
   return CMD_SUCCESS;
 }
 
-int 
-area_net_title (struct vty *vty , char *net_title)
+int
+area_net_title (struct vty *vty, char *net_title)
 {
-  
   struct isis_area *area;
   struct area_addr *addr;
   struct area_addr *addrp;
@@ -232,62 +230,73 @@ area_net_title (struct vty *vty , char *net_title)
   u_char buff[255];
   area = vty->index;
 
-  if (!area) {
-    vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
+  if (!area)
+    {
+      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   /* We check that we are not over the maximal number of addresses */
-  if (listcount (area->area_addrs) >= isis->max_area_addrs) {
-    vty_out (vty, "Maximum of area addresses (%d) already reached %s",
-	     isis->max_area_addrs, VTY_NEWLINE);
-    return CMD_WARNING;
-  }
+  if (listcount (area->area_addrs) >= isis->max_area_addrs)
+    {
+      vty_out (vty, "Maximum of area addresses (%d) already reached %s",
+	       isis->max_area_addrs, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
   addr = XMALLOC (MTYPE_ISIS_AREA_ADDR, sizeof (struct area_addr));
   addr->addr_len = dotformat2buff (buff, net_title);
   memcpy (addr->area_addr, buff, addr->addr_len);
 #ifdef EXTREME_DEBUG
-  zlog_info ("added area address %s for area %s (address length %d)", 
+  zlog_info ("added area address %s for area %s (address length %d)",
 	     net_title, area->area_tag, addr->addr_len);
 #endif /* EXTREME_DEBUG */
-  if (addr->addr_len < 8 || addr->addr_len > 20) {
-    zlog_warn ("area address must be at least 8..20 octets long (%d)",
-	       addr->addr_len);
-    XFREE (MTYPE_ISIS_AREA_ADDR, addr);
-    return CMD_WARNING;
-  }
-
-  if (isis->sysid_set == 0) {
-    /*
-     * First area address - get the SystemID for this router
-     */
-    memcpy (isis->sysid, GETSYSID(addr, ISIS_SYS_ID_LEN), ISIS_SYS_ID_LEN);
-    isis->sysid_set = 1;
-    zlog_info ("Router has SystemID %s", sysid_print (isis->sysid));
-  } else {
-    /*
-     * Check that the SystemID portions match
-     */
-    if (memcmp (isis->sysid, GETSYSID(addr, ISIS_SYS_ID_LEN),
-		 ISIS_SYS_ID_LEN)) {
-      vty_out (vty, "System ID must not change when defining additional area"
-               " addresses%s", VTY_NEWLINE);
+  if (addr->addr_len < 8 || addr->addr_len > 20)
+    {
+      zlog_warn ("area address must be at least 8..20 octets long (%d)",
+		 addr->addr_len);
       XFREE (MTYPE_ISIS_AREA_ADDR, addr);
       return CMD_WARNING;
     }
 
-    /* now we see that we don't already have this address */
-    LIST_LOOP (area->area_addrs, addrp, node) {
-      if ((addrp->addr_len+ ISIS_SYS_ID_LEN + 1) == (addr->addr_len)) {
-         if (!memcmp (addrp->area_addr, addr->area_addr,addr->addr_len)) {
-          XFREE (MTYPE_ISIS_AREA_ADDR, addr);
-          return CMD_SUCCESS; /* silent fail */
-        }
-      }
+  if (isis->sysid_set == 0)
+    {
+      /*
+       * First area address - get the SystemID for this router
+       */
+      memcpy (isis->sysid, GETSYSID (addr, ISIS_SYS_ID_LEN), ISIS_SYS_ID_LEN);
+      isis->sysid_set = 1;
+      zlog_info ("Router has SystemID %s", sysid_print (isis->sysid));
     }
+  else
+    {
+      /*
+       * Check that the SystemID portions match
+       */
+      if (memcmp (isis->sysid, GETSYSID (addr, ISIS_SYS_ID_LEN),
+		  ISIS_SYS_ID_LEN))
+	{
+	  vty_out (vty,
+		   "System ID must not change when defining additional area"
+		   " addresses%s", VTY_NEWLINE);
+	  XFREE (MTYPE_ISIS_AREA_ADDR, addr);
+	  return CMD_WARNING;
+	}
 
-  }
+      /* now we see that we don't already have this address */
+      LIST_LOOP (area->area_addrs, addrp, node)
+      {
+	if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) == (addr->addr_len))
+	  {
+	    if (!memcmp (addrp->area_addr, addr->area_addr, addr->addr_len))
+	      {
+		XFREE (MTYPE_ISIS_AREA_ADDR, addr);
+		return CMD_SUCCESS;	/* silent fail */
+	      }
+	  }
+      }
+
+    }
   /*
    * Forget the systemID part of the address
    */
@@ -295,10 +304,11 @@ area_net_title (struct vty *vty , char *net_title)
   listnode_add (area->area_addrs, addr);
 
   /* only now we can safely generate our LSPs for this area */
-  if (listcount(area->area_addrs) > 0) {
-    lsp_l1_generate (area);
-    lsp_l2_generate (area);
-  }
+  if (listcount (area->area_addrs) > 0)
+    {
+      lsp_l1_generate (area);
+      lsp_l2_generate (area);
+    }
 
   return CMD_SUCCESS;
 }
@@ -307,48 +317,50 @@ int
 area_clear_net_title (struct vty *vty, char *net_title)
 {
   struct isis_area *area;
-  struct area_addr  addr, *addrp = NULL;
+  struct area_addr addr, *addrp = NULL;
   struct listnode *node;
   u_char buff[255];
 
   area = vty->index;
-  if (!area) {
-    vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  
+  if (!area)
+    {
+      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   addr.addr_len = dotformat2buff (buff, net_title);
-  if (addr.addr_len < 8 || addr.addr_len > 20) {
-    vty_out (vty, "Unsupported area address length %d, should be 8...20 %s", 
-	     addr.addr_len, VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  
-  memcpy(addr.area_addr, buff, (int)addr.addr_len); 
-  
+  if (addr.addr_len < 8 || addr.addr_len > 20)
+    {
+      vty_out (vty, "Unsupported area address length %d, should be 8...20 %s",
+	       addr.addr_len, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  memcpy (addr.area_addr, buff, (int) addr.addr_len);
+
   LIST_LOOP (area->area_addrs, addrp, node)
     if (addrp->addr_len == addr.addr_len &&
 	!memcmp (addrp->area_addr, addr.area_addr, addr.addr_len))
-      break;
-  
-  if (!addrp) {
-    vty_out (vty, "No area address %s for area %s %s", net_title, 
-	     area->area_tag, VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  
+    break;
+
+  if (!addrp)
+    {
+      vty_out (vty, "No area address %s for area %s %s", net_title,
+	       area->area_tag, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   listnode_delete (area->area_addrs, addrp);
-  
+
   return CMD_SUCCESS;
 }
-
 
 /*
  * 'show clns neighbors' command
  */
 
 int
-show_clns_neigh (struct vty *vty, char detail) 
+show_clns_neigh (struct vty *vty, char detail)
 {
   struct listnode *node_area, *node_circ;
   struct isis_area *area;
@@ -356,53 +368,69 @@ show_clns_neigh (struct vty *vty, char detail)
   struct list *db;
   int i;
 
-  if (!isis) {
-    vty_out (vty, "IS-IS Routing Process not enabled%s", VTY_NEWLINE);
-    return CMD_SUCCESS;
-  }
+  if (!isis)
+    {
+      vty_out (vty, "IS-IS Routing Process not enabled%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
 
   for (node_area = listhead (isis->area_list); node_area;
-       nextnode (node_area)) {
-    area = getdata (node_area);
-    vty_out (vty, "Area %s:%s", area->area_tag, VTY_NEWLINE);
+       nextnode (node_area))
+    {
+      area = getdata (node_area);
+      vty_out (vty, "Area %s:%s", area->area_tag, VTY_NEWLINE);
 
-    if (detail==ISIS_UI_LEVEL_BRIEF)
-      vty_out (vty, "  System Id           Interface   L  State        "
-               "Holdtime SNPA%s", VTY_NEWLINE);
+      if (detail == ISIS_UI_LEVEL_BRIEF)
+	vty_out (vty, "  System Id           Interface   L  State        "
+		 "Holdtime SNPA%s", VTY_NEWLINE);
 
-    for (node_circ = listhead (area->circuit_list); node_circ;
-         nextnode (node_circ)) {
-      circuit = getdata (node_circ);      
-      if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-        for (i = 0; i < 2; i++) {
-          db = circuit->u.bc.adjdb[i];
-          if (db && db->count) {
-            if (detail == ISIS_UI_LEVEL_BRIEF)
-              isis_adjdb_iterate (db, (void (*) (struct isis_adjacency *, 
-                                                 void *))
-                                  isis_adj_print_vty, vty);	  
-            if (detail == ISIS_UI_LEVEL_DETAIL)
-              isis_adjdb_iterate (db, (void (*) (struct isis_adjacency *, 
-                                                 void *))
-                                  isis_adj_print_vty_detail, vty);	  
-            if (detail == ISIS_UI_LEVEL_EXTENSIVE)
-              isis_adjdb_iterate (db, (void (*) (struct isis_adjacency *, 
-                                                  void *))
-                                   isis_adj_print_vty_extensive, vty);	  
-          }
-        }
-      } else if (circuit->circ_type == CIRCUIT_T_P2P && 
-                 circuit->u.p2p.neighbor) {
-        if (detail==ISIS_UI_LEVEL_BRIEF)
-	  isis_adj_p2p_print_vty (circuit->u.p2p.neighbor, vty);
-	if (detail==ISIS_UI_LEVEL_DETAIL)
-          isis_adj_p2p_print_vty_detail (circuit->u.p2p.neighbor, vty);
-        if (detail==ISIS_UI_LEVEL_EXTENSIVE)
-          isis_adj_p2p_print_vty_extensive (circuit->u.p2p.neighbor, vty);
-      }     
+      for (node_circ = listhead (area->circuit_list); node_circ;
+	   nextnode (node_circ))
+	{
+	  circuit = getdata (node_circ);
+	  if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+	    {
+	      for (i = 0; i < 2; i++)
+		{
+		  db = circuit->u.bc.adjdb[i];
+		  if (db && db->count)
+		    {
+		      if (detail == ISIS_UI_LEVEL_BRIEF)
+			isis_adjdb_iterate (db,
+					    (void (*)
+					     (struct isis_adjacency *,
+					      void *)) isis_adj_print_vty,
+					    vty);
+		      if (detail == ISIS_UI_LEVEL_DETAIL)
+			isis_adjdb_iterate (db,
+					    (void (*)
+					     (struct isis_adjacency *,
+					      void *))
+					    isis_adj_print_vty_detail, vty);
+		      if (detail == ISIS_UI_LEVEL_EXTENSIVE)
+			isis_adjdb_iterate (db,
+					    (void (*)
+					     (struct isis_adjacency *,
+					      void *))
+					    isis_adj_print_vty_extensive,
+					    vty);
+		    }
+		}
+	    }
+	  else if (circuit->circ_type == CIRCUIT_T_P2P &&
+		   circuit->u.p2p.neighbor)
+	    {
+	      if (detail == ISIS_UI_LEVEL_BRIEF)
+		isis_adj_p2p_print_vty (circuit->u.p2p.neighbor, vty);
+	      if (detail == ISIS_UI_LEVEL_DETAIL)
+		isis_adj_p2p_print_vty_detail (circuit->u.p2p.neighbor, vty);
+	      if (detail == ISIS_UI_LEVEL_EXTENSIVE)
+		isis_adj_p2p_print_vty_extensive (circuit->u.p2p.neighbor,
+						  vty);
+	    }
+	}
     }
-  }
-  
+
   return CMD_SUCCESS;
 }
 
@@ -413,7 +441,7 @@ DEFUN (show_clns_neighbors,
        "clns network information\n"
        "CLNS neighbor adjacencies\n")
 {
-  return show_clns_neigh(vty, ISIS_UI_LEVEL_BRIEF);
+  return show_clns_neigh (vty, ISIS_UI_LEVEL_BRIEF);
 }
 
 ALIAS (show_clns_neighbors,
@@ -431,7 +459,7 @@ DEFUN (show_clns_neighbors_detail,
        "CLNS neighbor adjacencies\n"
        "show detailed information\n")
 {
-  return show_clns_neigh(vty, ISIS_UI_LEVEL_DETAIL);
+  return show_clns_neigh (vty, ISIS_UI_LEVEL_DETAIL);
 }
 
 ALIAS (show_clns_neighbors_detail,
@@ -441,53 +469,49 @@ ALIAS (show_clns_neighbors_detail,
        "IS-IS network information\n"
        "IS-IS neighbor adjacencies\n"
        "show detailed information\n")
-
 /*
  * 'isis debug', 'show debugging'
  */
-
 void
 print_debug (struct vty *vty, int flags, int onoff)
 {
   char onoffs[4];
   if (onoff)
-    strcpy (onoffs,"on");
+    strcpy (onoffs, "on");
   else
-    strcpy (onoffs,"off");
+    strcpy (onoffs, "off");
 
   if (flags & DEBUG_ADJ_PACKETS)
-    vty_out (vty,"IS-IS Adjacency related packets debugging is %s%s", onoffs, 
-             VTY_NEWLINE);
+    vty_out (vty, "IS-IS Adjacency related packets debugging is %s%s", onoffs,
+	     VTY_NEWLINE);
   if (flags & DEBUG_CHECKSUM_ERRORS)
-    vty_out (vty,"IS-IS checksum errors debugging is %s%s", onoffs, 
-             VTY_NEWLINE);
+    vty_out (vty, "IS-IS checksum errors debugging is %s%s", onoffs,
+	     VTY_NEWLINE);
   if (flags & DEBUG_LOCAL_UPDATES)
-    vty_out (vty,"IS-IS local updates debugging is %s%s", onoffs, 
-             VTY_NEWLINE);
+    vty_out (vty, "IS-IS local updates debugging is %s%s", onoffs,
+	     VTY_NEWLINE);
   if (flags & DEBUG_PROTOCOL_ERRORS)
-    vty_out (vty,"IS-IS protocol errors debugging is %s%s", onoffs, 
-             VTY_NEWLINE);
+    vty_out (vty, "IS-IS protocol errors debugging is %s%s", onoffs,
+	     VTY_NEWLINE);
   if (flags & DEBUG_SNP_PACKETS)
-    vty_out (vty,"IS-IS CSNP/PSNP packets debugging is %s%s", onoffs, 
-             VTY_NEWLINE);
+    vty_out (vty, "IS-IS CSNP/PSNP packets debugging is %s%s", onoffs,
+	     VTY_NEWLINE);
   if (flags & DEBUG_SPF_EVENTS)
-    vty_out (vty,"IS-IS SPF events debugging is %s%s", onoffs, 
-             VTY_NEWLINE);
+    vty_out (vty, "IS-IS SPF events debugging is %s%s", onoffs, VTY_NEWLINE);
   if (flags & DEBUG_SPF_STATS)
-    vty_out (vty,"IS-IS SPF Timing and Statistics Data debugging is %s%s", 
-             onoffs, VTY_NEWLINE);
+    vty_out (vty, "IS-IS SPF Timing and Statistics Data debugging is %s%s",
+	     onoffs, VTY_NEWLINE);
   if (flags & DEBUG_SPF_TRIGGERS)
-    vty_out (vty,"IS-IS SPF triggering events debugging is %s%s", onoffs, 
-             VTY_NEWLINE);
+    vty_out (vty, "IS-IS SPF triggering events debugging is %s%s", onoffs,
+	     VTY_NEWLINE);
   if (flags & DEBUG_UPDATE_PACKETS)
-    vty_out (vty,"IS-IS Update related packet debugging is %s%s", onoffs, 
-             VTY_NEWLINE);
+    vty_out (vty, "IS-IS Update related packet debugging is %s%s", onoffs,
+	     VTY_NEWLINE);
   if (flags & DEBUG_RTE_EVENTS)
-    vty_out (vty,"IS-IS Route related debuggin is %s%s", onoffs, 
-             VTY_NEWLINE);
+    vty_out (vty, "IS-IS Route related debuggin is %s%s", onoffs,
+	     VTY_NEWLINE);
   if (flags & DEBUG_EVENTS)
-    vty_out (vty,"IS-IS Event debugging is %s%s", onoffs, 
-             VTY_NEWLINE);
+    vty_out (vty, "IS-IS Event debugging is %s%s", onoffs, VTY_NEWLINE);
 
 }
 
@@ -497,17 +521,16 @@ DEFUN (show_debugging,
        SHOW_STR
        "State of each debugging option\n")
 {
-  vty_out (vty,"IS-IS:%s", VTY_NEWLINE);
+  vty_out (vty, "IS-IS:%s", VTY_NEWLINE);
   print_debug (vty, isis->debugs, 1);
   return CMD_SUCCESS;
 }
 
 /* Debug node. */
-static struct cmd_node debug_node =
-{
+static struct cmd_node debug_node = {
   DEBUG_NODE,
- "",
- 1
+  "",
+  1
 };
 
 static int
@@ -516,61 +539,61 @@ config_write_debug (struct vty *vty)
   int write = 0;
   int flags = isis->debugs;
 
-  if (flags & DEBUG_ADJ_PACKETS) {
-    vty_out (vty, "debug isis adj-packets%s",
-             VTY_NEWLINE);
-    write++;
-  }
-  if (flags & DEBUG_CHECKSUM_ERRORS) {
-    vty_out (vty, "debug isis checksum-errors%s",
-             VTY_NEWLINE);
-    write++;
-  }
-  if (flags & DEBUG_LOCAL_UPDATES) {
-    vty_out (vty, "debug isis local-updates%s",
-             VTY_NEWLINE);
-    write++;
-  }
-  if (flags & DEBUG_PROTOCOL_ERRORS) {
-    vty_out (vty, "debug isis protocol-errors%s",  
-             VTY_NEWLINE);
-    write++;
-  }
-  if (flags & DEBUG_SNP_PACKETS) {
-    vty_out (vty, "debug isis snp-packets%s",
-             VTY_NEWLINE);
-    write++;
-  }
-  if (flags & DEBUG_SPF_EVENTS) {
-    vty_out (vty, "debug isis spf-events%s",
-             VTY_NEWLINE);
-    write++;
-  }
-  if (flags & DEBUG_SPF_STATS) {
-    vty_out (vty, "debug isis spf-statistics%s",
-             VTY_NEWLINE);
-    write++;
-  }
-  if (flags & DEBUG_SPF_TRIGGERS) {
-    vty_out (vty, "debug isis spf-triggers%s",
-             VTY_NEWLINE);
-    write++;
-  }
-  if (flags & DEBUG_UPDATE_PACKETS) {
-    vty_out (vty, "debug isis update-packets%s",
-             VTY_NEWLINE);
-    write++;
-  }
-  if (flags & DEBUG_RTE_EVENTS) {
-    vty_out (vty, "debug isis route-events%s",
-             VTY_NEWLINE);
-    write++;
-  }
-  if (flags & DEBUG_EVENTS) {
-    vty_out (vty, "debug isis events%s",
-             VTY_NEWLINE);
-    write++;
-  }
+  if (flags & DEBUG_ADJ_PACKETS)
+    {
+      vty_out (vty, "debug isis adj-packets%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_CHECKSUM_ERRORS)
+    {
+      vty_out (vty, "debug isis checksum-errors%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_LOCAL_UPDATES)
+    {
+      vty_out (vty, "debug isis local-updates%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_PROTOCOL_ERRORS)
+    {
+      vty_out (vty, "debug isis protocol-errors%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_SNP_PACKETS)
+    {
+      vty_out (vty, "debug isis snp-packets%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_SPF_EVENTS)
+    {
+      vty_out (vty, "debug isis spf-events%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_SPF_STATS)
+    {
+      vty_out (vty, "debug isis spf-statistics%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_SPF_TRIGGERS)
+    {
+      vty_out (vty, "debug isis spf-triggers%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_UPDATE_PACKETS)
+    {
+      vty_out (vty, "debug isis update-packets%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_RTE_EVENTS)
+    {
+      vty_out (vty, "debug isis route-events%s", VTY_NEWLINE);
+      write++;
+    }
+  if (flags & DEBUG_EVENTS)
+    {
+      vty_out (vty, "debug isis events%s", VTY_NEWLINE);
+      write++;
+    }
 
   return write;
 }
@@ -580,11 +603,10 @@ DEFUN (debug_isis_adj,
        "debug isis adj-packets",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS Adjacency related packets\n"
-       )
+       "IS-IS Adjacency related packets\n")
 {
   isis->debugs |= DEBUG_ADJ_PACKETS;
-  print_debug (vty,DEBUG_ADJ_PACKETS,1);
+  print_debug (vty, DEBUG_ADJ_PACKETS, 1);
 
   return CMD_SUCCESS;
 }
@@ -594,24 +616,20 @@ DEFUN (no_debug_isis_adj,
        "no debug isis adj-packets",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS Adjacency related packets\n"
-       )
+       "IS-IS Adjacency related packets\n")
 {
-
   isis->debugs &= ~DEBUG_ADJ_PACKETS;
   print_debug (vty, DEBUG_ADJ_PACKETS, 0);
 
   return CMD_SUCCESS;
 }
 
-
 DEFUN (debug_isis_csum,
        debug_isis_csum_cmd,
        "debug isis checksum-errors",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS LSP checksum errors\n"
-       )
+       "IS-IS LSP checksum errors\n")
 {
   isis->debugs |= DEBUG_CHECKSUM_ERRORS;
   print_debug (vty, DEBUG_CHECKSUM_ERRORS, 1);
@@ -624,12 +642,11 @@ DEFUN (no_debug_isis_csum,
        "no debug isis checksum-errors",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS LSP checksum errors\n"
-       )
+       "IS-IS LSP checksum errors\n")
 {
   isis->debugs &= ~DEBUG_CHECKSUM_ERRORS;
   print_debug (vty, DEBUG_CHECKSUM_ERRORS, 0);
-  
+
   return CMD_SUCCESS;
 }
 
@@ -638,8 +655,7 @@ DEFUN (debug_isis_lupd,
        "debug isis local-updates",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS local update packets\n"
-       )
+       "IS-IS local update packets\n")
 {
   isis->debugs |= DEBUG_LOCAL_UPDATES;
   print_debug (vty, DEBUG_LOCAL_UPDATES, 1);
@@ -652,22 +668,20 @@ DEFUN (no_debug_isis_lupd,
        "no debug isis local-updates",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS local update packets\n"
-       )
+       "IS-IS local update packets\n")
 {
   isis->debugs &= ~DEBUG_LOCAL_UPDATES;
-  print_debug (vty, DEBUG_LOCAL_UPDATES , 0);
-  
+  print_debug (vty, DEBUG_LOCAL_UPDATES, 0);
+
   return CMD_SUCCESS;
 }
 
 DEFUN (debug_isis_err,
        debug_isis_err_cmd,
-       "debug isis protocol-errors",  
+       "debug isis protocol-errors",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS LSP protocol errors\n"
-       )
+       "IS-IS LSP protocol errors\n")
 {
   isis->debugs |= DEBUG_PROTOCOL_ERRORS;
   print_debug (vty, DEBUG_PROTOCOL_ERRORS, 1);
@@ -680,12 +694,11 @@ DEFUN (no_debug_isis_err,
        "no debug isis protocol-errors",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS LSP protocol errors\n"
-       )
+       "IS-IS LSP protocol errors\n")
 {
   isis->debugs &= ~DEBUG_PROTOCOL_ERRORS;
   print_debug (vty, DEBUG_PROTOCOL_ERRORS, 0);
-  
+
   return CMD_SUCCESS;
 }
 
@@ -694,8 +707,7 @@ DEFUN (debug_isis_snp,
        "debug isis snp-packets",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS CSNP/PSNP packets\n"
-       )
+       "IS-IS CSNP/PSNP packets\n")
 {
   isis->debugs |= DEBUG_SNP_PACKETS;
   print_debug (vty, DEBUG_SNP_PACKETS, 1);
@@ -708,24 +720,20 @@ DEFUN (no_debug_isis_snp,
        "no debug isis snp-packets",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS CSNP/PSNP packets\n"
-       )
+       "IS-IS CSNP/PSNP packets\n")
 {
-  isis->debugs &= ~DEBUG_SNP_PACKETS ;
+  isis->debugs &= ~DEBUG_SNP_PACKETS;
   print_debug (vty, DEBUG_SNP_PACKETS, 0);
-  
+
   return CMD_SUCCESS;
 }
-
-
 
 DEFUN (debug_isis_upd,
        debug_isis_upd_cmd,
        "debug isis update-packets",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS Update related packets\n"
-       )
+       "IS-IS Update related packets\n")
 {
   isis->debugs |= DEBUG_UPDATE_PACKETS;
   print_debug (vty, DEBUG_UPDATE_PACKETS, 1);
@@ -738,26 +746,23 @@ DEFUN (no_debug_isis_upd,
        "no debug isis update-packets",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS Update related packets\n"
-       )
+       "IS-IS Update related packets\n")
 {
   isis->debugs &= ~DEBUG_UPDATE_PACKETS;
   print_debug (vty, DEBUG_UPDATE_PACKETS, 0);
-  
+
   return CMD_SUCCESS;
 }
-
 
 DEFUN (debug_isis_spfevents,
        debug_isis_spfevents_cmd,
        "debug isis spf-events",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS Shortest Path First Events\n"
-       )
+       "IS-IS Shortest Path First Events\n")
 {
   isis->debugs |= DEBUG_SPF_EVENTS;
-  print_debug (vty, DEBUG_SPF_EVENTS , 1);
+  print_debug (vty, DEBUG_SPF_EVENTS, 1);
 
   return CMD_SUCCESS;
 }
@@ -767,12 +772,11 @@ DEFUN (no_debug_isis_spfevents,
        "no debug isis spf-events",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS Shortest Path First Events\n"
-       )
+       "IS-IS Shortest Path First Events\n")
 {
   isis->debugs &= ~DEBUG_SPF_EVENTS;
-  print_debug (vty, DEBUG_SPF_EVENTS , 0);
-  
+  print_debug (vty, DEBUG_SPF_EVENTS, 0);
+
   return CMD_SUCCESS;
 }
 
@@ -782,8 +786,7 @@ DEFUN (debug_isis_spfstats,
        "debug isis spf-statistics ",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS SPF Timing and Statistic Data\n"
-       )
+       "IS-IS SPF Timing and Statistic Data\n")
 {
   isis->debugs |= DEBUG_SPF_STATS;
   print_debug (vty, DEBUG_SPF_STATS, 1);
@@ -796,12 +799,11 @@ DEFUN (no_debug_isis_spfstats,
        "no debug isis spf-statistics",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS SPF Timing and Statistic Data\n"
-       )
+       "IS-IS SPF Timing and Statistic Data\n")
 {
   isis->debugs &= ~DEBUG_SPF_STATS;
   print_debug (vty, DEBUG_SPF_STATS, 0);
-  
+
   return CMD_SUCCESS;
 }
 
@@ -810,8 +812,7 @@ DEFUN (debug_isis_spftrigg,
        "debug isis spf-triggers",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS SPF triggering events\n"
-       )
+       "IS-IS SPF triggering events\n")
 {
   isis->debugs |= DEBUG_SPF_TRIGGERS;
   print_debug (vty, DEBUG_SPF_TRIGGERS, 1);
@@ -824,12 +825,11 @@ DEFUN (no_debug_isis_spftrigg,
        "no debug isis spf-triggers",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS SPF triggering events\n"
-       )
+       "IS-IS SPF triggering events\n")
 {
   isis->debugs &= ~DEBUG_SPF_TRIGGERS;
   print_debug (vty, DEBUG_SPF_TRIGGERS, 0);
-  
+
   return CMD_SUCCESS;
 }
 
@@ -838,8 +838,7 @@ DEFUN (debug_isis_rtevents,
        "debug isis route-events",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS Route related events\n"
-       )
+       "IS-IS Route related events\n")
 {
   isis->debugs |= DEBUG_RTE_EVENTS;
   print_debug (vty, DEBUG_RTE_EVENTS, 1);
@@ -852,12 +851,11 @@ DEFUN (no_debug_isis_rtevents,
        "no debug isis route-events",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS Route related events\n"
-       )
+       "IS-IS Route related events\n")
 {
   isis->debugs &= ~DEBUG_RTE_EVENTS;
   print_debug (vty, DEBUG_RTE_EVENTS, 0);
-  
+
   return CMD_SUCCESS;
 }
 
@@ -866,8 +864,7 @@ DEFUN (debug_isis_events,
        "debug isis events",
        DEBUG_STR
        "IS-IS information\n"
-       "IS-IS  Events\n"
-       )
+       "IS-IS  Events\n")
 {
   isis->debugs |= DEBUG_EVENTS;
   print_debug (vty, DEBUG_EVENTS, 1);
@@ -880,15 +877,13 @@ DEFUN (no_debug_isis_events,
        "no debug isis events",
        UNDEBUG_STR
        "IS-IS information\n"
-       "IS-IS Events\n"
-       )
+       "IS-IS Events\n")
 {
   isis->debugs &= ~DEBUG_EVENTS;
   print_debug (vty, DEBUG_EVENTS, 0);
-  
+
   return CMD_SUCCESS;
 }
-
 
 DEFUN (show_hostname,
        show_hostname_cmd,
@@ -898,50 +893,46 @@ DEFUN (show_hostname,
        "IS-IS Dynamic hostname mapping\n")
 {
   dynhn_print_all (vty);
-  
+
   return CMD_SUCCESS;
 }
-
 
 DEFUN (show_database,
        show_database_cmd,
        "show isis database",
-       SHOW_STR
-       "IS-IS information\n"
-       "IS-IS link state database\n")
+       SHOW_STR "IS-IS information\n" "IS-IS link state database\n")
 {
   struct listnode *node;
   struct isis_area *area;
-  int level,lsp_count;
+  int level, lsp_count;
 
   if (isis->area_list->count == 0)
     return CMD_SUCCESS;
-  
-  for (node = listhead (isis->area_list); node; nextnode (node)) {
-    area = getdata (node);
-    vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
-             VTY_NEWLINE);
-    for (level=0;level<ISIS_LEVELS;level++) {
-      if (area->lspdb[level] && dict_count (area->lspdb[level]) > 0) {
-        vty_out (vty,"IS-IS Level-%d link-state database:%s", level+1, 
-                 VTY_NEWLINE);
 
-        lsp_count = lsp_print_all (vty, area->lspdb[level],
-				   ISIS_UI_LEVEL_BRIEF,
-				   area->dynhostname);
+  for (node = listhead (isis->area_list); node; nextnode (node))
+    {
+      area = getdata (node);
+      vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
+	       VTY_NEWLINE);
+      for (level = 0; level < ISIS_LEVELS; level++)
+	{
+	  if (area->lspdb[level] && dict_count (area->lspdb[level]) > 0)
+	    {
+	      vty_out (vty, "IS-IS Level-%d link-state database:%s",
+		       level + 1, VTY_NEWLINE);
 
-	vty_out (vty,"%s    %u LSPs%s%s",
-		 VTY_NEWLINE,
-		 lsp_count,
-		 VTY_NEWLINE,
-		 VTY_NEWLINE);
-      }
+	      lsp_count = lsp_print_all (vty, area->lspdb[level],
+					 ISIS_UI_LEVEL_BRIEF,
+					 area->dynhostname);
+
+	      vty_out (vty, "%s    %u LSPs%s%s",
+		       VTY_NEWLINE, lsp_count, VTY_NEWLINE, VTY_NEWLINE);
+	    }
+	}
     }
-  }
 
   return CMD_SUCCESS;
 }
-
 
 DEFUN (show_database_detail,
        show_database_detail_cmd,
@@ -957,27 +948,27 @@ DEFUN (show_database_detail,
   if (isis->area_list->count == 0)
     return CMD_SUCCESS;
 
-  for (node = listhead (isis->area_list); node; nextnode (node)) {
-    area = getdata (node);
-    vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
-             VTY_NEWLINE);
-    for (level=0;level<ISIS_LEVELS;level++) {
-      if (area->lspdb[level] && dict_count (area->lspdb[level]) > 0) {
-        vty_out (vty,"IS-IS Level-%d Link State Database:%s", level+1, 
-                 VTY_NEWLINE);
+  for (node = listhead (isis->area_list); node; nextnode (node))
+    {
+      area = getdata (node);
+      vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
+	       VTY_NEWLINE);
+      for (level = 0; level < ISIS_LEVELS; level++)
+	{
+	  if (area->lspdb[level] && dict_count (area->lspdb[level]) > 0)
+	    {
+	      vty_out (vty, "IS-IS Level-%d Link State Database:%s",
+		       level + 1, VTY_NEWLINE);
 
-        lsp_count = lsp_print_all (vty, area->lspdb[level],
-				   ISIS_UI_LEVEL_DETAIL,
-				   area->dynhostname);
+	      lsp_count = lsp_print_all (vty, area->lspdb[level],
+					 ISIS_UI_LEVEL_DETAIL,
+					 area->dynhostname);
 
-	vty_out (vty,"%s    %u LSPs%s%s",
-		 VTY_NEWLINE,
-		 lsp_count,
-		 VTY_NEWLINE,
-		 VTY_NEWLINE);
-      }
+	      vty_out (vty, "%s    %u LSPs%s%s",
+		       VTY_NEWLINE, lsp_count, VTY_NEWLINE, VTY_NEWLINE);
+	    }
+	}
     }
-  }
 
   return CMD_SUCCESS;
 }
@@ -988,13 +979,11 @@ DEFUN (show_database_detail,
 DEFUN (router_isis,
        router_isis_cmd,
        "router isis WORD",
-        ROUTER_STR
+       ROUTER_STR
        "ISO IS-IS\n"
        "ISO Routing area tag")
 {
-
   return isis_area_get (vty, argv[0]);
-  
 }
 
 /* 
@@ -1003,11 +992,7 @@ DEFUN (router_isis,
 DEFUN (no_router_isis,
        no_router_isis_cmd,
        "no router isis WORD",
-       "no\n"
-       ROUTER_STR
-       "ISO IS-IS\n"
-       "ISO Routing area tag")
-
+       "no\n" ROUTER_STR "ISO IS-IS\n" "ISO Routing area tag")
 {
   return isis_area_destroy (vty, argv[0]);
 }
@@ -1019,11 +1004,10 @@ DEFUN (net,
        net_cmd,
        "net WORD",
        "A Network Entity Title for this process (OSI only)\n"
-       "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n" )
+       "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
   return area_net_title (vty, argv[0]);
 }
-
 
 /*
  * 'no net' command
@@ -1033,7 +1017,7 @@ DEFUN (no_net,
        "no net WORD",
        NO_STR
        "A Network Entity Title for this process (OSI only)\n"
-       "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n" )
+       "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
   return area_clear_net_title (vty, argv[0]);
 }
@@ -1042,27 +1026,29 @@ DEFUN (area_passwd,
        area_passwd_cmd,
        "area-password WORD",
        "Configure the authentication password for an area\n"
-       "Area password\n" )
+       "Area password\n")
 {
   struct isis_area *area;
   int len;
 
   area = vty->index;
 
-  if (!area) {
-    vty_out (vty, "Cant find IS-IS instance%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  
+  if (!area)
+    {
+      vty_out (vty, "Cant find IS-IS instance%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   len = strlen (argv[0]);
-  if (len > 254) {
-    vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  area->area_passwd.len = (u_char)len;
+  if (len > 254)
+    {
+      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  area->area_passwd.len = (u_char) len;
   area->area_passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
   strncpy (area->area_passwd.passwd, argv[0], 255);
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1073,48 +1059,49 @@ DEFUN (no_area_passwd,
        "Configure the authentication password for an area\n")
 {
   struct isis_area *area;
-  
+
   area = vty->index;
 
-  if (!area) {
-    vty_out (vty, "Cant find IS-IS instance%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  
+  if (!area)
+    {
+      vty_out (vty, "Cant find IS-IS instance%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   memset (&area->area_passwd, 0, sizeof (struct isis_passwd));
 
   return CMD_SUCCESS;
 }
 
-
 DEFUN (domain_passwd,
        domain_passwd_cmd,
        "domain-password WORD",
        "Set the authentication password for a routing domain\n"
-       "Routing domain password\n" )
+       "Routing domain password\n")
 {
   struct isis_area *area;
   int len;
 
   area = vty->index;
 
-  if (!area) {
-    vty_out (vty, "Cant find IS-IS instance%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-    
+  if (!area)
+    {
+      vty_out (vty, "Cant find IS-IS instance%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   len = strlen (argv[0]);
-  if (len > 254) {
-    vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  area->domain_passwd.len = (u_char)len;
+  if (len > 254)
+    {
+      vty_out (vty, "Too long area password (>254)%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  area->domain_passwd.len = (u_char) len;
   area->domain_passwd.type = ISIS_PASSWD_TYPE_CLEARTXT;
   strncpy (area->domain_passwd.passwd, argv[0], 255);
-  
+
   return CMD_SUCCESS;
 }
-
 
 DEFUN (no_domain_passwd,
        no_domain_passwd_cmd,
@@ -1123,16 +1110,17 @@ DEFUN (no_domain_passwd,
        "Set the authentication password for a routing domain\n")
 {
   struct isis_area *area;
-  
+
   area = vty->index;
 
-  if (!area) {
-    vty_out (vty, "Cant find IS-IS instance%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
-  
+  if (!area)
+    {
+      vty_out (vty, "Cant find IS-IS instance%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   memset (&area->domain_passwd, 0, sizeof (struct isis_passwd));
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1149,19 +1137,21 @@ DEFUN (is_type,
 
   area = vty->index;
 
-  if (!area) {
-    vty_out (vty, "Cant find IS-IS instance%s", VTY_NEWLINE);
-    return CMD_WARNING;
-  }
+  if (!area)
+    {
+      vty_out (vty, "Cant find IS-IS instance%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
-  type = string2circuit_t (argv[0]); 
-  if (!type) {
-    vty_out (vty, "Unknown IS level %s", VTY_NEWLINE);
-    return CMD_SUCCESS;
-  }
+  type = string2circuit_t (argv[0]);
+  if (!type)
+    {
+      vty_out (vty, "Unknown IS level %s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
 
   isis_event_system_type_change (area, type);
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1174,18 +1164,17 @@ DEFUN (no_is_type,
        "Act as both a station router and an area router\n"
        "Act as an area router only\n")
 {
-  
   struct isis_area *area;
   int type;
 
   area = vty->index;
   assert (area);
-  
+
   /*
    * Put the is-type back to default. Which is level-1-2 on first
    * circuit for the area level-1 for the rest
    */
-  if (getdata (listhead (isis->area_list)) == area ) 
+  if (getdata (listhead (isis->area_list)) == area)
     type = IS_LEVEL_1_AND_2;
   else
     type = IS_LEVEL_1;
@@ -1206,7 +1195,7 @@ DEFUN (lsp_gen_interval,
 
   area = vty->index;
   assert (area);
-  
+
   interval = atoi (argv[0]);
   area->lsp_gen_interval[0] = interval;
   area->lsp_gen_interval[1] = interval;
@@ -1218,14 +1207,13 @@ DEFUN (no_lsp_gen_interval,
        no_lsp_gen_interval_cmd,
        "no lsp-gen-interval",
        NO_STR
-       "Minimum interval between regenerating same LSP\n"
-       )
+       "Minimum interval between regenerating same LSP\n")
 {
   struct isis_area *area;
 
   area = vty->index;
   assert (area);
-  
+
   area->lsp_gen_interval[0] = LSP_GEN_INTERVAL_DEFAULT;
   area->lsp_gen_interval[1] = LSP_GEN_INTERVAL_DEFAULT;
 
@@ -1237,23 +1225,21 @@ ALIAS (no_lsp_gen_interval,
        "no lsp-gen-interval <1-120>",
        NO_STR
        "Minimum interval between regenerating same LSP\n"
-       "Minimum interval in seconds\n"
-       )
+       "Minimum interval in seconds\n")
 
 DEFUN (lsp_gen_interval_l1,
        lsp_gen_interval_l1_cmd,
        "lsp-gen-interval level-1 <1-120>",
        "Minimum interval between regenerating same LSP\n"
        "Set interval for level 1 only\n"
-       "Minimum interval in seconds\n"
-       )
+       "Minimum interval in seconds\n")
 {
   struct isis_area *area;
   uint16_t interval;
 
   area = vty->index;
   assert (area);
-  
+
   interval = atoi (argv[0]);
   area->lsp_gen_interval[0] = interval;
 
@@ -1265,15 +1251,13 @@ DEFUN (no_lsp_gen_interval_l1,
        "no lsp-gen-interval level-1",
        NO_STR
        "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 1 only\n"
-
-       )
+       "Set interval for level 1 only\n")
 {
   struct isis_area *area;
 
   area = vty->index;
   assert (area);
-  
+
   area->lsp_gen_interval[0] = LSP_GEN_INTERVAL_DEFAULT;
 
   return CMD_SUCCESS;
@@ -1285,24 +1269,21 @@ ALIAS (no_lsp_gen_interval_l1,
        NO_STR
        "Minimum interval between regenerating same LSP\n"
        "Set interval for level 1 only\n"
-       "Minimum interval in seconds\n"
-       )
-
+       "Minimum interval in seconds\n")
 
 DEFUN (lsp_gen_interval_l2,
        lsp_gen_interval_l2_cmd,
        "lsp-gen-interval level-2 <1-120>",
        "Minimum interval between regenerating same LSP\n"
        "Set interval for level 2 only\n"
-       "Minimum interval in seconds\n"
-       )
+       "Minimum interval in seconds\n")
 {
   struct isis_area *area;
   int interval;
 
   area = vty->index;
   assert (area);
-  
+
   interval = atoi (argv[0]);
   area->lsp_gen_interval[1] = interval;
 
@@ -1314,15 +1295,14 @@ DEFUN (no_lsp_gen_interval_l2,
        "no lsp-gen-interval level-2",
        NO_STR
        "Minimum interval between regenerating same LSP\n"
-       "Set interval for level 2 only\n"
-       )
+       "Set interval for level 2 only\n")
 {
   struct isis_area *area;
   int interval;
 
   area = vty->index;
   assert (area);
-  
+
   interval = atoi (argv[0]);
   area->lsp_gen_interval[1] = LSP_GEN_INTERVAL_DEFAULT;
 
@@ -1335,9 +1315,7 @@ ALIAS (no_lsp_gen_interval_l2,
        NO_STR
        "Minimum interval between regenerating same LSP\n"
        "Set interval for level 2 only\n"
-       "Minimum interval in seconds\n"
-       )
-     
+       "Minimum interval in seconds\n")
 
 DEFUN (metric_style,
        metric_style_cmd,
@@ -1350,7 +1328,7 @@ DEFUN (metric_style,
 
   area = vty->index;
   assert (area);
-  if (!strcmp(argv[0],"wide"))
+  if (!strcmp (argv[0], "wide"))
     area->newmetric = 1;
   else
     area->newmetric = 0;
@@ -1371,7 +1349,7 @@ DEFUN (no_metric_style,
   area = vty->index;
   assert (area);
 
-  if (!strcmp(argv[0],"wide"))
+  if (!strcmp (argv[0], "wide"))
     area->newmetric = 0;
   else
     area->newmetric = 1;
@@ -1383,15 +1361,15 @@ DEFUN (dynamic_hostname,
        dynamic_hostname_cmd,
        "hostname dynamic",
        "Dynamic hostname for IS-IS\n"
-       "Dynamic hostname\n") 
+       "Dynamic hostname\n")
 {
   struct isis_area *area;
 
   area = vty->index;
   assert (area);
-  
+
   area->dynhostname = 1;
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1400,15 +1378,15 @@ DEFUN (no_dynamic_hostname,
        "no hostname dynamic",
        NO_STR
        "Dynamic hostname for IS-IS\n"
-       "Dynamic hostname\n") 
+       "Dynamic hostname\n")
 {
   struct isis_area *area;
 
   area = vty->index;
   assert (area);
-  
+
   area->dynhostname = 0;
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1420,12 +1398,12 @@ DEFUN (spf_interval,
 {
   struct isis_area *area;
   u_int16_t interval;
-  
+
   area = vty->index;
   interval = atoi (argv[0]);
   area->min_spf_interval[0] = interval;
   area->min_spf_interval[1] = interval;
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1433,16 +1411,15 @@ DEFUN (no_spf_interval,
        no_spf_interval_cmd,
        "no spf-interval",
        NO_STR
-       "Minimum interval between SPF calculations\n"
-       )
+       "Minimum interval between SPF calculations\n")
 {
   struct isis_area *area;
-  
+
   area = vty->index;
 
   area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
   area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1451,8 +1428,7 @@ ALIAS (no_spf_interval,
        "no spf-interval <1-120>",
        NO_STR
        "Minimum interval between SPF calculations\n"
-       "Minimum interval between consecutive SPFs in seconds\n"
-       )
+       "Minimum interval between consecutive SPFs in seconds\n")
 
 DEFUN (spf_interval_l1,
        spf_interval_l1_cmd,
@@ -1463,11 +1439,11 @@ DEFUN (spf_interval_l1,
 {
   struct isis_area *area;
   u_int16_t interval;
-  
+
   area = vty->index;
   interval = atoi (argv[0]);
   area->min_spf_interval[0] = interval;
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1479,11 +1455,11 @@ DEFUN (no_spf_interval_l1,
        "Set interval for level 1 only\n")
 {
   struct isis_area *area;
-  
+
   area = vty->index;
 
   area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1504,11 +1480,11 @@ DEFUN (spf_interval_l2,
 {
   struct isis_area *area;
   u_int16_t interval;
-  
+
   area = vty->index;
   interval = atoi (argv[0]);
   area->min_spf_interval[1] = interval;
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1520,11 +1496,11 @@ DEFUN (no_spf_interval_l2,
        "Set interval for level 2 only\n")
 {
   struct isis_area *area;
-  
+
   area = vty->index;
 
   area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
-  
+
   return CMD_SUCCESS;
 }
 
@@ -1535,7 +1511,6 @@ ALIAS (no_spf_interval,
        "Minimum interval between SPF calculations\n"
        "Set interval for level 2 only\n"
        "Minimum interval between consecutive SPFs in seconds\n")
-
 
 #ifdef TOPOLOGY_GENERATE
 DEFUN (topology_generate_grid,
@@ -1558,15 +1533,16 @@ DEFUN (topology_generate_grid,
   area = vty->index;
   assert (area);
 
-  if (!spgrid_check_params (vty, argc, argv)) {
-    if (area->topology)
-      list_delete (area->topology);
-    area->topology = list_new();
-    memcpy(area->top_params,vty->buf,200);
-    gen_spgrid_topology (vty, area->topology);
-    remove_topology_lsps (area);
-    generate_topology_lsps (area);
-  }
+  if (!spgrid_check_params (vty, argc, argv))
+    {
+      if (area->topology)
+	list_delete (area->topology);
+      area->topology = list_new ();
+      memcpy (area->top_params, vty->buf, 200);
+      gen_spgrid_topology (vty, area->topology);
+      remove_topology_lsps (area);
+      generate_topology_lsps (area);
+    }
 
   return CMD_SUCCESS;
 }
@@ -1582,14 +1558,18 @@ DEFUN (show_isis_topology,
   struct listnode *node;
   struct listnode *node2;
   struct arc *arc;
-  LIST_LOOP (isis->area_list, area, node) {
-    if (area->topology) {
-      vty_out (vty, "Topology for isis area:%s%s",area->area_tag, VTY_NEWLINE);
-      LIST_LOOP (area->topology, arc, node2) {
-        vty_out (vty, "a  %ld   %ld   %ld%s",arc->from_node, arc->to_node, 
-		 arc->distance, VTY_NEWLINE);
+  LIST_LOOP (isis->area_list, area, node)
+  {
+    if (area->topology)
+      {
+	vty_out (vty, "Topology for isis area:%s%s", area->area_tag,
+		 VTY_NEWLINE);
+	LIST_LOOP (area->topology, arc, node2)
+	{
+	  vty_out (vty, "a  %ld   %ld   %ld%s", arc->from_node, arc->to_node,
+		   arc->distance, VTY_NEWLINE);
+	}
       }
-    }
   }
   return CMD_SUCCESS;
 }
@@ -1597,13 +1577,13 @@ DEFUN (show_isis_topology,
 /*
  * 'topology base-is' command
  */
-DEFUN (topology_baseis ,
+DEFUN (topology_baseis,
        topology_baseis_cmd,
        "topology base-is WORD",
        "Topology for IS-IS\n"
        "Topology for IS-IS\n"
        "A Network IS Base for this topology"
-       "XX.XXXX.XXXX.XX Network entity title (NET)\n" )
+       "XX.XXXX.XXXX.XX Network entity title (NET)\n")
 {
   struct isis_area *area;
   u_char buff[ISIS_SYS_ID_LEN];
@@ -1611,10 +1591,11 @@ DEFUN (topology_baseis ,
   area = vty->index;
   assert (area);
 
-  if (sysid2buff (buff, argv[0])) {
-    sysid2buff (area->topology_baseis, argv[0]);
-  }
-  
+  if (sysid2buff (buff, argv[0]))
+    {
+      sysid2buff (area->topology_baseis, argv[0]);
+    }
+
   return CMD_SUCCESS;
 }
 
@@ -1626,14 +1607,14 @@ DEFUN (no_topology_baseis,
        "no topology base-is WORD",
        NO_STR
        "A Network Entity Title for this process (OSI only)"
-       "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n" )
+       "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
   struct isis_area *area;
 
   area = vty->index;
   assert (area);
 
-  memcpy(area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS, ISIS_SYS_ID_LEN);
+  memcpy (area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS, ISIS_SYS_ID_LEN);
   return CMD_SUCCESS;
 }
 
@@ -1643,41 +1624,41 @@ DEFUN (lsp_lifetime,
        lsp_lifetime_cmd,
        "lsp-lifetime <380-65535>",
        "Maximum LSP lifetime\n"
-       "LSP lifetime in seconds\n"
-       )
+       "LSP lifetime in seconds\n")
 {
   struct isis_area *area;
   uint16_t interval;
 
   area = vty->index;
   assert (area);
-  
+
   interval = atoi (argv[0]);
 
-  if (interval < ISIS_MIN_LSP_LIFETIME) {
-    vty_out (vty, "LSP lifetime (%us) below %us%s",
-	     interval,
-	     ISIS_MIN_LSP_LIFETIME,
-	     VTY_NEWLINE);
+  if (interval < ISIS_MIN_LSP_LIFETIME)
+    {
+      vty_out (vty, "LSP lifetime (%us) below %us%s",
+	       interval, ISIS_MIN_LSP_LIFETIME, VTY_NEWLINE);
 
-    return CMD_WARNING;
-  }
+      return CMD_WARNING;
+    }
 
 
   area->max_lsp_lifetime[0] = interval;
   area->max_lsp_lifetime[1] = interval;
-  area->lsp_refresh[0] = interval-300;
-  area->lsp_refresh[1] = interval-300;
+  area->lsp_refresh[0] = interval - 300;
+  area->lsp_refresh[1] = interval - 300;
 
-  if (area->t_lsp_refresh[0]) {
-    thread_cancel (area->t_lsp_refresh[0]);
-    thread_execute (master, lsp_refresh_l1, area, 0);
-  }
+  if (area->t_lsp_refresh[0])
+    {
+      thread_cancel (area->t_lsp_refresh[0]);
+      thread_execute (master, lsp_refresh_l1, area, 0);
+    }
 
-  if (area->t_lsp_refresh[1]) {
-    thread_cancel (area->t_lsp_refresh[1]);
-    thread_execute (master, lsp_refresh_l2, area, 0);
-  }
+  if (area->t_lsp_refresh[1])
+    {
+      thread_cancel (area->t_lsp_refresh[1]);
+      thread_execute (master, lsp_refresh_l2, area, 0);
+    }
 
 
   return CMD_SUCCESS;
@@ -1687,18 +1668,17 @@ DEFUN (no_lsp_lifetime,
        no_lsp_lifetime_cmd,
        "no lsp-lifetime",
        NO_STR
-       "LSP lifetime in seconds\n"
-       )
+       "LSP lifetime in seconds\n")
 {
   struct isis_area *area;
 
   area = vty->index;
   assert (area);
-  
-  area->max_lsp_lifetime[0] = MAX_AGE;          /* 1200s */
-  area->max_lsp_lifetime[1] = MAX_AGE;          /* 1200s */ 
-  area->lsp_refresh[0] = MAX_LSP_GEN_INTERVAL;  /*  900s */
-  area->lsp_refresh[1] = MAX_LSP_GEN_INTERVAL;  /*  900s */
+
+  area->max_lsp_lifetime[0] = MAX_AGE;	/* 1200s */
+  area->max_lsp_lifetime[1] = MAX_AGE;	/* 1200s */
+  area->lsp_refresh[0] = MAX_LSP_GEN_INTERVAL;	/*  900s */
+  area->lsp_refresh[1] = MAX_LSP_GEN_INTERVAL;	/*  900s */
 
   return CMD_SUCCESS;
 }
@@ -1708,36 +1688,33 @@ ALIAS (no_lsp_lifetime,
        "no lsp-lifetime <380-65535>",
        NO_STR
        "Maximum LSP lifetime\n"
-       "LSP lifetime in seconds\n"
-       )
+       "LSP lifetime in seconds\n")
 
 DEFUN (lsp_lifetime_l1,
        lsp_lifetime_l1_cmd,
        "lsp-lifetime level-1 <380-65535>",
        "Maximum LSP lifetime for Level 1 only\n"
-       "LSP lifetime for Level 1 only in seconds\n"
-       )
+       "LSP lifetime for Level 1 only in seconds\n")
 {
   struct isis_area *area;
   uint16_t interval;
 
   area = vty->index;
   assert (area);
-  
+
   interval = atoi (argv[0]);
 
-  if (interval < ISIS_MIN_LSP_LIFETIME) {
-    vty_out (vty, "Level-1 LSP lifetime (%us) below %us%s",
-	     interval,
-	     ISIS_MIN_LSP_LIFETIME,
-	     VTY_NEWLINE);
+  if (interval < ISIS_MIN_LSP_LIFETIME)
+    {
+      vty_out (vty, "Level-1 LSP lifetime (%us) below %us%s",
+	       interval, ISIS_MIN_LSP_LIFETIME, VTY_NEWLINE);
 
-    return CMD_WARNING;
-  }
+      return CMD_WARNING;
+    }
 
 
   area->max_lsp_lifetime[0] = interval;
-  area->lsp_refresh[0] = interval-300;
+  area->lsp_refresh[0] = interval - 300;
 
   return CMD_SUCCESS;
 }
@@ -1746,16 +1723,15 @@ DEFUN (no_lsp_lifetime_l1,
        no_lsp_lifetime_l1_cmd,
        "no lsp-lifetime level-1",
        NO_STR
-       "LSP lifetime for Level 1 only in seconds\n"
-       )
+       "LSP lifetime for Level 1 only in seconds\n")
 {
   struct isis_area *area;
 
   area = vty->index;
   assert (area);
-  
-  area->max_lsp_lifetime[0] = MAX_AGE;          /* 1200s */ 
-  area->lsp_refresh[0] = MAX_LSP_GEN_INTERVAL;  /*  900s */
+
+  area->max_lsp_lifetime[0] = MAX_AGE;	/* 1200s */
+  area->lsp_refresh[0] = MAX_LSP_GEN_INTERVAL;	/*  900s */
 
   return CMD_SUCCESS;
 }
@@ -1765,33 +1741,29 @@ ALIAS (no_lsp_lifetime_l1,
        "no lsp-lifetime level-1 <380-65535>",
        NO_STR
        "Maximum LSP lifetime for Level 1 only\n"
-       "LSP lifetime for Level 1 only in seconds\n"
-       )
+       "LSP lifetime for Level 1 only in seconds\n")
 
 DEFUN (lsp_lifetime_l2,
        lsp_lifetime_l2_cmd,
        "lsp-lifetime level-2 <380-65535>",
        "Maximum LSP lifetime for Level 2 only\n"
-       "LSP lifetime for Level 2 only in seconds\n"
-       )
+       "LSP lifetime for Level 2 only in seconds\n")
 {
   struct isis_area *area;
   uint16_t interval;
 
   area = vty->index;
   assert (area);
-  
+
   interval = atoi (argv[0]);
 
-  if (interval < ISIS_MIN_LSP_LIFETIME) {
-    vty_out (vty, "Level-2 LSP lifetime (%us) below %us%s",
-	     interval,
-	     ISIS_MIN_LSP_LIFETIME,
-	     VTY_NEWLINE);
+  if (interval < ISIS_MIN_LSP_LIFETIME)
+    {
+      vty_out (vty, "Level-2 LSP lifetime (%us) below %us%s",
+	       interval, ISIS_MIN_LSP_LIFETIME, VTY_NEWLINE);
 
-    return CMD_WARNING;
-  }
-
+      return CMD_WARNING;
+    }
 
   area->max_lsp_lifetime[1] = interval;
   area->lsp_refresh[1] = interval - 300;
@@ -1803,16 +1775,15 @@ DEFUN (no_lsp_lifetime_l2,
        no_lsp_lifetime_l2_cmd,
        "no lsp-lifetime level-2",
        NO_STR
-       "LSP lifetime for Level 2 only in seconds\n"
-       )
+       "LSP lifetime for Level 2 only in seconds\n")
 {
   struct isis_area *area;
 
   area = vty->index;
   assert (area);
-  
-  area->max_lsp_lifetime[1] = MAX_AGE;          /* 1200s */ 
-  area->lsp_refresh[1] = MAX_LSP_GEN_INTERVAL;  /*  900s */
+
+  area->max_lsp_lifetime[1] = MAX_AGE;	/* 1200s */
+  area->lsp_refresh[1] = MAX_LSP_GEN_INTERVAL;	/*  900s */
 
   return CMD_SUCCESS;
 }
@@ -1822,127 +1793,149 @@ ALIAS (no_lsp_lifetime_l2,
        "no lsp-lifetime level-2 <380-65535>",
        NO_STR
        "Maximum LSP lifetime for Level 2 only\n"
-       "LSP lifetime for Level 2 only in seconds\n"
-       )
-
-
-
+       "LSP lifetime for Level 2 only in seconds\n")
 
 /* IS-IS configuration write function */
 int
 isis_config_write (struct vty *vty)
 {
   int write = 0;
-  
-  if (isis != NULL) {
-    struct isis_area *area;
-    struct listnode *node;
-    struct listnode *node2;
 
-    LIST_LOOP (isis->area_list, area, node) {
-      /* ISIS - Area name */
-      vty_out (vty, "router isis %s%s",area->area_tag, VTY_NEWLINE);
-      write++;
-      /* ISIS - Net */
-      if (listcount (area->area_addrs) > 0) {
-        struct area_addr *area_addr;
-        LIST_LOOP (area->area_addrs, area_addr, node2) {
-          vty_out (vty, " net %s%s", 
-		   isonet_print (area_addr->area_addr, 
-				 area_addr->addr_len + ISIS_SYS_ID_LEN + 1), 
-		   VTY_NEWLINE);
-          write ++;
-        }
-      }
-      /* ISIS - Dynamic hostname - Defaults to true so only display if false*/
-      if (!area->dynhostname) {
-        vty_out (vty, " no hostname dynamic%s", VTY_NEWLINE);
-        write ++;
-      }
-      /* ISIS - Metric-Style - when true displays wide */
-      if (area->newmetric) {
-        vty_out (vty, " metric-style wide%s", VTY_NEWLINE);
-        write ++;
-      }
-      /* ISIS - Area is-type (level-1-2 is default) */
-      if (area->is_type  == IS_LEVEL_1) {
-        vty_out (vty, " is-type level-1%s", VTY_NEWLINE);
-        write ++;
-      } else {if (area->is_type  == IS_LEVEL_2) {
-        vty_out (vty, " is-type level-2-only%s", VTY_NEWLINE);
-        write ++;
-      }}
-      /* ISIS - Lsp generation interval */
-      if (area->lsp_gen_interval[0] ==  area->lsp_gen_interval[1]) {
-	if (area->lsp_gen_interval[0] != LSP_GEN_INTERVAL_DEFAULT) {
-	  vty_out (vty, " lsp-gen-interval %d%s", area->lsp_gen_interval[0], 
-                   VTY_NEWLINE);
-	  write ++;
-      }} else {
-        if (area->lsp_gen_interval[0] != LSP_GEN_INTERVAL_DEFAULT) {
-          vty_out (vty, " lsp-gen-interval level-1 %d%s", 
-                   area->lsp_gen_interval[0], VTY_NEWLINE);
-          write ++;
-        }
-        if (area->lsp_gen_interval[1] != LSP_GEN_INTERVAL_DEFAULT) {
-          vty_out (vty, " lsp-gen-interval level-2 %d%s", 
-                   area->lsp_gen_interval[1], VTY_NEWLINE);
-          write ++;
-        }
-      }
-      /* ISIS - LSP lifetime */
-      if (area->max_lsp_lifetime[0] == area->max_lsp_lifetime[1]) {
-	if (area->max_lsp_lifetime[0] != MAX_AGE) {
-	vty_out (vty, " lsp-lifetime %u%s", area->max_lsp_lifetime[0], 
-                 VTY_NEWLINE);
-	write ++;
-      }} else {
-	if (area->max_lsp_lifetime[0] != MAX_AGE) {
-	vty_out (vty, " lsp-lifetime level-1 %u%s", area->max_lsp_lifetime[0],
-                 VTY_NEWLINE);
-	write ++;
-	}
-	if (area->max_lsp_lifetime[1] != MAX_AGE) {
-	vty_out (vty, " lsp-lifetime level-2 %u%s", area->max_lsp_lifetime[1],
-                 VTY_NEWLINE);
-	write ++;
-	}
-      }     
-      #ifdef TOPOLOGY_GENERATE
-      /* seems we save the whole command line here */
-      if (area->top_params) {
-        vty_out (vty, " %s%s",area->top_params, VTY_NEWLINE);
-        write ++;
-      }
+  if (isis != NULL)
+    {
+      struct isis_area *area;
+      struct listnode *node;
+      struct listnode *node2;
 
-      if (memcmp(area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS, 
-		 ISIS_SYS_ID_LEN)) {
-        vty_out (vty, " topology base_is %s%s", 
-		 sysid_print (area->topology_baseis), VTY_NEWLINE);
-        write ++;
-      }
+      LIST_LOOP (isis->area_list, area, node)
+      {
+	/* ISIS - Area name */
+	vty_out (vty, "router isis %s%s", area->area_tag, VTY_NEWLINE);
+	write++;
+	/* ISIS - Net */
+	if (listcount (area->area_addrs) > 0)
+	  {
+	    struct area_addr *area_addr;
+	    LIST_LOOP (area->area_addrs, area_addr, node2)
+	    {
+	      vty_out (vty, " net %s%s",
+		       isonet_print (area_addr->area_addr,
+				     area_addr->addr_len + ISIS_SYS_ID_LEN +
+				     1), VTY_NEWLINE);
+	      write++;
+	    }
+	  }
+	/* ISIS - Dynamic hostname - Defaults to true so only display if false */
+	if (!area->dynhostname)
+	  {
+	    vty_out (vty, " no hostname dynamic%s", VTY_NEWLINE);
+	    write++;
+	  }
+	/* ISIS - Metric-Style - when true displays wide */
+	if (area->newmetric)
+	  {
+	    vty_out (vty, " metric-style wide%s", VTY_NEWLINE);
+	    write++;
+	  }
+	/* ISIS - Area is-type (level-1-2 is default) */
+	if (area->is_type == IS_LEVEL_1)
+	  {
+	    vty_out (vty, " is-type level-1%s", VTY_NEWLINE);
+	    write++;
+	  }
+	else
+	  {
+	    if (area->is_type == IS_LEVEL_2)
+	      {
+		vty_out (vty, " is-type level-2-only%s", VTY_NEWLINE);
+		write++;
+	      }
+	  }
+	/* ISIS - Lsp generation interval */
+	if (area->lsp_gen_interval[0] == area->lsp_gen_interval[1])
+	  {
+	    if (area->lsp_gen_interval[0] != LSP_GEN_INTERVAL_DEFAULT)
+	      {
+		vty_out (vty, " lsp-gen-interval %d%s",
+			 area->lsp_gen_interval[0], VTY_NEWLINE);
+		write++;
+	      }
+	  }
+	else
+	  {
+	    if (area->lsp_gen_interval[0] != LSP_GEN_INTERVAL_DEFAULT)
+	      {
+		vty_out (vty, " lsp-gen-interval level-1 %d%s",
+			 area->lsp_gen_interval[0], VTY_NEWLINE);
+		write++;
+	      }
+	    if (area->lsp_gen_interval[1] != LSP_GEN_INTERVAL_DEFAULT)
+	      {
+		vty_out (vty, " lsp-gen-interval level-2 %d%s",
+			 area->lsp_gen_interval[1], VTY_NEWLINE);
+		write++;
+	      }
+	  }
+	/* ISIS - LSP lifetime */
+	if (area->max_lsp_lifetime[0] == area->max_lsp_lifetime[1])
+	  {
+	    if (area->max_lsp_lifetime[0] != MAX_AGE)
+	      {
+		vty_out (vty, " lsp-lifetime %u%s", area->max_lsp_lifetime[0],
+			 VTY_NEWLINE);
+		write++;
+	      }
+	  }
+	else
+	  {
+	    if (area->max_lsp_lifetime[0] != MAX_AGE)
+	      {
+		vty_out (vty, " lsp-lifetime level-1 %u%s",
+			 area->max_lsp_lifetime[0], VTY_NEWLINE);
+		write++;
+	      }
+	    if (area->max_lsp_lifetime[1] != MAX_AGE)
+	      {
+		vty_out (vty, " lsp-lifetime level-2 %u%s",
+			 area->max_lsp_lifetime[1], VTY_NEWLINE);
+		write++;
+	      }
+	  }
+#ifdef TOPOLOGY_GENERATE
+	/* seems we save the whole command line here */
+	if (area->top_params)
+	  {
+	    vty_out (vty, " %s%s", area->top_params, VTY_NEWLINE);
+	    write++;
+	  }
 
-      #endif /* TOPOLOGY_GENERATE */
+	if (memcmp (area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS,
+		    ISIS_SYS_ID_LEN))
+	  {
+	    vty_out (vty, " topology base_is %s%s",
+		     sysid_print (area->topology_baseis), VTY_NEWLINE);
+	    write++;
+	  }
+
+#endif /* TOPOLOGY_GENERATE */
+      }
     }
-  }
-  
+
   return write;
 }
 
-struct cmd_node isis_node =
-{
+struct cmd_node isis_node = {
   ISIS_NODE,
   "%s(config-router)# ",
   1
 };
 
-void 
+void
 isis_init ()
 {
-
   /* Install IS-IS top node */
   install_node (&isis_node, isis_config_write);
-  
+
   install_element (VIEW_NODE, &show_clns_neighbors_cmd);
   install_element (VIEW_NODE, &show_isis_neighbors_cmd);
   install_element (VIEW_NODE, &show_clns_neighbors_detail_cmd);
@@ -1962,7 +1955,7 @@ isis_init ()
   install_element (ENABLE_NODE, &show_database_detail_cmd);
   install_element (ENABLE_NODE, &show_debugging_cmd);
 
-  install_node(&debug_node, config_write_debug);
+  install_node (&debug_node, config_write_debug);
 
   install_element (ENABLE_NODE, &debug_isis_adj_cmd);
   install_element (ENABLE_NODE, &no_debug_isis_adj_cmd);
@@ -2046,7 +2039,7 @@ isis_init ()
   install_element (ISIS_NODE, &spf_interval_l2_cmd);
   install_element (ISIS_NODE, &no_spf_interval_l2_cmd);
   install_element (ISIS_NODE, &no_spf_interval_l2_arg_cmd);
-  
+
   install_element (ISIS_NODE, &lsp_lifetime_cmd);
   install_element (ISIS_NODE, &no_lsp_lifetime_cmd);
   install_element (ISIS_NODE, &no_lsp_lifetime_arg_cmd);
@@ -2070,14 +2063,8 @@ isis_init ()
   install_element (ENABLE_NODE, &show_isis_topology_cmd);
 #endif /* TOPOLOGY_GENERATE */
 
-  isis_new(0);
+  isis_new (0);
   isis_circuit_init ();
   isis_zebra_init ();
   isis_spf_cmds_init ();
 }
-
-
-
-
-
-

@@ -51,37 +51,37 @@ extern struct isis *isis;
 extern struct thread_master *master;
 
 char *
-isis_disflag2string (int disflag) {
+isis_disflag2string (int disflag)
+{
 
-  switch (disflag) {
+  switch (disflag)
+    {
     case ISIS_IS_NOT_DIS:
       return "is not DIS";
     case ISIS_IS_DIS:
       return "is DIS";
     case ISIS_WAS_DIS:
       return "was DIS";
-  default:
-    return "unknown DIS state";
-  }
-  return NULL; /* not reached */
+    default:
+      return "unknown DIS state";
+    }
+  return NULL;			/* not reached */
 }
-
-
 
 int
 isis_run_dr_l1 (struct thread *thread)
 {
   struct isis_circuit *circuit;
-  
+
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
   if (circuit->u.bc.run_dr_elect[0])
     zlog_warn ("isis_run_dr(): run_dr_elect already set for l1");
-  
+
   circuit->u.bc.t_run_dr[0] = NULL;
   circuit->u.bc.run_dr_elect[0] = 1;
-    
+
   return ISIS_OK;
 }
 
@@ -89,17 +89,17 @@ int
 isis_run_dr_l2 (struct thread *thread)
 {
   struct isis_circuit *circuit;
-  
+
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
   if (circuit->u.bc.run_dr_elect[1])
     zlog_warn ("isis_run_dr(): run_dr_elect already set for l2");
-  
-  
-  circuit->u.bc.t_run_dr[1] = NULL; 
+
+
+  circuit->u.bc.t_run_dr[1] = NULL;
   circuit->u.bc.run_dr_elect[1] = 1;
-    
+
   return ISIS_OK;
 }
 
@@ -108,24 +108,25 @@ isis_check_dr_change (struct isis_adjacency *adj, int level)
 {
   int i;
 
-  if ( adj->dis_record[level-1].dis != 
-       adj->dis_record[(1*ISIS_LEVELS) + level - 1].dis) 
-    /* was there a DIS state transition ? */ 
+  if (adj->dis_record[level - 1].dis !=
+      adj->dis_record[(1 * ISIS_LEVELS) + level - 1].dis)
+    /* was there a DIS state transition ? */
     {
-      adj->dischanges[level-1]++;
+      adj->dischanges[level - 1]++;
       /* ok rotate the history list through */
-      for (i = DIS_RECORDS - 1; i > 0; i--) 
+      for (i = DIS_RECORDS - 1; i > 0; i--)
 	{
-	  adj->dis_record[(i * ISIS_LEVELS) + level - 1].dis = 
-            adj->dis_record[((i-1) * ISIS_LEVELS) + level - 1].dis;
-	  adj->dis_record[(i * ISIS_LEVELS) + level - 1].last_dis_change = 
-            adj->dis_record[((i-1) * ISIS_LEVELS) + level - 1].last_dis_change;
+	  adj->dis_record[(i * ISIS_LEVELS) + level - 1].dis =
+	    adj->dis_record[((i - 1) * ISIS_LEVELS) + level - 1].dis;
+	  adj->dis_record[(i * ISIS_LEVELS) + level - 1].last_dis_change =
+	    adj->dis_record[((i - 1) * ISIS_LEVELS) + level -
+			    1].last_dis_change;
 	}
     }
   return ISIS_OK;
 }
 
-int 
+int
 isis_dr_elect (struct isis_circuit *circuit, int level)
 {
   struct list *adjdb;
@@ -135,213 +136,242 @@ isis_dr_elect (struct isis_circuit *circuit, int level)
   u_char own_prio;
   int biggest_prio = -1;
   int cmp_res, retval = ISIS_OK;
-  
+
   own_prio = circuit->u.bc.priority[level - 1];
   adjdb = circuit->u.bc.adjdb[level - 1];
 
-  if (!adjdb) {
-    zlog_warn ("isis_dr_elect() adjdb == NULL");
-    retval = ISIS_WARNING;
-    list_delete (list);
-    goto out;
-  }
+  if (!adjdb)
+    {
+      zlog_warn ("isis_dr_elect() adjdb == NULL");
+      retval = ISIS_WARNING;
+      list_delete (list);
+      goto out;
+    }
   isis_adj_build_up_list (adjdb, list);
 
   /*
    * Loop the adjacencies and find the one with the biggest priority
    */
-  for (node = listhead (list); node; nextnode (node)) {
-    adj = getdata (node);
-    /* clear flag for show output */
-    adj->dis_record[level-1].dis = ISIS_IS_NOT_DIS;  
-    adj->dis_record[level-1].last_dis_change = time (NULL);
+  for (node = listhead (list); node; nextnode (node))
+    {
+      adj = getdata (node);
+      /* clear flag for show output */
+      adj->dis_record[level - 1].dis = ISIS_IS_NOT_DIS;
+      adj->dis_record[level - 1].last_dis_change = time (NULL);
 
-    if (adj->prio[level-1] > biggest_prio) {
-      biggest_prio = adj->prio[level-1];
-      adj_dr = adj;
-    } else if (adj->prio[level-1] == biggest_prio) {
-      /*
-       * Comparison of MACs breaks a tie
-       */
-      if (adj_dr) {
-        cmp_res = memcmp (adj_dr->snpa, adj->snpa, ETH_ALEN);
-        if (cmp_res < 0) {
-          adj_dr = adj;
+      if (adj->prio[level - 1] > biggest_prio)
+	{
+	  biggest_prio = adj->prio[level - 1];
+	  adj_dr = adj;
 	}
-        if (cmp_res == 0)
-          zlog_warn ("isis_dr_elect(): multiple adjacencies with same SNPA"); 
-      } else {
-        adj_dr = adj;
-      }
+      else if (adj->prio[level - 1] == biggest_prio)
+	{
+	  /*
+	   * Comparison of MACs breaks a tie
+	   */
+	  if (adj_dr)
+	    {
+	      cmp_res = memcmp (adj_dr->snpa, adj->snpa, ETH_ALEN);
+	      if (cmp_res < 0)
+		{
+		  adj_dr = adj;
+		}
+	      if (cmp_res == 0)
+		zlog_warn
+		  ("isis_dr_elect(): multiple adjacencies with same SNPA");
+	    }
+	  else
+	    {
+	      adj_dr = adj;
+	    }
+	}
     }
-  }
-  
-  if (!adj_dr) {
-    /*
-     * Could not find the DR - means we are alone and thus the DR
-     */
-    if ( !circuit->u.bc.is_dr[level - 1]) {
-      list_delete (list);
-      list = NULL;
-      return isis_dr_commence (circuit, level);
+
+  if (!adj_dr)
+    {
+      /*
+       * Could not find the DR - means we are alone and thus the DR
+       */
+      if (!circuit->u.bc.is_dr[level - 1])
+	{
+	  list_delete (list);
+	  list = NULL;
+	  return isis_dr_commence (circuit, level);
+	}
+      goto out;
     }
-    goto out;
-  }
 
   /*
    * Now we have the DR adjacency, compare it to self
    */
-  if (adj_dr->prio[level-1] < own_prio || (adj_dr->prio[level-1] == own_prio &&
-                                  memcmp (adj_dr->snpa, circuit->u.bc.snpa, 
-                                          ETH_ALEN) < 0)) {
-    if (!circuit->u.bc.is_dr[level - 1]) {
-      /*
-       * We are the DR -> commence
+  if (adj_dr->prio[level - 1] < own_prio
+      || (adj_dr->prio[level - 1] == own_prio
+	  && memcmp (adj_dr->snpa, circuit->u.bc.snpa, ETH_ALEN) < 0))
+    {
+      if (!circuit->u.bc.is_dr[level - 1])
+	{
+	  /*
+	   * We are the DR -> commence
+	   */
+	  list_delete (list);
+	  return isis_dr_commence (circuit, level);
+	}
+    }
+  else
+    {
+
+      /* ok we have found the DIS - lets mark the adjacency */
+      /* set flag for show output */
+      adj_dr->dis_record[level - 1].dis = ISIS_IS_DIS;
+      adj_dr->dis_record[level - 1].last_dis_change = time (NULL);
+
+      /* now loop through a second time to check if there has been a DIS change
+       * if yes rotate the history log
        */
-      list_delete (list);
-      return isis_dr_commence (circuit, level);
+
+      for (node = listhead (list); node; nextnode (node))
+	{
+	  adj = getdata (node);
+	  isis_check_dr_change (adj, level);
+	}
+
+      /*
+       * We are not DR - if we were -> resign
+       */
+
+      if (circuit->u.bc.is_dr[level - 1])
+	{
+	  list_delete (list);
+	  return isis_dr_resign (circuit, level);
+	}
     }
-  } else {
-
-    /* ok we have found the DIS - lets mark the adjacency */
-    /* set flag for show output */
-    adj_dr->dis_record[level - 1].dis = ISIS_IS_DIS; 
-    adj_dr->dis_record[level - 1].last_dis_change = time(NULL);
-
-    /* now loop through a second time to check if there has been a DIS change
-     * if yes rotate the history log
-     */
-
-    for (node = listhead (list); node; nextnode (node)) {
-      adj = getdata (node);
-      isis_check_dr_change(adj, level);
-    }
-
-    /*
-     * We are not DR - if we were -> resign
-     */
-
-    if (circuit->u.bc.is_dr[level - 1]) {
-      list_delete (list);
-      return isis_dr_resign (circuit, level);
-    }
-  }
- out:
+out:
   if (list)
     list_delete (list);
   return retval;
 }
 
-int 
+int
 isis_dr_resign (struct isis_circuit *circuit, int level)
 {
   u_char id[ISIS_SYS_ID_LEN + 2];
-      
+
   zlog_info ("isis_dr_resign l%d", level);
 
   circuit->u.bc.is_dr[level - 1] = 0;
-  circuit->u.bc.run_dr_elect[level - 1] = 0; 
-  THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[level - 1]);
-  THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
-  
+  circuit->u.bc.run_dr_elect[level - 1] = 0;
+  THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[level - 1]);
+  THREAD_TIMER_OFF (circuit->u.bc.t_refresh_pseudo_lsp[level - 1]);
+
   memcpy (id, isis->sysid, ISIS_SYS_ID_LEN);
-  LSP_PSEUDO_ID(id) = circuit->circuit_id;
-  LSP_FRAGMENT(id) = 0;
+  LSP_PSEUDO_ID (id) = circuit->circuit_id;
+  LSP_FRAGMENT (id) = 0;
   lsp_purge_dr (id, circuit, level);
 
-  if (level == 1) {
-    memset (circuit->u.bc.l1_desig_is, 0, ISIS_SYS_ID_LEN + 1);
-    
-    THREAD_TIMER_OFF(circuit->t_send_csnp[0]);
-    
-    THREAD_TIMER_ON(master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-        circuit, 2 * circuit->hello_interval[1]);
-    
-    THREAD_TIMER_ON(master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
-        isis_jitter (circuit->psnp_interval[level - 1], PSNP_JITTER));
-  } else {
-    memset (circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
+  if (level == 1)
+    {
+      memset (circuit->u.bc.l1_desig_is, 0, ISIS_SYS_ID_LEN + 1);
 
-    THREAD_TIMER_OFF(circuit->t_send_csnp[1]);
+      THREAD_TIMER_OFF (circuit->t_send_csnp[0]);
 
-    THREAD_TIMER_ON(master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
-        circuit, 2 * circuit->hello_interval[1]);
-    
-    THREAD_TIMER_ON(master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
-        isis_jitter (circuit->psnp_interval[level - 1], PSNP_JITTER));
-  }
-  
+      THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
+		       circuit, 2 * circuit->hello_interval[1]);
+
+      THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
+		       isis_jitter (circuit->psnp_interval[level - 1],
+				    PSNP_JITTER));
+    }
+  else
+    {
+      memset (circuit->u.bc.l2_desig_is, 0, ISIS_SYS_ID_LEN + 1);
+
+      THREAD_TIMER_OFF (circuit->t_send_csnp[1]);
+
+      THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
+		       circuit, 2 * circuit->hello_interval[1]);
+
+      THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
+		       isis_jitter (circuit->psnp_interval[level - 1],
+				    PSNP_JITTER));
+    }
+
   thread_add_event (master, isis_event_dis_status_change, circuit, 0);
 
   return ISIS_OK;
 }
 
-int 
+int
 isis_dr_commence (struct isis_circuit *circuit, int level)
 {
   u_char old_dr[ISIS_SYS_ID_LEN + 2];
-  
+
   zlog_info ("isis_dr_commence l%d", level);
 
   /* Lets keep a pause in DR election */
   circuit->u.bc.run_dr_elect[level - 1] = 0;
-  if (level == 1) 
-    THREAD_TIMER_ON(master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-        circuit, 2 * circuit->hello_multiplier[0] * 
-			circuit->hello_interval[0]); 
-  else 
-    THREAD_TIMER_ON(master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
-        circuit, 2 * circuit->hello_multiplier[1] *
-			circuit->hello_interval[1]);	      	
+  if (level == 1)
+    THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
+		     circuit, 2 * circuit->hello_multiplier[0] *
+		     circuit->hello_interval[0]);
+  else
+    THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
+		     circuit, 2 * circuit->hello_multiplier[1] *
+		     circuit->hello_interval[1]);
   circuit->u.bc.is_dr[level - 1] = 1;
 
-  if (level == 1) {
-    memcpy (old_dr, circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
-    LSP_FRAGMENT (old_dr) = 0;
-    if (LSP_PSEUDO_ID(old_dr)) {
-      /* there was a dr elected, purge its LSPs from the db */
-      lsp_purge_dr (old_dr, circuit, level);
-    }
-    memcpy (circuit->u.bc.l1_desig_is, isis->sysid, ISIS_SYS_ID_LEN);
-    *(circuit->u.bc.l1_desig_is + ISIS_SYS_ID_LEN) = circuit->circuit_id;
-    
-    assert (circuit->circuit_id); /* must be non-zero */
-    /*    if (circuit->t_send_l1_psnp)
-          thread_cancel (circuit->t_send_l1_psnp); */
-    lsp_l1_pseudo_generate (circuit);
+  if (level == 1)
+    {
+      memcpy (old_dr, circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
+      LSP_FRAGMENT (old_dr) = 0;
+      if (LSP_PSEUDO_ID (old_dr))
+	{
+	  /* there was a dr elected, purge its LSPs from the db */
+	  lsp_purge_dr (old_dr, circuit, level);
+	}
+      memcpy (circuit->u.bc.l1_desig_is, isis->sysid, ISIS_SYS_ID_LEN);
+      *(circuit->u.bc.l1_desig_is + ISIS_SYS_ID_LEN) = circuit->circuit_id;
 
-    THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[0]); 
-    THREAD_TIMER_ON(master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-        circuit, 2 * circuit->hello_interval[0]);
-    
-    THREAD_TIMER_ON(master, circuit->t_send_csnp[0], send_l1_csnp, circuit,
-        isis_jitter(circuit->csnp_interval[level-1], CSNP_JITTER));
-    
-  } else {
-    memcpy (old_dr, circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
-    LSP_FRAGMENT (old_dr) = 0;
-    if (LSP_PSEUDO_ID(old_dr)) {
-      /* there was a dr elected, purge its LSPs from the db */
-      lsp_purge_dr (old_dr, circuit, level);
-    }
-    memcpy (circuit->u.bc.l2_desig_is, isis->sysid, ISIS_SYS_ID_LEN);
-    *(circuit->u.bc.l2_desig_is + ISIS_SYS_ID_LEN) = circuit->circuit_id;
-    
-    assert (circuit->circuit_id); /* must be non-zero */
-    /*    if (circuit->t_send_l1_psnp)
-          thread_cancel (circuit->t_send_l1_psnp); */
-    lsp_l2_pseudo_generate (circuit);
+      assert (circuit->circuit_id);	/* must be non-zero */
+      /*    if (circuit->t_send_l1_psnp)
+         thread_cancel (circuit->t_send_l1_psnp); */
+      lsp_l1_pseudo_generate (circuit);
 
-    THREAD_TIMER_OFF(circuit->u.bc.t_run_dr[1]);
-    THREAD_TIMER_ON(master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
-        circuit, 2 * circuit->hello_interval[1]);
-        
-    THREAD_TIMER_ON(master, circuit->t_send_csnp[1], send_l2_csnp, circuit,
-        isis_jitter (circuit->csnp_interval[level-1], CSNP_JITTER));
-  } 
+      THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[0]);
+      THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
+		       circuit, 2 * circuit->hello_interval[0]);
+
+      THREAD_TIMER_ON (master, circuit->t_send_csnp[0], send_l1_csnp, circuit,
+		       isis_jitter (circuit->csnp_interval[level - 1],
+				    CSNP_JITTER));
+
+    }
+  else
+    {
+      memcpy (old_dr, circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
+      LSP_FRAGMENT (old_dr) = 0;
+      if (LSP_PSEUDO_ID (old_dr))
+	{
+	  /* there was a dr elected, purge its LSPs from the db */
+	  lsp_purge_dr (old_dr, circuit, level);
+	}
+      memcpy (circuit->u.bc.l2_desig_is, isis->sysid, ISIS_SYS_ID_LEN);
+      *(circuit->u.bc.l2_desig_is + ISIS_SYS_ID_LEN) = circuit->circuit_id;
+
+      assert (circuit->circuit_id);	/* must be non-zero */
+      /*    if (circuit->t_send_l1_psnp)
+         thread_cancel (circuit->t_send_l1_psnp); */
+      lsp_l2_pseudo_generate (circuit);
+
+      THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[1]);
+      THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[1], isis_run_dr_l2,
+		       circuit, 2 * circuit->hello_interval[1]);
+
+      THREAD_TIMER_ON (master, circuit->t_send_csnp[1], send_l2_csnp, circuit,
+		       isis_jitter (circuit->csnp_interval[level - 1],
+				    CSNP_JITTER));
+    }
 
   thread_add_event (master, isis_event_dis_status_change, circuit, 0);
-  
+
   return ISIS_OK;
 }
-

@@ -32,7 +32,8 @@
 /* If you want topology stuff compiled in */
 /* #define TOPOLOGY_GENERATE */
 
-struct rmap{
+struct rmap
+{
   char *name;
   struct route_map *map;
 };
@@ -41,58 +42,62 @@ struct isis
 {
   u_long process_id;
   int sysid_set;
-  u_char sysid[ISIS_SYS_ID_LEN];    /* SystemID for this IS */
-  struct list *area_list;           /* list of IS-IS areas */
+  u_char sysid[ISIS_SYS_ID_LEN];	/* SystemID for this IS */
+  struct list *area_list;	/* list of IS-IS areas */
   struct list *init_circ_list;
-  struct list *nexthops;            /* IPv4 next hops from this IS */
+  struct list *nexthops;	/* IPv4 next hops from this IS */
 #ifdef HAVE_IPV6
-  struct list  *nexthops6;          /* IPv6 next hops from this IS */
-#endif /* HAVE_IPV6 */
-  u_char max_area_addrs;            /* maximumAreaAdresses */
-  struct area_addr *man_area_addrs; /* manualAreaAddresses */
-  u_int32_t debugs;                 /* bitmap for debug */
-  time_t uptime;                    /* when did we start */
-  
+  struct list *nexthops6;	/* IPv6 next hops from this IS */
+#endif				/* HAVE_IPV6 */
+  u_char max_area_addrs;	/* maximumAreaAdresses */
+  struct area_addr *man_area_addrs;	/* manualAreaAddresses */
+  u_int32_t debugs;		/* bitmap for debug */
+  time_t uptime;		/* when did we start */
+
   /* Redistributed external information. */
   struct route_table *external_info[ZEBRA_ROUTE_MAX + 1];
   /* Redistribute metric info. */
-  struct {
-    int type;                   /* Internal or External  */
-    int value;                  /* metric value */
-  } dmetric [ZEBRA_ROUTE_MAX + 1];
+  struct
+  {
+    int type;			/* Internal or External  */
+    int value;			/* metric value */
+  } dmetric[ZEBRA_ROUTE_MAX + 1];
 
-  struct {
+  struct
+  {
     char *name;
     struct route_map *map;
-  } rmap [ZEBRA_ROUTE_MAX + 1];
+  } rmap[ZEBRA_ROUTE_MAX + 1];
 #ifdef HAVE_IPV6
-  struct {
-    struct {
+  struct
+  {
+    struct
+    {
       char *name;
       struct route_map *map;
-    } rmap [ZEBRA_ROUTE_MAX + 1];
+    } rmap[ZEBRA_ROUTE_MAX + 1];
   } inet6_afmode;
 #endif
 };
 
-struct isis_area 
+struct isis_area
 {
-  struct isis *isis;                          /* back pointer */
-  dict_t *lspdb[ISIS_LEVELS];                 /* link-state dbs */
-  struct isis_spftree *spftree[ISIS_LEVELS];  /* The v4 SPTs */
-  struct route_table *route_table;            /* IPv4 routes */
+  struct isis *isis;		/* back pointer */
+  dict_t *lspdb[ISIS_LEVELS];	/* link-state dbs */
+  struct isis_spftree *spftree[ISIS_LEVELS];	/* The v4 SPTs */
+  struct route_table *route_table;	/* IPv4 routes */
 #ifdef HAVE_IPV6
-  struct isis_spftree *spftree6[ISIS_LEVELS]; /* The v4 SPTs */
-  struct route_table *route_table6;           /* IPv6 routes */
+  struct isis_spftree *spftree6[ISIS_LEVELS];	/* The v4 SPTs */
+  struct route_table *route_table6;	/* IPv6 routes */
 #endif
   int min_bcast_mtu;
-  struct list *circuit_list;                  /* IS-IS circuits */
-  struct flags flags;                        
-  struct thread *t_tick;                      /* LSP walker */
-  struct thread *t_remove_aged;              
+  struct list *circuit_list;	/* IS-IS circuits */
+  struct flags flags;
+  struct thread *t_tick;	/* LSP walker */
+  struct thread *t_remove_aged;
   int lsp_regenerate_pending[ISIS_LEVELS];
   struct thread *t_lsp_refresh[ISIS_LEVELS];
-  
+
   /*
    * Configurables 
    */
@@ -101,34 +106,34 @@ struct isis_area
   /* do we support dynamic hostnames?  */
   char dynhostname;
   /* do we support new style metrics?  */
-  char newmetric;  
+  char newmetric;
   /* identifies the routing instance   */
-  char *area_tag;  
+  char *area_tag;
   /* area addresses for this area      */
-  struct list *area_addrs;  
-  u_int16_t max_lsp_lifetime[ISIS_LEVELS];         
-  char is_type;  /* level-1 level-1-2 or level-2-only */
+  struct list *area_addrs;
+  u_int16_t max_lsp_lifetime[ISIS_LEVELS];
+  char is_type;			/* level-1 level-1-2 or level-2-only */
   u_int16_t lsp_refresh[ISIS_LEVELS];
   /* minimum time allowed before lsp retransmission */
   u_int16_t lsp_gen_interval[ISIS_LEVELS];
   /* min interval between between consequtive SPFs */
-  u_int16_t min_spf_interval[ISIS_LEVELS]; 
+  u_int16_t min_spf_interval[ISIS_LEVELS];
   /* the percentage of LSP mtu size used, before generating a new frag */
-  int lsp_frag_threshold; 
+  int lsp_frag_threshold;
   int ip_circuits;
 #ifdef HAVE_IPV6
   int ipv6_circuits;
-#endif /* HAVE_IPV6 */
+#endif				/* HAVE_IPV6 */
   /* Counters */
   u_int32_t circuit_state_changes;
 #ifdef TOPOLOGY_GENERATE
-  struct list                   *topology;
-  char   topology_baseis[ISIS_SYS_ID_LEN]; /* is for the first is emulated  */
-  char                    top_params[200]; /* FIXME: what is reasonable?    */
-#endif /* TOPOLOGY_GENERATE */
+  struct list *topology;
+  char topology_baseis[ISIS_SYS_ID_LEN];	/* is for the first is emulated  */
+  char top_params[200];		/* FIXME: what is reasonable?    */
+#endif				/* TOPOLOGY_GENERATE */
 };
 
-void isis_init(void);
+void isis_init (void);
 struct isis_area *isis_area_lookup (char *);
 
 #define DEBUG_ADJ_PACKETS                (1<<0)

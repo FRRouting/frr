@@ -54,7 +54,7 @@ struct esis_fixed_hdr
   u_char pdu_type;
   u_int16_t holdtime;
   u_int16_t checksum;
-}  __attribute__((packed));
+} __attribute__ ((packed));
 
 #define ESIS_FIXED_HDR_LEN   9
 
@@ -81,7 +81,7 @@ struct esis_fixed_hdr
  *  +-------+-------+-------+-------+-------+-------+-------+-------+
  */
 
-struct isis_fixed_hdr 
+struct isis_fixed_hdr
 {
   u_char idrp;
   u_char length;
@@ -117,14 +117,15 @@ struct isis_fixed_hdr
  * |                        LAN ID                                 | id_len + 1
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  */
-struct isis_lan_hello_hdr {
-  u_char circuit_t;  
-  u_char source_id[ISIS_SYS_ID_LEN];   
-  u_int16_t hold_time;     
-  u_int16_t pdu_len;      
-  u_char prio;         
-  u_char lan_id[ISIS_SYS_ID_LEN + 1];      
-}  __attribute__((packed));
+struct isis_lan_hello_hdr
+{
+  u_char circuit_t;
+  u_char source_id[ISIS_SYS_ID_LEN];
+  u_int16_t hold_time;
+  u_int16_t pdu_len;
+  u_char prio;
+  u_char lan_id[ISIS_SYS_ID_LEN + 1];
+} __attribute__ ((packed));
 #define ISIS_LANHELLO_HDRLEN  19
 
 #define P2P_HELLO            17
@@ -142,13 +143,14 @@ struct isis_lan_hello_hdr {
  * |                        Local Circuit ID                       | 1
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  */
-struct isis_p2p_hello_hdr {
-  u_char circuit_t;  
-  u_char source_id[ISIS_SYS_ID_LEN];   
-  u_int16_t hold_time;     
-  u_int16_t pdu_len;      
+struct isis_p2p_hello_hdr
+{
+  u_char circuit_t;
+  u_char source_id[ISIS_SYS_ID_LEN];
+  u_int16_t hold_time;
+  u_int16_t pdu_len;
   u_char local_id;
-} __attribute__((packed));
+} __attribute__ ((packed));
 #define ISIS_P2PHELLO_HDRLEN 12
 
 #define L1_LINK_STATE        18
@@ -169,14 +171,15 @@ struct isis_p2p_hello_hdr {
  * |   P   |              ATT              |LSPDBOL|    ISTYPE     |
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  */
-struct isis_link_state_hdr {
-  u_int16_t pdu_len;      
+struct isis_link_state_hdr
+{
+  u_int16_t pdu_len;
   u_int16_t rem_lifetime;
-  u_char  lsp_id[ISIS_SYS_ID_LEN + 2];
+  u_char lsp_id[ISIS_SYS_ID_LEN + 2];
   u_int32_t seq_num;
   u_int16_t checksum;
-  u_int8_t  lsp_bits;
-} __attribute__((packed)); 
+  u_int8_t lsp_bits;
+} __attribute__ ((packed));
 #define ISIS_LSP_HDR_LEN 19
 
 #define L1_COMPLETE_SEQ_NUM  24
@@ -193,11 +196,12 @@ struct isis_link_state_hdr {
  * +                        End LSP ID                             + id_len + 2
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  */
-struct isis_complete_seqnum_hdr {
+struct isis_complete_seqnum_hdr
+{
   u_int16_t pdu_len;
-  u_char    source_id[ISIS_SYS_ID_LEN + 1];
-  u_char    start_lsp_id[ISIS_SYS_ID_LEN + 2];
-  u_char    stop_lsp_id[ISIS_SYS_ID_LEN + 2];
+  u_char source_id[ISIS_SYS_ID_LEN + 1];
+  u_char start_lsp_id[ISIS_SYS_ID_LEN + 2];
+  u_char stop_lsp_id[ISIS_SYS_ID_LEN + 2];
 };
 #define ISIS_CSNP_HDRLEN 25
 
@@ -211,9 +215,10 @@ struct isis_complete_seqnum_hdr {
  * +                        Source ID                              + id_len + 1
  * +---------------------------------------------------------------+
  */
-struct isis_partial_seqnum_hdr {
+struct isis_partial_seqnum_hdr
+{
   u_int16_t pdu_len;
-  u_char    source_id[ISIS_SYS_ID_LEN + 1];
+  u_char source_id[ISIS_SYS_ID_LEN + 1];
 };
 #define ISIS_PSNP_HDRLEN 9
 
@@ -231,27 +236,22 @@ int isis_receive (struct thread *thread);
 /*
  * Sending functions
  */
-int  send_lan_l1_hello (struct thread *thread);
-int  send_lan_l2_hello (struct thread *thread);
-int  send_p2p_hello    (struct thread *thread);
-int  send_csnp         (struct isis_circuit *circuit, int level);
-int  send_l1_csnp      (struct thread *thread);
-int  send_l2_csnp      (struct thread *thread);
-int  send_l1_psnp      (struct thread *thread);
-int  send_l2_psnp      (struct thread *thread);
-int  send_lsp          (struct thread *thread);
-int  ack_lsp           (struct isis_link_state_hdr *hdr, 
-			struct isis_circuit *circuit, int level);
-void fill_fixed_hdr    (struct isis_fixed_hdr *hdr, u_char pdu_type);
-int  send_hello        (struct isis_circuit *circuit, int level);
+int send_lan_l1_hello (struct thread *thread);
+int send_lan_l2_hello (struct thread *thread);
+int send_p2p_hello (struct thread *thread);
+int send_csnp (struct isis_circuit *circuit, int level);
+int send_l1_csnp (struct thread *thread);
+int send_l2_csnp (struct thread *thread);
+int send_l1_psnp (struct thread *thread);
+int send_l2_psnp (struct thread *thread);
+int send_lsp (struct thread *thread);
+int ack_lsp (struct isis_link_state_hdr *hdr,
+	     struct isis_circuit *circuit, int level);
+void fill_fixed_hdr (struct isis_fixed_hdr *hdr, u_char pdu_type);
+int send_hello (struct isis_circuit *circuit, int level);
 
 
-int authentication_check (struct isis_passwd *one, 
+int authentication_check (struct isis_passwd *one,
 			  struct isis_passwd *theother);
 
 #endif /* _ZEBRA_ISIS_PDU_H */
-
-
-
-
-

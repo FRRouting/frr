@@ -25,9 +25,9 @@
 
 /*
  * Architectural constant values from p. 35 of ISO/IEC 10589
- */ 
+ */
 
-#define MAX_LINK_METRIC               63 
+#define MAX_LINK_METRIC               63
 #define MAX_PATH_METRIC               1023
 #define ISO_SAP                       0xFE
 #define INTRADOMAIN_ROUTEING_SELECTOR 0
@@ -38,11 +38,11 @@
  * implementation specific jitter values
  */
 
-#define IIH_JITTER                    25  /* % */
-#define MAX_AGE_JITTER                 5  /* % */
-#define MAX_LSP_GEN_JITTER             5  /* % */
-#define CSNP_JITTER                   10  /* % */
-#define PSNP_JITTER                   10  /* % */
+#define IIH_JITTER                    25	/* % */
+#define MAX_AGE_JITTER                 5	/* % */
+#define MAX_LSP_GEN_JITTER             5	/* % */
+#define CSNP_JITTER                   10	/* % */
+#define PSNP_JITTER                   10	/* % */
 
 #define RANDOM_SPREAD           100000.0
 
@@ -70,12 +70,12 @@
 #define HELLO_MULTIPLIER              3
 #define DEFAULT_PRIORITY              64
 /* different vendors implement different values 5-10 on average */
-#define LSP_GEN_INTERVAL_DEFAULT      10 
-#define LSP_INTERVAL                  33  /* msecs */
+#define LSP_GEN_INTERVAL_DEFAULT      10
+#define LSP_INTERVAL                  33	/* msecs */
 #define DEFAULT_CIRCUIT_METRICS 10
 #define METRICS_UNSUPPORTED 0x80
-#define PERIODIC_SPF_INTERVAL         60 /* at the top of my head */
-#define MINIMUM_SPF_INTERVAL           5 /* .. same here          */ 
+#define PERIODIC_SPF_INTERVAL         60	/* at the top of my head */
+#define MINIMUM_SPF_INTERVAL           5	/* .. same here          */
 
 /*
  * NLPID values
@@ -143,12 +143,4 @@
 #define ETH_ALEN 6
 #endif
 
-#endif  /* ISIS_CONSTANTS_H */
-
-
-
-
-
-
-
-
+#endif /* ISIS_CONSTANTS_H */

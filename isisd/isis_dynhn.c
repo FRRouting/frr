@@ -50,48 +50,52 @@ void
 dyn_cache_init (void)
 {
   dyn_cache = list_new ();
-  
+
   return;
 }
 
-struct isis_dynhn *dynhn_find_by_id (u_char * id)
+struct isis_dynhn *
+dynhn_find_by_id (u_char * id)
 {
   struct listnode *node = NULL;
   struct isis_dynhn *dyn = NULL;
 
-  for (node = listhead (dyn_cache); node; nextnode (node)) {
-    dyn = getdata (node);
-    if (memcmp (dyn->id, id, ISIS_SYS_ID_LEN) == 0)
-      return dyn;
-  }
-  
+  for (node = listhead (dyn_cache); node; nextnode (node))
+    {
+      dyn = getdata (node);
+      if (memcmp (dyn->id, id, ISIS_SYS_ID_LEN) == 0)
+	return dyn;
+    }
+
   return NULL;
 }
 
 void
-isis_dynhn_insert (u_char *id, struct hostname *hostname, int level)
+isis_dynhn_insert (u_char * id, struct hostname *hostname, int level)
 {
   struct isis_dynhn *dyn;
 
   dyn = dynhn_find_by_id (id);
-  if (dyn) {
-    memcpy (&dyn->name, hostname, hostname->namelen + 1);
-    memcpy (dyn->id, id, ISIS_SYS_ID_LEN);
-    dyn->refresh = time (NULL);
-    return;
-  }
+  if (dyn)
+    {
+      memcpy (&dyn->name, hostname, hostname->namelen + 1);
+      memcpy (dyn->id, id, ISIS_SYS_ID_LEN);
+      dyn->refresh = time (NULL);
+      return;
+    }
   dyn = XMALLOC (MTYPE_ISIS_DYNHN, sizeof (struct isis_dynhn));
-  if (!dyn) {
-    zlog_warn ("isis_dynhn_insert(): out of memory!");
-    return;
-  }
-  memset (dyn,0,sizeof(struct isis_dynhn));
+  if (!dyn)
+    {
+      zlog_warn ("isis_dynhn_insert(): out of memory!");
+      return;
+    }
+  memset (dyn, 0, sizeof (struct isis_dynhn));
   /* we also copy the length */
-  memcpy (&dyn->name, hostname, hostname->namelen + 1); 
+  memcpy (&dyn->name, hostname, hostname->namelen + 1);
   memcpy (dyn->id, id, ISIS_SYS_ID_LEN);
   dyn->refresh = time (NULL);
   dyn->level = level;
-  
+
   listnode_add (dyn_cache, dyn);
 
   return;
@@ -103,21 +107,22 @@ isis_dynhn_insert (u_char *id, struct hostname *hostname, int level)
  *  2     0000.0000.0002 bar-gw
  *      * 0000.0000.0004 this-gw
  */
-void  dynhn_print_all (struct vty *vty) 
+void
+dynhn_print_all (struct vty *vty)
 {
   struct listnode *node;
   struct isis_dynhn *dyn;
 
   vty_out (vty, "Level  System ID      Dynamic Hostname%s", VTY_NEWLINE);
-  for (node = listhead (dyn_cache); node; nextnode (node)) {
-    dyn = getdata (node);
-    vty_out (vty, "%-7d", dyn->level);
-    vty_out (vty, "%-15s%-15s%s", sysid_print (dyn->id), dyn->name.name, 
-	     VTY_NEWLINE);
-  }
-  
-  vty_out (vty,  "     * %s %s%s", sysid_print (isis->sysid), unix_hostname(), 
+  for (node = listhead (dyn_cache); node; nextnode (node))
+    {
+      dyn = getdata (node);
+      vty_out (vty, "%-7d", dyn->level);
+      vty_out (vty, "%-15s%-15s%s", sysid_print (dyn->id), dyn->name.name,
+	       VTY_NEWLINE);
+    }
+
+  vty_out (vty, "     * %s %s%s", sysid_print (isis->sysid), unix_hostname (),
 	   VTY_NEWLINE);
   return;
 }
-

@@ -50,14 +50,12 @@
 #define ISISD_VTY_PORT       2608
 
 /* isisd privileges */
-zebra_capabilities_t _caps_p [] = 
-{
+zebra_capabilities_t _caps_p[] = {
   ZCAP_RAW,
   ZCAP_BIND
 };
 
-struct zebra_privs_t isisd_privs =
-{
+struct zebra_privs_t isisd_privs = {
 #if defined(QUAGGA_USER)
   .user = QUAGGA_USER,
 #endif
@@ -73,17 +71,16 @@ struct zebra_privs_t isisd_privs =
 };
 
 /* isisd options */
-struct option longopts[] = 
-{
-  { "daemon",      no_argument,       NULL, 'd'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "pid_file",    required_argument, NULL, 'i'},
-  { "vty_addr",    required_argument, NULL, 'A'},
-  { "vty_port",    required_argument, NULL, 'P'},
-  { "user",        required_argument, NULL, 'u'},
-  { "version",     no_argument,       NULL, 'v'},
-  { "help",        no_argument,       NULL, 'h'},
-  { 0 }
+struct option longopts[] = {
+  {"daemon", no_argument, NULL, 'd'},
+  {"config_file", required_argument, NULL, 'f'},
+  {"pid_file", required_argument, NULL, 'i'},
+  {"vty_addr", required_argument, NULL, 'A'},
+  {"vty_port", required_argument, NULL, 'P'},
+  {"user", required_argument, NULL, 'u'},
+  {"version", no_argument, NULL, 'v'},
+  {"help", no_argument, NULL, 'h'},
+  {0}
 };
 
 /* Configuration file and directory. */
@@ -108,7 +105,6 @@ int _argc;
 char **_argv;
 char **_envp;
 
-
 /* Help information display. */
 static void
 usage (int status)
@@ -116,7 +112,7 @@ usage (int status)
   if (status != 0)
     fprintf (stderr, "Try `%s --help' for more information.\n", progname);
   else
-    {    
+    {
       printf ("Usage : %s [OPTION...]\n\n\
 Daemon which manages IS-IS routing\n\n\
 -d, --daemon       Runs in daemon mode\n\
@@ -154,7 +150,7 @@ terminate (int i)
  * Signal handlers
  */
 
-void 
+void
 sighup (void)
 {
   zlog_info ("SIGHUP received");
@@ -168,7 +164,7 @@ sigint (void)
 {
   zlog_info ("SIGINT received");
   terminate (0);
-  
+
   return;
 }
 
@@ -187,29 +183,29 @@ sigusr1 (void)
 }
 
 struct quagga_signal_t isisd_signals[] =
-{   
-  { 
-    .signal = SIGHUP,  
-    .handler = &sighup,
-  },
+{
   {
-    .signal = SIGUSR1,  
-    .handler = &sigusr1,
-  },
+   .signal = SIGHUP,
+   .handler = &sighup,
+   },
   {
-    .signal = SIGINT,  
-    .handler = &sigint,
-  },
+   .signal = SIGUSR1,
+   .handler = &sigusr1,
+   },
   {
-    .signal = SIGTERM,
-    .handler = &sigterm,
-  },
+   .signal = SIGINT,
+   .handler = &sigint,
+   },
+  {
+   .signal = SIGTERM,
+   .handler = &sigterm,
+   },
 };
 
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.
  */
-int 
+int
 main (int argc, char **argv, char **envp)
 {
   char *p;
@@ -222,9 +218,8 @@ main (int argc, char **argv, char **envp)
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
   zlog_default = openzlog (progname, ZLOG_NOLOG, ZLOG_ISIS,
-                           LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+			   LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 
-  
   /* for reload */
   _argc = argc;
   _argv = argv;
@@ -234,73 +229,73 @@ main (int argc, char **argv, char **envp)
     snprintf (_progpath, sizeof (_progpath), "%s/%s", _cwd, _argv[0]);
   else
     snprintf (_progpath, sizeof (_progpath), "%s", argv[0]);
-  
+
   /* Command line argument treatment. */
-  while (1) 
+  while (1)
     {
       opt = getopt_long (argc, argv, "df:i:hA:p:P:u:v", longopts, 0);
-    
-      if (opt == EOF)
-        break;
 
-      switch (opt) 
-        {
-        case 0:
-          break;
-        case 'd':
-          daemon_mode = 1;
-          break;
-        case 'f':
-          config_file = optarg;
-          break;
-        case 'i':
-          pid_file = optarg;
-          break;
-        case 'A':
-          vty_addr = optarg;
-          break;
-        case 'P':
-         /* Deal with atoi() returning 0 on failure, and isisd not
-             listening on isisd port... */
-          if (strcmp(optarg, "0") == 0) 
-            {
-              vty_port = 0;
-              break;
-            } 
-          vty_port = atoi (optarg);
-          vty_port = (vty_port ? vty_port : ISISD_VTY_PORT);
+      if (opt == EOF)
+	break;
+
+      switch (opt)
+	{
+	case 0:
 	  break;
-        case 'u':
-          isisd_privs.user = isisd_privs.group = optarg;
-          break;
-          break;
-        case 'v':
-	  printf("ISISd version %s\n", ISISD_VERSION);
-	  printf("Copyright (c) 2001-2002 Sampo Saaristo,"
-		 " Ofer Wald and Hannes Gredler\n");
-          print_version ("Zebra");
-          exit (0);
-          break;
-        case 'h':
-          usage (0);
-          break;
-        default:
-          usage (1);
-          break;
-        }
+	case 'd':
+	  daemon_mode = 1;
+	  break;
+	case 'f':
+	  config_file = optarg;
+	  break;
+	case 'i':
+	  pid_file = optarg;
+	  break;
+	case 'A':
+	  vty_addr = optarg;
+	  break;
+	case 'P':
+	  /* Deal with atoi() returning 0 on failure, and isisd not
+	     listening on isisd port... */
+	  if (strcmp (optarg, "0") == 0)
+	    {
+	      vty_port = 0;
+	      break;
+	    }
+	  vty_port = atoi (optarg);
+	  vty_port = (vty_port ? vty_port : ISISD_VTY_PORT);
+	  break;
+	case 'u':
+	  isisd_privs.user = isisd_privs.group = optarg;
+	  break;
+	  break;
+	case 'v':
+	  printf ("ISISd version %s\n", ISISD_VERSION);
+	  printf ("Copyright (c) 2001-2002 Sampo Saaristo,"
+		  " Ofer Wald and Hannes Gredler\n");
+	  print_version ("Zebra");
+	  exit (0);
+	  break;
+	case 'h':
+	  usage (0);
+	  break;
+	default:
+	  usage (1);
+	  break;
+	}
     }
-  
+
   /* thread master */
   master = thread_master_create ();
 
   /* random seed from time */
-  srand(time(NULL));
+  srand (time (NULL));
 
   /*
    *  initializations
    */
   zprivs_init (&isisd_privs);
-  signal_init (master, Q_SIGC(isisd_signals), isisd_signals);
+  signal_init (master, Q_SIGC (isisd_signals), isisd_signals);
   cmd_init (1);
   vty_init (master);
   memory_init ();
@@ -308,7 +303,7 @@ main (int argc, char **argv, char **envp)
   dyn_cache_init ();
   sort_node ();
 
-  /* parse config file */ 
+  /* parse config file */
   /* this is needed three times! because we have interfaces before the areas */
   vty_read_config (config_file, config_default);
   vty_read_config (config_file, config_default);
@@ -323,7 +318,7 @@ main (int argc, char **argv, char **envp)
 
   /* Make isis vty socket. */
   vty_serv_sock (vty_addr, vty_port, ISIS_VTYSH_PATH);
-  
+
   /* Print banner. */
 #if defined(ZEBRA_VERSION)
   zlog_info ("ISISd %s starting: vty@%d", ZEBRA_VERSION, vty_port);
@@ -340,13 +335,3 @@ main (int argc, char **argv, char **envp)
   /* Not reached. */
   exit (0);
 }
-
-
-
-
-
-
-
-
-
-

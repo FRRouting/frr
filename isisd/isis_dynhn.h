@@ -23,7 +23,8 @@
 #ifndef _ZEBRA_ISIS_DYNHN_H
 #define _ZEBRA_ISIS_DYNHN_H
 
-struct isis_dynhn {
+struct isis_dynhn
+{
   u_char id[ISIS_SYS_ID_LEN];
   struct hostname name;
   time_t refresh;
@@ -31,12 +32,8 @@ struct isis_dynhn {
 };
 
 void dyn_cache_init (void);
-void isis_dynhn_insert (u_char *id, struct hostname *hostname, int level);
+void isis_dynhn_insert (u_char * id, struct hostname *hostname, int level);
 struct isis_dynhn *dynhn_find_by_id (u_char * id);
-void  dynhn_print_all (struct vty *vty);
+void dynhn_print_all (struct vty *vty);
 
 #endif /* _ZEBRA_ISIS_DYNHN_H */
-
-
-
-

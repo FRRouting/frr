@@ -26,13 +26,13 @@
 
 /* The grand plan is to support 1024 circuits so we have 32*32 bit flags
  * the support will be achived using the newest drafts */
-#define ISIS_MAX_CIRCUITS 32 /* = 1024 */ /*FIXME:defined in lsp.h as well*/
+#define ISIS_MAX_CIRCUITS 32 /* = 1024 */	/*FIXME:defined in lsp.h as well */
 
-struct flags *new_flags        (int size);
-int           flags_get_index  (struct flags *flags);
-void          flags_free_index (struct flags *flags, int index);
+struct flags *new_flags (int size);
+int flags_get_index (struct flags *flags);
+void flags_free_index (struct flags *flags, int index);
 
-int  flags_any_set (u_int32_t *flags);
+int flags_any_set (u_int32_t * flags);
 
 #define ISIS_SET_FLAG(F,C) \
         F[C->idx>>5] |= (1<<(C->idx & 0x1F));
@@ -50,9 +50,3 @@ int  flags_any_set (u_int32_t *flags);
         memset(FLAGS,0x00,ISIS_MAX_CIRCUITS*4);
 
 #endif /* _ZEBRA_ISIS_FLAGS_H */
-
-
-
-
-
-

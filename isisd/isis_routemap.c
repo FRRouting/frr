@@ -52,48 +52,49 @@
 extern struct isis *isis;
 
 void
-isis_route_map_upd()
+isis_route_map_upd ()
 {
   int i = 0;
-  
+
   if (!isis)
     return;
-  
-  for (i = 0; i <= ZEBRA_ROUTE_MAX; i++) {
-    if (isis->rmap[i].name)
-      isis->rmap[i].map =  isis->rmap[i].map = 
-        route_map_lookup_by_name (isis->rmap[i].name);
-    else
-      isis->rmap[i].map = NULL;
-  }
+
+  for (i = 0; i <= ZEBRA_ROUTE_MAX; i++)
+    {
+      if (isis->rmap[i].name)
+	isis->rmap[i].map = isis->rmap[i].map =
+	  route_map_lookup_by_name (isis->rmap[i].name);
+      else
+	isis->rmap[i].map = NULL;
+    }
   /* FIXME: do the address family sub-mode AF_INET6 here ? */
 }
 
 void
-isis_route_map_event(route_map_event_t event, char *name)
+isis_route_map_event (route_map_event_t event, char *name)
 {
   int type;
 
   if (!isis)
     return;
 
-  for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
-    if (isis->rmap[type].name &&  isis->rmap[type].map && 
-        !strcmp (isis->rmap[type].name, name)) {
-      isis_distribute_list_update (type);
+  for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
+    {
+      if (isis->rmap[type].name && isis->rmap[type].map &&
+	  !strcmp (isis->rmap[type].name, name))
+	{
+	  isis_distribute_list_update (type);
+	}
     }
-  }  
 }
-
 
 void
 isis_route_map_init (void)
 {
   route_map_init ();
   route_map_init_vty ();
-  
+
   route_map_add_hook (isis_route_map_upd);
   route_map_delete_hook (isis_route_map_upd);
   route_map_event_hook (isis_route_map_event);
-
 }

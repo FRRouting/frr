@@ -21,7 +21,6 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-
 #include <zebra.h>
 #include "log.h"
 #include "linklist.h"
@@ -31,41 +30,44 @@
 #include "isisd/isis_flags.h"
 
 int
-flags_get_index (struct flags *flags) 
+flags_get_index (struct flags *flags)
 {
   struct listnode *node;
   int index;
 
-  if (flags->free_idcs == NULL || flags->free_idcs->count == 0) {
-    flags->maxindex++;
-    index = flags->maxindex;
-  } else {
-    node = listhead (flags->free_idcs);
-    index = (int) getdata (node);
-    listnode_delete (flags->free_idcs, (void *)index);
-  }
-  
+  if (flags->free_idcs == NULL || flags->free_idcs->count == 0)
+    {
+      flags->maxindex++;
+      index = flags->maxindex;
+    }
+  else
+    {
+      node = listhead (flags->free_idcs);
+      index = (int) getdata (node);
+      listnode_delete (flags->free_idcs, (void *) index);
+    }
+
   return index;
 }
 
-void 
-flags_free_index (struct flags *flags, int index) 
+void
+flags_free_index (struct flags *flags, int index)
 {
-  if (flags->free_idcs == NULL) {
-    flags->free_idcs = list_new ();
-  }
-  
-  listnode_add (flags->free_idcs, (void *)index);
-  
+  if (flags->free_idcs == NULL)
+    {
+      flags->free_idcs = list_new ();
+    }
+
+  listnode_add (flags->free_idcs, (void *) index);
+
   return;
 }
 
-int  
-flags_any_set (u_int32_t *flags)
+int
+flags_any_set (u_int32_t * flags)
 {
+  u_int32_t zero[ISIS_MAX_CIRCUITS];
+  memset (zero, 0x00, ISIS_MAX_CIRCUITS * 4);
 
-  u_int32_t zero[ISIS_MAX_CIRCUITS]; 
-  memset (zero, 0x00, ISIS_MAX_CIRCUITS*4); 
-
-  return bcmp(flags, zero, ISIS_MAX_CIRCUITS*4);
+  return bcmp (flags, zero, ISIS_MAX_CIRCUITS * 4);
 }

@@ -46,8 +46,8 @@
  */
 
 int
-iso_csum_verify (u_char *buffer, int len, uint16_t *csum)
-{ 
+iso_csum_verify (u_char * buffer, int len, uint16_t * csum)
+{
   u_int8_t *p;
   u_int32_t c0;
   u_int32_t c1;
@@ -70,27 +70,27 @@ iso_csum_verify (u_char *buffer, int len, uint16_t *csum)
    */
   if (c0 == 0 || c1 == 0)
     return 1;
-  
+
   /*
    * Otherwise initialize to zero and calculate...
    */
   c0 = 0;
   c1 = 0;
 
-  for (i = 0; i < len; i++) {
-    c0 = c0 + *(p++);
-    c1 += c0;
-  }
+  for (i = 0; i < len; i++)
+    {
+      c0 = c0 + *(p++);
+      c1 += c0;
+    }
 
   c0 = c0 % 255;
   c1 = c1 % 255;
-  
-  if ( c0 == 0 && c1 == 0)
+
+  if (c0 == 0 && c1 == 0)
     return 0;
 
   return 1;
 }
-
 
 /*
  * Creates the checksum. *csum points to the position of the checksum in the 
@@ -102,7 +102,7 @@ iso_csum_verify (u_char *buffer, int len, uint16_t *csum)
  */
 #define FIXED_CODE
 u_int16_t
-iso_csum_create (u_char *buffer, int len, u_int16_t n)
+iso_csum_create (u_char * buffer, int len, u_int16_t n)
 {
 
   u_int8_t *p;
@@ -112,7 +112,7 @@ iso_csum_create (u_char *buffer, int len, u_int16_t n)
   u_int32_t c0;
   u_int32_t c1;
   u_int16_t checksum;
-  u_int16_t  *csum;
+  u_int16_t *csum;
   int i;
 
   checksum = 0;
@@ -120,40 +120,46 @@ iso_csum_create (u_char *buffer, int len, u_int16_t n)
   /*
    * Zero the csum in the packet.
    */
-  csum = (u_int16_t*)(buffer + n);
+  csum = (u_int16_t *) (buffer + n);
   *(csum) = checksum;
 
   /* for the limitation of our implementation */
-  if (len > 5000) {
-    return 0;
-  }
+  if (len > 5000)
+    {
+      return 0;
+    }
 
   p = buffer;
   c0 = 0;
   c1 = 0;
 
-  for (i = 0; i < len; i++) {
-    c0 = c0 + *(p++);
-    c1 += c0;
-  }
+  for (i = 0; i < len; i++)
+    {
+      c0 = c0 + *(p++);
+      c1 += c0;
+    }
 
   c0 = c0 % 255;
   c1 = c1 % 255;
 
-  mul = (len - n)*(c0);
-  
+  mul = (len - n) * (c0);
+
 #ifdef FIXED_CODE
   x = mul - c0 - c1;
   y = c1 - mul - 1;
 
-  if ( y >= 0 ) y++;
-  if ( x < 0 ) x--;
+  if (y >= 0)
+    y++;
+  if (x < 0)
+    x--;
 
   x %= 255;
   y %= 255;
 
-  if (x == 0) x = 255;
-  if (y == 0) y = 255;
+  if (x == 0)
+    x = 255;
+  if (y == 0)
+    y = 255;
 
   x &= 0x00FF;
 
@@ -166,12 +172,14 @@ iso_csum_create (u_char *buffer, int len, u_int16_t n)
   y = c1 - mul - 1;
   y %= 255;
 
-  if (x == 0) x = 255;
-  if (y == 0) y = 255;
+  if (x == 0)
+    x = 255;
+  if (y == 0)
+    y = 255;
 
   checksum = ((y << 8) | x);
 #endif
-  
+
   /*
    * Now we write this to the packet
    */
@@ -181,12 +189,8 @@ iso_csum_create (u_char *buffer, int len, u_int16_t n)
   return checksum;
 }
 
-
 int
-iso_csum_modify (u_char *buffer, int len, uint16_t *csum)
+iso_csum_modify (u_char * buffer, int len, uint16_t * csum)
 {
-  
   return 0;
 }
-
-
