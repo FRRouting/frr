@@ -1,3 +1,16 @@
+2004-10-05 Paul Jakma <paul@dishone.st>
+
+	* irdp_packet.c: (parse_irdp_packet) style issues.
+	  Use sockopt_iphdrincl_swab_systoh.
+          Try unbork the code. Checksum the ICMP data and actually 
+          compare it to received checksum. Check data length against
+          claimed length in header.
+	  Always use ntoh.. when accessing addresses, even when the
+          comparison happens to be endian-safe.
+	  (send_packet) minor style isues. Use
+          sockopt_iphdrincl_swab_htosys.
+	  (irdp_iph_hton/ntoh) IP header to/from network/host order.
+
 2004-10-03 Gilad Arnold <gilad.arnold at terayon.com>
 
 	* interface.c, interface.h: A new prefix tree of connected subnets is
