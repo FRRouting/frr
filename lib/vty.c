@@ -1140,13 +1140,16 @@ vty_telnet_option (struct vty *vty, unsigned char *buf, int nbytes)
       break;
     case SE: 
       {
-	char *buffer = (char *)vty->sb_buffer->head->data;
-	int length = vty->sb_buffer->length;
-
-	if (buffer == NULL)
-	  return 0;
+	char *buffer;
+	int length;
 
 	if (!vty->iac_sb_in_progress)
+	  return 0;
+
+	buffer = (char *)vty->sb_buffer->head->data;
+	length = vty->sb_buffer->length;
+
+	if (buffer == NULL)
 	  return 0;
 
 	if (buffer[0] == '\0')
@@ -1251,7 +1254,6 @@ static int
 vty_read (struct thread *thread)
 {
   int i;
-  int ret;
   int nbytes;
   unsigned char buf[VTY_READ_BUFSIZ];
 
@@ -1288,11 +1290,14 @@ vty_read (struct thread *thread)
       if (vty->iac)
 	{
 	  /* In case of telnet command */
-	  ret = vty_telnet_option (vty, buf + i, nbytes - i);
+	  int ret = 0;
+	  if (vty->iac_sb_in_progress)
+	    ret = vty_telnet_option (vty, buf + i, nbytes - i);
 	  vty->iac = 0;
 	  i += ret;
 	  continue;
 	}
+	        
 
       if (vty->status == VTY_MORE)
 	{
