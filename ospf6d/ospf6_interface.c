@@ -141,16 +141,15 @@ ospf6_interface_create (struct interface *ifp)
   oi->state = OSPF6_INTERFACE_DOWN;
   oi->flag = 0;
 
-  /* Try to adust I/O buffer size with IfMtu */
+  /* Try to adjust I/O buffer size with IfMtu */
+  oi->ifmtu = ifp->mtu;
   iobuflen = ospf6_iobuf_size (ifp->mtu);
-  if (iobuflen < ifp->mtu)
+  if (oi->ifmtu > iobuflen)
     {
       zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
                  ifp->name, iobuflen);
       oi->ifmtu = iobuflen;
     }
-  else
-    oi->ifmtu = ifp->mtu;
 
   oi->lsupdate_list = ospf6_lsdb_create ();
   oi->lsack_list = ospf6_lsdb_create ();
@@ -270,16 +269,16 @@ ospf6_interface_if_add (struct interface *ifp)
   if (oi == NULL)
     return;
 
-  /* Try to adust I/O buffer size with IfMtu */
+  /* Try to adjust I/O buffer size with IfMtu */
+  if (oi->ifmtu == 0)
+    oi->ifmtu = ifp->mtu;
   iobuflen = ospf6_iobuf_size (ifp->mtu);
-  if (iobuflen < ifp->mtu)
+  if (oi->ifmtu > iobuflen)
     {
       zlog_info ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
                  ifp->name, iobuflen);
       oi->ifmtu = iobuflen;
     }
-  else
-    oi->ifmtu = ifp->mtu;
 
   /* interface start */
   if (oi->area)
@@ -1041,6 +1040,67 @@ ALIAS (show_ipv6_ospf6_interface_prefix,
 
 
 /* interface variable set command */
+DEFUN (ipv6_ospf6_ifmtu,
+       ipv6_ospf6_ifmtu_cmd,
+       "ipv6 ospf6 ifmtu <1-65535>",
+       IP6_STR
+       OSPF6_STR
+       "Interface MTU\n"
+       "OSPFv3 Interface MTU\n"
+       )
+{
+  struct ospf6_interface *oi;
+  struct interface *ifp;
+  int ifmtu, iobuflen;
+  listnode node;
+  struct ospf6_neighbor *on;
+
+  ifp = (struct interface *) vty->index;
+  assert (ifp);
+
+  oi = (struct ospf6_interface *) ifp->info;
+  if (oi == NULL)
+    oi = ospf6_interface_create (ifp);
+  assert (oi);
+
+  ifmtu = strtol (argv[0], NULL, 10);
+
+  if (oi->ifmtu == ifmtu)
+    return CMD_SUCCESS;
+
+  if (ifp->mtu != 0 && ifp->mtu < ifmtu)
+    {
+      vty_out (vty, "%s's ospf6 ifmtu cannot go beyond physical mtu (%d)%s",
+               ifp->name, ifp->mtu, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (oi->ifmtu < ifmtu)
+    {
+      iobuflen = ospf6_iobuf_size (ifmtu);
+      if (iobuflen < ifmtu)
+        {
+          vty_out (vty, "%s's ifmtu is adjusted to I/O buffer size (%d).%s",
+                   ifp->name, iobuflen, VTY_NEWLINE);
+          oi->ifmtu = iobuflen;
+        }
+      else
+        oi->ifmtu = ifmtu;
+    }
+  else
+    oi->ifmtu = ifmtu;
+
+  /* re-establish adjacencies */
+  for (node = listhead (oi->neighbor_list); node; nextnode (node))
+    {
+      on = (struct ospf6_neighbor *) getdata (node);
+      THREAD_OFF (on->inactivity_timer);
+      thread_execute (master, inactivity_timer, on, 0);
+    }
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (ipv6_ospf6_cost,
        ipv6_ospf6_cost_cmd,
        "ipv6 ospf6 cost <1-65535>",
@@ -1392,6 +1452,8 @@ config_write_ospf6_interface (struct vty *vty)
       if (ifp->desc)
         vty_out (vty, " description %s%s", ifp->desc, VTY_NEWLINE);
 
+      if (ifp->mtu != oi->ifmtu)
+        vty_out (vty, " ipv6 ospf6 ifmtu %d%s", oi->ifmtu, VTY_NEWLINE);
       vty_out (vty, " ipv6 ospf6 cost %d%s",
                oi->cost, VTY_NEWLINE);
       vty_out (vty, " ipv6 ospf6 hello-interval %d%s",
@@ -1453,6 +1515,7 @@ ospf6_interface_init ()
   install_element (INTERFACE_NODE, &interface_desc_cmd);
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &ipv6_ospf6_cost_cmd);
+  install_element (INTERFACE_NODE, &ipv6_ospf6_ifmtu_cmd);
   install_element (INTERFACE_NODE, &ipv6_ospf6_deadinterval_cmd);
   install_element (INTERFACE_NODE, &ipv6_ospf6_hellointerval_cmd);
   install_element (INTERFACE_NODE, &ipv6_ospf6_priority_cmd);

@@ -1119,6 +1119,10 @@ ospf6_iobuf_size (int size)
   sendnew = XMALLOC (MTYPE_OSPF6_MESSAGE, size);
   if (recvnew == NULL || sendnew == NULL)
     {
+      if (recvnew)
+        XFREE (MTYPE_OSPF6_MESSAGE, recvnew);
+      if (sendnew)
+        XFREE (MTYPE_OSPF6_MESSAGE, sendnew);
       zlog_info ("Could not allocate I/O buffer of size %d.", size);
       return iobuflen;
     }
