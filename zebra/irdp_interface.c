@@ -76,14 +76,13 @@ char b1[16], b2[16], b3[16], b4[16];  /* For inet_2a */
 
 struct prefix *irdp_get_prefix(struct interface *ifp)
 {
-  listnode node;
+  struct listnode *node;
   struct connected *ifc;
   
-  if(ifp->connected) 
-    for (node = listhead (ifp->connected); node; nextnode (node)) {
-      ifc = getdata (node);
+  if (ifp->connected)
+    LIST_LOOP (ifp->connected, ifc, node)
       return ifc->address;
-    }
+
   return NULL;
 }
 
@@ -158,13 +157,13 @@ int if_drop_group (struct interface *ifp)
 
 struct interface *get_iflist_ifp(int idx)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
 
-  for (node = listhead (iflist); node; nextnode (node)) {
-      ifp = getdata (node);
-      if(ifp->ifindex == idx) return ifp;
-    }
+  LIST_LOOP (iflist, ifp, node)
+    if(ifp->ifindex == idx) 
+      return ifp;
+
   return NULL;
 }
 
@@ -198,7 +197,8 @@ void irdp_if_start(struct interface *ifp, int multicast, int set_defaults)
 {
   struct zebra_if *zi= ifp->info;
   struct irdp_interface *irdp = &zi->irdp;
-  listnode node;
+  struct listnode *node;
+  struct connected *ifc;
   u_int32_t timer, seed;
 
   if (irdp->flags & IF_ACTIVE ) {
@@ -234,12 +234,12 @@ void irdp_if_start(struct interface *ifp, int multicast, int set_defaults)
   /* The spec suggests this for randomness */
 
   seed = 0;
-  if( ifp->connected) 
-	  for (node = listhead (ifp->connected); node; nextnode (node)) 
-	  {
-		  struct connected *ifc = getdata (node);
-		  seed = ifc->address->u.prefix4.s_addr;
-	  }
+  if( ifp->connected)
+    LIST_LOOP (ifp->connected, ifc, node)
+      {
+        seed = ifc->address->u.prefix4.s_addr;
+        break;
+      }
   
   srandom(seed);
   timer =  (random () % IRDP_DEFAULT_INTERVAL) + 1; 
@@ -337,7 +337,7 @@ void irdp_config_write (struct vty *vty, struct interface *ifp)
   struct zebra_if *zi=ifp->info;
   struct irdp_interface *irdp=&zi->irdp;
   struct Adv *adv;
-  listnode node;
+  struct listnode *node;
 
   if(irdp->flags & IF_ACTIVE || irdp->flags & IF_SHUTDOWN) {
 
@@ -352,14 +352,11 @@ void irdp_config_write (struct vty *vty, struct interface *ifp)
     vty_out (vty, " ip irdp preference %ld%s",  
 	     irdp->Preference, VTY_NEWLINE);
 
-    for (node = listhead (irdp->AdvPrefList); node; nextnode (node)) {
-	    adv = getdata (node);
-	    vty_out (vty, " ip irdp address %s preference %d%s",
-		     inet_2a(adv->ip.s_addr, b1),
-		     adv->pref,
-		     VTY_NEWLINE);
-
-    }
+    LIST_LOOP (irdp->AdvPrefList, adv, node)
+      vty_out (vty, " ip irdp address %s preference %d%s",
+                    inet_2a(adv->ip.s_addr, b1),
+                    adv->pref, 
+                    VTY_NEWLINE);
 
     vty_out (vty, " ip irdp holdtime %d%s",  
 	     irdp->Lifetime, VTY_NEWLINE);
@@ -591,7 +588,7 @@ DEFUN (ip_irdp_address_preference,
        "Set IRDP address for advertise\n"
        "Preference level\n")
 {
-  listnode node;
+  struct listnode *node;
   struct in_addr ip; 
   int pref;
   int ret;
@@ -613,10 +610,9 @@ DEFUN (ip_irdp_address_preference,
 
   pref = atoi(argv[1]);
 
-  for (node = listhead (irdp->AdvPrefList); node; nextnode (node)) {
-	  adv = getdata (node);
-      if(adv->ip.s_addr == ip.s_addr) return CMD_SUCCESS;
-  }
+  LIST_LOOP (irdp->AdvPrefList, adv, node)
+    if(adv->ip.s_addr == ip.s_addr) 
+      return CMD_SUCCESS;
 
   adv = Adv_new();
   adv->ip = ip;
@@ -637,7 +633,7 @@ DEFUN (no_ip_irdp_address_preference,
        "Select IRDP address\n"
        "Old preference level\n")
 {
-  listnode node;
+  struct listnode *node;
   struct in_addr ip; 
   int pref;
   int ret;
@@ -655,21 +651,24 @@ DEFUN (no_ip_irdp_address_preference,
   irdp=&zi->irdp;
 
   ret = inet_aton(argv[0], &ip);
-  if(!ret) return CMD_WARNING;
+  if (!ret) 
+    return CMD_WARNING;
 
   pref = atoi(argv[1]);
 
-  for (node = listhead (irdp->AdvPrefList); node; nextnode (node)) {
-	  adv = getdata (node);
-	  if(adv->ip.s_addr == ip.s_addr ) {
-		  listnode_delete(irdp->AdvPrefList, adv);
-		  break;
-	  }
-  }
-
+  for (node = listhead (irdp->AdvPrefList); node; node = nnode)
+    {
+      nnode = node->next;
+      adv = getdata (node);
+      
+      if(adv->ip.s_addr == ip.s_addr )
+        {
+          listnode_delete(irdp->AdvPrefList, adv);
+          break;
+        }
+    }
+  
   return CMD_SUCCESS;
-
-
 }
 
 DEFUN (ip_irdp_debug_messages,

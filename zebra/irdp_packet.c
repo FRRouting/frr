@@ -178,10 +178,7 @@ void parse_irdp_packet(char *p,
     }
 }
 
-int irdp_recvmsg (int sock, 
-	      u_char *buf, 
-	      int size, 
-	      int *ifindex)
+int irdp_recvmsg (int sock, u_char *buf, int size, int *ifindex)
 {
   struct msghdr msg;
   struct iovec iov;
@@ -214,7 +211,7 @@ int irdp_recvmsg (int sock,
     return ret;
   }
 
-  ifindex = getsockopt_ifindex (AF_INET, &msg);
+  *ifindex = getsockopt_ifindex (AF_INET, &msg);
 
   return ret;
 }

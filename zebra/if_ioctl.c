@@ -405,10 +405,10 @@ if_get_addr (struct interface *ifp)
 static void
 interface_info_ioctl ()
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   
-  for (node = listhead (iflist); node; node = nextnode (node))
+  LIST_LOOP (iflist, ifp, node)
     {
       ifp = getdata (node);
 

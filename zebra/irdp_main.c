@@ -138,18 +138,18 @@ irdp_sock_init (void)
 
 int get_pref(struct irdp_interface *irdp, struct prefix *p)
 {
-  listnode node;
+  struct listnode *node;
   struct Adv *adv;
 
   /* Use default preference or use the override pref */
   
-  if( irdp->AdvPrefList == NULL ) return irdp->Preference;
+  if( irdp->AdvPrefList == NULL )
+    return irdp->Preference;
   
-  for (node = listhead (irdp->AdvPrefList); node; nextnode (node)) {
-    adv = getdata (node);
+  LIST_LOOP (irdp->AdvPrefList, adv, node)
     if( p->u.prefix4.s_addr == adv->ip.s_addr )
       return adv->pref;
-  }
+
   return irdp->Preference;
 }
 
@@ -231,21 +231,18 @@ int irdp_send_thread(struct thread *t_advert)
   struct zebra_if *zi=ifp->info;
   struct irdp_interface *irdp=&zi->irdp;
   struct prefix *p;
-  listnode node;
+  struct listnode *node;
   struct connected *ifc;
 
   irdp->flags &= ~IF_SOLICIT;
 
   if(ifp->connected) 
-    for (node = listhead (ifp->connected); node; nextnode (node)) {
-      ifc = getdata (node);
-
-      p = ifc->address;
-
-      irdp_advertisement(ifp, p);
-      irdp->irdp_sent++;
-
-    }
+    LIST_LOOP (ifp->connected, ifc, node)
+      {
+        p = ifc->address;
+        irdp_advertisement(ifp, p);
+        irdp->irdp_sent++;
+      }
 
   tmp = irdp->MaxAdvertInterval-irdp->MinAdvertInterval;
   timer =  (random () % tmp ) + 1;
@@ -266,7 +263,7 @@ void irdp_advert_off(struct interface *ifp)
 {
   struct zebra_if *zi=ifp->info;
   struct irdp_interface *irdp=&zi->irdp;
-  listnode node;
+  struct listnode *node;
   int i;
   struct connected *ifc;
   struct prefix *p;
@@ -275,21 +272,20 @@ void irdp_advert_off(struct interface *ifp)
   irdp->t_advertise = NULL;
   
   if(ifp->connected) 
-    for (node = listhead (ifp->connected); node; nextnode (node)) {
-      ifc = getdata (node);
+    LIST_LOOP (ifp->connected, ifc, node)
+      {
+        p = ifc->address;
 
-      p = ifc->address;
+        /* Output some packets with Lifetime 0 
+           we should add a wait...
+        */
 
-      /* Output some packets with Lifetime 0 
-	 we should add a wait...
-      */
-
-      for(i=0; i< IRDP_LAST_ADVERT_MESSAGES; i++) {
-
-	irdp->irdp_sent++;
-	irdp_advertisement(ifp, p);
+        for(i=0; i< IRDP_LAST_ADVERT_MESSAGES; i++) 
+          {
+            irdp->irdp_sent++;
+            irdp_advertisement(ifp, p);
+          }
       }
-    }
 }
 
 
@@ -320,7 +316,7 @@ void process_solicit (struct interface *ifp)
 void irdp_finish()
 {
 
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   struct zebra_if *zi;
   struct irdp_interface *irdp;
@@ -330,15 +326,19 @@ void irdp_finish()
   for (node = listhead (iflist); node; node = nextnode (node))
     {
       ifp = getdata(node);
-      zi= ifp->info;
-      if(! zi) continue;
+      zi = ifp->info;
+      
+      if (!zi) 
+        continue;
       irdp = &zi->irdp;
-      if(!irdp) continue;
+      if (!irdp) 
+        continue;
 
-      if(irdp->flags & IF_ACTIVE ) {
-	irdp->flags |= IF_SHUTDOWN;
-	irdp_advert_off(ifp);
-      }
+      if (irdp->flags & IF_ACTIVE ) 
+        {
+	  irdp->flags |= IF_SHUTDOWN;
+	  irdp_advert_off(ifp);
+        }
     }
 }
 
@@ -347,8 +347,6 @@ void irdp_init()
   irdp_sock_init();
   irdp_if_init ();
 }
-
-
 
 #endif /* HAVE_IRDP */
 
