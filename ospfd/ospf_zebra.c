@@ -429,7 +429,7 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
               nexthop = &path->nexthop;
               api.nexthop = &nexthop;
             }
-          else if (path->oi->ifp)
+          else if (ospf_if_exists(path->oi) && (path->oi->ifp))
             {
               SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
               api.ifindex_num = 1;

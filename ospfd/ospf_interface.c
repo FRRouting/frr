@@ -371,6 +371,23 @@ ospf_if_is_up (struct ospf_interface *oi)
 }
 
 struct ospf_interface *
+ospf_if_exists (struct ospf_interface *oic)
+{ 
+  listnode node;
+  struct ospf *ospf;
+  struct ospf_interface *oi;
+
+  ospf = ospf_lookup ();
+
+  for (node = listhead (ospf->oiflist); node; nextnode (node))
+  {
+    if (((oi = getdata (node)) != NULL) && (oi == oic))
+      return oi;
+  }
+  return NULL;
+}
+
+struct ospf_interface *
 ospf_if_lookup_by_local_addr (struct ospf *ospf,
 			      struct interface *ifp, struct in_addr address)
 {

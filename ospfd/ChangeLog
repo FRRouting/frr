@@ -1,3 +1,7 @@
+2004-02-11 Hasso Tepper <hasso@estpak.ee>
+	* ospf_interface.c, ospf_zebra.c: Don't attempt to read path->oi->ifp
+	  if oi doesn't exist any more.
+
 2004-02-11 Vadim Suraev <vadim.suraev@terayon.com>
 	* ospf_packet.c (ospf_ls_upd): Router should flush received network
 	  LSA if it was originated with older router-id ([zebra 14710] #6).
