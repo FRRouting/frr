@@ -36,7 +36,12 @@ struct list
 {
   struct listnode *head;
   struct listnode *tail;
+  /* invariant: count is the number of listnodes in the list */
   unsigned int count;
+  /*
+   * Returns -1 if val1 < val2, 0 if equal?, 1 if val1 > val2.
+   * Used as definition of sorted for listnode_add_sort
+   */
   int (*cmp) (void *val1, void *val2);
   void (*del) (void *val);
 };
