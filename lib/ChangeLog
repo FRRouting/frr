@@ -1,3 +1,31 @@
+2004-11-04 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* vty.c: Vtysh connections to daemons should use buffering.
+	  (vty_out) Remove exception for vty_shell_serv, just use buffer_write.
+	  (vty_new) Increase output buffer size to 4096 rounded up to a
+	  multiple of pagesize.
+	  (vtysh_read) After command has been executed and all output buffered,
+	  call buffer_flush_available and schedule further writes if the
+	  buffers are not yet empty.
+	  (vtysh_write) New function to flush output to vtysh when the socket
+	  is writeable.
+	  (vty_event) Added new VTYSH_WRITE event for flushing buffers to vtysh
+	  clients.  Also, should save read thread in vty->t_read so the
+	  thread can be cancelled in vty_close.
+	* buffer.h: In struct buffer_data, remove unused "parent" field.
+	  Convert "unsigned char *data" to "unsigned char data[0]" to save
+	  a malloc.  Declare new function buffer_flush_available that works
+	  with non-blocking sockets.
+	* buffer.c: (buffer_data_new) Use a single malloc now that data is
+	  a variable-size array at end of structure.
+	  (buffer_data_free) Just a single free now that data is part of the
+	  structure.
+	  (buffer_write) Simplify the logic to make behavior more transparent.
+	  (buffer_flush) Decrease b->length as data is written out.
+	  (buffer_flush_vty_all) Decrease b->length as buffers are freed.
+	  (buffer_flush_vty) Decrease b->length as data is written out.
+	  (buffer_flush_available) New function to flush non-blocking sockets.
+	  
 2004-11-01 Paul Jakma <paul@dishone.st>
 
 	* sockopt.c: (setsockopt_pktinfo) remove, its unused.

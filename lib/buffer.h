@@ -33,7 +33,7 @@ struct buffer
   /* Current allocated data. */
   unsigned long alloc;
 
-  /* Total length of buffer. */
+  /* Size of each buffer_data chunk. */
   unsigned long size;
 
   /* For allocation. */
@@ -47,18 +47,17 @@ struct buffer
 /* Data container. */
 struct buffer_data
 {
-  struct buffer *parent;
   struct buffer_data *next;
   struct buffer_data *prev;
-
-  /* Acctual data stream. */
-  unsigned char *data;
 
   /* Current pointer. */
   unsigned long cp;
 
   /* Start pointer. */
   unsigned long sp;
+
+  /* Actual data stream (variable length). */
+  unsigned char data[0];  /* real dimension is buffer->size */
 };
 
 /* Buffer prototypes. */
@@ -73,5 +72,12 @@ int buffer_flush_all (struct buffer *, int);
 int buffer_flush_vty_all (struct buffer *, int, int, int);
 int buffer_flush_window (struct buffer *, int, int, int, int, int);
 int buffer_empty (struct buffer *);
+
+/* buffer_flush_available attempts to flush the queued data to the given
+   file descriptor.  It returns 0 if the buffers are now empty (after
+   flushing), or 1 if more data remains on the buffer queue (must be flushed
+   later).  This function (unlike the other buffer_flush* functions) is
+   designed to work with non-blocking file descriptors. */
+int buffer_flush_available(struct buffer *, int fd);
 
 #endif /* _ZEBRA_BUFFER_H */

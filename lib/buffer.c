@@ -24,25 +24,22 @@
 
 #include "memory.h"
 #include "buffer.h"
+#include <stddef.h>
 
 /* Make buffer data. */
-struct buffer_data *
+static struct buffer_data *
 buffer_data_new (size_t size)
 {
   struct buffer_data *d;
 
-  d = XMALLOC (MTYPE_BUFFER_DATA, sizeof (struct buffer_data));
-  memset (d, 0, sizeof (struct buffer_data));
-  d->data = XMALLOC (MTYPE_BUFFER_DATA, size);
-
+  d = XMALLOC (MTYPE_BUFFER_DATA, offsetof(struct buffer_data,data[size]));
+  d->cp = d->sp = 0;
   return d;
 }
 
-void
+static void
 buffer_data_free (struct buffer_data *d)
 {
-  if (d->data)
-    XFREE (MTYPE_BUFFER_DATA, d->data);
   XFREE (MTYPE_BUFFER_DATA, d);
 }
 
@@ -159,6 +156,8 @@ buffer_write (struct buffer *b, const void *p, size_t size)
   /* We use even last one byte of data buffer. */
   while (size)    
     {
+      size_t chunk;
+
       /* If there is no data buffer add it. */
       if (data == NULL || data->cp == b->size)
 	{
@@ -166,23 +165,11 @@ buffer_write (struct buffer *b, const void *p, size_t size)
 	  data = b->tail;
 	}
 
-      /* Last data. */
-      if (size <= (b->size - data->cp))
-	{
-	  memcpy ((data->data + data->cp), ptr, size);
-
-	  data->cp += size;
-	  size = 0;
-	}
-      else
-	{
-	  memcpy ((data->data + data->cp), ptr, (b->size - data->cp));
-
-	  size -= (b->size - data->cp);
-	  ptr += (b->size - data->cp);
-
-	  data->cp = b->size;
-	}
+      chunk = ((size <= (b->size - data->cp)) ? size : (b->size - data->cp));
+      memcpy ((data->data + data->cp), ptr, chunk);
+      size -= chunk;
+      ptr += chunk;
+      data->cp += chunk;
     }
   return 1;
 }
@@ -235,6 +222,7 @@ buffer_flush (struct buffer *b, int fd, size_t size)
 	{
 	  iovec[iov_index++].iov_len = size;
 	  data->sp += size;
+	  b->length -= size;
 	  if (data->sp == data->cp)
 	    data = data->next;
 	  break;
@@ -242,6 +230,7 @@ buffer_flush (struct buffer *b, int fd, size_t size)
       else
 	{
 	  iovec[iov_index++].iov_len = data->cp - data->sp;
+	  b->length -= (data->cp - data->sp);
 	  size -= data->cp - data->sp;
 	  data->sp = data->cp;
 	}
@@ -369,6 +358,7 @@ buffer_flush_vty_all (struct buffer *b, int fd, int erase_flag,
 	b->tail = next;
       b->head = next;
 
+      b->length -= (out->cp-out->sp);
       buffer_data_free (out);
       b->alloc--;
     }
@@ -430,6 +420,7 @@ buffer_flush_vty (struct buffer *b, int fd, unsigned int size,
 	{
 	  iov[iov_index++].iov_len = size;
 	  data->sp += size;
+	  b->length -= size;
 	  if (data->sp == data->cp)
 	    data = data->next;
 	  break;
@@ -438,6 +429,7 @@ buffer_flush_vty (struct buffer *b, int fd, unsigned int size,
 	{
 	  iov[iov_index++].iov_len = data->cp - data->sp;
 	  size -= (data->cp - data->sp);
+	  b->length -= (data->cp - data->sp);
 	  data->sp = data->cp;
 	}
     }
@@ -565,4 +557,74 @@ buffer_flush_window (struct buffer *b, int fd, int width, int height,
  flush:
 
   return buffer_flush_vty (b, fd, size, erase, no_more);
+}
+
+/* This function (unlike other buffer_flush* functions above) is designed
+to work with non-blocking sockets.  It does not attempt to write out
+all of the queued data, just a "big" chunk.  It returns 0 if it was
+able to empty out the buffers completely, or 1 if more flushing is
+required later. */
+int
+buffer_flush_available(struct buffer *b, int fd)
+{
+
+/* These are just reasonable values to make sure a significant amount of
+data is written.  There's no need to go crazy and try to write it all
+in one shot. */
+#ifdef IOV_MAX
+#define MAX_CHUNKS ((IOV_MAX >= 16) ? 16 : IOV_MAX)
+#else
+#define MAX_CHUNKS 16
+#endif
+#define MAX_FLUSH 131072
+
+  struct buffer_data *d;
+  struct buffer_data *next;
+  ssize_t written;
+  struct iovec iov[MAX_CHUNKS];
+  int iovcnt = 0;
+  size_t nbyte = 0;
+
+  for (d = b->head; d && (iovcnt < MAX_CHUNKS) && (nbyte < MAX_FLUSH);
+       d = d->next, iovcnt++)
+    {
+      iov[iovcnt].iov_base = d->data+d->sp;
+      nbyte += (iov[iovcnt].iov_len = d->cp-d->sp);
+    }
+
+  if ((written = writev(fd,iov,iovcnt)) < 0)
+    {
+      if ((errno != EAGAIN) && (errno != EINTR))
+        zlog_warn("buffer_flush_available write error on fd %d: %s",
+		  fd,strerror(errno));
+      return 1;
+    }
+
+  /* Free printed buffer data. */
+  for (d = b->head; (written > 0) && d; d = next)
+    {
+      if (written < d->cp-d->sp)
+        {
+	  d->sp += written;
+	  b->length -= written;
+	  return 1;
+	}
+
+      written -= (d->cp-d->sp);
+      next = d->next;
+      if (next)
+	next->prev = NULL;
+      else
+	b->tail = next;
+      b->head = next;
+
+      b->length -= (d->cp-d->sp);
+      buffer_data_free (d);
+      b->alloc--;
+    }
+
+  return (b->head != NULL);
+
+#undef MAX_CHUNKS
+#undef MAX_FLUSH
 }

@@ -45,9 +45,13 @@ enum event
   VTY_TIMEOUT_RESET,
 #ifdef VTYSH
   VTYSH_SERV,
-  VTYSH_READ
+  VTYSH_READ,
+  VTYSH_WRITE
 #endif /* VTYSH */
 };
+
+/* Minimum size of output buffers; to be rounded up to multiple of pagesize. */
+#define VTY_OBUF_SIZE	4096
 
 static void vty_event (enum event, int, struct vty *);
 
@@ -127,10 +131,7 @@ vty_out (struct vty *vty, const char *format, ...)
 	p = buf;
 
       /* Pointer p must point out buffer. */
-      if (vty_shell_serv (vty))
-	write (vty->fd, (u_char *) p, len);
-      else
-	buffer_write (vty->obuf, (u_char *) p, len);
+      buffer_write (vty->obuf, (u_char *) p, len);
 
       /* If p is not different with buf, it is allocated buffer.  */
       if (p != buf)
@@ -264,8 +265,9 @@ struct vty *
 vty_new ()
 {
   struct vty *new = XCALLOC (MTYPE_VTY, sizeof (struct vty));
+  int pgsz = getpagesize();
 
-  new->obuf = (struct buffer *) buffer_new (100);
+  new->obuf = (struct buffer *) buffer_new ((((VTY_OBUF_SIZE-1)/pgsz)+1)*pgsz);
   new->buf = XCALLOC (MTYPE_VTY, VTY_BUFSIZ);
   new->max = VTY_BUFSIZ;
   new->sb_buffer = NULL;
@@ -2014,12 +2016,25 @@ vtysh_read (struct thread *thread)
 #endif /* VTYSH_DEBUG */
 
   header[3] = ret;
-  write (vty->fd, header, 4);
+  buffer_write(vty->obuf, header, 4);
 
+  if (!vty->t_write && buffer_flush_available(vty->obuf, vty->fd))
+    vty_event (VTYSH_WRITE, vty->fd, vty);
   vty_event (VTYSH_READ, sock, vty);
 
   return 0;
 }
+
+static int
+vtysh_write (struct thread *thread)
+{
+  struct vty *vty = THREAD_ARG (thread);
+
+  vty->t_write = NULL;
+  if (buffer_flush_available(vty->obuf, vty->fd))
+    vty_event (VTYSH_WRITE, vty->fd, vty);
+}
+
 #endif /* VTYSH */
 
 /* Determine address family to bind. */
@@ -2364,7 +2379,10 @@ vty_event (enum event event, int sock, struct vty *vty)
       thread_add_read (master, vtysh_accept, vty, sock);
       break;
     case VTYSH_READ:
-      thread_add_read (master, vtysh_read, vty, sock);
+      vty->t_read = thread_add_read (master, vtysh_read, vty, sock);
+      break;
+    case VTYSH_WRITE:
+      vty->t_write = thread_add_write (master, vtysh_write, vty, sock);
       break;
 #endif /* VTYSH */
     case VTY_READ:
