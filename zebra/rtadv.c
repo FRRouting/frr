@@ -430,9 +430,6 @@ rtadv_make_socket (void)
   ret = setsockopt_ipv6_pktinfo (sock, 1);
   if (ret < 0)
     return ret;
-  ret = setsockopt_ipv6_checksum (sock, 2);
-  if (ret < 0)
-    return ret;
   ret = setsockopt_ipv6_multicast_loop (sock, 0);
   if (ret < 0)
     return ret;
