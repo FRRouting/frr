@@ -120,12 +120,46 @@ address 192.168.1.129/25.
 @deffnx {OSPF Command} {area <0-4294967295> range @var{a.b.c.d/m}} {}
 @deffnx {OSPF Command} {no area @var{a.b.c.d} range @var{a.b.c.d/m}} {}
 @deffnx {OSPF Command} {no area <0-4294967295> range @var{a.b.c.d/m}} {}
+Summarize intra area paths from specified area into one Type-3 summary-LSA
+announced to other areas. This command can be used only in ABR and ONLY
+router-LSAs (Type-1) and network-LSAs (Type-2) (ie. LSAs with scope area) can
+be summarized. Type-5 AS-external-LSAs can't be summarized - their scope is AS.
+Summarizing Type-7 AS-external-LSAs isn't supported yet by Quagga.
+@example
+@group
+router ospf
+ network 192.168.1.0/24 area 0.0.0.0
+ network 10.0.0.0/8 area 0.0.0.10
+ area 0.0.0.10 range 10.0.0.0/8
+@end group
+@end example
+With configuration above one Type-3 Summary-LSA with routing info 10.0.0.0/8 is
+announced into backbone area if area 0.0.0.10 contains at least one intra-area
+network (ie. described with router or network LSA) from this range.
 @end deffn
 
-@deffn {OSPF Command} {area @var{a.b.c.d} range IPV4_PREFIX suppress} {}
-@deffnx {OSPF Command} {no area @var{a.b.c.d} range IPV4_PREFIX suppress} {}
+@deffn {OSPF Command} {area @var{a.b.c.d} range IPV4_PREFIX not-advertise} {}
+@deffnx {OSPF Command} {no area @var{a.b.c.d} range IPV4_PREFIX not-advertise} {}
+Instead of summarizing intra area paths filter them - ie. intra area paths from this
+range are not advertised into other areas.
+This command makes sense in ABR only.
+@end deffn
+
 @deffnx {OSPF Command} {area @var{a.b.c.d} range IPV4_PREFIX substitute IPV4_PREFIX} {}
 @deffnx {OSPF Command} {no area @var{a.b.c.d} range IPV4_PREFIX substitute IPV4_PREFIX} {}
+Substitute summarized prefix with another prefix.
+@example
+@group
+router ospf
+ network 192.168.1.0/24 area 0.0.0.0
+ network 10.0.0.0/8 area 0.0.0.10
+ area 0.0.0.10 range 10.0.0.0/8 substitute 11.0.0.0/8
+@end group
+@end example
+One Type-3 summary-LSA with routing info 11.0.0.0/8 is announced into backbone area if
+area 0.0.0.10 contains at least one intra-area network (ie. described with router-LSA or
+network-LSA) from range 10.0.0.0/8.
+This command makes sense in ABR only.
 @end deffn
 
 @deffn {OSPF Command} {area @var{a.b.c.d} virtual-link @var{a.b.c.d}} {}
@@ -160,12 +194,42 @@ address 192.168.1.129/25.
 @deffnx {OSPF Command} {area <0-4294967295> export-list NAME} {}
 @deffnx {OSPF Command} {no area @var{a.b.c.d} export-list NAME} {}
 @deffnx {OSPF Command} {no area <0-4294967295> export-list NAME} {}
+Filter Type-3 summary-LSAs announced to other areas originated from intra-
+area paths from specified area.
+@example
+@group
+router ospf
+ network 192.168.1.0/24 area 0.0.0.0
+ network 10.0.0.0/8 area 0.0.0.10
+ area 0.0.0.10 export-list foo
+!
+access-list foo permit 10.10.0.0/16
+access-list foo deny any
+@end group
+@end example
+With example above any intra-area paths from area 0.0.0.10 and from range
+10.10.0.0/16 (for example 10.10.1.0/24 and 10.10.2.128/30) are announced into
+other areas as Type-3 summary-LSA's, but any others (for example 10.11.0.0/16
+or 10.128.30.16/30) aren't.
+Note, that you can't configure export-list to backbone area and this command
+makes sense in ABR only.
 @end deffn
 
 @deffn {OSPF Command} {area @var{a.b.c.d} import-list NAME} {}
 @deffnx {OSPF Command} {area <0-4294967295> import-list NAME} {}
 @deffnx {OSPF Command} {no area @var{a.b.c.d} import-list NAME} {}
 @deffnx {OSPF Command} {no area <0-4294967295> import-list NAME} {}
+Same as export-list, but it applies to paths announced into specified area as
+Type-3 summary-LSAs.
+@end deffn
+
+@deffn {OSPF Command} {area @var{a.b.c.d} filter-list NAME} {}
+@deffnx {OSPF Command} {area <0-4294967295> filter-list NAME} {}
+@deffnx {OSPF Command} {no area @var{a.b.c.d} filter-list NAME} {}
+@deffnx {OSPF Command} {no area <0-4294967295> filter-list NAME} {}
+If you want to filter intra area paths in both direction with same access list,
+you can use filter-list command instead of export-list and import-list
+commands.
 @end deffn
 
 @deffn {OSPF Command} {area @var{a.b.c.d} authentication} {}
