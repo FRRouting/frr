@@ -271,7 +271,7 @@ main (int argc, char *argv[], char *envp[])
     flag = 0;
 
   zlog_default = openzlog (progname, flag, ZLOG_OSPF6,
-                           LOG_CONS|LOG_NDELAY|LOG_PERROR|LOG_PID,
+                           LOG_CONS|LOG_NDELAY|LOG_PID,
                            LOG_DAEMON);
   zprivs_init (&ospf6d_privs);
   /* initialize zebra libraries */
