@@ -1,5 +1,17 @@
 * Changes in Quagga 0.96.6
 
+- "write-config integrated" vtysh command replaced with "service
+  integrated-vtysh-config" command.
+
+- Router id is now handled by zebra daemon and all daemons receive changes
+  from it. Router id can be overriden in daemons' configurations of course.
+  To fix common router id in zebra daemon you can either install non-127
+  address on loopback or use "router-id x.x.x.x" command.
+
+- "secondary" keyword is removed from ip address configuration. All
+  supported OS'es have their own vision what's secondary address and
+  how to handle it.
+
 - Zebra no longer enables forwarding by default. If you rely on zebra to
   enable forwarding make sure to add '<ip|ip6> forwarding' statements
   to your zebra configuration file.
