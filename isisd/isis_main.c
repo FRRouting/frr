@@ -34,6 +34,7 @@
 #include "stream.h"
 #include "if.h"
 #include "privs.h"
+#include "sigevent.h"
 
 #include "isisd/dict.h"
 #include "include-netbsd/iso.h"
@@ -148,8 +149,9 @@ terminate (int i)
 /*
  * Signal handlers
  */
+
 void 
-sighup (int sig)
+sighup (void)
 {
   zlog_info ("SIGHUP received");
   reload ();
@@ -158,7 +160,7 @@ sighup (int sig)
 }
 
 void
-sigint (int sig)
+sigint (void)
 {
   zlog_info ("SIGINT received");
   terminate (0);
@@ -167,62 +169,38 @@ sigint (int sig)
 }
 
 void
-sigterm (int sig)
+sigterm (void)
 {
   zlog_info ("SIGTERM received");
   terminate (0);
 }
 
 void
-sigusr1 (int sig)
+sigusr1 (void)
 {
   zlog_info ("SIGUSR1 received");
   zlog_rotate (NULL);
 }
 
-/*
- * Signal wrapper. 
- */
-RETSIGTYPE *
-signal_set (int signo, void (*func)(int))
-{
-  int ret;
-  struct sigaction sig;
-  struct sigaction osig;
-
-  sig.sa_handler = func;
-  sigemptyset (&sig.sa_mask);
-  sig.sa_flags = 0;
-#ifdef SA_RESTART
-  sig.sa_flags |= SA_RESTART;
-#endif /* SA_RESTART */
-
-  ret = sigaction (signo, &sig, &osig);
-
-  if (ret < 0) 
-    return (SIG_ERR);
-  else
-    return (osig.sa_handler);
-}
-
-void
-signal_init ()
-{
-  signal_set (SIGHUP, sighup);
-  signal_set (SIGINT, sigint);
-  signal_set (SIGTERM, sigterm);
-  signal_set (SIGPIPE, SIG_IGN);
-#ifdef SIGTSTP
-  signal_set (SIGTSTP, SIG_IGN);
-#endif
-#ifdef SIGTTIN
-  signal_set (SIGTTIN, SIG_IGN);
-#endif
-#ifdef SIGTTOU
-  signal_set (SIGTTOU, SIG_IGN);
-#endif
-  signal_set (SIGUSR1, sigusr1);
-}
+struct quagga_signal_t isisd_signals[] =
+{   
+  { 
+    .signal = SIGHUP,  
+    .handler = &sighup,
+  },
+  {
+    .signal = SIGUSR1,  
+    .handler = &sigusr1,
+  },
+  {
+    .signal = SIGINT,  
+    .handler = &sigint,
+  },
+  {
+    .signal = SIGTERM,
+    .handler = &sigterm,
+  },
+};
 
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.
@@ -315,7 +293,7 @@ main (int argc, char **argv, char **envp)
    *  initializations
    */
   zprivs_init (&isisd_privs);
-  signal_init ();
+  signal_init (master, Q_SIGC(isisd_signals), isisd_signals);
   cmd_init (1);
   vty_init (master);
   memory_init ();

@@ -38,6 +38,7 @@
 #include "memory.h"
 #include "privs.h"
 #include "debug.h"
+#include "sigevent.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -125,14 +126,14 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 
 /* SIGHUP handler. */
 void 
-sighup (int sig)
+sighup (void)
 {
   zlog (NULL, LOG_INFO, "SIGHUP received");
 }
 
 /* SIGINT handler. */
 void
-sigint (int sig)
+sigint (void)
 {
   zlog (NULL, LOG_INFO, "Terminating on signal");
 
@@ -143,58 +144,26 @@ sigint (int sig)
 
 /* SIGUSR1 handler. */
 void
-sigusr1 (int sig)
+sigusr1 (void)
 {
   zlog_rotate (NULL);
 }
 
-/* Signal wrapper. */
-RETSIGTYPE *
-signal_set (int signo, void (*func)(int))
+struct quagga_signal_t ospf_signals[] =
 {
-  int ret;
-  struct sigaction sig;
-  struct sigaction osig;
-
-  sig.sa_handler = func;
-  sigemptyset (&sig.sa_mask);
-  sig.sa_flags = 0;
-#ifdef SA_RESTART
-  sig.sa_flags |= SA_RESTART;
-#endif /* SA_RESTART */
-
-  ret = sigaction (signo, &sig, &osig);
-
-  if (ret < 0) 
-    return (SIG_ERR);
-  else
-    return (osig.sa_handler);
-}
-
-/* Initialization of signal handles. */
-void
-signal_init ()
-{
-  signal_set (SIGHUP, sighup);
-  signal_set (SIGINT, sigint);
-  signal_set (SIGTERM, sigint);
-  signal_set (SIGPIPE, SIG_IGN);
-#ifdef SIGTSTP
-  signal_set (SIGTSTP, SIG_IGN);
-#endif
-#ifdef SIGTTIN
-  signal_set (SIGTTIN, SIG_IGN);
-#endif
-#ifdef SIGTTOU
-  signal_set (SIGTTOU, SIG_IGN);
-#endif
-  signal_set (SIGUSR1, sigusr1);
-#ifdef HAVE_GLIBC_BACKTRACE
-  signal_set (SIGBUS, debug_print_trace);
-  signal_set (SIGSEGV, debug_print_trace);
-  signal_set (SIGILL, debug_print_trace); 
-#endif /* HAVE_GLIBC_BACKTRACE */
-}
+  {
+    .signal = SIGHUP,
+    .handler = &sighup,
+  },
+  {
+    .signal = SIGUSR1,
+    .handler = &sigusr1,
+  },  
+  {
+    .signal = SIGINT,
+    .handler = &sigint,
+  },
+};
 
 /* OSPFd main routine. */
 int
@@ -285,7 +254,7 @@ main (int argc, char **argv)
 
   /* Library inits. */
   zprivs_init (&ospfd_privs);
-  signal_init ();
+  signal_init (master, Q_SIGC(ospf_signals), ospf_signals);
   cmd_init (1);
   debug_init ();
   vty_init (master);

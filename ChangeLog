@@ -1,3 +1,10 @@
+2004-01-19 Paul Jakma <paul@dishone.st>
+
+	* tests/test-sig.c: New file, regression test for sigevents.
+	* lib/Makefile.am: add sigevent.{c,h}
+	* (isis|rip|ripng|ospf|ospf6|bgp)d/\1_main.c: modify for sigevents.
+	* zebra/main.c: ditto.
+	
 2004-01-10 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: redhat/ is a dist subdir too.

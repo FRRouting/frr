@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "prefix.h"
 #include "log.h"
 #include "privs.h"
+#include "sigevent.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -50,6 +51,27 @@ struct option longopts[] =
   { "version",     no_argument,       NULL, 'v'},
   { "help",        no_argument,       NULL, 'h'},
   { 0 }
+};
+
+/* signal definitions */
+void sighup (void);
+void sigint (void);
+void sigusr1 (void);
+
+struct quagga_signal_t bgp_signals[] = 
+{
+  { 
+    .signal = SIGHUP, 
+    .handler = &sighup,
+  },
+  {
+    .signal = SIGUSR1,
+    .handler = &sigusr1,
+  },
+  {
+    .signal = SIGINT,
+    .handler = &sigint,
+  },
 };
 
 /* Configuration file and directory. */
@@ -123,7 +145,7 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 
 /* SIGHUP handler. */
 void 
-sighup (int sig)
+sighup (void)
 {
   zlog (NULL, LOG_INFO, "SIGHUP received");
 
@@ -143,7 +165,7 @@ sighup (int sig)
 
 /* SIGINT handler. */
 void
-sigint (int sig)
+sigint (void)
 {
   zlog (NULL, LOG_INFO, "Terminating on signal");
 
@@ -155,43 +177,9 @@ sigint (int sig)
 
 /* SIGUSR1 handler. */
 void
-sigusr1 (int sig)
+sigusr1 (void)
 {
   zlog_rotate (NULL);
-}
-
-/* Signale wrapper. */
-RETSIGTYPE *
-signal_set (int signo, void (*func)(int))
-{
-  int ret;
-  struct sigaction sig;
-  struct sigaction osig;
-
-  sig.sa_handler = func;
-  sigemptyset (&sig.sa_mask);
-  sig.sa_flags = 0;
-#ifdef SA_RESTART
-  sig.sa_flags |= SA_RESTART;
-#endif /* SA_RESTART */
-
-  ret = sigaction (signo, &sig, &osig);
-
-  if (ret < 0) 
-    return (SIG_ERR);
-  else
-    return (osig.sa_handler);
-}
-
-/* Initialization of signal handles. */
-void
-signal_init ()
-{
-  signal_set (SIGHUP, sighup);
-  signal_set (SIGINT, sigint);
-  signal_set (SIGTERM, sigint);
-  signal_set (SIGPIPE, SIG_IGN);
-  signal_set (SIGUSR1, sigusr1);
 }
 
 /* Main routine of bgpd. Treatment of argument and start bgp finite
@@ -282,7 +270,7 @@ main (int argc, char **argv)
 
   /* Initializations. */
   srand (time (NULL));
-  signal_init ();
+  signal_init (master, Q_SIGC(bgp_signals), bgp_signals);
   zprivs_init (&bgpd_privs);
   cmd_init (1);
   vty_init (master);

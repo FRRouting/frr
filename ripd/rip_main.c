@@ -31,6 +31,7 @@
 #include "keychain.h"
 #include "log.h"
 #include "privs.h"
+#include "sigevent.h"
 
 #include "ripd/ripd.h"
 
@@ -120,32 +121,9 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
   exit (status);
 }
 
-/* Signale wrapper. */
-RETSIGTYPE *
-signal_set (int signo, void (*func)(int))
-{
-  int ret;
-  struct sigaction sig;
-  struct sigaction osig;
-
-  sig.sa_handler = func;
-  sigemptyset (&sig.sa_mask);
-  sig.sa_flags = 0;
-#ifdef SA_RESTART
-  sig.sa_flags |= SA_RESTART;
-#endif /* SA_RESTART */
-
-  ret = sigaction (signo, &sig, &osig);
-
-  if (ret < 0) 
-    return (SIG_ERR);
-  else
-    return (osig.sa_handler);
-}
-
 /* SIGHUP handler. */
 void 
-sighup (int sig)
+sighup (void)
 {
   zlog_info ("SIGHUP received");
   rip_clean ();
@@ -163,7 +141,7 @@ sighup (int sig)
 
 /* SIGINT handler. */
 void
-sigint (int sig)
+sigint (void)
 {
   zlog (NULL, LOG_INFO, "Terminating on signal");
 
@@ -175,21 +153,26 @@ sigint (int sig)
 
 /* SIGUSR1 handler. */
 void
-sigusr1 (int sig)
+sigusr1 (void)
 {
   zlog_rotate (NULL);
 }
 
-/* Initialization of signal handles. */
-void
-signal_init ()
+struct quagga_signal_t ripd_signals[] =
 {
-  signal_set (SIGHUP, sighup);
-  signal_set (SIGINT, sigint);
-  signal_set (SIGTERM, sigint);
-  signal_set (SIGPIPE, SIG_IGN);
-  signal_set (SIGUSR1, sigusr1);
-}
+  { 
+    .signal = SIGHUP,
+    .handler = &sighup,
+  },
+  { 
+    .signal = SIGUSR1,
+    .handler = &sigusr1,
+  },
+  {
+    .signal = SIGINT,
+    .handler = &sigusr1,
+  },
+};  
 
 /* Main routine of ripd. */
 int
@@ -271,7 +254,7 @@ main (int argc, char **argv)
 
   /* Library initialization. */
   zprivs_init (&ripd_privs);
-  signal_init ();
+  signal_init (master, Q_SIGC(ripd_signals), ripd_signals);
   cmd_init (1);
   vty_init (master);
   memory_init ();
