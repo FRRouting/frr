@@ -21,6 +21,8 @@
  */
 
 #include <zebra.h>
+#include "log.h"
+#include "network.h"
 
 /* Read nbytes from fd and store into ptr. */
 int
@@ -68,4 +70,16 @@ writen(int fd, const u_char *ptr, int nbytes)
       ptr += nwritten;
     }
   return nbytes - nleft;
+}
+
+int
+set_nonblocking(int fd)
+{
+  if (fcntl(fd, F_SETFL, (fcntl(fd, F_GETFL) | O_NONBLOCK)) < 0)
+    {
+      zlog_warn("fcntl failed setting fd %d non-blocking: %s",
+      		fd, safe_strerror(errno));
+      return -1;
+    }
+  return 0;
 }

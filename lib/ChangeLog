@@ -1,3 +1,11 @@
+2005-02-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+	
+	* network.h: Declare new function set_nonblocking.  Indicate that
+	  readn and writen are deprecated.
+	* network.c: (set_nonblocking) New function to make a file descriptor
+	  non-blocking, since it seems silly to have fcntl calls sprinkled
+	  throughout the code.
+
 2005-02-14 Paul Jakma <paul.jakma@sun.com>
 
 	* stream.h: Unsigned long updated to size_t
