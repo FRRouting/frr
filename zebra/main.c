@@ -71,6 +71,7 @@ zebra_capabilities_t _caps_p [] =
 {
   ZCAP_ADMIN,
   ZCAP_SYS_ADMIN,
+  ZCAP_RAW,
 };
 
 /* zebra privileges to run with */
