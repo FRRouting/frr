@@ -1901,6 +1901,19 @@ isis_config_write (struct vty *vty)
 		write++;
 	      }
 	  }
+	/* Authentication passwords. */
+	if (area->area_passwd.len > 0)
+	  {
+	    vty_out(vty, " area-password %s%s",
+		    area->area_passwd.passwd, VTY_NEWLINE);
+	    write++; 
+	  }  
+	if (area->domain_passwd.len > 0)
+	  {
+	    vty_out(vty, " domain-password %s%s",
+		    area->domain_passwd.passwd, VTY_NEWLINE);
+	    write++;
+	  }
 #ifdef TOPOLOGY_GENERATE
 	/* seems we save the whole command line here */
 	if (area->top_params)

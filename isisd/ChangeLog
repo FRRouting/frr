@@ -1,3 +1,15 @@
+2004-09-15 Laurent Rabret <laurent.rabret at francetelecom.com>
+
+	* isis_pdu.c: Fix error in same subnet comparison. The previous
+	  algorithm only worked when netmask % 8 == 0.
+	* isisd.c: Show domain and area passwords in configuration.
+	* iso_checksum.c: Fixed error in the checksum calculation. The previous
+	  algorithm could produce a bad checksum if the 2 complement's vs 1
+	  complement's adaptation was required.
+	* isis_pdu.c: Authentication in LSPs does not mean authentication in
+	  SNPs.
+	* isis_tlv.c: Fix errors in password checking.
+
 2004-09-14 Hasso Tepper <hasso at quagga.net>
 
 	* isis_circuit.c: Mostly cosmetical changes in isis_circuit_add_addr()

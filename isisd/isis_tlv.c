@@ -463,6 +463,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  if (*expected & TLVFLAG_AUTH_INFO)
 	    {
 	      tlvs->auth_info.type = *pnt;
+	      tlvs->auth_info.len = length-1;
 	      pnt++;
 	      memcpy (tlvs->auth_info.passwd, pnt, length - 1);
 	      pnt += length - 1;
@@ -885,7 +886,7 @@ tlv_add_authinfo (char auth_type, char auth_len, char *auth_value,
 {
   u_char value[255];
   u_char *pos = value;
-  pos++;
+  *pos++ = ISIS_PASSWD_TYPE_CLEARTXT;
   memcpy (pos, auth_value, auth_len);
 
   return add_tlv (AUTH_INFO, auth_len + 1, value, stream);

@@ -106,7 +106,7 @@ int
 ip_same_subnet (struct prefix_ipv4 *ip1, struct in_addr *ip2)
 {
   u_char *addr1, *addr2;
-  int shift, offset;
+  int shift, offset, offsetloop;
   int len;
 
   addr1 = (u_char *) & ip1->prefix.s_addr;
@@ -114,23 +114,15 @@ ip_same_subnet (struct prefix_ipv4 *ip1, struct in_addr *ip2)
   len = ip1->prefixlen;
 
   shift = len % PNBBY;
-  offset = len / PNBBY;
+  offsetloop = offset = len / PNBBY;
 
-  while (offset--)
-    {
-      if (addr1[offset] != addr2[offset])
-	{
-	  return 0;
-	}
-    }
+  while (offsetloop--)
+    if (addr1[offsetloop] != addr2[offsetloop])
+      return 0;
 
   if (shift)
-    {
-      if (maskbit[shift] & (addr1[offset] ^ addr2[offset]))
-	{
-	  return 0;
-	}
-    }
+    if (maskbit[shift] & (addr1[offset] ^ addr2[offset]))
+      return 0;
 
   return 1;			/* match  */
 }
@@ -1414,6 +1406,13 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
       return retval;
     }
 
+  /* FIXME: Authentication in LSPs does not mean authentication in SNPs...
+   * In fact by default IOS only deals with LSPs authentication!!
+   * To force authentication in SNPs, one must specify the 'authenticate
+   * snp' command after 'area-password WORD' or 'domain-password WORD'.
+   * This command is not supported for the moment.
+   */
+#if 0
   (level == 1) ? (passwd = &circuit->area->area_passwd) :
     (passwd = &circuit->area->domain_passwd);
   if (passwd->type)
@@ -1427,6 +1426,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	  return ISIS_OK;
 	}
     }
+#endif /* 0 */
 
   /* debug isis snp-packets */
   if (isis->debugs & DEBUG_SNP_PACKETS)
