@@ -3219,8 +3219,12 @@ show_ip_ospf_database_header (struct vty *vty, struct ospf_lsa *lsa)
            ospf_options_dump(lsa->data->options), 
            VTY_NEWLINE);
   vty_out (vty, "  LS Flags: 0x%-2x %s%s",
-           lsa->flags, 
+           lsa->flags,
+#ifdef HAVE_NSSA
            ((lsa->flags & OSPF_LSA_LOCAL_XLT) ? "(Translated from Type-7)" : ""),
+#else
+           "",
+#endif /* HAVE_NSSA */
            VTY_NEWLINE);
 
   if (lsa->data->type == OSPF_ROUTER_LSA)
