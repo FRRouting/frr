@@ -245,7 +245,7 @@ case "$host" in
       OTHER_METHOD="mtu_kvm.o"
       AC_CHECK_LIB(kvm, main)
   ;;
-  *-irix65)
+  *-irix6.5)
       opsys=irix
       AC_DEFINE(IRIX_65,,IRIX 6.5)
   ;;
@@ -344,7 +344,8 @@ dnl AC_CHECK_SIZEOF(long)
 dnl ----------------------------
 dnl check existance of functions
 dnl ----------------------------
-AC_CHECK_FUNCS(bcopy bzero strerror inet_aton daemon snprintf vsnprintf strlcat strlcpy if_nametoindex if_indextoname getifaddrs)
+AC_CHECK_FUNCS(memset memcpy strerror inet_aton daemon snprintf vsnprintf \
+               strlcat strlcpy if_nametoindex if_indextoname getifaddrs)
 AC_CHECK_FUNCS(setproctitle, ,
   [AC_CHECK_LIB(util, setproctitle, 
      [LIBS="$LIBS -lutil"
@@ -377,6 +378,10 @@ if test x"$opsys" = x"gnu-linux"; then
 else
   if test "$opsys" = "sol2-6";then
     AC_MSG_RESULT(solaris)
+    KERNEL_METHOD="kernel_socket.o"
+    RT_METHOD="rt_socket.o"
+  elif test "$opsys" = "irix" ; then
+    AC_MSG_RESULT(irix)
     KERNEL_METHOD="kernel_socket.o"
     RT_METHOD="rt_socket.o"
   else
@@ -446,6 +451,9 @@ else
   if test "$opsys" = "sol2-6";then
     AC_MSG_RESULT(solaris)
     IF_METHOD=if_ioctl.o
+  elif test "$opsys" = "irix" ; then
+    AC_MSG_RESULT(irix)
+     IF_METHOD=if_ioctl.o
   elif test "$opsys" = "openbsd";then
     AC_MSG_RESULT(openbsd)
     IF_METHOD=if_ioctl.o
