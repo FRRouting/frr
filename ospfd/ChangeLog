@@ -1,3 +1,16 @@
+2004-09-24 Paul Jakma <paul@dishone.st>
+
+        * ospf_apiserver.{c,h}: lists typedef removal cleanup.
+          update some list loops to LIST_LOOP. some miscellaneous indent
+          fixups.
+          (ospf_apiserver_unregister_opaque_type) fix listnode_delete of
+          referenced node in loop.
+        * ospf_interface.h: lists typedef removal cleanup.
+        * ospf_opaque.{c,h}: lists typedef removal cleanup. update some list 
+          loops to LIST_LOOP. miscellaneous style and indent fixups.
+        * ospf_te.{c,h}: ditto
+	* ospf_packet.c: lists typedef removal cleanup.
+
 2004-09-23 Hasso Tepper <hasso at quagga.net>
 
 	* *.[c|h]: list -> struct list *, listnode -> struct listnode *.

@@ -1917,7 +1917,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 {
   struct ospf_neighbor *nbr;
 #ifdef HAVE_OPAQUE_LSA
-  list opaque_acks;
+  struct list *opaque_acks;
 #endif /* HAVE_OPAQUE_LSA */
 
   /* increment statistics. */

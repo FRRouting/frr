@@ -146,7 +146,7 @@ struct ospf_interface
   /* self-originated LSAs. */
   struct ospf_lsa *network_lsa_self;	/* network-LSA. */
 #ifdef HAVE_OPAQUE_LSA
-  list opaque_lsa_self;			/* Type-9 Opaque-LSAs */
+  struct list *opaque_lsa_self;			/* Type-9 Opaque-LSAs */
 #endif /* HAVE_OPAQUE_LSA */
 
   struct route_table *ls_upd_queue;

@@ -50,7 +50,7 @@ struct ospf_apiserver
      a single connection with the OSPF daemon, multiple
      <lsa,opaque_type> pairs can be registered. However, each
      combination can only be registered once by all applications. */
-  list opaque_types;		/* of type registered_opaque_type */
+  struct list *opaque_types;		/* of type registered_opaque_type */
 
   /* Temporary storage for LSA instances to be refreshed. */
   struct ospf_lsdb reserve;
