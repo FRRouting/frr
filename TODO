@@ -1,6 +1,6 @@
 
 			   Quagga TODO list
-                             2004/07/27
+                             2004/11/24
 
 zebra:
 
@@ -11,6 +11,8 @@ o improve rtnetlink to handle sequence number tracking and reconciliation
   and resyncs.
 o Add support for valid and preferred lifetimes to IPv6 addresses 
 o proper support for (at least) 1-level recursive routes
+o Ability to set src on routes, where systems support it.
+o Ability to apply route-maps to daemon route updates.
 
 bgpd:
 
@@ -53,6 +55,7 @@ o merge SPF code from ospfd and ospf6d into a common libspf
 o depends-on(generic A/C protocol) move snmp to seperate daemon
 o extend command definitions to allow them to be self-documenting
 o i18n command help strings
+o Document the exported API (DocBook/Doxygen?)
 
 vtysh:
 o untangle readline specific bits
