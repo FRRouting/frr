@@ -611,7 +611,6 @@ struct bgp_nlri
 
 /* Default configuration settings for bgpd.  */
 #define BGP_VTY_PORT                          2605
-#define BGP_VTYSH_PATH                "/tmp/.bgpd"
 #define BGP_DEFAULT_CONFIG             "bgpd.conf"
 
 /* Check AS path loop when we send NLRI.  */

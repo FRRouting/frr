@@ -39,7 +39,6 @@
 
 /* VTY port number. */
 #define OSPF_VTY_PORT          2604
-#define OSPF_VTYSH_PATH        "/tmp/.ospfd"
 
 /* IP TTL for OSPF protocol. */
 #define OSPF_IP_TTL             1

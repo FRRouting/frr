@@ -94,7 +94,6 @@ extern char *recent_reason;
 
 /* Default port values. */
 #define OSPF6_VTY_PORT             2606
-#define OSPF6_VTYSH_PATH           "/tmp/.ospf6d"
 
 #ifdef INRIA_IPV6
 #ifndef IPV6_PKTINFO
