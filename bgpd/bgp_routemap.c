@@ -879,17 +879,17 @@ route_set_metric (void *rule, struct prefix *prefix,
 
 	  if (strncmp (metric, "+", 1) == 0)
 	    {
-	      if (bgp_info->attr->med/2 + metric_val/2 > ULONG_MAX/2)
-		bgp_info->attr->med = ULONG_MAX-1;
+	      if (bgp_info->attr->med/2 + metric_val/2 > UINT32_MAX/2)
+	        bgp_info->attr->med = UINT32_MAX-1;
 	      else
-		bgp_info->attr->med += metric_val;
+	        bgp_info->attr->med += metric_val;
 	    }
 	  else if (strncmp (metric, "-", 1) == 0)
 	    {
-	      if (bgp_info->attr->med <= metric_val) 
-		bgp_info->attr->med = 0;
+	      if (bgp_info->attr->med <= metric_val)
+	        bgp_info->attr->med = 0;
 	      else
-		bgp_info->attr->med -= metric_val;
+	        bgp_info->attr->med -= metric_val;
 	    }
 	}
     }

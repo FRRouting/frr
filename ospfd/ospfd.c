@@ -765,8 +765,7 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 	      && ! ospf_if_is_configured (ospf, &(addr->u.prefix4))
 	      && ospf_network_match_iface(co,p))
 	    {
-		struct ospf_interface *oi;
-		assert(co);
+      	struct ospf_interface *oi;
 		
 		oi = ospf_if_new (ospf, ifp, co->address);
 		oi->connected = co;
