@@ -19,27 +19,13 @@ noinst_HEADERS = \
 	isisd.h isis_pdu.h isis_tlv.h isis_adjacency.h isis_constants.h \
 	isis_lsp.h dict.h isis_circuit.h isis_misc.h isis_network.h \
 	isis_zebra.h isis_dr.h isis_flags.h isis_dynhn.h isis_common.h \
-	iso_checksum.h isis_csm.h isis_events.h isis_spf.h isis_route.h
+	iso_checksum.h isis_csm.h isis_events.h isis_spf.h isis_route.h \
+	include-netbsd/clnp.h include-netbsd/esis.h include-netbsd/iso.h
 
 isisd_SOURCES = \
 	isis_main.c $(libisis_a_SOURCES)
 
-isisd_LDADD = ../lib/libzebra.a 
+isisd_LDADD = ../lib/libzebra.a @LIBCAP@
 
-sysconf_DATA = isisd.conf.sample
-
-EXTRA_DIST = $(sysconf_DATA)
-
-install-sysconfDATA: $(sysconf_DATA)
-	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(sysconfdir)
-	@list='$(sysconf_DATA)'; for p in $$list; do \
-	  if test -f $(srcdir)/$$p; then \
-	    echo " $(INSTALL_SDATA) $(srcdir)/$$p $(DESTDIR)$(sysconfdir)/$$p"; \
-	    $(INSTALL_SDATA) $(srcdir)/$$p $(DESTDIR)$(sysconfdir)/$$p; \
-	  else if test -f $$p; then \
-	    echo " $(INSTALL_SDATA) $$p $(DESTDIR)$(sysconfdir)/$$p"; \
-	    $(INSTALL_SDATA) $$p $(DESTDIR)$(sysconfdir)/$$p; \
-	  fi; fi; \
-	done
-
+examplesdir = $(exampledir)
+dist_examples_DATA = isisd.conf.sample

@@ -1,3 +1,11 @@
+2003-12-30 Paul Jakma <paul@dishone.st>
+
+	* Makefile.am: put the redhat/ stuff into EXTRA_DIST rather than
+	  copying via dist-hook. Remove ~ files backup cruft from dists.
+	  isisd/Makefile.am: sysconf example should go via
+	  dist_examples_DATA. The include-netbsd/ headers werent mentioned
+	  as sources and werent being copied into dists.
+	  
 2003-12-23 Vincent Jardin <jardin@6wind.com>
 
 	* isisd: Import isisd from Sampo Saaristo's source code.
