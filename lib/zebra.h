@@ -109,7 +109,7 @@ typedef int socklen_t;
 #endif /* __va_copy */
 #endif /* !va_copy */
 #endif /* !C99 */
-#include "zassert.h"
+
 
 #ifdef HAVE_LCAPS
 #include <sys/capability.h>
@@ -222,6 +222,14 @@ typedef int socklen_t;
 
 #endif /* BSDI_NRL */
 
+/* Local includes: */
+#if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL)) 
+#define __attribute__(x)
+#endif  /* !__GNUC__ || VTYSH_EXTRACT_PL */
+
+#include "zassert.h"
+
+
 #ifdef HAVE_BROKEN_CMSG_FIRSTHDR
 /* This bug is present in Solaris 8 and pre-patch Solaris 9 <sys/socket.h>;
    please refer to http://bugzilla.quagga.net/show_bug.cgi?id=142 */
@@ -272,11 +280,6 @@ typedef int socklen_t;
 #warning "assuming 4-byte alignment for CMSG_LEN"
 #endif /* CMSG_LEN */
 
-
-
-#if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL)) 
-#define __attribute__(x)
-#endif  /* !__GNUC__ */
 
 /*  The definition of struct in_pktinfo is missing in old version of
     GLIBC 2.1 (Redhat 6.1).  */
