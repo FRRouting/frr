@@ -1,3 +1,11 @@
+2004-10-31 Paul Jakma <paul@dishone.st>
+
+	* ospf_packet.c: (ospf_write_frags) Add debug output
+	  (ospf_write) set type early, so we can pass it to
+	  ospf_write_frags.
+	  (ospf_ls_upd_packet_new) print size in debug output when too large
+	  packet is encountered.
+
 2004-10-22 Paul Jakma <paul@dishone.st>
 
 	* ospf_network.c: (ospf_sock_init) call neutral setsock_ifindex()

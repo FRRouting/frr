@@ -485,9 +485,9 @@ ospf_ls_ack_timer (struct thread *thread)
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 void
 ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph, 
-                  struct msghdr *msg, struct iovec **iov, 
+                  struct msghdr *msg, struct iovec *iov[],
                   unsigned int maxdatasize, 
-                  unsigned int mtu, int flags)
+                  unsigned int mtu, int flags, u_char type)
 {
 #define OSPF_WRITE_FRAG_SHIFT 3
   u_int16_t offset;
@@ -530,13 +530,26 @@ ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph,
       sockopt_iphdrincl_swab_systoh (iph);
       
       if (ret < 0)
-        zlog_warn ("*** sendmsg in ospf_write to %s,"
+        zlog_warn ("*** ospf_write_frags: sendmsg failed to %s,"
                    " id %d, off %d, len %d failed with %s",
                    inet_ntoa (iph->ip_dst),
                    iph->ip_id,
                    iph->ip_off,
                    iph->ip_len,
                    strerror (errno));
+      
+      if (IS_DEBUG_OSPF_PACKET (type - 1, SEND))
+        {
+          zlog_info ("ospf_write_frags: sent id %d, off %d, len %d to %s\n",
+                     iph->ip_id, iph->ip_off, iph->ip_len,
+                     inet_ntoa (iph->ip_dst));
+          if (IS_DEBUG_OSPF_PACKET (type - 1, DETAIL))
+            {
+              zlog_info ("-----------------IP Header Dump----------------------");
+              ospf_ip_header_dump (iph);
+              zlog_info ("-----------------------------------------------------");
+            }
+        }
       
       iph->ip_off += offset;
       stream_forward (op->s, iov[1]->iov_len);
@@ -598,6 +611,10 @@ ospf_write (struct thread *thread)
   /* Rewrite the md5 signature & update the seq */
   ospf_make_md5_digest (oi, op);
 
+  /* Retrieve OSPF packet type. */
+  stream_set_getp (op->s, 1);
+  type = stream_getc (op->s);
+  
   /* reset get pointer */
   stream_set_getp (op->s, 0);
 
@@ -662,7 +679,7 @@ ospf_write (struct thread *thread)
     {
       iovp = iov;
       ospf_write_frags (ospf->fd, op, &iph, &msg, &iovp, maxdatasize, 
-                        oi->ifp->mtu, flags);
+                        oi->ifp->mtu, flags, type);
     }
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 
@@ -675,16 +692,13 @@ ospf_write (struct thread *thread)
     zlog_warn ("*** sendmsg in ospf_write to %s failed with %s",
       inet_ntoa (iph.ip_dst), strerror (errno));
 
-  /* Retrieve OSPF packet type. */
-  stream_set_getp (op->s, 1);
-  type = stream_getc (op->s);
-
   /* Show debug sending packet. */
   if (IS_DEBUG_OSPF_PACKET (type - 1, SEND))
     {
       if (IS_DEBUG_OSPF_PACKET (type - 1, DETAIL))
 	{
 	  zlog_info ("-----------------------------------------------------");
+	  ospf_ip_header_dump (&iph);
 	  stream_set_getp (op->s, 0);
 	  ospf_packet_dump (op->s);
 	}
@@ -3232,9 +3246,10 @@ ospf_ls_upd_packet_new (struct list *update, struct ospf_interface *oi)
   if (size > OSPF_MAX_PACKET_SIZE)
     {
       zlog_warn ("ospf_ls_upd_packet_new: oversized LSA id:%s too big,"
-                 " %d bytes, dropping it completely."
+                 " %d bytes, packet size %d, dropping it completely."
                  " OSPF routing is broken!",
-                 inet_ntoa (lsa->data->id), ntohs (lsa->data->length));
+                 inet_ntoa (lsa->data->id), ntohs (lsa->data->length),
+                 size);
       list_delete_node (update, ln);
       return NULL;
     }
