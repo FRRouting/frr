@@ -6713,14 +6713,17 @@ config_write_interface (struct vty *vty)
       do {
 	/* Interface Network print. */
 	if (OSPF_IF_PARAM_CONFIGURED (params, type) &&
-	    params->type != OSPF_IFTYPE_BROADCAST &&
 	    params->type != OSPF_IFTYPE_LOOPBACK)
 	  {
-	    vty_out (vty, " ip ospf network %s",
-		     ospf_int_type_str[params->type]);
-	    if (params != IF_DEF_PARAMS (ifp))
-	      vty_out (vty, " %s", inet_ntoa (rn->p.u.prefix4));
-	    vty_out (vty, "%s", VTY_NEWLINE);
+	    if ((!if_is_broadcast(ifp)) && 
+		(params->type != OSPF_IFTYPE_BROADCAST))
+	      {
+		vty_out (vty, " ip ospf network %s",
+			 ospf_int_type_str[params->type]);
+		if (params != IF_DEF_PARAMS (ifp))
+		  vty_out (vty, " %s", inet_ntoa (rn->p.u.prefix4));
+		vty_out (vty, "%s", VTY_NEWLINE);
+	      }
 	  }
 	
 	/* OSPF interface authentication print */

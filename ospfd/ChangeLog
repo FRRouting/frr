@@ -1,3 +1,9 @@
+2004-08-27  Hasso Tepper  <hasso at quagga.net>
+
+	* ospf_vty.c: Don't print ospf network type under interface only
+	  if interface is in broadcast mode and interface type really is
+	  broadcast. Fixes Bugzilla #108.
+
 2004-08-27  David Wiggins  <dwiggins@bbn.com>
 
 	* ospf_spf.c (ospf_nexthop_calculation): Initialize address family
