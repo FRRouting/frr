@@ -1,5 +1,9 @@
 2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* {smux.c,zclient.c}: Change level of debug messages to LOG_DEBUG.
+
+2004-12-07 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* command.c: (config_write_host) Note that "log trap" is deprecated
 	  when writing out the config.
 

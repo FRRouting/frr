@@ -91,7 +91,7 @@ zclient_init (struct zclient *zclient, int redist_default)
 
   /* Schedule first zclient connection. */
   if (zclient_debug)
-    zlog_info ("zclient start scheduled");
+    zlog_debug ("zclient start scheduled");
 
   zclient_event (ZCLIENT_SCHEDULE, zclient);
 }
@@ -101,7 +101,7 @@ void
 zclient_stop (struct zclient *zclient)
 {
   if (zclient_debug)
-    zlog_info ("zclient stopped");
+    zlog_debug ("zclient stopped");
 
   /* Stop threads. */
   if (zclient->t_read)
@@ -220,7 +220,7 @@ zclient_start (struct zclient *zclient)
   int i;
 
   if (zclient_debug)
-    zlog_info ("zclient_start is called");
+    zlog_debug ("zclient_start is called");
 
   /* zclient is disabled. */
   if (! zclient->enable)
@@ -243,7 +243,7 @@ zclient_start (struct zclient *zclient)
   if (zclient->sock < 0)
     {
       if (zclient_debug)
-	zlog_info ("zclient connection fail");
+	zlog_debug ("zclient connection fail");
       zclient->fail++;
       zclient_event (ZCLIENT_CONNECT, zclient);
       return -1;
@@ -252,7 +252,7 @@ zclient_start (struct zclient *zclient)
   /* Clear fail count. */
   zclient->fail = 0;
   if (zclient_debug)
-    zlog_info ("zclient connect success with socket [%d]", zclient->sock);
+    zlog_debug ("zclient connect success with socket [%d]", zclient->sock);
       
   /* Create read thread. */
   zclient_event (ZCLIENT_READ, zclient);
@@ -286,7 +286,7 @@ zclient_connect (struct thread *t)
   zclient->t_connect = NULL;
 
   if (zclient_debug)
-    zlog_info ("zclient_connect is called");
+    zlog_debug ("zclient_connect is called");
 
   return zclient_start (zclient);
 }
@@ -743,7 +743,7 @@ zclient_read (struct thread *thread)
   if (nbytes == 0) 
     {
       if (zclient_debug)
-       zlog_info ("zclient connection closed socket [%d].", sock);
+       zlog_debug ("zclient connection closed socket [%d].", sock);
       zclient->fail++;
       zclient_stop (zclient);
       zclient_event (ZCLIENT_CONNECT, zclient);
@@ -754,7 +754,7 @@ zclient_read (struct thread *thread)
   if (nbytes < 0 || nbytes != ZEBRA_HEADER_SIZE)
     {
       if (zclient_debug)
-        zlog_info ("Can't read all packet (length %d).", nbytes);
+        zlog_debug ("Can't read all packet (length %d).", nbytes);
       zclient->fail++;
       zclient_stop (zclient);
       zclient_event (ZCLIENT_CONNECT, zclient);
@@ -778,7 +778,7 @@ zclient_read (struct thread *thread)
  if (nbytes != length)
    {
      if (zclient_debug)
-       zlog_info ("zclient connection closed socket [%d].", sock);
+       zlog_debug ("zclient connection closed socket [%d].", sock);
      zclient->fail++;
      zclient_stop (zclient);
      zclient_event (ZCLIENT_CONNECT, zclient);
@@ -786,7 +786,7 @@ zclient_read (struct thread *thread)
    }
 
   if (zclient_debug)
-    zlog_info("zclient 0x%p command 0x%x \n", zclient, command);
+    zlog_debug("zclient 0x%p command 0x%x \n", zclient, command);
 
   switch (command)
     {
@@ -904,7 +904,7 @@ zclient_event (enum event event, struct zclient *zclient)
       if (zclient->fail >= 10)
 	return;
       if (zclient_debug)
-	zlog_info ("zclient connect schedule interval is %d", 
+	zlog_debug ("zclient connect schedule interval is %d", 
 		   zclient->fail < 3 ? 10 : 60);
       if (! zclient->t_connect)
 	zclient->t_connect = 
