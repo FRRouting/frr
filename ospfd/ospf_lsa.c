@@ -438,7 +438,22 @@ router_lsa_flags (struct ospf_area *area)
 
   /* ASBR can't exit in stub area. */
   if (area->external_routing == OSPF_AREA_STUB)
-    UNSET_FLAG (flags, OSPF_FLAG_ASBR);
+    UNSET_FLAG (flags, ROUTER_LSA_EXTERNAL);
+  /* If ASBR set External flag */
+  else if (IS_OSPF_ASBR (area->ospf))
+    SET_FLAG (flags, ROUTER_LSA_EXTERNAL);
+
+  /* Set ABR dependent flags */
+  if (IS_OSPF_ABR (area->ospf))
+    {
+      SET_FLAG (flags,  ROUTER_LSA_BORDER);
+#ifdef HAVE_NSSA
+      /* If Area is NSSA and we are both ABR and unconditional translator, 
+       * set Nt bit 
+       */
+      SET_FLAG (flags, ROUTER_LSA_NT);
+#endif /* HAVE_NSSA */
+    }
 
   return flags;
 }
