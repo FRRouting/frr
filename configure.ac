@@ -209,11 +209,7 @@ AC_CHECK_HEADERS([sys/socket.h netinet/in_systm.h netinet/in.h \
 		 net/if_dl.h net/netopt.h inet/nd.h net/route.h \
 		 net/if.h net/if_var.h netinet/in_var.h])
 
-if test "x${enable_ipv6}" = "xyes"; then
-AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h netinet/icmp6.h \
-		 netinet6/in6_var.h netinet6/nd6.h])
-fi
-dnl if enable_ipv6
+dnl V6 headers are checked below, after we check for v6
 
 dnl check some types
 AC_C_CONST
@@ -635,6 +631,14 @@ dnl -----------------------
   if test x"$RIPNGD" = x""; then
     AC_MSG_RESULT(IPv4 only)
   fi
+fi
+
+dnl ------------------
+dnl IPv6 header checks
+dnl ------------------
+if test "x${zebra_cv_ipv6}" = "xyes"; then
+AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h netinet/icmp6.h \
+		 netinet6/in6_var.h netinet6/nd6.h])
 fi
 
 dnl --------------------

@@ -1,5 +1,12 @@
 2003-12-03  Greg Troxel  <gdt@poblano.ir.bbn.com>
 
+	* configure.ac: Move tests for v6 header files to after the check
+	for v6 code version, and conditionalize on the right variable.
+	(Fixes problem where v6 header files are not included when v6 is
+	enabled implicitly.)
+	
+2003-12-03  Greg Troxel  <gdt@poblano.ir.bbn.com>
+
 	* configure.ac: Add --enable-exampledir to specify where example
 	config files should go, defaulting to sysconfdir.
 
