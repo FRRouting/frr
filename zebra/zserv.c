@@ -1110,18 +1110,13 @@ zebra_read_ipv6 (int command, struct zserv *client, u_short length)
   u_char type;
   u_char flags;
   struct in6_addr nexthop, *gate;
-  u_char *lim;
-  u_char *pnt;
   unsigned int ifindex;
-
-  pnt = stream_pnt (client->ibuf);
-  lim = pnt + length;
 
   type = stream_getc (client->ibuf);
   flags = stream_getc (client->ibuf);
   stream_get (&nexthop, client->ibuf, sizeof (struct in6_addr));
   
-  while (stream_pnt (client->ibuf) < lim)
+  while (STREAM_READABLE (client->ibuf))
     {
       int size;
       struct prefix_ipv6 p;

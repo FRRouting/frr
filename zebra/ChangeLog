@@ -1,3 +1,8 @@
+2005-02-19 Paul Jakma <paul@dishone.st>
+
+	* zserv.c: (zebra_read_ipv6) replace the char * arithmetic with
+	  STREAM_READABLE.
+
 2005-02-14 Paul Jakma <paul@dishone.st>
 
 	* Not all Linux netlink systems have IFLA_WIRELESS
