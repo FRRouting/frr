@@ -174,7 +174,7 @@ DEFUN (show_ipv6_ospf6_database,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -242,7 +242,7 @@ DEFUN (show_ipv6_ospf6_database_type,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -330,7 +330,7 @@ DEFUN (show_ipv6_ospf6_database_id,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -429,7 +429,7 @@ DEFUN (show_ipv6_ospf6_database_router,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -538,7 +538,7 @@ DEFUN (show_ipv6_ospf6_database_type_id,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -697,7 +697,7 @@ DEFUN (show_ipv6_ospf6_database_type_router,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -847,7 +847,7 @@ DEFUN (show_ipv6_ospf6_database_id_router,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -933,7 +933,7 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -1029,7 +1029,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -1154,7 +1154,7 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -1266,7 +1266,7 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -1339,7 +1339,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -1444,7 +1444,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -1560,7 +1560,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
       )
 {
   int level;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6 *o = ospf6;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
@@ -1723,7 +1723,7 @@ DEFUN (show_ipv6_ospf6_linkstate,
        "Display linkstate routing table\n"
       )
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_area *oa;
 
   for (node = listhead (ospf6->area_list); node; nextnode (node))
@@ -1773,7 +1773,7 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
 {
   char *sargv[CMD_ARGC_MAX];
   int i, sargc;
-  listnode node;
+  struct listnode *node;
   struct ospf6_area *oa;
 
   /* copy argv to sargv and then append "detail" */

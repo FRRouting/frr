@@ -109,7 +109,7 @@ ospf6_router_lsa_originate (struct thread *thread)
   struct ospf6_lsa *lsa;
 
   u_int32_t link_state_id = 0;
-  listnode i, j;
+  struct listnode *i, *j;
   struct ospf6_interface *oi;
   struct ospf6_neighbor *on, *drouter = NULL;
   struct ospf6_router_lsa *router_lsa;
@@ -354,7 +354,7 @@ ospf6_network_lsa_originate (struct thread *thread)
   struct ospf6_network_lsdesc *lsdesc;
   struct ospf6_neighbor *on;
   struct ospf6_link_lsa *link_lsa;
-  listnode i;
+  struct listnode *i;
   u_int16_t type;
 
   oi = (struct ospf6_interface *) THREAD_ARG (thread);
@@ -687,7 +687,7 @@ ospf6_intra_prefix_lsa_originate_stub (struct thread *thread)
   struct ospf6_neighbor *on;
   struct ospf6_route *route;
   struct ospf6_prefix *op;
-  listnode i, j;
+  struct listnode *i, *j;
   int full_count = 0;
   unsigned short prefix_num = 0;
   char buf[BUFSIZ];
@@ -839,7 +839,7 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
   struct ospf6_neighbor *on;
   struct ospf6_route *route;
   struct ospf6_prefix *op;
-  listnode i;
+  struct listnode *i;
   int full_count = 0;
   unsigned short prefix_num = 0;
   struct ospf6_route_table *route_advertise;

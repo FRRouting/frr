@@ -43,7 +43,7 @@ struct ospf6_interface
   struct ospf6_area *area;
 
   /* list of ospf6 neighbor */
-  list neighbor_list;
+  struct list *neighbor_list;
 
   /* linklocal address of this I/F */
   struct in6_addr *linklocal_addr;

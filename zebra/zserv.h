@@ -63,7 +63,7 @@ struct zebra_t
 {
   /* Thread master */
   struct thread_master *master;
-  list client_list;
+  struct list *client_list;
 
   /* default table */
   int rtm_table_default;

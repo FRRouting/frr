@@ -179,7 +179,7 @@ if_add_hook (int type, int (*func)(struct interface *ifp))
 struct interface *
 if_lookup_by_index (unsigned int index)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
 
   for (node = listhead (iflist); node; nextnode (node))
@@ -194,7 +194,7 @@ if_lookup_by_index (unsigned int index)
 char *
 ifindex2ifname (unsigned int index)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
 
   for (node = listhead (iflist); node; nextnode (node))
@@ -210,7 +210,7 @@ ifindex2ifname (unsigned int index)
 struct interface *
 if_lookup_by_name (char *name)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
 
   for (node = listhead (iflist); node; nextnode (node))
@@ -226,8 +226,8 @@ if_lookup_by_name (char *name)
 struct interface *
 if_lookup_exact_address (struct in_addr src)
 {
-  listnode node;
-  listnode cnode;
+  struct listnode *node;
+  struct listnode *cnode;
   struct interface *ifp;
   struct prefix *p;
   struct connected *c;
@@ -256,10 +256,10 @@ if_lookup_exact_address (struct in_addr src)
 struct interface *
 if_lookup_address (struct in_addr src)
 {
-  listnode node;
+  struct listnode *node;
   struct prefix addr;
   struct prefix best;
-  listnode cnode;
+  struct listnode *cnode;
   struct interface *ifp;
   struct prefix *p;
   struct connected *c;
@@ -429,7 +429,7 @@ if_flag_dump (unsigned long flag)
 void
 if_dump (struct interface *ifp)
 {
-  listnode node;
+  struct listnode *node;
 
   zlog_info ("Interface %s index %d metric %d mtu %d "
 #ifdef HAVE_IPV6
@@ -450,7 +450,7 @@ if_dump (struct interface *ifp)
 void
 if_dump_all ()
 {
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (iflist); node; nextnode (node))
     if_dump (getdata (node));
@@ -560,8 +560,8 @@ DEFUN (show_address,
        SHOW_STR
        "address\n")
 {
-  listnode node;
-  listnode node2;
+  struct listnode *node;
+  struct listnode *node2;
   struct interface *ifp;
   struct connected *ifc;
   struct prefix *p;
@@ -681,7 +681,7 @@ connected_lookup_address (struct interface *ifp, struct in_addr dst)
 {
   struct prefix addr;
   struct prefix best;
-  listnode cnode;
+  struct listnode *cnode;
   struct prefix *p;
   struct connected *c;
   struct connected *match;
@@ -760,7 +760,7 @@ connected_add_by_prefix (struct interface *ifp, struct prefix *p,
 unsigned int
 if_nametoindex (const char *name)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
 
   for (node = listhead (iflist); node; nextnode (node))
@@ -777,7 +777,7 @@ if_nametoindex (const char *name)
 char *
 if_indextoname (unsigned int ifindex, char *name)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
 
   for (node = listhead (iflist); node; nextnode (node))
@@ -849,7 +849,7 @@ ifaddr_ipv4_lookup (struct in_addr *addr, unsigned int ifindex)
   struct prefix_ipv4 p;
   struct route_node *rn;
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
 
   if (addr)
     {

@@ -175,7 +175,7 @@ bgp_update_address (struct interface *ifp)
 {
   struct prefix_ipv4 *p;
   struct connected *connected;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (ifp->connected); node; nextnode (node))
     {

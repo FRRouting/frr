@@ -116,7 +116,7 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
 {
   struct ospf_interface *oi;
   struct external_info *ei;
-  listnode node;
+  struct listnode *node;
   
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("LSA[Type%d:%s]: Process self-originated LSA seq 0x%x",
@@ -569,7 +569,7 @@ int
 ospf_flood_through_area (struct ospf_area *area,
 			 struct ospf_neighbor *inbr, struct ospf_lsa *lsa)
 {
-  listnode node;
+  struct listnode *node;
   int lsa_ack_flag = 0;
 
   /* All other types are specific to a single area (Area A).  The
@@ -608,7 +608,7 @@ int
 ospf_flood_through_as (struct ospf *ospf, struct ospf_neighbor *inbr,
 		       struct ospf_lsa *lsa)
 {
-  listnode node;
+  struct listnode *node;
   int lsa_ack_flag;
 
   lsa_ack_flag = 0;
@@ -632,7 +632,7 @@ ospf_flood_through_as (struct ospf *ospf, struct ospf_neighbor *inbr,
     {
       int continue_flag = 0;
       struct ospf_area *area = getdata (node);
-      listnode if_node;
+      struct listnode *if_node;
 
       switch (area->external_routing)
 	{
@@ -965,7 +965,7 @@ void
 ospf_ls_retransmit_delete_nbr_area (struct ospf_area *area,
 				    struct ospf_lsa *lsa)
 {
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (area->oiflist); node; nextnode (node))
     ospf_ls_retransmit_delete_nbr_if (getdata (node), lsa);
@@ -974,7 +974,7 @@ ospf_ls_retransmit_delete_nbr_area (struct ospf_area *area,
 void
 ospf_ls_retransmit_delete_nbr_as (struct ospf *ospf, struct ospf_lsa *lsa)
 {
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (ospf->oiflist); node; nextnode (node))
     ospf_ls_retransmit_delete_nbr_if (getdata (node), lsa);

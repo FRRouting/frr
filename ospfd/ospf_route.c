@@ -136,8 +136,8 @@ ospf_route_match_same (struct route_table *rt, struct prefix_ipv4 *prefix,
   struct ospf_route *or;
   struct ospf_path *op;
   struct ospf_path *newop;
-  listnode n1;
-  listnode n2;
+  struct listnode *n1;
+  struct listnode *n2;
 
   if (! rt || ! prefix)
     return 0;
@@ -279,7 +279,7 @@ ospf_intra_route_add (struct route_table *rt, struct vertex *v,
   struct prefix_ipv4 p;
   struct ospf_path *path;
   struct vertex_nexthop *nexthop;
-  listnode nnode;
+  struct listnode *nnode;
 
   p.family = AF_INET;
   p.prefix = v->id;
@@ -656,7 +656,7 @@ ospf_route_table_dump (struct route_table *rt)
   struct ospf_route *or;
   char buf1[BUFSIZ];
   char buf2[BUFSIZ];
-  listnode pnode;
+  struct listnode *pnode;
   struct ospf_path *path;
 
 #if 0
@@ -698,7 +698,7 @@ void
 ospf_terminate ()
 {
   struct ospf *ospf;
-  listnode node;
+  struct listnode *node;
 
   LIST_LOOP (om->ospf, ospf, node)
     {
@@ -786,7 +786,7 @@ int
 ospf_path_exist (struct list *plist, struct in_addr nexthop,
 		 struct ospf_interface *oi)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_path *path;
 
   for (node = listhead (plist); node; nextnode (node))
@@ -803,7 +803,7 @@ void
 ospf_route_copy_nexthops_from_vertex (struct ospf_route *to,
 				      struct vertex *v)
 {
-  listnode nnode;
+  struct listnode *nnode;
   struct ospf_path *path;
   struct vertex_nexthop *nexthop;
 
@@ -827,9 +827,9 @@ ospf_route_copy_nexthops_from_vertex (struct ospf_route *to,
 }
 
 struct ospf_path *
-ospf_path_lookup (list plist, struct ospf_path *path)
+ospf_path_lookup (struct list *plist, struct ospf_path *path)
 {
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (plist); node; nextnode (node))
     {
@@ -844,9 +844,9 @@ ospf_path_lookup (list plist, struct ospf_path *path)
 }
 
 void
-ospf_route_copy_nexthops (struct ospf_route *to, list from)
+ospf_route_copy_nexthops (struct ospf_route *to, struct list *from)
 {
-  listnode node;
+  struct listnode *node;
 
   assert (to->paths);
 
@@ -857,7 +857,7 @@ ospf_route_copy_nexthops (struct ospf_route *to, list from)
 }
 
 void
-ospf_route_subst_nexthops (struct ospf_route *to, list from)
+ospf_route_subst_nexthops (struct ospf_route *to, struct list *from)
 {
 
   list_delete_all_node (to->paths);
@@ -931,8 +931,8 @@ ospf_prune_unreachable_routers (struct route_table *rtrs)
 {
   struct route_node *rn, *next;
   struct ospf_route *or;
-  listnode node, nnext;
-  list paths;
+  struct listnode *node, *nnext;
+  struct list *paths;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("Pruning unreachable routers");

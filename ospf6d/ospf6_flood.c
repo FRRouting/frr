@@ -245,7 +245,7 @@ void
 ospf6_flood_interface (struct ospf6_neighbor *from,
                        struct ospf6_lsa *lsa, struct ospf6_interface *oi)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_neighbor *on;
   struct ospf6_lsa *req;
   int retrans_added = 0;
@@ -394,7 +394,7 @@ void
 ospf6_flood_area (struct ospf6_neighbor *from,
                   struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_interface *oi;
 
   for (node = listhead (oa->if_list); node; nextnode (node))
@@ -419,7 +419,7 @@ void
 ospf6_flood_process (struct ospf6_neighbor *from,
                      struct ospf6_lsa *lsa, struct ospf6 *process)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_area *oa;
 
   for (node = listhead (process->area_list); node; nextnode (node))
@@ -450,7 +450,7 @@ ospf6_flood (struct ospf6_neighbor *from, struct ospf6_lsa *lsa)
 void
 ospf6_flood_clear_interface (struct ospf6_lsa *lsa, struct ospf6_interface *oi)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_neighbor *on;
   struct ospf6_lsa *rem;
 
@@ -474,7 +474,7 @@ ospf6_flood_clear_interface (struct ospf6_lsa *lsa, struct ospf6_interface *oi)
 void
 ospf6_flood_clear_area (struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_interface *oi;
 
   for (node = listhead (oa->if_list); node; nextnode (node))
@@ -498,7 +498,7 @@ ospf6_flood_clear_area (struct ospf6_lsa *lsa, struct ospf6_area *oa)
 void
 ospf6_flood_clear_process (struct ospf6_lsa *lsa, struct ospf6 *process)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_area *oa;
 
   for (node = listhead (process->area_list); node; nextnode (node))
@@ -714,7 +714,7 @@ ospf6_is_maxage_lsa_drop (struct ospf6_lsa *lsa, struct ospf6_neighbor *from)
   struct ospf6_interface *oi;
   struct ospf6_area *oa;
   struct ospf6 *process = NULL;
-  listnode i, j, k;
+  struct listnode *i, *j, *k;
   int count = 0;
 
   if (! OSPF6_LSA_IS_MAXAGE (lsa))

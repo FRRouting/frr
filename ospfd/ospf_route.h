@@ -108,7 +108,7 @@ struct ospf_route
   u_char path_type;
 
   /* List of Paths. */
-  list paths;
+  struct list *paths;
 
   /* Link State Cost. */
   u_int32_t cost;		/* i.e. metric. */
@@ -123,7 +123,7 @@ struct ospf_route
 
 struct ospf_path *ospf_path_new ();
 void ospf_path_free (struct ospf_path *);
-struct ospf_path *ospf_path_lookup (list, struct ospf_path *);
+struct ospf_path *ospf_path_lookup (struct list *, struct ospf_path *);
 struct ospf_route *ospf_route_new ();
 void ospf_route_free (struct ospf_route *);
 void ospf_route_delete (struct route_table *);
@@ -142,7 +142,7 @@ void ospf_intra_add_stub (struct route_table *, struct router_lsa_link *,
  		          struct vertex *, struct ospf_area *);
 
 int ospf_route_cmp (struct ospf *, struct ospf_route *, struct ospf_route *);
-void ospf_route_copy_nexthops (struct ospf_route *, list);
+void ospf_route_copy_nexthops (struct ospf_route *, struct list *);
 void ospf_route_copy_nexthops_from_vertex (struct ospf_route *,
 					   struct vertex * );
 
@@ -151,7 +151,7 @@ void ospf_route_subst (struct route_node *, struct ospf_route *,
 void ospf_route_add (struct route_table *, struct prefix_ipv4 *,
 		     struct ospf_route *, struct ospf_route *);
 
-void ospf_route_subst_nexthops (struct ospf_route *, list);
+void ospf_route_subst_nexthops (struct ospf_route *, struct list *);
 void ospf_prune_unreachable_networks (struct route_table *);
 void ospf_prune_unreachable_routers (struct route_table *);
 int ospf_add_discard_route (struct route_table *, struct ospf_area *, 

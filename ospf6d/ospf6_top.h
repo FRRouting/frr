@@ -34,7 +34,7 @@ struct ospf6
   struct timeval starttime;
 
   /* list of areas */
-  list area_list;
+  struct list *area_list;
 
   /* AS scope link state database */
   struct ospf6_lsdb *lsdb;

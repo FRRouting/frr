@@ -1,3 +1,7 @@
+2004-09-23 Hasso Tepper <hasso at quagga.net>
+
+	* *.[c|h]: list -> struct list *, listnode -> struct listnode *.
+
 2004-09-21 LIU Xin <lx at ns.6test.edu.cn>
 
 	* isis_dr.c: Update dis_record of adjacencies when isisd becomes DIS.

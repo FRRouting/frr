@@ -193,12 +193,12 @@ struct ospf
 #define DEFAULT_ORIGINATE_ALWAYS	2
   u_int32_t ref_bandwidth;		/* Reference Bandwidth (Kbps). */
   struct route_table *networks;         /* OSPF config networks. */
-  list vlinks;                          /* Configured Virtual-Links. */
-  list areas;                           /* OSPF areas. */
+  struct list *vlinks;                  /* Configured Virtual-Links. */
+  struct list *areas;                   /* OSPF areas. */
   struct route_table *nbr_nbma;
   struct ospf_area *backbone;           /* Pointer to the Backbone Area. */
 
-  list oiflist;                         /* ospf interfaces */
+  struct list *oiflist;                 /* ospf interfaces */
 
   /* LSDB of AS-external-LSAs. */
   struct ospf_lsdb *lsdb;
@@ -208,7 +208,7 @@ struct ospf
   int ase_calc;				/* ASE calculation flag. */
 
 #ifdef HAVE_OPAQUE_LSA
-  list opaque_lsa_self;			/* Type-11 Opaque-LSAs */
+  struct list *opaque_lsa_self;		/* Type-11 Opaque-LSAs */
 #endif /* HAVE_OPAQUE_LSA */
 
   /* Routing tables. */
@@ -227,7 +227,7 @@ struct ospf
   /* Time stamps. */
   time_t ts_spf;			/* SPF calculation time stamp. */
 
-  list maxage_lsa;                      /* List of MaxAge LSA for deletion. */
+  struct list *maxage_lsa;              /* List of MaxAge LSA for deletion. */
   int redistribute;                     /* Num of redistributed protocols. */
 
   /* Threads. */
@@ -248,7 +248,7 @@ struct ospf
   struct thread *t_write;
   struct thread *t_read;
   int fd;
-  list oi_write_q;
+  struct list *oi_write_q;
   
   /* Distribute lists out of other route sources. */
   struct 
@@ -284,7 +284,7 @@ struct ospf
   struct
   {
     u_int16_t index;
-    list qs[OSPF_LSA_REFRESHER_SLOTS];
+    struct list *qs[OSPF_LSA_REFRESHER_SLOTS];
   } lsa_refresh_queue;
   
   struct thread *t_lsa_refresher;
@@ -314,7 +314,7 @@ struct ospf_area
   struct ospf *ospf;
 
   /* Zebra interface list belonging to the area. */
-  list oiflist;
+  struct list *oiflist;
 
   /* Area ID. */
   struct in_addr area_id;
@@ -325,7 +325,7 @@ struct ospf_area
 #define OSPF_AREA_ID_FORMAT_DECIMAL         2
 
   /* Address range. */
-  list address_range;
+  struct list *address_range;
 
   /* Configured variables. */
   int external_routing;                 /* ExternalRoutingCapability. */
@@ -362,7 +362,7 @@ struct ospf_area
   /* Self-originated LSAs. */
   struct ospf_lsa *router_lsa_self;
 #ifdef HAVE_OPAQUE_LSA
-  list opaque_lsa_self;			/* Type-10 Opaque-LSAs */
+  struct list *opaque_lsa_self;		/* Type-10 Opaque-LSAs */
 #endif /* HAVE_OPAQUE_LSA */
 
   /* Area announce list. */

@@ -357,8 +357,8 @@ rip_outgoing_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 static int
 rip_nexthop_check (struct in_addr *addr)
 {
-  listnode node;
-  listnode cnode;
+  struct listnode *node;
+  struct listnode *cnode;
   struct interface *ifp;
   struct connected *ifc;
   struct prefix *p;
@@ -2391,7 +2391,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type,
 {
   struct prefix_ipv4 *p;
   struct connected *connected;
-  listnode node;
+  struct listnode *node;
   struct sockaddr_in to;
   struct prefix_ipv4 *saddr = (struct prefix_ipv4 *) sconn->address;
 
@@ -2440,7 +2440,7 @@ rip_update_interface (struct interface *ifp, u_char version, int route_type,
 void
 rip_update_process (int route_type)
 {
-  listnode node, ifnode;
+  struct listnode *node, *ifnode;
   struct connected *connected;
   struct interface *ifp;
   struct rip_interface *ri;
@@ -2710,7 +2710,7 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
 {
   struct rte *rte;
   struct rip_packet rip_packet;
-  listnode node;
+  struct listnode *node;
 
   memset (&rip_packet, 0, sizeof (rip_packet));
 
@@ -3485,7 +3485,7 @@ DEFUN (show_ip_rip_status,
        "Show RIP routes\n"
        "IP routing protocol process parameters and statistics\n")
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   struct rip_interface *ri;
   extern struct message ri_version_msg[];
@@ -3755,7 +3755,7 @@ void
 rip_distribute_update_all (struct prefix_list *notused)
 {
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (iflist); node; nextnode (node))
     {
@@ -3949,7 +3949,7 @@ void
 rip_routemap_update (char *notused)
 {
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (iflist); node; nextnode (node))
     {

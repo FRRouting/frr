@@ -68,7 +68,7 @@ struct ospf6_vertex
 
   /* For tree display */
   struct ospf6_vertex *parent;
-  list child_list;
+  struct list *child_list;
 };
 
 #define OSPF6_VERTEX_TYPE_ROUTER  0x01

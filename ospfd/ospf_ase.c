@@ -54,8 +54,8 @@ ospf_find_asbr_route (struct ospf *ospf,
 {
   struct route_node *rn;
   struct ospf_route *or, *best = NULL;
-  listnode node;
-  list chosen;
+  struct listnode *node;
+  struct list *chosen;
 
   /* Sanity check. */
   if (rtrs == NULL)
@@ -71,7 +71,7 @@ ospf_find_asbr_route (struct ospf *ospf,
 
   /* First try to find intra-area non-bb paths. */
   if (!CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
-    for (node = listhead ((list) rn->info); node; nextnode (node))
+    for (node = listhead ((struct list *) rn->info); node; nextnode (node))
       if ((or = getdata (node)) != NULL)
 	if (or->cost < OSPF_LS_INFINITY)
 	  if (!OSPF_IS_AREA_ID_BACKBONE (or->u.std.area_id) &&
@@ -121,12 +121,12 @@ ospf_find_asbr_route_through_area (struct route_table *rtrs,
  
   if (rn)
     {
-      listnode node;
+      struct listnode *node;
       struct ospf_route *or;
 
       route_unlock_node (rn);
 
-      for (node = listhead ((list) rn->info); node; nextnode (node))
+      for (node = listhead ((struct list *) rn->info); node; nextnode (node))
 	if ((or = getdata (node)) != NULL)
 	  if (IPV4_ADDR_SAME (&or->u.std.area_id, &area->area_id))
 	    return or;
@@ -138,7 +138,7 @@ ospf_find_asbr_route_through_area (struct route_table *rtrs,
 void
 ospf_ase_complete_direct_routes (struct ospf_route *ro, struct in_addr nexthop)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_path *op;
 
   for (node = listhead (ro->paths); node; nextnode (node))
@@ -150,7 +150,7 @@ ospf_ase_complete_direct_routes (struct ospf_route *ro, struct in_addr nexthop)
 int
 ospf_ase_forward_address_check (struct ospf *ospf, struct in_addr fwd_addr)
 {
-  listnode ifn;
+  struct listnode *ifn;
   struct ospf_interface *oi;
 
   for (ifn = listhead (ospf->oiflist); ifn; nextnode (ifn))
@@ -530,8 +530,8 @@ ospf_ase_route_match_same (struct route_table *rt, struct prefix *prefix,
   struct ospf_route *or;
   struct ospf_path *op;
   struct ospf_path *newop;
-  listnode n1;
-  listnode n2;
+  struct listnode *n1;
+  struct listnode *n2;
 
   if (! rt || ! prefix)
     return 0;
@@ -611,7 +611,7 @@ ospf_ase_calculate_timer (struct thread *t)
   struct ospf *ospf;
   struct ospf_lsa *lsa;
   struct route_node *rn;
-  listnode node;
+  struct listnode *node;
   struct ospf_area *area;
 
   ospf = THREAD_ARG (t);
@@ -680,7 +680,7 @@ ospf_ase_register_external_lsa (struct ospf_lsa *lsa, struct ospf *top)
 {
   struct route_node *rn;
   struct prefix_ipv4 p;
-  list lst;
+  struct list *lst;
   struct as_external_lsa *al;
 
   al = (struct as_external_lsa *) lsa->data;
@@ -704,7 +704,7 @@ ospf_ase_unregister_external_lsa (struct ospf_lsa *lsa, struct ospf *top)
 {
   struct route_node *rn;
   struct prefix_ipv4 p;
-  list lst;
+  struct list *lst;
   struct as_external_lsa *al;
 
   al = (struct as_external_lsa *) lsa->data;
@@ -734,8 +734,8 @@ ospf_ase_external_lsas_finish (struct route_table *rt)
 {
   struct route_node *rn;
   struct ospf_lsa *lsa;
-  list lst;
-  listnode node;
+  struct list *lst;
+  struct listnode *node;
   
   for (rn = route_top (rt); rn; rn = route_next (rn))
     if ((lst = rn->info) != NULL)
@@ -752,8 +752,8 @@ ospf_ase_external_lsas_finish (struct route_table *rt)
 void
 ospf_ase_incremental_update (struct ospf *ospf, struct ospf_lsa *lsa)
 {
-  list lsas;
-  listnode node;
+  struct list *lsas;
+  struct listnode *node;
   struct route_node *rn, *rn2;
   struct prefix_ipv4 p;
   struct route_table *tmp_old;

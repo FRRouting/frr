@@ -275,8 +275,8 @@ if_delete_update (struct interface *ifp)
 void
 if_up (struct interface *ifp)
 {
-  listnode node;
-  listnode next;
+  struct listnode *node;
+  struct listnode *next;
   struct connected *ifc;
   struct prefix *p;
 
@@ -310,8 +310,8 @@ if_up (struct interface *ifp)
 void
 if_down (struct interface *ifp)
 {
-  listnode node;
-  listnode next;
+  struct listnode *node;
+  struct listnode *next;
   struct connected *ifc;
   struct prefix *p;
 
@@ -490,7 +490,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
   struct sockaddr_dl *sdl;
 #endif /* HAVE_SOCKADDR_DL */
   struct connected *connected;
-  listnode node;
+  struct listnode *node;
 
   vty_out (vty, "Interface %s is ", ifp->name);
   if (if_is_up(ifp)) {
@@ -706,7 +706,7 @@ DEFUN (show_interface, show_interface_cmd,
        "Interface status and configuration\n"
        "Inteface name\n")
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   
 #ifdef HAVE_PROC_NET_DEV
@@ -1355,14 +1355,14 @@ DEFUN (no_ip_tunnel, no_ip_tunnel_cmd,
 int
 if_config_write (struct vty *vty)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   char buf[BUFSIZ];
 
   for (node = listhead (iflist); node; nextnode (node))
     {
       struct zebra_if *if_data;
-      listnode addrnode;
+      struct listnode *addrnode;
       struct connected *ifc;
       struct prefix *p;
 

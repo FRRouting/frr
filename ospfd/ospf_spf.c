@@ -101,7 +101,7 @@ ospf_vertex_new (struct ospf_lsa *lsa)
 void
 ospf_vertex_free (struct vertex *v)
 {
-  listnode node;
+  struct listnode *node;
 
   list_delete (v->child);
 
@@ -131,7 +131,7 @@ ospf_vertex_dump(char *msg, struct vertex *v,
 
   if (print_nexthops)
     {
-      listnode nnode;
+      struct listnode *nnode;
       for (nnode = listhead (v->nexthop); nnode; nextnode (nnode))
         {
 	  char buf1[BUFSIZ];
@@ -154,7 +154,7 @@ ospf_vertex_dump(char *msg, struct vertex *v,
 
   if (print_children)
     {
-      listnode cnode;
+      struct listnode *cnode;
       for (cnode = listhead (v->child); cnode; nextnode (cnode))
         {
           struct vertex *cv = getdata (cnode);
@@ -170,7 +170,7 @@ void
 ospf_vertex_add_parent (struct vertex *v)
 {
   struct vertex_nexthop *nh;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (v->nexthop); node; nextnode (node))
     {
@@ -225,10 +225,10 @@ ospf_spf_has_vertex (struct route_table *rv, struct route_table *nv,
 /* Find the vertex specified by the given id and LSA type
  * in vlist (the candidate list).
  */
-listnode
-ospf_vertex_lookup (list vlist, struct in_addr id, int type)
+struct listnode *
+ospf_vertex_lookup (struct list *vlist, struct in_addr id, int type)
 {
-  listnode node;
+  struct listnode *node;
   struct vertex *v;
 
   for (node = listhead (vlist); node; nextnode (node))
@@ -310,10 +310,10 @@ ospf_lsa_has_link (struct lsa_header *w, struct lsa_header *v)
  * If it's not unique, free the nexthop entry.
  */
 void
-ospf_nexthop_add_unique (struct vertex_nexthop *new, list nexthop)
+ospf_nexthop_add_unique (struct vertex_nexthop *new, struct list *nexthop)
 {
   struct vertex_nexthop *nh;
-  listnode node;
+  struct listnode *node;
   int match;
 
   match = 0;
@@ -343,7 +343,7 @@ ospf_nexthop_add_unique (struct vertex_nexthop *new, list nexthop)
 
 /* Merge entries in list b into list a. */
 void
-ospf_nexthop_merge (list a, list b)
+ospf_nexthop_merge (struct list *a, struct list *b)
 {
   struct listnode *n;
 
@@ -460,7 +460,7 @@ void
 ospf_nexthop_calculation (struct ospf_area *area,
                           struct vertex *v, struct vertex *w)
 {
-  listnode node;
+  struct listnode *node;
   struct vertex_nexthop *nh, *x;
   struct ospf_interface *oi = NULL;
   struct router_lsa_link *l = NULL;
@@ -647,9 +647,9 @@ ospf_nexthop_calculation (struct ospf_area *area,
 
 /* Add a vertex to the SPF candidate list. */
 void
-ospf_install_candidate (list candidate, struct vertex *w)
+ospf_install_candidate (struct list *candidate, struct vertex *w)
 {
-  listnode node;
+  struct listnode *node;
   struct vertex *cw;
 
   ospf_vertex_dump("ospf_install_candidate(): add to candidate list", w, 1, 1);
@@ -694,7 +694,8 @@ ospf_install_candidate (list candidate, struct vertex *w)
  */
 void
 ospf_spf_next (struct vertex *v, struct ospf_area *area,
-               list candidate, struct route_table *rv, struct route_table *nv)
+               struct list *candidate, struct route_table *rv,
+	       struct route_table *nv)
 {
   struct ospf_lsa *w_lsa = NULL;
   struct vertex *w, *cw;
@@ -702,7 +703,7 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
   u_char *lim;
   struct router_lsa_link *l = NULL;
   struct in_addr *r;
-  listnode node;
+  struct listnode *node;
   int type = 0;
 
   /* If this is a router-LSA, and bit V of the router-LSA (see Section
@@ -923,8 +924,8 @@ ospf_spf_route_free (struct route_table *table)
 void
 ospf_spf_dump (struct vertex *v, int i)
 {
-  listnode cnode;
-  listnode nnode;
+  struct listnode *cnode;
+  struct listnode *nnode;
   struct vertex_nexthop *nexthop;
 
   if (v->type == OSPF_VERTEX_ROUTER)
@@ -961,7 +962,7 @@ void
 ospf_spf_process_stubs (struct ospf_area *area, struct vertex *v,
                         struct route_table *rt)
 {
-  listnode cnode;
+  struct listnode *cnode;
   struct vertex *child;
 
   if (IS_DEBUG_OSPF_EVENT)
@@ -1017,8 +1018,8 @@ void
 ospf_rtrs_free (struct route_table *rtrs)
 {
   struct route_node *rn;
-  list or_list;
-  listnode node;
+  struct list *or_list;
+  struct listnode *node;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("Route: Router Routing Table free");
@@ -1042,9 +1043,9 @@ void
 ospf_rtrs_print (struct route_table *rtrs)
 {
   struct route_node *rn;
-  list or_list;
-  listnode ln;
-  listnode pnode;
+  struct list *or_list;
+  struct listnode *ln;
+  struct listnode *pnode;
   struct ospf_route *or;
   struct ospf_path *path;
   char buf1[BUFSIZ];
@@ -1105,8 +1106,8 @@ void
 ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
                     struct route_table *new_rtrs)
 {
-  list candidate;
-  listnode node;
+  struct list *candidate;
+  struct listnode *node;
   struct vertex *v;
   struct route_table *rv;
   struct route_table *nv;
@@ -1221,7 +1222,7 @@ ospf_spf_calculate_timer (struct thread *thread)
 {
   struct ospf *ospf = THREAD_ARG (thread);
   struct route_table *new_table, *new_rtrs;
-  listnode node;
+  struct listnode *node;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("SPF: Timer (SPF calculation expire)");

@@ -294,7 +294,7 @@ ospf_nbr_lookup_by_routerid (struct route_table *nbrs,
 void
 ospf_renegotiate_optional_capabilities (struct ospf *top)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_interface *oi;
   struct route_table *nbrs;
   struct route_node *rn;
@@ -353,7 +353,7 @@ ospf_nbr_add (struct ospf_interface *oi, struct ospf_header *ospfh,
   if (oi->type == OSPF_IFTYPE_NBMA)
     {
       struct ospf_nbr_nbma *nbr_nbma;
-      listnode node;
+      struct listnode *node;
 
       for (node = listhead (oi->nbr_nbma); node; nextnode (node))
         {

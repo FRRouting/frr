@@ -175,7 +175,7 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
 void
 ospf6_area_delete (struct ospf6_area *oa)
 {
-  listnode n;
+  struct listnode *n;
   struct ospf6_interface *oi;
 
   ospf6_route_table_delete (oa->range_table);
@@ -215,7 +215,7 @@ struct ospf6_area *
 ospf6_area_lookup (u_int32_t area_id, struct ospf6 *ospf6)
 {
   struct ospf6_area *oa;
-  listnode n;
+  struct listnode *n;
 
   for (n = listhead (ospf6->area_list); n; nextnode (n))
     {
@@ -240,7 +240,7 @@ ospf6_area_get (u_int32_t area_id, struct ospf6 *o)
 void
 ospf6_area_enable (struct ospf6_area *oa)
 {
-  listnode i;
+  struct listnode *i;
   struct ospf6_interface *oi;
 
   SET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
@@ -255,7 +255,7 @@ ospf6_area_enable (struct ospf6_area *oa)
 void
 ospf6_area_disable (struct ospf6_area *oa)
 {
-  listnode i;
+  struct listnode *i;
   struct ospf6_interface *oi;
 
   UNSET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
@@ -271,7 +271,7 @@ ospf6_area_disable (struct ospf6_area *oa)
 void
 ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
 {
-  listnode i;
+  struct listnode *i;
   struct ospf6_interface *oi;
 
   vty_out (vty, " Area %s%s", oa->name, VNL);
@@ -410,7 +410,7 @@ DEFUN (no_area_range,
 void
 ospf6_area_config_write (struct vty *vty)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_area *oa;
   struct ospf6_route *range;
   char buf[128];
@@ -437,7 +437,7 @@ DEFUN (show_ipv6_ospf6_spf_tree,
        "Shortest Path First caculation\n"
        "Show SPF tree\n")
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_area *oa;
   struct ospf6_vertex *root;
   struct ospf6_route *route;

@@ -626,9 +626,9 @@ isis_interface_config_write (struct vty *vty)
 {
 
   int write = 0;
-  listnode node;
-  listnode node2;
-  listnode node3;
+  struct listnode *node;
+  struct listnode *node2;
+  struct listnode *node3;
   struct interface *ifp;
   struct isis_area *area;
   struct isis_circuit *c;

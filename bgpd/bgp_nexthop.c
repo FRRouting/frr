@@ -815,8 +815,8 @@ bgp_connected_delete (struct connected *ifc)
 int
 bgp_nexthop_self (afi_t afi, struct attr *attr)
 {
-  listnode node;
-  listnode node2;
+  struct listnode *node;
+  struct listnode *node2;
   struct interface *ifp;
   struct connected *ifc;
   struct prefix *p;

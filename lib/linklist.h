@@ -22,9 +22,6 @@
 #ifndef _ZEBRA_LINKLIST_H
 #define _ZEBRA_LINKLIST_H
 
-typedef struct list *list;
-typedef struct listnode *listnode;
-
 struct listnode 
 {
   struct listnode *next;
@@ -68,12 +65,12 @@ void list_delete (struct list *);
 void list_delete_all_node (struct list *);
 
 /* For ospfd and ospf6d. */
-void list_delete_node (list, listnode);
+void list_delete_node (struct list *, struct listnode *);
 
 /* For ospf_spf.c */
-void list_add_node_prev (list, listnode, void *);
-void list_add_node_next (list, listnode, void *);
-void list_add_list (list, list);
+void list_add_node_prev (struct list *, struct listnode *, void *);
+void list_add_node_next (struct list *, struct listnode *, void *);
+void list_add_list (struct list *, struct list *);
 
 /* List iteration macro. */
 #define LIST_LOOP(L,V,N) \

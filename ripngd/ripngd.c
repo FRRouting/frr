@@ -391,7 +391,7 @@ ripng_nexthop_rte (struct rte *rte,
 int
 ripng_lladdr_check (struct interface *ifp, struct in6_addr *addr)
 {
-  listnode listnode;
+  struct listnode *listnode;
   struct connected *connected;
   struct prefix *p;
 
@@ -1438,7 +1438,7 @@ ripng_clear_changed_flag ()
 int
 ripng_update (struct thread *t)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   struct ripng_interface *ri;
 
@@ -1513,7 +1513,7 @@ ripng_triggered_interval (struct thread *t)
 int
 ripng_triggered_update (struct thread *t)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   struct ripng_interface *ri;
   int interval;
@@ -2146,7 +2146,7 @@ DEFUN (show_ipv6_ripng_status,
        "Show RIPng routes\n"
        "IPv6 routing protocol process parameters and statistics\n")
 {
-  listnode node;
+  struct listnode *node;
   int ripng_network_write (struct vty *, int);
   void ripng_redistribute_write (struct vty *, int);
 
@@ -2816,7 +2816,7 @@ void
 ripng_distribute_update_all ()
 {
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (iflist); node; nextnode (node))
     {
@@ -2988,7 +2988,7 @@ void
 ripng_routemap_update ()
 {
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (iflist); node; nextnode (node))
     {

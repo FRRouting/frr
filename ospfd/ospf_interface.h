@@ -58,7 +58,7 @@ struct ospf_if_params
   u_char auth_simple[OSPF_AUTH_SIMPLE_SIZE + 1];       /* Simple password. */
   u_char auth_simple__config:1;
   
-  DECLARE_IF_PARAM (list, auth_crypt);                 /* List of Auth cryptographic data. */
+  DECLARE_IF_PARAM (struct list *, auth_crypt);    /* List of Auth cryptographic data. */
   DECLARE_IF_PARAM (int, auth_type);               /* OSPF authentication type */
 };
 
@@ -141,7 +141,7 @@ struct ospf_interface
 #define PRIORITY(I)		((I)->nbr_self->priority)
 
   /* List of configured NBMA neighbor. */
-  list nbr_nbma;
+  struct list *nbr_nbma;
 
   /* self-originated LSAs. */
   struct ospf_lsa *network_lsa_self;	/* network-LSA. */
@@ -151,11 +151,11 @@ struct ospf_interface
 
   struct route_table *ls_upd_queue;
 
-  list ls_ack;				/* Link State Acknowledgment list. */
+  struct list *ls_ack;			/* Link State Acknowledgment list. */
   
   struct
   {
-    list ls_ack;
+    struct list *ls_ack;
     struct in_addr dst;
   } ls_ack_direct;
 
@@ -242,9 +242,9 @@ void ospf_vl_shut_unapproved (struct ospf *);
 int ospf_full_virtual_nbrs (struct ospf_area *);
 int ospf_vls_in_area (struct ospf_area *);
 
-struct crypt_key *ospf_crypt_key_lookup (list, u_char);
+struct crypt_key *ospf_crypt_key_lookup (struct list *, u_char);
 struct crypt_key *ospf_crypt_key_new ();
-void ospf_crypt_key_add (list, struct crypt_key *);
-int ospf_crypt_key_delete (list, u_char);
+void ospf_crypt_key_add (struct list *, struct crypt_key *);
+int ospf_crypt_key_delete (struct list *, u_char);
 
 #endif /* _ZEBRA_OSPF_INTERFACE_H */

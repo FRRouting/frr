@@ -164,7 +164,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
   int len = 0;
   struct zebra_if *zif;
   u_char all_nodes_addr[] = {0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
-  listnode node;
+  struct listnode *node;
 
   /*
    * Allocate control message bufffer.  This is dynamic because
@@ -308,7 +308,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
 int
 rtadv_timer (struct thread *thread)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   struct zebra_if *zif;
 
@@ -505,9 +505,9 @@ rtadv_prefix_free (struct rtadv_prefix *rtadv_prefix)
 }
 
 struct rtadv_prefix *
-rtadv_prefix_lookup (list rplist, struct prefix *p)
+rtadv_prefix_lookup (struct list *rplist, struct prefix *p)
 {
-  listnode node;
+  struct listnode *node;
   struct rtadv_prefix *rprefix;
 
   for (node = listhead (rplist); node; node = nextnode (node))
@@ -520,7 +520,7 @@ rtadv_prefix_lookup (list rplist, struct prefix *p)
 }
 
 struct rtadv_prefix *
-rtadv_prefix_get (list rplist, struct prefix *p)
+rtadv_prefix_get (struct list *rplist, struct prefix *p)
 {
   struct rtadv_prefix *rprefix;
   
@@ -1070,7 +1070,7 @@ void
 rtadv_config_write (struct vty *vty, struct interface *ifp)
 {
   struct zebra_if *zif;
-  listnode node;
+  struct listnode *node;
   struct rtadv_prefix *rprefix;
   u_char buf[INET6_ADDRSTRLEN];
 

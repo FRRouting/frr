@@ -46,9 +46,9 @@
 
 /* elect DR and BDR. Refer to RFC2319 section 9.4 */
 struct ospf_neighbor *
-ospf_dr_election_sub (list routers)
+ospf_dr_election_sub (struct list *routers)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_neighbor *nbr, *max = NULL;
 
   /* Choose highest router priority.
@@ -73,10 +73,10 @@ ospf_dr_election_sub (list routers)
 }
 
 struct ospf_neighbor *
-ospf_elect_dr (struct ospf_interface *oi, list el_list)
+ospf_elect_dr (struct ospf_interface *oi, struct list *el_list)
 {
-  list dr_list;
-  listnode node;
+  struct list *dr_list;
+  struct listnode *node;
   struct ospf_neighbor *nbr, *dr = NULL, *bdr = NULL;
 
   dr_list = list_new ();
@@ -116,10 +116,10 @@ ospf_elect_dr (struct ospf_interface *oi, list el_list)
 }
 
 struct ospf_neighbor *
-ospf_elect_bdr (struct ospf_interface *oi, list el_list)
+ospf_elect_bdr (struct ospf_interface *oi, struct list *el_list)
 {
-  list bdr_list, no_dr_list;
-  listnode node;
+  struct list *bdr_list, *no_dr_list;
+  struct listnode *node;
   struct ospf_neighbor *nbr, *bdr = NULL;
 
   bdr_list = list_new ();
@@ -174,7 +174,7 @@ ospf_ism_state (struct ospf_interface *oi)
 }
 
 void
-ospf_dr_eligible_routers (struct route_table *nbrs, list el_list)
+ospf_dr_eligible_routers (struct route_table *nbrs, struct list *el_list)
 {
   struct route_node *rn;
   struct ospf_neighbor *nbr;
@@ -213,7 +213,7 @@ ospf_dr_election (struct ospf_interface *oi)
 {
   struct in_addr old_dr, old_bdr;
   int old_state, new_state;
-  list el_list;
+  struct list *el_list;
   struct ospf_neighbor *dr, *bdr;
 
   /* backup current values. */

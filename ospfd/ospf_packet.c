@@ -48,7 +48,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_dump.h"
 
-static void ospf_ls_ack_send_list (struct ospf_interface *, list,
+static void ospf_ls_ack_send_list (struct ospf_interface *, struct list *,
 				   struct in_addr);
 
 /* Packet Type String. */
@@ -418,7 +418,7 @@ ospf_ls_upd_timer (struct thread *thread)
   /* Send Link State Update. */
   if (ospf_ls_retransmit_count (nbr) > 0)
     {
-      list update;
+      struct list *update;
       struct ospf_lsdb *lsdb;
       int i;
       struct timeval now;
@@ -520,7 +520,7 @@ ospf_write (struct thread *thread)
   u_char type;
   int ret;
   int flags = 0;
-  listnode node;
+  struct listnode *node;
   static u_int16_t ipid = 0;
   u_int16_t maxdatasize, offset;
 #define OSPF_WRITE_IPHL_SHIFT 2
@@ -1328,7 +1328,7 @@ ospf_ls_req (struct ip *iph, struct ospf_header *ospfh,
   struct in_addr ls_id;
   struct in_addr adv_router;
   struct ospf_lsa *find;
-  list ls_upd;
+  struct list *ls_upd;
   int length;
 
   /* Increment statistics. */
@@ -1417,7 +1417,7 @@ ospf_ls_req (struct ip *iph, struct ospf_header *ospfh,
 
 /* Get the list of LSAs from Link State Update packet.
    And process some validation -- RFC2328 Section 13. (1)-(2). */
-static list
+static struct list *
 ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
                       struct ospf_interface *oi, size_t size)
 {
@@ -1425,7 +1425,7 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
   u_int32_t length;
   struct lsa_header *lsah;
   struct ospf_lsa *lsa;
-  list lsas;
+  struct list *lsas;
 
   lsas = list_new ();
 
@@ -1536,9 +1536,9 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
 
 /* Cleanup Update list. */
 void
-ospf_upd_list_clean (list lsas)
+ospf_upd_list_clean (struct list *lsas)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_lsa *lsa;
 
   for (node = listhead (lsas); node; nextnode (node))
@@ -1554,11 +1554,11 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	     struct stream *s, struct ospf_interface *oi, u_int16_t size)
 {
   struct ospf_neighbor *nbr;
-  list lsas;
+  struct list *lsas;
 #ifdef HAVE_OPAQUE_LSA
-  list mylsa_acks, mylsa_upds;
+  struct list *mylsa_acks, *mylsa_upds;
 #endif /* HAVE_OPAQUE_LSA */
-  listnode node, next;
+  struct listnode *node, *next;
   struct ospf_lsa *lsa = NULL;
   /* unsigned long ls_req_found = 0; */
 
@@ -1750,7 +1750,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 
       if(lsa->data->type == OSPF_NETWORK_LSA)
       {
-        listnode oi_node;
+        struct listnode *oi_node;
         int Flag = 0;
 
         for(oi_node = listhead(oi->ospf->oiflist); oi_node; oi_node = nextnode(oi_node))
@@ -2070,7 +2070,7 @@ ospf_associate_packet_vl (struct ospf *ospf, struct interface *ifp,
   struct ospf_interface *rcv_oi;
   struct ospf_vl_data *vl_data;
   struct ospf_area *vl_area;
-  listnode node;
+  struct listnode *node;
 
   if (IN_MULTICAST (ntohl (iph->ip_dst.s_addr)) ||
       !OSPF_IS_AREA_BACKBONE (ospfh))
@@ -2786,10 +2786,10 @@ ls_age_increment (struct ospf_lsa *lsa, int delay)
 }
 
 int
-ospf_make_ls_upd (struct ospf_interface *oi, list update, struct stream *s)
+ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream *s)
 {
   struct ospf_lsa *lsa;
-  listnode node;
+  struct listnode *node;
   u_int16_t length = OSPF_LS_UPD_MIN_SIZE;
   unsigned long delta = stream_get_putp (s);
   unsigned long pp;
@@ -2848,10 +2848,10 @@ ospf_make_ls_upd (struct ospf_interface *oi, list update, struct stream *s)
 }
 
 int
-ospf_make_ls_ack (struct ospf_interface *oi, list ack, struct stream *s)
+ospf_make_ls_ack (struct ospf_interface *oi, struct list *ack, struct stream *s)
 {
-  list rm_list;
-  listnode node;
+  struct list *rm_list;
+  struct listnode *node;
   u_int16_t length = OSPF_LS_ACK_MIN_SIZE;
   unsigned long delta = stream_get_putp(s) + 24;
   struct ospf_lsa *lsa;
@@ -3169,7 +3169,7 @@ void
 ospf_ls_upd_send_lsa (struct ospf_neighbor *nbr, struct ospf_lsa *lsa,
 		      int flag)
 {
-  list update;
+  struct list *update;
 
   update = list_new ();
 
@@ -3242,7 +3242,7 @@ ospf_ls_upd_packet_new (struct list *update, struct ospf_interface *oi)
 }
 
 static void
-ospf_ls_upd_queue_send (struct ospf_interface *oi, list update,
+ospf_ls_upd_queue_send (struct ospf_interface *oi, struct list *update,
 			struct in_addr addr)
 {
   struct ospf_packet *op;
@@ -3329,12 +3329,12 @@ ospf_ls_upd_send_queue_event (struct thread *thread)
 }
 
 void
-ospf_ls_upd_send (struct ospf_neighbor *nbr, list update, int flag)
+ospf_ls_upd_send (struct ospf_neighbor *nbr, struct list *update, int flag)
 {
   struct ospf_interface *oi;
   struct prefix_ipv4 p;
   struct route_node *rn;
-  listnode n;
+  struct listnode *n;
   
   oi = nbr->oi;
 
@@ -3378,7 +3378,8 @@ ospf_ls_upd_send (struct ospf_neighbor *nbr, list update, int flag)
 }
 
 static void
-ospf_ls_ack_send_list (struct ospf_interface *oi, list ack, struct in_addr dst)
+ospf_ls_ack_send_list (struct ospf_interface *oi, struct list *ack,
+		       struct in_addr dst)
 {
   struct ospf_packet *op;
   u_int16_t length = OSPF_HEADER_SIZE;

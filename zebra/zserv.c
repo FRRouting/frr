@@ -726,8 +726,8 @@ zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p)
 static void
 zread_interface_add (struct zserv *client, u_short length)
 {
-  listnode ifnode;
-  listnode cnode;
+  struct listnode *ifnode;
+  struct listnode *cnode;
   struct interface *ifp;
   struct connected *c;
 
@@ -1540,7 +1540,7 @@ DEFUN (show_zebra_client,
        "Zebra information"
        "Client information")
 {
-  listnode node;
+  struct listnode *node;
   struct zserv *client;
 
   for (node = listhead (zebrad.client_list); node; nextnode (node))

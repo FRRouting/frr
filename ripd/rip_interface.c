@@ -222,7 +222,7 @@ rip_request_interface_send (struct interface *ifp, u_char version)
   /* RIPv1 and non multicast interface. */
   if (if_is_pointopoint (ifp) || if_is_broadcast (ifp))
     {
-      listnode cnode;
+      struct listnode *cnode;
 
       if (IS_RIP_DEBUG_EVENT)
 	zlog_info ("broadcast request to %s", ifp->name);
@@ -315,7 +315,7 @@ rip_request_neighbor_all ()
 int
 rip_multicast_join (struct interface *ifp, int sock)
 {
-  listnode cnode;
+  struct listnode *cnode;
 
   if (if_is_operative (ifp) && if_is_multicast (ifp))
     {
@@ -348,7 +348,7 @@ rip_multicast_join (struct interface *ifp, int sock)
 void
 rip_multicast_leave (struct interface *ifp, int sock)
 {
-  listnode cnode;
+  struct listnode *cnode;
 
   if (if_is_up (ifp) && if_is_multicast (ifp))
     {
@@ -405,11 +405,11 @@ rip_if_ipv4_address_check (struct interface *ifp)
 int
 if_check_address (struct in_addr addr)
 {
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (iflist); node; nextnode (node))
     {
-      listnode cnode;
+      struct listnode *cnode;
       struct interface *ifp;
 
       ifp = getdata (node);
@@ -436,13 +436,13 @@ if_check_address (struct in_addr addr)
 int
 if_valid_neighbor (struct in_addr addr)
 {
-  listnode node;
+  struct listnode *node;
   struct connected *connected = NULL;
   struct prefix_ipv4 *p;
 
   for (node = listhead (iflist); node; nextnode (node))
     {
-      listnode cnode;
+      struct listnode *cnode;
       struct interface *ifp;
 
       ifp = getdata (node);
@@ -609,7 +609,7 @@ rip_interface_delete (int command, struct zclient *zclient,
 void
 rip_interface_clean ()
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   struct rip_interface *ri;
 
@@ -633,7 +633,7 @@ rip_interface_clean ()
 void
 rip_interface_reset ()
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   struct rip_interface *ri;
 
@@ -744,7 +744,7 @@ void
 rip_if_down_all ()
 {
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (iflist); node; nextnode (node))
     {
@@ -1173,7 +1173,7 @@ void
 rip_enable_apply_all ()
 {
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
 
   /* Check each interface. */
   for (node = listhead (iflist); node; nextnode (node))
@@ -1298,7 +1298,7 @@ void
 rip_passive_interface_apply_all ()
 {
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (iflist); node; nextnode (node))
     {
@@ -2022,7 +2022,7 @@ DEFUN (no_rip_passive_interface,
 int
 rip_interface_config_write (struct vty *vty)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
 
   for (node = listhead (iflist); node; nextnode (node))

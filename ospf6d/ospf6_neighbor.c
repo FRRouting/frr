@@ -58,7 +58,7 @@ struct ospf6_neighbor *
 ospf6_neighbor_lookup (u_int32_t router_id,
                        struct ospf6_interface *oi)
 {
-  listnode n;
+  struct listnode *n;
   struct ospf6_neighbor *on;
 
   for (n = listhead (oi->neighbor_list); n; nextnode (n))
@@ -772,7 +772,7 @@ DEFUN (show_ipv6_ospf6_neighbor,
   struct ospf6_neighbor *on;
   struct ospf6_interface *oi;
   struct ospf6_area *oa;
-  listnode i, j, k;
+  struct listnode *i, *j, *k;
   void (*showfunc) (struct vty *, struct ospf6_neighbor *);
 
   OSPF6_CMD_CHECK_RUNNING ();
@@ -835,7 +835,7 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
   struct ospf6_neighbor *on;
   struct ospf6_interface *oi;
   struct ospf6_area *oa;
-  listnode i, j, k;
+  struct listnode *i, *j, *k;
   void (*showfunc) (struct vty *, struct ospf6_neighbor *);
   u_int32_t router_id;
 

@@ -143,7 +143,7 @@ ospf6_create ()
 void
 ospf6_delete (struct ospf6 *o)
 {
-  listnode i;
+  struct listnode *i;
   struct ospf6_area *oa;
 
   for (i = listhead (o->area_list); i; nextnode (i))
@@ -167,7 +167,7 @@ ospf6_delete (struct ospf6 *o)
 void
 ospf6_enable (struct ospf6 *o)
 {
-  listnode i;
+  struct listnode *i;
   struct ospf6_area *oa;
 
   if (CHECK_FLAG (o->flag, OSPF6_DISABLED))
@@ -184,7 +184,7 @@ ospf6_enable (struct ospf6 *o)
 void
 ospf6_disable (struct ospf6 *o)
 {
-  listnode i;
+  struct listnode *i;
   struct ospf6_area *oa;
 
   if (! CHECK_FLAG (o->flag, OSPF6_DISABLED))
@@ -209,7 +209,7 @@ ospf6_maxage_remover (struct thread *thread)
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
   struct ospf6_neighbor *on;
-  listnode i, j, k;
+  struct listnode *i, *j, *k;
 
   o->maxage_remover = (struct thread *) NULL;
 
@@ -437,7 +437,7 @@ DEFUN (no_ospf6_interface_area,
 void
 ospf6_show (struct vty *vty, struct ospf6 *o)
 {
-  listnode n;
+  struct listnode *n;
   struct ospf6_area *oa;
   char router_id[16], duration[32];
   struct timeval now, running;
@@ -608,7 +608,7 @@ int
 config_write_ospf6 (struct vty *vty)
 {
   char router_id[16];
-  listnode j, k;
+  struct listnode *j, *k;
   struct ospf6_area *oa;
   struct ospf6_interface *oi;
 

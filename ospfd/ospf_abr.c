@@ -174,7 +174,7 @@ struct ospf_area_range *
 ospf_area_range_match_any (struct ospf *ospf, struct prefix_ipv4 *p)
 {
   struct ospf_area_range *range;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (ospf->areas); node; nextnode (node))
     if ((range = ospf_area_range_match (node->data, p)))
@@ -407,7 +407,7 @@ void
 ospf_abr_nssa_check_status (struct ospf *ospf)
 {
   struct ospf_area *area;
-  listnode lnode;
+  struct listnode *lnode;
     
   LIST_LOOP (ospf->areas, area, lnode)
     {
@@ -477,7 +477,7 @@ void
 ospf_check_abr_status (struct ospf *ospf)
 {
   struct ospf_area *area;
-  listnode node;
+  struct listnode *node;
   int bb_configured = 0;
   int bb_act_attached = 0;
   int areas_configured = 0;
@@ -774,7 +774,7 @@ int
 ospf_abr_nexthops_belong_to_area (struct ospf_route *or,
 				  struct ospf_area *area)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_path *path;
 
   LIST_LOOP (or->paths, path, node)
@@ -843,7 +843,7 @@ ospf_abr_announce_network (struct ospf *ospf,
 {
   struct ospf_area_range *range;
   struct ospf_area *area, *or_area;
-  listnode node;
+  struct listnode *node;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("ospf_abr_announce_network(): Start");
@@ -950,7 +950,7 @@ ospf_abr_process_nssa_translates (struct ospf *ospf)
      flood install as approved in Type-5 LSDB with XLATE Flag on
      later, do same for all aggregates...  At end, DISCARD all
      remaining UNAPPROVED Type-5's (Aggregate is for future ) */
-  listnode node;
+  struct listnode *node;
   struct ospf_area *area;
   struct route_node *rn;
   struct ospf_lsa *lsa;
@@ -1142,7 +1142,7 @@ void
 ospf_abr_announce_rtr (struct ospf *ospf,
 		       struct prefix_ipv4 *p, struct ospf_route *or)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_area *area;
 
   if (IS_DEBUG_OSPF_EVENT)
@@ -1205,7 +1205,7 @@ ospf_abr_process_router_rt (struct ospf *ospf, struct route_table *rt)
 
   for (rn = route_top (rt); rn; rn = route_next (rn))
     {
-      listnode node;
+      struct listnode *node;
       char flag = 0;
       struct ospf_route *best = NULL;
 
@@ -1326,7 +1326,7 @@ ospf_abr_unapprove_translates (struct ospf *ospf) /* For NSSA Translations */
 void
 ospf_abr_unapprove_summaries (struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_area *area;
   struct route_node *rn;
   struct ospf_lsa *lsa;
@@ -1369,7 +1369,7 @@ ospf_abr_unapprove_summaries (struct ospf *ospf)
 void
 ospf_abr_prepare_aggregates (struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   struct route_node *rn;
   struct ospf_area_range *range;
 
@@ -1399,7 +1399,7 @@ ospf_abr_announce_aggregates (struct ospf *ospf)
   struct ospf_area_range *range;
   struct route_node *rn;
   struct prefix p;
-  listnode node, n;
+  struct listnode *node, *n;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_info ("ospf_abr_announce_aggregates(): Start");
@@ -1479,7 +1479,7 @@ ospf_abr_announce_aggregates (struct ospf *ospf)
 void
 ospf_abr_send_nssa_aggregates (struct ospf *ospf) /* temporarily turned off */
 {
-  listnode node; /*, n; */
+  struct listnode *node; /*, n; */
   struct ospf_area *area; /*, *ar; */
   struct route_node *rn;
   struct ospf_area_range *range;
@@ -1550,7 +1550,7 @@ ospf_abr_send_nssa_aggregates (struct ospf *ospf) /* temporarily turned off */
 void
 ospf_abr_announce_nssa_defaults (struct ospf *ospf) /* By ABR-Translator */
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_area *area;
 
   if (! IS_OSPF_ABR (ospf))
@@ -1587,7 +1587,7 @@ ospf_abr_announce_nssa_defaults (struct ospf *ospf) /* By ABR-Translator */
 void
 ospf_abr_announce_stub_defaults (struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_area *area;
   struct prefix_ipv4 p;
 
@@ -1667,7 +1667,7 @@ ospf_abr_remove_unapproved_translates (struct ospf *ospf)
 void
 ospf_abr_remove_unapproved_summaries (struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_area *area;
   struct route_node *rn;
   struct ospf_lsa *lsa;
@@ -1701,7 +1701,7 @@ ospf_abr_remove_unapproved_summaries (struct ospf *ospf)
 void
 ospf_abr_manage_discard_routes (struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   struct route_node *rn;
   struct ospf_area *area;
   struct ospf_area_range *range;

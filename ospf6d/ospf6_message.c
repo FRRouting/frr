@@ -1387,7 +1387,7 @@ ospf6_hello_send (struct thread *thread)
   struct ospf6_header *oh;
   struct ospf6_hello *hello;
   char *p;
-  listnode node;
+  struct listnode *node;
   struct ospf6_neighbor *on;
 
   oi = (struct ospf6_interface *) THREAD_ARG (thread);

@@ -52,7 +52,7 @@ unsigned char conf_debug_ospf6_abr;
 int
 ospf6_is_router_abr (struct ospf6 *o)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_area *oa;
   int area_count = 0;
 
@@ -73,7 +73,7 @@ ospf6_abr_enable_area (struct ospf6_area *area)
 {
   struct ospf6_area *oa;
   struct ospf6_route *ro;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (area->ospf6->area_list); node; nextnode (node))
     {
@@ -111,7 +111,7 @@ ospf6_abr_disable_area (struct ospf6_area *area)
   struct ospf6_area *oa;
   struct ospf6_route *ro;
   struct ospf6_lsa *old;
-  listnode node;
+  struct listnode *node;
 
   /* Withdraw all summary prefixes previously originated */
   for (ro = ospf6_route_head (area->summary_prefix); ro;
@@ -470,7 +470,7 @@ ospf6_abr_range_update (struct ospf6_route *range)
 void
 ospf6_abr_originate_summary (struct ospf6_route *route)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_area *oa;
   struct ospf6_route *range = NULL;
 
@@ -656,7 +656,7 @@ ospf6_abr_examin_brouter (u_int32_t router_id)
 {
   struct ospf6_lsa *lsa;
   struct ospf6_area *oa;
-  listnode node;
+  struct listnode *node;
   u_int16_t type;
 
   type = htons (OSPF6_LSTYPE_INTER_ROUTER);

@@ -315,7 +315,7 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
   int psize;
   struct stream *s;
   struct ospf_path *path;
-  listnode node;
+  struct listnode *node;
 
   if (zclient->redist[ZEBRA_ROUTE_OSPF])
     {
@@ -403,7 +403,7 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
   struct zapi_ipv4 api;
   struct ospf_path *path;
   struct in_addr *nexthop;
-  listnode node;
+  struct listnode *node;
 
   if (zclient->redist[ZEBRA_ROUTE_OSPF])
     {
@@ -980,7 +980,7 @@ ospf_filter_update (struct access_list *access)
   int type;
   int abr_inv = 0;
   struct ospf_area *area;
-  listnode node;
+  struct listnode *node;
 
   /* If OSPF instatnce does not exist, return right now. */
   ospf = ospf_lookup ();
@@ -1048,7 +1048,7 @@ ospf_prefix_list_update (struct prefix_list *plist)
   int type;
   int abr_inv = 0;
   struct ospf_area *area;
-  listnode node;
+  struct listnode *node;
 
   /* If OSPF instatnce does not exist, return right now. */
   ospf = ospf_lookup ();

@@ -168,7 +168,7 @@ zebra_redistribute (struct zserv *client, int type)
 void
 redistribute_add (struct prefix *p, struct rib *rib)
 {
-  listnode node;
+  struct listnode *node;
   struct zserv *client;
 
   for (node = listhead (zebrad.client_list); node; nextnode (node))
@@ -201,7 +201,7 @@ redistribute_add (struct prefix *p, struct rib *rib)
 void
 redistribute_delete (struct prefix *p, struct rib *rib)
 {
-  listnode node;
+  struct listnode *node;
   struct zserv *client;
 
   /* Add DISTANCE_INFINITY check. */
@@ -305,7 +305,7 @@ zebra_redistribute_default_delete (int command, struct zserv *client,
 void
 zebra_interface_up_update (struct interface *ifp)
 {
-  listnode node;
+  struct listnode *node;
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
@@ -320,7 +320,7 @@ zebra_interface_up_update (struct interface *ifp)
 void
 zebra_interface_down_update (struct interface *ifp)
 {
-  listnode node;
+  struct listnode *node;
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
@@ -335,7 +335,7 @@ zebra_interface_down_update (struct interface *ifp)
 void
 zebra_interface_add_update (struct interface *ifp)
 {
-  listnode node;
+  struct listnode *node;
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
@@ -356,7 +356,7 @@ zebra_interface_add_update (struct interface *ifp)
 void
 zebra_interface_delete_update (struct interface *ifp)
 {
-  listnode node;
+  struct listnode *node;
   struct zserv *client;
 
   if (IS_ZEBRA_DEBUG_EVENT)
@@ -374,7 +374,7 @@ void
 zebra_interface_address_add_update (struct interface *ifp,
 				    struct connected *ifc)
 {
-  listnode node;
+  struct listnode *node;
   struct zserv *client;
   struct prefix *p;
   char buf[BUFSIZ];
@@ -398,7 +398,7 @@ void
 zebra_interface_address_delete_update (struct interface *ifp,
 				       struct connected *ifc)
 {
-  listnode node;
+  struct listnode *node;
   struct zserv *client;
   struct prefix *p;
   char buf[BUFSIZ];

@@ -139,7 +139,7 @@ struct rtadvconf
      protocols as being on-link for the interface from which the
      advertisement is sent. The link-local prefix SHOULD NOT be
      included in the list of advertised prefixes. */
-  list AdvPrefixList;
+  struct list *AdvPrefixList;
 };
 
 #endif /* RTADV */
@@ -157,7 +157,7 @@ struct zebra_if
   u_char rtadv_enable;
 
   /* Interface's address. */
-  list address;
+  struct list *address;
 
 #ifdef RTADV
   struct rtadvconf rtadv;

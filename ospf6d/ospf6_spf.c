@@ -281,7 +281,7 @@ ospf6_spf_install (struct ospf6_vertex *v,
   struct ospf6_route *route;
   int i, j;
   struct ospf6_vertex *prev, *w;
-  listnode node;
+  struct listnode *node;
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS))
     zlog_info ("SPF install %s hops %d cost %d",
@@ -530,7 +530,7 @@ void
 ospf6_spf_display_subtree (struct vty *vty, char *prefix, int rest,
                            struct ospf6_vertex *v)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf6_vertex *c;
   char *next_prefix;
   int len;

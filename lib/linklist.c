@@ -244,7 +244,7 @@ list_delete (struct list *list)
 struct listnode *
 listnode_lookup (struct list *list, void *data)
 {
-  listnode node;
+  struct listnode *node;
 
   assert(list);
   for (node = list->head; node; nextnode (node))
@@ -255,7 +255,7 @@ listnode_lookup (struct list *list, void *data)
 
 /* Delete the node from list.  For ospfd and ospf6d. */
 void
-list_delete_node (list list, listnode node)
+list_delete_node (struct list *list, struct listnode *node)
 {
   if (node->prev)
     node->prev->next = node->next;
@@ -271,7 +271,7 @@ list_delete_node (list list, listnode node)
 
 /* ospf_spf.c */
 void
-list_add_node_prev (list list, listnode current, void *val)
+list_add_node_prev (struct list *list, struct listnode *current, void *val)
 {
   struct listnode *node;
 
@@ -292,7 +292,7 @@ list_add_node_prev (list list, listnode current, void *val)
 
 /* ospf_spf.c */
 void
-list_add_node_next (list list, listnode current, void *val)
+list_add_node_next (struct list *list, struct listnode *current, void *val)
 {
   struct listnode *node;
 

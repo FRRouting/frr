@@ -47,7 +47,7 @@ struct ospf6_area
   struct ospf6_route_table *summary_router;
 
   /* OSPF interface list */
-  list if_list;
+  struct list *if_list;
 
   struct ospf6_lsdb *lsdb;
   struct ospf6_lsdb *lsdb_self;

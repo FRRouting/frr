@@ -55,14 +55,14 @@ ospf_find_abr_route (struct route_table *rtrs,
 {
   struct route_node *rn;
   struct ospf_route *or;
-  listnode node;
+  struct listnode *node;
 
   if ((rn = route_node_lookup (rtrs, (struct prefix *) abr)) == NULL)
     return NULL;
 
   route_unlock_node (rn);
 
-  for (node = listhead ((list) rn->info); node; nextnode (node))
+  for (node = listhead ((struct list *) rn->info); node; nextnode (node))
     if ((or = getdata (node)) != NULL)
       if (IPV4_ADDR_SAME (&or->u.std.area_id, &area->area_id) && (or->u.std.flags & ROUTER_LSA_BORDER))
 	return or;
@@ -611,7 +611,7 @@ ospf_ia_routing (struct ospf *ospf,
 
   if (IS_OSPF_ABR (ospf))
     {
-      listnode node; 
+      struct listnode *node; 
       struct ospf_area *area;
 
       switch (ospf->abr_type)
@@ -622,7 +622,7 @@ ospf_ia_routing (struct ospf *ospf,
 
           if ((area = ospf->backbone))
             {
-              listnode node;
+              struct listnode *node;
 
 	      if (IS_DEBUG_OSPF_EVENT)
 		{
@@ -707,7 +707,7 @@ ospf_ia_routing (struct ospf *ospf,
     }
   else 
     {
-      listnode node;
+      struct listnode *node;
 
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_info ("ospf_ia_routing():not ABR, considering all areas");

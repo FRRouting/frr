@@ -239,7 +239,7 @@ void
 ospf_if_cleanup (struct ospf_interface *oi)
 {
   struct route_node *rn;
-  listnode node;
+  struct listnode *node;
   struct ospf_neighbor *nbr;
 
   /* oi->nbrs and oi->nbr_nbma should be deletete on InterafceDown event */
@@ -343,7 +343,7 @@ ospf_if_free (struct ospf_interface *oi)
 struct ospf_interface *
 ospf_if_is_configured (struct ospf *ospf, struct in_addr *address)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_interface *oi;
   struct prefix *addr;
   
@@ -371,7 +371,7 @@ ospf_if_is_up (struct ospf_interface *oi)
 struct ospf_interface *
 ospf_if_exists (struct ospf_interface *oic)
 { 
-  listnode node;
+  struct listnode *node;
   struct ospf *ospf;
   struct ospf_interface *oi;
 
@@ -389,7 +389,7 @@ struct ospf_interface *
 ospf_if_lookup_by_local_addr (struct ospf *ospf,
 			      struct interface *ifp, struct in_addr address)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_interface *oi;
   
   for (node = listhead (ospf->oiflist); node; nextnode (node))
@@ -408,7 +408,7 @@ ospf_if_lookup_by_local_addr (struct ospf *ospf,
 struct ospf_interface *
 ospf_if_lookup_by_prefix (struct ospf *ospf, struct prefix_ipv4 *p)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_interface *oi;
   struct prefix ptmp;
   
@@ -437,7 +437,7 @@ ospf_if_lookup_by_prefix (struct ospf *ospf, struct prefix_ipv4 *p)
 struct ospf_interface *
 ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src)
 {
-  listnode node;
+  struct listnode *node;
   struct prefix_ipv4 addr;
   struct ospf_interface *oi, *match;
 
@@ -854,7 +854,7 @@ struct ospf_vl_data *
 ospf_vl_lookup (struct ospf_area *area, struct in_addr vl_peer)
 {
   struct ospf_vl_data *vl_data;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (area->ospf->vlinks); node; nextnode (node))
     if ((vl_data = getdata (node)) != NULL)
@@ -909,7 +909,7 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
 {
   int changed = 0;
   struct ospf_interface *voi;
-  listnode node;
+  struct listnode *node;
   struct vertex_nexthop *nh;
   int i;
   struct router_lsa *rl;
@@ -994,7 +994,7 @@ ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
                   struct vertex *v)
 {
   struct ospf *ospf = area->ospf;
-  listnode node;
+  struct listnode *node;
   struct ospf_vl_data *vl_data;
   struct ospf_interface *oi;
 
@@ -1053,7 +1053,7 @@ ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
 void
 ospf_vl_unapprove (struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_vl_data *vl_data;
 
   for (node = listhead (ospf->vlinks); node; nextnode (node))
@@ -1064,7 +1064,7 @@ ospf_vl_unapprove (struct ospf *ospf)
 void
 ospf_vl_shut_unapproved (struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_vl_data *vl_data;
 
   for (node = listhead (ospf->vlinks); node; nextnode (node))
@@ -1089,7 +1089,7 @@ ospf_full_virtual_nbrs (struct ospf_area *area)
 int
 ospf_vls_in_area (struct ospf_area *area)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_vl_data *vl_data;
   int c = 0;
 
@@ -1114,15 +1114,15 @@ ospf_crypt_key_new ()
 }
 
 void
-ospf_crypt_key_add (list crypt, struct crypt_key *ck)
+ospf_crypt_key_add (struct list *crypt, struct crypt_key *ck)
 {
   listnode_add (crypt, ck);
 }
 
 struct crypt_key *
-ospf_crypt_key_lookup (list auth_crypt, u_char key_id)
+ospf_crypt_key_lookup (struct list *auth_crypt, u_char key_id)
 {
-  listnode node;
+  struct listnode *node;
   struct crypt_key *ck;
 
   for (node = listhead (auth_crypt); node; nextnode (node))
@@ -1136,9 +1136,9 @@ ospf_crypt_key_lookup (list auth_crypt, u_char key_id)
 }
 
 int
-ospf_crypt_key_delete (list auth_crypt, u_char key_id)
+ospf_crypt_key_delete (struct list *auth_crypt, u_char key_id)
 {
-  listnode node;
+  struct listnode *node;
   struct crypt_key *ck;
 
   for (node = listhead (auth_crypt); node; nextnode (node))

@@ -1,3 +1,7 @@
+2004-09-23 Hasso Tepper <hasso at quagga.net>
+
+	* *.[c|h]: list -> struct list *, listnode -> struct listnode *.
+
 2004-09-13  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
 	* ospf6_intra.c, ospf6_route.[ch]: try to fix assertion failure

@@ -117,7 +117,7 @@ struct interface
   void *distribute_out;
 
   /* Connected address list. */
-  list connected;
+  struct list *connected;
 
   /* Daemon specific interface data pointer. */
   void *info;
@@ -222,7 +222,7 @@ char *if_indextoname (unsigned int, char *);
 #endif
 
 /* Exported variables. */
-extern list iflist;
+extern struct list *iflist;
 extern struct cmd_element interface_desc_cmd;
 extern struct cmd_element no_interface_desc_cmd;
 extern struct cmd_element interface_cmd;

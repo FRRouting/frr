@@ -2279,7 +2279,7 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
 {
   struct ospf *ospf = vty->index;
   u_int32_t refbw;
-  listnode node;
+  struct listnode *node;
 
   refbw = strtol (argv[0], NULL, 10);
   if (refbw < 1 || refbw > 4294967)
@@ -2310,7 +2310,7 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
        "Use reference bandwidth method to assign OSPF cost\n")
 {
   struct ospf *ospf = vty->index;
-  listnode node;
+  struct listnode *node;
 
   if (ospf->ref_bandwidth == OSPF_DEFAULT_REF_BANDWIDTH)
     return CMD_SUCCESS;
@@ -2438,7 +2438,7 @@ DEFUN (show_ip_ospf,
        IP_STR
        "OSPF information\n")
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_area * area;
   struct ospf *ospf;
 
@@ -2625,7 +2625,7 @@ DEFUN (show_ip_ospf_interface,
 {
   struct interface *ifp;
   struct ospf *ospf;
-  listnode node;
+  struct listnode *node;
 
   ospf = ospf_lookup ();
 
@@ -2687,7 +2687,7 @@ DEFUN (show_ip_ospf_neighbor,
        "Neighbor list\n")
 {
   struct ospf *ospf;
-  listnode node;
+  struct listnode *node;
 
   ospf = ospf_lookup ();
   if (ospf == NULL)
@@ -2717,7 +2717,7 @@ DEFUN (show_ip_ospf_neighbor_all,
        "include down status neighbor\n")
 {
   struct ospf *ospf = vty->index;
-  listnode node;
+  struct listnode *node;
 
   if (ospf == NULL)
     {
@@ -2733,7 +2733,7 @@ DEFUN (show_ip_ospf_neighbor_all,
   for (node = listhead (ospf->oiflist); node; nextnode (node))
     {
       struct ospf_interface *oi = getdata (node);
-      listnode nbr_node;
+      struct listnode *nbr_node;
 
       show_ip_ospf_neighbor_sub (vty, oi);
 
@@ -2901,7 +2901,7 @@ DEFUN (show_ip_ospf_neighbor_id,
        "Neighbor ID\n")
 {
   struct ospf *ospf;
-  listnode node;
+  struct listnode *node;
   struct ospf_neighbor *nbr;
   struct in_addr router_id;
   int ret;
@@ -2945,7 +2945,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
        "detail of all neighbors\n")
 {
   struct ospf *ospf;
-  listnode node;
+  struct listnode *node;
 
   ospf = ospf_lookup ();
   if (ospf == NULL)
@@ -2981,7 +2981,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
        "include down status neighbor\n")
 {
   struct ospf *ospf;
-  listnode node;
+  struct listnode *node;
 
   ospf = ospf_lookup ();
   if (ospf == NULL)
@@ -3004,7 +3004,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
 
       if (oi->type == OSPF_IFTYPE_NBMA)
 	{
-	  listnode nd;
+	  struct listnode *nd;
 
 	  for (nd = listhead (oi->nbr_nbma); nd; nextnode (nd))
 	    {
@@ -3530,7 +3530,7 @@ void
 show_lsa_detail (struct vty *vty, struct ospf *ospf, int type,
 		 struct in_addr *id, struct in_addr *adv_router)
 {
-  listnode node;
+  struct listnode *node;
 
   switch (type)
     {
@@ -3579,7 +3579,7 @@ void
 show_lsa_detail_adv_router (struct vty *vty, struct ospf *ospf, int type,
 			    struct in_addr *adv_router)
 {
-  listnode node;
+  struct listnode *node;
 
   switch (type)
     {
@@ -3612,7 +3612,7 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
 {
   struct ospf_lsa *lsa;
   struct route_node *rn;
-  listnode node;
+  struct listnode *node;
   int type;
 
   for (node = listhead (ospf->areas); node; nextnode (node))
@@ -3681,7 +3681,7 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
 void
 show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   struct ospf_lsa *lsa;
 
   vty_out (vty, "%s                MaxAge Link States:%s%s",
@@ -6431,7 +6431,7 @@ show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
 {
   struct route_node *rn;
   struct ospf_route *or;
-  listnode pnode;
+  struct listnode *pnode;
   struct ospf_path *path;
 
   vty_out (vty, "============ OSPF network routing table ============%s",
@@ -6484,7 +6484,7 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
 {
   struct route_node *rn;
   struct ospf_route *or;
-  listnode pn, nn;
+  struct listnode *pn, *nn;
   struct ospf_path *path;
 
   vty_out (vty, "============ OSPF router routing table =============%s",
@@ -6496,7 +6496,7 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
 
 	vty_out (vty, "R    %-15s    ", inet_ntoa (rn->p.u.prefix4));
 
-	for (nn = listhead ((list) rn->info); nn; nextnode (nn))
+	for (nn = listhead ((struct list *) rn->info); nn; nextnode (nn))
 	  if ((or = getdata (nn)) != NULL)
 	    {
 	      if (flag++)
@@ -6532,7 +6532,7 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 {
   struct route_node *rn;
   struct ospf_route *er;
-  listnode pnode;
+  struct listnode *pnode;
   struct ospf_path *path;
 
   vty_out (vty, "============ OSPF external routing table ===========%s",
@@ -6685,7 +6685,7 @@ char *ospf_int_type_str[] =
 int
 config_write_interface (struct vty *vty)
 {
-  listnode n1, n2;
+  struct listnode *n1, *n2;
   struct interface *ifp;
   struct crypt_key *ck;
   int write = 0;
@@ -6899,7 +6899,7 @@ config_write_network_area (struct vty *vty, struct ospf *ospf)
 int
 config_write_ospf_area (struct vty *vty, struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   u_char buf[INET_ADDRSTRLEN];
 
   /* Area configuration print. */
@@ -7025,13 +7025,13 @@ config_write_ospf_nbr_nbma (struct vty *vty, struct ospf *ospf)
 int
 config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
   u_char buf[INET_ADDRSTRLEN];
 
   /* Virtual-Link print */
   for (node = listhead (ospf->vlinks); node; nextnode (node))
     {
-      listnode n2;
+      struct listnode *n2;
       struct crypt_key *ck;
       struct ospf_vl_data *vl_data = getdata (node);
       struct ospf_interface *oi;
@@ -7204,7 +7204,7 @@ int
 ospf_config_write (struct vty *vty)
 {
   struct ospf *ospf;
-  listnode node;
+  struct listnode *node;
   int write = 0;
 
   ospf = ospf_lookup ();

@@ -364,7 +364,7 @@ const char *
 dump_lsa_key (struct ospf_lsa *lsa)
 {
   static char buf[] = {
-    "Type255,id(255.255.255.255),ar(255.255.255.255)",
+    "Type255,id(255.255.255.255),ar(255.255.255.255)"
   };
   struct lsa_header *lsah;
 
@@ -655,7 +655,7 @@ lsa_link_ptomp_set (struct stream *s, struct ospf_interface *oi)
 int
 router_lsa_link_set (struct stream *s, struct ospf_area *area)
 {
-  listnode node;
+  struct listnode *node;
   int links = 0;
 
   for (node = listhead (area->oiflist); node; node = nextnode (node))
@@ -890,7 +890,7 @@ int
 ospf_router_lsa_update_timer (struct thread *thread)
 {
   struct ospf *ospf = THREAD_ARG (thread);
-  listnode node;
+  struct listnode *node;
 
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     zlog_info ("Timer[router-LSA Update]: (timer expire)");
@@ -1396,7 +1396,7 @@ ospf_external_lsa_nexthop_get (struct ospf *ospf, struct in_addr nexthop)
 {
   struct in_addr fwd;
   struct prefix nh;
-  listnode n1;
+  struct listnode *n1;
 
   fwd.s_addr = 0;
 
@@ -1444,7 +1444,7 @@ ospf_get_nssa_ip (struct ospf_area *area)
 {
   struct in_addr fwd;
   struct in_addr best_default;
-  listnode n1;
+  struct listnode *n1;
 
   fwd.s_addr = 0;
   best_default.s_addr = 0;
@@ -1618,7 +1618,7 @@ ospf_install_flood_nssa (struct ospf *ospf,
 {
   struct ospf_lsa *new;
   struct as_external_lsa *extlsa;
-  listnode node;
+  struct listnode *node;
 
   /* LSA may be a Type-5 originated via translation of a Type-7 LSA
    * which originated from an NSSA area. In which case it should not be 
@@ -1863,7 +1863,7 @@ ospf_translated_nssa_refresh (struct ospf *ospf, struct ospf_lsa *type7,
       /* find the type-7 from which supplied type-5 was translated,
        * ie find first type-7 with same LSA Id.
        */
-      listnode ln;
+      struct listnode *ln;
       struct route_node *rn;
       struct ospf_lsa *lsa;
       struct ospf_area *area;
@@ -2749,7 +2749,7 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
 int
 ospf_check_nbr_status (struct ospf *ospf)
 {
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (ospf->oiflist); node; node = nextnode (node))
     {
@@ -2805,8 +2805,8 @@ int
 ospf_maxage_lsa_remover (struct thread *thread)
 {
   struct ospf *ospf = THREAD_ARG (thread);
-  listnode node;
-  listnode next;
+  struct listnode *node;
+  struct listnode *next;
   int reschedule = 0;
 
   ospf->t_maxage = NULL;
@@ -2871,7 +2871,7 @@ ospf_maxage_lsa_remover (struct thread *thread)
 int
 ospf_lsa_maxage_exist (struct ospf *ospf, struct ospf_lsa *new)
 {
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (ospf->maxage_lsa); node; nextnode (node))
     if (((struct ospf_lsa *) node->data) == new)
@@ -2883,7 +2883,7 @@ ospf_lsa_maxage_exist (struct ospf *ospf, struct ospf_lsa *new)
 void
 ospf_lsa_maxage_delete (struct ospf *ospf, struct ospf_lsa *lsa)
 {
-  listnode n;
+  struct listnode *n;
 
   if ((n = listnode_lookup (ospf->maxage_lsa, lsa)))
     {
@@ -2965,7 +2965,7 @@ ospf_lsa_maxage_walker (struct thread *thread)
   struct ospf *ospf = THREAD_ARG (thread);
   struct route_node *rn;
   struct ospf_lsa *lsa;
-  listnode node;
+  struct listnode *node;
 
   ospf->t_maxage_walker = NULL;
 
@@ -3292,7 +3292,7 @@ ospf_lsa_flush_schedule (struct ospf *ospf, struct ospf_lsa *lsa)
 void
 ospf_flush_self_originated_lsas_now (struct ospf *ospf)
 {
-  listnode n1, n2;
+  struct listnode *n1, *n2;
   struct ospf_area *area;
   struct ospf_interface *oi;
   struct ospf_lsa *lsa;
@@ -3379,7 +3379,7 @@ ospf_flush_self_originated_lsas_now (struct ospf *ospf)
 int 
 ospf_lsa_is_self_originated (struct ospf *ospf, struct ospf_lsa *lsa)
 {
-  listnode node;
+  struct listnode *node;
 
   /* This LSA is already checked. */
   if (CHECK_FLAG (lsa->flags, OSPF_LSA_SELF_CHECKED))
@@ -3646,7 +3646,7 @@ ospf_refresher_unregister_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
   assert (CHECK_FLAG (lsa->flags, OSPF_LSA_SELF));
   if (lsa->refresh_list >= 0)
     {
-      list refresh_list = ospf->lsa_refresh_queue.qs[lsa->refresh_list];
+      struct list *refresh_list = ospf->lsa_refresh_queue.qs[lsa->refresh_list];
       listnode_delete (refresh_list, lsa);
       if (!listcount (refresh_list))
 	{
@@ -3661,11 +3661,11 @@ ospf_refresher_unregister_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
 int
 ospf_lsa_refresh_walker (struct thread *t)
 {
-  list refresh_list;
-  listnode node;
+  struct list *refresh_list;
+  struct listnode *node;
   struct ospf *ospf = THREAD_ARG (t);
   int i;
-  list lsa_to_refresh = list_new ();
+  struct list *lsa_to_refresh = list_new ();
 
   if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
     zlog_info ("LSA[Refresh]:ospf_lsa_refresh_walker(): start");
@@ -3697,7 +3697,7 @@ ospf_lsa_refresh_walker (struct thread *t)
 	{
 	  for (node = listhead (refresh_list); node;)
 	    {
-	      listnode next;
+	      struct listnode *next;
 	      struct ospf_lsa *lsa = getdata (node);
 	      next = node->next;
 	      

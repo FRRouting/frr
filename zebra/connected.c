@@ -38,7 +38,7 @@ struct connected *
 connected_check_ipv4 (struct interface *ifp, struct prefix *p)
 {
   struct connected *ifc;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (ifp->connected); node; node = nextnode (node))
     {
@@ -221,7 +221,7 @@ struct connected *
 connected_check_ipv6 (struct interface *ifp, struct prefix *p)
 {
   struct connected *ifc;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (ifp->connected); node; node = nextnode (node))
     {

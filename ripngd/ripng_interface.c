@@ -158,7 +158,7 @@ ripng_if_ipv6_lladdress_check (struct interface *ifp)
 int
 ripng_check_max_mtu ()
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   int mtu;
 
@@ -335,7 +335,7 @@ ripng_interface_delete (int command, struct zclient *zclient,
 void
 ripng_interface_clean ()
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   struct ripng_interface *ri;
 
@@ -358,7 +358,7 @@ ripng_interface_clean ()
 
 void
 ripng_interface_reset () {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   struct ripng_interface *ri;
 
@@ -531,7 +531,7 @@ struct route_table *ripng_enable_network;
 int
 ripng_enable_network_lookup_if (struct interface *ifp)
 {
-  listnode listnode;
+  struct listnode *listnode;
   struct connected *connected;
   struct prefix_ipv6 address;
 
@@ -823,7 +823,7 @@ void
 ripng_enable_apply_all ()
 {
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (iflist); node; nextnode (node))
     {
@@ -891,7 +891,7 @@ void
 ripng_passive_interface_apply_all (void)
 {
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
 
   for (node = listhead (iflist); node; nextnode (node))
     {
@@ -1162,7 +1162,7 @@ ripng_if_delete_hook (struct interface *ifp)
 int
 interface_config_write (struct vty *vty)
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
   struct ripng_interface *ri;
   int write = 0;

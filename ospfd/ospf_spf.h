@@ -38,8 +38,8 @@ struct vertex
   struct lsa_header *lsa; /* Router or Network LSA */
   u_int32_t distance;	/* from root to this vertex */
   int backlink;        /* link index of back-link */
-  list child;		/* list of vertex: children in SPF tree*/
-  list nexthop;		/* list of vertex_nexthop from root to this vertex */
+  struct list *child;		/* list of vertex: children in SPF tree*/
+  struct list *nexthop;		/* list of vertex_nexthop from root to this vertex */
 };
 
 /* A nexthop taken on the root node to get to this (parent) vertex */

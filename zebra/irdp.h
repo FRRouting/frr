@@ -132,7 +132,7 @@ struct irdp_interface
   unsigned long irdp_sent;
   u_int16_t Lifetime;
 
- list AdvPrefList;
+ struct list *AdvPrefList;
 
 };
 

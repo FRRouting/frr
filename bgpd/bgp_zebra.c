@@ -45,7 +45,7 @@ int
 bgp_if_update (struct interface *ifp)
 {
   struct bgp *bgp;
-  listnode cn;
+  struct listnode *cn;
   struct listnode *nn;
   struct listnode *nm;
   struct peer *peer;
@@ -86,7 +86,7 @@ bgp_if_update (struct interface *ifp)
 int
 bgp_if_update_all ()
 {
-  listnode node;
+  struct listnode *node;
   struct interface *ifp;
 
   for (node = listhead (iflist); node; node = nextnode (node))
@@ -128,7 +128,7 @@ bgp_interface_up (int command, struct zclient *zclient, zebra_size_t length)
   struct stream *s;
   struct interface *ifp;
   struct connected *c;
-  listnode node;
+  struct listnode *node;
 
   s = zclient->ibuf;
   ifp = zebra_interface_state_read (s);
@@ -151,7 +151,7 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length)
   struct stream *s;
   struct interface *ifp;
   struct connected *c;
-  listnode node;
+  struct listnode *node;
 
   s = zclient->ibuf;
   ifp = zebra_interface_state_read (s);
@@ -348,8 +348,8 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
 struct interface *
 if_lookup_by_ipv4 (struct in_addr *addr)
 {
-  listnode ifnode;
-  listnode cnode;
+  struct listnode *ifnode;
+  struct listnode *cnode;
   struct interface *ifp;
   struct connected *connected;
   struct prefix_ipv4 p;
@@ -379,8 +379,8 @@ if_lookup_by_ipv4 (struct in_addr *addr)
 struct interface *
 if_lookup_by_ipv4_exact (struct in_addr *addr)
 {
-  listnode ifnode;
-  listnode cnode;
+  struct listnode *ifnode;
+  struct listnode *cnode;
   struct interface *ifp;
   struct connected *connected;
   struct prefix *cp; 
@@ -406,8 +406,8 @@ if_lookup_by_ipv4_exact (struct in_addr *addr)
 struct interface *
 if_lookup_by_ipv6 (struct in6_addr *addr)
 {
-  listnode ifnode;
-  listnode cnode;
+  struct listnode *ifnode;
+  struct listnode *cnode;
   struct interface *ifp;
   struct connected *connected;
   struct prefix_ipv6 p;
@@ -437,8 +437,8 @@ if_lookup_by_ipv6 (struct in6_addr *addr)
 struct interface *
 if_lookup_by_ipv6_exact (struct in6_addr *addr)
 {
-  listnode ifnode;
-  listnode cnode;
+  struct listnode *ifnode;
+  struct listnode *cnode;
   struct interface *ifp;
   struct connected *connected;
   struct prefix *cp; 
@@ -463,7 +463,7 @@ if_lookup_by_ipv6_exact (struct in6_addr *addr)
 int
 if_get_ipv6_global (struct interface *ifp, struct in6_addr *addr)
 {
-  listnode cnode;
+  struct listnode *cnode;
   struct connected *connected;
   struct prefix *cp; 
   
@@ -485,7 +485,7 @@ if_get_ipv6_global (struct interface *ifp, struct in6_addr *addr)
 int
 if_get_ipv6_local (struct interface *ifp, struct in6_addr *addr)
 {
-  listnode cnode;
+  struct listnode *cnode;
   struct connected *connected;
   struct prefix *cp; 
   
@@ -621,8 +621,8 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
 unsigned int
 bgp_ifindex_by_nexthop (struct in6_addr *addr)
 {
-  listnode ifnode;
-  listnode cnode;
+  struct listnode *ifnode;
+  struct listnode *cnode;
   struct interface *ifp;
   struct connected *connected;
   struct prefix_ipv6 p;

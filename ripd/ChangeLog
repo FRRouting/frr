@@ -1,3 +1,7 @@
+2004-09-23 Hasso Tepper <hasso at quagga.net>
+
+	* *.[c|h]: list -> struct list *, listnode -> struct listnode *.
+
 2004-09-17 Paul Jakma <paul@dishone.st>
 
 	* ripd.c: set receive buffer to a decent size, some systems have low

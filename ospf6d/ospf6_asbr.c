@@ -444,7 +444,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
   struct prefix prefix_id;
   struct route_node *node;
   char pbuf[64], ibuf[16];
-  listnode lnode;
+  struct listnode *lnode;
   struct ospf6_area *oa;
 
   if (! ospf6_zebra_is_redistribute (type))
@@ -590,7 +590,7 @@ ospf6_asbr_redistribute_remove (int type, int ifindex, struct prefix *prefix)
   struct ospf6_lsa *lsa;
   struct prefix prefix_id;
   char pbuf[64], ibuf[16];
-  listnode lnode;
+  struct listnode *lnode;
   struct ospf6_area *oa;
 
   match = ospf6_route_lookup (prefix, ospf6->external_table);

@@ -165,7 +165,7 @@ ospf6_interface_create (struct interface *ifp)
 void
 ospf6_interface_delete (struct ospf6_interface *oi)
 {
-  listnode n;
+  struct listnode *n;
   struct ospf6_neighbor *on;
 
   for (n = listhead (oi->neighbor_list); n; nextnode (n))
@@ -213,7 +213,7 @@ ospf6_interface_enable (struct ospf6_interface *oi)
 void
 ospf6_interface_disable (struct ospf6_interface *oi)
 {
-  listnode i;
+  struct listnode *i;
   struct ospf6_neighbor *on;
 
   SET_FLAG (oi->flag, OSPF6_INTERFACE_DISABLE);
@@ -237,7 +237,7 @@ ospf6_interface_disable (struct ospf6_interface *oi)
 static struct in6_addr *
 ospf6_interface_get_linklocal_address (struct interface *ifp)
 {
-  listnode n;
+  struct listnode *n;
   struct connected *c;
   struct in6_addr *l = (struct in6_addr *) NULL;
 
@@ -332,7 +332,7 @@ ospf6_interface_connected_route_update (struct interface *ifp)
   struct ospf6_interface *oi;
   struct ospf6_route *route;
   struct connected *c;
-  listnode i;
+  struct listnode *i;
 
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
@@ -512,7 +512,7 @@ better_drouter (struct ospf6_neighbor *a, struct ospf6_neighbor *b)
 static u_char
 dr_election (struct ospf6_interface *oi)
 {
-  listnode i;
+  struct listnode *i;
   struct ospf6_neighbor *on, *drouter, *bdrouter, myself;
   struct ospf6_neighbor *best_drouter, *best_bdrouter;
   u_char next_state = 0;
@@ -738,7 +738,7 @@ int
 interface_down (struct thread *thread)
 {
   struct ospf6_interface *oi;
-  listnode n;
+  struct listnode *n;
   struct ospf6_neighbor *on;
 
   oi = (struct ospf6_interface *) THREAD_ARG (thread);
@@ -772,7 +772,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   struct ospf6_interface *oi;
   struct connected *c;
   struct prefix *p;
-  listnode i;
+  struct listnode *i;
   char strbuf[64], drouter[32], bdrouter[32];
   char *updown[3] = {"down", "up", NULL};
   char *type;
@@ -895,7 +895,7 @@ DEFUN (show_ipv6_ospf6_interface,
        )
 {
   struct interface *ifp;
-  listnode i;
+  struct listnode *i;
 
   if (argc)
     {
@@ -1002,7 +1002,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
        "Display connected prefixes to advertise\n"
        )
 {
-  listnode i;
+  struct listnode *i;
   struct ospf6_interface *oi;
   struct interface *ifp;
 
@@ -1059,7 +1059,7 @@ DEFUN (ipv6_ospf6_ifmtu,
   struct ospf6_interface *oi;
   struct interface *ifp;
   int ifmtu, iobuflen;
-  listnode node;
+  struct listnode *node;
   struct ospf6_neighbor *on;
 
   ifp = (struct interface *) vty->index;
@@ -1120,7 +1120,7 @@ DEFUN (no_ipv6_ospf6_ifmtu,
   struct ospf6_interface *oi;
   struct interface *ifp;
   int iobuflen;
-  listnode node;
+  struct listnode *node;
   struct ospf6_neighbor *on;
 
   ifp = (struct interface *) vty->index;
@@ -1360,7 +1360,7 @@ DEFUN (ipv6_ospf6_passive,
 {
   struct ospf6_interface *oi;
   struct interface *ifp;
-  listnode node;
+  struct listnode *node;
   struct ospf6_neighbor *on;
 
   ifp = (struct interface *) vty->index;
@@ -1491,7 +1491,7 @@ DEFUN (no_ipv6_ospf6_advertise_prefix_list,
 int
 config_write_ospf6_interface (struct vty *vty)
 {
-  listnode i;
+  struct listnode *i;
   struct ospf6_interface *oi;
   struct interface *ifp;
 
