@@ -91,8 +91,8 @@ struct message rip_msg[] =
 struct
 {  
   int key;
-  char *str;
-  char *str_long;
+  const char *str;
+  const char *str_long;
 } route_info[] =
 {
   { ZEBRA_ROUTE_SYSTEM,  "X", "system"},
@@ -103,6 +103,7 @@ struct
   { ZEBRA_ROUTE_RIPNG,   "R", "ripng"},
   { ZEBRA_ROUTE_OSPF,    "O", "ospf"},
   { ZEBRA_ROUTE_OSPF6,   "O", "ospf6"},
+  { ZEBRA_ROUTE_ISIS,    "I", "isis"},
   { ZEBRA_ROUTE_BGP,     "B", "bgp"}
 };
 
@@ -678,11 +679,11 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
 
 /* Dump RIP packet */
 void
-rip_packet_dump (struct rip_packet *packet, int size, char *sndrcv)
+rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
 {
   caddr_t lim;
   struct rte *rte;
-  char *command_str;
+  const char *command_str;
   char pbuf[BUFSIZ], nbuf[BUFSIZ];
   u_char netmask = 0;
   u_char *p;
@@ -2910,7 +2911,7 @@ DEFUN (rip_route,
       return CMD_WARNING;
     }
 
-  node->info = "static";
+  node->info = (char *)"static";
 
   rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0, NULL);
 
@@ -3379,7 +3380,7 @@ rip_vty_out_uptime (struct vty *vty, struct rip_info *rinfo)
     }
 }
 
-char *
+const char *
 rip_route_type_print (int sub_type)
 {
   switch (sub_type)
@@ -3490,8 +3491,8 @@ DEFUN (show_ip_rip_status,
   struct interface *ifp;
   struct rip_interface *ri;
   extern struct message ri_version_msg[];
-  char *send_version;
-  char *receive_version;
+  const char *send_version;
+  const char *receive_version;
 
   if (! rip)
     return CMD_SUCCESS;

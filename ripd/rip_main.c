@@ -92,7 +92,7 @@ int vty_port = RIP_VTY_PORT;
 struct thread_master *master;
 
 /* Process ID saved for use by init system */
-char *pid_file = PATH_RIPD_PID;
+const char *pid_file = PATH_RIPD_PID;
 
 /* Help information display. */
 static void

@@ -951,7 +951,7 @@ rip_enable_network_add (struct prefix *p)
       return -1;
     }
   else
-    node->info = "enabled";
+    node->info = (char *) "enabled";
 
   /* XXX: One should find a better solution than a generic one */
   rip_enable_apply_all();
@@ -988,7 +988,7 @@ rip_enable_network_delete (struct prefix *p)
 int
 rip_enable_if_lookup (char *ifname)
 {
-  int i;
+  unsigned int i;
   char *str;
 
   for (i = 0; i < vector_max (rip_enable_interface); i++)
@@ -1245,7 +1245,7 @@ rip_neighbor_delete (struct prefix_ipv4 *p)
 void
 rip_clean_network ()
 {
-  int i;
+  unsigned int i;
   char *str;
   struct route_node *rn;
 
@@ -1270,7 +1270,7 @@ rip_clean_network ()
 int
 rip_passive_nondefault_lookup (char *ifname)
 {
-  int i;
+  unsigned int i;
   char *str;
 
   for (i = 0; i < vector_max (Vrip_passive_nondefault); i++)
@@ -1344,7 +1344,7 @@ rip_passive_nondefault_unset (struct vty *vty, char *ifname)
 void
 rip_passive_nondefault_clean ()
 {
-  int i;
+  unsigned int i;
   char *str;
 
   for (i = 0; i < vector_max (Vrip_passive_nondefault); i++)
@@ -2114,7 +2114,7 @@ rip_interface_config_write (struct vty *vty)
 int
 config_write_rip_network (struct vty *vty, int config_mode)
 {
-  int i;
+  unsigned int i;
   char *ifname;
   struct route_node *node;
 

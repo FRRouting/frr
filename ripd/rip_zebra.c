@@ -164,14 +164,14 @@ rip_routemap_set (int type, char *name)
 }
 
 void
-rip_redistribute_metric_set (int type, int metric)
+rip_redistribute_metric_set (int type, unsigned int metric)
 {
   rip->route_map[type].metric_config = 1;
   rip->route_map[type].metric = metric;
 }
 
 int
-rip_metric_unset (int type,int metric)
+rip_metric_unset (int type, unsigned int metric)
 {
 #define DONT_CARE_METRIC_RIP 17  
   if (metric != DONT_CARE_METRIC_RIP &&
@@ -201,7 +201,7 @@ rip_routemap_unset (int type,char *name)
 static struct {
   int type;
   int str_min_len;
-  char *str;
+  const char *str;
 } redist_type[] = {
   {ZEBRA_ROUTE_KERNEL,  1, "kernel"},
   {ZEBRA_ROUTE_CONNECT, 1, "connected"},
@@ -647,8 +647,8 @@ int
 config_write_rip_redistribute (struct vty *vty, int config_mode)
 {
   int i;
-  char *str[] = { "system", "kernel", "connected", "static", "rip",
-		  "ripng", "ospf", "ospf6", "isis", "bgp"};
+  const char *str[] = { "system", "kernel", "connected", "static", "rip",
+			"ripng", "ospf", "ospf6", "isis", "bgp"};
 
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     if (i != zclient->redist_default && zclient->redist[i])

@@ -47,7 +47,7 @@ struct rip_metric_modifier
 /* Add rip route map rule. */
 int
 rip_route_match_add (struct vty *vty, struct route_map_index *index,
-		     char *command, char *arg)
+		     const char *command, char *arg)
 {
   int ret;
 
@@ -70,7 +70,7 @@ rip_route_match_add (struct vty *vty, struct route_map_index *index,
 /* Delete rip route map rule. */
 int
 rip_route_match_delete (struct vty *vty, struct route_map_index *index,
-			char *command, char *arg)
+			const char *command, char *arg)
 {
   int ret;
 
@@ -93,7 +93,7 @@ rip_route_match_delete (struct vty *vty, struct route_map_index *index,
 /* Add rip route map rule. */
 int
 rip_route_set_add (struct vty *vty, struct route_map_index *index,
-		   char *command, char *arg)
+		   const char *command, char *arg)
 {
   int ret;
 
@@ -116,7 +116,7 @@ rip_route_set_add (struct vty *vty, struct route_map_index *index,
 /* Delete rip route map rule. */
 int
 rip_route_set_delete (struct vty *vty, struct route_map_index *index,
-		      char *command, char *arg)
+		      const char *command, char *arg)
 {
   int ret;
 
