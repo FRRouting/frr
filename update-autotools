@@ -20,4 +20,5 @@ aclocal -I m4
 autoheader
 autoconf
 libtoolize -c
-automake --foreign
+automake --gnu --add-missing --copy
+

@@ -1,3 +1,15 @@
+2004-11-06 Paul Jakma <paul@dishone.st>
+
+	* configure.ac: Arguments to AC_OUTPUT is deprecated, use
+          AC_CONFIG_FILES instead. Rearrange the order slightly to put the
+          Makefiles first (silly aesthetic thing, dont know why I had to do
+          this ;) ). Add doc/defines.texi to the list.
+	* NEWS: bgp route-server support added, refer to docs.
+	* update-autotools: call automake with --add-missing and --copy,
+          former is important for obvious reasons, latter for dist files,
+          and --gnu to enable whatever extra goodness checks.
+	* {depcomp, install-sh, missing}: removed, auto-generated files.
+
 2004-11-05 Paul Jakma <paul@dishone.st>
 
 	* HACKING: Expand on ChangeLogs, eg current practice for certain

@@ -1,5 +1,7 @@
 * Changes in Quagga 0.98.0
 
+- BGP route-server support added. See the texinfo documentation.
+
 - OSPF API initialisation is disabled by default even if compiled in. You
   can enable it with -a/--apiserver command line switch.
 
