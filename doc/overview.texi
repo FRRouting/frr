@@ -163,9 +163,7 @@ listed below.
 @item
 GNU/Linux 2.0.37
 @item
-GNU/Linux 2.2.x
-@item
-GNU/Linux 2.3.x
+GNU/Linux 2.2.x and higher
 @item
 FreeBSD 2.2.8
 @item
@@ -335,7 +333,7 @@ znog list are available at this URL.
 @cindex Errors in the software
 
   If you think you have found a bug, please send a bug report to
-@email{bug-zebra@@gnu.org}.  When you send a bug report, please be
+@url{http://bugzilla.quagga.net}.  When you send a bug report, please be
 careful about the points below.
 
 @itemize @bullet
@@ -353,5 +351,5 @@ arguments to the configure script please note that too.
 
   Bug reports are very important for us to improve the quality of Quagga.
 Quagga is still in the development stage, but please don't hesitate to
-send a bug report to @email{bug-zebra@@gnu.org}.
+send a bug report to @url{http://bugzilla.quagga.net}.
 
