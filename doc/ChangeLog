@@ -1,3 +1,8 @@
+2004-10-11 Paul Jakma <paul@dishone.st>
+
+	* ospfd.texi: reformat the ospf md5 paragraph, add an additional
+	  way to work around bad clocks.
+
 2004-10-03 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh.1: Update vtysh man page to reflect changes in shell. Remove
