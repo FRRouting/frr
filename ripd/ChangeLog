@@ -1,5 +1,9 @@
 2005-01-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ripd.c: (rip_create_socket) Replace perror with zlog_err.
+
+2005-01-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ripd.c: (rip_create_socket) Save errno before calling
 	  ripd_privs.change.
 

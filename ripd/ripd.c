@@ -1985,7 +1985,7 @@ rip_create_socket ()
   sock = socket (AF_INET, SOCK_DGRAM, 0);
   if (sock < 0) 
     {
-      perror ("socket");
+      zlog_err("Cannot create UDP socket: %s", safe_strerror(errno));
       exit (1);
     }
 

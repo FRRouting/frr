@@ -55,9 +55,10 @@ if_ioctl (u_long request, caddr_t buffer)
   sock = socket (AF_INET, SOCK_DGRAM, 0);
   if (sock < 0)
     {
+      int save_errno = errno;
       if (zserv_privs.change(ZPRIVS_LOWER))
         zlog (NULL, LOG_ERR, "Can't lower privileges");
-      perror ("socket");
+      zlog_err("Cannot create UDP socket: %s", safe_strerror(save_errno));
       exit (1);
     }
 
@@ -92,9 +93,11 @@ if_ioctl_ipv6 (u_long request, caddr_t buffer)
   sock = socket (AF_INET6, SOCK_DGRAM, 0);
   if (sock < 0)
     {
+      int save_errno = errno;
       if (zserv_privs.change(ZPRIVS_LOWER))
         zlog (NULL, LOG_ERR, "Can't lower privileges");
-      perror ("socket");
+      zlog_err("Cannot create IPv6 datagram socket: %s",
+	       safe_strerror(save_errno));
       exit (1);
     }
 

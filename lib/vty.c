@@ -1824,7 +1824,7 @@ vty_serv_un (const char *path)
   sock = socket (AF_UNIX, SOCK_STREAM, 0);
   if (sock < 0)
     {
-      perror ("sock");
+      zlog_err("Cannot create unix stream socket: %s", safe_strerror(errno));
       return;
     }
 
@@ -1841,7 +1841,7 @@ vty_serv_un (const char *path)
   ret = bind (sock, (struct sockaddr *) &serv, len);
   if (ret < 0)
     {
-      perror ("bind");
+      zlog_err("Cannot bind path %s: %s", path, safe_strerror(errno));
       close (sock);	/* Avoid sd leak. */
       return;
     }
@@ -1849,7 +1849,7 @@ vty_serv_un (const char *path)
   ret = listen (sock, 5);
   if (ret < 0)
     {
-      perror ("listen");
+      zlog_err("listen(fd %d) failed: %s", sock, safe_strerror(errno));
       close (sock);	/* Avoid sd leak. */
       return;
     }

@@ -35,7 +35,7 @@ daemon (int nochdir, int noclose)
   /* In case of fork is error. */
   if (pid < 0)
     {
-      perror ("fork");
+      zlog_err ("fork failed: %s", safe_strerror(errno));
       return -1;
     }
 
@@ -48,7 +48,7 @@ daemon (int nochdir, int noclose)
 
   if (pid == -1)
     {
-      perror ("setsid");
+      zlog_err ("setsid failed: %s", safe_strerror(errno));
       return -1;
     }
 
