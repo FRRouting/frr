@@ -72,7 +72,7 @@ administrator.
 routing protocols such as BGMP, PIM-SM, PIM-DM may be supported in
 Quagga 2.0.  MPLS support is going on.  In the future, TCP/IP filtering
 control, QoS control, diffserv configuration will be added to Quagga.
-Quagga project's final goal is making a productive, quality free TCP/IP
+Quagga project's final goal is making a productive, quality, free TCP/IP
 routing software.
 
 @node System Architecture, Supported Platforms, About Quagga, Overview
