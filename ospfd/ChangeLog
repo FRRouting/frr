@@ -5,6 +5,8 @@
           fixups.
           (ospf_apiserver_unregister_opaque_type) fix listnode_delete of
           referenced node in loop.
+ 	  (ospf_apiserver_term) loops calling ospf_apiserver_free, which
+          deletes referenced nodes from apiserver_list, fixed.
         * ospf_interface.h: lists typedef removal cleanup.
         * ospf_opaque.{c,h}: lists typedef removal cleanup. update some list 
           loops to LIST_LOOP. miscellaneous style and indent fixups.

@@ -180,7 +180,7 @@ out:
 void
 ospf_apiserver_term (void)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_apiserver *apiserv;
 
   /* Unregister wildcard [0/0] type */
@@ -188,7 +188,7 @@ ospf_apiserver_term (void)
 			      0 /* all opaque types */);
 
   /* Free all client instances */
-  LIST_LOOP (apiserver_list, apiserv, node)
+  while ( (node = listhead (apiserver_list)) != NULL)
     ospf_apiserver_free (apiserv);
 
   /* Free client list itself */
@@ -1177,7 +1177,7 @@ ospf_apiserver_notify_ready_type11 (struct ospf_apiserver *apiserv)
 
   /* Can type 11 be originated? */
   if (!ospf_apiserver_is_ready_type11 (ospf))
-    goto out;;
+    goto out;
 
   /* Check for registered opaque type 11 types */
   LIST_LOOP (apiserv->opaque_types, r, node)
