@@ -1431,7 +1431,7 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, char *ifname,
   /* Make flags. */
   if (gate)
     type = STATIC_IPV4_GATEWAY;
-  if (ifname)
+  else if (ifname)
     type = STATIC_IPV4_IFNAME;
   else
     type = STATIC_IPV4_BLACKHOLE;
