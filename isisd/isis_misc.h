@@ -40,11 +40,11 @@ int sysid2buff (u_char *, u_char *);
 /*
  * Printing functions
  */
-char *isonet_print (u_char *, int len);
-char *sysid_print (u_char *);
-char *snpa_print (u_char *);
-char *rawlspid_print (u_char *);
-char *time2string (u_int32_t);
+const char *isonet_print (u_char *, int len);
+const char *sysid_print (u_char *);
+const char *snpa_print (u_char *);
+const char *rawlspid_print (u_char *);
+const char *time2string (u_int32_t);
 /* typedef struct nlpids nlpids; */
 char *nlpid2string (struct nlpids *);
 

@@ -1270,7 +1270,10 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   struct listnode *node, *node2;
   struct tlvs tlvs;
   struct list *lsp_list = NULL;
+  /* TODO: Implement SNP authentication. */
+#if 0
   struct isis_passwd *passwd;
+#endif
 
   if (snp_type == ISIS_SNP_CSNP_FLAG)
     {

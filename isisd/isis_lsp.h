@@ -118,7 +118,7 @@ void lsp_update (struct isis_lsp *lsp, struct isis_link_state_hdr *lsp_hdr,
 void lsp_inc_seqnum (struct isis_lsp *lsp, u_int32_t seq_num);
 int lsp_print_all (struct vty *vty, dict_t * lspdb, char detail,
 		   char dynhost);
-char *lsp_bits2string (u_char *);
+const char *lsp_bits2string (u_char *);
 
 #ifdef TOPOLOGY_GENERATE
 void generate_topology_lsps (struct isis_area *area);

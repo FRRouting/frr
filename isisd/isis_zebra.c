@@ -51,7 +51,6 @@ isis_router_id_update_zebra (int command, struct zclient *zclient,
 			     zebra_size_t length)
 {
   struct prefix router_id;
-  char buf[BUFSIZ];
 
   zebra_router_id_update_read (zclient->ibuf,&router_id);
   router_id_zebra = router_id.u.prefix4;
@@ -202,8 +201,10 @@ isis_zebra_if_address_del (int command, struct zclient *client,
 {
   struct connected *c;
   struct interface *ifp;
+#ifdef EXTREME_DEBUG
   struct prefix *p;
   u_char buf[BUFSIZ];
+#endif /* EXTREME_DEBUG */
 
   c = zebra_interface_address_read (ZEBRA_INTERFACE_ADDRESS_DELETE,
 				    zclient->ibuf);

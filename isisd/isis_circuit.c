@@ -631,17 +631,10 @@ isis_interface_config_write (struct vty *vty)
   int write = 0;
   struct listnode *node;
   struct listnode *node2;
-  struct listnode *node3;
   struct interface *ifp;
   struct isis_area *area;
   struct isis_circuit *c;
-  struct prefix_ipv4 *ip;
   int i;
-#ifdef HAVE_IPV6
-  struct prefix_ipv6 *ipv6;
-#endif /*HAVE_IPV6 */
-
-  char buf[BUFSIZ];
 
   LIST_LOOP (iflist, ifp, node)
   {
@@ -1718,122 +1711,6 @@ DEFUN (isis_hello,
   return CMD_SUCCESS;
 }
 
-#if 0
-DEFUN (ip_address,
-       ip_address_cmd,
-       "ip address A.B.C.D/A",
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n" "IP address (e.g. 10.0.0.1/8\n")
-{
-  struct interface *ifp;
-  struct isis_circuit *circuit;
-  struct prefix_ipv4 *ipv4, *ip;
-  struct listnode *node;
-  int ret, found = 1;
-
-  ifp = vty->index;
-  circuit = ifp->info;
-  if (circuit == NULL)
-    {
-      return CMD_WARNING;
-    }
-
-  assert (circuit);
-#ifdef HAVE_IPV6
-  zlog_info ("ip_address_cmd circuit %d", circuit->interface->ifindex);
-#endif /* HAVE_IPV6 */
-
-  ipv4 = prefix_ipv4_new ();
-
-  ret = str2prefix_ipv4 (argv[0], ipv4);
-  if (ret <= 0)
-    {
-      zlog_warn ("ip_address_cmd(): malformed address");
-      vty_out (vty, "%% Malformed address %s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (!circuit->ip_addrs)
-    circuit->ip_addrs = list_new ();
-  else
-    {
-      for (node = listhead (circuit->ip_addrs); node; nextnode (node))
-	{
-	  ip = getdata (node);
-	  if (prefix_same ((struct prefix *) ip, (struct prefix *) ipv4))
-	    found = 1;
-	}
-      if (found)
-	{
-	  prefix_ipv4_free (ipv4);
-	  return CMD_SUCCESS;
-	}
-    }
-
-
-  listnode_add (circuit->ip_addrs, ipv4);
-#ifdef EXTREME_DEBUG
-  zlog_info ("added IP address %s to circuit %d", argv[0],
-	     circuit->interface->ifindex);
-#endif /* EXTREME_DEBUG */
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ip_address,
-       no_ip_address_cmd,
-       "no ip address A.B.C.D/A",
-       NO_STR
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n"
-       "IP address (e.g. 10.0.0.1/8\n")
-{
-  struct interface *ifp;
-  struct isis_circuit *circuit;
-  struct prefix_ipv4 ipv4, *ip = NULL;
-  struct listnode *node;
-  int ret;
-
-  ifp = vty->index;
-  circuit = ifp->info;
-  /* UGLY - will remove l8r */
-  if (circuit == NULL)
-    {
-      return CMD_WARNING;
-    }
-  assert (circuit);
-
-  if (!circuit->ip_addrs || circuit->ip_addrs->count == 0)
-    {
-      vty_out (vty, "Invalid address %s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  ret = str2prefix_ipv4 (argv[0], &ipv4);
-  if (ret <= 0)
-    {
-      vty_out (vty, "%% Malformed address %s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  for (node = listhead (circuit->ip_addrs); node; nextnode (node))
-    {
-      ip = getdata (node);
-      if (prefix_same ((struct prefix *) ip, (struct prefix *) &ipv4))
-	break;
-    }
-
-  if (ip)
-    {
-      listnode_delete (circuit->ip_addrs, ip);
-    }
-  else
-    {
-      vty_out (vty, "Invalid address %s", VTY_NEWLINE);
-    }
-
-  return CMD_SUCCESS;
-}
-#endif
-
 DEFUN (no_isis_hello,
        no_isis_hello_cmd,
        "no isis hello padding",
@@ -2137,130 +2014,6 @@ DEFUN (no_ipv6_router_isis,
 
   return CMD_SUCCESS;
 }
-
-#if 0				/* Guess we don't really need these */
-
-DEFUN (ipv6_address,
-       ipv6_address_cmd,
-       "ipv6 address X:X::X:X/M",
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n"
-       "IPv6 address (e.g. 3ffe:506::1/48)\n")
-{
-  struct interface *ifp;
-  struct isis_circuit *circuit;
-  struct prefix_ipv6 *ipv6, *ip6;
-  struct listnode *node;
-  int ret, found = 1;
-
-  ifp = vty->index;
-  circuit = ifp->info;
-  /* UGLY - will remove l8r */
-  if (circuit == NULL)
-    {
-      return CMD_WARNING;
-    }
-  assert (circuit);
-#ifdef EXTREME_DEBUG
-  zlog_info ("ipv6_address_cmd circuit %d", circuit->idx);
-#endif /* EXTREME_DEBUG */
-
-  if (circuit == NULL)
-    {
-      zlog_warn ("ipv6_address_cmd(): no circuit");
-      return CMD_WARNING;
-    }
-
-
-  ipv6 = prefix_ipv6_new ();
-
-  ret = str2prefix_ipv6 (argv[0], ipv6);
-  if (ret <= 0)
-    {
-      vty_out (vty, "%% Malformed address %s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (!circuit->ipv6_addrs)
-    circuit->ipv6_addrs = list_new ();
-  else
-    {
-      for (node = listhead (circuit->ipv6_addrs); node; nextnode (node))
-	{
-	  ip6 = getdata (node);
-	  if (prefix_same ((struct prefix *) ip6, (struct prefix *) ipv6))
-	    found = 1;
-	}
-      if (found)
-	{
-	  prefix_ipv6_free (ipv6);
-	  return CMD_SUCCESS;
-	}
-    }
-
-
-  listnode_add (circuit->ipv6_addrs, ipv6);
-#ifdef EXTREME_DEBUG
-  zlog_info ("added IPv6 address %s to circuit %d", argv[0], circuit->idx);
-#endif /* EXTREME_DEBUG */
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (no_ipv6_address,
-       no_ipv6_address_cmd,
-       "no ipv6 address X:X::X:X/M",
-       NO_STR
-       "Interface Internet Protocol config commands\n"
-       "Set the IP address of an interface\n"
-       "IPv6 address (e.g. 3ffe:506::1/48)\n")
-{
-  struct interface *ifp;
-  struct isis_circuit *circuit;
-  struct prefix_ipv6 ipv6, *ip6 = NULL;
-  struct listnode *node;
-  int ret;
-
-  ifp = vty->index;
-  circuit = ifp->info;
-  /* UGLY - will remove l8r */
-  if (circuit == NULL)
-    {
-      return CMD_WARNING;
-    }
-  assert (circuit);
-
-  if (!circuit->ipv6_addrs || circuit->ipv6_addrs->count == 0)
-    {
-      vty_out (vty, "Invalid address %s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  ret = str2prefix_ipv6 (argv[0], &ipv6);
-  if (ret <= 0)
-    {
-      vty_out (vty, "%% Malformed address %s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  for (node = listhead (circuit->ipv6_addrs); node; nextnode (node))
-    {
-      ip6 = getdata (node);
-      if (prefix_same ((struct prefix *) ip6, (struct prefix *) &ipv6))
-	break;
-    }
-
-  if (ip6)
-    {
-      listnode_delete (circuit->ipv6_addrs, ip6);
-    }
-  else
-    {
-      vty_out (vty, "Invalid address %s", VTY_NEWLINE);
-    }
-
-  return CMD_SUCCESS;
-}
-#endif /* 0 */
 #endif /* HAVE_IPV6 */
 
 struct cmd_node interface_node = {
@@ -2348,10 +2101,6 @@ isis_circuit_init ()
 
   install_element (INTERFACE_NODE, &isis_hello_cmd);
   install_element (INTERFACE_NODE, &no_isis_hello_cmd);
-#if 0
-  install_element (INTERFACE_NODE, &ip_address_cmd);
-  install_element (INTERFACE_NODE, &no_ip_address_cmd);
-#endif
   install_element (INTERFACE_NODE, &csnp_interval_cmd);
   install_element (INTERFACE_NODE, &no_csnp_interval_cmd);
   install_element (INTERFACE_NODE, &no_csnp_interval_arg_cmd);
@@ -2365,9 +2114,5 @@ isis_circuit_init ()
 #ifdef HAVE_IPV6
   install_element (INTERFACE_NODE, &ipv6_router_isis_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_router_isis_cmd);
-#if 0
-  install_element (INTERFACE_NODE, &ipv6_address_cmd);
-  install_element (INTERFACE_NODE, &no_ipv6_address_cmd);
-#endif
 #endif
 }

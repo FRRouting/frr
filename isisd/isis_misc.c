@@ -64,7 +64,7 @@ char nlpidstring[30];
 /*
  * This converts the isonet to its printable format
  */
-char *
+const char *
 isonet_print (u_char * from, int len)
 {
   int i = 0;
@@ -335,7 +335,7 @@ syst2string (int type)
 /*
  * Print functions - we print to static vars
  */
-char *
+const char *
 snpa_print (u_char * from)
 {
   int i = 0;
@@ -367,7 +367,7 @@ snpa_print (u_char * from)
   return snpa;
 }
 
-char *
+const char *
 sysid_print (u_char * from)
 {
   int i = 0;
@@ -399,7 +399,7 @@ sysid_print (u_char * from)
   return sysid;
 }
 
-char *
+const char *
 rawlspid_print (u_char * from)
 {
   char *pos = lspid;
@@ -417,7 +417,7 @@ rawlspid_print (u_char * from)
   return lspid;
 }
 
-char *
+const char *
 time2string (u_int32_t time)
 {
   char *pos = datestring;

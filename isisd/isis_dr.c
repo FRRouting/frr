@@ -50,7 +50,7 @@
 extern struct isis *isis;
 extern struct thread_master *master;
 
-char *
+const char *
 isis_disflag2string (int disflag)
 {
 

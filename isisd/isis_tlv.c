@@ -498,9 +498,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  zlog_info ("ISIS-TLV (%s): TE Router ID %d", areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
 	  if (*expected & TLVFLAG_TE_ROUTER_ID)
-	    {
-	      tlvs->router_id = (struct te_router_id *) (pnt);
-	    }
+	    tlvs->router_id = (struct te_router_id *) (pnt);
 	  pnt += length;
 	  break;
 
@@ -753,7 +751,7 @@ int
 add_tlv (u_char tag, u_char len, u_char * value, struct stream *stream)
 {
 
-  if (STREAM_SIZE (stream) - stream_get_putp (stream) < len + 2)
+  if (STREAM_SIZE (stream) - stream_get_putp (stream) < (unsigned) len + 2)
     {
       zlog_warn ("No room for TLV of type %d", tag);
       return ISIS_WARNING;

@@ -317,7 +317,7 @@ isis_event_dis_status_change (struct thread *thread)
 }
 
 void
-isis_event_auth_failure (char *area_tag, char *error_string, u_char *sysid)
+isis_event_auth_failure (char *area_tag, const char *error_string, u_char *sysid)
 {
   zlog_info ("ISIS-Evt (%s) Authentication failure %s from %s",
 	     area_tag, error_string, sysid_print (sysid));

@@ -29,7 +29,7 @@ int isis_run_dr_l2 (struct thread *thread);
 int isis_dr_elect (struct isis_circuit *circuit, int level);
 int isis_dr_resign (struct isis_circuit *circuit, int level);
 int isis_dr_commence (struct isis_circuit *circuit, int level);
-char *isis_disflag2string (int disflag);
+const char *isis_disflag2string (int disflag);
 
 enum isis_dis_state
 {

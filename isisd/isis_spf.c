@@ -174,7 +174,7 @@ vtype2string (enum vertextype vtype)
   return NULL;			/* Not reached */
 }
 
-char *
+const char *
 vid2string (struct isis_vertex *vertex, u_char * buff)
 {
   switch (vertex->type)
@@ -650,7 +650,7 @@ lspfragloop:
   if (fragnode == NULL)
     fragnode = listhead (lsp->lspu.frags);
   else
-    fragnode = nextnode (fragnode);
+    nextnode (fragnode);
 
   if (fragnode)
     {
@@ -703,7 +703,7 @@ pseudofragloop:
   if (fragnode == NULL)
     fragnode = listhead (lsp->lspu.frags);
   else
-    fragnode = nextnode (fragnode);
+    nextnode (fragnode);
 
   if (fragnode)
     {
@@ -800,7 +800,7 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
 	      adj = getdata (anode);
 	      if (!speaks (&adj->nlpids, family))
 		{
-		  anode = nextnode (anode);
+		  nextnode (anode);
 		  continue;
 		}
 	      switch (adj->sys_type)
@@ -834,7 +834,7 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
 		default:
 		  zlog_warn ("isis_spf_preload_tent unknow adj type");
 		}
-	      anode = nextnode (anode);
+	      nextnode (anode);
 	    }
 	  list_delete (adj_list);
 	  /*

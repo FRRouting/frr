@@ -669,7 +669,7 @@ lspid_print (u_char * lsp_id, u_char * trg, char dynhost, char frag)
 }
 
 /* Convert the lsp attribute bits to attribute string */
-char *
+const char *
 lsp_bits2string (u_char * lsp_bits)
 {
   char *pos = lsp_bits_string;
@@ -717,7 +717,6 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 {
   struct isis_lsp *lsp = dnode_get (node);
   struct area_addr *area_addr;
-  char nlpidstr[2];
   int i;
   struct listnode *lnode;
   struct is_neigh *is_neigh;
@@ -732,7 +731,6 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
   u_char LSPid[255];
   u_char hostname[255];
   u_char buff[BUFSIZ];
-  u_int32_t now, helper;
   u_char ipv4_reach_prefix[20];
   u_char ipv4_reach_mask[20];
   u_char ipv4_address[20];
@@ -745,7 +743,7 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
     {
       LIST_LOOP (lsp->tlv_data.area_addrs, area_addr, lnode)
       {
-	vty_out (vty, "  Area Address:  %s%s",
+	vty_out (vty, "  Area Address: %s%s",
 		 isonet_print (area_addr->area_addr, area_addr->addr_len),
 		 VTY_NEWLINE);
       }
@@ -760,11 +758,11 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 	    {
 	    case NLPID_IP:
 	    case NLPID_IPV6:
-	      vty_out (vty, "  NLPID:         0x%X%s",
+	      vty_out (vty, "  NLPID:        0x%X%s",
 		       lsp->tlv_data.nlpids->nlpids[i], VTY_NEWLINE);
 	      break;
 	    default:
-	      vty_out (vty, "  NLPID:         %s%s", "unknown", VTY_NEWLINE);
+	      vty_out (vty, "  NLPID:        %s%s", "unknown", VTY_NEWLINE);
 	      break;
 	    }
 	}
@@ -788,6 +786,25 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
       }
     }
 
+  /* TE router id */
+  if (lsp->tlv_data.router_id)
+    {
+      memcpy (ipv4_address, inet_ntoa (lsp->tlv_data.router_id->id),
+	      sizeof (ipv4_address));
+      vty_out (vty, "  Router ID: %s%s", ipv4_address, VTY_NEWLINE);
+    }
+
+  /* for the IS neighbor tlv */
+  if (lsp->tlv_data.is_neighs)
+    {
+      LIST_LOOP (lsp->tlv_data.is_neighs, is_neigh, lnode)
+      {
+	lspid_print (is_neigh->neigh_id, LSPid, dynhost, 0);
+	vty_out (vty, "  Metric: %d IS %s%s",
+		 is_neigh->metrics.metric_default, LSPid, VTY_NEWLINE);
+      }
+    }
+  
   /* for the internal reachable tlv */
   if (lsp->tlv_data.ipv4_int_reachs)
     LIST_LOOP (lsp->tlv_data.ipv4_int_reachs, ipv4_reach, lnode)
@@ -814,17 +831,6 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 	       ipv4_reach_mask, VTY_NEWLINE);
     }
 
-  /* for the IS neighbor tlv */
-  if (lsp->tlv_data.is_neighs)
-    {
-      LIST_LOOP (lsp->tlv_data.is_neighs, is_neigh, lnode)
-      {
-	lspid_print (is_neigh->neigh_id, LSPid, dynhost, 0);
-	vty_out (vty, "  Metric: %d IS %s%s",
-		 is_neigh->metrics.metric_default, LSPid, VTY_NEWLINE);
-      }
-    }
-
   /* IPv6 tlv */
 #ifdef HAVE_IPV6
   if (lsp->tlv_data.ipv6_reachs)
@@ -845,145 +851,28 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 		 buff, ipv6_reach->prefix_len, VTY_NEWLINE);
     }
 #endif
-
-/* FIXME: Other tlvs such as te or external tlv will be added later */
-#if 0
-  vty_out (vty, "%s  %s %c%s",
-	   VTY_NEWLINE, LSPid, lsp->own_lsp ? '*' : ' ', VTY_NEWLINE);
-
-  vty_out (vty, "    Sequence: 0x%08x Checksum: 0x%04x Lifetime: ",
-	   ntohl (lsp->lsp_header->seq_num),
-	   ntohs (lsp->lsp_header->checksum));
-
-  if (ntohs (lsp->lsp_header->rem_lifetime) == 0)
-    vty_out (vty, " (%2u) ", lsp->age_out);
-  else
-    vty_out (vty, "%5u ", ntohs (lsp->lsp_header->rem_lifetime));
-
-  vty_out (vty, "%s    Attributes:%s",
-	   VTY_NEWLINE, lsp_bits2string (&lsp->lsp_header->lsp_bits));
-
-  /* if this is a self originated LSP then print
-   * the generation time plus when we sent it last
-   * if it is a non self-originated LSP then print the
-   * time when the LSP has been installed
-   */
-
-  if (lsp->own_lsp)
-    {
-
-      now = time (NULL);
-      helper = now - lsp->last_generated;
-      if (!lsp->last_generated)
-	helper = 0;
-
-      vty_out (vty, ", Generated: %s ago", time2string (helper));
-
-      now = time (NULL);
-      helper = now - lsp->last_sent;
-      if (!lsp->last_sent)
-	helper = 0;
-
-      vty_out (vty, ", Last sent: %s ago", time2string (helper));
-    }
-  else
-    {
-      now = time (NULL);
-      helper = now - lsp->installed;
-      if (!lsp->installed)
-	helper = 0;
-
-      vty_out (vty, ", Installed: %s ago", time2string (helper));
-
-    }
-
-  vty_out (vty, "%s", VTY_NEWLINE);
-
-  if (lsp->tlv_data.nlpids)
-    {
-      vty_out (vty, "    Speaks: %s%s", nlpid2string (lsp->tlv_data.nlpids),
-	       VTY_NEWLINE);
-    }
-
-  if (lsp->tlv_data.router_id)
-    {
-      vty_out (vty, "     Router ID: %s%s",
-	       inet_ntoa (lsp->tlv_data.router_id->id), VTY_NEWLINE);
-    }
-
-  if (lsp->tlv_data.is_neighs)
-    LIST_LOOP (lsp->tlv_data.is_neighs, is_neigh, lnode)
-    {
-      lspid_print (is_neigh->neigh_id, LSPid, dynhost, 0);
-      vty_out (vty, "     IS      %s, Metric: %d%s",
-	       LSPid, is_neigh->metrics.metric_default, VTY_NEWLINE);
-    }
-
+  /* TE IS neighbor tlv */
   if (lsp->tlv_data.te_is_neighs)
     LIST_LOOP (lsp->tlv_data.te_is_neighs, te_is_neigh, lnode)
     {
-      /* FIXME: metric display is wrong */
+      /* FIXME: metric display is wrong. */
       lspid_print (te_is_neigh->neigh_id, LSPid, dynhost, 0);
-      vty_out (vty, "     extd-IS %s, Metric: %d%s",
-	       LSPid, te_is_neigh->te_metric[0], VTY_NEWLINE);
+      vty_out (vty, "  Metric: %d extd-IS %s%s",
+	       te_is_neigh->te_metric[0], LSPid, VTY_NEWLINE);
     }
 
-  if (lsp->tlv_data.ipv4_int_reachs)
-    LIST_LOOP (lsp->tlv_data.ipv4_int_reachs, ipv4_reach, lnode)
-    {
-      vty_out (vty, "     int-IP  %s/%d, Metric: %d%s",
-	       inet_ntoa (ipv4_reach->prefix),
-	       ip_masklen (ipv4_reach->mask),
-	       ipv4_reach->metrics.metric_default, VTY_NEWLINE);
-    }
-
-  if (lsp->tlv_data.ipv4_ext_reachs)
-    LIST_LOOP (lsp->tlv_data.ipv4_ext_reachs, ipv4_reach, lnode)
-    {
-      vty_out (vty, "     ext-IP  %s/%d, Metric: %d%s",
-	       inet_ntoa (ipv4_reach->prefix),
-	       ip_masklen (ipv4_reach->mask),
-	       ipv4_reach->metrics.metric_default, VTY_NEWLINE);
-    }
-
+  /* TE IPv4 tlv */
   if (lsp->tlv_data.te_ipv4_reachs)
     LIST_LOOP (lsp->tlv_data.te_ipv4_reachs, te_ipv4_reach, lnode)
     {
-      vty_out (vty, "     extd-IP %s/%d, Metric: %d%s",
+      /* FIXME: There should be better way to output this stuff. */
+      vty_out (vty, "  Metric: %d extrd-IP %s/%d%s",
+	       ntohl (te_ipv4_reach->te_metric),
 	       inet_ntoa (newprefix2inaddr (&te_ipv4_reach->prefix_start,
 					    te_ipv4_reach->control)),
-	       te_ipv4_reach->control & 0x3F,
-	       ntohl (te_ipv4_reach->te_metric), VTY_NEWLINE);
+	       te_ipv4_reach->control & 0x3F, VTY_NEWLINE);
     }
 
-#ifdef HAVE_IPV6
-  if (lsp->tlv_data.ipv6_reachs)
-    LIST_LOOP (lsp->tlv_data.ipv6_reachs, ipv6_reach, lnode)
-    {
-      memcpy (in6.s6_addr, ipv6_reach->prefix, 16);
-      inet_ntop (AF_INET6, &in6, buff, BUFSIZ);
-      if ((ipv6_reach->control_info &&
-	   CTRL_INFO_DISTRIBUTION) == DISTRIBUTION_INTERNAL)
-	vty_out (vty, "     int-IPv6 %s/%d, Metric: %d%s",
-		 buff,
-		 ipv6_reach->prefix_len,
-		 ntohl (ipv6_reach->metric), VTY_NEWLINE);
-      else
-	vty_out (vty, "     ext-IPv6 %s/%d, Metric: %d%s",
-		 buff,
-		 ipv6_reach->prefix_len,
-		 ntohl (ipv6_reach->metric), VTY_NEWLINE);
-
-    }
-#endif
-  if (lsp->tlv_data.hostname)
-    {
-      memset (hostname, 0, sizeof (hostname));
-      memcpy (hostname, lsp->tlv_data.hostname->name,
-	      lsp->tlv_data.hostname->namelen);
-      vty_out (vty, "    Hostname: %s%s", hostname, VTY_NEWLINE);
-    }
-#endif
   return;
 }
 
@@ -1453,8 +1342,6 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
    */
   if (router_id_zebra.s_addr != 0)
     {
-      u_char value[4];
-
       if (lsp->tlv_data.ipv4_addrs == NULL)
 	lsp->tlv_data.ipv4_addrs = list_new ();
 

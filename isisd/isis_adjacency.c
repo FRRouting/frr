@@ -170,7 +170,7 @@ isis_delete_adj (struct isis_adjacency *adj, struct list *adjdb)
 
 void
 isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state state,
-		       char *reason)
+		       const char *reason)
 {
   int old_state;
   int level = adj->level;

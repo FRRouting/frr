@@ -1,3 +1,11 @@
+2004-10-07 Hasso Tepper <hasso at quagga.net>
+
+	* *.[c|h]: Fix warnings: make strings const, signed -> unsigned,
+	  remove or comment out unused variables etc.
+	* isis_lsp.c: Clean lsp_print_detail() a bit, add TE TLV's and
+	  removed old code.
+	* isis_circuit.c: Remove old ip/ipv6 address commands code.
+
 2004-10-03 Hasso Tepper <hasso at quagga.net>
 
 	* isis_zebra.c: Read router id related messages from zebra daemon.

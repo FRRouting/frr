@@ -96,7 +96,7 @@ int daemon_mode = 0;
 struct thread_master *master;
 
 /* Process ID saved for use by init system */
-char *pid_file = PATH_ISISD_PID;
+const char *pid_file = PATH_ISISD_PID;
 
 /* for reload */
 char _cwd[MAXPATHLEN];

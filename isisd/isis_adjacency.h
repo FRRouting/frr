@@ -105,7 +105,7 @@ struct isis_adjacency *isis_new_adj (u_char * id, u_char * snpa, int level,
 				     struct isis_circuit *circuit);
 void isis_delete_adj (struct isis_adjacency *adj, struct list *adjdb);
 void isis_adj_state_change (struct isis_adjacency *adj,
-			    enum isis_adj_state state, char *reason);
+			    enum isis_adj_state state, const char *reason);
 void isis_adj_print (struct isis_adjacency *adj);
 int isis_adj_expire (struct thread *thread);
 void isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty);
