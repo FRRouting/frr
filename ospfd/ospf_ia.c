@@ -79,7 +79,7 @@ ospf_ia_network_route (struct ospf *ospf, struct route_table *rt,
   struct ospf_route *or;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_ia_network_route(): processing summary route to %s/%d", 
+    zlog_debug ("ospf_ia_network_route(): processing summary route to %s/%d", 
 	       inet_ntoa (p->prefix), p->prefixlen);
 
   /* Find a route to the same dest */
@@ -92,7 +92,7 @@ ospf_ia_network_route (struct ospf *ospf, struct route_table *rt,
       if ((or = rn1->info))
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_ia_network_route(): "
+	    zlog_debug ("ospf_ia_network_route(): "
 		       "Found a route to the same network");
 	  /* Check the existing route. */
 	  if ((res = ospf_route_cmp (ospf, new_or, or)) < 0)
@@ -121,7 +121,7 @@ ospf_ia_network_route (struct ospf *ospf, struct route_table *rt,
   else
     { /* no route */
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_ia_network_route(): add new route to %s/%d",
+	zlog_debug ("ospf_ia_network_route(): add new route to %s/%d",
 		   inet_ntoa (p->prefix), p->prefixlen);
       ospf_route_add (rt, p, new_or, abr_or);
     }
@@ -137,7 +137,7 @@ ospf_ia_router_route (struct ospf *ospf, struct route_table *rtrs,
   int ret;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_ia_router_route(): considering %s/%d", 
+    zlog_debug ("ospf_ia_router_route(): considering %s/%d", 
 	       inet_ntoa (p->prefix), p->prefixlen);
   /* Find a route to the same dest */
   rn = route_node_get (rtrs, (struct prefix *) p);
@@ -158,7 +158,7 @@ ospf_ia_router_route (struct ospf *ospf, struct route_table *rtrs,
   if (or)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_ia_router_route(): "
+	zlog_debug ("ospf_ia_router_route(): "
 		   "a route to the same ABR through the same area exists");
       /* New route is better */
       if ((ret = ospf_route_cmp (ospf, new_or, or)) < 0)
@@ -171,7 +171,7 @@ ospf_ia_router_route (struct ospf *ospf, struct route_table *rtrs,
       else if (ret == 0)
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_ia_router_route(): merging the new route");
+	    zlog_debug ("ospf_ia_router_route(): merging the new route");
 
 	  ospf_route_copy_nexthops (or, abr_or->paths);
 	  ospf_route_free (new_or);
@@ -181,7 +181,7 @@ ospf_ia_router_route (struct ospf *ospf, struct route_table *rtrs,
       else
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_ia_router_route(): skipping the new route");
+	    zlog_debug ("ospf_ia_router_route(): skipping the new route");
 	  ospf_route_free (new_or);
 	  return;
 	}
@@ -190,7 +190,7 @@ ospf_ia_router_route (struct ospf *ospf, struct route_table *rtrs,
   ospf_route_copy_nexthops (new_or, abr_or->paths);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_ia_router_route(): adding the new route"); 
+    zlog_debug ("ospf_ia_router_route(): adding the new route"); 
 
   listnode_add (rn->info, new_or);
 }
@@ -213,7 +213,7 @@ process_summary_lsa (struct ospf_area *area, struct route_table *rt,
   sl = (struct summary_lsa *) lsa->data;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("process_summary_lsa(): LS ID: %s", inet_ntoa (sl->header.id));
+    zlog_debug ("process_summary_lsa(): LS ID: %s", inet_ntoa (sl->header.id));
 
   metric = GET_METRIC (sl->metric);
    
@@ -328,7 +328,7 @@ ospf_update_network_route (struct ospf *ospf,
   if (abr_or == NULL)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_update_network_route(): can't find a route to the ABR");
+	zlog_debug ("ospf_update_network_route(): can't find a route to the ABR");
       return;
     }
 
@@ -342,7 +342,7 @@ ospf_update_network_route (struct ospf *ospf,
         return; /* Standard ABR can update only already installed
                    backbone paths                                       */
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_update_network_route(): "
+	zlog_debug ("ospf_update_network_route(): "
 		   "Allowing Shortcut ABR to add new route");
       new_or = ospf_route_new ();
       new_or->type = OSPF_DESTINATION_NETWORK;
@@ -371,7 +371,7 @@ ospf_update_network_route (struct ospf *ospf,
       or->path_type != OSPF_PATH_INTER_AREA)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_update_network_route(): ERR: path type is wrong");
+	zlog_debug ("ospf_update_network_route(): ERR: path type is wrong");
       return;
     }
 
@@ -381,7 +381,7 @@ ospf_update_network_route (struct ospf *ospf,
 	  !OSPF_IS_AREA_ID_BACKBONE (or->u.std.area_id))
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_update_network_route(): Shortcut: "
+	    zlog_debug ("ospf_update_network_route(): Shortcut: "
 		       "this intra-area path is not backbone");
 	  return;
 	}
@@ -391,7 +391,7 @@ ospf_update_network_route (struct ospf *ospf,
       if (!OSPF_IS_AREA_ID_BACKBONE (or->u.std.area_id))
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_update_network_route(): "
+	    zlog_debug ("ospf_update_network_route(): "
 		       "route is not BB-associated");
 	  return; /* We can update only BB routes */
 	}
@@ -400,14 +400,14 @@ ospf_update_network_route (struct ospf *ospf,
   if (or->cost < cost)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_update_network_route(): new route is worse");
+	zlog_debug ("ospf_update_network_route(): new route is worse");
       return;
     }
 
   if (or->cost == cost)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_update_network_route(): "
+	zlog_debug ("ospf_update_network_route(): "
 		   "new route is same distance, adding nexthops");
       ospf_route_copy_nexthops (or, abr_or->paths);
     }
@@ -415,7 +415,7 @@ ospf_update_network_route (struct ospf *ospf,
   if (or->cost > cost)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_update_network_route(): "
+	zlog_debug ("ospf_update_network_route(): "
 		   "new route is better, overriding nexthops");
       ospf_route_subst_nexthops (or, abr_or->paths);
       or->cost = cost;
@@ -455,7 +455,7 @@ ospf_update_router_route (struct ospf *ospf,
   if (abr_or == NULL)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_update_router_route(): can't find a route to the ABR");
+	zlog_debug ("ospf_update_router_route(): can't find a route to the ABR");
       return;
     }
 
@@ -508,7 +508,7 @@ ospf_update_router_route (struct ospf *ospf,
   if (!(or->u.std.flags & ROUTER_LSA_EXTERNAL))
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_upd_router_route(): the remote router is not an ASBR");
+	zlog_debug ("ospf_upd_router_route(): the remote router is not an ASBR");
       return;
     }
 
@@ -548,28 +548,28 @@ process_transit_summary_lsa (struct ospf_area *area, struct route_table *rt,
   sl = (struct summary_lsa *) lsa->data;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("process_transit_summaries(): LS ID: %s",
+    zlog_debug ("process_transit_summaries(): LS ID: %s",
 	       inet_ntoa (lsa->data->id));
   metric = GET_METRIC (sl->metric);
    
   if (metric == OSPF_LS_INFINITY)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("process_transit_summaries(): metric is infinity, skip");
+	zlog_debug ("process_transit_summaries(): metric is infinity, skip");
       return 0;
     }
 
   if (IS_LSA_MAXAGE (lsa))
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("process_transit_summaries(): This LSA is too old");
+	zlog_debug ("process_transit_summaries(): This LSA is too old");
       return 0;
     }
 
   if (ospf_lsa_is_self_originated (area->ospf, lsa))
     { 
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("process_transit_summaries(): This LSA is mine, skip");
+	zlog_debug ("process_transit_summaries(): This LSA is mine, skip");
       return 0;
     }
 
@@ -612,7 +612,7 @@ ospf_ia_routing (struct ospf *ospf,
   struct ospf_area * area;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_ia_routing():start");
+    zlog_debug ("ospf_ia_routing():start");
 
   if (IS_OSPF_ABR (ospf))
     {
@@ -623,7 +623,7 @@ ospf_ia_routing (struct ospf *ospf,
         {
         case OSPF_ABR_STAND:
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_ia_routing():Standard ABR");
+	    zlog_debug ("ospf_ia_routing():Standard ABR");
 
           if ((area = ospf->backbone))
             {
@@ -631,8 +631,8 @@ ospf_ia_routing (struct ospf *ospf,
 
 	      if (IS_DEBUG_OSPF_EVENT)
 		{
-		  zlog_info ("ospf_ia_routing():backbone area found");
-		  zlog_info ("ospf_ia_routing():examining summaries");
+		  zlog_debug ("ospf_ia_routing():backbone area found");
+		  zlog_debug ("ospf_ia_routing():examining summaries");
 		}
 
               OSPF_EXAMINE_SUMMARIES_ALL (area, rt, rtrs);
@@ -645,12 +645,12 @@ ospf_ia_routing (struct ospf *ospf,
             }
           else
 	    if (IS_DEBUG_OSPF_EVENT)
-	      zlog_info ("ospf_ia_routing():backbone area NOT found");
+	      zlog_debug ("ospf_ia_routing():backbone area NOT found");
           break;
         case OSPF_ABR_IBM:
         case OSPF_ABR_CISCO:
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_ia_routing():Alternative Cisco/IBM ABR");
+	    zlog_debug ("ospf_ia_routing():Alternative Cisco/IBM ABR");
           area = ospf->backbone; /* Find the BB */
 
           /* If we have an active BB connection */
@@ -658,8 +658,8 @@ ospf_ia_routing (struct ospf *ospf,
             {
 	      if (IS_DEBUG_OSPF_EVENT)
 		{
-		  zlog_info ("ospf_ia_routing(): backbone area found");
-		  zlog_info ("ospf_ia_routing(): examining BB summaries");
+		  zlog_debug ("ospf_ia_routing(): backbone area found");
+		  zlog_debug ("ospf_ia_routing(): examining BB summaries");
 		}
 
               OSPF_EXAMINE_SUMMARIES_ALL (area, rt, rtrs);
@@ -673,7 +673,7 @@ ospf_ia_routing (struct ospf *ospf,
           else
             { /* No active BB connection--consider all areas */
 	      if (IS_DEBUG_OSPF_EVENT)
-		zlog_info ("ospf_ia_routing(): "
+		zlog_debug ("ospf_ia_routing(): "
 			   "Active BB connection not found");
 	      for (node = listhead (ospf->areas); node; nextnode (node))
                 if ((area = getdata (node)) != NULL)
@@ -682,7 +682,7 @@ ospf_ia_routing (struct ospf *ospf,
           break;
         case OSPF_ABR_SHORTCUT:
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_ia_routing():Alternative Shortcut");
+	    zlog_debug ("ospf_ia_routing():Alternative Shortcut");
           area = ospf->backbone; /* Find the BB */
 
           /* If we have an active BB connection */
@@ -690,8 +690,8 @@ ospf_ia_routing (struct ospf *ospf,
             {
 	      if (IS_DEBUG_OSPF_EVENT)
 		{
-		  zlog_info ("ospf_ia_routing(): backbone area found");
-		  zlog_info ("ospf_ia_routing(): examining BB summaries");
+		  zlog_debug ("ospf_ia_routing(): backbone area found");
+		  zlog_debug ("ospf_ia_routing(): examining BB summaries");
 		}
               OSPF_EXAMINE_SUMMARIES_ALL (area, rt, rtrs);
             }
@@ -715,7 +715,7 @@ ospf_ia_routing (struct ospf *ospf,
       struct listnode *node;
 
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_ia_routing():not ABR, considering all areas");
+	zlog_debug ("ospf_ia_routing():not ABR, considering all areas");
 
       for (node = listhead (ospf->areas); node; nextnode (node))
         if ((area = getdata (node)) != NULL)

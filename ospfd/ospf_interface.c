@@ -800,17 +800,17 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
   struct prefix_ipv4 *p;
   
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_vl_new(): Start");
+    zlog_debug ("ospf_vl_new(): Start");
   if (vlink_count == OSPF_VL_MAX_COUNT)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_vl_new(): Alarm: "
+	zlog_debug ("ospf_vl_new(): Alarm: "
 		   "cannot create more than OSPF_MAX_VL_COUNT virtual links");
       return NULL;
     }
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_vl_new(): creating pseudo zebra interface");
+    zlog_debug ("ospf_vl_new(): creating pseudo zebra interface");
 
   snprintf (ifname, INTERFACE_NAMSIZ + 1, "VLINK%d", vlink_count);
   vi = if_create (ifname, INTERFACE_NAMSIZ);
@@ -829,7 +829,7 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
   if (voi == NULL)
     {
       if (IS_DEBUG_OSPF_EVENT)
-	zlog_info ("ospf_vl_new(): Alarm: OSPF int structure is not created");
+	zlog_debug ("ospf_vl_new(): Alarm: OSPF int structure is not created");
       return NULL;
     }
   voi->connected = co;
@@ -839,23 +839,23 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
 
   vlink_count++;
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_vl_new(): Created name: %s", ifname);
+    zlog_debug ("ospf_vl_new(): Created name: %s", ifname);
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_vl_new(): set if->name to %s", vi->name);
+    zlog_debug ("ospf_vl_new(): set if->name to %s", vi->name);
 
   area_id.s_addr = 0;
   area = ospf_area_get (ospf, area_id, OSPF_AREA_ID_FORMAT_ADDRESS);
   voi->area = area;
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_vl_new(): set associated area to the backbone");
+    zlog_debug ("ospf_vl_new(): set associated area to the backbone");
 
   ospf_area_add_if (voi->area, voi);
 
   ospf_if_stream_set (voi);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_vl_new(): Stop");
+    zlog_debug ("ospf_vl_new(): Stop");
   return voi;
 }
 
@@ -984,7 +984,7 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
             {
               case LSA_LINK_TYPE_VIRTUALLINK:
                 if (IS_DEBUG_OSPF_EVENT)
-                  zlog_info ("found back link through VL");
+                  zlog_debug ("found back link through VL");
               case LSA_LINK_TYPE_TRANSIT:
               case LSA_LINK_TYPE_POINTOPOINT:
                 if (!IPV4_ADDR_SAME (&vl_data->peer_addr,
@@ -992,7 +992,7 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
                   changed = 1;
                 vl_data->peer_addr = rl->link[i].link_data;
               if (IS_DEBUG_OSPF_EVENT)
-                zlog_info ("ospf_vl_set_params: %s peer address is %s\n",
+                zlog_debug ("ospf_vl_set_params: %s peer address is %s\n",
                                vl_data->vl_oi->ifp->name, 
                                inet_ntoa(vl_data->peer_addr));
               return changed;
@@ -1001,7 +1001,7 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
     }
     
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_info ("ospf_vl_set_params: %s peer address is %s\n",
+    zlog_debug ("ospf_vl_set_params: %s peer address is %s\n",
                vl_data->vl_oi->ifp->name,
                inet_ntoa(vl_data->peer_addr));
                
@@ -1020,9 +1020,9 @@ ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
 
   if (IS_DEBUG_OSPF_EVENT)
     {
-      zlog_info ("ospf_vl_up_check(): Start");
-      zlog_info ("ospf_vl_up_check(): Router ID is %s", inet_ntoa (rid));
-      zlog_info ("ospf_vl_up_check(): Area is %s", inet_ntoa (area->area_id));
+      zlog_debug ("ospf_vl_up_check(): Start");
+      zlog_debug ("ospf_vl_up_check(): Router ID is %s", inet_ntoa (rid));
+      zlog_debug ("ospf_vl_up_check(): Area is %s", inet_ntoa (area->area_id));
     }
 
   for (node = listhead (ospf->vlinks); node; nextnode (node))
@@ -1032,9 +1032,9 @@ ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
   
       if (IS_DEBUG_OSPF_EVENT)
 	{
-	  zlog_info ("ospf_vl_up_check(): considering VL, name: %s", 
+	  zlog_debug ("ospf_vl_up_check(): considering VL, name: %s", 
 		     vl_data->vl_oi->ifp->name);
-	  zlog_info ("ospf_vl_up_check(): VL area: %s, peer ID: %s", 
+	  zlog_debug ("ospf_vl_up_check(): VL area: %s, peer ID: %s", 
 		     inet_ntoa (vl_data->vl_area_id),
 		     inet_ntoa (vl_data->vl_peer));
 	}
@@ -1046,12 +1046,12 @@ ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
           SET_FLAG (vl_data->flags, OSPF_VL_FLAG_APPROVED);
 
 	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_info ("ospf_vl_up_check(): this VL matched");
+	    zlog_debug ("ospf_vl_up_check(): this VL matched");
 
           if (oi->state == ISM_Down)
             {
 	      if (IS_DEBUG_OSPF_EVENT)
-		zlog_info ("ospf_vl_up_check(): VL is down, waking it up");
+		zlog_debug ("ospf_vl_up_check(): VL is down, waking it up");
               SET_FLAG (oi->ifp->flags, IFF_UP);
               OSPF_ISM_EVENT_EXECUTE(oi,ISM_InterfaceUp);
             }
@@ -1059,12 +1059,12 @@ ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
          if (ospf_vl_set_params (vl_data, v))
            {
              if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
-               zlog_info ("ospf_vl_up_check: VL cost change,"
+               zlog_debug ("ospf_vl_up_check: VL cost change,"
                           " scheduling router lsa refresh");
              if(ospf->backbone)
                ospf_router_lsa_timer_add (ospf->backbone);
              else if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
-               zlog_info ("ospf_vl_up_check: VL cost change, no backbone!");
+               zlog_debug ("ospf_vl_up_check: VL cost change, no backbone!");
            }
         }
     }
@@ -1098,9 +1098,9 @@ ospf_full_virtual_nbrs (struct ospf_area *area)
 {
   if (IS_DEBUG_OSPF_EVENT)
     {
-      zlog_info ("counting fully adjacent virtual neighbors in area %s",
+      zlog_debug ("counting fully adjacent virtual neighbors in area %s",
 		 inet_ntoa (area->area_id));
-      zlog_info ("there are %d of them", area->full_vls);
+      zlog_debug ("there are %d of them", area->full_vls);
     }
 
   return area->full_vls;
