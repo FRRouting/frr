@@ -482,33 +482,6 @@ ospf_ls_ack_timer (struct thread *thread)
   return 0;
 }
 
-/* swab ip header fields to required order for sendmsg */
-void
-ospf_swab_iph_ton (struct ip *iph)
-{
-  /* BSD and derived take iph in network order, except for 
-   * ip_len and ip_off
-   */
-#ifndef HAVE_IP_HDRINCL_BSD_ORDER
-  iph->ip_len = htons(iph->ip_len);
-  iph->ip_off = htons(iph->ip_off);
-#endif /* HAVE_IP_HDRINCL_BSD_ORDER */
-
-  iph->ip_id = htons(iph->ip_id);
-}
-
-/* swab ip header fields to host order, as required */
-void
-ospf_swab_iph_toh (struct ip *iph)
-{
-#ifdef HAVE_IP_HDRINCL_BSD_ORDER
-  iph->ip_len = ntohs(iph->ip_len);
-  iph->ip_off = ntohs(iph->ip_off);
-#endif /* HAVE_IP_HDRINCL_BSD_ORDER */
-
-  iph->ip_id = ntohs(iph->ip_id);
-}
-
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 void
 ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph, 
@@ -549,11 +522,11 @@ ospf_write_frags (int fd, struct ospf_packet *op, struct ip *iph,
       iph->ip_len = iov[1]->iov_len + sizeof (struct ip);
       assert (iph->ip_len <= mtu);
 
-      ospf_swab_iph_ton (iph);
+      sockopt_iphdrincl_swab_htosys (iph);
 
       ret = sendmsg (fd, msg, flags);
       
-      ospf_swab_iph_toh (iph);
+      sockopt_iphdrincl_swab_systoh (iph);
       
       if (ret < 0)
         zlog_warn ("*** sendmsg in ospf_write to %s,"
@@ -692,9 +665,9 @@ ospf_write (struct thread *thread)
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 
   /* send final fragment (could be first) */
-  ospf_swab_iph_ton (&iph);
+  sockopt_iphdrincl_swab_htosys (&iph);
   ret = sendmsg (ospf->fd, &msg, flags);
-  ospf_swab_iph_toh (&iph);
+  sockopt_iphdrincl_swab_htosys (&iph);
   
   if (ret < 0)
     zlog_warn ("*** sendmsg in ospf_write to %s failed with %s",
@@ -2040,13 +2013,9 @@ ospf_recv_packet (int fd, struct interface **ifp)
       zlog_warn ("ospf_recv_packet packet smaller than ip header");
       return NULL;
     }
-
-#ifdef HAVE_IP_HDRINCL_BSD_ORDER
-  ip_len = iph.ip_len;
-#else
-  ip_len = ntohs (iph.ip_len);
-#endif
-
+  
+  sockopt_iphdrincl_swab_systoh (&iph);
+  
 #if !defined(GNU_LINUX) && (OpenBSD < 200311)
   /*
    * Kernel network code touches incoming IP header parameters,

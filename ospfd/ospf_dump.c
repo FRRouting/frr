@@ -607,14 +607,8 @@ ospf_ip_header_dump (struct stream *s)
 
   iph = (struct ip *) STREAM_PNT (s);
 
-#ifdef HAVE_IP_HDRINCL_BSD_ORDER
-  length = iph->ip_len;
-  offset = iph->ip_off;
-#else /* !HAVE_IP_HDRINCL_BSD_ORDER */
-  length = ntohs (iph->ip_len);
-  offset = ntohs (iph->ip_off);
-#endif /* HAVE_IP_HDRINCL_BSD_ORDER */
-
+  sockopt_iphdrincl_swab_systoh (iph);
+  
   /* IP Header dump. */
   zlog_info ("ip_v %d", iph->ip_v);
   zlog_info ("ip_hl %d", iph->ip_hl);

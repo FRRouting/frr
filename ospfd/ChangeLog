@@ -1,3 +1,8 @@
+2004-10-05 Paul Jakma <paul@dishone.st>
+
+	* ospf_packet.c: replace ospf_swap_iph_to... with
+          sockopt_iphdrincl_swab_...
+
 2004-10-03 James R. Leu <jleu at mindspring.com>
 
 	* ospf_zebra.c: Read router id related messages from zebra daemon.
