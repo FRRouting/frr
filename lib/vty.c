@@ -1942,7 +1942,8 @@ vtysh_accept (struct thread *thread)
   memset (&client, 0, sizeof (struct sockaddr_un));
   client_len = sizeof (struct sockaddr_un);
 
-  sock = accept (accept_sock, (struct sockaddr *) &client, &client_len);
+  sock = accept (accept_sock, (struct sockaddr *) &client,
+		 (socklen_t *) &client_len);
 
   if (sock < 0)
     {

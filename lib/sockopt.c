@@ -275,7 +275,7 @@ setsockopt_pktinfo (int af, int sock, int val)
         break;
 #endif
       default:
-        zlog_warn ("setsockopt_pktinfo: unknown address family %d");
+        zlog_warn ("setsockopt_pktinfo: unknown address family %d", af);
     }
   return ret;
 }
@@ -296,7 +296,7 @@ setsockopt_ifindex (int af, int sock, int val)
         break;
 #endif
       default:
-        zlog_warn ("setsockopt_ifindex: unknown address family %d");
+        zlog_warn ("setsockopt_ifindex: unknown address family %d", af);
     }
   return ret;
 }
@@ -356,7 +356,7 @@ getsockopt_ifindex (int af, struct msghdr *msgh)
         break;
 #endif
       default:
-        zlog_warn ("getsockopt_ifindex: unknown address family %d");
+        zlog_warn ("getsockopt_ifindex: unknown address family %d", af);
         return (ifindex = 0);
     }
 }
