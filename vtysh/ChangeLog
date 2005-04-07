@@ -2,6 +2,7 @@
 
 	* Makefile.am: Remove rebuild4 target, it's not used any more by build
 	  procedure. Define vtysh_cmd_FILES. Use EXTRA_DIST.
+	* extract.pl.in: Ignore "router zebra".
 
 2005-03-28 Hasso Tepper <hasso at quagga.net>
 
