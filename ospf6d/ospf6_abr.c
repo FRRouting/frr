@@ -56,12 +56,9 @@ ospf6_is_router_abr (struct ospf6 *o)
   struct ospf6_area *oa;
   int area_count = 0;
 
-  for (node = listhead (o->area_list); node; nextnode (node))
-    {
-      oa = OSPF6_AREA (getdata (node));
-      if (IS_AREA_ENABLED (oa))
-        area_count++;
-    }
+  for (ALL_LIST_ELEMENTS_RO (o->area_list, node, oa))
+    if (IS_AREA_ENABLED (oa))
+      area_count++;
 
   if (area_count > 1)
     return 1;
@@ -73,12 +70,10 @@ ospf6_abr_enable_area (struct ospf6_area *area)
 {
   struct ospf6_area *oa;
   struct ospf6_route *ro;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
-  for (node = listhead (area->ospf6->area_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (area->ospf6->area_list, node, nnode, oa))
     {
-      oa = OSPF6_AREA (getdata (node));
-
       /* update B bit for each area */
       OSPF6_ROUTER_LSA_SCHEDULE (oa);
 
@@ -111,7 +106,7 @@ ospf6_abr_disable_area (struct ospf6_area *area)
   struct ospf6_area *oa;
   struct ospf6_route *ro;
   struct ospf6_lsa *old;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   /* Withdraw all summary prefixes previously originated */
   for (ro = ospf6_route_head (area->summary_prefix); ro;
@@ -136,13 +131,9 @@ ospf6_abr_disable_area (struct ospf6_area *area)
     }
 
   /* Schedule Router-LSA for each area (ABR status may change) */
-  for (node = listhead (area->ospf6->area_list); node; nextnode (node))
-    {
-      oa = OSPF6_AREA (getdata (node));
-
-      /* update B bit for each area */
-      OSPF6_ROUTER_LSA_SCHEDULE (oa);
-    }
+  for (ALL_LIST_ELEMENTS (area->ospf6->area_list, node, nnode, oa))
+    /* update B bit for each area */
+    OSPF6_ROUTER_LSA_SCHEDULE (oa);
 }
 
 /* RFC 2328 12.4.3. Summary-LSAs */
@@ -470,7 +461,7 @@ ospf6_abr_range_update (struct ospf6_route *range)
 void
 ospf6_abr_originate_summary (struct ospf6_route *route)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_area *oa;
   struct ospf6_route *range = NULL;
 
@@ -482,11 +473,8 @@ ospf6_abr_originate_summary (struct ospf6_route *route)
         ospf6_abr_range_update (range);
     }
 
-  for (node = listhead (ospf6->area_list); node; nextnode (node))
-    {
-      oa = (struct ospf6_area *) getdata (node);
-      ospf6_abr_originate_summary_to_area (route, oa);
-    }
+  for (ALL_LIST_ELEMENTS (ospf6->area_list, node, nnode, oa))
+    ospf6_abr_originate_summary_to_area (route, oa);
 }
 
 /* RFC 2328 16.2. Calculating the inter-area routes */
@@ -656,22 +644,17 @@ ospf6_abr_examin_brouter (u_int32_t router_id)
 {
   struct ospf6_lsa *lsa;
   struct ospf6_area *oa;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   u_int16_t type;
 
-  type = htons (OSPF6_LSTYPE_INTER_ROUTER);
-  for (node = listhead (ospf6->area_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (ospf6->area_list, node, nnode, oa))
     {
-      oa = OSPF6_AREA (getdata (node));
+      type = htons (OSPF6_LSTYPE_INTER_ROUTER);
       for (lsa = ospf6_lsdb_type_router_head (type, router_id, oa->lsdb); lsa;
            lsa = ospf6_lsdb_type_router_next (type, router_id, lsa))
         ospf6_abr_examin_summary (lsa, oa);
-    }
 
-  type = htons (OSPF6_LSTYPE_INTER_PREFIX);
-  for (node = listhead (ospf6->area_list); node; nextnode (node))
-    {
-      oa = OSPF6_AREA (getdata (node));
+      type = htons (OSPF6_LSTYPE_INTER_PREFIX);
       for (lsa = ospf6_lsdb_type_router_head (type, router_id, oa->lsdb); lsa;
            lsa = ospf6_lsdb_type_router_next (type, router_id, lsa))
         ospf6_abr_examin_summary (lsa, oa);

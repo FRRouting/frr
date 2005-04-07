@@ -1996,7 +1996,7 @@ peer_rsclient_set_vty (struct vty *vty, const char *peer_str,
   struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct bgp_filter *pfilter;
   struct bgp_filter *gfilter;
 
@@ -2032,7 +2032,7 @@ peer_rsclient_set_vty (struct vty *vty, const char *peer_str,
       group = peer->group;
       gfilter = &peer->filter[afi][safi];
 
-      LIST_LOOP(group->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
         {
           pfilter = &peer->filter[afi][safi];
 
@@ -2078,7 +2078,7 @@ peer_rsclient_unset_vty (struct vty *vty, const char *peer_str,
   struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   bgp = vty->index;
 
@@ -2094,7 +2094,7 @@ peer_rsclient_unset_vty (struct vty *vty, const char *peer_str,
     {
       group = peer->group;
 
-      LIST_LOOP (group->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
         {
           ret = peer_af_flag_unset (peer, afi, safi, PEER_FLAG_RSERVER_CLIENT);
           if (ret < 0)
@@ -3967,12 +3967,12 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
 {
   int ret;
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   /* Clear all neighbors. */
   if (sort == clear_all)
     {
-      LIST_LOOP (bgp->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  if (stype == BGP_CLEAR_SOFT_NONE)
 	    ret = peer_clear (peer);
@@ -4028,7 +4028,7 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
 	  return -1; 
 	}
 
-      LIST_LOOP (group->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
 	{
 	  if (stype == BGP_CLEAR_SOFT_NONE)
 	    {
@@ -4049,7 +4049,7 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
 
   if (sort == clear_external)
     {
-      LIST_LOOP (bgp->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  if (peer_sort (peer) == BGP_PEER_IBGP) 
 	    continue;
@@ -4081,7 +4081,7 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
 	}
       as = (as_t) as_ul;
 
-      LIST_LOOP (bgp->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  if (peer->as != as) 
 	    continue;
@@ -6425,7 +6425,7 @@ int
 bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   int count = 0;
   char timebuf[BGP_UPTIME_LEN];
   int len;
@@ -6433,7 +6433,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
   /* Header string for each address family. */
   static char header[] = "Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd";
 
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (peer->afc[afi][safi])
 	{
@@ -7319,11 +7319,11 @@ int
 bgp_show_neighbor (struct vty *vty, struct bgp *bgp,
 		   enum show_type type, union sockunion *su)
 {
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct peer *peer;
   int find = 0;
 
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       switch (type)
 	{
@@ -7667,13 +7667,13 @@ bgp_write_rsclient_summary (struct vty *vty, struct peer *rsclient,
   char rmbuf[14];
   const char *rmname;
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   int len;
   int count = 0;
 
   if (CHECK_FLAG (rsclient->sflags, PEER_STATUS_GROUP))
     {
-      LIST_LOOP (rsclient->group->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (rsclient->group->peer, node, nnode, peer))
         {
           count++;
           bgp_write_rsclient_summary (vty, peer, afi, safi);
@@ -7732,13 +7732,13 @@ bgp_show_rsclient_summary (struct vty *vty, struct bgp *bgp,
                            afi_t afi, safi_t safi)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   int count = 0;
 
   /* Header string for each address family. */
   static char header[] = "Neighbor        V    AS  Export-Policy  Import-Policy  Up/Down  State";
 
-  LIST_LOOP (bgp->rsclient, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->rsclient, node, nnode, peer))
     {
       if (peer->afc[afi][safi] &&
          CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))

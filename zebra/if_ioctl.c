@@ -409,13 +409,11 @@ if_get_addr (struct interface *ifp)
 static void
 interface_info_ioctl ()
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct interface *ifp;
   
-  LIST_LOOP (iflist, ifp, node)
+  for (ALL_LIST_ELEMENTS (iflist, ifp, node, nnode))
     {
-      ifp = getdata (node);
-
       if_get_index (ifp);
 #ifdef SIOCGIFHWADDR
       if_get_hwaddr (ifp);

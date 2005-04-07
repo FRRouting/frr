@@ -280,7 +280,7 @@ peer_lookup_addr_ipv4 (struct in_addr *src)
 {
   struct bgp *bgp;
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node;
   struct in_addr addr;
   int ret;
 
@@ -288,7 +288,7 @@ peer_lookup_addr_ipv4 (struct in_addr *src)
   if (! bgp)
     return NULL;
 
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS_RO (bgp->peer, node, peer))
     {
       ret = inet_pton (AF_INET, peer->host, &addr);
       if (ret > 0)
@@ -305,7 +305,7 @@ bgp_peer_lookup_next (struct in_addr *src)
 {
   struct bgp *bgp;
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node;
   struct in_addr *p;
   union sockunion su;
   int ret;
@@ -316,7 +316,7 @@ bgp_peer_lookup_next (struct in_addr *src)
   if (! bgp)
     return NULL;
 
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS_RO (bgp->peer, node, peer))
     {
       ret = inet_pton (AF_INET, peer->host, &su.sin.sin_addr);
       if (ret > 0)

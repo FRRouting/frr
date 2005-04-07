@@ -61,12 +61,10 @@ ospf6_neighbor_lookup (u_int32_t router_id,
   struct listnode *n;
   struct ospf6_neighbor *on;
 
-  for (n = listhead (oi->neighbor_list); n; nextnode (n))
-    {
-      on = (struct ospf6_neighbor *) getdata (n);
-      if (on->router_id == router_id)
-        return on;
-    }
+  for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, n, on))
+    if (on->router_id == router_id)
+      return on;
+  
   return (struct ospf6_neighbor *) NULL;
 }
 
@@ -795,19 +793,11 @@ DEFUN (show_ipv6_ospf6_neighbor,
              "RouterID", "State", "Duration", "DR", "BDR", "I/F",
              "State", VNL);
 
-  for (i = listhead (ospf6->area_list); i; nextnode (i))
-    {
-      oa = (struct ospf6_area *) getdata (i);
-      for (j = listhead (oa->if_list); j; nextnode (j))
-        {
-          oi = (struct ospf6_interface *) getdata (j);
-          for (k = listhead (oi->neighbor_list); k; nextnode (k))
-            {
-              on = (struct ospf6_neighbor *) getdata (k);
-              (*showfunc) (vty, on);
-            }
-        }
-    }
+  for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, i, oa))
+    for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
+      for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, k, on))
+        (*showfunc) (vty, on);
+
   return CMD_SUCCESS;
 }
 
@@ -849,20 +839,11 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
       return CMD_SUCCESS;
     }
 
-  for (i = listhead (ospf6->area_list); i; nextnode (i))
-    {
-      oa = (struct ospf6_area *) getdata (i);
-      for (j = listhead (oa->if_list); j; nextnode (j))
-        {
-          oi = (struct ospf6_interface *) getdata (j);
-          for (k = listhead (oi->neighbor_list); k; nextnode (k))
-            {
-              on = (struct ospf6_neighbor *) getdata (k);
-              if (on->router_id == router_id)
-                (*showfunc) (vty, on);
-            }
-        }
-    }
+  for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, i, oa))
+    for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
+      for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, k, on))
+        (*showfunc) (vty, on);
+  
   return CMD_SUCCESS;
 }
 

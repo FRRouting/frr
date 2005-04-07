@@ -350,7 +350,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
     auth_key = (char *) "";
   else
     {
-      ck = getdata (OSPF_IF_PARAM (oi, auth_crypt)->tail);
+      ck = listgetdata (listtail(OSPF_IF_PARAM (oi, auth_crypt)));
       auth_key = (char *) ck->auth_key;
     }
 
@@ -588,7 +588,7 @@ ospf_write (struct thread *thread)
 
   node = listhead (ospf->oi_write_q);
   assert (node);
-  oi = getdata (node);
+  oi = listgetdata (node);
   assert (oi);
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
@@ -1579,12 +1579,11 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
 void
 ospf_upd_list_clean (struct list *lsas)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_lsa *lsa;
 
-  for (node = listhead (lsas); node; nextnode (node))
-    if ((lsa = getdata (node)) != NULL)
-      ospf_lsa_discard (lsa);
+  for (ALL_LIST_ELEMENTS (lsas, node, nnode, lsa))
+    ospf_lsa_discard (lsa);
 
   list_delete (lsas);
 }
@@ -1599,7 +1598,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 #ifdef HAVE_OPAQUE_LSA
   struct list *mylsa_acks, *mylsa_upds;
 #endif /* HAVE_OPAQUE_LSA */
-  struct listnode *node, *next;
+  struct listnode *node, *nnode;
   struct ospf_lsa *lsa = NULL;
   /* unsigned long ls_req_found = 0; */
 
@@ -1659,14 +1658,10 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	continue; }
 
   /* Process each LSA received in the one packet. */
-  for (node = listhead (lsas); node; node = next)
+  for (ALL_LIST_ELEMENTS (lsas, node, nnode, lsa))
     {
       struct ospf_lsa *ls_ret, *current;
       int ret = 1;
-
-      next = node->next;
-
-      lsa = getdata (node);
 
       if (IS_DEBUG_OSPF_NSSA)
 	{
@@ -1794,12 +1789,12 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 
       if(lsa->data->type == OSPF_NETWORK_LSA)
       {
-        struct listnode *oi_node;
+        struct listnode *oinode, *oinnode;
+        struct ospf_interface *out_if;
         int Flag = 0;
 
-        for(oi_node = listhead(oi->ospf->oiflist); oi_node; oi_node = nextnode(oi_node))
+        for (ALL_LIST_ELEMENTS (oi->ospf->oiflist, oinode, oinnode, out_if))
         {
-          struct ospf_interface *out_if = getdata(oi_node);
           if(out_if == NULL)
             break;
 
@@ -2126,11 +2121,8 @@ ospf_associate_packet_vl (struct ospf *ospf, struct interface *ifp,
                                               iph->ip_dst)) == NULL)
     return NULL;
 
-  for (node = listhead (ospf->vlinks); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->vlinks, node, vl_data))
     {
-      if ((vl_data = getdata (node)) == NULL)
-	continue;
-      
       vl_area = ospf_area_lookup_by_area_id (ospf, vl_data->vl_area_id);
       if (!vl_area)
 	continue;
@@ -2210,7 +2202,7 @@ ospf_check_auth (struct ospf_interface *oi, struct stream *ibuf,
 	ret = 0;
       break;
     case OSPF_AUTH_CRYPTOGRAPHIC:
-      if ((ck = getdata (OSPF_IF_PARAM (oi,auth_crypt)->tail)) == NULL)
+      if ((ck = listgetdata (listtail(OSPF_IF_PARAM (oi,auth_crypt)))) == NULL)
 	{
 	  ret = 0;
 	  break;
@@ -2565,7 +2557,7 @@ ospf_make_auth (struct ospf_interface *oi, struct ospf_header *ospfh)
 	}
       else
 	{
-	  ck = getdata (OSPF_IF_PARAM (oi, auth_crypt)->tail);
+	  ck = listgetdata (listtail(OSPF_IF_PARAM (oi, auth_crypt)));
 	  ospfh->u.crypt.zero = 0;
 	  ospfh->u.crypt.key_id = ck->key_id;
 	  ospfh->u.crypt.auth_data_len = OSPF_AUTH_MD5_SIZE;
@@ -2869,8 +2861,8 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("ospf_make_ls_upd: List Iteration");
 
-      lsa = getdata (node);
-      assert (lsa);
+      lsa = listgetdata (node);
+
       assert (lsa->data);
 
       /* Will it fit? */
@@ -2915,9 +2907,9 @@ ospf_make_ls_ack (struct ospf_interface *oi, struct list *ack, struct stream *s)
 
   rm_list = list_new ();
   
-  for (node = listhead (ack); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ack, node, lsa))
     {
-      lsa = getdata (node);
+      lsa = listgetdata (node);
       assert (lsa);
       
       if (length + delta > ospf_packet_max (oi))
@@ -2930,10 +2922,11 @@ ospf_make_ls_ack (struct ospf_interface *oi, struct list *ack, struct stream *s)
     }
   
   /* Remove LSA from LS-Ack list. */
-  for (node = listhead (rm_list); node; nextnode (node))
+  /* XXX: this loop should be removed and the list move done in previous
+   * loop
+   */
+  for (ALL_LIST_ELEMENTS_RO (rm_list, node, lsa))
     {
-      lsa = (struct ospf_lsa *) getdata (node);
-      
       listnode_delete (ack, lsa);
       ospf_lsa_unlock (lsa);
     }
@@ -3251,9 +3244,7 @@ ospf_ls_upd_packet_new (struct list *update, struct ospf_interface *oi)
   size_t size;
   static char warned = 0;
 
-  ln = listhead (update);
-  lsa = getdata (ln);
-  assert (lsa);
+  lsa = listgetdata((ln = listhead (update)));
   assert (lsa->data);
 
   if ((OSPF_LS_UPD_MIN_SIZE + ntohs (lsa->data->length))
@@ -3391,9 +3382,10 @@ void
 ospf_ls_upd_send (struct ospf_neighbor *nbr, struct list *update, int flag)
 {
   struct ospf_interface *oi;
+  struct ospf_lsa *lsa;
   struct prefix_ipv4 p;
   struct route_node *rn;
-  struct listnode *n;
+  struct listnode *node;
   
   oi = nbr->oi;
 
@@ -3428,8 +3420,11 @@ ospf_ls_upd_send (struct ospf_neighbor *nbr, struct list *update, int flag)
   if (rn->info == NULL)
     rn->info = list_new ();
 
-  for (n = listhead (update); n; nextnode (n))
-    listnode_add (rn->info, ospf_lsa_lock (getdata (n)));
+  for (ALL_LIST_ELEMENTS_RO (update, node, lsa))
+    {
+      ospf_lsa_lock (lsa);
+      listnode_add (rn->info, lsa);
+    }
 
   if (oi->t_ls_upd_event == NULL)
     oi->t_ls_upd_event =

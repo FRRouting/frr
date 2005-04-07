@@ -183,9 +183,8 @@ if_lookup_by_index (unsigned int index)
   struct listnode *node;
   struct interface *ifp;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp))
     {
-      ifp = getdata (node);
       if (ifp->ifindex == index)
 	return ifp;
     }
@@ -216,9 +215,8 @@ if_lookup_by_name (const char *name)
   struct listnode *node;
   struct interface *ifp;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
       if (strcmp(name, ifp->name) == 0)
 	return ifp;
     }
@@ -229,15 +227,13 @@ struct interface *
 if_lookup_by_name_len(const char *name, size_t namelen)
 {
   struct listnode *node;
+  struct interface *ifp;
 
   if (namelen > INTERFACE_NAMSIZ)
     return NULL;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      struct interface *ifp;
-
-      ifp = getdata (node);
       if (!memcmp(name, ifp->name, namelen) && (ifp->name[namelen] == '\0'))
 	return ifp;
     }
@@ -254,14 +250,10 @@ if_lookup_exact_address (struct in_addr src)
   struct prefix *p;
   struct connected *c;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
-
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
 	{
-	  c = getdata (cnode);
-
 	  p = c->address;
 
 	  if (p && p->family == AF_INET)
@@ -293,14 +285,10 @@ if_lookup_address (struct in_addr src)
 
   match = NULL;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
-
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
 	{
-	  c = getdata (cnode);
-
 	  if (c->address && (c->address->family == AF_INET))
 	    {
 	      if (CONNECTED_POINTOPOINT_HOST(c))
@@ -450,6 +438,7 @@ void
 if_dump (struct interface *ifp)
 {
   struct listnode *node;
+  struct connected *c;
 
   zlog_info ("Interface %s index %d metric %d mtu %d "
 #ifdef HAVE_IPV6
@@ -462,7 +451,7 @@ if_dump (struct interface *ifp)
 #endif /* HAVE_IPV6 */
 	     if_flag_dump (ifp->flags));
   
-  for (node = listhead (ifp->connected); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, c))
     ;
 }
 
@@ -471,9 +460,10 @@ void
 if_dump_all ()
 {
   struct listnode *node;
+  void *p;
 
-  for (node = listhead (iflist); node; nextnode (node))
-    if_dump (getdata (node));
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, p))
+    if_dump (p);
 }
 
 DEFUN (interface_desc, 
@@ -581,13 +571,10 @@ DEFUN (show_address,
   struct connected *ifc;
   struct prefix *p;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
-
-      for (node2 = listhead (ifp->connected); node2; nextnode (node2))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, node2, ifc))
 	{
-	  ifc = getdata (node2);
 	  p = ifc->address;
 
 	  if (p->family == AF_INET)
@@ -677,7 +664,7 @@ connected_delete_by_prefix (struct interface *ifp, struct prefix *p)
   /* In case of same prefix come, replace it with new one. */
   for (node = listhead (ifp->connected); node; node = next)
     {
-      ifc = getdata (node);
+      ifc = listgetdata (node);
       next = node->next;
 
       if (connected_same_prefix (ifc->address, p))
@@ -706,10 +693,8 @@ connected_lookup_address (struct interface *ifp, struct in_addr dst)
 
   match = NULL;
 
-  for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
     {
-      c = getdata (cnode);
-
       if (c->address && (c->address->family == AF_INET))
         {
 	  if (CONNECTED_POINTOPOINT_HOST(c))
@@ -838,7 +823,6 @@ ifaddr_ipv4_lookup (struct in_addr *addr, unsigned int ifindex)
   struct prefix_ipv4 p;
   struct route_node *rn;
   struct interface *ifp;
-  struct listnode *node;
 
   if (addr)
     {

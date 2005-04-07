@@ -143,14 +143,11 @@ ospf6_create ()
 void
 ospf6_delete (struct ospf6 *o)
 {
-  struct listnode *i;
+  struct listnode *node, *nnode;
   struct ospf6_area *oa;
 
-  for (i = listhead (o->area_list); i; nextnode (i))
-    {
-      oa = (struct ospf6_area *) getdata (i);
-      ospf6_area_delete (oa);
-    }
+  for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))
+    ospf6_area_delete (oa);
 
   ospf6_lsdb_delete (o->lsdb);
   ospf6_lsdb_delete (o->lsdb_self);
@@ -167,34 +164,29 @@ ospf6_delete (struct ospf6 *o)
 void
 ospf6_enable (struct ospf6 *o)
 {
-  struct listnode *i;
+  struct listnode *node, *nnode;
   struct ospf6_area *oa;
 
   if (CHECK_FLAG (o->flag, OSPF6_DISABLED))
     {
       UNSET_FLAG (o->flag, OSPF6_DISABLED);
-      for (i = listhead (o->area_list); i; nextnode (i))
-        {
-          oa = (struct ospf6_area *) getdata (i);
-          ospf6_area_enable (oa);
-        }
+      for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))
+        ospf6_area_enable (oa);
     }
 }
 
 void
 ospf6_disable (struct ospf6 *o)
 {
-  struct listnode *i;
+  struct listnode *node, *nnode;
   struct ospf6_area *oa;
 
   if (! CHECK_FLAG (o->flag, OSPF6_DISABLED))
     {
       SET_FLAG (o->flag, OSPF6_DISABLED);
-      for (i = listhead (o->area_list); i; nextnode (i))
-        {
-          oa = (struct ospf6_area *) getdata (i);
-          ospf6_area_disable (oa);
-        }
+      
+      for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))
+        ospf6_area_disable (oa);
 
       ospf6_lsdb_remove_all (o->lsdb);
       ospf6_route_remove_all (o->route_table);
@@ -213,15 +205,12 @@ ospf6_maxage_remover (struct thread *thread)
 
   o->maxage_remover = (struct thread *) NULL;
 
-  for (i = listhead (o->area_list); i; nextnode (i))
+  for (ALL_LIST_ELEMENTS_RO (o->area_list, i, oa))
     {
-      oa = (struct ospf6_area *) getdata (i);
-      for (j = listhead (oa->if_list); j; nextnode (j))
+      for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
         {
-          oi = (struct ospf6_interface *) getdata (j);
-          for (k = listhead (oi->neighbor_list); k; nextnode (k))
+          for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, k, on))
             {
-              on = (struct ospf6_neighbor *) getdata (k);
               if (on->state != OSPF6_NEIGHBOR_EXCHANGE &&
                   on->state != OSPF6_NEIGHBOR_LOADING)
                 continue;
@@ -231,14 +220,11 @@ ospf6_maxage_remover (struct thread *thread)
         }
     }
 
-  for (i = listhead (o->area_list); i; nextnode (i))
+  for (ALL_LIST_ELEMENTS_RO (o->area_list, i, oa))
     {
-      oa = (struct ospf6_area *) getdata (i);
-      for (j = listhead (oa->if_list); j; nextnode (j))
-        {
-          oi = (struct ospf6_interface *) getdata (j);
-          OSPF6_LSDB_MAXAGE_REMOVER (oi->lsdb);
-        }
+      for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
+        OSPF6_LSDB_MAXAGE_REMOVER (oi->lsdb);
+      
       OSPF6_LSDB_MAXAGE_REMOVER (oa->lsdb);
     }
   OSPF6_LSDB_MAXAGE_REMOVER (o->lsdb);
@@ -466,11 +452,9 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
   /* Areas */
   vty_out (vty, " Number of areas in this router is %u%s",
            listcount (o->area_list), VNL);
-  for (n = listhead (o->area_list); n; nextnode (n))
-    {
-      oa = (struct ospf6_area *) getdata (n);
-      ospf6_area_show (vty, oa);
-    }
+
+  for (ALL_LIST_ELEMENTS_RO (o->area_list, n, oa))
+    ospf6_area_show (vty, oa);
 }
 
 /* show top level structures */
@@ -629,15 +613,11 @@ config_write_ospf6 (struct vty *vty)
   ospf6_redistribute_config_write (vty);
   ospf6_area_config_write (vty);
 
-  for (j = listhead (ospf6->area_list); j; nextnode (j))
+  for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, j, oa))
     {
-      oa = (struct ospf6_area *) getdata (j);
-      for (k = listhead (oa->if_list); k; nextnode (k))
-        {
-          oi = (struct ospf6_interface *) getdata (k);
-          vty_out (vty, " interface %s area %s%s",
-                   oi->interface->name, oa->name, VNL);
-        }
+      for (ALL_LIST_ELEMENTS_RO (oa->if_list, k, oi))
+        vty_out (vty, " interface %s area %s%s",
+                 oi->interface->name, oa->name, VNL);
     }
   vty_out (vty, "!%s", VNL);
   return 0;

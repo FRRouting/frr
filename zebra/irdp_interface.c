@@ -81,7 +81,7 @@ irdp_get_prefix(struct interface *ifp)
   struct connected *ifc;
   
   if (ifp->connected)
-    LIST_LOOP (ifp->connected, ifc, node)
+    for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
       return ifc->address;
 
   return NULL;
@@ -235,7 +235,7 @@ irdp_if_start(struct interface *ifp, int multicast, int set_defaults)
 
   seed = 0;
   if( ifp->connected)
-    LIST_LOOP (ifp->connected, ifc, node)
+    for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
       {
         seed = ifc->address->u.prefix4.s_addr;
         break;
@@ -355,7 +355,7 @@ void irdp_config_write (struct vty *vty, struct interface *ifp)
     vty_out (vty, " ip irdp preference %ld%s",  
 	     irdp->Preference, VTY_NEWLINE);
 
-    LIST_LOOP (irdp->AdvPrefList, adv, node)
+    for (ALL_LIST_ELEMENTS_RO (irdp->AdvPrefList, node, adv))
       vty_out (vty, " ip irdp address %s preference %d%s",
                     inet_2a(adv->ip.s_addr, b1),
                     adv->pref, 
@@ -610,7 +610,7 @@ DEFUN (ip_irdp_address_preference,
 
   pref = atoi(argv[1]);
 
-  LIST_LOOP (irdp->AdvPrefList, adv, node)
+  for (ALL_LIST_ELEMENTS_RO (irdp->AdvPrefList, node, adv))
     if(adv->ip.s_addr == ip.s_addr) 
       return CMD_SUCCESS;
 
@@ -656,11 +656,8 @@ DEFUN (no_ip_irdp_address_preference,
 
   pref = atoi(argv[1]);
 
-  for (node = listhead (irdp->AdvPrefList); node; node = nnode)
+  for (ALL_LIST_ELEMENTS (irdp->AdvPrefList, node, nnode, adv))
     {
-      nnode = node->next;
-      adv = getdata (node);
-      
       if(adv->ip.s_addr == ip.s_addr )
         {
           listnode_delete(irdp->AdvPrefList, adv);

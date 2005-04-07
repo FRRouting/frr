@@ -116,10 +116,10 @@ user_free (struct user *user)
 struct user *
 user_lookup (const char *name)
 {
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct user *user;
 
-  LIST_LOOP (userlist, user, nn)
+  for (ALL_LIST_ELEMENTS (userlist, node, nnode, user))
     {
       if (strcmp (user->name, name) == 0)
 	return user;
@@ -130,10 +130,10 @@ user_lookup (const char *name)
 void
 user_config_write ()
 {
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct user *user;
 
-  LIST_LOOP (userlist, user, nn)
+  for (ALL_LIST_ELEMENTS (userlist, node, nnode, user))
     {
       if (user->nopassword)
 	printf (" username %s nopassword\n", user->name);

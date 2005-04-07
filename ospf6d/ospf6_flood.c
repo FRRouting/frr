@@ -245,7 +245,7 @@ void
 ospf6_flood_interface (struct ospf6_neighbor *from,
                        struct ospf6_lsa *lsa, struct ospf6_interface *oi)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_neighbor *on;
   struct ospf6_lsa *req;
   int retrans_added = 0;
@@ -259,10 +259,8 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
     }
 
   /* (1) For each neighbor */
-  for (node = listhead (oi->neighbor_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
-      on = (struct ospf6_neighbor *) getdata (node);
-
       if (is_debug)
         zlog_debug ("To neighbor %s", on->name);
 
@@ -380,9 +378,8 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
   else
     {
       /* reschedule retransmissions to all neighbors */
-      for (node = listhead (oi->neighbor_list); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
         {
-          on = (struct ospf6_neighbor *) getdata (node);
           THREAD_OFF (on->thread_send_lsupdate);
           on->thread_send_lsupdate =
             thread_add_event (master, ospf6_lsupdate_send_neighbor, on, 0);
@@ -394,13 +391,11 @@ void
 ospf6_flood_area (struct ospf6_neighbor *from,
                   struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_interface *oi;
 
-  for (node = listhead (oa->if_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (oa->if_list, node, nnode, oi))
     {
-      oi = OSPF6_INTERFACE (getdata (node));
-
       if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_LINKLOCAL &&
           oi != OSPF6_INTERFACE (lsa->lsdb->data))
         continue;
@@ -419,13 +414,11 @@ void
 ospf6_flood_process (struct ospf6_neighbor *from,
                      struct ospf6_lsa *lsa, struct ospf6 *process)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_area *oa;
 
-  for (node = listhead (process->area_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (process->area_list, node, nnode, oa))
     {
-      oa = OSPF6_AREA (getdata (node));
-
       if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AREA &&
           oa != OSPF6_AREA (lsa->lsdb->data))
         continue;
@@ -450,13 +443,12 @@ ospf6_flood (struct ospf6_neighbor *from, struct ospf6_lsa *lsa)
 void
 ospf6_flood_clear_interface (struct ospf6_lsa *lsa, struct ospf6_interface *oi)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_neighbor *on;
   struct ospf6_lsa *rem;
 
-  for (node = listhead (oi->neighbor_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
-      on = OSPF6_NEIGHBOR (getdata (node));
       rem = ospf6_lsdb_lookup (lsa->header->type, lsa->header->id,
                                lsa->header->adv_router, on->retrans_list);
       if (rem && ! ospf6_lsa_compare (rem, lsa))
@@ -474,13 +466,11 @@ ospf6_flood_clear_interface (struct ospf6_lsa *lsa, struct ospf6_interface *oi)
 void
 ospf6_flood_clear_area (struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_interface *oi;
 
-  for (node = listhead (oa->if_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (oa->if_list, node, nnode, oi))
     {
-      oi = OSPF6_INTERFACE (getdata (node));
-
       if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_LINKLOCAL &&
           oi != OSPF6_INTERFACE (lsa->lsdb->data))
         continue;
@@ -498,13 +488,11 @@ ospf6_flood_clear_area (struct ospf6_lsa *lsa, struct ospf6_area *oa)
 void
 ospf6_flood_clear_process (struct ospf6_lsa *lsa, struct ospf6 *process)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_area *oa;
 
-  for (node = listhead (process->area_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (process->area_list, node, nnode, oa))
     {
-      oa = OSPF6_AREA (getdata (node));
-
       if (OSPF6_LSA_SCOPE (lsa->header->type) == OSPF6_SCOPE_AREA &&
           oa != OSPF6_AREA (lsa->lsdb->data))
         continue;
@@ -725,21 +713,13 @@ ospf6_is_maxage_lsa_drop (struct ospf6_lsa *lsa, struct ospf6_neighbor *from)
     return 0;
 
   process = from->ospf6_if->area->ospf6;
-  for (i = listhead (process->area_list); i; nextnode (i))
-    {
-      oa = OSPF6_AREA (getdata (i));
-      for (j = listhead (oa->if_list); j; nextnode (j))
-        {
-          oi = OSPF6_INTERFACE (getdata (j));
-          for (k = listhead (oi->neighbor_list); k; nextnode (k))
-            {
-              on = OSPF6_NEIGHBOR (getdata (k));
-              if (on->state == OSPF6_NEIGHBOR_EXCHANGE ||
-                  on->state == OSPF6_NEIGHBOR_LOADING)
-                count++;
-            }
-        }
-    }
+
+  for (ALL_LIST_ELEMENTS_RO (process->area_list, i, oa))
+    for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
+      for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, k, on))
+        if (on->state == OSPF6_NEIGHBOR_EXCHANGE ||
+            on->state == OSPF6_NEIGHBOR_LOADING)
+          count++;
 
   if (count == 0)
     return 1;

@@ -170,7 +170,7 @@ if_subnet_delete (struct interface *ifp, struct connected *ifc)
       /* If deleted address is primary, mark subsequent one as such and distribute. */
       if (! CHECK_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY))
 	{
-	  ifc = (struct connected *) addr_list->head->data;
+	  ifc = listgetdata (listhead (addr_list));
 	  zebra_interface_address_delete_update (ifp, ifc);
 	  UNSET_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY);
 	  zebra_interface_address_add_update (ifp, ifc);
@@ -192,14 +192,13 @@ if_subnet_delete (struct interface *ifp, struct connected *ifc)
 void
 if_addr_wakeup (struct interface *ifp)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct connected *ifc;
   struct prefix *p;
   int ret;
 
-  for (node = listhead (ifp->connected); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, ifc))
     {
-      ifc = getdata (node);
       p = ifc->address;
 	
       if (CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED)
@@ -334,7 +333,7 @@ if_delete_update (struct interface *ifp)
       last = NULL;
       while ((node = (last ? last->next : listhead (ifp->connected))))
 	{
-	  ifc = getdata (node);
+	  ifc = listgetdata (node);
 	  p = ifc->address;
 	  
 	  if (p->family == AF_INET)
@@ -354,7 +353,7 @@ if_delete_update (struct interface *ifp)
 		    }
 		  next = node->next;
 
-		  ifc = getdata (node);
+		  ifc = listgetdata (node);
 		  p = ifc->address;
 
 		  connected_down_ipv4 (ifp, ifc);
@@ -423,10 +422,8 @@ if_up (struct interface *ifp)
   /* Install connected routes to the kernel. */
   if (ifp->connected)
     {
-      for (node = listhead (ifp->connected); node; node = next)
+      for (ALL_LIST_ELEMENTS (ifp->connected, node, next, ifc))
 	{
-	  next = node->next;
-	  ifc = getdata (node);
 	  p = ifc->address;
 
 	  if (p->family == AF_INET)
@@ -458,10 +455,8 @@ if_down (struct interface *ifp)
   /* Delete connected routes from the kernel. */
   if (ifp->connected)
     {
-      for (node = listhead (ifp->connected); node; node = next)
+      for (ALL_LIST_ELEMENTS (ifp->connected, node, next, ifc))
 	{
-	  next = node->next;
-	  ifc = getdata (node);
 	  p = ifc->address;
 
 	  if (p->family == AF_INET)
@@ -727,16 +722,12 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
       if (! rn->info)
 	continue;
       
-      for (node = listhead ((struct list *) rn->info); node; nextnode (node))
-	{
-	  connected = getdata (node);
-	  connected_dump_vty (vty, connected);
-	}
+      for (ALL_LIST_ELEMENTS_RO ((struct list *)rn->info, node, connected))
+        connected_dump_vty (vty, connected);
     }
 
-  for (node = listhead (ifp->connected); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, connected))
     {
-      connected = getdata (node);
       if (CHECK_FLAG (connected->conf, ZEBRA_IFC_REAL) &&
 	  (connected->address->family == AF_INET6))
 	connected_dump_vty (vty, connected);
@@ -902,8 +893,8 @@ DEFUN (show_interface, show_interface_cmd,
     }
 
   /* All interface print. */
-  for (node = listhead (iflist); node; nextnode (node))
-    if_dump_vty (vty, getdata (node));
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+    if_dump_vty (vty, ifp);
 
   return CMD_SUCCESS;
 }
@@ -919,10 +910,9 @@ DEFUN (show_interface_desc,
   struct interface *ifp;
 
   vty_out (vty, "Interface       Status  Protocol  Description%s", VTY_NEWLINE);
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
       int len;
-      ifp = getdata (node);
 
       len = vty_out (vty, "%s", ifp->name);
       vty_out (vty, "%*s", (16 - len), " ");
@@ -1514,14 +1504,13 @@ if_config_write (struct vty *vty)
   struct interface *ifp;
   char buf[BUFSIZ];
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
       struct zebra_if *if_data;
       struct listnode *addrnode;
       struct connected *ifc;
       struct prefix *p;
 
-      ifp = getdata (node);
       if_data = ifp->info;
       
       vty_out (vty, "interface %s%s", ifp->name,
@@ -1539,9 +1528,8 @@ if_config_write (struct vty *vty)
       if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
 	vty_out(vty, " link-detect%s", VTY_NEWLINE);
 
-      for (addrnode = listhead (ifp->connected); addrnode; nextnode (addrnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, addrnode, ifc))
 	  {
-	    ifc = getdata (addrnode);
 	    if (CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
 	      {
 		p = ifc->address;

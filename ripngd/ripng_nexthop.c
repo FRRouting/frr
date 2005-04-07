@@ -117,7 +117,7 @@ ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
                struct sockaddr_in6 *to) {
 
   struct ripng_rte_data *data;
-  struct listnode * nn;
+  struct listnode *node, *nnode;
 
   struct in6_addr last_nexthop;
   struct in6_addr myself_nexthop;
@@ -154,8 +154,7 @@ ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
 	    sizeof (struct ripng_packet) +
 	    sizeof (struct rte)) / sizeof (struct rte);
 
-  LIST_LOOP(ripng_rte_list, data, nn) {
-
+  for (ALL_LIST_ELEMENTS (ripng_rte_list, node, nnode, data)) {
     /* (2.1) Next hop support */
     if (!IPV6_ADDR_SAME(&last_nexthop, NEXTHOP_OUT_PTR(data))) {
 

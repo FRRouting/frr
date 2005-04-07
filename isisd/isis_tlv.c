@@ -776,9 +776,8 @@ tlv_add_area_addrs (struct list *area_addrs, struct stream *stream)
   u_char value[255];
   u_char *pos = value;
 
-  for (node = listhead (area_addrs); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (area_addrs, node, area_addr))
     {
-      area_addr = getdata (node);
       if (pos - value + area_addr->addr_len > 255)
 	goto err;
       *pos = area_addr->addr_len;
@@ -797,7 +796,7 @@ err:
 int
 tlv_add_is_neighs (struct list *is_neighs, struct stream *stream)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct is_neigh *is_neigh;
   u_char value[255];
   u_char *pos = value;
@@ -806,9 +805,8 @@ tlv_add_is_neighs (struct list *is_neighs, struct stream *stream)
   *pos = 0;			/*is_neigh->virtual; */
   pos++;
 
-  for (node = listhead (is_neighs); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (is_neighs, node, nnode, is_neigh))
     {
-      is_neigh = getdata (node);
       if (pos - value + IS_NEIGHBOURS_LEN > 255)
 	{
 	  retval = add_tlv (IS_NEIGHBOURS, pos - value, value, stream);
@@ -834,15 +832,14 @@ tlv_add_is_neighs (struct list *is_neighs, struct stream *stream)
 int
 tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   u_char *snpa;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (node = listhead (lan_neighs); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (lan_neighs, node, nnode, snpa))
     {
-      snpa = getdata (node);
       if (pos - value + ETH_ALEN > 255)
 	{
 	  retval = add_tlv (LAN_NEIGHBOURS, pos - value, value, stream);
@@ -901,15 +898,14 @@ tlv_add_checksum (struct checksum *checksum, struct stream *stream)
 int
 tlv_add_ip_addrs (struct list *ip_addrs, struct stream *stream)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct prefix_ipv4 *ipv4;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (node = listhead (ip_addrs); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (ip_addrs, node, nnode, ipv4))
     {
-      ipv4 = getdata (node);
       if (pos - value + IPV4_MAX_BYTELEN > 255)
 	{
 	  retval = add_tlv (IPV4_ADDR, pos - value, value, stream);
@@ -934,15 +930,14 @@ tlv_add_dynamic_hostname (struct hostname *hostname, struct stream *stream)
 int
 tlv_add_lsp_entries (struct list *lsps, struct stream *stream)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct isis_lsp *lsp;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (node = listhead (lsps); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (lsps, node, nnode, lsp))
     {
-      lsp = getdata (node);
       if (pos - value + LSP_ENTRIES_LEN > 255)
 	{
 	  retval = add_tlv (LSP_ENTRIES, pos - value, value, stream);
@@ -966,15 +961,14 @@ tlv_add_lsp_entries (struct list *lsps, struct stream *stream)
 int
 tlv_add_ipv4_reachs (struct list *ipv4_reachs, struct stream *stream)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ipv4_reachability *reach;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (node = listhead (ipv4_reachs); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (ipv4_reachs, node, nnode, reach))
     {
-      reach = getdata (node);
       if (pos - value + IPV4_REACH_LEN > 255)
 	{
 	  retval =
@@ -1005,15 +999,14 @@ tlv_add_ipv4_reachs (struct list *ipv4_reachs, struct stream *stream)
 int
 tlv_add_ipv6_addrs (struct list *ipv6_addrs, struct stream *stream)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct prefix_ipv6 *ipv6;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (node = listhead (ipv6_addrs); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (ipv6_addrs, node, nnode, ipv6))
     {
-      ipv6 = getdata (node);
       if (pos - value + IPV6_MAX_BYTELEN > 255)
 	{
 	  retval = add_tlv (IPV6_ADDR, pos - value, value, stream);
@@ -1031,15 +1024,14 @@ tlv_add_ipv6_addrs (struct list *ipv6_addrs, struct stream *stream)
 int
 tlv_add_ipv6_reachs (struct list *ipv6_reachs, struct stream *stream)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ipv6_reachability *ip6reach;
   u_char value[255];
   u_char *pos = value;
   int retval, prefix_octets;
 
-  for (node = listhead (ipv6_reachs); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (ipv6_reachs, node, nnode, ip6reach))
     {
-      ip6reach = getdata (node);
       if (pos - value + IPV6_MAX_BYTELEN + 6 > 255)
 	{
 	  retval = add_tlv (IPV6_REACHABILITY, pos - value, value, stream);

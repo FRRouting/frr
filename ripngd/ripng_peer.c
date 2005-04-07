@@ -59,9 +59,9 @@ struct ripng_peer *
 ripng_peer_lookup (struct in6_addr *addr)
 {
   struct ripng_peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (peer_list, peer, nn)
+  for (ALL_LIST_ELEMENTS (peer_list, node, nnode, peer))
     {
       if (IPV6_ADDR_SAME (&peer->addr, addr))
 	return peer;
@@ -73,9 +73,9 @@ struct ripng_peer *
 ripng_peer_lookup_next (struct in6_addr *addr)
 {
   struct ripng_peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (peer_list, peer, nn)
+  for (ALL_LIST_ELEMENTS (peer_list, node, nnode, peer))
     {
       if (addr6_cmp(&peer->addr, addr) > 0) 
 	return peer;
@@ -191,11 +191,11 @@ void
 ripng_peer_display (struct vty *vty)
 {
   struct ripng_peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 #define RIPNG_UPTIME_LEN 25
   char timebuf[RIPNG_UPTIME_LEN];
 
-  LIST_LOOP (peer_list, peer, nn)
+  for (ALL_LIST_ELEMENTS (peer_list, node, nnode, peer))
     {
       vty_out (vty, "    %s %s%14s %10d %10d %10d      %s%s", inet6_ntoa (&peer->addr),
                VTY_NEWLINE, " ",

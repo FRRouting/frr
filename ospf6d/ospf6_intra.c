@@ -109,7 +109,8 @@ ospf6_router_lsa_originate (struct thread *thread)
   struct ospf6_lsa *lsa;
 
   u_int32_t link_state_id = 0;
-  struct listnode *i, *j;
+  struct listnode *node, *nnode;
+  struct listnode *j;
   struct ospf6_interface *oi;
   struct ospf6_neighbor *on, *drouter = NULL;
   struct ospf6_router_lsa *router_lsa;
@@ -151,10 +152,8 @@ ospf6_router_lsa_originate (struct thread *thread)
   lsdesc = (struct ospf6_router_lsdesc *)
     ((caddr_t) router_lsa + sizeof (struct ospf6_router_lsa));
 
-  for (i = listhead (oa->if_list); i; nextnode (i))
+  for (ALL_LIST_ELEMENTS (oa->if_list, node, nnode, oi))
     {
-      oi = (struct ospf6_interface *) getdata (i);
-
       /* Interfaces in state Down or Loopback are not described */
       if (oi->state == OSPF6_INTERFACE_DOWN ||
           oi->state == OSPF6_INTERFACE_LOOPBACK)
@@ -162,12 +161,10 @@ ospf6_router_lsa_originate (struct thread *thread)
 
       /* Nor are interfaces without any full adjacencies described */
       count = 0;
-      for (j = listhead (oi->neighbor_list); j; nextnode (j))
-        {
-          on = (struct ospf6_neighbor *) getdata (j);
-          if (on->state == OSPF6_NEIGHBOR_FULL)
-            count++;
-        }
+      for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, j, on))
+        if (on->state == OSPF6_NEIGHBOR_FULL)
+          count++;
+      
       if (count == 0)
         continue;
 
@@ -215,9 +212,8 @@ ospf6_router_lsa_originate (struct thread *thread)
       /* Point-to-Point interfaces */
       if (if_is_pointopoint (oi->interface))
         {
-          for (j = listhead (oi->neighbor_list); j; nextnode (j))
+          for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, j, on))
             {
-              on = (struct ospf6_neighbor *) getdata (j);
               if (on->state != OSPF6_NEIGHBOR_FULL)
                 continue;
 
@@ -383,12 +379,11 @@ ospf6_network_lsa_originate (struct thread *thread)
 
   /* If none of neighbor is adjacent to us */
   count = 0;
-  for (i = listhead (oi->neighbor_list); i; nextnode (i))
-    {
-      on = (struct ospf6_neighbor *) getdata (i);
-      if (on->state == OSPF6_NEIGHBOR_FULL)
-        count++;
-    }
+  
+  for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, i, on))
+    if (on->state == OSPF6_NEIGHBOR_FULL)
+      count++;
+  
   if (count == 0)
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (NETWORK))
@@ -425,10 +420,8 @@ ospf6_network_lsa_originate (struct thread *thread)
   lsdesc++;
 
   /* Walk through the neighbors */
-  for (i = listhead (oi->neighbor_list); i; nextnode (i))
+  for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, i, on))
     {
-      on = (struct ospf6_neighbor *) getdata (i);
-
       if (on->state != OSPF6_NEIGHBOR_FULL)
         continue;
 
@@ -725,10 +718,8 @@ ospf6_intra_prefix_lsa_originate_stub (struct thread *thread)
 
   route_advertise = ospf6_route_table_create ();
 
-  for (i = listhead (oa->if_list); i; nextnode (i))
+  for (ALL_LIST_ELEMENTS_RO (oa->if_list, i, oi))
     {
-      oi = (struct ospf6_interface *) getdata (i);
-
       if (oi->state == OSPF6_INTERFACE_DOWN)
         {
           if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))
@@ -737,12 +728,11 @@ ospf6_intra_prefix_lsa_originate_stub (struct thread *thread)
         }
 
       full_count = 0;
-      for (j = listhead (oi->neighbor_list); j; nextnode (j))
-        {
-          on = (struct ospf6_neighbor *) getdata (j);
-          if (on->state == OSPF6_NEIGHBOR_FULL)
-            full_count++;
-        }
+
+      for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, j, on))
+        if (on->state == OSPF6_NEIGHBOR_FULL)
+          full_count++;
+
       if (oi->state != OSPF6_INTERFACE_LOOPBACK &&
           oi->state != OSPF6_INTERFACE_POINTTOPOINT &&
           full_count != 0)
@@ -891,12 +881,10 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
     }
 
   full_count = 0;
-  for (i = listhead (oi->neighbor_list); i; nextnode (i))
-    {
-      on = (struct ospf6_neighbor *) getdata (i);
-      if (on->state == OSPF6_NEIGHBOR_FULL)
-        full_count++;
-    }
+  for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, i, on))
+    if (on->state == OSPF6_NEIGHBOR_FULL)
+      full_count++;
+  
   if (full_count == 0)
     {
       if (IS_OSPF6_DEBUG_ORIGINATE (INTRA_PREFIX))

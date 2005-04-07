@@ -144,9 +144,9 @@ struct isis_area *
 isis_area_lookup (const char *area_tag)
 {
   struct isis_area *area;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (isis->area_list, area, node)
+  for (ALL_LIST_ELEMENTS (isis->area_list, node, nnode, area))
     if ((area->area_tag == NULL && area_tag == NULL) ||
 	(area->area_tag && area_tag
 	 && strcmp (area->area_tag, area_tag) == 0))
@@ -185,7 +185,7 @@ int
 isis_area_destroy (struct vty *vty, const char *area_tag)
 {
   struct isis_area *area;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct isis_circuit *circuit;
 
   area = isis_area_lookup (area_tag);
@@ -198,13 +198,9 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
 
   if (area->circuit_list)
     {
-      node = listhead (area->circuit_list);
-      while (node)
-	{
-	  circuit = getdata (node);
-	  nextnode (node);
-	  isis_circuit_del (circuit);
-	}
+      for (ALL_LIST_ELEMENTS (area->circuit_list, node, nnode, circuit))
+        isis_circuit_del (circuit);
+      
       list_delete (area->circuit_list);
     }
   listnode_delete (isis->area_list, area);
@@ -225,7 +221,7 @@ area_net_title (struct vty *vty, u_char *net_title)
   struct isis_area *area;
   struct area_addr *addr;
   struct area_addr *addrp;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   u_char buff[255];
   area = vty->index;
@@ -284,7 +280,7 @@ area_net_title (struct vty *vty, u_char *net_title)
 	}
 
       /* now we see that we don't already have this address */
-      LIST_LOOP (area->area_addrs, addrp, node)
+      for (ALL_LIST_ELEMENTS (area->area_addrs, node, nnode, addrp))
       {
 	if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) == (addr->addr_len))
 	  {
@@ -318,7 +314,7 @@ area_clear_net_title (struct vty *vty, u_char *net_title)
 {
   struct isis_area *area;
   struct area_addr addr, *addrp = NULL;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   u_char buff[255];
 
   area = vty->index;
@@ -338,7 +334,7 @@ area_clear_net_title (struct vty *vty, u_char *net_title)
 
   memcpy (addr.area_addr, buff, (int) addr.addr_len);
 
-  LIST_LOOP (area->area_addrs, addrp, node)
+  for (ALL_LIST_ELEMENTS (area->area_addrs, node, nnode, addrp))
     if (addrp->addr_len == addr.addr_len &&
 	!memcmp (addrp->area_addr, addr.area_addr, addr.addr_len))
     break;
@@ -362,7 +358,7 @@ area_clear_net_title (struct vty *vty, u_char *net_title)
 int
 show_clns_neigh (struct vty *vty, char detail)
 {
-  struct listnode *node_area, *node_circ;
+  struct listnode *anode, *annode, *cnode, *cnnode;
   struct isis_area *area;
   struct isis_circuit *circuit;
   struct list *db;
@@ -374,20 +370,16 @@ show_clns_neigh (struct vty *vty, char detail)
       return CMD_SUCCESS;
     }
 
-  for (node_area = listhead (isis->area_list); node_area;
-       nextnode (node_area))
+  for (ALL_LIST_ELEMENTS (isis->area_list, anode, annode, area))
     {
-      area = getdata (node_area);
       vty_out (vty, "Area %s:%s", area->area_tag, VTY_NEWLINE);
 
       if (detail == ISIS_UI_LEVEL_BRIEF)
 	vty_out (vty, "  System Id           Interface   L  State        "
 		 "Holdtime SNPA%s", VTY_NEWLINE);
 
-      for (node_circ = listhead (area->circuit_list); node_circ;
-	   nextnode (node_circ))
+      for (ALL_LIST_ELEMENTS (area->circuit_list, cnode, cnnode, circuit))
 	{
-	  circuit = getdata (node_circ);
 	  if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	    {
 	      for (i = 0; i < 2; i++)
@@ -902,16 +894,15 @@ DEFUN (show_database,
        "show isis database",
        SHOW_STR "IS-IS information\n" "IS-IS link state database\n")
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct isis_area *area;
   int level, lsp_count;
 
   if (isis->area_list->count == 0)
     return CMD_SUCCESS;
 
-  for (node = listhead (isis->area_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (isis->area_list, node, nnode, area))
     {
-      area = getdata (node);
       vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
 	       VTY_NEWLINE);
       for (level = 0; level < ISIS_LEVELS; level++)
@@ -941,16 +932,15 @@ DEFUN (show_database_detail,
        "IS-IS information\n"
        "IS-IS link state database\n")
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct isis_area *area;
   int level, lsp_count;
 
   if (isis->area_list->count == 0)
     return CMD_SUCCESS;
 
-  for (node = listhead (isis->area_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (isis->area_list, node, nnode, area))
     {
-      area = getdata (node);
       vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
 	       VTY_NEWLINE);
       for (level = 0; level < ISIS_LEVELS; level++)
@@ -1222,7 +1212,7 @@ DEFUN (no_is_type,
    * Put the is-type back to default. Which is level-1-2 on first
    * circuit for the area level-1 for the rest
    */
-  if (getdata (listhead (isis->area_list)) == area)
+  if (listgetdata (listhead (isis->area_list)) == area)
     type = IS_LEVEL_1_AND_2;
   else
     type = IS_LEVEL_1;
@@ -1603,10 +1593,10 @@ DEFUN (show_isis_generated_topology,
        "CLNS neighbor adjacencies\n")
 {
   struct isis_area *area;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct listnode *node2;
   struct arc *arc;
-  LIST_LOOP (isis->area_list, area, node)
+  for (ALL_LIST_ELEMENTS (isis->area_list, node, nnode, area))
   {
     if (area->topology)
       {
@@ -1852,10 +1842,10 @@ isis_config_write (struct vty *vty)
   if (isis != NULL)
     {
       struct isis_area *area;
-      struct listnode *node;
-      struct listnode *node2;
+      struct listnode *node, *nnode;
+      struct listnode *node2, *nnode2;
 
-      LIST_LOOP (isis->area_list, area, node)
+      for (ALL_LIST_ELEMENTS (isis->area_list, node, nnode, area))
       {
 	/* ISIS - Area name */
 	vty_out (vty, "router isis %s%s", area->area_tag, VTY_NEWLINE);
@@ -1864,7 +1854,7 @@ isis_config_write (struct vty *vty)
 	if (listcount (area->area_addrs) > 0)
 	  {
 	    struct area_addr *area_addr;
-	    LIST_LOOP (area->area_addrs, area_addr, node2)
+	    for (ALL_LIST_ELEMENTS (area->area_addrs, node2, nnode2, area_addr))
 	    {
 	      vty_out (vty, " net %s%s",
 		       isonet_print (area_addr->area_addr,

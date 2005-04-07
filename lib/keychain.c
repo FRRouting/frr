@@ -61,13 +61,13 @@ key_free (struct key *key)
 struct keychain *
 keychain_lookup (const char *name)
 {
-  struct listnode *nn;
+  struct listnode *node;
   struct keychain *keychain;
 
   if (name == NULL)
     return NULL;
 
-  LIST_LOOP (keychain_list, keychain, nn)
+  for (ALL_LIST_ELEMENTS_RO (keychain_list, node, keychain))
     {
       if (strcmp (keychain->name, name) == 0)
 	return keychain;
@@ -127,10 +127,10 @@ keychain_delete (struct keychain *keychain)
 struct key *
 key_lookup (const struct keychain *keychain, u_int32_t index)
 {
-  struct listnode *nn;
+  struct listnode *node;
   struct key *key;
 
-  LIST_LOOP (keychain->key, key, nn)
+  for (ALL_LIST_ELEMENTS_RO (keychain->key, node, key))
     {
       if (key->index == index)
 	return key;
@@ -141,13 +141,13 @@ key_lookup (const struct keychain *keychain, u_int32_t index)
 struct key *
 key_lookup_for_accept (const struct keychain *keychain, u_int32_t index)
 {
-  struct listnode *nn;
+  struct listnode *node;
   struct key *key;
   time_t now;
 
   now = time (NULL);
 
-  LIST_LOOP (keychain->key, key, nn)
+  for (ALL_LIST_ELEMENTS_RO (keychain->key, node, key))
     {
       if (key->index >= index)
 	{
@@ -165,13 +165,13 @@ key_lookup_for_accept (const struct keychain *keychain, u_int32_t index)
 struct key *
 key_match_for_accept (const struct keychain *keychain, const char *auth_str)
 {
-  struct listnode *nn;
+  struct listnode *node;
   struct key *key;
   time_t now;
 
   now = time (NULL);
 
-  LIST_LOOP (keychain->key, key, nn)
+  for (ALL_LIST_ELEMENTS_RO (keychain->key, node, key))
     {
       if (key->accept.start == 0 ||
 	  (key->accept.start <= now &&
@@ -185,13 +185,13 @@ key_match_for_accept (const struct keychain *keychain, const char *auth_str)
 struct key *
 key_lookup_for_send (const struct keychain *keychain)
 {
-  struct listnode *nn;
+  struct listnode *node;
   struct key *key;
   time_t now;
 
   now = time (NULL);
 
-  LIST_LOOP (keychain->key, key, nn)
+  for (ALL_LIST_ELEMENTS_RO (keychain->key, node, key))
     {
       if (key->send.start == 0)
 	return key;
@@ -881,15 +881,15 @@ keychain_config_write (struct vty *vty)
 {
   struct keychain *keychain;
   struct key *key;
-  struct listnode *nn;
-  struct listnode *nm;
+  struct listnode *node;
+  struct listnode *knode;
   char buf[BUFSIZ];
 
-  LIST_LOOP (keychain_list, keychain, nn)
+  for (ALL_LIST_ELEMENTS_RO (keychain_list, node, keychain))
     {
       vty_out (vty, "key chain %s%s", keychain->name, VTY_NEWLINE);
       
-      LIST_LOOP (keychain->key, key, nm)
+      for (ALL_LIST_ELEMENTS_RO (keychain->key, knode, key))
 	{
 	  vty_out (vty, " key %d%s", key->index, VTY_NEWLINE);
 

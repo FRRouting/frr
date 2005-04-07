@@ -222,17 +222,14 @@ rip_request_interface_send (struct interface *ifp, u_char version)
   /* RIPv1 and non multicast interface. */
   if (if_is_pointopoint (ifp) || if_is_broadcast (ifp))
     {
-      struct listnode *cnode;
+      struct listnode *cnode, *cnnode;
+      struct connected *connected;
 
       if (IS_RIP_DEBUG_EVENT)
 	zlog_debug ("broadcast request to %s", ifp->name);
 
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS (ifp->connected, cnode, cnnode, connected))
 	{
-	  struct connected *connected;
-
-	  connected = getdata (cnode);
-
 	  if (connected->address->family == AF_INET)
 	    {
 	      memset (&to, 0, sizeof (struct sockaddr_in));
@@ -321,20 +318,19 @@ int
 rip_multicast_join (struct interface *ifp, int sock)
 {
   struct listnode *cnode;
+  struct connected *ifc;
 
   if (if_is_operative (ifp) && if_is_multicast (ifp))
     {
       if (IS_RIP_DEBUG_EVENT)
 	zlog_debug ("multicast join at %s", ifp->name);
 
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, ifc))
 	{
 	  struct prefix_ipv4 *p;
-	  struct connected *connected;
 	  struct in_addr group;
 	      
-	  connected = getdata (cnode);
-	  p = (struct prefix_ipv4 *) connected->address;
+	  p = (struct prefix_ipv4 *) ifc->address;
       
 	  if (p->family != AF_INET)
 	    continue;
@@ -354,21 +350,20 @@ void
 rip_multicast_leave (struct interface *ifp, int sock)
 {
   struct listnode *cnode;
+  struct connected *connected;
 
   if (if_is_up (ifp) && if_is_multicast (ifp))
     {
       if (IS_RIP_DEBUG_EVENT)
 	zlog_debug ("multicast leave from %s", ifp->name);
 
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
 	{
 	  struct prefix_ipv4 *p;
-	  struct connected *connected;
 	  struct in_addr group;
-	      
-	  connected = getdata (cnode);
+          
 	  p = (struct prefix_ipv4 *) connected->address;
-      
+	  
 	  if (p->family != AF_INET)
 	    continue;
       
@@ -387,18 +382,15 @@ rip_if_ipv4_address_check (struct interface *ifp)
   struct connected *connected;
   int count = 0;
 
-  for (nn = listhead (ifp->connected); nn; nextnode (nn))
-    if ((connected = getdata (nn)) != NULL)
-      {
-	struct prefix *p;
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, nn, connected))
+    {
+      struct prefix *p;
 
-	p = connected->address;
+      p = connected->address;
 
-	if (p->family == AF_INET)
-          {
-	    count++;
-	  }
-      }
+      if (p->family == AF_INET)
+        count++;
+    }
 						
   return count;
 }
@@ -411,20 +403,17 @@ int
 if_check_address (struct in_addr addr)
 {
   struct listnode *node;
-
-  for (node = listhead (iflist); node; nextnode (node))
+  struct interface *ifp;
+  
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
       struct listnode *cnode;
-      struct interface *ifp;
+      struct connected *connected;
 
-      ifp = getdata (node);
-
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
 	{
-	  struct connected *connected;
 	  struct prefix_ipv4 *p;
 
-	  connected = getdata (cnode);
 	  p = (struct prefix_ipv4 *) connected->address;
 
 	  if (p->family != AF_INET)
@@ -443,6 +432,7 @@ if_valid_neighbor (struct in_addr addr)
 {
   struct listnode *node;
   struct connected *connected = NULL;
+  struct interface *ifp;
   struct prefix_ipv4 *p;
   struct prefix_ipv4 pa;
 
@@ -450,17 +440,12 @@ if_valid_neighbor (struct in_addr addr)
   pa.prefix = addr;
   pa.prefixlen = IPV4_MAX_PREFIXLEN;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
       struct listnode *cnode;
-      struct interface *ifp;
 
-      ifp = getdata (node);
-
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
 	{
-	  connected = getdata (cnode);
-
 	  if (if_is_pointopoint (ifp))
 	    {
 	      p = (struct prefix_ipv4 *) connected->address;
@@ -610,9 +595,8 @@ rip_interface_clean ()
   struct interface *ifp;
   struct rip_interface *ri;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
       ri = ifp->info;
 
       ri->enable_network = 0;
@@ -634,9 +618,8 @@ rip_interface_reset ()
   struct interface *ifp;
   struct rip_interface *ri;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
       ri = ifp->info;
 
       ri->enable_network = 0;
@@ -741,13 +724,10 @@ void
 rip_if_down_all ()
 {
   struct interface *ifp;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
-  for (node = listhead (iflist); node; nextnode (node))
-    {
-      ifp = getdata (node);
-      rip_if_down (ifp);
-    }
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+    rip_if_down (ifp);
 }
 
 static void
@@ -875,33 +855,32 @@ rip_interface_address_delete (int command, struct zclient *zclient,
 int
 rip_enable_network_lookup_if (struct interface *ifp)
 {
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct connected *connected;
   struct prefix_ipv4 address;
 
-  for (nn = listhead (ifp->connected); nn; nextnode (nn))
-    if ((connected = getdata (nn)) != NULL)
-      {
-	struct prefix *p; 
-	struct route_node *node;
+  for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, connected))
+    {
+      struct prefix *p; 
+      struct route_node *node;
 
-	p = connected->address;
+      p = connected->address;
 
-	if (p->family == AF_INET)
-	  {
-	    address.family = AF_INET;
-	    address.prefix = p->u.prefix4;
-	    address.prefixlen = IPV4_MAX_BITLEN;
-	    
-	    node = route_node_match (rip_enable_network,
-				     (struct prefix *)&address);
-	    if (node)
-	      {
-		route_unlock_node (node);
-		return 1;
-	      }
-	  }
-      }
+      if (p->family == AF_INET)
+        {
+          address.family = AF_INET;
+          address.prefix = p->u.prefix4;
+          address.prefixlen = IPV4_MAX_BITLEN;
+          
+          node = route_node_match (rip_enable_network,
+                                   (struct prefix *)&address);
+          if (node)
+            {
+              route_unlock_node (node);
+              return 1;
+            }
+        }
+    }
   return -1;
 }
 
@@ -1065,39 +1044,38 @@ int rip_redistribute_check (int);
 void
 rip_connect_set (struct interface *ifp, int set)
 {
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct connected *connected;
   struct prefix_ipv4 address;
 
-  for (nn = listhead (ifp->connected); nn; nextnode (nn))
-    if ((connected = getdata (nn)) != NULL)
-      {
-	struct prefix *p; 
-	p = connected->address;
+  for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, connected))
+    {
+      struct prefix *p; 
+      p = connected->address;
 
-	if (p->family != AF_INET)
-	  continue;
+      if (p->family != AF_INET)
+        continue;
 
-	address.family = AF_INET;
-	address.prefix = p->u.prefix4;
-	address.prefixlen = p->prefixlen;
-	apply_mask_ipv4 (&address);
+      address.family = AF_INET;
+      address.prefix = p->u.prefix4;
+      address.prefixlen = p->prefixlen;
+      apply_mask_ipv4 (&address);
 
-	if (set) {
-          /* Check once more wether this prefix is within a "network IF_OR_PREF" one */
-          if ((rip_enable_if_lookup(connected->ifp->name) >= 0) ||
-              (rip_enable_network_lookup2(connected) >= 0))
-	    rip_redistribute_add (ZEBRA_ROUTE_CONNECT, RIP_ROUTE_INTERFACE,
-				  &address, connected->ifp->ifindex, NULL);
-	} else
-	  {
-	    rip_redistribute_delete (ZEBRA_ROUTE_CONNECT, RIP_ROUTE_INTERFACE,
-				     &address, connected->ifp->ifindex);
-	    if (rip_redistribute_check (ZEBRA_ROUTE_CONNECT))
-	      rip_redistribute_add (ZEBRA_ROUTE_CONNECT, RIP_ROUTE_REDISTRIBUTE,
-				    &address, connected->ifp->ifindex, NULL);
-	  }
-      }
+      if (set) {
+        /* Check once more wether this prefix is within a "network IF_OR_PREF" one */
+        if ((rip_enable_if_lookup(connected->ifp->name) >= 0) ||
+            (rip_enable_network_lookup2(connected) >= 0))
+          rip_redistribute_add (ZEBRA_ROUTE_CONNECT, RIP_ROUTE_INTERFACE,
+                                &address, connected->ifp->ifindex, NULL);
+      } else
+        {
+          rip_redistribute_delete (ZEBRA_ROUTE_CONNECT, RIP_ROUTE_INTERFACE,
+                                   &address, connected->ifp->ifindex);
+          if (rip_redistribute_check (ZEBRA_ROUTE_CONNECT))
+            rip_redistribute_add (ZEBRA_ROUTE_CONNECT, RIP_ROUTE_REDISTRIBUTE,
+                                  &address, connected->ifp->ifindex, NULL);
+        }
+    }
 }
 
 /* Update interface status. */
@@ -1169,14 +1147,11 @@ void
 rip_enable_apply_all ()
 {
   struct interface *ifp;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   /* Check each interface. */
-  for (node = listhead (iflist); node; nextnode (node))
-    {
-      ifp = getdata (node);
-      rip_enable_apply (ifp);
-    }
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+    rip_enable_apply (ifp);
 }
 
 int
@@ -1294,13 +1269,10 @@ void
 rip_passive_interface_apply_all ()
 {
   struct interface *ifp;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
-  for (node = listhead (iflist); node; nextnode (node))
-    {
-      ifp = getdata (node);
-      rip_passive_interface_apply (ifp);
-    }
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+    rip_passive_interface_apply (ifp);
 }
 
 /* Passive interface. */
@@ -2021,11 +1993,10 @@ rip_interface_config_write (struct vty *vty)
   struct listnode *node;
   struct interface *ifp;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
       struct rip_interface *ri;
 
-      ifp = getdata (node);
       ri = ifp->info;
 
       /* Do not display the interface if there is no

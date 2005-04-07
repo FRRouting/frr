@@ -280,9 +280,8 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
       stream_putc (stream, listcount (route_info->nexthops));
 
       /* Nexthop, ifindex, distance and metric information */
-      for (node = listhead (route_info->nexthops); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS_RO (route_info->nexthops, node, nexthop))
 	{
-	  nexthop = getdata (node);
 	  /* FIXME: can it be ? */
 	  if (nexthop->ip.s_addr != INADDR_ANY)
 	    {
@@ -379,10 +378,8 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
 
   /* for each nexthop */
   i = 0;
-  for (node = listhead (route_info->nexthops6); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (route_info->nexthops6, node, nexthop6))
     {
-      nexthop6 = getdata (node);
-
       if (!IN6_IS_ADDR_LINKLOCAL (&nexthop6->ip6) &&
 	  !IN6_IS_ADDR_UNSPECIFIED (&nexthop6->ip6))
 	{
@@ -458,10 +455,8 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
 
   /* for each nexthop */
   i = 0;
-  for (node = listhead (route_info->nexthops6); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (route_info->nexthops6, node, nexthop6))
     {
-      nexthop6 = getdata (node);
-
       if (!IN6_IS_ADDR_LINKLOCAL (&nexthop6->ip6) &&
 	  !IN6_IS_ADDR_UNSPECIFIED (&nexthop6->ip6))
 	{

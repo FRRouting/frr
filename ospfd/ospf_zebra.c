@@ -359,10 +359,8 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
       stream_putc (s, or->paths->count);
 
       /* Nexthop, ifindex, distance and metric information. */
-      for (node = listhead (or->paths); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS_RO (or->paths, node, path))
         {
-          path = getdata (node);
-
           if (path->nexthop.s_addr != INADDR_ANY)
             {
               stream_putc (s, ZEBRA_NEXTHOP_IPV4);
@@ -409,7 +407,7 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
   struct zapi_ipv4 api;
   struct ospf_path *path;
   struct in_addr *nexthop;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   if (zclient->redist[ZEBRA_ROUTE_OSPF])
     {
@@ -419,10 +417,8 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
       api.ifindex_num = 0;
       api.nexthop_num = 0;
 
-      for (node = listhead (or->paths); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS (or->paths, node, nnode, path))
         {
-          path = getdata (node);
-
           if (path->nexthop.s_addr != INADDR_ANY)
             {
               SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
@@ -1027,21 +1023,20 @@ ospf_filter_update (struct access_list *access)
     }
 
   /* Update Area access-list. */
-  for (node = listhead (ospf->areas); node; nextnode (node))
-    if ((area = getdata (node)) != NULL)
-      {
-        if (EXPORT_NAME (area))
-          {
-            EXPORT_LIST (area) = NULL;
-            abr_inv++;
-          }
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
+    {
+      if (EXPORT_NAME (area))
+        {
+          EXPORT_LIST (area) = NULL;
+          abr_inv++;
+        }
 
-        if (IMPORT_NAME (area))
-          {
-            IMPORT_LIST (area) = NULL;
-            abr_inv++;
-          }
-      }
+      if (IMPORT_NAME (area))
+        {
+          IMPORT_LIST (area) = NULL;
+          abr_inv++;
+        }
+    }
 
   /* Schedule ABR tasks -- this will be changed -- takada. */
   if (IS_OSPF_ABR (ospf) && abr_inv)
@@ -1077,27 +1072,26 @@ ospf_prefix_list_update (struct prefix_list *plist)
     }
 
   /* Update area filter-lists. */
-  for (node = listhead (ospf->areas); node; nextnode (node))
-    if ((area = getdata (node)) != NULL)
-      {
-      	/* Update filter-list in. */
-      	if (PREFIX_NAME_IN (area))
-          if (strcmp (PREFIX_NAME_IN (area), plist->name) == 0)
-            {
-              PREFIX_LIST_IN (area) =
-                prefix_list_lookup (AFI_IP, PREFIX_NAME_IN (area));
-              abr_inv++;
-            }
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
+    {
+      /* Update filter-list in. */
+      if (PREFIX_NAME_IN (area))
+        if (strcmp (PREFIX_NAME_IN (area), plist->name) == 0)
+          {
+            PREFIX_LIST_IN (area) =
+              prefix_list_lookup (AFI_IP, PREFIX_NAME_IN (area));
+            abr_inv++;
+          }
 
-        /* Update filter-list out. */
-        if (PREFIX_NAME_OUT (area))
-          if (strcmp (PREFIX_NAME_OUT (area), plist->name) == 0)
-            {
-              PREFIX_LIST_IN (area) =
-                prefix_list_lookup (AFI_IP, PREFIX_NAME_OUT (area));
-              abr_inv++;
-            }
-      }
+      /* Update filter-list out. */
+      if (PREFIX_NAME_OUT (area))
+        if (strcmp (PREFIX_NAME_OUT (area), plist->name) == 0)
+          {
+            PREFIX_LIST_IN (area) =
+              prefix_list_lookup (AFI_IP, PREFIX_NAME_OUT (area));
+            abr_inv++;
+          }
+    }
 
   /* Schedule ABR task. */
   if (IS_OSPF_ABR (ospf) && abr_inv)

@@ -81,9 +81,9 @@ struct ripng_offset_list *
 ripng_offset_list_lookup (const char *ifname)
 {
   struct ripng_offset_list *offset;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (ripng_offset_list_master, offset, nn)
+  for (ALL_LIST_ELEMENTS (ripng_offset_list_master, node, nnode, offset))
     {
       if (strcmp_safe (offset->ifname, ifname) == 0)
 	return offset;
@@ -382,10 +382,10 @@ ripng_offset_clean ()
 int
 config_write_ripng_offset_list (struct vty *vty)
 {
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct ripng_offset_list *offset;
 
-  LIST_LOOP (ripng_offset_list_master, offset, nn)
+  for (ALL_LIST_ELEMENTS (ripng_offset_list_master, node, nnode, offset))
     {
       if (! offset->ifname)
 	{

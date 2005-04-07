@@ -71,12 +71,11 @@ ospf_find_asbr_route (struct ospf *ospf,
 
   /* First try to find intra-area non-bb paths. */
   if (!CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
-    for (node = listhead ((struct list *) rn->info); node; nextnode (node))
-      if ((or = getdata (node)) != NULL)
-	if (or->cost < OSPF_LS_INFINITY)
-	  if (!OSPF_IS_AREA_ID_BACKBONE (or->u.std.area_id) &&
-	      or->path_type == OSPF_PATH_INTRA_AREA)
-	    listnode_add (chosen, or);
+    for (ALL_LIST_ELEMENTS_RO ((struct list *) rn->info, node, or))
+      if (or->cost < OSPF_LS_INFINITY)
+        if (!OSPF_IS_AREA_ID_BACKBONE (or->u.std.area_id) &&
+            or->path_type == OSPF_PATH_INTRA_AREA)
+          listnode_add (chosen, or);
 
   /* If none is found -- look through all. */
   if (listcount (chosen) == 0)
@@ -86,19 +85,18 @@ ospf_find_asbr_route (struct ospf *ospf,
     }
 
   /* Now find the route with least cost. */
-  for (node = listhead (chosen); node; nextnode (node))
-    if ((or = getdata (node)) != NULL)
-      if (or->cost < OSPF_LS_INFINITY)
-	{
-	  if (best == NULL)
-	    best = or;
-	  else if (best->cost > or->cost)
-	    best = or;
-	  else if (best->cost == or->cost &&
-		   IPV4_ADDR_CMP (&best->u.std.area_id,
-				  &or->u.std.area_id) < 0)
-	    best = or;
-	}
+  for (ALL_LIST_ELEMENTS_RO (chosen, node, or))
+    if (or->cost < OSPF_LS_INFINITY)
+      {
+        if (best == NULL)
+          best = or;
+        else if (best->cost > or->cost)
+          best = or;
+        else if (best->cost == or->cost &&
+                 IPV4_ADDR_CMP (&best->u.std.area_id,
+                                &or->u.std.area_id) < 0)
+          best = or;
+      }
 
   if (chosen != rn->info)
     list_delete (chosen);
@@ -126,10 +124,9 @@ ospf_find_asbr_route_through_area (struct route_table *rtrs,
 
       route_unlock_node (rn);
 
-      for (node = listhead ((struct list *) rn->info); node; nextnode (node))
-	if ((or = getdata (node)) != NULL)
-	  if (IPV4_ADDR_SAME (&or->u.std.area_id, &area->area_id))
-	    return or;
+      for (ALL_LIST_ELEMENTS_RO ((struct list *) rn->info, node, or))
+        if (IPV4_ADDR_SAME (&or->u.std.area_id, &area->area_id))
+          return or;
     }
 
   return NULL;
@@ -141,10 +138,9 @@ ospf_ase_complete_direct_routes (struct ospf_route *ro, struct in_addr nexthop)
   struct listnode *node;
   struct ospf_path *op;
 
-  for (node = listhead (ro->paths); node; nextnode (node))
-    if ((op = getdata (node)) != NULL)
-      if (op->nexthop.s_addr == 0)
-	op->nexthop.s_addr = nexthop.s_addr;
+  for (ALL_LIST_ELEMENTS_RO (ro->paths, node, op))
+    if (op->nexthop.s_addr == 0)
+      op->nexthop.s_addr = nexthop.s_addr;
 }
 
 int
@@ -153,12 +149,11 @@ ospf_ase_forward_address_check (struct ospf *ospf, struct in_addr fwd_addr)
   struct listnode *ifn;
   struct ospf_interface *oi;
 
-  for (ifn = listhead (ospf->oiflist); ifn; nextnode (ifn))
-    if ((oi = getdata (ifn)) != NULL)
-      if (if_is_operative (oi->ifp))
-	if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
-	  if (IPV4_ADDR_SAME (&oi->address->u.prefix4, &fwd_addr))
-	    return 0;
+  for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, ifn, oi))
+    if (if_is_operative (oi->ifp))
+      if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
+        if (IPV4_ADDR_SAME (&oi->address->u.prefix4, &fwd_addr))
+          return 0;
   
   return 1;
 }
@@ -590,10 +585,10 @@ ospf_ase_route_match_same (struct route_table *rt, struct prefix *prefix,
        
    /* Check each path. */
    for (n1 = listhead (or->paths), n2 = listhead (newor->paths);
-	n1 && n2; nextnode (n1), nextnode (n2))
+	n1 && n2; n1 = listnextnode (n1), n2 = listnextnode (n2))
      { 
-       op = getdata (n1);
-       newop = getdata (n2);
+       op = listgetdata (n1);
+       newop = listgetdata (n2);
        
        if (! IPV4_ADDR_SAME (&op->nexthop, &newop->nexthop))
 	 return 0;
@@ -650,9 +645,8 @@ ospf_ase_calculate_timer (struct thread *t)
 
       /*  This version simple adds to the table all NSSA areas  */
       if (ospf->anyNSSA)
-	for (node = listhead (ospf->areas); node; nextnode (node))
+	for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
 	  {
-	    area = getdata (node);
 	    if (IS_DEBUG_OSPF_NSSA)
 	      zlog_debug ("ospf_ase_calculate_timer(): looking at area %s",
 			 inet_ntoa (area->area_id));
@@ -758,17 +752,16 @@ ospf_ase_external_lsas_finish (struct route_table *rt)
   struct route_node *rn;
   struct ospf_lsa *lsa;
   struct list *lst;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   
   for (rn = route_top (rt); rn; rn = route_next (rn))
     if ((lst = rn->info) != NULL)
       {
-	for (node = listhead (lst); node; node = nextnode (node))
-	  if ((lsa = getdata (node)) != NULL)
-	    ospf_lsa_unlock (lsa);
+	for (ALL_LIST_ELEMENTS (lst, node, nnode, lsa))
+          ospf_lsa_unlock (lsa);
 	list_delete (lst);
       }
-  
+    
   route_table_finish (rt);
 }
 
@@ -808,9 +801,8 @@ ospf_ase_incremental_update (struct ospf *ospf, struct ospf_lsa *lsa)
   assert (rn && rn->info);
   lsas = rn->info;
   
-  for (node = listhead (lsas); node; nextnode (node))
-    if ((lsa = getdata (node)) != NULL)
-      ospf_ase_calculate_route (ospf, lsa);
+  for (ALL_LIST_ELEMENTS_RO (lsas, node, lsa))
+    ospf_ase_calculate_route (ospf, lsa);
 
   /* prepare temporary old routing table for compare */
   tmp_old = route_table_init ();

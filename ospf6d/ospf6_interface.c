@@ -151,14 +151,12 @@ ospf6_interface_create (struct interface *ifp)
 void
 ospf6_interface_delete (struct ospf6_interface *oi)
 {
-  struct listnode *n;
+  struct listnode *node, *nnode;
   struct ospf6_neighbor *on;
 
-  for (n = listhead (oi->neighbor_list); n; nextnode (n))
-    {
-      on = (struct ospf6_neighbor *) getdata (n);
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
       ospf6_neighbor_delete (on);
-    }
+  
   list_delete (oi->neighbor_list);
 
   THREAD_OFF (oi->thread_send_hello);
@@ -199,16 +197,14 @@ ospf6_interface_enable (struct ospf6_interface *oi)
 void
 ospf6_interface_disable (struct ospf6_interface *oi)
 {
-  struct listnode *i;
+  struct listnode *node, *nnode;
   struct ospf6_neighbor *on;
 
   SET_FLAG (oi->flag, OSPF6_INTERFACE_DISABLE);
 
-  for (i = listhead (oi->neighbor_list); i; nextnode (i))
-    {
-      on = (struct ospf6_neighbor *) getdata (i);
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
       ospf6_neighbor_delete (on);
-    }
+
   list_delete_all_node (oi->neighbor_list);
 
   ospf6_lsdb_remove_all (oi->lsdb);
@@ -228,10 +224,8 @@ ospf6_interface_get_linklocal_address (struct interface *ifp)
   struct in6_addr *l = (struct in6_addr *) NULL;
 
   /* for each connected address */
-  for (n = listhead (ifp->connected); n; nextnode (n))
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, n, c))
     {
-      c = (struct connected *) getdata (n);
-
       /* if family not AF_INET6, ignore */
       if (c->address->family != AF_INET6)
         continue;
@@ -318,7 +312,7 @@ ospf6_interface_connected_route_update (struct interface *ifp)
   struct ospf6_interface *oi;
   struct ospf6_route *route;
   struct connected *c;
-  struct listnode *i;
+  struct listnode *node, *nnode;
 
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
@@ -333,10 +327,9 @@ ospf6_interface_connected_route_update (struct interface *ifp)
 
   /* update "route to advertise" interface route table */
   ospf6_route_remove_all (oi->route_connected);
-  for (i = listhead (oi->interface->connected); i; nextnode (i))
-    {
-      c = (struct connected *) getdata (i);
 
+  for (ALL_LIST_ELEMENTS (oi->interface->connected, node, nnode, c))
+    {
       if (c->address->family != AF_INET6)
         continue;
 
@@ -498,7 +491,7 @@ better_drouter (struct ospf6_neighbor *a, struct ospf6_neighbor *b)
 static u_char
 dr_election (struct ospf6_interface *oi)
 {
-  struct listnode *i;
+  struct listnode *node, *nnode;
   struct ospf6_neighbor *on, *drouter, *bdrouter, myself;
   struct ospf6_neighbor *best_drouter, *best_bdrouter;
   u_char next_state = 0;
@@ -517,20 +510,16 @@ dr_election (struct ospf6_interface *oi)
   myself.router_id = oi->area->ospf6->router_id;
 
   /* Electing BDR (2) */
-  for (i = listhead (oi->neighbor_list); i; nextnode (i))
-    {
-      on = (struct ospf6_neighbor *) getdata (i);
-      bdrouter = better_bdrouter (bdrouter, on);
-    }
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
+    bdrouter = better_bdrouter (bdrouter, on);
+  
   best_bdrouter = bdrouter;
   bdrouter = better_bdrouter (best_bdrouter, &myself);
 
   /* Electing DR (3) */
-  for (i = listhead (oi->neighbor_list); i; nextnode (i))
-    {
-      on = (struct ospf6_neighbor *) getdata (i);
-      drouter = better_drouter (drouter, on);
-    }
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
+    drouter = better_drouter (drouter, on);
+
   best_drouter = drouter;
   drouter = better_drouter (best_drouter, &myself);
   if (drouter == NULL)
@@ -576,9 +565,8 @@ dr_election (struct ospf6_interface *oi)
 		    (drouter ? drouter->name : "0.0.0.0"),
 		    (bdrouter ? bdrouter->name : "0.0.0.0"));
 
-      for (i = listhead (oi->neighbor_list); i; nextnode (i))
+      for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, node, on))
         {
-          on = (struct ospf6_neighbor *) getdata (i);
           if (on->state < OSPF6_NEIGHBOR_TWOWAY)
             continue;
           /* Schedule AdjOK. */
@@ -724,7 +712,7 @@ int
 interface_down (struct thread *thread)
 {
   struct ospf6_interface *oi;
-  struct listnode *n;
+  struct listnode *node, *nnode;
   struct ospf6_neighbor *on;
 
   oi = (struct ospf6_interface *) THREAD_ARG (thread);
@@ -740,11 +728,9 @@ interface_down (struct thread *thread)
 
   ospf6_interface_state_change (OSPF6_INTERFACE_DOWN, oi);
 
-  for (n = listhead (oi->neighbor_list); n; nextnode (n))
-    {
-      on = (struct ospf6_neighbor *) getdata (n);
-      ospf6_neighbor_delete (on);
-    }
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
+    ospf6_neighbor_delete (on);
+  
   list_delete_all_node (oi->neighbor_list);
 
   return 0;
@@ -790,9 +776,9 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
     oi = (struct ospf6_interface *) ifp->info;
 
   vty_out (vty, "  Internet Address:%s", VNL);
-  for (i = listhead (ifp->connected); i; nextnode (i))
+
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, i, c))
     {
-      c = (struct connected *)getdata (i);
       p = c->address;
       prefix2str (p, strbuf, sizeof (strbuf));
       switch (p->family)
@@ -896,11 +882,8 @@ DEFUN (show_ipv6_ospf6_interface,
     }
   else
     {
-      for (i = listhead (iflist); i; nextnode (i))
-        {
-          ifp = (struct interface *) getdata (i);
-          ospf6_interface_show (vty, ifp);
-        }
+      for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
+        ospf6_interface_show (vty, ifp);
     }
 
   return CMD_SUCCESS;
@@ -992,9 +975,8 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
   struct ospf6_interface *oi;
   struct interface *ifp;
 
-  for (i = listhead (iflist); i; nextnode (i))
+  for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
     {
-      ifp = (struct interface *) getdata (i);
       oi = (struct ospf6_interface *) ifp->info;
       if (oi == NULL)
         continue;
@@ -1045,7 +1027,7 @@ DEFUN (ipv6_ospf6_ifmtu,
   struct ospf6_interface *oi;
   struct interface *ifp;
   unsigned int ifmtu, iobuflen;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_neighbor *on;
 
   ifp = (struct interface *) vty->index;
@@ -1084,9 +1066,8 @@ DEFUN (ipv6_ospf6_ifmtu,
     oi->ifmtu = ifmtu;
 
   /* re-establish adjacencies */
-  for (node = listhead (oi->neighbor_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
-      on = (struct ospf6_neighbor *) getdata (node);
       THREAD_OFF (on->inactivity_timer);
       thread_execute (master, inactivity_timer, on, 0);
     }
@@ -1106,7 +1087,7 @@ DEFUN (no_ipv6_ospf6_ifmtu,
   struct ospf6_interface *oi;
   struct interface *ifp;
   unsigned int iobuflen;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_neighbor *on;
 
   ifp = (struct interface *) vty->index;
@@ -1133,9 +1114,8 @@ DEFUN (no_ipv6_ospf6_ifmtu,
     oi->ifmtu = ifp->mtu;
 
   /* re-establish adjacencies */
-  for (node = listhead (oi->neighbor_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
-      on = (struct ospf6_neighbor *) getdata (node);
       THREAD_OFF (on->inactivity_timer);
       thread_execute (master, inactivity_timer, on, 0);
     }
@@ -1355,7 +1335,7 @@ DEFUN (ipv6_ospf6_passive,
 {
   struct ospf6_interface *oi;
   struct interface *ifp;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_neighbor *on;
 
   ifp = (struct interface *) vty->index;
@@ -1369,9 +1349,8 @@ DEFUN (ipv6_ospf6_passive,
   SET_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE);
   THREAD_OFF (oi->thread_send_hello);
 
-  for (node = listhead (oi->neighbor_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
-      on = (struct ospf6_neighbor *) getdata (node);
       THREAD_OFF (on->inactivity_timer);
       thread_execute (master, inactivity_timer, on, 0);
     }
@@ -1490,9 +1469,8 @@ config_write_ospf6_interface (struct vty *vty)
   struct ospf6_interface *oi;
   struct interface *ifp;
 
-  for (i = listhead (iflist); i; nextnode (i))
+  for (ALL_LIST_ELEMENTS_RO (iflist, i, ifp))
     {
-      ifp = (struct interface *) getdata (i);
       oi = (struct ospf6_interface *) ifp->info;
       if (oi == NULL)
         continue;

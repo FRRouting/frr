@@ -304,9 +304,9 @@ ospf_renegotiate_optional_capabilities (struct ospf *top)
   ospf_flush_self_originated_lsas_now (top);
 
   /* Revert all neighbor status to ExStart. */
-  for (node = listhead (top->oiflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (top->oiflist, node, oi))
     {
-      if ((oi = getdata (node)) == NULL || (nbrs = oi->nbrs) == NULL)
+      if ((nbrs = oi->nbrs) == NULL)
         continue;
 
       for (rn = route_top (nbrs); rn; rn = route_next (rn))
@@ -355,11 +355,8 @@ ospf_nbr_add (struct ospf_interface *oi, struct ospf_header *ospfh,
       struct ospf_nbr_nbma *nbr_nbma;
       struct listnode *node;
 
-      for (node = listhead (oi->nbr_nbma); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS_RO (oi->nbr_nbma, node, nbr_nbma))
         {
-          nbr_nbma = getdata (node);
-          assert (nbr_nbma);
-
           if (IPV4_ADDR_SAME(&nbr_nbma->addr, &nbr->src))
             {
               nbr_nbma->nbr = nbr;

@@ -59,9 +59,8 @@ isis_nexthop_create (struct in_addr *ip, unsigned int ifindex)
   struct listnode *node;
   struct isis_nexthop *nexthop;
 
-  for (node = listhead (isis->nexthops); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (isis->nexthops, node, nexthop))
     {
-      nexthop = getdata (node);
       if (nexthop->ifindex != ifindex)
 	continue;
       if (ip && memcmp (&nexthop->ip, ip, sizeof (struct in_addr)) != 0)
@@ -106,9 +105,8 @@ nexthoplookup (struct list *nexthops, struct in_addr *ip,
   struct listnode *node;
   struct isis_nexthop *nh;
 
-  for (node = listhead (nexthops); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (nexthops, node, nh))
     {
-      nh = getdata (node);
       if (!(memcmp (ip, &nh->ip, sizeof (struct in_addr))) &&
 	  ifindex == nh->ifindex)
 	return 1;
@@ -133,8 +131,8 @@ nexthops_print (struct list *nhs)
 {
   struct listnode *node;
 
-  for (node = listhead (nhs); node; nextnode (node))
-    nexthop_print (getdata (node));
+  for (ALL_LIST_ELEMENTS_RO (nhs, node, nh))
+    nexthop_print (nh);
 }
 #endif /* 0 */
 
@@ -165,9 +163,8 @@ isis_nexthop6_create (struct in6_addr *ip6, unsigned int ifindex)
   struct listnode *node;
   struct isis_nexthop6 *nexthop6;
 
-  for (node = listhead (isis->nexthops6); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (isis->nexthops6, node, nexthop6))
     {
-      nexthop6 = getdata (node);
       if (nexthop6->ifindex != ifindex)
 	continue;
       if (ip6 && memcmp (&nexthop6->ip6, ip6, sizeof (struct in6_addr)) != 0)
@@ -203,9 +200,8 @@ nexthop6lookup (struct list *nexthops6, struct in6_addr *ip6,
   struct listnode *node;
   struct isis_nexthop6 *nh6;
 
-  for (node = listhead (nexthops6); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (nexthops6, node, nh6))
     {
-      nh6 = getdata (node);
       if (!(memcmp (ip6, &nh6->ip6, sizeof (struct in6_addr))) &&
 	  ifindex == nh6->ifindex)
 	return 1;
@@ -230,8 +226,8 @@ nexthops6_print (struct list *nhs6)
 {
   struct listnode *node;
 
-  for (node = listhead (nhs6); node; nextnode (node))
-    nexthop6_print (getdata (node));
+  for (ALL_LIST_ELEMENTS_RO (nhs6, node, nh6))
+    nexthop6_print (nh6);
 }
 #endif /* EXTREME_DEBUG */
 #endif /* HAVE_IPV6 */
@@ -240,14 +236,14 @@ static void
 adjinfo2nexthop (struct list *nexthops, struct isis_adjacency *adj)
 {
   struct isis_nexthop *nh;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct in_addr *ipv4_addr;
 
   if (adj->ipv4_addrs == NULL)
     return;
-  for (node = listhead (adj->ipv4_addrs); node; nextnode (node))
+
+  for (ALL_LIST_ELEMENTS (adj->ipv4_addrs, node, nnode, ipv4_addr))
     {
-      ipv4_addr = getdata (node);
       if (!nexthoplookup (nexthops, ipv4_addr,
 			  adj->circuit->interface->ifindex))
 	{
@@ -262,16 +258,15 @@ adjinfo2nexthop (struct list *nexthops, struct isis_adjacency *adj)
 static void
 adjinfo2nexthop6 (struct list *nexthops6, struct isis_adjacency *adj)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct in6_addr *ipv6_addr;
   struct isis_nexthop6 *nh6;
 
   if (!adj->ipv6_addrs)
     return;
 
-  for (node = listhead (adj->ipv6_addrs); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (adj->ipv6_addrs, node, nnode, ipv6_addr))
     {
-      ipv6_addr = getdata (node);
       if (!nexthop6lookup (nexthops6, ipv6_addr,
 			   adj->circuit->interface->ifindex))
 	{
@@ -289,7 +284,7 @@ isis_route_info_new (uint32_t cost, uint32_t depth, u_char family,
 {
   struct isis_route_info *rinfo;
   struct isis_adjacency *adj;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   rinfo = XMALLOC (MTYPE_ISIS_ROUTE_INFO, sizeof (struct isis_route_info));
   if (!rinfo)
@@ -302,21 +297,15 @@ isis_route_info_new (uint32_t cost, uint32_t depth, u_char family,
   if (family == AF_INET)
     {
       rinfo->nexthops = list_new ();
-      for (node = listhead (adjacencies); node; nextnode (node))
-	{
-	  adj = getdata (node);
-	  adjinfo2nexthop (rinfo->nexthops, adj);
-	}
+      for (ALL_LIST_ELEMENTS (adjacencies, node, nnode, adj))
+        adjinfo2nexthop (rinfo->nexthops, adj);
     }
 #ifdef HAVE_IPV6
   if (family == AF_INET6)
     {
       rinfo->nexthops6 = list_new ();
-      for (node = listhead (adjacencies); node; nextnode (node))
-	{
-	  adj = getdata (node);
-	  adjinfo2nexthop6 (rinfo->nexthops6, adj);
-	}
+      for (ALL_LIST_ELEMENTS (adjacencies, node, nnode, adj))
+        adjinfo2nexthop6 (rinfo->nexthops6, adj);
     }
 
 #endif /* HAVE_IPV6 */
@@ -363,7 +352,7 @@ static int
 isis_route_info_same (struct isis_route_info *new,
 		      struct isis_route_info *old, u_char family)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct isis_nexthop *nexthop;
 #ifdef HAVE_IPV6
   struct isis_nexthop6 *nexthop6;
@@ -373,40 +362,28 @@ isis_route_info_same (struct isis_route_info *new,
 
   if (family == AF_INET)
     {
-      for (node = listhead (new->nexthops); node; nextnode (node))
-	{
-	  nexthop = (struct isis_nexthop *) getdata (node);
-	  if (nexthoplookup (old->nexthops, &nexthop->ip, nexthop->ifindex) ==
-	      0)
-	    return 0;
-	}
+      for (ALL_LIST_ELEMENTS (new->nexthops, node, nnode, nexthop))
+        if (nexthoplookup (old->nexthops, &nexthop->ip, nexthop->ifindex) 
+              == 0)
+          return 0;
 
-      for (node = listhead (old->nexthops); node; nextnode (node))
-	{
-	  nexthop = (struct isis_nexthop *) getdata (node);
-	  if (nexthoplookup (new->nexthops, &nexthop->ip, nexthop->ifindex) ==
-	      0)
-	    return 0;
-	}
+      for (ALL_LIST_ELEMENTS (old->nexthops, node, nnode, nexthop))
+        if (nexthoplookup (new->nexthops, &nexthop->ip, nexthop->ifindex) 
+             == 0)
+          return 0;
     }
 #ifdef HAVE_IPV6
   else if (family == AF_INET6)
     {
-      for (node = listhead (new->nexthops6); node; nextnode (node))
-	{
-	  nexthop6 = (struct isis_nexthop6 *) getdata (node);
-	  if (nexthop6lookup (old->nexthops6, &nexthop6->ip6,
-			      nexthop6->ifindex) == 0)
-	    return 0;
-	}
+      for (ALL_LIST_ELEMENTS (new->nexthops6, node, nnode, nexthop6))
+        if (nexthop6lookup (old->nexthops6, &nexthop6->ip6,
+                            nexthop6->ifindex) == 0)
+          return 0;
 
-      for (node = listhead (old->nexthops6); node; nextnode (node))
-	{
-	  nexthop6 = (struct isis_nexthop6 *) getdata (node);
-	  if (nexthop6lookup (new->nexthops6, &nexthop6->ip6,
-			      nexthop6->ifindex) == 0)
-	    return 0;
-	}
+      for (ALL_LIST_ELEMENTS (old->nexthops6, node, nnode, nexthop6))
+        if (nexthop6lookup (new->nexthops6, &nexthop6->ip6,
+                            nexthop6->ifindex) == 0)
+          return 0;
     }
 #endif /* HAVE_IPV6 */
 
@@ -416,12 +393,11 @@ isis_route_info_same (struct isis_route_info *new,
 static void
 isis_nexthops_merge (struct list *new, struct list *old)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct isis_nexthop *nexthop;
 
-  for (node = listhead (new); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (new, node, nnode, nexthop))
     {
-      nexthop = (struct isis_nexthop *) getdata (node);
       if (nexthoplookup (old, &nexthop->ip, nexthop->ifindex))
 	continue;
       listnode_add (old, nexthop);
@@ -433,12 +409,11 @@ isis_nexthops_merge (struct list *new, struct list *old)
 static void
 isis_nexthops6_merge (struct list *new, struct list *old)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct isis_nexthop6 *nexthop6;
 
-  for (node = listhead (new); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (new, node, nnode, nexthop6))
     {
-      nexthop6 = (struct isis_nexthop6 *) getdata (node);
       if (nexthop6lookup (old, &nexthop6->ip6, nexthop6->ifindex))
 	continue;
       listnode_add (old, nexthop6);

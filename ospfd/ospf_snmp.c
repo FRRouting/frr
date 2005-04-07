@@ -499,13 +499,10 @@ ospf_admin_stat (struct ospf *ospf)
   if (ospf == NULL)
     return 0;
 
-  for (node = listhead (ospf->oiflist); node; nextnode (node))
-    {
-      oi = getdata (node);
+  for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
+    if (oi && oi->address)
+      return 1;
 
-      if (oi && oi->address)
-	return 1;
-    }
   return 0;
 }
 
@@ -624,16 +621,14 @@ ospf_area_lookup_next (struct ospf *ospf, struct in_addr *area_id, int first)
       node = listhead (ospf->areas);
       if (node)
 	{
-	  area = getdata (node);
+	  area = listgetdata (node);
 	  *area_id = area->area_id;
 	  return area;
 	}
       return NULL;
     }
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
-
       if (ntohl (area->area_id.s_addr) > ntohl (area_id->s_addr))
 	{
 	  *area_id = area->area_id;
@@ -757,10 +752,8 @@ ospf_stub_area_lookup_next (struct in_addr *area_id, int first)
   if (ospf == NULL)
     return NULL;
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
-
       if (area->external_routing == OSPF_AREA_STUB)
 	{
 	  if (first)
@@ -1401,14 +1394,14 @@ ospf_snmp_if_free (struct ospf_snmp_if *osif)
 void
 ospf_snmp_if_delete (struct interface *ifp)
 {
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct ospf_snmp_if *osif;
 
-  LIST_LOOP (ospf_snmp_iflist, osif, nn)
+  for (ALL_LIST_ELEMENTS (ospf_snmp_iflist, node, nnode, osif))
     {
       if (osif->ifp == ifp)
 	{
-	  list_delete_node (ospf_snmp_iflist, nn);
+	  list_delete_node (ospf_snmp_iflist, node);
 	  ospf_snmp_if_free (osif);
 	  return;
 	}
@@ -1418,7 +1411,7 @@ ospf_snmp_if_delete (struct interface *ifp)
 void
 ospf_snmp_if_update (struct interface *ifp)
 {
-  struct listnode *nn;
+  struct listnode *node;
   struct listnode *pn;
   struct connected *ifc;
   struct prefix *p;
@@ -1433,7 +1426,7 @@ ospf_snmp_if_update (struct interface *ifp)
   ifindex = 0;
 
   /* Lookup first IPv4 address entry. */
-  LIST_LOOP (ifp->connected, ifc, nn)
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
     {
       if (CONNECTED_POINTOPOINT_HOST(ifc))
 	p = ifc->destination;
@@ -1451,7 +1444,7 @@ ospf_snmp_if_update (struct interface *ifp)
 
   /* Add interface to the list. */
   pn = NULL;
-  LIST_LOOP (ospf_snmp_iflist, osif, nn)
+  for (ALL_LIST_ELEMENTS_RO (ospf_snmp_iflist, node, osif))
     {
       if (addr)
 	{
@@ -1464,7 +1457,7 @@ ospf_snmp_if_update (struct interface *ifp)
 	  if (osif->addr.s_addr != 0 || osif->ifindex > ifindex)
 	    break;
 	}
-      pn = nn;
+      pn = node;
     }
 
   osif = ospf_snmp_if_new ();
@@ -1480,10 +1473,10 @@ ospf_snmp_if_update (struct interface *ifp)
 struct interface *
 ospf_snmp_if_lookup (struct in_addr *ifaddr, unsigned int *ifindex)
 {
-  struct listnode *nn;
+  struct listnode *node;
   struct ospf_snmp_if *osif;
 
-  LIST_LOOP (ospf_snmp_iflist, osif, nn)
+  for (ALL_LIST_ELEMENTS_RO (ospf_snmp_iflist, node, osif))
     {  
       if (ifaddr->s_addr)
 	{
@@ -1511,7 +1504,7 @@ ospf_snmp_if_lookup_next (struct in_addr *ifaddr, unsigned int *ifindex,
       nn = listhead (ospf_snmp_iflist);
       if (nn)
 	{
-	  osif = getdata (nn);
+	  osif = listgetdata (nn);
 	  *ifaddr = osif->addr;
 	  *ifindex = osif->ifindex;
 	  return osif->ifp;
@@ -1519,7 +1512,7 @@ ospf_snmp_if_lookup_next (struct in_addr *ifaddr, unsigned int *ifindex,
       return NULL;
     }
 
-  LIST_LOOP (ospf_snmp_iflist, osif, nn)
+  for (ALL_LIST_ELEMENTS_RO (ospf_snmp_iflist, nn, osif))
     {
       if (ifaddr->s_addr)
 	{
@@ -2051,12 +2044,12 @@ struct ospf_neighbor *
 ospf_snmp_nbr_lookup (struct ospf *ospf, struct in_addr *nbr_addr,
 		      unsigned int *ifindex)
 {
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct ospf_interface *oi;
   struct ospf_neighbor *nbr;
   struct route_node *rn;
 
-  LIST_LOOP (ospf->oiflist, oi, nn)
+  for (ALL_LIST_ELEMENTS (ospf->oiflist, node, nnode, oi))
     {
       for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
 	if ((nbr = rn->info) != NULL
@@ -2086,7 +2079,8 @@ ospf_snmp_nbr_lookup_next (struct in_addr *nbr_addr, unsigned int *ifindex,
   struct ospf *ospf = ospf;
 
   ospf = ospf_lookup ();
-  LIST_LOOP (ospf->oiflist, oi, nn)
+
+  for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, nn, oi))
     {
       for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
 	if ((nbr = rn->info) != NULL

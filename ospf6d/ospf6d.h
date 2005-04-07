@@ -50,7 +50,7 @@ extern struct thread_master *master;
 #endif /* IPV6_DROP_MEMBERSHIP */
 #endif /* ! IPV6_LEAVE_GROUP */
 
-/* cast macro */
+/* cast macro: XXX - these *must* die, ick ick. */
 #define OSPF6_PROCESS(x) ((struct ospf6 *) (x))
 #define OSPF6_AREA(x) ((struct ospf6_area *) (x))
 #define OSPF6_INTERFACE(x) ((struct ospf6_interface *) (x))

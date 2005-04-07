@@ -1,3 +1,25 @@
+2005-04-07 Paul Jakma <paul.jakma@sun.com>
+
+	* linklist.h: Add usage comments.	  
+	  Rename getdata macro to listgetdata.
+	  Rename nextnode to listnextnode and fix its odd behaviour to be
+	  less dangerous.
+	  Make listgetdata macro assert node is not null, NULL list entries
+          should be bug condition.
+          ALL_LIST_ELEMENTS, new macro, forward-referencing macro for use
+          with for loop, Suggested by Jim Carlson of Sun.
+          Add ALL_LIST_ELEMENTS_RO for cases which obviously do not need the
+          "safety" of previous macro.
+	  LISTNODE_ADD and DELETE macros renamed to ATTACH, DETACH, to
+	  distinguish from the similarly named functions, and reflect their
+	  effect better.
+	  Add a QUAGGA_NO_DEPRECATED_INTERFACES define guarded section 
+	  with the old defines which were modified above, 
+	  for backwards compatibility - guarded to prevent Quagga using it..
+	* linklist.c: fix up for linklist.h changes.
+	* *.c: fix up for new list loop macro, try audit other loop
+          usage at same time, to some degree.
+
 2004-04-05 Hasso Tepper <hasso at quagga.net>
 
 	* lib/prefix.[hc]: inet6_ntoa utility function copied from

@@ -1,5 +1,5 @@
 -*- mode: text; -*-
-$Id: HACKING,v 1.18 2005/04/05 10:14:50 paul Exp $
+$Id: HACKING,v 1.19 2005/04/07 07:30:20 paul Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -44,6 +44,32 @@ these header files:
   lib/log.h	logging levels and usage guidance
   [more to be added]
 
+If changing an exported interface, please try to deprecate the interface in
+an orderly manner. If at all possible, try to retain the old deprecated
+interface as is, or functionally equivalent. Make a note of when the
+interface was deprecated and guard the deprecated interface definitions in
+the header file, ie:
+
+/* Deprecated: 20050406 */
+#if !defined(QUAGGA_NO_DEPRECATED_INTERFACES)
+#warning "Using deprecated <libname> (interface(s)|function(s))"
+...
+#endif /* QUAGGA_NO_DEPRECATED_INTERFACES */
+
+To ensure that the core Quagga sources do not use the deprecated interfaces
+(you should update Quagga sources to use new interfaces, if applicable)
+while allowing external sources to continue to build. Deprecated interfaces
+should be excised in the next unstable cycle.
+
+If changing or removing a command definition, *ensure* that you properly
+deprecate it - use the _DEPRECATED form of the appropriate DEFUN macro. This
+is *critical*. Even if the command can no longer function, you *must* still
+implement it as a do-nothing stub. Failure to follow this causes grief for
+systems administrators. Deprecated commands should be excised in the next
+unstable cycle. A list of deprecated commands should be collated for each
+release.
+
+See also below regarding SHARED LIBRARY VERSIONING.
 
 CHANGELOG
 
@@ -78,6 +104,9 @@ RELEASE PROCEDURE
 If any errors occur, move tags as needed and start over from the fresh
 checkouts.  Do not append to tarballs, as this has produced
 non-standards-conforming tarballs in the past.
+
+[TODO: collation of a list of deprecated commands. Possibly can be scripted
+to extract from vtysh/vtysh_cmd.c]
 
 TOOL VERSIONS
 

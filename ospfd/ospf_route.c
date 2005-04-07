@@ -158,10 +158,10 @@ ospf_route_match_same (struct route_table *rt, struct prefix_ipv4 *prefix,
 
 	   /* Check each path. */
 	   for (n1 = listhead (or->paths), n2 = listhead (newor->paths);
-		n1 && n2; nextnode (n1), nextnode (n2))
+		n1 && n2; n1 = listnextnode (n1), n2 = listnextnode (n2))
 	     { 
-	       op = getdata (n1);
-	       newop = getdata (n2);
+	       op = listgetdata (n1);
+	       newop = listgetdata (n2);
 
 	       if (! IPV4_ADDR_SAME (&op->nexthop, &newop->nexthop))
 		 return 0;
@@ -279,7 +279,7 @@ ospf_intra_route_add (struct route_table *rt, struct vertex *v,
   struct prefix_ipv4 p;
   struct ospf_path *path;
   struct vertex_nexthop *nexthop;
-  struct listnode *nnode;
+  struct listnode *node, *nnode;
 
   p.family = AF_INET;
   p.prefix = v->id;
@@ -306,9 +306,8 @@ ospf_intra_route_add (struct route_table *rt, struct vertex *v,
     {
       or->type = OSPF_DESTINATION_NETWORK;
 
-      LIST_LOOP (v->nexthop, nexthop, nnode)
+      for (ALL_LIST_ELEMENTS (v->nexthop, node, nnode, nexthop))
         {
-          nexthop = getdata (nnode);
           path = ospf_path_new ();
           path->nexthop = nexthop->router;
           listnode_add (or->paths, path);
@@ -677,11 +676,8 @@ ospf_route_table_dump (struct route_table *rt)
 				  BUFSIZ),
 		       ospf_path_type_str[or->path_type],
 		       or->cost);
-	    for (pnode = listhead (or->paths); pnode; nextnode (pnode))
-	      {
-		path = getdata (pnode);
-		zlog_debug ("  -> %s", inet_ntoa (path->nexthop));
-	      }
+	    for (ALL_LIST_ELEMENTS_RO (or->paths, pnode, path))
+              zlog_debug ("  -> %s", inet_ntoa (path->nexthop));
 	  }
         else
 	  zlog_debug ("R %s\t%s\t%s\t%d", 
@@ -698,9 +694,9 @@ void
 ospf_terminate ()
 {
   struct ospf *ospf;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (om->ospf, ospf, node)
+  for (ALL_LIST_ELEMENTS (om->ospf, node, nnode, ospf))
     {
       if (ospf->new_table)
 	ospf_route_delete (ospf->new_table);
@@ -786,16 +782,13 @@ int
 ospf_path_exist (struct list *plist, struct in_addr nexthop,
 		 struct ospf_interface *oi)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_path *path;
 
-  for (node = listhead (plist); node; nextnode (node))
-    {
-      path = node->data;
+  for (ALL_LIST_ELEMENTS (plist, node, nnode, path))
+    if (IPV4_ADDR_SAME (&path->nexthop, &nexthop) && path->oi == oi)
+      return 1;
 
-      if (IPV4_ADDR_SAME (&path->nexthop, &nexthop) && path->oi == oi)
-	return 1;
-    }
   return 0;
 }
 
@@ -803,16 +796,14 @@ void
 ospf_route_copy_nexthops_from_vertex (struct ospf_route *to,
 				      struct vertex *v)
 {
-  struct listnode *nnode;
+  struct listnode *node;
   struct ospf_path *path;
   struct vertex_nexthop *nexthop;
 
   assert (to->paths);
 
-  for (nnode = listhead (v->nexthop); nnode; nextnode (nnode))
+  for (ALL_LIST_ELEMENTS_RO (v->nexthop, node, nexthop))
     {
-      nexthop = getdata (nnode);
-
       if (nexthop->oi != NULL) 
 	{
 	  if (! ospf_path_exist (to->paths, nexthop->router, nexthop->oi))
@@ -830,15 +821,12 @@ struct ospf_path *
 ospf_path_lookup (struct list *plist, struct ospf_path *path)
 {
   struct listnode *node;
+  struct ospf_path *op;
 
-  for (node = listhead (plist); node; nextnode (node))
-    {
-      struct ospf_path *op = node->data;
-
-      if (IPV4_ADDR_SAME (&op->nexthop, &path->nexthop) &&
-	  IPV4_ADDR_SAME (&op->adv_router, &path->adv_router))
-	return op;
-    }
+  for (ALL_LIST_ELEMENTS_RO (plist, node, op))
+    if (IPV4_ADDR_SAME (&op->nexthop, &path->nexthop) &&
+        IPV4_ADDR_SAME (&op->adv_router, &path->adv_router))
+      return op;
 
   return NULL;
 }
@@ -846,14 +834,15 @@ ospf_path_lookup (struct list *plist, struct ospf_path *path)
 void
 ospf_route_copy_nexthops (struct ospf_route *to, struct list *from)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
+  struct ospf_path *path;
 
   assert (to->paths);
 
-  for (node = listhead (from); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (from, node, nnode, path))
     /* The same routes are just discarded. */
-    if (!ospf_path_lookup (to->paths, node->data))
-      listnode_add (to->paths, ospf_path_dup (node->data));
+    if (!ospf_path_lookup (to->paths, path))
+      listnode_add (to->paths, ospf_path_dup (path));
 }
 
 void
@@ -931,7 +920,7 @@ ospf_prune_unreachable_routers (struct route_table *rtrs)
 {
   struct route_node *rn, *next;
   struct ospf_route *or;
-  struct listnode *node, *nnext;
+  struct listnode *node, *nnode;
   struct list *paths;
 
   if (IS_DEBUG_OSPF_EVENT)
@@ -943,12 +932,8 @@ ospf_prune_unreachable_routers (struct route_table *rtrs)
       if ((paths = rn->info) == NULL)
 	continue;
 
-      for (node = listhead (paths); node; node = nnext) 
+      for (ALL_LIST_ELEMENTS (paths, node, nnode, or))
 	{
-	  nnext = node->next;
-
-	  or = getdata (node);
-
 	  if (listcount (or->paths) == 0)
 	    {
 	      if (IS_DEBUG_OSPF_EVENT)

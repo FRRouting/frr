@@ -184,10 +184,8 @@ bgp_update_address (struct interface *ifp)
   struct connected *connected;
   struct listnode *node;
 
-  for (node = listhead (ifp->connected); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, connected))
     {
-      connected = getdata (node);
-
       p = (struct prefix_ipv4 *) connected->address;
 
       if (p->family == AF_INET)

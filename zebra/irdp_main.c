@@ -150,7 +150,7 @@ get_pref(struct irdp_interface *irdp, struct prefix *p)
   if( irdp->AdvPrefList == NULL )
     return irdp->Preference;
   
-  LIST_LOOP (irdp->AdvPrefList, adv, node)
+  for (ALL_LIST_ELEMENTS_RO (irdp->AdvPrefList, node, adv))
     if( p->u.prefix4.s_addr == adv->ip.s_addr )
       return adv->pref;
 
@@ -234,13 +234,13 @@ int irdp_send_thread(struct thread *t_advert)
   struct zebra_if *zi=ifp->info;
   struct irdp_interface *irdp=&zi->irdp;
   struct prefix *p;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct connected *ifc;
 
   irdp->flags &= ~IF_SOLICIT;
 
   if(ifp->connected) 
-    LIST_LOOP (ifp->connected, ifc, node)
+    for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, ifc))
       {
         p = ifc->address;
         irdp_advertisement(ifp, p);
@@ -266,7 +266,7 @@ void irdp_advert_off(struct interface *ifp)
 {
   struct zebra_if *zi=ifp->info;
   struct irdp_interface *irdp=&zi->irdp;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   int i;
   struct connected *ifc;
   struct prefix *p;
@@ -275,7 +275,7 @@ void irdp_advert_off(struct interface *ifp)
   irdp->t_advertise = NULL;
   
   if(ifp->connected) 
-    LIST_LOOP (ifp->connected, ifc, node)
+    for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, ifc))
       {
         p = ifc->address;
 
@@ -319,16 +319,15 @@ void process_solicit (struct interface *ifp)
 void irdp_finish()
 {
 
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct interface *ifp;
   struct zebra_if *zi;
   struct irdp_interface *irdp;
 
   zlog_info("IRDP: Received shutdown notification.");
   
-  for (node = listhead (iflist); node; node = nextnode (node))
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
     {
-      ifp = getdata(node);
       zi = ifp->info;
       
       if (!zi) 

@@ -103,12 +103,9 @@ isis_adj_lookup (u_char * sysid, struct list *adjdb)
   struct isis_adjacency *adj;
   struct listnode *node;
 
-  for (node = listhead (adjdb); node; nextnode (node))
-    {
-      adj = getdata (node);
-      if (memcmp (adj->sysid, sysid, ISIS_SYS_ID_LEN) == 0)
-	return adj;
-    }
+  for (ALL_LIST_ELEMENTS_RO (adjdb, node, adj))
+    if (memcmp (adj->sysid, sysid, ISIS_SYS_ID_LEN) == 0)
+      return adj;
 
   return NULL;
 }
@@ -120,12 +117,9 @@ isis_adj_lookup_snpa (u_char * ssnpa, struct list *adjdb)
   struct listnode *node;
   struct isis_adjacency *adj;
 
-  for (node = listhead (adjdb); node; nextnode (node))
-    {
-      adj = getdata (node);
-      if (memcmp (adj->snpa, ssnpa, ETH_ALEN) == 0)
-	return adj;
-    }
+  for (ALL_LIST_ELEMENTS_RO (adjdb, node, adj))
+    if (memcmp (adj->snpa, ssnpa, ETH_ALEN) == 0)
+      return adj;
 
   return NULL;
 }
@@ -136,17 +130,15 @@ isis_adj_lookup_snpa (u_char * ssnpa, struct list *adjdb)
 void
 isis_delete_adj (struct isis_adjacency *adj, struct list *adjdb)
 {
-  struct isis_adjacency *adj2;
+  struct isis_adjacency *adj2 = NULL;
   struct listnode *node;
 
   if (adjdb)
     {
-      for (node = listhead (adjdb); node; nextnode (node))
-	{
-	  adj2 = getdata (node);
-	  if (adj2 == adj)
-	    break;
-	}
+      for (ALL_LIST_ELEMENTS_RO (adjdb, node, adj2))
+        if (adj2 == adj)
+          break;
+
       listnode_delete (adjdb, adj);
     }
 
@@ -249,20 +241,16 @@ isis_adj_print (struct isis_adjacency *adj)
     {
       zlog_debug ("IPv4 Addresses:");
 
-      for (node = listhead (adj->ipv4_addrs); node; nextnode (node))
-	{
-	  ipv4_addr = getdata (node);
-	  zlog_debug ("%s", inet_ntoa (*ipv4_addr));
-	}
+      for (ALL_LIST_ELEMENTS_RO (adj->ipv4_addrs, node, ipv4_addr))
+        zlog_debug ("%s", inet_ntoa (*ipv4_addr));
     }
 
 #ifdef HAVE_IPV6
   if (adj->ipv6_addrs && listcount (adj->ipv6_addrs) > 0)
     {
       zlog_debug ("IPv6 Addresses:");
-      for (node = listhead (adj->ipv6_addrs); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS_RO (adj->ipv6_addrs, node, ipv6_addr))
 	{
-	  ipv6_addr = getdata (node);
 	  inet_ntop (AF_INET6, ipv6_addr, (char *)ip6, INET6_ADDRSTRLEN);
 	  zlog_debug ("%s", ip6);
 	}
@@ -400,19 +388,15 @@ isis_adj_print_vty2 (struct isis_adjacency *adj, struct vty *vty, char detail)
       if (adj->ipv4_addrs && listcount (adj->ipv4_addrs) > 0)
 	{
 	  vty_out (vty, "    IPv4 Addresses:%s", VTY_NEWLINE);
-	  for (node = listhead (adj->ipv4_addrs); node; nextnode (node))
-	    {
-	      ip_addr = getdata (node);
-	      vty_out (vty, "      %s%s", inet_ntoa (*ip_addr), VTY_NEWLINE);
-	    }
+	  for (ALL_LIST_ELEMENTS_RO (adj->ipv4_addrs, node, ip_addr))
+            vty_out (vty, "      %s%s", inet_ntoa (*ip_addr), VTY_NEWLINE);
 	}
 #ifdef HAVE_IPV6
       if (adj->ipv6_addrs && listcount (adj->ipv6_addrs) > 0)
 	{
 	  vty_out (vty, "    IPv6 Addresses:%s", VTY_NEWLINE);
-	  for (node = listhead (adj->ipv6_addrs); node; nextnode (node))
+	  for (ALL_LIST_ELEMENTS_RO (adj->ipv4_addrs, node, ipv6_addr))
 	    {
-	      ipv6_addr = getdata (node);
 	      inet_ntop (AF_INET6, ipv6_addr, (char *)ip6, INET6_ADDRSTRLEN);
 	      vty_out (vty, "      %s%s", ip6, VTY_NEWLINE);
 	    }
@@ -463,13 +447,11 @@ void
 isis_adjdb_iterate (struct list *adjdb, void (*func) (struct isis_adjacency *,
 						      void *), void *arg)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct isis_adjacency *adj;
-  for (node = listhead (adjdb); node; nextnode (node))
-    {
-      adj = getdata (node);
-      (*func) (adj, arg);
-    }
+
+  for (ALL_LIST_ELEMENTS (adjdb, node, nnode, adj))
+    (*func) (adj, arg);
 }
 
 void
@@ -484,9 +466,8 @@ isis_adj_build_neigh_list (struct list *adjdb, struct list *list)
       return;
     }
 
-  for (node = listhead (adjdb); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (adjdb, node, adj))
     {
-      adj = getdata (node);
       if (!adj)
 	{
 	  zlog_warn ("isis_adj_build_neigh_list(): NULL adj");
@@ -512,10 +493,8 @@ isis_adj_build_up_list (struct list *adjdb, struct list *list)
       return;
     }
 
-  for (node = listhead (adjdb); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (adjdb, node, adj))
     {
-      adj = getdata (node);
-
       if (!adj)
 	{
 	  zlog_warn ("isis_adj_build_up_list(): NULL adj");

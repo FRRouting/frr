@@ -318,9 +318,8 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
 	      inet_ntoa (* (struct in_addr *) &area_id),
 	      exact, len, *length);
 
-  for (node = listhead (ospf6->area_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
-      oa = (struct ospf6_area *) getdata (node);
       if (area == NULL)
         {
           if (len == 0) /* return first area entry */
@@ -435,10 +434,8 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
     }
   else
     {
-      for (node = listhead (ospf6->area_list); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
         {
-          oa = (struct ospf6_area *) getdata (node);
-
           if (lsa)
             continue;
           if (ntohl (oa->area_id) < ntohl (area_id.s_addr))

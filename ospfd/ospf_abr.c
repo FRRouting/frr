@@ -174,10 +174,11 @@ struct ospf_area_range *
 ospf_area_range_match_any (struct ospf *ospf, struct prefix_ipv4 *p)
 {
   struct ospf_area_range *range;
+  struct ospf_area *area;
   struct listnode *node;
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
-    if ((range = ospf_area_range_match (node->data, p)))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
+    if ((range = ospf_area_range_match (area, p)))
       return range;
 
   return NULL;
@@ -407,9 +408,9 @@ void
 ospf_abr_nssa_check_status (struct ospf *ospf)
 {
   struct ospf_area *area;
-  struct listnode *lnode;
+  struct listnode *lnode, *nnode;
     
-  LIST_LOOP (ospf->areas, area, lnode)
+  for (ALL_LIST_ELEMENTS (ospf->areas, lnode, nnode, area))
     {
     
       if (area->external_routing != OSPF_AREA_NSSA)
@@ -477,7 +478,7 @@ void
 ospf_check_abr_status (struct ospf *ospf)
 {
   struct ospf_area *area;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   int bb_configured = 0;
   int bb_act_attached = 0;
   int areas_configured = 0;
@@ -487,10 +488,8 @@ ospf_check_abr_status (struct ospf *ospf)
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_check_abr_status(): Start");
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
     {
-      area = getdata (node);
-      
       if (listcount (area->oiflist)) 
 	{
 	  areas_configured++;
@@ -774,10 +773,10 @@ int
 ospf_abr_nexthops_belong_to_area (struct ospf_route *or,
 				  struct ospf_area *area)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_path *path;
 
-  LIST_LOOP (or->paths, path, node)
+  for (ALL_LIST_ELEMENTS (or->paths, node, nnode, path))
     {
       struct ospf_interface *oi = path->oi;
 
@@ -851,10 +850,8 @@ ospf_abr_announce_network (struct ospf *ospf,
   or_area = ospf_area_lookup_by_area_id (ospf, or->u.std.area_id); 
   assert (or_area);
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
-
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_debug ("ospf_abr_announce_network(): looking at area %s",
 		   inet_ntoa (area->area_id));
@@ -958,10 +955,8 @@ ospf_abr_process_nssa_translates (struct ospf *ospf)
   if (IS_DEBUG_OSPF_NSSA)
     zlog_debug ("ospf_abr_process_nssa_translates(): Start");
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
-
       if (! area->NSSATranslatorState)
         continue; /* skip if not translator */
       
@@ -1148,10 +1143,8 @@ ospf_abr_announce_rtr (struct ospf *ospf,
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_abr_announce_rtr(): Start");
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
-
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_debug ("ospf_abr_announce_rtr(): looking at area %s",
 		   inet_ntoa (area->area_id));
@@ -1205,7 +1198,7 @@ ospf_abr_process_router_rt (struct ospf *ospf, struct route_table *rt)
 
   for (rn = route_top (rt); rn; rn = route_next (rn))
     {
-      struct listnode *node;
+      struct listnode *node, *nnode;
       char flag = 0;
       struct ospf_route *best = NULL;
 
@@ -1218,12 +1211,8 @@ ospf_abr_process_router_rt (struct ospf *ospf, struct route_table *rt)
 	zlog_debug ("ospf_abr_process_router_rt(): this is a route to %s",
 		   inet_ntoa (rn->p.u.prefix4));
 
-      for (node = listhead (l); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS (l, node, nnode, or))
 	{
-	  or = getdata (node);
-	  if (or == NULL)
-	    continue;
-
 	  if (!ospf_area_lookup_by_area_id (ospf, or->u.std.area_id))
 	    {
 	      if (IS_DEBUG_OSPF_EVENT)
@@ -1334,9 +1323,8 @@ ospf_abr_unapprove_summaries (struct ospf *ospf)
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_abr_unapprove_summaries(): Start");
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("ospf_abr_unapprove_summaries(): "
                    "considering area %s",
@@ -1372,14 +1360,13 @@ ospf_abr_prepare_aggregates (struct ospf *ospf)
   struct listnode *node;
   struct route_node *rn;
   struct ospf_area_range *range;
+  struct ospf_area *area;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_abr_prepare_aggregates(): Start");
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      struct ospf_area *area = getdata (node);
-
       for (rn = route_top (area->ranges); rn; rn = route_next (rn))
 	if ((range = rn->info) != NULL)
 	  {
@@ -1404,10 +1391,8 @@ ospf_abr_announce_aggregates (struct ospf *ospf)
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_abr_announce_aggregates(): Start");
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
-
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_debug ("ospf_abr_announce_aggregates(): looking at area %s",
 		   inet_ntoa (area->area_id));
@@ -1444,9 +1429,8 @@ ospf_abr_announce_aggregates (struct ospf *ospf)
 		if (IS_DEBUG_OSPF_EVENT)
 		  zlog_debug ("ospf_abr_announce_aggregates(): active range");
 
-		for (n = listhead (ospf->areas); n; nextnode (n))
+		for (ALL_LIST_ELEMENTS_RO (ospf->areas, n, ar))
 		  {
-		    ar = getdata (n);
 		    if (ar == area)
 		      continue;
 
@@ -1488,10 +1472,8 @@ ospf_abr_send_nssa_aggregates (struct ospf *ospf) /* temporarily turned off */
   if (IS_DEBUG_OSPF_NSSA)
     zlog_debug ("ospf_abr_send_nssa_aggregates(): Start");
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
-
       if (! area->NSSATranslatorState)
 	continue;
 
@@ -1559,9 +1541,8 @@ ospf_abr_announce_nssa_defaults (struct ospf *ospf) /* By ABR-Translator */
   if (IS_DEBUG_OSPF_NSSA)
     zlog_debug ("ospf_abr_announce_stub_defaults(): Start");
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
       if (IS_DEBUG_OSPF_NSSA)
         zlog_debug ("ospf_abr_announce_nssa_defaults(): looking at area %s",
                    inet_ntoa (area->area_id));
@@ -1601,9 +1582,8 @@ ospf_abr_announce_stub_defaults (struct ospf *ospf)
   p.prefix.s_addr = OSPF_DEFAULT_DESTINATION;
   p.prefixlen = 0;
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("ospf_abr_announce_stub_defaults(): looking at area %s",
 		    inet_ntoa (area->area_id));
@@ -1675,10 +1655,8 @@ ospf_abr_remove_unapproved_summaries (struct ospf *ospf)
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_abr_remove_unapproved_summaries(): Start");
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      area = getdata (node);
-
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_debug ("ospf_abr_remove_unapproved_summaries(): "
 		   "looking at area %s", inet_ntoa (area->area_id));
@@ -1701,23 +1679,22 @@ ospf_abr_remove_unapproved_summaries (struct ospf *ospf)
 void
 ospf_abr_manage_discard_routes (struct ospf *ospf)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct route_node *rn;
   struct ospf_area *area;
   struct ospf_area_range *range;
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
-    if ((area = node->data) != NULL)
-      for (rn = route_top (area->ranges); rn; rn = route_next (rn))
-	if ((range = rn->info) != NULL)
-	  if (CHECK_FLAG (range->flags, OSPF_AREA_RANGE_ADVERTISE))
-	    {
-	      if (range->specifics)
-		ospf_add_discard_route (ospf->new_table, area,
-					(struct prefix_ipv4 *) &rn->p);
-	      else
-		ospf_delete_discard_route ((struct prefix_ipv4 *) &rn->p);
-	    }
+  for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
+    for (rn = route_top (area->ranges); rn; rn = route_next (rn))
+      if ((range = rn->info) != NULL)
+	if (CHECK_FLAG (range->flags, OSPF_AREA_RANGE_ADVERTISE))
+	  {
+	    if (range->specifics)
+	      ospf_add_discard_route (ospf->new_table, area,
+				      (struct prefix_ipv4 *) &rn->p);
+	    else
+	      ospf_delete_discard_route ((struct prefix_ipv4 *) &rn->p);
+	  }
 }
 
 /* This is the function taking care about ABR NSSA, i.e.  NSSA

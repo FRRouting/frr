@@ -441,12 +441,11 @@ smux_set (oid *reqid, size_t *reqid_len,
   int result;
   u_char *statP = NULL;
   WriteMethod *write_method = NULL;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   /* Check */
-  for (node = treelist->head; node; node = node->next)
+  for (ALL_LIST_ELEMENTS (treelist, node, nnode, subtree))
     {
-      subtree = node->data;
       subresult = oid_compare_part (reqid, *reqid_len,
                                     subtree->name, subtree->name_len);
 
@@ -509,12 +508,11 @@ smux_get (oid *reqid, size_t *reqid_len, int exact,
   size_t suffix_len;
   int result;
   WriteMethod *write_method=NULL;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   /* Check */
-  for (node = treelist->head; node; node = node->next)
+  for (ALL_LIST_ELEMENTS (treelist, node, nnode,subtree))
     {
-      subtree = node->data;
       subresult = oid_compare_part (reqid, *reqid_len, 
 				    subtree->name, subtree->name_len);
 
@@ -578,7 +576,7 @@ smux_getnext (oid *reqid, size_t *reqid_len, int exact,
   size_t suffix_len;
   int result;
   WriteMethod *write_method=NULL;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
 
   /* Save incoming request. */
@@ -586,9 +584,8 @@ smux_getnext (oid *reqid, size_t *reqid_len, int exact,
   savelen = *reqid_len;
 
   /* Check */
-  for (node = treelist->head; node; node = node->next)
+  for (ALL_LIST_ELEMENTS (treelist, node, nnode, subtree))
     {
-      subtree = node->data;
       subresult = oid_compare_part (reqid, *reqid_len, 
 				    subtree->name, subtree->name_len);
 
@@ -1108,16 +1105,14 @@ smux_register (int sock)
   long priority;
   long operation;
   struct subtree *subtree;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   ret = 0;
 
-  for (node = treelist->head; node; node = node->next)
+  for (ALL_LIST_ELEMENTS (treelist, node, nnode, subtree))
     {
       ptr = buf;
       len = BUFSIZ;
-
-      subtree = node->data;
 
       /* SMUX RReq Header. */
       ptr = asn_build_header (ptr, &len, (u_char) SMUX_RREQ, 0);

@@ -281,7 +281,7 @@ ospf6_spf_install (struct ospf6_vertex *v,
   struct ospf6_route *route;
   int i, j;
   struct ospf6_vertex *prev, *w;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS))
     zlog_debug ("SPF install %s hops %d cost %d",
@@ -322,7 +322,7 @@ ospf6_spf_install (struct ospf6_vertex *v,
       prev = (struct ospf6_vertex *) route->route_option;
       if (prev->hops > v->hops)
         {
-          LIST_LOOP (prev->child_list, w, node)
+          for (ALL_LIST_ELEMENTS (prev->child_list, node, nnode, w))
             {
               assert (w->parent == prev);
               w->parent = v;
@@ -502,9 +502,8 @@ ospf6_spf_log_database (struct ospf6_area *oa)
   snprintf (p, end - p, " Area %s: %d", oa->name, oa->lsdb->count);
   p = (buffer + strlen (buffer) < end ? buffer + strlen (buffer) : end);
 
-  for (node = listhead (oa->if_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (oa->if_list, node, oi))
     {
-      oi = (struct ospf6_interface *) getdata (node);
       snprintf (p, end - p, " I/F %s: %d",
                 oi->interface->name, oi->lsdb->count);
       p = (buffer + strlen (buffer) < end ? buffer + strlen (buffer) : end);
@@ -556,7 +555,7 @@ void
 ospf6_spf_display_subtree (struct vty *vty, const char *prefix, int rest,
                            struct ospf6_vertex *v)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_vertex *c;
   char *next_prefix;
   int len;
@@ -575,7 +574,7 @@ ospf6_spf_display_subtree (struct vty *vty, const char *prefix, int rest,
   snprintf (next_prefix, len, "%s%s", prefix, (rest ? "|  " : "   "));
 
   restnum = listcount (v->child_list);
-  LIST_LOOP (v->child_list, c, node)
+  for (ALL_LIST_ELEMENTS (v->child_list, node, nnode, c))
     {
       restnum--;
       ospf6_spf_display_subtree (vty, next_prefix, restnum, c);

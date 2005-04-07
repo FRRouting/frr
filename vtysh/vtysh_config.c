@@ -88,7 +88,7 @@ config_get (int index, const char *line)
   struct config *config;
   struct config *config_loop;
   struct list *master;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   config = config_loop = NULL;
 
@@ -102,7 +102,7 @@ config_get (int index, const char *line)
       vector_set_index (configvec, index, master);
     }
   
-  LIST_LOOP (master, config_loop, nn)
+  for (ALL_LIST_ELEMENTS (master, node, nnode, config_loop))
     {
       if (strcmp (config_loop->name, line) == 0)
 	config = config_loop;
@@ -130,10 +130,10 @@ config_add_line (struct list *config, const char *line)
 void
 config_add_line_uniq (struct list *config, const char *line)
 {
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   char *pnt;
 
-  LIST_LOOP (config, pnt, nn)
+  for (ALL_LIST_ELEMENTS (config, node, nnode, pnt))
     {
       if (strcmp (pnt, line) == 0)
 	return;
@@ -294,14 +294,14 @@ vtysh_config_parse (char *line)
 void
 vtysh_config_dump (FILE *fp)
 {
-  struct listnode *nn;
-  struct listnode *nm;
+  struct listnode *node, *nnode;
+  struct listnode *mnode, *mnnode;
   struct config *config;
   struct list *master;
   char *line;
   unsigned int i;
 
-  LIST_LOOP (config_top, line, nn)
+  for (ALL_LIST_ELEMENTS (config_top, node, nnode, line))
     {
       fprintf (fp, "%s\n", line);
       fflush (fp);
@@ -312,12 +312,12 @@ vtysh_config_dump (FILE *fp)
   for (i = 0; i < vector_active (configvec); i++)
     if ((master = vector_slot (configvec, i)) != NULL)
       {
-	LIST_LOOP (master, config, nn)
+	for (ALL_LIST_ELEMENTS (master, node, nnode, config))
 	  {
 	    fprintf (fp, "%s\n", config->name);
 	    fflush (fp);
 
-	    LIST_LOOP (config->line, line, nm)
+	    for (ALL_LIST_ELEMENTS (config->line, mnode, mnnode, line))
 	      {
 		fprintf  (fp, "%s\n", line);
 		fflush (fp);

@@ -175,7 +175,7 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
 void
 ospf6_area_delete (struct ospf6_area *oa)
 {
-  struct listnode *n;
+  struct listnode *n, *nnode;
   struct ospf6_interface *oi;
 
   ospf6_route_table_delete (oa->range_table);
@@ -183,9 +183,8 @@ ospf6_area_delete (struct ospf6_area *oa)
   ospf6_route_table_delete (oa->summary_router);
 
   /* ospf6 interface list */
-  for (n = listhead (oa->if_list); n; nextnode (n))
+  for (ALL_LIST_ELEMENTS (oa->if_list, n, nnode, oi))
     {
-      oi = (struct ospf6_interface *) getdata (n);
       ospf6_interface_delete (oi);
     }
   list_delete (oa->if_list);
@@ -217,12 +216,9 @@ ospf6_area_lookup (u_int32_t area_id, struct ospf6 *ospf6)
   struct ospf6_area *oa;
   struct listnode *n;
 
-  for (n = listhead (ospf6->area_list); n; nextnode (n))
-    {
-      oa = (struct ospf6_area *) getdata (n);
-      if (oa->area_id == area_id)
-        return oa;
-    }
+  for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, n, oa))
+    if (oa->area_id == area_id)
+      return oa;
 
   return (struct ospf6_area *) NULL;
 }
@@ -240,31 +236,25 @@ ospf6_area_get (u_int32_t area_id, struct ospf6 *o)
 void
 ospf6_area_enable (struct ospf6_area *oa)
 {
-  struct listnode *i;
+  struct listnode *node, *nnode;
   struct ospf6_interface *oi;
 
   SET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
 
-  for (i = listhead (oa->if_list); i; nextnode (i))
-    {
-      oi = (struct ospf6_interface *) getdata (i);
-      ospf6_interface_enable (oi);
-    }
+  for (ALL_LIST_ELEMENTS (oa->if_list, node, nnode, oi))
+    ospf6_interface_enable (oi);
 }
 
 void
 ospf6_area_disable (struct ospf6_area *oa)
 {
-  struct listnode *i;
+  struct listnode *node, *nnode;
   struct ospf6_interface *oi;
 
   UNSET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
 
-  for (i = listhead (oa->if_list); i; nextnode (i))
-    {
-      oi = (struct ospf6_interface *) getdata (i);
-      ospf6_interface_disable (oi);
-    }
+  for (ALL_LIST_ELEMENTS (oa->if_list, node, nnode, oi))
+    ospf6_interface_disable (oi);
 }
 
 
@@ -279,11 +269,9 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
            oa->lsdb->count, VNL);
 
   vty_out (vty, "     Interface attached to this area:");
-  for (i = listhead (oa->if_list); i; nextnode (i))
-    {
-      oi = (struct ospf6_interface *) getdata (i);
-      vty_out (vty, " %s", oi->interface->name);
-    }
+  for (ALL_LIST_ELEMENTS_RO (oa->if_list, i, oi))
+    vty_out (vty, " %s", oi->interface->name);
+  
   vty_out (vty, "%s", VNL);
 }
 
@@ -415,10 +403,8 @@ ospf6_area_config_write (struct vty *vty)
   struct ospf6_route *range;
   char buf[128];
 
-  for (node = listhead (ospf6->area_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
-      oa = OSPF6_AREA (getdata (node));
-
       for (range = ospf6_route_head (oa->range_table); range;
            range = ospf6_route_next (range))
         {
@@ -444,9 +430,9 @@ DEFUN (show_ipv6_ospf6_spf_tree,
   struct prefix prefix;
 
   ospf6_linkstate_prefix (ospf6->router_id, htonl (0), &prefix);
-  for (node = listhead (ospf6->area_list); node; nextnode (node))
+
+  for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
-      oa = (struct ospf6_area *) getdata (node);
       route = ospf6_route_lookup (&prefix, oa->spf_table);
       if (route == NULL)
         {

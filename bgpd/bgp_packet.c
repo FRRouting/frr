@@ -1121,7 +1121,7 @@ int
 bgp_collision_detect (struct peer *new, struct in_addr remote_id)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct bgp *bgp;
 
   bgp = bgp_get_default ();
@@ -1137,7 +1137,7 @@ bgp_collision_detect (struct peer *new, struct in_addr remote_id)
      OPEN message, then the local system performs the following
      collision resolution procedure: */
 
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       /* Under OpenConfirm status, local peer structure already hold
          remote router ID. */

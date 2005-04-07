@@ -444,7 +444,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
   struct prefix prefix_id;
   struct route_node *node;
   char pbuf[64], ibuf[16];
-  struct listnode *lnode;
+  struct listnode *lnode, *lnnode;
   struct ospf6_area *oa;
 
   if (! ospf6_zebra_is_redistribute (type))
@@ -574,11 +574,8 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
   ospf6_as_external_lsa_originate (route);
 
   /* Router-Bit (ASBR Flag) may have to be updated */
-  for (lnode = listhead (ospf6->area_list); lnode; nextnode (lnode))
-    {
-      oa = (struct ospf6_area *) getdata (lnode);
-      OSPF6_ROUTER_LSA_SCHEDULE (oa);
-    }
+  for (ALL_LIST_ELEMENTS (ospf6->area_list, lnode, lnnode, oa))
+    OSPF6_ROUTER_LSA_SCHEDULE (oa);
 }
 
 void
@@ -590,7 +587,7 @@ ospf6_asbr_redistribute_remove (int type, int ifindex, struct prefix *prefix)
   struct ospf6_lsa *lsa;
   struct prefix prefix_id;
   char pbuf[64], ibuf[16];
-  struct listnode *lnode;
+  struct listnode *lnode, *lnnode;
   struct ospf6_area *oa;
 
   match = ospf6_route_lookup (prefix, ospf6->external_table);
@@ -642,11 +639,8 @@ ospf6_asbr_redistribute_remove (int type, int ifindex, struct prefix *prefix)
   XFREE (MTYPE_OSPF6_EXTERNAL_INFO, info);
 
   /* Router-Bit (ASBR Flag) may have to be updated */
-  for (lnode = listhead (ospf6->area_list); lnode; nextnode (lnode))
-    {
-      oa = (struct ospf6_area *) getdata (lnode);
-      OSPF6_ROUTER_LSA_SCHEDULE (oa);
-    }
+  for (ALL_LIST_ELEMENTS (ospf6->area_list, lnode, lnnode, oa))
+    OSPF6_ROUTER_LSA_SCHEDULE (oa);
 }
 
 DEFUN (ospf6_redistribute,

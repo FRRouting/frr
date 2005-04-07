@@ -721,18 +721,16 @@ zsend_router_id_update (struct zserv *client, struct prefix *p)
 static int
 zread_interface_add (struct zserv *client, u_short length)
 {
-  struct listnode *ifnode;
-  struct listnode *cnode;
+  struct listnode *ifnode, *ifnnode;
+  struct listnode *cnode, *cnnode;
   struct interface *ifp;
   struct connected *c;
 
   /* Interface information is needed. */
   client->ifinfo = 1;
 
-  for (ifnode = listhead (iflist); ifnode; ifnode = nextnode (ifnode))
+  for (ALL_LIST_ELEMENTS (iflist, ifnode, ifnnode, ifp))
     {
-      ifp = getdata (ifnode);
-
       /* Skip pseudo interface. */
       if (! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
 	continue;
@@ -740,9 +738,8 @@ zread_interface_add (struct zserv *client, u_short length)
       if (zsend_interface_add (client, ifp) < 0)
         return -1;
 
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS (ifp->connected, cnode, cnnode, c))
 	{
-	  c = getdata (cnode);
 	  if (CHECK_FLAG (c->conf, ZEBRA_IFC_REAL) &&
 	      (zsend_interface_address (ZEBRA_INTERFACE_ADDRESS_ADD, client, 
 				        ifp, c) < 0))
@@ -1566,11 +1563,9 @@ DEFUN (show_zebra_client,
   struct listnode *node;
   struct zserv *client;
 
-  for (node = listhead (zebrad.client_list); node; nextnode (node))
-    {
-      client = getdata (node);
-      vty_out (vty, "Client fd %d%s", client->sock, VTY_NEWLINE);
-    }
+  for (ALL_LIST_ELEMENTS_RO (zebrad.client_list, node, client))
+    vty_out (vty, "Client fd %d%s", client->sock, VTY_NEWLINE);
+  
   return CMD_SUCCESS;
 }
 

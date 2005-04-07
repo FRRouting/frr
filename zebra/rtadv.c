@@ -166,6 +166,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
   int ret;
   int len = 0;
   struct zebra_if *zif;
+  struct rtadv_prefix *rprefix;
   u_char all_nodes_addr[] = {0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
   struct listnode *node;
 
@@ -245,12 +246,9 @@ rtadv_send_packet (int sock, struct interface *ifp)
     }
 
   /* Fill in prefix. */
-  for (node = listhead (zif->rtadv.AdvPrefixList); node; node = nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (zif->rtadv.AdvPrefixList, node, rprefix))
     {
       struct nd_opt_prefix_info *pinfo;
-      struct rtadv_prefix *rprefix;
-
-      rprefix = getdata (node);
 
       pinfo = (struct nd_opt_prefix_info *) (buf + len);
 
@@ -338,7 +336,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
 int
 rtadv_timer (struct thread *thread)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct interface *ifp;
   struct zebra_if *zif;
   int period;
@@ -355,10 +353,8 @@ rtadv_timer (struct thread *thread)
       rtadv_event (RTADV_TIMER_MSEC, 10 /* 10 ms */);
     }
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
     {
-      ifp = getdata (node);
-
       if (if_is_loopback (ifp))
 	continue;
 
@@ -553,12 +549,9 @@ rtadv_prefix_lookup (struct list *rplist, struct prefix *p)
   struct listnode *node;
   struct rtadv_prefix *rprefix;
 
-  for (node = listhead (rplist); node; node = nextnode (node))
-    {
-      rprefix = getdata (node);
-      if (prefix_same (&rprefix->prefix, p))
-	return rprefix;
-    }
+  for (ALL_LIST_ELEMENTS_RO (rplist, node, rprefix))
+    if (prefix_same (&rprefix->prefix, p))
+      return rprefix;
   return NULL;
 }
 
@@ -1426,9 +1419,8 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
   if (zif->rtadv.AdvOtherConfigFlag)
     vty_out (vty, " ipv6 nd other-config-flag%s", VTY_NEWLINE);
 
-  for (node = listhead(zif->rtadv.AdvPrefixList); node; node = nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (zif->rtadv.AdvPrefixList, node, rprefix))
     {
-      rprefix = getdata (node);
       vty_out (vty, " ipv6 nd prefix %s/%d",
 	       inet_ntop (AF_INET6, &rprefix->prefix.u.prefix6, 
 			  (char *) buf, INET6_ADDRSTRLEN),

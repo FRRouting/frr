@@ -380,20 +380,19 @@ ripng_nexthop_rte (struct rte *rte,
 int
 ripng_lladdr_check (struct interface *ifp, struct in6_addr *addr)
 {
-  struct listnode *listnode;
+  struct listnode *node;
   struct connected *connected;
   struct prefix *p;
 
-  for (listnode = listhead (ifp->connected); listnode; nextnode (listnode))
-    if ((connected = getdata (listnode)) != NULL)
-      {
-	p = connected->address;
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, connected))
+    {
+      p = connected->address;
 
-	if (p->family == AF_INET6 &&
-	    IN6_IS_ADDR_LINKLOCAL (&p->u.prefix6) &&
-	    IN6_ARE_ADDR_EQUAL (&p->u.prefix6, addr))
-	  return 1;
-      }
+      if (p->family == AF_INET6 &&
+          IN6_IS_ADDR_LINKLOCAL (&p->u.prefix6) &&
+          IN6_ARE_ADDR_EQUAL (&p->u.prefix6, addr))
+        return 1;
+    }
   return 0;
 }
 
@@ -1439,9 +1438,8 @@ ripng_update (struct thread *t)
     zlog_debug ("RIPng update timer expired!");
 
   /* Supply routes to each interface. */
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
       ri = ifp->info;
 
       if (if_is_loopback (ifp) || ! if_is_up (ifp))
@@ -1523,9 +1521,8 @@ ripng_triggered_update (struct thread *t)
 
   /* Split Horizon processing is done when generating triggered
      updates as well as normal updates (see section 2.6). */
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
       ri = ifp->info;
 
       if (if_is_loopback (ifp) || ! if_is_up (ifp))
@@ -2137,6 +2134,7 @@ DEFUN (show_ipv6_ripng_status,
        "IPv6 routing protocol process parameters and statistics\n")
 {
   struct listnode *node;
+  struct interface *ifp;
   int ripng_network_write (struct vty *, int);
   void ripng_redistribute_write (struct vty *, int);
 
@@ -2171,12 +2169,10 @@ DEFUN (show_ipv6_ripng_status,
 
   vty_out (vty, "    Interface        Send  Recv%s", VTY_NEWLINE);
 
-  for (node = listhead (iflist); node; node = nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
       struct ripng_interface *ri;
-      struct interface *ifp;
-
-      ifp = getdata (node);
+      
       ri = ifp->info;
 
       if (ri->enable_network || ri->enable_interface)
@@ -2808,11 +2804,8 @@ ripng_distribute_update_all (struct prefix_list *notused)
   struct interface *ifp;
   struct listnode *node;
 
-  for (node = listhead (iflist); node; nextnode (node))
-    {
-      ifp = getdata (node);
-      ripng_distribute_update_interface (ifp);
-    }
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+    ripng_distribute_update_interface (ifp);
 }
 
 void
@@ -2986,11 +2979,8 @@ ripng_routemap_update (const char *unused)
   struct interface *ifp;
   struct listnode *node;
 
-  for (node = listhead (iflist); node; nextnode (node))
-    {
-      ifp = getdata (node);
-      ripng_if_rmap_update_interface (ifp);
-    }
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+    ripng_if_rmap_update_interface (ifp);
 
   ripng_routemap_update_redistribute ();
 }

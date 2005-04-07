@@ -53,10 +53,8 @@ ospf_dr_election_sub (struct list *routers)
 
   /* Choose highest router priority.
      In case of tie, choose highest Router ID. */
-  for (node = listhead (routers); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (routers, node, nbr))
     {
-      nbr = getdata (node);
-
       if (max == NULL)
 	max = nbr;
       else
@@ -82,10 +80,8 @@ ospf_elect_dr (struct ospf_interface *oi, struct list *el_list)
   dr_list = list_new ();
 
   /* Add neighbors to the list. */
-  for (node = listhead (el_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (el_list, node, nbr))
     {
-      nbr = getdata (node);
-
       /* neighbor declared to be DR. */
       if (NBR_IS_DR (nbr))
 	listnode_add (dr_list, nbr);
@@ -126,10 +122,8 @@ ospf_elect_bdr (struct ospf_interface *oi, struct list *el_list)
   no_dr_list = list_new ();
 
   /* Add neighbors to the list. */
-  for (node = listhead (el_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (el_list, node, nbr))
     {
-      nbr = getdata (node);
-
       /* neighbor declared to be DR. */
       if (NBR_IS_DR (nbr))
 	continue;

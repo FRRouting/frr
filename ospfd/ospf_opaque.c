@@ -371,10 +371,10 @@ ospf_register_opaque_functab (
     }
   else
     {
-      struct listnode *node;
+      struct listnode *node, *nnode;
       struct ospf_opaque_functab *functab;
       
-      LIST_LOOP (funclist, functab, node)
+      for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
         if (functab->opaque_type == opaque_type)
           {
             zlog_warn ("ospf_register_opaque_functab: Duplicated entry?:"
@@ -418,14 +418,13 @@ void
 ospf_delete_opaque_functab (u_char lsa_type, u_char opaque_type)
 {
   struct list *funclist;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
 
   if ((funclist = ospf_get_opaque_funclist (lsa_type)) != NULL)
-    for (node = listhead (funclist); node; nextnode (node))
+    for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
       {
-        if ((functab = getdata (node)) != NULL
-            && functab->opaque_type == opaque_type)
+        if (functab->opaque_type == opaque_type)
           {
             /* Cleanup internal control information, if it still remains. */
             if (functab->oipt != NULL)
@@ -455,7 +454,7 @@ ospf_opaque_functab_lookup (struct ospf_lsa *lsa)
   u_char key = GET_OPAQUE_TYPE (ntohl (lsa->data->id.s_addr));
 
   if ((funclist = ospf_get_opaque_funclist (lsa->data->type)) != NULL)
-    LIST_LOOP (funclist, functab, node)
+    for (ALL_LIST_ELEMENTS_RO (funclist, node, functab))
       if (functab->opaque_type == key)
         return functab;
 
@@ -588,13 +587,11 @@ free_opaque_info_per_type (void *val)
   struct opaque_info_per_type *oipt = (struct opaque_info_per_type *) val;
   struct opaque_info_per_id *oipi;
   struct ospf_lsa *lsa;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   /* Control information per opaque-id may still exist. */
-  for (node = listhead (oipt->id_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (oipt->id_list, node, nnode, oipi))
     {
-      if ((oipi = getdata (node)) == NULL)
-        continue;
       if ((lsa = oipi->lsa) == NULL)
         continue;
       if (IS_LSA_MAXAGE (lsa))
@@ -641,7 +638,7 @@ lookup_opaque_info_by_type (struct ospf_lsa *lsa)
   struct ospf_area *area;
   struct ospf_interface *oi;
   struct list *listtop = NULL;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct opaque_info_per_type *oipt = NULL;
   u_char key = GET_OPAQUE_TYPE (ntohl (lsa->data->id.s_addr));
 
@@ -674,7 +671,7 @@ lookup_opaque_info_by_type (struct ospf_lsa *lsa)
     }
 
   if (listtop != NULL)
-    LIST_LOOP (listtop, oipt, node)
+    for (ALL_LIST_ELEMENTS (listtop, node, nnode, oipt))
       if (oipt->opaque_type == key)
         return oipt;
 
@@ -720,11 +717,11 @@ static struct opaque_info_per_id *
 lookup_opaque_info_by_id (struct opaque_info_per_type *oipt,
                           struct ospf_lsa *lsa)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct opaque_info_per_id   *oipi;
   u_int32_t key = GET_OPAQUE_ID (ntohl (lsa->data->id.s_addr));
 
-  LIST_LOOP (oipt->id_list, oipi, node)
+  for (ALL_LIST_ELEMENTS (oipt->id_list, node, nnode, oipi))
     if (oipi->opaque_id == key)
       return oipi;
 
@@ -827,11 +824,11 @@ ospf_opaque_register_vty (void)
 static int
 opaque_lsa_new_if_callback (struct list *funclist, struct interface *ifp)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
   int rc = -1;
 
-  LIST_LOOP (funclist, functab, node)
+  for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
     if (functab->new_if_hook != NULL)
       if ((* functab->new_if_hook)(ifp) != 0)
         goto out;
@@ -843,11 +840,11 @@ out:
 static int
 opaque_lsa_del_if_callback (struct list *funclist, struct interface *ifp)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
   int rc = -1;
 
-  LIST_LOOP (funclist, functab, node)
+  for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
     if (functab->del_if_hook != NULL)
       if ((* functab->del_if_hook)(ifp) != 0)
         goto out;
@@ -860,10 +857,10 @@ static void
 opaque_lsa_ism_change_callback (struct list *funclist,
                                 struct ospf_interface *oi, int old_status)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
 
-  LIST_LOOP (funclist, functab, node)
+  for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
     if (functab->ism_change_hook != NULL)
       (* functab->ism_change_hook)(oi, old_status);
 
@@ -874,10 +871,10 @@ static void
 opaque_lsa_nsm_change_callback (struct list *funclist,
                                 struct ospf_neighbor *nbr, int old_status)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
 
-  LIST_LOOP (funclist, functab, node)
+  for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
     if (functab->nsm_change_hook != NULL)
       (* functab->nsm_change_hook)(nbr, old_status);
   return;
@@ -887,10 +884,10 @@ static void
 opaque_lsa_config_write_router_callback (struct list *funclist, 
                                          struct vty *vty)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
 
-  LIST_LOOP (funclist, functab, node)
+  for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
     if (functab->config_write_router != NULL)
       (* functab->config_write_router)(vty);
   return;
@@ -900,10 +897,10 @@ static void
 opaque_lsa_config_write_if_callback (struct list *funclist,
                                      struct vty *vty, struct interface *ifp)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
 
-  LIST_LOOP (funclist, functab, node)
+  for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
     if (functab->config_write_if != NULL)
       (* functab->config_write_if)(vty, ifp);
   return;
@@ -912,10 +909,10 @@ opaque_lsa_config_write_if_callback (struct list *funclist,
 static void
 opaque_lsa_config_write_debug_callback (struct list *funclist, struct vty *vty)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
 
-  LIST_LOOP (funclist, functab, node)
+  for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
     if (functab->config_write_debug != NULL)
       (* functab->config_write_debug)(vty);
   return;
@@ -924,11 +921,11 @@ opaque_lsa_config_write_debug_callback (struct list *funclist, struct vty *vty)
 static int
 opaque_lsa_originate_callback (struct list *funclist, void *lsa_type_dependent)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
   int rc = -1;
 
-  LIST_LOOP (funclist, functab, node)
+  for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
     if (functab->lsa_originator != NULL)
       if ((* functab->lsa_originator)(lsa_type_dependent) != 0)
          goto out;
@@ -940,12 +937,12 @@ out:
 static int
 new_lsa_callback (struct list *funclist, struct ospf_lsa *lsa)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
   int rc = -1;
 
   /* This function handles ALL types of LSAs, not only opaque ones. */
-  LIST_LOOP (funclist, functab, node)
+  for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
     if (functab->new_lsa_hook != NULL)
       if ((* functab->new_lsa_hook)(lsa) != 0)
         goto out;
@@ -957,12 +954,12 @@ out:
 static int
 del_lsa_callback (struct list *funclist, struct ospf_lsa *lsa)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_opaque_functab *functab;
   int rc = -1;
 
   /* This function handles ALL types of LSAs, not only opaque ones. */
-  LIST_LOOP (funclist, functab, node)
+  for (ALL_LIST_ELEMENTS (funclist, node, nnode, functab))
     if (functab->del_lsa_hook != NULL)
       if ((* functab->del_lsa_hook)(lsa) != 0)
         goto out;
@@ -1291,7 +1288,7 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
 {
   struct ospf *top;
   struct ospf_area *area;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct opaque_info_per_type *oipt;
   int delay = 0;
 
@@ -1381,7 +1378,7 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
   if (! list_isempty (ospf_opaque_type9_funclist)
   &&  ! list_isempty (oi->opaque_lsa_self))
     {
-      for (node = listhead (oi->opaque_lsa_self); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS (oi->opaque_lsa_self, node, nnode, oipt))
         {
 	  /* 
 	   * removed the test for
@@ -1389,9 +1386,8 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
            * because opaque cababilities ON -> OFF -> ON result in list_isempty (oipt->id_list)
 	   * not being empty.
 	   */
-          if ((oipt = getdata (node))  == NULL /* Something wrong? */
-          ||   oipt->t_opaque_lsa_self != NULL /* Waiting for a thread call. */
-          ||   oipt->status == PROC_SUSPEND)   /* Cannot originate now. */
+          if (oipt->t_opaque_lsa_self != NULL /* Waiting for a thread call. */
+              || oipt->status == PROC_SUSPEND)   /* Cannot originate now. */
               continue;
 
           ospf_opaque_lsa_reoriginate_schedule ((void *) oi,
@@ -1402,7 +1398,7 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
   if (! list_isempty (ospf_opaque_type10_funclist)
   &&  ! list_isempty (area->opaque_lsa_self))
     {
-      for (node = listhead (area->opaque_lsa_self); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS (area->opaque_lsa_self, node, nnode, oipt))
         {
 	  /* 
 	   * removed the test for
@@ -1410,9 +1406,8 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
            * because opaque cababilities ON -> OFF -> ON result in list_isempty (oipt->id_list)
 	   * not being empty.
 	   */
-          if ((oipt = getdata (node))  == NULL /* Something wrong? */
-          ||   oipt->t_opaque_lsa_self != NULL /* Waiting for a thread call. */
-          ||   oipt->status == PROC_SUSPEND)   /* Cannot originate now. */
+          if (oipt->t_opaque_lsa_self != NULL /* Waiting for a thread call. */
+              || oipt->status == PROC_SUSPEND)   /* Cannot originate now. */
             continue;
 
           ospf_opaque_lsa_reoriginate_schedule ((void *) area,
@@ -1423,7 +1418,7 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
   if (! list_isempty (ospf_opaque_type11_funclist)
   &&  ! list_isempty (top->opaque_lsa_self))
     {
-      for (node = listhead (top->opaque_lsa_self); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS (top->opaque_lsa_self, node, nnode, oipt))
         {
 	  /* 
 	   * removed the test for
@@ -1431,9 +1426,8 @@ ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *delay0)
            * because opaque cababilities ON -> OFF -> ON result in list_isempty (oipt->id_list)
 	   * not being empty.
 	   */
-          if ((oipt = getdata (node))  == NULL /* Something wrong? */
-          ||   oipt->t_opaque_lsa_self != NULL /* Waiting for a thread call. */
-          ||   oipt->status == PROC_SUSPEND)   /* Cannot originate now. */
+          if (oipt->t_opaque_lsa_self != NULL /* Waiting for a thread call. */
+              || oipt->status == PROC_SUSPEND)   /* Cannot originate now. */
             continue;
 
           ospf_opaque_lsa_reoriginate_schedule ((void *) top,
@@ -1504,7 +1498,7 @@ ospf_opaque_type11_lsa_originate (struct thread *t)
 static void
 ospf_opaque_lsa_reoriginate_resume (struct list *listtop, void *arg)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct opaque_info_per_type *oipt;
   struct ospf_opaque_functab *functab;
 
@@ -1515,7 +1509,7 @@ ospf_opaque_lsa_reoriginate_resume (struct list *listtop, void *arg)
    * Pickup oipt entries those which in SUSPEND status, and give
    * them a chance to start re-origination now.
    */
-  LIST_LOOP (listtop, oipt, node)
+  for (ALL_LIST_ELEMENTS (listtop, node, nnode, oipt))
     {
       if (oipt->status != PROC_SUSPEND)
           continue;
@@ -1889,7 +1883,7 @@ ospf_opaque_type10_lsa_reoriginate_timer (struct thread *t)
 {
   struct opaque_info_per_type *oipt;
   struct ospf_opaque_functab *functab;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf *top;
   struct ospf_area *area;
   struct ospf_interface *oi;
@@ -1914,7 +1908,7 @@ ospf_opaque_type10_lsa_reoriginate_timer (struct thread *t)
 
   /* There must be at least one "opaque-capable, full-state" neighbor. */
   n = 0;
-  LIST_LOOP (area->oiflist, oi, node)
+  for (ALL_LIST_ELEMENTS (area->oiflist, node, nnode, oi))
     {
       if ((n = ospf_nbr_count_opaque_capable (oi)) > 0)
         break;
@@ -2144,7 +2138,8 @@ ospf_opaque_adjust_lsreq (struct ospf_neighbor *nbr, struct list *lsas)
   struct ospf *top;
   struct ospf_area *area;
   struct ospf_interface *oi;
-  struct listnode *node1, *node2;
+  struct listnode *node1, *nnode1;
+  struct listnode *node2, *nnode2;
   struct ospf_lsa *lsa;
 
   if ((top = oi_to_top (nbr->oi)) == NULL)
@@ -2161,11 +2156,8 @@ ospf_opaque_adjust_lsreq (struct ospf_neighbor *nbr, struct list *lsas)
    * Obviously, the latter would trigger miserable situations that repeat
    * installation and removal of unwanted LSAs indefinitely.
    */
-  for (node1 = listhead (lsas); node1; nextnode (node1))
+  for (ALL_LIST_ELEMENTS (lsas, node1, nnode1, lsa))
     {
-      if ((lsa = getdata (node1)) == NULL)
-        continue;
-
       /* Filter out unwanted LSAs. */
       if (! IS_OPAQUE_LSA (lsa->data->type))
         continue;
@@ -2198,20 +2190,12 @@ ospf_opaque_adjust_lsreq (struct ospf_neighbor *nbr, struct list *lsas)
           break;
         case OSPF_OPAQUE_AREA_LSA:
           area = nbr->oi->area;
-          for (node2 = listhead (area->oiflist); node2; nextnode (node2))
-            {
-              if ((oi = getdata (node2)) == NULL)
-                continue;
-              ospf_opaque_exclude_lsa_from_lsreq (oi->nbrs, nbr, lsa);
-            }
+          for (ALL_LIST_ELEMENTS (area->oiflist, node2, nnode2, oi))
+            ospf_opaque_exclude_lsa_from_lsreq (oi->nbrs, nbr, lsa);
           break;
         case OSPF_OPAQUE_AS_LSA:
-          for (node2 = listhead (top->oiflist); node2; nextnode (node2))
-            {
-              if ((oi = getdata (node2)) == NULL)
-                continue;
-              ospf_opaque_exclude_lsa_from_lsreq (oi->nbrs, nbr, lsa);
-            }
+          for (ALL_LIST_ELEMENTS (top->oiflist, node2, nnode2, oi))
+            ospf_opaque_exclude_lsa_from_lsreq (oi->nbrs, nbr, lsa);
           break;
         default:
           break;
@@ -2264,13 +2248,8 @@ ospf_opaque_self_originated_lsa_received (struct ospf_neighbor *nbr,
 
   before = IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque);
 
-  for (node = listhead (lsas); node; node = next)
+  for (ALL_LIST_ELEMENTS (lsas, node, next, lsa))
     {
-      next = node->next;
-
-      if ((lsa = getdata (node)) == NULL)
-        continue;
-
       listnode_delete (lsas, lsa);
 
       /*
@@ -2314,14 +2293,14 @@ void
 ospf_opaque_ls_ack_received (struct ospf_neighbor *nbr, struct list *acks)
 {
   struct ospf *top;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_lsa *lsa;
   char type9_lsa_rcv = 0, type10_lsa_rcv = 0, type11_lsa_rcv = 0;
 
   if ((top = oi_to_top (nbr->oi)) == NULL)
     goto out;
 
-  LIST_LOOP (acks, lsa, node)
+  for (ALL_LIST_ELEMENTS (acks, node, nnode, lsa))
     {
       switch (lsa->data->type)
         {
@@ -2372,7 +2351,7 @@ ospf_opaque_ls_ack_received (struct ospf_neighbor *nbr, struct list *acks)
       /* Ok, let's start origination of Opaque-LSAs. */
       delay = OSPF_MIN_LS_INTERVAL;
 
-      LIST_LOOP (top->oiflist, oi, node)
+      for (ALL_LIST_ELEMENTS (top->oiflist, node, nnode, oi))
         {
           if (! ospf_if_is_enable (oi)
               || ospf_nbr_count_opaque_capable (oi) == 0)
@@ -2409,13 +2388,10 @@ ospf_opaque_type10_lsa_rxmt_nbr_check (struct ospf_area *area)
   struct ospf_interface *oi;
   unsigned long n = 0;
 
-  for (node = listhead (area->oiflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (area->oiflist, node, oi))
     {
-      if ((oi = getdata (node)) == NULL)
-        continue;
-
       if (area->area_id.s_addr != OSPF_AREA_BACKBONE
-      &&  oi->type == OSPF_IFTYPE_VIRTUALLINK) 
+          && oi->type == OSPF_IFTYPE_VIRTUALLINK) 
         continue;
 
       n = ospf_opaque_nrxmt_self (oi->nbrs, OSPF_OPAQUE_AREA_LSA);
@@ -2441,11 +2417,8 @@ ospf_opaque_type11_lsa_rxmt_nbr_check (struct ospf *top)
   struct ospf_interface *oi;
   unsigned long n = 0;
 
-  for (node = listhead (top->oiflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (top->oiflist, node, oi))
     {
-      if ((oi = getdata (node)) == NULL)
-        continue;
-
       switch (oi->type)
         {
         case OSPF_IFTYPE_VIRTUALLINK:

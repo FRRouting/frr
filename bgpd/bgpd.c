@@ -160,7 +160,7 @@ int
 bgp_router_id_set (struct bgp *bgp, struct in_addr *id)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (bgp_config_check (bgp, BGP_CONFIG_ROUTER_ID)
       && IPV4_ADDR_SAME (&bgp->router_id, id))
@@ -170,7 +170,7 @@ bgp_router_id_set (struct bgp *bgp, struct in_addr *id)
   bgp_config_set (bgp, BGP_CONFIG_ROUTER_ID);
 
   /* Set all peer's local identifier with this value. */
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       IPV4_ADDR_COPY (&peer->local_id, id);
 
@@ -189,7 +189,7 @@ int
 bgp_cluster_id_set (struct bgp *bgp, struct in_addr *cluster_id)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (bgp_config_check (bgp, BGP_CONFIG_CLUSTER_ID)
       && IPV4_ADDR_SAME (&bgp->cluster_id, cluster_id))
@@ -199,7 +199,7 @@ bgp_cluster_id_set (struct bgp *bgp, struct in_addr *cluster_id)
   bgp_config_set (bgp, BGP_CONFIG_CLUSTER_ID);
 
   /* Clear all IBGP peer. */
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (peer_sort (peer) != BGP_PEER_IBGP)
 	continue;
@@ -218,7 +218,7 @@ int
 bgp_cluster_id_unset (struct bgp *bgp)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! bgp_config_check (bgp, BGP_CONFIG_CLUSTER_ID))
     return 0;
@@ -227,7 +227,7 @@ bgp_cluster_id_unset (struct bgp *bgp)
   bgp_config_unset (bgp, BGP_CONFIG_CLUSTER_ID);
 
   /* Clear all IBGP peer. */
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (peer_sort (peer) != BGP_PEER_IBGP)
 	continue;
@@ -267,7 +267,7 @@ int
 bgp_confederation_id_set (struct bgp *bgp, as_t as)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   int already_confed;
 
   if (as == 0)
@@ -281,7 +281,7 @@ bgp_confederation_id_set (struct bgp *bgp, as_t as)
   /* If we were doing confederation already, this is just an external
      AS change.  Just Reset EBGP sessions, not CONFED sessions.  If we
      were not doing confederation before, reset all EBGP sessions.  */
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       /* We're looking for peers who's AS is not local or part of our
 	 confederation.  */
@@ -328,12 +328,12 @@ int
 bgp_confederation_id_unset (struct bgp *bgp)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   bgp->confed_id = 0;
   bgp_config_unset (bgp, BGP_CONFIG_CONFEDERATION);
       
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       /* We're looking for peers who's AS is not local */
       if (peer_sort (peer) != BGP_PEER_IBGP)
@@ -374,7 +374,7 @@ int
 bgp_confederation_peers_add (struct bgp *bgp, as_t as)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! bgp)
     return BGP_ERR_INVALID_BGP;
@@ -398,7 +398,7 @@ bgp_confederation_peers_add (struct bgp *bgp, as_t as)
 
   if (bgp_config_check (bgp, BGP_CONFIG_CONFEDERATION))
     {
-      LIST_LOOP (bgp->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  if (peer->as == as)
 	    {
@@ -424,7 +424,7 @@ bgp_confederation_peers_remove (struct bgp *bgp, as_t as)
   int i;
   int j;
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! bgp)
     return -1;
@@ -454,7 +454,7 @@ bgp_confederation_peers_remove (struct bgp *bgp, as_t as)
      CONFED */
   if (bgp_config_check (bgp, BGP_CONFIG_CONFEDERATION))
     {
-      LIST_LOOP (bgp->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  if (peer->as == as)
 	    {
@@ -980,13 +980,13 @@ peer_deactivate (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct peer_group *group;
   struct peer *peer1;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
       group = peer->group;
 
-      LIST_LOOP (group->peer, peer1, nn)
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer1))
 	{
 	  if (peer1->af_group[afi][safi])
 	    return BGP_ERR_PEER_GROUP_MEMBER_EXISTS;
@@ -1233,9 +1233,9 @@ struct peer_group *
 peer_group_lookup (struct bgp *bgp, const char *name)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (bgp->group, group, nn)
+  for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
     {
       if (strcmp (group->name, name) == 0)
 	return group;
@@ -1528,7 +1528,7 @@ peer_group_remote_as (struct bgp *bgp, const char *group_name, as_t *as)
 {
   struct peer_group *group;
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   group = peer_group_lookup (bgp, group_name);
   if (! group)
@@ -1541,7 +1541,7 @@ peer_group_remote_as (struct bgp *bgp, const char *group_name, as_t *as)
      number must be updated to same number.  */
   peer_as_change (group->conf, *as);
 
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       if (peer->as != *as)
 	peer_as_change (peer, *as);
@@ -1555,11 +1555,11 @@ peer_group_delete (struct peer_group *group)
 {
   struct bgp *bgp;
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   bgp = group->bgp;
 
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       peer->group = NULL;
       peer_delete (peer);
@@ -1584,12 +1584,12 @@ int
 peer_group_remote_as_delete (struct peer_group *group)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! group->conf->as)
     return 0;
 
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       peer->group = NULL;
       peer_delete (peer);
@@ -1819,7 +1819,7 @@ struct bgp *
 bgp_get_default ()
 {
   if (bm->bgp->head)
-    return bm->bgp->head->data;
+    return (listgetdata (listhead (bm->bgp)));
   return NULL;
 }
 
@@ -1828,9 +1828,9 @@ struct bgp *
 bgp_lookup (as_t as, const char *name)
 {
   struct bgp *bgp;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     if (bgp->as == as
 	&& ((bgp->name == NULL && name == NULL) 
 	    || (bgp->name && name && strcmp (bgp->name, name) == 0)))
@@ -1843,9 +1843,9 @@ struct bgp *
 bgp_lookup_by_name (const char *name)
 {
   struct bgp *bgp;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     if ((bgp->name == NULL && name == NULL)
 	|| (bgp->name && name && strcmp (bgp->name, name) == 0))
       return bgp;
@@ -1912,7 +1912,7 @@ int
 bgp_delete (struct bgp *bgp)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node;
   struct listnode *next;
   afi_t afi;
   safi_t safi;
@@ -1930,12 +1930,8 @@ bgp_delete (struct bgp *bgp)
   bgp->group->del = (void (*)(void *)) peer_group_delete;
   list_delete (bgp->group);
 
-  for (nn = bgp->peer->head; nn; nn = next)
-    {
-      peer = nn->data;
-      next = nn->next;
-      peer_delete (peer);
-    }
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
+    peer_delete (peer);
 
   bgp->rsclient->del = (void (*)(void *)) peer_delete;
   list_delete (bgp->rsclient);
@@ -1964,7 +1960,7 @@ struct peer *
 peer_lookup (struct bgp *bgp, union sockunion *su)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! bgp)
     bgp = bgp_get_default ();
@@ -1972,7 +1968,7 @@ peer_lookup (struct bgp *bgp, union sockunion *su)
   if (! bgp)
     return NULL;
   
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (sockunion_same (&peer->su, su)
 	  && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
@@ -1986,14 +1982,14 @@ peer_lookup_with_open (union sockunion *su, as_t remote_as,
 		       struct in_addr *remote_id, int *as)
 {
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct bgp *bgp;
 
   bgp = bgp_get_default ();
   if (! bgp)
     return NULL;
 
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (sockunion_same (&peer->su, su)
 	  && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
@@ -2005,7 +2001,7 @@ peer_lookup_with_open (union sockunion *su, as_t remote_as,
 	    *as = 1;
 	}
     }
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (sockunion_same (&peer->su, su)
 	  &&  ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
@@ -2231,7 +2227,7 @@ peer_flag_modify (struct peer *peer, u_int32_t flag, int set)
   int found;
   int size;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct peer_flag_action action;
 
   memset (&action, 0, sizeof (struct peer_flag_action));
@@ -2288,7 +2284,7 @@ peer_flag_modify (struct peer *peer, u_int32_t flag, int set)
   /* peer-group member updates. */
   group = peer->group;
 
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       if (set && CHECK_FLAG (peer->flags, flag) == flag)
 	continue;
@@ -2333,7 +2329,7 @@ peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
 {
   int found;
   int size;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct peer_group *group;
   struct peer_flag_action action;
 
@@ -2411,7 +2407,7 @@ peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
     {
       group = peer->group;
       
-      LIST_LOOP (group->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
 	{
 	  if (! peer->af_group[afi][safi])
 	    continue;
@@ -2467,7 +2463,7 @@ int
 peer_ebgp_multihop_set (struct peer *peer, int ttl)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (peer_sort (peer) == BGP_PEER_IBGP)
     return 0;
@@ -2482,7 +2478,7 @@ peer_ebgp_multihop_set (struct peer *peer, int ttl)
   else
     {
       group = peer->group;
-      LIST_LOOP (group->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
 	{
 	  if (peer_sort (peer) == BGP_PEER_IBGP)
 	    continue;
@@ -2500,7 +2496,7 @@ int
 peer_ebgp_multihop_unset (struct peer *peer)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (peer_sort (peer) == BGP_PEER_IBGP)
     return 0;
@@ -2518,7 +2514,7 @@ peer_ebgp_multihop_unset (struct peer *peer)
   else
     {
       group = peer->group;
-      LIST_LOOP (group->peer, peer, nn)
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
 	{
 	  if (peer_sort (peer) == BGP_PEER_IBGP)
 	    continue;
@@ -2560,7 +2556,7 @@ int
 peer_update_source_if_set (struct peer *peer, const char *ifname)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (peer->update_if)
     {
@@ -2595,7 +2591,7 @@ peer_update_source_if_set (struct peer *peer, const char *ifname)
 
   /* peer-group member updates. */
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       if (peer->update_if)
 	{
@@ -2630,7 +2626,7 @@ int
 peer_update_source_addr_set (struct peer *peer, union sockunion *su)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (peer->update_source)
     {
@@ -2664,7 +2660,7 @@ peer_update_source_addr_set (struct peer *peer, union sockunion *su)
 
   /* peer-group member updates. */
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       if (peer->update_source)
 	{
@@ -2699,7 +2695,7 @@ peer_update_source_unset (struct peer *peer)
 {
   union sockunion *su;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP)
       && ! peer->update_source
@@ -2746,7 +2742,7 @@ peer_update_source_unset (struct peer *peer)
 
   /* peer-group member updates. */
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       if (! peer->update_source && ! peer->update_if)
 	continue;
@@ -2780,7 +2776,7 @@ peer_default_originate_set (struct peer *peer, afi_t afi, safi_t safi,
 			    const char *rmap)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   /* Adress family must be activated.  */
   if (! peer->afc[afi][safi])
@@ -2814,7 +2810,7 @@ peer_default_originate_set (struct peer *peer, afi_t afi, safi_t safi,
 
   /* peer-group member updates. */
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       SET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE);
 
@@ -2836,7 +2832,7 @@ int
 peer_default_originate_unset (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   /* Adress family must be activated.  */
   if (! peer->afc[afi][safi])
@@ -2865,7 +2861,7 @@ peer_default_originate_unset (struct peer *peer, afi_t afi, safi_t safi)
 
   /* peer-group member updates. */
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       UNSET_FLAG (peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE);
 
@@ -2899,7 +2895,7 @@ int
 peer_weight_set (struct peer *peer, u_int16_t weight)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   SET_FLAG (peer->config, PEER_CONFIG_WEIGHT);
   peer->weight = weight;
@@ -2909,7 +2905,7 @@ peer_weight_set (struct peer *peer, u_int16_t weight)
 
   /* peer-group member updates. */
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       peer->weight = group->conf->weight;
     }
@@ -2920,7 +2916,7 @@ int
 peer_weight_unset (struct peer *peer)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   /* Set default weight. */
   if (peer_group_active (peer))
@@ -2935,7 +2931,7 @@ peer_weight_unset (struct peer *peer)
 
   /* peer-group member updates. */
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       peer->weight = 0;
     }
@@ -2946,7 +2942,7 @@ int
 peer_timers_set (struct peer *peer, u_int32_t keepalive, u_int32_t holdtime)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   /* Not for peer group memeber.  */
   if (peer_group_active (peer))
@@ -2974,7 +2970,7 @@ peer_timers_set (struct peer *peer, u_int32_t keepalive, u_int32_t holdtime)
 
   /* peer-group member updates. */
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       SET_FLAG (peer->config, PEER_CONFIG_TIMER);
       peer->holdtime = group->conf->holdtime;
@@ -2987,7 +2983,7 @@ int
 peer_timers_unset (struct peer *peer)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (peer_group_active (peer))
     return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
@@ -3002,7 +2998,7 @@ peer_timers_unset (struct peer *peer)
 
   /* peer-group member updates. */
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       UNSET_FLAG (peer->config, PEER_CONFIG_TIMER);
       peer->holdtime = 0;
@@ -3106,7 +3102,7 @@ int
 peer_allowas_in_set (struct peer *peer, afi_t afi, safi_t safi, int allow_num)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (allow_num < 1 || allow_num > 10)
     return BGP_ERR_INVALID_VALUE;
@@ -3122,7 +3118,7 @@ peer_allowas_in_set (struct peer *peer, afi_t afi, safi_t safi, int allow_num)
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       if (peer->allowas_in[afi][safi] != allow_num)
 	{
@@ -3139,7 +3135,7 @@ int
 peer_allowas_in_unset (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN))
     {
@@ -3151,7 +3147,7 @@ peer_allowas_in_unset (struct peer *peer, afi_t afi, safi_t safi)
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_ALLOWAS_IN))
 	{
@@ -3167,7 +3163,7 @@ peer_local_as_set (struct peer *peer, as_t as, int no_prepend)
 {
   struct bgp *bgp = peer->bgp;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (peer_sort (peer) != BGP_PEER_EBGP
       && peer_sort (peer) != BGP_PEER_INTERNAL)
@@ -3205,7 +3201,7 @@ peer_local_as_set (struct peer *peer, as_t as, int no_prepend)
     }
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       peer->change_local_as = as;
       if (no_prepend)
@@ -3230,7 +3226,7 @@ int
 peer_local_as_unset (struct peer *peer)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (peer_group_active (peer))
     return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
@@ -3256,7 +3252,7 @@ peer_local_as_unset (struct peer *peer)
     }
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       peer->change_local_as = 0;
       UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
@@ -3280,7 +3276,7 @@ peer_distribute_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 {
   struct bgp_filter *filter;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3305,7 +3301,7 @@ peer_distribute_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       filter = &peer->filter[afi][safi];
 
@@ -3327,7 +3323,7 @@ peer_distribute_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
   struct bgp_filter *filter;
   struct bgp_filter *gfilter;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3364,7 +3360,7 @@ peer_distribute_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
     return 0;
 
     group = peer->group;
-    LIST_LOOP (group->peer, peer, nn)
+    for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
       {
 	filter = &peer->filter[afi][safi];
 
@@ -3387,15 +3383,16 @@ peer_distribute_update (struct access_list *access)
   afi_t afi;
   safi_t safi;
   int direct;
-  struct listnode *nn, *nm;
+  struct listnode *mnode, *mnnode;
+  struct listnode *node, *nnode;
   struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
   struct bgp_filter *filter;
 
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
-      LIST_LOOP (bgp->peer, peer, nm)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -3412,7 +3409,7 @@ peer_distribute_update (struct access_list *access)
 		  }
 	      }
 	}
-      LIST_LOOP (bgp->group, group, nm)
+      for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
 	{
 	  for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -3439,7 +3436,7 @@ peer_prefix_list_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 {
   struct bgp_filter *filter;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3464,7 +3461,7 @@ peer_prefix_list_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       filter = &peer->filter[afi][safi];
 
@@ -3485,7 +3482,7 @@ peer_prefix_list_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
   struct bgp_filter *filter;
   struct bgp_filter *gfilter;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3522,7 +3519,7 @@ peer_prefix_list_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       filter = &peer->filter[afi][safi];
 
@@ -3542,7 +3539,8 @@ peer_prefix_list_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 void
 peer_prefix_list_update (struct prefix_list *plist)
 {
-  struct listnode *nn, *nm;
+  struct listnode *mnode, *mnnode;
+  struct listnode *node, *nnode;
   struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
@@ -3551,9 +3549,9 @@ peer_prefix_list_update (struct prefix_list *plist)
   safi_t safi;
   int direct;
 
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
-      LIST_LOOP (bgp->peer, peer, nm)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -3570,7 +3568,7 @@ peer_prefix_list_update (struct prefix_list *plist)
 		  }
 	      }
 	}
-      LIST_LOOP (bgp->group, group, nm)
+      for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
 	{
 	  for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -3596,7 +3594,7 @@ peer_aslist_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 {
   struct bgp_filter *filter;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3618,7 +3616,7 @@ peer_aslist_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       filter = &peer->filter[afi][safi];
 
@@ -3639,7 +3637,7 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
   struct bgp_filter *filter;
   struct bgp_filter *gfilter;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3678,7 +3676,7 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       filter = &peer->filter[afi][safi];
 
@@ -3700,15 +3698,16 @@ peer_aslist_update ()
   afi_t afi;
   safi_t safi;
   int direct;
-  struct listnode *nn, *nm;
+  struct listnode *mnode, *mnnode;
+  struct listnode *node, *nnode;
   struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
   struct bgp_filter *filter;
 
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
-      LIST_LOOP (bgp->peer, peer, nm)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -3725,7 +3724,7 @@ peer_aslist_update ()
 		  }
 	      }
 	}
-      LIST_LOOP (bgp->group, group, nm)
+      for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
 	{
 	  for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -3752,7 +3751,7 @@ peer_route_map_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 {
   struct bgp_filter *filter;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3777,7 +3776,7 @@ peer_route_map_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       filter = &peer->filter[afi][safi];
 
@@ -3799,7 +3798,7 @@ peer_route_map_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
   struct bgp_filter *filter;
   struct bgp_filter *gfilter;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3836,7 +3835,7 @@ peer_route_map_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       filter = &peer->filter[afi][safi];
 
@@ -3858,7 +3857,7 @@ peer_unsuppress_map_set (struct peer *peer, afi_t afi, safi_t safi,
 {
   struct bgp_filter *filter;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3878,7 +3877,7 @@ peer_unsuppress_map_set (struct peer *peer, afi_t afi, safi_t safi,
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       filter = &peer->filter[afi][safi];
 
@@ -3899,7 +3898,7 @@ peer_unsuppress_map_unset (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct bgp_filter *filter;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3918,7 +3917,7 @@ peer_unsuppress_map_unset (struct peer *peer, afi_t afi, safi_t safi)
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       filter = &peer->filter[afi][safi];
 
@@ -3939,7 +3938,7 @@ peer_maximum_prefix_set (struct peer *peer, afi_t afi, safi_t safi,
 			 int warning, u_int16_t restart)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -3957,7 +3956,7 @@ peer_maximum_prefix_set (struct peer *peer, afi_t afi, safi_t safi,
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       if (! peer->af_group[afi][safi])
 	continue;
@@ -3978,7 +3977,7 @@ int
 peer_maximum_prefix_unset (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
@@ -4014,7 +4013,7 @@ peer_maximum_prefix_unset (struct peer *peer, afi_t afi, safi_t safi)
     return 0;
 
   group = peer->group;
-  LIST_LOOP (group->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
     {
       if (! peer->af_group[afi][safi])
 	continue;
@@ -4606,13 +4605,13 @@ bgp_config_write_family (struct vty *vty, struct bgp *bgp, afi_t afi,
   int write = 0;
   struct peer *peer;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   bgp_config_write_network (vty, bgp, afi, safi, &write);
 
   bgp_config_write_redistribute (vty, bgp, afi, safi, &write);
 
-  LIST_LOOP (bgp->group, group, nn)
+  for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
     {
       if (group->conf->afc[afi][safi])
 	{
@@ -4620,7 +4619,7 @@ bgp_config_write_family (struct vty *vty, struct bgp *bgp, afi_t afi,
 	  bgp_config_write_peer (vty, bgp, group->conf, afi, safi);
 	}
     }
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (peer->afc[afi][safi])
 	{
@@ -4644,7 +4643,8 @@ bgp_config_write (struct vty *vty)
   struct bgp *bgp;
   struct peer_group *group;
   struct peer *peer;
-  struct listnode *nn, *nm, *no;
+  struct listnode *node, *nnode;
+  struct listnode *mnode, *mnnode;
 
   /* BGP Multiple instance. */
   if (bgp_option_check (BGP_OPT_MULTIPLE_INSTANCE))
@@ -4661,7 +4661,7 @@ bgp_config_write (struct vty *vty)
     }
 
   /* BGP configuration. */
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
       if (write)
 	vty_out (vty, "!%s", VTY_NEWLINE);
@@ -4789,13 +4789,13 @@ bgp_config_write (struct vty *vty)
 		 bgp->default_holdtime, VTY_NEWLINE);
 
       /* peer-group */
-      LIST_LOOP (bgp->group, group, nm)
+      for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
 	{
 	  bgp_config_write_peer (vty, bgp, group->conf, AFI_IP, SAFI_UNICAST);
 	}
 
       /* Normal neighbor configuration. */
-      LIST_LOOP (bgp->peer, peer, no)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
 	    bgp_config_write_peer (vty, bgp, peer, AFI_IP, SAFI_UNICAST);
@@ -4887,15 +4887,15 @@ bgp_terminate ()
 {
   struct bgp *bgp;
   struct peer *peer;
-  struct listnode *nn;
-  struct listnode *mm;
+  struct listnode *node, *nnode;
+  struct listnode *mnode, *mnnode;
 
-  LIST_LOOP (bm->bgp, bgp, nn)
-    LIST_LOOP (bgp->peer, peer, mm)
+  for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
+    for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
       if (peer->status == Established)
           bgp_notify_send (peer, BGP_NOTIFY_CEASE,
                            BGP_NOTIFY_CEASE_PEER_UNCONFIG);
-
+  
   bgp_cleanup_routes ();
 }
 

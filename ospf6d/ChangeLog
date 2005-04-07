@@ -1,3 +1,13 @@
+2005-04-07 Paul Jakma <paul@dishone.st>
+
+	* (global) Fix up list loops to match changes in lib/linklist,
+	  and some basic auditing of usage.
+	* ospf6_abr.c: (ospf6_abr_examin_brouter) change to a single
+	  scan of the area list, rather than scanning all areas first for
+	  INTER_ROUTER and then again for INTER_NETWORK. According to
+	  16.2, the scan should be area specific anyway, and further
+	  ospf6d does not seem to implement 16.3 anyway.
+
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf6_interface.[ch]: (ospf6_interface_lookup_by_name) Remove unused

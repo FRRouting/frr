@@ -108,7 +108,7 @@ route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
   union sockunion *su2;
   struct peer_group *group;
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (type == RMAP_BGP)
     {
@@ -147,7 +147,7 @@ route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
       else
         {
           group = peer->group;
-          LIST_LOOP (group->peer, peer, nn)
+          for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
             {
               if (sockunion_same (su, &peer->su))
                 return RMAP_MATCH;
@@ -2181,7 +2181,8 @@ bgp_route_map_update (const char *unused)
   afi_t afi;
   safi_t safi;
   int direct;
-  struct listnode *nn, *nm;
+  struct listnode *node, *nnode;
+  struct listnode *mnode, *mnnode;
   struct bgp *bgp;
   struct peer *peer;
   struct peer_group *group;
@@ -2190,9 +2191,9 @@ bgp_route_map_update (const char *unused)
   struct bgp_static *bgp_static;
 
   /* For neighbor route-map updates. */
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
-      LIST_LOOP (bgp->peer, peer, nm)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -2214,7 +2215,7 @@ bgp_route_map_update (const char *unused)
 		  filter->usmap.map = NULL;
 	      }
 	}
-      LIST_LOOP (bgp->group, group, nm)
+      for (ALL_LIST_ELEMENTS (bgp->group, node, nnode, group))
 	{
 	  for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -2239,9 +2240,9 @@ bgp_route_map_update (const char *unused)
     }
 
   /* For default-originate route-map updates. */
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
-      LIST_LOOP (bgp->peer, peer, nm)
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -2256,7 +2257,7 @@ bgp_route_map_update (const char *unused)
     }
 
   /* For network route-map updates. */
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
       for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
@@ -2273,7 +2274,7 @@ bgp_route_map_update (const char *unused)
     }
 
   /* For redistribute route-map updates. */
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
       for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 	{

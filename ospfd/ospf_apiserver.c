@@ -83,15 +83,14 @@ struct list *apiserver_list;
 struct ospf_interface *
 ospf_apiserver_if_lookup_by_addr (struct in_addr address)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_interface *oi;
   struct ospf *ospf;
 
   if (!(ospf = ospf_lookup ()))
     return NULL;
 
-  for (node = listhead (ospf->oiflist); node; nextnode (node))
-  LIST_LOOP (ospf->oiflist, oi, node)
+  for (ALL_LIST_ELEMENTS (ospf->oiflist, node, nnode, oi))
     if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
       if (IPV4_ADDR_SAME (&address, &oi->address->u.prefix4))
         return oi;
@@ -102,14 +101,14 @@ ospf_apiserver_if_lookup_by_addr (struct in_addr address)
 struct ospf_interface *
 ospf_apiserver_if_lookup_by_ifp (struct interface *ifp)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_interface *oi;
   struct ospf *ospf;
 
   if (!(ospf = ospf_lookup ()));
     return NULL;
 
-  LIST_LOOP (ospf->oiflist, oi, node)
+  for (ALL_LIST_ELEMENTS (ospf->oiflist, node, nnode, oi))
     if (oi->ifp == ifp)
       return oi;
 
@@ -190,7 +189,7 @@ ospf_apiserver_term (void)
    * Free all client instances.  ospf_apiserver_free removes the node
    * from the list, so we examine the head of the list anew each time.
    */
-  while ( (apiserv = getdata (listhead (apiserver_list))) != NULL)
+  while ( (apiserv = listgetdata (listhead (apiserver_list))) != NULL)
     ospf_apiserver_free (apiserv);
 
   /* Free client list itself */
@@ -208,20 +207,14 @@ lookup_apiserver (u_char lsa_type, u_char opaque_type)
   struct ospf_apiserver *apiserv, *found = NULL;
 
   /* XXX: this approaches O(n**2) */
-  for (n1 = listhead (apiserver_list); n1; nextnode (n1))
+  for (ALL_LIST_ELEMENTS_RO (apiserver_list, n1, apiserv))
     {
-      apiserv = (struct ospf_apiserver *) getdata (n1);
-
-      for (n2 = listhead (apiserv->opaque_types); n2; nextnode (n2))
-	{
-	  r = (struct registered_opaque_type *) getdata (n2);
-
-          if (r->lsa_type == lsa_type && r->opaque_type == opaque_type)
-            {
-              found = apiserv;
-              goto out;
-            }
-	}
+      for (ALL_LIST_ELEMENTS_RO (apiserv->opaque_types, n2, r))
+        if (r->lsa_type == lsa_type && r->opaque_type == opaque_type)
+          {
+            found = apiserv;
+            goto out;
+          }
     }
 out:
   return found;
@@ -373,8 +366,7 @@ ospf_apiserver_free (struct ospf_apiserver *apiserv)
 
   while ((node = listhead (apiserv->opaque_types)) != NULL)
     {
-
-      struct registered_opaque_type *regtype = node->data;
+      struct registered_opaque_type *regtype = listgetdata(node);
 
       ospf_apiserver_unregister_opaque_type (apiserv, regtype->lsa_type,
 					     regtype->opaque_type);
@@ -964,15 +956,11 @@ int
 ospf_apiserver_unregister_opaque_type (struct ospf_apiserver *apiserv,
 				       u_char lsa_type, u_char opaque_type)
 {
-  struct listnode *n1, *n1_next;
+  struct listnode *node, *nnode;
   struct registered_opaque_type *regtype;
 
-  for (n1 = listhead (apiserv->opaque_types); n1; n1 = n1_next)
+  for (ALL_LIST_ELEMENTS (apiserv->opaque_types, node, nnode, regtype))
     {
-      n1_next = n1->next;
-      
-      regtype = (struct registered_opaque_type *) getdata(n1);
-
       /* Check if we really registered this opaque type */
       if (regtype->lsa_type == lsa_type &&
 	  regtype->opaque_type == opaque_type)
@@ -1008,11 +996,11 @@ int
 apiserver_is_opaque_type_registered (struct ospf_apiserver *apiserv,
 				     u_char lsa_type, u_char opaque_type)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct registered_opaque_type *regtype;
 
   /* XXX: how many types are there? if few, why not just a bitmap? */
-  LIST_LOOP (apiserv->opaque_types, regtype, node)
+  for (ALL_LIST_ELEMENTS (apiserv->opaque_types, node, nnode, regtype))
     {
       /* Check if we really registered this opaque type */
       if (regtype->lsa_type == lsa_type &&
@@ -1070,15 +1058,15 @@ out:
 void
 ospf_apiserver_notify_ready_type9 (struct ospf_apiserver *apiserv)
 {
-  struct listnode *node;
-  struct listnode *n2;
+  struct listnode *node, *nnode;
+  struct listnode *node2, *nnode2;
   struct ospf *ospf;
   struct ospf_interface *oi;
   struct registered_opaque_type *r;
 
   ospf = ospf_lookup ();
 
-  LIST_LOOP (ospf->oiflist, oi, node)
+  for (ALL_LIST_ELEMENTS (ospf->oiflist, node, nnode, oi))
     {
       /* Check if this interface is indeed ready for type 9 */
       if (!ospf_apiserver_is_ready_type9 (oi))
@@ -1086,7 +1074,7 @@ ospf_apiserver_notify_ready_type9 (struct ospf_apiserver *apiserv)
 
       /* Check for registered opaque type 9 types */
       /* XXX: loop-de-loop - optimise me */
-      LIST_LOOP (apiserv->opaque_types, r, n2)
+      for (ALL_LIST_ELEMENTS (apiserv->opaque_types, node2, nnode2, r))
 	{
 	  struct msg *msg;
 
@@ -1121,14 +1109,14 @@ out:
 void
 ospf_apiserver_notify_ready_type10 (struct ospf_apiserver *apiserv)
 {
-  struct listnode *node;
-  struct listnode *n2;
+  struct listnode *node, *nnode;
+  struct listnode *node2, *nnode2;
   struct ospf *ospf;
   struct ospf_area *area;
   
   ospf = ospf_lookup ();
 
-  LIST_LOOP (ospf->areas, area, node)
+  for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
     {
       struct registered_opaque_type *r;
       
@@ -1139,7 +1127,7 @@ ospf_apiserver_notify_ready_type10 (struct ospf_apiserver *apiserv)
 
       /* Check for registered opaque type 10 types */
       /* XXX: loop in loop - optimise me */
-      LIST_LOOP (apiserv->opaque_types, r, n2)
+      for (ALL_LIST_ELEMENTS (apiserv->opaque_types, node2, nnode2, r))
 	{
 	  struct msg *msg;
 	  
@@ -1172,7 +1160,7 @@ out:
 void
 ospf_apiserver_notify_ready_type11 (struct ospf_apiserver *apiserv)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf *ospf;
   struct registered_opaque_type *r;
 
@@ -1183,7 +1171,7 @@ ospf_apiserver_notify_ready_type11 (struct ospf_apiserver *apiserv)
     goto out;
 
   /* Check for registered opaque type 11 types */
-  LIST_LOOP (apiserv->opaque_types, r, node)
+  for (ALL_LIST_ELEMENTS (apiserv->opaque_types, node, nnode, r))
     {
       struct msg *msg;
       struct in_addr noarea_id = { 0L };
@@ -1350,16 +1338,15 @@ int
 ospf_apiserver_handle_sync_lsdb (struct ospf_apiserver *apiserv,
 				 struct msg *msg)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   u_int32_t seqnum;
   int rc = 0;
   struct msg_sync_lsdb *smsg;
-  struct param_t
+  struct ospf_apiserver_param_t
   {
     struct ospf_apiserver *apiserv;
     struct lsa_filter_type *filter;
-  }
-  param;
+  } param;
   u_int16_t mask;
   struct route_node *rn;
   struct ospf_lsa *lsa;
@@ -1381,7 +1368,7 @@ ospf_apiserver_handle_sync_lsdb (struct ospf_apiserver *apiserv,
   mask = ntohs (smsg->filter.typemask);
 
   /* Iterate over all areas. */
-  LIST_LOOP (ospf->areas, area, node)
+  for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
     {
       int i;
       u_int32_t *area_id = NULL;
@@ -1563,10 +1550,10 @@ ospf_apiserver_is_ready_type10 (struct ospf_area *area)
   /* Type 10 opaque LSA can be originated if there is at least one
      interface belonging to the area that has an active opaque-capable
      neighbor. */
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_interface *oi;
 
-  LIST_LOOP (area->oiflist, oi, node)
+  for (ALL_LIST_ELEMENTS (area->oiflist, node, nnode, oi))
     /* Is there an active neighbor attached to this interface? */
     if (ospf_apiserver_is_ready_type9 (oi))
       return 1;
@@ -1580,10 +1567,10 @@ ospf_apiserver_is_ready_type11 (struct ospf *ospf)
 {
   /* Type 11 opaque LSA can be originated if there is at least one interface
      that has an active opaque-capable neighbor. */
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_interface *oi;
 
-  LIST_LOOP (ospf->oiflist, oi, node)
+  for (ALL_LIST_ELEMENTS (ospf->oiflist, node, nnode, oi))
     /* Is there an active neighbor attached to this interface? */
     if (ospf_apiserver_is_ready_type9 (oi))
       return 1;
@@ -2050,7 +2037,7 @@ ospf_apiserver_flush_opaque_lsa (struct ospf_apiserver *apiserv,
     u_char lsa_type;
     u_char opaque_type;
   } param;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf * ospf;
   struct ospf_area *area;
   
@@ -2068,12 +2055,12 @@ ospf_apiserver_flush_opaque_lsa (struct ospf_apiserver *apiserv,
       struct ospf_lsa *lsa;
 
     case OSPF_OPAQUE_LINK_LSA:
-      LIST_LOOP (ospf->areas, area, node)
+      for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
         LSDB_LOOP (OPAQUE_LINK_LSDB (area), rn, lsa)
           apiserver_flush_opaque_type_callback(lsa, (void *) &param, 0);
       break;
     case OSPF_OPAQUE_AREA_LSA:
-      LIST_LOOP (ospf->areas, area, node)
+      for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
         LSDB_LOOP (OPAQUE_AREA_LSDB (area), rn, lsa)
           apiserver_flush_opaque_type_callback(lsa, (void *) &param, 0);
       break;
@@ -2253,11 +2240,11 @@ ospf_apiserver_show_info (struct vty *vty, struct ospf_lsa *lsa)
 void
 ospf_apiserver_clients_notify_all (struct msg *msg)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_apiserver *apiserv;
 
   /* Send message to all clients */
-  LIST_LOOP (apiserver_list, apiserv, node)
+  for (ALL_LIST_ELEMENTS (apiserver_list, node, nnode, apiserv))
     ospf_apiserver_send_msg (apiserv, msg);
 }
 
@@ -2266,7 +2253,7 @@ ospf_apiserver_clients_notify_all (struct msg *msg)
 void
 ospf_apiserver_clients_notify_ready_type9 (struct ospf_interface *oi)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct msg *msg;
   struct ospf_apiserver *apiserv;
 
@@ -2283,12 +2270,12 @@ ospf_apiserver_clients_notify_ready_type9 (struct ospf_interface *oi)
       return;
     }
 
-  LIST_LOOP (apiserver_list, apiserv, node)
+  for (ALL_LIST_ELEMENTS (apiserver_list, node, nnode, apiserv))
     {
-      struct listnode *n2;
+      struct listnode *node2, *nnode2;
       struct registered_opaque_type *r;
 
-      LIST_LOOP (apiserv->opaque_types, r, n2)
+      for (ALL_LIST_ELEMENTS (apiserv->opaque_types, node2, nnode2, r))
 	{
 	  if (r->lsa_type == OSPF_OPAQUE_LINK_LSA)
 	    {
@@ -2319,7 +2306,7 @@ out:
 void
 ospf_apiserver_clients_notify_ready_type10 (struct ospf_area *area)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct msg *msg;
   struct ospf_apiserver *apiserv;
 
@@ -2331,12 +2318,12 @@ ospf_apiserver_clients_notify_ready_type10 (struct ospf_area *area)
       return;
     }
 
-  LIST_LOOP (apiserver_list, apiserv, node)
+  for (ALL_LIST_ELEMENTS (apiserver_list, node, nnode, apiserv))
     {
-      struct listnode *n2;
+      struct listnode *node2, *nnode2;
       struct registered_opaque_type *r;
 
-      LIST_LOOP (apiserv->opaque_types, r, n2)
+      for (ALL_LIST_ELEMENTS (apiserv->opaque_types, node2, nnode2, r))
 	{
 	  if (r->lsa_type == OSPF_OPAQUE_AREA_LSA)
 	    {
@@ -2367,7 +2354,7 @@ out:
 void
 ospf_apiserver_clients_notify_ready_type11 (struct ospf *top)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct msg *msg;
   struct in_addr id_null = { 0L };
   struct ospf_apiserver *apiserv;
@@ -2380,12 +2367,12 @@ ospf_apiserver_clients_notify_ready_type11 (struct ospf *top)
       return;
     }
 
-  LIST_LOOP (apiserver_list, apiserv, node)
+  for (ALL_LIST_ELEMENTS (apiserver_list, node, nnode, apiserv))
     {
-      struct listnode *n2;
+      struct listnode *node2, *nnode2;
       struct registered_opaque_type *r;
 
-      LIST_LOOP (apiserv->opaque_types, r, n2)
+      for (ALL_LIST_ELEMENTS (apiserv->opaque_types, node2, nnode2, r))
 	{
 	  if (r->lsa_type == OSPF_OPAQUE_AS_LSA)
 	    {
@@ -2499,7 +2486,7 @@ void
 apiserver_clients_lsa_change_notify (u_char msgtype, struct ospf_lsa *lsa)
 {
   struct msg *msg;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_apiserver *apiserv;
 
   /* Default area for AS-External and Opaque11 LSAs */
@@ -2530,7 +2517,7 @@ apiserver_clients_lsa_change_notify (u_char msgtype, struct ospf_lsa *lsa)
     }
 
   /* Now send message to all clients with a matching filter */
-  LIST_LOOP (apiserver_list, apiserv, node)
+  for (ALL_LIST_ELEMENTS (apiserver_list, node, nnode, apiserv))
     {
       struct lsa_filter_type *filter;
       u_int16_t mask;

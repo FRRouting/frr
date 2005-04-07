@@ -62,10 +62,10 @@ ospf_find_abr_route (struct route_table *rtrs,
 
   route_unlock_node (rn);
 
-  for (node = listhead ((struct list *) rn->info); node; nextnode (node))
-    if ((or = getdata (node)) != NULL)
-      if (IPV4_ADDR_SAME (&or->u.std.area_id, &area->area_id) && (or->u.std.flags & ROUTER_LSA_BORDER))
-	return or;
+  for (ALL_LIST_ELEMENTS_RO ((struct list *) rn->info, node, or))
+    if (IPV4_ADDR_SAME (&or->u.std.area_id, &area->area_id) 
+        && (or->u.std.flags & ROUTER_LSA_BORDER))
+      return or;
 
   return NULL;
 }
@@ -637,11 +637,10 @@ ospf_ia_routing (struct ospf *ospf,
 
               OSPF_EXAMINE_SUMMARIES_ALL (area, rt, rtrs);
 
-	      for (node = listhead (ospf->areas); node; nextnode (node))
-                if ((area = getdata (node)) != NULL)
-                  if (area != ospf->backbone)
-		    if (ospf_area_is_transit (area))
-		      OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL (area, rt, rtrs);
+	      for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
+                if (area != ospf->backbone)
+                  if (ospf_area_is_transit (area))
+                    OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL (area, rt, rtrs);
             }
           else
 	    if (IS_DEBUG_OSPF_EVENT)
@@ -664,20 +663,18 @@ ospf_ia_routing (struct ospf *ospf,
 
               OSPF_EXAMINE_SUMMARIES_ALL (area, rt, rtrs);
 
-	      for (node = listhead (ospf->areas); node; nextnode (node))
-                if ((area = getdata (node)) != NULL)
-                  if (area != ospf->backbone)
-		    if (ospf_area_is_transit (area))
-		      OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL (area, rt, rtrs);
+	      for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
+                if (area != ospf->backbone)
+                  if (ospf_area_is_transit (area))
+                    OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL (area, rt, rtrs);
             }
           else
             { /* No active BB connection--consider all areas */
 	      if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug ("ospf_ia_routing(): "
 			   "Active BB connection not found");
-	      for (node = listhead (ospf->areas); node; nextnode (node))
-                if ((area = getdata (node)) != NULL)
-                  OSPF_EXAMINE_SUMMARIES_ALL (area, rt, rtrs);
+	      for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
+                OSPF_EXAMINE_SUMMARIES_ALL (area, rt, rtrs);
             }
           break;
         case OSPF_ABR_SHORTCUT:
@@ -696,15 +693,14 @@ ospf_ia_routing (struct ospf *ospf,
               OSPF_EXAMINE_SUMMARIES_ALL (area, rt, rtrs);
             }
 
-	  for (node = listhead (ospf->areas); node; nextnode (node))
-            if ((area = getdata (node)) != NULL)
-              if (area != ospf->backbone)
-		if (ospf_area_is_transit (area) ||
-		    ((area->shortcut_configured != OSPF_SHORTCUT_DISABLE) &&
-		     ((ospf->backbone == NULL) ||
-                      ((area->shortcut_configured == OSPF_SHORTCUT_ENABLE) &&
-		       area->shortcut_capability))))
-		  OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL (area, rt, rtrs);
+	  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
+            if (area != ospf->backbone)
+              if (ospf_area_is_transit (area) ||
+                  ((area->shortcut_configured != OSPF_SHORTCUT_DISABLE) &&
+                  ((ospf->backbone == NULL) ||
+                  ((area->shortcut_configured == OSPF_SHORTCUT_ENABLE) &&
+                  area->shortcut_capability))))
+                OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL (area, rt, rtrs);
           break;
         default:
           break;
@@ -717,8 +713,7 @@ ospf_ia_routing (struct ospf *ospf,
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_debug ("ospf_ia_routing():not ABR, considering all areas");
 
-      for (node = listhead (ospf->areas); node; nextnode (node))
-        if ((area = getdata (node)) != NULL)
-          OSPF_EXAMINE_SUMMARIES_ALL (area, rt, rtrs);
+      for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
+        OSPF_EXAMINE_SUMMARIES_ALL (area, rt, rtrs);
     }
 }

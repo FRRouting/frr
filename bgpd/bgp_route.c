@@ -1158,7 +1158,7 @@ bgp_process_rsclient (struct bgp *bgp, struct peer *rsclient,
   struct bgp_info_pair old_and_new;
   struct attr attr;
   struct peer_group *group;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   p = &rn->p;
 
@@ -1170,7 +1170,7 @@ bgp_process_rsclient (struct bgp *bgp, struct peer *rsclient,
   if (CHECK_FLAG(rsclient->sflags, PEER_STATUS_GROUP))
   {
     group = rsclient->group;
-    LIST_LOOP(group->peer, rsclient, nn)
+    for (ALL_LIST_ELEMENTS (group->peer, node, nnode, rsclient))
       {
         /* Nothing to do. */
         if (old_select && old_select == new_select)
@@ -1203,7 +1203,7 @@ bgp_process_main (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
   struct bgp_info *new_select;
   struct bgp_info *old_select;
   struct bgp_info_pair old_and_new;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct peer *peer;
   struct attr attr;
 
@@ -1235,7 +1235,7 @@ bgp_process_main (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 
 
   /* Check each BGP peer. */
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       bgp_process_announce_selected (peer, new_select, rn, &attr, afi, safi);
     }
@@ -1954,7 +1954,7 @@ bgp_update (struct peer *peer, struct prefix *p, struct attr *attr,
             struct prefix_rd *prd, u_char *tag, int soft_reconfig)
 {
   struct peer *rsclient;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct bgp *bgp;
   int ret;
 
@@ -1964,7 +1964,7 @@ bgp_update (struct peer *peer, struct prefix *p, struct attr *attr,
   bgp = peer->bgp;
 
   /* Process the update for each RS-client. */
-  LIST_LOOP(bgp->rsclient, rsclient, nn)
+  for (ALL_LIST_ELEMENTS (bgp->rsclient, node, nnode, rsclient))
     {
       if (CHECK_FLAG (rsclient->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
         bgp_update_rsclient (rsclient, afi, safi, attr, peer, p, type,
@@ -1984,12 +1984,12 @@ bgp_withdraw (struct peer *peer, struct prefix *p, struct attr *attr,
   struct bgp_node *rn;
   struct bgp_info *ri;
   struct peer *rsclient;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   bgp = peer->bgp;
 
   /* Process the withdraw for each RS-client. */
-  LIST_LOOP (bgp->rsclient, rsclient, nn)
+  for (ALL_LIST_ELEMENTS (bgp->rsclient, node, nnode, rsclient))
     {
       if (CHECK_FLAG (rsclient->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
         bgp_withdraw_rsclient (rsclient, afi, safi, peer, p, type, sub_type, prd, tag);
@@ -2316,7 +2316,7 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
   struct bgp_node *rn;
   struct bgp_table *table;
   struct peer *rsclient;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   if (safi != SAFI_MPLS_VPN)
     bgp_clear_route_table (peer, afi, safi, NULL, NULL);
@@ -2326,7 +2326,7 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
       if ((table = rn->info) != NULL)
        bgp_clear_route_table (peer, afi, safi, table, NULL);
 
-  LIST_LOOP (peer->bgp->rsclient, rsclient, nn)
+  for (ALL_LIST_ELEMENTS (peer->bgp->rsclient, node, nnode, rsclient))
     {
       if (CHECK_FLAG(rsclient->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
         bgp_clear_route_table (peer, afi, safi, NULL, rsclient);
@@ -2389,12 +2389,12 @@ void
 bgp_cleanup_routes ()
 {
   struct bgp *bgp;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct bgp_node *rn;
   struct bgp_table *table;
   struct bgp_info *ri;
 
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
       table = bgp->rib[AFI_IP][SAFI_UNICAST];
 
@@ -2884,11 +2884,11 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
                   struct bgp_static *bgp_static, afi_t afi, safi_t safi)
 {
   struct peer *rsclient;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
   bgp_static_update_main (bgp, p, bgp_static, afi, safi);
 
-  LIST_LOOP(bgp->rsclient, rsclient, nn)
+  for (ALL_LIST_ELEMENTS (bgp->rsclient, node, nnode, rsclient))
     {
       bgp_static_update_rsclient (rsclient, p, bgp_static, afi, safi);
     }
@@ -4558,7 +4558,7 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
 		      u_int32_t metric, u_char type)
 {
   struct bgp *bgp;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct bgp_info *new;
   struct bgp_info *bi;
   struct bgp_info info;
@@ -4577,7 +4577,7 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
   attr.med = metric;
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
 
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
       afi = family2afi (p->family);
 
@@ -4673,12 +4673,12 @@ void
 bgp_redistribute_delete (struct prefix *p, u_char type)
 {
   struct bgp *bgp;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   afi_t afi;
   struct bgp_node *rn;
   struct bgp_info *ri;
 
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
       afi = family2afi (p->family);
 
@@ -5590,7 +5590,7 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
   struct bgp_info *ri;
   struct prefix *p;
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   char buf1[INET6_ADDRSTRLEN];
   char buf2[INET6_ADDRSTRLEN];
   int count = 0;
@@ -5649,7 +5649,7 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
   vty_out (vty, ")%s", VTY_NEWLINE);
 
   /* advertised peer */
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (bgp_adj_out_lookup (peer, p, afi, safi, rn))
 	{

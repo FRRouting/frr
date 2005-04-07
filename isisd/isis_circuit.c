@@ -150,13 +150,10 @@ circuit_lookup_by_ifp (struct interface *ifp, struct list *list)
   if (!list)
     return NULL;
 
-  for (node = listhead (list); node; nextnode (node))
-    {
-      circuit = getdata (node);
-      if (circuit->interface == ifp)
-	return circuit;
-    }
-
+  for (ALL_LIST_ELEMENTS_RO (list, node, circuit))
+    if (circuit->interface == ifp)
+      return circuit;
+  
   return NULL;
 }
 
@@ -170,9 +167,8 @@ circuit_scan_by_ifp (struct interface *ifp)
   if (!isis->area_list)
     return NULL;
 
-  for (node = listhead (isis->area_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
     {
-      area = getdata (node);
       circuit = circuit_lookup_by_ifp (ifp, area->circuit_list);
       if (circuit)
 	return circuit;
@@ -295,12 +291,9 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
       ipv4->prefixlen = connected->address->prefixlen;
       ipv4->prefix = connected->address->u.prefix4;
 
-      for (node = listhead (circuit->ip_addrs); node; nextnode (node))
-	{
-	  ip = getdata (node);
-	  if (prefix_same ((struct prefix *) ip, (struct prefix *) &ipv4))
-	    break;
-	}
+      for (ALL_LIST_ELEMENTS_RO (circuit->ip_addrs, node, ip))
+        if (prefix_same ((struct prefix *) ip, (struct prefix *) &ipv4))
+          break;
 
       if (ip)
 	{
@@ -324,9 +317,8 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 
       if (IN6_IS_ADDR_LINKLOCAL (&ipv6->prefix))
 	{
-	  for (node = listhead (circuit->ipv6_link); node; nextnode (node))
+	  for (ALL_LIST_ELEMENTS_RO (circuit->ipv6_link, node, ip6))
 	    {
-	      ip6 = getdata (node);
 	      if (prefix_same ((struct prefix *) ip6, (struct prefix *) ipv6))
 		break;
 	    }
@@ -338,9 +330,8 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 	}
       else
 	{
-	  for (node = listhead (circuit->ipv6_non_link); node; nextnode (node))
+	  for (ALL_LIST_ELEMENTS_RO (circuit->ipv6_non_link, node, ip6))
 	    {
-	      ip6 = getdata (node);
 	      if (prefix_same ((struct prefix *) ip6, (struct prefix *) ipv6))
 		break;
 	    }
@@ -368,7 +359,7 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 void
 isis_circuit_if_add (struct isis_circuit *circuit, struct interface *ifp)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct connected *conn;
 
   circuit->interface = ifp;
@@ -416,12 +407,8 @@ isis_circuit_if_add (struct isis_circuit *circuit, struct interface *ifp)
       zlog_warn ("isis_circuit_if_add: unsupported media");
     }
 
-  for (node = ifp->connected ? listhead (ifp->connected) : NULL; node;
-       nextnode (node))
-    {
-      conn = getdata (node);
-      isis_circuit_add_addr (circuit, conn);
-    }
+  for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, conn))
+    isis_circuit_add_addr (circuit, conn);
 
   return;
 }
@@ -631,14 +618,14 @@ isis_interface_config_write (struct vty *vty)
 {
 
   int write = 0;
-  struct listnode *node;
-  struct listnode *node2;
+  struct listnode *node, *nnode;
+  struct listnode *node2, *nnode2;
   struct interface *ifp;
   struct isis_area *area;
   struct isis_circuit *c;
   int i;
 
-  LIST_LOOP (iflist, ifp, node)
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
   {
     /* IF name */
     vty_out (vty, "interface %s%s", ifp->name, VTY_NEWLINE);
@@ -650,7 +637,7 @@ isis_interface_config_write (struct vty *vty)
 	write++;
       }
     /* ISIS Circuit */
-    LIST_LOOP (isis->area_list, area, node2)
+    for (ALL_LIST_ELEMENTS (isis->area_list, node2, nnode2, area))
     {
       c = circuit_lookup_by_ifp (ifp, area->circuit_list);
       if (c)
@@ -901,7 +888,7 @@ DEFUN (no_ip_router_isis,
   struct isis_circuit *circuit = NULL;
   struct interface *ifp;
   struct isis_area *area;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   ifp = (struct interface *) vty->index;
   assert (ifp);
@@ -912,7 +899,7 @@ DEFUN (no_ip_router_isis,
       vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  LIST_LOOP (area->circuit_list, circuit, node)
+  for (ALL_LIST_ELEMENTS (area->circuit_list, node, nnode, circuit))
     if (circuit->interface == ifp)
       break;
   if (!circuit)

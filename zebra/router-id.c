@@ -52,12 +52,10 @@ router_id_find_node (struct list *l, struct connected *ifc)
   struct listnode *node;
   struct connected *c;
 
-  for (node = l->head; node; node = node->next)
-    {
-      c = (struct connected *) getdata (node);
-      if (prefix_same (ifc->address, c->address))
-	return c;
-    }
+  for (ALL_LIST_ELEMENTS_RO (l, node, c))
+    if (prefix_same (ifc->address, c->address))
+      return c;
+
   return NULL;
 }
 
@@ -94,13 +92,13 @@ router_id_get (struct prefix *p)
   else if (!list_isempty (&rid_lo_sorted_list))
     {
       node = listtail (&rid_lo_sorted_list);
-      c = getdata (node);
+      c = listgetdata (node);
       p->u.prefix4.s_addr = c->address->u.prefix4.s_addr;
     }
   else if (!list_isempty (&rid_all_sorted_list))
     {
       node = listtail (&rid_all_sorted_list);
-      c = getdata (node);
+      c = listgetdata (node);
       p->u.prefix4.s_addr = c->address->u.prefix4.s_addr;
     }
 }
@@ -115,9 +113,9 @@ router_id_set (struct prefix *p)
   rid_user_assigned.u.prefix4.s_addr = p->u.prefix4.s_addr;
 
   router_id_get (&p2);
-  for (node = listhead (zebrad.client_list); node; nextnode (node))
-    if ((client = getdata (node)) != NULL)
-      zsend_router_id_update (client, &p2);
+
+  for (ALL_LIST_ELEMENTS_RO (zebrad.client_list, node, client))
+    zsend_router_id_update (client, &p2);
 }
 
 void
@@ -148,9 +146,8 @@ router_id_add_address (struct connected *ifc)
   if (prefix_same (&before, &after))
     return;
 
-  for (node = listhead (zebrad.client_list); node; nextnode (node))
-    if ((client = getdata (node)) != NULL)
-      zsend_router_id_update (client, &after);
+  for (ALL_LIST_ELEMENTS_RO (zebrad.client_list, node, client))
+    zsend_router_id_update (client, &after);
 }
 
 void
@@ -182,9 +179,8 @@ router_id_del_address (struct connected *ifc)
   if (prefix_same (&before, &after))
     return;
 
-  for (node = listhead (zebrad.client_list); node; nextnode (node))
-    if ((client = getdata (node)) != NULL)
-      zsend_router_id_update (client, &after);
+  for (ALL_LIST_ELEMENTS_RO (zebrad.client_list, node, client))
+    zsend_router_id_update (client, &after);
 }
 
 void

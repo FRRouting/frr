@@ -46,16 +46,16 @@ int
 bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct prefix router_id;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct bgp *bgp;
 
   zebra_router_id_update_read(zclient->ibuf,&router_id);
   router_id_zebra = router_id.u.prefix4;
 
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
       if (!bgp->router_id_static.s_addr)
-      bgp_router_id_set (bgp, &router_id.u.prefix4);
+        bgp_router_id_set (bgp, &router_id.u.prefix4);
     }
 
   return 0;
@@ -92,7 +92,7 @@ bgp_interface_up (int command, struct zclient *zclient, zebra_size_t length)
   struct stream *s;
   struct interface *ifp;
   struct connected *c;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   s = zclient->ibuf;
   ifp = zebra_interface_state_read (s);
@@ -100,11 +100,8 @@ bgp_interface_up (int command, struct zclient *zclient, zebra_size_t length)
   if (! ifp)
     return 0;
 
-  for (node = listhead (ifp->connected); node; nextnode (node))
-    {
-      c = getdata (node);
-      bgp_connected_add (c);
-    }
+  for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, c))
+    bgp_connected_add (c);
 
   return 0;
 }
@@ -115,32 +112,29 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length)
   struct stream *s;
   struct interface *ifp;
   struct connected *c;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   s = zclient->ibuf;
   ifp = zebra_interface_state_read (s);
   if (! ifp)
     return 0;
 
-  for (node = listhead (ifp->connected); node; nextnode (node))
-    {
-      c = getdata (node);
-      bgp_connected_delete (c);
-    }
+  for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, c))
+    bgp_connected_delete (c);
 
   /* Fast external-failover (Currently IPv4 only) */
   {
-    struct listnode *nn, *nm;
+    struct listnode *mnode;
     struct bgp *bgp;
     struct peer *peer;
     struct interface *peer_if;
 
-    LIST_LOOP (bm->bgp, bgp, nn)
+    for (ALL_LIST_ELEMENTS_RO (bm->bgp, mnode, bgp))
       {
 	if (CHECK_FLAG (bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER))
 	  continue;
 
-	LIST_LOOP (bgp->peer, peer, nm)
+	for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	  {
 	    if (peer->ttl != 1)
 	      continue;
@@ -319,13 +313,10 @@ if_lookup_by_ipv4 (struct in_addr *addr)
   p.prefix = *addr;
   p.prefixlen = IPV4_MAX_BITLEN;
 
-  for (ifnode = listhead (iflist); ifnode; nextnode (ifnode))
+  for (ALL_LIST_ELEMENTS_RO (iflist, ifnode, ifp))
     {
-      ifp = getdata (ifnode);
-
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
 	{
-	  connected = getdata (cnode);
 	  cp = connected->address;
 	    
 	  if (cp->family == AF_INET)
@@ -345,13 +336,10 @@ if_lookup_by_ipv4_exact (struct in_addr *addr)
   struct connected *connected;
   struct prefix *cp; 
   
-  for (ifnode = listhead (iflist); ifnode; nextnode (ifnode))
+  for (ALL_LIST_ELEMENTS_RO (iflist, ifnode, ifp))
     {
-      ifp = getdata (ifnode);
-
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
 	{
-	  connected = getdata (cnode);
 	  cp = connected->address;
 	    
 	  if (cp->family == AF_INET)
@@ -377,13 +365,10 @@ if_lookup_by_ipv6 (struct in6_addr *addr)
   p.prefix = *addr;
   p.prefixlen = IPV6_MAX_BITLEN;
 
-  for (ifnode = listhead (iflist); ifnode; nextnode (ifnode))
+  for (ALL_LIST_ELEMENTS_RO (iflist, ifnode, ifp))
     {
-      ifp = getdata (ifnode);
-
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
 	{
-	  connected = getdata (cnode);
 	  cp = connected->address;
 	    
 	  if (cp->family == AF_INET6)
@@ -403,13 +388,10 @@ if_lookup_by_ipv6_exact (struct in6_addr *addr)
   struct connected *connected;
   struct prefix *cp; 
 
-  for (ifnode = listhead (iflist); ifnode; nextnode (ifnode))
+  for (ALL_LIST_ELEMENTS_RO (iflist, ifnode, ifp))
     {
-      ifp = getdata (ifnode);
-
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
 	{
-	  connected = getdata (cnode);
 	  cp = connected->address;
 	    
 	  if (cp->family == AF_INET6)
@@ -427,9 +409,8 @@ if_get_ipv6_global (struct interface *ifp, struct in6_addr *addr)
   struct connected *connected;
   struct prefix *cp; 
   
-  for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
     {
-      connected = getdata (cnode);
       cp = connected->address;
 	    
       if (cp->family == AF_INET6)
@@ -449,9 +430,8 @@ if_get_ipv6_local (struct interface *ifp, struct in6_addr *addr)
   struct connected *connected;
   struct prefix *cp; 
   
-  for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
     {
-      connected = getdata (cnode);
       cp = connected->address;
 	    
       if (cp->family == AF_INET6)
@@ -591,15 +571,12 @@ bgp_ifindex_by_nexthop (struct in6_addr *addr)
   p.prefix = *addr;
   p.prefixlen = IPV6_MAX_BITLEN;
 
-  for (ifnode = listhead (iflist); ifnode; nextnode (ifnode))
+  for (ALL_LIST_ELEMENTS_RO (iflist, ifnode, ifp))
     {
-      ifp = getdata (ifnode);
-
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
 	{
 	  struct prefix *cp; 
 
-	  connected = getdata (cnode);
 	  cp = connected->address;
 	    
 	  if (cp->family == AF_INET6)

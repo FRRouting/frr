@@ -78,9 +78,9 @@ struct rip_offset_list *
 rip_offset_list_lookup (const char *ifname)
 {
   struct rip_offset_list *offset;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (rip_offset_list_master, offset, nn)
+  for (ALL_LIST_ELEMENTS (rip_offset_list_master, node, nnode, offset))
     {
       if (strcmp_safe (offset->ifname, ifname) == 0)
 	return offset;
@@ -378,10 +378,10 @@ rip_offset_clean ()
 int
 config_write_rip_offset_list (struct vty *vty)
 {
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   struct rip_offset_list *offset;
 
-  LIST_LOOP (rip_offset_list_master, offset, nn)
+  for (ALL_LIST_ELEMENTS (rip_offset_list_master, node, nnode, offset))
     {
       if (! offset->ifname)
 	{

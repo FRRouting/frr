@@ -1388,7 +1388,7 @@ ospf6_hello_send (struct thread *thread)
   struct ospf6_header *oh;
   struct ospf6_hello *hello;
   u_char *p;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf6_neighbor *on;
 
   oi = (struct ospf6_interface *) THREAD_ARG (thread);
@@ -1422,10 +1422,8 @@ ospf6_hello_send (struct thread *thread)
 
   p = (char *)((caddr_t) hello + sizeof (struct ospf6_hello));
 
-  for (node = listhead (oi->neighbor_list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
-      on = (struct ospf6_neighbor *) getdata (node);
-
       if (on->state < OSPF6_NEIGHBOR_INIT)
         continue;
 

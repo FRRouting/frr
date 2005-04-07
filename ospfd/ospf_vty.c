@@ -2319,6 +2319,7 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
   struct ospf *ospf = vty->index;
   u_int32_t refbw;
   struct listnode *node;
+  struct interface *ifp;
 
   refbw = strtol (argv[0], NULL, 10);
   if (refbw < 1 || refbw > 4294967)
@@ -2335,8 +2336,8 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
   vty_out (vty, "%% OSPF: Reference bandwidth is changed.%s", VTY_NEWLINE);
   vty_out (vty, "        Please ensure reference bandwidth is consistent across all routers%s", VTY_NEWLINE);
       
-  for (node = listhead (om->iflist); node; nextnode (node))
-    ospf_if_recalculate_output_cost (getdata (node));
+  for (ALL_LIST_ELEMENTS_RO (om->iflist, node, ifp))
+    ospf_if_recalculate_output_cost (ifp);
   
   return CMD_SUCCESS;
 }
@@ -2349,7 +2350,8 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
        "Use reference bandwidth method to assign OSPF cost\n")
 {
   struct ospf *ospf = vty->index;
-  struct listnode *node;
+  struct listnode *node, *nnode;
+  struct interface *ifp;
 
   if (ospf->ref_bandwidth == OSPF_DEFAULT_REF_BANDWIDTH)
     return CMD_SUCCESS;
@@ -2358,8 +2360,8 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
   vty_out (vty, "%% OSPF: Reference bandwidth is changed.%s", VTY_NEWLINE);
   vty_out (vty, "        Please ensure reference bandwidth is consistent across all routers%s", VTY_NEWLINE);
 
-  for (node = listhead (om->iflist); node; nextnode (node))
-    ospf_if_recalculate_output_cost (getdata (node));
+  for (ALL_LIST_ELEMENTS (om->iflist, node, nnode, ifp))
+    ospf_if_recalculate_output_cost (ifp);
       
   return CMD_SUCCESS;
 }
@@ -2499,7 +2501,7 @@ DEFUN (show_ip_ospf,
        IP_STR
        "OSPF information\n")
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct ospf_area * area;
   struct ospf *ospf;
 
@@ -2562,9 +2564,8 @@ DEFUN (show_ip_ospf,
            listcount (ospf->areas), VTY_NEWLINE, VTY_NEWLINE);
 
   /* Show each area status. */
-  for (node = listhead (ospf->areas); node; nextnode (node))
-    if ((area = getdata (node)) != NULL)
-      show_ip_ospf_area (vty, area);
+  for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
+    show_ip_ospf_area (vty, area);
 
   return CMD_SUCCESS;
 }
@@ -2708,8 +2709,8 @@ DEFUN (show_ip_ospf_interface,
 
   /* Show All Interfaces. */
   if (argc == 0)
-    for (node = listhead (iflist); node; nextnode (node))
-      show_ip_ospf_interface_sub (vty, ospf, node->data);
+    for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+      show_ip_ospf_interface_sub (vty, ospf, ifp);
   /* Interface name is specified. */
   else
     {
@@ -2764,6 +2765,7 @@ DEFUN (show_ip_ospf_neighbor,
        "Neighbor list\n")
 {
   struct ospf *ospf;
+  struct ospf_interface *oi;
   struct listnode *node;
 
   ospf = ospf_lookup ();
@@ -2778,8 +2780,8 @@ DEFUN (show_ip_ospf_neighbor,
            "Time   Address         Interface           RXmtL "
            "RqstL DBsmL%s", VTY_NEWLINE, VTY_NEWLINE);
 
-  for (node = listhead (ospf->oiflist); node; nextnode (node))
-    show_ip_ospf_neighbor_sub (vty, getdata (node));
+  for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
+    show_ip_ospf_neighbor_sub (vty, oi);
 
   return CMD_SUCCESS;
 }
@@ -2795,6 +2797,7 @@ DEFUN (show_ip_ospf_neighbor_all,
 {
   struct ospf *ospf = vty->index;
   struct listnode *node;
+  struct ospf_interface *oi;
 
   if (ospf == NULL)
     {
@@ -2807,20 +2810,16 @@ DEFUN (show_ip_ospf_neighbor_all,
            "Time   Address         Interface           RXmtL "
            "RqstL DBsmL%s", VTY_NEWLINE, VTY_NEWLINE);
 
-  for (node = listhead (ospf->oiflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     {
-      struct ospf_interface *oi = getdata (node);
       struct listnode *nbr_node;
+      struct ospf_nbr_nbma *nbr_nbma;
 
       show_ip_ospf_neighbor_sub (vty, oi);
 
     /* print Down neighbor status */
-    for (nbr_node = listhead (oi->nbr_nbma); nbr_node; nextnode (nbr_node))
+    for (ALL_LIST_ELEMENTS_RO (oi->nbr_nbma, nbr_node, nbr_nbma))
       {
-	struct ospf_nbr_nbma *nbr_nbma;
-
-	nbr_nbma = getdata (nbr_node);
-
 	if (nbr_nbma->nbr == NULL
 	    || nbr_nbma->nbr->state == NSM_Down)
 	  {
@@ -2980,6 +2979,7 @@ DEFUN (show_ip_ospf_neighbor_id,
   struct ospf *ospf;
   struct listnode *node;
   struct ospf_neighbor *nbr;
+  struct ospf_interface *oi;
   struct in_addr router_id;
   int ret;
 
@@ -2997,16 +2997,12 @@ DEFUN (show_ip_ospf_neighbor_id,
       return CMD_SUCCESS;
     }
 
-  for (node = listhead (ospf->oiflist); node; nextnode (node))
-    {
-      struct ospf_interface *oi = getdata (node);
-
-      if ((nbr = ospf_nbr_lookup_by_routerid (oi->nbrs, &router_id)))
-	{
-	  show_ip_ospf_neighbor_detail_sub (vty, oi, nbr);
-	  return CMD_SUCCESS;
-	}
-    }
+  for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
+    if ((nbr = ospf_nbr_lookup_by_routerid (oi->nbrs, &router_id)))
+      {
+        show_ip_ospf_neighbor_detail_sub (vty, oi, nbr);
+        return CMD_SUCCESS;
+      }
 
   /* Nothing to show. */
   return CMD_SUCCESS;
@@ -3022,6 +3018,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
        "detail of all neighbors\n")
 {
   struct ospf *ospf;
+  struct ospf_interface *oi;
   struct listnode *node;
 
   ospf = ospf_lookup ();
@@ -3031,9 +3028,8 @@ DEFUN (show_ip_ospf_neighbor_detail,
       return CMD_SUCCESS;
     }
 
-  for (node = listhead (ospf->oiflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     {
-      struct ospf_interface *oi = getdata (node);
       struct route_node *rn;
       struct ospf_neighbor *nbr;
 
@@ -3059,6 +3055,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
 {
   struct ospf *ospf;
   struct listnode *node;
+  struct ospf_interface *oi;
 
   ospf = ospf_lookup ();
   if (ospf == NULL)
@@ -3067,11 +3064,11 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
       return CMD_SUCCESS;
     }
 
-  for (node = listhead (ospf->oiflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     {
-      struct ospf_interface *oi = getdata (node);
       struct route_node *rn;
       struct ospf_neighbor *nbr;
+      struct ospf_nbr_nbma *nbr_nbma;
 
       for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
 	if ((nbr = rn->info))
@@ -3083,13 +3080,10 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
 	{
 	  struct listnode *nd;
 
-	  for (nd = listhead (oi->nbr_nbma); nd; nextnode (nd))
-	    {
-	      struct ospf_nbr_nbma *nbr_nbma = getdata (nd);
-	      if (nbr_nbma->nbr == NULL
-		  || nbr_nbma->nbr->state == NSM_Down)
-		show_ip_ospf_nbr_nbma_detail_sub (vty, oi, nbr_nbma);
-	    }
+	  for (ALL_LIST_ELEMENTS_RO (oi->nbr_nbma, nd, nbr_nbma))
+            if (nbr_nbma->nbr == NULL
+                || nbr_nbma->nbr->state == NSM_Down)
+              show_ip_ospf_nbr_nbma_detail_sub (vty, oi, nbr_nbma);
 	}
     }
 
@@ -3609,7 +3603,8 @@ show_lsa_detail (struct vty *vty, struct ospf *ospf, int type,
 		 struct in_addr *id, struct in_addr *adv_router)
 {
   struct listnode *node;
-
+  struct ospf_area *area;
+  
   switch (type)
     {
     case OSPF_AS_EXTERNAL_LSA:
@@ -3622,9 +3617,8 @@ show_lsa_detail (struct vty *vty, struct ospf *ospf, int type,
       show_lsa_detail_proc (vty, AS_LSDB (ospf, type), id, adv_router);
       break;
     default:
-      for (node = listhead (ospf->areas); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
         {
-          struct ospf_area *area = node->data;
           vty_out (vty, "%s                %s (Area %s)%s%s",
                    VTY_NEWLINE, show_database_desc[type],
                    ospf_area_desc_string (area), VTY_NEWLINE, VTY_NEWLINE);
@@ -3658,6 +3652,7 @@ show_lsa_detail_adv_router (struct vty *vty, struct ospf *ospf, int type,
 			    struct in_addr *adv_router)
 {
   struct listnode *node;
+  struct ospf_area *area;
 
   switch (type)
     {
@@ -3672,9 +3667,8 @@ show_lsa_detail_adv_router (struct vty *vty, struct ospf *ospf, int type,
                                        adv_router);
       break;
     default:
-      for (node = listhead (ospf->areas); node; nextnode (node))
+      for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
         {
-          struct ospf_area *area = node->data;
           vty_out (vty, "%s                %s (Area %s)%s%s",
                    VTY_NEWLINE, show_database_desc[type],
                    ospf_area_desc_string (area), VTY_NEWLINE, VTY_NEWLINE);
@@ -3690,12 +3684,12 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
 {
   struct ospf_lsa *lsa;
   struct route_node *rn;
+  struct ospf_area *area;
   struct listnode *node;
   int type;
 
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      struct ospf_area *area = node->data;
       for (type = OSPF_MIN_LSA; type < OSPF_MAX_LSA; type++)
 	{
 	  switch (type)
@@ -3765,17 +3759,16 @@ show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
   vty_out (vty, "%s                MaxAge Link States:%s%s",
            VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
 
-  for (node = listhead (ospf->maxage_lsa); node; nextnode (node))
-    if ((lsa = node->data) != NULL)
-      {
-	vty_out (vty, "Link type: %d%s", lsa->data->type, VTY_NEWLINE);
-	vty_out (vty, "Link State ID: %s%s",
-		 inet_ntoa (lsa->data->id), VTY_NEWLINE);
-	vty_out (vty, "Advertising Router: %s%s",
-		 inet_ntoa (lsa->data->adv_router), VTY_NEWLINE);
-	vty_out (vty, "LSA lock count: %d%s", lsa->lock, VTY_NEWLINE);
-	vty_out (vty, "%s", VTY_NEWLINE);
-      }
+  for (ALL_LIST_ELEMENTS_RO (ospf->maxage_lsa, node, lsa))
+    {
+      vty_out (vty, "Link type: %d%s", lsa->data->type, VTY_NEWLINE);
+      vty_out (vty, "Link State ID: %s%s",
+               inet_ntoa (lsa->data->id), VTY_NEWLINE);
+      vty_out (vty, "Advertising Router: %s%s",
+               inet_ntoa (lsa->data->adv_router), VTY_NEWLINE);
+      vty_out (vty, "LSA lock count: %d%s", lsa->lock, VTY_NEWLINE);
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
 }
 
 #define OSPF_LSA_TYPE_NSSA_DESC      "NSSA external link state\n"
@@ -6509,7 +6502,7 @@ show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
 {
   struct route_node *rn;
   struct ospf_route *or;
-  struct listnode *pnode;
+  struct listnode *pnode, *pnnode;
   struct ospf_path *path;
 
   vty_out (vty, "============ OSPF network routing table ============%s",
@@ -6540,7 +6533,7 @@ show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
 	  }
 
         if (or->type == OSPF_DESTINATION_NETWORK)
-          LIST_LOOP (or->paths, path, pnode)
+          for (ALL_LIST_ELEMENTS (or->paths, pnode, pnnode, path))
             {
               if (path->oi != NULL)
                 {
@@ -6562,7 +6555,8 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
 {
   struct route_node *rn;
   struct ospf_route *or;
-  struct listnode *pn, *nn;
+  struct listnode *pnode;
+  struct listnode *node;
   struct ospf_path *path;
 
   vty_out (vty, "============ OSPF router routing table =============%s",
@@ -6574,33 +6568,32 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
 
 	vty_out (vty, "R    %-15s    ", inet_ntoa (rn->p.u.prefix4));
 
-	for (nn = listhead ((struct list *) rn->info); nn; nextnode (nn))
-	  if ((or = getdata (nn)) != NULL)
-	    {
-	      if (flag++)
-            vty_out (vty, "%24s", "");
+	for (ALL_LIST_ELEMENTS_RO ((struct list *)rn->info, node, or))
+          {
+            if (flag++)
+          vty_out (vty, "%24s", "");
 
-	      /* Show path. */
-	      vty_out (vty, "%s [%d] area: %s",
-		       (or->path_type == OSPF_PATH_INTER_AREA ? "IA" : "  "),
-		       or->cost, inet_ntoa (or->u.std.area_id));
-	      /* Show flags. */
-	      vty_out (vty, "%s%s%s",
-		       (or->u.std.flags & ROUTER_LSA_BORDER ? ", ABR" : ""),
-		       (or->u.std.flags & ROUTER_LSA_EXTERNAL ? ", ASBR" : ""),
-		       VTY_NEWLINE);
-		    
-		    LIST_LOOP (or->paths, path, pn)
-		      {
-		        if (path->nexthop.s_addr == 0)
-		          vty_out (vty, "%24s   directly attached to %s%s",
-		                   "", path->oi->ifp->name, VTY_NEWLINE);
-		        else
-		          vty_out (vty, "%24s   via %s, %s%s", "",
-		                   inet_ntoa (path->nexthop), path->oi->ifp->name,
-		                              VTY_NEWLINE);
-		      }
-	    }
+            /* Show path. */
+            vty_out (vty, "%s [%d] area: %s",
+                     (or->path_type == OSPF_PATH_INTER_AREA ? "IA" : "  "),
+                     or->cost, inet_ntoa (or->u.std.area_id));
+            /* Show flags. */
+            vty_out (vty, "%s%s%s",
+                     (or->u.std.flags & ROUTER_LSA_BORDER ? ", ABR" : ""),
+                     (or->u.std.flags & ROUTER_LSA_EXTERNAL ? ", ASBR" : ""),
+                     VTY_NEWLINE);
+                  
+                  for (ALL_LIST_ELEMENTS_RO (or->paths, pnode, path))
+                    {
+                      if (path->nexthop.s_addr == 0)
+                        vty_out (vty, "%24s   directly attached to %s%s",
+                                 "", path->oi->ifp->name, VTY_NEWLINE);
+                      else
+                        vty_out (vty, "%24s   via %s, %s%s", "",
+                                 inet_ntoa (path->nexthop), path->oi->ifp->name,
+                                            VTY_NEWLINE);
+                    }
+          }
       }
   vty_out (vty, "%s", VTY_NEWLINE);
 }
@@ -6610,7 +6603,7 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 {
   struct route_node *rn;
   struct ospf_route *er;
-  struct listnode *pnode;
+  struct listnode *pnode, *pnnode;
   struct ospf_path *path;
 
   vty_out (vty, "============ OSPF external routing table ===========%s",
@@ -6634,7 +6627,7 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 	    break;
 	  }
 
-        LIST_LOOP (er->paths, path, pnode)
+        for (ALL_LIST_ELEMENTS (er->paths, pnode, pnnode, path))
           {
             if (path->oi != NULL)
               {
@@ -6770,10 +6763,8 @@ config_write_interface (struct vty *vty)
   struct route_node *rn = NULL;
   struct ospf_if_params *params;
 
-  for (n1 = listhead (iflist); n1; nextnode (n1))
+  for (ALL_LIST_ELEMENTS_RO (iflist, n1, ifp))
     {
-      ifp = getdata (n1);
-
       if (memcmp (ifp->name, "VLINK", 5) == 0)
 	continue;
 
@@ -6849,9 +6840,8 @@ config_write_interface (struct vty *vty)
 	  }
 	
 	/* Cryptographic Authentication Key print. */
-	for (n2 = listhead (params->auth_crypt); n2; nextnode (n2))
+	for (ALL_LIST_ELEMENTS_RO (params->auth_crypt, n2, ck))
 	  {
-	    ck = getdata (n2);
 	    vty_out (vty, " ip ospf message-digest-key %d md5 %s",
 		     ck->key_id, ck->auth_key);
 	    if (params != IF_DEF_PARAMS (ifp))
@@ -6977,12 +6967,12 @@ int
 config_write_ospf_area (struct vty *vty, struct ospf *ospf)
 {
   struct listnode *node;
+  struct ospf_area *area;
   u_char buf[INET_ADDRSTRLEN];
 
   /* Area configuration print. */
-  for (node = listhead (ospf->areas); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
     {
-      struct ospf_area *area = getdata (node);
       struct route_node *rn1;
 
       area_id2str ((char *) buf, INET_ADDRSTRLEN, area);
@@ -7103,14 +7093,14 @@ int
 config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 {
   struct listnode *node;
+  struct ospf_vl_data *vl_data;
   u_char buf[INET_ADDRSTRLEN];
 
   /* Virtual-Link print */
-  for (node = listhead (ospf->vlinks); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (ospf->vlinks, node, vl_data))
     {
       struct listnode *n2;
       struct crypt_key *ck;
-      struct ospf_vl_data *vl_data = getdata (node);
       struct ospf_interface *oi;
 
       if (vl_data != NULL)
@@ -7148,14 +7138,13 @@ config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 		     IF_DEF_PARAMS (vl_data->vl_oi->ifp)->auth_simple,
 		     VTY_NEWLINE);
 	  /* md5 keys */
-	  for (n2 = listhead (IF_DEF_PARAMS (vl_data->vl_oi->ifp)->auth_crypt); n2; nextnode (n2))
-	    {
-	      ck = getdata (n2);
-	      vty_out (vty, " area %s virtual-link %s message-digest-key %d md5 %s%s",
-		       buf,
-		       inet_ntoa (vl_data->vl_peer),
-		       ck->key_id, ck->auth_key, VTY_NEWLINE);
-	    }
+	  for (ALL_LIST_ELEMENTS_RO (IF_DEF_PARAMS (vl_data->vl_oi->ifp)->auth_crypt,
+                                     n2, ck))
+            vty_out (vty, " area %s virtual-link %s"
+                     " message-digest-key %d md5 %s%s",
+                     buf,
+                     inet_ntoa (vl_data->vl_peer),
+                     ck->key_id, ck->auth_key, VTY_NEWLINE);
 	 
 	}
     }
@@ -7281,6 +7270,8 @@ int
 ospf_config_write (struct vty *vty)
 {
   struct ospf *ospf;
+  struct interface *ifp;
+  struct ospf_interface *oi;
   struct listnode *node;
   int write = 0;
 
@@ -7329,28 +7320,17 @@ ospf_config_write (struct vty *vty)
       config_write_ospf_redistribute (vty, ospf);
 
       /* passive-interface print. */
-      for (node = listhead (om->iflist); node; nextnode (node))
-        {
-          struct interface *ifp = getdata (node);
+      for (ALL_LIST_ELEMENTS_RO (om->iflist, node, ifp))
+        if (IF_DEF_PARAMS (ifp)->passive_interface == OSPF_IF_PASSIVE)
+          vty_out (vty, " passive-interface %s%s",
+                   ifp->name, VTY_NEWLINE);
 
-	  if (!ifp)
-	    continue;
-	  if (IF_DEF_PARAMS (ifp)->passive_interface == OSPF_IF_PASSIVE)
-	    vty_out (vty, " passive-interface %s%s",
-		     ifp->name, VTY_NEWLINE);
-        }
-
-      for (node = listhead (ospf->oiflist); node; nextnode (node))
-        {
-          struct ospf_interface *oi = getdata (node);
-
-	  if (OSPF_IF_PARAM_CONFIGURED (oi->params, passive_interface) &&
-	      oi->params->passive_interface == OSPF_IF_PASSIVE)
-      vty_out (vty, " passive-interface %s %s%s",
-               oi->ifp->name,
-               inet_ntoa (oi->address->u.prefix4), VTY_NEWLINE);
-        }
-
+      for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
+        if (OSPF_IF_PARAM_CONFIGURED (oi->params, passive_interface) &&
+            oi->params->passive_interface == OSPF_IF_PASSIVE)
+          vty_out (vty, " passive-interface %s %s%s",
+                   oi->ifp->name,
+                   inet_ntoa (oi->address->u.prefix4), VTY_NEWLINE);
       
       /* Network area print. */
       config_write_network_area (vty, ospf);

@@ -365,13 +365,10 @@ rip_nexthop_check (struct in_addr *addr)
 
   /* If nexthop address matches local configured address then it is
      invalid nexthop. */
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
-
-      for (cnode = listhead (ifp->connected); cnode; nextnode (cnode))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, ifc))
 	{	    
-	  ifc = getdata (cnode);
 	  p = ifc->address;
 
 	  if (p->family == AF_INET
@@ -2440,7 +2437,8 @@ rip_update_interface (struct connected *ifc, u_char version, int route_type)
 void
 rip_update_process (int route_type)
 {
-  struct listnode *node, *ifnode;
+  struct listnode *node;
+  struct listnode *ifnode, *ifnnode;
   struct connected *connected;
   struct interface *ifp;
   struct rip_interface *ri;
@@ -2449,10 +2447,8 @@ rip_update_process (int route_type)
   struct prefix_ipv4 *p;
 
   /* Send RIP update to each interface. */
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
-
       if (if_is_loopback (ifp))
 	continue;
 
@@ -2480,8 +2476,7 @@ rip_update_process (int route_type)
 	    }
 
           /* send update on each connected network */
-
-	  LIST_LOOP(ifp->connected, connected, ifnode)
+	  for (ALL_LIST_ELEMENTS (ifp->connected, ifnode, ifnnode, connected))
 	    {
 	      struct prefix_ipv4 *ifaddr;
               int done = 0;
@@ -2716,7 +2711,7 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
 {
   struct rte *rte;
   struct rip_packet rip_packet;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   memset (&rip_packet, 0, sizeof (rip_packet));
 
@@ -2740,7 +2735,7 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
     }
 	
   /* send request on each connected network */
-  LIST_LOOP(ifp->connected, connected, node)
+  for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, connected))
     {
       struct prefix_ipv4 *p;
 
@@ -3533,9 +3528,8 @@ DEFUN (show_ip_rip_status,
 
   vty_out (vty, "    Interface        Send  Recv   Key-chain%s", VTY_NEWLINE);
 
-  for (node = listhead (iflist); node; node = nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
       ri = ifp->info;
 
       if (ri->enable_network || ri->enable_interface)
@@ -3563,9 +3557,8 @@ DEFUN (show_ip_rip_status,
 
   {
     int found_passive = 0;
-    for (node = listhead (iflist); node; node = nextnode (node))
+    for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
       {
-	ifp = getdata (node);
 	ri = ifp->info;
 
 	if ((ri->enable_network || ri->enable_interface) && ri->passive)
@@ -3761,13 +3754,10 @@ void
 rip_distribute_update_all (struct prefix_list *notused)
 {
   struct interface *ifp;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
-  for (node = listhead (iflist); node; nextnode (node))
-    {
-      ifp = getdata (node);
-      rip_distribute_update_interface (ifp);
-    }
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+    rip_distribute_update_interface (ifp);
 }
 /* ARGSUSED */
 void
@@ -3955,13 +3945,10 @@ void
 rip_routemap_update (const char *notused)
 {
   struct interface *ifp;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
-  for (node = listhead (iflist); node; nextnode (node))
-    {
-      ifp = getdata (node);
-      rip_if_rmap_update_interface (ifp);
-    }
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+    rip_if_rmap_update_interface (ifp);
 
   rip_routemap_update_redistribute ();
 }

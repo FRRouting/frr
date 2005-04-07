@@ -130,7 +130,7 @@ int
 isis_dr_elect (struct isis_circuit *circuit, int level)
 {
   struct list *adjdb;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct isis_adjacency *adj, *adj_dr = NULL;
   struct list *list = list_new ();
   u_char own_prio;
@@ -152,9 +152,8 @@ isis_dr_elect (struct isis_circuit *circuit, int level)
   /*
    * Loop the adjacencies and find the one with the biggest priority
    */
-  for (node = listhead (list); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (list, node, nnode, adj))
     {
-      adj = getdata (node);
       /* clear flag for show output */
       adj->dis_record[level - 1].dis = ISIS_IS_NOT_DIS;
       adj->dis_record[level - 1].last_dis_change = time (NULL);
@@ -215,11 +214,8 @@ isis_dr_elect (struct isis_circuit *circuit, int level)
 	   */
 
 	  /* rotate the history log */
-	  for (node = listhead (list); node; nextnode (node))
-	    {
-	      adj = getdata (node);
-	      isis_check_dr_change (adj, level);
-	    }
+	  for (ALL_LIST_ELEMENTS (list, node, nnode, adj))
+            isis_check_dr_change (adj, level);
 
 	  /* commence */
 	  list_delete (list);
@@ -238,11 +234,8 @@ isis_dr_elect (struct isis_circuit *circuit, int level)
        * if yes rotate the history log
        */
 
-      for (node = listhead (list); node; nextnode (node))
-	{
-	  adj = getdata (node);
-	  isis_check_dr_change (adj, level);
-	}
+      for (ALL_LIST_ELEMENTS (list, node, nnode, adj))
+        isis_check_dr_change (adj, level);
 
       /*
        * We are not DR - if we were -> resign

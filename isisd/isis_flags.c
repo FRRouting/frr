@@ -43,7 +43,7 @@ flags_get_index (struct flags *flags)
   else
     {
       node = listhead (flags->free_idcs);
-      index = (int) getdata (node);
+      index = (int) listgetdata (node);
       listnode_delete (flags->free_idcs, (void *) index);
     }
 

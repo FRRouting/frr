@@ -252,10 +252,10 @@ out:
 static struct mpls_te_link *
 lookup_linkparams_by_ifp (struct interface *ifp)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct mpls_te_link *lp;
 
-  LIST_LOOP (OspfMplsTE.iflist, lp, node)
+  for (ALL_LIST_ELEMENTS (OspfMplsTE.iflist, node, nnode, lp))
     if (lp->ifp == ifp)
       return lp;
 
@@ -269,7 +269,7 @@ lookup_linkparams_by_instance (struct ospf_lsa *lsa)
   struct mpls_te_link *lp;
   unsigned int key = GET_OPAQUE_ID (ntohl (lsa->data->id.s_addr));
 
-  LIST_LOOP (OspfMplsTE.iflist, lp, node)
+  for (ALL_LIST_ELEMENTS_RO (OspfMplsTE.iflist, node, lp))
     if (lp->instance == key)
       return lp;
 
@@ -282,11 +282,12 @@ ospf_mpls_te_foreach_area (
   void (*func)(struct mpls_te_link *lp, enum sched_opcode),
   enum sched_opcode sched_opcode)
 {
-  struct listnode *node, *node2;
+  struct listnode *node, *nnode; 
+  struct listnode *node2;
   struct mpls_te_link *lp;
   struct ospf_area *area;
 
-  LIST_LOOP (OspfMplsTE.iflist, lp, node)
+  for (ALL_LIST_ELEMENTS (OspfMplsTE.iflist, node, nnode, lp))
     {
       if ((area = lp->area) == NULL)
         continue;
@@ -296,14 +297,14 @@ ospf_mpls_te_foreach_area (
       if (func != NULL)
         (* func)(lp, sched_opcode);
 
-      for (node2 = nextnode (node); node2; nextnode (node2))
-        if ((lp = getdata (node2)) != NULL)
+      for (node2 = listnextnode (node); node2; node2 = listnextnode (node2))
+        if ((lp = listgetdata (node2)) != NULL)
           if (lp->area != NULL)
             if (IPV4_ADDR_SAME (&lp->area->area_id, &area->area_id))
               lp->flags |= LPFLG_LOOKUP_DONE;
     }
 
-  LIST_LOOP (OspfMplsTE.iflist, lp, node)
+  for (ALL_LIST_ELEMENTS_RO (OspfMplsTE.iflist, node, lp))
     if (lp->area != NULL)
       lp->flags &= ~LPFLG_LOOKUP_DONE;
 
@@ -965,7 +966,7 @@ static int
 ospf_mpls_te_lsa_originate (void *arg)
 {
   struct ospf_area *area = (struct ospf_area *) arg;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct mpls_te_link *lp;
   int rc = -1;
 
@@ -976,10 +977,8 @@ ospf_mpls_te_lsa_originate (void *arg)
       goto out;
     }
 
-  for (node = listhead (OspfMplsTE.iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS (OspfMplsTE.iflist, node, nnode, lp))
     {
-      if ((lp = getdata (node)) == NULL)
-        continue;
       if (lp->area == NULL)
         continue;
       if (! IPV4_ADDR_SAME (&lp->area->area_id, &area->area_id))
@@ -1471,7 +1470,7 @@ DEFUN (mpls_te,
        "Configure MPLS-TE parameters\n"
        "Enable the MPLS-TE functionality\n")
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct mpls_te_link *lp;
 
   if (OspfMplsTE.status == enabled)
@@ -1488,9 +1487,8 @@ DEFUN (mpls_te,
    * 1) MPLS-TE was disabled at startup time, but now become enabled.
    * 2) MPLS-TE was once enabled then disabled, and now enabled again.
    */
-  for (node = listhead (OspfMplsTE.iflist); node; nextnode (node))
-    if ((lp = getdata (node)) != NULL)
-      initialize_linkparams (lp);
+  for (ALL_LIST_ELEMENTS (OspfMplsTE.iflist, node, nnode, lp))
+    initialize_linkparams (lp);
 
   ospf_mpls_te_foreach_area (ospf_mpls_te_lsa_schedule, REORIGINATE_PER_AREA);
 
@@ -1510,7 +1508,7 @@ DEFUN (no_mpls_te,
        "Configure MPLS-TE parameters\n"
        "Disable the MPLS-TE functionality\n")
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct mpls_te_link *lp;
 
   if (OspfMplsTE.status == disabled)
@@ -1521,11 +1519,10 @@ DEFUN (no_mpls_te,
 
   OspfMplsTE.status = disabled;
 
-  for (node = listhead (OspfMplsTE.iflist); node; nextnode (node))
-    if ((lp = getdata (node)) != NULL)
-      if (lp->area != NULL)
-        if (lp->flags & LPFLG_LSA_ENGAGED)
-          ospf_mpls_te_lsa_schedule (lp, FLUSH_THIS_LSA);
+  for (ALL_LIST_ELEMENTS (OspfMplsTE.iflist, node, nnode, lp))
+    if (lp->area != NULL)
+      if (lp->flags & LPFLG_LSA_ENGAGED)
+        ospf_mpls_te_lsa_schedule (lp, FLUSH_THIS_LSA);
 
   return CMD_SUCCESS;
 }
@@ -1549,7 +1546,7 @@ DEFUN (mpls_te_router_addr,
   if (ntohs (ra->header.type) == 0
       || ntohl (ra->value.s_addr) != ntohl (value.s_addr))
     {
-      struct listnode *node;
+      struct listnode *node, *nnode;
       struct mpls_te_link *lp;
       int need_to_reoriginate = 0;
 
@@ -1558,7 +1555,7 @@ DEFUN (mpls_te_router_addr,
       if (OspfMplsTE.status == disabled)
         goto out;
 
-      LIST_LOOP (OspfMplsTE.iflist, lp, node)
+      for (ALL_LIST_ELEMENTS (OspfMplsTE.iflist, node, nnode, lp))
         {
           if (lp->area == NULL)
             continue;
@@ -1569,8 +1566,8 @@ DEFUN (mpls_te_router_addr,
               break;
             }
         }
-      for (node = listhead (OspfMplsTE.iflist); node; nextnode (node))
-      LIST_LOOP (OspfMplsTE.iflist, lp, node)
+      
+      for (ALL_LIST_ELEMENTS (OspfMplsTE.iflist, node, nnode, lp))
         {
           if (lp->area == NULL)
             continue;
@@ -1868,13 +1865,13 @@ DEFUN (show_mpls_te_link,
        "Interface name\n")
 {
   struct interface *ifp;
-  struct listnode *node;
+  struct listnode *node, *nnode;
 
   /* Show All Interfaces. */
   if (argc == 0)
     {
-      LIST_LOOP (iflist, ifp, node)
-	show_mpls_te_link_sub (vty, ifp);
+      for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+        show_mpls_te_link_sub (vty, ifp);
     }
   /* Interface name is specified. */
   else

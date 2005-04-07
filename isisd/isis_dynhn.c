@@ -60,12 +60,9 @@ dynhn_find_by_id (u_char * id)
   struct listnode *node = NULL;
   struct isis_dynhn *dyn = NULL;
 
-  for (node = listhead (dyn_cache); node; nextnode (node))
-    {
-      dyn = getdata (node);
-      if (memcmp (dyn->id, id, ISIS_SYS_ID_LEN) == 0)
-	return dyn;
-    }
+  for (ALL_LIST_ELEMENTS_RO (dyn_cache, node, dyn))
+    if (memcmp (dyn->id, id, ISIS_SYS_ID_LEN) == 0)
+      return dyn;
 
   return NULL;
 }
@@ -114,9 +111,8 @@ dynhn_print_all (struct vty *vty)
   struct isis_dynhn *dyn;
 
   vty_out (vty, "Level  System ID      Dynamic Hostname%s", VTY_NEWLINE);
-  for (node = listhead (dyn_cache); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (dyn_cache, node, dyn))
     {
-      dyn = getdata (node);
       vty_out (vty, "%-7d", dyn->level);
       vty_out (vty, "%-15s%-15s%s", sysid_print (dyn->id), dyn->name.name,
 	       VTY_NEWLINE);

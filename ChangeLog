@@ -1,3 +1,10 @@
+2005-04-07 Paul Jakma <paul.jakma@sun.com>
+
+	* (global): Fix up list loops to match changes in lib/linklist, 
+	  and some basic auditing of usage.
+	* configure.ac: define QUAGGA_NO_DEPRECATED_INTERFACES
+	* HACKING: Add notes about deprecating interfaces and commands.
+
 2005-04-05 Paul Jakma <paul@dishone.st>
 
 	* HACKING: remove the 'manually patch redhat/quagga.spec' bit

@@ -247,8 +247,8 @@ listnode_lookup (struct list *list, void *data)
   struct listnode *node;
 
   assert(list);
-  for (node = list->head; node; nextnode (node))
-    if (data == getdata (node))
+  for (node = listhead(list); node; node = listnextnode (node))
+    if (data == listgetdata (node))
       return node;
   return NULL;
 }
@@ -317,6 +317,6 @@ list_add_list (struct list *l, struct list *m)
 {
   struct listnode *n;
 
-  for (n = listhead (m); n; nextnode (n))
+  for (n = listhead (m); n; n = listnextnode (n))
     listnode_add (l, n->data);
 }

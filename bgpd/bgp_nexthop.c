@@ -419,7 +419,7 @@ bgp_scan (afi_t afi, safi_t safi)
   struct bgp_info *bi;
   struct bgp_info *next;
   struct peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   int valid;
   int current;
   int changed;
@@ -437,7 +437,7 @@ bgp_scan (afi_t afi, safi_t safi)
     return;
 
   /* Maximum prefix check */
-  LIST_LOOP (bgp->peer, peer, nn)
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (peer->status != Established)
 	continue;
@@ -723,13 +723,10 @@ bgp_nexthop_self (afi_t afi, struct attr *attr)
   struct connected *ifc;
   struct prefix *p;
 
-  for (node = listhead (iflist); node; nextnode (node))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     {
-      ifp = getdata (node);
-
-      for (node2 = listhead (ifp->connected); node2; nextnode (node2))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, node2, ifc))
 	{
-	  ifc = getdata (node2);
 	  p = ifc->address;
 
 	  if (p && p->family == AF_INET 
@@ -1033,7 +1030,7 @@ bgp_import (struct thread *t)
   struct bgp *bgp;
   struct bgp_node *rn;
   struct bgp_static *bgp_static;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
   int valid;
   u_int32_t metric;
   struct in_addr nexthop;
@@ -1046,7 +1043,7 @@ bgp_import (struct thread *t)
   if (BGP_DEBUG (events, EVENTS))
     zlog_debug ("Import timer expired.");
 
-  LIST_LOOP (bm->bgp, bgp, nn)
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
       for (afi = AFI_IP; afi < AFI_MAX; afi++)
 	for (safi = SAFI_UNICAST; safi < SAFI_MPLS_VPN; safi++)

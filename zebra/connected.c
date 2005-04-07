@@ -41,13 +41,10 @@ connected_check_ipv4 (struct interface *ifp, struct prefix *p)
   struct connected *ifc;
   struct listnode *node;
 
-  for (node = listhead (ifp->connected); node; node = nextnode (node))
-    {
-      ifc = getdata (node);
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
+    if (prefix_same (ifc->address, p))
+      return ifc;
 
-      if (prefix_same (ifc->address, p))
-	return ifc;
-    }
   return NULL;
 }
 
@@ -267,13 +264,10 @@ connected_check_ipv6 (struct interface *ifp, struct prefix *p)
   struct connected *ifc;
   struct listnode *node;
 
-  for (node = listhead (ifp->connected); node; node = nextnode (node))
-    {
-      ifc = getdata (node);
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
+    if (prefix_same (ifc->address, p))
+      return ifc;
 
-      if (prefix_same (ifc->address, p))
-	return ifc;
-    }
   return 0;
 }
 

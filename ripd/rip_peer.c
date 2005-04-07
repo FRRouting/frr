@@ -53,9 +53,9 @@ struct rip_peer *
 rip_peer_lookup (struct in_addr *addr)
 {
   struct rip_peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (peer_list, peer, nn)
+  for (ALL_LIST_ELEMENTS (peer_list, node, nnode, peer))
     {
       if (IPV4_ADDR_SAME (&peer->addr, addr))
 	return peer;
@@ -67,9 +67,9 @@ struct rip_peer *
 rip_peer_lookup_next (struct in_addr *addr)
 {
   struct rip_peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 
-  LIST_LOOP (peer_list, peer, nn)
+  for (ALL_LIST_ELEMENTS (peer_list, node, nnode, peer))
     {
       if (htonl (peer->addr.s_addr) > htonl (addr->s_addr))
 	return peer;
@@ -183,11 +183,11 @@ void
 rip_peer_display (struct vty *vty)
 {
   struct rip_peer *peer;
-  struct listnode *nn;
+  struct listnode *node, *nnode;
 #define RIP_UPTIME_LEN 25
   char timebuf[RIP_UPTIME_LEN];
 
-  LIST_LOOP (peer_list, peer, nn)
+  for (ALL_LIST_ELEMENTS (peer_list, node, nnode, peer))
     {
       vty_out (vty, "    %-16s %9d %9d %9d   %s%s", inet_ntoa (peer->addr),
 	       peer->recv_badpackets, peer->recv_badroutes,
