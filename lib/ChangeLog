@@ -1,5 +1,9 @@
 2005-04-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* sigevent.c: On GNU_LINUX, check whether __USE_GNU is already defined.
+
+2005-04-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* vty.c: (vty_log_fixed) Use casts to (void *) to try to eliminate
 	  compiler warnings when assigning a (const char *) value to
 	  struct iovec iov_base.

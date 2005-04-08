@@ -27,7 +27,9 @@
 #ifdef HAVE_UCONTEXT_H
 #ifdef GNU_LINUX
 /* get REG_EIP from ucontext.h */
+#ifndef __USE_GNU
 #define __USE_GNU
+#endif /* __USE_GNU */
 #endif /* GNU_LINUX */
 #include <ucontext.h>
 #endif /* HAVE_UCONTEXT_H */
