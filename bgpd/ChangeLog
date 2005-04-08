@@ -1,3 +1,9 @@
+2005-04-08 Martin Ling <martin-quagga@earth.li>
+
+	* bgp_aspath.[ch], bgp_route.c, bgp_vty.c, bgpd.[ch]: Allow to enable
+	  the length of confederation path segments to be included during the
+	  as-path length check in the best path decision.
+
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* bgp_zebra.c: (bgp_interface_delete) After deleting, set ifp->ifindex

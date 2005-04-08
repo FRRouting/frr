@@ -1,3 +1,7 @@
+2005-04-08 Hasso Tepper <hasso at quagga.net>
+
+	* bgpd.texi: Document new "bgp bestpath as-path confed" command.
+
 2005-04-05 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: Get rid of built_sources. It causes them to be added

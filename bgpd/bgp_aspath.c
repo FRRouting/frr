@@ -138,6 +138,7 @@ aspath_make_str_count (struct aspath *as)
   int str_pnt;
   char *str_buf;
   int count = 0;
+  int confed_count = 0;
 
   /* Empty aspath. */
   if (as->length == 0)
@@ -145,6 +146,7 @@ aspath_make_str_count (struct aspath *as)
       str_buf = XMALLOC (MTYPE_AS_STR, 1);
       str_buf[0] = '\0';
       as->count = count;
+      as->confed_count = confed_count;
       return str_buf;
     }
 
@@ -208,14 +210,21 @@ aspath_make_str_count (struct aspath *as)
 
       space = 0;
 
-      /* Increment count - ignoring CONFED SETS/SEQUENCES */
-      if (assegment->type != AS_CONFED_SEQUENCE
-	  && assegment->type != AS_CONFED_SET)
+      /* Increment counts */
+      switch (assegment->type)
 	{
-	  if (assegment->type == AS_SEQUENCE)
-	    count += assegment->length;
-	  else if (assegment->type == AS_SET)
-	    count++;
+	case AS_SEQUENCE:
+	  count += assegment->length;
+	  break;
+	case AS_SET:
+	  count++;
+	  break;
+	case AS_CONFED_SEQUENCE:
+	  confed_count += assegment->length;
+	  break;
+	case AS_CONFED_SET:
+	  confed_count++;
+	  break;
 	}
 
       for (i = 0; i < assegment->length; i++)
@@ -247,6 +256,7 @@ aspath_make_str_count (struct aspath *as)
   str_buf[str_pnt] = '\0';
 
   as->count = count;
+  as->confed_count = confed_count;
 
   return str_buf;
 }

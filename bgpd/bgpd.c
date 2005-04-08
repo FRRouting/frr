@@ -4751,6 +4751,8 @@ bgp_config_write (struct vty *vty)
       /* BGP bestpath method. */
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_IGNORE))
 	vty_out (vty, " bgp bestpath as-path ignore%s", VTY_NEWLINE);
+      if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_CONFED))
+	vty_out (vty, " bgp bestpath as-path confed%s", VTY_NEWLINE);
       if (bgp_flag_check (bgp, BGP_FLAG_COMPARE_ROUTER_ID))
 	vty_out (vty, " bgp bestpath compare-routerid%s", VTY_NEWLINE);
       if (bgp_flag_check (bgp, BGP_FLAG_MED_CONFED)

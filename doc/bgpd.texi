@@ -116,6 +116,12 @@ This command set distance value to
 @item 6. MED check.
 @end table
 
+@deffn {BGP} {bgp bestpath as-path confed} {}
+This command specifies that the length of confederation path sets and
+sequences should should be taken into account during the BGP best path
+decision process.
+@end deffn
+
 @node BGP network
 @section BGP network
 

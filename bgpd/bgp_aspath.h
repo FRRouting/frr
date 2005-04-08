@@ -42,6 +42,9 @@ struct aspath
   /* AS count.  */
   int count;
 
+  /* Confederation set/segment AS count. */
+  int confed_count;
+  
   /* Rawdata.  */
   caddr_t data;
 

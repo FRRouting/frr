@@ -213,10 +213,26 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist)
   /* 4. AS path length check. */
   if (! bgp_flag_check (bgp, BGP_FLAG_ASPATH_IGNORE))
     {
-      if (new->attr->aspath->count < exist->attr->aspath->count)
-	return 1;
-      if (new->attr->aspath->count > exist->attr->aspath->count)
-	return 0;
+      if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_CONFED))
+	{
+	  if ((new->attr->aspath->count +
+	       new->attr->aspath->confed_count)
+	      < (exist->attr->aspath->count +
+		 exist->attr->aspath->confed_count))
+	    return 1;
+	  if ((new->attr->aspath->count +
+	       new->attr->aspath->confed_count)
+	      > (exist->attr->aspath->count +
+		 exist->attr->aspath->confed_count))
+	    return 0;
+	}
+      else
+	{
+	  if (new->attr->aspath->count < exist->attr->aspath->count)
+	    return 1;
+          if (new->attr->aspath->count > exist->attr->aspath->count)
+	    return 0;
+	}
     }
 
   /* 5. Origin check. */

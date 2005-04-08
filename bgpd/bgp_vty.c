@@ -971,6 +971,38 @@ DEFUN (no_bgp_bestpath_aspath_ignore,
   return CMD_SUCCESS;
 }
 
+/* "bgp bestpath as-path confed" configuration.  */
+DEFUN (bgp_bestpath_aspath_confed,
+       bgp_bestpath_aspath_confed_cmd,
+       "bgp bestpath as-path confed",
+       "BGP specific commands\n"
+       "Change the default bestpath selection\n"
+       "AS-path attribute\n"
+       "Compare path lengths including confederation sets & sequences in selecting a route\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_set (bgp, BGP_FLAG_ASPATH_CONFED);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_bestpath_aspath_confed,
+       no_bgp_bestpath_aspath_confed_cmd,
+       "no bgp bestpath as-path confed",
+       NO_STR
+       "BGP specific commands\n"
+       "Change the default bestpath selection\n"
+       "AS-path attribute\n"
+       "Compare path lengths including confederation sets & sequences in selecting a route\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_unset (bgp, BGP_FLAG_ASPATH_CONFED);
+  return CMD_SUCCESS;
+}
+
 /* "bgp log-neighbor-changes" configuration.  */
 DEFUN (bgp_log_neighbor_changes,
        bgp_log_neighbor_changes_cmd,
@@ -8625,6 +8657,10 @@ bgp_vty_init ()
   /* "bgp bestpath as-path ignore" commands */
   install_element (BGP_NODE, &bgp_bestpath_aspath_ignore_cmd);
   install_element (BGP_NODE, &no_bgp_bestpath_aspath_ignore_cmd);
+
+  /* "bgp bestpath as-path confed" commands */
+  install_element (BGP_NODE, &bgp_bestpath_aspath_confed_cmd);
+  install_element (BGP_NODE, &no_bgp_bestpath_aspath_confed_cmd);
 
   /* "bgp log-neighbor-changes" commands */
   install_element (BGP_NODE, &bgp_log_neighbor_changes_cmd);
