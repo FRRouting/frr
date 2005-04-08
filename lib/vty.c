@@ -2395,9 +2395,9 @@ vty_log_fixed (const char *buf, size_t len)
   unsigned int i;
   struct iovec iov[2];
 
-  iov[0].iov_base = buf;
+  iov[0].iov_base = (void *)buf;
   iov[0].iov_len = len;
-  iov[1].iov_base = "\r\n";
+  iov[1].iov_base = (void *)"\r\n";
   iov[1].iov_len = 2;
 
   for (i = 0; i < vector_active (vtyvec); i++)
