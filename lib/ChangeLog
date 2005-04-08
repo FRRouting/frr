@@ -1,3 +1,8 @@
+2005-04-08 Hasso Tepper <hasso at quagga.net>
+
+	* prefix.[hc]: Pass argument to the inet6_ntoa by value making it more
+	  inet_ntoa alike.
+
 2005-04-07 Paul Jakma <paul.jakma@sun.com>
 
 	* linklist.h: Add usage comments.	  

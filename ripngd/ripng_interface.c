@@ -437,7 +437,7 @@ ripng_interface_address_add (int command, struct zclient *zclient,
     {
       if (IS_RIPNG_DEBUG_ZEBRA)
 	zlog_debug ("RIPng connected address %s/%d add",
-		   inet6_ntoa(&p->u.prefix6),
+		   inet6_ntoa(p->u.prefix6),
 		   p->prefixlen);
       
       /* Check is this prefix needs to be redistributed. */
