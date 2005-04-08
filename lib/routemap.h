@@ -108,6 +108,7 @@ struct route_map_rule_list
 struct route_map_index
 {
   struct route_map *map;
+  char *description;
 
   /* Preference of this route map rule. */
   int pref;

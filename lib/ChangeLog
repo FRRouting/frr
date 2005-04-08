@@ -1,5 +1,9 @@
 2005-04-08 Hasso Tepper <hasso at quagga.net>
 
+	* routemap.[ch]: Added "description ..." command.
+
+2005-04-08 Hasso Tepper <hasso at quagga.net>
+
 	* prefix.[hc]: Pass argument to the inet6_ntoa by value making it more
 	  inet_ntoa alike.
 

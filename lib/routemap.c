@@ -1188,6 +1188,42 @@ DEFUN (no_rmap_call,
   return CMD_SUCCESS;
 }
 
+DEFUN (rmap_description,
+       rmap_description_cmd,
+       "description .LINE",
+       "Route-map comment\n"
+       "Comment describing this route-map rule\n")
+{
+  struct route_map_index *index;
+
+  index = vty->index;
+  if (index)
+    {
+      if (index->description)
+	XFREE (MTYPE_TMP, index->description);
+      index->description = argv_concat (argv, argc, 0);
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_rmap_description,
+       no_rmap_description_cmd,
+       "no description",
+       NO_STR
+       "Route-map comment\n")
+{
+  struct route_map_index *index;
+
+  index = vty->index;
+  if (index)
+    {
+      if (index->description)
+	XFREE (MTYPE_TMP, index->description);
+      index->description = NULL;
+    }
+  return CMD_SUCCESS;
+}
+
 /* Configuration write function. */
 int
 route_map_config_write (struct vty *vty)
@@ -1210,6 +1246,9 @@ route_map_config_write (struct vty *vty)
 		 map->name,
 		 route_map_type_str (index->type),
 		 index->pref, VTY_NEWLINE);
+
+	if (index->description)
+	  vty_out (vty, " description %s%s", index->description, VTY_NEWLINE);
 
 	for (rule = index->match_list.head; rule; rule = rule->next)
 	  vty_out (vty, " match %s %s%s", rule->cmd->str, 
@@ -1268,6 +1307,10 @@ route_map_init_vty ()
   /* Install the call stuff. */
   install_element (RMAP_NODE, &rmap_call_cmd);
   install_element (RMAP_NODE, &no_rmap_call_cmd);
+
+  /* Install description commands. */
+  install_element (RMAP_NODE, &rmap_description_cmd);
+  install_element (RMAP_NODE, &no_rmap_description_cmd);
    
   /* Install show command */
   install_element (ENABLE_NODE, &rmap_show_cmd);
