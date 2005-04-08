@@ -1,3 +1,9 @@
+2005-04-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zebra.h: If GNU_LINUX is defined, then define _GNU_SOURCE.  This
+	  fixes a problem where we were not getting the declaration of strnlen
+	  in <string.h>.
+
 2005-04-08 Hasso Tepper <hasso at quagga.net>
 
 	* routemap.[ch]: Added "description ..." command.

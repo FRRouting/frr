@@ -25,6 +25,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
 
+#ifdef GNU_LINUX
+#define _GNU_SOURCE
+#endif /* GNU_LINUX */
+
 #ifdef SUNOS_5
 #define _XPG4_2
 #define __EXTENSIONS__
