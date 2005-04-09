@@ -73,7 +73,7 @@ const char *nexthop_types_desc[] =
   "IPv4 nexthop",
   "IPv4 nexthop with ifindex",
   "IPv4 nexthop with ifname",
-  "IPv6 nexthop"
+  "IPv6 nexthop",
   "IPv6 nexthop with ifindex",
   "IPv6 nexthop with ifname",
   "Null0 nexthop",

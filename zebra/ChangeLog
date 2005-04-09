@@ -1,5 +1,10 @@
 2005-04-09 Hasso Tepper <hasso at quagga.net>
 
+	* rt_netlink.c: One tiny missing comma caused pointless debug messages
+	  about IPv6 nexthops.
+
+2005-04-09 Hasso Tepper <hasso at quagga.net>
+
 	* rt_netlink.c (netlink_parse_info): Fix warning. It's safe to cast
 	  status to unsigned here, because we already checked that it isn't
 	  negative or 0.
