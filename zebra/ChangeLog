@@ -1,3 +1,13 @@
+2005-04-09 Hasso Tepper <hasso at quagga.net>
+
+	* rt_netlink.c (netlink_parse_info): Fix warning. It's safe to cast
+	  status to unsigned here, because we already checked that it isn't
+	  negative or 0.
+	* rt_netlink.c (netlink_interface_addr): Prefix length belongs to the
+	  address, not to the interface.
+	* rt_netlink.c (netlink_route_multipath): Fix debug. No useless info
+	  is printed out now and IPv6 info is handeled.
+
 2005-04-05 Paul Jakma <paul@dishone.st>
 
 	* zserv.c: print more helpful errors when we fail to successfully
