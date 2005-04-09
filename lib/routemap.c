@@ -209,6 +209,11 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
       vty_out (vty, "route-map %s, %s, sequence %d%s",
                map->name, route_map_type_str (index->type),
                index->pref, VTY_NEWLINE);
+
+      /* Description */
+      if (index->description)
+	vty_out (vty, "  Description:%s    %s%s", VTY_NEWLINE,
+		 index->description, VTY_NEWLINE);
       
       /* Match clauses */
       vty_out (vty, "  Match clauses:%s", VTY_NEWLINE);

@@ -1,3 +1,7 @@
+2005-04-09 Jeroen Simonetti <jeroens@office.netland.nl>
+
+	* routemap.c: Show description in "show route-map" output.
+
 2005-04-08 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* sigevent.c: On GNU_LINUX, check whether __USE_GNU is already defined.
