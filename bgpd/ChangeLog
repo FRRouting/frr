@@ -1,3 +1,8 @@
+2005-04-09 Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_vty.c: Make "exit-address-family" work in IPv4 unicast address
+	  family node.
+
 2005-04-08 Martin Ling <martin-quagga@earth.li>
 
 	* bgp_aspath.[ch], bgp_route.c, bgp_vty.c, bgpd.[ch]: Allow to enable
