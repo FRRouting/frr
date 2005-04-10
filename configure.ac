@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.99 2005/04/07 07:30:20 paul Exp $
+## $Id: configure.ac,v 1.100 2005/04/10 16:31:51 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.0, [http://bugzilla.quagga.net])
@@ -323,13 +323,18 @@ case "$host" in
       AC_CHECK_LIB(xnet, main)
       CURSES=-lcurses
   ;;
-  [*-sunos5.[8-9]] | [*-sunos5.1[0-9]] \
-  | [*-solaris2.[8-9]] | [*-solaris2.1[0-9]])
+  [*-sunos5.[8-9]] \
+  | [*-sunos5.1[0-9]] \
+  | [*-sunos5.1[0-9].[0-9]] \
+  | [*-solaris2.[8-9]] \
+  | [*-solaris2.1[0-9]] \
+  | [*-solaris2.1[0-9].[0-9]])
       opsys=sol8
       AC_DEFINE(SUNOS_59,,SunOS 5.8 up)
       AC_DEFINE(SUNOS_5, 1, SunOS 5)
       AC_CHECK_LIB(socket, main)
       AC_CHECK_LIB(nsl, main)
+      AC_CHECK_LIB(umem, main)
       CURSES=-lcurses
   ;;
   *-sunos5* | *-solaris2*)
