@@ -15,8 +15,6 @@ libtopology_a_LIBADD = @LIB_REGEX@ ../../lib/libzebra.la
 noinst_HEADERS = \
 	spgrid.h
 
-EXTRA_DIST = regex.c regex-gnu.h
-
 depend:
 	@$(CPP) -MM $(INCLUDES) $(LDFLAGS) *.c
 

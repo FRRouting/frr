@@ -1,3 +1,13 @@
+2005-04-10 Paul Jakma <paul@dishone.st>
+
+	* Makefile.am: topology should not be a conditional SUBDIR,
+	  otherwise make dist breaks.
+	* topology/Makefile.am: remove EXTRA_DIST of files which dont
+	  exist in that directory, broke make dist.
+	* isisd.c: (show_isis_generated_topology_cmd) convert LIST_LOOP
+	* isis_lsp.c: (generate_topology_lsps) ditto
+	  (build_topology_lsp_data) ditto
+
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* isis_zebra.c: (isis_zebra_if_del) Must use if_lookup_by_name_len.

@@ -7,7 +7,7 @@ INSTALL_SDATA=@INSTALL@ -m 600
 LIBS = @LIBS@ 
 noinst_LIBRARIES = libisis.a
 sbin_PROGRAMS = isisd 
-SUBDIRS = @ISIS_TOPOLOGY_DIR@
+SUBDIRS = topology
 
 libisis_a_SOURCES = \
 	isis_adjacency.c isis_lsp.c dict.c isis_circuit.c isis_pdu.c \

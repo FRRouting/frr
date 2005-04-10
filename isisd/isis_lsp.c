@@ -2295,7 +2295,7 @@ generate_topology_lsps (struct isis_area *area)
   struct isis_lsp *lsp;
 
   /* first we find the maximal node */
-  LIST_LOOP (area->topology, arc, node)
+  for (ALL_LIST_ELEMENTS_RO (area->topology, node, arc))
   {
     if (arc->from_node > max)
       max = arc->from_node;
@@ -2355,7 +2355,7 @@ void
 build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
 			 int lsp_top_num)
 {
-  struct listnode *node;
+  struct listnode *node, *nnode;
   struct arc *arc;
   u_char *tlv_ptr;
   struct is_neigh *is_neigh;
@@ -2399,7 +2399,7 @@ build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
     }
 
   /* addding is reachabilities */
-  LIST_LOOP (area->topology, arc, node)
+  for (ALL_LIST_ELEMENTS (area->topology, node, nnode, arc))
   {
     if ((arc->from_node == lsp_top_num) || (arc->to_node == lsp_top_num))
       {
