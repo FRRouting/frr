@@ -2659,6 +2659,11 @@ File: quagga.info,  Node: BGP decision process,  Prev: BGP distance,  Up: BGP ro
 
 6. MED check.
 
+ -- BGP: bgp bestpath as-path confed
+     This command specifies that the length of confederation path sets
+     and sequences should should be taken into account during the BGP
+     best path decision process.
+
 
 File: quagga.info,  Node: BGP network,  Next: BGP Peer,  Prev: BGP router,  Up: BGP
 
@@ -5268,6 +5273,8 @@ Command Index
 * bandwidth <1-10000000>:                Interface Commands.  (line  31)
 * banner motd default:                   Basic Config Commands.
                                                               (line 110)
+* bgp bestpath as-path confed:           BGP decision process.
+                                                              (line  19)
 * bgp cluster-id A.B.C.D:                Route Reflector.     (line   7)
 * bgp config-type cisco:                 Multiple instance.   (line  20)
 * bgp config-type zebra:                 Multiple instance.   (line  49)
@@ -6148,82 +6155,82 @@ Node: Starting BGP89988
 Node: BGP router90565
 Node: BGP distance91809
 Node: BGP decision process92247
-Node: BGP network92517
-Node: BGP route92707
-Node: Route Aggregation93263
-Node: Redistribute to BGP93832
-Node: BGP Peer94359
-Node: Defining Peer94546
-Node: BGP Peer commands95159
-Node: Peer filtering97563
-Node: BGP Peer Group98071
-Node: BGP Address Family98384
-Node: Autonomous System98538
-Node: AS Path Regular Expression99375
-Node: Display BGP Routes by AS Path100622
-Node: AS Path Access List101062
-Node: Using AS Path in Route Map101529
-Node: Private AS Numbers101810
-Node: BGP Communities Attribute101968
-Node: BGP Community Lists104435
-Node: Numbered BGP Community Lists107089
-Node: BGP Community in Route Map108676
-Node: Display BGP Routes by Community110619
-Node: Using BGP Communities Attribute111788
-Node: BGP Extended Communities Attribute115356
-Node: BGP Extended Community Lists117128
-Node: BGP Extended Communities in Route Map119003
-Node: Displaying BGP routes119462
-Node: Show IP BGP119699
-Node: More Show IP BGP120399
-Node: Capability Negotiation121550
-Node: Route Reflector124854
-Node: Route Server125133
-Node: Multiple instance126199
-Node: BGP instance and view128010
-Node: Routing policy129390
-Node: Viewing the view130158
-Node: How to set up a 6-Bone connection130443
-Node: Dump BGP packets and table131815
-Node: Configuring Quagga as a Route Server132362
-Node: Description of the Route Server model133323
-Ref: fig:normal-processing134900
-Ref: fig:full-mesh135050
-Ref: fig:route-server135146
-Ref: filter-delegation135560
-Ref: Route Server tasks136744
-Ref: Route-server path filter process137115
-Ref: fig:rs-processing139429
-Node: Commands for configuring a Route Server139582
-Node: Example of Route Server Configuration142609
-Node: Configuration of the BGP routers without Route Server143530
-Node: Configuration of the BGP routers with Route Server146413
-Node: Configuration of the Route Server itself147714
-Node: Further considerations about Import and Export route-maps152713
-Node: VTY shell155757
-Node: VTY shell username156426
-Node: VTY shell integrated configuration157058
-Node: Filtering158506
-Node: IP Access List158859
-Node: IP Prefix List159245
-Node: ip prefix-list description162264
-Node: ip prefix-list sequential number control162791
-Node: Showing ip prefix-list163333
-Node: Clear counter of ip prefix-list164441
-Node: Route Map164880
-Node: Route Map Command165385
-Node: Route Map Match Command165582
-Node: Route Map Set Command166206
-Node: IPv6 Support167083
-Node: Router Advertisement167655
-Node: Kernel Interface173271
-Node: SNMP Support175228
-Node: Getting and installing an SNMP agent175800
-Node: SMUX configuration176373
-Node: MIB and command reference178509
-Node: Zebra Protocol179896
-Node: Packet Binary Dump Format181810
-Node: Command Index193420
-Node: VTY Key Index250991
+Node: BGP network92729
+Node: BGP route92919
+Node: Route Aggregation93475
+Node: Redistribute to BGP94044
+Node: BGP Peer94571
+Node: Defining Peer94758
+Node: BGP Peer commands95371
+Node: Peer filtering97775
+Node: BGP Peer Group98283
+Node: BGP Address Family98596
+Node: Autonomous System98750
+Node: AS Path Regular Expression99587
+Node: Display BGP Routes by AS Path100834
+Node: AS Path Access List101274
+Node: Using AS Path in Route Map101741
+Node: Private AS Numbers102022
+Node: BGP Communities Attribute102180
+Node: BGP Community Lists104647
+Node: Numbered BGP Community Lists107301
+Node: BGP Community in Route Map108888
+Node: Display BGP Routes by Community110831
+Node: Using BGP Communities Attribute112000
+Node: BGP Extended Communities Attribute115568
+Node: BGP Extended Community Lists117340
+Node: BGP Extended Communities in Route Map119215
+Node: Displaying BGP routes119674
+Node: Show IP BGP119911
+Node: More Show IP BGP120611
+Node: Capability Negotiation121762
+Node: Route Reflector125066
+Node: Route Server125345
+Node: Multiple instance126411
+Node: BGP instance and view128222
+Node: Routing policy129602
+Node: Viewing the view130370
+Node: How to set up a 6-Bone connection130655
+Node: Dump BGP packets and table132027
+Node: Configuring Quagga as a Route Server132574
+Node: Description of the Route Server model133535
+Ref: fig:normal-processing135112
+Ref: fig:full-mesh135262
+Ref: fig:route-server135358
+Ref: filter-delegation135772
+Ref: Route Server tasks136956
+Ref: Route-server path filter process137327
+Ref: fig:rs-processing139641
+Node: Commands for configuring a Route Server139794
+Node: Example of Route Server Configuration142821
+Node: Configuration of the BGP routers without Route Server143742
+Node: Configuration of the BGP routers with Route Server146625
+Node: Configuration of the Route Server itself147926
+Node: Further considerations about Import and Export route-maps152925
+Node: VTY shell155969
+Node: VTY shell username156638
+Node: VTY shell integrated configuration157270
+Node: Filtering158718
+Node: IP Access List159071
+Node: IP Prefix List159457
+Node: ip prefix-list description162476
+Node: ip prefix-list sequential number control163003
+Node: Showing ip prefix-list163545
+Node: Clear counter of ip prefix-list164653
+Node: Route Map165092
+Node: Route Map Command165597
+Node: Route Map Match Command165794
+Node: Route Map Set Command166418
+Node: IPv6 Support167295
+Node: Router Advertisement167867
+Node: Kernel Interface173483
+Node: SNMP Support175440
+Node: Getting and installing an SNMP agent176012
+Node: SMUX configuration176585
+Node: MIB and command reference178721
+Node: Zebra Protocol180108
+Node: Packet Binary Dump Format182022
+Node: Command Index193632
+Node: VTY Key Index251339
 
 End Tag Table
