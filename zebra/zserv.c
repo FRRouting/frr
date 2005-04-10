@@ -1164,7 +1164,7 @@ zebra_client_read (struct thread *thread)
 {
   int sock;
   struct zserv *client;
-  int nbyte;
+  size_t already;
   u_short length;
   u_char command;
 
@@ -1180,10 +1180,11 @@ zebra_client_read (struct thread *thread)
     }
 
   /* Read length and command (if we don't have it already). */
-  if (stream_get_endp(client->ibuf) < ZEBRA_HEADER_SIZE)
+  if ((already = stream_get_endp(client->ibuf)) < ZEBRA_HEADER_SIZE)
     {
+      ssize_t nbyte;
       if (((nbyte = stream_read_try (client->ibuf, sock,
-				     ZEBRA_HEADER_SIZE)) == 0) ||
+				     ZEBRA_HEADER_SIZE-already)) == 0) ||
 	  (nbyte == -1))
 	{
 	  if (IS_ZEBRA_DEBUG_EVENT)
@@ -1191,12 +1192,13 @@ zebra_client_read (struct thread *thread)
 	  zebra_client_close (client);
 	  return -1;
 	}
-      if (stream_get_endp(client->ibuf) < ZEBRA_HEADER_SIZE)
+      if (nbyte != (ssize_t)(ZEBRA_HEADER_SIZE-already))
 	{
 	  /* Try again later. */
 	  zebra_event (ZEBRA_READ, sock, client);
 	  return 0;
 	}
+      already = ZEBRA_HEADER_SIZE;
     }
 
   /* Reset to read from the beginning of the incoming packet. */
@@ -1207,25 +1209,33 @@ zebra_client_read (struct thread *thread)
 
   if (length < ZEBRA_HEADER_SIZE) 
     {
-      if (IS_ZEBRA_DEBUG_EVENT)
-	zlog_debug ("length %d is less than %d ", length, ZEBRA_HEADER_SIZE);
+      zlog_warn("%s: socket %d message length %u is less than header size %d",
+	        __func__, sock, length, ZEBRA_HEADER_SIZE);
+      zebra_client_close (client);
+      return -1;
+    }
+  if (length > STREAM_SIZE(client->ibuf))
+    {
+      zlog_warn("%s: socket %d message length %u exceeds buffer size %lu",
+	        __func__, sock, length, (u_long)STREAM_SIZE(client->ibuf));
       zebra_client_close (client);
       return -1;
     }
 
   /* Read rest of data. */
-  if (stream_get_endp(client->ibuf) < length)
+  if (already < length)
     {
-      nbyte = stream_read_try (client->ibuf, sock,
-			       length-stream_get_endp(client->ibuf));
-      if ((nbyte == 0) || (nbyte == -1))
+      ssize_t nbyte;
+      if (((nbyte = stream_read_try (client->ibuf, sock,
+				     length-already)) == 0) ||
+	  (nbyte == -1))
 	{
 	  if (IS_ZEBRA_DEBUG_EVENT)
 	    zlog_debug ("connection closed [%d] when reading zebra data", sock);
 	  zebra_client_close (client);
 	  return -1;
 	}
-      if (stream_get_endp(client->ibuf) < length)
+      if (nbyte != (ssize_t)(length-already))
         {
 	  /* Try again later. */
 	  zebra_event (ZEBRA_READ, sock, client);

@@ -1,3 +1,13 @@
+2005-04-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zserv.c (zebra_client_read): Fix bug: first read attempt should
+	  read ZEBRA_HEADER_SIZE minus the number of bytes already read.
+	  Improve efficiency by maintaining a calculation of the number
+	  of bytes read instead of calling stream_get_endp multiple times.
+	  If message length is too small, issue a warning message (not debug)
+	  before closing the connection.  And also check that message length
+	  is not too big.
+
 2005-04-09 Hasso Tepper <hasso at quagga.net>
 
 	* rt_netlink.c: One tiny missing comma caused pointless debug messages
