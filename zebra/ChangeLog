@@ -1,3 +1,8 @@
+2005-04-10 Paul Jakma <paul@dishone.st>
+
+	* if_ioctl_solaris.c: (if_lookup_linklocal) fix order of args
+	  in ALL_LIST_ELEMENTS_RO macro.
+
 2005-04-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zserv.c (zebra_client_read): Fix bug: first read attempt should
