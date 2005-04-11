@@ -1,0 +1,13 @@
+2005-04-11 Paul Jakma <paul.jakma@sun.com>
+
+	* (all) Initial check-in of files for building S10 packages
+	* protototype.*.in: package prototype files for SysV packages
+	* *.xml.in: SMF manifests for Quagga daemons
+	* pkginfo.*.tmpl.in: daemon specific pkginfo, refererenced
+	  by prototype files.
+	* pkginfo.tmpl.in: Quagga common pkginfo bits
+	* quagga.init.in: SMF method script
+	* Makefile.am: Automake file for building packages
+	* depend.*: Solaris 10 dependencies for packages, referenced by
+	  prototype files.
+	* .cvsignore: no idea what this is for...

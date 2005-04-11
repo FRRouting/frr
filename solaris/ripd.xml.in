@@ -1,0 +1,114 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+<!--
+	Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+	Use is subject to license terms.
+
+	$Id: ripd.xml.in,v 1.1 2005/04/11 07:05:21 paul Exp $
+-->
+
+<service_bundle type='manifest' name='QUAGGAdaemons:ripd'>
+
+<service
+	name='network/rip'
+	type='service'
+	version='1'>
+
+	<create_default_instance enabled='false' />
+
+	<single_instance />
+
+	<dependency name='fs'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri
+			value='svc:/system/filesystem/usr:default' />
+	</dependency>
+
+	<dependency name='net'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/network/loopback' />
+	</dependency>
+
+	<dependency name='zebra'
+		grouping='require_all'
+		restart_on='restart'
+		type='service'>
+		<service_fmri value='svc:/network/zebra' />
+	</dependency>
+
+	<dependency name='config_data'
+		grouping='require_all'
+		restart_on='restart'
+		type='path'>
+		<service_fmri
+		    value='file://localhost/@sysconfdir@/ripd.conf' />
+	</dependency>
+
+	<exec_method
+		type='method'
+		name='start'
+		exec='/lib/svc/method/quagga start svc:/network/rip'
+		timeout_seconds='60'/>
+
+	<exec_method
+		type='method'
+		name='stop'
+		exec='/lib/svc/method/quagga stop svc:/network/rip'
+		timeout_seconds='60' />
+
+	<exec_method
+		type='method'
+		name='restart'
+		exec='/lib/svc/method/quagga restart svc:/network/rip'
+		timeout_seconds='60' />
+
+	<property_group name='startd'
+		type='framework'>
+		<!-- sub-process core dumps shouldn't restart session -->
+		<propval name='ignore_error'
+		    type='astring' value='core,signal' />
+	</property_group>
+	
+	<property_group name='ripd' type='application'>
+		<stability value='Evolving' />
+		<propval name='retain_routes' type='boolean' value='false'/>
+	</property_group>
+
+	<property_group name='@PACKAGE_NAME@' type='application'>
+		<!-- Options common to @PACKAGE_NAME@ daemons -->	
+		<!-- cant make XInclude validate with svccfg -->
+		<propval name='daemon_name' type='astring' value='ripd' />
+		<propval name='config_file' type='astring'
+			value='@sysconfdir@/ripd.conf' />
+		<propval name='pid_file' type='astring'
+			value='@localstatedir@/ripd.pid' />
+		<propval name='vty_addr' type='astring' value='127.1' />
+		<propval name='vty_port' type='integer' value='0'/>
+		<propval name='user' type='astring' value='@enable_user@' />
+		<propval name='group' type='astring' value='@enable_group@' />
+		
+		<!--
+		<xi:include href='file:/var/svc/profile/@PACKAGE_TARNAME@_options.xml' />
+		-->
+	</property_group>
+
+	<stability value='Unstable' />
+
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+			@PACKAGE_NAME@: ripd, RIPv1/2 IPv4 routing protocol daemon.
+			</loctext>
+		</common_name>
+		<documentation>
+			<manpage title='ripd' section='1M' manpath='@mandir@' />
+		</documentation>
+	</template>
+
+</service>
+
+</service_bundle>

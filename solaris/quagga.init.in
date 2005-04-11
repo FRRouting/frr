@@ -1,0 +1,101 @@
+#!/sbin/sh
+#
+# Copyright 2001,2003 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
+#
+# $Id: quagga.init.in,v 1.1 2005/04/11 07:05:21 paul Exp $
+#
+# Starts/stops the appropriate daemon
+
+SMFINCLUDE=/lib/svc/share/smf_include.sh
+
+if [ -f "$SMFINCLUDE" ] ; then
+	. "$SMFINCLUDE";
+fi
+
+usage () {
+	echo "Usage: $0 (start|stop) <fmri>";
+}	
+
+case $1 in
+	'help' | 'usage')
+	usage
+	;;
+esac
+
+# fmri must be given.
+FMRI="$2"
+if [ -z "$FMRI" ]; then
+	usage
+	exit $SMF_EXIT_ERR_CONFIG
+fi
+
+# fmri must exist
+svcs ${FMRI} > /dev/null 2>&1 || exit $SMF_EXIT_ERR_CONFIG
+
+DAEMON=`svcprop -p @PACKAGE_NAME@/daemon_name ${FMRI} 2> /dev/null`
+[ -z "${DAEMON}" ] && exit $SMF_EXIT_ERR_CONFIG
+
+case ${DAEMON} in
+	zebra | ospfd | ospf6d | ripd | ripngd | bgpd )
+	;;
+	*)
+	usage
+	exit $SMF_EXIT_ERR_CONFIG;
+	;;
+esac
+
+CONFFILE=`svcprop -p @PACKAGE_NAME@/config_file ${FMRI}`
+PIDFILE=`svcprop -p @PACKAGE_NAME@/pid_file ${FMRI}`
+USER=`svcprop -p @PACKAGE_NAME@/user ${FMRI}`
+GROUP=`svcprop -p @PACKAGE_NAME@/group ${FMRI}`
+VTYADDR=`svcprop -p @PACKAGE_NAME@/vty_addr ${FMRI}`
+VTYPORT=`svcprop -p @PACKAGE_NAME@/vty_port ${FMRI}`
+
+[ -n "${CONFFILE}" ] && ARGS=" -f ${CONFFILE}"
+[ -n "${PIDFILE}" ] && ARGS="${ARGS} --pid_file ${PIDFILE}"
+[ -n "${USER}" ] && ARGS="${ARGS} --user ${USER}"
+[ -n "${GROUP}" ] && ARGS="${ARGS} --group ${GROUP}"
+[ -n "${VTYPORT}" ] && ARGS="${ARGS} --vty_port ${VTYPORT}"
+[ -n "${VTYADDR}" ] && ARGS="${ARGS} --vty_addr ${VTYADDR}"
+
+# have to have a pid file for script to work
+[ -z "${PIDFILE}" ] && exit $SMF_EXIT_ERR_CONFIG
+
+# config file must exist
+[ ! -f "$CONFFILE" ] &&  exit $SMF_EXIT_ERR_CONFIG
+
+start () {
+	/usr/local/quagga/sbin/${DAEMON} ${ARGS} &
+}
+
+stop () {
+	if [ -f "${PIDFILE}" ]; then
+		/usr/bin/kill -TERM `/usr/bin/cat "${PIDFILE}"`
+	fi
+}
+
+restart() {
+	stop ${daemon}
+	sleep 1
+	start ${daemon}
+}
+
+case $1 in 
+'start')
+	start ${2}
+	;;
+'stop')
+	stop ${2}
+	;;
+
+'restart')
+	restart ${2}
+	;;
+*)
+	usage
+	exit 1
+	;;
+esac	
+
+exit $SMF_EXIT_OK;
