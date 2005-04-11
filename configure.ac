@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.100 2005/04/10 16:31:51 paul Exp $
+## $Id: configure.ac,v 1.101 2005/04/11 07:10:47 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.0, [http://bugzilla.quagga.net])
@@ -36,7 +36,9 @@ AC_SUBST(pkgsrcrcdir)
 dnl -----------------------------------
 dnl Get hostname and other information.
 dnl -----------------------------------
-AC_CANONICAL_HOST
+AC_CANONICAL_BUILD()
+AC_CANONICAL_HOST()
+AC_CANONICAL_TARGET()
 
 dnl ------------
 dnl Check CFLAGS
@@ -251,14 +253,12 @@ if test "${enable_user}" = "yes" || test x"${enable_user}" = x""; then
 elif test "${enable_user}" = "no"; then
   enable_user="root"
 fi
-AC_DEFINE_UNQUOTED(QUAGGA_USER, "${enable_user}", Quagga User)
 
 if test "${enable_group}" = "yes" || test x"${enable_group}" = x""; then
   enable_group="quagga"
 elif test "${enable_group}" = "no"; then
   enable_group="root"
 fi
-AC_DEFINE_UNQUOTED(QUAGGA_GROUP, "${enable_group}", Quagga Group)
 
 if test x"${enable_vty_group}" = x"yes" ; then
   AC_MSG_ERROR([--enable-vty-group requires a group as argument, not yes])
@@ -267,6 +267,11 @@ elif test x"${enable_vty_group}" != x""; then
     AC_DEFINE_UNQUOTED(VTY_GROUP, "${enable_vty_group}", VTY Sockets Group)
   fi
 fi
+AC_SUBST([enable_user])
+AC_SUBST([enable_group])
+AC_SUBST([enable_vty_group])
+AC_DEFINE_UNQUOTED(QUAGGA_USER, "${enable_user}", Quagga User)
+AC_DEFINE_UNQUOTED(QUAGGA_GROUP, "${enable_group}", Quagga Group)
 
 enable_configfile_mask=${enable_configfile_mask:-0600}
 AC_DEFINE_UNQUOTED(CONFIGFILE_MASK, ${enable_configfile_mask}, Mask for config files)
@@ -1234,6 +1239,7 @@ else
   quagga_statedir=${localstatedir}
   AC_MSG_CHECKING(directory to use for state file)
   AC_MSG_RESULT(${quagga_statedir})
+  AC_SUBST(quagga_statedir)
 fi
 if test $quagga_statedir = "/dev/null"; then
     AC_MSG_ERROR('STATE DIRECTORY NOT FOUND! FIX OR SPECIFY --localstatedir!')
@@ -1295,6 +1301,8 @@ AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile
 	  isisd/topology/Makefile
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh])
+AC_CONFIG_FILES([solaris/Makefile])
+
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 ## Hack, but working solution to avoid rebuilding of quagga.info.
 ## It's already in CVS until texinfo 4.7 is more common.

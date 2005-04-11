@@ -1,3 +1,12 @@
+2005-04-11 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: Call AC_CANONICAL_{BUILD,TARGET} macros. Target isnt
+	  set otherwise, afaict. AC_SUBST enable_{user,group,vty_group} and
+	  quagga_statedir - the Solaris package bits for one need this.
+	  configure the solaris/ Makefile.
+	* Makefile.am: solaris is a subdir - unconditional or else it wont
+	  be included in non-solaris made dists.
+	  
 2005-04-10 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Fix host string recognition for Solaris Nevada aka
