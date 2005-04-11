@@ -1,3 +1,9 @@
+2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* configure.ac: Move AC_CANONICAL_* stuff before AM_INIT_AUTOMAKE to
+	  eliminate warning message about AC_ARG_PROGRAM being called
+	  before AC_CANONICAL_TARGET.
+
 2005-04-11 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Call AC_CANONICAL_{BUILD,TARGET} macros. Target isnt

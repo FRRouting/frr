@@ -5,11 +5,19 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.101 2005/04/11 07:10:47 paul Exp $
+## $Id: configure.ac,v 1.102 2005/04/11 14:55:55 ajs Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.0, [http://bugzilla.quagga.net])
 AC_CONFIG_SRCDIR(lib/zebra.h)
+
+dnl -----------------------------------
+dnl Get hostname and other information.
+dnl -----------------------------------
+AC_CANONICAL_BUILD()
+AC_CANONICAL_HOST()
+AC_CANONICAL_TARGET()
+
 AM_INIT_AUTOMAKE(1.6)
 AM_CONFIG_HEADER(config.h)
 
@@ -32,13 +40,6 @@ AC_ARG_ENABLE([pkgsrcrcdir],
 dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
 AC_SUBST(pkgsrcdir)
 AC_SUBST(pkgsrcrcdir)
-
-dnl -----------------------------------
-dnl Get hostname and other information.
-dnl -----------------------------------
-AC_CANONICAL_BUILD()
-AC_CANONICAL_HOST()
-AC_CANONICAL_TARGET()
 
 dnl ------------
 dnl Check CFLAGS
