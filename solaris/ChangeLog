@@ -10,5 +10,5 @@
 	* Makefile.am: Automake file for building packages
 	* depend.*: Solaris 10 dependencies for packages, referenced by
 	  prototype files.
-	* .cvsignore: no idea what this is for...
+	* .cvsignore: Add built files
 	* README.txt: new file, package creation, install, usage notes.
