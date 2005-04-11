@@ -1,3 +1,8 @@
+2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_zebra.c (ospf_zebra_add): Call zclient_send_message instead
+	  of writen.
+
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_interface.h: (ospf_if_lookup_by_name) Remove declaration of a

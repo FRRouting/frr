@@ -155,7 +155,7 @@ ripng_redistribute_unset (int type)
   zclient->redist[type] = 0;
 
   if (zclient->sock > 0)
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient->sock, type);
+    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
 
   ripng_redistribute_withdraw (type);
   
@@ -228,7 +228,7 @@ ripng_redistribute_clean ()
         {
           if (zclient->sock > 0)
             zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE,
-                                     zclient->sock, redist_type[i].type);
+                                     zclient, redist_type[i].type);
 
           zclient->redist[redist_type[i].type] = 0;
 

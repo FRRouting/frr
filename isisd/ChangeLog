@@ -1,3 +1,14 @@
+2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* isis_zebra.h (isis_zebra_finish): Remove declaration of unused
+	  function.
+	* isis_zebra.c (isis_zebra_route_add_ipv4): Call zclient_send_message
+	  to send the message to zebra instead of calling writen directly, since
+	  zclient_send_message understands non-blocking I/O and will manage
+	  the buffer queue appropriately.
+	  (isis_zebra_finish): Remove unused function, particularly since
+	  the zclient_free function has been removed.
+
 2005-04-10 Paul Jakma <paul@dishone.st>
 
 	* Makefile.am: topology should not be a conditional SUBDIR,

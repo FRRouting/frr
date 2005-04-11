@@ -397,7 +397,7 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
 
       stream_putw_at (s, 0, stream_get_endp (s));
 
-      writen (zclient->sock, s->data, stream_get_endp (s));
+      zclient_send_message(zclient);
     }
 }
 

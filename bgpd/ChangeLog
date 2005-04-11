@@ -1,3 +1,9 @@
+2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* bgp_zebra.c (bgp_redistribute_set, bgp_redistribute_unset):
+	  The 2nd arg to zebra_redistribute_send is now zclient instead of
+	  zclient->sock.
+
 2005-04-09 Akihiro Mizutani <mizutani@net-chef.net>
 
 	* bgp_vty.c: Make "exit-address-family" work in IPv4 unicast address

@@ -1,3 +1,9 @@
+2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* rip_zebra.c (rip_redistribute_set, rip_redistribute_unset,
+	  rip_redistribute_clean): Change 2nd arg to zebra_redistribute_send
+	  from zclient->sock to zclient.
+
 2005-04-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* rip_interface.c: (rip_interface_delete) After deleting, set

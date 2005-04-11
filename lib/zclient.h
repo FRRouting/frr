@@ -50,9 +50,15 @@ struct zclient
   /* Output buffer for zebra message. */
   struct stream *obuf;
 
+  /* Buffer of data waiting to be written to zebra. */
+  struct buffer *wb;
+
   /* Read and connect thread. */
   struct thread *t_read;
   struct thread *t_connect;
+
+  /* Thread to write buffered data to zebra. */
+  struct thread *t_write;
 
   /* Redistribute information. */
   u_char redist_default;
@@ -103,19 +109,29 @@ struct zapi_ipv4
 
 /* Prototypes of zebra client service functions. */
 struct zclient *zclient_new (void);
-void zclient_free (struct zclient *);
 void zclient_init (struct zclient *, int);
 int zclient_start (struct zclient *);
 void zclient_stop (struct zclient *);
 void zclient_reset (struct zclient *);
-int zclient_socket ();
+
+/* Get TCP socket connection to zebra daemon at loopback address. */
+int zclient_socket (void);
+
+/* Get unix stream socket connection to zebra daemon at given path. */
 int zclient_socket_un (const char *);
 
-void zclient_redistribute (int, struct zclient *, int);
-void zclient_redistribute_default (int, struct zclient *);
+/* Send redistribute command to zebra daemon. Do not update zclient state. */
+int zebra_redistribute_send (int command, struct zclient *, int type);
 
-/* struct zebra *zebra_new (); */
-int zebra_redistribute_send (int, int, int);
+/* If state has changed, update state and call zebra_redistribute_send. */
+void zclient_redistribute (int command, struct zclient *, int type);
+
+/* If state has changed, update state and send the command to zebra. */
+void zclient_redistribute_default (int command, struct zclient *);
+
+/* Send the message in zclient->obuf to the zebra daemon (or enqueue it).
+   Returns 0 for success or -1 on an I/O error. */
+extern int zclient_send_message(struct zclient *);
 
 struct interface *zebra_interface_add_read (struct stream *);
 struct interface *zebra_interface_state_read (struct stream *s);

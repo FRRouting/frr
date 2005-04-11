@@ -813,7 +813,7 @@ bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type)
     return CMD_WARNING;
     
   /* Send distribute add message to zebra. */
-  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient->sock, type);
+  zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type);
 
   return CMD_SUCCESS;
 }
@@ -876,7 +876,7 @@ bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type)
       && bgp->redist[AFI_IP6][type] == 0 
       && zclient->sock >= 0)
     /* Send distribute delete message to zebra. */
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient->sock, type);
+    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
   
   /* Withdraw redistributed routes from current BGP's routing table. */
   bgp_redistribute_withdraw (bgp, afi, type);

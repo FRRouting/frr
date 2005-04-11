@@ -1,3 +1,9 @@
+2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf6_zebra.c (ospf6_zebra_redistribute, ospf6_zebra_no_redistribute):
+	  Change 2nd arg to zebra_redistribute_send from zclient->sock
+	  to zclient.
+
 2005-04-07 Paul Jakma <paul@dishone.st>
 
 	* (global) Fix up list loops to match changes in lib/linklist,

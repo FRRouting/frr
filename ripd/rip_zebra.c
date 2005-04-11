@@ -244,7 +244,7 @@ rip_redistribute_set (int type)
   zclient->redist[type] = 1;
 
   if (zclient->sock > 0)
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient->sock, type);
+    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type);
 
   return CMD_SUCCESS;
 }
@@ -258,7 +258,7 @@ rip_redistribute_unset (int type)
   zclient->redist[type] = 0;
 
   if (zclient->sock > 0)
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient->sock, type);
+    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
 
   /* Remove the routes from RIP table. */
   rip_redistribute_withdraw (type);
@@ -283,7 +283,7 @@ rip_redistribute_clean ()
 	{
 	  if (zclient->sock > 0)
 	    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE,
-				     zclient->sock, redist_type[i].type);
+				     zclient, redist_type[i].type);
 
 	  zclient->redist[redist_type[i].type] = 0;
 

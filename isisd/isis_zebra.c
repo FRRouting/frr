@@ -302,7 +302,7 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
 	stream_putl (stream, route_info->cost);
 
       stream_putw_at (stream, 0, stream_get_endp (stream));
-      writen (zclient->sock, stream->data, stream_get_endp (stream));
+      zclient_send_message(zclient);
     }
 }
 
@@ -609,16 +609,6 @@ isis_zebra_init ()
   zclient->ipv6_route_add = isis_zebra_read_ipv6;
   zclient->ipv6_route_delete = isis_zebra_read_ipv6;
 #endif /* HAVE_IPV6 */
-
-  return;
-}
-
-void
-isis_zebra_finish ()
-{
-  zclient_stop (zclient);
-  zclient_free (zclient);
-  zclient = (struct zclient *) NULL;
 
   return;
 }

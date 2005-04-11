@@ -1,3 +1,33 @@
+2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zclient.h (struct zclient): Add two fields to support non-blocking
+	  I/O: struct buffer *wb, and struct thread *t_write.
+	  (zclient_free): Remove function.
+	  (zebra_redistribute_send): Change 2nd arg from socket fd to
+	  struct zclient * (needed to support non-blocking I/O and buffering).
+	  (zclient_send_message): New function to send an arbitrary
+	  message with non-blocking I/O.
+	* zclient.c (zclient_new): Create write buffer.
+	  (zclient_free): Remove unused function.
+	  (zclient_stop): Must cancel new t_write thread.  Also, reset
+	  all buffers: ibuf, obuf, and wb.
+	  (zclient_failed): New helper function for typical error handling.
+	  (zclient_flush_data): New thread to flush queued data.
+	  (zclient_send_message): New function to send the message in
+	  zclient->obuf to zebra using non-blocking I/O and buffering.
+	  (zebra_message_send, zapi_ipv4_route, zapi_ipv6_route): Use
+	  new zclient_send_message function instead of calling writen.
+	  (zclient_start): Set socket non-blocking.  Also, change 2nd arg
+	  to zebra_redistribute_send from zclient->sock to zclient.
+	  (zebra_redistribute_send): Change 2nd arg to struct zclient *.
+	  Can now use zclient->obuf to assemble the message instead of
+	  allocating a temporary stream.  And call zclient_send_message to
+	  send the message instead of writen. 
+	  (zclient_read): Convert to support non-blocking I/O by using
+	  stream_read_try instead of deprecated stream_read.
+	  (zclient_redistribute): Change 2nd arg to zebra_redistribute_send
+	  from zclient->sock to zclient.
+
 2005-04-09 Jeroen Simonetti <jeroens@office.netland.nl>
 
 	* routemap.c: Show description in "show route-map" output.
