@@ -11,3 +11,4 @@
 	* depend.*: Solaris 10 dependencies for packages, referenced by
 	  prototype files.
 	* .cvsignore: no idea what this is for...
+	* README.txt: new file, package creation, install, usage notes.

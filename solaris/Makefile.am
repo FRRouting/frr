@@ -1,5 +1,5 @@
 # Solaris packages automake file
-# $Id: Makefile.am,v 1.1 2005/04/11 07:05:21 paul Exp $
+# $Id: Makefile.am,v 1.2 2005/04/11 07:58:35 paul Exp $
 
 .PHONY: packages
 
@@ -109,7 +109,7 @@ CLEANFILES := $(BUILT_SOURCES) $(pkg_packages)
 
 EXTRA_DIST := $(pkg_depends) $(pkg_manifests:%=%.in) $(pkg_prototypes:%=%.in) \
 	$(pkg_names:%=pkginfo.%.tmpl.in) $(srcdir)/pkginfo.tmpl.in \
-	quagga.init.in options.xml r.manifest i.manifest
+	quagga.init.in options.xml r.manifest i.manifest README.txt
 
 pkg-root-install:
 	(cd $(top_builddir) && \
