@@ -1,3 +1,7 @@
+2005-04-12 Hasso Tepper <hasso at quagga.net>
+
+	* isis_adjacency.c: Fix typo introduced with listloop cleanup.
+
 2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* isis_zebra.h (isis_zebra_finish): Remove declaration of unused

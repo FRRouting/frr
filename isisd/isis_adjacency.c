@@ -395,7 +395,7 @@ isis_adj_print_vty2 (struct isis_adjacency *adj, struct vty *vty, char detail)
       if (adj->ipv6_addrs && listcount (adj->ipv6_addrs) > 0)
 	{
 	  vty_out (vty, "    IPv6 Addresses:%s", VTY_NEWLINE);
-	  for (ALL_LIST_ELEMENTS_RO (adj->ipv4_addrs, node, ipv6_addr))
+	  for (ALL_LIST_ELEMENTS_RO (adj->ipv6_addrs, node, ipv6_addr))
 	    {
 	      inet_ntop (AF_INET6, ipv6_addr, (char *)ip6, INET6_ADDRSTRLEN);
 	      vty_out (vty, "      %s%s", ip6, VTY_NEWLINE);
