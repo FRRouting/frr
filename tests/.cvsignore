@@ -11,3 +11,6 @@ TAGS
 testsig
 .arch-inventory
 .arch-ids
+testbuffer
+testmemory
+testsig
