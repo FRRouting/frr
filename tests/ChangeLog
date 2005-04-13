@@ -1,0 +1,5 @@
+2004-05-13 Paul Jakma <paul@dishone.st>
+
+	* test-buffer.c: Andrew's buffer tester
+	* test-memory.c: basic memory tester
+	* Makefile.am: Add new tests
