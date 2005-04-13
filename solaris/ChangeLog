@@ -1,3 +1,8 @@
+2005-04-13 Paul Jakma <paul.jakma@sun.com>
+
+	* Makefile.am: {i,r}.manifest are (or will be) system provided files
+	  and not in CVS, hence dont depend on them or distribute them.
+
 2005-04-11 Paul Jakma <paul.jakma@sun.com>
 
 	* (all) Initial check-in of files for building S10 packages
