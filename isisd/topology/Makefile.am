@@ -6,7 +6,7 @@ DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 noinst_LIBRARIES = libtopology.a
 
 libtopology_a_SOURCES = \
-	spgrid.c
+	spgrid.c random.c
 
 libtopology_a_DEPENDENCIES = @LIB_REGEX@
 

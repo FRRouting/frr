@@ -1,3 +1,8 @@
+2005-04-15 Paul Jakma <paul@dishone.st>
+
+	* topology/Makefile.am: random.c is a source of libtopology, so list
+	  it.
+
 2005-04-12 Hasso Tepper <hasso at quagga.net>
 
 	* isis_adjacency.c: Fix typo introduced with listloop cleanup.
