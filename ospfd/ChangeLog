@@ -1,3 +1,9 @@
+2005-04-15 Zhipeng Gong <zpgong@cdc.3upsystems.com>
+
+	* ospf_abr.c: (ospf_abr_announce_network_to_area) dont forget
+	  to approve LSAs for the case where metric has changed, lsa gets
+	  flushed otherwise. (backport candidate).
+
 2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_zebra.c (ospf_zebra_add): Call zclient_send_message instead
