@@ -13,6 +13,8 @@
         * Makefile.am: Add memtypes.{c,h}, add BUILT_SOURCES for memtypes.h
           Add a rule to build memtypes.h using memtypes.awk.
           Add memtypes.awk to EXTRA_DIST.
+	  memtypes.awk is gawk dependent, use the GAWK automake var.
+	* memtypes.h: New file, auto-generated, checked in for convenience.
 
 2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
