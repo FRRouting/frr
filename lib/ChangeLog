@@ -1,3 +1,19 @@
+2005-04-15 Paul Jakma <paul@dishone.st>
+
+	* memtypes.c: The new, unified location for memory type definitions.
+	  The memtype enum and declarations for memory_lists are built from
+          this automatically and put into memtypes.h.
+        * memtypes.awk: New script to generate memtypes.h from memtypes.c
+        * memory.h: Finally, the enum can banished!
+        * memory.c: Finally, the seperate mtype memory_list definitions can
+          be banished!
+          (log_memstats) Increase width of fields
+          (show_memory_zebra_cmd) display zebra specific memory types.
+          Increase width of fields.
+        * Makefile.am: Add memtypes.{c,h}, add BUILT_SOURCES for memtypes.h
+          Add a rule to build memtypes.h using memtypes.awk.
+          Add memtypes.awk to EXTRA_DIST.
+
 2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zclient.h (struct zclient): Add two fields to support non-blocking
