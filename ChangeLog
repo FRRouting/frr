@@ -1,3 +1,10 @@
+2005-04-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* configure.ac: Added AC_ARG_ENABLE(time-check).  By default,
+	  warning messages will now be printed for threads or commands that take
+	  longer than 5 seconds, but this configure argument can be used
+	  to disable the checks or change the threshold.
+
 2005-04-16 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: check for gawk, needed to build memtypes.h

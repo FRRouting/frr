@@ -395,7 +395,24 @@ vty_command (struct vty *vty, char *buf)
   if (vline == NULL)
     return CMD_SUCCESS;
 
+#ifdef CONSUMED_TIME_CHECK
+  {
+    RUSAGE_T before;
+    RUSAGE_T after;
+    unsigned long cmdtime;
+
+    GETRUSAGE(&before);
+#endif /* CONSUMED_TIME_CHECK */
+
   ret = cmd_execute_command (vline, vty, NULL, 0);
+
+#ifdef CONSUMED_TIME_CHECK
+    GETRUSAGE(&after);
+    if ((cmdtime = thread_consumed_time(&after, &before)) > CONSUMED_TIME_CHECK)
+      /* Warn about CPU hog that must be fixed. */
+      zlog_warn("CPU HOG: command took %lums: %s", cmdtime/1000, buf);
+  }
+#endif /* CONSUMED_TIME_CHECK */
 
   if (ret != CMD_SUCCESS)
     switch (ret)

@@ -1,3 +1,18 @@
+2005-04-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* thread.h (thread_consumed_time): Declare new function to calculate
+	  elapsed microseconds.
+	* thread.c (thread_consumed_time): Must be global not static so we
+	  can call it from lib/vty.c:vty_command.
+	  (thread_should_yield): Surround with `#if 0' to make clear that this
+	  function is not currently being used anywhere.
+	  (thread_call): If CONSUMED_TIME_CHECK is defined, print a CPU HOG
+	  warning message if the thread takes more than CONSUMED_TIME_CHECK
+	  microseconds.
+	* vty.c (vty_command): If CONSUMED_TIME_CHECK is defined, print a CPU
+	  HOG warning message if the command takes more than CONSUMED_TIME_CHECK
+	  microseconds.
+
 2005-04-16 Paul Jakma <paul@dishone.st>
 
 	* memtypes.c: the comment about use of comments in the comments

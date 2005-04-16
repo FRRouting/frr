@@ -804,7 +804,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
     }
 }
 
-static unsigned long
+unsigned long
 thread_consumed_time (RUSAGE_T *now, RUSAGE_T *start)
 {
   unsigned long thread_time;
@@ -821,6 +821,10 @@ thread_consumed_time (RUSAGE_T *now, RUSAGE_T *start)
   return thread_time;
 }
 
+#if 0
+
+/* This function is not currently used: threads never yield! */
+
 /* We should aim to yield after THREAD_YIELD_TIME_SLOT
    milliseconds.  */
 int
@@ -835,6 +839,8 @@ thread_should_yield (struct thread *thread)
   else
     return 0;
 }
+
+#endif
 
 /* We check thread consumed time. If the system has getrusage, we'll
    use that to get indepth stats on the performance of the thread.  If
@@ -864,20 +870,20 @@ thread_call (struct thread *thread)
   ++cpu->total_calls;
   cpu->types |= (1 << thread->add_type);
 
-#ifdef THREAD_CONSUMED_TIME_CHECK
-  if (thread_time > 200000L)
+#ifdef CONSUMED_TIME_CHECK
+  if (thread_time > CONSUMED_TIME_CHECK)
     {
       /*
        * We have a CPU Hog on our hands.
        * Whinge about it now, so we're aware this is yet another task
        * to fix.
        */
-      zlog_err ("CPU HOG task %s (%lx) ran for %ldms",
-		thread->funcname,
-		(unsigned long) thread->func,
-		thread_time / 1000L);
+      zlog_warn ("CPU HOG: task %s (%lx) ran for %ldms",
+		 thread->funcname,
+		 (unsigned long) thread->func,
+		 thread_time / 1000L);
     }
-#endif /* THREAD_CONSUMED_TIME_CHECK */
+#endif /* CONSUMED_TIME_CHECK */
 }
 
 /* Execute thread */

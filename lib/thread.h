@@ -158,4 +158,6 @@ unsigned long thread_timer_remain_second (struct thread *);
 
 extern struct cmd_element show_thread_cpu_cmd;
 
+extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before);
+
 #endif /* _ZEBRA_THREAD_H */

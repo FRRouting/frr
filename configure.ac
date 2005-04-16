@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.103 2005/04/16 15:38:23 paul Exp $
+## $Id: configure.ac,v 1.104 2005/04/16 17:11:24 ajs Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.0, [http://bugzilla.quagga.net])
@@ -195,6 +195,8 @@ AC_ARG_ENABLE(gcc_ultra_verbose,
 [  --enable-gcc-ultra-verbose    enable ultra verbose GCC warnings])
 AC_ARG_ENABLE(gcc-rdynamic,
 [  --enable-gcc-rdynamic   enable gcc linking with -rdynamic for better backtraces])
+AC_ARG_ENABLE(time-check,
+[  --disable-time-check          disable slow thread warning messages])
 
 if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
   CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"
@@ -205,6 +207,14 @@ fi
 
 if test x"${enable_gcc_rdynamic}" = x"yes" ; then
   LDFLAGS="${LDFLAGS} -rdynamic"
+fi
+
+if test x"${enable_time_check}" != x"no" ; then
+  if test x"${enable_time_check}" = x"yes" -o x"${enable_time_check}" = x ; then
+    AC_DEFINE(CONSUMED_TIME_CHECK,5000000,Consumed Time Check)
+  else
+    AC_DEFINE_UNQUOTED(CONSUMED_TIME_CHECK,$enable_time_check,Consumed Time Check)
+  fi
 fi
 
 if test "${enable_broken_aliases}" = "yes"; then
