@@ -3,10 +3,10 @@
  * MTYPE_ and memory_list_.. information in order to autogenerate 
  * memtypes.h.
  *
- * The script is sensitive to the format (though not whitespace), so 
- * be careful. Comment lines /must/ start with either /* or *.
+ * The script is sensitive to the format (though not whitespace), see
+ * the top of memtypes.awk for more details.
  *
- * $Id: memtypes.c,v 1.1 2005/04/15 11:47:15 paul Exp $
+ * $Id: memtypes.c,v 1.2 2005/04/16 15:51:05 paul Exp $
  */
 
 #include "zebra.h"

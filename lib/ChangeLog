@@ -1,3 +1,12 @@
+2005-04-16 Paul Jakma <paul@dishone.st>
+
+	* memtypes.c: the comment about use of comments in the comments
+	  headers was causing comment within comment warnings from compiler
+	* memtypes.awk: Add extensive comments on the file format for
+	  memtypes.c.
+	  tighten the pattern for the MTYPE matching action (suggestion from
+	  Andrew) and tighten which field we try the match on.
+
 2005-04-15 Paul Jakma <paul@dishone.st>
 
 	* memtypes.c: The new, unified location for memory type definitions.
