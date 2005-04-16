@@ -1,3 +1,7 @@
+2005-04-16 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: check for gawk, needed to build memtypes.h
+
 2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* configure.ac: Move AC_CANONICAL_* stuff before AM_INIT_AUTOMAKE to

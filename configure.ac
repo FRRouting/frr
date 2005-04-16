@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.102 2005/04/11 14:55:55 ajs Exp $
+## $Id: configure.ac,v 1.103 2005/04/16 15:38:23 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.0, [http://bugzilla.quagga.net])
@@ -20,6 +20,10 @@ AC_CANONICAL_TARGET()
 
 AM_INIT_AUTOMAKE(1.6)
 AM_CONFIG_HEADER(config.h)
+
+dnl we need gawk for memtypes.awk
+AC_CHECK_PROG([GAWK],[gawk],[gawk],[/bin/false])
+AC_ARG_VAR([GAWK],[GNU AWK])
 
 dnl default is to match previous behavior
 exampledir=${sysconfdir}
