@@ -1,3 +1,9 @@
+2004-05-19 Paul Jakma <paul@dishone.st>
+
+	* heavy.c: test programme to show how long-running functions
+	  kill responsiveness. Demonstrating the most niggly problem 
+	  left in bgpd.
+
 2004-05-13 Paul Jakma <paul@dishone.st>
 
 	* test-buffer.c: Andrew's buffer tester
