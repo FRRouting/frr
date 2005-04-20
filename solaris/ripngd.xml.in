@@ -4,7 +4,7 @@
 	Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
 	Use is subject to license terms.
 
-	$Id: ripngd.xml.in,v 1.1 2005/04/11 07:05:21 paul Exp $
+	$Id: ripngd.xml.in,v 1.2 2005/04/20 09:38:17 jardin Exp $
 -->
 
 <service_bundle type='manifest' name='QUAGGAdaemons:ripngd'>
@@ -102,7 +102,7 @@
 	<template>
 		<common_name>
 			<loctext xml:lang='C'>
-			@PACKAGE_NAME@: ripngd, RIPv3 IPv6 routing protocol daemon.
+			@PACKAGE_NAME@: ripngd, RIPng IPv6 routing protocol daemon.
 			</loctext>
 		</common_name>
 		<documentation>
