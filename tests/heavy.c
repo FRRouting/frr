@@ -1,5 +1,5 @@
 /*
- * $Id: heavy.c,v 1.1 2005/04/19 21:28:36 paul Exp $
+ * $Id: heavy.c,v 1.2 2005/04/21 16:58:44 paul Exp $
  *
  * This file is part of Quagga.
  *
@@ -36,6 +36,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
+#include <math.h>
 
 struct thread_master *master;
 
@@ -53,30 +54,51 @@ struct option longopts[] =
 enum
 {
   ITERS_FIRST = 0,
+  ITERS_ERR = 100,
+  ITERS_LATER = 400,
   ITERS_PRINT = 10,
   ITERS_MAX = 1000,
 };
 
 static void
-slow_func (struct vty *vty, char *str, int i)
+slow_func (struct vty *vty, const char *str, const int i)
 {
-  usleep (10000);
+  double x = 1;
+  int j;
+  
+  for (j = 0; j < 300000; j++)
+    x += sin(x)*j;
+  
+  if ((i % ITERS_LATER) == 0)
+    printf ("%s: %d, temporary error, save this somehow and do it later..\n", 
+            __func__, i);
+  
+  if ((i % ITERS_ERR) == 0)
+    printf ("%s: hard error\n", __func__);
+  
   if ((i % ITERS_PRINT) == 0)
-    printf ("%s did %d%s", str, i, VTY_NEWLINE);  
+    printf ("%s did %d, x = %g%s", str, i, x, VTY_NEWLINE);  
 }
 
 static void
-clear_something (struct vty *vty, char *str)
+clear_something (struct vty *vty, const char *str)
 {
   int i;
   
   /* this could be like iterating through 150k of route_table 
-   * or worse, iterating through a list of peers, each with 150k routes...
+   * or worse, iterating through a list of peers, to bgp_stop them with
+   * each having 150k route tables to process...
    */
   for (i = ITERS_FIRST; i < ITERS_MAX; i++)
     slow_func (vty, str, i);
-    
-  XFREE (MTYPE_TMP, str);
+}
+
+DEFUN (daemon_exit,
+       daemon_exit_cmd,
+       "daemon-exit",
+       "Make the daemon exit\n")
+{
+  exit(0);
 }
 
 DEFUN (clear_foo,
@@ -95,13 +117,32 @@ DEFUN (clear_foo,
   str = argv_concat (argv, argc, 0);
   
   clear_something (vty, str);
+  XFREE (MTYPE_TMP, str);
   return CMD_SUCCESS;
+}
+
+static int timer_count;
+int
+heavy_timer (struct thread *thread)
+{
+  int *count = THREAD_ARG(thread);
+  
+  printf ("run %d of timer\n", (*count)++);
+  thread_add_timer (master, heavy_timer, count, 5);
+  return 0;
+}
+
+static void
+heavy_timer_init()
+{
+  thread_add_timer (master, heavy_timer, &timer_count, 5);
 }
 
 static void
 slow_vty_init()
 {
-  install_element (VIEW_NODE, &clear_foo_cmd); 
+  install_element (VIEW_NODE, &clear_foo_cmd);
+  install_element (VIEW_NODE, &daemon_exit_cmd);
 }
 
 /* Help information display. */
@@ -214,6 +255,8 @@ main (int argc, char **argv)
   if (!config_file)
     usage (progname, 1);
   vty_read_config (config_file, NULL);
+  
+  heavy_timer_init();
   
   /* Fetch next active thread. */
   while (thread_fetch (master, &thread))
