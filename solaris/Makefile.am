@@ -1,5 +1,5 @@
 # Solaris packages automake file
-# $Id: Makefile.am,v 1.3 2005/04/13 03:37:23 paul Exp $
+# $Id: Makefile.am,v 1.4 2005/04/21 10:24:43 paul Exp $
 
 .PHONY: packages
 
@@ -71,7 +71,7 @@ pkginfo.%.tmpl: $(srcdir)/pkginfo.%.tmpl.in Makefile
 	rm -f $@
 	$(edit) $< > $@
 
-pkginfo.%.full: $(srcdir)/pkginfo.%.tmpl pkginfo.tmpl Makefile
+pkginfo.%.full: pkginfo.%.tmpl pkginfo.tmpl Makefile
 	cat pkginfo.tmpl pkginfo.$*.tmpl > $@
 
 # use 'edit' above to transform prototype.in to pkgmk acceptable prototype

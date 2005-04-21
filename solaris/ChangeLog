@@ -1,3 +1,8 @@
+2005-04-21 Paul Jakma <paul.jakma@sun.com>
+
+	* Makefile.am: pkginfo.%.tmpl is a generated file, srcdir prefix
+	  is not appropriate.
+
 2005-04-13 Paul Jakma <paul.jakma@sun.com>
 
 	* Makefile.am: {i,r}.manifest are (or will be) system provided files
