@@ -1,7 +1,8 @@
 2004-05-22 Paul Jakma <paul@dishone.st>
 
 	* heavy-thread.c: Andrew Schorr's adaptation of heavy.c to use a
-	  background thread to avoid responsivity problems.
+	  background thread to avoid responsiveness problems.
+	* Makefile.am: Build heavythread
 
 2004-05-21 Paul Jakma <paul@dishone.st>
 
