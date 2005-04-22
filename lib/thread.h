@@ -58,7 +58,7 @@ struct thread_master
 struct thread
 {
   unsigned char type;		/* thread type */
-  unsigned add_type;		/* thread type */
+  unsigned char add_type;	/* thread type */
   struct thread *next;		/* next pointer of the thread */   
   struct thread *prev;		/* previous pointer of the thread */
   struct thread_master *master;	/* pointer to the struct thread_master. */
@@ -136,6 +136,8 @@ struct cpu_thread_history  {
 #define thread_add_timer_msec(m,f,a,v) funcname_thread_add_timer_msec(m,f,a,v,#f)
 #define thread_add_event(m,f,a,v) funcname_thread_add_event(m,f,a,v,#f)
 #define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f)
+
+/* The 4th arg to thread_add_background is the # of milliseconds to delay. */
 #define thread_add_background(m,f,a,v) funcname_thread_add_background(m,f,a,v,#f)
 
 /* Prototypes. */
@@ -151,9 +153,10 @@ struct thread *funcname_thread_add_timer_msec (struct thread_master *,
 struct thread *funcname_thread_add_event (struct thread_master *,
 				 int (*)(struct thread *), void *, int, const char*);
 struct thread *funcname_thread_add_background (struct thread_master *,
-				               int (*)(struct thread *),
-				               void *, 
-				               long, const char*);
+				               int (*func)(struct thread *),
+				               void *arg,
+				               long milliseconds_to_delay,
+					       const char *funcname);
 
 void thread_cancel (struct thread *);
 void thread_cancel_event (struct thread_master *, void *);
@@ -166,7 +169,6 @@ unsigned long thread_timer_remain_second (struct thread *);
 int thread_should_yield (struct thread *);
 
 extern struct cmd_element show_thread_cpu_cmd;
-extern struct cmd_element show_thread_work_queues_cmd;
 
 extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before);
 
