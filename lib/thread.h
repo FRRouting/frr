@@ -92,7 +92,7 @@ struct cpu_thread_history  {
 #define THREAD_EXECUTE        7
 
 /* Thread yield time.  */
-#define THREAD_YIELD_TIME_SLOT     10 * 1000L /* 100ms */
+#define THREAD_YIELD_TIME_SLOT     10 * 1000L /* 10ms */
 
 /* Macros. */
 #define THREAD_ARG(X) ((X)->arg)
