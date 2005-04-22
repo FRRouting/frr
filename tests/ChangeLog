@@ -1,3 +1,8 @@
+2004-05-22 Paul Jakma <paul@dishone.st>
+
+	* heavy-thread.c: Andrew Schorr's adaptation of heavy.c to use a
+	  background thread to avoid responsivity problems.
+
 2004-05-21 Paul Jakma <paul@dishone.st>
 
 	* heavy.c: Add a timer thread to demonstrate thread interactivity,
