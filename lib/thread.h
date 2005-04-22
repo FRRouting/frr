@@ -47,6 +47,7 @@ struct thread_master
   struct thread_list event;
   struct thread_list ready;
   struct thread_list unuse;
+  struct thread_list background;
   fd_set readfd;
   fd_set writefd;
   fd_set exceptfd;
@@ -57,8 +58,8 @@ struct thread_master
 struct thread
 {
   unsigned char type;		/* thread type */
-  unsigned char add_type;	/* thread type */
-  struct thread *next;		/* next pointer of the thread */
+  unsigned add_type;		/* thread type */
+  struct thread *next;		/* next pointer of the thread */   
   struct thread *prev;		/* previous pointer of the thread */
   struct thread_master *master;	/* pointer to the struct thread_master. */
   int (*func) (struct thread *); /* event function */
@@ -72,7 +73,7 @@ struct thread
   char* funcname;
 };
 
-struct cpu_thread_history {
+struct cpu_thread_history  {
   int (*func)(struct thread *);
   const char *funcname;
   unsigned int total_calls;
@@ -86,11 +87,12 @@ struct cpu_thread_history {
 #define THREAD_TIMER          2
 #define THREAD_EVENT          3
 #define THREAD_READY          4
-#define THREAD_UNUSED         5
-#define THREAD_EXECUTE        6
+#define THREAD_BACKGROUND     5
+#define THREAD_UNUSED         6
+#define THREAD_EXECUTE        7
 
 /* Thread yield time.  */
-#define THREAD_YIELD_TIME_SLOT     100 * 1000L /* 100ms */
+#define THREAD_YIELD_TIME_SLOT     10 * 1000L /* 100ms */
 
 /* Macros. */
 #define THREAD_ARG(X) ((X)->arg)
@@ -134,6 +136,7 @@ struct cpu_thread_history {
 #define thread_add_timer_msec(m,f,a,v) funcname_thread_add_timer_msec(m,f,a,v,#f)
 #define thread_add_event(m,f,a,v) funcname_thread_add_event(m,f,a,v,#f)
 #define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f)
+#define thread_add_background(m,f,a,v) funcname_thread_add_background(m,f,a,v,#f)
 
 /* Prototypes. */
 struct thread_master *thread_master_create ();
@@ -147,6 +150,11 @@ struct thread *funcname_thread_add_timer_msec (struct thread_master *,
 				 int (*)(struct thread *), void *, long, const char*);
 struct thread *funcname_thread_add_event (struct thread_master *,
 				 int (*)(struct thread *), void *, int, const char*);
+struct thread *funcname_thread_add_background (struct thread_master *,
+				               int (*)(struct thread *),
+				               void *, 
+				               long, const char*);
+
 void thread_cancel (struct thread *);
 void thread_cancel_event (struct thread_master *, void *);
 
@@ -155,8 +163,10 @@ struct thread *funcname_thread_execute (struct thread_master *,
 			       int (*)(struct thread *), void *, int, const char *);
 void thread_call (struct thread *);
 unsigned long thread_timer_remain_second (struct thread *);
+int thread_should_yield (struct thread *);
 
 extern struct cmd_element show_thread_cpu_cmd;
+extern struct cmd_element show_thread_work_queues_cmd;
 
 extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before);
 

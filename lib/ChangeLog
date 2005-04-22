@@ -1,3 +1,45 @@
+2005-04-22 Paul Jakma <paul.jakma@sun.com>
+
+	* thread.h: Add background thread type and thread_add_background
+	  macro and accompanying funcname_... function.
+	  export thread_should_yield, background threads can use it.
+	  Lower thread yield time to 10ms, 100ms is noticeable lag and
+	  a thread would only be /starting/ to finish sometime afterward.
+	* thread.c: (general) Add background thread type and schedule
+	  nearly all thread types through the ready list for fairness.
+	  (timeval_adjust) static qualifier missing
+	  (vty_out_cpu_thread_history) add support for printout of 
+	  background threads
+	  (show_thread_cpu) ditto.
+	  (thread_master_debug) add debug of background list
+	  (thread_master_create) fixup long line
+	  (thread_add_unuse) add asserts for required state.
+	  (thread_master_free) free background thread list
+	  (funcname_thread_add_timer_timeval) make generic, able to 
+	  support arbitrary timer-like thread types.
+	  (funcname_thread_add_timer) pass thread type to .._add_timer_timeval
+	  (funcname_thread_add_timer_msec) ditto
+	  (funcname_thread_add_background) Add a background thread, with an
+	  optional millisecond delay factor, using .._add_timer_timeval.
+	  (thread_cancel) Add background thread type.
+	  Move the thread_list_delete common to all cases to bottom of
+	  function, after the switch statement..
+	  (thread_cancel_event) indent
+	  (thread_timer_wait) Static qualifier, and make it able to cope
+	  with arbitrary timer-like thread lists, so its of use to
+	  background threads too.
+	  (thread_process_fd) static qualifier. Again, make it take a list
+	  reference rather than thread_master. Fix indentation.
+	  (thread_timer_process) Check for ready timer-like threads in the
+	  given list and move them on to the ready list - code originally
+	  embedded in thread_fetch.
+	  (thread_fetch) Schedule all threads, other than events, through
+	  the ready list, to ensure fairness. Timer readying code moved to
+	  thread_timer_process so it can be reused for background threads.
+	  Remove the unneeded quagga_sigevent_process, as pointed out by
+	  John Lin <john.ch.lin@gmail.com>.
+	  (thread_should_yield) make this available.
+	
 2005-04-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* thread.h (thread_consumed_time): Declare new function to calculate
