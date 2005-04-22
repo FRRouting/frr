@@ -1,5 +1,8 @@
 2005-04-22 Paul Jakma <paul.jakma@sun.com>
 
+	* memory.h: Move include of memtypes.h to after the definition of
+	  struct memory_list, gcc 4.0 doesn't like arrays of incomplete 
+	  types.
 	* thread.h: Add background thread type and thread_add_background
 	  macro and accompanying funcname_... function.
 	  export thread_should_yield, background threads can use it.
