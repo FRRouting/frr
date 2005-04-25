@@ -4,6 +4,7 @@
 	  out-of-tree build breakage.
 	* memory.c: Make the string field much wider
 	* memtypes.c: Correct the prefix list str/entry strings
+	* thread.c: Kill unused TIMER_NO_SORT bits
 
 2005-04-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

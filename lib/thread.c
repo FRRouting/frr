@@ -501,9 +501,7 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
   struct thread *thread;
   struct timeval timer_now;
   struct thread_list *list;
-#ifndef TIMER_NO_SORT
   struct thread *tt;
-#endif /* TIMER_NO_SORT */
 
   assert (m != NULL);
 
@@ -532,9 +530,6 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
   thread->u.sands = timer_now;
 
   /* Sort by timeval. */
-#ifdef TIMER_NO_SORT
-  thread_list_add (list, thread);
-#else
   for (tt = list->head; tt; tt = tt->next)
     if (timeval_cmp (thread->u.sands, tt->u.sands) <= 0)
       break;
@@ -543,7 +538,6 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
     thread_list_add_before (list, tt, thread);
   else
     thread_list_add (list, thread);
-#endif /* TIMER_NO_SORT */
 
   return thread;
 }
@@ -686,47 +680,6 @@ thread_cancel_event (struct thread_master *m, void *arg)
     }
 }
 
-#ifdef TIMER_NO_SORT
-static struct timeval *
-thread_timer_wait (struct thread_list *tlist, struct timeval *timer_val)
-{
-  struct timeval timer_now;
-  struct timeval timer_min;
-  struct timeval *timer_wait;
-
-  gettimeofday (&timer_now, NULL);
-
-  timer_wait = NULL;
-  for (thread = tlist->head; thread; thread = thread->next)
-    {
-      if (! timer_wait)
-	timer_wait = &thread->u.sands;
-      else if (timeval_cmp (thread->u.sands, *timer_wait) < 0)
-	timer_wait = &thread->u.sands;
-    }
-
-  if (tlist->head)
-    {
-      timer_min = *timer_wait;
-      timer_min = timeval_subtract (timer_min, timer_now);
-      if (timer_min.tv_sec < 0)
-	{
-	  timer_min.tv_sec = 0;
-	  timer_min.tv_usec = 10;
-	}
-      timer_wait = &timer_min;
-    }
-  else
-    timer_wait = NULL;
-
-  if (timer_wait)
-    {
-      *timer_val = timer_wait;
-      return timer_val;
-    }
-  return NULL;
-}
-#else /* ! TIMER_NO_SORT */
 static struct timeval *
 thread_timer_wait (struct thread_list *tlist, struct timeval *timer_val)
 {
@@ -748,7 +701,6 @@ thread_timer_wait (struct thread_list *tlist, struct timeval *timer_val)
     }
   return NULL;
 }
-#endif /* TIMER_NO_SORT */
 
 struct thread *
 thread_run (struct thread_master *m, struct thread *thread,
