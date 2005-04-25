@@ -1,3 +1,8 @@
+2005-04-25 Paul Jakma <paul.jakma@sun.com>
+
+	* Makefile.am: Refer to source files via srcdir variable, fix
+	  out-of-tree build breakage.
+
 2005-04-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* thread.h: Fix type for struct thread_master add_type: should be

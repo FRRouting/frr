@@ -29,5 +29,5 @@ pkginclude_HEADERS = \
 
 EXTRA_DIST = regex.c regex-gnu.h memtypes.awk
 
-memtypes.h: memtypes.c memtypes.awk
-	($(GAWK) -f memtypes.awk memtypes.c > memtypes.h)
+memtypes.h: $(srcdir)/memtypes.c $(srcdir)/memtypes.awk
+	($(GAWK) -f $(srcdir)/memtypes.awk $(srcdir)memtypes.c > memtypes.h)
