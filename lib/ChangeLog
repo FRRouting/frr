@@ -1,7 +1,14 @@
 2005-04-25 Paul Jakma <paul.jakma@sun.com>
 
+	* workqueue.{c,h}: Helper API for setting up and running queues via
+	  background threads.
+	* command.c: install the 'show workqueues' command
+	* memtypes.c: Add work queue mtypes, and a rib-queue type for
+	  a zebra rib work queue.
+	* memtypes.h: Updated to match memtypes.c
 	* Makefile.am: Refer to source files via srcdir variable, fix
 	  out-of-tree build breakage.
+	  Add new workqueue files to build.
 	* memory.c: Make the string field much wider
 	* memtypes.c: Correct the prefix list str/entry strings
 	* thread.c: Kill unused TIMER_NO_SORT bits
