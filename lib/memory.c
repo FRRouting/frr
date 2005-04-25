@@ -264,7 +264,7 @@ show_memory_vty (struct vty *vty, struct memory_list *list)
     if (m->index == 0)
       vty_out (vty, "-----------------------------\r\n");
     else
-      vty_out (vty, "%-22s: %10ld\r\n", m->format, mstat[m->index].alloc);
+      vty_out (vty, "%-30s: %10ld\r\n", m->format, mstat[m->index].alloc);
 }
 
 DEFUN (show_memory_all,

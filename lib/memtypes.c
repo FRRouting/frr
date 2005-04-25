@@ -6,7 +6,7 @@
  * The script is sensitive to the format (though not whitespace), see
  * the top of memtypes.awk for more details.
  *
- * $Id: memtypes.c,v 1.2 2005/04/16 15:51:05 paul Exp $
+ * $Id: memtypes.c,v 1.3 2005/04/25 14:02:44 paul Exp $
  */
 
 #include "zebra.h"
@@ -48,8 +48,8 @@ struct memory_list memory_list_lib[] =
   { MTYPE_ACCESS_LIST_STR,	"Access List Str"		},
   { MTYPE_ACCESS_FILTER,	"Access Filter"			},
   { MTYPE_PREFIX_LIST,		"Prefix List"			},
-  { MTYPE_PREFIX_LIST_ENTRY,	"Prefix List Str"		},
-  { MTYPE_PREFIX_LIST_STR,	"Prefix List Entry"		},
+  { MTYPE_PREFIX_LIST_ENTRY,	"Prefix List Entry"		},
+  { MTYPE_PREFIX_LIST_STR,	"Prefix List Str"		},
   { MTYPE_ROUTE_MAP,		"Route map"			},
   { MTYPE_ROUTE_MAP_NAME,	"Route map name"		},
   { MTYPE_ROUTE_MAP_INDEX,	"Route map index"		},
