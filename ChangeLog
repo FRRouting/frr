@@ -1,3 +1,9 @@
+2005-04-25 Paul Jakma <paul.jakma@sun.com>
+
+	* HACKING: Add some notes about build system changes, to
+	  document common oversights (common for me anyway).
+	  Seperate sections with two newlines, easier to read.
+
 2005-04-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* configure.ac: Added AC_ARG_ENABLE(time-check).  By default,

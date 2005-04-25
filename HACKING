@@ -1,5 +1,5 @@
 -*- mode: text; -*-
-$Id: HACKING,v 1.19 2005/04/07 07:30:20 paul Exp $
+$Id: HACKING,v 1.20 2005/04/25 00:37:03 paul Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -61,6 +61,10 @@ To ensure that the core Quagga sources do not use the deprecated interfaces
 while allowing external sources to continue to build. Deprecated interfaces
 should be excised in the next unstable cycle.
 
+Note: If you wish, you can test for GCC and use a function
+marked with the 'deprecated' attribute. However, you must provide the
+#warning for other compilers.
+
 If changing or removing a command definition, *ensure* that you properly
 deprecate it - use the _DEPRECATED form of the appropriate DEFUN macro. This
 is *critical*. Even if the command can no longer function, you *must* still
@@ -70,6 +74,7 @@ unstable cycle. A list of deprecated commands should be collated for each
 release.
 
 See also below regarding SHARED LIBRARY VERSIONING.
+
 
 CHANGELOG
 
@@ -87,6 +92,21 @@ not require the global ChangeLog to be updated (at the discretion of the
 maintainer who usually maintains that meta-data). Also, CVS meta-data such
 as cvsignore files do not require ChangeLog updates, just a sane commit
 message.
+
+
+HACKING THE BUILD SYSTEM
+
+If you change or add to the build system (configure.ac, any Makefile.am,
+etc.), try to check that the following things still work:
+
+	- make dist
+	- resulting dist tarball builds
+	- out-of-tree builds 
+
+The quagga.net site relies on make dist to work to generate snapshots. It
+must work. Commong problems are to forget to have some additional file
+included in the dist, or to have a make rule refer to a source file without
+using the srcdir variable.
 
 RELEASE PROCEDURE
 
@@ -108,11 +128,13 @@ non-standards-conforming tarballs in the past.
 [TODO: collation of a list of deprecated commands. Possibly can be scripted
 to extract from vtysh/vtysh_cmd.c]
 
+
 TOOL VERSIONS
 
 Require versions of support tools are listed in INSTALL.quagga.txt.
 Required versions should only be done with due deliberation, as it can
 cause environments to no longer be able to compile quagga.
+
 
 SHARED LIBRARY VERSIONING
 
@@ -135,6 +157,7 @@ of not bumping.
 There is no support intended for installing part of zebra.  The core
 library libzebra and the included daemons should always be built and
 installed together.
+
 
 PATCH SUBMISSION
 
@@ -161,6 +184,7 @@ PATCH SUBMISSION
   willing to verify -current occasionally, that platform may be
   dropped from the "should be checked" list.
 
+
 PATCH APPLICATION TO CVS
 
 * Only apply patches that meet the submission guidelines.
@@ -180,6 +204,7 @@ PATCH APPLICATION TO CVS
 
 * By committing a patch, you are responsible for fixing problems
   resulting from it (or backing it out).
+
 
 STABLE PLATFORMS AND DAEMONS
 
@@ -207,6 +232,7 @@ Daemons which are in a testing phase are
   ospf6d
   isisd
   watchquagga
+
 
 IMPORT OR UPDATE VENDOR SPECIFIC ROUTING PROTOCOLS
 
