@@ -6,7 +6,7 @@
  * The script is sensitive to the format (though not whitespace), see
  * the top of memtypes.awk for more details.
  *
- * $Id: memtypes.c,v 1.3 2005/04/25 14:02:44 paul Exp $
+ * $Id: memtypes.c,v 1.4 2005/04/25 16:26:43 paul Exp $
  */
 
 #include "zebra.h"
@@ -64,6 +64,9 @@ struct memory_list memory_list_lib[] =
   { MTYPE_PRIVS,		"Privilege information"		},
   { MTYPE_ZLOG,			"Logging"			},
   { MTYPE_ZCLIENT,		"Zclient"			},
+  { MTYPE_WORK_QUEUE,		"Work queue"			},
+  { MTYPE_WORK_QUEUE_ITEM,	"Work queue item"		},
+  { MTYPE_WORK_QUEUE_NAME,	"Work queue name string"	},
   { -1, NULL },
 };
 
@@ -74,6 +77,7 @@ struct memory_list memory_list_zebra[] =
   { MTYPE_VRF_NAME,		"VRF name"			},
   { MTYPE_NEXTHOP,		"Nexthop"			},
   { MTYPE_RIB,			"RIB"				},
+  { MTYPE_RIB_QUEUE,		"RIB process work queue"	},
   { MTYPE_STATIC_IPV4,		"Static IPv4 route"		},
   { MTYPE_STATIC_IPV6,		"Static IPv6 route"		},
   { -1, NULL },

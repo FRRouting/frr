@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.46 2005/03/14 20:19:01 paul Exp $
+   $Id: command.c,v 1.47 2005/04/25 16:26:42 paul Exp $
  
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "vector.h"
 #include "vty.h"
 #include "command.h"
+#include "workqueue.h"
 
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */
@@ -3578,8 +3579,10 @@ cmd_init (int terminal)
       install_element (CONFIG_NODE, &service_terminal_length_cmd);
       install_element (CONFIG_NODE, &no_service_terminal_length_cmd);
 
-      install_element(VIEW_NODE, &show_thread_cpu_cmd);
-      install_element(ENABLE_NODE, &show_thread_cpu_cmd);
+      install_element (VIEW_NODE, &show_thread_cpu_cmd);
+      install_element (ENABLE_NODE, &show_thread_cpu_cmd);
+      install_element (VIEW_NODE, &show_work_queues_cmd);
+      install_element (ENABLE_NODE, &show_work_queues_cmd);
     }
   srand(time(NULL));
 }
