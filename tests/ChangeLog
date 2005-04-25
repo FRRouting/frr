@@ -1,3 +1,15 @@
+2004-05-25 Paul Jakma <paul@dishone.st>
+
+	* main.c: new file, common 'main' portion which then calls
+	  test_init.
+	* heavy.c: remove common portions now in 'main.
+	* heavy-wq.c: ditto
+	* heavy-thread.c: ditto
+	* heavy*.c: Set the slow_function iteration number lower, to 300, it
+	  was several orders of magnitude too 'slow' to be useful. :)
+	* Makefile.am: main is a source of the tests. heavy should link
+	  to the math library.
+
 2004-05-22 Paul Jakma <paul@dishone.st>
 
 	* heavy-thread.c: Andrew Schorr's adaptation of heavy.c to use a

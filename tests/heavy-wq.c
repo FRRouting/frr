@@ -1,5 +1,5 @@
 /*
- * $Id: heavy.c,v 1.3 2005/04/25 16:42:24 paul Exp $
+ * $Id: heavy-wq.c,v 1.1 2005/04/25 16:42:24 paul Exp $
  *
  * This file is part of Quagga.
  *
@@ -34,7 +34,18 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
+#include "log.h"
+#include "workqueue.h"
 #include <math.h>
+
+extern struct thread_master *master;
+static struct work_queue *heavy_wq;
+
+struct heavy_wq_node
+{
+  char *str;
+  int i;
+};
 
 enum
 {
@@ -46,23 +57,65 @@ enum
 };
 
 static void
-slow_func (struct vty *vty, const char *str, const int i)
+heavy_wq_add (struct vty *vty, const char *str, int i)
+{
+  struct heavy_wq_node *hn;
+
+  if ((hn = XCALLOC (MTYPE_PREFIX_LIST, sizeof(struct heavy_wq_node))) == NULL)
+    {
+      zlog_err ("%s: unable to allocate hn", __func__);
+      return;
+    }
+  
+  hn->i = i;
+  if (!(hn->str = XSTRDUP (MTYPE_PREFIX_LIST_STR, str)))
+    {
+      zlog_err ("%s: unable to xstrdup", __func__);
+      XFREE (MTYPE_PREFIX_LIST, hn);
+      return;
+    }
+  
+  work_queue_add (heavy_wq, hn);
+  
+  return;
+}
+
+static void
+slow_func_err (struct work_queue *wq, struct work_queue_item *item)
+{
+  printf ("%s: running error function\n", __func__);
+}
+
+static void
+slow_func_del (struct heavy_wq_node *hn)
+{
+  assert (hn && hn->str);
+  XFREE (MTYPE_PREFIX_LIST_STR, hn->str);
+  hn->str = NULL;  
+  XFREE(MTYPE_PREFIX_LIST, hn);
+}
+
+static wq_item_status
+slow_func (struct heavy_wq_node *hn)
 {
   double x = 1;
   int j;
   
+  assert (hn && hn->str);
+  
   for (j = 0; j < 300; j++)
     x += sin(x)*j;
   
-  if ((i % ITERS_LATER) == 0)
-    printf ("%s: %d, temporary error, save this somehow and do it later..\n", 
-            __func__, i);
+  if ((hn->i % ITERS_LATER) == 0)
+    return WQ_RETRY_LATER;
   
-  if ((i % ITERS_ERR) == 0)
-    printf ("%s: hard error\n", __func__);
+  if ((hn->i % ITERS_ERR) == 0)
+    return WQ_RETRY_NOW;
   
-  if ((i % ITERS_PRINT) == 0)
-    printf ("%s did %d, x = %g%s", str, i, x, VTY_NEWLINE);  
+  if ((hn->i % ITERS_PRINT) == 0)
+    printf ("%s did %d, x = %g\n", hn->str, hn->i, x);
+
+  return WQ_SUCCESS;
 }
 
 static void
@@ -75,7 +128,7 @@ clear_something (struct vty *vty, const char *str)
    * each having 150k route tables to process...
    */
   for (i = ITERS_FIRST; i < ITERS_MAX; i++)
-    slow_func (vty, str, i);
+    heavy_wq_add (vty, str, i);
 }
 
 DEFUN (clear_foo,
@@ -98,14 +151,28 @@ DEFUN (clear_foo,
   return CMD_SUCCESS;
 }
 
-static void
-slow_vty_init()
+static int
+heavy_wq_init ()
 {
-  install_element (VIEW_NODE, &clear_foo_cmd);
+  if (! (heavy_wq = work_queue_new (master, "heavy_work_queue")))
+    {
+      zlog_err ("%s: could not get new work queue!", __func__);
+      return -1;
+    }
+  
+  heavy_wq->spec.workfunc = &slow_func;
+  heavy_wq->spec.errorfunc = &slow_func_err;
+  heavy_wq->spec.del_item_data = &slow_func_del;
+  heavy_wq->spec.max_retries = 3;
+  heavy_wq->spec.delay = 10;
+  heavy_wq->spec.hold = 1000;
+  
+  return 0;
 }
 
 void
 test_init()
 {
-  slow_vty_init();
+  install_element (VIEW_NODE, &clear_foo_cmd);
+  heavy_wq_init();
 }
