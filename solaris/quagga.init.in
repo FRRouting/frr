@@ -3,7 +3,7 @@
 # Copyright 2001,2003 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# $Id: quagga.init.in,v 1.1 2005/04/11 07:05:21 paul Exp $
+# $Id: quagga.init.in,v 1.2 2005/04/26 02:35:03 paul Exp $
 #
 # Starts/stops the appropriate daemon
 
@@ -45,12 +45,12 @@ case ${DAEMON} in
 	;;
 esac
 
-CONFFILE=`svcprop -p @PACKAGE_NAME@/config_file ${FMRI}`
-PIDFILE=`svcprop -p @PACKAGE_NAME@/pid_file ${FMRI}`
-USER=`svcprop -p @PACKAGE_NAME@/user ${FMRI}`
-GROUP=`svcprop -p @PACKAGE_NAME@/group ${FMRI}`
-VTYADDR=`svcprop -p @PACKAGE_NAME@/vty_addr ${FMRI}`
-VTYPORT=`svcprop -p @PACKAGE_NAME@/vty_port ${FMRI}`
+CONFFILE=`svcprop -p @PACKAGE_TARNAME@/config_file ${FMRI}`
+PIDFILE=`svcprop -p @PACKAGE_TARNAME@/pid_file ${FMRI}`
+USER=`svcprop -p @PACKAGE_TARNAME@/user ${FMRI}`
+GROUP=`svcprop -p @PACKAGE_TARNAME@/group ${FMRI}`
+VTYADDR=`svcprop -p @PACKAGE_TARNAME@/vty_addr ${FMRI}`
+VTYPORT=`svcprop -p @PACKAGE_TARNAME@/vty_port ${FMRI}`
 
 [ -n "${CONFFILE}" ] && ARGS=" -f ${CONFFILE}"
 [ -n "${PIDFILE}" ] && ARGS="${ARGS} --pid_file ${PIDFILE}"
@@ -76,9 +76,9 @@ stop () {
 }
 
 restart() {
-	stop ${daemon}
+	stop ${DAEMON}
 	sleep 1
-	start ${daemon}
+	start ${DAEMON}
 }
 
 case $1 in 

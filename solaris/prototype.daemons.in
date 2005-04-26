@@ -20,11 +20,6 @@ f none @sysconfdir@/ripngd.conf.sample=$DESTDIR/@sysconfdir@/ripngd.conf.sample 
 f none @sysconfdir@/ospfd.conf.sample=$DESTDIR/@sysconfdir@/ospfd.conf.sample 0644 root bin
 f none @sysconfdir@/ospf6d.conf.sample=$DESTDIR/@sysconfdir@/ospf6d.conf.sample 0644 root bin
 d none @quagga_statedir@=$DESTDIR/@quagga_statedir@ 0711 @enable_user@ @enable_group@
-f manifest var/svc/manifest/network/zebra.xml 0444 root bin
-f manifest var/svc/manifest/network/bgpd.xml 0444 root bin
-f manifest var/svc/manifest/network/ospfd.xml 0444 root bin
-f manifest var/svc/manifest/network/ospf6d.xml 0444 root bin
-f manifest var/svc/manifest/network/ripd.xml 0444 root bin
-f manifest var/svc/manifest/network/ripngd.xml 0444 root bin
+f manifest var/svc/manifest/network/quagga.xml 0444 root bin
 #f none var/svc/profile/@PACKAGE_TARNAME@_options.xml=$abs_builddir/options.xml 0755 root sys
 f none lib/svc/method/quagga=$abs_builddir/quagga.init 0755 root bin

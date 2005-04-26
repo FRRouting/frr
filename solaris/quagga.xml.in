@@ -1,0 +1,323 @@
+<?xml version="1.0"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
+<!--
+	Copyright 2005 Sun Microsystems, Inc.  All rights reserved.
+	Use is subject to license terms.
+
+	ident	"@(#)quagga.xml	1.0	05/03/15 SMI"
+-->
+
+<service_bundle type='manifest' name='QUAGGAdaemons:quagga'>
+
+<service
+	name='network/routing/quagga'
+	type='service'
+	version='1'>
+	<!-- 
+		common service-level dependencies, inherited by each instance
+	-->
+	<dependency name='fs'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri
+			value='svc:/system/filesystem/usr:default' />
+	</dependency>
+	<dependency name='net'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/network/loopback' />
+	</dependency>
+
+	<!--
+		we define exec methods at the top level, and the
+		instance name is substituted for the %i on calling.
+		See smf_method(1M) for more switches.
+	-->
+	<exec_method
+		type='method'
+		name='start'
+		exec='/lib/svc/method/quagga start %i'
+		timeout_seconds='60'/>
+
+	<exec_method
+		type='method'
+		name='stop'
+		exec='/lib/svc/method/quagga stop %i'
+		timeout_seconds='60' />
+
+	<exec_method
+		type='method'
+		name='restart'
+		exec='/lib/svc/method/quagga restart %i'
+		timeout_seconds='60' />
+	<!-- 
+		if we define these properties at the service level, each instance
+		inherits them, and it can override with desired values. 
+	-->
+	<property_group name='startd'
+		type='framework'>
+		<!-- sub-process core dumps shouldn't restart session -->
+		<propval name='ignore_error'
+		    type='astring' value='core,signal' />
+	</property_group>
+	<property_group name='quagga' type='application'>
+		<!-- Options common to Quagga daemons -->	
+		<propval name='config_file' type='astring' value='' />
+		<propval name='pid_file' type='astring' value='' />
+		<propval name='vty_addr' type='astring' value='127.1' />
+		<propval name='vty_port' type='integer' value='0'/>
+		<propval name='user' type='astring' value='@enable_user@' />
+		<propval name='group' type='astring' value='@enable_group@' />
+		<propval name='retain' type='boolean' value='false'/>
+	</property_group>
+	
+	<instance name='zebra' enabled='false'>
+		<!-- 
+			now define it's own dependencies/properties etc here, it'll
+			inherit the rest...
+		-->
+		<dependency name='config_data'
+			grouping='require_all'
+			restart_on='restart'
+			type='path'>
+			<service_fmri
+			    value='file://localhost/@sysconfdir@/zebra.conf' />
+		</dependency>
+		<property_group name='quagga' type='application'>
+			<stability value='Evolving' />
+			<propval name='keep_kernel' type='boolean' 
+				value='false'/>
+			<propval name='daemon_name' type='astring'
+				value='zebra'/>
+		</property_group>
+		<template>
+			<common_name>
+				<loctext xml:lang='C'>
+				Quagga: zebra, RIB, kernel intermediary and misc daemon
+				</loctext>
+			</common_name>
+			<documentation>
+				<manpage title='zebra' section='1M'
+					manpath='@mandir@' />
+			</documentation>
+		</template>
+
+	</instance>
+	
+	<instance name='bgpd' enabled='false'>
+		<!-- 
+			now define it's own dependencies/properties etc here, it'll
+			inherit the rest...
+		-->
+		<property_group name='quagga' type='application'>
+			<stability value='Evolving' />
+			<propval name='daemon_name' type='astring'
+				value='bgpd'/>
+			<propval name='daemon_name' type='boolean'
+				value='false'/>
+		</property_group>
+		<dependency name='zebra'
+			grouping='require_all'
+			restart_on='restart'
+			type='service'>
+			<service_fmri value='svc:/network/routing/quagga:zebra' />
+		</dependency>
+		<dependency name='config_data'
+			grouping='require_all'
+			restart_on='restart'
+			type='path'>
+			<service_fmri
+			    value='file://localhost/@sysconfdir@/bgpd.conf' />
+		</dependency>
+		<template>
+			<common_name>
+				<loctext xml:lang='C'>
+				Quagga: bgpd, BGP routing protocol daemon.
+				</loctext>
+			</common_name>
+			<documentation>
+				<manpage title='bgpd' section='1M'
+					manpath='@mandir@' />
+				<doc_link name='quagga.net' 
+					uri='http://www.quagga.net/' />
+			</documentation>
+		</template>
+
+	</instance>
+	
+	<instance name='ospf6d' enabled='false'>
+		<!-- 
+			now define it's own dependencies/properties etc here, it'll
+			inherit the rest...
+		-->
+		<property_group name='quagga' type='application'>
+			<stability value='Evolving' />
+			<propval name='daemon_name' type='astring'
+				value='ospf6d'/>
+		</property_group>
+		<dependency name='zebra'
+			grouping='require_all'
+			restart_on='restart'
+			type='service'>
+			<service_fmri value='svc:/network/routing/quagga:zebra' />
+		</dependency>
+		<dependency name='config_data'
+			grouping='require_all'
+			restart_on='restart'
+			type='path'>
+			<service_fmri
+			    value='file://localhost/@sysconfdir@/ospf6d.conf' />
+		</dependency>
+		<template>
+			<common_name>
+				<loctext xml:lang='C'>
+				Quagga: ospf6d, OSPFv3 IPv6 routing protocol daemon.
+				</loctext>
+			</common_name>
+			<documentation>
+				<manpage title='ospf6d' section='1M'
+					manpath='@mandir@' />
+				<doc_link name='quagga.net' 
+					uri='http://www.quagga.net/' />
+			</documentation>
+		</template>
+
+	</instance>
+
+	<instance name='ospfd' enabled='false'>
+		<!-- 
+			now define it's own dependencies/properties etc here, it'll
+			inherit the rest...
+		-->
+		<property_group name='quagga' type='application'>
+			<stability value='Evolving' />
+			<propval name='daemon_name' type='astring'
+				value='ospfd'/>
+		</property_group>
+		<dependency name='zebra'
+			grouping='require_all'
+			restart_on='restart'
+			type='service'>
+			<service_fmri value='svc:/network/routing/quagga:zebra' />
+		</dependency>
+		<dependency name='config_data'
+			grouping='require_all'
+			restart_on='restart'
+			type='path'>
+			<service_fmri
+			    value='file://localhost/@sysconfdir@/ospfd.conf' />
+		</dependency>
+		<property_group name='quagga' type='application'>
+			<stability value='Evolving' />
+			<propval name='retain_routes' type='boolean' value='false'/>
+		</property_group>
+		<template>
+			<common_name>
+				<loctext xml:lang='C'>
+				Quagga: ospfd, OSPFv2 IPv4 routing protocol daemon.
+				</loctext>
+			</common_name>
+			<documentation>
+				<manpage title='ospfd' section='1M'
+					manpath='@mandir@' />
+				<doc_link name='quagga.net' 
+					uri='http://www.quagga.net/' />
+			</documentation>
+		</template>
+
+	</instance>
+
+	<instance name='ripd' enabled='false'>
+		<!-- 
+			now define it's own dependencies/properties etc here, it'll
+			inherit the rest...
+		-->
+		<property_group name='quagga' type='application'>
+			<stability value='Evolving' />
+			<propval name='daemon_name' type='astring'
+				value='ripd'/>
+		</property_group>
+		<dependency name='zebra'
+			grouping='require_all'
+			restart_on='restart'
+			type='service'>
+			<service_fmri value='svc:/network/routing/quagga:zebra' />
+		</dependency>
+		<dependency name='config_data'
+			grouping='require_all'
+			restart_on='restart'
+			type='path'>
+			<service_fmri
+			    value='file://localhost/@sysconfdir@/ripd.conf' />
+		</dependency>
+		<property_group name='quagga' type='application'>
+			<stability value='Evolving' />
+			<propval name='retain_routes' type='boolean' value='false'/>
+		</property_group>
+		<template>
+			<common_name>
+				<loctext xml:lang='C'>
+				Quagga: ripd, RIPv1/2 IPv4 routing protocol daemon.
+				</loctext>
+			</common_name>
+			<documentation>
+				<manpage title='ripd' section='1M'
+					manpath='@mandir@' />
+				<doc_link name='quagga.net' 
+					uri='http://www.quagga.net/' />
+			</documentation>
+		</template>
+
+	</instance>
+
+	<instance name='ripngd' enabled='false'>
+		<!-- 
+			now define it's own dependencies/properties etc here, it'll
+			inherit the rest...
+		-->
+		<property_group name='quagga' type='application'>
+			<stability value='Evolving' />
+			<propval name='daemon_name' type='astring'
+				value='ripngd'/>
+		</property_group>
+		<dependency name='zebra'
+			grouping='require_all'
+			restart_on='restart'
+			type='service'>
+			<service_fmri value='svc:/network/routing/quagga:zebra' />
+		</dependency>
+		<dependency name='config_data'
+			grouping='require_all'
+			restart_on='restart'
+			type='path'>
+			<service_fmri
+			    value='file://localhost/@sysconfdir@/ripngd.conf' />
+		</dependency>
+		<property_group name='quagga' type='application'>
+			<stability value='Evolving' />
+			<propval name='retain_routes' type='boolean' value='false'/>
+		</property_group>
+		<template>
+			<common_name>
+				<loctext xml:lang='C'>
+				Quagga: ripngd, RIPng IPv6 routing protocol daemon.
+				</loctext>
+			</common_name>
+			<documentation>
+				<manpage title='ripngd' section='1M'
+					manpath='@mandir@' />
+				<doc_link name='quagga.net' 
+					uri='http://www.quagga.net/' />
+			</documentation>
+		</template>
+
+	</instance>
+
+
+	<stability value='Unstable' />
+
+</service>
+
+</service_bundle>

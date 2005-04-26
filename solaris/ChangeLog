@@ -1,3 +1,14 @@
+2005-04-26 Paul Jakma <paul.jakma@sun.com>
+
+	* quagga.xml.in: New, better, single integrated manifest for all
+	  the services, courtesy of alan.maguire@sun.com.
+	* {{ospf,ospf6,rip,ripng,bgp}d,zebra}.xml.in: removed due to
+	  previous
+	* quagga.init.in: Use the package tarname for properties, use
+	  the correct daemon name variable.
+	* Makefile.am: Updated to match single manifest
+	* prototype.daemons.in: ditto
+
 2005-04-21 Paul Jakma <paul.jakma@sun.com>
 
 	* Makefile.am: pkginfo.%.tmpl is a generated file, srcdir prefix

@@ -1,5 +1,5 @@
 # Solaris packages automake file
-# $Id: Makefile.am,v 1.4 2005/04/21 10:24:43 paul Exp $
+# $Id: Makefile.am,v 1.5 2005/04/26 02:35:03 paul Exp $
 
 .PHONY: packages
 
@@ -12,7 +12,7 @@ pkg_depends := $(pkg_names:%=depend.%)
 pkg_packages := $(pkg_names:%=@PACKAGE_TARNAME@-%-$(pkg_name_rev).pkg)
 pkg_pkginfos := $(pkg_names:%=pkginfo.%.full)
 pkg_prototypes := $(pkg_names:%=prototype.%)
-pkg_manifests := $(pkg_quagga_daemons:%=%.xml)
+pkg_manifests := quagga.xml
 
 # pkgmk variable substitutions wont grok ${variable} in prototype
 # file, so we cant let autoconf generate the file sadly
