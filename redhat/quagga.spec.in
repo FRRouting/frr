@@ -16,7 +16,7 @@
 %{!?with_ospfclient:	%define		with_ospfclient 1 }
 %{!?with_ospfapi:	%define		with_ospfapi	1 }
 %{!?with_irdp:		%define		with_irdp	1 }
-%{!?with_isisd:		%define		with_isisd	0 }
+%{!?with_isisd:		%define		with_isisd	1 }
 %{!?with_shared:	%define		with_shared	1 }
 %{!?with_multipath:	%define		with_multipath	64 }
 %{!?quagga_user:	%define		quagga_user	quagga }
