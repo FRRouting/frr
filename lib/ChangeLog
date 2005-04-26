@@ -1,3 +1,9 @@
+2005-04-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* buffer.c (buffer_write): Comment out call to buffer_flush_available.
+	  This should speed up buffering at the expense of a possible increase
+	  in latency in flushing the data if inside a long-running thread.
+
 2005-04-25 Paul Jakma <paul.jakma@sun.com>
 
 	* workqueue.{c,h}: Helper API for setting up and running queues via
