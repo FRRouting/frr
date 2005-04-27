@@ -42,7 +42,7 @@ typedef enum
 struct work_queue_item
 {
   void *data;                           /* opaque data */
-  unsigned short retry_count;           /* number of times retried */            
+  unsigned short ran;			/* # of times item has been run */
 };
 
 struct work_queue
@@ -54,13 +54,13 @@ struct work_queue
   /* specification for this work queue */
   struct {
     /* work function to process items with */
-    wq_item_status (*workfunc) (void *);
+    wq_item_status (*workfunc) ();
 
     /* error handling function, optional */
     void (*errorfunc) (struct work_queue *, struct work_queue_item *);
     
     /* callback to delete user specific item data */
-    void (*del_item_data) (void *);
+    void (*del_item_data) ();
     
     /* max number of retries to make for item that errors */
     unsigned int max_retries;	

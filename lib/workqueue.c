@@ -163,7 +163,7 @@ DEFUN(show_work_queues,
   
   vty_out (vty, 
            "%8s  %11s  %8s %21s%s",
-           "List","(ms)    ","Q. Runs","Cycle Counts   ",
+           "List","(ms)   ","Q. Runs","Cycle Counts   ",
            VTY_NEWLINE);
   vty_out (vty,
            "%8s  %5s %5s  %8s  %7s %6s %6s %s%s",
@@ -176,12 +176,13 @@ DEFUN(show_work_queues,
  
   for (ALL_LIST_ELEMENTS_RO ((&work_queues), node, wq))
     {
-      vty_out (vty,"%8d  %5d %5d  %8ld  %7d %6d %6u  %s%s",
+      vty_out (vty,"%8d  %5d %5d  %8ld  %7d %6d %6u %s%s",
                listcount (wq->items),
                wq->spec.delay, wq->spec.hold,
                wq->runs,
-               wq->cycles.best, wq->cycles.granularity, 
-                 (unsigned int)(wq->cycles.total / wq->runs),
+               wq->cycles.best, wq->cycles.granularity,
+                 (wq->runs) ? 
+                   (unsigned int) (wq->cycles.total / wq->runs) : 0,
                wq->name,
                VTY_NEWLINE);
     }
@@ -232,7 +233,7 @@ work_queue_run (struct thread *thread)
     assert (item && item->data);
     
     /* dont run items which are past their allowed retries */
-    if (item->retry_count >= wq->spec.max_retries)
+    if (item->ran > wq->spec.max_retries)
       {
         /* run error handler, if any */
 	if (wq->spec.errorfunc)
@@ -245,21 +246,19 @@ work_queue_run (struct thread *thread)
     do
       {
         ret = wq->spec.workfunc (item->data);
-        item->retry_count++;
+        item->ran++;
       }
     while ((ret == WQ_RETRY_NOW) 
-           && (item->retry_count < wq->spec.max_retries));
+           && (item->ran < wq->spec.max_retries));
 
     switch (ret)
       {
       case WQ_RETRY_LATER:
 	{
-	  item->retry_count++;
 	  goto stats;
 	}
       case WQ_REQUEUE:
 	{
-	  item->retry_count++;
 	  work_queue_item_requeue (wq, node);
 	  break;
 	}
@@ -301,7 +300,7 @@ stats:
                                              : WORK_QUEUE_MIN_GRANULARITY);
     }
   
-  if (cycles > (wq->cycles.granularity))
+  if (cycles >= (wq->cycles.granularity))
     {
       if (cycles > wq->cycles.best)
         wq->cycles.best = cycles;

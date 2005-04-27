@@ -1,3 +1,13 @@
+2005-04-27 Paul Jakma <paul.jakma@sun.com>
+
+	* workqueue.h: (struct work_queue_item) change retry_count to ran,
+	  its a count of number item has been run.
+	* workqueue.c: (show_work_queues) Fix formating of slightly
+	  bugfix: fix SIGFPE if wq->runs is 0.
+	  (work_queue_run) retry logic was slightly wrong.
+	  cycles.best is 0 initialy, granularity is 1, so update best
+	  if cycles >= granularity, not just >.
+	 
 2005-04-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* buffer.c (buffer_write): Comment out call to buffer_flush_available.
