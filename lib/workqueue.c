@@ -157,9 +157,6 @@ DEFUN(show_work_queues,
 {
   struct listnode *node;
   struct work_queue *wq;
-  struct timeval tvnow;
-  
-  gettimeofday (&tvnow, NULL);
   
   vty_out (vty, 
            "%8s  %11s  %8s %21s%s",
