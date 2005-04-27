@@ -7,7 +7,9 @@
 	  (work_queue_run) retry logic was slightly wrong.
 	  cycles.best is 0 initialy, granularity is 1, so update best
 	  if cycles >= granularity, not just >.
-	 
+	* memory.h: memtypes is built source, default includes points to
+	  top_builddir, so we should refer to lib/memtypes.h
+
 2005-04-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* buffer.c (buffer_write): Comment out call to buffer_flush_available.
