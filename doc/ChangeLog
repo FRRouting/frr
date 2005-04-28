@@ -1,3 +1,7 @@
+2005-04-28 Paul Jakma <paul@dishone.st>
+
+	* quagga.info: updated
+
 2005-04-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* bgpd.8,isisd.8,ospf6d.8,ospfd.8,ripd.8,ripngd.8,zebra.8: Fix
