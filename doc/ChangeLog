@@ -1,6 +1,10 @@
 2005-04-28 Paul Jakma <paul@dishone.st>
 
 	* quagga.info: updated
+	* Makefile.am: automake seems to depend doc built stuff on srcdir
+	  for some reason, or maybe its cause we have quagga.info,
+	  quagga.texi in CVS - not sure. Anyway, the static rule for
+	  quagga.pdf should depend on the srcdir quagga.texi in that case.
 
 2005-04-22 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

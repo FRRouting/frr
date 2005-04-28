@@ -40,8 +40,8 @@ info_TEXINFOS = quagga.texi
 # us to have a generic automatic .pdf rule to build the figure sources
 # because it cant just work from the png's directly it seems - contrary
 # to the documentation...
-quagga.pdf: quagga.texi $(figures_pdf)
-	$(TEXI2PDF) -o "$@" $(info_TEXINFOS)
+quagga.pdf: $(srcdir)/quagga.texi $(figures_pdf)
+	$(TEXI2PDF) -o "$@" $<
 
 quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi install.texi \
 	ipv6.texi kernel.texi main.texi ospf6d.texi ospfd.texi overview.texi \
