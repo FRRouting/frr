@@ -1,3 +1,17 @@
+* Changes in Quagga 0.99.0
+
+- Zserv client code is now buffered in most cases, which should improve
+  responsiveness of daemons when they must send many messages to zebra.
+
+- 'show thread cpu' now displays both cpu+system and wall-clock time,
+  where getrusage() is available.
+
+- Background threads added and workqueue API added, with a
+  'show work-queues' command. Thread scheduling improved slightly.
+
+- Zebra now has a work-queue for RIB processing. See 'show work-queues' in
+  the zebra daemon vty.
+
 * Changes in Quagga 0.98.0
 
 - Logging facilities upgraded.  One can now specify a severity level

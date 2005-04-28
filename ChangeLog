@@ -1,3 +1,7 @@
+2005-04-28 Paul Jakma <paul.jakma@sun.com>
+
+	* NEWS: Added some 0.99 news
+
 2005-04-25 Paul Jakma <paul.jakma@sun.com>
 
 	* HACKING: Add some notes about build system changes, to
