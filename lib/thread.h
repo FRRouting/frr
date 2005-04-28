@@ -22,12 +22,22 @@
 #ifndef _ZEBRA_THREAD_H
 #define _ZEBRA_THREAD_H
 
+struct rusage_t
+{
 #ifdef HAVE_RUSAGE
-#define RUSAGE_T        struct rusage
-#define GETRUSAGE(X)    getrusage (RUSAGE_SELF, X);
+  struct rusage cpu;
+#endif
+  struct timeval real;
+};
+#define RUSAGE_T        struct rusage_t
+
+#ifdef HAVE_RUSAGE
+#define GETRUSAGE(X)	\
+  getrusage(RUSAGE_SELF, &((X)->cpu));	\
+  gettimeofday(&recent_time, NULL); (X)->real = recent_time
 #else
-#define RUSAGE_T        struct timeval
-#define GETRUSAGE(X)    gettimeofday (X, NULL);
+#define GETRUSAGE(X)	\
+  gettimeofday(&recent_time, NULL); (X)->real = recent_time
 #endif /* HAVE_RUSAGE */
 
 /* Linked list of thread. */
@@ -73,11 +83,18 @@ struct thread
   char* funcname;
 };
 
-struct cpu_thread_history  {
+struct cpu_thread_history 
+{
   int (*func)(struct thread *);
   const char *funcname;
   unsigned int total_calls;
-  unsigned long total, max;
+  struct time_stats
+  {
+    unsigned long total, max;
+  } real;
+#ifdef HAVE_RUSAGE
+  struct time_stats cpu;
+#endif
   unsigned char types;
 };
 
@@ -170,6 +187,13 @@ int thread_should_yield (struct thread *);
 
 extern struct cmd_element show_thread_cpu_cmd;
 
-extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before);
+/* Returns elapsed real (wall clock) time. */
+extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
+					  unsigned long *cpu_time_elapsed);
+
+/* Global variable containing a recent result from gettimeofday.  This can
+   be used instead of calling gettimeofday if a recent value is sufficient.
+   This is guaranteed to be refreshed before a thread is called. */
+extern struct timeval recent_time;
 
 #endif /* _ZEBRA_THREAD_H */

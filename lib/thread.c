@@ -30,11 +30,14 @@
 #include "command.h"
 #include "sigevent.h"
 
+struct timeval recent_time;
 static struct hash *cpu_record = NULL;
 
 /* Struct timeval's tv_usec one second value.  */
 #define TIMER_SECOND_MICRO 1000000L
 
+/* Adjust so that tv_usec is in the range [0,TIMER_SECOND_MICRO).
+   And change negative values to 0. */
 static struct timeval
 timeval_adjust (struct timeval a)
 {
@@ -51,13 +54,8 @@ timeval_adjust (struct timeval a)
     }
 
   if (a.tv_sec < 0)
-    {
-      a.tv_sec = 0;
-      a.tv_usec = 10;
-    }
-
-  if (a.tv_sec > TIMER_SECOND_MICRO)
-    a.tv_sec = TIMER_SECOND_MICRO;    
+      /* Change negative timeouts to 0. */
+      a.tv_sec = a.tv_usec = 0;
 
   return a;
 }
@@ -73,7 +71,7 @@ timeval_subtract (struct timeval a, struct timeval b)
   return timeval_adjust (ret);
 }
 
-static int
+static long
 timeval_cmp (struct timeval a, struct timeval b)
 {
   return (a.tv_sec == b.tv_sec
@@ -114,9 +112,17 @@ static inline void
 vty_out_cpu_thread_history(struct vty* vty,
 			   struct cpu_thread_history *a)
 {
-  vty_out(vty, " %7ld.%03ld  %9d  %8ld  %10ld %c%c%c%c%c%c %s%s",
-	  a->total/1000, a->total%1000, a->total_calls,
-	  a->total/a->total_calls, a->max,
+#ifdef HAVE_RUSAGE
+  vty_out(vty, "%7ld.%03ld %9d %8ld %9ld %8ld %9ld",
+	  a->cpu.total/1000, a->cpu.total%1000, a->total_calls,
+	  a->cpu.total/a->total_calls, a->cpu.max,
+	  a->real.total/a->total_calls, a->real.max);
+#else
+  vty_out(vty, "%7ld.%03ld %9d %8ld %9ld",
+	  a->real.total/1000, a->real.total%1000, a->total_calls,
+	  a->real.total/a->total_calls, a->real.max);
+#endif
+  vty_out(vty, " %c%c%c%c%c%c %s%s",
 	  a->types & (1 << THREAD_READ) ? 'R':' ',
 	  a->types & (1 << THREAD_WRITE) ? 'W':' ',
 	  a->types & (1 << THREAD_TIMER) ? 'T':' ',
@@ -139,10 +145,15 @@ cpu_record_hash_print(struct hash_backet *bucket,
   if ( !(a->types & *filter) )
        return;
   vty_out_cpu_thread_history(vty,a);
-  totals->total += a->total;
   totals->total_calls += a->total_calls;
-  if (totals->max < a->max)
-    totals->max = a->max;
+  totals->real.total += a->real.total;
+  if (totals->real.max < a->real.max)
+    totals->real.max = a->real.max;
+#ifdef HAVE_RUSAGE
+  totals->cpu.total += a->cpu.total;
+  if (totals->cpu.max < a->cpu.max)
+    totals->cpu.max = a->cpu.max;
+#endif
 }
 
 static void
@@ -155,9 +166,15 @@ cpu_record_print(struct vty *vty, unsigned char filter)
   tmp.funcname = "TOTAL";
   tmp.types = filter;
 
-  vty_out(vty, 
-	  " Runtime(ms)    Invoked Avg uSecs   Max uSecs  Type Thread%s", 
-	  VTY_NEWLINE);
+#ifdef HAVE_RUSAGE
+  vty_out(vty, "%21s %18s %18s%s",
+  	  "", "CPU (user+system):", "Real (wall-clock):", VTY_NEWLINE);
+#endif
+  vty_out(vty, "Runtime(ms)   Invoked Avg uSec Max uSecs");
+#ifdef HAVE_RUSAGE
+  vty_out(vty, " Avg uSec Max uSecs");
+#endif
+  vty_out(vty, "  Type  Thread%s", VTY_NEWLINE);
   hash_iterate(cpu_record,
 	       (void(*)(struct hash_backet*,void*))cpu_record_hash_print,
 	       args);
@@ -378,12 +395,10 @@ thread_empty (struct thread_list *list)
 unsigned long
 thread_timer_remain_second (struct thread *thread)
 {
-  struct timeval timer_now;
+  gettimeofday (&recent_time, NULL);
 
-  gettimeofday (&timer_now, NULL);
-
-  if (thread->u.sands.tv_sec - timer_now.tv_sec > 0)
-    return thread->u.sands.tv_sec - timer_now.tv_sec;
+  if (thread->u.sands.tv_sec - recent_time.tv_sec > 0)
+    return thread->u.sands.tv_sec - recent_time.tv_sec;
   else
     return 0;
 }
@@ -499,35 +514,23 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
                                   const char* funcname)
 {
   struct thread *thread;
-  struct timeval timer_now;
+  struct timeval alarm_time;
   struct thread_list *list;
   struct thread *tt;
 
   assert (m != NULL);
 
-  assert (type == THREAD_TIMER || THREAD_BACKGROUND);
+  assert (type == THREAD_TIMER || type == THREAD_BACKGROUND);
   assert (time_relative);
   
-  switch (type)
-    {
-      case THREAD_TIMER:
-        list = &m->timer;
-        break;
-      case THREAD_BACKGROUND:
-        list = &m->background;
-        break;
-      default:
-        return NULL;
-    }
-  
+  list = ((type == THREAD_TIMER) ? &m->timer : &m->background);
   thread = thread_get (m, type, func, arg, funcname);
 
   /* Do we need jitter here? */
-  gettimeofday (&timer_now, NULL);
-  timer_now.tv_sec += time_relative->tv_sec;
-  timer_now.tv_usec += time_relative->tv_usec;
-  timeval_adjust (timer_now);
-  thread->u.sands = timer_now;
+  gettimeofday (&recent_time, NULL);
+  alarm_time.tv_sec = recent_time.tv_sec + time_relative->tv_sec;
+  alarm_time.tv_usec = recent_time.tv_usec + time_relative->tv_usec;
+  thread->u.sands = timeval_adjust(alarm_time);
 
   /* Sort by timeval. */
   for (tt = list->head; tt; tt = tt->next)
@@ -648,6 +651,7 @@ thread_cancel (struct thread *thread)
       break;
     case THREAD_BACKGROUND:
       list = &thread->master->background;
+      break;
     default:
       return;
       break;
@@ -683,20 +687,9 @@ thread_cancel_event (struct thread_master *m, void *arg)
 static struct timeval *
 thread_timer_wait (struct thread_list *tlist, struct timeval *timer_val)
 {
-  struct timeval timer_now;
-  struct timeval timer_min;
-
   if (tlist->head)
     {
-      gettimeofday (&timer_now, NULL);
-      timer_min = tlist->head->u.sands;
-      timer_min = timeval_subtract (timer_min, timer_now);
-      if (timer_min.tv_sec < 0)
-	{
-	  timer_min.tv_sec = 0;
-	  timer_min.tv_usec = 10;
-	}
-      *timer_val = timer_min;
+      *timer_val = timeval_subtract (tlist->head->u.sands, recent_time);
       return timer_val;
     }
   return NULL;
@@ -738,25 +731,22 @@ thread_process_fd (struct thread_list *list, fd_set *fdset, fd_set *mfdset)
   return ready;
 }
 
-/* fetch next timer-like thread thread from the list and return it */
+/* Add all timers that have popped to the ready list. */
 static unsigned int
 thread_timer_process (struct thread_list *list, struct timeval *timenow)
 {
   struct thread *thread;
   unsigned int ready = 0;
   
-  assert (list && timenow);
-  
   for (thread = list->head; thread; thread = thread->next)
-    if (timeval_cmp (*timenow, thread->u.sands) >= 0)
-      {
-        thread_list_delete (list, thread);
-        assert (thread->next == thread->prev && thread->next == NULL);
-        thread->next = thread->prev = NULL;
-        thread->type = THREAD_READY;
-        thread_list_add (&thread->master->ready, thread);
-        ready++;
-      }
+    {
+      if (timeval_cmp (*timenow, thread->u.sands) < 0)
+        return ready;
+      thread_list_delete (list, thread);
+      thread->type = THREAD_READY;
+      thread_list_add (&thread->master->ready, thread);
+      ready++;
+    }
   return ready;
 }
 
@@ -768,7 +758,6 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
   fd_set readfd;
   fd_set writefd;
   fd_set exceptfd;
-  struct timeval timer_now;
   struct timeval timer_val;
   struct timeval timer_val_bg;
   struct timeval *timer_wait;
@@ -777,7 +766,6 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
   while (1)
     {
       int num = 0;
-      int ready = m->ready.count;
       
       /* Signals are highest priority */
       quagga_sigevent_process ();
@@ -785,12 +773,6 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       /* Normal event are the next highest priority.  */
       if ((thread = thread_trim_head (&m->event)) != NULL)
         return thread_run (m, thread, fetch);
-      
-      /* Execute timer.  */
-      gettimeofday (&timer_now, NULL);
-      
-      /* Timer threads */
-      ready += thread_timer_process (&m->timer, &timer_now);
       
       /* If there are any ready threads from previous scheduler runs,
        * process top of them.  
@@ -804,22 +786,13 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       exceptfd = m->exceptfd;
       
       /* Calculate select wait timer if nothing else to do */
-      if (ready == 0)
-        {
-          timer_wait = thread_timer_wait (&m->timer, &timer_val);
-          timer_wait_bg = thread_timer_wait (&m->background, &timer_val_bg);
-          
-          if (timer_wait && timer_wait_bg &&
-              (timeval_cmp (*timer_wait, *timer_wait_bg) > 0))
-            timer_wait = timer_wait_bg;
-          else if (!timer_wait && timer_wait_bg)
-            timer_wait = timer_wait_bg;
-        }
-      else
-        {
-          timer_val.tv_sec = timer_val.tv_usec = 0;
-          timer_wait = &timer_val;
-        }
+      gettimeofday (&recent_time, NULL);
+      timer_wait = thread_timer_wait (&m->timer, &timer_val);
+      timer_wait_bg = thread_timer_wait (&m->background, &timer_val_bg);
+      
+      if (timer_wait_bg &&
+	  (!timer_wait || (timeval_cmp (*timer_wait, *timer_wait_bg) > 0)))
+	timer_wait = timer_wait_bg;
       
       num = select (FD_SETSIZE, &readfd, &writefd, &exceptfd, timer_wait);
       
@@ -831,61 +804,76 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
           zlog_warn ("select() error: %s", safe_strerror (errno));
             return NULL;
         }
+
+      /* Check foreground timers.  Historically, they have had higher
+         priority than I/O threads, so let's push them onto the ready
+	 list in front of the I/O threads. */
+      gettimeofday (&recent_time, NULL);
+      thread_timer_process (&m->timer, &recent_time);
       
       /* Got IO, process it */
       if (num > 0)
         {
           /* Normal priority read thead. */
-          ready += thread_process_fd (&m->read, &readfd, &m->readfd);
+          thread_process_fd (&m->read, &readfd, &m->readfd);
           /* Write thead. */
-          ready += thread_process_fd (&m->write, &writefd, &m->writefd);
+          thread_process_fd (&m->write, &writefd, &m->writefd);
         }
-      
+
+#if 0
+      /* If any threads were made ready above (I/O or foreground timer),
+         perhaps we should avoid adding background timers to the ready
+	 list at this time.  If this is code is uncommented, then background
+	 timer threads will not run unless there is nothing else to do. */
+      if ((thread = thread_trim_head (&m->ready)) != NULL)
+        return thread_run (m, thread, fetch);
+#endif
+
       /* Background timer/events, lowest priority */
-      ready += thread_timer_process (&m->background, &timer_now);
+      thread_timer_process (&m->background, &recent_time);
       
-      /* if any threads were made ready above.. */
-      if ((ready > 0) && (thread = thread_trim_head (&m->ready)) != NULL)
+      if ((thread = thread_trim_head (&m->ready)) != NULL)
         return thread_run (m, thread, fetch);
     }
 }
 
 unsigned long
-thread_consumed_time (RUSAGE_T *now, RUSAGE_T *start)
+thread_consumed_time (RUSAGE_T *now, RUSAGE_T *start, unsigned long *cputime)
 {
-  unsigned long thread_time;
-
 #ifdef HAVE_RUSAGE
   /* This is 'user + sys' time.  */
-  thread_time = timeval_elapsed (now->ru_utime, start->ru_utime);
-  thread_time += timeval_elapsed (now->ru_stime, start->ru_stime);
+  *cputime = timeval_elapsed (now->cpu.ru_utime, start->cpu.ru_utime) +
+	     timeval_elapsed (now->cpu.ru_stime, start->cpu.ru_stime);
 #else
-  /* When rusage is not available, simple elapsed time is used.  */
-  thread_time = timeval_elapsed (*now, *start);
+  *cputime = 0;
 #endif /* HAVE_RUSAGE */
-
-  return thread_time;
+  return timeval_elapsed (now->real, start->real);
 }
 
-/* We should aim to yield after THREAD_YIELD_TIME_SLOT
-   milliseconds.  */
+/* We should aim to yield after THREAD_YIELD_TIME_SLOT milliseconds. 
+   Note: we are using real (wall clock) time for this calculation.
+   It could be argued that CPU time may make more sense in certain
+   contexts.  The things to consider are whether the thread may have
+   blocked (in which case wall time increases, but CPU time does not),
+   or whether the system is heavily loaded with other processes competing
+   for CPU time.  On balance, wall clock time seems to make sense. 
+   Plus it has the added benefit that gettimeofday should be faster
+   than calling getrusage. */
 int
 thread_should_yield (struct thread *thread)
 {
-  RUSAGE_T ru;
-
-  GETRUSAGE (&ru);
-  
-  return (thread_consumed_time (&ru, &thread->ru) > THREAD_YIELD_TIME_SLOT);
+  gettimeofday(&recent_time, NULL);
+  return (timeval_elapsed(recent_time, thread->ru.real) >
+  	  THREAD_YIELD_TIME_SLOT);
 }
 
 /* We check thread consumed time. If the system has getrusage, we'll
-   use that to get indepth stats on the performance of the thread.  If
-   not - we'll use gettimeofday for some guestimation.  */
+   use that to get in-depth stats on the performance of the thread in addition
+   to wall clock time stats from gettimeofday. */
 void
 thread_call (struct thread *thread)
 {
-  unsigned long thread_time;
+  unsigned long realtime, cputime;
   RUSAGE_T ru;
   struct cpu_thread_history tmp, *cpu;
   
@@ -899,26 +887,31 @@ thread_call (struct thread *thread)
 
   GETRUSAGE (&ru);
 
-  thread_time = thread_consumed_time (&ru, &thread->ru);
-  cpu->total += thread_time;
-  if (cpu->max < thread_time)
-    cpu->max = thread_time;
+  realtime = thread_consumed_time (&ru, &thread->ru, &cputime);
+  cpu->real.total += realtime;
+  if (cpu->real.max < realtime)
+    cpu->real.max = realtime;
+#ifdef HAVE_RUSAGE
+  cpu->cpu.total += cputime;
+  if (cpu->cpu.max < cputime)
+    cpu->cpu.max = cputime;
+#endif
 
   ++cpu->total_calls;
   cpu->types |= (1 << thread->add_type);
 
 #ifdef CONSUMED_TIME_CHECK
-  if (thread_time > CONSUMED_TIME_CHECK)
+  if (realtime > CONSUMED_TIME_CHECK)
     {
       /*
        * We have a CPU Hog on our hands.
        * Whinge about it now, so we're aware this is yet another task
        * to fix.
        */
-      zlog_warn ("CPU HOG: task %s (%lx) ran for %ldms",
+      zlog_warn ("SLOW THREAD: task %s (%lx) ran for %lums (cpu time %lums)",
 		 thread->funcname,
 		 (unsigned long) thread->func,
-		 thread_time / 1000L);
+		 realtime/1000, cputime/1000);
     }
 #endif /* CONSUMED_TIME_CHECK */
 }

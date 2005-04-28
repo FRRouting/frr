@@ -1,5 +1,52 @@
 2005-04-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	Add wall-clock timing statistics to 'show thread cpu' output.
+	* thread.h: Define struct rusage_t to contain wall-clock time
+	  and cpu time.  Change GETRUSAGE macro to collect both pieces
+	  of data.  Make appropriate changes to struct cpu_thread_history
+	  to track CPU time and real time.  Change proto for
+	  thread_consumed_time to return real and cpu time elapsed.
+	  And declare a new global variable 'struct timeval recent_time'.
+	* thread.c (struct timeval recent_time): New global timestamp variable.
+	  (timeval_adjust): If timeout is negative, set to 0 (not 10
+	  microseconds).  And remove upper bound of 1,000,000 seconds, since
+	  this does not seem to make any sense (and it breaks
+	  funcname_thread_add_timer_timeval).
+	  (timeval_cmp): Should return long, not int.
+	  (vty_out_cpu_thread_history): Show CPU time and real time.
+	  (cpu_record_hash_print): Calculate totals for CPU and real time.
+	  (cpu_record_print): Change 'show thread cpu' title to show CPU and
+	  real time.
+	  (thread_timer_remain_second): Put current time in global recent_time.
+	  (funcname_thread_add_timer_timeval): Fix assert.  Replace 2-case
+	  switch assignment with a ternary expression.  Use global recent_time
+	  variable.  Fix use of timeval_adjust (previously, the value was not
+	  actually being adjusted).
+	  (thread_cancel): Add missing "break" statement in case
+	  THREAD_BACKGROUND.
+	  (thread_timer_wait): Use global recent_time value instead of calling
+	  gettimeofday.  And there's no need to check for negative timeouts,
+	  since timeval_subtract already sets these to zero.
+	  (thread_timer_process): Timers are sorted, so bail out once we
+	  encounter a timer that has not yet popped.  And remove some
+	  extraneous asserts.
+	  (thread_fetch): Do not process foreground timers before calling
+	  select.  Instead, add them to the ready list just after the select.
+	  Also, no need to maintain a count of the number of ready threads,
+	  since we don't care how many there are, just whether there's
+	  one at the head of the ready list (which is easily checked).
+	  Stick current time in global variable recent_time to reduce
+	  the number of calls to gettimeofday.  Tighten logic for
+	  calculating the select timeout.
+	  (thread_consumed_time): Now returns real time and puts the elapsed
+	  cpu time in an additional argument.
+	  (thread_should_yield): Use real (wall-clock) time to decide whether
+	  to yield.
+	  (thread_call): Maintain CPU and real time statistics.
+	* vty.c (vty_command): For slow commands, show real and cpu time.
+
+2005-04-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* workqueue.c (show_work_queues): Remove unused gettimeofday call.
 
 2005-04-27 Paul Jakma <paul.jakma@sun.com>

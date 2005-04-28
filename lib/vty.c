@@ -399,7 +399,7 @@ vty_command (struct vty *vty, char *buf)
   {
     RUSAGE_T before;
     RUSAGE_T after;
-    unsigned long cmdtime;
+    unsigned long realtime, cputime;
 
     GETRUSAGE(&before);
 #endif /* CONSUMED_TIME_CHECK */
@@ -408,9 +408,11 @@ vty_command (struct vty *vty, char *buf)
 
 #ifdef CONSUMED_TIME_CHECK
     GETRUSAGE(&after);
-    if ((cmdtime = thread_consumed_time(&after, &before)) > CONSUMED_TIME_CHECK)
+    if ((realtime = thread_consumed_time(&after, &before, &cputime)) >
+    	CONSUMED_TIME_CHECK)
       /* Warn about CPU hog that must be fixed. */
-      zlog_warn("CPU HOG: command took %lums: %s", cmdtime/1000, buf);
+      zlog_warn("SLOW COMMAND: command took %lums (cpu time %lums): %s",
+      		realtime/1000, cputime/1000, buf);
   }
 #endif /* CONSUMED_TIME_CHECK */
 
