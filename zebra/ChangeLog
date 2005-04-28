@@ -1,3 +1,35 @@
+2005-04-28 Paul Jakma <paul.jakma@sun.com>
+
+	* rib.h: (struct rib) Add lock field for refcounting.
+	* zserv.h: (struct zebra_t) Add a ribq workqueue to the zebra
+	  'master' struct.
+	* zserv.c: (zread_ipv4_add) XMALLOC then memset should be XCALLOC.
+	* zebra_rib.c: Clean up refcounting of route_node, make struct rib
+	  refcounted and convert rib_process to work-queue. In general,
+	  rib's should be rib_addnode'd and delnode'd to route_nodes, and 
+	  these symmetrical functions will manage the locking of referenced
+	  route_node and freeing of struct rib - rather than having users
+	  manage each seperately - with much scope for bugs..
+	  (newrib_free) removed and replaced with rib_lock
+	  (rib_lock) new function, check state of lock and increment.
+	  (rib_unlock) new function, check lock state and decrement. Free
+	  struct rib if refcount hits 0, freeing struct nexthop's, as 
+	  newrib_free did.
+	  (rib_addnode) Add RIB to route_node, locking both.
+	  (rib_delnode) Delete RIB from route_node, unlocking each.
+	  (rib_process) Converted to a work-queue work function.
+	  Functional changes are minimal, just arguments, comments and 
+	  whitespace.
+	  (rib_queue_add_qnode) Helper function to setup a ribq item.
+	  (rib_queue_add) Helper function, same arguments as old
+	  rib_process, to replace in callers of rib_process.
+	  (rib_queue_qnode_del) ribq deconstructor.
+	  (rib_queue_init) Create the ribq.
+	  (rib_init) call rib_queue_init.
+	  (remainder) Sanitise refcounting of route_node's. Convert to 
+	  rib_queue_add, rib_addnode and rib_delnode. Change XMALLOC/memset
+	  to XCALLOC. Remove calls to nexthop_delete and nexthop_free.
+	  
 2005-04-10 Paul Jakma <paul@dishone.st>
 
 	* if_ioctl_solaris.c: (if_lookup_linklocal) fix order of args

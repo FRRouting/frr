@@ -780,9 +780,8 @@ zread_ipv4_add (struct zserv *client, u_short length)
   s = client->ibuf;
 
   /* Allocate new rib. */
-  rib = XMALLOC (MTYPE_RIB, sizeof (struct rib));
-  memset (rib, 0, sizeof (struct rib));
-
+  rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
+  
   /* Type, flags, message. */
   rib->type = stream_getc (s);
   rib->flags = stream_getc (s);

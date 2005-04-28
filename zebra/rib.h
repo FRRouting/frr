@@ -32,6 +32,9 @@ struct rib
   struct rib *next;
   struct rib *prev;
 
+  /* ref count */
+  unsigned int lock;
+  
   /* Type fo this route. */
   int type;
 

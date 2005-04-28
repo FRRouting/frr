@@ -23,6 +23,7 @@
 #define _ZEBRA_ZSERV_H
 
 #include "rib.h"
+#include "workqueue.h"
 
 /* Default port information. */
 #define ZEBRA_PORT                    2600
@@ -76,7 +77,9 @@ struct zebra_t
 
   /* default table */
   int rtm_table_default;
-  
+
+  /* rib work queue */
+  struct work_queue *ribq;
 };
 
 /* Count prefix size from mask length */
