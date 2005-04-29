@@ -3,6 +3,8 @@
 
 @c Set variables
 @set PACKAGE_NAME @PACKAGE_NAME@
+@set PACKAGE_TARNAME @PACKAGE_TARNAME@
+@set PACKAGE_STRING @PACKAGE_STRING@
 @set AUTHORS Kunihiro Ishiguro, et al.
 @set COPYRIGHT_YEAR 1999-2005
 @set COPYRIGHT_STR Copyright @copyright{} @value{COPYRIGHT_YEAR} @value{AUTHORS}
