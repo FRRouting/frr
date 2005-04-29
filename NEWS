@@ -1,7 +1,8 @@
-* Changes in Quagga 0.99.0
+* Changes in Quagga 0.99.1
 
-- Zserv client code is now buffered in most cases, which should improve
-  responsiveness of daemons when they must send many messages to zebra.
+- Zserv is now buffered via threads and non-blocking in most cases for both
+  clients and zebra, which should improve responsiveness of daemons when
+  they must send many messages to zebra.
 
 - 'show thread cpu' now displays both cpu+system and wall-clock time,
   where getrusage() is available.
@@ -11,6 +12,15 @@
 
 - Zebra now has a work-queue for RIB processing. See 'show work-queues' in
   the zebra daemon vty.
+
+- Support for interface renaming on Linux netlink systems.
+
+- GNU Zebra bgpd merges, including BGP Graceful-restart and "match ip
+  route-source" command.
+
+- Automatic logging of backtraces should daemons crash to assist in
+  diagnosis. See the documentation for more information on configuring
+  logging correctly, and set --enable-gcc-rdynamic if compiling with gcc.
 
 * Changes in Quagga 0.98.0
 

@@ -1,6 +1,8 @@
-2005-04-28 Paul Jakma <paul.jakma@sun.com>
+2005-04-29 Paul Jakma <paul.jakma@sun.com>
 
-	* NEWS: Added some 0.99 news
+	* NEWS: Added some more 0.99 news.
+	* configure.ac: bump to 0.99.1 (0.99.0 was never released except
+	  via CVS snapshots)
 
 2005-04-25 Paul Jakma <paul.jakma@sun.com>
 
