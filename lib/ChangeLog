@@ -1,3 +1,14 @@
+2005-05-03 Paul Jakma <paul@dishone.st>
+
+	* stream.h: Add comment about the special zero-ing ability of
+	  stream_put.
+	  (stream_recvmsg, stream_write) should return ssize_t and size_t
+	  respectively. Should both be extern linkage.
+	  (stream_recvfrom) Stream aware wrapper around recvfrom, in style
+	  of stream_read_try.
+	* stream.c: (stream_recvfrom) new function, wrapper around recvfrom.
+	  (stream_recvmsg, stream_write) ssize_t and size_t return values
+	  
 2005-04-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	Add wall-clock timing statistics to 'show thread cpu' output.

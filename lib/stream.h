@@ -86,10 +86,9 @@
  * use stream_forward_endp() to effectively create arbitrary zero-fill
  * padding. However, note that stream_reset() does *not* zero-out the
  * stream. This property should **not** be relied upon.
- * 
- * A Good stream user should ensure it writes all bytes. (the zero-fill
- * guarantee may be removed in future, however, the zero-filling may
- * possibly be moved to stream_forward_endp() instead, maybe..)
+ *
+ * Best practice is to use stream_put (<stream *>, NULL, <size>) to zero out
+ * any part of a stream which isn't otherwise written to.
  */
 
 /* Stream buffer. */
@@ -143,7 +142,7 @@ void stream_set_getp (struct stream *, size_t);
 void stream_forward_getp (struct stream *, size_t);
 void stream_forward_endp (struct stream *, size_t);
 
-void stream_put (struct stream *, void *, size_t);
+void stream_put (struct stream *, void *, size_t); /* NULL source zeroes */
 int stream_putc (struct stream *, u_char);
 int stream_putc_at (struct stream *, size_t, u_char);
 int stream_putw (struct stream *, u_int16_t);
@@ -184,9 +183,11 @@ int stream_read_unblock (struct stream *, int, size_t);
  */
 extern ssize_t stream_read_try(struct stream *s, int fd, size_t size);
 
-int stream_recvmsg (struct stream *s, int fd, struct msghdr *,
+extern ssize_t stream_recvmsg (struct stream *s, int fd, struct msghdr *,
                     int flags, size_t size);
-int stream_write (struct stream *, u_char *, size_t);
+extern ssize_t stream_recvfrom (struct stream *s, int fd, size_t len, int flags,
+                     struct sockaddr *from, socklen_t *fromlen);
+size_t stream_write (struct stream *, u_char *, size_t);
 
 void stream_reset (struct stream *); /* reset the stream. See Note above */
 int stream_flush (struct stream *, int);

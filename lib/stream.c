@@ -368,6 +368,8 @@ stream_get_ipv4 (struct stream *s)
  *
  * XXX: This uses CHECK_SIZE and hence has funny semantics -> Size will wrap
  * around. This should be fixed once the stream updates are working.
+ *
+ * stream_write() is saner
  */
 void
 stream_put (struct stream *s, void *src, size_t size)
@@ -630,12 +632,44 @@ stream_read_try(struct stream *s, int fd, size_t size)
   return -1;
 }
 
+/* Read up to size bytes into the stream from the fd, using recvmsgfrom
+ * whose arguments match the remaining arguments to this function
+ */
+ssize_t 
+stream_recvfrom (struct stream *s, int fd, size_t size, int flags,
+                 struct sockaddr *from, socklen_t *fromlen)                     
+{
+  ssize_t nbytes;
+
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_WRITEABLE(s) < size)
+    {
+      STREAM_BOUND_WARN (s, "put");
+      /* Fatal (not transient) error, since retrying will not help
+         (stream is too small to contain the desired data). */
+      return -1;
+    }
+
+  if ((nbytes = recvfrom (fd, s->data + s->endp, size, 
+                          flags, from, fromlen)) >= 0)
+    {
+      s->endp += nbytes;
+      return nbytes;
+    }
+  /* Error: was it transient (return -2) or fatal (return -1)? */
+  if (ERRNO_IO_RETRY(errno))
+    return -2;
+  zlog_warn("%s: read failed on fd %d: %s", __func__, fd, safe_strerror(errno));
+  return -1;
+}
+
 /* Read up to smaller of size or SIZE_REMAIN() bytes to the stream, starting
  * from endp.
  * First iovec will be used to receive the data.
  * Stream need not be empty.
  */
-int
+ssize_t
 stream_recvmsg (struct stream *s, int fd, struct msghdr *msgh, int flags, 
                 size_t size)
 {
@@ -666,7 +700,7 @@ stream_recvmsg (struct stream *s, int fd, struct msghdr *msgh, int flags,
 }
   
 /* Write data to buffer. */
-int
+size_t
 stream_write (struct stream *s, u_char *ptr, size_t size)
 {
 
