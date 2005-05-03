@@ -1,3 +1,32 @@
+2005-05-03 Paul Jakma <paul@dishone.st>
+
+	* (general) More cleaning up of stream abuse, isisd should be
+	  back to previous functionality. Replace various XMALLOC+memset's
+	  with XCALLOC
+	* isis_tlv.c: (tlv_add_padding) use stream_put to clear the stream
+	  rather than forward endp, as isisd reuses streams.
+	* isis_pdu.c: (process_lsp) cleanup direct reference to stream endp
+	  (send_lsp) manual copy of a stream cleaned up to use stream_copy.
+	* isis_network.c: (isis_recv_pdu_bcast) replace direct memcpy with
+	  stream_write
+	  (isis_recv_pdu_p2p) replace recvfrom directly into stream with
+	  stream_recvfrom. Remove dangerous and now unneeded manual update
+	  of endp.
+	  (isis_recv_pdu_bcast / non-GNU_LINUX) Replace direct memcpy with
+	  stream_write.
+	  (isis_recv_pdu_p2p) replace read direct into stream with
+	  stream_read_try, and hence remove the manual update of endp.
+	* isis_lsp.c: (lsp_update_data) manual stream dup replaced with 
+	  stream_dup.
+	  (lsppdu_realloc) mempcy into stream data replaced with stream_put.
+	  (lsp_build_nonpseudo) remove mysterious stream_forward_endp's -
+	  which were originally stream_set_putp - shouldn't be needed
+	  now that all the manual fiddling of private stream data has been
+	  corrected.
+	  (build_topology_lsp_data) remove unneeded twiddling of endp,
+	  appears to be due to lsppdu_realloc(), but it appears to sort of
+	  do the right thing wrt streams.
+	  
 2005-04-15 Paul Jakma <paul@dishone.st>
 
 	* topology/Makefile.am: random.c is a source of libtopology, so list

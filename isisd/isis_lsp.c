@@ -20,6 +20,7 @@
  * with this program; if not, write to the Free Software Foundation, Inc., 
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <zebra.h>
@@ -364,11 +365,8 @@ lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
   int retval;
 
   /* copying only the relevant part of our stream */
-  lsp->pdu = stream_new (stream->endp);
-  lsp->pdu->getp = stream->getp;
-  lsp->pdu->endp = stream->endp;
-  memcpy (lsp->pdu->data, stream->data, stream->endp);
-
+  lsp->pdu = stream_dup (stream);
+  
   /* setting pointers to the correct place */
   lsp->isis_header = (struct isis_fixed_hdr *) (STREAM_DATA (lsp->pdu));
   lsp->lsp_header = (struct isis_link_state_hdr *) (STREAM_DATA (lsp->pdu) +
@@ -926,8 +924,7 @@ lsppdu_realloc (struct isis_lsp * lsp, int memorytype, int size)
 #else /* otherwise we have to move all pointers */
   u_char *newpdu;
   newpdu = stream_new (ntohs (lsp->lsp_header->pdu_len) + size);
-  memcpy (STREAM_DATA (newpdu), STREAM_DATA (lsp->pdu),
-	  ntohs (lsp->lsp_header->pdu_len));
+  stream_put (newpdu, STREAM_DATA(lsp->pdu), ntohs (lsp->lsp_header->pdu_len);
   XFREE (memorytype, lsp->pdu);
   lsp->pdu = newpdu;
   lsp->isis_header = (struct isis_fixed_hdr *) STREAM_DATA (lsp->pdu);
@@ -1132,8 +1129,6 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 	}
     }
 
-  stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
-
   if (lsp->tlv_data.nlpids)
     tlv_add_nlpid (lsp->tlv_data.nlpids, lsp->pdu);
   if (lsp->tlv_data.hostname)
@@ -1310,7 +1305,6 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   /*
    * Building the zero lsp
    */
-  stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
   /*
    * Add the authentication info if its present
    */
@@ -1874,8 +1868,8 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
       lsp->tlv_data.is_neighs = list_new ();
       lsp->tlv_data.is_neighs->del = free_tlv;
     }
-  is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-  memset (is_neigh, 0, sizeof (struct is_neigh));
+  is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
+
   memcpy (&is_neigh->neigh_id, isis->sysid, ISIS_SYS_ID_LEN);
   listnode_add (lsp->tlv_data.is_neighs, is_neigh);
 
@@ -1892,8 +1886,8 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 	      (level == 2 && adj->sys_type == ISIS_SYSTYPE_L2_IS))
 	    {
 	      /* an IS neighbour -> add it */
-	      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-	      memset (is_neigh, 0, sizeof (struct is_neigh));
+	      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
+
 	      memcpy (&is_neigh->neigh_id, adj->sysid, ISIS_SYS_ID_LEN);
 	      listnode_add (lsp->tlv_data.is_neighs, is_neigh);
 	    }
@@ -1906,15 +1900,14 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 		  lsp->tlv_data.es_neighs = list_new ();
 		  lsp->tlv_data.es_neighs->del = free_tlv;
 		}
-	      es_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct es_neigh));
-	      memset (es_neigh, 0, sizeof (struct es_neigh));
+	      es_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct es_neigh));
+	      
 	      memcpy (&es_neigh->first_es_neigh, adj->sysid, ISIS_SYS_ID_LEN);
 	      listnode_add (lsp->tlv_data.es_neighs, is_neigh);
 	    }
 	}
     }
 
-  stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
   /*
    * Add the authentication info if it's present
    */
@@ -2452,8 +2445,5 @@ build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
 	(lsppdu_realloc (lsp, MTYPE_ISIS_TLV, strlen (buff)) - 1);
       memcpy (lsp->tlv_data.hostname->name, buff, strlen (buff));
     }
-
-  /* thanks to hannes, another bug bites the dust */
-  lsp->pdu->endp = ntohs (lsp->lsp_header->pdu_len);
 }
 #endif /* TOPOLOGY_GENERATE */

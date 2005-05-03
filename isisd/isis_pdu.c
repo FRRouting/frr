@@ -949,7 +949,8 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 		  ntohl (hdr->seq_num),
 		  ntohs (hdr->checksum),
 		  ntohs (hdr->rem_lifetime),
-		  circuit->rcv_stream->endp, circuit->interface->name);
+		  stream_get_endp (circuit->rcv_stream), 
+		  circuit->interface->name);
     }
 
   assert (ntohs (hdr->pdu_len) > ISIS_LSP_HDR_LEN);
@@ -2497,9 +2498,7 @@ send_lsp (struct thread *thread)
 		 circuit->interface->name);
 	    }
 	  /* copy our lsp to the send buffer */
-	  circuit->snd_stream->getp = lsp->pdu->getp;
-	  circuit->snd_stream->endp = lsp->pdu->endp;
-	  memcpy (circuit->snd_stream->data, lsp->pdu->data, lsp->pdu->endp);
+	  stream_copy (circuit->snd_stream, lsp->pdu);
 
 	  retval = circuit->tx (circuit, lsp->level);
 

@@ -420,9 +420,7 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 			(struct sockaddr *) &s_addr, (socklen_t *) &addr_len);
 
   /* then we lose the LLC */
-  memcpy (STREAM_DATA (circuit->rcv_stream),
-	  sock_buff + LLC_LEN, bytesread - LLC_LEN);
-  circuit->rcv_stream->endp = bytesread - LLC_LEN;
+  stream_write (circuit->rcv_stream, sock_buff + LLC_LEN, bytesread - LLC_LEN);
 
   memcpy (ssnpa, &s_addr.sll_addr, s_addr.sll_halen);
 
@@ -439,9 +437,10 @@ isis_recv_pdu_p2p (struct isis_circuit *circuit, u_char * ssnpa)
   addr_len = sizeof (s_addr);
 
   /* we can read directly to the stream */
-  bytesread = recvfrom (circuit->fd, STREAM_DATA (circuit->rcv_stream),
-			circuit->interface->mtu, 0,
-			(struct sockaddr *) &s_addr, (socklen_t *) &addr_len);
+  bytesread = stream_recvfrom (circuit->rcv_stream, circuit->fd,
+                               circuit->interface->mtu, 0,
+                               (struct sockaddr *) &s_addr, 
+                               (socklen_t *) &addr_len);
 
   if (s_addr.sll_pkttype == PACKET_OUTGOING)
     {
@@ -451,8 +450,6 @@ isis_recv_pdu_p2p (struct isis_circuit *circuit, u_char * ssnpa)
 	zlog_warn ("isis_recv_pdu_p2p(): read() failed");
       return ISIS_WARNING;
     }
-
-  circuit->rcv_stream->endp = bytesread;
 
   /* If we don't have protocol type 0x00FE which is
    * ISO over GRE we exit with pain :)
@@ -572,11 +569,9 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
   offset = bpf_hdr->bh_hdrlen + LLC_LEN + ETHER_HDR_LEN;
 
   /* then we lose the BPF, LLC and ethernet headers */
-  memcpy (STREAM_DATA (circuit->rcv_stream),
-	  readbuff + offset, bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
-
-  circuit->rcv_stream->endp = bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN;
-  circuit->rcv_stream->getp = 0;
+  stream_write (circuit->rcv_stream, readbuff + offset, 
+                bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
+  stream_set_getp (circuit->rcv_stream, 0);
 
   memcpy (ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETHER_ADDR_LEN,
 	  ETHER_ADDR_LEN);
@@ -592,16 +587,14 @@ isis_recv_pdu_p2p (struct isis_circuit *circuit, u_char * ssnpa)
 {
   int bytesread;
 
-  bytesread = read (circuit->fd, STREAM_DATA (circuit->rcv_stream),
-		    circuit->interface->mtu);
+  bytesread = stream_read (circuit->rcv_stream, circuit->fd, 
+                           circuit->interface->mtu);
 
   if (bytesread < 0)
     {
       zlog_warn ("isis_recv_pdu_p2p(): read () failed: %s", safe_strerror (errno));
       return ISIS_WARNING;
     }
-
-  circuit->rcv_stream->endp = bytesread;
 
   return ISIS_OK;
 }

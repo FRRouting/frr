@@ -1069,7 +1069,7 @@ tlv_add_padding (struct stream *stream)
 	goto err;
       if (!stream_putc (stream, (u_char) 255))	/* LENGHT */
 	goto err;
-      stream_forward_endp (stream, 255);	/* VALUE */
+      stream_put (stream, NULL, 255);		/* zero padding */
     }
 
   left = STREAM_SIZE (stream) - stream_get_endp (stream);
@@ -1086,7 +1086,7 @@ tlv_add_padding (struct stream *stream)
 
   stream_putc (stream, PADDING);
   stream_putc (stream, left - 2);
-  stream_forward_endp (stream, left - 2);
+  stream_put (stream, NULL, left-2);
 
   return ISIS_OK;
 
