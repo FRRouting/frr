@@ -201,7 +201,7 @@ del_mpls_te_link (void *val)
 }
 
 static u_int32_t
-get_mpls_te_instance_value ()
+get_mpls_te_instance_value (void)
 {
   static u_int32_t seqno = 0;
 

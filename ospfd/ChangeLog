@@ -1,3 +1,26 @@
+2005-05-06 Paul Jakma <paul.jakma@sun.com>
+
+        * (general) extern and static qualifiers added. 
+          unspecified arguments in definitions fixed, typically they should
+          be 'void'.
+          function casts added for callbacks.
+          Guards added to headers which lacked them.
+          Proper headers included rather than relying on incomplete
+          definitions.
+          gcc noreturn function attribute where appropriate.
+        * ospf_opaque.c: remove the private definition of ospf_lsa's 
+          ospf_lsa_refresh_delay.
+        * ospf_lsa.h: export ospf_lsa_refresh_delay
+        * ospf_packet.c: (ospf_make_md5_digest) make *auth_key const, 
+          correct thing to do - removes need for the casts later.
+        * ospf_vty.c: Use vty.h's VTY_GET_INTEGER rather than ospf_vty's
+          home-brewed versions, shuts up several warnings.
+        * ospf_vty.h: remove VTY_GET_UINT32. VTY_GET_IPV4_ADDRESS and
+          VTY_GET_IPV4_PREFIX moved to lib/vty.h.
+        * ospf_zebra.c: (ospf_distribute_list_update_timer) hacky
+          overloading of the THREAD_ARG pointer should at least use
+          uintptr_t.
+
 2005-04-15 Zhipeng Gong <zpgong@cdc.3upsystems.com>
 
 	* ospf_abr.c: (ospf_abr_announce_network_to_area) dont forget

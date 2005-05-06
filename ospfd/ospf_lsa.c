@@ -413,7 +413,7 @@ lsa_header_set (struct stream *s, u_char options,
 
 /* router-LSA related functions. */
 /* Get router-LSA flags. */
-u_char
+static u_char
 router_lsa_flags (struct ospf_area *area)
 {
   u_char flags;
@@ -484,7 +484,7 @@ ospf_nbr_lookup_ptop (struct ospf_interface *oi)
 }
 
 /* Set a link information. */
-void
+static void
 link_info_set (struct stream *s, struct in_addr id,
 	       struct in_addr data, u_char type, u_char tos, u_int16_t cost)
 {
@@ -497,7 +497,7 @@ link_info_set (struct stream *s, struct in_addr id,
 }
 
 /* Describe Point-to-Point link. */
-int
+static int
 lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
 {
   int links = 0;
@@ -543,7 +543,7 @@ lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
 }
 
 /* Describe Broadcast Link. */
-int
+static int
 lsa_link_broadcast_set (struct stream *s, struct ospf_interface *oi)
 {
   struct ospf_neighbor *dr;
@@ -577,7 +577,7 @@ lsa_link_broadcast_set (struct stream *s, struct ospf_interface *oi)
   return 1;
 }
 
-int
+static int
 lsa_link_loopback_set (struct stream *s, struct ospf_interface *oi)
 {
   struct in_addr id, mask;
@@ -593,7 +593,7 @@ lsa_link_loopback_set (struct stream *s, struct ospf_interface *oi)
 }
 
 /* Describe Virtual Link. */
-int
+static int
 lsa_link_virtuallink_set (struct stream *s, struct ospf_interface *oi)
 {
   struct ospf_neighbor *nbr;
@@ -616,7 +616,7 @@ lsa_link_virtuallink_set (struct stream *s, struct ospf_interface *oi)
 12.4.1.4.*/
 /* from "edward rrr" <edward_rrr@hotmail.com>
    http://marc.theaimsgroup.com/?l=zebra&m=100739222210507&w=2 */
-int
+static int
 lsa_link_ptomp_set (struct stream *s, struct ospf_interface *oi)
 {
   int links = 0;
@@ -652,7 +652,7 @@ lsa_link_ptomp_set (struct stream *s, struct ospf_interface *oi)
 }
 
 /* Set router-LSA link information. */
-int
+static int
 router_lsa_link_set (struct stream *s, struct ospf_area *area)
 {
   struct listnode *node;
@@ -697,7 +697,7 @@ router_lsa_link_set (struct stream *s, struct ospf_area *area)
 }
 
 /* Set router-LSA body. */
-void
+static void
 ospf_router_lsa_body_set (struct stream *s, struct ospf_area *area)
 {
   unsigned long putp;
@@ -723,7 +723,7 @@ ospf_router_lsa_body_set (struct stream *s, struct ospf_area *area)
 }
 
 /* Create new router-LSA. */
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_router_lsa_new (struct ospf_area *area)
 {
   struct ospf *ospf = area->ospf;
@@ -801,7 +801,7 @@ ospf_router_lsa_originate (struct ospf_area *area)
 }
 
 /* Refresh router-LSA. */
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_router_lsa_refresh (struct ospf_lsa *lsa)
 {
   struct ospf_area *area = lsa->area;
@@ -833,7 +833,7 @@ ospf_router_lsa_refresh (struct ospf_lsa *lsa)
   return NULL;
 }
 
-int
+static int
 ospf_router_lsa_timer (struct thread *t)
 {
   struct ospf_area *area;
@@ -944,7 +944,7 @@ ospf_router_lsa_update_timer (struct thread *thread)
 
 /* network-LSA related functions. */
 /* Originate Network-LSA. */
-void
+static void
 ospf_network_lsa_body_set (struct stream *s, struct ospf_interface *oi)
 {
   struct in_addr mask;
@@ -965,7 +965,7 @@ ospf_network_lsa_body_set (struct stream *s, struct ospf_interface *oi)
 	stream_put_ipv4 (s, nbr->router_id.s_addr);
 }
 
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_network_lsa_new (struct ospf_interface *oi)
 {
   struct stream *s;
@@ -1009,7 +1009,7 @@ ospf_network_lsa_new (struct ospf_interface *oi)
 }
 
 /* Originate network-LSA. */
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_network_lsa_originate (struct ospf_interface *oi)
 {
   struct ospf_lsa *new;
@@ -1070,7 +1070,7 @@ ospf_network_lsa_refresh (struct ospf_lsa *lsa, struct ospf_interface *oi)
   return 0;
 }
 
-int
+static int
 ospf_network_lsa_refresh_timer (struct thread *t)
 {
   struct ospf_interface *oi;
@@ -1122,7 +1122,7 @@ ospf_network_lsa_timer_add (struct ospf_interface *oi)
 }
 
 
-void
+static void
 stream_put_ospf_metric (struct stream *s, u_int32_t metric_value)
 {
   u_int32_t metric;
@@ -1136,7 +1136,7 @@ stream_put_ospf_metric (struct stream *s, u_int32_t metric_value)
 }
 
 /* summary-LSA related functions. */
-void
+static void
 ospf_summary_lsa_body_set (struct stream *s, struct prefix *p,
 			   u_int32_t metric)
 {
@@ -1154,7 +1154,7 @@ ospf_summary_lsa_body_set (struct stream *s, struct prefix *p,
   stream_put_ospf_metric (s, metric);
 }
 
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_summary_lsa_new (struct ospf_area *area, struct prefix *p,
 		      u_int32_t metric, struct in_addr id)
 {
@@ -1263,7 +1263,7 @@ ospf_summary_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
 
 
 /* summary-ASBR-LSA related functions. */
-void
+static void
 ospf_summary_asbr_lsa_body_set (struct stream *s, struct prefix *p,
 				u_int32_t metric)
 {
@@ -1281,7 +1281,7 @@ ospf_summary_asbr_lsa_body_set (struct stream *s, struct prefix *p,
   stream_put_ospf_metric (s, metric);
 }
 
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_summary_asbr_lsa_new (struct ospf_area *area, struct prefix *p,
 			   u_int32_t metric, struct in_addr id)
 {
@@ -1391,7 +1391,7 @@ ospf_summary_asbr_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
 
 /* Get nexthop for AS-external-LSAs.  Return nexthop if its interface
    is connected, else 0*/
-struct in_addr
+static struct in_addr
 ospf_external_lsa_nexthop_get (struct ospf *ospf, struct in_addr nexthop)
 {
   struct in_addr fwd;
@@ -1421,7 +1421,7 @@ ospf_external_lsa_nexthop_get (struct ospf *ospf, struct in_addr nexthop)
 /* NSSA-external-LSA related functions. */
 
 /* Get 1st IP connection for Forward Addr */
-          
+
 struct in_addr
 ospf_get_ip_from_ifp (struct ospf_interface *oi)
 {
@@ -1503,7 +1503,7 @@ metric_value (struct ospf *ospf, u_char src)
 }
 
 /* Set AS-external-LSA body. */
-void
+static void
 ospf_external_lsa_body_set (struct stream *s, struct external_info *ei,
 			    struct ospf *ospf)
 {
@@ -1543,7 +1543,7 @@ ospf_external_lsa_body_set (struct stream *s, struct external_info *ei,
 }
 
 /* Create new external-LSA. */
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_external_lsa_new (struct ospf *ospf,
 		       struct external_info *ei, struct in_addr *old_id)
 {
@@ -1608,7 +1608,7 @@ ospf_external_lsa_new (struct ospf *ospf,
 }
 
 /* As Type-7 */
-void
+static void
 ospf_install_flood_nssa (struct ospf *ospf, 
 			 struct ospf_lsa *lsa, struct external_info *ei)
 {
@@ -1695,7 +1695,7 @@ ospf_install_flood_nssa (struct ospf *ospf,
     }
 }
 
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_lsa_translated_nssa_new (struct ospf *ospf, 
                              struct ospf_lsa *type7)
 {
@@ -1744,7 +1744,7 @@ ospf_lsa_translated_nssa_new (struct ospf *ospf,
 /* compare type-5 to type-7
  * -1: err, 0: same, 1: different
  */
-int
+static int
 ospf_lsa_translated_nssa_compare (struct ospf_lsa *t7, struct ospf_lsa *t5)
 {
 
@@ -2043,7 +2043,7 @@ ospf_external_lsa_originate_timer (struct thread *thread)
   return 0;
 }
 
-struct external_info *
+static struct external_info *
 ospf_default_external_info (struct ospf *ospf)
 {
   int type;
@@ -2328,7 +2328,7 @@ ospf_external_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa,
 /* LSA installation functions. */
 
 /* Install router-LSA to an area. */
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_router_lsa_install (struct ospf *ospf,
 			 struct ospf_lsa *new, int rt_recalc)
 {
@@ -2367,7 +2367,7 @@ ospf_router_lsa_install (struct ospf *ospf,
 	  (T) = thread_add_timer (master, (F), oi, (V))
 
 /* Install network-LSA to an area. */
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_network_lsa_install (struct ospf *ospf,
 			  struct ospf_interface *oi, 
 			  struct ospf_lsa *new,
@@ -2402,7 +2402,7 @@ ospf_network_lsa_install (struct ospf *ospf,
 }
 
 /* Install summary-LSA to an area. */
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_summary_lsa_install (struct ospf *ospf, struct ospf_lsa *new,
 			  int rt_recalc)
 {
@@ -2433,7 +2433,7 @@ ospf_summary_lsa_install (struct ospf *ospf, struct ospf_lsa *new,
 }
 
 /* Install ASBR-summary-LSA to an area. */
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_summary_asbr_lsa_install (struct ospf *ospf, struct ospf_lsa *new,
 			       int rt_recalc)
 {
@@ -2464,7 +2464,7 @@ ospf_summary_asbr_lsa_install (struct ospf *ospf, struct ospf_lsa *new,
 }
 
 /* Install AS-external-LSA. */
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_external_lsa_install (struct ospf *ospf, struct ospf_lsa *new,
 			   int rt_recalc)
 {
@@ -2740,7 +2740,7 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
 }
 
 
-int
+static int
 ospf_check_nbr_status (struct ospf *ospf)
 {
   struct listnode *node, *nnode;
@@ -2795,7 +2795,7 @@ ospf_maxage_flood (struct ospf_lsa *lsa)
 }
 #endif /* ORIGINAL_CODING */
 
-int
+static int
 ospf_maxage_lsa_remover (struct thread *thread)
 {
   struct ospf *ospf = THREAD_ARG (thread);
@@ -2859,7 +2859,7 @@ ospf_maxage_lsa_remover (struct thread *thread)
   return 0;
 }
 
-int
+static int
 ospf_lsa_maxage_exist (struct ospf *ospf, struct ospf_lsa *new)
 {
   struct listnode *node;
@@ -2905,7 +2905,7 @@ ospf_lsa_maxage (struct ospf *ospf, struct ospf_lsa *lsa)
   OSPF_TIMER_ON (ospf->t_maxage, ospf_maxage_lsa_remover, 2);
 }
 
-int
+static int
 ospf_lsa_maxage_walker_remover (struct ospf *ospf, struct ospf_lsa *lsa)
 {
   /* Stay away from any Local Translated Type-7 LSAs */
@@ -3467,7 +3467,7 @@ struct lsa_action
   struct ospf_lsa *lsa;
 };
 
-int
+static int
 ospf_lsa_action (struct thread *t)
 {
   struct lsa_action *data;
@@ -3540,7 +3540,7 @@ ospf_schedule_lsa_flush_area (struct ospf_area *area, struct ospf_lsa *lsa)
 
 
 /* LSA Refreshment functions. */
-void
+static void
 ospf_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
 {
   struct external_info *ei;

@@ -19,40 +19,10 @@
  * 02111-1307, USA.  
  */
 
+#ifndef _QUAGGA_OSPF_VTY_H
+#define _QUAGGA_OSPF_VTY_H
+
 /* Macros. */
-#define VTY_GET_UINT32(NAME,V,STR)                                            \
-{                                                                             \
-  char *endptr = NULL;                                                        \
-  (V) = strtoul ((STR), &endptr, 10);                                         \
-  if (*endptr != '\0' || ((V) == ULONG_MAX && errno == ERANGE))               \
-    {                                                                         \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
-      return CMD_WARNING;                                                     \
-    }                                                                         \
-}
-
-#define VTY_GET_IPV4_ADDRESS(NAME,V,STR)                                      \
-{                                                                             \
-  int retv;                                                                   \
-  retv = inet_aton ((STR), &(V));                                             \
-  if (!retv)                                                                  \
-    {                                                                         \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
-      return CMD_WARNING;                                                     \
-    }                                                                         \
-}
-
-#define VTY_GET_IPV4_PREFIX(NAME,V,STR)                                       \
-{                                                                             \
-  int retv;                                                                   \
-  retv = str2prefix_ipv4 ((STR), &(V));                                       \
-  if (retv <= 0)                                                              \
-    {                                                                         \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
-      return CMD_WARNING;                                                     \
-    }                                                                         \
-}
-
 #define VTY_GET_OSPF_AREA_ID(V,F,STR)                                         \
 {                                                                             \
   int retv;                                                                   \
@@ -81,5 +51,7 @@
 }
 
 /* Prototypes. */
-void ospf_vty_init ();
-void ospf_vty_show_init ();
+extern void ospf_vty_init (void);
+extern void ospf_vty_show_init (void);
+
+#endif /* _QUAGGA_OSPF_VTY_H */

@@ -46,17 +46,17 @@
 #define ISM_InterfaceDown                 7
 #define OSPF_ISM_EVENT_MAX                8
 
-#define OSPF_ISM_WRITE_ON()                                                   \
+#define OSPF_ISM_WRITE_ON(O)                                                  \
       do                                                                      \
         {                                                                     \
           if (oi->on_write_q == 0)                                            \
 	    {                                                                 \
-              listnode_add (ospf_top->oi_write_q, oi);                        \
+              listnode_add ((O)->oi_write_q, oi);                             \
 	      oi->on_write_q = 1;                                             \
 	    }                                                                 \
-	  if (ospf_top->t_write == NULL)                                      \
-	    ospf_top->t_write =                                               \
-	      thread_add_write (master, ospf_write, ospf_top, ospf_top->fd);  \
+	  if ((O)->t_write == NULL)                                           \
+	    (O)->t_write =                                                    \
+	      thread_add_write (master, ospf_write, (O), (O)->fd);            \
         } while (0)
      
 /* Macro for OSPF ISM timer turn on. */
@@ -81,8 +81,8 @@
       thread_execute (master, ospf_ism_event, (I), (E))
 
 /* Prototypes. */
-int ospf_ism_event (struct thread *);
-void ism_change_status (struct ospf_interface *, int);
-int ospf_hello_timer (struct thread *thread);
+extern int ospf_ism_event (struct thread *);
+extern void ism_change_status (struct ospf_interface *, int);
+extern int ospf_hello_timer (struct thread *thread);
 
 #endif /* _ZEBRA_OSPF_ISM_H */

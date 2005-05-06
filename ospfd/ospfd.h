@@ -526,57 +526,66 @@ extern struct thread_master *master;
 extern int ospf_zlog;
 
 /* Prototypes. */
-struct ospf *ospf_lookup ();
-struct ospf *ospf_get ();
-void ospf_finish (struct ospf *);
-int ospf_router_id_update_timer (struct thread *);
-void ospf_router_id_update ();
-int ospf_network_match_iface (struct connected *, struct prefix *);
-int ospf_network_set (struct ospf *, struct prefix_ipv4 *, struct in_addr);
-int ospf_network_unset (struct ospf *, struct prefix_ipv4 *, struct in_addr);
-int ospf_area_stub_set (struct ospf *, struct in_addr);
-int ospf_area_stub_unset (struct ospf *, struct in_addr);
-int ospf_area_no_summary_set (struct ospf *, struct in_addr);
-int ospf_area_no_summary_unset (struct ospf *, struct in_addr);
-int ospf_area_nssa_set (struct ospf *, struct in_addr);
-int ospf_area_nssa_unset (struct ospf *, struct in_addr);
-int ospf_area_nssa_translator_role_set (struct ospf *, struct in_addr, int);
-int ospf_area_export_list_set (struct ospf *, struct ospf_area *, const char *);
-int ospf_area_export_list_unset (struct ospf *, struct ospf_area *);
-int ospf_area_import_list_set (struct ospf *, struct ospf_area *, const char *);
-int ospf_area_import_list_unset (struct ospf *, struct ospf_area *);
-int ospf_area_shortcut_set (struct ospf *, struct ospf_area *, int);
-int ospf_area_shortcut_unset (struct ospf *, struct ospf_area *);
-int ospf_timers_spf_set (struct ospf *, u_int32_t, u_int32_t);
-int ospf_timers_spf_unset (struct ospf *);
-int ospf_timers_refresh_set (struct ospf *, int);
-int ospf_timers_refresh_unset (struct ospf *);
-int ospf_nbr_nbma_set (struct ospf *, struct in_addr);
-int ospf_nbr_nbma_unset (struct ospf *, struct in_addr);
-int ospf_nbr_nbma_priority_set (struct ospf *, struct in_addr, u_char);
-int ospf_nbr_nbma_priority_unset (struct ospf *, struct in_addr);
-int ospf_nbr_nbma_poll_interval_set (struct ospf *, struct in_addr, unsigned int);
-int ospf_nbr_nbma_poll_interval_unset (struct ospf *, struct in_addr);
-void ospf_prefix_list_update (struct prefix_list *);
-void ospf_init ();
-void ospf_if_update (struct ospf *);
-void ospf_ls_upd_queue_empty (struct ospf_interface *);
-void ospf_terminate ();
-void ospf_nbr_nbma_if_update (struct ospf *, struct ospf_interface *);
-struct ospf_nbr_nbma *ospf_nbr_nbma_lookup (struct ospf *, struct in_addr);
-struct ospf_nbr_nbma *ospf_nbr_nbma_lookup_next (struct ospf *,
-						 struct in_addr *, int);
-int ospf_oi_count (struct interface *);
+extern struct ospf *ospf_lookup (void);
+extern struct ospf *ospf_get (void);
+extern void ospf_finish (struct ospf *);
+extern int ospf_router_id_update_timer (struct thread *);
+extern void ospf_router_id_update (struct ospf *ospf);
+extern int ospf_network_match_iface (struct connected *, struct prefix *);
+extern int ospf_network_set (struct ospf *, struct prefix_ipv4 *,
+			     struct in_addr);
+extern int ospf_network_unset (struct ospf *, struct prefix_ipv4 *,
+			       struct in_addr);
+extern int ospf_area_stub_set (struct ospf *, struct in_addr);
+extern int ospf_area_stub_unset (struct ospf *, struct in_addr);
+extern int ospf_area_no_summary_set (struct ospf *, struct in_addr);
+extern int ospf_area_no_summary_unset (struct ospf *, struct in_addr);
+extern int ospf_area_nssa_set (struct ospf *, struct in_addr);
+extern int ospf_area_nssa_unset (struct ospf *, struct in_addr);
+extern int ospf_area_nssa_translator_role_set (struct ospf *, struct in_addr,
+					       int);
+extern int ospf_area_export_list_set (struct ospf *, struct ospf_area *,
+				      const char *);
+extern int ospf_area_export_list_unset (struct ospf *, struct ospf_area *);
+extern int ospf_area_import_list_set (struct ospf *, struct ospf_area *,
+				      const char *);
+extern int ospf_area_import_list_unset (struct ospf *, struct ospf_area *);
+extern int ospf_area_shortcut_set (struct ospf *, struct ospf_area *, int);
+extern int ospf_area_shortcut_unset (struct ospf *, struct ospf_area *);
+extern int ospf_timers_spf_set (struct ospf *, u_int32_t, u_int32_t);
+extern int ospf_timers_spf_unset (struct ospf *);
+extern int ospf_timers_refresh_set (struct ospf *, int);
+extern int ospf_timers_refresh_unset (struct ospf *);
+extern int ospf_nbr_nbma_set (struct ospf *, struct in_addr);
+extern int ospf_nbr_nbma_unset (struct ospf *, struct in_addr);
+extern int ospf_nbr_nbma_priority_set (struct ospf *, struct in_addr, u_char);
+extern int ospf_nbr_nbma_priority_unset (struct ospf *, struct in_addr);
+extern int ospf_nbr_nbma_poll_interval_set (struct ospf *, struct in_addr,
+					    unsigned int);
+extern int ospf_nbr_nbma_poll_interval_unset (struct ospf *, struct in_addr);
+extern void ospf_prefix_list_update (struct prefix_list *);
+extern void ospf_init (void);
+extern void ospf_if_update (struct ospf *);
+extern void ospf_ls_upd_queue_empty (struct ospf_interface *);
+extern void ospf_terminate (void);
+extern void ospf_nbr_nbma_if_update (struct ospf *, struct ospf_interface *);
+extern struct ospf_nbr_nbma *ospf_nbr_nbma_lookup (struct ospf *,
+						   struct in_addr);
+extern struct ospf_nbr_nbma *ospf_nbr_nbma_lookup_next (struct ospf *,
+							struct in_addr *,
+							int);
+extern int ospf_oi_count (struct interface *);
 
-struct ospf_area *ospf_area_get (struct ospf *, struct in_addr, int);
-void ospf_area_check_free (struct ospf *, struct in_addr);
-struct ospf_area *ospf_area_lookup_by_area_id (struct ospf *, struct in_addr);
-void ospf_area_add_if (struct ospf_area *, struct ospf_interface *);
-void ospf_area_del_if (struct ospf_area *, struct ospf_interface *);
+extern struct ospf_area *ospf_area_get (struct ospf *, struct in_addr, int);
+extern void ospf_area_check_free (struct ospf *, struct in_addr);
+extern struct ospf_area *ospf_area_lookup_by_area_id (struct ospf *,
+						      struct in_addr);
+extern void ospf_area_add_if (struct ospf_area *, struct ospf_interface *);
+extern void ospf_area_del_if (struct ospf_area *, struct ospf_interface *);
 
-void ospf_route_map_init ();
-void ospf_snmp_init ();
+extern void ospf_route_map_init (void);
+extern void ospf_snmp_init (void);
 
-void ospf_master_init ();
+extern void ospf_master_init (void);
 
 #endif /* _ZEBRA_OSPFD_H */

@@ -105,7 +105,7 @@ extern int ospf_apiserver_enable;
 #endif /* SUPPORT_OSPF_API */
 
 /* Help information display. */
-static void
+static void __attribute__ ((noreturn))
 usage (char *progname, int status)
 {
   if (status != 0)
@@ -131,14 +131,14 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 }
 
 /* SIGHUP handler. */
-void 
+static void 
 sighup (void)
 {
   zlog (NULL, LOG_INFO, "SIGHUP received");
 }
 
 /* SIGINT handler. */
-void
+static void __attribute__ ((noreturn))
 sigint (void)
 {
   zlog_notice ("Terminating on signal");
@@ -149,7 +149,7 @@ sigint (void)
 }
 
 /* SIGUSR1 handler. */
-void
+static void
 sigusr1 (void)
 {
   zlog_rotate (NULL);

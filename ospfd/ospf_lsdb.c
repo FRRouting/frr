@@ -71,7 +71,7 @@ ospf_lsdb_cleanup (struct ospf_lsdb *lsdb)
     route_table_finish (lsdb->type[i].db);
 }
 
-void
+static void
 lsdb_prefix_set (struct prefix_ls *lp, struct ospf_lsa *lsa)
 {
   memset (lp, 0, sizeof (struct prefix_ls));

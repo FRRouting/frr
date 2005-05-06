@@ -52,7 +52,7 @@ void nsm_reset_nbr (struct ospf_neighbor *);
 
 
 /* OSPF NSM Timer functions. */
-int
+static int
 ospf_inactivity_timer (struct thread *thread)
 {
   struct ospf_neighbor *nbr;
@@ -69,7 +69,7 @@ ospf_inactivity_timer (struct thread *thread)
   return 0;
 }
 
-int
+static int
 ospf_db_desc_timer (struct thread *thread)
 {
   struct ospf_interface *oi;
@@ -96,7 +96,7 @@ ospf_db_desc_timer (struct thread *thread)
 
 /* Hook function called after ospf NSM event is occured. */
 
-void
+static void
 nsm_timer_set (struct ospf_neighbor *nbr)
 {
   switch (nbr->state)
@@ -140,7 +140,7 @@ nsm_timer_set (struct ospf_neighbor *nbr)
 
 
 /* OSPF NSM functions. */
-int
+static int
 nsm_ignore (struct ospf_neighbor *nbr)
 {
   if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
@@ -150,7 +150,7 @@ nsm_ignore (struct ospf_neighbor *nbr)
   return 0;
 }
 
-int
+static int
 nsm_hello_received (struct ospf_neighbor *nbr)
 {
   /* Start or Restart Inactivity Timer. */
@@ -165,7 +165,7 @@ nsm_hello_received (struct ospf_neighbor *nbr)
   return 0;
 }
 
-int
+static int
 nsm_start (struct ospf_neighbor *nbr)
 {
 
@@ -182,7 +182,7 @@ nsm_start (struct ospf_neighbor *nbr)
   return 0;
 }
 
-int
+static int
 nsm_twoway_received (struct ospf_neighbor *nbr)
 {
   struct ospf_interface *oi;
@@ -221,7 +221,7 @@ ospf_db_summary_isempty (struct ospf_neighbor *nbr)
   return ospf_lsdb_isempty (&nbr->db_sum);
 }
 
-int
+static int
 ospf_db_summary_add (struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 {
 #ifdef HAVE_OPAQUE_LSA
@@ -282,7 +282,7 @@ ospf_db_summary_clear (struct ospf_neighbor *nbr)
    AS-external-LSAs are omitted from a virtual neighbor's Database
    summary list.  AS-external-LSAs are omitted from the Database
    summary list if the area has been configured as a stub. */
-int
+static int
 nsm_negotiation_done (struct ospf_neighbor *nbr)
 {
   struct ospf_area *area = nbr->oi->area;
@@ -325,7 +325,7 @@ nsm_negotiation_done (struct ospf_neighbor *nbr)
   return 0;
 }
 
-int
+static int
 nsm_exchange_done (struct ospf_neighbor *nbr)
 {
   if (ospf_ls_request_isempty (nbr))
@@ -340,7 +340,7 @@ nsm_exchange_done (struct ospf_neighbor *nbr)
   return NSM_Loading;
 }
 
-int
+static int
 nsm_bad_ls_req (struct ospf_neighbor *nbr)
 {
   /* Clear neighbor. */
@@ -349,7 +349,7 @@ nsm_bad_ls_req (struct ospf_neighbor *nbr)
   return 0;
 }
 
-int
+static int
 nsm_adj_ok (struct ospf_neighbor *nbr)
 {
   struct ospf_interface *oi;
@@ -382,7 +382,7 @@ nsm_adj_ok (struct ospf_neighbor *nbr)
   return next_state;
 }
 
-int
+static int
 nsm_seq_number_mismatch (struct ospf_neighbor *nbr)
 {
   /* Clear neighbor. */
@@ -391,7 +391,7 @@ nsm_seq_number_mismatch (struct ospf_neighbor *nbr)
   return 0;
 }
 
-int
+static int
 nsm_oneway_received (struct ospf_neighbor *nbr)
 {
   /* Clear neighbor. */
@@ -427,7 +427,7 @@ nsm_reset_nbr (struct ospf_neighbor *nbr)
 #endif /* HAVE_OPAQUE_LSA */
 }
 
-int
+static int
 nsm_kill_nbr (struct ospf_neighbor *nbr)
 {
   /* call it here because we cannot call it from ospf_nsm_event */
@@ -459,7 +459,7 @@ nsm_kill_nbr (struct ospf_neighbor *nbr)
   return 0;
 }
 
-int
+static int
 nsm_inactivity_timer (struct ospf_neighbor *nbr)
 {
   /* Kill neighbor. */
@@ -468,7 +468,7 @@ nsm_inactivity_timer (struct ospf_neighbor *nbr)
   return 0;
 }
 
-int
+static int
 nsm_ll_down (struct ospf_neighbor *nbr)
 {
   /* Reset neighbor. */
@@ -482,7 +482,7 @@ nsm_ll_down (struct ospf_neighbor *nbr)
 
 /* Neighbor State Machine */
 struct {
-  int (*func) ();
+  int (*func) (struct ospf_neighbor *);
   int next_state;
 } NSM [OSPF_NSM_STATE_MAX][OSPF_NSM_EVENT_MAX] =
 {

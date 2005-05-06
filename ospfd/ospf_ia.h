@@ -36,7 +36,8 @@
 	  ospf_examine_transit_summaries ((A), ASBR_SUMMARY_LSDB ((A)), (N), (R)); \
 	}
 
-void ospf_ia_routing (struct route_table *, struct route_table *);
-int ospf_area_is_transit (struct ospf_area *);
+extern void ospf_ia_routing (struct ospf *, struct route_table *,
+		             struct route_table *);
+extern int ospf_area_is_transit (struct ospf_area *);
 
 #endif /* _ZEBRA_OSPF_IA_H */

@@ -45,7 +45,7 @@
 #include "ospfd/ospf_abr.h"
 
 /* elect DR and BDR. Refer to RFC2319 section 9.4 */
-struct ospf_neighbor *
+static struct ospf_neighbor *
 ospf_dr_election_sub (struct list *routers)
 {
   struct listnode *node;
@@ -70,7 +70,7 @@ ospf_dr_election_sub (struct list *routers)
   return max;
 }
 
-struct ospf_neighbor *
+static struct ospf_neighbor *
 ospf_elect_dr (struct ospf_interface *oi, struct list *el_list)
 {
   struct list *dr_list;
@@ -111,7 +111,7 @@ ospf_elect_dr (struct ospf_interface *oi, struct list *el_list)
   return dr;
 }
 
-struct ospf_neighbor *
+static struct ospf_neighbor *
 ospf_elect_bdr (struct ospf_interface *oi, struct list *el_list)
 {
   struct list *bdr_list, *no_dr_list;
@@ -156,7 +156,7 @@ ospf_elect_bdr (struct ospf_interface *oi, struct list *el_list)
   return bdr;
 }
 
-int
+static int
 ospf_ism_state (struct ospf_interface *oi)
 {
   if (IPV4_ADDR_SAME (&DR (oi), &oi->address->u.prefix4))
@@ -167,7 +167,7 @@ ospf_ism_state (struct ospf_interface *oi)
     return ISM_DROther;
 }
 
-void
+static void
 ospf_dr_eligible_routers (struct route_table *nbrs, struct list *el_list)
 {
   struct route_node *rn;
@@ -185,7 +185,7 @@ ospf_dr_eligible_routers (struct route_table *nbrs, struct list *el_list)
 }
 
 /* Generate AdjOK? NSM event. */
-void
+static void
 ospf_dr_change (struct ospf *ospf, struct route_table *nbrs)
 {
   struct route_node *rn;
@@ -202,7 +202,7 @@ ospf_dr_change (struct ospf *ospf, struct route_table *nbrs)
 	    OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_AdjOK);
 }
 
-int
+static int
 ospf_dr_election (struct ospf_interface *oi)
 {
   struct in_addr old_dr, old_bdr;
@@ -274,7 +274,7 @@ ospf_hello_timer (struct thread *thread)
   return 0;
 }
 
-int
+static int
 ospf_wait_timer (struct thread *thread)
 {
   struct ospf_interface *oi;
@@ -294,7 +294,7 @@ ospf_wait_timer (struct thread *thread)
 /* Hook function called after ospf ISM event is occured. And vty's
    network command invoke this function after making interface
    structure. */
-void
+static void
 ism_timer_set (struct ospf_interface *oi)
 {
   switch (oi->state)
@@ -361,13 +361,7 @@ ism_timer_set (struct ospf_interface *oi)
     }
 }
 
-int
-ism_stop (struct ospf_interface *oi)
-{
-  return 0;
-}
-
-int
+static int
 ism_interface_up (struct ospf_interface *oi)
 {
   int next_state = 0;
@@ -393,7 +387,7 @@ ism_interface_up (struct ospf_interface *oi)
   return next_state;
 }
 
-int
+static int
 ism_loop_ind (struct ospf_interface *oi)
 {
   int ret = 0;
@@ -405,7 +399,7 @@ ism_loop_ind (struct ospf_interface *oi)
 }
 
 /* Interface down event handler. */
-int
+static int
 ism_interface_down (struct ospf_interface *oi)
 {
   ospf_if_cleanup (oi);
@@ -413,25 +407,25 @@ ism_interface_down (struct ospf_interface *oi)
 }
 
 
-int
+static int
 ism_backup_seen (struct ospf_interface *oi)
 {
   return ospf_dr_election (oi);
 }
 
-int
+static int
 ism_wait_timer (struct ospf_interface *oi)
 {
   return ospf_dr_election (oi);
 }
 
-int
+static int
 ism_neighbor_change (struct ospf_interface *oi)
 {
   return ospf_dr_election (oi);
 }
 
-int
+static int
 ism_ignore (struct ospf_interface *oi)
 {
   if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
@@ -442,7 +436,7 @@ ism_ignore (struct ospf_interface *oi)
 
 /* Interface State Machine */
 struct {
-  int (*func) ();
+  int (*func) (struct ospf_interface *);
   int next_state;
 } ISM [OSPF_ISM_STATE_MAX][OSPF_ISM_EVENT_MAX] =
 {
@@ -548,7 +542,7 @@ const static char *ospf_ism_event_str[] =
   "InterfaceDown",
 };
 
-void
+static void
 ism_change_state (struct ospf_interface *oi, int state)
 {
   int old_state;

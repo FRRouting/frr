@@ -54,27 +54,27 @@ struct external_info
 
 #define OSPF_ASBR_CHECK_DELAY 30
 
-void ospf_external_route_remove (struct ospf *, struct prefix_ipv4 *);
-struct external_info *ospf_external_info_new (u_char);
-void ospf_reset_route_map_set_values (struct route_map_set_values *);
-int ospf_route_map_set_compare (struct route_map_set_values *,
+extern void ospf_external_route_remove (struct ospf *, struct prefix_ipv4 *);
+extern struct external_info *ospf_external_info_new (u_char);
+extern void ospf_reset_route_map_set_values (struct route_map_set_values *);
+extern int ospf_route_map_set_compare (struct route_map_set_values *,
 				struct route_map_set_values *);
-struct external_info *ospf_external_info_add (u_char, 
+extern struct external_info *ospf_external_info_add (u_char, 
                                               struct prefix_ipv4,
 					      unsigned int, 
 					      struct in_addr);
-void ospf_external_info_delete (u_char, struct prefix_ipv4);
-struct external_info *ospf_external_info_lookup (u_char, 
+extern void ospf_external_info_delete (u_char, struct prefix_ipv4);
+extern struct external_info *ospf_external_info_lookup (u_char, 
                                                  struct prefix_ipv4 *);
-struct ospf_route *ospf_external_route_lookup (struct ospf *, 
+extern struct ospf_route *ospf_external_route_lookup (struct ospf *, 
                                                struct prefix_ipv4 *);
-void ospf_asbr_status_update (struct ospf *, u_char);
+extern void ospf_asbr_status_update (struct ospf *, u_char);
 
-void ospf_redistribute_withdraw (u_char);
-void ospf_asbr_check ();
-void ospf_schedule_asbr_check ();
-void ospf_asbr_route_install_lsa (struct ospf_lsa *);
-struct ospf_lsa *ospf_external_info_find_lsa (struct ospf *,
+extern void ospf_redistribute_withdraw (u_char);
+extern void ospf_asbr_check (void);
+extern void ospf_schedule_asbr_check (void);
+extern void ospf_asbr_route_install_lsa (struct ospf_lsa *);
+extern struct ospf_lsa *ospf_external_info_find_lsa (struct ospf *,
 					      struct prefix_ipv4 *p);
 
 #endif /* _ZEBRA_OSPF_ASBR_H */

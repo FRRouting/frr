@@ -48,7 +48,7 @@
 
 #define DEBUG
 
-struct ospf_route *
+static struct ospf_route *
 ospf_find_abr_route (struct route_table *rtrs, 
                      struct prefix_ipv4 *abr,
                      struct ospf_area *area)
@@ -70,7 +70,7 @@ ospf_find_abr_route (struct route_table *rtrs,
   return NULL;
 }
 
-void
+static void
 ospf_ia_network_route (struct ospf *ospf, struct route_table *rt,
 		       struct prefix_ipv4 *p, struct ospf_route *new_or,
 		       struct ospf_route *abr_or)
@@ -127,7 +127,7 @@ ospf_ia_network_route (struct ospf *ospf, struct route_table *rt,
     }
 }
 
-void
+static void
 ospf_ia_router_route (struct ospf *ospf, struct route_table *rtrs,
 		      struct prefix_ipv4 *p,
                       struct ospf_route *new_or, struct ospf_route *abr_or)
@@ -196,7 +196,7 @@ ospf_ia_router_route (struct ospf *ospf, struct route_table *rtrs,
 }
 
 
-int
+static int
 process_summary_lsa (struct ospf_area *area, struct route_table *rt,
 		     struct route_table *rtrs, struct ospf_lsa *lsa)
 {
@@ -285,7 +285,7 @@ process_summary_lsa (struct ospf_area *area, struct route_table *rt,
   return 0;
 }
 
-void
+static void
 ospf_examine_summaries (struct ospf_area *area,
 			struct route_table *lsdb_rt,
                         struct route_table *rt,
@@ -305,7 +305,7 @@ ospf_area_is_transit (struct ospf_area *area)
     ospf_full_virtual_nbrs(area); /* Cisco forgets to set the V-bit :( */
 }
 
-void
+static void
 ospf_update_network_route (struct ospf *ospf,
 			   struct route_table *rt, 
                            struct route_table *rtrs,
@@ -434,7 +434,7 @@ ospf_update_network_route (struct ospf *ospf,
     }
 }
 
-void
+static void
 ospf_update_router_route (struct ospf *ospf,
 			  struct route_table *rtrs, 
                           struct summary_lsa *lsa,
@@ -533,7 +533,7 @@ ospf_update_router_route (struct ospf *ospf,
     }
 }
 
-int
+static int
 process_transit_summary_lsa (struct ospf_area *area, struct route_table *rt,
 			     struct route_table *rtrs, struct ospf_lsa *lsa)
 {
@@ -591,7 +591,7 @@ process_transit_summary_lsa (struct ospf_area *area, struct route_table *rt,
   return 0;
 }
 
-void
+static void
 ospf_examine_transit_summaries (struct ospf_area *area,
 				struct route_table *lsdb_rt,
                                 struct route_table *rt,

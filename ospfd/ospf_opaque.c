@@ -1979,8 +1979,6 @@ out:
   return rc;
 }
 
-extern int ospf_lsa_refresh_delay (struct ospf_lsa *); /* ospf_lsa.c */
-
 void
 ospf_opaque_lsa_refresh_schedule (struct ospf_lsa *lsa0)
 {

@@ -110,7 +110,7 @@ ospf_external_info_check (struct ospf_lsa *lsa)
   return NULL;
 }
 
-void
+static void
 ospf_process_self_originated_lsa (struct ospf *ospf,
 				  struct ospf_lsa *new, struct ospf_area *area)
 {
@@ -347,7 +347,7 @@ ospf_flood (struct ospf *ospf, struct ospf_neighbor *nbr,
 }
 
 /* OSPF LSA flooding -- RFC2328 Section 13.3. */
-int
+static int
 ospf_flood_through_interface (struct ospf_interface *oi,
 			      struct ospf_neighbor *inbr,
 			      struct ospf_lsa *lsa)
@@ -937,7 +937,7 @@ ospf_ls_retransmit_lookup (struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
   return ospf_lsdb_lookup (&nbr->ls_rxmt, lsa);
 }
 
-void
+static void
 ospf_ls_retransmit_delete_nbr_if (struct ospf_interface *oi,
 				  struct ospf_lsa *lsa)
 {

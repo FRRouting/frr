@@ -62,7 +62,7 @@ const static char *ospf_network_type_str[] =
 
 
 /* Utility functions. */
-int
+static int
 ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
 {
   char *endptr = NULL;
@@ -91,7 +91,7 @@ ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
 }
 
 
-int
+static int
 str2distribute_source (const char *str, int *source)
 {
   /* Sanity check. */
@@ -114,7 +114,7 @@ str2distribute_source (const char *str, int *source)
   return 1;
 }
 
-int
+static int
 str2metric (const char *str, int *metric)
 {
   /* Sanity check. */
@@ -131,7 +131,7 @@ str2metric (const char *str, int *metric)
   return 1;
 }
 
-int
+static int
 str2metric_type (const char *str, int *metric_type)
 {
   /* Sanity check. */
@@ -471,7 +471,7 @@ DEFUN (ospf_area_range,
   ospf_area_range_set (ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
   if (argc > 2)
     {
-      VTY_GET_UINT32 ("range cost", cost, argv[2]);
+      VTY_GET_INTEGER ("range cost", cost, argv[2]);
       ospf_area_range_cost_set (ospf, area_id, &p, cost);
     }
 
@@ -679,7 +679,7 @@ struct ospf_vl_config_data {
   int dead_interval;
 };
 
-void
+static void
 ospf_vl_config_data_init (struct ospf_vl_config_data *vl_config, 
 			  struct vty *vty)
 {
@@ -688,7 +688,7 @@ ospf_vl_config_data_init (struct ospf_vl_config_data *vl_config,
   vl_config->vty = vty;
 }
 
-struct ospf_vl_data *
+static struct ospf_vl_data *
 ospf_find_vl_data (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 {
   struct ospf_area *area;
@@ -737,7 +737,7 @@ ospf_find_vl_data (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 }
 
 
-int
+static int
 ospf_vl_set_security (struct ospf_vl_data *vl_data,
 		      struct ospf_vl_config_data *vl_config)
 {
@@ -794,9 +794,7 @@ ospf_vl_set_security (struct ospf_vl_data *vl_data,
   return CMD_SUCCESS;
 }
 
-
-
-int
+static int
 ospf_vl_set_timers (struct ospf_vl_data *vl_data,
 		    struct ospf_vl_config_data *vl_config)
 {
@@ -833,7 +831,7 @@ ospf_vl_set_timers (struct ospf_vl_data *vl_data,
 
 
 /* The business end of all of the above */
-int
+static int
 ospf_vl_set (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 {
   struct ospf_vl_data *vl_data;
@@ -1508,7 +1506,7 @@ DEFUN (no_ospf_area_stub_no_summary,
   return CMD_SUCCESS;
 }
 
-int
+static int
 ospf_area_nssa_cmd_handler (struct vty *vty, int argc, const char *argv[], 
                             int nosum)
 {
@@ -2105,8 +2103,8 @@ DEFUN (ospf_timers_spf,
   struct ospf *ospf = vty->index;
   u_int32_t delay, hold;
 
-  VTY_GET_UINT32 ("SPF delay timer", delay, argv[0]);
-  VTY_GET_UINT32 ("SPF hold timer", hold, argv[1]);
+  VTY_GET_INTEGER ("SPF delay timer", delay, argv[0]);
+  VTY_GET_INTEGER ("SPF hold timer", hold, argv[1]);
 
   ospf_timers_spf_set (ospf, delay, hold);
 
@@ -2384,7 +2382,7 @@ const char *ospf_shortcut_mode_descr_str[] =
 
 
 
-void
+static void
 show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
 {
   /* Show Area ID. */
@@ -2723,7 +2721,7 @@ DEFUN (show_ip_ospf_interface,
   return CMD_SUCCESS;
 }
 
-void
+static void
 show_ip_ospf_neighbor_sub (struct vty *vty, struct ospf_interface *oi)
 {
   struct route_node *rn;
@@ -2877,7 +2875,7 @@ DEFUN (show_ip_ospf_neighbor_int,
   return CMD_SUCCESS;
 }
 
-void
+static void
 show_ip_ospf_nbr_nbma_detail_sub (struct vty *vty, struct ospf_interface *oi,
 				  struct ospf_nbr_nbma *nbr_nbma)
 {
@@ -2910,7 +2908,7 @@ show_ip_ospf_nbr_nbma_detail_sub (struct vty *vty, struct ospf_interface *oi,
 	   nbr_nbma->t_poll != NULL ? "on" : "off", VTY_NEWLINE);
 }
 
-void
+static void
 show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
 				  struct ospf_neighbor *nbr)
 {
@@ -3139,7 +3137,7 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
 
 
 /* Show functions */
-int
+static int
 show_lsa_summary (struct vty *vty, struct ospf_lsa *lsa, int self)
 {
   struct router_lsa *rl;
@@ -3252,7 +3250,7 @@ const char *show_lsa_flags[] =
   "Translated",
 };
 
-void
+static void
 show_ip_ospf_database_header (struct vty *vty, struct ospf_lsa *lsa)
 {
   struct router_lsa *rlsa = (struct router_lsa*) lsa->data;
@@ -3321,7 +3319,7 @@ const char *link_data_desc[] =
 };
 
 /* Show router-LSA each Link information. */
-void
+static void
 show_ip_ospf_database_router_links (struct vty *vty,
                                     struct router_lsa *rl)
 {
@@ -3346,7 +3344,7 @@ show_ip_ospf_database_router_links (struct vty *vty,
 }
 
 /* Show router-LSA detail information. */
-int
+static int
 show_router_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 {
   if (lsa != NULL)
@@ -3366,7 +3364,7 @@ show_router_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 }
 
 /* Show network-LSA detail information. */
-int
+static int
 show_network_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 {
   int length, i;
@@ -3393,7 +3391,7 @@ show_network_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 }
 
 /* Show summary-LSA detail information. */
-int
+static int
 show_summary_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 {
   if (lsa != NULL)
@@ -3413,7 +3411,7 @@ show_summary_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 }
 
 /* Show summary-ASBR-LSA detail information. */
-int
+static int
 show_summary_asbr_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 {
   if (lsa != NULL)
@@ -3433,7 +3431,7 @@ show_summary_asbr_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 }
 
 /* Show AS-external-LSA detail information. */
-int
+static int
 show_as_external_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 {
   if (lsa != NULL)
@@ -3461,7 +3459,7 @@ show_as_external_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 }
 
 /* N.B. This function currently seems to be unused. */
-int
+static int
 show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
 {
   struct as_external_lsa *al = (struct as_external_lsa *) lsa->data;
@@ -3486,7 +3484,7 @@ show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
 }
 
 /* Show AS-NSSA-LSA detail information. */
-int
+static int
 show_as_nssa_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 {
   if (lsa != NULL)
@@ -3513,14 +3511,14 @@ show_as_nssa_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
   return 0;
 }
 
-int
+static int
 show_func_dummy (struct vty *vty, struct ospf_lsa *lsa)
 {
   return 0;
 }
 
 #ifdef HAVE_OPAQUE_LSA
-int
+static int
 show_opaque_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
 {
   if (lsa != NULL)
@@ -3552,7 +3550,7 @@ int (*show_function[])(struct vty *, struct ospf_lsa *) =
 #endif /* HAVE_OPAQUE_LSA */
 };
 
-void
+static void
 show_lsa_prefix_set (struct vty *vty, struct prefix_ls *lp, struct in_addr *id,
 		     struct in_addr *adv_router)
 {
@@ -3573,7 +3571,7 @@ show_lsa_prefix_set (struct vty *vty, struct prefix_ls *lp, struct in_addr *id,
     }
 }
 
-void
+static void
 show_lsa_detail_proc (struct vty *vty, struct route_table *rt,
 		      struct in_addr *id, struct in_addr *adv_router)
 {
@@ -3598,7 +3596,7 @@ show_lsa_detail_proc (struct vty *vty, struct route_table *rt,
 
 /* Show detail LSA information
    -- if id is NULL then show all LSAs. */
-void
+static void
 show_lsa_detail (struct vty *vty, struct ospf *ospf, int type,
 		 struct in_addr *id, struct in_addr *adv_router)
 {
@@ -3628,7 +3626,7 @@ show_lsa_detail (struct vty *vty, struct ospf *ospf, int type,
     }
 }
 
-void
+static void
 show_lsa_detail_adv_router_proc (struct vty *vty, struct route_table *rt,
 				 struct in_addr *adv_router)
 {
@@ -3647,7 +3645,7 @@ show_lsa_detail_adv_router_proc (struct vty *vty, struct route_table *rt,
 }
 
 /* Show detail LSA information. */
-void
+static void
 show_lsa_detail_adv_router (struct vty *vty, struct ospf *ospf, int type,
 			    struct in_addr *adv_router)
 {
@@ -3679,7 +3677,7 @@ show_lsa_detail_adv_router (struct vty *vty, struct ospf *ospf, int type,
     }
 }
 
-void
+static void
 show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
 {
   struct ospf_lsa *lsa;
@@ -3750,7 +3748,7 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
-void
+static void
 show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
 {
   struct listnode *node;
@@ -4547,7 +4545,7 @@ ALIAS (no_ip_ospf_cost,
        "OSPF interface commands\n"
        "Interface cost\n")
 
-void
+static void
 ospf_nbr_timer_update (struct ospf_interface *oi)
 {
   struct route_node *rn;
@@ -6497,7 +6495,7 @@ DEFUN (no_ospf_distance_source_access_list,
   return CMD_SUCCESS;
 }
 
-void
+static void
 show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
 {
   struct route_node *rn;
@@ -6550,7 +6548,7 @@ show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
-void
+static void
 show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
 {
   struct route_node *rn;
@@ -6598,7 +6596,7 @@ show_ip_ospf_route_router (struct vty *vty, struct route_table *rtrs)
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
-void
+static void
 show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 {
   struct route_node *rn;
@@ -6729,7 +6727,7 @@ const char *ospf_shortcut_mode_str[] =
 };
 
 
-void
+static void
 area_id2str (char *buf, int length, struct ospf_area *area)
 {
   memset (buf, 0, length);
@@ -6753,7 +6751,7 @@ const char *ospf_int_type_str[] =
 };
 
 /* Configuration write function for ospfd. */
-int
+static int
 config_write_interface (struct vty *vty)
 {
   struct listnode *n1, *n2;
@@ -6933,7 +6931,7 @@ config_write_interface (struct vty *vty)
   return write;
 }
 
-int
+static int
 config_write_network_area (struct vty *vty, struct ospf *ospf)
 {
   struct route_node *rn;
@@ -6963,7 +6961,7 @@ config_write_network_area (struct vty *vty, struct ospf *ospf)
   return 0;
 }
 
-int
+static int
 config_write_ospf_area (struct vty *vty, struct ospf *ospf)
 {
   struct listnode *node;
@@ -7065,7 +7063,7 @@ config_write_ospf_area (struct vty *vty, struct ospf *ospf)
   return 0;
 }
 
-int
+static int
 config_write_ospf_nbr_nbma (struct vty *vty, struct ospf *ospf)
 {
   struct ospf_nbr_nbma *nbr_nbma;
@@ -7089,7 +7087,7 @@ config_write_ospf_nbr_nbma (struct vty *vty, struct ospf *ospf)
   return 0;
 }
 
-int
+static int
 config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 {
   struct listnode *node;
@@ -7155,7 +7153,7 @@ config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 
 const char *distribute_str[] = { "system", "kernel", "connected", "static",
 				"rip", "ripng", "ospf", "ospf6", "isis", "bgp"};
-int
+static int
 config_write_ospf_redistribute (struct vty *vty, struct ospf *ospf)
 {
   int type;
@@ -7180,7 +7178,7 @@ config_write_ospf_redistribute (struct vty *vty, struct ospf *ospf)
   return 0;
 }
 
-int
+static int
 config_write_ospf_default_metric (struct vty *vty, struct ospf *ospf)
 {
   if (ospf->default_metric != -1)
@@ -7189,7 +7187,7 @@ config_write_ospf_default_metric (struct vty *vty, struct ospf *ospf)
   return 0;
 }
 
-int
+static int
 config_write_ospf_distribute (struct vty *vty, struct ospf *ospf)
 {
   int type;
@@ -7229,7 +7227,7 @@ config_write_ospf_distribute (struct vty *vty, struct ospf *ospf)
   return 0;
 }
 
-int
+static int
 config_write_ospf_distance (struct vty *vty, struct ospf *ospf)
 {
   struct route_node *rn;
@@ -7266,7 +7264,7 @@ config_write_ospf_distance (struct vty *vty, struct ospf *ospf)
 }
 
 /* OSPF configuration write function. */
-int
+static int
 ospf_config_write (struct vty *vty)
 {
   struct ospf *ospf;
@@ -7362,7 +7360,7 @@ ospf_config_write (struct vty *vty)
 }
 
 void
-ospf_vty_show_init ()
+ospf_vty_show_init (void)
 {
   /* "show ip ospf" commands. */
   install_element (VIEW_NODE, &show_ip_ospf_cmd);
@@ -7421,8 +7419,8 @@ struct cmd_node interface_node =
 };
 
 /* Initialization of OSPF interface. */
-void
-ospf_vty_if_init ()
+static void
+ospf_vty_if_init (void)
 {
   /* Install interface node. */
   install_node (&interface_node, config_write_interface);
@@ -7521,8 +7519,8 @@ struct cmd_node zebra_node =
   "%s(config-router)#",
 };
 
-void
-ospf_vty_zebra_init ()
+static void
+ospf_vty_zebra_init (void)
 {
   install_element (OSPF_NODE, &ospf_redistribute_source_type_metric_cmd);
   install_element (OSPF_NODE, &ospf_redistribute_source_metric_type_cmd);
@@ -7623,7 +7621,7 @@ struct cmd_node ospf_node =
 
 /* Install OSPF related vty commands. */
 void
-ospf_vty_init ()
+ospf_vty_init (void)
 {
   /* Install ospf top node. */
   install_node (&ospf_node, ospf_config_write);

@@ -51,7 +51,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
 
-struct ospf_area_range *
+static struct ospf_area_range *
 ospf_area_range_new (struct prefix_ipv4 *p)
 {
   struct ospf_area_range *range;
@@ -64,13 +64,13 @@ ospf_area_range_new (struct prefix_ipv4 *p)
   return range;
 }
 
-void
+static void
 ospf_area_range_free (struct ospf_area_range *range)
 {
   XFREE (MTYPE_OSPF_AREA_RANGE, range);
 }
 
-void
+static void
 ospf_area_range_add (struct ospf_area *area, struct ospf_area_range *range)
 {
   struct route_node *rn;
@@ -87,7 +87,7 @@ ospf_area_range_add (struct ospf_area *area, struct ospf_area_range *range)
     rn->info = range;
 }
 
-void
+static void
 ospf_area_range_delete (struct ospf_area *area, struct ospf_area_range *range)
 {
   struct route_node *rn;
@@ -156,7 +156,7 @@ ospf_area_range_lookup_next (struct ospf_area *area,
   return NULL;
 }
 
-struct ospf_area_range *
+static struct ospf_area_range *
 ospf_area_range_match (struct ospf_area *area, struct prefix_ipv4 *p)
 {
   struct route_node *node;
@@ -190,7 +190,7 @@ ospf_area_range_active (struct ospf_area_range *range)
   return range->specifics;
 }
 
-int
+static int
 ospf_area_actively_attached (struct ospf_area *area)
 {
   return area->act_ints;
@@ -349,7 +349,7 @@ ospf_act_bb_connection (struct ospf *ospf)
 }
 
 /* Determine whether this router is elected translator or not for area */
-int
+static int
 ospf_abr_nssa_am_elected (struct ospf_area *area)
 {
   struct route_node *rn;
@@ -404,7 +404,7 @@ ospf_abr_nssa_am_elected (struct ospf_area *area)
 /* Check NSSA ABR status
  * assumes there are nssa areas
  */
-void 
+static void 
 ospf_abr_nssa_check_status (struct ospf *ospf)
 {
   struct ospf_area *area;
@@ -557,7 +557,7 @@ ospf_check_abr_status (struct ospf *ospf)
     }
 }
 
-void
+static void
 ospf_abr_update_aggregate (struct ospf_area_range *range,
                            struct ospf_route *or)
 {
@@ -601,7 +601,7 @@ set_metric (struct ospf_lsa *lsa, u_int32_t metric)
   memcpy(header->metric, mp, 3);
 }
 
-int
+static int
 ospf_abr_check_nssa_range (struct prefix_ipv4 *p, u_int32_t cost,
 				   struct ospf_area *area)
 {
@@ -611,7 +611,7 @@ ospf_abr_check_nssa_range (struct prefix_ipv4 *p, u_int32_t cost,
 }
 
 /* ospf_abr_translate_nssa */
-int
+static int
 ospf_abr_translate_nssa (struct ospf_area *area, struct ospf_lsa *lsa)
 {
   /* Incoming Type-7 or later aggregated Type-7 
@@ -700,14 +700,14 @@ ospf_abr_translate_nssa (struct ospf_area *area, struct ospf_lsa *lsa)
   return 0;
 }
 
-void
+static void
 ospf_abr_translate_nssa_range (struct prefix_ipv4 *p, u_int32_t cost)
 {
   /* The Type-7 is created from the aggregated prefix and forwarded
      for lsa installation and flooding... to be added... */
 }
 
-void
+static void
 ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
 				   struct ospf_area *area)
 {
@@ -770,7 +770,7 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
     zlog_debug ("ospf_abr_announce_network_to_area(): Stop");
 }
 
-int
+static int
 ospf_abr_nexthops_belong_to_area (struct ospf_route *or,
 				  struct ospf_area *area)
 {
@@ -789,7 +789,7 @@ ospf_abr_nexthops_belong_to_area (struct ospf_route *or,
   return 0;
 }
 
-int
+static int
 ospf_abr_should_accept (struct prefix_ipv4 *p, struct ospf_area *area)
 {
   if (IMPORT_NAME (area))
@@ -805,7 +805,7 @@ ospf_abr_should_accept (struct prefix_ipv4 *p, struct ospf_area *area)
  return 1;
 }
 
-int
+static int
 ospf_abr_plist_in_check (struct ospf_area *area, struct ospf_route *or,
 			 struct prefix_ipv4 *p)
 {
@@ -821,7 +821,7 @@ ospf_abr_plist_in_check (struct ospf_area *area, struct ospf_route *or,
   return 1;
 }
 
-int
+static int
 ospf_abr_plist_out_check (struct ospf_area *area, struct ospf_route *or,
 			  struct prefix_ipv4 *p)
 {
@@ -837,7 +837,7 @@ ospf_abr_plist_out_check (struct ospf_area *area, struct ospf_route *or,
   return 1;
 }
 
-void
+static void
 ospf_abr_announce_network (struct ospf *ospf,
 			   struct prefix_ipv4 *p, struct ospf_route *or)
 {
@@ -916,7 +916,7 @@ ospf_abr_announce_network (struct ospf *ospf,
     }
 }
 
-int
+static int
 ospf_abr_should_announce (struct ospf *ospf,
 			  struct prefix_ipv4 *p, struct ospf_route *or)
 {
@@ -939,7 +939,7 @@ ospf_abr_should_announce (struct ospf *ospf,
   return 1;
 }
 
-void
+static void
 ospf_abr_process_nssa_translates (struct ospf *ospf)
 {
   /* Scan through all NSSA_LSDB records for all areas;
@@ -977,7 +977,7 @@ ospf_abr_process_nssa_translates (struct ospf *ospf)
 
 }
 
-void
+static void
 ospf_abr_process_network_rt (struct ospf *ospf,
 			     struct route_table *rt)
 {
@@ -1075,7 +1075,7 @@ ospf_abr_process_network_rt (struct ospf *ospf,
     zlog_debug ("ospf_abr_process_network_rt(): Stop");
 }
 
-void
+static void
 ospf_abr_announce_rtr_to_area (struct prefix_ipv4 *p, u_int32_t cost,
 			       struct ospf_area *area)
 {
@@ -1134,7 +1134,7 @@ ospf_abr_announce_rtr_to_area (struct prefix_ipv4 *p, u_int32_t cost,
 }
 
 
-void
+static void
 ospf_abr_announce_rtr (struct ospf *ospf,
 		       struct prefix_ipv4 *p, struct ospf_route *or)
 {
@@ -1187,7 +1187,7 @@ ospf_abr_announce_rtr (struct ospf *ospf,
     zlog_debug ("ospf_abr_announce_rtr(): Stop");
 }
 
-void
+static void
 ospf_abr_process_router_rt (struct ospf *ospf, struct route_table *rt)
 {
   struct ospf_route *or;
@@ -1287,7 +1287,7 @@ ospf_abr_process_router_rt (struct ospf *ospf, struct route_table *rt)
     zlog_debug ("ospf_abr_process_router_rt(): Stop");
 }
 
-void
+static void
 ospf_abr_unapprove_translates (struct ospf *ospf) /* For NSSA Translations */
 {
   struct ospf_lsa *lsa;
@@ -1313,7 +1313,7 @@ ospf_abr_unapprove_translates (struct ospf *ospf) /* For NSSA Translations */
     zlog_debug ("ospf_abr_unapprove_translates(): Stop");
 }
 
-void
+static void
 ospf_abr_unapprove_summaries (struct ospf *ospf)
 {
   struct listnode *node;
@@ -1355,7 +1355,7 @@ ospf_abr_unapprove_summaries (struct ospf *ospf)
     zlog_debug ("ospf_abr_unapprove_summaries(): Stop");
 }
 
-void
+static void
 ospf_abr_prepare_aggregates (struct ospf *ospf)
 {
   struct listnode *node;
@@ -1380,7 +1380,7 @@ ospf_abr_prepare_aggregates (struct ospf *ospf)
     zlog_debug ("ospf_abr_prepare_aggregates(): Stop");
 }
 
-void
+static void
 ospf_abr_announce_aggregates (struct ospf *ospf)
 {
   struct ospf_area *area, *ar;
@@ -1461,7 +1461,7 @@ ospf_abr_announce_aggregates (struct ospf *ospf)
     zlog_debug ("ospf_abr_announce_aggregates(): Stop");
 }
 
-void
+static void
 ospf_abr_send_nssa_aggregates (struct ospf *ospf) /* temporarily turned off */
 {
   struct listnode *node; /*, n; */
@@ -1530,7 +1530,7 @@ ospf_abr_send_nssa_aggregates (struct ospf *ospf) /* temporarily turned off */
     zlog_debug ("ospf_abr_send_nssa_aggregates(): Stop");
 }
 
-void
+static void
 ospf_abr_announce_nssa_defaults (struct ospf *ospf) /* By ABR-Translator */
 {
   struct listnode *node;
@@ -1566,7 +1566,7 @@ ospf_abr_announce_nssa_defaults (struct ospf *ospf) /* By ABR-Translator */
     }
 }
 
-void
+static void
 ospf_abr_announce_stub_defaults (struct ospf *ospf)
 {
   struct listnode *node;
@@ -1608,7 +1608,7 @@ ospf_abr_announce_stub_defaults (struct ospf *ospf)
     zlog_debug ("ospf_abr_announce_stub_defaults(): Stop");
 }
 
-int
+static int
 ospf_abr_remove_unapproved_translates_apply (struct ospf *ospf,
 					     struct ospf_lsa *lsa)
 {
@@ -1627,7 +1627,7 @@ ospf_abr_remove_unapproved_translates_apply (struct ospf *ospf,
   return 0;
 }
 
-void
+static void
 ospf_abr_remove_unapproved_translates (struct ospf *ospf)
 {
   struct route_node *rn;
@@ -1645,7 +1645,7 @@ ospf_abr_remove_unapproved_translates (struct ospf *ospf)
     zlog_debug ("ospf_abr_remove_unapproved_translates(): Stop");
 }
 
-void
+static void
 ospf_abr_remove_unapproved_summaries (struct ospf *ospf)
 {
   struct listnode *node;
@@ -1677,7 +1677,7 @@ ospf_abr_remove_unapproved_summaries (struct ospf *ospf)
     zlog_debug ("ospf_abr_remove_unapproved_summaries(): Stop");
 }
 
-void
+static void
 ospf_abr_manage_discard_routes (struct ospf *ospf)
 {
   struct listnode *node, *nnode;
@@ -1723,7 +1723,7 @@ ospf_abr_manage_discard_routes (struct ospf *ospf)
    For External Calculations, any NSSA areas use the Type-7 AREA-LSDB,
    any ABR-non-NSSA areas use the Type-5 GLOBAL-LSDB. */
 
-void
+static void
 ospf_abr_nssa_task (struct ospf *ospf) /* called only if any_nssa */
 {
   if (IS_DEBUG_OSPF_NSSA)
@@ -1837,8 +1837,7 @@ ospf_abr_task (struct ospf *ospf)
     zlog_debug ("ospf_abr_task(): Stop");
 }
 
-
-int
+static int
 ospf_abr_task_timer (struct thread *thread)
 {
   struct ospf *ospf = THREAD_ARG (thread);

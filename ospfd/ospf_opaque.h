@@ -24,6 +24,8 @@
 #ifndef _ZEBRA_OSPF_OPAQUE_H
 #define _ZEBRA_OSPF_OPAQUE_H
 
+#include "vty.h"
+
 #define	IS_OPAQUE_LSA(type) \
 	((type) == OSPF_OPAQUE_LINK_LSA  || \
 	 (type) == OSPF_OPAQUE_AREA_LSA  || \
@@ -95,8 +97,6 @@
 	((ntohs((lsahdr)->length) %  sizeof (u_int32_t)) == 0))
 
 /* Prototypes. */
-struct vty;
-struct stream;
 
 extern void ospf_opaque_init (void);
 extern void ospf_opaque_term (void);
@@ -128,28 +128,36 @@ extern void ospf_delete_opaque_functab (u_char lsa_type, u_char opaque_type);
 
 extern int ospf_opaque_new_if (struct interface *ifp);
 extern int ospf_opaque_del_if (struct interface *ifp);
-extern void ospf_opaque_ism_change (struct ospf_interface *oi, int old_status);
-extern void ospf_opaque_nsm_change (struct ospf_neighbor *nbr, int old_status);
+extern void ospf_opaque_ism_change (struct ospf_interface *oi,
+				    int old_status);
+extern void ospf_opaque_nsm_change (struct ospf_neighbor *nbr,
+				    int old_status);
 extern void ospf_opaque_config_write_router (struct vty *vty, struct ospf *);
-extern void ospf_opaque_config_write_if (struct vty *vty, struct interface *ifp);
+extern void ospf_opaque_config_write_if (struct vty *vty,
+					 struct interface *ifp);
 extern void ospf_opaque_config_write_debug (struct vty *vty);
 extern void show_opaque_info_detail (struct vty *vty, struct ospf_lsa *lsa);
 extern void ospf_opaque_lsa_dump (struct stream *s, u_int16_t length);
 
-extern void ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi, int *init_delay);
-extern struct ospf_lsa *ospf_opaque_lsa_install (struct ospf_lsa *new, int rt_recalc);
+extern void ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi,
+						int *init_delay);
+extern struct ospf_lsa *ospf_opaque_lsa_install (struct ospf_lsa *new,
+						 int rt_recalc);
 extern void ospf_opaque_lsa_refresh (struct ospf_lsa *lsa);
 
-extern void ospf_opaque_lsa_reoriginate_schedule (void *lsa_type_dependent, u_char lsa_type, u_char opaque_type);
+extern void ospf_opaque_lsa_reoriginate_schedule (void *lsa_type_dependent,
+						  u_char lsa_type,
+						  u_char opaque_type);
 extern void ospf_opaque_lsa_refresh_schedule (struct ospf_lsa *lsa);
 extern void ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa);
 
-extern void ospf_opaque_adjust_lsreq (struct ospf_neighbor *nbr, 
-                                      struct list *lsas);
-extern void ospf_opaque_self_originated_lsa_received (struct ospf_neighbor *nbr, 
-                                                      struct list *lsas);
-extern void ospf_opaque_ls_ack_received (struct ospf_neighbor *nbr, 
-                                         struct list *acks);
+extern void ospf_opaque_adjust_lsreq (struct ospf_neighbor *nbr,
+				      struct list *lsas);
+extern void ospf_opaque_self_originated_lsa_received (struct ospf_neighbor
+						      *nbr,
+						      struct list *lsas);
+extern void ospf_opaque_ls_ack_received (struct ospf_neighbor *nbr,
+					 struct list *acks);
 
 extern void htonf (float *src, float *dst);
 extern void ntohf (float *src, float *dst);

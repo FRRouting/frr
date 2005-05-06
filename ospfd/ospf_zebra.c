@@ -57,7 +57,7 @@ extern struct thread_master *master;
 struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */
-int
+static int
 ospf_router_id_update_zebra (int command, struct zclient *zclient,
 			     zebra_size_t length)
 {
@@ -78,7 +78,7 @@ ospf_router_id_update_zebra (int command, struct zclient *zclient,
 }
 
 /* Inteface addition message from zebra. */
-int
+static int
 ospf_interface_add (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct interface *ifp;
@@ -109,7 +109,7 @@ ospf_interface_add (int command, struct zclient *zclient, zebra_size_t length)
   return 0;
 }
 
-int
+static int
 ospf_interface_delete (int command, struct zclient *zclient,
                        zebra_size_t length)
 {
@@ -158,7 +158,7 @@ zebra_interface_if_lookup (struct stream *s)
 			       strnlen(ifname_tmp, INTERFACE_NAMSIZ));
 }
 
-int
+static int
 ospf_interface_state_up (int command, struct zclient *zclient,
                          zebra_size_t length)
 {
@@ -220,7 +220,7 @@ ospf_interface_state_up (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 ospf_interface_state_down (int command, struct zclient *zclient,
                            zebra_size_t length)
 {
@@ -246,7 +246,7 @@ ospf_interface_state_down (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 ospf_interface_address_add (int command, struct zclient *zclient,
                             zebra_size_t length)
 {
@@ -269,7 +269,7 @@ ospf_interface_address_add (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 ospf_interface_address_delete (int command, struct zclient *zclient,
                                zebra_size_t length)
 {
@@ -645,7 +645,7 @@ ospf_redistribute_default_unset (struct ospf *ospf)
   return CMD_SUCCESS;
 }
 
-int
+static int
 ospf_external_lsa_originate_check (struct ospf *ospf,
                                    struct external_info *ei)
 {
@@ -770,7 +770,7 @@ ospf_routemap_unset (struct ospf *ospf, int type)
 }
 
 /* Zebra route add and delete treatment. */
-int
+static int
 ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
                       zebra_size_t length)
 {
@@ -916,17 +916,17 @@ ospf_distribute_list_out_unset (struct ospf *ospf, int type, const char *name)
 }
 
 /* distribute-list update timer. */
-int
+static int
 ospf_distribute_list_update_timer (struct thread *thread)
 {
   struct route_node *rn;
   struct external_info *ei;
   struct route_table *rt;
   struct ospf_lsa *lsa;
-  int type;
+  intptr_t type;
   struct ospf *ospf;
 
-  type = (int) THREAD_ARG (thread);
+  type = (intptr_t)THREAD_ARG (thread);
   assert (type < ZEBRA_ROUTE_MAX);
   
   rt = EXTERNAL_INFO (type);
@@ -977,7 +977,7 @@ ospf_distribute_list_update (struct ospf *ospf, int type)
 }
 
 /* If access-list is updated, apply some check. */
-void
+static void
 ospf_filter_update (struct access_list *access)
 {
   struct ospf *ospf;
@@ -1098,8 +1098,8 @@ ospf_prefix_list_update (struct prefix_list *plist)
     ospf_schedule_abr_task (ospf);
 }
 
-struct ospf_distance *
-ospf_distance_new ()
+static struct ospf_distance *
+ospf_distance_new (void)
 {
   struct ospf_distance *new;
   new = XMALLOC (MTYPE_OSPF_DISTANCE, sizeof (struct ospf_distance));
@@ -1107,7 +1107,7 @@ ospf_distance_new ()
   return new;
 }
 
-void
+static void
 ospf_distance_free (struct ospf_distance *odistance)
 {
   XFREE (MTYPE_OSPF_DISTANCE, odistance);

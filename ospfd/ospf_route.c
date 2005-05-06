@@ -74,7 +74,7 @@ ospf_path_new ()
   return new;
 }
 
-struct ospf_path *
+static struct ospf_path *
 ospf_path_dup (struct ospf_path *path)
 {
   struct ospf_path *new;
@@ -177,7 +177,7 @@ ospf_route_match_same (struct route_table *rt, struct prefix_ipv4 *prefix,
 /* delete routes generated from AS-External routes if there is a inter/intra
  * area route
  */
-void 
+static void 
 ospf_route_delete_same_ext(struct route_table *external_routes,
                      struct route_table *routes)
 {
@@ -208,7 +208,7 @@ ospf_route_delete_same_ext(struct route_table *external_routes,
 }
 
 /* rt: Old, cmprt: New */
-void
+static void
 ospf_route_delete_uniq (struct route_table *rt, struct route_table *cmprt)
 {
   struct route_node *rn;
@@ -270,7 +270,7 @@ ospf_route_install (struct ospf *ospf, struct route_table *rt)
       }
 }
 
-void
+static void
 ospf_intra_route_add (struct route_table *rt, struct vertex *v,
 		      struct ospf_area *area)
 {
@@ -709,7 +709,7 @@ ospf_terminate ()
    o Intra-area paths using non-backbone areas are always the most preferred.
    o The other paths, intra-area backbone paths and inter-area paths,
      are of equal preference. */
-int
+static int
 ospf_asbr_route_cmp (struct ospf *ospf, struct ospf_route *r1,
 		     struct ospf_route *r2)
 {
@@ -778,7 +778,7 @@ ospf_route_cmp (struct ospf *ospf, struct ospf_route *r1,
   return (r1->cost - r2->cost);
 }
 
-int
+static int
 ospf_path_exist (struct list *plist, struct in_addr nexthop,
 		 struct ospf_interface *oi)
 {

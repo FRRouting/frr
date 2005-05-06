@@ -51,7 +51,7 @@ struct vertex_nexthop
   struct vertex *parent;	/* parent in SPF tree */
 };
 
-void ospf_spf_calculate_schedule (struct ospf *);
-void ospf_rtrs_free (struct route_table *);
+extern void ospf_spf_calculate_schedule (struct ospf *);
+extern void ospf_rtrs_free (struct route_table *);
 
 /* void ospf_spf_calculate_timer_add (); */

@@ -62,25 +62,25 @@ struct ospf_lsdb
 #define AS_LSDB(O,T)         ((O)->lsdb->type[(T)].db)
 
 /* OSPF LSDB related functions. */
-struct ospf_lsdb *ospf_lsdb_new ();
-void ospf_lsdb_init (struct ospf_lsdb *);
-void ospf_lsdb_free (struct ospf_lsdb *);
-void ospf_lsdb_cleanup (struct ospf_lsdb *);
-void ospf_lsdb_add (struct ospf_lsdb *, struct ospf_lsa *);
-void ospf_lsdb_delete (struct ospf_lsdb *, struct ospf_lsa *);
-void ospf_lsdb_delete_all (struct ospf_lsdb *);
+extern struct ospf_lsdb *ospf_lsdb_new (void);
+extern void ospf_lsdb_init (struct ospf_lsdb *);
+extern void ospf_lsdb_free (struct ospf_lsdb *);
+extern void ospf_lsdb_cleanup (struct ospf_lsdb *);
+extern void ospf_lsdb_add (struct ospf_lsdb *, struct ospf_lsa *);
+extern void ospf_lsdb_delete (struct ospf_lsdb *, struct ospf_lsa *);
+extern void ospf_lsdb_delete_all (struct ospf_lsdb *);
 /* Set all stats to -1 (LSA_SPF_NOT_EXPLORED). */
-void ospf_lsdb_clean_stat (struct ospf_lsdb *lsdb);
-struct ospf_lsa *ospf_lsdb_lookup (struct ospf_lsdb *, struct ospf_lsa *);
-struct ospf_lsa *ospf_lsdb_lookup_by_id (struct ospf_lsdb *, u_char,
+extern void ospf_lsdb_clean_stat (struct ospf_lsdb *lsdb);
+extern struct ospf_lsa *ospf_lsdb_lookup (struct ospf_lsdb *, struct ospf_lsa *);
+extern struct ospf_lsa *ospf_lsdb_lookup_by_id (struct ospf_lsdb *, u_char,
 					struct in_addr, struct in_addr);
-struct ospf_lsa *ospf_lsdb_lookup_by_id_next (struct ospf_lsdb *, u_char,
+extern struct ospf_lsa *ospf_lsdb_lookup_by_id_next (struct ospf_lsdb *, u_char,
 					     struct in_addr, struct in_addr,
 					     int);
-unsigned long ospf_lsdb_count_all (struct ospf_lsdb *);
-unsigned long ospf_lsdb_count (struct ospf_lsdb *, int);
-unsigned long ospf_lsdb_count_self (struct ospf_lsdb *, int);
-unsigned int ospf_lsdb_checksum (struct ospf_lsdb *, int);
-unsigned long ospf_lsdb_isempty (struct ospf_lsdb *);
+extern unsigned long ospf_lsdb_count_all (struct ospf_lsdb *);
+extern unsigned long ospf_lsdb_count (struct ospf_lsdb *, int);
+extern unsigned long ospf_lsdb_count_self (struct ospf_lsdb *, int);
+extern unsigned int ospf_lsdb_checksum (struct ospf_lsdb *, int);
+extern unsigned long ospf_lsdb_isempty (struct ospf_lsdb *);
 
 #endif /* _ZEBRA_OSPF_LSDB_H */

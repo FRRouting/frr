@@ -132,7 +132,7 @@ ospf_find_asbr_route_through_area (struct route_table *rtrs,
   return NULL;
 }
 
-void
+static void
 ospf_ase_complete_direct_routes (struct ospf_route *ro, struct in_addr nexthop)
 {
   struct listnode *node;
@@ -143,7 +143,7 @@ ospf_ase_complete_direct_routes (struct ospf_route *ro, struct in_addr nexthop)
       op->nexthop.s_addr = nexthop.s_addr;
 }
 
-int
+static int
 ospf_ase_forward_address_check (struct ospf *ospf, struct in_addr fwd_addr)
 {
   struct listnode *ifn;
@@ -159,7 +159,7 @@ ospf_ase_forward_address_check (struct ospf *ospf, struct in_addr fwd_addr)
 }
 
 /* Calculate ASBR route. */
-struct ospf_route *
+static struct ospf_route *
 ospf_ase_calculate_asbr_route (struct ospf *ospf,
 			       struct route_table *rt_network,
 			       struct route_table *rt_router,
@@ -239,7 +239,7 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
   return asbr_route;
 }
 
-struct ospf_route *
+static struct ospf_route *
 ospf_ase_calculate_new_route (struct ospf_lsa *lsa,
 			      struct ospf_route *asbr_route, u_int32_t metric)
 {
@@ -540,7 +540,7 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
   return 0;
 }
 
-int
+static int
 ospf_ase_route_match_same (struct route_table *rt, struct prefix *prefix,
 			   struct ospf_route *newor)
 {
@@ -596,7 +596,7 @@ ospf_ase_route_match_same (struct route_table *rt, struct prefix *prefix,
    return 1;
 }
 
-int
+static int
 ospf_ase_compare_tables (struct route_table *new_external_route,
 			 struct route_table *old_external_route)
 {
@@ -623,7 +623,7 @@ ospf_ase_compare_tables (struct route_table *new_external_route,
   return 0;
 }
 
-int
+static int
 ospf_ase_calculate_timer (struct thread *t)
 {
   struct ospf *ospf;

@@ -338,7 +338,7 @@ ospf_nbr_lookup (struct ospf_interface *oi, struct ip *iph,
     return (ospf_nbr_lookup_by_addr (oi->nbrs, &iph->ip_src));
 }
 
-struct ospf_neighbor *
+static struct ospf_neighbor *
 ospf_nbr_add (struct ospf_interface *oi, struct ospf_header *ospfh,
               struct prefix *p)
 {

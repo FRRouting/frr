@@ -65,7 +65,7 @@ const char *ospf_packet_type_str[] =
 extern int in_cksum (void *ptr, int nbytes);
 
 /* OSPF authentication checking function */
-int
+static int
 ospf_auth_type (struct ospf_interface *oi)
 {
   int auth_type;
@@ -234,7 +234,7 @@ ospf_packet_dup (struct ospf_packet *op)
 }
 
 /* XXX inline */
-unsigned int
+static inline unsigned int
 ospf_packet_authspace (struct ospf_interface *oi)
 {
   int auth = 0;
@@ -245,7 +245,7 @@ ospf_packet_authspace (struct ospf_interface *oi)
   return auth;
 }
 
-unsigned int
+static unsigned int
 ospf_packet_max (struct ospf_interface *oi)
 {
   int max;
@@ -258,7 +258,7 @@ ospf_packet_max (struct ospf_interface *oi)
 }
 
 
-int
+static int
 ospf_check_md5_digest (struct ospf_interface *oi, struct stream *s,
                        u_int16_t length)
 {
@@ -322,7 +322,7 @@ ospf_check_md5_digest (struct ospf_interface *oi, struct stream *s,
 /* This function is called from ospf_write(), it will detect the
    authentication scheme and if it is MD5, it will change the sequence
    and update the MD5 digest. */
-int
+static int
 ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
 {
   struct ospf_header *ospfh;
@@ -331,7 +331,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
   void *ibuf;
   u_int32_t t;
   struct crypt_key *ck;
-  char *auth_key;
+  const char *auth_key;
 
   ibuf = STREAM_DATA (op->s);
   ospfh = (struct ospf_header *) ibuf;
@@ -347,11 +347,11 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
 
   /* Get MD5 Authentication key from auth_key list. */
   if (list_isempty (OSPF_IF_PARAM (oi, auth_crypt)))
-    auth_key = (char *) "";
+    auth_key = "";
   else
     {
       ck = listgetdata (listtail(OSPF_IF_PARAM (oi, auth_crypt)));
-      auth_key = (char *) ck->auth_key;
+      auth_key = ck->auth_key;
     }
 
   /* Generate a digest for the entire packet + our secret key. */
@@ -373,7 +373,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
 }
 
 
-int
+static int
 ospf_ls_req_timer (struct thread *thread)
 {
   struct ospf_neighbor *nbr;
@@ -729,7 +729,7 @@ ospf_write (struct thread *thread)
 }
 
 /* OSPF Hello message read -- RFC2328 Section 10.5. */
-void
+static void
 ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 	    struct stream * s, struct ospf_interface *oi, int size)
 {
@@ -961,7 +961,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 }
 
 /* Save DD flags/options/Seqnum received. */
-void
+static void
 ospf_db_desc_save_current (struct ospf_neighbor *nbr,
 			   struct ospf_db_desc *dd)
 {
@@ -1078,7 +1078,7 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
   ospf_db_desc_save_current (nbr, dd);
 }
 
-int
+static int
 ospf_db_desc_is_dup (struct ospf_db_desc *dd, struct ospf_neighbor *nbr)
 {
   /* Is DD duplicated? */
@@ -1358,7 +1358,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 #define OSPF_LSA_KEY_SIZE       12 /* type(4) + id(4) + ar(4) */
 
 /* OSPF Link State Request Read -- RFC2328 Section 10.7. */
-void
+static void
 ospf_ls_req (struct ip *iph, struct ospf_header *ospfh,
 	     struct stream *s, struct ospf_interface *oi, u_int16_t size)
 {
@@ -1576,7 +1576,7 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
 }
 
 /* Cleanup Update list. */
-void
+static void
 ospf_upd_list_clean (struct list *lsas)
 {
   struct listnode *node, *nnode;
@@ -1589,7 +1589,7 @@ ospf_upd_list_clean (struct list *lsas)
 }
 
 /* OSPF Link State Update message read -- RFC2328 Section 13. */
-void
+static void
 ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	     struct stream *s, struct ospf_interface *oi, u_int16_t size)
 {
@@ -1951,7 +1951,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 }
 
 /* OSPF Link State Acknowledgment message read -- RFC2328 Section 13.7. */
-void
+static void
 ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 	     struct stream *s, struct ospf_interface *oi, u_int16_t size)
 {
@@ -2099,7 +2099,7 @@ ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
   return ibuf;
 }
 
-struct ospf_interface *
+static struct ospf_interface *
 ospf_associate_packet_vl (struct ospf *ospf, struct interface *ifp, 
 			  struct ip *iph, struct ospf_header *ospfh)
 {
@@ -2150,7 +2150,7 @@ ospf_associate_packet_vl (struct ospf *ospf, struct interface *ifp,
   return NULL;
 }
 
-int
+static inline int
 ospf_check_area_id (struct ospf_interface *oi, struct ospf_header *ospfh)
 {
   /* Check match the Area ID of the receiving interface. */
@@ -2163,7 +2163,7 @@ ospf_check_area_id (struct ospf_interface *oi, struct ospf_header *ospfh)
 /* Unbound socket will accept any Raw IP packets if proto is matched.
    To prevent it, compare src IP address and i/f address with masking
    i/f network mask. */
-int
+static int
 ospf_check_network_mask (struct ospf_interface *oi, struct in_addr ip_src)
 {
   struct in_addr mask, me, him;
@@ -2183,7 +2183,7 @@ ospf_check_network_mask (struct ospf_interface *oi, struct in_addr ip_src)
  return 0;
 }
 
-int
+static int
 ospf_check_auth (struct ospf_interface *oi, struct stream *ibuf,
 		 struct ospf_header *ospfh)
 {
@@ -2224,7 +2224,7 @@ ospf_check_auth (struct ospf_interface *oi, struct stream *ibuf,
   return ret;
 }
 
-int
+static int
 ospf_check_sum (struct ospf_header *ospfh)
 {
   u_int32_t ret;
@@ -2252,7 +2252,7 @@ ospf_check_sum (struct ospf_header *ospfh)
 }
 
 /* OSPF Header verification. */
-int
+static int
 ospf_verify_header (struct stream *ibuf, struct ospf_interface *oi,
 		    struct ip *iph, struct ospf_header *ospfh)
 {
@@ -2511,7 +2511,7 @@ ospf_read (struct thread *thread)
 }
 
 /* Make OSPF header. */
-void
+static void
 ospf_make_header (int type, struct ospf_interface *oi, struct stream *s)
 {
   struct ospf_header *ospfh;
@@ -2533,7 +2533,7 @@ ospf_make_header (int type, struct ospf_interface *oi, struct stream *s)
 }
 
 /* Make Authentication Data. */
-int
+static int
 ospf_make_auth (struct ospf_interface *oi, struct ospf_header *ospfh)
 {
   struct crypt_key *ck;
@@ -2573,7 +2573,7 @@ ospf_make_auth (struct ospf_interface *oi, struct ospf_header *ospfh)
 }
 
 /* Fill rest of OSPF header. */
-void
+static void
 ospf_fill_header (struct ospf_interface *oi,
 		  struct stream *s, u_int16_t length)
 {
@@ -2594,7 +2594,7 @@ ospf_fill_header (struct ospf_interface *oi,
   ospf_make_auth (oi, ospfh);
 }
 
-int
+static int
 ospf_make_hello (struct ospf_interface *oi, struct stream *s)
 {
   struct ospf_neighbor *nbr;
@@ -2661,7 +2661,7 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
   return length;
 }
 
-int
+static int
 ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
 		   struct stream *s)
 {
@@ -2772,7 +2772,7 @@ ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
   return length;
 }
 
-int
+static int
 ospf_make_ls_req_func (struct stream *s, u_int16_t *length,
 		       unsigned long delta, struct ospf_neighbor *nbr,
 		       struct ospf_lsa *lsa)
@@ -2796,7 +2796,7 @@ ospf_make_ls_req_func (struct stream *s, u_int16_t *length,
   return 1;
 }
 
-int
+static int
 ospf_make_ls_req (struct ospf_neighbor *nbr, struct stream *s)
 {
   struct ospf_lsa *lsa;
@@ -2823,7 +2823,7 @@ ospf_make_ls_req (struct ospf_neighbor *nbr, struct stream *s)
   return length;
 }
 
-int
+static int
 ls_age_increment (struct ospf_lsa *lsa, int delay)
 {
   int age;
@@ -2833,7 +2833,7 @@ ls_age_increment (struct ospf_lsa *lsa, int delay)
   return (age > OSPF_LSA_MAXAGE ? OSPF_LSA_MAXAGE : age);
 }
 
-int
+static int
 ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream *s)
 {
   struct ospf_lsa *lsa;
@@ -2896,7 +2896,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
   return length;
 }
 
-int
+static int
 ospf_make_ls_ack (struct ospf_interface *oi, struct list *ack, struct stream *s)
 {
   struct list *rm_list;
@@ -2965,7 +2965,7 @@ ospf_hello_send_sub (struct ospf_interface *oi, struct in_addr *addr)
   OSPF_ISM_WRITE_ON (oi->ospf);
 }
 
-void
+static void
 ospf_poll_send (struct ospf_nbr_nbma *nbr_nbma)
 {
   struct ospf_interface *oi;

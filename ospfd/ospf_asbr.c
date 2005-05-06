@@ -112,7 +112,7 @@ ospf_external_info_new (u_char type)
   return new;
 }
 
-void
+static void
 ospf_external_info_free (struct external_info *ei)
 {
   XFREE (MTYPE_OSPF_EXTERNAL_INFO, ei);

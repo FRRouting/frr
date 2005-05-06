@@ -286,7 +286,7 @@ ospf_options_dump (u_char options)
   return buf;
 }
 
-void
+static void
 ospf_packet_hello_dump (struct stream *s, u_int16_t length)
 {
   struct ospf_hello *hello;
@@ -310,7 +310,7 @@ ospf_packet_hello_dump (struct stream *s, u_int16_t length)
     zlog_debug ("    Neighbor %s", inet_ntoa (hello->neighbors[i]));
 }
 
-char *
+static char *
 ospf_dd_flags_dump (u_char flags, char *buf, size_t size)
 {
   memset (buf, 0, size);
@@ -341,7 +341,7 @@ ospf_lsa_header_dump (struct lsa_header *lsah)
   zlog_debug ("    length %d", ntohs (lsah->length));
 }
 
-char *
+static char *
 ospf_router_lsa_flags_dump (u_char flags, char *buf, size_t size)
 {
   memset (buf, 0, size);
@@ -354,7 +354,7 @@ ospf_router_lsa_flags_dump (u_char flags, char *buf, size_t size)
   return buf;
 }
 
-void
+static void
 ospf_router_lsa_dump (struct stream *s, u_int16_t length)
 {
   char buf[BUFSIZ];
@@ -381,7 +381,7 @@ ospf_router_lsa_dump (struct stream *s, u_int16_t length)
     }
 }
 
-void
+static void
 ospf_network_lsa_dump (struct stream *s, u_int16_t length)
 {
   struct network_lsa *nl;
@@ -402,7 +402,7 @@ ospf_network_lsa_dump (struct stream *s, u_int16_t length)
     zlog_debug ("      Attached Router %s", inet_ntoa (nl->routers[i]));
 }
 
-void
+static void
 ospf_summary_lsa_dump (struct stream *s, u_int16_t length)
 {
   struct summary_lsa *sl;
@@ -420,7 +420,7 @@ ospf_summary_lsa_dump (struct stream *s, u_int16_t length)
 	       GET_METRIC (sl->metric));
 }
 
-void
+static void
 ospf_as_external_lsa_dump (struct stream *s, u_int16_t length)
 {
   struct as_external_lsa *al;
@@ -442,7 +442,7 @@ ospf_as_external_lsa_dump (struct stream *s, u_int16_t length)
     }
 }
 
-void
+static void
 ospf_lsa_header_list_dump (struct stream *s, u_int16_t length)
 {
   struct lsa_header *lsa;
@@ -460,7 +460,7 @@ ospf_lsa_header_list_dump (struct stream *s, u_int16_t length)
     }
 }
 
-void
+static void
 ospf_packet_db_desc_dump (struct stream *s, u_int16_t length)
 {
   struct ospf_db_desc *dd;
@@ -488,7 +488,7 @@ ospf_packet_db_desc_dump (struct stream *s, u_int16_t length)
   stream_set_getp (s, gp);
 }
 
-void
+static void
 ospf_packet_ls_req_dump (struct stream *s, u_int16_t length)
 {
   u_int32_t sp;
@@ -518,7 +518,7 @@ ospf_packet_ls_req_dump (struct stream *s, u_int16_t length)
   stream_set_getp (s, sp);
 }
 
-void
+static void
 ospf_packet_ls_upd_dump (struct stream *s, u_int16_t length)
 {
   u_int32_t sp;
@@ -585,7 +585,7 @@ ospf_packet_ls_upd_dump (struct stream *s, u_int16_t length)
   stream_set_getp (s, sp);
 }
 
-void
+static void
 ospf_packet_ls_ack_dump (struct stream *s, u_int16_t length)
 {
   u_int32_t sp;
@@ -617,7 +617,7 @@ ospf_ip_header_dump (struct ip *iph)
   zlog_debug ("ip_dst %s", inet_ntoa (iph->ip_dst));
 }
 
-void
+static void
 ospf_header_dump (struct ospf_header *ospfh)
 {
   char buf[9];
@@ -1478,7 +1478,7 @@ struct cmd_node debug_node =
   1 /* VTYSH */
 };
 
-int
+static int
 config_write_debug (struct vty *vty)
 {
   int write = 0;

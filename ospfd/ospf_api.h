@@ -65,13 +65,13 @@ struct msg
 };
 
 /* Prototypes for generic messages. */
-struct msg *msg_new (u_char msgtype, void *msgbody,
+extern struct msg *msg_new (u_char msgtype, void *msgbody,
 		     u_int32_t seqnum, u_int16_t msglen);
-struct msg *msg_dup (struct msg *msg);
-void msg_print (struct msg *msg);	/* XXX debug only */
-void msg_free (struct msg *msg);
+extern struct msg *msg_dup (struct msg *msg);
+extern void msg_print (struct msg *msg);	/* XXX debug only */
+extern void msg_free (struct msg *msg);
 struct msg *msg_read (int fd);
-int msg_write (int fd, struct msg *msg);
+extern int msg_write (int fd, struct msg *msg);
 
 /* For requests, the message sequence number is between MIN_SEQ and
    MAX_SEQ. For notifications, the sequence number is 0. */
@@ -79,8 +79,8 @@ int msg_write (int fd, struct msg *msg);
 #define MIN_SEQ          1
 #define MAX_SEQ 2147483647
 
-void msg_set_seq (struct msg *msg, u_int32_t seqnr);
-u_int32_t msg_get_seq (struct msg *msg);
+extern void msg_set_seq (struct msg *msg, u_int32_t seqnr);
+extern u_int32_t msg_get_seq (struct msg *msg);
 
 /* -----------------------------------------------------------
  * Message fifo queues
@@ -97,12 +97,12 @@ struct msg_fifo
 };
 
 /* Prototype for message fifo queues. */
-struct msg_fifo *msg_fifo_new ();
-void msg_fifo_push (struct msg_fifo *, struct msg *msg);
-struct msg *msg_fifo_pop (struct msg_fifo *fifo);
-struct msg *msg_fifo_head (struct msg_fifo *fifo);
-void msg_fifo_flush (struct msg_fifo *fifo);
-void msg_fifo_free (struct msg_fifo *fifo);
+extern struct msg_fifo *msg_fifo_new (void);
+extern void msg_fifo_push (struct msg_fifo *, struct msg *msg);
+extern struct msg *msg_fifo_pop (struct msg_fifo *fifo);
+extern struct msg *msg_fifo_head (struct msg_fifo *fifo);
+extern void msg_fifo_flush (struct msg_fifo *fifo);
+extern void msg_fifo_free (struct msg_fifo *fifo);
 
 /* -----------------------------------------------------------
  * Specific message type and format definitions
@@ -306,52 +306,56 @@ struct apimsg
  */
 
 /* For debugging only. */
-void api_opaque_lsa_print (struct lsa_header *data);
+extern void api_opaque_lsa_print (struct lsa_header *data);
 
 /* Messages sent by client */
-struct msg *new_msg_register_opaque_type (u_int32_t seqnum, u_char ltype,
-					  u_char otype);
-struct msg *new_msg_register_event (u_int32_t seqnum,
-				    struct lsa_filter_type *filter);
-struct msg *new_msg_sync_lsdb (u_int32_t seqnum,
-			       struct lsa_filter_type *filter);
-struct msg *new_msg_originate_request (u_int32_t seqnum,
-				       struct in_addr ifaddr,
-				       struct in_addr area_id,
-				       struct lsa_header *data);
-struct msg *new_msg_delete_request (u_int32_t seqnum,
-				    struct in_addr area_id,
-				    u_char lsa_type,
-				    u_char opaque_type, u_int32_t opaque_id);
+extern struct msg *new_msg_register_opaque_type (u_int32_t seqnum,
+						 u_char ltype, u_char otype);
+extern struct msg *new_msg_register_event (u_int32_t seqnum,
+					   struct lsa_filter_type *filter);
+extern struct msg *new_msg_sync_lsdb (u_int32_t seqnum,
+				      struct lsa_filter_type *filter);
+extern struct msg *new_msg_originate_request (u_int32_t seqnum,
+					      struct in_addr ifaddr,
+					      struct in_addr area_id,
+					      struct lsa_header *data);
+extern struct msg *new_msg_delete_request (u_int32_t seqnum,
+					   struct in_addr area_id,
+					   u_char lsa_type,
+					   u_char opaque_type,
+					   u_int32_t opaque_id);
 
 /* Messages sent by OSPF daemon */
-struct msg *new_msg_reply (u_int32_t seqnum, u_char rc);
+extern struct msg *new_msg_reply (u_int32_t seqnum, u_char rc);
 
-struct msg *new_msg_ready_notify (u_int32_t seqnr, u_char lsa_type,
-				  u_char opaque_type, struct in_addr addr);
+extern struct msg *new_msg_ready_notify (u_int32_t seqnr, u_char lsa_type,
+					 u_char opaque_type,
+					 struct in_addr addr);
 
-struct msg *new_msg_new_if (u_int32_t seqnr,
-			    struct in_addr ifaddr, struct in_addr area);
+extern struct msg *new_msg_new_if (u_int32_t seqnr,
+				   struct in_addr ifaddr,
+				   struct in_addr area);
 
-struct msg *new_msg_del_if (u_int32_t seqnr, struct in_addr ifaddr);
+extern struct msg *new_msg_del_if (u_int32_t seqnr, struct in_addr ifaddr);
 
-struct msg *new_msg_ism_change (u_int32_t seqnr, struct in_addr ifaddr,
-				struct in_addr area, u_char status);
+extern struct msg *new_msg_ism_change (u_int32_t seqnr, struct in_addr ifaddr,
+				       struct in_addr area, u_char status);
 
-struct msg *new_msg_nsm_change (u_int32_t seqnr, struct in_addr ifaddr,
-				struct in_addr nbraddr,
-				struct in_addr router_id, u_char status);
+extern struct msg *new_msg_nsm_change (u_int32_t seqnr, struct in_addr ifaddr,
+				       struct in_addr nbraddr,
+				       struct in_addr router_id,
+				       u_char status);
 
 /* msgtype is MSG_LSA_UPDATE_NOTIFY or MSG_LSA_DELETE_NOTIFY */
-struct msg *new_msg_lsa_change_notify (u_char msgtype,
-				       u_int32_t seqnum,
-				       struct in_addr ifaddr,
-				       struct in_addr area_id,
-				       u_char is_self_originated,
-				       struct lsa_header *data);
+extern struct msg *new_msg_lsa_change_notify (u_char msgtype,
+					      u_int32_t seqnum,
+					      struct in_addr ifaddr,
+					      struct in_addr area_id,
+					      u_char is_self_originated,
+					      struct lsa_header *data);
 
 /* string printing functions */
-const char *ospf_api_errname (int errcode);
-const char *ospf_api_typename (int msgtype);
+extern const char *ospf_api_errname (int errcode);
+extern const char *ospf_api_typename (int msgtype);
 
 #endif /* _OSPF_API_H */

@@ -87,19 +87,19 @@ enum event
  * -----------------------------------------------------------
  */
 
-unsigned short ospf_apiserver_getport (void);
-int ospf_apiserver_init (void);
-void ospf_apiserver_term (void);
-struct ospf_apiserver *ospf_apiserver_new (int fd_sync, int fd_async);
-void ospf_apiserver_free (struct ospf_apiserver *apiserv);
-void ospf_apiserver_event (enum event event, int fd,
+extern unsigned short ospf_apiserver_getport (void);
+extern int ospf_apiserver_init (void);
+extern void ospf_apiserver_term (void);
+extern struct ospf_apiserver *ospf_apiserver_new (int fd_sync, int fd_async);
+extern void ospf_apiserver_free (struct ospf_apiserver *apiserv);
+extern void ospf_apiserver_event (enum event event, int fd,
 			   struct ospf_apiserver *apiserv);
-int ospf_apiserver_serv_sock_family (unsigned short port, int family);
-int ospf_apiserver_accept (struct thread *thread);
-int ospf_apiserver_read (struct thread *thread);
-int ospf_apiserver_sync_write (struct thread *thread);
-int ospf_apiserver_async_write (struct thread *thread);
-int ospf_apiserver_send_reply (struct ospf_apiserver *apiserv,
+extern int ospf_apiserver_serv_sock_family (unsigned short port, int family);
+extern int ospf_apiserver_accept (struct thread *thread);
+extern int ospf_apiserver_read (struct thread *thread);
+extern int ospf_apiserver_sync_write (struct thread *thread);
+extern int ospf_apiserver_async_write (struct thread *thread);
+extern int ospf_apiserver_send_reply (struct ospf_apiserver *apiserv,
 			       u_int32_t seqnr, u_char rc);
 
 /* -----------------------------------------------------------
@@ -107,42 +107,42 @@ int ospf_apiserver_send_reply (struct ospf_apiserver *apiserv,
  * -----------------------------------------------------------
  */
 
-int ospf_apiserver_lsa9_originator (void *arg);
-int ospf_apiserver_lsa10_originator (void *arg);
-int ospf_apiserver_lsa11_originator (void *arg);
+extern int ospf_apiserver_lsa9_originator (void *arg);
+extern int ospf_apiserver_lsa10_originator (void *arg);
+extern int ospf_apiserver_lsa11_originator (void *arg);
 
-void ospf_apiserver_clients_notify_all (struct msg *msg);
+extern void ospf_apiserver_clients_notify_all (struct msg *msg);
 
-void ospf_apiserver_clients_notify_ready_type9 (struct ospf_interface *oi);
-void ospf_apiserver_clients_notify_ready_type10 (struct ospf_area *area);
-void ospf_apiserver_clients_notify_ready_type11 (struct ospf *top);
+extern void ospf_apiserver_clients_notify_ready_type9 (struct ospf_interface *oi);
+extern void ospf_apiserver_clients_notify_ready_type10 (struct ospf_area *area);
+extern void ospf_apiserver_clients_notify_ready_type11 (struct ospf *top);
 
-void ospf_apiserver_clients_notify_new_if (struct ospf_interface *oi);
-void ospf_apiserver_clients_notify_del_if (struct ospf_interface *oi);
-void ospf_apiserver_clients_notify_ism_change (struct ospf_interface *oi);
-void ospf_apiserver_clients_notify_nsm_change (struct ospf_neighbor *nbr);
+extern void ospf_apiserver_clients_notify_new_if (struct ospf_interface *oi);
+extern void ospf_apiserver_clients_notify_del_if (struct ospf_interface *oi);
+extern void ospf_apiserver_clients_notify_ism_change (struct ospf_interface *oi);
+extern void ospf_apiserver_clients_notify_nsm_change (struct ospf_neighbor *nbr);
 
-int ospf_apiserver_is_ready_type9 (struct ospf_interface *oi);
-int ospf_apiserver_is_ready_type10 (struct ospf_area *area);
-int ospf_apiserver_is_ready_type11 (struct ospf *ospf);
+extern int ospf_apiserver_is_ready_type9 (struct ospf_interface *oi);
+extern int ospf_apiserver_is_ready_type10 (struct ospf_area *area);
+extern int ospf_apiserver_is_ready_type11 (struct ospf *ospf);
 
-void ospf_apiserver_notify_ready_type9 (struct ospf_apiserver *apiserv);
-void ospf_apiserver_notify_ready_type10 (struct ospf_apiserver *apiserv);
-void ospf_apiserver_notify_ready_type11 (struct ospf_apiserver *apiserv);
+extern void ospf_apiserver_notify_ready_type9 (struct ospf_apiserver *apiserv);
+extern void ospf_apiserver_notify_ready_type10 (struct ospf_apiserver *apiserv);
+extern void ospf_apiserver_notify_ready_type11 (struct ospf_apiserver *apiserv);
 
-int ospf_apiserver_handle_msg (struct ospf_apiserver *apiserv,
+extern int ospf_apiserver_handle_msg (struct ospf_apiserver *apiserv,
 			       struct msg *msg);
-int ospf_apiserver_handle_register_opaque_type (struct ospf_apiserver
+extern int ospf_apiserver_handle_register_opaque_type (struct ospf_apiserver
 						*apiserv, struct msg *msg);
-int ospf_apiserver_handle_unregister_opaque_type (struct ospf_apiserver
+extern int ospf_apiserver_handle_unregister_opaque_type (struct ospf_apiserver
 						  *apiserv, struct msg *msg);
-int ospf_apiserver_handle_register_event (struct ospf_apiserver *apiserv,
+extern int ospf_apiserver_handle_register_event (struct ospf_apiserver *apiserv,
 					  struct msg *msg);
-int ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
+extern int ospf_apiserver_handle_originate_request (struct ospf_apiserver *apiserv,
 					     struct msg *msg);
-int ospf_apiserver_handle_delete_request (struct ospf_apiserver *apiserv,
+extern int ospf_apiserver_handle_delete_request (struct ospf_apiserver *apiserv,
 					  struct msg *msg);
-int ospf_apiserver_handle_sync_lsdb (struct ospf_apiserver *apiserv,
+extern int ospf_apiserver_handle_sync_lsdb (struct ospf_apiserver *apiserv,
 				     struct msg *msg);
 
 
@@ -151,20 +151,20 @@ int ospf_apiserver_handle_sync_lsdb (struct ospf_apiserver *apiserv,
  * -----------------------------------------------------------
  */
 
-int ospf_apiserver_register_opaque_type (struct ospf_apiserver *apiserver,
+extern int ospf_apiserver_register_opaque_type (struct ospf_apiserver *apiserver,
 					 u_char lsa_type, u_char opaque_type);
-int ospf_apiserver_unregister_opaque_type (struct ospf_apiserver *apiserver,
+extern int ospf_apiserver_unregister_opaque_type (struct ospf_apiserver *apiserver,
 					   u_char lsa_type,
 					   u_char opaque_type);
-struct ospf_lsa *ospf_apiserver_opaque_lsa_new (struct ospf_area *area,
+extern struct ospf_lsa *ospf_apiserver_opaque_lsa_new (struct ospf_area *area,
 						struct ospf_interface *oi,
 						struct lsa_header *protolsa);
-struct ospf_interface *ospf_apiserver_if_lookup_by_addr (struct in_addr
+extern struct ospf_interface *ospf_apiserver_if_lookup_by_addr (struct in_addr
 							 address);
-struct ospf_interface *ospf_apiserver_if_lookup_by_ifp (struct interface
+extern struct ospf_interface *ospf_apiserver_if_lookup_by_ifp (struct interface
 							*ifp);
-int ospf_apiserver_originate1 (struct ospf_lsa *lsa);
-void ospf_apiserver_flood_opaque_lsa (struct ospf_lsa *lsa);
+extern int ospf_apiserver_originate1 (struct ospf_lsa *lsa);
+extern void ospf_apiserver_flood_opaque_lsa (struct ospf_lsa *lsa);
 
 
 /* -----------------------------------------------------------
@@ -172,16 +172,16 @@ void ospf_apiserver_flood_opaque_lsa (struct ospf_lsa *lsa);
  * -----------------------------------------------------------
  */
 
-int ospf_apiserver_new_if (struct interface *ifp);
-int ospf_apiserver_del_if (struct interface *ifp);
-void ospf_apiserver_ism_change (struct ospf_interface *oi, int old_status);
-void ospf_apiserver_nsm_change (struct ospf_neighbor *nbr, int old_status);
-void ospf_apiserver_config_write_router (struct vty *vty);
-void ospf_apiserver_config_write_if (struct vty *vty, struct interface *ifp);
-void ospf_apiserver_show_info (struct vty *vty, struct ospf_lsa *lsa);
-int ospf_ospf_apiserver_lsa_originator (void *arg);
-void ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa);
-void ospf_apiserver_flush_opaque_lsa (struct ospf_apiserver *apiserv,
+extern int ospf_apiserver_new_if (struct interface *ifp);
+extern int ospf_apiserver_del_if (struct interface *ifp);
+extern void ospf_apiserver_ism_change (struct ospf_interface *oi, int old_status);
+extern void ospf_apiserver_nsm_change (struct ospf_neighbor *nbr, int old_status);
+extern void ospf_apiserver_config_write_router (struct vty *vty);
+extern void ospf_apiserver_config_write_if (struct vty *vty, struct interface *ifp);
+extern void ospf_apiserver_show_info (struct vty *vty, struct ospf_lsa *lsa);
+extern int ospf_ospf_apiserver_lsa_originator (void *arg);
+extern void ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa);
+extern void ospf_apiserver_flush_opaque_lsa (struct ospf_apiserver *apiserv,
 				      u_char lsa_type, u_char opaque_type);
 
 /* -----------------------------------------------------------
@@ -192,10 +192,10 @@ void ospf_apiserver_flush_opaque_lsa (struct ospf_apiserver *apiserv,
 
 /* Hooks that are invoked from ospf opaque module */
 
-int ospf_apiserver_lsa_update (struct ospf_lsa *lsa);
-int ospf_apiserver_lsa_delete (struct ospf_lsa *lsa);
+extern int ospf_apiserver_lsa_update (struct ospf_lsa *lsa);
+extern int ospf_apiserver_lsa_delete (struct ospf_lsa *lsa);
 
-void ospf_apiserver_clients_lsa_change_notify (u_char msgtype,
+extern void ospf_apiserver_clients_lsa_change_notify (u_char msgtype,
 					       struct ospf_lsa *lsa);
 
 #endif /* _OSPF_APISERVER_H */

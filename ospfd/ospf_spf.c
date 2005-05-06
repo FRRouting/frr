@@ -70,7 +70,7 @@ update_stat (void * node , int position)
 }
 /* End of the heap related functions. */
 
-struct vertex_nexthop *
+static struct vertex_nexthop *
 vertex_nexthop_new (struct vertex *parent)
 {
   struct vertex_nexthop *new;
@@ -81,13 +81,13 @@ vertex_nexthop_new (struct vertex *parent)
   return new;
 }
 
-void
+static void
 vertex_nexthop_free (struct vertex_nexthop *nh)
 {
   XFREE (MTYPE_OSPF_NEXTHOP, nh);
 }
 
-struct vertex_nexthop *
+static struct vertex_nexthop *
 vertex_nexthop_dup (struct vertex_nexthop *nh)
 {
   struct vertex_nexthop *new;
@@ -101,7 +101,7 @@ vertex_nexthop_dup (struct vertex_nexthop *nh)
 }
 
 
-struct vertex *
+static struct vertex *
 ospf_vertex_new (struct ospf_lsa *lsa)
 {
   struct vertex *new;
@@ -122,7 +122,7 @@ ospf_vertex_new (struct ospf_lsa *lsa)
   return new;
 }
 
-void
+static void
 ospf_vertex_free (struct vertex *v)
 {
   struct listnode *node, *nnode;
@@ -139,7 +139,7 @@ ospf_vertex_free (struct vertex *v)
   XFREE (MTYPE_OSPF_VERTEX, v);
 }
 
-void
+static void
 ospf_vertex_dump(const char *msg, struct vertex *v,
 		 int print_nexthops, int print_children)
 {
@@ -189,7 +189,7 @@ ospf_vertex_dump(const char *msg, struct vertex *v,
 
 
 /* Add a vertex to the list of children in each of its parents. */
-void
+static void
 ospf_vertex_add_parent (struct vertex *v)
 {
   struct vertex_nexthop *nh;
@@ -203,7 +203,7 @@ ospf_vertex_add_parent (struct vertex *v)
     }
 }
 
-void
+static void
 ospf_spf_init (struct ospf_area *area)
 {
   struct vertex *v;
@@ -219,7 +219,7 @@ ospf_spf_init (struct ospf_area *area)
 }
 
 /* return index of link back to V from W, or -1 if no link found */
-int
+static int
 ospf_lsa_has_link (struct lsa_header *w, struct lsa_header *v)
 {
   unsigned int i, length;
@@ -285,7 +285,7 @@ ospf_lsa_has_link (struct lsa_header *w, struct lsa_header *v)
 /* Add the nexthop to the list, only if it is unique.
  * If it's not unique, free the nexthop entry.
  */
-void
+static void
 ospf_nexthop_add_unique (struct vertex_nexthop *new, struct list *nexthop)
 {
   struct vertex_nexthop *nh;
@@ -317,7 +317,7 @@ ospf_nexthop_add_unique (struct vertex_nexthop *new, struct list *nexthop)
 }
 
 /* Merge entries in list b into list a. */
-void
+static void
 ospf_nexthop_merge (struct list *a, struct list *b)
 {
   struct listnode *node, *nnode;
@@ -334,7 +334,7 @@ ospf_nexthop_merge (struct list *a, struct list *b)
  * NULL, return the first link from v to w.  Ignore stub and virtual links;
  * these link types will never be returned.
  */
-struct router_lsa_link *
+static struct router_lsa_link *
 ospf_get_next_link (struct vertex *v, struct vertex *w,
                     struct router_lsa_link *prev_link)
 {
@@ -390,7 +390,7 @@ ospf_get_next_link (struct vertex *v, struct vertex *w,
  * backlinks, or even simpler, just flushing nexthop list if we find a lower
  * cost path to a candidate vertex in SPF, maybe.
  */
-void
+static void
 ospf_spf_consider_nexthop (struct list *nexthops,
                            struct vertex_nexthop *newhop)
 {
@@ -427,7 +427,7 @@ ospf_spf_consider_nexthop (struct list *nexthops,
 /* 16.1.1.  Calculate nexthop from root through V (parent) to
  * vertex W (destination).
  */
-void
+static void
 ospf_nexthop_calculation (struct ospf_area *area,
                           struct vertex *v, struct vertex *w)
 {
@@ -620,7 +620,7 @@ ospf_nexthop_calculation (struct ospf_area *area,
  * of candidates with any vertices not already on the list.  If a lower-cost
  * path is found to a vertex already on the candidate list, store the new cost.
  */
-void
+static void
 ospf_spf_next (struct vertex *v, struct ospf_area *area,
 	       struct pqueue * candidate)
 {
@@ -795,7 +795,7 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
     } /* end loop over the links in V's LSA */
 }
 
-void
+static void
 ospf_spf_route_free (struct route_table *table)
 {
   struct route_node *rn;
@@ -815,7 +815,7 @@ ospf_spf_route_free (struct route_table *table)
   route_table_finish (table);
 }
 
-void
+static void
 ospf_spf_dump (struct vertex *v, int i)
 {
   struct listnode *cnode;
@@ -846,7 +846,7 @@ ospf_spf_dump (struct vertex *v, int i)
 }
 
 /* Second stage of SPF calculation. */
-void
+static void
 ospf_spf_process_stubs (struct ospf_area *area, struct vertex *v,
                         struct route_table *rt)
 {
@@ -926,7 +926,7 @@ ospf_rtrs_free (struct route_table *rtrs)
   route_table_finish (rtrs);
 }
 
-void
+static void
 ospf_rtrs_print (struct route_table *rtrs)
 {
   struct route_node *rn;
@@ -986,7 +986,7 @@ ospf_rtrs_print (struct route_table *rtrs)
 }
 
 /* Calculating the shortest-path tree for an area. */
-void
+static void
 ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
                     struct route_table *new_rtrs)
 {
@@ -1095,7 +1095,7 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
 }
 
 /* Timer for SPF calculation. */
-int
+static int
 ospf_spf_calculate_timer (struct thread *thread)
 {
   struct ospf *ospf = THREAD_ARG (thread);

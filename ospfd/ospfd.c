@@ -136,7 +136,7 @@ ospf_router_id_update_timer (struct thread *thread)
 }
 
 /* For OSPF area sort by area id. */
-int
+static int
 ospf_area_id_cmp (struct ospf_area *a1, struct ospf_area *a2)
 {
   if (ntohl (a1->area_id.s_addr) > ntohl (a2->area_id.s_addr))
@@ -147,8 +147,8 @@ ospf_area_id_cmp (struct ospf_area *a1, struct ospf_area *a2)
 }
 
 /* Allocate new ospf structure. */
-struct ospf *
-ospf_new ()
+static struct ospf *
+ospf_new (void)
 {
   int i;
 
@@ -228,13 +228,13 @@ ospf_lookup ()
   return listgetdata (listhead (om->ospf));
 }
 
-void
+static void
 ospf_add (struct ospf *ospf)
 {
   listnode_add (om->ospf, ospf);
 }
 
-void
+static void
 ospf_delete (struct ospf *ospf)
 {
   listnode_delete (om->ospf, ospf);
@@ -418,7 +418,7 @@ ospf_finish (struct ospf *ospf)
 
 
 /* allocate new OSPF Area object */
-struct ospf_area *
+static struct ospf_area *
 ospf_area_new (struct ospf *ospf, struct in_addr area_id)
 {
   struct ospf_area *new;
@@ -567,7 +567,7 @@ ospf_area_del_if (struct ospf_area *area, struct ospf_interface *oi)
 
 
 /* Config network statement related functions. */
-struct ospf_network *
+static struct ospf_network *
 ospf_network_new (struct in_addr area_id, int format)
 {
   struct ospf_network *new;
@@ -903,7 +903,7 @@ struct message ospf_area_type_msg[] =
 };
 int ospf_area_type_msg_max = OSPF_AREA_TYPE_MAX;
 
-void
+static void
 ospf_area_type_set (struct ospf_area *area, int type)
 {
   struct listnode *node;
@@ -990,7 +990,7 @@ ospf_area_shortcut_unset (struct ospf *ospf, struct ospf_area *area)
   return 1;
 }
 
-int
+static int
 ospf_area_vlink_count (struct ospf *ospf, struct ospf_area *area)
 {
   struct ospf_vl_data *vl;
@@ -1124,7 +1124,8 @@ ospf_area_nssa_translator_role_set (struct ospf *ospf, struct in_addr area_id,
   return 1;
 }
 
-int
+/* XXX: unused? Leave for symmetry? */
+static int
 ospf_area_nssa_translator_role_unset (struct ospf *ospf,
 				      struct in_addr area_id)
 {
@@ -1273,8 +1274,8 @@ ospf_timers_refresh_unset (struct ospf *ospf)
 }
 
 
-struct ospf_nbr_nbma *
-ospf_nbr_nbma_new ()
+static struct ospf_nbr_nbma *
+ospf_nbr_nbma_new (void)
 {
   struct ospf_nbr_nbma *nbr_nbma;
 
@@ -1288,13 +1289,13 @@ ospf_nbr_nbma_new ()
   return nbr_nbma;
 }
 
-void
+static void
 ospf_nbr_nbma_free (struct ospf_nbr_nbma *nbr_nbma)
 {
   XFREE (MTYPE_OSPF_NEIGHBOR_STATIC, nbr_nbma);
 }
 
-void
+static void
 ospf_nbr_nbma_delete (struct ospf *ospf, struct ospf_nbr_nbma *nbr_nbma)
 {
   struct route_node *rn;
@@ -1314,7 +1315,7 @@ ospf_nbr_nbma_delete (struct ospf *ospf, struct ospf_nbr_nbma *nbr_nbma)
     }
 }
 
-void
+static void
 ospf_nbr_nbma_down (struct ospf_nbr_nbma *nbr_nbma)
 {
   OSPF_TIMER_OFF (nbr_nbma->t_poll);
@@ -1329,7 +1330,7 @@ ospf_nbr_nbma_down (struct ospf_nbr_nbma *nbr_nbma)
     listnode_delete (nbr_nbma->oi->nbr_nbma, nbr_nbma);
 }
 
-void
+static void
 ospf_nbr_nbma_add (struct ospf_nbr_nbma *nbr_nbma,
 		   struct ospf_interface *oi)
 {

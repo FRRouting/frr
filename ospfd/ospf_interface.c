@@ -145,7 +145,7 @@ ospf_if_reset_variables (struct ospf_interface *oi)
 }
 
 /* lookup oi for specified prefix/ifp */
-struct ospf_interface *
+static struct ospf_interface *
 ospf_if_table_lookup (struct interface *ifp, struct prefix *prefix)
 {
   struct prefix p;
@@ -161,7 +161,7 @@ ospf_if_table_lookup (struct interface *ifp, struct prefix *prefix)
   return rninfo;
 }
 
-void
+static void
 ospf_add_to_if (struct interface *ifp, struct ospf_interface *oi)
 {
   struct route_node *rn;
@@ -178,7 +178,7 @@ ospf_add_to_if (struct interface *ifp, struct ospf_interface *oi)
   rn->info = oi;
 }
 
-void
+static void
 ospf_delete_from_if (struct interface *ifp, struct ospf_interface *oi)
 {
   struct route_node *rn;
@@ -538,8 +538,8 @@ ospf_if_stream_unset (struct ospf_interface *oi)
 }
 
 
-struct ospf_if_params *
-ospf_new_if_params ()
+static struct ospf_if_params *
+ospf_new_if_params (void)
 {
   struct ospf_if_params *oip;
 
@@ -709,7 +709,7 @@ ospf_if_new_hook (struct interface *ifp)
   return rc;
 }
 
-int
+static int
 ospf_if_delete_hook (struct interface *ifp)
 {
   int rc = 0;
@@ -923,7 +923,7 @@ ospf_vl_new (struct ospf *ospf, struct ospf_vl_data *vl_data)
   return voi;
 }
 
-void
+static void
 ospf_vl_if_delete (struct ospf_vl_data *vl_data)
 {
   struct interface *ifp = vl_data->vl_oi->ifp;
@@ -948,7 +948,7 @@ ospf_vl_lookup (struct ospf_area *area, struct in_addr vl_peer)
   return NULL;
 }
 
-void 
+static void 
 ospf_vl_shutdown (struct ospf_vl_data *vl_data)
 {
   struct ospf_interface *oi;
@@ -987,7 +987,7 @@ ospf_vl_delete (struct ospf *ospf, struct ospf_vl_data *vl_data)
   ospf_vl_data_free (vl_data);
 }
 
-int
+static int
 ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
 {
   int changed = 0;

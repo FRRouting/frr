@@ -767,7 +767,7 @@ ospf_apiserver_accept (struct thread *thread)
  * -----------------------------------------------------------
  */
 
-int
+static int
 ospf_apiserver_send_msg (struct ospf_apiserver *apiserv, struct msg *msg)
 {
   struct msg_fifo *fifo;
@@ -992,7 +992,7 @@ ospf_apiserver_unregister_opaque_type (struct ospf_apiserver *apiserv,
 }
 
 
-int
+static int
 apiserver_is_opaque_type_registered (struct ospf_apiserver *apiserv,
 				     u_char lsa_type, u_char opaque_type)
 {
@@ -1268,7 +1268,7 @@ ospf_apiserver_handle_register_event (struct ospf_apiserver *apiserv,
  * -----------------------------------------------------------
  */
 
-int
+static int
 apiserver_sync_callback (struct ospf_lsa *lsa, void *p_arg, int int_arg)
 {
   struct ospf_apiserver *apiserv;
@@ -1997,7 +1997,7 @@ out:
 }
 
 /* Flush self-originated opaque LSA */
-int
+static int
 apiserver_flush_opaque_type_callback (struct ospf_lsa *lsa,
 				      void *p_arg, int int_arg)
 {
@@ -2482,7 +2482,7 @@ ospf_apiserver_clients_notify_nsm_change (struct ospf_neighbor *nbr)
   msg_free (msg);
 }
 
-void
+static void
 apiserver_clients_lsa_change_notify (u_char msgtype, struct ospf_lsa *lsa)
 {
   struct msg *msg;
@@ -2583,7 +2583,7 @@ apiserver_clients_lsa_change_notify (u_char msgtype, struct ospf_lsa *lsa)
  */
 
 
-int
+static int
 apiserver_notify_clients_lsa (u_char msgtype, struct ospf_lsa *lsa)
 {
   struct msg *msg;
