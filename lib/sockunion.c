@@ -273,7 +273,7 @@ sockunion_accept (int sock, union sockunion *su)
 }
 
 /* Return sizeof union sockunion.  */
-int
+static int
 sockunion_sizeof (union sockunion *su)
 {
   int ret;
@@ -294,7 +294,7 @@ sockunion_sizeof (union sockunion *su)
 }
 
 /* return sockunion structure : this function should be revised. */
-char *
+static char *
 sockunion_log (union sockunion *su)
 {
   static char buf[SU_ADDRSTRLEN];
@@ -662,7 +662,7 @@ sockunion_getpeername (int fd)
 }
 
 /* Print sockunion structure */
-void
+static void __attribute__ ((unused))
 sockunion_print (union sockunion *su)
 {
   if (su == NULL)
@@ -701,7 +701,7 @@ sockunion_print (union sockunion *su)
 }
 
 #ifdef HAVE_IPV6
-int
+static int
 in6addr_cmp (struct in6_addr *addr1, struct in6_addr *addr2)
 {
   unsigned int i;

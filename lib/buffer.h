@@ -27,14 +27,14 @@
 /* Create a new buffer.  Memory will be allocated in chunks of the given
    size.  If the argument is 0, the library will supply a reasonable
    default size suitable for buffering socket I/O. */
-struct buffer *buffer_new (size_t);
+extern struct buffer *buffer_new (size_t);
 
 /* Free all data in the buffer. */
-void buffer_reset (struct buffer *);
+extern void buffer_reset (struct buffer *);
 
 /* This function first calls buffer_reset to release all buffered data.
    Then it frees the struct buffer itself. */
-void buffer_free (struct buffer *);
+extern void buffer_free (struct buffer *);
 
 /* Add the given data to the end of the buffer. */
 extern void buffer_put (struct buffer *, const void *, size_t);

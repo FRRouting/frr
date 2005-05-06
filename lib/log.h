@@ -1,5 +1,5 @@
 /*
- * $Id: log.h,v 1.17 2005/01/18 22:18:59 ajs Exp $
+ * $Id: log.h,v 1.18 2005/05/06 21:25:49 paul Exp $
  *
  * Zebra logging funcions.
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -96,11 +96,11 @@ struct message
 extern struct zlog *zlog_default;
 
 /* Open zlog function */
-struct zlog *openzlog (const char *progname, zlog_proto_t protocol,
-		       int syslog_options, int syslog_facility);
+extern struct zlog *openzlog (const char *progname, zlog_proto_t protocol,
+		              int syslog_options, int syslog_facility);
 
 /* Close zlog function. */
-void closezlog (struct zlog *zl);
+extern void closezlog (struct zlog *zl);
 
 /* GCC have printf type attribute check.  */
 #ifdef __GNUC__
@@ -110,41 +110,41 @@ void closezlog (struct zlog *zl);
 #endif /* __GNUC__ */
 
 /* Generic function for zlog. */
-void zlog (struct zlog *zl, int priority, const char *format, ...) PRINTF_ATTRIBUTE(3, 4);
+extern void zlog (struct zlog *zl, int priority, const char *format, ...) PRINTF_ATTRIBUTE(3, 4);
 
 /* Handy zlog functions. */
-void zlog_err (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-void zlog_warn (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-void zlog_info (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-void zlog_notice (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-void zlog_debug (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_err (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_warn (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_info (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_notice (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_debug (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 
 /* For bgpd's peer oriented log. */
-void plog_err (struct zlog *, const char *format, ...);
-void plog_warn (struct zlog *, const char *format, ...);
-void plog_info (struct zlog *, const char *format, ...);
-void plog_notice (struct zlog *, const char *format, ...);
-void plog_debug (struct zlog *, const char *format, ...);
+extern void plog_err (struct zlog *, const char *format, ...);
+extern void plog_warn (struct zlog *, const char *format, ...);
+extern void plog_info (struct zlog *, const char *format, ...);
+extern void plog_notice (struct zlog *, const char *format, ...);
+extern void plog_debug (struct zlog *, const char *format, ...);
 
 /* Set logging level for the given destination.  If the log_level
    argument is ZLOG_DISABLED, then the destination is disabled.
    This function should not be used for file logging (use zlog_set_file
    or zlog_reset_file instead). */
-void zlog_set_level (struct zlog *zl, zlog_dest_t, int log_level);
+extern void zlog_set_level (struct zlog *zl, zlog_dest_t, int log_level);
 
 /* Set logging to the given filename at the specified level. */
-int zlog_set_file (struct zlog *zl, const char *filename, int log_level);
+extern int zlog_set_file (struct zlog *zl, const char *filename, int log_level);
 /* Disable file logging. */
-int zlog_reset_file (struct zlog *zl);
+extern int zlog_reset_file (struct zlog *zl);
 
 /* Rotate log. */
-int zlog_rotate (struct zlog *);
+extern int zlog_rotate (struct zlog *);
 
 /* For hackey massage lookup and check */
 #define LOOKUP(x, y) mes_lookup(x, x ## _max, y)
 
-const char *lookup (struct message *, int);
-const char *mes_lookup (struct message *meslist, int max, int index);
+extern const char *lookup (struct message *, int);
+extern const char *mes_lookup (struct message *meslist, int max, int index);
 
 extern const char *zlog_priority[];
 extern const char *zlog_proto_names[];

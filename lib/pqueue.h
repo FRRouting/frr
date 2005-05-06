@@ -33,12 +33,12 @@ struct pqueue
 
 #define PQUEUE_INIT_ARRAYSIZE  32
 
-struct pqueue *pqueue_create ();
-void pqueue_delete (struct pqueue *queue);
+extern struct pqueue *pqueue_create (void);
+extern void pqueue_delete (struct pqueue *queue);
 
-void pqueue_enqueue (void *data, struct pqueue *queue);
-void *pqueue_dequeue (struct pqueue *queue);
+extern void pqueue_enqueue (void *data, struct pqueue *queue);
+extern void *pqueue_dequeue (struct pqueue *queue);
 
-void trickle_down (int index, struct pqueue *queue);
+extern void trickle_down (int index, struct pqueue *queue);
 
 #endif /* _ZEBRA_PQUEUE_H */

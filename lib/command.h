@@ -318,27 +318,27 @@ struct desc
 #endif /* HAVE_IPV6 */
 
 /* Prototypes. */
-void install_node (struct cmd_node *, int (*) (struct vty *));
-void install_default (enum node_type);
-void install_element (enum node_type, struct cmd_element *);
-void sort_node ();
+extern void install_node (struct cmd_node *, int (*) (struct vty *));
+extern void install_default (enum node_type);
+extern void install_element (enum node_type, struct cmd_element *);
+extern void sort_node (void);
 
 /* Concatenates argv[shift] through argv[argc-1] into a single NUL-terminated
    string with a space between each element (allocated using
    XMALLOC(MTYPE_TMP)).  Returns NULL if shift >= argc. */
-char *argv_concat (const char **argv, int argc, int shift);
+extern char *argv_concat (const char **argv, int argc, int shift);
 
-vector cmd_make_strvec (const char *);
-void cmd_free_strvec (vector);
-vector cmd_describe_command ();
-char **cmd_complete_command ();
-const char *cmd_prompt (enum node_type);
-int config_from_file (struct vty *, FILE *);
-enum node_type node_parent (enum node_type);
-int cmd_execute_command (vector, struct vty *, struct cmd_element **, int);
-int cmd_execute_command_strict (vector, struct vty *, struct cmd_element **);
-void config_replace_string (struct cmd_element *, char *, ...);
-void cmd_init (int);
+extern vector cmd_make_strvec (const char *);
+extern void cmd_free_strvec (vector);
+extern vector cmd_describe_command (vector, struct vty *, int *status);
+extern char **cmd_complete_command (vector, struct vty *, int *status);
+extern const char *cmd_prompt (enum node_type);
+extern int config_from_file (struct vty *, FILE *);
+extern enum node_type node_parent (enum node_type);
+extern int cmd_execute_command (vector, struct vty *, struct cmd_element **, int);
+extern int cmd_execute_command_strict (vector, struct vty *, struct cmd_element **);
+extern void config_replace_string (struct cmd_element *, char *, ...);
+extern void cmd_init (int);
 
 /* Export typical functions. */
 extern struct cmd_element config_end_cmd;
@@ -346,9 +346,9 @@ extern struct cmd_element config_exit_cmd;
 extern struct cmd_element config_quit_cmd;
 extern struct cmd_element config_help_cmd;
 extern struct cmd_element config_list_cmd;
-char *host_config_file ();
-void host_config_set (char *);
+extern char *host_config_file (void);
+extern void host_config_set (char *);
 
-void print_version (const char *);
-
+extern void print_version (const char *);
+  
 #endif /* _ZEBRA_COMMAND_H */

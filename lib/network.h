@@ -26,8 +26,8 @@
 /* Both readn and writen are deprecated and will be removed.  They are not
    suitable for use with non-blocking file descriptors.
  */
-int readn (int, u_char *, int);
-int writen (int, const u_char *, int);
+extern int readn (int, u_char *, int);
+extern int writen (int, const u_char *, int);
 
 /* Set the file descriptor to use non-blocking I/O.  Returns 0 for success,
    -1 on error. */

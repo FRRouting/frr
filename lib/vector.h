@@ -45,19 +45,19 @@ typedef struct _vector *vector;
 #define vector_active(V) ((V)->active)
 
 /* Prototypes. */
-vector vector_init (unsigned int size);
-void vector_ensure (vector v, unsigned int num);
-int vector_empty_slot (vector v);
-int vector_set (vector v, void *val);
-int vector_set_index (vector v, unsigned int i, void *val);
-void vector_unset (vector v, unsigned int i);
-unsigned int vector_count (vector v);
-void vector_only_wrapper_free (vector v);
-void vector_only_index_free (void *index);
-void vector_free (vector v);
-vector vector_copy (vector v);
+extern vector vector_init (unsigned int size);
+extern void vector_ensure (vector v, unsigned int num);
+extern int vector_empty_slot (vector v);
+extern int vector_set (vector v, void *val);
+extern int vector_set_index (vector v, unsigned int i, void *val);
+extern void vector_unset (vector v, unsigned int i);
+extern unsigned int vector_count (vector v);
+extern void vector_only_wrapper_free (vector v);
+extern void vector_only_index_free (void *index);
+extern void vector_free (vector v);
+extern vector vector_copy (vector v);
 
-void *vector_lookup (vector, unsigned int);
-void *vector_lookup_ensure (vector, unsigned int);
+extern void *vector_lookup (vector, unsigned int);
+extern void *vector_lookup_ensure (vector, unsigned int);
 
 #endif /* _ZEBRA_VECTOR_H */

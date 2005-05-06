@@ -32,9 +32,6 @@
 #include "zclient.h"
 #include "memory.h"
 #include "table.h"
-
-#include "zebra/rib.h"
-#include "zebra/zserv.h"
 
 /* Zebra client events. */
 enum event {ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT};

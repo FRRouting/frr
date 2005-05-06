@@ -40,7 +40,7 @@ static struct message mstr [] =
 };
 
 /* Fatal memory allocation error occured. */
-static void
+static void __attribute__ ((noreturn))
 zerror (const char *fname, int type, size_t size)
 {
   zlog_err ("%s : can't allocate memory for `%s' size %d: %s\n", 

@@ -30,11 +30,11 @@
 struct hash *ifrmaphash;
 
 /* Hook functions. */
-void (*if_rmap_add_hook) (struct if_rmap *) = NULL;
-void (*if_rmap_delete_hook) (struct if_rmap *) = NULL;
+static void (*if_rmap_add_hook) (struct if_rmap *) = NULL;
+static void (*if_rmap_delete_hook) (struct if_rmap *) = NULL;
 
-struct if_rmap *
-if_rmap_new ()
+static struct if_rmap *
+if_rmap_new (void)
 {
   struct if_rmap *new;
 
@@ -43,7 +43,7 @@ if_rmap_new ()
   return new;
 }
 
-void
+static void
 if_rmap_free (struct if_rmap *if_rmap)
 {
   if (if_rmap->ifname)
@@ -83,18 +83,19 @@ if_rmap_hook_delete (void (*func) (struct if_rmap *))
   if_rmap_delete_hook = func;
 }
 
-void *
-if_rmap_hash_alloc (struct if_rmap *arg)
+static void *
+if_rmap_hash_alloc (void *arg)
 {
+  struct if_rmap *ifarg = arg;
   struct if_rmap *if_rmap;
 
   if_rmap = if_rmap_new ();
-  if_rmap->ifname = strdup (arg->ifname);
+  if_rmap->ifname = strdup (ifarg->ifname);
 
   return if_rmap;
 }
 
-struct if_rmap *
+static struct if_rmap *
 if_rmap_get (const char *ifname)
 {
   struct if_rmap key;
@@ -105,9 +106,10 @@ if_rmap_get (const char *ifname)
   return (struct if_rmap *) hash_get (ifrmaphash, &key, if_rmap_hash_alloc);
 }
 
-unsigned int
-if_rmap_hash_make (struct if_rmap *if_rmap)
+static unsigned int
+if_rmap_hash_make (void *data)
 {
+  struct if_rmap *if_rmap = data;
   unsigned int i, key;
 
   key = 0;
@@ -117,15 +119,17 @@ if_rmap_hash_make (struct if_rmap *if_rmap)
   return key;
 }
 
-int
-if_rmap_hash_cmp (struct if_rmap *if_rmap1, struct if_rmap *if_rmap2)
+static int
+if_rmap_hash_cmp (void *arg1, void* arg2)
 {
+  struct if_rmap *if_rmap1 = arg1;
+  struct if_rmap *if_rmap2 = arg2;
   if (strcmp (if_rmap1->ifname, if_rmap2->ifname) == 0)
     return 1;
   return 0;
 }
 
-struct if_rmap *
+static struct if_rmap *
 if_rmap_set (const char *ifname, enum if_rmap_type type, 
              const char *routemap_name)
 {
@@ -152,7 +156,7 @@ if_rmap_set (const char *ifname, enum if_rmap_type type,
   return if_rmap;
 }
 
-int
+static int
 if_rmap_unset (const char *ifname, enum if_rmap_type type, 
                const char *routemap_name)
 {

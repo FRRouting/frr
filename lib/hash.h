@@ -45,27 +45,29 @@ struct hash
   unsigned int size;
 
   /* Key make function. */
-  unsigned int (*hash_key) ();
+  unsigned int (*hash_key) (void *);
 
   /* Data compare function. */
-  int (*hash_cmp) ();
+  int (*hash_cmp) (void *, void *);
 
   /* Backet alloc. */
   unsigned long count;
 };
 
-struct hash *hash_create (unsigned int (*) (), int (*) ());
-struct hash *hash_create_size (unsigned int, unsigned int (*) (), int (*) ());
+extern struct hash *hash_create (unsigned int (*) (void *), 
+                          int (*) (void *, void *));
+extern struct hash *hash_create_size (unsigned int, unsigned int (*) (void *), 
+                                             int (*) (void *, void *));
 
-void *hash_get (struct hash *, void *, void * (*) ());
-void *hash_alloc_intern (void *);
-void *hash_lookup (struct hash *, void *);
-void *hash_release (struct hash *, void *);
+extern void *hash_get (struct hash *, void *, void * (*) (void *));
+extern void *hash_alloc_intern (void *);
+extern void *hash_lookup (struct hash *, void *);
+extern void *hash_release (struct hash *, void *);
 
-void hash_iterate (struct hash *, 
+extern void hash_iterate (struct hash *, 
 		   void (*) (struct hash_backet *, void *), void *);
 
-void hash_clean (struct hash *, void (*) (void *));
-void hash_free (struct hash *);
+extern void hash_clean (struct hash *, void (*) (void *));
+extern void hash_free (struct hash *);
 
 #endif /* _ZEBRA_HASH_H */

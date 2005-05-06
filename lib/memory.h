@@ -58,38 +58,25 @@ extern struct mlist mlists[];
 #endif /* MEMORY_LOG */
 
 /* Prototypes of memory function. */
-void *zmalloc (int type, size_t size);
-void *zcalloc (int type, size_t size);
-void *zrealloc (int type, void *ptr, size_t size);
-void  zfree (int type, void *ptr);
-char *zstrdup (int type, const char *str);
+extern void *zmalloc (int type, size_t size);
+extern void *zcalloc (int type, size_t size);
+extern void *zrealloc (int type, void *ptr, size_t size);
+extern void  zfree (int type, void *ptr);
+extern char *zstrdup (int type, const char *str);
 
-void *mtype_zmalloc (const char *file,
-		     int line,
-		     int type,
-		     size_t size);
+extern void *mtype_zmalloc (const char *file, int line, int type, size_t size);
 
-void *mtype_zcalloc (const char *file,
-		     int line,
-		     int type,
-		     size_t num,
-		     size_t size);
+extern void *mtype_zcalloc (const char *file, int line, int type, 
+                            size_t num, size_t size);
 
-void *mtype_zrealloc (const char *file,
-		     int line,
-		     int type, 
-		     void *ptr,
-		     size_t size);
+extern void *mtype_zrealloc (const char *file, int line, int type, void *ptr,
+		             size_t size);
 
-void mtype_zfree (const char *file,
-		  int line,
-		  int type,
-		  void *ptr);
+extern void mtype_zfree (const char *file, int line, int type,
+		         void *ptr);
 
-char *mtype_zstrdup (const char *file,
-		     int line,
-		     int type,
-		     const char *str);
-void memory_init (void);
+extern char *mtype_zstrdup (const char *file, int line, int type,
+		            const char *str);
+extern void memory_init (void);
 
 #endif /* _ZEBRA_MEMORY_H */

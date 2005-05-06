@@ -26,8 +26,8 @@
 
 /* Allocate a new hash.  */
 struct hash *
-hash_create_size (unsigned int size, 
-		  unsigned int (*hash_key) (), int (*hash_cmp) ())
+hash_create_size (unsigned int size, unsigned int (*hash_key) (void *),
+                                     int (*hash_cmp) (void *, void *))
 {
   struct hash *hash;
 
@@ -45,7 +45,8 @@ hash_create_size (unsigned int size,
 
 /* Allocate a new hash with default hash size.  */
 struct hash *
-hash_create (unsigned int (*hash_key) (), int (*hash_cmp) ())
+hash_create (unsigned int (*hash_key) (void *), 
+             int (*hash_cmp) (void *, void *))
 {
   return hash_create_size (HASHTABSIZE, hash_key, hash_cmp);
 }
@@ -63,7 +64,7 @@ hash_alloc_intern (void *arg)
    corresponding hash backet and alloc_func is specified, create new
    hash backet.  */
 void *
-hash_get (struct hash *hash, void *data, void * (*alloc_func) ())
+hash_get (struct hash *hash, void *data, void * (*alloc_func) (void *))
 {
   unsigned int key;
   unsigned int index;

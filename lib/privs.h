@@ -82,10 +82,10 @@ struct zprivs_ids_t
 };
 
   /* initialise zebra privileges */
-void zprivs_init (struct zebra_privs_t *zprivs);
+extern void zprivs_init (struct zebra_privs_t *zprivs);
   /* drop all and terminate privileges */ 
-void zprivs_terminate (void);
+extern void zprivs_terminate (void);
   /* query for runtime uid's and gid's, eg vty needs this */
-void zprivs_get_ids(struct zprivs_ids_t *);
+extern void zprivs_get_ids(struct zprivs_ids_t *);
 
 #endif /* _ZEBRA_PRIVS_H */

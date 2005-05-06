@@ -150,52 +150,46 @@ struct route_map
 };
 
 /* Prototypes. */
-void route_map_init ();
-void route_map_init_vty ();
+extern void route_map_init (void);
+extern void route_map_init_vty (void);
 
 /* Add match statement to route map. */
-int
-route_map_add_match (struct route_map_index *index,
-		     const char *match_name,
-		     const char *match_arg);
+extern int route_map_add_match (struct route_map_index *index,
+		                const char *match_name,
+		                const char *match_arg);
 
 /* Delete specified route match rule. */
-int
-route_map_delete_match (struct route_map_index *index,
-			const char *match_name,
-			const char *match_arg);
+extern int route_map_delete_match (struct route_map_index *index,
+			           const char *match_name,
+			           const char *match_arg);
 
 /* Add route-map set statement to the route map. */
-int
-route_map_add_set (struct route_map_index *index, 
-		   const char *set_name,
-		   const char *set_arg);
+extern int route_map_add_set (struct route_map_index *index, 
+		              const char *set_name,
+		              const char *set_arg);
 
 /* Delete route map set rule. */
-int
-route_map_delete_set (struct route_map_index *index, const char *set_name,
-		      const char *set_arg);
+extern int route_map_delete_set (struct route_map_index *index,
+                                 const char *set_name,
+                                 const char *set_arg);
 
 /* Install rule command to the match list. */
-void
-route_map_install_match (struct route_map_rule_cmd *cmd);
+extern void route_map_install_match (struct route_map_rule_cmd *cmd);
 
 /* Install rule command to the set list. */
-void
-route_map_install_set (struct route_map_rule_cmd *cmd);
+extern void route_map_install_set (struct route_map_rule_cmd *cmd);
 
 /* Lookup route map by name. */
-struct route_map *
-route_map_lookup_by_name (const char *name);
+extern struct route_map * route_map_lookup_by_name (const char *name);
 
 /* Apply route map to the object. */
-route_map_result_t
-route_map_apply (struct route_map *map, struct prefix *, 
-		 route_map_object_t object_type, void *object);
+extern route_map_result_t route_map_apply (struct route_map *map,
+                                           struct prefix *,
+                                           route_map_object_t object_type,
+                                           void *object);
 
-void route_map_add_hook (void (*func) (const char *));
-void route_map_delete_hook (void (*func) (const char *));
-void route_map_event_hook (void (*func) (route_map_event_t, const char *));
-
+extern void route_map_add_hook (void (*func) (const char *));
+extern void route_map_delete_hook (void (*func) (const char *));
+extern void route_map_event_hook (void (*func) (route_map_event_t, const char *));
 
 #endif /* _ZEBRA_ROUTEMAP_H */

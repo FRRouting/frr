@@ -46,8 +46,8 @@ route_table_finish (struct route_table *rt)
 }
 
 /* Allocate new route node. */
-struct route_node *
-route_node_new ()
+static struct route_node *
+route_node_new (void)
 {
   struct route_node *node;
   node = XCALLOC (MTYPE_ROUTE_NODE, sizeof (struct route_node));
@@ -55,7 +55,7 @@ route_node_new ()
 }
 
 /* Allocate new route node with prefix set. */
-struct route_node *
+static struct route_node *
 route_node_set (struct route_table *table, struct prefix *prefix)
 {
   struct route_node *node;
@@ -69,7 +69,7 @@ route_node_set (struct route_table *table, struct prefix *prefix)
 }
 
 /* Free route node. */
-void
+static void
 route_node_free (struct route_node *node)
 {
   XFREE (MTYPE_ROUTE_NODE, node);
@@ -220,7 +220,7 @@ route_unlock_node (struct route_node *node)
 }
 
 /* Dump routing table. */
-void
+static void __attribute__ ((unused))
 route_dump_node (struct route_table *t)
 {
   struct route_node *node;

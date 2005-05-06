@@ -54,13 +54,13 @@ struct work_queue
   /* specification for this work queue */
   struct {
     /* work function to process items with */
-    wq_item_status (*workfunc) ();
+    wq_item_status (*workfunc) (void *);
 
     /* error handling function, optional */
     void (*errorfunc) (struct work_queue *, struct work_queue_item *);
     
     /* callback to delete user specific item data */
-    void (*del_item_data) ();
+    void (*del_item_data) (void *);
     
     /* max number of retries to make for item that errors */
     unsigned int max_retries;	
@@ -81,11 +81,12 @@ struct work_queue
 };
 
 /* User API */
-struct work_queue *work_queue_new (struct thread_master *, const char *);
-void work_queue_free (struct work_queue *);
-void work_queue_add (struct work_queue *, void *);
+extern struct work_queue *work_queue_new (struct thread_master *,
+                                          const char *);
+extern void work_queue_free (struct work_queue *);
+extern void work_queue_add (struct work_queue *, void *);
 
 /* Helpers, exported for thread.c and command.c */
-int work_queue_run (struct thread *);
+extern int work_queue_run (struct thread *);
 extern struct cmd_element show_work_queues_cmd;
 #endif /* _QUAGGA_WORK_QUEUE_H */

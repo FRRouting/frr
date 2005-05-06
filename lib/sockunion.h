@@ -87,42 +87,42 @@ enum connect_result
 #define sockunion_family(X)  (X)->sa.sa_family
 
 /* Prototypes. */
-int str2sockunion (const char *, union sockunion *);
-const char *sockunion2str (union sockunion *, char *, size_t);
-int sockunion_cmp (union sockunion *, union sockunion *);
-int sockunion_same (union sockunion *, union sockunion *);
+extern int str2sockunion (const char *, union sockunion *);
+extern const char *sockunion2str (union sockunion *, char *, size_t);
+extern int sockunion_cmp (union sockunion *, union sockunion *);
+extern int sockunion_same (union sockunion *, union sockunion *);
 
-char *sockunion_su2str (union sockunion *su);
-union sockunion *sockunion_str2su (const char *str);
-struct in_addr sockunion_get_in_addr (union sockunion *su);
-int sockunion_accept (int sock, union sockunion *);
-int sockunion_stream_socket (union sockunion *);
-int sockopt_reuseaddr (int);
-int sockopt_reuseport (int);
-int sockunion_bind (int sock, union sockunion *, unsigned short, union sockunion *);
-int sockopt_ttl (int family, int sock, int ttl);
-int sockunion_socket (union sockunion *su);
-const char *inet_sutop (union sockunion *su, char *str);
-enum connect_result
-sockunion_connect (int fd, union sockunion *su, unsigned short port, unsigned int);
-union sockunion *sockunion_getsockname (int);
-union sockunion *sockunion_getpeername (int);
-union sockunion *sockunion_dup (union sockunion *);
-void sockunion_free (union sockunion *);
+extern char *sockunion_su2str (union sockunion *su);
+extern union sockunion *sockunion_str2su (const char *str);
+extern struct in_addr sockunion_get_in_addr (union sockunion *su);
+extern int sockunion_accept (int sock, union sockunion *);
+extern int sockunion_stream_socket (union sockunion *);
+extern int sockopt_reuseaddr (int);
+extern int sockopt_reuseport (int);
+extern int sockunion_bind (int sock, union sockunion *, 
+                           unsigned short, union sockunion *);
+extern int sockopt_ttl (int family, int sock, int ttl);
+extern int sockunion_socket (union sockunion *su);
+extern const char *inet_sutop (union sockunion *su, char *str);
+extern enum connect_result sockunion_connect (int fd, union sockunion *su, 
+                                              unsigned short port,
+                                              unsigned int);
+extern union sockunion *sockunion_getsockname (int);
+extern union sockunion *sockunion_getpeername (int);
+extern union sockunion *sockunion_dup (union sockunion *);
+extern void sockunion_free (union sockunion *);
 
 #ifndef HAVE_INET_NTOP
-const char *
-inet_ntop (int family, const void *addrptr, char *strptr, size_t len);
+extern const char * inet_ntop (int family, const void *addrptr, 
+                               char *strptr, size_t len);
 #endif /* HAVE_INET_NTOP */
 
 #ifndef HAVE_INET_PTON
-int
-inet_pton (int family, const char *strptr, void *addrptr);
+extern int inet_pton (int family, const char *strptr, void *addrptr);
 #endif /* HAVE_INET_PTON */
 
 #ifndef HAVE_INET_ATON
-int
-inet_aton (const char *cp, struct in_addr *inaddr);
+extern int inet_aton (const char *cp, struct in_addr *inaddr);
 #endif
 
 #endif /* _ZEBRA_SOCKUNION_H */

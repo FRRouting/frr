@@ -144,16 +144,17 @@ struct trap_object
     (u_char *) &snmp_in_addr_val \
   )
 
-void smux_init (struct thread_master *tm);
-void smux_start (void);
-void smux_register_mib(const char *, struct variable *, size_t, int, oid [], size_t);
-int smux_header_generic (struct variable *, oid [], size_t *, int, size_t *, 
-    WriteMethod **);
-int smux_trap (oid *, size_t, oid *, size_t, struct trap_object *, size_t, unsigned int, u_char);
-
-int oid_compare (oid *, int, oid *, int);
-void oid2in_addr (oid [], int, struct in_addr *);
-void *oid_copy (void *, void *, size_t);
-void oid_copy_addr (oid [], struct in_addr *, int);
+extern void smux_init (struct thread_master *tm);
+extern void smux_start (void);
+extern void smux_register_mib(const char *, struct variable *, 
+                              size_t, int, oid [], size_t);
+extern int smux_header_generic (struct variable *, oid [], size_t *, 
+                                int, size_t *, WriteMethod **);
+extern int smux_trap (oid *, size_t, oid *, size_t, struct trap_object *, 
+                      size_t, unsigned int, u_char);
+extern int oid_compare (oid *, int, oid *, int);
+extern void oid2in_addr (oid [], int, struct in_addr *);
+extern void *oid_copy (void *, void *, size_t);
+extern void oid_copy_addr (oid [], struct in_addr *, int);
 
 #endif /* _ZEBRA_SNMP_H */

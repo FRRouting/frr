@@ -185,7 +185,7 @@ program_counter(void *context)
 
 #endif /* SA_SIGINFO */
 
-static void
+static void __attribute__ ((noreturn))
 exit_handler(int signo
 #ifdef SA_SIGINFO
 	     , siginfo_t *siginfo, void *context
@@ -200,7 +200,7 @@ exit_handler(int signo
   _exit(128+signo);
 }
 
-static void
+static void __attribute__ ((noreturn))
 core_handler(int signo
 #ifdef SA_SIGINFO
 	     , siginfo_t *siginfo, void *context

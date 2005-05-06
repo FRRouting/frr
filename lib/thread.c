@@ -88,7 +88,7 @@ timeval_elapsed (struct timeval a, struct timeval b)
 static unsigned int
 cpu_record_hash_key (struct cpu_thread_history *a)
 {
-  return (unsigned int) a->func;
+  return (uintptr_t) a->func;
 }
 
 static int 
@@ -98,7 +98,7 @@ cpu_record_hash_cmp (struct cpu_thread_history *a,
   return a->func == b->func;
 }
 
-static void*  
+static void *
 cpu_record_hash_alloc (struct cpu_thread_history *a)
 {
   struct cpu_thread_history *new;
@@ -252,7 +252,7 @@ thread_list_debug (struct thread_list *list)
 }
 
 /* Debug print for thread_master. */
-void
+static void  __attribute__ ((unused))
 thread_master_debug (struct thread_master *m)
 {
   printf ("-----------\n");
@@ -277,8 +277,9 @@ struct thread_master *
 thread_master_create ()
 {
   if (cpu_record == NULL) 
-    cpu_record = hash_create_size (1011, cpu_record_hash_key, 
-                                   cpu_record_hash_cmp);
+    cpu_record 
+      = hash_create_size (1011, (unsigned int (*) (void *))cpu_record_hash_key, 
+                          (int (*) (void *, void *))cpu_record_hash_cmp);
     
   return (struct thread_master *) XCALLOC (MTYPE_THREAD_MASTER,
 					   sizeof (struct thread_master));
@@ -375,20 +376,20 @@ thread_master_free (struct thread_master *m)
   XFREE (MTYPE_THREAD_MASTER, m);
 }
 
+/* Thread list is empty or not.  */
+static inline int
+thread_empty (struct thread_list *list)
+{
+  return  list->head ? 0 : 1;
+}
+
 /* Delete top of the list and return it. */
 static struct thread *
 thread_trim_head (struct thread_list *list)
 {
-  if (list->head)
+  if (!thread_empty (list))
     return thread_list_delete (list, list->head);
   return NULL;
-}
-
-/* Thread list is empty or not.  */
-int
-thread_empty (struct thread_list *list)
-{
-  return  list->head ? 0 : 1;
 }
 
 /* Return remain time in second. */
@@ -437,7 +438,7 @@ thread_get (struct thread_master *m, u_char type,
 {
   struct thread *thread;
 
-  if (m->unuse.head)
+  if (!thread_empty (&m->unuse))
     {
       thread = thread_trim_head (&m->unuse);
       if (thread->funcname)
@@ -687,7 +688,7 @@ thread_cancel_event (struct thread_master *m, void *arg)
 static struct timeval *
 thread_timer_wait (struct thread_list *tlist, struct timeval *timer_val)
 {
-  if (tlist->head)
+  if (!thread_empty (tlist))
     {
       *timer_val = timeval_subtract (tlist->head->u.sands, recent_time);
       return timer_val;
@@ -695,7 +696,7 @@ thread_timer_wait (struct thread_list *tlist, struct timeval *timer_val)
   return NULL;
 }
 
-struct thread *
+static struct thread *
 thread_run (struct thread_master *m, struct thread *thread,
 	    struct thread *fetch)
 {
@@ -879,7 +880,8 @@ thread_call (struct thread *thread)
   
   tmp.func = thread->func;
   tmp.funcname = thread->funcname;
-  cpu = hash_get(cpu_record, &tmp, cpu_record_hash_alloc);
+  cpu = hash_get (cpu_record, &tmp, 
+                  (void * (*) (void *))cpu_record_hash_alloc);
 
   GETRUSAGE (&thread->ru);
 

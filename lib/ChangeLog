@@ -1,3 +1,29 @@
+2005-05-06 Paul Jakma <paul@dishone.st>
+
+	* (general) extern and static'ification of functions in code and
+	  header.
+	  Cleanup any definitions with unspecified arguments.
+	  Add casts for callback assignments where the callback is defined,
+	  typically, as passing void *, but the function being assigned has
+	  some other pointer type defined as its argument, as gcc complains 
+	  about casts from void * to X* via function arguments.
+	  Fix some old K&R style function argument definitions.
+	  Add noreturn gcc attribute to some functions, as appropriate.
+	  Add unused gcc attribute to some functions (eg ones meant to help
+	  while debugging)
+	  Add guard defines to headers which were missing them.
+	* command.c: (install_node) add const qualifier, still doesnt shut
+	  up the warning though, because of the double pointer.
+	  (cmp_node) ditto
+	* keychain.c: (key_str2time) Add GET_LONG_RANGE() macro, derived 
+	  fromn vty.h ones to fix some of the (long) < 0 warnings.
+	* thread.c: (various) use thread_empty
+	  (cpu_record_hash_key) should cast to uintptr_t, a stdint.h type
+	* vty.h: Add VTY_GET_IPV4_ADDRESS and VTY_GET_IPV4_PREFIX so they
+	  removed from ospfd/ospf_vty.h
+	* zebra.h: Move definition of ZEBRA_PORT to here, to remove
+	  dependence of lib on zebra/zserv.h
+
 2005-05-06 Hasso Tepper <hasso at quagga.net>
 
 	* sockunion.c: Fix warning message.

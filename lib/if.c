@@ -191,13 +191,13 @@ if_lookup_by_index (unsigned int index)
   return NULL;
 }
 
-char *
+const char *
 ifindex2ifname (unsigned int index)
 {
   struct interface *ifp;
 
   return ((ifp = if_lookup_by_index(index)) != NULL) ?
-  	 ifp->name : (char *)"unknown";
+  	 ifp->name : "unknown";
 }
 
 unsigned int
@@ -434,7 +434,7 @@ if_flag_dump (unsigned long flag)
 }
 
 /* For debugging */
-void
+static void
 if_dump (struct interface *ifp)
 {
   struct listnode *node;
@@ -587,7 +587,7 @@ DEFUN (show_address,
 
 /* Allocate connected structure. */
 struct connected *
-connected_new ()
+connected_new (void)
 {
   struct connected *new = XMALLOC (MTYPE_CONNECTED, sizeof (struct connected));
   memset (new, 0, sizeof (struct connected));
@@ -611,7 +611,7 @@ connected_free (struct connected *connected)
 }
 
 /* Print if_addr structure. */
-void
+static void __attribute__ ((unused))
 connected_log (struct connected *connected, char *str)
 {
   struct prefix *p;
@@ -637,7 +637,7 @@ connected_log (struct connected *connected, char *str)
 }
 
 /* If two connected address has same prefix return 1. */
-int
+static int
 connected_same_prefix (struct prefix *p1, struct prefix *p2)
 {
   if (p1->family == p2->family)
@@ -767,13 +767,16 @@ if_indextoname (unsigned int ifindex, char *name)
 }
 #endif
 
+#if 0 /* this route_table of struct connected's is unused
+       * however, it would be good to use a route_table rather than
+       * a list..
+       */
 /* Interface looking up by interface's address. */
-
 /* Interface's IPv4 address reverse lookup table. */
 struct route_table *ifaddr_ipv4_table;
 /* struct route_table *ifaddr_ipv6_table; */
 
-void
+static void
 ifaddr_ipv4_add (struct in_addr *ifaddr, struct interface *ifp)
 {
   struct route_node *rn;
@@ -794,7 +797,7 @@ ifaddr_ipv4_add (struct in_addr *ifaddr, struct interface *ifp)
   rn->info = ifp;
 }
 
-void
+static void
 ifaddr_ipv4_delete (struct in_addr *ifaddr, struct interface *ifp)
 {
   struct route_node *rn;
@@ -817,7 +820,7 @@ ifaddr_ipv4_delete (struct in_addr *ifaddr, struct interface *ifp)
 }
 
 /* Lookup interface by interface's IP address or interface index. */
-struct interface *
+static struct interface *
 ifaddr_ipv4_lookup (struct in_addr *addr, unsigned int ifindex)
 {
   struct prefix_ipv4 p;
@@ -841,13 +844,16 @@ ifaddr_ipv4_lookup (struct in_addr *addr, unsigned int ifindex)
   else
     return if_lookup_by_index(ifindex);
 }
+#endif /* ifaddr_ipv4_table */
 
 /* Initialize interface list. */
 void
-if_init ()
+if_init (void)
 {
   iflist = list_new ();
+#if 0
   ifaddr_ipv4_table = route_table_init ();
+#endif /* ifaddr_ipv4_table */
 
   if (iflist) {
     iflist->cmp = (int (*)(void *, void *))if_cmp_func;

@@ -37,11 +37,11 @@ struct if_rmap
   char *routemap[IF_RMAP_MAX];
 };
 
-void if_rmap_init (int);
-void if_rmap_reset (void);
-void if_rmap_hook_add (void (*) (struct if_rmap *));
-void if_rmap_hook_delete (void (*) (struct if_rmap *));
-struct if_rmap *if_rmap_lookup (const char *);
-int config_write_if_rmap (struct vty *);
+extern void if_rmap_init (int);
+extern void if_rmap_reset (void);
+extern void if_rmap_hook_add (void (*) (struct if_rmap *));
+extern void if_rmap_hook_delete (void (*) (struct if_rmap *));
+extern struct if_rmap *if_rmap_lookup (const char *);
+extern int config_write_if_rmap (struct vty *);
 
 #endif /* _ZEBRA_IF_RMAP_H */

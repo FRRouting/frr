@@ -53,21 +53,25 @@ struct route_node
 };
 
 /* Prototypes. */
-struct route_table *route_table_init (void);
-void route_table_finish (struct route_table *);
-void route_unlock_node (struct route_node *node);
-void route_node_delete (struct route_node *node);
-struct route_node *route_top (struct route_table *);
-struct route_node *route_next (struct route_node *);
-struct route_node *route_next_until (struct route_node *, struct route_node *);
-struct route_node *route_node_get (struct route_table *, struct prefix *);
-struct route_node *route_node_lookup (struct route_table *, struct prefix *);
-struct route_node *route_lock_node (struct route_node *node);
-struct route_node *route_node_match (struct route_table *, struct prefix *);
-struct route_node *route_node_match_ipv4 (struct route_table *,
+extern struct route_table *route_table_init (void);
+extern void route_table_finish (struct route_table *);
+extern void route_unlock_node (struct route_node *node);
+extern void route_node_delete (struct route_node *node);
+extern struct route_node *route_top (struct route_table *);
+extern struct route_node *route_next (struct route_node *);
+extern struct route_node *route_next_until (struct route_node *,
+                                            struct route_node *);
+extern struct route_node *route_node_get (struct route_table *,
+                                          struct prefix *);
+extern struct route_node *route_node_lookup (struct route_table *,
+                                             struct prefix *);
+extern struct route_node *route_lock_node (struct route_node *node);
+extern struct route_node *route_node_match (struct route_table *, 
+                                            struct prefix *);
+extern struct route_node *route_node_match_ipv4 (struct route_table *,
 					  struct in_addr *);
 #ifdef HAVE_IPV6
-struct route_node *route_node_match_ipv6 (struct route_table *,
+extern struct route_node *route_node_match_ipv6 (struct route_table *,
 					  struct in6_addr *);
 #endif /* HAVE_IPV6 */
 

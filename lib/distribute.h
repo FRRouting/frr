@@ -43,15 +43,15 @@ struct distribute
 };
 
 /* Prototypes for distribute-list. */
-void distribute_list_init (int);
-void distribute_list_reset (void);
-void distribute_list_add_hook (void (*) (struct distribute *));
-void distribute_list_delete_hook (void (*) (struct distribute *));
-struct distribute *distribute_lookup (const char *);
-int config_write_distribute (struct vty *);
-int config_show_distribute (struct vty *);
+extern void distribute_list_init (int);
+extern void distribute_list_reset (void);
+extern void distribute_list_add_hook (void (*) (struct distribute *));
+extern void distribute_list_delete_hook (void (*) (struct distribute *));
+extern struct distribute *distribute_lookup (const char *);
+extern int config_write_distribute (struct vty *);
+extern int config_show_distribute (struct vty *);
 
-enum filter_type distribute_apply_in (struct interface *, struct prefix *);
-enum filter_type distribute_apply_out (struct interface *, struct prefix *);
+extern enum filter_type distribute_apply_in (struct interface *, struct prefix *);
+extern enum filter_type distribute_apply_out (struct interface *, struct prefix *);
 
 #endif /* _ZEBRA_DISTRIBUTE_H */

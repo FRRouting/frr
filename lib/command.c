@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.47 2005/04/25 16:26:42 paul Exp $
+   $Id: command.c,v 1.48 2005/05/06 21:25:49 paul Exp $
  
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -193,8 +193,8 @@ install_node (struct cmd_node *node,
 static int
 cmp_node (const void *p, const void *q)
 {
-  struct cmd_element *a = *(struct cmd_element **)p;
-  struct cmd_element *b = *(struct cmd_element **)q;
+  const struct cmd_element *a = *(struct cmd_element **)p;
+  const struct cmd_element *b = *(struct cmd_element **)q;
 
   return strcmp (a->string, b->string);
 }
@@ -202,8 +202,8 @@ cmp_node (const void *p, const void *q)
 static int
 cmp_desc (const void *p, const void *q)
 {
-  struct desc *a = *(struct desc **)p;
-  struct desc *b = *(struct desc **)q;
+  const struct desc *a = *(struct desc **)p;
+  const struct desc *b = *(struct desc **)q;
 
   return strcmp (a->cmd, b->cmd);
 }

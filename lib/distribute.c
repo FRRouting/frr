@@ -35,8 +35,8 @@ struct hash *disthash;
 void (*distribute_add_hook) (struct distribute *);
 void (*distribute_delete_hook) (struct distribute *);
 
-struct distribute *
-distribute_new ()
+static struct distribute *
+distribute_new (void)
 {
   struct distribute *new;
 
@@ -47,7 +47,7 @@ distribute_new ()
 }
 
 /* Free distribute object. */
-void
+static void
 distribute_free (struct distribute *dist)
 {
   if (dist->ifname)
@@ -93,7 +93,7 @@ distribute_list_delete_hook (void (*func) (struct distribute *))
   distribute_delete_hook = func;
 }
 
-void *
+static void *
 distribute_hash_alloc (struct distribute *arg)
 {
   struct distribute *dist;
@@ -107,7 +107,7 @@ distribute_hash_alloc (struct distribute *arg)
 }
 
 /* Make new distribute list and push into hash. */
-struct distribute *
+static struct distribute *
 distribute_get (const char *ifname)
 {
   struct distribute key;
@@ -115,10 +115,10 @@ distribute_get (const char *ifname)
   /* temporary reference */
   key.ifname = (char *)ifname;
   
-  return hash_get (disthash, &key, distribute_hash_alloc);
+  return hash_get (disthash, &key, (void * (*) (void *))distribute_hash_alloc);
 }
 
-unsigned int
+static unsigned int
 distribute_hash_make (struct distribute *dist)
 {
   unsigned int i, key;
@@ -133,7 +133,7 @@ distribute_hash_make (struct distribute *dist)
 
 /* If two distribute-list have same value then return 1 else return
    0. This function is used by hash package. */
-int
+static int
 distribute_cmp (struct distribute *dist1, struct distribute *dist2)
 {
   if (dist1->ifname && dist2->ifname)
@@ -145,7 +145,7 @@ distribute_cmp (struct distribute *dist1, struct distribute *dist2)
 }
 
 /* Set access-list name to the distribute list. */
-struct distribute *
+static struct distribute *
 distribute_list_set (const char *ifname, enum distribute_type type, 
                      const char *alist_name)
 {
@@ -174,7 +174,7 @@ distribute_list_set (const char *ifname, enum distribute_type type,
 
 /* Unset distribute-list.  If matched distribute-list exist then
    return 1. */
-int
+static int
 distribute_list_unset (const char *ifname, enum distribute_type type, 
 		       const char *alist_name)
 {
@@ -223,7 +223,7 @@ distribute_list_unset (const char *ifname, enum distribute_type type,
 }
 
 /* Set access-list name to the distribute list. */
-struct distribute *
+static struct distribute *
 distribute_list_prefix_set (const char *ifname, enum distribute_type type,
 			    const char *plist_name)
 {
@@ -252,7 +252,7 @@ distribute_list_prefix_set (const char *ifname, enum distribute_type type,
 
 /* Unset distribute-list.  If matched distribute-list exist then
    return 1. */
-int
+static int
 distribute_list_prefix_unset (const char *ifname, enum distribute_type type,
 			      const char *plist_name)
 {
@@ -768,7 +768,8 @@ distribute_list_reset ()
 void
 distribute_list_init (int node)
 {
-  disthash = hash_create (distribute_hash_make, distribute_cmp);
+  disthash = hash_create ((unsigned int (*) (void *)) distribute_hash_make,
+                          (int (*) (void *, void *)) distribute_cmp);
 
   if(node==RIP_NODE) {
     install_element (RIP_NODE, &distribute_list_all_cmd);

@@ -26,7 +26,7 @@
 
 /* Allocate new list. */
 struct list *
-list_new ()
+list_new (void)
 {
   struct list *new;
 
@@ -44,7 +44,7 @@ list_free (struct list *l)
 
 /* Allocate new listnode.  Internal use only. */
 static struct listnode *
-listnode_new ()
+listnode_new (void)
 {
   struct listnode *node;
 

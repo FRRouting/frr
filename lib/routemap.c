@@ -159,7 +159,7 @@ route_map_lookup_by_name (const char *name)
 
 /* Lookup route map.  If there isn't route map create one and return
    it. */
-struct route_map *
+static struct route_map *
 route_map_get (const char *name)
 {
   struct route_map *map;
@@ -171,7 +171,7 @@ route_map_get (const char *name)
 }
 
 /* Return route map's type string. */
-const static char *
+static const char *
 route_map_type_str (enum route_map_type type)
 {
   switch (type)
@@ -188,7 +188,7 @@ route_map_type_str (enum route_map_type type)
     }
 }
 
-int
+static int
 route_map_empty (struct route_map *map)
 {
   if (map->head == NULL && map->tail == NULL)
@@ -245,7 +245,7 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
     }
 }
 
-int
+static int
 vty_show_route_map (struct vty *vty, const char *name)
 {
   struct route_map *map;
@@ -271,8 +271,8 @@ vty_show_route_map (struct vty *vty, const char *name)
 
 /* New route map allocation. Please note route map's name must be
    specified. */
-struct route_map_index *
-route_map_index_new ()
+static struct route_map_index *
+route_map_index_new (void)
 {
   struct route_map_index *new;
 
@@ -319,7 +319,7 @@ route_map_index_delete (struct route_map_index *index, int notify)
 }
 
 /* Lookup index from route map. */
-struct route_map_index *
+static struct route_map_index *
 route_map_index_lookup (struct route_map *map, enum route_map_type type,
 			int pref)
 {
@@ -333,7 +333,7 @@ route_map_index_lookup (struct route_map *map, enum route_map_type type,
 }
 
 /* Add new index to route map. */
-struct route_map_index *
+static struct route_map_index *
 route_map_index_add (struct route_map *map, enum route_map_type type,
 		     int pref)
 {
@@ -385,7 +385,7 @@ route_map_index_add (struct route_map *map, enum route_map_type type,
 }
 
 /* Get route map index. */
-struct route_map_index *
+static struct route_map_index *
 route_map_index_get (struct route_map *map, enum route_map_type type, 
 		     int pref)
 {
@@ -404,8 +404,8 @@ route_map_index_get (struct route_map *map, enum route_map_type type,
 }
 
 /* New route map rule */
-struct route_map_rule *
-route_map_rule_new ()
+static struct route_map_rule *
+route_map_rule_new (void)
 {
   struct route_map_rule *new;
 
@@ -428,7 +428,7 @@ route_map_install_set (struct route_map_rule_cmd *cmd)
 }
 
 /* Lookup rule command from match list. */
-struct route_map_rule_cmd *
+static struct route_map_rule_cmd *
 route_map_lookup_match (const char *name)
 {
   unsigned int i;
@@ -442,7 +442,7 @@ route_map_lookup_match (const char *name)
 }
 
 /* Lookup rule command from set list. */
-struct route_map_rule_cmd *
+static struct route_map_rule_cmd *
 route_map_lookup_set (const char *name)
 {
   unsigned int i;
@@ -493,7 +493,7 @@ route_map_rule_delete (struct route_map_rule_list *list,
 }
 
 /* strcmp wrapper function which don't crush even argument is NULL. */
-int
+static int
 rulecmp (const char *dst, const char *src)
 {
   if (dst == NULL)
@@ -731,7 +731,7 @@ route_map_delete_set (struct route_map_index *index, const char *set_name,
    We need to make sure our route-map processing matches the above
 */
 
-route_map_result_t
+static route_map_result_t
 route_map_apply_match (struct route_map_rule_list *match_list,
                        struct prefix *prefix, route_map_object_t type,
                        void *object)
@@ -875,7 +875,7 @@ route_map_event_hook (void (*func) (route_map_event_t, const char *))
 }
 
 void
-route_map_init ()
+route_map_init (void)
 {
   /* Make vector for match and set. */
   route_match_vec = vector_init (1);
@@ -1230,7 +1230,7 @@ DEFUN (no_rmap_description,
 }
 
 /* Configuration write function. */
-int
+static int
 route_map_config_write (struct vty *vty)
 {
   struct route_map *map;
@@ -1286,7 +1286,7 @@ struct cmd_node rmap_node =
 
 /* Initialization of route map vector. */
 void
-route_map_init_vty ()
+route_map_init_vty (void)
 {
   /* Install route map top node. */
   install_node (&rmap_node, route_map_config_write);

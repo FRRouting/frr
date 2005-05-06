@@ -62,26 +62,26 @@ struct list
 #define listgetdata(X) (assert((X)->data != NULL), (X)->data)
 
 /* Prototypes. */
-struct list *list_new(); /* encouraged: set list.del callback on new lists */
-void list_free (struct list *);
+extern struct list *list_new(void); /* encouraged: set list.del callback on new lists */
+extern void list_free (struct list *);
 
-void listnode_add (struct list *, void *);
-void listnode_add_sort (struct list *, void *);
-void listnode_add_after (struct list *, struct listnode *, void *);
-void listnode_delete (struct list *, void *);
-struct listnode *listnode_lookup (struct list *, void *);
-void *listnode_head (struct list *);
+extern void listnode_add (struct list *, void *);
+extern void listnode_add_sort (struct list *, void *);
+extern void listnode_add_after (struct list *, struct listnode *, void *);
+extern void listnode_delete (struct list *, void *);
+extern struct listnode *listnode_lookup (struct list *, void *);
+extern void *listnode_head (struct list *);
 
-void list_delete (struct list *);
-void list_delete_all_node (struct list *);
+extern void list_delete (struct list *);
+extern void list_delete_all_node (struct list *);
 
 /* For ospfd and ospf6d. */
-void list_delete_node (struct list *, struct listnode *);
+extern void list_delete_node (struct list *, struct listnode *);
 
 /* For ospf_spf.c */
-void list_add_node_prev (struct list *, struct listnode *, void *);
-void list_add_node_next (struct list *, struct listnode *, void *);
-void list_add_list (struct list *, struct list *);
+extern void list_add_node_prev (struct list *, struct listnode *, void *);
+extern void list_add_node_next (struct list *, struct listnode *, void *);
+extern void list_add_list (struct list *, struct list *);
 
 /* List iteration macro. 
  * Usage: for (ALL_LIST_ELEMENTS (...) { ... }

@@ -211,16 +211,16 @@ struct connected
 #endif /* IFF_VIRTUAL */
 
 /* Prototypes. */
-int if_cmp_func (struct interface *, struct interface *);
-struct interface *if_create (const char *name, int namelen);
-struct interface *if_lookup_by_index (unsigned int);
-struct interface *if_lookup_exact_address (struct in_addr);
-struct interface *if_lookup_address (struct in_addr);
+extern int if_cmp_func (struct interface *, struct interface *);
+extern struct interface *if_create (const char *name, int namelen);
+extern struct interface *if_lookup_by_index (unsigned int);
+extern struct interface *if_lookup_exact_address (struct in_addr);
+extern struct interface *if_lookup_address (struct in_addr);
 
 /* These 2 functions are to be used when the ifname argument is terminated
    by a '\0' character: */
-struct interface *if_lookup_by_name (const char *ifname);
-struct interface *if_get_by_name (const char *ifname);
+extern struct interface *if_lookup_by_name (const char *ifname);
+extern struct interface *if_get_by_name (const char *ifname);
 
 /* For these 2 functions, the namelen argument should be the precise length
    of the ifname string (not counting any optional trailing '\0' character).
@@ -239,22 +239,22 @@ extern void if_delete_retain (struct interface *);
    deletes it from the interface list and frees the structure. */
 extern void if_delete (struct interface *);
 
-int if_is_up (struct interface *);
-int if_is_running (struct interface *);
-int if_is_operative (struct interface *);
-int if_is_loopback (struct interface *);
-int if_is_broadcast (struct interface *);
-int if_is_pointopoint (struct interface *);
-int if_is_multicast (struct interface *);
-void if_add_hook (int, int (*)(struct interface *));
-void if_init ();
-void if_dump_all ();
+extern int if_is_up (struct interface *);
+extern int if_is_running (struct interface *);
+extern int if_is_operative (struct interface *);
+extern int if_is_loopback (struct interface *);
+extern int if_is_broadcast (struct interface *);
+extern int if_is_pointopoint (struct interface *);
+extern int if_is_multicast (struct interface *);
+extern void if_add_hook (int, int (*)(struct interface *));
+extern void if_init (void);
+extern void if_dump_all (void);
 extern const char *if_flag_dump(unsigned long);
 
 /* Please use ifindex2ifname instead of if_indextoname where possible;
    ifindex2ifname uses internal interface info, whereas if_indextoname must
    make a system call. */
-extern char *ifindex2ifname (unsigned int);
+extern const char *ifindex2ifname (unsigned int);
 
 /* Please use ifname2ifindex instead of if_nametoindex where possible;
    ifname2ifindex uses internal interface info, whereas if_nametoindex must
@@ -262,22 +262,22 @@ extern char *ifindex2ifname (unsigned int);
 extern unsigned int ifname2ifindex(const char *ifname);
 
 /* Connected address functions. */
-struct connected *connected_new ();
-void connected_free (struct connected *);
-void connected_add (struct interface *, struct connected *);
-struct connected  *connected_add_by_prefix (struct interface *,
+extern struct connected *connected_new (void);
+extern void connected_free (struct connected *);
+extern void connected_add (struct interface *, struct connected *);
+extern struct connected  *connected_add_by_prefix (struct interface *,
                                             struct prefix *,
                                             struct prefix *);
-struct connected  *connected_delete_by_prefix (struct interface *, 
+extern struct connected  *connected_delete_by_prefix (struct interface *, 
                                                struct prefix *);
-struct connected  *connected_lookup_address (struct interface *, 
+extern struct connected  *connected_lookup_address (struct interface *, 
                                              struct in_addr);
 
 #ifndef HAVE_IF_NAMETOINDEX
-unsigned int if_nametoindex (const char *);
+extern unsigned int if_nametoindex (const char *);
 #endif
 #ifndef HAVE_IF_INDEXTONAME
-char *if_indextoname (unsigned int, char *);
+extern char *if_indextoname (unsigned int, char *);
 #endif
 
 /* Exported variables. */

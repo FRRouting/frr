@@ -174,26 +174,49 @@ struct vty
 #define VTY_GET_INTEGER(NAME,V,STR) \
   VTY_GET_INTEGER_RANGE(NAME,V,STR,0U,UINT32_MAX)
 
+#define VTY_GET_IPV4_ADDRESS(NAME,V,STR)                                      \
+{                                                                             \
+  int retv;                                                                   \
+  retv = inet_aton ((STR), &(V));                                             \
+  if (!retv)                                                                  \
+    {                                                                         \
+      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
+      return CMD_WARNING;                                                     \
+    }                                                                         \
+}
+
+#define VTY_GET_IPV4_PREFIX(NAME,V,STR)                                       \
+{                                                                             \
+  int retv;                                                                   \
+  retv = str2prefix_ipv4 ((STR), &(V));                                       \
+  if (retv <= 0)                                                              \
+    {                                                                         \
+      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
+      return CMD_WARNING;                                                     \
+    }                                                                         \
+}
+
 /* Exported variables */
 extern char integrate_default[];
 
 /* Prototypes. */
-void vty_init (struct thread_master *);
-void vty_init_vtysh (void);
-void vty_reset (void);
-struct vty *vty_new (void);
-int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
-void vty_read_config (char *, char *);
-void vty_time_print (struct vty *, int);
-void vty_serv_sock (const char *, unsigned short, const char *);
-void vty_close (struct vty *);
-char *vty_get_cwd (void);
-void vty_log (const char *level, const char *proto, const char *fmt, va_list);
-int vty_config_lock (struct vty *);
-int vty_config_unlock (struct vty *);
-int vty_shell (struct vty *);
-int vty_shell_serv (struct vty *);
-void vty_hello (struct vty *);
+extern void vty_init (struct thread_master *);
+extern void vty_init_vtysh (void);
+extern void vty_reset (void);
+extern struct vty *vty_new (void);
+extern int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
+extern void vty_read_config (char *, char *);
+extern void vty_time_print (struct vty *, int);
+extern void vty_serv_sock (const char *, unsigned short, const char *);
+extern void vty_close (struct vty *);
+extern char *vty_get_cwd (void);
+extern void vty_log (const char *level, const char *proto, 
+                     const char *fmt, va_list);
+extern int vty_config_lock (struct vty *);
+extern int vty_config_unlock (struct vty *);
+extern int vty_shell (struct vty *);
+extern int vty_shell_serv (struct vty *);
+extern void vty_hello (struct vty *);
 
 /* Send a fixed-size message to all vty terminal monitors; this should be
    an async-signal-safe function. */

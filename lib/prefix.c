@@ -72,8 +72,8 @@ prefix_match (const struct prefix *n, const struct prefix *p)
   int shift;
 
   /* Set both prefix's head pointer. */
-  u_char *np = (u_char *)&n->u.prefix;
-  u_char *pp = (u_char *)&p->u.prefix;
+  const u_char *np = (const u_char *)&n->u.prefix;
+  const u_char *pp = (const u_char *)&p->u.prefix;
 
   /* If n's prefix is longer than p's one return 0. */
   if (n->prefixlen > p->prefixlen)
@@ -160,8 +160,8 @@ prefix_cmp (const struct prefix *p1, const struct prefix *p2)
   int shift;
 
   /* Set both prefix's head pointer. */
-  u_char *pp1 = (u_char *)&p1->u.prefix;
-  u_char *pp2 = (u_char *)&p2->u.prefix;
+  const u_char *pp1 = (const u_char *)&p1->u.prefix;
+  const u_char *pp2 = (const u_char *)&p2->u.prefix;
 
   if (p1->family != p2->family || p1->prefixlen != p2->prefixlen)
     return 1;
@@ -344,7 +344,7 @@ prefix_ipv4_any (const struct prefix_ipv4 *p)
 
 /* Allocate a new ip version 6 route */
 struct prefix_ipv6 *
-prefix_ipv6_new ()
+prefix_ipv6_new (void)
 {
   struct prefix_ipv6 *p;
 

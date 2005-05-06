@@ -345,6 +345,9 @@ struct in_pktinfo
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
 #endif /* IN6_ARE_ADDR_EQUAL */
 
+/* default zebra TCP port for zclient */
+#define ZEBRA_PORT			2600
+
 /* Zebra message types. */
 #define ZEBRA_INTERFACE_ADD                1
 #define ZEBRA_INTERFACE_DELETE             2

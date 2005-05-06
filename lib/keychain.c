@@ -28,8 +28,8 @@ Boston, MA 02111-1307, USA.  */
 /* Master list of key chain. */
 struct list *keychain_list;
 
-struct keychain *
-keychain_new ()
+static struct keychain *
+keychain_new (void)
 {
   struct keychain *new;
   new = XMALLOC (MTYPE_KEYCHAIN, sizeof (struct keychain));
@@ -37,14 +37,14 @@ keychain_new ()
   return new;
 }
 
-void
+static void
 keychain_free (struct keychain *keychain)
 {
   XFREE (MTYPE_KEYCHAIN, keychain);
 }
 
-struct key *
-key_new ()
+static struct key *
+key_new (void)
 {
   struct key *new;
   new = XMALLOC (MTYPE_KEY, sizeof (struct key));
@@ -52,7 +52,7 @@ key_new ()
   return new;
 }
 
-void
+static void
 key_free (struct key *key)
 {
   XFREE (MTYPE_KEY, key);
@@ -75,9 +75,12 @@ keychain_lookup (const char *name)
   return NULL;
 }
 
-int
-key_cmp_func (const struct key *k1, const struct key *k2)
+static int
+key_cmp_func (void *arg1, void *arg2)
 {
+  const struct key *k1 = arg1;
+  const struct key *k2 = arg2;
+  
   if (k1->index > k2->index)
     return 1;
   if (k1->index < k2->index)
@@ -85,7 +88,7 @@ key_cmp_func (const struct key *k1, const struct key *k2)
   return 0;
 }
 
-void
+static void
 key_delete_func (struct key *key)
 {
   if (key->string)
@@ -93,7 +96,7 @@ key_delete_func (struct key *key)
   key_free (key);
 }
 
-struct keychain *
+static struct keychain *
 keychain_get (const char *name)
 {
   struct keychain *keychain;
@@ -113,7 +116,7 @@ keychain_get (const char *name)
   return keychain;
 }
 
-void
+static void
 keychain_delete (struct keychain *keychain)
 {
   if (keychain->name)
@@ -124,7 +127,7 @@ keychain_delete (struct keychain *keychain)
   keychain_free (keychain);
 }
 
-struct key *
+static struct key *
 key_lookup (const struct keychain *keychain, u_int32_t index)
 {
   struct listnode *node;
@@ -203,7 +206,7 @@ key_lookup_for_send (const struct keychain *keychain)
   return NULL;
 }
 
-struct key *
+static struct key *
 key_get (const struct keychain *keychain, u_int32_t index)
 {
   struct key *key;
@@ -220,7 +223,7 @@ key_get (const struct keychain *keychain, u_int32_t index)
   return key;
 }
 
-void
+static void
 key_delete (struct keychain *keychain, struct key *key)
 {
   listnode_delete (keychain->key, key);
@@ -356,7 +359,7 @@ DEFUN (no_key_string,
 
 /* Convert HH:MM:SS MON DAY YEAR to time_t value.  -1 is returned when
    given string is malformed. */
-time_t 
+static time_t 
 key_str2time (const char *time_str, const char *day_str, const char *month_str,
 	      const char *year_str)
 {
@@ -366,7 +369,6 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
   time_t time;
   unsigned int sec, min, hour;
   unsigned int day, month, year;
-  char *endptr = NULL;
 
   const char *month_name[] = 
   {
@@ -385,6 +387,18 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
     NULL
   };
 
+#define GET_LONG_RANGE(V,STR,MIN,MAX) \
+{ \
+  unsigned long tmpl; \
+  char *endptr = NULL; \
+  tmpl = strtoul ((STR), &endptr, 10); \
+  if (*endptr != '\0' || tmpl == ULONG_MAX) \
+    return -1; \
+  if ( tmpl < (MIN) || tmpl > (MAX)) \
+    return -1; \
+  (V) = tmpl; \
+}
+      
   /* Check hour field of time_str. */
   colon = strchr (time_str, ':');
   if (colon == NULL)
@@ -392,9 +406,7 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
   *colon = '\0';
 
   /* Hour must be between 0 and 23. */
-  hour = strtoul (time_str, &endptr, 10);
-  if (hour == ULONG_MAX || *endptr != '\0' || hour < 0 || hour > 23)
-    return -1;
+  GET_LONG_RANGE (hour, time_str, 0, 23);
 
   /* Check min field of time_str. */
   time_str = colon + 1;
@@ -404,9 +416,7 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
   *colon = '\0';
 
   /* Min must be between 0 and 59. */
-  min = strtoul (time_str, &endptr, 10);
-  if (min == ULONG_MAX || *endptr != '\0' || min < 0 || min > 59)
-    return -1;
+  GET_LONG_RANGE (min, time_str, 0, 59);
 
   /* Check sec field of time_str. */
   time_str = colon + 1;
@@ -414,14 +424,10 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
     return -1;
   
   /* Sec must be between 0 and 59. */
-  sec = strtoul (time_str, &endptr, 10);
-  if (sec == ULONG_MAX || *endptr != '\0' || sec < 0 || sec > 59)
-    return -1;
+  GET_LONG_RANGE (sec, time_str, 0, 59);
   
   /* Check day_str.  Day must be <1-31>. */
-  day = strtoul (day_str, &endptr, 10);
-  if (day == ULONG_MAX || *endptr != '\0' || day < 0 || day > 31)
-    return -1;
+  GET_LONG_RANGE (day, day_str, 1, 31);
 
   /* Check month_str.  Month must match month_name. */
   month = 0;
@@ -436,9 +442,7 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
     return -1;
 
   /* Check year_str.  Year must be <1993-2035>. */
-  year = strtoul (year_str, &endptr, 10);
-  if (year == ULONG_MAX || *endptr != '\0' || year < 1993 || year > 2035)
-    return -1;
+  GET_LONG_RANGE (year, year_str, 1993, 2035);
   
   memset (&tm, 0, sizeof (struct tm));
   tm.tm_sec = sec;
@@ -451,9 +455,10 @@ key_str2time (const char *time_str, const char *day_str, const char *month_str,
   time = mktime (&tm);
   
   return time;
+#undef GET_LONG_RANGE
 }
 
-int
+static int
 key_lifetime_set (struct vty *vty, struct key_range *krange,
 		  const char *stime_str, const char *sday_str,
 		  const char *smonth_str, const char *syear_str,
@@ -489,7 +494,7 @@ key_lifetime_set (struct vty *vty, struct key_range *krange,
   return CMD_SUCCESS;
 }
 
-int
+static int
 key_lifetime_duration_set (struct vty *vty, struct key_range *krange,
 			   const char *stime_str, const char *sday_str,
 			   const char *smonth_str, const char *syear_str,
@@ -513,7 +518,7 @@ key_lifetime_duration_set (struct vty *vty, struct key_range *krange,
   return CMD_SUCCESS;
 }
 
-int
+static int
 key_lifetime_infinite_set (struct vty *vty, struct key_range *krange,
 			   const char *stime_str, const char *sday_str,
 			   const char *smonth_str, const char *syear_str)
@@ -863,7 +868,7 @@ struct cmd_node keychain_key_node =
   1
 };
 
-int
+static int
 keychain_strftime (char *buf, int bufsiz, time_t *time)
 {
   struct tm *tm;
@@ -876,7 +881,7 @@ keychain_strftime (char *buf, int bufsiz, time_t *time)
   return len;
 }
 
-int
+static int
 keychain_config_write (struct vty *vty)
 {
   struct keychain *keychain;

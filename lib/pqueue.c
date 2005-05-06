@@ -106,7 +106,7 @@ trickle_down (int index, struct pqueue *queue)
 }
 
 struct pqueue *
-pqueue_create ()
+pqueue_create (void)
 {
   struct pqueue *queue;
 

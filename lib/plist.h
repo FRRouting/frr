@@ -20,6 +20,9 @@
  * Boston, MA 02111-1307, USA.
  */
 
+#ifndef _QUAGGA_PLIST_H
+#define _QUAGGA_PLIST_H
+
 #define AFI_ORF_PREFIX 65535
 
 enum prefix_list_type 
@@ -62,17 +65,19 @@ struct orf_prefix
 };
 
 /* Prototypes. */
-void prefix_list_init (void);
-void prefix_list_reset (void);
-void prefix_list_add_hook (void (*func) (struct prefix_list *));
-void prefix_list_delete_hook (void (*func) (struct prefix_list *));
+extern void prefix_list_init (void);
+extern void prefix_list_reset (void);
+extern void prefix_list_add_hook (void (*func) (struct prefix_list *));
+extern void prefix_list_delete_hook (void (*func) (struct prefix_list *));
 
-struct prefix_list *prefix_list_lookup (afi_t, const char *);
-enum prefix_list_type prefix_list_apply (struct prefix_list *, void *);
+extern struct prefix_list *prefix_list_lookup (afi_t, const char *);
+extern enum prefix_list_type prefix_list_apply (struct prefix_list *, void *);
 
-struct stream *
-prefix_bgp_orf_entry (struct stream *, struct prefix_list *,
-                      u_char, u_char, u_char);
-int prefix_bgp_orf_set (char *, afi_t, struct orf_prefix *, int, int);
-void prefix_bgp_orf_remove_all (char *);
-int prefix_bgp_show_prefix_list (struct vty *, afi_t, char *);
+extern struct stream * prefix_bgp_orf_entry (struct stream *,
+                                             struct prefix_list *,
+                                             u_char, u_char, u_char);
+extern int prefix_bgp_orf_set (char *, afi_t, struct orf_prefix *, int, int);
+extern void prefix_bgp_orf_remove_all (char *);
+extern int prefix_bgp_show_prefix_list (struct vty *, afi_t, char *);
+
+#endif /* _QUAGGA_PLIST_H */

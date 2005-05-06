@@ -57,11 +57,11 @@ struct access_list
 };
 
 /* Prototypes for access-list. */
-void access_list_init (void);
-void access_list_reset (void);
-void access_list_add_hook (void (*func)(struct access_list *));
-void access_list_delete_hook (void (*func)(struct access_list *));
-struct access_list *access_list_lookup (afi_t, const char *);
-enum filter_type access_list_apply (struct access_list *, void *);
+extern void access_list_init (void);
+extern void access_list_reset (void);
+extern void access_list_add_hook (void (*func)(struct access_list *));
+extern void access_list_delete_hook (void (*func)(struct access_list *));
+extern struct access_list *access_list_lookup (afi_t, const char *);
+extern enum filter_type access_list_apply (struct access_list *, void *);
 
 #endif /* _ZEBRA_FILTER_H */

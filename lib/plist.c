@@ -72,10 +72,10 @@ struct prefix_master
   struct prefix_list *recent;
 
   /* Hook function which is executed when new prefix_list is added. */
-  void (*add_hook) ();
+  void (*add_hook) (struct prefix_list *);
 
   /* Hook function which is executed when prefix_list is deleted. */
-  void (*delete_hook) ();
+  void (*delete_hook) (struct prefix_list *);
 };
 
 /* Static structure of IPv4 prefix_list's master. */
@@ -150,7 +150,7 @@ prefix_list_lookup (afi_t afi, const char *name)
 }
 
 static struct prefix_list *
-prefix_list_new ()
+prefix_list_new (void)
 {
   struct prefix_list *new;
 
@@ -165,7 +165,7 @@ prefix_list_free (struct prefix_list *plist)
 }
 
 static struct prefix_list_entry *
-prefix_list_entry_new ()
+prefix_list_entry_new (void)
 {
   struct prefix_list_entry *new;
 
@@ -326,11 +326,11 @@ prefix_list_delete (struct prefix_list *plist)
 
   if (plist->name)
     XFREE (MTYPE_PREFIX_LIST_STR, plist->name);
-
+  
   prefix_list_free (plist);
-
+  
   if (master->delete_hook)
-    (*master->delete_hook) ();
+    (*master->delete_hook) (NULL);
 }
 
 static struct prefix_list_entry *
@@ -586,7 +586,7 @@ prefix_list_apply (struct prefix_list *plist, void *object)
   return PREFIX_DENY;
 }
 
-void
+static void __attribute__ ((unused))
 prefix_list_print (struct prefix_list *plist)
 {
   struct prefix_list_entry *pentry;
@@ -2578,7 +2578,7 @@ prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name)
 }
 
 static void
-prefix_list_reset_orf ()
+prefix_list_reset_orf (void)
 {
   struct prefix_list *plist;
   struct prefix_list *next;
@@ -2625,7 +2625,7 @@ config_write_prefix_ipv4 (struct vty *vty)
 }
 
 static void
-prefix_list_reset_ipv4 ()
+prefix_list_reset_ipv4 (void)
 {
   struct prefix_list *plist;
   struct prefix_list *next;
@@ -2657,7 +2657,7 @@ prefix_list_reset_ipv4 ()
 }
 
 static void
-prefix_list_init_ipv4 ()
+prefix_list_init_ipv4 (void)
 {
   install_node (&prefix_node, config_write_prefix_ipv4);
 
@@ -2734,7 +2734,7 @@ config_write_prefix_ipv6 (struct vty *vty)
 }
 
 static void
-prefix_list_reset_ipv6 ()
+prefix_list_reset_ipv6 (void)
 {
   struct prefix_list *plist;
   struct prefix_list *next;
@@ -2766,7 +2766,7 @@ prefix_list_reset_ipv6 ()
 }
 
 static void
-prefix_list_init_ipv6 ()
+prefix_list_init_ipv6 (void)
 {
   install_node (&prefix_ipv6_node, config_write_prefix_ipv6);
 
