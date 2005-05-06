@@ -476,7 +476,7 @@ sockopt_reuseport (int sock)
 		    (void *) &on, sizeof (on));
   if (ret < 0)
     {
-      zlog (NULL, LOG_WARNING, "can't set sockopt SO_REUSEADDR to socket %d", sock);
+      zlog (NULL, LOG_WARNING, "can't set sockopt SO_REUSEPORT to socket %d", sock);
       return -1;
     }
   return 0;
