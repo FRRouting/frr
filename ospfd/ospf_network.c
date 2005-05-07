@@ -60,8 +60,8 @@ ospf_if_add_allspfrouters (struct ospf *top, struct prefix *p,
 	       "on # of multicast group memberships has been exceeded?",
                top->fd, inet_ntoa(p->u.prefix4), ifindex, safe_strerror(errno));
   else
-    zlog_info ("interface %s join AllSPFRouters Multicast group.",
-	       inet_ntoa (p->u.prefix4));
+    zlog_info ("interface %s [%u] join AllSPFRouters Multicast group.",
+	       inet_ntoa (p->u.prefix4), ifindex);
 
   return ret;
 }
@@ -80,8 +80,8 @@ ospf_if_drop_allspfrouters (struct ospf *top, struct prefix *p,
 	       "ifindex %u, AllSPFRouters): %s",
                top->fd, inet_ntoa(p->u.prefix4), ifindex, safe_strerror(errno));
   else
-    zlog_info ("interface %s leave AllSPFRouters Multicast group.",
-	       inet_ntoa (p->u.prefix4));
+    zlog_info ("interface %s [%u] leave AllSPFRouters Multicast group.",
+	       inet_ntoa (p->u.prefix4), ifindex);
 
   return ret;
 }
@@ -102,8 +102,8 @@ ospf_if_add_alldrouters (struct ospf *top, struct prefix *p, unsigned int
 	       "on # of multicast group memberships has been exceeded?",
                top->fd, inet_ntoa(p->u.prefix4), ifindex, safe_strerror(errno));
   else
-    zlog_info ("interface %s join AllDRouters Multicast group.",
-	       inet_ntoa (p->u.prefix4));
+    zlog_info ("interface %s [%u] join AllDRouters Multicast group.",
+	       inet_ntoa (p->u.prefix4), ifindex);
 
   return ret;
 }
@@ -122,8 +122,8 @@ ospf_if_drop_alldrouters (struct ospf *top, struct prefix *p, unsigned int
 	       "ifindex %u, AllDRouters): %s",
                top->fd, inet_ntoa(p->u.prefix4), ifindex, safe_strerror(errno));
   else
-    zlog_info ("interface %s leave AllDRouters Multicast group.",
-	       inet_ntoa (p->u.prefix4));
+    zlog_info ("interface %s [%u] leave AllDRouters Multicast group.",
+	       inet_ntoa (p->u.prefix4), ifindex);
 
   return ret;
 }

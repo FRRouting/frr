@@ -1,3 +1,7 @@
+2005-05-07 Yar Tikhiy <yar@comp.chem.msu.su>
+
+	* sockopt.c: Add support for BSD style ifindex in ip_mreq.
+
 2005-05-06 Paul Jakma <paul@dishone.st>
 
 	* (general) extern and static'ification of functions in code and

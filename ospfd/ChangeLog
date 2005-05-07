@@ -1,3 +1,8 @@
+2005-05-07 Yar Tikhiy <yar@comp.chem.msu.su>
+
+	* ospf_network.c: Log ifindex on multicast membership leave/join
+	  events.
+
 2005-05-06 Paul Jakma <paul.jakma@sun.com>
 
         * (general) extern and static qualifiers added. 

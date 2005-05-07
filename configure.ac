@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.105 2005/04/29 03:20:54 paul Exp $
+## $Id: configure.ac,v 1.106 2005/05/07 02:22:51 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.1, [http://bugzilla.quagga.net])
@@ -321,7 +321,7 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS([string.h stropts.h sys/conf.h sys/ksym.h sys/time.h \
                  sys/times.h sys/select.h sys/sysctl.h sys/sockio.h \
                  sys/types.h linux/version.h kvm.h netdb.h asm/types.h \
-                 libutil.h limits.h])
+                 sys/param.h libutil.h limits.h])
 
 AC_CHECK_HEADERS([sys/socket.h netinet/in_systm.h netinet/in.h \
 		 net/if_dl.h net/netopt.h inet/nd.h net/route.h \
@@ -370,9 +370,6 @@ case "$host" in
   *-nec-sysv4*)
       AC_CHECK_LIB(nsl, gethostbyname)
       AC_CHECK_LIB(socket, socket)
-  ;;
-  *-freebsd3.2)
-      AC_DEFINE(FREEBSD_32,,FreeBSD 3.2)
   ;;
   *-openbsd*)
       opsys=openbsd
@@ -647,6 +644,27 @@ else
 fi
 AC_SUBST(IF_METHOD)
 AC_SUBST(IOCTL_METHOD)
+
+dnl ---------------------------------------------------------------
+dnl figure out how to specify an interface in multicast sockets API
+dnl ---------------------------------------------------------------
+AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex],,,[#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif])
+
+AC_MSG_CHECKING([for BSD struct ip_mreq hack])
+AC_TRY_COMPILE([#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#endif],[#if (defined(__FreeBSD__) && (__FreeBSD_version >= 500022 || (__FreeBSD_version < 500000 && __FreeBSD_version >= 440000))) || (defined(__NetBSD__) && defined(__NetBSD_Version__) && __NetBSD_Version__ >= 106010000)
+  return (0);
+#else
+  #error No support for BSD struct ip_mreq hack detected
+#endif],[AC_MSG_RESULT(yes)
+AC_DEFINE(HAVE_BSD_STRUCT_IP_MREQ_HACK,,[Can pass ifindex in struct ip_mreq])],
+AC_MSG_RESULT(no))
 
 dnl -----------------------
 dnl check proc file system.

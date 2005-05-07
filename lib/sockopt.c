@@ -171,8 +171,7 @@ setsockopt_multicast_ipv4(int sock,
 			unsigned int ifindex)
 {
 
-  /* Linux 2.2.0 and up */
-#if defined(GNU_LINUX) && LINUX_VERSION_CODE > 131584
+#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
   /* This is better because it uses ifindex directly */
   struct ip_mreqn mreqn;
   
@@ -212,11 +211,16 @@ setsockopt_multicast_ipv4(int sock,
   struct in_addr m;
   struct ip_mreq mreq;
 
+#ifdef HAVE_BSD_STRUCT_IP_MREQ_HACK
+  if (ifindex)
+    m.s_addr = htonl(ifindex);
+  else
+#endif
+    m = if_addr;
+
   switch (optname)
     {
     case IP_MULTICAST_IF:
-      m = if_addr;
-      
       return setsockopt (sock, IPPROTO_IP, optname, (void *)&m, sizeof(m)); 
       break;
 
@@ -224,7 +228,7 @@ setsockopt_multicast_ipv4(int sock,
     case IP_DROP_MEMBERSHIP:
       memset (&mreq, 0, sizeof(mreq));
       mreq.imr_multiaddr.s_addr = mcast_addr;
-      mreq.imr_interface = if_addr;
+      mreq.imr_interface = m;
       
       return setsockopt (sock, 
 			 IPPROTO_IP, 

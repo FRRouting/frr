@@ -1,3 +1,8 @@
+2005-05-07 Yar Tikhiy <yar@comp.chem.msu.su>
+
+	* configure.ac: Check for OSes which support passing ifindex in
+	  struct ip_mreq.
+
 2005-04-29 Paul Jakma <paul.jakma@sun.com>
 
 	* NEWS: Added some more 0.99 news.
