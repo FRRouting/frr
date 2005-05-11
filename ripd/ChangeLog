@@ -1,3 +1,9 @@
+2005-05-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* rip_interface.c (rip_interface_add): Need to call
+	  rip_passive_interface_apply (was already calling it in
+	  rip_interface_up).
+
 2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* rip_zebra.c (rip_redistribute_set, rip_redistribute_unset,

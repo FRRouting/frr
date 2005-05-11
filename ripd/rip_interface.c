@@ -547,6 +547,9 @@ rip_interface_add (int command, struct zclient *zclient, zebra_size_t length)
 
   /* Check if this interface is RIP enabled or not.*/
   rip_enable_apply (ifp);
+ 
+  /* Check for a passive interface */
+  rip_passive_interface_apply (ifp);
 
   /* Apply distribute list to the all interface. */
   rip_distribute_update_interface (ifp);
