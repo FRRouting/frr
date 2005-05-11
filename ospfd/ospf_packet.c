@@ -48,9 +48,6 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_dump.h"
 
-static void ospf_ls_ack_send_list (struct ospf_interface *, struct list *,
-				   struct in_addr);
-
 /* Packet Type String. */
 const char *ospf_packet_type_str[] =
 {
@@ -1595,9 +1592,6 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 {
   struct ospf_neighbor *nbr;
   struct list *lsas;
-#ifdef HAVE_OPAQUE_LSA
-  struct list *mylsa_acks, *mylsa_upds;
-#endif /* HAVE_OPAQUE_LSA */
   struct listnode *node, *nnode;
   struct ospf_lsa *lsa = NULL;
   /* unsigned long ls_req_found = 0; */
@@ -1634,13 +1628,6 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 
 #ifdef HAVE_OPAQUE_LSA
   /*
-   * Prepare two kinds of lists to clean up unwanted self-originated
-   * Opaque-LSAs from the routing domain as soon as possible.
-   */
-  mylsa_acks = list_new (); /* Let the sender cease retransmission. */
-  mylsa_upds = list_new (); /* Flush target LSAs if necessary. */
-
-  /*
    * If self-originated Opaque-LSAs that have flooded before restart
    * are contained in the received LSUpd message, corresponding LSReq
    * messages to be sent may have to be modified.
@@ -1648,6 +1635,9 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
    * updating for the same LSA would take place alternately, this trick
    * must be done before entering to the loop below.
    */
+   /* XXX: Why is this Opaque specific? Either our core code is deficient
+    * and this should be fixed generally, or Opaque is inventing strawman
+    * problems */
    ospf_opaque_adjust_lsreq (nbr, lsas);
 #endif /* HAVE_OPAQUE_LSA */
 
@@ -1768,18 +1758,23 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
            * Otherwise, the LSA instance remains in the routing domain
            * until its age reaches to MaxAge.
            */
+          /* XXX: We should deal with this for *ALL* LSAs, not just opaque */
           if (current == NULL)
             {
               if (IS_DEBUG_OSPF_EVENT)
-                zlog_debug ("LSA[%s]: Previously originated Opaque-LSA, not found in the LSDB.", dump_lsa_key (lsa));
+                zlog_debug ("LSA[%s]: Previously originated Opaque-LSA,"
+                            "not found in the LSDB.", dump_lsa_key (lsa));
 
               SET_FLAG (lsa->flags, OSPF_LSA_SELF);
-              listnode_add (mylsa_upds, ospf_lsa_dup  (lsa));
-              listnode_add (mylsa_acks, ospf_lsa_lock (lsa));
+              
+              ospf_opaque_self_originated_lsa_received (nbr, lsa);
+              ospf_ls_ack_send (nbr, lsa);
+              
               continue;
             }
         }
 #endif /* HAVE_OPAQUE_LSA */
+
       /* It might be happen that received LSA is self-originated network LSA, but
        * router ID is cahnged. So, we should check if LSA is a network-LSA whose
        * Link State ID is one of the router's own IP interface addresses but whose
@@ -1848,10 +1843,6 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
           ospf_upd_list_clean (lsas);
 	  /* this lsa is not on lsas list already. */
 	  ospf_lsa_discard (lsa);
-#ifdef HAVE_OPAQUE_LSA
-          list_delete (mylsa_acks);
-          list_delete (mylsa_upds);
-#endif /* HAVE_OPAQUE_LSA */
 	  return;
 	}
 
@@ -1929,23 +1920,6 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	}
     }
   
-#ifdef HAVE_OPAQUE_LSA
-  /*
-   * Now that previously originated Opaque-LSAs those which not yet
-   * installed into LSDB are captured, take several steps to clear
-   * them completely from the routing domain, before proceeding to
-   * origination for the current target Opaque-LSAs.
-   */
-  while (listcount (mylsa_acks) > 0)
-    ospf_ls_ack_send_list (oi, mylsa_acks, nbr->address.u.prefix4);
-
-  if (listcount (mylsa_upds) > 0)
-    ospf_opaque_self_originated_lsa_received (nbr, mylsa_upds);
-
-  list_delete (mylsa_upds);
-  list_delete (mylsa_acks);
-#endif /* HAVE_OPAQUE_LSA */
-
   assert (listcount (lsas) == 0);
   list_delete (lsas);
 }
@@ -1956,10 +1930,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 	     struct stream *s, struct ospf_interface *oi, u_int16_t size)
 {
   struct ospf_neighbor *nbr;
-#ifdef HAVE_OPAQUE_LSA
-  struct list *opaque_acks;
-#endif /* HAVE_OPAQUE_LSA */
-
+  
   /* increment statistics. */
   oi->ls_ack_in++;
 
@@ -1979,11 +1950,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 		 LOOKUP(ospf_nsm_state_msg, nbr->state));
       return;
     }
-
-#ifdef HAVE_OPAQUE_LSA
-  opaque_acks = list_new ();
-#endif /* HAVE_OPAQUE_LSA */
-
+  
   while (size >= OSPF_LSA_HEADER_SIZE)
     {
       struct ospf_lsa *lsa, *lsr;
@@ -2007,9 +1974,8 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
       if (lsr != NULL && lsr->data->ls_seqnum == lsa->data->ls_seqnum)
         {
 #ifdef HAVE_OPAQUE_LSA
-          /* Keep this LSA entry for later reference. */
           if (IS_OPAQUE_LSA (lsr->data->type))
-            listnode_add (opaque_acks, ospf_lsa_dup (lsr));
+            ospf_opaque_ls_ack_received (nbr, lsr);
 #endif /* HAVE_OPAQUE_LSA */
 
           ospf_ls_retransmit_delete (nbr, lsr);
@@ -2019,13 +1985,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
       ospf_lsa_discard (lsa);
     }
 
-#ifdef HAVE_OPAQUE_LSA
-  if (listcount (opaque_acks) > 0)
-    ospf_opaque_ls_ack_received (nbr, opaque_acks);
-
-  list_delete (opaque_acks);
   return;
-#endif /* HAVE_OPAQUE_LSA */
 }
 
 static struct stream *
@@ -2052,7 +2012,7 @@ ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
       zlog_warn("stream_recvmsg failed: %s", safe_strerror(errno));
       return NULL;
     }
-  if (ret < sizeof(iph))
+  if ((unsigned int)ret < sizeof(iph)) /* ret must be > 0 now */
     {
       zlog_warn("ospf_recv_packet: discarding runt packet of length %d "
 		"(ip header size is %u)",

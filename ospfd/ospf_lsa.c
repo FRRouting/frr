@@ -2523,12 +2523,14 @@ ospf_discard_from_db (struct ospf *ospf,
   switch (old->data->type)
     {
     case OSPF_AS_EXTERNAL_LSA:
+      ospf_ase_unregister_external_lsa (old, ospf);
+      ospf_ls_retransmit_delete_nbr_as (ospf, old);
+      break;
 #ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
       ospf_ls_retransmit_delete_nbr_as (ospf, old);
-      ospf_ase_unregister_external_lsa (old, ospf);
       break;
+#endif /* HAVE_OPAQUE_LSA */
     case OSPF_AS_NSSA_LSA:
       ospf_ls_retransmit_delete_nbr_area (old->area, old);
       ospf_ase_unregister_external_lsa (old, ospf);

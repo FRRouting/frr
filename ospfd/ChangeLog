@@ -1,3 +1,27 @@
+2005-05-11 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Fix memory leaks in opaque AS-scope LSAs, reported and
+	  with much debugging done by by scott collins <scollins@agile.tv>.
+	* ospf_lsa.c: (ospf_discard_from_db) dont call
+	  ospf_ase_unregister_external_lsa for opaque-lsa's, opaques are
+	  never registered with ase in the first place.
+	* ospf_packet.c: (general) Disabuse opaque related code of its
+          tendency to try gather up things into temporary lists.
+          (ospf_ls_upd) remove the temporary lists opaque uses, call
+          opaque functions inline, just like all other types.
+          (ospf_ls_ack) ditto.
+          (ospf_recv_packet) fixup sign warning.
+        * ospf_opaque.c: (general) fix the unneeded use of lists, and
+          untwist some of the logic.
+          (ospf_opaque_self_originated_lsa_received) take a single LSA
+          as argument, not a list of them. Remove the list loop. Logic 
+          otherwise unchanged.
+          (ospf_opaque_ls_ack_received) Mostly ditto. But untwist the logic,
+          move the actions up into the switch block, remove the goto's and
+          sanitise the logic near the end a bit.
+        * ospf_opaque.h: Adjust definitions of aforementioned functions
+          in ospf_opaque.c to match.
+         
 2005-05-07 Yar Tikhiy <yar@comp.chem.msu.su>
 
 	* ospf_network.c: Log ifindex on multicast membership leave/join

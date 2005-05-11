@@ -155,9 +155,9 @@ extern void ospf_opaque_adjust_lsreq (struct ospf_neighbor *nbr,
 				      struct list *lsas);
 extern void ospf_opaque_self_originated_lsa_received (struct ospf_neighbor
 						      *nbr,
-						      struct list *lsas);
+						      struct ospf_lsa *lsa);
 extern void ospf_opaque_ls_ack_received (struct ospf_neighbor *nbr,
-					 struct list *acks);
+					 struct ospf_lsa *lsa);
 
 extern void htonf (float *src, float *dst);
 extern void ntohf (float *src, float *dst);

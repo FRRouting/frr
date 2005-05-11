@@ -2234,11 +2234,9 @@ ospf_opaque_exclude_lsa_from_lsreq (struct route_table *nbrs,
 
 void
 ospf_opaque_self_originated_lsa_received (struct ospf_neighbor *nbr, 
-                                          struct list *lsas)
+                                          struct ospf_lsa *lsa)
 {
   struct ospf *top;
-  struct listnode *node, *next;
-  struct ospf_lsa *lsa;
   u_char before;
 
   if ((top = oi_to_top (nbr->oi)) == NULL)
@@ -2246,36 +2244,31 @@ ospf_opaque_self_originated_lsa_received (struct ospf_neighbor *nbr,
 
   before = IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque);
 
-  for (ALL_LIST_ELEMENTS (lsas, node, next, lsa))
+  /*
+   * Since these LSA entries are not yet installed into corresponding
+   * LSDB, just flush them without calling ospf_ls_maxage() afterward.
+   */
+  lsa->data->ls_age = htons (OSPF_LSA_MAXAGE);
+  switch (lsa->data->type)
     {
-      listnode_delete (lsas, lsa);
-
-      /*
-       * Since these LSA entries are not yet installed into corresponding
-       * LSDB, just flush them without calling ospf_ls_maxage() afterward.
-       */
-      lsa->data->ls_age = htons (OSPF_LSA_MAXAGE);
-      switch (lsa->data->type)
-        {
-        case OSPF_OPAQUE_LINK_LSA:
-          SET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_09_LSA_BIT);
-          ospf_flood_through_area (nbr->oi->area, NULL/*inbr*/, lsa);
-          break;
-        case OSPF_OPAQUE_AREA_LSA:
-          SET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_10_LSA_BIT);
-          ospf_flood_through_area (nbr->oi->area, NULL/*inbr*/, lsa);
-          break;
-        case OSPF_OPAQUE_AS_LSA:
-          SET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_11_LSA_BIT);
-          ospf_flood_through_as (top, NULL/*inbr*/, lsa);
-          break;
-        default:
-          zlog_warn ("ospf_opaque_self_originated_lsa_received: Unexpected LSA-type(%u)", lsa->data->type);
-          goto out;
-        }
-
-      ospf_lsa_discard (lsa); /* List "lsas" will be deleted by caller. */
+    case OSPF_OPAQUE_LINK_LSA:
+      SET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_09_LSA_BIT);
+      ospf_flood_through_area (nbr->oi->area, NULL/*inbr*/, lsa);
+      break;
+    case OSPF_OPAQUE_AREA_LSA:
+      SET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_10_LSA_BIT);
+      ospf_flood_through_area (nbr->oi->area, NULL/*inbr*/, lsa);
+      break;
+    case OSPF_OPAQUE_AS_LSA:
+      SET_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_11_LSA_BIT);
+      ospf_flood_through_as (top, NULL/*inbr*/, lsa);
+      break;
+    default:
+      zlog_warn ("ospf_opaque_self_originated_lsa_received: Unexpected LSA-type(%u)", lsa->data->type);
+      goto out;
     }
+
+  ospf_lsa_discard (lsa); /* List "lsas" will be deleted by caller. */
 
   if (before == 0 && IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque))
     {
@@ -2288,78 +2281,63 @@ out:
 }
 
 void
-ospf_opaque_ls_ack_received (struct ospf_neighbor *nbr, struct list *acks)
+ospf_opaque_ls_ack_received (struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 {
   struct ospf *top;
+  int delay;
+  struct ospf_interface *oi;
   struct listnode *node, *nnode;
-  struct ospf_lsa *lsa;
-  char type9_lsa_rcv = 0, type10_lsa_rcv = 0, type11_lsa_rcv = 0;
 
   if ((top = oi_to_top (nbr->oi)) == NULL)
-    goto out;
-
-  for (ALL_LIST_ELEMENTS (acks, node, nnode, lsa))
+    return;
+  
+  if (!IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque))
+    return;
+  
+  switch (lsa->data->type)
     {
-      switch (lsa->data->type)
-        {
-        case OSPF_OPAQUE_LINK_LSA:
-          type9_lsa_rcv = 1;
-          /* Callback function... */
-          break;
-        case OSPF_OPAQUE_AREA_LSA:
-          type10_lsa_rcv = 1;
-          /* Callback function... */
-          break;
-        case OSPF_OPAQUE_AS_LSA:
-          type11_lsa_rcv = 1;
-          /* Callback function... */
-          break;
-        default:
-          zlog_warn ("ospf_opaque_ls_ack_received: Unexpected LSA-type(%u)", lsa->data->type);
-          goto out;
-        }
+    case OSPF_OPAQUE_LINK_LSA:
+      if (CHECK_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_09_LSA_BIT))
+        ospf_opaque_type9_lsa_rxmt_nbr_check (nbr->oi);
+      /* Callback function... */
+      break;
+    case OSPF_OPAQUE_AREA_LSA:
+      if (CHECK_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_10_LSA_BIT))
+        ospf_opaque_type10_lsa_rxmt_nbr_check (nbr->oi->area);
+      /* Callback function... */
+      break;
+    case OSPF_OPAQUE_AS_LSA:
+      if (CHECK_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_11_LSA_BIT))
+        ospf_opaque_type11_lsa_rxmt_nbr_check (top);
+      /* Callback function... */
+      break;
+    default:
+      zlog_warn ("ospf_opaque_ls_ack_received: Unexpected LSA-type(%u)", lsa->data->type);
+      return;
     }
-
+  
   if (IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque))
     {
-      int delay;
-      struct ospf_interface *oi;
-
-      if (type9_lsa_rcv
-      &&  CHECK_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_09_LSA_BIT))
-        ospf_opaque_type9_lsa_rxmt_nbr_check (nbr->oi);
-
-      if (type10_lsa_rcv
-      &&  CHECK_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_10_LSA_BIT))
-        ospf_opaque_type10_lsa_rxmt_nbr_check (nbr->oi->area);
-
-      if (type11_lsa_rcv
-      &&  CHECK_FLAG (top->opaque, OPAQUE_BLOCK_TYPE_11_LSA_BIT))
-        ospf_opaque_type11_lsa_rxmt_nbr_check (top);
-
-      if (IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque))
-        goto out; /* Blocking still in progress. */
-
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("Block Opaque-LSA origination: ON -> OFF");
-
-      if (! CHECK_FLAG (top->config, OSPF_OPAQUE_CAPABLE))
-        goto out; /* Opaque capability condition must have changed. */
-
-      /* Ok, let's start origination of Opaque-LSAs. */
-      delay = OSPF_MIN_LS_INTERVAL;
-
-      for (ALL_LIST_ELEMENTS (top->oiflist, node, nnode, oi))
-        {
-          if (! ospf_if_is_enable (oi)
-              || ospf_nbr_count_opaque_capable (oi) == 0)
-            continue;
-
-          ospf_opaque_lsa_originate_schedule (oi, &delay);
-        }
+      return; /* Blocking still in progress. */
     }
+  
+  if (! CHECK_FLAG (top->config, OSPF_OPAQUE_CAPABLE))
+    return; /* Opaque capability condition must have changed. */
 
-out:
+  /* Ok, let's start origination of Opaque-LSAs. */
+  delay = OSPF_MIN_LS_INTERVAL;
+
+  for (ALL_LIST_ELEMENTS (top->oiflist, node, nnode, oi))
+    {
+      if (! ospf_if_is_enable (oi)
+          || ospf_nbr_count_opaque_capable (oi) == 0)
+        continue;
+
+      ospf_opaque_lsa_originate_schedule (oi, &delay);
+    }
+    
   return;
 }
 
