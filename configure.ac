@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.107 2005/05/13 07:09:50 paul Exp $
+## $Id: configure.ac,v 1.108 2005/05/13 20:11:53 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.1, [http://bugzilla.quagga.net])
@@ -1339,7 +1339,7 @@ AC_CONFIG_FILES([solaris/Makefile])
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 ## Hack, but working solution to avoid rebuilding of quagga.info.
 ## It's already in CVS until texinfo 4.7 is more common.
-dnl AC_CONFIG_COMMANDS([info-time],[touch doc/quagga.info])dnl
+AC_CONFIG_COMMANDS([info-time],[touch doc/quagga.info])
 AC_OUTPUT
 
 echo "
