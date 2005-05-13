@@ -1,11 +1,11 @@
 # Solaris packages automake file
-# $Id: Makefile.am,v 1.5 2005/04/26 02:35:03 paul Exp $
+# $Id: Makefile.am,v 1.6 2005/05/13 07:26:07 paul Exp $
 
 .PHONY: packages
 
 # the names of the various subpackages, and some convenient 
 # derived variables.
-pkg_names = daemons dev doc libs
+pkg_names = daemons dev doc libs smf
 pkg_quagga_daemons = zebra bgpd ospfd ospf6d ripd ripngd
 pkg_name_rev = @PACKAGE_VERSION@-@CONFDATE@-@target_os@-@target_cpu@
 pkg_depends := $(pkg_names:%=depend.%)

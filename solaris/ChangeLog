@@ -3,6 +3,12 @@
 	* quagga.xml.in: Sigh, XML child elements are order-sensitive.
 	* prototype.doc.in: info/dir doesnt get created always.. comment
 	  out for now, likely needs to be done with an install method.
+	* prototype.daemons.in: Move the Solaris 10 SMF specific stuff to
+	  a seperate package.
+	* depend.smf: dependencies for smf package
+	* pkginfo.smf.tmpl.in: pkginfo for smf
+	* prototype.smf.in: prototype for smf
+	* Makefile.am: Add smf to pkg_names
 	  
 2005-04-26 Paul Jakma <paul.jakma@sun.com>
 
