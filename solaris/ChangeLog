@@ -1,3 +1,9 @@
+2005-05-13 Paul Jakma <paul.jakma@sun.com>
+
+	* quagga.xml.in: Sigh, XML child elements are order-sensitive.
+	* prototype.doc.in: info/dir doesnt get created always.. comment
+	  out for now, likely needs to be done with an install method.
+	  
 2005-04-26 Paul Jakma <paul.jakma@sun.com>
 
 	* quagga.xml.in: New, better, single integrated manifest for all
