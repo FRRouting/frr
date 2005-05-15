@@ -1,3 +1,12 @@
+2005-05-15 Paul Jakma <paul@dishone.st>
+
+	* getopt.h: It's not just __GNU_LIBRARY__ which defines
+	  getopt, eg __EXTENSIONS__ does too on SunOS. It still seems
+	  awfully fragile though.
+	* getopt.c: include zebra.h after config.h, before including
+	  getopt.h so that things at least are consistent..
+	* getopt1.c: ditto
+	
 2005-05-07 Yar Tikhiy <yar@comp.chem.msu.su>
 
 	* sockopt.c: Add support for BSD style ifindex in ip_mreq.

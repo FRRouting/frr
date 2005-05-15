@@ -24,6 +24,7 @@
 #include <config.h>
 #endif
 
+#include <zebra.h>
 #include "getopt.h"
 
 #if !defined __STDC__ || !__STDC__
