@@ -1,3 +1,23 @@
+2005-05-19 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_interface.c: (ospf_if_table_lookup) Fix a serious bug
+	  a less serious one. 
+	  1: this function is supposed to lookup
+	  entries in the oifs ospf_interface route_table and return either
+	  an existing oi or NULL to indicate not found, its caller depends
+	  on this, yet this function uses route_node_get which /always/
+	  returns a route_node - one is created if none exists. Use
+	  route_node_lookup instead. This should fix root cause of the
+	  reports of the (ospf_add_to_if) assert being hit.
+	  2: oi's are inserted into this table with prefixlength set to
+	  /32 (indeed, it should be a hash table, not a route_table),
+	  however prefixlength to lookup was not changed, if no valid entry
+	  can be inserted other than /32, then nothng but /32 should be
+	  looked up. This possibly only worked by fluke..
+	  Fix confirmed by 2 reporters (one list, one IRC), definitely a
+	  backport candidate once it has been incubated in HEAD for a while.
+	  Thanks to Patrick Friedel and Ivan Warren for testing.
+	  
 2005-05-11 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) Fix memory leaks in opaque AS-scope LSAs, reported and

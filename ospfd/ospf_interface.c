@@ -150,14 +150,18 @@ ospf_if_table_lookup (struct interface *ifp, struct prefix *prefix)
 {
   struct prefix p;
   struct route_node *rn;
-  struct ospf_interface *rninfo;
+  struct ospf_interface *rninfo = NULL;
   
   p = *prefix;
-
-  rn = route_node_get (IF_OIFS (ifp), &p);
+  p.prefixlen = IPV4_MAX_PREFIXLEN;
+  
   /* route_node_get implicitely locks */
-  rninfo = (struct ospf_interface *) rn->info;
-  route_unlock_node (rn);
+  if (rn = route_node_lookup (IF_OIFS (ifp), &p))
+    {
+      rninfo = (struct ospf_interface *) rn->info;
+      route_unlock_node (rn);
+    }
+  
   return rninfo;
 }
 
