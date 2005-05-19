@@ -663,9 +663,10 @@ thread_cancel (struct thread *thread)
 }
 
 /* Delete all events which has argument value arg. */
-void
+unsigned int
 thread_cancel_event (struct thread_master *m, void *arg)
 {
+  unsigned int ret = 0;
   struct thread *thread;
 
   thread = m->event.head;
@@ -678,11 +679,13 @@ thread_cancel_event (struct thread_master *m, void *arg)
 
       if (t->arg == arg)
         {
+          ret++;
           thread_list_delete (&m->event, t);
           t->type = THREAD_UNUSED;
           thread_add_unuse (m, t);
         }
     }
+  return ret;
 }
 
 static struct timeval *

@@ -185,7 +185,7 @@ extern struct thread *funcname_thread_execute (struct thread_master *,
                                                int (*)(struct thread *),
                                                void *, int, const char *);
 extern void thread_cancel (struct thread *);
-extern void thread_cancel_event (struct thread_master *, void *);
+extern unsigned int thread_cancel_event (struct thread_master *, void *);
 extern struct thread *thread_fetch (struct thread_master *, struct thread *);
 extern void thread_call (struct thread *);
 extern unsigned long thread_timer_remain_second (struct thread *);
