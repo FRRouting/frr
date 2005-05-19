@@ -1140,9 +1140,9 @@ peer_delete (struct peer *peer)
 
   /* Local and remote addresses. */
   if (peer->su_local)
-    XFREE (MTYPE_TMP, peer->su_local);
+    sockunion_free (peer->su_local);
   if (peer->su_remote)
-    XFREE (MTYPE_TMP, peer->su_remote);
+    sockunion_free (peer->su_remote);
 
   /* Peer description string.  */
   if (peer->desc)

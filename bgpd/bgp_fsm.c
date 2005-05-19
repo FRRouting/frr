@@ -491,13 +491,13 @@ bgp_stop (struct peer *peer)
   /* Connection information. */
   if (peer->su_local)
     {
-      XFREE (MTYPE_SOCKUNION, peer->su_local);
+      sockunion_free (peer->su_local);
       peer->su_local = NULL;
     }
 
   if (peer->su_remote)
     {
-      XFREE (MTYPE_SOCKUNION, peer->su_remote);
+      sockunion_free (peer->su_remote);
       peer->su_remote = NULL;
     }
 

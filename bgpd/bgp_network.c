@@ -263,13 +263,13 @@ bgp_getsockname (struct peer *peer)
 {
   if (peer->su_local)
     {
-      XFREE (MTYPE_TMP, peer->su_local);
+      sockunion_free (peer->su_local);
       peer->su_local = NULL;
     }
 
   if (peer->su_remote)
     {
-      XFREE (MTYPE_TMP, peer->su_remote);
+      sockunion_free (peer->su_remote);
       peer->su_remote = NULL;
     }
 

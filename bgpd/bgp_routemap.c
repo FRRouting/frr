@@ -124,19 +124,19 @@ route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
       su2 = sockunion_str2su ("0.0.0.0");
       if ( sockunion_same (su, su2) )
         {
+          int ret;
           if ( CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_NETWORK) ||
                CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_REDISTRIBUTE) ||
                CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_DEFAULT))
-            {
-              XFREE (MTYPE_SOCKUNION, su2);
-
-              return RMAP_MATCH;
-            }
+            ret = RMAP_MATCH;
           else
-            return RMAP_NOMATCH;
+            ret = RMAP_NOMATCH;
+          
+          sockunion_free (su2);
+          return ret;
         }
-      XFREE (MTYPE_SOCKUNION, su2);
-
+      sockunion_free (su2);
+      
       if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
         {
           if (sockunion_same (su, &peer->su))

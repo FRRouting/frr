@@ -1,3 +1,11 @@
+2005-05-19 Paul Jakma <paul@dishone.st>
+
+	* bgp_fsm.c: (bgp_stop) use sockunion_free, not XFREE..
+	* bgp_network.c: (bgp_getsockname) ditto
+	* bgp_routemap.c: (route_match_peer) ditto, als use a ret value and
+	  remove one sockunion_free.
+	* bgpd.c: (peer_delete) ditto
+
 2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* bgp_zebra.c (bgp_redistribute_set, bgp_redistribute_unset):
