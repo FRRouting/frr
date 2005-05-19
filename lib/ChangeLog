@@ -5,6 +5,7 @@
 	  pass it back to the caller.
 	* sockunion.c: (sockunion_getsockname) use MTYPE_SOCKUNION, not TMP
 	  (sockunion_getpeername) ditto
+	* memtypes.c: (memory_list_bgp) add MTYPE_BGP_PEER_HOST
 
 2005-05-15 Paul Jakma <paul@dishone.st>
 
