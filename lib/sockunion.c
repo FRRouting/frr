@@ -582,14 +582,14 @@ sockunion_getsockname (int fd)
 
   if (name.sa.sa_family == AF_INET)
     {
-      su = XCALLOC (MTYPE_TMP, sizeof (union sockunion));
+      su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in));
       return su;
     }
 #ifdef HAVE_IPV6
   if (name.sa.sa_family == AF_INET6)
     {
-      su = XCALLOC (MTYPE_TMP, sizeof (union sockunion));
+      su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in6));
 
       if (IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))
@@ -636,14 +636,14 @@ sockunion_getpeername (int fd)
 
   if (name.sa.sa_family == AF_INET)
     {
-      su = XCALLOC (MTYPE_TMP, sizeof (union sockunion));
+      su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in));
       return su;
     }
 #ifdef HAVE_IPV6
   if (name.sa.sa_family == AF_INET6)
     {
-      su = XCALLOC (MTYPE_TMP, sizeof (union sockunion));
+      su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in6));
 
       if (IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))

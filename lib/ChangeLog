@@ -3,6 +3,8 @@
 	* thread.c: (thread_cancel_event) the number of pending events
 	  cancelled is potentially useful information, dont throw it away,
 	  pass it back to the caller.
+	* sockunion.c: (sockunion_getsockname) use MTYPE_SOCKUNION, not TMP
+	  (sockunion_getpeername) ditto
 
 2005-05-15 Paul Jakma <paul@dishone.st>
 
