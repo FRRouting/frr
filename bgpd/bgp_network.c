@@ -112,7 +112,7 @@ bgp_accept (struct thread *thread)
 
     /* Make peer's address string. */
     sockunion2str (&su, buf, SU_ADDRSTRLEN);
-    peer->host = strdup (buf);
+    peer->host = XSTRDUP (MTYPE_BGP_PEER_HOST, buf);
   }
 
   BGP_EVENT_ADD (peer, TCP_connection_open);

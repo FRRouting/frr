@@ -2,9 +2,15 @@
 
 	* bgp_fsm.c: (bgp_stop) use sockunion_free, not XFREE..
 	* bgp_network.c: (bgp_getsockname) ditto
+	  (bgp_accept) use XSTRDUP
 	* bgp_routemap.c: (route_match_peer) ditto, als use a ret value and
 	  remove one sockunion_free.
-	* bgpd.c: (peer_delete) ditto
+	* bgpd.c: (peer_delete) ditto.
+	  XFREE the correct memtype, not free.
+	  (peer_create) use XSTRDUP
+	* bgp_packet.c: (bgp_stream_dup) deleted, stream_dup should be used
+	  (various) update -> s/bgp_stream_dup/stream_dup
+	  
 
 2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

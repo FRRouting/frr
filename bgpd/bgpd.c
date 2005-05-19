@@ -773,7 +773,7 @@ peer_create (union sockunion *su, struct bgp *bgp, as_t local_as,
 
   /* Make peer's address string. */
   sockunion2str (su, buf, SU_ADDRSTRLEN);
-  peer->host = strdup (buf);
+  peer->host = XSTRDUP (MTYPE_BGP_PEER_HOST, buf);
 
   /* Set up peer's events and timers. */
   if (! active && peer_active (peer))
@@ -1136,7 +1136,7 @@ peer_delete (struct peer *peer)
 
   /* Free allocated host character. */
   if (peer->host)
-    free (peer->host);
+    XFREE (MTYPE_BGP_PEER_HOST, peer->host);
 
   /* Local and remote addresses. */
   if (peer->su_local)
@@ -1146,7 +1146,7 @@ peer_delete (struct peer *peer)
 
   /* Peer description string.  */
   if (peer->desc)
-    XFREE (MTYPE_TMP, peer->desc);
+    XFREE (MTYPE_PEER_DESC, peer->desc);
 
   bgp_sync_delete (peer);
 

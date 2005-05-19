@@ -99,22 +99,6 @@ bgp_packet_delete (struct peer *peer)
   stream_free (stream_fifo_pop (peer->obuf));
 }
 
-/* Duplicate packet. */
-struct stream *
-bgp_packet_dup (struct stream *s)
-{
-  struct stream *new;
-
-  new = stream_new (stream_get_endp (s));
-
-  new->endp = s->endp;
-  new->getp = s->getp;
-
-  memcpy (new->data, s->data, stream_get_endp (s));
-
-  return new;
-}
-
 /* Check file descriptor whether connect is established. */
 static void
 bgp_connect_check (struct peer *peer)
@@ -232,7 +216,7 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
   if (! stream_empty (s))
     {
       bgp_packet_set_size (s);
-      packet = bgp_packet_dup (s);
+      packet = stream_dup (s);
       bgp_packet_add (peer, packet);
       BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
       stream_reset (s);
@@ -279,7 +263,7 @@ bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
     }
 
   bgp_packet_set_size (s);
-  packet = bgp_packet_dup (s);
+  packet = stream_dup (s);
   bgp_packet_add (peer, packet);
   stream_free (s);
   return packet;
@@ -359,7 +343,7 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
 	  stream_putw (s, 0);
 	}
       bgp_packet_set_size (s);
-      packet = bgp_packet_dup (s);
+      packet = stream_dup (s);
       bgp_packet_add (peer, packet);
       stream_reset (s);
       return packet;
@@ -423,7 +407,7 @@ bgp_default_update_send (struct peer *peer, struct attr *attr,
   /* Set size. */
   bgp_packet_set_size (s);
 
-  packet = bgp_packet_dup (s);
+  packet = stream_dup (s);
   stream_free (s);
 
   /* Dump packet if debug option is set. */
@@ -502,7 +486,7 @@ bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
 
   bgp_packet_set_size (s);
 
-  packet = bgp_packet_dup (s);
+  packet = stream_dup (s);
   stream_free (s);
 
   /* Add packet to the peer. */
@@ -1056,7 +1040,7 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
     }
 
   /* Make real packet. */
-  packet = bgp_packet_dup (s);
+  packet = stream_dup (s);
   stream_free (s);
 
   /* Add packet to the peer. */
@@ -1103,7 +1087,7 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
   length = bgp_packet_set_size (s);
 
   /* Make real packet. */
-  packet = bgp_packet_dup (s);
+  packet = stream_dup (s);
   stream_free (s);
 
   /* Add packet to the peer. */
