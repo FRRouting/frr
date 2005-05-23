@@ -69,9 +69,6 @@ work_queue_new (struct thread_master *m, const char *queue_name)
   
   if ( (new->items = list_new ()) == NULL)
     {
-      if (new->items)
-        list_free (new->items);
-      
       XFREE (MTYPE_WORK_QUEUE_NAME, new->name);
       XFREE (MTYPE_WORK_QUEUE, new);
       
@@ -99,6 +96,22 @@ work_queue_free (struct work_queue *wq)
   return;
 }
 
+static inline int
+work_queue_schedule (struct work_queue *wq, unsigned int delay)
+{
+  /* if appropriate, schedule work queue thread */
+  if ( (wq->flags == WQ_UNPLUGGED) 
+       && (wq->thread == NULL)
+       && (listcount (wq->items) > 0) )
+    {
+      wq->thread = thread_add_background (wq->master, work_queue_run, 
+                                          wq, delay);
+      return 1;
+    }
+  else
+    return 0;
+}
+  
 void
 work_queue_add (struct work_queue *wq, void *data)
 {
@@ -115,12 +128,7 @@ work_queue_add (struct work_queue *wq, void *data)
   item->data = data;
   listnode_add (wq->items, item);
   
-  /* if thread isnt already waiting, add one */
-  if (wq->thread == NULL)
-    wq->thread = thread_add_background (wq->master, work_queue_run, 
-                                        wq, wq->spec.hold);
-
-  /* XXX: what if we didnt get a thread? try again? */
+  work_queue_schedule (wq, wq->spec.hold);
   
   return;
 }
@@ -159,11 +167,12 @@ DEFUN(show_work_queues,
   struct work_queue *wq;
   
   vty_out (vty, 
-           "%8s  %11s  %8s %21s%s",
-           "List","(ms)   ","Q. Runs","Cycle Counts   ",
+           "%c %8s  %11s  %8s %21s%s",
+           ' ', "List","(ms)   ","Q. Runs","Cycle Counts   ",
            VTY_NEWLINE);
   vty_out (vty,
-           "%8s  %5s %5s  %8s  %7s %6s %6s %s%s",
+           "%c %8s  %5s %5s  %8s  %7s %6s %6s %s%s",
+           ' ',
            "Items",
            "Delay","Hold",
            "Total",
@@ -173,7 +182,8 @@ DEFUN(show_work_queues,
  
   for (ALL_LIST_ELEMENTS_RO ((&work_queues), node, wq))
     {
-      vty_out (vty,"%8d  %5d %5d  %8ld  %7d %6d %6u %s%s",
+      vty_out (vty,"%c %8d  %5d %5d  %8ld  %7d %6d %6u %s%s",
+               (wq->flags == WQ_PLUGGED ? 'P' : ' '),
                listcount (wq->items),
                wq->spec.delay, wq->spec.hold,
                wq->runs,
@@ -185,6 +195,32 @@ DEFUN(show_work_queues,
     }
     
   return CMD_SUCCESS;
+}
+
+/* 'plug' a queue: Stop it from being scheduled,
+ * ie: prevent the queue from draining.
+ */
+void
+work_queue_plug (struct work_queue *wq)
+{
+  if (wq->thread)
+    thread_cancel (wq->thread);
+  
+  wq->thread = NULL;
+  
+  wq->flags = WQ_PLUGGED;
+}
+
+/* unplug queue, schedule it again, if appropriate
+ * Ie: Allow the queue to be drained again
+ */
+void
+work_queue_unplug (struct work_queue *wq)
+{
+  wq->flags = WQ_UNPLUGGED;
+
+  /* if thread isnt already waiting, add one */
+  work_queue_schedule (wq, wq->spec.hold);
 }
 
 /* timer thread to process a work queue
@@ -250,6 +286,13 @@ work_queue_run (struct thread *thread)
 
     switch (ret)
       {
+      case WQ_QUEUE_BLOCKED:
+        {
+          /* decrement item->ran again, cause this isn't an item
+           * specific error, and fall through to WQ_RETRY_LATER
+           */
+          item->ran--;
+        }
       case WQ_RETRY_LATER:
 	{
 	  goto stats;
@@ -260,6 +303,7 @@ work_queue_run (struct thread *thread)
 	  break;
 	}
       case WQ_RETRY_NOW:
+        /* a RETRY_NOW that gets here has exceeded max_tries, same as ERROR */
       case WQ_ERROR:
 	{
 	  if (wq->spec.errorfunc)
@@ -303,7 +347,9 @@ stats:
         wq->cycles.best = cycles;
       
       /* along with yielded check, provides hysteris for granularity */
-      if (cycles > (wq->cycles.granularity * WQ_HYSTERIS_FACTOR))
+      if (cycles > (wq->cycles.granularity * WQ_HYSTERIS_FACTOR * 2))
+        wq->cycles.granularity *= WQ_HYSTERIS_FACTOR; /* quick ramp-up */
+      else if (cycles > (wq->cycles.granularity * WQ_HYSTERIS_FACTOR))
         wq->cycles.granularity += WQ_HYSTERIS_FACTOR;
     }
 #undef WQ_HYSTERIS_FACTOR
@@ -316,10 +362,11 @@ stats:
             __func__, cycles, wq->cycles.best, wq->cycles.granularity);
 #endif
   
-  /* Is the queue done yet? */
+  /* Is the queue done yet? If it is, call the completion callback. */
   if (listcount (wq->items) > 0)
-    wq->thread = thread_add_background (wq->master, work_queue_run, wq,
-                                        wq->spec.delay);
-
+    work_queue_schedule (wq, wq->spec.delay);
+  else if (wq->spec.completion_func)
+    wq->spec.completion_func (wq);
+  
   return 0;
 }

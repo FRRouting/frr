@@ -35,7 +35,10 @@ typedef enum
   WQ_ERROR,             /* Error, run error handler if provided */
   WQ_RETRY_NOW,         /* retry immediately */
   WQ_RETRY_LATER,       /* retry later, cease processing work queue */
-  WQ_REQUEUE            /* requeue item, continue processing work queue */
+  WQ_REQUEUE,		/* requeue item, continue processing work queue */
+  WQ_QUEUE_BLOCKED,	/* Queue cant be processed at this time.
+                         * Similar to WQ_RETRY_LATER, but doesn't penalise
+                         * the particular item.. */
 } wq_item_status;
 
 /* A single work queue item, unsurprisingly */
@@ -45,11 +48,18 @@ struct work_queue_item
   unsigned short ran;			/* # of times item has been run */
 };
 
+enum work_queue_flags
+{
+  WQ_UNPLUGGED = 0,
+  WQ_PLUGGED = 1,
+};
+
 struct work_queue
 {
   struct thread_master *master;       /* thread master */
   struct thread *thread;              /* thread, if one is active */
   char *name;                         /* work queue name */
+  enum work_queue_flags flags;		/* flags */
   
   /* specification for this work queue */
   struct {
@@ -62,6 +72,9 @@ struct work_queue
     /* callback to delete user specific item data */
     void (*del_item_data) (void *);
     
+    /* completion callback, called when queue is emptied, optional */
+    void (*completion_func) (struct work_queue *);
+    
     /* max number of retries to make for item that errors */
     unsigned int max_retries;	
 
@@ -71,7 +84,7 @@ struct work_queue
   
   /* remaining fields should be opaque to users */
   struct list *items;                 /* queue item list */
-  unsigned long runs;                  /* runs count */
+  unsigned long runs;                 /* runs count */
   
   struct {
     unsigned int best;
@@ -81,10 +94,23 @@ struct work_queue
 };
 
 /* User API */
+
+/* create a new work queue, of given name. 
+ * user must fill in the spec of the returned work queue before adding
+ * anything to it
+ */
 extern struct work_queue *work_queue_new (struct thread_master *,
                                           const char *);
+/* destroy work queue */
 extern void work_queue_free (struct work_queue *);
+
+/* Add the supplied data as an item onto the workqueue */
 extern void work_queue_add (struct work_queue *, void *);
+
+/* plug the queue, ie prevent it from being drained / processed */
+extern void work_queue_plug (struct work_queue *wq);
+/* unplug the queue, allow it to be drained again */
+extern void work_queue_unplug (struct work_queue *wq);
 
 /* Helpers, exported for thread.c and command.c */
 extern int work_queue_run (struct thread *);

@@ -9,6 +9,27 @@
 	  from VTY_GET_INTEGER_RANGE
 	* vty.h: fix the VTY_GET macros, do {..} while(0) so they have
 	  correct function like syntax in usage.
+	* workqueue.h: Add a WQ_QUEUE_BLOCKED item_status return code,
+	  to allow a queue function to indicate the queue is not
+	  ready/blocked - rather than any problem with the item at hand.
+	  Add a notion of being able to 'plug' and 'unplug' a queue.
+	  Add helpers to plug/unplug a queue.
+	  Add a completion callback, to be called when a queue is emptied.
+	* workqueue.c: (work_queue_new) remove useless list_free.
+	  (work_queue_schedule) new internal helper function to schedule
+	  queue, if appropriate.
+	  (work_queue_add) use work_queue_schedule
+	  (show_work_queues) Print 'P' if queue is plugged.
+	  (work_queue_plug) new API function, plug a queue - ie prevent it
+	  from 'drained' / processed / scheduled.
+	  (work_queue_unplug) unplug a queue, allowing it to be drained
+	  / scheduled / processed again.
+	  (work_queue_run) Add support for WQ_QUEUE_BLOCKED.
+	  Add comment for RETRY_NOW case.
+	  Make hysteris more aggresive in ramping up granularity, improves
+	  performance significantly.
+	  Add support for calling completion callback when queue is emptied,
+	  possibly useful for knowing when to unplug a queue.
 
 2005-05-19 Paul Jakma <paul@dishone.st>
 
