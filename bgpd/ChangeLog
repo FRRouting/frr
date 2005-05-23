@@ -1,3 +1,7 @@
+2005-05-23 Paul Jakma <paul@dishone.st>
+
+	* bgp_routemap.c: add semi-colons to VTY_GET_* to match vty.h change
+
 2005-05-19 Paul Jakma <paul@dishone.st>
 
 	* bgp_fsm.c: (bgp_stop) use sockunion_free, not XFREE..

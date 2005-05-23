@@ -3288,7 +3288,7 @@ DEFUN (set_aggregator_as,
   struct in_addr address;
   char *argstr;
 
-  VTY_GET_INTEGER_RANGE ("AS Path", as, argv[0], 1, BGP_AS_MAX)
+  VTY_GET_INTEGER_RANGE ("AS Path", as, argv[0], 1, BGP_AS_MAX);
   
   ret = inet_aton (argv[1], &address);
   if (ret == 0)
@@ -3325,7 +3325,7 @@ DEFUN (no_set_aggregator_as,
   if (argv == 0)
     return bgp_route_set_delete (vty, vty->index, "aggregator as", NULL);
   
-  VTY_GET_INTEGER_RANGE ("AS Path", as, argv[0], 1, BGP_AS_MAX)  
+  VTY_GET_INTEGER_RANGE ("AS Path", as, argv[0], 1, BGP_AS_MAX);
 
   ret = inet_aton (argv[1], &address);
   if (ret == 0)
