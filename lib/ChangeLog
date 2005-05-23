@@ -1,3 +1,9 @@
+2005-05-23 Paul Jakma <paul@dishone.st>
+
+	* memtypes.awk: use character classes, which work correctly in
+	  all LC_COLLATE environments, unlike A-Z, which doesnt work in
+	  eg estonian collate order. Reported by Hasso.
+
 2005-05-19 Paul Jakma <paul@dishone.st>
 
 	* thread.c: (thread_cancel_event) the number of pending events

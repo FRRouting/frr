@@ -1,4 +1,4 @@
-# $Id: memtypes.awk,v 1.2 2005/04/16 15:51:05 paul Exp $
+# $Id: memtypes.awk,v 1.3 2005/05/23 12:33:58 paul Exp $
 #
 # Scan a file of memory definitions (see eg memtypes.c) and generate
 # a corresponding header file with an enum of the MTYPE's and declarations
@@ -9,7 +9,7 @@
 #
 # Each MTYPE_ within the definition must the second token on the line,
 # tokens being delineated by whitespace. It may only consist of the set of
-# characters [A-Z_0-9]. Eg:
+# characters [[:upper:]_[:digit:]]. Eg:
 #
 # '\n  {  MTYPE_AWESOME_IPV8 , "Amazing new protocol, says genius" {}..boo'
 #
@@ -31,7 +31,7 @@
 
 BEGIN {
 	mlistregex = "memory_list_(.*)\\[\\]";
-	mtyperegex = "^(MTYPE_[A-Z_0-9]+).*";
+	mtyperegex = "^(MTYPE_[[:upper:]_[:digit:]]+).*";
 	header = "/* Auto-generated from memtypes.c by " ARGV[0] ". */\n";
 	header = header "/* Do not edit! */\n";
 	header = header "\n#ifndef _QUAGGA_MEMTYPES_H\n";
