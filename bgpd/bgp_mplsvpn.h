@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_MPLSVPN_H
+#define _QUAGGA_BGP_MPLSVPN_H
+
 #define RD_TYPE_AS      0
 #define RD_TYPE_IP      1
 
@@ -43,3 +46,5 @@ u_int32_t decode_label (u_char *);
 int str2prefix_rd (const char *, struct prefix_rd *);
 int str2tag (const char *, u_char *);
 char *prefix_rd2str (struct prefix_rd *, char *, size_t);
+
+#endif /* _QUAGGA_BGP_MPLSVPN_H */

@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_CLIST_H
+#define _QUAGGA_BGP_CLIST_H
+
 /* Master Community-list. */
 #define COMMUNITY_LIST_MASTER          0
 #define EXTCOMMUNITY_LIST_MASTER       1
@@ -145,3 +148,5 @@ int community_list_exact_match (struct community *, struct community_list *);
 struct community *
 community_list_match_delete (struct community *,
 			     struct community_list *);
+
+#endif /* _QUAGGA_BGP_CLIST_H */

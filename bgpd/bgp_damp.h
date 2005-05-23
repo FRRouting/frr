@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_DAMP_H
+#define _QUAGGA_BGP_DAMP_H
+
 /* Structure maintained on a per-route basis. */
 struct bgp_damp_info
 {
@@ -140,3 +143,5 @@ int bgp_damp_decay (time_t, int);
 int bgp_config_write_damp (struct vty *);
 void bgp_damp_info_vty (struct vty *, struct bgp_info *);
 char * bgp_damp_reuse_time_vty (struct vty *, struct bgp_info *);
+
+#endif /* _QUAGGA_BGP_DAMP_H */

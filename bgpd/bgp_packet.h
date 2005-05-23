@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_PACKET_H
+#define _QUAGGA_BGP_PACKET_H
+
 #define BGP_NLRI_LENGTH       1U
 #define BGP_TOTAL_ATTR_LEN    2U
 #define BGP_UNFEASIBLE_LEN    2U
@@ -48,3 +51,5 @@ void bgp_capability_send (struct peer *, afi_t, safi_t, int, int);
 void bgp_default_update_send (struct peer *, struct attr *,
 			      afi_t, safi_t, struct peer *);
 void bgp_default_withdraw_send (struct peer *, afi_t, safi_t);
+
+#endif /* _QUAGGA_BGP_PACKET_H */

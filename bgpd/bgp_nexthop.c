@@ -45,24 +45,24 @@ struct bgp_nexthop_cache *zlookup_query_ipv6 (struct in6_addr *);
 #endif /* HAVE_IPV6 */
 
 /* Only one BGP scan thread are activated at the same time. */
-struct thread *bgp_scan_thread = NULL;
+static struct thread *bgp_scan_thread = NULL;
 
 /* BGP import thread */
-struct thread *bgp_import_thread = NULL;
+static struct thread *bgp_import_thread = NULL;
 
 /* BGP scan interval. */
-int bgp_scan_interval;
+static int bgp_scan_interval;
 
 /* BGP import interval. */
-int bgp_import_interval;
+static int bgp_import_interval;
 
 /* Route table for next-hop lookup cache. */
-struct bgp_table *bgp_nexthop_cache_table[AFI_MAX];
-struct bgp_table *cache1_table[AFI_MAX];
-struct bgp_table *cache2_table[AFI_MAX];
+static struct bgp_table *bgp_nexthop_cache_table[AFI_MAX];
+static struct bgp_table *cache1_table[AFI_MAX];
+static struct bgp_table *cache2_table[AFI_MAX];
 
 /* Route table for connected route. */
-struct bgp_table *bgp_connected_table[AFI_MAX];
+static struct bgp_table *bgp_connected_table[AFI_MAX];
 
 /* BGP nexthop lookup query client. */
 static struct zclient *zlookup = NULL;

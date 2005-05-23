@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_ASPATH_H
+#define _QUAGGA_BGP_ASPATH_H
+
 /* AS path segment type.  */
 #define AS_SET                       1
 #define AS_SEQUENCE                  2
@@ -80,3 +83,5 @@ int aspath_loop_check (struct aspath *, as_t);
 int aspath_private_as_check (struct aspath *);
 int aspath_firstas_check (struct aspath *, as_t);
 unsigned long aspath_count ();
+
+#endif /* _QUAGGA_BGP_ASPATH_H */

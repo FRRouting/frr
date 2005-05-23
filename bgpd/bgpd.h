@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGPD_H
+#define _QUAGGA_BGPD_H
+
 /* For union sockunion.  */
 #include "sockunion.h"
 
@@ -905,3 +908,5 @@ int peer_clear (struct peer *);
 int peer_clear_soft (struct peer *, afi_t, safi_t, enum bgp_clear_type);
 
 void peer_nsf_stop (struct peer *);
+
+#endif /* _QUAGGA_BGPD_H */

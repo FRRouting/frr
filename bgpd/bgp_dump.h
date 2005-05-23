@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_DUMP_H
+#define _QUAGGA_BGP_DUMP_H
+
 /* MRT compatible packet dump values.  */
 /* type value */
 #define MSG_PROTOCOL_BGP4MP  16
@@ -33,3 +36,5 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 void bgp_dump_init ();
 void bgp_dump_state (struct peer *, int, int);
 void bgp_dump_packet (struct peer *, int, struct stream *);
+
+#endif /* _QUAGGA_BGP_DUMP_H */

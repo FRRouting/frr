@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_ATTR_H
+#define _QUAGGA_BGP_ATTR_H
+
 /* Simple bit mapping. */
 #define BITMAP_NBBY 8
 
@@ -132,3 +135,5 @@ void cluster_unintern (struct cluster_list *);
 
 /* Transit attribute prototypes. */
 void transit_unintern (struct transit *);
+
+#endif /* _QUAGGA_BGP_ATTR_H */

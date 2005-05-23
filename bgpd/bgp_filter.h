@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_FILTER_H
+#define _QUAGGA_BGP_FILTER_H
+
 enum as_filter_type
 {
   AS_FILTER_DENY,
@@ -29,3 +32,5 @@ enum as_filter_type as_list_apply (struct as_list *, void *);
 struct as_list *as_list_lookup (const char *);
 void as_list_add_hook (void (*func) ());
 void as_list_delete_hook (void (*func) ());
+
+#endif /* _QUAGGA_BGP_FILTER_H */

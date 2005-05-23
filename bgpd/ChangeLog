@@ -1,6 +1,9 @@
 2005-05-23 Paul Jakma <paul@dishone.st>
 
 	* bgp_routemap.c: add semi-colons to VTY_GET_* to match vty.h change
+	* bgp_fsm.h: Add extern qualifier to exported functions
+	* bgp_nexthop.c: add static to nexthop specific globals
+	* *.h: Add guard defines
 
 2005-05-19 Paul Jakma <paul@dishone.st>
 

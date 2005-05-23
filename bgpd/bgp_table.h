@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_TABLE_H
+#define _QUAGGA_BGP_TABLE_H
+
 typedef enum
 {
   BGP_TABLE_MAIN,
@@ -74,3 +77,5 @@ struct bgp_node *bgp_node_match_ipv4 (struct bgp_table *,
 struct bgp_node *bgp_node_match_ipv6 (struct bgp_table *,
 					  struct in6_addr *);
 #endif /* HAVE_IPV6 */
+
+#endif /* _QUAGGA_BGP_TABLE_H */

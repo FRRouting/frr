@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_ROUTE_H
+#define _QUAGGA_BGP_ROUTE_H
+
 struct bgp_info
 {
   /* For linked list. */
@@ -173,3 +176,5 @@ safi_t bgp_node_safi (struct vty *);
 void route_vty_out (struct vty *, struct prefix *, struct bgp_info *, int, safi_t);
 void route_vty_out_tag (struct vty *, struct prefix *, struct bgp_info *, int, safi_t);
 void route_vty_out_tmp (struct vty *, struct prefix *, struct attr *, safi_t);
+
+#endif /* _QUAGGA_BGP_ROUTE_H */

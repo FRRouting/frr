@@ -18,6 +18,11 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_NETWORK_H
+#define _QUAGGA_BGP_NETWORK_H
+
 int bgp_socket (struct bgp *, unsigned short);
 int bgp_connect (struct peer *);
 void bgp_getsockname (struct peer *);
+
+#endif /* _QUAGGA_BGP_NETWORK_H */

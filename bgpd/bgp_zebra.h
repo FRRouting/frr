@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_ZEBRA_H
+#define _QUAGGA_BGP_ZEBRA_H
+
 int bgp_if_update_all ();
 int bgp_config_write_redistribute (struct vty *, struct bgp *, afi_t, safi_t,
 				   int *);
@@ -37,3 +40,5 @@ struct interface *if_lookup_by_ipv4_exact (struct in_addr *);
 struct interface *if_lookup_by_ipv6 (struct in6_addr *);
 struct interface *if_lookup_by_ipv6_exact (struct in6_addr *);
 #endif /* HAVE_IPV6 */
+
+#endif /* _QUAGGA_BGP_ZEBRA_H */

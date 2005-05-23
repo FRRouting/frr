@@ -19,6 +19,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_FSM_H
+#define _QUAGGA_BGP_FSM_H
+
 /* Macro for BGP read, write and timer thread.  */
 #define BGP_READ_ON(T,F,V)   THREAD_READ_ON(master,T,F,peer,V)
 #define BGP_READ_OFF(X)      THREAD_READ_OFF(X)
@@ -36,8 +39,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
     thread_cancel_event (master, (P))
 
 /* Prototypes. */
-int bgp_event (struct thread *);
-int bgp_stop (struct peer *peer);
-void bgp_timer_set (struct peer *);
-void bgp_fsm_change_status (struct peer *peer, int status);
+extern int bgp_event (struct thread *);
+extern int bgp_stop (struct peer *peer);
+extern void bgp_timer_set (struct peer *);
+extern void bgp_fsm_change_status (struct peer *peer, int status);
 extern const char *peer_down_str[];
+
+#endif /* _QUAGGA_BGP_FSM_H */

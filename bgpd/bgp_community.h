@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_COMMUNITY_H
+#define _QUAGGA_BGP_COMMUNITY_H
+
 /* Communities attribute.  */
 struct community 
 {
@@ -66,3 +69,5 @@ int community_include (struct community *, u_int32_t);
 void community_del_val (struct community *, u_int32_t *);
 unsigned long community_count ();
 struct hash *community_hash ();
+
+#endif /* _QUAGGA_BGP_COMMUNITY_H */

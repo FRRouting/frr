@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_ECOMMUNITY_H
+#define _QUAGGA_BGP_ECOMMUNITY_H
+
 /* High-order octet of the Extended Communities type field.  */
 #define ECOMMUNITY_ENCODE_AS                0x00
 #define ECOMMUNITY_ENCODE_IP                0x01
@@ -75,3 +78,5 @@ struct ecommunity *ecommunity_str2com (const char *, int, int);
 char *ecommunity_ecom2str (struct ecommunity *, int);
 int ecommunity_match (const struct ecommunity *, const struct ecommunity *);
 char *ecommunity_str (struct ecommunity *);
+
+#endif /* _QUAGGA_BGP_ECOMMUNITY_H */

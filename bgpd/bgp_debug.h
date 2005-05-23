@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_DEBUG_H
+#define _QUAGGA_BGP_DEBUG_H
+
 /* sort of packet direction */
 #define DUMP_ON        1
 #define DUMP_SEND      2
@@ -111,3 +114,5 @@ void bgp_notify_print (struct peer *, struct bgp_notify *, const char *);
 
 extern struct message bgp_status_msg[];
 extern int bgp_status_msg_max;
+
+#endif /* _QUAGGA_BGP_DEBUG_H */

@@ -18,6 +18,9 @@ along with GNU Zebra; see the file COPYING.  If not, write to the Free
 Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef _QUAGGA_BGP_OPEN_H
+#define _QUAGGA_BGP_OPEN_H
+
 /* MP Capability information. */
 struct capability_mp
 {
@@ -79,3 +82,5 @@ struct graceful_restart_af
 int bgp_open_option_parse (struct peer *, u_char, int *);
 void bgp_open_capability (struct stream *, struct peer *);
 void bgp_capability_vty_out (struct vty *, struct peer *);
+
+#endif /* _QUAGGA_BGP_OPEN_H */
