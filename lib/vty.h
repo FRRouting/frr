@@ -149,7 +149,7 @@ struct vty
 
 /* Utility macros to convert VTY argument to unsigned long or integer. */
 #define VTY_GET_LONG(NAME,V,STR) \
-{ \
+do { \
   char *endptr = NULL; \
   (V) = strtoul ((STR), &endptr, 10); \
   if (*endptr != '\0' || (V) == ULONG_MAX) \
@@ -157,25 +157,25 @@ struct vty
       vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE); \
       return CMD_WARNING; \
     } \
-}
+} while (0)
 
 #define VTY_GET_INTEGER_RANGE(NAME,V,STR,MIN,MAX) \
-{ \
+do { \
   unsigned long tmpl; \
-  VTY_GET_LONG(NAME, tmpl, STR) \
-  if ( tmpl < (MIN) || tmpl > (MAX)) \
+  VTY_GET_LONG(NAME, tmpl, STR); \
+  if ( (tmpl < (MIN)) || (tmpl > (MAX))) \
     { \
       vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE); \
       return CMD_WARNING; \
     } \
   (V) = tmpl; \
-}
+} while (0)
 
 #define VTY_GET_INTEGER(NAME,V,STR) \
   VTY_GET_INTEGER_RANGE(NAME,V,STR,0U,UINT32_MAX)
 
 #define VTY_GET_IPV4_ADDRESS(NAME,V,STR)                                      \
-{                                                                             \
+do {                                                                             \
   int retv;                                                                   \
   retv = inet_aton ((STR), &(V));                                             \
   if (!retv)                                                                  \
@@ -183,10 +183,10 @@ struct vty
       vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
       return CMD_WARNING;                                                     \
     }                                                                         \
-}
+} while (0)
 
 #define VTY_GET_IPV4_PREFIX(NAME,V,STR)                                       \
-{                                                                             \
+do {                                                                             \
   int retv;                                                                   \
   retv = str2prefix_ipv4 ((STR), &(V));                                       \
   if (retv <= 0)                                                              \
@@ -194,7 +194,7 @@ struct vty
       vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
       return CMD_WARNING;                                                     \
     }                                                                         \
-}
+} while (0)
 
 /* Exported variables */
 extern char integrate_default[];

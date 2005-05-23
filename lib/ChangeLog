@@ -3,6 +3,12 @@
 	* memtypes.awk: use character classes, which work correctly in
 	  all LC_COLLATE environments, unlike A-Z, which doesnt work in
 	  eg estonian collate order. Reported by Hasso.
+	* routemap.c: (rmap_onmatch_goto) fix crash if 'continue' command
+	  is used, which does not supply an argv[0].
+	  this is a backport candidate /iff/ the trailing ; is removed
+	  from VTY_GET_INTEGER_RANGE
+	* vty.h: fix the VTY_GET macros, do {..} while(0) so they have
+	  correct function like syntax in usage.
 
 2005-05-19 Paul Jakma <paul@dishone.st>
 

@@ -26,6 +26,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "prefix.h"
 #include "routemap.h"
 #include "command.h"
+#include "vty.h"
 #include "log.h"
 
 /* Vector for route match rules. */
@@ -1063,15 +1064,16 @@ DEFUN (rmap_onmatch_goto,
        "Goto Clause number\n"
        "Number\n")
 {
-  struct route_map_index *index;
+  struct route_map_index *index = vty->index;
   int d = 0;
 
-  if (argv[0])
-    d = atoi(argv[0]);
-
-  index = vty->index;
   if (index)
     {
+      if (argc == 1 && argv[0])
+        VTY_GET_INTEGER_RANGE("route-map index", d, argv[0], 1, 65536);
+      else
+        d = index->pref + 1;
+      
       if (d <= index->pref)
 	{
 	  /* Can't allow you to do that, Dave */
