@@ -1,3 +1,9 @@
+2005-05-25 Paul Jakma <paul@dishone.st>
+
+	* isisd.c: (show_isis_generated_topology) change to _RO version
+	  of list macro. remove the extra listnode variable. one of the
+	  macros had had incorrect number of arguments.
+
 2005-05-03 Paul Jakma <paul@dishone.st>
 
 	* (general) More cleaning up of stream abuse, isisd should be

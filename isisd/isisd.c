@@ -1593,16 +1593,16 @@ DEFUN (show_isis_generated_topology,
        "CLNS neighbor adjacencies\n")
 {
   struct isis_area *area;
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct listnode *node2;
   struct arc *arc;
-  for (ALL_LIST_ELEMENTS (isis->area_list, node, nnode, area))
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
   {
     if (area->topology)
       {
 	vty_out (vty, "Topology for isis area:%s%s", area->area_tag,
 		 VTY_NEWLINE);
-	for (ALL_LIST_ELEMENTS (area->topology, node2, arc))
+	for (ALL_LIST_ELEMENTS_RO (area->topology, node2, arc))
 	{
 	  vty_out (vty, "a  %ld   %ld   %ld%s", arc->from_node, arc->to_node,
 		   arc->distance, VTY_NEWLINE);
