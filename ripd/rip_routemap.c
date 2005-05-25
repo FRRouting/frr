@@ -228,7 +228,7 @@ route_match_interface (void *rule, struct prefix *prefix,
 
       rinfo = object;
 
-      if (rinfo->ifindex_out == ifp->ifindex)
+      if (rinfo->ifindex_out == ifp->ifindex || rinfo->ifindex == ifp->ifindex)
 	return RMAP_MATCH;
       else
 	return RMAP_NOMATCH;
