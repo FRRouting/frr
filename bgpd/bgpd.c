@@ -3642,12 +3642,10 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
 
-  if (direct != RMAP_IN && direct != RMAP_OUT &&
-      direct != RMAP_IMPORT && direct != RMAP_EXPORT)
+  if (direct != FILTER_IN && direct != FILTER_OUT)
     return BGP_ERR_INVALID_VALUE;
 
-  if ( (direct == RMAP_OUT || direct == RMAP_IMPORT)
-      && peer_is_group_member (peer, afi, safi))
+  if (direct == FILTER_OUT && peer_is_group_member (peer, afi, safi))
     return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   filter = &peer->filter[afi][safi];
@@ -3803,10 +3801,12 @@ peer_route_map_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
   if (! peer->afc[afi][safi])
     return BGP_ERR_PEER_INACTIVE;
 
-  if (direct != FILTER_IN && direct != FILTER_OUT)
+  if (direct != RMAP_IN && direct != RMAP_OUT &&
+      direct != RMAP_IMPORT && direct != RMAP_EXPORT)
     return BGP_ERR_INVALID_VALUE;
 
-  if (direct == FILTER_OUT && peer_is_group_member (peer, afi, safi))
+  if ( (direct == RMAP_OUT || direct == RMAP_IMPORT)
+      && peer_is_group_member (peer, afi, safi))
     return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
   filter = &peer->filter[afi][safi];
