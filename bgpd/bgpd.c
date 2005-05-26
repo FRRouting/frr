@@ -1930,11 +1930,14 @@ bgp_delete (struct bgp *bgp)
 
   for (ALL_LIST_ELEMENTS (bgp->group, node, next, group))
     peer_group_delete (group);
+  list_delete (bgp->group);
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
     peer_delete (peer);
+  list_delete (bgp->peer);
 
-  bgp->rsclient->del = (void (*)(void *)) peer_delete;
+  for (ALL_LIST_ELEMENTS (bgp->rsclient, node, next, peer))
+    peer_delete (peer);
   list_delete (bgp->rsclient);
 
   listnode_delete (bm->bgp, bgp);

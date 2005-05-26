@@ -1,4 +1,10 @@
-2005-05-26 Hasso Tepper <hass at quagga.net>
+2005-05-27 Hasso Tepper <hasso at quagga.net>
+
+	* bgpd.c: Deleting bgp->rsclient list needs fix similar to pree-groups
+	  deleting fix. Avoid leaking bgp->group, bgp->peer and bgp->rsclient
+	  lists.
+
+2005-05-26 Hasso Tepper <hasso at quagga.net>
 
         * bgpd.c: Don't crash while deleting list of peer-groups.
 
