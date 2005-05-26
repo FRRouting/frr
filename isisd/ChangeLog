@@ -1,3 +1,7 @@
+2005-05-26 Yossi Boaron <Yossi.Boaron@veraznetworks.com>
+
+	* isis_dr.c: Fix copy&paste error in isis_dr_resign().
+
 2005-05-25 Paul Jakma <paul@dishone.st>
 
 	* isisd.c: (show_isis_generated_topology) change to _RO version

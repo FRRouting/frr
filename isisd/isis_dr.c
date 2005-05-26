@@ -277,7 +277,7 @@ isis_dr_resign (struct isis_circuit *circuit, int level)
       THREAD_TIMER_OFF (circuit->t_send_csnp[0]);
 
       THREAD_TIMER_ON (master, circuit->u.bc.t_run_dr[0], isis_run_dr_l1,
-		       circuit, 2 * circuit->hello_interval[1]);
+		       circuit, 2 * circuit->hello_interval[0]);
 
       THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
 		       isis_jitter (circuit->psnp_interval[level - 1],
