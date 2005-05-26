@@ -580,7 +580,7 @@ ospf_abr_update_aggregate (struct ospf_area_range *range,
       if (or->cost > range->cost)
         {
           if (IS_DEBUG_OSPF_EVENT)
-            zlog_debug ("ospf_abr_update_aggregate(): lowest cost, update");
+            zlog_debug ("ospf_abr_update_aggregate(): largest cost, update");
 
           range->cost = or->cost;
         }
