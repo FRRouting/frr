@@ -1,5 +1,10 @@
 2005-05-26 Hasso Tepper <hasso at quagga.net>
 
+	* rip_routemap.c: In case of '0.0.0.0' used as 'nexthop', use sender
+	  address as nexthop in routemap.
+
+2005-05-26 Hasso Tepper <hasso at quagga.net>
+
 	* rip_routemap.c: Make "match interface" routemap command match both -
 	  in and out interfaces.
 
