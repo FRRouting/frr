@@ -1912,6 +1912,7 @@ int
 bgp_delete (struct bgp *bgp)
 {
   struct peer *peer;
+  struct peer_group *group;
   struct listnode *node;
   struct listnode *next;
   afi_t afi;
@@ -1927,8 +1928,8 @@ bgp_delete (struct bgp *bgp)
       if (i != ZEBRA_ROUTE_BGP)
 	bgp_redistribute_unset (bgp, afi, i);
 
-  bgp->group->del = (void (*)(void *)) peer_group_delete;
-  list_delete (bgp->group);
+  for (ALL_LIST_ELEMENTS (bgp->group, node, next, group))
+    peer_group_delete (group);
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, next, peer))
     peer_delete (peer);
