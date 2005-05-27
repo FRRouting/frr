@@ -1268,6 +1268,10 @@ route_set_community (void *rule, struct prefix *prefix,
 	new = community_dup (rcs->com);
 
       attr->community = new;
+
+      if (old)
+	community_free (old);
+
       attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES);
     }
 
@@ -1447,6 +1451,9 @@ route_set_ecommunity_rt (void *rule, struct prefix *prefix,
 	new_ecom = ecommunity_dup (ecom);
 
       bgp_info->attr->ecommunity = new_ecom;
+
+      if (old_ecom)
+	ecommunity_free (old_ecom);
 
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
     }

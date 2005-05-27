@@ -1,5 +1,9 @@
 2005-05-27 Hasso Tepper <hasso at quagga.net>
 
+	* bgp_routemap.c: Stop leaking communities.
+
+2005-05-27 Hasso Tepper <hasso at quagga.net>
+
 	* bgpd.c: Deleting bgp->rsclient list needs fix similar to pree-groups
 	  deleting fix. Avoid leaking bgp->group, bgp->peer and bgp->rsclient
 	  lists.
