@@ -1,3 +1,8 @@
+2005-05-28 Hasso Tepper <hasso at quagga.net>
+
+	* rip_routemap.c: Fix set_metric_addsub_cmd help, it's not about BGP
+	  metric.
+
 2005-05-26 Hasso Tepper <hasso at quagga.net>
 
 	* rip_routemap.c: In case of '0.0.0.0' used as 'nexthop', use sender

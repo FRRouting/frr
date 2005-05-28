@@ -971,7 +971,7 @@ ALIAS (set_metric,
        "set metric <+/-metric>",
        SET_STR
        "Metric value for destination routing protocol\n"
-       "Add or subtract BGP metric\n")
+       "Add or subtract metric\n")
 
 DEFUN (no_set_metric,
        no_set_metric_cmd,

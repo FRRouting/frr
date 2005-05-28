@@ -1,3 +1,7 @@
+2005-05-28 Hasso Tepper <hasso at quagga.net>
+
+	* bgp_routemap.c: Sync set_metric_addsub_cmd with ripd.
+
 2005-05-27 Hasso Tepper <hasso at quagga.net>
 
 	* bgp_routemap.c: Stop leaking communities.
