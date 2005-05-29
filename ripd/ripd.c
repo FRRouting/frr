@@ -2346,9 +2346,8 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 	    stream_putc (s, version);
 	    stream_putw (s, 0);
 	    
-	    /* auth header for simple or v2 && MD5 */
-            if ( (ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD)
-                || (version == RIPv2 && ri->auth_type == RIP_AUTH_MD5) )
+	    /* auth header for !v1 && !no_auth */
+            if ( (ri->auth_type != RIP_NO_AUTH) && (version != RIPv1) )
               doff = rip_auth_header_write (s, ri, key, auth_str, 
                                               RIP_AUTH_SIMPLE_SIZE);
           }

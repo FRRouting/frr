@@ -1,3 +1,9 @@
+2005-05-29 Paul Jakma <paul@dishone.st>
+
+	* ripd.c: (rip_output_process) fix error which crept in my
+	  previous rip auth untanglement commit - it had become impossible
+	  to not have authentication (even for v1).
+	
 2005-05-28 Hasso Tepper <hasso at quagga.net>
 
 	* rip_routemap.c: Fix set_metric_addsub_cmd help, it's not about BGP
