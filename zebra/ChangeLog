@@ -1,3 +1,11 @@
+2005-05-31 Paul Jakma <paul.jakma@sun.com>
+
+	* zserv.c: (zsend_route_multipath) Fix bug if route is sent
+	  with no NEXTHOP_FLAG_FIB nexthops. As ZAPI_MESSAGE_IFINDEX
+	  and ZAPI_MESSAGE_NEXTHOP are always set, clients would try
+	  read non-existent nexthop information and hit stream assert.
+	  Zserv is still broken for multi-nexthop messages, but it always was.
+
 2005-05-06 Paul Jakma <paul.jakma@sun.com>
 
 	* zserv.h: Remove ZEBRA_PORT definition, its in lib/zebra.h now

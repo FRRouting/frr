@@ -404,9 +404,9 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
   int psize;
   struct stream *s;
   struct nexthop *nexthop;
-  unsigned long nhnummark = 0;
+  unsigned long nhnummark = 0, messmark = 0;
   int nhnum = 0;
-  u_char zapi_flags = ZAPI_MESSAGE_NEXTHOP | ZAPI_MESSAGE_IFINDEX;
+  u_char zapi_flags = 0;
   
   s = client->obuf;
   stream_reset (s);
@@ -418,15 +418,10 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
   stream_putc (s, cmd);
   stream_putc (s, rib->type);
   stream_putc (s, rib->flags);
-
-  /* 
-   * XXX no need to set ZAPI_MESSAGE_NEXTHOP if we are going to
-   * send empty nexthop?
-   */
-  if (cmd == ZEBRA_IPV4_ROUTE_ADD || ZEBRA_IPV6_ROUTE_ADD)
-    zapi_flags |= ZAPI_MESSAGE_METRIC;
-
-  stream_putc (s, zapi_flags);
+  
+  /* marker for message flags field */
+  messmark = stream_get_endp (s);
+  stream_putc (s, 0);
 
   /* Prefix. */
   psize = PSIZE (p->prefixlen);
@@ -442,12 +437,20 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
    * is hard-coded.
    */
   /* Nexthop */
+  
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         {
-          nhnummark = stream_get_endp (s);
-          stream_putc (s, 1); /* placeholder */
+          SET_FLAG (zapi_flags, ZAPI_MESSAGE_NEXTHOP);
+          SET_FLAG (zapi_flags, ZAPI_MESSAGE_IFINDEX);
+          
+          if (nhnummark == 0)
+            {
+              nhnummark = stream_get_endp (s);
+              stream_putc (s, 1); /* placeholder */
+            }
+          
           nhnum++;
 
           switch(nexthop->type) 
@@ -488,8 +491,15 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
     }
 
   /* Metric */
-  stream_putl (s, rib->metric);
-
+  if (cmd == ZEBRA_IPV4_ROUTE_ADD || ZEBRA_IPV6_ROUTE_ADD)
+    {
+      SET_FLAG (zapi_flags, ZAPI_MESSAGE_METRIC);
+      stream_putl (s, rib->metric);
+    }
+  
+  /* write real message flags value */
+  stream_putc_at (s, messmark, zapi_flags);
+  
   /* Write next-hop number */
   if (nhnummark)
     stream_putc_at (s, nhnummark, nhnum);
