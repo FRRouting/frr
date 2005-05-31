@@ -1,3 +1,9 @@
+2005-05-31 Hasso Tepper <hasso at quagga.net>
+
+	* ospf6d.c: No need for double ';'. Fixes parsing "show ipv6 ospf6
+	  database ..." commands for vtysh by extract.pl. Remove duplicate
+	  install_element calls.
+
 2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf6_zebra.c (ospf6_zebra_redistribute, ospf6_zebra_no_redistribute):
