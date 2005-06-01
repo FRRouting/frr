@@ -21,12 +21,17 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_ROUTE_H
 #define _QUAGGA_BGP_ROUTE_H
 
+#include "bgp_table.h"
+
 struct bgp_info
 {
   /* For linked list. */
   struct bgp_info *next;
   struct bgp_info *prev;
-
+  
+  /* reference count */
+  unsigned int lock;
+  
   /* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
   u_char type;
 
@@ -139,6 +144,11 @@ void bgp_clear_route (struct peer *, afi_t, safi_t);
 void bgp_clear_route_all (struct peer *);
 void bgp_clear_adj_in (struct peer *, afi_t, safi_t);
 void bgp_clear_stale_route (struct peer *, afi_t, safi_t);
+
+extern struct bgp_info *bgp_info_lock (struct bgp_info *);
+extern struct bgp_info *bgp_info_unlock (struct bgp_info *);
+extern void bgp_info_add (struct bgp_node *rn, struct bgp_info *ri);
+extern void bgp_info_delete (struct bgp_node *rn, struct bgp_info *ri);
 
 int bgp_nlri_sanity_check (struct peer *, int, u_char *, bgp_size_t);
 int bgp_nlri_parse (struct peer *, struct attr *, struct bgp_nlri *);

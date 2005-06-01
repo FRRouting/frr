@@ -37,6 +37,11 @@ struct bgp_master
   /* BGP thread master.  */
   struct thread_master *master;
 
+  /* work queues */
+  struct work_queue *process_main_queue;
+  struct work_queue *process_rsclient_queue;
+  struct work_queue *clear_node_queue;
+  
   /* BGP port number.  */
   u_int16_t port;
 
@@ -58,7 +63,7 @@ struct bgp
 
   /* Name of this BGP instance.  */
   char *name;
-
+  
   /* Self peer.  */
   struct peer *peer_self;
 
@@ -244,6 +249,13 @@ struct peer
 {
   /* BGP structure.  */
   struct bgp *bgp;
+
+  /* reference count, primarily to allow bgp_process'ing of route_node's
+   * to be done after a struct peer is deleted.
+   *
+   * named 'lock' for hysterical reasons within Quagga.
+   */
+  int lock;
 
   /* BGP peer group.  */
   struct peer_group *group;
@@ -785,6 +797,8 @@ struct peer_group *peer_group_lookup (struct bgp *, const char *);
 struct peer_group *peer_group_get (struct bgp *, const char *);
 struct peer *peer_lookup_with_open (union sockunion *, as_t, struct in_addr *,
 				    int *);
+extern struct peer *peer_lock (struct peer *);
+extern struct peer *peer_unlock (struct peer *);
 int peer_sort (struct peer *peer);
 int peer_active (struct peer *);
 int peer_active_nego (struct peer *);

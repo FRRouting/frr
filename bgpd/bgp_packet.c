@@ -637,7 +637,7 @@ bgp_write (struct thread *thread)
 	  if (write_errno == EWOULDBLOCK || write_errno == EAGAIN)
 	      break;
 
-	  bgp_stop (peer);
+	  BGP_EVENT_ADD (peer, BGP_Stop);
 	  peer->status = Idle;
 	  bgp_timer_set (peer);
 	  return 0;
@@ -673,8 +673,8 @@ bgp_write (struct thread *thread)
 	  if (peer->v_start >= (60 * 2))
 	    peer->v_start = (60 * 2);
 
-	  /* BGP_EVENT_ADD (peer, BGP_Stop); */
-	  bgp_stop (peer);
+	  BGP_EVENT_ADD (peer, BGP_Stop);
+	  /*bgp_stop (peer);*/
 	  peer->status = Idle;
 	  bgp_timer_set (peer);
 	  return 0;
@@ -722,7 +722,7 @@ bgp_write_notify (struct peer *peer)
   ret = writen (peer->fd, STREAM_DATA (s), stream_get_endp (s));
   if (ret <= 0)
     {
-      bgp_stop (peer);
+      BGP_EVENT_ADD (peer, BGP_Stop);
       peer->status = Idle;
       bgp_timer_set (peer);
       return 0;
@@ -1278,7 +1278,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
       /* Transfer status. */
       realpeer->status = peer->status;
       bgp_stop (peer);
-
+      
       /* peer pointer change. Open packet send to neighbor. */
       peer = realpeer;
       bgp_open_send (peer);
@@ -2376,6 +2376,14 @@ bgp_read (struct thread *thread)
       if (BGP_DEBUG (events, EVENTS))
 	zlog_debug ("%s [Event] Accepting BGP peer delete", peer->host);
       peer_delete (peer);
+      /* we've lost track of a reference to ACCEPT_PEER somehow.  It doesnt
+       * _seem_ to be the 'update realpeer with accept peer' hack, yet it
+       * *must* be.. Very very odd, but I give up trying to
+       * root cause this - ACCEPT_PEER is a dirty hack, it should be fixed
+       * instead, which would make root-causing this a moot point..
+       * A hack because of a hack, appropriate.
+       */
+      peer_unlock (peer); /* god knows what reference... ACCEPT_PEER sucks */
     }
   return 0;
 }

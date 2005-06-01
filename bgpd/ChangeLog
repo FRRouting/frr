@@ -1,3 +1,99 @@
+2005-06-01 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) refcount struct peer and bgp_info, hence allowing us
+	  add work_queues for bgp_process.
+	* bgp_route.h: (struct bgp_info) Add 'lock' field for refcount.
+	  Add bgp_info_{lock,unlock} helper functions.
+	  Add bgp_info_{add,delete} helpers, to remove need for
+	  users managing locking/freeing of bgp_info and bgp_node's.
+	* bgp_table.h: (struct bgp_node) Add a flags field, and
+	  BGP_NODE_PROCESS_SCHEDULED to merge redundant processing of
+	  nodes.
+	* bgp_fsm.h: Make the ON/OFF/ADD/REMOVE macros lock and unlock
+	  peer reference as appropriate.
+	* bgp_damp.c: Remove its internal prototypes for
+	  bgp_info_delete/free. Just use bgp_info_delete.
+	* bgpd.h: (struct bgp_master) Add work_queue pointers.
+	  (struct peer) Add reference count 'lock'
+	  (peer_lock,peer_unlock) New helpers to take/release reference
+	  on struct peer.
+	* bgp_advertise.c: (general) Add peer and bgp_info refcounting 
+	  and balance how references are taken and released.
+	  (bgp_advertise_free) release bgp_info reference, if appropriate
+	  (bgp_adj_out_free) unlock peer
+	  (bgp_advertise_clean) leave the adv references alone, or else
+	  call bgp_advertise_free cant unlock them.
+	  (bgp_adj_out_set) lock the peer on new adj's, leave the reference
+	  alone otherwise. lock the new bgp_info reference.
+	  (bgp_adj_in_set) lock the peer reference
+	  (bgp_adj_in_remove) and unlock it here
+	  (bgp_sync_delete) make hash_free on peer conditional, just in
+	  case.
+	* bgp_fsm.c: (general) document that the timers depend on
+	  bgp_event to release a peer reference.
+	  (bgp_fsm_change_status) moved up the file, unchanged.
+	  (bgp_stop) Decrement peer lock as many times as cancel_event
+	  canceled - shouldnt be needed but just in case.
+	  stream_fifo_clean of obuf made conditional, just in case.
+	  (bgp_event) always unlock the peer, regardless of return value
+	  of bgp_fsm_change_status.
+	* bgp_packet.c: (general) change several bgp_stop's to BGP_EVENT's.
+	  (bgp_read) Add a mysterious extra peer_unlock for ACCEPT_PEERs
+	  along with a comment on it.
+	* bgp_route.c: (general) Add refcounting of bgp_info, cleanup
+	  some of the resource management around bgp_info. Refcount peer.
+	  Add workqueues for bgp_process and clear_table.
+	  (bgp_info_new) make static
+	  (bgp_info_free) Ditto, and unlock the peer reference.
+	  (bgp_info_lock,bgp_info_unlock) new exported functions
+	  (bgp_info_add) Add a bgp_info to a bgp_node in correct fashion,
+	  taking care of reference counts.
+	  (bgp_info_delete) do the opposite of bgp_info_add.
+	  (bgp_process_rsclient) Converted into a work_queue work function.
+	  (bgp_process_main) ditto.
+	  (bgp_processq_del) process work queue item deconstructor
+	  (bgp_process_queue_init) process work queue init
+	  (bgp_process) call init function if required, set up queue item
+	  and add to queue, rather than calling process functions directly.
+	  (bgp_rib_remove) let bgp_info_delete manage bgp_info refcounts
+	  (bgp_rib_withdraw) ditto
+	  (bgp_update_rsclient) let bgp_info_add manage refcounts
+	  (bgp_update_main) ditto
+	  (bgp_clear_route_node) clear_node_queue work function, does
+	  per-node aspects of what bgp_clear_route_table did previously
+	  (bgp_clear_node_queue_del) clear_node_queue item delete function
+	  (bgp_clear_node_complete) clear_node_queue completion function,
+	  it unplugs the process queues, which have to be blocked while
+	  clear_node_queue is being processed to prevent a race.
+	  (bgp_clear_node_queue_init) init function for clear_node_queue
+	  work queues
+	  (bgp_clear_route_table) Sets up items onto a workqueue now, rather
+	  than clearing each node directly. Plugs both process queues to
+	  avoid potential race.
+	  (bgp_static_withdraw_rsclient) let bgp_info_{add,delete} manage
+	  bgp_info refcounts.
+	  (bgp_static_update_rsclient) ditto
+	  (bgp_static_update_main) ditto
+	  (bgp_static_update_vpnv4) ditto, remove unneeded cast.
+	  (bgp_static_withdraw) see bgp_static_withdraw_rsclient
+	  (bgp_static_withdraw_vpnv4) ditto
+	  (bgp_aggregate_{route,add,delete}) ditto
+	  (bgp_redistribute_{add,delete,withdraw}) ditto
+	* bgp_vty.c: (peer_rsclient_set_vty) lock rsclient list peer
+	  reference
+	  (peer_rsclient_unset_vty) ditto, but unlock same reference
+	* bgpd.c: (peer_free) handle frees of info to be kept for lifetime
+	  of struct peer.
+	  (peer_lock,peer_unlock) peer refcount helpers
+	  (peer_new) add initial refcounts
+	  (peer_create,peer_create_accept) lock peer as appropriate
+	  (peer_delete) unlock as appropriate, move out some free's to
+	  peer_free.
+	  (peer_group_bind,peer_group_unbind) peer refcounting as
+	  appropriate.
+	  (bgp_create) check CALLOC return value.
+	  (bgp_terminate) free workqueues too.
+	 
 2005-05-28 Hasso Tepper <hasso at quagga.net>
 
 	* bgp_routemap.c: Sync set_metric_addsub_cmd with ripd.

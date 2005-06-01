@@ -1342,7 +1342,7 @@ DEFUN (no_neighbor,
     {
       peer = peer_lookup (vty->index, &su);
       if (peer)
-	peer_delete (peer);
+        peer_delete (peer);
     }
 
   return CMD_SUCCESS;
@@ -2043,7 +2043,10 @@ peer_rsclient_set_vty (struct vty *vty, const char *peer_str,
     return CMD_SUCCESS;
 
   if ( ! peer_rsclient_active (peer) )
-    listnode_add_sort (bgp->rsclient, peer);
+    {
+      peer = peer_lock (peer); /* rsclient peer list reference */
+      listnode_add_sort (bgp->rsclient, peer);
+    }
 
   ret = peer_af_flag_set (peer, afi, safi, PEER_FLAG_RSERVER_CLIENT);
   if (ret < 0)
@@ -2143,7 +2146,10 @@ peer_rsclient_unset_vty (struct vty *vty, const char *peer_str,
     return bgp_vty_return (vty, ret);
 
   if ( ! peer_rsclient_active (peer) )
-    listnode_delete (bgp->rsclient, peer);
+    {
+      peer_unlock (peer); /* peer bgp rsclient reference */
+      listnode_delete (bgp->rsclient, peer);
+    }
 
   bgp_table_finish (peer->rib[bgp_node_afi(vty)][bgp_node_safi(vty)]);
 

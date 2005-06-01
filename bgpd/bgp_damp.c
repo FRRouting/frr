@@ -350,8 +350,6 @@ void
 bgp_damp_info_free (struct bgp_damp_info *bdi, int withdraw)
 {
   struct bgp_info *binfo;
-  void bgp_info_delete (struct bgp_node *, struct bgp_info *);
-  void bgp_info_free (struct bgp_info *);
 
   if (! bdi)
     return;
@@ -368,11 +366,8 @@ bgp_damp_info_free (struct bgp_damp_info *bdi, int withdraw)
   UNSET_FLAG (binfo->flags, BGP_INFO_HISTORY);
 
   if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw)
-    {
-      bgp_info_delete (bdi->rn, binfo);
-      bgp_info_free (binfo);
-      bgp_unlock_node (bdi->rn);
-    }
+    bgp_info_delete (bdi->rn, binfo);
+  
   XFREE (MTYPE_BGP_DAMP_INFO, bdi);
 }
 

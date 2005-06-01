@@ -34,6 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "log.h"
 #include "plist.h"
 #include "linklist.h"
+#include "workqueue.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -685,7 +686,71 @@ peer_sort (struct peer *peer)
     }
 }
 
-/* Allocate new peer object.  */
+static inline void
+peer_free (struct peer *peer)
+{
+  if (peer->desc)
+    XFREE (MTYPE_PEER_DESC, peer->desc);
+  
+  /* Free allocated host character. */
+  if (peer->host)
+    XFREE (MTYPE_BGP_PEER_HOST, peer->host);
+  
+  /* Update source configuration.  */
+  if (peer->update_source)
+    sockunion_free (peer->update_source);
+  
+  if (peer->update_if)
+    XFREE (MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
+
+  memset (peer, 0, sizeof (struct peer));
+  
+  XFREE (MTYPE_BGP_PEER, peer);
+}
+                                                
+/* increase reference count on a struct peer */
+struct peer *
+peer_lock (struct peer *peer)
+{
+  assert (peer && (peer->lock >= 0));
+  
+  peer->lock++;
+  
+  return peer;
+}
+
+/* decrease reference count on a struct peer
+ * struct peer is freed and NULL returned if last reference
+ */
+struct peer *
+peer_unlock (struct peer *peer)
+{
+  assert (peer && (peer->lock > 0));
+  
+  peer->lock--;
+  
+  if (peer->lock == 0)
+    {
+#if 0
+      zlog_debug ("unlocked and freeing");
+      zlog_backtrace (LOG_DEBUG);
+#endif
+      peer_free (peer);
+      return NULL;
+    }
+
+#if 0
+  if (peer->lock == 1)
+    {
+      zlog_debug ("unlocked to 1");
+      zlog_backtrace (LOG_DEBUG);
+    }
+#endif
+
+  return peer;
+}
+  
+/* Allocate new peer object, implicitely locked.  */
 static struct peer *
 peer_new ()
 {
@@ -700,6 +765,7 @@ peer_new ()
 
   /* Set default value. */
   peer->fd = -1;
+  peer->lock = 1;
   peer->v_start = BGP_INIT_START_TIMER;
   peer->v_connect = BGP_DEFAULT_CONNECT_RETRY;
   peer->v_asorig = BGP_DEFAULT_ASORIGINATE;
@@ -755,6 +821,8 @@ peer_create (union sockunion *su, struct bgp *bgp, as_t local_as,
     peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
   else
     peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
+    
+  peer = peer_lock (peer); /* bgp peer list reference */
   listnode_add_sort (bgp->peer, peer);
 
   active = peer_active (peer);
@@ -790,6 +858,8 @@ peer_create_accept (struct bgp *bgp)
 
   peer = peer_new ();
   peer->bgp = bgp;
+  
+  peer = peer_lock (peer); /* bgp peer list reference */
   listnode_add_sort (bgp->peer, peer);
 
   return peer;
@@ -1087,18 +1157,20 @@ peer_delete (struct peer *peer)
      relationship.  */
   if (peer->group)
     {
+      peer = peer_unlock (peer); /* peer-group reference */
       listnode_delete (peer->group->peer, peer);
       peer->group = NULL;
     }
-
+  
   /* Withdraw all information from routing table.  We can not use
-     BGP_EVENT_ADD (peer, BGP_Stop) at here.  Because the event is
-     executed after peer structure is deleted. */
+   * BGP_EVENT_ADD (peer, BGP_Stop) at here.  Because the event is
+   * executed after peer structure is deleted.
+   */
   peer->last_reset = PEER_DOWN_NEIGHBOR_DELETE;
   bgp_stop (peer);
-  bgp_fsm_change_status (peer, Idle);
-
-  /* Stop all timers. */
+  bgp_fsm_change_status (peer, Idle); /* stops all timers */
+  
+  /* Stop all timers - should already have been done in bgp_stop */
   BGP_TIMER_OFF (peer->t_start);
   BGP_TIMER_OFF (peer->t_connect);
   BGP_TIMER_OFF (peer->t_holdtime);
@@ -1112,9 +1184,14 @@ peer_delete (struct peer *peer)
   /* Delete from all peer list. */
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-    listnode_delete (bgp->peer, peer);
+      peer_unlock (peer); /* bgp peer list reference */
+      listnode_delete (bgp->peer, peer);
+      
       if (peer_rsclient_active (peer))
-        listnode_delete (bgp->rsclient, peer);
+        {
+          peer_unlock (peer); /* rsclient list reference */
+          listnode_delete (bgp->rsclient, peer);
+        }
     }
 
   /* Free RIB for any family in which peer is RSERVER_CLIENT, and is not
@@ -1124,30 +1201,22 @@ peer_delete (struct peer *peer)
       if (peer->rib[afi][safi] && ! peer->af_group[afi][safi])
         bgp_table_finish (peer->rib[afi][safi]);
 
-  /* Buffer.  */
+  /* Buffers.  */
   if (peer->ibuf)
     stream_free (peer->ibuf);
-
+  
   if (peer->obuf)
     stream_fifo_free (peer->obuf);
 
   if (peer->work)
     stream_free (peer->work);
-
-  /* Free allocated host character. */
-  if (peer->host)
-    XFREE (MTYPE_BGP_PEER_HOST, peer->host);
-
+  
   /* Local and remote addresses. */
   if (peer->su_local)
     sockunion_free (peer->su_local);
   if (peer->su_remote)
     sockunion_free (peer->su_remote);
-
-  /* Peer description string.  */
-  if (peer->desc)
-    XFREE (MTYPE_PEER_DESC, peer->desc);
-
+  
   bgp_sync_delete (peer);
 
   /* Free filter related memory.  */
@@ -1164,11 +1233,16 @@ peer_delete (struct peer *peer)
 	      free (filter->plist[i].name);
 	    if (filter->aslist[i].name)
 	      free (filter->aslist[i].name);
-     }
-   for (i = RMAP_IN; i < RMAP_MAX; i++)
-      {
+            
+            filter->dlist[i].name = NULL;
+            filter->plist[i].name = NULL;
+            filter->aslist[i].name = NULL;
+          }
+        for (i = RMAP_IN; i < RMAP_MAX; i++)
+          {
 	    if (filter->map[i].name)
 	      free (filter->map[i].name);
+            filter->map[i].name = NULL;
 	  }
 
 	if (filter->usmap.name)
@@ -1176,22 +1250,12 @@ peer_delete (struct peer *peer)
 
 	if (peer->default_rmap[afi][safi].name)
 	  free (peer->default_rmap[afi][safi].name);
+        
+        filter->usmap.name = NULL;
+        peer->default_rmap[afi][safi].name = NULL;
       }
-
-  /* Update source configuration.  */
-  if (peer->update_source)
-    {
-      sockunion_free (peer->update_source);
-      peer->update_source = NULL;
-    }
-  if (peer->update_if)
-    {
-      XFREE (MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-      peer->update_if = NULL;
-    }
-
-  /* Free peer structure. */
-  XFREE (MTYPE_BGP_PEER, peer);
+  
+  peer_unlock (peer); /* initial reference */
 
   return 0;
 }
@@ -1625,6 +1689,8 @@ peer_group_bind (struct bgp *bgp, union sockunion *su,
       peer = peer_create (su, bgp, bgp->as, group->conf->as, afi, safi);
       peer->group = group;
       peer->af_group[afi][safi] = 1;
+
+      peer = peer_lock (peer); /* peer-group group->peer reference */
       listnode_add (group->peer, peer);
       peer_group2peer_config_copy (group, peer, afi, safi);
 
@@ -1664,6 +1730,8 @@ peer_group_bind (struct bgp *bgp, union sockunion *su,
   if (! peer->group)
     {
       peer->group = group;
+      
+      peer = peer_lock (peer); /* peer-group group->peer reference */
       listnode_add (group->peer, peer);
     }
 
@@ -1693,7 +1761,10 @@ peer_group_bind (struct bgp *bgp, union sockunion *su,
           family, without being member of a peer_group, remove it from
           list bgp->rsclient.*/
       if (! peer_rsclient_active (peer))
-        listnode_delete (bgp->rsclient, peer);
+        {
+          peer_unlock (peer); /* peer rsclient reference */
+          listnode_delete (bgp->rsclient, peer);
+        }
 
       bgp_table_finish (peer->rib[afi][safi]);
 
@@ -1748,6 +1819,7 @@ peer_group_unbind (struct bgp *bgp, struct peer *peer,
 
   if (! peer_group_active (peer))
     {
+      peer_unlock (peer); /* peer group list reference */
       listnode_delete (group->peer, peer);
       peer->group = NULL;
       if (group->conf->as)
@@ -1778,8 +1850,9 @@ bgp_create (as_t *as, const char *name)
   afi_t afi;
   safi_t safi;
 
-  bgp = XCALLOC (MTYPE_BGP, sizeof (struct bgp));
-
+  if ( (bgp = XCALLOC (MTYPE_BGP, sizeof (struct bgp))) == NULL)
+    return NULL;
+  
   bgp->peer_self = peer_new ();
   bgp->peer_self->host = strdup ("Static announcement");
 
@@ -1941,7 +2014,7 @@ bgp_delete (struct bgp *bgp)
   list_delete (bgp->rsclient);
 
   listnode_delete (bm->bgp, bgp);
-
+  
   if (bgp->name)
     free (bgp->name);
   
@@ -4839,6 +4912,7 @@ bgp_master_init ()
   bm->master = thread_master_create ();
   bm->start_time = time (NULL);
 }
+
 
 void
 bgp_init ()
@@ -4903,5 +4977,7 @@ bgp_terminate ()
                            BGP_NOTIFY_CEASE_PEER_UNCONFIG);
   
   bgp_cleanup_routes ();
+  work_queue_free (bm->process_main_queue);
+  work_queue_free (bm->process_rsclient_queue);
 }
 

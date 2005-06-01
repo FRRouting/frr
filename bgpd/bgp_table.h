@@ -58,6 +58,9 @@ struct bgp_node
   void *aggregate;
 
   struct bgp_node *prn;
+
+  u_char flags;
+#define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 };
 
 struct bgp_table *bgp_table_init (void);

@@ -87,6 +87,8 @@ bgp_advertise_new ()
 void
 bgp_advertise_free (struct bgp_advertise *adv)
 {
+  if (adv->binfo)
+    bgp_info_unlock (adv->binfo); /* bgp_advertise bgp_info reference */
   XFREE (MTYPE_BGP_ADVERTISE, adv);
 }
 
@@ -148,6 +150,7 @@ bgp_advertise_unintern (struct hash *hash, struct bgp_advertise_attr *baa)
 void
 bgp_adj_out_free (struct bgp_adj_out *adj)
 {
+  peer_unlock (adj->peer); /* adj_out peer reference */
   XFREE (MTYPE_BGP_ADJ_OUT, adj);
 }
 
@@ -191,8 +194,6 @@ bgp_advertise_clean (struct peer *peer, struct bgp_adj_out *adj,
 
       /* Unintern BGP advertise attribute.  */
       bgp_advertise_unintern (peer->hash[afi][safi], baa);
-      adv->baa = NULL;
-      adv->rn = NULL;
     }
 
   /* Unlink myself from advertisement FIFO.  */
@@ -228,7 +229,8 @@ bgp_adj_out_set (struct bgp_node *rn, struct peer *peer, struct prefix *p,
   if (! adj)
     {
       adj = XCALLOC (MTYPE_BGP_ADJ_OUT, sizeof (struct bgp_adj_out));
-
+      adj->peer = peer_lock (peer); /* adj_out peer reference */
+      
       if (rn)
         {
           BGP_ADJ_OUT_ADD (rn, adj);
@@ -238,13 +240,15 @@ bgp_adj_out_set (struct bgp_node *rn, struct peer *peer, struct prefix *p,
 
   if (adj->adv)
     bgp_advertise_clean (peer, adj, afi, safi);
-
-  adj->peer = peer;
+  
   adj->adv = bgp_advertise_new ();
 
   adv = adj->adv;
   adv->rn = rn;
-  adv->binfo = binfo;
+  
+  assert (adv->binfo == NULL);
+  adv->binfo = bgp_info_lock (binfo); /* bgp_info adj_out reference */
+  
   if (attr)
     adv->baa = bgp_advertise_intern (peer->hash[afi][safi], attr);
   else
@@ -338,7 +342,7 @@ bgp_adj_in_set (struct bgp_node *rn, struct peer *peer, struct attr *attr)
 	}
     }
   adj = XCALLOC (MTYPE_BGP_ADJ_IN, sizeof (struct bgp_adj_in));
-  adj->peer = peer;
+  adj->peer = peer_lock (peer); /* adj_in peer reference */
   adj->attr = bgp_attr_intern (attr);
   BGP_ADJ_IN_ADD (rn, adj);
   bgp_lock_node (rn);
@@ -349,6 +353,7 @@ bgp_adj_in_remove (struct bgp_node *rn, struct bgp_adj_in *bai)
 {
   bgp_attr_unintern (bai->attr);
   BGP_ADJ_IN_DEL (rn, bai);
+  peer_unlock (bai->peer); /* adj_in peer reference */
   XFREE (MTYPE_BGP_ADJ_IN, bai);
 }
 
@@ -399,7 +404,8 @@ bgp_sync_delete (struct peer *peer)
 	if (peer->sync[afi][safi])
 	  XFREE (MTYPE_TMP, peer->sync[afi][safi]);
 	peer->sync[afi][safi] = NULL;
-
-	hash_free (peer->hash[afi][safi]);
+	
+	if (peer->hash[afi][safi])
+	  hash_free (peer->hash[afi][safi]);
       }
 }

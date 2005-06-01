@@ -6,7 +6,7 @@
  * The script is sensitive to the format (though not whitespace), see
  * the top of memtypes.awk for more details.
  *
- * $Id: memtypes.c,v 1.5 2005/05/19 02:13:28 paul Exp $
+ * $Id: memtypes.c,v 1.6 2005/06/01 11:17:05 paul Exp $
  */
 
 #include "zebra.h"
@@ -124,6 +124,9 @@ struct memory_list memory_list_bgp[] =
   { 0, NULL },
   { MTYPE_CLUSTER,		"Cluster list"			},
   { MTYPE_CLUSTER_VAL,		"Cluster list val"		},
+  { 0, NULL },
+  { MTYPE_BGP_PROCESS_QUEUE,	"BGP Process queue"		},
+  { MTYPE_BGP_CLEAR_NODE_QUEUE, "BGP node clear queue"		},
   { 0, NULL },
   { MTYPE_TRANSIT,		"BGP transit attr"		},
   { MTYPE_TRANSIT_VAL,		"BGP transit val"		},

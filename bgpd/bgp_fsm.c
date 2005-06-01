@@ -214,7 +214,7 @@ bgp_start_timer (struct thread *thread)
 	  "%s [FSM] Timer (start timer expire).", peer->host);
 
   THREAD_VAL (thread) = BGP_Start;
-  bgp_event (thread);
+  bgp_event (thread);  /* bgp_event unlocks peer */
 
   return 0;
 }
@@ -233,7 +233,7 @@ bgp_connect_timer (struct thread *thread)
 	  peer->host);
 
   THREAD_VAL (thread) = ConnectRetry_timer_expired;
-  bgp_event (thread);
+  bgp_event (thread); /* bgp_event unlocks peer */
 
   return 0;
 }
@@ -253,7 +253,7 @@ bgp_holdtime_timer (struct thread *thread)
 	  peer->host);
 
   THREAD_VAL (thread) = Hold_Timer_expired;
-  bgp_event (thread);
+  bgp_event (thread); /* bgp_event unlocks peer */
 
   return 0;
 }
@@ -273,7 +273,7 @@ bgp_keepalive_timer (struct thread *thread)
 	  peer->host);
 
   THREAD_VAL (thread) = KeepAlive_timer_expired;
-  bgp_event (thread);
+  bgp_event (thread); /* bgp_event unlocks peer */
 
   return 0;
 }
@@ -388,12 +388,31 @@ bgp_graceful_stale_timer_expire (struct thread *thread)
   return 0;
 }
 
+/* Called after event occured, this function change status and reset
+   read/write and timer thread. */
+void
+bgp_fsm_change_status (struct peer *peer, int status)
+{
+  bgp_dump_state (peer, peer->status, status);
+
+  /* Preserve old status and change into new status. */
+  peer->ostatus = peer->status;
+  peer->status = status;
+
+  if (BGP_DEBUG (normal, NORMAL))
+    zlog_debug ("%s went from %s to %s",
+		peer->host,
+		LOOKUP (bgp_status_msg, peer->ostatus),
+		LOOKUP (bgp_status_msg, peer->status));
+}
+
 /* Administrative BGP peer stop event. */
 int
 bgp_stop (struct peer *peer)
 {
   afi_t afi;
   safi_t safi;
+  unsigned int i;
   char orf_name[BUFSIZ];
 
   /* Increment Dropped count. */
@@ -468,9 +487,11 @@ bgp_stop (struct peer *peer)
   BGP_TIMER_OFF (peer->t_asorig);
   BGP_TIMER_OFF (peer->t_routeadv);
 
-  /* Delete all existing events of the peer. */
-  BGP_EVENT_DELETE (peer);
-
+  /* Delete all existing events of the peer,
+     and corresponding peer ref-count */
+  for (i = thread_cancel_event (master, peer); i > 0; i--)
+    peer_unlock (peer); /* thread event reference */
+  
   /* Stream reset. */
   peer->packet_size = 0;
 
@@ -479,7 +500,8 @@ bgp_stop (struct peer *peer)
     stream_reset (peer->ibuf);
   if (peer->work)
     stream_reset (peer->work);
-  stream_fifo_clean (peer->obuf);
+  if (peer->obuf)
+    stream_fifo_clean (peer->obuf);
 
   /* Close of file descriptor. */
   if (peer->fd >= 0)
@@ -681,24 +703,6 @@ bgp_fsm_open (struct peer *peer)
   BGP_TIMER_OFF (peer->t_holdtime);
 
   return 0;
-}
-
-/* Called after event occured, this function change status and reset
-   read/write and timer thread. */
-void
-bgp_fsm_change_status (struct peer *peer, int status)
-{
-  bgp_dump_state (peer, peer->status, status);
-
-  /* Preserve old status and change into new status. */
-  peer->ostatus = peer->status;
-  peer->status = status;
-
-  if (BGP_DEBUG (normal, NORMAL))
-    zlog_debug ("%s went from %s to %s",
-		peer->host,
-		LOOKUP (bgp_status_msg, peer->ostatus),
-		LOOKUP (bgp_status_msg, peer->status));
 }
 
 /* Keepalive send to peer. */
@@ -1021,15 +1025,16 @@ bgp_event (struct thread *thread)
   ret = (*(FSM [peer->status - 1][event - 1].func))(peer);
 
   /* When function do not want proceed next job return -1. */
-  if (ret < 0)
-    return ret;
-    
-  /* If status is changed. */
-  if (next != peer->status)
-    bgp_fsm_change_status (peer, next);
+  if (ret >= 0)
+    {
+      /* If status is changed. */
+      if (next != peer->status)
+        bgp_fsm_change_status (peer, next);
 
-  /* Make sure timer is set. */
-  bgp_timer_set (peer);
-
-  return 0;
+      /* Make sure timer is set. */
+      bgp_timer_set (peer);
+    }
+  
+  peer_unlock (peer); /* bgp-event peer reference */
+  return ret;
 }
