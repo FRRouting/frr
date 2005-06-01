@@ -99,12 +99,9 @@ ospf_elect_dr (struct ospf_interface *oi, struct list *el_list)
 
   /* Set DR to interface. */
   if (dr)
-    {
-      DR (oi) = dr->address.u.prefix4;
-      dr->d_router = dr->address.u.prefix4;
-    }
+    DR (oi) = dr->address.u.prefix4;
   else
-      DR (oi).s_addr = 0;
+    DR (oi).s_addr = 0;
 
   list_delete (dr_list);
 
@@ -143,10 +140,7 @@ ospf_elect_bdr (struct ospf_interface *oi, struct list *el_list)
 
   /* Set BDR to interface. */
   if (bdr)
-    {
-      BDR (oi) = bdr->address.u.prefix4;
-      bdr->bd_router = bdr->address.u.prefix4;
-    }
+    BDR (oi) = bdr->address.u.prefix4;
   else
     BDR (oi).s_addr = 0;
 

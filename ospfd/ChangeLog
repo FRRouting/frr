@@ -1,3 +1,7 @@
+2005-06-01  Akihiro Mizutani  <mizutani@net-chef.net>
+
+	* ospf_ism.c (ospf_elect_bdr/ospf_elect_dr): Fix DR election bug.
+
 2005-05-26 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_abr.c: (ospf_abr_update_aggregate) Fix comment, cost bug itself
