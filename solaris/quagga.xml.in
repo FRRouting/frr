@@ -13,6 +13,7 @@
 	name='network/routing/quagga'
 	type='service'
 	version='1'>
+
 	<!-- 
 		common service-level dependencies, inherited by each instance
 	-->
@@ -86,7 +87,6 @@
 			    value='file://localhost/@sysconfdir@/zebra.conf' />
 		</dependency>
 		<property_group name='quagga' type='application'>
-			<stability value='Evolving' />
 			<propval name='keep_kernel' type='boolean' 
 				value='false'/>
 			<propval name='daemon_name' type='astring'
@@ -112,7 +112,7 @@
 			inherit the rest...
 		-->
 		<dependency name='zebra'
-			grouping='require_all'
+			grouping='optional_all'
 			restart_on='restart'
 			type='service'>
 			<service_fmri value='svc:/network/routing/quagga:zebra' />
@@ -125,10 +125,9 @@
 			    value='file://localhost/@sysconfdir@/bgpd.conf' />
 		</dependency>
 		<property_group name='quagga' type='application'>
-			<stability value='Evolving' />
 			<propval name='daemon_name' type='astring'
 				value='bgpd'/>
-			<propval name='daemon_name' type='boolean'
+			<propval name='no_kernel' type='boolean'
 				value='false'/>
 		</property_group>
 		<template>
@@ -166,7 +165,6 @@
 			    value='file://localhost/@sysconfdir@/ospf6d.conf' />
 		</dependency>
 		<property_group name='quagga' type='application'>
-			<stability value='Evolving' />
 			<propval name='daemon_name' type='astring'
 				value='ospf6d'/>
 		</property_group>
@@ -205,11 +203,9 @@
 			    value='file://localhost/@sysconfdir@/ospfd.conf' />
 		</dependency>
 		<property_group name='quagga' type='application'>
-			<stability value='Evolving' />
 			<propval name='retain_routes' type='boolean' value='false'/>
 		</property_group>
 		<property_group name='quagga' type='application'>
-			<stability value='Evolving' />
 			<propval name='daemon_name' type='astring'
 				value='ospfd'/>
 		</property_group>
@@ -248,11 +244,9 @@
 			    value='file://localhost/@sysconfdir@/ripd.conf' />
 		</dependency>
 		<property_group name='quagga' type='application'>
-			<stability value='Evolving' />
 			<propval name='retain_routes' type='boolean' value='false'/>
 		</property_group>
 		<property_group name='quagga' type='application'>
-			<stability value='Evolving' />
 			<propval name='daemon_name' type='astring'
 				value='ripd'/>
 		</property_group>
@@ -291,11 +285,9 @@
 			    value='file://localhost/@sysconfdir@/ripngd.conf' />
 		</dependency>
 		<property_group name='quagga' type='application'>
-			<stability value='Evolving' />
 			<propval name='retain_routes' type='boolean' value='false'/>
 		</property_group>
 		<property_group name='quagga' type='application'>
-			<stability value='Evolving' />
 			<propval name='daemon_name' type='astring'
 				value='ripngd'/>
 		</property_group>
@@ -315,8 +307,7 @@
 
 	</instance>
 
-
-	<stability value='Unstable' />
+	<stability value='Evolving' />
 
 </service>
 

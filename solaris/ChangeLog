@@ -1,3 +1,11 @@
+2005-06-02 Paul Jakma <paul.jakma@sun.com>
+
+	* quagga.xml.in: Fix mistake in bgpd definition. Change dependency
+	  on zebra to optional. Remove the duplicated stability statements.
+	* quagga.init.in: svcprop should check PACKAGE_TARNAME, not _NAME.
+	  no need to check for config file either, there's already a
+	  dependency in the manifest.
+
 2005-05-13 Paul Jakma <paul.jakma@sun.com>
 
 	* quagga.xml.in: Sigh, XML child elements are order-sensitive.
