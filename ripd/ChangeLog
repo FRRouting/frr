@@ -1,3 +1,10 @@
+2005-06-01 Paul Jakma <paul.jakma@sun.com>
+
+	* rip_interface.c: Fix authentication, no-auth impossible to specify
+	  (rip_interface_new) default to RIP_NO_AUTH
+	  (rip_interface_reset) ditto
+	  (rip_interface_config_write) write out config for simple
+	  
 2005-05-29 Paul Jakma <paul@dishone.st>
 
 	* ripd.c: (rip_output_process) fix error which crept in my

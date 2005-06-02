@@ -123,8 +123,7 @@ rip_interface_new ()
 
   /* Default authentication type is simple password for Cisco
      compatibility. */
-  /* ri->auth_type = RIP_NO_AUTH; */
-  ri->auth_type = RIP_AUTH_SIMPLE_PASSWORD;
+  ri->auth_type = RIP_NO_AUTH;
   ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
 
   /* Set default split-horizon behavior.  If the interface is Frame
@@ -632,8 +631,7 @@ rip_interface_reset ()
       ri->ri_send = RI_RIP_UNSPEC;
       ri->ri_receive = RI_RIP_UNSPEC;
 
-      /* ri->auth_type = RIP_NO_AUTH; */
-      ri->auth_type = RIP_AUTH_SIMPLE_PASSWORD;
+      ri->auth_type = RIP_NO_AUTH;
 
       if (ri->auth_str)
 	{
@@ -1714,8 +1712,7 @@ DEFUN (no_ip_rip_authentication_mode,
   ifp = (struct interface *)vty->index;
   ri = ifp->info;
 
-  /* ri->auth_type = RIP_NO_AUTH; */
-  ri->auth_type = RIP_AUTH_SIMPLE_PASSWORD;
+  ri->auth_type = RIP_NO_AUTH;
   ri->md5_auth_len = RIP_AUTH_MD5_COMPAT_SIZE;
 
   return CMD_SUCCESS;
@@ -2052,11 +2049,8 @@ rip_interface_config_write (struct vty *vty)
 		 VTY_NEWLINE);
 
       /* RIP authentication. */
-#if 0 
-      /* RIP_AUTH_SIMPLE_PASSWORD becomes default mode. */
       if (ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD)
 	vty_out (vty, " ip rip authentication mode text%s", VTY_NEWLINE);
-#endif /* 0 */
 
       if (ri->auth_type == RIP_AUTH_MD5)
         {
