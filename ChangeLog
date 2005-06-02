@@ -1,3 +1,7 @@
+2005-06-01 Paul Jakma <paul.jakma@sun.com>
+
+	* NEWS: bgpd work queues and ripd auth-mode change
+
 2005-05-07 Yar Tikhiy <yar@comp.chem.msu.su>
 
 	* configure.ac: Check for OSes which support passing ifindex in

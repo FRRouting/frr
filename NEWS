@@ -1,3 +1,13 @@
+* Changes in Quagga 0.99.2
+
+- Work queues added to bgpd to split up update processing, particularly
+  beneficial when a peer session goes down.
+
+- Simple authentication is no longer the default authentication mode for
+  ripd. The default is now no-authentication. Any setups which used
+  simple authentication will probably need to update their configuration
+  manually.
+
 * Changes in Quagga 0.99.1
 
 - Zserv is now buffered via threads and non-blocking in most cases for both
