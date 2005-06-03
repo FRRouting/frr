@@ -1,8 +1,18 @@
 2005-06-03 Paul Jakma <paul.jakma@sun.com>
 
 	* ripd.c: (rip_create_socket) move it up so rip_send_packet
-	  can use it too.
-
+	  can use it too. Make it static. Remove the getservbyname stuff,
+	  as RFC2453 3.9.2 says non-RIP port messages should be discarded,
+	  quagga doesnt accept them, no need to lookup port.
+	  Take a 'to' argument, if socket should be bound to something else.
+	  setsockopt_so_recvbuf might need privs, move it to the raised
+	  privileges section.
+	  dont forget to close the socket if bind fails.
+	  (rip_send_packet) use strncpy, just in case (address is under
+	  our control anyway, but still).
+	  dont duplicate rip_create_socket - just use it.
+	  (rip_create) rip_create_socket takes an argument now, modify.
+	  
 2005-06-01 Paul Jakma <paul.jakma@sun.com>
 
 	* rip_interface.c: Fix authentication, no-auth impossible to specify

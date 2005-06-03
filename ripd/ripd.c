@@ -1320,27 +1320,22 @@ rip_response_process (struct rip_packet *packet, int size,
 }
 
 /* Make socket for RIP protocol. */
-int 
-rip_create_socket ()
+static int 
+rip_create_socket (struct sockaddr_in *to)
 {
   int ret;
   int sock;
   struct sockaddr_in addr;
-  struct servent *sp;
-
-  memset (&addr, 0, sizeof (struct sockaddr_in));
-
-  /* Set RIP port. */
-  sp = getservbyname ("router", "udp");
-  if (sp) 
-    addr.sin_port = sp->s_port;
-  else 
-    addr.sin_port = htons (RIP_PORT_DEFAULT);
-
-  /* Address shoud be any address. */
-  addr.sin_family = AF_INET;
-  addr.sin_addr.s_addr = INADDR_ANY;
-
+  
+  if (!to)
+    {
+      memset (&addr, 0, sizeof (struct sockaddr_in));
+      addr.sin_family = AF_INET;
+      addr.sin_port = htons (RIP_PORT_DEFAULT);
+      addr.sin_family = AF_INET;
+      addr.sin_addr.s_addr = INADDR_ANY;
+    }
+  
   /* Make datagram socket. */
   sock = socket (AF_INET, SOCK_DGRAM, 0);
   if (sock < 0) 
@@ -1352,23 +1347,25 @@ rip_create_socket ()
   sockopt_broadcast (sock);
   sockopt_reuseaddr (sock);
   sockopt_reuseport (sock);
-  setsockopt_so_recvbuf (sock, RIP_UDP_RCV_BUF);
 #ifdef RIP_RECVMSG
   setsockopt_pktinfo (sock);
 #endif /* RIP_RECVMSG */
 
   if (ripd_privs.change (ZPRIVS_RAISE))
       zlog_err ("rip_create_socket: could not raise privs");
-  ret = bind (sock, (struct sockaddr *) & addr, sizeof (addr));
-  if (ret < 0)
+  setsockopt_so_recvbuf (sock, RIP_UDP_RCV_BUF);
+  if ( (ret = bind (sock, (struct sockaddr *) & addr, sizeof (addr))) < 0)
+  
     {
       int save_errno = errno;
       if (ripd_privs.change (ZPRIVS_LOWER))
         zlog_err ("rip_create_socket: could not lower privs");
       zlog_err("cannot bind to port %d: %s",
 	       (int)ntohs(addr.sin_port), safe_strerror(save_errno));
+      close (sock);
       return ret;
     }
+  
   if (ripd_privs.change (ZPRIVS_LOWER))
       zlog_err ("rip_create_socket: could not lower privs");
       
@@ -1390,20 +1387,25 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
   
   if (IS_RIP_DEBUG_PACKET)
     {
-      char dst[20];
+#define ADDRESS_SIZE 20
+      char dst[ADDRESS_SIZE];
+      dst[ADDRESS_SIZE - 1] = '\0';
+      
       if (to)
         {
-          strcpy(dst, inet_ntoa(to->sin_addr));
+          strncpy (dst, inet_ntoa(to->sin_addr), ADDRESS_SIZE - 1);
         }
       else
         {
           sin.sin_addr.s_addr = htonl (INADDR_RIP_GROUP);
-          strcpy(dst, inet_ntoa(sin.sin_addr));
+          strncpy (dst, inet_ntoa(sin.sin_addr), ADDRESS_SIZE - 1);
         }
+#undef ADDRESS_SIZE
       zlog_debug("rip_send_packet %s > %s (%s)",
                 inet_ntoa(ifc->address->u.prefix4),
                 dst, ifc->ifp->name);
     }
+  
   if ( CHECK_FLAG (ifc->flags, ZEBRA_IFA_SECONDARY) )
     {
       /*
@@ -1447,19 +1449,11 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
        * is the most portable way to bind to a different source
        * ipv4 address for each packet. 
        */
-      send_sock = socket(AF_INET, SOCK_DGRAM, 0);
-      if (send_sock < 0)
+      if ( (send_sock = rip_create_socket (&sin)) < 0)
         {
-          zlog_warn("rip_send_packet could not create socket %s",
-                    safe_strerror(errno));
+          zlog_warn("rip_send_packet could not create socket.");
           return -1;
-    }
-      sockopt_broadcast (send_sock);
-      sockopt_reuseaddr (send_sock);
-      sockopt_reuseport (send_sock);
-#ifdef RIP_RECVMSG
-      setsockopt_pktinfo (send_sock);
-#endif /* RIP_RECVMSG */
+        }
       rip_interface_multicast_set (send_sock, ifc);
     }
 
@@ -2691,7 +2685,7 @@ rip_create ()
   rip->obuf = stream_new (1500);
 
   /* Make socket. */
-  rip->sock = rip_create_socket ();
+  rip->sock = rip_create_socket (NULL);
   if (rip->sock < 0)
     return rip->sock;
 
