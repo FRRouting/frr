@@ -1319,6 +1319,62 @@ rip_response_process (struct rip_packet *packet, int size,
     }
 }
 
+/* Make socket for RIP protocol. */
+int 
+rip_create_socket ()
+{
+  int ret;
+  int sock;
+  struct sockaddr_in addr;
+  struct servent *sp;
+
+  memset (&addr, 0, sizeof (struct sockaddr_in));
+
+  /* Set RIP port. */
+  sp = getservbyname ("router", "udp");
+  if (sp) 
+    addr.sin_port = sp->s_port;
+  else 
+    addr.sin_port = htons (RIP_PORT_DEFAULT);
+
+  /* Address shoud be any address. */
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = INADDR_ANY;
+
+  /* Make datagram socket. */
+  sock = socket (AF_INET, SOCK_DGRAM, 0);
+  if (sock < 0) 
+    {
+      zlog_err("Cannot create UDP socket: %s", safe_strerror(errno));
+      exit (1);
+    }
+
+  sockopt_broadcast (sock);
+  sockopt_reuseaddr (sock);
+  sockopt_reuseport (sock);
+  setsockopt_so_recvbuf (sock, RIP_UDP_RCV_BUF);
+#ifdef RIP_RECVMSG
+  setsockopt_pktinfo (sock);
+#endif /* RIP_RECVMSG */
+
+  if (ripd_privs.change (ZPRIVS_RAISE))
+      zlog_err ("rip_create_socket: could not raise privs");
+  ret = bind (sock, (struct sockaddr *) & addr, sizeof (addr));
+  if (ret < 0)
+    {
+      int save_errno = errno;
+      if (ripd_privs.change (ZPRIVS_LOWER))
+        zlog_err ("rip_create_socket: could not lower privs");
+      zlog_err("cannot bind to port %d: %s",
+	       (int)ntohs(addr.sin_port), safe_strerror(save_errno));
+      return ret;
+    }
+  if (ripd_privs.change (ZPRIVS_LOWER))
+      zlog_err ("rip_create_socket: could not lower privs");
+      
+  return sock;
+}
+
 /* RIP packet send to destination address, on interface denoted by
  * by connected argument. NULL to argument denotes destination should be
  * should be RIP multicast group
@@ -2003,63 +2059,6 @@ rip_read (struct thread *t)
 
   return len;
 }
-
-/* Make socket for RIP protocol. */
-int 
-rip_create_socket ()
-{
-  int ret;
-  int sock;
-  struct sockaddr_in addr;
-  struct servent *sp;
-
-  memset (&addr, 0, sizeof (struct sockaddr_in));
-
-  /* Set RIP port. */
-  sp = getservbyname ("router", "udp");
-  if (sp) 
-    addr.sin_port = sp->s_port;
-  else 
-    addr.sin_port = htons (RIP_PORT_DEFAULT);
-
-  /* Address shoud be any address. */
-  addr.sin_family = AF_INET;
-  addr.sin_addr.s_addr = INADDR_ANY;
-
-  /* Make datagram socket. */
-  sock = socket (AF_INET, SOCK_DGRAM, 0);
-  if (sock < 0) 
-    {
-      zlog_err("Cannot create UDP socket: %s", safe_strerror(errno));
-      exit (1);
-    }
-
-  sockopt_broadcast (sock);
-  sockopt_reuseaddr (sock);
-  sockopt_reuseport (sock);
-  setsockopt_so_recvbuf (sock, RIP_UDP_RCV_BUF);
-#ifdef RIP_RECVMSG
-  setsockopt_pktinfo (sock);
-#endif /* RIP_RECVMSG */
-
-  if (ripd_privs.change (ZPRIVS_RAISE))
-      zlog_err ("rip_create_socket: could not raise privs");
-  ret = bind (sock, (struct sockaddr *) & addr, sizeof (addr));
-  if (ret < 0)
-    {
-      int save_errno = errno;
-      if (ripd_privs.change (ZPRIVS_LOWER))
-        zlog_err ("rip_create_socket: could not lower privs");
-      zlog_err("cannot bind to port %d: %s",
-	       (int)ntohs(addr.sin_port), safe_strerror(save_errno));
-      return ret;
-    }
-  if (ripd_privs.change (ZPRIVS_LOWER))
-      zlog_err ("rip_create_socket: could not lower privs");
-      
-  return sock;
-}
-
 
 /* Write routing table entry to the stream and return next index of
    the routing table entry in the stream. */

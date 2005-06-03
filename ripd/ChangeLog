@@ -1,3 +1,8 @@
+2005-06-03 Paul Jakma <paul.jakma@sun.com>
+
+	* ripd.c: (rip_create_socket) move it up so rip_send_packet
+	  can use it too.
+
 2005-06-01 Paul Jakma <paul.jakma@sun.com>
 
 	* rip_interface.c: Fix authentication, no-auth impossible to specify
