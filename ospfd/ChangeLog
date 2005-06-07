@@ -1,3 +1,9 @@
+2005-06-07 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_apiserver.c: Fix obvious error in notifying clients about ISM
+	  changes - oi->ifp->status doesn't give to us info about ISM,
+	  oi->state does.
+
 2005-06-01  Akihiro Mizutani  <mizutani@net-chef.net>
 
 	* ospf_ism.c (ospf_elect_bdr/ospf_elect_dr): Fix DR election bug.

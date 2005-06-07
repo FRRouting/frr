@@ -2444,7 +2444,7 @@ ospf_apiserver_clients_notify_ism_change (struct ospf_interface *oi)
       area_id = oi->area->area_id;
     }
 
-  msg = new_msg_ism_change (0, ifaddr, area_id, oi->ifp->status);
+  msg = new_msg_ism_change (0, ifaddr, area_id, oi->state);
   if (!msg)
     {
       zlog_warn ("apiserver_clients_notify_ism_change: msg_new failed");
