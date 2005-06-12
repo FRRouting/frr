@@ -1,3 +1,11 @@
+2005-06-12 Hasso Tepper <hasso at quagga.net>
+
+	* rt_netlink.c: Remove netlink-addr socket declaration, it's not used.
+	* rt_netlink.c (netlink_parse_info): Fix debug messages - nlmsg_pid is
+	  unsigned and one zlog call had swapped arguments.
+	* rt_netlink.c (netlink_route_multipath): Fix compile with disabled
+	  IPv6 support.
+
 2005-05-31 Paul Jakma <paul.jakma@sun.com>
 
 	* zserv.c: (zsend_route_multipath) Fix bug if route is sent

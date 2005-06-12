@@ -49,8 +49,7 @@ struct nlsock
   struct sockaddr_nl snl;
   const char *name;
 } netlink      = { -1, 0, {0}, "netlink-listen"},     /* kernel messages */
-  netlink_cmd  = { -1, 0, {0}, "netlink-cmd"},        /* command channel */
-  netlink_addr = { -1, 0, {0}, "netlink-addr"};       /* address channel */
+  netlink_cmd  = { -1, 0, {0}, "netlink-cmd"};        /* command channel */
 
 struct message nlmsg_str[] = {
   {RTM_NEWROUTE, "RTM_NEWROUTE"},
@@ -391,7 +390,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
                 {
                   if (IS_ZEBRA_DEBUG_KERNEL)
                     {
-                      zlog_debug ("%s: %s ACK: type=%s(%u), seq=%u, pid=%d",
+                      zlog_debug ("%s: %s ACK: type=%s(%u), seq=%u, pid=%u",
                                  __FUNCTION__, nl->name,
                                  lookup (nlmsg_str, err->msg.nlmsg_type),
                                  err->msg.nlmsg_type, err->msg.nlmsg_seq,
@@ -425,7 +424,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
                   loglvl = LOG_DEBUG;
 
                 zlog (NULL, loglvl, "%s error: %s, type=%s(%u), "
-                      "seq=%u, pid=%d",
+                      "seq=%u, pid=%u",
                       nl->name, safe_strerror (-errnum),
                       lookup (nlmsg_str, msg_type),
                       msg_type, err->msg.nlmsg_seq, err->msg.nlmsg_pid);
@@ -439,7 +438,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
 
           /* OK we got netlink message. */
           if (IS_ZEBRA_DEBUG_KERNEL)
-            zlog_debug ("netlink_parse_info: %s type %s(%u), seq=%u, pid=%d",
+            zlog_debug ("netlink_parse_info: %s type %s(%u), seq=%u, pid=%u",
                        nl->name,
                        lookup (nlmsg_str, h->nlmsg_type), h->nlmsg_type,
                        h->nlmsg_seq, h->nlmsg_pid);
@@ -449,7 +448,7 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
             {
               if (IS_ZEBRA_DEBUG_KERNEL)
                 zlog_debug ("netlink_parse_info: %s packet comes from %s",
-                           nl->name, netlink_cmd.name);
+                            netlink_cmd.name, nl->name);
               continue;
             }
 
@@ -1470,9 +1469,14 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
                       zlog_debug
                         ("netlink_route_multipath() (recursive, 1 hop): "
                          "%s %s/%d, type %s", lookup (nlmsg_str, cmd),
+#ifdef HAVE_IPV6
 			 (family == AF_INET) ? inet_ntoa (p->u.prefix4) :
-			 inet6_ntoa (p->u.prefix6), p->prefixlen,
-                         nexthop_types_desc[nexthop->rtype]);
+			 inet6_ntoa (p->u.prefix6),
+#else
+			 inet_ntoa (p->u.prefix4),
+#endif /* HAVE_IPV6 */
+			 
+			 p->prefixlen, nexthop_types_desc[nexthop->rtype]);
                     }
 
                   if (nexthop->rtype == NEXTHOP_TYPE_IPV4
@@ -1524,9 +1528,13 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
                       zlog_debug
                         ("netlink_route_multipath() (single hop): "
                          "%s %s/%d, type %s", lookup (nlmsg_str, cmd),
+#ifdef HAVE_IPV6
 			 (family == AF_INET) ? inet_ntoa (p->u.prefix4) :
-			 inet6_ntoa (p->u.prefix6), p->prefixlen,
-			 nexthop_types_desc[nexthop->type]);
+			 inet6_ntoa (p->u.prefix6),
+#else
+			 inet_ntoa (p->u.prefix4),
+#endif /* HAVE_IPV6 */
+			 p->prefixlen, nexthop_types_desc[nexthop->type]);
                     }
 
                   if (nexthop->type == NEXTHOP_TYPE_IPV4
@@ -1611,8 +1619,13 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
                     {
                       zlog_debug ("netlink_route_multipath() "
                          "(recursive, multihop): %s %s/%d type %s",
-                         lookup (nlmsg_str, cmd), (family == AF_INET) ? 
-			 inet_ntoa (p->u.prefix4) : inet6_ntoa (p->u.prefix6),
+			 lookup (nlmsg_str, cmd),
+#ifdef HAVE_IPV6
+			 (family == AF_INET) ? inet_ntoa (p->u.prefix4) :
+			 inet6_ntoa (p->u.prefix6),
+#else
+			 inet_ntoa (p->u.prefix4),
+#endif /* HAVE_IPV6 */
                          p->prefixlen, nexthop_types_desc[nexthop->rtype]);
                     }
                   if (nexthop->rtype == NEXTHOP_TYPE_IPV4
@@ -1668,9 +1681,13 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
                     {
                       zlog_debug ("netlink_route_multipath() (multihop): "
                          "%s %s/%d, type %s", lookup (nlmsg_str, cmd),
+#ifdef HAVE_IPV6
 			 (family == AF_INET) ? inet_ntoa (p->u.prefix4) :
-			 inet6_ntoa (p->u.prefix6), p->prefixlen,
-                         nexthop_types_desc[nexthop->type]);
+			 inet6_ntoa (p->u.prefix6),
+#else
+			 inet_ntoa (p->u.prefix4),
+#endif /* HAVE_IPV6 */
+			 p->prefixlen, nexthop_types_desc[nexthop->type]);
                     }
                   if (nexthop->type == NEXTHOP_TYPE_IPV4
                       || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
