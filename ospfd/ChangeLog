@@ -1,3 +1,13 @@
+2005-06-13 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_spf.c: Try get more information on a SEGV under 
+	  ospf_spf_vertex_add_parent.
+	  (ospf_vertex_free) NULL out the child and nexthop lists
+	  (ospf_vertex_add_parent) nexthop and child can not be NULL
+	  vertex_nexthop's parent->child list can not be NULL
+	  (ospf_spf_next) w and cw are per-loop iteration variables, move
+	  declarations into loop body.
+	  
 2005-06-07 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_apiserver.c: Fix obvious error in notifying clients about ISM

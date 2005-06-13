@@ -129,13 +129,15 @@ ospf_vertex_free (struct vertex *v)
   struct vertex_nexthop *nh;
 
   list_delete (v->child);
-
+  v->child = NULL;
+  
   if (listcount (v->nexthop) > 0)
     for (ALL_LIST_ELEMENTS (v->nexthop, node, nnode, nh))
       vertex_nexthop_free (nh);
 
   list_delete (v->nexthop);
-
+  v->nexthop = NULL;
+  
   XFREE (MTYPE_OSPF_VERTEX, v);
 }
 
@@ -194,9 +196,13 @@ ospf_vertex_add_parent (struct vertex *v)
 {
   struct vertex_nexthop *nh;
   struct listnode *node;
-
+  
+  assert (v->nexthop && v->child);
+  
   for (ALL_LIST_ELEMENTS_RO (v->nexthop, node, nh))
     {
+      assert (nh->parent && nh->parent->child);
+      
       /* No need to add two links from the same parent. */
       if (listnode_lookup (nh->parent->child, v) == NULL)
         listnode_add (nh->parent->child, v);
@@ -625,7 +631,6 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
 	       struct pqueue * candidate)
 {
   struct ospf_lsa *w_lsa = NULL;
-  struct vertex *w, *cw;
   u_char *p;
   u_char *lim;
   struct router_lsa_link *l = NULL;
@@ -645,6 +650,8 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
 
   while (p < lim)
     {
+      struct vertex *w, *cw;
+      
       int link = -1; /* link index for w's back link */
       
       /* In case of V is Router-LSA. */
