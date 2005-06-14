@@ -1,3 +1,13 @@
+2005-06-14 Paul Jakma <paul.jakma@sun.com>
+
+	* kernel_socket.c: consolidate the IFAM{ADDR,MASK}GET and 
+	  RTM{ADDR,MASK}GET macros into generic rta_addrs macros,
+	  RTA_{ADDR,ATTR}_GET.
+	  (af_check) could use 'inline' attribute
+	  (ifam_read_mesg) remove IFAM{ADDR,MASK}GET macro, change to
+	  generic macro.
+	  (rtm_read_mesg) similar
+
 2005-06-12 Hasso Tepper <hasso at quagga.net>
 
 	* rt_netlink.c: Remove netlink-addr socket declaration, it's not used.

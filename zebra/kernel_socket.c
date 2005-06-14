@@ -77,6 +77,24 @@ extern struct zebra_t zebrad;
            ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr)))
 #endif /* HAVE_SA_LEN */
 
+#define RTA_ADDR_GET(DEST, RTA, RTMADDRS, PNT) \
+  if ((RTMADDRS) & (RTA)) \
+    { \
+      int len = SAROUNDUP ((PNT)); \
+      if ( ((RTA) != NULL) && \
+           af_check (((struct sockaddr *)(PNT))->sa_family)) \
+        memcpy ((caddr_t)(DEST), (PNT), len); \
+      (PNT) += len; \
+    }
+#define RTA_ATTR_GET(DEST, RTA, RTMADDRS, PNT) \
+  if ((RTMADDRS) & (RTA)) \
+    { \
+      int len = SAROUNDUP ((PNT)); \
+      if ( ((RTA) != NULL) ) \
+        memcpy ((caddr_t)(DEST), (PNT), len); \
+      (PNT) += len; \
+    }
+
 /* Routing socket message types. */
 struct message rtm_type_str[] =
 {
@@ -159,7 +177,7 @@ int routing_sock = -1;
 /* #define DEBUG */
 
 /* Supported address family check. */
-static int
+static int inline
 af_check (int family)
 {
   if (family == AF_INET)
@@ -411,37 +429,20 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
   pnt = (caddr_t)(ifm + 1);
   end = ((caddr_t)ifm) + ifm->ifam_msglen;
 
-#define IFAMADDRGET(X,R) \
-    if (ifm->ifam_addrs & (R)) \
-      { \
-        int len = SAROUNDUP(pnt); \
-        if (((X) != NULL) && af_check (((struct sockaddr *)pnt)->sa_family)) \
-          memcpy ((caddr_t)(X), pnt, len); \
-        pnt += len; \
-      }
-#define IFAMMASKGET(X,R) \
-    if (ifm->ifam_addrs & (R)) \
-      { \
-	int len = SAROUNDUP(pnt); \
-        if ((X) != NULL) \
-	  memcpy ((caddr_t)(X), pnt, len); \
-	pnt += len; \
-      }
-
   /* Be sure structure is cleared */
   memset (mask, 0, sizeof (union sockunion));
   memset (addr, 0, sizeof (union sockunion));
   memset (dest, 0, sizeof (union sockunion));
 
   /* We fetch each socket variable into sockunion. */
-  IFAMADDRGET (NULL, RTA_DST);
-  IFAMADDRGET (NULL, RTA_GATEWAY);
-  IFAMMASKGET (mask, RTA_NETMASK);
-  IFAMADDRGET (NULL, RTA_GENMASK);
-  IFAMADDRGET (NULL, RTA_IFP);
-  IFAMADDRGET (addr, RTA_IFA);
-  IFAMADDRGET (NULL, RTA_AUTHOR);
-  IFAMADDRGET (dest, RTA_BRD);
+  RTA_ADDR_GET (NULL, RTA_DST, ifm->ifam_addrs, pnt);
+  RTA_ADDR_GET (NULL, RTA_GATEWAY, ifm->ifam_addrs, pnt);
+  RTA_ATTR_GET (mask, RTA_NETMASK, ifm->ifam_addrs, pnt);
+  RTA_ADDR_GET (NULL, RTA_GENMASK, ifm->ifam_addrs, pnt);
+  RTA_ADDR_GET (NULL, RTA_IFP, ifm->ifam_addrs, pnt);
+  RTA_ADDR_GET (addr, RTA_IFA, ifm->ifam_addrs, pnt);
+  RTA_ADDR_GET (NULL, RTA_AUTHOR, ifm->ifam_addrs, pnt);
+  RTA_ADDR_GET (dest, RTA_BRD, ifm->ifam_addrs, pnt);
 
   /* Assert read up end point matches to end point */
   if (pnt != end)
@@ -526,38 +527,21 @@ rtm_read_mesg (struct rt_msghdr *rtm,
       zlog (NULL, LOG_WARNING,
 	      "Routing message version different %d should be %d."
 	      "This may cause problem\n", rtm->rtm_version, RTM_VERSION);
-
-#define RTMADDRGET(X,R) \
-    if (rtm->rtm_addrs & (R)) \
-      { \
-	int len = SAROUNDUP (pnt); \
-        if (((X) != NULL) && af_check (((struct sockaddr *)pnt)->sa_family)) \
-	  memcpy ((caddr_t)(X), pnt, len); \
-	pnt += len; \
-      }
-#define RTMMASKGET(X,R) \
-    if (rtm->rtm_addrs & (R)) \
-      { \
-	int len = SAROUNDUP (pnt); \
-        if ((X) != NULL) \
-	  memcpy ((caddr_t)(X), pnt, len); \
-	pnt += len; \
-      }
-
+  
   /* Be sure structure is cleared */
   memset (dest, 0, sizeof (union sockunion));
   memset (gate, 0, sizeof (union sockunion));
   memset (mask, 0, sizeof (union sockunion));
 
   /* We fetch each socket variable into sockunion. */
-  RTMADDRGET (dest, RTA_DST);
-  RTMADDRGET (gate, RTA_GATEWAY);
-  RTMMASKGET (mask, RTA_NETMASK);
-  RTMADDRGET (NULL, RTA_GENMASK);
-  RTMADDRGET (NULL, RTA_IFP);
-  RTMADDRGET (NULL, RTA_IFA);
-  RTMADDRGET (NULL, RTA_AUTHOR);
-  RTMADDRGET (NULL, RTA_BRD);
+  RTA_ADDR_GET (dest, RTA_DST, rtm->rtm_addrs, pnt);
+  RTA_ADDR_GET (gate, RTA_GATEWAY, rtm->rtm_addrs, pnt);
+  RTA_ATTR_GET (mask, RTA_NETMASK, rtm->rtm_addrs, pnt);
+  RTA_ADDR_GET (NULL, RTA_GENMASK, rtm->rtm_addrs, pnt);
+  RTA_ADDR_GET (NULL, RTA_IFP, rtm->rtm_addrs, pnt);
+  RTA_ADDR_GET (NULL, RTA_IFA, rtm->rtm_addrs, pnt);
+  RTA_ADDR_GET (NULL, RTA_AUTHOR, rtm->rtm_addrs, pnt);
+  RTA_ADDR_GET (NULL, RTA_BRD, rtm->rtm_addrs, pnt);
 
   /* If there is netmask information set it's family same as
      destination family*/
