@@ -17,6 +17,8 @@
 	  /var/run/ is on tmpfs on Solaris, so we probably will need
 	  to create @quagga_statedir@ first run after boot.
 	  Use @sbindir@, not /usr/local/sbin.
+	* README.txt: updated to match changed SMF manifest and
+	  its changed service, instance and property group names.
 	  
 2005-06-02 Paul Jakma <paul.jakma@sun.com>
 
