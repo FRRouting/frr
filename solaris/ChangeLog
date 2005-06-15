@@ -1,3 +1,23 @@
+2005-06-15 Paul Jakma <paul.jakma@sun.com>
+
+	* quagga.xml.in: Pass the FMRI to the method, removing need for
+	  daemon_name property and deducing the FMRI.
+	  remove the empty config_file and pid_file definitions, they just
+	  make things difficult in the method script, cause it then has to
+	  deal with svcprop returning "" for defined empty properties.
+	  Remove daemon_name everywhere.
+	* quagga.init.in: Take the FMRI as an argument
+	  Remove deducing the FMRI from the defunct daemon_name property.
+	  Use svcprop -q to test for presence of a property first.
+	  Default vty_port to 0 and vty_addr to 127.1 if equivalent
+	  SMF properties are not set.
+	  Deduce the pid_file, we can infer it from @quagga_statedir@ I
+	  think, it's probably not useful to allow it to be configurable
+	  as a property anyway.
+	  /var/run/ is on tmpfs on Solaris, so we probably will need
+	  to create @quagga_statedir@ first run after boot.
+	  Use @sbindir@, not /usr/local/sbin.
+	  
 2005-06-02 Paul Jakma <paul.jakma@sun.com>
 
 	* quagga.xml.in: Fix mistake in bgpd definition. Change dependency

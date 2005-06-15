@@ -3,7 +3,7 @@
 # Copyright 2001,2003 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# $Id: quagga.init.in,v 1.3 2005/06/02 16:33:53 paul Exp $
+# $Id: quagga.init.in,v 1.4 2005/06/15 11:00:11 paul Exp $
 #
 # Starts/stops the appropriate daemon
 
@@ -14,7 +14,7 @@ if [ -f "$SMFINCLUDE" ] ; then
 fi
 
 usage () {
-	echo "Usage: $0 (start|stop) <fmri>";
+	echo "Usage: $0 (start|stop) <fmri> <instance>";
 }	
 
 case $1 in
@@ -23,9 +23,10 @@ case $1 in
 	;;
 esac
 
-# fmri must be given.
+# fmri and instance must be given.
 FMRI="$2"
-if [ -z "$FMRI" ]; then
+INSTANCE="$3"
+if [ -z "$FMRI" -o -z "$INSTANCE" ]; then
 	usage
 	exit $SMF_EXIT_ERR_CONFIG
 fi
@@ -33,10 +34,7 @@ fi
 # fmri must exist
 svcs ${FMRI} > /dev/null 2>&1 || exit $SMF_EXIT_ERR_CONFIG
 
-DAEMON=`svcprop -p @PACKAGE_TARNAME@/daemon_name ${FMRI} 2> /dev/null`
-[ -z "${DAEMON}" ] && exit $SMF_EXIT_ERR_CONFIG
-
-case ${DAEMON} in
+case ${INSTANCE} in
 	zebra | ospfd | ospf6d | ripd | ripngd | bgpd )
 	;;
 	*)
@@ -45,28 +43,52 @@ case ${DAEMON} in
 	;;
 esac
 
-CONFFILE=`svcprop -p @PACKAGE_TARNAME@/config_file ${FMRI}`
-PIDFILE=`svcprop -p @PACKAGE_TARNAME@/pid_file ${FMRI}`
-USER=`svcprop -p @PACKAGE_TARNAME@/user ${FMRI}`
-GROUP=`svcprop -p @PACKAGE_TARNAME@/group ${FMRI}`
-VTYADDR=`svcprop -p @PACKAGE_TARNAME@/vty_addr ${FMRI}`
-VTYPORT=`svcprop -p @PACKAGE_TARNAME@/vty_port ${FMRI}`
+svcprop -q -p @PACKAGE_TARNAME@/config_file ${FMRI} && \
+	CONFFILE=`svcprop -p @PACKAGE_TARNAME@/config_file ${FMRI}`
+svcprop -q -p @PACKAGE_TARNAME@/pid_file ${FMRI} && \
+	PIDFILE=`svcprop -p @PACKAGE_TARNAME@/pid_file ${FMRI}`
+svcprop -q -p @PACKAGE_TARNAME@/user ${FMRI} && \
+	USER=`svcprop -p @PACKAGE_TARNAME@/user ${FMRI}`
+svcprop -q -p @PACKAGE_TARNAME@/group ${FMRI} && \
+	GROUP=`svcprop -p @PACKAGE_TARNAME@/group ${FMRI}`
+svcprop -q -p @PACKAGE_TARNAME@/vty_addr ${FMRI} && \
+	VTYADDR=`svcprop -p @PACKAGE_TARNAME@/vty_addr ${FMRI}`
+svcprop -q -p @PACKAGE_TARNAME@/vty_port ${FMRI} && \
+	VTYPORT=`svcprop -p @PACKAGE_TARNAME@/vty_port ${FMRI}`
 
 [ -n "${CONFFILE}" ] && ARGS=" -f ${CONFFILE}"
 [ -n "${PIDFILE}" ] && ARGS="${ARGS} --pid_file ${PIDFILE}"
 [ -n "${USER}" ] && ARGS="${ARGS} --user ${USER}"
 [ -n "${GROUP}" ] && ARGS="${ARGS} --group ${GROUP}"
-[ -n "${VTYPORT}" ] && ARGS="${ARGS} --vty_port ${VTYPORT}"
-[ -n "${VTYADDR}" ] && ARGS="${ARGS} --vty_addr ${VTYADDR}"
+
+# vty should default to disabled, ie port == 0
+[ -z "${VTYPORT}" ] && VTYPORT=0
+ARGS="${ARGS} --vty_port ${VTYPORT}"
+
+# default listen address should be localhost
+[ -z "${VTYADDR}" ] && VTYADDR=127.1
+ARGS="${ARGS} --vty_addr ${VTYADDR}"
 
 # have to have a pid file for script to work
-[ -z "${PIDFILE}" ] && exit $SMF_EXIT_ERR_CONFIG
+# we can assume it otherwise
+if [ -z "${PIDFILE}" ]; then
+	PIDFILE="@quagga_statedir@/${INSTANCE}.pid"
+else
+	ARGS="${ARGS} --pid_file ${PIDFILE}"
+fi
 
 # config file must exist
 #[ ! -f "$CONFFILE" ] &&  exit $SMF_EXIT_ERR_CONFIG
 
+# we need @quagga_statedir@ to exist, it might be on tmpfs.
+if [ ! -d @quagga_statedir@ ] ; then
+	mkdir -p @quagga_statedir@
+	chown @enable_user@:@enable_group@ @quagga_statedir@
+	chmod 751 @quagga_statedir@
+fi
+
 start () {
-	/usr/local/quagga/sbin/${DAEMON} ${ARGS} &
+	@sbindir@/${INSTANCE} ${ARGS} &
 }
 
 stop () {
@@ -76,9 +98,9 @@ stop () {
 }
 
 restart() {
-	stop ${DAEMON}
+	stop ${INSTANCE}
 	sleep 1
-	start ${DAEMON}
+	start ${INSTANCE}
 }
 
 case $1 in 

@@ -39,19 +39,19 @@
 	<exec_method
 		type='method'
 		name='start'
-		exec='/lib/svc/method/quagga start %i'
+		exec='/lib/svc/method/quagga start %f %i'
 		timeout_seconds='60'/>
 
 	<exec_method
 		type='method'
 		name='stop'
-		exec='/lib/svc/method/quagga stop %i'
+		exec='/lib/svc/method/quagga stop %f %i'
 		timeout_seconds='60' />
 
 	<exec_method
 		type='method'
 		name='restart'
-		exec='/lib/svc/method/quagga restart %i'
+		exec='/lib/svc/method/quagga restart %f %i'
 		timeout_seconds='60' />
 	<!-- 
 		if we define these properties at the service level, each instance
@@ -65,8 +65,6 @@
 	</property_group>
 	<property_group name='quagga' type='application'>
 		<!-- Options common to Quagga daemons -->	
-		<propval name='config_file' type='astring' value='' />
-		<propval name='pid_file' type='astring' value='' />
 		<propval name='vty_addr' type='astring' value='127.1' />
 		<propval name='vty_port' type='integer' value='0'/>
 		<propval name='user' type='astring' value='@enable_user@' />
@@ -89,8 +87,6 @@
 		<property_group name='quagga' type='application'>
 			<propval name='keep_kernel' type='boolean' 
 				value='false'/>
-			<propval name='daemon_name' type='astring'
-				value='zebra'/>
 		</property_group>
 		<template>
 			<common_name>
@@ -125,8 +121,6 @@
 			    value='file://localhost/@sysconfdir@/bgpd.conf' />
 		</dependency>
 		<property_group name='quagga' type='application'>
-			<propval name='daemon_name' type='astring'
-				value='bgpd'/>
 			<propval name='no_kernel' type='boolean'
 				value='false'/>
 		</property_group>
@@ -164,10 +158,6 @@
 			<service_fmri
 			    value='file://localhost/@sysconfdir@/ospf6d.conf' />
 		</dependency>
-		<property_group name='quagga' type='application'>
-			<propval name='daemon_name' type='astring'
-				value='ospf6d'/>
-		</property_group>
 		<template>
 			<common_name>
 				<loctext xml:lang='C'>
@@ -204,10 +194,6 @@
 		</dependency>
 		<property_group name='quagga' type='application'>
 			<propval name='retain_routes' type='boolean' value='false'/>
-		</property_group>
-		<property_group name='quagga' type='application'>
-			<propval name='daemon_name' type='astring'
-				value='ospfd'/>
 		</property_group>
 		<template>
 			<common_name>
@@ -246,10 +232,6 @@
 		<property_group name='quagga' type='application'>
 			<propval name='retain_routes' type='boolean' value='false'/>
 		</property_group>
-		<property_group name='quagga' type='application'>
-			<propval name='daemon_name' type='astring'
-				value='ripd'/>
-		</property_group>
 		<template>
 			<common_name>
 				<loctext xml:lang='C'>
@@ -285,11 +267,8 @@
 			    value='file://localhost/@sysconfdir@/ripngd.conf' />
 		</dependency>
 		<property_group name='quagga' type='application'>
-			<propval name='retain_routes' type='boolean' value='false'/>
-		</property_group>
-		<property_group name='quagga' type='application'>
-			<propval name='daemon_name' type='astring'
-				value='ripngd'/>
+			<propval name='retain_routes' type='boolean' 
+				value='false'/>
 		</property_group>
 		<template>
 			<common_name>
