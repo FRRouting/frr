@@ -1,3 +1,9 @@
+2005-06-15 Paul Jakma <paul.jakma@sun.com>
+
+	* bgpd.c: (bgp_terminate) workqueue's are lazy allocated and its
+	  possible to terminate bgpd before workqueues were setup, causing
+	  an abort/crash. Reported by Ashish Mehta of Sun.
+
 2005-06-01 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) refcount struct peer and bgp_info, hence allowing us
