@@ -1,3 +1,7 @@
+2005-06-18 Paul Jakma <paul.jakma@sun.com>
+
+	* memtypes.h: update autobuilt file to match memtypes.c changes
+
 2005-06-01 Paul Jakma <paul.jakma@sun.com>
 
 	* memtypes.c: Add MTYPE_BGP_PROCESS_QUEUE and
