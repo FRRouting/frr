@@ -309,6 +309,12 @@ nsm_negotiation_done (struct ospf_neighbor *nbr)
     }
 #endif /* HAVE_OPAQUE_LSA */
 
+  if (CHECK_FLAG (nbr->options, OSPF_OPTION_NP))
+    {
+      LSDB_LOOP (NSSA_LSDB (area), rn, lsa)
+	ospf_db_summary_add (nbr, lsa);
+    }
+
   if (nbr->oi->type != OSPF_IFTYPE_VIRTUALLINK
       && area->external_routing == OSPF_AREA_DEFAULT)
     LSDB_LOOP (EXTERNAL_LSDB (nbr->oi->ospf), rn, lsa)

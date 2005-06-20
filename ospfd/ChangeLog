@@ -1,3 +1,7 @@
+2005-05-20 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_nsm.c: Make database exchange for NSSA database work. 
+
 2005-06-13 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_spf.c: Try get more information on a SEGV under 
