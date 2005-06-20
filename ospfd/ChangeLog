@@ -1,4 +1,4 @@
-2005-05-20 Hasso Tepper <hasso at quagga.net>
+2005-06-20 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_nsm.c: Make database exchange for NSSA database work. 
 
