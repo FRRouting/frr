@@ -61,6 +61,42 @@ struct ospf6_area
   struct thread *thread_router_lsa;
   struct thread *thread_intra_prefix_lsa;
   u_int32_t router_lsa_size_limit;
+
+  /* Area announce list */
+  struct
+  {
+    char *name;
+    struct access_list *list;
+  } export;
+#define EXPORT_NAME(A)  (A)->export.name
+#define EXPORT_LIST(A)  (A)->export.list
+
+  /* Area acceptance list */
+  struct
+  {
+    char *name;
+    struct access_list *list;
+  } import;
+#define IMPORT_NAME(A)  (A)->import.name
+#define IMPORT_LIST(A)  (A)->import.list
+
+  /* Type 3 LSA Area prefix-list */
+  struct
+  {
+    char *name;
+    struct prefix_list *list;
+  } plist_in;
+#define PREFIX_NAME_IN(A)  (A)->plist_in.name
+#define PREFIX_LIST_IN(A)  (A)->plist_in.list
+
+  struct
+  {
+    char *name;
+    struct prefix_list *list;
+  } plist_out;
+#define PREFIX_NAME_OUT(A)  (A)->plist_out.name
+#define PREFIX_LIST_OUT(A)  (A)->plist_out.list
+
 };
 
 #define OSPF6_AREA_ENABLE     0x01

@@ -30,6 +30,8 @@
 #include "if.h"
 #include "prefix.h"
 #include "table.h"
+#include "plist.h"
+#include "filter.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -414,6 +416,195 @@ ospf6_area_config_write (struct vty *vty)
     }
 }
 
+DEFUN (area_filter_list,
+       area_filter_list_cmd,
+       "area A.B.C.D filter-list prefix WORD (in|out)",
+       "OSPFv6 area parameters\n"
+       "OSPFv6 area ID in IP address format\n"
+       "Filter networks between OSPFv6 areas\n"
+       "Filter prefixes between OSPFv6 areas\n"
+       "Name of an IPv6 prefix-list\n"
+       "Filter networks sent to this area\n"
+       "Filter networks sent from this area\n")
+{
+  struct ospf6_area *area;
+  struct prefix_list *plist;
+
+  OSPF6_CMD_AREA_GET (argv[0], area);
+  argc--;
+  argv++;
+
+  plist = prefix_list_lookup (AFI_IP6, argv[1]);
+  if (strncmp (argv[2], "in", 2) == 0)
+    {
+      PREFIX_LIST_IN (area) = plist;
+      if (PREFIX_NAME_IN (area))
+	free (PREFIX_NAME_IN (area));
+
+      PREFIX_NAME_IN (area) = strdup (argv[1]);
+      ospf6_abr_reimport (area);
+    }
+  else
+    {
+      PREFIX_LIST_OUT (area) = plist;
+      if (PREFIX_NAME_OUT (area))
+	free (PREFIX_NAME_OUT (area));
+
+      PREFIX_NAME_OUT (area) = strdup (argv[1]);
+      ospf6_abr_enable_area (area);
+    }
+
+  return CMD_SUCCESS;
+}
+     
+DEFUN (no_area_filter_list,
+       no_area_filter_list_cmd,
+       "no area A.B.C.D filter-list prefix WORD (in|out)",
+       NO_STR
+       "OSPFv6 area parameters\n"
+       "OSPFv6 area ID in IP address format\n"
+       "Filter networks between OSPFv6 areas\n"
+       "Filter prefixes between OSPFv6 areas\n"
+       "Name of an IPv6 prefix-list\n"
+       "Filter networks sent to this area\n"
+       "Filter networks sent from this area\n")
+{
+  struct ospf6_area *area;
+  struct prefix_list *plist;
+
+  OSPF6_CMD_AREA_GET (argv[0], area);
+  argc--;
+  argv++;
+
+  plist = prefix_list_lookup (AFI_IP6, argv[1]);
+  if (strncmp (argv[2], "in", 2) == 0)
+    {
+      if (PREFIX_NAME_IN (area))
+	if (strcmp (PREFIX_NAME_IN (area), argv[1]) != 0)
+	  return CMD_SUCCESS;
+
+      PREFIX_LIST_IN (area) = NULL;
+      if (PREFIX_NAME_IN (area))
+	free (PREFIX_NAME_IN (area));
+
+      PREFIX_NAME_IN (area) = NULL;
+      ospf6_abr_reimport (area);
+    }
+  else
+    {
+      if (PREFIX_NAME_OUT (area))
+	if (strcmp (PREFIX_NAME_OUT (area), argv[1]) != 0)
+	  return CMD_SUCCESS;
+
+      PREFIX_LIST_OUT (area) = NULL;
+      if (PREFIX_NAME_OUT (area))
+	free (PREFIX_NAME_OUT (area));
+
+      PREFIX_NAME_OUT (area) = NULL;
+      ospf6_abr_enable_area (area);
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (area_import_list,
+       area_import_list_cmd,
+       "area A.B.C.D import-list NAME",
+       "OSPFv6 area parameters\n"
+       "OSPFv6 area ID in IP address format\n"
+       "Set the filter for networks from other areas announced to the specified one\n"
+       "Name of the acess-list\n")
+{
+  struct ospf6_area *area;
+  struct access_list *list;
+
+  OSPF6_CMD_AREA_GET(argv[0], area);
+
+  list = access_list_lookup (AFI_IP6, argv[1]);
+
+  IMPORT_LIST (area) = list;
+
+  if (IMPORT_NAME (area))
+    free (IMPORT_NAME (area));
+
+  IMPORT_NAME (area) = strdup (argv[1]);
+  ospf6_abr_reimport (area);
+
+  return CMD_SUCCESS; 
+}
+
+DEFUN (no_area_import_list,
+       no_area_import_list_cmd,
+       "no area A.B.C.D import-list NAME",
+       "OSPFv6 area parameters\n"
+       "OSPFv6 area ID in IP address format\n"
+       "Unset the filter for networks announced to other areas\n"
+       "NAme of the access-list\n")
+{
+  struct ospf6_area *area;
+
+  OSPF6_CMD_AREA_GET(argv[0], area);
+
+  IMPORT_LIST (area) = 0;
+
+  if (IMPORT_NAME (area))
+    free (IMPORT_NAME (area));
+
+  IMPORT_NAME (area) = NULL;
+  ospf6_abr_reimport (area);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (area_export_list,
+       area_export_list_cmd,
+       "area A.B.C.D export-list NAME",
+       "OSPFv6 area parameters\n"
+       "OSPFv6 area ID in IP address format\n"
+       "Set the filter for networks announced to other areas\n"
+       "Name of the acess-list\n")
+{
+  struct ospf6_area *area;
+  struct access_list *list;
+
+  OSPF6_CMD_AREA_GET(argv[0], area);
+
+  list = access_list_lookup (AFI_IP6, argv[1]);
+
+  EXPORT_LIST (area) = list;
+
+  if (EXPORT_NAME (area))
+    free (EXPORT_NAME (area));
+
+  EXPORT_NAME (area) = strdup (argv[1]);
+  ospf6_abr_enable_area (area);
+
+  return CMD_SUCCESS; 
+}
+
+DEFUN (no_area_export_list,
+       no_area_export_list_cmd,
+       "no area A.B.C.D export-list NAME",
+       "OSPFv6 area parameters\n"
+       "OSPFv6 area ID in IP address format\n"
+       "Unset the filter for networks announced to other areas\n"
+       "Name of the access-list\n")
+{
+  struct ospf6_area *area;
+
+  OSPF6_CMD_AREA_GET(argv[0], area);
+
+  EXPORT_LIST (area) = 0;
+
+  if (EXPORT_NAME (area))
+    free (EXPORT_NAME (area));
+
+  EXPORT_NAME (area) = NULL;
+  ospf6_abr_enable_area (area);
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (show_ipv6_ospf6_spf_tree,
        show_ipv6_ospf6_spf_tree_cmd,
        "show ipv6 ospf6 spf tree",
@@ -563,6 +754,15 @@ ospf6_area_init ()
   install_element (OSPF6_NODE, &area_range_cmd);
   install_element (OSPF6_NODE, &area_range_advertise_cmd);
   install_element (OSPF6_NODE, &no_area_range_cmd);
+
+  install_element (OSPF6_NODE, &area_import_list_cmd);
+  install_element (OSPF6_NODE, &no_area_import_list_cmd);
+  install_element (OSPF6_NODE, &area_export_list_cmd);
+  install_element (OSPF6_NODE, &no_area_export_list_cmd);
+
+  install_element (OSPF6_NODE, &area_filter_list_cmd);
+  install_element (OSPF6_NODE, &no_area_filter_list_cmd);
+
 }
 
 

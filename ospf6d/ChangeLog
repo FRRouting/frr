@@ -1,3 +1,8 @@
+2005-06-24 Harald Welte <laforge@gnumonks.org>
+
+	* ospf6_abr.[ch], ospf6_area.[ch]: Add area filter-list (in|out)
+	  support and area import and export lists support.
+
 2005-06-24 Yasuhiro Ohara <yasu@sfc.wide.ad.jp>
 
 	* ospf6_message.c: Changed to be insensitive to changes of neighbors'
