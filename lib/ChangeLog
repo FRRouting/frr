@@ -1,3 +1,8 @@
+2005-06-24 Pawel Worach <pawel.worach@gmail.com>
+
+	* getopt.h: add further tests for full getopt declaration on
+	  various systems.
+
 2005-06-18 Paul Jakma <paul.jakma@sun.com>
 
 	* memtypes.h: update autobuilt file to match memtypes.c changes

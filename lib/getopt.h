@@ -99,10 +99,19 @@ struct option
 #define optional_argument	2
 
 #if defined (__STDC__) && __STDC__
-#if defined (__GNU_LIBRARY__) || defined (__EXTENSIONS__)
+#if defined (__GNU_LIBRARY__) \
+    || defined (__EXTENSIONS__) \
+    || defined (_GETOPT_DEFINED_) \
+    || defined (_GETOPT_DECLARED)
 /* Many other libraries have conflicting prototypes for getopt, with
    differences in the consts, in stdlib.h.  To avoid compilation
-   errors, only prototype getopt for the GNU C library.  */
+   errors, only prototype getopt for systems we know have compatible
+   getopt.  
+   glibc: __GNU_LIBRARY__
+   solaris: __EXTENSIONS__
+   OpenBSD: _GETOPT_DEFINED_
+   FreeBSD: _GETOPT_DECLARED 
+ */
 extern int getopt (int argc, char *const *argv, const char *shortopts);
 #else /* not __GNU_LIBRARY__ or __EXTENSIONS__ */
 extern int getopt (void);
