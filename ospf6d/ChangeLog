@@ -1,3 +1,10 @@
+2005-06-24 Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_interface.c: fix the way inactivity_timer is called. Because
+	  inactivity_timer() deletes the neighbor from the neighbor_list, it
+	  cannot be called by thread_execute() from inner side of the
+	  neighbor_list for-loop.
+
 2005-05-31 Hasso Tepper <hasso at quagga.net>
 
 	* ospf6d.c: No need for double ';'. Fixes parsing "show ipv6 ospf6

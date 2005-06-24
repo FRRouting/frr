@@ -1069,7 +1069,7 @@ DEFUN (ipv6_ospf6_ifmtu,
   for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
       THREAD_OFF (on->inactivity_timer);
-      thread_execute (master, inactivity_timer, on, 0);
+      thread_add_event (master, inactivity_timer, on, 0);
     }
 
   return CMD_SUCCESS;
@@ -1117,7 +1117,7 @@ DEFUN (no_ipv6_ospf6_ifmtu,
   for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
       THREAD_OFF (on->inactivity_timer);
-      thread_execute (master, inactivity_timer, on, 0);
+      thread_add_event (master, inactivity_timer, on, 0);
     }
 
   return CMD_SUCCESS;
@@ -1352,7 +1352,7 @@ DEFUN (ipv6_ospf6_passive,
   for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
       THREAD_OFF (on->inactivity_timer);
-      thread_execute (master, inactivity_timer, on, 0);
+      thread_add_event (master, inactivity_timer, on, 0);
     }
 
   return CMD_SUCCESS;
