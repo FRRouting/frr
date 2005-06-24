@@ -1,3 +1,13 @@
+2005-06-24 Yasuhiro Ohara <yasu@sfc.wide.ad.jp>
+
+	* ospf6_message.c: Changed to be insensitive to changes of neighbors'
+	  IP source address in the OSPF packets. It was sometimes problematic
+	  in actual operation (needed some operational cost: restarting
+	  all-neighbor routers when I/F NIC was changed). Due to this change,
+	  a previously safe case, attaching multiple interface to the same
+	  link will now be dengerous and will not work. Remedy to that should
+	  be applied later.
+
 2005-06-24 Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
 	* ospf6_interface.c: fix the way inactivity_timer is called. Because

@@ -322,9 +322,11 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
       on->prev_drouter = on->drouter = hello->drouter;
       on->prev_bdrouter = on->bdrouter = hello->bdrouter;
       on->priority = hello->priority;
-      on->ifindex = ntohl (hello->interface_id);
-      memcpy (&on->linklocal_addr, src, sizeof (struct in6_addr));
     }
+
+  /* always override neighbor's source address and ifindex */
+  on->ifindex = ntohl (hello->interface_id);
+  memcpy (&on->linklocal_addr, src, sizeof (struct in6_addr));
 
   /* TwoWay check */
   for (p = (char *) ((caddr_t) hello + sizeof (struct ospf6_hello));
@@ -826,13 +828,6 @@ ospf6_dbdesc_recv (struct in6_addr *src, struct in6_addr *dst,
       return;
     }
 
-  if (memcmp (src, &on->linklocal_addr, sizeof (struct in6_addr)))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Seems to be from Secondary I/F of the neighbor, ignore");
-      return;
-    }
-
   dbdesc = (struct ospf6_dbdesc *)
     ((caddr_t) oh + sizeof (struct ospf6_header));
 
@@ -882,13 +877,6 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
         zlog_debug ("Neighbor not found, ignore");
-      return;
-    }
-
-  if (memcmp (src, &on->linklocal_addr, sizeof (struct in6_addr)))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Seems to be from Secondary I/F of the neighbor, ignore");
       return;
     }
 
@@ -978,13 +966,6 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
       return;
     }
 
-  if (memcmp (src, &on->linklocal_addr, sizeof (struct in6_addr)))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Seems to be from Secondary I/F of the neighbor, ignore");
-      return;
-    }
-
   if (on->state != OSPF6_NEIGHBOR_EXCHANGE &&
       on->state != OSPF6_NEIGHBOR_LOADING &&
       on->state != OSPF6_NEIGHBOR_FULL)
@@ -1062,13 +1043,6 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
     {
       if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
         zlog_debug ("Neighbor not found, ignore");
-      return;
-    }
-
-  if (memcmp (src, &on->linklocal_addr, sizeof (struct in6_addr)))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Seems to be from Secondary I/F of the neighbor, ignore");
       return;
     }
 
