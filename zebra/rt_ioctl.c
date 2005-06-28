@@ -26,19 +26,21 @@
 #include "log.h"
 #include "if.h"
 
+#include "zebra/zserv.h"
 #include "zebra/rib.h"
 #include "zebra/debug.h"
+#include "zebra/rt.h"
 
 /* Initialize of kernel interface.  There is no kernel communication
    support under ioctl().  So this is dummy stub function. */
 void
-kernel_init ()
+kernel_init (void)
 {
   return;
 }
 
 /* Dummy function of routing socket. */
-void
+static void
 kernel_read (int sock)
 {
   return;
@@ -160,7 +162,7 @@ kernel_add_route (struct prefix_ipv4 *dest, struct in_addr *gate,
 }
 
 /* Interface to ioctl route message. */
-int
+static int
 kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
 {
   int ret;
@@ -360,7 +362,7 @@ kernel_delete_ipv4 (struct prefix *p, struct rib *rib)
 #include <linux/ipv6_route.h>
 #endif
 
-int
+static int
 kernel_ioctl_ipv6 (u_long type, struct prefix_ipv6 *dest, struct in6_addr *gate,
 		   int index, int flags)
 {
@@ -421,7 +423,7 @@ kernel_ioctl_ipv6 (u_long type, struct prefix_ipv6 *dest, struct in6_addr *gate,
   return ret;
 }
 
-int
+static int
 kernel_ioctl_ipv6_multipath (u_long cmd, struct prefix *p, struct rib *rib,
 			     int family)
 {
@@ -551,7 +553,7 @@ kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
 /* Delete IPv6 route from the kernel. */
 int
 kernel_delete_ipv6_old (struct prefix_ipv6 *dest, struct in6_addr *gate,
-		    int index, int flags, int table)
+		    unsigned int index, int flags, int table)
 {
   return kernel_ioctl_ipv6 (SIOCDELRT, dest, gate, index, flags);
 }

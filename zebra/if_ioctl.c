@@ -33,8 +33,8 @@
 #include "zebra/interface.h"
 
 /* Interface looking up using infamous SIOCGIFCONF. */
-int
-interface_list_ioctl ()
+static int
+interface_list_ioctl (void)
 {
   int ret;
   int sock;
@@ -131,7 +131,7 @@ interface_list_ioctl ()
 }
 
 /* Get interface's index by ioctl. */
-int
+static int
 if_get_index (struct interface *ifp)
 {
 #if defined(HAVE_IF_NAMETOINDEX)
@@ -176,7 +176,7 @@ if_get_index (struct interface *ifp)
 }
 
 #ifdef SIOCGIFHWADDR
-int
+static int
 if_get_hwaddr (struct interface *ifp)
 {
   int ret;
@@ -210,8 +210,8 @@ if_get_hwaddr (struct interface *ifp)
 #ifdef HAVE_GETIFADDRS
 #include <ifaddrs.h>
 
-int
-if_getaddrs ()
+static int
+if_getaddrs (void)
 {
   int ret;
   struct ifaddrs *ifap;
@@ -412,7 +412,7 @@ interface_info_ioctl ()
   struct listnode *node, *nnode;
   struct interface *ifp;
   
-  for (ALL_LIST_ELEMENTS (iflist, ifp, node, nnode))
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
     {
       if_get_index (ifp);
 #ifdef SIOCGIFHWADDR

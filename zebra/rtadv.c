@@ -62,10 +62,10 @@ extern struct zebra_t zebrad;
 enum rtadv_event {RTADV_START, RTADV_STOP, RTADV_TIMER, 
 		  RTADV_TIMER_MSEC, RTADV_READ};
 
-void rtadv_event (enum rtadv_event, int);
+static void rtadv_event (enum rtadv_event, int);
 
-int if_join_all_router (int, struct interface *);
-int if_leave_all_router (int, struct interface *);
+static int if_join_all_router (int, struct interface *);
+static int if_leave_all_router (int, struct interface *);
 
 /* Structure which hold status of router advertisement. */
 struct rtadv
@@ -81,8 +81,8 @@ struct rtadv
 
 struct rtadv *rtadv = NULL;
 
-struct rtadv *
-rtadv_new ()
+static struct rtadv *
+rtadv_new (void)
 {
   struct rtadv *new;
   new = XMALLOC (MTYPE_TMP, sizeof (struct rtadv));
@@ -90,13 +90,13 @@ rtadv_new ()
   return new;
 }
 
-void
+static void
 rtadv_free (struct rtadv *rtadv)
 {
   XFREE (MTYPE_TMP, rtadv);
 }
 
-int
+static int
 rtadv_recv_packet (int sock, u_char *buf, int buflen,
 		   struct sockaddr_in6 *from, unsigned int *ifindex,
 		   int *hoplimit)
@@ -149,7 +149,7 @@ rtadv_recv_packet (int sock, u_char *buf, int buflen,
 #define RTADV_MSG_SIZE 4096
 
 /* Send router advertisement packet. */
-void
+static void
 rtadv_send_packet (int sock, struct interface *ifp)
 {
   struct msghdr msg;
@@ -333,7 +333,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
     }
 }
 
-int
+static int
 rtadv_timer (struct thread *thread)
 {
   struct listnode *node, *nnode;
@@ -373,7 +373,7 @@ rtadv_timer (struct thread *thread)
   return 0;
 }
 
-void
+static void
 rtadv_process_solicit (struct interface *ifp)
 {
   zlog_info ("Router solicitation received on %s", ifp->name);
@@ -381,13 +381,13 @@ rtadv_process_solicit (struct interface *ifp)
   rtadv_send_packet (rtadv->sock, ifp);
 }
 
-void
-rtadv_process_advert ()
+static void
+rtadv_process_advert (void)
 {
   zlog_info ("Router advertisement received");
 }
 
-void
+static void
 rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int hoplimit)
 {
   struct icmp6_hdr *icmph;
@@ -444,7 +444,7 @@ rtadv_process_packet (u_char *buf, unsigned int len, unsigned int ifindex, int h
   return;
 }
 
-int
+static int
 rtadv_read (struct thread *thread)
 {
   int sock;
@@ -473,7 +473,7 @@ rtadv_read (struct thread *thread)
   return 0;
 }
 
-int
+static int
 rtadv_make_socket (void)
 {
   int sock;
@@ -526,7 +526,7 @@ rtadv_make_socket (void)
   return sock;
 }
 
-struct rtadv_prefix *
+static struct rtadv_prefix *
 rtadv_prefix_new ()
 {
   struct rtadv_prefix *new;
@@ -537,13 +537,13 @@ rtadv_prefix_new ()
   return new;
 }
 
-void
+static void
 rtadv_prefix_free (struct rtadv_prefix *rtadv_prefix)
 {
   XFREE (MTYPE_RTADV_PREFIX, rtadv_prefix);
 }
 
-struct rtadv_prefix *
+static struct rtadv_prefix *
 rtadv_prefix_lookup (struct list *rplist, struct prefix *p)
 {
   struct listnode *node;
@@ -555,7 +555,7 @@ rtadv_prefix_lookup (struct list *rplist, struct prefix *p)
   return NULL;
 }
 
-struct rtadv_prefix *
+static struct rtadv_prefix *
 rtadv_prefix_get (struct list *rplist, struct prefix *p)
 {
   struct rtadv_prefix *rprefix;
@@ -571,7 +571,7 @@ rtadv_prefix_get (struct list *rplist, struct prefix *p)
   return rprefix;
 }
 
-void
+static void
 rtadv_prefix_set (struct zebra_if *zif, struct rtadv_prefix *rp)
 {
   struct rtadv_prefix *rprefix;
@@ -586,7 +586,7 @@ rtadv_prefix_set (struct zebra_if *zif, struct rtadv_prefix *rp)
   rprefix->AdvRouterAddressFlag = rp->AdvRouterAddressFlag;
 }
 
-int
+static int
 rtadv_prefix_reset (struct zebra_if *zif, struct rtadv_prefix *rp)
 {
   struct rtadv_prefix *rprefix;
@@ -1448,7 +1448,7 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
 }
 
 
-void
+static void
 rtadv_event (enum rtadv_event event, int val)
 {
   switch (event)
@@ -1493,7 +1493,7 @@ rtadv_event (enum rtadv_event event, int val)
 }
 
 void
-rtadv_init ()
+rtadv_init (void)
 {
   int sock;
 
@@ -1542,7 +1542,7 @@ rtadv_init ()
   install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
 }
 
-int
+static int
 if_join_all_router (int sock, struct interface *ifp)
 {
   int ret;
@@ -1563,7 +1563,7 @@ if_join_all_router (int sock, struct interface *ifp)
   return 0;
 }
 
-int
+static int
 if_leave_all_router (int sock, struct interface *ifp)
 {
   int ret;
@@ -1586,7 +1586,7 @@ if_leave_all_router (int sock, struct interface *ifp)
 
 #else
 void
-rtadv_init ()
+rtadv_init (void)
 {
   /* Empty.*/;
 }

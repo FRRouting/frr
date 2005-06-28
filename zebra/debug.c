@@ -201,7 +201,7 @@ struct cmd_node debug_node =
   1
 };
 
-int
+static int
 config_write_debug (struct vty *vty)
 {
   int write = 0;
@@ -242,7 +242,7 @@ config_write_debug (struct vty *vty)
 }
 
 void
-zebra_debug_init ()
+zebra_debug_init (void)
 {
   zebra_debug_event = 0;
   zebra_debug_packet = 0;

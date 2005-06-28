@@ -85,25 +85,26 @@ struct zebra_t
 #define PSIZE(a) (((a) + 7) / (8))
 
 /* Prototypes. */
-void zebra_init ();
-void zebra_if_init ();
-void hostinfo_get ();
-void rib_init ();
-void interface_list ();
-void kernel_init ();
-void route_read ();
-void rtadv_init ();
-void zebra_snmp_init ();
+extern void zebra_init (void);
+extern void zebra_if_init (void);
+extern void hostinfo_get (void);
+extern void rib_init (void);
+extern void interface_list (void);
+extern void kernel_init (void);
+extern void route_read (void);
+extern void zebra_snmp_init (void);
+extern void zebra_vty_init (void);
 
-int zsend_interface_add (struct zserv *, struct interface *);
+extern int zsend_interface_add (struct zserv *, struct interface *);
 #if (defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK))
-int zsend_interface_delete (struct zserv *, struct interface *);
+extern int zsend_interface_delete (struct zserv *, struct interface *);
 #endif
-int zsend_interface_address (int, struct zserv *, struct interface *,
-                             struct connected *);
-int zsend_interface_update (int, struct zserv *, struct interface *);
-int zsend_route_multipath (int, struct zserv *, struct prefix *, struct rib *);
-int zsend_router_id_update(struct zserv *, struct prefix *);
+extern int zsend_interface_address (int, struct zserv *, struct interface *,
+                                    struct connected *);
+extern int zsend_interface_update (int, struct zserv *, struct interface *);
+extern int zsend_route_multipath (int, struct zserv *, struct prefix *, 
+                                  struct rib *);
+extern int zsend_router_id_update(struct zserv *, struct prefix *);
 
 extern pid_t pid;
 extern pid_t old_pid;

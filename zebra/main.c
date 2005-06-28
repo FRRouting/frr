@@ -37,6 +37,7 @@
 #include "zebra/debug.h"
 #include "zebra/router-id.h"
 #include "zebra/irdp.h"
+#include "zebra/rtadv.h"
 
 /* Zebra instance */
 struct zebra_t zebrad =
@@ -149,7 +150,7 @@ usage (char *progname, int status)
 }
 
 /* SIGHUP handler. */
-void 
+static void 
 sighup (void)
 {
   zlog_info ("SIGHUP received");
@@ -159,7 +160,7 @@ sighup (void)
 }
 
 /* SIGINT handler. */
-void
+static void
 sigint (void)
 {
   /* Decrared in rib.c */
@@ -177,7 +178,7 @@ sigint (void)
 }
 
 /* SIGUSR1 handler. */
-void
+static void
 sigusr1 (void)
 {
   zlog_rotate (NULL);
@@ -215,8 +216,6 @@ main (int argc, char **argv)
   char *config_file = NULL;
   char *progname;
   struct thread thread;
-  void rib_weed_tables ();
-  void zebra_vty_init ();
 
   /* Set umask before anything for security */
   umask (0027);

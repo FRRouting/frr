@@ -43,7 +43,7 @@
 
 
 /* Called when new interface is added. */
-int
+static int
 if_zebra_new_hook (struct interface *ifp)
 {
   struct zebra_if *zebra_if;
@@ -89,7 +89,7 @@ if_zebra_new_hook (struct interface *ifp)
 }
 
 /* Called when interface is deleted. */
-int
+static int
 if_zebra_delete_hook (struct interface *ifp)
 {
   struct zebra_if *zebra_if;
@@ -189,7 +189,7 @@ if_subnet_delete (struct interface *ifp, struct connected *ifc)
 
 /* Wake up configured address if it is not in current kernel
    address. */
-void
+static void
 if_addr_wakeup (struct interface *ifp)
 {
   struct listnode *node, *nnode;
@@ -490,7 +490,7 @@ if_refresh (struct interface *ifp)
 }
 
 /* Printout flag information into vty */
-void
+static void
 if_flag_dump_vty (struct vty *vty, unsigned long flag)
 {
   int separator = 0;
@@ -530,7 +530,7 @@ if_flag_dump_vty (struct vty *vty, unsigned long flag)
 }
 
 /* Output prefix string to vty. */
-int
+static int
 prefix_vty_out (struct vty *vty, struct prefix *p)
 {
   char str[INET6_ADDRSTRLEN];
@@ -541,7 +541,7 @@ prefix_vty_out (struct vty *vty, struct prefix *p)
 }
 
 /* Dump if address information to vty. */
-void
+static void
 connected_dump_vty (struct vty *vty, struct connected *connected)
 {
   struct prefix *p;
@@ -585,7 +585,7 @@ connected_dump_vty (struct vty *vty, struct connected *connected)
 
 #ifdef RTADV
 /* Dump interface ND information to vty. */
-void
+static void
 nd_dump_vty (struct vty *vty, struct interface *ifp)
 {
   struct zebra_if *zif;
@@ -630,7 +630,7 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 #endif /* RTADV */
 
 /* Interface's information print out to vty interface. */
-void
+static void
 if_dump_vty (struct vty *vty, struct interface *ifp)
 {
 #ifdef HAVE_SOCKADDR_DL
@@ -813,7 +813,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 }
 
 /* Check supported address family. */
-int
+static int
 if_supported_family (int family)
 {
   if (family == AF_INET)
@@ -1141,7 +1141,7 @@ ALIAS (no_bandwidth_if,
        "Set bandwidth informational parameter\n"
        "Bandwidth in kilobits\n")
 
-int
+static int
 ip_address_install (struct vty *vty, struct interface *ifp,
 		    const char *addr_str, const char *peer_str,
 		    const char *label)
@@ -1226,7 +1226,7 @@ ip_address_install (struct vty *vty, struct interface *ifp,
   return CMD_SUCCESS;
 }
 
-int
+static int
 ip_address_uninstall (struct vty *vty, struct interface *ifp,
 		      const char *addr_str, const char *peer_str,
 		      const char *label)
@@ -1337,7 +1337,7 @@ DEFUN (no_ip_address_label,
 #endif /* HAVE_NETLINK */
 
 #ifdef HAVE_IPV6
-int
+static int
 ipv6_address_install (struct vty *vty, struct interface *ifp,
 		      const char *addr_str, const char *peer_str,
 		      const char *label, int secondary)
@@ -1415,7 +1415,7 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
   return CMD_SUCCESS;
 }
 
-int
+static int
 ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
 			const char *addr_str, const char *peer_str,
 			const char *label, int secondry)
@@ -1497,7 +1497,7 @@ DEFUN (no_ipv6_address,
 }
 #endif /* HAVE_IPV6 */
 
-int
+static int
 if_config_write (struct vty *vty)
 {
   struct listnode *node;
@@ -1571,7 +1571,7 @@ if_config_write (struct vty *vty)
 
 /* Allocate and initialize interface vector. */
 void
-zebra_if_init ()
+zebra_if_init (void)
 {
   /* Initialize interface and new hook. */
   if_init ();

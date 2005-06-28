@@ -75,7 +75,7 @@ if_ioctl (u_long request, caddr_t buffer)
 }
 
 #ifdef HAVE_IPV6
-int
+static int
 if_ioctl_ipv6 (u_long request, caddr_t buffer)
 {
   int sock;

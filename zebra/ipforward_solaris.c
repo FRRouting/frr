@@ -25,6 +25,7 @@
 #include "prefix.h"
 
 #include "privs.h"
+#include "zebra/ipforward.h"
 
 /*
 ** Solaris should define IP_DEV_NAME in <inet/ip.h>, but we'll save
@@ -126,37 +127,37 @@ solaris_nd_get(const char* parameter) {
   return solaris_nd(ND_GET, parameter, 0);
 }
 int
-ipforward()
+ipforward(void)
 {
   return solaris_nd_get("ip_forwarding");
 }
 
 int
-ipforward_on ()
+ipforward_on (void)
 {
   (void) solaris_nd_set("ip_forwarding", 1);
   return ipforward();
 }
 
 int
-ipforward_off ()
+ipforward_off (void)
 {
   (void) solaris_nd_set("ip_forwarding", 0);
   return ipforward();
 }
 #ifdef HAVE_IPV6
-int ipforward_ipv6()
+int ipforward_ipv6(void)
 {
   return solaris_nd_get("ip6_forwarding");
 }
 int
-ipforward_ipv6_on ()
+ipforward_ipv6_on (void)
 {
   (void) solaris_nd_set("ip6_forwarding", 1);
   return ipforward_ipv6();
 }
 int
-ipforward_ipv6_off ()
+ipforward_ipv6_off (void)
 {
   (void) solaris_nd_set("ip6_forwarding", 0);
   return ipforward_ipv6();

@@ -38,6 +38,7 @@
 #include "rib.h"
 
 #include "zebra/zserv.h"
+#include "zebra/router-id.h"
 
 static struct list rid_all_sorted_list;
 static struct list rid_lo_sorted_list;
@@ -228,7 +229,7 @@ DEFUN (no_router_id,
   return CMD_SUCCESS;
 }
 
-int
+static int
 router_id_cmp (void *a, void *b)
 {
   unsigned int A, B;

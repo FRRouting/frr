@@ -1,3 +1,11 @@
+2005-06-28 Paul Jakma <paul.jakma@sun.com>
+
+	* (global) Extern and static'ification, with related fixups
+	  of declarations, ensuring files include their own headers, etc.
+	  if_ioctl.c: (interface_info_ioctl) fix obvious arg mis-order in
+	  list loop
+	  
+
 2005-06-14 Paul Jakma <paul.jakma@sun.com>
 
 	* kernel_socket.c: consolidate the IFAM{ADDR,MASK}GET and 

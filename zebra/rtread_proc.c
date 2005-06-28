@@ -27,6 +27,9 @@
 #include "if.h"
 #include "rib.h"
 
+#include "zebra/zserv.h"
+#include "zebra/rt.h"
+
 /* Proc file system to read IPv4 routing table. */
 #ifndef _PATH_PROCNET_ROUTE
 #define _PATH_PROCNET_ROUTE      "/proc/net/route"
@@ -44,8 +47,8 @@
 #define RT_BUFSIZ 1024
 
 /* Kernel routing table read up by /proc filesystem. */
-int
-proc_route_read ()
+static int
+proc_route_read (void)
 {
   FILE *fp;
   char buf[RT_BUFSIZ];
@@ -101,7 +104,7 @@ proc_route_read ()
 }
 
 #ifdef HAVE_IPV6
-int
+static int
 proc_ipv6_route_read ()
 {
   FILE *fp;
@@ -162,7 +165,7 @@ proc_ipv6_route_read ()
 #endif /* HAVE_IPV6 */
 
 void
-route_read ()
+route_read (void)
 {
   proc_route_read ();
 #ifdef HAVE_IPV6

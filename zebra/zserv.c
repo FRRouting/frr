@@ -1729,7 +1729,7 @@ struct cmd_node forwarding_node =
 
 /* Initialisation of zebra and installation of commands. */
 void
-zebra_init ()
+zebra_init (void)
 {
   /* Client list init. */
   zebrad.client_list = list_new ();

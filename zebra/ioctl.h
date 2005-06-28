@@ -24,27 +24,27 @@
 #define _ZEBRA_IOCTL_H
 
 /* Prototypes. */
-void ifreq_set_name (struct ifreq *, struct interface *);
-int if_ioctl (u_long, caddr_t);
+extern void ifreq_set_name (struct ifreq *, struct interface *);
+extern int if_ioctl (u_long, caddr_t);
 
-int if_set_flags (struct interface *, unsigned long);
-int if_unset_flags (struct interface *, unsigned long);
-void if_get_flags (struct interface *);
+extern int if_set_flags (struct interface *, unsigned long);
+extern int if_unset_flags (struct interface *, unsigned long);
+extern void if_get_flags (struct interface *);
 
-int if_set_prefix (struct interface *, struct connected *);
-int if_unset_prefix (struct interface *, struct connected *);
+extern int if_set_prefix (struct interface *, struct connected *);
+extern int if_unset_prefix (struct interface *, struct connected *);
 
-void if_get_metric (struct interface *);
-void if_get_mtu (struct interface *);
+extern void if_get_metric (struct interface *);
+extern void if_get_mtu (struct interface *);
 
 #ifdef HAVE_IPV6
-int if_prefix_add_ipv6 (struct interface *, struct connected *);
-int if_prefix_delete_ipv6 (struct interface *, struct connected *);
+extern int if_prefix_add_ipv6 (struct interface *, struct connected *);
+extern int if_prefix_delete_ipv6 (struct interface *, struct connected *);
 #endif /* HAVE_IPV6 */
 
 #ifdef SOLARIS_IPV6
-int if_ioctl_ipv6(u_long, caddr_t);
-struct connected *if_lookup_linklocal( struct interface *);
+extern int if_ioctl_ipv6(u_long, caddr_t);
+extern struct connected *if_lookup_linklocal( struct interface *);
 
 #define AF_IOCTL(af, request, buffer) \
         ((af) == AF_INET? if_ioctl(request, buffer) : \

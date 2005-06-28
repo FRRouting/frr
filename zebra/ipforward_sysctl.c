@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 #include "privs.h"
+#include "zebra/ipforward.h"
 
 #ifdef NRL
 #include <netinet6/in6.h>
@@ -42,7 +43,7 @@ int mib[MIB_SIZ] =
 };
 
 int
-ipforward ()
+ipforward (void)
 {
   size_t len;
   int ipforwarding = 0;
@@ -57,7 +58,7 @@ ipforward ()
 }
 
 int
-ipforward_on ()
+ipforward_on (void)
 {
   size_t len;
   int ipforwarding = 1;
@@ -78,7 +79,7 @@ ipforward_on ()
 }
 
 int
-ipforward_off ()
+ipforward_off (void)
 {
   size_t len;
   int ipforwarding = 0;
@@ -115,7 +116,7 @@ int mib_ipv6[MIB_SIZ] =
 }; 
 
 int
-ipforward_ipv6 ()
+ipforward_ipv6 (void)
 {
   size_t len;
   int ip6forwarding = 0;
@@ -136,7 +137,7 @@ ipforward_ipv6 ()
 }
 
 int
-ipforward_ipv6_on ()
+ipforward_ipv6_on (void)
 {
   size_t len;
   int ip6forwarding = 1;
@@ -157,7 +158,7 @@ ipforward_ipv6_on ()
 }
 
 int
-ipforward_ipv6_off ()
+ipforward_ipv6_off (void)
 {
   size_t len;
   int ip6forwarding = 0;

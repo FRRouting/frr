@@ -47,6 +47,6 @@ extern unsigned long zebra_debug_event;
 extern unsigned long zebra_debug_packet;
 extern unsigned long zebra_debug_kernel;
 
-void zebra_debug_init ();
+extern void zebra_debug_init (void);
 
 #endif /* _ZEBRA_DEBUG_H */

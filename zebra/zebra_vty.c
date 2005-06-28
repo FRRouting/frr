@@ -27,8 +27,10 @@
 #include "table.h"
 #include "rib.h"
 
+#include "zebra/zserv.h"
+
 /* Return route type string for VTY output.  */
-const char *
+static const char *
 route_type_str (u_char type)
 {
   switch (type)
@@ -59,7 +61,7 @@ route_type_str (u_char type)
 };
 
 /* Return route type string for VTY output.  */
-char
+static const char
 route_type_char (u_char type)
 {
   switch (type)
@@ -90,7 +92,7 @@ route_type_char (u_char type)
 };
 
 /* General fucntion for static route. */
-int
+static int
 zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
 		   const char *mask_str, const char *gate_str,
 		   const char *flag_str, const char *distance_str)
@@ -535,7 +537,7 @@ DEFUN (no_ip_route_mask_flags_distance2,
 }
 
 /* New RIB.  Detailed information for IPv4 route. */
-void
+static void
 vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 {
   struct rib *rib;
@@ -641,7 +643,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
     }
 }
 
-void
+static void
 vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 {
   struct nexthop *nexthop;
@@ -1008,7 +1010,7 @@ DEFUN (show_ip_route_prefix,
   return CMD_SUCCESS;
 }
 
-void
+static void
 zebra_show_ip_route (struct vty *vty, struct vrf *vrf)
 {
   vty_out (vty, "IP routing table name is %s(%d)%s",
@@ -1059,7 +1061,7 @@ DEFUN (show_ip_route_summary,
 }
 
 /* Write IPv4 static route configuration. */
-int
+static int
 static_config_ipv4 (struct vty *vty)
 {
   struct route_node *rn;
@@ -1115,7 +1117,7 @@ static_config_ipv4 (struct vty *vty)
 
 #ifdef HAVE_IPV6
 /* General fucntion for IPv6 static route. */
-int
+static int
 static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 		  const char *gate_str, const char *ifname,
 		  const char *flag_str, const char *distance_str)
@@ -1420,7 +1422,7 @@ DEFUN (no_ipv6_route_ifname_flags_pref,
 }
 
 /* New RIB.  Detailed information for IPv6 route. */
-void
+static void
 vty_show_ipv6_route_detail (struct vty *vty, struct route_node *rn)
 {
   struct rib *rib;
@@ -1535,7 +1537,7 @@ vty_show_ipv6_route_detail (struct vty *vty, struct route_node *rn)
     }
 }
 
-void
+static void
 vty_show_ipv6_route (struct vty *vty, struct route_node *rn,
 		     struct rib *rib)
 {
@@ -1867,7 +1869,7 @@ DEFUN (show_ipv6_route_prefix,
 
 
 /* Write IPv6 static route configuration. */
-int
+static int
 static_config_ipv6 (struct vty *vty)
 {
   struct route_node *rn;
@@ -1921,7 +1923,7 @@ static_config_ipv6 (struct vty *vty)
 #endif /* HAVE_IPV6 */
 
 /* Static ip route configuration write function. */
-int
+static int
 zebra_ip_config (struct vty *vty)
 {
   int write = 0;
@@ -1939,7 +1941,7 @@ struct cmd_node ip_node = { IP_NODE,  "",  1 };
 
 /* Route VTY.  */
 void
-zebra_vty_route_init ()
+zebra_vty_init (void)
 {
   install_node (&ip_node, zebra_ip_config);
 
@@ -2013,10 +2015,4 @@ zebra_vty_route_init ()
   install_element (ENABLE_NODE, &show_ipv6_route_prefix_cmd);
   install_element (ENABLE_NODE, &show_ipv6_route_prefix_longer_cmd);
 #endif /* HAVE_IPV6 */
-}
-
-void
-zebra_vty_init ()
-{
-  zebra_vty_route_init ();
 }

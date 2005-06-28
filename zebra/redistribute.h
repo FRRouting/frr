@@ -26,25 +26,25 @@
 #include "table.h"
 #include "zserv.h"
 
-void zebra_redistribute_add (int, struct zserv *, int);
-void zebra_redistribute_delete (int, struct zserv *, int);
+extern void zebra_redistribute_add (int, struct zserv *, int);
+extern void zebra_redistribute_delete (int, struct zserv *, int);
 
-void zebra_redistribute_default_add (int, struct zserv *, int);
-void zebra_redistribute_default_delete (int, struct zserv *, int);
+extern void zebra_redistribute_default_add (int, struct zserv *, int);
+extern void zebra_redistribute_default_delete (int, struct zserv *, int);
 
-void redistribute_add (struct prefix *, struct rib *);
-void redistribute_delete (struct prefix *, struct rib *);
+extern void redistribute_add (struct prefix *, struct rib *);
+extern void redistribute_delete (struct prefix *, struct rib *);
 
-void zebra_interface_up_update (struct interface *);
-void zebra_interface_down_update (struct interface *);
+extern void zebra_interface_up_update (struct interface *);
+extern void zebra_interface_down_update (struct interface *);
 
-void zebra_interface_add_update (struct interface *);
-void zebra_interface_delete_update (struct interface *);
+extern void zebra_interface_add_update (struct interface *);
+extern void zebra_interface_delete_update (struct interface *);
 
-void zebra_interface_address_add_update (struct interface *,
-					 struct connected *);
-void zebra_interface_address_delete_update (struct interface *,
-					    struct connected *c);
+extern void zebra_interface_address_add_update (struct interface *,
+					 	struct connected *);
+extern void zebra_interface_address_delete_update (struct interface *,
+						   struct connected *c);
 
 #endif /* _ZEBRA_REDISTRIBUTE_H */
 

@@ -203,30 +203,30 @@ struct zebra_if
 
 };
 
-void if_delete_update (struct interface *ifp);
-void if_add_update (struct interface *ifp);
-void if_up (struct interface *);
-void if_down (struct interface *);
-void if_refresh (struct interface *);
-int if_subnet_add (struct interface *, struct connected *);
-int if_subnet_delete (struct interface *, struct connected *);
+extern void if_delete_update (struct interface *ifp);
+extern void if_add_update (struct interface *ifp);
+extern void if_up (struct interface *);
+extern void if_down (struct interface *);
+extern void if_refresh (struct interface *);
+extern int if_subnet_add (struct interface *, struct connected *);
+extern int if_subnet_delete (struct interface *, struct connected *);
 
 #ifdef HAVE_PROC_NET_DEV
-int ifstat_update_proc ();
+extern int ifstat_update_proc (void);
 #endif /* HAVE_PROC_NET_DEV */
 #ifdef HAVE_NET_RT_IFLIST
-void ifstat_update_sysctl ();
+extern void ifstat_update_sysctl (void);
 
 #endif /* HAVE_NET_RT_IFLIST */
 #ifdef HAVE_PROC_NET_DEV
-int interface_list_proc ();
+extern int interface_list_proc (void);
 #endif /* HAVE_PROC_NET_DEV */
 #ifdef HAVE_PROC_NET_IF_INET6
-int ifaddr_proc_ipv6 ();
+extern int ifaddr_proc_ipv6 (void);
 #endif /* HAVE_PROC_NET_IF_INET6 */
 
 #ifdef BSDI
-int if_kvm_get_mtu (struct interface *);
+extern int if_kvm_get_mtu (struct interface *);
 #endif /* BSDI */
 
 #endif /* _ZEBRA_INTERFACE_H */

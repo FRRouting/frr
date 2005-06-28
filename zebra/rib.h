@@ -201,70 +201,67 @@ struct vrf
   struct route_table *stable[AFI_MAX][SAFI_MAX];
 };
 
-struct nexthop *nexthop_ifindex_add (struct rib *, unsigned int);
-struct nexthop *nexthop_ifname_add (struct rib *, char *);
-struct nexthop *nexthop_blackhole_add (struct rib *);
-struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *);
+extern struct nexthop *nexthop_ifindex_add (struct rib *, unsigned int);
+extern struct nexthop *nexthop_ifname_add (struct rib *, char *);
+extern struct nexthop *nexthop_blackhole_add (struct rib *);
+extern struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *);
 #ifdef HAVE_IPV6
-struct nexthop *nexthop_ipv6_add (struct rib *, struct in6_addr *);
+extern struct nexthop *nexthop_ipv6_add (struct rib *, struct in6_addr *);
 #endif /* HAVE_IPV6 */
 
-struct vrf *vrf_lookup (u_int32_t);
-struct route_table *vrf_table (afi_t afi, safi_t safi, u_int32_t id);
-struct route_table *vrf_static_table (afi_t afi, safi_t safi, u_int32_t id);
+extern struct vrf *vrf_lookup (u_int32_t);
+extern struct route_table *vrf_table (afi_t afi, safi_t safi, u_int32_t id);
+extern struct route_table *vrf_static_table (afi_t afi, safi_t safi, u_int32_t id);
 
-int
-rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p, 
-	      struct in_addr *gate, unsigned int ifindex, u_int32_t vrf_id,
-	      u_int32_t, u_char);
+extern int rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p, 
+			 struct in_addr *gate, unsigned int ifindex, 
+			 u_int32_t vrf_id, u_int32_t, u_char);
 
-int
-rib_add_ipv4_multipath (struct prefix_ipv4 *, struct rib *);
+extern int rib_add_ipv4_multipath (struct prefix_ipv4 *, struct rib *);
 
-int
-rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
-		 struct in_addr *gate, unsigned int ifindex, u_int32_t);
+extern int rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
+		            struct in_addr *gate, unsigned int ifindex, 
+		            u_int32_t);
 
-struct rib *
-rib_match_ipv4 (struct in_addr);
+extern struct rib *rib_match_ipv4 (struct in_addr);
 
-struct rib *
-rib_lookup_ipv4 (struct prefix_ipv4 *);
+extern struct rib *rib_lookup_ipv4 (struct prefix_ipv4 *);
 
-void rib_update ();
-void rib_sweep_route ();
-void rib_close ();
-void rib_init ();
+extern void rib_update (void);
+extern void rib_weed_tables (void);
+extern void rib_sweep_route (void);
+extern void rib_close (void);
+extern void rib_init (void);
 
-int
+extern int
 static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
        u_char flags, u_char distance, u_int32_t vrf_id);
 
-int
+extern int
 static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 		    u_char distance, u_int32_t vrf_id);
 
 #ifdef HAVE_IPV6
-int
+extern int
 rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
 	      struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id);
 
-int
+extern int
 rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
 		 struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id);
 
-struct rib *rib_lookup_ipv6 (struct in6_addr *);
+extern struct rib *rib_lookup_ipv6 (struct in6_addr *);
 
-struct rib *rib_match_ipv6 (struct in6_addr *);
+extern struct rib *rib_match_ipv6 (struct in6_addr *);
 
 extern struct route_table *rib_table_ipv6;
 
-int
+extern int
 static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 		 const char *ifname, u_char flags, u_char distance,
 		 u_int32_t vrf_id);
 
-int
+extern int
 static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 		    const char *ifname, u_char distance, u_int32_t vrf_id);
 
