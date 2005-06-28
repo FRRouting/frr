@@ -1,4 +1,4 @@
-# $Id: INSTALL.quagga.txt,v 1.9 2005/04/02 17:13:33 paul Exp $
+# $Id: INSTALL.quagga.txt,v 1.10 2005/06/28 00:19:48 paul Exp $
 
 --------------------------------------------------------------------------
 Building and Installing Quagga from releases or snapshots:
@@ -6,13 +6,7 @@ Building and Installing Quagga from releases or snapshots:
 The 'INSTALL' file contains generic instructions on how to use 'configure'
 scripts.
 
-Quagga requires a C compiler supporting the C99 standard.
-
-Quagga can be compiled with either BSD make or GNU make.
-GNU make 3.80 is known to work.
-The following system makes are known to work
-  NetBSD 1.6.2
-  NetBSD 2.0
+Quagga requires a C compiler supporting the C99 standard and GNU make.
 
 For further Quagga specific information on 'configure' and build-time
 configuration of the software, please read the Quagga info documentation,
@@ -35,10 +29,11 @@ available online.
 Building Quagga from CVS checkouts:
 
 In order to build from CVS, you will need recent versions of several GNU
-tools, particularly autoconf, automake, libtool and texinfo.  Note that the
-CVS snapshots on the Quagga website do not require these tools; everything
-is already setup ready to run 'configure'.  If you have trouble building
-from CVS checkout it is recommended that you try a CVS snapshot instead.
+tools, particularly autoconf, automake, libtool, GNU awk and texinfo.  Note
+that the CVS snapshots on the Quagga website should not require these tools;
+everything is already setup ready to run 'configure'.  If you have trouble
+building from CVS checkout it is recommended that you try a CVS snapshot
+instead.
 
 If you are building from plain CVS checkouts, the versions which
 should work at least with:
@@ -47,6 +42,7 @@ should work at least with:
 	autoconf:	2.59
 	libtool:	1.5.6
 	texinfo:	4.7
+	GNU AWK:	3.1
 
 Texinfo is not actually required since quagga.info is checked in.
 When texinfo 4.7 is widespread, it will be removed and texinfo will
