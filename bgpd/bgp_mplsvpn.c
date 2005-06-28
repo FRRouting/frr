@@ -32,7 +32,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_mplsvpn.h"
 
-u_int16_t
+static u_int16_t
 decode_rd_type (u_char *pnt)
 {
   u_int16_t v;
@@ -53,7 +53,7 @@ decode_label (u_char *pnt)
   return l;
 }
 
-void
+static void
 decode_rd_as (u_char *pnt, struct rd_as *rd_as)
 {
   rd_as->as = (u_int16_t) *pnt++ << 8;
@@ -65,7 +65,7 @@ decode_rd_as (u_char *pnt, struct rd_as *rd_as)
   rd_as->val |= (u_int32_t) *pnt;
 }
 
-void
+static void
 decode_rd_ip (u_char *pnt, struct rd_ip *rd_ip)
 {
   memcpy (&rd_ip->ip, pnt, 4);
@@ -75,11 +75,6 @@ decode_rd_ip (u_char *pnt, struct rd_ip *rd_ip)
   rd_ip->val |= (u_int16_t) *pnt;
 }
 
-int bgp_update (struct peer *, struct prefix *, struct attr *, 
-		afi_t, safi_t, int, int, struct prefix_rd *, u_char *);
-
-int bgp_withdraw (struct peer *, struct prefix *, struct attr *, 
-		  int, int, int, int, struct prefix_rd *, u_char *);
 int
 bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr, 
 		      struct bgp_nlri *packet)
@@ -162,7 +157,7 @@ bgp_nlri_parse_vpnv4 (struct peer *peer, struct attr *attr,
 
       if (attr)
 	bgp_update (peer, &p, attr, AFI_IP, SAFI_MPLS_VPN,
-		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
+		    ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt, 0);
       else
 	bgp_withdraw (peer, &p, attr, AFI_IP, SAFI_MPLS_VPN,
 		      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, &prd, tagpnt);
@@ -312,7 +307,7 @@ DEFUN (no_vpnv4_network,
   return bgp_static_unset_vpnv4 (vty, argv[0], argv[1], argv[2]);
 }
 
-int
+static int
 show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd)
 {
   struct bgp *bgp;
@@ -406,7 +401,7 @@ enum bgp_show_type
   bgp_show_type_community_list_exact
 };
 
-int
+static int
 bgp_show_mpls_vpn (struct vty *vty, struct prefix_rd *prd, enum bgp_show_type type,
 		   void *output_arg, int tags)
 {
@@ -718,7 +713,7 @@ DEFUN (show_ip_bgp_vpnv4_rd_neighbor_advertised_routes,
 }
 
 void
-bgp_mplsvpn_init ()
+bgp_mplsvpn_init (void)
 {
   install_element (BGP_VPNV4_NODE, &vpnv4_network_cmd);
   install_element (BGP_VPNV4_NODE, &no_vpnv4_network_cmd);

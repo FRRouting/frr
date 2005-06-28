@@ -105,33 +105,34 @@ struct transit
 #define ATTR_FLAG_BIT(X)  (1 << ((X) - 1))
 
 /* Prototypes. */
-void bgp_attr_init ();
-int bgp_attr_parse (struct peer *, struct attr *, bgp_size_t,
+extern void bgp_attr_init (void);
+extern int bgp_attr_parse (struct peer *, struct attr *, bgp_size_t,
 		    struct bgp_nlri *, struct bgp_nlri *);
-int bgp_attr_check (struct peer *, struct attr *);
-struct attr *bgp_attr_intern (struct attr *attr);
-void bgp_attr_unintern (struct attr *);
-void bgp_attr_flush (struct attr *);
-struct attr *bgp_attr_default_set (struct attr *attr, u_char);
-struct attr *bgp_attr_default_intern (u_char);
-struct attr *bgp_attr_aggregate_intern (struct bgp *, u_char,
+extern int bgp_attr_check (struct peer *, struct attr *);
+extern struct attr *bgp_attr_intern (struct attr *attr);
+extern void bgp_attr_unintern (struct attr *);
+extern void bgp_attr_flush (struct attr *);
+extern struct attr *bgp_attr_default_set (struct attr *attr, u_char);
+extern struct attr *bgp_attr_default_intern (u_char);
+extern struct attr *bgp_attr_aggregate_intern (struct bgp *, u_char,
                                         struct aspath *, 
                                         struct community *, int as_set);
-bgp_size_t bgp_packet_attribute (struct bgp *bgp, struct peer *, 
+extern bgp_size_t bgp_packet_attribute (struct bgp *bgp, struct peer *, 
                                  struct stream *, struct attr *, 
                                  struct prefix *, afi_t, safi_t, 
                                  struct peer *, struct prefix_rd *, char *);
-bgp_size_t bgp_packet_withdraw (struct peer *peer, struct stream *s, 
+extern bgp_size_t bgp_packet_withdraw (struct peer *peer, struct stream *s, 
                                 struct prefix *p, afi_t, safi_t, 
                                 struct prefix_rd *, char *);
-void bgp_dump_routes_attr (struct stream *, struct attr *, struct prefix *);
-unsigned int attrhash_key_make (struct attr *);
-int attrhash_cmp (struct attr *, struct attr *);
-void attr_show_all (struct vty *);
+extern void bgp_dump_routes_attr (struct stream *, struct attr *,
+				  struct prefix *);
+extern unsigned int attrhash_key_make (struct attr *);
+extern int attrhash_cmp (struct attr *, struct attr *);
+extern void attr_show_all (struct vty *);
 
 /* Cluster list prototypes. */
-int cluster_loop_check (struct cluster_list *, struct in_addr);
-void cluster_unintern (struct cluster_list *);
+extern int cluster_loop_check (struct cluster_list *, struct in_addr);
+extern void cluster_unintern (struct cluster_list *);
 
 /* Transit attribute prototypes. */
 void transit_unintern (struct transit *);

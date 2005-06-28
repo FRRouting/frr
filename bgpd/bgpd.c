@@ -605,7 +605,7 @@ peer_af_flag_reset (struct peer *peer, afi_t afi, safi_t safi)
 }
 
 /* peer global config reset */
-void
+static void
 peer_global_config_reset (struct peer *peer)
 {
   peer->weight = 0;
@@ -801,7 +801,7 @@ peer_new ()
 }
 
 /* Create new BGP peer.  */
-struct peer *
+static struct peer *
 peer_create (union sockunion *su, struct bgp *bgp, as_t local_as,
 	     as_t remote_as, afi_t afi, safi_t safi)
 {
@@ -866,7 +866,7 @@ peer_create_accept (struct bgp *bgp)
 }
 
 /* Change peer's AS number.  */
-void
+static void
 peer_as_change (struct peer *peer, as_t as)
 {
   int type;
@@ -1260,14 +1260,14 @@ peer_delete (struct peer *peer)
   return 0;
 }
 
-int
+static int
 peer_group_cmp (struct peer_group *g1, struct peer_group *g2)
 {
   return strcmp (g1->name, g2->name);
 }
 
 /* If peer is configured at least one address family return 1. */
-int
+static int
 peer_group_active (struct peer *peer)
 {
   if (peer->af_group[AFI_IP][SAFI_UNICAST]
@@ -1287,7 +1287,7 @@ peer_group_new ()
 					sizeof (struct peer_group));
 }
 
-void
+static void
 peer_group_free (struct peer_group *group)
 {
   XFREE (MTYPE_PEER_GROUP, group);
@@ -1340,7 +1340,7 @@ peer_group_get (struct bgp *bgp, const char *name)
   return 0;
 }
 
-void 
+static void 
 peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
 			     afi_t afi, safi_t safi)
 {
@@ -1843,7 +1843,7 @@ peer_group_unbind (struct bgp *bgp, struct peer *peer,
 }
 
 /* BGP instance creation by `router bgp' commands. */
-struct bgp *
+static struct bgp *
 bgp_create (as_t *as, const char *name)
 {
   struct bgp *bgp;
@@ -1889,7 +1889,7 @@ bgp_create (as_t *as, const char *name)
 
 /* Return first entry of BGP. */
 struct bgp *
-bgp_get_default ()
+bgp_get_default (void)
 {
   if (bm->bgp->head)
     return (listgetdata (listhead (bm->bgp)));
@@ -2128,7 +2128,7 @@ enum peer_change_type
   peer_change_reset_out,
 };
 
-void
+static void
 peer_change_action (struct peer *peer, afi_t afi, safi_t safi,
 		    enum peer_change_type type)
 {
@@ -2198,7 +2198,7 @@ struct peer_flag_action peer_af_flag_action_list[] =
   };
 
 /* Proper action set. */
-int
+static int
 peer_flag_action_set (struct peer_flag_action *action_list, int size,
 		      struct peer_flag_action *action, u_int32_t flag)
 {
@@ -2247,7 +2247,7 @@ peer_flag_action_set (struct peer_flag_action *action_list, int size,
   return found;
 }
 
-void
+static void
 peer_flag_modify_action (struct peer *peer, u_int32_t flag)
 {
   if (flag == PEER_FLAG_SHUTDOWN)
@@ -2298,7 +2298,7 @@ peer_flag_modify_action (struct peer *peer, u_int32_t flag)
 }
 
 /* Change specified peer flag. */
-int
+static int
 peer_flag_modify (struct peer *peer, u_int32_t flag, int set)
 {
   int found;
@@ -2392,7 +2392,7 @@ peer_flag_unset (struct peer *peer, u_int32_t flag)
   return peer_flag_modify (peer, flag, 0);
 }
 
-int
+static int
 peer_is_group_member (struct peer *peer, afi_t afi, safi_t safi)
 {
   if (peer->af_group[afi][safi])
@@ -2400,7 +2400,7 @@ peer_is_group_member (struct peer *peer, afi_t afi, safi_t safi)
   return 0;
 }
 
-int
+static int
 peer_af_flag_modify (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag,
 		     int set)
 {
@@ -3454,7 +3454,7 @@ peer_distribute_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 }
 
 /* Update distribute list. */
-void
+static void
 peer_distribute_update (struct access_list *access)
 {
   afi_t afi;
@@ -3613,7 +3613,7 @@ peer_prefix_list_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
 }
 
 /* Update prefix-list list. */
-void
+static void
 peer_prefix_list_update (struct prefix_list *plist)
 {
   struct listnode *mnode, *mnnode;
@@ -3767,7 +3767,7 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
   return 0;
 }
 
-void
+static void
 peer_aslist_update ()
 {
   afi_t afi;
@@ -4255,7 +4255,7 @@ peer_uptime (time_t uptime2, char *buf, size_t len)
   return buf;
 }
 
-void
+static void
 bgp_config_write_filter (struct vty *vty, struct peer *peer,
 			 afi_t afi, safi_t safi)
 {
@@ -4326,7 +4326,7 @@ bgp_config_write_filter (struct vty *vty, struct peer *peer,
 }
 
 /* BGP peer configuration display function. */
-void
+static void
 bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 		       struct peer *peer, afi_t afi, safi_t safi)
 {
@@ -4675,7 +4675,7 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
 }
 
 /* Address family based peer configuration display.  */
-int
+static int
 bgp_config_write_family (struct vty *vty, struct bgp *bgp, afi_t afi,
 			 safi_t safi)
 {
@@ -4902,7 +4902,7 @@ bgp_config_write (struct vty *vty)
 }
 
 void
-bgp_master_init ()
+bgp_master_init (void)
 {
   memset (&bgp_master, 0, sizeof (struct bgp_master));
 
@@ -4915,12 +4915,8 @@ bgp_master_init ()
 
 
 void
-bgp_init ()
+bgp_init (void)
 {
-  void bgp_zebra_init ();
-  void bgp_route_map_init ();
-  void bgp_filter_init ();
-
   /* BGP VTY commands installation.  */
   bgp_vty_init ();
 

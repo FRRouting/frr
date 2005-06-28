@@ -96,7 +96,7 @@ static struct as_list_master as_list_master =
 };
 
 /* Allocate new AS filter. */
-struct as_filter *
+static struct as_filter *
 as_filter_new ()
 {
   struct as_filter *new;
@@ -107,7 +107,7 @@ as_filter_new ()
 }
 
 /* Free allocated AS filter. */
-void
+static void
 as_filter_free (struct as_filter *asfilter)
 {
   if (asfilter->reg)
@@ -118,7 +118,7 @@ as_filter_free (struct as_filter *asfilter)
 }
 
 /* Make new AS filter. */
-struct as_filter *
+static struct as_filter *
 as_filter_make (regex_t *reg, const char *reg_str, enum as_filter_type type)
 {
   struct as_filter *asfilter;
@@ -131,7 +131,7 @@ as_filter_make (regex_t *reg, const char *reg_str, enum as_filter_type type)
   return asfilter;
 }
 
-struct as_filter *
+static struct as_filter *
 as_filter_lookup (struct as_list *aslist, const char *reg_str,
 		  enum as_filter_type type)
 {
@@ -143,7 +143,7 @@ as_filter_lookup (struct as_list *aslist, const char *reg_str,
   return NULL;
 }
 
-void
+static void
 as_list_filter_add (struct as_list *aslist, struct as_filter *asfilter)
 {
   asfilter->next = NULL;
@@ -176,7 +176,7 @@ as_list_lookup (const char *name)
   return NULL;
 }
 
-struct as_list *
+static struct as_list *
 as_list_new ()
 {
   struct as_list *new;
@@ -186,7 +186,7 @@ as_list_new ()
   return new;
 }
 
-void
+static void
 as_list_free (struct as_list *aslist)
 {
   XFREE (MTYPE_AS_LIST, aslist);
@@ -194,7 +194,7 @@ as_list_free (struct as_list *aslist)
 
 /* Insert new AS list to list of as_list.  Each as_list is sorted by
    the name. */
-struct as_list *
+static struct as_list *
 as_list_insert (const char *name)
 {
   size_t i;
@@ -278,7 +278,7 @@ as_list_insert (const char *name)
   return aslist;
 }
 
-struct as_list *
+static struct as_list *
 as_list_get (const char *name)
 {
   struct as_list *aslist;
@@ -313,7 +313,7 @@ filter_type_str (enum as_filter_type type)
     }
 }
 
-void
+static void
 as_list_delete (struct as_list *aslist)
 {
   struct as_list_list *list;
@@ -352,7 +352,7 @@ as_list_empty (struct as_list *aslist)
     return 0;
 }
 
-void
+static void
 as_list_filter_delete (struct as_list *aslist, struct as_filter *asfilter)
 {
   if (asfilter->next)
@@ -418,7 +418,7 @@ as_list_delete_hook (void (*func) ())
   as_list_master.delete_hook = func;
 }
 
-int
+static int
 as_list_dup_check (struct as_list *aslist, struct as_filter *new)
 {
   struct as_filter *asfilter;
@@ -582,7 +582,7 @@ DEFUN (no_ip_as_path_all,
   return CMD_SUCCESS;
 }
 
-void
+static void
 as_list_show (struct vty *vty, struct as_list *aslist)
 {
   struct as_filter *asfilter;
@@ -596,7 +596,7 @@ as_list_show (struct vty *vty, struct as_list *aslist)
     }
 }
 
-void
+static void
 as_list_show_all (struct vty *vty)
 {
   struct as_list *aslist;
@@ -653,7 +653,7 @@ DEFUN (show_ip_as_path_access_list_all,
   return CMD_SUCCESS;
 }
 
-int
+static int
 config_write_as_list (struct vty *vty)
 {
   struct as_list *aslist;
@@ -691,7 +691,7 @@ struct cmd_node as_list_node =
 
 /* Register functions. */
 void
-bgp_filter_init ()
+bgp_filter_init (void)
 {
   install_node (&as_list_node, config_write_as_list);
 

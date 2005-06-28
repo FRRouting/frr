@@ -41,6 +41,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_table.h"
+#include "bgpd/bgp_vty.h"
 
 extern struct in_addr router_id_zebra;
 
@@ -65,7 +66,7 @@ bgp_node_safi (struct vty *vty)
   return SAFI_UNICAST;
 }
 
-int
+static int
 peer_address_self_check (union sockunion *su)
 {
   struct interface *ifp = NULL;
@@ -84,7 +85,7 @@ peer_address_self_check (union sockunion *su)
 }
 
 /* Utility function for looking up peer from VTY.  */
-struct peer *
+static struct peer *
 peer_lookup_vty (struct vty *vty, const char *ip_str)
 {
   int ret;
@@ -111,7 +112,7 @@ peer_lookup_vty (struct vty *vty, const char *ip_str)
 }
 
 /* Utility function for looking up peer or peer group.  */
-struct peer *
+static struct peer *
 peer_and_group_lookup_vty (struct vty *vty, const char *peer_str)
 {
   int ret;
@@ -142,7 +143,7 @@ peer_and_group_lookup_vty (struct vty *vty, const char *peer_str)
   return NULL;
 }
 
-int
+static int
 bgp_vty_return (struct vty *vty, int ret)
 {
   const char *str = NULL;
@@ -1598,7 +1599,7 @@ DEFUN (no_neighbor_set_peer_group,
   return bgp_vty_return (vty, ret);
 }
 
-int
+static int
 peer_flag_modify_vty (struct vty *vty, const char *ip_str, 
                       u_int16_t flag, int set)
 {
@@ -1617,13 +1618,13 @@ peer_flag_modify_vty (struct vty *vty, const char *ip_str,
   return bgp_vty_return (vty, ret);
 }
 
-int
+static int
 peer_flag_set_vty (struct vty *vty, const char *ip_str, u_int16_t flag)
 {
   return peer_flag_modify_vty (vty, ip_str, flag, 1);
 }
 
-int
+static int
 peer_flag_unset_vty (struct vty *vty, const char *ip_str, u_int16_t flag)
 {
   return peer_flag_modify_vty (vty, ip_str, flag, 0);
@@ -1743,7 +1744,7 @@ DEFUN (no_neighbor_dont_capability_negotiate,
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_DONT_CAPABILITY);
 }
 
-int
+static int
 peer_af_flag_modify_vty (struct vty *vty, const char *peer_str, afi_t afi,
 			 safi_t safi, u_int32_t flag, int set)
 {
@@ -1762,14 +1763,14 @@ peer_af_flag_modify_vty (struct vty *vty, const char *peer_str, afi_t afi,
   return bgp_vty_return (vty, ret);
 }
 
-int
+static int
 peer_af_flag_set_vty (struct vty *vty, const char *peer_str, afi_t afi,
 		      safi_t safi, u_int32_t flag)
 {
   return peer_af_flag_modify_vty (vty, peer_str, afi, safi, flag, 1);
 }
 
-int
+static int
 peer_af_flag_unset_vty (struct vty *vty, const char *peer_str, afi_t afi,
 			safi_t safi, u_int32_t flag)
 {
@@ -2020,7 +2021,7 @@ DEFUN (no_neighbor_route_reflector_client,
 				 PEER_FLAG_REFLECTOR_CLIENT);
 }
 
-int
+static int
 peer_rsclient_set_vty (struct vty *vty, const char *peer_str, 
                        int afi, int safi)
 {
@@ -2105,7 +2106,7 @@ peer_rsclient_set_vty (struct vty *vty, const char *peer_str,
   return CMD_SUCCESS;
 }
 
-int
+static int
 peer_rsclient_unset_vty (struct vty *vty, const char *peer_str, 
                          int afi, int safi)
 {
@@ -2565,7 +2566,7 @@ DEFUN_DEPRECATED (neighbor_transparent_nexthop,
 }
 
 /* EBGP multihop configuration. */
-int
+static int
 peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str, 
                             const char *ttl_str)
 {
@@ -2586,7 +2587,7 @@ peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str,
   return CMD_SUCCESS;
 }
 
-int
+static int
 peer_ebgp_multihop_unset_vty (struct vty *vty, const char *ip_str) 
 {
   struct peer *peer;
@@ -2737,7 +2738,7 @@ ALIAS (no_neighbor_description,
        "Up to 80 characters describing this neighbor\n")
 
 /* Neighbor update-source. */
-int
+static int
 peer_update_source_vty (struct vty *vty, const char *peer_str, 
                         const char *source_str)
 {
@@ -2788,7 +2789,7 @@ DEFUN (no_neighbor_update_source,
   return peer_update_source_vty (vty, argv[0], NULL);
 }
 
-int
+static int
 peer_default_originate_set_vty (struct vty *vty, const char *peer_str, 
                                 afi_t afi, safi_t safi, 
                                 const char *rmap, int set)
@@ -2856,7 +2857,7 @@ ALIAS (no_neighbor_default_originate,
        "route-map name\n")
 
 /* Set neighbor's BGP port.  */
-int
+static int
 peer_port_vty (struct vty *vty, const char *ip_str, int afi, 
                const char *port_str)
 {
@@ -2916,7 +2917,7 @@ ALIAS (no_neighbor_port,
        "TCP port number\n")
 
 /* neighbor weight. */
-int
+static int
 peer_weight_set_vty (struct vty *vty, const char *ip_str, 
                      const char *weight_str)
 {
@@ -2935,7 +2936,7 @@ peer_weight_set_vty (struct vty *vty, const char *ip_str,
   return CMD_SUCCESS;
 }
 
-int
+static int
 peer_weight_unset_vty (struct vty *vty, const char *ip_str)
 {
   struct peer *peer;
@@ -3023,7 +3024,7 @@ DEFUN (no_neighbor_strict_capability,
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_STRICT_CAP_MATCH);
 }
 
-int
+static int
 peer_timers_set_vty (struct vty *vty, const char *ip_str, 
                      const char *keep_str, const char *hold_str)
 {
@@ -3044,7 +3045,7 @@ peer_timers_set_vty (struct vty *vty, const char *ip_str,
   return bgp_vty_return (vty, ret);
 }
 
-int
+static int
 peer_timers_unset_vty (struct vty *vty, const char *ip_str)
 {
   int ret;
@@ -3082,7 +3083,7 @@ DEFUN (no_neighbor_timers,
   return peer_timers_unset_vty (vty, argv[0]);
 }
 
-int
+static int
 peer_timers_connect_set_vty (struct vty *vty, const char *ip_str, 
                              const char *time_str)
 {
@@ -3101,7 +3102,7 @@ peer_timers_connect_set_vty (struct vty *vty, const char *ip_str,
   return CMD_SUCCESS;
 }
 
-int
+static int
 peer_timers_connect_unset_vty (struct vty *vty, const char *ip_str)
 {
   int ret;
@@ -3150,7 +3151,7 @@ ALIAS (no_neighbor_timers_connect,
        "BGP connect timer\n"
        "Connect timer\n")
 
-int
+static int
 peer_advertise_interval_vty (struct vty *vty, const char *ip_str, 
                              const char *time_str, int set)  
 {
@@ -3205,7 +3206,7 @@ ALIAS (no_neighbor_advertise_interval,
        "time in seconds\n")
 
 /* neighbor interface */
-int
+static int
 peer_interface_vty (struct vty *vty, const char *ip_str, const char *str)
 {
   int ret;
@@ -3247,7 +3248,7 @@ DEFUN (no_neighbor_interface,
 }
 
 /* Set distribute list to the peer. */
-int
+static int
 peer_distribute_set_vty (struct vty *vty, const char *ip_str, 
                          afi_t afi, safi_t safi,
 			 const char *name_str, const char *direct_str)
@@ -3271,7 +3272,7 @@ peer_distribute_set_vty (struct vty *vty, const char *ip_str,
   return bgp_vty_return (vty, ret);
 }
 
-int
+static int
 peer_distribute_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			   safi_t safi, const char *direct_str)
 {
@@ -3328,7 +3329,7 @@ DEFUN (no_neighbor_distribute_list,
 }
 
 /* Set prefix list to the peer. */
-int
+static int
 peer_prefix_list_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			  safi_t safi, const char *name_str, 
                           const char *direct_str)
@@ -3352,7 +3353,7 @@ peer_prefix_list_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
   return bgp_vty_return (vty, ret);
 }
 
-int
+static int
 peer_prefix_list_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			    safi_t safi, const char *direct_str)
 {
@@ -3404,7 +3405,7 @@ DEFUN (no_neighbor_prefix_list,
 				     bgp_node_safi (vty), argv[2]);
 }
 
-int
+static int
 peer_aslist_set_vty (struct vty *vty, const char *ip_str, 
                      afi_t afi, safi_t safi,
 		     const char *name_str, const char *direct_str)
@@ -3428,7 +3429,7 @@ peer_aslist_set_vty (struct vty *vty, const char *ip_str,
   return bgp_vty_return (vty, ret);
 }
 
-int
+static int
 peer_aslist_unset_vty (struct vty *vty, const char *ip_str, 
                        afi_t afi, safi_t safi,
 		       const char *direct_str)
@@ -3482,7 +3483,7 @@ DEFUN (no_neighbor_filter_list,
 }
 
 /* Set route-map to the peer. */
-int
+static int
 peer_route_map_set_vty (struct vty *vty, const char *ip_str, 
                         afi_t afi, safi_t safi,
 			const char *name_str, const char *direct_str)
@@ -3510,7 +3511,7 @@ peer_route_map_set_vty (struct vty *vty, const char *ip_str,
   return bgp_vty_return (vty, ret);
 }
 
-int
+static int
 peer_route_map_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			  safi_t safi, const char *direct_str)
 {
@@ -3571,7 +3572,7 @@ DEFUN (no_neighbor_route_map,
 }
 
 /* Set unsuppress-map to the peer. */
-int
+static int
 peer_unsuppress_map_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			     safi_t safi, const char *name_str)
 {
@@ -3588,7 +3589,7 @@ peer_unsuppress_map_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
 }
 
 /* Unset route-map from the peer. */
-int
+static int
 peer_unsuppress_map_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			       safi_t safi)
 {
@@ -3629,7 +3630,7 @@ DEFUN (no_neighbor_unsuppress_map,
 					bgp_node_safi (vty));
 }
 
-int
+static int
 peer_maximum_prefix_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			     safi_t safi, const char *num_str,  
 			     const char *threshold_str, int warning,
@@ -3661,7 +3662,7 @@ peer_maximum_prefix_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
   return bgp_vty_return (vty, ret);
 }
 
-int
+static int
 peer_maximum_prefix_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			       safi_t safi)
 {
@@ -3978,7 +3979,7 @@ enum clear_sort
   clear_as
 };
 
-void
+static void
 bgp_clear_vty_error (struct vty *vty, struct peer *peer, afi_t afi,
 		     safi_t safi, int error)
 {
@@ -4000,7 +4001,7 @@ bgp_clear_vty_error (struct vty *vty, struct peer *peer, afi_t afi,
 }
 
 /* `clear ip bgp' functions. */
-int
+static int
 bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
            enum clear_sort sort,enum bgp_clear_type stype, const char *arg)
 {
@@ -4143,7 +4144,7 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
   return 0;
 }
 
-int
+static int
 bgp_clear_vty (struct vty *vty, const char *name, afi_t afi, safi_t safi,
                enum clear_sort sort, enum bgp_clear_type stype, 
                const char *arg)
@@ -6460,7 +6461,7 @@ ALIAS (clear_ip_bgp_peer_rsclient,
 
 
 /* Show BGP peer's summary information. */
-int
+static int
 bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
 {
   struct peer *peer;
@@ -6543,7 +6544,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
   return CMD_SUCCESS;
 }
 
-int 
+static int 
 bgp_show_summary_vty (struct vty *vty, const char *name, 
                       afi_t afi, safi_t safi)
 {
@@ -6759,7 +6760,7 @@ enum show_type
   show_peer
 };
 
-void
+static void
 bgp_show_peer_afi_orf_cap (struct vty *vty, struct peer *p,
 			   afi_t afi, safi_t safi,
 			   u_int16_t adv_smcap, u_int16_t adv_rmcap,
@@ -6794,7 +6795,7 @@ bgp_show_peer_afi_orf_cap (struct vty *vty, struct peer *p,
     }
 }
 
-void
+static void
 bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
 {
   struct bgp_filter *filter;
@@ -7001,7 +7002,7 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi)
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
-void
+static void
 bgp_show_peer (struct vty *vty, struct peer *p)
 {
   struct bgp *bgp;
@@ -7354,7 +7355,7 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
-int
+static int
 bgp_show_neighbor (struct vty *vty, struct bgp *bgp,
 		   enum show_type type, union sockunion *su)
 {
@@ -7385,7 +7386,7 @@ bgp_show_neighbor (struct vty *vty, struct bgp *bgp,
   return CMD_SUCCESS;
 }
 
-int 
+static int 
 bgp_show_neighbor_vty (struct vty *vty, const char *name, 
                        enum show_type type, const char *ip_str)
 {
@@ -7657,7 +7658,7 @@ DEFUN (show_ip_bgp_ipv4_paths,
 
 #include "hash.h"
 
-void
+static void
 community_show_all_iterator (struct hash_backet *backet, struct vty *vty)
 {
   struct community *com;
@@ -7698,7 +7699,7 @@ DEFUN (show_ip_bgp_attr_info,
   return CMD_SUCCESS;
 }
 
-int
+static int
 bgp_write_rsclient_summary (struct vty *vty, struct peer *rsclient,
         afi_t afi, safi_t safi)
 {
@@ -7766,7 +7767,7 @@ bgp_write_rsclient_summary (struct vty *vty, struct peer *rsclient,
   return 1;
 }
 
-int
+static int
 bgp_show_rsclient_summary (struct vty *vty, struct bgp *bgp, 
                            afi_t afi, safi_t safi)
 {
@@ -7809,7 +7810,7 @@ bgp_show_rsclient_summary (struct vty *vty, struct bgp *bgp,
   return CMD_SUCCESS;
 }
 
-int
+static int
 bgp_show_rsclient_summary_vty (struct vty *vty, const char *name, 
                                afi_t afi, safi_t safi)
 {
@@ -8566,10 +8567,9 @@ struct cmd_node bgp_vpnv4_node =
 };
 
 void
-bgp_vty_init ()
+bgp_vty_init (void)
 {
-  int bgp_config_write (struct vty *);
-  void community_list_vty ();
+  static void community_list_vty (void);
 
   /* Install bgp top node. */
   install_node (&bgp_node, bgp_config_write);
@@ -9549,7 +9549,7 @@ bgp_vty_init ()
 /* VTY functions.  */
 
 /* Direction value to string conversion.  */
-const char *
+static const char *
 community_direct_str (int direct)
 {
   switch (direct)
@@ -9567,7 +9567,7 @@ community_direct_str (int direct)
 }
 
 /* Display error string.  */
-void
+static void
 community_list_perror (struct vty *vty, int ret)
 {
   switch (ret)
@@ -9588,7 +9588,7 @@ community_list_perror (struct vty *vty, int ret)
 }
 
 /* VTY interface for community_set() function.  */
-int
+static int
 community_list_set_vty (struct vty *vty, int argc, const char **argv, 
                         int style, int reject_all_digit_name)
 {
@@ -9641,7 +9641,7 @@ community_list_set_vty (struct vty *vty, int argc, const char **argv,
 }
 
 /* Communiyt-list entry delete.  */
-int
+static int
 community_list_unset_vty (struct vty *vty, int argc, const char **argv,
 			  int style)
 {
@@ -9865,7 +9865,7 @@ DEFUN (no_ip_community_list_name_expanded,
   return community_list_unset_vty (vty, argc, argv, COMMUNITY_LIST_EXPANDED);
 }
 
-void
+static void
 community_list_show (struct vty *vty, struct community_list *list)
 {
   struct community_entry *entry;
@@ -9943,7 +9943,7 @@ DEFUN (show_ip_community_list_arg,
   return CMD_SUCCESS;
 }
 
-int
+static int
 extcommunity_list_set_vty (struct vty *vty, int argc, const char **argv, 
                            int style, int reject_all_digit_name)
 {
@@ -9991,7 +9991,7 @@ extcommunity_list_set_vty (struct vty *vty, int argc, const char **argv,
   return CMD_SUCCESS;
 }
 
-int
+static int
 extcommunity_list_unset_vty (struct vty *vty, int argc, const char **argv,
 			     int style)
 {
@@ -10215,7 +10215,7 @@ DEFUN (no_ip_extcommunity_list_name_expanded,
   return extcommunity_list_unset_vty (vty, argc, argv, EXTCOMMUNITY_LIST_EXPANDED);
 }
 
-void
+static void
 extcommunity_list_show (struct vty *vty, struct community_list *list)
 {
   struct community_entry *entry;
@@ -10312,7 +10312,7 @@ community_list_config_str (struct community_entry *entry)
 }
 
 /* Display community-list and extcommunity-list configuration.  */
-int
+static int
 community_list_config_write (struct vty *vty)
 {
   struct community_list *list;
@@ -10375,8 +10375,8 @@ struct cmd_node community_list_node =
   1				/* Export to vtysh.  */
 };
 
-void
-community_list_vty ()
+static void
+community_list_vty (void)
 {
   install_node (&community_list_node, community_list_config_write);
 

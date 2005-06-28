@@ -62,7 +62,7 @@ static int bgp_keepalive_timer (struct thread *);
 static int bgp_start (struct peer *);
 
 /* BGP start timer jitter. */
-int
+static int
 bgp_start_jitter (int time)
 {
   return ((rand () % (time + 1)) - (time / 2));
@@ -278,7 +278,7 @@ bgp_keepalive_timer (struct thread *thread)
   return 0;
 }
 
-int
+static int
 bgp_routeadv_timer (struct thread *thread)
 {
   struct peer *peer;
@@ -336,7 +336,7 @@ const char *peer_down_str[] =
   "NSF peer closed the session"
 };
 
-int
+static int
 bgp_graceful_restart_timer_expire (struct thread *thread)
 {
   struct peer *peer;
@@ -366,7 +366,7 @@ bgp_graceful_restart_timer_expire (struct thread *thread)
   return 0;
 }
 
-int
+static int
 bgp_graceful_stale_timer_expire (struct thread *thread)
 {
   struct peer *peer;
@@ -580,7 +580,7 @@ bgp_stop (struct peer *peer)
 }
 
 /* BGP peer is stoped by the error. */
-int
+static int
 bgp_stop_with_error (struct peer *peer)
 {
   /* Double start timer. */
@@ -597,7 +597,7 @@ bgp_stop_with_error (struct peer *peer)
 
 /* TCP connection open.  Next we send open message to remote peer. And
    add read thread for reading open message. */
-int
+static int
 bgp_connect_success (struct peer *peer)
 {
   char buf1[BUFSIZ];
@@ -629,7 +629,7 @@ bgp_connect_success (struct peer *peer)
 }
 
 /* TCP connect fail */
-int
+static int
 bgp_connect_fail (struct peer *peer)
 {
   bgp_stop (peer);
@@ -685,7 +685,7 @@ bgp_start (struct peer *peer)
 }
 
 /* Connect retry timer is expired when the peer status is Connect. */
-int
+static int
 bgp_reconnect (struct peer *peer)
 {
   bgp_stop (peer);
@@ -693,7 +693,7 @@ bgp_reconnect (struct peer *peer)
   return 0;
 }
 
-int
+static int
 bgp_fsm_open (struct peer *peer)
 {
   /* Send keepalive and make keepalive timer */
@@ -706,7 +706,7 @@ bgp_fsm_open (struct peer *peer)
 }
 
 /* Keepalive send to peer. */
-int
+static int
 bgp_fsm_keepalive_expire (struct peer *peer)
 {
   bgp_keepalive_send (peer);
@@ -715,7 +715,7 @@ bgp_fsm_keepalive_expire (struct peer *peer)
 
 /* Hold timer expire.  This is error of BGP connection. So cut the
    peer and change to Idle status. */
-int
+static int
 bgp_fsm_holdtime_expire (struct peer *peer)
 {
   if (BGP_DEBUG (fsm, FSM))
@@ -737,7 +737,7 @@ bgp_fsm_holdtime_expire (struct peer *peer)
 
 /* Status goes to Established.  Send keepalive packet then make first
    update information. */
-int
+static int
 bgp_establish (struct peer *peer)
 {
   struct bgp_notify *notify;
@@ -849,7 +849,7 @@ bgp_establish (struct peer *peer)
 }
 
 /* Keepalive packet is received. */
-int
+static int
 bgp_fsm_keepalive (struct peer *peer)
 {
   /* peer count update */
@@ -860,7 +860,7 @@ bgp_fsm_keepalive (struct peer *peer)
 }
 
 /* Update packet is received. */
-int
+static int
 bgp_fsm_update (struct peer *peer)
 {
   BGP_TIMER_OFF (peer->t_holdtime);
@@ -868,7 +868,7 @@ bgp_fsm_update (struct peer *peer)
 }
 
 /* This is empty event. */
-int
+static int
 bgp_ignore (struct peer *peer)
 {
   if (BGP_DEBUG (fsm, FSM))

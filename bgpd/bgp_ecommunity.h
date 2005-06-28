@@ -64,19 +64,19 @@ struct ecommunity_val
 
 #define ecom_length(X)    ((X)->size * ECOMMUNITY_SIZE)
 
-void ecommunity_init (void);
-void ecommunity_free (struct ecommunity *);
-struct ecommunity *ecommunity_new (void);
-struct ecommunity *ecommunity_parse (u_int8_t *, u_short);
-struct ecommunity *ecommunity_dup (struct ecommunity *);
-struct ecommunity *ecommunity_merge (struct ecommunity *, struct ecommunity *);
-struct ecommunity *ecommunity_intern (struct ecommunity *);
-int ecommunity_cmp (const struct ecommunity *, const struct ecommunity *);
-void ecommunity_unintern (struct ecommunity *);
-unsigned int ecommunity_hash_make (struct ecommunity *);
-struct ecommunity *ecommunity_str2com (const char *, int, int);
-char *ecommunity_ecom2str (struct ecommunity *, int);
-int ecommunity_match (const struct ecommunity *, const struct ecommunity *);
-char *ecommunity_str (struct ecommunity *);
+extern void ecommunity_init (void);
+extern void ecommunity_free (struct ecommunity *);
+extern struct ecommunity *ecommunity_new (void);
+extern struct ecommunity *ecommunity_parse (u_int8_t *, u_short);
+extern struct ecommunity *ecommunity_dup (struct ecommunity *);
+extern struct ecommunity *ecommunity_merge (struct ecommunity *, struct ecommunity *);
+extern struct ecommunity *ecommunity_intern (struct ecommunity *);
+extern int ecommunity_cmp (const struct ecommunity *, const struct ecommunity *);
+extern void ecommunity_unintern (struct ecommunity *);
+extern unsigned int ecommunity_hash_make (struct ecommunity *);
+extern struct ecommunity *ecommunity_str2com (const char *, int, int);
+extern char *ecommunity_ecom2str (struct ecommunity *, int);
+extern int ecommunity_match (const struct ecommunity *, const struct ecommunity *);
+extern char *ecommunity_str (struct ecommunity *);
 
 #endif /* _QUAGGA_BGP_ECOMMUNITY_H */

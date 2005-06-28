@@ -29,8 +29,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 struct hash *comhash;
 
 /* Allocate a new communities value.  */
-struct community *
-community_new ()
+static struct community *
+community_new (void)
 {
   return (struct community *) XCALLOC (MTYPE_COMMUNITY,
 				       sizeof (struct community));
@@ -48,7 +48,7 @@ community_free (struct community *com)
 }
 
 /* Add one community value to the community. */
-void
+static void
 community_add_val (struct community *com, u_int32_t val)
 {
   com->size++;
@@ -112,7 +112,7 @@ community_delete (struct community *com1, struct community *com2)
 }
 
 /* Callback function from qsort(). */
-int
+static int
 community_compare (const void *a1, const void *a2)
 {
   u_int32_t v1;
@@ -144,7 +144,7 @@ community_include (struct community *com, u_int32_t val)
   return 0;
 }
 
-u_int32_t
+static u_int32_t
 community_val_get (struct community *com, int i)
 {
   u_char *p;
@@ -472,7 +472,7 @@ enum community_token
 };
 
 /* Get next community token from string. */
-const char *
+static const char *
 community_gettoken (const char *buf, enum community_token *token, 
                     u_int32_t *val)
 {
@@ -617,14 +617,14 @@ community_count ()
 
 /* Return communities hash.  */
 struct hash *
-community_hash ()
+community_hash (void)
 {
   return comhash;
 }
 
 /* Initialize comminity related hash. */
 void
-community_init ()
+community_init (void)
 {
   comhash = hash_create (community_hash_make, community_cmp);
 }

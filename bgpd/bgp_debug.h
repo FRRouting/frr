@@ -51,10 +51,10 @@ extern int Debug_Radix;
 #define	DETAIL	 6
 
 /* Prototypes. */
-void bgp_debug_init ();
-void bgp_packet_dump (struct stream *);
+extern void bgp_debug_init (void);
+extern void bgp_packet_dump (struct stream *);
 
-int debug (unsigned int option);
+extern int debug (unsigned int option);
 
 extern unsigned long conf_bgp_debug_fsm;
 extern unsigned long conf_bgp_debug_events;
@@ -109,8 +109,8 @@ extern unsigned long term_bgp_debug_normal;
 
 const extern char *bgp_type_str[];
 
-int bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
-void bgp_notify_print (struct peer *, struct bgp_notify *, const char *);
+extern int bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
+extern void bgp_notify_print (struct peer *, struct bgp_notify *, const char *);
 
 extern struct message bgp_status_msg[];
 extern int bgp_status_msg_max;

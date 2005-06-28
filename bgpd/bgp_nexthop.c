@@ -66,12 +66,9 @@ static struct bgp_table *bgp_connected_table[AFI_MAX];
 
 /* BGP nexthop lookup query client. */
 static struct zclient *zlookup = NULL;
-
-/* BGP process function. */
-int bgp_process (struct bgp *, struct bgp_node *, afi_t, safi_t);
 
 /* Add nexthop to the end of the list.  */
-void
+static void
 bnc_nexthop_add (struct bgp_nexthop_cache *bnc, struct nexthop *nexthop)
 {
   struct nexthop *last;
@@ -85,7 +82,7 @@ bnc_nexthop_add (struct bgp_nexthop_cache *bnc, struct nexthop *nexthop)
   nexthop->prev = last;
 }
 
-void
+static void
 bnc_nexthop_free (struct bgp_nexthop_cache *bnc)
 {
   struct nexthop *nexthop;
@@ -98,7 +95,7 @@ bnc_nexthop_free (struct bgp_nexthop_cache *bnc)
     }
 }
 
-struct bgp_nexthop_cache *
+static struct bgp_nexthop_cache *
 bnc_new ()
 {
   struct bgp_nexthop_cache *new;
@@ -108,14 +105,14 @@ bnc_new ()
   return new;
 }
 
-void
+static void
 bnc_free (struct bgp_nexthop_cache *bnc)
 {
   bnc_nexthop_free (bnc);
   XFREE (MTYPE_BGP_NEXTHOP_CACHE, bnc);
 }
 
-int
+static int
 bgp_nexthop_same (struct nexthop *next1, struct nexthop *next2)
 {
   if (next1->type != next2->type)
@@ -152,7 +149,7 @@ bgp_nexthop_same (struct nexthop *next1, struct nexthop *next2)
   return 1;
 }
 
-int
+static int
 bgp_nexthop_cache_changed (struct bgp_nexthop_cache *bnc1,
 			   struct bgp_nexthop_cache *bnc2)
 {
@@ -221,7 +218,7 @@ bgp_nexthop_check_ebgp (afi_t afi, struct attr *attr)
 
 #ifdef HAVE_IPV6
 /* Check specified next-hop is reachable or not. */
-int
+static int
 bgp_nexthop_lookup_ipv6 (struct peer *peer, struct bgp_info *ri, int *changed,
 			 int *metricchanged)
 {
@@ -396,7 +393,7 @@ bgp_nexthop_lookup (afi_t afi, struct peer *peer, struct bgp_info *ri,
 }
 
 /* Reset and free all BGP nexthop cache. */
-void
+static void
 bgp_nexthop_cache_reset (struct bgp_table *table)
 {
   struct bgp_node *rn;
@@ -411,7 +408,7 @@ bgp_nexthop_cache_reset (struct bgp_table *table)
       }
 }
 
-void
+static void
 bgp_scan (afi_t afi, safi_t safi)
 {
   struct bgp_node *rn;
@@ -518,7 +515,7 @@ bgp_scan (afi_t afi, safi_t safi)
 }
 
 /* BGP scan thread.  This thread check nexthop reachability. */
-int
+static int
 bgp_scan_timer (struct thread *t)
 {
   bgp_scan_thread =
@@ -737,7 +734,7 @@ bgp_nexthop_self (afi_t afi, struct attr *attr)
   return 0;
 }
 
-struct bgp_nexthop_cache *
+static struct bgp_nexthop_cache *
 zlookup_read ()
 {
   struct stream *s;
@@ -833,7 +830,7 @@ zlookup_query (struct in_addr addr)
 }
 
 #ifdef HAVE_IPV6
-struct bgp_nexthop_cache *
+static struct bgp_nexthop_cache *
 zlookup_read_ipv6 ()
 {
   struct stream *s;
@@ -936,8 +933,9 @@ zlookup_query_ipv6 (struct in6_addr *addr)
 }
 #endif /* HAVE_IPV6 */
 
-int
-bgp_import_check (struct prefix *p, u_int32_t *igpmetric, struct in_addr *igpnexthop)
+static int
+bgp_import_check (struct prefix *p, u_int32_t *igpmetric,
+                  struct in_addr *igpnexthop)
 {
   struct stream *s;
   int ret;
@@ -1024,7 +1022,7 @@ bgp_import_check (struct prefix *p, u_int32_t *igpmetric, struct in_addr *igpnex
 
 /* Scan all configured BGP route then check the route exists in IGP or
    not. */
-int
+static int
 bgp_import (struct thread *t)
 {
   struct bgp *bgp;
@@ -1089,7 +1087,7 @@ bgp_import (struct thread *t)
 }
 
 /* Connect to zebra for nexthop lookup. */
-int
+static int
 zlookup_connect (struct thread *t)
 {
   struct zclient *zlookup;

@@ -21,8 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_SNMP_H
 #define _QUAGGA_BGP_SNMP_H
 
-void bgp_snmp_init ();
-void bgpTrapEstablished (struct peer *);
-void bgpTrapBackwardTransition (struct peer *);
+extern void bgp_snmp_init (void);
+extern void bgpTrapEstablished (struct peer *);
+extern void bgpTrapBackwardTransition (struct peer *);
 
 #endif /* _QUAGGA_BGP_SNMP_H */

@@ -129,19 +129,19 @@ struct bgp_damp_config
 #define REUSE_LIST_SIZE          256
 #define REUSE_ARRAY_SIZE        1024
 
-int bgp_damp_enable (struct bgp *, afi_t, safi_t, time_t, unsigned int, 
+extern int bgp_damp_enable (struct bgp *, afi_t, safi_t, time_t, unsigned int, 
                      unsigned int, time_t);
-int bgp_damp_disable (struct bgp *, afi_t, safi_t);
-int bgp_damp_withdraw (struct bgp_info *, struct bgp_node *,
+extern int bgp_damp_disable (struct bgp *, afi_t, safi_t);
+extern int bgp_damp_withdraw (struct bgp_info *, struct bgp_node *,
 		       afi_t, safi_t, int);
-int bgp_damp_update (struct bgp_info *, struct bgp_node *, afi_t, safi_t);
-int bgp_damp_scan (struct bgp_info *, afi_t, safi_t);
-void bgp_damp_info_free (struct bgp_damp_info *, int);
-void bgp_damp_info_clean ();
-char * bgp_get_reuse_time (unsigned int, char*, size_t);
-int bgp_damp_decay (time_t, int);
-int bgp_config_write_damp (struct vty *);
-void bgp_damp_info_vty (struct vty *, struct bgp_info *);
-char * bgp_damp_reuse_time_vty (struct vty *, struct bgp_info *);
+extern int bgp_damp_update (struct bgp_info *, struct bgp_node *, afi_t, safi_t);
+extern int bgp_damp_scan (struct bgp_info *, afi_t, safi_t);
+extern void bgp_damp_info_free (struct bgp_damp_info *, int);
+extern void bgp_damp_info_clean (void);
+extern char * bgp_get_reuse_time (unsigned int, char*, size_t);
+extern int bgp_damp_decay (time_t, int);
+extern int bgp_config_write_damp (struct vty *);
+extern void bgp_damp_info_vty (struct vty *, struct bgp_info *);
+extern char * bgp_damp_reuse_time_vty (struct vty *, struct bgp_info *);
 
 #endif /* _QUAGGA_BGP_DAMP_H */

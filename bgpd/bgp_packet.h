@@ -38,18 +38,18 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define ORF_COMMON_PART_DENY       0x20 
 
 /* Packet send and receive function prototypes. */
-int bgp_read (struct thread *);
-int bgp_write (struct thread *);
+extern int bgp_read (struct thread *);
+extern int bgp_write (struct thread *);
 
-void bgp_keepalive_send (struct peer *);
-void bgp_open_send (struct peer *);
-void bgp_notify_send (struct peer *, u_int8_t, u_int8_t);
-void bgp_notify_send_with_data (struct peer *, u_int8_t, u_int8_t, 
+extern void bgp_keepalive_send (struct peer *);
+extern void bgp_open_send (struct peer *);
+extern void bgp_notify_send (struct peer *, u_int8_t, u_int8_t);
+extern void bgp_notify_send_with_data (struct peer *, u_int8_t, u_int8_t, 
                                 u_int8_t *, size_t);
-void bgp_route_refresh_send (struct peer *, afi_t, safi_t, u_char, u_char, int);
-void bgp_capability_send (struct peer *, afi_t, safi_t, int, int);
-void bgp_default_update_send (struct peer *, struct attr *,
+extern void bgp_route_refresh_send (struct peer *, afi_t, safi_t, u_char, u_char, int);
+extern void bgp_capability_send (struct peer *, afi_t, safi_t, int, int);
+extern void bgp_default_update_send (struct peer *, struct attr *,
 			      afi_t, safi_t, struct peer *);
-void bgp_default_withdraw_send (struct peer *, afi_t, safi_t);
+extern void bgp_default_withdraw_send (struct peer *, afi_t, safi_t);
 
 #endif /* _QUAGGA_BGP_PACKET_H */

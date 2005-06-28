@@ -49,7 +49,7 @@ community_list_master_lookup (struct community_list_handler *ch, int master)
 }
 
 /* Allocate a new community list entry.  */
-struct community_entry *
+static struct community_entry *
 community_entry_new ()
 {
   struct community_entry *new;
@@ -60,7 +60,7 @@ community_entry_new ()
 }
 
 /* Free community list entry.  */
-void
+static void
 community_entry_free (struct community_entry *entry)
 {
   switch (entry->style)
@@ -90,7 +90,7 @@ community_entry_free (struct community_entry *entry)
 }
 
 /* Allocate a new community-list.  */
-struct community_list *
+static struct community_list *
 community_list_new ()
 {
   struct community_list *new;
@@ -101,7 +101,7 @@ community_list_new ()
 }
 
 /* Free community-list.  */
-void
+static void
 community_list_free (struct community_list *list)
 {
   if (list->name)
@@ -109,7 +109,7 @@ community_list_free (struct community_list *list)
   XFREE (MTYPE_COMMUNITY_LIST, list);
 }
 
-struct community_list *
+static struct community_list *
 community_list_insert (struct community_list_handler *ch,
 		       const char *name, int master)
 {
@@ -227,7 +227,7 @@ community_list_lookup (struct community_list_handler *ch,
   return NULL;
 }
 
-struct community_list *
+static struct community_list *
 community_list_get (struct community_list_handler *ch,
 		    const char *name, int master)
 {
@@ -239,7 +239,7 @@ community_list_get (struct community_list_handler *ch,
   return list;
 }
 
-void
+static void
 community_list_delete (struct community_list *list)
 {
   struct community_list_list *clist;
@@ -266,7 +266,7 @@ community_list_delete (struct community_list *list)
   community_list_free (list);
 }
 
-int
+static int
 community_list_empty_p (struct community_list *list)
 {
   return (list->head == NULL && list->tail == NULL) ? 1 : 0;
@@ -558,7 +558,7 @@ community_list_match_delete (struct community *com,
 
 /* To avoid duplicated entry in the community-list, this function
    compares specified entry to existing entry.  */
-int
+static int
 community_list_dup_check (struct community_list *list,
                           struct community_entry *new)
 {
@@ -829,7 +829,7 @@ extcommunity_list_unset (struct community_list_handler *ch,
 
 /* Initializa community-list.  Return community-list handler.  */
 struct community_list_handler *
-community_list_init ()
+community_list_init (void)
 {
   struct community_list_handler *ch;
   ch = XCALLOC (MTYPE_COMMUNITY_LIST_HANDLER,
@@ -838,7 +838,7 @@ community_list_init ()
 }
 
 /* Terminate community-list.  */
-void
+static void
 community_list_terminate (struct community_list_handler *ch)
 {
   struct community_list_master *cm;

@@ -85,7 +85,7 @@ bgp_packet_set_size (struct stream *s)
 }
 
 /* Add new packet to the peer. */
-void
+static void
 bgp_packet_add (struct peer *peer, struct stream *s)
 {
   /* Add packet to the end of list. */
@@ -93,7 +93,7 @@ bgp_packet_add (struct peer *peer, struct stream *s)
 }
 
 /* Free first packet. */
-void
+static void
 bgp_packet_delete (struct peer *peer)
 {
   stream_free (stream_fifo_pop (peer->obuf));
@@ -138,7 +138,7 @@ bgp_connect_check (struct peer *peer)
 }
 
 /* Make BGP update packet.  */
-struct stream *
+static struct stream *
 bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct stream *s;
@@ -225,7 +225,7 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
   return NULL;
 }
 
-struct stream *
+static struct stream *
 bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct stream *s;
@@ -270,7 +270,7 @@ bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
 }
 
 /* Make BGP withdraw packet.  */
-struct stream *
+static struct stream *
 bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct stream *s;
@@ -496,7 +496,7 @@ bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
 }
 
 /* Get next packet to be written.  */
-struct stream *
+static struct stream *
 bgp_write_packet (struct peer *peer)
 {
   afi_t afi;
@@ -562,7 +562,7 @@ bgp_write_packet (struct peer *peer)
 
 /* Is there partially written packet or updates we can send right
    now.  */
-int
+static int
 bgp_write_proceed (struct peer *peer)
 {
   afi_t afi;
@@ -705,7 +705,7 @@ bgp_write (struct thread *thread)
 }
 
 /* This is only for sending NOTIFICATION message to neighbor. */
-int
+static int
 bgp_write_notify (struct peer *peer)
 {
   int ret;
@@ -927,7 +927,7 @@ bgp_notify_send (struct peer *peer, u_char code, u_char sub_code)
   bgp_notify_send_with_data (peer, code, sub_code, NULL, 0);
 }
 
-const char *
+static const char *
 afi2str (afi_t afi)
 {
   if (afi == AFI_IP)
@@ -938,7 +938,7 @@ afi2str (afi_t afi)
     return "Unknown AFI";
 }
 
-const char *
+static const char *
 safi2str (safi_t safi)
 {
   if (safi == SAFI_UNICAST)
@@ -1101,7 +1101,7 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
 }
 
 /* RFC1771 6.8 Connection collision detection. */
-int
+static int
 bgp_collision_detect (struct peer *new, struct in_addr remote_id)
 {
   struct peer *peer;
@@ -1164,7 +1164,7 @@ bgp_collision_detect (struct peer *new, struct in_addr remote_id)
   return 0;
 }
 
-int
+static int
 bgp_open_receive (struct peer *peer, bgp_size_t size)
 {
   int ret;
@@ -1408,7 +1408,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
 }
 
 /* Parse BGP Update packet and make attribute object. */
-int
+static int
 bgp_update_receive (struct peer *peer, bgp_size_t size)
 {
   int ret;
@@ -1734,7 +1734,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 }
 
 /* Notify message treatment function. */
-void
+static void
 bgp_notify_receive (struct peer *peer, bgp_size_t size)
 {
   struct bgp_notify bgp_notify;
@@ -1814,7 +1814,7 @@ bgp_notify_receive (struct peer *peer, bgp_size_t size)
 }
 
 /* Keepalive treatment function -- get keepalive send keepalive */
-void
+static void
 bgp_keepalive_receive (struct peer *peer, bgp_size_t size)
 {
   if (BGP_DEBUG (keepalive, KEEPALIVE))  
@@ -1824,7 +1824,7 @@ bgp_keepalive_receive (struct peer *peer, bgp_size_t size)
 }
 
 /* Route refresh message is received. */
-void
+static void
 bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 {
   afi_t afi;
@@ -1988,7 +1988,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
   bgp_announce_route (peer, afi, safi);
 }
 
-int
+static int
 bgp_capability_msg_parse (struct peer *peer, u_char *pnt, bgp_size_t length)
 {
   u_char *end;
@@ -2098,7 +2098,7 @@ bgp_capability_msg_parse (struct peer *peer, u_char *pnt, bgp_size_t length)
 }
 
 /* Dynamic Capability is received. */
-void
+static void
 bgp_capability_receive (struct peer *peer, bgp_size_t size)
 {
   u_char *pnt;
@@ -2135,7 +2135,7 @@ bgp_capability_receive (struct peer *peer, bgp_size_t size)
 }
 
 /* BGP read utility function. */
-int
+static int
 bgp_read_packet (struct peer *peer)
 {
   int nbytes;
@@ -2204,7 +2204,7 @@ bgp_read_packet (struct peer *peer)
 }
 
 /* Marker check. */
-int
+static int
 bgp_marker_all_one (struct stream *s, int length)
 {
   int i;

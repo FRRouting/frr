@@ -84,7 +84,7 @@ bgp_advertise_new ()
     XCALLOC (MTYPE_BGP_ADVERTISE, sizeof (struct bgp_advertise));
 }
 
-void
+static void
 bgp_advertise_free (struct bgp_advertise *adv)
 {
   if (adv->binfo)
@@ -92,7 +92,7 @@ bgp_advertise_free (struct bgp_advertise *adv)
   XFREE (MTYPE_BGP_ADVERTISE, adv);
 }
 
-void
+static void
 bgp_advertise_add (struct bgp_advertise_attr *baa,
 		   struct bgp_advertise *adv)
 {
@@ -102,7 +102,7 @@ bgp_advertise_add (struct bgp_advertise_attr *baa,
   baa->adv = adv;
 }
 
-void
+static void
 bgp_advertise_delete (struct bgp_advertise_attr *baa,
 		      struct bgp_advertise *adv)
 {
@@ -127,7 +127,7 @@ bgp_advertise_intern (struct hash *hash, struct attr *attr)
   return baa;
 }
 
-void
+static void
 bgp_advertise_unintern (struct hash *hash, struct bgp_advertise_attr *baa)
 {
   if (baa->refcnt)
@@ -147,7 +147,7 @@ bgp_advertise_unintern (struct hash *hash, struct bgp_advertise_attr *baa)
 }
 
 /* BGP adjacency keeps minimal advertisement information.  */
-void
+static void
 bgp_adj_out_free (struct bgp_adj_out *adj)
 {
   peer_unlock (adj->peer); /* adj_out peer reference */

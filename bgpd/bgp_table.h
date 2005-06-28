@@ -63,21 +63,21 @@ struct bgp_node
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 };
 
-struct bgp_table *bgp_table_init (void);
-void bgp_table_finish (struct bgp_table *);
-void bgp_unlock_node (struct bgp_node *node);
-void bgp_node_delete (struct bgp_node *node);
-struct bgp_node *bgp_table_top (struct bgp_table *);
-struct bgp_node *bgp_route_next (struct bgp_node *);
-struct bgp_node *bgp_route_next_until (struct bgp_node *, struct bgp_node *);
-struct bgp_node *bgp_node_get (struct bgp_table *, struct prefix *);
-struct bgp_node *bgp_node_lookup (struct bgp_table *, struct prefix *);
-struct bgp_node *bgp_lock_node (struct bgp_node *node);
-struct bgp_node *bgp_node_match (struct bgp_table *, struct prefix *);
-struct bgp_node *bgp_node_match_ipv4 (struct bgp_table *,
+extern struct bgp_table *bgp_table_init (void);
+extern void bgp_table_finish (struct bgp_table *);
+extern void bgp_unlock_node (struct bgp_node *node);
+extern void bgp_node_delete (struct bgp_node *node);
+extern struct bgp_node *bgp_table_top (struct bgp_table *);
+extern struct bgp_node *bgp_route_next (struct bgp_node *);
+extern struct bgp_node *bgp_route_next_until (struct bgp_node *, struct bgp_node *);
+extern struct bgp_node *bgp_node_get (struct bgp_table *, struct prefix *);
+extern struct bgp_node *bgp_node_lookup (struct bgp_table *, struct prefix *);
+extern struct bgp_node *bgp_lock_node (struct bgp_node *node);
+extern struct bgp_node *bgp_node_match (struct bgp_table *, struct prefix *);
+extern struct bgp_node *bgp_node_match_ipv4 (struct bgp_table *,
 					  struct in_addr *);
 #ifdef HAVE_IPV6
-struct bgp_node *bgp_node_match_ipv6 (struct bgp_table *,
+extern struct bgp_node *bgp_node_match_ipv6 (struct bgp_table *,
 					  struct in6_addr *);
 #endif /* HAVE_IPV6 */
 

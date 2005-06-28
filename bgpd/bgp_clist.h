@@ -124,29 +124,32 @@ struct community_list_handler
 extern struct community_list_handler *bgp_clist;
 
 /* Prototypes.  */
-struct community_list_handler *community_list_init ();
+extern struct community_list_handler *community_list_init (void);
 
-int community_list_set (struct community_list_handler *ch, const char *name, 
-                        const char *str, int direct, int style);
-int community_list_unset (struct community_list_handler *ch, const char *name,
-                          const char *str, int direct, int style);
-int extcommunity_list_set (struct community_list_handler *ch, const char *name,
-                           const char *str, int direct, int style);
-int extcommunity_list_unset (struct community_list_handler *ch, 
-                             const char *name, const char *str, 
-                             int direct, int style);
+extern int community_list_set (struct community_list_handler *ch,
+			       const char *name, const char *str, int direct,
+			       int style);
+extern int community_list_unset (struct community_list_handler *ch,
+				 const char *name, const char *str,
+				 int direct, int style);
+extern int extcommunity_list_set (struct community_list_handler *ch,
+				  const char *name, const char *str,
+				  int direct, int style);
+extern int extcommunity_list_unset (struct community_list_handler *ch,
+				    const char *name, const char *str,
+				    int direct, int style);
 
-struct community_list_master *
+extern struct community_list_master *
 community_list_master_lookup (struct community_list_handler *, int);
 
-struct community_list *
+extern struct community_list *
 community_list_lookup (struct community_list_handler *, const char *, int);
 
-int community_list_match (struct community *, struct community_list *);
-int ecommunity_list_match (struct ecommunity *, struct community_list *);
-int community_list_exact_match (struct community *, struct community_list *);
-struct community *
-community_list_match_delete (struct community *,
-			     struct community_list *);
+extern int community_list_match (struct community *, struct community_list *);
+extern int ecommunity_list_match (struct ecommunity *, struct community_list *);
+extern int community_list_exact_match (struct community *,
+				       struct community_list *);
+extern struct community *
+community_list_match_delete (struct community *, struct community_list *);
 
 #endif /* _QUAGGA_BGP_CLIST_H */

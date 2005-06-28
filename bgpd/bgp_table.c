@@ -50,7 +50,7 @@ bgp_table_finish (struct bgp_table *rt)
   bgp_table_free (rt);
 }
 
-struct bgp_node *
+static struct bgp_node *
 bgp_node_create ()
 {
   struct bgp_node *rn;
@@ -61,7 +61,7 @@ bgp_node_create ()
 }
 
 /* Allocate new route node with prefix set. */
-struct bgp_node *
+static struct bgp_node *
 bgp_node_set (struct bgp_table *table, struct prefix *prefix)
 {
   struct bgp_node *node;
@@ -75,7 +75,7 @@ bgp_node_set (struct bgp_table *table, struct prefix *prefix)
 }
 
 /* Free route node. */
-void
+static void
 bgp_node_free (struct bgp_node *node)
 {
   XFREE (MTYPE_BGP_NODE, node);

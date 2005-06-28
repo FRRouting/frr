@@ -40,11 +40,11 @@ struct rd_ip
   u_int16_t val;
 };
 
-void bgp_mplsvpn_init ();
-int bgp_nlri_parse_vpnv4 (struct peer *, struct attr *, struct bgp_nlri *);
-u_int32_t decode_label (u_char *);
-int str2prefix_rd (const char *, struct prefix_rd *);
-int str2tag (const char *, u_char *);
-char *prefix_rd2str (struct prefix_rd *, char *, size_t);
+extern void bgp_mplsvpn_init (void);
+extern int bgp_nlri_parse_vpnv4 (struct peer *, struct attr *, struct bgp_nlri *);
+extern u_int32_t decode_label (u_char *);
+extern int str2prefix_rd (const char *, struct prefix_rd *);
+extern int str2tag (const char *, u_char *);
+extern char *prefix_rd2str (struct prefix_rd *, char *, size_t);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

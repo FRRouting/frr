@@ -644,7 +644,7 @@ DEFUN (show_debugging_bgp,
   return CMD_SUCCESS;
 }
 
-int
+static int
 bgp_config_write_debug (struct vty *vty)
 {
   int write = 0;
@@ -706,7 +706,7 @@ struct cmd_node debug_node =
 };
 
 void
-bgp_debug_init ()
+bgp_debug_init (void)
 {
   install_node (&debug_node, bgp_config_write_debug);
 

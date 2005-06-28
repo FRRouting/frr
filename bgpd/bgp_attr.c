@@ -61,7 +61,7 @@ struct message attr_str [] =
 
 struct hash *cluster_hash;
 
-void *
+static void *
 cluster_hash_alloc (struct cluster_list *val)
 {
   struct cluster_list *cluster;
@@ -83,7 +83,7 @@ cluster_hash_alloc (struct cluster_list *val)
 }
 
 /* Cluster list related functions. */
-struct cluster_list *
+static struct cluster_list *
 cluster_parse (struct in_addr * pnt, int length)
 {
   struct cluster_list tmp;
@@ -108,7 +108,7 @@ cluster_loop_check (struct cluster_list *cluster, struct in_addr originator)
   return 0;
 }
 
-unsigned int
+static unsigned int
 cluster_hash_key_make (struct cluster_list *cluster)
 {
   unsigned int key = 0;
@@ -124,7 +124,7 @@ cluster_hash_key_make (struct cluster_list *cluster)
   return key;
 }
 
-int
+static int
 cluster_hash_cmp (struct cluster_list *cluster1, struct cluster_list *cluster2)
 {
   if (cluster1->length == cluster2->length &&
@@ -133,7 +133,7 @@ cluster_hash_cmp (struct cluster_list *cluster1, struct cluster_list *cluster2)
   return 0;
 }
 
-void
+static void
 cluster_free (struct cluster_list *cluster)
 {
   if (cluster->list)
@@ -141,7 +141,7 @@ cluster_free (struct cluster_list *cluster)
   XFREE (MTYPE_CLUSTER, cluster);
 }
 
-struct cluster_list *
+static struct cluster_list *
 cluster_dup (struct cluster_list *cluster)
 {
   struct cluster_list *new;
@@ -161,7 +161,7 @@ cluster_dup (struct cluster_list *cluster)
   return new;
 }
 
-struct cluster_list *
+static struct cluster_list *
 cluster_intern (struct cluster_list *cluster)
 {
   struct cluster_list *find;
@@ -187,8 +187,8 @@ cluster_unintern (struct cluster_list *cluster)
     }
 }
 
-void
-cluster_init ()
+static void
+cluster_init (void)
 {
   cluster_hash = hash_create (cluster_hash_key_make, cluster_hash_cmp);
 }
@@ -196,7 +196,7 @@ cluster_init ()
 /* Unknown transit attribute. */
 struct hash *transit_hash;
 
-void
+static void
 transit_free (struct transit *transit)
 {
   if (transit->val)
@@ -204,14 +204,14 @@ transit_free (struct transit *transit)
   XFREE (MTYPE_TRANSIT, transit);
 }
 
-void *
+static void *
 transit_hash_alloc (struct transit *transit)
 {
   /* Transit structure is already allocated.  */
   return transit;
 }
 
-struct transit *
+static struct transit *
 transit_intern (struct transit *transit)
 {
   struct transit *find;
@@ -239,7 +239,7 @@ transit_unintern (struct transit *transit)
     }
 }
 
-unsigned int
+static unsigned int
 transit_hash_key_make (struct transit *transit)
 {
   unsigned int key = 0;
@@ -255,7 +255,7 @@ transit_hash_key_make (struct transit *transit)
   return key;
 }
 
-int
+static int
 transit_hash_cmp (struct transit *transit1, struct transit *transit2)
 {
   if (transit1->length == transit2->length &&
@@ -264,7 +264,7 @@ transit_hash_cmp (struct transit *transit1, struct transit *transit2)
   return 0;
 }
 
-void
+static void
 transit_init ()
 {
   transit_hash = hash_create (transit_hash_key_make, transit_hash_cmp);
@@ -341,13 +341,13 @@ attrhash_cmp (struct attr *attr1, struct attr *attr2)
     return 0;
 }
 
-void
+static void
 attrhash_init ()
 {
   attrhash = hash_create (attrhash_key_make, attrhash_cmp);
 }
 
-void
+static void
 attr_show_all_iterator (struct hash_backet *backet, struct vty *vty)
 {
   struct attr *attr = backet->data;
@@ -365,7 +365,7 @@ attr_show_all (struct vty *vty)
 		vty);
 }
 
-void *
+static void *
 bgp_attr_hash_alloc (struct attr *val)
 {
   struct attr *attr;
@@ -571,7 +571,7 @@ bgp_attr_flush (struct attr *attr)
 }
 
 /* Get origin attribute of the update message. */
-int
+static int
 bgp_attr_origin (struct peer *peer, bgp_size_t length, 
 		 struct attr *attr, u_char flag, u_char *startp)
 {
@@ -639,7 +639,7 @@ bgp_attr_origin (struct peer *peer, bgp_size_t length,
 
 /* Parse AS path information.  This function is wrapper of
    aspath_parse. */
-int
+static int
 bgp_attr_aspath (struct peer *peer, bgp_size_t length, 
 		 struct attr *attr, u_char flag, u_char *startp)
 {
@@ -710,7 +710,7 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
 }
 
 /* Nexthop attribute. */
-int
+static int
 bgp_attr_nexthop (struct peer *peer, bgp_size_t length, 
 		  struct attr *attr, u_char flag, u_char *startp)
 {
@@ -751,7 +751,7 @@ bgp_attr_nexthop (struct peer *peer, bgp_size_t length,
 }
 
 /* MED atrribute. */
-int
+static int
 bgp_attr_med (struct peer *peer, bgp_size_t length, 
 	      struct attr *attr, u_char flag, u_char *startp)
 {
@@ -780,7 +780,7 @@ bgp_attr_med (struct peer *peer, bgp_size_t length,
 }
 
 /* Local preference attribute. */
-int
+static int
 bgp_attr_local_pref (struct peer *peer, bgp_size_t length, 
 		     struct attr *attr, u_char flag)
 {
@@ -805,7 +805,7 @@ bgp_attr_local_pref (struct peer *peer, bgp_size_t length,
 }
 
 /* Atomic aggregate. */
-int
+static int
 bgp_attr_atomic (struct peer *peer, bgp_size_t length, 
 		 struct attr *attr, u_char flag)
 {
@@ -826,7 +826,7 @@ bgp_attr_atomic (struct peer *peer, bgp_size_t length,
 }
 
 /* Aggregator attribute */
-int
+static int
 bgp_attr_aggregator (struct peer *peer, bgp_size_t length,
 		     struct attr *attr, u_char flag)
 {
@@ -849,7 +849,7 @@ bgp_attr_aggregator (struct peer *peer, bgp_size_t length,
 }
 
 /* Community attribute. */
-int
+static int
 bgp_attr_community (struct peer *peer, bgp_size_t length, 
 		    struct attr *attr, u_char flag)
 {
@@ -868,7 +868,7 @@ bgp_attr_community (struct peer *peer, bgp_size_t length,
 }
 
 /* Originator ID attribute. */
-int
+static int
 bgp_attr_originator_id (struct peer *peer, bgp_size_t length, 
 			struct attr *attr, u_char flag)
 {
@@ -890,7 +890,7 @@ bgp_attr_originator_id (struct peer *peer, bgp_size_t length,
 }
 
 /* Cluster list attribute. */
-int
+static int
 bgp_attr_cluster_list (struct peer *peer, bgp_size_t length, 
 		       struct attr *attr, u_char flag)
 {
@@ -916,7 +916,7 @@ bgp_attr_cluster_list (struct peer *peer, bgp_size_t length,
 }
 
 /* Multiprotocol reachability information parse. */
-int
+static int
 bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
 		    struct bgp_nlri *mp_update)
 {
@@ -1014,7 +1014,7 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
 }
 
 /* Multiprotocol unreachable parse */
-int
+static int
 bgp_mp_unreach_parse (struct peer *peer, int length, 
 		      struct bgp_nlri *mp_withdraw)
 {
@@ -1051,7 +1051,7 @@ bgp_mp_unreach_parse (struct peer *peer, int length,
 }
 
 /* Extended Community attribute. */
-int
+static int
 bgp_attr_ext_communities (struct peer *peer, bgp_size_t length, 
 			  struct attr *attr, u_char flag)
 {
@@ -1069,7 +1069,7 @@ bgp_attr_ext_communities (struct peer *peer, bgp_size_t length,
 }
 
 /* BGP unknown attribute treatment. */
-int
+static int
 bgp_attr_unknown (struct peer *peer, struct attr *attr, u_char flag,
 		  u_char type, bgp_size_t length, u_char *startp)
 {

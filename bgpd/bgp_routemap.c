@@ -100,7 +100,7 @@ o Local extention
 /* Compares the peer specified in the 'match peer' clause with the peer
     received in bgp_info->peer. If it is the same, or if the peer structure
     received is a peer_group containing it, returns RMAP_MATCH. */
-route_map_result_t
+static route_map_result_t
 route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
       void *object)
 {
@@ -159,7 +159,7 @@ route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
   return RMAP_NOMATCH;
 }
 
-void *
+static void *
 route_match_peer_compile (const char *arg)
 {
   union sockunion *su;
@@ -177,7 +177,7 @@ route_match_peer_compile (const char *arg)
 }
 
 /* Free route map's compiled `ip address' value. */
-void
+static void
 route_match_peer_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -196,7 +196,7 @@ struct route_map_rule_cmd route_match_peer_cmd =
 
 /* Match function should return 1 if match is success else return
    zero. */
-route_map_result_t
+static route_map_result_t
 route_match_ip_address (void *rule, struct prefix *prefix, 
 			route_map_object_t type, void *object)
 {
@@ -217,14 +217,14 @@ route_match_ip_address (void *rule, struct prefix *prefix,
 
 /* Route map `ip address' match statement.  `arg' should be
    access-list name. */
-void *
+static void *
 route_match_ip_address_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Free route map's compiled `ip address' value. */
-void
+static void
 route_match_ip_address_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -242,7 +242,7 @@ struct route_map_rule_cmd route_match_ip_address_cmd =
 /* `match ip next-hop IP_ADDRESS' */
 
 /* Match function return 1 if match is success else return zero. */
-route_map_result_t
+static route_map_result_t
 route_match_ip_next_hop (void *rule, struct prefix *prefix, 
 			 route_map_object_t type, void *object)
 {
@@ -269,14 +269,14 @@ route_match_ip_next_hop (void *rule, struct prefix *prefix,
 
 /* Route map `ip next-hop' match statement. `arg' is
    access-list name. */
-void *
+static void *
 route_match_ip_next_hop_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Free route map's compiled `ip address' value. */
-void
+static void
 route_match_ip_next_hop_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -294,7 +294,7 @@ struct route_map_rule_cmd route_match_ip_next_hop_cmd =
 /* `match ip route-source ACCESS-LIST' */
 
 /* Match function return 1 if match is success else return zero. */
-route_map_result_t
+static route_map_result_t
 route_match_ip_route_source (void *rule, struct prefix *prefix, 
 			     route_map_object_t type, void *object)
 {
@@ -327,14 +327,14 @@ route_match_ip_route_source (void *rule, struct prefix *prefix,
 
 /* Route map `ip route-source' match statement. `arg' is
    access-list name. */
-void *
+static void *
 route_match_ip_route_source_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Free route map's compiled `ip address' value. */
-void
+static void
 route_match_ip_route_source_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -351,7 +351,7 @@ struct route_map_rule_cmd route_match_ip_route_source_cmd =
 
 /* `match ip address prefix-list PREFIX_LIST' */
 
-route_map_result_t
+static route_map_result_t
 route_match_ip_address_prefix_list (void *rule, struct prefix *prefix, 
 				    route_map_object_t type, void *object)
 {
@@ -369,13 +369,13 @@ route_match_ip_address_prefix_list (void *rule, struct prefix *prefix,
   return RMAP_NOMATCH;
 }
 
-void *
+static void *
 route_match_ip_address_prefix_list_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
-void
+static void
 route_match_ip_address_prefix_list_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -391,7 +391,7 @@ struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd =
 
 /* `match ip next-hop prefix-list PREFIX_LIST' */
 
-route_map_result_t
+static route_map_result_t
 route_match_ip_next_hop_prefix_list (void *rule, struct prefix *prefix,
                                     route_map_object_t type, void *object)
 {
@@ -416,13 +416,13 @@ route_match_ip_next_hop_prefix_list (void *rule, struct prefix *prefix,
   return RMAP_NOMATCH;
 }
 
-void *
+static void *
 route_match_ip_next_hop_prefix_list_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
-void
+static void
 route_match_ip_next_hop_prefix_list_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -438,7 +438,7 @@ struct route_map_rule_cmd route_match_ip_next_hop_prefix_list_cmd =
 
 /* `match ip route-source prefix-list PREFIX_LIST' */
 
-route_map_result_t
+static route_map_result_t
 route_match_ip_route_source_prefix_list (void *rule, struct prefix *prefix,
 					 route_map_object_t type, void *object)
 {
@@ -469,13 +469,13 @@ route_match_ip_route_source_prefix_list (void *rule, struct prefix *prefix,
   return RMAP_NOMATCH;
 }
 
-void *
+static void *
 route_match_ip_route_source_prefix_list_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
-void
+static void
 route_match_ip_route_source_prefix_list_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -492,7 +492,7 @@ struct route_map_rule_cmd route_match_ip_route_source_prefix_list_cmd =
 /* `match metric METRIC' */
 
 /* Match function return 1 if match is success else return zero. */
-route_map_result_t
+static route_map_result_t
 route_match_metric (void *rule, struct prefix *prefix, 
 		    route_map_object_t type, void *object)
 {
@@ -513,7 +513,7 @@ route_match_metric (void *rule, struct prefix *prefix,
 }
 
 /* Route map `match metric' match statement. `arg' is MED value */
-void *
+static void *
 route_match_metric_compile (const char *arg)
 {
   u_int32_t *med;
@@ -534,7 +534,7 @@ route_match_metric_compile (const char *arg)
 }
 
 /* Free route map's compiled `match metric' value. */
-void
+static void
 route_match_metric_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -552,7 +552,7 @@ struct route_map_rule_cmd route_match_metric_cmd =
 /* `match as-path ASPATH' */
 
 /* Match function for as-path match.  I assume given object is */
-route_map_result_t
+static route_map_result_t
 route_match_aspath (void *rule, struct prefix *prefix, 
 		    route_map_object_t type, void *object)
 {
@@ -575,14 +575,14 @@ route_match_aspath (void *rule, struct prefix *prefix,
 }
 
 /* Compile function for as-path match. */
-void *
+static void *
 route_match_aspath_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Compile function for as-path match. */
-void
+static void
 route_match_aspath_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -596,55 +596,6 @@ struct route_map_rule_cmd route_match_aspath_cmd =
   route_match_aspath_compile,
   route_match_aspath_free
 };
-
-#if ROUTE_MATCH_ASPATH_OLD
-/* `match as-path ASPATH' */
-
-/* Match function for as-path match.  I assume given object is */
-int
-route_match_aspath (void *rule, struct prefix *prefix, void *object)
-{
-  regex_t *regex;
-  struct bgp_info *bgp_info;
-
-  regex = rule;
-  bgp_info = object;
-  
-  /* Perform match. */
-  return bgp_regexec (regex, bgp_info->attr->aspath);
-}
-
-/* Compile function for as-path match. */
-void *
-route_match_aspath_compile (const char *arg)
-{
-  regex_t *regex;
-
-  regex = bgp_regcomp (arg);
-  if (! regex)
-    return NULL;
-
-  return regex;
-}
-
-/* Compile function for as-path match. */
-void
-route_match_aspath_free (void *rule)
-{
-  regex_t *regex = rule;
-
-  bgp_regex_free (regex);
-}
-
-/* Route map commands for aspath matching. */
-struct route_map_rule_cmd route_match_aspath_cmd = 
-{
-  "as-path",
-  route_match_aspath,
-  route_match_aspath_compile,
-  route_match_aspath_free
-};
-#endif /* ROUTE_MATCH_ASPATH_OLD */
 
 /* `match community COMMUNIY' */
 struct rmap_community
@@ -654,7 +605,7 @@ struct rmap_community
 };
 
 /* Match function for community match. */
-route_map_result_t
+static route_map_result_t
 route_match_community (void *rule, struct prefix *prefix, 
 		       route_map_object_t type, void *object)
 {
@@ -686,7 +637,7 @@ route_match_community (void *rule, struct prefix *prefix,
 }
 
 /* Compile function for community match. */
-void *
+static void *
 route_match_community_compile (const char *arg)
 {
   struct rmap_community *rcom;
@@ -712,7 +663,7 @@ route_match_community_compile (const char *arg)
 }
 
 /* Compile function for community match. */
-void
+static void
 route_match_community_free (void *rule)
 {
   struct rmap_community *rcom = rule;
@@ -731,7 +682,7 @@ struct route_map_rule_cmd route_match_community_cmd =
 };
 
 /* Match function for extcommunity match. */
-route_map_result_t
+static route_map_result_t
 route_match_ecommunity (void *rule, struct prefix *prefix, 
 			route_map_object_t type, void *object)
 {
@@ -754,14 +705,14 @@ route_match_ecommunity (void *rule, struct prefix *prefix,
 }
 
 /* Compile function for extcommunity match. */
-void *
+static void *
 route_match_ecommunity_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Compile function for extcommunity match. */
-void
+static void
 route_match_ecommunity_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -780,7 +731,7 @@ struct route_map_rule_cmd route_match_ecommunity_cmd =
    and `address-family vpnv4'.  */
 
 /* `match origin' */
-route_map_result_t
+static route_map_result_t
 route_match_origin (void *rule, struct prefix *prefix, 
 		    route_map_object_t type, void *object)
 {
@@ -799,7 +750,7 @@ route_match_origin (void *rule, struct prefix *prefix,
   return RMAP_NOMATCH;
 }
 
-void *
+static void *
 route_match_origin_compile (const char *arg)
 {
   u_char *origin;
@@ -817,7 +768,7 @@ route_match_origin_compile (const char *arg)
 }
 
 /* Free route map's compiled `ip address' value. */
-void
+static void
 route_match_origin_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -840,7 +791,7 @@ struct rmap_ip_nexthop_set
   int peer_address;
 };
 
-route_map_result_t
+static route_map_result_t
 route_set_ip_nexthop (void *rule, struct prefix *prefix,
 		      route_map_object_t type, void *object)
 {
@@ -887,7 +838,7 @@ route_set_ip_nexthop (void *rule, struct prefix *prefix,
 
 /* Route map `ip nexthop' compile function.  Given string is converted
    to struct in_addr structure. */
-void *
+static void *
 route_set_ip_nexthop_compile (const char *arg)
 {
   struct rmap_ip_nexthop_set *rins;
@@ -919,7 +870,7 @@ route_set_ip_nexthop_compile (const char *arg)
 }
 
 /* Free route map's compiled `ip nexthop' value. */
-void
+static void
 route_set_ip_nexthop_free (void *rule)
 {
   struct rmap_ip_nexthop_set *rins = rule;
@@ -942,7 +893,7 @@ struct route_map_rule_cmd route_set_ip_nexthop_cmd =
 /* `set local-preference LOCAL_PREF' */
 
 /* Set local preference. */
-route_map_result_t
+static route_map_result_t
 route_set_local_pref (void *rule, struct prefix *prefix,
 		      route_map_object_t type, void *object)
 {
@@ -964,7 +915,7 @@ route_set_local_pref (void *rule, struct prefix *prefix,
 }
 
 /* set local preference compilation. */
-void *
+static void *
 route_set_local_pref_compile (const char *arg)
 {
   unsigned long tmp;
@@ -990,7 +941,7 @@ route_set_local_pref_compile (const char *arg)
 }
 
 /* Free route map's local preference value. */
-void
+static void
 route_set_local_pref_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1008,7 +959,7 @@ struct route_map_rule_cmd route_set_local_pref_cmd =
 /* `set weight WEIGHT' */
 
 /* Set weight. */
-route_map_result_t
+static route_map_result_t
 route_set_weight (void *rule, struct prefix *prefix, route_map_object_t type,
 		  void *object)
 {
@@ -1029,7 +980,7 @@ route_set_weight (void *rule, struct prefix *prefix, route_map_object_t type,
 }
 
 /* set local preference compilation. */
-void *
+static void *
 route_set_weight_compile (const char *arg)
 {
   unsigned long tmp;
@@ -1056,7 +1007,7 @@ route_set_weight_compile (const char *arg)
 }
 
 /* Free route map's local preference value. */
-void
+static void
 route_set_weight_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1074,7 +1025,7 @@ struct route_map_rule_cmd route_set_weight_cmd =
 /* `set metric METRIC' */
 
 /* Set metric to attribute. */
-route_map_result_t
+static route_map_result_t
 route_set_metric (void *rule, struct prefix *prefix, 
 		  route_map_object_t type, void *object)
 {
@@ -1121,18 +1072,20 @@ route_set_metric (void *rule, struct prefix *prefix,
 }
 
 /* set metric compilation. */
-void *
+static void *
 route_set_metric_compile (const char *arg)
 {
   u_int32_t metric;
+  unsigned long larg;
   char *endptr = NULL;
 
   if (all_digit (arg))
     {
       /* set metric value check*/
-      metric = strtoul (arg, &endptr, 10);
-      if (*endptr != '\0' || metric == ULONG_MAX)
+      larg = strtoul (arg, &endptr, 10);
+      if (*endptr != '\0' || larg == ULONG_MAX || larg > UINT32_MAX)
         return NULL;
+      metric = larg;
     }
   else
     {
@@ -1142,16 +1095,17 @@ route_set_metric_compile (const char *arg)
 	   || (! all_digit (arg+1)))
 	return NULL;
 
-      metric = strtoul (arg+1, &endptr, 10);
-      if (*endptr != '\0' || metric == ULONG_MAX)
+      larg = strtoul (arg+1, &endptr, 10);
+      if (*endptr != '\0' || larg == ULONG_MAX || larg > UINT32_MAX)
 	return NULL;
+      metric = larg;
     }
 
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Free route map's compiled `set metric' value. */
-void
+static void
 route_set_metric_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1169,7 +1123,7 @@ struct route_map_rule_cmd route_set_metric_cmd =
 /* `set as-path prepend ASPATH' */
 
 /* For AS path prepend mechanism. */
-route_map_result_t
+static route_map_result_t
 route_set_aspath_prepend (void *rule, struct prefix *prefix, route_map_object_t type, void *object)
 {
   struct aspath *aspath;
@@ -1194,7 +1148,7 @@ route_set_aspath_prepend (void *rule, struct prefix *prefix, route_map_object_t 
 }
 
 /* Compile function for as-path prepend. */
-void *
+static void *
 route_set_aspath_prepend_compile (const char *arg)
 {
   struct aspath *aspath;
@@ -1206,7 +1160,7 @@ route_set_aspath_prepend_compile (const char *arg)
 }
 
 /* Compile function for as-path prepend. */
-void
+static void
 route_set_aspath_prepend_free (void *rule)
 {
   struct aspath *aspath = rule;
@@ -1231,7 +1185,7 @@ struct rmap_com_set
 };
 
 /* For community set mechanism. */
-route_map_result_t
+static route_map_result_t
 route_set_community (void *rule, struct prefix *prefix,
 		     route_map_object_t type, void *object)
 {
@@ -1279,7 +1233,7 @@ route_set_community (void *rule, struct prefix *prefix,
 }
 
 /* Compile function for set community. */
-void *
+static void *
 route_set_community_compile (const char *arg)
 {
   struct rmap_com_set *rcs;
@@ -1321,7 +1275,7 @@ route_set_community_compile (const char *arg)
 }
 
 /* Free function for set community. */
-void
+static void
 route_set_community_free (void *rule)
 {
   struct rmap_com_set *rcs = rule;
@@ -1343,7 +1297,7 @@ struct route_map_rule_cmd route_set_community_cmd =
 /* `set comm-list (<1-99>|<100-500>|WORD) delete' */
 
 /* For community set mechanism. */
-route_map_result_t
+static route_map_result_t
 route_set_community_delete (void *rule, struct prefix *prefix,
 			    route_map_object_t type, void *object)
 {
@@ -1386,7 +1340,7 @@ route_set_community_delete (void *rule, struct prefix *prefix,
 }
 
 /* Compile function for set community. */
-void *
+static void *
 route_set_community_delete_compile (const char *arg)
 {
   char *p;
@@ -1407,7 +1361,7 @@ route_set_community_delete_compile (const char *arg)
 }
 
 /* Free function for set community. */
-void
+static void
 route_set_community_delete_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1425,7 +1379,7 @@ struct route_map_rule_cmd route_set_community_delete_cmd =
 /* `set extcommunity rt COMMUNITY' */
 
 /* For community set mechanism. */
-route_map_result_t
+static route_map_result_t
 route_set_ecommunity_rt (void *rule, struct prefix *prefix, 
 			 route_map_object_t type, void *object)
 {
@@ -1461,7 +1415,7 @@ route_set_ecommunity_rt (void *rule, struct prefix *prefix,
 }
 
 /* Compile function for set community. */
-void *
+static void *
 route_set_ecommunity_rt_compile (const char *arg)
 {
   struct ecommunity *ecom;
@@ -1473,7 +1427,7 @@ route_set_ecommunity_rt_compile (const char *arg)
 }
 
 /* Free function for set community. */
-void
+static void
 route_set_ecommunity_rt_free (void *rule)
 {
   struct ecommunity *ecom = rule;
@@ -1492,7 +1446,7 @@ struct route_map_rule_cmd route_set_ecommunity_rt_cmd =
 /* `set extcommunity soo COMMUNITY' */
 
 /* For community set mechanism. */
-route_map_result_t
+static route_map_result_t
 route_set_ecommunity_soo (void *rule, struct prefix *prefix, 
 			 route_map_object_t type, void *object)
 {
@@ -1514,7 +1468,7 @@ route_set_ecommunity_soo (void *rule, struct prefix *prefix,
 }
 
 /* Compile function for set community. */
-void *
+static void *
 route_set_ecommunity_soo_compile (const char *arg)
 {
   struct ecommunity *ecom;
@@ -1527,7 +1481,7 @@ route_set_ecommunity_soo_compile (const char *arg)
 }
 
 /* Free function for set community. */
-void
+static void
 route_set_ecommunity_soo_free (void *rule)
 {
   struct ecommunity *ecom = rule;
@@ -1546,7 +1500,7 @@ struct route_map_rule_cmd route_set_ecommunity_soo_cmd =
 /* `set origin ORIGIN' */
 
 /* For origin set. */
-route_map_result_t
+static route_map_result_t
 route_set_origin (void *rule, struct prefix *prefix, route_map_object_t type, void *object)
 {
   u_char *origin;
@@ -1564,7 +1518,7 @@ route_set_origin (void *rule, struct prefix *prefix, route_map_object_t type, vo
 }
 
 /* Compile function for origin set. */
-void *
+static void *
 route_set_origin_compile (const char *arg)
 {
   u_char *origin;
@@ -1582,7 +1536,7 @@ route_set_origin_compile (const char *arg)
 }
 
 /* Compile function for origin set. */
-void
+static void
 route_set_origin_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1600,7 +1554,7 @@ struct route_map_rule_cmd route_set_origin_cmd =
 /* `set atomic-aggregate' */
 
 /* For atomic aggregate set. */
-route_map_result_t
+static route_map_result_t
 route_set_atomic_aggregate (void *rule, struct prefix *prefix,
 			    route_map_object_t type, void *object)
 {
@@ -1616,14 +1570,14 @@ route_set_atomic_aggregate (void *rule, struct prefix *prefix,
 }
 
 /* Compile function for atomic aggregate. */
-void *
+static void *
 route_set_atomic_aggregate_compile (const char *arg)
 {
   return (void *)1;
 }
 
 /* Compile function for atomic aggregate. */
-void
+static void
 route_set_atomic_aggregate_free (void *rule)
 {
   return;
@@ -1645,7 +1599,7 @@ struct aggregator
   struct in_addr address;
 };
 
-route_map_result_t
+static route_map_result_t
 route_set_aggregator_as (void *rule, struct prefix *prefix, 
 			 route_map_object_t type, void *object)
 {
@@ -1665,7 +1619,7 @@ route_set_aggregator_as (void *rule, struct prefix *prefix,
   return RMAP_OKAY;
 }
 
-void *
+static void *
 route_set_aggregator_as_compile (const char *arg)
 {
   struct aggregator *aggregator;
@@ -1683,7 +1637,7 @@ route_set_aggregator_as_compile (const char *arg)
   return aggregator;
 }
 
-void
+static void
 route_set_aggregator_as_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1700,7 +1654,7 @@ struct route_map_rule_cmd route_set_aggregator_as_cmd =
 #ifdef HAVE_IPV6
 /* `match ipv6 address IP_ACCESS_LIST' */
 
-route_map_result_t
+static route_map_result_t
 route_match_ipv6_address (void *rule, struct prefix *prefix, 
 			  route_map_object_t type, void *object)
 {
@@ -1718,13 +1672,13 @@ route_match_ipv6_address (void *rule, struct prefix *prefix,
   return RMAP_NOMATCH;
 }
 
-void *
+static void *
 route_match_ipv6_address_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
-void
+static void
 route_match_ipv6_address_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1741,7 +1695,7 @@ struct route_map_rule_cmd route_match_ipv6_address_cmd =
 
 /* `match ipv6 next-hop IP_ADDRESS' */
 
-route_map_result_t
+static route_map_result_t
 route_match_ipv6_next_hop (void *rule, struct prefix *prefix, 
 			   route_map_object_t type, void *object)
 {
@@ -1766,7 +1720,7 @@ route_match_ipv6_next_hop (void *rule, struct prefix *prefix,
   return RMAP_NOMATCH;
 }
 
-void *
+static void *
 route_match_ipv6_next_hop_compile (const char *arg)
 {
   struct in6_addr *address;
@@ -1784,7 +1738,7 @@ route_match_ipv6_next_hop_compile (const char *arg)
   return address;
 }
 
-void
+static void
 route_match_ipv6_next_hop_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1800,7 +1754,7 @@ struct route_map_rule_cmd route_match_ipv6_next_hop_cmd =
 
 /* `match ipv6 address prefix-list PREFIX_LIST' */
 
-route_map_result_t
+static route_map_result_t
 route_match_ipv6_address_prefix_list (void *rule, struct prefix *prefix, 
 			      route_map_object_t type, void *object)
 {
@@ -1818,13 +1772,13 @@ route_match_ipv6_address_prefix_list (void *rule, struct prefix *prefix,
   return RMAP_NOMATCH;
 }
 
-void *
+static void *
 route_match_ipv6_address_prefix_list_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
-void
+static void
 route_match_ipv6_address_prefix_list_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1841,7 +1795,7 @@ struct route_map_rule_cmd route_match_ipv6_address_prefix_list_cmd =
 /* `set ipv6 nexthop global IP_ADDRESS' */
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
-route_map_result_t
+static route_map_result_t
 route_set_ipv6_nexthop_global (void *rule, struct prefix *prefix, 
 			       route_map_object_t type, void *object)
 {
@@ -1867,7 +1821,7 @@ route_set_ipv6_nexthop_global (void *rule, struct prefix *prefix,
 
 /* Route map `ip next-hop' compile function.  Given string is converted
    to struct in_addr structure. */
-void *
+static void *
 route_set_ipv6_nexthop_global_compile (const char *arg)
 {
   int ret;
@@ -1887,7 +1841,7 @@ route_set_ipv6_nexthop_global_compile (const char *arg)
 }
 
 /* Free route map's compiled `ip next-hop' value. */
-void
+static void
 route_set_ipv6_nexthop_global_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1905,7 +1859,7 @@ struct route_map_rule_cmd route_set_ipv6_nexthop_global_cmd =
 /* `set ipv6 nexthop local IP_ADDRESS' */
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
-route_map_result_t
+static route_map_result_t
 route_set_ipv6_nexthop_local (void *rule, struct prefix *prefix, 
 			      route_map_object_t type, void *object)
 {
@@ -1931,7 +1885,7 @@ route_set_ipv6_nexthop_local (void *rule, struct prefix *prefix,
 
 /* Route map `ip nexthop' compile function.  Given string is converted
    to struct in_addr structure. */
-void *
+static void *
 route_set_ipv6_nexthop_local_compile (const char *arg)
 {
   int ret;
@@ -1951,7 +1905,7 @@ route_set_ipv6_nexthop_local_compile (const char *arg)
 }
 
 /* Free route map's compiled `ip nexthop' value. */
-void
+static void
 route_set_ipv6_nexthop_local_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -1969,7 +1923,7 @@ struct route_map_rule_cmd route_set_ipv6_nexthop_local_cmd =
 
 /* `set vpnv4 nexthop A.B.C.D' */
 
-route_map_result_t
+static route_map_result_t
 route_set_vpnv4_nexthop (void *rule, struct prefix *prefix, 
 			 route_map_object_t type, void *object)
 {
@@ -1989,7 +1943,7 @@ route_set_vpnv4_nexthop (void *rule, struct prefix *prefix,
   return RMAP_OKAY;
 }
 
-void *
+static void *
 route_set_vpnv4_nexthop_compile (const char *arg)
 {
   int ret;
@@ -2008,7 +1962,7 @@ route_set_vpnv4_nexthop_compile (const char *arg)
   return address;
 }
 
-void
+static void
 route_set_vpnv4_nexthop_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -2026,7 +1980,7 @@ struct route_map_rule_cmd route_set_vpnv4_nexthop_cmd =
 /* `set originator-id' */
 
 /* For origin set. */
-route_map_result_t
+static route_map_result_t
 route_set_originator_id (void *rule, struct prefix *prefix, route_map_object_t type, void *object)
 {
   struct in_addr *address;
@@ -2045,7 +1999,7 @@ route_set_originator_id (void *rule, struct prefix *prefix, route_map_object_t t
 }
 
 /* Compile function for originator-id set. */
-void *
+static void *
 route_set_originator_id_compile (const char *arg)
 {
   int ret;
@@ -2065,7 +2019,7 @@ route_set_originator_id_compile (const char *arg)
 }
 
 /* Compile function for originator_id set. */
-void
+static void
 route_set_originator_id_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -2081,7 +2035,7 @@ struct route_map_rule_cmd route_set_originator_id_cmd =
 };
 
 /* Add bgp route map rule. */
-int
+static int
 bgp_route_match_add (struct vty *vty, struct route_map_index *index,
 		     const char *command, const char *arg)
 {
@@ -2106,7 +2060,7 @@ bgp_route_match_add (struct vty *vty, struct route_map_index *index,
 }
 
 /* Delete bgp route map rule. */
-int
+static int
 bgp_route_match_delete (struct vty *vty, struct route_map_index *index,
 			const char *command, const char *arg)
 {
@@ -2131,7 +2085,7 @@ bgp_route_match_delete (struct vty *vty, struct route_map_index *index,
 }
 
 /* Add bgp route map rule. */
-int
+static int
 bgp_route_set_add (struct vty *vty, struct route_map_index *index,
 		   const char *command, const char *arg)
 {
@@ -2156,7 +2110,7 @@ bgp_route_set_add (struct vty *vty, struct route_map_index *index,
 }
 
 /* Delete bgp route map rule. */
-int
+static int
 bgp_route_set_delete (struct vty *vty, struct route_map_index *index,
 		      const char *command, const char *arg)
 {
@@ -2181,7 +2135,7 @@ bgp_route_set_delete (struct vty *vty, struct route_map_index *index,
 }
 
 /* Hook function for updating route_map assignment. */
-void
+static void
 bgp_route_map_update (const char *unused)
 {
   int i;
@@ -2803,7 +2757,7 @@ DEFUN (set_ip_nexthop_peer,
   return bgp_route_set_add (vty, vty->index, "ip next-hop", "peer-address");
 }
 
-DEFUN (no_set_ip_nexthop_peer,
+DEFUN_DEPRECATED (no_set_ip_nexthop_peer,
        no_set_ip_nexthop_peer_cmd,
        "no set ip next-hop peer-address",
        NO_STR
@@ -3579,7 +3533,7 @@ ALIAS (no_set_originator_id,
 
 /* Initialization of route map. */
 void
-bgp_route_map_init ()
+bgp_route_map_init (void)
 {
   route_map_init ();
   route_map_init_vty ();

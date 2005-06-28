@@ -42,7 +42,7 @@ static struct zclient *zclient = NULL;
 struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */
-int
+static int
 bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct prefix router_id;
@@ -62,7 +62,7 @@ bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length)
 }
 
 /* Inteface addition message from zebra. */
-int
+static int
 bgp_interface_add (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct interface *ifp;
@@ -72,7 +72,7 @@ bgp_interface_add (int command, struct zclient *zclient, zebra_size_t length)
   return 0;
 }
 
-int
+static int
 bgp_interface_delete (int command, struct zclient *zclient,
 		      zebra_size_t length)
 {
@@ -86,7 +86,7 @@ bgp_interface_delete (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 bgp_interface_up (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct stream *s;
@@ -106,7 +106,7 @@ bgp_interface_up (int command, struct zclient *zclient, zebra_size_t length)
   return 0;
 }
 
-int
+static int
 bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct stream *s;
@@ -153,7 +153,7 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length)
   return 0;
 }
 
-int
+static int
 bgp_interface_address_add (int command, struct zclient *zclient,
 			   zebra_size_t length)
 {
@@ -170,7 +170,7 @@ bgp_interface_address_add (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 bgp_interface_address_delete (int command, struct zclient *zclient,
 			      zebra_size_t length)
 {
@@ -190,7 +190,7 @@ bgp_interface_address_delete (int command, struct zclient *zclient,
 }
 
 /* Zebra route add and delete treatment. */
-int
+static int
 zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct stream *s;
@@ -242,7 +242,7 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
 
 #ifdef HAVE_IPV6
 /* Zebra route add and delete treatment. */
-int
+static int
 zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct stream *s;
@@ -402,7 +402,7 @@ if_lookup_by_ipv6_exact (struct in6_addr *addr)
   return NULL;
 }
 
-int
+static int
 if_get_ipv6_global (struct interface *ifp, struct in6_addr *addr)
 {
   struct listnode *cnode;
@@ -423,7 +423,7 @@ if_get_ipv6_global (struct interface *ifp, struct in6_addr *addr)
   return 0;
 }
 
-int
+static int
 if_get_ipv6_local (struct interface *ifp, struct in6_addr *addr)
 {
   struct listnode *cnode;
@@ -558,7 +558,7 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
 }
 
 #ifdef HAVE_IPV6
-unsigned int
+static unsigned int
 bgp_ifindex_by_nexthop (struct in6_addr *addr)
 {
   struct listnode *ifnode;
@@ -914,13 +914,13 @@ bgp_redistribute_metric_unset (struct bgp *bgp, afi_t afi, int type)
 }
 
 void
-bgp_zclient_reset ()
+bgp_zclient_reset (void)
 {
   zclient_reset (zclient);
 }
 
 void
-bgp_zebra_init (int enable)
+bgp_zebra_init (void)
 {
   /* Set default values. */
   zclient = zclient_new ();

@@ -87,7 +87,7 @@ struct bgp_dump bgp_dump_routes;
 struct thread *t_bgp_dump_routes;
 
 /* Some define for BGP packet dump. */
-FILE *
+static FILE *
 bgp_dump_open_file (struct bgp_dump *bgp_dump)
 {
   int ret;
@@ -131,10 +131,10 @@ bgp_dump_open_file (struct bgp_dump *bgp_dump)
   return bgp_dump->fp;
 }
 
-int
+static int
 bgp_dump_interval_add (struct bgp_dump *bgp_dump, int interval)
 {
-  int bgp_dump_interval_func (struct thread *);
+  static int bgp_dump_interval_func (struct thread *t);
   int interval2, secs_into_day;
   time_t t;
   struct tm *tm;
@@ -166,7 +166,7 @@ bgp_dump_interval_add (struct bgp_dump *bgp_dump, int interval)
 }
 
 /* Dump common header. */
-void
+static void
 bgp_dump_header (struct stream *obuf, int type, int subtype)
 {
   time_t now;
@@ -182,13 +182,13 @@ bgp_dump_header (struct stream *obuf, int type, int subtype)
   stream_putl (obuf, 0);	/* len */
 }
 
-void
+static void
 bgp_dump_set_size (struct stream *s, int type)
 {
   stream_putl_at (s, 8, stream_get_endp (s) - BGP_DUMP_HEADER_SIZE);
 }
 
-void
+static void
 bgp_dump_routes_entry (struct prefix *p, struct bgp_info *info, int afi,
 		       int type, unsigned int seq)
 {
@@ -295,7 +295,7 @@ bgp_dump_routes_entry (struct prefix *p, struct bgp_info *info, int afi,
 }
 
 /* Runs under child process. */
-void
+static void
 bgp_dump_routes_func (int afi)
 {
   struct stream *obuf;
@@ -322,7 +322,7 @@ bgp_dump_routes_func (int afi)
       bgp_dump_routes_entry (&rn->p, info, afi, MSG_TABLE_DUMP, seq++);
 }
 
-int
+static int
 bgp_dump_interval_func (struct thread *t)
 {
   struct bgp_dump *bgp_dump;
@@ -353,7 +353,7 @@ bgp_dump_interval_func (struct thread *t)
 }
 
 /* Dump common information. */
-void
+static void
 bgp_dump_common (struct stream *obuf, struct peer *peer)
 {
   char empty[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
@@ -420,7 +420,7 @@ bgp_dump_state (struct peer *peer, int status_old, int status_new)
   fflush (bgp_dump_all.fp);
 }
 
-void
+static void
 bgp_dump_packet_func (struct bgp_dump *bgp_dump, struct peer *peer,
 		      struct stream *packet)
 {
@@ -461,7 +461,7 @@ bgp_dump_packet (struct peer *peer, int type, struct stream *packet)
     bgp_dump_packet_func (&bgp_dump_updates, peer, packet);
 }
 
-unsigned int
+static unsigned int
 bgp_dump_parse_time (const char *str)
 {
   int i;
@@ -508,7 +508,7 @@ bgp_dump_parse_time (const char *str)
   return total + time;
 }
 
-int
+static int
 bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump, int type,
 	      const char *path, const char *interval_str)
 {
@@ -553,7 +553,7 @@ bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump, int type,
   return CMD_SUCCESS;
 }
 
-int
+static int
 bgp_dump_unset (struct vty *vty, struct bgp_dump *bgp_dump)
 {
   /* Set file name. */
@@ -725,7 +725,7 @@ config_time2str (unsigned int interval)
 }
 #endif
 
-int
+static int
 config_write_bgp_dump (struct vty *vty)
 {
   if (bgp_dump_all.filename)
@@ -763,7 +763,7 @@ config_write_bgp_dump (struct vty *vty)
 
 /* Initialize BGP packet dump functionality. */
 void
-bgp_dump_init ()
+bgp_dump_init (void)
 {
   memset (&bgp_dump_all, 0, sizeof (struct bgp_dump));
   memset (&bgp_dump_updates, 0, sizeof (struct bgp_dump));

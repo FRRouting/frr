@@ -1,3 +1,13 @@
+2005-06-28 Paul Jakma <paul.jakma@sun.com>
+
+	* (global) The great bgpd extern and static'ification.
+	* bgp_routemap.c: remove unused ROUTE_MATCH_ASPATH_OLD code
+	  (route_set_metric_compile) fix u_int32_t to ULONG_MAX comparison
+	  warnings.
+	* bgp_route.h: (bgp_process, bgp_withdraw, bgp_update) export these
+	  used by various files which had their own private declarations,
+	  in the case of mplsvpn - incorrect.
+
 2005-06-15 Paul Jakma <paul.jakma@sun.com>
 
 	* bgpd.c: (bgp_terminate) workqueue's are lazy allocated and its

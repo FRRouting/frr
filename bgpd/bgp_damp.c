@@ -106,15 +106,14 @@ bgp_damp_decay (time_t tdiff, int penalty)
 
 /* Handler of reuse timer event.  Each route in the current reuse-list
    is evaluated.  RFC2439 Section 4.8.7.  */
-int
+static int
 bgp_reuse_timer (struct thread *t)
 {
   struct bgp_damp_info *bdi;
   struct bgp_damp_info *next;
   time_t t_now, t_diff;
   struct bgp *bgp;
-  int bgp_process (struct bgp *, struct bgp_node *, afi_t, safi_t);
-
+  
   damp->t_reuse = NULL;
   damp->t_reuse =
     thread_add_timer (master, bgp_reuse_timer, NULL, DELTA_REUSE);
@@ -371,7 +370,7 @@ bgp_damp_info_free (struct bgp_damp_info *bdi, int withdraw)
   XFREE (MTYPE_BGP_DAMP_INFO, bdi);
 }
 
-void
+static void
 bgp_damp_parameter_set (int hlife, int reuse, int sup, int maxsup)
 {
   double reuse_max_ratio;
@@ -457,7 +456,7 @@ bgp_damp_enable (struct bgp *bgp, afi_t afi, safi_t safi, time_t half,
   return 0;
 }
 
-void
+static void
 bgp_damp_config_clean (struct bgp_damp_config *damp)
 {
   /* Free decay array */
@@ -472,7 +471,7 @@ bgp_damp_config_clean (struct bgp_damp_config *damp)
 
 /* Clean all the bgp_damp_info stored in reuse_list. */
 void
-bgp_damp_info_clean ()
+bgp_damp_info_clean (void)
 {
   unsigned int i;
   struct bgp_damp_info *bdi, *next;

@@ -44,14 +44,14 @@ struct bgp_nexthop_cache
   struct nexthop *nexthop;
 };
 
-void bgp_scan_init ();
-int bgp_nexthop_lookup (afi_t, struct peer *peer, struct bgp_info *,
+extern void bgp_scan_init (void);
+extern int bgp_nexthop_lookup (afi_t, struct peer *peer, struct bgp_info *,
 			int *, int *);
-void bgp_connected_add (struct connected *c);
-void bgp_connected_delete (struct connected *c);
-int bgp_multiaccess_check_v4 (struct in_addr, char *);
-int bgp_config_write_scan_time (struct vty *);
-int bgp_nexthop_check_ebgp (afi_t, struct attr *);
-int bgp_nexthop_self (afi_t, struct attr *);
+extern void bgp_connected_add (struct connected *c);
+extern void bgp_connected_delete (struct connected *c);
+extern int bgp_multiaccess_check_v4 (struct in_addr, char *);
+extern int bgp_config_write_scan_time (struct vty *);
+extern int bgp_nexthop_check_ebgp (afi_t, struct attr *);
+extern int bgp_nexthop_self (afi_t, struct attr *);
 
 #endif /* _QUAGGA_BGP_NEXTHOP_H */

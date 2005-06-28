@@ -121,7 +121,7 @@ bgp_accept (struct thread *thread)
 }
 
 /* BGP socket bind. */
-int
+static int
 bgp_bind (struct peer *peer)
 {
 #ifdef SO_BINDTODEVICE
@@ -151,7 +151,7 @@ bgp_bind (struct peer *peer)
   return 0;
 }
 
-int
+static int
 bgp_bind_address (int sock, struct in_addr *addr)
 {
   int ret;
@@ -177,7 +177,7 @@ bgp_bind_address (int sock, struct in_addr *addr)
   return 0;
 }
 
-struct in_addr *
+static struct in_addr *
 bgp_update_address (struct interface *ifp)
 {
   struct prefix_ipv4 *p;
@@ -195,7 +195,7 @@ bgp_update_address (struct interface *ifp)
 }
 
 /* Update source selection.  */
-void
+static void
 bgp_update_source (struct peer *peer)
 {
   struct interface *ifp;

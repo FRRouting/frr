@@ -97,7 +97,7 @@ ecommunity_add_val (struct ecommunity *ecom, struct ecommunity_val *eval)
 /* This function takes pointer to Extended Communites strucutre then
    create a new Extended Communities structure by uniq and sort each
    Exteneded Communities value.  */
-struct ecommunity *
+static struct ecommunity *
 ecommunity_uniq_sort (struct ecommunity *ecom)
 {
   int i;
@@ -271,7 +271,7 @@ enum ecommunity_token
 };
 
 /* Get next Extended Communities token from the string. */
-const char *
+static const char *
 ecommunity_gettoken (const char *str, struct ecommunity_val *eval,
 		     enum ecommunity_token *token)
 {

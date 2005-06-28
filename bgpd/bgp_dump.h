@@ -33,8 +33,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_DUMP_HEADER_SIZE 12
 #define BGP_DUMP_MSG_HEADER  40
 
-void bgp_dump_init ();
-void bgp_dump_state (struct peer *, int, int);
-void bgp_dump_packet (struct peer *, int, struct stream *);
+extern void bgp_dump_init (void);
+extern void bgp_dump_state (struct peer *, int, int);
+extern void bgp_dump_packet (struct peer *, int, struct stream *);
 
 #endif /* _QUAGGA_BGP_DUMP_H */

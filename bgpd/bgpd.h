@@ -784,143 +784,145 @@ extern struct bgp_master *bm;
 extern struct thread_master *master;
 
 /* Prototypes. */
-void bgp_terminate (void);
-void bgp_reset (void);
-void bgp_zclient_reset ();
-int bgp_nexthop_set (union sockunion *, union sockunion *, 
+extern void bgp_terminate (void);
+extern void bgp_reset (void);
+extern void bgp_zclient_reset (void);
+extern int bgp_nexthop_set (union sockunion *, union sockunion *, 
 		     struct bgp_nexthop *, struct peer *);
-struct bgp *bgp_get_default ();
-struct bgp *bgp_lookup (as_t, const char *);
-struct bgp *bgp_lookup_by_name (const char *);
-struct peer *peer_lookup (struct bgp *, union sockunion *);
-struct peer_group *peer_group_lookup (struct bgp *, const char *);
-struct peer_group *peer_group_get (struct bgp *, const char *);
-struct peer *peer_lookup_with_open (union sockunion *, as_t, struct in_addr *,
+extern struct bgp *bgp_get_default (void);
+extern struct bgp *bgp_lookup (as_t, const char *);
+extern struct bgp *bgp_lookup_by_name (const char *);
+extern struct peer *peer_lookup (struct bgp *, union sockunion *);
+extern struct peer_group *peer_group_lookup (struct bgp *, const char *);
+extern struct peer_group *peer_group_get (struct bgp *, const char *);
+extern struct peer *peer_lookup_with_open (union sockunion *, as_t, struct in_addr *,
 				    int *);
 extern struct peer *peer_lock (struct peer *);
 extern struct peer *peer_unlock (struct peer *);
-int peer_sort (struct peer *peer);
-int peer_active (struct peer *);
-int peer_active_nego (struct peer *);
-struct peer *peer_create_accept (struct bgp *);
-char *peer_uptime (time_t, char *, size_t);
-void bgp_config_write_family_header (struct vty *, afi_t, safi_t, int *);
+extern int peer_sort (struct peer *peer);
+extern int peer_active (struct peer *);
+extern int peer_active_nego (struct peer *);
+extern struct peer *peer_create_accept (struct bgp *);
+extern char *peer_uptime (time_t, char *, size_t);
+extern int bgp_config_write (struct vty *);
+extern void bgp_config_write_family_header (struct vty *, afi_t, safi_t, int *);
 
-void bgp_master_init ();
+extern void bgp_master_init (void);
 
-void bgp_init ();
+extern void bgp_init (void);
+extern void bgp_route_map_init (void);
 
-int bgp_option_set (int);
-int bgp_option_unset (int);
-int bgp_option_check (int);
+extern int bgp_option_set (int);
+extern int bgp_option_unset (int);
+extern int bgp_option_check (int);
 
-int bgp_get (struct bgp **, as_t *, const char *);
-int bgp_delete (struct bgp *);
+extern int bgp_get (struct bgp **, as_t *, const char *);
+extern int bgp_delete (struct bgp *);
 
-int bgp_flag_set (struct bgp *, int);
-int bgp_flag_unset (struct bgp *, int);
-int bgp_flag_check (struct bgp *, int);
+extern int bgp_flag_set (struct bgp *, int);
+extern int bgp_flag_unset (struct bgp *, int);
+extern int bgp_flag_check (struct bgp *, int);
 
-int bgp_router_id_set (struct bgp *, struct in_addr *);
-int bgp_router_id_unset (struct bgp *);
+extern int bgp_router_id_set (struct bgp *, struct in_addr *);
+extern int bgp_router_id_unset (struct bgp *);
 
-int bgp_cluster_id_set (struct bgp *, struct in_addr *);
-int bgp_cluster_id_unset (struct bgp *);
+extern int bgp_cluster_id_set (struct bgp *, struct in_addr *);
+extern int bgp_cluster_id_unset (struct bgp *);
 
-int bgp_confederation_id_set (struct bgp *, as_t);
-int bgp_confederation_id_unset (struct bgp *);
-int bgp_confederation_peers_check (struct bgp *, as_t);
+extern int bgp_confederation_id_set (struct bgp *, as_t);
+extern int bgp_confederation_id_unset (struct bgp *);
+extern int bgp_confederation_peers_check (struct bgp *, as_t);
 
-int bgp_confederation_peers_add (struct bgp *, as_t);
-int bgp_confederation_peers_remove (struct bgp *, as_t);
+extern int bgp_confederation_peers_add (struct bgp *, as_t);
+extern int bgp_confederation_peers_remove (struct bgp *, as_t);
 
-int bgp_timers_set (struct bgp *, u_int32_t, u_int32_t);
-int bgp_timers_unset (struct bgp *);
+extern int bgp_timers_set (struct bgp *, u_int32_t, u_int32_t);
+extern int bgp_timers_unset (struct bgp *);
 
-int bgp_default_local_preference_set (struct bgp *, u_int32_t);
-int bgp_default_local_preference_unset (struct bgp *);
+extern int bgp_default_local_preference_set (struct bgp *, u_int32_t);
+extern int bgp_default_local_preference_unset (struct bgp *);
 
-int peer_rsclient_active (struct peer *);
+extern int peer_rsclient_active (struct peer *);
 
-int peer_remote_as (struct bgp *, union sockunion *, as_t *, afi_t, safi_t);
-int peer_group_remote_as (struct bgp *, const char *, as_t *);
-int peer_delete (struct peer *peer);
-int peer_group_delete (struct peer_group *);
-int peer_group_remote_as_delete (struct peer_group *);
+extern int peer_remote_as (struct bgp *, union sockunion *, as_t *, afi_t, safi_t);
+extern int peer_group_remote_as (struct bgp *, const char *, as_t *);
+extern int peer_delete (struct peer *peer);
+extern int peer_group_delete (struct peer_group *);
+extern int peer_group_remote_as_delete (struct peer_group *);
 
-int peer_activate (struct peer *, afi_t, safi_t);
-int peer_deactivate (struct peer *, afi_t, safi_t);
+extern int peer_activate (struct peer *, afi_t, safi_t);
+extern int peer_deactivate (struct peer *, afi_t, safi_t);
 
-int peer_group_bind (struct bgp *, union sockunion *, struct peer_group *,
+extern int peer_group_bind (struct bgp *, union sockunion *, struct peer_group *,
 		     afi_t, safi_t, as_t *);
-int peer_group_unbind (struct bgp *, struct peer *, struct peer_group *,
+extern int peer_group_unbind (struct bgp *, struct peer *, struct peer_group *,
 		       afi_t, safi_t);
 
-int peer_flag_set (struct peer *, u_int32_t);
-int peer_flag_unset (struct peer *, u_int32_t);
+extern int peer_flag_set (struct peer *, u_int32_t);
+extern int peer_flag_unset (struct peer *, u_int32_t);
 
-int peer_af_flag_set (struct peer *, afi_t, safi_t, u_int32_t);
-int peer_af_flag_unset (struct peer *, afi_t, safi_t, u_int32_t);
-int peer_af_flag_check (struct peer *, afi_t, safi_t, u_int32_t);
+extern int peer_af_flag_set (struct peer *, afi_t, safi_t, u_int32_t);
+extern int peer_af_flag_unset (struct peer *, afi_t, safi_t, u_int32_t);
+extern int peer_af_flag_check (struct peer *, afi_t, safi_t, u_int32_t);
 
-int peer_ebgp_multihop_set (struct peer *, int);
-int peer_ebgp_multihop_unset (struct peer *);
+extern int peer_ebgp_multihop_set (struct peer *, int);
+extern int peer_ebgp_multihop_unset (struct peer *);
 
-int peer_description_set (struct peer *, char *);
-int peer_description_unset (struct peer *);
+extern int peer_description_set (struct peer *, char *);
+extern int peer_description_unset (struct peer *);
 
-int peer_update_source_if_set (struct peer *, const char *);
-int peer_update_source_addr_set (struct peer *, union sockunion *);
-int peer_update_source_unset (struct peer *);
+extern int peer_update_source_if_set (struct peer *, const char *);
+extern int peer_update_source_addr_set (struct peer *, union sockunion *);
+extern int peer_update_source_unset (struct peer *);
 
-int peer_default_originate_set (struct peer *, afi_t, safi_t, const char *);
-int peer_default_originate_unset (struct peer *, afi_t, safi_t);
+extern int peer_default_originate_set (struct peer *, afi_t, safi_t, const char *);
+extern int peer_default_originate_unset (struct peer *, afi_t, safi_t);
 
-int peer_port_set (struct peer *, u_int16_t);
-int peer_port_unset (struct peer *);
+extern int peer_port_set (struct peer *, u_int16_t);
+extern int peer_port_unset (struct peer *);
 
-int peer_weight_set (struct peer *, u_int16_t);
-int peer_weight_unset (struct peer *);
+extern int peer_weight_set (struct peer *, u_int16_t);
+extern int peer_weight_unset (struct peer *);
 
-int peer_timers_set (struct peer *, u_int32_t, u_int32_t);
-int peer_timers_unset (struct peer *);
+extern int peer_timers_set (struct peer *, u_int32_t, u_int32_t);
+extern int peer_timers_unset (struct peer *);
 
-int peer_timers_connect_set (struct peer *, u_int32_t);
-int peer_timers_connect_unset (struct peer *);
+extern int peer_timers_connect_set (struct peer *, u_int32_t);
+extern int peer_timers_connect_unset (struct peer *);
 
-int peer_advertise_interval_set (struct peer *, u_int32_t);
-int peer_advertise_interval_unset (struct peer *);
+extern int peer_advertise_interval_set (struct peer *, u_int32_t);
+extern int peer_advertise_interval_unset (struct peer *);
 
-int peer_interface_set (struct peer *, const char *);
-int peer_interface_unset (struct peer *);
+extern int peer_interface_set (struct peer *, const char *);
+extern int peer_interface_unset (struct peer *);
 
-int peer_distribute_set (struct peer *, afi_t, safi_t, int, const char *);
-int peer_distribute_unset (struct peer *, afi_t, safi_t, int);
+extern int peer_distribute_set (struct peer *, afi_t, safi_t, int, const char *);
+extern int peer_distribute_unset (struct peer *, afi_t, safi_t, int);
 
-int peer_allowas_in_set (struct peer *, afi_t, safi_t, int);
-int peer_allowas_in_unset (struct peer *, afi_t, safi_t);
+extern int peer_allowas_in_set (struct peer *, afi_t, safi_t, int);
+extern int peer_allowas_in_unset (struct peer *, afi_t, safi_t);
 
-int peer_local_as_set (struct peer *, as_t, int);
-int peer_local_as_unset (struct peer *);
+extern int peer_local_as_set (struct peer *, as_t, int);
+extern int peer_local_as_unset (struct peer *);
 
-int peer_prefix_list_set (struct peer *, afi_t, safi_t, int, const char *);
-int peer_prefix_list_unset (struct peer *, afi_t, safi_t, int);
+extern int peer_prefix_list_set (struct peer *, afi_t, safi_t, int, const char *);
+extern int peer_prefix_list_unset (struct peer *, afi_t, safi_t, int);
 
-int peer_aslist_set (struct peer *, afi_t, safi_t, int, const char *);
-int peer_aslist_unset (struct peer *,afi_t, safi_t, int);
+extern int peer_aslist_set (struct peer *, afi_t, safi_t, int, const char *);
+extern int peer_aslist_unset (struct peer *,afi_t, safi_t, int);
 
-int peer_route_map_set (struct peer *, afi_t, safi_t, int, const char *);
-int peer_route_map_unset (struct peer *, afi_t, safi_t, int);
+extern int peer_route_map_set (struct peer *, afi_t, safi_t, int, const char *);
+extern int peer_route_map_unset (struct peer *, afi_t, safi_t, int);
 
-int peer_unsuppress_map_set (struct peer *, afi_t, safi_t, const char *);
-int peer_unsuppress_map_unset (struct peer *, afi_t, safi_t);
+extern int peer_unsuppress_map_set (struct peer *, afi_t, safi_t, const char *);
+extern int peer_unsuppress_map_unset (struct peer *, afi_t, safi_t);
 
-int peer_maximum_prefix_set (struct peer *, afi_t, safi_t, u_int32_t, u_char, int, u_int16_t);
-int peer_maximum_prefix_unset (struct peer *, afi_t, safi_t);
+extern int peer_maximum_prefix_set (struct peer *, afi_t, safi_t, u_int32_t, u_char, int, u_int16_t);
+extern int peer_maximum_prefix_unset (struct peer *, afi_t, safi_t);
 
-int peer_clear (struct peer *);
-int peer_clear_soft (struct peer *, afi_t, safi_t, enum bgp_clear_type);
+extern int peer_clear (struct peer *);
+extern int peer_clear_soft (struct peer *, afi_t, safi_t, enum bgp_clear_type);
 
-void peer_nsf_stop (struct peer *);
+extern void peer_nsf_stop (struct peer *);
 
 #endif /* _QUAGGA_BGPD_H */

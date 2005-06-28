@@ -79,8 +79,8 @@ struct graceful_restart_af
 #define RESTART_R_BIT              0x8000
 #define RESTART_F_BIT              0x80
 
-int bgp_open_option_parse (struct peer *, u_char, int *);
-void bgp_open_capability (struct stream *, struct peer *);
-void bgp_capability_vty_out (struct vty *, struct peer *);
+extern int bgp_open_option_parse (struct peer *, u_char, int *);
+extern void bgp_open_capability (struct stream *, struct peer *);
+extern void bgp_capability_vty_out (struct vty *, struct peer *);
 
 #endif /* _QUAGGA_BGP_OPEN_H */

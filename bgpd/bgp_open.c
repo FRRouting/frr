@@ -112,7 +112,7 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer)
 }
 
 /* Set negotiated capability value. */
-int
+static int
 bgp_capability_mp (struct peer *peer, struct capability *cap)
 {
   if (ntohs (cap->mpc.afi) == AFI_IP)
@@ -181,7 +181,7 @@ bgp_capability_mp (struct peer *peer, struct capability *cap)
   return 0;
 }
 
-void
+static void
 bgp_capability_orf_not_support (struct peer *peer, afi_t afi, safi_t safi,
 				u_char type, u_char mode)
 {
@@ -190,7 +190,7 @@ bgp_capability_orf_not_support (struct peer *peer, afi_t afi, safi_t safi,
 	       peer->host, afi, safi, type, mode);
 }
 
-int
+static int
 bgp_capability_orf (struct peer *peer, struct capability *cap,
 		    u_char *pnt)
 {
@@ -307,7 +307,7 @@ bgp_capability_orf (struct peer *peer, struct capability *cap,
 }
 
 /* Parse given capability. */
-int
+static int
 bgp_capability_parse (struct peer *peer, u_char *pnt, u_char length,
 		      u_char **error)
 {
@@ -504,7 +504,7 @@ bgp_capability_parse (struct peer *peer, u_char *pnt, u_char length,
   return 0;
 }
 
-int
+static int
 bgp_auth_parse (struct peer *peer, u_char *pnt, size_t length)
 {
   bgp_notify_send (peer, 
@@ -513,7 +513,7 @@ bgp_auth_parse (struct peer *peer, u_char *pnt, size_t length)
   return -1;
 }
 
-int
+static int
 strict_capability_same (struct peer *peer)
 {
   int i, j;
@@ -660,7 +660,7 @@ bgp_open_option_parse (struct peer *peer, u_char length, int *capability)
   return 0;
 }
 
-void
+static void
 bgp_open_capability_orf (struct stream *s, struct peer *peer,
                          afi_t afi, safi_t safi, u_char code)
 {

@@ -126,7 +126,7 @@ aspath_delimiter_char (u_char type, u_char which)
 }
 
 /* Convert aspath structure to string expression. */
-char *
+static char *
 aspath_make_str_count (struct aspath *as)
 {
   int space;
@@ -309,7 +309,7 @@ aspath_dup (struct aspath *aspath)
   return new;
 }
 
-void *
+static void *
 aspath_hash_alloc (struct aspath *arg)
 {
   struct aspath *aspath;
@@ -371,7 +371,7 @@ aspath_parse (caddr_t pnt, int length)
 
 #define ASSEGMENT_SIZE(N)  (AS_HEADER_SIZE + ((N) * AS_VALUE_SIZE))
 
-struct aspath *
+static struct aspath *
 aspath_aggregate_segment_copy (struct aspath *aspath, struct assegment *seg,
 			       int i)
 {
@@ -398,7 +398,7 @@ aspath_aggregate_segment_copy (struct aspath *aspath, struct assegment *seg,
   return aspath;
 }
 
-struct assegment *
+static struct assegment *
 aspath_aggregate_as_set_add (struct aspath *aspath, struct assegment *asset,
 			     as_t as)
 {
@@ -625,7 +625,7 @@ aspath_private_as_check (struct aspath *aspath)
 }
 
 /* Merge as1 to as2.  as2 should be uninterned aspath. */
-struct aspath *
+static struct aspath *
 aspath_merge (struct aspath *as1, struct aspath *as2)
 {
   caddr_t data;
@@ -908,7 +908,7 @@ aspath_add_confed_seq (struct aspath *aspath, as_t asno)
 }
 
 /* Add new as value to as path structure. */
-void
+static void
 aspath_as_add (struct aspath *as, as_t asno)
 {
   caddr_t pnt;
@@ -938,7 +938,7 @@ aspath_as_add (struct aspath *as, as_t asno)
 }
 
 /* Add new as segment to the as path. */
-void
+static void
 aspath_segment_add (struct aspath *as, int type)
 {
   struct assegment *assegment;
@@ -961,13 +961,13 @@ aspath_segment_add (struct aspath *as, int type)
 }
 
 struct aspath *
-aspath_empty ()
+aspath_empty (void)
 {
   return aspath_parse (NULL, 0);
 }
 
 struct aspath *
-aspath_empty_get ()
+aspath_empty_get (void)
 {
   struct aspath *aspath;
 
@@ -1003,7 +1003,7 @@ enum as_token
 };
 
 /* Return next token and point for string parse. */
-const char *
+static const char *
 aspath_gettoken (const char *buf, enum as_token *token, u_short *asno)
 {
   const char *p = buf;
@@ -1142,7 +1142,7 @@ aspath_key_make (struct aspath *aspath)
 }
 
 /* If two aspath have same value then return 1 else return 0 */
-int
+static int
 aspath_cmp (struct aspath *as1, struct aspath *as2)
 {
   if (as1->length == as2->length 
@@ -1154,7 +1154,7 @@ aspath_cmp (struct aspath *as1, struct aspath *as2)
 
 /* AS path hash initialize. */
 void
-aspath_init ()
+aspath_init (void)
 {
   ashash = hash_create_size (32767, aspath_key_make, aspath_cmp);
 }
@@ -1173,7 +1173,7 @@ aspath_print_vty (struct vty *vty, struct aspath *as)
   vty_out (vty, "%s", as->str);
 }
 
-void
+static void
 aspath_show_all_iterator (struct hash_backet *backet, struct vty *vty)
 {
   struct aspath *as;
