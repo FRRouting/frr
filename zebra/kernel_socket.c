@@ -81,7 +81,7 @@ extern struct zebra_t zebrad;
   if ((RTMADDRS) & (RTA)) \
     { \
       int len = SAROUNDUP ((PNT)); \
-      if ( ((RTA) != NULL) && \
+      if ( ((DEST) != NULL) && \
            af_check (((struct sockaddr *)(PNT))->sa_family)) \
         memcpy ((caddr_t)(DEST), (PNT), len); \
       (PNT) += len; \
@@ -90,7 +90,7 @@ extern struct zebra_t zebrad;
   if ((RTMADDRS) & (RTA)) \
     { \
       int len = SAROUNDUP ((PNT)); \
-      if ( ((RTA) != NULL) ) \
+      if ( ((DEST) != NULL) ) \
         memcpy ((caddr_t)(DEST), (PNT), len); \
       (PNT) += len; \
     }

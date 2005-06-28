@@ -2,9 +2,10 @@
 
 	* (global) Extern and static'ification, with related fixups
 	  of declarations, ensuring files include their own headers, etc.
-	  if_ioctl.c: (interface_info_ioctl) fix obvious arg mis-order in
+	* if_ioctl.c: (interface_info_ioctl) fix obvious arg mis-order in
 	  list loop
-	  
+	* kernel_socket.c: (RTA_{ADDR,ATTR}_GET) fix mistake, NULL check
+	  should be on DEST argument
 
 2005-06-14 Paul Jakma <paul.jakma@sun.com>
 
