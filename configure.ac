@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.108 2005/05/13 20:11:53 paul Exp $
+## $Id: configure.ac,v 1.109 2005/06/30 13:52:20 hasso Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.1, [http://bugzilla.quagga.net])
@@ -799,6 +799,18 @@ dnl ----------
       zebra_cv_linux_ipv6=yes
       AC_MSG_RESULT(Linux IPv6)
     fi
+  fi
+
+  if test "$zebra_cv_linux_ipv6" = "yes";then
+    AC_MSG_CHECKING(whether libc has IPv6 support)
+    AC_TRY_LINK([#include <netinet/in.h>
+    ],[ int a; a = (int) in6addr_any.s6_addr[0]; if (a != 12345) return a; ],
+    [AC_MSG_RESULT(yes)
+      zebra_cv_ipv6=yes
+      zebra_cv_linux_ipv6=yes],
+    [AC_MSG_RESULT(no)
+      zebra_cv_ipv6=no
+      zebra_cv_linux_ipv6=no])
   fi
 
   if test "$zebra_cv_linux_ipv6" = "yes";then

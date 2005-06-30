@@ -1,3 +1,7 @@
+2005-06-30 Louis Lagendijk <louis.lagendijk@gmail.com>
+
+	* configure.ac: Actually test whether libc has IPv6 support.
+
 2005-06-28 Paul Jakma <paul.jakma@sun.com>
 
 	* INSTALL.quagga.txt: GNU make is required now, because of manual
