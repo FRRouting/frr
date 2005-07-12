@@ -2016,7 +2016,7 @@ DEFUN (ospf_abr_type,
 
 DEFUN (no_ospf_abr_type,
        no_ospf_abr_type_cmd,
-       "no ospf abr-type (cisco|ibm|shortcut)",
+       "no ospf abr-type (cisco|ibm|shortcut|standard)",
        NO_STR
        "OSPF specific commands\n"
        "Set OSPF ABR type\n"
@@ -2039,7 +2039,7 @@ DEFUN (no_ospf_abr_type,
   /* If ABR type value is changed, schedule ABR task. */
   if (ospf->abr_type == abr_type)
     {
-      ospf->abr_type = OSPF_ABR_STAND;
+      ospf->abr_type = OSPF_ABR_DEFAULT;
       ospf_schedule_abr_task (ospf);
     }
 
@@ -7290,7 +7290,7 @@ ospf_config_write (struct vty *vty)
                  inet_ntoa (ospf->router_id_static), VTY_NEWLINE);
 
       /* ABR type print. */
-      if (ospf->abr_type != OSPF_ABR_STAND)
+      if (ospf->abr_type != OSPF_ABR_DEFAULT)
         vty_out (vty, " ospf abr-type %s%s", 
                  ospf_abr_type_str[ospf->abr_type], VTY_NEWLINE);
 

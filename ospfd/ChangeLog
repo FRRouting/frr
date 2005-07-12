@@ -1,3 +1,13 @@
+2005-07-12 Paul Jakma <paul.jakma@sun.com>
+
+	* ospfd.h: add OSPF_ABR_DEFAULT for convenience, make 
+	  OSPF_ABR_CISCO be the default ABR type.
+	* ospfd.c: (ospf_new) initialise abr_type to OSPF_ABR_DEFAULT
+	* ospf_vty.c: (no_ospf_abr_type_cmd) add standard as a negatable
+	  abr_type. default abr_type should be OSPF_ABR_DEFAULT.
+	  (ospf_config_write) test whether default abr_type against
+	  OSPF_ABR_DEFAULT, rather than any specific ABR_TYPE.
+
 2005-06-20 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_nsm.c: Make database exchange for NSSA database work. 

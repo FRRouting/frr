@@ -168,6 +168,7 @@ struct ospf
 #define OSPF_ABR_IBM            2
 #define OSPF_ABR_CISCO          3
 #define OSPF_ABR_SHORTCUT       4
+#define OSPF_ABR_DEFAULT	OSPF_ABR_CISCO
 
   /* NSSA ABR */
   u_char anyNSSA;		/* Bump for every NSSA attached. */

@@ -157,7 +157,7 @@ ospf_new (void)
   new->router_id.s_addr = htonl (0);
   new->router_id_static.s_addr = htonl (0);
 
-  new->abr_type = OSPF_ABR_STAND;
+  new->abr_type = OSPF_ABR_DEFAULT;
   new->oiflist = list_new ();
   new->vlinks = list_new ();
   new->areas = list_new ();
