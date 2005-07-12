@@ -1,3 +1,8 @@
+2005-07-12 Christian Hammers <ch@debian.org>
+
+	* vtysh_user.c: rename struct user to struct vtysh_user to avoid
+	  clashes with sys/user.h on ARM.
+
 2005-04-07 Hasso Tepper <hasso at quagga.net>
 
 	* Makefile.am: Remove rebuild4 target, it's not used any more by build

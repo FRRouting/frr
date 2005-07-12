@@ -90,7 +90,7 @@ vtysh_pam (const char *user)
 }
 #endif /* USE_PAM */
 
-struct user
+struct vtysh_user
 {
   char *name;
   u_char nopassword;
@@ -98,26 +98,26 @@ struct user
 
 struct list *userlist;
 
-struct user *
+struct vtysh_user *
 user_new ()
 {
-  struct user *user;
-  user = XMALLOC (0, sizeof (struct user));
-  memset (user, 0, sizeof (struct user));
+  struct vtysh_user *user;
+  user = XMALLOC (0, sizeof (struct vtysh_user));
+  memset (user, 0, sizeof (struct vtysh_user));
   return user;
 }
 
 void
-user_free (struct user *user)
+user_free (struct vtysh_user *user)
 {
   XFREE (0, user);
 }
 
-struct user *
+struct vtysh_user *
 user_lookup (const char *name)
 {
   struct listnode *node, *nnode;
-  struct user *user;
+  struct vtysh_user *user;
 
   for (ALL_LIST_ELEMENTS (userlist, node, nnode, user))
     {
@@ -131,7 +131,7 @@ void
 user_config_write ()
 {
   struct listnode *node, *nnode;
-  struct user *user;
+  struct vtysh_user *user;
 
   for (ALL_LIST_ELEMENTS (userlist, node, nnode, user))
     {
@@ -140,10 +140,10 @@ user_config_write ()
     }
 }
 
-struct user *
+struct vtysh_user *
 user_get (const char *name)
 {
-  struct user *user;
+  struct vtysh_user *user;
   user = user_lookup (name);
   if (user)
     return user;
@@ -162,7 +162,7 @@ DEFUN (username_nopassword,
        "\n"
        "\n")
 {
-  struct user *user;
+  struct vtysh_user *user;
   user = user_get (argv[0]);
   user->nopassword = 1;
   return CMD_SUCCESS;
@@ -171,7 +171,7 @@ DEFUN (username_nopassword,
 int
 vtysh_auth ()
 {
-  struct user *user;
+  struct vtysh_user *user;
   struct passwd *passwd;
 
   passwd = getpwuid (geteuid ());
