@@ -1,7 +1,7 @@
 2005-07-12 Christian Hammers <ch@debian.org>
 
 	* vtysh_user.c: rename struct user to struct vtysh_user to avoid
-	  clashes with sys/user.h on ARM.
+	  clashes with sys/user.h on Linux/ARM.
 
 2005-04-07 Hasso Tepper <hasso at quagga.net>
 
