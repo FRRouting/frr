@@ -1,3 +1,9 @@
+2005-07-26 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_abr.c: (ospf_abr_announce_network_to_area) SET_FLAG
+	  should be on lsa not old, which may be freed for one thing,
+	  obviously.
+
 2005-07-12 Paul Jakma <paul.jakma@sun.com>
 
 	* ospfd.h: add OSPF_ABR_DEFAULT for convenience, make 

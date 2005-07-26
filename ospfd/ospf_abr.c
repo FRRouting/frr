@@ -748,7 +748,7 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
                        "refreshing summary");
           set_metric (old, cost);
           lsa = ospf_summary_lsa_refresh (area->ospf, old);
-          SET_FLAG (old->flags, OSPF_LSA_APPROVED);
+          SET_FLAG (lsa->flags, OSPF_LSA_APPROVED);
           /* This will flood through area. */
         }
     }
