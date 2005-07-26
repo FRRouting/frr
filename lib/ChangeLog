@@ -1,4 +1,14 @@
 2005-07-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+	* prefix.c: (prefix_ipv4_new, prefix_ipv6_new): Call prefix_new
+	  to allocate the memory to make sure that all struct prefix pointers
+	  point to objects of the same length (avoids memory overruns
+	  on struct prefix assignments).
+	  (prefix_ipv4_free, prefix_ipv6_free): Simply call prefix_free.
+	  It is interesting to note that these functions are never actually
+	  called anywhere in the code.  Instead prefix_free was already
+	  being called directly, despite the previous MTYPE incompatibility.
+
+2005-07-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* prefix.c: (ip_masklen) While loop should test that 'pnt' pointer is
 	  in range before dereferencing it.
