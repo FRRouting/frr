@@ -1,3 +1,8 @@
+2005-07-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* prefix.c: (ip_masklen) While loop should test that 'pnt' pointer is
+	  in range before dereferencing it.
+
 2005-06-24 Pawel Worach <pawel.worach@gmail.com>
 
 	* getopt.h: add further tests for full getopt declaration on

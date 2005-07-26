@@ -292,7 +292,7 @@ ip_masklen (struct in_addr netmask)
   pnt = (u_char *) &netmask;
   end = pnt + 4;
 
-  while ((*pnt == 0xff) && pnt < end)
+  while ((pnt < end) && (*pnt == 0xff))
     {
       len+= 8;
       pnt++;
