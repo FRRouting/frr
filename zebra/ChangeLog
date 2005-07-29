@@ -1,3 +1,23 @@
+2005-07-29 Paul Jakma <paul.jakma@sun.com>
+
+	* interface.c: (if_delete_update) should always be available, not
+	  just on RTM_IFANNOUNCE/NETLINK systems.
+	* kernel_socket.c: (ifan_read) only call if_delete_update when
+	  interface departs, dont if_delete, because we wish to retain
+	  interface configuration state even when interfaces are removed.
+	  (ifm_read) If we dont have RTM_IFANNOUNCE, then transitioning
+	  to down state is only chance we have to clean up interface in case
+	  it is deleted (eg Solaris down -> unplumb -> plumb up).
+	* redistribute.c: (zebra_interface_delete_update) should always be
+	  available, we /will/ call it now on all systems, via
+	  if_delete_update.
+	* zserv.c: (zsend_interface_delete) ditto
+	  (zsend_interface_address) Update the call-flow diagramme, to
+	  reflect that if_delete_update /is/ now called on all systems,
+	  potentially.
+	* zserv.h: (zsend_interface_delete) unconditionally exported, as
+	  above.
+	  
 2005-06-28 Paul Jakma <paul.jakma@sun.com>
 
 	* (global) Extern and static'ification, with related fixups

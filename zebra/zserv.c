@@ -203,12 +203,6 @@ zsend_interface_add (struct zserv *client, struct interface *ifp)
 }
 
 /* Interface deletion from zebra daemon. */
-/*
- * This function is only called  when support for 
- * RTM_IFANNOUNCE or AF_NETLINK sockets (RTM_DELLINK message)
- * is available. It is not called on Solaris.
- */
-#if (defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK))
 int
 zsend_interface_delete (struct zserv *client, struct interface *ifp)
 {
@@ -240,7 +234,6 @@ zsend_interface_delete (struct zserv *client, struct interface *ifp)
 
   return zebra_server_send_message (client);
 }
-#endif /* (defined(RTM_IFANNOUNCE) || defined(HAVE_LINUX_RTNETLINK_H)) */
 
 /* Interface address is added/deleted. Send ZEBRA_INTERFACE_ADDRESS_ADD or
  * ZEBRA_INTERFACE_ADDRESS_DELETE to the client. 
@@ -266,8 +259,8 @@ zsend_interface_delete (struct zserv *client, struct interface *ifp)
  *                           |                        
  *          zebra_interface_address_delete_update    
  *             ^                        ^      ^
- *             |                        |      if_delete_update (not called on 
- *             |                        |                         Solaris)
+ *             |                        |      if_delete_update
+ *             |                        |
  *         ip_address_uninstall        connected_delete_ipv4
  *         [ipv6_addresss_uninstall]   [connected_delete_ipv6]
  *             ^                        ^

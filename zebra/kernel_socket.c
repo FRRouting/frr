@@ -227,10 +227,7 @@ ifan_read (struct if_announcemsghdr *ifan)
       if_add_update (ifp);
     }
   else if (ifp != NULL && ifan->ifan_what == IFAN_DEPARTURE)
-    {
-      if_delete_update (ifp);
-      if_delete (ifp);
-    }
+    if_delete_update (ifp);
 
   if_get_flags (ifp);
   if_get_mtu (ifp);
@@ -397,7 +394,21 @@ ifm_read (struct if_msghdr *ifm)
 	{
 	  ifp->flags = ifm->ifm_flags;
 	  if (! if_is_up (ifp))
-	    if_down (ifp);
+	    {
+	      if_down (ifp);
+#ifndef RTM_IFANNOUNCE
+              /* No RTM_IFANNOUNCE on this platform, so we can never
+               * distinguish between down and delete. We must presume
+               * it has been deleted.
+               * Eg, Solaris will not notify us of unplumb.
+               *
+               * XXX: Fixme - this should be runtime detected
+               * So that a binary compiled on a system with IFANNOUNCE
+               * will still behave correctly if run on a platform without
+               */
+              if_delete_update (ifp);
+#endif /* RTM_IFANNOUNCE */
+            }
 	}
       else
 	{

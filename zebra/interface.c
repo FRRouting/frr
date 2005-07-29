@@ -290,14 +290,7 @@ if_add_update (struct interface *ifp)
     }
 }
 
-
-/* Handle an interface delete event
- * 
- * This function is only called  when support for
- * RTM_IFANNOUNCE or AF_NETLINK sockets (RTM_DELLINK message)
- * is available. It is not called on, eg, Solaris.
- */
-#if (defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK))
+/* Handle an interface delete event */
 void 
 if_delete_update (struct interface *ifp)
 {
@@ -405,7 +398,6 @@ if_delete_update (struct interface *ifp)
      interface deletion message. */
   ifp->ifindex = IFINDEX_INTERNAL;
 }
-#endif /* (defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK) */
 
 /* Interface is up. */
 void

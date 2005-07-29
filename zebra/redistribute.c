@@ -345,12 +345,6 @@ zebra_interface_add_update (struct interface *ifp)
       zsend_interface_add (client, ifp);
 }
 
-/*
- * This function is only called  when support for 
- * RTM_IFANNOUNCE or AF_NETLINK sockets (RTM_DELLINK message)
- * is available. It is not called on Solaris.
- */
-#if (defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK))
 void
 zebra_interface_delete_update (struct interface *ifp)
 {
@@ -364,7 +358,6 @@ zebra_interface_delete_update (struct interface *ifp)
     if (client->ifinfo)
       zsend_interface_delete (client, ifp);
 }
-#endif /* defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK) */
 
 /* Interface address addition. */
 void

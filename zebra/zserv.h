@@ -96,9 +96,7 @@ extern void zebra_snmp_init (void);
 extern void zebra_vty_init (void);
 
 extern int zsend_interface_add (struct zserv *, struct interface *);
-#if (defined(RTM_IFANNOUNCE) || defined(HAVE_NETLINK))
 extern int zsend_interface_delete (struct zserv *, struct interface *);
-#endif
 extern int zsend_interface_address (int, struct zserv *, struct interface *,
                                     struct connected *);
 extern int zsend_interface_update (int, struct zserv *, struct interface *);
