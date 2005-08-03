@@ -1,3 +1,9 @@
+2005-08-03 Hasso Tepper <hasso at quagga.net>
+
+	* bgp_routemap.c: Revert part of leaking communities fix commited in
+	  2005-05-27. While ecommunity fix seems to be correct, community case
+	  isn't.
+
 2005-06-28 Paul Jakma <paul.jakma@sun.com>
 
 	* (global) The great bgpd extern and static'ification.

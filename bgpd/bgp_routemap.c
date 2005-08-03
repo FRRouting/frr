@@ -1223,9 +1223,6 @@ route_set_community (void *rule, struct prefix *prefix,
 
       attr->community = new;
 
-      if (old)
-	community_free (old);
-
       attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES);
     }
 
