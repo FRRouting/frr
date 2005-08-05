@@ -927,7 +927,7 @@ ospf_distribute_list_update_timer (struct thread *thread)
   struct ospf *ospf;
 
   type = (intptr_t)THREAD_ARG (thread);
-  assert (type < ZEBRA_ROUTE_MAX);
+  assert (type <= ZEBRA_ROUTE_MAX);
   
   rt = EXTERNAL_INFO (type);
 
@@ -992,7 +992,7 @@ ospf_filter_update (struct access_list *access)
     return;
 
   /* Update distribute-list, and apply filter. */
-  for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
+  for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
     {
       if (ROUTEMAP (ospf, type) != NULL)
         {
@@ -1001,6 +1001,10 @@ ospf_filter_update (struct access_list *access)
           continue;
         }
 
+      /* There is place for route-map for default-information (ZEBRA_ROUTE_MAX),
+       * but no distribute list. */
+      if (type == ZEBRA_ROUTE_MAX)
+	break;
 
       if (DISTRIBUTE_NAME (ospf, type))
         {
@@ -1061,7 +1065,7 @@ ospf_prefix_list_update (struct prefix_list *plist)
   /* Update all route-maps which are used as redistribution filters.
    * They might use prefix-list.
    */
-  for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
+  for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
     {
       if (ROUTEMAP (ospf, type) != NULL)
         {

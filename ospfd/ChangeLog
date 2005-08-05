@@ -1,3 +1,9 @@
+2005-08-05 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_zebra.c: Don't assert/stop before type == ZEBRA_ROUTE_MAX if
+	  dealing with routemaps. There is ospf->route_map[ZEBRA_ROUTE_MAX]
+	  for default-information.
+
 2005-07-26 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_abr.c: (ospf_abr_announce_network_to_area) SET_FLAG
