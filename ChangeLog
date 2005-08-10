@@ -1,3 +1,8 @@
+2005-08-10  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* Makefile.am (EXTRA_DIST): add INSTALL.quagga.txt, because people
+	that patch releases need to know about autoconf required versions.
+
 2005-06-30 Louis Lagendijk <louis.lagendijk@gmail.com>
 
 	* configure.ac: Actually test whether libc has IPv6 support.
