@@ -1,3 +1,10 @@
+2005-08-09 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf6_asbr.c: (ospf6_asbr_redistribute_add) Fix sense of testing
+	  of route_map_apply return code, it can return many things other
+	  than RMAP_MATCH which do not indicate DENY. Should test explicitly
+	  for equality to RMAP_DENYMATCH instead.
+
 2005-06-24 Harald Welte <laforge@gnumonks.org>
 
 	* ospf6_abr.[ch], ospf6_area.[ch]: Add area filter-list (in|out)

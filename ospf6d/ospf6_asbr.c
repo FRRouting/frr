@@ -478,7 +478,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
 
       ret = route_map_apply (ospf6->rmap[type].map, prefix,
                              RMAP_OSPF6, &troute);
-      if (ret != RMAP_MATCH)
+      if (ret == RMAP_DENYMATCH)
         {
           if (IS_OSPF6_DEBUG_ASBR)
             zlog_debug ("Denied by route-map \"%s\"", ospf6->rmap[type].name);
