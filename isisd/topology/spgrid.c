@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <values.h>
 
 #include "random.c"
 
@@ -566,7 +565,7 @@ gen_spgrid_topology (struct vty *vty, struct list *topology)
     if ( sl < sm ) { lx = sl; sl = sm; sm = lx; }
   }
 
-  if ( n >= (double)MAXLONG || m >= (double)MAXLONG )
+  if ( n >= (double)LONG_MAX || m >= (double)LONG_MAX )
   {
     zlog_err ("Too large problem. It can't be generated\n");
     exit (4);

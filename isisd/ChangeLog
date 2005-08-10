@@ -1,3 +1,8 @@
+2005-08-10 Hasso Tepper <hasso at quagga.net>
+
+	* topology/spgrid.c: MAXLONG is deprecated, use LONG_MAX instead.
+	  values.h, where MAXLONG is defined, is deprecated as well.
+
 2005-05-26 Yossi Boaron <Yossi.Boaron@veraznetworks.com>
 
 	* isis_dr.c: Fix copy&paste error in isis_dr_resign().
