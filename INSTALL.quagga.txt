@@ -1,4 +1,4 @@
-# $Id: INSTALL.quagga.txt,v 1.10 2005/06/28 00:19:48 paul Exp $
+# $Id: INSTALL.quagga.txt,v 1.11 2005/08/10 15:07:02 gdt Exp $
 
 --------------------------------------------------------------------------
 Building and Installing Quagga from releases or snapshots:
@@ -6,24 +6,43 @@ Building and Installing Quagga from releases or snapshots:
 The 'INSTALL' file contains generic instructions on how to use 'configure'
 scripts.
 
-Quagga requires a C compiler supporting the C99 standard and GNU make.
+Quagga requires a C compiler supporting the C99 standard.
+
+Quagga requires a reasonable make.  It is considered a bug if quagga
+does not compile with the system make on recent FreeBSD, NetBSD or
+OpenBSD, and a very serious bug if it does not compile with GNU make.
+
+Quagga expects a POSIX.2 compliant system, more or less.  Clean
+workarounds for POSIX non-compliance are welcome.
+
+It is considered a bug if Quagga fails to build and run on any of the
+following systems (where .x indicates the most recent release), or
+such systems "-current" versions.  (Note that considering it a bug is
+not a guarantee of support, merely "we agree that it is broken".)
+
+  FreeBSD 4.x
+  FreeBSD 5.x
+  Linux [kernel/distribution information needed]
+  NetBSD 1.6.x
+  NetBSD 2.x
+  OpenBSD ? [info needed on what should work]
+  Solaris 9
+  Solaris 10
+
 
 For further Quagga specific information on 'configure' and build-time
-configuration of the software, please read the Quagga info documentation,
-(doc/quagga.info). To read the info page included with the Quagga sources
-without first installing Quagga:
+configuration of the software, please read the Quagga info
+documentation, (doc/quagga.info).  To read the info page included with
+the Quagga sources without first installing Quagga:
 
-	cd doc/
-	pinfo -r quagga.info
+  cd doc
+  # one of the following, depending on your info viewer preferences
+  info quagga.info
+  pinfo -r quagga.info
+  emacs -eval '(info "quagga.info")'
 
-Assuming you have the user-friendly 'pinfo' info browser installed.
-
-You can also the standard GNU 'info' browser, if you prefer this browser you
-have no doubt already spent a lot of time reading its documentation and dont
-need to be told how to specify an info file by filename. ;)
-
-The Quagga website should also have recent versions of documentation
-available online.
+The Quagga website (http://www.quagga.net) currently has the info
+files available in various formats.
 
 --------------------------------------------------------------------------
 Building Quagga from CVS checkouts:
@@ -42,12 +61,14 @@ should work at least with:
 	autoconf:	2.59
 	libtool:	1.5.6
 	texinfo:	4.7
-	GNU AWK:	3.1
+	GNU AWK:	3.1 [XXX is GNU version really needed?  BSD?]
+	texinfo		4.7
 
-Texinfo is not actually required since quagga.info is checked in.
-When texinfo 4.7 is widespread, it will be removed and texinfo will
-become required again.  (4.7 has figure support, needed for the route
-server docs, which is why 4.6 doesn't work.)
+Becuase some systems provide texinfo 4.6 (4.7 is new), quagga.info is
+checked in so that texinfo will generally not be invoked.  When
+texinfo 4.7 is widespread, quagga.info will be removed from CVS and
+texinfo will become required again.  (4.7 has figure support, needed
+for the route server docs, which is why 4.6 doesn't work.)
 
 In order to create PostScript or PDF versions of the Texinfo documentation,
 you will need the convert utility, from the ImageMagick toolset installed,
@@ -56,10 +77,7 @@ and epstopdf from the TeTeX suite.
 To create the required autotools files (Makefile.in, configure, etc.),
 run either the 'update-autotools' script provided, or else the
 'autoreconf -i' command supplied with your autoconf package.  After this
-you may run configure.  GNU texinfo is required in order to build
-doc/quagga.info, which is not supplied in CVS, but is supplied in the
-CVS snapshots on the Quagga website.   quagga.info is created via
-makeinfo during the build.
+you may run configure.
 
 Please refer to "Building and Installing Quagga" above for further
 instructions.
@@ -72,6 +90,7 @@ imposing pain on those tracking stable distributions.  The notes below
 explain what versions are present in various environments.
 
 NetBSD 1.6.2 and 2.0 provide texinfo 4.6.
+NetBSD 2.99.15 provides texinfo 4.7 (so NetBSD 3 will as well).
 NetBSD pkgsrc provides automake 1.9.1 autoconf 2.59 libtool 1.5.6
 NetBSD pgksrc provides texinfo 4.7 (devel/gtexinfo)
 
