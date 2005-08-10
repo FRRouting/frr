@@ -1,3 +1,9 @@
+2005-08-10  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* getopt.h: Don't declare getopt (rather than getopt_long), since
+	quagga doesn't need it.
+	* getopt.c (getopt): Don't define getopt.
+
 2005-07-26 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 	* prefix.c: (prefix_ipv4_new, prefix_ipv6_new): Call prefix_new
 	  to allocate the memory to make sure that all struct prefix pointers

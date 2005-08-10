@@ -969,6 +969,8 @@ _getopt_internal (argc, argv, optstring, longopts, longind, long_only)
   }
 }
 
+#ifdef REALLY_NEED_PLAIN_GETOPT
+
 int
 getopt (argc, argv, optstring)
      int argc;
@@ -980,6 +982,8 @@ getopt (argc, argv, optstring)
 			   (int *) 0,
 			   0);
 }
+
+#endif /* REALLY_NEED_PLAIN_GETOPT */
 
 #endif	/* Not ELIDE_CODE.  */
 
