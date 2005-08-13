@@ -10,7 +10,7 @@ DIST_SUBDIRS = lib zebra bgpd ripd ripngd ospfd ospf6d \
 
 EXTRA_DIST = aclocal.m4 SERVICES TODO REPORTING-BUGS INSTALL.quagga.txt \
 	update-autotools \
-	vtysh/Makefile.in vtysh/Makefile.am
+	vtysh/Makefile.in vtysh/Makefile.am \
 	tools/mrlg.cgi tools/rrcheck.pl tools/rrlookup.pl tools/zc.pl \
 	tools/zebra.el
 
