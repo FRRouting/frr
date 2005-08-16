@@ -1321,20 +1321,25 @@ rip_response_process (struct rip_packet *packet, int size,
 
 /* Make socket for RIP protocol. */
 static int 
-rip_create_socket (struct sockaddr_in *to)
+rip_create_socket (struct sockaddr_in *from)
 {
   int ret;
   int sock;
   struct sockaddr_in addr;
   
-  if (!to)
+  memset (&addr, 0, sizeof (struct sockaddr_in));
+  
+  if (!from)
     {
-      memset (&addr, 0, sizeof (struct sockaddr_in));
-      addr.sin_family = AF_INET;
-      addr.sin_port = htons (RIP_PORT_DEFAULT);
       addr.sin_family = AF_INET;
       addr.sin_addr.s_addr = INADDR_ANY;
+#ifdef HAVE_SINLEN
+      addr.sin_len = sizeof (struct sockaddr_in);
+#endif /* HAVE_SINLEN */
     }
+  
+  /* sending port must always be the RIP port */
+  addr.sin_port = htons (RIP_PORT_DEFAULT);
   
   /* Make datagram socket. */
   sock = socket (AF_INET, SOCK_DGRAM, 0);
@@ -1360,8 +1365,12 @@ rip_create_socket (struct sockaddr_in *to)
       int save_errno = errno;
       if (ripd_privs.change (ZPRIVS_LOWER))
         zlog_err ("rip_create_socket: could not lower privs");
-      zlog_err("cannot bind to port %d: %s",
-	       (int)ntohs(addr.sin_port), safe_strerror(save_errno));
+      
+      zlog_err("%s: Can't bind socket %d to %s port %d: %s", __func__,
+	       sock, inet_ntoa(addr.sin_addr), 
+	       (int) ntohs(addr.sin_port), 
+	       safe_strerror(save_errno));
+      
       close (sock);
       return ret;
     }
@@ -1440,16 +1449,25 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
     }
   else
     {
-
+      struct sockaddr_in from;
+      
       sin.sin_port = htons (RIP_PORT_DEFAULT);
       sin.sin_addr.s_addr = htonl (INADDR_RIP_GROUP);
-
+      
+      /* multicast send should bind to local interface address */
+      from.sin_family = AF_INET;
+      from.sin_port = htons (RIP_PORT_DEFAULT);
+      from.sin_addr = ifc->address->u.prefix4;
+#ifdef HAVE_SIN_LEN
+      from.sin_len = sizeof (struct sockaddr_in);
+#endif /* HAVE_SIN_LEN */
+      
       /*
        * we have to open a new socket for each packet because this
        * is the most portable way to bind to a different source
        * ipv4 address for each packet. 
        */
-      if ( (send_sock = rip_create_socket (&sin)) < 0)
+      if ( (send_sock = rip_create_socket (&from)) < 0)
         {
           zlog_warn("rip_send_packet could not create socket.");
           return -1;
@@ -2105,7 +2123,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
      with larger key string sizes */
   char auth_str[RIP_AUTH_SIMPLE_SIZE];
   size_t doff; /* offset of digest offset field */
-  int num;
+  int num = 0;
   int rtemax;
   int subnetted = 0;
 
@@ -2124,7 +2142,6 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 
   /* Reset stream and RTE counter. */
   stream_reset (s);
-  num = 0;
   rtemax = (RIP_PACKET_MAXSIZ - 4) / 20;
 
   /* Get RIP interface. */

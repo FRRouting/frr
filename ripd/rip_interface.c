@@ -139,9 +139,6 @@ rip_interface_new ()
 void
 rip_interface_multicast_set (int sock, struct connected *connected)
 {
-  int ret;
-  struct servent *sp;
-  struct sockaddr_in from;
   struct in_addr addr;
   struct prefix_ipv4 *p;
   
@@ -161,43 +158,8 @@ rip_interface_multicast_set (int sock, struct connected *connected)
 		 "source address %s for interface %s",
 		 sock, inet_ntoa(addr),
 		 connected->ifp->name);
-      return;
     }
-
-  /* Bind myself. */
-  memset (&from, 0, sizeof (struct sockaddr_in));
-
-  /* Set RIP port. */
-  sp = getservbyname ("router", "udp");
-  if (sp) 
-    from.sin_port = sp->s_port;
-  else 
-    from.sin_port = htons (RIP_PORT_DEFAULT);
-
-  /* Address should be any address. */
-  from.sin_family = AF_INET;
-  from.sin_addr = connected->address->u.prefix4;
-#ifdef HAVE_SIN_LEN
-  from.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
-
-  if (ripd_privs.change (ZPRIVS_RAISE))
-    zlog_err ("rip_interface_multicast_set: could not raise privs");
-      
-  ret = bind (sock, (struct sockaddr *) & from, sizeof (struct sockaddr_in));
-  if (ret < 0)
-    {
-      zlog_warn ("Can't bind socket fd %d to %s port %d for "
-		 "interface %s: %s",
-	      	 sock,inet_ntoa(from.sin_addr),
-		 (int)ntohs(from.sin_port),
-		 connected->ifp->name,
-		  safe_strerror (errno));
-    }
-
-  if (ripd_privs.change (ZPRIVS_LOWER))
-    zlog_err ("rip_interface_multicast_set: could not lower privs");
-
+  
   return;
 }
 

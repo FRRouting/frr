@@ -1,3 +1,20 @@
+2005-08-16 Paul Jakma <paul.jakma@sun.com>
+
+	* ripd.c: (general) Fix previous commit, broke multicast bind and
+	  hence setting of source port, which broke communication with
+	  non-borken ripd. Fix removes more stuff from rip_interface.c
+	  than it adds to ripd.c ;)
+	  (rip_create_socket) the to argument really is a from argument,
+	  rename it. Set the source port to RIP port unconditionally, it's
+	  required.
+	  (rip_send_packet) Set from address correctly for multicast.
+	  (rip_output_process) trivial: num can be BSS specified, rather
+	  than in body.
+	* rip_interface.c: (rip_interface_multicast_set) strip out
+	  redundant stuff related to bind, which rip_create_socket does.
+	  Just make it set the multicast socket option, as per the
+	  interface concerned, no more.
+
 2005-06-03 Paul Jakma <paul.jakma@sun.com>
 
 	* ripd.c: (rip_create_socket) move it up so rip_send_packet
