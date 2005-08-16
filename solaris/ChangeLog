@@ -1,3 +1,9 @@
+2005-08-16 Paul Jakma <paul.jakma@sun.com>
+
+	* README.txt: point to the opensolaris.org sources for the SMF 
+	  manifest class scripts. Make step 3 slightly more explicit about
+	  what 'this directory' is.
+	  
 2005-06-15 Paul Jakma <paul.jakma@sun.com>
 
 	* quagga.xml.in: Pass the FMRI to the method, removing need for

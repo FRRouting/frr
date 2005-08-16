@@ -5,13 +5,17 @@ Requirements:
 
 - Development environment including gcc (eg as shipped with Solaris 10)
 
-- The Package tools from S10
+- The Package tools from Solaris 10 or Solaris Nevada/Express.
 
 - i.manifest and r.manifest scripts as supplied with Solaris Express
-  in /usr/sadm/install/scripts/ or alternatively from the
-  download/binaries/solaris/ directory on quagga.net. i.manifest must be at
-  least version 1.5. You can place these scripts in this directory if you
-  are using Solaris 10 GA (which does not ship with these scripts).
+  in /usr/sadm/install/scripts/ or from OpenSolaris.org:
+
+  http://cvs.opensolaris.org/source/xref/usr/src/pkgdefs/common_files/i.manifest
+  http://cvs.opensolaris.org/source/xref/usr/src/pkgdefs/common_files/r.manifest
+  
+  i.manifest must be at least version 1.5. Place these scripts in
+  this directory if you are using Solaris 10 GA (which does not ship with
+  these scripts), or in the solaris/ directory in the Quagga source.
 
 
 Package creation instructions:
@@ -34,8 +38,8 @@ use of DESTDIR to install to an alternate root, eg:
 
 	gmake DESTDIR=/var/tmp/qroot install
 
-3. In this directory, run make packages, specifying DESTDIR if appropriate,
-eg:
+3. In this directory (solaris/), run make packages, specifying DESTDIR if
+appropriate, eg:
 
 	gmake DESTDIR=/var/tmp/qroot packages
 
