@@ -1,3 +1,7 @@
+2005-08-16 Hasso Tepper <hasso at quagga.net>
+
+	* isis_misc.[ch]: Fix some warnings, making some strings const.
+
 2005-08-10 Hasso Tepper <hasso at quagga.net>
 
 	* topology/spgrid.c: MAXLONG is deprecated, use LONG_MAX instead.

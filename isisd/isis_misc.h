@@ -35,7 +35,7 @@ struct in_addr newprefix2inaddr (u_char * prefix_start,
  * return value of 0 indicates wrong input
  */
 int dotformat2buff (u_char *, u_char *);
-int sysid2buff (u_char *, u_char *);
+int sysid2buff (u_char *, const u_char *);
 
 /*
  * Printing functions

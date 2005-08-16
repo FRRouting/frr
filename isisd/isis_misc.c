@@ -162,10 +162,10 @@ dotformat2buff (u_char * buff, u_char * dotted)
  * conversion of XXXX.XXXX.XXXX to memory
  */
 int
-sysid2buff (u_char * buff, u_char * dotted)
+sysid2buff (u_char * buff, const u_char * dotted)
 {
   int len = 0;
-  u_char *pos = dotted;
+  const u_char *pos = dotted;
   u_char number[3];
 
   number[2] = '\0';
