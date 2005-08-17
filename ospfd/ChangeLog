@@ -1,3 +1,8 @@
+2005-08-17 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_vty.c: Check carefully if interface exists before trying to
+	  print info about it.
+
 2005-08-05 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_zebra.c: Don't assert/stop before type == ZEBRA_ROUTE_MAX if
