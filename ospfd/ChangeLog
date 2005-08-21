@@ -1,3 +1,8 @@
+2005-08-21 Hasso Tepper <hasso at quagga.net>
+
+	* ospf_vty.c: Make "show ip ospf neighbor xxx" commands work.
+	  Interface should be specified by name now.
+
 2005-08-17 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_vty.c: Check carefully if interface exists before trying to

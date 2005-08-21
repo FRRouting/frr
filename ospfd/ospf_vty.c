@@ -2835,7 +2835,7 @@ DEFUN (show_ip_ospf_neighbor_all,
 
 DEFUN (show_ip_ospf_neighbor_int,
        show_ip_ospf_neighbor_int_cmd,
-       "show ip ospf neighbor A.B.C.D",
+       "show ip ospf neighbor IFNAME",
        SHOW_STR
        IP_STR
        "OSPF information\n"
@@ -2843,15 +2843,13 @@ DEFUN (show_ip_ospf_neighbor_int,
        "Interface name\n")
 {
   struct ospf *ospf;
-  struct ospf_interface *oi;
-  struct in_addr addr;
-  int ret;
-  
-  ret = inet_aton (argv[0], &addr);
-  if (!ret)
+  struct interface *ifp;
+  struct route_node *rn;
+ 
+  ifp = if_lookup_by_name (argv[0]);
+  if (!ifp)
     {
-      vty_out (vty, "Please specify interface address by A.B.C.D%s",
-	       VTY_NEWLINE);
+      vty_out (vty, "No such interface.%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -2862,13 +2860,17 @@ DEFUN (show_ip_ospf_neighbor_int,
       return CMD_SUCCESS;
     }
 
-  if ((oi = ospf_if_is_configured (ospf, &addr)) == NULL)
-    vty_out (vty, "No such interface address%s", VTY_NEWLINE);
-  else
+  vty_out (vty, "%sNeighbor ID     Pri   State           Dead "
+           "Time   Address         Interface           RXmtL "
+           "RqstL DBsmL%s", VTY_NEWLINE, VTY_NEWLINE);
+
+  for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
     {
-      vty_out (vty, "%sNeighbor ID     Pri   State           Dead "
-               "Time   Address         Interface           RXmtL "
-               "RqstL DBsmL%s", VTY_NEWLINE, VTY_NEWLINE);
+      struct ospf_interface *oi = rn->info;
+
+      if (oi == NULL)
+	continue;
+
       show_ip_ospf_neighbor_sub (vty, oi);
     }
 
@@ -3090,24 +3092,24 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
 
 DEFUN (show_ip_ospf_neighbor_int_detail,
        show_ip_ospf_neighbor_int_detail_cmd,
-       "show ip ospf neighbor A.B.C.D detail",
+       "show ip ospf neighbor IFNAME detail",
        SHOW_STR
        IP_STR
        "OSPF information\n"
        "Neighbor list\n"
-       "Interface address\n"
+       "Interface name\n"
        "detail of all neighbors")
 {
   struct ospf *ospf;
   struct ospf_interface *oi;
-  struct in_addr addr;
-  int ret;
-  
-  ret = inet_aton (argv[0], &addr);
-  if (!ret)
+  struct interface *ifp;
+  struct route_node *rn, *nrn;
+  struct ospf_neighbor *nbr;
+
+  ifp = if_lookup_by_name (argv[0]);
+  if (!ifp)
     {
-      vty_out (vty, "Please specify interface address by A.B.C.D%s",
-	       VTY_NEWLINE);
+      vty_out (vty, "No such interface.%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -3118,19 +3120,14 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
       return CMD_SUCCESS;
     }
 
-  if ((oi = ospf_if_is_configured (ospf, &addr)) == NULL)
-    vty_out (vty, "No such interface address%s", VTY_NEWLINE);
-  else
-    {
-      struct route_node *rn;
-      struct ospf_neighbor *nbr;
 
-      for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
-	if ((nbr = rn->info))
+  for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
+    if ((oi = rn->info))
+      for (nrn = route_top (oi->nbrs); nrn; nrn = route_next (nrn))
+	if ((nbr = nrn->info))
 	  if (nbr != oi->nbr_self)
 	    if (nbr->state != NSM_Down)
 	      show_ip_ospf_neighbor_detail_sub (vty, oi, nbr);
-    }
 
   return CMD_SUCCESS;
 }
