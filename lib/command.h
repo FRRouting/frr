@@ -81,6 +81,7 @@ enum node_type
   BGP_IPV4_NODE,		/* BGP IPv4 unicast address family.  */
   BGP_IPV4M_NODE,		/* BGP IPv4 multicast address family.  */
   BGP_IPV6_NODE,		/* BGP IPv6 address family */
+  BGP_IPV6M_NODE,		/* BGP IPv6 multicast address family. */
   OSPF_NODE,			/* OSPF protocol mode */
   OSPF6_NODE,			/* OSPF protocol for IPv6 mode */
   ISIS_NODE,			/* ISIS protocol mode */

@@ -1,3 +1,10 @@
+2005-08-22 Hugo Santos <hsantos@av.it.pt>
+
+	* command.h: (enum node_type) Add BGP_IPV6M_NODE 
+	* command.c: (node_parent) Handle BGP_IPV6M_NODE node
+	  (config_exit, config_end) ditto
+	* vty.c: (vty_end_config) Handle BGP_IPV6M_NODE node
+	
 2005-08-10  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* getopt.h: Don't declare getopt (rather than getopt_long), since

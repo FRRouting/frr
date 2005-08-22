@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.48 2005/05/06 21:25:49 paul Exp $
+   $Id: command.c,v 1.49 2005/08/22 22:39:56 paul Exp $
  
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -1966,6 +1966,7 @@ node_parent ( enum node_type node )
     case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
+    case BGP_IPV6M_NODE:
       ret = BGP_NODE;
       break;
     case KEYCHAIN_KEY_NODE:
@@ -2391,6 +2392,7 @@ DEFUN (config_exit,
     case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
+    case BGP_IPV6M_NODE:
       vty->node = BGP_NODE;
       break;
     case KEYCHAIN_KEY_NODE:
@@ -2430,6 +2432,7 @@ DEFUN (config_end,
     case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
+    case BGP_IPV6M_NODE:
     case RMAP_NODE:
     case OSPF_NODE:
     case OSPF6_NODE:
