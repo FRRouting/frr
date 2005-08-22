@@ -310,7 +310,8 @@ vtysh_execute_func (const char *line, int pager)
   if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON || ret == CMD_WARNING)
     {
       if ((saved_node == BGP_VPNV4_NODE || saved_node == BGP_IPV4_NODE
-	   || saved_node == BGP_IPV6_NODE || saved_node == BGP_IPV4M_NODE)
+	   || saved_node == BGP_IPV6_NODE || saved_node == BGP_IPV4M_NODE
+	   || saved_node == BGP_IPV6M_NODE)
 	  && (tried == 1))
 	{
 	  vtysh_execute("exit-address-family");
@@ -769,6 +770,12 @@ struct cmd_node bgp_ipv6_node =
   "%s(config-router-af)# "
 };
 
+struct cmd_node bgp_ipv6m_node =
+{
+  BGP_IPV6M_NODE,
+  "%s(config-router-af)# "
+};
+
 struct cmd_node ospf_node =
 {
   OSPF_NODE,
@@ -907,6 +914,18 @@ DEFUNSH (VTYSH_BGPD,
 	 "Address Family Modifier\n")
 {
   vty->node = BGP_IPV6_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+	 address_family_ipv6_multicast,
+	 address_family_ipv6_multicast_cmd,
+	 "address-family ipv6 multicast",
+	 "Enter Address Family command mode\n"
+	 "Address family\n"
+	 "Address Family Modifier\n")
+{
+  vty->node = BGP_IPV6M_NODE;
   return CMD_SUCCESS;
 }
 
@@ -1078,6 +1097,7 @@ vtysh_exit (struct vty *vty)
     case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
+    case BGP_IPV6M_NODE:
       vty->node = BGP_NODE;
       break;
     case KEYCHAIN_KEY_NODE:
@@ -1112,7 +1132,8 @@ DEFUNSH (VTYSH_BGPD,
   if (vty->node == BGP_IPV4_NODE
       || vty->node == BGP_IPV4M_NODE
       || vty->node == BGP_VPNV4_NODE
-      || vty->node == BGP_IPV6_NODE)
+      || vty->node == BGP_IPV6_NODE
+      || vty->node == BGP_IPV6M_NODE)
     vty->node = BGP_NODE;
   return CMD_SUCCESS;
 }
@@ -2129,6 +2150,7 @@ vtysh_init_vty (void)
   install_node (&bgp_ipv4m_node, NULL);
 /* #ifdef HAVE_IPV6 */
   install_node (&bgp_ipv6_node, NULL);
+  install_node (&bgp_ipv6m_node, NULL);
 /* #endif */
   install_node (&ospf_node, NULL);
 /* #ifdef HAVE_IPV6 */
@@ -2152,6 +2174,7 @@ vtysh_init_vty (void)
   vtysh_install_default (BGP_IPV4_NODE);
   vtysh_install_default (BGP_IPV4M_NODE);
   vtysh_install_default (BGP_IPV6_NODE);
+  vtysh_install_default (BGP_IPV6M_NODE);
   vtysh_install_default (OSPF_NODE);
   vtysh_install_default (RIPNG_NODE);
   vtysh_install_default (OSPF6_NODE);
@@ -2189,6 +2212,8 @@ vtysh_init_vty (void)
   install_element (BGP_IPV4M_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_quit_bgpd_cmd);
+  install_element (BGP_IPV6M_NODE, &vtysh_exit_bgpd_cmd);
+  install_element (BGP_IPV6M_NODE, &vtysh_quit_bgpd_cmd);
   install_element (ISIS_NODE, &vtysh_exit_isisd_cmd);
   install_element (ISIS_NODE, &vtysh_quit_isisd_cmd);
   install_element (KEYCHAIN_NODE, &vtysh_exit_ripd_cmd);
@@ -2212,6 +2237,7 @@ vtysh_init_vty (void)
   install_element (BGP_IPV4M_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_end_all_cmd);
+  install_element (BGP_IPV6M_NODE, &vtysh_end_all_cmd);
   install_element (ISIS_NODE, &vtysh_end_all_cmd);
   install_element (KEYCHAIN_NODE, &vtysh_end_all_cmd);
   install_element (KEYCHAIN_KEY_NODE, &vtysh_end_all_cmd);
@@ -2245,6 +2271,7 @@ vtysh_init_vty (void)
   install_element (BGP_IPV4_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV4M_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV6_NODE, &exit_address_family_cmd);
+  install_element (BGP_IPV6M_NODE, &exit_address_family_cmd);
   install_element (CONFIG_NODE, &key_chain_cmd);
   install_element (CONFIG_NODE, &route_map_cmd);
   install_element (CONFIG_NODE, &vtysh_line_vty_cmd);
