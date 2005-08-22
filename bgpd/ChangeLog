@@ -1,3 +1,34 @@
+2005-08-22 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_route.h: (struct bgp_info) add a new flag, BGP_INFO_REMOVED.
+	  BGP_INFO_VALID is already overloaded, don't care to do same thing
+	  to STALE or HISTORY.
+	* bgpd.h: (BGP_INFO_HOLDDOWN) Add INFO_REMOVED to the macro, as a
+	  route which should generally be ignored.
+	* bgp_route.c: (bgp_info_delete) Just set the REMOVE flag, rather 
+	  than doing actual work, so that bgp_process (called directly,
+	  or indirectly via the scanner) can catch withdrawn routes.
+	  (bgp_info_reap) Actually remove the route, what bgp_info_delete
+	  used to do, only for use by bgp_process.
+	  (bgp_best_selection) reap any REMOVED routes, other than the old
+	  selected route.
+	  (bgp_process_rsclient) reap the old-selected route, if appropriate
+	  (bgp_process_main) ditto
+	  (bgp_rib_withdraw, bgp_rib_remove) make them more consistent with
+	  each other. Don't play games with the VALID flag, bgp_process
+	  is async now, so it didn't make a difference anyway.
+	  Remove the 'force' argument from bgp_rib_withdraw, withdraw+force
+	  is equivalent to bgp_rib_remove. Update all its callers.
+	  (bgp_update_rsclient) bgp_rib_withdraw and force set is same as
+	  bgp_rib_remove.
+	  (route_vty_short_status_out) new helper to print the leading
+	  route-status string used in many command outputs. Consolidate.
+	  (route_vty_out, route_vty_out_tag, damp_route_vty_out, 
+	   flap_route_vty_out) use route_vty_short_status_out rather than
+	  duplicate.
+	  (route_vty_out_detail) print state of REMOVED flag.
+	  (BGP_SHOW_SCODE_HEADER) update for Removed flag. 
+	  
 2005-08-03 Hasso Tepper <hasso at quagga.net>
 
 	* bgp_routemap.c: Revert part of leaking communities fix commited in

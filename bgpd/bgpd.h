@@ -742,7 +742,8 @@ enum bgp_clear_type
 #define BGP_INFO_HOLDDOWN(BI)                         \
   (! CHECK_FLAG ((BI)->flags, BGP_INFO_VALID)         \
    || CHECK_FLAG ((BI)->flags, BGP_INFO_HISTORY)      \
-   || CHECK_FLAG ((BI)->flags, BGP_INFO_DAMPED))
+   || CHECK_FLAG ((BI)->flags, BGP_INFO_DAMPED)       \
+   || CHECK_FLAG ((BI)->flags, BGP_INFO_REMOVED))
 
 /* Count prefix size from mask length */
 #define PSIZE(a) (((a) + 7) / (8))

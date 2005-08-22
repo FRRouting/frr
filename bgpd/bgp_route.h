@@ -54,6 +54,7 @@ struct bgp_info
 #define BGP_INFO_DMED_CHECK     (1 << 6)
 #define BGP_INFO_DMED_SELECTED  (1 << 7)
 #define BGP_INFO_STALE          (1 << 8)
+#define BGP_INFO_REMOVED        (1 << 9)
 
   /* Peer structure.  */
   struct peer *peer;
@@ -179,7 +180,6 @@ extern int bgp_withdraw (struct peer *, struct prefix *, struct attr *,
 
 /* for bgp_nexthop and bgp_damp */
 extern void bgp_process (struct bgp *, struct bgp_node *, afi_t, safi_t);
-
 extern int bgp_config_write_network (struct vty *, struct bgp *, afi_t, safi_t, int *);
 extern int bgp_config_write_distance (struct vty *, struct bgp *);
 

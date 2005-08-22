@@ -164,8 +164,10 @@ bgp_info_add (struct bgp_node *rn, struct bgp_info *ri)
   peer_lock (ri->peer); /* bgp_info peer reference */
 }
 
-void
-bgp_info_delete (struct bgp_node *rn, struct bgp_info *ri)
+/* Do the actual removal of info from RIB, for use by bgp_process 
+   completion callback *only* */
+static void
+bgp_info_reap (struct bgp_node *rn, struct bgp_info *ri)
 {
   if (ri->next)
     ri->next->prev = ri->prev;
@@ -176,6 +178,15 @@ bgp_info_delete (struct bgp_node *rn, struct bgp_info *ri)
   
   bgp_info_unlock (ri);
   bgp_unlock_node (rn);
+}
+
+void
+bgp_info_delete (struct bgp_node *rn, struct bgp_info *ri)
+{
+  /* leave info in place for now in place for now, 
+   * bgp_process will reap it later. */
+  SET_FLAG (ri->flags, BGP_INFO_REMOVED);
+  UNSET_FLAG (ri->flags, BGP_INFO_VALID);
 }
 
 /* Get MED value.  If MED value is missing and "bgp bestpath
@@ -1097,7 +1108,8 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn, struct bgp_info_pair *
   struct bgp_info *ri;
   struct bgp_info *ri1;
   struct bgp_info *ri2;
-
+  struct bgp_info *nextri = NULL;
+  
   /* bgp deterministic-med */
   new_select = NULL;
   if (bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
@@ -1137,13 +1149,22 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn, struct bgp_info_pair *
   /* Check old selected route and new selected route. */
   old_select = NULL;
   new_select = NULL;
-  for (ri = rn->info; ri; ri = ri->next)
+  for (ri = rn->info; (ri != NULL) && (nextri = ri->next, 1); ri = nextri)
     {
       if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED))
 	old_select = ri;
 
       if (BGP_INFO_HOLDDOWN (ri))
-	continue;
+        {
+          /* reap REMOVED routes, if needs be 
+           * selected route must stay for a while longer though
+           */
+          if (CHECK_FLAG (ri->flags, BGP_INFO_REMOVED)
+              && (ri != old_select))
+              bgp_info_reap (rn, ri);
+          
+          continue;
+        }
 
       if (bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED)
           && (! CHECK_FLAG (ri->flags, BGP_INFO_DMED_SELECTED)))
@@ -1157,7 +1178,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn, struct bgp_info_pair *
       if (bgp_info_cmp (bgp, ri, new_select))
 	new_select = ri;
     }
-
+    
     result->old = old_select;
     result->new = new_select;
 
@@ -1269,6 +1290,9 @@ bgp_process_rsclient (struct bgp_process_queue *pq)
 				     &attr, afi, safi);
     }
 
+  if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
+    bgp_info_reap (rn, old_select);
+  
   UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
   return WQ_SUCCESS;
 }
@@ -1345,6 +1369,11 @@ bgp_process_main (struct bgp_process_queue *pq)
 	    bgp_zebra_withdraw (p, old_select);
 	}
     }
+    
+  /* Reap old select bgp_info, it it has been removed */
+  if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
+    bgp_info_reap (rn, old_select);
+  
   UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
   return WQ_SUCCESS;
 }
@@ -1512,56 +1541,55 @@ bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi,
   return 0;
 }
 
+/* Unconditionally remove the route from the RIB, without taking
+ * damping into consideration (eg, because the session went down)
+ */
 static void
 bgp_rib_remove (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
 		afi_t afi, safi_t safi)
 {
-  if (! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
+  if (!CHECK_FLAG (ri->flags, BGP_INFO_HISTORY)
+      && rn->table->type == BGP_TABLE_MAIN)
     {
       /* Ignore 'pcount' for RS-client tables */
       if ( rn->table->type == BGP_TABLE_MAIN)
         {
-      peer->pcount[afi][safi]--;
-      bgp_aggregate_decrement (peer->bgp, &rn->p, ri, afi, safi);
+          peer->pcount[afi][safi]--;
+          bgp_aggregate_decrement (peer->bgp, &rn->p, ri, afi, safi);
         }
-      UNSET_FLAG (ri->flags, BGP_INFO_VALID);
-      bgp_process (peer->bgp, rn, afi, safi);
     }
+  bgp_process (peer->bgp, rn, afi, safi);
   bgp_info_delete (rn, ri);
 }
 
 static void
 bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
-		  afi_t afi, safi_t safi, int force)
+		  afi_t afi, safi_t safi)
 {
   int valid;
   int status = BGP_DAMP_NONE;
 
-  /* Ignore 'pcount' for RS-client tables */
-  if (! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY) &&
-          rn->table->type == BGP_TABLE_MAIN)
+  if (!CHECK_FLAG (ri->flags, BGP_INFO_HISTORY)
+      && rn->table->type == BGP_TABLE_MAIN)
     {
-      if (! CHECK_FLAG (ri->flags, BGP_INFO_STALE))
-	peer->pcount[afi][safi]--;
-      bgp_aggregate_decrement (peer->bgp, &rn->p, ri, afi, safi);
+      /* Ignore 'pcount' for RS-client tables */
+      if ( rn->table->type == BGP_TABLE_MAIN)
+        {
+          peer->pcount[afi][safi]--;
+          bgp_aggregate_decrement (peer->bgp, &rn->p, ri, afi, safi);
+        }
     }
+  
+  /* apply dampening, if result is suppressed, we'll be retaining 
+   * the bgp_info in the RIB for historical reference.
+   */
+  if (CHECK_FLAG (peer->bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
+      && peer_sort (peer) == BGP_PEER_EBGP)
+    if ( (status = bgp_damp_withdraw (ri, rn, afi, safi, 0)) 
+         == BGP_DAMP_SUPPRESSED)
+      return;
 
-  if (! force)
-    {
-      if (CHECK_FLAG (peer->bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
-	  && peer_sort (peer) == BGP_PEER_EBGP)
-	status = bgp_damp_withdraw (ri, rn, afi, safi, 0);
-
-      if (status == BGP_DAMP_SUPPRESSED)
-	return;
-    }
-
-  valid = CHECK_FLAG (ri->flags, BGP_INFO_VALID);
-  UNSET_FLAG (ri->flags, BGP_INFO_VALID);
   bgp_process (peer->bgp, rn, afi, safi);
-
-  if (valid)
-    SET_FLAG (ri->flags, BGP_INFO_VALID);
 
   if (status != BGP_DAMP_USED)
     bgp_info_delete (rn, ri);
@@ -1743,7 +1771,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
         p->prefixlen, rsclient->host, reason);
 
   if (ri)
-    bgp_rib_withdraw (rn, ri, peer, afi, safi, 1);
+    bgp_rib_remove (rn, ri, peer, afi, safi);
 
   bgp_unlock_node (rn);
 
@@ -1771,7 +1799,7 @@ bgp_withdraw_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
 
   /* Withdraw specified route from routing table. */
   if (ri && ! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
-    bgp_rib_withdraw (rn, ri, peer, afi, safi, 0);
+    bgp_rib_withdraw (rn, ri, peer, afi, safi);
   else if (BGP_DEBUG (update, UPDATE_IN))
     zlog (peer->log, LOG_DEBUG,
           "%s Can't find the route %s/%d", peer->host,
@@ -2086,7 +2114,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	  p->prefixlen, reason);
 
   if (ri)
-    bgp_rib_withdraw (rn, ri, peer, afi, safi, 1);
+    bgp_rib_remove (rn, ri, peer, afi, safi);
 
   bgp_unlock_node (rn);
 
@@ -2163,7 +2191,7 @@ bgp_withdraw (struct peer *peer, struct prefix *p, struct attr *attr,
 
   /* Withdraw specified route from routing table. */
   if (ri && ! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
-    bgp_rib_withdraw (rn, ri, peer, afi, safi, 0);
+    bgp_rib_withdraw (rn, ri, peer, afi, safi);
   else if (BGP_DEBUG (update, UPDATE_IN))
     zlog (peer->log, LOG_DEBUG, 
 	  "%s Can't find the route %s/%d", peer->host,
@@ -4996,15 +5024,14 @@ enum bgp_display_type
   normal_list,
 };
 
-/* called from terminal list command */
-void
-route_vty_out (struct vty *vty, struct prefix *p,
-	       struct bgp_info *binfo, int display, safi_t safi)
+/* Print the short form route status for a bgp_info */
+static void
+route_vty_short_status_out (struct vty *vty, struct bgp_info *binfo)
 {
-  struct attr *attr;
-
-  /* Route status display. */
-  if (CHECK_FLAG (binfo->flags, BGP_INFO_STALE))
+ /* Route status display. */
+  if (CHECK_FLAG (binfo->flags, BGP_INFO_REMOVED))
+    vty_out (vty, "R");
+  else if (CHECK_FLAG (binfo->flags, BGP_INFO_STALE))
     vty_out (vty, "S");
   else if (binfo->suppress)
     vty_out (vty, "s");
@@ -5027,7 +5054,18 @@ route_vty_out (struct vty *vty, struct prefix *p,
     if ((binfo->peer->as) && (binfo->peer->as == binfo->peer->local_as))
       vty_out (vty, "i");
     else
-      vty_out (vty, " ");
+      vty_out (vty, " "); 
+}
+
+/* called from terminal list command */
+void
+route_vty_out (struct vty *vty, struct prefix *p,
+	       struct bgp_info *binfo, int display, safi_t safi)
+{
+  struct attr *attr;
+  
+  /* short status lead text */ 
+  route_vty_short_status_out (vty, binfo);
   
   /* print prefix and mask */
   if (! display)
@@ -5159,30 +5197,9 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
   struct attr *attr;
   u_int32_t label = 0;
 
-  /* Route status display. */
-  if (binfo->suppress)
-    vty_out (vty, "s");
-  else if (! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
-    vty_out (vty, "*");
-  else
-    vty_out (vty, " ");
-
-  /* Selected */
-  if (CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
-    vty_out (vty, "h");
-  else if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED))
-    vty_out (vty, "d");
-  else if (CHECK_FLAG (binfo->flags, BGP_INFO_SELECTED))
-    vty_out (vty, ">");
-  else
-    vty_out (vty, " ");
-
-  /* Internal route. */
-    if ((binfo->peer->as) && (binfo->peer->as == binfo->peer->local_as))
-      vty_out (vty, "i");
-    else
-      vty_out (vty, " ");
-
+  /* short status lead text */ 
+  route_vty_short_status_out (vty, binfo);
+    
   /* print prefix and mask */
   if (! display)
     route_vty_out_route (p, vty);
@@ -5232,26 +5249,9 @@ damp_route_vty_out (struct vty *vty, struct prefix *p,
   struct attr *attr;
   int len;
 
-  /* Route status display. */
-  if (binfo->suppress)
-    vty_out (vty, "s");
-  else if (! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
-    vty_out (vty, "*");
-  else
-    vty_out (vty, " ");
-
-  /* Selected */
-  if (CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
-    vty_out (vty, "h");
-  else if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED))
-    vty_out (vty, "d");
-  else if (CHECK_FLAG (binfo->flags, BGP_INFO_SELECTED))
-    vty_out (vty, ">");
-  else
-    vty_out (vty, " ");
-
-  vty_out (vty, " ");
-
+  /* short status lead text */ 
+  route_vty_short_status_out (vty, binfo);
+  
   /* print prefix and mask */
   if (! display)
     route_vty_out_route (p, vty);
@@ -5298,26 +5298,9 @@ flap_route_vty_out (struct vty *vty, struct prefix *p,
 
   bdi = binfo->damp_info;
 
-  /* Route status display. */
-  if (binfo->suppress)
-    vty_out (vty, "s");
-  else if (! CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
-    vty_out (vty, "*");
-  else
-    vty_out (vty, " ");
-
-  /* Selected */
-  if (CHECK_FLAG (binfo->flags, BGP_INFO_HISTORY))
-    vty_out (vty, "h");
-  else if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED))
-    vty_out (vty, "d");
-  else if (CHECK_FLAG (binfo->flags, BGP_INFO_SELECTED))
-    vty_out (vty, ">");
-  else
-    vty_out (vty, " ");
-
-  vty_out (vty, " ");
-
+  /* short status lead text */
+  route_vty_short_status_out (vty, binfo);
+  
   /* print prefix and mask */
   if (! display)
     route_vty_out_route (p, vty);
@@ -5387,6 +5370,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	    aspath_print_vty (vty, attr->aspath);
 	}
 
+      if (CHECK_FLAG (binfo->flags, BGP_INFO_REMOVED))
+        vty_out (vty, ", (removed)");
       if (CHECK_FLAG (binfo->flags, BGP_INFO_STALE))
 	vty_out (vty, ", (stale)");
       if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR)))
@@ -5525,7 +5510,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
   vty_out (vty, "%s", VTY_NEWLINE);
 }  
 
-#define BGP_SHOW_SCODE_HEADER "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal,%s              r RIB-failure, S Stale%s"
+#define BGP_SHOW_SCODE_HEADER "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal,%s              r RIB-failure, S Stale, R Removed%s"
 #define BGP_SHOW_OCODE_HEADER "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s"
 #define BGP_SHOW_HEADER "   Network          Next Hop            Metric LocPrf Weight Path%s"
 #define BGP_SHOW_DAMP_HEADER "   Network          From             Reuse    Path%s"
