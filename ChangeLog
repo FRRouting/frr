@@ -1,3 +1,14 @@
+2005-08-25 Paul Jakma <paul@jakma.org>
+
+	* configure.ac: Add -fno-omit-frame-pointer after -Os in default
+	  cflags, just to be sure.
+	  Fedora's readline library does not itself link to termcap, hence
+	  we must pass the result of termcap tests in via OTHER-LIBRARIES
+	  argument, otherwise the test of main in readline will fail due to 
+	  missing termcap systems. On systems like Debian, -ltermcap
+	  is not needed for the readline test, because libreadline already
+	  links to it.
+	  
 2005-08-25 Hasso Tepper <hasso at quagga.net>
 
 	* configure.ac, vtysh/Makefile.am: Only vtysh needs to be linked

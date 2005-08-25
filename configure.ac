@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.110 2005/08/25 12:00:58 hasso Exp $
+## $Id: configure.ac,v 1.111 2005/08/25 14:50:05 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.1, [http://bugzilla.quagga.net])
@@ -88,7 +88,8 @@ dnl ---------------------------------------------
 dnl
 if test "x$cflags_specified" = "x" ; then
   if test "x${GCC}" = "xyes" && test "x${ICC}" = "xno"; then
-  	CFLAGS="-Os -g  -Wall -Wsign-compare -Wpointer-arith"
+  	CFLAGS="-Os -fno-omit-frame-pointer -g  -Wall"
+  	CFLAGS="${CFLAGS} -Wsign-compare -Wpointer-arith"
   	CFLAGS="${CFLAGS} -Wbad-function-cast -Wwrite-strings"
   fi
   # TODO: conditionally addd -Wpacked if handled
@@ -398,10 +399,15 @@ dnl	 configure time.  We follow readline's search order.
 dnl	 The required procedures are in libtermcap on NetBSD, in
 dnl	 [TODO] on Linux, and in [TODO] on Solaris.
 	 AC_CHECK_LIB(termcap, tputs, LIBREADLINE="$LIBREADLINE -ltermcap",
-	 	AC_CHECK_LIB(tinfo, tputs, LIBREADLINE="$LIBREADLINE -ltinfo",
-	 	AC_CHECK_LIB(curses, tputs, LIBREADLINE="$LIBREADLINE -lcurses",
-	 	AC_CHECK_LIB(ncurses, tputs, LIBREADLINE="$LIBREADLINE -lncurses"))))
-         AC_CHECK_LIB(readline, main, LIBREADLINE="$LIBREADLINE -lreadline")
+	   [AC_CHECK_LIB(tinfo, tputs, LIBREADLINE="$LIBREADLINE -ltinfo",
+	     [AC_CHECK_LIB(curses, tputs, LIBREADLINE="$LIBREADLINE -lcurses",
+	       [AC_CHECK_LIB(ncurses, tputs, 
+	                     LIBREADLINE="$LIBREADLINE -lncurses")]
+	      )]
+	    )]
+	  )
+         AC_CHECK_LIB(readline, main, LIBREADLINE="$LIBREADLINE -lreadline",,
+                      "$LIBREADLINE")
          if test $ac_cv_lib_readline_main = no; then
            AC_MSG_ERROR([vtysh needs libreadline but was not found and usable on your system.])
          fi
@@ -409,7 +415,8 @@ dnl	 [TODO] on Linux, and in [TODO] on Solaris.
 	 if test $ac_cv_header_readline_history_h = no;then
            AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
 	 fi
-	 AC_CHECK_LIB(readline, rl_completion_matches, LIBREADLINE="$LIBREADLINE")
+	 AC_CHECK_LIB(readline, rl_completion_matches, 
+	              LIBREADLINE="$LIBREADLINE",, "$LIBREADLINE")
          if test $ac_cv_lib_readline_rl_completion_matches = no; then
            AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
 	 fi
