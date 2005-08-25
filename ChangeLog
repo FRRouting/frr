@@ -1,3 +1,8 @@
+2005-08-25 Hasso Tepper <hasso at quagga.net>
+
+	* configure.ac, vtysh/Makefile.am: Only vtysh needs to be linked
+	  against libreadline and friends.
+
 2005-08-13 Paul Jakma <paul@jakma.org>
 
 	* Makefile.am: (EXTRA_DIST) Add the trailing slash back in which

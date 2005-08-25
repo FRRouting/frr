@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.109 2005/06/30 13:52:20 hasso Exp $
+## $Id: configure.ac,v 1.110 2005/08/25 12:00:58 hasso Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.1, [http://bugzilla.quagga.net])
@@ -397,11 +397,11 @@ dnl	 Vtysh uses libreadline, which looks for termcap functions at
 dnl	 configure time.  We follow readline's search order.
 dnl	 The required procedures are in libtermcap on NetBSD, in
 dnl	 [TODO] on Linux, and in [TODO] on Solaris.
-	 AC_CHECK_LIB(termcap, tputs, ,
-	 	AC_CHECK_LIB(tinfo, tputs, ,
-	 	AC_CHECK_LIB(curses, tputs, ,
-	 	AC_CHECK_LIB(ncurses, tputs))))
-         AC_CHECK_LIB(readline, main)
+	 AC_CHECK_LIB(termcap, tputs, LIBREADLINE="$LIBREADLINE -ltermcap",
+	 	AC_CHECK_LIB(tinfo, tputs, LIBREADLINE="$LIBREADLINE -ltinfo",
+	 	AC_CHECK_LIB(curses, tputs, LIBREADLINE="$LIBREADLINE -lcurses",
+	 	AC_CHECK_LIB(ncurses, tputs, LIBREADLINE="$LIBREADLINE -lncurses"))))
+         AC_CHECK_LIB(readline, main, LIBREADLINE="$LIBREADLINE -lreadline")
          if test $ac_cv_lib_readline_main = no; then
            AC_MSG_ERROR([vtysh needs libreadline but was not found and usable on your system.])
          fi
@@ -409,7 +409,7 @@ dnl	 [TODO] on Linux, and in [TODO] on Solaris.
 	 if test $ac_cv_header_readline_history_h = no;then
            AC_MSG_ERROR([readline is too old to have readline/history.h, please update to the latest readline library.])
 	 fi
-	 AC_CHECK_LIB(readline, rl_completion_matches)
+	 AC_CHECK_LIB(readline, rl_completion_matches, LIBREADLINE="$LIBREADLINE")
          if test $ac_cv_lib_readline_rl_completion_matches = no; then
            AC_DEFINE(rl_completion_matches,completion_matches,Old readline)
 	 fi
@@ -417,6 +417,7 @@ dnl	 [TODO] on Linux, and in [TODO] on Solaris.
   "no" ) VTYSH="";;
   *    ) ;;
 esac
+AC_SUBST(LIBREADLINE)
 
 dnl ----------
 dnl PAM module
@@ -1363,7 +1364,7 @@ source code location    : ${srcdir}
 compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 includes                : ${INCLUDES} ${SNMP_INCLUDES}
-linker flags            : ${LDFLAGS} ${LIBS}
+linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE}
 state file directory    : ${quagga_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``
