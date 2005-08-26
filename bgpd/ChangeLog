@@ -1,3 +1,9 @@
+2005-08-26 Hasso Tepper <hasso at quagga.net>
+
+	* bgp_route.c: Third (?) attempt to fix best selection breakage
+	  introduced long time ago with route server patch. Hopefully
+	  it's last case to fix - route-server client not in peer group.
+
 2005-08-22 Hugo Santos <hsantos@av.it.pt>
 
 	* bgp_vty.c: (general) Add support for BGP IPv6 Multicast SAFI

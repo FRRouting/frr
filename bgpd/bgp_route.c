@@ -1286,6 +1286,13 @@ bgp_process_rsclient (struct bgp_process_queue *pq)
     }
   else
     {
+      if (old_select)
+	UNSET_FLAG (old_select->flags, BGP_INFO_SELECTED);
+      if (new_select)
+	{
+	  SET_FLAG (new_select->flags, BGP_INFO_SELECTED);
+	  UNSET_FLAG (new_select->flags, BGP_INFO_ATTR_CHANGED);
+	}
       bgp_process_announce_selected (rsclient, new_select, rn,
 				     &attr, afi, safi);
     }
