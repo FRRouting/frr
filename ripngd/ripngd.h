@@ -383,7 +383,7 @@ void ripng_redistribute_withdraw (int type);
 void ripng_distribute_update_interface (struct interface *);
 void ripng_if_rmap_update_interface (struct interface *);
 
-void ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop, unsigned int ifindex);
+void ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop, unsigned int ifindex, u_char metric);
 void ripng_zebra_ipv6_delete (struct prefix_ipv6 *p, struct in6_addr *nexthop, unsigned int ifindex);
 
 void ripng_redistribute_clean ();

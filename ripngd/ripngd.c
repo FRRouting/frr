@@ -783,7 +783,8 @@ ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
 	  rinfo->type = ZEBRA_ROUTE_RIPNG;
 	  rinfo->sub_type = RIPNG_ROUTE_RTE;
 
-	  ripng_zebra_ipv6_add (&p, &rinfo->nexthop, rinfo->ifindex);
+	  ripng_zebra_ipv6_add (&p, &rinfo->nexthop, rinfo->ifindex,
+				rinfo->metric);
 	  rinfo->flags |= RIPNG_RTF_FIB;
 
 	  /* Aggregate check. */
@@ -835,9 +836,9 @@ ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
 	      RIPNG_TIMER_OFF (rinfo->t_garbage_collect);
 
 	      if (! IPV6_ADDR_SAME (&rinfo->nexthop, nexthop))
-	    IPV6_ADDR_COPY (&rinfo->nexthop, nexthop);
+		IPV6_ADDR_COPY (&rinfo->nexthop, nexthop);
 
-	      ripng_zebra_ipv6_add (&p, nexthop, ifp->ifindex);
+	      ripng_zebra_ipv6_add (&p, nexthop, ifp->ifindex, rinfo->metric);
 	      rinfo->flags |= RIPNG_RTF_FIB;
 
 	      /* The aggregation counter needs to be updated because
@@ -850,7 +851,7 @@ ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
 	  if (oldmetric != RIPNG_METRIC_INFINITY)
 	    {
 	      ripng_zebra_ipv6_delete (&p, &rinfo->nexthop, rinfo->ifindex);
-	      ripng_zebra_ipv6_add (&p, nexthop, ifp->ifindex);
+	      ripng_zebra_ipv6_add (&p, nexthop, ifp->ifindex, rinfo->metric);
 	      rinfo->flags |= RIPNG_RTF_FIB;
 
 	      if (! IPV6_ADDR_SAME (&rinfo->nexthop, nexthop))

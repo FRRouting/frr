@@ -44,7 +44,7 @@ int ripng_interface_address_delete (int, struct zclient *, zebra_size_t);
 
 void
 ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop,
-		      unsigned int ifindex)
+		      unsigned int ifindex, u_char metric)
 {
   struct zapi_ipv6 api;
 
@@ -59,7 +59,9 @@ ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop,
       SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
       api.ifindex_num = 1;
       api.ifindex = &ifindex;
-
+      SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
+      api.metric = metric;
+      
       zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, p, &api);
     }
 }

@@ -1,3 +1,7 @@
+2005-08-27 Hasso Tepper <hasso at quagga.net>
+
+	* ripng_zebra.c, ripngd.[ch]: Pass metric info to the zebra daemon.
+
 2005-04-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripng_zebra.c (ripng_redistribute_unset, ripng_redistribute_clean):
