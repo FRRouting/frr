@@ -1,3 +1,12 @@
+2005-08-27 Hasso Tepper <hasso at quagga.net>
+
+	* zebra_rib.c, rib.h: Add distance and metric arguments to the
+	  rib_add_ipv6() function so that IPv6 routes in RIB can have correct
+	  metric. No IPv6 routing daemon uses distance yet though.
+	* zserv.c, connected.c, kernel_socket.c, rt_netlink.c,
+	  rtread_proc.c,zserv.c: Pass metric and distance info to the
+	  rib_add_ipv6().
+
 2005-07-29 Paul Jakma <paul.jakma@sun.com>
 
 	* interface.c: (if_delete_update) should always be available, not

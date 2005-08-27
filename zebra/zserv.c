@@ -999,9 +999,11 @@ zread_ipv6_add (struct zserv *client, u_short length)
     api.metric = 0;
     
   if (IN6_IS_ADDR_UNSPECIFIED (&nexthop))
-    rib_add_ipv6 (api.type, api.flags, &p, NULL, ifindex, 0);
+    rib_add_ipv6 (api.type, api.flags, &p, NULL, ifindex, 0, api.metric,
+		  api.distance);
   else
-    rib_add_ipv6 (api.type, api.flags, &p, &nexthop, ifindex, 0);
+    rib_add_ipv6 (api.type, api.flags, &p, &nexthop, ifindex, 0, api.metric,
+		  api.distance);
   return 0;
 }
 

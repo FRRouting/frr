@@ -1748,16 +1748,14 @@ rib_bogus_ipv6 (int type, struct prefix_ipv6 *p,
 
 int
 rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
-	      struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id)
+	      struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id,
+	      u_int32_t metric, u_char distance)
 {
   struct rib *rib;
   struct rib *same = NULL;
   struct route_table *table;
   struct route_node *rn;
   struct nexthop *nexthop;
-
-  int distance;
-  u_int32_t metric = 0;
 
   /* Lookup table.  */
   table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
@@ -1768,7 +1766,8 @@ rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
   apply_mask_ipv6 (p);
 
   /* Set default distance by route type. */
-  distance = route_info[type].distance;
+  if (!distance)
+    distance = route_info[type].distance;
   
   if (type == ZEBRA_ROUTE_BGP && CHECK_FLAG (flags, ZEBRA_FLAG_IBGP))
     distance = 200;

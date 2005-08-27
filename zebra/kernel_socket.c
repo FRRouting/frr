@@ -654,7 +654,7 @@ rtm_read (struct rt_msghdr *rtm)
 
       if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD)
 	rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags,
-		      &p, &gate.sin6.sin6_addr, ifindex, 0);
+		      &p, &gate.sin6.sin6_addr, ifindex, 0, 0, 0);
       else
 	rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags,
 			 &p, &gate.sin6.sin6_addr, ifindex, 0);

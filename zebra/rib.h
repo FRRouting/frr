@@ -244,7 +244,8 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 #ifdef HAVE_IPV6
 extern int
 rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
-	      struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id);
+	      struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id,
+	      u_int32_t metric, u_char distance);
 
 extern int
 rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,

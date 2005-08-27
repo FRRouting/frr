@@ -156,7 +156,8 @@ proc_ipv6_route_read ()
       str2in6_addr (gate, &gateway);
       p.prefixlen = dest_plen;
 
-      rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p, &gateway, 0, 0);
+      rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p, &gateway, 0, 0,
+		    metric, 0);
     }
 
   fclose (fp);
