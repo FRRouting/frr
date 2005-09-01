@@ -33,7 +33,7 @@ struct arc {
 };
 
 int           gen_spgrid_topology (struct vty *vty, struct list *topology);
-int           spgrid_check_params (struct vty *vty, int argc, char **argv);
+int           spgrid_check_params (struct vty *vty, int argc, const char **argv);
 
 
 #endif /* _ZEBRA_ISIS_TOPOLOGY_SPGRID_H */

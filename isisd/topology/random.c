@@ -10,11 +10,11 @@
 #include <sys/types.h>
 #include <sys/times.h>
 
-float timer()
+unsigned long timer()
    { struct tms hold;
 
         times(&hold);
-        return  (float)(hold.tms_utime) / 60.0;
+        return (unsigned long) ((float) (hold.tms_utime) / 60.0);
    }
 
 
@@ -84,6 +84,7 @@ static long irand ()
   return (long) internal_seed ;
 }
 
+#if 0 /* Not used. */
 /*********************************************************************/
 /*                                                                   */
 /*              computer independent variant of  irand               */
@@ -106,14 +107,14 @@ static long xrand()
   internal_seed = ( (((is2 * A1) + (is1 * A2))% T16 )* T15 + (is2 * A2) ) & B;
   return (long) ( internal_seed ) ;
 }
-
+#endif
 
 /*********************************************************************/
 
 
 double rand01()
 
-{ return  (double) irand() / BF ;
+{ return  (double) (irand() / BF) ;
 }
   
 /*********************************************************************/

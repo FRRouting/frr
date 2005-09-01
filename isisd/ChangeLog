@@ -1,11 +1,19 @@
 2005-09-01 Hasso Tepper <hasso at quagga.net>
 
+	* random.c, spgrid.[ch]: Fix warnings with hope that I didn't broke
+	  anything. These floats to longs and vice versa casts are starnge
+	  indeed.
+	* isis_pdu.c: As we don't use %z for size_t for now because we support
+	  older compilers, cast them to unsigned long.
+
+2005-09-01 Hasso Tepper <hasso at quagga.net>
+
 	* isis_adjacency.c, isis_lsp.c, isisd.c: Replace XMALLOC && memset
 	  with XCALLOC.
 	* isis_lsp.c (lsp_build_pseudo): Fix adding ES neighbour.
 	* isis_tlv.c: More compact free_tlvs() function.
 	* isis_lsp.c (lsp_build_nonpseudo) : Try to fix one more regression
-	  introduced by stream cleanup. Seek enp to the right place before
+	  introduced by stream cleanup. Seek endp to the right place before
 	  starting to fill stream with TLVs.
 
 2005-08-16 Hasso Tepper <hasso at quagga.net>

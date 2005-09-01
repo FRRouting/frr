@@ -26,7 +26,7 @@
 
 #define NODE( x, y ) (x*Y + y + 1)
 
-char   *graph_type[] =  {
+const char   *graph_type[] =  {
   "double cycle",
   "cycle",
   "path"
@@ -227,7 +227,7 @@ usage (struct vty *vty) {
 /* parsing  parameters */
 /* checks the validity of incoming parameters */
 int
-spgrid_check_params ( struct vty *vty, int argc, char **argv)
+spgrid_check_params ( struct vty *vty, int argc, const char **argv)
 {
 /* initialized by default values */
   ext=0;
@@ -341,11 +341,11 @@ spgrid_check_params ( struct vty *vty, int argc, char **argv)
         switch ( args[2] ) {
           case 'l': /* upper bound of the interval */
             cl_f = 1;
-            cl  =  (long) atof ( &args[3] );
+            cl  =  atol ( &args[3] );
             break;
           case 'm': /* lower bound */
             cm_f = 1;
-            cm  = (long ) atof ( &args[3] );
+            cm  = atol ( &args[3] );
             break;
           case 'c': /* type - cycle */
             cw_f = 1;
@@ -372,15 +372,15 @@ spgrid_check_params ( struct vty *vty, int argc, char **argv)
           {
           case 'l': /* upper bound of the interval */
             al_f = 1;
-            al  =  (long) atof ( &args[3] );
+            al  =  atol ( &args[3] );
             break;
           case 'm': /* lower bound */
             am_f = 1;
-            am  = (long ) atof ( &args[3] );
+            am  = atol ( &args[3] );
             break;
           case 'x': /* number of additional arcs */
             ax_f = 1;
-            ax   = (long ) atof ( &args[3] );
+            ax   = atol ( &args[3] );
             if ( ax < 0 )
              {
                usage (vty);
@@ -404,11 +404,11 @@ spgrid_check_params ( struct vty *vty, int argc, char **argv)
           {
           case 'l': /* upper bound */
             il_f = 1;
-            il  =  (long) atof ( &args[3] );
+            il  =  atol ( &args[3] );
             break;
           case 'm': /* lower bound */
             im_f = 1;
-            im  = (long ) atof ( &args[3] );
+            im  = atol ( &args[3] );
             break;
           case 'n': /* additional length: l *= in*|i1-i2| */
             in_f = 1;
@@ -452,11 +452,11 @@ spgrid_check_params ( struct vty *vty, int argc, char **argv)
           {
           case 'l': /* upper bound of art. arc */
             sl_f = 1;
-            sl  =  (long) atof ( &args[3] );
+            sl  =  atol ( &args[3] );
             break;
           case 'm': /* lower bound of art. arc */
             sm_f = 1;
-            sm  =  (long) atof ( &args[3] );
+            sm  =  atol ( &args[3] );
             break;
           default:  /* unknown switch  value */
             usage (vty);
@@ -473,11 +473,11 @@ spgrid_check_params ( struct vty *vty, int argc, char **argv)
           {
           case 'l': /* upper bound */
             pl_f = 1;
-            pl  =  (long) atof ( &args[3] );
+            pl  =  atol ( &args[3] );
             break;
           case 'm': /* lower bound */
             pm_f = 1;
-            pm  = (long ) atof ( &args[3] );
+            pm  = atol ( &args[3] );
             break;
           case 'n': /* additional: p *= pn*(x+1) */
             pn_f = 1;

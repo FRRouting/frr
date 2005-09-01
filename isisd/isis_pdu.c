@@ -905,7 +905,9 @@ out:
 		  circuit->area->area_tag,
 		  level, snpa_print (ssnpa), circuit->interface->name,
 		  circuit_t2string (circuit->circuit_is_type),
-		  circuit->circuit_id, stream_get_endp (circuit->rcv_stream));
+		  circuit->circuit_id,
+		  /* FIXME: use %z when we stop supporting old compilers. */
+		  (unsigned long) stream_get_endp (circuit->rcv_stream));
     }
 
   free_tlvs (&tlvs);
@@ -949,7 +951,8 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 		  ntohl (hdr->seq_num),
 		  ntohs (hdr->checksum),
 		  ntohs (hdr->rem_lifetime),
-		  stream_get_endp (circuit->rcv_stream), 
+		  /* FIXME: use %z when we stop supporting old compilers. */
+		  (unsigned long) stream_get_endp (circuit->rcv_stream), 
 		  circuit->interface->name);
     }
 
@@ -2031,13 +2034,15 @@ send_hello (struct isis_circuit *circuit, int level)
 	{
 	  zlog_debug ("ISIS-Adj (%s): Sent L%d LAN IIH on %s, length %ld",
 		      circuit->area->area_tag, level, circuit->interface->name,
-		      STREAM_SIZE (circuit->snd_stream));
+		      /* FIXME: use %z when we stop supporting old compilers. */
+		      (unsigned long) STREAM_SIZE (circuit->snd_stream));
 	}
       else
 	{
 	  zlog_debug ("ISIS-Adj (%s): Sent P2P IIH on %s, length %ld",
 		      circuit->area->area_tag, circuit->interface->name,
-		      STREAM_SIZE (circuit->snd_stream));
+		      /* FIXME: use %z when we stop supporting old compilers. */
+		      (unsigned long) STREAM_SIZE (circuit->snd_stream));
 	}
     }
 
@@ -2205,7 +2210,8 @@ send_csnp (struct isis_circuit *circuit, int level)
 	{
 	  zlog_debug ("ISIS-Snp (%s): Sent L%d CSNP on %s, length %ld",
 		     circuit->area->area_tag, level, circuit->interface->name,
-		     STREAM_SIZE (circuit->snd_stream));
+		     /* FIXME: use %z when we stop supporting old compilers. */
+		     (unsigned long) STREAM_SIZE (circuit->snd_stream));
 	  for (ALL_LIST_ELEMENTS (list, node, nnode, lsp))
 	  {
 	    zlog_debug ("ISIS-Snp (%s):         CSNP entry %s, seq 0x%08x,"
@@ -2372,7 +2378,9 @@ send_psnp (int level, struct isis_circuit *circuit)
 		zlog_debug ("ISIS-Snp (%s): Sent L%d PSNP on %s, length %ld",
 			    circuit->area->area_tag, level,
 			    circuit->interface->name,
-			    STREAM_SIZE (circuit->snd_stream));
+			    /* FIXME: use %z when we stop supporting old
+			     * compilers. */
+			    (unsigned long) STREAM_SIZE (circuit->snd_stream));
 
 	      retval = build_psnp (level, circuit, list);
 	      if (retval == ISIS_OK)
