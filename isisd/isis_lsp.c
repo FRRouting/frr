@@ -437,9 +437,7 @@ lsp_new_from_stream_ptr (struct stream *stream,
 {
   struct isis_lsp *lsp;
 
-  lsp = XMALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
-  memset (lsp, 0, sizeof (struct isis_lsp));
-
+  lsp = XCALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
   lsp_update_data (lsp, stream, area);
 
   if (lsp0 == NULL)
@@ -467,14 +465,13 @@ lsp_new (u_char * lsp_id, u_int16_t rem_lifetime, u_int32_t seq_num,
 {
   struct isis_lsp *lsp;
 
-  lsp = XMALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
+  lsp = XCALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
   if (!lsp)
     {
       /* FIXME: set lspdbol bit */
       zlog_warn ("lsp_new(): out of memory");
       return NULL;
     }
-  memset (lsp, 0, sizeof (struct isis_lsp));
 #ifdef LSP_MEMORY_PREASSIGN
   lsp->pdu = stream_new (1514);	/*Should be minimal mtu? yup... */
 #else
@@ -924,7 +921,7 @@ lsppdu_realloc (struct isis_lsp * lsp, int memorytype, int size)
 #else /* otherwise we have to move all pointers */
   u_char *newpdu;
   newpdu = stream_new (ntohs (lsp->lsp_header->pdu_len) + size);
-  stream_put (newpdu, STREAM_DATA(lsp->pdu), ntohs (lsp->lsp_header->pdu_len);
+  stream_put (newpdu, STREAM_DATA(lsp->pdu), ntohs (lsp->lsp_header->pdu_len));
   XFREE (memorytype, lsp->pdu);
   lsp->pdu = newpdu;
   lsp->isis_header = (struct isis_fixed_hdr *) STREAM_DATA (lsp->pdu);
@@ -1004,8 +1001,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
     {
       if (lsp->tlv_data.is_neighs == NULL)
 	lsp->tlv_data.is_neighs = list_new ();
-      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-      memset (is_neigh, 0, sizeof (struct is_neigh));
+      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
       memcpy (&is_neigh->neigh_id, area->topology_baseis, ISIS_SYS_ID_LEN);
       /* connected to the first */
       is_neigh->neigh_id[ISIS_SYS_ID_LEN - 1] = (0x01);
@@ -1041,7 +1037,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
           for (ALL_LIST_ELEMENTS (circuit->ip_addrs, ipnode, ipnnode, ipv4))
 	    {
 	      ipreach =
-		XMALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv4_reachability));
+		XCALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv4_reachability));
 	      ipreach->metrics = circuit->metrics[level - 1];
 	      ipreach->prefix = ipv4->prefix;
 	      masklen2ip (ipv4->prefixlen, &ipreach->mask);
@@ -1064,8 +1060,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
                                   ipnnode, ipv6))
 	    {
 	      ip6reach =
-		XMALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv6_reachability));
-	      memset (ip6reach, 0, sizeof (struct ipv6_reachability));
+		XCALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv6_reachability));
 	      ip6reach->metric =
 		htonl (circuit->metrics[level - 1].metric_default);
 	      ip6reach->control_info = 0;
@@ -1087,8 +1082,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 		  lsp->tlv_data.is_neighs = list_new ();
 		  lsp->tlv_data.is_neighs->del = free_tlv;
 		}
-	      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-	      memset (is_neigh, 0, sizeof (struct is_neigh));
+	      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 	      if (level == 1)
 		memcpy (&is_neigh->neigh_id,
 			circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
@@ -1108,8 +1102,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 		  lsp->tlv_data.is_neighs = list_new ();
 		  lsp->tlv_data.is_neighs->del = free_tlv;
 		}
-	      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-	      memset (is_neigh, 0, sizeof (struct is_neigh));
+	      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 	      memcpy (&is_neigh->neigh_id, nei->sysid, ISIS_SYS_ID_LEN);
 	      is_neigh->metrics = circuit->metrics[level - 1];
 	      listnode_add (lsp->tlv_data.is_neighs, is_neigh);
@@ -1275,7 +1268,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 #endif /* HAVE_IPV6 */
     )
     {
-      lsp->tlv_data.nlpids = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct nlpids));
+      lsp->tlv_data.nlpids = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct nlpids));
       lsp->tlv_data.nlpids->count = 0;
       if (area->ip_circuits > 0)
 	{
@@ -1305,6 +1298,13 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   /*
    * Building the zero lsp
    */
+
+  /* Reset stream endp. Stream is always there and on every LSP refresh only
+   * TLV part of it is overwritten. So we must seek past header we will not
+   * touch. */
+  lsp->pdu->endp = 0;
+  stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
+
   /*
    * Add the authentication info if its present
    */
@@ -1366,7 +1366,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
           for (ALL_LIST_ELEMENTS (circuit->ip_addrs, ipnode, ipnnode, ipv4))
 	    {
 	      ipreach =
-		XMALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv4_reachability));
+		XCALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv4_reachability));
 	      ipreach->metrics = circuit->metrics[level - 1];
 	      masklen2ip (ipv4->prefixlen, &ipreach->mask);
 	      ipreach->prefix.s_addr = ((ipreach->mask.s_addr) &
@@ -1391,8 +1391,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
                                   ipv6))
 	    {
 	      ip6reach =
-		XMALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv6_reachability));
-	      memset (ip6reach, 0, sizeof (struct ipv6_reachability));
+		XCALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv6_reachability));
 	      ip6reach->metric =
 		htonl (circuit->metrics[level - 1].metric_default);
 	      ip6reach->control_info = 0;
@@ -1415,8 +1414,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 		{
 		  tlv_data.is_neighs = list_new ();
 		}
-	      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-	      memset (is_neigh, 0, sizeof (struct is_neigh));
+	      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 	      if (level == 1)
 		memcpy (is_neigh->neigh_id,
 			circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
@@ -1436,8 +1434,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 		  tlv_data.is_neighs = list_new ();
 		  tlv_data.is_neighs->del = free_tlv;
 		}
-	      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-	      memset (is_neigh, 0, sizeof (struct is_neigh));
+	      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 	      memcpy (is_neigh->neigh_id, nei->sysid, ISIS_SYS_ID_LEN);
 	      is_neigh->metrics = circuit->metrics[level - 1];
 	      listnode_add (tlv_data.is_neighs, is_neigh);
@@ -1903,7 +1900,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 	      es_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct es_neigh));
 	      
 	      memcpy (&es_neigh->first_es_neigh, adj->sysid, ISIS_SYS_ID_LEN);
-	      listnode_add (lsp->tlv_data.es_neighs, is_neigh);
+	      listnode_add (lsp->tlv_data.es_neighs, es_neigh);
 	    }
 	}
     }
@@ -2213,8 +2210,7 @@ lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
    * We need to create the LSP to be purged 
    */
   zlog_debug ("LSP PURGE NON EXIST");
-  lsp = XMALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
-  memset (lsp, 0, sizeof (struct isis_lsp));
+  lsp = XCALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
   /*FIXME: BUG BUG BUG! the lsp doesn't exist here! */
   /*did smt here, maybe good probably not */
   lsp->level = ((lsp_hdr->lsp_bits & LSPBIT_IST) == IS_LEVEL_1) ? 1 : 2;

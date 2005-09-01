@@ -61,59 +61,34 @@ void
 free_tlvs (struct tlvs *tlvs)
 {
   if (tlvs->area_addrs)
-    {
-      list_delete (tlvs->area_addrs);
-    }
+    list_delete (tlvs->area_addrs);
   if (tlvs->is_neighs)
-    {
-      list_delete (tlvs->is_neighs);
-    }
+    list_delete (tlvs->is_neighs);
   if (tlvs->te_is_neighs)
-    {
-      list_delete (tlvs->te_is_neighs);
-    }
+    list_delete (tlvs->te_is_neighs);
   if (tlvs->es_neighs)
-    {
-      list_delete (tlvs->es_neighs);
-    }
+    list_delete (tlvs->es_neighs);
   if (tlvs->lsp_entries)
-    {
-      list_delete (tlvs->lsp_entries);
-    }
+    list_delete (tlvs->lsp_entries);
   if (tlvs->lan_neighs)
-    {
-      list_delete (tlvs->lan_neighs);
-    }
+    list_delete (tlvs->lan_neighs);
   if (tlvs->prefix_neighs)
-    {
-      list_delete (tlvs->prefix_neighs);
-    }
+    list_delete (tlvs->prefix_neighs);
   if (tlvs->ipv4_addrs)
-    {
-      list_delete (tlvs->ipv4_addrs);
-    }
+    list_delete (tlvs->ipv4_addrs);
   if (tlvs->ipv4_int_reachs)
-    {
-      list_delete (tlvs->ipv4_int_reachs);
-    }
+    list_delete (tlvs->ipv4_int_reachs);
   if (tlvs->ipv4_ext_reachs)
-    {
-      list_delete (tlvs->ipv4_ext_reachs);
-    }
+    list_delete (tlvs->ipv4_ext_reachs);
   if (tlvs->te_ipv4_reachs)
-    {
-      list_delete (tlvs->te_ipv4_reachs);
-    }
+    list_delete (tlvs->te_ipv4_reachs);
 #ifdef HAVE_IPV6
   if (tlvs->ipv6_addrs)
-    {
-      list_delete (tlvs->ipv6_addrs);
-    }
+    list_delete (tlvs->ipv6_addrs);
   if (tlvs->ipv6_reachs)
-    {
-      list_delete (tlvs->ipv6_reachs);
-    }
+    list_delete (tlvs->ipv6_reachs);
 #endif /* HAVE_IPV6 */
+  
   return;
 }
 

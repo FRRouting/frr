@@ -1,3 +1,13 @@
+2005-09-01 Hasso Tepper <hasso at quagga.net>
+
+	* isis_adjacency.c, isis_lsp.c, isisd.c: Replace XMALLOC && memset
+	  with XCALLOC.
+	* isis_lsp.c (lsp_build_pseudo): Fix adding ES neighbour.
+	* isis_tlv.c: More compact free_tlvs() function.
+	* isis_lsp.c (lsp_build_nonpseudo) : Try to fix one more regression
+	  introduced by stream cleanup. Seek enp to the right place before
+	  starting to fill stream with TLVs.
+
 2005-08-16 Hasso Tepper <hasso at quagga.net>
 
 	* isis_misc.[ch]: Fix some warnings, making some strings const.

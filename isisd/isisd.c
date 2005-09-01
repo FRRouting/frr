@@ -65,8 +65,7 @@ extern struct thread_master *master;
 void
 isis_new (unsigned long process_id)
 {
-  isis = XMALLOC (MTYPE_ISIS, sizeof (struct isis));
-  bzero (isis, sizeof (struct isis));
+  isis = XCALLOC (MTYPE_ISIS, sizeof (struct isis));
   /*
    * Default values
    */
@@ -91,8 +90,7 @@ isis_area_create ()
 {
   struct isis_area *area;
 
-  area = XMALLOC (MTYPE_ISIS_AREA, sizeof (struct isis_area));
-  memset (area, 0, sizeof (struct isis_area));
+  area = XCALLOC (MTYPE_ISIS_AREA, sizeof (struct isis_area));
 
   /*
    * The first instance is level-1-2 rest are level-1, unless otherwise

@@ -54,8 +54,7 @@ adj_alloc (u_char * id)
 {
   struct isis_adjacency *adj;
 
-  adj = XMALLOC (MTYPE_ISIS_ADJACENCY, sizeof (struct isis_adjacency));
-  memset (adj, 0, sizeof (struct isis_adjacency));
+  adj = XCALLOC (MTYPE_ISIS_ADJACENCY, sizeof (struct isis_adjacency));
   memcpy (adj->sysid, id, ISIS_SYS_ID_LEN);
 
   return adj;
