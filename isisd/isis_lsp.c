@@ -1330,7 +1330,10 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   if (router_id_zebra.s_addr != 0)
     {
       if (lsp->tlv_data.ipv4_addrs == NULL)
-	lsp->tlv_data.ipv4_addrs = list_new ();
+	{
+	  lsp->tlv_data.ipv4_addrs = list_new ();
+	  lsp->tlv_data.ipv4_addrs->del = free_tlv;
+	}
 
       routerid = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct in_addr));
       routerid->s_addr = router_id_zebra.s_addr;
@@ -1362,6 +1365,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 	  if (tlv_data.ipv4_int_reachs == NULL)
 	    {
 	      tlv_data.ipv4_int_reachs = list_new ();
+	      tlv_data.ipv4_int_reachs->del = free_tlv;
 	    }
           for (ALL_LIST_ELEMENTS (circuit->ip_addrs, ipnode, ipnnode, ipv4))
 	    {
@@ -1386,6 +1390,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 	  if (tlv_data.ipv6_reachs == NULL)
 	    {
 	      tlv_data.ipv6_reachs = list_new ();
+	      tlv_data.ipv6_reachs->del = free_tlv;
 	    }
           for (ALL_LIST_ELEMENTS (circuit->ipv6_non_link, ipnode, ipnnode,
                                   ipv6))
@@ -1413,6 +1418,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 	      if (tlv_data.is_neighs == NULL)
 		{
 		  tlv_data.is_neighs = list_new ();
+		  tlv_data.is_neighs->del = free_tlv;
 		}
 	      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 	      if (level == 1)
