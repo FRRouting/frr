@@ -1911,6 +1911,10 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 	}
     }
 
+  /* Reset endp of stream to overwrite only TLV part of it. */
+  lsp->pdu->endp = 0;
+  stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
+
   /*
    * Add the authentication info if it's present
    */

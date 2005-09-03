@@ -1,3 +1,9 @@
+2005-09-03 Hasso Tepper <hasso at quagga.net>
+
+	* isis_lsp.c: Yet another regression introduced by stream cleanup.
+	  Similar fix to the one commited to lsp_build_nonpseudo() some days
+	  ago.
+
 2005-09-01 Hasso Tepper <hasso at quagga.net>
 
 	* isis_lsp.c: Less TLV leaking.
