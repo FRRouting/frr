@@ -1,3 +1,11 @@
+2005-09-05 Hasso Tepper <hasso at quagga.net>
+
+	* *.c: Try to be less verbose by default (without any debug options
+	  on).
+	* isis_lsp.c (lsp_build_nonpseudo): Use stream_reset() instead of
+	  touching endp directly.
+	* isis_lsp.c (lsp_build_pseudo): Ditto.
+
 2005-09-03 Hasso Tepper <hasso at quagga.net>
 
 	* isis_lsp.c: Yet another regression introduced by stream cleanup.

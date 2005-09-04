@@ -325,9 +325,7 @@ main (int argc, char **argv, char **envp)
 
   /* Print banner. */
   zlog_notice ("Quagga-ISISd %s starting: vty@%d", QUAGGA_VERSION, vty_port);
-#ifdef HAVE_IPV6
-  zlog_debug ("IPv6 enabled");
-#endif
+
   /* Start finite state machine. */
   while (thread_fetch (master, &thread))
     thread_call (&thread);

@@ -33,8 +33,10 @@
 #include "stream.h"
 #include "linklist.h"
 
+#include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
+#include "isisd/isisd.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_route.h"
@@ -43,6 +45,8 @@
 struct zclient *zclient = NULL;
 
 extern struct thread_master *master;
+extern struct isis *isis;
+
 struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */
@@ -66,9 +70,9 @@ isis_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
 
   ifp = zebra_interface_add_read (zclient->ibuf);
 
-
-  zlog_debug ("Zebra I/F add: %s index %d flags %ld metric %d mtu %d",
-	      ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+  if (isis->debugs & DEBUG_ZEBRA)
+    zlog_debug ("Zebra I/F add: %s index %d flags %ld metric %d mtu %d",
+		ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
 
   if (if_is_operative (ifp))
     isis_csm_state_change (IF_UP_FROM_Z, circuit_scan_by_ifp (ifp), ifp);
@@ -92,8 +96,9 @@ isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
     zlog_warn ("Zebra: got delete of %s, but interface is still up",
 	       ifp->name);
 
-  zlog_debug ("Zebra I/F delete: %s index %d flags %ld metric %d mtu %d",
-	      ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+  if (isis->debugs & DEBUG_ZEBRA)
+    zlog_debug ("Zebra I/F delete: %s index %d flags %ld metric %d mtu %d",
+		ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
 
 
   /* Cannot call if_delete because we should retain the pseudo interface
@@ -560,7 +565,8 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
 
   if (command == ZEBRA_IPV4_ROUTE_ADD)
     {
-      zlog_debug ("IPv4 Route add from Z");
+      if (isis->debugs & DEBUG_ZEBRA)
+	zlog_debug ("IPv4 Route add from Z");
     }
 
   return 0;

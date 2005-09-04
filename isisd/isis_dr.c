@@ -307,7 +307,8 @@ isis_dr_commence (struct isis_circuit *circuit, int level)
 {
   u_char old_dr[ISIS_SYS_ID_LEN + 2];
 
-  zlog_debug ("isis_dr_commence l%d", level);
+  if (isis->debugs & DEBUG_EVENTS)
+    zlog_debug ("isis_dr_commence l%d", level);
 
   /* Lets keep a pause in DR election */
   circuit->u.bc.run_dr_elect[level - 1] = 0;

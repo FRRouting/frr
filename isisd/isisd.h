@@ -144,5 +144,6 @@ struct isis_area *isis_area_lookup (const char *);
 #define DEBUG_SPF_TRIGGERS               (1<<8)
 #define DEBUG_RTE_EVENTS                 (1<<9)
 #define DEBUG_EVENTS                     (1<<10)
+#define DEBUG_ZEBRA                      (1<<11)
 
 #endif /* ISISD_H */

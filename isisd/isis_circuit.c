@@ -404,7 +404,9 @@ isis_circuit_if_add (struct isis_circuit *circuit, struct interface *ifp)
     }
   else
     {
-      zlog_warn ("isis_circuit_if_add: unsupported media");
+      /* It's normal in case of loopback etc. */
+      if (isis->debugs & DEBUG_EVENTS)
+	zlog_debug ("isis_circuit_if_add: unsupported media");
     }
 
   for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, conn))
@@ -842,7 +844,8 @@ DEFUN (ip_router_isis,
       if (c->ipv6_router == 0)
 	{
 #endif /* HAVE_IPV6 */
-	  vty_out (vty, "ISIS circuit is already defined%s", VTY_NEWLINE);
+	  /* FIXME: Find the way to warn only vty users. */
+	  /* vty_out (vty, "ISIS circuit is already defined%s", VTY_NEWLINE); */
 	  return CMD_WARNING;
 #ifdef HAVE_IPV6
 	}
@@ -852,7 +855,8 @@ DEFUN (ip_router_isis,
   /* this is here for ciscopability */
   if (!area)
     {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+      /* FIXME: Find the way to warn only vty users. */
+      /* vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE); */
       return CMD_WARNING;
     }
 

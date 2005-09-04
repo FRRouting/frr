@@ -1121,14 +1121,17 @@ dontcheckadj:
 		      && circuit->u.bc.is_dr[level - 1] == 1))
 		{
 		  lsp->lsp_header->seq_num = htonl (ntohl (hdr->seq_num) + 1);
-		  zlog_debug ("LSP LEN: %d", ntohs (lsp->lsp_header->pdu_len));
+		  if (isis->debugs & DEBUG_UPDATE_PACKETS)
+		    zlog_debug ("LSP LEN: %d",
+				ntohs (lsp->lsp_header->pdu_len));
 		  iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
 				   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 		  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
-		  zlog_debug
-		    ("ISIS-Upd (%s): (1) re-originating LSP %s new seq 0x%08x",
-		     circuit->area->area_tag, rawlspid_print (hdr->lsp_id),
-		     ntohl (lsp->lsp_header->seq_num));
+		  if (isis->debugs & DEBUG_UPDATE_PACKETS)
+		    zlog_debug ("ISIS-Upd (%s): (1) re-originating LSP %s new "
+				"seq 0x%08x", circuit->area->area_tag,
+				rawlspid_print (hdr->lsp_id),
+				ntohl (lsp->lsp_header->seq_num));
 		  lsp->lsp_header->rem_lifetime =
 		    htons (isis_jitter
 			   (circuit->area->max_lsp_lifetime[level - 1],
@@ -1168,10 +1171,11 @@ dontcheckadj:
 			   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 
 	  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
-	  zlog_debug
-	    ("ISIS-Upd (%s): (2) re-originating LSP %s new seq 0x%08x",
-	     circuit->area->area_tag, rawlspid_print (hdr->lsp_id),
-	     ntohl (lsp->lsp_header->seq_num));
+	  if (isis->debugs & DEBUG_UPDATE_PACKETS)
+	    zlog_debug ("ISIS-Upd (%s): (2) re-originating LSP %s new seq "
+			"0x%08x", circuit->area->area_tag,
+			rawlspid_print (hdr->lsp_id),
+			ntohl (lsp->lsp_header->seq_num));
 	  lsp->lsp_header->rem_lifetime =
 	    htons (isis_jitter
 		   (circuit->area->max_lsp_lifetime[level - 1],

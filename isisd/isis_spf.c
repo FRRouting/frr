@@ -781,8 +781,9 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
 	  if (listcount (adj_list) == 0)
 	    {
 	      list_delete (adj_list);
-	      zlog_warn ("ISIS-Spf: no L%d adjacencies on circuit %s",
-			 level, circuit->interface->name);
+	      if (isis->debugs & DEBUG_SPF_EVENTS)
+		zlog_debug ("ISIS-Spf: no L%d adjacencies on circuit %s",
+			    level, circuit->interface->name);
 	      continue;
 	    }
 	  anode = listhead (adj_list);

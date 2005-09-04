@@ -501,13 +501,11 @@ lsp_new (u_char * lsp_id, u_int16_t rem_lifetime, u_int32_t seq_num,
 
   stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
 
-  /* #ifdef EXTREME_DEBUG */
-  /* logging */
-  zlog_debug ("New LSP with ID %s-%02x-%02x seqnum %08x", sysid_print (lsp_id),
-	      LSP_PSEUDO_ID (lsp->lsp_header->lsp_id),
-	      LSP_FRAGMENT (lsp->lsp_header->lsp_id),
-	      ntohl (lsp->lsp_header->seq_num));
-  /* #endif  EXTREME DEBUG */
+  if (isis->debugs & DEBUG_EVENTS)
+    zlog_debug ("New LSP with ID %s-%02x-%02x seqnum %08x",
+		sysid_print (lsp_id), LSP_PSEUDO_ID (lsp->lsp_header->lsp_id),
+		LSP_FRAGMENT (lsp->lsp_header->lsp_id),
+		ntohl (lsp->lsp_header->seq_num));
 
   return lsp;
 }
@@ -1302,7 +1300,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   /* Reset stream endp. Stream is always there and on every LSP refresh only
    * TLV part of it is overwritten. So we must seek past header we will not
    * touch. */
-  lsp->pdu->endp = 0;
+  stream_reset (lsp->pdu);
   stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
 
   /*
@@ -1912,7 +1910,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
     }
 
   /* Reset endp of stream to overwrite only TLV part of it. */
-  lsp->pdu->endp = 0;
+  stream_reset (lsp->pdu);
   stream_forward_endp (lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
 
   /*
