@@ -1,3 +1,8 @@
+2004-09-05 Paul Jakma <paul@dishone.st>
+
+	* heavy-wq.c: (slow_func_del,slow_func_err) make them take
+	  void * argument to shut up silly gcc warning.
+	  
 2004-05-25 Paul Jakma <paul@dishone.st>
 
 	* main.c: new file, common 'main' portion which then calls

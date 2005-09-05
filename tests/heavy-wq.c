@@ -1,5 +1,5 @@
 /*
- * $Id: heavy-wq.c,v 1.1 2005/04/25 16:42:24 paul Exp $
+ * $Id: heavy-wq.c,v 1.2 2005/09/05 14:00:09 paul Exp $
  *
  * This file is part of Quagga.
  *
@@ -87,8 +87,9 @@ slow_func_err (struct work_queue *wq, struct work_queue_item *item)
 }
 
 static void
-slow_func_del (struct heavy_wq_node *hn)
+slow_func_del (void *data)
 {
+  struct heavy_wq_node *hn = data;
   assert (hn && hn->str);
   XFREE (MTYPE_PREFIX_LIST_STR, hn->str);
   hn->str = NULL;  
@@ -96,8 +97,9 @@ slow_func_del (struct heavy_wq_node *hn)
 }
 
 static wq_item_status
-slow_func (struct heavy_wq_node *hn)
+slow_func (void *data)
 {
+  struct heavy_wq_node *hn = data;
   double x = 1;
   int j;
   
