@@ -1,3 +1,10 @@
+2005-09-05 Paul Jakma <paul.jakma@sun.com>
+
+	* command.c: (install_element) be more robust. Eg, cmd_init
+	  need not have been called, some applications may use other
+	  library subsystems, which call install_element, without the
+          application wanting commands and hence not calling cmd_init.
+        
 2005-08-22 Hugo Santos <hsantos@av.it.pt>
 
 	* command.h: (enum node_type) Add BGP_IPV6M_NODE 

@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.49 2005/08/22 22:39:56 paul Exp $
+   $Id: command.c,v 1.50 2005/09/05 11:54:13 paul Exp $
  
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -35,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */
-vector cmdvec;
+vector cmdvec = NULL;
 
 /* Host information structure. */
 struct host host;
@@ -475,7 +475,11 @@ void
 install_element (enum node_type ntype, struct cmd_element *cmd)
 {
   struct cmd_node *cnode;
-
+  
+  /* cmd_init hasn't been called */
+  if (!cmdvec)
+    return;
+  
   cnode = vector_slot (cmdvec, ntype);
 
   if (cnode == NULL) 
