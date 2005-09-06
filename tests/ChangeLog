@@ -1,3 +1,8 @@
+2004-09-06 Paul Jakma <paul@dishone.st>
+
+	* test-buffer.c: include memory.h
+          (main) call memory_init().
+	
 2004-09-05 Paul Jakma <paul@dishone.st>
 
 	* heavy-wq.c: (slow_func_del,slow_func_err) make them take
