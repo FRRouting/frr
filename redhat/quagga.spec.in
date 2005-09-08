@@ -16,6 +16,7 @@
 %{!?with_ospfclient:	%define		with_ospfclient 1 }
 %{!?with_ospfapi:	%define		with_ospfapi	1 }
 %{!?with_irdp:		%define		with_irdp	1 }
+%{!?with_rtadv:		%define		with_rtadv	1 }
 %{!?with_isisd:		%define		with_isisd	1 }
 %{!?with_shared:	%define		with_shared	1 }
 %{!?with_multipath:	%define		with_multipath	64 }
@@ -70,12 +71,12 @@ Prereq:		net-snmp
 %endif
 %if %{with_vtysh}
 BuildRequires:	readline readline-devel ncurses ncurses-devel
-Prereq:		readline ncurses
+Prereq:		ncurses
 %endif
-BuildRequires:	texinfo tetex autoconf pam-devel patch libcap-devel
+BuildRequires:	texinfo tetex autoconf pam-devel patch libcap-devel texi2html
 # Initscripts > 5.60 is required for IPv6 support
 Prereq:		initscripts >= 5.60
-Prereq:		ncurses readline pam
+Prereq:		ncurses pam
 Prereq:		/sbin/install-info
 Provides:	routingdaemon
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
@@ -167,6 +168,11 @@ developing OSPF-API and quagga applications.
 %else
 	--enable-irdp=no \
 %endif
+%if %{with_rtadv}
+	--enable-rtadv=yes \
+%else
+	--enable-rtadv=no \
+%endif
 %if %{with_isisd}
 	--enable-isisd \
 %else
@@ -187,7 +193,7 @@ developing OSPF-API and quagga applications.
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
 pushd doc
-makeinfo --no-split --html -o quagga.html quagga.texi
+texi2html -glossary -number quagga.texi
 popd
 
 %install
@@ -220,14 +226,21 @@ install -d -m750  $RPM_BUILD_ROOT/var/run/quagga
 %pre
 # add vty_group
 %if %vty_group
-groupadd -r %vty_group 2> /dev/null || :
+if getent group %vty_group > /dev/null ; then : ; else \
+ /usr/sbin/groupadd -r %vty_group > /dev/null || : ; fi
 %endif
+
 # add quagga user and group
 %if %quagga_user
-/usr/sbin/groupadd -g %quagga_gid quagga 2> /dev/null || :
-/usr/sbin/useradd  -u %quagga_uid -g %quagga_gid \
- -M -r -s /sbin/nologin -c "Quagga routing suite" \
- -d %_localstatedir %quagga_user 2> /dev/null || :
+# Ensure that quagga_gid gets correctly allocated
+if getent group %quagga_user >/dev/null; then : ; else \
+ /usr/sbin/groupadd -g %quagga_gid %quagga_user > /dev/null || : ; \
+fi
+if getent passwd %quagga_user >/dev/null ; then : ; else \
+ /usr/sbin/useradd  -u %quagga_uid -g %quagga_gid \
+  -M -r -s /sbin/nologin -c "Quagga routing suite" \
+  -d %_localstatedir %quagga_user 2> /dev/null || : ; \
+fi
 %endif
 
 %post
@@ -270,6 +283,9 @@ done
 # Create dummy files if they don't exist so basic functions can be used.
 if [ ! -e %{_sysconfdir}/zebra.conf ]; then
 	echo "hostname `hostname`" > %{_sysconfdir}/zebra.conf
+%if %{quagga_user}
+	chown %quagga_user:%quagga_user %{_sysconfdir}/zebra.conf
+%endif
 	chmod 640 %{_sysconfdir}/zebra.conf
 fi
 if [ ! -e %{_sysconfdir}/vtysh.conf ]; then
@@ -315,6 +331,7 @@ if [ "$1" -ge 1 ]; then
 	[ "$running_watchquagga" = yes ] && \
 		/etc/rc.d/init.d/watchquagga start >/dev/null 2>&1 || :
 fi
+/sbin/install-info --delete %{_infodir}/quagga.info.gz %{_infodir}/dir
 
 %preun
 if [ "$1" = "0" ]; then
@@ -365,6 +382,7 @@ rm -rf $RPM_BUILD_ROOT
 %endif
 %dir %attr(755,root,root) %{_libdir}
 %if %{with_shared}
+%dir %{_libdir}
 %{_libdir}/lib*.so
 %{_libdir}/lib*.so.*
 %endif
@@ -398,7 +416,13 @@ rm -rf $RPM_BUILD_ROOT
 %endif
 
 %changelog
-%changelog
+* Thu Sep 12 2005 Paul Jakma <paul@dishone.st>
+- Steal some changes from Fedora spec file:
+- Add with_rtadv variable
+- Test for groups/users with getent before group/user adding
+- Readline need not be an explicit prerequisite
+- install-info delete should be postun, not preun
+
 * Wed Jan 12 2005 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 - on package upgrade, implement careful, phased restart logic
 - use gcc -rdynamic flag when linking for better backtraces
