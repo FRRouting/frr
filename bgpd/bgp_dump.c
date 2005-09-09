@@ -56,6 +56,8 @@ enum MRT_MSG_TYPES {
    MSG_TABLE_DUMP               /* routing table dump */
 };
 
+static int bgp_dump_interval_func (struct thread *);
+
 struct bgp_dump
 {
   enum bgp_dump_type type;
@@ -134,7 +136,6 @@ bgp_dump_open_file (struct bgp_dump *bgp_dump)
 static int
 bgp_dump_interval_add (struct bgp_dump *bgp_dump, int interval)
 {
-  static int bgp_dump_interval_func (struct thread *t);
   int interval2, secs_into_day;
   time_t t;
   struct tm *tm;

@@ -1,3 +1,9 @@
+2005-09-10 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_vty.c: (bgp_vty_init) gcc 4 compile fix. static
+	  function declarations shouldn't be inside functions.
+	* bgp_dump.c: (bgp_dump_interval_add) ditto.
+	
 2005-08-26 Hasso Tepper <hasso at quagga.net>
 
 	* bgp_route.c: Third (?) attempt to fix best selection breakage

@@ -8583,11 +8583,11 @@ struct cmd_node bgp_vpnv4_node =
   1
 };
 
+static void community_list_vty (void);
+
 void
 bgp_vty_init (void)
 {
-  static void community_list_vty (void);
-
   /* Install bgp top node. */
   install_node (&bgp_node, bgp_config_write);
   install_node (&bgp_ipv4_unicast_node, NULL);
