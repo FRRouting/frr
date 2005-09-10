@@ -1,4 +1,10 @@
-2004-09-06 Paul Jakma <paul@dishone.st>
+2005-09-06 Paul Jakma <paul@dishone.st>
+
+	* aspath_test.c: Test bgp_aspath functionality.
+	* Makefile.am: build aspathtest
+	* ChangeLog: Fix date of previous commit
+
+2005-09-06 Paul Jakma <paul@dishone.st>
 
 	* test-buffer.c: include memory.h
           (main) call memory_init().
