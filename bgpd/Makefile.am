@@ -21,10 +21,8 @@ noinst_HEADERS = \
 	bgp_ecommunity.h bgp_mplsvpn.h bgp_nexthop.h bgp_damp.h bgp_table.h \
 	bgp_advertise.h bgp_snmp.h bgp_vty.h
 
-bgpd_SOURCES = \
-	bgp_main.c $(libbgp_a_SOURCES)
-
-bgpd_LDADD = ../lib/libzebra.la @LIBCAP@
+bgpd_SOURCES = bgp_main.c
+bgpd_LDADD = libbgp.a ../lib/libzebra.la @LIBCAP@
 
 examplesdir = $(exampledir)
 dist_examples_DATA = bgpd.conf.sample bgpd.conf.sample2

@@ -268,24 +268,28 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist)
   /* 4. AS path length check. */
   if (! bgp_flag_check (bgp, BGP_FLAG_ASPATH_IGNORE))
     {
+      int exist_hops = aspath_count_hops (exist->attr->aspath);
+      int exist_confeds = aspath_count_confeds (exist->attr->aspath);
+      
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_CONFED))
 	{
-	  if ((new->attr->aspath->count +
-	       new->attr->aspath->confed_count)
-	      < (exist->attr->aspath->count +
-		 exist->attr->aspath->confed_count))
+	  int aspath_hops;
+	  
+	  aspath_hops = aspath_count_hops (new->attr->aspath);
+          aspath_hops += aspath_count_confeds (new->attr->aspath);
+          
+	  if ( aspath_hops < (exist_hops + exist_confeds))
 	    return 1;
-	  if ((new->attr->aspath->count +
-	       new->attr->aspath->confed_count)
-	      > (exist->attr->aspath->count +
-		 exist->attr->aspath->confed_count))
+	  if ( aspath_hops > (exist_hops + exist_confeds))
 	    return 0;
 	}
       else
 	{
-	  if (new->attr->aspath->count < exist->attr->aspath->count)
+	  int newhops = aspath_count_hops (new->attr->aspath);
+	  
+	  if (newhops < exist_hops)
 	    return 1;
-          if (new->attr->aspath->count > exist->attr->aspath->count)
+          if (newhops > exist_hops)
 	    return 0;
 	}
     }
@@ -297,12 +301,12 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist)
     return 0;
 
   /* 6. MED check. */
-  internal_as_route = (new->attr->aspath->length == 0
-		      && exist->attr->aspath->length == 0);
-  confed_as_route = (new->attr->aspath->length > 0
-		    && exist->attr->aspath->length > 0
-		    && new->attr->aspath->count == 0
-		    && exist->attr->aspath->count == 0);
+  internal_as_route = (aspath_count_hops (new->attr->aspath) == 0
+		      && aspath_count_hops (exist->attr->aspath) == 0);
+  confed_as_route = (aspath_count_confeds (new->attr->aspath) > 0
+		    && aspath_count_confeds (exist->attr->aspath) > 0
+		    && aspath_count_hops (new->attr->aspath) == 0
+		    && aspath_count_hops (exist->attr->aspath) == 0);
   
   if (bgp_flag_check (bgp, BGP_FLAG_ALWAYS_COMPARE_MED)
       || (bgp_flag_check (bgp, BGP_FLAG_MED_CONFED)
@@ -1573,7 +1577,6 @@ static void
 bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
 		  afi_t afi, safi_t safi)
 {
-  int valid;
   int status = BGP_DAMP_NONE;
 
   if (!CHECK_FLAG (ri->flags, BGP_INFO_HISTORY)
@@ -5371,7 +5374,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (attr->aspath)
 	{
 	  vty_out (vty, "  ");
-	  if (attr->aspath->length == 0)
+	  if (aspath_count_hops (attr->aspath) == 0)
 	    vty_out (vty, "Local");
 	  else
 	    aspath_print_vty (vty, attr->aspath);

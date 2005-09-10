@@ -782,8 +782,7 @@ bgp4PathAttrTable (struct variable *v, oid name[], size_t *length,
       return SNMP_INTEGER (binfo->attr->origin);
       break;
     case BGP4PATHATTRASPATHSEGMENT: /* 5 */
-      *var_len = binfo->attr->aspath->length;
-      return (u_char *) binfo->attr->aspath->data;
+      return aspath_snmp_pathseg (binfo->attr->aspath, var_len);
       break;
     case BGP4PATHATTRNEXTHOP:	/* 6 */
       return SNMP_IPADDRESS (binfo->attr->nexthop);

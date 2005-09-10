@@ -33,24 +33,24 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #define BGP_AS_MAX		 65535U
 
+/* AS_PATH segment data in abstracted form, no limit is placed on length */
+struct assegment
+{
+  struct assegment *next;
+  as_t *as;
+  u_short length;
+  u_char type;
+};
+
 /* AS path may be include some AsSegments.  */
 struct aspath 
 {
   /* Reference count to this aspath.  */
   unsigned long refcnt;
 
-  /* Rawdata length.  */
-  int length;
-
-  /* AS count.  */
-  int count;
-
-  /* Confederation set/segment AS count. */
-  int confed_count;
+  /* segment data */
+  struct assegment *segments;
   
-  /* Rawdata.  */
-  caddr_t data;
-
   /* String expression of AS path.  This string is used by vty output
      and AS path regular expression match.  */
   char *str;
@@ -60,7 +60,7 @@ struct aspath
 
 /* Prototypes. */
 extern void aspath_init (void);
-extern struct aspath *aspath_parse (caddr_t, int);
+extern struct aspath *aspath_parse (struct stream *, size_t);
 extern struct aspath *aspath_dup (struct aspath *);
 extern struct aspath *aspath_aggregate (struct aspath *, struct aspath *);
 extern struct aspath *aspath_prepend (struct aspath *, struct aspath *);
@@ -83,5 +83,12 @@ extern int aspath_loop_check (struct aspath *, as_t);
 extern int aspath_private_as_check (struct aspath *);
 extern int aspath_firstas_check (struct aspath *, as_t);
 extern unsigned long aspath_count (void);
+extern unsigned int aspath_count_hops (struct aspath *);
+extern unsigned int aspath_count_confeds (struct aspath *);
+extern unsigned int aspath_size (struct aspath *);
+extern void aspath_put (struct stream *, struct aspath *);
+
+/* For SNMP BGP4PATHATTRASPATHSEGMENT, might be useful for debug */
+extern u_char *aspath_snmp_pathseg (struct aspath *, size_t *);
 
 #endif /* _QUAGGA_BGP_ASPATH_H */

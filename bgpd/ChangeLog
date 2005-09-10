@@ -1,5 +1,105 @@
 2005-09-10 Paul Jakma <paul.jakma@sun.com>
 
+	* Makefile.am: bgpd shouldn't list libgp's sources as its own.
+	  Use LDADD.
+	* bgp_aspath.h:	
+	  (struct assegment) New struct, abstract representation of a
+	  list of AS_PATH segments and the contained ASNs.	  
+	  (struct aspath) Remove the raw-data related
+	  fields, reference the abstract struct assegment instead. 
+	  Remove several other computed fields, it's just a
+	  headache to maintain them and they're cheap to compute from
+	  struct assegment.
+	  (aspath_parse) parse a stream, not a pointer to raw data.
+	  (aspath_count_{hops,confeds,size}) helpers to access
+	  information formerly directly contained in struct aspath.
+	  (aspath_snmp_pathseg) Helper for SNMP, BGP MIB wants
+	  to be able to output hex representation of raw data.
+	* bgp_aspath.c: (general) partial-rewrite. Store aspath data
+	  as an abstract singly-linked list of abstract segments,
+          rather than storing the raw data, and parsing it each and
+	  every time. Remove several count/size fields which are cheap
+	  to compute from the abstract segment structure.
+	  (global) Include stream.h, needed for aspath_parse, and
+	  others. Couple of helper macros added.
+	  (struct assegment_header) Just the header, and only the
+	  header.
+	  (assegment_data_{new,free}) convenience functions for
+	  AS_SEG_DATA allocation, the dynamic, per-segment array of
+	  ASNs.
+	  (assegment_{new,free,free_all,dup,dup_all}) convenience
+	  functions for creating struct assegments. The _all forms will
+	  follow the entire chain of segments from the given segment.
+	  (assegment_prepend_asns) new function, prepend an ASN N times
+	  to segment.
+ 	  (assegment_append_asns) Append a list (array) of ASNs to
+	  segment.
+	  (int_cmp) convenience function for the aspath hash.
+	  (assegment_normalise) new function. Normalise the given
+	  segment chain to meet expectations of Quagga, and to
+	  eliminate differing raw representations of the same paths.
+	  Merge 'runs' of SEQUENCEs into one segment as our internal
+	  segment is not limited by the protocol AS_PATH segment
+	  length. Sort ASNs in SETs. 
+	  (aspath_new) Take void argument to quell warnings. Use the
+	  assegment convenience functions.
+	  (assegment_count_{asns,confeds,hops}) new functions to
+	  compute at runtime values previously held in struct aspath.
+	  (aspath_size) ditto.
+	  (aspath_make_str_count) rewritten to stringify new
+	  representation, and to be slightly easier to understand
+	  hopefully.
+	  (aspath_str_update) convenience function, update the aspath
+	  str. Should investigate removing maintained string from
+	  struct aspath, just run-time compute it, as per other fields.
+	  It's just a maintenance headache, would save noticeable
+	  amount of RAM with possibly not much extra run-time cost.
+	  (aspath_dup) use the assegment dup functions.
+	  (aspath_hash_alloc) Take void * argument to satisfy gcc. Use
+	  the proper helper functions to dup data.
+	  (assegments_parse) new function. parse raw AS_PATH data into
+	  struct assegments. Normalise and return the head of the list.
+	  (aspath_parse) Parse a stream, not pointer to raw data and
+	  use assegments_parse to do it.
+	  (assegment_data_put) Write out a single segment data in protocol
+	  form to stream.
+	  (assegment_header_put) ditto but for segment header.
+	  (aspath_put) new function. As per previous but for an entire
+	  struct aspath.
+	  (aspath_snmp_pathseg) wrapper around aspath_put for
+	  bgp_snmp.c. Uses a static buffer sadly.
+	  (aspath_aggregate_as_set_add) rewritten to use assegments.
+	  (aspath_aggregate) ditto
+	  (aspath_{firstas,loop,private_as}_check) ditto
+	  (aspath_{merge,prepend,add_one_as}) ditto
+	  (aspath_cmp_left{_confed}) ditto
+	  (aspath_delete_confed_seq) ditto, plus fixed to properly
+	  delete all leading confed segments.
+	  (aspath_as_add) Just use assegment_append_asns.
+	  (aspath_segment_add) updated to use assegments.
+	  (enum as_token) Add values for confeds
+	  (aspath_gettoken) Add support for confeds
+	  (aspath_str2aspath) ditto
+	  (aspath_key_make) updated to use as_segments. Also, add
+	  segment type into the hash value as appropriate.
+	  (aspath_cmp) updated to use as_segments.
+	  (aspath_print) don't segfault on NULL argument.
+	* bgp_attr.c: (bgp_attr_aspath) aspath_parse wants the stream
+	  now. No need for manual forwarding of stream.
+	  (bgp_packet_attribute) empty aspath is now denoted by NULL
+	  segment field, length is gone.
+	  Use aspath_size() to determine size.
+	  (bgp_attr_init) Fix declaration, explicitely specify void
+	  arg.
+	  (bgp_dump_routes_attr) Use aspath_size() to determine size.
+	* bgp_route.c: (bgp_info_cmp) use the aspath_count_* functions.
+	  (bgp_rib_withdraw) remove unused variable. Use
+	  aspath_count_hops.
+	* bgp_snmp.c: (bgp4PathAttrTable) raw data is gone, use 
+	  aspath_snmp_pathseg to get the representation.
+
+2005-09-10 Paul Jakma <paul.jakma@sun.com>
+
 	* bgp_vty.c: (bgp_vty_init) gcc 4 compile fix. static
 	  function declarations shouldn't be inside functions.
 	* bgp_dump.c: (bgp_dump_interval_add) ditto.

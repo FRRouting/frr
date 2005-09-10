@@ -663,7 +663,7 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
     }
 
   /* In case of IBGP, length will be zero. */
-  attr->aspath = aspath_parse (stream_pnt (peer->ibuf), length);
+  attr->aspath = aspath_parse (peer->ibuf, length);
   if (! attr->aspath)
     {
       zlog (peer->log, LOG_ERR, "Malformed AS path length is %d", length);
@@ -701,7 +701,7 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
     }
 
   /* Forward pointer. */
-  stream_forward_getp (peer->ibuf, length);
+/*  stream_forward_getp (peer->ibuf, length);*/
 
   /* Set aspath attribute flag. */
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AS_PATH);
@@ -1341,7 +1341,8 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 		      afi_t afi, safi_t safi, struct peer *from,
 		      struct prefix_rd *prd, char *tag)
 {
-  unsigned long cp;
+  size_t cp;
+  unsigned int aspath_data_size;
   struct aspath *aspath;
 
   if (! bgp)
@@ -1361,7 +1362,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   /* If remote-peer is EBGP */
   if (peer_sort (peer) == BGP_PEER_EBGP
       && (! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED)
-	  || attr->aspath->length == 0)
+	  || attr->aspath->segments == NULL)
       && (! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)))
     {    
       aspath = aspath_dup (attr->aspath);
@@ -1390,19 +1391,20 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     aspath = attr->aspath;
 
   /* AS path attribute extended length bit check. */
-  if (aspath->length > 255)
+  aspath_data_size = aspath_size (aspath);
+  if (aspath_data_size > 255)
     {
       stream_putc (s, BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_EXTLEN);
       stream_putc (s, BGP_ATTR_AS_PATH);
-      stream_putw (s, aspath->length);
+      stream_putw (s, aspath_data_size);
     }
   else
     {
       stream_putc (s, BGP_ATTR_FLAG_TRANS);
-      stream_putc(s, BGP_ATTR_AS_PATH);
-      stream_putc (s, aspath->length);
+      stream_putc (s, BGP_ATTR_AS_PATH);
+      stream_putc (s, aspath_data_size);
     }
-  stream_put (s, aspath->data, aspath->length);
+  aspath_put (s, aspath);
 
   if (aspath != attr->aspath)
     aspath_free (aspath);
@@ -1735,7 +1737,7 @@ bgp_packet_withdraw (struct peer *peer, struct stream *s, struct prefix *p,
 
 /* Initialization of attribute. */
 void
-bgp_attr_init ()
+bgp_attr_init (void)
 {
   void attrhash_init ();
 
@@ -1754,6 +1756,7 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
 {
   unsigned long cp;
   unsigned long len;
+  unsigned int aspathlen;
   struct aspath *aspath;
 
   /* Remember current pointer. */
@@ -1770,19 +1773,19 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
 
   aspath = attr->aspath;
 
-  if (aspath->length > 255)
+  if ( (aspathlen = aspath_size (aspath)) > 255 )
     {
       stream_putc (s, BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_EXTLEN);
       stream_putc (s, BGP_ATTR_AS_PATH);
-      stream_putw (s, aspath->length);
+      stream_putw (s, aspathlen);
     }
   else
     {
       stream_putc (s, BGP_ATTR_FLAG_TRANS);
       stream_putc (s, BGP_ATTR_AS_PATH);
-      stream_putc (s, aspath->length);
+      stream_putc (s, aspathlen);
     }
-  stream_put (s, aspath->data, aspath->length);
+  aspath_put (s, aspath);
 
   /* Nexthop attribute. */
   /* If it's an IPv6 prefix, don't dump the IPv4 nexthop to save space */
