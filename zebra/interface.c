@@ -1150,7 +1150,7 @@ ip_address_install (struct vty *vty, struct interface *ifp,
       return CMD_WARNING;
     }
 
-  ifc = connected_check_ipv4 (ifp, (struct prefix *) &cp);
+  ifc = connected_check (ifp, (struct prefix *) &cp);
   if (! ifc)
     {
       ifc = connected_new ();
@@ -1236,7 +1236,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
     }
 
   /* Check current interface address. */
-  ifc = connected_check_ipv4 (ifp, (struct prefix *) &cp);
+  ifc = connected_check (ifp, (struct prefix *) &cp);
   if (! ifc)
     {
       vty_out (vty, "%% Can't find address%s", VTY_NEWLINE);
@@ -1346,7 +1346,7 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
       return CMD_WARNING;
     }
 
-  ifc = connected_check_ipv6 (ifp, (struct prefix *) &cp);
+  ifc = connected_check (ifp, (struct prefix *) &cp);
   if (! ifc)
     {
       ifc = connected_new ();
@@ -1425,7 +1425,7 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
     }
 
   /* Check current interface address. */
-  ifc = connected_check_ipv6 (ifp, (struct prefix *) &cp);
+  ifc = connected_check (ifp, (struct prefix *) &cp);
   if (! ifc)
     {
       vty_out (vty, "%% Can't find address%s", VTY_NEWLINE);

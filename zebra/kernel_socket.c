@@ -623,8 +623,17 @@ rtm_read (struct rt_msghdr *rtm)
 	p.prefixlen = IPV4_MAX_PREFIXLEN;
       else
 	p.prefixlen = ip_masklen (mask.sin.sin_addr);
-
-      if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD)
+      
+      /* Change, delete the old prefix, we have no further information
+       * to specify the route really
+       */
+      if (rtm->rtm_type == RTM_CHANGE)
+        rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p,
+                         NULL, 0, 0);
+      
+      if (rtm->rtm_type == RTM_GET 
+          || rtm->rtm_type == RTM_ADD
+          || rtm->rtm_type == RTM_CHANGE)
 	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, 
 		      &p, &gate.sin.sin_addr, 0, 0, 0, 0);
       else
@@ -652,7 +661,16 @@ rtm_read (struct rt_msghdr *rtm)
 	}
 #endif /* KAME */
 
-      if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD)
+      /* CHANGE: delete the old prefix, we have no further information
+       * to specify the route really
+       */
+      if (rtm->rtm_type == RTM_CHANGE)
+        rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p,
+                         NULL, 0, 0);
+      
+      if (rtm->rtm_type == RTM_GET 
+          || rtm->rtm_type == RTM_ADD
+          || rtm->rtm_type == RTM_CHANGE)
 	rib_add_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags,
 		      &p, &gate.sin6.sin6_addr, ifindex, 0, 0, 0);
       else
@@ -920,6 +938,7 @@ kernel_read (struct thread *thread)
     {
     case RTM_ADD:
     case RTM_DELETE:
+    case RTM_CHANGE:
       rtm_read (rtm);
       break;
     case RTM_IFINFO:

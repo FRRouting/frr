@@ -1,3 +1,31 @@
+2005-09-12 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) RTM_CHANGE and implicit withdraw on RTM_NEWADDR
+	  support.
+	* connected.c: (connected_withdraw) new function. withdraw a
+	  connected subnet address set from zebra, and pass information
+	  along to clients.
+	  (connected_announce) similar, but to announce a new connected
+	  subnet address set.
+	  (connected_check_ipv4) renamed to connected_check, as its
+	  AFI independent.
+	  (connected_add_ipv{4,6}) Remove the connected address announce
+	  stuff, use connected_announce instead.
+	  If connected_check indicates address is already present,
+	  treat it as an implicit withdraw of the existing address, ie
+	  remove the old address details and replace with the new
+	  details.
+	  (connected_delete_ipv{4,6}) Use connected_withdraw.
+	  (connected_check_ipv6) deleted in favour of connected_check.
+	* connected.h: Rename connected_check_ipv4 to connected_check.
+	  delete connected_check_ipv6.
+	* interface.c: Use connected_check rather than the AFI specific
+	  symbols.
+	* kernel_socket.c: (rtm_read) RTM_CHANGE support. Create a 
+	  rib delete event for the existing route, before adding route
+	  again.
+	  (kernel_read) we can handle RTM_CHANGE now.
+
 2005-08-27 Hasso Tepper <hasso at quagga.net>
 
 	* zebra_rib.c, rib.h: Add distance and metric arguments to the
