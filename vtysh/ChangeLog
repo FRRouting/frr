@@ -1,3 +1,8 @@
+2005-09-15 Hasso Tepper <hasso at quagga.net>
+
+	* vtysh.c: Fix warning by casting rl_bind_key 2. argument correctly.
+	* extract.pl.in: Fix warning - add isisd/topology to the includes.
+
 2005-08-22 Hugo Santos <hsantos@av.it.pt>
 
 	* vtysh.c: Add support for BGP_IPV6M_NODE

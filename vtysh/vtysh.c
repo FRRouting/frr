@@ -2099,7 +2099,7 @@ void
 vtysh_readline_init (void)
 {
   /* readline related settings. */
-  rl_bind_key ('?', vtysh_rl_describe);
+  rl_bind_key ('?', (Function *) vtysh_rl_describe);
   rl_completion_entry_function = vtysh_completion_entry_function;
   rl_attempted_completion_function = (CPPFunction *)new_completion;
   /* do not append space after completion. It will be appended
