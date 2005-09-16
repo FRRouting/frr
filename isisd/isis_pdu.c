@@ -1085,7 +1085,8 @@ dontcheckadj:
 	      /* 7.3.16.4 b) 1)  */
 	      if (comp == LSP_NEWER)
 		{
-		  lsp_update (lsp, hdr, circuit->rcv_stream, circuit->area);
+		  lsp_update (lsp, hdr, circuit->rcv_stream, circuit->area,
+			      level);
 		  /* ii */
 		  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
 		  /* iii */
@@ -1239,7 +1240,7 @@ dontcheckadj:
       else if (comp == LSP_EQUAL)
 	{
 	  ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
-	  lsp_update (lsp, hdr, circuit->rcv_stream, circuit->area);
+	  lsp_update (lsp, hdr, circuit->rcv_stream, circuit->area, level);
 	  if (circuit->circ_type != CIRCUIT_T_BROADCAST)
 	    {
 	      ISIS_SET_FLAG (lsp->SSNflags, circuit);

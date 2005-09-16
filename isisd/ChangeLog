@@ -1,3 +1,10 @@
+2005-09-16 Hasso Tepper <hasso at quagga.net>
+
+	* isis_lsp.c (lsp_update): Remove LSP from database before updating
+	  its data and put it back after. Database entry MUST contain at least
+	  correct pointers to the sysid to get correct compare results.
+	* isis_lsp.[ch], isis_pdu.c: Pass level to the lsp_update() function.
+
 2005-09-05 Hasso Tepper <hasso at quagga.net>
 
 	* *.c: Try to be less verbose by default (without any debug options

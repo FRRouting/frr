@@ -416,8 +416,14 @@ lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
 
 void
 lsp_update (struct isis_lsp *lsp, struct isis_link_state_hdr *lsp_hdr,
-	    struct stream *stream, struct isis_area *area)
+	    struct stream *stream, struct isis_area *area, int level)
 {
+  dnode_t *dnode;
+
+  /* Remove old LSP from LSP database. */
+  dnode = dict_lookup (area->lspdb[level], lsp->lsp_header->lsp_id);
+  dnode_destroy (dict_delete (area->lspdb[level], dnode));
+
   /* free the old lsp data */
   XFREE (MTYPE_STREAM_DATA, lsp->pdu);
   lsp_clear_data (lsp);
@@ -427,6 +433,9 @@ lsp_update (struct isis_lsp *lsp, struct isis_link_state_hdr *lsp_hdr,
 
   /* set the new values for lsp header */
   memcpy (lsp->lsp_header, lsp_hdr, ISIS_LSP_HDR_LEN);
+
+  /* Put LSP back into LSP database, now with updated data. */
+  lsp_insert (lsp, area->lspdb[level]);
 }
 
 /* creation of LSP directly from what we received */
