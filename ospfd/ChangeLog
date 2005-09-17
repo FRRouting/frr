@@ -1,3 +1,9 @@
+2005-09-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_opaque.c:
+	  (ospf_opaque_lsa_refresh_schedule,ospf_opaque_lsa_flush_schedule)
+	  No need to call ospf_lookup(), just use lsa0->area->ospf instead.
+
 2005-08-21 Hasso Tepper <hasso at quagga.net>
 
 	* ospf_vty.c: Make "show ip ospf neighbor xxx" commands work.

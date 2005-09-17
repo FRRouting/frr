@@ -1982,13 +1982,10 @@ out:
 void
 ospf_opaque_lsa_refresh_schedule (struct ospf_lsa *lsa0)
 {
-  struct ospf *ospf = ospf;
   struct opaque_info_per_type *oipt;
   struct opaque_info_per_id *oipi;
   struct ospf_lsa *lsa;
   int delay;
-
-  ospf = ospf_lookup ();
 
   if ((oipt = lookup_opaque_info_by_type (lsa0)) == NULL
   ||  (oipi = lookup_opaque_info_by_id (oipt, lsa0)) == NULL)
@@ -2019,7 +2016,7 @@ ospf_opaque_lsa_refresh_schedule (struct ospf_lsa *lsa0)
       ospf_ls_retransmit_delete_nbr_area (lsa->area, lsa);
       break;
     case OSPF_OPAQUE_AS_LSA:
-      ospf_ls_retransmit_delete_nbr_as (ospf, lsa);
+      ospf_ls_retransmit_delete_nbr_as (lsa0->area->ospf, lsa);
       break;
     default:
       zlog_warn ("ospf_opaque_lsa_refresh_schedule: Unexpected LSA-type(%u)", lsa->data->type);
@@ -2061,12 +2058,9 @@ ospf_opaque_lsa_refresh_timer (struct thread *t)
 void
 ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa0)
 {
-  struct ospf *ospf = ospf;
   struct opaque_info_per_type *oipt;
   struct opaque_info_per_id *oipi;
   struct ospf_lsa *lsa;
-
-  ospf = ospf_lookup ();
 
   if ((oipt = lookup_opaque_info_by_type (lsa0)) == NULL
   ||  (oipi = lookup_opaque_info_by_id (oipt, lsa0)) == NULL)
@@ -2090,7 +2084,7 @@ ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa0)
       ospf_ls_retransmit_delete_nbr_area (lsa->area, lsa);
       break;
     case OSPF_OPAQUE_AS_LSA:
-      ospf_ls_retransmit_delete_nbr_as (ospf, lsa);
+      ospf_ls_retransmit_delete_nbr_as (lsa0->area->ospf, lsa);
       break;
     default:
       zlog_warn ("ospf_opaque_lsa_flush_schedule: Unexpected LSA-type(%u)", lsa->data->type);
@@ -2114,7 +2108,7 @@ ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa0)
     zlog_debug ("Schedule Type-%u Opaque-LSA to FLUSH: [opaque-type=%u, opaque-id=%x]", lsa->data->type, GET_OPAQUE_TYPE (ntohl (lsa->data->id.s_addr)), GET_OPAQUE_ID (ntohl (lsa->data->id.s_addr)));
 
   /* This lsa will be flushed and removed eventually. */
-  ospf_lsa_maxage (ospf, lsa);
+  ospf_lsa_maxage (lsa0->area->ospf, lsa);
 
 out:
   return;
