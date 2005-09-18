@@ -1,3 +1,8 @@
+2005-09-18 Hasso Tepper <hasso at quagga.net>
+
+	* isis_lsp.c (lsp_update): Fix previous commit - manipulate the right
+	  database and only if LSP is really in the database (sanity check).
+
 2005-09-16 Hasso Tepper <hasso at quagga.net>
 
 	* isis_lsp.c (lsp_update): Remove LSP from database before updating
