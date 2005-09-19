@@ -11,6 +11,9 @@
 
  Note that these are not terribly efficient, since they make more than one
  pass over the argument strings.  At some point, they should be optimized.
+ 
+ The implementation of strndup is copied from glibc-2.3.5:
+    Copyright (C) 1996, 1997, 1998, 2001, 2002 Free Software Foundation, Inc.
 */
 
 
@@ -87,5 +90,20 @@ strnlen(const char *s, size_t maxlen)
 {
   const char *p;
   return (p = (const char *)memchr(s, '\0', maxlen)) ? (size_t)(p-s) : maxlen;
+}
+#endif
+
+#ifndef HAVE_STRNDUP
+char *
+strndup (const char *s, size_t maxlen)
+{
+    size_t len = strnlen (s, maxlen);
+    char *new = (char *) malloc (len + 1);
+
+    if (new == NULL)
+      return NULL;
+
+    new[len] = '\0';
+    return (char *) memcpy (new, s, len);
 }
 #endif

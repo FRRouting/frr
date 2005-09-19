@@ -1,3 +1,7 @@
+2005-09-19 Hasso Tepper <hasso at quagga.net>
+
+	* str.[ch]: Add strndup() from glibc.
+
 2005-09-05 Paul Jakma <paul.jakma@sun.com>
 
 	* command.c: (install_element) be more robust. Eg, cmd_init

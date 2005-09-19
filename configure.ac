@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.111 2005/08/25 14:50:05 paul Exp $
+## $Id: configure.ac,v 1.112 2005/09/19 09:53:21 hasso Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.1, [http://bugzilla.quagga.net])
@@ -497,7 +497,7 @@ dnl check existance of functions
 dnl ----------------------------
 AC_CHECK_FUNCS(memset memcpy strerror inet_aton daemon snprintf vsnprintf \
                strlcat strlcpy if_nametoindex if_indextoname getifaddrs \
-	       fcntl strnlen)
+	       fcntl strnlen strndup)
 AC_CHECK_FUNCS(setproctitle, ,
   [AC_CHECK_LIB(util, setproctitle, 
      [LIBS="$LIBS -lutil"

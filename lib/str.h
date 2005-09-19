@@ -1,5 +1,5 @@
 /*
- * $Id: str.h,v 1.3 2005/05/06 21:25:49 paul Exp $
+ * $Id: str.h,v 1.4 2005/09/19 09:53:21 hasso Exp $
  */
 
 #ifndef _ZEBRA_STR_H
@@ -23,6 +23,10 @@ extern size_t strlcat(char *, const char *, size_t);
 
 #ifndef HAVE_STRNLEN
 extern size_t strnlen(const char *s, size_t maxlen);
+#endif
+
+#ifndef HAVE_STRNDUP
+extern char * strndup (const char *, size_t);
 #endif
 
 #endif /* _ZEBRA_STR_H */
