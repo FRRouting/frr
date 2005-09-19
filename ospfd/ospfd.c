@@ -620,7 +620,7 @@ ospf_network_set (struct ospf *ospf, struct prefix_ipv4 *p,
 	  if (ospf_external_info_find_lsa (ospf, &ei->p))
 	    if (!ospf_distribute_check_connected (ospf, ei))
 	      ospf_external_lsa_flush (ospf, ei->type, &ei->p,
-				       ei->ifindex, ei->nexthop);
+				       ei->ifindex /*, ei->nexthop */);
 
   ospf_area_check_free (ospf, area_id);
 

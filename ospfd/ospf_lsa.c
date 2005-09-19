@@ -2137,7 +2137,7 @@ ospf_nssa_lsa_flush (struct ospf *ospf, struct prefix_ipv4 *p)
 void
 ospf_external_lsa_flush (struct ospf *ospf,
 			 u_char type, struct prefix_ipv4 *p,
-			 unsigned int ifindex, struct in_addr nexthop)
+			 unsigned int ifindex /*, struct in_addr nexthop */)
 {
   struct ospf_lsa *lsa;
 
@@ -2261,7 +2261,7 @@ ospf_external_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa,
                    "redist check fail", 
                    lsa->data->type, inet_ntoa (lsa->data->id));
       ospf_external_lsa_flush (ospf, ei->type, &ei->p,
-			       ei->ifindex, ei->nexthop);
+			       ei->ifindex /*, ei->nexthop */);
       return;
     }
 

@@ -6054,13 +6054,12 @@ DEFUN (no_ospf_default_information_originate,
 {
   struct ospf *ospf = vty->index;
   struct prefix_ipv4 p;
-  struct in_addr nexthop;
     
   p.family = AF_INET;
   p.prefix.s_addr = 0;
   p.prefixlen = 0;
 
-  ospf_external_lsa_flush (ospf, DEFAULT_ROUTE, &p, 0, nexthop);
+  ospf_external_lsa_flush (ospf, DEFAULT_ROUTE, &p, 0);
 
   if (EXTERNAL_INFO (DEFAULT_ROUTE)) {
     ospf_external_info_delete (DEFAULT_ROUTE, p);

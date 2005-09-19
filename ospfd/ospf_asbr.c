@@ -287,7 +287,8 @@ ospf_redistribute_withdraw (u_char type)
 	    if (is_prefix_default (&ei->p) &&
 		ospf->default_originate != DEFAULT_ORIGINATE_NONE)
 	      continue;
-	    ospf_external_lsa_flush (ospf, type, &ei->p, ei->ifindex, ei->nexthop);
+	    ospf_external_lsa_flush (ospf, type, &ei->p,
+				     ei->ifindex /*, ei->nexthop */);
 	    ospf_external_info_delete (type, ei->p);
 	  }
 }

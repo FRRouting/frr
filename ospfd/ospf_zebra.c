@@ -869,7 +869,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
       if (is_prefix_default (&p))
         ospf_external_lsa_refresh_default (ospf);
       else
-        ospf_external_lsa_flush (ospf, api.type, &p, ifindex, nexthop);
+        ospf_external_lsa_flush (ospf, api.type, &p, ifindex /*, nexthop */);
     }
 
   return 0;

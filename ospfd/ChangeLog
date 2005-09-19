@@ -1,3 +1,19 @@
+2005-09-19 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_lsa.h: (ospf_external_lsa_flush) Comment out the 5th argument
+	  (nexthop) since it is not used in the function (except inside
+	  some commented-out code).
+	* ospf_lsa.c: (ospf_external_lsa_flush,ospf_external_lsa_refresh)
+	  Comment out the 5th argument to ospf_external_lsa_flush.
+	* ospf_asbr.c: (ospf_redistribute_withdraw) Comment out 5th arg
+	  to ospf_external_lsa_flush.
+	* ospf_vty.c: (no_ospf_default_information_originate) Eliminate 5th
+	  uninitialized nexthop arg to ospf_external_lsa_flush.
+	* ospf_zebra.c: (ospf_zebra_read_ipv4) Comment out 5th arg
+	  to ospf_external_lsa_flush.
+	* ospfd.c: (ospf_network_set) Comment out 5th arg
+	  to ospf_external_lsa_flush.
+
 2005-09-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_opaque.c:

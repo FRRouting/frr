@@ -272,7 +272,7 @@ extern struct ospf_lsa *ospf_lsa_install (struct ospf *,
 
 extern void ospf_nssa_lsa_flush (struct ospf *ospf, struct prefix_ipv4 *p);
 extern void ospf_external_lsa_flush (struct ospf *, u_char, struct prefix_ipv4 *,
-			      unsigned int, struct in_addr);
+			      unsigned int /* , struct in_addr nexthop */);
 
 extern struct in_addr ospf_get_ip_from_ifp (struct ospf_interface *);
 
