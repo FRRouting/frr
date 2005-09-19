@@ -1,3 +1,15 @@
+2005-09-19 Hasso Tepper <hasso at quagga.net>
+
+	* isis_lsp.h: Added backpointer to the area from LSP. For now it's used
+	  only in generated topology LSPs.
+	* isisd.[ch]: Cleanup CLI commands related to topology generation and
+	  added command to specify base fo dynamic hostname for topology LSPs.
+	* isis_lsp.c: Rewrite almost all code related to generation topology
+	  LSPs (top_lsp_refresh(), generate_topology_lsps() and
+	  build_topology_lsp_data() functions). Topology is connected to own
+	  LSP now (lsp_build_nonpseudo). Commented out lsppdu_realloc
+	  functions, it's not used any more hopefully.
+
 2005-09-18 Hasso Tepper <hasso at quagga.net>
 
 	* isis_lsp.c (lsp_update): Fix previous commit - manipulate the right

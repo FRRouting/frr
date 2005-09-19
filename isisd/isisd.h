@@ -123,11 +123,13 @@ struct isis_area
 #endif				/* HAVE_IPV6 */
   /* Counters */
   u_int32_t circuit_state_changes;
+
 #ifdef TOPOLOGY_GENERATE
   struct list *topology;
-  char topology_baseis[ISIS_SYS_ID_LEN];	/* is for the first is emulated  */
-  char top_params[200];		/* FIXME: what is reasonable?    */
-#endif				/* TOPOLOGY_GENERATE */
+  char topology_baseis[ISIS_SYS_ID_LEN];  /* IS for the first IS emulated. */
+  char *topology_basedynh;                /* Dynamic hostname base. */
+  char top_params[200];                   /* FIXME: what is reasonable? */
+#endif /* TOPOLOGY_GENERATE */
 };
 
 void isis_init (void);

@@ -914,6 +914,7 @@ lsp_print_all (struct vty *vty, dict_t * lspdb, char detail, char dynhost)
   return lsp_count;
 }
 
+#if 0
 /* this function reallocate memory to an lsp pdu, with an additional
  * size of memory, it scans the lsp and moves all pointers the
  * way they should */
@@ -939,6 +940,7 @@ lsppdu_realloc (struct isis_lsp * lsp, int memorytype, int size)
   return STREAM_DATA (lsp->pdu) + (lsp->lsp_header->pdu_len - size);
 #endif /* LSP_MEMORY_PREASSIGN */
 }
+#endif
 
 #if 0				/* Saving the old one just in case :) */
 /*
@@ -1356,6 +1358,28 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
       add_tlv (IPV4_ADDR, IPV4_MAX_BYTELEN, (u_char *) &routerid->s_addr,
 	       lsp->pdu);
     }
+
+#ifdef TOPOLOGY_GENERATE
+  /* If topology exists (and we create topology for level 1 only), create
+   * (hardcoded) link to topology. */
+  if (area->topology && level == 1)
+    {
+      if (tlv_data.is_neighs == NULL)
+        tlv_data.is_neighs = list_new ();
+      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
+      memset (is_neigh, 0, sizeof (struct is_neigh));
+
+      memcpy (&is_neigh->neigh_id, area->topology_baseis, ISIS_SYS_ID_LEN);
+      is_neigh->neigh_id[ISIS_SYS_ID_LEN - 1] = (1 & 0xFF);
+      is_neigh->neigh_id[ISIS_SYS_ID_LEN - 2] = ((1 >> 8) & 0xFF);
+      is_neigh->metrics.metric_default = 0x01;
+      is_neigh->metrics.metric_delay = METRICS_UNSUPPORTED;
+      is_neigh->metrics.metric_expense = METRICS_UNSUPPORTED;
+      is_neigh->metrics.metric_error = METRICS_UNSUPPORTED;
+      listnode_add (tlv_data.is_neighs, is_neigh);
+    }
+#endif /* TOPOLOGY_GENERATE */
+
   /*
    * Then build lists of tlvs related to circuits
    */
@@ -2156,7 +2180,10 @@ lsp_tick (struct thread *thread)
 			      lsp->level,
 			      rawlspid_print (lsp->lsp_header->lsp_id),
 			      ntohl (lsp->lsp_header->seq_num));
-
+#ifdef TOPOLOGY_GENERATE
+		  if (lsp->from_topology)
+		    THREAD_TIMER_OFF (lsp->t_lsp_top_ref);
+#endif /* TOPOLOGY_GENERATE */
 		  lsp_destroy (lsp);
 		  dict_delete (area->lspdb[level], dnode);
 		}
@@ -2266,15 +2293,14 @@ static int
 top_lsp_refresh (struct thread *thread)
 {
   struct isis_lsp *lsp;
+  unsigned long ref_time;
 
   lsp = THREAD_ARG (thread);
   assert (lsp);
 
   lsp->t_lsp_top_ref = NULL;
 
-  lsp->lsp_header->rem_lifetime =
-    htons (isis_jitter (MAX_AGE, MAX_AGE_JITTER));
-  lsp->lsp_header->seq_num = htonl (ntohl (lsp->lsp_header->seq_num) + 1);
+  lsp_seqnum_update (lsp);
 
   ISIS_FLAGS_SET_ALL (lsp->SRMflags);
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
@@ -2282,12 +2308,14 @@ top_lsp_refresh (struct thread *thread)
       zlog_debug ("ISIS-Upd (): refreshing Topology L1 %s",
 		  rawlspid_print (lsp->lsp_header->lsp_id));
     }
+  lsp->lsp_header->rem_lifetime =
+    htons (isis_jitter (lsp->area->max_lsp_lifetime[0], MAX_AGE_JITTER));
 
-  /* time to calculate our checksum */
-  iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
-		   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
+  ref_time = lsp->area->lsp_refresh[0] > MAX_LSP_GEN_INTERVAL ?
+    MAX_LSP_GEN_INTERVAL : lsp->area->lsp_refresh[0];
+
   THREAD_TIMER_ON (master, lsp->t_lsp_top_ref, top_lsp_refresh, lsp,
-		   isis_jitter (MAX_LSP_GEN_INTERVAL, MAX_LSP_GEN_JITTER));
+		   isis_jitter (ref_time, MAX_LSP_GEN_JITTER));
 
   return ISIS_OK;
 }
@@ -2300,6 +2328,7 @@ generate_topology_lsps (struct isis_area *area)
   struct arc *arc;
   u_char lspid[ISIS_SYS_ID_LEN + 2];
   struct isis_lsp *lsp;
+  unsigned long ref_time;
 
   /* first we find the maximal node */
   for (ALL_LIST_ELEMENTS_RO (area->topology, node, arc))
@@ -2319,21 +2348,24 @@ generate_topology_lsps (struct isis_area *area)
       lspid[ISIS_SYS_ID_LEN - 2] = ((i >> 8) & 0xFF);
 
       lsp = lsp_new (lspid, isis_jitter (area->max_lsp_lifetime[0],
-					 MAX_AGE_JITTER), 1, IS_LEVEL_1, 0,
-		     1);
+		     MAX_AGE_JITTER), 1, IS_LEVEL_1, 0, 1);
+      if (!lsp)
+	return;
       lsp->from_topology = 1;
-      /* creating data based on topology */
-      build_topology_lsp_data (lsp, area, i);
-      /* time to calculate our checksum */
-      iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
-		       ntohs (lsp->lsp_header->pdu_len) - 12, 12);
-      THREAD_TIMER_ON (master, lsp->t_lsp_top_ref, top_lsp_refresh, lsp,
-		       isis_jitter (MAX_LSP_GEN_INTERVAL,
-				    MAX_LSP_GEN_JITTER));
+      lsp->area = area;
 
+      /* Creating LSP data based on topology info. */
+      build_topology_lsp_data (lsp, area, i);
+      /* Checksum is also calculated here. */
+      lsp_seqnum_update (lsp);
+
+      ref_time = area->lsp_refresh[0] > MAX_LSP_GEN_INTERVAL ?
+	MAX_LSP_GEN_INTERVAL : area->lsp_refresh[0];
+
+      THREAD_TIMER_ON (master, lsp->t_lsp_top_ref, top_lsp_refresh, lsp,
+		       isis_jitter (ref_time, MAX_LSP_GEN_JITTER));
       ISIS_FLAGS_SET_ALL (lsp->SRMflags);
       lsp_insert (lsp, area->lspdb[0]);
-
     }
 }
 
@@ -2364,100 +2396,99 @@ build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
 {
   struct listnode *node, *nnode;
   struct arc *arc;
-  u_char *tlv_ptr;
   struct is_neigh *is_neigh;
-  int to_lsp = 0;
   char buff[200];
+  struct tlvs tlv_data;
+  struct isis_lsp *lsp0 = lsp;
 
-  /* add our nlpids */
-  /* the 2 is for the TL plus 1 for the nlpid */
-  tlv_ptr = lsppdu_realloc (lsp, MTYPE_ISIS_TLV, 3);
-  *tlv_ptr = PROTOCOLS_SUPPORTED;	/* Type */
-  *(tlv_ptr + 1) = 1;		/* one protocol */
-  *(tlv_ptr + 2) = NLPID_IP;
-  lsp->tlv_data.nlpids = (struct nlpids *) (tlv_ptr + 1);
+  /* Add area addresses. FIXME: Is it needed at all? */
+  if (lsp->tlv_data.area_addrs == NULL)
+    lsp->tlv_data.area_addrs = list_new ();
+  list_add_list (lsp->tlv_data.area_addrs, area->area_addrs);
 
-  /* first, lets add the tops */
-  /* the 2 is for the TL plus 1 for the virtual field */
-  tlv_ptr = lsppdu_realloc (lsp, MTYPE_ISIS_TLV, 3);
-  *tlv_ptr = IS_NEIGHBOURS;	/* Type */
-  *(tlv_ptr + 1) = 1;		/* this is the virtual char len */
-  *(tlv_ptr + 2) = 0;		/* virtual is zero */
-  lsp->tlv_data.is_neighs = list_new ();	/* new list of is_neighbours */
+  if (lsp->tlv_data.nlpids == NULL)
+    lsp->tlv_data.nlpids = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct nlpids));
+  lsp->tlv_data.nlpids->count = 1;
+  lsp->tlv_data.nlpids->nlpids[0] = NLPID_IP;
 
-  /* add reachability for this IS for simulated 1 */
+  if (area->dynhostname)
+    {
+      lsp->tlv_data.hostname = XMALLOC (MTYPE_ISIS_TLV,
+					sizeof (struct hostname));
+      memset (buff, 0x00, 200);
+      sprintf (buff, "%s%d", area->topology_basedynh ? area->topology_basedynh :
+	       "feedme", lsp_top_num);
+      memcpy (lsp->tlv_data.hostname->name, buff, strlen (buff));
+      lsp->tlv_data.hostname->namelen = strlen (buff);
+    }
+
+  if (lsp->tlv_data.nlpids)
+    tlv_add_nlpid (lsp->tlv_data.nlpids, lsp->pdu);
+  if (lsp->tlv_data.hostname)
+    tlv_add_dynamic_hostname (lsp->tlv_data.hostname, lsp->pdu);
+  if (lsp->tlv_data.area_addrs && listcount (lsp->tlv_data.area_addrs) > 0)
+    tlv_add_area_addrs (lsp->tlv_data.area_addrs, lsp->pdu);
+
+  memset (&tlv_data, 0, sizeof (struct tlvs));
+  if (tlv_data.is_neighs == NULL)
+    tlv_data.is_neighs = list_new ();
+
+  /* Add reachability for this IS for simulated 1. */
   if (lsp_top_num == 1)
     {
-      /* assign space for the is_neigh at the pdu end */
-      is_neigh = (struct is_neigh *) lsppdu_realloc (lsp, MTYPE_ISIS_TLV,
-						     sizeof (struct
-							     is_neigh));
-      /* add this node to our list */
-      listnode_add (lsp->tlv_data.is_neighs, is_neigh);
+      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
+      memset (is_neigh, 0, sizeof (struct is_neigh));
+
       memcpy (&is_neigh->neigh_id, isis->sysid, ISIS_SYS_ID_LEN);
       LSP_PSEUDO_ID (is_neigh->neigh_id) = 0x00;
-      is_neigh->metrics.metric_default = 0x00;	/* no special reason */
+      /* Metric MUST NOT be 0, unless it's not alias TLV. */
+      is_neigh->metrics.metric_default = 0x01;
       is_neigh->metrics.metric_delay = METRICS_UNSUPPORTED;
       is_neigh->metrics.metric_expense = METRICS_UNSUPPORTED;
       is_neigh->metrics.metric_error = METRICS_UNSUPPORTED;
-      /* don't forget the length */
-      *(tlv_ptr + 1) += IS_NEIGHBOURS_LEN;	/* the -1 is the virtual */
-      /* no need to check for fragging here, it is a lonely is_reach */
+      listnode_add (tlv_data.is_neighs, is_neigh);
     }
 
-  /* addding is reachabilities */
+  /* Add IS reachabilities. */
   for (ALL_LIST_ELEMENTS (area->topology, node, nnode, arc))
-  {
-    if ((arc->from_node == lsp_top_num) || (arc->to_node == lsp_top_num))
-      {
-	if (arc->to_node == lsp_top_num)
-	  to_lsp = arc->from_node;
-	if (arc->from_node == lsp_top_num)
-	  to_lsp = arc->to_node;
-
-	/* if the length here is about to cross the FF limit, we reTLV */
-	if (*(tlv_ptr + 1) >= (0xFF - IS_NEIGHBOURS_LEN))
-	  {
-	    /* retlv */
-	    /* the 2 is for the TL plus 1 for the virtual field */
-	    tlv_ptr = lsppdu_realloc (lsp, MTYPE_ISIS_TLV, 3);
-	    *tlv_ptr = IS_NEIGHBOURS;	/* Type */
-	    *(tlv_ptr + 1) = 1;	/* this is the virtual char len */
-	    *(tlv_ptr + 2) = 0;	/* virtual is zero */
-	  }
-	/* doing this here assures us that we won't add an "empty" tlv */
-	/* assign space for the is_neigh at the pdu end */
-	is_neigh = (struct is_neigh *) lsppdu_realloc (lsp, MTYPE_ISIS_TLV,
-						       sizeof (struct
-							       is_neigh));
-	/* add this node to our list */
-	listnode_add (lsp->tlv_data.is_neighs, is_neigh);
-	memcpy (&is_neigh->neigh_id, area->topology_baseis, ISIS_SYS_ID_LEN);
-	LSP_PSEUDO_ID (is_neigh->neigh_id) = 0x00;
-	is_neigh->neigh_id[ISIS_SYS_ID_LEN - 1] = (to_lsp & 0xFF);
-	is_neigh->neigh_id[ISIS_SYS_ID_LEN - 2] = ((to_lsp >> 8) & 0xFF);
-	is_neigh->metrics.metric_default = arc->distance;
-	is_neigh->metrics.metric_delay = METRICS_UNSUPPORTED;
-	is_neigh->metrics.metric_expense = METRICS_UNSUPPORTED;
-	is_neigh->metrics.metric_error = METRICS_UNSUPPORTED;
-	/* don't forget the length */
-	*(tlv_ptr + 1) += IS_NEIGHBOURS_LEN;	/* the -1 is the virtual */
-      }
-  }
-
-  /* adding dynamic hostname if needed */
-  if (area->dynhostname)
     {
-      memset (buff, 0x00, 200);
-      sprintf (buff, "feedme%d", lsp_top_num);
-      /* the 2 is for the TL */
-      tlv_ptr = lsppdu_realloc (lsp, MTYPE_ISIS_TLV, 2);
-      *tlv_ptr = DYNAMIC_HOSTNAME;	/* Type */
-      *(tlv_ptr + 1) = strlen (buff);	/* Length */
-      /* the -1 is to fit the length in the struct */
-      lsp->tlv_data.hostname = (struct hostname *)
-	(lsppdu_realloc (lsp, MTYPE_ISIS_TLV, strlen (buff)) - 1);
-      memcpy (lsp->tlv_data.hostname->name, buff, strlen (buff));
+      int to_lsp = 0;
+      
+      if ((lsp_top_num != arc->from_node) && (lsp_top_num != arc->to_node))
+	continue;
+
+      if (lsp_top_num == arc->from_node)
+	to_lsp = arc->to_node;
+      else
+	to_lsp = arc->from_node;
+
+      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
+      memset (is_neigh, 0, sizeof (struct is_neigh));
+
+      memcpy (&is_neigh->neigh_id, area->topology_baseis, ISIS_SYS_ID_LEN);
+      is_neigh->neigh_id[ISIS_SYS_ID_LEN - 1] = (to_lsp & 0xFF);
+      is_neigh->neigh_id[ISIS_SYS_ID_LEN - 2] = ((to_lsp >> 8) & 0xFF);
+      is_neigh->metrics.metric_default = arc->distance;
+      is_neigh->metrics.metric_delay = METRICS_UNSUPPORTED;
+      is_neigh->metrics.metric_expense = METRICS_UNSUPPORTED;
+      is_neigh->metrics.metric_error = METRICS_UNSUPPORTED;
+      listnode_add (tlv_data.is_neighs, is_neigh);
     }
+
+  while (tlv_data.is_neighs && listcount (tlv_data.is_neighs))
+    {
+      if (lsp->tlv_data.is_neighs == NULL)
+	lsp->tlv_data.is_neighs = list_new ();
+      lsp_tlv_fit (lsp, &tlv_data.is_neighs,
+		   &lsp->tlv_data.is_neighs,
+		   IS_NEIGHBOURS_LEN, area->lsp_frag_threshold,
+		   tlv_add_is_neighs);
+      if (tlv_data.is_neighs && listcount (tlv_data.is_neighs))
+        lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
+			     lsp0, area, IS_LEVEL_1);
+    }
+
+  free_tlvs (&tlv_data);
+  return;
 }
 #endif /* TOPOLOGY_GENERATE */
