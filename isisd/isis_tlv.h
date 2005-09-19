@@ -25,73 +25,89 @@
 #define _ZEBRA_ISIS_TLV_H
 
 /*
- * Structures found in TLV's.
- * this header is fully complient with
- * RFC 3359
- 1.  TLV Codepoints reserved
-     ____________________________________________________
-     Name                 Value   IIH   LSP  SNP   Status
-     ____________________________________________________
-
-     Area Addresses            1  y     y    n  ISO 10589
-     IIS Neighbors             2  n     y    n  ISO 10589
-     ES Neighbors              3  n     y    n  ISO 10589
-     Part. DIS                 4  n     y    n  ISO 10589
-     Prefix Neighbors          5  n     y    n  ISO 10589
-     IIS Neighbors             6  y     n    n  ISO 10589
-     Padding                   8  y     n    n  ISO 10589
-     LSP Entries               9  n     n    y  ISO 10589
-     Authentication           10  y     y    y  ISO 10589
-     Opt. Checksum            12  y     n    y  RFC 3358
-     LSPBufferSize            14  n     y    n  ISO 10589 Rev 2 Draft
-     TE IIS Neigh.            22  n     y    n  RFC 3784
-     IS Alias ID              24  n     y    n  RFC 3786
-     DECnet Phase IV          42  y     n    n  DEC (ancient)
-     Lucent Proprietary       66  n     y    n
-     IP Int. Reach           128  n     y    n  RFC 1195
-     Prot. Supported         129  y     y    n  RFC 1195
-     IP Ext. Address         130  n     y    n  RFC 1195
-     IDRPI                   131  n     y    y  RFC 1195
-     IP Intf. Address        132  y     y    n  RFC 1195
-     Illegal                 133  n     n    n  RFC 1195 (not used)
-     Router ID               134  n     y    n  RFC 3784
-     TE IP. Reach            135  n     y    n  RFC 3784
-     Dynamic Name            137  n     y    n  RFC 2763
-     Nortel Proprietary      176  n     y    n
-     Nortel Proprietary      177  n     y    n
-     Restart TLV             211  y     n    n  RFC 3847
-     MT-ISN                  222  n     y    n  IETF-draft
-     M-Topologies            229  y     y    n  IETF-draft
-     IPv6 Intf. Addr.        232  y     y    n  IETF-draft
-     MT IP. Reach            235  n     y    n  IETF-draft
-     IPv6 IP. Reach          236  n     y    n  IETF-draft
-     MT IPv6 IP. Reach       237  n     y    n  IETF-draft
-     P2P Adjacency State     240  y     n    n  RFC 3373
-
+ * The list of TLVs we (should) support.
+ * ____________________________________________________________________________
+ * Name                   Value  IIH LSP SNP Status
+ *                               LAN
+ * ____________________________________________________________________________
+ * 
+ * Area Addresses             1   y   y   n  ISO10589
+ * IIS Neighbors              2   n   y   n  ISO10589
+ * ES Neighbors               3   n   y   n  ISO10589
+ * IIS Neighbors              6   y   n   n  ISO10589
+ * Padding                    8   y   n   n  ISO10589
+ * LSP Entries                9   n   n   y  ISO10589
+ * Authentication            10   y   y   y  ISO10589, RFC3567
+ * Checksum                  12   y   n   y  RFC3358
+ * TE IS Reachability        22   n   y   n  RFC3784
+ * IS Alias                  24   n   y   n  RFC3786
+ * IP Int. Reachability     128   n   y   n  RFC1195
+ * Protocols Supported      129   y   y   n  RFC1195
+ * IP Ext. Reachability     130   n   y   n  RFC1195
+ * IDRPI                    131   n   y   y  RFC1195
+ * IP Interface Address     132   y   y   n  RFC1195
+ * TE Router ID             134   n   y   n  RFC3784
+ * Extended IP Reachability 135   n   y   n  RFC3784
+ * Dynamic Hostname         137   n   y   n  RFC2763
+ * Shared Risk Link Group   138   n   y   y  draft-ietf-isis-gmpls-extensions
+ * Restart TLV              211   y   n   n  RFC3847
+ * MT IS Reachability       222   n   y   n  draft-ietf-isis-wg-multi-topology
+ * MT Supported             229   y   y   n  draft-ietf-isis-wg-multi-topology
+ * IPv6 Interface Address   232   y   y   n  draft-ietf-isis_ipv6
+ * MT IP Reachability       235   n   y   n  draft-ietf-isis-wg-multi-topology
+ * IPv6 IP Reachability     236   n   y   n  draft-ietf-isis_ipv6
+ * MT IPv6 IP Reachability  237   n   y   n  draft-ietf-isis-wg-multi-topology
+ * P2P Adjacency State      240   y   n   n  RFC3373
+ * IIH Sequence Number      241   y   n   n  draft-shen-isis-iih-sequence
+ * Router Capability        242   -   -   -  draft-ietf-isis-caps
+ *
+ * 
+ * IS Reachability sub-TLVs we (should) support.
+ * ____________________________________________________________________________
+ * Name                           Value   Status
+ * ____________________________________________________________________________
+ * Administartive group (color)       3   RFC3784
+ * Link Local/Remote Identifiers      4   draft-ietf-isis-gmpls-extensions
+ * IPv4 interface address             6   RFC3784
+ * IPv4 neighbor address              8   RFC3784
+ * Maximum link bandwidth             9   RFC3784
+ * Reservable link bandwidth         10   RFC3784
+ * Unreserved bandwidth              11   RFC3784
+ * TE Default metric                 18   RFC3784
+ * Link Protection Type              20   draft-ietf-isis-gmpls-extensions
+ * Interface Switching Capability    21   draft-ietf-isis-gmpls-extensions
+ *
+ * 
+ * IP Reachability sub-TLVs we (should) support.
+ * ____________________________________________________________________________
+ * Name                           Value   Status
+ * ____________________________________________________________________________
+ * 32bit administrative tag           1   draft-ietf-isis-admin-tags
+ * 64bit administrative tag           2   draft-ietf-isis-admin-tags
+ * Management prefix color          117   draft-ietf-isis-wg-multi-topology
  */
 
 #define AREA_ADDRESSES            1
 #define IS_NEIGHBOURS             2
 #define ES_NEIGHBOURS             3
-#define PARTITION_DESIG_LEVEL2_IS 4
-#define PREFIX_NEIGHBOURS         5
 #define LAN_NEIGHBOURS            6
 #define PADDING                   8
 #define LSP_ENTRIES               9
 #define AUTH_INFO                 10
 #define CHECKSUM                  12
 #define TE_IS_NEIGHBOURS          22
+#define IS_ALIAS                  24
 #define IPV4_INT_REACHABILITY     128
-#define IPV4_EXT_REACHABILITY     130
 #define PROTOCOLS_SUPPORTED       129
+#define IPV4_EXT_REACHABILITY     130
 #define IDRP_INFO                 131
 #define IPV4_ADDR                 132
 #define TE_ROUTER_ID              134
 #define TE_IPV4_REACHABILITY      135
 #define DYNAMIC_HOSTNAME          137
 #define GRACEFUL_RESTART          211
-#define IPV6_REACHABILITY         236
 #define IPV6_ADDR                 232
+#define IPV6_REACHABILITY         236
 #define WAY3_HELLO                240
 
 #define IS_NEIGHBOURS_LEN (ISIS_SYS_ID_LEN + 5)

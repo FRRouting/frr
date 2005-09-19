@@ -1,5 +1,10 @@
 2005-09-19 Hasso Tepper <hasso at quagga.net>
 
+	* isis_tlv.h: Cleanup comment about TLVs we should support, remove info
+	  about useless (in sense of IP(v6)) TLVs.
+
+2005-09-19 Hasso Tepper <hasso at quagga.net>
+
 	* isis_lsp.h: Added backpointer to the area from LSP. For now it's used
 	  only in generated topology LSPs.
 	* isisd.[ch]: Cleanup CLI commands related to topology generation and
