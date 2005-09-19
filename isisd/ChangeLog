@@ -1,5 +1,9 @@
 2005-09-19 Hasso Tepper <hasso at quagga.net>
 
+	* isis_lsp.c, isis_pdu.c, isis_spf.c: Remove some old unused code.
+
+2005-09-19 Hasso Tepper <hasso at quagga.net>
+
 	* isis_lsp.c: Better output of detailed LSP printout and fixed TE IPv4
 	  reachibility metric display.
 

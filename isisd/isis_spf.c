@@ -58,28 +58,6 @@ extern struct host host;
 int isis_run_spf_l1 (struct thread *thread);
 int isis_run_spf_l2 (struct thread *thread);
 
-#if 0
-/* performace issue ???? HT: Old or new code? */
-static void
-union_adjlist (struct list *target, struct list *source)
-{
-  struct isis_adjacency *adj, *adj2;
-  struct listnode *node, *node2;
-
-  zlog_debug ("Union adjlist!");
-  for (ALL_LIST_ELEMENTS_RO (source, node, adj))
-    {
-      /* lookup adjacency in the source list */
-      for (ALL_LIST_ELEMENTS_RO (target, node2, adj2))
-        if (adj == adj2)
-	    break;
-      
-      if (!node2)
-	listnode_add (target, adj);
-    }
-}
-#endif
-
 /* 7.2.7 */
 static void
 remove_excess_adjs (struct list *adjs)
