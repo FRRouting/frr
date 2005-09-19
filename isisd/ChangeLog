@@ -1,5 +1,10 @@
 2005-09-19 Hasso Tepper <hasso at quagga.net>
 
+	* isis_lsp.c: Better output of detailed LSP printout and fixed TE IPv4
+	  reachibility metric display.
+
+2005-09-19 Hasso Tepper <hasso at quagga.net>
+
 	* isis_tlv.h: Cleanup comment about TLVs we should support, remove info
 	  about useless (in sense of IP(v6)) TLVs.
 
