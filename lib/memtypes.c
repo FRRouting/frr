@@ -6,7 +6,7 @@
  * The script is sensitive to the format (though not whitespace), see
  * the top of memtypes.awk for more details.
  *
- * $Id: memtypes.c,v 1.6 2005/06/01 11:17:05 paul Exp $
+ * $Id: memtypes.c,v 1.7 2005/09/21 14:06:35 paul Exp $
  */
 
 #include "zebra.h"
@@ -93,6 +93,7 @@ struct memory_list memory_list_bgp[] =
   { MTYPE_ATTR,			"BGP attribute"			},
   { MTYPE_AS_PATH,		"BGP aspath"			},
   { MTYPE_AS_SEG,		"BGP aspath seg"		},
+  { MTYPE_AS_SEG_DATA,		"BGP aspath segment data"	},
   { MTYPE_AS_STR,		"BGP aspath str"		},
   { 0, NULL },
   { MTYPE_BGP_TABLE,		"BGP table"			},
