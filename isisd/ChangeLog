@@ -1,3 +1,7 @@
+2005-09-21 Hasso Tepper <hasso at quagga.net>
+
+	* isis_route.c: Fix output of nexthops in case of extreme debug.
+
 2005-09-19 Hasso Tepper <hasso at quagga.net>
 
 	* isis_lsp.c, isis_pdu.c, isis_spf.c: Remove some old unused code.

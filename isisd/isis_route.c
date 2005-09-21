@@ -115,7 +115,7 @@ nexthoplookup (struct list *nexthops, struct in_addr *ip,
   return 0;
 }
 
-#if 0 /* Old or new code? */
+#ifdef EXTREME_DEBUG
 static void
 nexthop_print (struct isis_nexthop *nh)
 {
@@ -134,7 +134,7 @@ nexthops_print (struct list *nhs)
   for (ALL_LIST_ELEMENTS_RO (nhs, node, nh))
     nexthop_print (nh);
 }
-#endif /* 0 */
+#endif /* EXTREME_DEBUG */
 
 #ifdef HAVE_IPV6
 static struct isis_nexthop6 *
@@ -506,10 +506,20 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
 	zlog_debug ("ISIS-Rte (%s) route changed (same attribs): %s",
 		   area->area_tag, buff);
 #ifdef EXTREME_DEBUG
-      zlog_debug ("Old nexthops");
-      nexthops6_print (rinfo_old->nexthops6);
-      zlog_debug ("New nexthops");
-      nexthops6_print (rinfo_new->nexthops6);
+      if (family == AF_INET)
+	{
+	  zlog_debug ("Old nexthops");
+	  nexthops_print (rinfo_old->nexthops);
+	  zlog_debug ("New nexthops");
+	  nexthops_print (rinfo_new->nexthops);
+	}
+      else if (family == AF_INET6)
+	{
+	  zlog_debug ("Old nexthops");
+	  nexthops6_print (rinfo_old->nexthops6);
+	  zlog_debug ("New nexthops");
+	  nexthops6_print (rinfo_new->nexthops6);
+	}
 #endif /* EXTREME_DEBUG */
       isis_route_info_merge (rinfo_new, rinfo_old, family);
       isis_route_info_delete (rinfo_new);
