@@ -1557,7 +1557,9 @@ static_uninstall_ipv4 (struct prefix *p, struct static_ipv4 *si)
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         rib_uninstall (rn, rib);
-      rib_queue_add (&zebrad, rn, rib);
+      nexthop_delete (rib, nexthop);
+      nexthop_free (nexthop);
+      rib_queue_add (&zebrad, rn, NULL);
     }
   /* Unlock node. */
   route_unlock_node (rn);
@@ -2106,7 +2108,9 @@ static_uninstall_ipv6 (struct prefix *p, struct static_ipv6 *si)
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         rib_uninstall (rn, rib);
-      rib_queue_add (&zebrad, rn, rib);
+      nexthop_delete (rib, nexthop);
+      nexthop_free (nexthop);
+      rib_queue_add (&zebrad, rn, NULL);
     }
   /* Unlock node. */
   route_unlock_node (rn);

@@ -1,3 +1,12 @@
+2005-09-21 Paul Jakma <paul.jakma@sun.com>
+
+	* zebra_rib.c: (static_uninstall_ipv{4,6}) Fix regression wrt
+	  removal of static routes with multiple-hops introduced with
+	  the workqueue conversion. We should free the relevant
+	  nexthop and then get rib_process to run, otherwise we just
+	  get same static route back again (with no way to unconfigure
+          it, because its already deleted from configuration).
+          
 2005-09-12 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) RTM_CHANGE and implicit withdraw on RTM_NEWADDR
