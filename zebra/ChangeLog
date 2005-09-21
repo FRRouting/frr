@@ -1,3 +1,9 @@
+2005-09-21 David Young <dyoung@ojctech.com>
+
+	* zebra_rib.c: Reduce the height of some staircases. Fix
+	  rib_delete_ipv6() to match routes in the RIB by their gateway as
+	  well as by destination.
+
 2005-09-21 Paul Jakma <paul.jakma@sun.com>
 
 	* zebra_rib.c: (static_uninstall_ipv{4,6}) Fix regression wrt

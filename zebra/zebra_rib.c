@@ -1157,24 +1157,21 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
      withdraw. */
   for (rib = rn->info; rib; rib = rib->next)
     {
-      if (rib->type == ZEBRA_ROUTE_CONNECT)
-        {
-          nexthop = rib->nexthop;
-
-          /* Duplicate connected route comes in. */
-          if (rib->type == type
-              && nexthop && nexthop->type == NEXTHOP_TYPE_IFINDEX
-              && nexthop->ifindex == ifindex)
-            {
-              rib->refcnt++;
-              return 0 ;
-            }
-        }
-      else if (rib->type == type)
+      if (rib->type != type)
+	continue;
+      if (rib->type != ZEBRA_ROUTE_CONNECT)
         {
           same = rib;
           break;
         }
+      /* Duplicate connected route comes in. */
+      else if ((nexthop = rib->nexthop) &&
+	       nexthop->type == NEXTHOP_TYPE_IFINDEX &&
+	       nexthop->ifindex == ifindex)
+	{
+	  rib->refcnt++;
+	  return 0 ;
+	}
     }
 
   /* Allocate new rib structure. */
@@ -1274,6 +1271,7 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib)
   return 0;
 }
 
+/* XXX factor with rib_delete_ipv6 */
 int
 rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
 		 struct in_addr *gate, unsigned int ifindex, u_int32_t vrf_id)
@@ -1329,46 +1327,29 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	fib = rib;
 
-      if (rib->type == ZEBRA_ROUTE_CONNECT)
+      if (rib->type != type)
+	continue;
+      if (rib->type == ZEBRA_ROUTE_CONNECT && (nexthop = rib->nexthop) &&
+	  nexthop->type == NEXTHOP_TYPE_IFINDEX && nexthop->ifindex == ifindex)
 	{
-	  nexthop = rib->nexthop;
-
-	  if (rib->type == type
-	      && nexthop && nexthop->type == NEXTHOP_TYPE_IFINDEX
-	      && nexthop->ifindex == ifindex)
+	  if (rib->refcnt)
 	    {
-	      if (rib->refcnt)
-		{
-		  rib->refcnt--;
-		  route_unlock_node (rn);
-		  route_unlock_node (rn);
-		  return 0;
-		}
-	      same = rib;
-	      break;
+	      rib->refcnt--;
+	      route_unlock_node (rn);
+	      route_unlock_node (rn);
+	      return 0;
 	    }
+	  same = rib;
+	  break;
 	}
-      else if (gate) 
+      /* Make sure that the route found has the same gateway. */
+      else if (gate == NULL ||
+	       ((nexthop = rib->nexthop) &&
+	        (IPV4_ADDR_SAME (&nexthop->gate.ipv4, gate) ||
+		 IPV4_ADDR_SAME (&nexthop->rgate.ipv4, gate)))) 
         {
-          nexthop = rib->nexthop;
-
-	  /* Make sure that the route found has the same gateway. */
-	  if (rib->type == type
-	      && nexthop &&
-	          (IPV4_ADDR_SAME (&nexthop->gate.ipv4, gate) || 
-		    IPV4_ADDR_SAME (&nexthop->rgate.ipv4, gate)) )
-	    {
-	      same = rib;
-	      break;
-	    }
-	}
-      else
-	{
-	  if (rib->type == type)
-	    {
-	      same = rib;
-	      break;
-	    }
+	  same = rib;
+	  break;
 	}
     }
 
@@ -1785,22 +1766,19 @@ rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
      withdraw. */
   for (rib = rn->info; rib; rib = rib->next)
     {
-      if (rib->type == ZEBRA_ROUTE_CONNECT)
-	{
-	  nexthop = rib->nexthop;
-
-	  if (rib->type == type
-	      && nexthop && nexthop->type == NEXTHOP_TYPE_IFINDEX
-	      && nexthop->ifindex == ifindex)
-	  {
-	    rib->refcnt++;
-	    return 0;
-	  }
-	}
-      else if (rib->type == type)
+      if (rib->type != type)
+	continue;
+      if (rib->type != ZEBRA_ROUTE_CONNECT)
 	{
 	  same = rib;
 	  break;
+	}
+      else if ((nexthop = rib->nexthop) &&
+	       nexthop->type == NEXTHOP_TYPE_IFINDEX &&
+	       nexthop->ifindex == ifindex)
+	{
+	  rib->refcnt++;
+	  return 0;
 	}
     }
 
@@ -1845,6 +1823,7 @@ rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
   return 0;
 }
 
+/* XXX factor with rib_delete_ipv6 */
 int
 rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
 		 struct in6_addr *gate, unsigned int ifindex, u_int32_t vrf_id)
@@ -1893,32 +1872,29 @@ rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	fib = rib;
 
-      if (rib->type == ZEBRA_ROUTE_CONNECT)
+      if (rib->type != type)
+        continue;
+      if (rib->type == ZEBRA_ROUTE_CONNECT && (nexthop = rib->nexthop) &&
+	  nexthop->type == NEXTHOP_TYPE_IFINDEX && nexthop->ifindex == ifindex)
 	{
-	  nexthop = rib->nexthop;
-
-	  if (rib->type == type
-	      && nexthop && nexthop->type == NEXTHOP_TYPE_IFINDEX
-	      && nexthop->ifindex == ifindex)
+	  if (rib->refcnt)
 	    {
-	      if (rib->refcnt)
-		{
-		  rib->refcnt--;
-		  route_unlock_node (rn);
-		  route_unlock_node (rn);
-		  return 0;
-		}
-	      same = rib;
-	      break;
+	      rib->refcnt--;
+	      route_unlock_node (rn);
+	      route_unlock_node (rn);
+	      return 0;
 	    }
+	  same = rib;
+	  break;
 	}
-      else
+      /* Make sure that the route found has the same gateway. */
+      else if (gate == NULL ||
+	       ((nexthop = rib->nexthop) &&
+	        (IPV6_ADDR_SAME (&nexthop->gate.ipv6, gate) ||
+		 IPV6_ADDR_SAME (&nexthop->rgate.ipv6, gate))))
 	{
-	  if (rib->type == type)
-	    {
-	      same = rib;
-	      break;
-	    }
+	  same = rib;
+	  break;
 	}
     }
 
