@@ -1,3 +1,8 @@
+2005-09-24 Hasso Tepper <hasso at quagga.net>
+
+	* rib.h: Add note about behaviour of rib_add_ipv[46]* functions -
+	  add is treated as implicit withdraw.
+
 2005-09-21 David Young <dyoung@ojctech.com>
 
 	* zebra_rib.c: Reduce the height of some staircases. Fix

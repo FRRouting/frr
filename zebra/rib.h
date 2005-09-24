@@ -213,6 +213,9 @@ extern struct vrf *vrf_lookup (u_int32_t);
 extern struct route_table *vrf_table (afi_t afi, safi_t safi, u_int32_t id);
 extern struct route_table *vrf_static_table (afi_t afi, safi_t safi, u_int32_t id);
 
+/* NOTE:
+ * All rib_add_ipv[46]* functions will not just add prefix into RIB, but
+ * also implicitly withdraw equal prefix of same type. */
 extern int rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p, 
 			 struct in_addr *gate, unsigned int ifindex, 
 			 u_int32_t vrf_id, u_int32_t, u_char);
