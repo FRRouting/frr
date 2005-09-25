@@ -1,3 +1,11 @@
+2005-09-25 Hasso Tepper <hasso at quagga.net>
+
+	* dict.[ch]: Revert all nonfunctional changes. It's external module
+	  imported from kazlib and it's better not to screw it - there is
+	  theoretical chance that we might want to merge changes from upstream
+	  at some point. Also avoid the loss of info about upstream version
+	  (rcsid).
+
 2005-09-21 Hasso Tepper <hasso at quagga.net>
 
 	* isis_route.c: Fix output of nexthops in case of extreme debug.
