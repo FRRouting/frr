@@ -1,5 +1,10 @@
 2005-09-26 Hasso Tepper <hasso at quagga.net>
 
+	* isis_lsp.c: Support for originating TE IS and IPv4 TLV's. No any sub
+	  TLV handling yet.
+
+2005-09-26 Hasso Tepper <hasso at quagga.net>
+
 	* isis_tlv.[ch]: Two new functions - tlv_add_te_is_neighs() and
 	  tlv_add_te_ipv4_reachs() to handle TLV's with new metric. None of
 	  them handle sub TLVs though for now.

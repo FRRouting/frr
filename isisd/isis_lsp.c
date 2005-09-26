@@ -120,6 +120,8 @@ lsp_clear_data (struct isis_lsp *lsp)
     }
   if (lsp->tlv_data.is_neighs)
     list_delete (lsp->tlv_data.is_neighs);
+  if (lsp->tlv_data.te_is_neighs)
+    list_delete (lsp->tlv_data.te_is_neighs);
   if (lsp->tlv_data.area_addrs)
     list_delete (lsp->tlv_data.area_addrs);
   if (lsp->tlv_data.es_neighs)
@@ -130,6 +132,8 @@ lsp_clear_data (struct isis_lsp *lsp)
     list_delete (lsp->tlv_data.ipv4_int_reachs);
   if (lsp->tlv_data.ipv4_ext_reachs)
     list_delete (lsp->tlv_data.ipv4_ext_reachs);
+  if (lsp->tlv_data.te_ipv4_reachs)
+    list_delete (lsp->tlv_data.te_ipv4_reachs);
 #ifdef HAVE_IPV6
   if (lsp->tlv_data.ipv6_addrs)
     list_delete (lsp->tlv_data.ipv6_addrs);
@@ -922,6 +926,8 @@ lsp_print_all (struct vty *vty, dict_t * lspdb, char detail, char dynhost)
 #define FRAG_NEEDED(S,T,I) \
   (STREAM_SIZE(S)-STREAM_REMAIN(S)+(I) > FRAG_THOLD(S,T))
 
+/* FIXME: It shouldn't be necessary to pass tlvsize here, TLVs can have
+ * variable length (TE TLVs, sub TLVs). */
 static void
 lsp_tlv_fit (struct isis_lsp *lsp, struct list **from, struct list **to,
 	     int tlvsize, int frag_thold,
@@ -1008,11 +1014,13 @@ static void
 lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 {
   struct is_neigh *is_neigh;
+  struct te_is_neigh *te_is_neigh;
   struct listnode *node, *nnode, *ipnode, *ipnnode;
   int level = lsp->level;
   struct isis_circuit *circuit;
   struct prefix_ipv4 *ipv4;
   struct ipv4_reachability *ipreach;
+  struct te_ipv4_reachability *te_ipreach;
   struct isis_adjacency *nei;
 #ifdef HAVE_IPV6
   struct prefix_ipv6 *ipv6, *ip6prefix;
@@ -1125,7 +1133,10 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   if (area->topology && level == 1)
     {
       if (tlv_data.is_neighs == NULL)
-        tlv_data.is_neighs = list_new ();
+	{
+	  tlv_data.is_neighs = list_new ();
+	  tlv_data.is_neighs->del = free_tlv;
+	}
       is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
       memset (is_neigh, 0, sizeof (struct is_neigh));
 
@@ -1154,22 +1165,45 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
       if (circuit->ip_router && circuit->ip_addrs &&
 	  circuit->ip_addrs->count > 0)
 	{
-	  if (tlv_data.ipv4_int_reachs == NULL)
+	  if (area->oldmetric)
 	    {
-	      tlv_data.ipv4_int_reachs = list_new ();
+	      if (tlv_data.ipv4_int_reachs == NULL)
+		{
+		  tlv_data.ipv4_int_reachs = list_new ();
+		  tlv_data.ipv4_int_reachs->del = free_tlv;
+		}
+	      for (ALL_LIST_ELEMENTS (circuit->ip_addrs, ipnode, ipnnode, ipv4))
+		{
+		  ipreach =
+		    XMALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv4_reachability));
+		  ipreach->metrics = circuit->metrics[level - 1];
+		  masklen2ip (ipv4->prefixlen, &ipreach->mask);
+		  ipreach->prefix.s_addr = ((ipreach->mask.s_addr) &
+					    (ipv4->prefix.s_addr));
+		  listnode_add (tlv_data.ipv4_int_reachs, ipreach);
+		}
 	      tlv_data.ipv4_int_reachs->del = free_tlv;
 	    }
-          for (ALL_LIST_ELEMENTS (circuit->ip_addrs, ipnode, ipnnode, ipv4))
+	  if (area->newmetric)
 	    {
-	      ipreach =
-		XCALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv4_reachability));
-	      ipreach->metrics = circuit->metrics[level - 1];
-	      masklen2ip (ipv4->prefixlen, &ipreach->mask);
-	      ipreach->prefix.s_addr = ((ipreach->mask.s_addr) &
-					(ipv4->prefix.s_addr));
-	      listnode_add (tlv_data.ipv4_int_reachs, ipreach);
+	      if (tlv_data.te_ipv4_reachs == NULL)
+		{
+		  tlv_data.te_ipv4_reachs = list_new ();
+		  tlv_data.te_ipv4_reachs->del = free_tlv;
+		}
+	      for (ALL_LIST_ELEMENTS (circuit->ip_addrs, ipnode, ipnnode, ipv4))
+		{
+		  /* FIXME All this assumes that we have no sub TLVs. */
+		  te_ipreach = XCALLOC (MTYPE_ISIS_TLV,
+					sizeof (struct te_ipv4_reachability) +
+					((ipv4->prefixlen + 7)/8) - 1);
+		  te_ipreach->te_metric = htonl (*circuit->te_metric);
+		  te_ipreach->control = (ipv4->prefixlen & 0x3F);
+		  memcpy (&te_ipreach->prefix_start, &ipv4->prefix.s_addr,
+			  (ipv4->prefixlen + 7)/8);
+		  listnode_add (tlv_data.te_ipv4_reachs, te_ipreach);
+		}
 	    }
-
 	}
 #ifdef HAVE_IPV6
       /*
@@ -1207,35 +1241,79 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 	case CIRCUIT_T_BROADCAST:
 	  if (level & circuit->circuit_is_type)
 	    {
-	      if (tlv_data.is_neighs == NULL)
+	      if (area->oldmetric)
 		{
-		  tlv_data.is_neighs = list_new ();
+		  if (tlv_data.is_neighs == NULL)
+		    {
+		      tlv_data.is_neighs = list_new ();
+		      tlv_data.is_neighs->del = free_tlv;
+		    }
+		  is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
+		  if (level == 1)
+		    memcpy (is_neigh->neigh_id,
+			    circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
+		  else
+		    memcpy (is_neigh->neigh_id,
+			    circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
+		  is_neigh->metrics = circuit->metrics[level - 1];
+		  listnode_add (tlv_data.is_neighs, is_neigh);
 		  tlv_data.is_neighs->del = free_tlv;
 		}
-	      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-	      if (level == 1)
-		memcpy (is_neigh->neigh_id,
-			circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
-	      else
-		memcpy (is_neigh->neigh_id,
-			circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
-	      is_neigh->metrics = circuit->metrics[level - 1];
-	      listnode_add (tlv_data.is_neighs, is_neigh);
+	      if (area->newmetric)
+		{
+		  uint32_t metric;
+
+		  if (tlv_data.te_is_neighs == NULL)
+		    {
+		      tlv_data.te_is_neighs = list_new ();
+		      tlv_data.te_is_neighs->del = free_tlv;
+		    }
+		  te_is_neigh = XCALLOC (MTYPE_ISIS_TLV,
+					 sizeof (struct te_is_neigh));
+		  if (level == 1)
+		    memcpy (te_is_neigh->neigh_id,
+			    circuit->u.bc.l1_desig_is, ISIS_SYS_ID_LEN + 1);
+		  else
+		    memcpy (te_is_neigh->neigh_id,
+			    circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
+		  metric = ((htonl(*circuit->te_metric) >> 8) & 0xffffff);
+		  memcpy (te_is_neigh->te_metric, &metric, 3);
+		  listnode_add (tlv_data.te_is_neighs, te_is_neigh);
+		}
 	    }
 	  break;
 	case CIRCUIT_T_P2P:
 	  nei = circuit->u.p2p.neighbor;
 	  if (nei && (level & nei->circuit_t))
 	    {
-	      if (tlv_data.is_neighs == NULL)
+	      if (area->oldmetric)
 		{
-		  tlv_data.is_neighs = list_new ();
-		  tlv_data.is_neighs->del = free_tlv;
+		  if (tlv_data.is_neighs == NULL)
+		    {
+		      tlv_data.is_neighs = list_new ();
+		      tlv_data.is_neighs->del = free_tlv;
+		    }
+		  is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
+		  memcpy (is_neigh->neigh_id, nei->sysid, ISIS_SYS_ID_LEN);
+		  is_neigh->metrics = circuit->metrics[level - 1];
+		  listnode_add (tlv_data.is_neighs, is_neigh);
 		}
-	      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-	      memcpy (is_neigh->neigh_id, nei->sysid, ISIS_SYS_ID_LEN);
-	      is_neigh->metrics = circuit->metrics[level - 1];
-	      listnode_add (tlv_data.is_neighs, is_neigh);
+	      if (area->newmetric)
+		{
+		  uint32_t metric;
+
+		  if (tlv_data.te_is_neighs == NULL)
+		    {
+		      tlv_data.te_is_neighs = list_new ();
+		      tlv_data.te_is_neighs->del = free_tlv;
+		    }
+		  te_is_neigh = XCALLOC (MTYPE_ISIS_TLV,
+					 sizeof (struct te_is_neigh));
+		  memcpy (te_is_neigh->neigh_id, nei->sysid, ISIS_SYS_ID_LEN);
+		  metric = ((htonl(*circuit->te_metric) >> 8) & 0xffffff);
+		  memcpy (te_is_neigh->te_metric, &metric, 3);
+		  listnode_add (tlv_data.te_is_neighs, te_is_neigh);
+		}
 	    }
 	  break;
 	case CIRCUIT_T_STATIC_IN:
@@ -1261,6 +1339,20 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 		   IPV4_REACH_LEN, area->lsp_frag_threshold,
 		   tlv_add_ipv4_reachs);
       if (tlv_data.ipv4_int_reachs && listcount (tlv_data.ipv4_int_reachs))
+	lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
+			     lsp0, area, level);
+    }
+  /* FIXME: We pass maximum te_ipv4_reachability length to the lsp_tlv_fit()
+   * for now. lsp_tlv_fit() needs to be fixed to deal with variable length
+   * TLVs (sub TLVs!). */
+  while (tlv_data.te_ipv4_reachs && listcount (tlv_data.te_ipv4_reachs))
+    {
+      if (lsp->tlv_data.te_ipv4_reachs == NULL)
+	lsp->tlv_data.te_ipv4_reachs = list_new ();
+      lsp_tlv_fit (lsp, &tlv_data.te_ipv4_reachs,
+		   &lsp->tlv_data.te_ipv4_reachs,
+		   9, area->lsp_frag_threshold, tlv_add_te_ipv4_reachs);
+      if (tlv_data.te_ipv4_reachs && listcount (tlv_data.te_ipv4_reachs))
 	lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
 			     lsp0, area, level);
     }
@@ -1293,6 +1385,19 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 			     lsp0, area, level);
     }
 
+  while (tlv_data.te_is_neighs && listcount (tlv_data.te_is_neighs))
+    {
+      if (lsp->tlv_data.te_is_neighs == NULL)
+	lsp->tlv_data.te_is_neighs = list_new ();
+      lsp_tlv_fit (lsp, &tlv_data.te_is_neighs, &lsp->tlv_data.te_is_neighs,
+		   IS_NEIGHBOURS_LEN, area->lsp_frag_threshold,
+		   tlv_add_te_is_neighs);
+      if (tlv_data.te_is_neighs && listcount (tlv_data.te_is_neighs))
+	lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
+			     lsp0, area, level);
+    }
+
+  free_tlvs (&tlv_data);
   return;
 }
 
@@ -1572,6 +1677,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 {
   struct isis_adjacency *adj;
   struct is_neigh *is_neigh;
+  struct te_is_neigh *te_is_neigh;
   struct es_neigh *es_neigh;
   struct list *adj_list;
   struct listnode *node, *nnode;
@@ -1592,15 +1698,30 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
   /*
    * add self to IS neighbours 
    */
-  if (lsp->tlv_data.is_neighs == NULL)
+  if (circuit->area->oldmetric)
     {
-      lsp->tlv_data.is_neighs = list_new ();
-      lsp->tlv_data.is_neighs->del = free_tlv;
-    }
-  is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
+      if (lsp->tlv_data.is_neighs == NULL)
+	{
+	  lsp->tlv_data.is_neighs = list_new ();
+	  lsp->tlv_data.is_neighs->del = free_tlv;
+	}
+      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 
-  memcpy (&is_neigh->neigh_id, isis->sysid, ISIS_SYS_ID_LEN);
-  listnode_add (lsp->tlv_data.is_neighs, is_neigh);
+      memcpy (&is_neigh->neigh_id, isis->sysid, ISIS_SYS_ID_LEN);
+      listnode_add (lsp->tlv_data.is_neighs, is_neigh);
+    }
+  if (circuit->area->newmetric)
+    {
+      if (lsp->tlv_data.te_is_neighs == NULL)
+	{
+	  lsp->tlv_data.te_is_neighs = list_new ();
+	  lsp->tlv_data.te_is_neighs->del = free_tlv;
+	}
+      te_is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct te_is_neigh));
+
+      memcpy (&te_is_neigh->neigh_id, isis->sysid, ISIS_SYS_ID_LEN);
+      listnode_add (lsp->tlv_data.te_is_neighs, te_is_neigh);
+    }
 
   adj_list = list_new ();
   isis_adj_build_up_list (circuit->u.bc.adjdb[level - 1], adj_list);
@@ -1611,14 +1732,24 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 	{
 	  if ((level == 1 && adj->sys_type == ISIS_SYSTYPE_L1_IS) ||
 	      (level == 1 && adj->sys_type == ISIS_SYSTYPE_L2_IS &&
-	       adj->adj_usage == ISIS_ADJ_LEVEL1AND2) ||
+	      adj->adj_usage == ISIS_ADJ_LEVEL1AND2) ||
 	      (level == 2 && adj->sys_type == ISIS_SYSTYPE_L2_IS))
 	    {
 	      /* an IS neighbour -> add it */
-	      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
+	      if (circuit->area->oldmetric)
+		{
+		  is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 
-	      memcpy (&is_neigh->neigh_id, adj->sysid, ISIS_SYS_ID_LEN);
-	      listnode_add (lsp->tlv_data.is_neighs, is_neigh);
+		  memcpy (&is_neigh->neigh_id, adj->sysid, ISIS_SYS_ID_LEN);
+		  listnode_add (lsp->tlv_data.is_neighs, is_neigh);
+		}
+	      if (circuit->area->newmetric)
+		{
+		  te_is_neigh = XCALLOC (MTYPE_ISIS_TLV,
+					 sizeof (struct te_is_neigh));
+		  memcpy (&te_is_neigh->neigh_id, adj->sysid, ISIS_SYS_ID_LEN);
+		  listnode_add (lsp->tlv_data.te_is_neighs, te_is_neigh);
+		}
 	    }
 	  else if (level == 1 && adj->sys_type == ISIS_SYSTYPE_ES)
 	    {
@@ -1654,6 +1785,9 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 
   if (lsp->tlv_data.is_neighs && listcount (lsp->tlv_data.is_neighs) > 0)
     tlv_add_is_neighs (lsp->tlv_data.is_neighs, lsp->pdu);
+
+  if (lsp->tlv_data.te_is_neighs && listcount (lsp->tlv_data.te_is_neighs) > 0)
+    tlv_add_te_is_neighs (lsp->tlv_data.te_is_neighs, lsp->pdu);
 
   if (lsp->tlv_data.es_neighs && listcount (lsp->tlv_data.es_neighs) > 0)
     tlv_add_is_neighs (lsp->tlv_data.es_neighs, lsp->pdu);
