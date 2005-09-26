@@ -126,6 +126,7 @@ isis_area_create ()
   area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
   area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
   area->dynhostname = 1;
+  area->oldmetric = 1;
   area->lsp_frag_threshold = 90;
 #ifdef TOPOLOGY_GENERATE
   memcpy (area->topology_baseis, DEFAULT_TOPOLOGY_BASEIS, ISIS_SYS_ID_LEN);
@@ -1356,40 +1357,50 @@ ALIAS (no_lsp_gen_interval_l2,
 
 DEFUN (metric_style,
        metric_style_cmd,
-       "metric-style (narrow|wide)",
+       "metric-style (narrow|transition|wide)",
        "Use old-style (ISO 10589) or new-style packet formats\n"
        "Use old style of TLVs with narrow metric\n"
+       "Send and accept both styles of TLVs during transition\n"
        "Use new style of TLVs to carry wider metric\n")
 {
   struct isis_area *area;
 
   area = vty->index;
   assert (area);
-  if (!strcmp (argv[0], "wide"))
-    area->newmetric = 1;
-  else
-    area->newmetric = 0;
+
+  if (strncmp (argv[0], "w", 1) == 0)
+    {
+      area->newmetric = 1;
+      area->oldmetric = 0;
+    }
+  else if (strncmp (argv[0], "t", 1) == 0)
+    {
+      area->newmetric = 1;
+      area->oldmetric = 1;
+    }
+  else if (strncmp (argv[0], "n", 1) == 0)
+    {
+      area->newmetric = 0;
+      area->oldmetric = 1;
+    }
 
   return CMD_SUCCESS;
 }
 
 DEFUN (no_metric_style,
        no_metric_style_cmd,
-       "no metric-style (narrow|wide)",
+       "no metric-style",
        NO_STR
-       "Use old-style (ISO 10589) or new-style packet formats\n"
-       "Use old style of TLVs with narrow metric\n"
-       "Use new style of TLVs to carry wider metric\n")
+       "Use old-style (ISO 10589) or new-style packet formats\n")
 {
   struct isis_area *area;
 
   area = vty->index;
   assert (area);
 
-  if (!strcmp (argv[0], "wide"))
-    area->newmetric = 0;
-  else
-    area->newmetric = 1;
+  /* Default is narrow metric. */
+  area->newmetric = 0;
+  area->oldmetric = 1;
 
   return CMD_SUCCESS;
 }
@@ -1891,9 +1902,13 @@ isis_config_write (struct vty *vty)
 	/* ISIS - Metric-Style - when true displays wide */
 	if (area->newmetric)
 	  {
-	    vty_out (vty, " metric-style wide%s", VTY_NEWLINE);
+	    if (!area->oldmetric)
+	      vty_out (vty, " metric-style wide%s", VTY_NEWLINE);
+	    else
+	      vty_out (vty, " metric-style transition%s", VTY_NEWLINE);
 	    write++;
 	  }
+
 	/* ISIS - Area is-type (level-1-2 is default) */
 	if (area->is_type == IS_LEVEL_1)
 	  {

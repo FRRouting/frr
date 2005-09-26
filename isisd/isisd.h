@@ -104,6 +104,7 @@ struct isis_area
   char dynhostname;
   /* do we support new style metrics?  */
   char newmetric;
+  char oldmetric;
   /* identifies the routing instance   */
   char *area_tag;
   /* area addresses for this area      */
