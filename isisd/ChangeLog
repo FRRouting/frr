@@ -1,5 +1,10 @@
 2005-09-26 Hasso Tepper <hasso at quagga.net>
 
+	* isis_lsp.c: Put correct metric info into TE TLV's. Wide metric is
+	  used only if only wide metric style (extended TLV's) is in use.
+
+2005-09-26 Hasso Tepper <hasso at quagga.net>
+
 	* isis_tlv.[ch]: New function tlv_add_in_addr() to put just one IPv4
 	  address into TLV. Used for IPv4 address TLV (in case of LSP) and TE
 	  router ID TLV.

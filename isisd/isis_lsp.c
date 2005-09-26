@@ -1199,7 +1199,12 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 		  te_ipreach = XCALLOC (MTYPE_ISIS_TLV,
 					sizeof (struct te_ipv4_reachability) +
 					((ipv4->prefixlen + 7)/8) - 1);
-		  te_ipreach->te_metric = htonl (*circuit->te_metric);
+
+		  if (area->oldmetric)
+		    te_ipreach->te_metric = htonl (circuit->metrics[level - 1].metric_default);
+		  else
+		    te_ipreach->te_metric = htonl (circuit->te_metric[level - 1]);
+
 		  te_ipreach->control = (ipv4->prefixlen & 0x3F);
 		  memcpy (&te_ipreach->prefix_start, &ipv4->prefix.s_addr,
 			  (ipv4->prefixlen + 7)/8);
@@ -1225,8 +1230,13 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 	    {
 	      ip6reach =
 		XCALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv6_reachability));
-	      ip6reach->metric =
-		htonl (circuit->metrics[level - 1].metric_default);
+
+	      if (area->oldmetric)
+		ip6reach->metric =
+			  htonl (circuit->metrics[level - 1].metric_default);
+	      else
+		  ip6reach->metric = htonl (circuit->te_metric[level - 1]);
+
 	      ip6reach->control_info = 0;
 	      ip6reach->prefix_len = ipv6->prefixlen;
 	      memcpy (&ip6prefix, &ipv6, sizeof(ip6prefix));
@@ -1278,7 +1288,13 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 		  else
 		    memcpy (te_is_neigh->neigh_id,
 			    circuit->u.bc.l2_desig_is, ISIS_SYS_ID_LEN + 1);
-		  metric = ((htonl(*circuit->te_metric) >> 8) & 0xffffff);
+		  if (area->oldmetric)
+		    metric =
+		      ((htonl(circuit->metrics[level - 1].metric_default) >> 8)
+			      & 0xffffff);
+		  else
+		    metric = ((htonl(*circuit->te_metric) >> 8) & 0xffffff);
+
 		  memcpy (te_is_neigh->te_metric, &metric, 3);
 		  listnode_add (tlv_data.te_is_neighs, te_is_neigh);
 		}
