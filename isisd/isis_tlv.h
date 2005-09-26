@@ -279,6 +279,7 @@ void free_tlv (void *val);
 int add_tlv (u_char, u_char, u_char *, struct stream *);
 int tlv_add_area_addrs (struct list *area_addrs, struct stream *stream);
 int tlv_add_is_neighs (struct list *is_neighs, struct stream *stream);
+int tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream);
 int tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream);
 int tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream);
 int tlv_add_checksum (struct checksum *checksum, struct stream *stream);
@@ -289,6 +290,7 @@ int tlv_add_dynamic_hostname (struct hostname *hostname,
 			      struct stream *stream);
 int tlv_add_lsp_entries (struct list *lsps, struct stream *stream);
 int tlv_add_ipv4_reachs (struct list *ipv4_reachs, struct stream *stream);
+int tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream);
 #ifdef HAVE_IPV6
 int tlv_add_ipv6_addrs (struct list *ipv6_addrs, struct stream *stream);
 int tlv_add_ipv6_reachs (struct list *ipv6_reachs, struct stream *stream);

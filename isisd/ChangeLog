@@ -1,5 +1,11 @@
 2005-09-26 Hasso Tepper <hasso at quagga.net>
 
+	* isis_tlv.[ch]: Two new functions - tlv_add_te_is_neighs() and
+	  tlv_add_te_ipv4_reachs() to handle TLV's with new metric. None of
+	  them handle sub TLVs though for now.
+
+2005-09-26 Hasso Tepper <hasso at quagga.net>
+
 	* isis_circuit.[ch]: Some preliminary support for specifying wide
 	  circuit metrics. Needs more thinking though, but should do for now.
 

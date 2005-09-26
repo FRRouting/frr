@@ -805,6 +805,38 @@ tlv_add_is_neighs (struct list *is_neighs, struct stream *stream)
 }
 
 int
+tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream)
+{
+  struct listnode *node, *nnode;
+  struct te_is_neigh *te_is_neigh;
+  u_char value[255];
+  u_char *pos = value;
+  int retval;
+
+  for (ALL_LIST_ELEMENTS (te_is_neighs, node, nnode, te_is_neigh))
+    {
+      /* FIXME: This will be wrong if we are going to add TE sub TLVs. */
+      if (pos - value + IS_NEIGHBOURS_LEN > 255)
+        {
+          retval = add_tlv (TE_IS_NEIGHBOURS, pos - value, value, stream);
+          if (retval != ISIS_OK)
+            return retval;
+          pos = value;
+        }
+      
+      memcpy (pos, te_is_neigh->neigh_id, ISIS_SYS_ID_LEN + 1);
+      pos += ISIS_SYS_ID_LEN + 1;
+      memcpy (pos, te_is_neigh->te_metric, 3);
+      pos += 3;
+      /* Sub TLVs length. */
+      *pos = 0;
+      pos++;
+    }
+
+  return add_tlv (TE_IS_NEIGHBOURS, pos - value, value, stream);
+}
+
+int
 tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream)
 {
   struct listnode *node, *nnode;
@@ -968,6 +1000,39 @@ tlv_add_ipv4_reachs (struct list *ipv4_reachs, struct stream *stream)
 
 
   return add_tlv (IPV4_INT_REACHABILITY, pos - value, value, stream);
+}
+
+int
+tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream)
+{
+  struct listnode *node, *nnode;
+  struct te_ipv4_reachability *te_reach;
+  u_char value[255];
+  u_char *pos = value;
+  u_char prefix_size;
+  int retval;
+
+  for (ALL_LIST_ELEMENTS (te_ipv4_reachs, node, nnode, te_reach))
+    {
+      prefix_size = ((((te_reach->control & 0x3F) - 1) >> 3) + 1);
+
+      if (pos - value + (5 + prefix_size) > 255)
+	{
+	  retval =
+	    add_tlv (IPV4_INT_REACHABILITY, pos - value, value, stream);
+	  if (retval != ISIS_OK)
+	    return retval;
+	  pos = value;
+	}
+      *(u_int32_t *) pos = te_reach->te_metric;
+      pos += 4;
+      *pos = te_reach->control;
+      pos++;
+      memcpy (pos, &te_reach->prefix_start, prefix_size);
+      pos += prefix_size;
+    }
+
+  return add_tlv (TE_IPV4_REACHABILITY, pos - value, value, stream);
 }
 
 #ifdef HAVE_IPV6
