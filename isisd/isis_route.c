@@ -451,7 +451,8 @@ isis_route_info_prefer_new (struct isis_route_info *new,
 
 struct isis_route_info *
 isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
-		   struct list *adjacencies, struct isis_area *area)
+		   struct list *adjacencies, struct isis_area *area,
+		   int level)
 {
   struct route_node *route_node;
   struct isis_route_info *rinfo_new, *rinfo_old, *route_info = NULL;
@@ -471,10 +472,10 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
     }
 
   if (family == AF_INET)
-    route_node = route_node_get (area->route_table, prefix);
+    route_node = route_node_get (area->route_table[level - 1], prefix);
 #ifdef HAVE_IPV6
   else if (family == AF_INET6)
-    route_node = route_node_get (area->route_table6, prefix);
+    route_node = route_node_get (area->route_table6[level - 1], prefix);
 #endif /* HAVE_IPV6 */
   else
     return NULL;
@@ -585,31 +586,23 @@ isis_route_delete (struct prefix *prefix, struct route_table *table)
   return;
 }
 
-int
-isis_route_validate (struct thread *thread)
+/* Validating routes in particular table. */
+static void
+isis_route_validate_table (struct isis_area *area, struct route_table *table)
 {
-  struct isis_area *area;
-  struct route_table *table;
-  struct route_node *rode;
+  struct route_node *rnode, *drnode;
   struct isis_route_info *rinfo;
   u_char buff[BUFSIZ];
-#ifdef HAVE_IPV6
-  int v6done = 0;
-#endif
-  area = THREAD_ARG (thread);
-  table = area->route_table;
-#ifdef HAVE_IPV6
-again:
-#endif
-  for (rode = route_top (table); rode; rode = route_next (rode))
+
+  for (rnode = route_top (table); rnode; rnode = route_next (rnode))
     {
-      if (rode->info == NULL)
+      if (rnode->info == NULL)
 	continue;
-      rinfo = rode->info;
+      rinfo = rnode->info;
 
       if (isis->debugs & DEBUG_RTE_EVENTS)
 	{
-	  prefix2str (&rode->p, (char *) buff, BUFSIZ);
+	  prefix2str (&rnode->p, (char *) buff, BUFSIZ);
 	  zlog_debug ("ISIS-Rte (%s): route validate: %s %s %s",
 		      area->area_tag,
 		      (CHECK_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC) ?
@@ -618,16 +611,131 @@ again:
 		      "active" : "inactive"), buff);
 	}
 
-      isis_zebra_route_update (&rode->p, rinfo);
+      isis_zebra_route_update (&rnode->p, rinfo);
       if (!CHECK_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE))
-	isis_route_delete (&rode->p, area->route_table);
+	{
+	  /* Area is either L1 or L2 => we use level route tables directly for
+	   * validating => no problems with deleting routes. */
+	  if (area->is_type != IS_LEVEL_1_AND_2)
+	    {
+	      isis_route_delete (&rnode->p, table);
+	      continue;
+	    }
+	  /* If area is L1L2, we work with merge table and therefore must
+	   * delete node from level tables as well before deleting route info.
+	   * FIXME: Is it performance problem? There has to be the better way.
+	   * Like not to deal with it here at all (see the next comment)? */
+	  if (rnode->p.family == AF_INET)
+	    {
+	      drnode = route_node_get (area->route_table[0], &rnode->p);
+	      if (drnode->info == rnode->info)
+		drnode->info = NULL;
+	      drnode = route_node_get (area->route_table[1], &rnode->p);
+	      if (drnode->info == rnode->info)
+		drnode->info = NULL;
+	    }
+	  if (rnode->p.family == AF_INET6)
+	    {
+	      drnode = route_node_get (area->route_table6[0], &rnode->p);
+	      if (drnode->info == rnode->info)
+		drnode->info = NULL;
+	      drnode = route_node_get (area->route_table6[1], &rnode->p);
+	      if (drnode->info == rnode->info)
+		drnode->info = NULL;
+	    }
+	      
+	  isis_route_delete (&rnode->p, table);
+	}
     }
+}
+
+/* Function to validate route tables for L1L2 areas. In this case we can't use
+ * level route tables directly, we have to merge them at first. L1 routes are
+ * preferred over the L2 ones.
+ *
+ * Merge algorithm is trivial (at least for now). All L1 paths are copied into
+ * merge table at first, then L2 paths are added if L1 path for same prefix
+ * doesn't already exists there.
+ *
+ * FIXME: Is it right place to do it at all? Maybe we should push both levels
+ * to the RIB with different zebra route types and let RIB handle this? */
+static void
+isis_route_validate_merge (struct isis_area *area, int family)
+{
+  struct route_table *table = NULL;
+  struct route_table *merge;
+  struct route_node *rnode, *mrnode;
+
+  merge = route_table_init ();
+
+  if (family == AF_INET)
+    table = area->route_table[0];
+  else if (family == AF_INET6)
+    table = area->route_table6[0];
+
+  for (rnode = route_top (table); rnode; rnode = route_next (rnode))
+    {
+      if (rnode->info == NULL)
+        continue;
+      mrnode = route_node_get (merge, &rnode->p);
+      mrnode->info = rnode->info;
+    }
+
+  if (family == AF_INET)
+    table = area->route_table[1];
+  else if (family == AF_INET6)
+    table = area->route_table6[1];
+
+  for (rnode = route_top (table); rnode; rnode = route_next (rnode))
+    {
+      if (rnode->info == NULL)
+        continue;
+      mrnode = route_node_get (merge, &rnode->p);
+      if (mrnode->info != NULL)
+        continue;
+      mrnode->info = rnode->info;
+    }
+
+  isis_route_validate_table (area, merge);
+  route_table_finish (merge);
+}
+
+/* Walk through route tables and propagate necessary changes into RIB. In case
+ * of L1L2 area, level tables have to be merged at first. */
+int
+isis_route_validate (struct thread *thread)
+{
+  struct isis_area *area;
+
+  area = THREAD_ARG (thread);
+
+  if (area->is_type == IS_LEVEL_1)
+    { 
+      isis_route_validate_table (area, area->route_table[0]);
+      goto validate_ipv6;
+    }
+  if (area->is_type == IS_LEVEL_2)
+    {
+      isis_route_validate_table (area, area->route_table[1]);
+      goto validate_ipv6;
+    }
+
+  isis_route_validate_merge (area, AF_INET);
+
 #ifdef HAVE_IPV6
-  if (v6done)
-    return ISIS_OK;
-  table = area->route_table6;
-  v6done = 1;
-  goto again;
+validate_ipv6:
+  if (area->is_type == IS_LEVEL_1)
+    {
+      isis_route_validate_table (area, area->route_table6[0]);
+      return ISIS_OK;
+    }
+  if (area->is_type == IS_LEVEL_2)
+    {
+      isis_route_validate_table (area, area->route_table6[1]);
+      return ISIS_OK;
+    }
+
+  isis_route_validate_merge (area, AF_INET6);
 #endif
 
   return ISIS_OK;

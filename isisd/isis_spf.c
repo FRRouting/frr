@@ -394,7 +394,7 @@ isis_find_vertex (struct list *list, void *id, enum vertextype vtype)
  */
 static struct isis_vertex *
 isis_spf_add2tent (struct isis_spftree *spftree, enum vertextype vtype,
-		   void *id, struct isis_adjacency *adj, u_int16_t cost,
+		   void *id, struct isis_adjacency *adj, u_int32_t cost,
 		   int depth, int family)
 {
   struct isis_vertex *vertex, *v;
@@ -457,7 +457,7 @@ isis_spf_add2tent (struct isis_spftree *spftree, enum vertextype vtype,
 
 static struct isis_vertex *
 isis_spf_add_local (struct isis_spftree *spftree, enum vertextype vtype,
-		    void *id, struct isis_adjacency *adj, u_int16_t cost,
+		    void *id, struct isis_adjacency *adj, u_int32_t cost,
 		    int family)
 {
   struct isis_vertex *vertex;
@@ -553,7 +553,7 @@ process_N (struct isis_spftree *spftree, enum vertextype vtype, void *id,
  */
 static int
 isis_spf_process_lsp (struct isis_spftree *spftree, struct isis_lsp *lsp,
-		      uint16_t cost, uint16_t depth, int family)
+		      uint32_t cost, uint16_t depth, int family)
 {
   struct listnode *node, *fragnode = NULL;
   u_int16_t dist;
@@ -945,7 +945,7 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
  */
 static void
 add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
-	      struct isis_area *area)
+	      struct isis_area *area, int level)
 {
 #ifdef EXTREME_DEBUG
   u_char buff[BUFSIZ];
@@ -960,8 +960,8 @@ add_to_paths (struct isis_spftree *spftree, struct isis_vertex *vertex,
   if (vertex->type > VTYPE_ES)
     {
       if (listcount (vertex->Adj_N) > 0)
-	isis_route_create ((struct prefix *) &vertex->N.prefix,
-			   vertex->d_N, vertex->depth, vertex->Adj_N, area);
+	isis_route_create ((struct prefix *) &vertex->N.prefix, vertex->d_N,
+			   vertex->depth, vertex->Adj_N, area, level);
       else if (isis->debugs & DEBUG_SPF_EVENTS)
 	zlog_debug ("ISIS-Spf: no adjacencies do not install route");
     }
@@ -989,6 +989,9 @@ isis_run_spf (struct isis_area *area, int level, int family)
   struct isis_spftree *spftree = NULL;
   u_char lsp_id[ISIS_SYS_ID_LEN + 2];
   struct isis_lsp *lsp;
+  struct route_table *table = NULL;
+  struct route_node *rode;
+  struct isis_route_info *rinfo;
 
   if (family == AF_INET)
     spftree = area->spftree[level - 1];
@@ -998,6 +1001,21 @@ isis_run_spf (struct isis_area *area, int level, int family)
 #endif
 
   assert (spftree);
+
+  /* Make all routes in current route table inactive. */
+  if (family == AF_INET)
+    table = area->route_table[level - 1];
+  else if (family == AF_INET6)
+    table = area->route_table6[level - 1];
+
+  for (rode = route_top (table); rode; rode = route_next (rode))
+    {
+      if (rode->info == NULL)
+        continue;
+      rinfo = rode->info;
+
+      UNSET_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE);
+    }
 
   /*
    * C.2.5 Step 0
@@ -1026,7 +1044,7 @@ isis_run_spf (struct isis_area *area, int level, int family)
       list_delete_node (spftree->tents, node);
       if (isis_find_vertex (spftree->paths, vertex->N.id, vertex->type))
 	continue;
-      add_to_paths (spftree, vertex, area);
+      add_to_paths (spftree, vertex, area, level);
       if (vertex->type == VTYPE_PSEUDO_IS ||
 	  vertex->type == VTYPE_NONPSEUDO_IS)
 	{
@@ -1225,7 +1243,7 @@ isis_run_spf6_l2 (struct thread *thread)
     }
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
-    zlog_debug ("ISIS-Spf (%s) L2 SPF needed, periodic SPF", area->area_tag);
+    zlog_debug ("ISIS-Spf (%s) L2 SPF needed, periodic SPF.", area->area_tag);
 
   if (area->ipv6_circuits)
     retval = isis_run_spf (area, 2, AF_INET6);

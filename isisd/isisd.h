@@ -79,13 +79,13 @@ struct isis
 
 struct isis_area
 {
-  struct isis *isis;		/* back pointer */
-  dict_t *lspdb[ISIS_LEVELS];	/* link-state dbs */
-  struct isis_spftree *spftree[ISIS_LEVELS];	/* The v4 SPTs */
-  struct route_table *route_table;	/* IPv4 routes */
+  struct isis *isis;				  /* back pointer */
+  dict_t *lspdb[ISIS_LEVELS];			  /* link-state dbs */
+  struct isis_spftree *spftree[ISIS_LEVELS];	  /* The v4 SPTs */
+  struct route_table *route_table[ISIS_LEVELS];	  /* IPv4 routes */
 #ifdef HAVE_IPV6
-  struct isis_spftree *spftree6[ISIS_LEVELS];	/* The v4 SPTs */
-  struct route_table *route_table6;	/* IPv6 routes */
+  struct isis_spftree *spftree6[ISIS_LEVELS];	  /* The v6 SPTs */
+  struct route_table *route_table6[ISIS_LEVELS];  /* IPv6 routes */
 #endif
   unsigned int min_bcast_mtu;
   struct list *circuit_list;	/* IS-IS circuits */

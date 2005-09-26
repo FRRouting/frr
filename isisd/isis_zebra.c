@@ -308,6 +308,7 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
 
       stream_putw_at (stream, 0, stream_get_endp (stream));
       zclient_send_message(zclient);
+      SET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC);
     }
 }
 
@@ -328,6 +329,7 @@ isis_zebra_route_del_ipv4 (struct prefix *prefix,
       prefix4.prefix = prefix->u.prefix4;
       zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, &prefix4, &api);
     }
+  UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC);
 
   return;
 }

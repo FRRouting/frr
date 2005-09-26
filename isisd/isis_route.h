@@ -57,7 +57,7 @@ struct isis_route_info
 struct isis_route_info *isis_route_create (struct prefix *prefix,
 					   u_int32_t cost, u_int32_t depth,
 					   struct list *adjacencies,
-					   struct isis_area *area);
+					   struct isis_area *area, int level);
 
 int isis_route_validate (struct thread *thread);
 

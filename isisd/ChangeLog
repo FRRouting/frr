@@ -1,5 +1,16 @@
 2005-09-26 Hasso Tepper <hasso at quagga.net>
 
+	* isis_spf.c: Changing cost from uint16_t to uint32_t. Unset
+	  ISIS_ROUTE_FLAG_ACTIVE flag before running SPF.
+	* isisd.[ch]: Separate route tables for different levels. SPF is done
+	  separately, but in case of L1L2 area they have to be merged.
+	* isis_zebra.c: Set/unset ISIS_ROUTE_FLAG_ZEBRA_SYNC flag correctly in
+	  case of adding/removing IPv4 routes.
+	* zebra_route.c: Rework route validating process. Merging L1 and L2
+	  tables in case of L1L2 area.
+
+2005-09-26 Hasso Tepper <hasso at quagga.net>
+
 	* isis_spf.[ch]: Added TE TLVs to the SPF process. It seems to work
 	  mostly, but needs certainly much more testing, especially transition
 	  situation.

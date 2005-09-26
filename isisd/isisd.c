@@ -106,9 +106,11 @@ isis_area_create ()
   area->lspdb[1] = lsp_db_init ();
 
   spftree_area_init (area);
-  area->route_table = route_table_init ();
+  area->route_table[0] = route_table_init ();
+  area->route_table[1] = route_table_init ();
 #ifdef HAVE_IPV6
-  area->route_table6 = route_table_init ();
+  area->route_table6[0] = route_table_init ();
+  area->route_table6[1] = route_table_init ();
 #endif /* HAVE_IPV6 */
   area->circuit_list = list_new ();
   area->area_addrs = list_new ();
