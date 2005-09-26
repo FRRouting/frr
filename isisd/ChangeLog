@@ -1,5 +1,12 @@
 2005-09-26 Hasso Tepper <hasso at quagga.net>
 
+	* isis_tlv.[ch]: New function tlv_add_in_addr() to put just one IPv4
+	  address into TLV. Used for IPv4 address TLV (in case of LSP) and TE
+	  router ID TLV.
+	* isis_lsp.c: Use tlv_add_in_addr() and include router ID in LSP.
+
+2005-09-26 Hasso Tepper <hasso at quagga.net>
+
 	* isis_lsp.c: Support for originating TE IS and IPv4 TLV's. No any sub
 	  TLV handling yet.
 

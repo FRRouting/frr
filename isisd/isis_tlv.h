@@ -276,7 +276,6 @@ int parse_tlvs (char *areatag, u_char * stream, int size,
 		u_int32_t * expected, u_int32_t * found, struct tlvs *tlvs);
 void free_tlv (void *val);
 
-int add_tlv (u_char, u_char, u_char *, struct stream *);
 int tlv_add_area_addrs (struct list *area_addrs, struct stream *stream);
 int tlv_add_is_neighs (struct list *is_neighs, struct stream *stream);
 int tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream);
@@ -286,6 +285,7 @@ int tlv_add_checksum (struct checksum *checksum, struct stream *stream);
 int tlv_add_authinfo (char auth_type, char authlen, u_char *auth_value,
 		      struct stream *stream);
 int tlv_add_ip_addrs (struct list *ip_addrs, struct stream *stream);
+int tlv_add_in_addr (struct in_addr *, struct stream *stream, u_char tag);
 int tlv_add_dynamic_hostname (struct hostname *hostname,
 			      struct stream *stream);
 int tlv_add_lsp_entries (struct list *lsps, struct stream *stream);

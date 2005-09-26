@@ -927,6 +927,20 @@ tlv_add_ip_addrs (struct list *ip_addrs, struct stream *stream)
   return add_tlv (IPV4_ADDR, pos - value, value, stream);
 }
 
+/* Used to add TLV containing just one IPv4 address - either IPv4 address TLV
+ * (in case of LSP) or TE router ID TLV. */
+int
+tlv_add_in_addr (struct in_addr *addr, struct stream *stream, u_char tag)
+{
+  u_char value[255];
+  u_char *pos = value;
+  
+  memcpy (pos, addr, IPV4_MAX_BYTELEN);
+  pos += IPV4_MAX_BYTELEN;
+
+  return add_tlv (tag, pos - value, value, stream);
+}
+
 int
 tlv_add_dynamic_hostname (struct hostname *hostname, struct stream *stream)
 {

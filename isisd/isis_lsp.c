@@ -1100,11 +1100,9 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   if (lsp->tlv_data.area_addrs && listcount (lsp->tlv_data.area_addrs) > 0)
     tlv_add_area_addrs (lsp->tlv_data.area_addrs, lsp->pdu);
 
-  memset (&tlv_data, 0, sizeof (struct tlvs));
-  /*
-   * IPv4 address TLV. We don't follow "C" vendor, but "J" vendor behavior -
-   * one IPv4 address is put into LSP and this address is same as router id.
-   */
+  /* IPv4 address and TE router ID TLVs. In case of the first one we don't
+   * follow "C" vendor, but "J" vendor behavior - one IPv4 address is put into
+   * LSP and this address is same as router id. */
   if (router_id_zebra.s_addr != 0)
     {
       if (lsp->tlv_data.ipv4_addrs == NULL)
@@ -1115,17 +1113,21 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 
       routerid = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct in_addr));
       routerid->s_addr = router_id_zebra.s_addr;
-
       listnode_add (lsp->tlv_data.ipv4_addrs, routerid);
+      tlv_add_in_addr (routerid, lsp->pdu, IPV4_ADDR);
 
-      /* 
-       * FIXME: Using add_tlv() directly is hack, but tlv_add_ip_addrs()
-       * expects list of prefix_ipv4 structures, but we have list of
-       * in_addr structures.
-       */
-      add_tlv (IPV4_ADDR, IPV4_MAX_BYTELEN, (u_char *) &routerid->s_addr,
-	       lsp->pdu);
+      /* Exactly same data is put into TE router ID TLV, but only if new style
+       * TLV's are in use. */
+      if (area->newmetric)
+	{
+	  lsp->tlv_data.router_id = XMALLOC (MTYPE_ISIS_TLV,
+					     sizeof (struct in_addr));
+	  lsp->tlv_data.router_id->id.s_addr = router_id_zebra.s_addr;
+	  tlv_add_in_addr (&lsp->tlv_data.router_id->id, lsp->pdu, TE_ROUTER_ID);
+	}
     }
+
+  memset (&tlv_data, 0, sizeof (struct tlvs));
 
 #ifdef TOPOLOGY_GENERATE
   /* If topology exists (and we create topology for level 1 only), create
