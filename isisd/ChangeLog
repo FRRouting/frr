@@ -1,5 +1,11 @@
 2005-09-26 Hasso Tepper <hasso at quagga.net>
 
+	* isis_spf.[ch]: Added TE TLVs to the SPF process. It seems to work
+	  mostly, but needs certainly much more testing, especially transition
+	  situation.
+
+2005-09-26 Hasso Tepper <hasso at quagga.net>
+
 	* isis_lsp.c: Put correct metric info into TE TLV's. Wide metric is
 	  used only if only wide metric style (extended TLV's) is in use.
 
