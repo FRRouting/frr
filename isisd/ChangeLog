@@ -1,5 +1,10 @@
 2005-09-26 Hasso Tepper <hasso at quagga.net>
 
+	* isis_circuit.[ch]: Some preliminary support for specifying wide
+	  circuit metrics. Needs more thinking though, but should do for now.
+
+2005-09-26 Hasso Tepper <hasso at quagga.net>
+
 	* isisd.[ch]: Introduce oldmetric flag for area and transition
 	  metricstyle command. With metricstyle wide only extended TLVs
 	  should be used.

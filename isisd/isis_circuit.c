@@ -77,6 +77,7 @@ isis_circuit_new ()
 	  circuit->metrics[i].metric_expense = METRICS_UNSUPPORTED;
 	  circuit->metrics[i].metric_error = METRICS_UNSUPPORTED;
 	  circuit->metrics[i].metric_delay = METRICS_UNSUPPORTED;
+	  circuit->te_metric[i] = DEFAULT_CIRCUIT_METRICS;
 	}
     }
   else
@@ -785,12 +786,12 @@ isis_interface_config_write (struct vty *vty)
 		}
 	    }
 	  /* ISIS - Metric */
-	  if (c->metrics[0].metric_default == c->metrics[1].metric_default)
+	  if (c->te_metric[0] == c->te_metric[1])
 	    {
-	      if (c->metrics[0].metric_default != DEFAULT_CIRCUIT_METRICS)
+	      if (c->te_metric[0] != DEFAULT_CIRCUIT_METRICS)
 		{
-		  vty_out (vty, " isis metric %d%s",
-			   c->metrics[0].metric_default, VTY_NEWLINE);
+		  vty_out (vty, " isis metric %d%s", c->te_metric[0],
+			   VTY_NEWLINE);
 		  write++;
 		}
 	    }
@@ -798,11 +799,10 @@ isis_interface_config_write (struct vty *vty)
 	    {
 	      for (i = 0; i < 2; i++)
 		{
-		  if (c->metrics[i].metric_default != DEFAULT_CIRCUIT_METRICS)
+		  if (c->te_metric[i] != DEFAULT_CIRCUIT_METRICS)
 		    {
 		      vty_out (vty, " isis metric %d level-%d%s",
-			       c->metrics[i].metric_default, i + 1,
-			       VTY_NEWLINE);
+			       c->te_metric[i], i + 1, VTY_NEWLINE);
 		      write++;
 		    }
 		}
@@ -1235,7 +1235,7 @@ ALIAS (no_isis_priority_l2,
 /* Metric command */
   DEFUN (isis_metric,
        isis_metric_cmd,
-       "isis metric <0-63>",
+       "isis metric <0-16777215>",
        "IS-IS commands\n"
        "Set default metric for circuit\n"
        "Default metric value\n")
@@ -1253,6 +1253,12 @@ ALIAS (no_isis_priority_l2,
   assert (circuit);
 
   met = atoi (argv[0]);
+
+  circuit->te_metric[0] = met;
+  circuit->te_metric[1] = met;
+
+  if (met > 63)
+    met = 63;
 
   circuit->metrics[0].metric_default = met;
   circuit->metrics[1].metric_default = met;
@@ -1278,6 +1284,8 @@ DEFUN (no_isis_metric,
     }
   assert (circuit);
 
+  circuit->te_metric[0] = DEFAULT_CIRCUIT_METRICS;
+  circuit->te_metric[1] = DEFAULT_CIRCUIT_METRICS;
   circuit->metrics[0].metric_default = DEFAULT_CIRCUIT_METRICS;
   circuit->metrics[1].metric_default = DEFAULT_CIRCUIT_METRICS;
 
@@ -1286,14 +1294,14 @@ DEFUN (no_isis_metric,
 
 ALIAS (no_isis_metric,
        no_isis_metric_arg_cmd,
-       "no isis metric <0-127>",
+       "no isis metric <0-16777215>",
        NO_STR
        "IS-IS commands\n"
        "Set default metric for circuit\n"
        "Default metric value\n")
 
 /* end of metrics */
-  DEFUN (isis_hello_interval,
+DEFUN (isis_hello_interval,
        isis_hello_interval_cmd,
        "isis hello-interval (<1-65535>|minimal)",
        "IS-IS commands\n"

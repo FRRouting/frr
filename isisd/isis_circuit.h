@@ -108,6 +108,7 @@ struct isis_circuit
   u_int16_t csnp_interval[2];	/* level-1 csnp-interval in seconds */
   u_int16_t psnp_interval[2];	/* level-1 psnp-interval in seconds */
   struct metric metrics[2];	/* l1XxxMetric */
+  u_int32_t te_metric[2];
   struct password *c_rx_passwds;	/* circuitReceivePasswords */
   struct password *c_tc_passwd;	/* circuitTransmitPassword */
   int ip_router;		/* Route IP ? */
