@@ -1,5 +1,11 @@
 2005-09-28 Hasso Tepper <hasso at quagga.net>
 
+	* isis_dynh.c, isisd.h: Implement dynamic hostname cache cleanup.
+	* isis_lsp.c: Refresh dynamic hostname in the cache while refreshing
+	  topology LSP.
+
+2005-09-28 Hasso Tepper <hasso at quagga.net>
+
 	* isis_lsp.c: Make topology generator generate TE TLVs if necessary.
 	  Also take care of inserting dynamic hostname of topology TLVs into
 	  cache.

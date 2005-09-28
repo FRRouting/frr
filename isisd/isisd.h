@@ -50,6 +50,7 @@ struct isis
   struct area_addr *man_area_addrs;	/* manualAreaAddresses */
   u_int32_t debugs;		/* bitmap for debug */
   time_t uptime;		/* when did we start */
+  struct thread *t_dync_clean;	/* dynamic hostname cache cleanup thread */
 
   /* Redistributed external information. */
   struct route_table *external_info[ZEBRA_ROUTE_MAX + 1];

@@ -2154,6 +2154,10 @@ top_lsp_refresh (struct thread *thread)
       zlog_debug ("ISIS-Upd (): refreshing Topology L1 %s",
 		  rawlspid_print (lsp->lsp_header->lsp_id));
     }
+  /* Refresh dynamic hostname in the cache. */
+  isis_dynhn_insert (lsp->lsp_header->lsp_id, lsp->tlv_data.hostname,
+		     IS_LEVEL_1);
+
   lsp->lsp_header->rem_lifetime =
     htons (isis_jitter (lsp->area->max_lsp_lifetime[0], MAX_AGE_JITTER));
 

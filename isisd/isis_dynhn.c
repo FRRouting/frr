@@ -30,6 +30,7 @@
 #include "stream.h"
 #include "command.h"
 #include "if.h"
+#include "thread.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -42,16 +43,40 @@
 #include "isisd/isis_constants.h"
 
 extern struct isis *isis;
+extern struct thread_master *master;
 extern struct host host;
 
 struct list *dyn_cache = NULL;
+static int dyn_cache_cleanup (struct thread *);
 
 void
 dyn_cache_init (void)
 {
   dyn_cache = list_new ();
-
+  THREAD_TIMER_ON (master, isis->t_dync_clean, dyn_cache_cleanup, NULL, 120);
   return;
+}
+
+static int
+dyn_cache_cleanup (struct thread *thread)
+{
+  struct listnode *node, *nnode;
+  struct isis_dynhn *dyn;
+  time_t now = time (NULL);
+
+  isis->t_dync_clean = NULL;
+
+  for (ALL_LIST_ELEMENTS (dyn_cache, node, nnode, dyn))
+    {
+      if ((now - dyn->refresh) < (MAX_AGE + 120))
+	continue;
+
+      list_delete_node (dyn_cache, node);
+      XFREE (MTYPE_ISIS_DYNHN, dyn);
+    }
+
+  THREAD_TIMER_ON (master, isis->t_dync_clean, dyn_cache_cleanup, NULL, 120);
+  return ISIS_OK;
 }
 
 struct isis_dynhn *
@@ -80,13 +105,13 @@ isis_dynhn_insert (u_char * id, struct hostname *hostname, int level)
       dyn->refresh = time (NULL);
       return;
     }
-  dyn = XMALLOC (MTYPE_ISIS_DYNHN, sizeof (struct isis_dynhn));
+  dyn = XCALLOC (MTYPE_ISIS_DYNHN, sizeof (struct isis_dynhn));
   if (!dyn)
     {
       zlog_warn ("isis_dynhn_insert(): out of memory!");
       return;
     }
-  memset (dyn, 0, sizeof (struct isis_dynhn));
+
   /* we also copy the length */
   memcpy (&dyn->name, hostname, hostname->namelen + 1);
   memcpy (dyn->id, id, ISIS_SYS_ID_LEN);
