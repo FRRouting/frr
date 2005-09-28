@@ -51,8 +51,10 @@ connected_withdraw (struct connected *ifc)
       
       if (ifc->address->family == AF_INET)
         connected_down_ipv4 (ifc->ifp, ifc);
+#ifdef HAVE_IPV6
       else
         connected_down_ipv6 (ifc->ifp, ifc);
+#endif
 
       UNSET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
     }
@@ -83,8 +85,10 @@ connected_announce (struct interface *ifp, struct connected *ifc)
         {
           if (ifc->address->family == AF_INET)
 	    connected_up_ipv4 (ifp, ifc);
+#ifdef HAVE_IPV6
           else
             connected_up_ipv6 (ifp, ifc);
+#endif
         }
     }
 }

@@ -1,3 +1,9 @@
+
+2005-09-28 Alain Ritoux <alain.ritoux@6wind.com>
+
+	* connected.c: flag connected_up_ipv6() and connected_down_ipv6()
+	  usage with HAVE_IPV6
+
 2005-09-24 Hasso Tepper <hasso at quagga.net>
 
 	* rib.h: Add note about behaviour of rib_add_ipv[46]* functions -
