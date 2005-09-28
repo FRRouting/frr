@@ -109,7 +109,6 @@ isis_adj_lookup (u_char * sysid, struct list *adjdb)
   return NULL;
 }
 
-
 struct isis_adjacency *
 isis_adj_lookup_snpa (u_char * ssnpa, struct list *adjdb)
 {
@@ -123,23 +122,14 @@ isis_adj_lookup_snpa (u_char * ssnpa, struct list *adjdb)
   return NULL;
 }
 
-/*
- * When we recieve a NULL list, we will know its p2p
- */
 void
 isis_delete_adj (struct isis_adjacency *adj, struct list *adjdb)
 {
-  struct isis_adjacency *adj2 = NULL;
-  struct listnode *node;
-
+  if (!adj)
+    return;
+  /* When we recieve a NULL list, we will know its p2p. */
   if (adjdb)
-    {
-      for (ALL_LIST_ELEMENTS_RO (adjdb, node, adj2))
-        if (adj2 == adj)
-          break;
-
-      listnode_delete (adjdb, adj);
-    }
+    listnode_delete (adjdb, adj);
 
   if (adj->ipv4_addrs)
     list_delete (adj->ipv4_addrs);
@@ -147,15 +137,8 @@ isis_delete_adj (struct isis_adjacency *adj, struct list *adjdb)
   if (adj->ipv6_addrs)
     list_delete (adj->ipv6_addrs);
 #endif
-  if (adj)
-    {
-      XFREE (MTYPE_ISIS_ADJACENCY, adj);
-    }
-  else
-    {
-      zlog_warn ("tried to delete a non-existent adjacency");
-    }
-
+  
+  XFREE (MTYPE_ISIS_ADJACENCY, adj);
   return;
 }
 

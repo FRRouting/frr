@@ -66,10 +66,9 @@ isis_circuit_new ()
   struct isis_circuit *circuit;
   int i;
 
-  circuit = XMALLOC (MTYPE_ISIS_CIRCUIT, sizeof (struct isis_circuit));
+  circuit = XCALLOC (MTYPE_ISIS_CIRCUIT, sizeof (struct isis_circuit));
   if (circuit)
     {
-      memset (circuit, 0, sizeof (struct isis_circuit));
       /* set default metrics for circuit */
       for (i = 0; i < 2; i++)
 	{
@@ -621,14 +620,13 @@ isis_interface_config_write (struct vty *vty)
 {
 
   int write = 0;
-  struct listnode *node, *nnode;
-  struct listnode *node2, *nnode2;
+  struct listnode *node, *node2;
   struct interface *ifp;
   struct isis_area *area;
   struct isis_circuit *c;
   int i;
 
-  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
   {
     /* IF name */
     vty_out (vty, "interface %s%s", ifp->name, VTY_NEWLINE);
@@ -640,7 +638,7 @@ isis_interface_config_write (struct vty *vty)
 	write++;
       }
     /* ISIS Circuit */
-    for (ALL_LIST_ELEMENTS (isis->area_list, node2, nnode2, area))
+    for (ALL_LIST_ELEMENTS_RO (isis->area_list, node2, area))
     {
       c = circuit_lookup_by_ifp (ifp, area->circuit_list);
       if (c)
@@ -892,7 +890,7 @@ DEFUN (no_ip_router_isis,
   struct isis_circuit *circuit = NULL;
   struct interface *ifp;
   struct isis_area *area;
-  struct listnode *node, *nnode;
+  struct listnode *node;
 
   ifp = (struct interface *) vty->index;
   assert (ifp);
@@ -903,7 +901,7 @@ DEFUN (no_ip_router_isis,
       vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  for (ALL_LIST_ELEMENTS (area->circuit_list, node, nnode, circuit))
+  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
     if (circuit->interface == ifp)
       break;
   if (!circuit)

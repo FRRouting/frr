@@ -88,7 +88,7 @@ isis_event_circuit_state_change (struct isis_circuit *circuit, int up)
 void
 isis_event_system_type_change (struct isis_area *area, int newtype)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct isis_circuit *circuit;
 
   if (isis->debugs & DEBUG_EVENTS)
@@ -125,7 +125,7 @@ isis_event_system_type_change (struct isis_area *area, int newtype)
     }
 
   area->is_type = newtype;
-  for (ALL_LIST_ELEMENTS (area->circuit_list, node, nnode, circuit))
+  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
     isis_event_circuit_type_change (circuit, newtype);
 
   spftree_area_init (area);

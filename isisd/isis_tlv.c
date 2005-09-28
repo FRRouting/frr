@@ -771,7 +771,7 @@ err:
 int
 tlv_add_is_neighs (struct list *is_neighs, struct stream *stream)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct is_neigh *is_neigh;
   u_char value[255];
   u_char *pos = value;
@@ -780,7 +780,7 @@ tlv_add_is_neighs (struct list *is_neighs, struct stream *stream)
   *pos = 0;			/*is_neigh->virtual; */
   pos++;
 
-  for (ALL_LIST_ELEMENTS (is_neighs, node, nnode, is_neigh))
+  for (ALL_LIST_ELEMENTS_RO (is_neighs, node, is_neigh))
     {
       if (pos - value + IS_NEIGHBOURS_LEN > 255)
 	{
@@ -807,13 +807,13 @@ tlv_add_is_neighs (struct list *is_neighs, struct stream *stream)
 int
 tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct te_is_neigh *te_is_neigh;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (ALL_LIST_ELEMENTS (te_is_neighs, node, nnode, te_is_neigh))
+  for (ALL_LIST_ELEMENTS_RO (te_is_neighs, node, te_is_neigh))
     {
       /* FIXME: This will be wrong if we are going to add TE sub TLVs. */
       if (pos - value + IS_NEIGHBOURS_LEN > 255)
@@ -839,13 +839,13 @@ tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream)
 int
 tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   u_char *snpa;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (ALL_LIST_ELEMENTS (lan_neighs, node, nnode, snpa))
+  for (ALL_LIST_ELEMENTS_RO (lan_neighs, node, snpa))
     {
       if (pos - value + ETH_ALEN > 255)
 	{
@@ -861,24 +861,9 @@ tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream)
   return add_tlv (LAN_NEIGHBOURS, pos - value, value, stream);
 }
 
-/*
-  u_char value[255];
-  u_char *pos = value;
-
-  if (circuit->ip_router) {                             
-    *pos =  (u_char)NLPID_IP;
-    pos ++;
-  }
-  if (circuit->ipv6_router) {                         
-    *pos = (u_char)NLPID_IPV6;
-    pos ++;
-  }
-*/
-
 int
 tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream)
 {
-
   return add_tlv (PROTOCOLS_SUPPORTED, nlpids->count, nlpids->nlpids, stream);
 }
 
@@ -905,13 +890,13 @@ tlv_add_checksum (struct checksum *checksum, struct stream *stream)
 int
 tlv_add_ip_addrs (struct list *ip_addrs, struct stream *stream)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct prefix_ipv4 *ipv4;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (ALL_LIST_ELEMENTS (ip_addrs, node, nnode, ipv4))
+  for (ALL_LIST_ELEMENTS_RO (ip_addrs, node, ipv4))
     {
       if (pos - value + IPV4_MAX_BYTELEN > 255)
 	{
@@ -951,13 +936,13 @@ tlv_add_dynamic_hostname (struct hostname *hostname, struct stream *stream)
 int
 tlv_add_lsp_entries (struct list *lsps, struct stream *stream)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct isis_lsp *lsp;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (ALL_LIST_ELEMENTS (lsps, node, nnode, lsp))
+  for (ALL_LIST_ELEMENTS_RO (lsps, node, lsp))
     {
       if (pos - value + LSP_ENTRIES_LEN > 255)
 	{
@@ -982,13 +967,13 @@ tlv_add_lsp_entries (struct list *lsps, struct stream *stream)
 int
 tlv_add_ipv4_reachs (struct list *ipv4_reachs, struct stream *stream)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct ipv4_reachability *reach;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (ALL_LIST_ELEMENTS (ipv4_reachs, node, nnode, reach))
+  for (ALL_LIST_ELEMENTS_RO (ipv4_reachs, node, reach))
     {
       if (pos - value + IPV4_REACH_LEN > 255)
 	{
@@ -1019,14 +1004,14 @@ tlv_add_ipv4_reachs (struct list *ipv4_reachs, struct stream *stream)
 int
 tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct te_ipv4_reachability *te_reach;
   u_char value[255];
   u_char *pos = value;
   u_char prefix_size;
   int retval;
 
-  for (ALL_LIST_ELEMENTS (te_ipv4_reachs, node, nnode, te_reach))
+  for (ALL_LIST_ELEMENTS_RO (te_ipv4_reachs, node, te_reach))
     {
       prefix_size = ((((te_reach->control & 0x3F) - 1) >> 3) + 1);
 
@@ -1053,13 +1038,13 @@ tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream)
 int
 tlv_add_ipv6_addrs (struct list *ipv6_addrs, struct stream *stream)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct prefix_ipv6 *ipv6;
   u_char value[255];
   u_char *pos = value;
   int retval;
 
-  for (ALL_LIST_ELEMENTS (ipv6_addrs, node, nnode, ipv6))
+  for (ALL_LIST_ELEMENTS_RO (ipv6_addrs, node, ipv6))
     {
       if (pos - value + IPV6_MAX_BYTELEN > 255)
 	{
@@ -1078,13 +1063,13 @@ tlv_add_ipv6_addrs (struct list *ipv6_addrs, struct stream *stream)
 int
 tlv_add_ipv6_reachs (struct list *ipv6_reachs, struct stream *stream)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct ipv6_reachability *ip6reach;
   u_char value[255];
   u_char *pos = value;
   int retval, prefix_octets;
 
-  for (ALL_LIST_ELEMENTS (ipv6_reachs, node, nnode, ip6reach))
+  for (ALL_LIST_ELEMENTS_RO (ipv6_reachs, node, ip6reach))
     {
       if (pos - value + IPV6_MAX_BYTELEN + 6 > 255)
 	{

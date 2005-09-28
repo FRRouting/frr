@@ -329,14 +329,14 @@ static void
 lsp_seqnum_update (struct isis_lsp *lsp0)
 {
   struct isis_lsp *lsp;
-  struct listnode *node, *nnode;
+  struct listnode *node;
 
   lsp_inc_seqnum (lsp0, 0);
 
   if (!lsp0->lspu.frags)
     return;
 
-  for (ALL_LIST_ELEMENTS (lsp0->lspu.frags, node, nnode, lsp))
+  for (ALL_LIST_ELEMENTS_RO (lsp0->lspu.frags, node, lsp))
     lsp_inc_seqnum (lsp, 0);
 
   return;
@@ -720,7 +720,7 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
   struct isis_lsp *lsp = dnode_get (node);
   struct area_addr *area_addr;
   int i;
-  struct listnode *lnode, *lnnode;
+  struct listnode *lnode;
   struct is_neigh *is_neigh;
   struct te_is_neigh *te_is_neigh;
   struct ipv4_reachability *ipv4_reach;
@@ -742,8 +742,7 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 
   /* for all area address */
   if (lsp->tlv_data.area_addrs)
-    for (ALL_LIST_ELEMENTS (lsp->tlv_data.area_addrs, lnode, 
-                            lnnode, area_addr))
+    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.area_addrs, lnode, area_addr))
       {
 	vty_out (vty, "  Area Address: %s%s",
 		 isonet_print (area_addr->area_addr, area_addr->addr_len),
@@ -779,8 +778,7 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
     }
 
   if (lsp->tlv_data.ipv4_addrs)
-    for (ALL_LIST_ELEMENTS (lsp->tlv_data.ipv4_addrs, lnode, 
-                            lnnode, ipv4_addr))
+    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.ipv4_addrs, lnode, ipv4_addr))
       {
 	memcpy (ipv4_address, inet_ntoa (*ipv4_addr), sizeof (ipv4_address));
 	vty_out (vty, "  IP:        %s%s", ipv4_address, VTY_NEWLINE);
@@ -796,7 +794,7 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 
   /* for the IS neighbor tlv */
   if (lsp->tlv_data.is_neighs)
-    for (ALL_LIST_ELEMENTS (lsp->tlv_data.is_neighs, lnode, lnnode, is_neigh))
+    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.is_neighs, lnode, is_neigh))
       {
 	lspid_print (is_neigh->neigh_id, LSPid, dynhost, 0);
 	vty_out (vty, "  Metric: %-10d IS %s%s",
@@ -805,8 +803,8 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
   
   /* for the internal reachable tlv */
   if (lsp->tlv_data.ipv4_int_reachs)
-    for (ALL_LIST_ELEMENTS (lsp->tlv_data.ipv4_int_reachs, lnode, 
-                            lnnode, ipv4_reach))
+    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.ipv4_int_reachs, lnode,
+			       ipv4_reach))
     {
       memcpy (ipv4_reach_prefix, inet_ntoa (ipv4_reach->prefix),
 	      sizeof (ipv4_reach_prefix));
@@ -819,8 +817,8 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 
   /* for the external reachable tlv */
   if (lsp->tlv_data.ipv4_ext_reachs)
-    for (ALL_LIST_ELEMENTS (lsp->tlv_data.ipv4_ext_reachs, lnode, 
-                            lnnode, ipv4_reach))
+    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.ipv4_ext_reachs, lnode, 
+			       ipv4_reach))
     {
       memcpy (ipv4_reach_prefix, inet_ntoa (ipv4_reach->prefix),
 	      sizeof (ipv4_reach_prefix));
@@ -834,8 +832,7 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
   /* IPv6 tlv */
 #ifdef HAVE_IPV6
   if (lsp->tlv_data.ipv6_reachs)
-    for (ALL_LIST_ELEMENTS (lsp->tlv_data.ipv6_reachs, lnode, 
-                            lnnode, ipv6_reach))
+    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.ipv6_reachs, lnode, ipv6_reach))
     {
       memset (&in6, 0, sizeof (in6));
       memcpy (in6.s6_addr, ipv6_reach->prefix,
@@ -855,8 +852,7 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 
   /* TE IS neighbor tlv */
   if (lsp->tlv_data.te_is_neighs)
-    for (ALL_LIST_ELEMENTS (lsp->tlv_data.te_is_neighs, lnode, 
-                            lnnode, te_is_neigh))
+    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.te_is_neighs, lnode, te_is_neigh))
     {
       uint32_t metric;
       memcpy (&metric, te_is_neigh->te_metric, 3);
@@ -867,8 +863,8 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 
   /* TE IPv4 tlv */
   if (lsp->tlv_data.te_ipv4_reachs)
-    for (ALL_LIST_ELEMENTS (lsp->tlv_data.te_ipv4_reachs, lnode, 
-                            lnnode, te_ipv4_reach))
+    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.te_ipv4_reachs, lnode,
+			       te_ipv4_reach))
     {
       /* FIXME: There should be better way to output this stuff. */
       vty_out (vty, "  Metric: %-10d IP-Extended %s/%d%s",
@@ -1015,7 +1011,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 {
   struct is_neigh *is_neigh;
   struct te_is_neigh *te_is_neigh;
-  struct listnode *node, *nnode, *ipnode, *ipnnode;
+  struct listnode *node, *ipnode;
   int level = lsp->level;
   struct isis_circuit *circuit;
   struct prefix_ipv4 *ipv4;
@@ -1139,8 +1135,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 	  tlv_data.is_neighs = list_new ();
 	  tlv_data.is_neighs->del = free_tlv;
 	}
-      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-      memset (is_neigh, 0, sizeof (struct is_neigh));
+      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 
       memcpy (&is_neigh->neigh_id, area->topology_baseis, ISIS_SYS_ID_LEN);
       is_neigh->neigh_id[ISIS_SYS_ID_LEN - 1] = (1 & 0xFF);
@@ -1156,7 +1151,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
   /*
    * Then build lists of tlvs related to circuits
    */
-  for (ALL_LIST_ELEMENTS (area->circuit_list, node, nnode, circuit))
+  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
     {
       if (circuit->state != C_STATE_UP)
 	continue;
@@ -1174,7 +1169,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 		  tlv_data.ipv4_int_reachs = list_new ();
 		  tlv_data.ipv4_int_reachs->del = free_tlv;
 		}
-	      for (ALL_LIST_ELEMENTS (circuit->ip_addrs, ipnode, ipnnode, ipv4))
+	      for (ALL_LIST_ELEMENTS_RO (circuit->ip_addrs, ipnode, ipv4))
 		{
 		  ipreach =
 		    XMALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv4_reachability));
@@ -1193,7 +1188,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 		  tlv_data.te_ipv4_reachs = list_new ();
 		  tlv_data.te_ipv4_reachs->del = free_tlv;
 		}
-	      for (ALL_LIST_ELEMENTS (circuit->ip_addrs, ipnode, ipnnode, ipv4))
+	      for (ALL_LIST_ELEMENTS_RO (circuit->ip_addrs, ipnode, ipv4))
 		{
 		  /* FIXME All this assumes that we have no sub TLVs. */
 		  te_ipreach = XCALLOC (MTYPE_ISIS_TLV,
@@ -1225,8 +1220,7 @@ lsp_build_nonpseudo (struct isis_lsp *lsp, struct isis_area *area)
 	      tlv_data.ipv6_reachs = list_new ();
 	      tlv_data.ipv6_reachs->del = free_tlv;
 	    }
-          for (ALL_LIST_ELEMENTS (circuit->ipv6_non_link, ipnode, ipnnode,
-                                  ipv6))
+          for (ALL_LIST_ELEMENTS_RO (circuit->ipv6_non_link, ipnode, ipv6))
 	    {
 	      ip6reach =
 		XCALLOC (MTYPE_ISIS_TLV, sizeof (struct ipv6_reachability));
@@ -1698,7 +1692,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
   struct te_is_neigh *te_is_neigh;
   struct es_neigh *es_neigh;
   struct list *adj_list;
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct isis_passwd *passwd;
 
   assert (circuit);
@@ -1744,7 +1738,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
   adj_list = list_new ();
   isis_adj_build_up_list (circuit->u.bc.adjdb[level - 1], adj_list);
 
-  for (ALL_LIST_ELEMENTS (adj_list, node, nnode, adj))
+  for (ALL_LIST_ELEMENTS_RO (adj_list, node, adj))
     {
       if (adj->circuit_t & level)
 	{
@@ -1993,7 +1987,7 @@ lsp_tick (struct thread *thread)
   struct isis_circuit *circuit;
   struct isis_lsp *lsp;
   struct list *lsp_list;
-  struct listnode *lspnode, *lspnnode, *cnode;
+  struct listnode *lspnode, *cnode;
   dnode_t *dnode, *dnode_next;
   int level;
 
@@ -2045,7 +2039,7 @@ lsp_tick (struct thread *thread)
 	    {
               for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
 		{
-                  for (ALL_LIST_ELEMENTS (lsp_list, lspnode, lspnnode, lsp))
+                  for (ALL_LIST_ELEMENTS_RO (lsp_list, lspnode, lsp))
 		    {
 		      if (ISIS_CHECK_FLAG (lsp->SRMflags, circuit))
 			{
@@ -2246,7 +2240,7 @@ void
 build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
 			 int lsp_top_num)
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct arc *arc;
   struct is_neigh *is_neigh;
   struct te_is_neigh *te_is_neigh;
@@ -2292,8 +2286,7 @@ build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
   /* Add reachability for this IS for simulated 1. */
   if (lsp_top_num == 1)
     {
-      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-      memset (is_neigh, 0, sizeof (struct is_neigh));
+      is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 
       memcpy (&is_neigh->neigh_id, isis->sysid, ISIS_SYS_ID_LEN);
       LSP_PSEUDO_ID (is_neigh->neigh_id) = 0x00;
@@ -2306,7 +2299,7 @@ build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
     }
 
   /* Add IS reachabilities. */
-  for (ALL_LIST_ELEMENTS (area->topology, node, nnode, arc))
+  for (ALL_LIST_ELEMENTS_RO (area->topology, node, arc))
     {
       int to_lsp = 0;
       

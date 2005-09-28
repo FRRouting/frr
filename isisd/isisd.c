@@ -144,9 +144,9 @@ struct isis_area *
 isis_area_lookup (const char *area_tag)
 {
   struct isis_area *area;
-  struct listnode *node, *nnode;
+  struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS (isis->area_list, node, nnode, area))
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
     if ((area->area_tag == NULL && area_tag == NULL) ||
 	(area->area_tag && area_tag
 	 && strcmp (area->area_tag, area_tag) == 0))
@@ -222,7 +222,7 @@ area_net_title (struct vty *vty, u_char *net_title)
   struct isis_area *area;
   struct area_addr *addr;
   struct area_addr *addrp;
-  struct listnode *node, *nnode;
+  struct listnode *node;
 
   u_char buff[255];
   area = vty->index;
@@ -282,17 +282,16 @@ area_net_title (struct vty *vty, u_char *net_title)
 	}
 
       /* now we see that we don't already have this address */
-      for (ALL_LIST_ELEMENTS (area->area_addrs, node, nnode, addrp))
-      {
-	if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) == (addr->addr_len))
-	  {
-	    if (!memcmp (addrp->area_addr, addr->area_addr, addr->addr_len))
-	      {
-		XFREE (MTYPE_ISIS_AREA_ADDR, addr);
-		return CMD_SUCCESS;	/* silent fail */
-	      }
-	  }
-      }
+      for (ALL_LIST_ELEMENTS_RO (area->area_addrs, node, addrp))
+	{
+	  if ((addrp->addr_len + ISIS_SYS_ID_LEN + 1) != (addr->addr_len))
+	    continue;
+	  if (!memcmp (addrp->area_addr, addr->area_addr, addr->addr_len))
+	    {
+	      XFREE (MTYPE_ISIS_AREA_ADDR, addr);
+	      return CMD_SUCCESS;	/* silent fail */
+	    }
+	}
 
     }
   /*
@@ -316,7 +315,7 @@ area_clear_net_title (struct vty *vty, u_char *net_title)
 {
   struct isis_area *area;
   struct area_addr addr, *addrp = NULL;
-  struct listnode *node, *nnode;
+  struct listnode *node;
   u_char buff[255];
 
   area = vty->index;
@@ -336,7 +335,7 @@ area_clear_net_title (struct vty *vty, u_char *net_title)
 
   memcpy (addr.area_addr, buff, (int) addr.addr_len);
 
-  for (ALL_LIST_ELEMENTS (area->area_addrs, node, nnode, addrp))
+  for (ALL_LIST_ELEMENTS_RO (area->area_addrs, node, addrp))
     if (addrp->addr_len == addr.addr_len &&
 	!memcmp (addrp->area_addr, addr.area_addr, addr.addr_len))
     break;
@@ -360,7 +359,7 @@ area_clear_net_title (struct vty *vty, u_char *net_title)
 int
 show_clns_neigh (struct vty *vty, char detail)
 {
-  struct listnode *anode, *annode, *cnode, *cnnode;
+  struct listnode *anode, *cnode;
   struct isis_area *area;
   struct isis_circuit *circuit;
   struct list *db;
@@ -372,7 +371,7 @@ show_clns_neigh (struct vty *vty, char detail)
       return CMD_SUCCESS;
     }
 
-  for (ALL_LIST_ELEMENTS (isis->area_list, anode, annode, area))
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, anode, area))
     {
       vty_out (vty, "Area %s:%s", area->area_tag, VTY_NEWLINE);
 
@@ -380,7 +379,7 @@ show_clns_neigh (struct vty *vty, char detail)
 	vty_out (vty, "  System Id           Interface   L  State        "
 		 "Holdtime SNPA%s", VTY_NEWLINE);
 
-      for (ALL_LIST_ELEMENTS (area->circuit_list, cnode, cnnode, circuit))
+      for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
 	{
 	  if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	    {
@@ -896,14 +895,14 @@ DEFUN (show_database,
        "show isis database",
        SHOW_STR "IS-IS information\n" "IS-IS link state database\n")
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct isis_area *area;
   int level, lsp_count;
 
   if (isis->area_list->count == 0)
     return CMD_SUCCESS;
 
-  for (ALL_LIST_ELEMENTS (isis->area_list, node, nnode, area))
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
     {
       vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
 	       VTY_NEWLINE);
@@ -934,14 +933,14 @@ DEFUN (show_database_detail,
        "IS-IS information\n"
        "IS-IS link state database\n")
 {
-  struct listnode *node, *nnode;
+  struct listnode *node;
   struct isis_area *area;
   int level, lsp_count;
 
   if (isis->area_list->count == 0)
     return CMD_SUCCESS;
 
-  for (ALL_LIST_ELEMENTS (isis->area_list, node, nnode, area))
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
     {
       vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
 	       VTY_NEWLINE);
@@ -1874,10 +1873,9 @@ isis_config_write (struct vty *vty)
   if (isis != NULL)
     {
       struct isis_area *area;
-      struct listnode *node, *nnode;
-      struct listnode *node2, *nnode2;
+      struct listnode *node, *node2;
 
-      for (ALL_LIST_ELEMENTS (isis->area_list, node, nnode, area))
+      for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
       {
 	/* ISIS - Area name */
 	vty_out (vty, "router isis %s%s", area->area_tag, VTY_NEWLINE);
@@ -1886,16 +1884,17 @@ isis_config_write (struct vty *vty)
 	if (listcount (area->area_addrs) > 0)
 	  {
 	    struct area_addr *area_addr;
-	    for (ALL_LIST_ELEMENTS (area->area_addrs, node2, nnode2, area_addr))
-	    {
-	      vty_out (vty, " net %s%s",
-		       isonet_print (area_addr->area_addr,
-				     area_addr->addr_len + ISIS_SYS_ID_LEN +
-				     1), VTY_NEWLINE);
-	      write++;
-	    }
+	    for (ALL_LIST_ELEMENTS_RO (area->area_addrs, node2, area_addr))
+	      {
+		vty_out (vty, " net %s%s",
+			 isonet_print (area_addr->area_addr,
+				       area_addr->addr_len + ISIS_SYS_ID_LEN +
+				       1), VTY_NEWLINE);
+		write++;
+	      }
 	  }
-	/* ISIS - Dynamic hostname - Defaults to true so only display if false */
+	/* ISIS - Dynamic hostname - Defaults to true so only display if
+	 * false. */
 	if (!area->dynhostname)
 	  {
 	    vty_out (vty, " no hostname dynamic%s", VTY_NEWLINE);

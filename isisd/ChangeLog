@@ -1,5 +1,12 @@
 2005-09-28 Hasso Tepper <hasso at quagga.net>
 
+	* *.c: Massive cleanup of lists loops. Stop abusing ALL_LIST_ELEMENTS.
+	  Replace XMALLOC + memset with XCALLOC. Fix some indentation issues.
+	  The only really significant change is simplified isis_delete_adj
+	  function in isis_adjacency.c.
+
+2005-09-28 Hasso Tepper <hasso at quagga.net>
+
 	* isis_dynh.c, isisd.h: Implement dynamic hostname cache cleanup.
 	* isis_lsp.c: Refresh dynamic hostname in the cache while refreshing
 	  topology LSP.

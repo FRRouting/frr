@@ -62,11 +62,11 @@ int isis_run_spf_l2 (struct thread *thread);
 static void
 remove_excess_adjs (struct list *adjs)
 {
-  struct listnode *node, *nnode, *excess = NULL;
+  struct listnode *node, *excess = NULL;
   struct isis_adjacency *adj, *candidate = NULL;
   int comp;
 
-  for (ALL_LIST_ELEMENTS (adjs, node, nnode, adj)) 
+  for (ALL_LIST_ELEMENTS_RO (adjs, node, adj)) 
     {
       if (excess == NULL)
 	excess = node;
@@ -195,13 +195,12 @@ isis_spftree_new ()
 {
   struct isis_spftree *tree;
 
-  tree = XMALLOC (MTYPE_ISIS_SPFTREE, sizeof (struct isis_spftree));
+  tree = XCALLOC (MTYPE_ISIS_SPFTREE, sizeof (struct isis_spftree));
   if (tree == NULL)
     {
       zlog_err ("ISIS-Spf: isis_spftree_new Out of memory!");
       return NULL;
     }
-  memset (tree, 0, sizeof (struct isis_spftree));
 
   tree->tents = list_new ();
   tree->paths = list_new ();
@@ -266,14 +265,13 @@ isis_vertex_new (void *id, enum vertextype vtype)
 {
   struct isis_vertex *vertex;
 
-  vertex = XMALLOC (MTYPE_ISIS_VERTEX, sizeof (struct isis_vertex));
+  vertex = XCALLOC (MTYPE_ISIS_VERTEX, sizeof (struct isis_vertex));
   if (vertex == NULL)
     {
       zlog_err ("isis_vertex_new Out of memory!");
       return NULL;
     }
 
-  memset (vertex, 0, sizeof (struct isis_vertex));
   vertex->type = vtype;
   switch (vtype)
     {
@@ -697,7 +695,7 @@ isis_spf_process_pseudo_lsp (struct isis_spftree *spftree,
 			     struct isis_lsp *lsp, uint16_t cost,
 			     uint16_t depth, int family)
 {
-  struct listnode *node, *nnode, *fragnode = NULL;
+  struct listnode *node, *fragnode = NULL;
   struct is_neigh *is_neigh;
   struct te_is_neigh *te_is_neigh;
   enum vertextype vtype;
@@ -712,7 +710,7 @@ pseudofragloop:
     }
 
   if (lsp->tlv_data.is_neighs)
-    for (ALL_LIST_ELEMENTS (lsp->tlv_data.is_neighs, node, nnode, is_neigh))
+    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.is_neighs, node, is_neigh))
       {
 	vtype = LSP_PSEUDO_ID (is_neigh->neigh_id) ? VTYPE_PSEUDO_IS
 	  : VTYPE_NONPSEUDO_IS;
@@ -730,7 +728,7 @@ pseudofragloop:
 	  }
       }
   if (lsp->tlv_data.te_is_neighs)
-    for (ALL_LIST_ELEMENTS (lsp->tlv_data.te_is_neighs, node, nnode, te_is_neigh))
+    for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.te_is_neighs, node, te_is_neigh))
       {
 	vtype = LSP_PSEUDO_ID (te_is_neigh->neigh_id) ? VTYPE_PSEUDO_TE_IS
 	  : VTYPE_NONPSEUDO_TE_IS;
@@ -768,9 +766,7 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
 {
   struct isis_vertex *vertex;
   struct isis_circuit *circuit;
-  struct listnode *cnode, *cnnode;
-  struct listnode *anode;
-  struct listnode *ipnode, *ipnnode;
+  struct listnode *cnode, *anode, *ipnode;
   struct isis_adjacency *adj;
   struct isis_lsp *lsp;
   struct list *adj_list;
@@ -783,7 +779,7 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
   struct prefix_ipv6 *ipv6;
 #endif /* HAVE_IPV6 */
 
-  for (ALL_LIST_ELEMENTS (area->circuit_list, cnode, cnnode, circuit))
+  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
     {
       if (circuit->state != C_STATE_UP)
 	continue;
@@ -801,7 +797,7 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
       if (family == AF_INET)
 	{
 	  prefix.family = AF_INET;
-          for (ALL_LIST_ELEMENTS (circuit->ip_addrs, ipnode, ipnnode, ipv4))
+          for (ALL_LIST_ELEMENTS_RO (circuit->ip_addrs, ipnode, ipv4))
 	    {
 	      prefix.u.prefix4 = ipv4->prefix;
 	      prefix.prefixlen = ipv4->prefixlen;
@@ -813,8 +809,7 @@ isis_spf_preload_tent (struct isis_spftree *spftree,
       if (family == AF_INET6)
 	{
 	  prefix.family = AF_INET6;
-	  for (ALL_LIST_ELEMENTS (circuit->ipv6_non_link, 
-	                          ipnode, ipnnode, ipv6))
+	  for (ALL_LIST_ELEMENTS_RO (circuit->ipv6_non_link, ipnode, ipv6))
 	    {
 	      prefix.prefixlen = ipv6->prefixlen;
 	      prefix.u.prefix6 = ipv6->prefix;
