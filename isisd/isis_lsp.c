@@ -2204,6 +2204,8 @@ generate_topology_lsps (struct isis_area *area)
       build_topology_lsp_data (lsp, area, i);
       /* Checksum is also calculated here. */
       lsp_seqnum_update (lsp);
+      /* Take care of inserting dynamic hostname into cache. */
+      isis_dynhn_insert (lspid, lsp->tlv_data.hostname, IS_LEVEL_1);
 
       ref_time = area->lsp_refresh[0] > MAX_LSP_GEN_INTERVAL ?
 	MAX_LSP_GEN_INTERVAL : area->lsp_refresh[0];
@@ -2243,6 +2245,7 @@ build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
   struct listnode *node, *nnode;
   struct arc *arc;
   struct is_neigh *is_neigh;
+  struct te_is_neigh *te_is_neigh;
   char buff[200];
   struct tlvs tlv_data;
   struct isis_lsp *lsp0 = lsp;
@@ -2277,7 +2280,10 @@ build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
 
   memset (&tlv_data, 0, sizeof (struct tlvs));
   if (tlv_data.is_neighs == NULL)
-    tlv_data.is_neighs = list_new ();
+    {
+      tlv_data.is_neighs = list_new ();
+      tlv_data.is_neighs->del = free_tlv;
+    }
 
   /* Add reachability for this IS for simulated 1. */
   if (lsp_top_num == 1)
@@ -2308,29 +2314,61 @@ build_topology_lsp_data (struct isis_lsp *lsp, struct isis_area *area,
       else
 	to_lsp = arc->from_node;
 
-      is_neigh = XMALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
-      memset (is_neigh, 0, sizeof (struct is_neigh));
+      if (area->oldmetric)
+	{
+	  is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct is_neigh));
 
-      memcpy (&is_neigh->neigh_id, area->topology_baseis, ISIS_SYS_ID_LEN);
-      is_neigh->neigh_id[ISIS_SYS_ID_LEN - 1] = (to_lsp & 0xFF);
-      is_neigh->neigh_id[ISIS_SYS_ID_LEN - 2] = ((to_lsp >> 8) & 0xFF);
-      is_neigh->metrics.metric_default = arc->distance;
-      is_neigh->metrics.metric_delay = METRICS_UNSUPPORTED;
-      is_neigh->metrics.metric_expense = METRICS_UNSUPPORTED;
-      is_neigh->metrics.metric_error = METRICS_UNSUPPORTED;
-      listnode_add (tlv_data.is_neighs, is_neigh);
+	  memcpy (&is_neigh->neigh_id, area->topology_baseis, ISIS_SYS_ID_LEN);
+	  is_neigh->neigh_id[ISIS_SYS_ID_LEN - 1] = (to_lsp & 0xFF);
+	  is_neigh->neigh_id[ISIS_SYS_ID_LEN - 2] = ((to_lsp >> 8) & 0xFF);
+	  is_neigh->metrics.metric_default = arc->distance;
+	  is_neigh->metrics.metric_delay = METRICS_UNSUPPORTED;
+	  is_neigh->metrics.metric_expense = METRICS_UNSUPPORTED;
+	  is_neigh->metrics.metric_error = METRICS_UNSUPPORTED;
+	  listnode_add (tlv_data.is_neighs, is_neigh);
+	}
+
+      if (area->newmetric)
+	{
+	  uint32_t metric;
+
+	  if (tlv_data.te_is_neighs == NULL)
+	    {
+	      tlv_data.te_is_neighs = list_new ();
+	      tlv_data.te_is_neighs->del = free_tlv;
+	    }
+	  te_is_neigh = XCALLOC (MTYPE_ISIS_TLV, sizeof (struct te_is_neigh));
+	  memcpy (&te_is_neigh->neigh_id, area->topology_baseis,
+		  ISIS_SYS_ID_LEN);
+	  te_is_neigh->neigh_id[ISIS_SYS_ID_LEN - 1] = (to_lsp & 0xFF);
+	  te_is_neigh->neigh_id[ISIS_SYS_ID_LEN - 2] = ((to_lsp >> 8) & 0xFF);
+	  metric = ((htonl(arc->distance) >> 8) & 0xffffff);
+	  memcpy (te_is_neigh->te_metric, &metric, 3);
+	  listnode_add (tlv_data.te_is_neighs, te_is_neigh);
+	}
     }
 
   while (tlv_data.is_neighs && listcount (tlv_data.is_neighs))
     {
       if (lsp->tlv_data.is_neighs == NULL)
 	lsp->tlv_data.is_neighs = list_new ();
-      lsp_tlv_fit (lsp, &tlv_data.is_neighs,
-		   &lsp->tlv_data.is_neighs,
+      lsp_tlv_fit (lsp, &tlv_data.is_neighs, &lsp->tlv_data.is_neighs,
 		   IS_NEIGHBOURS_LEN, area->lsp_frag_threshold,
 		   tlv_add_is_neighs);
       if (tlv_data.is_neighs && listcount (tlv_data.is_neighs))
         lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
+			     lsp0, area, IS_LEVEL_1);
+    }
+
+  while (tlv_data.te_is_neighs && listcount (tlv_data.te_is_neighs))
+    {
+      if (lsp->tlv_data.te_is_neighs == NULL)
+	lsp->tlv_data.te_is_neighs = list_new ();
+      lsp_tlv_fit (lsp, &tlv_data.te_is_neighs, &lsp->tlv_data.te_is_neighs,
+		   IS_NEIGHBOURS_LEN, area->lsp_frag_threshold,
+		   tlv_add_te_is_neighs);
+      if (tlv_data.te_is_neighs && listcount (tlv_data.te_is_neighs))
+	lsp = lsp_next_frag (LSP_FRAGMENT (lsp->lsp_header->lsp_id) + 1,
 			     lsp0, area, IS_LEVEL_1);
     }
 
