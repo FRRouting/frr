@@ -1,3 +1,10 @@
+2005-09-28 Alain Ritoux <alain.ritoux@6wind.com>
+
+	* md5-gnu.h: removed
+	* md5.h: replaces md5-gnu.h
+	* Makefile.am: use correct md5.h
+	* md5.c: import from WIDE
+
 2005-09-21 Paul Jakma <paul.jakma@sun.com>
 
 	* memtypes.{c,h}: Add MTYPE_AS_SEG_DATA.

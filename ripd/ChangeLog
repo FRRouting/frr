@@ -1,3 +1,7 @@
+2005-09-28 Alain Ritoux <alain.ritoux@6wind.com>
+
+	* ripd.c: use new md5 API
+
 2005-08-16 Paul Jakma <paul.jakma@sun.com>
 
 	* ripd.c: (general) Fix previous commit, broke multicast bind and

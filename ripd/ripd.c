@@ -36,7 +36,7 @@
 #include "if_rmap.h"
 #include "plist.h"
 #include "distribute.h"
-#include "md5-gnu.h"
+#include "md5.h"
 #include "keychain.h"
 #include "privs.h"
 
@@ -842,7 +842,7 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   struct rip_md5_data *md5data;
   struct keychain *keychain;
   struct key *key;
-  struct md5_ctx ctx;
+  MD5_CTX ctx;
   u_char pdigest[RIP_AUTH_MD5_SIZE];
   u_char digest[RIP_AUTH_MD5_SIZE];
   u_int16_t packet_len;
@@ -915,10 +915,10 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   memset (md5data->digest, 0, RIP_AUTH_MD5_SIZE);
   strncpy ((char *)md5data->digest, auth_str, RIP_AUTH_MD5_SIZE);
 
-  md5_init_ctx (&ctx);
-  md5_process_bytes (packet, packet_len + RIP_HEADER_SIZE + RIP_AUTH_MD5_SIZE,
-    &ctx);
-  md5_finish_ctx (&ctx, digest);
+  memset (&ctx, 0, sizeof(ctx));
+  MD5Init(&ctx);
+  MD5Update(&ctx, packet, packet_len + md5->auth_len);
+  MD5Final(digest, &ctx);
 
   if (memcmp (pdigest, digest, RIP_AUTH_MD5_SIZE) == 0)
     return packet_len;
@@ -1047,7 +1047,7 @@ rip_auth_md5_set (struct stream *s, struct rip_interface *ri, size_t doff,
                   char *auth_str, int authlen)
 {
   unsigned long len;
-  struct md5_ctx ctx;
+  MD5_CTX ctx;
   unsigned char digest[RIP_AUTH_MD5_SIZE];
 
   /* Make it sure this interface is configured as MD5
@@ -1073,10 +1073,11 @@ rip_auth_md5_set (struct stream *s, struct rip_interface *ri, size_t doff,
   stream_putw (s, RIP_AUTH_DATA);
 
   /* Generate a digest for the RIP packet. */
-  md5_init_ctx (&ctx);
-  md5_process_bytes (s->data, s->endp, &ctx);
-  md5_process_bytes (auth_str, RIP_AUTH_MD5_SIZE, &ctx);
-  md5_finish_ctx (&ctx, digest);
+  memset(&ctx, 0, sizeof(ctx));
+  MD5Init(&ctx);
+  MD5Update(&ctx, s->data, s->endp);
+  MD5Update(&ctx, auth_str, RIP_AUTH_MD5_SIZE);
+  MD5Final(digest, &ctx);
 
   /* Copy the digest to the packet. */
   stream_write (s, digest, RIP_AUTH_MD5_SIZE);

@@ -1,431 +1,318 @@
-/* md5.c - Functions to compute MD5 message digest of files or memory blocks
-   according to the definition of MD5 in RFC 1321 from April 1992.
-   Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.
-   This file is part of the GNU C Library.
+/* $USAGI: md5.c,v 1.2 2000/11/02 11:59:24 yoshfuji Exp $ */
+/*	$KAME: md5.c,v 1.2 2000/05/27 07:07:48 jinmei Exp $	*/
+/*	$Id: md5.c,v 1.3 2005/09/28 15:47:44 vincent Exp $ */
 
-   The GNU C Library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public License as
-   published by the Free Software Foundation; either version 2 of the
-   License, or (at your option) any later version.
+/*
+ * Copyright (C) 2004 6WIND
+ *                          <Vincent.Jardin@6WIND.com>
+ * All rights reserved.
+ *
+ * This MD5 code is Big endian and Little Endian compatible.
+ */
 
-   The GNU C Library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+/*
+ * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the project nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE PROJECT AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE PROJECT OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
 
-   You should have received a copy of the GNU Library General Public
-   License along with the GNU C Library; see the file COPYING.LIB.  If not,
-   write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
-
-/* Written by Ulrich Drepper <drepper@gnu.ai.mit.edu>, 1995.  */
-
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
+#include <sys/param.h>
 #include <sys/types.h>
+#include <sys/cdefs.h>
+#include <sys/time.h>
+#include <string.h>
+#include "md5.h"
 
-#if STDC_HEADERS || defined _LIBC
-# include <stdlib.h>
-# include <string.h>
-#else
-# ifndef HAVE_MEMCPY
-#  define memcpy(d, s, n) bcopy ((s), (d), (n))
-# endif
-#endif
+#define SHIFT(X, s) (((X) << (s)) | ((X) >> (32 - (s))))
 
-#include "md5-gnu.h"
+#define F(X, Y, Z) (((X) & (Y)) | ((~X) & (Z)))
+#define G(X, Y, Z) (((X) & (Z)) | ((Y) & (~Z)))
+#define H(X, Y, Z) ((X) ^ (Y) ^ (Z))
+#define I(X, Y, Z) ((Y) ^ ((X) | (~Z)))
 
-#ifdef _LIBC
-# include <endian.h>
-# if __BYTE_ORDER == __BIG_ENDIAN
-#  define WORDS_BIGENDIAN 1
-# endif
-/* We need to keep the namespace clean so define the MD5 function
-   protected using leading __ and use weak aliases.  */
-# define md5_init_ctx __md5_init_ctx
-# define md5_process_block __md5_process_block
-# define md5_process_bytes __md5_process_bytes
-# define md5_finish_ctx __md5_finish_ctx
-# define md5_read_ctx __md5_read_ctx
-# define md5_stream __md5_stream
-# define md5_buffer __md5_buffer
-#endif
-
-#ifdef WORDS_BIGENDIAN
-# define SWAP(n)							\
-    (((n) << 24) | (((n) & 0xff00) << 8) | (((n) >> 8) & 0xff00) | ((n) >> 24))
-#else
-# define SWAP(n) (n)
-#endif
-
-
-/* This array contains the bytes used to pad the buffer to the next
-   64-byte boundary.  (RFC 1321, 3.1: Step 1)  */
-static const unsigned char fillbuf[64] = { 0x80, 0 /* , 0, 0, ...  */ };
-
-
-/* Initialize structure containing state of computation.
-   (RFC 1321, 3.3: Step 3)  */
-void
-md5_init_ctx (struct md5_ctx *ctx)
-{
-  ctx->A = 0x67452301;
-  ctx->B = 0xefcdab89;
-  ctx->C = 0x98badcfe;
-  ctx->D = 0x10325476;
-
-  ctx->total[0] = ctx->total[1] = 0;
-  ctx->buflen = 0;
+#define ROUND1(a, b, c, d, k, s, i) { \
+	(a) = (a) + F((b), (c), (d)) + X[(k)] + T[(i)]; \
+	(a) = SHIFT((a), (s)); \
+	(a) = (b) + (a); \
 }
 
-/* Put result from CTX in first 16 bytes following RESBUF.  The result
-   must be in little endian byte order.
-
-   IMPORTANT: On some systems it is required that RESBUF is correctly
-   aligned for a 32 bits value.  */
-void *
-md5_read_ctx (const struct md5_ctx *ctx, void *resbuf)
-{
-  ((md5_uint32 *) resbuf)[0] = SWAP (ctx->A);
-  ((md5_uint32 *) resbuf)[1] = SWAP (ctx->B);
-  ((md5_uint32 *) resbuf)[2] = SWAP (ctx->C);
-  ((md5_uint32 *) resbuf)[3] = SWAP (ctx->D);
-
-  return resbuf;
+#define ROUND2(a, b, c, d, k, s, i) { \
+	(a) = (a) + G((b), (c), (d)) + X[(k)] + T[(i)]; \
+	(a) = SHIFT((a), (s)); \
+	(a) = (b) + (a); \
 }
 
-/* Process the remaining bytes in the internal buffer and the usual
-   prolog according to the standard and write the result to RESBUF.
-
-   IMPORTANT: On some systems it is required that RESBUF is correctly
-   aligned for a 32 bits value.  */
-void *
-md5_finish_ctx (struct md5_ctx *ctx, void *resbuf)
-{
-  /* Take yet unprocessed bytes into account.  */
-  md5_uint32 bytes = ctx->buflen;
-  size_t pad;
-
-  /* Now count remaining bytes.  */
-  ctx->total[0] += bytes;
-  if (ctx->total[0] < bytes)
-    ++ctx->total[1];
-
-  pad = bytes >= 56 ? 64 + 56 - bytes : 56 - bytes;
-  memcpy (&ctx->buffer[bytes], fillbuf, pad);
-
-  /* Put the 64-bit file length in *bits* at the end of the buffer.  */
-  *(md5_uint32 *) &ctx->buffer[bytes + pad] = SWAP (ctx->total[0] << 3);
-  *(md5_uint32 *) &ctx->buffer[bytes + pad + 4] = SWAP ((ctx->total[1] << 3) |
-							(ctx->total[0] >> 29));
-
-  /* Process last bytes.  */
-  md5_process_block (ctx->buffer, bytes + pad + 8, ctx);
-
-  return md5_read_ctx (ctx, resbuf);
+#define ROUND3(a, b, c, d, k, s, i) { \
+	(a) = (a) + H((b), (c), (d)) + X[(k)] + T[(i)]; \
+	(a) = SHIFT((a), (s)); \
+	(a) = (b) + (a); \
 }
 
-/* Compute MD5 message digest for bytes read from STREAM.  The
-   resulting message digest number will be written into the 16 bytes
-   beginning at RESBLOCK.  */
-int
-md5_stream (FILE *stream, void *resblock)
+#define ROUND4(a, b, c, d, k, s, i) { \
+	(a) = (a) + I((b), (c), (d)) + X[(k)] + T[(i)]; \
+	(a) = SHIFT((a), (s)); \
+	(a) = (b) + (a); \
+}
+
+#define Sa	 7
+#define Sb	12
+#define Sc	17
+#define Sd	22
+
+#define Se	 5
+#define Sf	 9
+#define Sg	14
+#define Sh	20
+
+#define Si	 4
+#define Sj	11
+#define Sk	16
+#define Sl	23
+
+#define Sm	 6
+#define Sn	10
+#define So	15
+#define Sp	21
+
+#define MD5_A0	0x67452301
+#define MD5_B0	0xefcdab89
+#define MD5_C0	0x98badcfe
+#define MD5_D0	0x10325476
+
+/* Integer part of 4294967296 times abs(sin(i)), where i is in radians. */
+static const u_int32_t T[65] = {
+	0,
+	0xd76aa478, 	0xe8c7b756,	0x242070db,	0xc1bdceee,
+	0xf57c0faf,	0x4787c62a, 	0xa8304613,	0xfd469501,
+	0x698098d8,	0x8b44f7af,	0xffff5bb1,	0x895cd7be,
+	0x6b901122, 	0xfd987193, 	0xa679438e,	0x49b40821,
+
+	0xf61e2562,	0xc040b340, 	0x265e5a51, 	0xe9b6c7aa,
+	0xd62f105d,	0x2441453,	0xd8a1e681,	0xe7d3fbc8,
+	0x21e1cde6,	0xc33707d6, 	0xf4d50d87, 	0x455a14ed,
+	0xa9e3e905,	0xfcefa3f8, 	0x676f02d9, 	0x8d2a4c8a,
+
+	0xfffa3942,	0x8771f681, 	0x6d9d6122, 	0xfde5380c,
+	0xa4beea44, 	0x4bdecfa9, 	0xf6bb4b60, 	0xbebfbc70,
+	0x289b7ec6, 	0xeaa127fa, 	0xd4ef3085,	0x4881d05,
+	0xd9d4d039, 	0xe6db99e5, 	0x1fa27cf8, 	0xc4ac5665,
+
+	0xf4292244, 	0x432aff97, 	0xab9423a7, 	0xfc93a039,
+	0x655b59c3, 	0x8f0ccc92, 	0xffeff47d, 	0x85845dd1,
+	0x6fa87e4f, 	0xfe2ce6e0, 	0xa3014314, 	0x4e0811a1,
+	0xf7537e82, 	0xbd3af235, 	0x2ad7d2bb, 	0xeb86d391,
+};
+
+static const u_int8_t md5_paddat[MD5_BUFLEN] = {
+	0x80,	0,	0,	0,	0,	0,	0,	0,
+	0,	0,	0,	0,	0,	0,	0,	0,
+	0,	0,	0,	0,	0,	0,	0,	0,
+	0,	0,	0,	0,	0,	0,	0,	0,
+	0,	0,	0,	0,	0,	0,	0,	0,
+	0,	0,	0,	0,	0,	0,	0,	0,
+	0,	0,	0,	0,	0,	0,	0,	0,
+	0,	0,	0,	0,	0,	0,	0,	0,	
+};
+
+static void md5_calc __P((u_int8_t *, md5_ctxt *));
+
+void md5_init(ctxt)
+	md5_ctxt *ctxt;
 {
-  /* Important: BLOCKSIZE must be a multiple of 64.  */
-#define BLOCKSIZE 4096
-  struct md5_ctx ctx;
-  char buffer[BLOCKSIZE + 72];
-  size_t sum;
+	ctxt->md5_n = 0;
+	ctxt->md5_i = 0;
+	ctxt->md5_sta = MD5_A0;
+	ctxt->md5_stb = MD5_B0;
+	ctxt->md5_stc = MD5_C0;
+	ctxt->md5_std = MD5_D0;
+	bzero(ctxt->md5_buf, sizeof(ctxt->md5_buf));
+}
 
-  /* Initialize the computation context.  */
-  md5_init_ctx (&ctx);
+void md5_loop(ctxt, input, len)
+	md5_ctxt *ctxt;
+	u_int8_t *input;
+	u_int len; /* number of bytes */
+{
+	u_int gap, i;
 
-  /* Iterate over full file contents.  */
-  while (1)
-    {
-      /* We read the file in blocks of BLOCKSIZE bytes.  One call of the
-	 computation function processes the whole buffer so that with the
-	 next round of the loop another block can be read.  */
-      size_t n;
-      sum = 0;
+	ctxt->md5_n += len * 8; /* byte to bit */
+	gap = MD5_BUFLEN - ctxt->md5_i;
 
-      /* Read block.  Take care for partial reads.  */
-      do
-	{
-	  n = fread (buffer + sum, 1, BLOCKSIZE - sum, stream);
+	if (len >= gap) {
+		bcopy((void *)input, (void *)(ctxt->md5_buf + ctxt->md5_i),
+			gap);
+		md5_calc(ctxt->md5_buf, ctxt);
 
-	  sum += n;
+		for (i = gap; i + MD5_BUFLEN <= len; i += MD5_BUFLEN) {
+			md5_calc((u_int8_t *)(input + i), ctxt);
+		}
+		
+		ctxt->md5_i = len - i;
+		bcopy((void *)(input + i), (void *)ctxt->md5_buf, ctxt->md5_i);
+	} else {
+		bcopy((void *)input, (void *)(ctxt->md5_buf + ctxt->md5_i),
+			len);
+		ctxt->md5_i += len;
 	}
-      while (sum < BLOCKSIZE && n != 0);
-      if (n == 0 && ferror (stream))
-        return 1;
-
-      /* If end of file is reached, end the loop.  */
-      if (n == 0)
-	break;
-
-      /* Process buffer with BLOCKSIZE bytes.  Note that
-			BLOCKSIZE % 64 == 0
-       */
-      md5_process_block (buffer, BLOCKSIZE, &ctx);
-    }
-
-  /* Add the last bytes if necessary.  */
-  if (sum > 0)
-    md5_process_bytes (buffer, sum, &ctx);
-
-  /* Construct result in desired memory.  */
-  md5_finish_ctx (&ctx, resblock);
-  return 0;
 }
 
-/* Compute MD5 message digest for LEN bytes beginning at BUFFER.  The
-   result is always in little endian byte order, so that a byte-wise
-   output yields to the wanted ASCII representation of the message
-   digest.  */
-void *
-md5_buffer (const char *buffer, size_t len, void *resblock)
+void md5_pad(ctxt)
+	md5_ctxt *ctxt;
 {
-  struct md5_ctx ctx;
+	u_int gap;
 
-  /* Initialize the computation context.  */
-  md5_init_ctx (&ctx);
-
-  /* Process whole buffer but last len % 64 bytes.  */
-  md5_process_bytes (buffer, len, &ctx);
-
-  /* Put result in desired memory area.  */
-  return md5_finish_ctx (&ctx, resblock);
-}
-
-
-void
-md5_process_bytes (const void *buffer, size_t len, struct md5_ctx *ctx)
-{
-  /* When we already have some bits in our internal buffer concatenate
-     both inputs first.  */
-  if (ctx->buflen != 0)
-    {
-      size_t left_over = ctx->buflen;
-      size_t add = 128 - left_over > len ? len : 128 - left_over;
-
-      memcpy (&ctx->buffer[left_over], buffer, add);
-      ctx->buflen += add;
-
-      if (left_over + add > 64)
-	{
-	  md5_process_block (ctx->buffer, (left_over + add) & ~63, ctx);
-	  /* The regions in the following copy operation cannot overlap.  */
-	  memcpy (ctx->buffer, &ctx->buffer[(left_over + add) & ~63],
-		  (left_over + add) & 63);
-	  ctx->buflen = (left_over + add) & 63;
+	/* Don't count up padding. Keep md5_n. */	
+	gap = MD5_BUFLEN - ctxt->md5_i;
+	if (gap > 8) {
+		bcopy((void *)md5_paddat,
+		      (void *)(ctxt->md5_buf + ctxt->md5_i),
+		      gap - sizeof(ctxt->md5_n));
+	} else {
+		/* including gap == 8 */
+		bcopy((void *)md5_paddat, (void *)(ctxt->md5_buf + ctxt->md5_i),
+			gap);
+		md5_calc(ctxt->md5_buf, ctxt);
+		bcopy((void *)(md5_paddat + gap),
+		      (void *)ctxt->md5_buf,
+		      MD5_BUFLEN - sizeof(ctxt->md5_n));
 	}
 
-      buffer = (const char *) buffer + add;
-      len -= add;
-    }
-
-  /* Process available complete blocks.  */
-  if (len > 64)
-    {
-      md5_process_block (buffer, len & ~63, ctx);
-      buffer = (const char *) buffer + (len & ~63);
-      len &= 63;
-    }
-
-  /* Move remaining bytes in internal buffer.  */
-  if (len > 0)
-    {
-      memcpy (ctx->buffer, buffer, len);
-      ctx->buflen = len;
-    }
-}
-
-
-/* These are the four functions used in the four steps of the MD5 algorithm
-   and defined in the RFC 1321.  The first function is a little bit optimized
-   (as found in Colin Plumbs public domain implementation).  */
-/* #define FF(b, c, d) ((b & c) | (~b & d)) */
-#define FF(b, c, d) (d ^ (b & (c ^ d)))
-#define FG(b, c, d) FF (d, b, c)
-#define FH(b, c, d) (b ^ c ^ d)
-#define FI(b, c, d) (c ^ (b | ~d))
-
-/* Process LEN bytes of BUFFER, accumulating context into CTX.
-   It is assumed that LEN % 64 == 0.  */
-
-void
-md5_process_block (const void *buffer, size_t len, struct md5_ctx *ctx)
-{
-  md5_uint32 correct_words[16];
-  const md5_uint32 *words = buffer;
-  size_t nwords = len / sizeof (md5_uint32);
-  const md5_uint32 *endp = words + nwords;
-  md5_uint32 A = ctx->A;
-  md5_uint32 B = ctx->B;
-  md5_uint32 C = ctx->C;
-  md5_uint32 D = ctx->D;
-
-  /* First increment the byte count.  RFC 1321 specifies the possible
-     length of the file up to 2^64 bits.  Here we only compute the
-     number of bytes.  Do a double word increment.  */
-  ctx->total[0] += len;
-  if (ctx->total[0] < len)
-    ++ctx->total[1];
-
-  /* Process all bytes in the buffer with 64 bytes in each round of
-     the loop.  */
-  while (words < endp)
-    {
-      md5_uint32 *cwp = correct_words;
-      md5_uint32 A_save = A;
-      md5_uint32 B_save = B;
-      md5_uint32 C_save = C;
-      md5_uint32 D_save = D;
-
-      /* First round: using the given function, the context and a constant
-	 the next context is computed.  Because the algorithms processing
-	 unit is a 32-bit word and it is determined to work on words in
-	 little endian byte order we perhaps have to change the byte order
-	 before the computation.  To reduce the work for the next steps
-	 we store the swapped words in the array CORRECT_WORDS.  */
-
-#define OP(a, b, c, d, s, T)						\
-      do								\
-        {								\
-	  a += FF (b, c, d) + (*cwp++ = SWAP (*words)) + T;		\
-	  ++words;							\
-	  CYCLIC (a, s);						\
-	  a += b;							\
-        }								\
-      while (0)
-
-      /* It is unfortunate that C does not provide an operator for
-	 cyclic rotation.  Hope the C compiler is smart enough.  */
-#define CYCLIC(w, s) (w = (w << s) | (w >> (32 - s)))
-
-      /* Before we start, one word to the strange constants.
-	 They are defined in RFC 1321 as
-
-	 T[i] = (int) (4294967296.0 * fabs (sin (i))), i=1..64
-       */
-
-      /* Round 1.  */
-      OP (A, B, C, D,  7, 0xd76aa478);
-      OP (D, A, B, C, 12, 0xe8c7b756);
-      OP (C, D, A, B, 17, 0x242070db);
-      OP (B, C, D, A, 22, 0xc1bdceee);
-      OP (A, B, C, D,  7, 0xf57c0faf);
-      OP (D, A, B, C, 12, 0x4787c62a);
-      OP (C, D, A, B, 17, 0xa8304613);
-      OP (B, C, D, A, 22, 0xfd469501);
-      OP (A, B, C, D,  7, 0x698098d8);
-      OP (D, A, B, C, 12, 0x8b44f7af);
-      OP (C, D, A, B, 17, 0xffff5bb1);
-      OP (B, C, D, A, 22, 0x895cd7be);
-      OP (A, B, C, D,  7, 0x6b901122);
-      OP (D, A, B, C, 12, 0xfd987193);
-      OP (C, D, A, B, 17, 0xa679438e);
-      OP (B, C, D, A, 22, 0x49b40821);
-
-      /* For the second to fourth round we have the possibly swapped words
-	 in CORRECT_WORDS.  Redefine the macro to take an additional first
-	 argument specifying the function to use.  */
-#undef OP
-#define OP(f, a, b, c, d, k, s, T)					\
-      do 								\
-	{								\
-	  a += f (b, c, d) + correct_words[k] + T;			\
-	  CYCLIC (a, s);						\
-	  a += b;							\
-	}								\
-      while (0)
-
-      /* Round 2.  */
-      OP (FG, A, B, C, D,  1,  5, 0xf61e2562);
-      OP (FG, D, A, B, C,  6,  9, 0xc040b340);
-      OP (FG, C, D, A, B, 11, 14, 0x265e5a51);
-      OP (FG, B, C, D, A,  0, 20, 0xe9b6c7aa);
-      OP (FG, A, B, C, D,  5,  5, 0xd62f105d);
-      OP (FG, D, A, B, C, 10,  9, 0x02441453);
-      OP (FG, C, D, A, B, 15, 14, 0xd8a1e681);
-      OP (FG, B, C, D, A,  4, 20, 0xe7d3fbc8);
-      OP (FG, A, B, C, D,  9,  5, 0x21e1cde6);
-      OP (FG, D, A, B, C, 14,  9, 0xc33707d6);
-      OP (FG, C, D, A, B,  3, 14, 0xf4d50d87);
-      OP (FG, B, C, D, A,  8, 20, 0x455a14ed);
-      OP (FG, A, B, C, D, 13,  5, 0xa9e3e905);
-      OP (FG, D, A, B, C,  2,  9, 0xfcefa3f8);
-      OP (FG, C, D, A, B,  7, 14, 0x676f02d9);
-      OP (FG, B, C, D, A, 12, 20, 0x8d2a4c8a);
-
-      /* Round 3.  */
-      OP (FH, A, B, C, D,  5,  4, 0xfffa3942);
-      OP (FH, D, A, B, C,  8, 11, 0x8771f681);
-      OP (FH, C, D, A, B, 11, 16, 0x6d9d6122);
-      OP (FH, B, C, D, A, 14, 23, 0xfde5380c);
-      OP (FH, A, B, C, D,  1,  4, 0xa4beea44);
-      OP (FH, D, A, B, C,  4, 11, 0x4bdecfa9);
-      OP (FH, C, D, A, B,  7, 16, 0xf6bb4b60);
-      OP (FH, B, C, D, A, 10, 23, 0xbebfbc70);
-      OP (FH, A, B, C, D, 13,  4, 0x289b7ec6);
-      OP (FH, D, A, B, C,  0, 11, 0xeaa127fa);
-      OP (FH, C, D, A, B,  3, 16, 0xd4ef3085);
-      OP (FH, B, C, D, A,  6, 23, 0x04881d05);
-      OP (FH, A, B, C, D,  9,  4, 0xd9d4d039);
-      OP (FH, D, A, B, C, 12, 11, 0xe6db99e5);
-      OP (FH, C, D, A, B, 15, 16, 0x1fa27cf8);
-      OP (FH, B, C, D, A,  2, 23, 0xc4ac5665);
-
-      /* Round 4.  */
-      OP (FI, A, B, C, D,  0,  6, 0xf4292244);
-      OP (FI, D, A, B, C,  7, 10, 0x432aff97);
-      OP (FI, C, D, A, B, 14, 15, 0xab9423a7);
-      OP (FI, B, C, D, A,  5, 21, 0xfc93a039);
-      OP (FI, A, B, C, D, 12,  6, 0x655b59c3);
-      OP (FI, D, A, B, C,  3, 10, 0x8f0ccc92);
-      OP (FI, C, D, A, B, 10, 15, 0xffeff47d);
-      OP (FI, B, C, D, A,  1, 21, 0x85845dd1);
-      OP (FI, A, B, C, D,  8,  6, 0x6fa87e4f);
-      OP (FI, D, A, B, C, 15, 10, 0xfe2ce6e0);
-      OP (FI, C, D, A, B,  6, 15, 0xa3014314);
-      OP (FI, B, C, D, A, 13, 21, 0x4e0811a1);
-      OP (FI, A, B, C, D,  4,  6, 0xf7537e82);
-      OP (FI, D, A, B, C, 11, 10, 0xbd3af235);
-      OP (FI, C, D, A, B,  2, 15, 0x2ad7d2bb);
-      OP (FI, B, C, D, A,  9, 21, 0xeb86d391);
-
-      /* Add the starting values of the context.  */
-      A += A_save;
-      B += B_save;
-      C += C_save;
-      D += D_save;
-    }
-
-  /* Put checksum in context given as argument.  */
-  ctx->A = A;
-  ctx->B = B;
-  ctx->C = C;
-  ctx->D = D;
-}
-
-
-#ifdef _LIBC
-/* Define weak aliases.  */
-# undef md5_init_ctx
-weak_alias (__md5_init_ctx, md5_init_ctx)
-# undef md5_process_block
-weak_alias (__md5_process_block, md5_process_block)
-# undef md5_process_bytes
-weak_alias (__md5_process_bytes, md5_process_bytes)
-# undef md5_finish_ctx
-weak_alias (__md5_finish_ctx, md5_finish_ctx)
-# undef md5_read_ctx
-weak_alias (__md5_read_ctx, md5_read_ctx)
-# undef md5_stream
-weak_alias (__md5_stream, md5_stream)
-# undef md5_buffer
-weak_alias (__md5_buffer, md5_buffer)
+	/* 8 byte word */	
+#if BYTE_ORDER == LITTLE_ENDIAN
+	bcopy(&ctxt->md5_n8[0], &ctxt->md5_buf[56], 8);
 #endif
+#if BYTE_ORDER == BIG_ENDIAN
+	ctxt->md5_buf[56] = ctxt->md5_n8[7];
+	ctxt->md5_buf[57] = ctxt->md5_n8[6];
+	ctxt->md5_buf[58] = ctxt->md5_n8[5];
+	ctxt->md5_buf[59] = ctxt->md5_n8[4];
+	ctxt->md5_buf[60] = ctxt->md5_n8[3];
+	ctxt->md5_buf[61] = ctxt->md5_n8[2];
+	ctxt->md5_buf[62] = ctxt->md5_n8[1];
+	ctxt->md5_buf[63] = ctxt->md5_n8[0];
+#endif
+
+	md5_calc(ctxt->md5_buf, ctxt);
+}
+
+void md5_result(digest, ctxt)
+	u_int8_t *digest;
+	md5_ctxt *ctxt;
+{
+	/* 4 byte words */
+#if BYTE_ORDER == LITTLE_ENDIAN
+	bcopy(&ctxt->md5_st8[0], digest, 16);
+#endif
+#if BYTE_ORDER == BIG_ENDIAN
+	digest[ 0] = ctxt->md5_st8[ 3]; digest[ 1] = ctxt->md5_st8[ 2];
+	digest[ 2] = ctxt->md5_st8[ 1]; digest[ 3] = ctxt->md5_st8[ 0];
+	digest[ 4] = ctxt->md5_st8[ 7]; digest[ 5] = ctxt->md5_st8[ 6];
+	digest[ 6] = ctxt->md5_st8[ 5]; digest[ 7] = ctxt->md5_st8[ 4];
+	digest[ 8] = ctxt->md5_st8[11]; digest[ 9] = ctxt->md5_st8[10];
+	digest[10] = ctxt->md5_st8[ 9]; digest[11] = ctxt->md5_st8[ 8];
+	digest[12] = ctxt->md5_st8[15]; digest[13] = ctxt->md5_st8[14];
+	digest[14] = ctxt->md5_st8[13]; digest[15] = ctxt->md5_st8[12];
+#endif
+}
+
+#if BYTE_ORDER == BIG_ENDIAN
+u_int32_t X[16];
+#endif
+
+static void md5_calc(b64, ctxt)
+	u_int8_t *b64;
+	md5_ctxt *ctxt;
+{
+	u_int32_t A = ctxt->md5_sta;
+	u_int32_t B = ctxt->md5_stb;
+	u_int32_t C = ctxt->md5_stc;
+	u_int32_t D = ctxt->md5_std;
+#if BYTE_ORDER == LITTLE_ENDIAN
+	u_int32_t *X = (u_int32_t *)b64;
+#endif	
+#if BYTE_ORDER == BIG_ENDIAN
+	/* 4 byte words */
+	/* what a brute force but fast! */
+	u_int8_t *y = (u_int8_t *)X;
+	y[ 0] = b64[ 3]; y[ 1] = b64[ 2]; y[ 2] = b64[ 1]; y[ 3] = b64[ 0];
+	y[ 4] = b64[ 7]; y[ 5] = b64[ 6]; y[ 6] = b64[ 5]; y[ 7] = b64[ 4];
+	y[ 8] = b64[11]; y[ 9] = b64[10]; y[10] = b64[ 9]; y[11] = b64[ 8];
+	y[12] = b64[15]; y[13] = b64[14]; y[14] = b64[13]; y[15] = b64[12];
+	y[16] = b64[19]; y[17] = b64[18]; y[18] = b64[17]; y[19] = b64[16];
+	y[20] = b64[23]; y[21] = b64[22]; y[22] = b64[21]; y[23] = b64[20];
+	y[24] = b64[27]; y[25] = b64[26]; y[26] = b64[25]; y[27] = b64[24];
+	y[28] = b64[31]; y[29] = b64[30]; y[30] = b64[29]; y[31] = b64[28];
+	y[32] = b64[35]; y[33] = b64[34]; y[34] = b64[33]; y[35] = b64[32];
+	y[36] = b64[39]; y[37] = b64[38]; y[38] = b64[37]; y[39] = b64[36];
+	y[40] = b64[43]; y[41] = b64[42]; y[42] = b64[41]; y[43] = b64[40];
+	y[44] = b64[47]; y[45] = b64[46]; y[46] = b64[45]; y[47] = b64[44];
+	y[48] = b64[51]; y[49] = b64[50]; y[50] = b64[49]; y[51] = b64[48];
+	y[52] = b64[55]; y[53] = b64[54]; y[54] = b64[53]; y[55] = b64[52];
+	y[56] = b64[59]; y[57] = b64[58]; y[58] = b64[57]; y[59] = b64[56];
+	y[60] = b64[63]; y[61] = b64[62]; y[62] = b64[61]; y[63] = b64[60];
+#endif
+
+	ROUND1(A, B, C, D,  0, Sa,  1); ROUND1(D, A, B, C,  1, Sb,  2);
+	ROUND1(C, D, A, B,  2, Sc,  3); ROUND1(B, C, D, A,  3, Sd,  4);
+	ROUND1(A, B, C, D,  4, Sa,  5); ROUND1(D, A, B, C,  5, Sb,  6);
+	ROUND1(C, D, A, B,  6, Sc,  7); ROUND1(B, C, D, A,  7, Sd,  8);
+	ROUND1(A, B, C, D,  8, Sa,  9); ROUND1(D, A, B, C,  9, Sb, 10);
+	ROUND1(C, D, A, B, 10, Sc, 11); ROUND1(B, C, D, A, 11, Sd, 12);
+	ROUND1(A, B, C, D, 12, Sa, 13); ROUND1(D, A, B, C, 13, Sb, 14);
+	ROUND1(C, D, A, B, 14, Sc, 15); ROUND1(B, C, D, A, 15, Sd, 16);
+	
+	ROUND2(A, B, C, D,  1, Se, 17); ROUND2(D, A, B, C,  6, Sf, 18);
+	ROUND2(C, D, A, B, 11, Sg, 19); ROUND2(B, C, D, A,  0, Sh, 20);
+	ROUND2(A, B, C, D,  5, Se, 21); ROUND2(D, A, B, C, 10, Sf, 22);
+	ROUND2(C, D, A, B, 15, Sg, 23); ROUND2(B, C, D, A,  4, Sh, 24);
+	ROUND2(A, B, C, D,  9, Se, 25); ROUND2(D, A, B, C, 14, Sf, 26);
+	ROUND2(C, D, A, B,  3, Sg, 27); ROUND2(B, C, D, A,  8, Sh, 28);
+	ROUND2(A, B, C, D, 13, Se, 29); ROUND2(D, A, B, C,  2, Sf, 30);
+	ROUND2(C, D, A, B,  7, Sg, 31); ROUND2(B, C, D, A, 12, Sh, 32);
+
+	ROUND3(A, B, C, D,  5, Si, 33); ROUND3(D, A, B, C,  8, Sj, 34);
+	ROUND3(C, D, A, B, 11, Sk, 35); ROUND3(B, C, D, A, 14, Sl, 36);
+	ROUND3(A, B, C, D,  1, Si, 37); ROUND3(D, A, B, C,  4, Sj, 38);
+	ROUND3(C, D, A, B,  7, Sk, 39); ROUND3(B, C, D, A, 10, Sl, 40);
+	ROUND3(A, B, C, D, 13, Si, 41); ROUND3(D, A, B, C,  0, Sj, 42);
+	ROUND3(C, D, A, B,  3, Sk, 43); ROUND3(B, C, D, A,  6, Sl, 44);
+	ROUND3(A, B, C, D,  9, Si, 45); ROUND3(D, A, B, C, 12, Sj, 46);
+	ROUND3(C, D, A, B, 15, Sk, 47); ROUND3(B, C, D, A,  2, Sl, 48);
+	
+	ROUND4(A, B, C, D,  0, Sm, 49); ROUND4(D, A, B, C,  7, Sn, 50);	
+	ROUND4(C, D, A, B, 14, So, 51); ROUND4(B, C, D, A,  5, Sp, 52);	
+	ROUND4(A, B, C, D, 12, Sm, 53); ROUND4(D, A, B, C,  3, Sn, 54);	
+	ROUND4(C, D, A, B, 10, So, 55); ROUND4(B, C, D, A,  1, Sp, 56);	
+	ROUND4(A, B, C, D,  8, Sm, 57); ROUND4(D, A, B, C, 15, Sn, 58);	
+	ROUND4(C, D, A, B,  6, So, 59); ROUND4(B, C, D, A, 13, Sp, 60);	
+	ROUND4(A, B, C, D,  4, Sm, 61); ROUND4(D, A, B, C, 11, Sn, 62);	
+	ROUND4(C, D, A, B,  2, So, 63); ROUND4(B, C, D, A,  9, Sp, 64);
+
+	ctxt->md5_sta += A;
+	ctxt->md5_stb += B;
+	ctxt->md5_stc += C;
+	ctxt->md5_std += D;
+}

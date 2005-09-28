@@ -32,7 +32,7 @@
 #include "stream.h"
 #include "log.h"
 #include "sockopt.h"
-#include "md5-gnu.h"
+#include "md5.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -260,7 +260,7 @@ ospf_check_md5_digest (struct ospf_interface *oi, struct stream *s,
                        u_int16_t length)
 {
   unsigned char *ibuf;
-  struct md5_ctx ctx;
+  MD5_CTX ctx;
   unsigned char digest[OSPF_AUTH_MD5_SIZE];
   unsigned char *pdigest;
   struct crypt_key *ck;
@@ -297,10 +297,11 @@ ospf_check_md5_digest (struct ospf_interface *oi, struct stream *s,
     }
       
   /* Generate a digest for the ospf packet - their digest + our digest. */
-  md5_init_ctx (&ctx);
-  md5_process_bytes (ibuf, length, &ctx);
-  md5_process_bytes (ck->auth_key, OSPF_AUTH_MD5_SIZE, &ctx);
-  md5_finish_ctx (&ctx, digest);
+  memset(&ctx, 0, sizeof(ctx));
+  MD5Init(&ctx);
+  MD5Update(&ctx, ibuf, length);
+  MD5Update(&ctx, ck->auth_key, OSPF_AUTH_MD5_SIZE);
+  MD5Final(digest, &ctx);
 
   /* compare the two */
   if (memcmp (pdigest, digest, OSPF_AUTH_MD5_SIZE))
@@ -324,7 +325,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
 {
   struct ospf_header *ospfh;
   unsigned char digest[OSPF_AUTH_MD5_SIZE];
-  struct md5_ctx ctx;
+  MD5_CTX ctx;
   void *ibuf;
   u_int32_t t;
   struct crypt_key *ck;
@@ -352,10 +353,11 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
     }
 
   /* Generate a digest for the entire packet + our secret key. */
-  md5_init_ctx (&ctx);
-  md5_process_bytes (ibuf, ntohs (ospfh->length), &ctx);
-  md5_process_bytes (auth_key, OSPF_AUTH_MD5_SIZE, &ctx);
-  md5_finish_ctx (&ctx, digest);
+  memset(&ctx, 0, sizeof(ctx));
+  MD5Init(&ctx);
+  MD5Update(&ctx, ibuf, ntohs (ospfh->length));
+  MD5Update(&ctx, auth_key, OSPF_AUTH_MD5_SIZE);
+  MD5Final(digest, &ctx);
 
   /* Append md5 digest to the end of the stream. */
   stream_put (op->s, digest, OSPF_AUTH_MD5_SIZE);
