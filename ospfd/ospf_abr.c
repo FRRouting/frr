@@ -707,7 +707,7 @@ ospf_abr_translate_nssa_range (struct prefix_ipv4 *p, u_int32_t cost)
      for lsa installation and flooding... to be added... */
 }
 
-static void
+void
 ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
 				   struct ospf_area *area)
 {

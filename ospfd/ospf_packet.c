@@ -1111,7 +1111,8 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
     }
 
   /* Check MTU. */
-  if (ntohs (dd->mtu) > oi->ifp->mtu)
+  if ((OSPF_IF_PARAM (oi, mtu_ignore) == 0) && 
+      (ntohs (dd->mtu) > oi->ifp->mtu))
     {
       zlog_warn ("Packet[DD]: Neighbor %s MTU %u is larger than [%s]'s MTU %u",
 		 inet_ntoa (nbr->router_id), ntohs (dd->mtu),

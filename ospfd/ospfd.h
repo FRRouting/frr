@@ -105,6 +105,8 @@
 #define OSPF_POLL_INTERVAL_DEFAULT         60
 #define OSPF_NEIGHBOR_PRIORITY_DEFAULT      0
 
+#define OSPF_MTU_IGNORE_DEFAULT             0
+
 /* OSPF options. */
 #define OSPF_OPTION_T                    0x01  /* TOS. */
 #define OSPF_OPTION_E                    0x02

@@ -1,3 +1,19 @@
+2005-09-29 Alain Ritoux <alain.ritoux@6wind.com>
+
+	* ospf_vty.c: forece default route LSA to be re_issued whenever
+	  cost is changed ( [no] ip ospf area XXX default-cost YYY)
+	  Support ignore-mtu option
+	* ospfd.h: define OSPF_MTU_IGNORE_DEFAULT
+	* ospf_packet.c: support ignore-mtu option
+	* ospf_interface.h: field added for skipping MTU check 
+	* ospf_interface.c: fix memory leak in ospf_crypt_key_delete()
+	  Set mtu_ignore field to default value
+	* ospf_abr.[ch]: export ospf_abr_announce_network_to_area()
+	* ospf_ism.h: add MACRO to convert internal ISM status into SNMP
+	  correct values
+	* ospf_snmp.c: add sanity check on LSA type in lsdb_lookup_next()
+	  convert OSPFIFSTATE internal status into SNMP values
+
 2005-09-28 Alain Ritoux <alain.ritoux@6wind.com>
 
 	* ospf_packet.c: use new md5 API

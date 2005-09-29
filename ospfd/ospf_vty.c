@@ -1,4 +1,5 @@
 /* OSPF VTY interface.
+ * Copyright (C) 2005 6WIND <alain.ritoux@6wind.com>
  * Copyright (C) 2000 Toshiaki Takada
  *
  * This file is part of GNU Zebra.
@@ -1661,6 +1662,7 @@ DEFUN (ospf_area_default_cost,
   struct in_addr area_id;
   u_int32_t cost;
   int format;
+  struct prefix_ipv4 p;
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("default-cost", area_id, format, argv[0]);
   VTY_GET_INTEGER_RANGE ("stub default cost", cost, argv[1], 0, 16777215);
@@ -1674,6 +1676,15 @@ DEFUN (ospf_area_default_cost,
     }
 
   area->default_cost = cost;
+
+  p.family = AF_INET;
+  p.prefix.s_addr = OSPF_DEFAULT_DESTINATION;
+  p.prefixlen = 0;
+  if (IS_DEBUG_OSPF_EVENT)
+    zlog_debug ("ospf_abr_announce_stub_defaults(): "
+                "announcing 0.0.0.0/0 to area %s",
+               inet_ntoa (area->area_id));
+  ospf_abr_announce_network_to_area (&p, area->default_cost, area);
 
   return CMD_SUCCESS;
 }
@@ -1693,6 +1704,7 @@ DEFUN (no_ospf_area_default_cost,
   struct in_addr area_id;
   u_int32_t cost;
   int format;
+  struct prefix_ipv4 p;
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("default-cost", area_id, format, argv[0]);
   VTY_GET_INTEGER_RANGE ("stub default cost", cost, argv[1], 0, 16777215);
@@ -1708,6 +1720,16 @@ DEFUN (no_ospf_area_default_cost,
     }
 
   area->default_cost = 1;
+
+  p.family = AF_INET;
+  p.prefix.s_addr = OSPF_DEFAULT_DESTINATION;
+  p.prefixlen = 0;
+  if (IS_DEBUG_OSPF_EVENT)
+    zlog_debug ("ospf_abr_announce_stub_defaults(): "
+                "announcing 0.0.0.0/0 to area %s",
+               inet_ntoa (area->area_id));
+  ospf_abr_announce_network_to_area (&p, area->default_cost, area);
+
 
   ospf_area_check_free (ospf, area_id);
 
@@ -2616,6 +2638,9 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
 
       vty_out (vty, " Area %s%s", ospf_area_desc_string (oi->area),
 	       VTY_NEWLINE);
+
+      vty_out (vty, "  MTU mismatch detection:%s%s",
+           OSPF_IF_PARAM(oi, mtu_ignore) ? "disabled" : "enabled", VTY_NEWLINE);
 
       vty_out (vty, "  Router ID %s, Network Type %s, Cost: %d%s",
 	       inet_ntoa (ospf->router_id), ospf_network_type_str[oi->type],
@@ -6491,6 +6516,105 @@ DEFUN (no_ospf_distance_source_access_list,
   return CMD_SUCCESS;
 }
 
+DEFUN (ip_ospf_mtu_ignore,
+       ip_ospf_mtu_ignore_addr_cmd,
+       "ip ospf mtu-ignore A.B.C.D",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Disable mtu mismatch detection\n"
+       "Address of interface")
+{
+  struct interface *ifp = vty->index;
+  struct in_addr addr;
+  int ret;
+ 	   
+  struct ospf_if_params *params;
+  params = IF_DEF_PARAMS (ifp);
+ 	 
+  if (argc == 1)
+    {
+      ret = inet_aton(argv[0], &addr);
+      if (!ret)
+        {
+          vty_out (vty, "Please specify interface address by A.B.C.D%s",
+                  VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      params = ospf_get_if_params (ifp, addr);
+      ospf_if_update_params (ifp, addr);
+    }
+  params->mtu_ignore = 1;
+  if (params->mtu_ignore != OSPF_MTU_IGNORE_DEFAULT)
+    SET_IF_PARAM (params, mtu_ignore);
+  else 
+    {
+      UNSET_IF_PARAM (params, mtu_ignore);
+      if (params != IF_DEF_PARAMS (ifp))
+        {
+          ospf_free_if_params (ifp, addr);
+          ospf_if_update_params (ifp, addr);
+        }
+    }
+  return CMD_SUCCESS;
+}
+
+ALIAS (ip_ospf_mtu_ignore,
+      ip_ospf_mtu_ignore_cmd,
+      "ip ospf mtu-ignore",
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Disable mtu mismatch detection\n")
+
+    
+DEFUN (no_ip_ospf_mtu_ignore,
+       no_ip_ospf_mtu_ignore_addr_cmd,
+       "no ip ospf mtu-ignore A.B.C.D",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Disable mtu mismatch detection\n"
+       "Address of interface")
+{
+  struct interface *ifp = vty->index;
+  struct in_addr addr;
+  int ret;
+ 	   
+  struct ospf_if_params *params;
+  params = IF_DEF_PARAMS (ifp);
+ 	 
+  if (argc == 1)
+    {
+      ret = inet_aton(argv[0], &addr);
+      if (!ret)
+        {
+          vty_out (vty, "Please specify interface address by A.B.C.D%s",
+                  VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      params = ospf_get_if_params (ifp, addr);
+      ospf_if_update_params (ifp, addr);
+    }
+  params->mtu_ignore = 0;
+  if (params->mtu_ignore != OSPF_MTU_IGNORE_DEFAULT)
+    SET_IF_PARAM (params, mtu_ignore);
+  else 
+    {
+      UNSET_IF_PARAM (params, mtu_ignore);
+      if (params != IF_DEF_PARAMS (ifp))
+        {
+          ospf_free_if_params (ifp, addr);
+          ospf_if_update_params (ifp, addr);
+        }
+    }
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ip_ospf_mtu_ignore,
+       no_ip_ospf_mtu_ignore_cmd,
+      "no ip ospf mtu-ignore",
+      "IP Information\n"
+      "OSPF interface commands\n"
+      "Disable mtu mismatch detection\n")
+    
 static void
 show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
 {
@@ -6906,6 +7030,20 @@ config_write_interface (struct vty *vty)
 	      vty_out (vty, " %s", inet_ntoa (rn->p.u.prefix4));
 	    vty_out (vty, "%s", VTY_NEWLINE);
 	  }
+
+    /* MTU ignore print. */
+    if (OSPF_IF_PARAM_CONFIGURED (params, mtu_ignore) &&
+       params->mtu_ignore != OSPF_MTU_IGNORE_DEFAULT)
+      {
+        if (params->mtu_ignore == 0)
+          vty_out (vty, " no ip ospf mtu-ignore");
+        else
+          vty_out (vty, " ip ospf mtu-ignore");
+        if (params != IF_DEF_PARAMS (ifp))
+           vty_out (vty, " %s", inet_ntoa (rn->p.u.prefix4));
+        vty_out (vty, "%s", VTY_NEWLINE);
+      }
+
 
 	while (1)
 	  {
@@ -7455,6 +7593,12 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &ip_ospf_cost_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_cost_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_cost_cmd);
+
+  /* "ip ospf mtu-ignore" commands. */
+  install_element (INTERFACE_NODE, &ip_ospf_mtu_ignore_addr_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_mtu_ignore_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_mtu_ignore_addr_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_mtu_ignore_cmd);
 
   /* "ip ospf dead-interval" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_dead_interval_addr_cmd);

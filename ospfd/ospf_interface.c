@@ -692,6 +692,8 @@ ospf_if_new_hook (struct interface *ifp)
   SET_IF_PARAM (IF_DEF_PARAMS (ifp), priority);
   IF_DEF_PARAMS (ifp)->priority = OSPF_ROUTER_PRIORITY_DEFAULT;
 
+  IF_DEF_PARAMS (ifp)->mtu_ignore = OSPF_MTU_IGNORE_DEFAULT;
+
   SET_IF_PARAM (IF_DEF_PARAMS (ifp), passive_interface);
   IF_DEF_PARAMS (ifp)->passive_interface = OSPF_IF_ACTIVE;
 
@@ -1223,6 +1225,7 @@ ospf_crypt_key_delete (struct list *auth_crypt, u_char key_id)
       if (ck->key_id == key_id)
         {
           listnode_delete (auth_crypt, ck);
+          XFREE (MTYPE_OSPF_CRYPT_KEY, ck);
           return 1;
         }
     }

@@ -88,4 +88,7 @@ extern void ospf_check_abr_status (struct ospf *);
 extern void ospf_abr_task (struct ospf *);
 extern void ospf_schedule_abr_task (struct ospf *);
 
+extern void ospf_abr_announce_network_to_area (struct prefix_ipv4 *, 
+                                               u_int32_t,
+                                               struct ospf_area *);
 #endif /* _ZEBRA_OSPF_ABR_H */

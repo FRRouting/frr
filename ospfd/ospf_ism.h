@@ -35,6 +35,10 @@
 #define ISM_DR                            7
 #define OSPF_ISM_STATE_MAX   	          8
 
+/* Because DR/DROther values are exhanged wrt RFC */
+#define ISM_SNMP(x) (((x) == ISM_DROther) ? ISM_DR : \
+                     ((x) == ISM_DR) ? ISM_DROther : (x))
+
 /* OSPF Interface State Machine Event. */
 #define ISM_NoEvent                       0
 #define ISM_InterfaceUp                   1

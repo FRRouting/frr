@@ -53,6 +53,9 @@ struct ospf_if_params
   DECLARE_IF_PARAM (u_int32_t, v_hello);             /* Hello Interval */
   DECLARE_IF_PARAM (u_int32_t, v_wait);              /* Router Dead Interval */
 
+  /* MTU mismatch check (see RFC2328, chap 10.6) */ 
+  DECLARE_IF_PARAM (u_char, mtu_ignore);
+
   /* Authentication data. */
   u_char auth_simple[OSPF_AUTH_SIMPLE_SIZE + 1];       /* Simple password. */
   u_char auth_simple__config:1;

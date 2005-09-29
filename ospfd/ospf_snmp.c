@@ -1,4 +1,5 @@
 /* OSPFv2 SNMP support
+ * Copyright (C) 2005 6WIND <alain.ritoux@6wind.com>
  * Copyright (C) 2000 IP Infusion Inc.
  *
  * Written by Kunihiro Ishiguro <kunihiro@zebra.org>
@@ -885,6 +886,14 @@ lsdb_lookup_next (struct ospf_area *area, u_char *type, int type_next,
   else
     i = *type;
 
+  /* Sanity check, if LSA type unknwon
+     merley skip any LSA */
+  if ((i < OSPF_MIN_LSA) || (i >= OSPF_MAX_LSA))
+    {
+      zlog_debug("Strange request with LSA type %d\n", i);
+      return NULL;
+    }
+
   for (; i < OSPF_MAX_LSA; i++)
     {
       *type = i;
@@ -1673,7 +1682,7 @@ ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
       return SNMP_INTEGER (OSPF_POLL_INTERVAL_DEFAULT);
       break;
     case OSPFIFSTATE:		/* 12 */
-      return SNMP_INTEGER (oi->state);
+      return SNMP_INTEGER (ISM_SNMP(oi->state));
       break;
     case OSPFIFDESIGNATEDROUTER: /* 13 */
       return SNMP_IPADDRESS (DR (oi));
