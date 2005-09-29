@@ -94,7 +94,7 @@ struct variable
   FindVarMethod *findVar;
 
   /* Suffix of the MIB. */
-  u_char namelen;
+  int namelen;
   oid name[MAX_OID_LEN];
 };
 
@@ -121,7 +121,7 @@ struct subtree
 struct trap_object
 {
   FindVarMethod *findVar;
-  u_char namelen;
+  int namelen;
   oid name[MAX_OID_LEN];
 };
 

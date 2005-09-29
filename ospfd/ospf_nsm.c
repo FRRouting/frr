@@ -47,6 +47,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_abr.h"
+#include "ospfd/ospf_snmp.h"
 
 void nsm_reset_nbr (struct ospf_neighbor *);
 
@@ -692,6 +693,22 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
     vl_area = ospf_area_lookup_by_area_id (oi->ospf, oi->vl_data->vl_area_id);
   
+#ifdef HAVE_SNMP
+  /* Terminal state or regression */ 
+  if ((state == NSM_Full) || (state == NSM_TwoWay) || (state < old_state))
+    {
+      /* ospfVirtNbrStateChange */
+      if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+        ospfTrapVirtNbrStateChange(nbr);
+      /* ospfNbrStateChange trap  */
+      else
+        /* To/From FULL, only managed by DR */
+        if (((state != NSM_Full) && (old_state != NSM_Full)) ||
+            (oi->state == ISM_DR))
+          ospfTrapNbrStateChange(nbr);
+    }
+#endif
+
   /* One of the neighboring routers changes to/from the FULL state. */
   if ((old_state != NSM_Full && state == NSM_Full) ||
       (old_state == NSM_Full && state != NSM_Full))

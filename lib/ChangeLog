@@ -1,3 +1,8 @@
+2005-09-29 Alain Ritoux <alain.ritoux@6wind.com>
+
+	* smux.[ch]: allow to retreive global OID (identified by <0
+	  namelen).
+
 2005-09-29 Paul Jakma <paul.jakma@sun.com>
 
 	* zebra.h: Solaris capabilities requires priv.h to be included.

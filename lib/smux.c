@@ -1065,13 +1065,34 @@ smux_trap (oid *name, size_t namelen,
       u_char val_type;
 
       /* Make OID. */
-      oid_copy (oid, name, namelen);
-      oid_copy (oid + namelen, trapobj[i].name, trapobj[i].namelen);
-      oid_copy (oid + namelen + trapobj[i].namelen, iname, inamelen);
-      oid_len = namelen + trapobj[i].namelen + inamelen;
+      if (trapobj[i].namelen > 0) 
+        {
+          oid_copy (oid, name, namelen);
+          oid_copy (oid + namelen, trapobj[i].name, trapobj[i].namelen);
+          oid_copy (oid + namelen + trapobj[i].namelen, iname, inamelen);
+          oid_len = namelen + trapobj[i].namelen + inamelen;
+        }
+      else 
+        {
+          oid_copy (oid, name, namelen);
+          oid_copy (oid + namelen, trapobj[i].name, trapobj[i].namelen * (-1));
+          oid_len = namelen + trapobj[i].namelen * (-1) ;
+        }
 
-      if (debug_smux)
-	smux_oid_dump ("Trap", oid, oid_len);
+      if (debug_smux) 
+        {
+          smux_oid_dump ("Trap", name, namelen);
+          if (trapobj[i].namelen < 0)
+            smux_oid_dump ("Trap", 
+                           trapobj[i].name, (- 1) * (trapobj[i].namelen));
+          else 
+            {
+              smux_oid_dump ("Trap", trapobj[i].name, (trapobj[i].namelen));
+              smux_oid_dump ("Trap", iname, inamelen);
+            }
+          smux_oid_dump ("Trap", oid, oid_len);
+          zlog_info ("BUFSIZ: %d // oid_len: %d", BUFSIZ, oid_len);
+      }
 
       ret = smux_get (oid, &oid_len, 1, &val_type, &val, &val_len);
 

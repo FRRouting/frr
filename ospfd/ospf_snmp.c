@@ -2064,7 +2064,9 @@ ospf_snmp_nbr_lookup (struct ospf *ospf, struct in_addr *nbr_addr,
       for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
 	if ((nbr = rn->info) != NULL
 	    && nbr != oi->nbr_self
+/* If EXACT match is needed, provide ALL entry found
 	    && nbr->state != NSM_Down
+ */
 	    && nbr->src.s_addr != 0)
 	  {
 	    if (IPV4_ADDR_SAME (&nbr->src, nbr_addr))
@@ -2475,6 +2477,112 @@ ospfAreaAggregateEntry (struct variable *v, oid *name, size_t *length,
   return NULL;
 }
 
+/* OSPF Traps. */
+#define IFSTATECHANGE      16
+#define VIRTIFSTATECHANGE   1
+#define NBRSTATECHANGE      2
+#define VIRTNBRSTATECHANGE  3
+
+struct trap_object ospfNbrTrapList[] =
+{
+  {ospfGeneralGroup, -2, {1, OSPFROUTERID}},
+  {ospfNbrEntry, 3, {10, 1, OSPFNBRIPADDR}},
+  {ospfNbrEntry, 3, {10, 1, OSPFNBRRTRID}},
+  {ospfNbrEntry, 3, {10, 1, OSPFNBRSTATE}}
+};
+
+
+struct trap_object ospfVirtNbrTrapList[] =
+{
+  {ospfGeneralGroup, -2, {1, 1}},
+  {ospfVirtNbrEntry, 3, {11, 1, OSPFVIRTNBRAREA}},
+  {ospfVirtNbrEntry, 3, {11, 1, OSPFVIRTNBRRTRID}},
+  {ospfVirtNbrEntry, 3, {11, 1, OSPFVIRTNBRSTATE}}
+};
+
+struct trap_object ospfIfTrapList[] =
+{
+  {ospfGeneralGroup, -2, {1, OSPFROUTERID}},
+  {ospfIfEntry, 3, {7, 1, OSPFIFIPADDRESS}},
+  {ospfIfEntry, 3, {7, 1, OSPFADDRESSLESSIF}},
+  {ospfIfEntry, 3, {7, 1, OSPFIFSTATE}}
+};
+
+struct trap_object ospfVirtIfTrapList[] =
+{
+  {ospfGeneralGroup, -2, {1, OSPFROUTERID}},
+  {ospfVirtIfEntry, 3, {9, 1, OSPFVIRTIFAREAID}},
+  {ospfVirtIfEntry, 3, {9, 1, OSPFVIRTIFNEIGHBOR}},
+  {ospfVirtIfEntry, 3, {9, 1, OSPFVIRTIFSTATE}}
+};
+
+void
+ospfTrapNbrStateChange (struct ospf_neighbor *on)
+{
+  oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
+  
+  zlog (NULL, LOG_INFO, "ospfTrapNbrStateChange trap sent");
+
+  oid_copy_addr (index, &(on->address.u.prefix4), IN_ADDR_SIZE);
+  index[IN_ADDR_SIZE] = 0;
+
+  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+             index,  IN_ADDR_SIZE + 1,
+             ospfNbrTrapList, 
+             sizeof ospfNbrTrapList / sizeof (struct trap_object),
+             time (NULL), NBRSTATECHANGE);
+}
+
+void
+ospfTrapVirtNbrStateChange (struct ospf_neighbor *on)
+{
+  oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
+  
+  zlog (NULL, LOG_INFO, "ospfTrapVirtNbrStateChange trap sent");
+
+  oid_copy_addr (index, &(on->address.u.prefix4), IN_ADDR_SIZE);
+  index[IN_ADDR_SIZE] = 0;
+
+  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+             index,  IN_ADDR_SIZE + 1,
+             ospfVirtNbrTrapList, 
+             sizeof ospfVirtNbrTrapList / sizeof (struct trap_object),
+             time (NULL), VIRTNBRSTATECHANGE);
+}
+
+void
+ospfTrapIfStateChange (struct ospf_interface *oi)
+{
+  oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
+
+  zlog (NULL, LOG_INFO, "ospfTrapIfStateChange trap sent");
+  
+  oid_copy_addr (index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
+  index[IN_ADDR_SIZE] = 0;
+
+  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+             index, IN_ADDR_SIZE + 1,
+             ospfIfTrapList, 
+             sizeof ospfIfTrapList / sizeof (struct trap_object),
+             time (NULL), IFSTATECHANGE);
+}
+
+void
+ospfTrapVirtIfStateChange (struct ospf_interface *oi)
+{
+  oid index[sizeof (oid) * (IN_ADDR_SIZE + 1)];
+
+  zlog (NULL, LOG_INFO, "ospfTrapVirtIfStateChange trap sent");
+  
+  oid_copy_addr (index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
+  index[IN_ADDR_SIZE] = 0;
+
+  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+             index, IN_ADDR_SIZE + 1,
+             ospfVirtIfTrapList,
+             sizeof ospfVirtIfTrapList / sizeof (struct trap_object),
+             time (NULL), VIRTIFSTATECHANGE);
+}
 /* Register OSPF2-MIB. */
 void
 ospf_snmp_init ()

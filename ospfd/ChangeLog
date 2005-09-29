@@ -1,5 +1,11 @@
 2005-09-29 Alain Ritoux <alain.ritoux@6wind.com>
 
+	* ospf_ism.c: generate SNMP traps on Interface state change
+	* ospf_nsm.c: generate SNMP traps on Neighbour state change
+	* ospf_snmp.[ch]: support for SNMP traps for interface and neighbours.
+
+2005-09-29 Alain Ritoux <alain.ritoux@6wind.com>
+
 	* ospf_vty.c: forece default route LSA to be re_issued whenever
 	  cost is changed ( [no] ip ospf area XXX default-cost YYY)
 	  Support ignore-mtu option
