@@ -27,13 +27,11 @@
 /* list of zebra capabilities */
 typedef enum 
 {
-  ZCAP_SETGID,
-  ZCAP_SETUID,
+  ZCAP_SETID,
   ZCAP_BIND,
-  ZCAP_BROADCAST,
-  ZCAP_ADMIN,
+  ZCAP_NET_ADMIN,
   ZCAP_SYS_ADMIN,
-  ZCAP_RAW,
+  ZCAP_NET_RAW,
   ZCAP_CHROOT,
   ZCAP_NICE,
   ZCAP_PTRACE,
@@ -46,7 +44,8 @@ typedef enum
 typedef enum
 {
   ZPRIVS_LOWERED,
-  ZPRIVS_RAISED
+  ZPRIVS_RAISED,
+  ZPRIVS_UNKNOWN,
 } zebra_privs_current_t;
 
 typedef enum
@@ -84,7 +83,7 @@ struct zprivs_ids_t
   /* initialise zebra privileges */
 extern void zprivs_init (struct zebra_privs_t *zprivs);
   /* drop all and terminate privileges */ 
-extern void zprivs_terminate (void);
+extern void zprivs_terminate (struct zebra_privs_t *);
   /* query for runtime uid's and gid's, eg vty needs this */
 extern void zprivs_get_ids(struct zprivs_ids_t *);
 

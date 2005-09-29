@@ -102,7 +102,7 @@ char *vty_addr = NULL;
 zebra_capabilities_t _caps_p [] =  
 {
     ZCAP_BIND, 
-    ZCAP_RAW,
+    ZCAP_NET_RAW,
 };
 
 struct zebra_privs_t bgpd_privs =

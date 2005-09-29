@@ -1,3 +1,14 @@
+2005-09-29 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: Add the test for Solaris least-privileges. Set
+	  defines for whether capabilities are supported and whether of
+	  the linux or solaris variety.
+	  Add missing-prototypes, missing-declarations, char-subscripts
+	  and cast-qual warnings to default cflags, cause Hasso enjoys warnings,
+	  and we really should clean the remaining ones up. (ie isisd..).
+	* (*/*main.c) Update the zebra_capabilities_t arrays in the various
+	  daemons to match the changes made in lib/privs.h.
+	  
 2005-09-19 Hasso Tepper <hasso at quagga.net>
 
 	* configure.ac: Test existance of strndup.

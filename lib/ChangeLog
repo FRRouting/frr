@@ -1,3 +1,33 @@
+2005-09-29 Paul Jakma <paul.jakma@sun.com>
+
+	* zebra.h: Solaris capabilities requires priv.h to be included.
+	* privs.{c,h}: Add support for Solaris Least-Privileges.
+	  privs.h: Reduce some of the abstract capabilities, which do
+	  not have rough equivalents on both systems. Rename the net
+	  related caps to _NET, as they should have been in first
+	  place.
+	  (zprivs_terminate) should take the zebra_privs_t as argument so
+	  that it can update change pointer.
+	  Add an additional privilege state, ZPRIVS_UNKNOWN.
+	* privs.c: (various capability functions) Add
+	  Solaris privileges variants.
+	  (zprivs_state) Use privs.c specific generic types to
+          represent various capability/privilege related types, so that
+          each can be typedef'd as appropriate on each platform.
+	  (zprivs_null_state) static added, to hold the state the null
+	  method should report (should be raised by default, and
+          LOWERED if zprivs_terminate has been called)
+          (zprivs_state_null) Report back the zprivs_null_state.
+          (cap_map) Make it able to map abstract capability to multiple
+          system capabilities.
+          (zcaps2sys) Map to abstract capabilities to multiple system
+          privileges/capabilities.
+          (zprivs_init) move capability related init to seperate
+	  function, zprivs_caps_init.
+          (zprivs_terminate) ditto, moved to zprivs_caps_terminate.
+          Set the change_state callback to the NULL state, so the
+          user can continue to run and use the callbacks.
+          
 2005-09-29 Alain Ritoux <alain.ritoux@6wind.com>
 
 	* filer.c: show protocol name in filter_show()

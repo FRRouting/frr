@@ -120,6 +120,10 @@ typedef int socklen_t;
 #include <sys/prctl.h>
 #endif /* HAVE_LCAPS */
 
+#ifdef HAVE_SOLARIS_CAPABILITIES
+#include <priv.h>
+#endif /* HAVE_SOLARIS_CAPABILITIES */
+
 /* network include group */
 
 #include <sys/socket.h>

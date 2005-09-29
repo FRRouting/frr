@@ -54,7 +54,7 @@ static struct option longopts[] =
 /* ripd privileges */
 zebra_capabilities_t _caps_p [] = 
 {
-  ZCAP_RAW,
+  ZCAP_NET_RAW,
   ZCAP_BIND
 };
 
