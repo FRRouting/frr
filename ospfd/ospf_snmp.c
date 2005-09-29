@@ -49,6 +49,7 @@
 #include "ospfd/ospf_neighbor.h"
 #include "ospfd/ospf_nsm.h"
 #include "ospfd/ospf_flood.h"
+#include "ospfd/ospf_ism.h"
 
 /* OSPF2-MIB. */
 #define OSPF2MIB 1,3,6,1,2,1,14
