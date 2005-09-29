@@ -1,4 +1,5 @@
 /* RIPv2 routemap.
+ * Copyright (C) 2005 6WIND <alain.ritoux@6wind.com>
  * Copyright (C) 1999 Kunihiro Ishiguro <kunihiro@zebra.org>
  *
  * This file is part of GNU Zebra.
@@ -106,8 +107,14 @@ rip_route_set_add (struct vty *vty, struct route_map_index *index,
 	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
-	  return CMD_WARNING;
+	  /* rip, ripng and other protocols share the set metric command
+	     but only values from 0 to 16 are valid for rip and ripng
+	     if metric is out of range for rip and ripng, it is not for
+	     other protocols. Do not return an error */
+	  if (strcmp(command, "metric")) {
+	     vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+	     return CMD_WARNING;
+	  }
 	}
     }
   return CMD_SUCCESS;
@@ -161,6 +168,7 @@ route_match_metric (void *rule, struct prefix *prefix,
 		    route_map_object_t type, void *object)
 {
   u_int32_t *metric;
+  u_int32_t  check;
   struct rip_info *rinfo;
 
   if (type == RMAP_RIP)
@@ -168,7 +176,11 @@ route_match_metric (void *rule, struct prefix *prefix,
       metric = rule;
       rinfo = object;
     
-      if (rinfo->metric == *metric)
+      /* If external metric is available, the route-map should
+         work on this one (for redistribute purpose)  */
+      check = (rinfo->external_metric) ? rinfo->external_metric :
+                                         rinfo->metric;
+      if (check == *metric)
 	return RMAP_MATCH;
       else
 	return RMAP_NOMATCH;

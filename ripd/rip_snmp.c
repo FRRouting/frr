@@ -136,7 +136,7 @@ struct variable rip_variables[] =
   {RIP2PEERADDRESS,           IPADDRESS, RONLY, rip2PeerTable,
    /* RIP Peer Table. */
    3, {4, 1, 1}},
-  {RIP2PEERDOMAIN,            INTEGER, RONLY, rip2PeerTable,
+  {RIP2PEERDOMAIN,            STRING, RONLY, rip2PeerTable,
    3, {4, 1, 2}},
   {RIP2PEERLASTUPDATE,        TIMETICKS, RONLY, rip2PeerTable,
    3, {4, 1, 3}},
@@ -419,15 +419,19 @@ rip2IfConfReceive (struct rip_interface *ri)
 #define rip1OrRip2      3
 #define doNotReceive    4
 
+  int recvv;
+
   if (! ri->running)
     return doNotReceive;
 
-  if (ri->ri_receive == RI_RIP_VERSION_1_AND_2)
+  recvv = (ri->ri_receive == RI_RIP_UNSPEC) ?  rip->version_recv :
+                                               ri->ri_receive;
+  if (recvv == RI_RIP_VERSION_1_AND_2)
     return rip1OrRip2;
-  else if (ri->ri_receive & RIPv2)
-    return ripVersion2;
-  else if (ri->ri_receive & RIPv1)
-    return ripVersion1;
+  else if (recvv & RIPv2)
+    return rip2;
+  else if (recvv & RIPv1)
+    return rip1;
   else
     return doNotReceive;
 }
@@ -508,6 +512,7 @@ rip2PeerTable (struct variable *v, oid name[], size_t *length,
 	       int exact, size_t *val_len, WriteMethod **write_method)
 {
   static struct in_addr addr;
+  static int domain = 0;
   static int version;
   /* static time_t uptime; */
 
@@ -527,8 +532,8 @@ rip2PeerTable (struct variable *v, oid name[], size_t *length,
       return (u_char *) &peer->addr;
 
     case RIP2PEERDOMAIN:
-      *val_len = sizeof (int);
-      return (u_char *) &peer->domain;
+      *val_len = 2;
+      return (u_char *) &domain;
 
     case RIP2PEERLASTUPDATE:
 #if 0 

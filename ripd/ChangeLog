@@ -1,3 +1,22 @@
+2005-09-29 Alain Ritoux <alain.ritoux@6wind.com>
+
+	* rip_snmp.c: rip2IfConfReceive() sends values in conformance
+	  with RFC. Also PeerDomain is now set to a STRING type.
+	* ripd.h: rip_redistribute_add() API includes metric and distance
+	  added field external_metric in routes.
+	* ripd.c: rip_redistribute_add() API i.e. stores metric and distance
+      Now allows a RIP-route to overcome a redistributed route coming
+	  from a protocol with worse (higher) administrative distance
+	  Metrics from redistribution are shown in show ip rip
+	* rip_zebra.c: adapt to the rip_redistribute_add() API, i.e.
+	  provide distance and metric
+	* rip_interface.c: adapt to the rip_redistribute_add() API
+	* rip_routemap.c: no RMAP_COMPILE_ERROR on (metric > 16) usage
+	  rather a CMD_WARNING, because set metric ius shared with other
+	  protocols using larger values (such as OSPF)
+	  The match metric action takes first external metric if present
+      (from redistribution) then RIP metric.
+
 2005-09-28 Alain Ritoux <alain.ritoux@6wind.com>
 
 	* ripd.c: use new md5 API

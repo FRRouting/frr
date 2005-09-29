@@ -388,6 +388,7 @@ vty_command (struct vty *vty, char *buf)
 {
   int ret;
   vector vline;
+  const char *protocolname;
 
   /* Split readline string up into the vector */
   vline = cmd_make_strvec (buf);
@@ -406,6 +407,12 @@ vty_command (struct vty *vty, char *buf)
 
   ret = cmd_execute_command (vline, vty, NULL, 0);
 
+  /* Get the name of the protocol if any */
+  if (zlog_default)
+      protocolname = zlog_proto_names[zlog_default->protocol];
+  else
+      protocolname = zlog_proto_names[ZLOG_NONE];
+                                                                           
 #ifdef CONSUMED_TIME_CHECK
     GETRUSAGE(&after);
     if ((realtime = thread_consumed_time(&after, &before, &cputime)) >
@@ -427,7 +434,7 @@ vty_command (struct vty *vty, char *buf)
 	vty_out (vty, "%% Ambiguous command.%s", VTY_NEWLINE);
 	break;
       case CMD_ERR_NO_MATCH:
-	vty_out (vty, "%% Unknown command.%s", VTY_NEWLINE);
+	vty_out (vty, "%% [%s] Unknown command: %s%s", protocolname, buf, VTY_NEWLINE);
 	break;
       case CMD_ERR_INCOMPLETE:
 	vty_out (vty, "%% Command incomplete.%s", VTY_NEWLINE);

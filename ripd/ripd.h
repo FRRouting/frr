@@ -200,6 +200,10 @@ struct rip_info
   /* Metric of this route. */
   u_int32_t metric;
 
+  /* External metric of this route. 
+     if learnt from an externalm proto */
+  u_int32_t external_metric;
+
   /* Tag information of this route. */
   u_int16_t tag;
 
@@ -393,7 +397,7 @@ int rip_request_send (struct sockaddr_in *, struct interface *, u_char,
                       struct connected *);
 int rip_neighbor_lookup (struct sockaddr_in *);
 void rip_redistribute_add (int, int, struct prefix_ipv4 *, unsigned int, 
-			   struct in_addr *);
+			   struct in_addr *, unsigned int, unsigned char);
 void rip_redistribute_delete (int, int, struct prefix_ipv4 *, unsigned int);
 void rip_redistribute_withdraw (int);
 void rip_zebra_ipv4_add (struct prefix_ipv4 *, struct in_addr *, u_int32_t, u_char);

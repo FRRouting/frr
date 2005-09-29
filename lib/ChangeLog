@@ -1,3 +1,10 @@
+2005-09-29 Alain Ritoux <alain.ritoux@6wind.com>
+
+	* filer.c: show protocol name in filter_show()
+	* plist.c: show protocol name in vty_show_prefix_entry()
+	* routemap.c: show protocol name in vty_show_route_map_entry()
+	* vty.c: in vty_command(), show protocol name if command unknown
+	
 2005-09-28 Alain Ritoux <alain.ritoux@6wind.com>
 
 	* md5-gnu.h: removed

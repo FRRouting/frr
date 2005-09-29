@@ -1,4 +1,5 @@
 /* RIP version 1 and 2.
+ * Copyright (C) 2005 6WIND <alain.ritoux@6wind.com>
  * Copyright (C) 1997, 98, 99 Kunihiro Ishiguro <kunihiro@zebra.org>
  *
  * This file is part of GNU Zebra.
@@ -392,6 +393,8 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
   struct in_addr *nexthop;
   u_char oldmetric;
   int same = 0;
+  int route_reuse = 0;
+  unsigned char old_dist, new_dist;
 
   /* Make prefix structure. */
   memset (&p, 0, sizeof (struct prefix_ipv4));
@@ -480,17 +483,51 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
 
   if (rinfo)
     {
-      /* Redistributed route check. */
-      if (rinfo->type != ZEBRA_ROUTE_RIP
-          && rinfo->metric != RIP_METRIC_INFINITY)
-        return;
-
       /* Local static route. */
       if (rinfo->type == ZEBRA_ROUTE_RIP
           && ((rinfo->sub_type == RIP_ROUTE_STATIC) ||
               (rinfo->sub_type == RIP_ROUTE_DEFAULT))
           && rinfo->metric != RIP_METRIC_INFINITY)
-        return;
+        {
+          route_unlock_node (rp);
+          return;
+        }
+
+      /* Redistributed route check. */
+      if (rinfo->type != ZEBRA_ROUTE_RIP
+          && rinfo->metric != RIP_METRIC_INFINITY)
+        {
+          /* Fill in a minimaly temporary rip_info structure, for a future
+             rip_distance_apply() use) */
+          memset (&rinfotmp, 0, sizeof (rinfotmp));
+          IPV4_ADDR_COPY (&rinfotmp.from, &from->sin_addr);
+          rinfotmp.rp = rinfo->rp;
+          new_dist = rip_distance_apply (&rinfotmp);
+          new_dist = new_dist ? new_dist : ZEBRA_RIP_DISTANCE_DEFAULT;
+          old_dist = rinfo->distance;
+          old_dist = old_dist ? old_dist : ZEBRA_RIP_DISTANCE_DEFAULT;
+          /* If imported route does not have STRICT precedence, 
+             mark it as a ghost */
+          if (new_dist > old_dist 
+              || rte->metric == RIP_METRIC_INFINITY)
+            {
+              route_unlock_node (rp);
+              return;
+            }
+          else
+            {
+              RIP_TIMER_OFF (rinfo->t_timeout);
+              RIP_TIMER_OFF (rinfo->t_garbage_collect);
+                                                                                
+              rp->info = NULL;
+              if (rip_route_rte (rinfo))
+                rip_zebra_ipv4_delete ((struct prefix_ipv4 *)&rp->p, 
+                                        &rinfo->nexthop, rinfo->metric);
+              rip_info_free (rinfo);
+              rinfo = NULL;
+              route_reuse = 1;
+            }
+        }
     }
 
   if (!rinfo)
@@ -544,6 +581,10 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
                               rinfo->distance);
           rinfo->flags |= RIP_RTF_FIB;
         }
+
+      /* Unlock temporary lock, i.e. same behaviour */
+      if (route_reuse)
+        route_unlock_node (rp);
     }
   else
     {
@@ -1495,7 +1536,8 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
 /* Add redistributed route to RIP table. */
 void
 rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p, 
-		      unsigned int ifindex, struct in_addr *nexthop)
+		      unsigned int ifindex, struct in_addr *nexthop,
+                      unsigned int metric, unsigned char distance)
 {
   int ret;
   struct route_node *rp;
@@ -1551,6 +1593,8 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
   rinfo->sub_type = sub_type;
   rinfo->ifindex = ifindex;
   rinfo->metric = 1;
+  rinfo->external_metric = metric;
+  rinfo->distance = distance;
   rinfo->rp = rp;
 
   if (nexthop)
@@ -2922,7 +2966,7 @@ DEFUN (rip_route,
 
   node->info = (char *)"static";
 
-  rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0, NULL);
+  rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0, NULL, 0, 0);
 
   return CMD_SUCCESS;
 }
@@ -3467,7 +3511,17 @@ DEFUN (show_ip_rip,
 	  }
 	else
 	  {
-	    vty_out (vty, "self            ");
+	    if (rinfo->external_metric)
+	      {
+	        len = vty_out (vty, "self (%s:%d)", 
+	                       route_info[rinfo->type].str_long,
+	                       rinfo->external_metric);
+	        len = 16 - len;
+	        if (len > 0)
+	          vty_out (vty, "%*s", len, " ");
+	      }
+	    else
+	      vty_out (vty, "self            ");
 	    vty_out (vty, "%3d", rinfo->tag);
 	  }
 

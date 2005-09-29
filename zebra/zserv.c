@@ -486,6 +486,8 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
   /* Metric */
   if (cmd == ZEBRA_IPV4_ROUTE_ADD || ZEBRA_IPV6_ROUTE_ADD)
     {
+      SET_FLAG (zapi_flags, ZAPI_MESSAGE_DISTANCE);
+      stream_putc (s, rib->distance);
       SET_FLAG (zapi_flags, ZAPI_MESSAGE_METRIC);
       stream_putl (s, rib->metric);
     }

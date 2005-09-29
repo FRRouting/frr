@@ -134,12 +134,17 @@ rip_zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
     }
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_DISTANCE))
     api.distance = stream_getc (s);
+  else
+    api.distance = 255;
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_METRIC))
     api.metric = stream_getl (s);
+  else
+    api.metric = 0;
 
   /* Then fetch IPv4 prefixes. */
   if (command == ZEBRA_IPV4_ROUTE_ADD)
-    rip_redistribute_add (api.type, RIP_ROUTE_REDISTRIBUTE, &p, ifindex, &nexthop);
+    rip_redistribute_add (api.type, RIP_ROUTE_REDISTRIBUTE, &p, ifindex, 
+                          &nexthop, api.metric, api.distance);
   else 
     rip_redistribute_delete (api.type, RIP_ROUTE_REDISTRIBUTE, &p, ifindex);
 
@@ -597,7 +602,8 @@ DEFUN (rip_default_information_originate,
 
       rip->default_information = 1;
   
-      rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p, 0, NULL);
+      rip_redistribute_add (ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p, 0, 
+                            NULL, 0, 0);
     }
 
   return CMD_SUCCESS;

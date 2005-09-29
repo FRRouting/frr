@@ -205,6 +205,11 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
   struct route_map_index *index;
   struct route_map_rule *rule;
 
+  /* Print the name of the protocol */
+  if (zlog_default)
+    vty_out (vty, "%s:%s", zlog_proto_names[zlog_default->protocol],
+             VTY_NEWLINE);
+
   for (index = map->head; index; index = index->next)
     {
       vty_out (vty, "route-map %s, %s, sequence %d%s",

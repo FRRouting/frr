@@ -1,6 +1,10 @@
 
 2005-09-28 Alain Ritoux <alain.ritoux@6wind.com>
 
+	* zserv.c: Always provied distance for route add
+
+2005-09-28 Alain Ritoux <alain.ritoux@6wind.com>
+
 	* connected.c: flag connected_up_ipv6() and connected_down_ipv6()
 	  usage with HAVE_IPV6
 
