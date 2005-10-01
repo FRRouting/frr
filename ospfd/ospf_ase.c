@@ -46,8 +46,6 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
 
-#define DEBUG
-
 struct ospf_route *
 ospf_find_asbr_route (struct ospf *ospf,
 		      struct route_table *rtrs, struct prefix_ipv4 *asbr)

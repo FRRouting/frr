@@ -1,3 +1,8 @@
+2005-09-30 Vincent Jardin <vincent.jardin@6wind.com>
+
+	* ospf_dump.c, ospf_ia.c, ospf_spf.c, ospf_ase.c:
+	  remove unused DEBUG
+
 2005-09-29 Alain Ritoux <alain.ritoux@6wind.com>
 
 	* ospf_ism.c: generate SNMP traps on Interface state change

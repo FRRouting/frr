@@ -46,8 +46,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_dump.h"
 
-#define DEBUG
-
 /* Heap related functions, for the managment of the candidates, to
  * be used with pqueue. */
 static int

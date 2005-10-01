@@ -46,8 +46,6 @@
 #include "ospfd/ospf_ia.h"
 #include "ospfd/ospf_dump.h"
 
-#define DEBUG
-
 static struct ospf_route *
 ospf_find_abr_route (struct route_table *rtrs, 
                      struct prefix_ipv4 *abr,
