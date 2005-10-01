@@ -1,3 +1,7 @@
+2005-09-30 Vincent Jardin <vincent.jardin@6wind.com>
+
+	* bgp_packet.c: fix compilation when DEBUG is used.
+
 2005-09-10 Paul Jakma <paul.jakma@sun.com>
 
 	* Makefile.am: bgpd shouldn't list libgp's sources as its own.

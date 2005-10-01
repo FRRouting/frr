@@ -412,7 +412,7 @@ bgp_default_update_send (struct peer *peer, struct attr *attr,
 
   /* Dump packet if debug option is set. */
 #ifdef DEBUG
-  bgp_packet_dump (packet);
+  /* bgp_packet_dump (packet); */
 #endif /* DEBUG */
 
   /* Add packet to the peer. */
