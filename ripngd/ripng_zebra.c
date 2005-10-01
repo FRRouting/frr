@@ -486,8 +486,6 @@ void
 ripng_redistribute_write (struct vty *vty, int config_mode)
 {
   int i;
-  const char *str[] = { "system", "kernel", "connected", "static", "rip",
-			"ripng", "ospf", "ospf6", "isis", "bgp"};
 
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     if (i != zclient->redist_default && zclient->redist[i])
@@ -498,23 +496,26 @@ ripng_redistribute_write (struct vty *vty, int config_mode)
 	    {
 	      if (ripng->route_map[i].name)
 		vty_out (vty, " redistribute %s metric %d route-map %s%s",
-			 str[i], ripng->route_map[i].metric,
+			 zebra_route_string(i), ripng->route_map[i].metric,
 			ripng->route_map[i].name, VTY_NEWLINE);
 	      else
 		vty_out (vty, " redistribute %s metric %d%s",
-			str[i], ripng->route_map[i].metric, VTY_NEWLINE);
+			zebra_route_string(i), ripng->route_map[i].metric,
+			VTY_NEWLINE);
 	    }
 	  else
 	    {
 	      if (ripng->route_map[i].name)
 		vty_out (vty, " redistribute %s route-map %s%s",
-			 str[i], ripng->route_map[i].name, VTY_NEWLINE);
+			 zebra_route_string(i), ripng->route_map[i].name,
+			 VTY_NEWLINE);
 	      else
-		vty_out (vty, " redistribute %s%s", str[i], VTY_NEWLINE);
+		vty_out (vty, " redistribute %s%s", zebra_route_string(i),
+			 VTY_NEWLINE);
 	    }
 	}
       else
-	vty_out (vty, "    %s", str[i]);
+	vty_out (vty, "    %s", zebra_route_string(i));
       }
 }
 

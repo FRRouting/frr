@@ -527,7 +527,7 @@ ospf_redistribute_set (struct ospf *ospf, int type, int mtype, int mvalue)
 
       if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
         zlog_debug ("Redistribute[%s]: Refresh  Type[%d], Metric[%d]",
-                   LOOKUP (ospf_redistributed_proto, type),
+                   ospf_redist_string(type),
                    metric_type (ospf, type), metric_value (ospf, type));
 
       return CMD_SUCCESS;
@@ -540,7 +540,7 @@ ospf_redistribute_set (struct ospf *ospf, int type, int mtype, int mvalue)
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
     zlog_debug ("Redistribute[%s]: Start  Type[%d], Metric[%d]",
-               LOOKUP (ospf_redistributed_proto, type),
+               ospf_redist_string(type),
                metric_type (ospf, type), metric_value (ospf, type));
 
   ospf_asbr_status_update (ospf, ++ospf->redistribute);
@@ -561,7 +561,7 @@ ospf_redistribute_unset (struct ospf *ospf, int type)
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
     zlog_debug ("Redistribute[%s]: Stop",
-               LOOKUP (ospf_redistributed_proto, type));
+               ospf_redist_string(type));
 
   ospf->dmetric[type].type = -1;
   ospf->dmetric[type].value = -1;
@@ -597,7 +597,7 @@ ospf_redistribute_default_set (struct ospf *ospf, int originate,
 
       if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
         zlog_debug ("Redistribute[%s]: Refresh  Type[%d], Metric[%d]",
-                   LOOKUP (ospf_redistributed_proto, DEFAULT_ROUTE),
+                   ospf_redist_string(DEFAULT_ROUTE),
                    metric_type (ospf, DEFAULT_ROUTE),
                    metric_value (ospf, DEFAULT_ROUTE));
       return CMD_SUCCESS;
@@ -713,7 +713,7 @@ ospf_redistribute_check (struct ospf *ospf,
         {
           if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
             zlog_debug ("Redistribute[%s]: %s/%d filtered by ditribute-list.",
-                       LOOKUP (ospf_redistributed_proto, type),
+                       ospf_redist_string(type),
                        inet_ntoa (p->prefix), p->prefixlen);
           return 0;
         }
@@ -734,7 +734,7 @@ ospf_redistribute_check (struct ospf *ospf,
           ei->route_map_set = save_values;
           if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
             zlog_debug ("Redistribute[%s]: %s/%d filtered by route-map.",
-                       LOOKUP (ospf_redistributed_proto, type),
+                       ospf_redist_string(type),
                        inet_ntoa (p->prefix), p->prefixlen);
           return 0;
         }

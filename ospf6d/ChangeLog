@@ -1,3 +1,20 @@
+2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf6_asbr.c: Remove local hard-coded tables zroute_name and
+	  zroute_abname. Change the ZROUTE_NAME macro to use new library
+	  function zebra_route_string().  Remove the ZROUTE_ABNAME macro.
+	  (ospf6_asbr_external_route_show): Replace ZROUTE_ABNAME() with
+	  a call to zebra_route_char(), and be sure to fix the format string,
+	  since we now have a char instead of a char *.
+	* ospf6_zebra.c: Remove local hard-coded tables zebra_route_name and
+	  zebra_route_abname.  Note that the zebra_route_name[] table
+	  contained mixed-case strings, whereas the zebra_route_string()
+	  function returns lower-case strings.
+	  (ospf6_zebra_read_ipv6): Change debug message to use new library
+	  function zebra_route_string() instead of zebra_route_name[].
+	  (show_zebra): Use new library function zebra_route_string() instead
+	  of zebra_route_name[].
+
 2005-08-09 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf6_asbr.c: (ospf6_asbr_redistribute_add) Fix sense of testing

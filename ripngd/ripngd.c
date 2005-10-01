@@ -1922,26 +1922,6 @@ ripng_event (enum ripng_event event, int sock)
     }
 }
 
-/* Each route type's strings and default preference.
- * FIXME: ISIS? What are these distance values? */
-struct
-{  
-  int key;
-  const char *str;
-  const char *str_long;
-  int distance;
-} route_info[] =
-{
-  { ZEBRA_ROUTE_SYSTEM,  "X", "system",    10},
-  { ZEBRA_ROUTE_KERNEL,  "K", "kernel",    20},
-  { ZEBRA_ROUTE_CONNECT, "C", "connected", 30},
-  { ZEBRA_ROUTE_STATIC,  "S", "static",    40},
-  { ZEBRA_ROUTE_RIP,     "R", "rip",       50},
-  { ZEBRA_ROUTE_RIPNG,   "R", "ripng",     50},
-  { ZEBRA_ROUTE_OSPF,    "O", "ospf",      60},
-  { ZEBRA_ROUTE_OSPF6,   "O", "ospf6",     60},
-  { ZEBRA_ROUTE_BGP,     "B", "bgp",       70},
-};
 
 /* Print out routes update time. */
 static void
@@ -2059,14 +2039,14 @@ DEFUN (show_ipv6_ripng,
 	  p = (struct prefix_ipv6 *) &rp->p;
 
 #ifdef DEBUG
-	  len = vty_out (vty, "%s(%s) 0/%d %s/%d ",
-			 route_info[rinfo->type].str,
+	  len = vty_out (vty, "%c(%s) 0/%d %s/%d ",
+			 zebra_route_char(rinfo->type),
 			 ripng_route_subtype_print(rinfo),
 			 rinfo->suppress,
 			 inet6_ntoa (p->prefix), p->prefixlen);
 #else
-	  len = vty_out (vty, "%s(%s) %s/%d ",
-			 route_info[rinfo->type].str,
+	  len = vty_out (vty, "%c(%s) %s/%d ",
+			 zebra_route_char(rinfo->type),
 			 ripng_route_subtype_print(rinfo),
 			 inet6_ntoa (p->prefix), p->prefixlen);
 #endif /* DEBUG */

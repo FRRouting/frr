@@ -85,26 +85,6 @@ struct message rip_msg[] =
   {RIP_POLL_ENTRY, "POLL ENTRY"},
   {0,              NULL}
 };
-
-/* Each route type's strings and default preference. */
-struct
-{  
-  int key;
-  const char *str;
-  const char *str_long;
-} route_info[] =
-{
-  { ZEBRA_ROUTE_SYSTEM,  "X", "system"},
-  { ZEBRA_ROUTE_KERNEL,  "K", "kernel"},
-  { ZEBRA_ROUTE_CONNECT, "C", "connected"},
-  { ZEBRA_ROUTE_STATIC,  "S", "static"},
-  { ZEBRA_ROUTE_RIP,     "R", "rip"},
-  { ZEBRA_ROUTE_RIPNG,   "R", "ripng"},
-  { ZEBRA_ROUTE_OSPF,    "O", "ospf"},
-  { ZEBRA_ROUTE_OSPF6,   "O", "ospf6"},
-  { ZEBRA_ROUTE_ISIS,    "I", "isis"},
-  { ZEBRA_ROUTE_BGP,     "B", "bgp"}
-};
 
 /* Utility function to set boradcast option to the socket. */
 int
@@ -3478,9 +3458,9 @@ DEFUN (show_ip_rip,
       {
 	int len;
 
-	len = vty_out (vty, "%s(%s) %s/%d",
+	len = vty_out (vty, "%c(%s) %s/%d",
 		       /* np->lock, For debugging. */
-		       route_info[rinfo->type].str,
+		       zebra_route_char(rinfo->type),
 		       rip_route_type_print (rinfo->sub_type),
 		       inet_ntoa (np->p.u.prefix4), np->p.prefixlen);
 	
@@ -3514,7 +3494,7 @@ DEFUN (show_ip_rip,
 	    if (rinfo->external_metric)
 	      {
 	        len = vty_out (vty, "self (%s:%d)", 
-	                       route_info[rinfo->type].str_long,
+			       zebra_route_string(rinfo->type),
 	                       rinfo->external_metric);
 	        len = 16 - len;
 	        if (len > 0)

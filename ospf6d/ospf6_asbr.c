@@ -50,19 +50,7 @@
 
 unsigned char conf_debug_ospf6_asbr = 0;
 
-const char *zroute_name[] =
-{ "system", "kernel", "connected", "static",
-  "rip", "ripng", "ospf", "ospf6", "isis", "bgp", "hsls", "unknown" };
-
-const char *zroute_abname[] =
-{ "X", "K", "C", "S", "R", "R", "O", "O", "I", "B", "H", "?" };
-
-#define ZROUTE_NAME(x)                                     \
-  (0 < (x) && (x) < ZEBRA_ROUTE_MAX ? zroute_name[(x)] :   \
-   zroute_name[ZEBRA_ROUTE_MAX])
-#define ZROUTE_ABNAME(x)                                   \
-  (0 < (x) && (x) < ZEBRA_ROUTE_MAX ? zroute_abname[(x)] : \
-   zroute_abname[ZEBRA_ROUTE_MAX])
+#define ZROUTE_NAME(x) zebra_route_string(x)
 
 /* AS External LSA origination */
 void
@@ -1198,8 +1186,8 @@ ospf6_asbr_external_route_show (struct vty *vty, struct ospf6_route *route)
     snprintf (forwarding, sizeof (forwarding), ":: (ifindex %d)",
               route->nexthop[0].ifindex);
 
-  vty_out (vty, "%s %-32s %-15s type-%d %5lu %s%s",
-           ZROUTE_ABNAME (info->type),
+  vty_out (vty, "%c %-32s %-15s type-%d %5lu %s%s",
+           zebra_route_char(info->type),
            prefix, id, route->path.metric_type,
            (u_long) (route->path.metric_type == 2 ?
                      route->path.cost_e2 : route->path.cost),

@@ -653,8 +653,6 @@ int
 config_write_rip_redistribute (struct vty *vty, int config_mode)
 {
   int i;
-  const char *str[] = { "system", "kernel", "connected", "static", "rip",
-			"ripng", "ospf", "ospf6", "isis", "bgp"};
 
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     if (i != zclient->redist_default && zclient->redist[i])
@@ -665,27 +663,27 @@ config_write_rip_redistribute (struct vty *vty, int config_mode)
 	      {
 		if (rip->route_map[i].name)
 		  vty_out (vty, " redistribute %s metric %d route-map %s%s",
-			   str[i], rip->route_map[i].metric,
+			   zebra_route_string(i), rip->route_map[i].metric,
 			   rip->route_map[i].name,
 			   VTY_NEWLINE);
 		else
 		  vty_out (vty, " redistribute %s metric %d%s",
-			   str[i], rip->route_map[i].metric,
+			   zebra_route_string(i), rip->route_map[i].metric,
 			   VTY_NEWLINE);
 	      }
 	    else
 	      {
 		if (rip->route_map[i].name)
 		  vty_out (vty, " redistribute %s route-map %s%s",
-			   str[i], rip->route_map[i].name,
+			   zebra_route_string(i), rip->route_map[i].name,
 			   VTY_NEWLINE);
 		else
-		  vty_out (vty, " redistribute %s%s", str[i],
+		  vty_out (vty, " redistribute %s%s", zebra_route_string(i),
 			   VTY_NEWLINE);
 	      }
 	  }
 	else
-	  vty_out (vty, " %s", str[i]);
+	  vty_out (vty, " %s", zebra_route_string(i));
       }
   return 0;
 }

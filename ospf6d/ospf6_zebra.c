@@ -187,15 +187,6 @@ ospf6_zebra_if_address_update_delete (int command, struct zclient *zclient,
   return 0;
 }
 
-
-
-const char *zebra_route_name[ZEBRA_ROUTE_MAX] =
-  { "System", "Kernel", "Connect", "Static", "RIP", "RIPng", "OSPF",
-    "OSPF6", "ISIS", "BGP" };
-
-const char *zebra_route_abname[ZEBRA_ROUTE_MAX] =
-  { "X", "K", "C", "S", "r", "R", "o", "O", "I", "B" };
-
 int
 ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
                        zebra_size_t length)
@@ -255,7 +246,7 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
 
       zlog_debug ("Zebra Receive route %s: %s %s nexthop %s ifindex %ld",
 		  (command == ZEBRA_IPV6_ROUTE_ADD ? "add" : "delete"),
-		  zebra_route_name[api.type], prefixstr, nexthopstr, ifindex);
+		  zebra_route_string(api.type), prefixstr, nexthopstr, ifindex);
     }
  
   if (command == ZEBRA_IPV6_ROUTE_ADD)
@@ -295,7 +286,7 @@ DEFUN (show_zebra,
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     {
       if (zclient->redist[i])
-        vty_out (vty, " %s", zebra_route_name[i]);
+        vty_out (vty, " %s", zebra_route_string(i));
     }
   vty_out (vty, "%s", VNL);
   return CMD_SUCCESS;

@@ -1,3 +1,12 @@
+2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* rip_zebra.c: (config_write_rip_redistribute): Remove local hard-coded
+	  table str[]. Replace str[] with calls to new library function
+	  zebra_route_string().
+	* ripd.c: Remove local hard-coded table route_info[].
+	  (show_ip_rip) Replace uses of str[] with calls to new library
+	  functions zebra_route_char and zebra_route_string.
+
 2005-09-29 Alain Ritoux <alain.ritoux@6wind.com>
 
 	* rip_snmp.c: rip2IfConfReceive() sends values in conformance

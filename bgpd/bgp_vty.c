@@ -8510,8 +8510,6 @@ bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
 			       safi_t safi, int *write)
 {
   int i;
-  const char *str[] = { "system", "kernel", "connected", "static", "rip",
-		  "ripng", "ospf", "ospf6", "isis", "bgp"};
 
   /* Unicast redistribution only.  */
   if (safi != SAFI_UNICAST)
@@ -8526,7 +8524,7 @@ bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
 	  bgp_config_write_family_header (vty, afi, safi, write);
 
 	  /* "redistribute" configuration.  */
-	  vty_out (vty, " redistribute %s", str[i]);
+	  vty_out (vty, " redistribute %s", zebra_route_string(i));
 
 	  if (bgp->redist_metric_flag[afi][i])
 	    vty_out (vty, " metric %d", bgp->redist_metric[afi][i]);

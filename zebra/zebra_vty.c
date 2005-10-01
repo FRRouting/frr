@@ -29,68 +29,6 @@
 
 #include "zebra/zserv.h"
 
-/* Return route type string for VTY output.  */
-static const char *
-route_type_str (u_char type)
-{
-  switch (type)
-    {
-    case ZEBRA_ROUTE_SYSTEM:
-      return "system";
-    case ZEBRA_ROUTE_KERNEL:
-      return "kernel";
-    case ZEBRA_ROUTE_CONNECT:
-      return "connected";
-    case ZEBRA_ROUTE_STATIC:
-      return "static";
-    case ZEBRA_ROUTE_RIP:
-      return "rip";
-    case ZEBRA_ROUTE_RIPNG:
-      return "rip";
-    case ZEBRA_ROUTE_OSPF:
-      return "ospf";
-    case ZEBRA_ROUTE_OSPF6:
-      return "ospf";
-    case ZEBRA_ROUTE_ISIS:
-      return "isis";
-    case ZEBRA_ROUTE_BGP:
-      return "bgp";
-    default:
-      return "unknown";
-    }
-};
-
-/* Return route type string for VTY output.  */
-static const char
-route_type_char (u_char type)
-{
-  switch (type)
-    {
-    case ZEBRA_ROUTE_SYSTEM:
-      return 'S';
-    case ZEBRA_ROUTE_KERNEL:
-      return 'K';
-    case ZEBRA_ROUTE_CONNECT:
-      return 'C';
-    case ZEBRA_ROUTE_STATIC:
-      return 'S';
-    case ZEBRA_ROUTE_RIP:
-      return 'R';
-    case ZEBRA_ROUTE_RIPNG:
-      return 'R';
-    case ZEBRA_ROUTE_OSPF:
-      return 'O';
-    case ZEBRA_ROUTE_OSPF6:
-      return 'O';
-    case ZEBRA_ROUTE_ISIS:
-      return 'I';
-    case ZEBRA_ROUTE_BGP:
-      return 'B';
-    default:
-      return '?';
-    }
-};
-
 /* General fucntion for static route. */
 static int
 zebra_static_ipv4 (struct vty *vty, int add_cmd, const char *dest_str,
@@ -548,7 +486,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
       vty_out (vty, "Routing entry for %s/%d%s", 
 	       inet_ntoa (rn->p.u.prefix4), rn->p.prefixlen,
 	       VTY_NEWLINE);
-      vty_out (vty, "  Known via \"%s\"", route_type_str (rib->type));
+      vty_out (vty, "  Known via \"%s\"", zebra_route_string (rib->type));
       vty_out (vty, ", distance %d, metric %d", rib->distance, rib->metric);
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	vty_out (vty, ", best");
@@ -657,7 +595,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	{
 	  /* Prefix information. */
 	  len = vty_out (vty, "%c%c%c %s/%d",
-			 route_type_char (rib->type),
+			 zebra_route_char (rib->type),
 			 CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED)
 			 ? '>' : ' ',
 			 CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
@@ -1435,7 +1373,7 @@ vty_show_ipv6_route_detail (struct vty *vty, struct route_node *rn)
 	       inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, BUFSIZ),
 	       rn->p.prefixlen,
 	       VTY_NEWLINE);
-      vty_out (vty, "  Known via \"%s\"", route_type_str (rib->type));
+      vty_out (vty, "  Known via \"%s\"", zebra_route_string (rib->type));
       vty_out (vty, ", distance %d, metric %d", rib->distance, rib->metric);
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	vty_out (vty, ", best");
@@ -1552,7 +1490,7 @@ vty_show_ipv6_route (struct vty *vty, struct route_node *rn,
 	{
 	  /* Prefix information. */
 	  len = vty_out (vty, "%c%c%c %s/%d",
-			 route_type_char (rib->type),
+			 zebra_route_char (rib->type),
 			 CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED)
 			 ? '>' : ' ',
 			 CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)

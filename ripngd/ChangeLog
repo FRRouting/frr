@@ -1,3 +1,12 @@
+2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripng_zebra.c: (ripng_redistribute_write) Remove local hard-coded
+	  table str[].  Replace str[i] with new library function
+	  zebra_route_string(i).
+	* ripngd.c: Remove local hard-coded table route_info[].
+	  (show_ipv6_ripng) Use new library function zebra_route_char() instead
+	  of table route_info[].
+
 2005-08-27 Hasso Tepper <hasso at quagga.net>
 
 	* ripng_zebra.c, ripngd.[ch]: Pass metric info to the zebra daemon.

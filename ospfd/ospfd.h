@@ -516,7 +516,6 @@ extern struct message ospf_ism_state_msg[];
 extern struct message ospf_nsm_state_msg[];
 extern struct message ospf_lsa_type_msg[];
 extern struct message ospf_link_state_id_type_msg[];
-extern struct message ospf_redistributed_proto[];
 extern struct message ospf_network_type_msg[];
 extern int ospf_ism_state_msg_max;
 extern int ospf_nsm_state_msg_max;
@@ -529,6 +528,7 @@ extern struct thread_master *master;
 extern int ospf_zlog;
 
 /* Prototypes. */
+extern const char *ospf_redist_string(u_int route_type);
 extern struct ospf *ospf_lookup (void);
 extern struct ospf *ospf_get (void);
 extern void ospf_finish (struct ospf *);

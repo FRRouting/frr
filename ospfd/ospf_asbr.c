@@ -152,7 +152,7 @@ ospf_external_info_add (u_char type, struct prefix_ipv4 p,
       {
 	route_unlock_node (rn);
 	zlog_warn ("Redistribute[%s]: %s/%d already exists, discard.",
-		   LOOKUP (ospf_redistributed_proto, type),
+		   ospf_redist_string(type),
 		   inet_ntoa (p.prefix), p.prefixlen);
 	/* XFREE (MTYPE_OSPF_TMP, rn->info); */
 	return rn->info;
@@ -169,7 +169,7 @@ ospf_external_info_add (u_char type, struct prefix_ipv4 p,
 
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     zlog_debug ("Redistribute[%s]: %s/%d external info created.",
-	       LOOKUP (ospf_redistributed_proto, type),
+	       ospf_redist_string(type),
 	       inet_ntoa (p.prefix), p.prefixlen);
   return new;
 }

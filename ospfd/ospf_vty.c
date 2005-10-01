@@ -7288,8 +7288,6 @@ config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 }
 
 
-const char *distribute_str[] = { "system", "kernel", "connected", "static",
-				"rip", "ripng", "ospf", "ospf6", "isis", "bgp"};
 static int
 config_write_ospf_redistribute (struct vty *vty, struct ospf *ospf)
 {
@@ -7299,7 +7297,7 @@ config_write_ospf_redistribute (struct vty *vty, struct ospf *ospf)
   for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
     if (type != zclient->redist_default && zclient->redist[type])
       {
-        vty_out (vty, " redistribute %s", distribute_str[type]);
+        vty_out (vty, " redistribute %s", zebra_route_string(type));
 	if (ospf->dmetric[type].value >= 0)
 	  vty_out (vty, " metric %d", ospf->dmetric[type].value);
 	
@@ -7336,7 +7334,7 @@ config_write_ospf_distribute (struct vty *vty, struct ospf *ospf)
 	if (ospf->dlist[type].name)
 	  vty_out (vty, " distribute-list %s out %s%s", 
 		   ospf->dlist[type].name,
-		   distribute_str[type], VTY_NEWLINE);
+		   zebra_route_string(type), VTY_NEWLINE);
 
       /* default-information print. */
       if (ospf->default_originate != DEFAULT_ORIGINATE_NONE)

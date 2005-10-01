@@ -1,3 +1,8 @@
+2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* bgp_vty.c: (bgp_config_write_redistribute) Use new library function
+	  zebra_route_string instead of a local hard-coded table.
+
 2005-09-30 Vincent Jardin <vincent.jardin@6wind.com>
 
 	* bgp_packet.c: fix compilation when DEBUG is used.

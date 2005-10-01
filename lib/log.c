@@ -1,5 +1,5 @@
 /*
- * $Id: log.c,v 1.25 2005/02/03 19:22:05 ajs Exp $
+ * $Id: log.c,v 1.26 2005/10/01 17:38:07 ajs Exp $
  *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -702,4 +702,61 @@ safe_strerror(int errnum)
 {
   const char *s = strerror(errnum);
   return (s != NULL) ? s : "Unknown error";
+}
+
+/* Note: this table must match the ordering in lib/zebra.h */
+static const struct zebra_route_desc {
+  u_int zroute;
+  const char *string;
+  char chr;
+} route_types[] = {
+  { ZEBRA_ROUTE_SYSTEM, "system", 'X' },
+  { ZEBRA_ROUTE_KERNEL, "kernel", 'K' },
+  { ZEBRA_ROUTE_CONNECT, "connected", 'C' },
+  { ZEBRA_ROUTE_STATIC, "static", 'S' },
+  { ZEBRA_ROUTE_RIP, "rip", 'R' },
+  { ZEBRA_ROUTE_RIPNG, "ripng", 'R' },
+  { ZEBRA_ROUTE_OSPF, "ospf", 'O' },
+  { ZEBRA_ROUTE_OSPF6, "ospf6", 'O' },
+  { ZEBRA_ROUTE_ISIS, "isis", 'I' },
+  { ZEBRA_ROUTE_BGP, "bgp", 'B' },
+  { ZEBRA_ROUTE_HSLS, "hsls", 'H' },
+};
+
+static const struct zebra_route_desc *
+zroute_lookup(u_int zroute)
+{
+  static const struct zebra_route_desc unknown = { 0, "unknown", '?' };
+  u_int i;
+
+  if (zroute >= sizeof(route_types)/sizeof(route_types[0]))
+    {
+      zlog_err("unknown zebra route type: %u", zroute);
+      return &unknown;
+    }
+  if (zroute == route_types[zroute].zroute)
+    return &route_types[zroute];
+  for (i = 0; i < sizeof(route_types)/sizeof(route_types[0]); i++)
+    {
+      if (zroute == route_types[i].zroute)
+        {
+	  zlog_warn("internal error: route type table out of order "
+		    "while searching for %u, please notify developers", zroute);
+	  return &route_types[i];
+        }
+    }
+  zlog_err("internal error: cannot find route type %u in table!", zroute);
+  return &unknown;
+}
+
+const char *
+zebra_route_string(u_int zroute)
+{
+  return zroute_lookup(zroute)->string;
+}
+
+char
+zebra_route_char(u_int zroute)
+{
+  return zroute_lookup(zroute)->chr;
 }

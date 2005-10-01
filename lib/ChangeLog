@@ -1,3 +1,10 @@
+2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zebra.h: Declare new functions zebra_route_string() and
+	  zebra_route_char().
+	* log.c: (zroute_lookup,zebra_route_string,zebra_route_char) New
+	  functions to map zebra route numbers to strings.
+
 2005-09-29 Alain Ritoux <alain.ritoux@6wind.com>
 
 	* smux.[ch]: allow to retreive global OID (identified by <0

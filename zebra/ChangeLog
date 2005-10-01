@@ -1,5 +1,20 @@
 2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* zebra_vty.c: (route_type_str) Remove obsolete function: use new
+	  library function zebra_route_string() instead.  Note that there
+	  are a few differences: for IPv6 routes, we now get "ripng" and
+	  "ospf6" instead of the old behavior ("rip" and "ospf").
+	  (route_type_char) Remove obsolete function: ues new library function
+	  zebra_route_char() instead.  Note that there is one difference:
+	  the old function returned 'S' for a ZEBRA_ROUTE_SYSTEM route,
+	  whereas the new one returns 'X'.
+	  (vty_show_ip_route_detail,vty_show_ipv6_route_detail) Replace
+	  route_type_str() with zebra_route_string().
+	  (vty_show_ip_route,vty_show_ipv6_route) Replace route_type_char()
+	  with zebra_route_char().
+
+2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* rt_netlink.c: (netlink_request) Use memset to clear structure
 	  before calling sendto (eliminates a valgrind error message about
 	  uninitialized data).

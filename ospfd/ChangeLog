@@ -1,3 +1,25 @@
+2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_dump.c: Remove local hard-coded table ospf_redistributed_proto.
+	  (ospf_redist_string) New function implemented using new library
+	  function zebra_route_string().  Note that there are a few differences
+	  in the output that will result: the new function returns strings
+	  that are lower-case, whereas the old table was mixed case.  Also,
+	  the old table mapped ZEBRA_ROUTE_OSPF6 to "OSPFv3", whereas the
+	  new function returns "ospf6".
+	* ospfd.h: Remove extern struct message ospf_redistributed_proto[],
+	  and add extern const char *ospf_redist_string(u_int route_type)
+	  instead.
+	* ospf_asbr.c: (ospf_external_info_add) In two messages, use
+	  ospf_redist_string instead of LOOKUP(ospf_redistributed_proto).
+	* ospf_vty.c: Remove local hard-coded table distribute_str.
+	  (config_write_ospf_redistribute,config_write_ospf_distribute): Use
+	  new library function zebra_route_string() instead of distribute_str[].
+	* ospf_zebra.c: (ospf_redistribute_set,ospf_redistribute_unset,
+	  ospf_redistribute_default_set,ospf_redistribute_check)
+	  In debug messages, use ospf_redist_string() instead of
+	  LOOKUP(ospf_redistributed_proto).
+
 2005-09-30 Vincent Jardin <vincent.jardin@6wind.com>
 
 	* ospf_dump.c, ospf_ia.c, ospf_spf.c, ospf_ase.c:

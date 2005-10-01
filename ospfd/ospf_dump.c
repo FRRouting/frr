@@ -103,21 +103,6 @@ struct message ospf_link_state_id_type_msg[] =
 };
 int ospf_link_state_id_type_msg_max = OSPF_MAX_LSA;
 
-struct message ospf_redistributed_proto[] =
-{
-  { ZEBRA_ROUTE_SYSTEM,   "System" },
-  { ZEBRA_ROUTE_KERNEL,   "Kernel" },
-  { ZEBRA_ROUTE_CONNECT,  "Connected" },
-  { ZEBRA_ROUTE_STATIC,   "Static" },
-  { ZEBRA_ROUTE_RIP,      "RIP" },
-  { ZEBRA_ROUTE_RIPNG,    "RIPng" },
-  { ZEBRA_ROUTE_OSPF,     "OSPF" },
-  { ZEBRA_ROUTE_OSPF6,    "OSPFv3" },
-  { ZEBRA_ROUTE_BGP,      "BGP" },
-  { ZEBRA_ROUTE_MAX,	  "Default" },
-};
-int ospf_redistributed_proto_max = ZEBRA_ROUTE_MAX + 1;
-
 struct message ospf_network_type_msg[] =
 {
   { OSPF_IFTYPE_NONE,		  "NONE" },
@@ -148,6 +133,14 @@ unsigned long term_debug_ospf_zebra = 0;
 unsigned long term_debug_ospf_nssa = 0;
 
 
+
+const char *
+ospf_redist_string(u_int route_type)
+{
+  return (route_type == ZEBRA_ROUTE_MAX) ?
+  	 "Default" : zebra_route_string(route_type);
+}
+
 #define OSPF_AREA_STRING_MAXLEN  16
 const char *
 ospf_area_name_string (struct ospf_area *area)
