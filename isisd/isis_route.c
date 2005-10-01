@@ -223,6 +223,7 @@ static void
 nexthops6_print (struct list *nhs6)
 {
   struct listnode *node;
+  struct isis_nexthop6 *nh6;
 
   for (ALL_LIST_ELEMENTS_RO (nhs6, node, nh6))
     nexthop6_print (nh6);

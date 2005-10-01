@@ -1,3 +1,7 @@
+2005-09-30 Vincent Jardin <vincent.jardin@6wind.com>
+
+	* isis_route.c: fix EXTREME_DEBUG compilation
+
 2005-09-28 Hasso Tepper <hasso at quagga.net>
 
 	* *.c: Massive cleanup of lists loops. Stop abusing ALL_LIST_ELEMENTS.
