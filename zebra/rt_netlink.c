@@ -281,6 +281,7 @@ netlink_request (int family, int type, struct nlsock *nl)
   memset (&snl, 0, sizeof snl);
   snl.nl_family = AF_NETLINK;
 
+  memset (&req, 0, sizeof req);
   req.nlh.nlmsg_len = sizeof req;
   req.nlh.nlmsg_type = type;
   req.nlh.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST;

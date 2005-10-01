@@ -1,3 +1,8 @@
+2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* rt_netlink.c: (netlink_request) Use memset to clear structure
+	  before calling sendto (eliminates a valgrind error message about
+	  uninitialized data).
 
 2005-09-28 Alain Ritoux <alain.ritoux@6wind.com>
 
