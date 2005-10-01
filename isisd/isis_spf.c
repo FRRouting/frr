@@ -1027,8 +1027,7 @@ isis_run_spf (struct isis_area *area, int level, int family)
   if (listcount (spftree->tents) == 0)
     {
       zlog_warn ("ISIS-Spf: TENT is empty");
-      spftree->lastrun = time (NULL);
-      return retval;
+      goto out;
     }
 
   while (listcount (spftree->tents) > 0)
@@ -1068,6 +1067,7 @@ isis_run_spf (struct isis_area *area, int level, int family)
 	}
     }
 
+out:
   thread_add_event (master, isis_route_validate, area, 0);
   spftree->lastrun = time (NULL);
   spftree->pending = 0;

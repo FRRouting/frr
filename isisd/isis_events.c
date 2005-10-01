@@ -195,6 +195,7 @@ circuit_resign_level (struct isis_circuit *circuit, int level)
     {
       THREAD_TIMER_OFF (circuit->u.bc.t_send_lan_hello[idx]);
       THREAD_TIMER_OFF (circuit->u.bc.t_run_dr[idx]);
+      THREAD_TIMER_OFF (circuit->u.bc.t_refresh_pseudo_lsp[idx]);
       circuit->u.bc.run_dr_elect[idx] = 0;
     }
 

@@ -1,3 +1,14 @@
+2005-10-01 Hasso Tepper <hasso at quagga.net>
+
+	* isis_adjacency.c: Stop expire timer while deleting adjacency.
+	* isis_events.c: Stop pseudo LSP thread while resigning circuit from
+	  level.
+	* isis_route.c: Fix compiling with EXTREME_DEBUG. Mark route as not
+	  in sync with zebra if it's changed.
+	* isis_spf.c: Schedule route validating etc even if tent was empty.
+	  It's probably because we just don't have any adjacencies.
+	* isisd.c: Write minimum spf interval into configuration.
+
 2005-09-30 Vincent Jardin <vincent.jardin@6wind.com>
 
 	* isis_route.c: fix EXTREME_DEBUG compilation

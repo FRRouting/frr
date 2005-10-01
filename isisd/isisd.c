@@ -1974,6 +1974,31 @@ isis_config_write (struct vty *vty)
 		write++;
 	      }
 	  }
+	/* Minimum SPF interval. */
+	if (area->min_spf_interval[0] == area->min_spf_interval[1])
+	  {
+	    if (area->min_spf_interval[0] != MINIMUM_SPF_INTERVAL)
+	      {
+		vty_out (vty, " spf-interval %d%s",
+			 area->min_spf_interval[0], VTY_NEWLINE);
+		write++;
+	      }
+	  }
+	else
+	  {
+	    if (area->min_spf_interval[0] != MINIMUM_SPF_INTERVAL)
+	      {
+		vty_out (vty, " spf-interval level-1 %d%s",
+			 area->min_spf_interval[0], VTY_NEWLINE);
+		write++;
+	      }
+	    if (area->min_spf_interval[1] != MINIMUM_SPF_INTERVAL)
+	      {
+		vty_out (vty, " spf-interval level-2 %d%s",
+			 area->min_spf_interval[1], VTY_NEWLINE);
+		write++;
+	      }
+	  }
 	/* Authentication passwords. */
 	if (area->area_passwd.len > 0)
 	  {

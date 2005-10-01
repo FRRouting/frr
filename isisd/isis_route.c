@@ -129,6 +129,7 @@ static void
 nexthops_print (struct list *nhs)
 {
   struct listnode *node;
+  struct isis_nexthop *nh;
 
   for (ALL_LIST_ELEMENTS_RO (nhs, node, nh))
     nexthop_print (nh);
@@ -139,7 +140,6 @@ nexthops_print (struct list *nhs)
 static struct isis_nexthop6 *
 isis_nexthop6_new (struct in6_addr *ip6, unsigned int ifindex)
 {
-
   struct isis_nexthop6 *nexthop6;
 
   nexthop6 = XCALLOC (MTYPE_ISIS_NEXTHOP6, sizeof (struct isis_nexthop6));
@@ -523,6 +523,7 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
       isis_route_info_merge (rinfo_new, rinfo_old, family);
       isis_route_info_delete (rinfo_new);
       route_info = rinfo_old;
+      UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC);
     }
   else
     {

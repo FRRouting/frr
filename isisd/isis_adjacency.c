@@ -131,6 +131,8 @@ isis_delete_adj (struct isis_adjacency *adj, struct list *adjdb)
   if (adjdb)
     listnode_delete (adjdb, adj);
 
+  THREAD_OFF (adj->t_expire);
+
   if (adj->ipv4_addrs)
     list_delete (adj->ipv4_addrs);
 #ifdef HAVE_IPV6
