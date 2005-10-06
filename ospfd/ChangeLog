@@ -1,3 +1,9 @@
+2005-10-06 Alain Ritoux <alain.ritoux@6wind.com>
+
+	* ospf_snmp.c: Avoid mixing interface and ospf_interface objects
+	  which now allows snmpwalk to work with ospfIfTable and 
+	  also with ospfIfMetricTable
+
 2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_dump.c: Remove local hard-coded table ospf_redistributed_proto.

@@ -1458,12 +1458,13 @@ ospf_snmp_if_update (struct interface *ifp)
     {
       if (addr)
 	{
+	  /* Usual interfaces --> Sort them based on interface IPv4 addresses */
 	  if (ntohl (osif->addr.s_addr) > ntohl (addr->s_addr))
 	    break;
 	}
       else
 	{
-	  /* Unnumbered interface. */
+	  /* Unnumbered interfaces --> Sort them based on interface indexes */
 	  if (osif->addr.s_addr != 0 || osif->ifindex > ifindex)
 	    break;
 	}
@@ -1471,77 +1472,131 @@ ospf_snmp_if_update (struct interface *ifp)
     }
 
   osif = ospf_snmp_if_new ();
-  if (addr)
+  if (addr) /* Usual interface */
+  {
     osif->addr = *addr;
-  else
+    
+    /* This field is used for storing ospfAddressLessIf OID value,
+     * conform to RFC1850 OSPF-MIB specification, it must be 0 for
+     * usual interface */
+    osif->ifindex = 0;
+  }
+  else  /* Unnumbered interface */
     osif->ifindex = ifindex;
   osif->ifp = ifp;
 
   listnode_add_after (ospf_snmp_iflist, pn, osif);
 }
 
-struct interface *
+int
+ospf_snmp_is_if_have_addr (struct interface *ifp)
+{
+  struct prefix *p;
+  struct listnode *nn;
+  struct connected *ifc;
+
+  /* Is this interface having any connected IPv4 address ? */
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, nn, ifc))
+  {
+    if (if_is_pointopoint (ifp))
+      p = ifc->destination;
+    else
+      p = ifc->address;
+
+    if (p->family == AF_INET)
+      return 1;
+  }
+  
+  return 0;
+}
+
+struct ospf_interface *
 ospf_snmp_if_lookup (struct in_addr *ifaddr, unsigned int *ifindex)
 {
   struct listnode *node;
   struct ospf_snmp_if *osif;
+  struct ospf_interface *oi = NULL;
+  struct ospf *ospf = ospf_lookup ();
 
   for (ALL_LIST_ELEMENTS_RO (ospf_snmp_iflist, node, osif))
     {  
       if (ifaddr->s_addr)
-	{
-	  if (IPV4_ADDR_SAME (&osif->addr, ifaddr))
-	    return osif->ifp;
-	}
+        {
+	      if (IPV4_ADDR_SAME (&osif->addr, ifaddr))
+            oi = ospf_if_lookup_by_local_addr (ospf, osif->ifp, *ifaddr);
+        }
       else
-	{
-	  if (osif->ifindex == *ifindex)
-	    return osif->ifp;
-	}
+        {
+	      if (osif->ifindex == *ifindex)
+            oi = ospf_if_lookup_by_local_addr (ospf, osif->ifp, *ifaddr);
+        }
     }
-  return NULL;
+  return oi;
 }
 
-struct interface *
+struct ospf_interface *
 ospf_snmp_if_lookup_next (struct in_addr *ifaddr, unsigned int *ifindex,
 			  int ifaddr_next, int ifindex_next)
 {
   struct ospf_snmp_if *osif;
   struct listnode *nn;
+  struct ospf *ospf = ospf_lookup ();
+  struct ospf_interface *oi = NULL;
 
+  if (ospf == NULL)
+    return NULL;
+
+  /* No instance is specified --> Return the first OSPF interface */
   if (ifaddr_next)
     {
-      nn = listhead (ospf_snmp_iflist);
-      if (nn)
+      for (ALL_LIST_ELEMENTS_RO (ospf_snmp_iflist, nn, osif))
 	{
 	  osif = listgetdata (nn);
 	  *ifaddr = osif->addr;
 	  *ifindex = osif->ifindex;
-	  return osif->ifp;
+          /* Because no instance is specified, we don't care about the kind of 
+           * interface (usual or unnumbered), just returning the first valid 
+           * OSPF interface */
+          oi = ospf_if_lookup_by_local_addr (ospf, osif->ifp, *ifaddr);
+          if (oi)
+            return (oi);
 	}
       return NULL;
     }
 
+  /* An instance is specified --> Return the next OSPF interface */
   for (ALL_LIST_ELEMENTS_RO (ospf_snmp_iflist, nn, osif))
     {
-      if (ifaddr->s_addr)
-	{
-	  if (ntohl (osif->addr.s_addr) > ntohl (ifaddr->s_addr))
-	    {
-	      *ifaddr = osif->addr;
-	      *ifindex = osif->ifindex;
-	      return osif->ifp;
-	    }
-	}
-      else
-	{
-	  if (osif->ifindex > *ifindex || osif->addr.s_addr)
-	    {
-	      *ifaddr = osif->addr;
-	      *ifindex = osif->ifindex;
-	      return osif->ifp;
-	    }
-	}
+      /* Usual interface */
+      if (ifaddr->s_addr) 
+        /* The interface must have valid AF_INET connected address */
+        /* it must have lager IPv4 address value than the lookup entry */
+        if ((ospf_snmp_is_if_have_addr(osif->ifp)) &&
+            (ntohl (osif->addr.s_addr) > ntohl (ifaddr->s_addr)))
+          {
+            *ifaddr = osif->addr;
+            *ifindex = osif->ifindex;
+        
+            /* and it must be an OSPF interface */
+            oi = ospf_if_lookup_by_local_addr (ospf, osif->ifp, *ifaddr);
+            if (oi)
+              return oi;
+          }
+      /* Unnumbered interface */
+      else  
+        /* The interface must NOT have valid AF_INET connected address */
+        /* it must have lager interface index than the lookup entry */
+        if ((!ospf_snmp_is_if_have_addr(osif->ifp)) &&
+            (osif->ifindex > *ifindex))
+          {
+            *ifaddr = osif->addr;
+            *ifindex = osif->ifindex;
+        
+            /* and it must be an OSPF interface */
+            oi = ospf_if_lookup_by_local_addr (ospf, osif->ifp, *ifaddr);
+            if (oi)
+              return oi;
+          }
     }
   return NULL;
 }
@@ -1560,14 +1615,14 @@ ospf_snmp_iftype (struct interface *ifp)
   return ospf_snmp_iftype_broadcast;
 }
 
-struct interface *
+struct ospf_interface *
 ospfIfLookup (struct variable *v, oid *name, size_t *length,
 	      struct in_addr *ifaddr, unsigned int *ifindex, int exact)
 {
   unsigned int len;
   int ifaddr_next = 0;
   int ifindex_next = 0;
-  struct interface *ifp;
+  struct ospf_interface *oi;
   oid *offset;
 
   if (exact)
@@ -1599,16 +1654,16 @@ ospfIfLookup (struct variable *v, oid *name, size_t *length,
       if (len == 1)
 	*ifindex = name[v->namelen + IN_ADDR_SIZE];
 
-      ifp = ospf_snmp_if_lookup_next (ifaddr, ifindex, ifaddr_next,
+      oi = ospf_snmp_if_lookup_next (ifaddr, ifindex, ifaddr_next,
 				      ifindex_next);
-      if (ifp)
+      if (oi)
 	{
 	  *length = v->namelen + IN_ADDR_SIZE + 1;
 	  offset = name + v->namelen;
 	  oid_copy_addr (offset, ifaddr, IN_ADDR_SIZE);
 	  offset += IN_ADDR_SIZE;
 	  *offset = *ifindex;
-	  return ifp;
+	  return oi;
 	}
     }
   return NULL;
@@ -1618,7 +1673,6 @@ static u_char *
 ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
 	     size_t  *var_len, WriteMethod **write_method)
 {
-  struct interface *ifp;
   unsigned int ifindex;
   struct in_addr ifaddr;
   struct ospf_interface *oi;
@@ -1632,11 +1686,7 @@ ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
   if (ospf == NULL)
     return NULL;
 
-  ifp = ospfIfLookup (v, name, length, &ifaddr, &ifindex, exact);
-  if (ifp == NULL)
-    return NULL;
-
-  oi = ospf_if_lookup_by_local_addr (ospf, ifp, ifaddr);
+  oi = ospfIfLookup (v, name, length, &ifaddr, &ifindex, exact);
   if (oi == NULL)
     return NULL;
 
@@ -1656,7 +1706,7 @@ ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
 	return SNMP_IPADDRESS (ospf_empty_addr);
       break;
     case OSPFIFTYPE:		/* 4 */
-      return SNMP_INTEGER (ospf_snmp_iftype (ifp));
+      return SNMP_INTEGER (ospf_snmp_iftype (oi->ifp));
       break;
     case OSPFIFADMINSTAT:	/* 5 */
       if (oi)
@@ -1725,14 +1775,14 @@ ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
 
 #define OSPF_SNMP_METRIC_VALUE 1
 
-struct interface *
+struct ospf_interface *
 ospfIfMetricLookup (struct variable *v, oid *name, size_t *length,
 		    struct in_addr *ifaddr, unsigned int *ifindex, int exact)
 {
   unsigned int len;
   int ifaddr_next = 0;
   int ifindex_next = 0;
-  struct interface *ifp;
+  struct ospf_interface *oi;
   oid *offset;
   int metric;
 
@@ -1769,9 +1819,9 @@ ospfIfMetricLookup (struct variable *v, oid *name, size_t *length,
       if (len == 1)
 	*ifindex = name[v->namelen + IN_ADDR_SIZE];
 
-      ifp = ospf_snmp_if_lookup_next (ifaddr, ifindex, ifaddr_next,
+      oi = ospf_snmp_if_lookup_next (ifaddr, ifindex, ifaddr_next,
 				      ifindex_next);
-      if (ifp)
+      if (oi)
 	{
 	  *length = v->namelen + IN_ADDR_SIZE + 1 + 1;
 	  offset = name + v->namelen;
@@ -1780,7 +1830,7 @@ ospfIfMetricLookup (struct variable *v, oid *name, size_t *length,
 	  *offset = *ifindex;
 	  offset++;
 	  *offset = OSPF_SNMP_METRIC_VALUE;
-	  return ifp;
+	  return oi;
 	}
     }
   return NULL;
@@ -1791,7 +1841,6 @@ ospfIfMetricEntry (struct variable *v, oid *name, size_t *length, int exact,
 		   size_t *var_len, WriteMethod **write_method)
 {
   /* Currently we support metric 1 only. */
-  struct interface *ifp;
   unsigned int ifindex;
   struct in_addr ifaddr;
   struct ospf_interface *oi;
@@ -1805,11 +1854,7 @@ ospfIfMetricEntry (struct variable *v, oid *name, size_t *length, int exact,
   if (ospf == NULL)
     return NULL;
 
-  ifp = ospfIfMetricLookup (v, name, length, &ifaddr, &ifindex, exact);
-  if (ifp == NULL)
-    return NULL;
-
-  oi = ospf_if_lookup_by_local_addr (ospf, ifp, ifaddr);
+  oi = ospfIfMetricLookup (v, name, length, &ifaddr, &ifindex, exact);
   if (oi == NULL)
     return NULL;
 
