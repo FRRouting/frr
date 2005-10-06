@@ -1900,7 +1900,7 @@ DEFUN (no_ip_rip_split_horizon,
   return CMD_SUCCESS;
 }
 
-ALIAS (no_ip_rip_split_horizon,
+DEFUN (no_ip_rip_split_horizon_poisoned_reverse,
        no_ip_rip_split_horizon_poisoned_reverse_cmd,
        "no ip rip split-horizon poisoned-reverse",
        NO_STR
@@ -1908,6 +1908,23 @@ ALIAS (no_ip_rip_split_horizon,
        "Routing Information Protocol\n"
        "Perform split horizon\n"
        "With poisoned-reverse\n")
+{
+  struct interface *ifp;
+  struct rip_interface *ri;
+
+  ifp = vty->index;
+  ri = ifp->info;
+
+  switch( ri->split_horizon )
+  {
+	case RIP_SPLIT_HORIZON_POISONED_REVERSE:
+		ri->split_horizon = RIP_SPLIT_HORIZON;
+	default:
+		break;
+  }
+
+  return CMD_SUCCESS;
+}
 
 DEFUN (rip_passive_interface,
        rip_passive_interface_cmd,
