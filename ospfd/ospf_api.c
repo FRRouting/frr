@@ -350,12 +350,12 @@ msg_read (int fd)
 {
   struct msg *msg;
   struct apimsghdr hdr;
-  char buf[OSPF_API_MAX_MSG_SIZE];
+  u_char buf[OSPF_API_MAX_MSG_SIZE];
   int bodylen;
   int rlen;
 
   /* Read message header */
-  rlen = readn (fd, (char *) &hdr, sizeof (struct apimsghdr));
+  rlen = readn (fd, (u_char *) &hdr, sizeof (struct apimsghdr));
 
   if (rlen < 0)
     {

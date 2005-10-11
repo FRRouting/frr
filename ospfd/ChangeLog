@@ -1,3 +1,12 @@
+2005-10-11 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_api.c: sign warnings.
+	* ospf_apiserver.c: sign warning and convert all the struct
+	  in_addr initialisations so as not to make assumptions about
+	  how this struct is organised, initialise the s_addr member
+	  explicitely.
+	* ospf_packet.c: Add const qualifier to auth_key.
+
 2005-10-06 Alain Ritoux <alain.ritoux@6wind.com>
 
 	* ospf_snmp.c: Avoid mixing interface and ospf_interface objects

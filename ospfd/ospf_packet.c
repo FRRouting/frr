@@ -329,7 +329,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
   void *ibuf;
   u_int32_t t;
   struct crypt_key *ck;
-  const char *auth_key;
+  const u_int8_t *auth_key;
 
   ibuf = STREAM_DATA (op->s);
   ospfh = (struct ospf_header *) ibuf;
@@ -345,7 +345,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
 
   /* Get MD5 Authentication key from auth_key list. */
   if (list_isempty (OSPF_IF_PARAM (oi, auth_crypt)))
-    auth_key = "";
+    auth_key = (const u_int8_t *) "";
   else
     {
       ck = listgetdata (listtail(OSPF_IF_PARAM (oi, auth_crypt)));

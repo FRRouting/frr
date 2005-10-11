@@ -660,7 +660,7 @@ ospf_apiserver_accept (struct thread *thread)
   struct ospf_apiserver *apiserv;
   struct sockaddr_in peer_async;
   struct sockaddr_in peer_sync;
-  int peerlen;
+  unsigned int peerlen;
   int ret;
 
   /* THREAD_ARG (thread) is NULL */
@@ -1174,8 +1174,8 @@ ospf_apiserver_notify_ready_type11 (struct ospf_apiserver *apiserv)
   for (ALL_LIST_ELEMENTS (apiserv->opaque_types, node, nnode, r))
     {
       struct msg *msg;
-      struct in_addr noarea_id = { 0L };
-
+      struct in_addr noarea_id = { .s_addr = 0L };
+      
       if (r->lsa_type == OSPF_OPAQUE_AS_LSA)
 	{
 	  /* Yes, this opaque type is ready */
@@ -1296,11 +1296,11 @@ apiserver_sync_callback (struct ospf_lsa *lsa, void *p_arg, int int_arg)
     {
 
       /* Default area for AS-External and Opaque11 LSAs */
-      struct in_addr area_id = { 0L };
+      struct in_addr area_id = { .s_addr = 0L };
 
       /* Default interface for non Opaque9 LSAs */
-      struct in_addr ifaddr = { 0L };
-
+      struct in_addr ifaddr = { .s_addr = 0L };;
+      
       if (lsa->area)
 	{
 	  area_id = lsa->area->area_id;
@@ -2356,11 +2356,11 @@ ospf_apiserver_clients_notify_ready_type11 (struct ospf *top)
 {
   struct listnode *node, *nnode;
   struct msg *msg;
-  struct in_addr id_null = { 0L };
+  struct in_addr id_null = { .s_addr = 0L };
   struct ospf_apiserver *apiserv;
-
+  
   assert (top);
-
+  
   if (!ospf_apiserver_is_ready_type11 (top))
     {
       zlog_warn ("AS not ready for type 11?");
@@ -2429,12 +2429,12 @@ void
 ospf_apiserver_clients_notify_ism_change (struct ospf_interface *oi)
 {
   struct msg *msg;
-  struct in_addr ifaddr = { 0L };
-  struct in_addr area_id = { 0L };
-
+  struct in_addr ifaddr = { .s_addr = 0L };
+  struct in_addr area_id = { .s_addr = 0L };
+  
   assert (oi);
   assert (oi->ifp);
-
+  
   if (oi->address)
     {
       ifaddr = oi->address->u.prefix4;
@@ -2459,8 +2459,8 @@ void
 ospf_apiserver_clients_notify_nsm_change (struct ospf_neighbor *nbr)
 {
   struct msg *msg;
-  struct in_addr ifaddr = { 0L };
-  struct in_addr nbraddr = { 0L };
+  struct in_addr ifaddr = { .s_addr = 0L };
+  struct in_addr nbraddr = { .s_addr = 0L };
 
   assert (nbr);
 
@@ -2490,10 +2490,10 @@ apiserver_clients_lsa_change_notify (u_char msgtype, struct ospf_lsa *lsa)
   struct ospf_apiserver *apiserv;
 
   /* Default area for AS-External and Opaque11 LSAs */
-  struct in_addr area_id = { 0L };
+  struct in_addr area_id = { .s_addr = 0L };
 
   /* Default interface for non Opaque9 LSAs */
-  struct in_addr ifaddr = { 0L };
+  struct in_addr ifaddr = { .s_addr = 0L };
 
   if (lsa->area)
     {
@@ -2588,10 +2588,10 @@ apiserver_notify_clients_lsa (u_char msgtype, struct ospf_lsa *lsa)
 {
   struct msg *msg;
   /* default area for AS-External and Opaque11 LSAs */
-  struct in_addr area_id = { 0L };
+  struct in_addr area_id = { .s_addr = 0L };
 
   /* default interface for non Opaque9 LSAs */
-  struct in_addr ifaddr = { 0L };
+  struct in_addr ifaddr = { .s_addr = 0L };
 
   /* Only notify this update if the LSA's age is smaller than
      MAXAGE. Otherwise clients would see LSA updates with max age just
