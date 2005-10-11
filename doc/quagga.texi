@@ -15,7 +15,9 @@
 @include version.texi
 
 @copying
+@value{COPYRIGHT_STR}
 @quotation
+
 Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
 preserved on all copies.
@@ -35,7 +37,7 @@ approved by Kunihiro Ishiguro.
 @c Info entry
 @dircategory Routing Software:
 @direntry
-* Quagga: (quagga).		The Quagga Software Routing Suite
+* @value{PACKAGE_NAME}: (quagga).		The Quagga Software Routing Suite
 @end direntry
 
 @c @smallbook
@@ -47,8 +49,6 @@ TCP/IP routing protocols.
 This is Edition @value{EDITION}, last updated @value{UPDATED} of
 @cite{The Quagga Manual}, for @uref{http://www.quagga.net/,,@value{PACKAGE_NAME}}
 Version @value{VERSION}.
-
-@value{COPYRIGHT_STR}
 
 @insertcopying
 @end ifinfo
@@ -62,7 +62,6 @@ Version @value{VERSION}.
 
 @page
 @vskip 0pt plus 1filll
-@value{COPYRIGHT_STR}
 
 @insertcopying
 @end titlepage
@@ -76,6 +75,8 @@ Version @value{VERSION}.
 that provides a suite of TCP/IP based routing protocols.  This is the Manual
 for @value{PACKAGE_STRING}. @uref{http://www.quagga.net,,Quagga} is a fork of 
 @uref{http://www.zebra.org,,GNU Zebra}.
+
+@insertcopying
 @end ifnottex
 
 @menu

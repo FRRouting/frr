@@ -1,3 +1,9 @@
+2005-10-11 Paul Jakma <paul@dishone.st>
+
+	* quagga.texi: Rejiggle the copyright sections a bit, seems to
+	  make makeinfo happier and generates info pages again on FC4.
+	* quagga.info: Update this auto-built file.
+	
 2005-04-29 Paul Jakma <paul@dishone.st>
 
 	* defines.texi.in: Add PACKAGE_NAME, PACKAGE_STRING.
