@@ -147,7 +147,8 @@ connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
 /* Add connected IPv4 route to the interface. */
 void
 connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr, 
-		    u_char prefixlen, struct in_addr *broad, char *label)
+		    u_char prefixlen, struct in_addr *broad, 
+		    const char *label)
 {
   struct prefix_ipv4 *p;
   struct connected *ifc;
@@ -266,7 +267,8 @@ connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
 /* Delete connected IPv4 route to the interface. */
 void
 connected_delete_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
-		       u_char prefixlen, struct in_addr *broad, char *label)
+		       u_char prefixlen, struct in_addr *broad,
+		       const char *label)
 {
   struct prefix_ipv4 p;
   struct connected *ifc;

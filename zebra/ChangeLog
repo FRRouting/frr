@@ -1,3 +1,8 @@
+2005-10-11 Paul Jakma <paul.jakma@sun.com>
+
+	* connected.{c,h}: (connected_{add,delete}_ipv4) label should
+	  be const qualified.
+	
 2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zebra_vty.c: (route_type_str) Remove obsolete function: use new

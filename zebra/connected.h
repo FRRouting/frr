@@ -28,11 +28,13 @@ connected_check (struct interface *ifp, struct prefix *p);
 
 extern void
 connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr, 
-		    u_char prefixlen, struct in_addr *broad, char *label);
+		    u_char prefixlen, struct in_addr *broad, 
+		    const char *label);
 
 extern void
 connected_delete_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
-		       u_char prefixlen, struct in_addr *broad, char *label);
+		       u_char prefixlen, struct in_addr *broad,
+		       const char *label);
 
 extern void connected_up_ipv4 (struct interface *, struct connected *);
 extern void connected_down_ipv4 (struct interface *, struct connected *);
