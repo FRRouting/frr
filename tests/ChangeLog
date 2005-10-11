@@ -1,3 +1,9 @@
+2005-10-11 Paul Jakma <paul.jakma@sun.com>
+
+	* test-privs.c: Privileges unit test.
+	* Makefile.am: build testprivs
+	* aspath_test.c: fix a few sign warnings
+
 2005-09-06 Paul Jakma <paul@dishone.st>
 
 	* aspath_test.c: Test bgp_aspath functionality.

@@ -18,8 +18,8 @@ struct test_spec
 {
   const char *shouldbe; /* the string the path should parse to */
   const char *shouldbe_delete_confed; /* ditto, but once confeds are deleted */
-  const int hops; /* aspath_count_hops result */
-  const int confeds; /* aspath_count_confeds */
+  const unsigned int hops; /* aspath_count_hops result */
+  const unsigned int confeds; /* aspath_count_confeds */
   const int private_as; /* whether the private_as check should pass or fail */
 #define NOT_ALL_PRIVATE 0
 #define ALL_PRIVATE 1
@@ -731,7 +731,7 @@ aggregate_test (struct tests *t)
 static void
 cmp_test ()
 {
-  int i;
+  unsigned int i;
 #define CMP_TESTS_MAX \
   (sizeof(left_compare) / sizeof (struct compare_tests))
 
