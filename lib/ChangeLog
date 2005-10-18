@@ -1,3 +1,7 @@
+2005-10-18 Paul Jakma <paul.jakma@sun.com>
+
+	* memtypes.c: (memory_list_ospf) Add MTYPE_OSPF_VERTEX_PARENT.
+
 2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zebra.h: Declare new functions zebra_route_string() and

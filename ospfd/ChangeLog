@@ -1,3 +1,57 @@
+2005-10-18 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) SPF memory management cleanup and fix for rare
+	  double-free bug.
+	* ospf_spf.h: (struct vertex_parent) New struct to hold parent
+	  specific data, eg the backlink and the parent vertex pointer,
+	  and point to the appropriate general struct vertex_nexthop.
+	  (struct vertex_nexthop) remove parent vertex pointer, so
+	  this struct can be shared across vertices.
+	  (struct vertex) rename list child to list children. Remove
+	  list of nexthops, replace with list of vertex_parents.
+	* ospf_spf.c: (update_stat) trivial, remove cast from void *.
+	  (vertex_nexthop_new) remove init of parent - field is gone
+          from struct vertex_nexthop.
+          (ospf_canonical_nexthops_free) Remove the canonical
+          vertex_nexthop memory objects. These are the vertex_nexthops
+          attached to the first level of router vertices from the root.
+          (vertex_parent_new) new function, create a vertex_parent.
+          (vertex_parent_free) ditto, but free it.
+          (ospf_vertex_new) Update to match changes to struct vertex.
+          (ospf_vertex_free) Recursively free a struct vertex and its
+          children. The parent list is used as a reference count.
+          vertex_nexthops must be free seperately, if required.
+          (ospf_vertex_dump) update to match struct vertex changes.
+          Print out backlink of parents too.
+          (ospf_vertex_add_parent) ditto.
+          (ospf_lsa_has_link) update comment.
+          (ospf_nexthop_add_unique) removed, not needed anymore.
+          (ospf_nexthop_merge) ditto.
+          (ospf_spf_consider_nexthop) renamed to ospf_spf_add_parent.
+          Simplified to just create vertex_parent and add it.
+          (ospf_spf_flush_parents) new function, flush out the parent
+	  list.
+	  (ospf_nexthop_calculation) Take the relevant route_lsa_link
+	  as an argument, which simplifies things and removes the need
+	  for the hack in ospf_nexthop_add_unique - ospf_spf_next
+	  already knew exactly which link the cost calculated was for.
+	  Update to match struct vertex changes too.
+	  (ospf_spf_next) Don't create a vertex for W unnecessarily, if
+          it's there's a vertex already created for W, use it, and
+          hence there's no need to free it either.
+          Update some manipulation/comparisons of distance to match.
+          Flush the parent list if a lower cost path is found.
+          (ospf_spf_route_free) unused, removed.
+          (ospf_spf_dump) match the struct vertex changes, and dump the
+          ifname if possible.
+          (ospf_spf_calculate) At end of SPF, free the canonical nexthops
+          and call ospf_vertex_free on the root vertex to free the
+	  entire tree.
+	* ospf_interface.c: (ospf_vl_set_params) match struct vertex
+          changes.
+        * ospf_route.c: (ospf_intra_route_add) ditto
+          (ospf_route_copy_nexthops_from_vertex) ditto
+          
 2005-10-11 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_api.c: sign warnings.

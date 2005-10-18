@@ -999,7 +999,7 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
   int changed = 0;
   struct ospf_interface *voi;
   struct listnode *node;
-  struct vertex_nexthop *nh;
+  struct vertex_parent *vp = NULL;
   int i;
   struct router_lsa *rl;
 
@@ -1012,9 +1012,9 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
       changed = 1;
     }
 
-  for (ALL_LIST_ELEMENTS_RO (v->nexthop, node, nh))
+  for (ALL_LIST_ELEMENTS_RO (v->parents, node, vp))
     {
-      vl_data->out_oi = (struct ospf_interface *) nh->oi;
+      vl_data->out_oi = vp->nexthop->oi;
       
       if (!IPV4_ADDR_SAME(&voi->address->u.prefix4,
                           &vl_data->out_oi->address->u.prefix4))
@@ -1031,12 +1031,12 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
   /* use SPF determined backlink index in struct vertex
    * for virtual link destination address
    */
-  if (v->backlink >= 0)
+  if (vp && vp->backlink >= 0)
     {
       if (!IPV4_ADDR_SAME (&vl_data->peer_addr,
-                           &rl->link[v->backlink].link_data))
+                           &rl->link[vp->backlink].link_data))
         changed = 1;
-      vl_data->peer_addr = rl->link[v->backlink].link_data;
+      vl_data->peer_addr = rl->link[vp->backlink].link_data;
     }
   else
     {

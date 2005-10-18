@@ -278,7 +278,7 @@ ospf_intra_route_add (struct route_table *rt, struct vertex *v,
   struct ospf_route *or;
   struct prefix_ipv4 p;
   struct ospf_path *path;
-  struct vertex_nexthop *nexthop;
+  struct vertex_parent *parent;
   struct listnode *node, *nnode;
 
   p.family = AF_INET;
@@ -306,10 +306,10 @@ ospf_intra_route_add (struct route_table *rt, struct vertex *v,
     {
       or->type = OSPF_DESTINATION_NETWORK;
 
-      for (ALL_LIST_ELEMENTS (v->nexthop, node, nnode, nexthop))
+      for (ALL_LIST_ELEMENTS (v->parents, node, nnode, parent))
         {
           path = ospf_path_new ();
-          path->nexthop = nexthop->router;
+          path->nexthop = parent->nexthop->router;
           listnode_add (or->paths, path);
         }
     }
@@ -799,11 +799,14 @@ ospf_route_copy_nexthops_from_vertex (struct ospf_route *to,
   struct listnode *node;
   struct ospf_path *path;
   struct vertex_nexthop *nexthop;
+  struct vertex_parent *vp;
 
   assert (to->paths);
 
-  for (ALL_LIST_ELEMENTS_RO (v->nexthop, node, nexthop))
+  for (ALL_LIST_ELEMENTS_RO (v->parents, node, vp))
     {
+      nexthop = vp->nexthop;
+      
       if (nexthop->oi != NULL) 
 	{
 	  if (! ospf_path_exist (to->paths, nexthop->router, nexthop->oi))

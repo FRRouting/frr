@@ -6,7 +6,7 @@
  * The script is sensitive to the format (though not whitespace), see
  * the top of memtypes.awk for more details.
  *
- * $Id: memtypes.c,v 1.7 2005/09/21 14:06:35 paul Exp $
+ * $Id: memtypes.c,v 1.8 2005/10/18 04:20:33 paul Exp $
  */
 
 #include "zebra.h"
@@ -182,6 +182,7 @@ struct memory_list memory_list_ospf[] =
   { MTYPE_OSPF_PACKET,        "OSPF packet"			},
   { MTYPE_OSPF_FIFO,          "OSPF FIFO queue"			},
   { MTYPE_OSPF_VERTEX,        "OSPF vertex"			},
+  { MTYPE_OSPF_VERTEX_PARENT, "OSPF vertex parent",		},
   { MTYPE_OSPF_NEXTHOP,       "OSPF nexthop"			},
   { MTYPE_OSPF_PATH,	      "OSPF path"			},
   { MTYPE_OSPF_VL_DATA,       "OSPF VL data"			},
