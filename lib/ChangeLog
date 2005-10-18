@@ -1,3 +1,7 @@
+2005-10-18 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* memtypes.h: Add MTYPE_OSPF_VERTEX_PARENT (to match memtypes.c).
+
 2005-10-18 Paul Jakma <paul.jakma@sun.com>
 
 	* memtypes.c: (memory_list_ospf) Add MTYPE_OSPF_VERTEX_PARENT.
