@@ -1358,6 +1358,8 @@ rip_create_socket (struct sockaddr_in *from)
 #ifdef HAVE_SINLEN
       addr.sin_len = sizeof (struct sockaddr_in);
 #endif /* HAVE_SINLEN */
+    } else {
+      memcpy(&addr, from, sizeof(addr));
     }
   
   /* sending port must always be the RIP port */

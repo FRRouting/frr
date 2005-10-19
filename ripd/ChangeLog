@@ -1,3 +1,9 @@
+2005-10-17 Vincent Jardin <vincent.jardin@6wind.com>
+
+	* ripd.c: rip_create_socket() for each packet, it does not bind to the
+	  proper interfaces because we forget to use the from address when
+	  it is specified.
+
 2005-10-06 Alain Ritoux <alain.ritoux@6wind.com>
 
 	* rip_interface.c: Now the command "no ip rip split-horizon
