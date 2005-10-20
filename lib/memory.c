@@ -249,22 +249,33 @@ log_memstats(int pri)
     }
 }
 
-static struct memory_list memory_list_separator[] =
-{
-  { 0, NULL},
-  {-1, NULL}
-};
-
 static void
+show_separator(struct vty *vty)
+{
+  vty_out (vty, "-----------------------------\r\n");
+}
+
+static int
 show_memory_vty (struct vty *vty, struct memory_list *list)
 {
   struct memory_list *m;
+  int needsep = 0;
 
   for (m = list; m->index >= 0; m++)
     if (m->index == 0)
-      vty_out (vty, "-----------------------------\r\n");
-    else
-      vty_out (vty, "%-30s: %10ld\r\n", m->format, mstat[m->index].alloc);
+      {
+	if (needsep)
+	  {
+	    show_separator (vty);
+	    needsep = 0;
+	  }
+      }
+    else if (mstat[m->index].alloc)
+      {
+	vty_out (vty, "%-30s: %10ld\r\n", m->format, mstat[m->index].alloc);
+	needsep = 1;
+      }
+  return needsep;
 }
 
 DEFUN (show_memory_all,
@@ -275,12 +286,13 @@ DEFUN (show_memory_all,
        "All memory statistics\n")
 {
   struct mlist *ml;
+  int needsep = 0;
 
   for (ml = mlists; ml->list; ml++)
     {
-      if (ml != mlists)
-        show_memory_vty (vty, memory_list_separator);
-      show_memory_vty (vty, ml->list);
+      if (needsep)
+	show_separator (vty);
+      needsep = show_memory_vty (vty, ml->list);
     }
 
   return CMD_SUCCESS;

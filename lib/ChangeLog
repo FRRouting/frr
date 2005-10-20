@@ -1,3 +1,11 @@
+2005-10-20 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* memory.c: (show_memory_vty) Omit zero statistics.  Print separators
+	  only if some non-zero stats have been printed in between.
+	  (show_separator) New function to print a separator.
+	  (show_memory_all) Keep track of whether a separator is needed
+	  between the different memory statistics groups.
+
 2005-10-18 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* memtypes.h: Add MTYPE_OSPF_VERTEX_PARENT (to match memtypes.c).
