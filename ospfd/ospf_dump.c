@@ -249,8 +249,8 @@ ospf_timeval_dump (struct timeval *t, char *buf, size_t size)
   
   if (ms >= 1000)
     {
-      t->tv_sec = ms / 1000;
-      ms =- t->tv_sec * 1000;
+      t->tv_sec += ms / 1000;
+      ms %= 1000;
     }
   
   if (t->tv_sec > WEEK_IN_SECONDS)

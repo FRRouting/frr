@@ -1,5 +1,12 @@
 2005-10-21 Paul Jakma <paul.jakma@sun.com>
 
+	* ospf_dump.c: (ospf_timeval_dump) fix ms adjustment, thanks to
+	  Andrew Schorr.
+	* ospf_vty.c: (ospf_config_write) fix write out of spf timers
+	  configuration.
+
+2005-10-21 Paul Jakma <paul.jakma@sun.com>
+
 	* (general) SPF millisecond resolution timer with adaptive,
 	  linear back-off holdtime. Prettification of ospf_timer_dump.
 	* ospf_dump.c: (ospf_timeval_dump) new function. The guts of

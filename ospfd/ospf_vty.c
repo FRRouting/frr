@@ -7603,9 +7603,11 @@ ospf_config_write (struct vty *vty)
 
       /* SPF timers print. */
       if (ospf->spf_delay != OSPF_SPF_DELAY_DEFAULT ||
-	  ospf->spf_holdtime != OSPF_SPF_HOLDTIME_DEFAULT)
-	vty_out (vty, " timers spf %d %d%s",
-		 ospf->spf_delay, ospf->spf_holdtime, VTY_NEWLINE);
+	  ospf->spf_holdtime != OSPF_SPF_HOLDTIME_DEFAULT ||
+	  ospf->spf_max_holdtime != OSPF_SPF_MAX_HOLDTIME_DEFAULT)
+	vty_out (vty, " timers throttle spf %d %d %d%s",
+		 ospf->spf_delay, ospf->spf_holdtime, 
+		 ospf->spf_max_holdtime, VTY_NEWLINE);
 
       /* SPF refresh parameters print. */
       if (ospf->lsa_refresh_interval != OSPF_LSA_REFRESH_INTERVAL_DEFAULT)
