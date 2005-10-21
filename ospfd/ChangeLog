@@ -1,5 +1,57 @@
 2005-10-21 Paul Jakma <paul.jakma@sun.com>
 
+	* (general) SPF millisecond resolution timer with adaptive,
+	  linear back-off holdtime. Prettification of ospf_timer_dump.
+	* ospf_dump.c: (ospf_timeval_dump) new function. The guts of
+	  ospf_timer_dump, but made to be more dynamic in printing out
+	  the relative timeval, sliding the precision printed out
+	  according to the value.
+	  (ospf_timer_dump) guts moved to ospf_timeval_dump.
+	* ospf_dump.h: export ospf_timeval_dump.
+	* ospf_flood.c: (ospf_flood) remove gettimeofday, use
+	  the libzebra exported recent_time instead, as it's not
+	  terribly critical to have time exactly right - the dropped
+	  LSA will be retransmited to us if we don't ACK it.
+	* ospf_packet.c: (ospf_ls_upd_timer) Ditto, but here we're
+	  not transmitting, just putting LSA back on update transmit list.
+	* ospfd.h: delay and holdtimes should be unsigned.
+	  Add spf_max_holdtime and spf_hold_multiplier.
+	  Update default defines for delay and hold time to be in msec.
+	  (struct ospf) change the SPF timestamp to a struct timeval.
+	  Remove ospf_timers_spf_(un)?set.
+	* ospfd.c: (ospf_timers_spf_{set,unset}) removed.
+	  (ospf_new) initialise spf_max_holdtime and spf_hold_multiplier
+	* ospf_spf.c: (ospf_spf_calculate) SPF timestamp is a timeval
+	  now, update with gettimeofday.
+	  (ospf_spf_calculate_schedule) Change SPF timers to millisecond
+	  resolution.
+	  Make the holdtime be adaptive, with a linear increase in
+	  holdtime ever consecutive SPF run which occurs within holdtime
+	  of previous SPF, bounded by spf_max_holdtime.
+	* ospf_vty.c: Update spf timers commands.
+	  (ospf_timers_spf_set) trivial helper. 
+	  (ospf_timers_throttle_spf_cmd) new command to set SPF delay,
+	  initial hold and max hold times with millisecond resolution.
+	  (ospf_timers_spf_cmd) Deprecated. Accept the old values,
+	  convert to msec, truncate to new limits.
+	  (no_ospf_timers_throttle_spf_cmd) set timers to defaults.
+	  (no_ospf_timers_spf_cmd) deprecated form, same as previous.
+	  (show_ip_ospf_cmd) Display SPF parameters and times.
+	  (show_ip_ospf_neighbour_header) Centralise the 'sh ip os ne'
+	  header.
+	  (show_ip_ospf_neighbor_sub) Fix the field widths. Get rid of
+	  the multiple spaces which were making the lines even longer.
+	  (show_ip_ospf_neighbor_cmd) Use show_ip_ospf_neighbour_header
+	  (show_ip_ospf_neighbor_all_cmd) ditto and fix the field
+	  widths for NBMA neighbours.
+	  (show_ip_ospf_neighbor_int) Use header function.
+	  (show_ip_ospf_nbr_nbma_detail_sub) use sizeof for timebuf,
+	  local array - safer.
+	  (show_ip_ospf_neighbor_detail_sub) ditto
+	  (ospf_vty_init) install the new SPF throttle timer commands.
+	  
+2005-10-21 Paul Jakma <paul.jakma@sun.com>
+
 	* (general) OSPF fast, sub-second hello and 1s dead-interval
 	  support.
 	* ospf_dump.c: (ospf_timer_dump) Print out milliseconds too.

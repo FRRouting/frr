@@ -230,43 +230,80 @@ ospf_nbr_state_message (struct ospf_neighbor *nbr, char *buf, size_t size)
 }
 
 const char *
-ospf_timer_dump (struct thread *t, char *buf, size_t size)
+ospf_timeval_dump (struct timeval *t, char *buf, size_t size)
 {
-  struct timeval now, result;
-  unsigned long h, m, s, ms;
-
+  /* Making formatted timer strings. */
+#define MINUTE_IN_SECONDS	60
+#define HOUR_IN_SECONDS		(60*MINUTE_IN_SECONDS)
+#define DAY_IN_SECONDS		(24*HOUR_IN_SECONDS)
+#define WEEK_IN_SECONDS		(7*DAY_IN_SECONDS)
+  unsigned long w, d, h, m, s, ms;
+  
   if (!t)
     return "inactive";
-
-  h = m = s = ms = 0;
+  
+  w = d = h = m = s = ms = 0;
   memset (buf, 0, size);
-
-  gettimeofday (&now, NULL);
   
-  timersub (&t->u.sands, &now, &result);
-  
-  ms = result.tv_usec / 1000;
+  ms = t->tv_usec / 1000;
   
   if (ms >= 1000)
     {
-      result.tv_sec = ms / 1000;
-      ms =- result.tv_sec * 1000;
+      t->tv_sec = ms / 1000;
+      ms =- t->tv_sec * 1000;
     }
-  if (result.tv_sec >= 3600)
+  
+  if (t->tv_sec > WEEK_IN_SECONDS)
     {
-      h = result.tv_sec / 3600;
-      result.tv_sec -= h * 3600;
+      w = t->tv_sec / WEEK_IN_SECONDS;
+      t->tv_sec -= w * WEEK_IN_SECONDS;
     }
-
-  if (result.tv_sec >= 60)
+  
+  if (t->tv_sec > DAY_IN_SECONDS)
     {
-      m = result.tv_sec / 60;
-      result.tv_sec -= m * 60;
+      d = t->tv_sec / DAY_IN_SECONDS;
+      t->tv_sec -= d * DAY_IN_SECONDS;
     }
-
-  snprintf (buf, size, "%02ld:%02ld:%02ld.%03ld", h, m, result.tv_sec, ms);
-
+  
+  if (t->tv_sec >= HOUR_IN_SECONDS)
+    {
+      h = t->tv_sec / HOUR_IN_SECONDS;
+      t->tv_sec -= h * HOUR_IN_SECONDS;
+    }
+  
+  if (t->tv_sec >= MINUTE_IN_SECONDS)
+    {
+      m = t->tv_sec / MINUTE_IN_SECONDS;
+      t->tv_sec -= m * MINUTE_IN_SECONDS;
+    }
+  
+  if (w > 99)
+    snprintf (buf, size, "%ldw%1ldd", w, d);
+  else if (w)
+    snprintf (buf, size, "%ldw%1ldd%02ldh", w, d, h);
+  else if (d)
+    snprintf (buf, size, "%1ldd%02ldh%02ldm", d, h, m);
+  else if (h)
+    snprintf (buf, size, "%ldh%02ldm%02lds", h, m, t->tv_sec);
+  else if (m)
+    snprintf (buf, size, "%ldm%02lds", m, t->tv_sec);
+  else
+    snprintf (buf, size, "%ld.%03lds", t->tv_sec, ms);
+  
   return buf;
+}
+
+const char *
+ospf_timer_dump (struct thread *t, char *buf, size_t size)
+{
+  struct timeval result;
+  
+  if (!t)
+    return "inactive";
+  
+  timersub (&t->u.sands, &recent_time, &result);
+    
+  return ospf_timeval_dump (&result, buf, size);
 }
 
 #define OSPF_OPTION_STR_MAXLEN		24

@@ -1077,7 +1077,7 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
   /* Increment SPF Calculation Counter. */
   area->spf_calculation++;
 
-  area->ospf->ts_spf = time (NULL);
+  gettimeofday (&area->ospf->ts_spf, NULL);
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_spf_calculate: Stop");
@@ -1151,7 +1151,8 @@ ospf_spf_calculate_timer (struct thread *thread)
 void
 ospf_spf_calculate_schedule (struct ospf *ospf)
 {
-  time_t ht, delay;
+  unsigned long delay, elapsed, ht;
+  struct timeval result;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("SPF: calculation timer scheduled");
@@ -1159,7 +1160,7 @@ ospf_spf_calculate_schedule (struct ospf *ospf)
   /* OSPF instance does not exist. */
   if (ospf == NULL)
     return;
-
+  
   /* SPF calculation timer is already scheduled. */
   if (ospf->t_spf_calc)
     {
@@ -1168,22 +1169,42 @@ ospf_spf_calculate_schedule (struct ospf *ospf)
                    ospf->t_spf_calc);
       return;
     }
-
-  ht = time (NULL) - ospf->ts_spf;
-
+  
+  /* XXX Monotic timers: we only care about relative time here. */
+  timersub (&recent_time, &ospf->ts_spf, &result);
+  
+  elapsed = (result.tv_sec * 1000) + (result.tv_usec / 1000);
+  ht = ospf->spf_holdtime * ospf->spf_hold_multiplier;
+  
+  if (ht > ospf->spf_max_holdtime)
+    ht = ospf->spf_max_holdtime;
+  
   /* Get SPF calculation delay time. */
-  if (ht < ospf->spf_holdtime)
+  if (elapsed < ht)
     {
-      if (ospf->spf_holdtime - ht < ospf->spf_delay)
+      /* Got an event within the hold time of last SPF. We need to
+       * increase the hold_multiplier, if it's not already at/past
+       * maximum value, and wasn't already increased..
+       */
+      if (ht < ospf->spf_max_holdtime)
+        ospf->spf_hold_multiplier++;
+      
+      /* always honour the SPF initial delay */
+      if ( (ht - elapsed) < ospf->spf_delay)
         delay = ospf->spf_delay;
       else
-        delay = ospf->spf_holdtime - ht;
+        delay = ht - elapsed;
     }
   else
-    delay = ospf->spf_delay;
-
+    {
+      /* Event is past required hold-time of last SPF */
+      delay = ospf->spf_delay;
+      ospf->spf_hold_multiplier = 1;
+    }
+  
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("SPF: calculation timer delay = %ld", (long)delay);
+    zlog_debug ("SPF: calculation timer delay = %ld", delay);
+
   ospf->t_spf_calc =
-    thread_add_timer (master, ospf_spf_calculate_timer, ospf, delay);
+    thread_add_timer_msec (master, ospf_spf_calculate_timer, ospf, delay);
 }

@@ -185,6 +185,8 @@ ospf_new (void)
   /* SPF timer value init. */
   new->spf_delay = OSPF_SPF_DELAY_DEFAULT;
   new->spf_holdtime = OSPF_SPF_HOLDTIME_DEFAULT;
+  new->spf_max_holdtime = OSPF_SPF_MAX_HOLDTIME_DEFAULT;
+  new->spf_hold_multiplier = 1;
 
   /* MaxAge init. */
   new->maxage_lsa = list_new ();
@@ -1208,24 +1210,6 @@ ospf_area_import_list_unset (struct ospf *ospf, struct ospf_area * area)
   ospf_area_check_free (ospf, area->area_id);
 
   ospf_schedule_abr_task (ospf);
-
-  return 1;
-}
-
-int
-ospf_timers_spf_set (struct ospf *ospf, u_int32_t delay, u_int32_t hold)
-{
-  ospf->spf_delay = delay;
-  ospf->spf_holdtime = hold;
-
-  return 1;
-}
-
-int
-ospf_timers_spf_unset (struct ospf *ospf)
-{
-  ospf->spf_delay = OSPF_SPF_DELAY_DEFAULT;
-  ospf->spf_holdtime = OSPF_SPF_HOLDTIME_DEFAULT;
 
   return 1;
 }

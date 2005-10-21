@@ -88,8 +88,9 @@
 #define OSPF_AUTH_CMD_NOTSEEN              -2
 
 /* OSPF SPF timer values. */
-#define OSPF_SPF_DELAY_DEFAULT              1
-#define OSPF_SPF_HOLDTIME_DEFAULT           1
+#define OSPF_SPF_DELAY_DEFAULT              200
+#define OSPF_SPF_HOLDTIME_DEFAULT           1000
+#define OSPF_SPF_MAX_HOLDTIME_DEFAULT	    10000
 
 /* OSPF interface default values. */
 #define OSPF_OUTPUT_COST_DEFAULT           10
@@ -191,8 +192,10 @@ struct ospf
 #define OPAQUE_BLOCK_TYPE_11_LSA_BIT	(1 << 3)
 #endif /* HAVE_OPAQUE_LSA */
 
-  int spf_delay;			/* SPF delay time. */
-  int spf_holdtime;			/* SPF hold time. */
+  unsigned int spf_delay;			/* SPF delay time. */
+  unsigned int spf_holdtime;			/* SPF hold time. */
+  unsigned int spf_max_holdtime;			/* SPF maximum-holdtime */
+  unsigned int spf_hold_multiplier;		/* Adaptive multiplier for hold time */
   int default_originate;		/* Default information originate. */
 #define DEFAULT_ORIGINATE_NONE		0
 #define DEFAULT_ORIGINATE_ZEBRA		1
@@ -231,7 +234,7 @@ struct ospf
 					   prefix is LSA's adv. network*/
 
   /* Time stamps. */
-  time_t ts_spf;			/* SPF calculation time stamp. */
+  struct timeval ts_spf;		/* SPF calculation time stamp. */
 
   struct list *maxage_lsa;              /* List of MaxAge LSA for deletion. */
   int redistribute;                     /* Num of redistributed protocols. */
@@ -557,8 +560,6 @@ extern int ospf_area_import_list_set (struct ospf *, struct ospf_area *,
 extern int ospf_area_import_list_unset (struct ospf *, struct ospf_area *);
 extern int ospf_area_shortcut_set (struct ospf *, struct ospf_area *, int);
 extern int ospf_area_shortcut_unset (struct ospf *, struct ospf_area *);
-extern int ospf_timers_spf_set (struct ospf *, u_int32_t, u_int32_t);
-extern int ospf_timers_spf_unset (struct ospf *);
 extern int ospf_timers_refresh_set (struct ospf *, int);
 extern int ospf_timers_refresh_unset (struct ospf *);
 extern int ospf_nbr_nbma_set (struct ospf *, struct in_addr);

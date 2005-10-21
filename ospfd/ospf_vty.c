@@ -2113,41 +2113,97 @@ ALIAS (no_ospf_compatible_rfc1583,
        NO_STR
        "OSPF specific commands\n"
        "Disable the RFC1583Compatibility flag\n")
+
+static int
+ospf_timers_spf_set (struct vty *vty, unsigned int delay,
+                     unsigned int hold,
+                     unsigned int max)
+{
+  struct ospf *ospf = vty->index;
+  
+  ospf->spf_delay = delay;
+  ospf->spf_holdtime = hold;
+  ospf->spf_max_holdtime = max;
+  
+  return CMD_SUCCESS;
+}
 
-DEFUN (ospf_timers_spf,
+DEFUN (ospf_timers_throttle_spf,
+       ospf_timers_throttle_spf_cmd,
+       "timers throttle spf <0-600000> <0-600000> <0-600000>",
+       "Adjust routing timers\n"
+       "Throttling adaptive timer\n"
+       "OSPF SPF timers\n"
+       "Delay (msec) from first change received till SPF calculation\n"
+       "Initial hold time (msec) between consecutive SPF calculations\n"
+       "Maximum hold time (msec)\n")
+{
+  unsigned int delay, hold, max;
+  
+  if (argc != 3)
+    {
+      vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  
+  VTY_GET_INTEGER_RANGE ("SPF delay timer", delay, argv[0], 0, 600000);
+  VTY_GET_INTEGER_RANGE ("SPF hold timer", hold, argv[1], 0, 600000);
+  VTY_GET_INTEGER_RANGE ("SPF max-hold timer", max, argv[2], 0, 600000);
+  
+  return ospf_timers_spf_set (vty, delay, hold, max);
+}
+
+DEFUN_DEPRECATED (ospf_timers_spf,
        ospf_timers_spf_cmd,
        "timers spf <0-4294967295> <0-4294967295>",
        "Adjust routing timers\n"
        "OSPF SPF timers\n"
-       "Delay between receiving a change to SPF calculation\n"
-       "Hold time between consecutive SPF calculations\n")
+       "Delay (s) between receiving a change to SPF calculation\n"
+       "Hold time (s) between consecutive SPF calculations\n")
 {
-  struct ospf *ospf = vty->index;
-  u_int32_t delay, hold;
-
+  unsigned int delay, hold;
+  
+  if (argc != 2)
+    {
+      vty_out (vty, "Insufficient number of arguments%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  
   VTY_GET_INTEGER ("SPF delay timer", delay, argv[0]);
   VTY_GET_INTEGER ("SPF hold timer", hold, argv[1]);
-
-  ospf_timers_spf_set (ospf, delay, hold);
-
-  return CMD_SUCCESS;
+  
+  /* truncate down the second values if they're greater than 600000ms */
+  if (delay > (600000 / 1000))
+    delay = 600000;
+  else if (delay == 0)
+    /* 0s delay was probably specified because of lack of ms resolution */
+    delay = OSPF_SPF_DELAY_DEFAULT;
+  if (hold > (600000 / 1000))
+    hold = 600000;
+      
+  return ospf_timers_spf_set (vty, delay * 1000, hold * 1000, hold * 1000);
 }
 
-DEFUN (no_ospf_timers_spf,
-       no_ospf_timers_spf_cmd,
-       "no timers spf",
+DEFUN (no_ospf_timers_throttle_spf,
+       no_ospf_timers_throttle_spf_cmd,
+       "no timers throttle spf",
        NO_STR
        "Adjust routing timers\n"
+       "Throttling adaptive timer\n"
        "OSPF SPF timers\n")
 {
-  struct ospf *ospf = vty->index;
-
-  ospf->spf_delay = OSPF_SPF_DELAY_DEFAULT;
-  ospf->spf_holdtime = OSPF_SPF_HOLDTIME_DEFAULT;
-
-  return CMD_SUCCESS;
+  return ospf_timers_spf_set (vty,
+                              OSPF_SPF_DELAY_DEFAULT,
+                              OSPF_SPF_HOLDTIME_DEFAULT,
+                              OSPF_SPF_MAX_HOLDTIME_DEFAULT);
 }
 
+ALIAS_DEPRECATED (no_ospf_timers_throttle_spf,
+                  no_ospf_timers_spf_cmd,
+                  "no timers spf",
+                  NO_STR
+                  "Adjust routing timers\n"
+                  "OSPF SPF timers\n")
 
 DEFUN (ospf_neighbor,
        ospf_neighbor_cmd,
@@ -2521,6 +2577,8 @@ DEFUN (show_ip_ospf,
   struct listnode *node, *nnode;
   struct ospf_area * area;
   struct ospf *ospf;
+  struct timeval result;
+  char timebuf[13]; /* XX:XX:XX.XXX(nul) */
 
   /* Check OSPF is enable. */
   ospf = ospf_lookup ();
@@ -2551,9 +2609,23 @@ DEFUN (show_ip_ospf,
 #endif /* HAVE_OPAQUE_LSA */
 
   /* Show SPF timers. */
-  vty_out (vty, " SPF schedule delay %d secs, Hold time between two SPFs %d secs%s",
-	   ospf->spf_delay, ospf->spf_holdtime, VTY_NEWLINE);
-
+  vty_out (vty, " Initial SPF scheduling delay %d millisec(s)%s"
+                " Minimum hold time between consecutive SPFs %d millisec(s)%s"
+                " Maximum hold time between consecutive SPFs %d millisec(s)%s"
+                " Hold time multiplier is currently %d%s",
+	  ospf->spf_delay, VTY_NEWLINE,
+	  ospf->spf_holdtime, VTY_NEWLINE,
+	  ospf->spf_max_holdtime, VTY_NEWLINE,
+	  ospf->spf_hold_multiplier, VTY_NEWLINE);
+  timersub (&recent_time, &ospf->ts_spf, &result);
+  vty_out (vty, " SPF algorithm last executed %s ago%s",
+           ospf_timeval_dump (&result, timebuf, sizeof (timebuf)),
+           VTY_NEWLINE);
+  vty_out (vty, " SPF timer %s%s%s",
+           (ospf->t_spf_calc ? "due in " : "is "),
+           ospf_timer_dump (ospf->t_spf_calc, timebuf, sizeof (timebuf)),
+           VTY_NEWLINE);
+  
   /* Show refresh parameters. */
   vty_out (vty, " Refresh timer %d secs%s",
 	   ospf->lsa_refresh_interval, VTY_NEWLINE);
@@ -2758,12 +2830,22 @@ DEFUN (show_ip_ospf_interface,
 }
 
 static void
+show_ip_ospf_neighbour_header (struct vty *vty)
+{
+  vty_out (vty, "%s%15s %3s %-15s %9s %-15s %-20s %5s %5s %5s%s",
+           VTY_NEWLINE,
+           "Neighbor ID", "Pri", "State", "Dead Time",
+           "Address", "Interface", "RXmtL", "RqstL", "DBsmL",
+           VTY_NEWLINE);
+}
+
+static void
 show_ip_ospf_neighbor_sub (struct vty *vty, struct ospf_interface *oi)
 {
   struct route_node *rn;
   struct ospf_neighbor *nbr;
   char msgbuf[16];
-  char timebuf[9];
+  char timebuf[14];
 
   for (rn = route_top (oi->nbrs); rn; rn = route_next (rn))
     if ((nbr = rn->info))
@@ -2775,15 +2857,20 @@ show_ip_ospf_neighbor_sub (struct vty *vty, struct ospf_interface *oi)
 	    ospf_nbr_state_message (nbr, msgbuf, 16);
 
 	    if (nbr->state == NSM_Attempt && nbr->router_id.s_addr == 0)
-	    vty_out (vty, "%-15s %3d   %-15s %8s    ",
-		     "-", nbr->priority,
-		     msgbuf, ospf_timer_dump (nbr->t_inactivity, timebuf, 9));
-	    else
-	    vty_out (vty, "%-15s %3d   %-15s %8s    ",
-		     inet_ntoa (nbr->router_id), nbr->priority,
-		     msgbuf, ospf_timer_dump (nbr->t_inactivity, timebuf, 9));
+	      vty_out (vty, "%-15s %3d %-15s ",
+		       "-", nbr->priority,
+		       msgbuf);
+            else
+	      vty_out (vty, "%-15s %3d %-15s ",
+		       inet_ntoa (nbr->router_id), nbr->priority,
+		       msgbuf);
+            
+            vty_out (vty, "%9s ",
+                     ospf_timer_dump (nbr->t_inactivity, timebuf, 
+                                      sizeof(timebuf)));
+            
 	    vty_out (vty, "%-15s ", inet_ntoa (nbr->src));
-	    vty_out (vty, "%-15s %5ld %5ld %5d%s",
+	    vty_out (vty, "%-20s %5ld %5ld %5d%s",
 		     IF_NAME (oi), ospf_ls_retransmit_count (nbr),
 		     ospf_ls_request_count (nbr), ospf_db_summary_count (nbr),
 		     VTY_NEWLINE);
@@ -2809,10 +2896,7 @@ DEFUN (show_ip_ospf_neighbor,
       return CMD_SUCCESS;
     }
 
-  /* Show All neighbors. */
-  vty_out (vty, "%sNeighbor ID     Pri   State           Dead "
-           "Time   Address         Interface           RXmtL "
-           "RqstL DBsmL%s", VTY_NEWLINE, VTY_NEWLINE);
+  show_ip_ospf_neighbour_header (vty);
 
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     show_ip_ospf_neighbor_sub (vty, oi);
@@ -2838,12 +2922,9 @@ DEFUN (show_ip_ospf_neighbor_all,
       vty_out (vty, " OSPF Routing Process not enabled%s", VTY_NEWLINE);
       return CMD_SUCCESS;
     }
-
-  /* Show All neighbors. */
-  vty_out (vty, "%sNeighbor ID     Pri   State           Dead "
-           "Time   Address         Interface           RXmtL "
-           "RqstL DBsmL%s", VTY_NEWLINE, VTY_NEWLINE);
-
+  
+  show_ip_ospf_neighbour_header (vty);
+  
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     {
       struct listnode *nbr_node;
@@ -2857,9 +2938,9 @@ DEFUN (show_ip_ospf_neighbor_all,
 	if (nbr_nbma->nbr == NULL
 	    || nbr_nbma->nbr->state == NSM_Down)
 	  {
-	    vty_out (vty, "%-15s %3d   %-15s %8s    ",
+	    vty_out (vty, "%-15s %3d %-15s %9s ",
 		     "-", nbr_nbma->priority, "Down", "-");
-	    vty_out (vty, "%-15s %-15s %5d %5d %5d%s", 
+	    vty_out (vty, "%-15s %-20s %5d %5d %5d%s", 
 		     inet_ntoa (nbr_nbma->addr), IF_NAME (oi),
 		     0, 0, 0, VTY_NEWLINE);
 	  }
@@ -2895,11 +2976,9 @@ DEFUN (show_ip_ospf_neighbor_int,
       vty_out (vty, " OSPF Routing Process not enabled%s", VTY_NEWLINE);
       return CMD_SUCCESS;
     }
-
-  vty_out (vty, "%sNeighbor ID     Pri   State           Dead "
-           "Time   Address         Interface           RXmtL "
-           "RqstL DBsmL%s", VTY_NEWLINE, VTY_NEWLINE);
-
+  
+  show_ip_ospf_neighbour_header (vty);
+  
   for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
     {
       struct ospf_interface *oi = rn->info;
@@ -2939,7 +3018,8 @@ show_ip_ospf_nbr_nbma_detail_sub (struct vty *vty, struct ospf_interface *oi,
 
   /* Show poll-interval timer. */
   vty_out (vty, "    Poll timer due in %s%s",
-	   ospf_timer_dump (nbr_nbma->t_poll, timebuf, 9), VTY_NEWLINE);
+	   ospf_timer_dump (nbr_nbma->t_poll, timebuf, sizeof(timebuf)),
+           VTY_NEWLINE);
 
   /* Show poll-interval timer thread. */
   vty_out (vty, "    Thread Poll Timer %s%s", 
@@ -2979,7 +3059,8 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
 	   ospf_options_dump (nbr->options), VTY_NEWLINE);
   /* Show Router Dead interval timer. */
   vty_out (vty, "    Dead timer due in %s%s",
-	   ospf_timer_dump (nbr->t_inactivity, timebuf, 9), VTY_NEWLINE);
+	   ospf_timer_dump (nbr->t_inactivity, timebuf, sizeof (timebuf)),
+           VTY_NEWLINE);
   /* Show Database Summary list. */
   vty_out (vty, "    Database Summary List %d%s",
 	   ospf_db_summary_count (nbr), VTY_NEWLINE);
@@ -7966,7 +8047,9 @@ ospf_vty_init (void)
 
   install_element (OSPF_NODE, &ospf_timers_spf_cmd);
   install_element (OSPF_NODE, &no_ospf_timers_spf_cmd);
-
+  install_element (OSPF_NODE, &ospf_timers_throttle_spf_cmd);
+  install_element (OSPF_NODE, &no_ospf_timers_throttle_spf_cmd);
+  
   install_element (OSPF_NODE, &ospf_refresh_timer_cmd);
   install_element (OSPF_NODE, &no_ospf_refresh_timer_val_cmd);
   install_element (OSPF_NODE, &no_ospf_refresh_timer_cmd);

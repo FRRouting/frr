@@ -417,10 +417,8 @@ ospf_ls_upd_timer (struct thread *thread)
       struct list *update;
       struct ospf_lsdb *lsdb;
       int i;
-      struct timeval now;
       int retransmit_interval;
 
-      gettimeofday (&now, NULL);
       retransmit_interval = OSPF_IF_PARAM (nbr->oi, retransmit_interval);
 
       lsdb = &nbr->ls_rxmt;
@@ -443,7 +441,7 @@ ospf_ls_upd_timer (struct thread *thread)
 		  fired.  This is a small tweak to what is in the RFC,
 		  but it will cut out out a lot of retransmit traffic
 		  - MAG */
-		if (tv_cmp (tv_sub (now, lsa->tv_recv), 
+		if (tv_cmp (tv_sub (recent_time, lsa->tv_recv), 
 			    int2tv (retransmit_interval)) >= 0)
 		  listnode_add (update, rn->info);
 	    }

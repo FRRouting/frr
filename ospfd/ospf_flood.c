@@ -238,7 +238,6 @@ ospf_flood (struct ospf *ospf, struct ospf_neighbor *nbr,
 	    struct ospf_lsa *current, struct ospf_lsa *new)
 {
   struct ospf_interface *oi;
-  struct timeval now;
   int lsa_ack_flag;
 
   /* Type-7 LSA's will be flooded throughout their native NSSA area,
@@ -253,9 +252,6 @@ ospf_flood (struct ospf *ospf, struct ospf_neighbor *nbr,
 
   lsa_ack_flag = 0;
   oi = nbr->oi;
-
-  /* Get current time. */
-  gettimeofday (&now, NULL);
 
   /* If there is already a database copy, and if the
      database copy was received via flooding and installed less
@@ -272,7 +268,7 @@ ospf_flood (struct ospf *ospf, struct ospf_neighbor *nbr,
 		       "while local one is initial instance.");
           ; /* Accept this LSA for quick LSDB resynchronization. */
         }
-      else if (tv_cmp (tv_sub (now, current->tv_recv),
+      else if (tv_cmp (tv_sub (recent_time, current->tv_recv),
 	               int2tv (OSPF_MIN_LS_ARRIVAL)) < 0)
         {
           if (IS_DEBUG_OSPF_EVENT)
