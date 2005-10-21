@@ -1,5 +1,11 @@
 2005-10-20 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* sockopt.c: (setsockopt_multicast_ipv4) If IP_ADD_MEMBERSHIP
+	  fails with errno equal to EADDRINUSE, then issue an info
+	  message and try IP_DROP_MEMBERSHIP followed by IP_ADD_MEMBERSHIP.
+
+2005-10-20 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* memory.c: (show_memory_vty) Omit zero statistics.  Print separators
 	  only if some non-zero stats have been printed in between.
 	  (show_separator) New function to print a separator.

@@ -162,6 +162,16 @@ getsockopt_ipv6_ifindex (struct msghdr *msgh)
  * using a single socket.  The limit is typically 20, derived from the
  * original BSD multicast implementation.  Some systems have
  * mechanisms for increasing this limit.
+ *
+ * In many 4.4BSD-derived systems, multicast group operations are not
+ * allowed on interfaces that are not UP.  Thus, a previous attempt to
+ * leave the group may have failed, leaving it still joined, and we
+ * drop/join quietly to recover.  This may not be necessary, but aims to
+ * defend against unknown behavior in that we will still return an error
+ * if the second join fails.  It is not clear how other systems
+ * (e.g. Linux, Solaris) behave when leaving groups on down interfaces,
+ * but this behavior should not be harmful if they behave the same way,
+ * allow leaves, or implicitly leave all groups joined to down interfaces.
  */
 int
 setsockopt_multicast_ipv4(int sock, 
@@ -174,6 +184,7 @@ setsockopt_multicast_ipv4(int sock,
 #ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
   /* This is better because it uses ifindex directly */
   struct ip_mreqn mreqn;
+  int ret;
   
   switch (optname)
     {
@@ -190,7 +201,24 @@ setsockopt_multicast_ipv4(int sock,
       else
 	mreqn.imr_address = if_addr;
       
-      return setsockopt(sock, IPPROTO_IP, optname, (void *)&mreqn, sizeof(mreqn));
+      ret = setsockopt(sock, IPPROTO_IP, optname,
+		       (void *)&mreqn, sizeof(mreqn));
+      if ((ret < 0) && (optname == IP_ADD_MEMBERSHIP) && (errno == EADDRINUSE))
+        {
+	  /* see above: handle possible problem when interface comes back up */
+	  char buf[2][INET_ADDRSTRLEN];
+	  zlog_info("setsockopt_multicast_ipv4 attempting to drop and "
+		    "re-add (fd %d, ifaddr %s, mcast %s, ifindex %u)",
+		    sock,
+		    inet_ntop(AF_INET, &if_addr, buf[0], sizeof(buf[0])),
+		    inet_ntop(AF_INET, &mreqn.imr_multiaddr,
+			      buf[1], sizeof(buf[1])), ifindex);
+	  setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP,
+		     (void *)&mreqn, sizeof(mreqn));
+	  ret = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+			   (void *)&mreqn, sizeof(mreqn));
+        }
+      return ret;
       break;
 
     default:
@@ -210,6 +238,7 @@ setsockopt_multicast_ipv4(int sock,
 
   struct in_addr m;
   struct ip_mreq mreq;
+  int ret;
 
 #ifdef HAVE_BSD_STRUCT_IP_MREQ_HACK
   if (ifindex)
@@ -230,11 +259,23 @@ setsockopt_multicast_ipv4(int sock,
       mreq.imr_multiaddr.s_addr = mcast_addr;
       mreq.imr_interface = m;
       
-      return setsockopt (sock, 
-			 IPPROTO_IP, 
-			 optname, 
-			 (void *)&mreq, 
-			 sizeof(mreq));
+      ret = setsockopt (sock, IPPROTO_IP, optname, (void *)&mreq, sizeof(mreq));
+      if ((ret < 0) && (optname == IP_ADD_MEMBERSHIP) && (errno == EADDRINUSE))
+        {
+	  /* see above: handle possible problem when interface comes back up */
+	  char buf[2][INET_ADDRSTRLEN];
+	  zlog_info("setsockopt_multicast_ipv4 attempting to drop and "
+		    "re-add (fd %d, ifaddr %s, mcast %s, ifindex %u)",
+		    sock,
+		    inet_ntop(AF_INET, &if_addr, buf[0], sizeof(buf[0])),
+		    inet_ntop(AF_INET, &mreq.imr_multiaddr,
+			      buf[1], sizeof(buf[1])), ifindex);
+	  setsockopt (sock, IPPROTO_IP, IP_DROP_MEMBERSHIP,
+		      (void *)&mreq, sizeof(mreq));
+	  ret = setsockopt (sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+	  		    (void *)&mreq, sizeof(mreq));
+        }
+      return ret;
       break;
       
     default:
