@@ -94,6 +94,7 @@
 /* OSPF interface default values. */
 #define OSPF_OUTPUT_COST_DEFAULT           10
 #define OSPF_ROUTER_DEAD_INTERVAL_DEFAULT  40
+#define OSPF_ROUTER_DEAD_INTERVAL_MINIMAL   1
 #define OSPF_HELLO_INTERVAL_DEFAULT        10
 #define OSPF_ROUTER_PRIORITY_DEFAULT        1
 #define OSPF_RETRANSMIT_INTERVAL_DEFAULT    5
@@ -106,6 +107,7 @@
 #define OSPF_NEIGHBOR_PRIORITY_DEFAULT      0
 
 #define OSPF_MTU_IGNORE_DEFAULT             0
+#define OSPF_FAST_HELLO_DEFAULT             0
 
 /* OSPF options. */
 #define OSPF_OPTION_T                    0x01  /* TOS. */

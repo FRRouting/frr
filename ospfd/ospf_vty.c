@@ -2353,9 +2353,6 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
     return CMD_SUCCESS;
   
   ospf->ref_bandwidth = refbw * 1000;
-  vty_out (vty, "%% OSPF: Reference bandwidth is changed.%s", VTY_NEWLINE);
-  vty_out (vty, "        Please ensure reference bandwidth is consistent across all routers%s", VTY_NEWLINE);
-      
   for (ALL_LIST_ELEMENTS_RO (om->iflist, node, ifp))
     ospf_if_recalculate_output_cost (ifp);
   
@@ -2697,15 +2694,29 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
       vty_out (vty, "%s", VTY_NEWLINE);
 
       vty_out (vty, "  Timer intervals configured,");
-      vty_out (vty, " Hello %d, Dead %d, Wait %d, Retransmit %d%s",
-	       OSPF_IF_PARAM (oi, v_hello), OSPF_IF_PARAM (oi, v_wait),
+      vty_out (vty, " Hello ");
+      if (OSPF_IF_PARAM (oi, fast_hello) == 0)
+        vty_out (vty, "%ds,", OSPF_IF_PARAM (oi, v_hello));
+      else
+        vty_out (vty, "%dms,", 1000 / OSPF_IF_PARAM (oi, fast_hello));
+      vty_out (vty, " Dead %ds, Wait %ds, Retransmit %d%s",
+	       OSPF_IF_PARAM (oi, v_wait),
 	       OSPF_IF_PARAM (oi, v_wait),
 	       OSPF_IF_PARAM (oi, retransmit_interval),
 	       VTY_NEWLINE);
       
       if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_ACTIVE)
-	vty_out (vty, "    Hello due in %s%s",
-		 ospf_timer_dump (oi->t_hello, buf, 9), VTY_NEWLINE);
+        {
+          int timer_slen = 9; /* length of "hh:mm:ss(nul)" */
+          
+          /* for fast hello we also want to see the .XXXX ms part */
+          if (OSPF_IF_PARAM (oi, fast_hello))
+            timer_slen += 5;
+          
+	  vty_out (vty, "    Hello due in %s%s",
+		   ospf_timer_dump (oi->t_hello, buf, timer_slen), 
+		   VTY_NEWLINE);
+        }
       else /* OSPF_IF_PASSIVE is set */
 	vty_out (vty, "    No Hellos (Passive interface)%s", VTY_NEWLINE);
       
@@ -4583,17 +4594,14 @@ ospf_nbr_timer_update (struct ospf_interface *oi)
       }
 }
 
-DEFUN (ip_ospf_dead_interval,
-       ip_ospf_dead_interval_addr_cmd,
-       "ip ospf dead-interval <1-65535> A.B.C.D",
-       "IP Information\n"
-       "OSPF interface commands\n"
-       "Interval after which a neighbor is declared dead\n"
-       "Seconds\n"
-       "Address of interface")
+static int
+ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
+                            const char *nbr_str,
+                            const char *fast_hello_str)
 {
   struct interface *ifp = vty->index;
   u_int32_t seconds;
+  u_char hellomult;
   struct in_addr addr;
   int ret;
   struct ospf_if_params *params;
@@ -4604,19 +4612,10 @@ DEFUN (ip_ospf_dead_interval,
   ospf = ospf_lookup ();
 
   params = IF_DEF_PARAMS (ifp);
-
-  seconds = strtol (argv[0], NULL, 10);
-
-  /* dead_interval range is <1-65535>. */
-  if (seconds < 1 || seconds > 65535)
+  
+  if (nbr_str)
     {
-      vty_out (vty, "Router Dead Interval is invalid%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc == 2)
-    {
-      ret = inet_aton(argv[1], &addr);
+      ret = inet_aton(nbr_str, &addr);
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
@@ -4628,11 +4627,36 @@ DEFUN (ip_ospf_dead_interval,
       ospf_if_update_params (ifp, addr);
     }
 
+  if (interval_str)
+    {
+      VTY_GET_INTEGER_RANGE ("Router Dead Interval", seconds, interval_str,
+                             1, 65535);
+                             
+      /* reset fast_hello too, just to be sure */
+      UNSET_IF_PARAM (params, fast_hello);
+      params->fast_hello = OSPF_FAST_HELLO_DEFAULT;
+    }
+  else if (fast_hello_str)
+    {
+      VTY_GET_INTEGER_RANGE ("Hello Multiplier", hellomult, fast_hello_str,
+                             1, 10);
+      /* 1s dead-interval with sub-second hellos desired */
+      seconds = OSPF_ROUTER_DEAD_INTERVAL_MINIMAL;
+      SET_IF_PARAM (params, fast_hello);
+      params->fast_hello = hellomult;
+    }
+  else
+    {
+      vty_out (vty, "Please specify dead-interval or hello-multiplier%s",
+              VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+    
   SET_IF_PARAM (params, v_wait);
   params->v_wait = seconds;
   
   /* Update timer values in neighbor structure. */
-  if (argc == 2)
+  if (nbr_str)
     {
       if (ospf)
 	{
@@ -4651,6 +4675,22 @@ DEFUN (ip_ospf_dead_interval,
   return CMD_SUCCESS;
 }
 
+
+DEFUN (ip_ospf_dead_interval,
+       ip_ospf_dead_interval_addr_cmd,
+       "ip ospf dead-interval <1-65535> A.B.C.D",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Interval after which a neighbor is declared dead\n"
+       "Seconds\n"
+       "Address of interface\n")
+{
+  if (argc == 2)
+    return ospf_vty_dead_interval_set (vty, argv[0], argv[1], NULL);
+  else
+    return ospf_vty_dead_interval_set (vty, argv[0], NULL, NULL);
+}
+
 ALIAS (ip_ospf_dead_interval,
        ip_ospf_dead_interval_cmd,
        "ip ospf dead-interval <1-65535>",
@@ -4665,6 +4705,33 @@ ALIAS (ip_ospf_dead_interval,
        "OSPF interface commands\n"
        "Interval after which a neighbor is declared dead\n"
        "Seconds\n")
+
+DEFUN (ip_ospf_dead_interval_minimal,
+       ip_ospf_dead_interval_minimal_addr_cmd,
+       "ip ospf dead-interval minimal hello-multiplier <1-10> A.B.C.D",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Interval after which a neighbor is declared dead\n"
+       "Minimal 1s dead-interval with fast sub-second hellos\n"
+       "Hello multiplier factor\n"
+       "Number of Hellos to send each second\n"
+       "Address of interface\n")
+{
+  if (argc == 2)
+    return ospf_vty_dead_interval_set (vty, NULL, argv[1], argv[0]);
+  else
+    return ospf_vty_dead_interval_set (vty, NULL, NULL, argv[0]);
+}
+
+ALIAS (ip_ospf_dead_interval_minimal,
+       ip_ospf_dead_interval_minimal_cmd,
+       "ip ospf dead-interval minimal hello-multiplier <1-10>",
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Interval after which a neighbor is declared dead\n"
+       "Minimal 1s dead-interval with fast sub-second hellos\n"
+       "Hello multiplier factor\n"
+       "Number of Hellos to send each second\n")
 
 DEFUN (no_ip_ospf_dead_interval,
        no_ip_ospf_dead_interval_addr_cmd,
@@ -4705,7 +4772,10 @@ DEFUN (no_ip_ospf_dead_interval,
 
   UNSET_IF_PARAM (params, v_wait);
   params->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
-
+  
+  UNSET_IF_PARAM (params, fast_hello);
+  params->fast_hello = OSPF_FAST_HELLO_DEFAULT;
+  
   if (params != IF_DEF_PARAMS (ifp))
     {
       ospf_free_if_params (ifp, addr);
@@ -4787,7 +4857,7 @@ DEFUN (ip_ospf_hello_interval,
       ospf_if_update_params (ifp, addr);
     }
 
-  SET_IF_PARAM (params, v_hello); 
+  SET_IF_PARAM (params, v_hello);
   params->v_hello = seconds;
 
   return CMD_SUCCESS;
@@ -4841,7 +4911,7 @@ DEFUN (no_ip_ospf_hello_interval,
     }
 
   UNSET_IF_PARAM (params, v_hello);
-  params->v_hello = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
+  params->v_hello = OSPF_HELLO_INTERVAL_DEFAULT;
 
   if (params != IF_DEF_PARAMS (ifp))
     {
@@ -6994,7 +7064,15 @@ config_write_interface (struct vty *vty)
 	if (OSPF_IF_PARAM_CONFIGURED (params, v_wait) &&
 	    params->v_wait != OSPF_ROUTER_DEAD_INTERVAL_DEFAULT)
 	  {
-	    vty_out (vty, " ip ospf dead-interval %u", params->v_wait);
+	    vty_out (vty, " ip ospf dead-interval ");
+	    
+	    /* fast hello ? */
+	    if (OSPF_IF_PARAM_CONFIGURED (params, fast_hello))
+	      vty_out (vty, "minimal hello-multiplier %d",
+	               params->fast_hello);
+            else
+              vty_out (vty, "%u", params->v_wait);
+            
 	    if (params != IF_DEF_PARAMS (ifp))
 	      vty_out (vty, " %s", inet_ntoa (rn->p.u.prefix4));
 	    vty_out (vty, "%s", VTY_NEWLINE);
@@ -7435,8 +7513,12 @@ ospf_config_write (struct vty *vty)
 
       /* auto-cost reference-bandwidth configuration.  */
       if (ospf->ref_bandwidth != OSPF_DEFAULT_REF_BANDWIDTH)
-	vty_out (vty, " auto-cost reference-bandwidth %d%s",
-		 ospf->ref_bandwidth / 1000, VTY_NEWLINE);
+        {
+          vty_out (vty, "! Important: ensure reference bandwidth "
+                        "is consistent across all routers%s", VTY_NEWLINE);
+          vty_out (vty, " auto-cost reference-bandwidth %d%s",
+		   ospf->ref_bandwidth / 1000, VTY_NEWLINE);
+        }
 
       /* SPF timers print. */
       if (ospf->spf_delay != OSPF_SPF_DELAY_DEFAULT ||
@@ -7601,9 +7683,11 @@ ospf_vty_if_init (void)
   /* "ip ospf dead-interval" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_dead_interval_addr_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_dead_interval_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_dead_interval_minimal_addr_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_dead_interval_minimal_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_dead_interval_addr_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_dead_interval_cmd);
-
+  
   /* "ip ospf hello-interval" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_hello_interval_addr_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_hello_interval_cmd);

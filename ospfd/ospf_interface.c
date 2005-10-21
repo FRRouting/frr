@@ -156,7 +156,7 @@ ospf_if_table_lookup (struct interface *ifp, struct prefix *prefix)
   p.prefixlen = IPV4_MAX_PREFIXLEN;
   
   /* route_node_get implicitely locks */
-  if (rn = route_node_lookup (IF_OIFS (ifp), &p))
+  if ((rn = route_node_lookup (IF_OIFS (ifp), &p)))
     {
       rninfo = (struct ospf_interface *) rn->info;
       route_unlock_node (rn);
@@ -559,6 +559,7 @@ ospf_new_if_params (void)
   UNSET_IF_PARAM (oip, retransmit_interval);
   UNSET_IF_PARAM (oip, passive_interface);
   UNSET_IF_PARAM (oip, v_hello);
+  UNSET_IF_PARAM (oip, fast_hello);
   UNSET_IF_PARAM (oip, v_wait);
   UNSET_IF_PARAM (oip, priority);
   UNSET_IF_PARAM (oip, type);
@@ -600,6 +601,7 @@ ospf_free_if_params (struct interface *ifp, struct in_addr addr)
       !OSPF_IF_PARAM_CONFIGURED (oip, retransmit_interval) &&
       !OSPF_IF_PARAM_CONFIGURED (oip, passive_interface) &&
       !OSPF_IF_PARAM_CONFIGURED (oip, v_hello) &&
+      !OSPF_IF_PARAM_CONFIGURED (oip, fast_hello) &&
       !OSPF_IF_PARAM_CONFIGURED (oip, v_wait) &&
       !OSPF_IF_PARAM_CONFIGURED (oip, priority) &&
       !OSPF_IF_PARAM_CONFIGURED (oip, type) &&
@@ -699,6 +701,9 @@ ospf_if_new_hook (struct interface *ifp)
 
   SET_IF_PARAM (IF_DEF_PARAMS (ifp), v_hello);
   IF_DEF_PARAMS (ifp)->v_hello = OSPF_HELLO_INTERVAL_DEFAULT;
+
+  SET_IF_PARAM (IF_DEF_PARAMS (ifp), fast_hello);
+  IF_DEF_PARAMS (ifp)->fast_hello = OSPF_FAST_HELLO_DEFAULT;
 
   SET_IF_PARAM (IF_DEF_PARAMS (ifp), v_wait);
   IF_DEF_PARAMS (ifp)->v_wait = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;

@@ -232,31 +232,39 @@ ospf_nbr_state_message (struct ospf_neighbor *nbr, char *buf, size_t size)
 const char *
 ospf_timer_dump (struct thread *t, char *buf, size_t size)
 {
-  struct timeval now;
-  unsigned long h, m, s;
+  struct timeval now, result;
+  unsigned long h, m, s, ms;
 
   if (!t)
     return "inactive";
 
-  h = m = s = 0;
+  h = m = s = ms = 0;
   memset (buf, 0, size);
 
   gettimeofday (&now, NULL);
-
-  s = t->u.sands.tv_sec - now.tv_sec;
-  if (s >= 3600)
+  
+  timersub (&t->u.sands, &now, &result);
+  
+  ms = result.tv_usec / 1000;
+  
+  if (ms >= 1000)
     {
-      h = s / 3600;
-      s -= h * 3600;
+      result.tv_sec = ms / 1000;
+      ms =- result.tv_sec * 1000;
+    }
+  if (result.tv_sec >= 3600)
+    {
+      h = result.tv_sec / 3600;
+      result.tv_sec -= h * 3600;
     }
 
-  if (s >= 60)
+  if (result.tv_sec >= 60)
     {
-      m = s / 60;
-      s -= m * 60;
+      m = result.tv_sec / 60;
+      result.tv_sec -= m * 60;
     }
 
-  snprintf (buf, size, "%02ld:%02ld:%02ld", h, m, s);
+  snprintf (buf, size, "%02ld:%02ld:%02ld.%03ld", h, m, result.tv_sec, ms);
 
   return buf;
 }

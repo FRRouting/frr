@@ -65,8 +65,28 @@
      
 /* Macro for OSPF ISM timer turn on. */
 #define OSPF_ISM_TIMER_ON(T,F,V) \
-      if (!(T)) \
-        (T) = thread_add_timer (master, (F), oi, (V))
+  do { \
+    if (!(T)) \
+      (T) = thread_add_timer (master, (F), oi, (V)); \
+  } while (0)
+#define OSPF_ISM_TIMER_MSEC_ON(T,F,V) \
+  do { \
+    if (!(T)) \
+      (T) = thread_add_timer_msec (master, (F), oi, (V)); \
+  } while (0)
+
+/* convenience macro to set hello timer correctly, according to
+ * whether fast-hello is set or not
+ */
+#define OSPF_HELLO_TIMER_ON(O) \
+  do { \
+    if (OSPF_IF_PARAM ((O), fast_hello)) \
+        OSPF_ISM_TIMER_MSEC_ON ((O)->t_hello, ospf_hello_timer, \
+                                1000 / OSPF_IF_PARAM ((O), fast_hello)); \
+    else \
+        OSPF_ISM_TIMER_ON ((O)->t_hello, ospf_hello_timer, \
+                                OSPF_IF_PARAM ((O), v_hello)); \
+  } while (0)
 
 /* Macro for OSPF ISM timer turn off. */
 #define OSPF_ISM_TIMER_OFF(X) \

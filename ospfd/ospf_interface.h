@@ -55,7 +55,10 @@ struct ospf_if_params
 
   /* MTU mismatch check (see RFC2328, chap 10.6) */ 
   DECLARE_IF_PARAM (u_char, mtu_ignore);
-
+  
+  /* Fast-Hellos */
+  DECLARE_IF_PARAM (u_char, fast_hello);
+  
   /* Authentication data. */
   u_char auth_simple[OSPF_AUTH_SIMPLE_SIZE + 1];       /* Simple password. */
   u_char auth_simple__config:1;

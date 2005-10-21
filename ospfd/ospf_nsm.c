@@ -826,7 +826,7 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   if (state == NSM_Init)
     {
       OSPF_ISM_TIMER_OFF (oi->t_hello);
-      OSPF_ISM_TIMER_ON (oi->t_hello, ospf_hello_timer, 1);
+      OSPF_ISM_TIMER_MSEC_ON (oi->t_hello, ospf_hello_timer, 1);
     }
 
   /* Preserve old status? */

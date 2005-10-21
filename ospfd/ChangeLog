@@ -1,3 +1,63 @@
+2005-10-21 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) OSPF fast, sub-second hello and 1s dead-interval
+	  support.
+	* ospf_dump.c: (ospf_timer_dump) Print out milliseconds too.
+	  Callers typically specify a length of 9, so most see
+	  millisecs unless they specify the additional length.
+	* ospf_interface.h: (struct ospf_interface) new interface param, 
+	  fast_hello.
+	* ospf_interface.c: (ospf_if_table_lookup) add brackets,
+	  gcc warning fix.
+	  (ospf_new_if_params) Initialise fast_hello param.
+	  (ospf_free_if_params) Check whether fast_hello is configured.
+	  (ospf_if_new_hook) set fast_hello to default.
+	* ospf_ism.h: Wrap OSPF_ISM_TIMER_ON inside do {} while (0) to
+	  prevent funny side-effects from its if statement when this
+	  macro is used conditionally by other macros.
+	  (OSPF_ISM_TIMER_MSEC_ON) new macro, set in milliseconds.
+	  (OSPF_HELLO_TIMER_ON) new macro to set hello timer according
+	  to whether fast_hello is set.
+	* ospf_ism.c: Update all setting of the hello timer to use
+	  either OSPF_ISM_TIMER_MSEC_ON or OSPF_HELLO_TIMER_ON. The
+	  former is used when hello is to be sent immediately.
+	* ospf_nsm.c: ditto
+	* ospf_packet.c: (ospf_hello) hello-interval is not checked
+	  for mismatch if fast_hello is set.
+	  (ospf_read) Annoying nit, fix "no ospf_interface" to be debug
+	  rather than a warning, as it can be perfectly normal to
+	  receive packets when logical subnets are used.
+	  (ospf_make_hello) Set hello-interval to 0 if fast-hellos are
+	  configured.
+	* ospf_vty.c: (ospf_auto_cost_reference_bandwidth) annoying
+	  nit, don't vty_out if this command is given, it gets tired
+	  quick.
+	  (show_ip_ospf_interface_sub) Print the hello-interval 
+	  according to whether fast-hello is set or not.
+	  Print the extra 5 millisec characters from (ospf_timer_dump)
+	  if fast-hello is configured.
+	  (ospf_vty_dead_interval_set) new function, common to all
+	  forms of dead-interval command, to set dead-interval and
+	  fast-hello correctly. If a dead-interval is given, unset
+	  fast-hello, else if a hello-multiplier is set, set
+          dead-interval to 1 and fast-hello to given multiplier.
+	  (ip_ospf_dead_interval_addr_cmd) use
+	  ospf_vty_dead_interval_set().
+	  (ip_ospf_dead_interval_minimal_addr_cmd) ditto.
+	  (no_ip_ospf_dead_interval) Unset fast-hello.
+	  (no_ip_ospf_hello_interval) Bug-fix, unset of hello-interval
+	  should set it to OSPF_HELLO_INTERVAL_DEFAULT, not
+	  OSPF_ROUTER_DEAD_INTERVAL_DEFAULT.
+	  (config_write_interface) Write out fast-hello.
+	  (ospf_config_write) Write a comment about 
+	  "auto-cost reference-bandwidth" having to be equal on all
+	  routers. Hopefully just as noticeable as old practice of
+	  writing to vty, but less annoying.
+	  (ospf_vty_if_init) install the two new dead-interval
+	  commands.
+	* ospfd.h: Add defines for OSPF_ROUTER_DEAD_INTERVAL_MINIMAL
+	  and OSPF_FAST_HELLO_DEFAULT.
+
 2005-10-18 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) SPF memory management cleanup and fix for rare

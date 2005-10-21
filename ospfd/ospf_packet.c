@@ -789,14 +789,6 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
 	return;
       }
 
-  /* Compare Hello Interval. */
-  if (OSPF_IF_PARAM (oi, v_hello) != ntohs (hello->hello_interval))
-    {
-      zlog_warn ("Packet %s [Hello:RECV]: HelloInterval mismatch.",
-		 inet_ntoa (ospfh->router_id));
-      return;
-    }
-
   /* Compare Router Dead Interval. */
   if (OSPF_IF_PARAM (oi, v_wait) != ntohl (hello->dead_interval))
     {
@@ -805,6 +797,17 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
       return;
     }
 
+  /* Compare Hello Interval - ignored if fast-hellos are set. */
+  if (OSPF_IF_PARAM (oi, fast_hello) == 0)
+    {
+      if (OSPF_IF_PARAM (oi, v_hello) != ntohs (hello->hello_interval))
+        {
+          zlog_warn ("Packet %s [Hello:RECV]: HelloInterval mismatch.",
+                     inet_ntoa (ospfh->router_id));
+          return;
+        }
+    }
+  
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("Packet %s [Hello:RECV]: Options %s",
 	       inet_ntoa (ospfh->router_id),
@@ -2356,7 +2359,7 @@ ospf_read (struct thread *thread)
     {
       if ((oi = ospf_associate_packet_vl (ospf, ifp, iph, ospfh)) == NULL)
         {
-          zlog_warn ("Packet from [%s] received on link %s"
+          zlog_debug ("Packet from [%s] received on link %s"
                      " but no ospf_interface",
                      inet_ntoa (iph->ip_src), ifp->name);
           return 0;
@@ -2576,7 +2579,10 @@ ospf_make_hello (struct ospf_interface *oi, struct stream *s)
   stream_put_ipv4 (s, mask.s_addr);
 
   /* Set Hello Interval. */
-  stream_putw (s, OSPF_IF_PARAM (oi, v_hello));
+  if (OSPF_IF_PARAM (oi, fast_hello) == 0)
+    stream_putw (s, OSPF_IF_PARAM (oi, v_hello));
+  else
+    stream_putw (s, 0); /* hello-interval of 0 for fast-hellos */
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("make_hello: options: %x, int: %s",

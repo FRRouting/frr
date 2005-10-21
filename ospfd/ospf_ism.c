@@ -263,9 +263,8 @@ ospf_hello_timer (struct thread *thread)
   ospf_hello_send (oi);
 
   /* Hello timer set. */
-  OSPF_ISM_TIMER_ON (oi->t_hello, ospf_hello_timer,
-		     OSPF_IF_PARAM (oi, v_hello));
-
+  OSPF_HELLO_TIMER_ON (oi);
+  
   return 0;
 }
 
@@ -313,7 +312,7 @@ ism_timer_set (struct ospf_interface *oi)
       /* The router is trying to determine the identity of DRouter and
 	 BDRouter. The router begin to receive and send Hello Packets. */
       /* send first hello immediately */
-      OSPF_ISM_TIMER_ON (oi->t_hello, ospf_hello_timer, 1);
+      OSPF_ISM_TIMER_MSEC_ON (oi->t_hello, ospf_hello_timer, 1);
       OSPF_ISM_TIMER_ON (oi->t_wait, ospf_wait_timer,
 			 OSPF_IF_PARAM (oi, v_wait));
       OSPF_ISM_TIMER_OFF (oi->t_ls_ack);
@@ -323,8 +322,7 @@ ism_timer_set (struct ospf_interface *oi)
 	 virtual link. The router attempts to form an adjacency with
 	 neighboring router. Hello packets are also sent. */
       /* send first hello immediately */
-      OSPF_ISM_TIMER_ON (oi->t_hello, ospf_hello_timer, 1);
-      
+      OSPF_ISM_TIMER_MSEC_ON (oi->t_hello, ospf_hello_timer, 1);      
       OSPF_ISM_TIMER_OFF (oi->t_wait);
       OSPF_ISM_TIMER_ON (oi->t_ls_ack, ospf_ls_ack_timer, oi->v_ls_ack);
       break;
@@ -332,24 +330,21 @@ ism_timer_set (struct ospf_interface *oi)
       /* The network type of the interface is broadcast or NBMA network,
 	 and the router itself is neither Designated Router nor
 	 Backup Designated Router. */
-      OSPF_ISM_TIMER_ON (oi->t_hello, ospf_hello_timer,
-			 OSPF_IF_PARAM (oi, v_hello));
+      OSPF_HELLO_TIMER_ON (oi);
       OSPF_ISM_TIMER_OFF (oi->t_wait);
       OSPF_ISM_TIMER_ON (oi->t_ls_ack, ospf_ls_ack_timer, oi->v_ls_ack);
       break;
     case ISM_Backup:
       /* The network type of the interface is broadcast os NBMA network,
 	 and the router is Backup Designated Router. */
-      OSPF_ISM_TIMER_ON (oi->t_hello, ospf_hello_timer,
-			 OSPF_IF_PARAM (oi, v_hello));
+      OSPF_HELLO_TIMER_ON (oi);
       OSPF_ISM_TIMER_OFF (oi->t_wait);
       OSPF_ISM_TIMER_ON (oi->t_ls_ack, ospf_ls_ack_timer, oi->v_ls_ack);
       break;
     case ISM_DR:
       /* The network type of the interface is broadcast or NBMA network,
 	 and the router is Designated Router. */
-      OSPF_ISM_TIMER_ON (oi->t_hello, ospf_hello_timer,
-			 OSPF_IF_PARAM (oi, v_hello));
+      OSPF_HELLO_TIMER_ON (oi);
       OSPF_ISM_TIMER_OFF (oi->t_wait);
       OSPF_ISM_TIMER_ON (oi->t_ls_ack, ospf_ls_ack_timer, oi->v_ls_ack);
       break;
