@@ -189,11 +189,13 @@ ospf_apiserver_term (void)
    * Free all client instances.  ospf_apiserver_free removes the node
    * from the list, so we examine the head of the list anew each time.
    */
-  while ( (apiserv = listgetdata (listhead (apiserver_list))) != NULL)
+  while ( apiserver_list &&
+         (apiserv = listgetdata (listhead (apiserver_list))) != NULL)
     ospf_apiserver_free (apiserv);
 
   /* Free client list itself */
-  list_delete (apiserver_list);
+  if (apiserver_list)
+    list_delete (apiserver_list);
 
   /* Free wildcard list */
   /* XXX  */

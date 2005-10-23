@@ -1,5 +1,8 @@
 2005-10-23 Paul Jakma <paul.jakma@sun.com>
 
+	* ospf_apiserver.c: (ospf_apiserver_term) This function should
+	  not have side-effects (eg segv) if no apiserver instances are
+	  active, ie be robust.
 	* ospf_vty.c: (show_ip_ospf) fix display of SPF timer if it
 	  has not yet been run.
 
