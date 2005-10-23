@@ -2617,10 +2617,16 @@ DEFUN (show_ip_ospf,
 	  ospf->spf_holdtime, VTY_NEWLINE,
 	  ospf->spf_max_holdtime, VTY_NEWLINE,
 	  ospf->spf_hold_multiplier, VTY_NEWLINE);
-  timersub (&recent_time, &ospf->ts_spf, &result);
-  vty_out (vty, " SPF algorithm last executed %s ago%s",
-           ospf_timeval_dump (&result, timebuf, sizeof (timebuf)),
-           VTY_NEWLINE);
+  vty_out (vty, " SPF algorithm ");
+  if (ospf->ts_spf.tv_sec || ospf->ts_spf.tv_usec)
+    {
+      timersub (&recent_time, &ospf->ts_spf, &result);
+      vty_out (vty, "last executed %s ago%s",
+               ospf_timeval_dump (&result, timebuf, sizeof (timebuf)),
+               VTY_NEWLINE);
+    }
+  else
+    vty_out (vty, "has not been run%s", VTY_NEWLINE);
   vty_out (vty, " SPF timer %s%s%s",
            (ospf->t_spf_calc ? "due in " : "is "),
            ospf_timer_dump (ospf->t_spf_calc, timebuf, sizeof (timebuf)),

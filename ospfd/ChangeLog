@@ -1,3 +1,8 @@
+2005-10-23 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_vty.c: (show_ip_ospf) fix display of SPF timer if it
+	  has not yet been run.
+
 2005-10-21 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_dump.c: (ospf_timeval_dump) fix ms adjustment, thanks to
