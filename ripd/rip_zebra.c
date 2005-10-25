@@ -29,17 +29,10 @@
 #include "log.h"
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
+#include "ripd/rip_interface.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
-
-/* Callback prototypes for zebra client service. */
-int rip_interface_add (int, struct zclient *, zebra_size_t);
-int rip_interface_delete (int, struct zclient *, zebra_size_t);
-int rip_interface_address_add (int, struct zclient *, zebra_size_t);
-int rip_interface_address_delete (int, struct zclient *, zebra_size_t);
-int rip_interface_up (int, struct zclient *, zebra_size_t);
-int rip_interface_down (int, struct zclient *, zebra_size_t);
 
 /* RIPd to zebra command interface. */
 void
@@ -97,7 +90,7 @@ rip_zebra_ipv4_delete (struct prefix_ipv4 *p, struct in_addr *nexthop,
 }
 
 /* Zebra route add and delete treatment. */
-int
+static int
 rip_zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct stream *s;
@@ -152,13 +145,13 @@ rip_zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
 }
 
 void
-rip_zclient_reset ()
+rip_zclient_reset (void)
 {
   zclient_reset (zclient);
 }
 
 /* RIP route-map set for redistribution */
-void
+static void
 rip_routemap_set (int type, const char *name)
 {
   if (rip->route_map[type].name)
@@ -168,14 +161,14 @@ rip_routemap_set (int type, const char *name)
   rip->route_map[type].map = route_map_lookup_by_name (name);
 }
 
-void
+static void
 rip_redistribute_metric_set (int type, unsigned int metric)
 {
   rip->route_map[type].metric_config = 1;
   rip->route_map[type].metric = metric;
 }
 
-int
+static int
 rip_metric_unset (int type, unsigned int metric)
 {
 #define DONT_CARE_METRIC_RIP 17  
@@ -188,7 +181,7 @@ rip_metric_unset (int type, unsigned int metric)
 }
 
 /* RIP route-map unset for redistribution */
-int
+static int
 rip_routemap_unset (int type, const char *name)
 {
   if (! rip->route_map[type].name ||
@@ -240,7 +233,7 @@ DEFUN (no_router_zebra,
   return CMD_SUCCESS;
 }
 
-int
+static int
 rip_redistribute_set (int type)
 {
   if (zclient->redist[type])
@@ -254,7 +247,7 @@ rip_redistribute_set (int type)
   return CMD_SUCCESS;
 }
 
-int
+static int
 rip_redistribute_unset (int type)
 {
   if (! zclient->redist[type])
@@ -278,7 +271,7 @@ rip_redistribute_check (int type)
 }
 
 void
-rip_redistribute_clean ()
+rip_redistribute_clean (void)
 {
   int i;
 
@@ -632,7 +625,7 @@ DEFUN (no_rip_default_information_originate,
 }
 
 /* RIP configuration write function. */
-int
+static int
 config_write_zebra (struct vty *vty)
 {
   if (! zclient->enable)

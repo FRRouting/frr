@@ -40,15 +40,16 @@
 
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
-
-void rip_enable_apply (struct interface *);
-void rip_passive_interface_apply (struct interface *);
-int rip_if_down(struct interface *ifp);
-int rip_enable_if_lookup (const char *ifname);
-int rip_enable_network_lookup2 (struct connected *connected);
-void rip_enable_apply_all ();
-
-
+#include "ripd/rip_interface.h"
+
+/* static prototypes */
+static void rip_enable_apply (struct interface *);
+static void rip_passive_interface_apply (struct interface *);
+static int rip_if_down(struct interface *ifp);
+static int rip_enable_if_lookup (const char *ifname);
+static int rip_enable_network_lookup2 (struct connected *connected);
+static void rip_enable_apply_all (void);
+
 struct message ri_version_msg[] = 
 {
   {RI_RIP_VERSION_1,       "1"},
@@ -70,7 +71,7 @@ static int passive_default;	/* are we in passive-interface default mode? */
 vector Vrip_passive_nondefault;
 
 /* Join to the RIP version 2 multicast group. */
-int
+static int
 ipv4_multicast_join (int sock, 
 		     struct in_addr group, 
 		     struct in_addr ifa,
@@ -92,7 +93,7 @@ ipv4_multicast_join (int sock,
 }
 
 /* Leave from the RIP version 2 multicast group. */
-int
+static int
 ipv4_multicast_leave (int sock, 
 		      struct in_addr group, 
 		      struct in_addr ifa,
@@ -113,8 +114,8 @@ ipv4_multicast_leave (int sock,
 }
 
 /* Allocate new RIP's interface configuration. */
-struct rip_interface *
-rip_interface_new ()
+static struct rip_interface *
+rip_interface_new (void)
 {
   struct rip_interface *ri;
 
@@ -164,7 +165,7 @@ rip_interface_multicast_set (int sock, struct connected *connected)
 }
 
 /* Send RIP request packet to specified interface. */
-void
+static void
 rip_request_interface_send (struct interface *ifp, u_char version)
 {
   struct sockaddr_in to;
@@ -214,7 +215,7 @@ rip_request_interface_send (struct interface *ifp, u_char version)
 }
 
 /* This will be executed when interface goes up. */
-void
+static void
 rip_request_interface (struct interface *ifp)
 {
   struct rip_interface *ri;
@@ -244,7 +245,7 @@ rip_request_interface (struct interface *ifp)
 }
 
 /* Send RIP request to the neighbor. */
-void
+static void
 rip_request_neighbor (struct in_addr addr)
 {
   struct sockaddr_in to;
@@ -257,8 +258,8 @@ rip_request_neighbor (struct in_addr addr)
 }
 
 /* Request routes at all interfaces. */
-void
-rip_request_neighbor_all ()
+static void
+rip_request_neighbor_all (void)
 {
   struct route_node *rp;
 
@@ -275,7 +276,7 @@ rip_request_neighbor_all ()
 }
 
 /* Multicast packet receive socket. */
-int
+static int
 rip_multicast_join (struct interface *ifp, int sock)
 {
   struct listnode *cnode;
@@ -307,7 +308,7 @@ rip_multicast_join (struct interface *ifp, int sock)
 }
 
 /* Leave from multicast group. */
-void
+static void
 rip_multicast_leave (struct interface *ifp, int sock)
 {
   struct listnode *cnode;
@@ -336,7 +337,7 @@ rip_multicast_leave (struct interface *ifp, int sock)
 }
 
 /* Is there and address on interface that I could use ? */
-int
+static int
 rip_if_ipv4_address_check (struct interface *ifp)
 {
   struct listnode *nn;
@@ -553,7 +554,7 @@ rip_interface_delete (int command, struct zclient *zclient,
 }
 
 void
-rip_interface_clean ()
+rip_interface_clean (void)
 {
   struct listnode *node;
   struct interface *ifp;
@@ -576,7 +577,7 @@ rip_interface_clean ()
 }
 
 void
-rip_interface_reset ()
+rip_interface_reset (void)
 {
   struct listnode *node;
   struct interface *ifp;
@@ -694,7 +695,8 @@ rip_if_down_all ()
 }
 
 static void
-rip_apply_address_add (struct connected *ifc) {
+rip_apply_address_add (struct connected *ifc)
+{
   struct prefix_ipv4 address;
   struct prefix *p;
 
@@ -815,7 +817,7 @@ rip_interface_address_delete (int command, struct zclient *zclient,
 /* Check interface is enabled by network statement. */
 /* Check wether the interface has at least a connected prefix that
  * is within the ripng_enable_network table. */
-int
+static int
 rip_enable_network_lookup_if (struct interface *ifp)
 {
   struct listnode *node, *nnode;
@@ -876,7 +878,7 @@ rip_enable_network_lookup2 (struct connected *connected)
   return -1;
 }
 /* Add RIP enable network. */
-int
+static int
 rip_enable_network_add (struct prefix *p)
 {
   struct route_node *node;
@@ -898,7 +900,7 @@ rip_enable_network_add (struct prefix *p)
 }
 
 /* Delete RIP enable network. */
-int
+static int
 rip_enable_network_delete (struct prefix *p)
 {
   struct route_node *node;
@@ -923,7 +925,7 @@ rip_enable_network_delete (struct prefix *p)
 }
 
 /* Check interface is enabled by ifname statement. */
-int
+static int
 rip_enable_if_lookup (const char *ifname)
 {
   unsigned int i;
@@ -937,7 +939,7 @@ rip_enable_if_lookup (const char *ifname)
 }
 
 /* Add interface to rip_enable_if. */
-int
+static int
 rip_enable_if_add (const char *ifname)
 {
   int ret;
@@ -954,7 +956,7 @@ rip_enable_if_add (const char *ifname)
 }
 
 /* Delete interface from rip_enable_if. */
-int
+static int
 rip_enable_if_delete (const char *ifname)
 {
   int index;
@@ -974,7 +976,7 @@ rip_enable_if_delete (const char *ifname)
 }
 
 /* Join to multicast group and send request to the interface. */
-int
+static int
 rip_interface_wakeup (struct thread *t)
 {
   struct interface *ifp;
@@ -1004,7 +1006,7 @@ rip_interface_wakeup (struct thread *t)
 
 int rip_redistribute_check (int);
 
-void
+static void
 rip_connect_set (struct interface *ifp, int set)
 {
   struct listnode *node, *nnode;
@@ -1140,7 +1142,7 @@ rip_neighbor_lookup (struct sockaddr_in *from)
 }
 
 /* Add new RIP neighbor to the neighbor tree. */
-int
+static int
 rip_neighbor_add (struct prefix_ipv4 *p)
 {
   struct route_node *node;
@@ -1156,7 +1158,7 @@ rip_neighbor_add (struct prefix_ipv4 *p)
 }
 
 /* Delete RIP neighbor from the neighbor tree. */
-int
+static int
 rip_neighbor_delete (struct prefix_ipv4 *p)
 {
   struct route_node *node;
@@ -1203,7 +1205,7 @@ rip_clean_network ()
 }
 
 /* Utility function for looking up passive interface settings. */
-int
+static int
 rip_passive_nondefault_lookup (const char *ifname)
 {
   unsigned int i;
@@ -1230,8 +1232,8 @@ rip_passive_interface_apply (struct interface *ifp)
     zlog_debug ("interface %s: passive = %d",ifp->name,ri->passive);
 }
 
-void
-rip_passive_interface_apply_all ()
+static void
+rip_passive_interface_apply_all (void)
 {
   struct interface *ifp;
   struct listnode *node, *nnode;
@@ -1241,7 +1243,7 @@ rip_passive_interface_apply_all ()
 }
 
 /* Passive interface. */
-int
+static int
 rip_passive_nondefault_set (struct vty *vty, const char *ifname)
 {
   if (rip_passive_nondefault_lookup (ifname) >= 0)
@@ -1254,7 +1256,7 @@ rip_passive_nondefault_set (struct vty *vty, const char *ifname)
   return CMD_SUCCESS;
 }
 
-int
+static int
 rip_passive_nondefault_unset (struct vty *vty, const char *ifname)
 {
   int i;
@@ -1275,7 +1277,7 @@ rip_passive_nondefault_unset (struct vty *vty, const char *ifname)
 
 /* Free all configured RIP passive-interface settings. */
 void
-rip_passive_nondefault_clean ()
+rip_passive_nondefault_clean (void)
 {
   unsigned int i;
   char *str;
@@ -1968,7 +1970,7 @@ DEFUN (no_rip_passive_interface,
 }
 
 /* Write rip configuration of each interface. */
-int
+static int
 rip_interface_config_write (struct vty *vty)
 {
   struct listnode *node;
@@ -2109,7 +2111,7 @@ struct cmd_node interface_node =
 };
 
 /* Called when interface structure allocated. */
-int
+static int
 rip_interface_new_hook (struct interface *ifp)
 {
   ifp->info = rip_interface_new ();
@@ -2117,7 +2119,7 @@ rip_interface_new_hook (struct interface *ifp)
 }
 
 /* Called when interface structure deleted. */
-int
+static int
 rip_interface_delete_hook (struct interface *ifp)
 {
   XFREE (MTYPE_RIP_INTERFACE, ifp->info);
@@ -2127,7 +2129,7 @@ rip_interface_delete_hook (struct interface *ifp)
 
 /* Allocate and initialize interface vector. */
 void
-rip_if_init ()
+rip_if_init (void)
 {
   /* Default initial size of interface vector. */
   if_init();

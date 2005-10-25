@@ -1,3 +1,9 @@
+2005-10-26 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) static/extern functions and definitions.
+	* rip_interface.h: new file, export the public functions from
+	  rip_interface.c
+
 2005-10-17 Vincent Jardin <vincent.jardin@6wind.com>
 
 	* ripd.c: rip_create_socket() for each packet, it does not bind to the

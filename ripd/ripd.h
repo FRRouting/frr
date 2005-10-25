@@ -374,59 +374,59 @@ enum rip_event
   } while (0)
 
 /* Prototypes. */
-void rip_init ();
-void rip_reset ();
-void rip_clean ();
-void rip_clean_network ();
-void rip_interface_clean ();
-void rip_interface_reset ();
-void rip_passive_nondefault_clean ();
-void rip_if_init ();
-void rip_if_down_all ();
-void rip_route_map_init ();
-void rip_route_map_reset ();
-void rip_snmp_init ();
-void rip_zclient_init ();
-void rip_zclient_start ();
-void rip_zclient_reset ();
-void rip_offset_init ();
-int if_check_address (struct in_addr addr);
-int if_valid_neighbor (struct in_addr addr);
+extern void rip_init (void);
+extern void rip_reset (void);
+extern void rip_clean (void);
+extern void rip_clean_network (void);
+extern void rip_interface_clean (void);
+extern void rip_interface_reset (void);
+extern void rip_passive_nondefault_clean (void);
+extern void rip_if_init (void);
+extern void rip_if_down_all (void);
+extern void rip_route_map_init (void);
+extern void rip_route_map_reset (void);
+extern void rip_snmp_init (void);
+extern void rip_zclient_init (void);
+extern void rip_zclient_start (void);
+extern void rip_zclient_reset (void);
+extern void rip_offset_init (void);
+extern int if_check_address (struct in_addr addr);
+extern int if_valid_neighbor (struct in_addr addr);
 
-int rip_request_send (struct sockaddr_in *, struct interface *, u_char,
+extern int rip_request_send (struct sockaddr_in *, struct interface *, u_char,
                       struct connected *);
-int rip_neighbor_lookup (struct sockaddr_in *);
-void rip_redistribute_add (int, int, struct prefix_ipv4 *, unsigned int, 
+extern int rip_neighbor_lookup (struct sockaddr_in *);
+extern void rip_redistribute_add (int, int, struct prefix_ipv4 *, unsigned int, 
 			   struct in_addr *, unsigned int, unsigned char);
-void rip_redistribute_delete (int, int, struct prefix_ipv4 *, unsigned int);
-void rip_redistribute_withdraw (int);
-void rip_zebra_ipv4_add (struct prefix_ipv4 *, struct in_addr *, u_int32_t, u_char);
-void rip_zebra_ipv4_delete (struct prefix_ipv4 *, struct in_addr *, u_int32_t);
-void rip_interface_multicast_set (int, struct connected *);
-void rip_distribute_update_interface (struct interface *);
-void rip_if_rmap_update_interface (struct interface *);
+extern void rip_redistribute_delete (int, int, struct prefix_ipv4 *, unsigned int);
+extern void rip_redistribute_withdraw (int);
+extern void rip_zebra_ipv4_add (struct prefix_ipv4 *, struct in_addr *, u_int32_t, u_char);
+extern void rip_zebra_ipv4_delete (struct prefix_ipv4 *, struct in_addr *, u_int32_t);
+extern void rip_interface_multicast_set (int, struct connected *);
+extern void rip_distribute_update_interface (struct interface *);
+extern void rip_if_rmap_update_interface (struct interface *);
 
-int config_write_rip_network (struct vty *, int);
-int config_write_rip_offset_list (struct vty *);
-int config_write_rip_redistribute (struct vty *, int);
+extern int config_write_rip_network (struct vty *, int);
+extern int config_write_rip_offset_list (struct vty *);
+extern int config_write_rip_redistribute (struct vty *, int);
 
-void rip_peer_init ();
-void rip_peer_update (struct sockaddr_in *, u_char);
-void rip_peer_bad_route (struct sockaddr_in *);
-void rip_peer_bad_packet (struct sockaddr_in *);
-void rip_peer_display (struct vty *);
-struct rip_peer *rip_peer_lookup (struct in_addr *);
-struct rip_peer *rip_peer_lookup_next (struct in_addr *);
+extern void rip_peer_init (void);
+extern void rip_peer_update (struct sockaddr_in *, u_char);
+extern void rip_peer_bad_route (struct sockaddr_in *);
+extern void rip_peer_bad_packet (struct sockaddr_in *);
+extern void rip_peer_display (struct vty *);
+extern struct rip_peer *rip_peer_lookup (struct in_addr *);
+extern struct rip_peer *rip_peer_lookup_next (struct in_addr *);
 
-int rip_offset_list_apply_in (struct prefix_ipv4 *, struct interface *, u_int32_t *);
-int rip_offset_list_apply_out (struct prefix_ipv4 *, struct interface *, u_int32_t *);
-void rip_offset_clean ();
+extern int rip_offset_list_apply_in (struct prefix_ipv4 *, struct interface *, u_int32_t *);
+extern int rip_offset_list_apply_out (struct prefix_ipv4 *, struct interface *, u_int32_t *);
+extern void rip_offset_clean (void);
 
-void rip_info_free (struct rip_info *);
-u_char rip_distance_apply (struct rip_info *);
-void rip_redistribute_clean ();
-void rip_ifaddr_add (struct interface *, struct connected *);
-void rip_ifaddr_delete (struct interface *, struct connected *);
+extern void rip_info_free (struct rip_info *);
+extern u_char rip_distance_apply (struct rip_info *);
+extern void rip_redistribute_clean (void);
+extern void rip_ifaddr_add (struct interface *, struct connected *);
+extern void rip_ifaddr_delete (struct interface *, struct connected *);
 
 /* There is only one rip strucutre. */
 extern struct rip *rip;
@@ -437,5 +437,4 @@ extern struct thread_master *master;
 /* RIP statistics for SNMP. */
 extern long rip_global_route_changes;
 extern long rip_global_queries;
-
 #endif /* _ZEBRA_RIP_H */

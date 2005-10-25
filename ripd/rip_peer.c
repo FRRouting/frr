@@ -33,8 +33,8 @@
 /* Linked list of RIP peer. */
 struct list *peer_list;
 
-struct rip_peer *
-rip_peer_new ()
+static struct rip_peer *
+rip_peer_new (void)
 {
   struct rip_peer *new;
 
@@ -43,7 +43,7 @@ rip_peer_new ()
   return new;
 }
 
-void
+static void
 rip_peer_free (struct rip_peer *peer)
 {
   XFREE (MTYPE_RIP_PEER, peer);
@@ -78,7 +78,7 @@ rip_peer_lookup_next (struct in_addr *addr)
 }
 
 /* RIP peer is timeout. */
-int
+static int
 rip_peer_timeout (struct thread *t)
 {
   struct rip_peer *peer;
@@ -91,7 +91,7 @@ rip_peer_timeout (struct thread *t)
 }
 
 /* Get RIP peer.  At the same time update timeout thread. */
-struct rip_peer *
+static struct rip_peer *
 rip_peer_get (struct in_addr *addr)
 {
   struct rip_peer *peer;
@@ -145,7 +145,7 @@ rip_peer_bad_packet (struct sockaddr_in *from)
 }
 
 /* Display peer uptime. */
-char *
+static char *
 rip_peer_uptime (struct rip_peer *peer, char *buf, size_t len)
 {
   time_t uptime;
@@ -197,14 +197,14 @@ rip_peer_display (struct vty *vty)
     }
 }
 
-int
+static int
 rip_peer_list_cmp (struct rip_peer *p1, struct rip_peer *p2)
 {
   return htonl (p1->addr.s_addr) > htonl (p2->addr.s_addr);
 }
 
 void
-rip_peer_init ()
+rip_peer_init (void)
 {
   peer_list = list_new ();
   peer_list->cmp = (int (*)(void *, void *)) rip_peer_list_cmp;

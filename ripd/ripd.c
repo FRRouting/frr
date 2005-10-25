@@ -63,10 +63,11 @@ long rip_global_route_changes = 0;
 long rip_global_queries = 0;
 
 /* Prototypes. */
-void rip_event (enum rip_event, int);
-
-void rip_output_process (struct connected *, struct sockaddr_in *, int, u_char);
-
+static void rip_event (enum rip_event, int);
+static void rip_output_process (struct connected *, struct sockaddr_in *, int, u_char);
+static int rip_triggered_update (struct thread *);
+static int rip_update_jitter (unsigned long);
+
 /* RIP output routes type. */
 enum
 {
@@ -87,7 +88,7 @@ struct message rip_msg[] =
 };
 
 /* Utility function to set boradcast option to the socket. */
-int
+static int
 sockopt_broadcast (int sock)
 {
   int ret;
@@ -102,13 +103,13 @@ sockopt_broadcast (int sock)
   return 0;
 }
 
-int
+static int
 rip_route_rte (struct rip_info *rinfo)
 {
   return (rinfo->type == ZEBRA_ROUTE_RIP && rinfo->sub_type == RIP_ROUTE_RTE);
 }
 
-struct rip_info *
+static struct rip_info *
 rip_info_new ()
 {
   struct rip_info *new;
@@ -125,7 +126,7 @@ rip_info_free (struct rip_info *rinfo)
 }
 
 /* RIP route garbage collect timer. */
-int
+static int
 rip_garbage_collect (struct thread *t)
 {
   struct rip_info *rinfo;
@@ -151,7 +152,7 @@ rip_garbage_collect (struct thread *t)
 }
 
 /* Timeout RIP routes. */
-int
+static int
 rip_timeout (struct thread *t)
 {
   struct rip_info *rinfo;
@@ -183,7 +184,7 @@ rip_timeout (struct thread *t)
   return 0;
 }
 
-void
+static void
 rip_timeout_update (struct rip_info *rinfo)
 {
   if (rinfo->metric != RIP_METRIC_INFINITY)
@@ -193,7 +194,7 @@ rip_timeout_update (struct rip_info *rinfo)
     }
 }
 
-int
+static int
 rip_incoming_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 {
   struct distribute *dist;
@@ -264,7 +265,7 @@ rip_incoming_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
   return 0;
 }
 
-int
+static int
 rip_outgoing_filter (struct prefix_ipv4 *p, struct rip_interface *ri)
 {
   struct distribute *dist;
@@ -361,7 +362,7 @@ rip_nexthop_check (struct in_addr *addr)
 }
 
 /* RIP add route to routing table. */
-void
+static void
 rip_rte_process (struct rte *rte, struct sockaddr_in *from,
                  struct interface *ifp)
 {
@@ -694,7 +695,7 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
 }
 
 /* Dump RIP packet */
-void
+static void
 rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
 {
   caddr_t lim;
@@ -785,7 +786,7 @@ rip_packet_dump (struct rip_packet *packet, int size, const char *sndrcv)
 /* Check if the destination address is valid (unicast; not net 0
    or 127) (RFC2453 Section 3.9.2 - Page 26).  But we don't
    check net 0 because we accept default route. */
-int
+static int
 rip_destination_check (struct in_addr addr)
 {
   u_int32_t destination;
@@ -812,7 +813,7 @@ rip_destination_check (struct in_addr addr)
 }
 
 /* RIP version 2 authentication. */
-int
+static int
 rip_auth_simple_password (struct rte *rte, struct sockaddr_in *from,
 			  struct interface *ifp)
 {
@@ -854,7 +855,7 @@ rip_auth_simple_password (struct rte *rte, struct sockaddr_in *from,
 }
 
 /* RIP version 2 authentication with MD5. */
-int
+static int
 rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
               int length, struct interface *ifp)
 {
@@ -1105,7 +1106,7 @@ rip_auth_md5_set (struct stream *s, struct rip_interface *ri, size_t doff,
 }
 
 /* RIP routing information. */
-void
+static void
 rip_response_process (struct rip_packet *packet, int size, 
 		      struct sockaddr_in *from, struct connected *ifc)
 {
@@ -1409,7 +1410,7 @@ rip_create_socket (struct sockaddr_in *from)
  * by connected argument. NULL to argument denotes destination should be
  * should be RIP multicast group
  */
-int
+static int
 rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
                  struct connected *ifc)
 {
@@ -1643,7 +1644,7 @@ rip_redistribute_delete (int type, int sub_type, struct prefix_ipv4 *p,
 }
 
 /* Response to request called from rip_read ().*/
-void
+static void
 rip_request_process (struct rip_packet *packet, int size, 
 		     struct sockaddr_in *from, struct connected *ifc)
 {
@@ -1811,7 +1812,7 @@ rip_read_new (struct thread *t)
 #endif /* RIP_RECVMSG */
 
 /* First entry point of RIP packet. */
-int
+static int
 rip_read (struct thread *t)
 {
   int sock;
@@ -2101,7 +2102,7 @@ rip_read (struct thread *t)
 
 /* Write routing table entry to the stream and return next index of
    the routing table entry in the stream. */
-int
+static int
 rip_write_rte (int num, struct stream *s, struct prefix_ipv4 *p,
                u_char version, struct rip_info *rinfo)
 {
@@ -2149,7 +2150,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
   /* this might need to made dynamic if RIP ever supported auth methods
      with larger key string sizes */
   char auth_str[RIP_AUTH_SIMPLE_SIZE];
-  size_t doff; /* offset of digest offset field */
+  size_t doff = 0; /* offset of digest offset field */
   int num = 0;
   int rtemax;
   int subnetted = 0;
@@ -2427,7 +2428,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 }
 
 /* Send RIP packet to the interface. */
-void
+static void
 rip_update_interface (struct connected *ifc, u_char version, int route_type)
 {
   struct sockaddr_in to;
@@ -2470,7 +2471,7 @@ rip_update_interface (struct connected *ifc, u_char version, int route_type)
 }
 
 /* Update send to all interface and neighbor. */
-void
+static void
 rip_update_process (int route_type)
 {
   struct listnode *node;
@@ -2572,7 +2573,7 @@ rip_update_process (int route_type)
 }
 
 /* RIP's periodical timer. */
-int
+static int
 rip_update (struct thread *t)
 {
   /* Clear timer pointer. */
@@ -2600,7 +2601,7 @@ rip_update (struct thread *t)
 }
 
 /* Walk down the RIP routing table then clear changed flag. */
-void
+static void
 rip_clear_changed_flag ()
 {
   struct route_node *rp;
@@ -2613,7 +2614,7 @@ rip_clear_changed_flag ()
 }
 
 /* Triggered update interval timer. */
-int
+static int
 rip_triggered_interval (struct thread *t)
 {
   int rip_triggered_update (struct thread *);
@@ -2629,7 +2630,7 @@ rip_triggered_interval (struct thread *t)
 }     
 
 /* Execute triggered update. */
-int
+static int
 rip_triggered_update (struct thread *t)
 {
   int interval;
@@ -2706,8 +2707,8 @@ rip_redistribute_withdraw (int type)
 }
 
 /* Create new RIP instance and set it to global variable. */
-int
-rip_create ()
+static int
+rip_create (void)
 {
   rip = XMALLOC (MTYPE_RIP, sizeof (struct rip));
   memset (rip, 0, sizeof (struct rip));
@@ -2787,7 +2788,7 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
   return sizeof (rip_packet);
 }
 
-int
+static int
 rip_update_jitter (unsigned long time)
 {
 #define JITTER_BOUND 4
@@ -2990,7 +2991,7 @@ DEFUN (no_rip_route,
   return CMD_SUCCESS;
 }
 
-void
+static void
 rip_update_default_metric ()
 {
   struct route_node *np;
@@ -3126,7 +3127,7 @@ struct rip_distance
   char *access_list;
 };
 
-struct rip_distance *
+static struct rip_distance *
 rip_distance_new ()
 {
   struct rip_distance *new;
@@ -3135,13 +3136,13 @@ rip_distance_new ()
   return new;
 }
 
-void
+static void
 rip_distance_free (struct rip_distance *rdistance)
 {
   XFREE (MTYPE_RIP_DISTANCE, rdistance);
 }
 
-int
+static int
 rip_distance_set (struct vty *vty, const char *distance_str, const char *ip_str,
 		  const char *access_list_str)
 {
@@ -3188,7 +3189,7 @@ rip_distance_set (struct vty *vty, const char *distance_str, const char *ip_str,
   return CMD_SUCCESS;
 }
 
-int
+static int
 rip_distance_unset (struct vty *vty, const char *distance_str,
 		    const char *ip_str, const char *access_list_str)
 {
@@ -3227,7 +3228,7 @@ rip_distance_unset (struct vty *vty, const char *distance_str,
   return CMD_SUCCESS;
 }
 
-void
+static void
 rip_distance_reset ()
 {
   struct route_node *rn;
@@ -3288,7 +3289,7 @@ rip_distance_apply (struct rip_info *rinfo)
   return 0;
 }
 
-void
+static void
 rip_distance_show (struct vty *vty)
 {
   struct route_node *rn;
@@ -3387,7 +3388,7 @@ DEFUN (no_rip_distance_source_access_list,
 }
 
 /* Print out routes update time. */
-void
+static void
 rip_vty_out_uptime (struct vty *vty, struct rip_info *rinfo)
 {
   struct timeval timer_now;
@@ -3415,7 +3416,7 @@ rip_vty_out_uptime (struct vty *vty, struct rip_info *rinfo)
     }
 }
 
-const char *
+static const char *
 rip_route_type_print (int sub_type)
 {
   switch (sub_type)
@@ -3513,7 +3514,7 @@ DEFUN (show_ip_rip,
 }
 
 /* Return next event time. */
-int
+static int
 rip_next_thread_timer (struct thread *thread)
 {
   struct timeval timer_now;
@@ -3629,7 +3630,7 @@ DEFUN (show_ip_rip_status,
 }
 
 /* RIP configuration write function. */
-int
+static int
 config_write_rip (struct vty *vty)
 {
   int write = 0;
@@ -3722,7 +3723,7 @@ struct cmd_node rip_node =
 };
 
 /* Distribute-list update functions. */
-void
+static void
 rip_distribute_update (struct distribute *dist)
 {
   struct interface *ifp;
@@ -3796,7 +3797,7 @@ rip_distribute_update_interface (struct interface *ifp)
 
 /* Update all interface's distribute list. */
 /* ARGSUSED */
-void
+static void
 rip_distribute_update_all (struct prefix_list *notused)
 {
   struct interface *ifp;
@@ -3806,7 +3807,7 @@ rip_distribute_update_all (struct prefix_list *notused)
     rip_distribute_update_interface (ifp);
 }
 /* ARGSUSED */
-void
+static void
 rip_distribute_update_all_wrapper(struct access_list *notused)
 {
         rip_distribute_update_all(NULL);
@@ -3924,7 +3925,7 @@ rip_reset ()
   rip_zclient_reset ();
 }
 
-void
+static void
 rip_if_rmap_update (struct if_rmap *if_rmap)
 {
   struct interface *ifp;
@@ -3970,7 +3971,7 @@ rip_if_rmap_update_interface (struct interface *ifp)
     rip_if_rmap_update (if_rmap);
 }
 
-void
+static void
 rip_routemap_update_redistribute (void)
 {
   int i;
@@ -3987,7 +3988,7 @@ rip_routemap_update_redistribute (void)
 }
 
 /* ARGSUSED */
-void
+static void
 rip_routemap_update (const char *notused)
 {
   struct interface *ifp;
@@ -4001,7 +4002,7 @@ rip_routemap_update (const char *notused)
 
 /* Allocate new rip structure and set default value. */
 void
-rip_init ()
+rip_init (void)
 {
   /* Randomize for triggered update random(). */
   srand (time (NULL));
