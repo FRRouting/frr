@@ -3,6 +3,8 @@
 	* (general) static/extern functions and definitions.
 	* rip_interface.h: new file, export the public functions from
 	  rip_interface.c
+	* ripd.c: Update couple more functions to specify void
+	  explicitely.
 
 2005-10-17 Vincent Jardin <vincent.jardin@6wind.com>
 

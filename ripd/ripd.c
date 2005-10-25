@@ -2602,7 +2602,7 @@ rip_update (struct thread *t)
 
 /* Walk down the RIP routing table then clear changed flag. */
 static void
-rip_clear_changed_flag ()
+rip_clear_changed_flag (void)
 {
   struct route_node *rp;
   struct rip_info *rinfo;
@@ -2992,7 +2992,7 @@ DEFUN (no_rip_route,
 }
 
 static void
-rip_update_default_metric ()
+rip_update_default_metric (void)
 {
   struct route_node *np;
   struct rip_info *rinfo;
@@ -3128,7 +3128,7 @@ struct rip_distance
 };
 
 static struct rip_distance *
-rip_distance_new ()
+rip_distance_new (void)
 {
   struct rip_distance *new;
   new = XMALLOC (MTYPE_RIP_DISTANCE, sizeof (struct rip_distance));
@@ -3229,7 +3229,7 @@ rip_distance_unset (struct vty *vty, const char *distance_str,
 }
 
 static void
-rip_distance_reset ()
+rip_distance_reset (void)
 {
   struct route_node *rn;
   struct rip_distance *rdistance;
@@ -3815,7 +3815,7 @@ rip_distribute_update_all_wrapper(struct access_list *notused)
 
 /* Delete all added rip route. */
 void
-rip_clean ()
+rip_clean (void)
 {
   int i;
   struct route_node *rp;
@@ -3902,7 +3902,7 @@ rip_clean ()
 
 /* Reset all values to the default settings. */
 void
-rip_reset ()
+rip_reset (void)
 {
   /* Reset global counters. */
   rip_global_route_changes = 0;
