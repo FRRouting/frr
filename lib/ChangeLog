@@ -7,6 +7,11 @@
 	* memtypes.h: update auto-built file.
 	* if_rmap.c: Use MTYPE_IF_RMAP_NAME.
 	* pqueue.c: Use the two MTYPE_PQUEUE mtypes for allocations.
+	* command.c: Use MTYPE_HOST, MTYPE_STRVEC. Some other fixups,
+	  including fixing some likely leaks in config_write_file.
+	* vty.c: memory macro usage fixes. 
+	  (vty_read_config) fix leak where relative config file is
+	  specified.
 
 2005-10-20 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

@@ -2167,7 +2167,7 @@ vty_close (struct vty *vty)
     close (vty->fd);
 
   if (vty->address)
-    XFREE (0, vty->address);
+    XFREE (MTYPE_TMP, vty->address);
   if (vty->buf)
     XFREE (MTYPE_VTY, vty->buf);
 
@@ -2306,6 +2306,7 @@ vty_read_config (char *config_file,
   char cwd[MAXPATHLEN];
   FILE *confp = NULL;
   char *fullpath;
+  char *tmp = NULL;
 
   /* If -f flag specified. */
   if (config_file != NULL)
@@ -2313,9 +2314,10 @@ vty_read_config (char *config_file,
       if (! IS_DIRECTORY_SEP (config_file[0]))
         {
           getcwd (cwd, MAXPATHLEN);
-          fullpath = XMALLOC (MTYPE_TMP, 
+          tmp = XMALLOC (MTYPE_TMP, 
  			      strlen (cwd) + strlen (config_file) + 2);
-          sprintf (fullpath, "%s/%s", cwd, config_file);
+          sprintf (tmp, "%s/%s", cwd, config_file);
+          fullpath = tmp;
         }
       else
         fullpath = config_file;
@@ -2394,6 +2396,9 @@ vty_read_config (char *config_file,
   fclose (confp);
 
   host_config_set (fullpath);
+  
+  if (tmp)
+    XFREE (MTYPE_TMP, fullpath);
 }
 
 /* Small utility function which output log to the VTY. */

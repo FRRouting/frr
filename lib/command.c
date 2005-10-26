@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.50 2005/09/05 11:54:13 paul Exp $
+   $Id: command.c,v 1.51 2005/10/26 05:49:54 paul Exp $
  
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -1890,7 +1890,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 	    {
 	      char *lcdstr;
 
-	      lcdstr = XMALLOC (MTYPE_TMP, lcd + 1);
+	      lcdstr = XMALLOC (MTYPE_STRVEC, lcd + 1);
 	      memcpy (lcdstr, matchvec->index[0], lcd);
 	      lcdstr[lcd] = '\0';
 
@@ -1900,7 +1900,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 	      for (i = 0; i < vector_active (matchvec); i++)
 		{
 		  if (vector_slot (matchvec, i))
-		    XFREE (MTYPE_TMP, vector_slot (matchvec, i));
+		    XFREE (MTYPE_STRVEC, vector_slot (matchvec, i));
 		}
 	      vector_free (matchvec);
 
@@ -2524,6 +2524,7 @@ DEFUN (config_write_file,
   char *config_file;
   char *config_file_tmp = NULL;
   char *config_file_sav = NULL;
+  int ret = CMD_WARNING;
   struct vty *file_vty;
 
   /* Check and see if we are operating under vtysh configuration */
@@ -2537,12 +2538,13 @@ DEFUN (config_write_file,
   /* Get filename. */
   config_file = host.config;
   
-  config_file_sav = malloc (strlen (config_file) + strlen (CONF_BACKUP_EXT) + 1);
+  config_file_sav =
+    XMALLOC (MTYPE_TMP, strlen (config_file) + strlen (CONF_BACKUP_EXT) + 1);
   strcpy (config_file_sav, config_file);
   strcat (config_file_sav, CONF_BACKUP_EXT);
 
 
-  config_file_tmp = malloc (strlen (config_file) + 8);
+  config_file_tmp = XMALLOC (MTYPE_TMP, strlen (config_file) + 8);
   sprintf (config_file_tmp, "%s.XXXXXX", config_file);
   
   /* Open file to configuration write. */
@@ -2551,9 +2553,7 @@ DEFUN (config_write_file,
     {
       vty_out (vty, "Can't open configuration file %s.%s", config_file_tmp,
 	       VTY_NEWLINE);
-      free (config_file_tmp);
-      free (config_file_sav);
-      return CMD_WARNING;
+      goto finished;
     }
   
   /* Make vty for configuration file. */
@@ -2579,55 +2579,45 @@ DEFUN (config_write_file,
       {
 	vty_out (vty, "Can't unlink backup configuration file %s.%s", config_file_sav,
 		 VTY_NEWLINE);
-	free (config_file_sav);
-	free (config_file_tmp);
-	unlink (config_file_tmp);	
-	return CMD_WARNING;
+        goto finished;
       }
   if (link (config_file, config_file_sav) != 0)
     {
       vty_out (vty, "Can't backup old configuration file %s.%s", config_file_sav,
 	        VTY_NEWLINE);
-      free (config_file_sav);
-      free (config_file_tmp);
-      unlink (config_file_tmp);
-      return CMD_WARNING;
+      goto finished;
     }
   sync ();
   if (unlink (config_file) != 0)
     {
       vty_out (vty, "Can't unlink configuration file %s.%s", config_file,
 	        VTY_NEWLINE);
-      free (config_file_sav);
-      free (config_file_tmp);
-      unlink (config_file_tmp);
-      return CMD_WARNING;      
+      goto finished;
     }
   if (link (config_file_tmp, config_file) != 0)
     {
       vty_out (vty, "Can't save configuration file %s.%s", config_file,
 	       VTY_NEWLINE);
-      free (config_file_sav);
-      free (config_file_tmp);
-      unlink (config_file_tmp);
-      return CMD_WARNING;      
+      goto finished;
     }
-  unlink (config_file_tmp);
   sync ();
   
-  free (config_file_sav);
-  free (config_file_tmp);
-
   if (chmod (config_file, CONFIGFILE_MASK) != 0)
     {
       vty_out (vty, "Can't chmod configuration file %s: %s (%d).%s", 
 	config_file, safe_strerror(errno), errno, VTY_NEWLINE);
-      return CMD_WARNING;      
+      goto finished;
     }
 
   vty_out (vty, "Configuration saved to %s%s", config_file,
 	   VTY_NEWLINE);
-  return CMD_SUCCESS;
+  ret = CMD_SUCCESS;
+
+finished:
+  unlink (config_file_tmp);
+  XFREE (MTYPE_TMP, config_file_tmp);
+  XFREE (MTYPE_TMP, config_file_sav);
+  return ret;
 }
 
 ALIAS (config_write_file, 
@@ -2739,9 +2729,9 @@ DEFUN (config_hostname,
     }
 
   if (host.name)
-    XFREE (0, host.name);
+    XFREE (MTYPE_HOST, host.name);
     
-  host.name = strdup (argv[0]);
+  host.name = XSTRDUP (MTYPE_HOST, argv[0]);
   return CMD_SUCCESS;
 }
 
@@ -2753,7 +2743,7 @@ DEFUN (config_no_hostname,
        "Host name of this router\n")
 {
   if (host.name)
-    XFREE (0, host.name);
+    XFREE (MTYPE_HOST, host.name);
   host.name = NULL;
   return CMD_SUCCESS;
 }
@@ -2778,11 +2768,11 @@ DEFUN (config_password, password_cmd,
       if (*argv[0] == '8')
 	{
 	  if (host.password)
-	    XFREE (0, host.password);
+	    XFREE (MTYPE_HOST, host.password);
 	  host.password = NULL;
 	  if (host.password_encrypt)
-	    XFREE (0, host.password_encrypt);
-	  host.password_encrypt = XSTRDUP (0, strdup (argv[1]));
+	    XFREE (MTYPE_HOST, host.password_encrypt);
+	  host.password_encrypt = XSTRDUP (MTYPE_HOST, argv[1]);
 	  return CMD_SUCCESS;
 	}
       else
@@ -2800,17 +2790,17 @@ DEFUN (config_password, password_cmd,
     }
 
   if (host.password)
-    XFREE (0, host.password);
+    XFREE (MTYPE_HOST, host.password);
   host.password = NULL;
 
   if (host.encrypt)
     {
       if (host.password_encrypt)
-	XFREE (0, host.password_encrypt);
-      host.password_encrypt = XSTRDUP (0, zencrypt (argv[0]));
+	XFREE (MTYPE_HOST, host.password_encrypt);
+      host.password_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (argv[0]));
     }
   else
-    host.password = XSTRDUP (0, argv[0]);
+    host.password = XSTRDUP (MTYPE_HOST, argv[0]);
 
   return CMD_SUCCESS;
 }
@@ -2842,12 +2832,12 @@ DEFUN (config_enable_password, enable_password_cmd,
       if (*argv[0] == '8')
 	{
 	  if (host.enable)
-	    XFREE (0, host.enable);
+	    XFREE (MTYPE_HOST, host.enable);
 	  host.enable = NULL;
 
 	  if (host.enable_encrypt)
-	    XFREE (0, host.enable_encrypt);
-	  host.enable_encrypt = XSTRDUP (0, argv[1]);
+	    XFREE (MTYPE_HOST, host.enable_encrypt);
+	  host.enable_encrypt = XSTRDUP (MTYPE_HOST, argv[1]);
 
 	  return CMD_SUCCESS;
 	}
@@ -2866,18 +2856,18 @@ DEFUN (config_enable_password, enable_password_cmd,
     }
 
   if (host.enable)
-    XFREE (0, host.enable);
+    XFREE (MTYPE_HOST, host.enable);
   host.enable = NULL;
 
   /* Plain password input. */
   if (host.encrypt)
     {
       if (host.enable_encrypt)
-	XFREE (0, host.enable_encrypt);
-      host.enable_encrypt = XSTRDUP (0, zencrypt (argv[0]));
+	XFREE (MTYPE_HOST, host.enable_encrypt);
+      host.enable_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (argv[0]));
     }
   else
-    host.enable = XSTRDUP (0, argv[0]);
+    host.enable = XSTRDUP (MTYPE_HOST, argv[0]);
 
   return CMD_SUCCESS;
 }
@@ -2897,11 +2887,11 @@ DEFUN (no_config_enable_password, no_enable_password_cmd,
        "Assign the privileged level password\n")
 {
   if (host.enable)
-    XFREE (0, host.enable);
+    XFREE (MTYPE_HOST, host.enable);
   host.enable = NULL;
 
   if (host.enable_encrypt)
-    XFREE (0, host.enable_encrypt);
+    XFREE (MTYPE_HOST, host.enable_encrypt);
   host.enable_encrypt = NULL;
 
   return CMD_SUCCESS;
@@ -2921,14 +2911,14 @@ DEFUN (service_password_encrypt,
   if (host.password)
     {
       if (host.password_encrypt)
-	XFREE (0, host.password_encrypt);
-      host.password_encrypt = XSTRDUP (0, zencrypt (host.password));
+	XFREE (MTYPE_HOST, host.password_encrypt);
+      host.password_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (host.password));
     }
   if (host.enable)
     {
       if (host.enable_encrypt)
-	XFREE (0, host.enable_encrypt);
-      host.enable_encrypt = XSTRDUP (0, zencrypt (host.enable));
+	XFREE (MTYPE_HOST, host.enable_encrypt);
+      host.enable_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (host.enable));
     }
 
   return CMD_SUCCESS;
@@ -2947,11 +2937,11 @@ DEFUN (no_service_password_encrypt,
   host.encrypt = 0;
 
   if (host.password_encrypt)
-    XFREE (0, host.password_encrypt);
+    XFREE (MTYPE_HOST, host.password_encrypt);
   host.password_encrypt = NULL;
 
   if (host.enable_encrypt)
-    XFREE (0, host.enable_encrypt);
+    XFREE (MTYPE_HOST, host.enable_encrypt);
   host.enable_encrypt = NULL;
 
   return CMD_SUCCESS;
@@ -3220,9 +3210,9 @@ set_log_file(struct vty *vty, const char *fname, int loglevel)
     }
 
   if (host.logfile)
-    XFREE (MTYPE_TMP, host.logfile);
+    XFREE (MTYPE_HOST, host.logfile);
 
-  host.logfile = XSTRDUP (MTYPE_TMP, fname);
+  host.logfile = XSTRDUP (MTYPE_HOST, fname);
 
   return CMD_SUCCESS;
 }
@@ -3263,7 +3253,7 @@ DEFUN (no_config_log_file,
   zlog_reset_file (NULL);
 
   if (host.logfile)
-    XFREE (MTYPE_TMP, host.logfile);
+    XFREE (MTYPE_HOST, host.logfile);
 
   host.logfile = NULL;
 
@@ -3432,8 +3422,8 @@ DEFUN (banner_motd_file,
        "Filename\n")
 {
   if (host.motdfile)
-    XFREE (MTYPE_TMP, host.motdfile);
-  host.motdfile = XSTRDUP (MTYPE_TMP, argv[0]);
+    XFREE (MTYPE_HOST, host.motdfile);
+  host.motdfile = XSTRDUP (MTYPE_HOST, argv[0]);
 
   return CMD_SUCCESS;
 }
@@ -3458,7 +3448,7 @@ DEFUN (no_banner_motd,
 {
   host.motd = NULL;
   if (host.motdfile) 
-    XFREE (MTYPE_TMP, host.motdfile);
+    XFREE (MTYPE_HOST, host.motdfile);
   host.motdfile = NULL;
   return CMD_SUCCESS;
 }
@@ -3467,7 +3457,7 @@ DEFUN (no_banner_motd,
 void
 host_config_set (char *filename)
 {
-  host.config = strdup (filename);
+  host.config = XSTRDUP (MTYPE_HOST, filename);
 }
 
 void
