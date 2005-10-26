@@ -314,7 +314,7 @@ route_map_index_delete (struct route_map_index *index, int notify)
 
   /* Free 'char *nextrm' if not NULL */
   if (index->nextrm)
-    free (index->nextrm);
+    XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
 
     /* Execute event hook. */
   if (route_map_master.event_hook && notify)
@@ -1175,8 +1175,8 @@ DEFUN (rmap_call,
   if (index)
     {
       if (index->nextrm)
-          free (index->nextrm);
-      index->nextrm = strdup (argv[0]);
+          XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
+      index->nextrm = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[0]);
     }
   return CMD_SUCCESS;
 }
@@ -1193,7 +1193,7 @@ DEFUN (no_rmap_call,
 
   if (index->nextrm)
     {
-      free (index->nextrm);
+      XFREE (MTYPE_ROUTE_MAP_NAME, index->nextrm);
       index->nextrm = NULL;
     }
 

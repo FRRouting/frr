@@ -47,12 +47,12 @@ static void
 if_rmap_free (struct if_rmap *if_rmap)
 {
   if (if_rmap->ifname)
-    free (if_rmap->ifname);
+    XFREE (MTYPE_IF_RMAP_NAME, if_rmap->ifname);
 
   if (if_rmap->routemap[IF_RMAP_IN])
-    free (if_rmap->routemap[IF_RMAP_IN]);
+    XFREE (MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_IN]);
   if (if_rmap->routemap[IF_RMAP_OUT])
-    free (if_rmap->routemap[IF_RMAP_OUT]);
+    XFREE (MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_OUT]);
 
   XFREE (MTYPE_IF_RMAP, if_rmap);
 }
@@ -90,7 +90,7 @@ if_rmap_hash_alloc (void *arg)
   struct if_rmap *if_rmap;
 
   if_rmap = if_rmap_new ();
-  if_rmap->ifname = strdup (ifarg->ifname);
+  if_rmap->ifname = XSTRDUP (MTYPE_IF_RMAP_NAME, ifarg->ifname);
 
   return if_rmap;
 }
@@ -140,14 +140,16 @@ if_rmap_set (const char *ifname, enum if_rmap_type type,
   if (type == IF_RMAP_IN)
     {
       if (if_rmap->routemap[IF_RMAP_IN])
-	free (if_rmap->routemap[IF_RMAP_IN]);
-      if_rmap->routemap[IF_RMAP_IN] = strdup (routemap_name);
+	XFREE (MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_IN]);
+      if_rmap->routemap[IF_RMAP_IN] 
+        = XSTRDUP (MTYPE_IF_RMAP_NAME, routemap_name);
     }
   if (type == IF_RMAP_OUT)
     {
       if (if_rmap->routemap[IF_RMAP_OUT])
-	free (if_rmap->routemap[IF_RMAP_OUT]);
-      if_rmap->routemap[IF_RMAP_OUT] = strdup (routemap_name);
+	XFREE (MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_OUT]);
+      if_rmap->routemap[IF_RMAP_OUT] 
+        = XSTRDUP (MTYPE_IF_RMAP_NAME, routemap_name);
     }
 
   if (if_rmap_add_hook)
@@ -173,7 +175,7 @@ if_rmap_unset (const char *ifname, enum if_rmap_type type,
       if (strcmp (if_rmap->routemap[IF_RMAP_IN], routemap_name) != 0)
 	return 0;
 
-      free (if_rmap->routemap[IF_RMAP_IN]);
+      XFREE (MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_IN]);
       if_rmap->routemap[IF_RMAP_IN] = NULL;      
     }
 
@@ -184,7 +186,7 @@ if_rmap_unset (const char *ifname, enum if_rmap_type type,
       if (strcmp (if_rmap->routemap[IF_RMAP_OUT], routemap_name) != 0)
 	return 0;
 
-      free (if_rmap->routemap[IF_RMAP_OUT]);
+      XFREE (MTYPE_IF_RMAP_NAME, if_rmap->routemap[IF_RMAP_OUT]);
       if_rmap->routemap[IF_RMAP_OUT] = NULL;      
     }
 

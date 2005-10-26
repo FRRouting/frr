@@ -495,7 +495,7 @@ DEFUN (no_interface_desc,
 
   ifp = vty->index;
   if (ifp->desc)
-    XFREE (0, ifp->desc);
+    XFREE (MTYPE_TMP, ifp->desc);
   ifp->desc = NULL;
 
   return CMD_SUCCESS;

@@ -1,3 +1,13 @@
+2005-10-26 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Cleanup a some calls to XFREE,strdup, etc. to use
+	  the memory.h macros.
+	* memtypes.c: Add MTYPE_IF_RMAP_NAME, MTYPE_PQUEUE,
+	  MTYPE_PQUEUE_DATA and MTYPE_HOST.
+	* memtypes.h: update auto-built file.
+	* if_rmap.c: Use MTYPE_IF_RMAP_NAME.
+	* pqueue.c: Use the two MTYPE_PQUEUE mtypes for allocations.
+
 2005-10-20 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* sockopt.c: (setsockopt_multicast_ipv4) If IP_ADD_MEMBERSHIP

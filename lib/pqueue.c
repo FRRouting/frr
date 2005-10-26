@@ -20,6 +20,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include <zebra.h>
 
+#include "memory.h"
 #include "pqueue.h"
 
 /* priority queue using heap sort */
@@ -110,12 +111,10 @@ pqueue_create (void)
 {
   struct pqueue *queue;
 
-  queue = (struct pqueue *) malloc (sizeof (struct pqueue));
-  memset (queue, 0, sizeof (struct pqueue));
+  queue = XCALLOC (MTYPE_PQUEUE, sizeof (struct pqueue));
 
-  queue->array = (void **)
-    malloc (DATA_SIZE * PQUEUE_INIT_ARRAYSIZE);
-  memset (queue->array, 0, DATA_SIZE * PQUEUE_INIT_ARRAYSIZE);
+  queue->array = XCALLOC (MTYPE_PQUEUE_DATA, 
+                          DATA_SIZE * PQUEUE_INIT_ARRAYSIZE);
   queue->array_size = PQUEUE_INIT_ARRAYSIZE;
 
   /* By default we want nothing to happen when a node changes. */
@@ -126,8 +125,8 @@ pqueue_create (void)
 void
 pqueue_delete (struct pqueue *queue)
 {
-  free (queue->array);
-  free (queue);
+  XFREE (MTYPE_PQUEUE_DATA, queue->array);
+  XFREE (MTYPE_PQUEUE, queue);
 }
 
 static int
@@ -135,14 +134,13 @@ pqueue_expand (struct pqueue *queue)
 {
   void **newarray;
 
-  newarray = (void **) malloc (queue->array_size * DATA_SIZE * 2);
+  newarray = XCALLOC (MTYPE_PQUEUE_DATA, queue->array_size * DATA_SIZE * 2);
   if (newarray == NULL)
     return 0;
 
-  memset (newarray, 0, queue->array_size * DATA_SIZE * 2);
   memcpy (newarray, queue->array, queue->array_size * DATA_SIZE);
 
-  free (queue->array);
+  XFREE (MTYPE_PQUEUE_DATA, queue->array);
   queue->array = newarray;
   queue->array_size *= 2;
 
