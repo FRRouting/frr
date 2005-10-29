@@ -1,3 +1,14 @@
+2005-10-29 Paul Jakma <paul@dishone.st>
+
+	* ospfd.texi: Document the new spf and max-metric commands, and
+	  the additional form of dead-interval. Add documentation for
+	  various other commands. Cleanup misc stuff, citations, etc.
+	  Add some example configurations.
+	* overview.texi: RFC3137 support added.
+	* Makefile.am: Make quagga.pdf depend on the _TEXINFOS
+	  variable, this still doesn't fix the dependency though,
+	  sadly.
+
 2005-10-11 Paul Jakma <paul@dishone.st>
 
 	* quagga.texi: Rejiggle the copyright sections a bit, seems to

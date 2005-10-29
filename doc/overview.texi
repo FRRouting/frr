@@ -229,6 +229,8 @@ INRIA IPv6 stack for BSD.
 @item @asis{RFC2842}
 @cite{Capabilities Advertisement with BGP-4. R. Chandra, J. Scudder. May 2000.}
 
+@item @asis{RFC3137}
+@cite{OSPF Stub Router Advertisement, A. Retana, L. Nguyen, R. White, A. Zinin, D. McPherson. June 2001}
 @end table
 
   When SNMP support is enabled, below RFC is also supported.
