@@ -483,6 +483,19 @@ ospf_nbr_lookup_ptop (struct ospf_interface *oi)
   return nbr;
 }
 
+/* Determine cost of link, taking RFC3137 stub-router support into
+ * consideration
+ */
+static u_int16_t
+ospf_link_cost (struct ospf_interface *oi)
+{
+  /* RFC3137 stub router support */
+  if (!CHECK_FLAG (oi->area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
+    return oi->output_cost;
+  else
+    return OSPF_OUTPUT_COST_INFINITE;
+}
+
 /* Set a link information. */
 static void
 link_info_set (struct stream *s, struct in_addr id,
@@ -503,6 +516,7 @@ lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
   int links = 0;
   struct ospf_neighbor *nbr;
   struct in_addr id, mask;
+  u_int16_t cost = ospf_link_cost (oi);
 
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     zlog_debug ("LSA[Type1]: Set link Point-to-Point");
@@ -513,7 +527,7 @@ lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
 	/* For unnumbered point-to-point networks, the Link Data field
 	   should specify the interface's MIB-II ifIndex value. */
 	link_info_set (s, nbr->router_id, oi->address->u.prefix4,
-		       LSA_LINK_TYPE_POINTOPOINT, 0, oi->output_cost);
+		       LSA_LINK_TYPE_POINTOPOINT, 0, cost);
 	links++;
       }
 
@@ -548,7 +562,8 @@ lsa_link_broadcast_set (struct stream *s, struct ospf_interface *oi)
 {
   struct ospf_neighbor *dr;
   struct in_addr id, mask;
-
+  u_int16_t cost = ospf_link_cost (oi);
+  
   /* Describe Type 3 Link. */
   if (oi->state == ISM_Waiting)
     {
@@ -565,7 +580,7 @@ lsa_link_broadcast_set (struct stream *s, struct ospf_interface *oi)
       ospf_nbr_count (oi, NSM_Full) > 0)
     {
       link_info_set (s, DR (oi), oi->address->u.prefix4,
-		     LSA_LINK_TYPE_TRANSIT, 0, oi->output_cost);
+		     LSA_LINK_TYPE_TRANSIT, 0, cost);
     }
   /* Describe type 3 link. */
   else
@@ -581,7 +596,7 @@ static int
 lsa_link_loopback_set (struct stream *s, struct ospf_interface *oi)
 {
   struct in_addr id, mask;
-
+  
   /* Describe Type 3 Link. */
   if (oi->state != ISM_Loopback)
     return 0;
@@ -597,13 +612,14 @@ static int
 lsa_link_virtuallink_set (struct stream *s, struct ospf_interface *oi)
 {
   struct ospf_neighbor *nbr;
+  u_int16_t cost = ospf_link_cost (oi);
 
   if (oi->state == ISM_PointToPoint)
     if ((nbr = ospf_nbr_lookup_ptop (oi)))
       if (nbr->state == NSM_Full)
 	{
 	  link_info_set (s, nbr->router_id, oi->address->u.prefix4,
-			 LSA_LINK_TYPE_VIRTUALLINK, 0, oi->output_cost);
+			 LSA_LINK_TYPE_VIRTUALLINK, 0, cost);
 	  return 1;
 	}
 
@@ -623,6 +639,7 @@ lsa_link_ptomp_set (struct stream *s, struct ospf_interface *oi)
   struct route_node *rn;
   struct ospf_neighbor *nbr = NULL;
   struct in_addr id, mask;
+  u_int16_t cost = ospf_link_cost (oi);
 
   mask.s_addr = 0xffffffff;
   id.s_addr = oi->address->u.prefix4.s_addr;
@@ -641,7 +658,7 @@ lsa_link_ptomp_set (struct stream *s, struct ospf_interface *oi)
 
 	  {
 	    link_info_set (s, nbr->router_id, oi->address->u.prefix4,
-			   LSA_LINK_TYPE_POINTOPOINT, 0, oi->output_cost);
+			   LSA_LINK_TYPE_POINTOPOINT, 0, cost);
 	    links++;
             if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
  	      zlog_debug ("PointToMultipoint: set link to %s",
@@ -721,7 +738,64 @@ ospf_router_lsa_body_set (struct stream *s, struct ospf_area *area)
   /* Set # of links here. */
   stream_putw_at (s, putp, cnt);
 }
+
+static int
+ospf_stub_router_timer (struct thread *t)
+{
+  struct ospf_area *area = THREAD_ARG (t);
+  
+  area->t_stub_router = NULL;
+  
+  SET_FLAG (area->stub_router_state, OSPF_AREA_WAS_START_STUB_ROUTED);
+  
+  /* clear stub route state and generate router-lsa refresh, don't
+   * clobber an administratively set stub-router state though.
+   */
+  if (CHECK_FLAG (area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED))
+    return 0;
+  
+  UNSET_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED);
+  
+  ospf_router_lsa_timer_add (area);
+  
+  return 0;
+}
 
+inline static void
+ospf_stub_router_check (struct ospf_area *area)
+{
+  /* area must either be administratively configured to be stub
+   * or startup-time stub-router must be configured and we must in a pre-stub
+   * state.
+   */
+  if (CHECK_FLAG (area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED))
+    {
+      SET_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED);
+      return;
+    }
+  
+  /* not admin-stubbed, check whether startup stubbing is configured and
+   * whether it's not been done yet
+   */
+  if (CHECK_FLAG (area->stub_router_state, OSPF_AREA_WAS_START_STUB_ROUTED))
+    return;
+  
+  if (area->ospf->stub_router_startup_time == OSPF_STUB_ROUTER_UNCONFIGURED)
+    {
+      /* stub-router is hence done forever for this area, even if someone
+       * tries configure it (take effect next restart).
+       */
+      SET_FLAG (area->stub_router_state, OSPF_AREA_WAS_START_STUB_ROUTED);
+      return;
+    }
+  
+  /* startup stub-router configured and not yet done */
+  SET_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED);
+  
+  OSPF_AREA_TIMER_ON (area->t_stub_router, ospf_stub_router_timer,
+                      area->ospf->stub_router_startup_time);
+}
+ 
 /* Create new router-LSA. */
 static struct ospf_lsa *
 ospf_router_lsa_new (struct ospf_area *area)
@@ -735,6 +809,11 @@ ospf_router_lsa_new (struct ospf_area *area)
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     zlog_debug ("LSA[Type1]: Create router-LSA instance");
 
+  /* check whether stub-router is desired, and if this is the first 
+   * router LSA.
+   */
+  ospf_stub_router_check (area);
+  
   /* Create a stream for LSA. */
   s = stream_new (OSPF_MAX_LSA_SIZE);
   lsah = (struct lsa_header *) STREAM_DATA (s);
@@ -764,11 +843,11 @@ ospf_router_lsa_new (struct ospf_area *area)
 }
 
 /* Originate Router-LSA. */
-struct ospf_lsa *
+static struct ospf_lsa *
 ospf_router_lsa_originate (struct ospf_area *area)
 {
   struct ospf_lsa *new;
-
+  
   /* Create new router-LSA instance. */
   new = ospf_router_lsa_new (area);
 

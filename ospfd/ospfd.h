@@ -94,6 +94,7 @@
 
 /* OSPF interface default values. */
 #define OSPF_OUTPUT_COST_DEFAULT           10
+#define OSPF_OUTPUT_COST_INFINITE	   UINT16_MAX
 #define OSPF_ROUTER_DEAD_INTERVAL_DEFAULT  40
 #define OSPF_ROUTER_DEAD_INTERVAL_MINIMAL   1
 #define OSPF_HELLO_INTERVAL_DEFAULT        10
@@ -152,6 +153,7 @@ struct ospf_master
 
   /* Various OSPF global configuration. */
   u_char options;
+#define OSPF_MASTER_SHUTDOWN (1 << 0) /* flag for ospf_finish / graceful-shutdown */  
 };
 
 /* OSPF instance structure. */
@@ -192,10 +194,18 @@ struct ospf
 #define OPAQUE_BLOCK_TYPE_11_LSA_BIT	(1 << 3)
 #endif /* HAVE_OPAQUE_LSA */
 
-  unsigned int spf_delay;			/* SPF delay time. */
-  unsigned int spf_holdtime;			/* SPF hold time. */
-  unsigned int spf_max_holdtime;			/* SPF maximum-holdtime */
-  unsigned int spf_hold_multiplier;		/* Adaptive multiplier for hold time */
+  /* RFC3137 stub router. Configured time to stay stub / max-metric */
+  unsigned int stub_router_startup_time;	/* seconds */
+  unsigned int stub_router_shutdown_time;	/* seconds */
+#define OSPF_STUB_ROUTER_UNCONFIGURED	  0
+#define OSPF_STUB_ROUTER_SHUTDOWN_DEFAULT 2
+
+  /* SPF parameters */
+  unsigned int spf_delay;		/* SPF delay time. */
+  unsigned int spf_holdtime;		/* SPF hold time. */
+  unsigned int spf_max_holdtime;	/* SPF maximum-holdtime */
+  unsigned int spf_hold_multiplier;	/* Adaptive multiplier for hold time */
+  
   int default_originate;		/* Default information originate. */
 #define DEFAULT_ORIGINATE_NONE		0
 #define DEFAULT_ORIGINATE_ZEBRA		1
@@ -253,6 +263,7 @@ struct ospf
 #endif /* HAVE_OPAQUE_LSA */
   struct thread *t_maxage;              /* MaxAge LSA remover timer. */
   struct thread *t_maxage_walker;       /* MaxAge LSA checking timer. */
+  struct thread *t_graceful_shutdown;	/* Graceful/stub-router shutdown timer*/
 
   struct thread *t_write;
   struct thread *t_read;
@@ -351,6 +362,7 @@ struct ospf_area
   int shortcut_capability;              /* Other ABRs agree on S-bit */
   u_int32_t default_cost;               /* StubDefaultCost. */
   int auth_type;                        /* Authentication type. */
+  
 
   u_char NSSATranslatorRole;          /* NSSA configured role */
 #define OSPF_NSSA_ROLE_NEVER     0
@@ -365,7 +377,13 @@ struct ospf_area
 #define OSPF_TRANSIT_FALSE      0
 #define OSPF_TRANSIT_TRUE       1
   struct route_table *ranges;		/* Configured Area Ranges. */
-
+  
+  /* RFC3137 stub router state flags for area */
+  u_char stub_router_state;
+#define OSPF_AREA_ADMIN_STUB_ROUTED	(1 << 0) /* admin stub-router set */
+#define OSPF_AREA_IS_STUB_ROUTED	(1 << 1) /* stub-router active */
+#define OSPF_AREA_WAS_START_STUB_ROUTED	(1 << 2) /* startup SR was done */
+  
   /* Area related LSDBs[Type1-4]. */
   struct ospf_lsdb *lsdb;
 
@@ -415,6 +433,7 @@ struct ospf_area
 
   /* Threads. */
   struct thread *t_router_lsa_self;/* Self-originated router-LSA timer. */
+  struct thread *t_stub_router;    /* Stub-router timer */
 #ifdef HAVE_OPAQUE_LSA
   struct thread *t_opaque_lsa_self;	/* Type-10 Opaque-LSAs origin. */
 #endif /* HAVE_OPAQUE_LSA */

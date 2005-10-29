@@ -690,21 +690,6 @@ ospf_route_table_dump (struct route_table *rt)
   zlog_debug ("========================================");
 }
 
-void
-ospf_terminate ()
-{
-  struct ospf *ospf;
-  struct listnode *node, *nnode;
-
-  for (ALL_LIST_ELEMENTS (om->ospf, node, nnode, ospf))
-    {
-      if (ospf->new_table)
-	ospf_route_delete (ospf->new_table);
-      if (ospf->old_external_route)
-	ospf_route_delete (ospf->old_external_route);
-    }
-}
-
 /* This is 16.4.1 implementation.
    o Intra-area paths using non-backbone areas are always the most preferred.
    o The other paths, intra-area backbone paths and inter-area paths,

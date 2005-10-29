@@ -136,15 +136,12 @@ sighup (void)
   zlog (NULL, LOG_INFO, "SIGHUP received");
 }
 
-/* SIGINT handler. */
-static void __attribute__ ((noreturn))
+/* SIGINT / SIGTERM handler. */
+static void
 sigint (void)
 {
   zlog_notice ("Terminating on signal");
-
   ospf_terminate ();
-
-  exit (0);
 }
 
 /* SIGUSR1 handler. */

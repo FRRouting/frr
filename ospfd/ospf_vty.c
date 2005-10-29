@@ -2517,7 +2517,21 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
 	             VTY_NEWLINE);
 	   }
     }
-
+  /* Stub-router state for this area */
+  if (CHECK_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
+    {
+      char timebuf[9];
+      vty_out (vty, "   Originating stub / maximum-distance Router-LSA%s",
+               VTY_NEWLINE);
+      if (CHECK_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED))
+        vty_out (vty, "     Administratively activated (indefinitely)%s",
+                 VTY_NEWLINE);
+      if (area->t_stub_router)
+        vty_out (vty, "     Active from startup, %s remaining%s",
+                 ospf_timer_dump (area->t_stub_router, timebuf, 
+                                  sizeof(timebuf)), VTY_NEWLINE);
+    }
+  
   /* Show number of fully adjacent neighbors. */
   vty_out (vty, "   Number of fully adjacent neighbors in this area:"
                 " %d%s", area->full_nbrs, VTY_NEWLINE);
@@ -2592,7 +2606,12 @@ DEFUN (show_ip_ospf,
   vty_out (vty, " OSPF Routing Process, Router ID: %s%s",
            inet_ntoa (ospf->router_id),
            VTY_NEWLINE);
-
+  
+  /* Graceful shutdown */
+  if (ospf->t_graceful_shutdown)
+    vty_out (vty, " Graceful shutdown in progress, %s remaining%s",
+             ospf_timer_dump (ospf->t_graceful_shutdown,
+                              timebuf, sizeof (timebuf)), VTY_NEWLINE);
   /* Show capability. */
   vty_out (vty, " Supports only single TOS (TOS0) routes%s", VTY_NEWLINE);
   vty_out (vty, " This implementation conforms to RFC2328%s", VTY_NEWLINE);
@@ -2607,7 +2626,21 @@ DEFUN (show_ip_ospf,
            " (origination blocked)" : "",
            VTY_NEWLINE);
 #endif /* HAVE_OPAQUE_LSA */
-
+  
+  /* Show stub-router configuration */
+  if (ospf->stub_router_startup_time != OSPF_STUB_ROUTER_UNCONFIGURED
+      || ospf->stub_router_shutdown_time != OSPF_STUB_ROUTER_UNCONFIGURED)
+    {
+      vty_out (vty, " Stub router advertisement is configured%s",
+               VTY_NEWLINE);
+      if (ospf->stub_router_startup_time != OSPF_STUB_ROUTER_UNCONFIGURED)
+        vty_out (vty, "   Enabled for %us after start-up%s",
+                 ospf->stub_router_startup_time, VTY_NEWLINE);
+      if (ospf->stub_router_shutdown_time != OSPF_STUB_ROUTER_UNCONFIGURED)
+        vty_out (vty, "   Enabled for %us prior to full shutdown%s",
+                 ospf->stub_router_shutdown_time, VTY_NEWLINE);
+    }
+  
   /* Show SPF timers. */
   vty_out (vty, " Initial SPF scheduling delay %d millisec(s)%s"
                 " Minimum hold time between consecutive SPFs %d millisec(s)%s"
@@ -6771,7 +6804,171 @@ ALIAS (no_ip_ospf_mtu_ignore,
       "IP Information\n"
       "OSPF interface commands\n"
       "Disable mtu mismatch detection\n")
+
+DEFUN (ospf_max_metric_router_lsa_admin,
+       ospf_max_metric_router_lsa_admin_cmd,
+       "max-metric router-lsa administrative",
+       "OSPF maximum / infinite-distance metric\n"
+       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Administratively applied, for an indefinite period\n")
+{
+  struct listnode *ln;
+  struct ospf_area *area;
+  struct ospf *ospf = vty->index;
     
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, ln, area))
+    {
+      SET_FLAG (area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
+      
+      if (!CHECK_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
+          ospf_router_lsa_timer_add (area);
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_max_metric_router_lsa_admin,
+       no_ospf_max_metric_router_lsa_admin_cmd,
+       "no max-metric router-lsa administrative",
+       NO_STR
+       "OSPF maximum / infinite-distance metric\n"
+       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Administratively applied, for an indefinite period\n")
+{
+  struct listnode *ln;
+  struct ospf_area *area;
+  struct ospf *ospf = vty->index;
+    
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, ln, area))
+    {
+      UNSET_FLAG (area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
+      
+      /* Don't trample on the start-up stub timer */
+      if (CHECK_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED)
+          && !area->t_stub_router)
+        {
+          UNSET_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED);
+          ospf_router_lsa_timer_add (area);
+        }
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (ospf_max_metric_router_lsa_startup,
+       ospf_max_metric_router_lsa_startup_cmd,
+       "max-metric router-lsa on-startup <5-86400>",
+       "OSPF maximum / infinite-distance metric\n"
+       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Automatically advertise stub Router-LSA on startup of OSPF\n"
+       "Time (seconds) to advertise self as stub-router\n")
+{
+  unsigned int seconds;
+  struct ospf *ospf = vty->index;
+    
+  if (argc != 1)
+    {
+      vty_out (vty, "%% Must supply stub-router period");
+      return CMD_WARNING;
+    }
+  
+  VTY_GET_INTEGER ("stub-router startup period", seconds, argv[0]);
+  
+  ospf->stub_router_startup_time = seconds;
+  
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_max_metric_router_lsa_startup,
+       no_ospf_max_metric_router_lsa_startup_cmd,
+       "no max-metric router-lsa on-startup",
+       NO_STR
+       "OSPF maximum / infinite-distance metric\n"
+       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Automatically advertise stub Router-LSA on startup of OSPF\n")
+{
+  struct listnode *ln;
+  struct ospf_area *area;
+  struct ospf *ospf = vty->index;
+  
+  ospf->stub_router_startup_time = OSPF_STUB_ROUTER_UNCONFIGURED;
+  
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, ln, area))
+    {
+      SET_FLAG (area->stub_router_state, OSPF_AREA_WAS_START_STUB_ROUTED);
+      OSPF_TIMER_OFF (area->t_stub_router);
+      
+      /* Don't trample on admin stub routed */
+      if (!CHECK_FLAG (area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED))
+        {
+          UNSET_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED);
+          ospf_router_lsa_timer_add (area);
+        }
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (ospf_max_metric_router_lsa_shutdown,
+       ospf_max_metric_router_lsa_shutdown_cmd,
+       "max-metric router-lsa on-shutdown <5-86400>",
+       "OSPF maximum / infinite-distance metric\n"
+       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Advertise stub-router prior to full shutdown of OSPF\n"
+       "Time (seconds) to wait till full shutdown\n")
+{
+  unsigned int seconds;
+  struct ospf *ospf = vty->index;
+    
+  if (argc != 1)
+    {
+      vty_out (vty, "%% Must supply stub-router shutdown period");
+      return CMD_WARNING;
+    }
+  
+  VTY_GET_INTEGER ("stub-router shutdown wait period", seconds, argv[0]);
+  
+  ospf->stub_router_shutdown_time = seconds;
+  
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_max_metric_router_lsa_shutdown,
+       no_ospf_max_metric_router_lsa_shutdown_cmd,
+       "no max-metric router-lsa on-shutdown",
+       NO_STR
+       "OSPF maximum / infinite-distance metric\n"
+       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Advertise stub-router prior to full shutdown of OSPF\n")
+{
+  struct ospf *ospf = vty->index;
+    
+  ospf->stub_router_shutdown_time = OSPF_STUB_ROUTER_UNCONFIGURED;
+  
+  return CMD_SUCCESS;
+}
+
+static void
+config_write_stub_router (struct vty *vty, struct ospf *ospf)
+{
+  struct listnode *ln;
+  struct ospf_area *area;
+  
+  if (ospf->stub_router_startup_time != OSPF_STUB_ROUTER_UNCONFIGURED)
+    vty_out (vty, " max-metric router-lsa on-startup %u%s",
+             ospf->stub_router_startup_time, VTY_NEWLINE);
+  if (ospf->stub_router_shutdown_time != OSPF_STUB_ROUTER_UNCONFIGURED)
+    vty_out (vty, " max-metric router-lsa on-shutdown %u%s",
+             ospf->stub_router_shutdown_time, VTY_NEWLINE);
+  for (ALL_LIST_ELEMENTS_RO (ospf->areas, ln, area))
+    {
+      if (CHECK_FLAG (area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED))
+        {
+          vty_out (vty, " max-metric router-lsa administrative%s",
+                   VTY_NEWLINE);
+          break;
+        }
+    }
+  return;
+}
+
 static void
 show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
 {
@@ -7612,9 +7809,12 @@ ospf_config_write (struct vty *vty)
 	  ospf->spf_holdtime != OSPF_SPF_HOLDTIME_DEFAULT ||
 	  ospf->spf_max_holdtime != OSPF_SPF_MAX_HOLDTIME_DEFAULT)
 	vty_out (vty, " timers throttle spf %d %d %d%s",
-		 ospf->spf_delay, ospf->spf_holdtime, 
+		 ospf->spf_delay, ospf->spf_holdtime,
 		 ospf->spf_max_holdtime, VTY_NEWLINE);
-
+      
+      /* Max-metric router-lsa print */
+      config_write_stub_router (vty, ospf);
+      
       /* SPF refresh parameters print. */
       if (ospf->lsa_refresh_interval != OSPF_LSA_REFRESH_INTERVAL_DEFAULT)
 	vty_out (vty, " refresh timer %d%s",
@@ -8052,16 +8252,27 @@ ospf_vty_init (void)
 
   install_element (OSPF_NODE, &ospf_area_import_list_cmd);
   install_element (OSPF_NODE, &no_ospf_area_import_list_cmd);
-
+  
+  /* SPF timer commands */
   install_element (OSPF_NODE, &ospf_timers_spf_cmd);
   install_element (OSPF_NODE, &no_ospf_timers_spf_cmd);
   install_element (OSPF_NODE, &ospf_timers_throttle_spf_cmd);
   install_element (OSPF_NODE, &no_ospf_timers_throttle_spf_cmd);
   
+  /* refresh timer commands */
   install_element (OSPF_NODE, &ospf_refresh_timer_cmd);
   install_element (OSPF_NODE, &no_ospf_refresh_timer_val_cmd);
   install_element (OSPF_NODE, &no_ospf_refresh_timer_cmd);
   
+  /* max-metric commands */
+  install_element (OSPF_NODE, &ospf_max_metric_router_lsa_admin_cmd);
+  install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_admin_cmd);
+  install_element (OSPF_NODE, &ospf_max_metric_router_lsa_startup_cmd);
+  install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_startup_cmd);
+  install_element (OSPF_NODE, &ospf_max_metric_router_lsa_shutdown_cmd);
+  install_element (OSPF_NODE, &no_ospf_max_metric_router_lsa_shutdown_cmd);
+  
+  /* reference bandwidth commands */
   install_element (OSPF_NODE, &ospf_auto_cost_reference_bandwidth_cmd);
   install_element (OSPF_NODE, &no_ospf_auto_cost_reference_bandwidth_cmd);
 

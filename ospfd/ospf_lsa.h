@@ -252,7 +252,6 @@ extern struct lsa_header *ospf_lsa_data_dup (struct lsa_header *);
 extern void ospf_lsa_data_free (struct lsa_header *);
 
 /* Prototype for various LSAs */
-extern struct ospf_lsa *ospf_router_lsa_originate (struct ospf_area *);
 extern int ospf_router_lsa_update_timer (struct thread *);
 extern void ospf_router_lsa_timer_add (struct ospf_area *);
 

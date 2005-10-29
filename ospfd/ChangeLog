@@ -1,3 +1,65 @@
+2005-10-29 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) RFC3137 stub-router support
+	* ospfd.h: Add OSPF_OUTPUT_COST_INFINITE define.
+	  (struct ospf_master) Add a OSPF_MASTER_SHUTDOWN flag for
+	  options, to allow shutdown to distinguish between complete
+	  shutdown and shutdown of a subset of ospf instances.
+	  (struct ospf)
+	  Add stub_router_{startup,shutdown_}time, configuration of startup
+	  and shutdown time for stub-router.
+	  Add t_graceful_shutdown struct thread, timer for graceful
+	  shutdown, if needed.
+	  (struct ospf_area) Add stub_router_state - run time state of
+	  stub-router for an area. Add flags for ADMIN, IS and WAS
+	  states.
+	  Add t_stub_router, timer thread to resend router-lsa for an
+	  area.
+	* ospf_lsa.c: (ospf_link_cost) new simple function to spit out
+	  either the given lnks cost or infinite cost if stub-router is
+	  in effect.
+	  (lsa_link_{ptop,broadcast,virtuallink,ptomp}_set) use
+	  previous function for transit-links.
+	  (ospf_stub_router_timer) timer thread for end of startup stub
+	  router. Change state as required for the area and setup
+	  re-origination of router-lsa.
+	  (ospf_stub_router_check) Check/do whether stub-router should be
+	  enabled, and whether it requires timer to be setup.
+	  (ospf_router_lsa_new) call previous function at top.
+	  (ospf_router_lsa_originate) no external callers, made static.
+	* ospf_lsa.h: (ospf_router_lsa_originate) removed.
+	* ospf_main.c: (sigint) make static.
+	  remove call to exit, as ospf_terminate now deals with
+	  exiting.
+	* ospf_route.c: (ospf_terminate) removed, now in ospfd.c.
+	* ospf_vty.c: (show_ip_ospf_area) print out state of
+	  stub-router, if active.
+	  (show_ip_ospf) print out configuration of stub-router
+	  support, and details of graceful-shutdown if the timer is
+	  active.
+	  ((no)?ospf_max_metric_router_lsa_{admin,startup,shutdown}) new
+	  commands to (de-)?configure stub-router support.
+	  (config_write_stub_router) write out config of stub-router.
+	  (ospf_config_write) call previous.
+	  (ospf_vty_init) install the new stub-router commands.
+	* ospfd.c: various functions made static.
+	  (ospf_new) Set defaults for stub-router. Graceful shutdown
+	  is made to default on, just to be adventerous.
+	  (ospf_graceful_shutdown_finish) new function, final part of
+	  shutdown.
+	  (ospf_graceful_shutdown_timer) timer thread wrapper for
+	  graceful-shutdown.
+	  (ospf_graceful_shutdown_check) check whether to setup timer
+	  for shutdown or proceed directly to final shutdown.
+	  (ospf_terminate) moved here from ospf_route.c, call
+	  ospf_finish for each instance.
+	  (ospf_finish) renamed to ospf_finish_final and made static.
+	  (ospf_finish) new function, exported wrapper around
+	  ospf_graceful_shutdown_check.
+	  (ospf_finish_final) complete shutdown of an instance.
+	  Add missing TIMER_OFF's of two timer threads.
+	  (ospf_area_free) opaque self lsa timer should be turned off.
+
 2005-10-23 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_apiserver.c: (ospf_apiserver_term) This function should

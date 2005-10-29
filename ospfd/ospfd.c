@@ -64,13 +64,14 @@ extern struct zclient *zclient;
 extern struct in_addr router_id_zebra;
 
 
-void ospf_remove_vls_through_area (struct ospf *, struct ospf_area *);
-void ospf_network_free (struct ospf *, struct ospf_network *);
-void ospf_area_free (struct ospf_area *);
-void ospf_network_run (struct ospf *, struct prefix *, struct ospf_area *);
+static void ospf_remove_vls_through_area (struct ospf *, struct ospf_area *);
+static void ospf_network_free (struct ospf *, struct ospf_network *);
+static void ospf_area_free (struct ospf_area *);
+static void ospf_network_run (struct ospf *, struct prefix *, struct ospf_area *);
+static void ospf_finish_final (struct ospf *);
 
 #define OSPF_EXTERNAL_LSA_ORIGINATE_DELAY 1
-
+
 void
 ospf_router_id_update (struct ospf *ospf)
 {
@@ -172,7 +173,10 @@ ospf_new (void)
   new->new_external_route = route_table_init ();
   new->old_external_route = route_table_init ();
   new->external_lsas = route_table_init ();
-
+  
+  new->stub_router_startup_time = OSPF_STUB_ROUTER_UNCONFIGURED;
+  new->stub_router_shutdown_time = OSPF_STUB_ROUTER_SHUTDOWN_DEFAULT;
+  
   /* Distribute parameter init. */
   for (i = 0; i <= ZEBRA_ROUTE_MAX; i++)
     {
@@ -263,9 +267,116 @@ ospf_get ()
 
   return ospf;
 }
+
+/* Handle the second half of graceful shutdown. This is called either
+ * from the graceful-shutdown timer thread, or directly through
+ * ospf_graceful_shutdown_check.
+ *
+ * Function is to cleanup G-R state, if required then call ospf_finish_final
+ * to complete shutdown of this ospf instance. Possibly exit if the
+ * whole process is being shutdown and this was the last OSPF instance.
+ */
+static void
+ospf_graceful_shutdown_finish (struct ospf *ospf)
+{
+  ospf->stub_router_shutdown_time = OSPF_STUB_ROUTER_UNCONFIGURED;  
+  OSPF_TIMER_OFF (ospf->t_graceful_shutdown);
+  
+  ospf_finish_final (ospf);
+  
+  /* *ospf is now invalid */
+  
+  /* ospfd being shut-down? If so, was this the last ospf instance? */
+  if (CHECK_FLAG (om->options, OSPF_MASTER_SHUTDOWN)
+      && (listcount (om->ospf) == 0))
+    exit (0);
+
+  return;
+}
+
+/* Timer thread for G-R */
+static int
+ospf_graceful_shutdown_timer (struct thread *t)
+{
+  struct ospf *ospf = THREAD_ARG(t);
+  
+  ospf_graceful_shutdown_finish (ospf);
+  
+  return 0;
+}
+
+/* Check whether graceful-shutdown must be scheduled, otherwise call
+ * down directly into second-half of instance shutdown.
+ */
+static void
+ospf_graceful_shutdown_check (struct ospf *ospf)
+{
+  unsigned long timeout;
+  struct listnode *ln;
+  struct ospf_area *area;
+  
+  /* graceful shutdown already running? */
+  if (ospf->t_graceful_shutdown)
+    return;
+  
+  /* Should we try push out max-metric LSAs? */
+  if (ospf->stub_router_shutdown_time != OSPF_STUB_ROUTER_UNCONFIGURED)
+    {
+      for (ALL_LIST_ELEMENTS_RO (ospf->areas, ln, area))
+        {
+          SET_FLAG (area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
+          
+          if (!CHECK_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
+              ospf_router_lsa_timer_add (area);
+        }
+      timeout = ospf->stub_router_shutdown_time;
+    }
+  else
+    /* No timer needed */
+    return ospf_graceful_shutdown_finish (ospf);
+  
+  OSPF_TIMER_ON (ospf->t_graceful_shutdown, ospf_graceful_shutdown_timer,
+                 timeout);
+  return;
+}
+
+/* Shut down the entire process */
+void
+ospf_terminate (void)
+{
+  struct ospf *ospf;
+  struct listnode *node, *nnode;
+  
+  /* shutdown already in progress */
+  if (CHECK_FLAG (om->options, OSPF_MASTER_SHUTDOWN))
+    return;
+  
+  SET_FLAG (om->options, OSPF_MASTER_SHUTDOWN);
+
+  for (ALL_LIST_ELEMENTS (om->ospf, node, nnode, ospf))
+    ospf_finish (ospf);
+
+  /* Deliberately go back up, hopefully to thread scheduler, as
+   * One or more ospf_finish()'s may have deferred shutdown to a timer
+   * thread
+   */
+}
 
 void
 ospf_finish (struct ospf *ospf)
+{
+  /* let graceful shutdown decide */
+  return ospf_graceful_shutdown_check (ospf);
+      
+  /* if ospf_graceful_shutdown returns, then ospf_finish_final is
+   * deferred to expiry of G-S timer thread. Return back up, hopefully
+   * to thread scheduler.
+   */
+}
+
+/* Final cleanup of ospf instance */
+static void
+ospf_finish_final (struct ospf *ospf)
 {
   struct route_node *rn;
   struct ospf_nbr_nbma *nbr_nbma;
@@ -279,8 +390,11 @@ ospf_finish (struct ospf *ospf)
 #ifdef HAVE_OPAQUE_LSA
   ospf_opaque_type11_lsa_term (ospf);
 #endif /* HAVE_OPAQUE_LSA */
-
-  /* Unredister redistribution */
+  
+  /* be nice if this worked, but it doesn't */
+  /*ospf_flush_self_originated_lsas_now (ospf);*/
+  
+  /* Unregister redistribution */
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     ospf_redistribute_unset (ospf, i);
 
@@ -347,10 +461,12 @@ ospf_finish (struct ospf *ospf)
   OSPF_TIMER_OFF (ospf->t_maxage);
   OSPF_TIMER_OFF (ospf->t_maxage_walker);
   OSPF_TIMER_OFF (ospf->t_abr_task);
+  OSPF_TIMER_OFF (ospf->t_asbr_check);
   OSPF_TIMER_OFF (ospf->t_distribute_update);
   OSPF_TIMER_OFF (ospf->t_lsa_refresher);
   OSPF_TIMER_OFF (ospf->t_read);
   OSPF_TIMER_OFF (ospf->t_write);
+  OSPF_TIMER_OFF (ospf->t_opaque_lsa_self);
 
   close (ospf->fd);
   stream_free(ospf->ibuf);
@@ -435,7 +551,7 @@ ospf_area_new (struct ospf *ospf, struct in_addr area_id)
   new->external_routing = OSPF_AREA_DEFAULT;
   new->default_cost = 1;
   new->auth_type = OSPF_AUTH_NULL;
-
+  
   /* New LSDB init. */
   new->lsdb = ospf_lsdb_new ();
 
@@ -496,7 +612,11 @@ ospf_area_free (struct ospf_area *area)
 
   /* Cancel timer. */
   OSPF_TIMER_OFF (area->t_router_lsa_self);
-
+  OSPF_TIMER_OFF (area->t_stub_router);
+#ifdef HAVE_OPAQUE_LSA
+  OSPF_TIMER_OFF (area->t_opaque_lsa_self);
+#endif /* HAVE_OPAQUE_LSA */
+  
   if (OSPF_IS_AREA_BACKBONE (area))
     area->ospf->backbone = NULL;
 
