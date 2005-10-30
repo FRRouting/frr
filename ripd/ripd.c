@@ -1131,8 +1131,8 @@ rip_response_process (struct rip_packet *packet, int size,
 
   /* The datagram's IPv4 source address should be checked to see
      whether the datagram is from a valid neighbor; the source of the
-     datagram must be on a directly connected network  */
-  if (! if_valid_neighbor (from->sin_addr)) 
+     datagram must be on a directly connected network (RFC2453 - Sec. 3.9.2) */
+  if (if_lookup_address(from->sin_addr) == NULL) 
     {
       zlog_info ("This datagram doesn't came from a valid neighbor: %s",
 		 inet_ntoa (from->sin_addr));

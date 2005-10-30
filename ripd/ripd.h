@@ -391,7 +391,6 @@ extern void rip_zclient_start (void);
 extern void rip_zclient_reset (void);
 extern void rip_offset_init (void);
 extern int if_check_address (struct in_addr addr);
-extern int if_valid_neighbor (struct in_addr addr);
 
 extern int rip_request_send (struct sockaddr_in *, struct interface *, u_char,
                       struct connected *);

@@ -388,59 +388,6 @@ if_check_address (struct in_addr addr)
   return 0;
 }
 
-/* is this address from a valid neighbor? (RFC2453 - Sec. 3.9.2) */
-int
-if_valid_neighbor (struct in_addr addr)
-{
-  struct listnode *node;
-  struct connected *connected = NULL;
-  struct interface *ifp;
-  struct prefix_ipv4 *p;
-  struct prefix_ipv4 pa;
-
-  pa.family = AF_INET;
-  pa.prefix = addr;
-  pa.prefixlen = IPV4_MAX_PREFIXLEN;
-
-  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
-    {
-      struct listnode *cnode;
-
-      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
-	{
-	  if (if_is_pointopoint (ifp))
-	    {
-	      p = (struct prefix_ipv4 *) connected->address;
-
-	      if (p && p->family == AF_INET)
-		{
-		  if (IPV4_ADDR_SAME (&p->prefix, &addr))
-		    return 1;
-
-		  p = (struct prefix_ipv4 *) connected->destination;
-		  if (p)
-		    {
-		      if (IPV4_ADDR_SAME (&p->prefix, &addr))
-			return 1;
-		    }
-		  else
-		    {
-		      if (prefix_match(connected->address,(struct prefix *)&pa))
-			return 1;
-		    }
-		}
-	    }
-	  else
-	    {
-	      if ((connected->address->family == AF_INET) &&
-		  prefix_match(connected->address,(struct prefix *)&pa))
-		return 1;
-	    }
-	}
-    }
-  return 0;
-}
-
 /* Inteface link down message processing. */
 int
 rip_interface_down (int command, struct zclient *zclient, zebra_size_t length)

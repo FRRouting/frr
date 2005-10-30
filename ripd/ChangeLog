@@ -1,3 +1,12 @@
+2005-10-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripd.c: (rip_response_process) Instead of calling
+	  rip_interface.c:if_valid_neighbor(), call the equivalent
+	  library function if_lookup_address().
+	* rip_interface.c: (if_valid_neighbor) Remove function, since it is
+	  essentially equivalent to the if_lookup_address() library function.
+	* ripd.h: (if_valid_neighbor) Remove function declaration.
+
 2005-10-28 Paul Jakma <paul.jakma@sun.com>
 
 	* Makefile.am: Add rip_interface.h, or else it doesn't get
