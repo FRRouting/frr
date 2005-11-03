@@ -1,3 +1,10 @@
+2005-11-03 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_apiserver.c: (apiserver_sync_callback) stray semi-colon
+	* ospf_packet.c: include checksum.h, remove the in_cksum extern
+	* prototypes.
+	* ospf_te.h: Add braces, quell warning.
+	  
 2005-10-29 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) RFC3137 stub-router support

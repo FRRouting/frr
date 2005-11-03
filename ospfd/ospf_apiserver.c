@@ -1301,7 +1301,7 @@ apiserver_sync_callback (struct ospf_lsa *lsa, void *p_arg, int int_arg)
       struct in_addr area_id = { .s_addr = 0L };
 
       /* Default interface for non Opaque9 LSAs */
-      struct in_addr ifaddr = { .s_addr = 0L };;
+      struct in_addr ifaddr = { .s_addr = 0L };
       
       if (lsa->area)
 	{

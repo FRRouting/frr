@@ -73,10 +73,10 @@ struct te_tlv_header
 };
 
 #define TLV_HDR_SIZE \
-	sizeof (struct te_tlv_header)
+	(sizeof (struct te_tlv_header))
 
 #define TLV_BODY_SIZE(tlvh) \
-	ROUNDUP (ntohs ((tlvh)->length), sizeof (u_int32_t))
+	(ROUNDUP (ntohs ((tlvh)->length), sizeof (u_int32_t)))
 
 #define TLV_SIZE(tlvh) \
 	(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))

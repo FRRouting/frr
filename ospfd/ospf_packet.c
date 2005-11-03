@@ -32,6 +32,7 @@
 #include "stream.h"
 #include "log.h"
 #include "sockopt.h"
+#include "checksum.h"
 #include "md5.h"
 
 #include "ospfd/ospfd.h"
@@ -58,8 +59,6 @@ const char *ospf_packet_type_str[] =
   "Link State Update",
   "Link State Acknowledgment",
 };
-
-extern int in_cksum (void *ptr, int nbytes);
 
 /* OSPF authentication checking function */
 static int
@@ -2193,7 +2192,6 @@ ospf_check_sum (struct ospf_header *ospfh)
 {
   u_int32_t ret;
   u_int16_t sum;
-  int in_cksum (void *ptr, int nbytes);
 
   /* clear auth_data for checksum. */
   memset (ospfh->u.auth_data, 0, OSPF_AUTH_SIMPLE_SIZE);
