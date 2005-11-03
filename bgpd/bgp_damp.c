@@ -112,15 +112,10 @@ bgp_reuse_timer (struct thread *t)
   struct bgp_damp_info *bdi;
   struct bgp_damp_info *next;
   time_t t_now, t_diff;
-  struct bgp *bgp;
-  
+    
   damp->t_reuse = NULL;
   damp->t_reuse =
     thread_add_timer (master, bgp_reuse_timer, NULL, DELTA_REUSE);
-
-  bgp = bgp_get_default ();
-  if (! bgp)
-    return 0;
 
   t_now = time (NULL);
 
@@ -136,6 +131,8 @@ bgp_reuse_timer (struct thread *t)
   /* 3. if ( the saved list head pointer is non-empty ) */
   for (; bdi; bdi = next)
     {
+      struct bgp *bgp = bdi->binfo->peer->bgp;
+      
       next = bdi->next;
 
       /* Set t-diff = t-now - t-updated.  */

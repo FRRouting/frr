@@ -1,3 +1,9 @@
+2005-11-03 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_damp.c: (bgp_reuse_timer) struct bgp can be retrieved via
+	  the struct bgp_damp_info, no need to guess by using
+	  bgp_get_default().
+
 2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* bgp_vty.c: (bgp_config_write_redistribute) Use new library function
