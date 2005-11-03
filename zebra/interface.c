@@ -209,6 +209,16 @@ if_addr_wakeup (struct interface *ifp)
 	    {
 	      if (! if_is_up (ifp))
 		{
+		  /* XXX: WTF is it trying to set flags here?
+		   * caller has just gotten a new interface, has been
+                   * handed the flags already. This code has no business
+                   * trying to override administrative status of the interface.
+                   * The only call path to here which doesn't originate from
+                   * kernel event is irdp - what on earth is it trying to do?
+                   *
+                   * further RUNNING is not a settable flag on any system
+                   * I (paulj) am aware of.
+                   */
 		  if_set_flags (ifp, IFF_UP | IFF_RUNNING);
 		  if_refresh (ifp);
 		}
@@ -236,6 +246,7 @@ if_addr_wakeup (struct interface *ifp)
 	    {
 	      if (! if_is_up (ifp))
 		{
+		  /* XXX: See long comment above */
 		  if_set_flags (ifp, IFF_UP | IFF_RUNNING);
 		  if_refresh (ifp);
 		}
@@ -1172,7 +1183,7 @@ ip_address_install (struct vty *vty, struct interface *ifp,
 
       /* Label. */
       if (label)
-	ifc->label = strdup (label);
+	ifc->label = XSTRDUP (MTYPE_CONNECTED_LABEL, label);
 
       /* Add to linked list. */
       listnode_add (ifp->connected, ifc);
@@ -1363,7 +1374,7 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
 
       /* Label. */
       if (label)
-	ifc->label = strdup (label);
+	ifc->label = XSTRDUP (MTYPE_CONNECTED_LABEL, label);
 
       /* Add to linked list. */
       listnode_add (ifp->connected, ifc);

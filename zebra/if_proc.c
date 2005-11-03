@@ -240,7 +240,7 @@ ifaddr_proc_ipv6 ()
       str2in6_addr (addr, &p.prefix);
       p.prefixlen = plen;
 
-      connected_add_ipv6 (ifp, &p.prefix, p.prefixlen, NULL);
+      connected_add_ipv6 (ifp, &p.prefix, p.prefixlen, NULL, ifname);
     }
   fclose (fp);
   return 0;

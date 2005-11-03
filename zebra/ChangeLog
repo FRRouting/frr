@@ -1,3 +1,40 @@
+2005-11-03 Paul Jakma <paul.jakma@sun.com>
+
+	* connected.{c,h}: Include memory.h
+	  (connected_add_ipv4) Use MTYPE for ifc label.
+	  (connected_add_ipv6) Also should accept label. Store it in ifp.
+	  (connected_del_ipv4) Taking label as argument is pointless.
+	* rt_netlink.c: (netlink_interface_addr) update label usage
+	  for connected_{add,delete} functions.
+	* if_ioctl.c: (if_getaddrs) NULL label for connected_add_ipv6.
+	* if_ioctl_solaris.c: (interface_list_ioctl) Pass LIFC_NOXMIT
+	  so we also find out about NOXMIT interfaces like VNI.
+	  Bit of hackery to turn interface names into the primary
+	  interface name, later with routing socket messages we only
+	  will about primary interfaces anyway, so we must normalise
+	  the name.
+	  (if_get_addr) take label as argument, so it can
+	  be passed to connected_add.
+	  If label is provided, then it is interface name to issue the
+	  ioctl for address information on, not the ifp name.
+	  (interface_list) List AF_UNSPEC too, just in case.
+	* if_proc.c: (ifaddr_proc_ipv6) label for connected_add_ipv6.
+	* interface.c: (if_addr_wakeup) Some very bogus code - sets
+	  IFF_RUNNING - add comment.
+	  (if_refresh)
+	  (ip_address_install) Use MTYPE for ifc label.
+	* ioctl_solaris.c: (if_mangle_up) New function. Hackery to make
+	  IFF_UP reflect whether any addresses are left on the
+	  interface, as we get signalled for IFF_UP flags change on the 
+	  primary interface only. Logical interfaces dont generate
+	  IFINFO, but we do get an RTM_DELADDR.
+	  (if_get_flags) Call if_mangle_up before return.
+	* kernel_socket.c: (ifam_read) Fixup calls to
+	  connected_{add,delete} to match above changes. Rename gate
+	  variable to brd, less confusing.
+	  Pass the interface name as a label, if it is not same name 
+	  as ifp->name.
+
 2005-10-11 Paul Jakma <paul.jakma@sun.com>
 
 	* connected.{c,h}: (connected_{add,delete}_ipv4) label should

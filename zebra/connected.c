@@ -29,6 +29,7 @@
 #include "rib.h"
 #include "table.h"
 #include "log.h"
+#include "memory.h"
 
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
@@ -219,7 +220,7 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
 
   /* Label of this address. */
   if (label)
-    ifc->label = strdup (label);
+    ifc->label = XSTRDUP (MTYPE_CONNECTED_LABEL, label);
 
   /* Check same connected route. */
   if ((current = connected_check (ifp, (struct prefix *) ifc->address)))
@@ -267,8 +268,7 @@ connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
 /* Delete connected IPv4 route to the interface. */
 void
 connected_delete_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
-		       u_char prefixlen, struct in_addr *broad,
-		       const char *label)
+		       u_char prefixlen, struct in_addr *broad)
 {
   struct prefix_ipv4 p;
   struct connected *ifc;
@@ -330,7 +330,7 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
 /* Add connected IPv6 route to the interface. */
 void
 connected_add_ipv6 (struct interface *ifp, struct in6_addr *addr,
-		    u_char prefixlen, struct in6_addr *broad)
+		    u_char prefixlen, struct in6_addr *broad, char *label)
 {
   struct prefix_ipv6 *p;
   struct connected *ifc;
@@ -356,6 +356,10 @@ connected_add_ipv6 (struct interface *ifp, struct in6_addr *addr,
       ifc->destination = (struct prefix *) p;
     }
 
+  /* Label of this address. */
+  if (label)
+    ifc->label = XSTRDUP (MTYPE_CONNECTED_LABEL, label);
+  
   if ((current = connected_check (ifp, (struct prefix *) ifc->address)))
     connected_withdraw (current); /* implicit update of existing address */
   

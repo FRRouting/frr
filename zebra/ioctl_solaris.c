@@ -274,11 +274,35 @@ if_unset_prefix (struct interface *ifp, struct connected *ifc)
   return 0;
 }
 
+/* Solaris IFF_UP flag reflects only the primary interface as the
+ * routing socket only sends IFINFO for the primary interface.  Hence  
+ * ~IFF_UP does not per se imply all the logical interfaces are also   
+ * down - which we only know of as addresses. Instead we must determine
+ * whether the interface really is up or not according to how many   
+ * addresses are still attached. (Solaris always sends RTM_DELADDR if
+ * an interface, logical or not, goes ~IFF_UP).
+ *
+ * Ie, we mangle IFF_UP to reflect whether or not there are addresses
+ * left in struct connected, not the actual underlying IFF_UP flag
+ * (which corresponds to just one address of all the logical interfaces)
+ *
+ * Setting IFF_UP within zebra to administratively shutdown the
+ * interface will affect only the primary interface/address on Solaris.
+ */
+static inline void
+if_mangle_up (struct interface *ifp)
+{
+  if (listcount(ifp->connected) > 0)
+    SET_FLAG (ifp->flags, IFF_UP);
+  else
+    UNSET_FLAG (ifp->flags, IFF_UP);
+}
+
 /* get interface flags */
 void
 if_get_flags (struct interface *ifp)
 {
-  int ret;
+  int ret4, ret6;
   struct lifreq lifreq;
   unsigned long flags4 = 0, flags6 = 0;
 
@@ -286,25 +310,27 @@ if_get_flags (struct interface *ifp)
     {
       lifreq_set_name (&lifreq, ifp);
       
-      ret = AF_IOCTL (AF_INET, SIOCGLIFFLAGS, (caddr_t) & lifreq);
-
-      flags4 = (lifreq.lifr_flags & 0xffffffff);
-      if (!(flags4 & IFF_UP))
-        flags4 &= ~IFF_IPV4;
+      ret4 = AF_IOCTL (AF_INET, SIOCGLIFFLAGS, (caddr_t) & lifreq);
+      
+      if (!ret4)
+        flags4 = (lifreq.lifr_flags & 0xffffffff);
     }
 
   if (ifp->flags & IFF_IPV6)
     {
       lifreq_set_name (&lifreq, ifp);
       
-      ret = AF_IOCTL (AF_INET6, SIOCGLIFFLAGS, (caddr_t) & lifreq);
-              
-      flags6 = (lifreq.lifr_flags & 0xffffffff);
-      if (!(flags6 & IFF_UP))
-        flags6 &= ~IFF_IPV6;
+      ret6 = AF_IOCTL (AF_INET6, SIOCGLIFFLAGS, (caddr_t) & lifreq);
+      
+      if (!ret6)
+        flags6 = (lifreq.lifr_flags & 0xffffffff);
     }
+  
+  /* only update flags if one of above succeeded */
+  if ( !(ret4 && ret6) )
+    ifp->flags = (flags4 | flags6);
 
-  ifp->flags = (flags4 | flags6);
+  if_mangle_up (ifp);
 }
 
 /* Set interface flags */

@@ -686,7 +686,7 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
       else
         connected_delete_ipv4 (ifp, flags,
                                (struct in_addr *) addr, ifa->ifa_prefixlen,
-                               (struct in_addr *) broad, label);
+                               (struct in_addr *) broad);
     }
 #ifdef HAVE_IPV6
   if (ifa->ifa_family == AF_INET6)
@@ -694,7 +694,7 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
       if (h->nlmsg_type == RTM_NEWADDR)
         connected_add_ipv6 (ifp,
                             (struct in6_addr *) addr, ifa->ifa_prefixlen,
-                            (struct in6_addr *) broad);
+                            (struct in6_addr *) broad, label);
       else
         connected_delete_ipv6 (ifp,
                                (struct in6_addr *) addr, ifa->ifa_prefixlen,

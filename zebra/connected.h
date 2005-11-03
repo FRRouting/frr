@@ -33,8 +33,7 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
 
 extern void
 connected_delete_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
-		       u_char prefixlen, struct in_addr *broad,
-		       const char *label);
+		       u_char prefixlen, struct in_addr *broad);
 
 extern void connected_up_ipv4 (struct interface *, struct connected *);
 extern void connected_down_ipv4 (struct interface *, struct connected *);
@@ -42,7 +41,7 @@ extern void connected_down_ipv4 (struct interface *, struct connected *);
 #ifdef HAVE_IPV6
 extern void
 connected_add_ipv6 (struct interface *ifp, struct in6_addr *address,
-		    u_char prefixlen, struct in6_addr *broad);
+		    u_char prefixlen, struct in6_addr *broad, char *label);
 extern void
 connected_delete_ipv6 (struct interface *ifp, struct in6_addr *address,
 		       u_char prefixlen, struct in6_addr *broad);

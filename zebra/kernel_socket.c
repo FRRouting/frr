@@ -465,7 +465,7 @@ int
 ifam_read (struct ifa_msghdr *ifam)
 {
   struct interface *ifp;
-  union sockunion addr, mask, gate;
+  union sockunion addr, mask, brd;
 
   /* Check does this interface exist or not. */
   ifp = if_lookup_by_index (ifam->ifam_index);
@@ -476,7 +476,7 @@ ifam_read (struct ifa_msghdr *ifam)
     }
 
   /* Allocate and read address information. */
-  ifam_read_mesg (ifam, &addr, &mask, &gate);
+  ifam_read_mesg (ifam, &addr, &mask, &brd);
 
   /* Check interface flag for implicit up of the interface. */
   if_refresh (ifp);
@@ -488,11 +488,12 @@ ifam_read (struct ifa_msghdr *ifam)
       if (ifam->ifam_type == RTM_NEWADDR)
 	connected_add_ipv4 (ifp, 0, &addr.sin.sin_addr, 
 			    ip_masklen (mask.sin.sin_addr),
-			    &gate.sin.sin_addr, NULL);
+			    &brd.sin.sin_addr,
+			    (isalias ? ifname : NULL) );
       else
 	connected_delete_ipv4 (ifp, 0, &addr.sin.sin_addr, 
 			       ip_masklen (mask.sin.sin_addr),
-			       &gate.sin.sin_addr, NULL);
+			       &brd.sin.sin_addr);
       break;
 #ifdef HAVE_IPV6
     case AF_INET6:
@@ -505,12 +506,13 @@ ifam_read (struct ifa_msghdr *ifam)
 	connected_add_ipv6 (ifp,
 			    &addr.sin6.sin6_addr, 
 			    ip6_masklen (mask.sin6.sin6_addr),
-			    &gate.sin6.sin6_addr);
+			    &brd.sin6.sin6_addr,
+			    (isalias ? ifname : NULL) );
       else
 	connected_delete_ipv6 (ifp,
 			       &addr.sin6.sin6_addr, 
 			       ip6_masklen (mask.sin6.sin6_addr),
-			       &gate.sin6.sin6_addr);
+			       &brd.sin6.sin6_addr);
       break;
 #endif /* HAVE_IPV6 */
     default:

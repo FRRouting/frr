@@ -305,7 +305,8 @@ if_getaddrs (void)
 	    }	
 #endif          
 
-	  connected_add_ipv6 (ifp, &addr->sin6_addr, prefixlen, dest_pnt);
+	  connected_add_ipv6 (ifp, &addr->sin6_addr, prefixlen, 
+	                      dest_pnt, NULL);
 	}
 #endif /* HAVE_IPV6 */
     }

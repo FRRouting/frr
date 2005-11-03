@@ -34,7 +34,7 @@
 #include "zebra/interface.h"
 
 void lifreq_set_name (struct lifreq *, struct interface *);
-static int if_get_addr (struct interface *, struct sockaddr *);
+static int if_get_addr (struct interface *, struct sockaddr *, const char *);
 static void interface_info_ioctl (struct interface *);
 extern struct zebra_privs_t zserv_privs;
 
@@ -71,7 +71,7 @@ interface_list_ioctl (int af)
 
 calculate_lifc_len:     /* must hold privileges to enter here */
   lifn.lifn_family = af;
-  lifn.lifn_flags = 0;
+  lifn.lifn_flags = LIFC_NOXMIT; /* we want NOXMIT interfaces too */
   ret = ioctl (sock, SIOCGLIFNUM, &lifn);
   save_errno = errno;
   
@@ -108,7 +108,7 @@ calculate_lifc_len:     /* must hold privileges to enter here */
   lastneeded = needed;
 
   lifconf.lifc_family = af;
-  lifconf.lifc_flags = 0;
+  lifconf.lifc_flags = LIFC_NOXMIT;
   lifconf.lifc_len = needed;
   lifconf.lifc_buf = buf;
 
@@ -138,9 +138,22 @@ calculate_lifc_len:     /* must hold privileges to enter here */
 
   for (n = 0; n < lifconf.lifc_len; n += sizeof (struct lifreq))
     {
-      ifp = if_get_by_name_len(lifreq->lifr_name,
-			       strnlen(lifreq->lifr_name,
-				       sizeof(lifreq->lifr_name)));
+      /* we treat Solaris logical interfaces as addresses, because that is
+       * how PF_ROUTE on Solaris treats them. Hence we can not directly use
+       * the lifreq_name to get the ifp.  We need to normalise the name
+       * before attempting get.
+       *
+       * Solaris logical interface names are in the form of:
+       * <interface name>:<logical interface id>
+       */
+      unsigned int normallen = 0;
+      
+      while ( (normallen < sizeof(lifreq->lifr_name))
+             && ( *(lifreq->lifr_name + normallen) != '\0')
+             && ( *(lifreq->lifr_name + normallen) != ':') )
+        normallen++;
+      
+      ifp = if_get_by_name_len(lifreq->lifr_name, normallen);
 
       if (lifreq->lifr_addr.ss_family == AF_INET)
         ifp->flags |= IFF_IPV4;
@@ -158,7 +171,15 @@ calculate_lifc_len:     /* must hold privileges to enter here */
       if_add_update (ifp);
 
       interface_info_ioctl (ifp);
-      if_get_addr (ifp, (struct sockaddr *) &lifreq->lifr_addr);
+      
+      /* If a logical interface pass the full name so it can be
+       * as a label on the address
+       */
+      if ( *(lifreq->lifr_name + normallen) != '\0')
+        if_get_addr (ifp, (struct sockaddr *) &lifreq->lifr_addr,
+                     lifreq->lifr_name);
+      else
+        if_get_addr (ifp, (struct sockaddr *) &lifreq->lifr_addr, NULL);
       lifreq++;
     }
 
@@ -209,8 +230,9 @@ if_get_index (struct interface *ifp)
 #define SIN(s) ((struct sockaddr_in *)(s))
 #define SIN6(s) ((struct sockaddr_in6 *)(s))
 
+/* Retrieve address information for the given ifp */
 static int
-if_get_addr (struct interface *ifp, struct sockaddr *addr)
+if_get_addr (struct interface *ifp, struct sockaddr *addr, const char *label)
 {
   int ret;
   struct lifreq lifreq;
@@ -219,8 +241,11 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr)
   u_char prefixlen = 0;
   afi_t af;
 
-  /* Interface's name and address family. */
-  strncpy (lifreq.lifr_name, ifp->name, IFNAMSIZ);
+  /* Interface's name and address family.
+   * We need to use the logical interface name / label, if we've been
+   * given one, in order to get the right address
+   */
+  strncpy (lifreq.lifr_name, (label : label ? ifp->name), IFNAMSIZ);
 
   /* Interface's address. */
   memcpy (&lifreq.lifr_addr, addr, ADDRLEN (addr));
@@ -306,11 +331,11 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr)
   /* Set address to the interface. */
   if (af == AF_INET)
     connected_add_ipv4 (ifp, 0, &SIN (addr)->sin_addr, prefixlen,
-                        (struct in_addr *) dest_pnt, NULL);
+                        (struct in_addr *) dest_pnt, label);
 #ifdef HAVE_IPV6
   else if (af == AF_INET6)
     connected_add_ipv6 (ifp, &SIN6 (addr)->sin6_addr, prefixlen,
-                        (struct in6_addr *) dest_pnt);
+                        (struct in6_addr *) dest_pnt, label);
 #endif /* HAVE_IPV6 */
 
   return 0;
@@ -332,6 +357,7 @@ interface_list ()
 {
   interface_list_ioctl (AF_INET);
   interface_list_ioctl (AF_INET6);
+  interface_list_ioctl (AF_UNSPEC);
 }
 
 struct connected *
