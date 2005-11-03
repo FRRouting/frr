@@ -4,6 +4,8 @@
 	* ospf_packet.c: include checksum.h, remove the in_cksum extern
 	* prototypes.
 	* ospf_te.h: Add braces, quell warning.
+	* ospf_packet.c: Change level of some warnings to
+	  informational.
 	  
 2005-10-29 Paul Jakma <paul.jakma@sun.com>
 

@@ -755,12 +755,12 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
   /* If incoming interface is passive one, ignore Hello. */
   if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE) {
     char buf[3][INET_ADDRSTRLEN];
-    zlog_warn("Warning: ignoring HELLO from router %s sent to %s; we "
-	      "should not receive hellos on passive interface %s!",
-	      inet_ntop(AF_INET, &ospfh->router_id, buf[0], sizeof(buf[0])),
-	      inet_ntop(AF_INET, &iph->ip_dst, buf[1], sizeof(buf[1])),
-	      inet_ntop(AF_INET, &oi->address->u.prefix4,
-	      		buf[2], sizeof(buf[2])));
+    zlog_debug ("ignoring HELLO from router %s sent to %s, "
+	        "received on a passive interface, %s",
+	        inet_ntop(AF_INET, &ospfh->router_id, buf[0], sizeof(buf[0])),
+	        inet_ntop(AF_INET, &iph->ip_dst, buf[1], sizeof(buf[1])),
+	        inet_ntop(AF_INET, &oi->address->u.prefix4,
+	      		  buf[2], sizeof(buf[2])));
     if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS))
       {
         /* Try to fix multicast membership. */
@@ -1200,7 +1200,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  else
 	    {
 	      /* We're Master, ignore the initial DBD from Slave */
-	      zlog_warn ("Packet[DD]: Neighbor %s: Initial DBD from Slave, "
+	      zlog_info ("Packet[DD]: Neighbor %s: Initial DBD from Slave, "
 	      		 "ignoring.", inet_ntoa(nbr->router_id));
 	      break;
 	    }
@@ -1235,7 +1235,10 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
           if (! CHECK_FLAG (nbr->options, OSPF_OPTION_O)
           &&  IPV4_ADDR_SAME (&DR (oi), &nbr->address.u.prefix4))
             {
-              zlog_warn ("DR-neighbor[%s] is NOT opaque-capable; Opaque-LSAs cannot be reliably advertised in this network.", inet_ntoa (nbr->router_id));
+              zlog_warn ("DR-neighbor[%s] is NOT opaque-capable; "
+                         "Opaque-LSAs cannot be reliably advertised "
+                         "in this network.",
+                         inet_ntoa (nbr->router_id));
               /* This situation is undesirable, but not a real error. */
             }
         }
@@ -1251,12 +1254,12 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	{
 	  if (IS_SET_DD_MS (nbr->dd_flags))
 	    /* Master: discard duplicated DD packet. */
-	    zlog_warn ("Packet[DD] (Master): Neighbor %s packet duplicated.",
+	    zlog_info ("Packet[DD] (Master): Neighbor %s packet duplicated.",
 		       inet_ntoa (nbr->router_id));
 	  else
 	    /* Slave: cause to retransmit the last Database Description. */
 	    {
-	      zlog_warn ("Packet[DD] [Slave]: Neighbor %s packet duplicated.",
+	      zlog_info ("Packet[DD] [Slave]: Neighbor %s packet duplicated.",
 			 inet_ntoa (nbr->router_id));
 	      ospf_db_desc_resend (nbr);
 	    }
@@ -1279,7 +1282,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
       /* Check initialize bit is set. */
       if (IS_SET_DD_I (dd->flags))
 	{
-	  zlog_warn ("Packet[DD]: Neighbor %s I-bit set.",
+	  zlog_info ("Packet[DD]: Neighbor %s I-bit set.",
 		     inet_ntoa(nbr->router_id));
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_SeqNumberMismatch);
 	  break;
@@ -1320,7 +1323,8 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  if (IS_SET_DD_MS (nbr->dd_flags))
 	    {
 	      /* Master should discard duplicate DD packet. */
-	      zlog_warn("Packet[DD]: Neighbor %s duplicated, packet discarded.",
+	      zlog_info ("Packet[DD]: Neighbor %s duplicated, "
+	                 "packet discarded.",
 			inet_ntoa(nbr->router_id));
 	      break;
 	    }
@@ -1723,8 +1727,8 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	  ospf_ls_ack_send (nbr, lsa);
 
 	  /* Discard LSA. */	  
-	  zlog_warn("Link State Update[%s]: LS age is equal to MaxAge.",
-		    dump_lsa_key(lsa));
+	  zlog_info ("Link State Update[%s]: LS age is equal to MaxAge.",
+		     dump_lsa_key(lsa));
           DISCARD_LSA (lsa, 3);
 	}
 
