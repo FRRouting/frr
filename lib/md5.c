@@ -1,6 +1,6 @@
 /* $USAGI: md5.c,v 1.2 2000/11/02 11:59:24 yoshfuji Exp $ */
 /*	$KAME: md5.c,v 1.2 2000/05/27 07:07:48 jinmei Exp $	*/
-/*	$Id: md5.c,v 1.3 2005/09/28 15:47:44 vincent Exp $ */
+/*	$Id: md5.c,v 1.4 2005/11/03 09:00:23 paul Exp $ */
 
 /*
  * Copyright (C) 2004 6WIND
@@ -39,11 +39,7 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/param.h>
-#include <sys/types.h>
-#include <sys/cdefs.h>
-#include <sys/time.h>
-#include <string.h>
+#include <zebra.h>
 #include "md5.h"
 
 #define SHIFT(X, s) (((X) << (s)) | ((X) >> (32 - (s))))
@@ -103,7 +99,7 @@
 #define MD5_D0	0x10325476
 
 /* Integer part of 4294967296 times abs(sin(i)), where i is in radians. */
-static const u_int32_t T[65] = {
+static const uint32_t T[65] = {
 	0,
 	0xd76aa478, 	0xe8c7b756,	0x242070db,	0xc1bdceee,
 	0xf57c0faf,	0x4787c62a, 	0xa8304613,	0xfd469501,
@@ -126,7 +122,7 @@ static const u_int32_t T[65] = {
 	0xf7537e82, 	0xbd3af235, 	0x2ad7d2bb, 	0xeb86d391,
 };
 
-static const u_int8_t md5_paddat[MD5_BUFLEN] = {
+static const uint8_t md5_paddat[MD5_BUFLEN] = {
 	0x80,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
@@ -137,10 +133,9 @@ static const u_int8_t md5_paddat[MD5_BUFLEN] = {
 	0,	0,	0,	0,	0,	0,	0,	0,	
 };
 
-static void md5_calc __P((u_int8_t *, md5_ctxt *));
+static void md5_calc (const uint8_t *, md5_ctxt *);
 
-void md5_init(ctxt)
-	md5_ctxt *ctxt;
+void md5_init(md5_ctxt *ctxt)
 {
 	ctxt->md5_n = 0;
 	ctxt->md5_i = 0;
@@ -148,132 +143,117 @@ void md5_init(ctxt)
 	ctxt->md5_stb = MD5_B0;
 	ctxt->md5_stc = MD5_C0;
 	ctxt->md5_std = MD5_D0;
-	bzero(ctxt->md5_buf, sizeof(ctxt->md5_buf));
+	memset (ctxt->md5_buf, 0, sizeof(ctxt->md5_buf));
 }
 
-void md5_loop(ctxt, input, len)
-	md5_ctxt *ctxt;
-	u_int8_t *input;
-	u_int len; /* number of bytes */
+void md5_loop(md5_ctxt *ctxt, const uint8_t *input, uint len)
 {
-	u_int gap, i;
+	uint gap, i;
 
 	ctxt->md5_n += len * 8; /* byte to bit */
 	gap = MD5_BUFLEN - ctxt->md5_i;
 
 	if (len >= gap) {
-		bcopy((void *)input, (void *)(ctxt->md5_buf + ctxt->md5_i),
-			gap);
+		memcpy (ctxt->md5_buf + ctxt->md5_i, input, gap);
 		md5_calc(ctxt->md5_buf, ctxt);
 
 		for (i = gap; i + MD5_BUFLEN <= len; i += MD5_BUFLEN) {
-			md5_calc((u_int8_t *)(input + i), ctxt);
+			md5_calc((input + i), ctxt);
 		}
 		
 		ctxt->md5_i = len - i;
-		bcopy((void *)(input + i), (void *)ctxt->md5_buf, ctxt->md5_i);
+		memcpy (ctxt->md5_buf, (input + i), ctxt->md5_i);
 	} else {
-		bcopy((void *)input, (void *)(ctxt->md5_buf + ctxt->md5_i),
-			len);
+		memcpy (ctxt->md5_buf + ctxt->md5_i, input, len);
 		ctxt->md5_i += len;
 	}
 }
 
-void md5_pad(ctxt)
-	md5_ctxt *ctxt;
+void md5_pad(md5_ctxt *ctxt)
 {
-	u_int gap;
+	uint gap;
 
 	/* Don't count up padding. Keep md5_n. */	
 	gap = MD5_BUFLEN - ctxt->md5_i;
 	if (gap > 8) {
-		bcopy((void *)md5_paddat,
-		      (void *)(ctxt->md5_buf + ctxt->md5_i),
-		      gap - sizeof(ctxt->md5_n));
+		memcpy (ctxt->md5_buf + ctxt->md5_i, md5_paddat, 
+			gap - sizeof(ctxt->md5_n));
 	} else {
 		/* including gap == 8 */
-		bcopy((void *)md5_paddat, (void *)(ctxt->md5_buf + ctxt->md5_i),
-			gap);
-		md5_calc(ctxt->md5_buf, ctxt);
-		bcopy((void *)(md5_paddat + gap),
-		      (void *)ctxt->md5_buf,
-		      MD5_BUFLEN - sizeof(ctxt->md5_n));
+		memcpy (ctxt->md5_buf + ctxt->md5_i, md5_paddat, gap);
+		md5_calc (ctxt->md5_buf, ctxt);
+		memcpy (ctxt->md5_buf, md5_paddat + gap,
+			MD5_BUFLEN - sizeof(ctxt->md5_n));
 	}
 
 	/* 8 byte word */	
-#if BYTE_ORDER == LITTLE_ENDIAN
-	bcopy(&ctxt->md5_n8[0], &ctxt->md5_buf[56], 8);
-#endif
-#if BYTE_ORDER == BIG_ENDIAN
-	ctxt->md5_buf[56] = ctxt->md5_n8[7];
-	ctxt->md5_buf[57] = ctxt->md5_n8[6];
-	ctxt->md5_buf[58] = ctxt->md5_n8[5];
-	ctxt->md5_buf[59] = ctxt->md5_n8[4];
-	ctxt->md5_buf[60] = ctxt->md5_n8[3];
-	ctxt->md5_buf[61] = ctxt->md5_n8[2];
-	ctxt->md5_buf[62] = ctxt->md5_n8[1];
-	ctxt->md5_buf[63] = ctxt->md5_n8[0];
-#endif
-
+	if (BYTE_ORDER == LITTLE_ENDIAN)
+	  memcpy (&ctxt->md5_buf[56], &ctxt->md5_n8[0], 8);
+	else
+	  {
+	    ctxt->md5_buf[56] = ctxt->md5_n8[7];
+	    ctxt->md5_buf[57] = ctxt->md5_n8[6];
+	    ctxt->md5_buf[58] = ctxt->md5_n8[5];
+	    ctxt->md5_buf[59] = ctxt->md5_n8[4];
+	    ctxt->md5_buf[60] = ctxt->md5_n8[3];
+	    ctxt->md5_buf[61] = ctxt->md5_n8[2];
+	    ctxt->md5_buf[62] = ctxt->md5_n8[1];
+	    ctxt->md5_buf[63] = ctxt->md5_n8[0];
+	  }
 	md5_calc(ctxt->md5_buf, ctxt);
 }
 
-void md5_result(digest, ctxt)
-	u_int8_t *digest;
-	md5_ctxt *ctxt;
+void md5_result(uint8_t *digest, md5_ctxt *ctxt)
 {
 	/* 4 byte words */
-#if BYTE_ORDER == LITTLE_ENDIAN
-	bcopy(&ctxt->md5_st8[0], digest, 16);
-#endif
-#if BYTE_ORDER == BIG_ENDIAN
-	digest[ 0] = ctxt->md5_st8[ 3]; digest[ 1] = ctxt->md5_st8[ 2];
-	digest[ 2] = ctxt->md5_st8[ 1]; digest[ 3] = ctxt->md5_st8[ 0];
-	digest[ 4] = ctxt->md5_st8[ 7]; digest[ 5] = ctxt->md5_st8[ 6];
-	digest[ 6] = ctxt->md5_st8[ 5]; digest[ 7] = ctxt->md5_st8[ 4];
-	digest[ 8] = ctxt->md5_st8[11]; digest[ 9] = ctxt->md5_st8[10];
-	digest[10] = ctxt->md5_st8[ 9]; digest[11] = ctxt->md5_st8[ 8];
-	digest[12] = ctxt->md5_st8[15]; digest[13] = ctxt->md5_st8[14];
-	digest[14] = ctxt->md5_st8[13]; digest[15] = ctxt->md5_st8[12];
-#endif
+	if (BYTE_ORDER == LITTLE_ENDIAN)
+	  memcpy (digest, &ctxt->md5_st8[0], 16);
+	else if (BYTE_ORDER == BIG_ENDIAN)
+	  {
+	    digest[ 0] = ctxt->md5_st8[ 3]; digest[ 1] = ctxt->md5_st8[ 2];
+	    digest[ 2] = ctxt->md5_st8[ 1]; digest[ 3] = ctxt->md5_st8[ 0];
+	    digest[ 4] = ctxt->md5_st8[ 7]; digest[ 5] = ctxt->md5_st8[ 6];
+	    digest[ 6] = ctxt->md5_st8[ 5]; digest[ 7] = ctxt->md5_st8[ 4];
+	    digest[ 8] = ctxt->md5_st8[11]; digest[ 9] = ctxt->md5_st8[10];
+	    digest[10] = ctxt->md5_st8[ 9]; digest[11] = ctxt->md5_st8[ 8];
+	    digest[12] = ctxt->md5_st8[15]; digest[13] = ctxt->md5_st8[14];
+	    digest[14] = ctxt->md5_st8[13]; digest[15] = ctxt->md5_st8[12];
+	  }
 }
 
-#if BYTE_ORDER == BIG_ENDIAN
-u_int32_t X[16];
-#endif
-
-static void md5_calc(b64, ctxt)
-	u_int8_t *b64;
-	md5_ctxt *ctxt;
+static void md5_calc(const uint8_t *b64, md5_ctxt * ctxt)
 {
-	u_int32_t A = ctxt->md5_sta;
-	u_int32_t B = ctxt->md5_stb;
-	u_int32_t C = ctxt->md5_stc;
-	u_int32_t D = ctxt->md5_std;
-#if BYTE_ORDER == LITTLE_ENDIAN
-	u_int32_t *X = (u_int32_t *)b64;
-#endif	
-#if BYTE_ORDER == BIG_ENDIAN
-	/* 4 byte words */
-	/* what a brute force but fast! */
-	u_int8_t *y = (u_int8_t *)X;
-	y[ 0] = b64[ 3]; y[ 1] = b64[ 2]; y[ 2] = b64[ 1]; y[ 3] = b64[ 0];
-	y[ 4] = b64[ 7]; y[ 5] = b64[ 6]; y[ 6] = b64[ 5]; y[ 7] = b64[ 4];
-	y[ 8] = b64[11]; y[ 9] = b64[10]; y[10] = b64[ 9]; y[11] = b64[ 8];
-	y[12] = b64[15]; y[13] = b64[14]; y[14] = b64[13]; y[15] = b64[12];
-	y[16] = b64[19]; y[17] = b64[18]; y[18] = b64[17]; y[19] = b64[16];
-	y[20] = b64[23]; y[21] = b64[22]; y[22] = b64[21]; y[23] = b64[20];
-	y[24] = b64[27]; y[25] = b64[26]; y[26] = b64[25]; y[27] = b64[24];
-	y[28] = b64[31]; y[29] = b64[30]; y[30] = b64[29]; y[31] = b64[28];
-	y[32] = b64[35]; y[33] = b64[34]; y[34] = b64[33]; y[35] = b64[32];
-	y[36] = b64[39]; y[37] = b64[38]; y[38] = b64[37]; y[39] = b64[36];
-	y[40] = b64[43]; y[41] = b64[42]; y[42] = b64[41]; y[43] = b64[40];
-	y[44] = b64[47]; y[45] = b64[46]; y[46] = b64[45]; y[47] = b64[44];
-	y[48] = b64[51]; y[49] = b64[50]; y[50] = b64[49]; y[51] = b64[48];
-	y[52] = b64[55]; y[53] = b64[54]; y[54] = b64[53]; y[55] = b64[52];
-	y[56] = b64[59]; y[57] = b64[58]; y[58] = b64[57]; y[59] = b64[56];
-	y[60] = b64[63]; y[61] = b64[62]; y[62] = b64[61]; y[63] = b64[60];
+	uint32_t A = ctxt->md5_sta;
+	uint32_t B = ctxt->md5_stb;
+	uint32_t C = ctxt->md5_stc;
+	uint32_t D = ctxt->md5_std;
+#if (BYTE_ORDER == LITTLE_ENDIAN)
+	const uint32_t *X = (const uint32_t *)b64;
+#elif (BYTE_ORDER == BIG_ENDIAN)
+	uint32_t X[16];
 #endif
+	if (BYTE_ORDER == BIG_ENDIAN)
+	  {
+	    /* 4 byte words */
+	    /* what a brute force but fast! */
+	    uint8_t *y = (uint8_t *)X;
+	    y[ 0] = b64[ 3]; y[ 1] = b64[ 2]; y[ 2] = b64[ 1]; y[ 3] = b64[ 0];
+	    y[ 4] = b64[ 7]; y[ 5] = b64[ 6]; y[ 6] = b64[ 5]; y[ 7] = b64[ 4];
+	    y[ 8] = b64[11]; y[ 9] = b64[10]; y[10] = b64[ 9]; y[11] = b64[ 8];
+	    y[12] = b64[15]; y[13] = b64[14]; y[14] = b64[13]; y[15] = b64[12];
+	    y[16] = b64[19]; y[17] = b64[18]; y[18] = b64[17]; y[19] = b64[16];
+	    y[20] = b64[23]; y[21] = b64[22]; y[22] = b64[21]; y[23] = b64[20];
+	    y[24] = b64[27]; y[25] = b64[26]; y[26] = b64[25]; y[27] = b64[24];
+	    y[28] = b64[31]; y[29] = b64[30]; y[30] = b64[29]; y[31] = b64[28];
+	    y[32] = b64[35]; y[33] = b64[34]; y[34] = b64[33]; y[35] = b64[32];
+	    y[36] = b64[39]; y[37] = b64[38]; y[38] = b64[37]; y[39] = b64[36];
+	    y[40] = b64[43]; y[41] = b64[42]; y[42] = b64[41]; y[43] = b64[40];
+	    y[44] = b64[47]; y[45] = b64[46]; y[46] = b64[45]; y[47] = b64[44];
+	    y[48] = b64[51]; y[49] = b64[50]; y[50] = b64[49]; y[51] = b64[48];
+	    y[52] = b64[55]; y[53] = b64[54]; y[54] = b64[53]; y[55] = b64[52];
+	    y[56] = b64[59]; y[57] = b64[58]; y[58] = b64[57]; y[59] = b64[56];
+	    y[60] = b64[63]; y[61] = b64[62]; y[62] = b64[61]; y[63] = b64[60];
+	  }
 
 	ROUND1(A, B, C, D,  0, Sa,  1); ROUND1(D, A, B, C,  1, Sb,  2);
 	ROUND1(C, D, A, B,  2, Sc,  3); ROUND1(B, C, D, A,  3, Sd,  4);

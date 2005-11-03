@@ -336,6 +336,23 @@ struct in_pktinfo
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 
+/* Define BYTE_ORDER, if not defined. Useful for compiler conditional
+ * code, rather than preprocessor conditional.
+ * Not all the world has this BSD define.
+ */
+#ifndef BYTE_ORDER
+#define BIG_ENDIAN	4321	/* least-significant byte first (vax, pc) */
+#define LITTLE_ENDIAN	1234	/* most-significant byte first (IBM, net) */
+#define PDP_ENDIAN	3412	/* LSB first in word, MSW first in long (pdp) */
+
+#if defined(WORDS_BIGENDIAN)
+#define BYTE_ORDER	BIG_ENDIAN
+#else /* !WORDS_BIGENDIAN */
+#define BYTE_ORDER	LITTLE_ENDIAN
+#endif /* WORDS_BIGENDIAN */
+
+#endif /* ndef BYTE_ORDER */
+
 /* MAX / MIN are not commonly defined, but useful */
 #ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))

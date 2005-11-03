@@ -1,3 +1,24 @@
+2005-11-03 Paul Jakma <paul.jakma@sun.com>
+
+	* zebra.h: BSD BYTE_ORDER define isn't available everywhere,
+	  define if needs be.
+	* checksum.h: new file. checksum.c exports in_cksum, provide
+	  a header for it.
+	* checksum.c: (in_cksum) callers shouldn't have to know it uses
+	  a u_short internally, change to void *.
+	* Makefile.am: Add checksum.h
+	* command.h: remove bogus trailling slash.
+	* md5.c: (general) Update it for the twentieth century. ANSI
+	  declarations are widely supported now.. Don't include system
+	  headers, only include zebra.h. Use POSIX types (the
+	  alternative is to define u_int64_t in a portable way - rest
+	  of Quagga needs same cleanup).
+	  Make endian-conditional code be compiler conditional rather
+	  than preprocessor conditional, so that breakage gets noticed
+	  quicker.
+	* md5.h: POSIX types. Get rid of the odd __P() non-ANSI capable
+	  compiler compatibility hack.
+
 2005-10-26 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) Cleanup a some calls to XFREE,strdup, etc. to use

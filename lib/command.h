@@ -179,7 +179,7 @@ struct desc
   };
 
 #define DEFUN_CMD_FUNC_DECL(funcname) \
-  static int funcname (struct cmd_element *, struct vty *, int, const char *[]); \
+  static int funcname (struct cmd_element *, struct vty *, int, const char *[]);
 
 #define DEFUN_CMD_FUNC_TEXT(funcname) \
   static int funcname \
