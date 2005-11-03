@@ -605,7 +605,7 @@ connected_free (struct connected *connected)
     prefix_free (connected->destination);
 
   if (connected->label)
-    free (connected->label);
+    XFREE (MTYPE_CONNECTED_LABEL, connected->label);
 
   XFREE (MTYPE_CONNECTED, connected);
 }

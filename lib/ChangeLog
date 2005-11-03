@@ -18,6 +18,8 @@
 	  quicker.
 	* md5.h: POSIX types. Get rid of the odd __P() non-ANSI capable
 	  compiler compatibility hack.
+	* if.c: (connected_free) use MTYPE for connected label.
+	  memtypes.c: Add MTYPE_CONNECTED_LABEL
 
 2005-10-26 Paul Jakma <paul.jakma@sun.com>
 

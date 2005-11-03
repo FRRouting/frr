@@ -6,7 +6,7 @@
  * The script is sensitive to the format (though not whitespace), see
  * the top of memtypes.awk for more details.
  *
- * $Id: memtypes.c,v 1.9 2005/10/26 05:05:16 paul Exp $
+ * $Id: memtypes.c,v 1.10 2005/11/03 11:04:07 paul Exp $
  */
 
 #include "zebra.h"
@@ -29,6 +29,7 @@ struct memory_list memory_list_lib[] =
   { MTYPE_VTY_HIST,		"VTY history"			},
   { MTYPE_IF,			"Interface"			},
   { MTYPE_CONNECTED,		"Connected" 			},
+  { MTYPE_CONNECTED_LABEL,	"Connected interface label"	},
   { MTYPE_BUFFER,		"Buffer"			},
   { MTYPE_BUFFER_DATA,		"Buffer data"			},
   { MTYPE_STREAM,		"Stream"			},
