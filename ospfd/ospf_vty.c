@@ -2653,7 +2653,7 @@ DEFUN (show_ip_ospf,
   vty_out (vty, " SPF algorithm ");
   if (ospf->ts_spf.tv_sec || ospf->ts_spf.tv_usec)
     {
-      timersub (&recent_time, &ospf->ts_spf, &result);
+      result = tv_sub (recent_time, ospf->ts_spf);
       vty_out (vty, "last executed %s ago%s",
                ospf_timeval_dump (&result, timebuf, sizeof (timebuf)),
                VTY_NEWLINE);

@@ -297,12 +297,10 @@ const char *
 ospf_timer_dump (struct thread *t, char *buf, size_t size)
 {
   struct timeval result;
-  
   if (!t)
     return "inactive";
   
-  timersub (&t->u.sands, &recent_time, &result);
-    
+  result = tv_sub (t->u.sands, recent_time);
   return ospf_timeval_dump (&result, buf, size);
 }
 
