@@ -1,16 +1,18 @@
 @node SNMP Support
 @chapter SNMP Support
 
-SNMP (Simple Network Managing Protocol) is a widely implemented feature for
-collecting network information from router and/or host. Quagga itself does not
-support SNMP agent (server daemon) functionality but is able to connect to a
-SNMP agent using the SMUX protocol (RFC1227) and make the routing protocol MIBs
-available through it.
+@acronym{SNMP,Simple Network Managing Protocol} is a widely implemented
+feature for collecting network information from router and/or host.
+Quagga itself does not support SNMP agent (server daemon) functionality
+but is able to connect to a SNMP agent using the SMUX protocol
+(@cite{RFC1227}) and make the routing protocol MIBs available through
+it.
 
 @menu
 * Getting and installing an SNMP agent::
 * SMUX configuration::
 * MIB and command reference::
+* Handling SNMP Traps::
 @end menu
 
 @node Getting and installing an SNMP agent
@@ -29,15 +31,16 @@ be able to accept connections from Quagga.
 To enable SMUX protocol support, Quagga must have been build with the
 @code{--enable-snmp} option.
 
-A separate connection has then to be established between between the SNMP agent
-(snmpd) and each of the Quagga daemons. This connections each use different OID
-numbers and passwords. Be aware that this OID number is not the one that is
-used in queries by clients, it is solely used for the intercommunication of the
-daemons.
+A separate connection has then to be established between between the
+SNMP agent (snmpd) and each of the Quagga daemons. This connections
+each use different OID numbers and passwords. Be aware that this OID
+number is not the one that is used in queries by clients, it is solely
+used for the intercommunication of the daemons.
 
-In the following example the ospfd daemon will be connected to the snmpd daemon
-using the password "quagga_ospfd". For testing it is recommending to take
-exactly the below snmpd.conf as wrong access restrictions can be hard to debug.
+In the following example the ospfd daemon will be connected to the
+snmpd daemon using the password "quagga_ospfd". For testing it is
+recommending to take exactly the below snmpd.conf as wrong access
+restrictions can be hard to debug.
 
 @example
 /etc/snmp/snmpd.conf:
@@ -109,3 +112,5 @@ The following syntax is understood by the Quagga daemons for configuring SNMP:
 @deffn {Command} {smux peer @var{oid} @var{password}} {}
 @deffnx {Command} {no smux peer @var{oid} @var{password}} {}
 @end deffn
+
+@include snmptrap.texi

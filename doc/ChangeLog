@@ -1,3 +1,11 @@
+2005-11-04 Paul Jakma <paul.jakma@sun.com>
+
+	* snmptrap.texi: Contributed documentation, contributors name
+	  is lost (please get in touch). Configuring SNMP for logging
+	  traps.
+	* snmp.texi: Minor formatting changes.
+	* quagga.info: Update auto-built file
+
 2005-10-29 Paul Jakma <paul@dishone.st>
 
 	* ospfd.texi: Document the new spf and max-metric commands, and
