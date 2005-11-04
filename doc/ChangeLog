@@ -5,6 +5,11 @@
 	  traps.
 	* snmp.texi: Minor formatting changes.
 	* quagga.info: Update auto-built file
+	* ospf6d.texi: Add example config
+	* bgpd.tex: Add example configs. Couple of cleanups of format
+	  and macros.
+	* routemap.texi: Add an explanation of how route-maps work.
+	  Document the call and exit-policy commands.
 
 2005-10-29 Paul Jakma <paul@dishone.st>
 

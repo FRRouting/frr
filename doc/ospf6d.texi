@@ -10,6 +10,7 @@ OSPF for IPv6 is described in RFC2740.
 * OSPF6 interface::             
 * Redistribute routes to OSPF6::  
 * Showing OSPF6 information::   
+* OSPF6 Configuration Examples::
 @end menu
 
 @node OSPF6 router
@@ -94,3 +95,19 @@ Shows requestlist of neighbor.
 @deffn {Command} {show ipv6 route ospf6} {}
 This command shows internal routing table.
 @end deffn
+
+@node OSPF6 Configuration Examples
+@section OSPF6 Configuration Examples
+
+Example of ospf6d configured on one interface and area:
+
+@example
+interface eth0
+ ipv6 ospf6 instance-id 0
+!
+router ospf6
+ router-id 212.17.55.53
+ area 0.0.0.0 range 2001:770:105:2::/64
+ interface eth0 area 0.0.0.0
+!
+@end example
