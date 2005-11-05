@@ -4,24 +4,26 @@
 # rpmbuild --define 'variable value'
 #
 
-%{!?with_snmp:		%define 	with_snmp	1 }
-%{!?with_vtysh:		%define		with_vtysh	1 }
-%{!?with_ospf_te:	%define		with_ospf_te	1 }
-%{!?with_nssa:		%define		with_nssa	1 }
-%{!?with_opaque_lsa:	%define		with_opaque_lsa 1 }
-%{!?with_tcp_zebra:	%define		with_tcp_zebra	0 }
-%{!?with_vtysh:		%define		with_vtysh	1 }
-%{!?with_pam:		%define		with_pam	1 }
-%{!?with_ipv6:		%define		with_ipv6	1 }
-%{!?with_ospfclient:	%define		with_ospfclient 1 }
-%{!?with_ospfapi:	%define		with_ospfapi	1 }
-%{!?with_irdp:		%define		with_irdp	1 }
-%{!?with_rtadv:		%define		with_rtadv	1 }
-%{!?with_isisd:		%define		with_isisd	1 }
-%{!?with_shared:	%define		with_shared	1 }
-%{!?with_multipath:	%define		with_multipath	64 }
-%{!?quagga_user:	%define		quagga_user	quagga }
-%{!?vty_group:		%define		vty_group	quaggavty }
+####################### Quagga configure options #########################
+# with-feature options
+%{!?with_snmp:		%define with_snmp	1 }
+%{!?with_vtysh:		%define	with_vtysh	1 }
+%{!?with_ospf_te:	%define	with_ospf_te	1 }
+%{!?with_nssa:		%define	with_nssa	1 }
+%{!?with_opaque_lsa:	%define	with_opaque_lsa 1 }
+%{!?with_tcp_zebra:	%define	with_tcp_zebra	0 }
+%{!?with_vtysh:		%define	with_vtysh	1 }
+%{!?with_pam:		%define	with_pam	1 }
+%{!?with_ipv6:		%define	with_ipv6	1 }
+%{!?with_ospfclient:	%define	with_ospfclient 1 }
+%{!?with_ospfapi:	%define	with_ospfapi	1 }
+%{!?with_irdp:		%define	with_irdp	1 }
+%{!?with_rtadv:		%define	with_rtadv	1 }
+%{!?with_isisd:		%define	with_isisd	1 }
+%{!?with_shared:	%define	with_shared	1 }
+%{!?with_multipath:	%define	with_multipath	64 }
+%{!?quagga_user:	%define	quagga_user	quagga }
+%{!?vty_group:		%define	vty_group	quaggavty }
 
 # path defines
 %define		_sysconfdir	/etc/quagga
@@ -34,6 +36,31 @@
 %define		_libdir		%{_exec_prefix}/%{_lib}/quagga
 %define		_includedir	%{_prefix}/include
 %define		_localstatedir	/var/run/quagga
+############################################################################
+
+####################### distro specific tweaks #############################
+# default distro. Override with rpmbuild -D "dist_default XXX" 
+%define			dist_default		fc4
+%{!?dist:		%define		dist	%{default_dist}}
+
+# as distros change packages we depend on, our Requires have to change, sadly.
+%define quagga_buildreqs texinfo tetex autoconf pam-devel
+%define quagga_buildreqs %{quagga_buildreqs} patch libcap-devel
+
+# FC4 and 5 split texi2html out of tetex package.
+%if "%dist" == "fc4" || "%dist" == "fc5"
+%define  quagga_buildreqs %{quagga_buildreqs} texi2html
+%endif
+
+# pam_stack is deprecated in FC5
+# default to pam_stack, default should be changed later.
+%if "%dist" == "fc5"
+%define	quagga_pam_source quagga.pam
+%else
+%define	quagga_pam_source quagga.pam.stack
+%endif
+############################################################################
+
 
 # misc internal defines
 %{!?quagga_uid:		%define         quagga_uid      92 }
@@ -73,7 +100,7 @@ Prereq:		net-snmp
 BuildRequires:	readline readline-devel ncurses ncurses-devel
 Prereq:		ncurses
 %endif
-BuildRequires:	texinfo tetex autoconf pam-devel patch libcap-devel texi2html
+BuildRequires:	texinfo tetex autoconf pam-devel patch libcap-devel tetex
 # Initscripts > 5.60 is required for IPv6 support
 Prereq:		initscripts >= 5.60
 Prereq:		ncurses pam
@@ -193,7 +220,7 @@ developing OSPF-API and quagga applications.
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
 pushd doc
-texi2html -glossary -number quagga.texi
+texi2html -number quagga.texi
 popd
 
 %install
@@ -215,7 +242,7 @@ for daemon in %{all_daemons} ; do
 			$RPM_BUILD_ROOT/etc/rc.d/init.d/${daemon}
 	fi
 done
-install -m644 %{zeb_rh_src}/quagga.pam \
+install -m644 %{zeb_rh_src}/%{quagga_pam_source} \
 	$RPM_BUILD_ROOT/etc/pam.d/quagga
 install -m644 %{zeb_rh_src}/quagga.logrotate \
 	$RPM_BUILD_ROOT/etc/logrotate.d/quagga
