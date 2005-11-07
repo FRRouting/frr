@@ -1,3 +1,8 @@
+2005-11-07 Paul Jakma <paul.jakma@sun.com>
+
+	* Makefile.am: snmptrap.texi needs to be listed as a source,
+	  not disted otherwise.
+
 2005-11-04 Paul Jakma <paul.jakma@sun.com>
 
 	* snmptrap.texi: Contributed documentation, contributors name
