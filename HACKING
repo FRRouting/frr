@@ -1,5 +1,5 @@
 -*- mode: text; -*-
-$Id: HACKING,v 1.20 2005/04/25 00:37:03 paul Exp $
+$Id: HACKING,v 1.21 2005/11/10 10:21:19 paul Exp $
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -87,11 +87,37 @@ structural changes should also be mentioned in the top-level
 ChangeLog.
 
 Certain directories do not contain project code, but contain project
-meta-data, eg packaging information, changes to files in these directory may
-not require the global ChangeLog to be updated (at the discretion of the
-maintainer who usually maintains that meta-data). Also, CVS meta-data such
-as cvsignore files do not require ChangeLog updates, just a sane commit
-message.
+meta-data, eg packaging information, changes to files in these
+directory may not require the global ChangeLog to be updated (at the
+discretion of the maintainer who usually maintains that meta-data).
+Also, CVS meta-data such as cvsignore files do not require ChangeLog
+updates, just a sane commit message.
+
+The ChangeLog should provide:
+
+* The date, in YYYY-MM-DD format
+* The author's name and email.
+* a short description of each change made
+  * file by file
+    * function by function (use of "ditto" is allowed)
+
+(detailed discussion of non-obvious reasoning behind and/or
+implications of a change should be made in comments in the code
+concerned). The changelog optionally may have a (general) description,
+to provide a short description of the general intent of the patch. The
+reason for such itemised ChangeLogs is to encourage the author to
+self-review every line of the patch, as well as provide reviewers an
+index of which changes are intended, along with a short description for
+each. E.g.:
+
+2012-05-29 Joe Bar <joe@example.com>
+
+	* (general) Add a new DOWN state to the frob state machine
+	  to allow the barinator to detect loss of frob.
+	* frob.h: (struct frob) Add DOWN state flag.
+	* frob.c: (frob_change) set/clear DOWN appropriately on state
+	  change.
+	* bar.c: (barinate) Check frob for DOWN state.
 
 
 HACKING THE BUILD SYSTEM
@@ -196,11 +222,25 @@ PATCH APPLICATION TO CVS
 * If the patch might break something, issue a call for testing on the
   mailinglist.
 
-* Give an appropriate commit message, eg the ChangeLog entry should suffice,
-  if it does not, then the ChangeLog entry itself needs to be corrected. The
-  commit message text should be identical to that added to the ChangeLog
-  message. (One suggestion: when commiting, use your editor to read in the
-  ChangeLog and delete all previous ChangeLogs.)
+* Give an appropriate commit message, prefixed with a category name
+  (either the name of the daemon, the library component or the general
+  topic) and a one-line short summary of the change as the first line,
+  suitable for use as a Subject in an email. The ChangeLog entry should
+  suffice as the body of the commit message, if it does not, then the
+  ChangeLog entry itself needs to be corrected. The commit message text
+  should be identical to that added to the ChangeLog message. (One
+  suggestion: when commiting, use your editor to read in the ChangeLog
+  and delete all previous ChangeLogs.) An example:
+  
+  ----------------------------------------------------------------
+  [frob] Defangulator needs to specify frob
+  
+  2012-05-12 Joe Bar <joe@example.com>
+  
+  	* frobinate.c: (frob_lookup) fix NULL dereference
+  	  (defangulate) check whether frob is in state FROB_VALID
+  	  before defangulating.
+  ----------------------------------------------------------------
 
 * By committing a patch, you are responsible for fixing problems
   resulting from it (or backing it out).

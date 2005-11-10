@@ -1,3 +1,9 @@
+2005-11-10 Paul Jakma <paul.jakma@sun.com>
+
+	* HACKING: Add recommendation to provide a single Subject
+	  style description to the commit message.
+	  Add some recommendations for ChangeLog.
+
 2005-09-29 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Add the test for Solaris least-privileges. Set
