@@ -1,3 +1,11 @@
+2005-11-11 Paul Jakma <paul.jakma@sun.com>
+
+	* kernel_socket.c: (ifm_read) arithmetic on void pointer
+	  warning.
+	  (ifam_read) Fix error from connected-with-label merge,
+	  something crept in from the pending Solaris kernel_socket.c
+          patch which shouldn't have.
+
 2005-11-03 Paul Jakma <paul.jakma@sun.com>
 
 	* connected.{c,h}: Include memory.h

@@ -250,7 +250,7 @@ ifm_read (struct if_msghdr *ifm)
 {
   struct interface *ifp = NULL;
   struct sockaddr_dl *sdl = NULL;
-  void *cp;
+  caddr_t *cp;
   unsigned int i;
 
   /* paranoia: sanity check structure */
@@ -488,8 +488,7 @@ ifam_read (struct ifa_msghdr *ifam)
       if (ifam->ifam_type == RTM_NEWADDR)
 	connected_add_ipv4 (ifp, 0, &addr.sin.sin_addr, 
 			    ip_masklen (mask.sin.sin_addr),
-			    &brd.sin.sin_addr,
-			    (isalias ? ifname : NULL) );
+			    &brd.sin.sin_addr, NULL);
       else
 	connected_delete_ipv4 (ifp, 0, &addr.sin.sin_addr, 
 			       ip_masklen (mask.sin.sin_addr),
@@ -506,8 +505,7 @@ ifam_read (struct ifa_msghdr *ifam)
 	connected_add_ipv6 (ifp,
 			    &addr.sin6.sin6_addr, 
 			    ip6_masklen (mask.sin6.sin6_addr),
-			    &brd.sin6.sin6_addr,
-			    (isalias ? ifname : NULL) );
+			    &brd.sin6.sin6_addr, NULL);
       else
 	connected_delete_ipv6 (ifp,
 			       &addr.sin6.sin6_addr, 
