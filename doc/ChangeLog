@@ -1,3 +1,8 @@
+2005-11-11 Paul Jakma <paul.jakma@sun.com>
+
+	* quagga.info: update auto-built file. Methinks it's time to
+	  remove from CVS..
+
 2005-11-07 Paul Jakma <paul.jakma@sun.com>
 
 	* Makefile.am: snmptrap.texi needs to be listed as a source,
