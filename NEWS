@@ -1,12 +1,20 @@
 * Changes in Quagga 0.99.2
 
-- Work queues added to bgpd to split up update processing, particularly
-  beneficial when a peer session goes down.
+- [bgpd] Work queues added to bgpd to split up update processing,
+  particularly beneficial when a peer session goes down. AS_PATH
+  parsing rewritten to be clearer, more robust and ready for 4-byte.
 
-- Simple authentication is no longer the default authentication mode for
-  ripd. The default is now no-authentication. Any setups which used
-  simple authentication will probably need to update their configuration
-  manually.
+- [ripd] Simple authentication is no longer the default authentication
+  mode for ripd. The default is now no-authentication. Any setups which
+  used simple authentication will probably need to update their
+  configuration manually.
+
+- [ospfd] 1s dead-interval with sub-second Hellos feature added.
+  SPF timers now specified in milliseconds, and with adaptive
+  hold-time support. RFC3137 Stub-router support added. Default ABR
+  type is now 'cisco'.
+
+- Solaris least privileges support added.
 
 * Changes in Quagga 0.99.1
 
