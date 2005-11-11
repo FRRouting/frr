@@ -94,11 +94,20 @@ ospf_canonical_nexthops_free (struct vertex *root)
       struct listnode *n2, *nn2;
       struct vertex_parent *vp;
       
+      /* router vertices through an attached network each
+       * have a distinct (canonical / not inherited) nexthop
+       * which must be freed.
+       *
+       * A network vertex can only have router vertices as its
+       * children, so only one level of recursion is possible.
+       */
       if (child->type == OSPF_VERTEX_NETWORK)
         ospf_canonical_nexthops_free (child);
       
+      /* Free child nexthops pointing back to this root vertex */
       for (ALL_LIST_ELEMENTS (child->parents, n2, nn2, vp))
-        vertex_nexthop_free (vp->nexthop);
+        if (vp->parent == root)
+          vertex_nexthop_free (vp->nexthop);
     }
 }      
 

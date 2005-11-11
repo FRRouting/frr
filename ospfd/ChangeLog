@@ -1,3 +1,10 @@
+2005-11-11 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_spf.c: (ospf_canonical_nexthops_free) Free only
+	  the nexthops pointing to the root vertex. We may visit a
+	  vertex twice or the vertex may have some inherited nexthops,
+	  if we free other nexthops we could crash.
+ 
 2005-11-04 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_{dump,spf,vty}.c: Oops, use the internal tv_sub
