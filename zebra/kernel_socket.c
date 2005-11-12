@@ -83,7 +83,7 @@ extern struct zebra_t zebrad;
       int len = SAROUNDUP ((PNT)); \
       if ( ((DEST) != NULL) && \
            af_check (((struct sockaddr *)(PNT))->sa_family)) \
-        memcpy ((caddr_t)(DEST), (PNT), len); \
+        memcpy ((DEST), (PNT), len); \
       (PNT) += len; \
     }
 #define RTA_ATTR_GET(DEST, RTA, RTMADDRS, PNT) \
@@ -91,10 +91,31 @@ extern struct zebra_t zebrad;
     { \
       int len = SAROUNDUP ((PNT)); \
       if ( ((DEST) != NULL) ) \
-        memcpy ((caddr_t)(DEST), (PNT), len); \
+        memcpy ((DEST), (PNT), len); \
       (PNT) += len; \
     }
 
+#define RTA_NAME_GET(DEST, RTA, RTMADDRS, PNT, LEN) \
+  if ((RTMADDRS) & (RTA)) \
+    { \
+      int len = SAROUNDUP ((PNT)); \
+      struct sockaddr_dl *sdl = (struct sockaddr_dl *)(PNT); \
+      if (IS_ZEBRA_DEBUG_KERNEL) \
+        zlog_debug ("%s: RTA_SDL_GET nlen %d, alen %d", \
+                    __func__, sdl->sdl_nlen, sdl->sdl_alen); \
+      if ( ((DEST) != NULL) && (sdl->sdl_family == AF_LINK) \
+           && (sdl->sdl_nlen < IFNAMSIZ) && (sdl->sdl_nlen <= len) ) \
+        { \
+          memcpy ((DEST), sdl->sdl_data, sdl->sdl_nlen); \
+          (DEST)[sdl->sdl_nlen] = '\0'; \
+          (LEN) = sdl->sdl_nlen; \
+        } \
+      (PNT) += len; \
+    } \
+  else \
+    { \
+      (LEN) = 0; \
+    }
 /* Routing socket message types. */
 struct message rtm_type_str[] =
 {
@@ -144,6 +165,9 @@ struct message rtm_flag_str[] =
   {RTF_LLINFO,    "LLINFO"},
   {RTF_STATIC,    "STATIC"},
   {RTF_BLACKHOLE, "BLACKHOLE"},
+#ifdef RTF_PRIVATE
+  {RTF_PRIVATE,	  "PRIVATE"},
+#endif /* RTF_PRIVATE */
   {RTF_PROTO1,    "PROTO1"},
   {RTF_PROTO2,    "PROTO2"},
 #ifdef RTF_PRCLONING
@@ -167,6 +191,12 @@ struct message rtm_flag_str[] =
 #ifdef RTF_MULTICAST
   {RTF_MULTICAST, "MULTICAST"},
 #endif /* RTF_MULTICAST */
+#ifdef RTF_MULTIRT
+  {RTF_MULTIRT,   "MULTIRT"},
+#endif /* RTF_MULTIRT */
+#ifdef RTF_SETSRC
+  {RTF_SETSRC,    "SETSRC"},
+#endif /* RTF_SETSRC */
   {0,             NULL}
 };
 
@@ -214,10 +244,20 @@ int
 ifan_read (struct if_announcemsghdr *ifan)
 {
   struct interface *ifp;
-
+  
   ifp = if_lookup_by_index (ifan->ifan_index);
-  if (ifp == NULL && ifan->ifan_what == IFAN_ARRIVAL)
+  
+  if (ifp)
+    assert ( (ifp->ifindex == ifan->ifan_index) 
+             || (ifp->ifindex == IFINDEX_INTERNAL) );
+
+  if ( (ifp == NULL || (ifp->ifindex == IFINDEX_INTERNAL)
+      && ifan->ifan_what == IFAN_ARRIVAL)
     {
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug ("%s: creating interface for ifindex %d, name %s",
+                    __func__, ifan->ifan_index, ifan->ifan_name);
+      
       /* Create Interface */
       ifp = if_get_by_name_len(ifan->ifan_name,
 			       strnlen(ifan->ifan_name,
@@ -234,7 +274,8 @@ ifan_read (struct if_announcemsghdr *ifan)
   if_get_metric (ifp);
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("interface %s index %d", ifp->name, ifp->ifindex);
+    zlog_debug ("%s: interface %s index %d", 
+                __func__, ifan->ifan_name, ifan->ifan_index);
 
   return 0;
 }
@@ -249,10 +290,13 @@ int
 ifm_read (struct if_msghdr *ifm)
 {
   struct interface *ifp = NULL;
-  struct sockaddr_dl *sdl = NULL;
+  char ifname[IFNAMSIZ];
+  short ifnlen = 0;
   caddr_t *cp;
-  unsigned int i;
-
+  
+  /* terminate ifname at head (for strnlen) and tail (for safety) */
+  ifname[IFNAMSIZ - 1] = '\0';
+  
   /* paranoia: sanity check structure */
   if (ifm->ifm_msglen < sizeof(struct if_msghdr))
     {
@@ -279,68 +323,56 @@ ifm_read (struct if_msghdr *ifm)
   	cp = cp + 12;
 #endif
 
+  RTA_ADDR_GET (NULL, RTA_DST, ifm->ifm_addrs, cp);
+  RTA_ADDR_GET (NULL, RTA_GATEWAY, ifm->ifm_addrs, cp);
+  RTA_ATTR_GET (NULL, RTA_NETMASK, ifm->ifm_addrs, cp);
+  RTA_ADDR_GET (NULL, RTA_GENMASK, ifm->ifm_addrs, cp);
+  RTA_NAME_GET (ifname, RTA_IFP, ifm->ifm_addrs, cp, ifnlen);
+  RTA_ADDR_GET (NULL, RTA_IFA, ifm->ifm_addrs, cp);
+  RTA_ADDR_GET (NULL, RTA_AUTHOR, ifm->ifm_addrs, cp);
+  RTA_ADDR_GET (NULL, RTA_BRD, ifm->ifm_addrs, cp);
+  
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    zlog_debug ("%s: sdl ifname %s", __func__, (ifnlen ? ifname : "(nil)"));
+  
   /* 
-   * Check for each sockaddr in turn, advancing over it.  After this
-   * loop, sdl should point to a sockaddr_dl iff one was present.
+   * Look up on ifindex first, because ifindices are the primary handle for
+   * interfaces across the user/kernel boundary, for most systems.  (Some
+   * messages, such as up/down status changes on NetBSD, do not include a
+   * sockaddr_dl).
    */
-  for (i = 1; i != 0; i <<= 1) 
+  if ( (ifp = if_lookup_by_index (ifm->ifm_index)) != NULL )
     {
-      if (i & ifm->ifm_addrs)
+      /* we have an ifp, verify that the name matches as some systems,
+       * eg Solaris, have a 1:many association of ifindex:ifname
+       * if they dont match, we dont have the correct ifp and should
+       * set it back to NULL to let next check do lookup by name
+       */
+      if (ifnlen && (strncmp (ifp->name, ifname, IFNAMSIZ) != 0) )
         {
-	  if (i == RTA_IFP)
-	    {
-	      sdl = (struct sockaddr_dl *)cp;
-	      break;
-            }
-	  /* XXX warning: pointer of type `void *' used in arithmetic */
-	  cp += SAROUNDUP(cp);
+          if (IS_ZEBRA_DEBUG_KERNEL)
+            zlog_debug ("%s: ifp name %s doesnt match sdl name %s",
+                        __func__, ifp->name, ifname);
+          ifp = NULL;
         }
     }
-
-  /* Ensure that sdl, if present, is actually a sockaddr_dl. */
-  if (sdl != NULL && sdl->sdl_family != AF_LINK)
-    {
-      zlog_err ("ifm_read: sockaddr_dl bad AF %d\n",
-		sdl->sdl_family);
-      return -1;
-    }
-
+  
   /* 
-   * Look up on ifindex first, because ifindices are the primary
-   * handle for interfaces across the user/kernel boundary.  (Some
-   * messages, such as up/down status changes on NetBSD, do not
-   * include a sockaddr_dl).
+   * If we dont have an ifp, try looking up by name.  Particularly as some
+   * systems (Solaris) have a 1:many mapping of ifindex:ifname - the ifname
+   * is therefore our unique handle to that interface.
+   *
+   * Interfaces specified in the configuration file for which the ifindex
+   * has not been determined will have ifindex == IFINDEX_INTERNAL, and such
+   * interfaces are found by this search, and then their ifindex values can
+   * be filled in.
    */
-  ifp = if_lookup_by_index (ifm->ifm_index);
-
-  /* 
-   * If lookup by index was unsuccessful and we have a name, try
-   * looking up by name.  Interfaces specified in the configuration
-   * file for which the ifindex has not been determined will have
-   * ifindex == IFINDEX_INTERNAL, and such interfaces are found by this search,
-   * and then their ifindex values can be filled in.
-   */
-  if (ifp == NULL && sdl != NULL)
-    {
-      /*
-       * paranoia: sanity check name length.  nlen does not include
-       * trailing zero, but IFNAMSIZ max length does.
-       *
-       * XXX Is this test correct?  Should it be '>=' or '>'?  And is it even
-       * necessary now that we are using if_lookup_by_name_len?
-       */
-      if (sdl->sdl_nlen >= IFNAMSIZ)
-	{
-	  zlog_err ("ifm_read: illegal sdl_nlen %d\n", sdl->sdl_nlen);
-	  return -1;
-	}
-
-      ifp = if_lookup_by_name_len (sdl->sdl_data, sdl->sdl_nlen);
-    }
+  if ( (ifp == NULL) && ifnlen)
+    ifp = if_lookup_by_name (ifname);
 
   /*
-   * If ifp does not exist or has an invalid index (IFINDEX_INTERNAL), create or
-   * fill in an interface.
+   * If ifp still does not exist or has an invalid index (IFINDEX_INTERNAL),
+   * create or fill in an interface.
    */
   if ((ifp == NULL) || (ifp->ifindex == IFINDEX_INTERNAL))
     {
@@ -348,17 +380,25 @@ ifm_read (struct if_msghdr *ifm)
        * To create or fill in an interface, a sockaddr_dl (via
        * RTA_IFP) is required.
        */
-      if (sdl == NULL)
+      if (!ifnlen)
 	{
-	  zlog_warn ("Interface index %d (new) missing RTA_IFP sockaddr_dl\n",
+	  zlog_warn ("Interface index %d (new) missing ifname\n",
 		     ifm->ifm_index);
 	  return -1;
 	}
-
+      
       if (ifp == NULL)
-	/* Interface that zebra was not previously aware of, so create. */ 
-      	ifp = if_create (sdl->sdl_data, sdl->sdl_nlen);
+        {
+	  /* Interface that zebra was not previously aware of, so create. */ 
+	  ifp = if_create (ifname, ifnlen);
+	  if (IS_ZEBRA_DEBUG_KERNEL)
+	    zlog_debug ("%s: creating ifp for ifindex %d", 
+	                __func__, ifm->ifm_index);
+        }
 
+      if (IS_ZEBRA_DEBUG_KERNEL)
+        zlog_debug ("%s: updated/created ifp, ifname %s, ifindex %d",
+                    __func__, ifp->name, ifp->ifindex);
       /* 
        * Fill in newly created interface structure, or larval
        * structure with ifindex IFINDEX_INTERNAL.
@@ -372,13 +412,6 @@ ifm_read (struct if_msghdr *ifm)
 #endif /* __bsdi__ */
       if_get_metric (ifp);
 
-      /* 
-       * XXX sockaddr_dl contents can be larger than the structure
-       * definition, so the user of the stored structure must be
-       * careful not to read off the end.
-       */
-      memcpy (&ifp->sdl, sdl, sizeof (struct sockaddr_dl));
-
       if_add_update (ifp);
     }
   else
@@ -390,6 +423,14 @@ ifm_read (struct if_msghdr *ifm)
      * but apparently do not trigger action.)
      */
     {
+      if (ifp->ifindex != ifm->ifm_index)
+        {
+          zlog_warn ("%s: index mismatch, ifname %s, ifp index %d, "
+                     "ifm index %d", 
+                     __func__, ifp->name, ifp->ifindex, ifm->ifm_index);
+          return -1;
+        }
+      
       if (if_is_up (ifp))
 	{
 	  ifp->flags = ifm->ifm_flags;
@@ -423,7 +464,8 @@ ifm_read (struct if_msghdr *ifm)
 #endif /* HAVE_NET_RT_IFLIST */
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-    zlog_debug ("interface %s index %d", ifp->name, ifp->ifindex);
+    zlog_debug ("%s: interface %s index %d", 
+                __func__, ifp->name, ifp->ifindex);
 
   return 0;
 }
@@ -433,7 +475,9 @@ void
 ifam_read_mesg (struct ifa_msghdr *ifm,
 		union sockunion *addr,
 		union sockunion *mask,
-		union sockunion *dest)
+		union sockunion *brd,
+		char *ifname,
+		short *ifnlen)
 {
   caddr_t pnt, end;
 
@@ -450,11 +494,16 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
   RTA_ADDR_GET (NULL, RTA_GATEWAY, ifm->ifam_addrs, pnt);
   RTA_ATTR_GET (mask, RTA_NETMASK, ifm->ifam_addrs, pnt);
   RTA_ADDR_GET (NULL, RTA_GENMASK, ifm->ifam_addrs, pnt);
-  RTA_ADDR_GET (NULL, RTA_IFP, ifm->ifam_addrs, pnt);
+  RTA_NAME_GET (ifname, RTA_IFP, ifm->ifam_addrs, pnt, *ifnlen);
   RTA_ADDR_GET (addr, RTA_IFA, ifm->ifam_addrs, pnt);
   RTA_ADDR_GET (NULL, RTA_AUTHOR, ifm->ifam_addrs, pnt);
-  RTA_ADDR_GET (dest, RTA_BRD, ifm->ifam_addrs, pnt);
+  RTA_ADDR_GET (brd, RTA_BRD, ifm->ifam_addrs, pnt);
 
+  if (IS_ZEBRA_DEBUG_KERNEL)
+      zlog_debug ("%s: ifindex %d, ifname %s, ifam_addrs 0x%x", 
+                  __func__, ifm->ifam_index, 
+                  (ifnlen ? ifname : "(nil)"), ifm->ifam_addrs);
+  
   /* Assert read up end point matches to end point */
   if (pnt != end)
     zlog_warn ("ifam_read() does't read all socket data");
@@ -464,20 +513,27 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
 int
 ifam_read (struct ifa_msghdr *ifam)
 {
-  struct interface *ifp;
+  struct interface *ifp = NULL;
   union sockunion addr, mask, brd;
-
-  /* Check does this interface exist or not. */
-  ifp = if_lookup_by_index (ifam->ifam_index);
-  if (ifp == NULL) 
+  char ifname[INTERFACE_NAMSIZ];
+  short ifnlen = 0;
+  char isalias = 0;
+  
+  ifname[0] = ifname[INTERFACE_NAMSIZ - 1] = '\0';
+  
+  /* Allocate and read address information. */
+  ifam_read_mesg (ifam, &addr, &mask, &brd, ifname, &ifnlen);
+  
+  if ((ifp = if_lookup_by_index(ifam->ifam_index)) == NULL)
     {
-      zlog_warn ("no interface for index %d", ifam->ifam_index); 
+      zlog_warn ("%s: no interface for ifname %s, index %d", 
+                 __func__, ifname, ifam->ifam_index);
       return -1;
     }
-
-  /* Allocate and read address information. */
-  ifam_read_mesg (ifam, &addr, &mask, &brd);
-
+  
+  if (ifnlen && strncmp (ifp->name, ifname, INTERFACE_NAMSIZ))
+    isalias = 1;
+  
   /* Check interface flag for implicit up of the interface. */
   if_refresh (ifp);
 
@@ -525,7 +581,9 @@ int
 rtm_read_mesg (struct rt_msghdr *rtm,
 	       union sockunion *dest,
 	       union sockunion *mask,
-	       union sockunion *gate)
+	       union sockunion *gate,
+	       char *ifname,
+	       short *ifnlen)
 {
   caddr_t pnt, end;
 
@@ -549,7 +607,7 @@ rtm_read_mesg (struct rt_msghdr *rtm,
   RTA_ADDR_GET (gate, RTA_GATEWAY, rtm->rtm_addrs, pnt);
   RTA_ATTR_GET (mask, RTA_NETMASK, rtm->rtm_addrs, pnt);
   RTA_ADDR_GET (NULL, RTA_GENMASK, rtm->rtm_addrs, pnt);
-  RTA_ADDR_GET (NULL, RTA_IFP, rtm->rtm_addrs, pnt);
+  RTA_NAME_GET (ifname, RTA_IFP, rtm->rtm_addrs, pnt, *ifnlen);
   RTA_ADDR_GET (NULL, RTA_IFA, rtm->rtm_addrs, pnt);
   RTA_ADDR_GET (NULL, RTA_AUTHOR, rtm->rtm_addrs, pnt);
   RTA_ADDR_GET (NULL, RTA_BRD, rtm->rtm_addrs, pnt);
@@ -572,6 +630,8 @@ rtm_read (struct rt_msghdr *rtm)
   int flags;
   u_char zebra_flags;
   union sockunion dest, mask, gate;
+  char ifname[INTERFACE_NAMSIZ + 1];
+  short ifnlen = 0;
 
   zebra_flags = 0;
 
@@ -582,7 +642,7 @@ rtm_read (struct rt_msghdr *rtm)
 
   /* Read destination and netmask and gateway from rtm message
      structure. */
-  flags = rtm_read_mesg (rtm, &dest, &mask, &gate);
+  flags = rtm_read_mesg (rtm, &dest, &mask, &gate, ifname, &ifnlen);
 
 #ifdef RTF_CLONED	/*bsdi, netbsd 1.6*/
   if (flags & RTF_CLONED)
@@ -790,7 +850,7 @@ rtm_write (int message,
 #define SOCKADDRSET(X,R) \
   if (msg.rtm.rtm_addrs & (R)) \
     { \
-      int len = ROUNDUP (sizeof((X)->sa)); \
+      int len = SAROUNDUP (X); \
       memcpy (pnt, (caddr_t)(X), len); \
       pnt += len; \
     }
@@ -841,7 +901,7 @@ rtmsg_debug (struct rt_msghdr *rtm)
   zlog_debug ("Kernel: Len: %d Type: %s", rtm->rtm_msglen, type);
   rtm_flag_dump (rtm->rtm_flags);
   zlog_debug ("Kernel: message seq %d", rtm->rtm_seq);
-  zlog_debug ("Kernel: pid %d", rtm->rtm_pid);
+  zlog_debug ("Kernel: pid %d, rtm_addrs 0x%x", rtm->rtm_pid, rtm->rtm_addrs);
 }
 
 /* This is pretty gross, better suggestions welcome -- mhandler */

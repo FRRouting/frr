@@ -1,3 +1,27 @@
+2005-11-12 Alexander Gall <gall@switch.ch>
+
+	* See [quagga-dev 1815]
+	* kernel_socket.c: (rtm_write) Use SAROUNDUP when HAVE_SIN_LEN
+	  is not available.
+	* rt_socket.c: (kernel_rtm_ipv6(_multipath)) set family to 
+	  AF_INET6 on ipv6 routes.
+
+2005-11-12 Paul Jakma <paul.jakma@sun.com> 
+
+	* kernel_socket.c: Add RTA_NAME_GET macro to extract name from
+	  sockaddr_dl. Add some more RTF_ flags.
+	* (ifan_read) Add some debug messages.
+	* (ifm_read) Add more debug messages. More robust cross-checks
+	  of index against name.
+	  Fall back to by-name lookup if the index lookup fails, future
+	  proofing more than anything else.
+	  (ifam_read_mesg) Read RTA_IFP. Add debug messages.
+	  (ifam_read) More debug. If there's an RTA_IFP and it isn't
+	  the name of the interface, save it as the label.
+	  (rtm_read_mesg) Read RTA_IFP.
+	  (rtm_read) allow name to be retrieved.
+	  (rtmsg_debug) expand on the debug message.
+
 2005-11-11 Paul Jakma <paul.jakma@sun.com>
 
 	* kernel_socket.c: (ifm_read) arithmetic on void pointer

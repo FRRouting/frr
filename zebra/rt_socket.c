@@ -290,7 +290,7 @@ kernel_rtm_ipv6 (int message, struct prefix_ipv6 *dest,
   else
     {
       masklen2ip6 (dest->prefixlen, &sin_mask.sin6_addr);
-      sin_mask.sin6_family = AF_UNSPEC;
+      sin_mask.sin6_family = AF_INET6;
 #ifdef SIN6_LEN
       sin_mask.sin6_len = sin6_masklen (sin_mask.sin6_addr);
 #endif /* SIN6_LEN */
@@ -400,7 +400,7 @@ kernel_rtm_ipv6_multipath (int cmd, struct prefix *p, struct rib *rib,
       else
 	{
 	  masklen2ip6 (p->prefixlen, &sin_mask.sin6_addr);
-	  sin_mask.sin6_family = AF_UNSPEC;
+	  sin_mask.sin6_family = AF_INET6;
 #ifdef SIN6_LEN
 	  sin_mask.sin6_len = sin6_masklen (sin_mask.sin6_addr);
 #endif /* SIN6_LEN */
