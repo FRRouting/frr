@@ -232,20 +232,17 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
         vty_out (vty, "    %s %s%s",
                  rule->cmd->str, rule->rule_str, VTY_NEWLINE);
       
-      vty_out (vty, "  Action:%s", VTY_NEWLINE);
-      
+      /* Call clause */
+      vty_out (vty, "  Call clause:%s", VTY_NEWLINE);
       if (index->nextrm)
         vty_out (vty, "    Call %s%s", index->nextrm, VTY_NEWLINE);
-      else if (index->exitpolicy == RMAP_GOTO)
+      
+      /* Exit Policy */
+      vty_out (vty, "  Action:%s", VTY_NEWLINE);
+      if (index->exitpolicy == RMAP_GOTO)
         vty_out (vty, "    Goto %d%s", index->nextpref, VTY_NEWLINE);
       else if (index->exitpolicy == RMAP_NEXT)
-        {
-          vty_out (vty, "    Goto next, (entry ");
-          if (index->next)
-            vty_out (vty, " %d)%s", index->next->pref, VTY_NEWLINE);
-          else
-            vty_out (vty, " undefined)%s", VTY_NEWLINE);
-        }
+        vty_out (vty, "    Continue to next entry%s", VTY_NEWLINE);
       else if (index->exitpolicy == RMAP_EXIT)
         vty_out (vty, "    Exit routemap%s", VTY_NEWLINE);
     }

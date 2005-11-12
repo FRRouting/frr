@@ -1,3 +1,9 @@
+2005-11-12 Paul Jakma <paul.jakma@sun.com>
+
+	* routemap.c: (vty_show_route_map_entry) call action is
+	  seperate from exit action, latter should still be printed
+	  regardless of whether a call is specified.
+
 2005-11-03 Paul Jakma <paul.jakma@sun.com>
 
 	* zebra.h: BSD BYTE_ORDER define isn't available everywhere,
