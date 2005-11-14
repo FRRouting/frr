@@ -57,26 +57,31 @@ enum work_queue_flags
 
 struct work_queue
 {
-  /* Everything but the specification struct is private */
+  /* Everything but the specification struct is private
+   * the following may be read
+   */
   struct thread_master *master;       /* thread master */
   struct thread *thread;              /* thread, if one is active */
   char *name;                         /* work queue name */
-  char status;                        /* status */
-#define WQ_STATE_FLOODED	(1 << 0)
-  enum work_queue_flags flags;		/* flags */
   
   /* Specification for this work queue.
    * Public, must be set before use by caller. May be modified at will.
    */
   struct {
-    /* work function to process items with */
-    wq_item_status (*workfunc) (void *);
+    /* optional opaque user data, global to the queue. */
+    void *data;
+    
+    /* work function to process items with:
+     * First argument is the workqueue queue.
+     * Second argument is the item data
+     */
+    wq_item_status (*workfunc) (struct work_queue *, void *);
 
     /* error handling function, optional */
     void (*errorfunc) (struct work_queue *, struct work_queue_item *);
     
     /* callback to delete user specific item data */
-    void (*del_item_data) (void *);
+    void (*del_item_data) (struct work_queue *, void *);
     
     /* completion callback, called when queue is emptied, optional */
     void (*completion_func) (struct work_queue *);
@@ -110,6 +115,12 @@ struct work_queue
     unsigned int granularity;
     unsigned long total;
   } cycles;	/* cycle counts */
+  
+  /* private state */
+  enum work_queue_flags flags;		/* user set flag */
+  char status;                          /* internal status */
+#define WQ_STATE_FLOODED	(1 << 0)
+  
 };
 
 /* User API */

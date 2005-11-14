@@ -1,5 +1,17 @@
 2005-11-14 Paul Jakma <paul.jakma@sun.com>
 
+	* (general) pass struct work-queue to callback functions.
+	* workqueue.h: (struct work_queue) move the state flag
+	  variables to end.
+	  Add an opaque pointer to spec, for user-data global to the
+	  queue.
+	  Pass reference to work_queue to all callbacks.
+	* workqueue.c: (work_queue_item_remove) pass ref to workqueue
+	  to user callbacks.
+	  (work_queue_run) ditto.
+
+2005-11-14 Paul Jakma <paul.jakma@sun.com>
+
 	* (general) Add state to detect queue floods.  There's no sense
 	  trying to be sparing of CPU resources, if the queue is
 	  flooding and using ever more memory resources. we should just

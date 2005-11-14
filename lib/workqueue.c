@@ -147,7 +147,7 @@ work_queue_item_remove (struct work_queue *wq, struct listnode *ln)
 
   /* call private data deletion callback if needed */  
   if (wq->spec.del_item_data)
-    wq->spec.del_item_data (item->data);
+    wq->spec.del_item_data (wq, item->data);
 
   list_delete_node (wq->items, ln);
   work_queue_item_free (item);
@@ -284,7 +284,7 @@ work_queue_run (struct thread *thread)
     /* run and take care of items that want to be retried immediately */
     do
       {
-        ret = wq->spec.workfunc (item->data);
+        ret = wq->spec.workfunc (wq, item->data);
         item->ran++;
       }
     while ((ret == WQ_RETRY_NOW) 
