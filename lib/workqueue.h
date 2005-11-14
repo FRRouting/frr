@@ -25,8 +25,9 @@
 #define _QUAGGA_WORK_QUEUE_H
 
 /* Work queue default hold and cycle times - millisec */
-#define WORK_QUEUE_DEFAULT_HOLD  50  /* hold time for initial run of a queue */
-#define WORK_QUEUE_DEFAULT_DELAY 10  /* minimum delay between queue runs */
+#define WORK_QUEUE_DEFAULT_HOLD  50  /* hold-time between runs of a queue */
+#define WORK_QUEUE_DEFAULT_DELAY 10  /* minimum delay for queue runs */
+#define WORK_QUEUE_DEFAULT_FLOOD 40   /* flood factor, ~2s with prev values */
 
 /* action value, for use by item processor and item error handlers */
 typedef enum
@@ -56,12 +57,17 @@ enum work_queue_flags
 
 struct work_queue
 {
+  /* Everything but the specification struct is private */
   struct thread_master *master;       /* thread master */
   struct thread *thread;              /* thread, if one is active */
   char *name;                         /* work queue name */
+  char status;                        /* status */
+#define WQ_STATE_FLOODED	(1 << 0)
   enum work_queue_flags flags;		/* flags */
   
-  /* specification for this work queue */
+  /* Specification for this work queue.
+   * Public, must be set before use by caller. May be modified at will.
+   */
   struct {
     /* work function to process items with */
     wq_item_status (*workfunc) (void *);
@@ -80,11 +86,24 @@ struct work_queue
 
     unsigned int hold;	/* hold time for first run, in ms */
     unsigned int delay; /* min delay between queue runs, in ms */
+    
+    unsigned int flood; /* number of queue runs after which we consider
+                         * queue to be flooded, where the runs are
+                         * consecutive and each has used its full slot,
+                         * and the queue has still not been cleared. If
+                         * the queue is flooded, then we try harder to
+                         * clear it by ignoring the hold and delay
+                         * times. No point sparing CPU resources just
+                         * to use ever more memory resources.
+                         */
   } spec;
   
   /* remaining fields should be opaque to users */
   struct list *items;                 /* queue item list */
   unsigned long runs;                 /* runs count */
+  unsigned int runs_since_clear;      /* number of runs since queue was
+                                       * last cleared
+                                       */
   
   struct {
     unsigned int best;

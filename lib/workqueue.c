@@ -80,7 +80,12 @@ work_queue_new (struct thread_master *m, const char *queue_name)
   listnode_add (&work_queues, new);
   
   new->cycles.granularity = WORK_QUEUE_MIN_GRANULARITY;
-  
+
+  /* Default values, can be overriden by caller */
+  new->spec.delay = WORK_QUEUE_DEFAULT_DELAY;
+  new->spec.hold = WORK_QUEUE_DEFAULT_HOLD;
+  new->spec.flood = WORK_QUEUE_DEFAULT_FLOOD;
+    
   return new;
 }
 
@@ -128,7 +133,7 @@ work_queue_add (struct work_queue *wq, void *data)
   item->data = data;
   listnode_add (wq->items, item);
   
-  work_queue_schedule (wq, wq->spec.hold);
+  work_queue_schedule (wq, wq->spec.delay);
   
   return;
 }
@@ -167,12 +172,12 @@ DEFUN(show_work_queues,
   struct work_queue *wq;
   
   vty_out (vty, 
-           "%c %8s  %11s  %8s %21s%s",
-           ' ', "List","(ms)   ","Q. Runs","Cycle Counts   ",
+           "%c%c %8s %11s %8s %21s%s",
+           ' ', ' ', "List","(ms)   ","Q. Runs","Cycle Counts   ",
            VTY_NEWLINE);
   vty_out (vty,
-           "%c %8s  %5s %5s  %8s  %7s %6s %6s %s%s",
-           ' ',
+           "%c%c %8s %5s %5s %8s %7s %6s %6s %s%s",
+           'P', 'F',
            "Items",
            "Delay","Hold",
            "Total",
@@ -182,8 +187,9 @@ DEFUN(show_work_queues,
  
   for (ALL_LIST_ELEMENTS_RO ((&work_queues), node, wq))
     {
-      vty_out (vty,"%c %8d  %5d %5d  %8ld  %7d %6d %6u %s%s",
+      vty_out (vty,"%c%c %8d %5d %5d %8ld %7d %6d %6u %s%s",
                (wq->flags == WQ_PLUGGED ? 'P' : ' '),
+               (wq->runs_since_clear >= wq->spec.flood ? 'F' : ' '),
                listcount (wq->items),
                wq->spec.delay, wq->spec.hold,
                wq->runs,
@@ -220,7 +226,7 @@ work_queue_unplug (struct work_queue *wq)
   wq->flags = WQ_UNPLUGGED;
 
   /* if thread isnt already waiting, add one */
-  work_queue_schedule (wq, wq->spec.hold);
+  work_queue_schedule (wq, wq->spec.delay);
 }
 
 /* timer thread to process a work queue
@@ -364,9 +370,19 @@ stats:
   
   /* Is the queue done yet? If it is, call the completion callback. */
   if (listcount (wq->items) > 0)
-    work_queue_schedule (wq, wq->spec.delay);
-  else if (wq->spec.completion_func)
-    wq->spec.completion_func (wq);
+    {
+      if (++(wq->runs_since_clear) < wq->spec.flood)
+        work_queue_schedule (wq, wq->spec.hold);
+      else
+        work_queue_schedule (wq, 0); /* queue flooded, go into overdrive */
+    }
+  else
+    {
+      wq->runs_since_clear = 0;
+      
+      if (wq->spec.completion_func)
+        wq->spec.completion_func (wq);
+    }
   
   return 0;
 }

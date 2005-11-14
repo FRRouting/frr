@@ -1,4 +1,25 @@
-2005-11-12 Paul Jakma <paul.jakma@sun.com>
+2005-11-14 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Add state to detect queue floods.  There's no sense
+	  trying to be sparing of CPU resources, if the queue is
+	  flooding and using ever more memory resources. we should just
+	  get on with clearing the queue.
+	  The sense of delay and hold were wrong way around, fix.
+	* workqueue.h: (struct work_queue) Add status bitfield.  Add
+	  'flood' integer to workqueue spec.  Add runs_since_clear
+	  counter to workqueue.
+	* workqueue.c: (work_queue_new) set defaults for delay, hold
+	  and flood.
+	  (work_queue_add) initial schedule should use delay, not hold.
+	  (show_work_queues) Print flood field, conserve whitespace.
+	  (work_queue_unplug) use delay, not hold.
+	  (work_queue_run) consecutive runs should be seperated by hold
+	  time, not delay.
+	  Keep track of number of consecutive runs, go into 'overdrive'
+	  if queue is being flooded, we can't avoid making heavy use of 
+	  resources, better to use CPU than ever more RAM.
+
+2005-11-05 Paul Jakma <paul.jakma@sun.com>
 
 	* routemap.c: (vty_show_route_map_entry) call action is
 	  seperate from exit action, latter should still be printed
