@@ -18,6 +18,7 @@
 	  Keep track of number of consecutive runs, go into 'overdrive'
 	  if queue is being flooded, we can't avoid making heavy use of 
 	  resources, better to use CPU than ever more RAM.
+	* zebra.h: [bug #231] include stdint, if its there.
 
 2005-11-05 Paul Jakma <paul.jakma@sun.com>
 

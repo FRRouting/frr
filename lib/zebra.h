@@ -82,6 +82,9 @@ typedef int socklen_t;
 #ifdef HAVE_LIMITS_H
 #include <limits.h>
 #endif /* HAVE_LIMITS_H */
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif /* HAVE_STDINT_H */
 
 /* machine dependent includes */
 #ifdef SUNOS_5

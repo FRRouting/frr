@@ -1,3 +1,8 @@
+2005-11-14 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: Tell gcc we like C99.
+	  [bug #231] Check and test for stdint.h.
+
 2005-11-11 Paul Jakma <paul.jakma@sun.com>
 
 	* NEWS: Update.
