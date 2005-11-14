@@ -198,7 +198,6 @@ struct ospf
   unsigned int stub_router_startup_time;	/* seconds */
   unsigned int stub_router_shutdown_time;	/* seconds */
 #define OSPF_STUB_ROUTER_UNCONFIGURED	  0
-#define OSPF_STUB_ROUTER_SHUTDOWN_DEFAULT 2
 
   /* SPF parameters */
   unsigned int spf_delay;		/* SPF delay time. */

@@ -175,7 +175,7 @@ ospf_new (void)
   new->external_lsas = route_table_init ();
   
   new->stub_router_startup_time = OSPF_STUB_ROUTER_UNCONFIGURED;
-  new->stub_router_shutdown_time = OSPF_STUB_ROUTER_SHUTDOWN_DEFAULT;
+  new->stub_router_shutdown_time = OSPF_STUB_ROUTER_UNCONFIGURED;
   
   /* Distribute parameter init. */
   for (i = 0; i <= ZEBRA_ROUTE_MAX; i++)
@@ -466,7 +466,9 @@ ospf_finish_final (struct ospf *ospf)
   OSPF_TIMER_OFF (ospf->t_lsa_refresher);
   OSPF_TIMER_OFF (ospf->t_read);
   OSPF_TIMER_OFF (ospf->t_write);
+#ifdef HAVE_OPAQUE_LSA
   OSPF_TIMER_OFF (ospf->t_opaque_lsa_self);
+#endif
 
   close (ospf->fd);
   stream_free(ospf->ibuf);

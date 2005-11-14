@@ -1,3 +1,14 @@
+2005-11-14 Paul Jakma <paul.jakma@sun.com>
+
+	* ospfd.c: (ospf_new) stub-shutdown should just default to
+	  unconfigured, too strange otherwise.
+	  (ospf_finish_final) t_opaque_lsa_self TIMER_OFF should be
+	  preprocessor conditional on HAVE_OPAQUE_LSA.
+	* ospfd.h: (struct ospf) remove the SHUTDOWN_DEFAULT define.
+	  no longer used, plus it wasn't in range that the command
+	  accepted.
+	* ospf_zebra.h: Depends on vty.h, include it.
+
 2005-11-11 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_spf.c: (ospf_canonical_nexthops_free) Free only

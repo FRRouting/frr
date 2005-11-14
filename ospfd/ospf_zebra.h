@@ -23,6 +23,8 @@
 #ifndef _ZEBRA_OSPF_ZEBRA_H
 #define _ZEBRA_OSPF_ZEBRA_H
 
+#include "vty.h"
+
 #define EXTERNAL_METRIC_TYPE_1      0
 #define EXTERNAL_METRIC_TYPE_2      1
 
