@@ -881,8 +881,9 @@ rib_uninstall (struct route_node *rn, struct rib *rib)
 
 /* Core function for processing routing information base. */
 static wq_item_status
-rib_process (struct zebra_queue_node_t *qnode)
+rib_process (struct work_queue *wq, void *data)
 {
+  struct zebra_queue_node_t *qnode = data;
   struct rib *rib;
   struct rib *next;
   struct rib *fib = NULL;
@@ -1052,8 +1053,9 @@ rib_queue_add (struct zebra_t *zebra, struct route_node *rn, struct rib *del)
 
 /* free zebra_queue_node_t */
 static void
-rib_queue_qnode_del (struct zebra_queue_node_t *qnode)
+rib_queue_qnode_del (struct work_queue *wq, void *data)
 {
+  struct zebra_queue_node_t *qnode = data;
   route_unlock_node (qnode->node);
   
   if (qnode->del)
@@ -1076,13 +1078,11 @@ rib_queue_init (struct zebra_t *zebra)
     }
 
   /* fill in the work queue spec */
-  zebra->ribq->spec.workfunc = (wq_item_status (*) (void *))&rib_process;
+  zebra->ribq->spec.workfunc = &rib_process;
   zebra->ribq->spec.errorfunc = NULL;
-  zebra->ribq->spec.del_item_data = (void (*) (void *)) &rib_queue_qnode_del;
+  zebra->ribq->spec.del_item_data = &rib_queue_qnode_del;
   /* XXX: TODO: These should be runtime configurable via vty */
   zebra->ribq->spec.max_retries = 3;
-  zebra->ribq->spec.hold = 500;
-  zebra->ribq->spec.delay = 10;
   
   return;
 }

@@ -1,3 +1,12 @@
+2005-11-14 Paul Jakma <paul.jakma@sun.com>
+
+	* zebra_rib.c: (rib_process) convert to new workqueue specs and
+	  shut up gcc, which complains about cast from void via
+	  function parameters, for some dumb reason. Do the cast
+	  inside the function instead.
+	  (rib_queue_qnode_del) ditto.
+	  (rib_queue_init) no need for the casts anymore.
+
 2005-11-12 Alexander Gall <gall@switch.ch>
 
 	* See [quagga-dev 1815]

@@ -1,3 +1,13 @@
+2005-11-14 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_route.c: (bgp_process_rsclient) convert to new workqueue
+          specs and shut up gcc, which complains about cast from void
+          via function parameters, for some dumb reason. Do the cast
+          inside the function instead.
+          (bgp_process_main,bgp_processq_del) ditto.
+          (bgp_clear_route_node) ditto.
+          (bgp_clear_node_queue_del) ditto.
+
 2005-11-03 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_damp.c: (bgp_reuse_timer) struct bgp can be retrieved via

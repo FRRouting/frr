@@ -1242,8 +1242,9 @@ struct bgp_process_queue
 };
 
 static wq_item_status
-bgp_process_rsclient (struct bgp_process_queue *pq)
+bgp_process_rsclient (struct work_queue *wq, void *data)
 {
+  struct bgp_process_queue *pq = data;
   struct bgp *bgp = pq->bgp;
   struct bgp_node *rn = pq->rn;
   afi_t afi = pq->afi;
@@ -1309,8 +1310,9 @@ bgp_process_rsclient (struct bgp_process_queue *pq)
 }
 
 static wq_item_status
-bgp_process_main (struct bgp_process_queue *pq)
+bgp_process_main (struct work_queue *wq, void *data)
 {
+  struct bgp_process_queue *pq = data;
   struct bgp *bgp = pq->bgp;
   struct bgp_node *rn = pq->rn;
   afi_t afi = pq->afi;
@@ -1390,8 +1392,10 @@ bgp_process_main (struct bgp_process_queue *pq)
 }
 
 static void
-bgp_processq_del (struct bgp_process_queue *pq)
+bgp_processq_del (struct work_queue *wq, void *data)
 {
+  struct bgp_process_queue *pq = data;
+  
   bgp_unlock_node (pq->rn);
   XFREE (MTYPE_BGP_PROCESS_QUEUE, pq);
 }
@@ -2450,8 +2454,9 @@ struct bgp_clear_node_queue
 };
 
 static wq_item_status
-bgp_clear_route_node (struct bgp_clear_node_queue *cq)
+bgp_clear_route_node (struct work_queue *wq, void *data)
 {
+  struct bgp_clear_node_queue *cq = data;
   struct bgp_adj_in *ain;
   struct bgp_adj_out *aout;
   struct bgp_info *ri;
@@ -2493,8 +2498,9 @@ bgp_clear_route_node (struct bgp_clear_node_queue *cq)
 }
 
 static void
-bgp_clear_node_queue_del (struct bgp_clear_node_queue *cq)
+bgp_clear_node_queue_del (struct work_queue *wq, void *data)
 {
+  struct bgp_clear_node_queue *cq = data;
   bgp_unlock_node (cq->rn); 
   peer_unlock (cq->peer); /* bgp_clear_node_queue_del */
   XFREE (MTYPE_BGP_CLEAR_NODE_QUEUE, cq);
