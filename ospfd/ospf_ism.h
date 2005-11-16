@@ -90,11 +90,13 @@
 
 /* Macro for OSPF ISM timer turn off. */
 #define OSPF_ISM_TIMER_OFF(X) \
-      if (X) \
-        { \
-          thread_cancel (X); \
-          (X) = NULL; \
-        }
+  do { \
+    if (X) \
+      { \
+	thread_cancel (X); \
+	(X) = NULL; \
+      } \
+  } while (0)
 
 /* Macro for OSPF schedule event. */
 #define OSPF_ISM_EVENT_SCHEDULE(I,E) \
