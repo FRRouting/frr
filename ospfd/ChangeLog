@@ -1,5 +1,14 @@
 2005-11-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf_dump.h: Define OSPF_TIME_DUMP_SIZE as appropriate buffer size
+	  for use with ospf_timer_dump and ospf_timeval_dump.
+	* ospf_vty.c: Change all buffer sizes used with ospf_timer_dump and
+	  ospf_timeval_dump to have size OSPF_TIME_DUMP_SIZE.
+	  (show_ip_ospf_interface_sub) Fix possible buffer overflow in
+	  call to ospf_timer_dump.
+
+2005-11-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf_ism.h: (OSPF_ISM_TIMER_OFF) Improve macro syntax by enclosing
 	  in 'do {...} while(0)'.
 

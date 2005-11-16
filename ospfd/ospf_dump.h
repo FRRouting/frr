@@ -137,4 +137,7 @@ extern void ospf_packet_dump (struct stream *);
 extern void ospf_lsa_header_dump (struct lsa_header *);
 extern void debug_init (void);
 
+/* Appropriate buffer size to use with ospf_timer_dump and ospf_timeval_dump: */
+#define OSPF_TIME_DUMP_SIZE	16
+
 #endif /* _ZEBRA_OSPF_DUMP_H */
