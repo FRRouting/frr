@@ -21,9 +21,6 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-#include <stdio.h>
-#include <limits.h>
-#include <string.h>
 #include <zebra.h>
 
 #include "log.h"
