@@ -215,11 +215,9 @@ DEFUN (ospf_router_id,
     }
 
   ospf->router_id_static = router_id;
-
-  if (ospf->t_router_id_update == NULL)
-    OSPF_TIMER_ON (ospf->t_router_id_update, ospf_router_id_update_timer,
-		   OSPF_ROUTER_ID_UPDATE_DELAY);
-
+  
+  ospf_router_id_update (ospf);
+  
   return CMD_SUCCESS;
 }
 

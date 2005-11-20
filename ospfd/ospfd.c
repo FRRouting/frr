@@ -119,21 +119,10 @@ ospf_router_id_update (struct ospf *ospf)
 
       OSPF_TIMER_ON (ospf->t_router_lsa_update,
 		     ospf_router_lsa_update_timer, OSPF_LSA_UPDATE_DELAY);
+      
+      /* update ospf_interface's */
+      ospf_if_update (ospf);
     }
-}
-
-int
-ospf_router_id_update_timer (struct thread *thread)
-{
-  struct ospf *ospf = THREAD_ARG (thread);
-
-  if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("Router-ID: Update timer fired!");
-
-  ospf->t_router_id_update = NULL;
-  ospf_router_id_update (ospf);
-
-  return 0;
 }
 
 /* For OSPF area sort by area id. */
@@ -454,7 +443,6 @@ ospf_finish_final (struct ospf *ospf)
 
   /* Cancel all timers. */
   OSPF_TIMER_OFF (ospf->t_external_lsa);
-  OSPF_TIMER_OFF (ospf->t_router_id_update);
   OSPF_TIMER_OFF (ospf->t_router_lsa_update);
   OSPF_TIMER_OFF (ospf->t_spf_calc);
   OSPF_TIMER_OFF (ospf->t_ase_calc);
@@ -834,12 +822,8 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 
   /* Schedule Router ID Update. */
   if (ospf->router_id_static.s_addr == 0)
-    if (ospf->t_router_id_update == NULL)
-      {
-	OSPF_TIMER_ON (ospf->t_router_id_update, ospf_router_id_update_timer,
-		       OSPF_ROUTER_ID_UPDATE_DELAY);
-      }
-
+    ospf_router_id_update (ospf);
+  
   /* Get target interface. */
   for (ALL_LIST_ELEMENTS_RO (om->iflist, node, ifp))
     {
@@ -913,8 +897,14 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 		  }
 
 		ospf_area_add_if (oi->area, oi);
-
-		if (if_is_operative (ifp)) 
+		
+		/* if router_id is not configured, dont bring up
+		 * interfaces.
+                 * ospf_router_id_update() will call ospf_if_update
+                 * whenever r-id is configured instead.
+                 */
+		if ((ospf->router_id_static.s_addr != 0)
+		    && if_is_operative (ifp)) 
 		  ospf_if_up (oi);
 
 		break;
@@ -961,15 +951,10 @@ ospf_if_update (struct ospf *ospf)
 
   if (ospf != NULL)
     {
-      /* Update Router ID scheduled. */
+      /* Router-ID must be configured. */
       if (ospf->router_id_static.s_addr == 0)
-        if (ospf->t_router_id_update == NULL)
-          {
-	    OSPF_TIMER_ON (ospf->t_router_id_update,
-			   ospf_router_id_update_timer,
-			   OSPF_ROUTER_ID_UPDATE_DELAY);
-          }
-
+        return;
+      
       /* Find interfaces that not configured already.  */
       for (ALL_LIST_ELEMENTS (ospf->oiflist, node, nnode, oi))
 	{

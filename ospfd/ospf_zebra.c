@@ -68,12 +68,10 @@ ospf_router_id_update_zebra (int command, struct zclient *zclient,
   router_id_zebra = router_id.u.prefix4;
 
   ospf = ospf_lookup ();
+  
   if (ospf != NULL)
-    {
-      if (ospf->t_router_id_update == NULL)
-	OSPF_TIMER_ON (ospf->t_router_id_update, ospf_router_id_update_timer,
-                       OSPF_ROUTER_ID_UPDATE_DELAY);
-    }
+    ospf_router_id_update (ospf);
+  
   return 0;
 }
 

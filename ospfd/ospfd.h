@@ -126,9 +126,6 @@
 #define OSPF_DD_FLAG_I                   0x04
 #define OSPF_DD_FLAG_ALL                 0x07
 
-/* Timer value. */
-#define OSPF_ROUTER_ID_UPDATE_DELAY             1
-
 #define OSPF_LS_REFRESH_SHIFT       (60 * 15)
 #define OSPF_LS_REFRESH_JITTER      60
 
@@ -249,7 +246,6 @@ struct ospf
   int redistribute;                     /* Num of redistributed protocols. */
 
   /* Threads. */
-  struct thread *t_router_id_update;	/* Router ID update timer. */
   struct thread *t_router_lsa_update;   /* router-LSA update timer. */
   struct thread *t_abr_task;            /* ABR task timer. */
   struct thread *t_asbr_check;          /* ASBR check timer. */
@@ -555,7 +551,6 @@ extern const char *ospf_redist_string(u_int route_type);
 extern struct ospf *ospf_lookup (void);
 extern struct ospf *ospf_get (void);
 extern void ospf_finish (struct ospf *);
-extern int ospf_router_id_update_timer (struct thread *);
 extern void ospf_router_id_update (struct ospf *ospf);
 extern int ospf_network_match_iface (struct connected *, struct prefix *);
 extern int ospf_network_set (struct ospf *, struct prefix_ipv4 *,

@@ -1,3 +1,24 @@
+2005-11-20 Paul Jakma <paul.jakma@sun.com>
+
+        * ospfd.h: remove the OSPF_ROUTER_ID_UPDATE_DELAY define
+          (struct ospf) remove the router_id timer thread.
+          remove export of ospf_router_id_update_timer.   
+        * ospfd.c: (ospf_router_id_update) call ospf_if_update to
+          poke interfaces into action after ID has been configured.
+          (ospf_router_id_update_timer) removed.
+          (ospf_finish_final) t_router_id_update timer is gone.
+          (ospf_network_run) router-id update timer gone.
+          call ospf_router_id_update directly if ID not configured.
+          In the per-iface loop, don't ospf_if_up interfaces if
+          ID is still not configured. The update function will call
+          ospf_if_update anyway.
+          (ospf_if_update) ID update timer is gone. Just return if no
+          ID is set.
+        * ospf_vty.c: (ospf_router_id) call ospf_router_id_update, no
+          timer needed.
+        * ospf_zebra.c: (ospf_router_id_update_zebra) call
+          ospf_router_id_update directly, not via timer.  
+
 2005-11-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_dump.h: Define OSPF_TIME_DUMP_SIZE as appropriate buffer size
