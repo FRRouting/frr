@@ -18,6 +18,21 @@
           timer needed.
         * ospf_zebra.c: (ospf_router_id_update_zebra) call
           ospf_router_id_update directly, not via timer.  
+        * ospf_abr.c: (ospf_abr_announce_network_to_area) check
+          returned LSA of ospf_summary_lsa_refresh and print warning if
+          it failed.
+          (ospf_abr_announce_network_to_area) similar
+          (ospf_abr_announce_rtr_to_area) similar 
+        * ospf_lsa.c: (ospf_router_lsa_new) check LSA returned is valid.
+          (ospf_router_lsa_originate) similar
+          (ospf_router_lsa_refresh, ospf_network_lsa_new) similar  
+          (ospf_summary_lsa_new) Check ID is valid.
+          (ospf_summary_lsa_originate) ditto, and check returned LSA from
+           previous function is !NULL.
+          (ospf_summary_lsa_refresh) check ospf_summary_lsa_new return
+           is !NULL.
+          (ospf_summary_asbr_lsa_new) ID valid check.
+          (ospf_summary_asbr_lsa_originate) similar.
 
 2005-11-16 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

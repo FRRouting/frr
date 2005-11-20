@@ -748,6 +748,19 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
                        "refreshing summary");
           set_metric (old, cost);
           lsa = ospf_summary_lsa_refresh (area->ospf, old);
+          
+          if (!lsa)
+            {
+	      char buf[INET_ADDRSTRLEN + 3]; /* ipv4 and /XX */
+	      
+	      prefix2str ((struct prefix *) p, buf, sizeof(buf));
+	      zlog_warn ("%s: Could not refresh %s to %s",
+	                 __func__,
+	                 buf,
+	                 inet_ntoa (area->area_id));
+	      return;
+	    }
+	  
           SET_FLAG (lsa->flags, OSPF_LSA_APPROVED);
           /* This will flood through area. */
         }
@@ -759,6 +772,18 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
         	   "creating new summary");
       lsa = ospf_summary_lsa_originate ( (struct prefix_ipv4 *)p, cost, area);
           /* This will flood through area. */
+      
+      if (!lsa)
+      	{
+      	  char buf[INET_ADDRSTRLEN + 3]; /* ipv4 and /XX */
+      	  
+      	  prefix2str ((struct prefix *)p, buf, sizeof(buf));
+	  zlog_warn ("%s: Could not originate %s to %s",
+	             __func__,
+	             buf,
+		     inet_ntoa (area->area_id));
+	  return;
+	}
       
       SET_FLAG (lsa->flags, OSPF_LSA_APPROVED);
       if (IS_DEBUG_OSPF_EVENT)
@@ -1117,10 +1142,22 @@ ospf_abr_announce_rtr_to_area (struct prefix_ipv4 *p, u_int32_t cost,
 	}
       else
 	lsa = ospf_summary_asbr_lsa_originate (p, cost, area);
-
+      if (!lsa)
+        {
+          char buf[INET_ADDRSTRLEN + 3]; /* ipv4 and /XX */
+          
+          prefix2str ((struct prefix *)p, buf, sizeof(buf));
+          zlog_warn ("%s: Could not refresh/originate %s to %s",
+                     __func__,
+                     buf,
+                     inet_ntoa (area->area_id));
+          return;
+        }
+      
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_debug ("ospf_abr_announce_rtr_to_area(): "
 		   "flooding new version of summary");
+
       /*
       zlog_info ("ospf_abr_announce_rtr_to_area(): creating new summary");
       lsa = ospf_summary_asbr_lsa (p, cost, area, old); */

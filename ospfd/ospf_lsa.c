@@ -830,7 +830,12 @@ ospf_router_lsa_new (struct ospf_area *area)
   lsah->length = htons (length);
 
   /* Now, create OSPF LSA instance. */
-  new = ospf_lsa_new ();
+  if ( (new = ospf_lsa_new ()) == NULL)
+    {
+      zlog_err ("%s: Unable to create new lsa", __func__);
+      return NULL;
+    }
+  
   new->area = area;
   SET_FLAG (new->flags, OSPF_LSA_SELF);
 
@@ -849,7 +854,11 @@ ospf_router_lsa_originate (struct ospf_area *area)
   struct ospf_lsa *new;
   
   /* Create new router-LSA instance. */
-  new = ospf_router_lsa_new (area);
+  if ( (new = ospf_router_lsa_new (area)) == NULL)
+    {
+      zlog_err ("%s: ospf_router_lsa_new returned NULL", __func__);
+      return NULL;
+    }
 
   /* Sanity check. */
   if (new->data->adv_router.s_addr == 0)
@@ -893,7 +902,12 @@ ospf_router_lsa_refresh (struct ospf_lsa *lsa)
   ospf_ls_retransmit_delete_nbr_area (area, lsa);
 
   /* Create new router-LSA instance. */
-  new = ospf_router_lsa_new (area);
+  if ( (new = ospf_router_lsa_new (area)) == NULL)
+    {
+      zlog_err ("%s: ospf_router_lsa_new returned NULL", __func__);
+      return NULL;
+    }
+  
   new->data->ls_seqnum = lsa_seqnum_increment (lsa);
 
   ospf_lsa_install (area->ospf, NULL, new);
@@ -1075,7 +1089,12 @@ ospf_network_lsa_new (struct ospf_interface *oi)
   lsah->length = htons (length);
 
   /* Create OSPF LSA instance. */
-  new = ospf_lsa_new ();
+  if ( (new = ospf_lsa_new ()) == NULL)
+    {
+      zlog_err ("%s: ospf_lsa_new returned NULL", __func__);
+      return NULL;
+    }
+  
   new->area = oi->area;
   SET_FLAG (new->flags, OSPF_LSA_SELF);
 
@@ -1242,6 +1261,15 @@ ospf_summary_lsa_new (struct ospf_area *area, struct prefix *p,
   struct lsa_header *lsah;
   int length;
 
+  if (id.s_addr == 0xffffffff)
+    {
+      /* Maybe Link State ID not available. */
+      if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+        zlog_debug ("LSA[Type%d]: Link ID not available, can't originate",
+                    OSPF_SUMMARY_LSA);
+      return NULL;
+    }
+
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     zlog_debug ("LSA[Type3]: Create summary-LSA instance");
 
@@ -1282,8 +1310,18 @@ ospf_summary_lsa_originate (struct prefix_ipv4 *p, u_int32_t metric,
   
   id = ospf_lsa_unique_id (area->ospf, area->lsdb, OSPF_SUMMARY_LSA, p);
 
+  if (id.s_addr == 0xffffffff)
+    {
+      /* Maybe Link State ID not available. */
+      if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+        zlog_debug ("LSA[Type%d]: Link ID not available, can't originate",
+                    OSPF_SUMMARY_LSA);
+      return NULL;
+    }
+  
   /* Create new summary-LSA instance. */
-  new = ospf_summary_lsa_new (area, (struct prefix *) p, metric, id);
+  if ( !(new = ospf_summary_lsa_new (area, (struct prefix *) p, metric, id)))
+    return NULL;
 
   /* Instlal LSA to LSDB. */
   new = ospf_lsa_install (area->ospf, NULL, new);
@@ -1318,7 +1356,10 @@ ospf_summary_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
   p.prefixlen = ip_masklen (sl->mask);
   new = ospf_summary_lsa_new (lsa->area, &p, GET_METRIC (sl->metric),
 			      sl->header.id);
-
+  
+  if (!new)
+    return NULL;
+  
   new->data->ls_seqnum = lsa_seqnum_increment (lsa);
   
   /* Re-calculate checksum. */
@@ -1369,6 +1410,15 @@ ospf_summary_asbr_lsa_new (struct ospf_area *area, struct prefix *p,
   struct lsa_header *lsah;
   int length;
 
+  if (id.s_addr == 0xffffffff)
+    {
+      /* Maybe Link State ID not available. */
+      if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+        zlog_debug ("LSA[Type%d]: Link ID not available, can't originate",
+                    OSPF_ASBR_SUMMARY_LSA);
+      return NULL;
+    }
+
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     zlog_debug ("LSA[Type3]: Create summary-LSA instance");
 
@@ -1409,8 +1459,19 @@ ospf_summary_asbr_lsa_originate (struct prefix_ipv4 *p, u_int32_t metric,
   
   id = ospf_lsa_unique_id (area->ospf, area->lsdb, OSPF_ASBR_SUMMARY_LSA, p);
 
+  if (id.s_addr == 0xffffffff)
+    {
+      /* Maybe Link State ID not available. */
+      if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+        zlog_debug ("LSA[Type%d]: Link ID not available, can't originate",
+                    OSPF_ASBR_SUMMARY_LSA);
+      return NULL;
+    }
+  
   /* Create new summary-LSA instance. */
   new = ospf_summary_asbr_lsa_new (area, (struct prefix *) p, metric, id);
+  if (!new)
+    return NULL;
 
   /* Install LSA to LSDB. */
   new = ospf_lsa_install (area->ospf, NULL, new);
@@ -1445,6 +1506,8 @@ ospf_summary_asbr_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
   p.prefixlen = ip_masklen (sl->mask);
   new = ospf_summary_asbr_lsa_new (lsa->area, &p, GET_METRIC (sl->metric),
 				   sl->header.id);
+  if (!new)
+    return NULL;
   
   new->data->ls_seqnum = lsa_seqnum_increment (lsa);
   
