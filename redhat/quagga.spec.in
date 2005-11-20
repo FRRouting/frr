@@ -84,10 +84,13 @@
 # allow build dir to be kept
 %{!?keep_build:		%define		keep_build	0 }
 
+#release sub-revision (the two digits after the CONFDATE)
+%{!?release_rev:	%define		release_rev	01 }
+
 Summary: Routing daemon
 Name:		quagga
 Version:	@VERSION@
-Release:	@CONFDATE@01
+Release:	@CONFDATE@%{release_rev}
 License:	GPL
 Group: System Environment/Daemons
 Source0:	http://www.quagga.net/snapshots/cvs/%{name}-%{version}.tar.gz
