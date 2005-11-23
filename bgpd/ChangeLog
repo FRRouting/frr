@@ -1,3 +1,12 @@
+2005-11-23 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_aspath.c: (assegments_parse) should be static
+
+2005-11-23 Juergen Kammer <j.kammer@eurodata.de>
+
+	* bgp_aspath.c: (aspath_cmp_left_confed) fix SEGV for case
+	  where one or both paths are empty.
+
 2005-11-14 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_route.c: (bgp_process_rsclient) convert to new workqueue

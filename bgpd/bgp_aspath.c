@@ -596,7 +596,7 @@ aspath_hash_alloc (void *arg)
 }
 
 /* parse as-segment byte stream in struct assegment */
-struct assegment *
+static struct assegment *
 assegments_parse (struct stream *s, size_t length)
 {
   struct assegment_header segh;
@@ -1153,6 +1153,9 @@ int
 aspath_cmp_left_confed (struct aspath *aspath1, struct aspath *aspath2)
 {
   if (! (aspath1 && aspath2) )
+    return 0;
+  
+  if ( !(aspath1->segments && aspath2->segments) )
     return 0;
   
   if ( (aspath1->segments->type != AS_CONFED_SEQUENCE)
