@@ -27,6 +27,7 @@
 #include "if.h"
 
 #include "zebra/rib.h"
+#include "zebra/zserv.h"
 
 #include <sys/stream.h>
 #include <sys/tihdr.h>
@@ -65,7 +66,8 @@
 
 #define RT_BUFSIZ		8192
 
-void handle_route_entry (mib2_ipRouteEntry_t *routeEntry)
+static void 
+handle_route_entry (mib2_ipRouteEntry_t *routeEntry)
 {
 	struct prefix_ipv4	prefix;
  	struct in_addr		tmpaddr, gateway;
@@ -91,7 +93,8 @@ void handle_route_entry (mib2_ipRouteEntry_t *routeEntry)
 		      &gateway, 0, 0, 0, 0);
 }
 
-void route_read ()
+void
+route_read (void)
 {
 	char 			storage[RT_BUFSIZ];
 

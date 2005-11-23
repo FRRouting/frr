@@ -31,21 +31,18 @@
 
 #include "zebra/debug.h"
 #include "zebra/rib.h"
+#include "zebra/rt.h"
 
 extern struct zebra_privs_t zserv_privs;
 
-int
-rtm_write (int message,
-	   union sockunion *dest,
-	   union sockunion *mask,
-	   union sockunion *gate,
-	   unsigned int index,
-	   int zebra_flags,
-	   int metric);
+/* kernel socket export */
+extern int rtm_write (int message, union sockunion *dest,
+                      union sockunion *mask, union sockunion *gate,
+                      unsigned int index, int zebra_flags, int metric);
 
 /* Adjust netmask socket length. Return value is a adjusted sin_len
    value. */
-int
+static int
 sin_masklen (struct in_addr mask)
 {
   char *p, *lim;
@@ -67,7 +64,7 @@ sin_masklen (struct in_addr mask)
 }
 
 /* Interface between zebra message and rtm message. */
-int
+static int
 kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 
 {
@@ -218,7 +215,7 @@ kernel_delete_ipv4 (struct prefix *p, struct rib *rib)
 #ifdef HAVE_IPV6
 
 /* Calculate sin6_len value for netmask socket value. */
-int
+static int
 sin6_masklen (struct in6_addr mask)
 {
   struct sockaddr_in6 sin6;
@@ -246,7 +243,7 @@ sin6_masklen (struct in6_addr mask)
 }
 
 /* Interface between zebra message and rtm message. */
-int
+static int
 kernel_rtm_ipv6 (int message, struct prefix_ipv6 *dest,
 		 struct in6_addr *gate, int index, int flags)
 {
@@ -307,7 +304,7 @@ kernel_rtm_ipv6 (int message, struct prefix_ipv6 *dest,
 }
 
 /* Interface between zebra message and rtm message. */
-int
+static int
 kernel_rtm_ipv6_multipath (int cmd, struct prefix *p, struct rib *rib,
 			   int family)
 {
@@ -468,7 +465,7 @@ kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
 /* Delete IPv6 route from the kernel. */
 int
 kernel_delete_ipv6_old (struct prefix_ipv6 *dest, struct in6_addr *gate,
-		    int index, int flags, int table)
+ 		        unsigned int index, int flags, int table)
 {
   int route;
 

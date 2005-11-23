@@ -25,9 +25,12 @@
 #include "memory.h"
 #include "log.h"
 
+#include "zebra/zserv.h"
+#include "zebra/rt.h"
+
 /* Kernel routing table read up by sysctl function. */
-int
-route_read ()
+void
+route_read (void)
 {
   caddr_t buf, end, ref;
   size_t bufsiz;

@@ -1,3 +1,25 @@
+2005-11-23 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) fix some small compile errors, and mark several
+          functions as static.
+        * kernel_socket.c: (ifan_read) should be static.
+          fix missing brackets.
+          (ifm_read,ifam_read,rtm_read_mesg,kernel_read) Make static
+          (ifam_read_mesg) make static. fix incorrect variable name.
+          (rtm_read) make static. Fix call to rib_delete_ipv4 which
+          should be rib_delete_ipv6.
+          (routing_socket,kernel_init) should be static. Void argument
+          should be specified as such, not left incomplete.
+        * rt_netlink.c: rt.h should be included, contains prototypes of  
+          exported functions.
+          (kernel_delete_ipv6_old) fix sign of index argument.   
+        * rt_socket.c: Exact same as previous. Also, make various
+          functions static.
+        * rtread_getmsg.c: Include zserv.h, which prototypes
+          route_read. Make static.
+        * rtread_sysctl.c: zserv.h and rt.h should be included.
+          fix definition of route_read.
+   
 2005-11-14 Paul Jakma <paul.jakma@sun.com>
 
 	* zebra_rib.c: (rib_process) convert to new workqueue specs and

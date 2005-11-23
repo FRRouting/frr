@@ -37,6 +37,7 @@
 #include "privs.h"
 
 #include "zebra/zserv.h"
+#include "zebra/rt.h"
 #include "zebra/redistribute.h"
 #include "zebra/interface.h"
 #include "zebra/debug.h"
@@ -1087,7 +1088,7 @@ netlink_information_fetch (struct sockaddr_nl *snl, struct nlmsghdr *h)
 
 /* Interface lookup by netlink socket. */
 int
-interface_lookup_netlink ()
+interface_lookup_netlink (void)
 {
   int ret;
   int flags;
@@ -1138,7 +1139,7 @@ interface_lookup_netlink ()
 /* Routing table read function using netlink interface.  Only called
    bootstrap time. */
 int
-netlink_route_read ()
+netlink_route_read (void)
 {
   int ret;
   int flags;
@@ -1795,7 +1796,7 @@ kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
 /* Delete IPv6 route from the kernel. */
 int
 kernel_delete_ipv6_old (struct prefix_ipv6 *dest, struct in6_addr *gate,
-                        int index, int flags, int table)
+                        unsigned int index, int flags, int table)
 {
   return netlink_route (RTM_DELROUTE, AF_INET6, &dest->prefix,
                         dest->prefixlen, gate, index, flags, table);
@@ -1884,7 +1885,7 @@ kernel_read (struct thread *thread)
 /* Exported interface function.  This function simply calls
    netlink_socket (). */
 void
-kernel_init ()
+kernel_init (void)
 {
   unsigned long groups;
 

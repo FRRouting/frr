@@ -240,7 +240,7 @@ rtm_flag_dump (int flag)
 
 #ifdef RTM_IFANNOUNCE
 /* Interface adding function */
-int
+static int
 ifan_read (struct if_announcemsghdr *ifan)
 {
   struct interface *ifp;
@@ -251,8 +251,8 @@ ifan_read (struct if_announcemsghdr *ifan)
     assert ( (ifp->ifindex == ifan->ifan_index) 
              || (ifp->ifindex == IFINDEX_INTERNAL) );
 
-  if ( (ifp == NULL || (ifp->ifindex == IFINDEX_INTERNAL)
-      && ifan->ifan_what == IFAN_ARRIVAL)
+  if ( (ifp == NULL) || (ifp->ifindex == IFINDEX_INTERNAL)
+      && (ifan->ifan_what == IFAN_ARRIVAL) )
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
         zlog_debug ("%s: creating interface for ifindex %d, name %s",
@@ -286,7 +286,7 @@ ifan_read (struct if_announcemsghdr *ifan)
  * sysctl (from interface_list).  There may or may not be sockaddrs
  * present after the header.
  */
-int
+static int
 ifm_read (struct if_msghdr *ifm)
 {
   struct interface *ifp = NULL;
@@ -471,7 +471,7 @@ ifm_read (struct if_msghdr *ifm)
 }
 
 /* Address read from struct ifa_msghdr. */
-void
+static void
 ifam_read_mesg (struct ifa_msghdr *ifm,
 		union sockunion *addr,
 		union sockunion *mask,
@@ -487,7 +487,7 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
   /* Be sure structure is cleared */
   memset (mask, 0, sizeof (union sockunion));
   memset (addr, 0, sizeof (union sockunion));
-  memset (dest, 0, sizeof (union sockunion));
+  memset (brd, 0, sizeof (union sockunion));
 
   /* We fetch each socket variable into sockunion. */
   RTA_ADDR_GET (NULL, RTA_DST, ifm->ifam_addrs, pnt);
@@ -510,7 +510,7 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
 }
 
 /* Interface's address information get. */
-int
+static int
 ifam_read (struct ifa_msghdr *ifam)
 {
   struct interface *ifp = NULL;
@@ -577,7 +577,7 @@ ifam_read (struct ifa_msghdr *ifam)
 }
 
 /* Interface function for reading kernel routing table information. */
-int
+static int
 rtm_read_mesg (struct rt_msghdr *rtm,
 	       union sockunion *dest,
 	       union sockunion *mask,
@@ -624,7 +624,7 @@ rtm_read_mesg (struct rt_msghdr *rtm,
   return rtm->rtm_flags;
 }
 
-void
+static void
 rtm_read (struct rt_msghdr *rtm)
 {
   int flags;
@@ -725,7 +725,7 @@ rtm_read (struct rt_msghdr *rtm)
        * to specify the route really
        */
       if (rtm->rtm_type == RTM_CHANGE)
-        rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p,
+        rib_delete_ipv6 (ZEBRA_ROUTE_KERNEL, zebra_flags, &p,
                          NULL, 0, 0);
       
       if (rtm->rtm_type == RTM_GET 
@@ -741,7 +741,9 @@ rtm_read (struct rt_msghdr *rtm)
 }
 
 /* Interface function for the kernel routing table updates.  Support
-   for RTM_CHANGE will be needed. */
+ * for RTM_CHANGE will be needed.
+ * Exported only for rt_socket.c
+ */
 int
 rtm_write (int message,
 	   union sockunion *dest,
@@ -914,7 +916,7 @@ rtmsg_debug (struct rt_msghdr *rtm)
 #endif /* RTAX_MAX */
 
 /* Kernel routing table and interface updates via routing socket. */
-int
+static int
 kernel_read (struct thread *thread)
 {
   int sock;
@@ -1022,8 +1024,8 @@ kernel_read (struct thread *thread)
 }
 
 /* Make routing socket. */
-void
-routing_socket ()
+static void
+routing_socket (void)
 {
   if ( zserv_privs.change (ZPRIVS_RAISE) )
     zlog_err ("routing_socket: Can't raise privileges");
@@ -1055,7 +1057,7 @@ routing_socket ()
 /* Exported interface function.  This function simply calls
    routing_socket (). */
 void
-kernel_init ()
+kernel_init (void)
 {
   routing_socket ();
 }
