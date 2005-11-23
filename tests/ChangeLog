@@ -1,3 +1,11 @@
+2005-11-23 Paul Jakma <paul.jakma@sun.com>
+
+	* aspath_test.c: Add an empty aspath to test segments, and to
+	  compare tests.
+	  Add a segment identical to seq1, but with one extra asn.
+	  Fix bogus free of stream in make_aspath for case where
+	  no stream was allocated (empty path data).
+
 2005-10-11 Paul Jakma <paul.jakma@sun.com>
 
 	* test-privs.c: Privileges unit test.

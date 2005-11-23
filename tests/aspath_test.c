@@ -286,6 +286,22 @@ static struct test_segment {
       "8466 3 52737 4096 34285 8466 3 52737 4096 34285",
       250, 0, NOT_ALL_PRIVATE, 4096, 4, 8466 },
   },
+  { /* 15 */ 
+    "seq1extra",
+    "seq(8466,3,52737,4096,3456)",
+    { 0x2,0x5, 0x21,0x12, 0x00,0x03, 0xce,0x01, 0x10,0x00, 0x0d,0x80 },
+    12,
+    { "8466 3 52737 4096 3456",
+      "8466 3 52737 4096 3456",
+      5, 0, NOT_ALL_PRIVATE, 4096, 4, 8466 },
+  },
+  { /* 16 */
+    "empty",
+    "<empty>",
+    {},
+    0,
+    { "", "", 0, 0, 0, 0, 0, 0 },
+  },
   { NULL, NULL, {0}, 0, { NULL, 0, 0 } }
 };
 
@@ -445,6 +461,8 @@ struct compare_tests
   { 0, 1, CMP_RES_NO, CMP_RES_NO },
   { 0, 2, CMP_RES_YES, CMP_RES_NO },
   { 0, 11, CMP_RES_YES, CMP_RES_NO },
+  { 0, 15, CMP_RES_YES, CMP_RES_NO },
+  { 0, 16, CMP_RES_NO, CMP_RES_NO },
   { 1, 11, CMP_RES_NO, CMP_RES_NO },
   { 6, 7, CMP_RES_NO, CMP_RES_YES },
   { 6, 8, CMP_RES_NO, CMP_RES_NO },
@@ -477,7 +495,9 @@ make_aspath (const u_char *data, size_t len)
       stream_put (s, data, len);
     }
   as = aspath_parse (s, len);
-  stream_free (s);
+  
+  if (s)
+    stream_free (s);
   
   return as;
 }
