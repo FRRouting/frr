@@ -69,7 +69,7 @@ void ospf_apiclient_handle_delete_notify (struct ospf_apiclient *oclient,
  * -----------------------------------------------------------
  */
 
-unsigned short
+static unsigned short
 ospf_apiclient_getport (void)
 {
   struct servent *sp = getservbyname ("ospfapi", "tcp");
@@ -91,7 +91,7 @@ ospf_apiclient_connect (char *host, int syncport)
   struct hostent *hp;
   struct ospf_apiclient *new;
   int size = 0;
-  int peeraddrlen;
+  unsigned int peeraddrlen;
   int async_server_sock;
   int fd1, fd2;
   int ret;
@@ -294,7 +294,7 @@ ospf_apiclient_close (struct ospf_apiclient *oclient)
  */
 
 /* Send synchronous request, wait for reply */
-int
+static int
 ospf_apiclient_send_request (struct ospf_apiclient *oclient, struct msg *msg)
 {
   u_int32_t reqseq;
@@ -505,7 +505,7 @@ ospf_apiclient_lsa_delete (struct ospf_apiclient *oclient,
  * -----------------------------------------------------------
  */
 
-void
+static void
 ospf_apiclient_handle_ready (struct ospf_apiclient *oclient, struct msg *msg)
 {
   struct msg_ready_notify *r;
@@ -518,7 +518,7 @@ ospf_apiclient_handle_ready (struct ospf_apiclient *oclient, struct msg *msg)
     }
 }
 
-void
+static void
 ospf_apiclient_handle_new_if (struct ospf_apiclient *oclient, struct msg *msg)
 {
   struct msg_new_if *n;
@@ -531,7 +531,7 @@ ospf_apiclient_handle_new_if (struct ospf_apiclient *oclient, struct msg *msg)
     }
 }
 
-void
+static void
 ospf_apiclient_handle_del_if (struct ospf_apiclient *oclient, struct msg *msg)
 {
   struct msg_del_if *d;
@@ -544,7 +544,7 @@ ospf_apiclient_handle_del_if (struct ospf_apiclient *oclient, struct msg *msg)
     }
 }
 
-void
+static void
 ospf_apiclient_handle_ism_change (struct ospf_apiclient *oclient,
 				  struct msg *msg)
 {
@@ -559,7 +559,7 @@ ospf_apiclient_handle_ism_change (struct ospf_apiclient *oclient,
 
 }
 
-void
+static void
 ospf_apiclient_handle_nsm_change (struct ospf_apiclient *oclient,
 				  struct msg *msg)
 {
@@ -573,7 +573,7 @@ ospf_apiclient_handle_nsm_change (struct ospf_apiclient *oclient,
     }
 }
 
-void
+static void
 ospf_apiclient_handle_lsa_update (struct ospf_apiclient *oclient,
 				  struct msg *msg)
 {
@@ -604,7 +604,7 @@ ospf_apiclient_handle_lsa_update (struct ospf_apiclient *oclient,
   XFREE (MTYPE_OSPF_APICLIENT, lsa);
 }
 
-void
+static void
 ospf_apiclient_handle_lsa_delete (struct ospf_apiclient *oclient,
 				  struct msg *msg)
 {
@@ -635,7 +635,7 @@ ospf_apiclient_handle_lsa_delete (struct ospf_apiclient *oclient,
   XFREE (MTYPE_OSPF_APICLIENT, lsa);
 }
 
-void
+static void
 ospf_apiclient_msghandle (struct ospf_apiclient *oclient, struct msg *msg)
 {
   /* Call message handler function. */

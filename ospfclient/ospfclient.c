@@ -64,7 +64,7 @@ struct my_opaque_lsa
  * ---------------------------------------------------------
  */
 
-int
+static int
 lsa_delete (struct thread *t)
 {
   struct ospf_apiclient *oclient;
@@ -85,7 +85,7 @@ lsa_delete (struct thread *t)
   return rc;
 }
 
-int
+static int
 lsa_inject (struct thread *t)
 {
   struct ospf_apiclient *cl;
@@ -126,7 +126,7 @@ lsa_inject (struct thread *t)
 
 /* This thread handles asynchronous messages coming in from the OSPF
    API server */
-int
+static int
 lsa_read (struct thread *thread)
 {
   struct ospf_apiclient *oclient;
@@ -156,7 +156,7 @@ lsa_read (struct thread *thread)
  * ---------------------------------------------------------
  */
 
-void
+static void
 lsa_update_callback (struct in_addr ifaddr, struct in_addr area_id,
 		     u_char is_self_originated,
 		     struct lsa_header *lsa)
@@ -182,7 +182,7 @@ lsa_update_callback (struct in_addr ifaddr, struct in_addr area_id,
   ospf_lsa_header_dump (lsa);
 }
 
-void
+static void
 lsa_delete_callback (struct in_addr ifaddr, struct in_addr area_id,
 		     u_char is_self_originated,
 		     struct lsa_header *lsa)
@@ -195,7 +195,7 @@ lsa_delete_callback (struct in_addr ifaddr, struct in_addr area_id,
   ospf_lsa_header_dump (lsa);
 }
 
-void
+static void
 ready_callback (u_char lsa_type, u_char opaque_type, struct in_addr addr)
 {
   printf ("ready_callback: lsa_type: %d opaque_type: %d addr=%s\n",
@@ -211,20 +211,20 @@ ready_callback (u_char lsa_type, u_char opaque_type, struct in_addr addr)
   thread_add_timer (master, lsa_delete, oclient, 30);
 }
 
-void
+static void
 new_if_callback (struct in_addr ifaddr, struct in_addr area_id)
 {
   printf ("new_if_callback: ifaddr: %s ", inet_ntoa (ifaddr));
   printf ("area_id: %s\n", inet_ntoa (area_id));
 }
 
-void
+static void
 del_if_callback (struct in_addr ifaddr)
 {
   printf ("new_if_callback: ifaddr: %s\n ", inet_ntoa (ifaddr));
 }
 
-void
+static void
 ism_change_callback (struct in_addr ifaddr, struct in_addr area_id,
 		     u_char state)
 {
@@ -233,7 +233,7 @@ ism_change_callback (struct in_addr ifaddr, struct in_addr area_id,
   printf ("state: %d [%s]\n", state, LOOKUP (ospf_ism_state_msg, state));
 }
 
-void
+static void
 nsm_change_callback (struct in_addr ifaddr, struct in_addr nbraddr,
 		     struct in_addr router_id, u_char state)
 {
@@ -249,7 +249,7 @@ nsm_change_callback (struct in_addr ifaddr, struct in_addr nbraddr,
  * ---------------------------------------------------------
  */
 
-int usage()
+static int usage()
 {
   printf("Usage: ospfclient <ospfd> <lsatype> <opaquetype> <opaqueid> <ifaddr> <areaid>\n");
   printf("where ospfd     : router where API-enabled OSPF daemon is running\n");
