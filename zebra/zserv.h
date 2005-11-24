@@ -23,6 +23,7 @@
 #define _ZEBRA_ZSERV_H
 
 #include "rib.h"
+#include "if.h"
 #include "workqueue.h"
 
 /* Default port information. */

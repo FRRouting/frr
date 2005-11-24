@@ -30,6 +30,9 @@
 #include "ioctl.h"
 #include "log.h"
 
+#include "zebra/rt.h"
+#include "zebra/kernel_socket.h"
+
 int
 ifstat_update_sysctl ()
 {
@@ -91,8 +94,6 @@ interface_list ()
   caddr_t ref, buf, end;
   size_t bufsiz;
   struct if_msghdr *ifm;
-  int ifm_read (struct if_msghdr *);
-  int ifam_read (struct ifa_msghdr *);
 
 #define MIBSIZ 6
   int mib[MIBSIZ] =

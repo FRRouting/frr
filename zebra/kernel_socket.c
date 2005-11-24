@@ -36,6 +36,7 @@
 #include "zebra/interface.h"
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
+#include "zebra/kernel_socket.h"
 
 extern struct zebra_privs_t zserv_privs;
 extern struct zebra_t zebrad;
@@ -77,27 +78,35 @@ extern struct zebra_t zebrad;
            ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr)))
 #endif /* HAVE_SA_LEN */
 
+/* We use an additional pointer in following, pdest, rather than (DEST)
+ * directly, because gcc will warn if the macro is expanded and DEST is NULL,
+ * complaining that memcpy is being passed a NULL value, despite the fact
+ * the if (NULL) makes it impossible.
+ */
 #define RTA_ADDR_GET(DEST, RTA, RTMADDRS, PNT) \
   if ((RTMADDRS) & (RTA)) \
     { \
+      void *pdest = (DEST); \
       int len = SAROUNDUP ((PNT)); \
       if ( ((DEST) != NULL) && \
            af_check (((struct sockaddr *)(PNT))->sa_family)) \
-        memcpy ((DEST), (PNT), len); \
+        memcpy (pdest, (PNT), len); \
       (PNT) += len; \
     }
 #define RTA_ATTR_GET(DEST, RTA, RTMADDRS, PNT) \
   if ((RTMADDRS) & (RTA)) \
     { \
+      void *pdest = (DEST); \
       int len = SAROUNDUP ((PNT)); \
-      if ( ((DEST) != NULL) ) \
-        memcpy ((DEST), (PNT), len); \
+      if ((DEST) != NULL) \
+        memcpy (pdest, (PNT), len); \
       (PNT) += len; \
     }
 
 #define RTA_NAME_GET(DEST, RTA, RTMADDRS, PNT, LEN) \
   if ((RTMADDRS) & (RTA)) \
     { \
+      u_char *pdest = (u_char *) (DEST); \
       int len = SAROUNDUP ((PNT)); \
       struct sockaddr_dl *sdl = (struct sockaddr_dl *)(PNT); \
       if (IS_ZEBRA_DEBUG_KERNEL) \
@@ -106,8 +115,8 @@ extern struct zebra_t zebrad;
       if ( ((DEST) != NULL) && (sdl->sdl_family == AF_LINK) \
            && (sdl->sdl_nlen < IFNAMSIZ) && (sdl->sdl_nlen <= len) ) \
         { \
-          memcpy ((DEST), sdl->sdl_data, sdl->sdl_nlen); \
-          (DEST)[sdl->sdl_nlen] = '\0'; \
+          memcpy (pdest, sdl->sdl_data, sdl->sdl_nlen); \
+          pdest[sdl->sdl_nlen] = '\0'; \
           (LEN) = sdl->sdl_nlen; \
         } \
       (PNT) += len; \
@@ -251,8 +260,9 @@ ifan_read (struct if_announcemsghdr *ifan)
     assert ( (ifp->ifindex == ifan->ifan_index) 
              || (ifp->ifindex == IFINDEX_INTERNAL) );
 
-  if ( (ifp == NULL) || (ifp->ifindex == IFINDEX_INTERNAL)
-      && (ifan->ifan_what == IFAN_ARRIVAL) )
+  if ( (ifp == NULL) 
+      || ((ifp->ifindex == IFINDEX_INTERNAL)
+          && (ifan->ifan_what == IFAN_ARRIVAL)) )
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
         zlog_debug ("%s: creating interface for ifindex %d, name %s",
@@ -286,7 +296,7 @@ ifan_read (struct if_announcemsghdr *ifan)
  * sysctl (from interface_list).  There may or may not be sockaddrs
  * present after the header.
  */
-static int
+int
 ifm_read (struct if_msghdr *ifm)
 {
   struct interface *ifp = NULL;
@@ -510,7 +520,7 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
 }
 
 /* Interface's address information get. */
-static int
+int
 ifam_read (struct ifa_msghdr *ifam)
 {
   struct interface *ifp = NULL;
@@ -624,7 +634,7 @@ rtm_read_mesg (struct rt_msghdr *rtm,
   return rtm->rtm_flags;
 }
 
-static void
+void
 rtm_read (struct rt_msghdr *rtm)
 {
   int flags;

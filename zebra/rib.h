@@ -23,6 +23,8 @@
 #ifndef _ZEBRA_RIB_H
 #define _ZEBRA_RIB_H
 
+#include "prefix.h"
+
 #define DISTANCE_INFINITY  255
 
 /* Routing information base. */

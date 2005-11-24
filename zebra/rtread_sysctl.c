@@ -27,6 +27,7 @@
 
 #include "zebra/zserv.h"
 #include "zebra/rt.h"
+#include "zebra/kernel_socket.h"
 
 /* Kernel routing table read up by sysctl function. */
 void
@@ -35,7 +36,6 @@ route_read (void)
   caddr_t buf, end, ref;
   size_t bufsiz;
   struct rt_msghdr *rtm;
-  void rtm_read (struct rt_msghdr *);
   
 #define MIBSIZ 6
   int mib[MIBSIZ] = 
@@ -52,7 +52,7 @@ route_read (void)
   if (sysctl (mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) 
     {
       zlog_warn ("sysctl fail: %s", safe_strerror (errno));
-      return -1;
+      return;
     }
 
   /* Allocate buffer. */
@@ -62,7 +62,7 @@ route_read (void)
   if (sysctl (mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) 
     {
       zlog_warn ("sysctl() fail by %s", safe_strerror (errno));
-      return -1;
+      return;
     }
 
   for (end = buf + bufsiz; buf < end; buf += rtm->rtm_msglen) 
@@ -74,5 +74,5 @@ route_read (void)
   /* Free buffer. */
   XFREE (MTYPE_TMP, ref);
 
-  return 0;
+  return;
 }

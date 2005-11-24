@@ -1,3 +1,18 @@
+2005-11-24 Paul Jakma <paul.jakma@sun.com>
+
+	* kernel_socket.h: New header for functions exported to sysctl
+	  methods.
+	* kernel_socket.c: include previous.
+	  Remove static qualifier from couple of functions which are
+	  used by sysctl methods.
+	  Add a workaround for a bogus gcc warning to the RTA_ macros.
+	* Makefile.am: Add kernel_socket.h to noinst_HEADERS
+	* if_sysctl.c: include rt.h and kernel_socket.h and remove
+	  redundant prototypes.
+	* rtread_sysctl.c: ditto.
+	  (route_read) fix mismatch of return values.
+	* {rt,zserv,rib}.h: Include lib headers depended on.
+
 2005-11-23 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) fix some small compile errors, and mark several
