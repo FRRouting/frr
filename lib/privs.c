@@ -348,7 +348,7 @@ static pset_t *
 zcaps2sys (zebra_capabilities_t *zcaps, int num)
 {
   pset_t *syscaps;
-  int i, j = 0, count = 0;
+  int i, j = 0;
   
   if ((syscaps = priv_allocset()) == NULL)
     {
@@ -405,14 +405,14 @@ zprivs_state_caps (void)
   
   if ( (effective = priv_allocset()) == NULL)
     {
-      fprintf (stderr, "%s: failed to get priv_allocset!\n", __func__,
+      fprintf (stderr, "%s: failed to get priv_allocset! %s\n", __func__,
                safe_strerror (errno));
       return ZPRIVS_UNKNOWN;
     }
   
   if (getppriv (PRIV_EFFECTIVE, effective))
     {
-      fprintf (stderr, "%s: failed to get state!%s\n", __func__,
+      fprintf (stderr, "%s: failed to get state! %s\n", __func__,
                safe_strerror (errno));
       result = ZPRIVS_UNKNOWN;
     }

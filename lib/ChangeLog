@@ -1,3 +1,9 @@
+2005-11-24 Paul Jakma <paul.jakma@sun.com>
+
+	* privs.c: (zcaps2sys/solaris) remove unused variable.
+	  (zprivs_state_caps/solaris) Format string missing a
+	  specifier.
+
 2005-11-14 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) pass struct work-queue to callback functions.
