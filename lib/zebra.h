@@ -415,9 +415,9 @@ struct in_pktinfo
    the route_types[] table in lib/log.c must be updated! */
 
 /* Map a route type to a string.  For example, ZEBRA_ROUTE_RIPNG -> "ripng". */
-extern const char *zebra_route_string(u_int route_type);
+extern const char *zebra_route_string(unsigned int route_type);
 /* Map a route type to a char.  For example, ZEBRA_ROUTE_RIPNG -> 'R'. */
-extern char zebra_route_char(u_int route_type);
+extern char zebra_route_char(unsigned int route_type);
 
 /* Zebra's family types. */
 #define ZEBRA_FAMILY_IPV4                1

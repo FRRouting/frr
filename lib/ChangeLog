@@ -3,6 +3,11 @@
 	* privs.c: (zcaps2sys/solaris) remove unused variable.
 	  (zprivs_state_caps/solaris) Format string missing a
 	  specifier.
+	* zebra.h: s/u_int/unsigned int/, u_int is a BSD type, defining
+	  __USE_BSD on Linux pulls in further things from netinet/ip.h
+	  which dont preprocess for some reason. There is no C99
+	  shorthand type directly equivalent to u_int afaict, so don't
+	  use it.
 
 2005-11-14 Paul Jakma <paul.jakma@sun.com>
 
