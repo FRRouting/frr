@@ -1,3 +1,8 @@
+2005-11-25 Paul Jakma <paul.jakma@sun.com>
+
+	* texinfo.tex: update to newer version, seems to now properly
+	  scale the diagramme images in PDF output.
+
 2005-11-11 Paul Jakma <paul.jakma@sun.com>
 
 	* quagga.info: update auto-built file. Methinks it's time to
