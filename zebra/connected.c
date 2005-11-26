@@ -330,7 +330,8 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
 /* Add connected IPv6 route to the interface. */
 void
 connected_add_ipv6 (struct interface *ifp, struct in6_addr *addr,
-		    u_char prefixlen, struct in6_addr *broad, char *label)
+		    u_char prefixlen, struct in6_addr *broad,
+		    const char *label)
 {
   struct prefix_ipv6 *p;
   struct connected *ifc;

@@ -1,3 +1,8 @@
+2005-11-26 Paul Jakma <paul.jakma@sun.com>
+
+	* connected.{c,h}: (connected_add_ipv6) label should have
+	  const qualifier, fix declarations.
+
 2005-11-24 Paul Jakma <paul.jakma@sun.com>
 
 	* kernel_socket.h: New header for functions exported to sysctl
