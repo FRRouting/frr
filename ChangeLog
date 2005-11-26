@@ -1,3 +1,9 @@
+2005-11-26 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: Collect together CFLAGS based on compiler
+	  detected a bit. Recognise and set default CFLAGS for SunPro /
+	  SOS10.
+
 2005-11-14 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Tell gcc we like C99.
