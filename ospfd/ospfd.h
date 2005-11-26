@@ -150,7 +150,7 @@ struct ospf_master
 
   /* Various OSPF global configuration. */
   u_char options;
-#define OSPF_MASTER_SHUTDOWN (1 << 0) /* flag for ospf_finish / graceful-shutdown */  
+#define OSPF_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */  
 };
 
 /* OSPF instance structure. */
@@ -258,7 +258,7 @@ struct ospf
 #endif /* HAVE_OPAQUE_LSA */
   struct thread *t_maxage;              /* MaxAge LSA remover timer. */
   struct thread *t_maxage_walker;       /* MaxAge LSA checking timer. */
-  struct thread *t_graceful_shutdown;	/* Graceful/stub-router shutdown timer*/
+  struct thread *t_deferred_shutdown;	/* deferred/stub-router shutdown timer*/
 
   struct thread *t_write;
   struct thread *t_read;

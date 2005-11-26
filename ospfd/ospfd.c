@@ -257,19 +257,19 @@ ospf_get ()
   return ospf;
 }
 
-/* Handle the second half of graceful shutdown. This is called either
- * from the graceful-shutdown timer thread, or directly through
- * ospf_graceful_shutdown_check.
+/* Handle the second half of deferred shutdown. This is called either
+ * from the deferred-shutdown timer thread, or directly through
+ * ospf_deferred_shutdown_check.
  *
  * Function is to cleanup G-R state, if required then call ospf_finish_final
  * to complete shutdown of this ospf instance. Possibly exit if the
  * whole process is being shutdown and this was the last OSPF instance.
  */
 static void
-ospf_graceful_shutdown_finish (struct ospf *ospf)
+ospf_deferred_shutdown_finish (struct ospf *ospf)
 {
   ospf->stub_router_shutdown_time = OSPF_STUB_ROUTER_UNCONFIGURED;  
-  OSPF_TIMER_OFF (ospf->t_graceful_shutdown);
+  OSPF_TIMER_OFF (ospf->t_deferred_shutdown);
   
   ospf_finish_final (ospf);
   
@@ -285,27 +285,27 @@ ospf_graceful_shutdown_finish (struct ospf *ospf)
 
 /* Timer thread for G-R */
 static int
-ospf_graceful_shutdown_timer (struct thread *t)
+ospf_deferred_shutdown_timer (struct thread *t)
 {
   struct ospf *ospf = THREAD_ARG(t);
   
-  ospf_graceful_shutdown_finish (ospf);
+  ospf_deferred_shutdown_finish (ospf);
   
   return 0;
 }
 
-/* Check whether graceful-shutdown must be scheduled, otherwise call
+/* Check whether deferred-shutdown must be scheduled, otherwise call
  * down directly into second-half of instance shutdown.
  */
 static void
-ospf_graceful_shutdown_check (struct ospf *ospf)
+ospf_deferred_shutdown_check (struct ospf *ospf)
 {
   unsigned long timeout;
   struct listnode *ln;
   struct ospf_area *area;
   
-  /* graceful shutdown already running? */
-  if (ospf->t_graceful_shutdown)
+  /* deferred shutdown already running? */
+  if (ospf->t_deferred_shutdown)
     return;
   
   /* Should we try push out max-metric LSAs? */
@@ -321,10 +321,13 @@ ospf_graceful_shutdown_check (struct ospf *ospf)
       timeout = ospf->stub_router_shutdown_time;
     }
   else
-    /* No timer needed */
-    return ospf_graceful_shutdown_finish (ospf);
+    {
+      /* No timer needed */
+      ospf_deferred_shutdown_finish (ospf);
+      return;
+    }
   
-  OSPF_TIMER_ON (ospf->t_graceful_shutdown, ospf_graceful_shutdown_timer,
+  OSPF_TIMER_ON (ospf->t_deferred_shutdown, ospf_deferred_shutdown_timer,
                  timeout);
   return;
 }
@@ -354,13 +357,14 @@ ospf_terminate (void)
 void
 ospf_finish (struct ospf *ospf)
 {
-  /* let graceful shutdown decide */
-  return ospf_graceful_shutdown_check (ospf);
+  /* let deferred shutdown decide */
+  ospf_deferred_shutdown_check (ospf);
       
-  /* if ospf_graceful_shutdown returns, then ospf_finish_final is
+  /* if ospf_deferred_shutdown returns, then ospf_finish_final is
    * deferred to expiry of G-S timer thread. Return back up, hopefully
    * to thread scheduler.
    */
+  return;
 }
 
 /* Final cleanup of ospf instance */

@@ -2,6 +2,11 @@
 
 	* ospf_api.c: (struct opaque_lsa) change from gcc zero-length
 	  array to C99 incomplete type array.
+	* (general) s/graceful/deferred/ in all files, the former term 
+	   is confusing wrt OSPF Graceful-Restart.
+	* ospfd.c: (ospf_deferred_shutdown_check) dont return
+	  a function which returns void. SOS complains about this.
+	  (ospf_finish)
 
 2005-11-20 Paul Jakma <paul.jakma@sun.com>
 

@@ -2606,9 +2606,9 @@ DEFUN (show_ip_ospf,
            VTY_NEWLINE);
   
   /* Graceful shutdown */
-  if (ospf->t_graceful_shutdown)
-    vty_out (vty, " Graceful shutdown in progress, %s remaining%s",
-             ospf_timer_dump (ospf->t_graceful_shutdown,
+  if (ospf->t_deferred_shutdown)
+    vty_out (vty, " Deferred shutdown in progress, %s remaining%s",
+             ospf_timer_dump (ospf->t_deferred_shutdown,
                               timebuf, sizeof (timebuf)), VTY_NEWLINE);
   /* Show capability. */
   vty_out (vty, " Supports only single TOS (TOS0) routes%s", VTY_NEWLINE);
