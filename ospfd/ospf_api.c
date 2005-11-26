@@ -68,7 +68,7 @@ api_opaque_lsa_print (struct lsa_header *data)
   struct opaque_lsa
   {
     struct lsa_header header;
-    u_char mydata[0];
+    u_char mydata[];
   };
 
   struct opaque_lsa *olsa;

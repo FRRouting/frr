@@ -53,7 +53,7 @@ struct buffer_data
   size_t sp;
 
   /* Actual data stream (variable length). */
-  unsigned char data[0];  /* real dimension is buffer->size */
+  unsigned char data[];  /* real dimension is buffer->size */
 };
 
 /* It should always be true that: 0 <= sp <= cp <= size */

@@ -103,7 +103,7 @@ struct stream
   size_t getp; 		/* next get position */
   size_t endp;		/* last valid data position */
   size_t size;		/* size of data segment */
-  unsigned char data[0]; /* data pointer */
+  unsigned char data[]; /* data pointer */
 };
 
 /* First in first out queue structure. */

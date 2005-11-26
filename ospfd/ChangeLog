@@ -1,3 +1,8 @@
+2005-11-26 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_api.c: (struct opaque_lsa) change from gcc zero-length
+	  array to C99 incomplete type array.
+
 2005-11-20 Paul Jakma <paul.jakma@sun.com>
 
         * ospfd.h: remove the OSPF_ROUTER_ID_UPDATE_DELAY define

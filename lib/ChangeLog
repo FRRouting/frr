@@ -1,3 +1,9 @@
+2005-11-26 Paul Jakma <paul.jakma@sun.com>
+
+	* buffer.c: (struct buffer_data) change gcc zero array
+	  declaration to C99 incomplete array.
+	* stream.h: (struct stream) same
+
 2005-11-24 Paul Jakma <paul.jakma@sun.com>
 
 	* privs.c: (zcaps2sys/solaris) remove unused variable.
