@@ -1,5 +1,7 @@
 2005-12-29  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
+	* kernel_socket.c: remove dead code (from David Young).
+
 	* rt_socket.c (kernel_rtm_ipv4): Use AF_INET rather than AF_UNSPEC
 	for mask.  From David Young.
 

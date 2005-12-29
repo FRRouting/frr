@@ -766,10 +766,6 @@ rtm_write (int message,
   int ret;
   caddr_t pnt;
   struct interface *ifp;
-  struct sockaddr_in tmp_gate;
-#ifdef HAVE_IPV6
-  struct sockaddr_in6 tmp_gate6;
-#endif /* HAVE_IPV6 */
 
   /* Sequencial number of routing message. */
   static int msg_seq = 0;
@@ -781,20 +777,6 @@ rtm_write (int message,
     char buf[512];
   } msg;
   
-  memset (&tmp_gate, 0, sizeof (struct sockaddr_in));
-  tmp_gate.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
-  tmp_gate.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
-
-#ifdef HAVE_IPV6
-  memset (&tmp_gate6, 0, sizeof (struct sockaddr_in6));
-  tmp_gate6.sin6_family = AF_INET6;
-#ifdef SIN6_LEN
-  tmp_gate6.sin6_len = sizeof (struct sockaddr_in6);
-#endif /* SIN6_LEN */
-#endif /* HAVE_IPV6 */
-
   if (routing_sock < 0)
     return ZEBRA_ERR_EPERM;
 
