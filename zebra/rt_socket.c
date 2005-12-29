@@ -146,7 +146,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 	  else
 	    {
 	      masklen2ip (p->prefixlen, &sin_mask.sin_addr);
-	      sin_mask.sin_family = AF_UNSPEC;
+	      sin_mask.sin_family = AF_INET;
 #ifdef HAVE_SIN_LEN
 	      sin_mask.sin_len = sin_masklen (sin_mask.sin_addr);
 #endif /* HAVE_SIN_LEN */
