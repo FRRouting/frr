@@ -1,3 +1,7 @@
+2005-12-29  Greg Troxel  <gdt@fnord.ir.bbn.com>
+
+	* vty.c (vty_hello): add cast to quiet lint (from David Young)
+
 2005-11-26 Paul Jakma <paul.jakma@sun.com>
 
 	* buffer.c: (struct buffer_data) change gcc zero array

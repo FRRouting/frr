@@ -228,7 +228,7 @@ vty_hello (struct vty *vty)
 	    {
 	      char *s;
 	      /* work backwards to ignore trailling isspace() */
-	      for (s = buf + strlen (buf); (s > buf) && isspace (*(s - 1));
+	      for (s = buf + strlen (buf); (s > buf) && isspace ((int)*(s - 1));
 		   s--);
 	      *s = '\0';
 	      vty_out (vty, "%s%s", buf, VTY_NEWLINE);
