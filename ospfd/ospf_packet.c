@@ -339,7 +339,11 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
   /* We do this here so when we dup a packet, we don't have to
      waste CPU rewriting other headers. */
   t = (time(NULL) & 0xFFFFFFFF);
-  oi->crypt_seqnum = ( t > oi->crypt_seqnum ? t : oi->crypt_seqnum++);
+  if (t > oi->crypt_seqnum)
+    oi->crypt_seqnum = t;
+  else
+    oi->crypt_seqnum++;
+  
   ospfh->u.crypt.crypt_seqnum = htonl (oi->crypt_seqnum); 
 
   /* Get MD5 Authentication key from auth_key list. */

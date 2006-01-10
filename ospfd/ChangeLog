@@ -1,7 +1,22 @@
+2006-01-10 Len Sorensen <lennartsorensen@ruggedcom.com>
+
+	* (general) Bug #234, see also [quagga-dev 3902].
+	  Fix problem with nbr_self not being properly reinitialised
+	  when an interface comes up, after having been down.
+	* ospf_neighbor.c: (ospf_nbr_add_self) centralise
+	  initialisation of nbr_self parameters here.
+	* ospf_interface.c: (ospf_if_new) deleting initialisation of
+	  parameters of nbr_self, just rely on call to
+	  ospf_nbr_add_self.
+	  (ospf_if_cleanup) ditto.
+	* ospfd.c: (ospf_network_run) ditto.
+
 2006-01-10 Juris Kalnins <juris@mt.lv>
 
 	* ospf_zebra.c: (ospf_interface_address_delete) fix rare leak of 
 	  struct connected in an error case.
+	* ospf_packet.c: (ospf_make_md5_digest) fix odd, if not
+	  undefined effect, assignment of an increment expression.
 
 2006-01-10 Paul Jakma <paul.jakma@sun.com>
 
