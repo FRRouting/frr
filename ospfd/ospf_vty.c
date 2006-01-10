@@ -7693,10 +7693,9 @@ config_write_ospf_distribute (struct vty *vty, struct ospf *ospf)
       /* default-information print. */
       if (ospf->default_originate != DEFAULT_ORIGINATE_NONE)
 	{
-	  if (ospf->default_originate == DEFAULT_ORIGINATE_ZEBRA)
-	    vty_out (vty, " default-information originate");
-	  else
-	    vty_out (vty, " default-information originate always");
+	  vty_out (vty, " default-information originate");
+	  if (ospf->default_originate == DEFAULT_ORIGINATE_ALWAYS)
+	    vty_out (vty, " always");
 
 	  if (ospf->dmetric[DEFAULT_ROUTE].value >= 0)
 	    vty_out (vty, " metric %d",

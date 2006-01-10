@@ -5,6 +5,8 @@
 	  This was causing ospfd to not start if router-id had not
 	  been configured statically.
 	  (ospf_if_update) ditto.
+	* ospf_vty.c: (config_write_ospf_distribute) trim down
+	  redundant strings.
 
 2005-11-26 Paul Jakma <paul.jakma@sun.com>
 
