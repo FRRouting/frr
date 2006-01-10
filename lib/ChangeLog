@@ -1,3 +1,13 @@
+2006-01-10 Paul Jakma <paul.jakma@sun.com>
+
+	* stream.c: (stream_new) Allocate stream data as seperate object.
+	  (stream_free) free the data.
+	  (stream_resize) new function, resize stream to new size.
+	  (stream_{get,put}q*) new functions to get/put quad word size
+	  types.
+	* stream.h: (struct stream) make data seperate from the stream.
+	  Export new stream_resize and quad-word get/put functions.
+	  
 2005-12-29  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* vty.c (vty_hello): add cast to quiet lint (from David Young)

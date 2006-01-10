@@ -103,7 +103,7 @@ struct stream
   size_t getp; 		/* next get position */
   size_t endp;		/* last valid data position */
   size_t size;		/* size of data segment */
-  unsigned char data[]; /* data pointer */
+  unsigned char *data; /* data pointer */
 };
 
 /* First in first out queue structure. */
@@ -127,12 +127,19 @@ struct stream_fifo
 #define STREAM_DATA(S)  ((S)->data)
 #define STREAM_REMAIN(S) STREAM_WRITEABLE((S))
 
-/* Stream prototypes. */
+/* Stream prototypes. 
+ * For stream_{put,get}S, the S suffix mean:
+ *
+ * c: character (unsigned byte)
+ * w: word (two bytes)
+ * l: long (two words)
+ * q: quad (four words)
+ */
 extern struct stream *stream_new (size_t);
 extern void stream_free (struct stream *);
 extern struct stream * stream_copy (struct stream *new, struct stream *src);
 extern struct stream *stream_dup (struct stream *);
-
+extern size_t stream_resize (struct stream *, size_t);
 extern size_t stream_get_getp (struct stream *);
 extern size_t stream_get_endp (struct stream *);
 extern size_t stream_get_size (struct stream *);
@@ -150,6 +157,8 @@ extern int stream_putw (struct stream *, u_int16_t);
 extern int stream_putw_at (struct stream *, size_t, u_int16_t);
 extern int stream_putl (struct stream *, u_int32_t);
 extern int stream_putl_at (struct stream *, size_t, u_int32_t);
+extern int stream_putq (struct stream *, uint64_t);
+extern int stream_putq_at (struct stream *, size_t, uint64_t);
 extern int stream_put_ipv4 (struct stream *, u_int32_t);
 extern int stream_put_in_addr (struct stream *, struct in_addr *);
 extern int stream_put_prefix (struct stream *, struct prefix *);
@@ -161,6 +170,8 @@ extern u_int16_t stream_getw (struct stream *);
 extern u_int16_t stream_getw_from (struct stream *, size_t);
 extern u_int32_t stream_getl (struct stream *);
 extern u_int32_t stream_getl_from (struct stream *, size_t);
+extern uint64_t stream_getq (struct stream *);
+extern uint64_t stream_getq_from (struct stream *, size_t);
 extern u_int32_t stream_get_ipv4 (struct stream *);
 
 #undef stream_read

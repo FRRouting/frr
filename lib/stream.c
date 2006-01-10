@@ -99,10 +99,16 @@ stream_new (size_t size)
       return NULL;
     }
   
-  s = XCALLOC (MTYPE_STREAM, offsetof(struct stream, data[size]));
+  s = XCALLOC (MTYPE_STREAM, sizeof (struct stream));
 
   if (s == NULL)
     return s;
+  
+  if ( (s->data = XMALLOC (MTYPE_STREAM_DATA, size)) == NULL)
+    {
+      XFREE (MTYPE_STREAM, s);
+      return NULL;
+    }
   
   s->size = size;
   return s;
@@ -112,6 +118,10 @@ stream_new (size_t size)
 void
 stream_free (struct stream *s)
 {
+  if (!s)
+    return;
+  
+  XFREE (MTYPE_STREAM_DATA, s->data);
   XFREE (MTYPE_STREAM, s);
 }
 
@@ -142,6 +152,30 @@ stream_dup (struct stream *s)
     return NULL;
 
   return (stream_copy (new, s));
+}
+
+size_t
+stream_resize (struct stream *s, size_t newsize)
+{
+  u_char *newdata;
+  STREAM_VERIFY_SANE (s);
+  
+  newdata = XREALLOC (MTYPE_STREAM_DATA, s->data, newsize);
+  
+  if (newdata == NULL)
+    return s->size;
+  
+  s->data = newdata;
+  s->size = newsize;
+  
+  if (s->endp > s->size)
+    s->endp = s->size;
+  if (s->getp > s->endp)
+    s->getp = s->endp;
+  
+  STREAM_VERIFY_SANE (s);
+  
+  return s->size;
 }
 
 size_t
@@ -344,6 +378,58 @@ stream_getl (struct stream *s)
   
   return l;
 }
+
+/* Get next quad word from the stream. */
+uint64_t
+stream_getq_from (struct stream *s, size_t from)
+{
+  u_int64_t q;
+
+  STREAM_VERIFY_SANE(s);
+  
+  if (!GETP_VALID (s, from + sizeof (uint64_t)))
+    {
+      STREAM_BOUND_WARN (s, "get quad");
+      return 0;
+    }
+  
+  q  = ((uint64_t) s->data[from++]) << 56;
+  q |= ((uint64_t) s->data[from++]) << 48;
+  q |= ((uint64_t) s->data[from++]) << 40;
+  q |= ((uint64_t) s->data[from++]) << 32;  
+  q |= ((uint64_t) s->data[from++]) << 24;
+  q |= ((uint64_t) s->data[from++]) << 16;
+  q |= ((uint64_t) s->data[from++]) << 8;
+  q |= ((uint64_t) s->data[from++]);
+  
+  return q;
+}
+
+uint64_t
+stream_getq (struct stream *s)
+{
+  uint64_t q;
+
+  STREAM_VERIFY_SANE(s);
+  
+  if (STREAM_READABLE (s) < sizeof (uint64_t))
+    {
+      STREAM_BOUND_WARN (s, "get quad");
+      return 0;
+    }
+  
+  q  = ((uint64_t) s->data[s->getp++]) << 56;
+  q |= ((uint64_t) s->data[s->getp++]) << 48;
+  q |= ((uint64_t) s->data[s->getp++]) << 40;
+  q |= ((uint64_t) s->data[s->getp++]) << 32;  
+  q |= ((uint64_t) s->data[s->getp++]) << 24;
+  q |= ((uint64_t) s->data[s->getp++]) << 16;
+  q |= ((uint64_t) s->data[s->getp++]) << 8;
+  q |= ((uint64_t) s->data[s->getp++]);
+  
+  return q;
+}
+
 /* Get next long word from the stream. */
 u_int32_t
 stream_get_ipv4 (struct stream *s)
@@ -448,6 +534,30 @@ stream_putl (struct stream *s, u_int32_t l)
   return 4;
 }
 
+/* Put quad word to the stream. */
+int
+stream_putq (struct stream *s, uint64_t q)
+{
+  STREAM_VERIFY_SANE (s);
+
+  if (STREAM_WRITEABLE (s) < sizeof (uint64_t))
+    {
+      STREAM_BOUND_WARN (s, "put quad");
+      return 0;
+    }
+  
+  s->data[s->endp++] = (u_char)(q >> 56);
+  s->data[s->endp++] = (u_char)(q >> 48);
+  s->data[s->endp++] = (u_char)(q >> 40);
+  s->data[s->endp++] = (u_char)(q >> 32);
+  s->data[s->endp++] = (u_char)(q >> 24);
+  s->data[s->endp++] = (u_char)(q >> 16);
+  s->data[s->endp++] = (u_char)(q >>  8);
+  s->data[s->endp++] = (u_char)q;
+
+  return 8;
+}
+
 int
 stream_putc_at (struct stream *s, size_t putp, u_char c)
 {
@@ -497,6 +607,28 @@ stream_putl_at (struct stream *s, size_t putp, u_int32_t l)
   s->data[putp + 3] = (u_char)l;
   
   return 4;
+}
+
+int
+stream_putq_at (struct stream *s, size_t putp, uint64_t q)
+{
+  STREAM_VERIFY_SANE(s);
+  
+  if (!PUT_AT_VALID (s, putp + sizeof (uint64_t)))
+    {
+      STREAM_BOUND_WARN (s, "put");
+      return 0;
+    }
+  s->data[putp] =     (u_char)(q >> 56);
+  s->data[putp + 1] = (u_char)(q >> 48);
+  s->data[putp + 2] = (u_char)(q >> 40);
+  s->data[putp + 3] = (u_char)(q >> 32);
+  s->data[putp + 4] = (u_char)(q >> 24);
+  s->data[putp + 5] = (u_char)(q >> 16);
+  s->data[putp + 6] = (u_char)(q >>  8);
+  s->data[putp + 7] = (u_char)q;
+  
+  return 8;
 }
 
 /* Put long word to the stream. */
