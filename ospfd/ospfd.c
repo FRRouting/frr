@@ -825,7 +825,7 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
   struct listnode *node;
 
   /* Schedule Router ID Update. */
-  if (ospf->router_id_static.s_addr == 0)
+  if (ospf->router_id.s_addr == 0)
     ospf_router_id_update (ospf);
   
   /* Get target interface. */
@@ -907,7 +907,7 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
                  * ospf_router_id_update() will call ospf_if_update
                  * whenever r-id is configured instead.
                  */
-		if ((ospf->router_id_static.s_addr != 0)
+		if ((ospf->router_id.s_addr != 0)
 		    && if_is_operative (ifp)) 
 		  ospf_if_up (oi);
 
@@ -956,7 +956,7 @@ ospf_if_update (struct ospf *ospf)
   if (ospf != NULL)
     {
       /* Router-ID must be configured. */
-      if (ospf->router_id_static.s_addr == 0)
+      if (ospf->router_id.s_addr == 0)
         return;
       
       /* Find interfaces that not configured already.  */
