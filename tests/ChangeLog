@@ -1,3 +1,9 @@
+2006-01-10 Paul Jakma <paul.jakma@sun.com>
+
+	* test-stream.c: new file, small unit test for new
+	  resize and {put,get}-quad stream functions.
+	* Makefile.am: build teststream unit test.
+
 2005-11-23 Paul Jakma <paul.jakma@sun.com>
 
 	* aspath_test.c: Add an empty aspath to test segments, and to
