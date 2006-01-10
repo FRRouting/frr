@@ -825,7 +825,6 @@ extern int bgp_flag_unset (struct bgp *, int);
 extern int bgp_flag_check (struct bgp *, int);
 
 extern int bgp_router_id_set (struct bgp *, struct in_addr *);
-extern int bgp_router_id_unset (struct bgp *);
 
 extern int bgp_cluster_id_set (struct bgp *, struct in_addr *);
 extern int bgp_cluster_id_unset (struct bgp *);
