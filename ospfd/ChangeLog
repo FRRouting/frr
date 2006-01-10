@@ -1,3 +1,8 @@
+2006-01-10 Juris Kalnins <juris@mt.lv>
+
+	* ospf_zebra.c: (ospf_interface_address_delete) fix rare leak of 
+	  struct connected in an error case.
+
 2006-01-10 Paul Jakma <paul.jakma@sun.com>
 
 	* ospfd.c: (ospf_network_run) checking to see if router-id

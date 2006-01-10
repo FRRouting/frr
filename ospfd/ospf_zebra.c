@@ -289,7 +289,10 @@ ospf_interface_address_delete (int command, struct zclient *zclient,
 
   rn = route_node_lookup (IF_OIFS (ifp), &p);
   if (!rn)
-    return 0;
+    {
+      connected_free (c);
+      return 0;
+    }
 
   assert (rn->info);
   oi = rn->info;
