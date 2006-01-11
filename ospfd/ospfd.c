@@ -859,24 +859,14 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 		oi = ospf_if_new (ospf, ifp, co->address);
 		oi->connected = co;
 		
-		oi->nbr_self->address = *oi->address;
-
 		oi->area = area;
 
 		oi->params = ospf_lookup_if_params (ifp, oi->address->u.prefix4);
 		oi->output_cost = ospf_if_get_output_cost (oi);
 		
-		if (area->external_routing != OSPF_AREA_DEFAULT)
-		  UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
-		oi->nbr_self->priority = OSPF_IF_PARAM (oi, priority);
-		
 		/* Add pseudo neighbor. */
 		ospf_nbr_add_self (oi);
 
-		/* Make sure pseudo neighbor's router_id. */
-		oi->nbr_self->router_id = ospf->router_id;
-		oi->nbr_self->src = oi->address->u.prefix4;
-		
 		/* Relate ospf interface to ospf instance. */
 		oi->ospf = ospf;
 
@@ -885,21 +875,6 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 		   skip network type setting. */
 		oi->type = IF_DEF_PARAMS (ifp)->type;
 		
-		/* Set area flag. */
-		switch (area->external_routing)
-		  {
-		  case OSPF_AREA_DEFAULT:
-		    SET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
-		    break;
-		  case OSPF_AREA_STUB:
-		    UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
-		    break;
-		  case OSPF_AREA_NSSA:
-		    UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
-		    SET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
-		    break;
-		  }
-
 		ospf_area_add_if (oi->area, oi);
 		
 		/* if router_id is not configured, dont bring up

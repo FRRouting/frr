@@ -202,6 +202,27 @@ ospf_nbr_add_self (struct ospf_interface *oi)
     }
   else
     rn->info = oi->nbr_self;
+  
+  /* Initial state */
+  oi->nbr_self->address = *oi->address;
+  oi->nbr_self->priority = OSPF_IF_PARAM (oi, priority);
+  oi->nbr_self->router_id = oi->ospf->router_id;
+  oi->nbr_self->src = oi->address->u.prefix4;
+  oi->nbr_self->state = NSM_TwoWay;
+  
+  switch (oi->area->external_routing)
+    {
+      case OSPF_AREA_DEFAULT:
+        SET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
+        break;
+      case OSPF_AREA_STUB:
+        UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
+        break;
+      case OSPF_AREA_NSSA:
+        UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
+        SET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
+        break;
+    }
 }
 
 /* Get neighbor count by status.

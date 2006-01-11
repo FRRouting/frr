@@ -237,9 +237,6 @@ ospf_if_new (struct ospf *ospf, struct interface *ifp, struct prefix *p)
 
   /* Add pseudo neighbor. */
   oi->nbr_self = ospf_nbr_new (oi);
-  oi->nbr_self->state = NSM_TwoWay;
-  oi->nbr_self->priority = OSPF_IF_PARAM (oi, priority);
-  oi->nbr_self->options = OSPF_OPTION_E;
 
   oi->ls_upd_queue = route_table_init ();
   oi->t_ls_upd_event = NULL;
@@ -267,7 +264,7 @@ ospf_if_cleanup (struct ospf_interface *oi)
   struct ospf_nbr_nbma *nbr_nbma;
   struct ospf_lsa *lsa;
 
-  /* oi->nbrs and oi->nbr_nbma should be deletete on InterafceDown event */
+  /* oi->nbrs and oi->nbr_nbma should be deleted on InterfaceDown event */
   /* delete all static neighbors attached to this interface */
   for (ALL_LIST_ELEMENTS (oi->nbr_nbma, node, nnode, nbr_nbma))
     {
@@ -300,26 +297,11 @@ ospf_if_cleanup (struct ospf_interface *oi)
   /* Empty link state update queue */
   ospf_ls_upd_queue_empty (oi);
   
- /* Handle pseudo neighbor. */
+  /* Reset pseudo neighbor. */
   ospf_nbr_delete (oi->nbr_self);
   oi->nbr_self = ospf_nbr_new (oi);
-  oi->nbr_self->state = NSM_TwoWay;
-  oi->nbr_self->priority = OSPF_IF_PARAM (oi, priority);
-
-  switch (oi->area->external_routing)
-    {
-    case OSPF_AREA_DEFAULT:
-      SET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
-      break;
-    case OSPF_AREA_STUB:
-      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
-      break;
-    case OSPF_AREA_NSSA:
-      UNSET_FLAG (oi->nbr_self->options, OSPF_OPTION_E);
-      SET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
-      break;
-    }
-
+  ospf_nbr_add_self (oi);
+  
   ospf_lsa_unlock (oi->network_lsa_self);
   oi->network_lsa_self = NULL;
   OSPF_TIMER_OFF (oi->t_network_lsa_self);

@@ -3,6 +3,8 @@
 	* (general) Bug #234, see also [quagga-dev 3902].
 	  Fix problem with nbr_self not being properly reinitialised
 	  when an interface comes up, after having been down.
+	  Some re-arrangement done by Paul Jakma, any bugs introduced
+	  on top of Len's suggested changes are his.
 	* ospf_neighbor.c: (ospf_nbr_add_self) centralise
 	  initialisation of nbr_self parameters here.
 	* ospf_interface.c: (ospf_if_new) deleting initialisation of
