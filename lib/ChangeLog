@@ -1,3 +1,10 @@
+2006-01-11 Paul Jakma <paul.jakma@sun.com>
+
+	* if.h: (struct interface) expand flags to 8 bytes.
+	* zclient.c: (zebra_interface_{add,state}_read) stream read of
+	  interface flags now need to use stream_getq.
+	  (zebra_interface_if_set_value) ditto
+
 2006-01-10 Paul Jakma <paul.jakma@sun.com>
 
 	* stream.c: (stream_new) Allocate stream data as seperate object.

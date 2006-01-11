@@ -1,3 +1,8 @@
+2006-01-11 Paul Jakma <paul.jakma@sun.com>
+
+	* zserv.c: (zsend_interface_{add,delete,update}) if flags are
+	  8 bytes now, update to write out with stream_putq.
+
 2005-12-29  Greg Troxel  <gdt@fnord.ir.bbn.com>
 
 	* kernel_socket.c: remove dead code (from David Young).

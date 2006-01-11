@@ -585,6 +585,7 @@ zebra_router_id_update_read (struct stream *s, struct prefix *rid)
  * |         ifindex                                               |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |         if_flags                                              |
+ * |                                                               |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |         metric                                                |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -615,7 +616,7 @@ zebra_interface_add_read (struct stream *s)
 
   /* Read interface's value. */
   ifp->status = stream_getc (s);
-  ifp->flags = stream_getl (s);
+  ifp->flags = stream_getq (s);
   ifp->metric = stream_getl (s);
   ifp->mtu = stream_getl (s);
   ifp->mtu6 = stream_getl (s);
@@ -660,7 +661,7 @@ zebra_interface_state_read (struct stream *s)
 
   /* Read interface's value. */
   ifp->status = stream_getc (s);
-  ifp->flags = stream_getl (s);
+  ifp->flags = stream_getq (s);
   ifp->metric = stream_getl (s);
   ifp->mtu = stream_getl (s);
   ifp->mtu6 = stream_getl (s);
@@ -709,7 +710,7 @@ zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
   ifp->status = stream_getc (s);
 
   /* Read interface's value. */
-  ifp->flags = stream_getl (s);
+  ifp->flags = stream_getq (s);
   ifp->metric = stream_getl (s);
   ifp->mtu = stream_getl (s);
   ifp->mtu6 = stream_getl (s);

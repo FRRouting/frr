@@ -92,7 +92,7 @@ struct interface
 #define ZEBRA_INTERFACE_LINKDETECTION (1 << 2)
   
   /* Interface flags. */
-  unsigned long flags;
+  uint64_t flags;
 
   /* Interface metric */
   int metric;

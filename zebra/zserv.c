@@ -183,7 +183,7 @@ zsend_interface_add (struct zserv *client, struct interface *ifp)
   stream_put (s, ifp->name, INTERFACE_NAMSIZ);
   stream_putl (s, ifp->ifindex);
   stream_putc (s, ifp->status);
-  stream_putl (s, ifp->flags);
+  stream_putq (s, ifp->flags);
   stream_putl (s, ifp->metric);
   stream_putl (s, ifp->mtu);
   stream_putl (s, ifp->mtu6);
@@ -223,7 +223,7 @@ zsend_interface_delete (struct zserv *client, struct interface *ifp)
   stream_put (s, ifp->name, INTERFACE_NAMSIZ);
   stream_putl (s, ifp->ifindex);
   stream_putc (s, ifp->status);
-  stream_putl (s, ifp->flags);
+  stream_putq (s, ifp->flags);
   stream_putl (s, ifp->metric);
   stream_putl (s, ifp->mtu);
   stream_putl (s, ifp->mtu6);
@@ -355,7 +355,7 @@ zsend_interface_update (int cmd, struct zserv *client, struct interface *ifp)
   stream_put (s, ifp->name, INTERFACE_NAMSIZ);
   stream_putl (s, ifp->ifindex);
   stream_putc (s, ifp->status);
-  stream_putl (s, ifp->flags);
+  stream_putq (s, ifp->flags);
   stream_putl (s, ifp->metric);
   stream_putl (s, ifp->mtu);
   stream_putl (s, ifp->mtu6);
