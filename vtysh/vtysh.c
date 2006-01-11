@@ -523,7 +523,7 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 
 	    for (i = 0; i < VTYSH_INDEX_MAX; i++)
 	      {
-	        if (cmd->daemon && vtysh_client[i].flag)
+	        if (cmd->daemon & vtysh_client[i].flag)
 		  {
 		    cmd_stat = vtysh_client_execute (&vtysh_client[i],
 						     vty->buf, stdout);

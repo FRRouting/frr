@@ -1,3 +1,10 @@
+2006-01-11 Erik Smit <zoiah@zoiah.net>
+
+	* vtysh.c: (vtysh_config_from_file) fix regression from
+	  a previous cleanup, vtysh_client.flags and cmd->daemon are
+	  bitwise flags, bitwise & was meant to be used. Fixes breakage
+	  of integrated config file reading.
+
 2005-09-15 Hasso Tepper <hasso at quagga.net>
 
 	* vtysh.c: Fix warning by casting rl_bind_key 2. argument correctly.
