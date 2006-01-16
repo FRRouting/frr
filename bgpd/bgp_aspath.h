@@ -60,6 +60,7 @@ struct aspath
 
 /* Prototypes. */
 extern void aspath_init (void);
+extern void aspath_finish (void);
 extern struct aspath *aspath_parse (struct stream *, size_t);
 extern struct aspath *aspath_dup (struct aspath *);
 extern struct aspath *aspath_aggregate (struct aspath *, struct aspath *);

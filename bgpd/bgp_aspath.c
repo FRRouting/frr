@@ -78,6 +78,9 @@ struct assegment_header
 
 /* Hash for aspath.  This is the top level structure of AS path. */
 struct hash *ashash;
+
+/* Stream for SNMP. See aspath_snmp_pathseg */
+static struct stream *snmp_stream;
 
 static inline as_t *
 assegment_data_new (int num)
@@ -769,22 +772,21 @@ u_char *
 aspath_snmp_pathseg (struct aspath *as, size_t *varlen)
 {
 #define SNMP_PATHSEG_MAX 1024
-  static struct stream *s = NULL;
-  
-  if (!s)
-    s = stream_new (SNMP_PATHSEG_MAX);
+
+  if (!snmp_stream)
+    snmp_stream = stream_new (SNMP_PATHSEG_MAX);
   else
-    stream_reset (s);
+    stream_reset (snmp_stream);
   
   if (!as)
     {
       *varlen = 0;
       return NULL;
     }
-  aspath_put (s, as);
+  aspath_put (snmp_stream, as);
   
-  *varlen = stream_get_endp (s);
-  return stream_pnt(s);
+  *varlen = stream_get_endp (snmp_stream);
+  return stream_pnt(snmp_stream);
 }
       
 #define min(A,B) ((A) < (B) ? (A) : (B))
@@ -1487,6 +1489,15 @@ void
 aspath_init (void)
 {
   ashash = hash_create_size (32767, aspath_key_make, aspath_cmp);
+}
+
+void
+aspath_finish (void)
+{
+  hash_free (ashash);
+  
+  if (snmp_stream)
+    stream_free (snmp_stream);
 }
 
 /* return and as path value */

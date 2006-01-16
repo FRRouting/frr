@@ -7,6 +7,10 @@
 	  (aspath_parse) aspath_hash_alloc dupes the entire aspath,
 	  including segments, but we forgot to free the temporary
 	  assegment.
+	  (aspath_snmp_pathseg) move the static stream pointer out to
+	  file scope, so it can be freed.
+	  (aspath_finish) new function, free aspath resources.
+	* bgp_aspath.h: (aspath_finish) export.
 
 2006-01-10 Juris Kalnins <juris@mt.lv>
 
