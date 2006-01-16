@@ -1,3 +1,8 @@
+2006-01-16 Paul Jakma <paul.jakma@sun.com>
+
+	* aspath_test.c: (validate) free the temporary aspaths.
+	  (empty_get_test) ditto.
+
 2006-01-10 Paul Jakma <paul.jakma@sun.com>
 
 	* test-stream.c: new file, small unit test for new

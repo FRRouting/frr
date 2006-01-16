@@ -621,7 +621,9 @@ validate (struct aspath *as, const struct test_spec *sp)
               aspath_private_as_check (as));
     }
   aspath_unintern (asinout);
- /* aspath_unintern (asconfeddel);*/
+  aspath_free (asconfeddel);
+  aspath_free (asstr);
+  
   return fails;
   
 }
@@ -639,6 +641,8 @@ empty_get_test ()
     printf ("failed!\n");
   
   printf ("\n");
+  
+  aspath_free (as);
 }
 
 /* basic parsing test */
