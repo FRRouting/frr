@@ -1,3 +1,13 @@
+2006-01-16 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_aspath.c: (assegment_append_asns) XREALLOC can return
+	  NULL theoretically, take care not to lose the allocated data.
+	  (aspath_hash_alloc) aspath_dup already set the aspath
+	  string - fix leak.
+	  (aspath_parse) aspath_hash_alloc dupes the entire aspath,
+	  including segments, but we forgot to free the temporary
+	  assegment.
+
 2006-01-10 Juris Kalnins <juris@mt.lv>
 
 	* bgpd.h: (bgp_router_id_unset) ex-function, remove.

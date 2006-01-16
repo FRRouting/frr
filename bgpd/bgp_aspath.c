@@ -209,11 +209,14 @@ assegment_prepend_asns (struct assegment *seg, as_t asnum, int num)
 static struct assegment *
 assegment_append_asns (struct assegment *seg, as_t *asnos, int num)
 {
-  seg->as = XREALLOC (MTYPE_AS_SEG_DATA, seg->as,
+  as_t *newas;
+  
+  newas = XREALLOC (MTYPE_AS_SEG_DATA, seg->as,
 		      ASSEGMENT_DATA_SIZE (seg->length + num));
 
-  if (seg->as)
+  if (newas)
     {
+      seg->as = newas;
       memcpy (seg->as + seg->length, asnos, ASSEGMENT_DATA_SIZE(num));
       seg->length += num;
       return seg;
@@ -582,9 +585,6 @@ aspath_hash_alloc (void *arg)
   /* New aspath strucutre is needed. */
   aspath = aspath_dup (arg);
   
-  /* Make AS path string. */
-  aspath->str = aspath_make_str_count (aspath);
-
   /* Malformed AS path value. */
   if (! aspath->str)
     {
@@ -670,6 +670,12 @@ aspath_parse (struct stream *s, size_t length)
   
   /* If already same aspath exist then return it. */
   find = hash_get (ashash, &as, aspath_hash_alloc);
+  
+  /* aspath_hash_alloc dupes segments too. that probably could be
+   * optimised out.
+   */
+  assegment_free_all (as.segments);
+  
   if (! find)
     return NULL;
   find->refcnt++;
