@@ -1,3 +1,7 @@
+2006-01-16 Paul Jakma <paul.jakma@sun.com>
+
+	* zserv.c: Read/write updated Zserv header.
+
 2006-01-11 Paul Jakma <paul.jakma@sun.com>
 
 	* zserv.c: (zsend_interface_{add,delete,update}) if flags are

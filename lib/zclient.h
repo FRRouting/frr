@@ -29,7 +29,7 @@
 #define ZEBRA_MAX_PACKET_SIZ          4096
 
 /* Zebra header size. */
-#define ZEBRA_HEADER_SIZE                3
+#define ZEBRA_HEADER_SIZE             6
 
 /* Structure for the zebra client. */
 struct zclient
@@ -68,17 +68,17 @@ struct zclient
   u_char default_information;
 
   /* Pointer to the callback functions. */
-  int (*router_id_update) (int, struct zclient *, zebra_size_t);
-  int (*interface_add) (int, struct zclient *, zebra_size_t);
-  int (*interface_delete) (int, struct zclient *, zebra_size_t);
-  int (*interface_up) (int, struct zclient *, zebra_size_t);
-  int (*interface_down) (int, struct zclient *, zebra_size_t);
-  int (*interface_address_add) (int, struct zclient *, zebra_size_t);
-  int (*interface_address_delete) (int, struct zclient *, zebra_size_t);
-  int (*ipv4_route_add) (int, struct zclient *, zebra_size_t);
-  int (*ipv4_route_delete) (int, struct zclient *, zebra_size_t);
-  int (*ipv6_route_add) (int, struct zclient *, zebra_size_t);
-  int (*ipv6_route_delete) (int, struct zclient *, zebra_size_t);
+  int (*router_id_update) (int, struct zclient *, uint16_t);
+  int (*interface_add) (int, struct zclient *, uint16_t);
+  int (*interface_delete) (int, struct zclient *, uint16_t);
+  int (*interface_up) (int, struct zclient *, uint16_t);
+  int (*interface_down) (int, struct zclient *, uint16_t);
+  int (*interface_address_add) (int, struct zclient *, uint16_t);
+  int (*interface_address_delete) (int, struct zclient *, uint16_t);
+  int (*ipv4_route_add) (int, struct zclient *, uint16_t);
+  int (*ipv4_route_delete) (int, struct zclient *, uint16_t);
+  int (*ipv6_route_add) (int, struct zclient *, uint16_t);
+  int (*ipv6_route_delete) (int, struct zclient *, uint16_t);
 };
 
 /* Zebra API message flag. */
@@ -86,6 +86,18 @@ struct zclient
 #define ZAPI_MESSAGE_IFINDEX  0x02
 #define ZAPI_MESSAGE_DISTANCE 0x04
 #define ZAPI_MESSAGE_METRIC   0x08
+
+/* Zserv protocol message header */
+struct zserv_header
+{
+  uint16_t length;
+  uint8_t marker;	/* corresponds to command field in old zserv
+                         * always set to 255 in new zserv.
+                         */
+  uint8_t version;
+#define ZSERV_VERSION	1
+  uint16_t command;
+};
 
 /* Zebra IPv4 route message API. */
 struct zapi_ipv4

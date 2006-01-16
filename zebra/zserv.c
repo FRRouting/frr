@@ -150,6 +150,16 @@ zebra_server_send_message(struct zserv *client)
   return 0;
 }
 
+static void
+zserv_create_header (struct stream *s, uint16_t cmd)
+{
+  /* length placeholder, caller can update */
+  stream_putw (s, ZEBRA_HEADER_SIZE);
+  stream_putc (s, ZEBRA_HEADER_MARKER);
+  stream_putc (s, ZSERV_VERSION);
+  stream_putw (s, cmd);
+}
+
 /* Interface is added. Send ZEBRA_INTERFACE_ADD to client. */
 /*
  * This function is called in the following situations:
@@ -173,11 +183,8 @@ zsend_interface_add (struct zserv *client, struct interface *ifp)
   s = client->obuf;
   stream_reset (s);
 
-  /* Place holder for size. */
-  stream_putw (s, 0);
-
   /* Message type. */
-  stream_putc (s, ZEBRA_INTERFACE_ADD);
+  zserv_create_header (s, ZEBRA_INTERFACE_ADD);
 
   /* Interface information. */
   stream_put (s, ifp->name, INTERFACE_NAMSIZ);
@@ -214,12 +221,10 @@ zsend_interface_delete (struct zserv *client, struct interface *ifp)
 
   s = client->obuf;
   stream_reset (s);
-
-  /* Packet length placeholder. */
-  stream_putw (s, 0);
-
+  
+  zserv_create_header (s, ZEBRA_INTERFACE_DELETE);
+  
   /* Interface information. */
-  stream_putc (s, ZEBRA_INTERFACE_DELETE);
   stream_put (s, ifp->name, INTERFACE_NAMSIZ);
   stream_putl (s, ifp->ifindex);
   stream_putc (s, ifp->status);
@@ -287,11 +292,8 @@ zsend_interface_address (int cmd, struct zserv *client,
 
   s = client->obuf;
   stream_reset (s);
-
-  /* Place holder for size. */
-  stream_putw (s, 0);
-
-  stream_putc (s, cmd);
+  
+  zserv_create_header (s, cmd);
   stream_putl (s, ifp->ifindex);
 
   /* Interface address flag. */
@@ -345,11 +347,7 @@ zsend_interface_update (int cmd, struct zserv *client, struct interface *ifp)
   s = client->obuf;
   stream_reset (s);
 
-  /* Place holder for size. */
-  stream_putw (s, 0);
-
-  /* Zebra command. */
-  stream_putc (s, cmd);
+  zserv_create_header (s, cmd);
 
   /* Interface information. */
   stream_put (s, ifp->name, INTERFACE_NAMSIZ);
@@ -403,12 +401,10 @@ zsend_route_multipath (int cmd, struct zserv *client, struct prefix *p,
   
   s = client->obuf;
   stream_reset (s);
-
-  /* Place holder for size. */
-  stream_putw (s, 0);
-
-  /* Put command, type and nexthop. */
-  stream_putc (s, cmd);
+  
+  zserv_create_header (s, cmd);
+  
+  /* Put type and nexthop. */
   stream_putc (s, rib->type);
   stream_putc (s, rib->flags);
   
@@ -523,8 +519,7 @@ zsend_ipv6_nexthop_lookup (struct zserv *client, struct in6_addr *addr)
   stream_reset (s);
 
   /* Fill in result. */
-  stream_putw (s, 0);
-  stream_putc (s, ZEBRA_IPV6_NEXTHOP_LOOKUP);
+  zserv_create_header (s, ZEBRA_IPV6_NEXTHOP_LOOKUP);
   stream_put (s, &addr, 16);
 
   if (rib)
@@ -588,8 +583,7 @@ zsend_ipv4_nexthop_lookup (struct zserv *client, struct in_addr addr)
   stream_reset (s);
 
   /* Fill in result. */
-  stream_putw (s, 0);
-  stream_putc (s, ZEBRA_IPV4_NEXTHOP_LOOKUP);
+  zserv_create_header (s, ZEBRA_IPV4_NEXTHOP_LOOKUP);
   stream_put_in_addr (s, &addr);
 
   if (rib)
@@ -647,8 +641,7 @@ zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p)
   stream_reset (s);
 
   /* Fill in result. */
-  stream_putw (s, 0);
-  stream_putc (s, ZEBRA_IPV4_IMPORT_LOOKUP);
+  zserv_create_header (s, ZEBRA_IPV4_IMPORT_LOOKUP);
   stream_put_in_addr (s, &p->prefix);
 
   if (rib)
@@ -703,11 +696,8 @@ zsend_router_id_update (struct zserv *client, struct prefix *p)
   s = client->obuf;
   stream_reset (s);
 
-  /* Place holder for size. */
-  stream_putw (s, 0);
-
   /* Message type. */
-  stream_putc (s, ZEBRA_ROUTER_ID_UPDATE);
+  zserv_create_header (s, ZEBRA_ROUTER_ID_UPDATE);
 
   /* Prefix information. */
   stream_putc (s, p->family);
@@ -1171,8 +1161,8 @@ zebra_client_read (struct thread *thread)
   int sock;
   struct zserv *client;
   size_t already;
-  u_short length;
-  u_char command;
+  uint16_t length, command;
+  uint8_t marker, version;
 
   /* Get thread data.  Reset reading thread because I'm running. */
   sock = THREAD_FD (thread);
@@ -1210,9 +1200,19 @@ zebra_client_read (struct thread *thread)
   /* Reset to read from the beginning of the incoming packet. */
   stream_set_getp(client->ibuf, 0);
 
+  /* Fetch header values */
   length = stream_getw (client->ibuf);
-  command = stream_getc (client->ibuf);
+  marker = stream_getc (client->ibuf);
+  version = stream_getc (client->ibuf);
+  command = stream_getw (client->ibuf);
 
+  if (marker != ZEBRA_HEADER_MARKER || version != ZSERV_VERSION)
+    {
+      zlog_err("%s: socket %d version mismatch, marker %d, version %d",
+               __func__, sock, marker, version);
+      zebra_client_close (client);
+      return -1;
+    }
   if (length < ZEBRA_HEADER_SIZE) 
     {
       zlog_warn("%s: socket %d message length %u is less than header size %d",

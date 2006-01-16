@@ -1,3 +1,13 @@
+2006-01-16 Paul Jakma <paul.jakma@sun.com>
+
+	* zclient.h: Update the Zserv protocol header with a version
+	  field.  Define the old command field to be a 'marker', to
+	  allow old Zserv and updated Zserv to be differentiated.
+	  Future updates will bump the version field obviously. New
+	  command field is made wider.  Try to stop using the
+	  'zebra_size_t' typedef in the callbacks.
+	* zclient.c: Update to read/write new format header.
+
 2006-01-11 Paul Jakma <paul.jakma@sun.com>
 
 	* if.h: (struct interface) expand flags to 8 bytes.

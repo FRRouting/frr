@@ -270,6 +270,16 @@ zclient_send_message(struct zclient *zclient)
   return 0;
 }
 
+static void
+zclient_create_header (struct stream *s, uint16_t command)
+{
+  /* length placeholder, caller can update */
+  stream_putw (s, ZEBRA_HEADER_SIZE);
+  stream_putc (s, ZEBRA_HEADER_MARKER);
+  stream_putc (s, ZSERV_VERSION);
+  stream_putw (s, command);
+}
+
 /* Send simple Zebra message. */
 static int
 zebra_message_send (struct zclient *zclient, int command)
@@ -281,9 +291,8 @@ zebra_message_send (struct zclient *zclient, int command)
   stream_reset (s);
 
   /* Send very simple command only Zebra message. */
-  stream_putw (s, 3);
-  stream_putc (s, command);
-
+  zclient_create_header (s, command);
+  
   return zclient_send_message(zclient);
 }
 
@@ -423,12 +432,10 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
   /* Reset stream. */
   s = zclient->obuf;
   stream_reset (s);
-
-  /* Length place holder. */
-  stream_putw (s, 0);
-
-  /* Put command, type and nexthop. */
-  stream_putc (s, cmd);
+  
+  zclient_create_header (s, cmd);
+  
+  /* Put type and nexthop. */
   stream_putc (s, api->type);
   stream_putc (s, api->flags);
   stream_putc (s, api->message);
@@ -487,11 +494,9 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
   s = zclient->obuf;
   stream_reset (s);
 
-  /* Length place holder. */
-  stream_putw (s, 0);
+  zclient_create_header (s, cmd);
 
-  /* Put command, type and nexthop. */
-  stream_putc (s, cmd);
+  /* Put type and nexthop. */
   stream_putc (s, api->type);
   stream_putc (s, api->flags);
   stream_putc (s, api->message);
@@ -543,13 +548,12 @@ zebra_redistribute_send (int command, struct zclient *zclient, int type)
 
   s = zclient->obuf;
   stream_reset(s);
-
-  /* Total length of the message. */
-  stream_putw (s, 4);
   
-  stream_putc (s, command);
+  zclient_create_header (s, command);
   stream_putc (s, type);
-
+  
+  stream_putw_at (s, 0, stream_get_endp (s));
+  
   return zclient_send_message(zclient);
 }
 
@@ -794,8 +798,8 @@ zclient_read (struct thread *thread)
 {
   int ret;
   size_t already;
-  zebra_size_t length;
-  zebra_command_t command;
+  uint16_t length, command;
+  uint8_t marker, version;
   struct zclient *zclient;
 
   /* Get socket to zebra. */
@@ -826,10 +830,19 @@ zclient_read (struct thread *thread)
   /* Reset to read from the beginning of the incoming packet. */
   stream_set_getp(zclient->ibuf, 0);
 
-  /* Fetch length and command. */
+  /* Fetch header values. */
   length = stream_getw (zclient->ibuf);
-  command = stream_getc (zclient->ibuf);
-
+  marker = stream_getc (zclient->ibuf);
+  version = stream_getc (zclient->ibuf);
+  command = stream_getw (zclient->ibuf);
+  
+  if (marker != ZEBRA_HEADER_MARKER || version != ZSERV_VERSION)
+    {
+      zlog_err("%s: socket %d version mismatch, marker %d, version %d",
+               __func__, zclient->sock, marker, version);
+      return zclient_failed(zclient);
+    }
+  
   if (length < ZEBRA_HEADER_SIZE) 
     {
       zlog_err("%s: socket %d message length %u is less than %d ",
