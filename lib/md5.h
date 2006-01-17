@@ -1,6 +1,6 @@
 /* $USAGI: md5.h,v 1.2 2000/11/02 11:59:25 yoshfuji Exp $ */
 /*	$KAME: md5.h,v 1.4 2000/03/27 04:36:22 sumikawa Exp $	*/
-/*	$Id: md5.h,v 1.2 2005/11/03 09:00:23 paul Exp $ */
+/*	$Id: md5.h,v 1.3 2006/01/17 17:40:45 paul Exp $ */
 
 /*
  * Copyright (C) 2004 6WIND
@@ -68,7 +68,7 @@ typedef struct {
 } md5_ctxt;
 
 extern void md5_init (md5_ctxt *);
-extern void md5_loop (md5_ctxt *, const uint8_t *, u_int);
+extern void md5_loop (md5_ctxt *, const void *, u_int);
 extern void md5_pad (md5_ctxt *);
 extern void md5_result (uint8_t *, md5_ctxt *);
 
