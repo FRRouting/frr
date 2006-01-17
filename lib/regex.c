@@ -30,6 +30,10 @@
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
+#ifdef _WIN32
+/* Windows does not provide unistd.h, which is required for abort() */
+#include <process.h>
+#endif /* _WIN32 */
 
 #ifndef PARAMS
 # if defined __GNUC__ || (defined __STDC__ && __STDC__)
@@ -1025,7 +1029,7 @@ static const char re_error_msgid[] =
     gettext_noop ("Invalid regular expression") /* REG_BADPAT */
     "\0"
 #define REG_ECOLLATE_IDX (REG_BADPAT_IDX + sizeof "Invalid regular expression")
-    gettext_noop ("Invalid collation character"), /* REG_ECOLLATE */
+    gettext_noop ("Invalid collation character") /* REG_ECOLLATE */
     "\0"
 #define REG_ECTYPE_IDX	(REG_ECOLLATE_IDX + sizeof "Invalid collation character")
     gettext_noop ("Invalid character class name") /* REG_ECTYPE */
@@ -1670,7 +1674,7 @@ static reg_errcode_t compile_range _RE_ARGS ((const char **p_ptr,
    MSC and drop MAX_BUF_SIZE a bit.  Otherwise you may end up
    reallocating to 0 bytes.  Such thing is not going to work too well.
    You have been warned!!  */
-#if defined _MSC_VER  && !defined WIN32
+#if defined _MSC_VER  && !defined _WIN32
 /* Microsoft C 16-bit versions limit malloc to approx 65512 bytes.
    The REALLOC define eliminates a flurry of conversion warnings,
    but is not required. */
@@ -5818,8 +5822,8 @@ weak_alias (__regexec, regexec)
    from either regcomp or regexec.   We don't use PREG here.  */
 
 size_t
-regerror (errcode, preg, errbuf, errbuf_size)
-    int errcode;
+regerror (err, preg, errbuf, errbuf_size)
+    int err;
     const regex_t *preg;
     char *errbuf;
     size_t errbuf_size;
@@ -5827,8 +5831,8 @@ regerror (errcode, preg, errbuf, errbuf_size)
   const char *msg;
   size_t msg_size;
 
-  if (errcode < 0
-      || errcode >= (int) (sizeof (re_error_msgid_idx)
+  if (err < 0
+      || err >= (int) (sizeof (re_error_msgid_idx)
 			   / sizeof (re_error_msgid_idx[0])))
     /* Only error codes returned by the rest of the code should be passed
        to this routine.  If we are given anything else, or if other regex
@@ -5836,7 +5840,7 @@ regerror (errcode, preg, errbuf, errbuf_size)
        Dump core so we can fix it.  */
     abort ();
 
-  msg = gettext (re_error_msgid + re_error_msgid_idx[errcode]);
+  msg = gettext (re_error_msgid + re_error_msgid_idx[err]);
 
   msg_size = strlen (msg) + 1; /* Includes the null.  */
 
