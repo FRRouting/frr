@@ -1,3 +1,8 @@
+2006-01-17 Paul Jakma <paul.jakma@sun.com>
+
+	* isis_zebra.c: (isis_zebra_route_add_ipv4) fix for new
+	  zserv format.
+
 2005-11-20 Paul Jakma <paul.jakma@sun.com>
 
         * (general) remove includes of very common system headers,

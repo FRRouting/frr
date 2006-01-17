@@ -738,11 +738,13 @@ static struct bgp_nexthop_cache *
 zlookup_read ()
 {
   struct stream *s;
-  u_int16_t length;
-  u_char command;
+  uint16_t length;
+  u_char marker;
+  u_char version;
+  uint16_t command;
   int nbytes;
   struct in_addr raddr;
-  u_int32_t metric;
+  uint32_t metric;
   int i;
   u_char nexthop_num;
   struct nexthop *nexthop;
@@ -755,7 +757,18 @@ zlookup_read ()
   length = stream_getw (s);
 
   nbytes = stream_read (s, zlookup->sock, length - 2);
-  command = stream_getc (s);
+  marker = stream_getc (s);
+  version = stream_getc (s);
+  
+  if (version != ZSERV_VERSION || marker != ZEBRA_HEADER_MARKER)
+    {
+      zlog_err("%s: socket %d version mismatch, marker %d, version %d",
+               __func__, zlookup->sock, marker, version);
+      return NULL;
+    }
+    
+  command = stream_getw (s);
+  
   raddr.s_addr = stream_get_ipv4 (s);
   metric = stream_getl (s);
   nexthop_num = stream_getc (s);
@@ -806,11 +819,12 @@ zlookup_query (struct in_addr addr)
 
   s = zlookup->obuf;
   stream_reset (s);
-  stream_putw (s, 7);
-  stream_putc (s, ZEBRA_IPV4_NEXTHOP_LOOKUP);
+  zclient_create_header (s, ZEBRA_IPV4_NEXTHOP_LOOKUP);
   stream_put_in_addr (s, &addr);
-
-  ret = writen (zlookup->sock, s->data, 7);
+  
+  stream_putw_at (s, 0, stream_get_endp (s));
+  
+  ret = writen (zlookup->sock, s->data, stream_get_endp (s));
   if (ret < 0)
     {
       zlog_err ("can't write to zlookup->sock");
@@ -834,11 +848,12 @@ static struct bgp_nexthop_cache *
 zlookup_read_ipv6 ()
 {
   struct stream *s;
-  u_int16_t length;
-  u_char command;
+  uint16_t length;
+  u_char version, marker;
+  uint16_t  command;
   int nbytes;
   struct in6_addr raddr;
-  u_int32_t metric;
+  uint32_t metric;
   int i;
   u_char nexthop_num;
   struct nexthop *nexthop;
@@ -851,8 +866,18 @@ zlookup_read_ipv6 ()
   length = stream_getw (s);
 
   nbytes = stream_read (s, zlookup->sock, length - 2);
-  command = stream_getc (s);
-
+  marker = stream_getc (s);
+  version = stream_getc (s);
+  
+  if (version != ZSERV_VERSION || marker != ZEBRA_HEADER_MARKER)
+    {
+      zlog_err("%s: socket %d version mismatch, marker %d, version %d",
+               __func__, zlookup->sock, marker, version);
+      return NULL;
+    }
+    
+  command = stream_getw (s);
+  
   stream_get (&raddr, s, 16);
 
   metric = stream_getl (s);
@@ -909,11 +934,11 @@ zlookup_query_ipv6 (struct in6_addr *addr)
 
   s = zlookup->obuf;
   stream_reset (s);
-  stream_putw (s, 19);
-  stream_putc (s, ZEBRA_IPV6_NEXTHOP_LOOKUP);
+  zclient_create_header (s, ZEBRA_IPV6_NEXTHOP_LOOKUP);
   stream_put (s, addr, 16);
-
-  ret = writen (zlookup->sock, s->data, 19);
+  stream_putw_at (s, 0, stream_get_endp (s));
+  
+  ret = writen (zlookup->sock, s->data, stream_get_endp (s));
   if (ret < 0)
     {
       zlog_err ("can't write to zlookup->sock");
@@ -939,8 +964,8 @@ bgp_import_check (struct prefix *p, u_int32_t *igpmetric,
 {
   struct stream *s;
   int ret;
-  u_int16_t length;
-  u_char command;
+  u_int16_t length, command;
+  u_char version, marker;
   int nbytes;
   struct in_addr addr;
   struct in_addr nexthop;
@@ -959,13 +984,15 @@ bgp_import_check (struct prefix *p, u_int32_t *igpmetric,
   /* Send query to the lookup connection */
   s = zlookup->obuf;
   stream_reset (s);
-  stream_putw (s, 8);
-  stream_putc (s, ZEBRA_IPV4_IMPORT_LOOKUP);
+  zclient_create_header (s, ZEBRA_IPV4_IMPORT_LOOKUP);
+  
   stream_putc (s, p->prefixlen);
   stream_put_in_addr (s, &p->u.prefix4);
-
+  
+  stream_putw_at (s, 0, stream_get_endp (s));
+  
   /* Write the packet. */
-  ret = writen (zlookup->sock, s->data, 8);
+  ret = writen (zlookup->sock, s->data, stream_get_endp (s));
 
   if (ret < 0)
     {
@@ -991,7 +1018,18 @@ bgp_import_check (struct prefix *p, u_int32_t *igpmetric,
 
   /* Fetch whole data. */
   nbytes = stream_read (s, zlookup->sock, length - 2);
-  command = stream_getc (s);
+  marker = stream_getc (s);
+  version = stream_getc (s);
+
+  if (version != ZSERV_VERSION || marker != ZEBRA_HEADER_MARKER)
+    {
+      zlog_err("%s: socket %d version mismatch, marker %d, version %d",
+               __func__, zlookup->sock, marker, version);
+      return 0;
+    }
+    
+  command = stream_getw (s);
+  
   addr.s_addr = stream_get_ipv4 (s);
   metric = stream_getl (s);
   nexthop_num = stream_getc (s);

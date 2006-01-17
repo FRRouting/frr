@@ -267,10 +267,7 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
 
       stream = zclient->obuf;
       stream_reset (stream);
-      /* Length place holder. */
-      stream_putw (stream, 0);
-      /* command */
-      stream_putc (stream, ZEBRA_IPV4_ROUTE_ADD);
+      zclient_create_header (stream, ZEBRA_IPV4_ROUTE_ADD);
       /* type */
       stream_putc (stream, ZEBRA_ROUTE_ISIS);
       /* flags */
