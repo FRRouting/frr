@@ -2253,8 +2253,8 @@ ospf_verify_header (struct stream *ibuf, struct ospf_interface *oi,
   /* Check authentication. */
   if (ospf_auth_type (oi) != ntohs (ospfh->auth_type))
     {
-      zlog_warn ("interface %s: ospf_read authentication type mismatch.",
-		 IF_NAME (oi));
+      zlog_warn ("interface %s: auth-type mismatch, local %d, rcvd %d",
+		 IF_NAME (oi), ospf_auth_type (oi), ntohs (ospfh->auth_type));
       return -1;
     }
 
