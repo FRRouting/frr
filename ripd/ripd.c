@@ -865,10 +865,9 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   struct keychain *keychain;
   struct key *key;
   MD5_CTX ctx;
-  u_char pdigest[RIP_AUTH_MD5_SIZE];
   u_char digest[RIP_AUTH_MD5_SIZE];
   u_int16_t packet_len;
-  char *auth_str = NULL;
+  char auth_str[RIP_AUTH_MD5_SIZE];
   
   if (IS_RIP_DEBUG_EVENT)
     zlog_debug ("RIPv2 MD5 authentication from %s",
@@ -884,7 +883,7 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   /* If the authentication length is less than 16, then it must be wrong for
    * any interpretation of rfc2082. Some implementations also interpret
    * this as RIP_HEADER_SIZE+ RIP_AUTH_MD5_SIZE, aka RIP_AUTH_MD5_COMPAT_SIZE.
- */
+   */
   if ( !((md5->auth_len == RIP_AUTH_MD5_SIZE)
          || (md5->auth_len == RIP_AUTH_MD5_COMPAT_SIZE)))
     {
@@ -908,6 +907,8 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
 
   /* retrieve authentication data */
   md5data = (struct rip_md5_data *) (((u_char *) packet) + packet_len);
+  
+  memset (auth_str, 0, RIP_AUTH_MD5_SIZE);
 
   if (ri->key_chain)
     {
@@ -919,30 +920,22 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
       if (key == NULL)
 	return 0;
 
-      auth_str = key->string;
+      strncpy (auth_str, key->string, RIP_AUTH_MD5_SIZE);
     }
-
-  if (ri->auth_str)
-    auth_str = ri->auth_str;
+  else if (ri->auth_str)
+    strncpy (auth_str, ri->auth_str, RIP_AUTH_MD5_SIZE);
 
   if (! auth_str)
     return 0;
-
+  
   /* MD5 digest authentication. */
-
-  /* Save digest to pdigest. */
-  memcpy (pdigest, md5data->digest, RIP_AUTH_MD5_SIZE);
-
-  /* Overwrite digest by my secret. */
-  memset (md5data->digest, 0, RIP_AUTH_MD5_SIZE);
-  strncpy ((char *)md5data->digest, auth_str, RIP_AUTH_MD5_SIZE);
-
   memset (&ctx, 0, sizeof(ctx));
   MD5Init(&ctx);
-  MD5Update(&ctx, packet, packet_len + md5->auth_len);
+  MD5Update(&ctx, packet, packet_len + RIP_HEADER_SIZE);
+  MD5Update(&ctx, auth_str, RIP_AUTH_MD5_SIZE);
   MD5Final(digest, &ctx);
-
-  if (memcmp (pdigest, digest, RIP_AUTH_MD5_SIZE) == 0)
+  
+  if (memcmp (md5data->digest, digest, RIP_AUTH_MD5_SIZE) == 0)
     return packet_len;
   else
     return 0;
@@ -1000,7 +993,7 @@ static size_t
 rip_auth_md5_ah_write (struct stream *s, struct rip_interface *ri, 
                        struct key *key)
 {
-  size_t len = 0;
+  size_t doff = 0;
 
   assert (s && ri && ri->auth_type == RIP_AUTH_MD5);
 
@@ -1013,7 +1006,7 @@ rip_auth_md5_ah_write (struct stream *s, struct rip_interface *ri,
    * Set to placeholder value here, to true value when RIP-2 Packet length
    * is known.  Actual value is set in .....().
    */
-  len = stream_get_endp(s);
+  doff = stream_get_endp(s);
   stream_putw (s, 0);
 
   /* Key ID. */
@@ -1038,7 +1031,7 @@ rip_auth_md5_ah_write (struct stream *s, struct rip_interface *ri,
   stream_putl (s, 0);
   stream_putl (s, 0);
 
-  return len;
+  return doff;
 }
 
 /* If authentication is in used, write the appropriate header
@@ -1061,6 +1054,7 @@ rip_auth_header_write (struct stream *s, struct rip_interface *ri,
         return rip_auth_md5_ah_write (s, ri, key);
     }
   assert (1);
+  return 0;
 }
 
 /* Write RIPv2 MD5 authentication data trailer */
@@ -1097,7 +1091,7 @@ rip_auth_md5_set (struct stream *s, struct rip_interface *ri, size_t doff,
   /* Generate a digest for the RIP packet. */
   memset(&ctx, 0, sizeof(ctx));
   MD5Init(&ctx);
-  MD5Update(&ctx, s->data, s->endp);
+  MD5Update(&ctx, STREAM_DATA (s), stream_get_endp (s));
   MD5Update(&ctx, auth_str, RIP_AUTH_MD5_SIZE);
   MD5Final(digest, &ctx);
 

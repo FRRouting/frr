@@ -1,3 +1,19 @@
+2006-01-17 Paul Jakma <paul.jakma@sun.com>
+
+	* ripd.c: (rip_auth_md5) remove pdigest, not needed.
+	  Use a local buffer for the auth_str, where it can be properly 
+	  nul padded. Do so, hence fixing MD5 authentication.  
+	  Key looked up via key ring should be used in preference to 
+	  the RIPv1 simple password, not other way around.
+	  No need to copy around digests, we can reference them
+	  directly.
+	  The auth_len received can't be trusted, some implementations
+	  lie (e.g. older ripd).
+	  (rip_auth_md5_ah_write) rename len local variable to doff
+	  to be consistent with other functions.
+	  (rip_auth_header_write) add the missing return.
+	  (rip_auth_md5_set) use the proper constructs to access stream.
+	  
 2005-10-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripd.c: (rip_response_process) Instead of calling
