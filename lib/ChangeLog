@@ -3,6 +3,10 @@
 	* md5.{c,h}: (md5_loop) Is better off taking a void * and doing
 	  cast to byte wise type internally, avoids needs for casts 
 	  in users.
+	* vty.c: (no_terminal_monitor_cmd) New ALIAS for 
+	  terminal_no_monitor, in the more normal negating format,
+	  to be kind to my fingers.
+	  (vty_init) install new ALIAS.
 
 2006-01-16 Paul Jakma <paul.jakma@sun.com>
 
