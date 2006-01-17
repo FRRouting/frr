@@ -628,6 +628,13 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
 			       buf, BUFSIZ), ifa->ifa_prefixlen);
       if (tb[IFA_LABEL] && strcmp (ifp->name, RTA_DATA (tb[IFA_LABEL])))
         zlog_debug ("  IFA_LABEL     %s", (char *)RTA_DATA (tb[IFA_LABEL]));
+      
+      if (tb[IFA_CACHEINFO])
+        {
+          struct ifa_cacheinfo *ci = RTA_DATA (tb[IFA_CACHEINFO]);
+          zlog_debug ("  IFA_CACHEINFO pref %d, valid %d",
+                      ci->ifa_prefered, ci->ifa_valid);
+        }
     }
   
   if (tb[IFA_ADDRESS] == NULL)
