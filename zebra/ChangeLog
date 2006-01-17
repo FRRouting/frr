@@ -2,6 +2,8 @@
 
 	* connected.c: (connected_up_ipv{4,6}) Include interface metric on
 	  connected routes.
+	* if_ioctl.c: (if_getaddrs) Be defensive about assuming
+	  that struct ifaddrs will have ifa_addr filled in.
 
 2006-01-16 Paul Jakma <paul.jakma@sun.com>
 
