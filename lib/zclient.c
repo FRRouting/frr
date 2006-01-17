@@ -270,7 +270,7 @@ zclient_send_message(struct zclient *zclient)
   return 0;
 }
 
-static void
+void
 zclient_create_header (struct stream *s, uint16_t command)
 {
   /* length placeholder, caller can update */

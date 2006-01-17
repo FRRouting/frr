@@ -7,6 +7,8 @@
 	  terminal_no_monitor, in the more normal negating format,
 	  to be kind to my fingers.
 	  (vty_init) install new ALIAS.
+	* zclient.{c,h}: (zclient_create_header) export this, seems others
+	  could use it (in lieu of more complete zserv helpers).
 
 2006-01-16 Paul Jakma <paul.jakma@sun.com>
 
