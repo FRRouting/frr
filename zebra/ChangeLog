@@ -1,3 +1,7 @@
+2006-01-18 Gunnar Stigen <gunnar.stigen@axxessit.no>
+
+	* zebra_rib.c: Take interface metric into account.
+
 2006-01-17 Paul Jakma <paul.jakma@sun.com>
 
 	* kernel_socket.c: (ifam_read) Read metric from RTM_NEWADDR.

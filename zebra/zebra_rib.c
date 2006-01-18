@@ -919,10 +919,23 @@ rib_process (struct work_queue *wq, void *data)
       if (rib->distance == DISTANCE_INFINITY)
         continue;
 
-      /* Newly selected rib. */
-      if (! select || rib->distance < select->distance 
-          || rib->type == ZEBRA_ROUTE_CONNECT)
-        select = rib;
+      /* Newly selected rib, the common case. */
+      if (!select)
+        {
+          select = rib;
+          continue;
+        }
+      
+      /* filter route selection in following order:
+       * - lower distance beats higher
+       * - connected beats other types
+       * - lower metric beats higher for equal distance
+       * - last, hence oldest, route wins tie break.
+       */
+      if ((rib->type == ZEBRA_ROUTE_CONNECT)
+          || (rib->distance <= select->distance))
+        if (rib->metric <= select->metric)
+          select = rib;
     }
   
   /* Deleted route check. */
