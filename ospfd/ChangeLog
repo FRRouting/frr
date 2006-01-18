@@ -1,3 +1,16 @@
+2006-01-18 Juergen Kammer <j.kammer@eurodata.de>
+
+	* ospf_lsa.c: (ospf_router_lsa_new) dont take reference to the
+	  stream data until it is constructed, data reference is
+	  volatile due to the potential resize in link_info_set
+
+2006-01-18 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_lsa.c: (link_info_set) Resize the stream if required and
+	  possible. Return number of links added.
+	  (lsa_link_*_set) use return value from previous.
+	* ospf_lsa.h: Add OSPF_ROUTER_LSA_LINK_SIZE define.
+	  
 2006-01-17 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_packet.c: (ospf_verify_header) print out the types

@@ -497,16 +497,49 @@ ospf_link_cost (struct ospf_interface *oi)
 }
 
 /* Set a link information. */
-static void
+static char
 link_info_set (struct stream *s, struct in_addr id,
 	       struct in_addr data, u_char type, u_char tos, u_int16_t cost)
 {
+  /* LSA stream is initially allocated to OSPF_MAX_LSA_SIZE, suits
+   * vast majority of cases. Some rare routers with lots of links need more.
+   * we try accomodate those here.
+   */
+  if (STREAM_WRITEABLE(s) < OSPF_ROUTER_LSA_LINK_SIZE)
+    {
+      size_t ret = OSPF_MAX_LSA_SIZE;
+      
+      /* Can we enlarge the stream still? */
+      if (STREAM_SIZE(s) == OSPF_MAX_LSA_SIZE)
+        {
+          /* we futz the size here for simplicity, really we need to account
+           * for just:
+           * IP Header - (sizeof (struct ip))
+           * OSPF Header - OSPF_HEADER_SIZE
+           * LSA Header - OSPF_LSA_HEADER_SIZE
+           * MD5 auth data, if MD5 is configured - OSPF_AUTH_MD5_SIZE.
+           *
+           * Simpler just to subtract OSPF_MAX_LSA_SIZE though.
+           */
+          ret = stream_resize (s, OSPF_MAX_PACKET_SIZE - OSPF_MAX_LSA_SIZE);
+        }
+      
+      if (ret == OSPF_MAX_LSA_SIZE)
+        {
+          zlog_warn ("%s: Out of space in LSA stream, left %ld, size %ld",
+                     __func__, STREAM_REMAIN (s), STREAM_SIZE (s));
+          return 0;
+        }
+    }
+  
   /* TOS based routing is not supported. */
   stream_put_ipv4 (s, id.s_addr);		/* Link ID. */
   stream_put_ipv4 (s, data.s_addr);		/* Link Data. */
   stream_putc (s, type);			/* Link Type. */
   stream_putc (s, tos);				/* TOS = 0. */
   stream_putw (s, cost);			/* Link Cost. */
+  
+  return 1;
 }
 
 /* Describe Point-to-Point link. */
@@ -526,9 +559,8 @@ lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
       {
 	/* For unnumbered point-to-point networks, the Link Data field
 	   should specify the interface's MIB-II ifIndex value. */
-	link_info_set (s, nbr->router_id, oi->address->u.prefix4,
-		       LSA_LINK_TYPE_POINTOPOINT, 0, cost);
-	links++;
+	links += link_info_set (s, nbr->router_id, oi->address->u.prefix4,
+		                LSA_LINK_TYPE_POINTOPOINT, 0, cost);
       }
 
   if (CONNECTED_DEST_HOST(oi->connected))
@@ -541,7 +573,8 @@ lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
       
       id.s_addr = oi->connected->destination->u.prefix4.s_addr;
       mask.s_addr = 0xffffffff;
-      link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, oi->output_cost);
+      links += link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0,
+                              oi->output_cost);
     }
   else
     {
@@ -549,10 +582,9 @@ lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
 	 network regardless of the state of the neighbor */
       masklen2ip (oi->address->prefixlen, &mask);
       id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
-      link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, oi->output_cost);
+      links += link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, 
+                              oi->output_cost);
     }
-  links++;
-
   return links;
 }
 
@@ -569,8 +601,8 @@ lsa_link_broadcast_set (struct stream *s, struct ospf_interface *oi)
     {
       masklen2ip (oi->address->prefixlen, &mask);
       id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
-      link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, oi->output_cost);
-      return 1;
+      return link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0,
+                            oi->output_cost);
     }
 
   dr = ospf_nbr_lookup_by_addr (oi->nbrs, &DR (oi));
@@ -579,17 +611,17 @@ lsa_link_broadcast_set (struct stream *s, struct ospf_interface *oi)
 	     IPV4_ADDR_SAME (&oi->address->u.prefix4, &DR (oi))) &&
       ospf_nbr_count (oi, NSM_Full) > 0)
     {
-      link_info_set (s, DR (oi), oi->address->u.prefix4,
-		     LSA_LINK_TYPE_TRANSIT, 0, cost);
+      return link_info_set (s, DR (oi), oi->address->u.prefix4,
+                            LSA_LINK_TYPE_TRANSIT, 0, cost);
     }
   /* Describe type 3 link. */
   else
     {
       masklen2ip (oi->address->prefixlen, &mask);
       id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
-      link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, oi->output_cost);
+      return link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0,
+                            oi->output_cost);
     }
-  return 1;
 }
 
 static int
@@ -603,8 +635,7 @@ lsa_link_loopback_set (struct stream *s, struct ospf_interface *oi)
 
   mask.s_addr = 0xffffffff;
   id.s_addr = oi->address->u.prefix4.s_addr;
-  link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, oi->output_cost);
-  return 1;
+  return link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, oi->output_cost);
 }
 
 /* Describe Virtual Link. */
@@ -618,9 +649,8 @@ lsa_link_virtuallink_set (struct stream *s, struct ospf_interface *oi)
     if ((nbr = ospf_nbr_lookup_ptop (oi)))
       if (nbr->state == NSM_Full)
 	{
-	  link_info_set (s, nbr->router_id, oi->address->u.prefix4,
-			 LSA_LINK_TYPE_VIRTUALLINK, 0, cost);
-	  return 1;
+	  return link_info_set (s, nbr->router_id, oi->address->u.prefix4,
+			        LSA_LINK_TYPE_VIRTUALLINK, 0, cost);
 	}
 
   return 0;
@@ -643,8 +673,7 @@ lsa_link_ptomp_set (struct stream *s, struct ospf_interface *oi)
 
   mask.s_addr = 0xffffffff;
   id.s_addr = oi->address->u.prefix4.s_addr;
-  link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
-  links++;
+  links += link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, 0);
 
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     zlog_debug ("PointToMultipoint: running ptomultip_set");
@@ -657,9 +686,8 @@ lsa_link_ptomp_set (struct stream *s, struct ospf_interface *oi)
 	if (nbr->state == NSM_Full)
 
 	  {
-	    link_info_set (s, nbr->router_id, oi->address->u.prefix4,
-			   LSA_LINK_TYPE_POINTOPOINT, 0, cost);
-	    links++;
+	    links += link_info_set (s, nbr->router_id, oi->address->u.prefix4,
+			            LSA_LINK_TYPE_POINTOPOINT, 0, cost);
             if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
  	      zlog_debug ("PointToMultipoint: set link to %s",
 		         inet_ntoa(oi->address->u.prefix4));
@@ -816,8 +844,6 @@ ospf_router_lsa_new (struct ospf_area *area)
   
   /* Create a stream for LSA. */
   s = stream_new (OSPF_MAX_LSA_SIZE);
-  lsah = (struct lsa_header *) STREAM_DATA (s);
-
   /* Set LSA common header fields. */
   lsa_header_set (s, LSA_OPTIONS_GET (area) | LSA_OPTIONS_NSSA_GET (area),
 		  OSPF_ROUTER_LSA, ospf->router_id, ospf->router_id);
@@ -827,6 +853,7 @@ ospf_router_lsa_new (struct ospf_area *area)
 
   /* Set length. */
   length = stream_get_endp (s);
+  lsah = (struct lsa_header *) STREAM_DATA (s);
   lsah->length = htons (length);
 
   /* Now, create OSPF LSA instance. */
