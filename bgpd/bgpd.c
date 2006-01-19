@@ -85,7 +85,6 @@ bgp_option_set (int flag)
       break;
     default:
       return BGP_ERR_INVALID_FLAG;
-      break;
     }
   return 0;
 }
@@ -105,7 +104,6 @@ bgp_option_unset (int flag)
       break;
     default:
       return BGP_ERR_INVALID_FLAG;
-      break;
     }
   return 0;
 }

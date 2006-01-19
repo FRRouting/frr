@@ -500,7 +500,6 @@ ecommunity_str2com (const char *str, int type, int keyword_included)
 	  if (ecom)
 	    ecommunity_free (ecom);
 	  return NULL;
-	  break;
 	}
     }
   return ecom;

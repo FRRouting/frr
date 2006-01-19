@@ -303,13 +303,10 @@ filter_type_str (enum as_filter_type type)
     {
     case AS_FILTER_PERMIT:
       return "permit";
-      break;
     case AS_FILTER_DENY:
       return "deny";
-      break;
     default:
       return "";
-      break;
     }
 }
 

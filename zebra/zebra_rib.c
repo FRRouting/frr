@@ -1497,7 +1497,7 @@ static_ipv4_nexthop_same (struct nexthop *nexthop, struct static_ipv4 *si)
   if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE
       && si->type == STATIC_IPV4_BLACKHOLE)
     return 1;
-  return 0;;
+  return 0;
 }
 
 /* Uninstall static route from RIB. */
@@ -2045,7 +2045,7 @@ static_ipv6_nexthop_same (struct nexthop *nexthop, struct static_ipv6 *si)
       && IPV6_ADDR_SAME (&nexthop->gate.ipv6, &si->ipv6)
       && strcmp (nexthop->ifname, si->ifname) == 0)
     return 1;
-  return 0;;
+  return 0;
 }
 
 static void

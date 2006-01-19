@@ -324,17 +324,14 @@ DEFUN (router_bgp,
       vty_out (vty, "Please specify 'bgp multiple-instance' first%s", 
 	       VTY_NEWLINE);
       return CMD_WARNING;
-      break;
     case BGP_ERR_AS_MISMATCH:
       vty_out (vty, "BGP is already running; AS is %d%s", as, VTY_NEWLINE);
       return CMD_WARNING;
-      break;
     case BGP_ERR_INSTANCE_MISMATCH:
       vty_out (vty, "BGP view name and AS number mismatch%s", VTY_NEWLINE);
       vty_out (vty, "BGP instance is already running; AS is %d%s",
 	       as, VTY_NEWLINE);
       return CMD_WARNING;
-      break;
     }
 
   vty->node = BGP_NODE;
@@ -1276,11 +1273,9 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
     case BGP_ERR_PEER_GROUP_MEMBER:
       vty_out (vty, "%% Peer-group AS %d. Cannot configure remote-as for member%s", as, VTY_NEWLINE);
       return CMD_WARNING;
-      break;
     case BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT:
       vty_out (vty, "%% The AS# can not be changed from %d to %s, peer-group members must be all internal or all external%s", as, as_str, VTY_NEWLINE);
       return CMD_WARNING;
-      break;
     }
   return bgp_vty_return (vty, ret);
 }
@@ -2671,7 +2666,7 @@ ALIAS (neighbor_disable_connected_check,
        NEIGHBOR_CMD2 "enforce-multihop",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Enforce EBGP neighbors perform multihop\n");
+       "Enforce EBGP neighbors perform multihop\n")
 
 /* Enforce multihop.  */
 ALIAS (no_neighbor_disable_connected_check,
@@ -2680,7 +2675,7 @@ ALIAS (no_neighbor_disable_connected_check,
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Enforce EBGP neighbors perform multihop\n");
+       "Enforce EBGP neighbors perform multihop\n")
 
 DEFUN (neighbor_description,
        neighbor_description_cmd,
@@ -3804,7 +3799,7 @@ ALIAS (no_neighbor_maximum_prefix,
        NEIGHBOR_ADDR_STR2
        "Maximum number of prefix accept from this peer\n"
        "maximum no. of prefix limit\n"
-       "Only give warning message when limit is exceeded\n");
+       "Only give warning message when limit is exceeded\n")
 
 ALIAS (no_neighbor_maximum_prefix,
        no_neighbor_maximum_prefix_threshold_warning_cmd,
@@ -3815,7 +3810,7 @@ ALIAS (no_neighbor_maximum_prefix,
        "Maximum number of prefix accept from this peer\n"
        "maximum no. of prefix limit\n"
        "Threshold value (%) at which to generate a warning msg\n"
-       "Only give warning message when limit is exceeded\n");
+       "Only give warning message when limit is exceeded\n")
 
 ALIAS (no_neighbor_maximum_prefix,
        no_neighbor_maximum_prefix_restart_cmd,
@@ -9646,13 +9641,10 @@ community_direct_str (int direct)
     {
     case COMMUNITY_DENY:
       return "deny";
-      break;
     case COMMUNITY_PERMIT:
       return "permit";
-      break;
     default:
       return "unknown";
-      break;
     }
 }
 

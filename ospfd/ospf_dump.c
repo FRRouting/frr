@@ -181,7 +181,6 @@ ospf_area_desc_string (struct ospf_area *area)
       break;
     default:
       return ospf_area_name_string (area);
-      break;
     }
 
   return buf;

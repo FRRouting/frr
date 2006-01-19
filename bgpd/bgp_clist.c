@@ -41,7 +41,6 @@ community_list_master_lookup (struct community_list_handler *ch, int master)
       {
       case COMMUNITY_LIST_MASTER:
 	return &ch->community_list;
-	break;
       case EXTCOMMUNITY_LIST_MASTER:
 	return &ch->extcommunity_list;
       }

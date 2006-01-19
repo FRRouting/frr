@@ -2046,11 +2046,9 @@ bgp_route_match_add (struct vty *vty, struct route_map_index *index,
 	case RMAP_RULE_MISSING:
 	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
-	  break;
 	case RMAP_COMPILE_ERROR:
 	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
-	  break;
 	}
     }
   return CMD_SUCCESS;
@@ -2071,11 +2069,9 @@ bgp_route_match_delete (struct vty *vty, struct route_map_index *index,
 	case RMAP_RULE_MISSING:
 	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
-	  break;
 	case RMAP_COMPILE_ERROR:
 	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
-	  break;
 	}
     }
   return CMD_SUCCESS;
@@ -2096,11 +2092,9 @@ bgp_route_set_add (struct vty *vty, struct route_map_index *index,
 	case RMAP_RULE_MISSING:
 	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
-	  break;
 	case RMAP_COMPILE_ERROR:
 	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
-	  break;
 	}
     }
   return CMD_SUCCESS;
@@ -2121,11 +2115,9 @@ bgp_route_set_delete (struct vty *vty, struct route_map_index *index,
 	case RMAP_RULE_MISSING:
 	  vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
-	  break;
 	case RMAP_COMPILE_ERROR:
 	  vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
 	  return CMD_WARNING;
-	  break;
 	}
     }
   return CMD_SUCCESS;

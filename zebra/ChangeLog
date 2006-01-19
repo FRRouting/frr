@@ -1,3 +1,14 @@
+2006-01-19 Paul Jakma <paul.jakma@sun.com>
+
+        * (general) various miscellaneous compiler warning fixes.
+          Remove redundant break statements from switch clauses
+          which return.
+          Remove stray semi-colons which cause empty-statement
+          warnings.
+	* main.c: (sighup) remove private declaration of external
+          function.
+          (main) return from main, not exit, cause it annoys SOS.
+
 2006-01-18 Gunnar Stigen <gunnar.stigen@axxessit.no>
 
 	* zebra_rib.c: Take interface metric into account.

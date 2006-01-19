@@ -1,3 +1,12 @@
+2006-01-19 Paul Jakma <paul.jakma@sun.com>
+
+        * (general) various miscellaneous compiler warning fixes.
+           Remove redundant break statements from switch clauses
+           which return.
+           return from main, not exit, cause it annoys SOS.
+           Remove stray semi-colons which cause empty-statement
+           warnings.
+
 2006-01-18 Juergen Kammer <j.kammer@eurodata.de>
 
 	* ospf_lsa.c: (ospf_router_lsa_new) dont take reference to the

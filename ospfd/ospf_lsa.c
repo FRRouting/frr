@@ -3219,13 +3219,11 @@ ospf_lsa_lookup (struct ospf_area *area, u_int32_t type,
     case OSPF_OPAQUE_AREA_LSA:
 #endif /* HAVE_OPAQUE_LSA */
       return ospf_lsdb_lookup_by_id (area->lsdb, type, id, adv_router);
-      break;
     case OSPF_AS_EXTERNAL_LSA:
 #ifdef HAVE_OPAQUE_LSA
     case OSPF_OPAQUE_AS_LSA:
 #endif /* HAVE_OPAQUE_LSA */
       return ospf_lsdb_lookup_by_id (ospf->lsdb, type, id, adv_router);
-      break;
     default:
       break;
     }
@@ -3244,7 +3242,6 @@ ospf_lsa_lookup_by_id (struct ospf_area *area, u_int32_t type,
     {
     case OSPF_ROUTER_LSA:
       return ospf_lsdb_lookup_by_id (area->lsdb, type, id, id);
-      break;
     case OSPF_NETWORK_LSA:
       for (rn = route_top (NETWORK_LSDB (area)); rn; rn = route_next (rn))
 	if ((lsa = rn->info))
@@ -3259,7 +3256,6 @@ ospf_lsa_lookup_by_id (struct ospf_area *area, u_int32_t type,
       /* Currently not used. */
       assert (1);
       return ospf_lsdb_lookup_by_id (area->lsdb, type, id, id);
-      break;
     case OSPF_AS_EXTERNAL_LSA:
     case OSPF_AS_NSSA_LSA:
 #ifdef HAVE_OPAQUE_LSA

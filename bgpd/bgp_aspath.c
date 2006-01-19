@@ -1309,37 +1309,30 @@ aspath_gettoken (const char *buf, enum as_token *token, u_short *asno)
     {
     case '\0':
       return NULL;
-      break;
     case '{':
       *token = as_token_set_start;
       p++;
       return p;
-      break;
     case '}':
       *token = as_token_set_end;
       p++;
       return p;
-      break;
     case '(':
       *token = as_token_confed_seq_start;
       p++;
       return p;
-      break;
     case ')':
       *token = as_token_confed_seq_end;
       p++;
       return p;
-      break;
     case '[':
       *token = as_token_confed_set_start;
       p++;
       return p;
-      break;
     case ']':
       *token = as_token_confed_set_end;
       p++;
       return p;
-      break;
     }
 
   /* Check actual AS value. */
@@ -1423,7 +1416,6 @@ aspath_str2aspath (const char *str)
 	default:
 	  aspath_free (aspath);
 	  return NULL;
-	  break;
 	}
     }
 

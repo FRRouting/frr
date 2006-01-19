@@ -138,7 +138,6 @@ zebra_server_send_message(struct zserv *client)
       client->t_suicide = thread_add_event(zebrad.master, zserv_delayed_close,
 					   client, 0);
       return -1;
-      break;
     case BUFFER_EMPTY:
       THREAD_OFF(client->t_write);
       break;

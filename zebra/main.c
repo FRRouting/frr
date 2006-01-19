@@ -163,9 +163,6 @@ sighup (void)
 static void
 sigint (void)
 {
-  /* Decrared in rib.c */
-  void rib_close ();
-
   zlog_notice ("Terminating on signal");
 
   if (!retain_mode)
@@ -378,5 +375,5 @@ main (int argc, char **argv)
     thread_call (&thread);
 
   /* Not reached... */
-  exit (0);
+  return 0;
 }

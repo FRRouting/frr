@@ -8100,7 +8100,7 @@ ALIAS (show_bgp_community_list,
        "Address family\n"
        "Display routes matching the community-list\n"
        "community-list number\n"
-       "community-list name\n");
+       "community-list name\n")
 
 /* old command */
 DEFUN (show_ipv6_bgp_community_list,

@@ -1,3 +1,12 @@
+2006-01-19 Paul Jakma <paul.jakma@sun.com>
+
+        * (general) various miscellaneous compiler warning fixes.
+          Remove redundant break statements from switch clauses 
+          which return. 
+          return from main, not exit, cause it annoys SOS. 
+          Remove stray semi-colons which cause empty-statement 
+          warnings.
+
 2005-10-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripng_zebra.c: (ripng_redistribute_write) Remove local hard-coded

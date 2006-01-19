@@ -1,3 +1,7 @@
+2006-01-19 Paul Jakma <paul.jakma@sun.com>
+
+        * ripd.c: (main) return from main, not exit, cause it annoys SOS.
+
 2006-01-17 Paul Jakma <paul.jakma@sun.com>
 
 	* ripd.c: (rip_auth_md5) remove pdigest, not needed.

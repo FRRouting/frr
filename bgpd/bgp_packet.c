@@ -678,7 +678,6 @@ bgp_write (struct thread *thread)
 	  peer->status = Idle;
 	  bgp_timer_set (peer);
 	  return 0;
-	  break;
 	case BGP_MSG_KEEPALIVE:
 	  peer->keepalive_out++;
 	  break;

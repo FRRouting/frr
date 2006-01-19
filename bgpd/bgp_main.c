@@ -313,5 +313,5 @@ main (int argc, char **argv)
     thread_call (&thread);
 
   /* Not reached. */
-  exit (0);
+  return (0);
 }

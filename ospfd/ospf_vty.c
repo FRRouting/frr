@@ -3870,7 +3870,7 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
 #ifdef HAVE_OPAQUE_LSA
           case OSPF_OPAQUE_AS_LSA:
 #endif /* HAVE_OPAQUE_LSA */
-            break;;
+            break;
           default:
             continue;
         }

@@ -983,7 +983,6 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
       zlog_info ("Wrong multiprotocol next hop length: %d", 
 		 attr->mp_nexthop_len);
       return -1;
-      break;
     }
 
   snpa_num = stream_getc (s);

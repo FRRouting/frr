@@ -1,3 +1,12 @@
+2006-01-19 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) various miscellaneous compiler warning fixes.
+	   Remove redundant break statements from switch clauses
+	   which return.
+	   return from main, not exit, cause it annoys SOS.
+	   Remove stray semi-colons which cause empty-statement
+	   warnings.
+
 2006-01-17 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_nexthop.c: (zlookup_read*) convert to new Zserv format.
