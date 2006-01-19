@@ -14,3 +14,9 @@ testsig
 testbuffer
 testmemory
 testsig
+aspathtest
+heavy
+heavythread
+heavywq
+testprivs
+teststream
