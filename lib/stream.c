@@ -383,7 +383,7 @@ stream_getl (struct stream *s)
 uint64_t
 stream_getq_from (struct stream *s, size_t from)
 {
-  u_int64_t q;
+  uint64_t q;
 
   STREAM_VERIFY_SANE(s);
   

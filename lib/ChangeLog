@@ -1,3 +1,9 @@
+2006-01-19 Paul Jakma <paul.jakma@sun.com>
+
+	* stream.c: (stream_getq_from) should use POSIX uint64_t
+	  not u_int64_t. Latter is neither a traditional BSD type, nor
+	  a POSIX type.
+
 2006-01-17 Vincent Jardin <vincent.jardin@6wind.com>
 
 	* md5.c: Don't forget to keep const.
