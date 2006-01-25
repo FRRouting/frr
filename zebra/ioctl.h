@@ -27,8 +27,8 @@
 extern void ifreq_set_name (struct ifreq *, struct interface *);
 extern int if_ioctl (u_long, caddr_t);
 
-extern int if_set_flags (struct interface *, unsigned long);
-extern int if_unset_flags (struct interface *, unsigned long);
+extern int if_set_flags (struct interface *, uint64_t);
+extern int if_unset_flags (struct interface *, uint64_t);
 extern void if_get_flags (struct interface *);
 
 extern int if_set_prefix (struct interface *, struct connected *);

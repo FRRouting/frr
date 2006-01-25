@@ -31,14 +31,15 @@
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
+#include "zebra/interface.h"
 
 extern struct zebra_privs_t zserv_privs;
 
 /* clear and set interface name string */
 void
-lifreq_set_name (struct lifreq *lifreq, struct interface *ifp)
+lifreq_set_name (struct lifreq *lifreq, const char *ifname)
 {
-  strncpy (lifreq->lifr_name, ifp->name, IFNAMSIZ);
+  strncpy (lifreq->lifr_name, ifname, IFNAMSIZ);
 }
 
 /* call ioctl system call */
@@ -129,7 +130,7 @@ if_get_metric (struct interface *ifp)
   struct lifreq lifreq;
   int ret;
 
-  lifreq_set_name (&lifreq, ifp);
+  lifreq_set_name (&lifreq, ifp->name);
 
   if (ifp->flags & IFF_IPV4)
     ret = AF_IOCTL (AF_INET, SIOCGLIFMETRIC, (caddr_t) & lifreq);
@@ -158,7 +159,7 @@ if_get_mtu (struct interface *ifp)
   
   if (ifp->flags & IFF_IPV4)
     {
-      lifreq_set_name (&lifreq, ifp);
+      lifreq_set_name (&lifreq, ifp->name);
       ret = AF_IOCTL (AF_INET, SIOCGLIFMTU, (caddr_t) & lifreq);
       if (ret < 0)
         {
@@ -177,7 +178,7 @@ if_get_mtu (struct interface *ifp)
     return;
     
   memset(&lifreq, 0, sizeof(lifreq));
-  lifreq_set_name (&lifreq, ifp);
+  lifreq_set_name (&lifreq, ifp->name);
 
   ret = AF_IOCTL (AF_INET6, SIOCGLIFMTU, (caddr_t) & lifreq);
   if (ret < 0)
@@ -274,28 +275,28 @@ if_unset_prefix (struct interface *ifp, struct connected *ifc)
   return 0;
 }
 
-/* Solaris IFF_UP flag reflects only the primary interface as the
- * routing socket only sends IFINFO for the primary interface.  Hence  
- * ~IFF_UP does not per se imply all the logical interfaces are also   
- * down - which we only know of as addresses. Instead we must determine
- * whether the interface really is up or not according to how many   
- * addresses are still attached. (Solaris always sends RTM_DELADDR if
- * an interface, logical or not, goes ~IFF_UP).
- *
- * Ie, we mangle IFF_UP to reflect whether or not there are addresses
- * left in struct connected, not the actual underlying IFF_UP flag
- * (which corresponds to just one address of all the logical interfaces)
- *
- * Setting IFF_UP within zebra to administratively shutdown the
- * interface will affect only the primary interface/address on Solaris.
+/* Get just the flags for the given name.
+ * Used by the normal 'if_get_flags' function, as well
+ * as the bootup interface-list code, which has to peek at per-address
+ * flags in order to figure out which ones should be ignored..
  */
-static inline void
-if_mangle_up (struct interface *ifp)
+int
+if_get_flags_direct (const char *ifname, uint64_t *flags, unsigned int af)
 {
-  if (listcount(ifp->connected) > 0)
-    SET_FLAG (ifp->flags, IFF_UP);
-  else
-    UNSET_FLAG (ifp->flags, IFF_UP);
+  struct lifreq lifreq;
+  int ret;
+    
+  lifreq_set_name (&lifreq, ifname);
+  
+  ret = AF_IOCTL (af, SIOCGLIFFLAGS, (caddr_t) &lifreq);
+  
+  if (ret)
+    zlog_debug ("%s: ifname %s, error %s (%d)",
+                __func__, ifname, safe_strerror (errno), errno);
+  
+  *flags = lifreq.lifr_flags;
+  
+  return ret;
 }
 
 /* get interface flags */
@@ -303,44 +304,50 @@ void
 if_get_flags (struct interface *ifp)
 {
   int ret4, ret6;
-  struct lifreq lifreq;
-  unsigned long flags4 = 0, flags6 = 0;
+  uint64_t newflags = 0;
+  uint64_t tmpflags;
 
   if (ifp->flags & IFF_IPV4)
     {
-      lifreq_set_name (&lifreq, ifp);
-      
-      ret4 = AF_IOCTL (AF_INET, SIOCGLIFFLAGS, (caddr_t) & lifreq);
+      ret4 = if_get_flags_direct (ifp->name, &tmpflags, AF_INET);
       
       if (!ret4)
-        flags4 = (lifreq.lifr_flags & 0xffffffff);
+        newflags |= tmpflags;
+      else if (errno == ENXIO)
+        {
+          /* it's gone */
+          UNSET_FLAG (ifp->flags, IFF_UP);
+          if_flags_update (ifp, ifp->flags);
+        }
     }
 
   if (ifp->flags & IFF_IPV6)
     {
-      lifreq_set_name (&lifreq, ifp);
-      
-      ret6 = AF_IOCTL (AF_INET6, SIOCGLIFFLAGS, (caddr_t) & lifreq);
+      ret6 = if_get_flags_direct (ifp->name, &tmpflags, AF_INET6);
       
       if (!ret6)
-        flags6 = (lifreq.lifr_flags & 0xffffffff);
+        newflags |= tmpflags;
+      else if (errno == ENXIO)
+        {
+          /* it's gone */
+          UNSET_FLAG (ifp->flags, IFF_UP);
+          if_flags_update (ifp, ifp->flags);
+        }
     }
   
   /* only update flags if one of above succeeded */
   if ( !(ret4 && ret6) )
-    ifp->flags = (flags4 | flags6);
-
-  if_mangle_up (ifp);
+    if_flags_update (ifp, newflags);
 }
 
 /* Set interface flags */
 int
-if_set_flags (struct interface *ifp, unsigned long flags)
+if_set_flags (struct interface *ifp, uint64_t flags)
 {
   int ret;
   struct lifreq lifreq;
 
-  lifreq_set_name (&lifreq, ifp);
+  lifreq_set_name (&lifreq, ifp->name);
 
   lifreq.lifr_flags = ifp->flags;
   lifreq.lifr_flags |= flags;
@@ -363,12 +370,12 @@ if_set_flags (struct interface *ifp, unsigned long flags)
 
 /* Unset interface's flag. */
 int
-if_unset_flags (struct interface *ifp, unsigned long flags)
+if_unset_flags (struct interface *ifp, uint64_t flags)
 {
   int ret;
   struct lifreq lifreq;
 
-  lifreq_set_name (&lifreq, ifp);
+  lifreq_set_name (&lifreq, ifp->name);
 
   lifreq.lifr_flags = ifp->flags;
   lifreq.lifr_flags &= ~flags;

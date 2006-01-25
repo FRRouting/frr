@@ -31,6 +31,7 @@
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
+#include "zebra/interface.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -350,12 +351,12 @@ if_get_flags (struct interface *ifp)
       return;
     }
 
-  ifp->flags = ifreq.ifr_flags & 0x0000ffff;
+  if_flags_update (ifp, (ifreq.ifr_flags & 0x0000ffff));
 }
 
 /* Set interface flags */
 int
-if_set_flags (struct interface *ifp, unsigned long flags)
+if_set_flags (struct interface *ifp, uint64_t flags)
 {
   int ret;
   struct ifreq ifreq;
@@ -378,7 +379,7 @@ if_set_flags (struct interface *ifp, unsigned long flags)
 
 /* Unset interface's flag. */
 int
-if_unset_flags (struct interface *ifp, unsigned long flags)
+if_unset_flags (struct interface *ifp, uint64_t flags)
 {
   int ret;
   struct ifreq ifreq;

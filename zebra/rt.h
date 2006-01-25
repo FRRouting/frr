@@ -25,6 +25,7 @@
 
 #include "prefix.h"
 #include "if.h"
+#include "zebra/rib.h"
 
 extern int kernel_add_ipv4 (struct prefix *, struct rib *);
 extern int kernel_delete_ipv4 (struct prefix *, struct rib *);

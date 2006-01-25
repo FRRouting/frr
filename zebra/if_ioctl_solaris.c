@@ -33,7 +33,8 @@
 
 #include "zebra/interface.h"
 
-void lifreq_set_name (struct lifreq *, struct interface *);
+void lifreq_set_name (struct lifreq *, const char *);
+int if_get_flags_direct (const char *, uint64_t *, unsigned int af);
 static int if_get_addr (struct interface *, struct sockaddr *, const char *);
 static void interface_info_ioctl (struct interface *);
 extern struct zebra_privs_t zserv_privs;
@@ -147,7 +148,20 @@ calculate_lifc_len:     /* must hold privileges to enter here */
        * <interface name>:<logical interface id>
        */
       unsigned int normallen = 0;
+      uint64_t lifflags;
       
+      /* We should exclude ~IFF_UP interfaces, as we'll find out about them
+       * coming up later through RTM_NEWADDR message on the route socket.
+       */
+      if (if_get_flags_direct (lifreq->lifr_name, &lifflags,
+                           lifreq->lifr_addr.ss_family)
+          || !CHECK_FLAG (lifflags, IFF_UP))
+        {
+          lifreq++;
+          continue;
+        }
+      
+      /* Find the normalised name */
       while ( (normallen < sizeof(lifreq->lifr_name))
              && ( *(lifreq->lifr_name + normallen) != '\0')
              && ( *(lifreq->lifr_name + normallen) != ':') )
@@ -180,6 +194,10 @@ calculate_lifc_len:     /* must hold privileges to enter here */
                      lifreq->lifr_name);
       else
         if_get_addr (ifp, (struct sockaddr *) &lifreq->lifr_addr, NULL);
+        
+      /* Poke the interface flags. Lets IFF_UP mangling kick in */
+      if_flags_update (ifp, ifp->flags);
+      
       lifreq++;
     }
 

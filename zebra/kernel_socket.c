@@ -396,6 +396,14 @@ ifm_read (struct if_msghdr *ifm)
 		     ifm->ifm_index);
 	  return -1;
 	}
+
+#ifndef RTM_IFANNOUNCE
+      /* Down->Down interface should be ignored here.
+       * See further comment below.
+       */
+      if (!CHECK_FLAG (ifm->ifm_flags, IFF_UP))
+        return 0;
+#endif /* !RTM_IFANNOUNCE */
       
       if (ifp == NULL)
         {
@@ -414,7 +422,7 @@ ifm_read (struct if_msghdr *ifm)
        * structure with ifindex IFINDEX_INTERNAL.
        */
       ifp->ifindex = ifm->ifm_index;
-      ifp->flags = ifm->ifm_flags;
+      if_flags_update (ifp, ifm->ifm_flags);
 #if defined(__bsdi__)
       if_kvm_get_mtu (ifp);
 #else
@@ -441,34 +449,26 @@ ifm_read (struct if_msghdr *ifm)
           return -1;
         }
       
-      if (if_is_up (ifp))
-	{
-	  ifp->flags = ifm->ifm_flags;
-	  if (! if_is_up (ifp))
-	    {
-	      if_down (ifp);
+      /* update flags and handle operative->inoperative transition, if any */
+      if_flags_update (ifp, ifm->ifm_flags);
+      
 #ifndef RTM_IFANNOUNCE
-              /* No RTM_IFANNOUNCE on this platform, so we can never
-               * distinguish between down and delete. We must presume
-               * it has been deleted.
-               * Eg, Solaris will not notify us of unplumb.
-               *
-               * XXX: Fixme - this should be runtime detected
-               * So that a binary compiled on a system with IFANNOUNCE
-               * will still behave correctly if run on a platform without
-               */
-              if_delete_update (ifp);
+      if (!if_is_up (ifp))
+          {
+            /* No RTM_IFANNOUNCE on this platform, so we can never
+             * distinguish between ~IFF_UP and delete. We must presume
+             * it has been deleted.
+             * Eg, Solaris will not notify us of unplumb.
+             *
+             * XXX: Fixme - this should be runtime detected
+             * So that a binary compiled on a system with IFANNOUNCE
+             * will still behave correctly if run on a platform without
+             */
+            if_delete_update (ifp);
+          }
 #endif /* RTM_IFANNOUNCE */
-            }
-	}
-      else
-	{
-	  ifp->flags = ifm->ifm_flags;
-	  if (if_is_up (ifp))
-	    if_up (ifp);
-	}
     }
-  
+
 #ifdef HAVE_NET_RT_IFLIST
   ifp->stats = ifm->ifm_data;
 #endif /* HAVE_NET_RT_IFLIST */
@@ -546,9 +546,6 @@ ifam_read (struct ifa_msghdr *ifam)
   
   ifp->metric = ifam->ifam_metric;
   
-  /* Check interface flag for implicit up of the interface. */
-  if_refresh (ifp);
-
   /* Add connected address. */
   switch (sockunion_family (&addr))
     {
@@ -587,6 +584,27 @@ ifam_read (struct ifa_msghdr *ifam)
       /* Unsupported family silently ignore... */
       break;
     }
+  
+  /* Check interface flag for implicit up of the interface. */
+  if_refresh (ifp);
+
+#ifdef SUNOS_5
+  /* In addition to lacking IFANNOUNCE, on SUNOS IFF_UP is strange. 
+   * See comments for SUNOS_5 in interface.c::if_flags_mangle.
+   * 
+   * Here we take care of case where the real IFF_UP was previously
+   * unset (as kept in struct zebra_if.primary_state) and the mangled
+   * IFF_UP (ie IFF_UP set || listcount(connected) has now transitioned
+   * to unset due to the lost non-primary address having DELADDR'd.
+   *
+   * we must delete the interface, because in between here and next
+   * event for this interface-name the administrator could unplumb
+   * and replumb the interface.
+   */
+  if (!if_is_up (ifp))
+    if_delete_update (ifp);
+#endif /* SUNOS_5 */
+  
   return 0;
 }
 

@@ -1,3 +1,58 @@
+2006-01-25 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) More solaris PF_ROUTE hacks. The IFF_UP mangling
+	  for solaris was incomplete on the PF_ROUTE side. fix it.
+	  This changeset generally uglifies things. For some future
+	  work I'd like to see the state changes seperated out from
+	  the details of the code. Differences between systems might
+	  then be slightly easier to implement without convoluted
+	  hacks.
+	  Changes should be specific to Solaris mostly, however
+	  also tested on FreeBSD 6.
+	* if_ioctl_solaris.c: (interface_list_ioctl) ignore ~IFF_UP
+	  interfaces, we'll hear about them when/if interface goes up
+	  through NEWADDR.
+	  Update flags explicitely at end of it to kick mangling.
+	* ioctl_solaris.c: (if_mangle_up) removed to interface.c, in
+	  kind.
+	  (lifreq_set_name) more convenient to take the string, than
+	  the ifp.
+	  (if_get_flags_direct) new convenience function, returns
+	  the actual flags. Used during bootstrap in if_ioctl_solaris.c
+	  to peek at flags of logical interfaces to see whether or
+	  not to ignore them.
+	  (if_get_flags) ENXIO means it's gone, poke out IFF_UP and
+	  kick flags update.
+	  (if_{un,}set_flags) flags argument should be 64bit.
+	* ioctl.{c,h}: flags argument should be 64bit. 
+	* interface.h: Add a 'primary_state' flag to struct zebra_if on
+	  SUNOS_5.
+	  Export if_flags_update.
+	* interface.c: (if_flags_mangle) moved over in kind from
+	  ioctl_solaris.c. Nasty kludge to try get IFF_UP right, as
+	  much as is possible. Also keep track of the actual IFF_UP
+	  value for the primary interface, so we can know when the ifp
+	  must be deleted.
+	  (if_flags_update) Take a new interface flags value, apply it
+	  to the interface, and take whatever actions are required due
+	  to flag transitions.
+	  (if_refresh) flag state change logic is moved out to
+	  previous. Just call if_get_flags, which will end up using
+	  previous to effect the update of flags.
+	  (if_flag_dump_vty) IFF_IPV{4,6} aren't interesting, VIRTUAL
+	  and NOXMIT are though.
+	* kernel_socket.c: (ifm_read) Down->Down transitions shouldn't
+	  create ifp, for non-IFANNOUNCE systems.
+	  Use if_flags_update to update flags.
+	  flag transition logic is now handled automatically through
+	  if_flags_update.
+	  (ifam_read) Better to call if_refresh *after* adding
+ 	  connected addresses, as connected count affects IFF_UP on
+ 	  IFF_UP-mangled systems.
+ 	  On Solaris, Up->Down due to DELADDR means we need to delete
+	  the ifp - the IFINFO might already have been and gone.
+	* rt.h: include other dependent headers.
+
 2006-01-19 Paul Jakma <paul.jakma@sun.com>
 
         * (general) various miscellaneous compiler warning fixes.

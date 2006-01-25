@@ -187,6 +187,73 @@ if_subnet_delete (struct interface *ifp, struct connected *ifc)
   return 0;
 }
 
+/* if_flags_mangle: A place for hacks that require mangling
+ * or tweaking the interface flags.
+ *
+ * ******************** Solaris flags hacks **************************
+ *
+ * Solaris IFF_UP flag reflects only the primary interface as the
+ * routing socket only sends IFINFO for the primary interface.  Hence  
+ * ~IFF_UP does not per se imply all the logical interfaces are also   
+ * down - which we only know of as addresses. Instead we must determine
+ * whether the interface really is up or not according to how many   
+ * addresses are still attached. (Solaris always sends RTM_DELADDR if
+ * an interface, logical or not, goes ~IFF_UP).
+ *
+ * Ie, we mangle IFF_UP to *additionally* reflect whether or not there
+ * are addresses left in struct connected, not just the actual underlying
+ * IFF_UP flag.
+ *
+ * We must hence remember the real state of IFF_UP, which we do in
+ * struct zebra_if.primary_state.
+ *
+ * Setting IFF_UP within zebra to administratively shutdown the
+ * interface will affect only the primary interface/address on Solaris.
+ ************************End Solaris flags hacks ***********************
+ */
+static inline void
+if_flags_mangle (struct interface *ifp, uint64_t *newflags)
+{
+#ifdef SUNOS_5
+  struct zebra_if *zif = ifp->info;
+  
+  zif->primary_state = *newflags & (IFF_UP & 0xff);
+  
+  if (CHECK_FLAG (zif->primary_state, IFF_UP)
+      || listcount(ifp->connected) > 0)
+    SET_FLAG (*newflags, IFF_UP);
+  else
+    UNSET_FLAG (*newflags, IFF_UP);
+#endif /* SUNOS_5 */
+}
+
+/* Update the flags field of the ifp with the new flag set provided.
+ * Take whatever actions are required for any changes in flags we care
+ * about.
+ *
+ * newflags should be the raw value, as obtained from the OS.
+ */
+void
+if_flags_update (struct interface *ifp, uint64_t newflags)
+{
+  if_flags_mangle (ifp, &newflags);
+    
+  if (if_is_operative (ifp))
+    {
+      /* operative -> inoperative? */
+      ifp->flags = newflags;
+      if (!if_is_operative (ifp))
+        if_down (ifp);
+    }
+  else
+    {
+      /* inoperative -> operative? */
+      ifp->flags = newflags;
+      if (if_is_operative (ifp))
+        if_up (ifp);
+    }
+}
+
 /* Wake up configured address if it is not in current kernel
    address. */
 static void
@@ -478,23 +545,12 @@ if_down (struct interface *ifp)
 void
 if_refresh (struct interface *ifp)
 {
-  if (if_is_operative (ifp))
-    {
-      if_get_flags (ifp);
-      if (! if_is_operative (ifp))
-	if_down (ifp);
-    }
-  else
-    {
-      if_get_flags (ifp);
-      if (if_is_operative (ifp))
-	if_up (ifp);
-    }
+  if_get_flags (ifp);
 }
 
 /* Printout flag information into vty */
 static void
-if_flag_dump_vty (struct vty *vty, unsigned long flag)
+if_flag_dump_vty (struct vty *vty, uint64_t flag)
 {
   int separator = 0;
 
@@ -526,8 +582,8 @@ if_flag_dump_vty (struct vty *vty, unsigned long flag)
   IFF_OUT_VTY (IFF_LINK2, "LINK2");
   IFF_OUT_VTY (IFF_MULTICAST, "MULTICAST");
 #ifdef SOLARIS_IPV6
-  IFF_OUT_VTY (IFF_IPV4, "IFF_IPv4");
-  IFF_OUT_VTY (IFF_IPV6, "IFF_IPv6");
+  IFF_OUT_VTY (IFF_VIRTUAL, "IFF_VIRTUAL");
+  IFF_OUT_VTY (IFF_NOXMIT, "IFF_NOXMIT");
 #endif /* SOLARIS_IPV6 */
   vty_out (vty, ">");
 }

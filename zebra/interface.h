@@ -201,6 +201,14 @@ struct zebra_if
   struct irdp_interface irdp;
 #endif
 
+#ifdef SUNOS_5
+  /* the real IFF_UP state of the primary interface.
+   * need this to differentiate between all interfaces being
+   * down (but primary still plumbed) and primary having gone
+   * ~IFF_UP, and all addresses gone.
+   */
+  u_char primary_state;
+#endif /* SUNOS_5 */
 };
 
 extern void if_delete_update (struct interface *ifp);
@@ -208,6 +216,7 @@ extern void if_add_update (struct interface *ifp);
 extern void if_up (struct interface *);
 extern void if_down (struct interface *);
 extern void if_refresh (struct interface *);
+extern void if_flags_update (struct interface *, uint64_t);
 extern int if_subnet_add (struct interface *, struct connected *);
 extern int if_subnet_delete (struct interface *, struct connected *);
 
