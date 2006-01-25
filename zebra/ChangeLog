@@ -1,3 +1,9 @@
+2006-01-25 Gunnar Stigen <gunnar.stigen@axxessit.no>
+
+	* zebra_rib.c: (rib_process) Application of Gunnar's earlier
+	  metric selection RIB change included incorrect tidy-ups made
+	  by commiter. Fix. (NB: any errors here are again due to paul).
+
 2006-01-25 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) More solaris PF_ROUTE hacks. The IFF_UP mangling

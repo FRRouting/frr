@@ -927,15 +927,37 @@ rib_process (struct work_queue *wq, void *data)
         }
       
       /* filter route selection in following order:
-       * - lower distance beats higher
        * - connected beats other types
+       * - lower distance beats higher
        * - lower metric beats higher for equal distance
        * - last, hence oldest, route wins tie break.
        */
-      if ((rib->type == ZEBRA_ROUTE_CONNECT)
-          || (rib->distance <= select->distance))
-        if (rib->metric <= select->metric)
+      if (rib->type == ZEBRA_ROUTE_CONNECT)
+        {
+          if (select->type != ZEBRA_ROUTE_CONNECT 
+              || rib->metric <= select->metric)
+            {
+              select = rib;
+              continue;
+            }
+        }
+      else if (select->type == ZEBRA_ROUTE_CONNECT)
+        continue;
+      
+      /* higher distance loses */
+      if (rib->distance > select->distance)
+        continue;
+      
+      /* lower wins */
+      if (rib->distance < select->distance)
+        {
           select = rib;
+          continue;
+        }
+      
+      /* metric tie-breaks equal distance */
+      if (rib->metric <= select->metric)
+        select = rib;
     }
   
   /* Deleted route check. */
