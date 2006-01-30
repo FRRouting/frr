@@ -932,14 +932,16 @@ rib_process (struct work_queue *wq, void *data)
        * - lower metric beats higher for equal distance
        * - last, hence oldest, route wins tie break.
        */
+      
+      /* Connected routes. Pick the last connected
+       * route of the set of lowest metric connected routes.
+       */
       if (rib->type == ZEBRA_ROUTE_CONNECT)
         {
-          if (select->type != ZEBRA_ROUTE_CONNECT 
+          if (select->type != ZEBRA_ROUTE_CONNECT
               || rib->metric <= select->metric)
-            {
-              select = rib;
-              continue;
-            }
+            select = rib;
+          continue;
         }
       else if (select->type == ZEBRA_ROUTE_CONNECT)
         continue;

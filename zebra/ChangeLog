@@ -1,3 +1,10 @@
+2006-01-30 Paul Jakma <paul.jakma@sun.com>
+
+	* zebra_rib.c: (rib_process) Fourth time lucky on this jinxed
+	  commit, last commit had a hole that could allow connected
+	  route selection to escape beyond the connected route logic. 
+	  This time I cross-checked with Gunnar first. ;)
+
 2006-01-25 Gunnar Stigen <gunnar.stigen@axxessit.no>
 
 	* zebra_rib.c: (rib_process) Application of Gunnar's earlier
