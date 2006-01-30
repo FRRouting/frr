@@ -1,3 +1,8 @@
+2006-01-30 Alain Ritoux <alain.ritoux@6wind.com>
+
+        * ripd.c: correct bug that allowed route learnt through RIP to take
+	  precedence over connectd routes
+
 2006-01-19 Paul Jakma <paul.jakma@sun.com>
 
         * ripd.c: (main) return from main, not exit, cause it annoys SOS.
