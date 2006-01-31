@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.117 2006/01/19 20:26:17 paul Exp $
+## $Id: configure.ac,v 1.118 2006/01/31 10:09:27 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.3, [http://bugzilla.quagga.net])
@@ -992,99 +992,34 @@ AC_CHECK_LIB(c, regexec,
 AC_SUBST(LIB_REGEX)
 
 dnl ------------------
-dnl check SNMP library
+dnl check Net-SNMP library
 dnl ------------------
-if test "${enable_snmp}" = "yes";then
-dnl  AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
-  if test "${HAVE_SNMP}" = ""; then
-    old_libs="${LIBS}"
-    LIBS="-L/usr/lib"
-    unset ac_cv_lib_snmp_asn_parse_int
-    AC_CHECK_LIB(crypto, main, NEED_CRYPTO=yes, )
-    if test "${NEED_CRYPTO}" = ""; then
-      AC_CHECK_LIB(netsnmp, asn_parse_int, [HAVE_NETSNMP=yes; HAVE_SNMP=yes ])
-    else
-      AC_CHECK_LIB(netsnmp, asn_parse_int, [HAVE_NETSNMP=yes; HAVE_SNMP=yes; NEED_CRYPTO=yes;LIBS="$LIBS -lcrypto" ],,"-lcrypto")
-    fi
-    LIBS="${old_libs}"
-  fi
-  if test "${HAVE_SNMP}" = ""; then
-    old_libs="${LIBS}"
-    LIBS="-L/usr/lib"
-    unset ac_cv_lib_snmp_asn_parse_int
-    AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes, )
-    if test "${HAVE_SNMP}" = ""; then
-      unset ac_cv_lib_snmp_asn_parse_int
-      AC_CHECK_LIB(crypto, main, NEED_CRYPTO=yes, )
-      if test "${NEED_CRYPTO}" = "yes"; then 
-        AC_CHECK_LIB(snmp, asn_parse_int, [HAVE_SNMP=yes; NEED_CRYPTO=yes; LIBS="$LIBS -lcrypto" ],,"-lcrypto")
-      fi
-    fi
-    LIBS="${old_libs}"
-  fi
-
-  if test "${HAVE_SNMP}" = ""; then
-    old_libs="${LIBS}"
-    LIBS="-L/usr/local/lib"
-    unset ac_cv_lib_snmp_asn_parse_int
-    AC_CHECK_LIB(snmp, asn_parse_int, HAVE_SNMP=yes)
-    if test "${HAVE_SNMP}" = ""; then
-      unset ac_cv_lib_snmp_asn_parse_int
-      AC_CHECK_LIB(crypto, main, NEED_CRYPTO=yes, )
-      if test "${NEED_CRYPTO}" = "yes"; then
-        AC_CHECK_LIB(snmp, asn_parse_int, [HAVE_SNMP=yes; NEED_CRYPTO=yes; LIBS="$LIBS -lcrypto" ],,"-lcrypto")
-      fi
-    fi
-    LIBS="${old_libs}"
-  fi
-
-  if test "${HAVE_SNMP}" = "yes"; then
-    for ac_snmp in /usr/include/net-snmp/library/asn1.h /usr/include/ucd-snmp/asn1.h /usr/local/include/ucd-snmp/asn1.h /dev/null
-    do
-      test -f "${ac_snmp}" && break
+if test "${enable_snmp}" = "yes"; then
+    LIBS="${LIBS} -lcrypto"
+    AC_CHECK_LIB(netsnmp, asn_parse_int,
+    	[AC_DEFINE(HAVE_NETSNMP,,Net SNMP) 
+    	 AC_DEFINE(HAVE_SNMP,,SNMP)
+    	 LIBS="${LIBS} -lnetsnmp"],
+    	[AC_MSG_ERROR([--enable-snmp given, but cannot find support for SNMP])])
+    
+    for ac_snmp in /usr/include \
+    		/usr/local/include \
+    		/dev/null; do
+    	test -f "${ac_snmp}/net-snmp/library/asn1.h" && break
     done
-
+    
     case ${ac_snmp} in
-      /usr/include/net-snmp/*)
-                  AC_DEFINE(HAVE_SNMP,,SNMP)
-		  AC_DEFINE(HAVE_NETSNMP,,SNMP)
-                  AC_DEFINE(UCD_COMPATIBLE,,SNMP)
-                  SNMP_INCLUDES="${SNMP_INCLUDES} -I/usr/include/net-snmp -I/usr/include/net-snmp/library"
-		  if test "${HAVE_NETSNMP}" = "yes"; then
-		        LIBS="${LIBS} -lnetsnmp"
-		  else
-			LIBS="${LIBS} -lsnmp"
-		  fi
-                  ;;
-      /usr/include/ucd-snmp/*) 
-                  AC_DEFINE(HAVE_SNMP,,SNMP)
-                  SNMP_INCLUDES="${SNMP_INCLUDES} -I/usr/include/ucd-snmp"
-    		  LIBS="${LIBS} -lsnmp"
-                  ;;
-      /usr/local/include/ucd-snmp/*) 
-                  AC_DEFINE(HAVE_SNMP,,SNMP)
-  	          SNMP_INCLUDES="${SNMP_INCLUDES} -I/usr/local/include/ucd-snmp"
-  		  LIBS="${LIBS} -L/usr/local/lib -lsnmp"
-                  ;;
-      /usr/local/include/net-snmp/*)
-      		AC_DEFINE(HAVE_SNMP,,SNMP)
-      		AC_DEFINE(HAVE_NET_SNMP,,SNMP)
-      		AC_DEFINE(UCD_COMPATIBLE,,SNMP)
-      		SNMP_INCLUDES="${SNMP_INCLUDES} -I/usr/local/include/net-snmp"
-      		LIBS="${LIBS} -L/usr/local/lib -lnetsnmp"
-      		;;
+    	/dev/null)
+    		AC_MSG_ERROR([--enable-snmp given, but can not find header])
+    		;;
+    	*)
+    		SNMP_INCLUDES="-I${ac_snmp}/net-snmp"
+    		SNMP_INCLUDES="${SNMP_INCLUDES} -I${ac_snmp}/net-snmp/library"
+    		;;
     esac
-    if test "${NEED_CRYPTO}" = "yes"; then
-      LIBS="${LIBS} -lcrypto"
-    fi
-  fi
+    
+    AC_SUBST(SNMP_INCLUDES)
 fi
-
-if test "${enable_snmp}" = "yes" -a "${HAVE_SNMP}" != "yes"; then
-  AC_MSG_ERROR([--enable-snmp given, but cannot find support for SNMP])
-fi
-
-AC_SUBST(SNMP_INCLUDES)
 
 dnl ----------------------------
 dnl check sa_len of sockaddr
