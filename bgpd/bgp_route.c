@@ -1423,8 +1423,6 @@ bgp_process_queue_init (void)
     = bm->process_main_queue->spec.max_retries = 0;
   bm->process_rsclient_queue->spec.hold
     = bm->process_main_queue->spec.hold = 500;
-  bm->process_rsclient_queue->spec.delay
-    = bm->process_main_queue->spec.delay = 10;
 }
 
 void
@@ -2526,7 +2524,6 @@ bgp_clear_node_queue_init (void)
       exit (1);
     }
   bm->clear_node_queue->spec.hold = 10;
-  bm->clear_node_queue->spec.delay = 0; /* no gathering to be gained */
   bm->clear_node_queue->spec.workfunc = &bgp_clear_route_node;
   bm->clear_node_queue->spec.del_item_data = &bgp_clear_node_queue_del;
   bm->clear_node_queue->spec.completion_func = &bgp_clear_node_complete;

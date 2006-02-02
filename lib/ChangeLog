@@ -1,3 +1,13 @@
+2006-02-02 Paul Jakma <paul.jakma@sun.com>
+
+	* workqueue.h: (struct work_queue) Remove the delay field.
+	  It served no purpose and just introduced bad behaviour.
+	  Should be excised before its allowed to escape into 1.0.
+	  This removes need for the 'flood' and runs_since_clear
+	  fields.
+	* workqueue.c: (general) excise delay factor between queue
+	  runs, hence the 'flood' crap too.. See above.
+
 2006-01-19 Paul Jakma <paul.jakma@sun.com>
 
 	* stream.c: (stream_getq_from) should use POSIX uint64_t

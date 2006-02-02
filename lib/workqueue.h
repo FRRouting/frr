@@ -24,10 +24,8 @@
 #ifndef _QUAGGA_WORK_QUEUE_H
 #define _QUAGGA_WORK_QUEUE_H
 
-/* Work queue default hold and cycle times - millisec */
-#define WORK_QUEUE_DEFAULT_HOLD  50  /* hold-time between runs of a queue */
-#define WORK_QUEUE_DEFAULT_DELAY 10  /* minimum delay for queue runs */
-#define WORK_QUEUE_DEFAULT_FLOOD 40   /* flood factor, ~2s with prev values */
+/* Hold time for the initial schedule of a queue run, in  millisec */
+#define WORK_QUEUE_DEFAULT_HOLD  50 
 
 /* action value, for use by item processor and item error handlers */
 typedef enum
@@ -90,25 +88,11 @@ struct work_queue
     unsigned int max_retries;	
 
     unsigned int hold;	/* hold time for first run, in ms */
-    unsigned int delay; /* min delay between queue runs, in ms */
-    
-    unsigned int flood; /* number of queue runs after which we consider
-                         * queue to be flooded, where the runs are
-                         * consecutive and each has used its full slot,
-                         * and the queue has still not been cleared. If
-                         * the queue is flooded, then we try harder to
-                         * clear it by ignoring the hold and delay
-                         * times. No point sparing CPU resources just
-                         * to use ever more memory resources.
-                         */
   } spec;
   
   /* remaining fields should be opaque to users */
   struct list *items;                 /* queue item list */
   unsigned long runs;                 /* runs count */
-  unsigned int runs_since_clear;      /* number of runs since queue was
-                                       * last cleared
-                                       */
   
   struct {
     unsigned int best;
