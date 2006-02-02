@@ -1,3 +1,7 @@
+2006-02-02 Paul Jakma <paul.jakma@sun.com>
+
+	* interface.c: (if_dump_vty) move flags to their line, neater.
+
 2006-01-30 Paul Jakma <paul.jakma@sun.com>
 
 	* zebra_rib.c: (rib_process) Fourth time lucky on this jinxed

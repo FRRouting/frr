@@ -736,11 +736,13 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 
   vty_out (vty, "  index %d metric %d mtu %d ",
 	   ifp->ifindex, ifp->metric, ifp->mtu);
-  if_flag_dump_vty (vty, ifp->flags);
 #ifdef HAVE_IPV6
   if (ifp->mtu6 != ifp->mtu)
     vty_out (vty, "mtu6 %d ", ifp->mtu6);
 #endif 
+  vty_out (vty, "%s  flags: ", VTY_NEWLINE);
+  
+  if_flag_dump_vty (vty, ifp->flags);
 
   vty_out (vty, "%s", VTY_NEWLINE);
 
