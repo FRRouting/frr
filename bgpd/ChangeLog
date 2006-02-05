@@ -10,6 +10,8 @@
 	  (bgp_update_main) Use pcount helpers.
 	  (bgp_clear_route_node) ditto, aslo REMOVED routes don't need
 	  clearing.
+	* bgp_aspath.c: (aspath_gettoken) fix gcc warning about
+	  possible uninitialised usage.
  
 2006-02-02 Paul Jakma <paul.jakma@sun.com>
 

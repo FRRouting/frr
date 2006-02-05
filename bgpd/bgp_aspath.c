@@ -1361,9 +1361,9 @@ aspath_gettoken (const char *buf, enum as_token *token, u_short *asno)
 struct aspath *
 aspath_str2aspath (const char *str)
 {
-  enum as_token token;
+  enum as_token token = as_token_unknown;
   u_short as_type;
-  u_short asno;
+  u_short asno = NULL;
   struct aspath *aspath;
   int needtype;
 
