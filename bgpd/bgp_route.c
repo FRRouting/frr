@@ -1554,6 +1554,43 @@ bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi,
   return 0;
 }
 
+static void
+bgp_pcount_increment (struct bgp_node *rn, struct bgp_info *ri, 
+                      afi_t afi, safi_t safi)
+{
+  assert (ri && rn);
+  
+  if (!CHECK_FLAG (ri->flags, BGP_INFO_COUNTED)
+      && rn->table->type == BGP_TABLE_MAIN)
+    {
+      SET_FLAG (ri->flags, BGP_INFO_COUNTED);
+      ri->peer->pcount[afi][safi]++;
+    }
+}
+    
+static void
+bgp_pcount_decrement (struct bgp_node *rn, struct bgp_info *ri,
+                      afi_t afi, safi_t safi)
+{
+  /* Ignore 'pcount' for RS-client tables */
+  if (CHECK_FLAG (ri->flags, BGP_INFO_COUNTED)
+      && rn->table->type == BGP_TABLE_MAIN)
+    {
+      UNSET_FLAG (ri->flags, BGP_INFO_COUNTED);
+      
+      /* slight hack, but more robust against errors. */
+      if (ri->peer->pcount[afi][safi])
+        ri->peer->pcount[afi][safi]--;
+      else
+        {
+          zlog_warn ("%s: Asked to decrement 0 prefix count for peer %s",
+                     __func__, ri->peer->host);
+          zlog_backtrace (LOG_WARNING);
+          zlog_warn ("%s: Please report to Quagga bugzilla", __func__);
+        }      
+    }
+}
+
 /* Unconditionally remove the route from the RIB, without taking
  * damping into consideration (eg, because the session went down)
  */
@@ -1561,18 +1598,13 @@ static void
 bgp_rib_remove (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
 		afi_t afi, safi_t safi)
 {
-  if (!CHECK_FLAG (ri->flags, BGP_INFO_HISTORY)
-      && rn->table->type == BGP_TABLE_MAIN)
-    {
-      /* Ignore 'pcount' for RS-client tables */
-      if ( rn->table->type == BGP_TABLE_MAIN)
-        {
-          peer->pcount[afi][safi]--;
-          bgp_aggregate_decrement (peer->bgp, &rn->p, ri, afi, safi);
-        }
-    }
+  bgp_pcount_decrement (rn, ri, afi, safi);
+  bgp_aggregate_decrement (peer->bgp, &rn->p, ri, afi, safi);
+  
+  if (!CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
+    bgp_info_delete (rn, ri); /* keep historical info */
+    
   bgp_process (peer->bgp, rn, afi, safi);
-  bgp_info_delete (rn, ri);
 }
 
 static void
@@ -1581,17 +1613,6 @@ bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
 {
   int status = BGP_DAMP_NONE;
 
-  if (!CHECK_FLAG (ri->flags, BGP_INFO_HISTORY)
-      && rn->table->type == BGP_TABLE_MAIN)
-    {
-      /* Ignore 'pcount' for RS-client tables */
-      if ( rn->table->type == BGP_TABLE_MAIN)
-        {
-          peer->pcount[afi][safi]--;
-          bgp_aggregate_decrement (peer->bgp, &rn->p, ri, afi, safi);
-        }
-    }
-  
   /* apply dampening, if result is suppressed, we'll be retaining 
    * the bgp_info in the RIB for historical reference.
    */
@@ -1599,12 +1620,13 @@ bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
       && peer_sort (peer) == BGP_PEER_EBGP)
     if ( (status = bgp_damp_withdraw (ri, rn, afi, safi, 0)) 
          == BGP_DAMP_SUPPRESSED)
-      return;
-
-  bgp_process (peer->bgp, rn, afi, safi);
-
-  if (status != BGP_DAMP_USED)
-    bgp_info_delete (rn, ri);
+      {
+        bgp_pcount_decrement (rn, ri, afi, safi);
+        bgp_aggregate_decrement (peer->bgp, &rn->p, ri, afi, safi);
+        return;
+      }
+    
+  bgp_rib_remove (rn, ri, peer, afi, safi);
 }
 
 static void
@@ -1952,13 +1974,13 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 		  inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 		  p->prefixlen);
 
-	      peer->pcount[afi][safi]++;
-	      ret = bgp_damp_update (ri, rn, afi, safi);
-	      if (ret != BGP_DAMP_SUPPRESSED)
-		{
-		  bgp_aggregate_increment (bgp, p, ri, afi, safi);
-		  bgp_process (bgp, rn, afi, safi);
-		}
+	      bgp_pcount_increment (rn, ri, afi, safi);
+	      
+	      if (bgp_damp_update (ri, rn, afi, safi) != BGP_DAMP_SUPPRESSED)
+	        {
+                  bgp_aggregate_increment (bgp, p, ri, afi, safi);
+                  bgp_process (bgp, rn, afi, safi);
+                }
 	    }
 	  else
 	    {
@@ -1973,7 +1995,8 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	      if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
 		{
 		  UNSET_FLAG (ri->flags, BGP_INFO_STALE);
-		  peer->pcount[afi][safi]++;
+		  bgp_pcount_increment (rn, ri, afi, safi);
+		  bgp_process (bgp, rn, afi, safi);
 		}
 	    }
 
@@ -1991,14 +2014,17 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 
       /* graceful restart STALE flag unset. */
       if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
-	{
-	  UNSET_FLAG (ri->flags, BGP_INFO_STALE);
-	  peer->pcount[afi][safi]++;
-	}
+	UNSET_FLAG (ri->flags, BGP_INFO_STALE);
 
       /* The attribute is changed. */
       SET_FLAG (ri->flags, BGP_INFO_ATTR_CHANGED);
-
+      
+      /* implicit withdraw, decrement aggregate and pcount here.
+       * only if update is accepted, they'll increment below.
+       */
+      bgp_pcount_decrement (rn, ri, afi, safi);
+      bgp_aggregate_decrement (bgp, p, ri, afi, safi);
+      
       /* Update bgp route dampening information.  */
       if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
 	  && peer_sort (peer) == BGP_PEER_EBGP)
@@ -2007,12 +2033,8 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	     information.  */
 	  if (! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
 	    bgp_damp_withdraw (ri, rn, afi, safi, 1);  
-	  else
-	    peer->pcount[afi][safi]++;
 	}
 	
-      bgp_aggregate_decrement (bgp, p, ri, afi, safi);
-
       /* Update to new attribute.  */
       bgp_attr_unintern (ri->attr);
       ri->attr = attr_new;
@@ -2050,6 +2072,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	SET_FLAG (ri->flags, BGP_INFO_VALID);
 
       /* Process change. */
+      bgp_pcount_increment (rn, ri, afi, safi);
       bgp_aggregate_increment (bgp, p, ri, afi, safi);
 
       bgp_process (bgp, rn, afi, safi);
@@ -2065,9 +2088,6 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	    inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
 	    p->prefixlen);
     }
-
-  /* Increment prefix counter */
-  peer->pcount[afi][safi]++;
 
   /* Make new BGP info. */
   new = bgp_info_new ();
@@ -2096,7 +2116,8 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
   else
     SET_FLAG (new->flags, BGP_INFO_VALID);
 
-  /* Aggregate address increment. */
+  /* Increment prefix */
+  bgp_pcount_increment (rn, new, afi, safi);
   bgp_aggregate_increment (bgp, p, new, afi, safi);
   
   /* Register new BGP information. */
@@ -2469,10 +2490,11 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
             && cq->peer->nsf[cq->afi][cq->safi]
             && ! CHECK_FLAG (ri->flags, BGP_INFO_STALE)
             && ! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY)
-            && ! CHECK_FLAG (ri->flags, BGP_INFO_DAMPED))
+            && ! CHECK_FLAG (ri->flags, BGP_INFO_DAMPED)
+            && ! CHECK_FLAG (ri->flags, BGP_INFO_REMOVED))
           {
+            bgp_pcount_decrement (cq->rn, ri, cq->afi, cq->safi);
             SET_FLAG (ri->flags, BGP_INFO_STALE);
-            cq->peer->pcount[cq->afi][cq->safi]--;
           }
         else
           bgp_rib_remove (cq->rn, ri, cq->peer, cq->afi, cq->safi);

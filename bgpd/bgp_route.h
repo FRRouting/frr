@@ -55,6 +55,7 @@ struct bgp_info
 #define BGP_INFO_DMED_SELECTED  (1 << 7)
 #define BGP_INFO_STALE          (1 << 8)
 #define BGP_INFO_REMOVED        (1 << 9)
+#define BGP_INFO_COUNTED	(1 << 10)
 
   /* Peer structure.  */
   struct peer *peer;
