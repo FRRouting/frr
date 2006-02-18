@@ -605,10 +605,8 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   int ret;
   char buf[SU_ADDRSTRLEN];
   struct bgp_filter *filter;
-  struct bgp_info info;
   struct peer *from;
   struct bgp *bgp;
-  struct attr dummy_attr;
   int transparent;
   int reflect;
 
@@ -871,6 +869,9 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   if (ROUTE_MAP_OUT_NAME (filter)
       || ri->suppress)
     {
+      struct bgp_info info;
+      struct attr dummy_attr;
+      
       info.peer = peer;
       info.attr = attr;
 

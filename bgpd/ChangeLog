@@ -4,6 +4,9 @@
 	  for the set-community leak, bug #89. True fix will be to
 	  detangle the web of *_intern caching and provide saner object
 	  caching for Quagga, future work.
+	* bgp_route.c: (bgp_announce_check) trivial, move declaration
+	  of two local variables into the only block where they are
+	  used, to aid the reader.
 
 2006-02-05 Paul Jakma <paul.jakma@sun.com>
 
