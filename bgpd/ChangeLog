@@ -1,3 +1,10 @@
+2006-02-18 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_routemap.c: (route_set_community) Quick, very hacky, fix
+	  for the set-community leak, bug #89. True fix will be to
+	  detangle the web of *_intern caching and provide saner object
+	  caching for Quagga, future work.
+
 2006-02-05 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_route.h: Add BGP_INFO_COUNTED to track whether
