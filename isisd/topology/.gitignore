@@ -1,0 +1,9 @@
+Makefile
+Makefile.in
+*.o
+tags
+TAGS
+.deps
+.nfs*
+.arch-inventory
+.arch-ids

@@ -1,0 +1,16 @@
+Makefile
+Makefile.in
+*.o
+tags
+TAGS
+.deps
+.nfs*
+*.lo
+*.la
+*.libs
+testsig
+.arch-inventory
+.arch-ids
+testbuffer
+testmemory
+testsig

@@ -1,0 +1,13 @@
+Makefile
+Makefile.in
+*.o
+vtysh
+tags
+TAGS
+.deps
+vtysh_cmd.c
+.nfs*
+extract.pl
+.libs
+.arch-inventory
+.arch-ids

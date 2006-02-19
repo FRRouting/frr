@@ -1,0 +1,14 @@
+Makefile
+Makefile.in
+?.manifest
+*.xml
+pkginfo.*.full
+pkginfo.tmpl
+prototype.daemons
+prototype.dev
+prototype.doc
+prototype.libs
+prototype.smf
+quagga.init
+*.pkg
+*.pkg.gz
