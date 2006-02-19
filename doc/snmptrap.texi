@@ -1,3 +1,6 @@
+@c Documentation on configuring Quagga and snmpd for SNMP traps
+@c contributed by Jeroen Simonetti, jsimonetti@denit.net
+
 @node Handling SNMP Traps
 @section Handling SNMP Traps
 
@@ -21,6 +24,8 @@ This will send all traps to an snmptrapd running on localhost. You can
 of course also use a dedicated management station to catch traps.
 Configure the snmptrapd daemon by adding the following line to
 @file{/etc/snmpd/snmptrapd.conf}:
+
+@c Documentation contributed by Jeroen Simonetti, jsimonetti@denit.net
 
 @example
   traphandle .1.3.6.1.4.1.3317.1.2.2 /etc/snmp/snmptrap_handle.sh
@@ -198,6 +203,3 @@ like sound a siren, have your display flash, etc., be creative ;).
   # mail the notification
   echo "$MAIL" | mail -s "$SUBJECT" $EMAILADDR
 @end verbatim
-
-@comment contributed by unknown contributer, please contact maintainers
-@comment for credit / attribution.

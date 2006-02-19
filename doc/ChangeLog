@@ -1,3 +1,10 @@
+2006-02-19 Paul Jakma <paul.jakma@sun.com>
+
+	* quagga.info: update auto-built file.
+	* ChangeLog: Fix old, existing entry for snmptrap.texi addition to
+	  credit the author, who got in touch with me.
+	* snmptrap.texi: Add comment line with author's details.
+
 2006-01-19 Paul Jakma <paul.jakma@sun.com>
 
 	* quagga.info: update auto-built file.
@@ -17,11 +24,13 @@
 	* Makefile.am: snmptrap.texi needs to be listed as a source,
 	  not disted otherwise.
 
+2005-11-04 Jeroen Simonetti <jsimonetti@denit.net>
+
+	* snmptrap.texi: Documentation on configuring SNMP for logging
+	  traps.
+
 2005-11-04 Paul Jakma <paul.jakma@sun.com>
 
-	* snmptrap.texi: Contributed documentation, contributors name
-	  is lost (please get in touch). Configuring SNMP for logging
-	  traps.
 	* snmp.texi: Minor formatting changes.
 	* quagga.info: Update auto-built file
 	* ospf6d.texi: Add example config
