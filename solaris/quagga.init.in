@@ -3,7 +3,7 @@
 # Copyright 2001,2003 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# $Id: quagga.init.in,v 1.4 2005/06/15 11:00:11 paul Exp $
+# $Id: quagga.init.in,v 1.5 2006/02/19 18:59:26 paul Exp $
 #
 # Starts/stops the appropriate daemon
 
@@ -35,7 +35,10 @@ fi
 svcs ${FMRI} > /dev/null 2>&1 || exit $SMF_EXIT_ERR_CONFIG
 
 case ${INSTANCE} in
-	zebra | ospfd | ospf6d | ripd | ripngd | bgpd )
+	zebra | bgpd )
+	;;
+	ospfd | ospf6d | ripd | ripngd )
+	/usr/sbin/svcadm enable zebra
 	;;
 	*)
 	usage
@@ -77,9 +80,6 @@ else
 	ARGS="${ARGS} --pid_file ${PIDFILE}"
 fi
 
-# config file must exist
-#[ ! -f "$CONFFILE" ] &&  exit $SMF_EXIT_ERR_CONFIG
-
 # we need @quagga_statedir@ to exist, it might be on tmpfs.
 if [ ! -d @quagga_statedir@ ] ; then
 	mkdir -p @quagga_statedir@
@@ -97,12 +97,6 @@ stop () {
 	fi
 }
 
-restart() {
-	stop ${INSTANCE}
-	sleep 1
-	start ${INSTANCE}
-}
-
 case $1 in 
 'start')
 	start ${2}
@@ -111,9 +105,6 @@ case $1 in
 	stop ${2}
 	;;
 
-'restart')
-	restart ${2}
-	;;
 *)
 	usage
 	exit 1

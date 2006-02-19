@@ -1,4 +1,5 @@
 P QUAGGAlibs Quagga common runtime libraries
+	@PACKAGE_VERSION@,REV=@CONFDATE@
 P SUNWcsu Core Solaris, (Usr)
 P SUNWcsr Core Solaris Libraries (Root)
 P SUNWcnetr Core Solaris Network Infrastructure (Root)

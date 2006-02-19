@@ -1,3 +1,15 @@
+2006-02-19 Paul Jakma <paul.jakma@sun.com>
+
+	* depend.*: renamed to depend.*.in.
+	* depend.*.in: Add version dependency.
+	* Makefile.am: Generate depend.* from depend.*.in
+	  Distribute the depend.*.in files rather than the depend.*
+	  files.
+	* quagga.init.in: Enable zebra if one of the link-state
+	  daemons is started.
+	  Restart method is not required - SMF handles that.
+	* quagga.xml.in: Remove restart method details.
+
 2005-11-04 Paul Jakma <paul.jakma@sun.com>
 
 	* prototype.dev.in: lib/md5-gnu.h is now lib/md5.h

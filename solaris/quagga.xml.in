@@ -48,11 +48,6 @@
 		exec='/lib/svc/method/quagga stop %f %i'
 		timeout_seconds='60' />
 
-	<exec_method
-		type='method'
-		name='restart'
-		exec='/lib/svc/method/quagga restart %f %i'
-		timeout_seconds='60' />
 	<!-- 
 		if we define these properties at the service level, each instance
 		inherits them, and it can override with desired values. 

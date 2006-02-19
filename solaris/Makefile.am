@@ -1,5 +1,5 @@
 # Solaris packages automake file
-# $Id: Makefile.am,v 1.6 2005/05/13 07:26:07 paul Exp $
+# $Id: Makefile.am,v 1.7 2006/02/19 18:59:26 paul Exp $
 
 .PHONY: packages
 
@@ -83,6 +83,10 @@ prototype.%: $(srcdir)/prototype.%.in Makefile
 %.xml: $(srcdir)/%.xml.in Makefile
 	rm -f $@
 	$(edit) $< > $@
+# use edit to construct the depend files
+depend.%: $(srcdir)/depend.%.in Makefile
+	rm -f $@
+	$(edit) $< > $@
 
 # method file (bit like init script)
 quagga.init: $(srcdir)/quagga.init.in Makefile
@@ -102,13 +106,13 @@ quagga.init: $(srcdir)/quagga.init.in Makefile
 #BUILT_SOURCES = pkginfo.daemons pkginfo.dev pkginfo.doc pkginfo.libs \
 #	prototype.daemons prototype.dev prototype.doc prototype.libs
 BUILT_SOURCES = $(pkg_pkginfos) pkginfo.tmpl $(pkg_prototypes) \
-	$(pkg_manifests) quagga.init
+	$(pkg_manifests) $(pkg_depends) quagga.init
 
 CLEANFILES := $(BUILT_SOURCES) $(pkg_packages)
 
-EXTRA_DIST := $(pkg_depends) $(pkg_manifests:%=%.in) $(pkg_prototypes:%=%.in) \
+EXTRA_DIST := $(pkg_manifests:%=%.in) $(pkg_prototypes:%=%.in) \
 	$(pkg_names:%=pkginfo.%.tmpl.in) $(srcdir)/pkginfo.tmpl.in \
-	quagga.init.in README.txt
+	$(pkg_depends:%=%.in) quagga.init.in README.txt
 
 pkg-root-install:
 	(cd $(top_builddir) && \
