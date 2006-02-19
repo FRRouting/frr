@@ -29,3 +29,5 @@ libtool
 .arch-ids
 {arch}
 build
+.msg
+.rebase-*
