@@ -1330,17 +1330,17 @@ bgp_scan_init ()
   bgp_scan_interval = BGP_SCAN_INTERVAL_DEFAULT;
   bgp_import_interval = BGP_IMPORT_INTERVAL_DEFAULT;
 
-  cache1_table[AFI_IP] = bgp_table_init ();
-  cache2_table[AFI_IP] = bgp_table_init ();
+  cache1_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
+  cache2_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
   bgp_nexthop_cache_table[AFI_IP] = cache1_table[AFI_IP];
 
-  bgp_connected_table[AFI_IP] = bgp_table_init ();
+  bgp_connected_table[AFI_IP] = bgp_table_init (AFI_IP, SAFI_UNICAST);
 
 #ifdef HAVE_IPV6
-  cache1_table[AFI_IP6] = bgp_table_init ();
-  cache2_table[AFI_IP6] = bgp_table_init ();
+  cache1_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
+  cache2_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
   bgp_nexthop_cache_table[AFI_IP6] = cache1_table[AFI_IP6];
-  bgp_connected_table[AFI_IP6] = bgp_table_init ();
+  bgp_connected_table[AFI_IP6] = bgp_table_init (AFI_IP6, SAFI_UNICAST);
 #endif /* HAVE_IPV6 */
 
   /* Make BGP scan thread. */

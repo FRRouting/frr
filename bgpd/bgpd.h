@@ -40,7 +40,6 @@ struct bgp_master
   /* work queues */
   struct work_queue *process_main_queue;
   struct work_queue *process_rsclient_queue;
-  struct work_queue *clear_node_queue;
   
   /* BGP port number.  */
   u_int16_t port;
@@ -387,6 +386,7 @@ struct peer
 #define PEER_STATUS_GROUP             (1 << 4) /* peer-group conf */
 #define PEER_STATUS_NSF_MODE          (1 << 5) /* NSF aware peer */
 #define PEER_STATUS_NSF_WAIT          (1 << 6) /* wait comeback peer */
+#define PEER_STATUS_CLEARING          (1 << 7) /* peers table being cleared */
 
   /* Peer status af flags (reset in bgp_stop) */
   u_int16_t af_sflags[AFI_MAX][SAFI_MAX];
@@ -397,7 +397,6 @@ struct peer
 #define PEER_STATUS_PREFIX_LIMIT      (1 << 4) /* exceed prefix-limit */
 #define PEER_STATUS_EOR_SEND          (1 << 5) /* end-of-rib send to peer */
 #define PEER_STATUS_EOR_RECEIVED      (1 << 6) /* end-of-rib received from peer */
-
 
   /* Default attribute value for the peer. */
   u_int32_t config;
@@ -433,7 +432,10 @@ struct peer
   struct thread *t_pmax_restart;
   struct thread *t_gr_restart;
   struct thread *t_gr_stale;
-
+  
+  /* workqueues */
+  struct work_queue *clear_node_queue;
+  
   /* Statistics field */
   u_int32_t open_in;		/* Open message input count */
   u_int32_t open_out;		/* Open message output count */

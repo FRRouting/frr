@@ -30,7 +30,11 @@ typedef enum
 struct bgp_table
 {
   bgp_table_t type;
-
+  
+  /* afi/safi of this table */
+  afi_t afi;
+  safi_t safi;
+  
   /* The owner of this 'bgp_table' structure. */
   void *owner;
 
@@ -63,7 +67,7 @@ struct bgp_node
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 };
 
-extern struct bgp_table *bgp_table_init (void);
+extern struct bgp_table *bgp_table_init (afi_t, safi_t);
 extern void bgp_table_finish (struct bgp_table *);
 extern void bgp_unlock_node (struct bgp_node *node);
 extern void bgp_node_delete (struct bgp_node *node);

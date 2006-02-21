@@ -32,7 +32,7 @@ void bgp_node_delete (struct bgp_node *);
 void bgp_table_free (struct bgp_table *);
 
 struct bgp_table *
-bgp_table_init (void)
+bgp_table_init (afi_t afi, safi_t safi)
 {
   struct bgp_table *rt;
 
@@ -40,7 +40,9 @@ bgp_table_init (void)
   memset (rt, 0, sizeof (struct bgp_table));
 
   rt->type = BGP_TABLE_MAIN;
-
+  rt->afi = afi;
+  rt->safi = safi;
+  
   return rt;
 }
 

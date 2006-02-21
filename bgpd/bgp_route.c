@@ -71,7 +71,7 @@ bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix
       prn = bgp_node_get (table, (struct prefix *) prd);
 
       if (prn->info == NULL)
-	prn->info = bgp_table_init ();
+	prn->info = bgp_table_init (afi, safi);
       else
 	bgp_unlock_node (prn);
       table = prn->info;
@@ -1257,13 +1257,6 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
   struct listnode *node, *nnode;
   struct peer *rsclient = rn->table->owner;
   
-  /* we shouldn't run if the clear_route_node queue is still running
-   * or scheduled to run, or we can race with session coming up
-   * and adding routes back before we've cleared them
-   */
-  if (bm->clear_node_queue && bm->clear_node_queue->thread)
-    return WQ_QUEUE_BLOCKED;
-  
   /* Best path selection. */
   bgp_best_selection (bgp, rn, &old_and_new);
   new_select = old_and_new.new;
@@ -1326,13 +1319,6 @@ bgp_process_main (struct work_queue *wq, void *data)
   struct peer *peer;
   struct attr attr;
   
-  /* we shouldn't run if the clear_route_node queue is still running
-   * or scheduled to run, or we can race with session coming up
-   * and adding routes back before we've cleared them
-   */
-  if (bm->clear_node_queue && bm->clear_node_queue->thread)
-    return WQ_QUEUE_BLOCKED;
-
   /* Best path selection. */
   bgp_best_selection (bgp, rn, &old_and_new);
   old_select = old_and_new.old;
@@ -2465,54 +2451,49 @@ bgp_soft_reconfig_in (struct peer *peer, afi_t afi, safi_t safi)
 	bgp_soft_reconfig_table (peer, afi, safi, table);
 }
 
-struct bgp_clear_node_queue
-{
-  struct bgp_node *rn;
-  struct peer *peer;
-  afi_t afi;
-  safi_t safi;
-};
-
 static wq_item_status
 bgp_clear_route_node (struct work_queue *wq, void *data)
 {
-  struct bgp_clear_node_queue *cq = data;
+  struct bgp_node *rn = data;
+  struct peer *peer = wq->spec.data;
   struct bgp_adj_in *ain;
   struct bgp_adj_out *aout;
   struct bgp_info *ri;
+  afi_t afi = rn->table->afi;
+  safi_t safi = rn->table->safi;
   
-  assert (cq->rn && cq->peer);
+  assert (rn && peer);
   
-  for (ri = cq->rn->info; ri; ri = ri->next)
-    if (ri->peer == cq->peer)
+  for (ri = rn->info; ri; ri = ri->next)
+    if (ri->peer == peer)
       {
         /* graceful restart STALE flag set. */
-        if (CHECK_FLAG (cq->peer->sflags, PEER_STATUS_NSF_WAIT)
-            && cq->peer->nsf[cq->afi][cq->safi]
+        if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT)
+            && peer->nsf[afi][safi]
             && ! CHECK_FLAG (ri->flags, BGP_INFO_STALE)
             && ! CHECK_FLAG (ri->flags, BGP_INFO_HISTORY)
             && ! CHECK_FLAG (ri->flags, BGP_INFO_DAMPED)
             && ! CHECK_FLAG (ri->flags, BGP_INFO_REMOVED))
           {
-            bgp_pcount_decrement (cq->rn, ri, cq->afi, cq->safi);
+            bgp_pcount_decrement (rn, ri, afi, safi);
             SET_FLAG (ri->flags, BGP_INFO_STALE);
           }
         else
-          bgp_rib_remove (cq->rn, ri, cq->peer, cq->afi, cq->safi);
+          bgp_rib_remove (rn, ri, peer, afi, safi);
         break;
       }
-  for (ain = cq->rn->adj_in; ain; ain = ain->next)
-    if (ain->peer == cq->peer)
+  for (ain = rn->adj_in; ain; ain = ain->next)
+    if (ain->peer == peer)
       {
-        bgp_adj_in_remove (cq->rn, ain);
-        bgp_unlock_node (cq->rn);
+        bgp_adj_in_remove (rn, ain);
+        bgp_unlock_node (rn);
         break;
       }
-  for (aout = cq->rn->adj_out; aout; aout = aout->next)
-    if (aout->peer == cq->peer)
+  for (aout = rn->adj_out; aout; aout = aout->next)
+    if (aout->peer == peer)
       {
-        bgp_adj_out_remove (cq->rn, aout, cq->peer, cq->afi, cq->safi);
-        bgp_unlock_node (cq->rn);
+        bgp_adj_out_remove (rn, aout, peer, afi, safi);
+        bgp_unlock_node (rn);
         break;
       }
   return WQ_SUCCESS;
@@ -2521,78 +2502,84 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
 static void
 bgp_clear_node_queue_del (struct work_queue *wq, void *data)
 {
-  struct bgp_clear_node_queue *cq = data;
-  bgp_unlock_node (cq->rn); 
-  peer_unlock (cq->peer); /* bgp_clear_node_queue_del */
-  XFREE (MTYPE_BGP_CLEAR_NODE_QUEUE, cq);
+  struct bgp_node *rn = data;
+  
+  bgp_unlock_node (rn); 
 }
 
 static void
 bgp_clear_node_complete (struct work_queue *wq)
 {
-  /* unplug the 2 processing queues */
-  if (bm->process_main_queue)
-    work_queue_unplug (bm->process_main_queue);
-  if (bm->process_rsclient_queue)
-    work_queue_unplug (bm->process_rsclient_queue);
+  struct peer *peer = wq->spec.data;
+  
+  UNSET_FLAG (peer->sflags, PEER_STATUS_CLEARING);
+  peer_unlock (peer); /* bgp_clear_node_complete */
 }
 
 static void
-bgp_clear_node_queue_init (void)
+bgp_clear_node_queue_init (struct peer *peer)
 {
-  if ( (bm->clear_node_queue
-          = work_queue_new (bm->master, "clear_route_node")) == NULL)
+#define CLEAR_QUEUE_NAME_LEN 26 /* "clear 2001:123:123:123::1" */
+  char wname[CLEAR_QUEUE_NAME_LEN];
+  
+  snprintf (wname, CLEAR_QUEUE_NAME_LEN, "clear %s", peer->host);
+#undef CLEAR_QUEUE_NAME_LEN
+
+  if ( (peer->clear_node_queue = work_queue_new (bm->master, wname)) == NULL)
     {
       zlog_err ("%s: Failed to allocate work queue", __func__);
       exit (1);
     }
-  bm->clear_node_queue->spec.hold = 10;
-  bm->clear_node_queue->spec.workfunc = &bgp_clear_route_node;
-  bm->clear_node_queue->spec.del_item_data = &bgp_clear_node_queue_del;
-  bm->clear_node_queue->spec.completion_func = &bgp_clear_node_complete;
-  bm->clear_node_queue->spec.max_retries = 0;
+  peer->clear_node_queue->spec.hold = 10;
+  peer->clear_node_queue->spec.workfunc = &bgp_clear_route_node;
+  peer->clear_node_queue->spec.del_item_data = &bgp_clear_node_queue_del;
+  peer->clear_node_queue->spec.completion_func = &bgp_clear_node_complete;
+  peer->clear_node_queue->spec.max_retries = 0;
+  
+  /* we only 'lock' this peer reference when the queue is actually active */
+  peer->clear_node_queue->spec.data = peer;
 }
 
 static void
 bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
                       struct bgp_table *table, struct peer *rsclient)
 {
-  struct bgp_clear_node_queue *cqnode;
   struct bgp_node *rn;
   
   if (! table)
     table = (rsclient) ? rsclient->rib[afi][safi] : peer->bgp->rib[afi][safi];
-
+  
   /* If still no table => afi/safi isn't configured at all or smth. */
   if (! table)
     return;
 
-  if (bm->clear_node_queue == NULL)
-    bgp_clear_node_queue_init ();
+  if (peer->clear_node_queue == NULL)
+    bgp_clear_node_queue_init (peer);
   
-  /* plug the two bgp_process queues to avoid any chance of racing
-   * with a session coming back up and adding routes before we've
-   * cleared them all. We'll unplug them with completion callback.
+  /* bgp_fsm.c will not bring CLEARING sessions out of Idle this
+   * protects against peers which flap faster than we can we clear,
+   * which could lead to:
+   *
+   * a) race with routes from the new session being installed before
+   *    clear_route_node visits the node (to delete the route of that
+   *    peer)
+   * b) resource exhaustion, clear_route_node likely leads to an entry
+   *    on the process_main queue. Fast-flapping could cause that queue
+   *    to grow and grow.
    */
-  if (bm->process_main_queue)
-    work_queue_plug (bm->process_main_queue);
-  if (bm->process_rsclient_queue)
-    work_queue_plug (bm->process_rsclient_queue);
+  if (!CHECK_FLAG (peer->sflags, PEER_STATUS_CLEARING))
+    {
+      SET_FLAG (peer->sflags, PEER_STATUS_CLEARING);
+      peer_lock (peer); /* bgp_clear_node_complete */
+    }
   
   for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
     {
       if (rn->info == NULL)
         continue;
       
-      if ( (cqnode = XCALLOC (MTYPE_BGP_CLEAR_NODE_QUEUE, 
-                              sizeof (struct bgp_clear_node_queue))) == NULL)
-        continue;
-      
-      cqnode->rn = bgp_lock_node (rn); /* unlocked: bgp_clear_node_queue_del */
-      cqnode->afi = afi;
-      cqnode->safi = safi;
-      cqnode->peer = peer_lock (peer); /* bgp_clear_node_queue_del */
-      work_queue_add (bm->clear_node_queue, cqnode);
+      bgp_lock_node (rn); /* unlocked: bgp_clear_node_queue_del */
+      work_queue_add (peer->clear_node_queue, rn);
     }
   return;
 }
@@ -3524,7 +3511,7 @@ bgp_static_set_vpnv4 (struct vty *vty, const char *ip_str, const char *rd_str,
   prn = bgp_node_get (bgp->route[AFI_IP][SAFI_MPLS_VPN],
 			(struct prefix *)&prd);
   if (prn->info == NULL)
-    prn->info = bgp_table_init ();
+    prn->info = bgp_table_init (AFI_IP, SAFI_MPLS_VPN);
   else
     bgp_unlock_node (prn);
   table = prn->info;
@@ -3593,7 +3580,7 @@ bgp_static_unset_vpnv4 (struct vty *vty, const char *ip_str,
   prn = bgp_node_get (bgp->route[AFI_IP][SAFI_MPLS_VPN],
 			(struct prefix *)&prd);
   if (prn->info == NULL)
-    prn->info = bgp_table_init ();
+    prn->info = bgp_table_init (AFI_IP, SAFI_MPLS_VPN);
   else
     bgp_unlock_node (prn);
   table = prn->info;
@@ -10408,7 +10395,7 @@ void
 bgp_route_init ()
 {
   /* Init BGP distance table. */
-  bgp_distance_table = bgp_table_init ();
+  bgp_distance_table = bgp_table_init (AFI_IP, SAFI_UNICAST);
 
   /* IPv4 BGP commands. */
   install_element (BGP_NODE, &bgp_network_cmd);
