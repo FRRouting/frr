@@ -224,7 +224,7 @@ sockunion_su2str (union sockunion *su)
       break;
 #endif /* HAVE_IPV6 */
     }
-  return strdup (str);
+  return XSTRDUP (MTYPE_TMP, str);
 }
 
 /* Return socket of sockunion. */
@@ -314,7 +314,7 @@ sockunion_log (union sockunion *su)
       snprintf (buf, SU_ADDRSTRLEN, "af_unknown %d ", su->sa.sa_family);
       break;
     }
-  return (strdup (buf));
+  return (XSTRDUP (MTYPE_TMP, buf));
 }
 
 /* sockunion_connect returns
