@@ -1,3 +1,9 @@
+2006-02-21 Paul Jakma <paul.jakma@sun.com>
+
+	* sockunion.c: (sockunion_{su2str,log}) Use XSTRDUP.
+	  Particularly with _su2str, as that string gets XFREEd,
+	  which can be annoying if run debug code in memory.c.
+
 2006-02-02 Paul Jakma <paul.jakma@sun.com>
 
 	* workqueue.h: (struct work_queue) Remove the delay field.
