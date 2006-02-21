@@ -1,3 +1,37 @@
+2006-02-21 Paul Jakma <paul.jakma@sun.com>
+
+	* bgpd.h: move the clear_node_queue to be peer specific.
+	  Add a new peer status flag, PEER_STATUS_CLEARING.
+	* bgp_table.h: (struct bgp_table) Add fields to record afi,
+          safi of the table.
+          (bgp_table_init) Take afi and safi to create table for.
+        * bgp_table.c: (bgp_table_init) record the afi and safi.
+        * bgp_nexthop.c: Update all calls to bgp_table_init.
+        * bgp_vty.c: ditto.
+        * bgpd.c: ditto.
+        * bgp_fsm.c: (bgp_timer_set) dont bring up a session which is
+	  clearing.
+        * bgp_route.c: (general) Update all bgp_table_init calls.
+          (bgp_process_{rsclient,main}) clear_node is serialised
+          via PEER_STATUS_CLEARING and fsm now.
+          (struct bgp_clear_node_queue) can be removed. struct bgp_node
+          can be the queue item data directly, as struct peer can be
+          kept in the new wq global user data and afi/safi can be
+          retrieved via bgp_node -> bgp_table.
+          (bgp_clear_route_node) fix to get peer via wq->spec.data,
+          afi/safi via bgp_node->bgp_table.
+          (bgp_clear_node_queue_del) no more item data to delete, only
+          unlock the bgp_node.
+          (bgp_clear_node_complete) only need to unset CLEARING flag
+          and unlock struct peer.
+          (bgp_clear_node_queue_init) queue attaches to struct peer
+          now. record peer name as queue name.
+          (bgp_clear_route_table) If queue transitions to active,
+          serialise clearing by setting PEER_STATUS_CLEARING rather
+          than plugging process queue, and lock peer while queue
+          active.
+          Update to pass only bgp_node as per-queue-item specific data.
+
 2006-02-18 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_routemap.c: (route_set_community) Quick, very hacky, fix

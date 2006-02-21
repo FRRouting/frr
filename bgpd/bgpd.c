@@ -1866,9 +1866,9 @@ bgp_create (as_t *as, const char *name)
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       {
-	bgp->route[afi][safi] = bgp_table_init ();
-	bgp->aggregate[afi][safi] = bgp_table_init ();
-	bgp->rib[afi][safi] = bgp_table_init ();
+	bgp->route[afi][safi] = bgp_table_init (afi, safi);
+	bgp->aggregate[afi][safi] = bgp_table_init (afi, safi);
+	bgp->rib[afi][safi] = bgp_table_init (afi, safi);
       }
 
   bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;

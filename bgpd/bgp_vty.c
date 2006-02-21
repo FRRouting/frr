@@ -2048,7 +2048,7 @@ peer_rsclient_set_vty (struct vty *vty, const char *peer_str,
   if (ret < 0)
     return bgp_vty_return (vty, ret);
 
-  peer->rib[afi][safi] = bgp_table_init ();
+  peer->rib[afi][safi] = bgp_table_init (afi, safi);
   peer->rib[afi][safi]->type = BGP_TABLE_RSCLIENT;
   peer->rib[afi][safi]->owner = peer;
 

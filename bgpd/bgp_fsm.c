@@ -84,6 +84,7 @@ bgp_timer_set (struct peer *peer)
 	 inactive.  All other timer must be turned off */
       if (CHECK_FLAG (peer->flags, PEER_FLAG_SHUTDOWN)
 	  || CHECK_FLAG (peer->sflags, PEER_STATUS_PREFIX_OVERFLOW)
+	  || CHECK_FLAG (peer->sflags, PEER_STATUS_CLEARING)
 	  || ! peer_active (peer))
 	{
 	  BGP_TIMER_OFF (peer->t_start);
