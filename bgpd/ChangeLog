@@ -31,6 +31,8 @@
           than plugging process queue, and lock peer while queue
           active.
           Update to pass only bgp_node as per-queue-item specific data.
+	* bgp_vty.c: (bgp_show_summary) Add a 'Clrng' sub-description
+	  to state of peer while it's suppressed due to clearing.
 
 2006-02-18 Paul Jakma <paul.jakma@sun.com>
 
