@@ -1,3 +1,8 @@
+2006-03-03 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_route.c: (bgp_clear_node_complete) Doh. When clearing
+	  is complete we need to kick off FSM again.
+
 2006-02-21 Paul Jakma <paul.jakma@sun.com>
 
 	* bgpd.h: move the clear_node_queue to be peer specific.
