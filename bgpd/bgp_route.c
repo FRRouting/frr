@@ -2514,6 +2514,9 @@ bgp_clear_node_complete (struct work_queue *wq)
   
   UNSET_FLAG (peer->sflags, PEER_STATUS_CLEARING);
   peer_unlock (peer); /* bgp_clear_node_complete */
+  
+  /* Tickle FSM to start moving again */
+  BGP_EVENT_ADD (peer, BGP_Start);
 }
 
 static void
