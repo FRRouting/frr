@@ -288,5 +288,6 @@ extern struct cmd_element interface_cmd;
 extern struct cmd_element no_interface_cmd;
 extern struct cmd_element interface_pseudo_cmd;
 extern struct cmd_element no_interface_pseudo_cmd;
+extern struct cmd_element show_address_cmd;
 
 #endif /* _ZEBRA_IF_H */
