@@ -1,3 +1,15 @@
+2006-03-30 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_community.c: (community_gettoken) Unknown token should
+	  return NULL, to give a strong indication to callers that
+	  the token no longer can be parsed, otherwise callers looping
+	  on this function may have a hard time ending their loop.
+	  (community_str2com) While loop around community_gettoken appears
+	  to have been coded thinking that break statement would break
+	  from the while{}, hence it could never exit for unknown token
+	  case. Fix it to do..while, so it can use the NULL result from
+	  community_gettoken easily.
+
 2006-03-22 Paul Jakma <paul.jakma@sun.com>
 
 	* bgpd.c: (peer_free) release the per-peer workqueue when

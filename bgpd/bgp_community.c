@@ -520,7 +520,7 @@ community_gettoken (const char *buf, enum community_token *token,
 
       /* Unknown string. */
       *token = community_token_unknown;
-      return p;
+      return NULL;
     }
 
   /* Community value. */
@@ -538,7 +538,7 @@ community_gettoken (const char *buf, enum community_token *token,
 	      if (separator)
 		{
 		  *token = community_token_unknown;
-		  return p;
+		  return NULL;
 		}
 	      else
 		{
@@ -559,14 +559,14 @@ community_gettoken (const char *buf, enum community_token *token,
       if (! digit)
 	{
 	  *token = community_token_unknown;
-	  return p;
+	  return NULL;
 	}
       *val = community_high + community_low;
       *token = community_token_val;
       return p;
     }
   *token = community_token_unknown;
-  return p;
+  return NULL;
 }
 
 /* convert string to community structure */
@@ -578,8 +578,10 @@ community_str2com (const char *str)
   u_int32_t val;
   enum community_token token;
 
-  while ((str = community_gettoken (str, &token, &val))) 
+  do 
     {
+      str = community_gettoken (str, &token, &val);
+      
       switch (token)
 	{
 	case community_token_val:
@@ -596,7 +598,7 @@ community_str2com (const char *str)
 	    community_free (com);
 	  break;
 	}
-    }
+    } while (str);
   
   if (! com)
     return NULL;
