@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.118 2006/01/31 10:09:27 paul Exp $
+## $Id: configure.ac,v 1.119 2006/03/30 13:53:59 paul Exp $
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.3, [http://bugzilla.quagga.net])
@@ -1235,6 +1235,24 @@ if test x"${ac_cv_header_execinfo_h}" = x"yes"; then
     [AC_DEFINE(HAVE_GLIBC_BACKTRACE,,Glibc backtrace)]
   )
 fi
+
+dnl -----------------------------------------
+dnl check for malloc mallinfo struct and call
+dnl this must try and link using LIBS, in
+dnl order to check no alternative allocator
+dnl has been specified, which might not provide
+dnl mallinfo, e.g. such as Umem on Solaris.
+dnl -----------------------------------------
+AC_CHECK_HEADERS(malloc.h,
+ [AC_MSG_CHECKING(whether mallinfo is available)
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <malloc.h>]],
+                        [[struct mallinfo ac_x; ac_x = mallinfo ();]])],
+      [AC_MSG_RESULT(yes)
+       AC_DEFINE(HAVE_MALLINFO,,mallinfo)],
+       AC_MSG_RESULT(no)
+  )
+ ]
+)
 
 dnl ----------
 dnl configure date

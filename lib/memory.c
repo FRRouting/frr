@@ -21,6 +21,7 @@
  */
 
 #include <zebra.h>
+#include <malloc.h>
 
 #include "log.h"
 #include "memory.h"
@@ -278,6 +279,47 @@ show_memory_vty (struct vty *vty, struct memory_list *list)
   return needsep;
 }
 
+#ifdef HAVE_MALLINFO
+static int
+show_memory_mallinfo (struct vty *vty)
+{
+  struct mallinfo minfo = mallinfo();
+  char buf[MTYPE_MEMSTR_LEN];
+  
+  vty_out (vty, "System allocator statistics:%s", VTY_NEWLINE);
+  vty_out (vty, "  Total heap allocated:  %s%s",
+           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.arena),
+           VTY_NEWLINE);
+  vty_out (vty, "  Holding block headers: %s%s",
+           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.hblkhd),
+           VTY_NEWLINE);
+  vty_out (vty, "  Used small blocks:     %s%s",
+           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.usmblks),
+           VTY_NEWLINE);
+  vty_out (vty, "  Used ordinary blocks:  %s%s",
+           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.uordblks),
+           VTY_NEWLINE);
+  vty_out (vty, "  Free small blocks:     %s%s",
+           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.fsmblks),
+           VTY_NEWLINE);
+  vty_out (vty, "  Free ordinary blocks:  %s%s",
+           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.fordblks),
+           VTY_NEWLINE);
+  vty_out (vty, "  Ordinary blocks:       %ld%s",
+           (unsigned long)minfo.ordblks,
+           VTY_NEWLINE);
+  vty_out (vty, "  Small blocks:          %ld%s",
+           (unsigned long)minfo.smblks,
+           VTY_NEWLINE);
+  vty_out (vty, "  Holding blocks:        %ld%s",
+           (unsigned long)minfo.hblks,
+           VTY_NEWLINE);
+  vty_out (vty, "(see system documentation for 'mallinfo' for meaning)%s",
+           VTY_NEWLINE);
+  return 1;
+}
+#endif /* HAVE_MALLINFO */
+
 DEFUN (show_memory_all,
        show_memory_all_cmd,
        "show memory all",
@@ -287,7 +329,11 @@ DEFUN (show_memory_all,
 {
   struct mlist *ml;
   int needsep = 0;
-
+  
+#ifdef HAVE_MALLINFO
+  needsep = show_memory_mallinfo (vty);
+#endif /* HAVE_MALLINFO */
+  
   for (ml = mlists; ml->list; ml++)
     {
       if (needsep)
@@ -415,4 +461,73 @@ memory_init (void)
   install_element (ENABLE_NODE, &show_memory_ospf_cmd);
   install_element (ENABLE_NODE, &show_memory_ospf6_cmd);
   install_element (ENABLE_NODE, &show_memory_isis_cmd);
+}
+
+/* Stats querying from users */
+/* Return a pointer to a human friendly string describing
+ * the byte count passed in. E.g:
+ * "0 bytes", "2048 bytes", "110kB", "500MiB", "11GiB", etc.
+ * Up to 4 significant figures will be given.
+ * The pointer returned may be NULL (indicating an error)
+ * or point to the given buffer, or point to static storage.
+ */
+const char *
+mtype_memstr (char *buf, size_t len, unsigned long bytes)
+{
+  unsigned int t, g, m, k;
+  
+  /* easy cases */
+  if (!bytes)
+    return "0 bytes";
+  if (bytes == 1)
+    return "1 byte";
+    
+  if (sizeof (unsigned long) >= 8)
+    /* Hacked to make it not warn on ILP32 machines
+     * Shift will always be 40 at runtime. See below too */
+    t = bytes >> (sizeof (unsigned long) >= 8 ? 40 : 0);
+  else
+    t = 0;
+  g = bytes >> 30;
+  m = bytes >> 20;
+  k = bytes >> 10;
+  
+  if (t > 10)
+    {
+      /* The shift will always be 39 at runtime.
+       * Just hacked to make it not warn on 'smaller' machines. 
+       * Static compiler analysis should mean no extra code
+       */
+      if (bytes & (1 << (sizeof (unsigned long) >= 8 ? 39 : 0)))
+        t++;
+      snprintf (buf, len, "%4d TiB", t);
+    }
+  else if (g > 10)
+    {
+      if (bytes & (1 << 29))
+        g++;
+      snprintf (buf, len, "%d GiB", g);
+    }
+  else if (m > 10)
+    {
+      if (bytes & (1 << 19))
+        m++;
+      snprintf (buf, len, "%d MiB", m);
+    }
+  else if (k > 10)
+    {
+      if (bytes & (1 << 9))
+        k++;
+      snprintf (buf, len, "%d KiB", k);
+    }
+  else
+    snprintf (buf, len, "%ld bytes", bytes);
+  
+  return buf;
+}
+
+unsigned long
+mtype_stats_alloc (int type)
+{
+  return mstat[type].alloc;
 }

@@ -1,3 +1,17 @@
+2006-03-15 Paul Jakma <paul.jakma@sun.com>
+
+	* memory.c: (mtype_memstr) new helper function to 
+	  return human friendly string for a byte count.
+	  (mtype_stats_alloc) new function, for users to retrieve
+	  number of objects allocated.
+	  (show_memory_mallinfo) New function, show mallinfo statistics
+	  if available.
+	  (show_memory_all_cmd) Call show_memory_mallinfo, if mallinfo
+	  is available.
+	* memory.h: Export mtype_memstr and mtype_stats_alloc.
+	  Provide a define for a reasonable buffer size for
+	  mtype_memstr.
+	  
 2006-03-14 Paul Jakma <paul.jakma@sun.com>
 
 	* privs.c: (zprivs_caps_init) Change user IDs before lowering

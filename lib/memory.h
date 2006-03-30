@@ -79,4 +79,10 @@ extern char *mtype_zstrdup (const char *file, int line, int type,
 		            const char *str);
 extern void memory_init (void);
 
+/* return number of allocations outstanding for the type */
+extern unsigned long mtype_stats_alloc (int);
+
+/* Human friendly string for given byte count */
+#define MTYPE_MEMSTR_LEN 20
+extern const char *mtype_memstr (char *, size_t, unsigned long);
 #endif /* _ZEBRA_MEMORY_H */
