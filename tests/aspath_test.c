@@ -302,6 +302,20 @@ static struct test_segment {
     0,
     { "", "", 0, 0, 0, 0, 0, 0 },
   },
+  { /* 17 */ 
+    "redundantset",
+    "seq(8466,3,52737,4096,3456) set(7099,8153,8153,8153)",
+    { 0x2,0x5, 0x21,0x12, 0x00,0x03, 0xce,0x01, 0x10,0x00, 0x0d,0x80,
+      0x1,0x4, 0x1b,0xbb, 0x1f,0xd9, 0x1f,0xd9, 0x1f,0xd9 },
+    22,
+    {
+     /* We shouldn't ever /generate/ such paths. However, we should
+      * cope with them fine.
+      */
+     "8466 3 52737 4096 3456 {7099,8153,8153,8153}",
+      "8466 3 52737 4096 3456 {7099,8153,8153,8153}",
+      6, 0, NOT_ALL_PRIVATE, 4096, 4, 8466 },
+  },
   { NULL, NULL, {0}, 0, { NULL, 0, 0 } }
 };
 
@@ -667,7 +681,7 @@ parse_test (struct test_segment *t)
 }
 
 /* prepend testing */
-void
+static void
 prepend_test (struct tests *t)
 {
   struct aspath *asp1, *asp2, *ascratch;
@@ -696,7 +710,7 @@ prepend_test (struct tests *t)
 }
 
 /* empty-prepend testing */
-void
+static void
 empty_prepend_test (struct test_segment *t)
 {
   struct aspath *asp1, *asp2, *ascratch;
@@ -724,7 +738,7 @@ empty_prepend_test (struct test_segment *t)
 }
 
 /* aggregation testing */
-void
+static void
 aggregate_test (struct tests *t)
 {
   struct aspath *asp1, *asp2, *ascratch;

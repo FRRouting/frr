@@ -1,5 +1,5 @@
 /*
- * $Id: heavy-wq.c,v 1.2 2005/09/05 14:00:09 paul Exp $
+ * $Id: heavy-wq.c,v 1.3 2006/03/30 13:42:50 paul Exp $
  *
  * This file is part of Quagga.
  *
@@ -166,7 +166,6 @@ heavy_wq_init ()
   heavy_wq->spec.errorfunc = &slow_func_err;
   heavy_wq->spec.del_item_data = &slow_func_del;
   heavy_wq->spec.max_retries = 3;
-  heavy_wq->spec.delay = 10;
   heavy_wq->spec.hold = 1000;
   
   return 0;

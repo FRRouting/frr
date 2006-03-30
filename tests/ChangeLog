@@ -1,3 +1,11 @@
+2006-03-16 Paul Jakma <paul.jakma@sun.com>
+
+	* heavy-wq.c: (heavy_wq_init) delay is gone from workqueue
+	  spec.
+	* aspath_test.c: (test_segments) Add an AS_SET with redundant
+	  ASNs.
+	  ({empty_prepend,prepend,parse}_test) add static qualifiers
+
 2006-01-16 Paul Jakma <paul.jakma@sun.com>
 
 	* aspath_test.c: (validate) free the temporary aspaths.
