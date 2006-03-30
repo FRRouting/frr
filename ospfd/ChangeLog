@@ -1,3 +1,10 @@
+2006-03-27 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_lsa.c: (ospf_lsa_checksum) Add an explicit cast to avoid
+	  the ambiguities of ANSI and C99 C with respect to type
+	  conversion. Detailed problem report and test case with
+	  example data supplied by Dmitry Ivanov <dimss@telecentrs.lv>.
+
 2006-03-25 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_interface.c: (ospf_if_lookup_recv_if) Ignore loopbacks,
