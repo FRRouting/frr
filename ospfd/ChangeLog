@@ -1,3 +1,13 @@
+2006-03-25 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_interface.c: (ospf_if_lookup_recv_if) Ignore loopbacks,
+	  we can never ever receive packets on those. Should fix
+	  case where CARP is run with address in same subnet as real
+	  interface. Problem report and diagnosis thanks to:
+	  Landon Fuller <landonf@opendarwin.org>.
+	  However, ospf_read() still can't deal deterministically with
+	  multiple interfaces in same subnet.
+
 2006-03-23 Steve Lawson <steve.lawson@aheadcomusa.com>
 
 	* ospf_lsa.c: (ospf_lsa_install) Fix incorrect byte-order 

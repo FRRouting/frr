@@ -474,6 +474,9 @@ ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src)
       if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
 	continue;
       
+      if (if_is_loopback (oi->ifp))
+        continue;
+      
       if ((oi->type == OSPF_IFTYPE_POINTOPOINT) &&
 	  CONNECTED_DEST_HOST(oi->connected))
 	{
