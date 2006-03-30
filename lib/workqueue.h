@@ -102,9 +102,6 @@ struct work_queue
   
   /* private state */
   enum work_queue_flags flags;		/* user set flag */
-  char status;                          /* internal status */
-#define WQ_STATE_FLOODED	(1 << 0)
-  
 };
 
 /* User API */
