@@ -1,3 +1,21 @@
+2006-03-12 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_attr.h: (struct attr) rearrange fields to avoid
+	  wasted padding between them as much as possible.
+	  (attr_count,attr_unknown_count) export new functions to
+	  return number of counts of cached attributes.
+	* bgp_attr.c: (attr_count,attr_unknown_count) new functions to
+	  return number of counts of cached attributes.
+	* bgp_route.h: (struct bgp_info) rearrange fields to avoid
+	  wasted padding.
+	* bgp_table.h: (struct bgp_table) Add a count field, of number
+	  of nodes in the table.
+	  (struct bgp_node)  rearrange fields to avoid
+	  wasted padding between them, though I don't think there
+	  was any in this case. 
+	* bgp_table.c: (bgp_node_{delete,get}) Maintain the table node count.
+	  (bgp_table_count) new function to access the table count.
+
 2006-03-03 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_route.c: (bgp_clear_node_complete) Doh. When clearing

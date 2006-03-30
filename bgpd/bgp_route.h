@@ -29,20 +29,27 @@ struct bgp_info
   struct bgp_info *next;
   struct bgp_info *prev;
   
+  /* Peer structure.  */
+  struct peer *peer;
+
+  /* Attribute structure.  */
+  struct attr *attr;
+
+  /* Pointer to dampening structure.  */
+  struct bgp_damp_info *damp_info;
+
+  /* Uptime.  */
+  time_t uptime;
+
+  /* This route is suppressed with aggregation.  */
+  int suppress;
+  
+  /* Nexthop reachability check.  */
+  u_int32_t igpmetric;
+
   /* reference count */
   unsigned int lock;
   
-  /* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
-  u_char type;
-
-  /* When above type is BGP.  This sub type specify BGP sub type
-     information.  */
-  u_char sub_type;
-#define BGP_ROUTE_NORMAL       0
-#define BGP_ROUTE_STATIC       1
-#define BGP_ROUTE_AGGREGATE    2
-#define BGP_ROUTE_REDISTRIBUTE 3 
-
   /* BGP information status.  */
   u_int16_t flags;
 #define BGP_INFO_IGP_CHANGED    (1 << 0)
@@ -57,26 +64,19 @@ struct bgp_info
 #define BGP_INFO_REMOVED        (1 << 9)
 #define BGP_INFO_COUNTED	(1 << 10)
 
-  /* Peer structure.  */
-  struct peer *peer;
-
-  /* Attribute structure.  */
-  struct attr *attr;
-
-  /* This route is suppressed with aggregation.  */
-  int suppress;
-  
-  /* Nexthop reachability check.  */
-  u_int32_t igpmetric;
-
-  /* Uptime.  */
-  time_t uptime;
-
-  /* Pointer to dampening structure.  */
-  struct bgp_damp_info *damp_info;
-
   /* MPLS label.  */
   u_char tag[3];
+
+  /* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
+  u_char type;
+
+  /* When above type is BGP.  This sub type specify BGP sub type
+     information.  */
+  u_char sub_type;
+#define BGP_ROUTE_NORMAL       0
+#define BGP_ROUTE_STATIC       1
+#define BGP_ROUTE_AGGREGATE    2
+#define BGP_ROUTE_REDISTRIBUTE 3 
 };
 
 /* BGP static route configuration. */

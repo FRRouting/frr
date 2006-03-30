@@ -350,8 +350,10 @@ bgp_node_get (struct bgp_table *table, struct prefix *p)
 	  match = new;
 	  new = bgp_node_set (table, p);
 	  set_link (match, new);
+	  table->count++;
 	}
     }
+  table->count++;
   bgp_lock_node (new);
   
   return new;
@@ -389,7 +391,9 @@ bgp_node_delete (struct bgp_node *node)
     }
   else
     node->table->top = child;
-
+  
+  node->table->count--;
+  
   bgp_node_free (node);
 
   /* If parent node is stub then delete it also. */
@@ -491,4 +495,10 @@ bgp_route_next_until (struct bgp_node *node, struct bgp_node *limit)
     }
   bgp_unlock_node (start);
   return NULL;
+}
+
+unsigned long
+bgp_table_count (struct bgp_table *table)
+{
+  return table->count;
 }

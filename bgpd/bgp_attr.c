@@ -274,6 +274,18 @@ transit_init ()
 
 struct hash *attrhash;
 
+unsigned long int
+attr_count (void)
+{
+  return attrhash->count;
+}
+
+unsigned long int
+attr_unknown_count (void)
+{
+  return transit_hash->count;
+}
+
 unsigned int
 attrhash_key_make (struct attr *attr)
 {

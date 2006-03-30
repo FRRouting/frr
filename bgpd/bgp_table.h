@@ -39,6 +39,8 @@ struct bgp_table
   void *owner;
 
   struct bgp_node *top;
+  
+  unsigned long count;
 };
 
 struct bgp_node
@@ -51,17 +53,15 @@ struct bgp_node
 #define l_left   link[0]
 #define l_right  link[1]
 
-  unsigned int lock;
-
   void *info;
 
   struct bgp_adj_out *adj_out;
 
   struct bgp_adj_in *adj_in;
 
-  void *aggregate;
-
   struct bgp_node *prn;
+
+  unsigned int lock;
 
   u_char flags;
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
@@ -84,5 +84,5 @@ extern struct bgp_node *bgp_node_match_ipv4 (struct bgp_table *,
 extern struct bgp_node *bgp_node_match_ipv6 (struct bgp_table *,
 					  struct in6_addr *);
 #endif /* HAVE_IPV6 */
-
+extern unsigned long bgp_table_count (struct bgp_table *);
 #endif /* _QUAGGA_BGP_TABLE_H */

@@ -48,30 +48,11 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* BGP attribute structure. */
 struct attr
 {
-  /* Reference count of this attribute. */
-  unsigned long refcnt;
-
-  /* Flag of attribute is set or not. */
-  u_int32_t flag;
-
   /* Attributes. */
-  u_char origin;
-  struct in_addr nexthop;
-  u_int32_t med;
-  u_int32_t local_pref;
-  as_t aggregator_as;
-  struct in_addr aggregator_addr;
-  u_int32_t weight;
-  struct in_addr originator_id;
-  struct cluster_list *cluster;
-
-  u_char mp_nexthop_len;
 #ifdef HAVE_IPV6
   struct in6_addr mp_nexthop_global;
   struct in6_addr mp_nexthop_local;
 #endif /* HAVE_IPV6 */
-  struct in_addr mp_nexthop_global_in;
-  struct in_addr mp_nexthop_local_in;
 
   /* AS Path structure */
   struct aspath *aspath;
@@ -81,9 +62,31 @@ struct attr
 
   /* Extended Communities attribute. */
   struct ecommunity *ecommunity;
-
+  
+  /* Route-Reflector Cluster attribute */
+  struct cluster_list *cluster;
+  
   /* Unknown transitive attribute. */
   struct transit *transit;
+
+  /* Reference count of this attribute. */
+  unsigned long refcnt;
+
+  /* Flag of attribute is set or not. */
+  u_int32_t flag;
+  
+  /* Apart from in6_addr, the remaining static attributes */
+  struct in_addr nexthop;
+  u_int32_t med;
+  u_int32_t local_pref;
+  struct in_addr aggregator_addr;
+  struct in_addr originator_id;
+  struct in_addr mp_nexthop_global_in;
+  struct in_addr mp_nexthop_local_in;
+  u_int32_t weight;
+  as_t aggregator_as;
+  u_char origin;
+  u_char mp_nexthop_len;
 };
 
 /* Router Reflector related structure. */
@@ -129,6 +132,8 @@ extern void bgp_dump_routes_attr (struct stream *, struct attr *,
 extern unsigned int attrhash_key_make (struct attr *);
 extern int attrhash_cmp (struct attr *, struct attr *);
 extern void attr_show_all (struct vty *);
+extern unsigned long int attr_count (void);
+extern unsigned long int attr_unknown_count (void);
 
 /* Cluster list prototypes. */
 extern int cluster_loop_check (struct cluster_list *, struct in_addr);
