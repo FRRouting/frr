@@ -1,3 +1,7 @@
+2006-03-19 Paul Jakma <paul.jakma@sun.com>
+
+	* memtypes.c: Add MTYPE_BGP_SYNCHRONISE.
+
 2006-03-16 Paul Jakma <paul.jakma@sun.com>
 
 	* Makefile.am: Fix -version-info argument.

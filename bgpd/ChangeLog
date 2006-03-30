@@ -11,6 +11,8 @@
 	  (bgp_vty_init) Install show_bgp_memory_cmd.
 	* bgp_nexthop.h: Include if.h as a dependent header, for struct
 	  connected.
+	* bgp_advertise.c: Use a distinct memory type for struct
+	  bgp_synchronize.
 
 2006-03-12 Paul Jakma <paul.jakma@sun.com>
 

@@ -383,7 +383,8 @@ bgp_sync_init (struct peer *peer)
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       {
-	sync = XCALLOC (MTYPE_TMP, sizeof (struct bgp_synchronize));
+	sync = XCALLOC (MTYPE_BGP_SYNCHRONISE, 
+	                sizeof (struct bgp_synchronize));
 	FIFO_INIT (&sync->update);
 	FIFO_INIT (&sync->withdraw);
 	FIFO_INIT (&sync->withdraw_low);
