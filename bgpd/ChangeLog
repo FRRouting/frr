@@ -1,5 +1,14 @@
 2006-03-19 Paul Jakma <paul.jakma@sun.com>
 
+	* bgpd/bgp_vty.c: Add includes to get several structs we want
+	  to provide usage statistics on.
+	  (show_bgp_memory_cmd) Show memory usage stats for various
+	  notable fixed size objects. Using mtype_stats_alloc and
+	  mtype_memstr recently added to memory.c.
+	  (bgp_show_summary) Report some additional stats specific to
+	  the given BGP instance and/or AFI/SAFI such as table counts,
+	  peers, rsclients and peer-groups.
+	  (bgp_vty_init) Install show_bgp_memory_cmd.
 	* bgp_nexthop.h: Include if.h as a dependent header, for struct
 	  connected.
 

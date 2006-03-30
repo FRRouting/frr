@@ -29,15 +29,21 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "thread.h"
 #include "log.h"
 #include "memory.h"
+#include "hash.h"
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"
+#include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_damp.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_open.h"
+#include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_table.h"
@@ -6464,6 +6470,131 @@ ALIAS (clear_ip_bgp_peer_rsclient,
        "BGP IPv6 neighbor to clear\n"
        "Soft reconfig for rsclient RIB\n")
 
+DEFUN (show_bgp_memory, 
+       show_bgp_memory_cmd,
+       "show bgp memory",
+       SHOW_STR
+       BGP_STR
+       "Global BGP memory statistics\n")
+{
+  char memstrbuf[MTYPE_MEMSTR_LEN];
+  unsigned long count;
+  
+  /* RIB related usage stats */
+  count = mtype_stats_alloc (MTYPE_BGP_NODE);
+  vty_out (vty, "%ld RIB nodes, using %s of memory%s", count,
+           mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct bgp_node)),
+           VTY_NEWLINE);
+  
+  count = mtype_stats_alloc (MTYPE_BGP_ROUTE);
+  vty_out (vty, "%ld BGP routes, using %s of memory%s", count,
+           mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct bgp_info)),
+           VTY_NEWLINE);
+  
+  if ((count = mtype_stats_alloc (MTYPE_BGP_STATIC)))
+    vty_out (vty, "%ld Static routes, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct bgp_static)),
+             VTY_NEWLINE);
+  
+  /* Adj-In/Out */
+  if ((count = mtype_stats_alloc (MTYPE_BGP_ADJ_IN)))
+    vty_out (vty, "%ld Adj-In entries, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                           count * sizeof (struct bgp_adj_in)),
+             VTY_NEWLINE);
+  if ((count = mtype_stats_alloc (MTYPE_BGP_ADJ_OUT)))
+    vty_out (vty, "%ld Adj-Out entries, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                           count * sizeof (struct bgp_adj_out)),
+             VTY_NEWLINE);
+  
+  if ((count = mtype_stats_alloc (MTYPE_BGP_NEXTHOP_CACHE)))
+    vty_out (vty, "%ld Nexthop cache entries, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct bgp_nexthop_cache)),
+             VTY_NEWLINE);
+
+  if ((count = mtype_stats_alloc (MTYPE_BGP_DAMP_INFO)))
+    vty_out (vty, "%ld Dampening entries, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct bgp_damp_info)),
+             VTY_NEWLINE);
+
+  /* Attributes */
+  count = attr_count();
+  vty_out (vty, "%ld BGP attributes, using %s of memory%s", count, 
+           mtype_memstr (memstrbuf, sizeof (memstrbuf), 
+                         count * sizeof(struct attr)), 
+           VTY_NEWLINE);
+  
+  if ((count = attr_unknown_count()))
+    vty_out (vty, "%ld unknown attributes%s", count, VTY_NEWLINE);
+  
+  /* AS_PATH attributes */
+  count = aspath_count ();
+  vty_out (vty, "%ld BGP AS-PATH entries, using %s of memory%s", count,
+           mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct aspath)),
+           VTY_NEWLINE);
+  
+  count = mtype_stats_alloc (MTYPE_AS_SEG);
+  vty_out (vty, "%ld BGP AS-PATH segments, using %s of memory%s", count,
+           mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct assegment)),
+           VTY_NEWLINE);
+  
+  /* Other attributes */
+  if ((count = community_count ()))
+    vty_out (vty, "%ld BGP community entries, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct community)),
+             VTY_NEWLINE);
+  if ((count = mtype_stats_alloc (MTYPE_ECOMMUNITY)))
+    vty_out (vty, "%ld BGP community entries, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct ecommunity)),
+             VTY_NEWLINE);
+  
+  if ((count = mtype_stats_alloc (MTYPE_CLUSTER)))
+    vty_out (vty, "%ld Cluster lists, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct cluster_list)),
+             VTY_NEWLINE);
+  
+  /* Peer related usage */
+  count = mtype_stats_alloc (MTYPE_BGP_PEER);
+  vty_out (vty, "%ld peers, using %s of memory%s", count,
+           mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                         count * sizeof (struct peer)),
+           VTY_NEWLINE);
+  
+  if ((count = mtype_stats_alloc (MTYPE_PEER_GROUP)))
+    vty_out (vty, "%ld peer groups, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                           count * sizeof (struct peer_group)),
+             VTY_NEWLINE);
+  
+  /* Other */
+  if ((count = mtype_stats_alloc (MTYPE_HASH)))
+    vty_out (vty, "%ld hash tables, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                           count * sizeof (struct hash)),
+             VTY_NEWLINE);
+  if ((count = mtype_stats_alloc (MTYPE_HASH_BACKET)))
+    vty_out (vty, "%ld hash buckets, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                           count * sizeof (struct hash_backet)),
+             VTY_NEWLINE);
+  if ((count = mtype_stats_alloc (MTYPE_BGP_REGEXP)))
+    vty_out (vty, "%ld compiled regexes, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                           count * sizeof (regex_t)),
+             VTY_NEWLINE);
+  return CMD_SUCCESS;
+}
 
 /* Show BGP peer's summary information. */
 static int
@@ -6471,34 +6602,60 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi)
 {
   struct peer *peer;
   struct listnode *node, *nnode;
-  int count = 0;
+  unsigned int count = 0;
   char timebuf[BGP_UPTIME_LEN];
   int len;
 
   /* Header string for each address family. */
   static char header[] = "Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd";
-
+  
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
       if (peer->afc[afi][safi])
 	{
-	  if (! count)
-	    {
-	      vty_out (vty,
-		       "BGP router identifier %s, local AS number %d%s",
-		       inet_ntoa (bgp->router_id), bgp->as, VTY_NEWLINE);
-	      vty_out (vty, 
-		       "%ld BGP AS-PATH entries%s", aspath_count (),
-		       VTY_NEWLINE);
-	      vty_out (vty, 
-		       "%ld BGP community entries%s", community_count (),
-		       VTY_NEWLINE);
+          if (!count)
+            {
+              unsigned long ents;
+              char memstrbuf[MTYPE_MEMSTR_LEN];
+              
+              /* Usage summary and header */
+              vty_out (vty,
+                       "BGP router identifier %s, local AS number %d%s",
+                       inet_ntoa (bgp->router_id), bgp->as, VTY_NEWLINE);
 
-	      if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
-		vty_out (vty, "Dampening enabled.%s", VTY_NEWLINE);
-	      vty_out (vty, "%s", VTY_NEWLINE);
-	      vty_out (vty, "%s%s", header, VTY_NEWLINE);
-	    }
+              ents = bgp_table_count (bgp->rib[afi][safi]);
+              vty_out (vty, "RIB entries %ld, using %s of memory%s", ents,
+                       mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                                     ents * sizeof (struct bgp_node)),
+                       VTY_NEWLINE);
+              
+              /* Peer related usage */
+              ents = listcount (bgp->peer);
+              vty_out (vty, "Peers %ld, using %s of memory%s",
+                       ents,
+                       mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                                     ents * sizeof (struct peer)),
+                       VTY_NEWLINE);
+              
+              if ((ents = listcount (bgp->rsclient)))
+                vty_out (vty, "RS-Client peers %ld, using %s of memory%s",
+                         ents,
+                         mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                                       ents * sizeof (struct peer)),
+                         VTY_NEWLINE);
+              
+              if ((ents = listcount (bgp->group)))
+                vty_out (vty, "Peer groups %ld, using %s of memory%s", ents,
+                         mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                                       ents * sizeof (struct peer_group)),
+                         VTY_NEWLINE);
+
+              if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
+                vty_out (vty, "Dampening enabled.%s", VTY_NEWLINE);
+              vty_out (vty, "%s", VTY_NEWLINE);
+              vty_out (vty, "%s%s", header, VTY_NEWLINE);
+            }
+          
 	  count++;
 
 	  len = vty_out (vty, "%s", peer->host);
@@ -9624,6 +9781,10 @@ bgp_vty_init (void)
   install_element (BGP_IPV6_NODE, &no_bgp_redistribute_ipv6_metric_rmap_cmd);
 #endif /* HAVE_IPV6 */
 
+  /* "show bgp memory" commands. */
+  install_element (VIEW_NODE, &show_bgp_memory_cmd);
+  install_element (ENABLE_NODE, &show_bgp_memory_cmd);
+  
   /* Community-list. */
   community_list_vty ();
 }
