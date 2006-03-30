@@ -8,15 +8,13 @@
 -->
 
 <service_bundle type='manifest' name='QUAGGAdaemons:quagga'>
-
 <service
-	name='network/routing/quagga'
+	name='network/routing/zebra'
 	type='service'
 	version='1'>
 
-	<!-- 
-		common service-level dependencies, inherited by each instance
-	-->
+	<instance name='quagga' enabled='false'>
+	
 	<dependency name='fs'
 		grouping='require_all'
 		restart_on='none'
@@ -24,33 +22,44 @@
 		<service_fmri
 			value='svc:/system/filesystem/usr:default' />
 	</dependency>
+	
 	<dependency name='net'
 		grouping='require_all'
 		restart_on='none'
 		type='service'>
-		<service_fmri value='svc:/network/loopback' />
+		<service_fmri value='svc:/network/initial' />
 	</dependency>
 
-	<!--
-		we define exec methods at the top level, and the
-		instance name is substituted for the %i on calling.
-		See smf_method(1M) for more switches.
-	-->
+	<dependency name='config_data'
+		grouping='require_all'
+		restart_on='restart'
+		type='path'>
+		<service_fmri
+			value='file://localhost/@sysconfdir@/zebra.conf' />
+	</dependency>
+	
 	<exec_method
 		type='method'
 		name='start'
-		exec='/lib/svc/method/quagga start %f %i'
-		timeout_seconds='60'/>
+		exec='/lib/svc/method/quagga zebra %{routing/daemon-args}'
+		timeout_seconds='60'>
+		<method_context>
+		  <method_credential
+		   user='root' group='root'
+		   privileges='basic,net_icmpaccess,net_rawaccess,sys_admin,sys_net_config'/>
+ 		</method_context>
+	</exec_method>
 
 	<exec_method
 		type='method'
 		name='stop'
-		exec='/lib/svc/method/quagga stop %f %i'
-		timeout_seconds='60' />
+		exec=':kill'
+		timeout_seconds='60'>
+	</exec_method>
 
-	<!-- 
-		if we define these properties at the service level, each instance
-		inherits them, and it can override with desired values. 
+	<!--    if we define these properties at the service level, each
+		instance inherits them, and it can override with
+		desired values.
 	-->
 	<property_group name='startd'
 		type='framework'>
@@ -58,231 +67,495 @@
 		<propval name='ignore_error'
 		    type='astring' value='core,signal' />
 	</property_group>
-	<property_group name='quagga' type='application'>
-		<!-- Options common to Quagga daemons -->	
-		<propval name='vty_addr' type='astring' value='127.1' />
-		<propval name='vty_port' type='integer' value='0'/>
-		<propval name='user' type='astring' value='@enable_user@' />
-		<propval name='group' type='astring' value='@enable_group@' />
-		<propval name='retain' type='boolean' value='false'/>
+
+	<property_group name='routing' type='application'>
+		<propval name='value_authorization' type='astring' 
+		         value='solaris.smf.modify.routing' />
+		<propval name='daemon-args' type='astring' value='-P 0'/>
 	</property_group>
 	
-	<instance name='zebra' enabled='false'>
-		<!-- 
-			now define it's own dependencies/properties etc here, it'll
-			inherit the rest...
-		-->
-		<dependency name='config_data'
+	<property_group name='general' type='framework'>
+		<!-- to start stop routing services -->
+		<propval name='action_authorization' type='astring'
+			 value='solaris.smf.manage.routing' />
+	</property_group>
+
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+			Quagga: zebra, RIB, kernel intermediary and misc daemon
+			</loctext>
+		</common_name>
+		<documentation>
+			<manpage title='zebra' section='1M'
+				manpath='@mandir@' />
+			<doc_link name='quagga.net' 
+				uri='http://www.quagga.net/' />
+		</documentation>
+	</template>
+	</instance>
+	<stability value='Evolving' />
+</service>
+
+<service
+	name='network/routing/rip'
+	type='service'
+	version='1'>
+
+	<instance name='quagga' enabled='false'>
+
+	<dependency name='fs'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri
+			value='svc:/system/filesystem/usr:default' />
+	</dependency>
+	
+	<dependency name='net'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/network/routing/ipv4-routing' />
+	</dependency>
+
+	<dependency name='zebra'
 			grouping='require_all'
 			restart_on='restart'
-			type='path'>
-			<service_fmri
-			    value='file://localhost/@sysconfdir@/zebra.conf' />
-		</dependency>
-		<property_group name='quagga' type='application'>
-			<propval name='keep_kernel' type='boolean' 
-				value='false'/>
-		</property_group>
-		<template>
-			<common_name>
-				<loctext xml:lang='C'>
-				Quagga: zebra, RIB, kernel intermediary and misc daemon
-				</loctext>
-			</common_name>
-			<documentation>
-				<manpage title='zebra' section='1M'
-					manpath='@mandir@' />
-			</documentation>
-		</template>
+			type='service'>
+			<service_fmri value='svc:/network/routing/zebra:quagga' />
+	</dependency>
 
-	</instance>
+	<dependency name='config_data'
+		grouping='require_all'
+		restart_on='restart'
+		type='path'>
+		<service_fmri
+			value='file://localhost/@sysconfdir@/ripd.conf' />
+	</dependency>
 	
-	<instance name='bgpd' enabled='false'>
-		<!-- 
-			now define it's own dependencies/properties etc here, it'll
-			inherit the rest...
-		-->
-		<dependency name='zebra'
+	<exec_method
+		type='method'
+		name='start'
+		exec='/lib/svc/method/quagga ripd %{routing/daemon-args}'
+		timeout_seconds='60'>
+		<method_context>
+		  <method_credential
+		   user='root' group='root'
+		   privileges='basic,net_icmpaccess,net_privaddr,net_rawaccess'/>
+ 		</method_context>
+	</exec_method>
+
+	<exec_method
+		type='method'
+		name='stop'
+		exec=':kill'
+		timeout_seconds='60'>
+	</exec_method>
+
+	<property_group name='startd'
+		type='framework'>
+		<!-- sub-process core dumps shouldn't restart session -->
+		<propval name='ignore_error'
+		    type='astring' value='core,signal' />
+	</property_group>
+
+	<property_group name='routing' type='application'>
+		<propval name='value_authorization' type='astring' 
+		         value='solaris.smf.modify.routing' />
+		<propval name='daemon-args' type='astring' value='-P 0'/>
+	</property_group>
+
+	<property_group name='general' type='framework'>
+		<!-- to start stop routing services -->
+		<propval name='action_authorization' type='astring'
+			 value='solaris.smf.manage.routing' />
+	</property_group>
+
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+			Quagga: ripd, RIPv1/2 IPv4 routing protocol daemon.
+			</loctext>
+		</common_name>
+		<documentation>
+			<manpage title='ripd' section='1M'
+				manpath='@mandir@' />
+			<doc_link name='quagga.net' 
+				uri='http://www.quagga.net/' />
+		</documentation>
+	</template>
+	</instance>
+	<stability value='Evolving' />
+</service>
+
+<service
+	name='network/routing/ripng'
+	type='service'
+	version='1'>
+
+	<instance name='quagga' enabled='false'>
+
+	<dependency name='fs'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri
+			value='svc:/system/filesystem/usr:default' />
+	</dependency>
+	
+	<dependency name='net'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/network/routing/ipv6-routing' />
+	</dependency>
+
+	<dependency name='zebra'
+			grouping='require_all'
+			restart_on='restart'
+			type='service'>
+			<service_fmri value='svc:/network/routing/zebra:quagga' />
+	</dependency>
+
+	<dependency name='config_data'
+		grouping='require_all'
+		restart_on='restart'
+		type='path'>
+		<service_fmri
+			value='file://localhost/@sysconfdir@/ripngd.conf' />
+	</dependency>
+	
+	<exec_method
+		type='method'
+		name='start'
+		exec='/lib/svc/method/quagga ripngd %{routing/daemon-args}'
+		timeout_seconds='60'>
+		<method_context>
+		  <method_credential
+		   user='root' group='root'
+		   privileges='basic,net_icmpaccess,net_privaddr,net_rawaccess'/>
+ 		</method_context>
+	</exec_method>
+
+	<exec_method
+		type='method'
+		name='stop'
+		exec=':kill'
+		timeout_seconds='60' >
+	</exec_method>
+
+	<property_group name='startd'
+		type='framework'>
+		<!-- sub-process core dumps shouldn't restart session -->
+		<propval name='ignore_error'
+		    type='astring' value='core,signal' />
+	</property_group>
+
+	<property_group name='routing' type='application'>
+		<propval name='value_authorization' type='astring' 
+		         value='solaris.smf.modify.routing' />
+		<propval name='daemon-args' type='astring' value='-P 0'/>
+	</property_group>
+
+	<property_group name='general' type='framework'>
+		<!-- to start stop routing services -->
+		<propval name='action_authorization' type='astring'
+			 value='solaris.smf.manage.routing' />
+	</property_group>
+
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+			Quagga: ripngd, RIPng IPv6 routing protocol daemon.
+			</loctext>
+		</common_name>
+		<documentation>
+			<manpage title='ripngd' section='1M'
+				manpath='@mandir@' />
+			<doc_link name='quagga.net' 
+				uri='http://www.quagga.net/' />
+		</documentation>
+	</template>
+	</instance>
+	<stability value='Evolving' />
+</service>
+
+<service
+	name='network/routing/ospf'
+	type='service'
+	version='1'>
+
+	<instance name='quagga' enabled='false'>
+
+	<dependency name='fs'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri
+			value='svc:/system/filesystem/usr:default' />
+	</dependency>
+	
+	<dependency name='net'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/network/routing/ipv4-routing' />
+	</dependency>
+
+	<dependency name='zebra'
+			grouping='require_all'
+			restart_on='restart'
+			type='service'>
+			<service_fmri value='svc:/network/routing/zebra:quagga' />
+	</dependency>
+
+	<dependency name='config_data'
+		grouping='require_all'
+		restart_on='restart'
+		type='path'>
+		<service_fmri
+			value='file://localhost/@sysconfdir@/ospfd.conf' />
+	</dependency>
+	
+	<exec_method
+		type='method'
+		name='start'
+		exec='/lib/svc/method/quagga ospfd %{routing/daemon-args}'
+		timeout_seconds='60'>
+		<method_context>
+		  <method_credential
+		   user='root' group='root'
+		   privileges='basic,net_icmpaccess,net_privaddr,net_rawaccess,sys_net_config'/>
+ 		</method_context>
+	</exec_method>
+
+	<exec_method
+		type='method'
+		name='stop'
+		exec=':kill'
+		timeout_seconds='60'>
+	</exec_method>
+
+	<property_group name='startd'
+		type='framework'>
+		<!-- sub-process core dumps shouldn't restart session -->
+		<propval name='ignore_error'
+		    type='astring' value='core,signal' />
+	</property_group>
+
+	<property_group name='routing' type='application'>
+		<propval name='value_authorization' type='astring' 
+		         value='solaris.smf.modify.routing' />
+		<propval name='daemon-args' type='astring' value='-P 0'/>
+	</property_group>
+
+	<property_group name='general' type='framework'>
+		<!-- to start stop routing services -->
+		<propval name='action_authorization' type='astring'
+			 value='solaris.smf.manage.routing' />
+	</property_group>
+
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+			Quagga: ospfd, OSPFv2 IPv4 routing protocol daemon.
+			</loctext>
+		</common_name>
+		<documentation>
+			<manpage title='ospfd' section='1M'
+				manpath='@mandir@' />
+			<doc_link name='quagga.net' 
+				uri='http://www.quagga.net/' />
+		</documentation>
+	</template>
+	</instance>
+	<stability value='Evolving' />
+</service>
+
+<service
+	name='network/routing/ospf6'
+	type='service'
+	version='1'>
+
+	<instance name='quagga' enabled='false'>
+
+	<dependency name='fs'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri
+			value='svc:/system/filesystem/usr:default' />
+	</dependency>
+	
+	<dependency name='net'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/network/routing/ipv6-routing' />
+	</dependency>
+
+	<dependency name='zebra'
+			grouping='require_all'
+			restart_on='restart'
+			type='service'>
+			<service_fmri value='svc:/network/routing/zebra:quagga' />
+	</dependency>
+
+	<dependency name='config_data'
+		grouping='require_all'
+		restart_on='restart'
+		type='path'>
+		<service_fmri
+			value='file://localhost/@sysconfdir@/ospf6d.conf' />
+	</dependency>
+	
+	<exec_method
+		type='method'
+		name='start'
+		exec='/lib/svc/method/quagga ospf6d %{routing/daemon-args}'
+		timeout_seconds='60'>
+		<method_context>
+		  <method_credential
+		   user='root' group='root'
+		   privileges='basic,net_icmpaccess,net_privaddr,net_rawaccess'/>
+ 		</method_context>
+	</exec_method>
+
+	<exec_method
+		type='method'
+		name='stop'
+		exec=':kill'
+		timeout_seconds='60'>
+	</exec_method>
+
+	<property_group name='startd'
+		type='framework'>
+		<!-- sub-process core dumps shouldn't restart session -->
+		<propval name='ignore_error'
+		    type='astring' value='core,signal' />
+	</property_group>
+
+	<property_group name='routing' type='application'>
+		<propval name='value_authorization' type='astring' 
+		         value='solaris.smf.modify.routing' />
+		<propval name='daemon-args' type='astring' value='-P 0'/>
+	</property_group>
+
+	<property_group name='general' type='framework'>
+		<!-- to start stop routing services -->
+		<propval name='action_authorization' type='astring'
+			 value='solaris.smf.manage.routing' />
+	</property_group>
+
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+			Quagga: ospf6d, OSPFv3 IPv6 routing protocol daemon.
+			</loctext>
+		</common_name>
+		<documentation>
+			<manpage title='ospf6d' section='1M'
+				manpath='@mandir@' />
+			<doc_link name='quagga.net' 
+				uri='http://www.quagga.net/' />
+		</documentation>
+	</template>
+	</instance>
+	<stability value='Evolving' />
+</service>
+
+
+<service
+	name='network/routing/bgp'
+	type='service'
+	version='1'>
+
+	<instance name='quagga' enabled='false'>
+
+	<dependency name='fs'
+		grouping='require_all'
+		restart_on='none'
+		type='service'>
+		<service_fmri
+			value='svc:/system/filesystem/usr:default' />
+	</dependency>
+
+	<dependency name='net'
+		grouping='require_any'
+		restart_on='none'
+		type='service'>
+		<service_fmri value='svc:/network/routing/ipv6-routing' />
+		<service_fmri value='svc:/network/routing/ipv4-routing' />
+	</dependency>
+	
+	<dependency name='zebra'
 			grouping='optional_all'
 			restart_on='restart'
 			type='service'>
-			<service_fmri value='svc:/network/routing/quagga:zebra' />
-		</dependency>
-		<dependency name='config_data'
-			grouping='require_all'
-			restart_on='restart'
-			type='path'>
-			<service_fmri
-			    value='file://localhost/@sysconfdir@/bgpd.conf' />
-		</dependency>
-		<property_group name='quagga' type='application'>
-			<propval name='no_kernel' type='boolean'
-				value='false'/>
-		</property_group>
-		<template>
-			<common_name>
-				<loctext xml:lang='C'>
-				Quagga: bgpd, BGP routing protocol daemon.
-				</loctext>
-			</common_name>
-			<documentation>
-				<manpage title='bgpd' section='1M'
-					manpath='@mandir@' />
-				<doc_link name='quagga.net' 
-					uri='http://www.quagga.net/' />
-			</documentation>
-		</template>
+			<service_fmri value='svc:/network/routing/zebra:quagga' />
+	</dependency>
 
-	</instance>
+	<dependency name='config_data'
+		grouping='require_all'
+		restart_on='restart'
+		type='path'>
+		<service_fmri
+			value='file://localhost/@sysconfdir@/bgpd.conf' />
+	</dependency>
 	
-	<instance name='ospf6d' enabled='false'>
-		<!-- 
-			now define it's own dependencies/properties etc here, it'll
-			inherit the rest...
-		-->
-		<dependency name='zebra'
-			grouping='require_all'
-			restart_on='restart'
-			type='service'>
-			<service_fmri value='svc:/network/routing/quagga:zebra' />
-		</dependency>
-		<dependency name='config_data'
-			grouping='require_all'
-			restart_on='restart'
-			type='path'>
-			<service_fmri
-			    value='file://localhost/@sysconfdir@/ospf6d.conf' />
-		</dependency>
-		<template>
-			<common_name>
-				<loctext xml:lang='C'>
-				Quagga: ospf6d, OSPFv3 IPv6 routing protocol daemon.
-				</loctext>
-			</common_name>
-			<documentation>
-				<manpage title='ospf6d' section='1M'
-					manpath='@mandir@' />
-				<doc_link name='quagga.net' 
-					uri='http://www.quagga.net/' />
-			</documentation>
-		</template>
+	<exec_method
+		type='method'
+		name='start'
+		exec='/lib/svc/method/quagga bgpd %{routing/daemon-args}'
+		timeout_seconds='60'>
+		<method_context>
+		  <method_credential
+		   user='root' group='root'
+		   privileges='basic,net_icmpaccess,net_privaddr,net_rawaccess'/>
+ 		</method_context>
+	</exec_method>
 
+	<exec_method
+		type='method'
+		name='stop'
+		exec=':kill'
+		timeout_seconds='60' >
+	</exec_method>
+
+	<property_group name='startd'
+		type='framework'>
+		<!-- sub-process core dumps shouldn't restart session -->
+		<propval name='ignore_error'
+		    type='astring' value='core,signal' />
+	</property_group>
+
+	<property_group name='routing' type='application'>
+		<propval name='value_authorization' type='astring' 
+		         value='solaris.smf.modify.routing' />
+		<propval name='daemon-args' type='astring' value='-P 0'/>
+	</property_group>
+
+	<property_group name='general' type='framework'>
+		<!-- to start stop routing services -->
+		<propval name='action_authorization' type='astring'
+			 value='solaris.smf.manage.routing' />
+	</property_group>
+
+	<template>
+		<common_name>
+			<loctext xml:lang='C'>
+			Quagga: bgpd, BGP routing protocol daemon.
+			</loctext>
+		</common_name>
+		<documentation>
+			<manpage title='bgpd' section='1M'
+				manpath='@mandir@' />
+			<doc_link name='quagga.net' 
+				uri='http://www.quagga.net/' />
+		</documentation>
+	</template>
 	</instance>
-
-	<instance name='ospfd' enabled='false'>
-		<!-- 
-			now define it's own dependencies/properties etc here, it'll
-			inherit the rest...
-		-->
-		<dependency name='zebra'
-			grouping='require_all'
-			restart_on='restart'
-			type='service'>
-			<service_fmri value='svc:/network/routing/quagga:zebra' />
-		</dependency>
-		<dependency name='config_data'
-			grouping='require_all'
-			restart_on='restart'
-			type='path'>
-			<service_fmri
-			    value='file://localhost/@sysconfdir@/ospfd.conf' />
-		</dependency>
-		<property_group name='quagga' type='application'>
-			<propval name='retain_routes' type='boolean' value='false'/>
-		</property_group>
-		<template>
-			<common_name>
-				<loctext xml:lang='C'>
-				Quagga: ospfd, OSPFv2 IPv4 routing protocol daemon.
-				</loctext>
-			</common_name>
-			<documentation>
-				<manpage title='ospfd' section='1M'
-					manpath='@mandir@' />
-				<doc_link name='quagga.net' 
-					uri='http://www.quagga.net/' />
-			</documentation>
-		</template>
-
-	</instance>
-
-	<instance name='ripd' enabled='false'>
-		<!-- 
-			now define it's own dependencies/properties etc here, it'll
-			inherit the rest...
-		-->
-		<dependency name='zebra'
-			grouping='require_all'
-			restart_on='restart'
-			type='service'>
-			<service_fmri value='svc:/network/routing/quagga:zebra' />
-		</dependency>
-		<dependency name='config_data'
-			grouping='require_all'
-			restart_on='restart'
-			type='path'>
-			<service_fmri
-			    value='file://localhost/@sysconfdir@/ripd.conf' />
-		</dependency>
-		<property_group name='quagga' type='application'>
-			<propval name='retain_routes' type='boolean' value='false'/>
-		</property_group>
-		<template>
-			<common_name>
-				<loctext xml:lang='C'>
-				Quagga: ripd, RIPv1/2 IPv4 routing protocol daemon.
-				</loctext>
-			</common_name>
-			<documentation>
-				<manpage title='ripd' section='1M'
-					manpath='@mandir@' />
-				<doc_link name='quagga.net' 
-					uri='http://www.quagga.net/' />
-			</documentation>
-		</template>
-
-	</instance>
-
-	<instance name='ripngd' enabled='false'>
-		<!-- 
-			now define it's own dependencies/properties etc here, it'll
-			inherit the rest...
-		-->
-		<dependency name='zebra'
-			grouping='require_all'
-			restart_on='restart'
-			type='service'>
-			<service_fmri value='svc:/network/routing/quagga:zebra' />
-		</dependency>
-		<dependency name='config_data'
-			grouping='require_all'
-			restart_on='restart'
-			type='path'>
-			<service_fmri
-			    value='file://localhost/@sysconfdir@/ripngd.conf' />
-		</dependency>
-		<property_group name='quagga' type='application'>
-			<propval name='retain_routes' type='boolean' 
-				value='false'/>
-		</property_group>
-		<template>
-			<common_name>
-				<loctext xml:lang='C'>
-				Quagga: ripngd, RIPng IPv6 routing protocol daemon.
-				</loctext>
-			</common_name>
-			<documentation>
-				<manpage title='ripngd' section='1M'
-					manpath='@mandir@' />
-				<doc_link name='quagga.net' 
-					uri='http://www.quagga.net/' />
-			</documentation>
-		</template>
-
-	</instance>
-
 	<stability value='Evolving' />
-
 </service>
-
 </service_bundle>

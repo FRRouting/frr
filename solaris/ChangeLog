@@ -1,3 +1,37 @@
+2006-03-13 Alan Maguire <alan.maguire@sun.com>
+
+	* quagga.xml.in: Change the naming of services and instances.
+	  network/routing/quagga:<daemon> may be neat and tidy, but
+	  it's at odds with SMF convention elsewhere that demands
+	  the service be named for what it does, and the instance name
+	  describe the implementation (e.g. network/smtp:sendmail).
+	  Remove call to method script for 'stop', SMF can do that
+	  itself.
+	  Enumerate the privileges required in the SMF manifest, with the
+	  method_credential element.
+	  Dont try provide seperate properties for each argument, it's
+	  just tedious, particularly when they can no longer be
+	  inherited from a common quagga service - use a single
+	  "daemon-args" property, defaulting to -P 0.
+	  Specify authorisation for the 'routeadm' utility and for
+	  RBAC.
+
+2006-03-13 Paul Jakma <paul.jakma@sun.com>
+
+	* quagga.init.in: Update to match SMF manifest changes.
+	  If run from an SMF environment, assume method is start.
+	  Offer a more tradition init script interface for pre-SMF.
+	  Enable zebra for the link-state daemons.
+	  Don't allow daemons to start in non-global zones, except
+	  for bgpd - it doesn't have to care about underlying
+	  networking much.
+	  Remove all the svcprop calls, SMF or the user will supply any
+	  arguments on the command-line.
+	* depend.smf.in: Add dependency on SUNWroute, which provides
+	  routeadm, which provides /var/svc/manifest/network/routing
+	* prototype.smf.in: Install manifest to 
+	  var/svc/manifest/network/routing.
+
 2006-02-19 Paul Jakma <paul.jakma@sun.com>
 
 	* depend.*: renamed to depend.*.in.

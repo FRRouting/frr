@@ -1,94 +1,104 @@
 #!/sbin/sh
 #
-# Copyright 2001,2003 Sun Microsystems, Inc.  All rights reserved.
+# Copyright 2001,2003 Sun Microsystems, Inc. All rights reserved.
 # Use is subject to license terms.
 #
-# $Id: quagga.init.in,v 1.5 2006/02/19 18:59:26 paul Exp $
+# $Id: quagga.init.in,v 1.6 2006/03/30 13:38:28 paul Exp $
 #
-# Starts/stops the appropriate daemon
+# Starts/stops the given daemon
 
 SMFINCLUDE=/lib/svc/share/smf_include.sh
+DAEMON_PATH=@sbindir@
 
+quagga_is_globalzone () {
+	if [ "${QUAGGA_INIT_ZONENAME:=`/sbin/zonename`}" != "global" ]; then
+		return 1
+	else
+		return 0
+	fi
+}
+
+# Include smf functions, if available. If not, define smf_present to indicate
+# there is no SMF. Should allow this script to work pre-S10.
 if [ -f "$SMFINCLUDE" ] ; then
 	. "$SMFINCLUDE";
+else
+	# pre-SMF system, fake up any functions and exit codes
+	# which SMFINCLUDE usually provides.
+	smf_present () {
+		return 1
+	}
+	SMF_EXIT_OK=0;
+	SMF_EXIT_ERR_CONFIG=96;
+	SMF_EXIT_ERR_FATAL=95;
 fi
+	
+# if there's no SMF, set some default DAEMON_ARGS
+smf_present || DAEMON_ARGS=""
 
 usage () {
-	echo "Usage: $0 (start|stop) <fmri> <instance>";
-}	
+	if smf_present ; then
+		echo "Usage: $0 <daemon> <daemon arguments>";
+	else
+		echo "Usage: $0 <stop|start> <daemon> <daemon arguments>";
+	fi
+	echo "The --pid_file argument is implied";
+	echo "This help message: $0 <help|usage>";
+}
 
+# parse arguments, different according to SMF or not.
 case $1 in
 	'help' | 'usage')
-	usage
-	;;
+		usage
+		exit SMF_EXIT_OK
+		;;
 esac
 
-# fmri and instance must be given.
-FMRI="$2"
-INSTANCE="$3"
-if [ -z "$FMRI" -o -z "$INSTANCE" ]; then
-	usage
-	exit $SMF_EXIT_ERR_CONFIG
+if smf_present ; then
+	QUAGGA_METHOD="start"
+else
+	QUAGGA_METHOD="$1"
+	shift;
 fi
 
-# fmri must exist
-svcs ${FMRI} > /dev/null 2>&1 || exit $SMF_EXIT_ERR_CONFIG
+DAEMON="$1"
+shift
+DAEMON_ARGS="$@"
 
-case ${INSTANCE} in
-	zebra | bgpd )
+# daemon path must be given
+if [ -z "$DAEMON_PATH/$DAEMON" ]; then
+	usage
+	exit $SMF_EXIT_ERR_FATAL
+fi
+
+# only bgpd is suitable for running in a non-global zone, at this
+# time.
+case "${DAEMON}" in
+	zebra)
+		quagga_is_globalzone || exit $SMF_EXIT_OK
+	;;
+	bgpd)
 	;;
 	ospfd | ospf6d | ripd | ripngd )
-	/usr/sbin/svcadm enable zebra
+		quagga_is_globalzone || exit $SMF_EXIT_OK
 	;;
 	*)
-	usage
-	exit $SMF_EXIT_ERR_CONFIG;
+		usage
+		exit $SMF_EXIT_ERR_CONFIG;
 	;;
 esac
 
-svcprop -q -p @PACKAGE_TARNAME@/config_file ${FMRI} && \
-	CONFFILE=`svcprop -p @PACKAGE_TARNAME@/config_file ${FMRI}`
-svcprop -q -p @PACKAGE_TARNAME@/pid_file ${FMRI} && \
-	PIDFILE=`svcprop -p @PACKAGE_TARNAME@/pid_file ${FMRI}`
-svcprop -q -p @PACKAGE_TARNAME@/user ${FMRI} && \
-	USER=`svcprop -p @PACKAGE_TARNAME@/user ${FMRI}`
-svcprop -q -p @PACKAGE_TARNAME@/group ${FMRI} && \
-	GROUP=`svcprop -p @PACKAGE_TARNAME@/group ${FMRI}`
-svcprop -q -p @PACKAGE_TARNAME@/vty_addr ${FMRI} && \
-	VTYADDR=`svcprop -p @PACKAGE_TARNAME@/vty_addr ${FMRI}`
-svcprop -q -p @PACKAGE_TARNAME@/vty_port ${FMRI} && \
-	VTYPORT=`svcprop -p @PACKAGE_TARNAME@/vty_port ${FMRI}`
-
-[ -n "${CONFFILE}" ] && ARGS=" -f ${CONFFILE}"
-[ -n "${PIDFILE}" ] && ARGS="${ARGS} --pid_file ${PIDFILE}"
-[ -n "${USER}" ] && ARGS="${ARGS} --user ${USER}"
-[ -n "${GROUP}" ] && ARGS="${ARGS} --group ${GROUP}"
-
-# vty should default to disabled, ie port == 0
-[ -z "${VTYPORT}" ] && VTYPORT=0
-ARGS="${ARGS} --vty_port ${VTYPORT}"
-
-# default listen address should be localhost
-[ -z "${VTYADDR}" ] && VTYADDR=127.1
-ARGS="${ARGS} --vty_addr ${VTYADDR}"
-
-# have to have a pid file for script to work
-# we can assume it otherwise
-if [ -z "${PIDFILE}" ]; then
-	PIDFILE="@quagga_statedir@/${INSTANCE}.pid"
-else
-	ARGS="${ARGS} --pid_file ${PIDFILE}"
-fi
-
-# we need @quagga_statedir@ to exist, it might be on tmpfs.
+# we need @quagga_statedir@ to exist, it probably is on tmpfs.
 if [ ! -d @quagga_statedir@ ] ; then
 	mkdir -p @quagga_statedir@
 	chown @enable_user@:@enable_group@ @quagga_statedir@
 	chmod 751 @quagga_statedir@
 fi
 
+PIDFILE="@quagga_statedir@/${DAEMON}.pid"
+
 start () {
-	@sbindir@/${INSTANCE} ${ARGS} &
+	$DAEMON_PATH/$DAEMON $DAEMON_ARGS --pid_file ${PIDFILE} &
 }
 
 stop () {
@@ -97,17 +107,17 @@ stop () {
 	fi
 }
 
-case $1 in 
+case "$QUAGGA_METHOD" in
 'start')
-	start ${2}
+	start
 	;;
 'stop')
-	stop ${2}
+	stop
 	;;
 
 *)
 	usage
-	exit 1
+	exit SMF_EXIT_ERR_FATAL
 	;;
 esac	
 
