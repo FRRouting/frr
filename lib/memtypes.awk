@@ -1,4 +1,4 @@
-# $Id: memtypes.awk,v 1.3 2005/05/23 12:33:58 paul Exp $
+# $Id: memtypes.awk,v 1.4 2006/03/30 14:30:19 paul Exp $
 #
 # Scan a file of memory definitions (see eg memtypes.c) and generate
 # a corresponding header file with an enum of the MTYPE's and declarations
@@ -44,13 +44,13 @@ BEGIN {
 # catch lines beginning with 'struct memory list ' and try snag the
 # memory_list name. Has to be 3rd field.
 ($0 ~ /^struct memory_list /) && (NF >= 3) {
-	mlists[lcount++] = gensub(mlistregex,"\\1",g,$3);
+	mlists[lcount++] = gensub(mlistregex, "\\1", "g",$3);
 }
 
 # snag the MTYPE, it must self-standing and the second field,
 # though we do manage to tolerate the , C seperator being appended
 ($1 !~ /^\/?\*/) && ($2 ~ /^MTYPE_/) { 
-	mtype[tcount++] = gensub(mtyperegex,"\\1",1, $2);
+	mtype[tcount++] = gensub(mtyperegex, "\\1", "g", $2);
 } 
 
 END {

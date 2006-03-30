@@ -1,3 +1,7 @@
+2006-03-27 Paul Jakma <paul.jakma@sun.com>
+
+	* memtypes.awk: Fix gensub call, g should be a string..
+
 2006-03-25 Paul Jakma <paul.jakma@sun.com>
 
 	* workqueue.h: (struct work_queue) Remove status field and
