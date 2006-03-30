@@ -700,7 +700,10 @@ peer_free (struct peer *peer)
   
   if (peer->update_if)
     XFREE (MTYPE_PEER_UPDATE_SOURCE, peer->update_if);
-
+    
+  if (peer->clear_node_queue)
+    work_queue_free (peer->clear_node_queue);
+  
   memset (peer, 0, sizeof (struct peer));
   
   XFREE (MTYPE_BGP_PEER, peer);

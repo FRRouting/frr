@@ -1,3 +1,8 @@
+2006-03-22 Paul Jakma <paul.jakma@sun.com>
+
+	* bgpd.c: (peer_free) release the per-peer workqueue when
+	  freeing the peer.
+
 2006-03-19 Paul Jakma <paul.jakma@sun.com>
 
 	* bgpd/bgp_vty.c: Add includes to get several structs we want
