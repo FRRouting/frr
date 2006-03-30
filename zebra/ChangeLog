@@ -1,3 +1,9 @@
+2006-02-09 Paul Jakma <paul.jakma@sun.com>
+
+	* rib.h: (struct {rib,nexthop}) Rearrange fields to avoid
+	  needless padding. 
+	  (struct rib) Remove the indirect pointer, not used anywhere!
+
 2006-02-02 Paul Jakma <paul.jakma@sun.com>
 
 	* interface.c: (if_dump_vty) move flags to their line, neater.

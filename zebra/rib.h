@@ -33,15 +33,27 @@ struct rib
   /* Link list. */
   struct rib *next;
   struct rib *prev;
+  
+  /* Nexthop structure */
+  struct nexthop *nexthop;
+  
+  /* Refrence count. */
+  unsigned long refcnt;
+  
+  /* Uptime. */
+  time_t uptime;
 
   /* ref count */
   unsigned int lock;
-  
+
   /* Type fo this route. */
   int type;
 
   /* Which routing table */
   int table;			
+
+  /* Metric */
+  u_int32_t metric;
 
   /* Distance. */
   u_char distance;
@@ -50,21 +62,10 @@ struct rib
      ZEBRA_FLAG_* */
   u_char flags;
 
-  /* Metric */
-  u_int32_t metric;
-
-  /* Uptime. */
-  time_t uptime;
-
-  /* Refrence count. */
-  unsigned long refcnt;
-
   /* Nexthop information. */
   u_char nexthop_num;
   u_char nexthop_active_num;
   u_char nexthop_fib_num;
-
-  struct nexthop *nexthop;
 };
 
 /* Static route information. */
@@ -147,16 +148,16 @@ struct nexthop
   struct nexthop *next;
   struct nexthop *prev;
 
+  /* Interface index. */
+  char *ifname;
+  unsigned int ifindex;
+  
   enum nexthop_types_t type;
 
   u_char flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
 #define NEXTHOP_FLAG_FIB        (1 << 1) /* FIB nexthop. */
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
-
-  /* Interface index. */
-  unsigned int ifindex;
-  char *ifname;
 
   /* Nexthop address or interface name. */
   union
@@ -177,8 +178,6 @@ struct nexthop
     struct in6_addr ipv6;
 #endif /* HAVE_IPV6 */
   } rgate;
-
-  struct nexthop *indirect;
 };
 
 /* Routing table instance.  */
