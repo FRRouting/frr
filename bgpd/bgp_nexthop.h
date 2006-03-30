@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_NEXTHOP_H
 #define _QUAGGA_BGP_NEXTHOP_H
 
+#include "if.h"
+
 #define BGP_SCAN_INTERVAL_DEFAULT   60
 #define BGP_IMPORT_INTERVAL_DEFAULT 15
 

@@ -1,3 +1,8 @@
+2006-03-19 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_nexthop.h: Include if.h as a dependent header, for struct
+	  connected.
+
 2006-03-12 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_attr.h: (struct attr) rearrange fields to avoid
