@@ -249,13 +249,6 @@ zprivs_caps_init (struct zebra_privs_t *zprivs)
                        "but no capabilities supplied\n");
     }
 
-  if ( !(zprivs_state.caps = cap_init()) )
-    {
-      fprintf (stderr, "privs_init: failed to cap_init, %s\n", 
-               safe_strerror (errno));
-      exit (1);
-    }
-
   /* we have caps, we have no need to ever change back the original user */
   if (zprivs_state.zuid)
     {
@@ -267,6 +260,13 @@ zprivs_caps_init (struct zebra_privs_t *zprivs)
         }
     }
   
+  if ( !(zprivs_state.caps = cap_init()) )
+    {
+      fprintf (stderr, "privs_init: failed to cap_init, %s\n", 
+               safe_strerror (errno));
+      exit (1);
+    }
+
   if ( cap_clear (zprivs_state.caps) )
     {
       fprintf (stderr, "privs_init: failed to cap_clear, %s\n", 
@@ -483,6 +483,19 @@ zprivs_caps_init (struct zebra_privs_t *zprivs)
   /* need either valid or empty sets for both p and i.. */
   assert (zprivs_state.syscaps_i && zprivs_state.syscaps_p);
   
+  /* we have caps, we have no need to ever change back the original user
+   * change real, effective and saved to the specified user.
+   */
+  if (zprivs_state.zuid)
+    {
+      if ( setreuid (zprivs_state.zuid, zprivs_state.zuid) )
+        {
+          fprintf (stderr, "%s: could not setreuid, %s\n", 
+                   __func__, safe_strerror (errno));
+          exit (1);
+        }
+    }
+  
   /* set the permitted set */
   if (setppriv (PRIV_SET, PRIV_PERMITTED, zprivs_state.syscaps_p))
     {
@@ -499,17 +512,6 @@ zprivs_caps_init (struct zebra_privs_t *zprivs)
       exit (1);
     }
 
-  /* we have caps, we have no need to ever change back the original user */
-  if (zprivs_state.zuid)
-    {
-      if ( setreuid (zprivs_state.zuid, zprivs_state.zuid) )
-        {
-          fprintf (stderr, "%s: could not setreuid, %s\n", 
-                   __func__, safe_strerror (errno));
-          exit (1);
-        }
-    }
-  
   /* now clear the effective set and we're ready to go */
   if (setppriv (PRIV_SET, PRIV_EFFECTIVE, empty))
     {

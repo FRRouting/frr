@@ -1,3 +1,10 @@
+2006-03-14 Paul Jakma <paul.jakma@sun.com>
+
+	* privs.c: (zprivs_caps_init) Change user IDs before lowering
+	  privileges, while this seems to work on Linux, on Solaris
+	  it rightfully refuses due to PRIV_PROC_SETID having been
+	  dropped.
+
 2006-03-06 Paul Jakma <paul.jakma@sun.com>
 
 	* if.h: export show_address_cmd, for anyone who wishes to use
