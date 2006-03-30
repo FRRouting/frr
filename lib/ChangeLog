@@ -1,3 +1,8 @@
+2006-03-30 Paul Jakma <paul.jakma@sun.com>
+
+	* command.h: (DEFUN_CMD_FUNC_TEXT) Annotate arguments as
+	  potentially being unused.
+
 2006-03-27 Paul Jakma <paul.jakma@sun.com>
 
 	* memtypes.awk: Fix gensub call, g should be a string..

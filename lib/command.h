@@ -183,7 +183,10 @@ struct desc
 
 #define DEFUN_CMD_FUNC_TEXT(funcname) \
   static int funcname \
-    (struct cmd_element *self, struct vty *vty, int argc, const char *argv[])
+    (struct cmd_element *self __attribute__ ((unused)), \
+     struct vty *vty __attribute__ ((unused)), \
+     int argc __attribute__ ((unused)), \
+     const char *argv[] __attribute__ ((unused)) )
 
 /* DEFUN for vty command interafce. Little bit hacky ;-). */
 #define DEFUN(funcname, cmdname, cmdstr, helpstr) \
