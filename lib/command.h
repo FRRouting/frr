@@ -354,5 +354,7 @@ extern char *host_config_file (void);
 extern void host_config_set (char *);
 
 extern void print_version (const char *);
-  
+
+/* struct host global, ick */
+extern struct host host; 
 #endif /* _ZEBRA_COMMAND_H */

@@ -41,6 +41,7 @@
 	  privileges, while this seems to work on Linux, on Solaris
 	  it rightfully refuses due to PRIV_PROC_SETID having been
 	  dropped.
+	* command.h: Add the struct host global exported from command.c
 
 2006-03-06 Paul Jakma <paul.jakma@sun.com>
 
