@@ -20,6 +20,7 @@ o BGP TCP MD5 authentication by password command.
 o HUP signal support (reload configuration file).
 o BGP multi-path extension
 o move FSM state to be per-connection, not per-peer.
+o Add support for internal and minimum-metric MED setting
 
 ripd:
 

@@ -1,3 +1,8 @@
+2006-03-30 Paul Jakma <paul.jakma@sun.com>
+
+	* TODO: Add reminder for useful MED functionality we should
+	  implement.
+
 2006-02-15 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Check for mallinfo, being careful to link test
