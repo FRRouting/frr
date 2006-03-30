@@ -2,6 +2,7 @@
 
 	* command.h: (DEFUN_CMD_FUNC_TEXT) Annotate arguments as
 	  potentially being unused.
+	* workqueue.c: (work_queue_run) fix line length of comment
 
 2006-03-27 Paul Jakma <paul.jakma@sun.com>
 

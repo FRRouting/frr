@@ -254,8 +254,9 @@ work_queue_run (struct thread *thread)
    *
    * Best: starts low, can only increase
    *
-   * Granularity: starts at WORK_QUEUE_MIN_GRANULARITY, can be decreased if we run to end of time
-   *              slot, can increase otherwise by a small factor.
+   * Granularity: starts at WORK_QUEUE_MIN_GRANULARITY, can be decreased 
+   *              if we run to end of time slot, can increase otherwise 
+   *              by a small factor.
    *
    * We could use just the average and save some work, however we want to be
    * able to adjust quickly to CPU pressure. Average wont shift much if
