@@ -6,15 +6,16 @@
 # dia exported PNG files to EPS manually.
 #
 # Here we use 'convert' from the well known 'ImageMagick' package
-# to do conversion from png to eps.
+# to do conversion from png to eps/pdf for figures. 
+# PDF form is required for quagga.pdf, using PDFTex at least.
 #
-# PDF is required for quagga.pdf, we use epstopdf from the well known TeTeX
 # TeX implementation, which we depend on already anyway.
 #
 # dia -> (dia) -> png -> (convert) -> eps -> (epstopdf) -> pdf
 DIATOPNG = dia -t png -e
 DIATOEPS = dia -t eps -e
-PNGTOEPS = convert
+PNGTOEPS = convert -dither -antialias -contrast -despeckle
+PNGTOPDF = $(PNGTOEPS)
 EPSTOPDF = epstopdf
 
 # The figure sources
@@ -24,6 +25,7 @@ figures_sources := $(figures_names_parts:%=fig%.dia)
 figures_png := $(figures_names_parts:%=fig%.png)
 figures_pdf := $(figures_names_parts:%=fig%.pdf)
 figures_eps := $(figures_names_parts:%=fig%.eps)
+figures_txt := $(figures_names_parts:%=fig%.txt)
 
 # rather twisted logic because we have to build PDFs of the EPS figures for
 # PDFTex and yet build one PDF, quagga.pdf, from texi source. Which means we
@@ -46,13 +48,14 @@ quagga.pdf: $(info_TEXINFOS) $(figures_pdf)
 quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi install.texi \
 	ipv6.texi kernel.texi main.texi ospf6d.texi ospfd.texi overview.texi \
 	protocol.texi ripd.texi ripngd.texi routemap.texi snmp.texi \
-	vtysh.texi routeserver.texi defines.texi $(figures_png) snmptrap.texi
+	vtysh.texi routeserver.texi defines.texi $(figures_png) snmptrap.texi \
+	$(figures_txt)
 
 %.eps: %.png
 	$(PNGTOEPS) $< "$@"
 
-%.pdf: %.eps
-	$(EPSTOPDF) --outfile="$@" $<
+%.pdf: %.png
+	$(PNGTOPDF) $< "$@"
 
 %.png: %.dia
 	$(DIATOPNG) "$@" $<
@@ -62,7 +65,7 @@ man_MANS = vtysh.1 bgpd.8 ospf6d.8 ospfd.8 ripd.8 ripngd.8 zebra.8 isisd.8
 EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt $(man_MANS) \
 	mpls/ChangeLog.opaque.txt mpls/cli_summary.txt \
 	mpls/opaque_lsa.txt mpls/ospfd.conf \
-	$(figures_sources) $(figures_png)
+	$(figures_sources) $(figures_png) $(figures_txt)
 
 draft-zebra-00.txt:
 	groff -T ascii -ms draft-zebra-00.ms > draft-zebra-00.txt

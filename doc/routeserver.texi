@@ -33,20 +33,23 @@ First we are going to describe the normal processing that BGP announcements
 suffer inside a standard BGP speaker, as shown in @ref{fig:normal-processing},
 it consists of three steps:
 
-@itemize
-@item When an announcement is received from some peer, the `In' filters
+@itemize @bullet
+@item
+When an announcement is received from some peer, the `In' filters
 configured for that peer are applied to the announcement. These filters can
 reject the announcement, accept it unmodified, or accept it with some of its
 attributes modified.
 
-@item The announcements that pass the `In' filters go into the
+@item
+The announcements that pass the `In' filters go into the
 Best Path Selection process, where they are compared to other
 announcements referred to the same destination that have been
 received from different peers (in case such other
 announcements exist). For each different destination, the announcement
 which is selected as the best is inserted into the BGP speaker's Loc-RIB.
 
-@item The routes which are inserted in the Loc-RIB are
+@item
+The routes which are inserted in the Loc-RIB are
 considered for announcement to all the peers (except the one
 from which the route came). This is done by passing the routes
 in the Loc-RIB through the `Out' filters corresponding to each
@@ -57,17 +60,17 @@ of a peer are announced to that peer.
 @end itemize
 
 @float Figure,fig:normal-processing
-@image{fig-normal-processing,,,Normal announcement processing}
+@image{fig-normal-processing,400pt,,Normal announcement processing}
 @caption{Announcement processing inside a ``normal'' BGP speaker}
 @end float
 
 @float Figure,fig:full-mesh
-@image{fig_topologies_full,,,Full Mesh BGP Topology}
+@image{fig_topologies_full,120pt,,Full Mesh BGP Topology}
 @caption{Full Mesh}
 @end float
 
 @float Figure,fig:route-server
-@image{fig_topologies_rs,,,Route Server BGP Topology}
+@image{fig_topologies_rs,120pt,,Route Server BGP Topology}
 @caption{Route Server and clients} 
 @end float
 
@@ -80,34 +83,36 @@ server are not able to apply by themselves the same input/output filters
 as in the full mesh scenario, so they have to delegate those functions to
 the route server.
 
-Even more, the ``best path'' selection must be also performed inside the route
-server on behalf of its clients. The reason is that if, after applying the
-filters of the announcer and the (potential) receiver, the route server
-decides to send to some client two or more different announcements referred
-to the same destination, the client will only retain the last one,
-considering it as an implicit withdrawal of the previous announcements for
-the same destination. This is the expected behavior of a BGP speaker as
-defined in @cite{RFC1771}, and even though there are some proposals of
-mechanisms that permit multiple paths for the same destination to be sent
-through a single BGP peering, none of them are currently supported by most
-of the existing BGP implementations.
+Even more, the ``best path'' selection must be also performed inside
+the route server on behalf of its clients. The reason is that if, after
+applying the filters of the announcer and the (potential) receiver, the
+route server decides to send to some client two or more different
+announcements referred to the same destination, the client will only
+retain the last one, considering it as an implicit withdrawal of the
+previous announcements for the same destination. This is the expected
+behavior of a BGP speaker as defined in @cite{RFC1771}, and even though
+there are some proposals of mechanisms that permit multiple paths for
+the same destination to be sent through a single BGP peering, none are
+currently supported by most existing BGP implementations.
 
 As a consequence a route server must maintain additional information and
 perform additional tasks for a RS-client that those necessary for common BGP
 peerings. Essentially a route server must:
 
 @anchor{Route Server tasks}
-@itemize
-@item Maintain a separated Routing Information Base (Loc-RIB)
+@itemize @bullet
+@item
+Maintain a separated Routing Information Base (Loc-RIB)
 for each peer configured as RS-client, containing the routes
 selected as a result of the ``Best Path Selection'' process
 that is performed on behalf of that RS-client.
 
-@item Whenever it receives an announcement from a RS-client,
+@item
+Whenever it receives an announcement from a RS-client,
 it must consider it for the Loc-RIBs of the other RS-clients.
 
 @anchor{Route-server path filter process}
-@itemize
+@itemize @bullet
 @item
 This means that for each of them the route server must pass the
 announcement through the appropriate `Out' filter of the
@@ -124,9 +129,7 @@ to the ``Best Path Selection'' process.
 @item
 Finally, it might go into the Loc-RIB of the receiver.
 @end itemize
-@c end of route-server best path process list
 @end itemize
-@c end of route-server tasks list
 
 When we talk about the ``appropriate'' filter, both the announcer and the
 receiver of the route must be taken into account. Suppose that the route
@@ -150,15 +153,18 @@ The announcement processing model implemented by Quagga is shown in
 with normal BGP peers (A). There are some details that worth additional
 comments:
 
-@itemize
-@item Announcements coming from a normal BGP peer are also
+@itemize @bullet
+@item
+Announcements coming from a normal BGP peer are also
 considered for the Loc-RIBs of all the RS-clients. But
 logically they do not pass through any export policy.
 
-@item Those peers that are configured as RS-clients do not
+@item
+Those peers that are configured as RS-clients do not
 receive any announce from the `Main' Loc-RIB.
 
-@item Apart from import and export policies,
+@item
+Apart from import and export policies,
 `In' and `Out' filters can also be set for RS-clients. `In'
 filters might be useful when the route server has also normal
 BGP peers. On the other hand, `Out' filters for RS-clients are
@@ -167,7 +173,7 @@ they do not hurt anybody (they can always be left empty).
 @end itemize
 
 @float Figure,fig:rs-processing
-@image{fig-rs-processing,,,Route Server Processing Model}
+@image{fig-rs-processing,450pt,,Route Server Processing Model}
 @caption{Announcement processing model implemented by the Route Server}
 @end float
 

@@ -1,3 +1,17 @@
+2006-03-31 Paul Jakma <paul.jakma@sun.com>
+
+	* fig*.txt: New files, txt versions of the diagrammes for the
+	  info file.
+	* protocol.texi: Document the new version 1 header.
+	* routeserver.texi: Explicitly specify scaling widths for the
+	  figures, only way to make them look reasonable, sadly.
+	  Try fix some formatting and explicitely note lists as being
+	  bulleted.
+	* Makefile.am: convert seems to do png to pdf just fine. No
+	  need for intermediate eps.
+	  Add txt figure expansions and list as dependencies and
+	  EXTRA_DIST files.
+
 2006-02-19 Paul Jakma <paul.jakma@sun.com>
 
 	* quagga.info: update auto-built file.
