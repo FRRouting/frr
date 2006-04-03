@@ -111,14 +111,16 @@
 		<service_fmri
 			value='svc:/system/filesystem/usr:default' />
 	</dependency>
-	
+
+	<!-- Depends on Work-In-Progress, not yet in SNV
 	<dependency name='net'
 		grouping='require_all'
 		restart_on='none'
 		type='service'>
 		<service_fmri value='svc:/network/routing/ipv4-routing' />
 	</dependency>
-
+	-->
+	
 	<dependency name='zebra'
 			grouping='require_all'
 			restart_on='restart'
@@ -204,12 +206,14 @@
 			value='svc:/system/filesystem/usr:default' />
 	</dependency>
 	
+	<!-- Depends on WIP, not yet in SNV
 	<dependency name='net'
 		grouping='require_all'
 		restart_on='none'
 		type='service'>
 		<service_fmri value='svc:/network/routing/ipv6-routing' />
 	</dependency>
+	-->
 
 	<dependency name='zebra'
 			grouping='require_all'
@@ -296,12 +300,14 @@
 			value='svc:/system/filesystem/usr:default' />
 	</dependency>
 	
+	<!-- Depends on WIP, not yet in SNV
 	<dependency name='net'
 		grouping='require_all'
 		restart_on='none'
 		type='service'>
 		<service_fmri value='svc:/network/routing/ipv4-routing' />
 	</dependency>
+	-->
 
 	<dependency name='zebra'
 			grouping='require_all'
@@ -388,12 +394,14 @@
 			value='svc:/system/filesystem/usr:default' />
 	</dependency>
 	
+	<!-- Depends on WIP, not yet in SNV
 	<dependency name='net'
 		grouping='require_all'
 		restart_on='none'
 		type='service'>
 		<service_fmri value='svc:/network/routing/ipv6-routing' />
 	</dependency>
+	-->
 
 	<dependency name='zebra'
 			grouping='require_all'
@@ -480,7 +488,8 @@
 		<service_fmri
 			value='svc:/system/filesystem/usr:default' />
 	</dependency>
-
+	
+	<!-- Depends on WIP, not yet in SNV
 	<dependency name='net'
 		grouping='require_any'
 		restart_on='none'
@@ -488,6 +497,7 @@
 		<service_fmri value='svc:/network/routing/ipv6-routing' />
 		<service_fmri value='svc:/network/routing/ipv4-routing' />
 	</dependency>
+	-->
 	
 	<dependency name='zebra'
 			grouping='optional_all'
