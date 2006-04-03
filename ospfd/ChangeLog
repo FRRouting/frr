@@ -1,3 +1,20 @@
+2006-04-03 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Fix issues with handling of Vlinks and entries
+	  in the nbrs route-table which were highlighted by the
+	  nsm/nbr_self fixes from bug #234. Many thanks to Juergen
+	  Kammer for his help and efforts in testing out debug patches to
+	  pinpoint the issue.
+	* ospf_interface.c: (ospf_vl_new) Add nbr_self for Vlink.
+	* ospf_neighbor.c: (ospf_nbr_key) new static function, helper
+	  to create key in nbrs table for a given nbr.
+	  (ospf_nbr_delete) Use ospf_nbr_key. Add an assert() to
+	  document an expected state.
+	  (ospf_nbr_add_self) Ditto.
+	  (ospf_nbr_lookup_by_addr) Add an assert.
+	* ospf_nsm.c: (nsm_kill_nbr) Can never kill the nbr_self
+	  psuedo-neighbour.
+
 2006-03-27 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_lsa.c: (ospf_lsa_checksum) Add an explicit cast to avoid

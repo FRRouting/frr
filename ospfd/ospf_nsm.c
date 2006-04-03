@@ -440,6 +440,11 @@ nsm_kill_nbr (struct ospf_neighbor *nbr)
   /* call it here because we cannot call it from ospf_nsm_event */
   nsm_change_state (nbr, NSM_Down);
   
+  /* killing nbr_self is invalid */
+  assert (nbr != nbr->oi->nbr_self);
+  if (nbr == nbr->oi->nbr_self)
+    return 1;
+  
   /* Reset neighbor. */
   nsm_reset_nbr (nbr);
 

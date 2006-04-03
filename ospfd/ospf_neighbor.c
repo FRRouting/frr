@@ -43,6 +43,26 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_dump.h"
 
+/* Fill in the the 'key' as appropriate to retrieve the entry for nbr
+ * from the ospf_interface's nbrs table. Indexed by interface address
+ * for all cases except Virtual-link interfaces, where neighbours are
+ * indexed by router-ID instead.
+ */
+static void
+ospf_nbr_key (struct ospf_interface *oi, struct ospf_neighbor *nbr,
+              struct prefix *key)
+{
+  key->family = AF_INET;
+  key->prefixlen = IPV4_MAX_BITLEN;
+
+  /* vlinks are indexed by router-id */
+  if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+    key->u.prefix4 = nbr->router_id;
+  else
+    key->u.prefix4 = nbr->src;
+  return;
+}
+
 struct ospf_neighbor *
 ospf_nbr_new (struct ospf_interface *oi)
 {
@@ -134,20 +154,22 @@ ospf_nbr_delete (struct ospf_neighbor *nbr)
   struct prefix p;
 
   oi = nbr->oi;
-
-  /* Unlink ospf neighbor from the interface. */
-  p.family = AF_INET;
-  p.prefixlen = IPV4_MAX_BITLEN;
-
-  /* vlinks are indexed by router-id */
-  if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-    p.u.prefix4 = nbr->router_id;
-  else
-  p.u.prefix4 = nbr->src;
+  
+  /* get appropriate prefix 'key' */
+  ospf_nbr_key (oi, nbr, &p);
 
   rn = route_node_lookup (oi->nbrs, &p);
   if (rn)
     {
+      /* If lookup for a NBR succeeds, the leaf route_node could
+       * only exist because there is (or was) a nbr there.
+       * If the nbr was deleted, the leaf route_node should have
+       * lost its last refcount too, and be deleted.
+       * Therefore a looked-up leaf route_node in nbrs table
+       * should never have NULL info.
+       */
+      assert (rn->info);
+      
       if (rn->info)
 	{
 	  rn->info = NULL;
@@ -185,24 +207,9 @@ ospf_nbr_bidirectional (struct in_addr *router_id,
 void
 ospf_nbr_add_self (struct ospf_interface *oi)
 {
-  struct ospf_neighbor *nbr;
   struct prefix p;
   struct route_node *rn;
 
-  p.family = AF_INET;
-  p.prefixlen = 32;
-  p.u.prefix4 = oi->address->u.prefix4;
-
-  rn = route_node_get (oi->nbrs, &p);
-  if (rn->info)
-    {
-      /* There is already pseudo neighbor. */
-      nbr = rn->info;
-      route_unlock_node (rn);
-    }
-  else
-    rn->info = oi->nbr_self;
-  
   /* Initial state */
   oi->nbr_self->address = *oi->address;
   oi->nbr_self->priority = OSPF_IF_PARAM (oi, priority);
@@ -223,6 +230,19 @@ ospf_nbr_add_self (struct ospf_interface *oi)
         SET_FLAG (oi->nbr_self->options, OSPF_OPTION_NP);
         break;
     }
+  
+  /* Add nbr_self to nbrs table */
+  ospf_nbr_key (oi, oi->nbr_self, &p);
+  
+  rn = route_node_get (oi->nbrs, &p);
+  if (rn->info)
+    {
+      /* There is already pseudo neighbor. */
+      assert (oi->nbr_self == rn->info);
+      route_unlock_node (rn);
+    }
+  else
+    rn->info = oi->nbr_self;
 }
 
 /* Get neighbor count by status.
@@ -281,6 +301,9 @@ ospf_nbr_lookup_by_addr (struct route_table *nbrs,
   rn = route_node_lookup (nbrs, &p);
   if (! rn)
     return NULL;
+  
+  /* See comment in ospf_nbr_delete */
+  assert (rn->info);
 
   if (rn->info == NULL)
     {
@@ -439,4 +462,3 @@ ospf_nbr_get (struct ospf_interface *oi, struct ospf_header *ospfh,
 
   return nbr;
 }
-  
