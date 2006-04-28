@@ -1,3 +1,14 @@
+2006-04-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripd.c: (rip_update_process) Try to fix the logic for sending
+	  an updated on each connected network.  The new code will
+	  attempt to send the update on each connected network, whereas
+	  the previous code seemed to be attempting to avoid sending
+	  more than one RIPv1 update on a given interface, but was coded
+	  incorrectly.  The actual effect of the old code was to send
+	  an update only on the first connected address in the cases
+	  where the interface is not multicast, or RIPv2 is not being used.
+
 2006-01-30 Alain Ritoux <alain.ritoux@6wind.com>
 
         * ripd.c: correct bug that allowed route learnt through RIP to take

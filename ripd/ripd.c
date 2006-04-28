@@ -2498,42 +2498,28 @@ rip_update_process (int route_type)
 
       if (ri->running)
 	{
+	  /* 
+	   * If there is no version configuration in the interface,
+	   * use rip's version setting. 
+	   */
+	  int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ?
+		       rip->version_send : ri->ri_send);
+
 	  if (IS_RIP_DEBUG_EVENT) 
-	    {
-	      if (ifp->name) 
-		zlog_debug ("SEND UPDATE to %s ifindex %d",
-			   ifp->name, ifp->ifindex);
-	      else
-		zlog_debug ("SEND UPDATE to _unknown_ ifindex %d",
-			   ifp->ifindex);
-	    }
+	    zlog_debug("SEND UPDATE to %s ifindex %d",
+		       (ifp->name ? ifp->name : "_unknown_"), ifp->ifindex);
 
           /* send update on each connected network */
 	  for (ALL_LIST_ELEMENTS (ifp->connected, ifnode, ifnnode, connected))
 	    {
-	      struct prefix_ipv4 *ifaddr;
-              int done = 0;
-	      /* 
-               * If there is no version configuration in the interface,
-               * use rip's version setting. 
-               */
-	      int vsend = ((ri->ri_send == RI_RIP_UNSPEC) ?
-			   rip->version_send : ri->ri_send);
-
-              ifaddr = (struct prefix_ipv4 *) connected->address;
-
-	      if (ifaddr->family != AF_INET)
-		continue;
-
-              if ((vsend & RIPv1) && !done)
-	        rip_update_interface (connected, RIPv1, route_type);
-              if ((vsend & RIPv2) && if_is_multicast(ifp))
-	        rip_update_interface (connected, RIPv2, route_type);
-              done = 1;
-              if (!(vsend & RIPv2) || !if_is_multicast(ifp))
-                break;
-		
-	  }
+	      if (connected->address->family == AF_INET)
+	        {
+		  if (vsend & RIPv1)
+		    rip_update_interface (connected, RIPv1, route_type);
+		  if ((vsend & RIPv2) && if_is_multicast(ifp))
+		    rip_update_interface (connected, RIPv2, route_type);
+		}
+	    }
 	}
     }
 
