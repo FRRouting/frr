@@ -123,10 +123,10 @@ extern struct attr *bgp_attr_aggregate_intern (struct bgp *, u_char,
 extern bgp_size_t bgp_packet_attribute (struct bgp *bgp, struct peer *, 
                                  struct stream *, struct attr *, 
                                  struct prefix *, afi_t, safi_t, 
-                                 struct peer *, struct prefix_rd *, char *);
+                                 struct peer *, struct prefix_rd *, u_char *);
 extern bgp_size_t bgp_packet_withdraw (struct peer *peer, struct stream *s, 
                                 struct prefix *p, afi_t, safi_t, 
-                                struct prefix_rd *, char *);
+                                struct prefix_rd *, u_char *);
 extern void bgp_dump_routes_attr (struct stream *, struct attr *,
 				  struct prefix *);
 extern unsigned int attrhash_key_make (struct attr *);

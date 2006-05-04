@@ -1350,7 +1350,7 @@ bgp_size_t
 bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 		      struct stream *s, struct attr *attr, struct prefix *p,
 		      afi_t afi, safi_t safi, struct peer *from,
-		      struct prefix_rd *prd, char *tag)
+		      struct prefix_rd *prd, u_char *tag)
 {
   size_t cp;
   unsigned int aspath_data_size;
@@ -1703,7 +1703,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 bgp_size_t
 bgp_packet_withdraw (struct peer *peer, struct stream *s, struct prefix *p,
 		     afi_t afi, safi_t safi, struct prefix_rd *prd,
-		     char *tag)
+		     u_char *tag)
 {
   unsigned long cp;
   unsigned long attrlen_pnt;

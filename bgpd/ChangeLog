@@ -1,3 +1,13 @@
+2006-05-04 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) VPNv4 fixes. Certain VPNv4 code was not enabled.
+	  See bug #210.
+	* bgp_attr.{c,h}: (bgp_packet_{withdraw,attribute}) Tag should be
+	  u_char really.
+	* bgp_packet.c: (bgp_{update,withdraw}_packet) Enable some
+	  VPNv4 code which inexplicably was ifdef'd out. comments from
+	  a tester on IRC suggest this fixes bug #210.
+
 2006-03-30 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_community.c: (community_gettoken) Unknown token should
