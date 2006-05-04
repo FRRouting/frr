@@ -1,3 +1,19 @@
+2006-05-04 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Fixes for bugs #261 and 262. Thanks to
+	  Konstantin V. Gavrilenko <kos@arhont.com> for the problem
+	  reports, testing of a series of proposed patches and comment
+	  on the proposed changes in behaviour.
+	* rip_interface.c: (ip_rip_authentication_mode_cmd) Parse all
+	  of the command before making any changes to configured state.
+	* ripd.c: (rip_read) RIP version control should be absolute and
+          always apply, fixes bug #261 by allowing RIPv1 to be disabled.
+	  Fix bug #262: If authentication is enabled, then
+	  unauthenticated packets should not be accepted. We do however
+	  make an exception for RIPv1 REQUEST packets, to which we will
+	  reply as RIPv1 can now be disabled fully, to allow ripd to
+	  still provide routing /information/ to simple devices.
+ 
 2006-04-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripd.c: (rip_update_process) Try to fix the logic for sending
