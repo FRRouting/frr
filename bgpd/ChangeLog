@@ -7,6 +7,21 @@
 	* bgp_packet.c: (bgp_{update,withdraw}_packet) Enable some
 	  VPNv4 code which inexplicably was ifdef'd out. comments from
 	  a tester on IRC suggest this fixes bug #210.
+	* bgp_route.c: (general) Fix logical bug in clearing, noted
+	  by Chris Caputo in [quagga-users 6728] - clearing depended on
+	  at least one route being added to workqueue, in order for
+	  workqueue completion function to restart FSM. However, if no
+	  routes are cleared, then the completion function never is
+	  called, it needs to be called manually if the workqueue
+	  didn't get scheduled. 
+	  Finally, clearing is per-peer-session, not per AFI/SAFI, so
+	  the FSM synchronisation should be in bgp_clear_route_table.
+	  (bgp_clear_route_table) Wrong place for FSM/clearing
+	  synchronisation, move to..
+	  (bgp_clear_route) FSM/clearing synchronisation should be
+	  here.
+	  If no routes were cleared, no workqueue scheduled, call
+	  the completion func to ensure FSM kicks off again.
 
 2006-03-30 Paul Jakma <paul.jakma@sun.com>
 

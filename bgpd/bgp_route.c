@@ -2555,6 +2555,25 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
   /* If still no table => afi/safi isn't configured at all or smth. */
   if (! table)
     return;
+  
+  for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
+    {
+      if (rn->info == NULL)
+        continue;
+      
+      bgp_lock_node (rn); /* unlocked: bgp_clear_node_queue_del */
+      work_queue_add (peer->clear_node_queue, rn);
+    }
+  return;
+}
+
+void
+bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
+{
+  struct bgp_node *rn;
+  struct bgp_table *table;
+  struct peer *rsclient;
+  struct listnode *node, *nnode;
 
   if (peer->clear_node_queue == NULL)
     bgp_clear_node_queue_init (peer);
@@ -2576,25 +2595,6 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
       peer_lock (peer); /* bgp_clear_node_complete */
     }
   
-  for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
-    {
-      if (rn->info == NULL)
-        continue;
-      
-      bgp_lock_node (rn); /* unlocked: bgp_clear_node_queue_del */
-      work_queue_add (peer->clear_node_queue, rn);
-    }
-  return;
-}
-
-void
-bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
-{
-  struct bgp_node *rn;
-  struct bgp_table *table;
-  struct peer *rsclient;
-  struct listnode *node, *nnode;
-
   if (safi != SAFI_MPLS_VPN)
     bgp_clear_route_table (peer, afi, safi, NULL, NULL);
   else
@@ -2608,6 +2608,12 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
       if (CHECK_FLAG(rsclient->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
         bgp_clear_route_table (peer, afi, safi, NULL, rsclient);
     }
+  
+  /* If no routes were cleared, nothing was added to workqueue, run the
+   * completion function now.
+   */
+  if (!peer->clear_node_queue->thread)
+    bgp_clear_node_complete (peer->clear_node_queue);
 }
   
 void
