@@ -20,6 +20,7 @@ version 1 as described in RFC1058.
 @menu
 * Starting and Stopping ripd::  
 * RIP Configuration::           
+* RIP Version Control::
 * How to Announce RIP route::   
 * Filtering RIP Routes::        
 * RIP Metric Manipulation::     
@@ -117,18 +118,6 @@ carrying out any of the RIP commands.
 Disable RIP.
 @end deffn
 
-RIP can be configured to process either Version 1 or Version 2 packets,
-the default mode is Version 2.  If no version is specified, then the RIP
-daemon will default to Version 2.  If RIP is set to Version
-1, the setting "Version 1" will be displayed, but the setting "Version
-2" will not be displayed whether or not Version 2 is set explicitly as
-the version of RIP being used. The version can be specified globally, and
-also on a per-interface basis (see below).
-
-@deffn {RIP Command} {version @var{version}} {}
-Set RIP process's version.  @var{version} can be `1'' or `2''.
-@end deffn
-
 @deffn {RIP Command} {network @var{network}} {}
 @deffnx {RIP Command} {no network @var{network}} {}
 Set the RIP enable interface by @var{network}.  The interfaces which
@@ -187,26 +176,6 @@ as @var{default} to make ripd default to passive on all interfaces.
 The default is to be passive on all interfaces.
 @end deffn
 
-RIP version handling
-
-@deffn {Interface command} {ip rip send version @var{version}} {}
-@var{version} can be `1', `2', `1 2'.  This configuration command
-overrides the router's rip version setting.  The command will enable the
-selected interface to send packets with RIP Version 1, RIP Version 2, or
-both.  In the case of '1 2', packets will be both broadcast and
-multicast.
-
-The default is to send only version 2.
-@end deffn
-
-@deffn {Interface command} {ip rip receive version @var{version}} {}
-Version setting for incoming RIP packets.  This command will enable the
-selected interface to receive packets in RIP Version 1, RIP Version 2,
-or both.
-
-The default is to receive both versions.
-@end deffn
-
 RIP split-horizon
 
 @deffn {Interface command} {ip split-horizon} {}
@@ -214,6 +183,59 @@ RIP split-horizon
 Control split-horizon on the interface.  Default is @code{ip
 split-horizon}.  If you don't perform split-horizon on the interface,
 please specify @code{no ip split-horizon}.
+@end deffn
+
+@node RIP Version Control
+@section RIP Version Control
+
+RIP can be configured to send either Version 1 or Version 2 packets.
+The default is to send RIPv2 while accepting both RIPv1 and RIPv2 (and
+replying with packets of the appropriate version for REQUESTS /
+triggered updates). The version to receive and send can be specified
+globally, and further overriden on a per-interface basis if needs be
+for send and receive seperately (see below).
+
+It is important to note that RIPv1 can not be authenticated. Further,
+if RIPv1 is enabled then RIP will reply to REQUEST packets, sending the
+state of its RIP routing table to any remote routers that ask on
+demand. For a more detailed discussion on the security implications of
+RIPv1 see @ref{RIP Authentication}.
+
+@deffn {RIP Command} {version @var{version}} {}
+Set RIP version to accept for reads and send.  @var{version}
+can be either `1'' or `2''. 
+
+Disabling RIPv1 by specifying version 2 is STRONGLY encouraged,
+@xref{RIP Authentication}. This may become the default in a future
+release.
+
+Default: Send Version 2, and accept either version.
+@end deffn
+
+@deffn {RIP Command} {no version} {}
+Reset the global version setting back to the default.
+@end deffn
+
+@deffn {Interface command} {ip rip send version @var{version}} {}
+@var{version} can be `1', `2' or `1 2'.
+
+This interface command overrides the global rip version setting, and
+selects which version of RIP to send packets with, for this interface
+specifically. Choice of RIP Version 1, RIP Version 2, or both versions. 
+In the latter case, where `1 2' is specified, packets will be both
+broadcast and multicast.
+
+Default: Send packets according to the global version (version 2)
+@end deffn
+
+@deffn {Interface command} {ip rip receive version @var{version}} {}
+@var{version} can be `1', `2' or `1 2'.
+
+This interface command overrides the global rip version setting, and
+selects which versions of RIP packets will be accepted on this
+interface. Choice of RIP Version 1, RIP Version 2, or both.
+
+Default: Accept packets according to the global setting (both 1 and 2).
 @end deffn
 
 @node How to Announce RIP route
@@ -427,6 +449,29 @@ RIP, valid metric values are from 1 to 16.
 
 @node RIP Authentication
 @section RIP Authentication
+
+RIPv2 allows packets to be authenticated via either an insecure plain
+text password, included with the packet, or via a more secure MD5 based
+@acronym{HMAC, keyed-Hashing for Message AuthentiCation},
+RIPv1 can not be authenticated at all, thus when authentication is
+configured @code{ripd} will discard routing updates received via RIPv1
+packets.
+
+However, unless RIPv1 reception is disabled entirely, 
+@xref{RIP Version Control}, RIPv1 REQUEST packets which are received,
+which query the router for routing information, will still be honoured
+by @code{ripd}, and @code{ripd} WILL reply to such packets. This allows 
+@code{ripd} to honour such REQUESTs (which sometimes is used by old
+equipment and very simple devices to bootstrap their default route),
+while still providing security for route updates which are received.
+
+In short: Enabling authentication prevents routes being updated by
+unauthenticated remote routers, but still can allow routes (I.e. the
+entire RIP routing table) to be queried remotely, potentially by anyone
+on the internet, via RIPv1.
+
+To prevent such unauthenticated querying of routes disable RIPv1,
+@xref{RIP Version Control}.
 
 @deffn {Interface command} {ip rip authentication mode md5} {}
 @deffnx {Interface command} {no ip rip authentication mode md5} {}

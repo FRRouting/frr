@@ -1,3 +1,13 @@
+2006-05-04 Paul Jakma <paul.jakma@sun.com>
+
+	* ripd.texi: Add Version Control as a distinct section.
+	  Expand Version Control section with overview text,
+	  touching on insecurity of RIPv1 and referencing
+	  authentication section, cleanup text of various version
+	  commands.
+	  RIP Authentication: Add overview text, refer to RIPv1 version
+	  control, which is required to completely secure RIP.
+
 2006-03-31 Paul Jakma <paul.jakma@sun.com>
 
 	* fig*.txt: New files, txt versions of the diagrammes for the
