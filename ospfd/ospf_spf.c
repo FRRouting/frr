@@ -46,6 +46,13 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_dump.h"
 
+static void ospf_vertex_free (void *);
+/* List of allocated vertices, to simplify cleanup of SPF.
+ * Not thread-safe obviously. If it ever needs to be, it'd have to be
+ * dynamically allocated at begin of ospf_spf_calculate
+ */
+static struct list vertex_list = { .del = ospf_vertex_free };
+
 /* Heap related functions, for the managment of the candidates, to
  * be used with pqueue. */
 static int
@@ -54,9 +61,25 @@ cmp (void * node1 , void * node2)
   struct vertex * v1 = (struct vertex *) node1;
   struct vertex * v2 = (struct vertex *) node2;
   if (v1 != NULL && v2 != NULL )
-    return (v1->distance - v2->distance);
-  else
-    return 0;
+    {
+      /* network vertices must be chosen before router vertices of same
+       * cost in order to find all shortest paths
+       */
+      if ( ((v1->distance - v2->distance) == 0)
+          && (v1->type != v2->type))
+        {
+          switch (v1->type)
+            {
+              case OSPF_VERTEX_NETWORK:
+                return -1;
+              case OSPF_VERTEX_ROUTER:
+                return 1;
+            }
+        }
+      else
+        return (v1->distance - v2->distance);
+    }
+  return 0;
 }
 
 static void
@@ -81,7 +104,8 @@ vertex_nexthop_free (struct vertex_nexthop *nh)
 }
 
 /* Free the canonical nexthop objects for an area, ie the nexthop objects
- * attached to the first-hop router vertices.
+ * attached to the first-hop router vertices, and any intervening network
+ * vertices.
  */
 static void
 ospf_canonical_nexthops_free (struct vertex *root)
@@ -106,11 +130,14 @@ ospf_canonical_nexthops_free (struct vertex *root)
       
       /* Free child nexthops pointing back to this root vertex */
       for (ALL_LIST_ELEMENTS (child->parents, n2, nn2, vp))
-        if (vp->parent == root)
+        if (vp->parent == root && vp->nexthop)
           vertex_nexthop_free (vp->nexthop);
     }
 }      
 
+/* TODO: Parent list should be excised, in favour of maintaining only
+ * vertex_nexthop, with refcounts.
+ */
 static struct vertex_parent *
 vertex_parent_new (struct vertex *v, int backlink, struct vertex_nexthop *hop)
 {
@@ -128,7 +155,7 @@ vertex_parent_new (struct vertex *v, int backlink, struct vertex_nexthop *hop)
 }
 
 static void
-vertex_parent_free (struct vertex_parent *p)
+vertex_parent_free (void *p)
 {
   XFREE (MTYPE_OSPF_VERTEX_PARENT, p);
 }
@@ -148,48 +175,39 @@ ospf_vertex_new (struct ospf_lsa *lsa)
   new->distance = 0;
   new->children = list_new ();
   new->parents = list_new ();
+  new->parents->del = vertex_parent_free;
   
+  listnode_add (&vertex_list, new);
+  
+  if (IS_DEBUG_OSPF_EVENT)
+    zlog_debug ("%s: Created %s vertex %s", __func__,
+                new->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
+                inet_ntoa (new->lsa->id));
   return new;
 }
 
-/* Recursively free the given vertex and all its children 
- * and associated parent and nexthop information
- * Parent should indicate which parent is trying to free this child,
- * NULL parent is only valid for the root vertex.
- */
 static void
-ospf_vertex_free (struct vertex *v, const struct ospf_area *area)
+ospf_vertex_free (void *data)
 {
-  struct listnode *node, *nnode;
-  struct vertex *vc;
+  struct vertex *v = data;
   
-  assert (*(v->stat) == LSA_SPF_IN_SPFTREE);
+  if (IS_DEBUG_OSPF_EVENT)
+    zlog_debug ("%s: Free %s vertex %s", __func__,
+                v->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
+                inet_ntoa (v->lsa->id));
   
-  /* recurse down the tree, freeing furthest children first */
-  if (v->children)
-    {
-      for (ALL_LIST_ELEMENTS (v->children, node, nnode, vc))
-        ospf_vertex_free (vc, area);
-      
-      list_delete (v->children);
-      v->children = NULL;
-    }
-  
-  /* The vertex itself can only be freed when the last remaining parent
-   * with a reference to this vertex frees this vertex. Until then, we
-   * just cleanup /one/ parent association (doesnt matter which) -
-   * essentially using the parents list as a refcount.
+  /* There should be no parents potentially holding references to this vertex
+   * Children however may still be there, but presumably referenced by other
+   * vertices
    */
-  if (listcount (v->parents) > 0)
-    {
-      vertex_parent_free (listgetdata (listhead (v->parents)));
-      list_delete_node (v->parents, listhead (v->parents));
-
-      if (listcount (v->parents) > 0)
-        return; /* there are still parent references left */
-    }
+  //assert (listcount (v->parents) == 0);
   
-  list_delete (v->parents);
+  if (v->children)
+    list_delete (v->children);
+  v->children = NULL;
+  
+  if (v->parents)
+    list_delete (v->parents);
   v->parents = NULL;
   
   v->lsa = NULL;
@@ -248,7 +266,7 @@ ospf_vertex_add_parent (struct vertex *v)
   struct vertex_parent *vp;
   struct listnode *node;
   
-  assert (v && v->children);
+  assert (v && v->parents);
   
   for (ALL_LIST_ELEMENTS_RO (v->parents, node, vp))
     {
@@ -264,7 +282,7 @@ static void
 ospf_spf_init (struct ospf_area *area)
 {
   struct vertex *v;
-
+  
   /* Create root node. */
   v = ospf_vertex_new (area->router_lsa_self);
 
@@ -455,7 +473,7 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
     }
 
   if (v == area->spf)
-    {
+    {      
       /* 16.1.1 para 4.  In the first case, the parent vertex (V) is the
 	 root (the calculating router itself).  This means that the 
 	 destination is either a directly connected network or directly
@@ -556,11 +574,35 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
                   ospf_spf_add_parent (v, w, nh);
                 }
               else
-                {
-                  zlog_info("ospf_nexthop_calculation(): "
-                            "could not determine nexthop for link");
-                }
+                zlog_info("ospf_nexthop_calculation(): "
+                          "could not determine nexthop for link");
             } /* end point-to-point link from V to W */
+          else if (l->m[0].type == LSA_LINK_TYPE_VIRTUALLINK)
+            {
+              struct ospf_vl_data *vl_data;
+              
+              /* VLink implementation limitations: 
+               * a) vl_data can only reference one nexthop, so no ECMP
+               *    to backbone through VLinks. Though transit-area 
+               *    summaries may be considered, and those can be ECMP.
+               * b) We can only use /one/ VLink, even if multiple ones
+               *    exist this router through multiple transit-areas.
+               */
+              vl_data = ospf_vl_lookup (area->ospf, NULL, l->link_id);
+              
+              if (vl_data 
+                  && CHECK_FLAG (vl_data->flags, OSPF_VL_FLAG_APPROVED))
+                {
+                  nh = vertex_nexthop_new ();
+                  nh->oi = vl_data->nexthop.oi;
+                  nh->router = vl_data->nexthop.router;
+                  ospf_spf_add_parent (v, w, nh);
+                }
+              else
+                zlog_info("ospf_nexthop_calculation(): "
+                          "vl_data for VL link not found");
+            } /* end virtual-link from V to W */
+          return;
         } /* end W is a Router vertex */
       else
         {
@@ -572,8 +614,11 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
               nh->oi = oi;
               nh->router.s_addr = 0;
               ospf_spf_add_parent (v, w, nh);
+              return;
             }
         }
+      zlog_info("ospf_nexthop_calculation(): "
+                "Unknown attached link");
       return;
     } /* end V is the root */
   /* Check if W's parent is a network connected to root. */
@@ -616,6 +661,8 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
    */
   for (ALL_LIST_ELEMENTS (v->parents, node, nnode, vp))
     ospf_spf_add_parent (v, w, vp->nexthop);
+  
+  return;
 }
 
 /* RFC2328 Section 16.1 (2).
@@ -757,8 +804,9 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
 
           /* Calculate nexthop to W. */
           w->distance = distance;
-	  ospf_nexthop_calculation (area, v, w, l);
-	  pqueue_enqueue (w, candidate);
+          
+          ospf_nexthop_calculation (area, v, w, l);
+          pqueue_enqueue (w, candidate);
 	}
       else if (w_lsa->stat >= 0)
 	{
@@ -1080,8 +1128,10 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
    */
   ospf_canonical_nexthops_free (area->spf);
   
-  /* Free SPF vertices */
-  ospf_vertex_free (area->spf, area);
+  /* Free SPF vertices, but not the list. List has ospf_vertex_free
+   * as deconstructor.
+   */
+  list_delete_all_node (&vertex_list);
   
   /* Increment SPF Calculation Counter. */
   area->spf_calculation++;
@@ -1089,7 +1139,8 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
   gettimeofday (&area->ospf->ts_spf, NULL);
 
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("ospf_spf_calculate: Stop");
+    zlog_debug ("ospf_spf_calculate: Stop. %ld vertices",
+                mtype_stats_alloc(MTYPE_OSPF_VERTEX));
 }
 
 /* Timer for SPF calculation. */
@@ -1114,8 +1165,20 @@ ospf_spf_calculate_timer (struct thread *thread)
 
   /* Calculate SPF for each area. */
   for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
-    ospf_spf_calculate (area, new_table, new_rtrs);
-
+    {
+      /* Do backbone last, so as to first discover intra-area paths
+       * for any back-bone virtual-links
+       */
+      if (ospf->backbone && ospf->backbone == area)
+        continue;
+      
+      ospf_spf_calculate (area, new_table, new_rtrs);
+    }
+  
+  /* SPF for backbone, if required */
+  if (ospf->backbone)
+    ospf_spf_calculate (ospf->backbone, new_table, new_rtrs);
+  
   ospf_vl_shut_unapproved (ospf);
 
   ospf_ia_routing (ospf, new_table, new_rtrs);

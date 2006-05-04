@@ -722,7 +722,7 @@ ospf_find_vl_data (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
       return NULL;
     }
   
-  if ((vl_data = ospf_vl_lookup (area, vl_config->vl_peer)) == NULL)
+  if ((vl_data = ospf_vl_lookup (ospf, area, vl_config->vl_peer)) == NULL)
     {
       vl_data = ospf_vl_data_new (area, vl_config->vl_peer);
       if (vl_data->vl_oi == NULL)
@@ -1074,7 +1074,7 @@ DEFUN (no_ospf_area_vlink,
     {
       /* Basic VLink no command */
       /* Thats all folks! - BUGS B. strikes again!!!*/
-      if ((vl_data = ospf_vl_lookup (area, vl_config.vl_peer)))
+      if ((vl_data = ospf_vl_lookup (ospf, area, vl_config.vl_peer)))
 	ospf_vl_delete (ospf, vl_data);
 
       ospf_area_check_free (ospf, vl_config.area_id);
@@ -2736,10 +2736,27 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
       vty_out (vty, "  Internet Address %s/%d,",
 	       inet_ntoa (oi->address->u.prefix4), oi->address->prefixlen);
 
-      if (oi->connected->destination)
-	 vty_out (vty, " %s %s,",
-		  ((ifp->flags & IFF_POINTOPOINT) ? "Peer" : "Broadcast"),
-		  inet_ntoa (oi->connected->destination->u.prefix4));
+      if (oi->connected->destination || oi->type == OSPF_IFTYPE_VIRTUALLINK)
+        {
+          struct in_addr *dest;
+          const char *dstr;
+          
+          if ((ifp->flags & IFF_POINTOPOINT)
+              || oi->type == OSPF_IFTYPE_VIRTUALLINK)
+            dstr = "Peer";
+          else
+            dstr = "Broadcast";
+          
+          /* For Vlinks, showing the peer address is probably more
+           * informative than the local interface that is being used
+           */
+          if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+            dest = &oi->vl_data->peer_addr;
+          else
+            dest = &oi->connected->destination->u.prefix4;
+          
+	  vty_out (vty, " %s %s,", dstr, inet_ntoa (*dest));
+        }
 
       vty_out (vty, " Area %s%s", ospf_area_desc_string (oi->area),
 	       VTY_NEWLINE);

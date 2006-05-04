@@ -931,16 +931,36 @@ ospf_vl_if_delete (struct ospf_vl_data *vl_data)
   vlink_count--;
 }
 
+/* Look up vl_data for given peer, optionally qualified to be in the
+ * specified area. NULL area returns first found..
+ */
 struct ospf_vl_data *
-ospf_vl_lookup (struct ospf_area *area, struct in_addr vl_peer)
+ospf_vl_lookup (struct ospf *ospf, struct ospf_area *area,
+                struct in_addr vl_peer)
 {
   struct ospf_vl_data *vl_data;
   struct listnode *node;
-
-  for (ALL_LIST_ELEMENTS_RO (area->ospf->vlinks, node, vl_data))
-    if (vl_data->vl_peer.s_addr == vl_peer.s_addr &&
-        IPV4_ADDR_SAME (&vl_data->vl_area_id, &area->area_id))
-      return vl_data;
+  
+  if (IS_DEBUG_OSPF_EVENT)
+    {
+      zlog_debug ("%s: Looking for %s", __func__, inet_ntoa (vl_peer));
+      if (area)
+        zlog_debug ("%s: in area %s", __func__, inet_ntoa (area->area_id));
+    }
+  
+  for (ALL_LIST_ELEMENTS_RO (ospf->vlinks, node, vl_data))
+    {
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_debug ("%s: VL %s, peer %s", __func__,
+                    vl_data->vl_oi->ifp->name,
+                    inet_ntoa (vl_data->vl_peer));
+      
+      if (area && !IPV4_ADDR_SAME (&vl_data->vl_area_id, &area->area_id))
+        continue;
+      
+      if (IPV4_ADDR_SAME (&vl_data->vl_peer, &vl_peer))
+        return vl_data;
+    }
 
   return NULL;
 }
@@ -1005,14 +1025,15 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
 
   for (ALL_LIST_ELEMENTS_RO (v->parents, node, vp))
     {
-      vl_data->out_oi = vp->nexthop->oi;
+      vl_data->nexthop.oi = vp->nexthop->oi;
+      vl_data->nexthop.router = vp->nexthop->router;
       
       if (!IPV4_ADDR_SAME(&voi->address->u.prefix4,
-                          &vl_data->out_oi->address->u.prefix4))
+                          &vl_data->nexthop.oi->address->u.prefix4))
         changed = 1;
         
-      voi->address->u.prefix4 = vl_data->out_oi->address->u.prefix4;
-      voi->address->prefixlen = vl_data->out_oi->address->prefixlen;
+      voi->address->u.prefix4 = vl_data->nexthop.oi->address->u.prefix4;
+      voi->address->prefixlen = vl_data->nexthop.oi->address->prefixlen;
 
       break; /* We take the first interface. */
     }
@@ -1050,19 +1071,16 @@ ospf_vl_set_params (struct ospf_vl_data *vl_data, struct vertex *v)
                                      &rl->link[i].link_data))
                   changed = 1;
                 vl_data->peer_addr = rl->link[i].link_data;
-              if (IS_DEBUG_OSPF_EVENT)
-                zlog_debug ("ospf_vl_set_params: %s peer address is %s\n",
-                               vl_data->vl_oi->ifp->name, 
-                               inet_ntoa(vl_data->peer_addr));
-              return changed;
             }
         }
     }
     
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("ospf_vl_set_params: %s peer address is %s\n",
+    zlog_debug ("%s: %s peer address: %s, cost: %d,%schanged", __func__,
                vl_data->vl_oi->ifp->name,
-               inet_ntoa(vl_data->peer_addr));
+               inet_ntoa(vl_data->peer_addr),
+               voi->output_cost,
+               (changed ? " " : " un"));
                
   return changed;
 }
@@ -1088,10 +1106,10 @@ ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
     {
       if (IS_DEBUG_OSPF_EVENT)
 	{
-	  zlog_debug ("ospf_vl_up_check(): considering VL, name: %s", 
-		     vl_data->vl_oi->ifp->name);
-	  zlog_debug ("ospf_vl_up_check(): VL area: %s, peer ID: %s", 
-		     inet_ntoa (vl_data->vl_area_id),
+	  zlog_debug ("%s: considering VL, %s in area %s", __func__,
+		     vl_data->vl_oi->ifp->name,
+		     inet_ntoa (vl_data->vl_area_id));
+	  zlog_debug ("%s: peer ID: %s", __func__,
 		     inet_ntoa (vl_data->vl_peer));
 	}
 

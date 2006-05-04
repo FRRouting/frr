@@ -20,6 +20,9 @@
  * 02111-1307, USA.
  */
 
+#ifndef _QUAGGA_OSPF_SPF_H
+#define _QUAGGA_OSPF_SPF_H
+
 /* values for vertex->type */
 #define OSPF_VERTEX_ROUTER  1  /* for a Router-LSA */
 #define OSPF_VERTEX_NETWORK 2  /* for a Network-LSA */
@@ -60,3 +63,5 @@ extern void ospf_spf_calculate_schedule (struct ospf *);
 extern void ospf_rtrs_free (struct route_table *);
 
 /* void ospf_spf_calculate_timer_add (); */
+
+#endif /* _QUAGGA_OSPF_SPF_H */

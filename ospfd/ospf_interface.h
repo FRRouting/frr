@@ -24,6 +24,7 @@
 #define _ZEBRA_OSPF_INTERFACE_H
 
 #include "ospfd/ospf_packet.h"
+#include "ospfd/ospf_spf.h"
 
 #define IF_OSPF_IF_INFO(I) ((struct ospf_if_info *)((I)->info))
 #define IF_DEF_PARAMS(I) (IF_OSPF_IF_INFO (I)->def_params)
@@ -82,7 +83,7 @@ struct ospf_vl_data
   struct in_addr    vl_area_id;	   /* Transit area for this VL. */
   int format;                      /* area ID format */
   struct ospf_interface *vl_oi;	   /* Interface data structure for the VL. */
-  struct ospf_interface *out_oi;   /* The interface to go out. */
+  struct vertex_nexthop nexthop;   /* Nexthop router and oi to use */
   struct in_addr    peer_addr;	   /* Address used to reach the peer. */
   u_char flags;
 };
@@ -250,7 +251,7 @@ extern struct ospf_interface *ospf_vl_new (struct ospf *,
 					   struct ospf_vl_data *);
 extern struct ospf_vl_data *ospf_vl_data_new (struct ospf_area *,
 					      struct in_addr);
-extern struct ospf_vl_data *ospf_vl_lookup (struct ospf_area *,
+extern struct ospf_vl_data *ospf_vl_lookup (struct ospf *, struct ospf_area *,
 					    struct in_addr);
 extern void ospf_vl_data_free (struct ospf_vl_data *);
 extern void ospf_vl_add (struct ospf *, struct ospf_vl_data *);

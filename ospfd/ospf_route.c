@@ -343,8 +343,9 @@ ospf_intra_add_router (struct route_table *rt, struct vertex *v,
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_intra_add_router: LS ID: %s",
 	       inet_ntoa (lsa->header.id));
-
-  ospf_vl_up_check (area, lsa->header.id, v);
+  
+  if (!OSPF_IS_AREA_BACKBONE(area))
+    ospf_vl_up_check (area, lsa->header.id, v);
 
   if (!CHECK_FLAG (lsa->flags, ROUTER_LSA_SHORTCUT))
     area->shortcut_capability = 0;

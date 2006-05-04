@@ -1,3 +1,49 @@
+2006-04-24 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) More Virtual-link fixes, again with much help in
+	  testing / debug from Juergen Kammer. Primarily in SPF.
+	* ospf_spf.h: Add guard. ospf_interface.h will include this
+	  header.
+	* ospf_interface.h: Modify ospf_vl_lookup definition to take
+	  struct ospf as argument, so as to allow for NULL area
+	  argument.
+	  (struct ospf_vl_data) Remove out_oi, instead add a struct
+	  vertex_nexthop, to use as initial nexthop for backbone paths
+	  through a vlink.
+	* ospf_interface.c: (ospf_vl_lookup) Modified to allow
+	  NULL area to be passed to indicate "any" (first) area.
+	  Add extra debug.
+	  (ospf_vl_set_params) vl_oi -> nexthop. Add extra debug.
+	  (ospf_vl_up_check) Fix debug, inet_ntoa returns a static
+	  buffer..
+	* ospf_route.c: (ospf_intra_add_router) Vlinks dont go through
+	  backbone, don't bother checking.
+	* ospf_spf.c: (static struct list vertex_list) Record vertices
+	  that will need to be freed.
+	  (cmp) Order network before router vertices, as required,
+	  wasn't implemented.
+	  (vertex_nexthop_free) Mild additional robustness check.
+	  (vertex_parent_free) Take void argument, as this function
+	  is passed as list deconstructor for vertex parent list.
+	  (ospf_vertex_new) More debug. Set deconstructor for parent
+	  list. Track allocated vertices on the vertex_list.
+	  (ospf_vertex_free) Get rid of the tricky recursive cleanup of
+	  vertices. Now frees only the given vertex. 
+	  (ospf_vertex_add_parent) Fix assert.
+	  (ospf_nexthop_calculation) Fix calculation of nexthop for
+	  VLink vertices, lookup the vl_data and use its previously
+	  recorded nexthop information.
+	  (ospf_spf_calculate) Vertices are freed simply by deleting
+	  vertex_list nodes and letting ospf_vertex_free as deconstructor
+	  work per-node.
+	  (ospf_spf_calculate_timer) Trivial optimisation, leave
+	  backbone SPF calculation till last to reduce SPF churn on
+	  VLink updates.
+	* ospf_vty.c: (ospf_find_vl_data) update call to ospf_vl_lookup
+	  (no_ospf_area_vlink_cmd) ditto.
+	  (show_ip_ospf_interface_sub) For Vlinks, the peer address is
+	  more interesting than the output interface.
+
 2006-04-03 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) Fix issues with handling of Vlinks and entries
