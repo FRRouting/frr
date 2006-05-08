@@ -1,3 +1,9 @@
+2006-05-08 Paul Jakma <paul.jakma@sun.com>
+
+	* ripng_routemap.c: (route_set_ipv6_nexthop_local_compile) bug
+	  #242, s/in_addr/in6_addr to fix crash. 
+	  Thanks to jithinvachery+quagga@gmail.com.
+
 2006-01-19 Paul Jakma <paul.jakma@sun.com>
 
         * (general) various miscellaneous compiler warning fixes.

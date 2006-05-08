@@ -416,7 +416,7 @@ route_set_ipv6_nexthop_local_compile (const char *arg)
   int ret;
   struct in6_addr *address;
 
-  address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct in_addr));
+  address = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct in6_addr));
 
   ret = inet_pton (AF_INET6, arg, address);
 
