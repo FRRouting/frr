@@ -1,3 +1,8 @@
+2006-05-08 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_community.c: (community_str2com) Coverity CID#62, fix
+	  double-free, use-after-free.
+
 2006-05-04 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) VPNv4 fixes. Certain VPNv4 code was not enabled.

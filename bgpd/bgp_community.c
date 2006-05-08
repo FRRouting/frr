@@ -596,7 +596,7 @@ community_str2com (const char *str)
 	default:
 	  if (com)
 	    community_free (com);
-	  break;
+	  return NULL;
 	}
     } while (str);
   
