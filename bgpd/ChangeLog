@@ -2,6 +2,10 @@
 
 	* bgp_community.c: (community_str2com) Coverity CID#62, fix
 	  double-free, use-after-free.
+	* bgp_route.c: (bgp_afi_node_get) given table should never be
+	  NULL, check/assert this.
+	  (bgp_static_update) Bug #240. Rsclients should only be passed
+	  the static update if they are configured for the afi,safi.
 
 2006-05-04 Paul Jakma <paul.jakma@sun.com>
 

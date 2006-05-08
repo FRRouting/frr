@@ -65,7 +65,11 @@ bgp_afi_node_get (struct bgp_table *table, afi_t afi, safi_t safi, struct prefix
 {
   struct bgp_node *rn;
   struct bgp_node *prn = NULL;
-
+  
+  assert (table);
+  if (!table)
+    return NULL;
+  
   if (safi == SAFI_MPLS_VPN)
     {
       prn = bgp_node_get (table, (struct prefix *) prd);
@@ -3177,7 +3181,8 @@ bgp_static_update (struct bgp *bgp, struct prefix *p,
 
   for (ALL_LIST_ELEMENTS (bgp->rsclient, node, nnode, rsclient))
     {
-      bgp_static_update_rsclient (rsclient, p, bgp_static, afi, safi);
+      if (CHECK_FLAG (rsclient->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
+        bgp_static_update_rsclient (rsclient, p, bgp_static, afi, safi);
     }
 }
 
