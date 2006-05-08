@@ -30,10 +30,6 @@ immediately.
 @itemx --keep_kernel
 When zebra starts up, don't delete old self inserted routes.
 
-@item -l
-@itemx --log_mode
-Set verbose logging on.
-
 @item -r
 @itemx --retain
 When program terminates, retain routes added by zebra.
