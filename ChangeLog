@@ -1,3 +1,7 @@
+2006-05-10 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: Bump to 0.99.4
+
 2006-03-30 Paul Jakma <paul.jakma@sun.com>
 
 	* TODO: Add reminder for useful MED functionality we should
