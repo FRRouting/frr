@@ -1896,7 +1896,9 @@ DEFUN (no_ospf_area_filter_list,
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[0]);
 
-  area = ospf_area_lookup_by_area_id (ospf, area_id);
+  if ((area = ospf_area_lookup_by_area_id (ospf, area_id)) == NULL)
+    return CMD_SUCCESS;
+  
   plist = prefix_list_lookup (AFI_IP, argv[1]);
   if (strncmp (argv[2], "in", 2) == 0)
     {

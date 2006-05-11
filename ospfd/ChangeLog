@@ -4,6 +4,8 @@
 	  ensure check for NULL result, make vty messages consistent. 
 	  (show_ip_ospf_interface) Missing NULL check on ospf_lookup
 	  result, fixes Coverity CID #70.
+	  (no_ospf_area_filter_list) Check NULL result from
+	  ospf_area_lookup_by_area_id, fixes Coverity CID #69
 
 2006-04-24 Paul Jakma <paul.jakma@sun.com>
 
