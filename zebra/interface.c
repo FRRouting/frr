@@ -407,9 +407,9 @@ if_delete_update (struct interface *ifp)
 	  ifc = listgetdata (node);
 	  p = ifc->address;
 	  
-	  if (p->family == AF_INET)
+	  if (p->family == AF_INET
+	      && (rn = route_node_lookup (zebra_if->ipv4_subnets, p)))
 	    {
-	      rn = route_node_lookup (zebra_if->ipv4_subnets, p);
 	      route_unlock_node (rn);
 	      addr_list = (struct list *) rn->info;
 	      
