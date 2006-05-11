@@ -435,6 +435,8 @@ ripng_interface_address_add (int command, struct zclient *zclient,
 
   if (p->family == AF_INET6)
     {
+      struct ripng_interface *ri = c->ifp->info;
+      
       if (IS_RIPNG_DEBUG_ZEBRA)
 	zlog_debug ("RIPng connected address %s/%d add",
 		   inet6_ntoa(p->u.prefix6),
@@ -444,19 +446,15 @@ ripng_interface_address_add (int command, struct zclient *zclient,
       ripng_apply_address_add(c);
 
       /* Let's try once again whether the interface could be activated */
-      if (c->ifp) {
-        struct ripng_interface *ri = c->ifp->info;
+      if (!ri->running) {
+        /* Check if this interface is RIP enabled or not.*/
+        ripng_enable_apply (c->ifp);
 
-        if (!ri->running) {
-          /* Check if this interface is RIP enabled or not.*/
-          ripng_enable_apply (c->ifp);
+        /* Apply distribute list to the interface. */
+        ripng_distribute_update_interface (c->ifp);
 
-          /* Apply distribute list to the interface. */
-          ripng_distribute_update_interface (c->ifp);
-
-          /* Check interface routemap. */
-          ripng_if_rmap_update_interface (c->ifp);
-        }
+        /* Check interface routemap. */
+        ripng_if_rmap_update_interface (c->ifp);
       }
 
     }

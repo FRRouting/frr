@@ -1,3 +1,8 @@
+2006-05-11 Paul Jakma <paul.jakma@sun.com>
+
+	* ripng_interface.c: (ripng_interface_address_add) Remove
+	  unneeded NULL check, Coverity CID #72.
+
 2006-05-08 Paul Jakma <paul.jakma@sun.com>
 
 	* ripng_routemap.c: (route_set_ipv6_nexthop_local_compile) bug
