@@ -1,3 +1,10 @@
+2006-05-11 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_vty.c: (general) Audit ospf_lookup calls in commands,
+	  ensure check for NULL result, make vty messages consistent. 
+	  (show_ip_ospf_interface) Missing NULL check on ospf_lookup
+	  result, fixes Coverity CID #70.
+
 2006-04-24 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) More Virtual-link fixes, again with much help in

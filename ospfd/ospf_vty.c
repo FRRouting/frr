@@ -2860,6 +2860,11 @@ DEFUN (show_ip_ospf_interface,
   struct listnode *node;
 
   ospf = ospf_lookup ();
+  if (ospf == NULL)
+    {
+      vty_out (vty, "OSPF Routing Process not enabled%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
 
   /* Show All Interfaces. */
   if (argc == 0)
@@ -3976,7 +3981,10 @@ DEFUN (show_ip_ospf_database,
 
   ospf = ospf_lookup ();
   if (ospf == NULL)
-    return CMD_SUCCESS;
+    {
+      vty_out (vty, " OSPF Routing Process not enabled%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
 
   vty_out (vty, "%s       OSPF Router with ID (%s)%s%s", VTY_NEWLINE,
            inet_ntoa (ospf->router_id), VTY_NEWLINE, VTY_NEWLINE);
@@ -4114,7 +4122,10 @@ DEFUN (show_ip_ospf_database_type_adv_router,
 
   ospf = ospf_lookup ();
   if (ospf == NULL)
-    return CMD_SUCCESS;
+    {
+      vty_out (vty, " OSPF Routing Process not enabled%s", VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
 
   vty_out (vty, "%s       OSPF Router with ID (%s)%s%s", VTY_NEWLINE,
            inet_ntoa (ospf->router_id), VTY_NEWLINE, VTY_NEWLINE);
@@ -4736,10 +4747,7 @@ ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
   struct ospf_if_params *params;
   struct ospf_interface *oi;
   struct route_node *rn;
-  struct ospf *ospf;
       
-  ospf = ospf_lookup ();
-
   params = IF_DEF_PARAMS (ifp);
   
   if (nbr_str)
@@ -4787,7 +4795,8 @@ ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
   /* Update timer values in neighbor structure. */
   if (nbr_str)
     {
-      if (ospf)
+      struct ospf *ospf;
+      if ((ospf = ospf_lookup()))
 	{
 	  oi = ospf_if_lookup_by_local_addr (ospf, ifp, addr);
 	  if (oi)
@@ -4877,9 +4886,6 @@ DEFUN (no_ip_ospf_dead_interval,
   struct ospf_if_params *params;
   struct ospf_interface *oi;
   struct route_node *rn;
-  struct ospf *ospf;
-  
-  ospf = ospf_lookup ();
 
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
@@ -4914,7 +4920,9 @@ DEFUN (no_ip_ospf_dead_interval,
   /* Update timer values in neighbor structure. */
   if (argc == 1)
     {
-      if (ospf)
+      struct ospf *ospf;
+      
+      if ((ospf = ospf_lookup()))
 	{
 	  oi = ospf_if_lookup_by_local_addr (ospf, ifp, addr);
 	  if (oi)
@@ -7138,10 +7146,9 @@ DEFUN (show_ip_ospf_border_routers,
 {
   struct ospf *ospf;
 
-  ospf = ospf_lookup ();
-  if (ospf == NULL)
+  if ((ospf = ospf_lookup ()) == NULL)
     {
-      vty_out (vty, "OSPF is not enabled%s", VTY_NEWLINE);
+      vty_out (vty, " OSPF Routing Process not enabled%s", VTY_NEWLINE);
       return CMD_SUCCESS;
     }
 
@@ -7170,10 +7177,9 @@ DEFUN (show_ip_ospf_route,
 {
   struct ospf *ospf;
 
-  ospf = ospf_lookup ();
-  if (ospf == NULL)
+  if ((ospf = ospf_lookup ()) == NULL)
     {
-      vty_out (vty, "OSPF is not enabled%s", VTY_NEWLINE);
+      vty_out (vty, " OSPF Routing Process not enabled%s", VTY_NEWLINE);
       return CMD_SUCCESS;
     }
 
