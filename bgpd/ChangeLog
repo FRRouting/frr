@@ -2,6 +2,9 @@
 
 	* bgp_attr.c: (bgp_packet_attribute) Remove dead code, Coverity
 	  CID #1
+	* bgp_route.c: (bgp_static_update_main) Remove useless NULL
+	  check, code already assumes bgp_static can not be NULL, 
+	  fixes CID #7.
 
 2006-05-08 Paul Jakma <paul.jakma@sun.com>
 

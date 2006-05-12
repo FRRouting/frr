@@ -3073,15 +3073,17 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
   struct attr *attr_new;
   int ret;
 
+  assert (bgp_static);
+  if (!bgp_static)
+    return;
+
   rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi, p, NULL);
 
   bgp_attr_default_set (&attr, BGP_ORIGIN_IGP);
-  if (bgp_static)
-    {
-      attr.nexthop = bgp_static->igpnexthop;
-      attr.med = bgp_static->igpmetric;
-      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
-    }
+  
+  attr.nexthop = bgp_static->igpnexthop;
+  attr.med = bgp_static->igpmetric;
+  attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
 
   /* Apply route-map. */
   if (bgp_static->rmap.name)
