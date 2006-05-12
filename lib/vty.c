@@ -985,18 +985,12 @@ vty_describe_command (struct vty *vty)
   switch (ret)
     {
     case CMD_ERR_AMBIGUOUS:
-      cmd_free_strvec (vline);
       vty_out (vty, "%% Ambiguous command.%s", VTY_NEWLINE);
-      vty_prompt (vty);
-      vty_redraw_line (vty);
-      return;
+      goto out;
       break;
     case CMD_ERR_NO_MATCH:
-      cmd_free_strvec (vline);
       vty_out (vty, "%% There is no matched command.%s", VTY_NEWLINE);
-      vty_prompt (vty);
-      vty_redraw_line (vty);
-      return;
+      goto out;
       break;
     }  
 
@@ -1066,6 +1060,7 @@ vty_describe_command (struct vty *vty)
 	vty_describe_fold (vty, width, desc_width, desc);
     }
 
+out:
   cmd_free_strvec (vline);
   vector_free (describe);
 
