@@ -8,6 +8,9 @@
 	  ospf_area_lookup_by_area_id, fixes Coverity CID #69
 	* ospf_route.c: (ospf_route_delete_same_ext) Fix deref before
 	  NULL check by moving into check-protected block, fix CID #49.
+	* ospf_abr.c: (ospf_area_range_cost_set) Shouldn't create a new
+	  range, should just lookup to see if one exists, the new range
+	  is just leaked. Fixes CID #46.
 
 2006-04-24 Paul Jakma <paul.jakma@sun.com>
 

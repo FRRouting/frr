@@ -244,7 +244,7 @@ ospf_area_range_cost_set (struct ospf *ospf, struct in_addr area_id,
   if (area == NULL)
     return 0;
 
-  range = ospf_area_range_new (p);
+  range = ospf_area_range_lookup (area, p);
   if (range == NULL)
     return 0;
 
