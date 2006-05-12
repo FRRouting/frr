@@ -464,13 +464,11 @@ ospf_update_router_route (struct ospf *ospf,
 
   if ((ospf->backbone == NULL) &&
       (ospf->abr_type != OSPF_ABR_SHORTCUT))
-
-     /* no BB area, not Shortcut ABR, exiting */
-     return;
- 
-  or = ospf_find_asbr_route_through_area (rtrs, p, ospf->backbone);
-
-  if (or == NULL)
+     return; /* no BB area, not Shortcut ABR, exiting */
+  
+  /* find the backbone route, if possible */
+  if ((ospf->backbone == NULL)
+      || !(or = ospf_find_asbr_route_through_area (rtrs, p, ospf->backbone)))
     {
       if (ospf->abr_type != OSPF_ABR_SHORTCUT)
 

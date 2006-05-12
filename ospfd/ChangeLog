@@ -13,6 +13,9 @@
 	* ospf_asbr.h: (ospf_redistribute_withdraw) update declaration
 	* ospf_zebra.c: (ospf_redistribute_unset) update call to
 	  ospf_redistribute_withdraw to match.
+	* ospf_ia.c: (ospf_update_router_route) ospf->backbone could be
+	  NULL when passed to ospf_find_asbr_route_through_area,
+	  check for NULL first, CID #14.
 
 2006-05-11 Paul Jakma <paul.jakma@sun.com>
 
