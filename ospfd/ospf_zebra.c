@@ -615,8 +615,7 @@ ospf_redistribute_default_set (struct ospf *ospf, int originate,
   if (ospf->router_id.s_addr == 0)
     ospf->external_origin |= (1 << DEFAULT_ROUTE);
   else
-    thread_add_timer (master, ospf_default_originate_timer,
-                      &ospf->default_originate, 1);
+    thread_add_timer (master, ospf_default_originate_timer, ospf, 1);
 
   ospf_asbr_status_update (ospf, ++ospf->redistribute);
 

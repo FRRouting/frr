@@ -2243,22 +2243,18 @@ ospf_default_external_info (struct ospf *ospf)
 int
 ospf_default_originate_timer (struct thread *thread)
 {
-  int *origin;
   struct prefix_ipv4 p;
   struct in_addr nexthop;
   struct external_info *ei;
   struct ospf *ospf;
   
-  ospf = ospf_lookup ();
-
-  /* Get originate flags. */
-  origin = THREAD_ARG (thread);
+  ospf = THREAD_ARG (thread);
 
   p.family = AF_INET;
   p.prefix.s_addr = 0;
   p.prefixlen = 0;
 
-  if (*origin == DEFAULT_ORIGINATE_ALWAYS)
+  if (ospf->default_originate == DEFAULT_ORIGINATE_ALWAYS)
     {
       /* If there is no default route via redistribute,
 	 then originate AS-external-LSA with nexthop 0 (self). */

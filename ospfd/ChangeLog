@@ -11,6 +11,13 @@
 	* ospf_abr.c: (ospf_area_range_cost_set) Shouldn't create a new
 	  range, should just lookup to see if one exists, the new range
 	  is just leaked. Fixes CID #46.
+	* ospf_lsa.c: (ospf_default_originate_timer) Let the thread
+	  take (struct ospf *) as thread argument, rather than (struct
+	  ospf *)->default_originate, thus avoiding having to call
+	  ospf_lookup.
+	* ospf_zebra.c: (ospf_redistribute_default_set) change setup
+	  of ospf_default_originate_timer thread to match.
+	* ospfd.c: (ospf_router_id_update) ditto.
 
 2006-04-24 Paul Jakma <paul.jakma@sun.com>
 
