@@ -77,7 +77,7 @@ extern void aspath_free (struct aspath *);
 extern struct aspath *aspath_intern (struct aspath *);
 extern void aspath_unintern (struct aspath *);
 extern const char *aspath_print (struct aspath *);
-extern void aspath_print_vty (struct vty *, struct aspath *);
+extern void aspath_print_vty (struct vty *, const char *, struct aspath *);
 extern void aspath_print_all_vty (struct vty *);
 extern unsigned int aspath_key_make (struct aspath *);
 extern int aspath_loop_check (struct aspath *, as_t);

@@ -1501,9 +1501,10 @@ aspath_print (struct aspath *as)
 
 /* Printing functions */
 void
-aspath_print_vty (struct vty *vty, struct aspath *as)
+aspath_print_vty (struct vty *vty, const char *format, struct aspath *as)
 {
-  vty_out (vty, "%s", as->str);
+  assert (format);
+  vty_out (vty, format, as->str);
 }
 
 static void

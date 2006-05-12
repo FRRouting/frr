@@ -2,10 +2,15 @@
 
 	* bgp_attr.c: (bgp_packet_attribute) Remove dead code, Coverity
 	  CID #1
+	* bgp_aspath.{c,h}: (aspath_print_vty) take a format string,
+	  so as to reduce burden on callers, all in bgp_route.c
 	* bgp_route.c: (bgp_static_update_main) Remove useless NULL
 	  check, code already assumes bgp_static can not be NULL, 
 	  fixes CID #7.
 	  (bgp_static_update_rsclient) ditto, CID #6
+	  (route_vty_out{,tmp}) Update to match aspath_print_vty,
+	  simplifying checks needed to get spacing right. CID #4,#5.
+	  ({damp,flap}_route_vty_out) Ditto, CID #9, #10
 
 2006-05-08 Paul Jakma <paul.jakma@sun.com>
 

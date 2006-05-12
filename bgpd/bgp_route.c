@@ -5153,16 +5153,13 @@ route_vty_out (struct vty *vty, struct prefix *p,
 
       vty_out (vty, "%7u ",attr->weight);
     
-    /* Print aspath */
-    if (attr->aspath)
-      aspath_print_vty (vty, attr->aspath);
+      /* Print aspath */
+      if (attr->aspath)
+        aspath_print_vty (vty, "%s ", attr->aspath);
 
-    /* Print origin */
-    if (strlen (attr->aspath->str) == 0)
+      /* Print origin */
       vty_out (vty, "%s", bgp_origin_str[attr->origin]);
-    else
-      vty_out (vty, " %s", bgp_origin_str[attr->origin]);
-  }
+    }
   vty_out (vty, "%s", VTY_NEWLINE);
 }  
 
@@ -5217,16 +5214,13 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p,
 
       vty_out (vty, "%7d ",attr->weight);
     
-    /* Print aspath */
-    if (attr->aspath)
-      aspath_print_vty (vty, attr->aspath);
+      /* Print aspath */
+      if (attr->aspath)
+        aspath_print_vty (vty, "%s ", attr->aspath);
 
-    /* Print origin */
-    if (strlen (attr->aspath->str) == 0)
+      /* Print origin */
       vty_out (vty, "%s", bgp_origin_str[attr->origin]);
-    else
-      vty_out (vty, " %s", bgp_origin_str[attr->origin]);
-  }
+    }
 
   vty_out (vty, "%s", VTY_NEWLINE);
 }  
@@ -5314,13 +5308,10 @@ damp_route_vty_out (struct vty *vty, struct prefix *p,
     {
       /* Print aspath */
       if (attr->aspath)
-	aspath_print_vty (vty, attr->aspath);
+	aspath_print_vty (vty, "%s ", attr->aspath);
 
       /* Print origin */
-      if (strlen (attr->aspath->str) == 0)
-	vty_out (vty, "%s", bgp_origin_str[attr->origin]);
-      else
-	vty_out (vty, " %s", bgp_origin_str[attr->origin]);
+      vty_out (vty, "%s", bgp_origin_str[attr->origin]);
     }
   vty_out (vty, "%s", VTY_NEWLINE);
 }
@@ -5377,13 +5368,10 @@ flap_route_vty_out (struct vty *vty, struct prefix *p,
     {
       /* Print aspath */
       if (attr->aspath)
-	aspath_print_vty (vty, attr->aspath);
+	aspath_print_vty (vty, "%s ", attr->aspath);
 
       /* Print origin */
-      if (strlen (attr->aspath->str) == 0)
-	vty_out (vty, "%s", bgp_origin_str[attr->origin]);
-      else
-	vty_out (vty, " %s", bgp_origin_str[attr->origin]);
+      vty_out (vty, "%s", bgp_origin_str[attr->origin]);
     }
   vty_out (vty, "%s", VTY_NEWLINE);
 }
@@ -5408,7 +5396,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	  if (aspath_count_hops (attr->aspath) == 0)
 	    vty_out (vty, "Local");
 	  else
-	    aspath_print_vty (vty, attr->aspath);
+	    aspath_print_vty (vty, "%s", attr->aspath);
 	}
 
       if (CHECK_FLAG (binfo->flags, BGP_INFO_REMOVED))
