@@ -3615,18 +3615,13 @@ ospf_lsa_unique_id (struct ospf *ospf,
 }
 
 
-#define LSA_ACTION_ORIGN_RTR  1
-#define LSA_ACTION_ORIGN_NET  2
-#define LSA_ACTION_FLOOD_AREA 3
-#define LSA_ACTION_FLOOD_AS   4
-#define LSA_ACTION_FLUSH_AREA 5
-#define LSA_ACTION_FLUSH_AS   6
+#define LSA_ACTION_FLOOD_AREA 1
+#define LSA_ACTION_FLUSH_AREA 2
 
 struct lsa_action
 {
   u_char action;
   struct ospf_area *area;
-  struct ospf_interface *oi; 
   struct ospf_lsa *lsa;
 };
 
@@ -3634,9 +3629,6 @@ static int
 ospf_lsa_action (struct thread *t)
 {
   struct lsa_action *data;
-  struct ospf *ospf;
-
-  ospf = ospf_lookup ();
 
   data = THREAD_ARG (t);
 
@@ -3646,23 +3638,11 @@ ospf_lsa_action (struct thread *t)
 
   switch (data->action)
     {
-    case LSA_ACTION_ORIGN_RTR:
-      ospf_router_lsa_refresh (data->area->router_lsa_self);
-      break;
-    case LSA_ACTION_ORIGN_NET:
-      ospf_network_lsa_originate (data->oi);
-      break;
     case LSA_ACTION_FLOOD_AREA:
       ospf_flood_through_area (data->area, NULL, data->lsa);
       break;
-    case LSA_ACTION_FLOOD_AS:
-      ospf_flood_through_as (ospf, NULL, data->lsa);
-      break;
     case LSA_ACTION_FLUSH_AREA:
       ospf_lsa_flush_area (data->lsa, data->area);
-      break;
-    case LSA_ACTION_FLUSH_AS:
-      ospf_lsa_flush_as (ospf, data->lsa);
       break;
     }
 

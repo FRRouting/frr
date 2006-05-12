@@ -1,3 +1,11 @@
+2006-05-12 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_lsa.c: (ospf_lsa_action) Get rid of the ospf_lookup
+	  call, which is not checked for NULL return, by stripping out
+	  functionality which is never used, hence fixing Coverity CID
+	  #29.
+	  (struct lsa_action) remove unused member.
+
 2006-05-11 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_vty.c: (general) Audit ospf_lookup calls in commands,
