@@ -1,3 +1,8 @@
+2006-05-13 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_lsa.c: (ospf_translated_nssa_refresh) fix the sanity
+	  check to match the assert, small error in CID #13 fix.
+
 2006-05-12 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_lsa.c: (ospf_lsa_action) Get rid of the ospf_lookup

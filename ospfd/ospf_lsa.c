@@ -2002,7 +2002,7 @@ ospf_translated_nssa_refresh (struct ospf *ospf, struct ospf_lsa *type7,
   
   /* Sanity checks. */
   assert (type7 || type5);
-  if (!type7 || !type5)
+  if (!(type7 || type5))
     return NULL;
   if (type7)
     assert (type7->data);
