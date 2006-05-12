@@ -1,3 +1,8 @@
+2006-05-12 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_attr.c: (bgp_packet_attribute) Remove dead code, Coverity
+	  CID #1
+
 2006-05-08 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_community.c: (community_str2com) Coverity CID#62, fix

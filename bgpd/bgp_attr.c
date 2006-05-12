@@ -1505,13 +1505,8 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 
       if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
 	stream_put_in_addr (s, &attr->originator_id);
-      else
-	{
-	  if (from)
-	    stream_put_in_addr (s, &from->remote_id);
-	  else
-	    stream_put_in_addr (s, &attr->originator_id);
-	}
+      else 
+        stream_put_in_addr (s, &from->remote_id);
 
       /* Cluster list. */
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
