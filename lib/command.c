@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.51 2005/10/26 05:49:54 paul Exp $
+   $Id: command.c,v 1.52 2006/05/12 23:19:37 paul Exp $
  
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -1785,6 +1785,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 
   if (vector_active (vline) == 0)
     {
+      vector_free (cmd_vector);
       *status = CMD_ERR_NO_MATCH;
       return NULL;
     }
