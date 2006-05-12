@@ -16,6 +16,11 @@
 	* ospf_ia.c: (ospf_update_router_route) ospf->backbone could be
 	  NULL when passed to ospf_find_asbr_route_through_area,
 	  check for NULL first, CID #14.
+	* ospf_ism.c: (ism_change_state) NULL check on oi->area is
+	  useless, it's always valid. Only possibility where it
+ 	  couldn't be is if there is a race between abr_task and
+	  cleaning up oi's, in which case a NULL check here isn't going
+	  to do anything. Fixes CID #15.
 
 2006-05-11 Paul Jakma <paul.jakma@sun.com>
 

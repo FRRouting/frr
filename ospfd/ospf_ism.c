@@ -569,19 +569,16 @@ ism_change_state (struct ospf_interface *oi, int state)
     ospf_check_abr_status (oi->ospf);
 
   /* Originate router-LSA. */
-  if (oi->area)
+  if (state == ISM_Down)
     {
-      if (state == ISM_Down)
-	{
-	  if (oi->area->act_ints > 0)
-	    oi->area->act_ints--;
-	}
-      else if (old_state == ISM_Down)
-	oi->area->act_ints++;
-
-      /* schedule router-LSA originate. */
-      ospf_router_lsa_timer_add (oi->area);
+      if (oi->area->act_ints > 0)
+        oi->area->act_ints--;
     }
+  else if (old_state == ISM_Down)
+    oi->area->act_ints++;
+
+  /* schedule router-LSA originate. */
+  ospf_router_lsa_timer_add (oi->area);
 
   /* Originate network-LSA. */
   if (old_state != ISM_DR && state == ISM_DR)
