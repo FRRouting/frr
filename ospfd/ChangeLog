@@ -5,6 +5,8 @@
 	  functionality which is never used, hence fixing Coverity CID
 	  #29.
 	  (struct lsa_action) remove unused member.
+	* ospf_interface.c: (ospf_if_exists) Fix missing NULL return
+	  check on ospf_lookup, CID #27.
 
 2006-05-11 Paul Jakma <paul.jakma@sun.com>
 

@@ -397,7 +397,8 @@ ospf_if_exists (struct ospf_interface *oic)
   struct ospf *ospf;
   struct ospf_interface *oi;
 
-  ospf = ospf_lookup ();
+  if ((ospf = ospf_lookup ()) == NULL)
+    return NULL;
 
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     if (oi == oic)
