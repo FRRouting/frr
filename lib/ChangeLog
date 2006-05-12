@@ -4,6 +4,8 @@
 	  of prefix and typestr strings, Coverity CID #3.
 	* command.c: (cmd_complete_command_real) Fix leak of cmd_vector
 	  in error case, Coverity CID #37.
+	  (cmd_describe_command_real) Fix return of freed pointer when
+	  no-match, CID #55.
 	* vty.c: (vty_describe_command) fix leak of describe vector in
 	  error path, CID #39.
 
