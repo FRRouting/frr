@@ -5,6 +5,7 @@
 	* bgp_route.c: (bgp_static_update_main) Remove useless NULL
 	  check, code already assumes bgp_static can not be NULL, 
 	  fixes CID #7.
+	  (bgp_static_update_rsclient) ditto, CID #6
 
 2006-05-08 Paul Jakma <paul.jakma@sun.com>
 

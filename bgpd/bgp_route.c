@@ -2937,15 +2937,17 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
 
   bgp = rsclient->bgp;
 
+  assert (bgp_static);
+  if (!bgp_static)
+    return;
+
   rn = bgp_afi_node_get (rsclient->rib[afi][safi], afi, safi, p, NULL);
 
   bgp_attr_default_set (&attr, BGP_ORIGIN_IGP);
-  if (bgp_static)
-    {
-      attr.nexthop = bgp_static->igpnexthop;
-      attr.med = bgp_static->igpmetric;
-      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
-    }
+
+  attr.nexthop = bgp_static->igpnexthop;
+  attr.med = bgp_static->igpmetric;
+  attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
 
   new_attr = attr;
 
