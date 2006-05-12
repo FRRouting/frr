@@ -2002,6 +2002,8 @@ ospf_translated_nssa_refresh (struct ospf *ospf, struct ospf_lsa *type7,
   
   /* Sanity checks. */
   assert (type7 || type5);
+  if (!type7 || !type5)
+    return NULL;
   if (type7)
     assert (type7->data);
   if (type5)
@@ -2055,7 +2057,7 @@ ospf_translated_nssa_refresh (struct ospf *ospf, struct ospf_lsa *type7,
       if (IS_DEBUG_OSPF_NSSA)
         zlog_debug ("ospf_translated_nssa_refresh(): no Type-7 found for "
                    "Type-5 LSA Id %s",
-                   inet_ntoa (type7->data->id));
+                   inet_ntoa (type5->data->id));
       return NULL;
     }
 

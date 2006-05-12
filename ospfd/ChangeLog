@@ -5,7 +5,11 @@
 	  functionality which is never used, hence fixing Coverity CID
 	  #29.
 	  (struct lsa_action) remove unused member.
-	* ospf_interface.c: (ospf_if_exists) Fix missing NULL return
+	  (ospf_translated_nssa_refresh) Add non-assert sanity check,
+	  in case DEBUG isn't defined.
+	  Debug message when no type7 exists should print the ID from
+	  the type5, not the type7, fixes CID #13.
+ 	* ospf_interface.c: (ospf_if_exists) Fix missing NULL return
 	  check on ospf_lookup, CID #27.
 	* ospf_asbr.c: (ospf_redistribute_withdraw) remove ospf_lookup
 	  call by taking the struct ospf * as argument, which the
