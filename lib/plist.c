@@ -804,6 +804,13 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
       return CMD_SUCCESS;
     }
 
+  /* We must have, at a minimum, both the type and prefix here */
+  if ((typestr == NULL) || (prefix == NULL))
+    {
+      vty_out (vty, "%% Both prefix and type required%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   /* Check sequence number. */
   if (seq)
     seqnum = atoi (seq);
