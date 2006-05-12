@@ -195,9 +195,9 @@ ospf_route_delete_same_ext(struct route_table *external_routes,
           struct prefix_ipv4 *p = (struct prefix_ipv4 *)(&rn->p);
           if ( (ext_rn = route_node_lookup (external_routes, (struct prefix *)p)) )
             {
-              ospf_zebra_delete (p, ext_rn->info);
               if (ext_rn->info)
                 {
+                  ospf_zebra_delete (p, ext_rn->info);
                   ospf_route_free( ext_rn->info);
                   ext_rn->info = NULL;
                 }
