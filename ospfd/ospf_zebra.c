@@ -565,7 +565,7 @@ ospf_redistribute_unset (struct ospf *ospf, int type)
   ospf->dmetric[type].value = -1;
 
   /* Remove the routes from OSPF table. */
-  ospf_redistribute_withdraw (type);
+  ospf_redistribute_withdraw (ospf, type);
 
   ospf_asbr_status_update (ospf, --ospf->redistribute);
 

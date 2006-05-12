@@ -270,13 +270,10 @@ ospf_asbr_status_update (struct ospf *ospf, u_char status)
 }
 
 void
-ospf_redistribute_withdraw (u_char type)
+ospf_redistribute_withdraw (struct ospf *ospf, u_char type)
 {
-  struct ospf *ospf;
   struct route_node *rn;
   struct external_info *ei;
-
-  ospf = ospf_lookup ();
 
   /* Delete external info for specified type. */
   if (EXTERNAL_INFO (type))

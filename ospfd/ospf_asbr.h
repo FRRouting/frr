@@ -70,7 +70,7 @@ extern struct ospf_route *ospf_external_route_lookup (struct ospf *,
                                                struct prefix_ipv4 *);
 extern void ospf_asbr_status_update (struct ospf *, u_char);
 
-extern void ospf_redistribute_withdraw (u_char);
+extern void ospf_redistribute_withdraw (struct ospf *, u_char);
 extern void ospf_asbr_check (void);
 extern void ospf_schedule_asbr_check (void);
 extern void ospf_asbr_route_install_lsa (struct ospf_lsa *);

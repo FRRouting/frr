@@ -7,6 +7,12 @@
 	  (struct lsa_action) remove unused member.
 	* ospf_interface.c: (ospf_if_exists) Fix missing NULL return
 	  check on ospf_lookup, CID #27.
+	* ospf_asbr.c: (ospf_redistribute_withdraw) remove ospf_lookup
+	  call by taking the struct ospf * as argument, which the
+	  caller has, fixing CID #28.
+	* ospf_asbr.h: (ospf_redistribute_withdraw) update declaration
+	* ospf_zebra.c: (ospf_redistribute_unset) update call to
+	  ospf_redistribute_withdraw to match.
 
 2006-05-11 Paul Jakma <paul.jakma@sun.com>
 
