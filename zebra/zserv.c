@@ -52,34 +52,6 @@ static void zebra_event (enum event event, int sock, struct zserv *client);
 
 extern struct zebra_privs_t zserv_privs;
 
-/* For logging of zebra meesages. */
-static const char *zebra_command_str [] =
-{
-  "NULL",
-  "ZEBRA_INTERFACE_ADD",
-  "ZEBRA_INTERFACE_DELETE",
-  "ZEBRA_INTERFACE_ADDRESS_ADD",
-  "ZEBRA_INTERFACE_ADDRESS_DELETE",
-  "ZEBRA_INTERFACE_UP",
-  "ZEBRA_INTERFACE_DOWN",
-  "ZEBRA_IPV4_ROUTE_ADD",
-  "ZEBRA_IPV4_ROUTE_DELETE",
-  "ZEBRA_IPV6_ROUTE_ADD",
-  "ZEBRA_IPV6_ROUTE_DELETE",
-  "ZEBRA_REDISTRIBUTE_ADD",
-  "ZEBRA_REDISTRIBUTE_DELETE",
-  "ZEBRA_REDISTRIBUTE_DEFAULT_ADD",
-  "ZEBRA_REDISTRIBUTE_DEFAULT_DELETE",
-  "ZEBRA_IPV4_NEXTHOP_LOOKUP",
-  "ZEBRA_IPV6_NEXTHOP_LOOKUP",
-  "ZEBRA_IPV4_IMPORT_LOOKUP",
-  "ZEBRA_IPV6_IMPORT_LOOKUP",
-  "ZEBRA_ROUTER_ID_ADD",
-  "ZEBRA_ROUTER_ID_DELETE",
-  "ZEBRA_ROUTER_ID_UPDATE"
-};
-
-
 static void zebra_client_close (struct zserv *client);
 
 static int
@@ -1256,7 +1228,7 @@ zebra_client_read (struct thread *thread)
 
   if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
     zlog_debug ("zebra message received [%s] %d", 
-	       zebra_command_str[command], length);
+	       zserv_command_string (command), length);
 
   switch (command) 
     {
