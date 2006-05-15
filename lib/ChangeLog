@@ -1,3 +1,15 @@
+2006-05-15 Paul Jakma <paul.jakma@sun.com>
+
+	* log.c: (general) Generalise struct zebra_route_desc into
+	  struct zebra_desc_table and, similar to route_types, add a
+	  command_types table to describe Zserv protocol commands.
+	  (route_types[]) use a macro to use designated initialisers
+	  while avoiding tedious duplication.
+	  (zserv_command_string) lookup string from zebra_desc_table,
+	  similar to zebra_route_string
+	* zebra.h: Add declaration for zserv_command_string, adjust the
+	  comments to reflect zebra_desc_table.
+
 2006-05-13 Paul Jakma <paul.jakma@sun.com>
 
 	* vty.c: (vty_describe_command) CID #39 fix was too hasty, just

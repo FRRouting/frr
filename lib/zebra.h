@@ -417,13 +417,17 @@ struct in_pktinfo
 #define ZEBRA_ROUTE_HSLS		 10
 #define ZEBRA_ROUTE_MAX                  11
 
-/* Note: whenever a new route type is added (or the numbering is changed),
-   the route_types[] table in lib/log.c must be updated! */
+/* Note: whenever a new route-type or zserv-command is added the
+ * corresponding {command,route}_types[] table in lib/log.c MUST be
+ * updated! */
 
 /* Map a route type to a string.  For example, ZEBRA_ROUTE_RIPNG -> "ripng". */
 extern const char *zebra_route_string(unsigned int route_type);
 /* Map a route type to a char.  For example, ZEBRA_ROUTE_RIPNG -> 'R'. */
 extern char zebra_route_char(unsigned int route_type);
+/* Map a zserv command type to the same string, 
+ * e.g. ZEBRA_INTERFACE_ADD -> "ZEBRA_INTERFACE_ADD" */
+extern const char *zserv_command_string (unsigned int command);
 
 /* Zebra's family types. */
 #define ZEBRA_FAMILY_IPV4                1

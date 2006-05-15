@@ -1,5 +1,5 @@
 /*
- * $Id: log.c,v 1.26 2005/10/01 17:38:07 ajs Exp $
+ * $Id: log.c,v 1.27 2006/05/15 16:56:51 paul Exp $
  *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -704,29 +704,61 @@ safe_strerror(int errnum)
   return (s != NULL) ? s : "Unknown error";
 }
 
-/* Note: this table must match the ordering in lib/zebra.h */
-static const struct zebra_route_desc {
-  u_int zroute;
+struct zebra_desc_table
+{
+  unsigned int type;
   const char *string;
   char chr;
-} route_types[] = {
-  { ZEBRA_ROUTE_SYSTEM, "system", 'X' },
-  { ZEBRA_ROUTE_KERNEL, "kernel", 'K' },
-  { ZEBRA_ROUTE_CONNECT, "connected", 'C' },
-  { ZEBRA_ROUTE_STATIC, "static", 'S' },
-  { ZEBRA_ROUTE_RIP, "rip", 'R' },
-  { ZEBRA_ROUTE_RIPNG, "ripng", 'R' },
-  { ZEBRA_ROUTE_OSPF, "ospf", 'O' },
-  { ZEBRA_ROUTE_OSPF6, "ospf6", 'O' },
-  { ZEBRA_ROUTE_ISIS, "isis", 'I' },
-  { ZEBRA_ROUTE_BGP, "bgp", 'B' },
-  { ZEBRA_ROUTE_HSLS, "hsls", 'H' },
 };
 
-static const struct zebra_route_desc *
+#define DESC_ENTRY(T,S,C) [(T)] = { (T), (S), (C) }
+static const struct zebra_desc_table route_types[] = {
+  DESC_ENTRY	(ZEBRA_ROUTE_SYSTEM,	"system",	'X' ),
+  DESC_ENTRY	(ZEBRA_ROUTE_KERNEL,	"kernel",	'K' ),
+  DESC_ENTRY	(ZEBRA_ROUTE_CONNECT,	"connected",	'C' ),
+  DESC_ENTRY	(ZEBRA_ROUTE_STATIC,	"static",	'S' ),
+  DESC_ENTRY	(ZEBRA_ROUTE_RIP,	"rip",		'R' ),
+  DESC_ENTRY	(ZEBRA_ROUTE_RIPNG,	"ripng",	'R' ),
+  DESC_ENTRY	(ZEBRA_ROUTE_OSPF,	"ospf",		'O' ),
+  DESC_ENTRY	(ZEBRA_ROUTE_OSPF6,	"ospf6",	'O' ),
+  DESC_ENTRY	(ZEBRA_ROUTE_ISIS,	"isis",		'I' ),
+  DESC_ENTRY	(ZEBRA_ROUTE_BGP,	"bgp",		'B' ),
+  DESC_ENTRY	(ZEBRA_ROUTE_HSLS,	"hsls",		'H' ),
+};
+#undef DESC_ENTRY
+
+#define DESC_ENTRY(T) [(T)] = { (T), (#T), '\0' }
+static const struct zebra_desc_table command_types[] = {
+  DESC_ENTRY	(ZEBRA_INTERFACE_ADD),
+  DESC_ENTRY	(ZEBRA_INTERFACE_DELETE),
+  DESC_ENTRY	(ZEBRA_INTERFACE_ADDRESS_ADD),
+  DESC_ENTRY	(ZEBRA_INTERFACE_ADDRESS_DELETE),
+  DESC_ENTRY	(ZEBRA_INTERFACE_UP),
+  DESC_ENTRY	(ZEBRA_INTERFACE_DOWN),
+  DESC_ENTRY	(ZEBRA_IPV4_ROUTE_ADD),
+  DESC_ENTRY	(ZEBRA_IPV4_ROUTE_DELETE),
+  DESC_ENTRY	(ZEBRA_IPV6_ROUTE_ADD),
+  DESC_ENTRY	(ZEBRA_IPV6_ROUTE_DELETE),
+  DESC_ENTRY	(ZEBRA_REDISTRIBUTE_ADD),
+  DESC_ENTRY	(ZEBRA_REDISTRIBUTE_DELETE),
+  DESC_ENTRY	(ZEBRA_REDISTRIBUTE_DEFAULT_ADD),
+  DESC_ENTRY	(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE),
+  DESC_ENTRY	(ZEBRA_IPV4_NEXTHOP_LOOKUP),
+  DESC_ENTRY	(ZEBRA_IPV6_NEXTHOP_LOOKUP),
+  DESC_ENTRY	(ZEBRA_IPV4_IMPORT_LOOKUP),
+  DESC_ENTRY	(ZEBRA_IPV6_IMPORT_LOOKUP),
+  DESC_ENTRY	(ZEBRA_INTERFACE_RENAME),
+  DESC_ENTRY	(ZEBRA_ROUTER_ID_ADD),
+  DESC_ENTRY	(ZEBRA_ROUTER_ID_DELETE),
+  DESC_ENTRY	(ZEBRA_ROUTER_ID_UPDATE),
+};
+#undef DESC_ENTRY
+
+static const struct zebra_desc_table unknown = { 0, "unknown", '?' };
+
+static const struct zebra_desc_table *
 zroute_lookup(u_int zroute)
 {
-  static const struct zebra_route_desc unknown = { 0, "unknown", '?' };
   u_int i;
 
   if (zroute >= sizeof(route_types)/sizeof(route_types[0]))
@@ -734,11 +766,11 @@ zroute_lookup(u_int zroute)
       zlog_err("unknown zebra route type: %u", zroute);
       return &unknown;
     }
-  if (zroute == route_types[zroute].zroute)
+  if (zroute == route_types[zroute].type)
     return &route_types[zroute];
   for (i = 0; i < sizeof(route_types)/sizeof(route_types[0]); i++)
     {
-      if (zroute == route_types[i].zroute)
+      if (zroute == route_types[i].type)
         {
 	  zlog_warn("internal error: route type table out of order "
 		    "while searching for %u, please notify developers", zroute);
@@ -759,4 +791,15 @@ char
 zebra_route_char(u_int zroute)
 {
   return zroute_lookup(zroute)->chr;
+}
+
+const char *
+zserv_command_string (unsigned int command)
+{
+  if (command >= sizeof(command_types)/sizeof(command_types[0]))
+    {
+      zlog_err ("unknown zserv command type: %u", command);
+      return unknown.string;
+    }
+  return command_types[command].string;
 }
