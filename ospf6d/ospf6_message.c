@@ -1119,11 +1119,11 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
         zlog_debug ("Acknowledged, remove from %s's retrans-list",
 		    on->name);
 
+      ospf6_decrement_retrans_count (mine);
+      ospf6_lsdb_remove (mine, on->retrans_list);
       if (OSPF6_LSA_IS_MAXAGE (mine))
         ospf6_maxage_remove (on->ospf6_if->area->ospf6);
 
-      ospf6_decrement_retrans_count (mine);
-      ospf6_lsdb_remove (mine, on->retrans_list);
       ospf6_lsa_delete (his);
     }
 

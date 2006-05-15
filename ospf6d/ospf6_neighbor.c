@@ -175,20 +175,11 @@ ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on)
       OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (on->ospf6_if->area);
     }
 
-#ifdef XXX
-  if (prev_state == NBS_FULL || next_state == NBS_FULL)
-    nbs_full_change (on->ospf6_interface);
-
-  /* check for LSAs that already reached MaxAge */
   if ((prev_state == OSPF6_NEIGHBOR_EXCHANGE ||
        prev_state == OSPF6_NEIGHBOR_LOADING) &&
       (next_state != OSPF6_NEIGHBOR_EXCHANGE &&
        next_state != OSPF6_NEIGHBOR_LOADING))
-    {
-      ospf6_maxage_remover ();
-    }
-#endif /*XXX*/
-
+    ospf6_maxage_remove (on->ospf6_if->area->ospf6);
 }
 
 /* RFC2328 section 10.4 */

@@ -1,3 +1,8 @@
+2005-10-20  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_neighbor.c: add the calling of ospf6_maxage_remove ()
+	when the neighbor went out of Exchange/Loading.
+
 2005-10-06  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
 	* ospf6_asbr.c: fix bug of calculating AS-External routes
