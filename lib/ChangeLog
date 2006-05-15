@@ -1,3 +1,9 @@
+2006-05-13 Paul Jakma <paul.jakma@sun.com>
+
+	* vty.c: (vty_describe_command) CID #39 fix was too hasty, just
+	  cause it /can/ leak doesn't mean it always will have, check
+	  first.
+
 2006-05-12 Paul Jakma <paul.jakma@sun.com>
 
 	* plist.c: (vty_prefix_list_uninstall) Fix potential NULL deref

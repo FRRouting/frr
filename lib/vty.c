@@ -1062,7 +1062,8 @@ vty_describe_command (struct vty *vty)
 
 out:
   cmd_free_strvec (vline);
-  vector_free (describe);
+  if (describe)
+    vector_free (describe);
 
   vty_prompt (vty);
   vty_redraw_line (vty);
