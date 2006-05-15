@@ -538,6 +538,8 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
   char buf[64];
   int is_debug = 0;
 
+  memset (&prefix, 0, sizeof (prefix));
+
   if (lsa->header->type == htons (OSPF6_LSTYPE_INTER_PREFIX))
     {
       struct ospf6_inter_prefix_lsa *prefix_lsa;
@@ -593,7 +595,8 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
       if (route->path.area_id == oa->area_id &&
           route->path.origin.type == lsa->header->type &&
           route->path.origin.id == lsa->header->id &&
-          route->path.origin.adv_router == lsa->header->adv_router)
+          route->path.origin.adv_router == lsa->header->adv_router &&
+          ! CHECK_FLAG (route->flag, OSPF6_ROUTE_WAS_REMOVED))
         old = route;
       route = ospf6_route_next (route);
     }

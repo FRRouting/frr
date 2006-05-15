@@ -254,6 +254,7 @@ ospf6_sendmsg (struct in6_addr *src, struct in6_addr *dst,
   /* scmsgp = CMSG_NXTHDR (&smsghdr, scmsgp); */
 
   /* send msg hdr */
+  memset (&smsghdr, 0, sizeof (smsghdr));
   smsghdr.msg_iov = message;
   smsghdr.msg_iovlen = iov_count (message);
   smsghdr.msg_name = (caddr_t) &dst_sin6;
@@ -291,6 +292,7 @@ ospf6_recvmsg (struct in6_addr *src, struct in6_addr *dst,
   /* rcmsgp = CMSG_NXTHDR (&rmsghdr, rcmsgp); */
 
   /* receive msg hdr */
+  memset (&rmsghdr, 0, sizeof (rmsghdr));
   rmsghdr.msg_iov = message;
   rmsghdr.msg_iovlen = iov_count (message);
   rmsghdr.msg_name = (caddr_t) &src_sin6;

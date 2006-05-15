@@ -126,15 +126,19 @@ ospf6_create ()
   o->lsdb->hook_add = ospf6_top_lsdb_hook_add;
   o->lsdb->hook_remove = ospf6_top_lsdb_hook_remove;
 
-  o->route_table = ospf6_route_table_create ();
+  o->route_table = OSPF6_ROUTE_TABLE_CREATE (GLOBAL, ROUTES);
+  o->route_table->scope = o;
   o->route_table->hook_add = ospf6_top_route_hook_add;
   o->route_table->hook_remove = ospf6_top_route_hook_remove;
 
-  o->brouter_table = ospf6_route_table_create ();
+  o->brouter_table = OSPF6_ROUTE_TABLE_CREATE (GLOBAL, BORDER_ROUTERS);
+  o->brouter_table->scope = o;
   o->brouter_table->hook_add = ospf6_top_brouter_hook_add;
   o->brouter_table->hook_remove = ospf6_top_brouter_hook_remove;
 
-  o->external_table = ospf6_route_table_create ();
+  o->external_table = OSPF6_ROUTE_TABLE_CREATE (GLOBAL, EXTERNAL_ROUTES);
+  o->external_table->scope = o;
+
   o->external_id_table = route_table_init ();
 
   return o;

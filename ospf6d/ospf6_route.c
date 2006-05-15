@@ -27,14 +27,111 @@
 #include "table.h"
 #include "vty.h"
 #include "command.h"
+#include "linklist.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
 #include "ospf6_route.h"
+#include "ospf6_top.h"
+#include "ospf6_area.h"
+#include "ospf6_interface.h"
 #include "ospf6d.h"
 
 unsigned char conf_debug_ospf6_route = 0;
+
+static char *
+ospf6_route_table_name (struct ospf6_route_table *table)
+{
+  static char name[32];
+  switch (table->scope_type)
+    {
+      case OSPF6_SCOPE_TYPE_GLOBAL:
+        {
+          switch (table->table_type)
+            {
+              case OSPF6_TABLE_TYPE_ROUTES:
+                snprintf (name, sizeof (name), "global route table");
+                break;
+              case OSPF6_TABLE_TYPE_BORDER_ROUTERS:
+                snprintf (name, sizeof (name), "global brouter table");
+                break;
+              case OSPF6_TABLE_TYPE_EXTERNAL_ROUTES:
+                snprintf (name, sizeof (name), "global external table");
+                break;
+              default:
+                snprintf (name, sizeof (name), "global unknown table");
+                break;
+            }
+        }
+        break;
+
+      case OSPF6_SCOPE_TYPE_AREA:
+        {
+          struct ospf6_area *oa = (struct ospf6_area *) table->scope;
+          switch (table->table_type)
+            {
+              case OSPF6_TABLE_TYPE_SPF_RESULTS:
+                snprintf (name, sizeof (name),
+                          "area %s spf table", oa->name);
+                break;
+              case OSPF6_TABLE_TYPE_ROUTES:
+                snprintf (name, sizeof (name),
+                          "area %s route table", oa->name);
+                break;
+              case OSPF6_TABLE_TYPE_PREFIX_RANGES:
+                snprintf (name, sizeof (name),
+                          "area %s range table", oa->name);
+                break;
+              case OSPF6_TABLE_TYPE_SUMMARY_PREFIXES:
+                snprintf (name, sizeof (name),
+                          "area %s summary prefix table", oa->name);
+                break;
+              case OSPF6_TABLE_TYPE_SUMMARY_ROUTERS:
+                snprintf (name, sizeof (name),
+                          "area %s summary router table", oa->name);
+                break;
+              default:
+                snprintf (name, sizeof (name),
+                          "area %s unknown table", oa->name);
+                break;
+            }
+        }
+        break;
+
+      case OSPF6_SCOPE_TYPE_INTERFACE:
+        {
+          struct ospf6_interface *oi = (struct ospf6_interface *) table->scope;
+          switch (table->table_type)
+            {
+              case OSPF6_TABLE_TYPE_CONNECTED_ROUTES:
+                snprintf (name, sizeof (name), "interface %s connected table",
+                          oi->interface->name);
+                break;
+              default:
+                snprintf (name, sizeof (name), "interface %s unknown table",
+                          oi->interface->name);
+                break;
+            }
+        }
+        break;
+
+      default:
+        {
+          switch (table->table_type)
+            {
+              case OSPF6_TABLE_TYPE_SPF_RESULTS:
+                snprintf (name, sizeof (name), "temporary spf table");
+                break;
+              default:
+                snprintf (name, sizeof (name), "temporary unknown table");
+                break;
+            }
+        }
+        break;
+    }
+  return name;
+}
 
 void
 ospf6_linkstate_prefix (u_int32_t adv_router, u_int32_t id,
@@ -100,6 +197,7 @@ ospf6_route_copy (struct ospf6_route *route)
   new->rnode = NULL;
   new->prev = NULL;
   new->next = NULL;
+  new->table = NULL;
   new->lock = 0;
   return new;
 }
@@ -116,7 +214,13 @@ ospf6_route_unlock (struct ospf6_route *route)
   assert (route->lock > 0);
   route->lock--;
   if (route->lock == 0)
-    ospf6_route_delete (route);
+    {
+      /* Can't detach from the table until here
+         because ospf6_route_next () will use
+         the 'route->table' pointer for logging */
+      route->table = NULL;
+      ospf6_route_delete (route);
+    }
 }
 
 /* Route compare function. If ra is more preferred, it returns
@@ -202,33 +306,50 @@ ospf6_route_lookup_bestmatch (struct prefix *prefix,
 
 #ifndef NDEBUG
 static void
-_route_count_assert (struct ospf6_route_table *table)
+route_table_assert (struct ospf6_route_table *table)
 {
-  struct ospf6_route *debug;
+  struct ospf6_route *prev, *r, *next;
   char buf[64];
-  unsigned int num = 0;
-  for (debug = ospf6_route_head (table); debug;
-       debug = ospf6_route_next (debug))
+  unsigned int link_error = 0, num = 0;
+  
+  r = ospf6_route_head (table);
+  prev = NULL;
+  while (r)
+    {
+      if (r->prev != prev)
+        link_error++;
+      
+      next = ospf6_route_next (r);
+      
+      if (r->next != next)
+        link_error++;
+      
+      prev = r;
+      r = next;
+    }
+  
+  for (r = ospf6_route_head (table); r; r = ospf6_route_next (r))
     num++;
-
-  if (num == table->count)
+  
+  if (link_error == 0 && num == table->count)
     return;
 
-  zlog_debug ("PANIC !! table[%p]->count = %d, real = %d",
-	      table, table->count, num);
-  for (debug = ospf6_route_head (table); debug;
-       debug = ospf6_route_next (debug))
+  zlog_err ("PANIC !!");
+  zlog_err ("Something has gone wrong with ospf6_route_table[%p]", table);
+  zlog_debug ("table count = %d, real number = %d", table->count, num);
+  zlog_debug ("DUMP START");
+  for (r = ospf6_route_head (table); r; r = ospf6_route_next (r))
     {
-      prefix2str (&debug->prefix, buf, sizeof (buf));
-      zlog_debug ("%p %p %s", debug->prev, debug->next, buf);
+      prefix2str (&r->prefix, buf, sizeof (buf));
+      zlog_info ("%p<-[%p]->%p : %s", r->prev, r, r->next, buf);
     }
   zlog_debug ("DUMP END");
 
-  assert (num == table->count);
+  assert (link_error == 0 && num == table->count);
 }
-#define ospf6_route_count_assert(t) (_route_count_assert (t))
+#define ospf6_route_table_assert(t) (route_table_assert (t))
 #else
-#define ospf6_route_count_assert(t) ((void) 0)
+#define ospf6_route_table_assert(t) ((void) 0)
 #endif /*NDEBUG*/
 
 struct ospf6_route *
@@ -251,8 +372,11 @@ ospf6_route_add (struct ospf6_route *route,
   else
     prefix2str (&route->prefix, buf, sizeof (buf));
 
-  if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-    zlog_debug ("route add %s", buf);
+  if (IS_OSPF6_DEBUG_ROUTE (MEMORY))
+    zlog_debug ("%s %p: route add %p: %s", ospf6_route_table_name (table),
+                table, route, buf);
+  else if (IS_OSPF6_DEBUG_ROUTE (TABLE))
+    zlog_debug ("%s: route add: %s", ospf6_route_table_name (table), buf);
 
   gettimeofday (&now, NULL);
 
@@ -282,18 +406,26 @@ ospf6_route_add (struct ospf6_route *route,
       /* if route does not actually change, return unchanged */
       if (ospf6_route_is_identical (old, route))
         {
-          if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-            zlog_debug ("  identical route found, ignore");
+          if (IS_OSPF6_DEBUG_ROUTE (MEMORY))
+            zlog_debug ("%s %p: route add %p: needless update of %p",
+                        ospf6_route_table_name (table), table, route, old);
+          else if (IS_OSPF6_DEBUG_ROUTE (TABLE))
+            zlog_debug ("%s: route add: needless update",
+                        ospf6_route_table_name (table));
 
           ospf6_route_delete (route);
           SET_FLAG (old->flag, OSPF6_ROUTE_ADD);
-          ospf6_route_count_assert (table);
+          ospf6_route_table_assert (table);
 
           return old;
         }
 
-      if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-        zlog_debug ("  old route found, replace");
+      if (IS_OSPF6_DEBUG_ROUTE (MEMORY))
+        zlog_debug ("%s %p: route add %p: update of %p",
+                    ospf6_route_table_name (table), table, route, old);
+      else if (IS_OSPF6_DEBUG_ROUTE (TABLE))
+        zlog_debug ("%s: route add: update",
+                    ospf6_route_table_name (table));
 
       /* replace old one if exists */
       if (node->info == old)
@@ -311,12 +443,14 @@ ospf6_route_add (struct ospf6_route *route,
 
       route->installed = old->installed;
       route->changed = now;
+      assert (route->table == NULL);
+      route->table = table;
 
       ospf6_route_unlock (old); /* will be deleted later */
       ospf6_route_lock (route);
 
       SET_FLAG (route->flag, OSPF6_ROUTE_CHANGE);
-      ospf6_route_count_assert (table);
+      ospf6_route_table_assert (table);
 
       if (table->hook_add)
         (*table->hook_add) (route);
@@ -327,8 +461,12 @@ ospf6_route_add (struct ospf6_route *route,
   /* insert if previous or next node found */
   if (prev || next)
     {
-      if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-        zlog_debug ("  another path found, insert");
+      if (IS_OSPF6_DEBUG_ROUTE (MEMORY))
+        zlog_debug ("%s %p: route add %p: another path: prev %p, next %p",
+                   ospf6_route_table_name (table), table, route, prev, next);
+      else if (IS_OSPF6_DEBUG_ROUTE (TABLE))
+        zlog_debug ("%s: route add: another path found",
+                    ospf6_route_table_name (table));
 
       if (prev == NULL)
         prev = next->prev;
@@ -348,14 +486,19 @@ ospf6_route_add (struct ospf6_route *route,
           node->info = route;
           UNSET_FLAG (next->flag, OSPF6_ROUTE_BEST);
           SET_FLAG (route->flag, OSPF6_ROUTE_BEST);
+          if (IS_OSPF6_DEBUG_ROUTE (MEMORY))
+            zlog_info ("%s %p: route add %p: replacing previous best: %p",
+                       ospf6_route_table_name (table), table, route, next);
         }
 
       route->installed = now;
       route->changed = now;
+      assert (route->table == NULL);
+      route->table = table;
 
       ospf6_route_lock (route);
       table->count++;
-      ospf6_route_count_assert (table);
+      ospf6_route_table_assert (table);
 
       SET_FLAG (route->flag, OSPF6_ROUTE_ADD);
       if (table->hook_add)
@@ -365,8 +508,12 @@ ospf6_route_add (struct ospf6_route *route,
     }
 
   /* Else, this is the brand new route regarding to the prefix */
-  if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-    zlog_debug ("  brand new route, add");
+  if (IS_OSPF6_DEBUG_ROUTE (MEMORY))
+    zlog_debug ("%s %p: route add %p: brand new route",
+                ospf6_route_table_name (table), table, route);
+  else if (IS_OSPF6_DEBUG_ROUTE (TABLE))
+    zlog_debug ("%s: route add: brand new route",
+                ospf6_route_table_name (table));
 
   assert (node->info == NULL);
   node->info = route;
@@ -374,6 +521,8 @@ ospf6_route_add (struct ospf6_route *route,
   ospf6_route_lock (route);
   route->installed = now;
   route->changed = now;
+  assert (route->table == NULL);
+  route->table = table;
 
   /* lookup real existing next route */
   nextnode = node;
@@ -416,7 +565,7 @@ ospf6_route_add (struct ospf6_route *route,
     }
 
   table->count++;
-  ospf6_route_count_assert (table);
+  ospf6_route_table_assert (table);
 
   SET_FLAG (route->flag, OSPF6_ROUTE_ADD);
   if (table->hook_add)
@@ -438,8 +587,11 @@ ospf6_route_remove (struct ospf6_route *route,
   else
     prefix2str (&route->prefix, buf, sizeof (buf));
 
-  if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-    zlog_debug ("route remove: %s", buf);
+  if (IS_OSPF6_DEBUG_ROUTE (MEMORY))
+    zlog_debug ("%s %p: route remove %p: %s",
+                ospf6_route_table_name (table), table, route, buf);
+  else if (IS_OSPF6_DEBUG_ROUTE (TABLE))
+    zlog_debug ("%s: route remove: %s", ospf6_route_table_name (table), buf);
 
   node = route_node_lookup (table->table, &route->prefix);
   assert (node);
@@ -473,7 +625,7 @@ ospf6_route_remove (struct ospf6_route *route,
     }
 
   table->count--;
-  ospf6_route_count_assert (table);
+  ospf6_route_table_assert (table);
 
   SET_FLAG (route->flag, OSPF6_ROUTE_WAS_REMOVED);
 
@@ -504,7 +656,14 @@ ospf6_route_head (struct ospf6_route_table *table)
 
   route = (struct ospf6_route *) node->info;
   assert (route->prev == NULL);
+  assert (route->table == table);
   ospf6_route_lock (route);
+
+  if (IS_OSPF6_DEBUG_ROUTE (MEMORY))
+    zlog_info ("%s %p: route head: %p<-[%p]->%p",
+               ospf6_route_table_name (table), table,
+               route->prev, route, route->next);
+
   return route;
 }
 
@@ -512,6 +671,11 @@ struct ospf6_route *
 ospf6_route_next (struct ospf6_route *route)
 {
   struct ospf6_route *next = route->next;
+
+  if (IS_OSPF6_DEBUG_ROUTE (MEMORY))
+    zlog_info ("%s %p: route next: %p<-[%p]->%p",
+               ospf6_route_table_name (route->table), route->table,
+               route->prev, route, route->next);
 
   ospf6_route_unlock (route);
   if (next)
@@ -600,11 +764,13 @@ ospf6_route_remove_all (struct ospf6_route_table *table)
 }
 
 struct ospf6_route_table *
-ospf6_route_table_create ()
+ospf6_route_table_create (int s, int t)
 {
   struct ospf6_route_table *new;
   new = XCALLOC (MTYPE_OSPF6_ROUTE, sizeof (struct ospf6_route_table));
   new->table = route_table_init ();
+  new->scope_type = s;
+  new->table_type = t;
   return new;
 }
 
@@ -615,7 +781,6 @@ ospf6_route_table_delete (struct ospf6_route_table *table)
   route_table_finish (table->table);
   XFREE (MTYPE_OSPF6_ROUTE, table);
 }
-
 
 
 /* VTY commands */

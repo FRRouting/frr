@@ -149,14 +149,19 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
   oa->lsdb->hook_remove = ospf6_area_lsdb_hook_remove;
   oa->lsdb_self = ospf6_lsdb_create (oa);
 
-  oa->spf_table = ospf6_route_table_create ();
-  oa->route_table = ospf6_route_table_create ();
+  oa->spf_table = OSPF6_ROUTE_TABLE_CREATE (AREA, SPF_RESULTS);
+  oa->spf_table->scope = oa;
+  oa->route_table = OSPF6_ROUTE_TABLE_CREATE (AREA, ROUTES);
+  oa->route_table->scope = oa;
   oa->route_table->hook_add = ospf6_area_route_hook_add;
   oa->route_table->hook_remove = ospf6_area_route_hook_remove;
 
-  oa->range_table = ospf6_route_table_create ();
-  oa->summary_prefix = ospf6_route_table_create ();
-  oa->summary_router = ospf6_route_table_create ();
+  oa->range_table = OSPF6_ROUTE_TABLE_CREATE (AREA, PREFIX_RANGES);
+  oa->range_table->scope = oa;
+  oa->summary_prefix = OSPF6_ROUTE_TABLE_CREATE (AREA, SUMMARY_PREFIXES);
+  oa->summary_prefix->scope = oa;
+  oa->summary_router = OSPF6_ROUTE_TABLE_CREATE (AREA, SUMMARY_ROUTERS);
+  oa->summary_router->scope = oa;
 
   /* set default options */
   OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);
@@ -719,7 +724,7 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
   tmp_debug_ospf6_spf = conf_debug_ospf6_spf;
   conf_debug_ospf6_spf = 0;
 
-  spf_table = ospf6_route_table_create ();
+  spf_table = OSPF6_ROUTE_TABLE_CREATE (NONE, SPF_RESULTS);
   ospf6_spf_calculation (router_id, spf_table, oa);
 
   conf_debug_ospf6_spf = tmp_debug_ospf6_spf;

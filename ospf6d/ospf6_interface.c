@@ -139,7 +139,8 @@ ospf6_interface_create (struct interface *ifp)
   oi->lsdb->hook_remove = ospf6_interface_lsdb_hook;
   oi->lsdb_self = ospf6_lsdb_create (oi);
 
-  oi->route_connected = ospf6_route_table_create ();
+  oi->route_connected = OSPF6_ROUTE_TABLE_CREATE (INTERFACE, CONNECTED_ROUTES);
+  oi->route_connected->scope = oi;
 
   /* link both */
   oi->interface = ifp;

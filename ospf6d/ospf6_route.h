@@ -29,6 +29,7 @@ extern unsigned char conf_debug_ospf6_route;
 #define OSPF6_DEBUG_ROUTE_TABLE   0x01
 #define OSPF6_DEBUG_ROUTE_INTRA   0x02
 #define OSPF6_DEBUG_ROUTE_INTER   0x04
+#define OSPF6_DEBUG_ROUTE_MEMORY  0x80
 #define OSPF6_DEBUG_ROUTE_ON(level) \
   (conf_debug_ospf6_route |= (level))
 #define OSPF6_DEBUG_ROUTE_OFF(level) \
@@ -112,7 +113,7 @@ struct ospf6_path
 struct ospf6_route
 {
   struct route_node *rnode;
-
+  struct ospf6_route_table *table;
   struct ospf6_route *prev;
   struct ospf6_route *next;
 
@@ -162,6 +163,10 @@ struct ospf6_route
 
 struct ospf6_route_table
 {
+  int scope_type;
+  int table_type;
+  void *scope;
+
   /* patricia tree */
   struct route_table *table;
 
@@ -172,6 +177,25 @@ struct ospf6_route_table
   void (*hook_change) (struct ospf6_route *);
   void (*hook_remove) (struct ospf6_route *);
 };
+
+#define OSPF6_SCOPE_TYPE_NONE      0
+#define OSPF6_SCOPE_TYPE_GLOBAL    1
+#define OSPF6_SCOPE_TYPE_AREA      2
+#define OSPF6_SCOPE_TYPE_INTERFACE 3
+
+#define OSPF6_TABLE_TYPE_NONE              0
+#define OSPF6_TABLE_TYPE_ROUTES            1
+#define OSPF6_TABLE_TYPE_BORDER_ROUTERS    2
+#define OSPF6_TABLE_TYPE_CONNECTED_ROUTES  3
+#define OSPF6_TABLE_TYPE_EXTERNAL_ROUTES   4
+#define OSPF6_TABLE_TYPE_SPF_RESULTS       5
+#define OSPF6_TABLE_TYPE_PREFIX_RANGES     6
+#define OSPF6_TABLE_TYPE_SUMMARY_PREFIXES  7
+#define OSPF6_TABLE_TYPE_SUMMARY_ROUTERS   8
+
+#define OSPF6_ROUTE_TABLE_CREATE(s, t) \
+  ospf6_route_table_create (OSPF6_SCOPE_TYPE_ ## s, \
+                            OSPF6_TABLE_TYPE_ ## t)
 
 extern const char *ospf6_dest_type_str[OSPF6_DEST_TYPE_MAX];
 extern const char *ospf6_dest_type_substr[OSPF6_DEST_TYPE_MAX];
@@ -258,7 +282,7 @@ struct ospf6_route *ospf6_route_match_next (struct prefix *prefix,
                                             struct ospf6_route *route);
 
 void ospf6_route_remove_all (struct ospf6_route_table *);
-struct ospf6_route_table *ospf6_route_table_create ();
+struct ospf6_route_table *ospf6_route_table_create (int s, int t);
 void ospf6_route_table_delete (struct ospf6_route_table *);
 void ospf6_route_dump (struct ospf6_route_table *table);
 
