@@ -47,6 +47,11 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 
+
+unsigned char conf_debug_ospf6_brouter = 0;
+u_int32_t conf_debug_ospf6_brouter_specific_router_id;
+u_int32_t conf_debug_ospf6_brouter_specific_area_id;
+
 /******************************/
 /* RFC2740 3.4.3.1 Router-LSA */
 /******************************/
@@ -1236,91 +1241,102 @@ ospf6_intra_route_calculation (struct ospf6_area *oa)
 void
 ospf6_intra_brouter_calculation (struct ospf6_area *oa)
 {
-  struct ospf6_route *lsentry, *copy;
+  struct ospf6_route *brouter, *copy;
   void (*hook_add) (struct ospf6_route *) = NULL;
   void (*hook_remove) (struct ospf6_route *) = NULL;
-  char buf[16];
-
-  if (IS_OSPF6_DEBUG_ROUTE (INTRA))
-    zlog_debug ("Border-router calculation for area %s", oa->name);
-
+  u_int32_t brouter_id;
+  char brouter_name[16];
+  
+  if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID (oa->area_id))
+    zlog_info ("border-router calculation for area %s", oa->name);
+  
   hook_add = oa->ospf6->brouter_table->hook_add;
   hook_remove = oa->ospf6->brouter_table->hook_remove;
   oa->ospf6->brouter_table->hook_add = NULL;
   oa->ospf6->brouter_table->hook_remove = NULL;
 
   /* withdraw the previous router entries for the area */
-  for (lsentry = ospf6_route_head (oa->ospf6->brouter_table); lsentry;
-       lsentry = ospf6_route_next (lsentry))
+  for (brouter = ospf6_route_head (oa->ospf6->brouter_table); brouter;
+       brouter = ospf6_route_next (brouter))
     {
-      if (lsentry->path.area_id != oa->area_id)
+      if (brouter->path.area_id != oa->area_id)
         continue;
-      lsentry->flag = OSPF6_ROUTE_REMOVE;
+      brouter->flag = OSPF6_ROUTE_REMOVE;
     }
 
-  for (lsentry = ospf6_route_head (oa->spf_table); lsentry;
-       lsentry = ospf6_route_next (lsentry))
+  for (brouter = ospf6_route_head (oa->spf_table); brouter;
+       brouter = ospf6_route_next (brouter))
     {
-      if (lsentry->type != OSPF6_DEST_TYPE_LINKSTATE)
+      if (brouter->type != OSPF6_DEST_TYPE_LINKSTATE)
         continue;
-      if (ospf6_linkstate_prefix_id (&lsentry->prefix) != htonl (0))
+      if (ospf6_linkstate_prefix_id (&brouter->prefix) != htonl (0))
         continue;
-      if (! CHECK_FLAG (lsentry->path.router_bits, OSPF6_ROUTER_BIT_E) &&
-          ! CHECK_FLAG (lsentry->path.router_bits, OSPF6_ROUTER_BIT_B))
+      if (! CHECK_FLAG (brouter->path.router_bits, OSPF6_ROUTER_BIT_E) &&
+          ! CHECK_FLAG (brouter->path.router_bits, OSPF6_ROUTER_BIT_B))
         continue;
 
-      copy = ospf6_route_copy (lsentry);
+      copy = ospf6_route_copy (brouter);
       copy->type = OSPF6_DEST_TYPE_ROUTER;
       copy->path.area_id = oa->area_id;
       ospf6_route_add (copy, oa->ospf6->brouter_table);
-
-      if (IS_OSPF6_DEBUG_ROUTE (INTRA))
-        {
-          inet_ntop (AF_INET, &ADV_ROUTER_IN_PREFIX (&copy->prefix),
-                     buf, sizeof (buf));
-          zlog_debug ("Re-install router entry %s", buf);
-        }
     }
 
   oa->ospf6->brouter_table->hook_add = hook_add;
   oa->ospf6->brouter_table->hook_remove = hook_remove;
 
-  for (lsentry = ospf6_route_head (oa->ospf6->brouter_table); lsentry;
-       lsentry = ospf6_route_next (lsentry))
+  for (brouter = ospf6_route_head (oa->ospf6->brouter_table); brouter;
+       brouter = ospf6_route_next (brouter))
     {
-      if (lsentry->path.area_id != oa->area_id)
+      brouter_id = ADV_ROUTER_IN_PREFIX (&brouter->prefix);
+      inet_ntop (AF_INET, &brouter_id, brouter_name, sizeof (brouter_name));
+      
+      if (brouter->path.area_id != oa->area_id)
         continue;
 
-      if (CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_WAS_REMOVED))
+      if (CHECK_FLAG (brouter->flag, OSPF6_ROUTE_WAS_REMOVED))
         continue;
 
-      if (CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_REMOVE) &&
-          CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_ADD))
+      if (CHECK_FLAG (brouter->flag, OSPF6_ROUTE_REMOVE) &&
+          CHECK_FLAG (brouter->flag, OSPF6_ROUTE_ADD))
         {
-          UNSET_FLAG (lsentry->flag, OSPF6_ROUTE_REMOVE);
-          UNSET_FLAG (lsentry->flag, OSPF6_ROUTE_ADD);
+          UNSET_FLAG (brouter->flag, OSPF6_ROUTE_REMOVE);
+          UNSET_FLAG (brouter->flag, OSPF6_ROUTE_ADD);
         }
 
-      if (CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_REMOVE))
-        ospf6_route_remove (lsentry, oa->ospf6->brouter_table);
-      else if (CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_ADD) ||
-               CHECK_FLAG (lsentry->flag, OSPF6_ROUTE_CHANGE))
+      if (CHECK_FLAG (brouter->flag, OSPF6_ROUTE_REMOVE))
         {
-          if (IS_OSPF6_DEBUG_ROUTE (INTRA))
-            {
-              inet_ntop (AF_INET, &ADV_ROUTER_IN_PREFIX (&lsentry->prefix),
-                         buf, sizeof (buf));
-              zlog_debug ("Call hook for router entry %s", buf);
-            }
+          if (IS_OSPF6_DEBUG_BROUTER ||
+              IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID (brouter_id) ||
+              IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID (oa->area_id))
+            zlog_info ("brouter %s disappears via area %s",
+                       brouter_name, oa->name);
+          ospf6_route_remove (brouter, oa->ospf6->brouter_table);
+        }
+      else if (CHECK_FLAG (brouter->flag, OSPF6_ROUTE_ADD) ||
+               CHECK_FLAG (brouter->flag, OSPF6_ROUTE_CHANGE))
+        {
+          if (IS_OSPF6_DEBUG_BROUTER ||
+              IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID (brouter_id) ||
+              IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID (oa->area_id))
+            zlog_info ("brouter %s appears via area %s",
+                       brouter_name, oa->name);
+          /* newly added */
           if (hook_add)
-            (*hook_add) (lsentry);
+            (*hook_add) (brouter);
+        }
+      else
+        {
+          if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID (brouter_id) ||
+              IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID (oa->area_id))
+            zlog_info ("brouter %s still exists via area %s",
+                       brouter_name, oa->name);
         }
 
-      lsentry->flag = 0;
+      brouter->flag = 0;
     }
 
-  if (IS_OSPF6_DEBUG_ROUTE (INTRA))
-    zlog_debug ("Border-router calculation for area %s: Done", oa->name);
+  if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID (oa->area_id))
+    zlog_info ("border-router calculation for area %s: done", oa->name);
 }
 
 struct ospf6_lsa_handler router_handler =
@@ -1352,12 +1368,135 @@ struct ospf6_lsa_handler intra_prefix_handler =
 };
 
 void
-ospf6_intra_init ()
+ospf6_intra_init (void)
 {
   ospf6_install_lsa_handler (&router_handler);
   ospf6_install_lsa_handler (&network_handler);
   ospf6_install_lsa_handler (&link_handler);
   ospf6_install_lsa_handler (&intra_prefix_handler);
+}
+
+DEFUN (debug_ospf6_brouter,
+       debug_ospf6_brouter_cmd,
+       "debug ospf6 border-routers",
+       DEBUG_STR
+       OSPF6_STR
+       "Debug border router\n"
+      )
+{
+  OSPF6_DEBUG_BROUTER_ON ();
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_ospf6_brouter,
+       no_debug_ospf6_brouter_cmd,
+       "no debug ospf6 border-routers",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR
+       "Debug border router\n"
+      )
+{
+  OSPF6_DEBUG_BROUTER_OFF ();
+  return CMD_SUCCESS;
+}
+
+DEFUN (debug_ospf6_brouter_router,
+       debug_ospf6_brouter_router_cmd,
+       "debug ospf6 border-routers router-id A.B.C.D",
+       DEBUG_STR
+       OSPF6_STR
+       "Debug border router\n"
+       "Debug specific border router\n"
+       "Specify border-router's router-id\n"
+      )
+{
+  u_int32_t router_id;
+  inet_pton (AF_INET, argv[0], &router_id);
+  OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ON (router_id);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_ospf6_brouter_router,
+       no_debug_ospf6_brouter_router_cmd,
+       "no debug ospf6 border-routers router-id",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR
+       "Debug border router\n"
+       "Debug specific border router\n"
+      )
+{
+  OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_OFF ();
+  return CMD_SUCCESS;
+}
+
+DEFUN (debug_ospf6_brouter_area,
+       debug_ospf6_brouter_area_cmd,
+       "debug ospf6 border-routers area-id A.B.C.D",
+       DEBUG_STR
+       OSPF6_STR
+       "Debug border router\n"
+       "Debug border routers in specific Area\n"
+       "Specify Area-ID\n"
+      )
+{
+  u_int32_t area_id;
+  inet_pton (AF_INET, argv[0], &area_id);
+  OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ON (area_id);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_ospf6_brouter_area,
+       no_debug_ospf6_brouter_area_cmd,
+       "no debug ospf6 border-routers area-id",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR
+       "Debug border router\n"
+       "Debug border routers in specific Area\n"
+      )
+{
+  OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_OFF ();
+  return CMD_SUCCESS;
+}
+
+int
+config_write_ospf6_debug_brouter (struct vty *vty)
+{
+  char buf[16];
+  if (IS_OSPF6_DEBUG_BROUTER)
+    vty_out (vty, "debug ospf6 border-routers%s", VNL);
+  if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER)
+    {
+      inet_ntop (AF_INET, &conf_debug_ospf6_brouter_specific_router_id,
+                 buf, sizeof (buf));
+      vty_out (vty, "debug ospf6 border-routers router-id %s%s", buf, VNL);
+    }
+  if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA)
+    {
+      inet_ntop (AF_INET, &conf_debug_ospf6_brouter_specific_area_id,
+                 buf, sizeof (buf));
+      vty_out (vty, "debug ospf6 border-routers area-id %s%s", buf, VNL);
+    }
+  return 0;
+}
+
+void
+install_element_ospf6_debug_brouter (void)
+{
+  install_element (ENABLE_NODE, &debug_ospf6_brouter_cmd);
+  install_element (ENABLE_NODE, &debug_ospf6_brouter_router_cmd);
+  install_element (ENABLE_NODE, &debug_ospf6_brouter_area_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf6_brouter_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf6_brouter_router_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf6_brouter_area_cmd);
+  install_element (CONFIG_NODE, &debug_ospf6_brouter_cmd);
+  install_element (CONFIG_NODE, &debug_ospf6_brouter_router_cmd);
+  install_element (CONFIG_NODE, &debug_ospf6_brouter_area_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf6_brouter_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf6_brouter_router_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf6_brouter_area_cmd);
 }
 
 

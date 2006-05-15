@@ -549,6 +549,29 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
   return CMD_SUCCESS;
 }
 
+ALIAS (show_ipv6_ospf6_route_match,
+       show_ipv6_ospf6_route_longer_cmd,
+       "show ipv6 ospf6 route X:X::X:X/M longer",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       ROUTE_STR
+       "Specify IPv6 prefix\n"
+       "Display routes longer than the specified route\n"
+       );
+
+DEFUN (show_ipv6_ospf6_route_match_detail,
+       show_ipv6_ospf6_route_longer_detail_cmd,
+       "show ipv6 ospf6 route X:X::X:X/M longer detail",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       ROUTE_STR
+       "Specify IPv6 prefix\n"
+       "Display routes longer than the specified route\n"
+       "Detailed information\n"
+       );
+
 ALIAS (show_ipv6_ospf6_route,
        show_ipv6_ospf6_route_type_cmd,
        "show ipv6 ospf6 route (intra-area|inter-area|external-1|external-2)",
@@ -646,12 +669,16 @@ ospf6_top_init ()
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_detail_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_match_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
+  install_element (VIEW_NODE, &show_ipv6_ospf6_route_longer_cmd);
+  install_element (VIEW_NODE, &show_ipv6_ospf6_route_longer_detail_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_match_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_longer_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_ospf6_route_longer_detail_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_type_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
 

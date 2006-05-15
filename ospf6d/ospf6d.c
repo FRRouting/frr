@@ -114,6 +114,7 @@ config_write_ospf6_debug (struct vty *vty)
   config_write_ospf6_debug_neighbor (vty);
   config_write_ospf6_debug_spf (vty);
   config_write_ospf6_debug_route (vty);
+  config_write_ospf6_debug_brouter (vty);
   config_write_ospf6_debug_asbr (vty);
   config_write_ospf6_debug_abr (vty);
   config_write_ospf6_debug_flood (vty);
@@ -1783,6 +1784,7 @@ ospf6_init ()
   install_element_ospf6_debug_zebra ();
   install_element_ospf6_debug_spf ();
   install_element_ospf6_debug_route ();
+  install_element_ospf6_debug_brouter ();
   install_element_ospf6_debug_asbr ();
   install_element_ospf6_debug_abr ();
   install_element_ospf6_debug_flood ();

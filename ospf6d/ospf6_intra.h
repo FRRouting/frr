@@ -22,6 +22,52 @@
 #ifndef OSPF6_INTRA_H
 #define OSPF6_INTRA_H
 
+/* Debug option */
+extern unsigned char conf_debug_ospf6_brouter;
+extern u_int32_t conf_debug_ospf6_brouter_specific_router_id;
+extern u_int32_t conf_debug_ospf6_brouter_specific_area_id;
+#define OSPF6_DEBUG_BROUTER_SUMMARY         0x01
+#define OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER 0x02
+#define OSPF6_DEBUG_BROUTER_SPECIFIC_AREA   0x04
+#define OSPF6_DEBUG_BROUTER_ON() \
+  (conf_debug_ospf6_brouter |= OSPF6_DEBUG_BROUTER_SUMMARY)
+#define OSPF6_DEBUG_BROUTER_OFF() \
+  (conf_debug_ospf6_brouter &= ~OSPF6_DEBUG_BROUTER_SUMMARY)
+#define IS_OSPF6_DEBUG_BROUTER \
+  (conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SUMMARY)
+
+#define OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ON(router_id)             \
+  do {                                                                \
+    conf_debug_ospf6_brouter_specific_router_id = (router_id);        \
+    conf_debug_ospf6_brouter |= OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER;  \
+  } while (0)
+#define OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_OFF()                     \
+  do {                                                                \
+    conf_debug_ospf6_brouter_specific_router_id = 0;                  \
+    conf_debug_ospf6_brouter &= ~OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER; \
+  } while (0)
+#define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER                        \
+  (conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER)
+#define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(router_id)          \
+  (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER &&                          \
+   conf_debug_ospf6_brouter_specific_router_id == (router_id))
+
+#define OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ON(area_id)                 \
+  do {                                                                \
+    conf_debug_ospf6_brouter_specific_area_id = (area_id);            \
+    conf_debug_ospf6_brouter |= OSPF6_DEBUG_BROUTER_SPECIFIC_AREA;    \
+  } while (0)
+#define OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_OFF()                       \
+  do {                                                                \
+    conf_debug_ospf6_brouter_specific_area_id = 0;                    \
+    conf_debug_ospf6_brouter &= ~OSPF6_DEBUG_BROUTER_SPECIFIC_AREA;   \
+  } while (0)
+#define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA                          \
+  (conf_debug_ospf6_brouter & OSPF6_DEBUG_BROUTER_SPECIFIC_AREA)
+#define IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(area_id)              \
+  (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA &&                            \
+   conf_debug_ospf6_brouter_specific_area_id == (area_id))
+
 /* Router-LSA */
 struct ospf6_router_lsa
 {
@@ -160,6 +206,9 @@ void ospf6_intra_route_calculation (struct ospf6_area *oa);
 void ospf6_intra_brouter_calculation (struct ospf6_area *oa);
 
 void ospf6_intra_init ();
+
+int config_write_ospf6_debug_brouter (struct vty *vty);
+void install_element_ospf6_debug_brouter ();
 
 #endif /* OSPF6_LSA_H */
 
