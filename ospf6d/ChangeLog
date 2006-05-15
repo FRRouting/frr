@@ -1,3 +1,8 @@
+2006-03-01  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.c: fix bug of needless forwarding address
+	* ospf6d.h: version 0.9.7r
+
 2006-02-22  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
 	* valgrind check and memory fix

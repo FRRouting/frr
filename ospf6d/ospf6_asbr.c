@@ -59,6 +59,7 @@ ospf6_as_external_lsa_originate (struct ospf6_route *route)
   char buffer[OSPF6_MAX_LSASIZE];
   struct ospf6_lsa_header *lsa_header;
   struct ospf6_lsa *old, *lsa;
+  struct ospf6_external_info *info = route->route_option;
 
   struct ospf6_as_external_lsa *as_external_lsa;
   char buf[64];
@@ -91,7 +92,7 @@ ospf6_as_external_lsa_originate (struct ospf6_route *route)
     UNSET_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_E);
 
   /* forwarding address */
-  if (! IN6_IS_ADDR_UNSPECIFIED (&route->nexthop[0].address))
+  if (! IN6_IS_ADDR_UNSPECIFIED (&info->forwarding))
     SET_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F);
   else
     UNSET_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F);
@@ -120,7 +121,7 @@ ospf6_as_external_lsa_originate (struct ospf6_route *route)
   /* Forwarding address */
   if (CHECK_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F))
     {
-      memcpy (p, &route->nexthop[0].address, sizeof (struct in6_addr));
+      memcpy (p, &info->forwarding, sizeof (struct in6_addr));
       p += sizeof (struct in6_addr);
     }
 
