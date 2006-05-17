@@ -1,3 +1,8 @@
+2006-05-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* kernel_socket.c: (ifam_read_mesg) Improve debug message
+	  to show the IP address.
+
 2006-05-15 Paul Jakma <paul.jakma@sun.com>
 
 	* zserv.c: (general) Remove the private zebra_command_str

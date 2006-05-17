@@ -510,9 +510,46 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
   RTA_ADDR_GET (brd, RTA_BRD, ifm->ifam_addrs, pnt);
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-      zlog_debug ("%s: ifindex %d, ifname %s, ifam_addrs 0x%x", 
-                  __func__, ifm->ifam_index, 
-                  (ifnlen ? ifname : "(nil)"), ifm->ifam_addrs);
+    {
+      switch (sockunion_family(addr))
+        {
+	case AF_INET:
+	  {
+	    char buf[2][INET_ADDRSTRLEN];
+	    zlog_debug ("%s: ifindex %d, ifname %s, ifam_addrs 0x%x, "
+			"addr %s/%d broad %s", 
+			__func__, ifm->ifam_index, 
+			(ifnlen ? ifname : "(nil)"), ifm->ifam_addrs,
+			inet_ntop(AF_INET,&addr->sin.sin_addr,
+			          buf[0],sizeof(buf[0])),
+			ip_masklen(mask->sin.sin_addr),
+			inet_ntop(AF_INET,&brd->sin.sin_addr,
+			          buf[1],sizeof(buf[1])));
+	  }
+	  break;
+#ifdef HAVE_IPV6
+	case AF_INET6:
+	  {
+	    char buf[2][INET6_ADDRSTRLEN];
+	    zlog_debug ("%s: ifindex %d, ifname %s, ifam_addrs 0x%x, "
+			"addr %s/%d broad %s", 
+			__func__, ifm->ifam_index, 
+			(ifnlen ? ifname : "(nil)"), ifm->ifam_addrs,
+			inet_ntop(AF_INET6,&addr->sin6.sin6_addr,
+			          buf[0],sizeof(buf[0])),
+			ip6_masklen(mask->sin6.sin6_addr),
+			inet_ntop(AF_INET6,&brd->sin6.sin6_addr,
+			          buf[1],sizeof(buf[1])));
+	  }
+	  break;
+#endif /* HAVE_IPV6 */
+        default:
+	  zlog_debug ("%s: ifindex %d, ifname %s, ifam_addrs 0x%x",
+		      __func__, ifm->ifam_index, 
+		      (ifnlen ? ifname : "(nil)"), ifm->ifam_addrs);
+	  break;
+        }
+    }
   
   /* Assert read up end point matches to end point */
   if (pnt != end)
