@@ -1,3 +1,10 @@
+2006-05-19 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* connected.c: (connected_add_ipv4,connected_add_ipv6) If the
+	  new struct connected matches an already existing one
+	  (that will consequently be removed by connected_withdraw),
+	  then be sure to preserve the ZEBRA_IFC_CONFIGURED flag.
+
 2006-05-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* kernel_socket.c: (ifam_read_mesg) Improve debug message
