@@ -1,3 +1,11 @@
+2006-05-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* connected.c: (connected_withdraw) Do not delete the connected
+	  address if the ZEBRA_IFC_CONFIGURED flag is set.
+	  (connected_add_ipv4,connected_add_ipv6) Before calling
+	  connected_withdraw, unset the ZEBRA_IFC_CONFIGURED flag
+	  on the superseded connected structure.
+
 2006-05-19 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* connected.c: (connected_add_ipv4,connected_add_ipv6) If the

@@ -60,8 +60,11 @@ connected_withdraw (struct connected *ifc)
       UNSET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
     }
 
-  listnode_delete (ifc->ifp->connected, ifc);
-  connected_free (ifc);
+  if (!CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
+    {
+      listnode_delete (ifc->ifp->connected, ifc);
+      connected_free (ifc);
+    }
 }
 
 static void
@@ -227,7 +230,10 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
   if ((current = connected_check (ifp, (struct prefix *) ifc->address)))
     {
       if (CHECK_FLAG(current->conf, ZEBRA_IFC_CONFIGURED))
-	SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
+	{
+	  SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
+	  UNSET_FLAG(current->conf, ZEBRA_IFC_CONFIGURED);
+	}
       connected_withdraw (current); /* implicit withdraw - freebsd does this */
     }
   
@@ -370,7 +376,10 @@ connected_add_ipv6 (struct interface *ifp, struct in6_addr *addr,
   if ((current = connected_check (ifp, (struct prefix *) ifc->address)))
     {
       if (CHECK_FLAG(current->conf, ZEBRA_IFC_CONFIGURED))
-	SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
+	{
+	  SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
+	  UNSET_FLAG(current->conf, ZEBRA_IFC_CONFIGURED);
+	}
       connected_withdraw (current); /* implicit update of existing address */
     }
   

@@ -145,6 +145,12 @@ struct connected
   u_char conf;
 #define ZEBRA_IFC_REAL         (1 << 0)
 #define ZEBRA_IFC_CONFIGURED   (1 << 1)
+  /*
+     The ZEBRA_IFC_REAL flag should be set if and only if this address
+     exists in the kernel.
+     The ZEBRA_IFC_CONFIGURED flag should be set if and only if this address
+     was configured by the user from inside quagga.
+   */
 
   /* Flags for connected address. */
   u_char flags;
