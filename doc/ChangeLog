@@ -1,3 +1,7 @@
+2006-05-23 Paul Jakma <paul.jakma@sun.com>
+
+	* bgpd.texi: Document the update-source command.
+
 2006-05-10 Paul Jakma <paul.jakma@sun.com>
 
 	* quagga.info: update auto-built file.

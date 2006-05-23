@@ -262,8 +262,13 @@ version.
 
 @deffn {BGP} {neighbor @var{peer} interface @var{ifname}} {}
 @deffnx {BGP} {no neighbor @var{peer} interface @var{ifname}} {}
-When you connect to a BGP peer over an IPv6 link-local address, you have
-to specify the @var{ifname} of the interface used for the connection.
+When you connect to a BGP peer over an IPv6 link-local address, you 
+have to specify the @var{ifname} of the interface used for the 
+connection. To specify IPv4 session addresses, see the 
+@code{neighbor @var{peer} update-source} command below.
+
+This command is deprecated and may be removed in a future release. Its
+use should be avoided.
 @end deffn
 
 @deffn {BGP} {neighbor @var{peer} next-hop-self} {}
@@ -272,8 +277,19 @@ This command specifies an announced route's nexthop as being equivalent
 to the address of the bgp router.
 @end deffn
 
-@deffn {BGP} {neighbor @var{peer} update-source} {}
+@deffn {BGP} {neighbor @var{peer} update-source @var{(ifname|address)}} {}
 @deffnx {BGP} {no neighbor @var{peer} update-source} {}
+Specify the IPv4 source address to use for the @acronym{BGP} session to this
+neighbour, may be specified as either an IPv4 address directly or
+as an interface name (in which case the @command{zebra} daemon MUST be running
+in order for @command{bgpd} to be able to retrieve interface state).
+@example
+@group
+router bgp 64555
+ neighbor foo update-source 192.168.0.1
+ neighbor bar update-source lo0
+@end group
+@end example
 @end deffn
 
 @deffn {BGP} {neighbor @var{peer} default-originate} {}
