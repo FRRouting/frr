@@ -1,3 +1,8 @@
+2006-05-23 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_vty.c: (neighbor_update_source_cmd) Expand tab completion
+	  to make it clear it takes both address and ifname.
+
 2006-05-12 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_attr.c: (bgp_packet_attribute) Remove dead code, Coverity

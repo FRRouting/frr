@@ -2767,13 +2767,18 @@ peer_update_source_vty (struct vty *vty, const char *peer_str,
   return CMD_SUCCESS;
 }
 
+#define BGP_UPDATE_SOURCE_STR "(A.B.C.D|WORD)"
+#define BGP_UPDATE_SOURCE_HELP_STR \
+  "IPv4 address\n" \
+  "Interface name\n"
+
 DEFUN (neighbor_update_source,
        neighbor_update_source_cmd,
-       NEIGHBOR_CMD2 "update-source WORD",
+       NEIGHBOR_CMD2 "update-source " BGP_UPDATE_SOURCE_STR,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Source of routing updates\n"
-       "Interface name\n")
+       BGP_UPDATE_SOURCE_HELP_STR)
 {
   return peer_update_source_vty (vty, argv[0], argv[1]);
 }
@@ -2784,8 +2789,7 @@ DEFUN (no_neighbor_update_source,
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Source of routing updates\n"
-       "Interface name\n")
+       "Source of routing updates\n")
 {
   return peer_update_source_vty (vty, argv[0], NULL);
 }
