@@ -1312,6 +1312,26 @@ ALIAS (vtysh_exit_interface,
        "Exit current mode and down to previous mode\n")
 
 /* Logging commands. */
+DEFUN (vtysh_show_logging,
+       vtysh_show_logging_cmd,
+       "show logging",
+       SHOW_STR
+       "Show current logging configuration\n")
+{
+  unsigned int i;
+  int ret = CMD_SUCCESS;
+  char line[] = "show logging\n";
+  
+  for (i = 0; i < VTYSH_INDEX_MAX; i++)
+    {
+      fprintf (stdout,"Logging configuration for %s:\n", vtysh_client[i].name);
+      ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
+      fprintf (stdout,"\n");
+    }
+        
+  return ret;
+}
+
 DEFUNSH (VTYSH_ALL,
 	 vtysh_log_stdout,
 	 vtysh_log_stdout_cmd,
@@ -2326,7 +2346,10 @@ vtysh_init_vty (void)
   install_element (ENABLE_NODE, &vtysh_start_shell_cmd);
   install_element (ENABLE_NODE, &vtysh_start_bash_cmd);
   install_element (ENABLE_NODE, &vtysh_start_zsh_cmd);
-
+  
+  /* Logging */
+  install_element (ENABLE_NODE, &vtysh_show_logging_cmd);
+  install_element (VIEW_NODE, &vtysh_show_logging_cmd);
   install_element (CONFIG_NODE, &vtysh_log_stdout_cmd);
   install_element (CONFIG_NODE, &vtysh_log_stdout_level_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_stdout_cmd);

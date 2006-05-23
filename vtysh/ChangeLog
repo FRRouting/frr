@@ -1,3 +1,7 @@
+2006-05-17 Paul Jakma <paul.jakma@sun.com>
+
+	* vtysh.c: (general) Add 'show logging' command.
+
 2006-01-11 Erik Smit <zoiah@zoiah.net>
 
 	* vtysh.c: (vtysh_config_from_file) fix regression from
