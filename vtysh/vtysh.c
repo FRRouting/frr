@@ -1323,12 +1323,14 @@ DEFUN (vtysh_show_logging,
   char line[] = "show logging\n";
   
   for (i = 0; i < VTYSH_INDEX_MAX; i++)
-    {
-      fprintf (stdout,"Logging configuration for %s:\n", vtysh_client[i].name);
-      ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
-      fprintf (stdout,"\n");
-    }
-        
+    if ( vtysh_client[i].fd >= 0 )
+      {
+        fprintf (stdout,"Logging configuration for %s:\n", 
+                 vtysh_client[i].name);
+        ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
+        fprintf (stdout,"\n");
+      }
+  
   return ret;
 }
 
