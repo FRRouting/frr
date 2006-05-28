@@ -1311,6 +1311,29 @@ ALIAS (vtysh_exit_interface,
        "quit",
        "Exit current mode and down to previous mode\n")
 
+/* Memory */
+DEFUN (vtysh_show_memory,
+       vtysh_show_memory_cmd,
+       "show memory",
+       SHOW_STR
+       "Memory statistics\n")
+{
+  unsigned int i;
+  int ret = CMD_SUCCESS;
+  char line[] = "show memory\n";
+  
+  for (i = 0; i < VTYSH_INDEX_MAX; i++)
+    if ( vtysh_client[i].fd >= 0 )
+      {
+        fprintf (stdout, "Memory statistics for %s:\n", 
+                 vtysh_client[i].name);
+        ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
+        fprintf (stdout,"\n");
+      }
+  
+  return ret;
+}
+
 /* Logging commands. */
 DEFUN (vtysh_show_logging,
        vtysh_show_logging_cmd,
@@ -2349,6 +2372,9 @@ vtysh_init_vty (void)
   install_element (ENABLE_NODE, &vtysh_start_bash_cmd);
   install_element (ENABLE_NODE, &vtysh_start_zsh_cmd);
   
+  install_element (VIEW_NODE, &vtysh_show_memory_cmd);
+  install_element (ENABLE_NODE, &vtysh_show_memory_cmd);
+
   /* Logging */
   install_element (ENABLE_NODE, &vtysh_show_logging_cmd);
   install_element (VIEW_NODE, &vtysh_show_logging_cmd);

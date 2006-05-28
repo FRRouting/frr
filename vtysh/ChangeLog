@@ -1,3 +1,7 @@
+2006-05-24 Paul Jakma <paul.jakma@sun.com>
+
+	* vtysh.c: (general) Add 'show memory' command.
+
 2006-05-21 Paul Jakma <paul.jakma@sun.com>
 
 	* vtysh.c: (vtysh_show_logging_cmd) Suppress output for daemons
