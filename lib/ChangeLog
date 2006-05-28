@@ -5,6 +5,8 @@
 	  Add UINT*_MAX defines for older platforms lacking these (FBSD 4)
 	* memory.c: malloc.h is deprecated in favour of stdlib.h, however
 	  we still need it on GNU Libc for mallinfo().
+	* vty.c: (vty_log/vty_log_fixed) dont crash if called when vty
+	  hasn't been initiliased.
 
 2006-05-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
