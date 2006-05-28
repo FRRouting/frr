@@ -1,3 +1,9 @@
+2006-05-28 Paul Jakma <paul.jakma@sun.com>
+
+	* test-sig.c: (main) configure logging, there's no terminal
+	  to write to for one thing, but we do want stdout, and we
+	  don't want a test to spam syslog.
+
 2006-03-16 Paul Jakma <paul.jakma@sun.com>
 
 	* heavy-wq.c: (heavy_wq_init) delay is gone from workqueue
