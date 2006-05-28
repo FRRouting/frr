@@ -1,3 +1,10 @@
+2006-05-28 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: Update SOS CFLAGS, Xt shouldn't be used and
+	  enable debug options.
+	  Add a check for GNU Make and warn the user if it does not appear
+	  to be the make used.
+
 2006-05-10 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Bump to 0.99.4

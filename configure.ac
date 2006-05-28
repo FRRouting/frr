@@ -5,7 +5,7 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id: configure.ac,v 1.120 2006/05/10 19:52:36 paul Exp $
+## $Id$
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.4, [http://bugzilla.quagga.net])
@@ -122,7 +122,7 @@ if test "x${cflags_specified}" = "x" ; then
   	AC_MSG_RESULT([gcc default])
   	;;
     "SUNPRO")
-  	CFLAGS="-xO4 -xspace -xcode=pic32 -xstrconst -Xt -xc99"
+  	CFLAGS="-xO4 -v -g -xspace -xcode=pic32 -xstrconst -xc99"
   	AC_MSG_RESULT([SunPro default])
   	;;
     *)
@@ -140,6 +140,22 @@ AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
+
+dnl ---------------------------
+dnl We, perhaps unfortunately,
+dnl depend on GNU Make specific
+dnl constructs.
+dnl Give the user a warning if
+dnl not GNU Make.
+dnl ---------------------------
+AC_CACHE_CHECK([if ${MAKE-make} is GNU make], [quagga_cv_gnu_make],
+	[quagga_cv_gnu_make=no
+	 if ${MAKE-make} --version 2>/dev/null | \
+	 	grep '^GNU Make ' >/dev/null ; then
+	 	quagga_cv_gnu_make=yes;
+	 fi
+	]
+)
 
 dnl ---------
 dnl AIX check
@@ -1375,5 +1391,11 @@ config file mask        : ${enable_configfile_mask}
 log file mask           : ${enable_logfile_mask}
 
 The above user and group must have read/write access to the state file
-directory and to the config files in the config file directory.
-"
+directory and to the config files in the config file directory."
+
+if test x"$quagga_cv_gnu_make" = x"no"; then echo "
+Warning: The ${MAKE-make} programme detected, either in your path or
+via the MAKE variable, is not GNU Make. GNU make may be installed as
+gmake on some systems. and is required to complete a build of Quagga
+" > /dev/stderr 
+fi
