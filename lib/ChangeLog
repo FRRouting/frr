@@ -7,6 +7,11 @@
 	  we still need it on GNU Libc for mallinfo().
 	* vty.c: (vty_log/vty_log_fixed) dont crash if called when vty
 	  hasn't been initiliased.
+	* log.c: (general) Add support for Sun libc printstack().
+	  (hex_append) make the cpp conditional on general HAVE_STACK_TRACE
+	  define.
+	  (zlog_backtrace_sigsafe) Ditto. Add printstack() version of the
+	  the DUMP macro in this function.
 
 2006-05-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

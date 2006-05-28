@@ -4,6 +4,9 @@
 	  enable debug options.
 	  Add a check for GNU Make and warn the user if it does not appear
 	  to be the make used.
+	  Check for Sun libc printstack(), add a general HAVE_STACK_TRACE
+	  define for lib/log.c, if any supported stack symbol dumping
+	  function is found (glibc backtrace/sun libc printstack).
 
 2006-05-10 Paul Jakma <paul.jakma@sun.com>
 

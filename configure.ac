@@ -392,11 +392,15 @@ case "$host" in
   | [*-solaris2.1[0-9]] \
   | [*-solaris2.1[0-9].[0-9]])
       opsys=sol8
-      AC_DEFINE(SUNOS_59,,SunOS 5.8 up)
-      AC_DEFINE(SUNOS_5, 1, SunOS 5)
+      AC_DEFINE(SUNOS_59, 1, [SunOS 5.8 up])
+      AC_DEFINE(SUNOS_5, 1, [SunOS 5])
       AC_CHECK_LIB(socket, main)
       AC_CHECK_LIB(nsl, main)
       AC_CHECK_LIB(umem, main)
+      AC_CHECK_FUNCS([printstack],
+      	[AC_DEFINE([HAVE_PRINTSTACK],1,[Solaris printstack])
+      	 AC_DEFINE([HAVE_STACK_TRACE],1,[Stack symbols decode functionality])
+      	])
       CURSES=-lcurses
   ;;
   *-sunos5* | *-solaris2*)
@@ -1244,12 +1248,12 @@ dnl ---------------------------
 dnl check for glibc 'backtrace'
 dnl --------------------------- 
 if test "${glibc}" = "yes"; then
-   AC_CHECK_HEADER(execinfo.h)
-fi
-if test x"${ac_cv_header_execinfo_h}" = x"yes"; then
-  AC_CHECK_FUNC(backtrace,
-    [AC_DEFINE(HAVE_GLIBC_BACKTRACE,,Glibc backtrace)]
-  )
+   AC_CHECK_HEADER([execinfo.h],
+    [AC_CHECK_FUNC([backtrace],
+    	[AC_DEFINE(HAVE_GLIBC_BACKTRACE,,[Glibc backtrace])
+    	 AC_DEFINE(HAVE_STACK_TRACE,,[Stack symbol decoding])
+    	])
+    ])
 fi
 
 dnl -----------------------------------------

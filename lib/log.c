@@ -1,5 +1,5 @@
 /*
- * $Id: log.c,v 1.27 2006/05/15 16:56:51 paul Exp $
+ * $Id$
  *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -179,7 +179,7 @@ num_append(char *s, int len, u_long x)
   return str_append(s,len,t);
 }
 
-#if defined(SA_SIGINFO) || defined(HAVE_GLIBC_BACKTRACE)
+#if defined(SA_SIGINFO) || defined(HAVE_STACK_TRACE)
 static char *
 hex_append(char *s, int len, u_long x)
 {
@@ -371,7 +371,7 @@ zlog_signal(int signo, const char *action
 void
 zlog_backtrace_sigsafe(int priority, void *program_counter)
 {
-#ifdef HAVE_GLIBC_BACKTRACE
+#ifdef HAVE_STACK_TRACE
   static const char pclabel[] = "Program counter: ";
   void *array[20];
   int size;
@@ -379,13 +379,10 @@ zlog_backtrace_sigsafe(int priority, void *program_counter)
   char *s;
 #define LOC s,buf+sizeof(buf)-s
 
+#ifdef HAVE_GLIBC_BACKTRACE
   if (((size = backtrace(array,sizeof(array)/sizeof(array[0]))) <= 0) ||
       ((size_t)size > sizeof(array)/sizeof(array[0])))
     return;
-  s = buf;
-  s = str_append(LOC,"Backtrace for ");
-  s = num_append(LOC,size);
-  s = str_append(LOC," stack frames:\n");
 
 #define DUMP(FD) { \
   if (program_counter) \
@@ -396,6 +393,19 @@ zlog_backtrace_sigsafe(int priority, void *program_counter)
   write(FD, buf, s-buf);	\
   backtrace_symbols_fd(array, size, FD); \
 }
+#elif defined(HAVE_PRINTSTACK)
+#define DUMP(FD) { \
+  if (program_counter) \
+    write((FD), pclabel, sizeof(pclabel)-1); \
+  write((FD), buf, s-buf); \
+  printstack((FD)); \
+}
+#endif /* HAVE_GLIBC_BACKTRACE, HAVE_PRINTSTACK */
+
+  s = buf;
+  s = str_append(LOC,"Backtrace for ");
+  s = num_append(LOC,size);
+  s = str_append(LOC," stack frames:\n");
 
   if ((logfile_fd >= 0) || ((logfile_fd = open_crashlog()) >= 0))
     DUMP(logfile_fd)
@@ -431,7 +441,7 @@ zlog_backtrace_sigsafe(int priority, void *program_counter)
     }
 #undef DUMP
 #undef LOC
-#endif /* HAVE_GLIBC_BACKTRACE */
+#endif /* HAVE_STRACK_TRACE */
 }
 
 void
