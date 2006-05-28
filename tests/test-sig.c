@@ -1,7 +1,6 @@
-
 #include <zebra.h>
 #include <sigevent.h>
-#include "lib/log.h">
+#include "lib/log.h"
 
 void
 sighup (void)
