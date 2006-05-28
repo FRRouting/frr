@@ -82,9 +82,9 @@ typedef int socklen_t;
 #ifdef HAVE_LIMITS_H
 #include <limits.h>
 #endif /* HAVE_LIMITS_H */
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif /* HAVE_STDINT_H */
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif /* HAVE_INTTYPES_H */
 
 /* machine dependent includes */
 #ifdef SUNOS_5
@@ -206,10 +206,27 @@ typedef int socklen_t;
 #include <netinet6/nd6.h>
 #endif /* HAVE_NETINET6_ND6_H */
 
-/* Some systems do not define UINT32_MAX */
+/* Some systems do not define UINT32_MAX, etc.. from inttypes.h
+ * e.g. this makes life easier for FBSD 4.11 users.
+ */
+#ifndef INT8_MAX
+#define INT8_MAX	(127)
+#endif
+#ifndef INT16_MAX
+#define INT16_MAX	(32767)
+#endif
+#ifndef INT32_MAX
+#define INT32_MAX	(2147483647)
+#endif
+#ifndef UINT8_MAX
+#define UINT8_MAX	(255U)
+#endif
+#ifndef UINT16_MAX
+#define UINT16_MAX	(65535U)
+#endif
 #ifndef UINT32_MAX
-#define UINT32_MAX 0xFFFFFFFFU
-#endif /* UINT32_MAX */
+#define UINT32_MAX	(4294967295U)
+#endif
 
 #ifdef HAVE_LIBUTIL_H
 #include <libutil.h>
