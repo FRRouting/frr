@@ -1,6 +1,8 @@
 2006-06-15 Paul Jakma <paul.jakma@sun.com>
 
 	* command.c: (cmd_describe_command_real) Fix leak, CID #38.
+	* memory.h: Experimental, have XFREE macro NULL out the freed
+	  pointer.
 
 2006-05-28 Paul Jakma <paul.jakma@sun.com>
 

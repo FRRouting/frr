@@ -53,7 +53,10 @@ extern struct mlist mlists[];
 #define XMALLOC(mtype, size)       zmalloc ((mtype), (size))
 #define XCALLOC(mtype, size)       zcalloc ((mtype), (size))
 #define XREALLOC(mtype, ptr, size) zrealloc ((mtype), (ptr), (size))
-#define XFREE(mtype, ptr)          zfree ((mtype), (ptr))
+#define XFREE(mtype, ptr)          do { \
+                                     zfree ((mtype), (ptr)); \
+                                     ptr = NULL; } \
+                                   while (0)
 #define XSTRDUP(mtype, str)        zstrdup ((mtype), (str))
 #endif /* MEMORY_LOG */
 
