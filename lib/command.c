@@ -1,5 +1,5 @@
 /*
-   $Id: command.c,v 1.53 2006/05/12 23:24:09 paul Exp $
+   $Id$
  
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
@@ -1629,12 +1629,14 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 	if ((ret = is_cmd_ambiguous (command, cmd_vector, i, match)) == 1)
 	  {
 	    vector_free (cmd_vector);
+	    vector_free (matchvec);
 	    *status = CMD_ERR_AMBIGUOUS;
 	    return NULL;
 	  }
 	else if (ret == 2)
 	  {
 	    vector_free (cmd_vector);
+	    vector_free (matchvec);
 	    *status = CMD_ERR_NO_MATCH;
 	    return NULL;
 	  }
