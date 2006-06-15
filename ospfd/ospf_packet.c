@@ -768,7 +768,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
     if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS))
       {
         /* Try to fix multicast membership. */
-        SET_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS);
+        OI_MEMBER_JOINED(oi, MEMBER_ALLROUTERS);
         ospf_if_set_multicast(oi);
       }
     return;
@@ -2390,9 +2390,9 @@ ospf_read (struct thread *thread)
 	         ifp->name, if_flag_dump(ifp->flags));
       /* Fix multicast memberships? */
       if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS))
-	SET_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS);
+        OI_MEMBER_JOINED(oi, MEMBER_ALLROUTERS);
       else if (iph->ip_dst.s_addr == htonl(OSPF_ALLDROUTERS))
-	SET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
+	OI_MEMBER_JOINED(oi, MEMBER_DROUTERS);
       if (oi->multicast_memberships)
 	ospf_if_set_multicast(oi);
       return 0;

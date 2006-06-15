@@ -748,22 +748,25 @@ ospf_if_set_multicast(struct ospf_interface *oi)
       (OSPF_IF_PARAM(oi, passive_interface) == OSPF_IF_ACTIVE))
     {
       /* The interface should belong to the OSPF-all-routers group. */
-      if (!CHECK_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS) &&
+      if (!OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS) &&
 	  (ospf_if_add_allspfrouters(oi->ospf, oi->address,
 				     oi->ifp->ifindex) >= 0))
-	/* Set the flag only if the system call to join succeeded. */
-        SET_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS);
+	  /* Set the flag only if the system call to join succeeded. */
+	  OI_MEMBER_JOINED(oi, MEMBER_ALLROUTERS);
     }
   else
     {
       /* The interface should NOT belong to the OSPF-all-routers group. */
-      if (CHECK_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS))
+      if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS))
         {
-	  ospf_if_drop_allspfrouters (oi->ospf, oi->address, oi->ifp->ifindex);
+          /* Only actually drop if this is the last reference */
+          if (OI_MEMBER_COUNT(oi, MEMBER_ALLROUTERS) == 1)
+	    ospf_if_drop_allspfrouters (oi->ospf, oi->address,
+	                                oi->ifp->ifindex);
 	  /* Unset the flag regardless of whether the system call to leave
 	     the group succeeded, since it's much safer to assume that
 	     we are not a member. */
-	  UNSET_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS);
+          OI_MEMBER_LEFT(oi,MEMBER_ALLROUTERS);
         }
     }
 
@@ -773,22 +776,25 @@ ospf_if_set_multicast(struct ospf_interface *oi)
       (OSPF_IF_PARAM(oi, passive_interface) == OSPF_IF_ACTIVE))
     {
       /* The interface should belong to the OSPF-designated-routers group. */
-      if (!CHECK_FLAG(oi->multicast_memberships, MEMBER_DROUTERS) &&
+      if (!OI_MEMBER_CHECK(oi, MEMBER_DROUTERS) &&
 	  (ospf_if_add_alldrouters(oi->ospf, oi->address,
 	  			   oi->ifp->ifindex) >= 0))
 	/* Set the flag only if the system call to join succeeded. */
-        SET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
+	OI_MEMBER_JOINED(oi, MEMBER_DROUTERS);
     }
   else
     {
       /* The interface should NOT belong to the OSPF-designated-routers group */
-      if (CHECK_FLAG(oi->multicast_memberships, MEMBER_DROUTERS))
+      if (OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
         {
-	  ospf_if_drop_alldrouters(oi->ospf, oi->address, oi->ifp->ifindex);
+          /* drop only if last reference */
+          if (OI_MEMBER_COUNT(oi, MEMBER_DROUTERS) == 1)
+	    ospf_if_drop_alldrouters(oi->ospf, oi->address, oi->ifp->ifindex);
+          
 	  /* Unset the flag regardless of whether the system call to leave
 	     the group succeeded, since it's much safer to assume that
 	     we are not a member. */
-          UNSET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
+          OI_MEMBER_LEFT(oi, MEMBER_DROUTERS);
         }
     }
 }

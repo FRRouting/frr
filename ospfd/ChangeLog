@@ -1,3 +1,18 @@
+2006-06-15 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_interface.h: (struct ospf_if_info) Add reference counts
+	  for multicast group memberships. Add various macros to help
+	  manipulate/check membership state.
+	* ospf_interface.c: (ospf_if_set_multicast) Maintain the
+	  ospf_if_info reference counts, and only actually drop
+	  memberships if it hits 0, to avoid losing membership when
+	  OSPF is disabled on an interface with multiple active OSPF
+	  interfaces.
+	* ospf_packet.c: (ospf_{hello,read}) Use the new macros to
+	  check/set
+	  multicast membership.
+	* ospf_vty.c: (show_ip_ospf_interface_sub) ditto.
+	  
 2006-05-31 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_lsdb.c: (ospf_lsdb_delete) robustify against NULL arguments,

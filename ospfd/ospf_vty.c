@@ -2811,12 +2811,15 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
 	}
 
       vty_out (vty, "  Multicast group memberships:");
-      if (CHECK_FLAG(oi->multicast_memberships, MEMBER_ALLROUTERS))
-        vty_out (vty, " OSPFAllRouters");
-      if (CHECK_FLAG(oi->multicast_memberships, MEMBER_DROUTERS))
-        vty_out (vty, " OSPFDesignatedRouters");
-      if (!CHECK_FLAG(oi->multicast_memberships,
-		      MEMBER_ALLROUTERS|MEMBER_DROUTERS))
+      if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS)
+          || OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
+        {
+          if (OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS))
+            vty_out (vty, " OSPFAllRouters");
+          if (OI_MEMBER_CHECK(oi, MEMBER_DROUTERS))
+            vty_out (vty, " OSPFDesignatedRouters");
+        }
+      else
         vty_out (vty, " <None>");
       vty_out (vty, "%s", VTY_NEWLINE);
 
