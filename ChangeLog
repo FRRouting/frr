@@ -1,3 +1,9 @@
+2006-06-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* redhat/quagga.spec.in: Get default distro automatically
+	  by using rpm to query the fedora-release version.
+	  And fix a typo (should be default_dist, not dist_default).
+
 2006-05-28 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Update SOS CFLAGS, Xt shouldn't be used and

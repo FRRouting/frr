@@ -39,8 +39,8 @@
 ############################################################################
 
 ####################### distro specific tweaks #############################
-# default distro. Override with rpmbuild -D "dist_default XXX" 
-%define			dist_default		fc4
+# default distro. Override with rpmbuild -D "dist XXX" 
+%{expand: %%define default_dist %(rpm -q --qf 'fc%%{VERSION}' fedora-release | grep -v 'not installed')}
 %{!?dist:		%define		dist	%{default_dist}}
 
 # as distros change packages we depend on, our Requires have to change, sadly.
