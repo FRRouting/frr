@@ -1,3 +1,11 @@
+2006-05-31 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_lsdb.c: (ospf_lsdb_delete) robustify against NULL arguments,
+	  print warning.
+	* ospf_lsa.c: (ospf_discard_from_db) ditto.
+	  (ospf_maxage_lsa_remover) Check lsa->lsdb for validity, possible
+	  mitigation (but not solution) for bug #269.
+
 2006-05-30 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_packet.c: (ospf_read) Debug message about packets

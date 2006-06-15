@@ -2679,6 +2679,17 @@ ospf_discard_from_db (struct ospf *ospf,
 {
   struct ospf_lsa *old;
   
+  if (!lsdb)
+    {
+      zlog_warn ("%s: Called with NULL lsdb!", __func__);
+      if (!lsa)
+        zlog_warn ("%s: and NULL LSA!", __func__);
+      else
+        zlog_warn ("LSA[Type%d:%s]: not associated with LSDB!",
+                   lsa->data->type, inet_ntoa (lsa->data->id));
+      return;
+    }
+  
   old = ospf_lsdb_lookup (lsdb, lsa);
 
   if (!old)
@@ -3014,8 +3025,14 @@ ospf_maxage_lsa_remover (struct thread *thread)
           }
 
 	/* Remove from lsdb. */
-        ospf_discard_from_db (ospf, lsa->lsdb, lsa);
-        ospf_lsdb_delete (lsa->lsdb, lsa);
+	if (lsa->lsdb)
+	  {
+	    ospf_discard_from_db (ospf, lsa->lsdb, lsa);
+	    ospf_lsdb_delete (lsa->lsdb, lsa);
+          }
+        else
+          zlog_warn ("%s: LSA[Type%d:%s]: No associated LSDB!", __func__,
+                     lsa->data->type, inet_ntoa (lsa->data->id));
       }
 
   /*    A MaxAge LSA must be removed immediately from the router's link

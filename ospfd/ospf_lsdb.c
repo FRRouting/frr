@@ -127,6 +127,22 @@ ospf_lsdb_delete (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
   struct prefix_ls lp;
   struct route_node *rn;
 
+  if (!lsdb)
+    {
+      zlog_warn ("%s: Called with NULL LSDB", __func__);
+      if (lsa)
+        zlog_warn ("LSA[Type%d:%s]: LSA %p, lsa->lsdb %p",
+                   lsa->data->type, inet_ntoa (lsa->data->id),
+                   lsa, lsa->lsdb);
+      return;
+    }
+  
+  if (!lsa)
+    {
+      zlog_warn ("%s: Called with NULL LSA", __func__);
+      return;
+    }
+  
   table = lsdb->type[lsa->data->type].db;
   lsdb_prefix_set (&lp, lsa);
   rn = route_node_lookup (table, (struct prefix *) &lp);
