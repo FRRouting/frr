@@ -405,7 +405,7 @@ if_flag_dump (unsigned long flag)
       strlcat (logbuf, STR, BUFSIZ); \
     }
 
-  strlcpy (logbuf, "  <", BUFSIZ);
+  strlcpy (logbuf, "<", BUFSIZ);
   IFF_OUT_LOG (IFF_UP, "UP");
   IFF_OUT_LOG (IFF_BROADCAST, "BROADCAST");
   IFF_OUT_LOG (IFF_DEBUG, "DEBUG");
@@ -431,6 +431,7 @@ if_flag_dump (unsigned long flag)
   strlcat (logbuf, ">", BUFSIZ);
 
   return logbuf;
+#undef IFF_OUT_LOG
 }
 
 /* For debugging */

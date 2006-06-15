@@ -5,6 +5,8 @@
 	  pointer.
 	* linklist.c: (list_delete) call list_delete_all_node, don't
 	  duplicate it.
+	* if.c: (if_flag_dump) remove the whitespace indentation, callers
+	  should provide.
 
 2006-05-28 Paul Jakma <paul.jakma@sun.com>
 

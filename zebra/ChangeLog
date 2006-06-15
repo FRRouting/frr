@@ -1,3 +1,8 @@
+2006-06-15 Paul Jakma <paul.jakma@sun.com>
+
+	* interface.c: (if_flag_dump_vty) redundant code, remove.
+	  (if_dump_vty) use libzebra if_flag_dump.
+
 2006-05-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* connected.c: (connected_withdraw) Do not delete the connected
