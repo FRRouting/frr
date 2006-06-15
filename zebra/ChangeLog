@@ -2,6 +2,16 @@
 
 	* interface.c: (if_flag_dump_vty) redundant code, remove.
 	  (if_dump_vty) use libzebra if_flag_dump.
+	  (ip_address_uninstall) Unset the configured flag.
+	* connected.c: (connected_same) new helper, check whether
+	  two connected are same.
+	  (connected_implicit_withdraw) new helper, consolidation of
+	  existing code in connected_add_ipv{4,6}.
+	  Try filter out unneeded Zserv address delete/adds when
+	  address is exact same.
+	  Where old address is implicitely removed, be sure to preserve
+	  the IFC_CONFIGURED flag if set, fixes bug where configured
+	  addresses were being lost on FreeBSD (Andrew Schorr).	  
 
 2006-05-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

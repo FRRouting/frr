@@ -1273,6 +1273,8 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
   if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
     return CMD_WARNING;
 
+  UNSET_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED);
+  
   /* This is not real address or interface is not active. */
   if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL)
       || ! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))

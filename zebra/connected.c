@@ -111,6 +111,63 @@ connected_check (struct interface *ifp, struct prefix *p)
   return NULL;
 }
 
+/* Check if two ifc's describe the same address */
+static int
+connected_same (struct connected *ifc1, struct connected *ifc2)
+{
+  if (ifc1->ifp != ifc2->ifp)
+    return 0;
+  
+  if (ifc1->destination)
+    if (!ifc2->destination)
+      return 0;
+  if (ifc2->destination)
+    if (!ifc1->destination)
+      return 0;
+  
+  if (ifc1->destination && ifc2->destination)
+    if (!prefix_same (ifc1->destination, ifc2->destination))
+      return 0;
+
+  if (ifc1->flags != ifc2->flags)
+    return 0;
+  
+  return 1;
+}
+
+/* Handle implicit withdrawals of addresses, where a system ADDs an address
+ * to an interface which already has the same address configured.
+ *
+ * Returns the struct connected which must be announced to clients,
+ * or NULL if nothing to do.
+ */
+static struct connected *
+connected_implicit_withdraw (struct interface *ifp, struct connected *ifc)
+{
+  struct connected *current;
+  
+  /* Check same connected route. */
+  if ((current = connected_check (ifp, (struct prefix *) ifc->address)))
+    {
+      if (CHECK_FLAG(current->conf, ZEBRA_IFC_CONFIGURED))
+        SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
+	
+      /* Avoid spurious withdraws, this might be just the kernel 'reflecting'
+       * back an address we have already added.
+       */
+      if (connected_same (current, ifc))
+        {
+          /* nothing to do */
+          connected_free (ifc);
+          return NULL;
+        }
+      
+      UNSET_FLAG(current->conf, ZEBRA_IFC_CONFIGURED);
+      connected_withdraw (current); /* implicit withdraw - freebsd does this */
+    }
+  return ifc;
+}
+
 /* Called from if_up(). */
 void
 connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
@@ -157,7 +214,6 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
 {
   struct prefix_ipv4 *p;
   struct connected *ifc;
-  struct connected *current;
 
   /* Make connected structure. */
   ifc = connected_new ();
@@ -226,16 +282,9 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
   if (label)
     ifc->label = XSTRDUP (MTYPE_CONNECTED_LABEL, label);
 
-  /* Check same connected route. */
-  if ((current = connected_check (ifp, (struct prefix *) ifc->address)))
-    {
-      if (CHECK_FLAG(current->conf, ZEBRA_IFC_CONFIGURED))
-	{
-	  SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
-	  UNSET_FLAG(current->conf, ZEBRA_IFC_CONFIGURED);
-	}
-      connected_withdraw (current); /* implicit withdraw - freebsd does this */
-    }
+  /* nothing to do? */
+  if ((ifc = connected_implicit_withdraw (ifp, ifc)) == NULL)
+    return;
   
   connected_announce (ifp, ifc);
 }
@@ -347,7 +396,6 @@ connected_add_ipv6 (struct interface *ifp, struct in6_addr *addr,
 {
   struct prefix_ipv6 *p;
   struct connected *ifc;
-  struct connected *current;
 
   /* Make connected structure. */
   ifc = connected_new ();
@@ -373,15 +421,8 @@ connected_add_ipv6 (struct interface *ifp, struct in6_addr *addr,
   if (label)
     ifc->label = XSTRDUP (MTYPE_CONNECTED_LABEL, label);
   
-  if ((current = connected_check (ifp, (struct prefix *) ifc->address)))
-    {
-      if (CHECK_FLAG(current->conf, ZEBRA_IFC_CONFIGURED))
-	{
-	  SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
-	  UNSET_FLAG(current->conf, ZEBRA_IFC_CONFIGURED);
-	}
-      connected_withdraw (current); /* implicit update of existing address */
-    }
+  if ((ifc = connected_implicit_withdraw (ifp, ifc)) == NULL)
+    return;
   
   connected_announce (ifp, ifc);
 }
