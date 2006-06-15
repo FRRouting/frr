@@ -1,3 +1,9 @@
+2006-05-30 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_packet.c: (ospf_read) Debug message about packets
+	  received on unenabled interfaces should be conditional on
+	  debug being set.
+
 2006-05-13 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_lsa.c: (ospf_translated_nssa_refresh) fix the sanity
