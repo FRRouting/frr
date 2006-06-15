@@ -226,17 +226,8 @@ list_delete_all_node (struct list *list)
 void
 list_delete (struct list *list)
 {
-  struct listnode *node;
-  struct listnode *next;
-
   assert(list);
-  for (node = list->head; node; node = next)
-    {
-      next = node->next;
-      if (list->del)
-	(*list->del) (node->data);
-      listnode_free (node);
-    }
+  list_delete_all_node (list);
   list_free (list);
 }
 
