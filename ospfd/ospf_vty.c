@@ -261,13 +261,7 @@ DEFUN (ospf_passive_interface,
  struct ospf_if_params *params;
  struct route_node *rn;
 
- ifp = if_lookup_by_name (argv[0]);
- 
- if (ifp == NULL)
-   {
-     vty_out (vty, "Please specify an existing interface%s", VTY_NEWLINE);
-     return CMD_WARNING;
-   }
+ ifp = if_get_by_name (argv[0]);
 
   params = IF_DEF_PARAMS (ifp);
 
@@ -331,13 +325,7 @@ DEFUN (no_ospf_passive_interface,
   int ret;
   struct route_node *rn;
     
-  ifp = if_lookup_by_name (argv[0]);
-  
-  if (ifp == NULL)
-    {
-      vty_out (vty, "Please specify an existing interface%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  ifp = if_get_by_name (argv[0]);
 
   params = IF_DEF_PARAMS (ifp);
 
