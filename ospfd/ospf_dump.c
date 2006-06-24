@@ -1544,7 +1544,7 @@ config_write_debug (struct vty *vty)
   else
     {
       if (IS_CONF_DEBUG_OSPF (nsm, NSM_STATUS))
-	vty_out (vty, "debug ospf ism status%s", VTY_NEWLINE);
+	vty_out (vty, "debug ospf nsm status%s", VTY_NEWLINE);
       if (IS_CONF_DEBUG_OSPF (nsm, NSM_EVENTS))
 	vty_out (vty, "debug ospf nsm event%s", VTY_NEWLINE);
       if (IS_CONF_DEBUG_OSPF (nsm, NSM_TIMERS))
