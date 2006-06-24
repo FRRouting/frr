@@ -1,5 +1,10 @@
 2006-06-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf_snmp.c: (ospfTrapNbrStateChange, ospfTrapIfStateChange) Improve
+	  info log message to indicate why the trap is being sent.
+
+2006-06-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf_dump.c: (config_write_debug) Fix typo to show debug ospf nsm
 	  status properly (not ism status).
 
