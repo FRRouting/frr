@@ -409,67 +409,80 @@ ospf_abr_nssa_check_status (struct ospf *ospf)
 {
   struct ospf_area *area;
   struct listnode *lnode, *nnode;
-    
+  
   for (ALL_LIST_ELEMENTS (ospf->areas, lnode, nnode, area))
     {
-    
+      u_char old_state = area->NSSATranslatorState;
+
       if (area->external_routing != OSPF_AREA_NSSA)
         continue;
-        
+
       if (IS_DEBUG_OSPF (nssa, NSSA))
         zlog_debug ("ospf_abr_nssa_check_status: "
                     "checking area %s",
                     inet_ntoa (area->area_id));
-      
+
       if (!IS_OSPF_ABR (area->ospf))
         {
           if (IS_DEBUG_OSPF (nssa, NSSA))
-            zlog_debug ("ospf_abr_nssa_check_status: "
-	    		"not ABR");
+            zlog_debug ("ospf_abr_nssa_check_status: " 
+                        "not ABR");
           area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
-          continue;
         }
-      
-      switch (area->NSSATranslatorRole)
-        {      
-          case OSPF_NSSA_ROLE_NEVER:
-            /* We never Translate Type-7 LSA. */
-            /* TODO: check previous state and flush? */
-            if (IS_DEBUG_OSPF (nssa, NSSA))
-              zlog_debug ("ospf_abr_nssa_check_status: "
-	      		  "never translate");
-            area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
-            continue;
-             
-          case OSPF_NSSA_ROLE_ALWAYS:
-            /* We always translate if we are an ABR
-             * TODO: originate new LSAs if state change?
-             * or let the nssa abr task take care of it?
-             */
-            if (IS_DEBUG_OSPF (nssa, NSSA))
-              zlog_debug ("ospf_abr_nssa_check_status: "
-			  "translate always");
-            area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_ENABLED;
-            continue;
-      
-          case OSPF_NSSA_ROLE_CANDIDATE:
-            /* We are a candidate for Translation */
-            if (ospf_abr_nssa_am_elected (area) > 0 )
-              {
-                area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_ENABLED;
-                if (IS_DEBUG_OSPF (nssa, NSSA))
-                  zlog_debug ("ospf_abr_nssa_check_status: "
-                              "elected translator");
-               }
-            else
-               {
-                 area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
-                 if (IS_DEBUG_OSPF (nssa, NSSA))
-                   zlog_debug ("ospf_abr_nssa_check_status: "
-			       "not elected");
-               }
-            continue;
-         }
+      else
+        {
+          switch (area->NSSATranslatorRole)
+            {
+            case OSPF_NSSA_ROLE_NEVER:
+              /* We never Translate Type-7 LSA. */
+              /* TODO: check previous state and flush? */
+              if (IS_DEBUG_OSPF (nssa, NSSA))
+                zlog_debug ("ospf_abr_nssa_check_status: "
+			    "never translate");
+              area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
+              break;
+
+            case OSPF_NSSA_ROLE_ALWAYS:
+              /* We always translate if we are an ABR
+               * TODO: originate new LSAs if state change?
+               * or let the nssa abr task take care of it?
+               */
+              if (IS_DEBUG_OSPF (nssa, NSSA))
+                zlog_debug ("ospf_abr_nssa_check_status: "
+                            "translate always");
+              area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_ENABLED;
+              break;
+
+            case OSPF_NSSA_ROLE_CANDIDATE:
+              /* We are a candidate for Translation */
+              if (ospf_abr_nssa_am_elected (area) > 0)
+                {
+                  area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_ENABLED;
+                  if (IS_DEBUG_OSPF (nssa, NSSA))
+                    zlog_debug ("ospf_abr_nssa_check_status: "
+                                "elected translator");
+                }
+              else
+                {
+                  area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
+                  if (IS_DEBUG_OSPF (nssa, NSSA))
+                    zlog_debug ("ospf_abr_nssa_check_status: " "not elected");
+                }
+              break;
+            }
+        }
+      /* RFC3101, 3.1:
+       * All NSSA border routers must set the E-bit in the Type-1 router-LSAs
+       * of their directly attached non-stub areas, even when they are not
+       * translating.
+       */
+      if (old_state != area->NSSATranslatorState)
+      	{
+          if (old_state == OSPF_NSSA_TRANSLATE_DISABLED)
+	    ospf_asbr_status_update (ospf, ++ospf->redistribute);
+	  else if (area->NSSATranslatorState == OSPF_NSSA_TRANSLATE_DISABLED)
+	    ospf_asbr_status_update (ospf, --ospf->redistribute);
+	}
     }
 }
 

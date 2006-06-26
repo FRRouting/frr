@@ -437,7 +437,8 @@ router_lsa_flags (struct ospf_area *area)
 	SET_FLAG (flags, ROUTER_LSA_SHORTCUT);
 
   /* ASBR can't exit in stub area. */
-  if (area->external_routing == OSPF_AREA_STUB)
+  if (area->external_routing == OSPF_AREA_STUB
+      || area->external_routing == OSPF_AREA_NSSA)
     UNSET_FLAG (flags, ROUTER_LSA_EXTERNAL);
   /* If ASBR set External flag */
   else if (IS_OSPF_ASBR (area->ospf))

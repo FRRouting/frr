@@ -1,3 +1,16 @@
+2006-06-26 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_abr.c: (general) NSSA translate-candidate ABRs need to
+	  be ASBRs, or other routers may rightfully refuse to install
+	  translated type-5s LSAs. reported by dendroot@gmail.com.
+	  (ospf_abr_nssa_check_status) Detect change in translator
+	  state when ABR, and inc/dec redistribute count as when we
+	  leave/enter the disabled state - so that translate-enabled
+	  ABR properly sets ASBR bit on non-NSSA areas.
+	  Run the resulting function through indent to clean it up.
+	* ospf_lsa.c: (router_lsa_flags) For purposes of ASBR bit,
+	  NSSA area is same as stub area.
+	  
 2006-06-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_snmp.c: (ospfTrapNbrStateChange, ospfTrapIfStateChange) Improve
