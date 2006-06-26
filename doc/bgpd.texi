@@ -277,7 +277,7 @@ This command specifies an announced route's nexthop as being equivalent
 to the address of the bgp router.
 @end deffn
 
-@deffn {BGP} {neighbor @var{peer} update-source @var{(ifname|address)}} {}
+@deffn {BGP} {neighbor @var{peer} update-source @var{<ifname|address>}} {}
 @deffnx {BGP} {no neighbor @var{peer} update-source} {}
 Specify the IPv4 source address to use for the @acronym{BGP} session to this
 neighbour, may be specified as either an IPv4 address directly or

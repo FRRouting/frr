@@ -378,14 +378,20 @@ all OSPF packets are authenticated. @var{AUTH_KEY} has length up to 8 chars.
 @deffn {Interface Command} {ip ospf message-digest-key KEYID md5 KEY} {}
 @deffnx {Interface Command} {no ip ospf message-digest-key} {}
 Set OSPF authentication key to a cryptographic password.  The cryptographic
-algorithm is MD5.  KEYID identifies secret key used to create the message
-digest.  KEY is the actual message digest key up to 16 chars. 
+algorithm is MD5.  
+
+KEYID identifies secret key used to create the message digest. This ID
+is part of the protocol and must be consistent across routers on a
+link.
+
+KEY is the actual message digest key, of up to 16 chars (larger strings
+will be truncated), and is associated with the given KEYID.
 
 Note that OSPF MD5 authentication requires that time never go backwards
 (correct time is NOT important, only that it never goes backwards), even
 across resets, if ospfd is to be able to promptly reestabish adjacencies
 with its neighbours after restarts/reboots. The host should have system
-time be set at boot from an external source (eg battery backed clock, NTP,
+time be set at boot from an external or non-volatile source (eg battery backed clock, NTP,
 etc.) or else the system clock should be periodically saved to non-volative
 storage and restored at boot if MD5 authentication is to be expected to work
 reliably.

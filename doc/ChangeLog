@@ -1,3 +1,9 @@
+2006-06-26 Paul Jakma <paul.jakma@sun.com>
+
+	* ospfd.texi: Document that MD5 keyid is part of the protocol.
+	* bgpd.texi: shut texinfo warnings up by replacing brackets in
+	  variable with angle brackets.
+
 2006-05-23 Paul Jakma <paul.jakma@sun.com>
 
 	* bgpd.texi: Document the update-source command.
