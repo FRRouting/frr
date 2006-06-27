@@ -14,7 +14,7 @@ libzebra_la_SOURCES = \
 	zclient.c sockopt.c smux.c md5.c if_rmap.c keychain.c privs.c \
 	sigevent.c pqueue.c jhash.c memtypes.c workqueue.c
 
-BUILT_SOURCES = memtypes.h
+BUILT_SOURCES = memtypes.h route_types.h
 
 libzebra_la_DEPENDENCIES = @LIB_REGEX@
 
@@ -27,9 +27,12 @@ pkginclude_HEADERS = \
 	str.h stream.h table.h thread.h vector.h version.h vty.h zebra.h \
 	plist.h zclient.h sockopt.h smux.h md5.h if_rmap.h keychain.h \
 	privs.h sigevent.h pqueue.h jhash.h zassert.h memtypes.h \
-	privs.h sigevent.h pqueue.h jhash.h zassert.h memtypes.h workqueue.h
+	workqueue.h route_types.h
 
-EXTRA_DIST = regex.c regex-gnu.h memtypes.awk
+EXTRA_DIST = regex.c regex-gnu.h memtypes.awk route_types.awk route_types.txt
 
 memtypes.h: $(srcdir)/memtypes.c $(srcdir)/memtypes.awk
-	($(GAWK) -f $(srcdir)/memtypes.awk $(srcdir)/memtypes.c > memtypes.h)
+	($(GAWK) -f $(srcdir)/memtypes.awk $(srcdir)/memtypes.c > $@)
+
+route_types.h: $(srcdir)/route_types.txt $(srcdir)/route_types.awk
+	($(GAWK) -f $(srcdir)/route_types.awk $(srcdir)/route_types.txt > $@)
