@@ -17,12 +17,11 @@ BEGIN {
 	exitret = 0;
 	tcount = 0;
 	
-	# 'bare' redistribute specifier, <1-255>, help string.
-	redist_bare_help = "Numeric Zserv route type";
-	
 	# formats for output
+	## the define format
 	redist_def_fmt = "#define QUAGGA_REDIST_STR_%s \\\n";
-	redist_str_fmt = "\"(%s<1-255>)\"\n";
+	## DEFUN/vty route-type argument
+	redist_str_fmt = "\"(%s)\"\n";
 	redist_help_def_fmt = "#define QUAGGA_REDIST_HELP_STR_%s";
 	redist_help_str_fmt = " \\\n  \"%s\\n\"";
 	
@@ -150,8 +149,11 @@ END {
 			
 			if ((types[type2,"4"] && types[type,"4"]) \
 			    || (types[type2,"6"] && types[type,"6"])) {
-
-				rstr = rstr types[type2,"cname"] "|";
+			    	
+			    	if (rstr == "")
+			    		rstr = types[type2,"cname"];
+				else
+					rstr = rstr "|" types[type2,"cname"];
 				
 				if ((type2 SUBSEP "lhelp") in types)
 				  hstr2 = types[type2,"lhelp"];
