@@ -174,9 +174,7 @@ END {
 		printf(redist_str_fmt, rstr);
 		printf(redist_help_def_fmt, toupper(daemon));
 		printf("%s", hstr);
-		printf(redist_help_str_fmt, redist_bare_help);
-		print("\n");
-		
+		printf("\n\n");
 	}
 	
 	#printf("#define QUAGGA_REDIST_STR_ALL %s\n",all);
