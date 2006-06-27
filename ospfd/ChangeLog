@@ -57,6 +57,12 @@
 	  received on unenabled interfaces should be conditional on
 	  debug being set.
 
+2006-05-23 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_vty.c: (general) Replace in-place route redistribution
+	  command and help strings with the new auto-generated defines
+	  from lib/route_types.h
+
 2006-05-13 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_lsa.c: (ospf_translated_nssa_refresh) fix the sanity
