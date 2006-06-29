@@ -1,3 +1,17 @@
+2006-06-28 Erik Muller <erikm@internap.com>
+
+	* ospfd.h: Define 2 new struct ospf config flags:
+	  OSPF_LOG_ADJACENCY_CHANGES and OSPF_LOG_ADJACENCY_DETAIL
+	* ospf_nsm.c (nsm_change_state): Log adjacency changes if
+	  requested.
+	* ospf_vty.c (ospf_log_adjacency_changes): New command function
+	  to implement ospf subcommand "log-adjacency-changes [detail]".
+	  (no_ospf_log_adjacency_changes) Turn off log-adjacency-changes.
+	  (show_ip_ospf) Show whether adjacency changes are logged.
+	  (ospf_config_write) Add "log-adjacency-changes [detail]" to config.
+	  (ospf_vty_init) Add ospf_log_adjacency_changes and
+	  no_ospf_log_adjacency_changes.
+
 2006-06-26 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_abr.c: (general) NSSA translate-candidate ABRs need to

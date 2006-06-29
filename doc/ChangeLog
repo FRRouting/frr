@@ -1,3 +1,8 @@
+2006-06-28 Erik Muller <erikm@internap.com>
+
+	* ospfd.texi: Document new ospf router subcommand
+	  "log-adjacency-changes [detail]".
+
 2006-06-26 Paul Jakma <paul.jakma@sun.com>
 
 	* ospfd.texi: Document that MD5 keyid is part of the protocol.

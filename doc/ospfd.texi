@@ -90,6 +90,13 @@ but still both preferred to external paths.
 This command should NOT be set normally.
 @end deffn
 
+@deffn {OSPF Command} {log-adjacency-changes [detail]} {}
+@deffnx {OSPF Command} {no log-adjacency-changes [detail]} {}
+Configures ospfd to log changes in adjacency.  With the optional
+detail argument, all changes in adjacency status are shown.  Without detail,
+only changes to full or regressions are shown.
+@end deffn
+
 @deffn {OSPF Command} {passive interface @var{interface}} {}
 @deffnx {OSPF Command} {no passive interface @var{interface}} {}
 

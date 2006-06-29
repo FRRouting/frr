@@ -697,7 +697,17 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
 
   if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
     vl_area = ospf_area_lookup_by_area_id (oi->ospf, oi->vl_data->vl_area_id);
-  
+
+  /* Optionally notify about adjacency changes */
+  if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_CHANGES) &&
+      (old_state != state) &&
+      (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL) ||
+       (state == NSM_Full) || (state < old_state)))
+    zlog_notice("AdjChg: Nbr %s on %s: %s -> %s",
+		inet_ntoa (nbr->router_id), IF_NAME (nbr->oi),
+		LOOKUP (ospf_nsm_state_msg, old_state),
+		LOOKUP (ospf_nsm_state_msg, state));
+
 #ifdef HAVE_SNMP
   /* Terminal state or regression */ 
   if ((state == NSM_Full) || (state == NSM_TwoWay) || (state < old_state))

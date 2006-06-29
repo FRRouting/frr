@@ -181,6 +181,8 @@ struct ospf
   u_char config;
 #define OSPF_RFC1583_COMPATIBLE         (1 << 0)
 #define OSPF_OPAQUE_CAPABLE		(1 << 2)
+#define OSPF_LOG_ADJACENCY_CHANGES	(1 << 3)
+#define OSPF_LOG_ADJACENCY_DETAIL	(1 << 4)
 
 #ifdef HAVE_OPAQUE_LSA
   /* Opaque-LSA administrative flags. */

@@ -2056,6 +2056,56 @@ DEFUN (no_ospf_abr_type,
   return CMD_SUCCESS;
 }
 
+DEFUN (ospf_log_adjacency_changes,
+       ospf_log_adjacency_changes_cmd,
+       "log-adjacency-changes",
+       "Log changes in adjacency state\n")
+{
+  struct ospf *ospf = vty->index;
+
+  SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
+  return CMD_SUCCESS;
+}
+
+DEFUN (ospf_log_adjacency_changes_detail,
+       ospf_log_adjacency_changes_detail_cmd,
+       "log-adjacency-changes detail",
+       "Log changes in adjacency state\n"
+       "Log all state changes\n")
+{
+  struct ospf *ospf = vty->index;
+
+  SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
+  SET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_log_adjacency_changes,
+       no_ospf_log_adjacency_changes_cmd,
+       "no log-adjacency-changes",
+       NO_STR
+       "Log changes in adjacency state\n")
+{
+  struct ospf *ospf = vty->index;
+
+  UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
+  UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf_log_adjacency_changes_detail,
+       no_ospf_log_adjacency_changes_detail_cmd,
+       "no log-adjacency-changes detail",
+       NO_STR
+       "Log changes in adjacency state\n"
+       "Log all state changes\n")
+{
+  struct ospf *ospf = vty->index;
+
+  UNSET_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL);
+  return CMD_SUCCESS;
+}
+
 DEFUN (ospf_compatible_rfc1583,
        ospf_compatible_rfc1583_cmd,
        "compatible rfc1583",
@@ -2676,8 +2726,18 @@ DEFUN (show_ip_ospf,
 	   ospf_lsdb_checksum (ospf->lsdb, OSPF_OPAQUE_AS_LSA), VTY_NEWLINE);
 #endif /* HAVE_OPAQUE_LSA */
   /* Show number of areas attached. */
-  vty_out (vty, " Number of areas attached to this router: %d%s%s",
-           listcount (ospf->areas), VTY_NEWLINE, VTY_NEWLINE);
+  vty_out (vty, " Number of areas attached to this router: %d%s",
+           listcount (ospf->areas), VTY_NEWLINE);
+
+  if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES))
+    {
+      if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
+	vty_out(vty, " All adjacency changes are logged%s",VTY_NEWLINE);
+      else
+	vty_out(vty, " Adjacency changes are logged%s",VTY_NEWLINE);
+    }
+
+  vty_out (vty, "%s",VTY_NEWLINE);
 
   /* Show each area status. */
   for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
@@ -7752,6 +7812,15 @@ ospf_config_write (struct vty *vty)
         vty_out (vty, " ospf abr-type %s%s", 
                  ospf_abr_type_str[ospf->abr_type], VTY_NEWLINE);
 
+      /* log-adjacency-changes flag print. */
+      if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_CHANGES))
+	{
+	  vty_out(vty, " log-adjacency-changes");
+	  if (CHECK_FLAG(ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
+	    vty_out(vty, " detail");
+	  vty_out(vty, "%s", VTY_NEWLINE);
+	}
+
       /* RFC1583 compatibility flag print -- Compatible with CISCO 12.1. */
       if (CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
 	vty_out (vty, " compatible rfc1583%s", VTY_NEWLINE);
@@ -8122,6 +8191,12 @@ ospf_vty_init (void)
   /* "ospf abr-type" commands. */
   install_element (OSPF_NODE, &ospf_abr_type_cmd);
   install_element (OSPF_NODE, &no_ospf_abr_type_cmd);
+
+  /* "ospf log-adjacency-changes" commands. */
+  install_element (OSPF_NODE, &ospf_log_adjacency_changes_cmd);
+  install_element (OSPF_NODE, &ospf_log_adjacency_changes_detail_cmd);
+  install_element (OSPF_NODE, &no_ospf_log_adjacency_changes_cmd);
+  install_element (OSPF_NODE, &no_ospf_log_adjacency_changes_detail_cmd);
 
   /* "ospf rfc1583-compatible" commands. */
   install_element (OSPF_NODE, &ospf_rfc1583_flag_cmd);
