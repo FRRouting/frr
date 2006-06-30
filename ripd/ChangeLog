@@ -1,3 +1,8 @@
+2006-06-29 Paul Jakma <paul.jakma@sun.com>
+
+	* rip_zebra: (general) convert redistribute commands to use
+	  the auto-generated defines.
+
 2006-05-04 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) Fixes for bugs #261 and 262. Thanks to

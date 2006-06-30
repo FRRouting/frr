@@ -314,13 +314,9 @@ DEFUN (no_rip_redistribute_rip,
 
 DEFUN (rip_redistribute_type,
        rip_redistribute_type_cmd,
-       "redistribute (kernel|connected|static|ospf|bgp)",
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Connected\n"
-       "Static routes\n"
-       "Open Shortest Path First (OSPF)\n"
-       "Border Gateway Protocol (BGP)\n")
+       "redistribute " QUAGGA_REDIST_STR_RIPD,
+       REDIST_STR
+       QUAGGA_REDIST_HELP_STR_RIPD)
 {
   int i;
 
@@ -343,14 +339,10 @@ DEFUN (rip_redistribute_type,
 
 DEFUN (no_rip_redistribute_type,
        no_rip_redistribute_type_cmd,
-       "no redistribute (kernel|connected|static|ospf|bgp)",
+       "no redistribute " QUAGGA_REDIST_STR_RIPD,
        NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Connected\n"
-       "Static routes\n"
-       "Open Shortest Path First (OSPF)\n"
-       "Border Gateway Protocol (BGP)\n")
+       REDIST_STR
+       QUAGGA_REDIST_HELP_STR_RIPD)
 {
   int i;
 
@@ -374,13 +366,9 @@ DEFUN (no_rip_redistribute_type,
 
 DEFUN (rip_redistribute_type_routemap,
        rip_redistribute_type_routemap_cmd,
-       "redistribute (kernel|connected|static|ospf|bgp) route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Connected\n"
-       "Static routes\n"
-       "Open Shortest Path First (OSPF)\n"
-       "Border Gateway Protocol (BGP)\n"
+       "redistribute " QUAGGA_REDIST_STR_RIPD " route-map WORD",
+       REDIST_STR
+       QUAGGA_REDIST_HELP_STR_RIPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -404,14 +392,10 @@ DEFUN (rip_redistribute_type_routemap,
 
 DEFUN (no_rip_redistribute_type_routemap,
        no_rip_redistribute_type_routemap_cmd,
-       "no redistribute (kernel|connected|static|ospf|bgp) route-map WORD",
+       "no redistribute " QUAGGA_REDIST_STR_RIPD " route-map WORD",
        NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Connected\n"
-       "Static routes\n"
-       "Open Shortest Path First (OSPF)\n"
-       "Border Gateway Protocol (BGP)\n"
+       REDIST_STR
+       QUAGGA_REDIST_HELP_STR_RIPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -437,13 +421,9 @@ DEFUN (no_rip_redistribute_type_routemap,
 
 DEFUN (rip_redistribute_type_metric,
        rip_redistribute_type_metric_cmd,
-       "redistribute (kernel|connected|static|ospf|bgp) metric <0-16>",
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Connected\n"
-       "Static routes\n"
-       "Open Shortest Path First (OSPF)\n"
-       "Border Gateway Protocol (BGP)\n"
+       "redistribute " QUAGGA_REDIST_STR_RIPD " metric <0-16>",
+       REDIST_STR
+       QUAGGA_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n")
 {
@@ -470,14 +450,10 @@ DEFUN (rip_redistribute_type_metric,
 
 DEFUN (no_rip_redistribute_type_metric,
        no_rip_redistribute_type_metric_cmd,
-       "no redistribute (kernel|connected|static|ospf|bgp) metric <0-16>",
+       "no redistribute " QUAGGA_REDIST_STR_RIPD " metric <0-16>",
        NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Connected\n"
-       "Static routes\n"
-       "Open Shortest Path First (OSPF)\n"
-       "Border Gateway Protocol (BGP)\n"
+       REDIST_STR
+       QUAGGA_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n")
 {
@@ -503,13 +479,9 @@ DEFUN (no_rip_redistribute_type_metric,
 
 DEFUN (rip_redistribute_type_metric_routemap,
        rip_redistribute_type_metric_routemap_cmd,
-       "redistribute (kernel|connected|static|ospf|bgp) metric <0-16> route-map WORD",
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Connected\n"
-       "Static routes\n"
-       "Open Shortest Path First (OSPF)\n"
-       "Border Gateway Protocol (BGP)\n"
+       "redistribute " QUAGGA_REDIST_STR_RIPD " metric <0-16> route-map WORD",
+       REDIST_STR
+       QUAGGA_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n"
        "Route map reference\n"
@@ -540,14 +512,11 @@ DEFUN (rip_redistribute_type_metric_routemap,
 
 DEFUN (no_rip_redistribute_type_metric_routemap,
        no_rip_redistribute_type_metric_routemap_cmd,
-       "no redistribute (kernel|connected|static|ospf|bgp) metric <0-16> route-map WORD",
+       "no redistribute " QUAGGA_REDIST_STR_RIPD
+       " metric <0-16> route-map WORD",
        NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Connected\n"
-       "Static routes\n"
-       "Open Shortest Path First (OSPF)\n"
-       "Border Gateway Protocol (BGP)\n"
+       REDIST_STR
+       QUAGGA_REDIST_HELP_STR_RIPD
        "Metric\n"
        "Metric value\n"
        "Route map reference\n"
