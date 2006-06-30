@@ -3222,12 +3222,8 @@ DEFUN (show_ip_ospf_neighbor_id,
 
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     if ((nbr = ospf_nbr_lookup_by_routerid (oi->nbrs, &router_id)))
-      {
-        show_ip_ospf_neighbor_detail_sub (vty, oi, nbr);
-        return CMD_SUCCESS;
-      }
+      show_ip_ospf_neighbor_detail_sub (vty, oi, nbr);
 
-  /* Nothing to show. */
   return CMD_SUCCESS;
 }
 

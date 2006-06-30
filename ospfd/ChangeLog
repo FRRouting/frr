@@ -1,3 +1,9 @@
+2006-06-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_vty.c: (show_ip_ospf_neighbor_id) Should show all instances
+	  of that neighbor (since it may appear on multiple interfaces)
+	  instead of bailing out after showing the first match.
+
 2006-06-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_nsm.c: (nsm_twoway_received) When deciding whether to
