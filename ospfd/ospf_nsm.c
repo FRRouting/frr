@@ -203,8 +203,8 @@ nsm_twoway_received (struct ospf_neighbor *nbr)
     next_state = NSM_ExStart;
 
   /* Neighboring Router is the DRouter or the BDRouter. */
-  if (IPV4_ADDR_SAME (&nbr->address.u.prefix4, &nbr->d_router) ||
-      IPV4_ADDR_SAME (&nbr->address.u.prefix4, &nbr->bd_router))
+  if (IPV4_ADDR_SAME (&nbr->address.u.prefix4, &DR(oi)) ||
+      IPV4_ADDR_SAME (&nbr->address.u.prefix4, &BDR(oi)))
     next_state = NSM_ExStart;
 
   return next_state;

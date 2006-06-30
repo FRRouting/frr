@@ -1,3 +1,10 @@
+2006-06-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_nsm.c: (nsm_twoway_received) When deciding whether to
+	  change from state Init to ExStart, the test for whether the
+	  neighboring router is DR or BDR should be against the
+	  local router's notion of DR/BDR, not the neighbor's view.
+
 2006-06-28 Erik Muller <erikm@internap.com>
 
 	* ospfd.h: Define 2 new struct ospf config flags:
