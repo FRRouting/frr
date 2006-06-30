@@ -33,11 +33,6 @@
 	  (zlog_backtrace_sigsafe) Ditto. Add printstack() version of the
 	  the DUMP macro in this function.
 
-2006-05-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
-
-	* if.h: (struct connected) Document the meaning of the
-	  ZEBRA_IFC_REAL and ZEBRA_IFC_CONFIGURED flags.
-
 2006-05-23 Paul Jakma <paul.jakma@sun.com>
 
 	* route_types.txt: New file, table of ZEBRA_ROUTE definitions.
@@ -46,6 +41,11 @@
 	* Makefile.am: build route_types.h using previous two, ala
 	  memtypes.h, include the script and table file in EXTRA_DIST.
 	* command.h: pull in route_types.h, add a REDIST_STR define.
+
+2006-05-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* if.h: (struct connected) Document the meaning of the
+	  ZEBRA_IFC_REAL and ZEBRA_IFC_CONFIGURED flags.
 
 2006-05-15 Paul Jakma <paul.jakma@sun.com>
 
