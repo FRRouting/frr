@@ -22,7 +22,7 @@
 
 #include <zebra.h>
 /* malloc.h is generally obsolete, however GNU Libc mallinfo wants it. */
-#if defined(HAVE_STDLIB_H) || (defined(GNU_LINUX) && defined(HAVE_MALLINFO))
+#if !defined(HAVE_STDLIB_H) || (defined(GNU_LINUX) && defined(HAVE_MALLINFO))
 #include <malloc.h>
 #endif /* !HAVE_STDLIB_H || HAVE_MALLINFO */
 
