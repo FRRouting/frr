@@ -673,6 +673,13 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
         broad = NULL;
     }
 
+  /* addr is primary key, SOL if we don't have one */
+  if (addr == NULL)
+    {
+      zlog_debug ("%s: NULL address", __func__);
+      return -1;
+    }
+
   /* Flags. */
   if (ifa->ifa_flags & IFA_F_SECONDARY)
     SET_FLAG (flags, ZEBRA_IFA_SECONDARY);

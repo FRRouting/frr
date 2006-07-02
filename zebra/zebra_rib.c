@@ -2145,6 +2145,14 @@ static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
   stable = vrf_static_table (AFI_IP6, SAFI_UNICAST, vrf_id);
   if (! stable)
     return -1;
+    
+  if (!gate &&
+      (type == STATIC_IPV6_GATEWAY || type == STATIC_IPV6_GATEWAY_IFNAME))
+    return -1;
+  
+  if (!ifname && 
+      (type == STATIC_IPV6_GATEWAY_IFNAME || type == STATIC_IPV6_IFNAME))
+    return -1;
 
   /* Lookup static route prefix. */
   rn = route_node_get (stable, p);

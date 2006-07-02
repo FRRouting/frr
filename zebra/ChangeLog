@@ -1,3 +1,10 @@
+2006-07-02 Paul Jakma <paul.jakma@sun.com>
+
+	* rt_netlink.c: (netlink_interface_addr) Fix CID #104, can not
+	  proceed if addr is NULL.
+	* zebra_rib.c: (static_add_ipv6) Fix CID #18, double check
+	  required arguments are supplied for the given nexthop type.
+	
 2006-06-15 Paul Jakma <paul.jakma@sun.com>
 
 	* interface.c: (if_flag_dump_vty) redundant code, remove.
