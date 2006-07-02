@@ -1,3 +1,9 @@
+2006-07-02 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_fsm.c: (bgp_{stop,start}) Move clear/free of certain
+	  bits of state from stop to start, as they may be used via
+	  peer references on clearing queues..
+
 2006-05-23 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_vty.c: (neighbor_update_source_cmd) Expand tab completion

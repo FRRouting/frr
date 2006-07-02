@@ -511,25 +511,6 @@ bgp_stop (struct peer *peer)
       peer->fd = -1;
     }
 
-  /* Connection information. */
-  if (peer->su_local)
-    {
-      sockunion_free (peer->su_local);
-      peer->su_local = NULL;
-    }
-
-  if (peer->su_remote)
-    {
-      sockunion_free (peer->su_remote);
-      peer->su_remote = NULL;
-    }
-
-  /* Clear remote router-id. */
-  peer->remote_id.s_addr = 0;
-
-  /* Clear peer capability flag. */
-  peer->cap = 0;
-
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
     for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
       {
@@ -644,6 +625,28 @@ bgp_start (struct peer *peer)
 {
   int status;
 
+  /* Scrub some information that might be left over from a previous,
+   * session
+   */
+  /* Connection information. */
+  if (peer->su_local)
+    {
+      sockunion_free (peer->su_local);
+      peer->su_local = NULL;
+    }
+
+  if (peer->su_remote)
+    {
+      sockunion_free (peer->su_remote);
+      peer->su_remote = NULL;
+    }
+
+  /* Clear remote router-id. */
+  peer->remote_id.s_addr = 0;
+
+  /* Clear peer capability flag. */
+  peer->cap = 0;
+    
   /* If the peer is passive mode, force to move to Active mode. */
   if (CHECK_FLAG (peer->flags, PEER_FLAG_PASSIVE))
     {
