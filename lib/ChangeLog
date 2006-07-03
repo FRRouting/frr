@@ -1,3 +1,8 @@
+2006-07-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* vty.c: (vty_log_out) Debug messages to terminal vty sessions
+	  should include timestamps.
+
 2006-06-28 Paul Jakma <paul.jakma@sun.com>
 
 	* memory.c: Fix typo in cpp conditional around malloc.h, from

@@ -154,12 +154,18 @@ vty_log_out (struct vty *vty, const char *level, const char *proto_str,
   int ret;
   int len;
   char buf[1024];
+  struct tm *tm;
+
+  if ((tm = localtime(&recent_time.tv_sec)) != NULL)
+    len = strftime(buf, sizeof(buf), "%Y/%m/%d %H:%M:%S ", tm);
+  else
+    len = 0;
 
   if (level)
-    len = snprintf(buf, sizeof(buf), "%s: %s: ", level, proto_str);
+    ret = snprintf(buf+len, sizeof(buf)-len, "%s: %s: ", level, proto_str);
   else
-    len = snprintf(buf, sizeof(buf), "%s: ", proto_str);
-  if ((len < 0) || ((size_t)len >= sizeof(buf)))
+    ret = snprintf(buf+len, sizeof(buf)-len, "%s: ", proto_str);
+  if ((ret < 0) || ((size_t)(len += ret) >= sizeof(buf)))
     return -1;
 
   if (((ret = vsnprintf(buf+len, sizeof(buf)-len, format, va)) < 0) ||
