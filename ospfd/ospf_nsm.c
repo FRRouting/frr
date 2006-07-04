@@ -125,11 +125,7 @@ nsm_timer_set (struct ospf_neighbor *nbr)
 	OSPF_NSM_TIMER_OFF (nbr->t_db_desc);
       break;
     case NSM_Loading:
-      OSPF_NSM_TIMER_OFF (nbr->t_db_desc);
-      break;
     case NSM_Full:
-      OSPF_NSM_TIMER_OFF (nbr->t_db_desc);
-      break;
     default:
       OSPF_NSM_TIMER_OFF (nbr->t_db_desc);
       break;
@@ -142,23 +138,17 @@ nsm_timer_set (struct ospf_neighbor *nbr)
 static int
 nsm_should_adj (struct ospf_neighbor *nbr)
 {
-  struct ospf_interface *oi;
+  struct ospf_interface *oi = nbr->oi;
 
-  oi = nbr->oi;
-
-  /* These network types must always form adjacencies. */
+      /* These network types must always form adjacencies. */
   if (oi->type == OSPF_IFTYPE_POINTOPOINT
       || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
-      || oi->type == OSPF_IFTYPE_VIRTUALLINK)
-    return 1;
-
-  /* Router itself is the DRouter or the BDRouter. */
-  if (IPV4_ADDR_SAME (&oi->address->u.prefix4, &DR (oi))
-      || IPV4_ADDR_SAME (&oi->address->u.prefix4, &BDR (oi)))
-    return 1;
-
-  /* Neighboring Router is the DRouter or the BDRouter. */
-  if (IPV4_ADDR_SAME (&nbr->address.u.prefix4, &DR (oi))
+      || oi->type == OSPF_IFTYPE_VIRTUALLINK
+      /* Router itself is the DRouter or the BDRouter. */
+      || IPV4_ADDR_SAME (&oi->address->u.prefix4, &DR (oi))
+      || IPV4_ADDR_SAME (&oi->address->u.prefix4, &BDR (oi))
+      /* Neighboring Router is the DRouter or the BDRouter. */
+      || IPV4_ADDR_SAME (&nbr->address.u.prefix4, &DR (oi))
       || IPV4_ADDR_SAME (&nbr->address.u.prefix4, &BDR (oi)))
     return 1;
 
@@ -211,12 +201,7 @@ nsm_start (struct ospf_neighbor *nbr)
 static int
 nsm_twoway_received (struct ospf_neighbor *nbr)
 {
-  int next_state = NSM_TwoWay;
-
-  if (nsm_should_adj (nbr))
-    next_state = NSM_ExStart;
-
-  return next_state;
+  return (nsm_should_adj (nbr) ? NSM_ExStart : NSM_TwoWay);
 }
 
 int

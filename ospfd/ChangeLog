@@ -1,3 +1,12 @@
+2006-07-04 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_nsm.c: (general) Various small cleanups from Andrew's
+	  review of last set of patches.
+	  (nsm_timer_set) Loading, Full and default can share
+	  same code too.
+	  (nsm_should_adj) Can just be one big OR.
+	  (nsm_twoway_received) Collapse into return statement.
+
 2006-07-02 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_nsm.c: (nsm_should_adj) New function, just consolidate the
