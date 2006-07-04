@@ -20,6 +20,7 @@
 	  purposes.
 	  (nsm_kill_nbr) Oops, action function shouldn't try return
 	  1 for error.
+	* ospf_lsa.c: (ospf_translated_nssa_refresh) CID #13.
 
 2006-06-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

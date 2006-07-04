@@ -2090,7 +2090,7 @@ ospf_translated_nssa_refresh (struct ospf *ospf, struct ospf_lsa *type7,
       if (IS_DEBUG_OSPF_NSSA)
         zlog_debug ("ospf_translated_nssa_refresh(): Could not install "
                    "translated LSA, Id %s",
-                   inet_ntoa (new->data->id));
+                   inet_ntoa (type7->data->id));
       return NULL;
     }
   
