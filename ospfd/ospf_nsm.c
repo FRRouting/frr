@@ -878,6 +878,22 @@ ospf_nsm_event (struct thread *thread)
 
   if (! next_state)
     next_state = NSM [nbr->state][event].next_state;
+  else if (NSM [nbr->state][event].next_state != NSM_DependUpon)
+    {
+      /* There's a mismatch between the FSM tables and what an FSM
+       * action/state-change function returned. State changes which
+       * do not have conditional/DependUpon next-states should not
+       * try set next_state.
+       */
+      zlog_warn ("NSM[%s:%s]: %s (%s): "
+                 "Warning: action tried to change next_state to %s",
+                 IF_NAME (oi), inet_ntoa (nbr->router_id),
+                 LOOKUP (ospf_nsm_state_msg, nbr->state),
+                 ospf_nsm_event_str [event],
+                 LOOKUP (ospf_nsm_state_msg, next_state));
+      
+      next_state = NSM [nbr->state][event].next_state;
+    }
 
   if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
     zlog_debug ("NSM[%s:%s]: %s (%s)", IF_NAME (oi),

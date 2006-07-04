@@ -3,6 +3,10 @@
 	* ospf_nsm.c: (nsm_should_adj) New function, just consolidate the
 	  10.4 adjacency check from nsm_twoway_received/nsm_adj_ok.
 	  (nsm_twoway_received/nsm_adj_ok) Use former.
+	  (ospf_nsm_event) Don't allow action functions to change
+	  next_state if the NSM tables do not indicate next_state is
+	  conditional, log warning if one tries - existing code
+	  appears fine though.
 
 2006-06-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
