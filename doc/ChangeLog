@@ -1,3 +1,10 @@
+2006-07-04 Paul Jakma <paul.jakma@sun.com>
+
+	* quagga.info: remove auto-generated file. It will still be
+	  present in dist tarballs, so shouldn't affect anyone but
+	  direct users of CVS. Required texinfo version should be
+	  widely available.
+
 2006-06-28 Erik Muller <erikm@internap.com>
 
 	* ospfd.texi: Document new ospf router subcommand
