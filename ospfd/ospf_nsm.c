@@ -139,6 +139,34 @@ nsm_timer_set (struct ospf_neighbor *nbr)
     }
 }
 
+/* 10.4 of RFC2328, indicate whether an adjacency is appropriate with
+ * the given neighbour
+ */
+static int
+nsm_should_adj (struct ospf_neighbor *nbr)
+{
+  struct ospf_interface *oi;
+
+  oi = nbr->oi;
+
+  /* These network types must always form adjacencies. */
+  if (oi->type == OSPF_IFTYPE_POINTOPOINT
+      || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
+      || oi->type == OSPF_IFTYPE_VIRTUALLINK)
+    return 1;
+
+  /* Router itself is the DRouter or the BDRouter. */
+  if (IPV4_ADDR_SAME (&oi->address->u.prefix4, &DR (oi))
+      || IPV4_ADDR_SAME (&oi->address->u.prefix4, &BDR (oi)))
+    return 1;
+
+  /* Neighboring Router is the DRouter or the BDRouter. */
+  if (IPV4_ADDR_SAME (&nbr->address.u.prefix4, &DR (oi))
+      || IPV4_ADDR_SAME (&nbr->address.u.prefix4, &BDR (oi)))
+    return 1;
+
+  return 0;
+}
 
 /* OSPF NSM functions. */
 static int
@@ -186,25 +214,9 @@ nsm_start (struct ospf_neighbor *nbr)
 static int
 nsm_twoway_received (struct ospf_neighbor *nbr)
 {
-  struct ospf_interface *oi;
   int next_state = NSM_TwoWay;
 
-  oi = nbr->oi;
-
-  /* These netowork types must be adjacency. */
-  if (oi->type == OSPF_IFTYPE_POINTOPOINT ||
-      oi->type == OSPF_IFTYPE_POINTOMULTIPOINT ||
-      oi->type == OSPF_IFTYPE_VIRTUALLINK)
-    next_state = NSM_ExStart;
-
-  /* Router itself is the DRouter or the BDRouter. */
-  if (IPV4_ADDR_SAME (&oi->address->u.prefix4, &DR (oi)) ||
-      IPV4_ADDR_SAME (&oi->address->u.prefix4, &BDR (oi)))
-    next_state = NSM_ExStart;
-
-  /* Neighboring Router is the DRouter or the BDRouter. */
-  if (IPV4_ADDR_SAME (&nbr->address.u.prefix4, &DR(oi)) ||
-      IPV4_ADDR_SAME (&nbr->address.u.prefix4, &BDR(oi)))
+  if (nsm_should_adj (nbr))
     next_state = NSM_ExStart;
 
   return next_state;
@@ -359,31 +371,12 @@ nsm_bad_ls_req (struct ospf_neighbor *nbr)
 static int
 nsm_adj_ok (struct ospf_neighbor *nbr)
 {
-  struct ospf_interface *oi;
-  int next_state;
-  int flag = 0;
+  int next_state = nbr->state;
+  int adj = nsm_should_adj (nbr);
 
-  oi = nbr->oi;
-  next_state = nbr->state;
-
-  /* These netowork types must be adjacency. */
-  if (oi->type == OSPF_IFTYPE_POINTOPOINT
-      || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
-      || oi->type == OSPF_IFTYPE_VIRTUALLINK)
-    flag = 1;
-
-  /* Router itself is the DRouter or the BDRouter. */
-  if (IPV4_ADDR_SAME (&oi->address->u.prefix4, &DR (oi))
-      || IPV4_ADDR_SAME (&oi->address->u.prefix4, &BDR (oi)))
-    flag = 1;
-
-  if (IPV4_ADDR_SAME (&nbr->address.u.prefix4, &DR (oi))
-      || IPV4_ADDR_SAME (&nbr->address.u.prefix4, &BDR (oi)))
-    flag = 1;
-
-  if (nbr->state == NSM_TwoWay && flag == 1)
+  if (nbr->state == NSM_TwoWay && adj == 1)
     next_state = NSM_ExStart;
-  else if (nbr->state >= NSM_ExStart && flag == 0)
+  else if (nbr->state >= NSM_ExStart && adj == 0)
     next_state = NSM_TwoWay;
 
   return next_state;

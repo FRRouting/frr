@@ -1,3 +1,9 @@
+2006-07-02 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_nsm.c: (nsm_should_adj) New function, just consolidate the
+	  10.4 adjacency check from nsm_twoway_received/nsm_adj_ok.
+	  (nsm_twoway_received/nsm_adj_ok) Use former.
+
 2006-06-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_vty.c: (show_ip_ospf_neighbor_id) Should show all instances
