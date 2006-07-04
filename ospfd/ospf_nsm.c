@@ -49,8 +49,8 @@
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_snmp.h"
 
-void nsm_reset_nbr (struct ospf_neighbor *);
-
+static void nsm_reset_nbr (struct ospf_neighbor *);
+static void nsm_clear_adj (struct ospf_neighbor *);
 
 /* OSPF NSM Timer functions. */
 static int
@@ -397,8 +397,12 @@ nsm_oneway_received (struct ospf_neighbor *nbr)
   return 0;
 }
 
-void
-nsm_reset_nbr (struct ospf_neighbor *nbr)
+/* Clear adjacency related state for a neighbour, intended where nbr
+ * transitions from > ExStart (i.e. a Full or forming adjacency)
+ * to <= ExStart.
+ */
+static void
+nsm_clear_adj (struct ospf_neighbor *nbr)
 {
   /* Clear Database Summary list. */
   if (!ospf_db_summary_isempty (nbr))
@@ -411,6 +415,12 @@ nsm_reset_nbr (struct ospf_neighbor *nbr)
   /* Clear Link State Retransmission list. */
   if (!ospf_ls_retransmit_isempty (nbr))
     ospf_ls_retransmit_clear (nbr);
+}
+
+static void
+nsm_reset_nbr (struct ospf_neighbor *nbr)
+{
+  nsm_clear_adj (nbr);
 
   /* Cancel thread. */
   OSPF_NSM_TIMER_OFF (nbr->t_db_desc);
@@ -433,7 +443,7 @@ nsm_kill_nbr (struct ospf_neighbor *nbr)
   /* killing nbr_self is invalid */
   assert (nbr != nbr->oi->nbr_self);
   if (nbr == nbr->oi->nbr_self)
-    return 1;
+    return 0;
   
   /* Reset neighbor. */
   nsm_reset_nbr (nbr);
@@ -748,10 +758,6 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
 	    if (vl_area->full_vls > 0)
 	      if (--vl_area->full_vls == 0)
 		ospf_schedule_abr_task (oi->ospf);
- 
-          /* clear neighbor retransmit list */
-          if (!ospf_ls_retransmit_isempty (nbr))
-            ospf_ls_retransmit_clear (nbr);
 	}
 
       zlog_info ("nsm_change_state(%s, %s -> %s): "
@@ -790,6 +796,18 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   ospf_opaque_nsm_change (nbr, old_state);
 #endif /* HAVE_OPAQUE_LSA */
 
+  /* State changes from > ExStart to <= ExStart should clear any Exchange
+   * or Full/LSA Update related lists and state.
+   * Potential causal events: BadLSReq, SeqNumberMismatch, AdjOK?
+   *
+   * Note that transitions from > ExStart to < 2-Way (e.g. due to
+   * KillNbr or 1-Way) must and will do the same, but via
+   * nsm_reset_nbr.
+   */
+  if (old_state > NSM_ExStart 
+      && (state == NSM_ExStart || state == NSM_TwoWay))
+    nsm_clear_adj (nbr);
+
   /* Start DD exchange protocol */
   if (state == NSM_ExStart)
     {
@@ -807,11 +825,6 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
     nbr->crypt_seqnum = 0;
   
   /* Generete NeighborChange ISM event. */
-#ifdef BUGGY_ISM_TRANSITION
-  if ((old_state < NSM_TwoWay && state >= NSM_TwoWay) ||
-      (old_state >= NSM_TwoWay && state < NSM_TwoWay))
-    OSPF_ISM_EVENT_EXECUTE (oi, ISM_NeighborChange);
-#else /* BUGGY_ISM_TRANSITION */
   switch (oi->state) {
   case ISM_DROther:
   case ISM_Backup:
@@ -824,7 +837,6 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
     /* ISM_PointToPoint -> ISM_Down, ISM_Loopback -> ISM_Down, etc. */
     break;
   }
-#endif /* BUGGY_ISM_TRANSITION */
 
   /* Performance hack. Send hello immideately when some neighbor enter
      Init state.  This whay we decrease neighbor discovery time. Gleb.*/

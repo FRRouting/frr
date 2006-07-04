@@ -3,14 +3,23 @@
 	* ospf_nsm.c: (nsm_should_adj) New function, just consolidate the
 	  10.4 adjacency check from nsm_twoway_received/nsm_adj_ok.
 	  (nsm_twoway_received/nsm_adj_ok) Use former.
+	  (nsm_clear_adj) clear adjacency related state for a
+	  neighbour, needed for some state changes from > ExStart down
+	  to ExStart or less, which need not go through nsm_reset_nbr.
+	  (nsm_reset_nbr) move code to former. Should be static.
 	  (ospf_nsm_event) Don't allow action functions to change
 	  next_state if the NSM tables do not indicate next_state is
 	  conditional, log warning if one tries - existing code
 	  appears fine though.
+	  Remove long dead code.
+	  Use nsm_clear_adj for state changes that take down
+	  adjacencies to TwoWay/ExStart.
 	  (nsm_timer_set) ls_req timer should be OFF in early states.
 	  Compact several identical sections.
 	  Set inactivity timer to OFF for Down, for documentary
 	  purposes.
+	  (nsm_kill_nbr) Oops, action function shouldn't try return
+	  1 for error.
 
 2006-06-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
