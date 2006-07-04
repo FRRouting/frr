@@ -7,6 +7,10 @@
 	  next_state if the NSM tables do not indicate next_state is
 	  conditional, log warning if one tries - existing code
 	  appears fine though.
+	  (nsm_timer_set) ls_req timer should be OFF in early states.
+	  Compact several identical sections.
+	  Set inactivity timer to OFF for Down, for documentary
+	  purposes.
 
 2006-06-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

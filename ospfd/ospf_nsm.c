@@ -103,24 +103,21 @@ nsm_timer_set (struct ospf_neighbor *nbr)
   switch (nbr->state)
     {
     case NSM_Down:
-      OSPF_NSM_TIMER_OFF (nbr->t_db_desc);
-      OSPF_NSM_TIMER_OFF (nbr->t_ls_upd);
-      break;
+      /* This is here for documentation purposes, don't actually get here
+       * as Down neighbours are deleted typically, see nsm_kill_nbr
+       */
+      OSPF_NSM_TIMER_OFF (nbr->t_inactivity);
     case NSM_Attempt:
-      OSPF_NSM_TIMER_OFF (nbr->t_db_desc);
-      OSPF_NSM_TIMER_OFF (nbr->t_ls_upd);
-      break;
     case NSM_Init:
-      OSPF_NSM_TIMER_OFF (nbr->t_db_desc);
-      OSPF_NSM_TIMER_OFF (nbr->t_ls_upd);
-      break;
     case NSM_TwoWay:
       OSPF_NSM_TIMER_OFF (nbr->t_db_desc);
       OSPF_NSM_TIMER_OFF (nbr->t_ls_upd);
+      OSPF_NSM_TIMER_OFF (nbr->t_ls_req);
       break;
     case NSM_ExStart:
       OSPF_NSM_TIMER_ON (nbr->t_db_desc, ospf_db_desc_timer, nbr->v_db_desc);
       OSPF_NSM_TIMER_OFF (nbr->t_ls_upd);
+      OSPF_NSM_TIMER_OFF (nbr->t_ls_req);
       break;
     case NSM_Exchange:
       OSPF_NSM_TIMER_ON (nbr->t_ls_upd, ospf_ls_upd_timer, nbr->v_ls_upd);
