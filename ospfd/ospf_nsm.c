@@ -857,7 +857,9 @@ ospf_nsm_event (struct thread *thread)
 
   /* When event is NSM_KillNbr or InactivityTimer, the neighbor is
      deleted. */
-  if (event == NSM_KillNbr || event == NSM_InactivityTimer)
+  if (event == NSM_KillNbr 
+      || event == NSM_InactivityTimer
+      || event == NSM_LLDown)
     {
       if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
 	zlog_debug ("NSM[%s:%s]: neighbor deleted",
