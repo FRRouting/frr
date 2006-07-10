@@ -58,6 +58,7 @@ int ospf_ism_state_msg_max = OSPF_ISM_STATE_MAX;
 struct message ospf_nsm_state_msg[] =
 {
   { NSM_DependUpon, "DependUpon" },
+  { NSM_Deleted,    "Deleted"    },
   { NSM_Down,       "Down" },
   { NSM_Attempt,    "Attempt" },
   { NSM_Init,       "Init" },

@@ -1,3 +1,27 @@
+2006-07-07 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_nsm.h: Add a NSM_Deleted neighbour state, to act as dummy
+	  state indicating the neighbour is to be deleted.
+	* ospf_nsm.c: (general) Use the NSM_Deleted state to delete
+	  neighbours, thus allowing code to be slightly more obvious
+	  in its flow.
+	  (nsm_timer_set) Add NSM_Deleted. Add another timer the code
+	  missed.
+	  (nsm_kill_nbr) No need for special case call to nsm_change_state
+	  anymore.
+	  Make the assert and error-handling for same case more readable
+	  (Andrew Schorr)
+	  Remove the call to ospf_nbr_delete, nsm_change_state can do
+	  this generally now via NSM_Deleted.
+	  (struct ... NSM) Add the dummy NSM_Deleted state, the 3 events
+	  that can lead to nsm_kill_nbr all now transition the NBR to
+	  NSM_Deleted and the general change_state function can be left
+	  to do the work.
+	  (ospf_nsm_event) Special casing of events and early-return can
+	  be removed now.
+	  On transition into Deleted, delete the nbr.
+	* ospf_dump.c: (ospf_nsm_state_msg) Add Deleted.
+
 2006-07-06 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_nsm.c: (ospf_nsm_event) LLDown event also results in nbr

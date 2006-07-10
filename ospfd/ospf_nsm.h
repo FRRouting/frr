@@ -26,15 +26,16 @@
 
 /* OSPF Neighbor State Machine State. */
 #define NSM_DependUpon          0
-#define NSM_Down		1
-#define NSM_Attempt		2
-#define NSM_Init		3
-#define NSM_TwoWay		4
-#define NSM_ExStart		5
-#define NSM_Exchange		6
-#define NSM_Loading		7
-#define NSM_Full		8
-#define OSPF_NSM_STATE_MAX      9
+#define NSM_Deleted		1
+#define NSM_Down		2
+#define NSM_Attempt		3
+#define NSM_Init		4
+#define NSM_TwoWay		5
+#define NSM_ExStart		6
+#define NSM_Exchange		7
+#define NSM_Loading		8
+#define NSM_Full		9
+#define OSPF_NSM_STATE_MAX     10
 
 /* OSPF Neighbor State Machine Event. */
 #define NSM_NoEvent	        0

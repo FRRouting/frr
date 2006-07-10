@@ -95,18 +95,24 @@ ospf_db_desc_timer (struct thread *thread)
   return 0;
 }
 
-/* Hook function called after ospf NSM event is occured. */
-
+/* Hook function called after ospf NSM event is occured.
+ *
+ * Set/clear any timers whose condition is implicit to the neighbour
+ * state. There may be other timers which are set/unset according to other
+ * state.
+ *
+ * We rely on this function to properly clear timers in lower states,
+ * particularly before deleting a neighbour.
+ */
 static void
 nsm_timer_set (struct ospf_neighbor *nbr)
 {
   switch (nbr->state)
     {
+    case NSM_Deleted:
     case NSM_Down:
-      /* This is here for documentation purposes, don't actually get here
-       * as Down neighbours are deleted typically, see nsm_kill_nbr
-       */
       OSPF_NSM_TIMER_OFF (nbr->t_inactivity);
+      OSPF_NSM_TIMER_OFF (nbr->t_hello_reply);
     case NSM_Attempt:
     case NSM_Init:
     case NSM_TwoWay:
@@ -332,9 +338,6 @@ nsm_exchange_done (struct ospf_neighbor *nbr)
   if (ospf_ls_request_isempty (nbr))
     return NSM_Full;
 
-  /* Cancel dd retransmit timer. */
-  /* OSPF_NSM_TIMER_OFF (nbr->t_db_desc); */
-
   /* Send Link State Request. */
   ospf_ls_req_send (nbr);
 
@@ -422,13 +425,12 @@ nsm_reset_nbr (struct ospf_neighbor *nbr)
 static int
 nsm_kill_nbr (struct ospf_neighbor *nbr)
 {
-  /* call it here because we cannot call it from ospf_nsm_event */
-  nsm_change_state (nbr, NSM_Down);
-  
   /* killing nbr_self is invalid */
-  assert (nbr != nbr->oi->nbr_self);
   if (nbr == nbr->oi->nbr_self)
-    return 0;
+    {
+      assert (nbr != nbr->oi->nbr_self);
+      return 0;
+    }
   
   /* Reset neighbor. */
   nsm_reset_nbr (nbr);
@@ -450,9 +452,6 @@ nsm_kill_nbr (struct ospf_neighbor *nbr)
 		   IF_NAME (nbr->oi), inet_ntoa (nbr->address.u.prefix4));  
     }
 
-  /* Delete neighbor from interface. */
-  ospf_nbr_delete (nbr);
-
   return 0;
 }
 
@@ -468,9 +467,6 @@ nsm_inactivity_timer (struct ospf_neighbor *nbr)
 static int
 nsm_ll_down (struct ospf_neighbor *nbr)
 {
-  /* Reset neighbor. */
-  /*nsm_reset_nbr (nbr);*/
-  
   /* Kill neighbor. */
   nsm_kill_nbr (nbr);
 
@@ -501,6 +497,23 @@ struct {
     { nsm_ignore,              NSM_DependUpon }, /* LLDown            */
   },
   {
+    /* Deleted: dummy state. */
+    { nsm_ignore,              NSM_Deleted    }, /* NoEvent           */
+    { nsm_ignore,              NSM_Deleted    }, /* HelloReceived     */
+    { nsm_ignore,              NSM_Deleted    }, /* Start             */
+    { nsm_ignore,              NSM_Deleted    }, /* 2-WayReceived     */
+    { nsm_ignore,              NSM_Deleted    }, /* NegotiationDone   */
+    { nsm_ignore,              NSM_Deleted    }, /* ExchangeDone      */
+    { nsm_ignore,              NSM_Deleted    }, /* BadLSReq          */
+    { nsm_ignore,              NSM_Deleted    }, /* LoadingDone       */
+    { nsm_ignore,              NSM_Deleted    }, /* AdjOK?            */
+    { nsm_ignore,              NSM_Deleted    }, /* SeqNumberMismatch */
+    { nsm_ignore,              NSM_Deleted    }, /* 1-WayReceived     */
+    { nsm_ignore,              NSM_Deleted    }, /* KillNbr           */
+    { nsm_ignore,              NSM_Deleted    }, /* InactivityTimer   */
+    { nsm_ignore,              NSM_Deleted    }, /* LLDown            */
+  },
+  {
     /* Down: */
     { nsm_ignore,              NSM_DependUpon }, /* NoEvent           */
     { nsm_hello_received,      NSM_Init       }, /* HelloReceived     */
@@ -513,9 +526,9 @@ struct {
     { nsm_ignore,              NSM_Down       }, /* AdjOK?            */
     { nsm_ignore,              NSM_Down       }, /* SeqNumberMismatch */
     { nsm_ignore,              NSM_Down       }, /* 1-WayReceived     */
-    { nsm_kill_nbr,            NSM_Down       }, /* KillNbr           */
-    { nsm_inactivity_timer,    NSM_Down       }, /* InactivityTimer   */
-    { nsm_ll_down,             NSM_Down       }, /* LLDown            */
+    { nsm_kill_nbr,            NSM_Deleted    }, /* KillNbr           */
+    { nsm_inactivity_timer,    NSM_Deleted    }, /* InactivityTimer   */
+    { nsm_ll_down,             NSM_Deleted    }, /* LLDown            */
   },
   {
     /* Attempt: */
@@ -530,9 +543,9 @@ struct {
     { nsm_ignore,              NSM_Attempt    }, /* AdjOK?            */
     { nsm_ignore,              NSM_Attempt    }, /* SeqNumberMismatch */
     { nsm_ignore,              NSM_Attempt    }, /* 1-WayReceived     */
-    { nsm_kill_nbr,            NSM_Down       }, /* KillNbr           */
-    { nsm_inactivity_timer,    NSM_Down       }, /* InactivityTimer   */
-    { nsm_ll_down,             NSM_Down       }, /* LLDown            */
+    { nsm_kill_nbr,            NSM_Deleted    }, /* KillNbr           */
+    { nsm_inactivity_timer,    NSM_Deleted    }, /* InactivityTimer   */
+    { nsm_ll_down,             NSM_Deleted    }, /* LLDown            */
   },
   {
     /* Init: */
@@ -547,9 +560,9 @@ struct {
     { nsm_ignore,              NSM_Init       }, /* AdjOK?            */
     { nsm_ignore,              NSM_Init       }, /* SeqNumberMismatch */
     { nsm_ignore,              NSM_Init       }, /* 1-WayReceived     */
-    { nsm_kill_nbr,            NSM_Down       }, /* KillNbr           */
-    { nsm_inactivity_timer,    NSM_Down       }, /* InactivityTimer   */
-    { nsm_ll_down,             NSM_Down       }, /* LLDown            */
+    { nsm_kill_nbr,            NSM_Deleted    }, /* KillNbr           */
+    { nsm_inactivity_timer,    NSM_Deleted    }, /* InactivityTimer   */
+    { nsm_ll_down,             NSM_Deleted    }, /* LLDown            */
   },
   {
     /* 2-Way: */
@@ -564,9 +577,9 @@ struct {
     { nsm_adj_ok,              NSM_DependUpon }, /* AdjOK?            */
     { nsm_ignore,              NSM_TwoWay     }, /* SeqNumberMismatch */
     { nsm_oneway_received,     NSM_Init       }, /* 1-WayReceived     */
-    { nsm_kill_nbr,            NSM_Down       }, /* KillNbr           */
-    { nsm_inactivity_timer,    NSM_Down       }, /* InactivityTimer   */
-    { nsm_ll_down,             NSM_Down       }, /* LLDown            */
+    { nsm_kill_nbr,            NSM_Deleted    }, /* KillNbr           */
+    { nsm_inactivity_timer,    NSM_Deleted    }, /* InactivityTimer   */
+    { nsm_ll_down,             NSM_Deleted    }, /* LLDown            */
   },
   {
     /* ExStart: */
@@ -581,9 +594,9 @@ struct {
     { nsm_adj_ok,              NSM_DependUpon }, /* AdjOK?            */
     { nsm_ignore,              NSM_ExStart    }, /* SeqNumberMismatch */
     { nsm_oneway_received,     NSM_Init       }, /* 1-WayReceived     */
-    { nsm_kill_nbr,            NSM_Down       }, /* KillNbr           */
-    { nsm_inactivity_timer,    NSM_Down       }, /* InactivityTimer   */
-    { nsm_ll_down,             NSM_Down       }, /* LLDown            */
+    { nsm_kill_nbr,            NSM_Deleted    }, /* KillNbr           */
+    { nsm_inactivity_timer,    NSM_Deleted    }, /* InactivityTimer   */
+    { nsm_ll_down,             NSM_Deleted    }, /* LLDown            */
   },
   {
     /* Exchange: */
@@ -598,9 +611,9 @@ struct {
     { nsm_adj_ok,              NSM_DependUpon }, /* AdjOK?            */
     { nsm_seq_number_mismatch, NSM_ExStart    }, /* SeqNumberMismatch */
     { nsm_oneway_received,     NSM_Init       }, /* 1-WayReceived     */
-    { nsm_kill_nbr,            NSM_Down       }, /* KillNbr           */
-    { nsm_inactivity_timer,    NSM_Down       }, /* InactivityTimer   */
-    { nsm_ll_down,             NSM_Down       }, /* LLDown            */
+    { nsm_kill_nbr,            NSM_Deleted    }, /* KillNbr           */
+    { nsm_inactivity_timer,    NSM_Deleted    }, /* InactivityTimer   */
+    { nsm_ll_down,             NSM_Deleted    }, /* LLDown            */
   },
   {
     /* Loading: */
@@ -615,9 +628,9 @@ struct {
     { nsm_adj_ok,              NSM_DependUpon }, /* AdjOK?            */
     { nsm_seq_number_mismatch, NSM_ExStart    }, /* SeqNumberMismatch */
     { nsm_oneway_received,     NSM_Init       }, /* 1-WayReceived     */
-    { nsm_kill_nbr,            NSM_Down       }, /* KillNbr           */
-    { nsm_inactivity_timer,    NSM_Down       }, /* InactivityTimer   */
-    { nsm_ll_down,             NSM_Down       }, /* LLDown            */
+    { nsm_kill_nbr,            NSM_Deleted    }, /* KillNbr           */
+    { nsm_inactivity_timer,    NSM_Deleted    }, /* InactivityTimer   */
+    { nsm_ll_down,             NSM_Deleted    }, /* LLDown            */
   },
   { /* Full: */
     { nsm_ignore,              NSM_DependUpon }, /* NoEvent           */
@@ -631,9 +644,9 @@ struct {
     { nsm_adj_ok,              NSM_DependUpon }, /* AdjOK?            */
     { nsm_seq_number_mismatch, NSM_ExStart    }, /* SeqNumberMismatch */
     { nsm_oneway_received,     NSM_Init       }, /* 1-WayReceived     */
-    { nsm_kill_nbr,            NSM_Down       }, /* KillNbr           */
-    { nsm_inactivity_timer,    NSM_Down       }, /* InactivityTimer   */
-    { nsm_ll_down,             NSM_Down       }, /* LLDown            */
+    { nsm_kill_nbr,            NSM_Deleted    }, /* KillNbr           */
+    { nsm_inactivity_timer,    NSM_Deleted    }, /* InactivityTimer   */
+    { nsm_ll_down,             NSM_Deleted    }, /* LLDown            */
   },
 };
 
@@ -689,9 +702,9 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
       (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL) ||
        (state == NSM_Full) || (state < old_state)))
     zlog_notice("AdjChg: Nbr %s on %s: %s -> %s",
-		inet_ntoa (nbr->router_id), IF_NAME (nbr->oi),
-		LOOKUP (ospf_nsm_state_msg, old_state),
-		LOOKUP (ospf_nsm_state_msg, state));
+                inet_ntoa (nbr->router_id), IF_NAME (nbr->oi),
+                LOOKUP (ospf_nsm_state_msg, old_state),
+                LOOKUP (ospf_nsm_state_msg, state));
 
 #ifdef HAVE_SNMP
   /* Terminal state or regression */ 
@@ -701,7 +714,7 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
       if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
         ospfTrapVirtNbrStateChange(nbr);
       /* ospfNbrStateChange trap  */
-      else
+      else	
         /* To/From FULL, only managed by DR */
         if (((state != NSM_Full) && (old_state != NSM_Full)) ||
             (oi->state == ISM_DR))
@@ -855,23 +868,6 @@ ospf_nsm_event (struct thread *thread)
   /* Call function. */
   next_state = (*(NSM [nbr->state][event].func))(nbr);
 
-  /* When event is NSM_KillNbr or InactivityTimer, the neighbor is
-     deleted. */
-  if (event == NSM_KillNbr 
-      || event == NSM_InactivityTimer
-      || event == NSM_LLDown)
-    {
-      if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
-	zlog_debug ("NSM[%s:%s]: neighbor deleted",
-		   IF_NAME (oi), inet_ntoa (router_id));
-
-      /* Timers are canceled in ospf_nbr_free, moreover we cannot call
-         nsm_timer_set here because nbr is freed already!!!*/
-      /*nsm_timer_set (nbr);*/
-
-      return 0;
-    }
-
   if (! next_state)
     next_state = NSM [nbr->state][event].next_state;
   else if (NSM [nbr->state][event].next_state != NSM_DependUpon)
@@ -903,6 +899,16 @@ ospf_nsm_event (struct thread *thread)
 
   /* Make sure timer is set. */
   nsm_timer_set (nbr);
+
+  /* When event is NSM_KillNbr, InactivityTimer or LLDown, the neighbor
+   * is deleted.
+   *
+   * Rather than encode knowledge here of which events lead to NBR
+   * delete, we take our cue from the NSM table, via the dummy
+   * 'Deleted' neighbour state.
+   */
+  if (nbr->state == NSM_Deleted)
+    ospf_nbr_delete (nbr);
 
   return 0;
 }
