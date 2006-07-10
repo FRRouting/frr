@@ -182,6 +182,7 @@ vty_log_out (struct vty *vty, const char *level, const char *proto_str,
 	   drop the data and ignore. */
 	return -1;
       /* Fatal I/O error. */
+      vty->monitor = 0; /* disable monitoring to avoid infinite recursion */
       zlog_warn("%s: write failed to vty client fd %d, closing: %s",
 		__func__, vty->fd, safe_strerror(errno));
       buffer_reset(vty->obuf);
@@ -1349,6 +1350,7 @@ vty_read (struct thread *thread)
 	      vty_event (VTY_READ, vty_sock, vty);
 	      return 0;
 	    }
+	  vty->monitor = 0; /* disable monitoring to avoid infinite recursion */
 	  zlog_warn("%s: read error on vty client fd %d, closing: %s",
 		    __func__, vty->fd, safe_strerror(errno));
 	}
@@ -1571,6 +1573,7 @@ vty_flush (struct thread *thread)
   switch (flushrc)
     {
     case BUFFER_ERROR:
+      vty->monitor = 0; /* disable monitoring to avoid infinite recursion */
       zlog_warn("buffer_flush failed on vty client fd %d, closing",
 		vty->fd);
       buffer_reset(vty->obuf);
@@ -2018,6 +2021,7 @@ vtysh_flush(struct vty *vty)
       vty_event(VTYSH_WRITE, vty->fd, vty);
       break;
     case BUFFER_ERROR:
+      vty->monitor = 0; /* disable monitoring to avoid infinite recursion */
       zlog_warn("%s: write error to fd %d, closing", __func__, vty->fd);
       buffer_reset(vty->obuf);
       vty_close(vty);
@@ -2053,6 +2057,7 @@ vtysh_read (struct thread *thread)
 	      vty_event (VTYSH_READ, sock, vty);
 	      return 0;
 	    }
+	  vty->monitor = 0; /* disable monitoring to avoid infinite recursion */
 	  zlog_warn("%s: read failed on vtysh client fd %d, closing: %s",
 		    __func__, sock, safe_strerror(errno));
 	}

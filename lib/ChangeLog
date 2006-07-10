@@ -1,3 +1,11 @@
+2006-07-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* vty.c: (vty_log_out, vty_read, vty_flush, vtysh_flush, vtysh_read)
+	  After an I/O error, must set vty->monitor to 0 before calling
+	  zlog_warn, otherwise an infinite recursion could occur
+	  (since zlog_warn triggers a message to be written to the vty,
+	  and that in turn triggers another error message when it fails, etc.).
+
 2006-07-03 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* vty.c: (vty_log_out) Debug messages to terminal vty sessions
