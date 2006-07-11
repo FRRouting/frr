@@ -186,7 +186,10 @@ vty_log_out (struct vty *vty, const char *level, const char *proto_str,
       zlog_warn("%s: write failed to vty client fd %d, closing: %s",
 		__func__, vty->fd, safe_strerror(errno));
       buffer_reset(vty->obuf);
-      vty_close(vty);
+      /* cannot call vty_close, because a parent routine may still try
+         to access the vty struct */
+      vty->status = VTY_CLOSE;
+      shutdown(vty->fd, SHUT_RDWR);
       return -1;
     }
   return 0;
@@ -2141,7 +2144,10 @@ vty_serv_sock (const char *addr, unsigned short port, const char *path)
 #endif /* VTYSH */
 }
 
-/* Close vty interface. */
+/* Close vty interface.  Warning: call this only from functions that
+   will be careful not to access the vty afterwards (since it has
+   now been freed).  This is safest from top-level functions (called
+   directly by the thread dispatcher). */
 void
 vty_close (struct vty *vty)
 {

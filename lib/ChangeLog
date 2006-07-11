@@ -1,5 +1,12 @@
 2006-07-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* vty.c: (vty_log_out) Do not call vty_close, because this could
+	  result in a parent function's accessing the freed memory.
+	  Instead, set status VTY_CLOSE and call shutdown(vty->fd, SHUT_RDWR).
+	  And add a comment on vty_close.
+
+2006-07-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* vty.c: (vty_log_out, vty_read, vty_flush, vtysh_flush, vtysh_read)
 	  After an I/O error, must set vty->monitor to 0 before calling
 	  zlog_warn, otherwise an infinite recursion could occur
