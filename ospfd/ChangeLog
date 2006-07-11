@@ -1,3 +1,21 @@
+2006-07-10 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_nsm.c: (nsm_change_state) call nsm_clear_adj for all
+	  adjacency losses, hence removing need for nsm_reset_nbr.
+	  (nsm_reset_nbr) kill it, clear_adj in previous does fine.
+	  (nsm_kill_nbr,nsm_start) remove nsm_reset_nbr call.
+	  (ospf_nsm_event) Allow NSM function to be NULL, this along with
+	  removal of nsm_reset_nbr, allows a bunch of now useless functiosn
+	  to be removed.
+	  Remove some useless variables.
+	  (nsm_ignore) now useless, remove.
+	  (nsm_bad_ls_req) ditto
+	  (nsm_seq_number_mismatch)   "
+	  (nsm_oneway_received)       "
+	  (nsm_inactivity_timer)      "
+	  (nsm_ll_down)               "
+	  (NSM) replace removed action functions with NULL.
+
 2006-07-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_packet.c: (ospf_hello) Improve NetworkMask mismatch warning
