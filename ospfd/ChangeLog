@@ -15,6 +15,13 @@
 	  (nsm_inactivity_timer)      "
 	  (nsm_ll_down)               "
 	  (NSM) replace removed action functions with NULL.
+	  (nsm_notice_state_changes) Move state change logging code to new
+	  func to declutter nsm_change_state and ospf_nsm_event.
+	  Log event with AdjChange, it's useful to know.
+	  (nsm_change_state) move adjchange and snmp logging to previous.
+	  (ospf_nsm_event) call nsm_notice_state_changes from here.
+	  Move the debug message to entry of function, so it gets out
+	  even if something goes wrong.
 
 2006-07-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

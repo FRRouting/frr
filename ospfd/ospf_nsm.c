@@ -594,6 +594,46 @@ const static char *ospf_nsm_event_str[] =
   "LLDown",
 };
 
+static void
+nsm_notice_state_change (struct ospf_neighbor *nbr, int next_state, int event)
+{
+  /* Logging change of status. */
+  if (IS_DEBUG_OSPF (nsm, NSM_STATUS))
+    zlog_debug ("NSM[%s:%s]: State change %s -> %s (%s)",
+               IF_NAME (nbr->oi), inet_ntoa (nbr->router_id),
+               LOOKUP (ospf_nsm_state_msg, nbr->state),
+               LOOKUP (ospf_nsm_state_msg, next_state),
+               ospf_nsm_event_str [event]);
+
+  /* Optionally notify about adjacency changes */
+  if (CHECK_FLAG(nbr->oi->ospf->config, OSPF_LOG_ADJACENCY_CHANGES) &&
+      (CHECK_FLAG(nbr->oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL) ||
+       (next_state == NSM_Full) || (next_state < nbr->state)))
+    zlog_notice("AdjChg: Nbr %s on %s: %s -> %s (%s)",
+                inet_ntoa (nbr->router_id), IF_NAME (nbr->oi),
+                LOOKUP (ospf_nsm_state_msg, nbr->state),
+                LOOKUP (ospf_nsm_state_msg, next_state),
+                ospf_nsm_event_str [event]);
+
+#ifdef HAVE_SNMP
+  /* Terminal state or regression */ 
+  if ((next_state == NSM_Full) 
+      || (next_state == NSM_TwoWay)
+      || (next_state < nbr->state))
+    {
+      /* ospfVirtNbrStateChange */
+      if (nbr->oi->type == OSPF_IFTYPE_VIRTUALLINK)
+        ospfTrapVirtNbrStateChange(nbr);
+      /* ospfNbrStateChange trap  */
+      else	
+        /* To/From FULL, only managed by DR */
+        if (((next_state != NSM_Full) && (nbr->state != NSM_Full)) 
+            || (nbr->oi->state == ISM_DR))
+          ospfTrapNbrStateChange(nbr);
+    }
+#endif
+}
+
 void
 nsm_change_state (struct ospf_neighbor *nbr, int state)
 {
@@ -603,13 +643,6 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   int x;
   int force = 1;
   
-  /* Logging change of status. */
-  if (IS_DEBUG_OSPF (nsm, NSM_STATUS))
-    zlog_debug ("NSM[%s:%s]: State change %s -> %s",
-	       IF_NAME (nbr->oi), inet_ntoa (nbr->router_id),
-	       LOOKUP (ospf_nsm_state_msg, nbr->state),
-	       LOOKUP (ospf_nsm_state_msg, state));
-
   /* Preserve old status. */
   old_state = nbr->state;
 
@@ -621,32 +654,6 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
 
   if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
     vl_area = ospf_area_lookup_by_area_id (oi->ospf, oi->vl_data->vl_area_id);
-
-  /* Optionally notify about adjacency changes */
-  if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_CHANGES) &&
-      (old_state != state) &&
-      (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL) ||
-       (state == NSM_Full) || (state < old_state)))
-    zlog_notice("AdjChg: Nbr %s on %s: %s -> %s",
-                inet_ntoa (nbr->router_id), IF_NAME (nbr->oi),
-                LOOKUP (ospf_nsm_state_msg, old_state),
-                LOOKUP (ospf_nsm_state_msg, state));
-
-#ifdef HAVE_SNMP
-  /* Terminal state or regression */ 
-  if ((state == NSM_Full) || (state == NSM_TwoWay) || (state < old_state))
-    {
-      /* ospfVirtNbrStateChange */
-      if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
-        ospfTrapVirtNbrStateChange(nbr);
-      /* ospfNbrStateChange trap  */
-      else	
-        /* To/From FULL, only managed by DR */
-        if (((state != NSM_Full) && (old_state != NSM_Full)) ||
-            (oi->state == ISM_DR))
-          ospfTrapNbrStateChange(nbr);
-    }
-#endif
 
   /* One of the neighboring routers changes to/from the FULL state. */
   if ((old_state != NSM_Full && state == NSM_Full) ||
@@ -781,6 +788,12 @@ ospf_nsm_event (struct thread *thread)
   event = THREAD_VAL (thread);
   router_id = nbr->router_id;
 
+  if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
+    zlog_debug ("NSM[%s:%s]: %s (%s)", IF_NAME (nbr->oi),
+	       inet_ntoa (nbr->router_id),
+	       LOOKUP (ospf_nsm_state_msg, nbr->state),
+	       ospf_nsm_event_str [event]);
+  
   next_state = NSM [nbr->state][event].next_state;
 
   /* Call function. */
@@ -808,15 +821,12 @@ ospf_nsm_event (struct thread *thread)
 
   assert (next_state != NSM_DependUpon);
   
-  if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
-    zlog_debug ("NSM[%s:%s]: %s (%s)", IF_NAME (nbr->oi),
-	       inet_ntoa (nbr->router_id),
-	       LOOKUP (ospf_nsm_state_msg, nbr->state),
-	       ospf_nsm_event_str [event]);
-  
   /* If state is changed. */
   if (next_state != nbr->state)
-    nsm_change_state (nbr, next_state);
+    {
+      nsm_notice_state_change (nbr, next_state, event);
+      nsm_change_state (nbr, next_state);
+    }
 
   /* Make sure timer is set. */
   nsm_timer_set (nbr);
