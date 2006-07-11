@@ -615,6 +615,9 @@ nsm_notice_state_change (struct ospf_neighbor *nbr, int next_state, int event)
                 LOOKUP (ospf_nsm_state_msg, next_state),
                 ospf_nsm_event_str [event]);
 
+  nbr->ts_last_change = recent_time;
+  nbr->last_event_str = ospf_nsm_event_str [event];
+
 #ifdef HAVE_SNMP
   /* Terminal state or regression */ 
   if ((next_state == NSM_Full) 

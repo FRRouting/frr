@@ -22,6 +22,11 @@
 	  (ospf_nsm_event) call nsm_notice_state_changes from here.
 	  Move the debug message to entry of function, so it gets out
 	  even if something goes wrong.
+	  Record state change timestamp and event in nbr struct.
+	* ospf_neighbor.h: (struct ospf_neighbor) Add fields to record
+	  timestamp of last NSM change and event.
+	* ospf_vty.c: (show_ip_ospf_neighbor_detail_sub) Print 
+	  last state change timestamp and event, if available.
 
 2006-07-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 

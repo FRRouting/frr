@@ -82,6 +82,8 @@ struct ospf_neighbor
 
   /* Statistics Field */
   u_int32_t state_change;
+  struct timeval ts_last_change;
+  const char *last_event_str;
   struct ospf_nbr_nbma *nbr_nbma;
 };
 

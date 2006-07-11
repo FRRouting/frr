@@ -3155,7 +3155,14 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
 	   nbr->priority, LOOKUP (ospf_nsm_state_msg, nbr->state));
   /* Show state changes. */
   vty_out (vty, " %d state changes%s", nbr->state_change, VTY_NEWLINE);
-
+  if (nbr->ts_last_change.tv_sec || nbr->ts_last_change.tv_usec)
+    {
+      struct timeval res = tv_sub (recent_time, nbr->ts_last_change);
+      vty_out (vty, "    Last state change %s ago, due to %s%s",
+               ospf_timeval_dump (&res, timebuf, sizeof(timebuf)),
+               (nbr->last_event_str ? nbr->last_event_str : "??"),
+               VTY_NEWLINE);
+    }
   /* Show Designated Rotuer ID. */
   vty_out (vty, "    DR is %s,", inet_ntoa (nbr->d_router));
   /* Show Backup Designated Rotuer ID. */
