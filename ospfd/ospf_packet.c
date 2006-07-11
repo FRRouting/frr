@@ -785,8 +785,9 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
       && oi->type != OSPF_IFTYPE_VIRTUALLINK)
     if (oi->address->prefixlen != p.prefixlen)
       {
-	zlog_warn ("Packet %s [Hello:RECV]: NetworkMask mismatch.",
-		   inet_ntoa (ospfh->router_id));
+	zlog_warn ("Packet %s [Hello:RECV]: NetworkMask mismatch on %s (configured prefix length is %d, but hello packet indicates %d).",
+		   inet_ntoa(ospfh->router_id), IF_NAME(oi),
+		   (int)oi->address->prefixlen, (int)p.prefixlen);
 	return;
       }
 
