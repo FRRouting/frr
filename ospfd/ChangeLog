@@ -1,3 +1,14 @@
+2006-07-25 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_neigbor.h: (struct ospf_neighbor) Add some additional
+	  neighbour state statistics fields, timestamps for progressive
+	  and regressive state changes, and pointer to event string
+	  for the latter state change.
+	* ospf_nsm.c: (nsm_notice_state_change) Update new state changs
+	  history as required.
+	* ospf_vty.c: (show_ip_ospf_neighbor_detail_sub) Print out above
+	  new per-neighbour state change stats.
+
 2006-07-10 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_nsm.c: (nsm_change_state) call nsm_clear_adj for all

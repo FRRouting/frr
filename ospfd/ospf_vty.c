@@ -3155,12 +3155,21 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
 	   nbr->priority, LOOKUP (ospf_nsm_state_msg, nbr->state));
   /* Show state changes. */
   vty_out (vty, " %d state changes%s", nbr->state_change, VTY_NEWLINE);
-  if (nbr->ts_last_change.tv_sec || nbr->ts_last_change.tv_usec)
+  if (nbr->ts_last_progress.tv_sec || nbr->ts_last_progress.tv_usec)
     {
-      struct timeval res = tv_sub (recent_time, nbr->ts_last_change);
-      vty_out (vty, "    Last state change %s ago, due to %s%s",
+      struct timeval res = tv_sub (recent_time, nbr->ts_last_progress);
+      vty_out (vty, "    Most recent state change statistics:%s",
+               VTY_NEWLINE);
+      vty_out (vty, "      Progressive change %s ago%s",
                ospf_timeval_dump (&res, timebuf, sizeof(timebuf)),
-               (nbr->last_event_str ? nbr->last_event_str : "??"),
+               VTY_NEWLINE);
+    }
+  if (nbr->ts_last_regress.tv_sec || nbr->ts_last_regress.tv_usec)
+    {
+      struct timeval res = tv_sub (recent_time, nbr->ts_last_regress);
+      vty_out (vty, "      Regressive change %s ago, due to %s%s",
+               ospf_timeval_dump (&res, timebuf, sizeof(timebuf)),
+               (nbr->last_regress_str ? nbr->last_regress_str : "??"),
                VTY_NEWLINE);
     }
   /* Show Designated Rotuer ID. */

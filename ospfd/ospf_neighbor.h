@@ -80,11 +80,14 @@ struct ospf_neighbor
   struct thread *t_ls_upd;
   struct thread *t_hello_reply;
 
-  /* Statistics Field */
-  u_int32_t state_change;
-  struct timeval ts_last_change;
-  const char *last_event_str;
+  /* NBMA configured neighbour */
   struct ospf_nbr_nbma *nbr_nbma;
+
+  /* Statistics */
+  struct timeval ts_last_progress;  /* last advance of NSM            */
+  struct timeval ts_last_regress;   /* last regressive NSM change     */
+  const char *last_regress_str;     /* Event which last regressed NSM */
+  u_int32_t state_change;           /* NSM state change counter       */
 };
 
 /* Macros. */
