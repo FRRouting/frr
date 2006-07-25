@@ -879,12 +879,23 @@ thread_call (struct thread *thread)
 {
   unsigned long realtime, cputime;
   RUSAGE_T ru;
-  struct cpu_thread_history tmp, *cpu;
-  
-  tmp.func = thread->func;
-  tmp.funcname = thread->funcname;
-  cpu = hash_get (cpu_record, &tmp, 
-                  (void * (*) (void *))cpu_record_hash_alloc);
+
+ /* Cache a pointer to the relevant cpu history thread, if the thread
+  * does not have it yet.
+  *
+  * Callers submitting 'dummy threads' hence must take care that
+  * thread->cpu is NULL
+  */
+  if (!thread->hist)
+    {
+      struct cpu_thread_history tmp;
+      
+      tmp.func = thread->func;
+      tmp.funcname = thread->funcname;
+      
+      thread->hist = hash_get (cpu_record, &tmp, 
+                    (void * (*) (void *))cpu_record_hash_alloc);
+    }
 
   GETRUSAGE (&thread->ru);
 
@@ -893,17 +904,17 @@ thread_call (struct thread *thread)
   GETRUSAGE (&ru);
 
   realtime = thread_consumed_time (&ru, &thread->ru, &cputime);
-  cpu->real.total += realtime;
-  if (cpu->real.max < realtime)
-    cpu->real.max = realtime;
+  thread->hist->real.total += realtime;
+  if (thread->hist->real.max < realtime)
+    thread->hist->real.max = realtime;
 #ifdef HAVE_RUSAGE
-  cpu->cpu.total += cputime;
-  if (cpu->cpu.max < cputime)
-    cpu->cpu.max = cputime;
+  thread->hist->cpu.total += cputime;
+  if (thread->hist->cpu.max < cputime)
+    thread->hist->cpu.max = cputime;
 #endif
 
-  ++cpu->total_calls;
-  cpu->types |= (1 << thread->add_type);
+  ++(thread->hist->total_calls);
+  thread->hist->types |= (1 << thread->add_type);
 
 #ifdef CONSUMED_TIME_CHECK
   if (realtime > CONSUMED_TIME_CHECK)

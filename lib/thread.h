@@ -80,6 +80,7 @@ struct thread
     struct timeval sands;	/* rest of time sands value. */
   } u;
   RUSAGE_T ru;			/* Indepth usage info.  */
+  struct cpu_thread_history *hist; /* cache pointer to cpu_history */
   char* funcname;
 };
 

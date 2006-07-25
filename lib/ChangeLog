@@ -1,3 +1,12 @@
+2006-07-25 Paul Jakma <paul.jakma@sun.com>
+
+	* thread.h: (struct thread) Add a cache pointer to the struct
+	  cpu_thread_history, if it is known - saving hash lookup on
+	  each thread_call.
+	* thread.c: (thread_call) Cache the pointer to the
+          cpu_thread_history, so that future thread_calls of same
+          thread can avoid the hash_lookup.
+
 2006-07-10 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* vty.c: (vty_log_out) Do not call vty_close, because this could
