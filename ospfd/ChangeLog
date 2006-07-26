@@ -1,3 +1,17 @@
+2006-07-26 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_lsa.{c,h}: (ospf_lsa_unlock) Change to take a double pointer
+	  to the LSA to be 'unlocked', so that, if the LSA is freed, the
+	  callers pointer to the LSA can be NULLed out, allowing any further
+	  use of that pointer to provoke a crash sooner rather than later.
+	* ospf_*.c: (general) Adjust callers of ospf_lsa_unlock to match
+	  previous. Try annotate 'locking' somewhat to show which 'locks'
+	  are protecting what LSA reference, if not obvious.
+	* ospf_opaque.c: (ospf_opaque_lsa_install) Trivial: remove useless
+	  goto, replace with return.
+	* ospf_packet.c: (ospf_make_ls_ack) Trivial: merge two list loops,
+	  the dual-loop predated the delete-safe list-loop macro.
+
 2006-07-25 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_neigbor.h: (struct ospf_neighbor) Add some additional

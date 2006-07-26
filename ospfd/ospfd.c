@@ -475,7 +475,7 @@ ospf_finish_final (struct ospf *ospf)
   ospf_lsdb_free (ospf->lsdb);
 
   for (ALL_LIST_ELEMENTS (ospf->maxage_lsa, node, nnode, lsa))
-    ospf_lsa_unlock (lsa);
+    ospf_lsa_unlock (&lsa); /* maxage_lsa */
 
   list_delete (ospf->maxage_lsa);
 
@@ -592,7 +592,7 @@ ospf_area_free (struct ospf_area *area)
   ospf_lsdb_delete_all (area->lsdb);
   ospf_lsdb_free (area->lsdb);
 
-  ospf_lsa_unlock (area->router_lsa_self);
+  ospf_lsa_unlock (&area->router_lsa_self);
   
   route_table_finish (area->ranges);
   list_delete (area->oiflist);
@@ -905,7 +905,7 @@ ospf_ls_upd_queue_empty (struct ospf_interface *oi)
     if ((lst = (struct list *) rn->info))
       {
 	for (ALL_LIST_ELEMENTS (lst, node, nnode, lsa))
-          ospf_lsa_unlock (lsa);
+          ospf_lsa_unlock (&lsa); /* oi->ls_upd_queue */
 	list_free (lst);
 	rn->info = NULL;
       }

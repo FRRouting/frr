@@ -289,7 +289,7 @@ ospf_if_cleanup (struct ospf_interface *oi)
 
   /* Cleanup Link State Acknowlegdment list. */
   for (ALL_LIST_ELEMENTS (oi->ls_ack, node, nnode, lsa))
-    ospf_lsa_unlock (lsa);
+    ospf_lsa_unlock (&lsa); /* oi->ls_ack */
   list_delete_all_node (oi->ls_ack);
 
   oi->crypt_seqnum = 0;
@@ -302,7 +302,7 @@ ospf_if_cleanup (struct ospf_interface *oi)
   oi->nbr_self = ospf_nbr_new (oi);
   ospf_nbr_add_self (oi);
   
-  ospf_lsa_unlock (oi->network_lsa_self);
+  ospf_lsa_unlock (&oi->network_lsa_self);
   oi->network_lsa_self = NULL;
   OSPF_TIMER_OFF (oi->t_network_lsa_self);
 }

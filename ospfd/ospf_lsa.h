@@ -245,7 +245,7 @@ extern struct ospf_lsa *ospf_lsa_new (void);
 extern struct ospf_lsa *ospf_lsa_dup (struct ospf_lsa *);
 extern void ospf_lsa_free (struct ospf_lsa *);
 extern struct ospf_lsa *ospf_lsa_lock (struct ospf_lsa *);
-extern void ospf_lsa_unlock (struct ospf_lsa *);
+extern void ospf_lsa_unlock (struct ospf_lsa **);
 extern void ospf_lsa_discard (struct ospf_lsa *);
 
 extern struct lsa_header *ospf_lsa_data_new (size_t);

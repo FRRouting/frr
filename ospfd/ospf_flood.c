@@ -72,7 +72,7 @@ ospf_flood_delayed_lsa_ack (struct ospf_neighbor *inbr, struct ospf_lsa *lsa)
     return;
 
   /* Schedule a delayed LSA Ack to be sent */ 
-  listnode_add (inbr->oi->ls_ack, ospf_lsa_lock (lsa));
+  listnode_add (inbr->oi->ls_ack, ospf_lsa_lock (lsa)); /* delayed LSA Ack */
 }
 
 /* Check LSA is related to external info. */
@@ -134,7 +134,7 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
     case OSPF_ROUTER_LSA:
       /* Originate a new instance and schedule flooding */
       /* It shouldn't be necessary, but anyway */
-      ospf_lsa_unlock (area->router_lsa_self);
+      ospf_lsa_unlock (&area->router_lsa_self);
       area->router_lsa_self = ospf_lsa_lock (new);
 
       ospf_router_lsa_timer_add (area);
@@ -170,7 +170,7 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
               }
 #endif /* HAVE_OPAQUE_LSA */
 
-            ospf_lsa_unlock (oi->network_lsa_self);
+            ospf_lsa_unlock (&oi->network_lsa_self);
             oi->network_lsa_self = ospf_lsa_lock (new);
             
             /* Schedule network-LSA origination. */
@@ -797,7 +797,7 @@ ospf_ls_request_delete (struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 {
   if (nbr->ls_req_last == lsa)
     {
-      ospf_lsa_unlock (nbr->ls_req_last);
+      ospf_lsa_unlock (&nbr->ls_req_last);
       nbr->ls_req_last = NULL;
     }
 
@@ -813,7 +813,7 @@ ospf_ls_request_delete (struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 void
 ospf_ls_request_delete_all (struct ospf_neighbor *nbr)
 {
-  ospf_lsa_unlock (nbr->ls_req_last);
+  ospf_lsa_unlock (&nbr->ls_req_last);
   nbr->ls_req_last = NULL;
   ospf_lsdb_delete_all (&nbr->ls_req);
 }
@@ -922,7 +922,7 @@ ospf_ls_retransmit_clear (struct ospf_neighbor *nbr)
 	  ospf_ls_retransmit_delete (nbr, lsa);
     }
 
-  ospf_lsa_unlock (nbr->ls_req_last);
+  ospf_lsa_unlock (&nbr->ls_req_last);
   nbr->ls_req_last = NULL;
 }
 

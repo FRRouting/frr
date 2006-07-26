@@ -711,7 +711,7 @@ ospf_ase_register_external_lsa (struct ospf_lsa *lsa, struct ospf *top)
   /* We assume that if LSA is deleted from DB
      is is also deleted from this RT */
 
-  listnode_add (lst, ospf_lsa_lock (lsa));
+  listnode_add (lst, ospf_lsa_lock (lsa)); /* external_lsas lst */
 }
 
 void
@@ -730,18 +730,12 @@ ospf_ase_unregister_external_lsa (struct ospf_lsa *lsa, struct ospf *top)
 
   rn = route_node_get (top->external_lsas, (struct prefix *) &p);
   lst = rn->info;
-#ifdef ORIGINAL_CODING
-  assert (lst);
 
-  listnode_delete (lst, lsa);
-  ospf_lsa_unlock (lsa);
-#else /* ORIGINAL_CODING */
   /* XXX lst can be NULL */
   if (lst) {
     listnode_delete (lst, lsa);
-    ospf_lsa_unlock (lsa);
+    ospf_lsa_unlock (&lsa); /* external_lsas list */
   }
-#endif /* ORIGINAL_CODING */
 }
 
 void
@@ -756,7 +750,7 @@ ospf_ase_external_lsas_finish (struct route_table *rt)
     if ((lst = rn->info) != NULL)
       {
 	for (ALL_LIST_ELEMENTS (lst, node, nnode, lsa))
-          ospf_lsa_unlock (lsa);
+          ospf_lsa_unlock (&lsa); /* external_lsas lst */
 	list_delete (lst);
       }
     

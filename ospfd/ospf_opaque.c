@@ -708,7 +708,7 @@ free_opaque_info_per_id (void *val)
 
   OSPF_TIMER_OFF (oipi->t_opaque_lsa_self);
   if (oipi->lsa != NULL)
-    ospf_lsa_unlock (oipi->lsa);
+    ospf_lsa_unlock (&oipi->lsa);
   XFREE (MTYPE_OPAQUE_INFO_PER_ID, oipi);
   return;
 }
@@ -1554,7 +1554,7 @@ ospf_opaque_lsa_install (struct ospf_lsa *lsa, int rt_recalc)
   if ((oipt = lookup_opaque_info_by_type (lsa)) != NULL
       && (oipi = lookup_opaque_info_by_id (oipt, lsa)) != NULL)
     {
-      ospf_lsa_unlock (oipi->lsa);
+      ospf_lsa_unlock (&oipi->lsa);
       oipi->lsa = ospf_lsa_lock (lsa);
     }
   /* Register the new lsa entry and get its control info. */
@@ -2234,7 +2234,7 @@ ospf_opaque_self_originated_lsa_received (struct ospf_neighbor *nbr,
   u_char before;
 
   if ((top = oi_to_top (nbr->oi)) == NULL)
-    goto out;
+    return;
 
   before = IS_OPAQUE_LSA_ORIGINATION_BLOCKED (top->opaque);
 
@@ -2259,7 +2259,7 @@ ospf_opaque_self_originated_lsa_received (struct ospf_neighbor *nbr,
       break;
     default:
       zlog_warn ("ospf_opaque_self_originated_lsa_received: Unexpected LSA-type(%u)", lsa->data->type);
-      goto out;
+      return;
     }
 
   ospf_lsa_discard (lsa); /* List "lsas" will be deleted by caller. */
@@ -2269,9 +2269,6 @@ ospf_opaque_self_originated_lsa_received (struct ospf_neighbor *nbr,
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("Block Opaque-LSA origination: OFF -> ON");
     }
-
-out:
-  return;
 }
 
 void

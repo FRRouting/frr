@@ -108,7 +108,7 @@ ospf_lsdb_add (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
       old = rn->info;
       lsdb->type[old->data->type].checksum -= ntohs(old->data->checksum);
 
-      ospf_lsa_unlock (rn->info);
+      ospf_lsa_unlock (&rn->info);
       route_unlock_node (rn);
     }
 
@@ -161,7 +161,7 @@ ospf_lsdb_delete (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
         if (lsdb->del_lsa_hook != NULL)
           (* lsdb->del_lsa_hook)(lsa);
 #endif /* MONITOR_LSDB_CHANGE */
-	ospf_lsa_unlock (lsa);
+	ospf_lsa_unlock (&lsa);
 	return;
       }
 }
@@ -191,7 +191,7 @@ ospf_lsdb_delete_all (struct ospf_lsdb *lsdb)
             if (lsdb->del_lsa_hook != NULL)
               (* lsdb->del_lsa_hook)(lsa);
 #endif /* MONITOR_LSDB_CHANGE */
-	    ospf_lsa_unlock (lsa);
+	    ospf_lsa_unlock (&lsa);
 	  }
     }
 }

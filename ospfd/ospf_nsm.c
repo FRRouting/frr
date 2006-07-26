@@ -723,7 +723,7 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
 	  if (oi->network_lsa_self && oi->full_nbrs == 0)
 	    {
 	      ospf_lsa_flush_area (oi->network_lsa_self, oi->area);
-	      ospf_lsa_unlock (oi->network_lsa_self);
+	      ospf_lsa_unlock (&oi->network_lsa_self);
 	      oi->network_lsa_self = NULL;
 	      OSPF_TIMER_OFF (oi->t_network_lsa_self);
 	    }

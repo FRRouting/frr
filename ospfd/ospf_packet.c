@@ -2764,7 +2764,7 @@ ospf_make_ls_req_func (struct stream *s, u_int16_t *length,
   stream_put_ipv4 (s, lsa->data->id.s_addr);
   stream_put_ipv4 (s, lsa->data->adv_router.s_addr);
   
-  ospf_lsa_unlock (nbr->ls_req_last);
+  ospf_lsa_unlock (&nbr->ls_req_last);
   nbr->ls_req_last = ospf_lsa_lock (lsa);
   
   *length += 12;
@@ -2860,7 +2860,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
       count++;
 
       list_delete_node (update, node);
-      ospf_lsa_unlock (lsa);
+      ospf_lsa_unlock (&lsa); /* oi->ls_upd_queue */
     }
 
   /* Now set #LSAs. */
@@ -2874,17 +2874,13 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
 static int
 ospf_make_ls_ack (struct ospf_interface *oi, struct list *ack, struct stream *s)
 {
-  struct list *rm_list;
-  struct listnode *node;
+  struct listnode *node, *nnode;
   u_int16_t length = OSPF_LS_ACK_MIN_SIZE;
   unsigned long delta = stream_get_endp(s) + 24;
   struct ospf_lsa *lsa;
 
-  rm_list = list_new ();
-  
-  for (ALL_LIST_ELEMENTS_RO (ack, node, lsa))
+  for (ALL_LIST_ELEMENTS (ack, node, nnode, lsa))
     {
-      lsa = listgetdata (node);
       assert (lsa);
       
       if (length + delta > ospf_packet_max (oi))
@@ -2893,20 +2889,9 @@ ospf_make_ls_ack (struct ospf_interface *oi, struct list *ack, struct stream *s)
       stream_put (s, lsa->data, OSPF_LSA_HEADER_SIZE);
       length += OSPF_LSA_HEADER_SIZE;
       
-      listnode_add (rm_list, lsa);
-    }
-  
-  /* Remove LSA from LS-Ack list. */
-  /* XXX: this loop should be removed and the list move done in previous
-   * loop
-   */
-  for (ALL_LIST_ELEMENTS_RO (rm_list, node, lsa))
-    {
       listnode_delete (ack, lsa);
-      ospf_lsa_unlock (lsa);
+      ospf_lsa_unlock (&lsa); /* oi->ls_ack_direct.ls_ack */
     }
-  
-  list_delete (rm_list);
   
   return length;
 }
@@ -3396,10 +3381,7 @@ ospf_ls_upd_send (struct ospf_neighbor *nbr, struct list *update, int flag)
     rn->info = list_new ();
 
   for (ALL_LIST_ELEMENTS_RO (update, node, lsa))
-    {
-      ospf_lsa_lock (lsa);
-      listnode_add (rn->info, lsa);
-    }
+    listnode_add (rn->info, ospf_lsa_lock (lsa)); /* oi->ls_upd_queue */
 
   if (oi->t_ls_upd_event == NULL)
     oi->t_ls_upd_event =

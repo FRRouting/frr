@@ -593,7 +593,7 @@ ism_change_state (struct ospf_interface *oi, int state)
 	  OSPF_TIMER_OFF (oi->t_network_lsa_self);
 	}
 
-      ospf_lsa_unlock (oi->network_lsa_self);
+      ospf_lsa_unlock (&oi->network_lsa_self);
       oi->network_lsa_self = NULL;
     }
 

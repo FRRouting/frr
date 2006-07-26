@@ -904,7 +904,7 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
   if ((new->data = ospf_lsa_data_new (length)) == NULL)
     {
       zlog_warn ("ospf_mpls_te_lsa_new: ospf_lsa_data_new() ?");
-      ospf_lsa_unlock (new);
+      ospf_lsa_unlock (&new);
       new = NULL;
       stream_free (s);
       goto out;
@@ -936,7 +936,7 @@ ospf_mpls_te_lsa_originate1 (struct ospf_area *area, struct mpls_te_link *lp)
   if (ospf_lsa_install (area->ospf, NULL/*oi*/, new) == NULL)
     {
       zlog_warn ("ospf_mpls_te_lsa_originate1: ospf_lsa_install() ?");
-      ospf_lsa_unlock (new);
+      ospf_lsa_unlock (&new);
       goto out;
     }
 
@@ -1054,7 +1054,7 @@ ospf_mpls_te_lsa_refresh (struct ospf_lsa *lsa)
   if (ospf_lsa_install (area->ospf, NULL/*oi*/, new) == NULL)
     {
       zlog_warn ("ospf_mpls_te_lsa_refresh: ospf_lsa_install() ?");
-      ospf_lsa_unlock (new);
+      ospf_lsa_unlock (&new);
       goto out;
     }
 
