@@ -42,6 +42,12 @@
 /* Default rtm_table for all clients */
 extern struct zebra_t zebrad;
 
+/* Hold time for RIB process, should be very minimal.
+ * it is useful to able to set it otherwise for testing, hence exported
+ * as global here for test-rig code.
+ */
+int rib_process_hold_time = 10;
+
 /* Each route type's string and default distance value. */
 struct
 {  
@@ -1120,6 +1126,7 @@ rib_queue_init (struct zebra_t *zebra)
   zebra->ribq->spec.del_item_data = &rib_queue_qnode_del;
   /* XXX: TODO: These should be runtime configurable via vty */
   zebra->ribq->spec.max_retries = 3;
+  zebra->ribq->spec.hold = rib_process_hold_time;
   
   return;
 }
