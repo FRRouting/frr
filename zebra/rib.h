@@ -30,6 +30,10 @@
 /* Routing information base. */
 struct rib
 {
+  /* Status Flags for the *route_node*, but kept in the head RIB.. */
+  u_char rn_status;
+#define RIB_ROUTE_QUEUED	(1 << 0)
+
   /* Link list. */
   struct rib *next;
   struct rib *prev;
@@ -43,9 +47,6 @@ struct rib
   /* Uptime. */
   time_t uptime;
 
-  /* ref count */
-  unsigned int lock;
-
   /* Type fo this route. */
   int type;
 
@@ -58,9 +59,15 @@ struct rib
   /* Distance. */
   u_char distance;
 
-  /* Flags of this route.  This flag's definition is in lib/zebra.h
-     ZEBRA_FLAG_* */
+  /* Flags of this route.
+   * This flag's definition is in lib/zebra.h ZEBRA_FLAG_* and is exposed
+   * to clients via Zserv
+   */
   u_char flags;
+
+  /* RIB internal status */
+  u_char status;
+#define RIB_ENTRY_REMOVED	(1 << 0)
 
   /* Nexthop information. */
   u_char nexthop_num;

@@ -66,12 +66,6 @@ struct
   {ZEBRA_ROUTE_ISIS,    115},
   {ZEBRA_ROUTE_BGP,      20  /* IBGP is 200. */}
 };
-
-struct zebra_queue_node_t
-{
-  struct route_node *node;
-  struct rib *del;
-};
 
 /* Vector for routing table.  */
 vector vrf_vector;
@@ -791,37 +785,6 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
 #define RIB_SYSTEM_ROUTE(R) \
         ((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
 
-static struct rib *
-rib_lock (struct rib *rib)
-{
-  assert (rib->lock >= 0);
-  
-  rib->lock++;
-  return rib;
-}
-
-static struct rib *
-rib_unlock (struct rib *rib)
-{
-  struct nexthop *nexthop;
-  struct nexthop *next;
-  
-  assert (rib->lock > 0);
-  rib->lock--;
-
-  if (rib->lock == 0)
-    {
-      for (nexthop = rib->nexthop; nexthop; nexthop = next)
-        {
-          next = nexthop->next;
-          nexthop_free (nexthop);
-        }
-      XFREE (MTYPE_RIB, rib);
-      return NULL;
-    }
-  return rib;
-}
-
 static void
 rib_install_kernel (struct route_node *rn, struct rib *rib)
 {
@@ -885,37 +848,50 @@ rib_uninstall (struct route_node *rn, struct rib *rib)
     }
 }
 
+static void rib_unlink (struct route_node *, struct rib *);
+
 /* Core function for processing routing information base. */
 static wq_item_status
 rib_process (struct work_queue *wq, void *data)
 {
-  struct zebra_queue_node_t *qnode = data;
   struct rib *rib;
   struct rib *next;
   struct rib *fib = NULL;
   struct rib *select = NULL;
-  struct rib *del = qnode->del;
-  struct route_node *rn = qnode->node;
+  struct rib *del = NULL;
+  struct route_node *rn = data;
   int installed = 0;
   struct nexthop *nexthop = NULL;
   
   assert (rn);
   
-  /* possibly should lock and unlock rib on each iteration. however, for
-   * now, we assume called functions are synchronous and dont delete RIBs
-   * (as the work-queue deconstructor for this function is supposed to be
-   * the canonical 'delete' path for RIBs). Further if called functions
-   * below were to made asynchronous they should themselves acquire any
-   * locks/refcounts as needed and not depend on this caller to do it for
-   * them
-   */
   for (rib = rn->info; rib; rib = next)
     {
       next = rib->next;
       
       /* Currently installed rib. */
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
-        fib = rib;
+        {
+          assert (fib == NULL);
+          fib = rib;
+        }
+      
+      /* Unlock removed routes, so they'll be freed, bar the FIB entry,
+       * which we need to do do further work with below.
+       */
+      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+        {
+          if (rib != fib)
+            {
+              if (IS_ZEBRA_DEBUG_RIB)
+                zlog_debug ("%s: rn %p, removing rib %p", __func__, rn, rib);
+                rib_unlink (rn, rib);
+            }
+          else
+            del = rib;
+          
+          continue;
+        }
       
       /* Skip unreachable nexthop. */
       if (! nexthop_active_update (rn, rib, 0))
@@ -968,19 +944,12 @@ rib_process (struct work_queue *wq, void *data)
         select = rib;
     }
   
-  /* Deleted route check. */
-  if (del && CHECK_FLAG (del->flags, ZEBRA_FLAG_SELECTED))
-    fib = del;
-  
-  /* We possibly should lock fib and select here However, all functions
-   * below are 'inline' and not asynchronous And if any were to be
-   * converted, they should manage references themselves really..  See
-   * previous comment above.
-   */
-  
   /* Same route is selected. */
   if (select && select == fib)
     {
+      if (IS_ZEBRA_DEBUG_RIB)
+        zlog_debug ("%s: Updating existing route, select %p, fib %p",
+                     __func__, select, fib);
       if (CHECK_FLAG (select->flags, ZEBRA_FLAG_CHANGED))
         {
           redistribute_delete (&rn->p, select);
@@ -1011,12 +980,14 @@ rib_process (struct work_queue *wq, void *data)
           if (! installed) 
             rib_install_kernel (rn, select);
         }
-      return WQ_SUCCESS;
+      goto end;
     }
 
   /* Uninstall old rib from forwarding table. */
   if (fib)
     {
+      if (IS_ZEBRA_DEBUG_RIB)
+        zlog_debug ("%s: Removing existing route, fib %p", __func__, fib);
       redistribute_delete (&rn->p, fib);
       if (! RIB_SYSTEM_ROUTE (fib))
 	rib_uninstall_kernel (rn, fib);
@@ -1029,6 +1000,8 @@ rib_process (struct work_queue *wq, void *data)
   /* Install new rib into forwarding table. */
   if (select)
     {
+      if (IS_ZEBRA_DEBUG_RIB)
+        zlog_debug ("%s: Adding route, select %p", __func__, select);
       /* Set real nexthop. */
       nexthop_active_update (rn, select, 1);
 
@@ -1038,73 +1011,68 @@ rib_process (struct work_queue *wq, void *data)
       redistribute_add (&rn->p, select);
     }
 
-  return WQ_SUCCESS;
+  /* FIB route was removed, should be deleted */
+  if (del)
+    {
+      if (IS_ZEBRA_DEBUG_RIB)
+        zlog_debug ("%s: Deleting fib %p, rn %p", __func__, del, rn);
+      rib_unlink (rn, del);
+    }
 
+end:
+  if (IS_ZEBRA_DEBUG_RIB_Q)
+    zlog_debug ("%s: rn %p dequeued", __func__, rn);
+  if (rn->info)
+    UNSET_FLAG (((struct rib *)rn->info)->rn_status, RIB_ROUTE_QUEUED);  
+  route_unlock_node (rn); /* rib queue lock */
+  return WQ_SUCCESS;
 }
 
-/* Add work queue item to work queue and schedule processing */
+/* Add route_node to work queue and schedule processing */
 static void
-rib_queue_add_qnode (struct zebra_t *zebra, struct zebra_queue_node_t *qnode)
+rib_queue_add (struct zebra_t *zebra, struct route_node *rn)
 {
-  route_lock_node (qnode->node);
+  assert (zebra && rn);
   
-  if (IS_ZEBRA_DEBUG_EVENT)
-    zlog_info ("rib_queue_add_qnode: work queue added");
+  /* Pointless to queue a route_node with no RIB entries to add or remove */
+  if (!rn->info)
+    {
+      zlog_debug ("%s: called for route_node (%p, %d) with no ribs",
+                  __func__, rn, rn->lock);
+      zlog_backtrace(LOG_DEBUG);
+      return;
+    }
 
-  assert (zebra && qnode && qnode->node);
+  /* Route-table node already queued, so nothing to do */
+  if (CHECK_FLAG (((struct rib *)rn->info)->rn_status, RIB_ROUTE_QUEUED))
+    {
+      if (IS_ZEBRA_DEBUG_RIB_Q)
+        zlog_debug ("%s: rn %p already queued", __func__, rn);
+      return;
+    }
 
-  if (qnode->del)
-    rib_lock (qnode->del);
-  
+  route_lock_node (rn); /* rib queue lock */
+
+  if (IS_ZEBRA_DEBUG_RIB_Q)
+    zlog_info ("%s: work queue added", __func__);
+
+  assert (zebra);
+
   if (zebra->ribq == NULL)
     {
-      zlog_err ("rib_queue_add_qnode: ribq work_queue does not exist!");
-      route_unlock_node (qnode->node);
+      zlog_err ("%s: work_queue does not exist!", __func__);
+      route_unlock_node (rn);
       return;
     }
   
-  work_queue_add (zebra->ribq, qnode);
+  work_queue_add (zebra->ribq, rn);
+
+  SET_FLAG (((struct rib *)rn->info)->rn_status, RIB_ROUTE_QUEUED);
+
+  if (IS_ZEBRA_DEBUG_RIB_Q)
+    zlog_debug ("%s: rn %p queued", __func__, rn);
 
   return;
-}
-
-/* Add route node and rib to work queue and schedule processing */
-static void
-rib_queue_add (struct zebra_t *zebra, struct route_node *rn, struct rib *del)
-{
- struct zebra_queue_node_t *qnode;
-
- assert (zebra && rn);
- 
- qnode = (struct zebra_queue_node_t *) 
-          XCALLOC (MTYPE_RIB_QUEUE, sizeof (struct zebra_queue_node_t));
- 
- if (qnode == NULL)
-   {
-     zlog_err ("rib_queue_add: failed to allocate queue node memory, %s",
-               strerror (errno));
-     return;
-   }
-
- qnode->node = rn;
- qnode->del = del;
- 
- rib_queue_add_qnode (zebra, qnode);
-
- return;
-}
-
-/* free zebra_queue_node_t */
-static void
-rib_queue_qnode_del (struct work_queue *wq, void *data)
-{
-  struct zebra_queue_node_t *qnode = data;
-  route_unlock_node (qnode->node);
-  
-  if (qnode->del)
-    rib_unlock (qnode->del);
-  
-  XFREE (MTYPE_RIB_QUEUE, qnode);
 }
 
 /* initialise zebra rib work queue */
@@ -1114,16 +1082,15 @@ rib_queue_init (struct zebra_t *zebra)
   assert (zebra);
   
   if (! (zebra->ribq = work_queue_new (zebra->master, 
-                                       "zebra_rib_work_queue")))
+                                       "route_node processing")))
     {
-      zlog_err ("rib_queue_init: could not initialise work queue!");
+      zlog_err ("%s: could not initialise work queue!", __func__);
       return;
     }
 
   /* fill in the work queue spec */
   zebra->ribq->spec.workfunc = &rib_process;
   zebra->ribq->spec.errorfunc = NULL;
-  zebra->ribq->spec.del_item_data = &rib_queue_qnode_del;
   /* XXX: TODO: These should be runtime configurable via vty */
   zebra->ribq->spec.max_retries = 3;
   zebra->ribq->spec.hold = rib_process_hold_time;
@@ -1131,38 +1098,135 @@ rib_queue_init (struct zebra_t *zebra)
   return;
 }
 
+/* RIB updates are processed via a queue of pointers to route_nodes.
+ *
+ * The queue length is bounded by the maximal size of the routing table,
+ * as a route_node will not be requeued, if already queued.
+ *
+ * RIBs are submitted via rib_addnode and rib_delnode, which set
+ * minimal state and then submit route_node to queue for best-path
+ * selection later. Order of add/delete state changes are preserved for
+ * any given RIB. 
+ *
+ * Deleted RIBs are reaped during best-path selection.
+ *
+ * rib_addnode
+ * |-> rib_link or unset RIB_ENTRY_REMOVE        |->Update kernel with
+ * |-> rib_addqueue                              |    best RIB, if required
+ *          |                                    |
+ *          |-> .......................... -> rib_process
+ *          |                                    |
+ * |-> rib_addqueue                              |-> rib_unlink
+ * |-> set RIB_ENTRY_REMOVE                           |
+ * rib_delnode                                  (RIB freed)
+ *
+ *
+ * Queueing state for a route_node is kept in the head RIB entry, this
+ * state must be preserved as and when the head RIB entry of a
+ * route_node is changed by rib_unlink / rib_link. A small complication,
+ * but saves having to allocate a dedicated object for this.
+ * 
+ * Refcounting (aka "locking" throughout the GNU Zebra and Quagga code):
+ *
+ * - route_nodes: refcounted by:
+ *   - RIBs attached to route_node:
+ *     - managed by: rib_link/unlink
+ *   - route_node processing queue
+ *     - managed by: rib_addqueue, rib_process.
+ *
+ */
+ 
 /* Add RIB to head of the route node. */
 static void
-rib_addnode (struct route_node *rn, struct rib *rib)
+rib_link (struct route_node *rn, struct rib *rib)
 {
   struct rib *head;
   
   assert (rib && rn);
   
-  rib_lock (rib);
-  route_lock_node (rn);
-  
+  route_lock_node (rn); /* rn route table reference */
+
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug ("%s: rn %p, rib %p", __func__, rn, rib);
+
   head = rn->info;
   if (head)
-    head->prev = rib;
+    {
+      if (IS_ZEBRA_DEBUG_RIB)
+        zlog_debug ("%s: new head, rn_status copied over", __func__);
+      head->prev = rib;
+      /* Transfer the rn status flags to the new head RIB */
+      rib->rn_status = head->rn_status;
+    }
   rib->next = head;
   rn->info = rib;
+  rib_queue_add (&zebrad, rn);
+}
+
+static void
+rib_addnode (struct route_node *rn, struct rib *rib)
+{
+  /* RIB node has been un-removed before route-node is processed. 
+   * route_node must hence already be on the queue for processing.. 
+   */
+  if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+    {
+      if (IS_ZEBRA_DEBUG_RIB)
+        zlog_debug ("%s: rn %p, un-removed rib %p",
+                    __func__, rn, rib);
+      UNSET_FLAG (rib->status, RIB_ENTRY_REMOVED);
+      return;
+    }
+  rib_link (rn, rib);
+}
+
+static void
+rib_unlink (struct route_node *rn, struct rib *rib)
+{
+  struct nexthop *nexthop, *next;
+
+  assert (rn && rib);
+
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug ("%s: rn %p, rib %p",
+                __func__, rn, rib);
+
+  if (rib->next)
+    rib->next->prev = rib->prev;
+
+  if (rib->prev)
+    rib->prev->next = rib->next;
+  else
+    {
+      rn->info = rib->next;
+      
+      if (rn->info)
+        {
+          if (IS_ZEBRA_DEBUG_RIB)
+            zlog_debug ("%s: rn %p, rib %p, new head copy",
+                        __func__, rn, rib);
+          rib->next->rn_status = rib->rn_status;
+        }
+    }
+
+  /* free RIB and nexthops */
+  for (nexthop = rib->nexthop; nexthop; nexthop = next)
+    {
+      next = nexthop->next;
+      nexthop_free (nexthop);
+    }
+  XFREE (MTYPE_RIB, rib);
+
+  route_unlock_node (rn); /* rn route table reference */
 }
 
 static void
 rib_delnode (struct route_node *rn, struct rib *rib)
 {
-  assert (rn && rib);
-  
-  if (rib->next)
-    rib->next->prev = rib->prev;
-  if (rib->prev)
-    rib->prev->next = rib->next;
-  else
-    rn->info = rib->next;
-  
-  rib_unlock (rib);
-  route_unlock_node (rn);
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug ("%s: rn %p, rib %p, removing", __func__, rn, rib);
+  SET_FLAG (rib->status, RIB_ENTRY_REMOVED);
+  rib_queue_add (&zebrad, rn);
 }
 
 int
@@ -1201,6 +1265,9 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
      withdraw. */
   for (rib = rn->info; rib; rib = rib->next)
     {
+      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+        continue;
+      
       if (rib->type != type)
 	continue;
       if (rib->type != ZEBRA_ROUTE_CONNECT)
@@ -1211,7 +1278,8 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
       /* Duplicate connected route comes in. */
       else if ((nexthop = rib->nexthop) &&
 	       nexthop->type == NEXTHOP_TYPE_IFINDEX &&
-	       nexthop->ifindex == ifindex)
+	       nexthop->ifindex == ifindex &&
+	       !CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
 	{
 	  rib->refcnt++;
 	  return 0 ;
@@ -1246,9 +1314,6 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
 
   /* Link new rib to node.*/
   rib_addnode (rn, rib);
-  
-  /* Process this route node. */
-  rib_queue_add (&zebrad, rn, same);
   
   /* Free implicit route.*/
   if (same)
@@ -1291,6 +1356,9 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib)
      withdraw. */
   for (same = rn->info; same; same = same->next)
     {
+      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+        continue;
+      
       if (same->type == rib->type && same->table == rib->table
 	  && same->type != ZEBRA_ROUTE_CONNECT)
         break;
@@ -1303,9 +1371,6 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib)
 
   /* Link new rib to node.*/
   rib_addnode (rn, rib);
-
-  /* Process this route node. */
-  rib_queue_add (&zebrad, rn, same);
 
   /* Free implicit route.*/
   if (same)
@@ -1368,6 +1433,9 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   /* Lookup same type route. */
   for (rib = rn->info; rib; rib = rib->next)
     {
+      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+        continue;
+
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	fib = rib;
 
@@ -1432,9 +1500,6 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
 	}
     }
   
-  /* Process changes. */
-  rib_queue_add (&zebrad, rn, same);
-
   if (same)
     rib_delnode (rn, same);
   
@@ -1458,8 +1523,13 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
   /* Lookup existing route */
   rn = route_node_get (table, p);
   for (rib = rn->info; rib; rib = rib->next)
-    if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance)
-      break;
+    {
+       if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+         continue;
+        
+       if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance)
+         break;
+    }
 
   if (rib)
     {
@@ -1478,7 +1548,6 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
             nexthop_blackhole_add (rib);
             break;
         }
-      rib_queue_add (&zebrad, rn, NULL);
     }
   else
     {
@@ -1489,7 +1558,6 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
       rib->distance = si->distance;
       rib->metric = 0;
       rib->nexthop_num = 0;
-      rib->table = zebrad.rtm_table_default;
 
       switch (si->type)
         {
@@ -1509,9 +1577,6 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
 
       /* Link this rib to the tree. */
       rib_addnode (rn, rib);
-
-      /* Process this prefix. */
-      rib_queue_add (&zebrad, rn, NULL);
     }
 }
 
@@ -1552,8 +1617,13 @@ static_uninstall_ipv4 (struct prefix *p, struct static_ipv4 *si)
     return;
 
   for (rib = rn->info; rib; rib = rib->next)
-    if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance)
-      break;
+    {
+      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+        continue;
+
+      if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance)
+        break;
+    }
 
   if (! rib)
     {
@@ -1575,17 +1645,14 @@ static_uninstall_ipv4 (struct prefix *p, struct static_ipv4 *si)
   
   /* Check nexthop. */
   if (rib->nexthop_num == 1)
-    {
-      rib_queue_add (&zebrad, rn, rib);
-      rib_delnode (rn, rib);
-    }
+    rib_delnode (rn, rib);
   else
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
         rib_uninstall (rn, rib);
       nexthop_delete (rib, nexthop);
       nexthop_free (nexthop);
-      rib_queue_add (&zebrad, rn, NULL);
+      rib_queue_add (&zebrad, rn);
     }
   /* Unlock node. */
   route_unlock_node (rn);
@@ -1811,6 +1878,9 @@ rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
      withdraw. */
   for (rib = rn->info; rib; rib = rib->next)
     {
+      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+        continue;
+
       if (rib->type != type)
 	continue;
       if (rib->type != ZEBRA_ROUTE_CONNECT)
@@ -1857,9 +1927,6 @@ rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
   /* Link new rib to node.*/
   rib_addnode (rn, rib);
 
-  /* Process this route node. */
-  rib_queue_add (&zebrad, rn, same);
-  
   /* Free implicit route.*/
   if (same)
     rib_delnode (rn, same);
@@ -1914,6 +1981,9 @@ rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
   /* Lookup same type route. */
   for (rib = rn->info; rib; rib = rib->next)
     {
+      if (CHECK_FLAG(rib->status, RIB_ENTRY_REMOVED))
+        continue;
+
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	fib = rib;
 
@@ -1978,9 +2048,6 @@ rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
 	}
     }
 
-  /* Process changes. */
-  rib_queue_add (&zebrad, rn, same);
-
   if (same)
     rib_delnode (rn, same);
   
@@ -2004,8 +2071,13 @@ static_install_ipv6 (struct prefix *p, struct static_ipv6 *si)
   /* Lookup existing route */
   rn = route_node_get (table, p);
   for (rib = rn->info; rib; rib = rib->next)
-    if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance)
-      break;
+    {
+      if (CHECK_FLAG(rib->status, RIB_ENTRY_REMOVED))
+        continue;
+
+      if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance)
+        break;
+    }
 
   if (rib)
     {
@@ -2025,7 +2097,6 @@ static_install_ipv6 (struct prefix *p, struct static_ipv6 *si)
 	  nexthop_ipv6_ifname_add (rib, &si->ipv6, si->ifname);
 	  break;
 	}
-      rib_queue_add (&zebrad, rn, NULL);
     }
   else
     {
@@ -2055,9 +2126,6 @@ static_install_ipv6 (struct prefix *p, struct static_ipv6 *si)
 
       /* Link this rib to the tree. */
       rib_addnode (rn, rib);
-
-      /* Process this prefix. */
-      rib_queue_add (&zebrad, rn, NULL);
     }
 }
 
@@ -2099,8 +2167,14 @@ static_uninstall_ipv6 (struct prefix *p, struct static_ipv6 *si)
     return;
 
   for (rib = rn->info; rib; rib = rib->next)
-    if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance)
-      break;
+    {
+      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+        continue;
+    
+      if (rib->type == ZEBRA_ROUTE_STATIC && rib->distance == si->distance)
+        break;
+    }
+
   if (! rib)
     {
       route_unlock_node (rn);
@@ -2123,7 +2197,6 @@ static_uninstall_ipv6 (struct prefix *p, struct static_ipv6 *si)
   if (rib->nexthop_num == 1)
     {
       rib_delnode (rn, rib);
-      rib_queue_add (&zebrad, rn, rib);
     }
   else
     {
@@ -2131,7 +2204,7 @@ static_uninstall_ipv6 (struct prefix *p, struct static_ipv6 *si)
         rib_uninstall (rn, rib);
       nexthop_delete (rib, nexthop);
       nexthop_free (nexthop);
-      rib_queue_add (&zebrad, rn, NULL);
+      rib_queue_add (&zebrad, rn);
     }
   /* Unlock node. */
   route_unlock_node (rn);
@@ -2291,13 +2364,13 @@ rib_update (void)
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
       if (rn->info)
-        rib_queue_add (&zebrad, rn, NULL);
+        rib_queue_add (&zebrad, rn);
 
   table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
       if (rn->info)
-        rib_queue_add (&zebrad, rn, NULL);
+        rib_queue_add (&zebrad, rn);
 }
 
 /* Interface goes up. */
@@ -2328,6 +2401,9 @@ rib_weed_table (struct route_table *table)
 	{
 	  next = rib->next;
 
+	  if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+	    continue;
+
 	  if (rib->table != zebrad.rtm_table_default &&
 	      rib->table != RT_TABLE_MAIN)
             rib_delnode (rn, rib);
@@ -2357,6 +2433,9 @@ rib_sweep_table (struct route_table *table)
 	{
 	  next = rib->next;
 
+	  if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+	    continue;
+
 	  if (rib->type == ZEBRA_ROUTE_KERNEL && 
 	      CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELFROUTE))
 	    {
@@ -2385,9 +2464,11 @@ rib_close_table (struct route_table *table)
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
       for (rib = rn->info; rib; rib = rib->next)
-	if (! RIB_SYSTEM_ROUTE (rib)
-	    && CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
-	  rib_uninstall_kernel (rn, rib);
+        {
+          if (! RIB_SYSTEM_ROUTE (rib)
+	      && CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
+            rib_uninstall_kernel (rn, rib);
+        }
 }
 
 /* Close all RIB tables.  */

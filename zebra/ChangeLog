@@ -7,9 +7,39 @@
 	* test_main.c: Test harness for zebra, currently just to test the
 	  RIB.
 	* Makefile.am: Build testzebra using above.
+	* debug.{c,h}: Add 'debug zebra rib' and 'debug zebra rib queue'.
+	* rib.h: (struct rib) Add a route_node rn_status flag field,
+	  this has to be copied every time head RIB of a route_node
+	  changes.
+	  Remove the rib lock field, not needed - see below. 
+	  Add a status field for RIB-private flags.
 	* zebra_rib.c: Add a global for the workqueue hold time, useful
 	  for testing.
-	* debug.{c,h}: Add 'debug zebra rib' and 'debug zebra rib queue'.
+	  (general) Fix for bug #268. Problem originally detailed by
+	  Simon Bryden in [quagga-dev 4001].
+	  Essentially, add/delete of a RIB must happen /before/ the
+	  queue. Best-path selection (ie rib_process) and reaping of
+	  freed RIBs can then be done after queueing. Only the route_node
+	  is queued - no important RIB state (i.e. whether a RIB is to be
+	  deleted) is queued.
+	  (struct zebra_queue_node_t) Disappears, no longer need to
+	  track multiple things on the queue, only the route_node.
+	  (rib_{lock,unlock}) removed, RIBs no longer need to be
+	  refcounted, no longer queued.
+	  (rib_queue_qnode_del) Removed, deleted RIBs no longer deleted
+	  via the queue.
+	  (rib_queue_add_qnode) deleted
+	  (rib_queue_add) Only the route_node is queued for best-path
+	  selection, we can check whether it is already queued or
+	  not and avoid queueing same node twice - struct rib * argument
+	  is not needed.
+	  (rib_link/unlink) (un)link RIB from route_node.
+	  (rib_{add,del}node) Front-end to updates of a RIB.
+	  (rib_process) Reap any deleted RIBs via rib_unlink.
+	  Unset the route_node 'QUEUED' flag.
+	  (General) Remove calls to rib_queue_add where add/del node was
+	  called - not needed, update calls where not.
+	  Ignore RIB_ENTRY_REMOVEd ribs in loops through route_nodes
 
 2006-07-27 Rumen Svobodnikov <rumen@telecoms.bg>
 
