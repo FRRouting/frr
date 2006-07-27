@@ -9,6 +9,7 @@
 	* Makefile.am: Build testzebra using above.
 	* zebra_rib.c: Add a global for the workqueue hold time, useful
 	  for testing.
+	* debug.{c,h}: Add 'debug zebra rib' and 'debug zebra rib queue'.
 
 2006-07-27 Rumen Svobodnikov <rumen@telecoms.bg>
 
