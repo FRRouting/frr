@@ -1,3 +1,10 @@
+2006-07-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospfd.c: (ospf_router_id_update) Fix and document the algorithm for
+	  selecting the router ID: if there is not a statically configured ID,
+	  then stick to the most recent value to avoid disruptive changes.
+	  This should fix bug #288.
+
 2006-07-26 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_lsa.{c,h}: (ospf_lsa_unlock) Change to take a double pointer
