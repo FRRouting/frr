@@ -1,3 +1,11 @@
+2006-07-27 Rumen Svobodnikov <rumen@telecoms.bg>
+
+	* connected.c: (connected_up_ipv4) interface connected routes always
+	  go to table main (or otherwise they cannot be used by linux as
+          nexthops)
+	* zserv.c: (zread_ipv4_add) send route to the correct routing table
+	* zebra_rib.c (static_install_ipv4) set routing table
+
 2006-07-02 Paul Jakma <paul.jakma@sun.com>
 
 	* rt_netlink.c: (netlink_interface_addr) Fix CID #104, can not

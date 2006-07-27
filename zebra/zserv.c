@@ -801,6 +801,8 @@ zread_ipv4_add (struct zserv *client, u_short length)
   if (CHECK_FLAG (message, ZAPI_MESSAGE_METRIC))
     rib->metric = stream_getl (s);
     
+  /* Table */
+  rib->table=zebrad.rtm_table_default;
   rib_add_ipv4_multipath (&p, rib);
   return 0;
 }
