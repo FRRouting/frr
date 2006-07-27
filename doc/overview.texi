@@ -5,7 +5,7 @@
   @uref{http://www.quagga.net,,Quagga} is a routing software package that
 provides TCP/IP based routing services with routing protocols support such
 as RIPv1, RIPv2, RIPng, OSPFv2, OSPFv3, BGP-4, and BGP-4+ (@pxref{Supported
-RFC}). Quagga also supports special BGP Route Reflector and Route Server
+RFCs}). Quagga also supports special BGP Route Reflector and Route Server
 behavior.  In addition to traditional IPv4 routing protocols, Quagga also
 supports IPv6 routing protocols.  With SNMP daemon which supports SMUX
 protocol, Quagga provides routing protocol MIBs (@pxref{SNMP Support}).
@@ -22,7 +22,7 @@ can use Quagga library as your program's client user interface.
 * About Quagga::                Basic information about Quagga
 * System Architecture::         The Quagga system architecture
 * Supported Platforms::         Supported platforms and future plans
-* Supported RFC::               Supported RFCs
+* Supported RFCs::               Supported RFCs
 * How to get Quagga::            
 * Mailing List::                Mailing list information
 * Bug Reports::                 Mail address for bug data
@@ -113,7 +113,7 @@ architecture creates new possibilities for the routing system.
 @end group
 @end example
 
-  Multi-process architecture brings extensibility, modularity and
+Multi-process architecture brings extensibility, modularity and
 maintainability.  At the same time it also brings many configuration files
 and terminal interfaces.  Each daemon has it's own configuration file and
 terminal interface.  When you configure a static route, it must be done in
@@ -123,7 +123,7 @@ thing.  To resolve the problem, Quagga provides integrated user interface
 shell called @command{vtysh}.  @command{vtysh} connects to each daemon with
 UNIX domain socket and then works as a proxy for user input.
 
-  Quagga was planned to use multi-threaded mechanism when it runs with a
+Quagga was planned to use multi-threaded mechanism when it runs with a
 kernel that supports multi-threads.  But at the moment, the thread library
 which comes with @sc{gnu}/Linux or FreeBSD has some problems with running
 reliable services such as routing software, so we don't use threads at all. 
@@ -139,20 +139,20 @@ events.
 @cindex Compatibility with other systems
 @cindex Operating systems that support Quagga
 
-  Currently Quagga supports @sc{gnu}/Linux, BSD and Solaris. Porting Quagga
+Currently Quagga supports @sc{gnu}/Linux, BSD and Solaris. Porting Quagga
 to other platforms is not too difficult as platform dependent code should
 most be limited to the @command{zebra} daemon.  Protocol daemons are mostly
 platform independent. Please let us know when you find out Quagga runs on a
 platform which is not listed below.
 
-  The list of officially supported platforms are listed below. Note that
+The list of officially supported platforms are listed below. Note that
 Quagga may run correctly on other platforms, and may run with partial
 functionality on further platforms.
 
 @sp 1
 @itemize @bullet
 @item
-@sc{gnu}/Linux 2.2.x and higher
+@sc{gnu}/Linux 2.4.x and higher
 @item
 FreeBSD 4.x and higher
 @item
@@ -160,26 +160,12 @@ NetBSD 1.6 and higher
 @item
 OpenBSD 2.5 and higher
 @item
-Solaris 2.6 and higher (IPv6 support requires a patch at moment)
+Solaris 8 and higher
 @end itemize
 
-@sp 1
-  Some IPv6 stacks are in development.  Quagga supports following IPv6
-stacks.  For BSD, we recommend KAME IPv6 stack.  Solaris IPv6 stack is
-not yet supported.
-@sp 1
-@itemize @bullet
-@item
-Linux IPv6 stack for GNU/Linux 2.2.x and higher.
-@item
-KAME IPv6 stack for BSD.
-@item
-INRIA IPv6 stack for BSD.
-@end itemize
-
-@node Supported RFC
+@node Supported RFCs
 @comment  node-name,  next,  previous,  up
-@section Supported RFC
+@section Supported RFCs
 
   Below is the list of currently supported RFC's.
 
@@ -258,25 +244,17 @@ November 1995.}
 @comment  node-name,  next,  previous,  up
 @section How to get Quagga
 
-Quagga is still beta software and there is no officially released
-version.
-
-Zebra's official web page is located at:
-
-@uref{http://www.gnu.org/software/zebra/zebra.html}.
-
-The original Zebra web site is located at: 
-
-@uref{http://www.zebra.org/}.
-
-As of this writing, development by zebra.org on Zebra has slowed down. Some
-work is being done by third-parties to try maintain bug-fixes and
-enhancements to the current Zebra code-base, which has resulted in a fork of
-Zebra called Quagga, see:
+The official Quagga web-site is located at:
 
 @uref{http://www.quagga.net/}
 
-for further information, as well as links to additional zebra resources.
+and contains further information, as well as links to additional
+resources. 
+
+@uref{http://www.quagga.net/,Quagga} is a fork of GNU Zebra, whose
+web-site is located at:
+
+@uref{http://www.zebra.org/}.
 
 @node Mailing List
 @comment  node-name,  next,  previous,  up

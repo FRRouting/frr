@@ -1,3 +1,21 @@
+2006-07-27 Paul Jakma <paul.jakma@sun.com>
+
+	* quagga.texi: Remove unused index definitions
+	  Add an Index node - for the concept index.
+	* routeserver.texi: Set exampleindex to 0, so the example configs
+	  with long IPv6 addresses stand better chance of fitting.
+	* overview.texi: 'Supported RFC' -> 'Supported RFCs'
+	  Remove paragraph indentation - texinfo does that.
+	  Revise the supported OS list slightly.
+	  Remove the IPv6 stack list, seems very dated and irrelevant.
+	  Revise the 'How to get Quagga' section.
+	* ospfd.texi: minor tweaks: add some anchors, fix some minor
+	  format issues.
+	  Revise the help for 'abr-type'.
+	  Note that text authentication is unwise, recc'd MD5.
+	  Add some extra text for redistribute and passive-interface,
+	  about how latter can substitute for redist connected.
+
 2006-07-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* vtysh.1: Document new options -d and -E, and note that now multiple

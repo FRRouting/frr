@@ -261,6 +261,7 @@ against the other two routers. These peerings have In and Out route-maps
 configured, named like ``PEER-X-IN'' or ``PEER-X-OUT''. For example the
 configuration file for router RA could be the following:
 
+@exampleindent 0
 @example
 #Configuration for router 'RA'
 !

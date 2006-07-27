@@ -1,15 +1,17 @@
+@cindex OSPFv2
 @node OSPFv2
 @chapter OSPFv2
 
 @acronym{OSPF,Open Shortest Path First} version 2 is a routing protocol
 which is described in @cite{RFC2328, OSPF Version 2}.  OSPF is an
-@acronym{IGP,Interior Gateway Protocol}@..  Compared with @acronym{RIP},
+@acronym{IGP,Interior Gateway Protocol}.  Compared with @acronym{RIP},
 @acronym{OSPF} can provide scalable network support and faster
 convergence times.  OSPF is widely used in large networks such as
 @acronym{ISP,Internet Service Provider} backbone and enterprise
 networks.
 
 @menu
+
 * Configuring ospfd::           
 * OSPF router::                 
 * OSPF area::                   
@@ -46,6 +48,7 @@ support multiple OSPF processes.  So you can not specify an OSPF process
 number.
 @end deffn
 
+@anchor{ospf router-id}
 @deffn {OSPF Command} {ospf router-id @var{a.b.c.d}} {}
 @deffnx {OSPF Command} {no ospf router-id} {}
 This sets the router-ID of the OSPF process. The router-ID may be an IP
@@ -58,7 +61,24 @@ configured with the same router-ID! If one is not specified then
 
 @deffn {OSPF Command} {ospf abr-type @var{type}} {}
 @deffnx {OSPF Command} {no ospf abr-type @var{type}} {}
-@var{type} can be cisco|ibm|shortcut|standard.
+@var{type} can be cisco|ibm|shortcut|standard. The "Cisco" and "IBM" types
+are equivalent.
+
+The OSPF standard for ABR behaviour does not allow an ABR to consider
+routes through non-backbone areas when its links to the backbone are
+down, even when there are other ABRs in attached non-backbone areas
+which still can reach the backbone - this restriction exists primarily
+to ensure routing-loops are avoided.
+
+With the "Cisco" or "IBM" ABR type, the default in this release of
+Quagga, this restriction is lifted, allowing an ABR to consider
+summaries learnt from other ABRs through non-backbone areas, and hence
+route via non-backbone areas as a last resort when, and only when,
+backbone links are down.
+
+Note that areas with fully-adjacent virtual-links are considered to be
+"transit capable" and can always be used to route backbone traffic, and
+hence are unaffected by this setting (@pxref{OSPF virtual-link}).
 
 More information regarding the behaviour controlled by this command can
 be found in @cite{RFC 3509, Alternative Implementations of OSPF Area
@@ -72,15 +92,11 @@ external destinations. If this requirement is not met, all traffic
 destined for the areas not connected to such an ABR or out of the
 OSPF domain, is dropped.  This document describes alternative ABR
 behaviors implemented in Cisco and IBM routers."
-
-The default ABR type is 'Cisco', allowing an ABR to consider summaries
-from non-backbone areas if, and only if, it has lost its link(s) to the
-backbone area.
 @end deffn
 
 @deffn {OSPF Command} {ospf rfc1583compatibility} {}
 @deffnx {OSPF Command} {no ospf rfc1583compatibility} {}
-This @cite{RFC2328}, the sucessor to @cite{RFC1583}, suggests according
+@cite{RFC2328}, the sucessor to @cite{RFC1583}, suggests according
 to section G.2 (changes) in section 16.4 a change to the path
 preference algorithm that prevents possible routing loops that were
 possible in the old version of OSPFv2. More specifically it demands
@@ -97,17 +113,18 @@ detail argument, all changes in adjacency status are shown.  Without detail,
 only changes to full or regressions are shown.
 @end deffn
 
-@deffn {OSPF Command} {passive interface @var{interface}} {}
-@deffnx {OSPF Command} {no passive interface @var{interface}} {}
+@anchor{OSPF passive-interface}
+@deffn {OSPF Command} {passive-interface @var{interface}} {}
+@deffnx {OSPF Command} {no passive-interface @var{interface}} {}
 
 Do not speak OSPF interface on the given interface, but do advertise
 the interface as a stub link in the router-@acronym{LSA,Link State
 Advertisement} for this router. This allows one to advertise addresses
 on such connected interfaces without having to originate
 AS-External/Type-5 LSAs (which have global flooding scope) - as would
-occur if connected addresses were redistributed into OSPF,
-@xref{Redistribute routes to OSPF}.
-
+occur if connected addresses were redistributed into OSPF
+(@pxref{Redistribute routes to OSPF})@. This is the only way to advertise
+non-OSPF links into stub areas.
 @end deffn
 
 @deffn {OSPF Command} {timers throttle spf @var{delay} @var{initial-holdtime} @var{max-holdtime}} {}
@@ -272,6 +289,7 @@ network-LSA) from range 10.0.0.0/8.
 This command makes sense in ABR only.
 @end deffn
 
+@anchor{OSPF virtual-link} 
 @deffn {OSPF Command} {area @var{a.b.c.d} virtual-link @var{a.b.c.d}} {}
 @deffnx {OSPF Command} {area <0-4294967295> virtual-link @var{a.b.c.d}} {}
 @deffnx {OSPF Command} {no area @var{a.b.c.d} virtual-link @var{a.b.c.d}} {}
@@ -282,7 +300,7 @@ This command makes sense in ABR only.
 @deffnx {OSPF Command} {area <0-4294967295> shortcut} {}
 @deffnx {OSPF Command} {no area @var{a.b.c.d} shortcut} {}
 @deffnx {OSPF Command} {no area <0-4294967295> shortcut} {}
-Configure th area as Shortcut capable. See @cite{RFC3509}. This requires
+Configure the area as Shortcut capable. See @cite{RFC3509}. This requires
 that the 'abr-type' be set to 'shortcut'.
 @end deffn
 
@@ -295,7 +313,7 @@ originates routes external to OSPF and hence an area where all external
 routes are via the ABR(s). Hence, ABRs for such an area do not need
 to pass AS-External LSAs (type-5s) or ASBR-Summary LSAs (type-4) into the
 area. They need only pass Network-Summary (type-3) LSAs into such an area,
-just a default summary.
+along with a default-route summary.
 @end deffn
 
 @deffn {OSPF Command} {area @var{a.b.c.d} stub no-summary} {}
@@ -380,8 +398,12 @@ area.
 @deffnx {Interface Command} {no ip ospf authentication-key} {}
 Set OSPF authentication key to a simple password.  After setting @var{AUTH_KEY},
 all OSPF packets are authenticated. @var{AUTH_KEY} has length up to 8 chars.
+
+Simple text password authentication is insecure and deprecated in favour of
+MD5 HMAC authentication (@pxref{OSPF MD5 HMAC authentication}).
 @end deffn
 
+@anchor{OSPF MD5 HMAC authentication}
 @deffn {Interface Command} {ip ospf message-digest-key KEYID md5 KEY} {}
 @deffnx {Interface Command} {no ip ospf message-digest-key} {}
 Set OSPF authentication key to a cryptographic password.  The cryptographic
@@ -446,10 +468,10 @@ Set explicitly network type for specifed interface.
 
 @deffn {Interface Command} {ip ospf priority <0-255>} {}
 @deffnx {Interface Command} {no ip ospf priority} {}
-Set RouterPriority integer value.  Setting higher value, router will be more
-eligible to become Designated Router.  Setting the value to 0, router is no
-longer eligible to Designated Router.
-The default value is 1.
+Set RouterPriority integer value.  The router with the highest priority
+will be more eligible to become Designated Router.  Setting the value
+to 0, makes the router ineligible to become Designated Router. The
+default value is 1.
 @end deffn
 
 @deffn {Interface Command} {ip ospf retransmit-interval <1-65535>} {}
@@ -469,6 +491,7 @@ The default value is 1 seconds.
 @node Redistribute routes to OSPF
 @section Redistribute routes to OSPF
 
+@anchor{OSPF redistribute}
 @deffn {OSPF Command} {redistribute (kernel|connected|static|rip|bgp)} {}
 @deffnx {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) @var{route-map}} {}
 @deffnx {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2)} {}
@@ -478,9 +501,18 @@ The default value is 1 seconds.
 @deffnx {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric <0-16777214>} {}
 @deffnx {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric <0-16777214> route-map @var{word}} {}
 @deffnx {OSPF Command} {no redistribute (kernel|connected|static|rip|bgp)} {}
-Redistribute routes of the specified protocol or kind into OSPF, with the
-metric type and metric set if specified, filtering the routes using the given
-route-map if specified.
+Redistribute routes of the specified protocol or kind into OSPF, with
+the metric type and metric set if specified, filtering the routes using
+the given route-map if specified. Redistributed routes may also be
+filtered with distribute-lists, see @ref{ospf distribute-list}.
+
+Redistributed routes are distributed as into OSPF as Type-5 External
+LSAs into links to areas that accept external routes, Type-7 External LSAs
+for NSSA areas and are not redistributed at all into Stub areas, where
+external routes are not permitted.
+
+Note that for connected routes, one may instead use
+@dfn{passive-interface}, see @ref{OSPF passive-interface}.
 @end deffn
 
 @deffn {OSPF Command} {default-information originate} {}
@@ -498,8 +530,11 @@ type. If the 'always' keyword is given then the default is always
 advertised, even when there is no default present in the routing table.
 @end deffn
 
+@anchor{ospf distribute-list}
 @deffn {OSPF Command} {distribute-list NAME out (kernel|connected|static|rip|ospf} {}
 @deffnx {OSPF Command} {no distribute-list NAME out (kernel|connected|static|rip|ospf} {}
+Apply the access-list filter, NAME, to redistributed routes of the given type
+before allowing the routes to redistributed into OSPF (@pxref{OSPF redistribute}).
 @end deffn
 
 @deffn {OSPF Command} {default-metric <0-16777214>} {}

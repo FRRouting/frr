@@ -3,8 +3,6 @@
 @setchapternewpage odd
 @settitle @uref{http://www.quagga.net,,@value{PACKAGE_NAME}}
 @setfilename quagga.info
-@defcodeindex op
-@synindex pg cp
 @c %**end of header
 
 @c Set variables - sourced from defines.texi
@@ -100,6 +98,7 @@ for @value{PACKAGE_STRING}. @uref{http://www.quagga.net,,Quagga} is a fork of
 * Packet Binary Dump Format::
 * Command Index::
 * VTY Key Index::
+* Index::
 @end menu
 @contents
 
@@ -132,4 +131,8 @@ for @value{PACKAGE_STRING}. @uref{http://www.quagga.net,,Quagga} is a fork of
 
 @printindex ky
 
+@node Index
+@unnumbered Index
+
+@printindex cp
 @bye
