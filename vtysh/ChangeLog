@@ -1,3 +1,29 @@
+2006-07-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* vtysh_main.c: (usage) Add new -d and -E options.  And note that
+	  -c can be used multiple times, possibly with embedded linefeeds.
+	  (longopts) Add new -d and -E options.
+	  (main) Add new -d and -E options, and create a linked list to
+	  support multiple -c options.  Do not call vtysh_connect_all until
+	  after vtysh_read_config(config_default) and vtysh_auth have
+	  succeeded.  This prevents the vtysh.conf file from configuring
+	  any daemons, and it ensures that authentication has been passed
+	  before we send any commands to any daemons.  Call vtysh_connect_all
+	  with any daemon name supplied with -d.  If it is unable to connect
+	  to any daemons, issue an error message and exit immediately.
+	  When used in -c mode, call vtysh_execute("enable") before
+	  executing the commands in order to match interactive behavior. 
+	  And detect embedded linefeed chars in -c commands and break them up
+	  appropriately.
+	* vtysh.h: (vtysh_connect_all) Fix proto to reflect new
+	  daemon_name argument, and that it now returns an integer -- the
+	  number of daemons to which we were able to connect.
+	* vtysh.c: (vtysh_connect_all) Add a new daemon_name argument.
+	  If supplied, connect only to that daemon.  And return
+	  the number of daemons to which we were able to connect.
+	  (vtysh_prompt): Performance enhancement -- make struct utsname
+	  static so we call uname to get the hostname only once.
+
 2006-05-24 Paul Jakma <paul.jakma@sun.com>
 
 	* vtysh.c: (general) Add 'show memory' command.

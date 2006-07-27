@@ -1,3 +1,10 @@
+2006-07-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* vtysh.1: Document new options -d and -E, and note that now multiple
+	  -c options may be supplied, with embedded linefeed now supported.
+	  In BUGS section, remove warning about vtysh causing a daemon
+	  to freeze, since this has been fixed.
+
 2006-07-04 Paul Jakma <paul.jakma@sun.com>
 
 	* quagga.info: remove auto-generated file. It will still be

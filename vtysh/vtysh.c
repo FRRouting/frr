@@ -2119,18 +2119,28 @@ vtysh_connect (struct vtysh_client *vclient)
   return 0;
 }
 
-void
-vtysh_connect_all(void)
+int
+vtysh_connect_all(const char *daemon_name)
 {
   u_int i;
+  int rc = 0;
+  int matches = 0;
 
   for (i = 0; i < VTYSH_INDEX_MAX; i++)
     {
-      vtysh_connect(&vtysh_client[i]);
-      /* We need direct access to ripd in vtysh_exit_ripd_only. */
-      if (vtysh_client[i].flag == VTYSH_RIPD)
-        ripd_client = &vtysh_client[i];
+      if (!daemon_name || !strcmp(daemon_name, vtysh_client[i].name))
+	{
+	  matches++;
+	  if (vtysh_connect(&vtysh_client[i]) == 0)
+	    rc++;
+	  /* We need direct access to ripd in vtysh_exit_ripd_only. */
+	  if (vtysh_client[i].flag == VTYSH_RIPD)
+	    ripd_client = &vtysh_client[i];
+	}
     }
+  if (!matches)
+    fprintf(stderr, "Error: no daemons match name %s!\n", daemon_name);
+  return rc;
 }
 
 /* To disable readline's filename completion. */
@@ -2155,7 +2165,7 @@ vtysh_readline_init (void)
 char *
 vtysh_prompt (void)
 {
-  struct utsname names;
+  static struct utsname names;
   static char buf[100];
   const char*hostname;
   extern struct host host;
@@ -2164,7 +2174,8 @@ vtysh_prompt (void)
 
   if (!hostname)
     {
-      uname (&names);
+      if (!names.nodename[0])
+	uname (&names);
       hostname = names.nodename;
     }
 

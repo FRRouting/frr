@@ -32,6 +32,7 @@
 #include <lib/version.h>
 #include "getopt.h"
 #include "command.h"
+#include "memory.h"
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
@@ -132,10 +133,15 @@ usage (int status)
     fprintf (stderr, "Try `%s --help' for more information.\n", progname);
   else
     printf ("Usage : %s [OPTION...]\n\n" \
-	    "Integrated shell for Quagga routing software suite. \n\n"\
+	    "Integrated shell for Quagga routing software suite. \n\n" \
 	    "-b, --boot               Execute boot startup configuration\n" \
-	    "-c, --command            Execute argument as command\n "\
+	    "-c, --command            Execute argument as command\n" \
+	    "-d, --daemon             Connect only to the specified daemon\n" \
+	    "-E, --echo               Echo prompt and command in -c mode\n" \
 	    "-h, --help               Display this help and exit\n\n" \
+	    "Note that multiple commands may be executed from the command\n" \
+	    "line by passing multiple -c args, or by embedding linefeed\n" \
+	    "characters in one or more of the commands.\n\n" \
 	    "Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 
   exit (status);
@@ -148,6 +154,8 @@ struct option longopts[] =
   /* For compatibility with older zebra/quagga versions */
   { "eval",                 required_argument,       NULL, 'e'},
   { "command",              required_argument,       NULL, 'c'},
+  { "daemon",               required_argument,       NULL, 'd'},
+  { "echo",                 no_argument,             NULL, 'E'},
   { "help",                 no_argument,             NULL, 'h'},
   { 0 }
 };
@@ -187,9 +195,14 @@ main (int argc, char **argv, char **env)
 {
   char *p;
   int opt;
-  int eval_flag = 0;
   int boot_flag = 0;
-  char *eval_line = NULL;
+  const char *daemon_name = NULL;
+  struct cmd_rec {
+    const char *line;
+    struct cmd_rec *next;
+  } *cmd = NULL;
+  struct cmd_rec *tail = NULL;
+  int echo_command = 0;
 
   /* Preserve name of myself. */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
@@ -197,7 +210,7 @@ main (int argc, char **argv, char **env)
   /* Option handling. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "be:c:h", longopts, 0);
+      opt = getopt_long (argc, argv, "be:c:d:Eh", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -211,8 +224,23 @@ main (int argc, char **argv, char **env)
 	  break;
 	case 'e':
 	case 'c':
-	  eval_flag = 1;
-	  eval_line = optarg;
+	  {
+	    struct cmd_rec *cr;
+	    cr = XMALLOC(0, sizeof(*cr));
+	    cr->line = optarg;
+	    cr->next = NULL;
+	    if (tail)
+	      tail->next = cr;
+	    else
+	      cmd = cr;
+	    tail = cr;
+	  }
+	  break;
+	case 'd':
+	  daemon_name = optarg;
+	  break;
+	case 'E':
+	  echo_command = 1;
 	  break;
 	case 'h':
 	  usage (0);
@@ -239,15 +267,48 @@ main (int argc, char **argv, char **env)
 
   sort_node ();
 
-  vtysh_connect_all ();
-
-  /* Read vtysh configuration file. */
+  /* Read vtysh configuration file before connecting to daemons. */
   vtysh_read_config (config_default);
 
-  /* If eval mode. */
-  if (eval_flag)
+  /* Make sure we pass authentication before proceeding. */
+  vtysh_auth ();
+
+  /* Do not connect until we have passed authentication. */
+  if (vtysh_connect_all (daemon_name) <= 0)
     {
-      vtysh_execute_no_pager (eval_line);
+      fprintf(stderr, "Exiting: failed to connect to any daemons.\n");
+      exit(1);
+    }
+
+  /* If eval mode. */
+  if (cmd)
+    {
+      /* Enter into enable node. */
+      vtysh_execute ("enable");
+
+      while (cmd != NULL)
+        {
+	  char *eol;
+
+	  while ((eol = strchr(cmd->line, '\n')) != NULL)
+	    {
+	      *eol = '\0';
+	      if (echo_command)
+	        printf("%s%s\n", vtysh_prompt(), cmd->line);
+	      vtysh_execute_no_pager(cmd->line);
+	      cmd->line = eol+1;
+	    }
+	  if (echo_command)
+	    printf("%s%s\n", vtysh_prompt(), cmd->line);
+	  vtysh_execute_no_pager (cmd->line);
+
+	  {
+	    struct cmd_rec *cr;
+	    cr = cmd;
+	    cmd = cmd->next;
+	    XFREE(0, cr);
+	  }
+        }
       exit (0);
     }
   
@@ -269,8 +330,6 @@ main (int argc, char **argv, char **env)
   vtysh_readline_init ();
 
   vty_hello (vty);
-
-  vtysh_auth ();
 
   /* Enter into enable node. */
   vtysh_execute ("enable");
