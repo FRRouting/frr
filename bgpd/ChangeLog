@@ -1,3 +1,8 @@
+2006-07-27 Paul Jakma <paul.jakma@sun.com>
+
+	* bgpd.c: (peer_delete) Ensure freed buffers can not be
+	  accidently reused. A potential fix for bug #287.
+
 2006-07-02 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_fsm.c: (bgp_{stop,start}) Move clear/free of certain

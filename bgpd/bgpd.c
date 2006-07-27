@@ -1205,18 +1205,19 @@ peer_delete (struct peer *peer)
   /* Buffers.  */
   if (peer->ibuf)
     stream_free (peer->ibuf);
-  
   if (peer->obuf)
     stream_fifo_free (peer->obuf);
-
   if (peer->work)
     stream_free (peer->work);
-  
+  peer->obuf = NULL;
+  peer->work = peer->ibuf = NULL;
+
   /* Local and remote addresses. */
   if (peer->su_local)
     sockunion_free (peer->su_local);
   if (peer->su_remote)
     sockunion_free (peer->su_remote);
+  peer->su_local = peer->su_remote = NULL;
   
   bgp_sync_delete (peer);
 
