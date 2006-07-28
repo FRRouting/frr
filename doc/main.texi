@@ -79,8 +79,8 @@ configuration.
 @deffn {Interface Command} {link-detect} {}
 @deffnx {Interface Command} {no link-detect} {}
 Enable/disable link-detect on platforms which support this. Currently 
-only linux and with certain drivers - those which properly support the 
-IFF_RUNNING flag.
+only Linux and Solaris, and only where network interface drivers support reporting
+link-state via the IFF_RUNNING flag.
 @end deffn
 
 @node Static Route Commands

@@ -11,7 +11,6 @@ convergence times.  OSPF is widely used in large networks such as
 networks.
 
 @menu
-
 * Configuring ospfd::           
 * OSPF router::                 
 * OSPF area::                   
@@ -48,15 +47,15 @@ support multiple OSPF processes.  So you can not specify an OSPF process
 number.
 @end deffn
 
-@anchor{ospf router-id}
 @deffn {OSPF Command} {ospf router-id @var{a.b.c.d}} {}
 @deffnx {OSPF Command} {no ospf router-id} {}
-This sets the router-ID of the OSPF process. The router-ID may be an IP
-address of the router, but need not be - it can be any arbitrary 32bit
-number. However it MUST be unique within the entire OSPF domain to the
-OSPF speaker - bad things will happen if multiple OSPF speakers are
-configured with the same router-ID! If one is not specified then
-@command{ospfd} will obtain a router-ID automatically from @command{zebra}.
+@anchor{ospf router-id}This sets the router-ID of the OSPF process. The
+router-ID may be an IP address of the router, but need not be - it can
+be any arbitrary 32bit number. However it MUST be unique within the
+entire OSPF domain to the OSPF speaker - bad things will happen if
+multiple OSPF speakers are configured with the same router-ID! If one
+is not specified then @command{ospfd} will obtain a router-ID
+automatically from @command{zebra}.
 @end deffn
 
 @deffn {OSPF Command} {ospf abr-type @var{type}} {}
@@ -113,18 +112,16 @@ detail argument, all changes in adjacency status are shown.  Without detail,
 only changes to full or regressions are shown.
 @end deffn
 
-@anchor{OSPF passive-interface}
 @deffn {OSPF Command} {passive-interface @var{interface}} {}
 @deffnx {OSPF Command} {no passive-interface @var{interface}} {}
-
-Do not speak OSPF interface on the given interface, but do advertise
-the interface as a stub link in the router-@acronym{LSA,Link State
-Advertisement} for this router. This allows one to advertise addresses
-on such connected interfaces without having to originate
-AS-External/Type-5 LSAs (which have global flooding scope) - as would
-occur if connected addresses were redistributed into OSPF
-(@pxref{Redistribute routes to OSPF})@. This is the only way to advertise
-non-OSPF links into stub areas.
+@anchor{OSPF passive-interface} Do not speak OSPF interface on the
+given interface, but do advertise the interface as a stub link in the
+router-@acronym{LSA,Link State Advertisement} for this router. This
+allows one to advertise addresses on such connected interfaces without
+having to originate AS-External/Type-5 LSAs (which have global flooding
+scope) - as would occur if connected addresses were redistributed into
+OSPF (@pxref{Redistribute routes to OSPF})@. This is the only way to
+advertise non-OSPF links into stub areas.
 @end deffn
 
 @deffn {OSPF Command} {timers throttle spf @var{delay} @var{initial-holdtime} @var{max-holdtime}} {}
@@ -204,11 +201,12 @@ viewed with the @ref{show ip ospf} command.
 
 @deffn {OSPF Command} {auto-cost reference-bandwidth <1-4294967>} {}
 @deffnx {OSPF Command} {no auto-cost reference-bandwidth} {}
-This sets the reference bandwidth for cost calculations, where this
-bandwidth is considered equivalent to an OSPF cost of 1, specified in
-Mbits/s. The default is 100Mbit/s (i.e. a link of bandwidth 100Mbit/s
-or higher will have a cost of 1. Cost of lower bandwidth links will be
-scaled with reference to this cost).
+@anchor{OSPF auto-cost reference-bandwidth}This sets the reference
+bandwidth for cost calculations, where this bandwidth is considered
+equivalent to an OSPF cost of 1, specified in Mbits/s. The default is
+100Mbit/s (i.e. a link of bandwidth 100Mbit/s or higher will have a
+cost of 1. Cost of lower bandwidth links will be scaled with reference
+to this cost).
 
 This configuration setting MUST be consistent across all routers within the
 OSPF domain.
@@ -289,11 +287,11 @@ network-LSA) from range 10.0.0.0/8.
 This command makes sense in ABR only.
 @end deffn
 
-@anchor{OSPF virtual-link} 
 @deffn {OSPF Command} {area @var{a.b.c.d} virtual-link @var{a.b.c.d}} {}
 @deffnx {OSPF Command} {area <0-4294967295> virtual-link @var{a.b.c.d}} {}
 @deffnx {OSPF Command} {no area @var{a.b.c.d} virtual-link @var{a.b.c.d}} {}
 @deffnx {OSPF Command} {no area <0-4294967295> virtual-link @var{a.b.c.d}} {}
+@anchor{OSPF virtual-link}
 @end deffn
 
 @deffn {OSPF Command} {area @var{a.b.c.d} shortcut} {}
@@ -387,8 +385,15 @@ area.
 
 @deffn {OSPF Command} {area @var{a.b.c.d} authentication message-digest} {}
 @deffnx {OSPF Command} {area <0-4294967295> authentication message-digest} {}
-Specify that OSPF packets should be authenticated with MD5 HMACs for the given
-area.
+
+@anchor{area authentication message-digest}Specify that OSPF packets
+must be authenticated with MD5 HMACs within the given area. Keying
+material must also be configured on a per-interface basis (@pxref{ip
+ospf message-digest-key}).
+
+MD5 authentication may also be configured on a per-interface basis
+(@pxref{ip ospf authentication message-digest}). Such per-interface
+settings will override any per-area authentication setting.
 @end deffn
 
 @node OSPF interface
@@ -400,21 +405,15 @@ Set OSPF authentication key to a simple password.  After setting @var{AUTH_KEY},
 all OSPF packets are authenticated. @var{AUTH_KEY} has length up to 8 chars.
 
 Simple text password authentication is insecure and deprecated in favour of
-MD5 HMAC authentication (@pxref{OSPF MD5 HMAC authentication}).
+MD5 HMAC authentication (@pxref{ip ospf authentication message-digest}).
 @end deffn
 
-@anchor{OSPF MD5 HMAC authentication}
-@deffn {Interface Command} {ip ospf message-digest-key KEYID md5 KEY} {}
-@deffnx {Interface Command} {no ip ospf message-digest-key} {}
-Set OSPF authentication key to a cryptographic password.  The cryptographic
-algorithm is MD5.  
-
-KEYID identifies secret key used to create the message digest. This ID
-is part of the protocol and must be consistent across routers on a
-link.
-
-KEY is the actual message digest key, of up to 16 chars (larger strings
-will be truncated), and is associated with the given KEYID.
+@deffn {Interface Command} {ip ospf authentication message-digest} {}
+@anchor{ip ospf authentication message-digest}Specify that MD5 HMAC
+authentication must be used on this interface. MD5 keying material must
+also be configured (@pxref{ip ospf message-digest-key}). Overrides any
+authentication enabled on a per-area basis (@pxref{area
+authentication message-digest}).
 
 Note that OSPF MD5 authentication requires that time never go backwards
 (correct time is NOT important, only that it never goes backwards), even
@@ -426,19 +425,32 @@ storage and restored at boot if MD5 authentication is to be expected to work
 reliably.
 @end deffn
 
+@deffn {Interface Command} {ip ospf message-digest-key KEYID md5 KEY} {}
+@deffnx {Interface Command} {no ip ospf message-digest-key} {}
+@anchor{ip ospf message-digest-key}Set OSPF authentication key to a
+cryptographic password.  The cryptographic algorithm is MD5.  
+
+KEYID identifies secret key used to create the message digest. This ID
+is part of the protocol and must be consistent across routers on a
+link.
+
+KEY is the actual message digest key, of up to 16 chars (larger strings
+will be truncated), and is associated with the given KEYID.
+@end deffn
+
 @deffn {Interface Command} {ip ospf cost <1-65535>} {}
 @deffnx {Interface Command} {no ip ospf cost} {}
 Set link cost for the specified interface.  The cost value is set to router-LSA's
 metric field and used for SPF calculation.
 @end deffn
 
-@anchor{ip ospf dead-interval minimal}
 @deffn {Interface Command} {ip ospf dead-interval <1-65535>} {}
 @deffnx {Interface Command} {ip ospf dead-interval minimal hello-multiplier <2-20>} {}
 @deffnx {Interface Command} {no ip ospf dead-interval} {}
-Set number of seconds for RouterDeadInterval timer value used for Wait Timer
-and Inactivity Timer.  This value must be the same for all routers attached
-to a common network.  The default value is 40 seconds.
+@anchor{ip ospf dead-interval minimal} Set number of seconds for
+RouterDeadInterval timer value used for Wait Timer and Inactivity
+Timer.  This value must be the same for all routers attached to a
+common network.  The default value is 40 seconds.
 
 If 'minimal' is specified instead, then the dead-interval is set to 1
 second and one must specify a hello-multiplier. The hello-multiplier
@@ -491,7 +503,6 @@ The default value is 1 seconds.
 @node Redistribute routes to OSPF
 @section Redistribute routes to OSPF
 
-@anchor{OSPF redistribute}
 @deffn {OSPF Command} {redistribute (kernel|connected|static|rip|bgp)} {}
 @deffnx {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) @var{route-map}} {}
 @deffnx {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2)} {}
@@ -501,10 +512,11 @@ The default value is 1 seconds.
 @deffnx {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric <0-16777214>} {}
 @deffnx {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric <0-16777214> route-map @var{word}} {}
 @deffnx {OSPF Command} {no redistribute (kernel|connected|static|rip|bgp)} {}
-Redistribute routes of the specified protocol or kind into OSPF, with
-the metric type and metric set if specified, filtering the routes using
-the given route-map if specified. Redistributed routes may also be
-filtered with distribute-lists, see @ref{ospf distribute-list}.
+@anchor{OSPF redistribute}Redistribute routes of the specified protocol
+or kind into OSPF, with the metric type and metric set if specified,
+filtering the routes using the given route-map if specified.
+Redistributed routes may also be filtered with distribute-lists, see
+@ref{ospf distribute-list}.
 
 Redistributed routes are distributed as into OSPF as Type-5 External
 LSAs into links to areas that accept external routes, Type-7 External LSAs
@@ -530,11 +542,11 @@ type. If the 'always' keyword is given then the default is always
 advertised, even when there is no default present in the routing table.
 @end deffn
 
-@anchor{ospf distribute-list}
 @deffn {OSPF Command} {distribute-list NAME out (kernel|connected|static|rip|ospf} {}
 @deffnx {OSPF Command} {no distribute-list NAME out (kernel|connected|static|rip|ospf} {}
-Apply the access-list filter, NAME, to redistributed routes of the given type
-before allowing the routes to redistributed into OSPF (@pxref{OSPF redistribute}).
+@anchor{ospf distribute-list}Apply the access-list filter, NAME, to
+redistributed routes of the given type before allowing the routes to
+redistributed into OSPF (@pxref{OSPF redistribute}).
 @end deffn
 
 @deffn {OSPF Command} {default-metric <0-16777214>} {}
@@ -556,10 +568,9 @@ before allowing the routes to redistributed into OSPF (@pxref{OSPF redistribute}
 @node Showing OSPF information
 @section Showing OSPF information
 
-@anchor{show ip ospf}
 @deffn {Command} {show ip ospf} {}
-Show information on a variety of general OSPF and area state and configuration
-information.
+@anchor{show ip ospf}Show information on a variety of general OSPF and
+area state and configuration information.
 @end deffn
 
 @deffn {Command} {show ip ospf interface [INTERFACE]} {}
