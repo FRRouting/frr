@@ -1,3 +1,8 @@
+#include <zebra.h>
+
+#include "prefix.h"
+#include "zebra/rtadv.h"
+#include "zebra/irdp.h"
 
 void ifstat_update_proc (void) { return; }
 #pragma weak rtadv_config_write = ifstat_update_proc

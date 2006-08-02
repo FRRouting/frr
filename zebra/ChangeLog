@@ -1,3 +1,8 @@
+2006-08-02 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* misc_null.c: Must include header files to get older versions of gcc
+	  to process the #pragma statements properly.
+
 2006-07-27 Paul Jakma <paul.jakma@sun.com>
 
 	* {ioctl,kernel}_null.c: Dummy/Null kernel method implementations,
