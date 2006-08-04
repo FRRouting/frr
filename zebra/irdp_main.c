@@ -224,7 +224,8 @@ static void irdp_advertisement (struct interface *ifp, struct prefix *p)
   struct stream *s;
   s = stream_new (128);
   make_advertisement_packet (ifp, p, s);
-  irdp_send(ifp, p, s); 
+  irdp_send(ifp, p, s);
+  stream_free (s);
 }
 
 int irdp_send_thread(struct thread *t_advert)

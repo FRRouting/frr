@@ -286,7 +286,7 @@ send_packet(struct interface *ifp,
   u_long src;
   int on;
  
-  if (!(ifp->flags & IFF_UP)) 
+  if (!(ifp->flags & IFF_UP))
     return;
 
   if (!p) 
@@ -311,7 +311,6 @@ send_packet(struct interface *ifp,
 
   /* icmp->checksum is already calculated */
   ip->ip_len  = sizeof(struct ip) + stream_get_endp(s);
-  stream_free(s); 
 
   on = 1;
   if (setsockopt(irdp_sock, IPPROTO_IP, IP_HDRINCL,

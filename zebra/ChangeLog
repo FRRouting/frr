@@ -8,6 +8,16 @@
 	* misc_null.c: Must include header files to get older versions of gcc
 	  to process the #pragma statements properly.
 
+2006-08-01 Paul Jakma <paul.jakma@sun.com>
+
+	* irdp_main.c: (irdp_advertisement) free the stream here, when done,
+	  right under where it was allocated so it's blindingly obvious
+	  it's correct. This possibly fixes a very slow leak of streams in
+	  zebra.
+	* irdp_packet.c: (send_packet) don't free the stream here as
+	  it's hard to tell if right, plus an error case seemed to
+	  returning before free anyway.
+
 2006-07-27 Paul Jakma <paul.jakma@sun.com>
 
 	* {ioctl,kernel}_null.c: Dummy/Null kernel method implementations,
