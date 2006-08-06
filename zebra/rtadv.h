@@ -23,6 +23,8 @@
 #ifndef _ZEBRA_RTADV_H
 #define _ZEBRA_RTADV_H
 
+#include "zebra/interface.h"
+
 /* Router advertisement prefix. */
 struct rtadv_prefix
 {

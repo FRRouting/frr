@@ -6,6 +6,7 @@
 	* if_{proc,sysctl}.c: Make ifstat_update_* definitions and return values
 	  consistent with each other and their declarations, ie: 
 	  (void) (*) (void).
+	* rtadv.h: depends on interface.h, so should include it.
 
 2006-08-04 Paul Jakma <paul.jakma@sun.com>
 
