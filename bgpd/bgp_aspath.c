@@ -926,14 +926,14 @@ aspath_firstas_check (struct aspath *aspath, as_t asno)
   return 0;
 }
 
-/* AS path loop check.  If aspath contains asno then return 1. */
+/* AS path loop check.  If aspath contains asno then return >= 1. */
 int
 aspath_loop_check (struct aspath *aspath, as_t asno)
 {
   struct assegment *seg;
   int count = 0;
 
-  if ( (aspath == NULL) || (aspath->segments) )
+  if ( (aspath == NULL) || (aspath->segments == NULL) )
     return 0;
   
   seg = aspath->segments;
@@ -1363,7 +1363,7 @@ aspath_str2aspath (const char *str)
 {
   enum as_token token = as_token_unknown;
   u_short as_type;
-  u_short asno = NULL;
+  u_short asno = 0;
   struct aspath *aspath;
   int needtype;
 

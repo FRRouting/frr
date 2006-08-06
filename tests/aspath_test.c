@@ -76,7 +76,7 @@ static struct test_segment {
     10,
     { "8482 51457 {5204}",
       "8482 51457 {5204}",
-      3, 0, NOT_ALL_PRIVATE, 5204, 51457, 8482},
+      3, 0, NOT_ALL_PRIVATE, 5204, 51456, 8482},
   },
   { /* 4 */
     "seqset2",
@@ -618,8 +618,8 @@ validate (struct aspath *as, const struct test_spec *sp)
     }
   
     /* loop, private and first as checks */
-  if (aspath_loop_check (as, sp->does_loop)
-      || aspath_loop_check (as, sp->doesnt_loop)
+  if ((sp->does_loop && aspath_loop_check (as, sp->does_loop) == 0)
+      || (sp->doesnt_loop && aspath_loop_check (as, sp->doesnt_loop) != 0)
       || (aspath_private_as_check (as) != sp->private_as)
       || (aspath_firstas_check (as,sp->first)
           && sp->first == 0))

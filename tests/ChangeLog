@@ -1,3 +1,9 @@
+2006-08-06 Paul Jakma <paul.jakma@sun.com>
+
+	* aspath_test.c: (validate) Fix the sense of the aspath_loop_check,
+	  which was the wrong way around and had actually been testing for
+	  aspath_loop_check to be buggy.
+
 2006-05-28 Paul Jakma <paul.jakma@sun.com>
 
 	* test-sig.c: (main) configure logging, there's no terminal

@@ -1,3 +1,9 @@
+2006-08-06 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_aspath.c: (aspath_loop_check) Fix the typo-bug which
+	  essentially had disabled this check. Problem reported by
+	  Bartek Kania <mrbk@gnarf.org> in [quagga-users 7388].
+
 2006-07-27 Paul Jakma <paul.jakma@sun.com>
 
 	* bgpd.c: (peer_delete) Ensure freed buffers can not be
