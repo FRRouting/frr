@@ -33,8 +33,8 @@
 #include "zebra/rt.h"
 #include "zebra/kernel_socket.h"
 
-int
-ifstat_update_sysctl ()
+void
+ifstat_update_sysctl (void)
 {
   caddr_t ref, buf, end;
   size_t bufsiz;
@@ -56,7 +56,7 @@ ifstat_update_sysctl ()
   if (sysctl (mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) 
     {
       zlog_warn ("sysctl() error by %s", safe_strerror (errno));
-      return -1;
+      return;
     }
 
   /* We free this memory at the end of this function. */
@@ -66,7 +66,7 @@ ifstat_update_sysctl ()
   if (sysctl (mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) 
     {
       zlog (NULL, LOG_WARNING, "sysctl error by %s", safe_strerror (errno));
-      return -1;
+      return;
     }
 
   /* Parse both interfaces and addresses. */
@@ -84,7 +84,7 @@ ifstat_update_sysctl ()
   /* Free sysctl buffer. */
   XFREE (MTYPE_TMP, ref);
 
-  return 0;
+  return;
 }
 
 /* Interface listing up function using sysctl(). */

@@ -1,3 +1,12 @@
+2006-08-06 Paul Jakma <paul.jakma@sun.com>
+
+	* interface.h: (ifstat_update_proc) declaration should match
+	  ifstat_update_sysctl really, which is to not return status, as
+	  such status is not used anywhere.
+	* if_{proc,sysctl}.c: Make ifstat_update_* definitions and return values
+	  consistent with each other and their declarations, ie: 
+	  (void) (*) (void).
+
 2006-08-04 Paul Jakma <paul.jakma@sun.com>
 
 	* misc_null.c: Add ifstat_update_sysctl, add another required
