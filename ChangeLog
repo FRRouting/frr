@@ -1,3 +1,7 @@
+2006-08-27 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: Bump to 0.99.5
+
 2006-06-15 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* redhat/quagga.spec.in: Get default distro automatically
