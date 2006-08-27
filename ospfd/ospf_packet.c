@@ -1035,20 +1035,40 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
 
       /* Lookup received LSA, then add LS request list. */
       find = ospf_lsa_lookup_by_header (oi->area, lsah);
-      if (!find || ospf_lsa_more_recent (find, new) < 0)
-	{
-	  ospf_ls_request_add (nbr, new);
-	  ospf_lsa_discard (new);
-	}
-      else
-	{
-	  /* Received LSA is not recent. */
-	  if (IS_DEBUG_OSPF_EVENT)
-	    zlog_debug ("Packet [DD:RECV]: LSA received Type %d, "
-		       "ID %s is not recent.", lsah->type, inet_ntoa (lsah->id));
-	  ospf_lsa_discard (new);
-	  continue;
-	}
+      
+      /* ospf_lsa_more_recent is fine with NULL pointers */
+      switch (ospf_lsa_more_recent (find, new))
+        {
+          case -1:
+            /* Neighbour has a more recent LSA, we must request it */
+            ospf_ls_request_add (nbr, new);
+          case 0:
+            /* If we have a copy of this LSA, it's either less recent
+             * and we're requesting it from neighbour (the case above), or
+             * it's as recent and we both have same copy (this case).
+             *
+             * In neither of these two cases is there any point in
+             * describing our copy of the LSA to the neighbour in a
+             * DB-Summary packet, if we're still intending to do so.
+             *
+             * See: draft-ogier-ospf-dbex-opt-00.txt, describing the
+             * backward compatible optimisation to OSPF DB Exchange /
+             * DB Description process implemented here.
+             */
+            if (find)
+              ospf_lsdb_delete (&nbr->db_sum, find);
+            ospf_lsa_discard (new);
+            break;
+          default:
+            /* We have the more recent copy, nothing specific to do:
+             * - no need to request neighbours stale copy
+             * - must leave DB summary list copy alone
+             */
+            if (IS_DEBUG_OSPF_EVENT)
+              zlog_debug ("Packet [DD:RECV]: LSA received Type %d, "
+                         "ID %s is not recent.", lsah->type, inet_ntoa (lsah->id));
+            ospf_lsa_discard (new);
+        }
     }
 
   /* Master */

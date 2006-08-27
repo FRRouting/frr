@@ -15,6 +15,7 @@
 	  before deciding whether both sides are done, avoids a
 	  needless round of empty DD packet exchanges at the end of
 	  Exchange, hence speeding up ExchangeDone.
+	  Implement draft-ogier-ospf-dbex-opt DB-exchange optimisation.
 	  (ospf_db_desc) use UNSET_FLAG macro.
 
 2006-07-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
