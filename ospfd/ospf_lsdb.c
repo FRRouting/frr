@@ -81,6 +81,31 @@ lsdb_prefix_set (struct prefix_ls *lp, struct ospf_lsa *lsa)
   lp->adv_router = lsa->data->adv_router;
 }
 
+static void
+ospf_lsdb_delete_entry (struct ospf_lsdb *lsdb, struct route_node *rn)
+{
+  struct ospf_lsa *lsa = rn->info;
+  
+  if (!lsa)
+    return;
+  
+  assert (rn->table == lsdb->type[lsa->data->type].db);
+  
+  if (IS_LSA_SELF (lsa))
+    lsdb->type[lsa->data->type].count_self--;
+  lsdb->type[lsa->data->type].count--;
+  lsdb->type[lsa->data->type].checksum -= ntohs(lsa->data->checksum);
+  lsdb->total--;
+  rn->info = NULL;
+  route_unlock_node (rn);
+#ifdef MONITOR_LSDB_CHANGE
+  if (lsdb->del_lsa_hook != NULL)
+    (* lsdb->del_lsa_hook)(lsa);
+#endif /* MONITOR_LSDB_CHANGE */
+  ospf_lsa_unlock (&lsa); /* lsdb */
+  return;
+}
+
 /* Add new LSA to lsdb. */
 void
 ospf_lsdb_add (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
@@ -88,36 +113,30 @@ ospf_lsdb_add (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
   struct route_table *table;
   struct prefix_ls lp;
   struct route_node *rn;
-  struct ospf_lsa *old;
 
   table = lsdb->type[lsa->data->type].db;
   lsdb_prefix_set (&lp, lsa);
   rn = route_node_get (table, (struct prefix *)&lp);
-  if (!rn->info)
-    {
-      if (IS_LSA_SELF (lsa))
-	lsdb->type[lsa->data->type].count_self++;
-      lsdb->type[lsa->data->type].count++;
-      lsdb->total++;
-    }
-  else
-    {
-      if (rn->info == lsa)
-	return;
-      
-      old = rn->info;
-      lsdb->type[old->data->type].checksum -= ntohs(old->data->checksum);
+  
+  /* nothing to do? */
+  if (rn->info && rn->info == lsa)
+    return;
+  
+  /* purge old entry? */
+  if (rn->info)
+    ospf_lsdb_delete_entry (lsdb, rn);
 
-      ospf_lsa_unlock (&rn->info);
-      route_unlock_node (rn);
-    }
+  if (IS_LSA_SELF (lsa))
+    lsdb->type[lsa->data->type].count_self++;
+  lsdb->type[lsa->data->type].count++;
+  lsdb->total++;
 
 #ifdef MONITOR_LSDB_CHANGE
   if (lsdb->new_lsa_hook != NULL)
     (* lsdb->new_lsa_hook)(lsa);
 #endif /* MONITOR_LSDB_CHANGE */
   lsdb->type[lsa->data->type].checksum += ntohs(lsa->data->checksum);
-  rn->info = ospf_lsa_lock (lsa);
+  rn->info = ospf_lsa_lock (lsa); /* lsdb */
 }
 
 void
@@ -146,24 +165,11 @@ ospf_lsdb_delete (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
   table = lsdb->type[lsa->data->type].db;
   lsdb_prefix_set (&lp, lsa);
   rn = route_node_lookup (table, (struct prefix *) &lp);
-  if (rn)
-    if (rn->info == lsa)
-      {
-	if (IS_LSA_SELF (lsa))
-	  lsdb->type[lsa->data->type].count_self--;
-	lsdb->type[lsa->data->type].count--;
-	lsdb->type[lsa->data->type].checksum -= ntohs(lsa->data->checksum);
-	lsdb->total--;
-	rn->info = NULL;
-	route_unlock_node (rn);
-	route_unlock_node (rn);
-#ifdef MONITOR_LSDB_CHANGE
-        if (lsdb->del_lsa_hook != NULL)
-          (* lsdb->del_lsa_hook)(lsa);
-#endif /* MONITOR_LSDB_CHANGE */
-	ospf_lsa_unlock (&lsa);
-	return;
-      }
+  if (rn && (rn->info == lsa))
+    {
+      ospf_lsdb_delete_entry (lsdb, rn);
+      route_unlock_node (rn); /* route_node_lookup */
+    }
 }
 
 void
@@ -171,28 +177,14 @@ ospf_lsdb_delete_all (struct ospf_lsdb *lsdb)
 {
   struct route_table *table;
   struct route_node *rn;
-  struct ospf_lsa *lsa;
   int i;
 
   for (i = OSPF_MIN_LSA; i < OSPF_MAX_LSA; i++)
     {
       table = lsdb->type[i].db;
       for (rn = route_top (table); rn; rn = route_next (rn))
-	if ((lsa = (rn->info)) != NULL)
-	  {
-	    if (IS_LSA_SELF (lsa))
-	      lsdb->type[i].count_self--;
-	    lsdb->type[i].count--;
-	    lsdb->type[i].checksum -= ntohs(lsa->data->checksum);
-	    lsdb->total--;
-	    rn->info = NULL;
-	    route_unlock_node (rn);
-#ifdef MONITOR_LSDB_CHANGE
-            if (lsdb->del_lsa_hook != NULL)
-              (* lsdb->del_lsa_hook)(lsa);
-#endif /* MONITOR_LSDB_CHANGE */
-	    ospf_lsa_unlock (&lsa);
-	  }
+	if (rn->info != NULL)
+	  ospf_lsdb_delete_entry (lsdb, rn);
     }
 }
 
