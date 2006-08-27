@@ -47,7 +47,7 @@ ospf_route_new ()
 
   new = XCALLOC (MTYPE_OSPF_ROUTE, sizeof (struct ospf_route));
 
-  new->ctime = time (NULL);
+  new->ctime = quagga_time (NULL);
   new->mtime = new->ctime;
   new->paths = list_new ();
   new->paths->del = (void (*) (void *))ospf_path_free;

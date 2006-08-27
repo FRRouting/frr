@@ -141,7 +141,7 @@ ospf_lsa_refresh_delay (struct ospf_lsa *lsa)
   struct timeval delta, now;
   int delay = 0;
 
-  gettimeofday (&now, NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
   delta = tv_sub (now, lsa->tv_orig);
 
   if (tv_cmp (delta, int2tv (OSPF_MIN_LS_INTERVAL)) < 0)
@@ -163,10 +163,9 @@ int
 get_age (struct ospf_lsa *lsa)
 {
   int age;
-  struct timeval now;
 
-  gettimeofday (&now, NULL);
-  age = ntohs (lsa->data->ls_age) + tv_floor (tv_sub (now, lsa->tv_recv));
+  age = ntohs (lsa->data->ls_age) 
+        + tv_floor (tv_sub (recent_relative_time (), lsa->tv_recv));
 
   return age;
 }
@@ -229,7 +228,7 @@ ospf_lsa_new ()
   new->flags = 0;
   new->lock = 1;
   new->retransmit_counter = 0;
-  gettimeofday (&new->tv_recv, NULL);
+  new->tv_recv = recent_relative_time ();
   new->tv_orig = new->tv_recv;
   new->refresh_list = -1;
   
@@ -2460,9 +2459,6 @@ ospf_external_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa,
   
   new->data->ls_seqnum = lsa_seqnum_increment (lsa);
 
-  /* Record timestamp. */
-  gettimeofday (&new->tv_orig, NULL);
-
   /* Re-calculate checksum. */
   ospf_lsa_checksum (new->data);
 
@@ -3770,7 +3766,7 @@ ospf_refresher_register_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
 	delay = 0;
 
       current_index = ospf->lsa_refresh_queue.index +
-	(time (NULL) - ospf->lsa_refresher_started)/OSPF_LSA_REFRESHER_GRANULARITY;
+	(quagga_time (NULL) - ospf->lsa_refresher_started)/OSPF_LSA_REFRESHER_GRANULARITY;
       
       index = (current_index + delay/OSPF_LSA_REFRESHER_GRANULARITY)
 	% (OSPF_LSA_REFRESHER_SLOTS);
@@ -3829,7 +3825,7 @@ ospf_lsa_refresh_walker (struct thread *t)
      modulus. */
   ospf->lsa_refresh_queue.index =
    ((unsigned long)(ospf->lsa_refresh_queue.index +
-		    (time (NULL) - ospf->lsa_refresher_started) /
+		    (quagga_time (NULL) - ospf->lsa_refresher_started) /
 		    OSPF_LSA_REFRESHER_GRANULARITY)) % OSPF_LSA_REFRESHER_SLOTS;
 
   if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
@@ -3867,7 +3863,7 @@ ospf_lsa_refresh_walker (struct thread *t)
 
   ospf->t_lsa_refresher = thread_add_timer (master, ospf_lsa_refresh_walker,
 					   ospf, ospf->lsa_refresh_interval);
-  ospf->lsa_refresher_started = time (NULL);
+  ospf->lsa_refresher_started = quagga_time (NULL);
 
   for (ALL_LIST_ELEMENTS (lsa_to_refresh, node, nnode, lsa))
     ospf_lsa_refresh (ospf, lsa);

@@ -1,3 +1,15 @@
+2006-08-25 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Bug #134. Be more robust to backward time changes,
+	  use the newly added libzebra time functions.
+	  In most cases: recent_time -> recent_relative_time()
+	  gettimeofday -> quagga_gettime (QUAGGA_CLK_MONOTONIC, ..)
+	  time -> quagga_time.
+	  (ospf_make_md5_digest) time() call deliberately not changed.
+	  (ospf_external_lsa_refresh) remove useless gettimeofday, LSA
+	  tv_orig time was already set in ospf_lsa_new, called via
+	  ospf_external_lsa_new.
+
 2006-08-04 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_lsdb.c: (ospf_lsdb_delete_entry) new function, consolidate

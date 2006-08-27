@@ -2691,7 +2691,7 @@ DEFUN (show_ip_ospf,
   vty_out (vty, " SPF algorithm ");
   if (ospf->ts_spf.tv_sec || ospf->ts_spf.tv_usec)
     {
-      result = tv_sub (recent_time, ospf->ts_spf);
+      result = tv_sub (recent_relative_time (), ospf->ts_spf);
       vty_out (vty, "last executed %s ago%s",
                ospf_timeval_dump (&result, timebuf, sizeof (timebuf)),
                VTY_NEWLINE);
@@ -3157,7 +3157,8 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
   vty_out (vty, " %d state changes%s", nbr->state_change, VTY_NEWLINE);
   if (nbr->ts_last_progress.tv_sec || nbr->ts_last_progress.tv_usec)
     {
-      struct timeval res = tv_sub (recent_time, nbr->ts_last_progress);
+      struct timeval res
+        = tv_sub (recent_relative_time (), nbr->ts_last_progress);
       vty_out (vty, "    Most recent state change statistics:%s",
                VTY_NEWLINE);
       vty_out (vty, "      Progressive change %s ago%s",
@@ -3166,7 +3167,8 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
     }
   if (nbr->ts_last_regress.tv_sec || nbr->ts_last_regress.tv_usec)
     {
-      struct timeval res = tv_sub (recent_time, nbr->ts_last_regress);
+      struct timeval res
+        = tv_sub (recent_relative_time (), nbr->ts_last_regress);
       vty_out (vty, "      Regressive change %s ago, due to %s%s",
                ospf_timeval_dump (&res, timebuf, sizeof(timebuf)),
                (nbr->last_regress_str ? nbr->last_regress_str : "??"),

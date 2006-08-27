@@ -268,7 +268,7 @@ ospf_flood (struct ospf *ospf, struct ospf_neighbor *nbr,
 		       "while local one is initial instance.");
           ; /* Accept this LSA for quick LSDB resynchronization. */
         }
-      else if (tv_cmp (tv_sub (recent_time, current->tv_recv),
+      else if (tv_cmp (tv_sub (recent_relative_time (), current->tv_recv),
 	               int2tv (OSPF_MIN_LS_ARRIVAL)) < 0)
         {
           if (IS_DEBUG_OSPF_EVENT)

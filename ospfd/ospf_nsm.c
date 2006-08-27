@@ -617,10 +617,10 @@ nsm_notice_state_change (struct ospf_neighbor *nbr, int next_state, int event)
 
   /* Advance in NSM */
   if (next_state > nbr->state)
-    nbr->ts_last_progress = recent_time;
+    nbr->ts_last_progress = recent_relative_time ();
   else /* regression in NSM */
     {
-      nbr->ts_last_regress = recent_time;
+      nbr->ts_last_regress = recent_relative_time ();
       nbr->last_regress_str = ospf_nsm_event_str [event];
     }
 
@@ -747,7 +747,7 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   if (state == NSM_ExStart)
     {
       if (nbr->dd_seqnum == 0)
-	nbr->dd_seqnum = time (NULL);
+	nbr->dd_seqnum = quagga_time (NULL);
       else
 	nbr->dd_seqnum++;
 

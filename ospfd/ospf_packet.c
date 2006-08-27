@@ -337,7 +337,9 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
     return 0;
 
   /* We do this here so when we dup a packet, we don't have to
-     waste CPU rewriting other headers. */
+     waste CPU rewriting other headers.
+     
+     Note that quagga_time /deliberately/ is not used here */
   t = (time(NULL) & 0xFFFFFFFF);
   if (t > oi->crypt_seqnum)
     oi->crypt_seqnum = t;
@@ -444,7 +446,7 @@ ospf_ls_upd_timer (struct thread *thread)
 		  fired.  This is a small tweak to what is in the RFC,
 		  but it will cut out out a lot of retransmit traffic
 		  - MAG */
-		if (tv_cmp (tv_sub (recent_time, lsa->tv_recv), 
+		if (tv_cmp (tv_sub (recent_relative_time (), lsa->tv_recv), 
 			    int2tv (retransmit_interval)) >= 0)
 		  listnode_add (update, rn->info);
 	    }
@@ -1363,7 +1365,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	  else
 	    {
 	      struct timeval t, now;
-	      gettimeofday (&now, NULL);
+	      quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
 	      t = tv_sub (now, nbr->last_send_ts);
 	      if (tv_cmp (t, int2tv (nbr->v_inactivity)) < 0)
 		{
@@ -1948,7 +1950,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	    {
 	      struct timeval now;
 	      
-	      gettimeofday (&now, NULL);
+	      quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
 	      
 	      if (tv_cmp (tv_sub (now, current->tv_orig), 
 			  int2tv (OSPF_MIN_LS_ARRIVAL)) > 0)
@@ -3158,7 +3160,7 @@ ospf_db_desc_send (struct ospf_neighbor *nbr)
   if (nbr->last_send)
     ospf_packet_free (nbr->last_send);
   nbr->last_send = ospf_packet_dup (op);
-  gettimeofday (&nbr->last_send_ts, NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &nbr->last_send_ts);
 }
 
 /* Re-send Database Description. */
