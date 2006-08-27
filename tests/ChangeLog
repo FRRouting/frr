@@ -1,3 +1,8 @@
+2006-08-26 Paul Jakma <paul.jakma@sun.com>
+
+	* heavy-wq.c: (slow_func_del,slow_func) update to match workqueue
+	  changes
+
 2006-08-06 Paul Jakma <paul.jakma@sun.com>
 
 	* aspath_test.c: (validate) Fix the sense of the aspath_loop_check,
