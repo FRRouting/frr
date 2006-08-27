@@ -6,6 +6,17 @@
 	  (ospf_lsdb_delete) ditto.
 	  (ospf_lsdb_delete_all) ditto.
 
+2006-08-03 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_packet.c: (ospf_make_db_desc) Unset the DD More bit
+	  after constructing the packet, if appropriate. 
+	  (ospf_db_desc_proc) Speed up Exchange, slave should raise
+	  ExchangeDone earlier, as RFC mandates, by forming its reply
+	  before deciding whether both sides are done, avoids a
+	  needless round of empty DD packet exchanges at the end of
+	  Exchange, hence speeding up ExchangeDone.
+	  (ospf_db_desc) use UNSET_FLAG macro.
+
 2006-07-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospfd.c: (ospf_router_id_update) Fix and document the algorithm for

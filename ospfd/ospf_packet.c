@@ -1055,11 +1055,11 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
   if (IS_SET_DD_MS (nbr->dd_flags))
     {
       nbr->dd_seqnum++;
-      /* Entire DD packet sent. */
+
+      /* Both sides have no More, then we're done with Exchange */
       if (!IS_SET_DD_M (dd->flags) && !IS_SET_DD_M (nbr->dd_flags))
 	OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_ExchangeDone);
       else
-	/* Send new DD packet. */
 	ospf_db_desc_send (nbr);
     }
   /* Slave */
@@ -1067,17 +1067,21 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
     {
       nbr->dd_seqnum = ntohl (dd->dd_seqnum);
 
-      /* When master's more flags is not set. */
-      if (!IS_SET_DD_M (dd->flags) && ospf_db_summary_isempty (nbr))
-	{
-	  nbr->dd_flags &= ~(OSPF_DD_FLAG_M);
-	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_ExchangeDone);
-	}
-
-      /* Send DD packet in reply. */
+      /* Send DD packet in reply. 
+       * 
+       * Must be done to acknowledge the Master's DD, regardless of
+       * whether we have more LSAs ourselves to describe.
+       *
+       * This function will clear the 'More' bit, if after this DD
+       * we have no more LSAs to describe to the master..
+       */
       ospf_db_desc_send (nbr);
+      
+      /* Slave can raise ExchangeDone now, if master is also done */
+      if (!IS_SET_DD_M (dd->flags) && !IS_SET_DD_M (nbr->dd_flags))
+	OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_ExchangeDone);
     }
-
+  
   /* Save received neighbor values from DD. */
   ospf_db_desc_save_current (nbr, dd);
 }
@@ -1200,7 +1204,9 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	      zlog_info ("Packet[DD]: Neighbor %s Negotiation done (Slave).",
 	      		 inet_ntoa(nbr->router_id));
 	      nbr->dd_seqnum = ntohl (dd->dd_seqnum);
-	      nbr->dd_flags &= ~(OSPF_DD_FLAG_MS|OSPF_DD_FLAG_I); /* Reset I/MS */
+	      
+	      /* Reset I/MS */
+	      UNSET_FLAG (nbr->dd_flags, (OSPF_DD_FLAG_MS|OSPF_DD_FLAG_I));
 	    }
 	  else
 	    {
@@ -1217,7 +1223,8 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	{
 	  zlog_info ("Packet[DD]: Neighbor %s Negotiation done (Master).",
 		     inet_ntoa(nbr->router_id));
-	  nbr->dd_flags &= ~OSPF_DD_FLAG_I;
+          /* Reset I, leaving MS */
+          UNSET_FLAG (nbr->dd_flags, OSPF_DD_FLAG_I);
 	}
       else
 	{
@@ -2676,7 +2683,7 @@ ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
 #endif /* HAVE_OPAQUE_LSA */
   stream_putc (s, options);
 
-  /* Keep pointer to flags. */
+  /* DD flags */
   pp = stream_get_endp (s);
   stream_putc (s, nbr->dd_flags);
 
@@ -2685,12 +2692,21 @@ ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
 
   if (ospf_db_summary_isempty (nbr))
     {
+      /* Sanity check:
+       *
+       * Must be here either:
+       * - Initial DBD (ospf_nsm.c)
+       *   - M must be set
+       * or
+       * - finishing Exchange, and DB-Summary list empty
+       *   - from ospf_db_desc_proc()
+       *   - M must not be set
+       */
       if (nbr->state >= NSM_Exchange)
-	{
-	  nbr->dd_flags &= ~OSPF_DD_FLAG_M;
-	  /* Set DD flags again */
-	  stream_putc_at (s, pp, nbr->dd_flags);
-	}
+	assert (!IS_SET_DD_M(nbr->dd_flags));
+      else
+        assert (IS_SET_DD_M(nbr->dd_flags));
+
       return length;
     }
 
@@ -2744,6 +2760,13 @@ ospf_make_db_desc (struct ospf_interface *oi, struct ospf_neighbor *nbr,
 	  }
     }
 
+  /* Update 'More' bit */
+  if (ospf_db_summary_isempty (nbr))
+    {
+      UNSET_FLAG (nbr->dd_flags, OSPF_DD_FLAG_M);
+      /* Rewrite DD flags */
+      stream_putc_at (s, pp, nbr->dd_flags);
+    }
   return length;
 }
 
