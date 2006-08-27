@@ -30,7 +30,15 @@
 #include "command.h"
 #include "sigevent.h"
 
+/* Recent absolute time of day */
 struct timeval recent_time;
+static struct timeval last_recent_time;
+/* Relative time, since startup */
+static struct timeval relative_time;
+static struct timeval relative_time_base;
+/* init flag */
+static unsigned short timers_inited;
+
 static struct hash *cpu_record = NULL;
 
 /* Struct timeval's tv_usec one second value.  */
@@ -83,6 +91,129 @@ timeval_elapsed (struct timeval a, struct timeval b)
 {
   return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
 	  + (a.tv_usec - b.tv_usec));
+}
+
+#ifndef HAVE_CLOCK_MONOTONIC
+static void
+quagga_gettimeofday_relative_adjust (void)
+{
+  struct timeval diff;
+  if (timeval_cmp (recent_time, last_recent_time) < 0)
+    {
+      relative_time.tv_sec++;
+      relative_time.tv_usec = 0;
+    }
+  else
+    {
+      diff = timeval_subtract (recent_time, last_recent_time);
+      relative_time.tv_sec += diff.tv_sec;
+      relative_time.tv_usec += diff.tv_usec;
+      relative_time = timeval_adjust (relative_time);
+    }
+  last_recent_time = recent_time;
+}
+#endif /* !HAVE_CLOCK_MONOTONIC */
+
+/* gettimeofday wrapper, to keep recent_time updated */
+static int
+quagga_gettimeofday (struct timeval *tv)
+{
+  int ret;
+  
+  assert (tv);
+  
+  if (!(ret = gettimeofday (&recent_time, NULL)))
+    {
+      /* init... */
+      if (!timers_inited)
+        {
+          relative_time_base = last_recent_time = recent_time;
+          timers_inited = 1;
+        }
+      /* avoid copy if user passed recent_time pointer.. */
+      if (tv != &recent_time)
+        *tv = recent_time;
+      return 0;
+    }
+  return ret;
+}
+
+static int
+quagga_get_relative (struct timeval *tv)
+{
+  int ret;
+
+#ifdef HAVE_CLOCK_MONOTONIC
+  {
+    struct timespec tp;
+    if (!(ret = clock_gettime (CLOCK_MONOTONIC, &tp)))
+      {
+        relative_time.tv_sec = tp.tv_sec;
+        relative_time.tv_usec = tp.tv_nsec / 1000;
+      }
+  }
+#else /* !HAVE_CLOCK_MONOTONIC */
+  if (!(ret = quagga_gettimeofday (&recent_time)))
+    quagga_gettimeofday_relative_adjust();
+#endif /* HAVE_CLOCK_MONOTONIC */
+
+  if (tv)
+    *tv = relative_time;
+
+  return ret;
+}
+
+/* Get absolute time stamp, but in terms of the internal timer
+ * Could be wrong, but at least won't go back.
+ */
+static void
+quagga_real_stabilised (struct timeval *tv)
+{
+  *tv = relative_time_base;
+  tv->tv_sec += relative_time.tv_sec;
+  tv->tv_usec += relative_time.tv_usec;
+  *tv = timeval_adjust (*tv);
+}
+
+/* Exported Quagga timestamp function.
+ * Modelled on POSIX clock_gettime.
+ */
+int
+quagga_gettime (enum quagga_clkid clkid, struct timeval *tv)
+{
+  switch (clkid)
+    {
+      case QUAGGA_CLK_REALTIME:
+        return quagga_gettimeofday (tv);
+      case QUAGGA_CLK_MONOTONIC:
+        return quagga_get_relative (tv);
+      case QUAGGA_CLK_REALTIME_STABILISED:
+        quagga_real_stabilised (tv);
+        return 0;
+      default:
+        errno = EINVAL;
+        return -1;
+    }
+}
+
+/* time_t value in terms of stabilised absolute time. 
+ * replacement for POSIX time()
+ */
+time_t
+quagga_time (time_t *t)
+{
+  struct timeval tv;
+  quagga_real_stabilised (&tv);
+  if (t)
+    *t = tv.tv_sec;
+  return tv.tv_sec;
+}
+
+/* Public export of recent_relative_time by value */
+struct timeval
+recent_relative_time (void)
+{
+  return relative_time;
 }
 
 static unsigned int
@@ -396,10 +527,10 @@ thread_trim_head (struct thread_list *list)
 unsigned long
 thread_timer_remain_second (struct thread *thread)
 {
-  gettimeofday (&recent_time, NULL);
-
-  if (thread->u.sands.tv_sec - recent_time.tv_sec > 0)
-    return thread->u.sands.tv_sec - recent_time.tv_sec;
+  quagga_get_relative (NULL);
+  
+  if (thread->u.sands.tv_sec - relative_time.tv_sec > 0)
+    return thread->u.sands.tv_sec - relative_time.tv_sec;
   else
     return 0;
 }
@@ -515,8 +646,8 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
                                   const char* funcname)
 {
   struct thread *thread;
-  struct timeval alarm_time;
   struct thread_list *list;
+  struct timeval alarm_time;
   struct thread *tt;
 
   assert (m != NULL);
@@ -528,9 +659,9 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
   thread = thread_get (m, type, func, arg, funcname);
 
   /* Do we need jitter here? */
-  gettimeofday (&recent_time, NULL);
-  alarm_time.tv_sec = recent_time.tv_sec + time_relative->tv_sec;
-  alarm_time.tv_usec = recent_time.tv_usec + time_relative->tv_usec;
+  quagga_gettimeofday (&recent_time);
+  alarm_time.tv_sec = relative_time.tv_sec + time_relative->tv_sec;
+  alarm_time.tv_usec = relative_time.tv_usec + time_relative->tv_usec;
   thread->u.sands = timeval_adjust(alarm_time);
 
   /* Sort by timeval. */
@@ -693,7 +824,7 @@ thread_timer_wait (struct thread_list *tlist, struct timeval *timer_val)
 {
   if (!thread_empty (tlist))
     {
-      *timer_val = timeval_subtract (tlist->head->u.sands, recent_time);
+      *timer_val = timeval_subtract (tlist->head->u.sands, relative_time);
       return timer_val;
     }
   return NULL;
@@ -790,7 +921,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       exceptfd = m->exceptfd;
       
       /* Calculate select wait timer if nothing else to do */
-      gettimeofday (&recent_time, NULL);
+      quagga_get_relative (NULL);
       timer_wait = thread_timer_wait (&m->timer, &timer_val);
       timer_wait_bg = thread_timer_wait (&m->background, &timer_val_bg);
       
@@ -812,8 +943,8 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
       /* Check foreground timers.  Historically, they have had higher
          priority than I/O threads, so let's push them onto the ready
 	 list in front of the I/O threads. */
-      gettimeofday (&recent_time, NULL);
-      thread_timer_process (&m->timer, &recent_time);
+      quagga_get_relative (NULL);
+      thread_timer_process (&m->timer, &relative_time);
       
       /* Got IO, process it */
       if (num > 0)
@@ -834,7 +965,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
 #endif
 
       /* Background timer/events, lowest priority */
-      thread_timer_process (&m->background, &recent_time);
+      thread_timer_process (&m->background, &relative_time);
       
       if ((thread = thread_trim_head (&m->ready)) != NULL)
         return thread_run (m, thread, fetch);
@@ -866,9 +997,27 @@ thread_consumed_time (RUSAGE_T *now, RUSAGE_T *start, unsigned long *cputime)
 int
 thread_should_yield (struct thread *thread)
 {
-  gettimeofday(&recent_time, NULL);
-  return (timeval_elapsed(recent_time, thread->ru.real) >
+  quagga_get_relative (NULL);
+  return (timeval_elapsed(relative_time, thread->ru.real) >
   	  THREAD_YIELD_TIME_SLOT);
+}
+
+void
+thread_getrusage (RUSAGE_T *r)
+{
+  quagga_get_relative (NULL);
+#ifdef HAVE_RUSAGE
+  getrusage(RUSAGE_SELF, &(r->cpu));
+#endif
+  r->real = relative_time;
+
+#ifdef HAVE_CLOCK_MONOTONIC
+  /* quagga_get_relative() only updates recent_time if gettimeofday
+   * based, not when using CLOCK_MONOTONIC. As we export recent_time
+   * and guarantee to update it before threads are run...
+   */
+  quagga_gettimeofday(&recent_time);
+#endif /* HAVE_CLOCK_MONOTONIC */
 }
 
 /* We check thread consumed time. If the system has getrusage, we'll

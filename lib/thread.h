@@ -31,14 +31,7 @@ struct rusage_t
 };
 #define RUSAGE_T        struct rusage_t
 
-#ifdef HAVE_RUSAGE
-#define GETRUSAGE(X)	\
-  getrusage(RUSAGE_SELF, &((X)->cpu));	\
-  gettimeofday(&recent_time, NULL); (X)->real = recent_time
-#else
-#define GETRUSAGE(X)	\
-  gettimeofday(&recent_time, NULL); (X)->real = recent_time
-#endif /* HAVE_RUSAGE */
+#define GETRUSAGE(X) thread_getrusage(X)
 
 /* Linked list of thread. */
 struct thread_list
@@ -97,6 +90,13 @@ struct cpu_thread_history
   struct time_stats cpu;
 #endif
   unsigned char types;
+};
+
+/* Clocks supported by Quagga */
+enum quagga_clkid {
+  QUAGGA_CLK_REALTIME = 0,	/* ala gettimeofday() */
+  QUAGGA_CLK_MONOTONIC,		/* monotonic, against an indeterminate base */
+  QUAGGA_CLK_REALTIME_STABILISED, /* like realtime, but non-decrementing */
 };
 
 /* Thread types. */
@@ -192,7 +192,16 @@ extern void thread_call (struct thread *);
 extern unsigned long thread_timer_remain_second (struct thread *);
 extern int thread_should_yield (struct thread *);
 
+/* Internal libzebra exports */
+extern void thread_getrusage (RUSAGE_T *);
 extern struct cmd_element show_thread_cpu_cmd;
+
+/* replacements for the system gettimeofday(), clock_gettime() and
+ * time() functions, providing support for non-decrementing clock on
+ * all systems, and fully monotonic on /some/ systems.
+ */
+extern int quagga_gettime (enum quagga_clkid, struct timeval *);
+extern time_t quagga_time (time_t *);
 
 /* Returns elapsed real (wall clock) time. */
 extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
@@ -202,5 +211,6 @@ extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
    be used instead of calling gettimeofday if a recent value is sufficient.
    This is guaranteed to be refreshed before a thread is called. */
 extern struct timeval recent_time;
-
+/* Similar to recent_time, but a monotonically increasing time value */
+extern struct timeval recent_relative_time (void);
 #endif /* _ZEBRA_THREAD_H */

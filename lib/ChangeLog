@@ -1,3 +1,30 @@
+2006-08-25 Paul Jakma <paul.jakma@sun.com>
+
+	* thread.c: (general) Add support for monotonic clock, it may still
+	  jump forward by huge amounts, but should be immune to going
+	  backwards. Fixes bug #134.
+	  (quagga_gettimeofday_relative_adjust) helper, does what name
+	  says - adjusts gettimeofday based relative timer.
+	  (quagga_gettimeofday) helper to keep recent_time up to date.
+	  (quagga_get_relative) helper, update and getch the relative
+	  timer using gettimeofday(). POSIX CLOCK_MONOTONIC is also
+	  supported, but the code is not enabled yet nor tested.
+	  (quagga_real_stabilised) helper, retrieve absolute time but
+	  stabilised so as to never decrease.
+	  (quagga_gettime) Exported interface, analogous to POSIX
+	  clock_gettime() in interface, supporting several clocks.
+	  (quagga_time) Exported interface, analogous to traditional
+	  time(), will never decrease.
+	  (recent_relative_time) Convenience function to retrieve
+	  relative_time timeval, similar to existing recent_time absolute
+	  timeval, for when an approximately recent value will do.
+	  (remainder) Update to use above helpers.
+	  (thread_getrusage) Previously was a macro, but needs to be
+	  a function to twiddle with thread.c private stuff.
+	* thread.c: Point the GETRUSAGE macro at previous function.
+	  Export quagga_gettime, quagga_time and recent_relative_time for 
+	  general use.
+
 2006-07-25 Paul Jakma <paul.jakma@sun.com>
 
 	* thread.h: (struct thread) Add a cache pointer to the struct
