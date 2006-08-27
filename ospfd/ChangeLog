@@ -1,3 +1,9 @@
+2006-08-27 J.J. Krabbendam <jkrabbendam@aimsys.nl>
+
+	* ospfd.c: (ospf_finish_final) default redistribute should be
+	  unset too, fixes bug where reconfiguring ospfd completely
+	  can no longer enable default redistribution.
+
 2006-08-25 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) Bug #134. Be more robust to backward time changes,

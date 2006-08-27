@@ -398,6 +398,7 @@ ospf_finish_final (struct ospf *ospf)
   /* Unregister redistribution */
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     ospf_redistribute_unset (ospf, i);
+  ospf_redistribute_default_unset (ospf);
 
   for (ALL_LIST_ELEMENTS (ospf->areas, node, nnode, area))
     ospf_remove_vls_through_area (ospf, area);
