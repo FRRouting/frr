@@ -403,10 +403,11 @@ bgp_sync_delete (struct peer *peer)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       {
 	if (peer->sync[afi][safi])
-	  XFREE (MTYPE_TMP, peer->sync[afi][safi]);
+	  XFREE (MTYPE_BGP_SYNCHRONISE, peer->sync[afi][safi]);
 	peer->sync[afi][safi] = NULL;
 	
 	if (peer->hash[afi][safi])
 	  hash_free (peer->hash[afi][safi]);
+	peer->hash[afi][safi] = NULL;
       }
 }
