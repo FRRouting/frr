@@ -1,3 +1,11 @@
+2006-08-28 Andy Gay <andy@andynet.net>
+
+	* ospf_packet.c: (ospf_make_db_desc) Assert added with More-bit
+	  fixes does not hold up with addition of Ogier DB-Exchange
+	  optimisation, which can empty the db-summary list in between
+	  sent DD packets. Remove assert, update More-bit always when
+	  in Exchange.
+
 2006-08-27 J.J. Krabbendam <jkrabbendam@aimsys.nl>
 
 	* ospfd.c: (ospf_finish_final) default redistribute should be
