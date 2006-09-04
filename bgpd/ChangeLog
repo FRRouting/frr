@@ -1,3 +1,10 @@
+2006-09-03 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_route.c: Add 'show ... bgp ... <neighbour> prefix-count'
+	  commands, to provide detailed counts of prefixes for a peer.
+	  Informative, and should help pin down to pfxcnt drift
+	  problems.
+
 2006-08-27 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_advertise.c: (bgp_sync_delete) fix mtype in XFREE.

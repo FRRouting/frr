@@ -8386,6 +8386,219 @@ peer_lookup_in_view (struct vty *vty, const char *view_name,
   return peer;
 }
 
+enum bgp_pcounts
+{
+  PCOUNT_ADJ_IN = 0,
+  PCOUNT_DAMPED,
+  PCOUNT_REMOVED,
+  PCOUNT_HISTORY,
+  PCOUNT_STALE,
+  PCOUNT_VALID,
+  PCOUNT_ALL,
+  PCOUNT_COUNTED,
+  PCOUNT_PFCNT, /* the figure we display to users */
+  PCOUNT_MAX,
+};
+
+static const char *pcount_strs[] =
+{
+  [PCOUNT_ADJ_IN]  = "Adj-in",
+  [PCOUNT_DAMPED]  = "Damped",
+  [PCOUNT_REMOVED] = "Removed",
+  [PCOUNT_HISTORY] = "History",
+  [PCOUNT_STALE]   = "Stale",
+  [PCOUNT_VALID]   = "Valid",
+  [PCOUNT_ALL]     = "All RIB",
+  [PCOUNT_COUNTED] = "PfxCt counted",
+  [PCOUNT_PFCNT]   = "Useable",
+  [PCOUNT_MAX]     = NULL,
+};
+
+static int
+bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi)
+{
+  struct bgp_node *rn;
+  struct bgp_info *ri;
+  unsigned int pcounts[PCOUNT_MAX], i;
+  
+  if (!peer || !peer->bgp || !peer->afc[afi][safi]
+      || !peer->bgp->rib[afi][safi])
+    {
+      vty_out (vty, "%% No such neighbor or address family%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  
+  memset (&pcounts, 0, sizeof(pcounts));
+  
+  for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn;
+       rn = bgp_route_next (rn))
+    {
+      struct bgp_adj_in *ain;
+      
+      for (ain = rn->adj_in; ain; ain = ain->next)
+        if (ain->peer == peer)
+          pcounts[PCOUNT_ADJ_IN]++;
+
+#define PFCNT_EXCLUDED (BGP_INFO_DAMPED|BGP_INFO_HISTORY|BGP_INFO_REMOVED|BGP_INFO_STALE)
+      for (ri = rn->info; ri; ri = ri->next)
+        {
+          char buf[SU_ADDRSTRLEN];
+          
+          if (ri->peer != peer)
+            continue;
+          
+          pcounts[PCOUNT_ALL]++;
+          
+          if (CHECK_FLAG (ri->flags, BGP_INFO_DAMPED))
+            pcounts[PCOUNT_DAMPED]++;
+          if (CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
+            pcounts[PCOUNT_HISTORY]++;
+          if (CHECK_FLAG (ri->flags, BGP_INFO_REMOVED))
+            pcounts[PCOUNT_REMOVED]++;
+          if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
+            pcounts[PCOUNT_STALE]++;
+          if (CHECK_FLAG (ri->flags, BGP_INFO_VALID))
+            pcounts[PCOUNT_VALID]++;
+          if (!CHECK_FLAG (ri->flags, PFCNT_EXCLUDED))
+            pcounts[PCOUNT_PFCNT]++;
+          
+          if (CHECK_FLAG (ri->flags, BGP_INFO_COUNTED))
+            {
+              pcounts[PCOUNT_COUNTED]++;
+              if (CHECK_FLAG (ri->flags, PFCNT_EXCLUDED))
+                plog_warn (peer->log,
+                           "%s [pcount] %s/%d is counted but flags 0x%x",
+                           peer->host,
+                           inet_ntop(rn->p.family, &rn->p.u.prefix,
+                                     buf, SU_ADDRSTRLEN),
+                           rn->p.prefixlen,
+                           ri->flags);
+            }
+          else
+            {
+              if (!CHECK_FLAG (ri->flags, PFCNT_EXCLUDED))
+                plog_warn (peer->log,
+                           "%s [pcount] %s/%d not counted but flags 0x%x",
+                           peer->host,
+                           inet_ntop(rn->p.family, &rn->p.u.prefix,
+                                     buf, SU_ADDRSTRLEN),
+                           rn->p.prefixlen,
+                           ri->flags);
+            }
+        }
+    }
+#undef PFCNT_EXCLUDED
+
+  vty_out (vty, "Prefix counts for %s, %s%s", 
+           peer->host, afi_safi_print (afi, safi), VTY_NEWLINE);
+  vty_out (vty, "PfxCt: %ld%s", peer->pcount[afi][safi], VTY_NEWLINE);
+  vty_out (vty, "%sCounts from RIB table walk:%s%s", 
+           VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+
+  for (i = 0; i < PCOUNT_MAX; i++)
+      vty_out (vty, "%20s: %-10d%s", pcount_strs[i], pcounts[i], VTY_NEWLINE);
+
+  if (pcounts[PCOUNT_PFCNT] != peer->pcount[afi][safi])
+    {
+      vty_out (vty, "%s [pcount] PfxCt drift!%s",
+               peer->host, VTY_NEWLINE);
+      vty_out (vty, "Please report this bug, with the above command output%s",
+              VTY_NEWLINE);
+    }
+               
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_bgp_neighbor_prefix_counts,
+       show_ip_bgp_neighbor_prefix_counts_cmd,
+       "show ip bgp neighbors (A.B.C.D|X:X::X:X) prefix-counts",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Display detailed prefix count information\n")
+{
+  struct peer *peer;
+
+  peer = peer_lookup_in_view (vty, NULL, argv[0]);  
+  if (! peer) 
+    return CMD_WARNING;
+ 
+  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_UNICAST);
+}
+
+DEFUN (show_bgp_ipv6_neighbor_prefix_counts,
+       show_bgp_ipv6_neighbor_prefix_counts_cmd,
+       "show bgp ipv6 neighbors (A.B.C.D|X:X::X:X) prefix-counts",
+       SHOW_STR
+       BGP_STR
+       "Address family\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Display detailed prefix count information\n")
+{
+  struct peer *peer;
+
+  peer = peer_lookup_in_view (vty, NULL, argv[0]);  
+  if (! peer) 
+    return CMD_WARNING;
+ 
+  return bgp_peer_counts (vty, peer, AFI_IP6, SAFI_UNICAST);
+}
+
+DEFUN (show_ip_bgp_ipv4_neighbor_prefix_counts,
+       show_ip_bgp_ipv4_neighbor_prefix_counts_cmd,
+       "show ip bgp ipv4 (unicast|multicast) neighbors (A.B.C.D|X:X::X:X) prefix-counts",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Display detailed prefix count information\n")
+{
+  struct peer *peer;
+
+  peer = peer_lookup_in_view (vty, NULL, argv[1]);
+  if (! peer)
+    return CMD_WARNING;
+
+  if (strncmp (argv[0], "m", 1) == 0)
+    return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MULTICAST);
+
+  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_UNICAST);
+}
+
+DEFUN (show_ip_bgp_vpnv4_neighbor_prefix_counts,
+       show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd,
+       "show ip bgp vpnv4 all neighbors (A.B.C.D|X:X::X:X) prefix-counts",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Display detailed prefix count information\n")
+{
+  struct peer *peer;
+
+  peer = peer_lookup_in_view (vty, NULL, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+  
+  return bgp_peer_counts (vty, peer, AFI_IP, SAFI_MPLS_VPN);
+}
+
+
 static void
 show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 		int in)
@@ -10666,7 +10879,13 @@ bgp_route_init ()
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_address_cmd);
   install_element (ENABLE_NODE, &clear_ip_bgp_dampening_address_mask_cmd);
 
+  /* prefix count */
+  install_element (ENABLE_NODE, &show_ip_bgp_neighbor_prefix_counts_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_ipv4_neighbor_prefix_counts_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_vpnv4_neighbor_prefix_counts_cmd);
 #ifdef HAVE_IPV6
+  install_element (ENABLE_NODE, &show_bgp_ipv6_neighbor_prefix_counts_cmd);
+
   /* New config IPv6 BGP commands.  */
   install_element (BGP_IPV6_NODE, &ipv6_bgp_network_cmd);
   install_element (BGP_IPV6_NODE, &ipv6_bgp_network_route_map_cmd);
