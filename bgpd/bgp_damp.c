@@ -148,12 +148,12 @@ bgp_reuse_timer (struct thread *t)
       if (bdi->penalty < damp->reuse_limit)
 	{
 	  /* Reuse the route.  */
-	  UNSET_FLAG (bdi->binfo->flags, BGP_INFO_DAMPED);
+	  bgp_info_unset_flag (bdi->rn, bdi->binfo, BGP_INFO_DAMPED);
 	  bdi->suppress_time = 0;
 
 	  if (bdi->lastrecord == BGP_RECORD_UPDATE)
 	    {
-	      UNSET_FLAG (bdi->binfo->flags, BGP_INFO_HISTORY);
+	      bgp_info_unset_flag (bdi->rn, bdi->binfo, BGP_INFO_HISTORY);
 	      bgp_aggregate_increment (bgp, &bdi->rn->p, bdi->binfo,
 				       bdi->afi, bdi->safi);   
 	      bgp_process (bgp, bdi->rn, bdi->afi, bdi->safi);
@@ -223,11 +223,13 @@ bgp_damp_withdraw (struct bgp_info *binfo, struct bgp_node *rn,
       bdi->flap++;
     }
   
+  assert ((rn == bdi->rn) && (binfo == bdi->binfo));
+  
   bdi->lastrecord = BGP_RECORD_WITHDRAW;
   bdi->t_updated = t_now;
 
   /* Make this route as historical status.  */
-  SET_FLAG (binfo->flags, BGP_INFO_HISTORY);
+  bgp_info_set_flag (rn, binfo, BGP_INFO_HISTORY);
 
   /* Remove the route from a reuse list if it is on one.  */
   if (CHECK_FLAG (bdi->binfo->flags, BGP_INFO_DAMPED))
@@ -245,7 +247,7 @@ bgp_damp_withdraw (struct bgp_info *binfo, struct bgp_node *rn,
      insert into reuse_list.  */
   if (bdi->penalty >= damp->suppress_value)
     {
-      SET_FLAG (bdi->binfo->flags, BGP_INFO_DAMPED);
+      bgp_info_set_flag (rn, binfo, BGP_INFO_DAMPED);
       bdi->suppress_time = t_now;
       BGP_DAMP_LIST_DEL (damp, bdi);
       bgp_reuse_list_add (bdi);
@@ -267,7 +269,7 @@ bgp_damp_update (struct bgp_info *binfo, struct bgp_node *rn,
     return BGP_DAMP_USED;
 
   t_now = time (NULL);
-  UNSET_FLAG (binfo->flags, BGP_INFO_HISTORY); 
+  bgp_info_unset_flag (rn, binfo, BGP_INFO_HISTORY);
 
   bdi->lastrecord = BGP_RECORD_UPDATE;
   bdi->penalty = bgp_damp_decay (t_now - bdi->t_updated, bdi->penalty);
@@ -278,7 +280,7 @@ bgp_damp_update (struct bgp_info *binfo, struct bgp_node *rn,
   else if (CHECK_FLAG (bdi->binfo->flags, BGP_INFO_DAMPED)
 	   && (bdi->penalty < damp->reuse_limit) )
     {
-      UNSET_FLAG (bdi->binfo->flags, BGP_INFO_DAMPED);
+      bgp_info_unset_flag (rn, binfo, BGP_INFO_DAMPED);
       bgp_reuse_list_delete (bdi);
       BGP_DAMP_LIST_ADD (damp, bdi);
       bdi->suppress_time = 0;
@@ -311,7 +313,7 @@ bgp_damp_scan (struct bgp_info *binfo, afi_t afi, safi_t safi)
 
       if (t_diff >= damp->max_suppress_time)
         {
-          UNSET_FLAG (binfo->flags, BGP_INFO_DAMPED);
+          bgp_info_unset_flag (bdi->rn, binfo, BGP_INFO_DAMPED);
           bgp_reuse_list_delete (bdi);
 	  BGP_DAMP_LIST_ADD (damp, bdi);
           bdi->penalty = damp->reuse_limit;
@@ -358,8 +360,7 @@ bgp_damp_info_free (struct bgp_damp_info *bdi, int withdraw)
   else
     BGP_DAMP_LIST_DEL (damp, bdi);
 
-  UNSET_FLAG (binfo->flags, BGP_INFO_DAMPED);
-  UNSET_FLAG (binfo->flags, BGP_INFO_HISTORY);
+  bgp_info_unset_flag (bdi->rn, binfo, BGP_INFO_HISTORY|BGP_INFO_DAMPED);
 
   if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw)
     bgp_info_delete (bdi->rn, binfo);

@@ -105,6 +105,17 @@ struct bgp_static
   u_char tag[3];
 };
 
+/* Flags which indicate a route is unuseable in some form */
+#define BGP_INFO_UNUSEABLE \
+  (BGP_INFO_HISTORY|BGP_INFO_DAMPED|BGP_INFO_REMOVED)
+/* Macro to check BGP information is alive or not.  Sadly,
+ * not equivalent to just checking previous, because of the
+ * sense of the additional VALID flag.
+ */
+#define BGP_INFO_HOLDDOWN(BI) \
+  (! CHECK_FLAG ((BI)->flags, BGP_INFO_VALID) \
+   || CHECK_FLAG ((BI)->flags, BGP_INFO_UNUSEABLE))
+
 #define DISTRIBUTE_IN_NAME(F)   ((F)->dlist[FILTER_IN].name)
 #define DISTRIBUTE_IN(F)        ((F)->dlist[FILTER_IN].alist)
 #define DISTRIBUTE_OUT_NAME(F)  ((F)->dlist[FILTER_OUT].name)
@@ -151,6 +162,8 @@ extern struct bgp_info *bgp_info_lock (struct bgp_info *);
 extern struct bgp_info *bgp_info_unlock (struct bgp_info *);
 extern void bgp_info_add (struct bgp_node *rn, struct bgp_info *ri);
 extern void bgp_info_delete (struct bgp_node *rn, struct bgp_info *ri);
+extern void bgp_info_set_flag (struct bgp_node *, struct bgp_info *, u_int32_t);
+extern void bgp_info_unset_flag (struct bgp_node *, struct bgp_info *, u_int32_t);
 
 extern int bgp_nlri_sanity_check (struct peer *, int, u_char *, bgp_size_t);
 extern int bgp_nlri_parse (struct peer *, struct attr *, struct bgp_nlri *);

@@ -478,11 +478,11 @@ bgp_scan (afi_t afi, safi_t safi)
 		    {
 		      bgp_aggregate_decrement (bgp, &rn->p, bi,
 					       afi, SAFI_UNICAST);
-		      UNSET_FLAG (bi->flags, BGP_INFO_VALID);
+		      bgp_info_unset_flag (rn, bi, BGP_INFO_VALID);
 		    }
 		  else
 		    {
-		      SET_FLAG (bi->flags, BGP_INFO_VALID);
+		      bgp_info_set_flag (rn, bi, BGP_INFO_VALID);
 		      bgp_aggregate_increment (bgp, &rn->p, bi,
 					       afi, SAFI_UNICAST);
 		    }

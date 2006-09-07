@@ -740,13 +740,6 @@ enum bgp_clear_type
 #define BGP_INPUT(P)         ((P)->ibuf)
 #define BGP_INPUT_PNT(P)     (STREAM_PNT(BGP_INPUT(P)))
 
-/* Macro to check BGP information is alive or not.  */
-#define BGP_INFO_HOLDDOWN(BI)                         \
-  (! CHECK_FLAG ((BI)->flags, BGP_INFO_VALID)         \
-   || CHECK_FLAG ((BI)->flags, BGP_INFO_HISTORY)      \
-   || CHECK_FLAG ((BI)->flags, BGP_INFO_DAMPED)       \
-   || CHECK_FLAG ((BI)->flags, BGP_INFO_REMOVED))
-
 /* Count prefix size from mask length */
 #define PSIZE(a) (((a) + 7) / (8))
 

@@ -1,3 +1,24 @@
+2006-09-06 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Squash any and all prefix-count issues by
+	  abstracting route flag changes, and maintaining count as and
+	  when flags are modified (rather than relying on explicit
+	  modifications of count being sprinkled in just the right
+	  places throughout the code).
+	* bgp_route.c: (bgp_pcount_{dec,inc}rement) removed.
+	  (bgp_pcount_adjust) new, update prefix count as
+	  needed for a given route.
+	  (bgp_info_{uns,s}et_flag) set/unset a BGP_INFO route status
+	  flag, calling previous function when appropriate.
+	  (general) Update all set/unsets of flags to use previous.
+	  Remove pcount_{dec,inc}rement calls.
+	  No need to unset BGP_INFO_VALID in places where
+	  bgp_info_delete is called, it does that anyway.
+	* bgp_{damp,nexthop}.c: Update to use bgp_info_{un,}set_flag.
+	* bgp_route.h: Export bgp_info_{un,}set_flag.
+	  Add a 'meta' BGP_INFO flag, BGP_INFO_UNUSEABLE.
+	  Move BGP_INFO_HOLDDOWN macro to here from bgpd.h
+
 2006-09-03 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_route.c: Add 'show ... bgp ... <neighbour> prefix-count'
