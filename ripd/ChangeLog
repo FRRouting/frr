@@ -2,6 +2,9 @@
 
 	* ripd.c: (rip_read) remove gratuitous use of mid-function
 	  declaration of vrecv, bug #278.
+	* rip_routemap.c: (route_set_metric) underflow check needs to
+	  use signed, problem identified and diagnosed by Pavel
+	  Nikiforov in bug #293.
 
 2006-06-29 Paul Jakma <paul.jakma@sun.com>
 

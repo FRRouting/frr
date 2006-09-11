@@ -530,7 +530,7 @@ route_set_metric (void *rule, struct prefix *prefix,
       else if (mod->type == metric_absolute)
 	rinfo->metric_out = mod->metric;
 
-      if (rinfo->metric_out < 1)
+      if ((signed int)rinfo->metric_out < 1)
 	rinfo->metric_out = 1;
       if (rinfo->metric_out > RIP_METRIC_INFINITY)
 	rinfo->metric_out = RIP_METRIC_INFINITY;
