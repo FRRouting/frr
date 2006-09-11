@@ -1818,6 +1818,7 @@ rip_read (struct thread *t)
   struct rip_packet *packet;
   struct sockaddr_in from;
   int len;
+  int vrecv;
   socklen_t fromlen;
   struct interface *ifp;
   struct connected *ifc;
@@ -1937,8 +1938,8 @@ rip_read (struct thread *t)
     }
 
   /* RIP Version check. RFC2453, 4.6 and 5.1 */
-  int vrecv = ((ri->ri_receive == RI_RIP_UNSPEC) ?
-               rip->version_recv : ri->ri_receive);
+  vrecv = ((ri->ri_receive == RI_RIP_UNSPEC) ?
+           rip->version_recv : ri->ri_receive);
   if ((packet->version == RIPv1) && !(vrecv & RIPv1))
     {
       if (IS_RIP_DEBUG_PACKET)

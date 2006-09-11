@@ -1,3 +1,8 @@
+2006-09-11 Paul Jakma <paul.jakma@sun.com>
+
+	* ripd.c: (rip_read) remove gratuitous use of mid-function
+	  declaration of vrecv, bug #278.
+
 2006-06-29 Paul Jakma <paul.jakma@sun.com>
 
 	* rip_zebra: (general) convert redistribute commands to use
