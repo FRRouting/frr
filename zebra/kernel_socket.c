@@ -136,8 +136,12 @@ struct message rtm_type_str[] =
   {RTM_REDIRECT, "RTM_REDIRECT"},
   {RTM_MISS,     "RTM_MISS"},
   {RTM_LOCK,     "RTM_LOCK"},
+#ifdef OLDADD
   {RTM_OLDADD,   "RTM_OLDADD"},
+#endif /* RTM_OLDADD */
+#ifdef RTM_OLDDEL
   {RTM_OLDDEL,   "RTM_OLDDEL"},
+#endif /* RTM_OLDDEL */
   {RTM_RESOLVE,  "RTM_RESOLVE"},
   {RTM_NEWADDR,  "RTM_NEWADDR"},
   {RTM_DELADDR,  "RTM_DELADDR"},

@@ -1,3 +1,8 @@
+2006-09-13 Tom Everett <tom@khubla.com>
+
+	* kernel_socket.c (rtm_type_str): ifdef RTM_OLD{ADD,DEL} to
+	compile on systems that no longer define them.
+
 2006-08-06 Paul Jakma <paul.jakma@sun.com>
 
 	* interface.h: (ifstat_update_proc) declaration should match
