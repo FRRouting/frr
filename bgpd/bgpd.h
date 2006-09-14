@@ -386,7 +386,6 @@ struct peer
 #define PEER_STATUS_GROUP             (1 << 4) /* peer-group conf */
 #define PEER_STATUS_NSF_MODE          (1 << 5) /* NSF aware peer */
 #define PEER_STATUS_NSF_WAIT          (1 << 6) /* wait comeback peer */
-#define PEER_STATUS_CLEARING          (1 << 7) /* peers table being cleared */
 
   /* Peer status af flags (reset in bgp_stop) */
   u_int16_t af_sflags[AFI_MAX][SAFI_MAX];
@@ -662,7 +661,9 @@ struct bgp_nlri
 #define OpenSent                                 4
 #define OpenConfirm                              5
 #define Established                              6
-#define BGP_STATUS_MAX                           7
+#define Clearing                                 7
+#define Deleted                                  8
+#define BGP_STATUS_MAX                           9
 
 /* BGP finite state machine events.  */
 #define BGP_Start                                1
@@ -678,7 +679,8 @@ struct bgp_nlri
 #define Receive_KEEPALIVE_message               11
 #define Receive_UPDATE_message                  12
 #define Receive_NOTIFICATION_message            13
-#define BGP_EVENTS_MAX                          14
+#define Clearing_Completed                      14
+#define BGP_EVENTS_MAX                          15
 
 /* BGP timers default value.  */
 #define BGP_INIT_START_TIMER                     5

@@ -2527,11 +2527,10 @@ bgp_clear_node_complete (struct work_queue *wq)
 {
   struct peer *peer = wq->spec.data;
   
-  UNSET_FLAG (peer->sflags, PEER_STATUS_CLEARING);
   peer_unlock (peer); /* bgp_clear_node_complete */
   
   /* Tickle FSM to start moving again */
-  BGP_EVENT_ADD (peer, BGP_Start);
+  BGP_EVENT_ADD (peer, Clearing_Completed);
 }
 
 static void
@@ -2593,9 +2592,10 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
   if (peer->clear_node_queue == NULL)
     bgp_clear_node_queue_init (peer);
   
-  /* bgp_fsm.c will not bring CLEARING sessions out of Idle this
-   * protects against peers which flap faster than we can we clear,
-   * which could lead to:
+  /* bgp_fsm.c keeps sessions in state Clearing, not transitioning to
+   * Idle until it receives a Clearing_Completed event. This protects
+   * against peers which flap faster than we can we clear, which could
+   * lead to:
    *
    * a) race with routes from the new session being installed before
    *    clear_route_node visits the node (to delete the route of that
@@ -2604,11 +2604,8 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
    *    on the process_main queue. Fast-flapping could cause that queue
    *    to grow and grow.
    */
-  if (!CHECK_FLAG (peer->sflags, PEER_STATUS_CLEARING))
-    {
-      SET_FLAG (peer->sflags, PEER_STATUS_CLEARING);
-      peer_lock (peer); /* bgp_clear_node_complete */
-    }
+  if (!peer->clear_node_queue->thread)
+    peer_lock (peer); /* bgp_clear_node_complete */
   
   if (safi != SAFI_MPLS_VPN)
     bgp_clear_route_table (peer, afi, safi, NULL, NULL);
@@ -2624,11 +2621,37 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
         bgp_clear_route_table (peer, afi, safi, NULL, rsclient);
     }
   
-  /* If no routes were cleared, nothing was added to workqueue, run the
-   * completion function now.
+  /* If no routes were cleared, nothing was added to workqueue, the
+   * completion function won't be run by workqueue code - call it here.
+   *
+   * Additionally, there is a presumption in FSM that clearing is only
+   * needed if peer state is Established - peers in pre-Established states
+   * shouldn't have any route-update state associated with them (in or out).
+   *
+   * We still get here from FSM through bgp_stop->clear_route_all in
+   * pre-Established though, so this is a useful sanity check to ensure
+   * the assumption above holds.
+   *
+   * At some future point, this check could be move to the top of the
+   * function, and do a quick early-return when state is
+   * pre-Established, avoiding above list and table scans. Once we're
+   * sure it is safe..
    */
   if (!peer->clear_node_queue->thread)
     bgp_clear_node_complete (peer->clear_node_queue);
+  else
+    {
+      /* clearing queue scheduled. Normal if in Established state
+       * (and about to transition out of it), but otherwise...
+       */
+      if (peer->status != Established)
+        {
+          plog_err (peer->log, "%s [Error] State %s is not Established,"
+                    " but routes were cleared - bug!",
+                    peer->host, LOOKUP (bgp_status_msg, peer->status));
+          assert (peer->status == Established);
+        }
+    }
 }
   
 void

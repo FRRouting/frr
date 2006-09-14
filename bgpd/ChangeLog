@@ -1,3 +1,55 @@
+2006-09-14 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Fix some niggly issues around 'shutdown' and clearing
+	  by adding a Clearing FSM wait-state and a hidden 'Deleted'
+	  FSM state, to allow deleted peers to 'cool off' and hit 0
+	  references. This introduces a slow memory leak of struct peer,
+	  however that's more a testament to the fragility of the
+	  reference counting than a bug in this patch, cleanup of
+	  reference counting to fix this is to follow.
+	* bgpd.h: Add Clearing, Deleted states and Clearing_Completed
+	  and event.
+	* bgp_debug.c: (bgp_status_msg[]) Add strings for Clearing and
+	  Deleted.
+	* bgp_fsm.h: Don't allow timer/event threads to set anything
+	  for Deleted peers.
+	* bgp_fsm.c: (bgp_timer_set) Add Clearing and Deleted. Deleted
+	  needs to stop everything.
+	  (bgp_stop) Remove explicit fsm_change_status call, the
+	  general framework handles the transition.
+	  (bgp_start) Log a warning if a start is attempted on a peer
+	  that should stay down, trying to start a peer.
+	  (struct .. FSM) Add Clearing_Completed
+	  events, has little influence except when in state
+	  Clearing to signal wait-state can end.
+	  Add Clearing and Deleted states, former is a wait-state,
+	  latter is a placeholder state to allow peers to disappear
+	  quietly once refcounts settle.
+	  (bgp_event) Try reduce verbosity of FSM state-change debug, 
+	  changes to same state are not interesting (Established->Established)
+	  Allow NULL action functions in FSM.
+	* bgp_packet.c: (bgp_write) Use FSM events, rather than trying
+	  to twiddle directly with FSM state behind the back of FSM.
+	  (bgp_write_notify) ditto.
+	  (bgp_read) Remove the vague ACCEPT_PEER peer_unlock, or else
+	  this patch crashes, now it leaks instead.
+	* bgp_route.c: (bgp_clear_node_complete) Clearing_Completed
+	  event, to end clearing.
+	  (bgp_clear_route) See extensive comments.
+	* bgpd.c: (peer_free) should only be called while in Deleted,
+	  peer refcounting controls when peer_free is called.
+	  bgp_sync_delete should be here, not in peer_delete.
+	  (peer_delete) Initiate delete. 
+	  Transition to Deleted state manually.
+	  When removing peer from indices that provide visibility of it,
+	  take great care to be idempotent wrt the reference counting
+	  of struct peer through those indices.
+	  Use bgp_timer_set, rather than replicating.
+	  Call to bgp_sync_delete isn't appropriate here, sync can be
+	  referenced while shutting down and finishing deletion.
+	  (peer_group_bind) Take care to be idempotent wrt list references
+	  indexing peers.
+
 2006-09-13 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_aspath.c: (aspath_highest) new, return highest ASN in an

@@ -62,6 +62,8 @@ struct message bgp_status_msg[] =
   { OpenSent, "OpenSent" },
   { OpenConfirm, "OpenConfirm" },
   { Established, "Established" },
+  { Clearing,    "Clearing"    },
+  { Deleted,     "Deleted"     },
 };
 int bgp_status_msg_max = BGP_STATUS_MAX;
 
