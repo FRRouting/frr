@@ -1,5 +1,12 @@
 2006-09-14 Paul Jakma <paul.jakma@sun.com>
 
+	* bgp_route.c: (bgp_table_stats_walker) Address space announced
+	  should only count top-level unaggregateable prefixes, to
+	  avoid falling afoul of anti-dodgy-accounting regulations
+	  in various jurisdictions.. ;)
+
+2006-09-14 Paul Jakma <paul.jakma@sun.com>
+
 	* (general) fix the peer refcount issue exposed by previous, by
 	  just removing refcounting of peer threads, which is mostly
 	  senseless as they're references leading from struct peer,

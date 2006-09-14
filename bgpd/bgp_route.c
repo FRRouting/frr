@@ -8522,13 +8522,14 @@ bgp_table_stats_walker (struct thread *t)
         prn = prn->parent;
       
       if (prn == NULL || prn == top)
-        ts->counts[BGP_STATS_UNAGGREGATEABLE]++;
+        {
+          ts->counts[BGP_STATS_UNAGGREGATEABLE]++;
+          /* announced address space */
+          if (space)
+            ts->counts[BGP_STATS_SPACE] += 1 << (space - rn->p.prefixlen);
+        }
       else if (prn->info)
         ts->counts[BGP_STATS_MAX_AGGREGATEABLE]++;
-      
-      /* announced address space */
-      if (space)
-        ts->counts[BGP_STATS_SPACE] += 1 << (space - rn->p.prefixlen);
       
       for (ri = rn->info; ri; ri = ri->next)
         {
