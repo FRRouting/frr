@@ -1,3 +1,18 @@
+2006-09-13 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_aspath.c: (aspath_highest) new, return highest ASN in an
+	  aspath.
+	* bgp_route.c: (bgp_peer_count_walker) new, do the walk done
+	  in bgp_peer_counts as a thread.
+	  (bgp_peer_counts) move walk to previous and call it via
+	  thread_execute so this RIB walk shows up in thread stats.
+	  (bgp_table_stats) New, gather some statistics for a given
+	  RIB.
+	  (bgp_table_stats_walker) New, RIB walker thread for former.
+	  (bgp_table_stats_vty) Parsing front-end for 'show bgp ...',
+	  useful model for future rationalisation of 'show ... bgp'.
+	  (bgp_route_init) Add new RIB stats commands.
+	
 2006-09-06 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) Squash any and all prefix-count issues by

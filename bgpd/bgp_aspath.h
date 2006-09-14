@@ -87,6 +87,7 @@ extern unsigned long aspath_count (void);
 extern unsigned int aspath_count_hops (struct aspath *);
 extern unsigned int aspath_count_confeds (struct aspath *);
 extern unsigned int aspath_size (struct aspath *);
+extern as_t aspath_highest (struct aspath *);
 extern void aspath_put (struct stream *, struct aspath *);
 
 /* For SNMP BGP4PATHATTRASPATHSEGMENT, might be useful for debug */

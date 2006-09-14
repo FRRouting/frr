@@ -434,6 +434,26 @@ aspath_size (struct aspath *aspath)
   return size;
 }
 
+/* Return highest public ASN in path */
+as_t
+aspath_highest (struct aspath *aspath)
+{
+  struct assegment *seg = aspath->segments;
+  as_t highest = 0;
+  unsigned int i;
+  
+  while (seg)
+    {
+      for (i = 0; i < seg->length; i++)
+        if (seg->as[i] > highest
+            && (seg->as[i] < BGP_PRIVATE_AS_MIN
+                || seg->as[i] > BGP_PRIVATE_AS_MAX))
+	  highest = seg->as[i];
+      seg = seg->next;
+    }
+  return highest;
+}
+
 /* Convert aspath structure to string expression. */
 static char *
 aspath_make_str_count (struct aspath *as)

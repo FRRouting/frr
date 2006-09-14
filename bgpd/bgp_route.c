@@ -8390,7 +8390,362 @@ peer_lookup_in_view (struct vty *vty, const char *view_name,
   
   return peer;
 }
+
+enum bgp_stats
+{
+  BGP_STATS_MAXBITLEN = 0,
+  BGP_STATS_RIB,
+  BGP_STATS_PREFIXES,
+  BGP_STATS_TOTPLEN,
+  BGP_STATS_UNAGGREGATEABLE,
+  BGP_STATS_MAX_AGGREGATEABLE,
+  BGP_STATS_AGGREGATES,
+  BGP_STATS_SPACE,
+  BGP_STATS_ASPATH_COUNT,
+  BGP_STATS_ASPATH_MAXHOPS,
+  BGP_STATS_ASPATH_TOTHOPS,
+  BGP_STATS_ASPATH_MAXSIZE,
+  BGP_STATS_ASPATH_TOTSIZE,
+  BGP_STATS_ASN_HIGHEST,
+  BGP_STATS_MAX,
+};
 
+static const char *table_stats_strs[] =
+{
+  [BGP_STATS_PREFIXES]            = "Total Prefixes",
+  [BGP_STATS_TOTPLEN]             = "Average prefix length",
+  [BGP_STATS_RIB]                 = "Total Advertisements",
+  [BGP_STATS_UNAGGREGATEABLE]     = "Unaggregateable prefixes",
+  [BGP_STATS_MAX_AGGREGATEABLE]   = "Maximum aggregateable prefixes",
+  [BGP_STATS_AGGREGATES]          = "BGP Aggregate advertisements",
+  [BGP_STATS_SPACE]               = "Address space advertised",
+  [BGP_STATS_ASPATH_COUNT]        = "Advertisements with paths",
+  [BGP_STATS_ASPATH_MAXHOPS]      = "Longest AS-Path (hops)",
+  [BGP_STATS_ASPATH_MAXSIZE]      = "Largest AS-Path (bytes)",
+  [BGP_STATS_ASPATH_TOTHOPS]      = "Average AS-Path length (hops)",
+  [BGP_STATS_ASPATH_TOTSIZE]      = "Average AS-Path size (bytes)",
+  [BGP_STATS_ASN_HIGHEST]         = "Highest public ASN",
+  [BGP_STATS_MAX] = NULL,
+};
+
+struct bgp_table_stats
+{
+  struct bgp_table *table;
+  unsigned long long counts[BGP_STATS_MAX];
+};
+
+#if 0
+#define TALLY_SIGFIG 100000
+static unsigned long
+ravg_tally (unsigned long count, unsigned long oldavg, unsigned long newval)
+{
+  unsigned long newtot = (count-1) * oldavg + (newval * TALLY_SIGFIG);
+  unsigned long res = (newtot * TALLY_SIGFIG) / count;
+  unsigned long ret = newtot / count;
+  
+  if ((res % TALLY_SIGFIG) > (TALLY_SIGFIG/2))
+    return ret + 1;
+  else
+    return ret;
+}
+#endif
+
+static int
+bgp_table_stats_walker (struct thread *t)
+{
+  struct bgp_node *rn;
+  struct bgp_node *top;
+  struct bgp_table_stats *ts = THREAD_ARG (t);
+  unsigned int space = 0;
+  
+  top = bgp_table_top (ts->table);
+
+  switch (top->p.family)
+    {
+      case AF_INET:
+        space = IPV4_MAX_BITLEN;
+        break;
+      case AF_INET6:
+        space = IPV6_MAX_BITLEN;
+        break;
+    }
+    
+  ts->counts[BGP_STATS_MAXBITLEN] = space;
+
+  for (rn = top; rn; rn = bgp_route_next (rn))
+    {
+      struct bgp_info *ri;
+      struct bgp_node *prn = rn->parent;
+      unsigned int rinum = 0;
+      
+      if (rn == top)
+        continue;
+      
+      if (!rn->info)
+        continue;
+      
+      ts->counts[BGP_STATS_PREFIXES]++;
+      ts->counts[BGP_STATS_TOTPLEN] += rn->p.prefixlen;
+
+#if 0
+      ts->counts[BGP_STATS_AVGPLEN]
+        = ravg_tally (ts->counts[BGP_STATS_PREFIXES],
+                      ts->counts[BGP_STATS_AVGPLEN],
+                      rn->p.prefixlen);
+#endif
+      
+      /* check if the prefix is included by any other announcements */
+      while (prn && !prn->info)
+        prn = prn->parent;
+      
+      if (prn == NULL || prn == top)
+        ts->counts[BGP_STATS_UNAGGREGATEABLE]++;
+      else if (prn->info)
+        ts->counts[BGP_STATS_MAX_AGGREGATEABLE]++;
+      
+      /* announced address space */
+      if (space)
+        ts->counts[BGP_STATS_SPACE] += 1 << (space - rn->p.prefixlen);
+      
+      for (ri = rn->info; ri; ri = ri->next)
+        {
+          rinum++;
+          ts->counts[BGP_STATS_RIB]++;
+          
+          if (ri->attr &&
+              (CHECK_FLAG (ri->attr->flag,
+                           ATTR_FLAG_BIT (BGP_ATTR_ATOMIC_AGGREGATE))))
+            ts->counts[BGP_STATS_AGGREGATES]++;
+          
+          /* as-path stats */
+          if (ri->attr && ri->attr->aspath)
+            {
+              unsigned int hops = aspath_count_hops (ri->attr->aspath);
+              unsigned int size = aspath_size (ri->attr->aspath);
+              as_t highest = aspath_highest (ri->attr->aspath);
+              
+              ts->counts[BGP_STATS_ASPATH_COUNT]++;
+              
+              if (hops > ts->counts[BGP_STATS_ASPATH_MAXHOPS])
+                ts->counts[BGP_STATS_ASPATH_MAXHOPS] = hops;
+              
+              if (size > ts->counts[BGP_STATS_ASPATH_MAXSIZE])
+                ts->counts[BGP_STATS_ASPATH_MAXSIZE] = size;
+              
+              ts->counts[BGP_STATS_ASPATH_TOTHOPS] += hops;
+              ts->counts[BGP_STATS_ASPATH_TOTSIZE] += size;
+#if 0
+              ts->counts[BGP_STATS_ASPATH_AVGHOPS] 
+                = ravg_tally (ts->counts[BGP_STATS_ASPATH_COUNT],
+                              ts->counts[BGP_STATS_ASPATH_AVGHOPS],
+                              hops);
+              ts->counts[BGP_STATS_ASPATH_AVGSIZE]
+                = ravg_tally (ts->counts[BGP_STATS_ASPATH_COUNT],
+                              ts->counts[BGP_STATS_ASPATH_AVGSIZE],
+                              size);
+#endif
+              if (highest > ts->counts[BGP_STATS_ASN_HIGHEST])
+                ts->counts[BGP_STATS_ASN_HIGHEST] = highest;
+            }
+        }
+    }
+  return 0;
+}
+
+static int
+bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
+{
+  struct bgp_table_stats ts;
+  unsigned int i;
+  
+  if (!bgp->rib[afi][safi])
+    {
+      vty_out (vty, "%% No RIB exist for the AFI/SAFI%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  
+  memset (&ts, 0, sizeof (ts));
+  ts.table = bgp->rib[afi][safi];
+  thread_execute (bm->master, bgp_table_stats_walker, &ts, 0);
+
+  vty_out (vty, "BGP %s RIB statistics%s%s",
+           afi_safi_print (afi, safi), VTY_NEWLINE, VTY_NEWLINE);
+  
+  for (i = 0; i < BGP_STATS_MAX; i++)
+    {
+      if (!table_stats_strs[i])
+        continue;
+      
+      switch (i)
+        {
+#if 0
+          case BGP_STATS_ASPATH_AVGHOPS:
+          case BGP_STATS_ASPATH_AVGSIZE:
+          case BGP_STATS_AVGPLEN:
+            vty_out (vty, "%-30s: ", table_stats_strs[i]);
+            vty_out (vty, "%12.2f",
+                     (float)ts.counts[i] / (float)TALLY_SIGFIG);
+            break;
+#endif
+          case BGP_STATS_ASPATH_TOTHOPS:
+          case BGP_STATS_ASPATH_TOTSIZE:
+            vty_out (vty, "%-30s: ", table_stats_strs[i]);
+            vty_out (vty, "%12.2f",
+                     ts.counts[i] ?
+                     (float)ts.counts[i] / 
+                      (float)ts.counts[BGP_STATS_ASPATH_COUNT]
+                     : 0);
+            break;
+          case BGP_STATS_TOTPLEN:
+            vty_out (vty, "%-30s: ", table_stats_strs[i]);
+            vty_out (vty, "%12.2f",
+                     ts.counts[i] ?
+                     (float)ts.counts[i] / 
+                      (float)ts.counts[BGP_STATS_PREFIXES]
+                     : 0);
+            break;
+          case BGP_STATS_SPACE:
+            vty_out (vty, "%-30s: ", table_stats_strs[i]);
+            vty_out (vty, "%12llu%s", ts.counts[i], VTY_NEWLINE);
+            if (ts.counts[BGP_STATS_MAXBITLEN] < 9)
+              break;
+            vty_out (vty, "%30s: ", "\% announced ");
+            vty_out (vty, "%12.2f%s", 
+                     100 * (float)ts.counts[BGP_STATS_SPACE] / 
+                       (float)((u_int64_t)1UL << ts.counts[BGP_STATS_MAXBITLEN]),
+                       VTY_NEWLINE);
+            vty_out (vty, "%30s: ", "/8 equivalent ");
+            vty_out (vty, "%12.2f%s", 
+                     (float)ts.counts[BGP_STATS_SPACE] / 
+                       (float)(1UL << (ts.counts[BGP_STATS_MAXBITLEN] - 8)),
+                     VTY_NEWLINE);
+            if (ts.counts[BGP_STATS_MAXBITLEN] < 25)
+              break;
+            vty_out (vty, "%30s: ", "/24 equivalent ");
+            vty_out (vty, "%12.2f", 
+                     (float)ts.counts[BGP_STATS_SPACE] / 
+                       (float)(1UL << (ts.counts[BGP_STATS_MAXBITLEN] - 24)));
+            break;
+          default:
+            vty_out (vty, "%-30s: ", table_stats_strs[i]);
+            vty_out (vty, "%12llu", ts.counts[i]);
+        }
+        
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+  return CMD_SUCCESS;
+}
+
+static int
+bgp_table_stats_vty (struct vty *vty, const char *name,
+                     const char *afi_str, const char *safi_str)
+{
+  struct bgp *bgp;
+  afi_t afi;
+  safi_t safi;
+  
+ if (name)
+    bgp = bgp_lookup_by_name (name);
+  else
+    bgp = bgp_get_default ();
+
+  if (!bgp)
+    {
+      vty_out (vty, "%% No such BGP instance exist%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  if (strncmp (afi_str, "ipv", 3) == 0)
+    {
+      if (strncmp (afi_str, "ipv4", 4) == 0)
+        afi = AFI_IP;
+      else if (strncmp (afi_str, "ipv6", 4) == 0)
+        afi = AFI_IP6;
+      else
+        {
+          vty_out (vty, "%% Invalid address family %s%s",
+                   afi_str, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+      if (strncmp (safi_str, "m", 1) == 0)
+        safi = SAFI_MULTICAST;
+      else if (strncmp (safi_str, "u", 1) == 0)
+        safi = SAFI_UNICAST;
+      else if (strncmp (safi_str, "vpnv4", 5) == 0)
+        safi = BGP_SAFI_VPNV4;
+      else if (strncmp (safi_str, "vpnv6", 6) == 0)
+        safi = BGP_SAFI_VPNV6;
+      else
+        {
+          vty_out (vty, "%% Invalid subsequent address family %s%s",
+                   safi_str, VTY_NEWLINE);
+          return CMD_WARNING;
+        }
+    }
+  else
+    {
+      vty_out (vty, "%% Invalid address family %s%s",
+               afi_str, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if ((afi == AFI_IP && safi ==  BGP_SAFI_VPNV6)
+      || (afi == AFI_IP6 && safi == BGP_SAFI_VPNV4))
+    {
+      vty_out (vty, "%% Invalid subsequent address family %s for %s%s",
+               afi_str, safi_str, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  return bgp_table_stats (vty, bgp, afi, safi);
+}
+
+DEFUN (show_bgp_statistics,
+       show_bgp_statistics_cmd,
+       "show bgp (ipv4|ipv6) (unicast|multicast) statistics",
+       SHOW_STR
+       BGP_STR
+       "Address family\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "BGP RIB advertisement statistics\n")
+{
+  return bgp_table_stats_vty (vty, NULL, argv[0], argv[1]);
+}
+
+ALIAS (show_bgp_statistics,
+       show_bgp_statistics_vpnv4_cmd,
+       "show bgp (ipv4) (vpnv4) statistics",
+       SHOW_STR
+       BGP_STR
+       "Address family\n"
+       "Address Family modifier\n"
+       "BGP RIB advertisement statistics\n")
+
+DEFUN (show_bgp_statistics_view,
+       show_bgp_statistics_view_cmd,
+       "show bgp view WORD (ipv4|ipv6) (unicast|multicast) statistics",
+       SHOW_STR
+       BGP_STR
+       "BGP view\n"
+       "Address family\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "Address Family modifier\n"
+       "BGP RIB advertisement statistics\n")
+{
+  return bgp_table_stats_vty (vty, NULL, argv[0], argv[1]);
+}
+
+ALIAS (show_bgp_statistics_view,
+       show_bgp_statistics_view_vpnv4_cmd,
+       "show bgp view WORD (ipv4) (vpnv4) statistics",
+       SHOW_STR
+       BGP_STR
+       "BGP view\n"
+       "Address family\n"
+       "Address Family modifier\n"
+       "BGP RIB advertisement statistics\n")
+
 enum bgp_pcounts
 {
   PCOUNT_ADJ_IN = 0,
@@ -8419,30 +8774,28 @@ static const char *pcount_strs[] =
   [PCOUNT_MAX]     = NULL,
 };
 
+struct peer_pcounts
+{
+  unsigned int count[PCOUNT_MAX];
+  const struct peer *peer;
+  const struct bgp_table *table;
+};
+
 static int
-bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi)
+bgp_peer_count_walker (struct thread *t)
 {
   struct bgp_node *rn;
-  struct bgp_info *ri;
-  unsigned int pcounts[PCOUNT_MAX], i;
+  struct peer_pcounts *pc = THREAD_ARG (t);
+  const struct peer *peer = pc->peer;
   
-  if (!peer || !peer->bgp || !peer->afc[afi][safi]
-      || !peer->bgp->rib[afi][safi])
-    {
-      vty_out (vty, "%% No such neighbor or address family%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  
-  memset (&pcounts, 0, sizeof(pcounts));
-  
-  for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn;
-       rn = bgp_route_next (rn))
+  for (rn = bgp_table_top (pc->table); rn; rn = bgp_route_next (rn))
     {
       struct bgp_adj_in *ain;
+      struct bgp_info *ri;
       
       for (ain = rn->adj_in; ain; ain = ain->next)
         if (ain->peer == peer)
-          pcounts[PCOUNT_ADJ_IN]++;
+          pc->count[PCOUNT_ADJ_IN]++;
 
       for (ri = rn->info; ri; ri = ri->next)
         {
@@ -8451,24 +8804,24 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi)
           if (ri->peer != peer)
             continue;
           
-          pcounts[PCOUNT_ALL]++;
+          pc->count[PCOUNT_ALL]++;
           
           if (CHECK_FLAG (ri->flags, BGP_INFO_DAMPED))
-            pcounts[PCOUNT_DAMPED]++;
+            pc->count[PCOUNT_DAMPED]++;
           if (CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
-            pcounts[PCOUNT_HISTORY]++;
+            pc->count[PCOUNT_HISTORY]++;
           if (CHECK_FLAG (ri->flags, BGP_INFO_REMOVED))
-            pcounts[PCOUNT_REMOVED]++;
+            pc->count[PCOUNT_REMOVED]++;
           if (CHECK_FLAG (ri->flags, BGP_INFO_STALE))
-            pcounts[PCOUNT_STALE]++;
+            pc->count[PCOUNT_STALE]++;
           if (CHECK_FLAG (ri->flags, BGP_INFO_VALID))
-            pcounts[PCOUNT_VALID]++;
+            pc->count[PCOUNT_VALID]++;
           if (!CHECK_FLAG (ri->flags, BGP_INFO_UNUSEABLE))
-            pcounts[PCOUNT_PFCNT]++;
+            pc->count[PCOUNT_PFCNT]++;
           
           if (CHECK_FLAG (ri->flags, BGP_INFO_COUNTED))
             {
-              pcounts[PCOUNT_COUNTED]++;
+              pc->count[PCOUNT_COUNTED]++;
               if (CHECK_FLAG (ri->flags, BGP_INFO_UNUSEABLE))
                 plog_warn (peer->log,
                            "%s [pcount] %s/%d is counted but flags 0x%x",
@@ -8491,7 +8844,32 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi)
             }
         }
     }
+  return 0;
+}
 
+static int
+bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi)
+{
+  struct peer_pcounts pcounts = { .peer = peer };
+  unsigned int i;
+  
+  if (!peer || !peer->bgp || !peer->afc[afi][safi]
+      || !peer->bgp->rib[afi][safi])
+    {
+      vty_out (vty, "%% No such neighbor or address family%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  
+  memset (&pcounts, 0, sizeof(pcounts));
+  pcounts.peer = peer;
+  pcounts.table = peer->bgp->rib[afi][safi];
+  
+  /* in-place call via thread subsystem so as to record execution time
+   * stats for the thread-walk (i.e. ensure this can't be blamed on
+   * on just vty_read()).
+   */
+  thread_execute (bm->master, bgp_peer_count_walker, &pcounts, 0);
+  
   vty_out (vty, "Prefix counts for %s, %s%s", 
            peer->host, afi_safi_print (afi, safi), VTY_NEWLINE);
   vty_out (vty, "PfxCt: %ld%s", peer->pcount[afi][safi], VTY_NEWLINE);
@@ -8499,9 +8877,10 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi)
            VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
 
   for (i = 0; i < PCOUNT_MAX; i++)
-      vty_out (vty, "%20s: %-10d%s", pcount_strs[i], pcounts[i], VTY_NEWLINE);
+      vty_out (vty, "%20s: %-10d%s",
+               pcount_strs[i], pcounts.count[i], VTY_NEWLINE);
 
-  if (pcounts[PCOUNT_PFCNT] != peer->pcount[afi][safi])
+  if (pcounts.count[PCOUNT_PFCNT] != peer->pcount[afi][safi])
     {
       vty_out (vty, "%s [pcount] PfxCt drift!%s",
                peer->host, VTY_NEWLINE);
@@ -11058,7 +11437,13 @@ bgp_route_init ()
   install_element (ENABLE_NODE, &show_bgp_view_rsclient_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_rsclient_route_cmd);
   install_element (ENABLE_NODE, &show_bgp_view_rsclient_prefix_cmd);
-
+  
+  /* Statistics */
+  install_element (ENABLE_NODE, &show_bgp_statistics_cmd);
+  install_element (ENABLE_NODE, &show_bgp_statistics_vpnv4_cmd);
+  install_element (ENABLE_NODE, &show_bgp_statistics_view_cmd);
+  install_element (ENABLE_NODE, &show_bgp_statistics_view_vpnv4_cmd);
+  
   /* old command */
   install_element (VIEW_NODE, &show_ipv6_bgp_cmd);
   install_element (VIEW_NODE, &show_ipv6_bgp_route_cmd);
