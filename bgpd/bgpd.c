@@ -695,6 +695,7 @@ peer_free (struct peer *peer)
   bgp_timer_set (peer);
   BGP_READ_OFF (peer->t_read);
   BGP_WRITE_OFF (peer->t_write);
+  BGP_EVENT_FLUSH (peer);
   
   if (peer->desc)
     XFREE (MTYPE_PEER_DESC, peer->desc);

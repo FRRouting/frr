@@ -1,5 +1,18 @@
 2006-09-14 Paul Jakma <paul.jakma@sun.com>
 
+	* (general) fix the peer refcount issue exposed by previous, by
+	  just removing refcounting of peer threads, which is mostly
+	  senseless as they're references leading from struct peer,
+	  which peer_free cancels anyway. No need to muck around..
+	* bgp_fsm.h: Just remove the refcounting from the various
+	  TIMER/READ/WRITE/EVENT ON/OFF/ADD macros.
+	* bgp_fsm.c: (bgp_stop) use BGP_EVENT_FLUSH, no refcounts attached
+	  to events anymore.
+	  (bgp_event) remove peer_unlock, events not refcounted.
+	* bgpd.c: (peer_free) flush events before free.
+
+2006-09-14 Paul Jakma <paul.jakma@sun.com>
+
 	* (general) Fix some niggly issues around 'shutdown' and clearing
 	  by adding a Clearing FSM wait-state and a hidden 'Deleted'
 	  FSM state, to allow deleted peers to 'cool off' and hit 0

@@ -426,7 +426,6 @@ bgp_stop (struct peer *peer)
 {
   afi_t afi;
   safi_t safi;
-  unsigned int i;
   char orf_name[BUFSIZ];
 
   /* Increment Dropped count. */
@@ -500,10 +499,8 @@ bgp_stop (struct peer *peer)
   BGP_TIMER_OFF (peer->t_asorig);
   BGP_TIMER_OFF (peer->t_routeadv);
 
-  /* Delete all existing events of the peer,
-     and corresponding peer ref-count */
-  for (i = thread_cancel_event (master, peer); i > 0; i--)
-    peer_unlock (peer); /* thread event reference */
+  /* Delete all existing events of the peer */
+  BGP_EVENT_FLUSH (peer);
   
   /* Stream reset. */
   peer->packet_size = 0;
@@ -1101,6 +1098,5 @@ bgp_event (struct thread *thread)
       bgp_timer_set (peer);
     }
   
-  peer_unlock (peer); /* bgp-event peer reference */
   return ret;
 }
