@@ -4,6 +4,9 @@
 	  should only count top-level unaggregateable prefixes, to
 	  avoid falling afoul of anti-dodgy-accounting regulations
 	  in various jurisdictions.. ;)
+	  (bgp_process_queue_init) process queue hold time too high,
+	  adds extra memory load. Change to be much lower, until such
+	  time as it's made configurable.
 
 2006-09-14 Paul Jakma <paul.jakma@sun.com>
 
