@@ -1,4 +1,4 @@
-# $Id: INSTALL.quagga.txt,v 1.11 2005/08/10 15:07:02 gdt Exp $
+# $Id$
 
 --------------------------------------------------------------------------
 Building and Installing Quagga from releases or snapshots:
@@ -6,7 +6,8 @@ Building and Installing Quagga from releases or snapshots:
 The 'INSTALL' file contains generic instructions on how to use 'configure'
 scripts.
 
-Quagga requires a C compiler supporting the C99 standard.
+Quagga requires a C compiler (and associated header files and
+libraries) supporting the C99 standard.
 
 Quagga requires a reasonable make.  It is considered a bug if quagga
 does not compile with the system make on recent FreeBSD, NetBSD or
@@ -20,11 +21,17 @@ following systems (where .x indicates the most recent release), or
 such systems "-current" versions.  (Note that considering it a bug is
 not a guarantee of support, merely "we agree that it is broken".)
 
+  Dragonfly ?
   FreeBSD 4.x
   FreeBSD 5.x
+  FreeBSD 6.x
+  FreeBSD-current
   Linux [kernel/distribution information needed]
   NetBSD 1.6.x
   NetBSD 2.x
+  NetBSD 3.x
+  NetBSD 4.x
+  NetBSD-current
   OpenBSD ? [info needed on what should work]
   Solaris 9
   Solaris 10
