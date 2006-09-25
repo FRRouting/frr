@@ -1,3 +1,10 @@
+2006-09-25 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_packet.c: (ospf_packet_dup, ospf_make_md5_digest) 
+	  Fix zlog_warn messages to eliminate compiler warnings.
+	  (ospf_hello) Improve warning messages to show why we
+	  are complaining.
+
 2006-08-28 Andy Gay <andy@andynet.net>
 
 	* ospf_packet.c: (ospf_make_db_desc) Assert added with More-bit

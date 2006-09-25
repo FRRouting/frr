@@ -216,8 +216,9 @@ ospf_packet_dup (struct ospf_packet *op)
   struct ospf_packet *new;
 
   if (stream_get_endp(op->s) != op->length)
-    zlog_warn ("ospf_packet_dup stream %ld ospf_packet %d size mismatch",
-	       STREAM_SIZE(op->s), op->length);
+    /* XXX size_t */
+    zlog_warn ("ospf_packet_dup stream %lu ospf_packet %u size mismatch",
+	       (u_long)STREAM_SIZE(op->s), op->length);
 
   /* Reserve space for MD5 authentication that may be added later. */
   new = ospf_packet_new (stream_get_endp(op->s) + OSPF_AUTH_MD5_SIZE);
@@ -371,7 +372,9 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
   op->length = ntohs (ospfh->length) + OSPF_AUTH_MD5_SIZE;
 
   if (stream_get_endp(op->s) != op->length)
-    zlog_warn("ospf_make_md5_digest: length mismatch stream %ld ospf_packet %d", stream_get_endp(op->s), op->length);
+    /* XXX size_t */
+    zlog_warn("ospf_make_md5_digest: length mismatch stream %lu ospf_packet %u",
+	      (u_long)stream_get_endp(op->s), op->length);
 
   return OSPF_AUTH_MD5_SIZE;
 }
@@ -796,8 +799,10 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
   /* Compare Router Dead Interval. */
   if (OSPF_IF_PARAM (oi, v_wait) != ntohl (hello->dead_interval))
     {
-      zlog_warn ("Packet %s [Hello:RECV]: RouterDeadInterval mismatch.",
-		 inet_ntoa (ospfh->router_id));
+      zlog_warn ("Packet %s [Hello:RECV]: RouterDeadInterval mismatch "
+      		 "(expected %u, but received %u).",
+		 inet_ntoa(ospfh->router_id),
+		 OSPF_IF_PARAM(oi, v_wait), ntohl(hello->dead_interval));
       return;
     }
 
@@ -806,8 +811,10 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
     {
       if (OSPF_IF_PARAM (oi, v_hello) != ntohs (hello->hello_interval))
         {
-          zlog_warn ("Packet %s [Hello:RECV]: HelloInterval mismatch.",
-                     inet_ntoa (ospfh->router_id));
+          zlog_warn ("Packet %s [Hello:RECV]: HelloInterval mismatch "
+		     "(expected %u, but received %u).",
+		     inet_ntoa(ospfh->router_id),
+		     OSPF_IF_PARAM(oi, v_hello), ntohs(hello->hello_interval));
           return;
         }
     }
