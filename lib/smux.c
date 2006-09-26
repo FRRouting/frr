@@ -963,7 +963,7 @@ smux_open (int sock)
   version = 0;
   ptr = asn_build_int (ptr, &len, 
 		       (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		       &version, sizeof (u_long));
+		       &version, sizeof (version));
 
   /* SMUX connection oid. */
   ptr = asn_build_objid (ptr, &len,
@@ -1026,25 +1026,25 @@ smux_trap (oid *name, size_t namelen,
   ptr = asn_build_string (ptr, &len, 
 			  (u_char)
 			  (ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_IPADDRESS),
-			  (u_char *)&addr, sizeof (struct in_addr));
+			  (u_char *)&addr, sizeof (addr));
 
   /* Generic trap integer. */
   val = SNMP_TRAP_ENTERPRISESPECIFIC;
   ptr = asn_build_int (ptr, &len, 
 		       (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		       &val, sizeof (int));
+		       &val, sizeof (val));
 
   /* Specific trap integer. */
   val = sptrap;
   ptr = asn_build_int (ptr, &len, 
 		       (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		       &val, sizeof (int));
+		       &val, sizeof (val));
 
   /* Timeticks timestamp. */
   val = 0;
   ptr = asn_build_unsigned_int (ptr, &len, 
 				(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_TIMETICKS),
-				&val, sizeof (int));
+				&val, sizeof (val));
   
   /* Variables. */
   h1 = ptr;
@@ -1148,13 +1148,13 @@ smux_register (int sock)
       priority = -1;
       ptr = asn_build_int (ptr, &len, 
 		          (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		          &priority, sizeof (u_long));
+		          &priority, sizeof (priority));
 
       /* Operation. */
       operation = 2; /* Register R/W */
       ptr = asn_build_int (ptr, &len, 
 		          (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		          &operation, sizeof (u_long));
+		          &operation, sizeof (operation));
 
       if (debug_smux)
         {

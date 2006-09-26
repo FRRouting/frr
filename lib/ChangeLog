@@ -1,3 +1,13 @@
+2006-09-26 Pierre-Yves Ritschard <pierre-yves@spootnik.org>
+
+	* smux.c: (smux_open,smux_trap,smux_register) Fix various
+	  asn_build_* calls to pass the proper length in the final
+	  argument: use sizeof(<variable>) instead of sizeof(<type>),
+	  since there were several inconsistencies between the actual
+	  variable type and the size that was passed.  This should
+	  fix some problems on 64-bit architectures where sizeof(int)
+	  != sizeof(long).
+
 2006-08-25 Paul Jakma <paul.jakma@sun.com>
 
 	* thread.c: (general) Add support for monotonic clock, it may still
