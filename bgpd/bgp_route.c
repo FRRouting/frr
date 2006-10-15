@@ -8481,7 +8481,8 @@ bgp_table_stats_walker (struct thread *t)
   struct bgp_table_stats *ts = THREAD_ARG (t);
   unsigned int space = 0;
   
-  top = bgp_table_top (ts->table);
+  if (!(top = bgp_table_top (ts->table)))
+    return 0;
 
   switch (top->p.family)
     {

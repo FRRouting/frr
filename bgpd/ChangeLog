@@ -1,3 +1,8 @@
+2006-10-15 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_route.c: (bgp_table_stats_walker) NULL deref if table is
+	  empty, bgp_table_top may return NULL, Coverity CID#73.
+
 2006-10-14 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_fsm.h: Remove BGP_EVENT_FLUSH_ADD, dangerous and not
