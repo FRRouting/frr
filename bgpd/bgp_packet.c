@@ -637,7 +637,7 @@ bgp_write (struct thread *thread)
 	  if (write_errno == EWOULDBLOCK || write_errno == EAGAIN)
 	      break;
 
-	  BGP_EVENT_FLUSH_ADD (peer, TCP_fatal_error);
+	  BGP_EVENT_ADD (peer, TCP_fatal_error);
 	  return 0;
 	}
       if (num != writenum)
@@ -672,7 +672,7 @@ bgp_write (struct thread *thread)
 	    peer->v_start = (60 * 2);
 
 	  /* Flush any existing events */
-	  BGP_EVENT_FLUSH_ADD (peer, BGP_Stop);
+	  BGP_EVENT_ADD (peer, BGP_Stop);
 	  return 0;
 	case BGP_MSG_KEEPALIVE:
 	  peer->keepalive_out++;
@@ -717,7 +717,7 @@ bgp_write_notify (struct peer *peer)
   ret = writen (peer->fd, STREAM_DATA (s), stream_get_endp (s));
   if (ret <= 0)
     {
-      BGP_EVENT_FLUSH_ADD (peer, TCP_fatal_error);
+      BGP_EVENT_ADD (peer, TCP_fatal_error);
       return 0;
     }
 
@@ -737,7 +737,7 @@ bgp_write_notify (struct peer *peer)
   if (peer->v_start >= (60 * 2))
     peer->v_start = (60 * 2);
 
-  BGP_EVENT_FLUSH_ADD (peer, BGP_Stop);
+  BGP_EVENT_ADD (peer, BGP_Stop);
 
   return 0;
 }

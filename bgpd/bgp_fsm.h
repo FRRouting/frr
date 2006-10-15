@@ -71,12 +71,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
     thread_cancel_event (master, (P)); 		\
   } while (0)
 
-#define BGP_EVENT_FLUSH_ADD(P,E)	\
-  do {					\
-    BGP_EVENT_FLUSH(P);			\
-    BGP_EVENT_ADD(P,E);			\
-  } while (0)
-
 /* Prototypes. */
 extern int bgp_event (struct thread *);
 extern int bgp_stop (struct peer *peer);

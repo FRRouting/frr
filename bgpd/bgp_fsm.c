@@ -428,6 +428,9 @@ bgp_stop (struct peer *peer)
   safi_t safi;
   char orf_name[BUFSIZ];
 
+  /* Delete all existing events of the peer */
+  BGP_EVENT_FLUSH (peer);
+
   /* Increment Dropped count. */
   if (peer->status == Established)
     {
@@ -499,9 +502,6 @@ bgp_stop (struct peer *peer)
   BGP_TIMER_OFF (peer->t_asorig);
   BGP_TIMER_OFF (peer->t_routeadv);
 
-  /* Delete all existing events of the peer */
-  BGP_EVENT_FLUSH (peer);
-  
   /* Stream reset. */
   peer->packet_size = 0;
 

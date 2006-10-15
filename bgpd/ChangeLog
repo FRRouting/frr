@@ -1,3 +1,13 @@
+2006-10-14 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_fsm.h: Remove BGP_EVENT_FLUSH_ADD, dangerous and not
+	  needed.
+	* bgp_fsm.c: (bgp_stop) Move BGP_EVENT_FLUSH to the top of the
+	  of the function, otherwise it could flush a ClearingCompleted
+          event, bug #302.
+	* bgp_packet.c: Replace all BGP_EVENT_FLUSH_ADD with
+	  BGP_EVENT_ADD, fixing bug #302.
+
 2006-09-19 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* bgpd.c: (peer_uptime) Fix printf format/arg mismatch in
