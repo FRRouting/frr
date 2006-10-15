@@ -501,9 +501,49 @@ DEFUN (no_interface_desc,
 
   return CMD_SUCCESS;
 }
+
+#ifdef SUNOS_5
+/* Need to handle upgrade from SUNWzebra to Quagga. SUNWzebra created
+ * a seperate struct interface for each logical interface, so config
+ * file may be full of 'interface fooX:Y'. Solaris however does not
+ * expose logical interfaces via PF_ROUTE, so trying to track logical
+ * interfaces can be fruitless, for that reason Quagga only tracks
+ * the primary IP interface.
+ *
+ * We try accomodate SUNWzebra by:
+ * - looking up the interface name, to see whether it exists, if so
+ *   its useable
+ *   - for protocol daemons, this could only because zebra told us of
+ *     the interface
+ *   - for zebra, only because it learnt from kernel
+ * - if not:
+ *   - search the name to see if it contains a sub-ipif / logical interface
+ *     seperator, the ':' char. If it does:
+ *     - text up to that char must be the primary name - get that name.
+ *     if not:
+ *     - no idea, just get the name in its entirety.
+ */
+static struct interface *
+if_sunwzebra_get (const char *name, size_t nlen)
+{
+  struct interface *ifp;
+  size_t seppos = 0;
 
-
-/* See also wrapper function zebra_interface() in zebra/interface.c */
+  if ( (ifp = if_lookup_by_name_len(name, nlen)) != NULL)
+    return ifp;
+  
+  /* hunt the primary interface name... */
+  while (seppos < nlen && name[seppos] != ':')
+    seppos++;
+  
+  /* Wont catch seperator as last char, e.g. 'foo0:' but thats invalid */
+  if (seppos < nlen)
+    return if_get_by_name_len (name, seppos);
+  else
+    return if_get_by_name_len (name, nlen);
+}
+#endif /* SUNOS_5 */
+
 DEFUN (interface,
        interface_cmd,
        "interface IFNAME",
@@ -521,7 +561,11 @@ DEFUN (interface,
       return CMD_WARNING;
     }
 
+#ifdef SUNOS_5
+  ifp = if_sunwzebra_get (argv[0], sl);
+#else
   ifp = if_get_by_name_len(argv[0], sl);
+#endif /* SUNOS_5 */
 
   vty->index = ifp;
   vty->node = INTERFACE_NODE;

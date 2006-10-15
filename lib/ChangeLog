@@ -1,3 +1,13 @@
+2006-10-14 Paul Jakma <paul.jakma@sun.com>
+
+	* if.c: (general) Handle upgrades from SUNWzebra, which tried
+	  to track each logical interface as a seperate struct
+	  interface, to Quagga, which assigns only one struct interface
+	  per ifindex.
+	  (if_sunwzebra_get) Try decompose a logical interface name
+          (fooX:Y) to the 'primary' name (fooX), for Solaris.
+          (interface_cmd) Use if_sunwzebra_get on Solaris.
+
 2006-09-26 Pierre-Yves Ritschard <pierre-yves@spootnik.org>
 
 	* smux.c: (smux_open,smux_trap,smux_register) Fix various
