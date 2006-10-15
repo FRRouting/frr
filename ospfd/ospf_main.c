@@ -81,6 +81,7 @@ struct option longopts[] =
   { "config_file", required_argument, NULL, 'f'},
   { "pid_file",    required_argument, NULL, 'i'},
   { "log_mode",    no_argument,       NULL, 'l'},
+  { "dryrun",      no_argument,       NULL, 'C'},
   { "help",        no_argument,       NULL, 'h'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
@@ -122,6 +123,7 @@ Daemon which manages OSPF.\n\n\
 -g, --group        Group to run as\n\
 -a. --apiserver    Enable OSPF apiserver\n\
 -v, --version      Print program version\n\
+-C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
 \n\
 Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
@@ -182,6 +184,7 @@ main (int argc, char **argv)
   char *config_file = NULL;
   char *progname;
   struct thread thread;
+  int dryrun = 0;
 
   /* Set umask before anything for security */
   umask (0027);
@@ -212,7 +215,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "dlf:i:hA:P:u:g:av", longopts, 0);
+      opt = getopt_long (argc, argv, "dlf:i:hA:P:u:g:avC", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -259,6 +262,9 @@ main (int argc, char **argv)
 	  print_version (progname);
 	  exit (0);
 	  break;
+	case 'C':
+	  dryrun = 1;
+	  break;
 	case 'h':
 	  usage (progname, 0);
 	  break;
@@ -303,6 +309,10 @@ main (int argc, char **argv)
   /* Get configuration file. */
   vty_read_config (config_file, config_default);
 
+  /* Start execution only if not in dry-run mode */
+  if (dryrun)
+    return(0);
+  
   /* Change to the daemon program. */
   if (daemon_mode)
     daemon (0, 0);

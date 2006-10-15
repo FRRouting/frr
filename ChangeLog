@@ -1,3 +1,27 @@
+2006-10-04 Oliver Hookins <ohookins@gmail.com>
+
+	* bgpd/bgp_main.c: Add configuration check option, with
+	'-C' rather than '-c' for consistency between daemons.
+	* isisd/isis_main.c: ditto
+	* ospf6d/ospf6_main.c: ditto
+	* ospfd/ospf_main.c: ditto
+	* ripngd/ripng_main.c: ditto
+	* vtysh/vtysh_main.c: ditto
+	* ripd/rip_main.c: Change the config check option to
+	'-C' and tidy up the code.
+	* zebra/main.c: ditto	
+
+2006-10-04 Stergiakis Alexandros <astergiakis@antcor.com>
+
+	* ripd/rip_main.c: This trivial patch introduces a new
+	  command-line option '-c', which instructs zebra/ripd
+	  to check its configuration file for validity,	print 
+	  any error message, and then exit. This is useful when
+	  the configuration file is edited by hand or otherwise,
+	  and you simply want to validate it without any other
+	  effect.
+	* zebra/main.c: ditto
+
 2006-08-27 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Bump to 0.99.5

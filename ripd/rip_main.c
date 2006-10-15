@@ -42,6 +42,7 @@ static struct option longopts[] =
   { "config_file", required_argument, NULL, 'f'},
   { "pid_file",    required_argument, NULL, 'i'},
   { "help",        no_argument,       NULL, 'h'},
+  { "dryrun",      no_argument,       NULL, 'C'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
@@ -110,6 +111,7 @@ Daemon which manages RIP version 1 and 2.\n\n\
 -i, --pid_file     Set process identifier file name\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
+-C, --dryrun       Check configuration for validity and exit\n\
 -r, --retain       When program terminates, retain added route by ripd.\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
@@ -185,6 +187,7 @@ main (int argc, char **argv)
 {
   char *p;
   int daemon_mode = 0;
+  int dryrun = 0;
   char *progname;
   struct thread thread;
 
@@ -203,7 +206,7 @@ main (int argc, char **argv)
     {
       int opt;
 
-      opt = getopt_long (argc, argv, "df:i:hA:P:u:g:rv", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hA:P:u:g:rvC", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -237,6 +240,9 @@ main (int argc, char **argv)
 	  break;
 	case 'r':
 	  retain_mode = 1;
+	  break;
+	case 'C':
+	  dryrun = 1;
 	  break;
 	case 'u':
 	  ripd_privs.user = optarg;
@@ -280,6 +286,10 @@ main (int argc, char **argv)
   /* Get configuration file. */
   vty_read_config (config_file, config_default);
 
+  /* Start execution only if not in dry-run mode */
+  if(dryrun)
+    return (0);
+  
   /* Change to the daemon program. */
   if (daemon_mode)
     daemon (0, 0);

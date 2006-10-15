@@ -77,6 +77,7 @@ struct option longopts[] =
   { "user",        required_argument, NULL, 'u'},
   { "group",       required_argument, NULL, 'g'},
   { "version",     no_argument,       NULL, 'v'},
+  { "dryrun",      no_argument,       NULL, 'C'},
   { "help",        no_argument,       NULL, 'h'},
   { 0 }
 };
@@ -114,6 +115,7 @@ Daemon which manages OSPF version 3.\n\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
 -v, --version      Print program version\n\
+-C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
 \n\
 Report bugs to zebra@zebra.org\n", progname);
@@ -184,6 +186,7 @@ main (int argc, char *argv[], char *envp[])
   int vty_port = 0;
   char *config_file = NULL;
   struct thread thread;
+  int dryrun = 0;
 
   /* Set umask before anything for security */
   umask (0027);
@@ -194,7 +197,7 @@ main (int argc, char *argv[], char *envp[])
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:i:hp:A:P:u:g:v", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hp:A:P:u:g:vC", longopts, 0);
     
       if (opt == EOF)
         break;
@@ -236,6 +239,9 @@ main (int argc, char *argv[], char *envp[])
           print_version (progname);
           exit (0);
           break;
+	case 'C':
+	  dryrun = 1;
+	  break;
         case 'h':
           usage (progname, 0);
           break;
@@ -271,6 +277,10 @@ main (int argc, char *argv[], char *envp[])
   /* parse config file */
   vty_read_config (config_file, config_default);
 
+  /* Start execution only if not in dry-run mode */
+  if (dryrun)
+    return(0);
+  
   if (daemon_mode)
     daemon (0, 0);
 

@@ -50,6 +50,7 @@ struct option longopts[] =
   { "user",        required_argument, NULL, 'u'},
   { "group",       required_argument, NULL, 'g'},
   { "version",     no_argument,       NULL, 'v'},
+  { "dryrun",      no_argument,       NULL, 'C'},
   { "help",        no_argument,       NULL, 'h'},
   { 0 }
 };
@@ -141,6 +142,7 @@ redistribution between different routing protocols.\n\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
 -v, --version      Print program version\n\
+-C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
 \n\
 Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
@@ -196,6 +198,7 @@ main (int argc, char **argv)
   char *p;
   int opt;
   int daemon_mode = 0;
+  int dryrun = 0;
   char *progname;
   struct thread thread;
 
@@ -214,7 +217,7 @@ main (int argc, char **argv)
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:i:hp:A:P:rnu:g:v", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hp:A:P:rnu:g:vC", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -265,6 +268,9 @@ main (int argc, char **argv)
 	  print_version (progname);
 	  exit (0);
 	  break;
+	case 'C':
+	  dryrun = 1;
+	  break;
 	case 'h':
 	  usage (progname, 0);
 	  break;
@@ -294,6 +300,10 @@ main (int argc, char **argv)
   /* Parse config file. */
   vty_read_config (config_file, config_default);
 
+  /* Start execution only if not in dry-run mode */
+  if(dryrun)
+    return(0);
+  
   /* Turn into daemon if daemon_mode is set. */
   if (daemon_mode)
     daemon (0, 0);

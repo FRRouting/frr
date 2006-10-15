@@ -80,6 +80,7 @@ struct option longopts[] = {
   {"user", required_argument, NULL, 'u'},
   {"group", required_argument, NULL, 'g'},
   {"version", no_argument, NULL, 'v'},
+  {"dryrun", no_argument, NULL, 'C'},
   {"help", no_argument, NULL, 'h'},
   {0}
 };
@@ -124,6 +125,7 @@ Daemon which manages IS-IS routing\n\n\
 -u, --user         User to run as\n\
 -g, --group        Group to run as\n\
 -v, --version      Print program version\n\
+-C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
 \n\
 Report bugs to http://bugzilla.quagga.net\n", progname);
@@ -213,6 +215,7 @@ main (int argc, char **argv, char **envp)
   struct thread thread;
   char *config_file = NULL;
   char *vty_addr = NULL;
+  int dryrun = 0;
 
   /* Get the programname without the preceding path. */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
@@ -233,7 +236,7 @@ main (int argc, char **argv, char **envp)
   /* Command line argument treatment. */
   while (1)
     {
-      opt = getopt_long (argc, argv, "df:i:hA:p:P:u:g:v", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hA:p:P:u:g:vC", longopts, 0);
 
       if (opt == EOF)
 	break;
@@ -278,6 +281,9 @@ main (int argc, char **argv, char **envp)
 	  print_version ("Zebra");
 	  exit (0);
 	  break;
+	case 'C':
+	  dryrun = 1;
+	  break;
 	case 'h':
 	  usage (0);
 	  break;
@@ -312,6 +318,10 @@ main (int argc, char **argv, char **envp)
   vty_read_config (config_file, config_default);
   vty_read_config (config_file, config_default);
 
+  /* Start execution only if not in dry-run mode */
+  if (dryrun)
+    return(0);
+  
   /* demonize */
   if (daemon_mode)
     daemon (0, 0);

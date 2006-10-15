@@ -138,6 +138,7 @@ usage (int status)
 	    "-c, --command            Execute argument as command\n" \
 	    "-d, --daemon             Connect only to the specified daemon\n" \
 	    "-E, --echo               Echo prompt and command in -c mode\n" \
+	    "-C, --dryrun             Check configuration for validity and exit\n" \
 	    "-h, --help               Display this help and exit\n\n" \
 	    "Note that multiple commands may be executed from the command\n" \
 	    "line by passing multiple -c args, or by embedding linefeed\n" \
@@ -156,6 +157,7 @@ struct option longopts[] =
   { "command",              required_argument,       NULL, 'c'},
   { "daemon",               required_argument,       NULL, 'd'},
   { "echo",                 no_argument,             NULL, 'E'},
+  { "dryrun",		    no_argument,	     NULL, 'C'},
   { "help",                 no_argument,             NULL, 'h'},
   { 0 }
 };
@@ -195,6 +197,7 @@ main (int argc, char **argv, char **env)
 {
   char *p;
   int opt;
+  int dryrun = 0;
   int boot_flag = 0;
   const char *daemon_name = NULL;
   struct cmd_rec {
@@ -210,7 +213,7 @@ main (int argc, char **argv, char **env)
   /* Option handling. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "be:c:d:Eh", longopts, 0);
+      opt = getopt_long (argc, argv, "be:c:d:EhC", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -242,6 +245,9 @@ main (int argc, char **argv, char **env)
 	case 'E':
 	  echo_command = 1;
 	  break;
+	case 'C':
+	  dryrun = 1;
+	  break;
 	case 'h':
 	  usage (0);
 	  break;
@@ -270,6 +276,10 @@ main (int argc, char **argv, char **env)
   /* Read vtysh configuration file before connecting to daemons. */
   vtysh_read_config (config_default);
 
+  /* Start execution only if not in dry-run mode */
+  if(dryrun)
+    return(0);
+  
   /* Make sure we pass authentication before proceeding. */
   vtysh_auth ();
 
