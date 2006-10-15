@@ -158,14 +158,14 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 
   while (adv)
     {
-      if (adv->rn)
-        rn = adv->rn;
+      assert (adv->rn);
+      rn = adv->rn;
       adj = adv->adj;
       if (adv->binfo)
         binfo = adv->binfo;
 
       /* When remaining space can't include NLRI and it's length.  */
-      if (rn && STREAM_REMAIN (s) <= BGP_NLRI_LENGTH + PSIZE (rn->p.prefixlen))
+      if (STREAM_REMAIN (s) <= BGP_NLRI_LENGTH + PSIZE (rn->p.prefixlen))
 	break;
 
       /* If packet is empty, set attribute. */
@@ -173,11 +173,15 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 	{
 	  struct prefix_rd *prd = NULL;
 	  u_char *tag = NULL;
+	  struct peer *from = NULL;
 	  
 	  if (rn->prn)
 	    prd = (struct prefix_rd *) &rn->prn->p;
           if (binfo)
-            tag = binfo->tag;
+            {
+              tag = binfo->tag;
+              from = binfo->peer;
+            }
           
 	  bgp_packet_set_marker (s, BGP_MSG_UPDATE);
 	  stream_putw (s, 0);		
@@ -186,7 +190,7 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 	  total_attr_len = bgp_packet_attribute (NULL, peer, s, 
 	                                         adv->baa->attr,
 	                                         &rn->p, afi, safi, 
-	                                         binfo->peer, prd, tag);
+	                                         from, prd, tag);
 	  stream_putw_at (s, pos, total_attr_len);
 	}
 
@@ -288,6 +292,7 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
 
   while ((adv = FIFO_HEAD (&peer->sync[afi][safi]->withdraw)) != NULL)
     {
+      assert (adv->rn);
       adj = adv->adj;
       rn = adv->rn;
 
