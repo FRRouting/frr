@@ -7,3 +7,6 @@ TAGS
 .nfs*
 .arch-inventory
 .arch-ids
+*~
+*.loT
+

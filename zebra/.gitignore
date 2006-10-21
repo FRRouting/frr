@@ -11,3 +11,6 @@ TAGS
 .libs
 .arch-inventory
 .arch-ids
+*~
+*.loT
+

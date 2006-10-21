@@ -1,2 +1,5 @@
 .arch-ids
 .arch-inventory
+*~
+*.loT
+

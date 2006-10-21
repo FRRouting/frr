@@ -32,3 +32,6 @@ libtool
 build
 .msg
 .rebase-*
+*~
+*.loT
+

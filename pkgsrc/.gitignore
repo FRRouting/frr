@@ -3,3 +3,6 @@ Makefile.in
 *.sh
 .arch-inventory
 .arch-ids
+*~
+*.loT
+

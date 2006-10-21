@@ -10,3 +10,7 @@ version.h
 .libs
 .arch-inventory
 .arch-ids
+*~
+*.loT
+memtypes.h
+route_types.h

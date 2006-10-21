@@ -12,3 +12,6 @@ prototype.smf
 quagga.init
 *.pkg
 *.pkg.gz
+*~
+*.loT
+

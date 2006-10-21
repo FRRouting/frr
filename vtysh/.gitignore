@@ -11,3 +11,6 @@ extract.pl
 .libs
 .arch-inventory
 .arch-ids
+*~
+*.loT
+
