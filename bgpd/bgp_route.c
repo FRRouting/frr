@@ -196,6 +196,9 @@ bgp_info_delete (struct bgp_node *rn, struct bgp_info *ri)
 static void
 bgp_pcount_adjust (struct bgp_node *rn, struct bgp_info *ri)
 {
+  assert (rn && rn->table);
+  assert (ri && ri->peer && ri->peer->bgp);
+
   /* Ignore 'pcount' for RS-client tables */
   if (rn->table->type != BGP_TABLE_MAIN
       || ri->peer == ri->peer->bgp->peer_self)

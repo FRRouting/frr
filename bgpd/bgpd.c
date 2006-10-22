@@ -765,13 +765,18 @@ peer_unlock (struct peer *peer)
   
 /* Allocate new peer object, implicitely locked.  */
 static struct peer *
-peer_new ()
+peer_new (struct bgp *bgp)
 {
   afi_t afi;
   safi_t safi;
   struct peer *peer;
   struct servent *sp;
-
+  
+  /* bgp argument is absolutely required */
+  assert (bgp);
+  if (!bgp)
+    return NULL;
+  
   /* Allocate new peer. */
   peer = XCALLOC (MTYPE_BGP_PEER, sizeof (struct peer));
 
@@ -783,6 +788,7 @@ peer_new ()
   peer->status = Idle;
   peer->ostatus = Idle;
   peer->weight = 0;
+  peer->bgp = bgp;
   peer = peer_lock (peer); /* initial reference */
 
   /* Set default flags.  */
@@ -821,8 +827,7 @@ peer_create (union sockunion *su, struct bgp *bgp, as_t local_as,
   struct peer *peer;
   char buf[SU_ADDRSTRLEN];
 
-  peer = peer_new ();
-  peer->bgp = bgp;
+  peer = peer_new (bgp);
   peer->su = *su;
   peer->local_as = local_as;
   peer->as = remote_as;
@@ -868,8 +873,7 @@ peer_create_accept (struct bgp *bgp)
 {
   struct peer *peer;
 
-  peer = peer_new ();
-  peer->bgp = bgp;
+  peer = peer_new (bgp);
   
   peer = peer_lock (peer); /* bgp peer list reference */
   listnode_add_sort (bgp->peer, peer);
@@ -1344,11 +1348,10 @@ peer_group_get (struct bgp *bgp, const char *name)
   group->bgp = bgp;
   group->name = strdup (name);
   group->peer = list_new ();
-  group->conf = peer_new ();
+  group->conf = peer_new (bgp);
   if (! bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4))
     group->conf->afc[AFI_IP][SAFI_UNICAST] = 1;
   group->conf->host = strdup (name);
-  group->conf->bgp = bgp;
   group->conf->group = group;
   group->conf->as = 0; 
   group->conf->ttl = 1;
@@ -1883,7 +1886,7 @@ bgp_create (as_t *as, const char *name)
   if ( (bgp = XCALLOC (MTYPE_BGP, sizeof (struct bgp))) == NULL)
     return NULL;
   
-  bgp->peer_self = peer_new ();
+  bgp->peer_self = peer_new (bgp);
   bgp->peer_self->host = strdup ("Static announcement");
 
   bgp->peer = list_new ();
