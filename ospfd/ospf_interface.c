@@ -682,9 +682,6 @@ ospf_if_new_hook (struct interface *ifp)
 
   IF_DEF_PARAMS (ifp)->mtu_ignore = OSPF_MTU_IGNORE_DEFAULT;
 
-  SET_IF_PARAM (IF_DEF_PARAMS (ifp), passive_interface);
-  IF_DEF_PARAMS (ifp)->passive_interface = OSPF_IF_ACTIVE;
-
   SET_IF_PARAM (IF_DEF_PARAMS (ifp), v_hello);
   IF_DEF_PARAMS (ifp)->v_hello = OSPF_HELLO_INTERVAL_DEFAULT;
 

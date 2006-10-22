@@ -216,6 +216,7 @@ struct ospf
   struct ospf_area *backbone;           /* Pointer to the Backbone Area. */
 
   struct list *oiflist;                 /* ospf interfaces */
+  u_char passive_interface_default;	/* passive-interface default */
 
   /* LSDB of AS-external-LSAs. */
   struct ospf_lsdb *lsdb;

@@ -1,3 +1,28 @@
+2006-10-22 Yar Tikhiy <yar@comp.chem.msu.su>
+
+	* (general) Add support for passive-interface default (with
+	  minor edits by Paul Jakma).
+	* ospf_interface.h: Add OSPF_IF_PASSIVE_STATUS macro, looking
+	  at configured value, or the global 'default' value, as
+	  required.
+	* ospf_interface.c: (ospf_if_new_hook) Leave passive
+	  unconfigured per default, allowing global 'default' to
+	  take effect for unconfigured interfaces.
+	* ospf_packet.c: (various) use OSPF_IF_PASSIVE_STATUS
+	* ospf_vty.c: (ospf_passive_interface_default) new function,
+	  unset passive from all interfaces if default is enabled, as
+	  the per-iface settings become redundant.
+	  (ospf_passive_interface_update) new func, update passive
+	  setting taking global default into account.
+	  ({no,}ospf_passive_interface_addr_cmd) Add support for
+	  'default' variant of command.
+	  (show_ip_ospf_interface_sub) Update to take global
+	  default into account when printing passive status.
+	  (ospf_config_write) ditto.
+	* ospfd.c: (ospf_new) set global passive-interface default.
+	* ospfd.h: (struct ospf) Add field for global
+          passive-interface.
+	  
 2006-09-25 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_packet.c: (ospf_packet_dup, ospf_make_md5_digest) 

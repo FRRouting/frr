@@ -762,7 +762,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
     }
 
   /* If incoming interface is passive one, ignore Hello. */
-  if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE) {
+  if (OSPF_IF_PASSIVE_STATUS (oi) == OSPF_IF_PASSIVE) {
     char buf[3][INET_ADDRSTRLEN];
     zlog_debug ("ignoring HELLO from router %s sent to %s, "
 	        "received on a passive interface, %s",
@@ -2978,7 +2978,7 @@ ospf_poll_send (struct ospf_nbr_nbma *nbr_nbma)
   assert(oi);
 
   /* If this is passive interface, do not send OSPF Hello. */
-  if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE)
+  if (OSPF_IF_PASSIVE_STATUS (oi) == OSPF_IF_PASSIVE)
     return;
 
   if (oi->type != OSPF_IFTYPE_NBMA)
@@ -3046,7 +3046,7 @@ ospf_hello_send (struct ospf_interface *oi)
   u_int16_t length = OSPF_HEADER_SIZE;
 
   /* If this is passive interface, do not send OSPF Hello. */
-  if (OSPF_IF_PARAM (oi, passive_interface) == OSPF_IF_PASSIVE)
+  if (OSPF_IF_PASSIVE_STATUS (oi) == OSPF_IF_PASSIVE)
     return;
 
   op = ospf_packet_new (oi->ifp->mtu);

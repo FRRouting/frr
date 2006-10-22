@@ -167,6 +167,8 @@ ospf_new (void)
 
   new->default_originate = DEFAULT_ORIGINATE_NONE;
 
+  new->passive_interface_default = OSPF_IF_ACTIVE;
+  
   new->new_external_route = route_table_init ();
   new->old_external_route = route_table_init ();
   new->external_lsas = route_table_init ();

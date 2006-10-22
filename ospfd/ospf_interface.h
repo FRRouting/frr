@@ -50,6 +50,13 @@ struct ospf_if_params
   DECLARE_IF_PARAM (u_char, type);                   /* type of interface */
 #define OSPF_IF_ACTIVE                  0
 #define OSPF_IF_PASSIVE		        1
+
+#define OSPF_IF_PASSIVE_STATUS(O) \
+       (OSPF_IF_PARAM_CONFIGURED((O)->params, passive_interface) ? \
+         (O)->params->passive_interface : \
+         (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS((O)->ifp), passive_interface) ? \
+           IF_DEF_PARAMS((O)->ifp)->passive_interface : \
+           (O)->ospf->passive_interface_default))
   
   DECLARE_IF_PARAM (u_int32_t, v_hello);             /* Hello Interval */
   DECLARE_IF_PARAM (u_int32_t, v_wait);              /* Router Dead Interval */
