@@ -1,3 +1,10 @@
+2006-10-24 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_zebra.c: (ospf_redistribute_default_set) Fix bug where
+	  a new value for ospf->default_originate was being ignored
+	  if a previous 'default-information originate' command
+	  had already been processed.
+
 2006-10-22 Yar Tikhiy <yar@comp.chem.msu.su>
 
 	* (general) Add support for passive-interface default (with

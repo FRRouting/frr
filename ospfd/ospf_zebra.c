@@ -576,21 +576,15 @@ int
 ospf_redistribute_default_set (struct ospf *ospf, int originate,
                                int mtype, int mvalue)
 {
-  int force = 0;
+  ospf->default_originate = originate;
+  ospf->dmetric[DEFAULT_ROUTE].type = mtype;
+  ospf->dmetric[DEFAULT_ROUTE].value = mvalue;
 
   if (ospf_is_type_redistributed (DEFAULT_ROUTE))
     {
-      if (mtype != ospf->dmetric[DEFAULT_ROUTE].type)
-        {
-          ospf->dmetric[DEFAULT_ROUTE].type = mtype;
-          force = 1;
-        }
-      if (mvalue != ospf->dmetric[DEFAULT_ROUTE].value)
-        {
-          force = 1;
-          ospf->dmetric[DEFAULT_ROUTE].value = mvalue;
-        }
-
+      /* if ospf->default_originate changes value, is calling
+	 ospf_external_lsa_refresh_default sufficient to implement
+	 the change? */
       ospf_external_lsa_refresh_default (ospf);
 
       if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
@@ -600,10 +594,6 @@ ospf_redistribute_default_set (struct ospf *ospf, int originate,
                    metric_value (ospf, DEFAULT_ROUTE));
       return CMD_SUCCESS;
     }
-
-  ospf->default_originate = originate;
-  ospf->dmetric[DEFAULT_ROUTE].type = mtype;
-  ospf->dmetric[DEFAULT_ROUTE].value = mvalue;
 
   zclient_redistribute_default (ZEBRA_REDISTRIBUTE_DEFAULT_ADD, zclient);
 
