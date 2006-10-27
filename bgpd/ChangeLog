@@ -1,3 +1,8 @@
+2006-10-27 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_route.c: (bgp_table_stats) oops, u_intXX_t should be
+	  uintXX_t
+
 2006-10-19 Paul Jakma <paul.jakma@sun.com>
 
 	* bgpd.c: (peer_new) bgp element of peer absolutely must be
