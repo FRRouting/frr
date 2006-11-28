@@ -250,12 +250,14 @@ ALIAS (no_ospf_router_id,
        "router-id for the OSPF process\n")
 
 static void
-ospf_passive_interface_default (struct ospf *ospf)
+ospf_passive_interface_default (struct ospf *ospf, u_char newval)
 {
   struct listnode *ln;
   struct interface *ifp;
   struct ospf_interface *oi;
   
+  ospf->passive_interface_default = newval;
+
   for (ALL_LIST_ELEMENTS_RO (om->iflist, ln, ifp))
     {
       if (ifp &&
@@ -266,6 +268,8 @@ ospf_passive_interface_default (struct ospf *ospf)
     {
       if (OSPF_IF_PARAM_CONFIGURED (oi->params, passive_interface))
         UNSET_IF_PARAM (oi->params, passive_interface);
+      /* update multicast memberships */
+      ospf_if_set_multicast(oi);
     }
 }
 
@@ -314,33 +318,31 @@ DEFUN (ospf_passive_interface,
   struct route_node *rn;
   struct ospf *ospf = vty->index;
 
+  if (argc == 0)
+    {
+      ospf_passive_interface_default (ospf, OSPF_IF_PASSIVE);
+      return CMD_SUCCESS;
+    }
+
   ifp = if_get_by_name (argv[0]);
 
   params = IF_DEF_PARAMS (ifp);
 
-  if (argc == 0)
+  if (argc == 2)
     {
-      ospf->passive_interface_default = OSPF_IF_PASSIVE;
-      ospf_passive_interface_default (ospf);
-    }
-  else 
-    {
-      if (argc == 2)
-        {
-          ret = inet_aton(argv[1], &addr);
-          if (!ret)
-            {
-              vty_out (vty, "Please specify interface address by A.B.C.D%s",
-                       VTY_NEWLINE);
-              return CMD_WARNING;
-            }
+      ret = inet_aton(argv[1], &addr);
+      if (!ret)
+	{
+	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
 
-          params = ospf_get_if_params (ifp, addr);
-          ospf_if_update_params (ifp, addr);
-        }
-      ospf_passive_interface_update (ospf, ifp, addr, params, OSPF_IF_PASSIVE);
+      params = ospf_get_if_params (ifp, addr);
+      ospf_if_update_params (ifp, addr);
     }
-  
+  ospf_passive_interface_update (ospf, ifp, addr, params, OSPF_IF_PASSIVE);
+
   /* XXX We should call ospf_if_set_multicast on exactly those
    * interfaces for which the passive property changed.  It is too much
    * work to determine this set, so we do this for every interface.
@@ -354,7 +356,7 @@ DEFUN (ospf_passive_interface,
       struct ospf_interface *oi = rn->info;
 
       if (oi && (OSPF_IF_PARAM(oi, passive_interface) == OSPF_IF_PASSIVE))
-        ospf_if_set_multicast(oi);
+	ospf_if_set_multicast(oi);
     }
   /*
    * XXX It is not clear what state transitions the interface needs to
@@ -391,34 +393,32 @@ DEFUN (no_ospf_passive_interface,
   int ret;
   struct route_node *rn;
   struct ospf *ospf = vty->index;
+
+  if (argc == 0)
+    {
+      ospf_passive_interface_default (ospf, OSPF_IF_ACTIVE);
+      return CMD_SUCCESS;
+    }
     
   ifp = if_get_by_name (argv[0]);
 
   params = IF_DEF_PARAMS (ifp);
 
-  if (argc == 0)
+  if (argc == 2)
     {
-      ospf->passive_interface_default = OSPF_IF_ACTIVE;
-      ospf_passive_interface_default (ospf);
-    }
-  else
-    {
-      if (argc == 2)
-        {
-          ret = inet_aton(argv[1], &addr);
-          if (!ret)
-            {
-              vty_out (vty, "Please specify interface address by A.B.C.D%s",
-                       VTY_NEWLINE);
-              return CMD_WARNING;
-            }
+      ret = inet_aton(argv[1], &addr);
+      if (!ret)
+	{
+	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
 
-          params = ospf_lookup_if_params (ifp, addr);
-          if (params == NULL)
-            return CMD_SUCCESS;
-        }
-      ospf_passive_interface_update (ospf, ifp, addr, params, OSPF_IF_ACTIVE);
+      params = ospf_lookup_if_params (ifp, addr);
+      if (params == NULL)
+	return CMD_SUCCESS;
     }
+  ospf_passive_interface_update (ospf, ifp, addr, params, OSPF_IF_ACTIVE);
 
   /* XXX We should call ospf_if_set_multicast on exactly those
    * interfaces for which the passive property changed.  It is too much
@@ -2865,7 +2865,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
           struct in_addr *dest;
           const char *dstr;
           
-          if ((ifp->flags & IFF_POINTOPOINT)
+	  if ((ifp->flags & IFF_POINTOPOINT)
               || oi->type == OSPF_IFTYPE_VIRTUALLINK)
             dstr = "Peer";
           else
