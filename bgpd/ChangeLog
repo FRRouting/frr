@@ -1,3 +1,14 @@
+2006-11-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* bgp_route.c: (bgp_info_restore) New function that undoes
+	  the effects of a previous call to bgp_info_delete.  This is
+	  used when a route is deleted and quickly re-added before the
+	  deletion has been processed.
+	  (bgp_static_update_rsclient, bgp_static_update_main,
+	  bgp_redistribute_add) Check whether a pre-existing route
+	  has the BGP_INFO_REMOVED set, and, if so, we need to call
+	  bgp_info_restore to resurrect it.
+
 2006-10-27 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_route.c: (bgp_table_stats) oops, u_intXX_t should be

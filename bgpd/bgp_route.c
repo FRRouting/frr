@@ -192,6 +192,17 @@ bgp_info_delete (struct bgp_node *rn, struct bgp_info *ri)
   UNSET_FLAG (ri->flags, BGP_INFO_VALID);
 }
 
+/* undo the effects of a previous call to bgp_info_delete; typically
+   called when a route is deleted and then quickly re-added before the
+   deletion has been processed */
+static void
+bgp_info_restore (struct bgp_node *rn, struct bgp_info *ri)
+{
+  bgp_info_unset_flag (rn, ri, BGP_INFO_REMOVED);
+  /* unset of previous already took care of pcount */
+  SET_FLAG (ri->flags, BGP_INFO_VALID);
+}
+
 /* Adjust pcount as required */   
 static void
 bgp_pcount_adjust (struct bgp_node *rn, struct bgp_info *ri)
@@ -3051,7 +3062,8 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
 
   if (ri)
        {
-      if (attrhash_cmp (ri->attr, attr_new))
+      if (attrhash_cmp (ri->attr, attr_new) &&
+	  !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
         {
           bgp_unlock_node (rn);
           bgp_attr_unintern (attr_new);
@@ -3064,6 +3076,8 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
           bgp_info_set_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
 
           /* Rewrite BGP route information. */
+	  if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
+	    bgp_info_restore(rn, ri);
           bgp_attr_unintern (ri->attr);
           ri->attr = attr_new;
           ri->uptime = time (NULL);
@@ -3158,7 +3172,8 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 
   if (ri)
     {
-      if (attrhash_cmp (ri->attr, attr_new))
+      if (attrhash_cmp (ri->attr, attr_new) &&
+	  !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
 	{
 	  bgp_unlock_node (rn);
 	  bgp_attr_unintern (attr_new);
@@ -3171,7 +3186,10 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 	  bgp_info_set_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
 
 	  /* Rewrite BGP route information. */
-	  bgp_aggregate_decrement (bgp, p, ri, afi, safi);
+	  if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
+	    bgp_info_restore(rn, ri);
+	  else
+	    bgp_aggregate_decrement (bgp, p, ri, afi, safi);
 	  bgp_attr_unintern (ri->attr);
 	  ri->attr = attr_new;
 	  ri->uptime = time (NULL);
@@ -4952,7 +4970,8 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
  
  	  if (bi)
  	    {
- 	      if (attrhash_cmp (bi->attr, new_attr))
+ 	      if (attrhash_cmp (bi->attr, new_attr) &&
+		  !CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
  		{
  		  bgp_attr_unintern (new_attr);
  		  aspath_unintern (attr.aspath);
@@ -4965,7 +4984,10 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
  		  bgp_info_set_flag (bn, bi, BGP_INFO_ATTR_CHANGED);
  
  		  /* Rewrite BGP route information. */
- 		  bgp_aggregate_decrement (bgp, p, bi, afi, SAFI_UNICAST);
+		  if (CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
+		    bgp_info_restore(bn, bi);
+		  else
+		    bgp_aggregate_decrement (bgp, p, bi, afi, SAFI_UNICAST);
  		  bgp_attr_unintern (bi->attr);
  		  bi->attr = new_attr;
  		  bi->uptime = time (NULL);
