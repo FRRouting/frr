@@ -65,6 +65,13 @@ ospf_router_id_update_zebra (int command, struct zclient *zclient,
   struct prefix router_id;
   zebra_router_id_update_read(zclient->ibuf,&router_id);
 
+  if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
+    {
+      char buf[128];
+      prefix2str(&router_id, buf, sizeof(buf));
+      zlog_debug("Zebra rcvd: router id update %s", buf);
+    }
+
   router_id_zebra = router_id.u.prefix4;
 
   ospf = ospf_lookup ();
@@ -256,6 +263,13 @@ ospf_interface_address_add (int command, struct zclient *zclient,
   if (c == NULL)
     return 0;
 
+  if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
+    {
+      char buf[128];
+      prefix2str(c->address, buf, sizeof(buf));
+      zlog_debug("Zebra: interface %s address add %s", c->ifp->name, buf);
+    }
+
   ospf = ospf_lookup ();
   if (ospf != NULL)
     ospf_if_update (ospf);
@@ -282,6 +296,13 @@ ospf_interface_address_delete (int command, struct zclient *zclient,
 
   if (c == NULL)
     return 0;
+
+  if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
+    {
+      char buf[128];
+      prefix2str(c->address, buf, sizeof(buf));
+      zlog_debug("Zebra: interface %s address delete %s", c->ifp->name, buf);
+    }
 
   ifp = c->ifp;
   p = *c->address;
@@ -470,6 +491,10 @@ ospf_zebra_add_discard (struct prefix_ipv4 *p)
       api.ifindex_num = 0;
 
       zapi_ipv4_route (ZEBRA_IPV4_ROUTE_ADD, zclient, p, &api);
+
+      if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
+        zlog_debug ("Zebra: Route add discard %s/%d",
+                   inet_ntoa (p->prefix), p->prefixlen);
     }
 }
 

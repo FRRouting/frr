@@ -1,3 +1,12 @@
+2006-11-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_zebra.c: (ospf_router_id_update_zebra,
+	  ospf_interface_address_add, ospf_interface_address_delete)
+	  If (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE)) is enabled, then
+	  add a debug message about what Zebra is telling us.
+	  (ospf_zebra_add_discard) Add a debug message matching the one
+	  already in ospf_zebra_delete_discard.
+
 2006-11-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_vty.c: (ospf_passive_interface_default) Take additional
