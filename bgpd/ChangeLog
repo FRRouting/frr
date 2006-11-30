@@ -1,3 +1,21 @@
+2006-11-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* bgp_debug.h: Declare new bgp_debug_zebra conf and term flags,
+	  and define BGP_DEBUG_ZEBRA.
+	* bgp_debug.c: Declare conf_bgp_debug_zebra and term_bgp_debug_zebra.
+	  (debug_bgp_zebra, no_debug_bgp_zebra, undebug_bgp_zebra) New
+	  functions to enable/disable bgp zebra debugging.
+	  (no_debug_bgp_all) Turn off zebra debugging.
+	  (show_debugging_bgp) Show whether zebra debugging is on.
+	  (bgp_config_write_debug) Add 'debug bgp zebra' if configured.
+	  (bgp_debug_init) Add new zebra debugging commands.
+	* bgp_zebra.c: (bgp_router_id_update, bgp_interface_add,
+	  bgp_interface_delete, bgp_interface_up, bgp_interface_down,
+	  bgp_interface_address_add, bgp_interface_address_delete,
+	  zebra_read_ipv4, zebra_read_ipv6, bgp_zebra_announce,
+	  bgp_zebra_withdraw, bgp_redistribute_set, bgp_redistribute_unset)
+	  If zebra debugging is enabled, log an appropriate debug message.
+
 2006-11-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* bgp_route.c: (bgp_info_restore) New function that undoes

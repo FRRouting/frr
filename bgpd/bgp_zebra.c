@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_nexthop.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_debug.h"
 
 /* All information about zebra. */
 static struct zclient *zclient = NULL;
@@ -50,6 +51,14 @@ bgp_router_id_update (int command, struct zclient *zclient, zebra_size_t length)
   struct bgp *bgp;
 
   zebra_router_id_update_read(zclient->ibuf,&router_id);
+
+  if (BGP_DEBUG(zebra, ZEBRA))
+    {
+      char buf[128];
+      prefix2str(&router_id, buf, sizeof(buf));
+      zlog_debug("Zebra rcvd: router id update %s", buf);
+    }
+
   router_id_zebra = router_id.u.prefix4;
 
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
@@ -69,6 +78,9 @@ bgp_interface_add (int command, struct zclient *zclient, zebra_size_t length)
 
   ifp = zebra_interface_add_read (zclient->ibuf);
 
+  if (BGP_DEBUG(zebra, ZEBRA) && ifp)
+    zlog_debug("Zebra rcvd: interface add %s", ifp->name);
+
   return 0;
 }
 
@@ -82,6 +94,9 @@ bgp_interface_delete (int command, struct zclient *zclient,
   s = zclient->ibuf;
   ifp = zebra_interface_state_read (s);
   ifp->ifindex = IFINDEX_INTERNAL;
+
+  if (BGP_DEBUG(zebra, ZEBRA))
+    zlog_debug("Zebra rcvd: interface delete %s", ifp->name);
 
   return 0;
 }
@@ -99,6 +114,9 @@ bgp_interface_up (int command, struct zclient *zclient, zebra_size_t length)
 
   if (! ifp)
     return 0;
+
+  if (BGP_DEBUG(zebra, ZEBRA))
+    zlog_debug("Zebra rcvd: interface %s up", ifp->name);
 
   for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, c))
     bgp_connected_add (c);
@@ -118,6 +136,9 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length)
   ifp = zebra_interface_state_read (s);
   if (! ifp)
     return 0;
+
+  if (BGP_DEBUG(zebra, ZEBRA))
+    zlog_debug("Zebra rcvd: interface %s down", ifp->name);
 
   for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, c))
     bgp_connected_delete (c);
@@ -164,6 +185,14 @@ bgp_interface_address_add (int command, struct zclient *zclient,
   if (ifc == NULL)
     return 0;
 
+  if (BGP_DEBUG(zebra, ZEBRA))
+    {
+      char buf[128];
+      prefix2str(ifc->address, buf, sizeof(buf));
+      zlog_debug("Zebra rcvd: interface %s address add %s",
+		 ifc->ifp->name, buf);
+    }
+
   if (if_is_operative (ifc->ifp))
     bgp_connected_add (ifc);
 
@@ -180,6 +209,14 @@ bgp_interface_address_delete (int command, struct zclient *zclient,
 
   if (ifc == NULL)
     return 0;
+
+  if (BGP_DEBUG(zebra, ZEBRA))
+    {
+      char buf[128];
+      prefix2str(ifc->address, buf, sizeof(buf));
+      zlog_debug("Zebra rcvd: interface %s address delete %s",
+		 ifc->ifp->name, buf);
+    }
 
   if (if_is_operative (ifc->ifp))
     bgp_connected_delete (ifc);
@@ -233,9 +270,34 @@ zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
     api.metric = 0;
 
   if (command == ZEBRA_IPV4_ROUTE_ADD)
-    bgp_redistribute_add ((struct prefix *)&p, &nexthop, api.metric, api.type);
+    {
+      if (BGP_DEBUG(zebra, ZEBRA))
+	{
+	  char buf[2][INET_ADDRSTRLEN];
+	  zlog_debug("Zebra rcvd: IPv4 route add %s %s/%d nexthop %s metric %u",
+		     zebra_route_string(api.type),
+		     inet_ntop(AF_INET, &p.prefix, buf[0], sizeof(buf[0])),
+		     p.prefixlen,
+		     inet_ntop(AF_INET, &nexthop, buf[1], sizeof(buf[1])),
+		     api.metric);
+	}
+      bgp_redistribute_add((struct prefix *)&p, &nexthop, api.metric, api.type);
+    }
   else
-    bgp_redistribute_delete ((struct prefix *)&p, api.type);
+    {
+      if (BGP_DEBUG(zebra, ZEBRA))
+	{
+	  char buf[2][INET_ADDRSTRLEN];
+	  zlog_debug("Zebra rcvd: IPv4 route delete %s %s/%d "
+		     "nexthop %s metric %u",
+		     zebra_route_string(api.type),
+		     inet_ntop(AF_INET, &p.prefix, buf[0], sizeof(buf[0])),
+		     p.prefixlen,
+		     inet_ntop(AF_INET, &nexthop, buf[1], sizeof(buf[1])),
+		     api.metric);
+	}
+      bgp_redistribute_delete((struct prefix *)&p, api.type);
+    }
 
   return 0;
 }
@@ -291,9 +353,29 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
     return 0;
 
   if (command == ZEBRA_IPV6_ROUTE_ADD)
-    bgp_redistribute_add ((struct prefix *)&p, NULL, api.metric, api.type);
+    {
+      if (BGP_DEBUG(zebra, ZEBRA))
+	{
+	  char buf[INET6_ADDRSTRLEN];
+	  zlog_debug("Zebra rcvd: IPv6 route add %s %s/%d metric %u",
+		     zebra_route_string(api.type),
+		     inet_ntop(AF_INET6, &p.prefix, buf, sizeof(buf)),
+		     p.prefixlen, api.metric);
+	}
+      bgp_redistribute_add ((struct prefix *)&p, NULL, api.metric, api.type);
+    }
   else
-    bgp_redistribute_delete ((struct prefix *) &p, api.type);
+    {
+      if (BGP_DEBUG(zebra, ZEBRA))
+	{
+	  char buf[INET6_ADDRSTRLEN];
+	  zlog_debug("Zebra rcvd: IPv6 route delete %s %s/%d metric %u",
+		     zebra_route_string(api.type),
+		     inet_ntop(AF_INET6, &p.prefix, buf, sizeof(buf)),
+		     p.prefixlen, api.metric);
+	}
+      bgp_redistribute_delete ((struct prefix *) &p, api.type);
+    }
   
   return 0;
 }
@@ -640,6 +722,17 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
 	  SET_FLAG (api.message, ZAPI_MESSAGE_DISTANCE);
 	  api.distance = distance;
 	}
+
+      if (BGP_DEBUG(zebra, ZEBRA))
+	{
+	  char buf[2][INET_ADDRSTRLEN];
+	  zlog_debug("Zebra send: IPv4 route add %s/%d nexthop %s metric %u",
+		     inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
+		     p->prefixlen,
+		     inet_ntop(AF_INET, nexthop, buf[1], sizeof(buf[1])),
+		     api.metric);
+	}
+
       zapi_ipv4_route (ZEBRA_IPV4_ROUTE_ADD, zclient, 
                        (struct prefix_ipv4 *) p, &api);
     }
@@ -696,6 +789,16 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
 
+      if (BGP_DEBUG(zebra, ZEBRA))
+	{
+	  char buf[2][INET6_ADDRSTRLEN];
+	  zlog_debug("Zebra send: IPv6 route add %s/%d nexthop %s metric %u",
+		     inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
+		     p->prefixlen,
+		     inet_ntop(AF_INET6, nexthop, buf[1], sizeof(buf[1])),
+		     api.metric);
+	}
+
       zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, 
                        (struct prefix_ipv6 *) p, &api);
     }
@@ -744,6 +847,16 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info)
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
 
+      if (BGP_DEBUG(zebra, ZEBRA))
+	{
+	  char buf[2][INET_ADDRSTRLEN];
+	  zlog_debug("Zebra send: IPv4 route delete %s/%d nexthop %s metric %u",
+		     inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
+		     p->prefixlen,
+		     inet_ntop(AF_INET, nexthop, buf[1], sizeof(buf[1])),
+		     api.metric);
+	}
+
       zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, 
                        (struct prefix_ipv4 *) p, &api);
     }
@@ -789,6 +902,16 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info)
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
 
+      if (BGP_DEBUG(zebra, ZEBRA))
+	{
+	  char buf[2][INET6_ADDRSTRLEN];
+	  zlog_debug("Zebra send: IPv6 route delete %s/%d nexthop %s metric %u",
+		     inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
+		     p->prefixlen,
+		     inet_ntop(AF_INET6, nexthop, buf[1], sizeof(buf[1])),
+		     api.metric);
+	}
+
       zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, 
                        (struct prefix_ipv6 *) p, &api);
     }
@@ -811,6 +934,9 @@ bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type)
   /* Return if zebra connection is not established. */
   if (zclient->sock < 0)
     return CMD_WARNING;
+
+  if (BGP_DEBUG(zebra, ZEBRA))
+    zlog_debug("Zebra send: redistribute add %s", zebra_route_string(type));
     
   /* Send distribute add message to zebra. */
   zebra_redistribute_send (ZEBRA_REDISTRIBUTE_ADD, zclient, type);
@@ -875,8 +1001,13 @@ bgp_redistribute_unset (struct bgp *bgp, afi_t afi, int type)
   if (bgp->redist[AFI_IP][type] == 0 
       && bgp->redist[AFI_IP6][type] == 0 
       && zclient->sock >= 0)
-    /* Send distribute delete message to zebra. */
-    zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
+    {
+      /* Send distribute delete message to zebra. */
+      if (BGP_DEBUG(zebra, ZEBRA))
+	zlog_debug("Zebra send: redistribute delete %s",
+		   zebra_route_string(type));
+      zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
+    }
   
   /* Withdraw redistributed routes from current BGP's routing table. */
   bgp_redistribute_withdraw (bgp, afi, type);
