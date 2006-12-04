@@ -896,8 +896,6 @@ ospf_network_run (struct ospf *ospf, struct prefix *p, struct ospf_area *area)
 		if ((ospf->router_id.s_addr != 0)
 		    && if_is_operative (ifp)) 
 		  ospf_if_up (oi);
-
-		break;
 	      }
 	}
     }
