@@ -1103,20 +1103,20 @@ rib_queue_init (struct zebra_t *zebra)
  * The queue length is bounded by the maximal size of the routing table,
  * as a route_node will not be requeued, if already queued.
  *
- * RIBs are submitted via rib_addnode and rib_delnode, which set
- * minimal state and then submit route_node to queue for best-path
- * selection later. Order of add/delete state changes are preserved for
- * any given RIB. 
+ * RIBs are submitted via rib_addnode or rib_delnode which set minimal
+ * state, or static_install_ipv{4,6} (when an existing RIB is updated)
+ * and then submit route_node to queue for best-path selection later.
+ * Order of add/delete state changes are preserved for any given RIB.
  *
  * Deleted RIBs are reaped during best-path selection.
  *
  * rib_addnode
  * |-> rib_link or unset RIB_ENTRY_REMOVE        |->Update kernel with
- * |-> rib_addqueue                              |    best RIB, if required
- *          |                                    |
- *          |-> .......................... -> rib_process
- *          |                                    |
- * |-> rib_addqueue                              |-> rib_unlink
+ *       |-------->|                             |  best RIB, if required
+ *                 |                             |
+ * static_install->|->rib_addqueue...... -> rib_process
+ *                 |                             |
+ *       |-------->|                             |-> rib_unlink
  * |-> set RIB_ENTRY_REMOVE                           |
  * rib_delnode                                  (RIB freed)
  *
@@ -1548,6 +1548,7 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
             nexthop_blackhole_add (rib);
             break;
         }
+      rib_queue_add (&zebrad, rn);
     }
   else
     {
@@ -1704,7 +1705,7 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
 	}
     }
 
-  /* Distance chaged.  */
+  /* Distance changed.  */
   if (update)
     static_delete_ipv4 (p, gate, ifname, update->distance, vrf_id);
 
@@ -2097,6 +2098,7 @@ static_install_ipv6 (struct prefix *p, struct static_ipv6 *si)
 	  nexthop_ipv6_ifname_add (rib, &si->ipv6, si->ifname);
 	  break;
 	}
+      rib_queue_add (&zebrad, rn);
     }
   else
     {

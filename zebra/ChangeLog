@@ -1,3 +1,9 @@
+2006-12-08 Piotr Chytla <pch@packetconsulting.pl>
+
+	* zebra_rib.c: (static_install_ipv{4,6}) Case where existing
+	  RIB is updated must explicitely rib_addqueue the route_node,
+	  to ensure the update actually takes effect.
+
 2006-09-13 Tom Everett <tom@khubla.com>
 
 	* kernel_socket.c (rtm_type_str): ifdef RTM_OLD{ADD,DEL} to
