@@ -61,6 +61,21 @@ u_char DEFAULT_TOPOLOGY_BASEIS[6] = { 0xFE, 0xED, 0xFE, 0xED, 0x00, 0x00 };
 struct isis *isis = NULL;
 extern struct thread_master *master;
 
+/*
+ * Prototypes.
+ */
+void isis_new(unsigned long);
+struct isis_area *isis_area_create(void);
+int isis_area_get(struct vty *, const char *);
+int isis_area_destroy(struct vty *, const char *);
+int area_net_title(struct vty *, const u_char *);
+int area_clear_net_title(struct vty *, const u_char *);
+int show_clns_neigh(struct vty *, char);
+void print_debug(struct vty *, int, int);
+int isis_config_write(struct vty *);
+
+
+
 void
 isis_new (unsigned long process_id)
 {
@@ -217,7 +232,7 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
 }
 
 int
-area_net_title (struct vty *vty, u_char *net_title)
+area_net_title (struct vty *vty, const u_char *net_title)
 {
   struct isis_area *area;
   struct area_addr *addr;
@@ -311,7 +326,7 @@ area_net_title (struct vty *vty, u_char *net_title)
 }
 
 int
-area_clear_net_title (struct vty *vty, u_char *net_title)
+area_clear_net_title (struct vty *vty, const u_char *net_title)
 {
   struct isis_area *area;
   struct area_addr addr, *addrp = NULL;
@@ -997,7 +1012,7 @@ DEFUN (net,
        "A Network Entity Title for this process (OSI only)\n"
        "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
-  return area_net_title (vty, (u_char *)argv[0]);
+  return area_net_title (vty, argv[0]);
 }
 
 /*
@@ -1010,7 +1025,7 @@ DEFUN (no_net,
        "A Network Entity Title for this process (OSI only)\n"
        "XX.XXXX. ... .XXX.XX  Network entity title (NET)\n")
 {
-  return area_clear_net_title (vty, (u_char *)argv[0]);
+  return area_clear_net_title (vty, argv[0]);
 }
 
 DEFUN (area_passwd,
@@ -1182,7 +1197,7 @@ DEFUN (is_type,
       return CMD_WARNING;
     }
 
-  type = string2circuit_t ((u_char *)argv[0]);
+  type = string2circuit_t (argv[0]);
   if (!type)
     {
       vty_out (vty, "Unknown IS level %s", VTY_NEWLINE);

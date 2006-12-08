@@ -998,8 +998,10 @@ isis_run_spf (struct isis_area *area, int level, int family)
   /* Make all routes in current route table inactive. */
   if (family == AF_INET)
     table = area->route_table[level - 1];
+#ifdef HAVE_IPV6
   else if (family == AF_INET6)
     table = area->route_table6[level - 1];
+#endif
 
   for (rode = route_top (table); rode; rode = route_next (rode))
     {
@@ -1333,16 +1335,16 @@ isis_print_paths (struct vty *vty, struct list *paths)
 	      nh_dyn = dynhn_find_by_id (adj->sysid);
 	      vty_out (vty, "%-20s %-10u %-20s %-11s %-5s%s",
 		       (dyn != NULL) ? dyn->name.name :
-		       (u_char *) rawlspid_print ((u_char *) vertex->N.id),
+		       (const u_char *)rawlspid_print ((u_char *) vertex->N.id),
 		       vertex->d_N, (nh_dyn != NULL) ? nh_dyn->name.name :
-		       (u_char *) rawlspid_print (adj->sysid),
+		       (const u_char *)rawlspid_print (adj->sysid),
 		       adj->circuit->interface->name,
 		       snpa_print (adj->snpa), VTY_NEWLINE);
 	    }
 	  else
 	    {
 	      vty_out (vty, "%s              %u %s", dyn ? dyn->name.name :
-		       (u_char *) rawlspid_print (vertex->N.id),
+		       (const u_char *) rawlspid_print (vertex->N.id),
 		       vertex->d_N, VTY_NEWLINE);
 	    }
 	}

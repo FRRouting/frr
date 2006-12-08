@@ -10,7 +10,17 @@
 #include <sys/types.h>
 #include <sys/times.h>
 
-unsigned long timer()
+/*
+ * Prototypes.
+ */
+unsigned long timer(void);
+void init_rand(long);
+double rand01(void);
+double randg01(void);
+long nrand(long);
+void free_arc(void *);
+
+unsigned long timer ()
    { struct tms hold;
 
         times(&hold);

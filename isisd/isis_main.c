@@ -107,6 +107,16 @@ int _argc;
 char **_argv;
 char **_envp;
 
+/*
+ * Prototypes.
+ */
+void reload(void);
+void sighup(void);
+void sigint(void);
+void sigterm(void);
+void sigusr1(void);
+
+
 /* Help information display. */
 static void
 usage (int status)

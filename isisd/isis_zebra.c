@@ -72,7 +72,7 @@ isis_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
 
   if (isis->debugs & DEBUG_ZEBRA)
     zlog_debug ("Zebra I/F add: %s index %d flags %ld metric %d mtu %d",
-		ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+		ifp->name, ifp->ifindex, (long)ifp->flags, ifp->metric, ifp->mtu);
 
   if (if_is_operative (ifp))
     isis_csm_state_change (IF_UP_FROM_Z, circuit_scan_by_ifp (ifp), ifp);
@@ -98,7 +98,7 @@ isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
 
   if (isis->debugs & DEBUG_ZEBRA)
     zlog_debug ("Zebra I/F delete: %s index %d flags %ld metric %d mtu %d",
-		ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+		ifp->name, ifp->ifindex, (long)ifp->flags, ifp->metric, ifp->mtu);
 
 
   /* Cannot call if_delete because we should retain the pseudo interface
@@ -571,12 +571,14 @@ isis_zebra_read_ipv4 (int command, struct zclient *zclient,
   return 0;
 }
 
+#ifdef HAVE_IPV6
 static int
 isis_zebra_read_ipv6 (int command, struct zclient *zclient,
 		      zebra_size_t length)
 {
   return 0;
 }
+#endif
 
 #define ISIS_TYPE_IS_REDISTRIBUTED(T) \
 T == ZEBRA_ROUTE_MAX ? zclient->default_information : zclient->redist[type]

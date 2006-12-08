@@ -72,7 +72,12 @@ isis_new_adj (u_char * id, u_char * snpa, int level,
       return NULL;
     }
 
+  if (snpa) {
   memcpy (adj->snpa, snpa, 6);
+  } else {
+      memset (adj->snpa, ' ', 6);
+  }
+
   adj->circuit = circuit;
   adj->level = level;
   adj->flaps = 0;

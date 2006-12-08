@@ -57,6 +57,14 @@
 extern struct thread_master *master;
 extern struct isis *isis;
 
+/*
+ * Prototypes.
+ */
+void isis_circuit_down(struct isis_circuit *);
+int isis_interface_config_write(struct vty *);
+int isis_if_new_hook(struct interface *);
+int isis_if_delete_hook(struct interface *);
+
 struct isis_circuit *
 isis_circuit_new ()
 {
@@ -275,10 +283,10 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 {
   struct prefix_ipv4 *ipv4, *ip = NULL;
   struct listnode *node;
-  int found = 0;
   u_char buf[BUFSIZ];
 #ifdef HAVE_IPV6
   struct prefix_ipv6 *ipv6, *ip6 = NULL;
+  int found = 0;
 #endif /* HAVE_IPV6 */
 
   memset (&buf, 0, BUFSIZ);
@@ -944,7 +952,7 @@ DEFUN (isis_circuit_type,
 
   assert (circuit);
 
-  circuit_t = string2circuit_t ((u_char *)argv[0]);
+  circuit_t = string2circuit_t (argv[0]);
 
   if (!circuit_t)
     {

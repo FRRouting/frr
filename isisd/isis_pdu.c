@@ -335,7 +335,7 @@ process_p2p_hello (struct isis_circuit *circuit)
   adj = circuit->u.p2p.neighbor;
   if (!adj)
     {
-      adj = isis_new_adj (hdr->source_id, (u_char *) "      ", 0, circuit);
+      adj = isis_new_adj (hdr->source_id, NULL, 0, circuit);
       if (adj == NULL)
 	return ISIS_ERROR;
       circuit->u.p2p.neighbor = adj;
@@ -1596,7 +1596,7 @@ process_is_hello (struct isis_circuit *circuit)
   if (!adj)
     {
       /* 8.2.2 */
-      adj = isis_new_adj (sysid, (u_char *) "      ", 0, circuit);
+      adj = isis_new_adj (sysid, NULL, 0, circuit);
       if (adj == NULL)
 	return ISIS_ERROR;
 
@@ -1612,7 +1612,7 @@ process_is_hello (struct isis_circuit *circuit)
       /* 8.2.2 a) 2) delete the adj */
       XFREE (MTYPE_ISIS_ADJACENCY, adj);
       /* 8.2.2 a) 3) create a new adj */
-      adj = isis_new_adj (sysid, (u_char *) "      ", 0, circuit);
+      adj = isis_new_adj (sysid, NULL, 0, circuit);
       if (adj == NULL)
 	return ISIS_ERROR;
 

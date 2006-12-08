@@ -631,6 +631,8 @@ isis_route_validate_table (struct isis_area *area, struct route_table *table)
 	      if (drnode->info == rnode->info)
 		drnode->info = NULL;
 	    }
+
+#ifdef HAVE_IPV6
 	  if (rnode->p.family == AF_INET6)
 	    {
 	      drnode = route_node_get (area->route_table6[0], &rnode->p);
@@ -640,6 +642,7 @@ isis_route_validate_table (struct isis_area *area, struct route_table *table)
 	      if (drnode->info == rnode->info)
 		drnode->info = NULL;
 	    }
+#endif
 	      
 	  isis_route_delete (&rnode->p, table);
 	}
@@ -667,8 +670,10 @@ isis_route_validate_merge (struct isis_area *area, int family)
 
   if (family == AF_INET)
     table = area->route_table[0];
+#ifdef HAVE_IPV6
   else if (family == AF_INET6)
     table = area->route_table6[0];
+#endif
 
   for (rnode = route_top (table); rnode; rnode = route_next (rnode))
     {
@@ -680,8 +685,10 @@ isis_route_validate_merge (struct isis_area *area, int family)
 
   if (family == AF_INET)
     table = area->route_table[1];
+#ifdef HAVE_IPV6
   else if (family == AF_INET6)
     table = area->route_table6[1];
+#endif
 
   for (rnode = route_top (table); rnode; rnode = route_next (rnode))
     {
@@ -719,8 +726,8 @@ isis_route_validate (struct thread *thread)
 
   isis_route_validate_merge (area, AF_INET);
 
-#ifdef HAVE_IPV6
 validate_ipv6:
+#ifdef HAVE_IPV6
   if (area->is_type == IS_LEVEL_1)
     {
       isis_route_validate_table (area, area->route_table6[0]);

@@ -727,10 +727,10 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
 #ifdef HAVE_IPV6
   struct ipv6_reachability *ipv6_reach;
   struct in6_addr in6;
+  u_char buff[BUFSIZ];
 #endif
   u_char LSPid[255];
   u_char hostname[255];
-  u_char buff[BUFSIZ];
   u_char ipv4_reach_prefix[20];
   u_char ipv4_reach_mask[20];
   u_char ipv4_address[20];

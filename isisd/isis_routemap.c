@@ -49,6 +49,14 @@
 
 extern struct isis *isis;
 
+/*
+ * Prototypes.
+ */
+void isis_route_map_upd(const char *);
+void isis_route_map_event(route_map_event_t, const char *);
+void isis_route_map_init(void);
+
+
 void
 isis_route_map_upd (const char *name)
 {

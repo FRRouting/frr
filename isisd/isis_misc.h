@@ -24,8 +24,7 @@
 #ifndef _ZEBRA_ISIS_MISC_H
 #define _ZEBRA_ISIS_MISC_H
 
-int dotformat2buff (u_char *, u_char *);
-int string2circuit_t (u_char *);
+int string2circuit_t (const u_char *);
 const char *circuit_t2string (int);
 const char *syst2string (int);
 struct in_addr newprefix2inaddr (u_char * prefix_start,
@@ -34,7 +33,7 @@ struct in_addr newprefix2inaddr (u_char * prefix_start,
  * Converting input to memory stored format
  * return value of 0 indicates wrong input
  */
-int dotformat2buff (u_char *, u_char *);
+int dotformat2buff (u_char *, const u_char *);
 int sysid2buff (u_char *, const u_char *);
 
 /*

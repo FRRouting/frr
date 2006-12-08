@@ -191,9 +191,3 @@ iso_csum_create (u_char * buffer, int len, u_int16_t n)
   /* return the checksum for user usage */
   return checksum;
 }
-
-int
-iso_csum_modify (u_char * buffer, int len, uint16_t * csum)
-{
-  return 0;
-}

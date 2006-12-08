@@ -99,15 +99,15 @@ isonet_print (u_char * from, int len)
  * extract dot from the dotted str, and insert all the number in a buff 
  */
 int
-dotformat2buff (u_char * buff, u_char * dotted)
+dotformat2buff (u_char * buff, const u_char * dotted)
 {
   int dotlen, len = 0;
-  u_char *pos = dotted;
+  const u_char *pos = dotted;
   u_char number[3];
   int nextdotpos = 2;
 
   number[2] = '\0';
-  dotlen = strlen ((char *)dotted);
+  dotlen = strlen(dotted);
   if (dotlen > 50)
     {
       /* this can't be an iso net, its too long */
@@ -165,7 +165,7 @@ sysid2buff (u_char * buff, const u_char * dotted)
 
   number[2] = '\0';
   // surely not a sysid_string if not 14 length
-  if (strlen ((char *)dotted) != 14)
+  if (strlen (dotted) != 14)
     {
       return 0;
     }
@@ -271,19 +271,19 @@ speaks (struct nlpids *nlpids, int family)
  * Returns 0 on error, IS-IS Circuit Type on ok
  */
 int
-string2circuit_t (u_char * str)
+string2circuit_t (const u_char * str)
 {
 
   if (!str)
     return 0;
 
-  if (!strcmp ((char *)str, "level-1"))
+  if (!strcmp (str, "level-1"))
     return IS_LEVEL_1;
 
-  if (!strcmp ((char *)str, "level-2-only") || !strcmp ((char *)str, "level-2"))
+  if (!strcmp (str, "level-2-only") || !strcmp (str, "level-2"))
     return IS_LEVEL_2;
 
-  if (!strcmp ((char *)str, "level-1-2"))
+  if (!strcmp (str, "level-1-2"))
     return IS_LEVEL_1_AND_2;
 
   return 0;

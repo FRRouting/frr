@@ -26,6 +26,15 @@
 
 #define NODE( x, y ) (x*Y + y + 1)
 
+/*
+ * Prototypes.
+ */
+void free_arc(void *);
+void help(struct vty *);
+void print_arc(struct vty *, struct list *, long, long, long);
+void hhelp(struct vty *);
+void usage(struct vty *);
+
 const char   *graph_type[] =  {
   "double cycle",
   "cycle",

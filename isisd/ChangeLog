@@ -1,3 +1,12 @@
+2006-12-08 Hannes Gredler <hannes@gredler.at>
+
+	* isis_adjacency.c: (isis_new_adj) Allow NULL snpa argument.
+	* isis_pdu.c: (various) Update calls to isis_new_adj() to pass
+	  NULL and use default.
+	* (general) Add forward declarations where required.
+	  Fix up const char *'s.
+	  Allow V4-only compilation.
+
 2006-01-17 Paul Jakma <paul.jakma@sun.com>
 
 	* isis_zebra.c: (isis_zebra_route_add_ipv4) fix for new
