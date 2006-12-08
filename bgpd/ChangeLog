@@ -1,3 +1,13 @@
+2006-12-07 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_fsm.c: Bug #302 fix, diagnosis, suggestions and testing
+	  by Juergen Kammer <j.kammer@eurodata.de>. Fix follows from
+	  his suggested fix, just made in a slightly different way.
+	  (bgp_event) Transitions into Clearing always must call
+	  bgp_clear_route_all().
+	  (bgp_stop) No need to clear routes here, BGP FSM should do
+	  it.
+ 
 2006-11-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* bgp_debug.h: Declare new bgp_debug_zebra conf and term flags,

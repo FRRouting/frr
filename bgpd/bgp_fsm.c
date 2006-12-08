@@ -483,9 +483,6 @@ bgp_stop (struct peer *peer)
       /* Reset uptime. */
       bgp_uptime_reset (peer);
 
-      /* Need of clear of peer. */
-      bgp_clear_route_all (peer);
-
       /* Reset peer synctime */
       peer->synctime = 0;
     }
@@ -1092,8 +1089,14 @@ bgp_event (struct thread *thread)
     {
       /* If status is changed. */
       if (next != peer->status)
-        bgp_fsm_change_status (peer, next);
-
+        {
+          /* Transition into Clearing must /always/ clear all routes.. */
+          if (next == Clearing)
+            bgp_clear_route_all (peer);
+          
+          bgp_fsm_change_status (peer, next);
+        }
+      
       /* Make sure timer is set. */
       bgp_timer_set (peer);
     }
