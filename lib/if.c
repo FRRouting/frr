@@ -275,7 +275,6 @@ if_lookup_address (struct in_addr src)
   int bestlen = 0;
   struct listnode *cnode;
   struct interface *ifp;
-  struct prefix *p;
   struct connected *c;
   struct interface *match;
 
@@ -289,25 +288,12 @@ if_lookup_address (struct in_addr src)
     {
       for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
 	{
-	  if (c->address && (c->address->family == AF_INET))
+	  if (c->address && (c->address->family == AF_INET) &&
+	      prefix_match(CONNECTED_PREFIX(c), &addr) &&
+	      (c->address->prefixlen > bestlen))
 	    {
-	      if (CONNECTED_POINTOPOINT_HOST(c))
-		{
-		 /* PTP  links are conventionally identified 
-		    by the address of the far end - MAG */
-		  if (IPV4_ADDR_SAME (&c->destination->u.prefix4, &src))
-		    return ifp;
-		}
-	      else
-		{
-		  p = c->address;
-
-		  if (prefix_match (p, &addr) && p->prefixlen > bestlen)
-		    {
-		      bestlen = p->prefixlen;
-		      match = ifp;
-		    }
-		}
+	      bestlen = c->address->prefixlen;
+	      match = ifp;
 	    }
 	}
     }
@@ -728,7 +714,6 @@ connected_lookup_address (struct interface *ifp, struct in_addr dst)
 {
   struct prefix addr;
   struct listnode *cnode;
-  struct prefix *p;
   struct connected *c;
   struct connected *match;
 
@@ -740,24 +725,10 @@ connected_lookup_address (struct interface *ifp, struct in_addr dst)
 
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
     {
-      if (c->address && (c->address->family == AF_INET))
-        {
-	  if (CONNECTED_POINTOPOINT_HOST(c))
-	    {
-		     /* PTP  links are conventionally identified 
-			by the address of the far end - MAG */
-	      if (IPV4_ADDR_SAME (&c->destination->u.prefix4, &dst))
-		return c;
-	    }
-	  else
-	    {
-	      p = c->address;
-
-	      if (prefix_match (p, &addr) &&
-	      	  (!match || (p->prefixlen > match->address->prefixlen)))
-		match = c;
-	    }
-        }
+      if (c->address && (c->address->family == AF_INET) &&
+	  prefix_match(CONNECTED_PREFIX(c), &addr) &&
+	  (!match || (c->address->prefixlen > match->address->prefixlen)))
+	match = c;
     }
   return match;
 }

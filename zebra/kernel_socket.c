@@ -609,7 +609,7 @@ ifam_read (struct ifa_msghdr *ifam)
 	SET_IN6_LINKLOCAL_IFINDEX (addr.sin6.sin6_addr, 0);
 
       if (ifam->ifam_type == RTM_NEWADDR)
-	connected_add_ipv6 (ifp,
+	connected_add_ipv6 (ifp, 0,
 			    &addr.sin6.sin6_addr, 
 			    ip6_masklen (mask.sin6.sin6_addr),
 			    &brd.sin6.sin6_addr,

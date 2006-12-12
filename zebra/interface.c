@@ -564,10 +564,6 @@ static void
 connected_dump_vty (struct vty *vty, struct connected *connected)
 {
   struct prefix *p;
-  struct interface *ifp;
-
-  /* Set interface pointer. */
-  ifp = connected->ifp;
 
   /* Print interface address. */
   p = connected->address;
@@ -576,21 +572,10 @@ connected_dump_vty (struct vty *vty, struct connected *connected)
   vty_out (vty, "/%d", p->prefixlen);
 
   /* If there is destination address, print it. */
-  p = connected->destination;
-  if (p)
+  if (connected->destination)
     {
-      if (p->family == AF_INET)
-	if (ifp->flags & IFF_BROADCAST)
-	  {
-	    vty_out (vty, " broadcast ");
-	    prefix_vty_out (vty, p);
-	  }
-
-      if (ifp->flags & IFF_POINTOPOINT)
-	{
-	  vty_out (vty, " pointopoint ");
-	  prefix_vty_out (vty, p);
-	}
+      vty_out (vty, (CONNECTED_PEER(connected) ? " peer " : " broadcast "));
+      prefix_vty_out (vty, connected->destination);
     }
 
   if (CHECK_FLAG (connected->flags, ZEBRA_IFA_SECONDARY))

@@ -40,7 +40,7 @@ extern void connected_down_ipv4 (struct interface *, struct connected *);
 
 #ifdef HAVE_IPV6
 extern void
-connected_add_ipv6 (struct interface *ifp, struct in6_addr *address,
+connected_add_ipv6 (struct interface *ifp, int flags, struct in6_addr *address,
 		    u_char prefixlen, struct in6_addr *broad,
 		    const char *label);
 extern void

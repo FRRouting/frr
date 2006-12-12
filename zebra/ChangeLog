@@ -1,3 +1,53 @@
+2006-12-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* connected.c: (connected_up_ipv4, connected_down_ipv4,
+	  connected_up_ipv6, connected_down_ipv6) Simplify logic using the
+	  new CONNECTED_PREFIX macro.
+	  (connected_add_ipv4) Set prefixlen in destination addresses (required
+	  by the CONNECTED_PREFIX macro).  Use CONNECTED_PEER macro instead
+	  of testing for IFF_POINTOPOINT.  Delete invalid warning message.
+	  Warn about cases where the ZEBRA_IFA_PEER is set but no
+	  destination address has been supplied (and turn off the flag).
+	  (connected_add_ipv6) Add new flags argument so callers may set
+	  the ZEBRA_IFA_PEER flag.  If peer/broadcast address satisfies
+	  IN6_IS_ADDR_UNSPECIFIED, then reject it with a warning.
+	  Set prefixlen in destination address so CONNECTED_PREFIX will work.
+	* connected.h: (connected_add_ipv6) Add new flags argument so
+	  callers may set the ZEBRA_IFA_PEER flag.
+	* interface.c: (connected_dump_vty) Use CONNECTED_PEER macro
+	  to decide whether the destination address is a peer or broadcast
+	  address (instead of checking IFF_BROADCAST and IFF_POINTOPOINT).
+	* if_ioctl.c: (if_getaddrs) Instead of setting a peer address
+	  only when the IFF_POINTOPOINT is set, we now accept a peer
+	  address whenever it is available and not the same as the local
+	  address.  Otherwise (no peer address assigned), we check
+	  for a broadcast address (regardless of the IFF_BROADCAST flag).
+	  And must now pass a flags value of ZEBRA_IFA_PEER to 
+	  connected_add_ipv4 when a peer address is assigned.
+	  The same new logic is used with the IPv6 code as well (and we
+	  pass the new flags argument to connected_add_ipv6).
+	  (if_get_addr) Do not bother to check IFF_POINTOPOINT: just
+	  issue the SIOCGIFDSTADDR ioctl and see if we get back
+	  a peer address not matching the local address (and set
+	  the ZEBRA_IFA_PEER in that case).  If there's no peer address,
+	  try to grab SIOCGIFBRDADDR regardless of whether IFF_BROADCAST is set.
+	* if_ioctl_solaris.c: (if_get_addr) Just try the SIOCGLIFDSTADDR ioctl
+	  without bothering to check the IFF_POINTOPOINT flag.  And if
+	  no peer address was found, just try the SIOCGLIFBRDADDR ioctl
+	  without checking the IFF_BROADCAST flag.  Call connected_add_ipv4
+	  and connected_add_ipv6 with appropriate flags.
+	* if_proc.c: (ifaddr_proc_ipv6) Must pass new flags argument to
+	  connected_add_ipv6.
+	* kernel_socket.c: (ifam_read) Must pass new flags argument to
+	  connected_add_ipv6.
+	* rt_netlink.c: (netlink_interface_addr) Copy logic from iproute2
+	  to determine local and possible peer address (so there's no longer
+	  a test for IFF_POINTOPOINT).  Set ZEBRA_IFA_PEER flag appropriately.
+	  Pass new flags argument to connected_add_ipv6.
+	  (netlink_address) Test !CONNECTED_PEER instead of if_is_broadcast
+	  to determine whether the connected destination address is a
+	  broadcast address.
+
 2006-12-08 Piotr Chytla <pch@packetconsulting.pl>
 
 	* zebra_rib.c: (static_install_ipv{4,6}) Case where existing

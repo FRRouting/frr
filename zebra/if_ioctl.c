@@ -249,6 +249,7 @@ if_getaddrs (void)
 	  struct sockaddr_in *mask;
 	  struct sockaddr_in *dest;
 	  struct in_addr *dest_pnt;
+	  int flags = 0;
 
 	  addr = (struct sockaddr_in *) ifap->ifa_addr;
 	  mask = (struct sockaddr_in *) ifap->ifa_netmask;
@@ -256,19 +257,25 @@ if_getaddrs (void)
 
 	  dest_pnt = NULL;
 
-	  if (ifap->ifa_flags & IFF_POINTOPOINT) 
+	  if (ifap->ifa_dstaddr &&
+	      !IPV4_ADDR_SAME(&addr->sin_addr,
+			      &((struct sockaddr_in *)
+			      	ifap->ifa_dstaddr)->sin_addr))
 	    {
 	      dest = (struct sockaddr_in *) ifap->ifa_dstaddr;
 	      dest_pnt = &dest->sin_addr;
+	      flags = ZEBRA_IFA_PEER;
 	    }
-
-	  if (ifap->ifa_flags & IFF_BROADCAST)
+	  else if (ifap->ifa_broadaddr &&
+		   !IPV4_ADDR_SAME(&addr->sin_addr,
+				   &((struct sockaddr_in *)
+				     ifap->ifa_broadaddr)->sin_addr))
 	    {
 	      dest = (struct sockaddr_in *) ifap->ifa_broadaddr;
 	      dest_pnt = &dest->sin_addr;
 	    }
 
-	  connected_add_ipv4 (ifp, 0, &addr->sin_addr,
+	  connected_add_ipv4 (ifp, flags, &addr->sin_addr,
 			      prefixlen, dest_pnt, NULL);
 	}
 #ifdef HAVE_IPV6
@@ -278,6 +285,7 @@ if_getaddrs (void)
 	  struct sockaddr_in6 *mask;
 	  struct sockaddr_in6 *dest;
 	  struct in6_addr *dest_pnt;
+	  int flags = 0;
 
 	  addr = (struct sockaddr_in6 *) ifap->ifa_addr;
 	  mask = (struct sockaddr_in6 *) ifap->ifa_netmask;
@@ -285,22 +293,22 @@ if_getaddrs (void)
 
 	  dest_pnt = NULL;
 
-	  if (ifap->ifa_flags & IFF_POINTOPOINT) 
+	  if (ifap->ifa_dstaddr &&
+	      !IPV6_ADDR_SAME(&addr->sin6_addr,
+			      &((struct sockaddr_in6 *)
+			      	ifap->ifa_dstaddr)->sin6_addr))
 	    {
-	      if (ifap->ifa_dstaddr)
-		{
-		  dest = (struct sockaddr_in6 *) ifap->ifa_dstaddr;
-		  dest_pnt = &dest->sin6_addr;
-		}
+	      dest = (struct sockaddr_in6 *) ifap->ifa_dstaddr;
+	      dest_pnt = &dest->sin6_addr;
+	      flags = ZEBRA_IFA_PEER;
 	    }
-
-	  if (ifap->ifa_flags & IFF_BROADCAST)
+	  else if (ifap->ifa_broadaddr &&
+		   !IPV6_ADDR_SAME(&addr->sin6_addr,
+				   &((struct sockaddr_in6 *)
+				     ifap->ifa_broadaddr)->sin6_addr))
 	    {
-	      if (ifap->ifa_broadaddr)
-		{
-		  dest = (struct sockaddr_in6 *) ifap->ifa_broadaddr;
-		  dest_pnt = &dest->sin6_addr;
-		}
+	      dest = (struct sockaddr_in6 *) ifap->ifa_broadaddr;
+	      dest_pnt = &dest->sin6_addr;
 	    }
 
 #if defined(KAME)
@@ -312,7 +320,7 @@ if_getaddrs (void)
 	    }	
 #endif          
 
-	  connected_add_ipv6 (ifp, &addr->sin6_addr, prefixlen, 
+	  connected_add_ipv6 (ifp, flags, &addr->sin6_addr, prefixlen, 
 	                      dest_pnt, NULL);
 	}
 #endif /* HAVE_IPV6 */
@@ -335,6 +343,7 @@ if_get_addr (struct interface *ifp)
   struct sockaddr_in dest;
   struct in_addr *dest_pnt;
   u_char prefixlen;
+  int flags = 0;
 
   /* Interface's name and address family. */
   strncpy (ifreq.ifr_name, ifp->name, IFNAMSIZ);
@@ -374,40 +383,36 @@ if_get_addr (struct interface *ifp)
   /* Point to point or borad cast address pointer init. */
   dest_pnt = NULL;
 
-  if (ifp->flags & IFF_POINTOPOINT) 
+  ret = if_ioctl (SIOCGIFDSTADDR, (caddr_t) &ifreq);
+  if (ret < 0) 
     {
-      ret = if_ioctl (SIOCGIFDSTADDR, (caddr_t) &ifreq);
-      if (ret < 0) 
-	{
-	  if (errno != EADDRNOTAVAIL) 
-	    {
-	      zlog_warn ("SIOCGIFDSTADDR fail: %s", safe_strerror (errno));
-	      return ret;
-	    }
-	  return 0;
-	}
+      if (errno != EADDRNOTAVAIL) 
+	zlog_warn ("SIOCGIFDSTADDR fail: %s", safe_strerror (errno));
+    }
+  else if (!IPV4_ADDR_SAME(&addr.sin_addr, &ifreq.ifr_dstaddr.sin_addr))
+    {
       memcpy (&dest, &ifreq.ifr_dstaddr, sizeof (struct sockaddr_in));
       dest_pnt = &dest.sin_addr;
+      flags = ZEBRA_IFA_PEER;
     }
-  if (ifp->flags & IFF_BROADCAST)
+  if (!dest_pnt)
     {
       ret = if_ioctl (SIOCGIFBRDADDR, (caddr_t) &ifreq);
       if (ret < 0) 
 	{
 	  if (errno != EADDRNOTAVAIL) 
-	    {
-	      zlog_warn ("SIOCGIFBRDADDR fail: %s", safe_strerror (errno));
-	      return ret;
-	    }
-	  return 0;
+	    zlog_warn ("SIOCGIFBRDADDR fail: %s", safe_strerror (errno));
 	}
-      memcpy (&dest, &ifreq.ifr_broadaddr, sizeof (struct sockaddr_in));
-      dest_pnt = &dest.sin_addr;
+      else if (!IPV4_ADDR_SAME(&addr.sin_addr, &ifreq.ifr_broadaddr.sin_addr))
+        {
+	  memcpy (&dest, &ifreq.ifr_broadaddr, sizeof (struct sockaddr_in));
+	  dest_pnt = &dest.sin_addr;
+        }
     }
 
 
   /* Set address to the interface. */
-  connected_add_ipv4 (ifp, 0, &addr.sin_addr, prefixlen, dest_pnt, NULL);
+  connected_add_ipv4 (ifp, flags, &addr.sin_addr, prefixlen, dest_pnt, NULL);
 
   return 0;
 }

@@ -354,28 +354,18 @@ ospf_if_is_configured (struct ospf *ospf, struct in_addr *address)
   addr.family = AF_INET;
   addr.prefix = *address;
   addr.prefixlen = IPV4_MAX_PREFIXLEN;
-  
+
   for (ALL_LIST_ELEMENTS (ospf->oiflist, node, nnode, oi))
     if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
       {
-	if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+        if (oi->type == OSPF_IFTYPE_POINTOPOINT)
 	  {
-	    if (CONNECTED_DEST_HOST(oi->connected))
-	      {
-		/* match only destination addr, since local addr is most likely
-		 * not unique (borrowed from another interface) */
-		if (IPV4_ADDR_SAME (address,
-				    &oi->connected->destination->u.prefix4))
-		return oi;
-	      }
-	    else
-	      {
-		/* special leniency: match if addr is anywhere on PtP subnet */
-		if (prefix_match(oi->address,(struct prefix *)&addr))
-		  return oi;
-	      }
+	    /* special leniency: match if addr is anywhere on peer subnet */
+	    if (prefix_match(CONNECTED_PREFIX(oi->connected),
+			     (struct prefix *)&addr))
+	      return oi;
 	  }
-	else
+        else
 	  {
 	    if (IPV4_ADDR_SAME (address, &oi->address->u.prefix4))
 	      return oi;
@@ -432,22 +422,15 @@ ospf_if_lookup_by_prefix (struct ospf *ospf, struct prefix_ipv4 *p)
 {
   struct listnode *node;
   struct ospf_interface *oi;
-  struct prefix ptmp;
   
   /* Check each Interface. */
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     {
       if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
 	{
-	  if ((oi->type == OSPF_IFTYPE_POINTOPOINT) &&
-	      CONNECTED_DEST_HOST(oi->connected))
-	    {
-	      prefix_copy (&ptmp, oi->connected->destination);
-	      ptmp.prefixlen = IPV4_MAX_BITLEN;
-	    }
-	  else
-	    prefix_copy (&ptmp, oi->address);
-	
+	  struct prefix ptmp;
+
+	  prefix_copy (&ptmp, CONNECTED_PREFIX(oi->connected));
 	  apply_mask (&ptmp);
 	  if (prefix_same (&ptmp, (struct prefix *) p))
 	    return oi;
@@ -477,22 +460,14 @@ ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src)
       
       if (if_is_loopback (oi->ifp))
         continue;
-      
-      if ((oi->type == OSPF_IFTYPE_POINTOPOINT) &&
-	  CONNECTED_DEST_HOST(oi->connected))
+
+      if (prefix_match (CONNECTED_PREFIX(oi->connected),
+      			(struct prefix *) &addr))
 	{
-	  if (IPV4_ADDR_SAME (&oi->connected->destination->u.prefix4, &src))
-	    return oi;
-	}
-      else
-	{
-	  if (prefix_match (oi->address, (struct prefix *) &addr))
-	    {
-	      if ( (match == NULL) || 
-	           (match->address->prefixlen < oi->address->prefixlen)
-	         )
-	        match = oi;
-	    }
+	  if ( (match == NULL) || 
+	       (match->address->prefixlen < oi->address->prefixlen)
+	     )
+	    match = oi;
 	}
     }
 

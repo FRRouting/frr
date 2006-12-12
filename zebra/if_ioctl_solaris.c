@@ -258,6 +258,7 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr, const char *label)
   char *dest_pnt = NULL;
   u_char prefixlen = 0;
   afi_t af;
+  int flags = 0;
 
   /* Interface's name and address family.
    * We need to use the logical interface name / label, if we've been
@@ -272,21 +273,14 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr, const char *label)
   /* Point to point or broad cast address pointer init. */
   dest_pnt = NULL;
 
-  if (ifp->flags & IFF_POINTOPOINT)
+  if (AF_IOCTL (af, SIOCGLIFDSTADDR, (caddr_t) & lifreq) >= 0)
     {
-      ret = AF_IOCTL (af, SIOCGLIFDSTADDR, (caddr_t) & lifreq);
-        
-      if (ret < 0)
-        {
-          zlog_warn ("SIOCGLIFDSTADDR (%s) fail: %s",
-                     ifp->name, safe_strerror (errno));
-          return ret;
-        }
       memcpy (&dest, &lifreq.lifr_dstaddr, ADDRLEN (addr));
       if (af == AF_INET)
         dest_pnt = (char *) &(SIN (&dest)->sin_addr);
       else
         dest_pnt = (char *) &(SIN6 (&dest)->sin6_addr);
+      flags = ZEBRA_IFA_PEER;
     }
 
   if (af == AF_INET)
@@ -306,19 +300,8 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr, const char *label)
       memcpy (&mask, &lifreq.lifr_addr, ADDRLEN (addr));
 
       prefixlen = ip_masklen (SIN (&mask)->sin_addr);
-      if (ifp->flags & IFF_BROADCAST)
-        {
-          ret = if_ioctl (SIOCGLIFBRDADDR, (caddr_t) & lifreq);
-          if (ret < 0)
-            {
-              if (errno != EADDRNOTAVAIL)
-                {
-                  zlog_warn ("SIOCGLIFBRDADDR (%s) fail: %s",
-                             ifp->name, safe_strerror (errno));
-                  return ret;
-                }
-              return 0;
-            }
+      if (!dest_pnt && (if_ioctl (SIOCGLIFBRDADDR, (caddr_t) & lifreq) >= 0))
+	{
           memcpy (&dest, &lifreq.lifr_broadaddr, sizeof (struct sockaddr_in));
           dest_pnt = (char *) &SIN (&dest)->sin_addr;
         }
@@ -348,11 +331,11 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr, const char *label)
 
   /* Set address to the interface. */
   if (af == AF_INET)
-    connected_add_ipv4 (ifp, 0, &SIN (addr)->sin_addr, prefixlen,
+    connected_add_ipv4 (ifp, flags, &SIN (addr)->sin_addr, prefixlen,
                         (struct in_addr *) dest_pnt, label);
 #ifdef HAVE_IPV6
   else if (af == AF_INET6)
-    connected_add_ipv6 (ifp, &SIN6 (addr)->sin6_addr, prefixlen,
+    connected_add_ipv6 (ifp, flags, &SIN6 (addr)->sin6_addr, prefixlen,
                         (struct in6_addr *) dest_pnt, label);
 #endif /* HAVE_IPV6 */
 

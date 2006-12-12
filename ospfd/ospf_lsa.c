@@ -543,7 +543,7 @@ link_info_set (struct stream *s, struct in_addr id,
   return 1;
 }
 
-/* Describe Point-to-Point link. */
+/* Describe Point-to-Point link (Section 12.4.1.1). */
 static int
 lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
 {
@@ -564,28 +564,13 @@ lsa_link_ptop_set (struct stream *s, struct ospf_interface *oi)
 		                LSA_LINK_TYPE_POINTOPOINT, 0, cost);
       }
 
-  if (CONNECTED_DEST_HOST(oi->connected))
-    {
-      /* Option 1:
-	 link_type = LSA_LINK_TYPE_STUB;
-	 link_id = nbr->address.u.prefix4;
-	 link_data.s_addr = 0xffffffff;
-	 link_cost = o->output_cost; */
-      
-      id.s_addr = oi->connected->destination->u.prefix4.s_addr;
-      mask.s_addr = 0xffffffff;
-      links += link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0,
-                              oi->output_cost);
-    }
-  else
-    {
-       /* Option 2:  We need to include link to a stub
-	 network regardless of the state of the neighbor */
-      masklen2ip (oi->address->prefixlen, &mask);
-      id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
-      links += link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0, 
-                              oi->output_cost);
-    }
+  /* Regardless of the state of the neighboring router, we must
+     add a Type 3 link (stub network).
+     N.B. Options 1 & 2 share basically the same logic. */
+  masklen2ip (oi->address->prefixlen, &mask);
+  id.s_addr = CONNECTED_PREFIX(oi->connected)->u.prefix4.s_addr & mask.s_addr;
+  links += link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0,
+			  oi->output_cost);
   return links;
 }
 

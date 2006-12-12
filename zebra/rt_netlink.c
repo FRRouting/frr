@@ -577,8 +577,8 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
   struct ifaddrmsg *ifa;
   struct rtattr *tb[IFA_MAX + 1];
   struct interface *ifp;
-  void *addr = NULL;
-  void *broad = NULL;
+  void *addr;
+  void *broad;
   u_char flags = 0;
   char *label = NULL;
 
@@ -637,41 +637,29 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
         }
     }
   
+  /* logic copied from iproute2/ip/ipaddress.c:print_addrinfo() */
+  if (tb[IFA_LOCAL] == NULL)
+    tb[IFA_LOCAL] = tb[IFA_ADDRESS];
   if (tb[IFA_ADDRESS] == NULL)
     tb[IFA_ADDRESS] = tb[IFA_LOCAL];
   
-  if (ifp->flags & IFF_POINTOPOINT)
+  /* local interface address */
+  addr = (tb[IFA_LOCAL] ? RTA_DATA(tb[IFA_LOCAL]) : NULL);
+
+  /* is there a peer address? */
+  /* N.B. I do not understand why the memcmp compares 4 bytes regardless
+     of address family, but this is exactly how it appears in
+     print_addrinfo.  I wonder if it should be RTA_PAYLOAD(tb[IFA_ADDRESS])
+     instead of 4... */
+  if (tb[IFA_ADDRESS] &&
+      memcmp(RTA_DATA(tb[IFA_ADDRESS]), RTA_DATA(tb[IFA_LOCAL]), 4))
     {
-      if (tb[IFA_LOCAL])
-        {
-          addr = RTA_DATA (tb[IFA_LOCAL]);
-          if (tb[IFA_ADDRESS] &&
-	      memcmp(RTA_DATA(tb[IFA_ADDRESS]),RTA_DATA(tb[IFA_LOCAL]),4))
-	    /* if IFA_ADDRESS != IFA_LOCAL, then it's the peer address */
-            broad = RTA_DATA (tb[IFA_ADDRESS]);
-          else
-            broad = NULL;
-        }
-      else
-        {
-          if (tb[IFA_ADDRESS])
-            addr = RTA_DATA (tb[IFA_ADDRESS]);
-          else
-            addr = NULL;
-        }
+      broad = RTA_DATA(tb[IFA_ADDRESS]);
+      SET_FLAG (flags, ZEBRA_IFA_PEER);
     }
   else
-    {
-      if (tb[IFA_ADDRESS])
-        addr = RTA_DATA (tb[IFA_ADDRESS]);
-      else
-        addr = NULL;
-      
-      if (tb[IFA_BROADCAST])
-        broad = RTA_DATA(tb[IFA_BROADCAST]);
-      else
-        broad = NULL;
-    }
+    /* seeking a broadcast address */
+    broad = (tb[IFA_BROADCAST] ? RTA_DATA(tb[IFA_BROADCAST]) : NULL);
 
   /* addr is primary key, SOL if we don't have one */
   if (addr == NULL)
@@ -707,7 +695,7 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
   if (ifa->ifa_family == AF_INET6)
     {
       if (h->nlmsg_type == RTM_NEWADDR)
-        connected_add_ipv6 (ifp,
+        connected_add_ipv6 (ifp, flags,
                             (struct in6_addr *) addr, ifa->ifa_prefixlen,
                             (struct in6_addr *) broad, label);
       else
@@ -1849,7 +1837,7 @@ netlink_address (int cmd, int family, struct interface *ifp,
 
   if (family == AF_INET && cmd == RTM_NEWADDR)
     {
-      if (if_is_broadcast (ifp) && ifc->destination)
+      if (!CONNECTED_PEER(ifc) && ifc->destination)
         {
           p = ifc->destination;
           addattr_l (&req.n, sizeof req, IFA_BROADCAST, &p->u.prefix,

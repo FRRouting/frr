@@ -173,24 +173,11 @@ void
 connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
 {
   struct prefix_ipv4 p;
-  struct prefix_ipv4 *addr;
-  struct prefix_ipv4 *dest;
 
   if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
     return;
 
-  addr = (struct prefix_ipv4 *) ifc->address;
-  dest = (struct prefix_ipv4 *) ifc->destination;
-
-  memset (&p, 0, sizeof (struct prefix_ipv4));
-  p.family = AF_INET;
-  p.prefixlen = addr->prefixlen;
-
-  /* Point-to-point check. */
-  if (CONNECTED_POINTOPOINT_HOST(ifc))
-    p.prefix = dest->prefix;
-  else
-    p.prefix = addr->prefix;
+  PREFIX_COPY_IPV4(&p, CONNECTED_PREFIX(ifc));
 
   /* Apply mask to the network. */
   apply_mask_ipv4 (&p);
@@ -227,33 +214,22 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
   p->prefixlen = prefixlen;
   ifc->address = (struct prefix *) p;
   
-  /* If there is broadcast or pointopoint address. */
+  /* If there is broadcast or peer address. */
   if (broad)
     {
       p = prefix_ipv4_new ();
       p->family = AF_INET;
       p->prefix = *broad;
+      p->prefixlen = prefixlen;
       ifc->destination = (struct prefix *) p;
 
       /* validate the destination address */
-      if (ifp->flags & IFF_POINTOPOINT)
+      if (CONNECTED_PEER(ifc))
         {
 	  if (IPV4_ADDR_SAME(addr,broad))
-	    zlog_warn("warning: PtP interface %s has same local and peer "
+	    zlog_warn("warning: interface %s has same local and peer "
 		      "address %s, routing protocols may malfunction",
 		      ifp->name,inet_ntoa(*addr));
-	  else if ((prefixlen != IPV4_MAX_PREFIXLEN) &&
-	   	   (ipv4_network_addr(addr->s_addr,prefixlen) !=
-	   	    ipv4_network_addr(broad->s_addr,prefixlen)))
-	    {
-	      char buf[2][INET_ADDRSTRLEN];
-	      zlog_warn("warning: PtP interface %s network mismatch: local "
-	      		"%s/%d vs. peer %s, routing protocols may malfunction",
-	    		ifp->name,
-			inet_ntop (AF_INET, addr, buf[0], sizeof(buf[0])),
-			prefixlen,
-			inet_ntop (AF_INET, broad, buf[1], sizeof(buf[1])));
-	    }
         }
       else
         {
@@ -273,10 +249,20 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
 
     }
   else
-    /* no broadcast or destination address was supplied */
-    if ((prefixlen == IPV4_MAX_PREFIXLEN) && if_is_pointopoint(ifp))
-      zlog_warn("warning: PtP interface %s with addr %s/%d needs a "
-      		"peer address",ifp->name,inet_ntoa(*addr),prefixlen);
+    {
+      if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER))
+        {
+	  zlog_warn("warning: %s called for interface %s "
+		    "with peer flag set, but no peer address supplied",
+		    __func__, ifp->name);
+	  UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
+	}
+
+      /* no broadcast or destination address was supplied */
+      if ((prefixlen == IPV4_MAX_PREFIXLEN) && if_is_pointopoint(ifp))
+	zlog_warn("warning: PtP interface %s with addr %s/%d needs a "
+		  "peer address",ifp->name,inet_ntoa(*addr),prefixlen);
+    }
 
   /* Label of this address. */
   if (label)
@@ -293,24 +279,11 @@ void
 connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
 {
   struct prefix_ipv4 p;
-  struct prefix_ipv4 *addr;
-  struct prefix_ipv4 *dest;
 
   if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
     return;
 
-  addr = (struct prefix_ipv4 *)ifc->address;
-  dest = (struct prefix_ipv4 *)ifc->destination;
-
-  memset (&p, 0, sizeof (struct prefix_ipv4));
-  p.family = AF_INET;
-  p.prefixlen = addr->prefixlen;
-
-  /* Point-to-point check. */
-  if (CONNECTED_POINTOPOINT_HOST(ifc))
-    p.prefix = dest->prefix;
-  else
-    p.prefix = addr->prefix;
+  PREFIX_COPY_IPV4(&p, CONNECTED_PREFIX(ifc));
 
   /* Apply mask to the network. */
   apply_mask_ipv4 (&p);
@@ -350,28 +323,11 @@ void
 connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
 {
   struct prefix_ipv6 p;
-  struct prefix_ipv6 *addr;
-  struct prefix_ipv6 *dest;
 
   if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
     return;
 
-  addr = (struct prefix_ipv6 *) ifc->address;
-  dest = (struct prefix_ipv6 *) ifc->destination;
-
-  memset (&p, 0, sizeof (struct prefix_ipv6));
-  p.family = AF_INET6;
-  p.prefixlen = addr->prefixlen;
-
-  if (if_is_pointopoint (ifp) && dest)
-    {
-      if (IN6_IS_ADDR_UNSPECIFIED (&dest->prefix))
-	p.prefix = addr->prefix;
-      else
-	p.prefix = dest->prefix;
-    }
-  else
-    p.prefix = addr->prefix;
+  PREFIX_COPY_IPV6(&p, CONNECTED_PREFIX(ifc));
 
   /* Apply mask to the network. */
   apply_mask_ipv6 (&p);
@@ -390,7 +346,7 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
 
 /* Add connected IPv6 route to the interface. */
 void
-connected_add_ipv6 (struct interface *ifp, struct in6_addr *addr,
+connected_add_ipv6 (struct interface *ifp, int flags, struct in6_addr *addr,
 		    u_char prefixlen, struct in6_addr *broad,
 		    const char *label)
 {
@@ -400,6 +356,7 @@ connected_add_ipv6 (struct interface *ifp, struct in6_addr *addr,
   /* Make connected structure. */
   ifc = connected_new ();
   ifc->ifp = ifp;
+  ifc->flags = flags;
 
   /* Allocate new connected address. */
   p = prefix_ipv6_new ();
@@ -408,13 +365,27 @@ connected_add_ipv6 (struct interface *ifp, struct in6_addr *addr,
   p->prefixlen = prefixlen;
   ifc->address = (struct prefix *) p;
 
-  /* If there is broadcast or pointopoint address. */
+  /* If there is broadcast or peer address. */
   if (broad)
     {
-      p = prefix_ipv6_new ();
-      p->family = AF_INET6;
-      IPV6_ADDR_COPY (&p->prefix, broad);
-      ifc->destination = (struct prefix *) p;
+      if (IN6_IS_ADDR_UNSPECIFIED(broad))
+	zlog_warn("warning: %s called for interface %s with unspecified "
+		  "destination address; ignoring!", __func__, ifp->name);
+      else
+	{
+	  p = prefix_ipv6_new ();
+	  p->family = AF_INET6;
+	  IPV6_ADDR_COPY (&p->prefix, broad);
+	  p->prefixlen = prefixlen;
+	  ifc->destination = (struct prefix *) p;
+	}
+    }
+  if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER) && !ifc->destination)
+    {
+      zlog_warn("warning: %s called for interface %s "
+		"with peer flag set, but no peer address supplied",
+		__func__, ifp->name);
+      UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
     }
 
   /* Label of this address. */
@@ -431,28 +402,11 @@ void
 connected_down_ipv6 (struct interface *ifp, struct connected *ifc)
 {
   struct prefix_ipv6 p;
-  struct prefix_ipv6 *addr;
-  struct prefix_ipv6 *dest;
 
   if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
     return;
 
-  addr = (struct prefix_ipv6 *) ifc->address;
-  dest = (struct prefix_ipv6 *) ifc->destination;
-
-  memset (&p, 0, sizeof (struct prefix_ipv6));
-  p.family = AF_INET6;
-  p.prefixlen = addr->prefixlen;
-
-  if (if_is_pointopoint (ifp) && dest)
-    {
-      if (IN6_IS_ADDR_UNSPECIFIED (&dest->prefix))
-	p.prefix = addr->prefix;
-      else
-	p.prefix = dest->prefix;
-    }
-  else
-    p.prefix = addr->prefix;
+  PREFIX_COPY_IPV6(&p, CONNECTED_PREFIX(ifc));
 
   apply_mask_ipv6 (&p);
 

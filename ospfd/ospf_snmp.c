@@ -1439,10 +1439,7 @@ ospf_snmp_if_update (struct interface *ifp)
   /* Lookup first IPv4 address entry. */
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
     {
-      if (CONNECTED_POINTOPOINT_HOST(ifc))
-	p = ifc->destination;
-      else
-	p = ifc->address;
+      p = CONNECTED_ID(ifc);
 
       if (p->family == AF_INET)
 	{
@@ -1492,19 +1489,13 @@ ospf_snmp_if_update (struct interface *ifp)
 int
 ospf_snmp_is_if_have_addr (struct interface *ifp)
 {
-  struct prefix *p;
   struct listnode *nn;
   struct connected *ifc;
 
   /* Is this interface having any connected IPv4 address ? */
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, nn, ifc))
   {
-    if (if_is_pointopoint (ifp))
-      p = ifc->destination;
-    else
-      p = ifc->address;
-
-    if (p->family == AF_INET)
+    if (CONNECTED_PREFIX(ifc)->family == AF_INET)
       return 1;
   }
   

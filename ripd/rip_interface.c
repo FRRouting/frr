@@ -141,16 +141,10 @@ void
 rip_interface_multicast_set (int sock, struct connected *connected)
 {
   struct in_addr addr;
-  struct prefix_ipv4 *p;
   
   assert (connected != NULL);
   
-  if (if_is_pointopoint(connected->ifp) && CONNECTED_DEST_HOST(connected))
-    p = (struct prefix_ipv4 *) connected->destination;
-  else
-    p = (struct prefix_ipv4 *) connected->address;
-  
-  addr = p->prefix;
+  addr = CONNECTED_ID(connected)->u.prefix4;
 
   if (setsockopt_multicast_ipv4 (sock, IP_MULTICAST_IF, addr, 0, 
                                  connected->ifp->ifindex) < 0) 
@@ -197,13 +191,16 @@ rip_request_interface_send (struct interface *ifp, u_char version)
 	      memset (&to, 0, sizeof (struct sockaddr_in));
 	      to.sin_port = htons (RIP_PORT_DEFAULT);
               if (connected->destination)
-                /* use specified broadcast or point-to-point destination addr */
+                /* use specified broadcast or peer destination addr */
                 to.sin_addr = connected->destination->u.prefix4;
-              else
+              else if (connected->address->prefixlen < IPV4_MAX_PREFIXLEN)
 	        /* calculate the appropriate broadcast address */
                 to.sin_addr.s_addr =
 		  ipv4_broadcast_addr(connected->address->u.prefix4.s_addr,
 				      connected->address->prefixlen);
+	      else
+		/* do not know where to send the packet */
+	        continue;
 
 	      if (IS_RIP_DEBUG_EVENT)
 		zlog_debug ("SEND request to %s", inet_ntoa (to.sin_addr));

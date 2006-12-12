@@ -2865,8 +2865,8 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
           struct in_addr *dest;
           const char *dstr;
           
-	  if ((ifp->flags & IFF_POINTOPOINT)
-              || oi->type == OSPF_IFTYPE_VIRTUALLINK)
+	  if (CONNECTED_PEER(oi->connected)
+	      || oi->type == OSPF_IFTYPE_VIRTUALLINK)
             dstr = "Peer";
           else
             dstr = "Broadcast";

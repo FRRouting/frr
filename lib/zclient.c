@@ -780,7 +780,11 @@ zebra_interface_address_read (int type, struct stream *s)
        ifc = connected_add_by_prefix(ifp, &p,(memconstant(&d.u.prefix,0,plen) ?
 					      NULL : &d));
        if (ifc != NULL)
-       ifc->flags = ifc_flags;
+	 {
+	   ifc->flags = ifc_flags;
+	   if (ifc->destination)
+	     ifc->destination->prefixlen = ifc->address->prefixlen;
+	 }
     }
   else
     {

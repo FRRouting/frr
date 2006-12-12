@@ -1,3 +1,26 @@
+2006-12-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* if.h: (struct connected) Add new ZEBRA_IFA_PEER flag indicating
+	  whether a peer address has been configured.  Comment now shows
+	  the new interpretation of the destination addr: if ZEBRA_IFA_PEER
+	  is set, then it must contain the destination address, otherwise
+	  it may contain the broadcast address or be NULL.
+	  (CONNECTED_DEST_HOST,CONNECTED_POINTOPOINT_HOST) Remove obsolete
+	  macros that were specific to IPv4 and not fully general.
+	  (CONNECTED_PEER) New macro to check ZEBRA_IFA_PEER flag.
+	  (CONNECTED_PREFIX) New macro giving the prefix to insert into
+	  the RIB: if CONNECTED_PEER, then use the destination (peer) address,
+	  else use the address field.
+	  (CONNECTED_ID) New macro to come up with an identifying address
+	  for the struct connected.
+	* if.c: (if_lookup_address, connected_lookup_address) Streamline
+	  logic with new CONNECTED_PREFIX macro.
+	* prefix.h: (PREFIX_COPY_IPV4, PREFIX_COPY_IPV6) New macros
+	  for better performance than the general prefix_copy function.
+	* zclient.c: (zebra_interface_address_read) For non-null destination
+	  addresses, set prefixlen to equal the address prefixlen.  This
+	  is needed to get the new CONNECTED_PREFIX macro to work properly.
+
 2006-10-14 Paul Jakma <paul.jakma@sun.com>
 
 	* if.c: (general) Handle upgrades from SUNWzebra, which tried
