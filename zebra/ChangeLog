@@ -1,3 +1,10 @@
+2006-12-13 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* if_ioctl_solaris.c: (if_get_addr) For IPv6, stop assuming
+	  that all IFF_POINTOPOINT have prefixlen of IPV6_MAX_BITLEN.
+	  Instead, always try the SIOCGLIFSUBNET ioctl; if that fails,
+	  then we fall back to IPV6_MAX_BITLEN for PtP interfaces.
+
 2006-12-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* connected.c: (connected_up_ipv4, connected_down_ipv4,

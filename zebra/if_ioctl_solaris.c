@@ -309,23 +309,18 @@ if_get_addr (struct interface *ifp, struct sockaddr *addr, const char *label)
 #ifdef HAVE_IPV6
   else if (af == AF_INET6)
     {
-      if (ifp->flags & IFF_POINTOPOINT)
-        {
-          prefixlen = IPV6_MAX_BITLEN;
-        }
+      if (if_ioctl_ipv6 (SIOCGLIFSUBNET, (caddr_t) & lifreq) < 0)
+	{
+	  if (ifp->flags & IFF_POINTOPOINT)
+	    prefixlen = IPV6_MAX_BITLEN;
+	  else
+	    zlog_warn ("SIOCGLIFSUBNET (%s) fail: %s",
+		       ifp->name, safe_strerror (errno));
+	}
       else
-        {
-          ret = if_ioctl_ipv6 (SIOCGLIFSUBNET, (caddr_t) & lifreq);
-          if (ret < 0)
-            {
-              zlog_warn ("SIOCGLIFSUBNET (%s) fail: %s",
-                         ifp->name, safe_strerror (errno));
-            }
-          else
-            {
-              prefixlen = lifreq.lifr_addrlen;
-            }
-        }
+	{
+	  prefixlen = lifreq.lifr_addrlen;
+	}
     }
 #endif /* HAVE_IPV6 */
 
