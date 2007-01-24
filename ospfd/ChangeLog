@@ -1,3 +1,16 @@
+2007-01-24 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_spf.c: Bug #330: Nexthop calculation sometimes may fail,
+	  and it needs to indicate this result to SPF.
+	  (ospf_spf_add_parent) Flush of parent list needs to be done here,
+	  for simplicity.
+	  (ospf_nexthop_calculation) Caller needs to know whether
+	  nexthop calculation succeeded. Every return statement must
+	  correctly indicate such.
+	  (ospf_spf_next) Queueing/prioritisation of vertices in SPF
+	  must take into account whether nexthop_calculation succeeded,
+	  or SPF may fail to find best paths.
+
 2006-12-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_interface.c: (ospf_if_is_configured, ospf_if_lookup_by_prefix,

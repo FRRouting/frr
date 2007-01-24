@@ -405,37 +405,6 @@ ospf_get_next_link (struct vertex *v, struct vertex *w,
   return NULL;
 }
 
-/* 
- * Consider supplied next-hop for inclusion to the supplied list of
- * equal-cost next-hops, adjust list as neccessary.  
- *
- * (Discussed on GNU Zebra list 27 May 2003, [zebra 19184])
- *
- * Note that below is a bit of a hack, and limits ECMP to paths that go to
- * same nexthop. Where as paths via inequal output_cost interfaces could
- * still quite easily be ECMP due to remote cost differences.
- *
- * TODO: It really should be done by way of recording currently valid
- * backlinks and determining the appropriate nexthops from the list of
- * backlinks, or even simpler, just flushing nexthop list if we find a lower
- * cost path to a candidate vertex in SPF, maybe.
- */
-static void
-ospf_spf_add_parent (struct vertex *v, struct vertex *w,
-                     struct vertex_nexthop *newhop)
-{
-  struct vertex_parent *vp;
-    
-  /* we must have a newhop.. */
-  assert (v && w && newhop);
-  
-  /* new parent is <= existing parents, add it */
-  vp = vertex_parent_new (v, ospf_lsa_has_link (w->lsa, v->lsa), newhop);
-  listnode_add (w->parents, vp);
-
-  return;
-}
-
 static void
 ospf_spf_flush_parents (struct vertex *w)
 {
@@ -450,13 +419,49 @@ ospf_spf_flush_parents (struct vertex *w)
     }
 }
 
+/* 
+ * Consider supplied next-hop for inclusion to the supplied list of
+ * equal-cost next-hops, adjust list as neccessary.  
+ */
+static void
+ospf_spf_add_parent (struct vertex *v, struct vertex *w,
+                     struct vertex_nexthop *newhop,
+                     struct router_lsa_link *l)
+{
+  struct vertex_parent *vp;
+  unsigned int new_distance;
+    
+  /* we must have a newhop.. */
+  assert (v && w && l && newhop);
+  
+  new_distance = v->distance + ntohs (l->m[0].metric);
+  
+  /* We shouldn't get here unless callers have determined V(l)->W is
+   * shortest / equal-shortest path.
+   */
+  assert (new_distance <= w->distance);
+  
+  /* Adding parent for a new, better path: flush existing parents from W. */
+  if (new_distance < w->distance)
+    {
+      ospf_spf_flush_parents (w);
+      w->distance = new_distance;
+    }
+  
+  /* new parent is <= existing parents, add it to parent list */  
+  vp = vertex_parent_new (v, ospf_lsa_has_link (w->lsa, v->lsa), newhop);
+  listnode_add (w->parents, vp);
+
+  return;
+}
+
 /* 16.1.1.  Calculate nexthop from root through V (parent) to
  * vertex W (destination).
  *
  * The link must be supplied if V is the root vertex. In all other cases
  * it may be NULL.
  */
-static void
+static unsigned int
 ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
                           struct vertex *w, struct router_lsa_link *l)
 {
@@ -464,6 +469,7 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
   struct vertex_nexthop *nh;
   struct vertex_parent *vp;
   struct ospf_interface *oi = NULL;
+  unsigned int added = 0;
 
   if (IS_DEBUG_OSPF_EVENT)
     {
@@ -571,7 +577,8 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
                   nh = vertex_nexthop_new ();
                   nh->oi = oi;
                   nh->router = l2->link_data;
-                  ospf_spf_add_parent (v, w, nh);
+                  ospf_spf_add_parent (v, w, nh, l);
+                  return 1;
                 }
               else
                 zlog_info("ospf_nexthop_calculation(): "
@@ -596,13 +603,14 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
                   nh = vertex_nexthop_new ();
                   nh->oi = vl_data->nexthop.oi;
                   nh->router = vl_data->nexthop.router;
-                  ospf_spf_add_parent (v, w, nh);
+                  ospf_spf_add_parent (v, w, nh, l);
+                  return 1;
                 }
               else
-                zlog_info("ospf_nexthop_calculation(): "
-                          "vl_data for VL link not found");
+                  zlog_info("ospf_nexthop_calculation(): "
+                            "vl_data for VL link not found");
             } /* end virtual-link from V to W */
-          return;
+          return 0;
         } /* end W is a Router vertex */
       else
         {
@@ -613,13 +621,13 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
               nh = vertex_nexthop_new ();
               nh->oi = oi;
               nh->router.s_addr = 0;
-              ospf_spf_add_parent (v, w, nh);
-              return;
+              ospf_spf_add_parent (v, w, nh, l);
+              return 1;
             }
         }
       zlog_info("ospf_nexthop_calculation(): "
                 "Unknown attached link");
-      return;
+      return 0;
     } /* end V is the root */
   /* Check if W's parent is a network connected to root. */
   else if (v->type == OSPF_VERTEX_NETWORK)
@@ -647,11 +655,12 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
 		  nh = vertex_nexthop_new ();
 		  nh->oi = vp->nexthop->oi;
 		  nh->router = l->link_data;
-                  ospf_spf_add_parent (v, w, nh);
+		  added = 1;
+                  ospf_spf_add_parent (v, w, nh, l);
                 }
-              return;
             }
         }
+      return added;
     }
 
   /* 16.1.1 para 4.  If there is at least one intervening router in the
@@ -660,9 +669,12 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
    * parent.
    */
   for (ALL_LIST_ELEMENTS (v->parents, node, nnode, vp))
-    ospf_spf_add_parent (v, w, vp->nexthop);
+    {
+      added = 1;
+      ospf_spf_add_parent (v, w, vp->nexthop, l);
+    }
   
-  return;
+  return added;
 }
 
 /* RFC2328 Section 16.1 (2).
@@ -801,12 +813,11 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
 	{
           /* prepare vertex W. */
           w = ospf_vertex_new (w_lsa);
+          w->distance = distance;
 
           /* Calculate nexthop to W. */
-          w->distance = distance;
-          
-          ospf_nexthop_calculation (area, v, w, l);
-          pqueue_enqueue (w, candidate);
+          if (ospf_nexthop_calculation (area, v, w, l))
+            pqueue_enqueue (w, candidate);
 	}
       else if (w_lsa->stat >= 0)
 	{
@@ -828,17 +839,15 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
            /* less than. */
 	  else
             {
-	      /* Found a lower-cost path to W. */
-	      w->distance = distance;
-	      
-	      /* Flush existing parent list from W */
-	      ospf_spf_flush_parents (w);
-	      
-	      /* Calculate new nexthop(s) to W. */
-              ospf_nexthop_calculation (area, v, w, l);
-
-	      /* Decrease the key of the node in the heap, re-sort the heap. */
-	      trickle_down (w_lsa->stat, candidate);
+              /* Found a lower-cost path to W.
+               * nexthop_calculation is conditional, if it finds
+               * valid nexthop it will call spf_add_parents, which
+               * will flush the old parents
+               */
+              if (ospf_nexthop_calculation (area, v, w, l))
+                /* Decrease the key of the node in the heap,
+                 * re-sort the heap. */
+                trickle_down (w_lsa->stat, candidate);
             }
         } /* end W is already on the candidate list */
     } /* end loop over the links in V's LSA */
