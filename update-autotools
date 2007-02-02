@@ -5,6 +5,7 @@
 #
 
 rm -f config.cache Makefile.in aclocal.m4 config.h.in configure
+rm -rf config.guess config.sub ltmain.sh
 rm -rf autom4te.cache
 
 echo "This $0 script is deprecated, and will be removed at some stage."
@@ -15,10 +16,13 @@ for tool in autoheader autoconf libtool libtoolize aclocal automake; do
   $tool --version | head -1
 done
 
-echo "UPDATING:"
+echo "ACLOCAL:"
 aclocal -I m4
+echo "AUTOHEADER:"
 autoheader
+echo "AUTOCONF:"
 autoconf
+echo "LIBTOOLIZE:"
 libtoolize -c
+echo "AUTOMAKE"
 automake --gnu --add-missing --copy
-

@@ -1,3 +1,9 @@
+2007-02-02  Greg Troxel  <Greg Troxel <gdt@ir.bbn.com>>
+
+	* README.NetBSD:  use update-autotools instead of autoreconf
+
+	* update-autotools: print out tool name before invoking to aid debugging
+
 2006-12-08 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Bump to 0.99.6
