@@ -1,3 +1,7 @@
+2007-02-02  Greg Troxel  <Greg Troxel <gdt@ir.bbn.com>>
+
+	* ospf6d.h: remove declaration of errno (should be via header)
+
 2006-03-01  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
 
 	* ospf6_asbr.c: fix bug of needless forwarding address

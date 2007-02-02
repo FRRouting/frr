@@ -25,7 +25,6 @@
 #define OSPF6_DAEMON_VERSION    "0.9.7r"
 
 /* global variables */
-extern int errno;
 extern struct thread_master *master;
 
 #ifdef INRIA_IPV6
