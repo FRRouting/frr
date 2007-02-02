@@ -1,8 +1,8 @@
 2007-02-02  Greg Troxel  <Greg Troxel <gdt@ir.bbn.com>>
 
+	* README.NetBSD:  use bootstrap.sh instead of autoreconf
+	
 	* bootstrap.sh: new file with just 'autoreconf'
-
-	* README.NetBSD:  use update-autotools instead of autoreconf
 
 	* update-autotools: print out tool name before invoking to aid debugging
 

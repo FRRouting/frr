@@ -9,7 +9,7 @@ $Id$
 case $1 in
 
     build)
-	./update-autotools
+	./bootstrap.sh
 	LDFLAGS="-L/usr/pkg/lib -R/usr/pkg/lib" CPPFLAGS="-I/usr/pkg/include" \
     	./configure --prefix=/usr/quagga \
 	    --sysconfdir=/etc/zebra --localstatedir=/var/run/zebra \
