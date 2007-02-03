@@ -1,3 +1,7 @@
+2007-02-03  Greg Troxel  <Greg Troxel <gdt@ir.bbn.com>>
+
+	* configure.ac: add AC_PROG_SED
+
 2007-02-02  Greg Troxel  <Greg Troxel <gdt@ir.bbn.com>>
 
 	* README.NetBSD:  use bootstrap.sh instead of autoreconf
