@@ -22,13 +22,12 @@ such systems "-current" versions.  (Note that considering it a bug is
 not a guarantee of support, merely "we agree that it is broken".)
 
   Dragonfly ?
-  FreeBSD 4.x
+  FreeBSD 4.x	[In 2007, this is getting tenous.]
   FreeBSD 5.x
   FreeBSD 6.x
   FreeBSD-current
   Linux [kernel/distribution information needed]
-  NetBSD 1.6.x
-  NetBSD 2.x
+  NetBSD 2.x	[Note texinfo 4.6  in base system]
   NetBSD 3.x
   NetBSD 4.x
   NetBSD-current
@@ -61,15 +60,17 @@ everything is already setup ready to run 'configure'.  If you have trouble
 building from CVS checkout it is recommended that you try a CVS snapshot
 instead.
 
-If you are building from plain CVS checkouts, the versions which
-should work at least with:
+We declare that the following versions should work for building from
+CVS checkouts.  Earlier versions may work, but failure to do so is not
+a bug.  Required versions can be moved earlier if no problems, or
+later after a judgement that a system without a higher version is
+deficient is made.
 
-	automake:	1.8.5
-	autoconf:	2.59
-	libtool:	1.5.6
-	texinfo:	4.7
-	GNU AWK:	3.1 [XXX is GNU version really needed?  BSD?]
-	texinfo		4.7
+	automake:	1.9.6 (released 2005-07-10)
+	autoconf:	2.59 (2.60 on 2006-06-26 is too recent to require)
+	libtool:	1.5.22 (released 2005-12-18)
+	texinfo:	4.7 (released 2004-04-10; 4.8 is not yet common)
+	GNU AWK:	3.1.5 (released 2005-08-12)
 
 Becuase some systems provide texinfo 4.6 (4.7 is new), quagga.info is
 checked in so that texinfo will generally not be invoked.  When
@@ -82,9 +83,8 @@ you will need the convert utility, from the ImageMagick toolset installed,
 and epstopdf from the TeTeX suite.
 
 To create the required autotools files (Makefile.in, configure, etc.),
-run either the 'update-autotools' script provided, or else the
-'autoreconf -i' command supplied with your autoconf package.  After this
-you may run configure.
+run "./bootstrap.sh".  After this you may run configure as for a
+snapshot or release.
 
 Please refer to "Building and Installing Quagga" above for further
 instructions.
@@ -96,10 +96,10 @@ The general goal is to use a modern baseline of tools, while not
 imposing pain on those tracking stable distributions.  The notes below
 explain what versions are present in various environments.
 
-NetBSD 1.6.2 and 2.0 provide texinfo 4.6.
-NetBSD 2.99.15 provides texinfo 4.7 (so NetBSD 3 will as well).
-NetBSD pkgsrc provides automake 1.9.1 autoconf 2.59 libtool 1.5.6
-NetBSD pgksrc provides texinfo 4.7 (devel/gtexinfo)
+NetBSD 1.6 and 2 provide texinfo 4.6.  This is now considered old.
+NetBSD 3 and 4 provide texinfo 4.7.
+
+Fedora Core ? provides autoconf 2.59.
 
 OpenBSD 3.6 provides texinfo 4.2.
 OpenBSD [3.6] ports provides automake 1.4-p6 autoconf 2.5.9 libtool 1.5.8
