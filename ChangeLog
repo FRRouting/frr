@@ -1,3 +1,9 @@
+2007-02-06  Greg Troxel  <Greg Troxel <gdt@ir.bbn.com>>
+
+	* configure.ac: Use generic sed test, since autoconf 2.59 lacks
+	AC_PROG_SED and while 2.59 is somewhat crufty, it isn't officially
+	crufty.
+
 2007-02-06  Greg Troxel  <Greg Troxel <gdt@ir.bbn.com>
 
 	* bootstrap.sh: use -i to install missing files

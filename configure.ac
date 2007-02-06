@@ -64,7 +64,10 @@ AC_PROG_CC
 AC_PROG_CPP
 
 AC_PROG_EGREP
-AC_PROG_SED
+
+dnl autoconf 2.59 appears not to support AC_PROG_SED
+dnl AC_PROG_SED
+AC_CHECK_PROG([SED],[sed],[sed],[/bin/false])
 
 dnl ------------------------------------------------------------------
 dnl Intel compiler check. Although Intel tries really hard to make icc
