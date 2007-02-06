@@ -21,7 +21,8 @@ AC_CANONICAL_TARGET()
 AM_INIT_AUTOMAKE(1.6)
 AM_CONFIG_HEADER(config.h)
 
-dnl we need gawk for memtypes.awk
+dnl GNU awk is required for lib/memtype.h made by memtypes.awk.
+dnl BSD awk complains: awk: gensub doesn't support backreferences (subst "\1")
 AC_CHECK_PROG([GAWK],[gawk],[gawk],[/bin/false])
 AC_ARG_VAR([GAWK],[GNU AWK])
 
