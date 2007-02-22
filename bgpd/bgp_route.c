@@ -2490,8 +2490,6 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
 {
   struct bgp_node *rn = data;
   struct peer *peer = wq->spec.data;
-  struct bgp_adj_in *ain;
-  struct bgp_adj_out *aout;
   struct bgp_info *ri;
   afi_t afi = rn->table->afi;
   safi_t safi = rn->table->safi;
@@ -2509,20 +2507,6 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
           bgp_info_set_flag (rn, ri, BGP_INFO_STALE);
         else
           bgp_rib_remove (rn, ri, peer, afi, safi);
-        break;
-      }
-  for (ain = rn->adj_in; ain; ain = ain->next)
-    if (ain->peer == peer)
-      {
-        bgp_adj_in_remove (rn, ain);
-        bgp_unlock_node (rn);
-        break;
-      }
-  for (aout = rn->adj_out; aout; aout = aout->next)
-    if (aout->peer == peer)
-      {
-        bgp_adj_out_remove (rn, aout, peer, afi, safi);
-        bgp_unlock_node (rn);
         break;
       }
   return WQ_SUCCESS;
@@ -2577,6 +2561,7 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
 {
   struct bgp_node *rn;
   
+  
   if (! table)
     table = (rsclient) ? rsclient->rib[afi][safi] : peer->bgp->rib[afi][safi];
   
@@ -2586,11 +2571,65 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
   
   for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
     {
+      struct bgp_info *ri;
+      struct bgp_adj_in *ain;
+      struct bgp_adj_out *aout;
+      
       if (rn->info == NULL)
         continue;
-      
-      bgp_lock_node (rn); /* unlocked: bgp_clear_node_queue_del */
-      work_queue_add (peer->clear_node_queue, rn);
+
+      /* XXX:TODO: This is suboptimal, every non-empty route_node is
+       * queued for every clearing peer, regardless of whether it is
+       * relevant to the peer at hand.
+       *
+       * Overview: There are 3 different indices which need to be
+       * scrubbed, potentially, when a peer is removed:
+       *
+       * 1 peer's routes visible via the RIB (ie accepted routes)
+       * 2 peer's routes visible by the (optional) peer's adj-in index
+       * 3 other routes visible by the peer's adj-out index
+       *
+       * 3 there is no hurry in scrubbing, once the struct peer is
+       * removed from bgp->peer, we could just GC such deleted peer's
+       * adj-outs at our leisure.
+       *
+       * 1 and 2 must be 'scrubbed' in some way, at least made
+       * invisible via RIB index before peer session is allowed to be
+       * brought back up. So one needs to know when such a 'search' is
+       * complete.
+       *
+       * Ideally:
+       *
+       * - there'd be a single global queue or a single RIB walker
+       * - rather than tracking which route_nodes still need to be
+       *   examined on a peer basis, we'd track which peers still
+       *   aren't cleared
+       *
+       * Given that our per-peer prefix-counts now should be reliable,
+       * this may actually be achievable. It doesn't seem to be a huge
+       * problem at this time,
+       */
+      for (ri = rn->info; ri; ri = ri->next)
+        if (ri->peer == peer)
+          {
+            bgp_lock_node (rn); /* unlocked: bgp_clear_node_queue_del */
+            work_queue_add (peer->clear_node_queue, rn);
+          }
+
+      for (ain = rn->adj_in; ain; ain = ain->next)
+        if (ain->peer == peer)
+          {
+            bgp_adj_in_remove (rn, ain);
+            bgp_unlock_node (rn);
+            break;
+          }
+      for (aout = rn->adj_out; aout; aout = aout->next)
+        if (aout->peer == peer)
+          {
+            bgp_adj_out_remove (rn, aout, peer, afi, safi);
+            bgp_unlock_node (rn);
+            break;
+          }
     }
   return;
 }
@@ -2636,15 +2675,18 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
     }
   
   /* If no routes were cleared, nothing was added to workqueue, the
-   * completion function won't be run by workqueue code - call it here.
+   * completion function won't be run by workqueue code - call it here. 
+   * XXX: Actually, this assumption doesn't hold, see
+   * bgp_clear_route_table(), we queue all non-empty nodes.
    *
    * Additionally, there is a presumption in FSM that clearing is only
-   * needed if peer state is Established - peers in pre-Established states
-   * shouldn't have any route-update state associated with them (in or out).
+   * really needed if peer state is Established - peers in
+   * pre-Established states shouldn't have any route-update state
+   * associated with them (in or out).
    *
-   * We still get here from FSM through bgp_stop->clear_route_all in
-   * pre-Established though, so this is a useful sanity check to ensure
-   * the assumption above holds.
+   * We still can get here in pre-Established though, through
+   * peer_delete -> bgp_fsm_change_status, so this is a useful sanity
+   * check to ensure the assumption above holds.
    *
    * At some future point, this check could be move to the top of the
    * function, and do a quick early-return when state is

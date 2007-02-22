@@ -409,10 +409,16 @@ bgp_fsm_change_status (struct peer *peer, int status)
 {
   bgp_dump_state (peer, peer->status, status);
 
+  /* Transition into Clearing or Deleted must /always/ clear all routes.. 
+   * (and must do so before actually changing into Deleted..
+   */
+  if (status >= Clearing)
+    bgp_clear_route_all (peer);
+  
   /* Preserve old status and change into new status. */
   peer->ostatus = peer->status;
   peer->status = status;
-
+  
   if (BGP_DEBUG (normal, NORMAL))
     zlog_debug ("%s went from %s to %s",
 		peer->host,
@@ -1089,13 +1095,7 @@ bgp_event (struct thread *thread)
     {
       /* If status is changed. */
       if (next != peer->status)
-        {
-          /* Transition into Clearing must /always/ clear all routes.. */
-          if (next == Clearing)
-            bgp_clear_route_all (peer);
-          
-          bgp_fsm_change_status (peer, next);
-        }
+        bgp_fsm_change_status (peer, next);
       
       /* Make sure timer is set. */
       bgp_timer_set (peer);

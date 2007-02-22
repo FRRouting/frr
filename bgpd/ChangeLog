@@ -1,3 +1,20 @@
+2007-02-22 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_fsm.c: (bgp_fsm_change_status) Handle state change into
+	  clearing or greater here. Simpler.
+	  (bgp_event) Clearing state change work moved to previous
+	* bgp_route.c: (bgp_clear_route_node) Clearing adj-in here
+	  is too late, as it leaves a race between a peer being deleted
+	  and an identical peer being configured before clearing
+	  completes, leading to a crash.
+	  Simplest fix is to clean peers Adj-in up-front, rather than
+	  queueing such work.
+	  (bgp_clear_route_table) Clear peer's Adj-In and Adj-Out
+	  up-front here, rather than queueing such work.
+	  Extensive comment added on the various bits of indexed data
+	  that exist and how they need to be dealt with.
+	  (bgp_clear_route) Update comment.
+
 2006-12-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 	
 	* bgp_nexthop.c: (bgp_connected_add, bgp_connected_delete)
