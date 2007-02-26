@@ -1,3 +1,20 @@
+2007-02-26 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_spf.c: Fix regression introduced with bug #330 fix: The
+	  cost update added to ospf_spf_add_parent only handled PtP
+	  case, differing from same functionality in higher-level
+	  ospf_spf_next. Regression diagnosed by Anders Pedersen,
+	  mailnews+router-quagga-dev@news.cohaesio.com.
+	  (ospf_vertex_new) Initialise vertices to max-cost.
+	  (ospf_spf_init) Root vertex always creates with 0 cost.
+	  (ospf_spf_add_parent) Remove the buggy V->W cost calculating
+	  code, instead take the new distance as a parameter.
+	  (ospf_nexthop_calculation) Take distance as parameter, so it
+	  can be passed down to add_parent.
+	  (ospf_spf_next) Dont initialise candiate vertex distance,
+	  vertex_new does so already. Pass distance down to
+	  nexthop_calculation (see above).
+
 2007-01-24 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_spf.c: Bug #330: Nexthop calculation sometimes may fail,
