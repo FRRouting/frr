@@ -244,6 +244,10 @@ int irdp_send_thread(struct thread *t_advert)
     for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, ifc))
       {
         p = ifc->address;
+        
+        if (p->family != AF_INET)
+          continue;
+        
         irdp_advertisement(ifp, p);
         irdp->irdp_sent++;
       }

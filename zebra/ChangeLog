@@ -1,3 +1,9 @@
+2007-02-26 Robert Olsson <Robert.Olsson@data.slu.se>
+
+	* irdp_main.c: (irdp_send_thread) Skip non-AF_INET addresses,
+	   i.e. do not try interpret IPv6 addresses as IPv4 addresses
+	   to broadcast in IRDP announcements..
+
 2006-12-13 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* if_ioctl_solaris.c: (if_get_addr) For IPv6, stop assuming
