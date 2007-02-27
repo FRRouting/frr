@@ -1,3 +1,8 @@
+2007-02-27  Pavol Rusnak <prusnak@suse.cz>
+
+	* ospf6_lsa.c: (ospf6_lsa_handler_name) Fix bug: must use strcmp
+	  to compare strings.
+
 2007-02-02  Greg Troxel  <Greg Troxel <gdt@ir.bbn.com>>
 
 	* ospf6d.h: remove declaration of errno (should be via header)

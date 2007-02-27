@@ -717,7 +717,7 @@ ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)
   unsigned int i; 
   unsigned int size = strlen (h->name);
 
-  if (h->name == "Unknown" &&
+  if (!strcmp(h->name, "Unknown") &&
       h->type != OSPF6_LSTYPE_UNKNOWN)
     {
       snprintf (buf, sizeof (buf), "%#04hx", h->type);
