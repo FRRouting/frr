@@ -1,3 +1,9 @@
+2007-02-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospfd.c: (ospf_terminate) Exit immediately if ospf is not
+	  actually running (e.g. the config file was empty).  Fixes
+	  bug where SIGTERM would not kill ospfd.
+
 2007-02-26 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_spf.c: Fix regression introduced with bug #330 fix: The

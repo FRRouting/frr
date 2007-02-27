@@ -355,6 +355,10 @@ ospf_terminate (void)
   
   SET_FLAG (om->options, OSPF_MASTER_SHUTDOWN);
 
+  /* exit immediately if OSPF not actually running */
+  if (listcount(om->ospf) == 0)
+    exit(0);
+
   for (ALL_LIST_ELEMENTS (om->ospf, node, nnode, ospf))
     ospf_finish (ospf);
 
