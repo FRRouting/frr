@@ -1,3 +1,10 @@
+2007-03-06 Paul Jakma <paul.jakma@sun.com>
+
+	* kernel_socket.c: (ifam_read) Do not update interface metric on
+	  receipt of NEW/DEL ADDR messages, bogus as: a) some systems
+	  dont include iface metric for address events b) we didn't
+	  update clients either. Initial diagnosis by Eugene Grosbein.
+
 2007-02-26 Robert Olsson <Robert.Olsson@data.slu.se>
 
 	* irdp_main.c: (irdp_send_thread) Skip non-AF_INET addresses,
