@@ -574,7 +574,7 @@ ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
   h = m = s = 0;
   if (on->inactivity_timer)
     {
-      s = on->inactivity_timer->u.sands.tv_sec - now.tv_sec;
+      s = on->inactivity_timer->u.sands.tv_sec - recent_relative_time().tv_sec;
       h = s / 3600;
       s -= h * 3600;
       m = s / 60;

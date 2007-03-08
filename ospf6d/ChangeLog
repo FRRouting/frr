@@ -1,3 +1,9 @@
+2007-03-08 David Siebörger d.sieborger@ru.ac.za
+
+	* ospf6_neighbor.c: (ospf6_neighbor_show) Fix bug #322, ospf6d
+	  wasn't updated to match thread times changing to relative
+	  time.
+
 2007-02-27  Pavol Rusnak <prusnak@suse.cz>
 
 	* ospf6_lsa.c: (ospf6_lsa_handler_name) Fix bug: must use strcmp
