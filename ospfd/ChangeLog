@@ -1,3 +1,10 @@
+2007-03-14 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_zebra.c: (ospf_zebra_add, ospf_zebra_delete) Fix bug
+	  where inet_ntoa was used twice in the same debug message,
+	  which doesn't work because there's a single shared buffer
+	  for the returned string.  The fix is to use inet_ntop.
+
 2007-02-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospfd.c: (ospf_terminate) Exit immediately if ospf is not
