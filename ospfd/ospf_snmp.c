@@ -2216,6 +2216,44 @@ ospfNbrLookup (struct variable *v, oid *name, size_t *length,
   return NULL;
 }
 
+/* map internal quagga neighbor states to official MIB values:
+
+ospfNbrState OBJECT-TYPE
+        SYNTAX   INTEGER    {
+                    down (1),
+                    attempt (2),
+                    init (3),
+                    twoWay (4),
+                    exchangeStart (5),
+                    exchange (6),
+                    loading (7),
+                    full (8)
+                  }
+*/
+static int32_t
+ospf_snmp_neighbor_state(u_char nst)
+{
+  switch (nst)
+    {
+    case NSM_Attempt:
+      return 2;
+    case NSM_Init:
+      return 3;
+    case NSM_TwoWay:
+      return 4;
+    case NSM_ExStart:
+      return 5;
+    case NSM_Exchange:
+      return 6;
+    case NSM_Loading:
+      return 7;
+    case NSM_Full:
+      return 8;
+    default:
+      return 1; /* down */
+    }
+}
+
 static u_char *
 ospfNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
 	      size_t  *var_len, WriteMethod **write_method)
@@ -2254,7 +2292,7 @@ ospfNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
       return SNMP_INTEGER (nbr->priority);
       break;
     case OSPFNBRSTATE:
-      return SNMP_INTEGER (nbr->state);
+      return SNMP_INTEGER (ospf_snmp_neighbor_state(nbr->state));
       break;
     case OSPFNBREVENTS:
       return SNMP_INTEGER (nbr->state_change);

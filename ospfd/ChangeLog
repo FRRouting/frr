@@ -1,5 +1,11 @@
 2007-03-14 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
+	* ospf_snmp.c: (ospf_snmp_neighbor_state) New function to
+	  map internal quagga neighbor states to SNMP standard values.
+	  (ospfNbrEntry) Call new ospf_snmp_neighbor_state function.
+
+2007-03-14 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
 	* ospf_zebra.c: (ospf_zebra_add, ospf_zebra_delete) Fix bug
 	  where inet_ntoa was used twice in the same debug message,
 	  which doesn't work because there's a single shared buffer
