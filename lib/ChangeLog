@@ -1,3 +1,10 @@
+2007-03-20 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* log.c: (mes_lookup) Make the function more robust: check for
+	  cases where the index does not match the key value at that position.
+	  If so, give a warning and fall back to a linear search.
+	  And improve the error message in cases where even that fails.
+
 2006-12-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* if.h: (struct connected) Add new ZEBRA_IFA_PEER flag indicating

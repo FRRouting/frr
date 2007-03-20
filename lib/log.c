@@ -693,17 +693,32 @@ lookup (struct message *mes, int key)
   return "";
 }
 
-/* Very old hacky version of message lookup function.  Still partly
-   used in bgpd and ospfd. FIXME Seems that it's not used any more. */
+/* Older/faster version of message lookup function, but requires caller to pass
+   in the array size (instead of relying on a 0 key to terminate the search). */
 const char *
 mes_lookup (struct message *meslist, int max, int index)
 {
-  if (index < 0 || index >= max) 
-    {
-      zlog_err ("message index out of bound: %d", max);
-      return NULL;
-    }
-  return meslist[index].str;
+  /* first check for best case: index is in range and matches the key
+     value in that slot */
+  if ((index >= 0) && (index < max) && (meslist[index].key == index))
+    return meslist[index].str;
+
+  /* fall back to linear search */
+  {
+    int i;
+
+    for (i = 0; i < max; i++, meslist++)
+      {
+	if (meslist->key == index)
+	  {
+	    zlog_warn("message index %d [%s] found in position %d (max is %d)",
+		      index, meslist->str, i, max);
+	    return meslist->str;
+	  }
+      }
+  }
+  zlog_err("message index %d not found (max is %d)", index, max);
+  return NULL;
 }
 
 /* Wrapper around strerror to handle case where it returns NULL. */
