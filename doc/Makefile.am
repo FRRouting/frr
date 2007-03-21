@@ -67,5 +67,5 @@ EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt $(man_MANS) \
 	mpls/opaque_lsa.txt mpls/ospfd.conf \
 	$(figures_sources) $(figures_png) $(figures_txt)
 
-draft-zebra-00.txt:
-	groff -T ascii -ms draft-zebra-00.ms > draft-zebra-00.txt
+draft-zebra-00.txt: draft-zebra-00.ms
+	groff -T ascii -ms $< > $@

@@ -1,3 +1,8 @@
+2007-03-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* Makefile.am: Patch rule for draft-zebra-00.txt to work
+	  in VPATH build environments.
+
 2006-07-28 Paul Jakma <paul.jakma@sun.com>
 
 	* main.texi: link-detect works on Solaris too.
