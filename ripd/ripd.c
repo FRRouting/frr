@@ -3500,17 +3500,6 @@ DEFUN (show_ip_rip,
   return CMD_SUCCESS;
 }
 
-/* Return next event time. */
-static int
-rip_next_thread_timer (struct thread *thread)
-{
-  struct timeval timer_now;
-
-  gettimeofday (&timer_now, NULL);
-
-  return thread->u.sands.tv_sec - timer_now.tv_sec;
-}
-
 /* Vincent: formerly, it was show_ip_protocols_rip: "show ip protocols" */
 DEFUN (show_ip_rip_status,
        show_ip_rip_status_cmd,
@@ -3533,8 +3522,8 @@ DEFUN (show_ip_rip_status,
   vty_out (vty, "Routing Protocol is \"rip\"%s", VTY_NEWLINE);
   vty_out (vty, "  Sending updates every %ld seconds with +/-50%%,",
 	   rip->update_time);
-  vty_out (vty, " next due in %d seconds%s", 
-	   rip_next_thread_timer (rip->t_update),
+  vty_out (vty, " next due in %lu seconds%s", 
+	   thread_timer_remain_second(rip->t_update),
 	   VTY_NEWLINE);
   vty_out (vty, "  Timeout after %ld seconds,", rip->timeout_time);
   vty_out (vty, " garbage collect after %ld seconds%s", rip->garbage_time,

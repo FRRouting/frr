@@ -1,3 +1,10 @@
+2007-03-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripd.c: (show_ip_rip_status) Use new thread_timer_remain_second
+	  function instead of rip_next_thread_timer to display the time until
+	  next update properly.
+	  (rip_next_thread_timer) Remove obsolete function.
+
 2006-12-12 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* rip_interface.c: (rip_interface_multicast_set) Use new CONNECTED_ID
