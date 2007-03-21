@@ -9,9 +9,14 @@ prototype.dev
 prototype.doc
 prototype.libs
 prototype.smf
+depend.daemons
+depend.dev
+depend.doc
+depend.libs
+depend.smf
 quagga.init
 *.pkg
 *.pkg.gz
 *~
 *.loT
-
+*.a
