@@ -439,9 +439,21 @@ ospf_spf_add_parent (struct vertex *v, struct vertex *w,
    */
   assert (distance <= w->distance);
   
+  if (IS_DEBUG_OSPF_EVENT)
+    {
+      char buf[2][INET_ADDRSTRLEN];
+      zlog_debug ("%s: Adding %s as parent of %s",
+                __func__,
+                inet_ntop(AF_INET, &v->lsa->id, buf[0], sizeof(buf[0])),
+                inet_ntop(AF_INET, &w->lsa->id, buf[1], sizeof(buf[1])));
+    }           
+
   /* Adding parent for a new, better path: flush existing parents from W. */
   if (distance < w->distance)
     {
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_debug ("%s: distance %d better than %d, flushing existing parents",
+                    __func__, distance, w->distance);
       ospf_spf_flush_parents (w);
       w->distance = distance;
     }
@@ -673,6 +685,9 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
    * destination simply inherits the set of next hops from the
    * parent.
    */
+  if (IS_DEBUG_OSPF_EVENT)
+    zlog_debug ("%s: Intervening routers, adding parent(s)", __func__);
+
   for (ALL_LIST_ELEMENTS (v->parents, node, nnode, vp))
     {
       added = 1;
@@ -705,7 +720,13 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
       if (IS_ROUTER_LSA_VIRTUAL ((struct router_lsa *) v->lsa))
         area->transit = OSPF_TRANSIT_TRUE;
     }
-
+  
+  if (IS_DEBUG_OSPF_EVENT)
+    zlog_debug ("%s: Next vertex of %s vertex %s",
+                __func__, 
+                v->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
+                inet_ntoa(v->lsa->id));
+  
   p = ((u_char *) v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
   lim = ((u_char *) v->lsa) + ntohs (v->lsa->length);
 
@@ -774,16 +795,29 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
 
           /* Lookup the vertex W's LSA. */
           w_lsa = ospf_lsa_lookup_by_id (area, OSPF_ROUTER_LSA, *r);
+          if (w_lsa)
+            {
+              if (IS_DEBUG_OSPF_EVENT)
+                zlog_debug ("found Router LSA %s", inet_ntoa (w_lsa->data->id));
+            }
         }
 
       /* (b cont.) If the LSA does not exist, or its LS age is equal
          to MaxAge, or it does not have a link back to vertex V,
          examine the next link in V's LSA.[23] */
       if (w_lsa == NULL)
-        continue;
+        {
+          if (IS_DEBUG_OSPF_EVENT)
+            zlog_debug ("No LSA found");
+          continue;
+        }
 
       if (IS_LSA_MAXAGE (w_lsa))
-        continue;
+        {
+          if (IS_DEBUG_OSPF_EVENT)
+            zlog_debug ("LSA is MaxAge");
+          continue;
+        }
 
       if (ospf_lsa_has_link (w_lsa->data, v->lsa) < 0 )
         {
@@ -822,6 +856,8 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
           /* Calculate nexthop to W. */
           if (ospf_nexthop_calculation (area, v, w, l, distance))
             pqueue_enqueue (w, candidate);
+          else if (IS_DEBUG_OSPF_EVENT)
+            zlog_debug ("Nexthop Calc failed");
 	}
       else if (w_lsa->stat >= 0)
 	{

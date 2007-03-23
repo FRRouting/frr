@@ -1,3 +1,7 @@
+2007-03-23 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_spf.c: (various) Add more debug statements.
+
 2007-03-14 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf_snmp.c: (ospf_snmp_neighbor_state) New function to
