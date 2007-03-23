@@ -677,7 +677,8 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
                 }
             }
         }
-      return added;
+      if (added)
+        return added;
     }
 
   /* 16.1.1 para 4.  If there is at least one intervening router in the

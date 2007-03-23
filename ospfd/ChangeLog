@@ -1,6 +1,9 @@
 2007-03-23 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_spf.c: (various) Add more debug statements.
+	  (ospf_nexthop_calculation) Fix silly regression causing ospfd
+	  to fail to calculate paths past networks not attached to root
+	  vertex, introduced with bug #330 fixes.
 
 2007-03-14 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
