@@ -1742,7 +1742,8 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
       ri->uptime = time (NULL);
 
       /* Same attribute comes in. */
-      if (attrhash_cmp (ri->attr, attr_new))
+      if (!CHECK_FLAG(ri->flags, BGP_INFO_REMOVED)
+          && attrhash_cmp (ri->attr, attr_new))
         {
 
           bgp_info_unset_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
@@ -1760,6 +1761,10 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
                     return;
         }
 
+      /* Withdraw/Announce before we fully processed the withdraw */
+      if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
+        bgp_info_restore (rn, ri);
+      
       /* Received Logging. */
       if (BGP_DEBUG (update, UPDATE_IN))
         zlog (peer->log, LOG_DEBUG, "%s rcvd %s/%d for RS-client %s",
@@ -1987,7 +1992,8 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
       ri->uptime = time (NULL);
 
       /* Same attribute comes in. */
-      if (attrhash_cmp (ri->attr, attr_new))
+      if (!CHECK_FLAG (ri->flags, BGP_INFO_REMOVED) 
+          && attrhash_cmp (ri->attr, attr_new))
 	{
 	  bgp_info_unset_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
 
@@ -2007,7 +2013,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
                   bgp_process (bgp, rn, afi, safi);
                 }
 	    }
-	  else
+          else /* Duplicate - odd */
 	    {
 	      if (BGP_DEBUG (update, UPDATE_IN))  
 		zlog (peer->log, LOG_DEBUG,
@@ -2028,6 +2034,17 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	  bgp_attr_unintern (attr_new);
 	  return 0;
 	}
+
+      /* Withdraw/Announce before we fully processed the withdraw */
+      if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
+        {
+          if (BGP_DEBUG (update, UPDATE_IN))
+            zlog (peer->log, LOG_DEBUG, "%s rcvd %s/%d, flapped quicker than processing",
+            peer->host,
+            inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
+            p->prefixlen);
+          bgp_info_restore (rn, ri);
+        }
 
       /* Received Logging. */
       if (BGP_DEBUG (update, UPDATE_IN))  

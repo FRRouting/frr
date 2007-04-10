@@ -1,3 +1,13 @@
+2007-04-08 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_route.c: (general) Same bug as fixed on 2006-11-28 by ajs for
+	  bgp static routes, but for main BGP RIB: Quick 'flap' of routes
+	  can cause bgpd to mistake a new route for a duplicate route,
+	  due to presence of removed, but not yet processed BGP RIB entry.
+	  (bgp_update_rsclient) Ignore REMOVED bgp_info for duplicate,
+	  restore route instead.
+	  (bgp_update_main) Ditto.
+
 2007-04-07 Paul Jakma <paul.jakma@sun.com>
 
 	* bgpd.c: (general) Fix bug #352
