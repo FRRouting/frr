@@ -39,7 +39,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_ecommunity.h"
 
 /* Attribute strings for logging. */
-struct message attr_str [] = 
+static struct message attr_str [] = 
 {
   { BGP_ATTR_ORIGIN,           "ORIGIN" }, 
   { BGP_ATTR_AS_PATH,          "AS_PATH" }, 
@@ -58,6 +58,7 @@ struct message attr_str [] =
   { BGP_ATTR_MP_UNREACH_NLRI,  "MP_UNREACH_NLRI" },
   { 0, NULL }
 };
+int attr_str_max = sizeof(attr_str)/sizeof(attr_str[0]);
 
 struct hash *cluster_hash;
 
@@ -934,24 +935,30 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
 {
   u_int16_t afi;
   u_char safi;
-  u_char snpa_num;
-  u_char snpa_len;
-  u_char *lim;
   bgp_size_t nlri_len;
+  size_t start;
   int ret;
   struct stream *s;
   
   /* Set end of packet. */
-  s = peer->ibuf;
-  lim = stream_pnt (s) + length;
-
+  s = BGP_INPUT(peer);
+  start = stream_get_getp(s);
+  
+  /* safe to read statically sized header? */
+#define BGP_MP_REACH_MIN_SIZE 5
+  if ((length > STREAM_READABLE(s)) || (length < BGP_MP_REACH_MIN_SIZE))
+    return -1;
+  
   /* Load AFI, SAFI. */
   afi = stream_getw (s);
   safi = stream_getc (s);
 
   /* Get nexthop length. */
   attr->mp_nexthop_len = stream_getc (s);
-
+  
+  if (STREAM_READABLE(s) < attr->mp_nexthop_len)
+    return -1;
+  
   /* Nexthop length check. */
   switch (attr->mp_nexthop_len)
     {
@@ -997,15 +1004,20 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
       return -1;
     }
 
-  snpa_num = stream_getc (s);
-
-  while (snpa_num--)
-    {
-      snpa_len = stream_getc (s);
-      stream_forward_getp (s, (snpa_len + 1) >> 1);
-    }
+  if (!STREAM_READABLE(s))
+    return -1;
   
-  nlri_len = lim - stream_pnt (s);
+  {
+    u_char val; 
+    if ((val = stream_getc (s)))
+    zlog_warn ("%s sent non-zero value, %u, for defunct SNPA-length field",
+                peer->host, val);
+  }
+  
+  /* must have nrli_len, what is left of the attribute */
+  nlri_len = length - (stream_get_getp(s) - start);
+  if ((!nlri_len) || (nlri_len > STREAM_READABLE(s)))
+    return -1;
  
   if (safi != BGP_SAFI_VPNV4)
     {
@@ -1026,23 +1038,25 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
 
 /* Multiprotocol unreachable parse */
 static int
-bgp_mp_unreach_parse (struct peer *peer, int length, 
+bgp_mp_unreach_parse (struct peer *peer, bgp_size_t length, 
 		      struct bgp_nlri *mp_withdraw)
 {
   struct stream *s;
   u_int16_t afi;
   u_char safi;
-  u_char *lim;
   u_int16_t withdraw_len;
   int ret;
 
   s = peer->ibuf;
-  lim = stream_pnt (s) + length;
-
+  
+#define BGP_MP_UNREACH_MIN_SIZE 3
+  if ((length > STREAM_READABLE(s)) || (length <  BGP_MP_UNREACH_MIN_SIZE))
+    return -1;
+  
   afi = stream_getw (s);
   safi = stream_getc (s);
-
-  withdraw_len = lim - stream_pnt (s);
+  
+  withdraw_len = length - BGP_MP_UNREACH_MIN_SIZE;
 
   if (safi != BGP_SAFI_VPNV4)
     {
@@ -1278,13 +1292,23 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 
       /* If error occured immediately return to the caller. */
       if (ret < 0)
-	return ret;
+        {
+          zlog (peer->log, LOG_WARNING,
+                "%s: Attribute %s, parse error", 
+                peer->host, 
+                LOOKUP (attr_str, type));
+           bgp_notify_send (peer, 
+                            BGP_NOTIFY_UPDATE_ERR,
+                            BGP_NOTIFY_UPDATE_MAL_ATTR);
+           return ret;
+        }
 
       /* Check the fetched length. */
       if (BGP_INPUT_PNT (peer) != attr_endp)
 	{
 	  zlog (peer->log, LOG_WARNING, 
-		"%s BGP attribute fetch error", peer->host);
+		"%s: BGP attribute %s, fetch error", 
+                peer->host, LOOKUP (attr_str, type));
 	  bgp_notify_send (peer, 
 			   BGP_NOTIFY_UPDATE_ERR, 
 			   BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
@@ -1296,7 +1320,8 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
   if (BGP_INPUT_PNT (peer) != endp)
     {
       zlog (peer->log, LOG_WARNING, 
-	    "%s BGP attribute length mismatch", peer->host);
+	    "%s BGP attribute %s, length mismatch",
+	    peer->host, LOOKUP (attr_str, type));
       bgp_notify_send (peer, 
 		       BGP_NOTIFY_UPDATE_ERR, 
 		       BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);

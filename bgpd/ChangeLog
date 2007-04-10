@@ -7,6 +7,26 @@
 	  (bgp_update_rsclient) Ignore REMOVED bgp_info for duplicate,
 	  restore route instead.
 	  (bgp_update_main) Ditto.
+	* bgp_attr.c: (general) Bug #354: parsing of MP_REACH_NLRI and
+	  MP_UNREACH_NLRI does not take sufficient care to ensure reads
+	  from stream buffer stay in-bounds. Hence bgpd may attempt to read
+	  beyond end of stream, if given a crafted packet. As it uses the
+	  stream access methods to do so, this will typically result in
+	  assert() being hit in stream.c. Where code is compiled without
+	  assert() enabled, result is unknown.
+	  (struct message attr_str) should be static.
+	  (bgp_mp_reach_parse) Carefully check length remaining in stream
+	  against amount desired to read from stream, prior to each read,
+	  particularly where lengths are conditional on data obtained from
+	  stream - using STREAM_READABLE.
+	  Remove code to parse SNPA-number, it's a defunct field and changed
+	  to a fixed size in latest BGP MP update RFC - log warning if
+	  SNPA-number is not 0.
+	  (bgp_mp_unreach_parse) Check withdraw_length carefully against
+	  STREAM_READABLE.
+	  (bgp_attr_parse) If attribute-parser function returns error, log
+	  warning.
+	  Log attribute type on mismatch.
 
 2007-04-07 Paul Jakma <paul.jakma@sun.com>
 
