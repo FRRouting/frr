@@ -3,6 +3,9 @@
 	* {ioctl,kernel}_null.c: Install of IP address should
 	  reflect back to zebra via kernel_address_add..., makes
 	  testzebra more useful.
+	* interface.c: (if_delete_update) Address removal triggered
+	  by kernel shouldn't remove configured IPv4 address from connected
+	  list.
 
 2007-04-07 Paul Jakma <paul.jakma@sun.com>
 
