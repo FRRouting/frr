@@ -1,3 +1,9 @@
+2007-04-08 Paul Jakma <paul.jakma@sun.com>
+
+	* {ioctl,kernel}_null.c: Install of IP address should
+	  reflect back to zebra via kernel_address_add..., makes
+	  testzebra more useful.
+
 2007-04-07 Paul Jakma <paul.jakma@sun.com>
 
 	* redistribute.c: (zebra_check_addr) Don't redistribute routes

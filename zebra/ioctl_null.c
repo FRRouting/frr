@@ -6,10 +6,20 @@
 
 void ifreq_set_name (struct ifreq *a, struct interface *b) { return; }
 
-int if_set_prefix (struct interface *a, struct connected *b) { return 0; }
-#pragma weak if_unset_prefix = if_set_prefix
-#pragma weak if_prefix_add_ipv6 = if_set_prefix
-#pragma weak if_prefix_delete_ipv6 = if_set_prefix
+int if_set_prefix (struct interface *a, struct connected *b)
+{ 
+  kernel_address_add_ipv4 (a, b);
+  return 0;
+}
+
+int if_unset_prefix (struct interface *a, struct connected *b)
+{ 
+  kernel_address_delete_ipv4 (a, b);
+  return 0;
+}
+
+int if_prefix_add_ipv6 (struct interface *a, struct connected *b) { return 0; }
+#pragma weak if_prefix_delete_ipv6 = if_prefix_add_ipv6
 
 int if_ioctl (u_long a, caddr_t b) { return 0; }
 
