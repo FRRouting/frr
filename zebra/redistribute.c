@@ -40,7 +40,7 @@
 /* master zebra server structure */
 extern struct zebra_t zebrad;
 
-static int
+int
 zebra_check_addr (struct prefix *p)
 {
   if (p->family == AF_INET)
@@ -50,7 +50,9 @@ zebra_check_addr (struct prefix *p)
       addr = p->u.prefix4.s_addr;
       addr = ntohl (addr);
 
-      if (IPV4_NET127 (addr) || IN_CLASSD (addr))
+      if (IPV4_NET127 (addr)
+          || IN_CLASSD (addr)
+          || IPV4_LINKLOCAL(addr))
 	return 0;
     }
 #ifdef HAVE_IPV6

@@ -39,6 +39,7 @@
 
 #include "zebra/zserv.h"
 #include "zebra/router-id.h"
+#include "zebra/redistribute.h"
 
 static struct list rid_all_sorted_list;
 static struct list rid_lo_sorted_list;
@@ -63,18 +64,13 @@ router_id_find_node (struct list *l, struct connected *ifc)
 static int
 router_id_bad_address (struct connected *ifc)
 {
-  struct prefix n;
-
   if (ifc->address->family != AF_INET)
     return 1;
-
-  n.u.prefix4.s_addr = htonl (INADDR_LOOPBACK);
-  n.prefixlen = 8;
-  n.family = AF_INET;
-
-  if (prefix_match (&n, ifc->address))
+  
+  /* non-redistributable addresses shouldn't be used for RIDs either */
+  if (!zebra_check_addr (ifc->address))
     return 1;
-
+  
   return 0;
 }
 

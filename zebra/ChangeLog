@@ -1,3 +1,11 @@
+2007-04-07 Paul Jakma <paul.jakma@sun.com>
+
+	* redistribute.c: (zebra_check_addr) Don't redistribute routes
+	  to IPv4 link-local prefixes, fixes bug #351.
+	* redistribute.h: Export zebra_check_addr.
+	* router-id.c: (router_id_bad_address) re-use zebra_check_addr
+	  rather than implementing similar logic.
+
 2007-03-06 Paul Jakma <paul.jakma@sun.com>
 
 	* kernel_socket.c: (ifam_read) Do not update interface metric on
