@@ -155,6 +155,9 @@ if_get_mtu (struct interface *ifp)
   ifp->mtu6 = ifp->mtu = ifreq.ifr_mtu;
 #endif /* SUNOS_5 */
 
+  /* propogate */
+  zebra_interface_up_update(ifp);
+
 #else
   zlog (NULL, LOG_INFO, "Can't lookup mtu on this system");
   ifp->mtu6 = ifp->mtu = -1;

@@ -1,3 +1,8 @@
+2007-04-10 Paul Jakma <paul.jakma@sun.com>
+
+	* ioctl{_solaris,}.c: (if_get_mtu) Ping clients via
+          zebra_interface_up_update if MTU is changed.
+
 2007-04-08 Paul Jakma <paul.jakma@sun.com>
 
 	* {ioctl,kernel}_null.c: Install of IP address should

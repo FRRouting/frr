@@ -156,6 +156,7 @@ if_get_mtu (struct interface *ifp)
 {
   struct lifreq lifreq;
   int ret;
+  u_char changed = 0;
   
   if (ifp->flags & IFF_IPV4)
     {
@@ -170,12 +171,17 @@ if_get_mtu (struct interface *ifp)
       else
         {
           ifp->mtu = lifreq.lifr_metric;
+          changed = 1;
         }
     }
 
 #ifdef HAVE_IPV6
   if ((ifp->flags & IFF_IPV6) == 0)
-    return;
+    {
+      if (changed)
+        zebra_interface_up_update(ifp);
+      return;
+    }
     
   memset(&lifreq, 0, sizeof(lifreq));
   lifreq_set_name (&lifreq, ifp->name);
@@ -189,7 +195,11 @@ if_get_mtu (struct interface *ifp)
   else
     {
       ifp->mtu6 = lifreq.lifr_metric;
+      changed = 1
     }
+  
+  if (changed)
+    zebra_interface_up_update(ifp);
 #endif /* HAVE_IPV6 */
 }
 
