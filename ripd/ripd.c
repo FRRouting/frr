@@ -3389,14 +3389,14 @@ rip_vty_out_uptime (struct vty *vty, struct rip_info *rinfo)
 
   if ((thread = rinfo->t_timeout) != NULL)
     {
-      clock = thread->u.sands.tv_sec - timer_now.tv_sec;
+      clock = thread_timer_remain_second (thread);
       tm = gmtime (&clock);
       strftime (timebuf, TIME_BUF, "%M:%S", tm);
       vty_out (vty, "%5s", timebuf);
     }
   else if ((thread = rinfo->t_garbage_collect) != NULL)
     {
-      clock = thread->u.sands.tv_sec - timer_now.tv_sec;
+      clock = thread_timer_remain_second (thread);
       tm = gmtime (&clock);
       strftime (timebuf, TIME_BUF, "%M:%S", tm);
       vty_out (vty, "%5s", timebuf);
