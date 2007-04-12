@@ -1938,14 +1938,14 @@ ripng_vty_out_uptime (struct vty *vty, struct ripng_info *rinfo)
 
   if ((thread = rinfo->t_timeout) != NULL)
     {
-      clock = thread->u.sands.tv_sec - timer_now.tv_sec;
+      clock = thread_timer_remain_second (thread);
       tm = gmtime (&clock);
       strftime (timebuf, TIME_BUF, "%M:%S", tm);
       vty_out (vty, "%5s", timebuf);
     }
   else if ((thread = rinfo->t_garbage_collect) != NULL)
     {
-      clock = thread->u.sands.tv_sec - timer_now.tv_sec;
+      clock = thread_timer_remain_second (thread);
       tm = gmtime (&clock);
       strftime (timebuf, TIME_BUF, "%M:%S", tm);
       vty_out (vty, "%5s", timebuf);
@@ -2095,17 +2095,6 @@ DEFUN (show_ipv6_ripng,
   return CMD_SUCCESS;
 }
 
-/* Return next event time. */
-static int
-ripng_next_thread_timer (struct thread *thread)
-{
-  struct timeval timer_now;
-
-  gettimeofday (&timer_now, NULL);
-
-  return thread->u.sands.tv_sec - timer_now.tv_sec;
-}
-
 DEFUN (show_ipv6_ripng_status,
        show_ipv6_ripng_status_cmd,
        "show ipv6 ripng status",
@@ -2125,8 +2114,8 @@ DEFUN (show_ipv6_ripng_status,
   vty_out (vty, "Routing Protocol is \"RIPng\"%s", VTY_NEWLINE);
   vty_out (vty, "  Sending updates every %ld seconds with +/-50%%,",
            ripng->update_time);
-  vty_out (vty, " next due in %d seconds%s",
-           ripng_next_thread_timer (ripng->t_update),
+  vty_out (vty, " next due in %lu seconds%s",
+           thread_timer_remain_second (ripng->t_update),
            VTY_NEWLINE);
   vty_out (vty, "  Timeout after %ld seconds,", ripng->timeout_time);
   vty_out (vty, " garbage collect after %ld seconds%s", ripng->garbage_time,

@@ -1,3 +1,9 @@
+2007-04-12 Emmanuel Vize <emmanuel.vize@6wind.com>
+
+        * ripngd.c: (ripng_vty_out_uptime and show_ipv6_ripng_status) 
+          Use new thread_timer_remain_second to display properly the timers 
+          (reported patch from Andrew J. Schorr in ripd.c)
+
 2006-05-11 Paul Jakma <paul.jakma@sun.com>
 
 	* ripng_interface.c: (ripng_interface_address_add) Remove
