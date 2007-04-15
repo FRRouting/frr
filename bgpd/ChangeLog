@@ -1,3 +1,8 @@
+2007-04-15 Sebastien Tandel <sebastien@tandel.be>
+
+	* bgp_aspath.c: (aspath_as_add, aspath_segment_add) Minor performance
+	  optimization: while loop should test one pointer instead of two.
+
 2007-04-08 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_route.c: (general) Same bug as fixed on 2006-11-28 by ajs for

@@ -1243,13 +1243,13 @@ aspath_as_add (struct aspath *as, as_t asno)
 {
   struct assegment *seg = as->segments;
 
-  /* Last segment search procedure. */
-  while (seg && seg->next)
-    seg = seg->next;
-  
   if (!seg)
     return;
   
+  /* Last segment search procedure. */
+  while (seg->next)
+    seg = seg->next;
+
   assegment_append_asns (seg, &asno, 1);
 }
 
@@ -1260,13 +1260,14 @@ aspath_segment_add (struct aspath *as, int type)
   struct assegment *seg = as->segments;
   struct assegment *new = assegment_new (type, 0);
 
-  while (seg && seg->next)
-    seg = seg->next;
-  
-  if (seg == NULL)
-    as->segments = new;
+  if (seg)
+    {
+      while (seg->next)
+	seg = seg->next;
+      seg->next = new;
+    }
   else
-    seg->next = new;
+    as->segments = new;
 }
 
 struct aspath *
