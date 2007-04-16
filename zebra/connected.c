@@ -155,7 +155,7 @@ connected_implicit_withdraw (struct interface *ifp, struct connected *ifc)
       /* Avoid spurious withdraws, this might be just the kernel 'reflecting'
        * back an address we have already added.
        */
-      if (connected_same (current, ifc))
+      if (connected_same (current, ifc) && CHECK_FLAG(current->conf, ZEBRA_IFC_REAL))
         {
           /* nothing to do */
           connected_free (ifc);
