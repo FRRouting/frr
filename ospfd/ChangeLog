@@ -1,3 +1,11 @@
+2007-04-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf_interface.c: (ospf_if_set_multicast) Fix bug: was testing
+	  interface passive status improperly in light of the recent
+	  'passive-interface default' patch.  Now need to test
+	  OSPF_IF_PASSIVE_STATUS(oi) instead of
+	  OSPF_IF_PARAM(oi, passive_interface).
+
 2007-03-23 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_spf.c: (various) Add more debug statements.

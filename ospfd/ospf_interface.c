@@ -717,7 +717,7 @@ ospf_if_set_multicast(struct ospf_interface *oi)
   if ((oi->state > ISM_Loopback) &&
       (oi->type != OSPF_IFTYPE_LOOPBACK) &&
       (oi->type != OSPF_IFTYPE_VIRTUALLINK) &&
-      (OSPF_IF_PARAM(oi, passive_interface) == OSPF_IF_ACTIVE))
+      (OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_ACTIVE))
     {
       /* The interface should belong to the OSPF-all-routers group. */
       if (!OI_MEMBER_CHECK(oi, MEMBER_ALLROUTERS) &&
@@ -745,7 +745,7 @@ ospf_if_set_multicast(struct ospf_interface *oi)
   if (((oi->type == OSPF_IFTYPE_BROADCAST) ||
        (oi->type == OSPF_IFTYPE_POINTOPOINT)) &&
       ((oi->state == ISM_DR) || (oi->state == ISM_Backup)) &&
-      (OSPF_IF_PARAM(oi, passive_interface) == OSPF_IF_ACTIVE))
+      (OSPF_IF_PASSIVE_STATUS(oi) == OSPF_IF_ACTIVE))
     {
       /* The interface should belong to the OSPF-designated-routers group. */
       if (!OI_MEMBER_CHECK(oi, MEMBER_DROUTERS) &&
