@@ -3378,14 +3378,11 @@ DEFUN (no_rip_distance_source_access_list,
 static void
 rip_vty_out_uptime (struct vty *vty, struct rip_info *rinfo)
 {
-  struct timeval timer_now;
   time_t clock;
   struct tm *tm;
 #define TIME_BUF 25
   char timebuf [TIME_BUF];
   struct thread *thread;
-
-  gettimeofday (&timer_now, NULL);
 
   if ((thread = rinfo->t_timeout) != NULL)
     {

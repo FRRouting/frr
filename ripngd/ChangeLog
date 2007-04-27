@@ -1,3 +1,7 @@
+2007-04-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripngd.c: (ripng_vty_out_uptime) Remove unused variable timer_now.
+
 2007-04-12 Emmanuel Vize <emmanuel.vize@6wind.com>
 
         * ripngd.c: (ripng_vty_out_uptime and show_ipv6_ripng_status) 

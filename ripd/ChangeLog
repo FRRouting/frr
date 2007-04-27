@@ -1,3 +1,7 @@
+2007-04-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ripd.c: (rip_vty_out_uptime) Remove unused variable timer_now.
+
 2007-04-11 Emmanuel Vize <emmanuel.vize@6wind.com>
 
 	* ripd.c: (rip_vty_out_uptime) Use new thread_timer_remain_second
