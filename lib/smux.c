@@ -1091,7 +1091,7 @@ smux_trap (oid *name, size_t namelen,
               smux_oid_dump ("Trap", iname, inamelen);
             }
           smux_oid_dump ("Trap", oid, oid_len);
-          zlog_info ("BUFSIZ: %d // oid_len: %d", BUFSIZ, oid_len);
+          zlog_info ("BUFSIZ: %d // oid_len: %lu", BUFSIZ, (u_long)oid_len);
       }
 
       ret = smux_get (oid, &oid_len, 1, &val_type, &val, &val_len);

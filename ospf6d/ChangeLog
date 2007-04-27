@@ -1,3 +1,8 @@
+2007-04-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospf6_snmp.c: (ospfv3AreaEntry, ospfv3AreaLsdbEntry) Fix some
+	  zlog_debug printf formats to work with 64-bit size_t.
+
 2007-03-08 David Siebörger d.sieborger@ru.ac.za
 
 	* ospf6_neighbor.c: (ospf6_neighbor_show) Fix bug #322, ospf6d

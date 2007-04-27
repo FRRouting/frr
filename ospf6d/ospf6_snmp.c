@@ -314,9 +314,9 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
   if (len)
     oid2in_addr (name + v->namelen, len, (struct in_addr *) &area_id);
 
-  zlog_debug ("SNMP access by area: %s, exact=%d len=%d length=%d",
+  zlog_debug ("SNMP access by area: %s, exact=%d len=%d length=%lu",
 	      inet_ntoa (* (struct in_addr *) &area_id),
-	      exact, len, *length);
+	      exact, len, (u_long)*length);
 
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
@@ -338,9 +338,9 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
   oid_copy_addr (name + v->namelen, (struct in_addr *) &area->area_id,
                  sizeof (u_int32_t));
 
-  zlog_debug ("SNMP found area: %s, exact=%d len=%d length=%d",
+  zlog_debug ("SNMP found area: %s, exact=%d len=%d length=%lu",
 	      inet_ntoa (* (struct in_addr *) &area->area_id),
-	      exact, len, *length);
+	      exact, len, (u_long)*length);
 
   switch (v->magic)
     {
@@ -423,9 +423,9 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
   inet_ntop (AF_INET, &area_id, a, sizeof (a));
   inet_ntop (AF_INET, &adv_router, b, sizeof (b));
   inet_ntop (AF_INET, &id, c, sizeof (c));
-  zlog_debug ("SNMP access by lsdb: area=%s exact=%d length=%d magic=%d"
+  zlog_debug ("SNMP access by lsdb: area=%s exact=%d length=%lu magic=%d"
 	      " type=%#x adv_router=%s id=%s",
-	      a, exact, *length, v->magic, ntohs (type), b, c);
+	      a, exact, (u_long)*length, v->magic, ntohs (type), b, c);
 
   if (exact)
     {

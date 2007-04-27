@@ -1,3 +1,7 @@
+2007-04-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* smux.c: (smux_trap) Fix printf format to work with 64-bit size_t.
+
 2007-04-07 Paul Jakma <paul.jakma@sun.com>
 
 	* prefix.h: Add define to match IPv4 Link-Local addresses
