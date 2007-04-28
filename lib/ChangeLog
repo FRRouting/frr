@@ -1,3 +1,34 @@
+2007-04-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* command.c: (config_write_host) Save "log timestamp precision"
+	  if not default value.
+	  (show_logging) Show configured timestamp precision.
+	  (config_log_timestamp_precision) Enable configuration of timestamp
+	  precision.
+	  (no_config_log_timestamp_precision) Restore default timestamp
+	  precision.
+	  (cmd_init) Install new timestamp precision commands.
+	* log.h: (struct zlog) New timestamp_precision field.
+	  (quagga_timestamp) New function to generate a timestamp with the
+	  desired precision.
+	  (struct timestamp_control) Declare a structure for use in avoiding
+	  repeated duplicate calls to quagga_timestamp.
+	* log.c: (quagga_timestamp) New function to generate a timestamp
+	  of the desired precision.
+	  (time_print) Call quagga_timestamp if the time hasn't already been
+	  calculated.
+	  (vzlog) Initialize a timestamp_control structure and pass it to
+	  time_print and vty_log.
+	  (zlog_backtrace) Fix 64-bit problem: cannot print size_t with %u.
+	* vty.h: Must now include "log.h".
+	  (vty_log) Takes an additional struct timestamp_control argument.
+	* vty.c: (vty_log_out) Use new struct timestamp_control and new
+	  quagga_timestamp function to print timestamps of the desired
+	  precision.
+	  (vty_time_print) Use new quagga_timestamp function.
+	  (vty_log) Accept new struct timestamp_control argument and pass it
+	  down to vty_log_out.
+
 2007-04-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* smux.c: (smux_trap) Fix printf format to work with 64-bit size_t.

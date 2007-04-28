@@ -594,6 +594,10 @@ config_write_host (struct vty *vty)
   if (zlog_default->record_priority == 1)
     vty_out (vty, "log record-priority%s", VTY_NEWLINE);
 
+  if (zlog_default->timestamp_precision > 0)
+    vty_out (vty, "log timestamp precision %d%s",
+	     zlog_default->timestamp_precision, VTY_NEWLINE);
+
   if (host.advanced)
     vty_out (vty, "service advanced-vty%s", VTY_NEWLINE);
 
@@ -3092,6 +3096,8 @@ DEFUN (show_logging,
   	   zlog_proto_names[zl->protocol], VTY_NEWLINE);
   vty_out (vty, "Record priority: %s%s",
   	   (zl->record_priority ? "enabled" : "disabled"), VTY_NEWLINE);
+  vty_out (vty, "Timestamp precision: %d%s",
+	   zl->timestamp_precision, VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
@@ -3416,6 +3422,37 @@ DEFUN (no_config_log_record_priority,
   return CMD_SUCCESS;
 }
 
+DEFUN (config_log_timestamp_precision,
+       config_log_timestamp_precision_cmd,
+       "log timestamp precision <0-6>",
+       "Logging control\n"
+       "Timestamp configuration\n"
+       "Set the timestamp precision\n"
+       "Number of subsecond digits\n")
+{
+  if (argc != 1)
+    {
+      vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  VTY_GET_INTEGER_RANGE("Timestamp Precision",
+  			zlog_default->timestamp_precision, argv[0], 0, 6);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_config_log_timestamp_precision,
+       no_config_log_timestamp_precision_cmd,
+       "no log timestamp precision",
+       NO_STR
+       "Logging control\n"
+       "Timestamp configuration\n"
+       "Reset the timestamp precision to the default value of 0\n")
+{
+  zlog_default->timestamp_precision = 0 ;
+  return CMD_SUCCESS;
+}
+
 DEFUN (banner_motd_file,
        banner_motd_file_cmd,
        "banner motd file [FILE]",
@@ -3571,6 +3608,8 @@ cmd_init (int terminal)
       install_element (CONFIG_NODE, &no_config_log_trap_cmd);
       install_element (CONFIG_NODE, &config_log_record_priority_cmd);
       install_element (CONFIG_NODE, &no_config_log_record_priority_cmd);
+      install_element (CONFIG_NODE, &config_log_timestamp_precision_cmd);
+      install_element (CONFIG_NODE, &no_config_log_timestamp_precision_cmd);
       install_element (CONFIG_NODE, &service_password_encrypt_cmd);
       install_element (CONFIG_NODE, &no_service_password_encrypt_cmd);
       install_element (CONFIG_NODE, &banner_motd_default_cmd);

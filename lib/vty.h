@@ -22,6 +22,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define _ZEBRA_VTY_H
 
 #include "thread.h"
+#include "log.h"
 
 #define VTY_BUFSIZ 512
 #define VTY_MAXHIST 20
@@ -211,7 +212,7 @@ extern void vty_serv_sock (const char *, unsigned short, const char *);
 extern void vty_close (struct vty *);
 extern char *vty_get_cwd (void);
 extern void vty_log (const char *level, const char *proto, 
-                     const char *fmt, va_list);
+                     const char *fmt, struct timestamp_control *, va_list);
 extern int vty_config_lock (struct vty *);
 extern int vty_config_unlock (struct vty *);
 extern int vty_shell (struct vty *);

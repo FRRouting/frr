@@ -149,17 +149,22 @@ vty_out (struct vty *vty, const char *format, ...)
 
 static int
 vty_log_out (struct vty *vty, const char *level, const char *proto_str,
-	     const char *format, va_list va)
+	     const char *format, struct timestamp_control *ctl, va_list va)
 {
   int ret;
   int len;
   char buf[1024];
-  struct tm *tm;
 
-  if ((tm = localtime(&recent_time.tv_sec)) != NULL)
-    len = strftime(buf, sizeof(buf), "%Y/%m/%d %H:%M:%S ", tm);
-  else
-    len = 0;
+  if (!ctl->already_rendered)
+    {
+      ctl->len = quagga_timestamp(ctl->precision, ctl->buf, sizeof(ctl->buf));
+      ctl->already_rendered = 1;
+    }
+  if (ctl->len+1 >= sizeof(buf))
+    return -1;
+  memcpy(buf, ctl->buf, len = ctl->len);
+  buf[len++] = ' ';
+  buf[len] = '\0';
 
   if (level)
     ret = snprintf(buf+len, sizeof(buf)-len, "%s: %s: ", level, proto_str);
@@ -199,19 +204,11 @@ vty_log_out (struct vty *vty, const char *level, const char *proto_str,
 void
 vty_time_print (struct vty *vty, int cr)
 {
-  time_t clock;
-  struct tm *tm;
-#define TIME_BUF 25
-  char buf [TIME_BUF];
-  int ret;
+  char buf [25];
   
-  time (&clock);
-  tm = localtime (&clock);
-
-  ret = strftime (buf, TIME_BUF, "%Y/%m/%d %H:%M:%S", tm);
-  if (ret == 0)
+  if (quagga_timestamp(0, buf, sizeof(buf)) == 0)
     {
-      zlog (NULL, LOG_INFO, "strftime error");
+      zlog (NULL, LOG_INFO, "quagga_timestamp error");
       return;
     }
   if (cr)
@@ -2417,7 +2414,7 @@ vty_read_config (char *config_file,
 /* Small utility function which output log to the VTY. */
 void
 vty_log (const char *level, const char *proto_str,
-	 const char *format, va_list va)
+	 const char *format, struct timestamp_control *ctl, va_list va)
 {
   unsigned int i;
   struct vty *vty;
@@ -2431,7 +2428,7 @@ vty_log (const char *level, const char *proto_str,
 	{
 	  va_list ac;
 	  va_copy(ac, va);
-	  vty_log_out (vty, level, proto_str, format, ac);
+	  vty_log_out (vty, level, proto_str, format, ctl, ac);
 	  va_end(ac);
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * $Id: log.h,v 1.18 2005/05/06 21:25:49 paul Exp $
+ * $Id$
  *
  * Zebra logging funcions.
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
@@ -83,6 +83,7 @@ struct zlog
   int record_priority;	/* should messages logged through stdio include the
   			   priority of the message? */
   int syslog_options;	/* 2nd arg to openlog */
+  int timestamp_precision;	/* # of digits of subsecond precision */
 };
 
 /* Message structure. */
@@ -167,6 +168,23 @@ extern void zlog_backtrace(int priority);
    up the state of zlog file pointers.  If program_counter is non-NULL,
    that is logged in addition to the current backtrace. */
 extern void zlog_backtrace_sigsafe(int priority, void *program_counter);
+
+/* Puts a current timestamp in buf and returns the number of characters
+   written (not including the terminating NUL).  The purpose of
+   this function is to avoid calls to localtime appearing all over the code.
+   It caches the most recent localtime result and can therefore
+   avoid multiple calls within the same second.  If buflen is too small,
+   *buf will be set to '\0', and 0 will be returned. */
+extern size_t quagga_timestamp(int timestamp_precision /* # subsecond digits */,
+			       char *buf, size_t buflen);
+
+/* structure useful for avoiding repeated rendering of the same timestamp */
+struct timestamp_control {
+   size_t len;		/* length of rendered timestamp */
+   int precision;	/* configuration parameter */
+   int already_rendered; /* should be initialized to 0 */
+   char buf[40];	/* will contain the rendered timestamp */
+};
 
 /* Defines for use in command construction: */
 
