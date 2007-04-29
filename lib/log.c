@@ -100,18 +100,25 @@ quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
 	  (buflen > cache.len+1+timestamp_precision))
 	{
 	  /* should we worry about locale issues? */
-	  long divisor = 100000;
-	  char *p = buf+cache.len;
-	  *p++ = '.';
+	  static const int divisor[] = {0, 100000, 10000, 1000, 100, 10, 1};
+	  int prec;
+	  char *p = buf+cache.len+1+(prec = timestamp_precision);
+	  *p-- = '\0';
+	  while (prec > 6)
+	    /* this is unlikely to happen, but protect anyway */
+	    {
+	      *p-- = '0';
+	      prec--;
+	    }
+	  clock.tv_usec /= divisor[prec];
 	  do
 	    {
-	      *p++ = '0'+(clock.tv_usec/divisor);
-	      clock.tv_usec %= divisor;
-	      divisor /= 10;
+	      *p-- = '0'+(clock.tv_usec % 10);
+	      clock.tv_usec /= 10;
 	    }
-	  while (--timestamp_precision > 0);
-	  *p = '\0';
-	  return p-buf;
+	  while (--prec > 0);
+	  *p = '.';
+	  return cache.len+1+timestamp_precision;
 	}
       buf[cache.len] = '\0';
       return cache.len;

@@ -1,3 +1,7 @@
+2007-04-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* log.c: (quagga_timestamp) Optimize the subsecond timestamp generation.
+
 2007-04-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* command.c: (config_write_host) Save "log timestamp precision"
