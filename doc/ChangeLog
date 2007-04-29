@@ -1,3 +1,7 @@
+2007-04-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* basic.texi: Document the new 'log timestamp precision' command.
+
 2007-03-21 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* Makefile.am: Patch rule for draft-zebra-00.txt to work

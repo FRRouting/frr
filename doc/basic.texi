@@ -166,6 +166,25 @@ versions of syslogd (including Solaris) can be configured to include
 the facility and level in the messages emitted.
 @end deffn
 
+@deffn Command {log timestamp precision @var{<0-6>}} {}
+@deffnx Command {no log timestamp precision} {}
+This command sets the precision of log message timestamps to the
+given number of digits after the decimal point.  Currently,
+the value must be in the range 0 to 6 (i.e. the maximum precision
+is microseconds).
+To restore the default behavior (1-second accuracy), use the
+@code{no} form of the command, or set the precision explicitly to 0.
+
+@example
+@group
+log timestamp precision 3
+@end group
+@end example
+
+In this example, the precision is set to provide timestamps with
+millisecond accuracy.
+@end deffn
+
 @deffn Command {service password-encryption} {}
 Encrypt password.
 @end deffn
