@@ -1572,6 +1572,30 @@ DEFUNSH (VTYSH_ALL,
 }
 
 DEFUNSH (VTYSH_ALL,
+	 vtysh_log_timestamp_precision,
+	 vtysh_log_timestamp_precision_cmd,
+	 "log timestamp precision <0-6>",
+	 "Logging control\n"
+	 "Timestamp configuration\n"
+	 "Set the timestamp precision\n"
+	 "Number of subsecond digits\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
+	 no_vtysh_log_timestamp_precision,
+	 no_vtysh_log_timestamp_precision_cmd,
+	 "no log timestamp precision",
+	 NO_STR
+	 "Logging control\n"
+	 "Timestamp configuration\n"
+	 "Reset the timestamp precision to the default value of 0\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_ALL,
 	 vtysh_service_password_encrypt,
 	 vtysh_service_password_encrypt_cmd,
 	 "service password-encryption",
@@ -2408,6 +2432,8 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &no_vtysh_log_facility_cmd);
   install_element (CONFIG_NODE, &vtysh_log_record_priority_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_record_priority_cmd);
+  install_element (CONFIG_NODE, &vtysh_log_timestamp_precision_cmd);
+  install_element (CONFIG_NODE, &no_vtysh_log_timestamp_precision_cmd);
 
   install_element (CONFIG_NODE, &vtysh_service_password_encrypt_cmd);
   install_element (CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);

@@ -1,3 +1,10 @@
+2007-04-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* vtysh.c: (vtysh_log_timestamp_precision,
+	  no_vtysh_log_timestamp_precision) Implement new log timestamp
+	  precision commands: send to all daemons.
+	  (vtysh_init_vty) Install new log timestamp precision commands.
+
 2006-07-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* vtysh_main.c: (usage) Add new -d and -E options.  And note that
