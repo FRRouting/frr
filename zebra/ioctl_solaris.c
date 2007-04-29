@@ -195,7 +195,7 @@ if_get_mtu (struct interface *ifp)
   else
     {
       ifp->mtu6 = lifreq.lifr_metric;
-      changed = 1
+      changed = 1;
     }
   
   if (changed)
