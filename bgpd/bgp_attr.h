@@ -32,6 +32,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #define BGP_MED_MAX UINT32_MAX
 
+
 /* BGP Attribute type range. */
 #define BGP_ATTR_TYPE_RANGE     256
 #define BGP_ATTR_BITMAP_SIZE    (BGP_ATTR_TYPE_RANGE / BITMAP_NBBY)
@@ -44,6 +45,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 /* BGP attribute header must bigger than 2. */
 #define BGP_ATTR_MIN_LEN        2       /* Attribute flag and type. */
+
+#define BGP_ATTR_DEFAULT_WEIGHT 32768
 
 /* BGP attribute structure. */
 struct attr

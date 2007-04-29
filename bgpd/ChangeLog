@@ -11,6 +11,11 @@
 	  transit_hash_cmp, attrhash_key_make, attrhash_cmp,
 	  bgp_attr_hash_alloc) conforms to quagga hash API. Defines
 	  _hash_[alloc|key|cmp] with void * arguments as defined by the API.
+	* bgp_attr.h : Definition of BGP_ATTR_DEFAULT_WEIGHT.
+	* bgp_attr.c : (bgp_attr_default_intern) now uses 
+	  bgp_attr_default_set instead of duplicating the same code.
+	  (general) Use of BGP_ATTR_DEFAULT_WEIGHT. Replace two 16 by
+	  IPV6_MAX_BYTELEN.
 
 2007-04-15 Sebastien Tandel <sebastien@tandel.be>
 
