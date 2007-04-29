@@ -1,6 +1,8 @@
 2007-04-29 Paul Jakma <paul.jakma@sun.com>
 
 	* ioctl{_solaris,}.c: (if_get_mtu) Fix missing ; in last commit.
+	* if_ioctl_solaris.c: (if_get_index) Fix bogus argument passed
+	  to lifreq_set_name().
 
 2007-04-10 Paul Jakma <paul.jakma@sun.com>
 

@@ -214,7 +214,7 @@ if_get_index (struct interface *ifp)
   int ret;
   struct lifreq lifreq;
 
-  lifreq_set_name (&lifreq, ifp);
+  lifreq_set_name (&lifreq, ifp->name);
 
   if (ifp->flags & IFF_IPV4)
     ret = AF_IOCTL (AF_INET, SIOCGLIFINDEX, (caddr_t) & lifreq);
