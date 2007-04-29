@@ -1,3 +1,17 @@
+2007-04-22 Sebastien Tandel <sebastien@tandel.be>
+
+	* bgp_advertise.c : (baa_hash_alloc, baa_hash_key, baa_hash_cmp)
+	  conforms to quagga hash API. Defines _hash_[alloc|key|cmp] with
+	  void * arguments as defined by the API.
+	* bgp_aspath.c,h : (aspath_key_make) conforms to quagga hash API.
+	  Defines _hash_[alloc|key|cmp] with void * arguments as defined by
+	  the API.
+	* bgp_attr.c,h : (cluster_hash_alloc, cluster_hash_key_make,
+	  cluster_hash_cmp, transit_hash_alloc, transit_hash_key_make,
+	  transit_hash_cmp, attrhash_key_make, attrhash_cmp,
+	  bgp_attr_hash_alloc) conforms to quagga hash API. Defines
+	  _hash_[alloc|key|cmp] with void * arguments as defined by the API.
+
 2007-04-15 Sebastien Tandel <sebastien@tandel.be>
 
 	* bgp_aspath.c: (aspath_as_add, aspath_segment_add) Minor performance

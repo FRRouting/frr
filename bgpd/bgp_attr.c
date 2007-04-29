@@ -63,8 +63,9 @@ int attr_str_max = sizeof(attr_str)/sizeof(attr_str[0]);
 struct hash *cluster_hash;
 
 static void *
-cluster_hash_alloc (struct cluster_list *val)
+cluster_hash_alloc (void *p)
 {
+  struct cluster_list * val = (struct cluster_list *) p;
   struct cluster_list *cluster;
 
   cluster = XMALLOC (MTYPE_CLUSTER, sizeof (struct cluster_list));
@@ -110,8 +111,9 @@ cluster_loop_check (struct cluster_list *cluster, struct in_addr originator)
 }
 
 static unsigned int
-cluster_hash_key_make (struct cluster_list *cluster)
+cluster_hash_key_make (void *p)
 {
+  struct cluster_list * cluster = (struct cluster_list *) p;
   unsigned int key = 0;
   int length;
   caddr_t pnt;
@@ -126,8 +128,11 @@ cluster_hash_key_make (struct cluster_list *cluster)
 }
 
 static int
-cluster_hash_cmp (struct cluster_list *cluster1, struct cluster_list *cluster2)
+cluster_hash_cmp (void *p1, void *p2)
 {
+  struct cluster_list * cluster1 = (struct cluster_list *) p1;
+  struct cluster_list * cluster2 = (struct cluster_list *) p2;
+
   if (cluster1->length == cluster2->length &&
       memcmp (cluster1->list, cluster2->list, cluster1->length) == 0)
     return 1;
@@ -205,11 +210,12 @@ transit_free (struct transit *transit)
   XFREE (MTYPE_TRANSIT, transit);
 }
 
+
 static void *
-transit_hash_alloc (struct transit *transit)
+transit_hash_alloc (void *p)
 {
   /* Transit structure is already allocated.  */
-  return transit;
+  return p;
 }
 
 static struct transit *
@@ -241,8 +247,9 @@ transit_unintern (struct transit *transit)
 }
 
 static unsigned int
-transit_hash_key_make (struct transit *transit)
+transit_hash_key_make (void *p)
 {
+  struct transit * transit = (struct transit *) p;
   unsigned int key = 0;
   int length;
   caddr_t pnt;
@@ -257,8 +264,11 @@ transit_hash_key_make (struct transit *transit)
 }
 
 static int
-transit_hash_cmp (struct transit *transit1, struct transit *transit2)
+transit_hash_cmp (void *p1, void *p2)
 {
+  struct transit * transit1 = (struct transit *) p1;
+  struct transit * transit2 = (struct transit *) p2;
+
   if (transit1->length == transit2->length &&
       memcmp (transit1->val, transit2->val, transit1->length) == 0)
     return 1;
@@ -288,8 +298,9 @@ attr_unknown_count (void)
 }
 
 unsigned int
-attrhash_key_make (struct attr *attr)
+attrhash_key_make (void *p)
 {
+  struct attr * attr = (struct attr *) p;
   unsigned int key = 0;
 
   key += attr->origin;
@@ -328,8 +339,11 @@ attrhash_key_make (struct attr *attr)
 }
 
 int
-attrhash_cmp (struct attr *attr1, struct attr *attr2)
+attrhash_cmp (void *p1, void *p2)
 {
+  struct attr * attr1 = (struct attr *) p1;
+  struct attr * attr2 = (struct attr *) p2;
+
   if (attr1->flag == attr2->flag
       && attr1->origin == attr2->origin
       && attr1->nexthop.s_addr == attr2->nexthop.s_addr
@@ -379,8 +393,9 @@ attr_show_all (struct vty *vty)
 }
 
 static void *
-bgp_attr_hash_alloc (struct attr *val)
+bgp_attr_hash_alloc (void *p)
 {
+  struct attr * val = (struct attr *) p;
   struct attr *attr;
 
   attr = XMALLOC (MTYPE_ATTR, sizeof (struct attr));

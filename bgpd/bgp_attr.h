@@ -129,8 +129,8 @@ extern bgp_size_t bgp_packet_withdraw (struct peer *peer, struct stream *s,
                                 struct prefix_rd *, u_char *);
 extern void bgp_dump_routes_attr (struct stream *, struct attr *,
 				  struct prefix *);
-extern unsigned int attrhash_key_make (struct attr *);
-extern int attrhash_cmp (struct attr *, struct attr *);
+extern int attrhash_cmp (void *, void *);
+extern unsigned int attrhash_key_make (void *);
 extern void attr_show_all (struct vty *);
 extern unsigned long int attr_count (void);
 extern unsigned long int attr_unknown_count (void);

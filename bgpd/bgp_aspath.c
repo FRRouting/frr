@@ -1447,8 +1447,9 @@ aspath_str2aspath (const char *str)
 
 /* Make hash value by raw aspath data. */
 unsigned int
-aspath_key_make (struct aspath *aspath)
+aspath_key_make (void *p)
 {
+  struct aspath * aspath = (struct aspath *) p;
   unsigned int key = 0;
   unsigned int i;
   struct assegment *seg = aspath->segments;
