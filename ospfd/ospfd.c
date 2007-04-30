@@ -799,7 +799,7 @@ ospf_network_unset (struct ospf *ospf, struct prefix_ipv4 *p,
 int 
 ospf_network_match_iface(struct connected *co, struct prefix *net)
 {
-#define COMPATIBILITY_MODE
+/* #define COMPATIBILITY_MODE */
   /* The old code used to have a special case for PtP interfaces:
 
      if (if_is_pointopoint (co->ifp) && co->destination &&

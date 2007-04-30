@@ -1,3 +1,9 @@
+2007-04-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ospfd.texi: Add a paragraph to the description of the OSPFv2
+	  network command to explain how we handle interfaces with
+	  peer addresses.
+
 2007-04-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* basic.texi: Document the new 'log timestamp precision' command.

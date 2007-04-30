@@ -232,6 +232,13 @@ Prefix length in interface must be equal or bigger (ie. smaller network) than
 prefix length in network statement. For example statement above doesn't enable
 ospf on interface with address 192.168.1.1/23, but it does on interface with
 address 192.168.1.129/25.
+
+Note that the behavior when there is a peer address
+defined on an interface changed after release 0.99.7.
+Currently, if a peer prefix has been configured,
+then we test whether the prefix in the network command contains
+the destination prefix.  Otherwise, we test whether the network command prefix
+contains the local address prefix of the interface. 
 @end deffn
 
 @node OSPF area
