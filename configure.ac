@@ -119,7 +119,7 @@ if test "x${cflags_specified}" = "x" ; then
         AC_MSG_RESULT([Intel default])
         ;;
     "GCC")
-  	CFLAGS="-Os -fno-omit-frame-pointer -g -std=c99 -Wall"
+  	CFLAGS="-Os -fno-omit-frame-pointer -g -std=gnu99 -Wall"
   	CFLAGS="${CFLAGS} -Wsign-compare -Wpointer-arith"
   	CFLAGS="${CFLAGS} -Wbad-function-cast -Wwrite-strings"
   	CFLAGS="${CFLAGS} -Wmissing-prototypes -Wmissing-declarations"
