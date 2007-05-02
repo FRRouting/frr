@@ -725,6 +725,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
 
   void *dest;
   void *gate;
+  void *src;
 
   rtm = NLMSG_DATA (h);
 
@@ -764,6 +765,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
   metric = 0;
   dest = NULL;
   gate = NULL;
+  src = NULL;
 
   if (tb[RTA_OIF])
     index = *(int *) RTA_DATA (tb[RTA_OIF]);
@@ -772,6 +774,9 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
     dest = RTA_DATA (tb[RTA_DST]);
   else
     dest = anyaddr;
+
+  if (tb[RTA_PREFSRC])
+    src = RTA_DATA (tb[RTA_PREFSRC]);
 
   /* Multipath treatment is needed. */
   if (tb[RTA_GATEWAY])
@@ -787,7 +792,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
       memcpy (&p.prefix, dest, 4);
       p.prefixlen = rtm->rtm_dst_len;
 
-      rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, flags, &p, gate, index, table, metric, 0);
+      rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, flags, &p, gate, src, index, table, metric, 0);
     }
 #ifdef HAVE_IPV6
   if (rtm->rtm_family == AF_INET6)
@@ -834,6 +839,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
   int table;
   void *dest;
   void *gate;
+  void *src;
 
   rtm = NLMSG_DATA (h);
 
@@ -890,6 +896,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
   index = 0;
   dest = NULL;
   gate = NULL;
+  src = NULL;
 
   if (tb[RTA_OIF])
     index = *(int *) RTA_DATA (tb[RTA_OIF]);
@@ -901,6 +908,9 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
 
   if (tb[RTA_GATEWAY])
     gate = RTA_DATA (tb[RTA_GATEWAY]);
+
+  if (tb[RTA_PREFSRC])
+    src = RTA_DATA (tb[RTA_PREFSRC]);
 
   if (rtm->rtm_family == AF_INET)
     {
@@ -920,7 +930,7 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
         }
 
       if (h->nlmsg_type == RTM_NEWROUTE)
-        rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, &p, gate, index, table, 0, 0);
+        rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, &p, gate, src, index, table, 0, 0);
       else
         rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0, &p, gate, index, table);
     }
@@ -1489,7 +1499,9 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 		    {
 		      addattr_l (&req.n, sizeof req, RTA_GATEWAY,
 				 &nexthop->rgate.ipv4, bytelen);
-
+                      if (nexthop->src.ipv4.s_addr)
+		          addattr_l(&req.n, sizeof req, RTA_PREFSRC,
+				     &nexthop->src.ipv4, bytelen);
 		      if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("netlink_route_multipath() (recursive, "
 				   "1 hop): nexthop via %s if %u",
@@ -1519,6 +1531,11 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 		    {
 		      addattr32 (&req.n, sizeof req, RTA_OIF,
 				 nexthop->rifindex);
+                      if ((nexthop->rtype == NEXTHOP_TYPE_IPV4_IFINDEX
+                           || nexthop->rtype == NEXTHOP_TYPE_IFINDEX)
+                          && nexthop->src.ipv4.s_addr)
+                        addattr_l (&req.n, sizeof req, RTA_PREFSRC,
+				 &nexthop->src.ipv4, bytelen);
 
 		      if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("netlink_route_multipath() (recursive, "
@@ -1547,6 +1564,9 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 		    {
 		      addattr_l (&req.n, sizeof req, RTA_GATEWAY,
 				 &nexthop->gate.ipv4, bytelen);
+		      if (nexthop->src.ipv4.s_addr)
+                        addattr_l (&req.n, sizeof req, RTA_PREFSRC,
+				 &nexthop->src.ipv4, bytelen);
 
 		      if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("netlink_route_multipath() (single hop): "
@@ -1571,8 +1591,19 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 #endif /* HAVE_IPV6 */
                   if (nexthop->type == NEXTHOP_TYPE_IFINDEX
                       || nexthop->type == NEXTHOP_TYPE_IFNAME
-                      || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
-                      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
+                      || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
+		    {
+		      addattr32 (&req.n, sizeof req, RTA_OIF, nexthop->ifindex);
+
+		      if (nexthop->src.ipv4.s_addr)
+                        addattr_l (&req.n, sizeof req, RTA_PREFSRC,
+				 &nexthop->src.ipv4, bytelen);
+
+		      if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("netlink_route_multipath() (single hop): "
+				   "nexthop via if %u", nexthop->ifindex);
+		    }
+                  else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
                       || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
 		    {
 		      addattr32 (&req.n, sizeof req, RTA_OIF, nexthop->ifindex);
@@ -1596,6 +1627,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
       char buf[1024];
       struct rtattr *rta = (void *) buf;
       struct rtnexthop *rtnh;
+      union g_addr *src = NULL;
 
       rta->rta_type = RTA_MULTIPATH;
       rta->rta_len = RTA_LENGTH (0);
@@ -1640,6 +1672,9 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
                                      &nexthop->rgate.ipv4, bytelen);
                       rtnh->rtnh_len += sizeof (struct rtattr) + 4;
 
+		      if (nexthop->src.ipv4.s_addr)
+                        src = &nexthop->src;
+
 		      if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("netlink_route_multipath() (recursive, "
 				   "multihop): nexthop via %s if %u",
@@ -1662,10 +1697,20 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 		    }
 #endif /* HAVE_IPV6 */
                   /* ifindex */
-                  if (nexthop->rtype == NEXTHOP_TYPE_IFINDEX
-                      || nexthop->rtype == NEXTHOP_TYPE_IFNAME
-                      || nexthop->rtype == NEXTHOP_TYPE_IPV4_IFINDEX
-                      || nexthop->rtype == NEXTHOP_TYPE_IPV6_IFINDEX
+                  if (nexthop->rtype == NEXTHOP_TYPE_IPV4_IFINDEX
+		      || nexthop->rtype == NEXTHOP_TYPE_IFINDEX
+                      || nexthop->rtype == NEXTHOP_TYPE_IFNAME)
+		    {
+		      rtnh->rtnh_ifindex = nexthop->rifindex;
+                      if (nexthop->src.ipv4.s_addr)
+                        src = &nexthop->src;
+
+		      if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("netlink_route_multipath() (recursive, "
+				   "multihop): nexthop via if %u",
+				   nexthop->rifindex);
+		    }
+		  else if (nexthop->rtype == NEXTHOP_TYPE_IPV6_IFINDEX
                       || nexthop->rtype == NEXTHOP_TYPE_IPV6_IFNAME)
 		    {
 		      rtnh->rtnh_ifindex = nexthop->rifindex;
@@ -1701,6 +1746,9 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 				     &nexthop->gate.ipv4, bytelen);
 		      rtnh->rtnh_len += sizeof (struct rtattr) + 4;
 
+		      if (nexthop->src.ipv4.s_addr)
+                        src = &nexthop->src;
+
                       if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("netlink_route_multipath() (multihop): "
 				   "nexthop via %s if %u",
@@ -1723,10 +1771,18 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 		    }
 #endif /* HAVE_IPV6 */
                   /* ifindex */
-                  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-                      || nexthop->type == NEXTHOP_TYPE_IFNAME
-                      || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
-                      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
+                  if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
+		      || nexthop->type == NEXTHOP_TYPE_IFINDEX
+                      || nexthop->type == NEXTHOP_TYPE_IFNAME)
+                    {
+		      rtnh->rtnh_ifindex = nexthop->ifindex;
+		      if (nexthop->src.ipv4.s_addr)
+			src = &nexthop->src;
+		      if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("netlink_route_multipath() (multihop): "
+				   "nexthop via if %u", nexthop->ifindex);
+		    }
+                  else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
                       || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 		    {
 		      rtnh->rtnh_ifindex = nexthop->ifindex;
@@ -1746,6 +1802,8 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
                 SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
             }
         }
+      if (src)
+        addattr_l (&req.n, sizeof req, RTA_PREFSRC, &src->ipv4, bytelen);
 
       if (rta->rta_len > RTA_LENGTH (0))
         addattr_l (&req.n, 1024, RTA_MULTIPATH, RTA_DATA (rta),

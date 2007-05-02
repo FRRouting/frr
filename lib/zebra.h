@@ -444,6 +444,9 @@ extern const char *zebra_route_string(unsigned int route_type);
 extern char zebra_route_char(unsigned int route_type);
 /* Map a zserv command type to the same string, 
  * e.g. ZEBRA_INTERFACE_ADD -> "ZEBRA_INTERFACE_ADD" */
+/* Map a protocol name to its number. e.g. ZEBRA_ROUTE_BGP->9*/
+extern int proto_name2num(const char *s);
+
 extern const char *zserv_command_string (unsigned int command);
 
 /* Zebra's family types. */

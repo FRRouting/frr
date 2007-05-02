@@ -32,6 +32,8 @@
 #include "linklist.h"
 #include "thread.h"
 #include "workqueue.h"
+#include "prefix.h"
+#include "routemap.h"
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
@@ -233,7 +235,7 @@ nexthop_ifname_add (struct rib *rib, char *ifname)
 }
 
 struct nexthop *
-nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4)
+nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4, struct in_addr *src)
 {
   struct nexthop *nexthop;
 
@@ -241,6 +243,8 @@ nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4)
   memset (nexthop, 0, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IPV4;
   nexthop->gate.ipv4 = *ipv4;
+  if (src)
+    nexthop->src.ipv4 = *src;
 
   nexthop_add (rib, nexthop);
 
@@ -249,7 +253,7 @@ nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4)
 
 static struct nexthop *
 nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4, 
-			  unsigned int ifindex)
+                          struct in_addr *src, unsigned int ifindex)
 {
   struct nexthop *nexthop;
 
@@ -257,6 +261,8 @@ nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
   memset (nexthop, 0, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
   nexthop->gate.ipv4 = *ipv4;
+  if (src)
+    nexthop->src.ipv4 = *src;
   nexthop->ifindex = ifindex;
 
   nexthop_add (rib, nexthop);
@@ -685,12 +691,20 @@ rib_match_ipv6 (struct in6_addr *addr)
 }
 #endif /* HAVE_IPV6 */
 
+#define RIB_SYSTEM_ROUTE(R) \
+        ((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
+
 static int
 nexthop_active_check (struct route_node *rn, struct rib *rib,
 		      struct nexthop *nexthop, int set)
 {
   struct interface *ifp;
+  route_map_result_t ret = RMAP_MATCH;
+  extern char *proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX+1];
+  struct route_map *rmap;
+  int family;
 
+  family = 0;
   switch (nexthop->type)
     {
     case NEXTHOP_TYPE_IFINDEX:
@@ -700,8 +714,9 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
       else
 	UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       break;
-    case NEXTHOP_TYPE_IFNAME:
     case NEXTHOP_TYPE_IPV6_IFNAME:
+      family = AFI_IP6;
+    case NEXTHOP_TYPE_IFNAME:
       ifp = if_lookup_by_name (nexthop->ifname);
       if (ifp && if_is_up (ifp))
 	{
@@ -718,6 +733,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
       break;
     case NEXTHOP_TYPE_IPV4:
     case NEXTHOP_TYPE_IPV4_IFINDEX:
+      family = AFI_IP;
       if (nexthop_active_ipv4 (rib, nexthop, set, rn))
 	SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       else
@@ -725,12 +741,14 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
       break;
 #ifdef HAVE_IPV6
     case NEXTHOP_TYPE_IPV6:
+      family = AFI_IP6;
       if (nexthop_active_ipv6 (rib, nexthop, set, rn))
 	SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       else
 	UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       break;
     case NEXTHOP_TYPE_IPV6_IFINDEX:
+      family = AFI_IP6;
       if (IN6_IS_ADDR_LINKLOCAL (&nexthop->gate.ipv6))
 	{
 	  ifp = if_lookup_by_index (nexthop->ifindex);
@@ -754,6 +772,26 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
     default:
       break;
     }
+  if (! CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+    return 0;
+
+  if (RIB_SYSTEM_ROUTE(rib) ||
+      (family == AFI_IP && rn->p.family != AF_INET) ||
+      (family == AFI_IP6 && rn->p.family != AF_INET6))
+    return CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+
+  rmap = 0;
+  if (rib->type >= 0 && rib->type < ZEBRA_ROUTE_MAX &&
+        	proto_rm[family][rib->type])
+    rmap = route_map_lookup_by_name (proto_rm[family][rib->type]);
+  if (!rmap && proto_rm[family][ZEBRA_ROUTE_MAX])
+    rmap = route_map_lookup_by_name (proto_rm[family][ZEBRA_ROUTE_MAX]);
+  if (rmap) {
+      ret = route_map_apply(rmap, &rn->p, RMAP_ZEBRA, nexthop);
+  }
+
+  if (ret == RMAP_DENYMATCH)
+    UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
   return CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 }
 
@@ -782,8 +820,6 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
 }
 
 
-#define RIB_SYSTEM_ROUTE(R) \
-        ((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
 
 static void
 rib_install_kernel (struct route_node *rn, struct rib *rib)
@@ -1231,7 +1267,8 @@ rib_delnode (struct route_node *rn, struct rib *rib)
 
 int
 rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p, 
-	      struct in_addr *gate, unsigned int ifindex, u_int32_t vrf_id,
+	      struct in_addr *gate, struct in_addr *src,
+	      unsigned int ifindex, u_int32_t vrf_id,
 	      u_int32_t metric, u_char distance)
 {
   struct rib *rib;
@@ -1300,9 +1337,9 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   if (gate)
     {
       if (ifindex)
-	nexthop_ipv4_ifindex_add (rib, gate, ifindex);
+	nexthop_ipv4_ifindex_add (rib, gate, src, ifindex);
       else
-	nexthop_ipv4_add (rib, gate);
+	nexthop_ipv4_add (rib, gate, src);
     }
   else
     nexthop_ifindex_add (rib, ifindex);
@@ -1539,7 +1576,7 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
       switch (si->type)
         {
           case STATIC_IPV4_GATEWAY:
-            nexthop_ipv4_add (rib, &si->gate.ipv4);
+            nexthop_ipv4_add (rib, &si->gate.ipv4, NULL);
             break;
           case STATIC_IPV4_IFNAME:
             nexthop_ifname_add (rib, si->gate.ifname);
@@ -1563,7 +1600,7 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
       switch (si->type)
         {
           case STATIC_IPV4_GATEWAY:
-            nexthop_ipv4_add (rib, &si->gate.ipv4);
+            nexthop_ipv4_add (rib, &si->gate.ipv4, NULL);
             break;
           case STATIC_IPV4_IFNAME:
             nexthop_ifname_add (rib, si->gate.ifname);

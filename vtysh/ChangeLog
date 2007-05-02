@@ -1,3 +1,10 @@
+2007-05-01 David L Stevens <dlstevens@us.ibm.com>
+
+	* vtysh/extract.pl.in: added VTYSH_ZEBRA flag for route-map and
+	  plist
+	* vtysh/Makefile.am: added zebra_routemap.c
+	* vtysh/vtysh.h: added VTYSH_ZEBRA flag to VTYSH_RMAP
+
 2007-04-28 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* vtysh.c: (vtysh_log_timestamp_precision,

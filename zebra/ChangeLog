@@ -1,3 +1,39 @@
+2007-05-01 David L Stevens <dlstevens@us.ibm.com>
+
+	* (general) These changes collectively add route-map and
+	  prefix-list support to zebra and fix a bug in "show
+	  route-map" (with no argument).
+	* connected.c: (connected_up_ipv4) added src preference argument
+	  to rib_add_ipv4()
+	* kernel_socket.c: (rtm_read) ditto
+	* main.c: added prefix list initialization
+	* Makefile.am: added zebra_routemap.c source file
+	* rib.h: added generic address union "g_addr" and use in
+	  existing places that had an explicit union.
+	  Added "src" to struct nexthop.
+	  Added preferred src arg to nexthop_ipv4_add and rib_add_ipv4.
+	* rt_netlink.c: (netlink_routing_table) set preferred source on 
+	  netlink messages.
+	  (netlink_route_change) ditto
+	  (netlink_route_multipath) ditto.
+	* rtread_getmsg.c: (handle_route_entry) added (NULL) src to
+	  rib_add_ipv4() call.
+	* rtread_proc.c: (proc_route_read) ditto
+	* zebra_rib.c: (nexthop_ipv4_add) add src argument.
+	  (nexthop_ipv4_ifindex_add) ditto
+	  (rib_add_ipv4) ditto
+	  (nexthop_active_check) Add route-map processing.
+	* zebra_routemap.c: new file for zebra route-map commands.
+	* zebra_vty.c: (ip_protocol_cmd) Apply route-map to protocol
+	  (vty_show_ip_route_detail) added "src" printing
+	  (vty_show_ip_route) ditto
+	  (show_ip_protocol_cmd) new command, list routemaps.
+	  (config_write_protocol) write out routemap protocl config.
+	  (zebra_vty_init) Install the new routemap protocol commands.
+	* zserv.c: (zread_ipv4_add) added (NULL) src arg
+	  (zebra_init) init zebra route-maps.
+	* zserv.h: add zebra_route_map_init
+	
 2007-04-29 Paul Jakma <paul.jakma@sun.com>
 
 	* ioctl{_solaris,}.c: (if_get_mtu) Fix missing ; in last commit.

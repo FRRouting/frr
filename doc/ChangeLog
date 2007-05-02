@@ -1,3 +1,8 @@
+2007-05-01 David L Stevens <dlstevens@us.ibm.com>
+
+	* main.texi: added route-map, prefix-list, ip protocol
+	  and set src documentation
+
 2007-04-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospfd.texi: Add a paragraph to the description of the OSPFv2

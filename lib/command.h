@@ -99,6 +99,7 @@ enum node_type
   SMUX_NODE,			/* SNMP configuration node. */
   DUMP_NODE,			/* Packet dump node. */
   FORWARDING_NODE,		/* IP forwarding node. */
+  PROTOCOL_NODE,                /* protocol filtering node */
   VTY_NODE			/* Vty node. */
 };
 

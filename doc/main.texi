@@ -10,6 +10,7 @@ different routing protocols.
 * Invoking zebra::              Running the program
 * Interface Commands::          Commands for zebra interfaces
 * Static Route Commands::       Commands for adding static routes
+* zebra Route Filtering::       Commands for zebra route filtering
 * zebra Terminal Mode Commands::  Commands for zebra's VTY
 @end menu
 
@@ -183,6 +184,49 @@ and later).  After setting @var{tableno} with this command,
 static routes defined after this are added to the specified table.
 @end deffn
 
+@node zebra Route Filtering
+@section zebra Route Filtering
+Zebra supports @command{prefix-list} and @command{route-map} to match
+routes received from other quagga components.  The
+@command{permit}/@command{deny} facilities provided by these commands
+can be used to filter which routes zebra will install in the kernel.
+
+@deffn Command {ip protocol @var{protocol} route-map @var{routemap}} {}
+Apply a route-map filter to routes for the specified protocol. @var{protocol}
+can be @b{any} or one of
+@b{system},
+@b{kernel},
+@b{connected},
+@b{static},
+@b{rip},
+@b{ripng},
+@b{ospf},
+@b{ospf6},
+@b{isis},
+@b{bgp},
+@b{hsls}.
+@end deffn
+
+@deffn {Route Map} {set src @var{address}}
+Within a route-map, set the preferred source address for matching routes
+when installing in the kernel.
+@end deffn
+
+@example
+The following creates a prefix-list that matches all addresses, a route-map
+that sets the preferred source address, and applies the route-map to all
+@command{rip} routes.
+
+@group
+ip prefix-list ANY permit 0.0.0.0/0 le 32
+route-map RM1 permit 10
+     match ip address prefix-list ANY
+     set src 10.0.0.1
+
+ip protocol rip route-map RM1
+@end group
+@end example
+
 @node zebra Terminal Mode Commands
 @section zebra Terminal Mode Commands
 
@@ -207,6 +251,15 @@ C* 203.181.89.240/28      eth0
 @end deffn
 
 @deffn Command {show interface} {}
+@end deffn
+
+@deffn Command {show ip prefix-list [@var{name}]} {}
+@end deffn
+
+@deffn Command {show route-map [@var{name}]} {}
+@end deffn
+
+@deffn Command {show ip protocol} {}
 @end deffn
 
 @deffn Command {show ipforward} {}

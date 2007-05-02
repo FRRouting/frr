@@ -94,16 +94,16 @@ foreach (@ARGV) {
               $protocol = "VTYSH_RIPD";
            }
            if ($file =~ /routemap.c/) {
-              $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD";
+              $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
            }
            if ($file =~ /filter.c/) {
               $protocol = "VTYSH_ALL";
            }
            if ($file =~ /plist.c/) {
 	      if ($defun_array[1] =~ m/ipv6/) {
-                 $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD";
+                 $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA";
               } else {
-                 $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD";
+                 $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA";
               }
            }
            if ($file =~ /distribute.c/) {

@@ -29,6 +29,7 @@
 #include "memory.h"
 #include "prefix.h"
 #include "log.h"
+#include "plist.h"
 #include "privs.h"
 #include "sigevent.h"
 
@@ -324,6 +325,7 @@ main (int argc, char **argv)
   router_id_init();
   zebra_vty_init ();
   access_list_init ();
+  prefix_list_init ();
   rtadv_init ();
 #ifdef HAVE_IRDP
   irdp_init();

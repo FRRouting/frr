@@ -1,3 +1,16 @@
+2007-05-01 David L Stevens <dlstevens@us.ibm.com>
+
+	* (general) These changes collectively add route-map and
+	  prefix-list support to zebra and fix a bug in "show
+	  route-map" (with no argument).
+	* command.h: added PROTOCOL_NODE type
+	* log.c: (proto_name2num) new function, protocol name to
+	  number translation.
+	* routemap.c: (vty_show_route_map) fixed "show route-map"
+	  without route-map name
+	* routemap.h: added RMAP_ZEBRA type
+	* zebra.h: added proto_name2num() prototype
+
 2007-04-29 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* log.c: (quagga_timestamp) Optimize the subsecond timestamp generation.

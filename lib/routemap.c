@@ -268,6 +268,11 @@ vty_show_route_map (struct vty *vty, const char *name)
           return CMD_WARNING;
         }
     }
+  else
+    {
+      for (map = route_map_master.head; map; map = map->next)
+	vty_show_route_map_entry (vty, map);
+    }
   return CMD_SUCCESS;
 }
 
@@ -1135,23 +1140,17 @@ ALIAS (no_rmap_onmatch_goto,
        "Continue on a different entry within the route-map\n"
        "Route-map entry sequence number\n")
 
-DEFUN (rmap_show,
-       rmap_show_cmd,
-       "show route-map",
-       SHOW_STR
-       "route-map information\n")
-{
-    return vty_show_route_map (vty, NULL);
-}
-
 DEFUN (rmap_show_name,
        rmap_show_name_cmd,
-       "show route-map WORD",
+       "show route-map [WORD]",
        SHOW_STR
        "route-map information\n"
        "route-map name\n")
 {
-    return vty_show_route_map (vty, argv[0]);
+    const char *name = NULL;
+    if (argc)
+      name = argv[0];
+    return vty_show_route_map (vty, name);
 }
 
 ALIAS (rmap_onmatch_goto,
@@ -1322,6 +1321,5 @@ route_map_init_vty (void)
   install_element (RMAP_NODE, &no_rmap_description_cmd);
    
   /* Install show command */
-  install_element (ENABLE_NODE, &rmap_show_cmd);
   install_element (ENABLE_NODE, &rmap_show_name_cmd);
 }

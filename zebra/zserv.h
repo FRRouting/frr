@@ -93,6 +93,7 @@ extern void rib_init (void);
 extern void interface_list (void);
 extern void kernel_init (void);
 extern void route_read (void);
+extern void zebra_route_map_init (void);
 extern void zebra_snmp_init (void);
 extern void zebra_vty_init (void);
 

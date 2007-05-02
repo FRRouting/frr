@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "memory.h"
 #include "if.h"
 #include "prefix.h"
 #include "command.h"
@@ -474,6 +475,59 @@ DEFUN (no_ip_route_mask_flags_distance2,
   return zebra_static_ipv4 (vty, 0, argv[0], argv[1], NULL, argv[2], argv[3]);
 }
 
+char *proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX+1];	/* "any" == ZEBRA_ROUTE_MAX */
+
+DEFUN (ip_protocol,
+       ip_protocol_cmd,
+       "ip protocol PROTO route-map ROUTE-MAP",
+       NO_STR
+       "Apply route map to PROTO\n"
+       "Protocol name\n"
+       "Route map name\n")
+{
+  int i;
+
+  if (strcasecmp(argv[0], "any") == 0)
+    i = ZEBRA_ROUTE_MAX;
+  else
+    i = proto_name2num(argv[0]);
+  if (i < 0)
+    {
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  if (proto_rm[AFI_IP][i])
+    XFREE (MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP][i]);
+  proto_rm[AFI_IP][i] = XSTRDUP (MTYPE_ROUTE_MAP_NAME, argv[1]);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_protocol,
+       no_ip_protocol_cmd,
+       "no ip protocol PROTO",
+       NO_STR
+       "Remove route map from PROTO\n"
+       "Protocol name\n")
+{
+  int i;
+
+  if (strcasecmp(argv[0], "any") == 0)
+    i = ZEBRA_ROUTE_MAX;
+  else
+    i = proto_name2num(argv[0]);
+  if (i < 0)
+    {
+      vty_out (vty, "invalid protocol name \"%s\"%s", argv[0] ? argv[0] : "",
+               VTY_NEWLINE);
+     return CMD_WARNING;
+    }
+  if (proto_rm[AFI_IP][i])
+    XFREE (MTYPE_ROUTE_MAP_NAME, proto_rm[AFI_IP][i]);
+  proto_rm[AFI_IP][i] = NULL;
+  return CMD_SUCCESS;
+}
+
 /* New RIB.  Detailed information for IPv4 route. */
 static void
 vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
@@ -529,6 +583,8 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
 	{
+          char addrstr[32];
+
 	  vty_out (vty, "  %c",
 		   CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ? '*' : ' ');
 
@@ -575,6 +631,31 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 		  break;
 		}
 	    }
+	  switch (nexthop->type)
+            {
+            case NEXTHOP_TYPE_IPV4:
+            case NEXTHOP_TYPE_IPV4_IFINDEX:
+            case NEXTHOP_TYPE_IPV4_IFNAME:
+              if (nexthop->src.ipv4.s_addr)
+                {
+		  if (inet_ntop(AF_INET, &nexthop->src.ipv4, addrstr,
+		      sizeof addrstr))
+                    vty_out (vty, ", src %s", addrstr);
+                }
+              break;
+            case NEXTHOP_TYPE_IPV6:
+            case NEXTHOP_TYPE_IPV6_IFINDEX:
+            case NEXTHOP_TYPE_IPV6_IFNAME:
+              if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+                {
+		  if (inet_ntop(AF_INET6, &nexthop->src.ipv6, addrstr,
+		      sizeof addrstr))
+                    vty_out (vty, ", src %s", addrstr);
+                }
+              break;
+            default:
+	       break;
+            }
 	  vty_out (vty, "%s", VTY_NEWLINE);
 	}
       vty_out (vty, "%s", VTY_NEWLINE);
@@ -658,6 +739,29 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	      break;
 	    }
 	}
+      switch (nexthop->type)
+        {
+          case NEXTHOP_TYPE_IPV4:
+          case NEXTHOP_TYPE_IPV4_IFINDEX:
+          case NEXTHOP_TYPE_IPV4_IFNAME:
+            if (nexthop->src.ipv4.s_addr)
+              {
+		if (inet_ntop(AF_INET, &nexthop->src.ipv4, buf, sizeof buf))
+                  vty_out (vty, ", src %s", buf);
+              }
+            break;
+          case NEXTHOP_TYPE_IPV6:
+          case NEXTHOP_TYPE_IPV6_IFINDEX:
+          case NEXTHOP_TYPE_IPV6_IFNAME:
+            if (!IPV6_ADDR_SAME(&nexthop->src.ipv6, &in6addr_any))
+              {
+		if (inet_ntop(AF_INET6, &nexthop->src.ipv6, buf, sizeof buf))
+                  vty_out (vty, ", src %s", buf);
+              }
+            break;
+          default:
+	    break;
+        }
 
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
                vty_out (vty, ", bh");
@@ -1805,6 +1909,34 @@ DEFUN (show_ipv6_route_prefix,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_protocol,
+       show_ip_protocol_cmd,
+       "show ip protocol",
+        SHOW_STR
+        IP_STR
+       "IP protocol filtering status\n")
+{
+    int i; 
+
+    vty_out(vty, "Protocol    : route-map %s", VTY_NEWLINE);
+    vty_out(vty, "------------------------%s", VTY_NEWLINE);
+    for (i=0;i<ZEBRA_ROUTE_MAX;i++)
+    {
+        if (proto_rm[AFI_IP][i])
+          vty_out (vty, "%-10s  : %-10s%s", zebra_route_string(i),
+					proto_rm[AFI_IP][i],
+					VTY_NEWLINE);
+        else
+          vty_out (vty, "%-10s  : none%s", zebra_route_string(i), VTY_NEWLINE);
+    }
+    if (proto_rm[AFI_IP][i])
+      vty_out (vty, "%-10s  : %-10s%s", "any", proto_rm[AFI_IP][i],
+					VTY_NEWLINE);
+    else
+      vty_out (vty, "%-10s  : none%s", "any", VTY_NEWLINE);
+
+    return CMD_SUCCESS;
+}
 
 /* Write IPv6 static route configuration. */
 static int
@@ -1874,6 +2006,27 @@ zebra_ip_config (struct vty *vty)
   return write;
 }
 
+/* ip protocol configuration write function */
+static int config_write_protocol(struct vty *vty)
+{  
+  int i;
+
+  for (i=0;i<ZEBRA_ROUTE_MAX;i++)
+    {
+      if (proto_rm[AFI_IP][i])
+        vty_out (vty, "ip protocol %s route-map %s%s", zebra_route_string(i),
+                 proto_rm[AFI_IP][i], VTY_NEWLINE);
+    }
+  if (proto_rm[AFI_IP][ZEBRA_ROUTE_MAX])
+      vty_out (vty, "ip protocol %s route-map %s%s", "any",
+               proto_rm[AFI_IP][ZEBRA_ROUTE_MAX], VTY_NEWLINE);
+
+  return 1;
+}   
+
+/* table node for protocol filtering */
+struct cmd_node protocol_node = { PROTOCOL_NODE, "", 1 };
+
 /* IP node for static routes. */
 struct cmd_node ip_node = { IP_NODE,  "",  1 };
 
@@ -1882,7 +2035,12 @@ void
 zebra_vty_init (void)
 {
   install_node (&ip_node, zebra_ip_config);
+  install_node (&protocol_node, config_write_protocol);
 
+  install_element (CONFIG_NODE, &ip_protocol_cmd);
+  install_element (CONFIG_NODE, &no_ip_protocol_cmd);
+  install_element (VIEW_NODE, &show_ip_protocol_cmd);
+  install_element (ENABLE_NODE, &show_ip_protocol_cmd);
   install_element (CONFIG_NODE, &ip_route_cmd);
   install_element (CONFIG_NODE, &ip_route_flags_cmd);
   install_element (CONFIG_NODE, &ip_route_flags2_cmd);

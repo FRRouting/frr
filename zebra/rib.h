@@ -28,6 +28,14 @@
 #define DISTANCE_INFINITY  255
 
 /* Routing information base. */
+
+union g_addr {
+  struct in_addr ipv4;
+#ifdef HAVE_IPV6
+  struct in6_addr ipv6;
+#endif /* HAVE_IPV6 */
+};
+
 struct rib
 {
   /* Status Flags for the *route_node*, but kept in the head RIB.. */
@@ -167,24 +175,13 @@ struct nexthop
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
 
   /* Nexthop address or interface name. */
-  union
-  {
-    struct in_addr ipv4;
-#ifdef HAVE_IPV6
-    struct in6_addr ipv6;
-#endif /* HAVE_IPV6*/
-  } gate;
+  union g_addr gate;
 
   /* Recursive lookup nexthop. */
   u_char rtype;
   unsigned int rifindex;
-  union
-  {
-    struct in_addr ipv4;
-#ifdef HAVE_IPV6
-    struct in6_addr ipv6;
-#endif /* HAVE_IPV6 */
-  } rgate;
+  union g_addr rgate;
+  union g_addr src;
 };
 
 /* Routing table instance.  */
@@ -212,7 +209,8 @@ struct vrf
 extern struct nexthop *nexthop_ifindex_add (struct rib *, unsigned int);
 extern struct nexthop *nexthop_ifname_add (struct rib *, char *);
 extern struct nexthop *nexthop_blackhole_add (struct rib *);
-extern struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *);
+extern struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *,
+					 struct in_addr *);
 #ifdef HAVE_IPV6
 extern struct nexthop *nexthop_ipv6_add (struct rib *, struct in6_addr *);
 #endif /* HAVE_IPV6 */
@@ -225,8 +223,9 @@ extern struct route_table *vrf_static_table (afi_t afi, safi_t safi, u_int32_t i
  * All rib_add_ipv[46]* functions will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */
 extern int rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p, 
-			 struct in_addr *gate, unsigned int ifindex, 
-			 u_int32_t vrf_id, u_int32_t, u_char);
+			 struct in_addr *gate, struct in_addr *src,
+			 unsigned int ifindex, u_int32_t vrf_id,
+			 u_int32_t, u_char);
 
 extern int rib_add_ipv4_multipath (struct prefix_ipv4 *, struct rib *);
 

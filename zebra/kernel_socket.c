@@ -775,7 +775,7 @@ rtm_read (struct rt_msghdr *rtm)
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
 	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, 
-		      &p, &gate.sin.sin_addr, 0, 0, 0, 0);
+		      &p, &gate.sin.sin_addr, NULL, 0, 0, 0, 0);
       else
 	rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, 
 		      &p, &gate.sin.sin_addr, 0, 0);

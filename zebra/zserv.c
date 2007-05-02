@@ -781,7 +781,7 @@ zread_ipv4_add (struct zserv *client, u_short length)
 	      break;
 	    case ZEBRA_NEXTHOP_IPV4:
 	      nexthop.s_addr = stream_get_ipv4 (s);
-	      nexthop_ipv4_add (rib, &nexthop);
+	      nexthop_ipv4_add (rib, &nexthop, NULL);
 	      break;
 	    case ZEBRA_NEXTHOP_IPV6:
 	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
@@ -1733,4 +1733,7 @@ zebra_init (void)
   install_element (CONFIG_NODE, &ipv6_forwarding_cmd);
   install_element (CONFIG_NODE, &no_ipv6_forwarding_cmd);
 #endif /* HAVE_IPV6 */
+
+  /* Route-map */
+  zebra_route_map_init ();
 }

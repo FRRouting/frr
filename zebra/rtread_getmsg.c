@@ -90,7 +90,7 @@ handle_route_entry (mib2_ipRouteEntry_t *routeEntry)
 	gateway.s_addr = routeEntry->ipRouteNextHop;
 
 	rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, zebra_flags, &prefix,
-		      &gateway, 0, 0, 0, 0);
+		      &gateway, NULL, 0, 0, 0, 0);
 }
 
 void
