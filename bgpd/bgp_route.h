@@ -23,6 +23,25 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "bgp_table.h"
 
+/* Ancillary information to struct bgp_info, 
+ * used for uncommonly used data (aggregation, MPLS, etc.)
+ * and lazily allocated to save memory.
+ */
+struct bgp_info_extra
+{
+  /* Pointer to dampening structure.  */
+  struct bgp_damp_info *damp_info;
+
+  /* This route is suppressed with aggregation.  */
+  int suppress;
+
+  /* Nexthop reachability check.  */
+  u_int32_t igpmetric;
+
+  /* MPLS label.  */
+  u_char tag[3];  
+};
+
 struct bgp_info
 {
   /* For linked list. */
@@ -34,18 +53,12 @@ struct bgp_info
 
   /* Attribute structure.  */
   struct attr *attr;
-
-  /* Pointer to dampening structure.  */
-  struct bgp_damp_info *damp_info;
-
+  
+  /* Extra information */
+  struct bgp_info_extra *extra;
+  
   /* Uptime.  */
   time_t uptime;
-
-  /* This route is suppressed with aggregation.  */
-  int suppress;
-  
-  /* Nexthop reachability check.  */
-  u_int32_t igpmetric;
 
   /* reference count */
   unsigned int lock;
@@ -63,9 +76,6 @@ struct bgp_info
 #define BGP_INFO_STALE          (1 << 8)
 #define BGP_INFO_REMOVED        (1 << 9)
 #define BGP_INFO_COUNTED	(1 << 10)
-
-  /* MPLS label.  */
-  u_char tag[3];
 
   /* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
   u_char type;
@@ -162,6 +172,7 @@ extern struct bgp_info *bgp_info_lock (struct bgp_info *);
 extern struct bgp_info *bgp_info_unlock (struct bgp_info *);
 extern void bgp_info_add (struct bgp_node *rn, struct bgp_info *ri);
 extern void bgp_info_delete (struct bgp_node *rn, struct bgp_info *ri);
+extern struct bgp_info_extra *bgp_info_extra_get (struct bgp_info *);
 extern void bgp_info_set_flag (struct bgp_node *, struct bgp_info *, u_int32_t);
 extern void bgp_info_unset_flag (struct bgp_node *, struct bgp_info *, u_int32_t);
 

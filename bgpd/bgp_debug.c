@@ -176,20 +176,22 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
 	      bgp_origin_str[attr->origin]);
 
 #ifdef HAVE_IPV6
-  {
-    char addrbuf[BUFSIZ];
+  if (attr->extra)
+    {
+      char addrbuf[BUFSIZ];
 
-    /* Add MP case. */
-    if (attr->mp_nexthop_len == 16 || attr->mp_nexthop_len == 32)
-      snprintf (buf + strlen (buf), size - strlen (buf), ", mp_nexthop %s",
-		inet_ntop (AF_INET6, &attr->mp_nexthop_global, 
-			   addrbuf, BUFSIZ));
+      /* Add MP case. */
+      if (attr->extra->mp_nexthop_len == 16 
+          || attr->extra->mp_nexthop_len == 32)
+        snprintf (buf + strlen (buf), size - strlen (buf), ", mp_nexthop %s",
+                  inet_ntop (AF_INET6, &attr->extra->mp_nexthop_global, 
+                             addrbuf, BUFSIZ));
 
-    if (attr->mp_nexthop_len == 32)
-      snprintf (buf + strlen (buf), size - strlen (buf), "(%s)",
-		inet_ntop (AF_INET6, &attr->mp_nexthop_local, 
-			   addrbuf, BUFSIZ));
-  }
+      if (attr->extra->mp_nexthop_len == 32)
+        snprintf (buf + strlen (buf), size - strlen (buf), "(%s)",
+                  inet_ntop (AF_INET6, &attr->extra->mp_nexthop_local, 
+                             addrbuf, BUFSIZ));
+    }
 #endif /* HAVE_IPV6 */
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))
@@ -209,20 +211,21 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", aggregated by %d %s",
-	      attr->aggregator_as, inet_ntoa (attr->aggregator_addr));
+	      attr->extra->aggregator_as,
+	      inet_ntoa (attr->extra->aggregator_addr));
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID)))
     snprintf (buf + strlen (buf), size - strlen (buf), ", originator %s",
-	      inet_ntoa (attr->originator_id));
+	      inet_ntoa (attr->extra->originator_id));
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_CLUSTER_LIST)))
     {
       int i;
 
       snprintf (buf + strlen (buf), size - strlen (buf), ", clusterlist");
-      for (i = 0; i < attr->cluster->length / 4; i++)
+      for (i = 0; i < attr->extra->cluster->length / 4; i++)
 	snprintf (buf + strlen (buf), size - strlen (buf), " %s",
-		  inet_ntoa (attr->cluster->list[i]));
+		  inet_ntoa (attr->extra->cluster->list[i]));
     }
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AS_PATH))) 

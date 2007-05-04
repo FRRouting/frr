@@ -1,5 +1,30 @@
-2007-04-22 Sebastien Tandel <sebastien@tandel.be>
+2007-05-03 Paul Jakma <paul.jakma@sun.com>
 
+	* bgp_route.h: (struct info) Move less frequently used
+	  fields to a lazily allocated struct info_extra.
+	  Export bgp_info_extra_get
+	* bgp_route.c: (bgp_info_extra_new) allocate extra
+	  (bgp_info_extra_free) Free damp info and the info_extra.
+	  (bgp_info_extra_get) Retrieve the info_extra of a struct
+	  info, allocating as required.
+	  (generally) adjust to use info->extra
+	* bgp_damp.c: (generally) use bgp_info_extra_get to access
+	  dampinfo
+	* bgp_attr.h: Move rarely allocated attributes from struct attr
+	  to a struct attr_extra, for a substantial saving in size of
+	  struct attr.
+	* bgp_attr.c: (bgp_attr_extra_{new,free}), new, self-explanatory.
+	  (bgp_attr_extra_get) Get the attr_extra for a given struct
+	  attr, allocating it if needs be.
+	  (bgp_attr_dup) Shallow copy the struct attr and its attr_extra.
+	  (generally) adjust to know about attr->extra.
+	* bgp_debug.c: (bgp_dump_attr) ditto
+	* bgp_vty.c: (show_bgp_memory) print attr and info extra sizes.
+	* bgp_nexthop.c: (generally) adjust to know about attr->extra
+	  and info->extra.
+	* bgp_{packet,routemap,snmp,zebra}.c: ditto
+
+2007-04-22 Sebastien Tandel <sebastien@tandel.be>
 	* bgp_advertise.c : (baa_hash_alloc, baa_hash_key, baa_hash_cmp)
 	  conforms to quagga hash API. Defines _hash_[alloc|key|cmp] with
 	  void * arguments as defined by the API.

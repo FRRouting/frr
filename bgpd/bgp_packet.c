@@ -177,9 +177,9 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 	  
 	  if (rn->prn)
 	    prd = (struct prefix_rd *) &rn->prn->p;
-          if (binfo)
+          if (binfo && binfo->extra)
             {
-              tag = binfo->tag;
+              tag = binfo->extra->tag;
               from = binfo->peer;
             }
           
@@ -1706,12 +1706,16 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
     aspath_unintern (attr.aspath);
   if (attr.community)
     community_unintern (attr.community);
-  if (attr.ecommunity)
-    ecommunity_unintern (attr.ecommunity);
-  if (attr.cluster)
-    cluster_unintern (attr.cluster);
-  if (attr.transit)
-    transit_unintern (attr.transit);
+  if (attr.extra)
+    {
+      if (attr.extra->ecommunity)
+        ecommunity_unintern (attr.extra->ecommunity);
+      if (attr.extra->cluster)
+        cluster_unintern (attr.extra->cluster);
+      if (attr.extra->transit)
+        transit_unintern (attr.extra->transit);
+      bgp_attr_extra_free (&attr);
+    }
 
   /* If peering is stopped due to some reason, do not generate BGP
      event.  */

@@ -1,3 +1,7 @@
+2007-05-03 Paul Jakma <paul.jakma@sun.com>
+
+	* memtypes.c: Add MTYPE_ATTR_EXTRA and MTYPE_BGP_ROUTE_EXTRA
+
 2007-05-01 David L Stevens <dlstevens@us.ibm.com>
 
 	* (general) These changes collectively add route-map and

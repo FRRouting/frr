@@ -746,20 +746,22 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
 
       ifindex = 0;
       nexthop = NULL;
-
+      
+      assert (info->attr->extra);
+      
       /* Only global address nexthop exists. */
-      if (info->attr->mp_nexthop_len == 16)
-	nexthop = &info->attr->mp_nexthop_global;
+      if (info->attr->extra->mp_nexthop_len == 16)
+	nexthop = &info->attr->extra->mp_nexthop_global;
       
       /* If both global and link-local address present. */
-      if (info->attr->mp_nexthop_len == 32)
+      if (info->attr->extra->mp_nexthop_len == 32)
 	{
 	  /* Workaround for Cisco's nexthop bug.  */
-	  if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->mp_nexthop_global)
+	  if (IN6_IS_ADDR_UNSPECIFIED (&info->attr->extra->mp_nexthop_global)
 	      && peer->su_remote->sa.sa_family == AF_INET6)
 	    nexthop = &peer->su_remote->sin6.sin6_addr;
 	  else
-	    nexthop = &info->attr->mp_nexthop_local;
+	    nexthop = &info->attr->extra->mp_nexthop_local;
 
 	  if (info->peer->nexthop.ifp)
 	    ifindex = info->peer->nexthop.ifp->ifindex;
@@ -867,18 +869,20 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info)
       struct zapi_ipv6 api;
       unsigned int ifindex;
       struct in6_addr *nexthop;
-
+      
+      assert (info->attr->extra);
+      
       ifindex = 0;
       nexthop = NULL;
 
       /* Only global address nexthop exists. */
-      if (info->attr->mp_nexthop_len == 16)
-	nexthop = &info->attr->mp_nexthop_global;
+      if (info->attr->extra->mp_nexthop_len == 16)
+	nexthop = &info->attr->extra->mp_nexthop_global;
 
       /* If both global and link-local address present. */
-      if (info->attr->mp_nexthop_len == 32)
+      if (info->attr->extra->mp_nexthop_len == 32)
 	{
-	  nexthop = &info->attr->mp_nexthop_local;
+	  nexthop = &info->attr->extra->mp_nexthop_local;
 	  if (info->peer->nexthop.ifp)
 	    ifindex = info->peer->nexthop.ifp->ifindex;
 	}

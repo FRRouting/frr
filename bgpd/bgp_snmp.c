@@ -797,10 +797,16 @@ bgp4PathAttrTable (struct variable *v, oid name[], size_t *length,
       return SNMP_INTEGER (1);
       break;
     case BGP4PATHATTRAGGREGATORAS: /* 10 */
-      return SNMP_INTEGER (binfo->attr->aggregator_as);
+      if (binfo->attr->extra)
+        return SNMP_INTEGER (binfo->attr->extra->aggregator_as);
+      else
+        return SNMP_INTEGER (0);
       break;
     case BGP4PATHATTRAGGREGATORADDR: /* 11 */
-      return SNMP_IPADDRESS (binfo->attr->aggregator_addr);
+      if (binfo->attr->extra)
+        return SNMP_IPADDRESS (binfo->attr->extra->aggregator_addr);
+      else
+        return SNMP_INTEGER (0);
       break;
     case BGP4PATHATTRCALCLOCALPREF: /* 12 */
       return SNMP_INTEGER (-1);

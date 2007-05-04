@@ -6496,6 +6496,11 @@ DEFUN (show_bgp_memory,
            mtype_memstr (memstrbuf, sizeof (memstrbuf),
                          count * sizeof (struct bgp_info)),
            VTY_NEWLINE);
+  if ((count = mtype_stats_alloc (MTYPE_BGP_ROUTE_EXTRA)))
+    vty_out (vty, "%ld BGP route ancillaries, using %s of memory%s", count,
+             mtype_memstr (memstrbuf, sizeof (memstrbuf),
+                           count * sizeof (struct bgp_info_extra)),
+             VTY_NEWLINE);
   
   if ((count = mtype_stats_alloc (MTYPE_BGP_STATIC)))
     vty_out (vty, "%ld Static routes, using %s of memory%s", count,
@@ -6533,6 +6538,11 @@ DEFUN (show_bgp_memory,
            mtype_memstr (memstrbuf, sizeof (memstrbuf), 
                          count * sizeof(struct attr)), 
            VTY_NEWLINE);
+  if ((count = mtype_stats_alloc (MTYPE_ATTR_EXTRA)))
+    vty_out (vty, "%ld BGP extra attributes, using %s of memory%s", count, 
+             mtype_memstr (memstrbuf, sizeof (memstrbuf), 
+                           count * sizeof(struct attr_extra)), 
+             VTY_NEWLINE);
   
   if ((count = attr_unknown_count()))
     vty_out (vty, "%ld unknown attributes%s", count, VTY_NEWLINE);
