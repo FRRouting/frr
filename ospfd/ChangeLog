@@ -1,3 +1,13 @@
+2007-05-07 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_spf.c: (ospf_vertex_new) Dont init vertices to infinity,
+	  just let 0 be a special case.
+	  (ospf_spf_add_parent) 0 distance candidate vertex is special,
+	  cost still to be initialised - asserting that new distance
+	  is <= existing only makes sense where w already has a cost.
+	  (ospf_spf_next) Infinite cost links should not be followed,
+	  bar those of the root.
+
 2007-04-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospfd.c: (ospf_network_match_iface) Comment out

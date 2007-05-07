@@ -172,7 +172,6 @@ ospf_vertex_new (struct ospf_lsa *lsa)
   new->type = lsa->data->type;
   new->id = lsa->data->id;
   new->lsa = lsa->data;
-  new->distance = OSPF_OUTPUT_COST_INFINITE;
   new->children = list_new ();
   new->parents = list_new ();
   new->parents->del = vertex_parent_free;
@@ -285,7 +284,6 @@ ospf_spf_init (struct ospf_area *area)
   
   /* Create root node. */
   v = ospf_vertex_new (area->router_lsa_self);
-  v->distance = 0;
   
   area->spf = v;
 
@@ -431,13 +429,18 @@ ospf_spf_add_parent (struct vertex *v, struct vertex *w,
 {
   struct vertex_parent *vp;
     
-  /* we must have a newhop.. */
+  /* we must have a newhop, and a distance */
   assert (v && w && newhop);
+  assert (distance);
   
-  /* We shouldn't get here unless callers have determined V(l)->W is
-   * shortest / equal-shortest path.
+  /* IFF w has already been assigned a distance, then we shouldn't get here
+   * unless callers have determined V(l)->W is shortest / equal-shortest
+   * path (0 is a special case distance (no distance yet assigned)).
    */
-  assert (distance <= w->distance);
+  if (w->distance)
+    assert (distance <= w->distance);
+  else
+    w->distance = distance;
   
   if (IS_DEBUG_OSPF_EVENT)
     {
@@ -749,6 +752,13 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
              considered in the second stage of the shortest path
              calculation. */
           if ((type = l->m[0].type) == LSA_LINK_TYPE_STUB)
+            continue;
+          
+          /* Infinite distance links shouldn't be followed, except
+           * for local links (a stub-routed router still wants to
+           * calculate tree, so must follow its own links).
+           */
+          if ((v != area->spf) && l->m[0].metric >= OSPF_OUTPUT_COST_INFINITE)
             continue;
 
           /* (b) Otherwise, W is a transit vertex (router or transit
