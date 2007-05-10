@@ -1,3 +1,8 @@
+2007-05-10 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: Add back check for inet_aton, which got dropped
+	  somehow in previous jumbo patch.
+
 2007-05-09 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: sys/conf.h depends on sys/param.h, at least on

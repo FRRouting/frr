@@ -665,7 +665,7 @@ dnl ---------------
 dnl other functions
 dnl ---------------
 AC_CHECK_FUNCS([dup2 ftruncate getcwd gethostbyname getpagesize gettimeofday \
-	inet_ntoa \
+	inet_ntoa inet_aton \
 	memchr memmove memset select socket \
 	strcasecmp strchr strcspn strdup strerror \
 	strncasecmp strndup strrchr strspn strstr \
