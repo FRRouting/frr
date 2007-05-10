@@ -2,6 +2,10 @@
 
 	* configure.ac: Add back check for inet_aton, which got dropped
 	  somehow in previous jumbo patch.
+	  Use AC_GNU_SOURCE to define _GNU_SOURCE, rather than having
+	  lib/zebra.h do it.
+	  AC_FUNC_STRNLEN has side-effects with latest autoconf, use 
+	  AC_CHECK_FUNC on strnlen instead.
 
 2007-05-09 Paul Jakma <paul.jakma@sun.com>
 
