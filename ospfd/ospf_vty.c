@@ -4403,7 +4403,7 @@ DEFUN (ip_ospf_authentication,
 
   if (argc == 1)
     {
-      ret = inet_aton(argv[1], &addr);
+      ret = inet_aton(argv[0], &addr);
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
@@ -4447,7 +4447,7 @@ DEFUN (no_ip_ospf_authentication,
 
   if (argc == 1)
     {
-      ret = inet_aton(argv[1], &addr);
+      ret = inet_aton(argv[0], &addr);
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
@@ -4551,9 +4551,9 @@ DEFUN (no_ip_ospf_authentication_key,
   ifp = vty->index;
   params = IF_DEF_PARAMS (ifp);
 
-  if (argc == 2)
+  if (argc == 1)
     {
-      ret = inet_aton(argv[1], &addr);
+      ret = inet_aton(argv[0], &addr);
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D%s",

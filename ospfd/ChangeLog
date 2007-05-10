@@ -1,3 +1,10 @@
+2007-05-09 Milan Kocian <milon@wq.cz>
+
+	* ospf_vty.c: Fix commands: 'ip ospf authentication A.B.C.D',
+	  'no ip ospf authentication A.B.C.D', 'no ip ospf
+	  authentication-key A.B.C.D'. Simply fix argv's indexes and
+          argc check in DEFUN functions.
+
 2007-05-07 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_spf.c: (ospf_vertex_new) Dont init vertices to infinity,
