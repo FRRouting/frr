@@ -143,9 +143,9 @@ str2sockunion (const char *str, union sockunion *su)
   if (ret > 0)			/* Valid IPv4 address format. */
     {
       su->sin.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
       su->sin.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
       return 0;
     }
 #ifdef HAVE_IPV6
@@ -187,9 +187,9 @@ sockunion_str2su (const char *str)
   if (ret > 0)			/* Valid IPv4 address format. */
     {
       su->sin.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
       su->sin.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
       return su;
     }
 #ifdef HAVE_IPV6
@@ -342,12 +342,12 @@ sockunion_connect (int fd, union sockunion *peersu, unsigned short port,
 #ifdef KAME
       if (IN6_IS_ADDR_LINKLOCAL(&su.sin6.sin6_addr) && ifindex)
 	{
-#ifdef HAVE_SIN6_SCOPE_ID
+#ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID
 	  /* su.sin6.sin6_scope_id = ifindex; */
 #ifdef MUSICA
 	  su.sin6.sin6_scope_id = ifindex; 
 #endif
-#endif /* HAVE_SIN6_SCOPE_ID */
+#endif /* HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID */
 #ifndef MUSICA
 	  SET_IN6_LINKLOCAL_IFINDEX (su.sin6.sin6_addr, ifindex);
 #endif
@@ -416,9 +416,9 @@ sockunion_bind (int sock, union sockunion *su, unsigned short port,
     {
       size = sizeof (struct sockaddr_in);
       su->sin.sin_port = htons (port);
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
       su->sin.sin_len = size;
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
       if (su_addr == NULL)
 	su->sin.sin_addr.s_addr = htonl (INADDR_ANY);
     }

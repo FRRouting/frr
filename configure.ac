@@ -143,9 +143,9 @@ dnl --------------
 dnl Check programs
 dnl --------------
 AC_PROG_INSTALL
+AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_CHECK_TOOL(AR, ar)
-AC_CHECK_TOOL(RANLIB, ranlib, :)
 
 dnl ---------------------------
 dnl We, perhaps unfortunately,
@@ -268,8 +268,7 @@ fi
 if test "${enable_broken_aliases}" = "yes"; then
   if test "${enable_netlink}" = "yes"
   then
-    echo "Sorry, you can't use netlink with broken aliases"
-    exit 1
+    AC_MSG_FAILURE([Sorry you can not use netlink with broken aliases])
   fi
   AC_DEFINE(HAVE_BROKEN_ALIASES,,Broken Alias)
   enable_netlink=no
@@ -342,45 +341,129 @@ AC_DEFINE_UNQUOTED(CONFIGFILE_MASK, ${enable_configfile_mask}, Mask for config f
 enable_logfile_mask=${enable_logfile_mask:-0600}
 AC_DEFINE_UNQUOTED(LOGFILE_MASK, ${enable_logfile_mask}, Mask for log files)
 
-changequote(, )dnl
-
 MULTIPATH_NUM=1
 
 case "${enable_multipath}" in
-  [0-9]|[1-9][0-9])
+  [[0-9]|[1-9][0-9]])
     MULTIPATH_NUM="${enable_multipath}"
     ;;
   "")
     ;;
   *)           
-    echo "Please specify digit to --enable-multipath ARG."
-    exit 1
+    AC_MSG_FAILURE([Please specify digit to enable multipath ARG])
     ;;
 esac
 
-changequote([, ])dnl
-
 AC_SUBST(MULTIPATH_NUM)
 
-dnl -------------------
-dnl Check header files.
-dnl -------------------
+dnl ------------------------------------
+dnl Check C keywords and standard  types
+dnl ------------------------------------
+AC_C_CONST
+AC_C_INLINE
+AC_C_RESTRICT
+AC_C_VOLATILE
 AC_HEADER_STDC
-AC_CHECK_HEADERS([string.h stropts.h sys/conf.h sys/ksym.h sys/time.h \
-                 sys/times.h sys/select.h sys/sysctl.h sys/sockio.h \
-                 sys/types.h linux/version.h kvm.h netdb.h asm/types.h \
-                 sys/param.h libutil.h limits.h stdint.h])
+AC_HEADER_TIME
+AC_HEADER_SYS_WAIT
+dnl AC_TYPE_PID_T
+AC_TYPE_UID_T
+AC_TYPE_MODE_T
+AC_TYPE_SIZE_T
+AC_TYPE_SIGNAL
+AC_STRUCT_TM
 
-AC_CHECK_HEADERS([sys/socket.h netinet/in_systm.h netinet/in.h \
-		 net/if_dl.h net/netopt.h inet/nd.h net/route.h \
-		 net/if.h net/if_var.h netinet/in_var.h])
+dnl -------------------------
+dnl Check other header files.
+dnl -------------------------
+AC_CHECK_HEADERS([stropts.h sys/ksym.h sys/times.h sys/select.h \
+	sys/types.h linux/version.h netdb.h asm/types.h \
+	sys/param.h limits.h signal.h libutil.h \
+	sys/socket.h netinet/in.h])
+
+dnl Utility macro to avoid retyping includes all the time
+m4_define([QUAGGA_INCLUDES],
+[#ifdef SUNOS_5
+#define _XPG4_2
+#define __EXTENSIONS__
+#endif
+#include <stdio.h>
+#if STDC_HEADERS
+# include <stdlib.h>
+# include <stddef.h>
+#else
+# if HAVE_STDLIB_H
+#  include <stdlib.h>
+# endif
+#endif
+#if HAVE_SYS_TYPES_H
+# include <sys/types.h>
+#endif
+/* sys/conf.h depends on param.h on FBSD at least */
+#if HAVE_SYS_PARAM_H
+# include <sys/param.h>
+#endif
+/* Required for MAXSIG */
+#if HAVE_SIGNAL_H
+# include <signal.h>
+#endif
+#if HAVE_SYS_SOCKET_H
+# include <sys/socket.h>
+#endif
+#if HAVE_NETINET_IN_H
+# include <netinet/in.h>
+#endif
+])dnl
+
+AC_CHECK_HEADERS([sys/un.h net/if.h netinet/in_systm.h netinet/in_var.h \
+	net/if_dl.h net/if_var.h net/netopt.h net/route.h \
+	inet/nd.h arpa/inet.h \
+	fcntl.h stddef.h sys/ioctl.h syslog.h wchar.h wctype.h \
+	sys/sysctl.h sys/sockio.h kvm.h sys/conf.h],
+	[], [], QUAGGA_INCLUDES)
+
+AC_CHECK_HEADERS([ucontext.h], [], [],
+[#ifndef __USE_GNU
+#define __USE_GNU
+#endif /* __USE_GNU */
+QUAGGA_INCLUDES
+])
+
+m4_define([QUAGGA_INCLUDES],
+QUAGGA_INCLUDES
+[#if HAVE_NET_IF_H
+# include <net/if.h>
+#endif
+#if HAVE_SYS_UN_H
+# include <sys/un.h>
+#endif
+#if HAVE_NETINET_IN_SYSTM_H
+# include <netinet/in_systm.h>
+#endif
+#if HAVE_NETINET_IN_VAR_H
+# include <netinet/in_var.h>
+#endif
+#if HAVE_NET_IF_DL_H
+# include <net/if_dl.h>
+#endif
+#if HAVE_NET_IF_VAR_H
+# include <net/if_var.h>
+#endif
+#if HAVE_NET_NETOPT_H
+# include <net/netopt.h>
+#endif
+#if HAVE_NET_ROUTE_H
+# include <net/route.h>
+#endif
+#if HAVE_INET_ND_H
+# include <inet/nd.h>
+#endif
+#if HAVE_ARPA_INET_H
+# include <arpa/inet.h>
+#endif
+])dnl
 
 dnl V6 headers are checked below, after we check for v6
-
-dnl check some types
-AC_C_CONST
-dnl AC_TYPE_PID_T
-AC_TYPE_SIGNAL
 
 dnl Some systems (Solaris 2.x) require libnsl (Network Services Library)
 case "$host" in
@@ -446,7 +529,7 @@ case "${enable_vtysh}" in
          AC_DEFINE(VTYSH,,VTY shell)
 	 AC_PATH_PROG(PERL, perl)
 dnl	 Vtysh uses libreadline, which looks for termcap functions at
-dnl	 configure time.  We follow readline's search order.
+dnl	 configure time.  We follow readlines search order.
 dnl	 The required procedures are in libtermcap on NetBSD, in
 dnl	 [TODO] on Linux, and in [TODO] on Solaris.
 	 AC_CHECK_LIB(termcap, tputs, LIBREADLINE="$LIBREADLINE -ltermcap",
@@ -481,18 +564,18 @@ dnl ----------
 dnl PAM module
 dnl ----------
 if test "$with_libpam" = "yes"; then
-  AC_CHECK_HEADER(security/pam_misc.h)
-  if test "$ac_cv_header_security_pam_misc_h" = yes; then
-    AC_DEFINE(HAVE_PAM_MISC_H,,Have pam_misc.h)
-    AC_DEFINE(PAM_CONV_FUNC,misc_conv,Have misc_conv)
-    pam_conv_func="misc_conv"
-  fi
-  AC_CHECK_HEADER(security/openpam.h)
-  if test "$ac_cv_header_security_openpam_h" = yes; then
-    AC_DEFINE(HAVE_OPENPAM_H,,Have openpam.h)
-    AC_DEFINE(PAM_CONV_FUNC,openpam_ttyconv,Have openpam_ttyconv)
-    pam_conv_func="openpam_ttyconv"
-  fi
+  AC_CHECK_HEADER([security/pam_misc.h],
+    [AC_DEFINE(HAVE_PAM_MISC_H,,Have pam_misc.h)
+     AC_DEFINE(PAM_CONV_FUNC,misc_conv,Have misc_conv)
+     pam_conv_func="misc_conv"
+    ],
+    [], QUAGGA_INCLUDES)
+  AC_CHECK_HEADER([security/openpam.h],
+    [AC_DEFINE(HAVE_OPENPAM_H,,Have openpam.h)
+     AC_DEFINE(PAM_CONV_FUNC,openpam_ttyconv,Have openpam_ttyconv)
+     pam_conv_func="openpam_ttyconv"
+    ],
+    [], QUAGGA_INCLUDES)
   if test -z "$ac_cv_header_security_pam_misc_h$ac_cv_header_security_openpam_h" ; then
     AC_MSG_WARN([*** pam support will not be built ***])
     with_libpam="no"
@@ -500,7 +583,7 @@ if test "$with_libpam" = "yes"; then
 fi
 
 if test "$with_libpam" = "yes"; then
-dnl took this test from proftpd's configure.in and suited to our needs
+dnl took this test from proftpds configure.in and suited to our needs
 dnl -------------------------------------------------------------------------
 dnl
 dnl This next check looks funky due to a linker problem with some versions
@@ -546,9 +629,51 @@ dnl AC_CHECK_SIZEOF(long)
 dnl ----------------------------
 dnl check existance of functions
 dnl ----------------------------
-AC_CHECK_FUNCS(memset memcpy strerror inet_aton daemon snprintf vsnprintf \
-               strlcat strlcpy if_nametoindex if_indextoname getifaddrs \
-	       fcntl strnlen strndup)
+AC_FUNC_CHOWN
+AC_FUNC_FNMATCH
+AC_FUNC_FORK
+AC_FUNC_MALLOC
+AC_FUNC_MEMCMP
+AC_FUNC_MKTIME
+AC_FUNC_STRFTIME
+AC_FUNC_REALLOC
+AC_FUNC_STAT
+AC_FUNC_SELECT_ARGTYPES
+AC_FUNC_STRFTIME
+AC_FUNC_STRNLEN
+AC_FUNC_VPRINTF
+
+dnl -------------------------------
+dnl bgpd needs pow() and hence libm
+dnl -------------------------------
+TMPLIBS="$LIBS"
+AC_CHECK_HEADER([math.h],
+  [AC_CHECK_LIB([m], [pow],
+    [LIBM="-lm"
+     LIBS="$LIBS $LIBM"
+     AC_DEFINE(HAVE_LIBM,, Have libm)
+     AC_CHECK_FUNCS(pow,[],[LIBM=""])
+    ])
+])
+if test x"$LIBM" = x ; then
+  AC_MSG_WARN([Unable to find working pow function - bgpd may not link])
+fi
+LIBS="$TMPLIBS"
+AC_SUBST(LIBM)
+
+dnl ---------------
+dnl other functions
+dnl ---------------
+AC_CHECK_FUNCS([dup2 ftruncate getcwd gethostbyname getpagesize gettimeofday \
+	inet_ntoa \
+	memchr memmove memset select socket \
+	strcasecmp strchr strcspn strdup strerror \
+	strncasecmp strndup strrchr strspn strstr \
+	strtol strtoul strlcat strlcpy \
+	daemon snprintf vsnprintf \
+	if_nametoindex if_indextoname getifaddrs \
+	uname fcntl])
+
 AC_CHECK_FUNCS(setproctitle, ,
   [AC_CHECK_LIB(util, setproctitle, 
      [LIBS="$LIBS -lutil"
@@ -626,9 +751,15 @@ AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #define _XPG4_2
 #define __EXTENSIONS__
 #endif
-#include <stdlib.h>
+#ifdef HAVE_STDLIB_H
+# include <stdlib.h>
+#endif
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
+#endif
 
 main()
 {
@@ -707,12 +838,7 @@ AC_SUBST(IOCTL_METHOD)
 dnl ---------------------------------------------------------------
 dnl figure out how to specify an interface in multicast sockets API
 dnl ---------------------------------------------------------------
-AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex],,,[#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif])
+AC_CHECK_MEMBERS([struct ip_mreqn.imr_ifindex], [], [], QUAGGA_INCLUDES)
 
 AC_MSG_CHECKING([for BSD struct ip_mreq hack])
 AC_TRY_COMPILE([#ifdef HAVE_SYS_PARAM_H
@@ -911,8 +1037,28 @@ dnl IPv6 header checks
 dnl ------------------
 if test "x${zebra_cv_ipv6}" = "xyes"; then
 AC_CHECK_HEADERS([netinet6/in6.h netinet/in6_var.h netinet/icmp6.h \
-		 netinet6/in6_var.h netinet6/nd6.h])
+	netinet6/in6_var.h netinet6/nd6.h], [], [],
+	QUAGGA_INCLUDES)
 fi
+
+m4_define([QUAGGA_INCLUDES],dnl
+QUAGGA_INCLUDES
+[#if HAVE_NETINET6_IN6_H
+#include <netinet6/in6.h>
+#endif
+#if HAVE_NETINET_IN6_VAR_H
+#include <netinet/in6_var.h>
+#endif
+#if HAVE_NETINET_ICMP6_H
+# include <netinet/icmp6.h>
+#endif
+#if HAVE_NETINET6_IN6_VAR_H
+# include <netinet6/in6_var.h>
+#endif
+#if HAVE_NETINET6_ND6_H
+# include <netinet6/nd.h>
+#endif
+])dnl
 
 dnl --------------------
 dnl Daemon disable check
@@ -998,7 +1144,6 @@ AC_CHECK_LIB(c, inet_ntop, [AC_DEFINE(HAVE_INET_NTOP,,inet_ntop)])
 AC_CHECK_LIB(c, inet_pton, [AC_DEFINE(HAVE_INET_PTON,,inet_pton)])
 AC_CHECK_LIB(crypt, crypt)
 AC_CHECK_LIB(resolv, res_init)
-AC_CHECK_LIB(m, main)
 
 dnl ---------------------------------------------------
 dnl BSD/OS 4.1 define inet_XtoY function as __inet_XtoY
@@ -1047,154 +1192,35 @@ if test "${enable_snmp}" = "yes"; then
     AC_SUBST(SNMP_INCLUDES)
 fi
 
-dnl ----------------------------
-dnl check sa_len of sockaddr
-dnl ----------------------------
-AC_MSG_CHECKING(whether struct sockaddr has a sa_len field)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/socket.h>
-],[static struct sockaddr ac_i;int ac_j = sizeof (ac_i.sa_len);],
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_SA_LEN,,sa_len)],
- AC_MSG_RESULT(no))
+dnl ---------------------------
+dnl sockaddr and netinet checks
+dnl ---------------------------
+AC_CHECK_TYPES([struct sockaddr, struct sockaddr_in,
+	struct sockaddr_in6, struct sockaddr_un, struct sockaddr_dl,
+	socklen_t,
+	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
+	struct nd_opt_adv_interval, struct rt_addrinfo,
+	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
+	struct in_pktinfo],
+	[], [], QUAGGA_INCLUDES)
 
-dnl ----------------------------
-dnl check sin_len of sockaddr_in
-dnl ----------------------------
-AC_MSG_CHECKING(whether struct sockaddr_in has a sin_len field)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <netinet/in.h>
-],[static struct sockaddr_in ac_i;int ac_j = sizeof (ac_i.sin_len);],
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_SIN_LEN,,sin_len)],
- AC_MSG_RESULT(no))
-
-dnl ----------------------------
-dnl check sun_len of sockaddr_un
-dnl ----------------------------
-AC_MSG_CHECKING(whether struct sockaddr_un has a sun_len field)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/un.h>
-],[static struct sockaddr_un ac_i;int ac_j = sizeof (ac_i.sun_len);],
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_SUN_LEN,,sun_len)],
- AC_MSG_RESULT(no))
-
-dnl -----------------------------------
-dnl check sin6_scope_id of sockaddr_in6
-dnl -----------------------------------
-if test "$zebra_cv_ipv6" = yes; then
-  AC_MSG_CHECKING(whether struct sockaddr_in6 has a sin6_scope_id field)
-  AC_TRY_COMPILE([#include <sys/types.h>
-#include <netinet/in.h>
-],[static struct sockaddr_in6 ac_i;int ac_j = sizeof (ac_i.sin6_scope_id);],
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_SIN6_SCOPE_ID,,scope id)],
- AC_MSG_RESULT(no))
-fi
-
-dnl ----------------------------
-dnl check socklen_t exist or not
-dnl ----------------------------
-AC_MSG_CHECKING(whther socklen_t is defined)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-],[socklen_t ac_x;],
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_SOCKLEN_T,,socklen_t)],
- AC_MSG_RESULT(no))
-
-dnl ------------------------
-dnl check struct sockaddr_dl
-dnl ------------------------
-AC_MSG_CHECKING(whether struct sockaddr_dl exist)
-AC_EGREP_HEADER(sockaddr_dl,
-net/if_dl.h,
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_SOCKADDR_DL,,sockaddr_dl)],
- AC_MSG_RESULT(no))
-
-dnl --------------------------
-dnl check structure ifaliasreq
-dnl --------------------------
-AC_MSG_CHECKING(whether struct ifaliasreq exist)
-AC_EGREP_HEADER(ifaliasreq,
-net/if.h,
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_IFALIASREQ,,ifaliasreq)],
- AC_MSG_RESULT(no))
-
-dnl ----------------------------
-dnl check structure in6_aliasreq
-dnl ----------------------------
-AC_MSG_CHECKING(whether struct in6_aliasreq exist)
-AC_EGREP_HEADER(in6_aliasreq,
-netinet6/in6_var.h,
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_IN6_ALIASREQ,,in6_aliasreq)],
- AC_MSG_RESULT(no))
-
-dnl -----------------------------------
-dnl check ifra_lifetime of in6_aliasreq
-dnl -----------------------------------
-AC_MSG_CHECKING(whether in6_aliasreq.ifra_lifetime exist)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <netinet6/in6_var.h>
-],[static struct if6_aliasreq ac_i;int ac_j = sizeof (ac_i.ifra_lifetime);],
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_IFRA_LIFETIME,,Have in6_aliasreq.ifra_lifetime)],
- AC_MSG_RESULT(no))
+AC_CHECK_MEMBERS([struct sockaddr.sa_len,
+	struct sockaddr_in.sin_len, struct sockaddr_un.sun_len,
+	struct sockaddr_in6.sin6_scope_id,
+	struct if6_aliasreq.ifra_lifetime,
+	struct nd_opt_adv_interval.nd_opt_ai_type],
+	[], [], QUAGGA_INCLUDES)
 
 dnl ---------------------------
-dnl check structure rt_addrinfo
+dnl pktinfo checks
 dnl ---------------------------
-AC_MSG_CHECKING(whether struct rt_addrinfo exist)
-AC_EGREP_HEADER(rt_addrinfo,
-net/route.h,
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_RT_ADDRINFO,,rt_addrinfo)],
- AC_MSG_RESULT(no))
-
-dnl --------------------------
-dnl check structure in_pktinfo
-dnl --------------------------
-AC_MSG_CHECKING(whether struct in_pktinfo exist)
-AC_TRY_COMPILE([#include <netinet/in.h>
-],[struct in_pktinfo ac_x;],
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_INPKTINFO,,in_pktinfo)],
- AC_MSG_RESULT(no))
-
-dnl ----------------------------------
-dnl check struct nd_opt_homeagent_info
-dnl ----------------------------------
-AC_MSG_CHECKING(whether struct nd_opt_homeagent_info exist)
-AC_EGREP_HEADER(nd_opt_homeagent_info,
-netinet/icmp6.h,
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_ND_OPT_HOMEAGENT_INFO,,nd_opt_homeagent_info)],
- AC_MSG_RESULT(no))
-
-dnl --------------------------------
-dnl check struct nd_opt_adv_interval
-dnl --------------------------------
-AC_MSG_CHECKING(whether struct nd_opt_adv_interval exist)
-AC_EGREP_HEADER(nd_opt_adv_interval,
-netinet/icmp6.h,
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_ND_OPT_ADV_INTERVAL,,nd_opt_adv_interval)],
- AC_MSG_RESULT(no))
-
-dnl ------------------------------------
-dnl check fields in  nd_opt_adv_interval
-dnl ------------------------------------
-AC_MSG_CHECKING(whether nd_opt_ai_type field exist)
-AC_EGREP_HEADER(nd_opt_ai_type,
-netinet/icmp6.h,
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_ND_OPT_ADV_INTERVAL_AI_FIELDS,,nd_opt_ai_type)],
- AC_MSG_RESULT(no))
+AC_CHECK_TYPES([struct in_pktinfo], 
+ [if test "${enable_irdp}" != "no"; then
+    AC_DEFINE(HAVE_IRDP,, IRDP)
+  fi],
+ [if test "${enable_irdp}" = "yes"; then
+    AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
+  fi], [QUAGGA_INCLUDES])
 
 dnl --------------------------------------
 dnl checking for getrusage struct and call
@@ -1245,11 +1271,6 @@ if test "${enable_capabilities}" != "no"; then
 fi
 AC_SUBST(LIBCAP)
 
-dnl -------------------
-dnl test for ucontext.h
-dnl -------------------
-AC_CHECK_HEADERS(ucontext.h)
-
 dnl ---------------------------
 dnl check for glibc 'backtrace'
 dnl --------------------------- 
@@ -1269,7 +1290,7 @@ dnl order to check no alternative allocator
 dnl has been specified, which might not provide
 dnl mallinfo, e.g. such as Umem on Solaris.
 dnl -----------------------------------------
-AC_CHECK_HEADERS(malloc.h,
+AC_CHECK_HEADER([malloc.h],
  [AC_MSG_CHECKING(whether mallinfo is available)
   AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <malloc.h>]],
                         [[struct mallinfo ac_x; ac_x = mallinfo ();]])],
@@ -1277,8 +1298,7 @@ AC_CHECK_HEADERS(malloc.h,
        AC_DEFINE(HAVE_MALLINFO,,mallinfo)],
        AC_MSG_RESULT(no)
   )
- ]
-)
+ ], [], QUAGGA_INCLUDES)
 
 dnl ----------
 dnl configure date
@@ -1347,19 +1367,11 @@ dnl ---------------------------
 dnl Check htonl works correctly
 dnl ---------------------------
 AC_MSG_CHECKING(for working htonl)
-AC_CACHE_VAL(ac_cv_htonl_works, [
-AC_TRY_LINK([#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_NETDB_H
-#include <netdb.h>
-#endif
-#ifdef HAVE_NETINET_IN_H
-#include <netinet/in.h>
-#endif],
-[htonl (0);],
-ac_cv_htonl_works=yes,
-ac_cv_htonl_works=no)])
+AC_CACHE_VAL(ac_cv_htonl_works,
+ [AC_LINK_IFELSE([AC_LANG_PROGRAM([QUAGGA_INCLUDES],[htonl (0);])],
+ 		[ac_cv_htonl_works=yes], [ac_cv_htonl_works=no])
+ ]
+)
 AC_MSG_RESULT($ac_cv_htonl_works)
 
 AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile 
@@ -1378,7 +1390,6 @@ AC_CONFIG_FILES([solaris/Makefile])
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 ## Hack, but working solution to avoid rebuilding of quagga.info.
 ## It's already in CVS until texinfo 4.7 is more common.
-AC_CONFIG_COMMANDS([info-time],[touch doc/quagga.info])
 AC_OUTPUT
 
 echo "
@@ -1389,8 +1400,9 @@ host operationg system  : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
 compiler flags          : ${CFLAGS}
+make                    : ${MAKE-make}
 includes                : ${INCLUDES} ${SNMP_INCLUDES}
-linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE}
+linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${quagga_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
 example directory       : `eval echo \`echo ${exampledir}\``

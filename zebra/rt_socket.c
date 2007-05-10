@@ -78,18 +78,18 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 
   memset (&sin_dest, 0, sizeof (struct sockaddr_in));
   sin_dest.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sin_dest.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
   sin_dest.sin_addr = p->u.prefix4;
 
   memset (&sin_mask, 0, sizeof (struct sockaddr_in));
 
   memset (&sin_gate, 0, sizeof (struct sockaddr_in));
   sin_gate.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sin_gate.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* Make gateway. */
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
@@ -147,9 +147,9 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 	    {
 	      masklen2ip (p->prefixlen, &sin_mask.sin_addr);
 	      sin_mask.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 	      sin_mask.sin_len = sin_masklen (sin_mask.sin_addr);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 	      mask = &sin_mask;
 	    }
 	}
@@ -327,9 +327,9 @@ kernel_rtm_ipv6_multipath (int cmd, struct prefix *p, struct rib *rib,
 
   memset (&sin_gate, 0, sizeof (struct sockaddr_in6));
   sin_gate.sin6_family = AF_INET6;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sin_gate.sin6_len = sizeof (struct sockaddr_in6);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* Make gateway. */
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)

@@ -56,7 +56,7 @@ extern struct zebra_t zebrad;
  * Given a pointer (sockaddr or void *), return the number of bytes
  * taken up by the sockaddr and any padding needed for alignment.
  */
-#if defined(HAVE_SA_LEN)
+#if defined(HAVE_STRUCT_SOCKADDR_SA_LEN)
 #define SAROUNDUP(X)   ROUNDUP(((struct sockaddr *)(X))->sa_len)
 #elif defined(HAVE_IPV6)
 /*
@@ -76,7 +76,7 @@ extern struct zebra_t zebrad;
         ROUNDUP(sizeof(struct sockaddr_in)):\
          (((struct sockaddr *)(X))->sa_family == AF_LINK ? \
            ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr)))
-#endif /* HAVE_SA_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
 /* We use an additional pointer in following, pdest, rather than (DEST)
  * directly, because gcc will warn if the macro is expanded and DEST is NULL,
@@ -902,7 +902,7 @@ rtm_write (int message,
     msg.rtm.rtm_flags |= RTF_REJECT;
 
 
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 #define SOCKADDRSET(X,R) \
   if (msg.rtm.rtm_addrs & (R)) \
     { \
@@ -918,7 +918,7 @@ rtm_write (int message,
       memcpy (pnt, (caddr_t)(X), len); \
       pnt += len; \
     }
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   pnt = (caddr_t) msg.buf;
 

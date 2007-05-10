@@ -312,7 +312,7 @@ typedef int socklen_t;
 
 /*  The definition of struct in_pktinfo is missing in old version of
     GLIBC 2.1 (Redhat 6.1).  */
-#if defined (GNU_LINUX) && ! defined (HAVE_INPKTINFO)
+#if defined (GNU_LINUX) && ! defined (HAVE_STRUCT_IN_PKTINFO)
 struct in_pktinfo
 {
   int ipi_ifindex;

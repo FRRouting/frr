@@ -166,13 +166,13 @@ zsend_interface_add (struct zserv *client, struct interface *ifp)
   stream_putl (s, ifp->mtu);
   stream_putl (s, ifp->mtu6);
   stream_putl (s, ifp->bandwidth);
-#ifdef HAVE_SOCKADDR_DL
+#ifdef HAVE_STRUCT_SOCKADDR_DL
   stream_put (s, &ifp->sdl, sizeof (ifp->sdl));
 #else
   stream_putl (s, ifp->hw_addr_len);
   if (ifp->hw_addr_len)
     stream_put (s, ifp->hw_addr, ifp->hw_addr_len);
-#endif /* HAVE_SOCKADDR_DL */
+#endif /* HAVE_STRUCT_SOCKADDR_DL */
 
   /* Write packet size. */
   stream_putw_at (s, 0, stream_get_endp (s));
@@ -1355,9 +1355,9 @@ zebra_serv ()
   memset (&addr, 0, sizeof (struct sockaddr_in));
   addr.sin_family = AF_INET;
   addr.sin_port = htons (ZEBRA_PORT);
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   addr.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
   addr.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
 
   sockopt_reuseaddr (accept_sock);
@@ -1426,11 +1426,11 @@ zebra_serv_un (const char *path)
   memset (&serv, 0, sizeof (struct sockaddr_un));
   serv.sun_family = AF_UNIX;
   strncpy (serv.sun_path, path, strlen (path));
-#ifdef HAVE_SUN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
   len = serv.sun_len = SUN_LEN(&serv);
 #else
   len = sizeof (serv.sun_family) + strlen (serv.sun_path);
-#endif /* HAVE_SUN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_UN_SUN_LEN */
 
   ret = bind (sock, (struct sockaddr *) &serv, len);
   if (ret < 0)

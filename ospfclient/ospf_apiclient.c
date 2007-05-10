@@ -118,9 +118,9 @@ ospf_apiclient_connect (char *host, int syncport)
   myaddr_async.sin_addr.s_addr = htonl (INADDR_ANY);
   myaddr_async.sin_port = htons (syncport+1);
   size = sizeof (struct sockaddr_in);
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   myaddr_async.sin_len = size;
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* This is a server socket, reuse addr and port */
   ret = setsockopt (async_server_sock, SOL_SOCKET,
@@ -209,9 +209,9 @@ ospf_apiclient_connect (char *host, int syncport)
   memset (&myaddr_sync, 0, sizeof (struct sockaddr_in));
   myaddr_sync.sin_family = AF_INET;
   myaddr_sync.sin_port = htons (syncport);
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   myaddr_sync.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   ret = bind (fd1, (struct sockaddr *) &myaddr_sync, size);
   if (ret < 0)
@@ -225,9 +225,9 @@ ospf_apiclient_connect (char *host, int syncport)
   memcpy (&myaddr_sync.sin_addr, hp->h_addr, hp->h_length);
   myaddr_sync.sin_family = AF_INET;
   myaddr_sync.sin_port = htons(ospf_apiclient_getport ());
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   myaddr_sync.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* Now establish synchronous channel with OSPF daemon */
   ret = connect (fd1, (struct sockaddr *) &myaddr_sync,

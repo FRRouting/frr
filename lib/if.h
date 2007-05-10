@@ -102,13 +102,13 @@ struct interface
   unsigned int mtu6;   /* IPv6 MTU - probably, but not neccessarily same as mtu */
 
   /* Hardware address. */
-#ifdef HAVE_SOCKADDR_DL
+#ifdef HAVE_STRUCT_SOCKADDR_DL
   struct sockaddr_dl sdl;
 #else
   unsigned short hw_type;
   u_char hw_addr[INTERFACE_HWADDR_MAX];
   int hw_addr_len;
-#endif /* HAVE_SOCKADDR_DL */
+#endif /* HAVE_STRUCT_SOCKADDR_DL */
 
   /* interface bandwidth, kbits */
   unsigned int bandwidth;

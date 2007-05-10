@@ -159,9 +159,9 @@ bgp_bind_address (int sock, struct in_addr *addr)
 
   memset (&local, 0, sizeof (struct sockaddr_in));
   local.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   local.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
   memcpy (&local.sin_addr, addr, sizeof (struct in_addr));
 
   if ( bgpd_privs.change (ZPRIVS_RAISE) )
@@ -379,9 +379,9 @@ bgp_socket (struct bgp *bgp, unsigned short port)
   sin.sin_family = AF_INET;
   sin.sin_port = htons (port);
   socklen = sizeof (struct sockaddr_in);
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sin.sin_len = socklen;
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   if ( bgpd_privs.change (ZPRIVS_RAISE) )
     zlog_err ("bgp_socket: could not raise privs");

@@ -50,9 +50,9 @@ kernel_read (int sock)
 /* Initialization prototype of struct sockaddr_in. */
 static struct sockaddr_in sin_proto =
 {
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sizeof (struct sockaddr_in), 
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
   AF_INET, 0, {0}, {0}
 };
 #endif /* 0 */
@@ -77,9 +77,9 @@ kernel_add_route (struct prefix_ipv4 *dest, struct in_addr *gate,
   /* Make destination. */
   memset (&sin_dest, 0, sizeof (struct sockaddr_in));
   sin_dest.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sin_dest.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
   sin_dest.sin_addr = dest->prefix;
 
   /* Make gateway. */
@@ -87,17 +87,17 @@ kernel_add_route (struct prefix_ipv4 *dest, struct in_addr *gate,
     {
       memset (&sin_gate, 0, sizeof (struct sockaddr_in));
       sin_gate.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
       sin_gate.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
       sin_gate.sin_addr = *gate;
     }
 
   memset (&sin_mask, 0, sizeof (struct sockaddr_in));
   sin_mask.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
       sin_gate.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
   masklen2ip (dest->prefixlen, &sin_mask.sin_addr);
 
   /* Set destination address, mask and gateway.*/
@@ -178,9 +178,9 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
   /* Make destination. */
   memset (&sin_dest, 0, sizeof (struct sockaddr_in));
   sin_dest.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sin_dest.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
   sin_dest.sin_addr = p->u.prefix4;
 
   if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
@@ -210,9 +210,9 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
 		  nexthop->rtype == NEXTHOP_TYPE_IPV4_IFINDEX)
 		{
 		  sin_gate.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 		  sin_gate.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 		  sin_gate.sin_addr = nexthop->rgate.ipv4;
 		  rtentry.rt_flags |= RTF_GATEWAY;
 		}
@@ -232,9 +232,9 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
 		  nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
 		{
 		  sin_gate.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 		  sin_gate.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 		  sin_gate.sin_addr = nexthop->gate.ipv4;
 		  rtentry.rt_flags |= RTF_GATEWAY;
 		}
@@ -269,9 +269,9 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
 
   memset (&sin_mask, 0, sizeof (struct sockaddr_in));
   sin_mask.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sin_mask.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
   masklen2ip (p->prefixlen, &sin_mask.sin_addr);
 
   /* Set destination address, mask and gateway.*/

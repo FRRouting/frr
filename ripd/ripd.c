@@ -1352,9 +1352,9 @@ rip_create_socket (struct sockaddr_in *from)
     {
       addr.sin_family = AF_INET;
       addr.sin_addr.s_addr = INADDR_ANY;
-#ifdef HAVE_SINLEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
       addr.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SINLEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
     } else {
       memcpy(&addr, from, sizeof(addr));
     }
@@ -1457,9 +1457,9 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
   /* Make destination address. */
   memset (&sin, 0, sizeof (struct sockaddr_in));
   sin.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sin.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* When destination is specified, use it's port and address. */
   if (to)
@@ -1479,9 +1479,9 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
       from.sin_family = AF_INET;
       from.sin_port = htons (RIP_PORT_DEFAULT);
       from.sin_addr = ifc->address->u.prefix4;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
       from.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
       
       /*
        * we have to open a new socket for each packet because this

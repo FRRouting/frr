@@ -2122,11 +2122,11 @@ vtysh_connect (struct vtysh_client *vclient)
   memset (&addr, 0, sizeof (struct sockaddr_un));
   addr.sun_family = AF_UNIX;
   strncpy (addr.sun_path, vclient->path, strlen (vclient->path));
-#ifdef HAVE_SUN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
   len = addr.sun_len = SUN_LEN(&addr);
 #else
   len = sizeof (addr.sun_family) + strlen (addr.sun_path);
-#endif /* HAVE_SUN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_UN_SUN_LEN */
 
   ret = connect (sock, (struct sockaddr *) &addr, len);
   if (ret < 0)

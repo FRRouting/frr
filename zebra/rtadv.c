@@ -157,9 +157,9 @@ rtadv_send_packet (int sock, struct interface *ifp)
   struct cmsghdr  *cmsgptr;
   struct in6_pktinfo *pkt;
   struct sockaddr_in6 addr;
-#ifdef HAVE_SOCKADDR_DL
+#ifdef HAVE_STRUCT_SOCKADDR_DL
   struct sockaddr_dl *sdl;
-#endif /* HAVE_SOCKADDR_DL */
+#endif /* HAVE_STRUCT_SOCKADDR_DL */
   static void *adata = NULL;
   unsigned char buf[RTADV_MSG_SIZE];
   struct nd_router_advert *rtadv;
@@ -285,7 +285,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
     }
 
   /* Hardware address. */
-#ifdef HAVE_SOCKADDR_DL
+#ifdef HAVE_STRUCT_SOCKADDR_DL
   sdl = &ifp->sdl;
   if (sdl != NULL && sdl->sdl_alen != 0)
     {
@@ -304,7 +304,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
       memcpy (buf + len, ifp->hw_addr, ifp->hw_addr_len);
       len += ifp->hw_addr_len;
     }
-#endif /* HAVE_SOCKADDR_DL */
+#endif /* HAVE_STRUCT_SOCKADDR_DL */
 
   msg.msg_name = (void *) &addr;
   msg.msg_namelen = sizeof (struct sockaddr_in6);

@@ -164,9 +164,9 @@ zclient_socket(void)
   memset (&serv, 0, sizeof (struct sockaddr_in));
   serv.sin_family = AF_INET;
   serv.sin_port = htons (ZEBRA_PORT);
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   serv.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
   serv.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
 
   /* Connect to zebra. */
@@ -197,11 +197,11 @@ zclient_socket_un (const char *path)
   memset (&addr, 0, sizeof (struct sockaddr_un));
   addr.sun_family = AF_UNIX;
   strncpy (addr.sun_path, path, strlen (path));
-#ifdef HAVE_SUN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
   len = addr.sun_len = SUN_LEN(&addr);
 #else
   len = sizeof (addr.sun_family) + strlen (addr.sun_path);
-#endif /* HAVE_SUN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_UN_SUN_LEN */
 
   ret = connect (sock, (struct sockaddr *) &addr, len);
   if (ret < 0)
@@ -625,13 +625,13 @@ zebra_interface_add_read (struct stream *s)
   ifp->mtu = stream_getl (s);
   ifp->mtu6 = stream_getl (s);
   ifp->bandwidth = stream_getl (s);
-#ifdef HAVE_SOCKADDR_DL
+#ifdef HAVE_STRUCT_SOCKADDR_DL
   stream_get (&ifp->sdl, s, sizeof (ifp->sdl));
 #else
   ifp->hw_addr_len = stream_getl (s);
   if (ifp->hw_addr_len)
     stream_get (ifp->hw_addr, s, ifp->hw_addr_len);
-#endif /* HAVE_SOCKADDR_DL */
+#endif /* HAVE_STRUCT_SOCKADDR_DL */
   
   return ifp;
 }

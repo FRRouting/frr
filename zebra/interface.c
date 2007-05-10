@@ -644,9 +644,9 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 static void
 if_dump_vty (struct vty *vty, struct interface *ifp)
 {
-#ifdef HAVE_SOCKADDR_DL
+#ifdef HAVE_STRUCT_SOCKADDR_DL
   struct sockaddr_dl *sdl;
-#endif /* HAVE_SOCKADDR_DL */
+#endif /* HAVE_STRUCT_SOCKADDR_DL */
   struct connected *connected;
   struct listnode *node;
   struct route_node *rn;
@@ -696,7 +696,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
            if_flag_dump (ifp->flags), VTY_NEWLINE);
   
   /* Hardware address. */
-#ifdef HAVE_SOCKADDR_DL
+#ifdef HAVE_STRUCT_SOCKADDR_DL
   sdl = &ifp->sdl;
   if (sdl != NULL && sdl->sdl_alen != 0)
     {
@@ -718,7 +718,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	vty_out (vty, "%s%02x", i == 0 ? "" : ":", ifp->hw_addr[i]);
       vty_out (vty, "%s", VTY_NEWLINE);
     }
-#endif /* HAVE_SOCKADDR_DL */
+#endif /* HAVE_STRUCT_SOCKADDR_DL */
   
   /* Bandwidth in kbps */
   if (ifp->bandwidth != 0)

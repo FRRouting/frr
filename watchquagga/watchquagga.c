@@ -1,5 +1,5 @@
 /*
-    $Id: watchquagga.c,v 1.11 2005/02/17 20:11:58 ajs Exp $
+    $Id$
 
     Monitor status of quagga daemons and restart if necessary.
 
@@ -743,11 +743,11 @@ try_connect(struct daemon *dmn)
   addr.sun_family = AF_UNIX;
   snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/%s.vty",
 	   gs.vtydir,dmn->name);
-#ifdef HAVE_SUN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
   len = addr.sun_len = SUN_LEN(&addr);
 #else
   len = sizeof (addr.sun_family) + strlen (addr.sun_path);
-#endif /* HAVE_SUN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_UN_SUN_LEN */
 
   /* Quick check to see if we might succeed before we go to the trouble
      of creating a socket. */

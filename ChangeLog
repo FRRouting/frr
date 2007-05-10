@@ -1,3 +1,25 @@
+2007-05-09 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: sys/conf.h depends on sys/param.h, at least on
+	  FBSD 6.2.
+	  (bug #363) Should check for in_pktinfo for IRDP
+
+2006-05-27 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: General cleanup of header and type checks, introducing
+	  an internal define, QUAGGA_INCLUDES, to build up a list of
+	  stuff to include so as to avoid 'present but cant be compiled'
+	  warnings.
+	  Misc additional checks of things missing according to autoscan.
+	  Add LIBM, for bgpd's use of libm, so as to avoid burdening
+	  LIBS, and all the binaries, with libm linkage.
+	  Remove the bad practice of using m4 changequote(), just
+	  quote the []'s in the case statements properly.
+	  This should fix bugs 162, 303 and 178.
+	* */*.{c,h}: Update all HAVE_* to the standard autoconf namespaced
+	  HAVE_* defines. I.e. HAVE_SA_LEN -> HAVE_STRUCT_SOCKADDR_SA_LEN,
+	* bgpd/Makefile.am: Add LIBM to bgpd's LDADD, for pow().
+
 2007-04-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* configure.ac: Change gcc CFLAGS from '-std=c99' to '-std=gnu99'

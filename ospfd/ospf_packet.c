@@ -628,9 +628,9 @@ ospf_write (struct thread *thread)
   memset (&sa_dst, 0, sizeof (sa_dst));
   
   sa_dst.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sa_dst.sin_len = sizeof(sa_dst);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
   sa_dst.sin_addr = op->dst;
   sa_dst.sin_port = htons (0);
 

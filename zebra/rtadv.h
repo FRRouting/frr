@@ -66,7 +66,7 @@ extern void rtadv_init (void);
 #define ND_OPT_HA_INFORMATION	8   /* HA Information Option */
 #endif
 
-#ifndef HAVE_ND_OPT_ADV_INTERVAL
+#ifndef HAVE_STRUCT_ND_OPT_ADV_INTERVAL
 struct nd_opt_adv_interval {   /* Advertisement interval option */
         uint8_t        nd_opt_ai_type;
         uint8_t        nd_opt_ai_len;
@@ -74,7 +74,7 @@ struct nd_opt_adv_interval {   /* Advertisement interval option */
         uint32_t       nd_opt_ai_interval;
 } __attribute__((__packed__));
 #else
-#ifndef HAVE_ND_OPT_ADV_INTERVAL_AI_FIELDS
+#ifndef HAVE_STRUCT_ND_OPT_ADV_INTERVAL_ND_OPT_AI_TYPE
 /* fields may have to be renamed */
 #define nd_opt_ai_type		nd_opt_adv_interval_type
 #define nd_opt_ai_len		nd_opt_adv_interval_len
@@ -83,7 +83,7 @@ struct nd_opt_adv_interval {   /* Advertisement interval option */
 #endif
 #endif
 
-#ifndef HAVE_ND_OPT_HOMEAGENT_INFO
+#ifndef HAVE_STRUCT_ND_OPT_HOMEAGENT_INFO
 struct nd_opt_homeagent_info {  /* Home Agent info */
         u_int8_t        nd_opt_hai_type;
         u_int8_t        nd_opt_hai_len;

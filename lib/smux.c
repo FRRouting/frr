@@ -237,9 +237,9 @@ smux_socket ()
 
   memset (&serv, 0, sizeof (struct sockaddr_in));
   serv.sin_family = AF_INET;
-#ifdef HAVE_SIN_LEN
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   serv.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_SIN_LEN */
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   sp = getservbyname ("smux", "tcp");
   if (sp != NULL) 
