@@ -1,3 +1,12 @@
+2007-05-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* kernel_socket.c: (ifam_read_mesg) Grab RTA_DST and RTA_GATEWAY
+	  addresses from the message (if present, which seems unlikely on
+	  current BSD platforms), and show them in the debug messages.
+	  Also, add ifam_flags to the debug messages.
+	  (ifam_read) If the interface is point-to-point, then the RTA_BRD
+	  address should be treated as a peer address.
+
 2007-05-01 David L Stevens <dlstevens@us.ibm.com>
 
 	* (general) These changes collectively add route-map and
