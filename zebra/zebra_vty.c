@@ -643,6 +643,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
                     vty_out (vty, ", src %s", addrstr);
                 }
               break;
+#ifdef HAVE_IPV6
             case NEXTHOP_TYPE_IPV6:
             case NEXTHOP_TYPE_IPV6_IFINDEX:
             case NEXTHOP_TYPE_IPV6_IFNAME:
@@ -653,6 +654,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
                     vty_out (vty, ", src %s", addrstr);
                 }
               break;
+#endif /* HAVE_IPV6 */
             default:
 	       break;
             }
@@ -750,6 +752,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
                   vty_out (vty, ", src %s", buf);
               }
             break;
+#ifdef HAVE_IPV6
           case NEXTHOP_TYPE_IPV6:
           case NEXTHOP_TYPE_IPV6_IFINDEX:
           case NEXTHOP_TYPE_IPV6_IFNAME:
@@ -759,6 +762,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
                   vty_out (vty, ", src %s", buf);
               }
             break;
+#endif /* HAVE_IPV6 */
           default:
 	    break;
         }
@@ -1156,6 +1160,36 @@ static_config_ipv4 (struct vty *vty)
       }
   return write;
 }
+
+DEFUN (show_ip_protocol,
+       show_ip_protocol_cmd,
+       "show ip protocol",
+        SHOW_STR
+        IP_STR
+       "IP protocol filtering status\n")
+{
+    int i; 
+
+    vty_out(vty, "Protocol    : route-map %s", VTY_NEWLINE);
+    vty_out(vty, "------------------------%s", VTY_NEWLINE);
+    for (i=0;i<ZEBRA_ROUTE_MAX;i++)
+    {
+        if (proto_rm[AFI_IP][i])
+          vty_out (vty, "%-10s  : %-10s%s", zebra_route_string(i),
+					proto_rm[AFI_IP][i],
+					VTY_NEWLINE);
+        else
+          vty_out (vty, "%-10s  : none%s", zebra_route_string(i), VTY_NEWLINE);
+    }
+    if (proto_rm[AFI_IP][i])
+      vty_out (vty, "%-10s  : %-10s%s", "any", proto_rm[AFI_IP][i],
+					VTY_NEWLINE);
+    else
+      vty_out (vty, "%-10s  : none%s", "any", VTY_NEWLINE);
+
+    return CMD_SUCCESS;
+}
+
 
 #ifdef HAVE_IPV6
 /* General fucntion for IPv6 static route. */
@@ -1907,35 +1941,6 @@ DEFUN (show_ipv6_route_prefix,
   route_unlock_node (rn);
 
   return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_protocol,
-       show_ip_protocol_cmd,
-       "show ip protocol",
-        SHOW_STR
-        IP_STR
-       "IP protocol filtering status\n")
-{
-    int i; 
-
-    vty_out(vty, "Protocol    : route-map %s", VTY_NEWLINE);
-    vty_out(vty, "------------------------%s", VTY_NEWLINE);
-    for (i=0;i<ZEBRA_ROUTE_MAX;i++)
-    {
-        if (proto_rm[AFI_IP][i])
-          vty_out (vty, "%-10s  : %-10s%s", zebra_route_string(i),
-					proto_rm[AFI_IP][i],
-					VTY_NEWLINE);
-        else
-          vty_out (vty, "%-10s  : none%s", zebra_route_string(i), VTY_NEWLINE);
-    }
-    if (proto_rm[AFI_IP][i])
-      vty_out (vty, "%-10s  : %-10s%s", "any", proto_rm[AFI_IP][i],
-					VTY_NEWLINE);
-    else
-      vty_out (vty, "%-10s  : none%s", "any", VTY_NEWLINE);
-
-    return CMD_SUCCESS;
 }
 
 /* Write IPv6 static route configuration. */

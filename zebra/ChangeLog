@@ -1,3 +1,12 @@
+2007-05-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zebra_routemap.c: (route_set_src_compile) Use '#ifdef HAVE_IPV6'
+	  as needed.
+	* zebra_vty.c: (vty_show_ip_route_detail, vty_show_ip_route) Use
+	  '#ifdef HAVE_IPV6' as needed.
+	  (show_ip_protocol) Move function definition outside of
+	  '#ifdef HAVE_IPV6' section.
+
 2007-05-17 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* kernel_socket.c: (ifam_read_mesg) Grab RTA_DST and RTA_GATEWAY

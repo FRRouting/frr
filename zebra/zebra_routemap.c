@@ -647,8 +647,10 @@ route_set_src_compile (const char *arg)
 
   if (inet_pton(AF_INET, arg, &src.ipv4) > 0)
     family = AF_INET;
+#ifdef HAVE_IPV6
   else if (inet_pton(AF_INET6, arg, &src.ipv6) > 0)
     family = AF_INET6;
+#endif /* HAVE_IPV6 */
   else
    return NULL;
 
