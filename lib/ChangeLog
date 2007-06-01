@@ -1,3 +1,9 @@
+2007-06-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* zebra.h: On linux, we seem to need to include <linux/types.h> before
+	  <sys/sysctl.h>, otherwise we get isisd compilation errors about
+	  __be16 not being defined.
+
 2007-05-10 Paul Jakma <paul.jakma@sun.com>
 
 	* zebra.h: Don't try define _GNU_SOURCE, autoconf should do it.

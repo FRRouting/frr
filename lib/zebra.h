@@ -59,6 +59,9 @@ typedef int socklen_t;
 #include <sys/types.h>
 #include <sys/param.h>
 #ifdef HAVE_SYS_SYSCTL_H
+#ifdef GNU_LINUX
+#include <linux/types.h>
+#endif
 #include <sys/sysctl.h>
 #endif /* HAVE_SYS_SYSCTL_H */
 #include <sys/ioctl.h>
