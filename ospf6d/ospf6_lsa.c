@@ -855,7 +855,7 @@ DEFUN (no_debug_ospf6_lsa_type,
     UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG);
 
   if (handler->debug == 0 &&
-      handler->name == "Unknown" && type != OSPF6_LSTYPE_UNKNOWN)
+      !strcmp(handler->name, "Unknown") && type != OSPF6_LSTYPE_UNKNOWN)
     {
       free (handler);
       vector_slot (ospf6_lsa_handler_vector, i) = NULL;

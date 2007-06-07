@@ -1,3 +1,8 @@
+2007-06-07 Pavol Rusnak <prusnak@suse.cz>
+
+	* ospf6_lsa.c: (no_debug_ospf6_lsa_hex_cmd) Fix bug: must use strcmp
+	  to compare strings.
+
 2007-04-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ospf6_snmp.c: (ospfv3AreaEntry, ospfv3AreaLsdbEntry) Fix some
