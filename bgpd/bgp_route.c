@@ -2370,7 +2370,7 @@ bgp_default_originate (struct peer *peer, afi_t afi, safi_t safi, int withdraw)
   struct peer *from;
   int ret = RMAP_DENYMATCH;
   
-  if (afi != AFI_IP || afi != AFI_IP6)
+  if (!(afi == AFI_IP || afi == AFI_IP6))
     return;
   
   bgp = peer->bgp;
