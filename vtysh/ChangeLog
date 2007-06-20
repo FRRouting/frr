@@ -1,3 +1,9 @@
+2007-06-20 Nicolas Deffayet <nicolas@deffayet.com>
+
+	* vtysh.c: (vtysh_write_terminal) Write 'end' when done,
+	  to be consistent with telnet vty, and expected by tools
+	  like rancid.
+
 2007-05-01 David L Stevens <dlstevens@us.ibm.com>
 
 	* vtysh/extract.pl.in: added VTYSH_ZEBRA flag for route-map and
