@@ -1,3 +1,10 @@
+2007-06-22 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_fsm.c: (struct FSM) Bug #368. TCP Errors during OpenSent
+	  should cycle to Active, not to Idle or else peer bringup can
+	  race and cycle Idle<->Active. Reported and fix tested by
+	  Mukesh Agrawal.
+
 2007-05-25 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_route.c: (bgp_default_originate) Sanity check added

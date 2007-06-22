@@ -963,10 +963,10 @@ struct {
     /* OpenSent, */
     {bgp_ignore,  OpenSent},	/* BGP_Start                    */
     {bgp_stop,    Idle},	/* BGP_Stop                     */
-    {bgp_stop,    Idle},	/* TCP_connection_open          */
+    {bgp_stop,    Active},	/* TCP_connection_open          */
     {bgp_stop,    Active},	/* TCP_connection_closed        */
-    {bgp_ignore,  Idle},	/* TCP_connection_open_failed   */
-    {bgp_stop,    Idle},	/* TCP_fatal_error              */
+    {bgp_stop,    Active},	/* TCP_connection_open_failed   */
+    {bgp_stop,    Active},	/* TCP_fatal_error              */
     {bgp_ignore,  Idle},	/* ConnectRetry_timer_expired   */
     {bgp_fsm_holdtime_expire, Idle},	/* Hold_Timer_expired           */
     {bgp_ignore,  Idle},	/* KeepAlive_timer_expired      */
