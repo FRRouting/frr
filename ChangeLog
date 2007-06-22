@@ -1,3 +1,9 @@
+2007-06-22 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: IRDP also depends on struct icmphdr, enabling
+	  only on in_pktinfo breaks when an OS acquires pktinfo, as
+	  Solaris NV has. Reported by Jim Carlson.
+
 2007-05-10 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Add back check for inet_aton, which got dropped

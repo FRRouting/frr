@@ -418,7 +418,7 @@ m4_define([QUAGGA_INCLUDES],
 
 AC_CHECK_HEADERS([sys/un.h net/if.h netinet/in_systm.h netinet/in_var.h \
 	net/if_dl.h net/if_var.h net/netopt.h net/route.h \
-	inet/nd.h arpa/inet.h \
+	inet/nd.h arpa/inet.h netinet/ip_icmp.h \
 	fcntl.h stddef.h sys/ioctl.h syslog.h wchar.h wctype.h \
 	sys/sysctl.h sys/sockio.h kvm.h sys/conf.h],
 	[], [], QUAGGA_INCLUDES)
@@ -461,6 +461,10 @@ QUAGGA_INCLUDES
 #endif
 #if HAVE_ARPA_INET_H
 # include <arpa/inet.h>
+#endif
+/* Required for IDRP */
+#if HAVE_NETINET_IP_ICMP_H
+# include <netinet/ip_icmp.h>
 #endif
 ])dnl
 
@@ -1204,8 +1208,7 @@ AC_CHECK_TYPES([struct sockaddr, struct sockaddr_in,
 	socklen_t,
 	struct ifaliasreq, struct if6_aliasreq, struct in6_aliasreq,
 	struct nd_opt_adv_interval, struct rt_addrinfo,
-	struct nd_opt_homeagent_info, struct nd_opt_adv_interval,
-	struct in_pktinfo],
+	struct nd_opt_homeagent_info, struct nd_opt_adv_interval],
 	[], [], QUAGGA_INCLUDES)
 
 AC_CHECK_MEMBERS([struct sockaddr.sa_len,
@@ -1216,12 +1219,16 @@ AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 	[], [], QUAGGA_INCLUDES)
 
 dnl ---------------------------
-dnl pktinfo checks
+dnl IRDP/pktinfo/icmphdr checks
 dnl ---------------------------
 AC_CHECK_TYPES([struct in_pktinfo], 
- [if test "${enable_irdp}" != "no"; then
-    AC_DEFINE(HAVE_IRDP,, IRDP)
-  fi],
+ [AC_CHECK_TYPES([struct icmphdr],
+   [if test "${enable_irdp}" != "no"; then
+      AC_DEFINE(HAVE_IRDP,, IRDP)
+    fi],
+   [if test "${enable_irdp}" = "yes"; then
+      AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
+    fi], [QUAGGA_INCLUDES])],
  [if test "${enable_irdp}" = "yes"; then
     AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
   fi], [QUAGGA_INCLUDES])
