@@ -1064,7 +1064,7 @@ QUAGGA_INCLUDES
 # include <netinet6/in6_var.h>
 #endif
 #if HAVE_NETINET6_ND6_H
-# include <netinet6/nd.h>
+# include <netinet6/nd6.h>
 #endif
 ])dnl
 

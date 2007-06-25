@@ -1,3 +1,7 @@
+2007-06-25 Hasso Tepper <hasso@quagga.net>
+
+	* configure.ac: Fix typo so it compiles again on BSD systems.
+
 2007-06-22 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: IRDP also depends on struct icmphdr, enabling
