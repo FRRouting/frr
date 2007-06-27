@@ -1,3 +1,10 @@
+2007-06-25 Denis Ovsienko
+
+	* zebra_rib.c: (rib_add_ipv4_multipath) Loop through RIB
+	  is using 'same' variable, but RIB_ENTRY_REMOVED check
+	  is testing the constant 'rib' variable, fix. Impact
+	  unknown at this point.
+
 2007-05-30 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zebra_routemap.c: (route_set_src_compile) Use '#ifdef HAVE_IPV6'

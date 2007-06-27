@@ -1393,7 +1393,7 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib)
      withdraw. */
   for (same = rn->info; same; same = same->next)
     {
-      if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+      if (CHECK_FLAG (same->status, RIB_ENTRY_REMOVED))
         continue;
       
       if (same->type == rib->type && same->table == rib->table
