@@ -176,9 +176,10 @@ getsockopt_ipv6_ifindex (struct msghdr *msgh)
 int
 setsockopt_multicast_ipv4(int sock, 
 			int optname, 
-			struct in_addr if_addr,
+			struct in_addr if_addr /* required */,
 			unsigned int mcast_addr,
-			unsigned int ifindex)
+			unsigned int ifindex /* optional: if non-zero, may be
+						  used instead of if_addr */)
 {
 
 #ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX

@@ -1,3 +1,8 @@
+2007-07-06 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* sockopt.{c,h}: (setsockopt_multicast_ipv4) Add some comments about
+	  the arguments.
+
 2007-06-01 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zebra.h: On linux, we seem to need to include <linux/types.h> before
