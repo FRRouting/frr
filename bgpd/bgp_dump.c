@@ -125,6 +125,7 @@ bgp_dump_open_file (struct bgp_dump *bgp_dump)
 
   if (bgp_dump->fp == NULL)
     {
+      zlog_warn ("bgp_dump_open_file: %s: %s", realpath, strerror (errno));
       umask(oldumask);
       return NULL;
     }
@@ -136,29 +137,29 @@ bgp_dump_open_file (struct bgp_dump *bgp_dump)
 static int
 bgp_dump_interval_add (struct bgp_dump *bgp_dump, int interval)
 {
-  int interval2, secs_into_day;
+  int secs_into_day;
   time_t t;
   struct tm *tm;
 
-  if (interval > 0 )
+  if (interval > 0)
     {
+      /* Periodic dump every interval seconds */
       if ((interval < 86400) && ((86400 % interval) == 0))
 	{
+	  /* Dump at predictable times: if a day has a whole number of
+	   * intervals, dump every interval seconds starting from midnight
+	   */
 	  (void) time(&t);
 	  tm = localtime(&t);
 	  secs_into_day = tm->tm_sec + 60*tm->tm_min + 60*60*tm->tm_hour;
-	  interval2 = interval - secs_into_day % interval;
-	  if(interval2 == 0) interval2 = interval;
-	}
-      else
-	{
-	  interval2 = interval;
+	  interval = interval - secs_into_day % interval; /* always > 0 */
 	}
       bgp_dump->t_interval = thread_add_timer (master, bgp_dump_interval_func, 
-					       bgp_dump, interval2);
+					       bgp_dump, interval);
     }
   else
     {
+      /* One-off dump: execute immediately, don't affect any scheduled dumps */
       bgp_dump->t_interval = thread_add_event (master, bgp_dump_interval_func,
 					       bgp_dump, 0);
     }
@@ -510,8 +511,9 @@ bgp_dump_parse_time (const char *str)
 }
 
 static int
-bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump, int type,
-	      const char *path, const char *interval_str)
+bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump,
+              enum bgp_dump_type type, const char *path,
+              const char *interval_str)
 {
   unsigned int interval;
   
@@ -525,6 +527,15 @@ bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump, int type,
 	  vty_out (vty, "Malformed interval string%s", VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
+
+      /* Don't schedule duplicate dumps if the dump command is given twice */
+      if (interval == bgp_dump->interval &&
+	  type == bgp_dump->type &&
+          path && bgp_dump->filename && !strcmp (path, bgp_dump->filename))
+	{
+          return CMD_SUCCESS;
+	}
+
       /* Set interval. */
       bgp_dump->interval = interval;
       if (bgp_dump->interval_str)

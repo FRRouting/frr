@@ -1,3 +1,11 @@
+2007-07-31 Lorenzo Colitti <lorenzo@colitti.com>
+
+	* bgp_dump.c: (general) Add comments to code.
+	  (bgp_dump_interval_add) remove some redundant lines.
+	  (bgp_dump_set) Use enum for type argument.
+	  Avoid scheduling dump twice if exact same command
+	  is given twice..
+
 2007-06-22 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_fsm.c: (struct FSM) Bug #368. TCP Errors during OpenSent
