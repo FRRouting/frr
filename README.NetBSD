@@ -6,6 +6,14 @@ $Id$
 # probably on any system using pkgsrc.  
 # One should have readline installed already (pkgsrc/devel/readline).
 
+# Quagga is currently documented not to require GNU make, but the
+# contents of solaris seem to require it.
+
+if true; then
+    MAKE=gmake
+    echo "WARNING: using gmake to work around buggy solaris/Makefile.am"
+fi
+
 case $1 in
 
     build)
@@ -27,4 +35,3 @@ case $1 in
     	make clean
 
 esac
-
