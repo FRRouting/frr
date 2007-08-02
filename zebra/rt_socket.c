@@ -96,6 +96,11 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
     {
       gate = 0;
 
+      /*
+       * XXX We need to refrain from kernel operations in some cases,
+       * but this if statement seems overly cautious - what about
+       * other than ADD and DELETE?
+       */
       if ((cmd == RTM_ADD
 	   && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 	  || (cmd == RTM_DELETE
@@ -127,14 +132,14 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 		  || nexthop->type == NEXTHOP_TYPE_IFNAME
 		  || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
 		ifindex = nexthop->ifindex;
-	  if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
-      {
-        struct in_addr loopback;
-        loopback.s_addr = htonl (INADDR_LOOPBACK);
-        sin_gate.sin_addr = loopback;
-        gate = 1;
-      }
-	  }
+	      if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+		{
+		  struct in_addr loopback;
+		  loopback.s_addr = htonl (INADDR_LOOPBACK);
+		  sin_gate.sin_addr = loopback;
+		  gate = 1;
+		}
+	    }
 
 	  if (gate && p->prefixlen == 32)
 	    mask = NULL;
@@ -148,27 +153,27 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 	      mask = &sin_mask;
 	    }
 
-      error = rtm_write (cmd,
-			(union sockunion *)&sin_dest, 
-			(union sockunion *)mask, 
-			gate ? (union sockunion *)&sin_gate : NULL,
-			ifindex,
-			rib->flags,
-			rib->metric);
+	  error = rtm_write (cmd,
+			     (union sockunion *)&sin_dest, 
+			     (union sockunion *)mask, 
+			     gate ? (union sockunion *)&sin_gate : NULL,
+			     ifindex,
+			     rib->flags,
+			     rib->metric);
 
 #if 0
-      if (error)
-	{
-	  zlog_info ("kernel_rtm_ipv4(): nexthop %d add error=%d.",
-	    nexthop_num, error);
-	}
+	  if (error)
+	    {
+	      zlog_info ("kernel_rtm_ipv4(): nexthop %d add error=%d.",
+			 nexthop_num, error);
+	    }
 #endif
-        if (error == 0)
-        {
-          nexthop_num++;
-          if (cmd == RTM_ADD)
-            SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
-        }
+	  if (error == 0)
+	    {
+	      nexthop_num++;
+	      if (cmd == RTM_ADD)
+		SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+	    }
 	}
     }
 
