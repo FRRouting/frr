@@ -1,3 +1,9 @@
+2007-08-02  Denis Ovsienko
+
+	* rt_socket.c (kernel_rtm_ipv4): Only call rtm_write when changes
+	are intended.  Don't set FIB flag on failed additions (such as
+	occur with multiple paths.
+
 2007-06-25 Denis Ovsienko
 
 	* zebra_rib.c: (rib_add_ipv4_multipath) Loop through RIB

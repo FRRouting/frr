@@ -99,9 +99,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
       if ((cmd == RTM_ADD
 	   && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 	  || (cmd == RTM_DELETE
-#if 0
 	      && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
-#endif
 	      ))
 	{
 	  if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
@@ -138,9 +136,6 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
       }
 	  }
 
-	  if (cmd == RTM_ADD)
-	    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
-
 	  if (gate && p->prefixlen == 32)
 	    mask = NULL;
 	  else
@@ -152,7 +147,6 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 	      mask = &sin_mask;
 	    }
-	}
 
       error = rtm_write (cmd,
 			(union sockunion *)&sin_dest, 
@@ -169,8 +163,13 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
 	    nexthop_num, error);
 	}
 #endif
-
-      nexthop_num++;
+        if (error == 0)
+        {
+          nexthop_num++;
+          if (cmd == RTM_ADD)
+            SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+        }
+	}
     }
 
   /* If there is no useful nexthop then return. */
