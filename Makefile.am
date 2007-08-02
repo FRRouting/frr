@@ -2,7 +2,7 @@
 
 SUBDIRS = lib @ZEBRA@ @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ \
          @ISISD@ @WATCHQUAGGA@ @VTYSH@ @OSPFCLIENT@ doc m4 @pkgsrcdir@ \
-         redhat solaris
+         redhat @SOLARIS@
 
 DIST_SUBDIRS = lib zebra bgpd ripd ripngd ospfd ospf6d \
 	  isisd watchquagga vtysh ospfclient doc m4 pkgsrc redhat tests \
