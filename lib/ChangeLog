@@ -1,3 +1,7 @@
+2007-07-06 Atis Elsts <atis@mikrotik.com>
+
+	* pqueue.{c,h}: Export trickle_up
+
 2007-07-26  Paul Jakma <paul.jakma@sun.com>
 
 	* log.c: (mes_lookup) warning about code not being in same-number

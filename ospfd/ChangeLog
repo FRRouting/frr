@@ -1,3 +1,9 @@
+2007-08-07 Atis Elsts <atis@mikrotik.com>
+
+	* ospf_spf.c: (ospf_spf_next) Sort heap in correct direction
+	  after vertex cost is changed, thus fixing incorrect SPF
+	  calculation on certain topologies.
+
 2007-08-06 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_lsa.c: (router_lsa_flags) Bug #331, NSSA regression caused

@@ -42,7 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #define RIGHT_OF(x) (2 * x + 2)
 #define HAVE_CHILD(x,q) (x < (q)->size / 2)
 
-static void
+void
 trickle_up (int index, struct pqueue *queue)
 {
   void *tmp;

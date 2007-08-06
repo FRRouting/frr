@@ -40,5 +40,6 @@ extern void pqueue_enqueue (void *data, struct pqueue *queue);
 extern void *pqueue_dequeue (struct pqueue *queue);
 
 extern void trickle_down (int index, struct pqueue *queue);
+extern void trickle_up (int index, struct pqueue *queue);
 
 #endif /* _ZEBRA_PQUEUE_H */

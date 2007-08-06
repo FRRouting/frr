@@ -896,9 +896,12 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
                * will flush the old parents
                */
               if (ospf_nexthop_calculation (area, v, w, l, distance))
-                /* Decrease the key of the node in the heap,
-                 * re-sort the heap. */
-                trickle_down (w_lsa->stat, candidate);
+                /* Decrease the key of the node in the heap.
+                 * trickle-sort it up towards root, just in case this
+                 * node should now be the new root due the cost change. 
+                 * (pqueu_{de,en}queue 
+                 */
+                trickle_up (w_lsa->stat, candidate);
             }
         } /* end W is already on the candidate list */
     } /* end loop over the links in V's LSA */
