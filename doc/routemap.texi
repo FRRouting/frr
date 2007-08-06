@@ -155,6 +155,10 @@ Matches the specified @var{metric}.
 Matches the specified  @var{community_list}
 @end deffn
 
+@deffn {Route-map Command} {match pathlimit as @var{ASN}} {}
+Matches the specified AS-Pathlimit @var{ASN}.
+@end deffn
+
 @node Route Map Set Command
 @section Route Map Set Command
 
@@ -188,6 +192,16 @@ Set the BGP-4+ global IPv6 nexthop address.
 
 @deffn {Route-map Command} {set ipv6 next-hop local @var{ipv6_address}} {}
 Set the BGP-4+ link local IPv6 nexthop address.
+@end deffn
+
+@deffn {Route-map Command} {set pathlimit ttl @var{ttl}} {}
+Sets the specified AS-Pathlimit @var{ttl} on the route. This will also cause
+the AS to be set to the local AS. 
+
+Note that the AS-Pathlimit RFC specifies that speakers advertising this
+attribute should set Atomic-aggregate on all less specific routes. Setting
+AS-Pathlimit by route-map does not do this, the user must do so themselves,
+as they wish. 
 @end deffn
 
 @node Route Map Call Command

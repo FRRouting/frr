@@ -1,3 +1,32 @@
+2007-07-31 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Support for draft-ietf-idr-as-pathlimit-03.
+	* bgp_attr.h: (struct attr) Add pathlimit struct
+          bgp_attr.c: (attr_str) Add BGP_ATTR_AS_PATHLIMIT string.
+          (attrhash_key_make) tally pathlimit too
+          (attrhash_cmp) cmp pathlimit attr
+          (bgp_attr_aspathlimit) New, parse AS_PATHLIMIT attr.
+          (bgp_attr_parse) ditto
+          (bgp_packet_attribute) Write out AS_PATHLIMIT when set
+          (bgp_dump_routes_attr) ditto
+         * bgp_route.h: (struct bgp_static) Add TTL field
+         * bgp_route.c: (bgp_announce_check) Drop paths that are over
+           their hop-count TTL before sending via EBGP.
+           Mangle ASN in pathlimit for confeds/private as best we can.
+           (bgp_static_update_{rsclient,main}) Add any configure pathlimit
+           information.
+           (bgp_pathlimit_update_parents) New, update atomic-aggr setting for
+           parents of an aspathlimit'ed static.
+           (bgp_static_set) Add TTL argument, for all the 'bgp network'
+           commands.
+           Call previous for TTL changed statics.
+           (bgp_static_unset) Call pathlimit_update_parents.
+           (various bgp network commands) Add 'pathlimit <0-255>' qualifier
+           to all the various forms, bar route-map - which can set ttl
+           itself.
+         * bgp_routemap.c: (general) Add support for 'set pathlimit ttl' and
+           'match pathlimit as'.
+           
 2007-07-26 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) Clean up and compact capability parsing slightly.

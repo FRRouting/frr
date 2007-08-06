@@ -1,3 +1,7 @@
+2007-07-31 Paul Jakma <paul.jakma@sun.com>
+
+	* bgpd.texi: Document 'network ... pathlimit <ttl>'
+
 2007-05-01 David L Stevens <dlstevens@us.ibm.com>
 
 	* main.texi: added route-map, prefix-list, ip protocol

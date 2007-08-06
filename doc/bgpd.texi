@@ -145,8 +145,31 @@ router bgp 1
 @end example
 This configuration example says that network 10.0.0.0/8 will be
 announced to all neighbors.  Some vendors' routers don't advertise
-routes if they aren't present in their IGP routing tables; @code{bgp}
+routes if they aren't present in their IGP routing tables; @code{bgpd}
 doesn't care about IGP routes when announcing its routes.
+@end deffn
+
+@deffn {BGP} {network @var{A.B.C.D/M} pathlimit <0-255>} {}
+This command configures a route to be originated into BGP, just as with the
+previous command, but additionally sets an AS-Pathlimit TTL to be advertised
+on the route. See draft-ietf-idr-as-pathlimit.
+
+Specifying a TTL of 0 can be used to remove pathlimit from a previously
+configured network statement.
+
+Note that when advertising prefixes with AS-Pathlimit set, all less-specific
+prefixes advertised SHOULD also have the Atomic-Aggregate attribute set.
+Failure to do so increases the risks of accidental routing loops occuring.
+
+This implementation will try to automatically set Atomic-Aggregate as
+appropriate on any less-specific prefixes originated by the same speaker,
+however it will not (and often can not) do so where @b{other} speakers in
+the AS are originating more specifics.
+
+Hence the system administrator must take care to ensure that all
+less-specific prefixes originated carry atomic-aggregate as appropriate, by
+manually configuring speakers originating less-specifics to set
+Atomic-Aggregate on those advertisements!
 @end deffn
 
 @deffn {BGP} {no network @var{A.B.C.D/M}} {}

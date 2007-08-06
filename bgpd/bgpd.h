@@ -591,6 +591,7 @@ struct bgp_nlri
 #define BGP_ATTR_MP_REACH_NLRI                  14
 #define BGP_ATTR_MP_UNREACH_NLRI                15
 #define BGP_ATTR_EXT_COMMUNITIES                16
+#define BGP_ATTR_AS_PATHLIMIT                   21
 
 /* BGP update origin.  */
 #define BGP_ORIGIN_IGP                           0
