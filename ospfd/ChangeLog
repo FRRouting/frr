@@ -1,3 +1,8 @@
+2007-08-06 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_lsa.c: (router_lsa_flags) Bug #331, NSSA regression caused
+	  caused ASBRs to not advertise E-bit into NSSA areas.
+
 2007-05-09 Milan Kocian <milon@wq.cz>
 
 	* ospf_vty.c: Fix commands: 'ip ospf authentication A.B.C.D',
