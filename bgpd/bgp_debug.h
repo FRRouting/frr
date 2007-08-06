@@ -110,7 +110,7 @@ extern unsigned long term_bgp_debug_zebra;
 #define BGP_DEBUG(a, b)		(term_bgp_debug_ ## a & BGP_DEBUG_ ## b)
 #define CONF_BGP_DEBUG(a, b)    (conf_bgp_debug_ ## a & BGP_DEBUG_ ## b)
 
-const extern char *bgp_type_str[];
+extern const char *bgp_type_str[];
 
 extern int bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
 extern void bgp_notify_print (struct peer *, struct bgp_notify *, const char *);

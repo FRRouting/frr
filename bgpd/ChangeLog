@@ -1,3 +1,41 @@
+2007-07-26 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Clean up and compact capability parsing slightly.
+	  Consolidate validation of length and logging of generic TLV, and
+	  memcpy of capability data, thus removing such from cap specifc
+	  code (not always present or correct).
+	* bgp_open.h: Add structures for the generic capability TLV header
+	  and for the data formats of the various specific capabilities we
+	  support.  Hence remove the badly named, or else misdefined, struct
+	  capability.
+	* bgp_open.c: (bgp_capability_vty_out) Use struct capability_mp_data.
+	  Do the length checks *before* memcpy()'ing based on that length
+	  (stored capability - should have been validated anyway on input,
+	  but..).
+	  (bgp_afi_safi_valid_indices) new function to validate (afi,safi)
+	  which is about to be used as index into arrays, consolidates
+	  several instances of same, at least one of which appeared to be
+	  incomplete..
+	  (bgp_capability_mp) Much condensed.
+	  (bgp_capability_orf_entry) New, process one ORF entry
+	  (bgp_capability_orf) Condensed. Fixed to process all ORF entries.
+	  (bgp_capability_restart) Condensed, and fixed to use a
+	  cap-specific type, rather than abusing capability_mp.
+	  (struct message capcode_str) added to aid generic logging.
+	  (size_t cap_minsizes[]) added to aid generic validation of
+	  capability length field.
+	  (bgp_capability_parse) Generic logging and validation of TLV
+	  consolidated here. Code compacted as much as possible.
+	* bgp_packet.c: (bgp_open_receive) Capability parsers now use
+	  streams, so no more need here to manually fudge the input stream
+	  getp.
+	  (bgp_capability_msg_parse) use struct capability_mp_data. Validate
+	  lengths /before/ memcpy. Use bgp_afi_safi_valid_indices.
+	  (bgp_capability_receive) Exported for use by test harness.	  
+	* bgp_vty.c: (bgp_show_summary) fix conversion warning
+	  (bgp_show_peer) ditto
+	* bgp_debug.h: Fix storage 'extern' after type 'const'.
+
 2007-07-31 Lorenzo Colitti <lorenzo@colitti.com>
 
 	* bgp_dump.c: (general) Add comments to code.

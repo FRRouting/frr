@@ -1,3 +1,11 @@
+2007-07-26  Paul Jakma <paul.jakma@sun.com>
+
+	* log.c: (mes_lookup) warning about code not being in same-number
+	  array slot should be debug, not warning. E.g. BGP has several
+	  discontigious number spaces, allocating from different parts of a
+	  space is not uncommon (e.g. IANA assigned versus vendor-assigned
+	  code points in some number space).
+	  
 2007-07-06 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* sockopt.{c,h}: (setsockopt_multicast_ipv4) Add some comments about

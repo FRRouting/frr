@@ -21,21 +21,32 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_OPEN_H
 #define _QUAGGA_BGP_OPEN_H
 
-/* MP Capability information. */
-struct capability_mp
+/* Standard header for capability TLV */
+struct capability_header
+{
+  u_char code;
+  u_char length;
+};
+
+/* Generic MP capability data */
+struct capability_mp_data
 {
   u_int16_t afi;
   u_char reserved;
   u_char safi;
 };
 
-/* BGP open message capability. */
-struct capability
+#pragma pack(1)
+struct capability_orf_entry 
 {
-  u_char code;
-  u_char length;
-  struct capability_mp mpc;
-};
+  struct capability_mp_data mpc;
+  u_char num;
+  struct {
+    u_char type;
+    u_char mode;
+  } orfs[];
+} __attribute__ ((packed));
+#pragma pack()
 
 struct graceful_restart_af
 {
@@ -44,12 +55,18 @@ struct graceful_restart_af
   u_char flag;
 };
 
+struct capability_gr
+{
+  u_int16_t restart_flag_time;
+  struct graceful_restart_af gr[];
+};
+
 /* Capability Code */
 #define CAPABILITY_CODE_MP              1 /* Multiprotocol Extensions */
 #define CAPABILITY_CODE_REFRESH         2 /* Route Refresh Capability */
 #define CAPABILITY_CODE_ORF             3 /* Cooperative Route Filtering Capability */
 #define CAPABILITY_CODE_RESTART        64 /* Graceful Restart Capability */
-#define CAPABILITY_CODE_4BYTE_AS       65 /* 4-octet AS number Capability */
+#define CAPABILITY_CODE_AS4            65 /* 4-octet AS number Capability */
 #define CAPABILITY_CODE_DYNAMIC        66 /* Dynamic Capability */
 #define CAPABILITY_CODE_REFRESH_OLD   128 /* Route Refresh Capability(cisco) */
 #define CAPABILITY_CODE_ORF_OLD       130 /* Cooperative Route Filtering Capability(cisco) */
@@ -59,6 +76,7 @@ struct graceful_restart_af
 #define CAPABILITY_CODE_REFRESH_LEN     0
 #define CAPABILITY_CODE_DYNAMIC_LEN     0
 #define CAPABILITY_CODE_RESTART_LEN     2 /* Receiving only case */
+#define CAPABILITY_CODE_AS4_LEN         4
 
 /* Cooperative Route Filtering Capability.  */
 
@@ -82,5 +100,6 @@ struct graceful_restart_af
 extern int bgp_open_option_parse (struct peer *, u_char, int *);
 extern void bgp_open_capability (struct stream *, struct peer *);
 extern void bgp_capability_vty_out (struct vty *, struct peer *);
+extern int bgp_afi_safi_valid_indices (afi_t, safi_t *);
 
 #endif /* _QUAGGA_BGP_OPEN_H */
