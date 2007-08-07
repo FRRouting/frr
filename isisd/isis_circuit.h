@@ -69,6 +69,7 @@ struct isis_circuit
   struct isis_area *area;	/* back pointer to the area */
   struct interface *interface;	/* interface info from z */
   int fd;			/* IS-IS l1/2 socket */
+  int sap_length;		/* SAP length for DLPI */
   struct nlpids nlpids;
   /*
    * Threads

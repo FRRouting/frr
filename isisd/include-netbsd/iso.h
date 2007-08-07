@@ -192,7 +192,13 @@ extern struct protosw isosw[];
 #else
 /* user utilities definitions from the iso library */
 
+#ifdef SUNOS_5
+#define	__P(x)	x
+#define	__BEGIN_DECLS
+#define	__END_DECLS
+#else
 #include <sys/cdefs.h>
+#endif
 
 __BEGIN_DECLS
 struct iso_addr *iso_addr __P((const char *));

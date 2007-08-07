@@ -14,12 +14,13 @@
  * into proprietary software; there is no requirement for such software to
  * contain a copyright notice related to this source.
  *
- * $Id: dict.c,v 1.4 2005/09/25 12:04:25 hasso Exp $
- * $Name:  $
+ * $Id$
+ * $Name$
  */
 
 #include <stdlib.h>
 #include <stddef.h>
+#include "zebra.h"
 #include "zassert.h"
 #define DICT_IMPLEMENTATION
 #include "dict.h"

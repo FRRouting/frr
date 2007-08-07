@@ -152,6 +152,10 @@ struct lan_neigh
   u_char LAN_addr[6];
 };
 
+#ifdef __SUNPRO_C
+#pragma pack(1)
+#endif
+
 /* struct for LSP entry */
 struct lsp_entry
 {
@@ -160,6 +164,10 @@ struct lsp_entry
   u_int32_t seq_num;
   u_int16_t checksum;
 } __attribute__ ((packed));
+
+#ifdef __SUNPRO_C
+#pragma pack()
+#endif
 
 /* struct for checksum */
 struct checksum

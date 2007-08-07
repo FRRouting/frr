@@ -24,6 +24,10 @@
 #ifndef _ZEBRA_ISIS_PDU_H
 #define _ZEBRA_ISIS_PDU_H
 
+#ifdef __SUNPRO_C
+#pragma pack(1)
+#endif
+
 /*
  *                    ISO 9542 - 7.5,7.6
  *
@@ -221,6 +225,10 @@ struct isis_partial_seqnum_hdr
   u_char source_id[ISIS_SYS_ID_LEN + 1];
 };
 #define ISIS_PSNP_HDRLEN 9
+
+#ifdef __SUNPRO_C
+#pragma pack()
+#endif
 
 /*
  * Function for receiving IS-IS PDUs
