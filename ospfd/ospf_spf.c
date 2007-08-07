@@ -899,7 +899,7 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
                 /* Decrease the key of the node in the heap.
                  * trickle-sort it up towards root, just in case this
                  * node should now be the new root due the cost change. 
-                 * (pqueu_{de,en}queue 
+                 * (next pqueu_{de,en}queue will fully re-heap the queue).
                  */
                 trickle_up (w_lsa->stat, candidate);
             }

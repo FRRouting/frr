@@ -1,3 +1,8 @@
+2007-08-07 Paul Jakma <paul.jakma@sun.com>
+
+	* ospf_spf.c: (ospf_spf_next) Finish off the explanatory
+	  comment made in previous commit
+
 2007-08-07 Atis Elsts <atis@mikrotik.com>
 
 	* ospf_spf.c: (ospf_spf_next) Sort heap in correct direction
