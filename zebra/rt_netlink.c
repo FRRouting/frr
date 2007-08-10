@@ -647,12 +647,8 @@ netlink_interface_addr (struct sockaddr_nl *snl, struct nlmsghdr *h)
   addr = (tb[IFA_LOCAL] ? RTA_DATA(tb[IFA_LOCAL]) : NULL);
 
   /* is there a peer address? */
-  /* N.B. I do not understand why the memcmp compares 4 bytes regardless
-     of address family, but this is exactly how it appears in
-     print_addrinfo.  I wonder if it should be RTA_PAYLOAD(tb[IFA_ADDRESS])
-     instead of 4... */
   if (tb[IFA_ADDRESS] &&
-      memcmp(RTA_DATA(tb[IFA_ADDRESS]), RTA_DATA(tb[IFA_LOCAL]), 4))
+      memcmp(RTA_DATA(tb[IFA_ADDRESS]), RTA_DATA(tb[IFA_LOCAL]), RTA_PAYLOAD(tb[IFA_ADDRESS])))
     {
       broad = RTA_DATA(tb[IFA_ADDRESS]);
       SET_FLAG (flags, ZEBRA_IFA_PEER);

@@ -1,3 +1,8 @@
+2007-08-10  Emmanuel Vize <emmanuel.vize@6wind.com>
+
+	* rt_netlink.c: (netlink_interface_addr) Use the appropriate field length for the address
+          (acknowledge Andy's comment).
+
 2007-08-06  Denis Ovsienko
 
 	* zebra_rib.c: (general) Add extra debug logging for RIB and
