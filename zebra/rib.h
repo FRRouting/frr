@@ -211,6 +211,15 @@ extern struct nexthop *nexthop_ifname_add (struct rib *, char *);
 extern struct nexthop *nexthop_blackhole_add (struct rib *);
 extern struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *,
 					 struct in_addr *);
+extern void rib_lookup_and_dump (struct prefix_ipv4 *);
+extern void rib_dump (const char *, const struct prefix_ipv4 *, const struct rib *);
+extern int rib_lookup_ipv4_route (struct prefix_ipv4 *, union sockunion *);
+#define ZEBRA_RIB_LOOKUP_ERROR -1
+#define ZEBRA_RIB_FOUND_EXACT 0
+#define ZEBRA_RIB_FOUND_NOGATE 1
+#define ZEBRA_RIB_FOUND_CONNECTED 2
+#define ZEBRA_RIB_NOTFOUND 3
+
 #ifdef HAVE_IPV6
 extern struct nexthop *nexthop_ipv6_add (struct rib *, struct in6_addr *);
 #endif /* HAVE_IPV6 */

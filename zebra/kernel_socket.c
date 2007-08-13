@@ -160,6 +160,7 @@ struct message rtm_type_str[] =
 #endif /* RTM_IFANNOUNCE */
   {0,            NULL}
 };
+int rtm_type_str_max = sizeof (rtm_type_str) / sizeof (struct message) - 1;
 
 struct message rtm_flag_str[] =
 {
@@ -737,14 +738,12 @@ rtm_read (struct rt_msghdr *rtm)
 
   zebra_flags = 0;
 
-  /* Discard self send message. */
-  if (rtm->rtm_type != RTM_GET 
-      && (rtm->rtm_pid == pid || rtm->rtm_pid == old_pid))
-    return;
-
   /* Read destination and netmask and gateway from rtm message
      structure. */
   flags = rtm_read_mesg (rtm, &dest, &mask, &gate, ifname, &ifnlen);
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    zlog_debug ("%s: got rtm of type %d (%s)", __func__, rtm->rtm_type,
+      LOOKUP (rtm_type_str, rtm->rtm_type));
 
 #ifdef RTF_CLONED	/*bsdi, netbsd 1.6*/
   if (flags & RTF_CLONED)
@@ -786,6 +785,79 @@ rtm_read (struct rt_msghdr *rtm)
       else
 	p.prefixlen = ip_masklen (mask.sin.sin_addr);
       
+      /* Catch self originated messages and match them against our current RIB.
+       * At the same time, ignore unconfirmed messages, they should be tracked
+       * by rtm_write() and kernel_rtm_ipv4().
+       */
+      if (rtm->rtm_type != RTM_GET
+          && (rtm->rtm_pid == pid || rtm->rtm_pid == old_pid))
+      {
+        char buf[INET_ADDRSTRLEN], gate_buf[INET_ADDRSTRLEN];
+        int ret;
+        if (!(flags & RTF_DONE))
+          return;
+        if (! IS_ZEBRA_DEBUG_RIB)
+          return;
+        ret = rib_lookup_ipv4_route (&p, &gate); 
+        inet_ntop (AF_INET, &p.prefix, buf, INET_ADDRSTRLEN);
+        switch (rtm->rtm_type)
+        {
+          case RTM_ADD:
+          case RTM_GET:
+          case RTM_CHANGE:
+            /* The kernel notifies us about a new route in FIB created by us.
+               Do we have a correspondent entry in our RIB? */
+            switch (ret)
+            {
+              case ZEBRA_RIB_NOTFOUND:
+                zlog_debug ("%s: %s %s/%d: desync: RR isn't yet in RIB, while already in FIB",
+                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                break;
+              case ZEBRA_RIB_FOUND_CONNECTED:
+              case ZEBRA_RIB_FOUND_NOGATE:
+                inet_ntop (AF_INET, &gate.sin.sin_addr, gate_buf, INET_ADDRSTRLEN);
+                zlog_debug ("%s: %s %s/%d: desync: RR is in RIB, but gate differs (ours is %s)",
+                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen, gate_buf);
+                break;
+              case ZEBRA_RIB_FOUND_EXACT: /* RIB RR == FIB RR */
+                zlog_debug ("%s: %s %s/%d: done Ok",
+                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                rib_lookup_and_dump (&p);
+                return;
+                break;
+            }
+            break;
+          case RTM_DELETE:
+            /* The kernel notifies us about a route deleted by us. Do we still
+               have it in the RIB? Do we have anything instead? */
+            switch (ret)
+            {
+              case ZEBRA_RIB_FOUND_EXACT:
+                zlog_debug ("%s: %s %s/%d: desync: RR is still in RIB, while already not in FIB",
+                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                rib_lookup_and_dump (&p);
+                break;
+              case ZEBRA_RIB_FOUND_CONNECTED:
+              case ZEBRA_RIB_FOUND_NOGATE:
+                zlog_debug ("%s: %s %s/%d: desync: RR is still in RIB, plus gate differs",
+                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                rib_lookup_and_dump (&p);
+                break;
+              case ZEBRA_RIB_NOTFOUND: /* RIB RR == FIB RR */
+                zlog_debug ("%s: %s %s/%d: done Ok",
+                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                rib_lookup_and_dump (&p);
+                return;
+                break;
+            }
+            break;
+          default:
+            zlog_debug ("%s: %s/%d: warning: loopback RTM of type %s received",
+              __func__, buf, p.prefixlen, LOOKUP (rtm_type_str, rtm->rtm_type));
+        }
+        return;
+      }
+
       /* Change, delete the old prefix, we have no further information
        * to specify the route really
        */
@@ -903,7 +975,13 @@ rtm_write (int message,
     {
       if (!ifp)
         {
-          zlog_warn ("no gateway found for interface index %d", index);
+          char dest_buf[INET_ADDRSTRLEN] = "NULL", mask_buf[INET_ADDRSTRLEN] = "255.255.255.255";
+          if (dest)
+            inet_ntop (AF_INET, &dest->sin.sin_addr, dest_buf, INET_ADDRSTRLEN);
+          if (mask)
+            inet_ntop (AF_INET, &mask->sin.sin_addr, mask_buf, INET_ADDRSTRLEN);
+          zlog_warn ("%s: %s/%s: gate == NULL and no gateway found for ifindex %d",
+            __func__, dest_buf, mask_buf, index);
           return -1;
         }
       gate = (union sockunion *) & ifp->sdl;
@@ -959,11 +1037,13 @@ rtm_write (int message,
 	return ZEBRA_ERR_RTEXIST;
       if (errno == ENETUNREACH)
 	return ZEBRA_ERR_RTUNREACH;
+      if (errno == ESRCH)
+	return ZEBRA_ERR_RTNOEXIST;
       
-      zlog_warn ("write : %s (%d)", safe_strerror (errno), errno);
-      return -1;
+      zlog_warn ("%s: write : %s (%d)", __func__, safe_strerror (errno), errno);
+      return ZEBRA_ERR_KERNEL;
     }
-  return 0;
+  return ZEBRA_ERR_NOERROR;
 }
 
 
@@ -974,17 +1054,7 @@ rtm_write (int message,
 static void
 rtmsg_debug (struct rt_msghdr *rtm)
 {
-  const char *type = "Unknown";
-  struct message *mes;
-
-  for (mes = rtm_type_str; mes->str; mes++)
-    if (mes->key == rtm->rtm_type)
-      {
-	type = mes->str;
-	break;
-      }
-
-  zlog_debug ("Kernel: Len: %d Type: %s", rtm->rtm_msglen, type);
+  zlog_debug ("Kernel: Len: %d Type: %s", rtm->rtm_msglen, LOOKUP (rtm_type_str, rtm->rtm_type));
   rtm_flag_dump (rtm->rtm_flags);
   zlog_debug ("Kernel: message seq %d", rtm->rtm_seq);
   zlog_debug ("Kernel: pid %d, rtm_addrs 0x%x", rtm->rtm_pid, rtm->rtm_addrs);

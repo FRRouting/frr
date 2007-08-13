@@ -631,6 +631,82 @@ rib_lookup_ipv4 (struct prefix_ipv4 *p)
   return NULL;
 }
 
+/*
+ * This clone function, unlike its original rib_lookup_ipv4(), checks
+ * if specified IPv4 route record (prefix/mask -> gate) exists in
+ * the whole RIB and has ZEBRA_FLAG_SELECTED set.
+ *
+ * Return values:
+ * -1: error
+ * 0: exact match found
+ * 1: a match was found with a different gate
+ * 2: connected route found
+ * 3: no matches found
+ */
+int
+rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate)
+{
+  struct route_table *table;
+  struct route_node *rn;
+  struct rib *match;
+  struct nexthop *nexthop;
+
+  /* Lookup table.  */
+  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  if (! table)
+    return ZEBRA_RIB_LOOKUP_ERROR;
+
+  /* Scan the RIB table for exactly matching RIB entry. */
+  rn = route_node_lookup (table, (struct prefix *) p);
+
+  /* No route for this prefix. */
+  if (! rn)
+    return ZEBRA_RIB_NOTFOUND;
+
+  /* Unlock node. */
+  route_unlock_node (rn);
+
+  /* Find out if a "selected" RR for the discovered RIB entry exists ever. */
+  for (match = rn->info; match; match = match->next)
+  {
+    if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+      continue;
+    if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
+      break;
+  }
+
+  /* None such found :( */
+  if (!match)
+    return ZEBRA_RIB_NOTFOUND;
+
+  if (match->type == ZEBRA_ROUTE_CONNECT)
+    return ZEBRA_RIB_FOUND_CONNECTED;
+  
+  /* Ok, we have a cood candidate, let's check it's nexthop list... */
+  for (nexthop = match->nexthop; nexthop; nexthop = nexthop->next)
+    if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
+    {
+      /* We are happy with either direct or recursive hexthop */
+      if (nexthop->gate.ipv4.s_addr == qgate->sin.sin_addr.s_addr ||
+          nexthop->rgate.ipv4.s_addr == qgate->sin.sin_addr.s_addr)
+        return ZEBRA_RIB_FOUND_EXACT;
+      else
+      {
+        if (IS_ZEBRA_DEBUG_RIB)
+        {
+          char gate_buf[INET_ADDRSTRLEN], rgate_buf[INET_ADDRSTRLEN], qgate_buf[INET_ADDRSTRLEN];
+          inet_ntop (AF_INET, &nexthop->gate.ipv4.s_addr, gate_buf, INET_ADDRSTRLEN);
+          inet_ntop (AF_INET, &nexthop->rgate.ipv4.s_addr, rgate_buf, INET_ADDRSTRLEN);
+          inet_ntop (AF_INET, &qgate->sin.sin_addr.s_addr, qgate_buf, INET_ADDRSTRLEN);
+          zlog_debug ("%s: qgate == %s, gate == %s, rgate == %s", __func__, qgate_buf, gate_buf, rgate_buf);
+        }
+        return ZEBRA_RIB_FOUND_NOGATE;
+      }
+    }
+
+  return ZEBRA_RIB_NOTFOUND;
+}
+
 #ifdef HAVE_IPV6
 struct rib *
 rib_match_ipv6 (struct in6_addr *addr)
@@ -693,6 +769,16 @@ rib_match_ipv6 (struct in6_addr *addr)
 
 #define RIB_SYSTEM_ROUTE(R) \
         ((R)->type == ZEBRA_ROUTE_KERNEL || (R)->type == ZEBRA_ROUTE_CONNECT)
+
+/* This function verifies reachability of one given nexthop, which can be
+ * numbered or unnumbered, IPv4 or IPv6. The result is unconditionally stored
+ * in nexthop->flags field. If the 4th parameter, 'set', is non-zero,
+ * nexthop->ifindex will be updated appropriately as well.
+ * An existing route map can turn (otherwise active) nexthop into inactive, but
+ * not vice versa.
+ *
+ * The return value is the final value of 'ACTIVE' flag.
+ */
 
 static int
 nexthop_active_check (struct route_node *rn, struct rib *rib,
@@ -839,6 +925,7 @@ rib_install_kernel (struct route_node *rn, struct rib *rib)
 #endif /* HAVE_IPV6 */
     }
 
+  /* This condition is never met, if we are using rt_socket.c */
   if (ret < 0)
     {
       for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
@@ -860,6 +947,8 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
       break;
 #ifdef HAVE_IPV6
     case AF_INET6:
+      if (IS_ZEBRA_DEBUG_RIB)
+        zlog_debug ("%s: calling kernel_delete_ipv4 (%p, %p)", __func__, rn, rib);
       ret = kernel_delete_ipv6 (&rn->p, rib);
       break;
 #endif /* HAVE_IPV6 */
@@ -907,6 +996,9 @@ rib_process (struct work_queue *wq, void *data)
 
   for (rib = rn->info; rib; rib = next)
     {
+      /* The next pointer is saved, because current pointer
+       * may be passed to rib_unlink() in the middle of iteration.
+       */
       next = rib->next;
       
       /* Currently installed rib. */
@@ -983,9 +1075,16 @@ rib_process (struct work_queue *wq, void *data)
       /* metric tie-breaks equal distance */
       if (rib->metric <= select->metric)
         select = rib;
-    }
-  
-  /* Same route is selected. */
+    } /* for (rib = rn->info; rib; rib = next) */
+
+  /* After the cycle is finished, the following pointers will be set:
+   * select --- the winner RIB entry, if any was found, otherwise NULL
+   * fib    --- the SELECTED RIB entry, if any, otherwise NULL
+   * del    --- equal to fib, if fib is queued for deletion, NULL otherwise
+   * rib    --- NULL
+   */
+
+  /* Same RIB entry is selected. Update FIB and finish. */
   if (select && select == fib)
     {
       if (IS_ZEBRA_DEBUG_RIB)
@@ -1024,7 +1123,10 @@ rib_process (struct work_queue *wq, void *data)
       goto end;
     }
 
-  /* Uninstall old rib from forwarding table. */
+  /* At this point we either haven't found the best RIB entry or it is
+   * different from what we currently intend to flag with SELECTED. In both
+   * cases, if a RIB block is present in FIB, it should be withdrawn.
+   */
   if (fib)
     {
       if (IS_ZEBRA_DEBUG_RIB)
@@ -1039,7 +1141,10 @@ rib_process (struct work_queue *wq, void *data)
       nexthop_active_update (rn, fib, 1);
     }
 
-  /* Install new rib into forwarding table. */
+  /* Regardless of some RIB entry being SELECTED or not before, now we can
+   * tell, that if a new winner exists, FIB is still not updated with this
+   * data, but ready to be.
+   */
   if (select)
     {
       if (IS_ZEBRA_DEBUG_RIB)
@@ -1382,14 +1487,125 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
       SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
 
   /* Link new rib to node.*/
+  if (IS_ZEBRA_DEBUG_RIB)
+    zlog_debug ("%s: calling rib_addnode (%p, %p)", __func__, rn, rib);
   rib_addnode (rn, rib);
   
   /* Free implicit route.*/
   if (same)
+  {
+    if (IS_ZEBRA_DEBUG_RIB)
+      zlog_debug ("%s: calling rib_delnode (%p, %p)", __func__, rn, rib);
     rib_delnode (rn, same);
+  }
   
   route_unlock_node (rn);
   return 0;
+}
+
+/* This function dumps the contents of a given RIB entry into
+ * standard debug log. Calling function name and IP prefix in
+ * question are passed as 1st and 2nd arguments.
+ */
+
+void rib_dump (const char * func, const struct prefix_ipv4 * p, const struct rib * rib)
+{
+  char straddr1[INET_ADDRSTRLEN], straddr2[INET_ADDRSTRLEN];
+  struct nexthop *nexthop;
+
+  inet_ntop (AF_INET, &p->prefix, straddr1, INET_ADDRSTRLEN);
+  zlog_debug ("%s: dumping RIB entry %p for %s/%d", func, rib, straddr1, p->prefixlen);
+  zlog_debug
+  (
+    "%s: refcnt == %lu, uptime == %u, type == %u, table == %d",
+    func,
+    rib->refcnt,
+    rib->uptime,
+    rib->type,
+    rib->table
+  );
+  zlog_debug
+  (
+    "%s: metric == %u, distance == %u, flags == %u, status == %u",
+    func,
+    rib->metric,
+    rib->distance,
+    rib->flags,
+    rib->status
+  );
+  zlog_debug
+  (
+    "%s: nexthop_num == %u, nexthop_active_num == %u, nexthop_fib_num == %u",
+    func,
+    rib->nexthop_num,
+    rib->nexthop_active_num,
+    rib->nexthop_fib_num
+  );
+  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+  {
+    inet_ntop (AF_INET, &nexthop->gate.ipv4.s_addr, straddr1, INET_ADDRSTRLEN);
+    inet_ntop (AF_INET, &nexthop->rgate.ipv4.s_addr, straddr2, INET_ADDRSTRLEN);
+    zlog_debug
+    (
+      "%s: NH %s (%s) with flags %s%s%s",
+      func,
+      straddr1,
+      straddr2,
+      (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "ACTIVE " : ""),
+      (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ? "FIB " : ""),
+      (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE) ? "RECURSIVE" : "")
+    );
+  }
+  zlog_debug ("%s: dump complete", func);
+}
+
+/* This is an exported helper to rtm_read() to dump the strange
+ * RIB entry found by rib_lookup_ipv4_route()
+ */
+
+void rib_lookup_and_dump (struct prefix_ipv4 * p)
+{
+  struct route_table *table;
+  struct route_node *rn;
+  struct rib *rib;
+  char prefix_buf[INET_ADDRSTRLEN];
+
+  /* Lookup table.  */
+  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  if (! table)
+  {
+    zlog_err ("%s: vrf_table() returned NULL", __func__);
+    return;
+  }
+
+  inet_ntop (AF_INET, &p->prefix.s_addr, prefix_buf, INET_ADDRSTRLEN);
+  /* Scan the RIB table for exactly matching RIB entry. */
+  rn = route_node_lookup (table, (struct prefix *) p);
+
+  /* No route for this prefix. */
+  if (! rn)
+  {
+    zlog_debug ("%s: lookup failed for %s/%d", __func__, prefix_buf, p->prefixlen);
+    return;
+  }
+
+  /* Unlock node. */
+  route_unlock_node (rn);
+
+  /* let's go */
+  for (rib = rn->info; rib; rib = rib->next)
+  {
+    zlog_debug
+    (
+      "%s: rn %p, rib %p: %s, %s",
+      __func__,
+      rn,
+      rib,
+      (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED) ? "removed" : "NOT removed"),
+      (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED) ? "selected" : "NOT selected")
+    );
+    rib_dump (__func__, p, rib);
+  }
 }
 
 int
@@ -1440,10 +1656,24 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib)
 
   /* Link new rib to node.*/
   rib_addnode (rn, rib);
+  if (IS_ZEBRA_DEBUG_RIB)
+  {
+    zlog_debug ("%s: called rib_addnode (%p, %p) on new RIB entry",
+      __func__, rn, rib);
+    rib_dump (__func__, p, rib);
+  }
 
   /* Free implicit route.*/
   if (same)
+  {
+    if (IS_ZEBRA_DEBUG_RIB)
+    {
+      zlog_debug ("%s: calling rib_delnode (%p, %p) on existing RIB entry",
+        __func__, rn, same);
+      rib_dump (__func__, p, same);
+    }
     rib_delnode (rn, same);
+  }
   
   route_unlock_node (rn);
   return 0;

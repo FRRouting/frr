@@ -454,10 +454,12 @@ extern const char *zserv_command_string (unsigned int command);
 #define ZEBRA_FAMILY_MAX                 3
 
 /* Error codes of zebra. */
+#define ZEBRA_ERR_NOERROR                0
 #define ZEBRA_ERR_RTEXIST               -1
 #define ZEBRA_ERR_RTUNREACH             -2
 #define ZEBRA_ERR_EPERM                 -3
 #define ZEBRA_ERR_RTNOEXIST             -4
+#define ZEBRA_ERR_KERNEL                -5
 
 /* Zebra message flags */
 #define ZEBRA_FLAG_INTERNAL           0x01

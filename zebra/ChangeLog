@@ -1,3 +1,19 @@
+2007-08-13 Denis Ovsienko
+
+	* kernel_socket.c: normalize rtm_type_str so it can be handled
+	  by LOOKUP macro
+	* kernel_socket.c: (rtm_read) don't ignore self-generated
+	  routing messages, so we can debug them; make use of
+	  ZEBRA_ERR_RTNOEXIST; output more details in debug log.
+	* kernel_socket.c: (rtmsg_debug) make use of LOOKUP macro
+	* kernel_socket.h: let the world know about rtm_type_str[_max]
+	* rib.h: 3 more debugging functions and 5 return codes
+	* rt_socket.c: (kernel_rtm_ipv4) dump IP prefix and masklen;
+	  complain about strange rtm_write() return values
+	* zebra_rib.c: (rib_lookup_ipv4_route, rib_dump,
+	  rib_lookup_and_dump) --- new functions; more comments;
+	  more debug logging
+
 2007-08-10  Emmanuel Vize <emmanuel.vize@6wind.com>
 
 	* rt_netlink.c: (netlink_interface_addr) Use the appropriate field length for the address
