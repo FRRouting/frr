@@ -881,27 +881,32 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
   return CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 }
 
+/* Iterate over all nexthops of the given RIB entry and refresh their
+ * ACTIVE flag. rib->nexthop_active_num is updated accordingly. If any
+ * nexthop is found to toggle the ACTIVE flag, the whole rib structure
+ * is flagged with ZEBRA_FLAG_CHANGED. The 4th 'set' argument is
+ * transparently passed to nexthop_active_check().
+ *
+ * Return value is the new number of active nexthops.
+ */
+
 static int
 nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
 {
   struct nexthop *nexthop;
-  int active;
+  int prev_active, new_active;
 
   rib->nexthop_active_num = 0;
   UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
 
   for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-    {
-      active = CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-
-      nexthop_active_check (rn, rib, nexthop, set);
-      if ((MULTIPATH_NUM == 0 || rib->nexthop_active_num < MULTIPATH_NUM)
-          && active != CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-        SET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
-
-      if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-        rib->nexthop_active_num++;
-    }
+  {
+    prev_active = CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+    if ((new_active = nexthop_active_check (rn, rib, nexthop, set)))
+      rib->nexthop_active_num++;
+    if (prev_active != new_active)
+      SET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
+  }
   return rib->nexthop_active_num;
 }
 
