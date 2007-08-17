@@ -1,3 +1,8 @@
+2007-08-17 Denis Ovsienko
+
+	* kernel_socket.c: (rtm_read) Ignore any routing socket messages
+	  without RTF_DONE flag set, as they are just noise for us.
+
 2007-08-14 Denis Ovsienko
 
 	* zebra_rib.c: (nexthop_active_update) Added a comment
