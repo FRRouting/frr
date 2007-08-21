@@ -472,6 +472,15 @@ ifm_read (struct if_msghdr *ifm)
             if_delete_update (ifp);
           }
 #endif /* RTM_IFANNOUNCE */
+      if (if_is_up (ifp))
+      {
+#if defined(__bsdi__)
+        if_kvm_get_mtu (ifp);
+#else
+        if_get_mtu (ifp);
+#endif /* __bsdi__ */
+        if_get_metric (ifp);
+      }
     }
 
 #ifdef HAVE_NET_RT_IFLIST
