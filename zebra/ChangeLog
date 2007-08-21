@@ -1,3 +1,9 @@
+2007-08-21 Denis Ovsienko
+
+	* ioctl_solaris.c: (if_get_mtu) Don't break things if either
+	  IPv6 was disabled at compile time or the current interface
+	  hasn't it enabled.
+
 2007-08-17 Denis Ovsienko
 
 	* kernel_socket.c: (rtm_read) Ignore any routing socket messages

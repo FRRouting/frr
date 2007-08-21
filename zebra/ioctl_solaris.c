@@ -176,31 +176,27 @@ if_get_mtu (struct interface *ifp)
     }
 
 #ifdef HAVE_IPV6
-  if ((ifp->flags & IFF_IPV6) == 0)
-    {
-      if (changed)
-        zebra_interface_up_update(ifp);
-      return;
-    }
-    
-  memset(&lifreq, 0, sizeof(lifreq));
-  lifreq_set_name (&lifreq, ifp->name);
+  if (ifp->flags & IFF_IPV6)
+  {
+    memset(&lifreq, 0, sizeof(lifreq));
+    lifreq_set_name (&lifreq, ifp->name);
 
-  ret = AF_IOCTL (AF_INET6, SIOCGLIFMTU, (caddr_t) & lifreq);
-  if (ret < 0)
+    ret = AF_IOCTL (AF_INET6, SIOCGLIFMTU, (caddr_t) & lifreq);
+    if (ret < 0)
     {
       zlog_info ("Can't lookup mtu6 on %s by ioctl(SIOCGIFMTU)", ifp->name);
       ifp->mtu6 = -1;
     }
-  else
+    else
     {
       ifp->mtu6 = lifreq.lifr_metric;
       changed = 1;
     }
-  
+  }
+#endif /* HAVE_IPV6 */
+
   if (changed)
     zebra_interface_up_update(ifp);
-#endif /* HAVE_IPV6 */
 }
 
 /* Set up interface's address, netmask (and broadcast? ).
