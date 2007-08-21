@@ -1,3 +1,8 @@
+2007-08-21 Denis Ovsienko
+
+	* sockopt.[ch]: (setsockopt_so_sendbuf, getsockopt_so_sendbuf):
+	  new functions to adjust ospfd working socket.
+
 2007-08-13 Denis Ovsienko
 
 	* zebra.h: introduce ZEBRA_ERR_KERNEL and ZEBRA_ERR_NOERROR

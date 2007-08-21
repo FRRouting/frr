@@ -36,6 +36,35 @@ setsockopt_so_recvbuf (int sock, int size)
   return ret;
 }
 
+int
+setsockopt_so_sendbuf (const int sock, int size)
+{
+  int ret = setsockopt (sock, SOL_SOCKET, SO_SNDBUF,
+    (char *)&size, sizeof (int));
+  
+  if (ret < 0)
+    zlog_err ("fd %d: can't setsockopt SO_SNDBUF to %d: %s",
+      sock, size, safe_strerror (errno));
+
+  return ret;
+}
+
+int
+getsockopt_so_sendbuf (const int sock)
+{
+  u_int32_t optval;
+  socklen_t optlen = sizeof (optval);
+  int ret = getsockopt (sock, SOL_SOCKET, SO_SNDBUF,
+    (char *)&optval, &optlen);
+  if (ret < 0)
+  {
+    zlog_err ("fd %d: can't getsockopt SO_SNDBUF: %d (%s)",
+      sock, errno, safe_strerror (errno));
+    return ret;
+  }
+  return optval;
+}
+
 static void *
 getsockopt_cmsg_data (struct msghdr *msgh, int level, int type)
 {

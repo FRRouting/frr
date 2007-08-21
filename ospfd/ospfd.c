@@ -212,6 +212,8 @@ ospf_new (void)
 	       "a socket");
       exit(1);
     }
+  new->maxsndbuflen = 0;
+  ospf_adjust_sndbuflen (new, OSPF_SNDBUFLEN_DEFAULT);
   if ((new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE+1)) == NULL)
     {
       zlog_err("ospf_new: fatal error: stream_new(%u) failed allocating ibuf",

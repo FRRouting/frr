@@ -41,6 +41,7 @@ extern struct zebra_privs_t ospfd_privs;
 #include "ospfd/ospf_lsdb.h"
 #include "ospfd/ospf_neighbor.h"
 #include "ospfd/ospf_packet.h"
+#include "ospfd/ospf_dump.h"
 
 
 
@@ -232,4 +233,38 @@ ospf_sock_init (void)
     }
  
   return ospf_sock;
+}
+
+void
+ospf_adjust_sndbuflen (struct ospf * ospf, int buflen)
+{
+  int ret, newbuflen;
+  /* Check if any work has to be done at all. */
+  if (ospf->maxsndbuflen >= buflen)
+    return;
+  if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
+    zlog_debug ("%s: adjusting OSPF send buffer size to %d",
+      __func__, buflen);
+  if (ospfd_privs.change (ZPRIVS_RAISE))
+    zlog_err ("%s: could not raise privs, %s", __func__,
+      safe_strerror (errno));
+  /* Now we try to set SO_SNDBUF to what our caller has requested
+   * (OSPF_SNDBUFLEN_DEFAULT initially, which seems to be a sane
+   * default; or the MTU of a newly added interface). However,
+   * if the OS has truncated the actual buffer size to somewhat
+   * less or bigger size, try to detect it and update our records
+   * appropriately.
+   */
+  ret = setsockopt_so_sendbuf (ospf->fd, buflen);
+  newbuflen = getsockopt_so_sendbuf (ospf->fd);
+  if (ret < 0 || newbuflen != buflen)
+    zlog_warn ("%s: tried to set SO_SNDBUF to %d, but got %d",
+      __func__, buflen, newbuflen);
+  if (newbuflen >= 0)
+    ospf->maxsndbuflen = newbuflen;
+  else
+    zlog_warn ("%s: failed to get SO_SNDBUF", __func__);
+  if (ospfd_privs.change (ZPRIVS_LOWER))
+    zlog_err ("%s: could not lower privs, %s", __func__,
+      safe_strerror (errno));
 }

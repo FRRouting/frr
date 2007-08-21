@@ -1,3 +1,16 @@
+2007-08-21 Denis Ovsienko
+
+	* ospfd.h: Extend struct ospf with maxsndbuflen field and
+	  define its default value.
+	* ospfd.c: (ospf_new) init maxsndbuflen
+	* ospf_interface.c: (ospf_if_up) Call ospf_adjust_sndbuflen()
+	  for each regular interface being brought up.
+	* ospf_network.[ch]: (ospf_adjust_sndbuflen) New function
+	  makes sure ospf socket sending buffer is large enough
+	  to cover the biggest interface MTU we have seen ever.
+	* ospf_packet.c: (ospf_write) Use maxsndbuflen to decide on
+	  the biggest amount of data we are going to send at once.
+
 2007-08-07 Paul Jakma <paul.jakma@sun.com>
 
 	* ospf_spf.c: (ospf_spf_next) Finish off the explanatory
