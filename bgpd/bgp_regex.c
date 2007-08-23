@@ -66,7 +66,7 @@ bgp_regcomp (const char *regstr)
 
   regex = XMALLOC (MTYPE_BGP_REGEXP, sizeof (regex_t));
 
-  ret = regcomp (regex, magic_str, REG_EXTENDED);
+  ret = regcomp (regex, magic_str, REG_EXTENDED|REG_NOSUB);
 
   XFREE (MTYPE_TMP, magic_str);
 

@@ -1,3 +1,11 @@
+2007-08-23 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_regex.c: (bgp_regcomp) Pass NOSUB flag to regcomp to
+	  prevent parsing of substitutions, which can have profound
+	  performance effects on bgpd and are of no use to the CLI
+	  anyway. How much it helps depends on the regex
+	  implementation.
+
 2007-07-31 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) Support for draft-ietf-idr-as-pathlimit-03.
