@@ -1,3 +1,24 @@
+2007-08-27 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_route.c: (bgp_announce_check) Fix bug #398, slight
+	  modification of Vladimir Ivanov's suggested fix - to keep
+	  memory alloc conditional.
+	  (bgp_process_announce_selected) Don't take struct attr as
+	  argument, none of the callers need it and it needlessly
+	  distances allocation from use.
+	  Free the extended attr, the attr itself is on the stack. 
+	  Fix bad indentation.
+	* bgp_attr.c: (bgp_packet_attribute) Remove incorrect assert,
+	  and adjust conditional to test attr->extra, diagnosis by
+	  Vladimir Ivanov in bug #398.
+
+2007-08-27 Vladimir Ivanov <wawa@yandex-team.ru>
+
+	* bgp_route.c: (bgp_announce_check_rsclient) copy of
+	  ri->attr is no longer deep enough, due to addition of
+	  attr->extra. It should use bgp_attr_dup, as
+	  bgp_announce_check() does.
+
 2007-08-23 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_regex.c: (bgp_regcomp) Pass NOSUB flag to regcomp to

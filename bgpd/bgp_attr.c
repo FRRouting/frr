@@ -1673,8 +1673,6 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       && from
       && peer_sort (from) == BGP_PEER_IBGP)
     {
-      assert (attr->extra);
-      
       /* Originator ID. */
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
       stream_putc (s, BGP_ATTR_ORIGINATOR_ID);
@@ -1689,7 +1687,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
       stream_putc (s, BGP_ATTR_CLUSTER_LIST);
       
-      if (attr->extra->cluster)
+      if (attr->extra && attr->extra->cluster)
 	{
 	  stream_putc (s, attr->extra->cluster->length + 4);
 	  /* If this peer configuration's parent BGP has cluster_id. */

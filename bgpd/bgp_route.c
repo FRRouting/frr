@@ -1045,20 +1045,18 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
       || (ri->extra && ri->extra->suppress) )
     {
       struct bgp_info info;
-      struct attr dummy_attr;
+      struct attr dummy_attr = { 0 };
       
       info.peer = peer;
       info.attr = attr;
-      
 
       /* The route reflector is not allowed to modify the attributes
 	 of the reflected IBGP routes. */
       if (peer_sort (from) == BGP_PEER_IBGP 
 	  && peer_sort (peer) == BGP_PEER_IBGP)
 	{
-	  dummy_attr.extra = NULL;
 	  bgp_attr_dup (&dummy_attr, attr);
-	  info.attr = &dummy_attr; 
+	  info.attr = &dummy_attr;
 	}
 
       SET_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT); 
@@ -1070,7 +1068,8 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 
       peer->rmap_type = 0;
       
-      bgp_attr_extra_free (&dummy_attr);
+      if (dummy_attr.extra)
+        bgp_attr_extra_free (&dummy_attr);
       
       if (ret == RMAP_DENYMATCH)
 	{
@@ -1173,7 +1172,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
 #endif /* BGP_SEND_ASPATH_CHECK */
 
   /* For modify attribute, copy it to temporary structure. */
-  *attr = *ri->attr;
+  bgp_attr_dup (attr, ri->attr);
 
   /* next-hop-set */
   if ((p->family == AF_INET && attr->nexthop.s_addr == 0)
@@ -1375,21 +1374,22 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn, struct bgp_info_pair *
 
 static int
 bgp_process_announce_selected (struct peer *peer, struct bgp_info *selected,
-        struct bgp_node *rn, struct attr *attr, afi_t afi, safi_t safi)
-    {
+                               struct bgp_node *rn, afi_t afi, safi_t safi)
+{
   struct prefix *p;
+  struct attr attr = { 0 };
 
   p = &rn->p;
 
-      /* Announce route to Established peer. */
-      if (peer->status != Established)
+  /* Announce route to Established peer. */
+  if (peer->status != Established)
     return 0;
 
-      /* Address family configuration check. */
-      if (! peer->afc_nego[afi][safi])
+  /* Address family configuration check. */
+  if (! peer->afc_nego[afi][safi])
     return 0;
 
-      /* First update is deferred until ORF or ROUTE-REFRESH is received */
+  /* First update is deferred until ORF or ROUTE-REFRESH is received */
   if (CHECK_FLAG (peer->af_sflags[afi][safi],
       PEER_STATUS_ORF_WAIT_REFRESH))
     return 0;
@@ -1399,21 +1399,24 @@ bgp_process_announce_selected (struct peer *peer, struct bgp_info *selected,
       case BGP_TABLE_MAIN:
       /* Announcement to peer->conf.  If the route is filtered,
          withdraw it. */
-        if (selected && bgp_announce_check (selected, peer, p, attr, afi, safi))
-          bgp_adj_out_set (rn, peer, p, attr, afi, safi, selected);
+        if (selected && bgp_announce_check (selected, peer, p, &attr, afi, safi))
+          bgp_adj_out_set (rn, peer, p, &attr, afi, safi, selected);
         else
           bgp_adj_out_unset (rn, peer, p, afi, safi);
         break;
       case BGP_TABLE_RSCLIENT:
         /* Announcement to peer->conf.  If the route is filtered, 
            withdraw it. */
-        if (selected && bgp_announce_check_rsclient
-              (selected, peer, p, attr, afi, safi))
-          bgp_adj_out_set (rn, peer, p, attr, afi, safi, selected);
-      else
-	bgp_adj_out_unset (rn, peer, p, afi, safi);
+        if (selected && 
+            bgp_announce_check_rsclient (selected, peer, p, &attr, afi, safi))
+          bgp_adj_out_set (rn, peer, p, &attr, afi, safi, selected);
+        else
+	  bgp_adj_out_unset (rn, peer, p, afi, safi);
         break;
     }
+  
+  bgp_attr_extra_free (&attr);
+  
   return 0;
 }
 
@@ -1463,8 +1466,7 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
 	      bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
 	    }
 
-	  bgp_process_announce_selected (rsclient, new_select, rn, &attr,
-					 afi, safi);
+	  bgp_process_announce_selected (rsclient, new_select, rn, afi, safi);
 	}
     }
   else
@@ -1476,8 +1478,7 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
 	  bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
 	  bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
 	}
-      bgp_process_announce_selected (rsclient, new_select, rn,
-				     &attr, afi, safi);
+      bgp_process_announce_selected (rsclient, new_select, rn, afi, safi);
     }
 
   if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
@@ -1503,9 +1504,6 @@ bgp_process_main (struct work_queue *wq, void *data)
   struct bgp_info_pair old_and_new;
   struct listnode *node, *nnode;
   struct peer *peer;
-  struct attr attr;
-  
-  memset (&attr, 0, sizeof (struct attr));
   
   /* Best path selection. */
   bgp_best_selection (bgp, rn, &old_and_new);
@@ -1537,7 +1535,7 @@ bgp_process_main (struct work_queue *wq, void *data)
   /* Check each BGP peer. */
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
-      bgp_process_announce_selected (peer, new_select, rn, &attr, afi, safi);
+      bgp_process_announce_selected (peer, new_select, rn, afi, safi);
     }
 
   /* FIB update. */
@@ -1561,8 +1559,6 @@ bgp_process_main (struct work_queue *wq, void *data)
   /* Reap old select bgp_info, it it has been removed */
   if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
     bgp_info_reap (rn, old_select);
-  
-  bgp_attr_extra_free (&attr);
   
   UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
   return WQ_SUCCESS;
@@ -6214,7 +6210,7 @@ bgp_show_table (struct vty *vty, struct bgp_table *table, struct in_addr *router
 	      {
 		struct route_map *rmap = output_arg;
 		struct bgp_info binfo;
-		struct attr dummy_attr; 
+		struct attr dummy_attr = { 0 }; 
 		int ret;
 
 		bgp_attr_dup (&dummy_attr, ri->attr);
