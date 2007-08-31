@@ -292,6 +292,15 @@
 	* bgp_debug.c: (community_str,community_com2str) Check com
 	  pointer before dereferencing.
 
+2007-08-31 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) Add 'bgp open-accept' option, to allow bgpd to send OPEN
+	  on accepted connections, i.e. to not wait till after
+	  collision-detect to send OPEN, which appears to be allowed in
+	  RFC4271. This may help speed up establishing sessions, or help
+	  avoid FSM problems with sessions to certain peers. Not enabled by
+	  default though.
+
 2007-08-27 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_route.c: (bgp_announce_check) Fix bug #398, slight
