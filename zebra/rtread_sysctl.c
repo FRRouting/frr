@@ -68,6 +68,8 @@ route_read (void)
   for (end = buf + bufsiz; buf < end; buf += rtm->rtm_msglen) 
     {
       rtm = (struct rt_msghdr *) buf;
+      /* We must set RTF_DONE here, so rtm_read() doesn't ignore the message. */
+      SET_FLAG (rtm->rtm_flags, RTF_DONE);
       rtm_read (rtm);
     }
 

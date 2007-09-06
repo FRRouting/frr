@@ -1,3 +1,9 @@
+2007-09-06 Denis Ovsienko
+
+	* rtread_sysctl.c: (route_read) Set RTF_DONE on the routing
+	  messages when fetching initial kernel FIB, so rtm_read()
+	  doesn't skip them.
+
 2007-08-21 Denis Ovsienko
 
 	* ioctl_solaris.c: (if_get_mtu) Don't break things if either
