@@ -1007,7 +1007,10 @@ bgp_attr_community (struct peer *peer, bgp_size_t length,
 		    struct attr *attr, u_char flag)
 {
   if (length == 0)
-    attr->community = NULL;
+    {
+      attr->community = NULL;
+      return 0;
+    }
   else
     {
       attr->community = 

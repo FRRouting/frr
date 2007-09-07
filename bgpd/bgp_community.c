@@ -206,6 +206,9 @@ community_com2str  (struct community *com)
   u_int16_t as;
   u_int16_t val;
 
+  if (!com)
+    return NULL;
+  
   /* When communities attribute is empty.  */
   if (com->size == 0)
     {
@@ -377,6 +380,9 @@ community_dup (struct community *com)
 char *
 community_str (struct community *com)
 {
+  if (!com)
+    return NULL;
+  
   if (! com->str)
     com->str = community_com2str (com);
   return com->str;

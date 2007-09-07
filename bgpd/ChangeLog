@@ -1,3 +1,15 @@
+2007-09-07 Paul Jakma <paul.jakma@sun.com>
+
+	* (general) bgpd can be made crash by remote peers if debug
+	  bgp updates is set, due to NULL pointer dereference.
+	  Reported by "Mu Security Research Team",
+	  <security@musecurity.com>.
+	* bgp_attr.c: (bgp_attr_community) If community length is 0,
+	  don't set the community-present attribute bit, just return
+	  early.
+	* bgp_debug.c: (community_str,community_com2str) Check com
+	  pointer before dereferencing.
+
 2007-08-27 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_route.c: (bgp_announce_check) Fix bug #398, slight
