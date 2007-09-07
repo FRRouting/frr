@@ -8,7 +8,7 @@
 ## $Id$
 AC_PREREQ(2.53)
 
-AC_INIT(Quagga, 0.99.8, [http://bugzilla.quagga.net])
+AC_INIT(Quagga, 0.99.9, [http://bugzilla.quagga.net])
 AC_CONFIG_SRCDIR(lib/zebra.h)
 
 dnl -----------------------------------

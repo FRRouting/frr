@@ -1,3 +1,7 @@
+2007-09-07 Paul Jakma <paul.jakma@sun.com>
+
+	* configure.ac: Bump version to 0.99.9
+
 2007-08-07 James Carlson <james.d.carlson@sun.com>
 
 	* configure.ac: Added support for separate link-layer access
