@@ -207,6 +207,9 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
              case ZEBRA_ERR_RTNOEXIST:
              case ZEBRA_ERR_RTUNREACH:
              default:
+               /* This point is reachable regardless of debugging mode. */
+               if (!IS_ZEBRA_DEBUG_RIB)
+                 inet_ntop (AF_INET, &p->u.prefix, prefix_buf, INET_ADDRSTRLEN);
                zlog_err ("%s: %s/%d: rtm_write() unexpectedly returned %d for command %s",
                  __func__, prefix_buf, p->prefixlen, error, LOOKUP (rtm_type_str, cmd));
                break;

@@ -1,3 +1,8 @@
+2007-09-12 Denis Ovsienko
+
+	* rt_socket.c: (kernel_rtm_ipv4) prefix_buf could be passed
+	  to zlog_err() uninitialized with debug disabled. Fixed.
+
 2007-09-06 Denis Ovsienko
 
 	* rtread_sysctl.c: (route_read) Set RTF_DONE on the routing
