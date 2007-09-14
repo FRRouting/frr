@@ -107,6 +107,5 @@ extern int zsend_route_multipath (int, struct zserv *, struct prefix *,
 extern int zsend_router_id_update(struct zserv *, struct prefix *);
 
 extern pid_t pid;
-extern pid_t old_pid;
 
 #endif /* _ZEBRA_ZEBRA_H */

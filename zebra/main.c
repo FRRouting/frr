@@ -47,7 +47,6 @@ struct zebra_t zebrad =
 };
 
 /* process id. */
-pid_t old_pid;
 pid_t pid;
 
 /* Pacify zclient.o in libzebra, which expects this variable. */
@@ -365,9 +364,6 @@ main (int argc, char **argv)
   /* Exit when zebra is working in batch mode. */
   if (batch_mode)
     exit (0);
-
-  /* Needed for BSD routing socket. */
-  old_pid = getpid ();
 
   /* Daemonize. */
   if (daemon_mode)

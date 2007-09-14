@@ -799,8 +799,7 @@ rtm_read (struct rt_msghdr *rtm)
        * At the same time, ignore unconfirmed messages, they should be tracked
        * by rtm_write() and kernel_rtm_ipv4().
        */
-      if (rtm->rtm_type != RTM_GET
-          && (rtm->rtm_pid == pid || rtm->rtm_pid == old_pid))
+      if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid)
       {
         char buf[INET_ADDRSTRLEN], gate_buf[INET_ADDRSTRLEN];
         int ret;

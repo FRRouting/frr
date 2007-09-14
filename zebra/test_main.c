@@ -43,7 +43,6 @@ struct zebra_t zebrad =
 };
 
 /* process id. */
-pid_t old_pid;
 pid_t pid;
 
 /* zebra_rib's workqueue hold time. Private export for use by test code only */
@@ -312,9 +311,6 @@ main (int argc, char **argv)
   /* Exit when zebra is working in batch mode. */
   if (batch_mode)
     exit (0);
-
-  /* Needed for BSD routing socket. */
-  old_pid = getpid ();
 
   /* Daemonize. */
   if (daemon_mode)

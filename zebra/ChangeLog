@@ -7,6 +7,11 @@
 	* kernel_socket.[ch]: We don't need rtm_type_str_max any more.
 	* main.c: (main) Don't call rib_sweep_route() before the
 	  pidfile is acquired, this fixes bug #402.
+	* zserv.h: Dropped old_pid, since it's useless now. This
+	  fixes bug #381.
+	* main.c: (main) Idem.
+	* test_main.c: (main) Idem.
+	* kernel_socket.c: (rtm_read) Idem.
 
 2007-09-12 Denis Ovsienko
 
