@@ -346,11 +346,13 @@ main (int argc, char **argv)
   zebra_snmp_init ();
 #endif /* HAVE_SNMP */
 
-  /* Clean up self inserted route. */
-  if (! keep_kernel_mode)
-    rib_sweep_route ();
-
-  /* Configuration file read*/
+  /* Process the configuration file. Among other configuration
+  *  directives we can meet those installing static routes. Such
+  *  requests will not be executed immediately, but queued in
+  *  zebra->ribq structure until we enter the main execution loop.
+  *  The notifications from kernel will show originating PID equal
+  *  to that after daemon() completes (if ever called).
+  */
   vty_read_config (config_file, config_default);
 
   /* Don't start execution if we are in dry-run mode */
@@ -373,6 +375,17 @@ main (int argc, char **argv)
 
   /* Output pid of zebra. */
   pid_output (pid_file);
+
+  /* After we have successfully acquired the pidfile, we can be sure
+  *  about being the only copy of zebra process, which is submitting
+  *  changes to the FIB.
+  *  Clean up zebra-originated routes. The requests will be sent to OS
+  *  immediately, so originating PID in notifications from kernel
+  *  will be equal to the current getpid(). To know about such routes,
+  * we have to have route_read() called before.
+  */
+  if (! keep_kernel_mode)
+    rib_sweep_route ();
 
   /* Needed for BSD routing socket. */
   pid = getpid ();

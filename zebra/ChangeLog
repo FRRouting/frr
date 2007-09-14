@@ -5,6 +5,8 @@
 	  appropriate for sparse code-spaces (#401).
 	* kernel_socket.c: (rtm_read, rtmsg_debug): Idem.
 	* kernel_socket.[ch]: We don't need rtm_type_str_max any more.
+	* main.c: (main) Don't call rib_sweep_route() before the
+	  pidfile is acquired, this fixes bug #402.
 
 2007-09-12 Denis Ovsienko
 
