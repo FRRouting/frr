@@ -211,14 +211,14 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
                if (!IS_ZEBRA_DEBUG_RIB)
                  inet_ntop (AF_INET, &p->u.prefix, prefix_buf, INET_ADDRSTRLEN);
                zlog_err ("%s: %s/%d: rtm_write() unexpectedly returned %d for command %s",
-                 __func__, prefix_buf, p->prefixlen, error, LOOKUP (rtm_type_str, cmd));
+                 __func__, prefix_buf, p->prefixlen, error, lookup (rtm_type_str, cmd));
                break;
            }
          } /* if (cmd and flags make sense) */
        else
          if (IS_ZEBRA_DEBUG_RIB)
            zlog_debug ("%s: odd command %s for flags %d",
-             __func__, LOOKUP (rtm_type_str, cmd), nexthop->flags);
+             __func__, lookup (rtm_type_str, cmd), nexthop->flags);
      } /* for (nexthop = ... */
  
    /* If there was no useful nexthop, then complain. */

@@ -160,7 +160,6 @@ struct message rtm_type_str[] =
 #endif /* RTM_IFANNOUNCE */
   {0,            NULL}
 };
-int rtm_type_str_max = sizeof (rtm_type_str) / sizeof (struct message) - 1;
 
 struct message rtm_flag_str[] =
 {
@@ -754,7 +753,7 @@ rtm_read (struct rt_msghdr *rtm)
     return;
   if (IS_ZEBRA_DEBUG_KERNEL)
     zlog_debug ("%s: got rtm of type %d (%s)", __func__, rtm->rtm_type,
-      LOOKUP (rtm_type_str, rtm->rtm_type));
+      lookup (rtm_type_str, rtm->rtm_type));
 
 #ifdef RTF_CLONED	/*bsdi, netbsd 1.6*/
   if (flags & RTF_CLONED)
@@ -820,17 +819,17 @@ rtm_read (struct rt_msghdr *rtm)
             {
               case ZEBRA_RIB_NOTFOUND:
                 zlog_debug ("%s: %s %s/%d: desync: RR isn't yet in RIB, while already in FIB",
-                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
                 break;
               case ZEBRA_RIB_FOUND_CONNECTED:
               case ZEBRA_RIB_FOUND_NOGATE:
                 inet_ntop (AF_INET, &gate.sin.sin_addr, gate_buf, INET_ADDRSTRLEN);
                 zlog_debug ("%s: %s %s/%d: desync: RR is in RIB, but gate differs (ours is %s)",
-                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen, gate_buf);
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen, gate_buf);
                 break;
               case ZEBRA_RIB_FOUND_EXACT: /* RIB RR == FIB RR */
                 zlog_debug ("%s: %s %s/%d: done Ok",
-                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
                 rib_lookup_and_dump (&p);
                 return;
                 break;
@@ -843,18 +842,18 @@ rtm_read (struct rt_msghdr *rtm)
             {
               case ZEBRA_RIB_FOUND_EXACT:
                 zlog_debug ("%s: %s %s/%d: desync: RR is still in RIB, while already not in FIB",
-                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
                 rib_lookup_and_dump (&p);
                 break;
               case ZEBRA_RIB_FOUND_CONNECTED:
               case ZEBRA_RIB_FOUND_NOGATE:
                 zlog_debug ("%s: %s %s/%d: desync: RR is still in RIB, plus gate differs",
-                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
                 rib_lookup_and_dump (&p);
                 break;
               case ZEBRA_RIB_NOTFOUND: /* RIB RR == FIB RR */
                 zlog_debug ("%s: %s %s/%d: done Ok",
-                  __func__, LOOKUP (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
+                  __func__, lookup (rtm_type_str, rtm->rtm_type), buf, p.prefixlen);
                 rib_lookup_and_dump (&p);
                 return;
                 break;
@@ -862,7 +861,7 @@ rtm_read (struct rt_msghdr *rtm)
             break;
           default:
             zlog_debug ("%s: %s/%d: warning: loopback RTM of type %s received",
-              __func__, buf, p.prefixlen, LOOKUP (rtm_type_str, rtm->rtm_type));
+              __func__, buf, p.prefixlen, lookup (rtm_type_str, rtm->rtm_type));
         }
         return;
       }
@@ -1063,7 +1062,7 @@ rtm_write (int message,
 static void
 rtmsg_debug (struct rt_msghdr *rtm)
 {
-  zlog_debug ("Kernel: Len: %d Type: %s", rtm->rtm_msglen, LOOKUP (rtm_type_str, rtm->rtm_type));
+  zlog_debug ("Kernel: Len: %d Type: %s", rtm->rtm_msglen, lookup (rtm_type_str, rtm->rtm_type));
   rtm_flag_dump (rtm->rtm_flags);
   zlog_debug ("Kernel: message seq %d", rtm->rtm_seq);
   zlog_debug ("Kernel: pid %d, rtm_addrs 0x%x", rtm->rtm_pid, rtm->rtm_addrs);

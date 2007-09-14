@@ -29,6 +29,5 @@ extern int ifm_read (struct if_msghdr *);
 extern int rtm_write (int, union sockunion *, union sockunion *,
                       union sockunion *, unsigned int, int, int);
 extern struct message rtm_type_str[];
-extern int rtm_type_str_max;
 
 #endif /* __ZEBRA_KERNEL_SOCKET_H */

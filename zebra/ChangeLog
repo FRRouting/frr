@@ -1,3 +1,11 @@
+2007-09-14 Denis Ovsienko
+
+	* rt_socket.c: (kernel_rtm_ipv4) Use lookup() instead of
+	  LOOKUP/mes_lookup() for rtm_type_str, as this is more
+	  appropriate for sparse code-spaces (#401).
+	* kernel_socket.c: (rtm_read, rtmsg_debug): Idem.
+	* kernel_socket.[ch]: We don't need rtm_type_str_max any more.
+
 2007-09-12 Denis Ovsienko
 
 	* rt_socket.c: (kernel_rtm_ipv4) prefix_buf could be passed
