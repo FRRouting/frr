@@ -4,6 +4,7 @@
 	  about getting more buffer space, than requested.
 	* ospfd.[ch]: (ospf_new) Abandon OSPF_SNDBUFLEN_DEFAULT
 	  and consider OS's initial buffer size instead.
+	* ospf_interface.c: (ospf_if_up) Fix missing argument.
 
 2007-08-21 Denis Ovsienko
 

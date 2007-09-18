@@ -785,7 +785,7 @@ ospf_if_up (struct ospf_interface *oi)
       if (ospf != NULL)
         ospf_adjust_sndbuflen (ospf, oi->ifp->mtu);
       else
-        zlog_warn ("%s: ospf_lookup() returned NULL");
+        zlog_warn ("%s: ospf_lookup() returned NULL", __func__);
       ospf_if_stream_set (oi);
       OSPF_ISM_EVENT_SCHEDULE (oi, ISM_InterfaceUp);
     }
