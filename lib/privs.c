@@ -117,7 +117,12 @@ static struct
   /* Quagga -> Solaris privilege mappings */
   [ZCAP_SETID] =	{ 1, (pvalue_t []) { PRIV_PROC_SETID		}, },
   [ZCAP_BIND] = 	{ 1, (pvalue_t []) { PRIV_NET_PRIVADDR		}, },
+  /* IP_CONFIG is a subset of NET_CONFIG and is allowed in zones */
+#ifdef PRIV_SYS_IP_CONFIG
+  [ZCAP_NET_ADMIN] =	{ 1, (pvalue_t []) { PRIV_SYS_IP_CONFIG	}, },
+#else
   [ZCAP_NET_ADMIN] =	{ 1, (pvalue_t []) { PRIV_SYS_NET_CONFIG	}, },
+#endif
   [ZCAP_NET_RAW] = 	{ 2, (pvalue_t []) { PRIV_NET_RAWACCESS,
                                              PRIV_NET_ICMPACCESS 	}, },
   [ZCAP_CHROOT] = 	{ 1, (pvalue_t []) { PRIV_PROC_CHROOT		}, },

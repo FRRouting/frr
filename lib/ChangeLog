@@ -1,3 +1,10 @@
+2007-09-18  Paul Jakma <paul.jakma@sun.com>
+
+	* privs.c: definition of ZCAP_NET_ADMIN on Solaris should
+	  be PRIV_SYS_IP_CONFIG, when that's available. Thus allowing
+	  Quagga to work with in Solaris zones with exclusive IP
+	  instances.
+
 2007-08-21 Denis Ovsienko
 
 	* sockopt.[ch]: (setsockopt_so_sendbuf, getsockopt_so_sendbuf):
