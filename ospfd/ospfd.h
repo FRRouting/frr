@@ -129,9 +129,6 @@
 #define OSPF_LS_REFRESH_SHIFT       (60 * 15)
 #define OSPF_LS_REFRESH_JITTER      60
 
-/* Initial send buffer size for ospfd raw sending socket. */
-#define OSPF_SNDBUFLEN_DEFAULT           1024
-
 /* OSPF master for system wide configuration and variables. */
 struct ospf_master
 {

@@ -33,6 +33,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "sockunion.h"          /* for inet_aton () */
 #include "zclient.h"
 #include "plist.h"
+#include "sockopt.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -212,8 +213,10 @@ ospf_new (void)
 	       "a socket");
       exit(1);
     }
-  new->maxsndbuflen = 0;
-  ospf_adjust_sndbuflen (new, OSPF_SNDBUFLEN_DEFAULT);
+  new->maxsndbuflen = getsockopt_so_sendbuf (new->fd);
+  if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
+    zlog_debug ("%s: starting with OSPF send buffer size %d",
+      __func__, new->maxsndbuflen);
   if ((new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE+1)) == NULL)
     {
       zlog_err("ospf_new: fatal error: stream_new(%u) failed allocating ibuf",

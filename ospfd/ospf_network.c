@@ -249,15 +249,15 @@ ospf_adjust_sndbuflen (struct ospf * ospf, int buflen)
     zlog_err ("%s: could not raise privs, %s", __func__,
       safe_strerror (errno));
   /* Now we try to set SO_SNDBUF to what our caller has requested
-   * (OSPF_SNDBUFLEN_DEFAULT initially, which seems to be a sane
-   * default; or the MTU of a newly added interface). However,
-   * if the OS has truncated the actual buffer size to somewhat
-   * less or bigger size, try to detect it and update our records
-   * appropriately.
+   * (the MTU of a newly added interface). However, if the OS has
+   * truncated the actual buffer size to somewhat less size, try
+   * to detect it and update our records appropriately. The OS
+   * may allocate more buffer space, than requested, this isn't
+   * a error.
    */
   ret = setsockopt_so_sendbuf (ospf->fd, buflen);
   newbuflen = getsockopt_so_sendbuf (ospf->fd);
-  if (ret < 0 || newbuflen != buflen)
+  if (ret < 0 || newbuflen < buflen)
     zlog_warn ("%s: tried to set SO_SNDBUF to %d, but got %d",
       __func__, buflen, newbuflen);
   if (newbuflen >= 0)

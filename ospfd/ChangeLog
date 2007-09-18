@@ -1,3 +1,10 @@
+2007-09-18 Denis Ovsienko
+
+	* ospf_network.c: (ospf_adjust_sndbuflen) Don't complain
+	  about getting more buffer space, than requested.
+	* ospfd.[ch]: (ospf_new) Abandon OSPF_SNDBUFLEN_DEFAULT
+	  and consider OS's initial buffer size instead.
+
 2007-08-21 Denis Ovsienko
 
 	* ospfd.h: Extend struct ospf with maxsndbuflen field and
