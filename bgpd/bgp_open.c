@@ -177,7 +177,7 @@ bgp_capability_mp (struct peer *peer, struct capability_header *hdr)
   peer->afc_recv[mpc.afi][mpc.safi] = 1;
   
   if (peer->afc[mpc.afi][mpc.safi])
-    peer->afc_nego[mpc.safi][mpc.safi] = 1;
+    peer->afc_nego[mpc.afi][mpc.safi] = 1;
   else 
     return -1;
 

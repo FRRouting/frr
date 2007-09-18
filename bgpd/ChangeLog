@@ -1,3 +1,10 @@
+2007-09-17 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_open.c: (bgp_capability_mp) We were setting
+	  afc_nego[safi][safi] rather than afc_nego[afi][safi], thus
+	  failling to announce any non-IPv4 prefixes. Remove the extra,
+	  typo-ed character.
+
 2007-09-07 Paul Jakma <paul.jakma@sun.com>
 
 	* (general) bgpd can be made crash by remote peers if debug

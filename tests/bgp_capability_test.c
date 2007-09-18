@@ -9,6 +9,12 @@
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_debug.h"
 
+#define VT100_RESET "\x1b[0m"
+#define VT100_RED "\x1b[31m"
+#define VT100_GREEN "\x1b[32m"
+#define VT100_YELLOW "\x1b[33m"
+
+
 #define OPEN	0
 #define DYNCAP	1
 
@@ -17,6 +23,7 @@ struct zebra_privs_t *bgpd_privs = NULL;
 struct thread_master *master = NULL;
 
 static int failed = 0;
+static int tty = 0;
 
 /* test segments to parse and validate, and use for other tests */
 static struct test_segment {
@@ -27,6 +34,14 @@ static struct test_segment {
 #define SHOULD_PARSE	0
 #define SHOULD_ERR	-1
   int parses; /* whether it should parse or not */
+
+  /* AFI/SAFI validation */
+  int validate_afi;
+  afi_t afi;
+  safi_t safi;
+#define VALID_AFI 1
+#define INVALID_AFI 0
+  int afi_valid;
 } test_segments [] = 
 {
   /* 0 */
@@ -53,47 +68,63 @@ static struct test_segment {
     { CAPABILITY_CODE_ORF, 0x2, 0x0, 0x0 },
     4, SHOULD_ERR,
   },
-  /* 4 */
-  { "MP1",
+  { NULL, NULL, {0}, 0, 0},
+};
+
+static struct test_segment mp_segments[] =
+{
+  { "MP4",
     "MP IP/Uni",
     { 0x1, 0x4, 0x0, 0x1, 0x0, 0x1 },
-    6, SHOULD_PARSE,
+    6, SHOULD_PARSE, AFI_IP, SAFI_UNICAST,
+  },
+  { "MPv6",
+    "MP IPv6/Uni",
+    { 0x1, 0x4, 0x0, 0x2, 0x0, 0x1 },
+    6, SHOULD_PARSE, 
+    1, AFI_IP6, SAFI_UNICAST, VALID_AFI,
   },
   /* 5 */
   { "MP2",
     "MP IP/Multicast",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x1, 0x0, 0x2 },
-    6, SHOULD_PARSE,
+    6, SHOULD_PARSE, 
+    1, AFI_IP, SAFI_MULTICAST, VALID_AFI,
   },
   /* 6 */
   { "MP3",
     "MP IP6/VPNv4",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x2, 0x0, 0x80 },
     6, SHOULD_PARSE, /* parses, but invalid afi,safi */
+    1, AFI_IP6, BGP_SAFI_VPNV4, INVALID_AFI,
   },
   /* 7 */
   { "MP5",
     "MP IP6/MPLS-VPN",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x2, 0x0, 0x4 },
-    6, SHOULD_PARSE,
+    6, SHOULD_PARSE, 
+    1, AFI_IP6, SAFI_MPLS_VPN, VALID_AFI,
   },
   /* 8 */
   { "MP6",
     "MP IP4/VPNv4",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x1, 0x0, 0x80 },
-    6, SHOULD_PARSE,
+    6, SHOULD_PARSE, 
+    1, AFI_IP, BGP_SAFI_VPNV4, VALID_AFI,
   },  
   /* 9 */
   { "MP7",
     "MP IP4/VPNv6",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x1, 0x0, 0x81 },
-    6, SHOULD_PARSE, /* parses, but invalid afi,safi tuple! - manually inspect */
+    6, SHOULD_PARSE, /* parses, but invalid afi,safi tuple */
+    1, AFI_IP, BGP_SAFI_VPNV6, INVALID_AFI,
   },
   /* 10 */
   { "MP8",
     "MP unknown AFI",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0xa, 0x0, 0x81 },
-    6, SHOULD_PARSE, /* parses, but unknown */
+    6, SHOULD_PARSE, 
+    1, 0xa, 0x81, INVALID_AFI, /* parses, but unknown */
   },
   /* 11 */
   { "MP-short",
@@ -106,7 +137,13 @@ static struct test_segment {
     "MP IP4/Unicast, length too long",
     { CAPABILITY_CODE_MP, 0x6, 0x0, 0x1, 0x0, 0x1 },
     6, SHOULD_ERR,
+    1, AFI_IP, SAFI_UNICAST, VALID_AFI,
   },
+  { NULL, NULL, {0}, 0, 0}
+};
+
+static struct test_segment misc_segments[] =
+{
   /* 13 */
   { "ORF",
     "ORF, simple, single entry, single tuple",
@@ -366,6 +403,7 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
 {
   int ret;
   int capability = 0;
+  int oldfailed = failed;
   
   stream_reset (peer->ibuf);
   switch (type)
@@ -398,15 +436,38 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
         exit(1);
     }
   
+  if (!ret && t->validate_afi)
+    {
+      safi_t safi = t->safi;
+      
+      if (bgp_afi_safi_valid_indices (t->afi, &safi) != t->afi_valid)
+        failed++;
+      
+      printf ("MP: %u/%u (%u): recv %u, nego %u\n",
+              t->afi, t->safi, safi,
+              peer->afc_recv[t->afi][safi],
+              peer->afc_nego[t->afi][safi]);
+        
+      if (t->afi_valid == VALID_AFI)
+        {
+        
+          if (!peer->afc_recv[t->afi][safi])
+            failed++;
+          if (!peer->afc_nego[t->afi][safi])
+            failed++;
+        }
+    }
+  
   printf ("parsed?: %s\n", ret ? "no" : "yes");
   
-  if (ret == t->parses)
-    printf ("OK\n");
+  if (ret != t->parses)
+    failed++;
+  
+  if (tty)
+    printf ("%s\n", (failed > oldfailed) ? VT100_RED "failed!" VT100_RESET 
+                                         : VT100_GREEN "OK" VT100_RESET);
   else
-    {
-      printf ("failed\n");
-      failed++;
-    }
+    printf ("%s\n", (failed > oldfailed) ? "failed!" : "OK" );
   
   printf ("\n");
 }
@@ -432,6 +493,9 @@ main (void)
   master = thread_master_create ();
   bgp_master_init ();
   
+  if (fileno (stdout) >= 0) 
+    tty = isatty (fileno (stdout));
+  
   if (bgp_get (&bgp, &asn, NULL))
     return -1;
   
@@ -439,12 +503,26 @@ main (void)
   
   for (i = AFI_IP; i < AFI_MAX; i++)
     for (j = SAFI_UNICAST; j < SAFI_MAX; j++)
-      peer->afc_nego[i][j] = 1;
+      {
+        peer->afc[i][j] = 1;
+        peer->afc_adv[i][j] = 1;
+      }
   
-  i =0;
+  i = 0;
+  while (mp_segments[i].name)
+    parse_test (peer, &mp_segments[i++], OPEN);
+
+  /* These tests assume mp_segments tests set at least
+   * one of the afc_nego's
+   */
+  i = 0;
   while (test_segments[i].name)   
     parse_test (peer, &test_segments[i++], OPEN);
   
+  i = 0;
+  while (misc_segments[i].name)
+    parse_test (peer, &misc_segments[i++], OPEN);
+
   SET_FLAG (peer->cap, PEER_CAP_DYNAMIC_ADV);
   peer->status = Established;
   

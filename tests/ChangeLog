@@ -1,3 +1,9 @@
+2007-09-17 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_capability_test.c: Test that peer's adv_recv and adv_nego get
+	  set correctly for MP capability and given AFI/SAFI.
+	  Colour OK/failed result so it's easier to find them.
+
 2007-07-27 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_capability_test.c: new, capability parser unit tests.
