@@ -1,3 +1,9 @@
+2007-10-03 Denis Ovsienko
+
+	* zebra_rib.c: (rib_process, rib_link, rib_addnode,
+	  rib_unlink, rib_delnode) log IPv6 prefixes same well
+	  as IPv4 ones are logged.
+
 2007-09-14 Denis Ovsienko
 
 	* rt_socket.c: (kernel_rtm_ipv4) Use lookup() instead of
@@ -40,7 +46,7 @@
 2007-08-14 Denis Ovsienko
 
 	* zebra_rib.c: (nexthop_active_update) Added a comment
-          and rewrote nexthop iteration.
+	  and rewrote nexthop iteration.
 
 2007-08-13 Denis Ovsienko
 

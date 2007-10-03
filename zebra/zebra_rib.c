@@ -992,12 +992,12 @@ rib_process (struct work_queue *wq, void *data)
   struct route_node *rn = data;
   int installed = 0;
   struct nexthop *nexthop = NULL;
-  char buf[INET_ADDRSTRLEN];
+  char buf[INET6_ADDRSTRLEN];
   
   assert (rn);
   
   if (IS_ZEBRA_DEBUG_RIB || IS_ZEBRA_DEBUG_RIB_Q)
-    inet_ntop (AF_INET, &rn->p.u.prefix, buf, INET_ADDRSTRLEN);
+    inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
 
   for (rib = rn->info; rib; rib = next)
     {
@@ -1300,7 +1300,7 @@ static void
 rib_link (struct route_node *rn, struct rib *rib)
 {
   struct rib *head;
-  char buf[INET_ADDRSTRLEN];
+  char buf[INET6_ADDRSTRLEN];
   
   assert (rib && rn);
   
@@ -1308,7 +1308,7 @@ rib_link (struct route_node *rn, struct rib *rib)
 
   if (IS_ZEBRA_DEBUG_RIB)
   {
-    inet_ntop (AF_INET, &rn->p.u.prefix, buf, INET_ADDRSTRLEN);
+    inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
     zlog_debug ("%s: %s/%d: rn %p, rib %p", __func__,
       buf, rn->p.prefixlen, rn, rib);
   }
@@ -1338,8 +1338,8 @@ rib_addnode (struct route_node *rn, struct rib *rib)
     {
       if (IS_ZEBRA_DEBUG_RIB)
       {
-        char buf[INET_ADDRSTRLEN];
-        inet_ntop (AF_INET, &rn->p.u.prefix, buf, INET_ADDRSTRLEN);
+        char buf[INET6_ADDRSTRLEN];
+        inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
         zlog_debug ("%s: %s/%d: rn %p, un-removed rib %p",
                     __func__, buf, rn->p.prefixlen, rn, rib);
       }
@@ -1353,13 +1353,13 @@ static void
 rib_unlink (struct route_node *rn, struct rib *rib)
 {
   struct nexthop *nexthop, *next;
-  char buf[INET_ADDRSTRLEN];
+  char buf[INET6_ADDRSTRLEN];
 
   assert (rn && rib);
 
   if (IS_ZEBRA_DEBUG_RIB)
   {
-    inet_ntop (AF_INET, &rn->p.u.prefix, buf, INET_ADDRSTRLEN);
+    inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
     zlog_debug ("%s: %s/%d: rn %p, rib %p",
                 __func__, buf, rn->p.prefixlen, rn, rib);
   }
@@ -1398,8 +1398,8 @@ rib_delnode (struct route_node *rn, struct rib *rib)
 {
   if (IS_ZEBRA_DEBUG_RIB)
   {
-    char buf[INET_ADDRSTRLEN];
-    inet_ntop (AF_INET, &rn->p.u.prefix, buf, INET_ADDRSTRLEN);
+    char buf[INET6_ADDRSTRLEN];
+    inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
     zlog_debug ("%s: %s/%d: rn %p, rib %p, removing", __func__,
       buf, rn->p.prefixlen, rn, rib);
   }
