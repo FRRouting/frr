@@ -1,3 +1,9 @@
+2007-10-04 Denis Ovsienko
+
+	* pid_output.c: (pid_output) stop using LOGFILE_MASK
+	  (0600 by default), introduce and use PIDFILE_MASK (0644)
+	  instead.
+
 2007-09-18  Paul Jakma <paul.jakma@sun.com>
 
 	* privs.c: definition of ZCAP_NET_ADMIN on Solaris should

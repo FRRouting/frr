@@ -25,6 +25,7 @@
 #include <log.h>
 #include "version.h"
 
+#define PIDFILE_MASK 0644
 #ifndef HAVE_FCNTL
 
 pid_t
@@ -36,7 +37,7 @@ pid_output (const char *path)
 
   pid = getpid();
 
-  oldumask = umask(0777 & ~LOGFILE_MASK);
+  oldumask = umask(0777 & ~PIDFILE_MASK);
   fp = fopen (path, "w");
   if (fp != NULL) 
     {
@@ -67,8 +68,8 @@ pid_output (const char *path)
 
   pid = getpid ();
 
-  oldumask = umask(0777 & ~LOGFILE_MASK);
-  fd = open (path, O_RDWR | O_CREAT, LOGFILE_MASK);
+  oldumask = umask(0777 & ~PIDFILE_MASK);
+  fd = open (path, O_RDWR | O_CREAT, PIDFILE_MASK);
   if (fd < 0)
     {
       zlog_err("Can't create pid lock file %s (%s), exiting",
