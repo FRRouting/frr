@@ -1,3 +1,8 @@
+2007-10-04 Denis Ovsienko
+
+	* zebra_rib.c: (rib_process) escape from the nexthop
+	  iteration cycle earliest possible to save CPU time.
+
 2007-10-03 Denis Ovsienko
 
 	* zebra_rib.c: (rib_process, rib_link, rib_addnode,

@@ -1118,9 +1118,10 @@ rib_process (struct work_queue *wq, void *data)
            */
 
           for (nexthop = select->nexthop; nexthop; nexthop = nexthop->next)
+            if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
             {
-              if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
-                installed = 1;
+              installed = 1;
+              break;
             }
           if (! installed) 
             rib_install_kernel (rn, select);
