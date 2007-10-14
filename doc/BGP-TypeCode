@@ -19,6 +19,8 @@
    14    MP_REACH_NLRI        [RFC 2283]
    15    MP_UNREACH_NLRI      [RFC 2283]
    16    EXT_COMMUNITIES      [draft-ramachandra-bgp-ext-communities-09.txt]
+   17    AS4_PATH             [RFC 4893]
+   18    AS4_AGGREGATOR       [RFC 4893]
   254    RCID_PATH            [RFC 1863]
   255    ADVERTISER           [RFC 1863]
 =========================================================================

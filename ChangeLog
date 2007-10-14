@@ -1,3 +1,7 @@
+2007-10-14 Paul Jakma <paul.jakma@sun.com>
+
+	* NEWS: Note that MRT dumps are now version 2
+
 2007-09-07 Paul Jakma <paul.jakma@sun.com>
 
 	* configure.ac: Bump version to 0.99.9

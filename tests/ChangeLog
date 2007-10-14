@@ -1,3 +1,28 @@
+2007-09-27 Paul Jakma <paul.jakma@sun.com>
+
+	* aspath_test.c: Test dupe-weeding from sets.
+	  Test that reconciliation merges AS_PATH and AS4_PATH where
+	  former is shorter than latter.
+
+2007-09-26 Paul Jakma <paul.jakma@sun.com>
+
+	* aspath_test.c: Test AS4_PATH reconcilation where length
+	  of AS_PATH and AS4_PATH is same.
+
+2007-09-25 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_capability_test.c: (general) Extend tests to validate
+	  peek_for_as4_capability.
+	  Add test of full OPEN Option block, with multiple capabilities,
+	  both as a series of Option, and a single option.
+	  Add some crap to beginning of stream, to prevent code depending
+	  on getp == 0.
+
+2007-09-18 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_capability_test.c: (parse_test) update for changes to
+	  peek_for_as4_capability
+
 2007-09-17 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_capability_test.c: Test that peer's adv_recv and adv_nego get
@@ -8,6 +33,17 @@
 
 	* bgp_capability_test.c: new, capability parser unit tests.
 	* Makefile.am: add previous.
+
+2007-07-25 Paul Jakma <paul.jakma@sun.com>
+
+	* aspath_test.c: Exercise 32bit parsing. Test reconcile
+	  function.
+	* ecommunity_test.c: New, test AS4 ecommunity changes, positive
+	  test only at this time, error cases not tested yet.
+	
+2006-12-01 Juergen Kammer <j.kammer@eurodata.de>
+
+	* aspath_test.c: Support asn32 changes, call aspath_parse with 16 bit.
 
 2006-08-26 Paul Jakma <paul.jakma@sun.com>
 

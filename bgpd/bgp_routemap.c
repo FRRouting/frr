@@ -3337,7 +3337,7 @@ DEFUN (no_set_atomic_aggregate,
 
 DEFUN (set_aggregator_as,
        set_aggregator_as_cmd,
-       "set aggregator as <1-65535> A.B.C.D",
+       "set aggregator as CMD_AS_RANGE A.B.C.D",
        SET_STR
        "BGP aggregator attribute\n"
        "AS number of aggregator\n"
@@ -3349,7 +3349,7 @@ DEFUN (set_aggregator_as,
   struct in_addr address;
   char *argstr;
 
-  VTY_GET_INTEGER_RANGE ("AS Path", as, argv[0], 1, BGP_AS_MAX);
+  VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
   
   ret = inet_aton (argv[1], &address);
   if (ret == 0)
@@ -3386,7 +3386,7 @@ DEFUN (no_set_aggregator_as,
   if (argv == 0)
     return bgp_route_set_delete (vty, vty->index, "aggregator as", NULL);
   
-  VTY_GET_INTEGER_RANGE ("AS Path", as, argv[0], 1, BGP_AS_MAX);
+  VTY_GET_INTEGER_RANGE ("AS", as, argv[0], 1, BGP_AS4_MAX);
 
   ret = inet_aton (argv[1], &address);
   if (ret == 0)
@@ -3409,7 +3409,7 @@ DEFUN (no_set_aggregator_as,
 
 ALIAS (no_set_aggregator_as,
        no_set_aggregator_as_val_cmd,
-       "no set aggregator as <1-65535> A.B.C.D",
+       "no set aggregator as CMD_AS_RANGE A.B.C.D",
        NO_STR
        SET_STR
        "BGP aggregator attribute\n"

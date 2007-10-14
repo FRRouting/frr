@@ -838,7 +838,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_BGPD,
 	 router_bgp,
 	 router_bgp_cmd,
-	 "router bgp <1-65535>",
+	 "router bgp CMD_AS_RANGE",
 	 ROUTER_STR
 	 BGP_STR
 	 AS_STR)

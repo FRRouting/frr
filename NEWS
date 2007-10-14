@@ -1,5 +1,11 @@
 * Changes in Quagga 0.99.2
 
+- [bgpd] 4-byte AS support added
+- [bgpd] MRT format changes to version 2. Those relying on
+  bgpd MRT table dumps may need to update their tools.
+
+* Changes in Quagga 0.99.2
+
 - [bgpd] Work queues added to bgpd to split up update processing,
   particularly beneficial when a peer session goes down. AS_PATH
   parsing rewritten to be clearer, more robust and ready for 4-byte.

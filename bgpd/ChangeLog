@@ -1,3 +1,131 @@
+2007-09-27 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_aspath.c: (assegment_normalise) remove duplicates from
+	  from sets.
+	  (aspath_reconcile_as4) disregard a broken part of the RFC around
+	  error handling in path reconciliation.
+
+2007-09-25 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_open.c: (peek_for_as4_capability) Fix to work.
+	* bgp_packet.c: (bgp_open_receive) Fix sanity check of as4.
+	
+2007-09-18 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_open.c: (bgp_capability_as4) debug printf inline with others.
+	  (peek_for_as4_capability) There's no need to signal failure, as
+	  failure is better dealt with through full capability parser -
+	  just return the AS4, simpler.
+	* bgp_packet.c: (bgp_open_receive) Update to match
+	  peek_for_as4_capability change.
+	  Allow use of BGP_AS_TRANS by 2b speakers.
+	  Use NOTIFY_OPEN_ERR rather than CEASE for OPEN parsing errors.
+	  (bgp_capability_msg_parse) missing argument to debug print
+	  (bgp_capability_receive) missing return values.
+	  
+	  
+2007-07-25 Paul Jakma <paul.jakma@sun.com>
+
+	* Remove 2-byte size macros, just make existing macros take
+	  argument to indicate which size to use.
+	  Adjust all users - typically they want '1'.
+	* bgp_aspath.c: (aspath_has_as4) New, return 1 if there are any
+	  as4's in a path.
+	  (aspath_put) Return the number of bytes actually written, to
+	  fix the bug Juergen noted: Splitting of segments will change
+	  the number of bytes written from that already written to the
+	  AS_PATH header.
+	  (aspath_snmp_pathseg) Pass 2-byte flag to aspath_put. SNMP
+	  is still defined as 2b.
+	  (aspath_aggregate) fix latent bug.
+	  (aspath_reconcile_as4) AS_PATH+NEW_AS_PATH reconciliation
+	  function.
+	  (aspath_key_make) Hash the AS_PATH string, rather than
+	  just taking the addition of assegment ASes as the hash value,
+	  hopefully sligthly more collision resistant.
+	  (bgp_attr_munge_as4_attrs) Collide the NEW_ attributes
+	  together with the OLD 2-byte forms, code Juergen
+	  had in bgp_attr_parse but re-organised a bit.
+	  (bgp_attr_parse) Bunch of code from Juergen moves
+	  to previous function.
+	  (bgp_packet_attribute) Compact significantly by
+	  just /always/ using extended-length attr header.
+	  Fix bug Juergen noted, by using aspath_put's
+	  (new) returned size value for the attr header rather
+	  than the (guesstimate) of aspath_size() - the two could
+	  differ when aspath_put had to split large segments, unlikely
+	  this bug was ever hit in the 'wild'.
+	  (bgp_dump_routes_attr) Always use extended-len and
+	  use aspath_put return for header length. Output 4b ASN
+	  for AS_PATH and AGGREGATOR.
+	* bgp_ecommunity.c: (ecommunity_{hash_make,cmp}) fix
+	  hash callback declarations to match prototypes.
+	  (ecommunity_gettoken) Updated for ECOMMUNITY_ENCODE_AS4, 
+	  complete rewrite of Juergen's changes (no asdot support)
+	* bgp_open.c: (bgp_capability_as4) New, does what it says
+	  on the tin.
+	  (peek_for_as4_capability) Rewritten to use streams and
+	  bgp_capability_as4.
+	* bgp_packet.c: (bgp_open_send) minor edit
+	  checked (in the abstract at least) with Juergen.
+	  Changes are to be more accepting, e.g, allow AS_TRANS on
+	  a 2-byte session.
+	* (general) Update all commands to use CMD_AS_RANGE.
+	* bgp_vty.c: (bgp_clear) Fix return vals to use CMD_..
+	  Remove stuff replicated by VTY_GET_LONG
+	  (bgp_clear_vty) Return bgp_clear directly to vty.
+	  
+	
+2007-07-25 Juergen Kammer <j.kammer@eurodata.de>
+
+	* (general) AS4 support.
+	* bgpd.h: as_t changes to 4-bytes.
+	* bgp_aspath.h: Add BGP_AS4_MAX and BGP_AS_TRANS defines.
+	* bgp_aspath.c: AS_VALUE_SIZE becomes 4-byte, AS16_VALUE_SIZE
+	  added for 2-byte.
+	  Add AS16 versions of length calc macros.
+	  (aspath_count_numas) New, count number of ASes.
+	  (aspath_has_as4) New, return 1 if there are any as4's in a
+	  path.
+	  (assegments_parse) Interpret assegment as 4 or 2 byte,
+	  according to how the caller instructs us, with a new
+	  argument.
+	  (aspath_parse) Add use32bit argument to pass to
+	  assegments_parse. Adjust all its callers to pass 1, unless
+	  otherwise noted.
+	  (assegment_data_put) Adjust to be able to write 2 or 4 byte
+	  AS, according to new use32bit argument.
+	  (aspath_put) Adjust to write 2 or 4. 
+	  (aspath_gettoken) Use a long for passed in asno.
+	* bgp_attr.c: (attr_str) Add BGP_ATTR_AS4_PATH and
+	  BGP_ATTR_AS4_AGGREGATOR.
+	  (bgp_attr_aspath) Call aspath_parse with right 2/4 arg, as
+	  determined by received-capability flag.
+	  (bgp_attr_aspath_check) New, code previously in attr_aspath
+	  but moved to new func so it can be run after NEW_AS_PATH
+	  reconciliation.
+	  (bgp_attr_as4_path) New, handle NEW_AS_PATH.
+	  (bgp_attr_aggregator) Adjust to cope with 2/4 byte ASes.
+	  (bgp_attr_as4_aggregator) New, read NEW_AGGREGATOR.
+	  (bgp_attr_parse) Add handoffs to previous parsers for the two
+	  new AS4 NEW_ attributes.
+	  Various checks added for NEW/OLD reconciliation.
+	  (bgp_packet_attribute) Support 2/4 for AS_PATH and
+	  AGGREGATOR, detect when NEW_ attrs need to be sent.
+	* bgp_debug.{c,h}: Add 'debug bgp as4'.
+	* bgp_dump.c: MRTv2 support, unconditionally enabled, which
+	  supports AS4. Based on patches from Erik (RIPE?).
+	* bgp_ecommunity.c: (ecommunity_ecom2str) ECOMMUNITY_ENCODE_AS4
+	  support.
+	* bgp_open.c: (peek_for_as4_capability) New, peek for AS4
+	  capability prior to full capability parsing, so we know which
+	  ASN to use for struct peer lookup.
+	  (bgp_open_capability) Always send AS4 capability.
+	* bgp_packet.c: (bgp_open_send) AS4 handling for AS field
+	  (bgp_open_receive) Peek for AS4 capability first, and figure
+	  out which AS to believe.
+	* bgp_vty.c: (bgp_show_peer) Print AS4 cap
+
 2007-09-17 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_open.c: (bgp_capability_mp) We were setting

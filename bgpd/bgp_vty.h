@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_VTY_H
 #define _QUAGGA_BGP_VTY_H
 
+#define CMD_AS_RANGE "<1-4294967295>"
+
 extern void bgp_vty_init (void);
 extern const char *afi_safi_print (afi_t, safi_t);
 

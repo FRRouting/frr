@@ -7,6 +7,13 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 
+#define VT100_RESET "\x1b[0m"
+#define VT100_RED "\x1b[31m"
+#define VT100_GREEN "\x1b[32m"
+#define VT100_YELLOW "\x1b[33m"
+#define OK VT100_GREEN "OK" VT100_RESET
+#define FAILED VT100_RED "failed" VT100_RESET
+
 /* need these to link in libbgp */
 struct zebra_privs_t *bgpd_privs = NULL;
 struct thread_master *master = NULL;
@@ -312,8 +319,87 @@ static struct test_segment {
      /* We shouldn't ever /generate/ such paths. However, we should
       * cope with them fine.
       */
-     "8466 3 52737 4096 3456 {7099,8153,8153,8153}",
-      "8466 3 52737 4096 3456 {7099,8153,8153,8153}",
+     "8466 3 52737 4096 3456 {7099,8153}",
+      "8466 3 52737 4096 3456 {7099,8153}",
+      6, 0, NOT_ALL_PRIVATE, 4096, 4, 8466 },
+  },
+  { /* 18 */
+    "reconcile_lead_asp",
+    "seq(6435,59408,21665) set(23456,23456,23456), seq(23456,23456,23456)",
+    { 0x2,0x3, 0x19,0x23, 0xe8,0x10, 0x54,0xa1,
+      0x1,0x3, 0x5b,0xa0, 0x5b,0xa0, 0x5b,0xa0,
+      0x2,0x3, 0x5b,0xa0, 0x5b,0xa0, 0x5b,0xa0 },
+    24,
+    { "6435 59408 21665 {23456} 23456 23456 23456",
+      "6435 59408 21665 {23456} 23456 23456 23456",
+      7, 0, NOT_ALL_PRIVATE, 23456, 1, 6435 },
+  },
+  { /* 19 */
+    "reconcile_new_asp",
+    "set(2457,61697,4369), seq(1842,41591,51793)",
+    { 
+      0x1,0x3, 0x09,0x99, 0xf1,0x01, 0x11,0x11,
+      0x2,0x3, 0x07,0x32, 0xa2,0x77, 0xca,0x51 },
+    16,
+    { "{2457,4369,61697} 1842 41591 51793",
+      "{2457,4369,61697} 1842 41591 51793",
+      4, 0, NOT_ALL_PRIVATE, 51793, 1, 2457 },
+  },
+  { /* 20 */
+    "reconcile_confed",
+    "confseq(123,456,789) confset(456,124,788) seq(6435,59408,21665)"
+    " set(23456,23456,23456), seq(23456,23456,23456)",
+    { 0x3,0x3, 0x00,0x7b, 0x01,0xc8, 0x03,0x15,
+      0x4,0x3, 0x01,0xc8, 0x00,0x7c, 0x03,0x14,
+      0x2,0x3, 0x19,0x23, 0xe8,0x10, 0x54,0xa1,
+      0x1,0x3, 0x5b,0xa0, 0x5b,0xa0, 0x5b,0xa0,
+      0x2,0x3, 0x5b,0xa0, 0x5b,0xa0, 0x5b,0xa0 },
+    40,
+    { "(123 456 789) [124,456,788] 6435 59408 21665"
+      " {23456} 23456 23456 23456",
+      "6435 59408 21665 {23456} 23456 23456 23456",
+      7, 4, NOT_ALL_PRIVATE, 23456, 1, 6435 },
+  },
+  { /* 21 */
+    "reconcile_start_trans",
+    "seq(23456,23456,23456) seq(6435,59408,21665)",
+    { 0x2,0x3, 0x5b,0xa0, 0x5b,0xa0, 0x5b,0xa0,
+      0x2,0x3, 0x19,0x23, 0xe8,0x10, 0x54,0xa1, },
+    16,
+    { "23456 23456 23456 6435 59408 21665",
+      "23456 23456 23456 6435 59408 21665",
+      6, 0, NOT_ALL_PRIVATE, 21665, 1, 23456 },
+  },
+  { /* 22 */
+    "reconcile_start_trans4",
+    "seq(1842,41591,51793) seq(6435,59408,21665)",
+    { 0x2,0x3, 0x07,0x32, 0xa2,0x77, 0xca,0x51,
+      0x2,0x3, 0x19,0x23, 0xe8,0x10, 0x54,0xa1, },
+    16,
+    { "1842 41591 51793 6435 59408 21665",
+      "1842 41591 51793 6435 59408 21665",
+      6, 0, NOT_ALL_PRIVATE, 41591, 1, 1842 },
+  },
+  { /* 23 */
+    "reconcile_start_trans_error",
+    "seq(23456,23456,23456) seq(6435,59408)",
+    { 0x2,0x3, 0x5b,0xa0, 0x5b,0xa0, 0x5b,0xa0,
+      0x2,0x2, 0x19,0x23, 0xe8,0x10, },
+    14,
+    { "23456 23456 23456 6435 59408",
+      "23456 23456 23456 6435 59408",
+      5, 0, NOT_ALL_PRIVATE, 59408, 1, 23456 },
+  },
+  { /* 24 */ 
+    "redundantset2",
+    "seq(8466,3,52737,4096,3456) set(7099,8153,8153,8153,7099)",
+    { 0x2,0x5, 0x21,0x12, 0x00,0x03, 0xce,0x01, 0x10,0x00, 0x0d,0x80,
+      0x1,0x5, 0x1b,0xbb, 0x1f,0xd9, 0x1f,0xd9, 0x1f,0xd9, 0x1b,0xbb,},
+    24,
+    {
+     /* We should weed out duplicate set members. */
+     "8466 3 52737 4096 3456 {7099,8153}",
+      "8466 3 52737 4096 3456 {7099,8153}",
       6, 0, NOT_ALL_PRIVATE, 4096, 4, 8466 },
   },
   { NULL, NULL, {0}, 0, { NULL, 0, 0 } }
@@ -432,13 +518,43 @@ static struct tests {
   { NULL, NULL, { NULL, 0, 0, 0, 0, 0, 0, } },
 };
 
+struct tests reconcile_tests[] =
+{
+  { &test_segments[18], &test_segments[19],
+    { "6435 59408 21665 {2457,4369,61697} 1842 41591 51793",
+      "6435 59408 21665 {2457,4369,61697} 1842 41591 51793",
+      7, 0, NOT_ALL_PRIVATE, 51793, 1, 6435 },
+  },
+  { &test_segments[19], &test_segments[18],
+    /* AS_PATH (19) has more hops than NEW_AS_PATH,
+     * so just AS_PATH should be used (though, this practice
+     * is bad imho).
+     */
+    { "{2457,4369,61697} 1842 41591 51793 6435 59408 21665 {23456} 23456 23456 23456",
+      "{2457,4369,61697} 1842 41591 51793 6435 59408 21665 {23456} 23456 23456 23456",
+      11, 0, NOT_ALL_PRIVATE, 51793, 1, 6435 },
+  },
+  { &test_segments[20], &test_segments[19],
+    { "(123 456 789) [124,456,788] 6435 59408 21665"
+      " {2457,4369,61697} 1842 41591 51793",
+      "6435 59408 21665 {2457,4369,61697} 1842 41591 51793",
+      7, 4, NOT_ALL_PRIVATE, 51793, 1, 6435 },
+  },
+  { &test_segments[21], &test_segments[22],
+    { "1842 41591 51793 6435 59408 21665",
+      "1842 41591 51793 6435 59408 21665",
+      6, 0, NOT_ALL_PRIVATE, 51793, 1, 1842 },
+  },
+  { &test_segments[23], &test_segments[22],
+    { "23456 23456 23456 6435 59408 1842 41591 51793 6435 59408 21665",
+      "23456 23456 23456 6435 59408 1842 41591 51793 6435 59408 21665",
+      11, 0, NOT_ALL_PRIVATE, 51793, 1, 1842 },
+  },
+  { NULL, NULL, { NULL, 0, 0, 0, 0, 0, 0, } },
+};
+  
 struct tests aggregate_tests[] =
 {
-  { &test_segments[0], &test_segments[1],
-    { "{3,4,4096,8466,8722,52737}",
-      "{3,4,4096,8466,8722,52737}",
-      1, 0, NOT_ALL_PRIVATE, 52737, 1, NULL_ASN },
-  },
   { &test_segments[0], &test_segments[2],
     { "8466 3 52737 4096 {4,8722}",
       "8466 3 52737 4096 {4,8722}",
@@ -459,6 +575,13 @@ struct tests aggregate_tests[] =
       "8466 {2,3,4,4096,8722,52737}",
       2, 0, NOT_ALL_PRIVATE, 2, 20000, 8466 },
   },
+
+  { &test_segments[5], &test_segments[18],
+    { "6435 59408 21665 {1842,2457,4369,23456,41590,51793,61697}",
+      "6435 59408 21665 {1842,2457,4369,23456,41590,51793,61697}",
+      4, 0, NOT_ALL_PRIVATE, 41590, 1, 6435 },
+  },
+
   { NULL, NULL, { NULL, 0, 0}  },
 };
 
@@ -498,7 +621,7 @@ struct compare_tests
 
 /* make an aspath from a data stream */
 static struct aspath *
-make_aspath (const u_char *data, size_t len)
+make_aspath (const u_char *data, size_t len, int use32bit)
 {
   struct stream *s = NULL;
   struct aspath *as;
@@ -508,7 +631,7 @@ make_aspath (const u_char *data, size_t len)
       s = stream_new (len);
       stream_put (s, data, len);
     }
-  as = aspath_parse (s, len);
+  as = aspath_parse (s, len, use32bit);
   
   if (s)
     stream_free (s);
@@ -535,17 +658,26 @@ printbytes (const u_char *bytes, int len)
 static int
 validate (struct aspath *as, const struct test_spec *sp)
 {
-  size_t bytes;
+  size_t bytes, bytes4;
   int fails = 0;
   const u_char *out;
-  struct aspath *asinout, *asconfeddel, *asstr;
+  static struct stream *s;
+  struct aspath *asinout, *asconfeddel, *asstr, *as4;
   
   out = aspath_snmp_pathseg (as, &bytes);
-  asinout = make_aspath (out, bytes);
+  asinout = make_aspath (out, bytes, 0);
+  
+  /* Excercise AS4 parsing a bit, with a dogfood test */
+  if (!s)
+    s = stream_new (4096);
+  bytes4 = aspath_put (s, as, 1);
+  as4 = make_aspath (STREAM_DATA(s), bytes4, 1);
   
   asstr = aspath_str2aspath (sp->shouldbe);
   
   asconfeddel = aspath_delete_confed_seq (aspath_dup (asinout));
+  
+  printf ("got: %s\n", aspath_print(as));
   
   /* the parsed path should match the specified 'shouldbe' string.
    * We should pass the "eat our own dog food" test, be able to output
@@ -562,6 +694,10 @@ validate (struct aspath *as, const struct test_spec *sp)
    *
    * aspath_str2aspath() and shouldbe should match
    *
+   * We do the same for:
+   *
+   *   aspath_parse(aspath_put(as,USE32BIT))
+   *
    * Confederation related tests: 
    * - aspath_delete_confed_seq(aspath) should match shouldbe_confed
    * - aspath_delete_confed_seq should be idempotent.
@@ -571,6 +707,8 @@ validate (struct aspath *as, const struct test_spec *sp)
       || (aspath_key_make (as) != aspath_key_make (asinout))
          /* by string */
       || strcmp(aspath_print (asinout), sp->shouldbe)
+         /* By 4-byte parsing */
+      || strcmp(aspath_print (as4), sp->shouldbe)
          /* by various path counts */
       || (aspath_count_hops (as) != sp->hops)
       || (aspath_count_confeds (as) != sp->confeds)
@@ -580,7 +718,7 @@ validate (struct aspath *as, const struct test_spec *sp)
       failed++;
       fails++;
       printf ("shouldbe:\n%s\n", sp->shouldbe);
-      printf ("got:\n%s\n", aspath_print(as));
+      printf ("as4:\n%s\n", aspath_print (as4));
       printf ("hash keys: in: %d out->in: %d\n", 
               aspath_key_make (as), aspath_key_make (asinout));
       printf ("hops: %d, counted %d %d\n", sp->hops, 
@@ -635,11 +773,13 @@ validate (struct aspath *as, const struct test_spec *sp)
               aspath_private_as_check (as));
     }
   aspath_unintern (asinout);
+  aspath_unintern (as4);
+  
   aspath_free (asconfeddel);
   aspath_free (asstr);
+  stream_reset (s);
   
   return fails;
-  
 }
 
 static void
@@ -650,9 +790,9 @@ empty_get_test ()
 
   printf ("empty_get_test, as: %s\n",aspath_print (as));
   if (!validate (as, &sp))
-    printf ("OK\n");
+    printf ("%s\n", OK);
   else
-    printf ("failed!\n");
+    printf ("%s!\n", FAILED);
   
   printf ("\n");
   
@@ -667,14 +807,14 @@ parse_test (struct test_segment *t)
   
   printf ("%s: %s\n", t->name, t->desc);
 
-  asp = make_aspath (t->asdata, t->len);
+  asp = make_aspath (t->asdata, t->len, 0);
 
   printf ("aspath: %s\nvalidating...:\n", aspath_print (asp));
 
   if (!validate (asp, &t->sp))
-    printf ("OK\n");
+    printf (OK "\n");
   else
-    printf ("failed\n");
+    printf (FAILED "\n");
   
   printf ("\n");
   aspath_unintern (asp);
@@ -689,8 +829,8 @@ prepend_test (struct tests *t)
   printf ("prepend %s: %s\n", t->test1->name, t->test1->desc);
   printf ("to %s: %s\n", t->test2->name, t->test2->desc);
   
-  asp1 = make_aspath (t->test1->asdata, t->test1->len);
-  asp2 = make_aspath (t->test2->asdata, t->test2->len);
+  asp1 = make_aspath (t->test1->asdata, t->test1->len, 0);
+  asp2 = make_aspath (t->test2->asdata, t->test2->len, 0);
   
   ascratch = aspath_dup (asp2);
   aspath_unintern (asp2);
@@ -700,9 +840,9 @@ prepend_test (struct tests *t)
   printf ("aspath: %s\n", aspath_print (asp2));
   
   if (!validate (asp2, &t->sp))
-    printf ("OK\n");
+    printf ("%s\n", OK);
   else
-    printf ("failed!\n");
+    printf ("%s!\n", FAILED);
   
   printf ("\n");
   aspath_unintern (asp1);
@@ -717,7 +857,7 @@ empty_prepend_test (struct test_segment *t)
   
   printf ("empty prepend %s: %s\n", t->name, t->desc);
   
-  asp1 = make_aspath (t->asdata, t->len);
+  asp1 = make_aspath (t->asdata, t->len, 0);
   asp2 = aspath_empty ();
   
   ascratch = aspath_dup (asp2);
@@ -728,14 +868,40 @@ empty_prepend_test (struct test_segment *t)
   printf ("aspath: %s\n", aspath_print (asp2));
   
   if (!validate (asp2, &t->sp))
-    printf ("OK\n");
+    printf (OK "\n");
   else
-    printf ("failed!\n");
+    printf (FAILED "!\n");
   
   printf ("\n");
   aspath_unintern (asp1);
   aspath_free (asp2);
 }
+
+/* as2+as4 reconciliation testing */
+static void
+as4_reconcile_test (struct tests *t)
+{
+  struct aspath *asp1, *asp2, *ascratch;
+  
+  printf ("reconciling %s:\n  %s\n", t->test1->name, t->test1->desc);
+  printf ("with %s:\n  %s\n", t->test2->name, t->test2->desc);
+  
+  asp1 = make_aspath (t->test1->asdata, t->test1->len, 0);
+  asp2 = make_aspath (t->test2->asdata, t->test2->len, 0);
+  
+  ascratch = aspath_reconcile_as4 (asp1, asp2);
+  
+  if (!validate (ascratch, &t->sp))
+    printf (OK "\n");
+  else
+    printf (FAILED "!\n");
+  
+  printf ("\n");
+  aspath_unintern (asp1);
+  aspath_unintern (asp2);
+  aspath_free (ascratch);
+}
+
 
 /* aggregation testing */
 static void
@@ -746,17 +912,15 @@ aggregate_test (struct tests *t)
   printf ("aggregate %s: %s\n", t->test1->name, t->test1->desc);
   printf ("with %s: %s\n", t->test2->name, t->test2->desc);
   
-  asp1 = make_aspath (t->test1->asdata, t->test1->len);
-  asp2 = make_aspath (t->test2->asdata, t->test2->len);
+  asp1 = make_aspath (t->test1->asdata, t->test1->len, 0);
+  asp2 = make_aspath (t->test2->asdata, t->test2->len, 0);
   
   ascratch = aspath_aggregate (asp1, asp2);
   
-  printf ("aspath: %s\n", aspath_print (ascratch));
-  
   if (!validate (ascratch, &t->sp))
-    printf ("OK\n");
+    printf (OK "\n");
   else
-    printf ("failed!\n");
+    printf (FAILED "!\n");
   
   printf ("\n");
   aspath_unintern (asp1);
@@ -782,8 +946,8 @@ cmp_test ()
       printf ("left cmp %s: %s\n", t1->name, t1->desc);
       printf ("and %s: %s\n", t2->name, t2->desc);
       
-      asp1 = make_aspath (t1->asdata, t1->len);
-      asp2 = make_aspath (t2->asdata, t2->len);
+      asp1 = make_aspath (t1->asdata, t1->len, 0);
+      asp2 = make_aspath (t2->asdata, t2->len, 0);
       
       if (aspath_cmp_left (asp1, asp2) != left_compare[i].shouldbe_cmp
           || aspath_cmp_left (asp2, asp1) != left_compare[i].shouldbe_cmp
@@ -792,7 +956,8 @@ cmp_test ()
           || aspath_cmp_left_confed (asp2, asp1) 
                != left_compare[i].shouldbe_confed)
         {
-          printf ("failed\n");
+          failed++;
+          printf (FAILED "\n");
           printf ("result should be: cmp: %d, confed: %d\n", 
                   left_compare[i].shouldbe_cmp,
                   left_compare[i].shouldbe_confed);
@@ -801,10 +966,9 @@ cmp_test ()
                   aspath_cmp_left_confed (asp1, asp2));
           printf("path1: %s\npath2: %s\n", aspath_print (asp1),
                  aspath_print (asp2));
-          failed++;
         }
       else
-        printf ("OK\n");
+        printf (OK "\n");
       
       printf ("\n");
       aspath_unintern (asp1);
@@ -830,6 +994,13 @@ main (void)
   i = 0;
   while (aggregate_tests[i].test1)
     aggregate_test (&aggregate_tests[i++]);
+  
+  i = 0;
+  
+  while (reconcile_tests[i].test1)
+    as4_reconcile_test (&reconcile_tests[i++]);
+  
+  i = 0;
   
   cmp_test();
   

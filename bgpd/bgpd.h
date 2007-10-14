@@ -25,7 +25,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "sockunion.h"
 
 /* Typedef BGP specific types.  */
-typedef u_int16_t as_t;
+typedef u_int32_t as_t;
+typedef u_int16_t as16_t; /* we may still encounter 16 Bit asnums */
 typedef u_int16_t bgp_size_t;
 
 /* BGP master for system wide configurations and variables.  */
@@ -287,6 +288,9 @@ struct peer
   int status;
   int ostatus;
 
+  /* Peer index, used for dumping TABLE_DUMP_V2 format */
+  uint16_t table_dump_index;
+
   /* Peer information */
   int fd;			/* File descriptor */
   int ttl;			/* TTL of TCP connection to the peer. */
@@ -316,7 +320,7 @@ struct peer
   u_char afc_recv[AFI_MAX][SAFI_MAX];
 
   /* Capability flags (reset in bgp_stop) */
-  u_char cap;
+  u_int16_t cap;
 #define PEER_CAP_REFRESH_ADV                (1 << 0) /* refresh advertised */
 #define PEER_CAP_REFRESH_OLD_RCV            (1 << 1) /* refresh old received */
 #define PEER_CAP_REFRESH_NEW_RCV            (1 << 2) /* refresh rfc received */
@@ -324,6 +328,8 @@ struct peer
 #define PEER_CAP_DYNAMIC_RCV                (1 << 4) /* dynamic received */
 #define PEER_CAP_RESTART_ADV                (1 << 5) /* restart advertised */
 #define PEER_CAP_RESTART_RCV                (1 << 6) /* restart received */
+#define PEER_CAP_AS4_ADV                    (1 << 7) /* as4 advertised */
+#define PEER_CAP_AS4_RCV                    (1 << 8) /* as4 received */
 
   /* Capability flags (reset in bgp_stop) */
   u_int16_t af_cap[AFI_MAX][SAFI_MAX];
@@ -591,6 +597,8 @@ struct bgp_nlri
 #define BGP_ATTR_MP_REACH_NLRI                  14
 #define BGP_ATTR_MP_UNREACH_NLRI                15
 #define BGP_ATTR_EXT_COMMUNITIES                16
+#define BGP_ATTR_AS4_PATH                       17
+#define BGP_ATTR_AS4_AGGREGATOR                 18
 #define BGP_ATTR_AS_PATHLIMIT                   21
 
 /* BGP update origin.  */

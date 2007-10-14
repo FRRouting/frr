@@ -48,6 +48,11 @@ struct capability_orf_entry
 } __attribute__ ((packed));
 #pragma pack()
 
+struct capability_as4
+{
+  uint32_t as4;
+};
+
 struct graceful_restart_af
 {
   u_int16_t afi;
@@ -100,6 +105,7 @@ struct capability_gr
 extern int bgp_open_option_parse (struct peer *, u_char, int *);
 extern void bgp_open_capability (struct stream *, struct peer *);
 extern void bgp_capability_vty_out (struct vty *, struct peer *);
+extern as_t peek_for_as4_capability (struct peer *, u_char);
 extern int bgp_afi_safi_valid_indices (afi_t, safi_t *);
 
 #endif /* _QUAGGA_BGP_OPEN_H */

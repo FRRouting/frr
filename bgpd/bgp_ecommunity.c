@@ -27,6 +27,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_aspath.h"
 
 /* Hash of community attribute. */
 struct hash *ecomhash;
@@ -228,8 +229,9 @@ ecommunity_unintern (struct ecommunity *ecom)
 
 /* Utinity function to make hash key.  */
 unsigned int
-ecommunity_hash_make (struct ecommunity *ecom)
+ecommunity_hash_make (void *arg)
 {
+  const struct ecommunity *ecom = arg;
   int c;
   unsigned int key;
   u_int8_t *pnt;
@@ -245,9 +247,11 @@ ecommunity_hash_make (struct ecommunity *ecom)
 
 /* Compare two Extended Communities Attribute structure.  */
 int
-ecommunity_cmp (const struct ecommunity *ecom1, 
-                const struct ecommunity *ecom2)
+ecommunity_cmp (void *arg1, void *arg2)
 {
+  const struct ecommunity *ecom1 = arg1;
+  const struct ecommunity *ecom2 = arg2;
+  
   if (ecom1->size == ecom2->size
       && memcmp (ecom1->val, ecom2->val, ecom1->size * ECOMMUNITY_SIZE) == 0)
     return 1;
@@ -256,7 +260,7 @@ ecommunity_cmp (const struct ecommunity *ecom1,
 
 /* Initialize Extended Comminities related hash. */
 void
-ecommunity_init ()
+ecommunity_init (void)
 {
   ecomhash = hash_create (ecommunity_hash_make, ecommunity_cmp);
 }
@@ -279,11 +283,12 @@ ecommunity_gettoken (const char *str, struct ecommunity_val *eval,
   int dot = 0;
   int digit = 0;
   int separator = 0;
-  u_int32_t val_low = 0;
-  u_int32_t val_high = 0;
   const char *p = str;
+  char *endptr;
   struct in_addr ip;
-  char ipstr[INET_ADDRSTRLEN + 1];
+  as_t as = 0;
+  u_int32_t val = 0;
+  char buf[INET_ADDRSTRLEN + 1];
 
   /* Skip white space. */
   while (isspace ((int) *p))
@@ -346,32 +351,50 @@ ecommunity_gettoken (const char *str, struct ecommunity_val *eval,
       goto error;
     }
   
+  /* What a mess, there are several possibilities:
+   *
+   * a) A.B.C.D:MN
+   * b) EF:OPQR
+   * c) GHJK:MN
+   *
+   * A.B.C.D: Four Byte IP
+   * EF:      Two byte ASN
+   * GHJK:    Four-byte ASN
+   * MN:      Two byte value
+   * OPQR:    Four byte value
+   *
+   */
   while (isdigit ((int) *p) || *p == ':' || *p == '.') 
     {
-      if (*p == ':') 
+      if (*p == ':')
 	{
 	  if (separator)
 	    goto error;
 
 	  separator = 1;
 	  digit = 0;
-
+	  
+	  if ((p - str) > INET_ADDRSTRLEN)
+	    goto error;
+          memset (buf, 0, INET_ADDRSTRLEN + 1);
+          memcpy (buf, str, p - str);
+          
 	  if (dot)
 	    {
-	      if ((p - str) > INET_ADDRSTRLEN)
-		goto error;
-
-	      memset (ipstr, 0, INET_ADDRSTRLEN + 1);
-	      memcpy (ipstr, str, p - str);
-
-	      ret = inet_aton (ipstr, &ip);
+	      /* Parsing A.B.C.D in:
+               * A.B.C.D:MN
+               */
+	      ret = inet_aton (buf, &ip);
 	      if (ret == 0)
-		goto error;
+	        goto error;
 	    }
-	  else
-	    val_high = val_low;
-
-	  val_low = 0;
+          else
+            {
+              /* ASN */
+              as = strtoul (buf, &endptr, 10);
+              if (*endptr != '\0' || as == BGP_AS4_MAX)
+                goto error;
+            }
 	}
       else if (*p == '.')
 	{
@@ -384,35 +407,58 @@ ecommunity_gettoken (const char *str, struct ecommunity_val *eval,
       else
 	{
 	  digit = 1;
-	  val_low *= 10;
-	  val_low += (*p - '0');
+	  
+	  /* We're past the IP/ASN part */
+	  if (separator)
+	    {
+	      val *= 10;
+	      val += (*p - '0');
+            }
 	}
       p++;
     }
 
   /* Low digit part must be there. */
-  if (! digit || ! separator)
+  if (!digit || !separator)
     goto error;
 
   /* Encode result into routing distinguisher.  */
   if (dot)
     {
+      if (val > UINT16_MAX)
+        goto error;
+      
       eval->val[0] = ECOMMUNITY_ENCODE_IP;
       eval->val[1] = 0;
       memcpy (&eval->val[2], &ip, sizeof (struct in_addr));
-      eval->val[6] = (val_low >> 8) & 0xff;
-      eval->val[7] = val_low & 0xff;
+      eval->val[6] = (val >> 8) & 0xff;
+      eval->val[7] = val & 0xff;
+    }
+  else if (as > BGP_AS_MAX)
+    {
+      if (val > UINT16_MAX)
+        goto error;
+      
+      eval->val[0] = ECOMMUNITY_ENCODE_AS4;
+      eval->val[1] = 0;
+      eval->val[2] = (as >>24) & 0xff;
+      eval->val[3] = (as >>16) & 0xff;
+      eval->val[4] = (as >>8) & 0xff;
+      eval->val[5] =  as & 0xff;
+      eval->val[6] = (val >> 8) & 0xff;
+      eval->val[7] = val & 0xff;
     }
   else
     {
       eval->val[0] = ECOMMUNITY_ENCODE_AS;
       eval->val[1] = 0;
-      eval->val[2] = (val_high >>8) & 0xff;
-      eval->val[3] = val_high & 0xff;
-      eval->val[4] = (val_low >>24) & 0xff;
-      eval->val[5] = (val_low >>16) & 0xff;
-      eval->val[6] = (val_low >>8) & 0xff;
-      eval->val[7] = val_low & 0xff;
+      
+      eval->val[2] = (as >>8) & 0xff;
+      eval->val[3] = as & 0xff;
+      eval->val[4] = (val >>24) & 0xff;
+      eval->val[5] = (val >>16) & 0xff;
+      eval->val[6] = (val >>8) & 0xff;
+      eval->val[7] = val & 0xff;
     }
   *token = ecommunity_token_val;
   return p;
@@ -533,7 +579,7 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
   u_int8_t *pnt;
   int encode = 0;
   int type = 0;
-#define ECOMMUNITY_STR_DEFAULT_LEN  26
+#define ECOMMUNITY_STR_DEFAULT_LEN  27
   int str_size;
   int str_pnt;
   char *str_buf;
@@ -576,7 +622,8 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
 
       /* High-order octet of type. */
       encode = *pnt++;
-      if (encode != ECOMMUNITY_ENCODE_AS && encode != ECOMMUNITY_ENCODE_IP)
+      if (encode != ECOMMUNITY_ENCODE_AS && encode != ECOMMUNITY_ENCODE_IP
+		      && encode != ECOMMUNITY_ENCODE_AS4)
 	{
 	  len = sprintf (str_buf + str_pnt, "?");
 	  str_pnt += len;
@@ -618,6 +665,21 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
 	}
 
       /* Put string into buffer.  */
+      if (encode == ECOMMUNITY_ENCODE_AS4)
+	{
+	  eas.as = (*pnt++ << 24);
+	  eas.as |= (*pnt++ << 16);
+	  eas.as |= (*pnt++ << 8);
+	  eas.as |= (*pnt++);
+
+	  eas.val = (*pnt++ << 8);
+	  eas.val |= (*pnt++);
+
+	  len = sprintf( str_buf + str_pnt, "%s%d:%d", prefix,
+                        eas.as, eas.val );
+	  str_pnt += len;
+	  first = 0;
+	}
       if (encode == ECOMMUNITY_ENCODE_AS)
 	{
 	  eas.as = (*pnt++ << 8);

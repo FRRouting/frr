@@ -31,7 +31,11 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_PRIVATE_AS_MIN       64512U
 #define BGP_PRIVATE_AS_MAX       65535U
 
-#define BGP_AS_MAX		 65535U
+/* we leave BGP_AS_MAX as the 16bit AS MAX number.  */
+#define BGP_AS_MAX		     65535U
+#define BGP_AS4_MAX		4294967295U
+/* Transition 16Bit AS as defined by IANA */
+#define BGP_AS_TRANS		 23456U
 
 /* AS_PATH segment data in abstracted form, no limit is placed on length */
 struct assegment
@@ -61,7 +65,7 @@ struct aspath
 /* Prototypes. */
 extern void aspath_init (void);
 extern void aspath_finish (void);
-extern struct aspath *aspath_parse (struct stream *, size_t);
+extern struct aspath *aspath_parse (struct stream *, size_t, int);
 extern struct aspath *aspath_dup (struct aspath *);
 extern struct aspath *aspath_aggregate (struct aspath *, struct aspath *);
 extern struct aspath *aspath_prepend (struct aspath *, struct aspath *);
@@ -88,7 +92,11 @@ extern unsigned int aspath_count_hops (struct aspath *);
 extern unsigned int aspath_count_confeds (struct aspath *);
 extern unsigned int aspath_size (struct aspath *);
 extern as_t aspath_highest (struct aspath *);
-extern void aspath_put (struct stream *, struct aspath *);
+extern size_t aspath_put (struct stream *, struct aspath *, int);
+
+extern struct aspath *aspath_reconcile_as4 (struct aspath *, struct aspath *);
+extern unsigned int aspath_has_as4 (struct aspath *);
+extern unsigned int aspath_count_numas (struct aspath *);
 
 /* For SNMP BGP4PATHATTRASPATHSEGMENT, might be useful for debug */
 extern u_char *aspath_snmp_pathseg (struct aspath *, size_t *);

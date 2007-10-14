@@ -24,6 +24,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* High-order octet of the Extended Communities type field.  */
 #define ECOMMUNITY_ENCODE_AS                0x00
 #define ECOMMUNITY_ENCODE_IP                0x01
+#define ECOMMUNITY_ENCODE_AS4               0x02
 
 /* Low-order octet of the Extended Communityes type field.  */
 #define ECOMMUNITY_ROUTE_TARGET             0x02
@@ -71,9 +72,9 @@ extern struct ecommunity *ecommunity_parse (u_int8_t *, u_short);
 extern struct ecommunity *ecommunity_dup (struct ecommunity *);
 extern struct ecommunity *ecommunity_merge (struct ecommunity *, struct ecommunity *);
 extern struct ecommunity *ecommunity_intern (struct ecommunity *);
-extern int ecommunity_cmp (const struct ecommunity *, const struct ecommunity *);
+extern int ecommunity_cmp (void *, void *);
 extern void ecommunity_unintern (struct ecommunity *);
-extern unsigned int ecommunity_hash_make (struct ecommunity *);
+extern unsigned int ecommunity_hash_make (void *);
 extern struct ecommunity *ecommunity_str2com (const char *, int, int);
 extern char *ecommunity_ecom2str (struct ecommunity *, int);
 extern int ecommunity_match (const struct ecommunity *, const struct ecommunity *);

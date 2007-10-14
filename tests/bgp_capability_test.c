@@ -15,8 +15,9 @@
 #define VT100_YELLOW "\x1b[33m"
 
 
-#define OPEN	0
-#define DYNCAP	1
+#define CAPABILITY 0
+#define DYNCAP     1
+#define OPT_PARAM  2
 
 /* need these to link in libbgp */
 struct zebra_privs_t *bgpd_privs = NULL;
@@ -34,7 +35,8 @@ static struct test_segment {
 #define SHOULD_PARSE	0
 #define SHOULD_ERR	-1
   int parses; /* whether it should parse or not */
-
+  int peek_for; /* what peek_for_as4_capability should say */
+  
   /* AFI/SAFI validation */
   int validate_afi;
   afi_t afi;
@@ -76,54 +78,55 @@ static struct test_segment mp_segments[] =
   { "MP4",
     "MP IP/Uni",
     { 0x1, 0x4, 0x0, 0x1, 0x0, 0x1 },
-    6, SHOULD_PARSE, AFI_IP, SAFI_UNICAST,
+    6, SHOULD_PARSE, 0,
+    1, AFI_IP, SAFI_UNICAST, VALID_AFI,
   },
   { "MPv6",
     "MP IPv6/Uni",
     { 0x1, 0x4, 0x0, 0x2, 0x0, 0x1 },
-    6, SHOULD_PARSE, 
+    6, SHOULD_PARSE, 0,
     1, AFI_IP6, SAFI_UNICAST, VALID_AFI,
   },
   /* 5 */
   { "MP2",
     "MP IP/Multicast",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x1, 0x0, 0x2 },
-    6, SHOULD_PARSE, 
+    6, SHOULD_PARSE, 0,
     1, AFI_IP, SAFI_MULTICAST, VALID_AFI,
   },
   /* 6 */
   { "MP3",
     "MP IP6/VPNv4",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x2, 0x0, 0x80 },
-    6, SHOULD_PARSE, /* parses, but invalid afi,safi */
+    6, SHOULD_PARSE, 0, /* parses, but invalid afi,safi */
     1, AFI_IP6, BGP_SAFI_VPNV4, INVALID_AFI,
   },
   /* 7 */
   { "MP5",
     "MP IP6/MPLS-VPN",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x2, 0x0, 0x4 },
-    6, SHOULD_PARSE, 
+    6, SHOULD_PARSE, 0,
     1, AFI_IP6, SAFI_MPLS_VPN, VALID_AFI,
   },
   /* 8 */
   { "MP6",
     "MP IP4/VPNv4",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x1, 0x0, 0x80 },
-    6, SHOULD_PARSE, 
+    6, SHOULD_PARSE, 0,
     1, AFI_IP, BGP_SAFI_VPNV4, VALID_AFI,
   },  
   /* 9 */
   { "MP7",
     "MP IP4/VPNv6",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0x1, 0x0, 0x81 },
-    6, SHOULD_PARSE, /* parses, but invalid afi,safi tuple */
+    6, SHOULD_PARSE, 0, /* parses, but invalid afi,safi tuple */
     1, AFI_IP, BGP_SAFI_VPNV6, INVALID_AFI,
   },
   /* 10 */
   { "MP8",
     "MP unknown AFI",
     { CAPABILITY_CODE_MP, 0x4, 0x0, 0xa, 0x0, 0x81 },
-    6, SHOULD_PARSE, 
+    6, SHOULD_PARSE, 0,
     1, 0xa, 0x81, INVALID_AFI, /* parses, but unknown */
   },
   /* 11 */
@@ -136,7 +139,7 @@ static struct test_segment mp_segments[] =
   { "MP-overflow",
     "MP IP4/Unicast, length too long",
     { CAPABILITY_CODE_MP, 0x6, 0x0, 0x1, 0x0, 0x1 },
-    6, SHOULD_ERR,
+    6, SHOULD_ERR, 0,
     1, AFI_IP, SAFI_UNICAST, VALID_AFI,
   },
   { NULL, NULL, {0}, 0, 0}
@@ -290,8 +293,8 @@ static struct test_segment misc_segments[] =
   /* 19 */
   { "AS4",
     "AS4 capability",
-    { 0x41, 0x4, 0xab, 0xcd, 0xef, 0x12 },
-    6, SHOULD_PARSE,
+    { 0x41, 0x4, 0xab, 0xcd, 0xef, 0x12 }, /* AS: 2882400018 */
+    6, SHOULD_PARSE, 2882400018,
   },
   /* 20 */
   { "GR",
@@ -367,7 +370,7 @@ static struct test_segment misc_segments[] =
   { NULL, NULL, {0}, 0, 0}
 };
 
-
+/* DYNAMIC message */
 struct test_segment dynamic_cap_msgs[] = 
 {
   { "DynCap",
@@ -397,18 +400,97 @@ struct test_segment dynamic_cap_msgs[] =
   },
   { NULL, NULL, {0}, 0, 0}
 };
+
+/* Entire Optional-Parameters block */
+struct test_segment opt_params[] =
+{
+  { "Cap-singlets",
+    "One capability per Optional-Param",
+    { 0x02, 0x06, 0x01, 0x04, 0x00, 0x01, 0x00, 0x01, /* MP IPv4/Uni */
+      0x02, 0x06, 0x01, 0x04, 0x00, 0x02, 0x00, 0x01, /* MP IPv6/Uni */
+      0x02, 0x02, 0x80, 0x00, /* RR (old) */
+      0x02, 0x02, 0x02, 0x00, /* RR */  
+    },
+    24, SHOULD_PARSE,
+  },
+  { "Cap-series",
+    "Series of capability, one Optional-Param",
+    { 0x02, 0x10,
+      0x01, 0x04, 0x00, 0x01, 0x00, 0x01, /* MP IPv4/Uni */
+      0x01, 0x04, 0x00, 0x02, 0x00, 0x01, /* MP IPv6/Uni */
+      0x80, 0x00, /* RR (old) */
+      0x02, 0x00, /* RR */  
+    },
+    18, SHOULD_PARSE,
+  },
+  { "AS4more",
+    "AS4 capability after other caps (singlets)",
+    { 0x02, 0x06, 0x01, 0x04, 0x00, 0x01, 0x00, 0x01, /* MP IPv4/Uni */
+      0x02, 0x06, 0x01, 0x04, 0x00, 0x02, 0x00, 0x01, /* MP IPv6/Uni */
+      0x02, 0x02, 0x80, 0x00, /* RR (old) */
+      0x02, 0x02, 0x02, 0x00, /* RR */
+      0x02, 0x06, 0x41, 0x04, 0x00, 0x03, 0x00, 0x06  /* AS4: 1996614 */
+    },
+    32, SHOULD_PARSE, 196614,
+  },
+  { "AS4series",
+    "AS4 capability, in series of capabilities",
+    { 0x02, 0x16,
+      0x01, 0x04, 0x00, 0x01, 0x00, 0x01, /* MP IPv4/Uni */
+      0x01, 0x04, 0x00, 0x02, 0x00, 0x01, /* MP IPv6/Uni */
+      0x80, 0x00, /* RR (old) */
+      0x02, 0x00, /* RR */  
+      0x41, 0x04, 0x00, 0x03, 0x00, 0x06  /* AS4: 1996614 */
+    },
+    24, SHOULD_PARSE, 196614,
+  },
+  { "AS4real",
+    "AS4 capability, in series of capabilities",
+    {
+      0x02, 0x06, 0x01, 0x04, 0x00, 0x01, 0x00, 0x01, /* MP IPv4/uni */
+      0x02, 0x06, 0x01, 0x04, 0x00, 0x02, 0x00, 0x01, /* MP IPv6/uni */
+      0x02, 0x02, 0x80, 0x00, /* RR old */
+      0x02, 0x02, 0x02, 0x00, /* RR */
+      0x02, 0x06, 0x41, 0x04, 0x00, 0x03, 0x00, 0x06, /* AS4 */
+    },
+    32, SHOULD_PARSE, 196614,
+  },
+  { "AS4real2",
+    "AS4 capability, in series of capabilities",
+    {
+      0x02, 0x06, 0x01, 0x04, 0x00, 0x01, 0x00, 0x01,
+      0x02, 0x06, 0x01, 0x04, 0x00, 0x02, 0x00, 0x01,
+      0x02, 0x02, 0x80, 0x00,
+      0x02, 0x02, 0x02, 0x00,
+      0x02, 0x06, 0x41, 0x04, 0x00, 0x00, 0xfc, 0x03,
+      0x02, 0x09, 0x82, 0x07, 0x00, 0x01, 0x00, 0x01, 0x01, 0x80, 0x03,
+      0x02, 0x09, 0x03, 0x07, 0x00, 0x01, 0x00, 0x01, 0x01, 0x40, 0x03,
+      0x02, 0x02, 0x42, 0x00,
+    },
+    58, SHOULD_PARSE, 64515,
+  },
+
+  { NULL, NULL, {0}, 0, 0}
+};
+
 /* basic parsing test */
 static void
 parse_test (struct peer *peer, struct test_segment *t, int type)
 {
   int ret;
   int capability = 0;
+  as_t as4 = 0;
   int oldfailed = failed;
+  int len = t->len;
+#define RANDOM_FUZZ 35
   
   stream_reset (peer->ibuf);
+  stream_put (peer->ibuf, NULL, RANDOM_FUZZ);
+  stream_set_getp (peer->ibuf, RANDOM_FUZZ);
+  
   switch (type)
     {
-      case OPEN:
+      case CAPABILITY:
         stream_putc (peer->ibuf, BGP_OPEN_OPT_CAP);
         stream_putc (peer->ibuf, t->len);
         break;
@@ -422,11 +504,20 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
   stream_write (peer->ibuf, t->data, t->len);
   
   printf ("%s: %s\n", t->name, t->desc);
-  
+
   switch (type)
     {
-      case OPEN:
-        ret = bgp_open_option_parse (peer, t->len + 2, &capability);
+      case CAPABILITY:
+        len += 2; /* to cover the OPT-Param header */
+      case OPT_PARAM:
+        printf ("len: %u\n", len);
+        /* peek_for_as4 wants getp at capibility*/
+        as4 = peek_for_as4_capability (peer, len);
+        printf ("peek_for_as4: as4 is %u\n", as4);
+        /* and it should leave getp as it found it */
+        assert (stream_get_getp (peer->ibuf) == RANDOM_FUZZ);
+        
+        ret = bgp_open_option_parse (peer, len, &capability);
         break;
       case DYNCAP:
         ret = bgp_capability_receive (peer, t->len);
@@ -458,18 +549,27 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
         }
     }
   
+  if (as4 != t->peek_for)
+    {
+      printf ("as4 %u != %u\n", as4, t->peek_for);
+      failed++;
+    }
+  
   printf ("parsed?: %s\n", ret ? "no" : "yes");
   
   if (ret != t->parses)
     failed++;
   
   if (tty)
-    printf ("%s\n", (failed > oldfailed) ? VT100_RED "failed!" VT100_RESET 
+    printf ("%s", (failed > oldfailed) ? VT100_RED "failed!" VT100_RESET 
                                          : VT100_GREEN "OK" VT100_RESET);
   else
-    printf ("%s\n", (failed > oldfailed) ? "failed!" : "OK" );
+    printf ("%s", (failed > oldfailed) ? "failed!" : "OK" );
   
-  printf ("\n");
+  if (failed)
+    printf (" (%u)", failed);
+  
+  printf ("\n\n");
 }
 
 static struct bgp *bgp;
@@ -485,10 +585,12 @@ main (void)
   conf_bgp_debug_events = -1UL;
   conf_bgp_debug_packet = -1UL;
   conf_bgp_debug_normal = -1UL;
+  conf_bgp_debug_as4 = -1UL;
   term_bgp_debug_fsm = -1UL;
   term_bgp_debug_events = -1UL;
   term_bgp_debug_packet = -1UL;
   term_bgp_debug_normal = -1UL;
+  term_bgp_debug_as4 = -1UL;
   
   master = thread_master_create ();
   bgp_master_init ();
@@ -500,6 +602,7 @@ main (void)
     return -1;
   
   peer = peer_create_accept (bgp);
+  peer->host = "foo";
   
   for (i = AFI_IP; i < AFI_MAX; i++)
     for (j = SAFI_UNICAST; j < SAFI_MAX; j++)
@@ -510,18 +613,22 @@ main (void)
   
   i = 0;
   while (mp_segments[i].name)
-    parse_test (peer, &mp_segments[i++], OPEN);
+    parse_test (peer, &mp_segments[i++], CAPABILITY);
 
   /* These tests assume mp_segments tests set at least
    * one of the afc_nego's
    */
   i = 0;
   while (test_segments[i].name)   
-    parse_test (peer, &test_segments[i++], OPEN);
+    parse_test (peer, &test_segments[i++], CAPABILITY);
   
   i = 0;
   while (misc_segments[i].name)
-    parse_test (peer, &misc_segments[i++], OPEN);
+    parse_test (peer, &misc_segments[i++], CAPABILITY);
+
+  i = 0;
+  while (opt_params[i].name)
+    parse_test (peer, &opt_params[i++], OPT_PARAM);
 
   SET_FLAG (peer->cap, PEER_CAP_DYNAMIC_ADV);
   peer->status = Established;

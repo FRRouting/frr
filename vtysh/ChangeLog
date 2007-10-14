@@ -18,6 +18,11 @@
 	  precision commands: send to all daemons.
 	  (vtysh_init_vty) Install new log timestamp precision commands.
 
+2007-02-12 Juergen Kammer <j.kammer@eurodata.de>
+	* extract.pl: AS4 compatibility for router bgp ASNUMBER
+	* extract.pl.in: AS4 compatibility for router bgp ASNUMBER
+	* vtysh.c: AS4 compatibility for router bgp ASNUMBER
+
 2006-07-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* vtysh_main.c: (usage) Add new -d and -E options.  And note that

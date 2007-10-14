@@ -804,7 +804,8 @@ bgp_open_send (struct peer *peer)
 
   /* Set open packet values. */
   stream_putc (s, BGP_VERSION_4);        /* BGP version */
-  stream_putw (s, local_as);		 /* My Autonomous System*/
+  stream_putw (s, (local_as <= BGP_AS_MAX) ? (u_int16_t) local_as 
+                                           : BGP_AS_TRANS);
   stream_putw (s, send_holdtime);     	 /* Hold Time */
   stream_put_in_addr (s, &peer->local_id); /* BGP Identifier */
 
@@ -1168,6 +1169,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   u_int16_t holdtime;
   u_int16_t send_holdtime;
   as_t remote_as;
+  as_t as4 = 0;
   struct peer *realpeer;
   struct in_addr remote_id;
   int capability;
@@ -1186,10 +1188,75 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
 
   /* Receive OPEN message log  */
   if (BGP_DEBUG (normal, NORMAL))
-    zlog_debug ("%s rcv OPEN, version %d, remote-as %d, holdtime %d, id %s",
-	       peer->host, version, remote_as, holdtime,
-	       inet_ntoa (remote_id));
-	  
+    zlog_debug ("%s rcv OPEN, version %d, remote-as (in open) %d,"
+                " holdtime %d, id %s",
+	        peer->host, version, remote_as, holdtime,
+	        inet_ntoa (remote_id));
+  
+  /* BEGIN to read the capability here, but dont do it yet */
+  capability = 0;
+  optlen = stream_getc (peer->ibuf);
+  
+  if (optlen != 0)
+    {
+      /* We need the as4 capability value *right now* because
+       * if it is there, we have not got the remote_as yet, and without
+       * that we do not know which peer is connecting to us now.
+       */ 
+      as4 = peek_for_as4_capability (peer, optlen);
+    }
+  
+  /* Just in case we have a silly peer who sends AS4 capability set to 0 */
+  if (CHECK_FLAG (peer->cap, PEER_CAP_AS4_RCV) && !as4)
+    {
+      zlog_err ("%s bad OPEN, got AS4 capability, but AS4 set to 0",
+                peer->host);
+      bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
+                       BGP_NOTIFY_OPEN_BAD_PEER_AS);
+      return -1;
+    }
+  
+  if (remote_as == BGP_AS_TRANS)
+    {
+	  /* Take the AS4 from the capability.  We must have received the
+	   * capability now!  Otherwise we have a asn16 peer who uses
+	   * BGP_AS_TRANS, for some unknown reason.
+	   */
+      if (as4 == BGP_AS_TRANS)
+        {
+          zlog_err ("%s [AS4] NEW speaker using AS_TRANS for AS4, not allowed",
+                    peer->host);
+          bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
+                 BGP_NOTIFY_OPEN_BAD_PEER_AS);
+          return -1;
+        }
+      
+      if (!as4 && BGP_DEBUG (as4, AS4))
+        zlog_debug ("%s [AS4] OPEN remote_as is AS_TRANS, but no AS4."
+                    " Odd, but proceeding.", peer->host);
+      else if (as4 < BGP_AS_MAX && BGP_DEBUG (as4, AS4))
+        zlog_debug ("%s [AS4] OPEN remote_as is AS_TRANS, but AS4 fits "
+                    "in 2-bytes, very odd peer.", peer->host, as4);
+      if (as4)
+        remote_as = as4;
+    } 
+  else 
+    {
+      /* We may have a partner with AS4 who has an asno < BGP_AS_MAX */
+      /* If we have got the capability, peer->as4cap must match remote_as */
+      if (CHECK_FLAG (peer->cap, PEER_CAP_AS4_RCV)
+          && as4 != remote_as)
+        {
+	  /* raise error, log this, close session */
+	  zlog_err ("%s bad OPEN, got AS4 capability, but remote_as %u"
+	            " mismatch with 16bit 'myasn' %u in open",
+	            peer->host, as4, remote_as);
+	  bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
+			   BGP_NOTIFY_OPEN_BAD_PEER_AS);
+	  return -1;
+	}
+    }
+
   /* Lookup peer from Open packet. */
   if (CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
     {
@@ -1364,8 +1431,6 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   peer->v_keepalive = peer->v_holdtime / 3;
 
   /* Open option part parse. */
-  capability = 0;
-  optlen = stream_getc (peer->ibuf);
   if (optlen != 0) 
     {
       ret = bgp_open_option_parse (peer, optlen, &capability);
@@ -2049,8 +2114,8 @@ bgp_capability_msg_parse (struct peer *peer, u_char *pnt, bgp_size_t length)
           if (!bgp_afi_safi_valid_indices (afi, &safi))
             {
               if (BGP_DEBUG (normal, NORMAL))
-                zlog_debug ("%s Dynamic Capability MP_EXT afi/safi invalid",
-                            peer->host, afi, safi);
+                zlog_debug ("%s Dynamic Capability MP_EXT afi/safi invalid "
+                            "(%u/%u)", peer->host, afi, safi);
               continue;
             }
           
@@ -2097,7 +2162,6 @@ int
 bgp_capability_receive (struct peer *peer, bgp_size_t size)
 {
   u_char *pnt;
-  int ret;
 
   /* Fetch pointer. */
   pnt = stream_pnt (peer->ibuf);
@@ -2113,7 +2177,7 @@ bgp_capability_receive (struct peer *peer, bgp_size_t size)
       bgp_notify_send (peer,
 		       BGP_NOTIFY_HEADER_ERR,
 		       BGP_NOTIFY_HEADER_BAD_MESTYPE);
-      return;
+      return -1;
     }
 
   /* Status must be Established. */
@@ -2122,7 +2186,7 @@ bgp_capability_receive (struct peer *peer, bgp_size_t size)
       plog_err (peer->log,
 		"%s [Error] Dynamic capability packet received under status %s", peer->host, LOOKUP (bgp_status_msg, peer->status));
       bgp_notify_send (peer, BGP_NOTIFY_FSM_ERR, 0);
-      return;
+      return -1;
     }
 
   /* Parse packet. */

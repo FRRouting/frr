@@ -34,6 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_open.h"
+#include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_vty.h"
 
 /* BGP-4 Multiprotocol Extentions lead us to the complex world. We can
@@ -427,6 +428,19 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
   return 0;
 }
 
+static as_t
+bgp_capability_as4 (struct peer *peer, struct capability_header *hdr)
+{
+  as_t as4 = stream_getl (BGP_INPUT(peer));
+  
+  if (BGP_DEBUG (as4, AS4))
+    zlog_debug ("%s [AS4] about to set cap PEER_CAP_AS4_RCV, got as4 %u",
+                peer->host, as4);
+  SET_FLAG (peer->cap, PEER_CAP_AS4_RCV);
+  
+  return as4;
+}
+
 static struct message capcode_str[] =
 {
   { 0,	""},
@@ -507,6 +521,7 @@ bgp_capability_parse (struct peer *peer, size_t length, u_char **error)
           case CAPABILITY_CODE_ORF:
           case CAPABILITY_CODE_ORF_OLD:
           case CAPABILITY_CODE_RESTART:
+          case CAPABILITY_CODE_AS4:
           case CAPABILITY_CODE_DYNAMIC:
               /* Check length. */
               if (caphdr.length < cap_minsizes[caphdr.code])
@@ -566,6 +581,14 @@ bgp_capability_parse (struct peer *peer, size_t length, u_char **error)
           case CAPABILITY_CODE_DYNAMIC:
             SET_FLAG (peer->cap, PEER_CAP_DYNAMIC_RCV);
             break;
+          case CAPABILITY_CODE_AS4:
+              /* Already handled as a special-case parsing of the capabilities
+               * at the beginning of OPEN processing. So we care not a jot
+               * for the value really, only error case.
+               */
+              if (!bgp_capability_as4 (peer, &caphdr))
+                return -1;
+              break;            
           default:
             if (caphdr.code > 128)
               {
@@ -613,6 +636,86 @@ strict_capability_same (struct peer *peer)
       if (peer->afc[i][j] != peer->afc_nego[i][j])
 	return 0;
   return 1;
+}
+
+/* peek into option, stores ASN to *as4 if the AS4 capability was found.
+ * Returns  0 if no as4 found, as4cap value otherwise.
+ */
+as_t
+peek_for_as4_capability (struct peer *peer, u_char length)
+{
+  struct stream *s = BGP_INPUT (peer);
+  size_t orig_getp = stream_get_getp (s);
+  size_t end = orig_getp + length;
+  as_t as4 = 0;
+  
+  /* The full capability parser will better flag the error.. */
+  if (STREAM_READABLE(s) < length)
+    return 0;
+
+  if (BGP_DEBUG (as4, AS4))
+    zlog_info ("%s [AS4] rcv OPEN w/ OPTION parameter len: %u,"
+                " peeking for as4",
+	        peer->host, length);
+  /* the error cases we DONT handle, we ONLY try to read as4 out of
+   * correctly formatted options.
+   */
+  while (stream_get_getp(s) < end) 
+    {
+      u_char opt_type;
+      u_char opt_length;
+      
+      /* Check the length. */
+      if (stream_get_getp (s) + 2 > end)
+        goto end;
+      
+      /* Fetch option type and length. */
+      opt_type = stream_getc (s);
+      opt_length = stream_getc (s);
+      
+      /* Option length check. */
+      if (stream_get_getp (s) + opt_length > end)
+        goto end;
+      
+      if (opt_type == BGP_OPEN_OPT_CAP)
+        {
+          unsigned long capd_start = stream_get_getp (s);
+          unsigned long capd_end = capd_start + opt_length;
+          
+          assert (capd_end <= end);
+          
+	  while (stream_get_getp (s) < capd_end)
+	    {
+	      struct capability_header hdr;
+	      
+	      if (stream_get_getp (s) + 2 > capd_end)
+                goto end;
+              
+              hdr.code = stream_getc (s);
+              hdr.length = stream_getc (s);
+              
+	      if ((stream_get_getp(s) +  hdr.length) > capd_end)
+		goto end;
+
+	      if (hdr.code == CAPABILITY_CODE_AS4)
+	        {
+	          if (hdr.length != CAPABILITY_CODE_AS4_LEN)
+	            goto end;
+                  
+	          if (BGP_DEBUG (as4, AS4))
+	            zlog_info ("[AS4] found AS4 capability, about to parse");
+	          as4 = bgp_capability_as4 (peer, &hdr);
+	          
+	          goto end;
+                }
+              stream_forward_getp (s, hdr.length);
+	    }
+	}
+    }
+
+end:
+  stream_set_getp (s, orig_getp);
+  return as4;
 }
 
 /* Parse open option */
@@ -815,6 +918,7 @@ bgp_open_capability (struct stream *s, struct peer *peer)
   unsigned long cp;
   afi_t afi;
   safi_t safi;
+  as_t local_as;
 
   /* Remember current pointer for Opt Parm Len. */
   cp = stream_get_endp (s);
@@ -900,6 +1004,18 @@ bgp_open_capability (struct stream *s, struct peer *peer)
   stream_putc (s, CAPABILITY_CODE_REFRESH_LEN + 2);
   stream_putc (s, CAPABILITY_CODE_REFRESH);
   stream_putc (s, CAPABILITY_CODE_REFRESH_LEN);
+
+  /* AS4 */
+  SET_FLAG (peer->cap, PEER_CAP_AS4_ADV);
+  stream_putc (s, BGP_OPEN_OPT_CAP);
+  stream_putc (s, CAPABILITY_CODE_AS4_LEN + 2);
+  stream_putc (s, CAPABILITY_CODE_AS4);
+  stream_putc (s, CAPABILITY_CODE_AS4_LEN);
+  if ( peer->change_local_as )
+    local_as = peer->change_local_as;
+  else
+    local_as = peer->local_as;
+  stream_putl (s, local_as );
 
   /* ORF capability. */
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)

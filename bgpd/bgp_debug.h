@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_DEBUG_H
 #define _QUAGGA_BGP_DEBUG_H
 
+#include "bgp_attr.h"
+
 /* sort of packet direction */
 #define DUMP_ON        1
 #define DUMP_SEND      2
@@ -56,6 +58,7 @@ extern void bgp_packet_dump (struct stream *);
 
 extern int debug (unsigned int option);
 
+extern unsigned long conf_bgp_debug_as4;
 extern unsigned long conf_bgp_debug_fsm;
 extern unsigned long conf_bgp_debug_events;
 extern unsigned long conf_bgp_debug_packet;
@@ -65,6 +68,7 @@ extern unsigned long conf_bgp_debug_update;
 extern unsigned long conf_bgp_debug_normal;
 extern unsigned long conf_bgp_debug_zebra;
 
+extern unsigned long term_bgp_debug_as4;
 extern unsigned long term_bgp_debug_fsm;
 extern unsigned long term_bgp_debug_events;
 extern unsigned long term_bgp_debug_packet;
@@ -73,6 +77,9 @@ extern unsigned long term_bgp_debug_keepalive;
 extern unsigned long term_bgp_debug_update;
 extern unsigned long term_bgp_debug_normal;
 extern unsigned long term_bgp_debug_zebra;
+
+#define BGP_DEBUG_AS4                 0x01
+#define BGP_DEBUG_AS4_SEGMENT         0x02
 
 #define BGP_DEBUG_FSM                 0x01
 #define BGP_DEBUG_EVENTS              0x01
