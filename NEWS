@@ -1,4 +1,4 @@
-* Changes in Quagga 0.99.2
+* Changes in Quagga 0.99.10
 
 - [bgpd] 4-byte AS support added
 - [bgpd] MRT format changes to version 2. Those relying on
