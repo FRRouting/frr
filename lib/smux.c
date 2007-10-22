@@ -1228,9 +1228,16 @@ void
 smux_stop ()
 {
   if (smux_read_thread)
-    thread_cancel (smux_read_thread);
+    {
+      thread_cancel (smux_read_thread);
+      smux_read_thread = NULL;
+    }
+
   if (smux_connect_thread)
-    thread_cancel (smux_connect_thread);
+    {
+      thread_cancel (smux_connect_thread);
+      smux_connect_thread = NULL;
+    }
 
   if (smux_sock >= 0)
     {
@@ -1534,6 +1541,9 @@ smux_init (struct thread_master *tm)
 void
 smux_start(void)
 {
+  /* Close any existing connections. */
+  smux_stop();
+
   /* Schedule first connection. */
   smux_event (SMUX_SCHEDULE, 0);
 }

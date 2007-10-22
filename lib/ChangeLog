@@ -1,3 +1,8 @@
+2007-10-22 Lorenzo Colitti <lorenzo@colitti.com>
+
+	* smux.c: (smux_stop) Avoid cancelling a defunct thread pointer
+	  (smux_start) Stop smux before trying to start it, possibly again.
+
 2007-10-04 Denis Ovsienko
 
 	* pid_output.c: (pid_output) stop using LOGFILE_MASK
