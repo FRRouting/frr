@@ -1,3 +1,10 @@
+2007-10-22 Phil Spagnolo <phillip.a.spagnolo@boeing.com>
+
+	* ospf6_asbr.c: (ospf6_asbr_lsentry_remove) Remove shortcut
+	  of LSDB search - it's based on assumption non-BEST routes
+	  can't have ASBR routes, which appears to be wrong. Safest to
+	  search.
+
 2007-06-07 Pavol Rusnak <prusnak@suse.cz>
 
 	* ospf6_lsa.c: (no_debug_ospf6_lsa_hex_cmd) Fix bug: must use strcmp
