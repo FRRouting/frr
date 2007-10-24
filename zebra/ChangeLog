@@ -1,3 +1,9 @@
+2007-10-24 Denis Ovsienko
+
+	* kernel_socket.c: (rtm_read) we used to ignore own messages,
+	  but the RIB debug commit broke it for IPv6 case (reported
+	  by Milan Kocian). Fixed.
+
 2007-10-04 Denis Ovsienko
 
 	* zebra_rib.c: (rib_process) escape from the nexthop

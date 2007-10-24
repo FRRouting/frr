@@ -884,6 +884,11 @@ rtm_read (struct rt_msghdr *rtm)
 #ifdef HAVE_IPV6
   if (dest.sa.sa_family == AF_INET6)
     {
+      /* One day we might have a debug section here like one in the
+       * IPv4 case above. Just ignore own messages at the moment.
+       */
+      if (rtm->rtm_type != RTM_GET && rtm->rtm_pid == pid)
+        return;
       struct prefix_ipv6 p;
       unsigned int ifindex = 0;
 
