@@ -282,7 +282,7 @@ bgp_getsockname (struct peer *peer)
 /* IPv6 supported version of BGP server socket setup.  */
 #if defined (HAVE_IPV6) && ! defined (NRL)
 int
-bgp_socket (struct bgp *bgp, unsigned short port)
+bgp_socket (struct bgp *bgp, unsigned short port, char *address)
 {
   int ret, en;
   struct addrinfo req;
@@ -299,7 +299,7 @@ bgp_socket (struct bgp *bgp, unsigned short port)
   sprintf (port_str, "%d", port);
   port_str[sizeof (port_str) - 1] = '\0';
 
-  ret = getaddrinfo (NULL, port_str, &req, &ainfo);
+  ret = getaddrinfo (address, port_str, &req, &ainfo);
   if (ret != 0)
     {
       zlog_err ("getaddrinfo: %s", gai_strerror (ret));
@@ -357,7 +357,7 @@ bgp_socket (struct bgp *bgp, unsigned short port)
 #else
 /* Traditional IPv4 only version.  */
 int
-bgp_socket (struct bgp *bgp, unsigned short port)
+bgp_socket (struct bgp *bgp, unsigned short port, char *address)
 {
   int sock;
   int socklen;
@@ -379,6 +379,14 @@ bgp_socket (struct bgp *bgp, unsigned short port)
   sin.sin_family = AF_INET;
   sin.sin_port = htons (port);
   socklen = sizeof (struct sockaddr_in);
+
+  ret = inet_aton(address, &sin.sin_addr);
+
+  if (ret < 1)
+    {
+      zlog_err("bgp_socket: could not parse ip address %s: ", address, safe_strerror (errno));
+      return ret;
+    }
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
   sin.sin_len = socklen;
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */

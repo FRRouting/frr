@@ -43,6 +43,7 @@ struct option longopts[] =
   { "config_file", required_argument, NULL, 'f'},
   { "pid_file",    required_argument, NULL, 'i'},
   { "bgp_port",    required_argument, NULL, 'p'},
+  { "listenon",    required_argument, NULL, 'l'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "retain",      no_argument,       NULL, 'r'},
@@ -135,6 +136,7 @@ redistribution between different routing protocols.\n\n\
 -f, --config_file  Set configuration file name\n\
 -i, --pid_file     Set process identifier file name\n\
 -p, --bgp_port     Set bgp protocol's port number\n\
+-l, --listenon     Listen on specified address (implies -n)\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -r, --retain       When program terminates, retain added route by bgpd.\n\
@@ -217,7 +219,7 @@ main (int argc, char **argv)
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:i:hp:A:P:rnu:g:vC", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:hp:l:A:P:rnu:g:vC", longopts, 0);
     
       if (opt == EOF)
 	break;
@@ -255,6 +257,9 @@ main (int argc, char **argv)
 	case 'r':
 	  retain_mode = 1;
 	  break;
+	case 'l':
+	  bm->address = optarg;
+	  /* listenon implies -n */
 	case 'n':
 	  bgp_option_set (BGP_OPT_NO_FIB);
 	  break;
@@ -315,8 +320,8 @@ main (int argc, char **argv)
   vty_serv_sock (vty_addr, vty_port, BGP_VTYSH_PATH);
 
   /* Print banner. */
-  zlog_notice ("BGPd %s starting: vty@%d, bgp@%d", QUAGGA_VERSION,
-	       vty_port, bm->port);
+  zlog_notice ("BGPd %s starting: vty@%d, bgp@%s:%d", QUAGGA_VERSION,
+	       vty_port, bm->address, bm->port);
 
   /* Start finite state machine, here we go! */
   while (thread_fetch (master, &thread))

@@ -4961,7 +4961,7 @@ bgp_init (void)
   bgp_vty_init ();
 
   /* Create BGP server socket.  */
-  bgp_socket (NULL, bm->port);
+  bgp_socket (NULL, bm->port, bm->address);
 
   /* Init zebra. */
   bgp_zebra_init ();

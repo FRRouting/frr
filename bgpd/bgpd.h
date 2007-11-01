@@ -45,6 +45,9 @@ struct bgp_master
   /* BGP port number.  */
   u_int16_t port;
 
+  /* Listener address */
+  char *address;
+
   /* BGP start time.  */
   time_t start_time;
 
