@@ -1,3 +1,10 @@
+2007-11-12 Denis Ovsienko
+
+	* connected.c: (connected_up_ipv4, connected_down_ipv4,
+	  connected_up_ipv6, connected_down_ipv6) Collect all changed
+	  connected routes closest possible to the RIB work queue, so
+	  that the rest can be revalidated correctly.
+
 2007-10-24 Denis Ovsienko
 
 	* kernel_socket.c: (rtm_read) we used to ignore own messages,

@@ -158,6 +158,7 @@ listnode_add_after (struct list *list, struct listnode *pp, void *val)
 
       pp->next = nn;
     }
+  list->count++;
 }
 
 

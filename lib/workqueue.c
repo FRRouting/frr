@@ -66,6 +66,8 @@ work_queue_new (struct thread_master *m, const char *queue_name)
   
   new->name = XSTRDUP (MTYPE_WORK_QUEUE_NAME, queue_name);
   new->master = m;
+  SET_FLAG (new->flags, WQ_UNPLUGGED);
+  UNSET_FLAG (new->flags, WQ_AIM_HEAD);
   
   if ( (new->items = list_new ()) == NULL)
     {
@@ -103,7 +105,7 @@ static inline int
 work_queue_schedule (struct work_queue *wq, unsigned int delay)
 {
   /* if appropriate, schedule work queue thread */
-  if ( (wq->flags == WQ_UNPLUGGED) 
+  if ( CHECK_FLAG (wq->flags, WQ_UNPLUGGED)
        && (wq->thread == NULL)
        && (listcount (wq->items) > 0) )
     {
@@ -129,7 +131,10 @@ work_queue_add (struct work_queue *wq, void *data)
     }
   
   item->data = data;
-  listnode_add (wq->items, item);
+  if (CHECK_FLAG (wq->flags, WQ_AIM_HEAD))
+    listnode_add_after (wq->items, NULL, item);
+  else
+    listnode_add (wq->items, item);
   
   work_queue_schedule (wq, wq->spec.hold);
   
@@ -186,7 +191,7 @@ DEFUN(show_work_queues,
   for (ALL_LIST_ELEMENTS_RO ((&work_queues), node, wq))
     {
       vty_out (vty,"%c %8d %5d %8ld %7d %6d %6u %s%s",
-               (wq->flags == WQ_PLUGGED ? 'P' : ' '),
+               (CHECK_FLAG (wq->flags, WQ_UNPLUGGED) ? ' ' : 'P'),
                listcount (wq->items),
                wq->spec.hold,
                wq->runs,
@@ -211,7 +216,7 @@ work_queue_plug (struct work_queue *wq)
   
   wq->thread = NULL;
   
-  wq->flags = WQ_PLUGGED;
+  UNSET_FLAG (wq->flags, WQ_UNPLUGGED);
 }
 
 /* unplug queue, schedule it again, if appropriate
@@ -220,10 +225,19 @@ work_queue_plug (struct work_queue *wq)
 void
 work_queue_unplug (struct work_queue *wq)
 {
-  wq->flags = WQ_UNPLUGGED;
+  SET_FLAG (wq->flags, WQ_UNPLUGGED);
 
   /* if thread isnt already waiting, add one */
   work_queue_schedule (wq, wq->spec.hold);
+}
+
+void
+work_queue_aim_head (struct work_queue *wq, const unsigned aim_head)
+{
+  if (aim_head)
+    SET_FLAG (wq->flags, WQ_AIM_HEAD);
+  else
+    UNSET_FLAG (wq->flags, WQ_AIM_HEAD);
 }
 
 /* timer thread to process a work queue

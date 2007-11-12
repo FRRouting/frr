@@ -1,3 +1,19 @@
+2007-11-12 Denis Ovsienko
+
+	* linklist.c: (listnode_add_after) Don't forget to increment list
+	  items counter.
+	* workqueue.h: Changed working queue flags from enum into integer
+	  and introduced WQ_AIM_HEAD flag to indicate our will to insert
+	  new data before the list head.
+	* workqueue.[ch]: (work_queue_schedule, show_work_queues,
+	  work_queue_plug, work_queue_unplug) Adjust to the new flags style.
+	* workqueue.[ch]: (work_queue_aim_head) new function to control the
+	  WQ_AIM_HEAD flag
+	* workqueue.[ch]: (work_queue_new) Explicitly set both WQ flags
+	  during new WQ initialization.
+	* workqueue.[ch]: (work_queue_add) If WQ_AIM_HEAD indicates a need
+	  to place the new data into list head, do it.
+
 2007-10-22 Lorenzo Colitti <lorenzo@colitti.com>
 
 	* smux.c: (smux_stop) Avoid cancelling a defunct thread pointer
