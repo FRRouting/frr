@@ -1,3 +1,9 @@
+2007-11-13 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_main.c: Small fix, format string parameters should never
+	  be NULL - it's not strictly valid and some libc's don't let
+	  you away with.
+
 2007-10-30 Nick Hilliard <nick@inex.ie>
 
 	* bgp_main.c: Add 'listenon' argument, to pass address to bind
