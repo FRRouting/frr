@@ -322,7 +322,7 @@ main (int argc, char **argv)
   /* Print banner. */
   zlog_notice ("BGPd %s starting: vty@%d, bgp@%s:%d", QUAGGA_VERSION,
 	       vty_port, 
-	       (bm->address ? bm->address : "<all>", 
+	       (bm->address ? bm->address : "<all>"),
 	       bm->port);
 
   /* Start finite state machine, here we go! */
