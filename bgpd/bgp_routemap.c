@@ -3018,7 +3018,16 @@ DEFUN (no_set_aspath_prepend,
        "Prepend string for a BGP AS-path attribute\n"
        "Prepend to the as-path\n")
 {
-  return bgp_route_set_delete (vty, vty->index, "as-path prepend", NULL);
+  int ret;
+  char *str;
+
+  if (argc == 0)
+    return bgp_route_set_delete (vty, vty->index, "as-path prepend", NULL);
+
+  str = argv_concat (argv, argc, 0);
+  ret = bgp_route_set_delete (vty, vty->index, "as-path prepend", str);
+  XFREE (MTYPE_TMP, str);
+  return ret;
 }
 
 ALIAS (no_set_aspath_prepend,
