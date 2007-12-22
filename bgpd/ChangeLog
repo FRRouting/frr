@@ -1,3 +1,23 @@
+2007-12-22 Paul Jakma <paul.jakma@sun.com>
+
+	* Fix series of vulnerabilities reported by "Mu Security
+	  Research Team", where bgpd can be made to crash by sending
+	  malformed packets - requires that bgpd be configured with a
+	  session to the peer.
+	* bgp_attr.c: (bgp_attr_as4_path) aspath_parse may fail, only
+	  set the attribute flag indicating AS4_PATH if we actually managed
+	  to parse one.
+	  (bgp_attr_munge_as4_attrs) Assert was too general, it is possible
+	  to receive AS4_AGGREGATOR before AGGREGATOR.
+	  (bgp_attr_parse) Check that we have actually received the extra
+	  byte of header for Extended-Length attributes.
+	* bgp_attr.h: Fix BGP_ATTR_MIN_LEN to account for the length byte.
+	* bgp_open.c: (cap_minsizes) Fix size of CAPABILITY_CODE_RESTART,
+	  incorrect -2 left in place from a development version of as4-path
+	  patch.
+	* bgp_packet.c: (bgp_route_refresh_receive) ORF length parameter
+	  needs to be properly sanity checked.
+ 
 2007-12-18 Denis Ovsienko
 
 	* bgp_routemap.c: (no_set_aspath_prepend) This command cancelled

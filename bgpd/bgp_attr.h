@@ -44,7 +44,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define BGP_ATTR_FLAG_EXTLEN    0x10	/* Extended length flag. */
 
 /* BGP attribute header must bigger than 2. */
-#define BGP_ATTR_MIN_LEN        2       /* Attribute flag and type. */
+#define BGP_ATTR_MIN_LEN        3       /* Attribute flag, type length. */
 #define BGP_ATTR_DEFAULT_WEIGHT 32768
 
 /* Additional/uncommon BGP attributes.

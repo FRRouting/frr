@@ -892,7 +892,8 @@ bgp_attr_as4_path (struct peer *peer, bgp_size_t length,
   *as4_path = aspath_parse (peer->ibuf, length, 1);
 
   /* Set aspath attribute flag. */
-  attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AS4_PATH);
+  if (as4_path)
+    attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AS4_PATH);
 
   return 0;
 }
@@ -1126,10 +1127,10 @@ bgp_attr_munge_as4_attrs (struct peer *peer, struct attr *attr,
    */
   if (attr->flag & (ATTR_FLAG_BIT (BGP_ATTR_AS4_AGGREGATOR) ) )
     {
-      assert (attre);
-      
       if ( attr->flag & (ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR) ) )
         {
+          assert (attre);
+          
           /* received both.
            * if the as_number in aggregator is not AS_TRANS,
            *  then AS4_AGGREGATOR and AS4_PATH shall be ignored
@@ -1170,7 +1171,7 @@ bgp_attr_munge_as4_attrs (struct peer *peer, struct attr *attr,
             zlog_debug ("[AS4] %s BGP not AS4 capable peer send"
                         " AS4_AGGREGATOR but no AGGREGATOR, will take"
                         " it as if AGGREGATOR with AS_TRANS had been there", peer->host);
-          attre->aggregator_as = as4_aggregator;
+          (attre = bgp_attr_extra_get (attr))->aggregator_as = as4_aggregator;
           /* sweep it under the carpet and simulate a "good" AGGREGATOR */
           attr->flag |= (ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR));
         }
@@ -1542,6 +1543,21 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       startp = BGP_INPUT_PNT (peer);
       flag = stream_getc (BGP_INPUT (peer));
       type = stream_getc (BGP_INPUT (peer));
+
+      /* Check whether Extended-Length applies and is in bounds */
+      if (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN)
+          && ((endp - startp) < (BGP_ATTR_MIN_LEN + 1)))
+	{
+	  zlog (peer->log, LOG_WARNING, 
+		"%s Extended length set, but just %u bytes of attr header",
+		peer->host,
+		(unsigned long) (endp - STREAM_PNT (BGP_INPUT (peer))));
+
+	  bgp_notify_send (peer, 
+			   BGP_NOTIFY_UPDATE_ERR, 
+			   BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
+	  return -1;
+	}
 
       /* Check extended attribue length bit. */
       if (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN))

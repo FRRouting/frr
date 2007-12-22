@@ -1960,11 +1960,14 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
       when_to_refresh = stream_getc (s);
       end = stream_pnt (s) + (size - 5);
 
-      while (stream_pnt (s) < end)
+      while ((stream_pnt (s) + 2) < end)
 	{
 	  orf_type = stream_getc (s); 
 	  orf_len = stream_getw (s);
-
+	  
+	  /* orf_len in bounds? */
+	  if ((stream_pnt (s) + orf_len) > end)
+	    break; /* XXX: Notify instead?? */
 	  if (orf_type == ORF_TYPE_PREFIX
 	      || orf_type == ORF_TYPE_PREFIX_OLD)
 	    {
@@ -1984,6 +1987,12 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 			     peer->host, orf_type, orf_len);
 		}
 
+              /* we're going to read at least 1 byte of common ORF header,
+               * and 7 bytes of ORF Address-filter entry from the stream
+               */
+              if (orf_len < 7)
+                break; 
+                
 	      /* ORF prefix-list name */
 	      sprintf (name, "%s.%d.%d", peer->host, afi, safi);
 
