@@ -1,3 +1,9 @@
+2008-01-08 Michael Larson <mike@vyatta.com>
+
+	* zebra_rib.c: (nexthop_active_check) Replace if_is_up with
+	  if_is_operative to solve problems with static interface
+	  routes not behaving properly with link-detect.
+
 2007-11-12 Denis Ovsienko
 
 	* connected.c: (connected_up_ipv4, connected_down_ipv4,

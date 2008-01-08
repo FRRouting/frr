@@ -795,7 +795,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
     {
     case NEXTHOP_TYPE_IFINDEX:
       ifp = if_lookup_by_index (nexthop->ifindex);
-      if (ifp && if_is_up (ifp))
+      if (ifp && if_is_operative(ifp))
 	SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
       else
 	UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -804,7 +804,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
       family = AFI_IP6;
     case NEXTHOP_TYPE_IFNAME:
       ifp = if_lookup_by_name (nexthop->ifname);
-      if (ifp && if_is_up (ifp))
+      if (ifp && if_is_operative(ifp))
 	{
 	  if (set)
 	    nexthop->ifindex = ifp->ifindex;
@@ -838,7 +838,7 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
       if (IN6_IS_ADDR_LINKLOCAL (&nexthop->gate.ipv6))
 	{
 	  ifp = if_lookup_by_index (nexthop->ifindex);
-	  if (ifp && if_is_up (ifp))
+	  if (ifp && if_is_operative(ifp))
 	    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	  else
 	    UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
