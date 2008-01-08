@@ -1,3 +1,9 @@
+2008-01-08 Pavol Rusnak <prusnak@suse.cz>
+
+	* memory.c: (mtype_memstr) Fix accidental shift past width of type,
+	  constant should have been forced to UL, rather than being left to
+	  default to int.
+
 2007-11-12 Denis Ovsienko
 
 	* linklist.c: (listnode_add_after) Don't forget to increment list

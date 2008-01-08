@@ -501,7 +501,7 @@ mtype_memstr (char *buf, size_t len, unsigned long bytes)
        * Just hacked to make it not warn on 'smaller' machines. 
        * Static compiler analysis should mean no extra code
        */
-      if (bytes & (1 << (sizeof (unsigned long) >= 8 ? 39 : 0)))
+      if (bytes & (1UL << (sizeof (unsigned long) >= 8 ? 39 : 0)))
         t++;
       snprintf (buf, len, "%4d TiB", t);
     }
