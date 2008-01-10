@@ -295,6 +295,18 @@ ifan_read (struct if_announcemsghdr *ifan)
 }
 #endif /* RTM_IFANNOUNCE */
 
+#ifdef HAVE_BSD_LINK_DETECT
+/* BSD link detect translation */
+static void
+bsd_linkdetect_translate (struct if_msghdr *ifm)
+{
+  if (ifm->ifm_data.ifi_link_state >= LINK_STATE_UP)
+    SET_FLAG(ifm->ifm_flags, IFF_RUNNING);
+  else
+    UNSET_FLAG(ifm->ifm_flags, IFF_RUNNING);
+}
+#endif /* HAVE_BSD_LINK_DETECT */
+
 /*
  * Handle struct if_msghdr obtained from reading routing socket or
  * sysctl (from interface_list).  There may or may not be sockaddrs
@@ -426,6 +438,11 @@ ifm_read (struct if_msghdr *ifm)
        * structure with ifindex IFINDEX_INTERNAL.
        */
       ifp->ifindex = ifm->ifm_index;
+      
+#ifdef HAVE_BSD_LINK_DETECT /* translate BSD kernel msg for link-state */
+      bsd_linkdetect_translate(ifm);
+#endif /* HAVE_BSD_LINK_DETECT */
+
       if_flags_update (ifp, ifm->ifm_flags);
 #if defined(__bsdi__)
       if_kvm_get_mtu (ifp);
@@ -453,6 +470,10 @@ ifm_read (struct if_msghdr *ifm)
           return -1;
         }
       
+#ifdef HAVE_BSD_LINK_DETECT /* translate BSD kernel msg for link-state */
+      bsd_linkdetect_translate(ifm);
+#endif /* HAVE_BSD_LINK_DETECT */
+
       /* update flags and handle operative->inoperative transition, if any */
       if_flags_update (ifp, ifm->ifm_flags);
       

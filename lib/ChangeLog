@@ -1,3 +1,7 @@
+2008-01-10 Ingo Flaschberger <if@xip.at>
+
+	* zebra.h: If HAVE_BSD_LINK_DETECT is defined, include <net/if_media.h>.
+
 2008-01-08 Pavol Rusnak <prusnak@suse.cz>
 
 	* memory.c: (mtype_memstr) Fix accidental shift past width of type,

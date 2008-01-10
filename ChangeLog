@@ -1,3 +1,8 @@
+2008-01-10 Ingo Flaschberger <if@xip.at>
+
+	* configure.ac: Define HAVE_BSD_LINK_DETECT if <net/if_media.h> is
+	  present.
+
 2007-10-14 Paul Jakma <paul.jakma@sun.com>
 
 	* NEWS: Note that MRT dumps are now version 2

@@ -890,6 +890,13 @@ AC_TRY_COMPILE([#ifdef HAVE_SYS_PARAM_H
 AC_DEFINE(HAVE_BSD_STRUCT_IP_MREQ_HACK,,[Can pass ifindex in struct ip_mreq])],
 AC_MSG_RESULT(no))
 
+dnl ---------------------------------------------------------------
+dnl figure out how to check link-state
+dnl ---------------------------------------------------------------
+AC_CHECK_HEADER([net/if_media.h],
+  [AC_DEFINE(HAVE_BSD_LINK_DETECT,,[BSD link-detect])],
+  [], QUAGGA_INCLUDES)
+
 dnl -----------------------
 dnl check proc file system.
 dnl -----------------------

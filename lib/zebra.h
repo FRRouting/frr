@@ -116,6 +116,9 @@ typedef int socklen_t;
 #endif /* !va_copy */
 #endif /* !C99 */
 
+#ifdef HAVE_BSD_LINK_DETECT
+#include <net/if_media.h>
+#endif /* HAVE_BSD_LINK_DETECT*/
 
 #ifdef HAVE_LCAPS
 #include <sys/capability.h>

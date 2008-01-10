@@ -344,6 +344,9 @@ if_get_flags (struct interface *ifp)
 {
   int ret;
   struct ifreq ifreq;
+#ifdef HAVE_BSD_LINK_DETECT
+  struct ifmediareq ifmr;
+#endif /* HAVE_BSD_LINK_DETECT */
 
   ifreq_set_name (&ifreq, ifp);
 
@@ -353,6 +356,36 @@ if_get_flags (struct interface *ifp)
       zlog_err("if_ioctl(SIOCGIFFLAGS) failed: %s", safe_strerror(errno));
       return;
     }
+#ifdef HAVE_BSD_LINK_DETECT /* Detect BSD link-state at start-up */
+  (void) memset(&ifmr, 0, sizeof(ifmr));
+  strncpy (&ifmr.ifm_name, ifp->name, IFNAMSIZ);
+  if (if_ioctl(SIOCGIFMEDIA, (caddr_t) &ifmr) < 0)
+    {
+      zlog_err("if_ioctl(SIOCGIFMEDIA) failed: %s", safe_strerror(errno));
+      return;
+    }
+  if (ifmr.ifm_status & IFM_AVALID) /* Link state is valid */
+    {
+      if (ifmr.ifm_status & IFM_ACTIVE)
+        {
+	  SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+	  zlog_debug("%s: BSD link state to up at interface %s, ifindex %d",
+		     __func__, ifp->name, ifp->ifindex);
+        }
+      else
+        {
+	  UNSET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+	  zlog_debug("%s: BSD link state to down at interface %s, ifindex %d",
+		     __func__, ifp->name, ifp->ifindex);
+        }
+    }
+  else /* Force always up */
+    {
+      SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+      zlog_debug("%s: BSD link state invalid, forced up at interface %s, ifindex %d",
+		 __func__, ifp->name, ifp->ifindex);
+    }
+#endif /* HAVE_BSD_LINK_DETECT */
 
   if_flags_update (ifp, (ifreq.ifr_flags & 0x0000ffff));
 }

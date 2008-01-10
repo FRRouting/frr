@@ -1,3 +1,12 @@
+2008-01-10 Ingo Flaschberger <if@xip.at>
+
+	* ioctl.c: (if_get_flags) If HAVE_BSD_LINK_DETECT, use the SIOCGIFMEDIA
+	  ioctl to ascertain link state.
+	* kernel_socket.c: (bsd_linkdetect_translate) New function to
+	  map the ifm_data.ifi_link_state value into the IFF_RUNNING flag.
+	  (ifm_read) Call bsd_linkdetect_translate to fix the IFF_RUNNING
+	  flag before calling if_flags_update.
+
 2008-01-08 Michael Larson <mike@vyatta.com>
 
 	* zebra_rib.c: (nexthop_active_check) Replace if_is_up with
