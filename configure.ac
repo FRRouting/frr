@@ -893,9 +893,18 @@ AC_MSG_RESULT(no))
 dnl ---------------------------------------------------------------
 dnl figure out how to check link-state
 dnl ---------------------------------------------------------------
-AC_CHECK_HEADER([net/if_media.h],
-  [AC_DEFINE(HAVE_BSD_LINK_DETECT,,[BSD link-detect])],
-  [], QUAGGA_INCLUDES)
+AC_CHECK_HEADER([net/if.h],
+  [AC_CHECK_HEADER( [net/if_media.h],
+    [m4_define([LINK_DETECT_INCLUDES],
+      QUAGGA_INCLUDES
+      [#include <net/if_media.h>
+    ])
+    AC_CHECK_MEMBERS( [struct ifmediareq.ifm_status],
+      AC_DEFINE(HAVE_BSD_LINK_DETECT,,[BSD link-detect]),
+      [], LINK_DETECT_INCLUDES)], 
+    [],
+    QUAGGA_INCLUDES)], 
+  [], QUAGGA_INCLUDES )
 
 dnl -----------------------
 dnl check proc file system.

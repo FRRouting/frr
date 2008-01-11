@@ -1,3 +1,7 @@
+2008-01-11 Ingo Flaschberger <if@xip.at>
+
+	* configure.ac: Improve HAVE_BSD_LINK_DETECT test.
+
 2008-01-10 Ingo Flaschberger <if@xip.at>
 
 	* configure.ac: Define HAVE_BSD_LINK_DETECT if <net/if_media.h> is
