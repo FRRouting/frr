@@ -33,6 +33,10 @@
 #include "zebra/rt.h"
 #include "zebra/interface.h"
 
+#ifdef HAVE_BSD_LINK_DETECT
+#include <net/if_media.h>
+#endif /* HAVE_BSD_LINK_DETECT*/
+
 extern struct zebra_privs_t zserv_privs;
 
 /* clear and set interface name string */
@@ -367,24 +371,12 @@ if_get_flags (struct interface *ifp)
   if (ifmr.ifm_status & IFM_AVALID) /* Link state is valid */
     {
       if (ifmr.ifm_status & IFM_ACTIVE)
-        {
-	  SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
-	  zlog_debug("%s: BSD link state to up at interface %s, ifindex %d",
-		     __func__, ifp->name, ifp->ifindex);
-        }
+	SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
       else
-        {
-	  UNSET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
-	  zlog_debug("%s: BSD link state to down at interface %s, ifindex %d",
-		     __func__, ifp->name, ifp->ifindex);
-        }
+	UNSET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
     }
   else /* Force always up */
-    {
-      SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
-      zlog_debug("%s: BSD link state invalid, forced up at interface %s, ifindex %d",
-		 __func__, ifp->name, ifp->ifindex);
-    }
+    SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
 #endif /* HAVE_BSD_LINK_DETECT */
 
   if_flags_update (ifp, (ifreq.ifr_flags & 0x0000ffff));

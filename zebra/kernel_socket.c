@@ -300,7 +300,8 @@ ifan_read (struct if_announcemsghdr *ifan)
 static void
 bsd_linkdetect_translate (struct if_msghdr *ifm)
 {
-  if (ifm->ifm_data.ifi_link_state >= LINK_STATE_UP)
+  if ((ifm->ifm_data.ifi_link_state >= LINK_STATE_UP) ||
+      (ifm->ifm_data.ifi_link_state == LINK_STATE_UNKNOWN))
     SET_FLAG(ifm->ifm_flags, IFF_RUNNING);
   else
     UNSET_FLAG(ifm->ifm_flags, IFF_RUNNING);

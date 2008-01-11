@@ -1,3 +1,10 @@
+2008-01-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
+
+	* ioctl.c: If HAVE_BSD_LINK_DETECT is defined, include <net/if_media.h>
+	  (if_get_flags) Remove debug messages about BSD link state.
+	* kernel_socket.c: (bsd_linkdetect_translate) If link state
+	  is unknown, we should set the IFF_RUNNING flag.
+
 2008-01-10 Ingo Flaschberger <if@xip.at>
 
 	* ioctl.c: (if_get_flags) If HAVE_BSD_LINK_DETECT, use the SIOCGIFMEDIA
