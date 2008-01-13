@@ -97,7 +97,7 @@ quagga.init: $(srcdir)/quagga.init.in Makefile
 
 # construct the pkg
 @PACKAGE_TARNAME@-%-$(pkg_name_rev).pkg: prototype.% \
-		quagga.init pkginfo.%.full
+		depend.% quagga.init pkginfo.%.full
 	($(pkg_make) && \
 	$(pkg_trans) "QUAGGA$*")
 
