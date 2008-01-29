@@ -1,3 +1,14 @@
+2008-01-29 James Carlson <james.d.carlson@sun.com>
+
+	* Fix bug #437, assert due to bogus index management 
+	* isis_flags.c: (flags_initialize) new
+	* (flags_get_index) fix off by one, leading to list assert
+	  on null node data.
+	  (flags_free_index) ditto.
+	* isisd.c: (isis_area_create) use flags_initialize
+	  (isis_area_destroy) deconfigure circuits when
+	  taking down area.
+
 2007-07-18 James Carlson <james.d.carlson@sun.com>
 
 	* isis_network.c: split up into isis_bpf.c, isis_dlpi.c, and

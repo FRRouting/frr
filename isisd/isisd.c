@@ -130,7 +130,7 @@ isis_area_create ()
   area->circuit_list = list_new ();
   area->area_addrs = list_new ();
   THREAD_TIMER_ON (master, area->t_tick, lsp_tick, area, 1);
-  area->flags.maxindex = -1;
+  flags_initialize (&area->flags);
   /*
    * Default values
    */
@@ -215,7 +215,11 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
   if (area->circuit_list)
     {
       for (ALL_LIST_ELEMENTS (area->circuit_list, node, nnode, circuit))
-        isis_circuit_del (circuit);
+	{
+	  /* The fact that it's in circuit_list means that it was configured */
+	  isis_circuit_deconfigure (circuit, area);
+	  isis_circuit_del (circuit);
+	}
       
       list_delete (area->circuit_list);
     }

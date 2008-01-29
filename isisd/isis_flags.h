@@ -28,6 +28,7 @@
  * the support will be achived using the newest drafts */
 #define ISIS_MAX_CIRCUITS 32 /* = 1024 */	/*FIXME:defined in lsp.h as well */
 
+void flags_initialize (struct flags *flags);
 struct flags *new_flags (int size);
 int flags_get_index (struct flags *flags);
 void flags_free_index (struct flags *flags, int index);

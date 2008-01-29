@@ -29,6 +29,13 @@
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
 
+void
+flags_initialize (struct flags *flags)
+{
+  flags->maxindex = 0;
+  flags->free_idcs = NULL;
+}
+
 int
 flags_get_index (struct flags *flags)
 {
@@ -37,14 +44,14 @@ flags_get_index (struct flags *flags)
 
   if (flags->free_idcs == NULL || flags->free_idcs->count == 0)
     {
-      flags->maxindex++;
-      index = flags->maxindex;
+      index = flags->maxindex++;
     }
   else
     {
       node = listhead (flags->free_idcs);
       index = (int) listgetdata (node);
       listnode_delete (flags->free_idcs, (void *) index);
+      index--;
     }
 
   return index;
@@ -53,12 +60,18 @@ flags_get_index (struct flags *flags)
 void
 flags_free_index (struct flags *flags, int index)
 {
+  if (index + 1 == flags->maxindex)
+    {
+      flags->maxindex--;
+      return;
+    }
+
   if (flags->free_idcs == NULL)
     {
       flags->free_idcs = list_new ();
     }
 
-  listnode_add (flags->free_idcs, (void *) index);
+  listnode_add (flags->free_idcs, (void *) (index + 1));
 
   return;
 }
