@@ -1,3 +1,8 @@
+2008-01-29 Jorge Boncompte <jorge@dti2.net>
+
+	* bgp_network.c: (bgp_socket) IPv4-only version crashes if -l is not
+	  used as address will be null.
+
 2007-12-22 Paul Jakma <paul.jakma@sun.com>
 
 	* Fix series of vulnerabilities reported by "Mu Security

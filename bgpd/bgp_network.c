@@ -296,7 +296,7 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
   req.ai_flags = AI_PASSIVE;
   req.ai_family = AF_UNSPEC;
   req.ai_socktype = SOCK_STREAM;
-  sprintf (port_str, "%d", port);
+  snprintf (port_str, sizeof(port_str), "%d", port);
   port_str[sizeof (port_str) - 1] = '\0';
 
   ret = getaddrinfo (address, port_str, &req, &ainfo);
@@ -380,11 +380,10 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
   sin.sin_port = htons (port);
   socklen = sizeof (struct sockaddr_in);
 
-  ret = inet_aton(address, &sin.sin_addr);
-
-  if (ret < 1)
+  if (address && ((ret = inet_aton(address, &sin.sin_addr)) < 1))
     {
-      zlog_err("bgp_socket: could not parse ip address %s: ", address, safe_strerror (errno));
+      zlog_err("bgp_socket: could not parse ip address %s: %s",
+                address, safe_strerror (errno));
       return ret;
     }
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
