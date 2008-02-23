@@ -1,3 +1,7 @@
+2008-02-23 Paul Jakma <paul.jakma@sun.com>
+
+	* aspath_test.c: Test for 0-ASN sequences that still have data.
+
 2007-12-22 Paul Jakma <paul.jakma@sun.com>
 
 	* bgp_capability_test.c: Test for empty capabilities.
