@@ -67,9 +67,9 @@ struct ospf6_area
   {
     char *name;
     struct access_list *list;
-  } export;
-#define EXPORT_NAME(A)  (A)->export.name
-#define EXPORT_LIST(A)  (A)->export.list
+  } _export;
+#define EXPORT_NAME(A)  (A)->_export.name
+#define EXPORT_LIST(A)  (A)->_export.list
 
   /* Area acceptance list */
   struct

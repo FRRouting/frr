@@ -141,7 +141,7 @@ extern void ospf_opaque_lsa_dump (struct stream *s, u_int16_t length);
 
 extern void ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi,
 						int *init_delay);
-extern struct ospf_lsa *ospf_opaque_lsa_install (struct ospf_lsa *new,
+extern struct ospf_lsa *ospf_opaque_lsa_install (struct ospf_lsa *,
 						 int rt_recalc);
 extern void ospf_opaque_lsa_refresh (struct ospf_lsa *lsa);
 

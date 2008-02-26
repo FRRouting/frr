@@ -1,3 +1,12 @@
+2008-01-30 Peter Szilagyi <sp615@hszk.bme.hu>
+
+	* lib/stream.h: Remove named 'new' parameter in prototype
+	  for c++ header compatibility.
+	* ospfd/ospf_opaque.h: ditto
+	* ospfd/ospfd.h: Renamed struct export to _export for c++
+	  header compatibility.
+	* ospf6d/ospf6_area.h: ditto
+
 2008-01-11 Ingo Flaschberger <if@xip.at>
 
 	* configure.ac: Improve HAVE_BSD_LINK_DETECT test.

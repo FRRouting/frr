@@ -137,7 +137,7 @@ struct stream_fifo
  */
 extern struct stream *stream_new (size_t);
 extern void stream_free (struct stream *);
-extern struct stream * stream_copy (struct stream *new, struct stream *src);
+extern struct stream * stream_copy (struct stream *, struct stream *src);
 extern struct stream *stream_dup (struct stream *);
 extern size_t stream_resize (struct stream *, size_t);
 extern size_t stream_get_getp (struct stream *);
