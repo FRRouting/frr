@@ -212,6 +212,7 @@ extern struct nexthop *nexthop_blackhole_add (struct rib *);
 extern struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *,
 					 struct in_addr *);
 extern void rib_lookup_and_dump (struct prefix_ipv4 *);
+extern void rib_lookup_and_pushup (struct prefix_ipv4 *);
 extern void rib_dump (const char *, const struct prefix_ipv4 *, const struct rib *);
 extern int rib_lookup_ipv4_route (struct prefix_ipv4 *, union sockunion *);
 #define ZEBRA_RIB_LOOKUP_ERROR -1

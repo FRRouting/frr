@@ -1,3 +1,9 @@
+2008-02-26 Denis Ovsienko
+	* zebra_rib.[ch]: (rib_lookup_and_pushup) New function, which makes sure,
+	  that if_set_prefix() has nothing in its way of assigning an address.
+	* ioctl.c: (if_set_prefix) Use rib_lookup_and_pushup() to resolve
+	  bug #326.
+
 2008-01-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ioctl.c: If HAVE_BSD_LINK_DETECT is defined, include <net/if_media.h>
