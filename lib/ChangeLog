@@ -1,3 +1,11 @@
+2008-02-28 Paul Jakma <paul.jakma@sun.com>
+
+	* linklist.c: This implementation expects that the data pointer not
+	  be null, e.g. listgetdata() asserts this. The list add methods
+	  don't apply the same sanity check.
+
+	  Noted by Jim Carlson in bug #437.
+
 2008-01-11 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* zebra.h: Revert previous change, no need to include <net/if_media.h>
