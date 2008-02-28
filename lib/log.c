@@ -752,14 +752,24 @@ lookup (struct message *mes, int key)
 }
 
 /* Older/faster version of message lookup function, but requires caller to pass
-   in the array size (instead of relying on a 0 key to terminate the search). */
+ * in the array size (instead of relying on a 0 key to terminate the search). 
+ *
+ * The return value is the message string if found, or the 'none' pointer
+ * provided otherwise.
+ */
 const char *
-mes_lookup (struct message *meslist, int max, int index)
+mes_lookup (struct message *meslist, int max, int index, const char *none)
 {
+  int pos = index - meslist[0].key;
+  
   /* first check for best case: index is in range and matches the key
-     value in that slot */
-  if ((index >= 0) && (index < max) && (meslist[index].key == index))
-    return meslist[index].str;
+   * value in that slot.
+   * NB: key numbering might be offset from 0. E.g. protocol constants
+   * often start at 1.
+   */
+  if ((pos >= 0) && (pos < max)
+      && (meslist[pos].key == index))
+    return meslist[pos].str;
 
   /* fall back to linear search */
   {
@@ -769,14 +779,17 @@ mes_lookup (struct message *meslist, int max, int index)
       {
 	if (meslist->key == index)
 	  {
+	    const char *str = (meslist->str ? meslist->str : none);
+	    
 	    zlog_debug ("message index %d [%s] found in position %d (max is %d)",
-		      index, meslist->str, i, max);
-	    return meslist->str;
+		      index, str, i, max);
+	    return str;
 	  }
       }
   }
   zlog_err("message index %d not found (max is %d)", index, max);
-  return NULL;
+  assert (none);
+  return none;
 }
 
 /* Wrapper around strerror to handle case where it returns NULL. */

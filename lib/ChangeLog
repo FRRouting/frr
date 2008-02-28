@@ -1,5 +1,14 @@
 2008-02-28 Paul Jakma <paul.jakma@sun.com>
 
+	* log.c: (mes_lookup) Sowmini Varadhan diagnosed a problem where
+	  this function can cause a NULL dereference, on lookups for unknown
+	  indices, or messages with NULL strings. Can occur, e.g., debug
+	  logging code when processing received messages. Fixed to accept a
+	  pointer to a default string to be used if there is no match.
+	* log.h: LOOKUP adjusted to match
+
+2008-02-28 Paul Jakma <paul.jakma@sun.com>
+
 	* linklist.c: This implementation expects that the data pointer not
 	  be null, e.g. listgetdata() asserts this. The list add methods
 	  don't apply the same sanity check.
