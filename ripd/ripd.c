@@ -84,7 +84,6 @@ struct message rip_msg[] =
   {RIP_TRACEOFF,   "TRACEOFF"},
   {RIP_POLL,       "POLL"},
   {RIP_POLL_ENTRY, "POLL ENTRY"},
-  {0,              NULL}
 };
 
 /* Utility function to set boradcast option to the socket. */

@@ -1,3 +1,9 @@
+2008-03-13 Paul Jakma <paul.jakma@sun.com>
+
+	* ripd.c/rip_interface.c: Remove 0 entries from rip_msg 
+	  ri_version_msg struct message's, not needed with recent fixes
+	  to mes_lookup.
+
 2007-04-27 Andrew J. Schorr <ajschorr@alumni.princeton.edu>
 
 	* ripd.c: (rip_vty_out_uptime) Remove unused variable timer_now.

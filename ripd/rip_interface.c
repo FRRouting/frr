@@ -55,7 +55,6 @@ struct message ri_version_msg[] =
   {RI_RIP_VERSION_1,       "1"},
   {RI_RIP_VERSION_2,       "2"},
   {RI_RIP_VERSION_1_AND_2, "1 2"},
-  {0,                      NULL}
 };
 
 extern struct zebra_privs_t ripd_privs;
