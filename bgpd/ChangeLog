@@ -1,3 +1,8 @@
+2008-03-13 Paul Jakma <paul.jakma@sun.com>
+
+	* (various) Remove 0 entries from struct message's, unneeded due to
+	  recent improvements in mes_lookup/LOOKUP.
+
 2008-01-29 Jorge Boncompte <jorge@dti2.net>
 
 	* bgp_network.c: (bgp_socket) IPv4-only version crashes if -l is not

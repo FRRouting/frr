@@ -443,7 +443,6 @@ bgp_capability_as4 (struct peer *peer, struct capability_header *hdr)
 
 static struct message capcode_str[] =
 {
-  { 0,	""},
   { CAPABILITY_CODE_MP,			"MultiProtocol Extensions"	},
   { CAPABILITY_CODE_REFRESH,		"Route Refresh"			},
   { CAPABILITY_CODE_ORF,		"Cooperative Route Filtering" 	},

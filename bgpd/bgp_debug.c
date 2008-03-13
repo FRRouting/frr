@@ -59,7 +59,6 @@ unsigned long term_bgp_debug_zebra;
 /* messages for BGP-4 status */
 struct message bgp_status_msg[] = 
 {
-  { 0, "null" },
   { Idle, "Idle" },
   { Connect, "Connect" },
   { Active, "Active" },
@@ -86,7 +85,6 @@ const char *bgp_type_str[] =
 /* message for BGP-4 Notify */
 struct message bgp_notify_msg[] = 
 {
-  { 0, "" },
   { BGP_NOTIFY_HEADER_ERR, "Message Header Error"},
   { BGP_NOTIFY_OPEN_ERR, "OPEN Message Error"},
   { BGP_NOTIFY_UPDATE_ERR, "UPDATE Message Error"},
@@ -99,7 +97,6 @@ int bgp_notify_msg_max = BGP_NOTIFY_MAX;
 
 struct message bgp_notify_head_msg[] = 
 {
-  { 0, "null"},
   { BGP_NOTIFY_HEADER_NOT_SYNC, "/Connection Not Synchronized"},
   { BGP_NOTIFY_HEADER_BAD_MESLEN, "/Bad Message Length"},
   { BGP_NOTIFY_HEADER_BAD_MESTYPE, "/Bad Message Type"}
@@ -108,7 +105,6 @@ int bgp_notify_head_msg_max = BGP_NOTIFY_HEADER_MAX;
 
 struct message bgp_notify_open_msg[] = 
 {
-  { 0, "null" },
   { BGP_NOTIFY_OPEN_UNSUP_VERSION, "/Unsupported Version Number" },
   { BGP_NOTIFY_OPEN_BAD_PEER_AS, "/Bad Peer AS"},
   { BGP_NOTIFY_OPEN_BAD_BGP_IDENT, "/Bad BGP Identifier"},
@@ -121,7 +117,6 @@ int bgp_notify_open_msg_max = BGP_NOTIFY_OPEN_MAX;
 
 struct message bgp_notify_update_msg[] = 
 {
-  { 0, "null"}, 
   { BGP_NOTIFY_UPDATE_MAL_ATTR, "/Malformed Attribute List"},
   { BGP_NOTIFY_UPDATE_UNREC_ATTR, "/Unrecognized Well-known Attribute"},
   { BGP_NOTIFY_UPDATE_MISS_ATTR, "/Missing Well-known Attribute"},
@@ -138,7 +133,6 @@ int bgp_notify_update_msg_max = BGP_NOTIFY_UPDATE_MAX;
 
 struct message bgp_notify_cease_msg[] =
 {
-  { 0, ""},
   { BGP_NOTIFY_CEASE_MAX_PREFIX, "/Maximum Number of Prefixes Reached"},
   { BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN, "/Administratively Shutdown"},
   { BGP_NOTIFY_CEASE_PEER_UNCONFIG, "/Peer Unconfigured"},
@@ -152,7 +146,6 @@ int bgp_notify_cease_msg_max = BGP_NOTIFY_CEASE_MAX;
 
 struct message bgp_notify_capability_msg[] = 
 {
-  { 0, "null" },
   { BGP_NOTIFY_CAPABILITY_INVALID_ACTION, "/Invalid Action Value" },
   { BGP_NOTIFY_CAPABILITY_INVALID_LENGTH, "/Invalid Capability Length"},
   { BGP_NOTIFY_CAPABILITY_MALFORMED_CODE, "/Malformed Capability Value"},

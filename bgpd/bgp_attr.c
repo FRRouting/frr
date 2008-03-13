@@ -60,7 +60,6 @@ static struct message attr_str [] =
   { BGP_ATTR_AS4_PATH,         "AS4_PATH" }, 
   { BGP_ATTR_AS4_AGGREGATOR,   "AS4_AGGREGATOR" }, 
   { BGP_ATTR_AS_PATHLIMIT,     "AS_PATHLIMIT" },
-  { 0, NULL }
 };
 int attr_str_max = sizeof(attr_str)/sizeof(attr_str[0]);
 
