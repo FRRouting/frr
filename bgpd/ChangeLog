@@ -1,3 +1,14 @@
+2008-04-10 Denis Ovsienko
+	* bgp_aspath.[ch]: (aspath_filter_exclude) New function allows
+	  filtering out arbitrary ASns from AS_PATH attribute.
+	* bgp_aspath.[ch]: (aspath_print_vty) Accept suffix to let calling
+	  functions signal, if they want the separator or not.
+	* bgp_route.c: (route_vty_out, route_vty_out_tmp, damp_route_vty_out,
+	  flap_route_vty_out, route_vty_out_detail) Fix aspath_print_vty()
+	  calls to have AS_PATH output nicely.
+	* bgp_routemap.c: Introduce "set as-path exclude" route-map command
+	  to employ new filtering functionality.
+
 2008-03-13 Paul Jakma <paul.jakma@sun.com>
 
 	* (various) Remove 0 entries from struct message's, unneeded due to

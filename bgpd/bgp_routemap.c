@@ -94,6 +94,7 @@ o Local extention
   set ipv6 next-hop global: Done
   set ipv6 next-hop local : Done
   set pathlimit ttl       : Done
+  set as-path exclude     : Done
   match pathlimit as     : Done
 
 */ 
@@ -1272,6 +1273,64 @@ struct route_map_rule_cmd route_set_aspath_prepend_cmd =
   route_set_aspath_prepend,
   route_set_aspath_prepend_compile,
   route_set_aspath_prepend_free,
+};
+
+/* `set as-path exclude ASn' */
+
+/* For ASN exclude mechanism.
+ * Iterate over ASns requested and filter them from the given AS_PATH one by one.
+ * Make a deep copy of existing AS_PATH, but for the first ASn only.
+ */
+static route_map_result_t
+route_set_aspath_exclude (void *rule, struct prefix *dummy, route_map_object_t type, void *object)
+{
+  struct aspath * new_path, * exclude_path;
+  struct bgp_info *binfo;
+
+  if (type == RMAP_BGP)
+  {
+    exclude_path = rule;
+    binfo = object;
+    if (binfo->attr->aspath->refcnt)
+      new_path = aspath_dup (binfo->attr->aspath);
+    else
+      new_path = binfo->attr->aspath;
+    binfo->attr->aspath = aspath_filter_exclude (new_path, exclude_path);
+  }
+  return RMAP_OKAY;
+}
+
+/* FIXME: consider using route_set_aspath_prepend_compile() and
+ * route_set_aspath_prepend_free(), which two below function are
+ * exact clones of.
+ */
+
+/* Compile function for as-path exclude. */
+static void *
+route_set_aspath_exclude_compile (const char *arg)
+{
+  struct aspath *aspath;
+
+  aspath = aspath_str2aspath (arg);
+  if (! aspath)
+    return NULL;
+  return aspath;
+}
+
+static void
+route_set_aspath_exclude_free (void *rule)
+{
+  struct aspath *aspath = rule;
+  aspath_free (aspath);
+}
+
+/* Set ASn exlude rule structure. */
+struct route_map_rule_cmd route_set_aspath_exclude_cmd = 
+{
+  "as-path exclude",
+  route_set_aspath_exclude,
+  route_set_aspath_exclude_compile,
+  route_set_aspath_exclude_free,
 };
 
 /* `set community COMMUNITY' */
@@ -2996,7 +3055,7 @@ DEFUN (set_aspath_prepend,
        set_aspath_prepend_cmd,
        "set as-path prepend .<1-65535>",
        SET_STR
-       "Prepend string for a BGP AS-path attribute\n"
+       "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n"
        "AS number\n")
 {
@@ -3015,7 +3074,7 @@ DEFUN (no_set_aspath_prepend,
        "no set as-path prepend",
        NO_STR
        SET_STR
-       "Prepend string for a BGP AS-path attribute\n"
+       "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n")
 {
   int ret;
@@ -3035,8 +3094,54 @@ ALIAS (no_set_aspath_prepend,
        "no set as-path prepend .<1-65535>",
        NO_STR
        SET_STR
-       "Prepend string for a BGP AS-path attribute\n"
+       "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n"
+       "AS number\n")
+
+DEFUN (set_aspath_exclude,
+       set_aspath_exclude_cmd,
+       "set as-path exclude .<1-65535>",
+       SET_STR
+       "Transform BGP AS-path attribute\n"
+       "Exclude from the as-path\n"
+       "AS number\n")
+{
+  int ret;
+  char *str;
+
+  str = argv_concat (argv, argc, 0);
+  ret = bgp_route_set_add (vty, vty->index, "as-path exclude", str);
+  XFREE (MTYPE_TMP, str);
+  return ret;
+}
+
+DEFUN (no_set_aspath_exclude,
+       no_set_aspath_exclude_cmd,
+       "no set as-path exclude",
+       NO_STR
+       SET_STR
+       "Transform BGP AS_PATH attribute\n"
+       "Exclude from the as-path\n")
+{
+  int ret;
+  char *str;
+
+  if (argc == 0)
+    return bgp_route_set_delete (vty, vty->index, "as-path exclude", NULL);
+
+  str = argv_concat (argv, argc, 0);
+  ret = bgp_route_set_delete (vty, vty->index, "as-path exclude", str);
+  XFREE (MTYPE_TMP, str);
+  return ret;
+}
+
+ALIAS (no_set_aspath_exclude,
+       no_set_aspath_exclude_val_cmd,
+       "no set as-path exclude .<1-65535>",
+       NO_STR
+       SET_STR
+       "Transform BGP AS_PATH attribute\n"
+       "Exclude from the as-path\n"
        "AS number\n")
 
 DEFUN (set_community,
@@ -3731,6 +3836,7 @@ bgp_route_map_init (void)
   route_map_install_set (&route_set_weight_cmd);
   route_map_install_set (&route_set_metric_cmd);
   route_map_install_set (&route_set_aspath_prepend_cmd);
+  route_map_install_set (&route_set_aspath_exclude_cmd);
   route_map_install_set (&route_set_origin_cmd);
   route_map_install_set (&route_set_atomic_aggregate_cmd);
   route_map_install_set (&route_set_aggregator_as_cmd);
@@ -3799,8 +3905,11 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &no_set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_val_cmd);
   install_element (RMAP_NODE, &set_aspath_prepend_cmd);
+  install_element (RMAP_NODE, &set_aspath_exclude_cmd);
   install_element (RMAP_NODE, &no_set_aspath_prepend_cmd);
   install_element (RMAP_NODE, &no_set_aspath_prepend_val_cmd);
+  install_element (RMAP_NODE, &no_set_aspath_exclude_cmd);
+  install_element (RMAP_NODE, &no_set_aspath_exclude_val_cmd);
   install_element (RMAP_NODE, &set_origin_cmd);
   install_element (RMAP_NODE, &no_set_origin_cmd);
   install_element (RMAP_NODE, &no_set_origin_val_cmd);
