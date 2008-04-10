@@ -3,7 +3,7 @@
 - [bgpd] 4-byte AS support added
 - [bgpd] MRT format changes to version 2. Those relying on
   bgpd MRT table dumps may need to update their tools.
-- [bgpd] Added new route-map set statement: "as-path ignore"
+- [bgpd] Added new route-map set statement: "as-path exclude"
 
 * Changes in Quagga 0.99.2
 
