@@ -22,6 +22,7 @@ int kernel_add_route (struct prefix_ipv4 *a, struct in_addr *b, int c, int d)
 int kernel_address_add_ipv4 (struct interface *a, struct connected *b)
 {
   zlog_debug ("%s", __func__);
+  SET_FLAG (b->conf, ZEBRA_IFC_REAL);
   connected_add_ipv4 (a, 0, &b->address->u.prefix4, b->address->prefixlen, 
                       (b->destination ? &b->destination->u.prefix4 : NULL), 
                       NULL);
