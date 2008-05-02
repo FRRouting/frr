@@ -259,6 +259,7 @@ main (int argc, char **argv, char **env)
 
   /* Initialize user input buffer. */
   line_read = NULL;
+  setlinebuf(stdout);
 
   /* Signal and others. */
   vtysh_signal_init ();
