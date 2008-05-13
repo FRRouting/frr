@@ -206,6 +206,8 @@ AC_ARG_ENABLE(netlink,
 [  --enable-netlink        force to use Linux netlink interface])
 AC_ARG_ENABLE(broken-aliases,
 [  --enable-broken-aliases enable aliases as distinct interfaces for Linux 2.2.X])
+AC_ARG_WITH(crypto,
+[  --without-crypto        do not use libcrypto in SNMP])
 AC_ARG_ENABLE(snmp,
 [  --enable-snmp           enable SNMP support])
 AC_ARG_WITH(libpam,
@@ -1254,29 +1256,19 @@ dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
 if test "${enable_snmp}" = "yes"; then
-    LIBS="${LIBS} -lcrypto"
+    if test "$with_crypto" != "no"; then
+        LIBS="${LIBS} -lcrypto";
+    fi
     AC_CHECK_LIB(netsnmp, asn_parse_int,
     	[AC_DEFINE(HAVE_NETSNMP,,Net SNMP) 
     	 AC_DEFINE(HAVE_SNMP,,SNMP)
     	 LIBS="${LIBS} -lnetsnmp"],
     	[AC_MSG_ERROR([--enable-snmp given, but cannot find support for SNMP])])
-    
-    for ac_snmp in /usr/include \
-    		/usr/local/include \
-    		/dev/null; do
-    	test -f "${ac_snmp}/net-snmp/library/asn1.h" && break
-    done
-    
-    case ${ac_snmp} in
-    	/dev/null)
-    		AC_MSG_ERROR([--enable-snmp given, but can not find header])
-    		;;
-    	*)
-    		SNMP_INCLUDES="-I${ac_snmp}/net-snmp"
-    		SNMP_INCLUDES="${SNMP_INCLUDES} -I${ac_snmp}/net-snmp/library"
-    		;;
-    esac
-    
+
+    AC_CHECK_HEADER([net-snmp/net-snmp-config.h],
+        [],
+        [AC_MSG_ERROR([--enable-snmp given, but cannot find net-snmp-config.h])],
+	QUAGGA_INCLUDES)
     AC_SUBST(SNMP_INCLUDES)
 fi
 
