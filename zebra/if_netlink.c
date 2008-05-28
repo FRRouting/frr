@@ -22,12 +22,11 @@
 
 #include <zebra.h>
 
-/* Extern from rt_netlink.c */  
-void interface_lookup_netlink ();  
+extern int interface_lookup_netlink (void);
 
 /* Interface information read by netlink. */
 void
-interface_list ()
+interface_list (void)
 {
   interface_lookup_netlink ();  
 }

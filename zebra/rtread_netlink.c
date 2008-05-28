@@ -21,11 +21,9 @@
  */
 
 #include <zebra.h>
+extern void netlink_route_read (void);
 
-/* Extern from rt_netlink.c */
-void netlink_route_read ();
-
-void route_read ()
+void route_read (void)
 {
   netlink_route_read ();
 }
