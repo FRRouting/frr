@@ -275,7 +275,8 @@ main (int argc, char **argv)
 	      break;
 	    } 
 	  vty_port = atoi (optarg);
-	  vty_port = (vty_port ? vty_port : ZEBRA_VTY_PORT);
+	  if (vty_port <= 0 || vty_port > 0xffff)
+	    vty_port = ZEBRA_VTY_PORT;
 	  break;
 	case 'r':
 	  retain_mode = 1;

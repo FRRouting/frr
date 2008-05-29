@@ -1,3 +1,7 @@
+2008-05-29 Martin Nagy <mnagy@redhat.com>
+
+	* */*main.c: Sanity check port numbers before using.
+
 2008-01-30 Peter Szilagyi <sp615@hszk.bme.hu>
 
 	* lib/stream.h: Remove named 'new' parameter in prototype

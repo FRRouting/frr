@@ -203,6 +203,7 @@ main (int argc, char **argv)
   int dryrun = 0;
   char *progname;
   struct thread thread;
+  int tmp_port;
 
   /* Set umask before anything for security */
   umask (0027);
@@ -238,7 +239,11 @@ main (int argc, char **argv)
           pid_file = optarg;
           break;
 	case 'p':
-	  bm->port = atoi (optarg);
+	  tmp_port = atoi (optarg);
+	  if (tmp_port <= 0 || tmp_port > 0xffff)
+	    bm->port = BGP_PORT_DEFAULT;
+	  else
+	    bm->port = tmp_port;
 	  break;
 	case 'A':
 	  vty_addr = optarg;
@@ -252,7 +257,8 @@ main (int argc, char **argv)
               break;
             } 
           vty_port = atoi (optarg);
-          vty_port = (vty_port ? vty_port : BGP_VTY_PORT);
+	  if (vty_port <= 0 || vty_port > 0xffff)
+	    vty_port = BGP_VTY_PORT;
 	  break;
 	case 'r':
 	  retain_mode = 1;

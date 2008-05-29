@@ -227,7 +227,8 @@ main (int argc, char *argv[], char *envp[])
               break;
             }
           vty_port = atoi (optarg);
-          vty_port = (vty_port ? vty_port : OSPF6_VTY_PORT);
+          if (vty_port <= 0 || vty_port > 0xffff)
+            vty_port = OSPF6_VTY_PORT;
           break;
         case 'u':
           ospf6d_privs.user = optarg;
