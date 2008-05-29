@@ -926,7 +926,7 @@ rip_auth_md5 (struct rip_packet *packet, struct sockaddr_in *from,
   else if (ri->auth_str)
     strncpy (auth_str, ri->auth_str, RIP_AUTH_MD5_SIZE);
 
-  if (! auth_str)
+  if (auth_str[0] == 0)
     return 0;
   
   /* MD5 digest authentication. */

@@ -1,3 +1,7 @@
+2008-05-29 Stephen Hemminger <stephen.hemminger@vyatta.com>
+
+	* ripd.c: (rip_auth_md5) fix bogus empty string test
+
 2008-03-13 Paul Jakma <paul.jakma@sun.com>
 
 	* ripd.c/rip_interface.c: Remove 0 entries from rip_msg 
