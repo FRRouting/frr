@@ -1,3 +1,9 @@
+2008-05-29 Stephen Hemminger <stephen.hemminger@vyatta.com>
+
+	* rt_netlink.c: (netlink_install_filter) BPF filter to catch and
+	  drop responses to zebra's own route messages.
+	  (kernel_init) add BPF filter on the netlink socket.
+
 2008-02-26 Denis Ovsienko
 	* zebra_rib.[ch]: (rib_lookup_and_pushup) New function, which makes sure,
 	  that if_set_prefix() has nothing in its way of assigning an address.
