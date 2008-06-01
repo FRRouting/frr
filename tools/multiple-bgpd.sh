@@ -7,9 +7,11 @@ VTYBASE=2610
 ASBASE=64560
 BGPD=/path/to/bgpd
 PREFIX=192.168.145
+CONFBASE=/tmp
+PIDBASE=/var/run/quagga
 
 for H in `seq 1 ${NUM}` ; do
-	CONF=/etc/quagga/bgpd${H}.conf
+	CONF="${CONFBASE}"/bgpd${H}.conf
 	ADDR=${PREFIX}.${H}
 	
 	if [ ! -e "$CONF" ] ; then
@@ -47,9 +49,9 @@ for H in `seq 1 ${NUM}` ; do
 	#
 	# Solaris: ifconfig vni${H} plumb ${ADDR}/32 up
 	# Linux:   ip address add ${ADDR}/32 dev lo 2> /dev/null
-	${BGPD} -i /var/run/quagga/bgpd${H}.pid \
+	${BGPD} -i "${PIDBASE}"/bgpd${H}.pid \
 		-l ${ADDR} \
-		-f /etc/quagga/bgpd${H}.conf \
+		-f "${CONF}" \
 		-P $((${VTYBASE}+${H})) \
 		-d
 done
