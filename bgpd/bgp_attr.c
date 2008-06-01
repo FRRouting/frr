@@ -695,7 +695,8 @@ bgp_attr_aspathlimit (struct peer *peer, bgp_size_t length,
   
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
   
-  if (flag != (BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL))
+  if (!CHECK_FLAG(flag, BGP_ATTR_FLAG_TRANS)
+       || !CHECK_FLAG(flag, BGP_ATTR_FLAG_OPTIONAL))
     {
       zlog (peer->log, LOG_ERR, 
 	    "AS-Pathlimit attribute flag isn't transitive %d", flag);
@@ -804,7 +805,7 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
       || ! CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
     {
       zlog (peer->log, LOG_ERR, 
-	    "Origin attribute flag isn't transitive %d", flag);
+	    "As-Path attribute flag isn't transitive %d", flag);
       bgp_notify_send_with_data (peer, 
 				 BGP_NOTIFY_UPDATE_ERR, 
 				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,

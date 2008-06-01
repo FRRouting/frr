@@ -1,4 +1,11 @@
+2008-06-01 jfletche@gmail.com 
+
+	* bgp_attr.c: (bgp_attr_aspathlimit) fix silly bug in flags check
+	  that was causing BGP to drop sessions if it received a
+	  aspath-limit with partial set. Fixes bug #419.
+
 2008-04-10 Denis Ovsienko
+
 	* bgp_aspath.[ch]: (aspath_filter_exclude) New function allows
 	  filtering out arbitrary ASns from AS_PATH attribute.
 	* bgp_aspath.[ch]: (aspath_print_vty) Accept suffix to let calling
