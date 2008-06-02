@@ -40,7 +40,7 @@ struct rib
 {
   /* Status Flags for the *route_node*, but kept in the head RIB.. */
   u_char rn_status;
-#define RIB_ROUTE_QUEUED	(1 << 0)
+#define RIB_ROUTE_QUEUED(x)	(1 << (x))
 
   /* Link list. */
   struct rib *next;
@@ -81,6 +81,20 @@ struct rib
   u_char nexthop_num;
   u_char nexthop_active_num;
   u_char nexthop_fib_num;
+};
+
+/* meta-queue structure:
+ * sub-queue 0: connected, kernel
+ * sub-queue 1: static
+ * sub-queue 2: RIP, RIPng, OSPF, OSPF6, IS-IS
+ * sub-queue 3: iBGP, eBGP
+ * sub-queue 4: any other origin (if any)
+ */
+#define MQ_SIZE 5
+struct meta_queue
+{
+  struct list *subq[MQ_SIZE];
+  u_int32_t size; /* sum of lengths of all subqueues */
 };
 
 /* Static route information. */

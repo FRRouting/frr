@@ -1,3 +1,18 @@
+2008-06-02 Denis Ovsienko
+
+	* connected.c: (connected_up_ipv4, connected_down_ipv4,
+	  connected_up_ipv6, connected_down_ipv6): don't call
+	  work_queue_aim_head()
+	* rib.h: adjust RIB_ROUTE_QUEUED macro for meta_queue,
+	  declare meta_queue structure
+	* zebra_rib.c: (process_subq, meta_queue_process, rib_meta_queue_add,
+	  meta_queue_new) new functions; (rib_queue_add) don't try checking
+	  RIB_QUEUE_ADDED flag, rib_meta_queue_add() does it better, take care
+	  of the meta queue instead; (rib_queue_init) initialize the meta queue
+	  as well; (rib_lookup_and_pushup) don't call work_queue_aim_head();
+	  (rib_process) only do actual processing, don't do deallocation;
+	* zserv.h: include meta_queue field into zebra_t structure
+
 2008-05-29 Stephen Hemminger <stephen.hemminger@vyatta.com>
 
 	* rt_netlink.c: (netlink_install_filter) BPF filter to catch and

@@ -80,6 +80,7 @@ struct zebra_t
 
   /* rib work queue */
   struct work_queue *ribq;
+  struct meta_queue *mq;
 };
 
 /* Count prefix size from mask length */

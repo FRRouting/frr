@@ -67,7 +67,6 @@ work_queue_new (struct thread_master *m, const char *queue_name)
   new->name = XSTRDUP (MTYPE_WORK_QUEUE_NAME, queue_name);
   new->master = m;
   SET_FLAG (new->flags, WQ_UNPLUGGED);
-  UNSET_FLAG (new->flags, WQ_AIM_HEAD);
   
   if ( (new->items = list_new ()) == NULL)
     {
@@ -131,10 +130,7 @@ work_queue_add (struct work_queue *wq, void *data)
     }
   
   item->data = data;
-  if (CHECK_FLAG (wq->flags, WQ_AIM_HEAD))
-    listnode_add_after (wq->items, NULL, item);
-  else
-    listnode_add (wq->items, item);
+  listnode_add (wq->items, item);
   
   work_queue_schedule (wq, wq->spec.hold);
   
@@ -231,15 +227,6 @@ work_queue_unplug (struct work_queue *wq)
   work_queue_schedule (wq, wq->spec.hold);
 }
 
-void
-work_queue_aim_head (struct work_queue *wq, const unsigned aim_head)
-{
-  if (aim_head)
-    SET_FLAG (wq->flags, WQ_AIM_HEAD);
-  else
-    UNSET_FLAG (wq->flags, WQ_AIM_HEAD);
-}
-
 /* timer thread to process a work queue
  * will reschedule itself if required,
  * otherwise work_queue_item_add 
@@ -317,6 +304,7 @@ work_queue_run (struct thread *thread)
 	}
       case WQ_REQUEUE:
 	{
+	  item->ran--;
 	  work_queue_item_requeue (wq, node);
 	  break;
 	}

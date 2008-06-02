@@ -188,15 +188,8 @@ connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
   if (prefix_ipv4_any (&p))
     return;
 
-  /* Always push arriving/departing connected routes into the head of
-   * the working queue to make possible proper validation of the rest
-   * of the RIB queue (which will contain the whole RIB after the first
-   * call to rib_update()).
-   */
-  work_queue_aim_head (zebrad.ribq, 1);
   rib_add_ipv4 (ZEBRA_ROUTE_CONNECT, 0, &p, NULL, NULL, ifp->ifindex,
 	RT_TABLE_MAIN, ifp->metric, 0);
-  work_queue_aim_head (zebrad.ribq, 0);
 
   rib_update ();
 }
@@ -302,9 +295,7 @@ connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
     return;
 
   /* Same logic as for connected_up_ipv4(): push the changes into the head. */
-  work_queue_aim_head (zebrad.ribq, 1);
   rib_delete_ipv4 (ZEBRA_ROUTE_CONNECT, 0, &p, NULL, ifp->ifindex, 0);
-  work_queue_aim_head (zebrad.ribq, 0);
 
   rib_update ();
 }
@@ -349,10 +340,8 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
     return;
 #endif
 
-  work_queue_aim_head (zebrad.ribq, 1);
   rib_add_ipv6 (ZEBRA_ROUTE_CONNECT, 0, &p, NULL, ifp->ifindex, 0,
                 ifp->metric, 0);
-  work_queue_aim_head (zebrad.ribq, 0);
 
   rib_update ();
 }
@@ -426,9 +415,7 @@ connected_down_ipv6 (struct interface *ifp, struct connected *ifc)
   if (IN6_IS_ADDR_UNSPECIFIED (&p.prefix))
     return;
 
-  work_queue_aim_head (zebrad.ribq, 1);
   rib_delete_ipv6 (ZEBRA_ROUTE_CONNECT, 0, &p, NULL, ifp->ifindex, 0);
-  work_queue_aim_head (zebrad.ribq, 0);
 
   rib_update ();
 }

@@ -48,7 +48,6 @@ struct work_queue_item
 };
 
 #define WQ_UNPLUGGED	(1 << 0) /* available for draining */
-#define WQ_AIM_HEAD	(1 << 1) /* add new items before list head, not after tail */
 
 struct work_queue
 {
@@ -119,8 +118,6 @@ extern void work_queue_add (struct work_queue *, void *);
 extern void work_queue_plug (struct work_queue *wq);
 /* unplug the queue, allow it to be drained again */
 extern void work_queue_unplug (struct work_queue *wq);
-/* control the value for WQ_AIM_HEAD flag */
-extern void work_queue_aim_head (struct work_queue *wq, const unsigned);
 
 /* Helpers, exported for thread.c and command.c */
 extern int work_queue_run (struct thread *);
