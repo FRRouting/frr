@@ -176,4 +176,9 @@ extern void cluster_unintern (struct cluster_list *);
 /* Transit attribute prototypes. */
 void transit_unintern (struct transit *);
 
+/* Exported for unit-test purposes only */
+extern int bgp_mp_reach_parse (struct peer *, bgp_size_t, struct attr *,
+			       struct bgp_nlri *);
+extern int bgp_mp_unreach_parse (struct peer *, bgp_size_t, struct bgp_nlri *);
+
 #endif /* _QUAGGA_BGP_ATTR_H */

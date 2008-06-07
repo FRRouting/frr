@@ -1259,7 +1259,7 @@ bgp_attr_cluster_list (struct peer *peer, bgp_size_t length,
 }
 
 /* Multiprotocol reachability information parse. */
-static int
+int
 bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
 		    struct bgp_nlri *mp_update)
 {
@@ -1277,8 +1277,13 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
   
   /* safe to read statically sized header? */
 #define BGP_MP_REACH_MIN_SIZE 5
+#define LEN_LEFT	(length - (stream_get_getp(s) - start))
   if ((length > STREAM_READABLE(s)) || (length < BGP_MP_REACH_MIN_SIZE))
-    return -1;
+    {
+      zlog_info ("%s: %s sent invalid length, %lu", 
+		 __func__, peer->host, (unsigned long)length);
+      return -1;
+    }
   
   /* Load AFI, SAFI. */
   afi = stream_getw (s);
@@ -1287,8 +1292,12 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
   /* Get nexthop length. */
   attre->mp_nexthop_len = stream_getc (s);
   
-  if (STREAM_READABLE(s) < attre->mp_nexthop_len)
-    return -1;
+  if (LEN_LEFT < attre->mp_nexthop_len)
+    {
+      zlog_info ("%s: %s, MP nexthop length, %u, goes past end of attribute", 
+		 __func__, peer->host, attre->mp_nexthop_len);
+      return -1;
+    }
   
   /* Nexthop length check. */
   switch (attre->mp_nexthop_len)
@@ -1330,13 +1339,17 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
       break;
 #endif /* HAVE_IPV6 */
     default:
-      zlog_info ("Wrong multiprotocol next hop length: %d", 
-		 attre->mp_nexthop_len);
+      zlog_info ("%s: (%s) Wrong multiprotocol next hop length: %d", 
+		 __func__, peer->host, attre->mp_nexthop_len);
       return -1;
     }
 
-  if (!STREAM_READABLE(s))
-    return -1;
+  if (!LEN_LEFT)
+    {
+      zlog_info ("%s: (%s) Failed to read SNPA and NLRI(s)",
+                 __func__, peer->host);
+      return -1;
+    }
   
   {
     u_char val; 
@@ -1346,15 +1359,23 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
   }
   
   /* must have nrli_len, what is left of the attribute */
-  nlri_len = length - (stream_get_getp(s) - start);
+  nlri_len = LEN_LEFT;
   if ((!nlri_len) || (nlri_len > STREAM_READABLE(s)))
-    return -1;
+    {
+      zlog_info ("%s: (%s) Failed to read NLRI",
+                 __func__, peer->host);
+      return -1;
+    }
  
   if (safi != BGP_SAFI_VPNV4)
     {
       ret = bgp_nlri_sanity_check (peer, afi, stream_pnt (s), nlri_len);
-      if (ret < 0)
-	return -1;
+      if (ret < 0) 
+        {
+          zlog_info ("%s: (%s) NLRI doesn't pass sanity check",
+                     __func__, peer->host);
+	  return -1;
+	}
     }
 
   mp_update->afi = afi;
@@ -1365,10 +1386,11 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
   stream_forward_getp (s, nlri_len);
 
   return 0;
+#undef LEN_LEFT
 }
 
 /* Multiprotocol unreachable parse */
-static int
+int
 bgp_mp_unreach_parse (struct peer *peer, bgp_size_t length, 
 		      struct bgp_nlri *mp_withdraw)
 {

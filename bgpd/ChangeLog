@@ -1,3 +1,10 @@
+2008-06-07 Paul Jakma <paul@jakma.org>
+
+	* bgp_attr.{c,h}: (bgp_mp_{un,}reach_parse) export, for unit tests.
+	* bgp_attr.c: (bgp_mp_reach_parse) Add logging. Tighten length test
+	  to bounds check against the attribute length rather than the
+	  stream length..
+
 2008-06-01 jfletche@gmail.com 
 
 	* bgp_attr.c: (bgp_attr_aspathlimit) fix silly bug in flags check
