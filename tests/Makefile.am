@@ -2,7 +2,9 @@ INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib
 DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
 
 noinst_PROGRAMS = testsig testbuffer testmemory heavy heavywq heavythread \
-		aspathtest testprivs teststream testbgpcap ecommtest
+		aspathtest testprivs teststream testbgpcap ecommtest \
+		testbgpmpattr
+
 testsig_SOURCES = test-sig.c
 testbuffer_SOURCES = test-buffer.c
 testmemory_SOURCES = test-memory.c
@@ -14,6 +16,7 @@ heavythread_SOURCES = heavy-thread.c main.c
 aspathtest_SOURCES = aspath_test.c
 testbgpcap_SOURCES = bgp_capability_test.c
 ecommtest_SOURCES = ecommunity_test.c
+testbgpmpattr_SOURCES =  bgp_mp_attr_test.c
 
 testsig_LDADD = ../lib/libzebra.la @LIBCAP@
 testbuffer_LDADD = ../lib/libzebra.la @LIBCAP@
@@ -26,3 +29,4 @@ heavythread_LDADD = ../lib/libzebra.la @LIBCAP@ -lm
 aspathtest_LDADD = ../lib/libzebra.la @LIBCAP@ -lm ../bgpd/libbgp.a
 testbgpcap_LDADD = ../lib/libzebra.la @LIBCAP@ -lm ../bgpd/libbgp.a
 ecommtest_LDADD = ../lib/libzebra.la @LIBCAP@ -lm ../bgpd/libbgp.a
+testbgpmpattr_LDADD = ../lib/libzebra.la @LIBCAP@ -lm ../bgpd/libbgp.a

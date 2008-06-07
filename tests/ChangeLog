@@ -1,3 +1,7 @@
+2008-06-07 Paul Jakma <paul@jakma.org
+
+	* bgp_mp_attr_test.c: MP_(UN)REACH_NLRI unit tests
+
 2008-02-23 Paul Jakma <paul.jakma@sun.com>
 
 	* aspath_test.c: Test for 0-ASN sequences that still have data.
