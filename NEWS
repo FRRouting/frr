@@ -4,6 +4,8 @@
 - [bgpd] MRT format changes to version 2. Those relying on
   bgpd MRT table dumps may need to update their tools.
 - [bgpd] Added new route-map set statement: "as-path exclude"
+- Zebra RIB updates queue has evolved into a multi-level
+  structure to address RIB consistency issues.
 
 * Changes in Quagga 0.99.2
 
