@@ -1,3 +1,8 @@
+2008-06-07 Paul Jakma <paul@jakma.org>
+
+	* stream.{c,h}: (stream_{put,write}) add const qualifier to source
+	  argument. Change u_char to void *.
+
 2008-06-02 Denis Ovsienko
 
 	* workqueue.[ch]: completely drop WQ_AIM_HEAD flag and

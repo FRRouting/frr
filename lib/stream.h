@@ -150,7 +150,7 @@ extern void stream_forward_getp (struct stream *, size_t);
 extern void stream_forward_endp (struct stream *, size_t);
 
 /* steam_put: NULL source zeroes out size_t bytes of stream */
-extern void stream_put (struct stream *, void *, size_t);
+extern void stream_put (struct stream *, const void *, size_t);
 extern int stream_putc (struct stream *, u_char);
 extern int stream_putc_at (struct stream *, size_t, u_char);
 extern int stream_putw (struct stream *, u_int16_t);
@@ -200,7 +200,7 @@ extern ssize_t stream_recvmsg (struct stream *s, int fd, struct msghdr *,
 extern ssize_t stream_recvfrom (struct stream *s, int fd, size_t len, 
                                 int flags, struct sockaddr *from, 
                                 socklen_t *fromlen);
-extern size_t stream_write (struct stream *, u_char *, size_t);
+extern size_t stream_write (struct stream *, const void *, size_t);
 
 /* reset the stream. See Note above */
 extern void stream_reset (struct stream *);

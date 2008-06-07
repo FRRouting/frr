@@ -458,7 +458,7 @@ stream_get_ipv4 (struct stream *s)
  * stream_write() is saner
  */
 void
-stream_put (struct stream *s, void *src, size_t size)
+stream_put (struct stream *s, const void *src, size_t size)
 {
 
   /* XXX: CHECK_SIZE has strange semantics. It should be deprecated */
@@ -833,7 +833,7 @@ stream_recvmsg (struct stream *s, int fd, struct msghdr *msgh, int flags,
   
 /* Write data to buffer. */
 size_t
-stream_write (struct stream *s, u_char *ptr, size_t size)
+stream_write (struct stream *s, const void *ptr, size_t size)
 {
 
   CHECK_SIZE(s, size);
