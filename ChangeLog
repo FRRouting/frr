@@ -1,3 +1,7 @@
+2008-06-10 Paul Jakma <paul@jakma.org>
+
+	* configure.ac: Bump version to 0.99.10
+
 2008-05-29 Martin Nagy <mnagy@redhat.com>
 
 	* */*main.c: Sanity check port numbers before using.
