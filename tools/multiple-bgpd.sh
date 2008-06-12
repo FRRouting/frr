@@ -9,6 +9,7 @@ BGPD=/path/to/bgpd
 PREFIX=192.168.145
 CONFBASE=/tmp
 PIDBASE=/var/run/quagga
+CHOWNSTR=quagga:quagga
 
 for H in `seq 1 ${NUM}` ; do
 	CONF="${CONFBASE}"/bgpd${H}.conf
@@ -41,8 +42,24 @@ for H in `seq 1 ${NUM}` ; do
 			 neighbor ${NEXTADDR} peer-group default
 			 neighbor ${PREVADDR} remote-as ${PREVAS}
 			 neighbor ${PREVADDR} peer-group default
+			!
+			 address-family ipv6
+			 network fffe:${H}::/48
+			 network fffe:${H}:1::/48 pathlimit 1
+			 network fffe:${H}:2::/48 pathlimit 3
+			 network fffe:${H}:3::/48 pathlimit 3
+			 neighbor default activate
+			 neighbor default capability orf prefix-list both
+			 neighbor default default-originate
+			 neighbor ${NEXTADDR} peer-group default
+			 neighbor ${PREVADDR} peer-group default
+			 exit-address-family
+			!
+			line vty
+			!
+			end
 		EOF
-		chown quagga:quagga "$CONF"
+		chown ${CHOWNSTR} "$CONF"
 	fi
 	# You may want to automatically add configure a local address
 	# on a loop interface.
