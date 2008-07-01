@@ -1,3 +1,12 @@
+2008-07-01 Paul Jakma <paul.jakma@sun.com>
+
+	* ioctl.c: (if_get_flags) Deal more gracefully with failure
+	  of the BSD link-state SIOCGIFMEDIA ioctl, as some interfaces
+	  apparently don't implement it (e.g. tun).
+	  Also, make BSD link-state checking be conditional on the 
+	  'link-detect' interface configuration flag, as it should be.
+	  Fixes bug #465.
+
 2008-06-02 Denis Ovsienko
 
 	* connected.c: (connected_up_ipv4, connected_down_ipv4,
