@@ -47,6 +47,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_vty.h"
 
 /* Memo of route-map commands.
 
@@ -3451,7 +3452,7 @@ DEFUN (no_set_atomic_aggregate,
 
 DEFUN (set_aggregator_as,
        set_aggregator_as_cmd,
-       "set aggregator as CMD_AS_RANGE A.B.C.D",
+       "set aggregator as " CMD_AS_RANGE " A.B.C.D",
        SET_STR
        "BGP aggregator attribute\n"
        "AS number of aggregator\n"
@@ -3523,7 +3524,7 @@ DEFUN (no_set_aggregator_as,
 
 ALIAS (no_set_aggregator_as,
        no_set_aggregator_as_val_cmd,
-       "no set aggregator as CMD_AS_RANGE A.B.C.D",
+       "no set aggregator as " CMD_AS_RANGE " A.B.C.D",
        NO_STR
        SET_STR
        "BGP aggregator attribute\n"

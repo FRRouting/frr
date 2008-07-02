@@ -1,3 +1,8 @@
+2008-07-02 MIYAJIMA Mitsuharu <miyajima.mitsuharu@anchor.jp>
+
+	* CMD_AS_RANGE was being used inside command strings, and thus
+	  not being expanded, fix by dequoting.
+
 2007-06-20 Nicolas Deffayet <nicolas@deffayet.com>
 
 	* vtysh.c: (vtysh_write_terminal) Write 'end' when done,

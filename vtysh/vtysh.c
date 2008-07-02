@@ -34,6 +34,7 @@
 #include "memory.h"
 #include "vtysh/vtysh.h"
 #include "log.h"
+#include "bgpd/bgp_vty.h"
 
 /* Struct VTY. */
 struct vty *vty;
@@ -838,7 +839,7 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_BGPD,
 	 router_bgp,
 	 router_bgp_cmd,
-	 "router bgp CMD_AS_RANGE",
+	 "router bgp " CMD_AS_RANGE,
 	 ROUTER_STR
 	 BGP_STR
 	 AS_STR)
