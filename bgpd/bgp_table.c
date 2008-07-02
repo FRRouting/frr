@@ -28,8 +28,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
 
-void bgp_node_delete (struct bgp_node *);
-void bgp_table_free (struct bgp_table *);
+static void bgp_node_delete (struct bgp_node *);
+static void bgp_table_free (struct bgp_table *);
 
 struct bgp_table *
 bgp_table_init (afi_t afi, safi_t safi)
@@ -47,9 +47,10 @@ bgp_table_init (afi_t afi, safi_t safi)
 }
 
 void
-bgp_table_finish (struct bgp_table *rt)
+bgp_table_finish (struct bgp_table **rt)
 {
-  bgp_table_free (rt);
+  bgp_table_free (*rt);
+  *rt = NULL;
 }
 
 static struct bgp_node *
@@ -84,7 +85,7 @@ bgp_node_free (struct bgp_node *node)
 }
 
 /* Free route table. */
-void
+static void
 bgp_table_free (struct bgp_table *rt)
 {
   struct bgp_node *tmp_node;
@@ -360,7 +361,7 @@ bgp_node_get (struct bgp_table *table, struct prefix *p)
 }
 
 /* Delete node from the routing table. */
-void
+static void
 bgp_node_delete (struct bgp_node *node)
 {
   struct bgp_node *child;

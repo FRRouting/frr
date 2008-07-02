@@ -68,9 +68,8 @@ struct bgp_node
 };
 
 extern struct bgp_table *bgp_table_init (afi_t, safi_t);
-extern void bgp_table_finish (struct bgp_table *);
+extern void bgp_table_finish (struct bgp_table **);
 extern void bgp_unlock_node (struct bgp_node *node);
-extern void bgp_node_delete (struct bgp_node *node);
 extern struct bgp_node *bgp_table_top (struct bgp_table *);
 extern struct bgp_node *bgp_route_next (struct bgp_node *);
 extern struct bgp_node *bgp_route_next_until (struct bgp_node *, struct bgp_node *);

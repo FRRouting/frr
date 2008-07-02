@@ -1228,7 +1228,7 @@ peer_delete (struct peer *peer)
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       if (peer->rib[afi][safi] && ! peer->af_group[afi][safi])
-        bgp_table_finish (peer->rib[afi][safi]);
+        bgp_table_finish (&peer->rib[afi][safi]);
 
   /* Buffers.  */
   if (peer->ibuf)
@@ -1798,7 +1798,7 @@ peer_group_bind (struct bgp *bgp, union sockunion *su,
           list_delete_node (bgp->rsclient, pn);
         }
 
-      bgp_table_finish (peer->rib[afi][safi]);
+      bgp_table_finish (&peer->rib[afi][safi]);
 
       /* Import policy. */
       if (peer->filter[afi][safi].map[RMAP_IMPORT].name)

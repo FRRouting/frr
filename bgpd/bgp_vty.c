@@ -2153,7 +2153,7 @@ peer_rsclient_unset_vty (struct vty *vty, const char *peer_str,
       listnode_delete (bgp->rsclient, peer);
     }
 
-  bgp_table_finish (peer->rib[bgp_node_afi(vty)][bgp_node_safi(vty)]);
+  bgp_table_finish (&peer->rib[bgp_node_afi(vty)][bgp_node_safi(vty)]);
 
   return CMD_SUCCESS;
 }
