@@ -1,3 +1,8 @@
+2008-07-03 MIYAJIMA Mitsuharu <miyajima.mitsuharu@anchor.jp>
+
+	* extract.pl.in: Fix as-range to match CPP output.
+	* vtysh.c: Add missing router_bgp_view_cmd alias.
+
 2008-07-02 MIYAJIMA Mitsuharu <miyajima.mitsuharu@anchor.jp>
 
 	* CMD_AS_RANGE was being used inside command strings, and thus
