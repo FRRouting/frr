@@ -1,3 +1,13 @@
+2008-07-03 Paul Jakma <paul.jakma@sun.com>
+
+	* quagga.{xml,init}.in: Sync with OpenSolaris SFW. This changes the
+	  SMF schema used, from the SMF schema supplied initially with
+	  Quagga, to the version which was approved by the Sun PSARC for
+	  inclusion into Solaris. This change is incompatible. Settings,
+	  such as vty_port, etc. will not transfer over. The Sun schema is
+	  however supported by Sun, and supports running Quagga in a zone
+	  with IP instances, and configuration via the routeadm utility.
+
 2008-01-13 Paul Jakma <paul.jakma@sun.com>
 
 	* Makefile.am: pkg target should depend on the 'depend.%' files.
