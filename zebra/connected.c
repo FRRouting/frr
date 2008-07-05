@@ -86,7 +86,7 @@ connected_announce (struct interface *ifp, struct connected *ifc)
 
       zebra_interface_address_add_update (ifp, ifc);
 
-      if (if_is_up(ifp))
+      if (if_is_operative(ifp))
         {
           if (ifc->address->family == AF_INET)
 	    connected_up_ipv4 (ifp, ifc);
