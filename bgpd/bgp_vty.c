@@ -210,6 +210,9 @@ bgp_vty_return (struct vty *vty, int ret)
     case BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS:
       str = "Cannot have local-as same as BGP AS number";
       break;
+    case BGP_ERR_TCPSIG_FAILED:
+      str = "Error while applying TCP-Sig to session(s)";
+      break;
     }
   if (str)
     {
@@ -1478,6 +1481,44 @@ ALIAS (no_neighbor_local_as,
        "Specify a local-as number\n"
        "AS number used as local AS\n"
        "Do not prepend local-as to updates from ebgp peers\n")
+
+DEFUN (neighbor_password,
+       neighbor_password_cmd,
+       NEIGHBOR_CMD2 "password LINE",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Set a password\n"
+       "The password\n")
+{
+  struct peer *peer;
+  int ret;
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+
+  ret = peer_password_set (peer, argv[1]);
+  return bgp_vty_return (vty, ret);
+}
+
+DEFUN (no_neighbor_password,
+       no_neighbor_password_cmd,
+       NO_NEIGHBOR_CMD2 "password",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Set a password\n")
+{
+  struct peer *peer;
+  int ret;
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+
+  ret = peer_password_unset (peer);
+  return bgp_vty_return (vty, ret);
+}
 
 DEFUN (neighbor_activate,
        neighbor_activate_cmd,
@@ -8896,6 +8937,10 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &no_neighbor_local_as_cmd);
   install_element (BGP_NODE, &no_neighbor_local_as_val_cmd);
   install_element (BGP_NODE, &no_neighbor_local_as_val2_cmd);
+
+  /* "neighbor password" commands. */
+  install_element (BGP_NODE, &neighbor_password_cmd);
+  install_element (BGP_NODE, &no_neighbor_password_cmd);
 
   /* "neighbor activate" commands. */
   install_element (BGP_NODE, &neighbor_activate_cmd);

@@ -22,12 +22,14 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "thread.h"
 #include "sockunion.h"
+#include "sockopt.h"
 #include "memory.h"
 #include "log.h"
 #include "if.h"
 #include "prefix.h"
 #include "command.h"
 #include "privs.h"
+#include "linklist.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_fsm.h"
@@ -37,6 +39,80 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 extern struct zebra_privs_t bgpd_privs;
 
+
+/*
+ * Set MD5 key for the socket, for the given IPv4 peer address.
+ * If the password is NULL or zero-length, the option will be disabled.
+ */
+static int
+bgp_md5_set_socket (int socket, union sockunion *su, const char *password)
+{
+  int ret = -1;
+  int en = ENOSYS;
+  
+  assert (socket >= 0);
+  
+#if HAVE_DECL_TCP_MD5SIG  
+  ret = sockopt_tcp_signature (socket, su, password);
+  en  = errno;
+#endif /* HAVE_TCP_MD5SIG */
+  
+  if (ret < 0)
+    zlog (NULL, LOG_WARNING, "can't set TCP_MD5SIG option on socket %d: %s",
+          socket, safe_strerror (en));
+
+  return ret;
+}
+
+/* Helper for bgp_connect */
+static int
+bgp_md5_set_connect (int socket, union sockunion *su, const char *password)
+{
+  int ret = -1;
+
+#if HAVE_DECL_TCP_MD5SIG  
+  if ( bgpd_privs.change (ZPRIVS_RAISE) )
+    {
+      zlog_err ("%s: could not raise privs", __func__);
+      return ret;
+    }
+  
+  ret = bgp_md5_set_socket (socket, su, password);
+
+  if (bgpd_privs.change (ZPRIVS_LOWER) )
+    zlog_err ("%s: could not lower privs", __func__);
+#endif /* HAVE_TCP_MD5SIG */
+  
+  return ret;
+}
+
+int
+bgp_md5_set (struct peer *peer)
+{
+  struct listnode *node;
+  int fret = 0, ret;
+  int *socket;
+
+  if ( bgpd_privs.change (ZPRIVS_RAISE) )
+    {
+      zlog_err ("%s: could not raise privs", __func__);
+      return -1;
+    }
+  
+  /* Just set the password on the listen socket(s). Outbound connections
+   * are taken care of in bgp_connect() below.
+   */
+  for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, socket))
+    {
+      ret = bgp_md5_set_socket ((int )socket, &peer->su, peer->password);
+      if (ret < 0)
+        fret = ret;
+    }
+  if (bgpd_privs.change (ZPRIVS_LOWER) )
+    zlog_err ("%s: could not lower privs", __func__);
+  
+  return fret;
+}
 
 /* Accept bgp connection. */
 static int
@@ -237,6 +313,9 @@ bgp_connect (struct peer *peer)
 
   sockopt_reuseaddr (peer->fd);
   sockopt_reuseport (peer->fd);
+  
+  if (peer->password)
+    bgp_md5_set_connect (peer->fd, &peer->su, peer->password);
 
   /* Bind socket. */
   bgp_bind (peer);
@@ -345,7 +424,8 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
 	  close (sock);
 	  continue;
 	}
-
+      
+      listnode_add (bm->listen_sockets, (void *)sock);
       thread_add_read (master, bgp_accept, bgp, sock);
     }
   while ((ainfo = ainfo->ai_next) != NULL);

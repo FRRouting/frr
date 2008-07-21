@@ -1,3 +1,39 @@
+2008-07-21 Paul Jakma <paul.jakma@sun.com>
+
+
+	* bgp_packet.c: (bgp_open_receive) fix warning in a zlog call
+	* bgp_vty.c: (bgp_vty_return) add return code
+	* bgpd.c: (bgp_master_init) setup the socket list.
+	* bgp_network.c: Remove the dual IPv4/6 socket thing for now, which
+	  was implemented by Michael, until such time as its clear its
+	  required for Linux (see sockopt comments). IPv6 support, including
+	  IPv4 sessions on AF_INET6 sockets, therefore is broken, and the
+	  '-l 0.0.0.0' arguments would need to be given to bgpd to make
+	  things work here.
+
+2008-07-21 Michael H. Warfield <mhw@wittsend.com>
+           YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+	   Tomohiko Kusuda <kusuda@inetcore.com>
+           Leigh Brown <leigh@solinno.co.uk>
+	
+	* bgp_network.c: (bgp_md5_set_one) shim between libzebra tcp-md5
+	  sockopt and bgpd.
+	  (bgp_md5_set_socket) Helper for bgp_connect
+	  (bgp_md5_set) setup TCP-MD5SIG for the given peer.
+	  (bgp_connect) call out to bgp_md5_set_socket for the outgoing
+	  connect socket.
+	  (bgp_socket) save references to the listen sockets, needed if
+	  TCP-MD5SIG is applied later or changed.
+	* bgp_vty.c: (*neighbor_password_cmd) New 'neighbor ... password'
+	  commands.
+	* bgpd.c: (peer_{new,delete) manage TCP-MD5 password
+	  (peer_group2peer_config_copy) inherit TCP-MD5 password
+	  (peer_password_{un,}set) orchestrate the whole add/remove of TCP-MD5
+	  passwords: applying checks, stopping peers, and trying to return
+	  errors to UI, etc.
+	  (bgp_config_write_peer) save password.
+	  Fix missing newline in writeout of neighbor ... port.
+
 2008-07-02 MIYAJIMA Mitsuharu <miyajima.mitsuharu@anchor.jp>
 
 	* *.c: CMD_AS_RANGE was being used inside command strings, and thus

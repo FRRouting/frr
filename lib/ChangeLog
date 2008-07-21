@@ -1,3 +1,14 @@
+2008-07-21 Paul Jakma <paul.jakma@sun.com>
+
+	* sockunion.c: ifdef out various places that converted
+	  v4mapped sockets to pure v4. Doesn't seem necessary at all,
+	  presumably a workaround for now historical inet_ntop bugs (?)
+
+2008-07-21 Michael H. Warfield <mhw@wittsend.com>
+           YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+	* sockopt.{c,h}: (sockopt_tcp_signature) Add TCP-MD5SIG support.
+
 2008-06-07 Paul Jakma <paul@jakma.org>
 
 	* stream.{c,h}: (stream_{put,write}) add const qualifier to source

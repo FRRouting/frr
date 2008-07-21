@@ -254,6 +254,7 @@ sockunion_accept (int sock, union sockunion *su)
   client_sock = accept (sock, (struct sockaddr *) su, &len);
   
   /* Convert IPv4 compatible IPv6 address to IPv4 address. */
+#if 0
 #ifdef HAVE_IPV6
   if (su->sa.sa_family == AF_INET6)
     {
@@ -268,7 +269,7 @@ sockunion_accept (int sock, union sockunion *su)
 	}
     }
 #endif /* HAVE_IPV6 */
-
+#endif
   return client_sock;
 }
 
@@ -592,6 +593,7 @@ sockunion_getsockname (int fd)
       su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in6));
 
+#if 0
       if (IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))
 	{
 	  struct sockaddr_in sin;
@@ -601,6 +603,7 @@ sockunion_getsockname (int fd)
 	  sin.sin_port = su->sin6.sin6_port;
 	  memcpy (su, &sin, sizeof (struct sockaddr_in));
 	}
+#endif
       return su;
     }
 #endif /* HAVE_IPV6 */
@@ -645,7 +648,7 @@ sockunion_getpeername (int fd)
     {
       su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in6));
-
+#if 0
       if (IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))
 	{
 	  struct sockaddr_in sin;
@@ -655,6 +658,7 @@ sockunion_getpeername (int fd)
 	  sin.sin_port = su->sin6.sin6_port;
 	  memcpy (su, &sin, sizeof (struct sockaddr_in));
 	}
+#endif
       return su;
     }
 #endif /* HAVE_IPV6 */

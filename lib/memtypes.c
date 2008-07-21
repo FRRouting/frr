@@ -95,6 +95,7 @@ struct memory_list memory_list_bgp[] =
   { MTYPE_BGP_PEER_HOST,	"BGP peer hostname"		},
   { MTYPE_PEER_GROUP,		"Peer group"			},
   { MTYPE_PEER_DESC,		"Peer description"		},
+  { MTYPE_PEER_PASSWORD,	"Peer password string"		},
   { MTYPE_ATTR,			"BGP attribute"			},
   { MTYPE_ATTR_EXTRA,		"BGP extra attributes"		},
   { MTYPE_AS_PATH,		"BGP aspath"			},

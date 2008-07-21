@@ -1235,7 +1235,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
         zlog_debug ("%s [AS4] OPEN remote_as is AS_TRANS, but no AS4."
                     " Odd, but proceeding.", peer->host);
       else if (as4 < BGP_AS_MAX && BGP_DEBUG (as4, AS4))
-        zlog_debug ("%s [AS4] OPEN remote_as is AS_TRANS, but AS4 fits "
+        zlog_debug ("%s [AS4] OPEN remote_as is AS_TRANS, but AS4 (%u) fits "
                     "in 2-bytes, very odd peer.", peer->host, as4);
       if (as4)
         remote_as = as4;

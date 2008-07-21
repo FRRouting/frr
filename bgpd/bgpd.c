@@ -788,6 +788,7 @@ peer_new (struct bgp *bgp)
   peer->status = Idle;
   peer->ostatus = Idle;
   peer->weight = 0;
+  peer->password = NULL;
   peer->bgp = bgp;
   peer = peer_lock (peer); /* initial reference */
 
@@ -1202,6 +1203,17 @@ peer_delete (struct peer *peer)
   peer->last_reset = PEER_DOWN_NEIGHBOR_DELETE;
   bgp_stop (peer);
   bgp_fsm_change_status (peer, Deleted);
+
+  /* Password configuration */
+  if (peer->password)
+    {
+      XFREE (MTYPE_PEER_PASSWORD, peer->password);
+      peer->password = NULL;
+
+      if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+	bgp_md5_set (peer);
+    }
+  
   bgp_timer_set (peer); /* stops all timers for Deleted */
   
   /* Delete from all peer list. */
@@ -1416,6 +1428,17 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
     peer->v_routeadv = BGP_DEFAULT_IBGP_ROUTEADV;
   else
     peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
+
+  /* password apply */
+  if (peer->password)
+    XFREE (MTYPE_PEER_PASSWORD, peer->password);
+
+  if (conf->password)
+    peer->password =  XSTRDUP (MTYPE_PEER_PASSWORD, conf->password);
+  else
+    peer->password = NULL;
+
+  bgp_md5_set (peer);
 
   /* maximum-prefix */
   peer->pmax[afi][safi] = conf->pmax[afi][safi];
@@ -3379,6 +3402,111 @@ peer_local_as_unset (struct peer *peer)
   return 0;
 }
 
+/* Set password for authenticating with the peer. */
+int
+peer_password_set (struct peer *peer, const char *password)
+{
+  struct listnode *nn, *nnode;
+  int len = password ? strlen(password) : 0;
+  int ret = BGP_SUCCESS;
+
+  if ((len < PEER_PASSWORD_MINLEN) || (len > PEER_PASSWORD_MAXLEN))
+    return BGP_ERR_INVALID_VALUE;
+
+  if (peer->password && strcmp (peer->password, password) == 0
+      && ! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    return 0;
+
+  if (peer->password)
+    XFREE (MTYPE_PEER_PASSWORD, peer->password);
+  
+  peer->password = XSTRDUP (MTYPE_PEER_PASSWORD, password);
+
+  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    {
+      if (peer->status == Established)
+          bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+      else
+        BGP_EVENT_ADD (peer, BGP_Stop);
+        
+      return (bgp_md5_set (peer) >= 0) ? BGP_SUCCESS : BGP_ERR_TCPSIG_FAILED;
+    }
+
+  for (ALL_LIST_ELEMENTS (peer->group->peer, nn, nnode, peer))
+    {
+      if (peer->password && strcmp (peer->password, password) == 0)
+	continue;
+      
+      if (peer->password)
+        XFREE (MTYPE_PEER_PASSWORD, peer->password);
+      
+      peer->password = XSTRDUP(MTYPE_PEER_PASSWORD, password);
+
+      if (peer->status == Established)
+        bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+      else
+        BGP_EVENT_ADD (peer, BGP_Stop);
+      
+      if (bgp_md5_set (peer) < 0)
+        ret = BGP_ERR_TCPSIG_FAILED;
+    }
+
+  return ret;
+}
+
+int
+peer_password_unset (struct peer *peer)
+{
+  struct listnode *nn, *nnode;
+
+  if (!peer->password
+      && !CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    return 0;
+
+  if (!CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    {
+      if (peer_group_active (peer)
+	  && peer->group->conf->password
+	  && strcmp (peer->group->conf->password, peer->password) == 0)
+	return BGP_ERR_PEER_GROUP_HAS_THE_FLAG;
+
+      if (peer->status == Established)
+        bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+      else
+        BGP_EVENT_ADD (peer, BGP_Stop);
+
+      if (peer->password)
+        XFREE (MTYPE_PEER_PASSWORD, peer->password);
+      
+      peer->password = NULL;
+      
+      bgp_md5_set (peer);
+
+      return 0;
+    }
+
+  XFREE (MTYPE_PEER_PASSWORD, peer->password);
+  peer->password = NULL;
+
+  for (ALL_LIST_ELEMENTS (peer->group->peer, nn, nnode, peer))
+    {
+      if (!peer->password)
+	continue;
+
+      if (peer->status == Established)
+        bgp_notify_send (peer, BGP_NOTIFY_CEASE, BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+      else
+        BGP_EVENT_ADD (peer, BGP_Stop);
+      
+      XFREE (MTYPE_PEER_PASSWORD, peer->password);
+      peer->password = NULL;
+
+      bgp_md5_set (peer);
+    }
+
+  return 0;
+}
+
 /* Set distribute list to the peer. */
 int
 peer_distribute_set (struct peer *peer, afi_t afi, safi_t safi, int direct, 
@@ -4416,9 +4544,17 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	    ! CHECK_FLAG (g_peer->flags, PEER_FLAG_SHUTDOWN))
 	  vty_out (vty, " neighbor %s shutdown%s", addr, VTY_NEWLINE);
 
+      /* Password. */
+      if (peer->password)
+	if (!peer_group_active (peer)
+	    || ! g_peer->password
+	    || strcmp (peer->password, g_peer->password) != 0)
+	  vty_out (vty, " neighbor %s password %s%s", addr, peer->password,
+		   VTY_NEWLINE);
+
       /* BGP port. */
       if (peer->port != BGP_PORT_DEFAULT)
-	vty_out (vty, " neighbor %s port %d%s", addr, peer->port, 
+	vty_out (vty, " neighbor %s port %d%s", addr, peer->port,
 		 VTY_NEWLINE);
 
       /* Local interface name. */
@@ -4948,6 +5084,7 @@ bgp_master_init (void)
 
   bm = &bgp_master;
   bm->bgp = list_new ();
+  bm->listen_sockets = list_new ();
   bm->port = BGP_PORT_DEFAULT;
   bm->master = thread_master_create ();
   bm->start_time = time (NULL);

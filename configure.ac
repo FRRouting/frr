@@ -906,6 +906,27 @@ AC_CHECK_HEADER([net/if.h],
     QUAGGA_INCLUDES)], 
   [], QUAGGA_INCLUDES )
 
+dnl ------------------------
+dnl TCP_MD5SIG socket option
+dnl ------------------------
+
+AC_CHECK_HEADER([netinet/tcp.h], 
+   [m4_define([MD5_INCLUDES],
+      QUAGGA_INCLUDES
+      [#include <netinet/tcp.h>
+    ])
+    AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)],
+   [],
+   QUAGGA_INCLUDES)
+if test $ac_cv_have_decl_TCP_MD5SIG = no; then
+  AC_CHECK_HEADER([linux/tcp.h],
+       [m4_define([MD5_INCLUDES],
+          QUAGGA_INCLUDES
+          [#include <linux/tcp.h>
+        ])
+       AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)])
+fi
+
 dnl -----------------------
 dnl check proc file system.
 dnl -----------------------
