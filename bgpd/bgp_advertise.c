@@ -220,9 +220,8 @@ bgp_adj_out_set (struct bgp_node *rn, struct peer *peer, struct prefix *p,
   struct bgp_adj_out *adj = NULL;
   struct bgp_advertise *adv;
 
-#ifdef DISABLE_BGP_ANNOUNCE
-  return;
-#endif /* DISABLE_BGP_ANNOUNCE */
+  if (DISABLE_BGP_ANNOUNCE)
+    return;
 
   /* Look for adjacency information. */
   if (rn)
@@ -274,9 +273,8 @@ bgp_adj_out_unset (struct bgp_node *rn, struct peer *peer, struct prefix *p,
   struct bgp_adj_out *adj;
   struct bgp_advertise *adv;
 
-#ifdef DISABLE_BGP_ANNOUNCE
-  return;
-#endif /* DISABLE_BGP_ANNOUNCE */
+  if (DISABLE_BGP_ANNOUNCE)
+    return;
 
   /* Lookup existing adjacency, if it is not there return immediately.  */
   for (adj = rn->adj_out; adj; adj = adj->next)

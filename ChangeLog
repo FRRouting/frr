@@ -1,3 +1,9 @@
+2008-07-22 Paul Jakma <paul.jakma@sun.com>
+
+	* HACKING: Document preference for compiler conditional code, over
+	  cpp conditional.
+	* configure.ac: DISABLE_BGP_ANNOUNCE always should be defined.
+
 2008-06-10 Paul Jakma <paul@jakma.org>
 
 	* configure.ac: Bump version to 0.99.10

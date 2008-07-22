@@ -235,9 +235,8 @@ bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
   struct stream *s;
   struct stream *packet;
 
-#ifdef DISABLE_BGP_ANNOUNCE
-  return;
-#endif /* DISABLE_BGP_ANNOUNCE */
+  if (DISABLE_BGP_ANNOUNCE)
+    return NULL;
 
   if (BGP_DEBUG (normal, NORMAL))
     zlog_debug ("send End-of-RIB for %s to %s", afi_safi_print (afi, safi), peer->host);
@@ -369,9 +368,8 @@ bgp_default_update_send (struct peer *peer, struct attr *attr,
   char attrstr[BUFSIZ];
   char buf[BUFSIZ];
 
-#ifdef DISABLE_BGP_ANNOUNCE
-  return;
-#endif /* DISABLE_BGP_ANNOUNCE */
+  if (DISABLE_BGP_ANNOUNCE)
+    return;
 
   if (afi == AFI_IP)
     str2prefix ("0.0.0.0/0", &p);
@@ -438,9 +436,8 @@ bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
   bgp_size_t total_attr_len;
   char buf[BUFSIZ];
 
-#ifdef DISABLE_BGP_ANNOUNCE
-  return;
-#endif /* DISABLE_BGP_ANNOUNCE */
+  if (DISABLE_BGP_ANNOUNCE)
+    return;
 
   if (afi == AFI_IP)
     str2prefix ("0.0.0.0/0", &p);
@@ -958,9 +955,8 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
   struct bgp_filter *filter;
   int orf_refresh = 0;
 
-#ifdef DISABLE_BGP_ANNOUNCE
-  return;
-#endif /* DISABLE_BGP_ANNOUNCE */
+  if (DISABLE_BGP_ANNOUNCE)
+    return;
 
   filter = &peer->filter[afi][safi];
 

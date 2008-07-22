@@ -742,9 +742,8 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   filter = &peer->filter[afi][safi];
   bgp = peer->bgp;
   
-#ifdef DISABLE_BGP_ANNOUNCE
-  return 0;
-#endif
+  if (DISABLE_BGP_ANNOUNCE)
+    return 0;
 
   /* Do not send announces to RS-clients from the 'normal' bgp_table. */
   if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
@@ -1095,9 +1094,8 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
   filter = &rsclient->filter[afi][safi];
   bgp = rsclient->bgp;
 
-#ifdef DISABLE_BGP_ANNOUNCE
-  return 0;
-#endif
+  if (DISABLE_BGP_ANNOUNCE)
+    return 0;
 
   /* Do not send back route to sender. */
   if (from == rsclient)

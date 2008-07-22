@@ -1,5 +1,5 @@
 -*- mode: text; -*-
-$Id: HACKING,v 1.21 2005/11/10 10:21:19 paul Exp $
+$Id$
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -75,6 +75,28 @@ release.
 
 See also below regarding SHARED LIBRARY VERSIONING.
 
+COMPILE-TIME CONDITIONAL CODE
+
+Please think very carefully before making code conditional at compile time,
+as it increases maintenance burdens and user confusion. In particular,
+please avoid gratuitious --enable-.... switches to the configure script -
+typically code should be good enough to be in Quagga, or it shouldn't be
+there at all.
+
+When code must be compile-time conditional, try have the compiler make it
+conditional rather than the C pre-processor. I.e. this:
+
+    if (SOME_SYMBOL)
+      frobnicate();
+
+rather than:
+
+  #ifdef SOME_SYMBOL
+  frobnicate ();
+  #endif /* SOME_SYMBOL */
+
+Note that the former approach requires ensuring that SOME_SYMBOL will be
+defined (watch your AC_DEFINEs).
 
 CHANGELOG
 

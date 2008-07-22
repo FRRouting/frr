@@ -1207,7 +1207,9 @@ case "${enable_solaris}" in
 esac
 
 if test "${enable_bgp_announce}" = "no";then
-  AC_DEFINE(DISABLE_BGP_ANNOUNCE,,Disable BGP installation to zebra)
+  AC_DEFINE(DISABLE_BGP_ANNOUNCE,1,Disable BGP installation to zebra)
+else
+  AC_DEFINE(DISABLE_BGP_ANNOUNCE,0,Disable BGP installation to zebra)
 fi
 
 AC_SUBST(ZEBRA)

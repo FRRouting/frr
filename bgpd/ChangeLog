@@ -1,5 +1,16 @@
 2008-07-22 Paul Jakma <paul.jakma@sun.com>
 
+	* bgp_{packet,route,advertise}.c: change to compiler testing of
+	  DISABLE_BGP_ANNOUNCE, rather than cpp.
+
+2008-07-22 MIYAJIMA Mitsuharu <miyajima.mitsuharu@anchor.jp>
+
+	* bgp_packet.c: (bgp_update_packet_eor) Fix crash triggerable
+	  if a bgpd was compiled with --disable-bgp-announce and if GR is 
+	  advertised by peer.
+
+2008-07-22 Paul Jakma <paul.jakma@sun.com>
+
 	* bgp_community.c: (community_str2com) assigns defaults to local
 	  vars
 	* bgp_attr.c: (bgp_attr_parse) match format specifier to arg
