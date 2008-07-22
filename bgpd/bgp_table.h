@@ -70,18 +70,18 @@ struct bgp_node
 extern struct bgp_table *bgp_table_init (afi_t, safi_t);
 extern void bgp_table_finish (struct bgp_table **);
 extern void bgp_unlock_node (struct bgp_node *node);
-extern struct bgp_node *bgp_table_top (struct bgp_table *);
+extern struct bgp_node *bgp_table_top (const struct bgp_table *const);
 extern struct bgp_node *bgp_route_next (struct bgp_node *);
 extern struct bgp_node *bgp_route_next_until (struct bgp_node *, struct bgp_node *);
-extern struct bgp_node *bgp_node_get (struct bgp_table *, struct prefix *);
-extern struct bgp_node *bgp_node_lookup (struct bgp_table *, struct prefix *);
+extern struct bgp_node *bgp_node_get (struct bgp_table *const, struct prefix *);
+extern struct bgp_node *bgp_node_lookup (const struct bgp_table *const, struct prefix *);
 extern struct bgp_node *bgp_lock_node (struct bgp_node *node);
-extern struct bgp_node *bgp_node_match (struct bgp_table *, struct prefix *);
-extern struct bgp_node *bgp_node_match_ipv4 (struct bgp_table *,
+extern struct bgp_node *bgp_node_match (const struct bgp_table *, struct prefix *);
+extern struct bgp_node *bgp_node_match_ipv4 (const struct bgp_table *,
 					  struct in_addr *);
 #ifdef HAVE_IPV6
-extern struct bgp_node *bgp_node_match_ipv6 (struct bgp_table *,
+extern struct bgp_node *bgp_node_match_ipv6 (const struct bgp_table *,
 					  struct in6_addr *);
 #endif /* HAVE_IPV6 */
-extern unsigned long bgp_table_count (struct bgp_table *);
+extern unsigned long bgp_table_count (const struct bgp_table *const);
 #endif /* _QUAGGA_BGP_TABLE_H */

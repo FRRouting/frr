@@ -1,3 +1,11 @@
+2008-07-22 Paul Jakma <paul.jakma@sun.com>
+
+	* bgp_community.c: (community_str2com) assigns defaults to local
+	  vars
+	* bgp_attr.c: (bgp_attr_parse) match format specifier to arg
+	* bgp_table.{c,h}: (bgp_table_top) can take a * to a const, quelling
+	  warning in bgp_route.c
+ 
 2008-07-21 Paul Jakma <paul.jakma@sun.com>
 
 

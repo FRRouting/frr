@@ -581,8 +581,8 @@ community_str2com (const char *str)
 {
   struct community *com = NULL;
   struct community *com_sort = NULL;
-  u_int32_t val;
-  enum community_token token;
+  u_int32_t val = 0;
+  enum community_token token = community_token_unknown;
 
   do 
     {

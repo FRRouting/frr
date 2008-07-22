@@ -1571,7 +1571,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
           && ((endp - startp) < (BGP_ATTR_MIN_LEN + 1)))
 	{
 	  zlog (peer->log, LOG_WARNING, 
-		"%s Extended length set, but just %u bytes of attr header",
+		"%s Extended length set, but just %lu bytes of attr header",
 		peer->host,
 		(unsigned long) (endp - STREAM_PNT (BGP_INPUT (peer))));
 
