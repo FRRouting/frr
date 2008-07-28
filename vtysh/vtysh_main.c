@@ -58,6 +58,9 @@ static char *line_read;
 /* Master of threads. */
 struct thread_master *master;
 
+/* Command logging */
+FILE *logfile;
+
 /* SIGTSTP handler.  This function care user's ^Z input. */
 void
 sigtstp (int sig)
@@ -191,6 +194,18 @@ vtysh_rl_gets ()
   return (line_read);
 }
 
+static void log_it(const char *line)
+{
+  time_t t = time(NULL);
+  struct tm *tmp = localtime(&t);
+  char *user = getenv("USER") ? : "boot";
+  char tod[64];
+
+  strftime(tod, sizeof tod, "%Y%m%d-%H:%M.%S", tmp);
+  
+  fprintf(logfile, "%s:%s %s\n", tod, user, line);
+}
+
 /* VTY shell main routine. */
 int
 main (int argc, char **argv, char **env)
@@ -209,6 +224,10 @@ main (int argc, char **argv, char **env)
 
   /* Preserve name of myself. */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
+
+  /* if logging open now */
+  if ((p = getenv("VTYSH_LOG")) != NULL)
+      logfile = fopen(p, "a");
 
   /* Option handling. */
   while (1) 
@@ -299,19 +318,39 @@ main (int argc, char **argv, char **env)
 
       while (cmd != NULL)
         {
+	  int ret;
 	  char *eol;
 
 	  while ((eol = strchr(cmd->line, '\n')) != NULL)
 	    {
 	      *eol = '\0';
+
 	      if (echo_command)
-	        printf("%s%s\n", vtysh_prompt(), cmd->line);
-	      vtysh_execute_no_pager(cmd->line);
+		printf("%s%s\n", vtysh_prompt(), cmd->line);
+	      
+	      if (logfile)
+		log_it(cmd->line);
+
+	      ret = vtysh_execute_no_pager(cmd->line);
+	      if (ret != CMD_SUCCESS 
+		  && ret != CMD_SUCCESS_DAEMON
+		  && ret != CMD_WARNING)
+		exit(1);
+
 	      cmd->line = eol+1;
 	    }
+
 	  if (echo_command)
 	    printf("%s%s\n", vtysh_prompt(), cmd->line);
-	  vtysh_execute_no_pager (cmd->line);
+
+	  if (logfile)
+	    log_it(cmd->line);
+
+	  ret = vtysh_execute_no_pager(cmd->line);
+	  if (ret != CMD_SUCCESS 
+	      && ret != CMD_SUCCESS_DAEMON
+	      && ret != CMD_WARNING)
+	    exit(1);
 
 	  {
 	    struct cmd_rec *cr;

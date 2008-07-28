@@ -42,8 +42,8 @@ extern int vtysh_connect_all (const char *optional_daemon_name);
 void vtysh_readline_init (void);
 void vtysh_user_init (void);
 
-void vtysh_execute (const char *);
-void vtysh_execute_no_pager (const char *);
+int vtysh_execute (const char *);
+int vtysh_execute_no_pager (const char *);
 
 char *vtysh_prompt (void);
 
