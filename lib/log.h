@@ -111,7 +111,8 @@ extern void closezlog (struct zlog *zl);
 #endif /* __GNUC__ */
 
 /* Generic function for zlog. */
-extern void zlog (struct zlog *zl, int priority, const char *format, ...) PRINTF_ATTRIBUTE(3, 4);
+extern void zlog (struct zlog *zl, int priority, const char *format, ...)
+  PRINTF_ATTRIBUTE(3, 4);
 
 /* Handy zlog functions. */
 extern void zlog_err (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
@@ -121,11 +122,16 @@ extern void zlog_notice (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 extern void zlog_debug (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 
 /* For bgpd's peer oriented log. */
-extern void plog_err (struct zlog *, const char *format, ...);
-extern void plog_warn (struct zlog *, const char *format, ...);
-extern void plog_info (struct zlog *, const char *format, ...);
-extern void plog_notice (struct zlog *, const char *format, ...);
-extern void plog_debug (struct zlog *, const char *format, ...);
+extern void plog_err (struct zlog *, const char *format, ...)
+  PRINTF_ATTRIBUTE(2, 3);
+extern void plog_warn (struct zlog *, const char *format, ...)
+  PRINTF_ATTRIBUTE(2, 3);
+extern void plog_info (struct zlog *, const char *format, ...)
+  PRINTF_ATTRIBUTE(2, 3);
+extern void plog_notice (struct zlog *, const char *format, ...)
+  PRINTF_ATTRIBUTE(2, 3);
+extern void plog_debug (struct zlog *, const char *format, ...)
+  PRINTF_ATTRIBUTE(2, 3);
 
 /* Set logging level for the given destination.  If the log_level
    argument is ZLOG_DISABLED, then the destination is disabled.
