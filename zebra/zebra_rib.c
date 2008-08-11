@@ -1189,21 +1189,30 @@ end:
     zlog_debug ("%s: %s/%d: rn %p dequeued", __func__, buf, rn->p.prefixlen, rn);
 }
 
-/* Take a list of route_node structs and return 1, if there was a record picked from
- * it and processed by rib_process(). Don't process more, than one RN record; operate
- * only in the specified sub-queue.
+/* Take a list of route_node structs and return 1, if there was a record
+ * picked from it and processed by rib_process(). Don't process more, 
+ * than one RN record; operate only in the specified sub-queue.
  */
 static unsigned int
 process_subq (struct list * subq, u_char qindex)
 {
-  struct listnode *lnode;
+  struct listnode *lnode  = listhead (subq);
   struct route_node *rnode;
-  if (!(lnode = listhead (subq)))
+
+  if (!lnode)
     return 0;
+
   rnode = listgetdata (lnode);
   rib_process (rnode);
+
   if (rnode->info) /* The first RIB record is holding the flags bitmask. */
     UNSET_FLAG (((struct rib *)rnode->info)->rn_status, RIB_ROUTE_QUEUED(qindex));
+  else
+    {
+      zlog_debug ("%s: called for route_node (%p, %d) with no ribs",
+                  __func__, rnode, rnode->lock);
+      zlog_backtrace(LOG_DEBUG);
+    }
   route_unlock_node (rnode);
   list_delete_node (subq, lnode);
   return 1;
@@ -1217,66 +1226,66 @@ static wq_item_status
 meta_queue_process (struct work_queue *dummy, void *data)
 {
   struct meta_queue * mq = data;
-  u_char i;
+  unsigned i;
+
   for (i = 0; i < MQ_SIZE; i++)
     if (process_subq (mq->subq[i], i))
-    {
-      mq->size--;
-      break;
-    }
+      {
+	mq->size--;
+	break;
+      }
   return mq->size ? WQ_REQUEUE : WQ_SUCCESS;
 }
 
-/* Look into the RN and queue it into one or more priority queues, increasing the size
- * for each data push done.
+/* Map from rib types to queue type (priority) in meta queue */
+static const u_char meta_queue_map[ZEBRA_ROUTE_MAX] = {
+  [ZEBRA_ROUTE_SYSTEM]  = 4,
+  [ZEBRA_ROUTE_KERNEL]  = 0,
+  [ZEBRA_ROUTE_CONNECT] = 0,
+  [ZEBRA_ROUTE_STATIC]  = 1,
+  [ZEBRA_ROUTE_RIP]     = 2,
+  [ZEBRA_ROUTE_RIPNG]   = 2,
+  [ZEBRA_ROUTE_OSPF]    = 2,
+  [ZEBRA_ROUTE_OSPF6]   = 2,
+  [ZEBRA_ROUTE_ISIS]    = 2,
+  [ZEBRA_ROUTE_BGP]     = 3,
+  [ZEBRA_ROUTE_HSLS]    = 4,
+};
+
+/* Look into the RN and queue it into one or more priority queues,
+ * increasing the size for each data push done.
  */
 static void
 rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 {
-  u_char qindex;
   struct rib *rib;
   char buf[INET6_ADDRSTRLEN];
+
   if (IS_ZEBRA_DEBUG_RIB_Q)
     inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
+
   for (rib = rn->info; rib; rib = rib->next)
-  {
-    switch (rib->type)
     {
-      case ZEBRA_ROUTE_KERNEL:
-      case ZEBRA_ROUTE_CONNECT:
-        qindex = 0;
-        break;
-      case ZEBRA_ROUTE_STATIC:
-        qindex = 1;
-        break;
-      case ZEBRA_ROUTE_RIP:
-      case ZEBRA_ROUTE_RIPNG:
-      case ZEBRA_ROUTE_OSPF:
-      case ZEBRA_ROUTE_OSPF6:
-      case ZEBRA_ROUTE_ISIS:
-        qindex = 2;
-        break;
-      case ZEBRA_ROUTE_BGP:
-        qindex = 3;
-        break;
-      default:
-        qindex = 4;
-        break;
-    }
-    /* Invariant: at this point we always have rn->info set. */
-    if (CHECK_FLAG (((struct rib *)rn->info)->rn_status, RIB_ROUTE_QUEUED(qindex)))
-    {
+      u_char qindex = meta_queue_map[rib->type];
+
+      /* Invariant: at this point we always have rn->info set. */
+      if (CHECK_FLAG (((struct rib *)rn->info)->rn_status, RIB_ROUTE_QUEUED(qindex)))
+	{
+	  if (IS_ZEBRA_DEBUG_RIB_Q)
+	    zlog_debug ("%s: %s/%d: rn %p is already queued in sub-queue %u",
+			__func__, buf, rn->p.prefixlen, rn, qindex);
+	  continue;
+	}
+
+      SET_FLAG (((struct rib *)rn->info)->rn_status, RIB_ROUTE_QUEUED(qindex));
+      listnode_add (mq->subq[qindex], rn);
+      route_lock_node (rn);
+      mq->size++;
+
       if (IS_ZEBRA_DEBUG_RIB_Q)
-        zlog_debug ("%s: %s/%d: rn %p is already queued in sub-queue %u", __func__, buf, rn->p.prefixlen, rn, qindex);
-      continue;
+	zlog_debug ("%s: %s/%d: queued rn %p into sub-queue %u",
+		    __func__, buf, rn->p.prefixlen, rn, qindex);
     }
-    SET_FLAG (((struct rib *)rn->info)->rn_status, RIB_ROUTE_QUEUED(qindex));
-    listnode_add (mq->subq[qindex], rn);
-    route_lock_node (rn);
-    mq->size++;
-    if (IS_ZEBRA_DEBUG_RIB_Q)
-      zlog_debug ("%s: %s/%d: queued rn %p into sub-queue %u", __func__, buf, rn->p.prefixlen, rn, qindex);
-  }
 }
 
 /* Add route_node to work queue and schedule processing */
@@ -1328,27 +1337,24 @@ rib_queue_add (struct zebra_t *zebra, struct route_node *rn)
   return;
 }
 
-/* Create new meta queue. A destructor function doesn't seem to be necessary here. */
+/* Create new meta queue.
+   A destructor function doesn't seem to be necessary here.
+ */
 static struct meta_queue *
 meta_queue_new (void)
 {
   struct meta_queue *new;
-  unsigned i, failed = 0;
+  unsigned i;
 
-  if ((new = XCALLOC (MTYPE_WORK_QUEUE, sizeof (struct meta_queue))) == NULL)
-    return NULL;
+  new = XCALLOC (MTYPE_WORK_QUEUE, sizeof (struct meta_queue));
+  assert(new);
+
   for (i = 0; i < MQ_SIZE; i++)
-    if ((new->subq[i] = list_new ()) == NULL)
-      failed = 1;
-  if (failed)
-  {
-    for (i = 0; i < MQ_SIZE; i++)
-      if (new->subq[i])
-        list_delete (new->subq[i]);
-    XFREE (MTYPE_WORK_QUEUE, new);
-    return NULL;
-  }
-  new->size = 0;
+    {
+      new->subq[i] = list_new ();
+      assert(new->subq[i]);
+    }
+
   return new;
 }
 
