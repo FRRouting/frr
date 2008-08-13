@@ -23,6 +23,7 @@
 
 #include <zebra.h>
 #include "iso_checksum.h"
+#include "checksum.h"
 
 /*
  * Calculations of the OSI checksum.
@@ -47,14 +48,10 @@
 int
 iso_csum_verify (u_char * buffer, int len, uint16_t * csum)
 {
-  u_int8_t *p;
+  u_int16_t checksum;
   u_int32_t c0;
   u_int32_t c1;
-  u_int16_t checksum;
-  int i, partial_len;
 
-  p = buffer;
-  checksum = 0;
   c0 = *csum & 0xff00;
   c1 = *csum & 0x00ff;
 
@@ -70,124 +67,11 @@ iso_csum_verify (u_char * buffer, int len, uint16_t * csum)
   if (c0 == 0 || c1 == 0)
     return 1;
 
-  /*
-   * Otherwise initialize to zero and calculate...
-   */
-  c0 = 0;
-  c1 = 0;
+  /* Offset of checksum from the start of the buffer */
+  int offset = (u_char *) csum - buffer;
 
-  while (len)
-    {
-      partial_len = MIN(len, 5803);
-
-      for (i = 0; i < partial_len; i++)
-	{
-	  c0 = c0 + *(p++);
-	  c1 += c0;
-	}
-
-      c0 = c0 % 255;
-      c1 = c1 % 255;
-
-      len -= partial_len;
-    }
-
-  if (c0 == 0 && c1 == 0)
+  checksum = fletcher_checksum(buffer, len, offset);
+  if (checksum == *csum)
     return 0;
-
   return 1;
-}
-
-/*
- * Creates the checksum. *csum points to the position of the checksum in the 
- * PDU. 
- * Based on Annex C.4 of ISO/IEC 8473
- */
-#define FIXED_CODE
-u_int16_t
-iso_csum_create (u_char * buffer, int len, u_int16_t n)
-{
-
-  u_int8_t *p;
-  int x;
-  int y;
-  u_int32_t mul;
-  u_int32_t c0;
-  u_int32_t c1;
-  u_int16_t checksum;
-  u_int16_t *csum;
-  int i, init_len, partial_len;
-
-  checksum = 0;
-
-  /*
-   * Zero the csum in the packet.
-   */
-  csum = (u_int16_t *) (buffer + n);
-  *(csum) = checksum;
-
-  p = buffer;
-  c0 = 0;
-  c1 = 0;
-  init_len = len;
-
-  while (len != 0)
-    {
-      partial_len = MIN(len, 5803);
-
-      for (i = 0; i < partial_len; i++)
-	{
-	  c0 = c0 + *(p++);
-	  c1 += c0;
-	}
-
-      c0 = c0 % 255;
-      c1 = c1 % 255;
-
-      len -= partial_len;
-    }
-
-  mul = (init_len - n)*(c0);
-
-#ifdef FIXED_CODE
-  x = mul - c0 - c1;
-  y = c1 - mul - 1;
-
-  if (y > 0)
-    y++;
-  if (x < 0)
-    x--;
-
-  x %= 255;
-  y %= 255;
-
-  if (x == 0)
-    x = 255;
-  if (y == 0)
-    y = 1;
-
-  checksum = (y << 8) | (x & 0xFF);
-
-#else
-  x = mul - c0 - c1;
-  x %= 255;
-
-  y = c1 - mul - 1;
-  y %= 255;
-
-  if (x == 0)
-    x = 255;
-  if (y == 0)
-    y = 255;
-
-  checksum = ((y << 8) | x);
-#endif
-
-  /*
-   * Now we write this to the packet
-   */
-  *(csum) = checksum;
-
-  /* return the checksum for user usage */
-  return checksum;
 }

@@ -24,6 +24,5 @@
 #define _ZEBRA_ISO_CSUM_H
 
 int iso_csum_verify (u_char * buffer, int len, uint16_t * csum);
-u_int16_t iso_csum_create (u_char * buffer, int len, u_int16_t n);
 
 #endif /* _ZEBRA_ISO_CSUM_H */

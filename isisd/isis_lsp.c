@@ -33,6 +33,7 @@
 #include "command.h"
 #include "hash.h"
 #include "if.h"
+#include "checksum.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -45,7 +46,6 @@
 #include "isisd/isis_dynhn.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_flags.h"
-#include "isisd/iso_checksum.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_spf.h"
@@ -314,7 +314,7 @@ lsp_inc_seqnum (struct isis_lsp *lsp, u_int32_t seq_num)
     newseq = seq_num++;
 
   lsp->lsp_header->seq_num = htonl (newseq);
-  iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
+  fletcher_checksum (STREAM_DATA (lsp->pdu) + 12,
 		   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 
   return;
@@ -1803,7 +1803,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
     tlv_add_is_neighs (lsp->tlv_data.es_neighs, lsp->pdu);
 
   lsp->lsp_header->pdu_len = htons (stream_get_endp (lsp->pdu));
-  iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
+  fletcher_checksum (STREAM_DATA (lsp->pdu) + 12,
 		   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 
   list_delete (adj_list);
@@ -2071,7 +2071,7 @@ lsp_purge_dr (u_char * id, struct isis_circuit *circuit, int level)
       lsp->lsp_header->pdu_len =
 	htons (ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
       lsp->purged = 0;
-      iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
+      fletcher_checksum (STREAM_DATA (lsp->pdu) + 12,
 		       ntohs (lsp->lsp_header->pdu_len) - 12, 12);
       ISIS_FLAGS_SET_ALL (lsp->SRMflags);
     }

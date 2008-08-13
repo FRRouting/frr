@@ -32,6 +32,7 @@
 #include "hash.c"
 #include "prefix.h"
 #include "if.h"
+#include "checksum.h"
 
 #include "isisd/dict.h"
 #include "isisd/include-netbsd/iso.h"
@@ -1121,7 +1122,7 @@ dontcheckadj:
 		  if (isis->debugs & DEBUG_UPDATE_PACKETS)
 		    zlog_debug ("LSP LEN: %d",
 				ntohs (lsp->lsp_header->pdu_len));
-		  iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
+		  fletcher_checksum (STREAM_DATA (lsp->pdu) + 12,
 				   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 		  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
 		  if (isis->debugs & DEBUG_UPDATE_PACKETS)
@@ -1164,7 +1165,7 @@ dontcheckadj:
 	  /* 7.3.16.1  */
 	  lsp->lsp_header->seq_num = htonl (ntohl (hdr->seq_num) + 1);
 
-	  iso_csum_create (STREAM_DATA (lsp->pdu) + 12,
+	  fletcher_checksum (STREAM_DATA (lsp->pdu) + 12,
 			   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
 
 	  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
