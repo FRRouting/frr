@@ -60,9 +60,10 @@ fi
 dnl --------------------
 dnl Check CC and friends
 dnl --------------------
+AC_LANG([C])
 AC_PROG_CC
 AC_PROG_CPP
-
+AM_PROG_CC_C_O
 AC_PROG_EGREP
 
 dnl autoconf 2.59 appears not to support AC_PROG_SED
@@ -1394,6 +1395,31 @@ dnl configure date
 dnl ----------
 CONFDATE=`date '+%Y%m%d'`
 AC_SUBST(CONFDATE)
+
+dnl Conditionally enable PIE support for GNU toolchains.
+enable_pie=yes
+
+AC_ARG_ENABLE(pie, AS_HELP_STRING([--disable-pie], [Do not build tools as a Position Independent Executables]))
+if test "$enable_pie" = "yes"; then
+  AC_CACHE_CHECK([whether $CC accepts PIE flags], [ap_cv_cc_pie], [
+    save_CFLAGS=$CFLAGS
+    save_LDFLAGS=$LDFLAGS
+    CFLAGS="$CFLAGS -fPIE"
+    LDFLAGS="$LDFLAGS -pie"
+    AC_LINK_IFELSE([AC_LANG_SOURCE([[static int foo[30000]; int main () { return 0; }]])],
+      [ap_cv_cc_pie=yes], [ap_cv_cc_pie=no]
+    )
+    CFLAGS=$save_CFLAGS
+    LDFLAGS=$save_LDFLAGS
+  ])
+  if test "$ap_cv_cc_pie" = "yes"; then
+    PICFLAGS="-fPIE"
+    PILDFLAGS="-pie"
+  fi
+fi
+
+AC_SUBST(PICFLAGS)
+AC_SUBST(PILDFLAGS)
 
 dnl ------------------------------
 dnl set paths for state directory

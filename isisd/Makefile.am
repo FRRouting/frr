@@ -5,6 +5,10 @@ INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib \
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 LIBS = @LIBS@ 
+
+AM_CFLAGS = $(PICFLAGS)
+AM_LDFLAGS = $(PILDFLAGS)
+
 noinst_LIBRARIES = libisis.a
 sbin_PROGRAMS = isisd 
 SUBDIRS = topology

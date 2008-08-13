@@ -1,6 +1,9 @@
 INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib
 DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
 
+AM_CFLAGS = $(PICFLAGS)
+AM_LDFLAGS = $(PILDFLAGS)
+
 noinst_PROGRAMS = testsig testbuffer testmemory heavy heavywq heavythread \
 		aspathtest testprivs teststream testbgpcap ecommtest \
 		testbgpmpattr

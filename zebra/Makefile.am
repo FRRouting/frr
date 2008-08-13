@@ -19,6 +19,9 @@ ioctl_method = @IOCTL_METHOD@
 otherobj = $(ioctl_method) $(ipforward) $(if_method) $(if_proc) \
 	$(rt_method) $(rtread_method) $(kernel_method) $(other_method)
 
+AM_CFLAGS = $(PICFLAGS)
+AM_LDFLAGS = $(PILDFLAGS)
+
 sbin_PROGRAMS = zebra
 
 noinst_PROGRAMS = testzebra
