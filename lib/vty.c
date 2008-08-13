@@ -727,9 +727,6 @@ vty_delete_char (struct vty *vty)
   int i;
   int size;
 
-  if (vty->node == AUTH_NODE || vty->node == AUTH_ENABLE_NODE)
-    return;
-
   if (vty->length == 0)
     {
       vty_down_level (vty);
@@ -744,6 +741,9 @@ vty_delete_char (struct vty *vty)
   vty->length--;
   memmove (&vty->buf[vty->cp], &vty->buf[vty->cp + 1], size - 1);
   vty->buf[vty->length] = '\0';
+  
+  if (vty->node == AUTH_NODE || vty->node == AUTH_ENABLE_NODE)
+    return;
 
   vty_write (vty, &vty->buf[vty->cp], size - 1);
   vty_write (vty, &telnet_space_char, 1);
