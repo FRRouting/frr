@@ -313,12 +313,23 @@ open_dlpi_dev (struct isis_circuit *circuit)
 	circuit->interface->name);
       return ISIS_WARNING;
     }
-
-  /* Try first as Style 1 */
-  (void) snprintf(devpath, sizeof (devpath), "/dev/%s",
-    circuit->interface->name);
-  unit = -1;
-  fd = dlpiopen (devpath, &acklen);
+  
+  /* Try the vanity node first, if permitted */
+  if (getenv("DLPI_DEVONLY") == NULL)
+    {
+      (void) snprintf (devpath, sizeof(devpath), "/dev/net/%s",
+                      circuit->interface->name);
+      fd = dlpiopen (devpath, &acklen);
+    }
+  
+  /* Now try as an ordinary Style 1 node */
+  if (fd == -1)
+    {
+      (void) snprintf (devpath, sizeof (devpath), "/dev/%s",
+                      circuit->interface->name);
+      unit = -1;
+      fd = dlpiopen (devpath, &acklen);
+    }
 
   /* If that fails, try again as Style 2 */
   if (fd == -1)
