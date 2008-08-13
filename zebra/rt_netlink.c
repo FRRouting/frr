@@ -1348,6 +1348,8 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
   req.r.rtm_family = family;
   req.r.rtm_table = table;
   req.r.rtm_dst_len = length;
+  req.r.rtm_protocol = RTPROT_ZEBRA;
+  req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 
   if ((zebra_flags & ZEBRA_FLAG_BLACKHOLE)
       || (zebra_flags & ZEBRA_FLAG_REJECT))
@@ -1357,9 +1359,6 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
 
   if (cmd == RTM_NEWROUTE)
     {
-      req.r.rtm_protocol = RTPROT_ZEBRA;
-      req.r.rtm_scope = RT_SCOPE_UNIVERSE;
-
       if (discard)
         {
           if (zebra_flags & ZEBRA_FLAG_BLACKHOLE)
@@ -1424,6 +1423,8 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
   req.r.rtm_family = family;
   req.r.rtm_table = rib->table;
   req.r.rtm_dst_len = p->prefixlen;
+  req.r.rtm_protocol = RTPROT_ZEBRA;
+  req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 
   if ((rib->flags & ZEBRA_FLAG_BLACKHOLE) || (rib->flags & ZEBRA_FLAG_REJECT))
     discard = 1;
@@ -1432,9 +1433,6 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
 
   if (cmd == RTM_NEWROUTE)
     {
-      req.r.rtm_protocol = RTPROT_ZEBRA;
-      req.r.rtm_scope = RT_SCOPE_UNIVERSE;
-
       if (discard)
         {
           if (rib->flags & ZEBRA_FLAG_BLACKHOLE)
