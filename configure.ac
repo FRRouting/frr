@@ -224,10 +224,10 @@ AC_ARG_ENABLE(ospf-te,
 [  --enable-ospf-te        enable Traffic Engineering Extension to OSPF])
 AC_ARG_ENABLE(multipath,
 [  --enable-multipath=ARG  enable multipath function, ARG must be digit])
-AC_ARG_ENABLE(quagga_user,
-[  --enable-user=ARG       user to run Quagga suite as (default quagga)])
-AC_ARG_ENABLE(quagga_group,
-[  --enable-group=ARG      group to run Quagga suite as (default quagga)])
+AC_ARG_ENABLE(user,
+  AC_HELP_STRING([--enable-user=user], [user to run Quagga suite as (default quagga)]))
+AC_ARG_ENABLE(group,
+  AC_HELP_STRING([--enable-group=group], [group to run Quagga suite as (default quagga)]))
 AC_ARG_ENABLE(vty_group,
 [  --enable-vty-group=ARG  set vty sockets to have specified group as owner])
 AC_ARG_ENABLE(configfile_mask,
