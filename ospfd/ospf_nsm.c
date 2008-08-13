@@ -686,6 +686,11 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
 		continue;
 	      ospf_external_lsa_refresh_type (oi->ospf, x, force);
 	    }
+          /* XXX: Clearly some thing is wrong with refresh of external LSAs
+           * this added to hack around defaults not refreshing after a timer
+           * jump.
+           */
+          ospf_external_lsa_refresh_default (oi->ospf);
 	}
       else
 	{
