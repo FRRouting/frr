@@ -72,10 +72,10 @@ baa_hash_key (void *p)
 }
 
 static int
-baa_hash_cmp (void *p1, void *p2)
+baa_hash_cmp (const void *p1, const void *p2)
 {
-  struct bgp_advertise_attr * baa1 = (struct bgp_advertise_attr *) p1;
-  struct bgp_advertise_attr * baa2 = (struct bgp_advertise_attr *) p2;
+  const struct bgp_advertise_attr * baa1 = p1;
+  const struct bgp_advertise_attr * baa2 = p2;
 
   return attrhash_cmp (baa1->attr, baa2->attr);
 }

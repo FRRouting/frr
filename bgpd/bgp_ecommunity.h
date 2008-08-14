@@ -72,7 +72,7 @@ extern struct ecommunity *ecommunity_parse (u_int8_t *, u_short);
 extern struct ecommunity *ecommunity_dup (struct ecommunity *);
 extern struct ecommunity *ecommunity_merge (struct ecommunity *, struct ecommunity *);
 extern struct ecommunity *ecommunity_intern (struct ecommunity *);
-extern int ecommunity_cmp (void *, void *);
+extern int ecommunity_cmp (const void *, const void *);
 extern void ecommunity_unintern (struct ecommunity *);
 extern unsigned int ecommunity_hash_make (void *);
 extern struct ecommunity *ecommunity_str2com (const char *, int, int);

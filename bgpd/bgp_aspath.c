@@ -1347,10 +1347,10 @@ aspath_add_seq (struct aspath *aspath, as_t asno)
 /* Compare leftmost AS value for MED check.  If as1's leftmost AS and
    as2's leftmost AS is same return 1. */
 int
-aspath_cmp_left (struct aspath *aspath1, struct aspath *aspath2)
+aspath_cmp_left (const struct aspath *aspath1, const struct aspath *aspath2)
 {
-  struct assegment *seg1 = NULL;
-  struct assegment *seg2 = NULL;
+  const struct assegment *seg1 = NULL;
+  const struct assegment *seg2 = NULL;
 
   if (!(aspath1 && aspath2))
     return 0;
@@ -1484,7 +1484,7 @@ aspath_reconcile_as4 ( struct aspath *aspath, struct aspath *as4path)
    as2's leftmost AS is same return 1. (confederation as-path
    only).  */
 int
-aspath_cmp_left_confed (struct aspath *aspath1, struct aspath *aspath2)
+aspath_cmp_left_confed (const struct aspath *aspath1, const struct aspath *aspath2)
 {
   if (! (aspath1 && aspath2) )
     return 0;
@@ -1769,10 +1769,10 @@ aspath_key_make (void *p)
 
 /* If two aspath have same value then return 1 else return 0 */
 static int
-aspath_cmp (void *arg1, void *arg2)
+aspath_cmp (const void *arg1, const void *arg2)
 {
-  struct assegment *seg1 = ((struct aspath *)arg1)->segments;
-  struct assegment *seg2 = ((struct aspath *)arg2)->segments;
+  const struct assegment *seg1 = ((struct aspath *)arg1)->segments;
+  const struct assegment *seg2 = ((struct aspath *)arg2)->segments;
   
   while (seg1 || seg2)
     {

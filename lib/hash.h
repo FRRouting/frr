@@ -48,16 +48,16 @@ struct hash
   unsigned int (*hash_key) (void *);
 
   /* Data compare function. */
-  int (*hash_cmp) (void *, void *);
+  int (*hash_cmp) (const void *, const void *);
 
   /* Backet alloc. */
   unsigned long count;
 };
 
 extern struct hash *hash_create (unsigned int (*) (void *), 
-                          int (*) (void *, void *));
+				 int (*) (const void *, const void *));
 extern struct hash *hash_create_size (unsigned int, unsigned int (*) (void *), 
-                                             int (*) (void *, void *));
+                                             int (*) (const void *, const void *));
 
 extern void *hash_get (struct hash *, void *, void * (*) (void *));
 extern void *hash_alloc_intern (void *);

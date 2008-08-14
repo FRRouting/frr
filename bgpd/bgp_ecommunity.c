@@ -247,15 +247,13 @@ ecommunity_hash_make (void *arg)
 
 /* Compare two Extended Communities Attribute structure.  */
 int
-ecommunity_cmp (void *arg1, void *arg2)
+ecommunity_cmp (const void *arg1, const void *arg2)
 {
   const struct ecommunity *ecom1 = arg1;
   const struct ecommunity *ecom2 = arg2;
   
-  if (ecom1->size == ecom2->size
-      && memcmp (ecom1->val, ecom2->val, ecom1->size * ECOMMUNITY_SIZE) == 0)
-    return 1;
-  return 0;
+  return (ecom1->size == ecom2->size
+	  && memcmp (ecom1->val, ecom2->val, ecom1->size * ECOMMUNITY_SIZE) == 0);
 }
 
 /* Initialize Extended Comminities related hash. */

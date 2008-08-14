@@ -223,8 +223,8 @@ cpu_record_hash_key (struct cpu_thread_history *a)
 }
 
 static int 
-cpu_record_hash_cmp (struct cpu_thread_history *a,
-		     struct cpu_thread_history *b)
+cpu_record_hash_cmp (const struct cpu_thread_history *a,
+		     const struct cpu_thread_history *b)
 {
   return a->func == b->func;
 }
@@ -410,7 +410,7 @@ thread_master_create ()
   if (cpu_record == NULL) 
     cpu_record 
       = hash_create_size (1011, (unsigned int (*) (void *))cpu_record_hash_key, 
-                          (int (*) (void *, void *))cpu_record_hash_cmp);
+                          (int (*) (const void *, const void *))cpu_record_hash_cmp);
     
   return (struct thread_master *) XCALLOC (MTYPE_THREAD_MASTER,
 					   sizeof (struct thread_master));
