@@ -52,7 +52,7 @@ struct nlsock
 } netlink      = { -1, 0, {0}, "netlink-listen"},     /* kernel messages */
   netlink_cmd  = { -1, 0, {0}, "netlink-cmd"};        /* command channel */
 
-static struct message nlmsg_str[] = {
+static const struct message nlmsg_str[] = {
   {RTM_NEWROUTE, "RTM_NEWROUTE"},
   {RTM_DELROUTE, "RTM_DELROUTE"},
   {RTM_GETROUTE, "RTM_GETROUTE"},
@@ -805,7 +805,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
   return 0;
 }
 
-struct message rtproto_str[] = {
+static const struct message rtproto_str[] = {
   {RTPROT_REDIRECT, "redirect"},
   {RTPROT_KERNEL,   "kernel"},
   {RTPROT_BOOT,     "boot"},

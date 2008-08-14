@@ -740,9 +740,9 @@ zlog_rotate (struct zlog *zl)
 
 /* Message lookup function. */
 const char *
-lookup (struct message *mes, int key)
+lookup (const struct message *mes, int key)
 {
-  struct message *pnt;
+  const struct message *pnt;
 
   for (pnt = mes; pnt->key != 0; pnt++) 
     if (pnt->key == key) 

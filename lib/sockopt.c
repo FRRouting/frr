@@ -343,6 +343,19 @@ setsockopt_ipv4_ifindex (int sock, int val)
 }
 
 int
+setsockopt_ipv4_tos(int sock, int tos)
+{
+  int ret;
+
+  ret = setsockopt (sock, IPPROTO_IP, IP_TOS, &tos, sizeof (tos));
+  if (ret < 0)
+    zlog_warn ("Can't set IP_TOS option for fd %d to %#x: %s",
+	       sock, tos, safe_strerror(errno));
+  return ret;
+}
+
+
+int
 setsockopt_ifindex (int af, int sock, int val)
 {
   int ret = -1;

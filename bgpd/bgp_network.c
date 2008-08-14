@@ -314,6 +314,11 @@ bgp_connect (struct peer *peer)
   sockopt_reuseaddr (peer->fd);
   sockopt_reuseport (peer->fd);
   
+#ifdef IPTOS_PREC_INTERNETCONTROL
+  if (sockunion_family (&peer->su) == AF_INET)
+    setsockopt_ipv4_tos (peer->fd, IPTOS_PREC_INTERNETCONTROL);
+#endif
+
   if (peer->password)
     bgp_md5_set_connect (peer->fd, &peer->su, peer->password);
 
@@ -402,6 +407,11 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
       sockopt_reuseaddr (sock);
       sockopt_reuseport (sock);
       
+#ifdef IPTOS_PREC_INTERNETCONTROL
+      if (ainfo->ai_family == AF_INET)
+	setsockopt_ipv4_tos (sock, IPTOS_PREC_INTERNETCONTROL);
+#endif
+
       if (bgpd_privs.change (ZPRIVS_RAISE) )
         zlog_err ("bgp_socket: could not raise privs");
 
@@ -453,6 +463,10 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
 
   sockopt_reuseaddr (sock);
   sockopt_reuseport (sock);
+
+#ifdef IPTOS_PREC_INTERNETCONTROL
+  setsockopt_ipv4_tos (sock, IPTOS_PREC_INTERNETCONTROL);
+#endif
 
   memset (&sin, 0, sizeof (struct sockaddr_in));
 

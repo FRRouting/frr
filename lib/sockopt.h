@@ -89,6 +89,7 @@ extern int setsockopt_multicast_ipv4(int sock, int optname,
 			             unsigned int ifindex
 					 /* optional: if non-zero, may be used
 					 	instead of if_addr */);
+extern int setsockopt_ipv4_tos(int sock, int tos);
 
 /* Ask for, and get, ifindex, by whatever method is supported. */
 extern int setsockopt_ifindex (int, int, int);

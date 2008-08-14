@@ -126,7 +126,7 @@ extern struct zebra_t zebrad;
       (LEN) = 0; \
     }
 /* Routing socket message types. */
-struct message rtm_type_str[] =
+const struct message rtm_type_str[] =
 {
   {RTM_ADD,      "RTM_ADD"},
   {RTM_DELETE,   "RTM_DELETE"},

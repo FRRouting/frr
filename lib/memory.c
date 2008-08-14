@@ -33,7 +33,7 @@ static void alloc_inc (int);
 static void alloc_dec (int);
 static void log_memstats(int log_priority);
 
-static struct message mstr [] =
+static const struct message mstr [] =
 {
   { MTYPE_THREAD, "thread" },
   { MTYPE_THREAD_MASTER, "thread_master" },
