@@ -245,9 +245,8 @@ route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
             {
               if (sockunion_same (su, &peer->su))
                 return RMAP_MATCH;
-
-              return RMAP_NOMATCH;
             }
+          return RMAP_NOMATCH;
         }
     }
   return RMAP_NOMATCH;
@@ -2574,7 +2573,7 @@ ALIAS (no_match_ip_route_source,
        "Match advertising source address of route\n"
        "IP access-list number\n"
        "IP access-list number (expanded range)\n"
-       "IP standard access-list name\n");
+       "IP standard access-list name\n")
 
 DEFUN (match_ip_address_prefix_list, 
        match_ip_address_prefix_list_cmd,
@@ -2685,7 +2684,7 @@ ALIAS (no_match_ip_route_source_prefix_list,
        IP_STR
        "Match advertising source address of route\n"
        "Match entries of prefix-lists\n"
-       "IP prefix-list name\n");
+       "IP prefix-list name\n")
 
 DEFUN (match_metric, 
        match_metric_cmd,

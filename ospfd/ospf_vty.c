@@ -50,7 +50,7 @@
 #include "ospfd/ospf_dump.h"
 
 
-const static char *ospf_network_type_str[] =
+static const char *ospf_network_type_str[] =
 {
   "Null",
   "POINTOPOINT",

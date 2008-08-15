@@ -121,7 +121,7 @@ lsa_inject (struct thread *t)
   counter++;
 
   return 0;
-};
+}
 
 
 /* This thread handles asynchronous messages coming in from the OSPF

@@ -2298,8 +2298,6 @@ bgp_packet_withdraw (struct peer *peer, struct stream *s, struct prefix *p,
 void
 bgp_attr_init (void)
 {
-  void attrhash_init ();
-
   aspath_init ();
   attrhash_init ();
   community_init ();

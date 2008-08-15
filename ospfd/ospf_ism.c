@@ -520,7 +520,7 @@ struct {
   },
 };  
 
-const static char *ospf_ism_event_str[] =
+static const char *ospf_ism_event_str[] =
 {
   "NoEvent",
   "InterfaceUp",

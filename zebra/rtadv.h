@@ -23,6 +23,7 @@
 #ifndef _ZEBRA_RTADV_H
 #define _ZEBRA_RTADV_H
 
+#include "vty.h"
 #include "zebra/interface.h"
 
 /* Router advertisement prefix. */

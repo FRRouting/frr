@@ -518,7 +518,7 @@ prefix_list_entry_add (struct prefix_list *plist,
 }
 
 /* Return string of prefix_list_type. */
-const static char *
+static const char *
 prefix_list_type_str (struct prefix_list_entry *pentry)
 {
   switch (pentry->type)

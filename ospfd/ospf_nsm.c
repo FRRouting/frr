@@ -576,7 +576,7 @@ struct {
   },
 };
 
-const static char *ospf_nsm_event_str[] =
+static const char *ospf_nsm_event_str[] =
 {
   "NoEvent",
   "HelloReceived",

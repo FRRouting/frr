@@ -138,7 +138,7 @@ filter_free (struct filter *filter)
 }
 
 /* Return string of filter_type. */
-const static char *
+static const char *
 filter_type_str (struct filter *filter)
 {
   switch (filter->type)

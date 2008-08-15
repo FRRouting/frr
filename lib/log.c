@@ -30,6 +30,10 @@
 #ifndef SUNOS_5
 #include <sys/un.h>
 #endif
+/* for printstack on solaris */
+#ifdef HAVE_UCONTEXT_H
+#include <ucontext.h>
+#endif
 
 static int logfile_fd = -1;	/* Used in signal handler. */
 

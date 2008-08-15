@@ -9176,7 +9176,7 @@ bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
             vty_out (vty, "%12llu%s", ts.counts[i], VTY_NEWLINE);
             if (ts.counts[BGP_STATS_MAXBITLEN] < 9)
               break;
-            vty_out (vty, "%30s: ", "\% announced ");
+            vty_out (vty, "%30s: ", "%% announced ");
             vty_out (vty, "%12.2f%s", 
                      100 * (float)ts.counts[BGP_STATS_SPACE] / 
                        (float)((uint64_t)1UL << ts.counts[BGP_STATS_MAXBITLEN]),

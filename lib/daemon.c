@@ -21,6 +21,7 @@
  */
 
 #include <zebra.h>
+#include <log.h>
 
 #ifndef HAVE_DAEMON
 
