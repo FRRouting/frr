@@ -187,28 +187,28 @@ struct ospf6_intra_prefix_lsa
 
 
 /* Function Prototypes */
-char *ospf6_router_lsdesc_lookup (u_char type, u_int32_t interface_id,
-                            u_int32_t neighbor_interface_id,
-                            u_int32_t neighbor_router_id,
-                            struct ospf6_lsa *lsa);
-char *ospf6_network_lsdesc_lookup (u_int32_t router_id,
-                                   struct ospf6_lsa *lsa);
+extern char *ospf6_router_lsdesc_lookup (u_char type, u_int32_t interface_id,
+                                         u_int32_t neighbor_interface_id,
+                                         u_int32_t neighbor_router_id,
+                                         struct ospf6_lsa *lsa);
+extern char *ospf6_network_lsdesc_lookup (u_int32_t router_id,
+                                          struct ospf6_lsa *lsa);
 
-int ospf6_router_lsa_originate (struct thread *);
-int ospf6_network_lsa_originate (struct thread *);
-int ospf6_link_lsa_originate (struct thread *);
-int ospf6_intra_prefix_lsa_originate_transit (struct thread *);
-int ospf6_intra_prefix_lsa_originate_stub (struct thread *);
-void ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa);
-void ospf6_intra_prefix_lsa_remove (struct ospf6_lsa *lsa);
+extern int ospf6_router_lsa_originate (struct thread *);
+extern int ospf6_network_lsa_originate (struct thread *);
+extern int ospf6_link_lsa_originate (struct thread *);
+extern int ospf6_intra_prefix_lsa_originate_transit (struct thread *);
+extern int ospf6_intra_prefix_lsa_originate_stub (struct thread *);
+extern void ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa);
+extern void ospf6_intra_prefix_lsa_remove (struct ospf6_lsa *lsa);
 
-void ospf6_intra_route_calculation (struct ospf6_area *oa);
-void ospf6_intra_brouter_calculation (struct ospf6_area *oa);
+extern void ospf6_intra_route_calculation (struct ospf6_area *oa);
+extern void ospf6_intra_brouter_calculation (struct ospf6_area *oa);
 
-void ospf6_intra_init ();
+extern void ospf6_intra_init (void);
 
-int config_write_ospf6_debug_brouter (struct vty *vty);
-void install_element_ospf6_debug_brouter ();
+extern int config_write_ospf6_debug_brouter (struct vty *vty);
+extern void install_element_ospf6_debug_brouter (void);
 
 #endif /* OSPF6_LSA_H */
 

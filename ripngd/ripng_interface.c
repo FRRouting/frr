@@ -52,12 +52,12 @@ extern struct zebra_privs_t ripngd_privs;
 /* Static utility function. */
 static void ripng_enable_apply (struct interface *);
 static void ripng_passive_interface_apply (struct interface *);
-int ripng_enable_if_lookup (const char *ifname);
-int ripng_enable_network_lookup2 (struct connected *connected);
-void ripng_enable_apply_all ();
+static int ripng_enable_if_lookup (const char *);
+static int ripng_enable_network_lookup2 (struct connected *);
+static void ripng_enable_apply_all (void);
 
 /* Join to the all rip routers multicast group. */
-int
+static int
 ripng_multicast_join (struct interface *ifp)
 {
   int ret;
@@ -109,7 +109,7 @@ ripng_multicast_join (struct interface *ifp)
 }
 
 /* Leave from the all rip routers multicast group. */
-int
+static int
 ripng_multicast_leave (struct interface *ifp)
 {
   int ret;
@@ -137,7 +137,7 @@ ripng_multicast_leave (struct interface *ifp)
 }
 
 /* How many link local IPv6 address could be used on the interface ? */
-int
+static int
 ripng_if_ipv6_lladdress_check (struct interface *ifp)
 {
   struct listnode *nn;
@@ -158,8 +158,8 @@ ripng_if_ipv6_lladdress_check (struct interface *ifp)
 }
 
 /* Check max mtu size. */
-unsigned int
-ripng_check_max_mtu ()
+static unsigned int
+ripng_check_max_mtu (void)
 {
   struct listnode *node;
   struct interface *ifp;
@@ -173,7 +173,7 @@ ripng_check_max_mtu ()
   return mtu;
 }
 
-int
+static int
 ripng_if_down (struct interface *ifp)
 {
   struct route_node *rp;
@@ -335,7 +335,7 @@ ripng_interface_delete (int command, struct zclient *zclient,
 }
 
 void
-ripng_interface_clean ()
+ripng_interface_clean (void)
 {
   struct listnode *node, *nnode;
   struct interface *ifp;
@@ -358,7 +358,8 @@ ripng_interface_clean ()
 }
 
 void
-ripng_interface_reset () {
+ripng_interface_reset (void)
+{
   struct listnode *node;
   struct interface *ifp;
   struct ripng_interface *ri;
@@ -526,7 +527,7 @@ struct route_table *ripng_enable_network;
 /* Lookup RIPng enable network. */
 /* Check wether the interface has at least a connected prefix that
  * is within the ripng_enable_network table. */
-int
+static int
 ripng_enable_network_lookup_if (struct interface *ifp)
 {
   struct listnode *node;
@@ -559,7 +560,7 @@ ripng_enable_network_lookup_if (struct interface *ifp)
 }
 
 /* Check wether connected is within the ripng_enable_network table. */
-int
+static int
 ripng_enable_network_lookup2 (struct connected *connected)
 {
   struct prefix_ipv6 address;
@@ -588,7 +589,7 @@ ripng_enable_network_lookup2 (struct connected *connected)
 }
 
 /* Add RIPng enable network. */
-int
+static int
 ripng_enable_network_add (struct prefix *p)
 {
   struct route_node *node;
@@ -610,7 +611,7 @@ ripng_enable_network_add (struct prefix *p)
 }
 
 /* Delete RIPng enable network. */
-int
+static int
 ripng_enable_network_delete (struct prefix *p)
 {
   struct route_node *node;
@@ -632,7 +633,7 @@ ripng_enable_network_delete (struct prefix *p)
 }
 
 /* Lookup function. */
-int
+static int
 ripng_enable_if_lookup (const char *ifname)
 {
   unsigned int i;
@@ -646,7 +647,7 @@ ripng_enable_if_lookup (const char *ifname)
 }
 
 /* Add interface to ripng_enable_if. */
-int
+static int
 ripng_enable_if_add (const char *ifname)
 {
   int ret;
@@ -663,7 +664,7 @@ ripng_enable_if_add (const char *ifname)
 }
 
 /* Delete interface from ripng_enable_if. */
-int
+static int
 ripng_enable_if_delete (const char *ifname)
 {
   int index;
@@ -683,7 +684,7 @@ ripng_enable_if_delete (const char *ifname)
 }
 
 /* Wake up interface. */
-int
+static int
 ripng_interface_wakeup (struct thread *t)
 {
   struct interface *ifp;
@@ -710,9 +711,7 @@ ripng_interface_wakeup (struct thread *t)
   return 0;
 }
 
-int ripng_redistribute_check (int);
-
-void
+static void
 ripng_connect_set (struct interface *ifp, int set)
 {
   struct listnode *node, *nnode;
@@ -816,8 +815,8 @@ ripng_enable_apply (struct interface *ifp)
 }
 
 /* Set distribute list to all interfaces. */
-void
-ripng_enable_apply_all ()
+static void
+ripng_enable_apply_all (void)
 {
   struct interface *ifp;
   struct listnode *node;
@@ -853,7 +852,7 @@ ripng_clean_network ()
 vector Vripng_passive_interface;
 
 /* Utility function for looking up passive interface settings. */
-int
+static int
 ripng_passive_interface_lookup (const char *ifname)
 {
   unsigned int i;
@@ -881,7 +880,7 @@ ripng_passive_interface_apply (struct interface *ifp)
     ri->passive = 1;
 }
 
-void
+static void
 ripng_passive_interface_apply_all (void)
 {
   struct interface *ifp;
@@ -892,7 +891,7 @@ ripng_passive_interface_apply_all (void)
 }
 
 /* Passive interface. */
-int
+static int
 ripng_passive_interface_set (struct vty *vty, const char *ifname)
 {
   if (ripng_passive_interface_lookup (ifname) >= 0)
@@ -905,7 +904,7 @@ ripng_passive_interface_set (struct vty *vty, const char *ifname)
   return CMD_SUCCESS;
 }
 
-int
+static int
 ripng_passive_interface_unset (struct vty *vty, const char *ifname)
 {
   int i;
@@ -1117,8 +1116,8 @@ DEFUN (no_ripng_passive_interface,
   return ripng_passive_interface_unset (vty, argv[0]);
 }
 
-struct ripng_interface *
-ri_new ()
+static struct ripng_interface *
+ri_new (void)
 {
   struct ripng_interface *ri;
   ri = XCALLOC (MTYPE_IF, sizeof (struct ripng_interface));
@@ -1133,7 +1132,7 @@ ri_new ()
   return ri;
 }
 
-int
+static int
 ripng_if_new_hook (struct interface *ifp)
 {
   ifp->info = ri_new ();
@@ -1141,7 +1140,7 @@ ripng_if_new_hook (struct interface *ifp)
 }
 
 /* Called when interface structure deleted. */
-int
+static int
 ripng_if_delete_hook (struct interface *ifp)
 {
   XFREE (MTYPE_IF, ifp->info);
@@ -1150,7 +1149,7 @@ ripng_if_delete_hook (struct interface *ifp)
 }
 
 /* Configuration write function for ripngd. */
-int
+static int
 interface_config_write (struct vty *vty)
 {
   struct listnode *node;

@@ -53,7 +53,7 @@ unsigned char conf_debug_ospf6_asbr = 0;
 #define ZROUTE_NAME(x) zebra_route_string(x)
 
 /* AS External LSA origination */
-void
+static void
 ospf6_as_external_lsa_originate (struct ospf6_route *route)
 {
   char buffer[OSPF6_MAX_LSASIZE];
@@ -336,7 +336,7 @@ ospf6_asbr_lsentry_remove (struct ospf6_route *asbr_entry)
 
 /* redistribute function */
 
-void
+static void
 ospf6_asbr_routemap_set (int type, const char *mapname)
 {
   if (ospf6->rmap[type].name)
@@ -345,7 +345,7 @@ ospf6_asbr_routemap_set (int type, const char *mapname)
   ospf6->rmap[type].map = route_map_lookup_by_name (mapname);
 }
 
-void
+static void
 ospf6_asbr_routemap_unset (int type)
 {
   if (ospf6->rmap[type].name)
@@ -354,7 +354,7 @@ ospf6_asbr_routemap_unset (int type)
   ospf6->rmap[type].map = NULL;
 }
 
-void
+static void
 ospf6_asbr_routemap_update (const char *mapname)
 {
   int type;
@@ -378,13 +378,13 @@ ospf6_asbr_is_asbr (struct ospf6 *o)
   return o->external_table->count;
 }
 
-void
+static void
 ospf6_asbr_redistribute_set (int type)
 {
   ospf6_zebra_redistribute (type);
 }
 
-void
+static void
 ospf6_asbr_redistribute_unset (int type)
 {
   struct ospf6_route *route;
@@ -731,7 +731,7 @@ ospf6_redistribute_config_write (struct vty *vty)
   return 0;
 }
 
-void
+static void
 ospf6_redistribute_show_config (struct vty *vty)
 {
   int type;
@@ -774,7 +774,7 @@ ospf6_redistribute_show_config (struct vty *vty)
 
 
 /* Routemap Functions */
-route_map_result_t
+static route_map_result_t
 ospf6_routemap_rule_match_address_prefixlist (void *rule,
                                               struct prefix *prefix,
                                               route_map_object_t type,
@@ -793,13 +793,13 @@ ospf6_routemap_rule_match_address_prefixlist (void *rule,
           RMAP_NOMATCH : RMAP_MATCH);
 }
 
-void *
+static void *
 ospf6_routemap_rule_match_address_prefixlist_compile (const char *arg)
 {
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
-void
+static void
 ospf6_routemap_rule_match_address_prefixlist_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -814,7 +814,7 @@ ospf6_routemap_rule_match_address_prefixlist_cmd =
   ospf6_routemap_rule_match_address_prefixlist_free,
 };
 
-route_map_result_t
+static route_map_result_t
 ospf6_routemap_rule_set_metric_type (void *rule, struct prefix *prefix,
                                      route_map_object_t type, void *object)
 {
@@ -832,7 +832,7 @@ ospf6_routemap_rule_set_metric_type (void *rule, struct prefix *prefix,
   return RMAP_OKAY;
 }
 
-void *
+static void *
 ospf6_routemap_rule_set_metric_type_compile (const char *arg)
 {
   if (strcmp (arg, "type-2") && strcmp (arg, "type-1"))
@@ -840,7 +840,7 @@ ospf6_routemap_rule_set_metric_type_compile (const char *arg)
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
-void
+static void
 ospf6_routemap_rule_set_metric_type_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -855,7 +855,7 @@ ospf6_routemap_rule_set_metric_type_cmd =
   ospf6_routemap_rule_set_metric_type_free,
 };
 
-route_map_result_t
+static route_map_result_t
 ospf6_routemap_rule_set_metric (void *rule, struct prefix *prefix,
                                 route_map_object_t type, void *object)
 {
@@ -869,7 +869,7 @@ ospf6_routemap_rule_set_metric (void *rule, struct prefix *prefix,
   return RMAP_OKAY;
 }
 
-void *
+static void *
 ospf6_routemap_rule_set_metric_compile (const char *arg)
 {
   u_int32_t metric;
@@ -880,7 +880,7 @@ ospf6_routemap_rule_set_metric_compile (const char *arg)
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
-void
+static void
 ospf6_routemap_rule_set_metric_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -895,7 +895,7 @@ ospf6_routemap_rule_set_metric_cmd =
   ospf6_routemap_rule_set_metric_free,
 };
 
-route_map_result_t
+static route_map_result_t
 ospf6_routemap_rule_set_forwarding (void *rule, struct prefix *prefix,
                                     route_map_object_t type, void *object)
 {
@@ -915,7 +915,7 @@ ospf6_routemap_rule_set_forwarding (void *rule, struct prefix *prefix,
   return RMAP_OKAY;
 }
 
-void *
+static void *
 ospf6_routemap_rule_set_forwarding_compile (const char *arg)
 {
   struct in6_addr a;
@@ -924,7 +924,7 @@ ospf6_routemap_rule_set_forwarding_compile (const char *arg)
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
-void
+static void
 ospf6_routemap_rule_set_forwarding_free (void *rule)
 {
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
@@ -939,7 +939,7 @@ ospf6_routemap_rule_set_forwarding_cmd =
   ospf6_routemap_rule_set_forwarding_free,
 };
 
-int
+static int
 route_map_command_status (struct vty *vty, int ret)
 {
   if (! ret)
@@ -1074,8 +1074,8 @@ DEFUN (ospf6_routemap_no_set_forwarding,
   return route_map_command_status (vty, ret);
 }
 
-void
-ospf6_routemap_init ()
+static void
+ospf6_routemap_init (void)
 {
   route_map_init ();
   route_map_init_vty ();
@@ -1106,7 +1106,7 @@ ospf6_routemap_init ()
 
 
 /* Display functions */
-int
+static int
 ospf6_as_external_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   struct ospf6_as_external_lsa *external;
@@ -1154,7 +1154,7 @@ ospf6_as_external_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   return 0;
 }
 
-void
+static void
 ospf6_asbr_external_route_show (struct vty *vty, struct ospf6_route *route)
 {
   struct ospf6_external_info *info = route->route_option;
@@ -1206,7 +1206,7 @@ struct ospf6_lsa_handler as_external_handler =
 };
 
 void
-ospf6_asbr_init ()
+ospf6_asbr_init (void)
 {
   ospf6_routemap_init ();
 

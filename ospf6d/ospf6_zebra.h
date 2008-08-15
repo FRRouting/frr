@@ -37,17 +37,15 @@ extern unsigned char conf_debug_ospf6_zebra;
 
 extern struct zclient *zclient;
 
-void ospf6_zebra_route_update_add (struct ospf6_route *request);
-void ospf6_zebra_route_update_remove (struct ospf6_route *request);
+extern void ospf6_zebra_route_update_add (struct ospf6_route *request);
+extern void ospf6_zebra_route_update_remove (struct ospf6_route *request);
 
-void ospf6_zebra_redistribute (int);
-void ospf6_zebra_no_redistribute (int);
-#define ospf6_zebra_is_redistribute(type) \
-  (zclient->redist[type])
-void ospf6_zebra_init ();
+extern void ospf6_zebra_redistribute (int);
+extern void ospf6_zebra_no_redistribute (int);
+#define ospf6_zebra_is_redistribute(type) (zclient->redist[type])
+extern void ospf6_zebra_init (void);
 
-int config_write_ospf6_debug_zebra (struct vty *vty);
-void install_element_ospf6_debug_zebra ();
+extern int config_write_ospf6_debug_zebra (struct vty *vty);
+extern void install_element_ospf6_debug_zebra (void);
 
 #endif /*OSPF6_ZEBRA_H*/
-

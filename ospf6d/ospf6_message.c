@@ -272,7 +272,7 @@ ospf6_header_examin (struct in6_addr *src, struct in6_addr *dst,
   return MSG_OK;
 }
 
-void
+static void
 ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
                   struct ospf6_interface *oi, struct ospf6_header *oh)
 {
@@ -810,7 +810,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
   memcpy (&on->dbdesc_last, dbdesc, sizeof (struct ospf6_dbdesc));
 }
 
-void
+static void
 ospf6_dbdesc_recv (struct in6_addr *src, struct in6_addr *dst,
                    struct ospf6_interface *oi, struct ospf6_header *oh)
 {
@@ -859,7 +859,7 @@ ospf6_dbdesc_recv (struct in6_addr *src, struct in6_addr *dst,
     }
 }
 
-void
+static void
 ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
                   struct ospf6_interface *oi, struct ospf6_header *oh)
 {
@@ -946,7 +946,7 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
     thread_add_event (master, ospf6_lsupdate_send_neighbor, on, 0);
 }
 
-void
+static void
 ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
                      struct ospf6_interface *oi, struct ospf6_header *oh)
 {
@@ -1025,7 +1025,7 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
     }
 }
 
-void
+static void
 ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
                   struct ospf6_interface *oi, struct ospf6_header *oh)
 {
@@ -1133,14 +1133,14 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
     }
 }
 
-u_char *recvbuf = NULL;
-u_char *sendbuf = NULL;
-unsigned int iobuflen = 0;
+static u_char *recvbuf = NULL;
+static u_char *sendbuf = NULL;
+static unsigned int iobuflen = 0;
 
 int
 ospf6_iobuf_size (unsigned int size)
 {
-  char *recvnew, *sendnew;
+  u_char *recvnew, *sendnew;
 
   if (size <= iobuflen)
     return iobuflen;
@@ -1290,7 +1290,7 @@ ospf6_receive (struct thread *thread)
   return 0;
 }
 
-void
+static void
 ospf6_send (struct in6_addr *src, struct in6_addr *dst,
             struct ospf6_interface *oi, struct ospf6_header *oh)
 {
@@ -1396,7 +1396,7 @@ ospf6_hello_send (struct thread *thread)
   hello->drouter = oi->drouter;
   hello->bdrouter = oi->bdrouter;
 
-  p = (char *)((caddr_t) hello + sizeof (struct ospf6_hello));
+  p = (u_char *)((caddr_t) hello + sizeof (struct ospf6_hello));
 
   for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
     {
@@ -1469,7 +1469,7 @@ ospf6_dbdesc_send (struct thread *thread)
   dbdesc->seqnum = htonl (on->dbdesc_seqnum);
 
   /* if this is not initial one, set LSA headers in dbdesc */
-  p = (char *)((caddr_t) dbdesc + sizeof (struct ospf6_dbdesc));
+  p = (u_char *)((caddr_t) dbdesc + sizeof (struct ospf6_dbdesc));
   if (! CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT))
     {
       for (lsa = ospf6_lsdb_head (on->dbdesc_list); lsa;
@@ -1575,7 +1575,7 @@ ospf6_lsreq_send (struct thread *thread)
   oh = (struct ospf6_header *) sendbuf;
 
   /* set Request entries in lsreq */
-  p = (char *)((caddr_t) oh + sizeof (struct ospf6_header));
+  p = (u_char *)((caddr_t) oh + sizeof (struct ospf6_header));
   for (lsa = ospf6_lsdb_head (on->request_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
@@ -1639,7 +1639,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
   lsupdate = (struct ospf6_lsupdate *)
     ((caddr_t) oh + sizeof (struct ospf6_header));
 
-  p = (char *)((caddr_t) lsupdate + sizeof (struct ospf6_lsupdate));
+  p = (u_char *)((caddr_t) lsupdate + sizeof (struct ospf6_lsupdate));
   num = 0;
 
   /* lsupdate_list lists those LSA which doesn't need to be
@@ -1734,7 +1734,7 @@ ospf6_lsupdate_send_interface (struct thread *thread)
   lsupdate = (struct ospf6_lsupdate *)((caddr_t) oh +
                                        sizeof (struct ospf6_header));
 
-  p = (char *)((caddr_t) lsupdate + sizeof (struct ospf6_lsupdate));
+  p = (u_char *)((caddr_t) lsupdate + sizeof (struct ospf6_lsupdate));
   num = 0;
 
   for (lsa = ospf6_lsdb_head (oi->lsupdate_list); lsa;
@@ -1803,7 +1803,7 @@ ospf6_lsack_send_neighbor (struct thread *thread)
   memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
 
-  p = (char *)((caddr_t) oh + sizeof (struct ospf6_header));
+  p = (u_char *)((caddr_t) oh + sizeof (struct ospf6_header));
 
   for (lsa = ospf6_lsdb_head (on->lsack_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
@@ -1863,7 +1863,7 @@ ospf6_lsack_send_interface (struct thread *thread)
   memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
 
-  p = (char *)((caddr_t) oh + sizeof (struct ospf6_header));
+  p = (u_char *)((caddr_t) oh + sizeof (struct ospf6_header));
 
   for (lsa = ospf6_lsdb_head (oi->lsack_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
@@ -1979,7 +1979,7 @@ ALIAS (debug_ospf6_message,
        "Debug All message\n"
        "Debug only sending message\n"
        "Debug only receiving message\n"
-       );
+       )
 
 
 DEFUN (no_debug_ospf6_message,
@@ -2055,7 +2055,7 @@ ALIAS (no_debug_ospf6_message,
        "Debug All message\n"
        "Debug only sending message\n"
        "Debug only receiving message\n"
-       );
+       )
 
 int
 config_write_ospf6_debug_message (struct vty *vty)
@@ -2116,7 +2116,7 @@ config_write_ospf6_debug_message (struct vty *vty)
 }
 
 void
-install_element_ospf6_debug_message ()
+install_element_ospf6_debug_message (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_message_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_message_cmd);

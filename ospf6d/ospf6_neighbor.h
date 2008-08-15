@@ -105,7 +105,7 @@ struct ospf6_neighbor
 #define OSPF6_NEIGHBOR_LOADING  7
 #define OSPF6_NEIGHBOR_FULL     8
 
-const extern char *ospf6_neighbor_state_str[];
+extern const char *ospf6_neighbor_state_str[];
 
 
 /* Function Prototypes */
@@ -119,20 +119,19 @@ struct ospf6_neighbor *ospf6_neighbor_create (u_int32_t,
 void ospf6_neighbor_delete (struct ospf6_neighbor *);
 
 /* Neighbor event */
-int hello_received (struct thread *);
-int twoway_received (struct thread *);
-int negotiation_done (struct thread *);
-int exchange_done (struct thread *);
-int loading_done (struct thread *);
-int adj_ok (struct thread *);
-int seqnumber_mismatch (struct thread *);
-int bad_lsreq (struct thread *);
-int oneway_received (struct thread *);
-int inactivity_timer (struct thread *);
+extern int hello_received (struct thread *);
+extern int twoway_received (struct thread *);
+extern int negotiation_done (struct thread *);
+extern int exchange_done (struct thread *);
+extern int loading_done (struct thread *);
+extern int adj_ok (struct thread *);
+extern int seqnumber_mismatch (struct thread *);
+extern int bad_lsreq (struct thread *);
+extern int oneway_received (struct thread *);
+extern int inactivity_timer (struct thread *);
 
-void ospf6_neighbor_init ();
-int config_write_ospf6_debug_neighbor (struct vty *vty);
-void install_element_ospf6_debug_neighbor ();
+extern void ospf6_neighbor_init (void);
+extern int config_write_ospf6_debug_neighbor (struct vty *vty);
+extern void install_element_ospf6_debug_neighbor (void);
 
 #endif /* OSPF6_NEIGHBOR_H */
-

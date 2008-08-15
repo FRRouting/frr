@@ -56,7 +56,7 @@ u_int32_t conf_debug_ospf6_brouter_specific_area_id;
 /* RFC2740 3.4.3.1 Router-LSA */
 /******************************/
 
-int
+static int
 ospf6_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   char *start, *end, *current;
@@ -316,7 +316,7 @@ ospf6_router_lsa_originate (struct thread *thread)
 /* RFC2740 3.4.3.2 Network-LSA */
 /*******************************/
 
-int
+static int
 ospf6_network_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   char *start, *end, *current;
@@ -462,7 +462,7 @@ ospf6_network_lsa_originate (struct thread *thread)
 /* RFC2740 3.4.3.6 Link-LSA */
 /****************************/
 
-int
+static int
 ospf6_link_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   char *start, *end, *current;
@@ -615,7 +615,7 @@ ospf6_link_lsa_originate (struct thread *thread)
 /* RFC2740 3.4.3.7 Intra-Area-Prefix-LSA */
 /*****************************************/
 
-int
+static int
 ospf6_intra_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   char *start, *end, *current;
@@ -1238,7 +1238,7 @@ ospf6_intra_route_calculation (struct ospf6_area *oa)
     zlog_debug ("Re-examin intra-routes for area %s: Done", oa->name);
 }
 
-void
+static void
 ospf6_brouter_debug_print (struct ospf6_route *brouter)
 {
   u_int32_t brouter_id;

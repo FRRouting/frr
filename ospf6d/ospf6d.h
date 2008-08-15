@@ -112,10 +112,10 @@ extern struct thread_master *master;
 
 
 /* Function Prototypes */
-struct route_node *route_prev (struct route_node *node);
+extern struct route_node *route_prev (struct route_node *node);
 
-void ospf6_debug ();
-void ospf6_init ();
+extern void ospf6_debug (void);
+extern void ospf6_init (void);
 
 #endif /* OSPF6D_H */
 

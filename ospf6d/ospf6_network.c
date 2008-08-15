@@ -38,7 +38,7 @@ struct in6_addr alldrouters6;
 
 /* setsockopt ReUseAddr to on */
 void
-ospf6_set_reuseaddr ()
+ospf6_set_reuseaddr (void)
 {
   u_int on = 0;
   if (setsockopt (ospf6_sock, SOL_SOCKET, SO_REUSEADDR, &on,
@@ -48,7 +48,7 @@ ospf6_set_reuseaddr ()
 
 /* setsockopt MulticastLoop to off */
 void
-ospf6_reset_mcastloop ()
+ospf6_reset_mcastloop (void)
 {
   u_int off = 0;
   if (setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP,
@@ -58,13 +58,13 @@ ospf6_reset_mcastloop ()
 }
 
 void
-ospf6_set_pktinfo ()
+ospf6_set_pktinfo (void)
 {
   setsockopt_ipv6_pktinfo (ospf6_sock, 1);
 }
 
 void
-ospf6_set_checksum ()
+ospf6_set_checksum (void)
 {
   int offset = 12;
 #ifndef DISABLE_IPV6_CHECKSUM
@@ -78,7 +78,7 @@ ospf6_set_checksum ()
 
 /* Make ospf6d's server socket. */
 int
-ospf6_serv_sock ()
+ospf6_serv_sock (void)
 {
   if (ospf6d_privs.change (ZPRIVS_RAISE))
     zlog_err ("ospf6_serv_sock: could not raise privs");
@@ -193,7 +193,7 @@ ospf6_leave_alldrouters (u_int ifindex)
 #endif
 }
 
-int
+static int
 iov_count (struct iovec *iov)
 {
   int i;
@@ -202,7 +202,7 @@ iov_count (struct iovec *iov)
   return i;
 }
 
-int
+static int
 iov_totallen (struct iovec *iov)
 {
   int i;

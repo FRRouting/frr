@@ -206,47 +206,47 @@ extern struct ospf6_lsa_handler unknown_handler;
 
 
 /* Function Prototypes */
-const char *ospf6_lstype_name (u_int16_t type);
-u_char ospf6_lstype_debug (u_int16_t type);
-int ospf6_lsa_is_differ (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
-int ospf6_lsa_is_changed (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
-u_int16_t ospf6_lsa_age_current (struct ospf6_lsa *);
-void ospf6_lsa_age_update_to_send (struct ospf6_lsa *, u_int32_t);
-void ospf6_lsa_premature_aging (struct ospf6_lsa *);
-int ospf6_lsa_compare (struct ospf6_lsa *, struct ospf6_lsa *);
+extern const char *ospf6_lstype_name (u_int16_t type);
+extern u_char ospf6_lstype_debug (u_int16_t type);
+extern int ospf6_lsa_is_differ (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
+extern int ospf6_lsa_is_changed (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
+extern u_int16_t ospf6_lsa_age_current (struct ospf6_lsa *);
+extern void ospf6_lsa_age_update_to_send (struct ospf6_lsa *, u_int32_t);
+extern void ospf6_lsa_premature_aging (struct ospf6_lsa *);
+extern int ospf6_lsa_compare (struct ospf6_lsa *, struct ospf6_lsa *);
 
-char *ospf6_lsa_printbuf (struct ospf6_lsa *lsa, char *buf, int size);
-void ospf6_lsa_header_print_raw (struct ospf6_lsa_header *header);
-void ospf6_lsa_header_print (struct ospf6_lsa *lsa);
-void ospf6_lsa_show_summary_header (struct vty *vty);
-void ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa);
-void ospf6_lsa_show_dump (struct vty *vty, struct ospf6_lsa *lsa);
-void ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa);
-void ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa);
+extern char *ospf6_lsa_printbuf (struct ospf6_lsa *lsa, char *buf, int size);
+extern void ospf6_lsa_header_print_raw (struct ospf6_lsa_header *header);
+extern void ospf6_lsa_header_print (struct ospf6_lsa *lsa);
+extern void ospf6_lsa_show_summary_header (struct vty *vty);
+extern void ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa);
+extern void ospf6_lsa_show_dump (struct vty *vty, struct ospf6_lsa *lsa);
+extern void ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa);
+extern void ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa);
 
-struct ospf6_lsa *ospf6_lsa_create (struct ospf6_lsa_header *header);
-struct ospf6_lsa *ospf6_lsa_create_headeronly (struct ospf6_lsa_header *header);
-void ospf6_lsa_delete (struct ospf6_lsa *lsa);
-struct ospf6_lsa *ospf6_lsa_copy (struct ospf6_lsa *);
+extern struct ospf6_lsa *ospf6_lsa_create (struct ospf6_lsa_header *header);
+extern struct ospf6_lsa *ospf6_lsa_create_headeronly (struct ospf6_lsa_header *header);
+extern void ospf6_lsa_delete (struct ospf6_lsa *lsa);
+extern struct ospf6_lsa *ospf6_lsa_copy (struct ospf6_lsa *);
 
-void ospf6_lsa_lock (struct ospf6_lsa *);
-void ospf6_lsa_unlock (struct ospf6_lsa *);
+extern void ospf6_lsa_lock (struct ospf6_lsa *);
+extern void ospf6_lsa_unlock (struct ospf6_lsa *);
 
-int ospf6_lsa_expire (struct thread *);
-int ospf6_lsa_refresh (struct thread *);
+extern int ospf6_lsa_expire (struct thread *);
+extern int ospf6_lsa_refresh (struct thread *);
 
-unsigned short ospf6_lsa_checksum (struct ospf6_lsa_header *);
-int ospf6_lsa_prohibited_duration (u_int16_t type, u_int32_t id,
-                                   u_int32_t adv_router, void *scope);
+extern unsigned short ospf6_lsa_checksum (struct ospf6_lsa_header *);
+extern int ospf6_lsa_prohibited_duration (u_int16_t type, u_int32_t id,
+                                          u_int32_t adv_router, void *scope);
 
-void ospf6_install_lsa_handler (struct ospf6_lsa_handler *handler);
-struct ospf6_lsa_handler *ospf6_get_lsa_handler (u_int16_t type);
+extern void ospf6_install_lsa_handler (struct ospf6_lsa_handler *handler);
+extern struct ospf6_lsa_handler *ospf6_get_lsa_handler (u_int16_t type);
 
-void ospf6_lsa_init ();
-void ospf6_lsa_cmd_init ();
+extern void ospf6_lsa_init (void);
+extern void ospf6_lsa_cmd_init (void);
 
-int config_write_ospf6_debug_lsa (struct vty *vty);
-void install_element_ospf6_debug_lsa ();
+extern int config_write_ospf6_debug_lsa (struct vty *vty);
+extern void install_element_ospf6_debug_lsa (void);
 
 #endif /* OSPF6_LSA_H */
 

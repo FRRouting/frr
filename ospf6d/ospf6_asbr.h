@@ -63,24 +63,24 @@ struct ospf6_as_external_lsa
   { (E)->bits_metric &= htonl (0xff000000); \
     (E)->bits_metric |= htonl (0x00ffffff) & htonl (C); }
 
-void ospf6_asbr_lsa_add (struct ospf6_lsa *lsa);
-void ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa);
-void ospf6_asbr_lsentry_add (struct ospf6_route *asbr_entry);
-void ospf6_asbr_lsentry_remove (struct ospf6_route *asbr_entry);
+extern void ospf6_asbr_lsa_add (struct ospf6_lsa *lsa);
+extern void ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa);
+extern void ospf6_asbr_lsentry_add (struct ospf6_route *asbr_entry);
+extern void ospf6_asbr_lsentry_remove (struct ospf6_route *asbr_entry);
 
-int ospf6_asbr_is_asbr (struct ospf6 *o);
-void
-ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
-                             u_int nexthop_num, struct in6_addr *nexthop);
-void
-ospf6_asbr_redistribute_remove (int type, int ifindex, struct prefix *prefix);
+extern int ospf6_asbr_is_asbr (struct ospf6 *o);
+extern void ospf6_asbr_redistribute_add (int type, int ifindex,
+                                         struct prefix *prefix,
+                                         u_int nexthop_num,
+                                         struct in6_addr *nexthop);
+extern void ospf6_asbr_redistribute_remove (int type, int ifindex,
+                                            struct prefix *prefix);
 
-int ospf6_redistribute_config_write (struct vty *vty);
+extern int ospf6_redistribute_config_write (struct vty *vty);
 
-void ospf6_asbr_init ();
+extern void ospf6_asbr_init (void);
 
-int config_write_ospf6_debug_asbr (struct vty *vty);
-void install_element_ospf6_debug_asbr ();
+extern int config_write_ospf6_debug_asbr (struct vty *vty);
+extern void install_element_ospf6_debug_asbr (void);
 
 #endif /* OSPF6_ASBR_H */
-

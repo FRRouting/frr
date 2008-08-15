@@ -174,7 +174,7 @@ const char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX] =
 
 
 struct ospf6_route *
-ospf6_route_create ()
+ospf6_route_create (void)
 {
   struct ospf6_route *route;
   route = XCALLOC (MTYPE_OSPF6_ROUTE, sizeof (struct ospf6_route));
@@ -928,7 +928,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
   vty_out (vty, "%s", VNL);
 }
 
-void
+static void
 ospf6_route_show_table_summary (struct vty *vty,
                                 struct ospf6_route_table *table)
 {
@@ -971,7 +971,7 @@ ospf6_route_show_table_summary (struct vty *vty,
     }
 }
 
-void
+static void
 ospf6_route_show_table_prefix (struct vty *vty,
                                struct prefix *prefix,
                                struct ospf6_route_table *table)
@@ -993,7 +993,7 @@ ospf6_route_show_table_prefix (struct vty *vty,
     ospf6_route_unlock (route);
 }
 
-void
+static void
 ospf6_route_show_table_address (struct vty *vty,
                                 struct prefix *prefix,
                                 struct ospf6_route_table *table)
@@ -1016,7 +1016,7 @@ ospf6_route_show_table_address (struct vty *vty,
     ospf6_route_unlock (route);
 }
 
-void
+static void
 ospf6_route_show_table_match (struct vty *vty, int detail,
                               struct prefix *prefix,
                               struct ospf6_route_table *table)
@@ -1035,7 +1035,7 @@ ospf6_route_show_table_match (struct vty *vty, int detail,
     }
 }
 
-void
+static void
 ospf6_route_show_table_type (struct vty *vty, int detail, u_char type,
                              struct ospf6_route_table *table)
 {
@@ -1055,7 +1055,7 @@ ospf6_route_show_table_type (struct vty *vty, int detail, u_char type,
     }
 }
 
-void
+static void
 ospf6_route_show_table (struct vty *vty, int detail,
                         struct ospf6_route_table *table)
 {
@@ -1173,14 +1173,14 @@ ospf6_route_table_show (struct vty *vty, int argc, const char *argv[],
   return CMD_SUCCESS;
 }
 
-void
+static void
 ospf6_linkstate_show_header (struct vty *vty)
 {
   vty_out (vty, "%-7s %-15s %-15s %-8s %-14s %s%s",
            "Type", "Router-ID", "Net-ID", "Rtr-Bits", "Options", "Cost", VNL);
 }
 
-void
+static void
 ospf6_linkstate_show (struct vty *vty, struct ospf6_route *route)
 {
   u_int32_t router, id;
@@ -1205,7 +1205,7 @@ ospf6_linkstate_show (struct vty *vty, struct ospf6_route *route)
 }
 
 
-void
+static void
 ospf6_linkstate_show_table_exact (struct vty *vty,
                                   struct prefix *prefix,
                                   struct ospf6_route_table *table)
@@ -1227,7 +1227,7 @@ ospf6_linkstate_show_table_exact (struct vty *vty,
     ospf6_route_unlock (route);
 }
 
-void
+static void
 ospf6_linkstate_show_table (struct vty *vty, int detail,
                             struct ospf6_route_table *table)
 {
@@ -1393,7 +1393,7 @@ config_write_ospf6_debug_route (struct vty *vty)
 }
 
 void
-install_element_ospf6_debug_route ()
+install_element_ospf6_debug_route (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_route_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_route_cmd);

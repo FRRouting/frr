@@ -73,7 +73,7 @@ struct ripng_nexthop
   struct in6_addr address;
 };
 
-int
+static int
 ripng_route_rte (struct ripng_info *rinfo)
 {
   return (rinfo->type == ZEBRA_ROUTE_RIPNG && rinfo->sub_type == RIPNG_ROUTE_RTE);
@@ -97,7 +97,7 @@ ripng_info_free (struct ripng_info *rinfo)
 }
 
 /* Create ripng socket. */
-int 
+static int 
 ripng_make_socket (void)
 {
   int ret;
@@ -222,7 +222,7 @@ ripng_send_packet (caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 }
 
 /* Receive UDP RIPng packet from socket. */
-int
+static int
 ripng_recv_packet (int sock, u_char *buf, int bufsize,
 		   struct sockaddr_in6 *from, unsigned int *ifindex, 
 		   int *hoplimit)
@@ -318,7 +318,7 @@ ripng_packet_dump (struct ripng_packet *packet, int size, const char *sndrcv)
 }
 
 /* RIPng next hop address RTE (Route Table Entry). */
-void
+static void
 ripng_nexthop_rte (struct rte *rte,
 		   struct sockaddr_in6 *from,
 		   struct ripng_nexthop *nexthop)
@@ -377,7 +377,7 @@ ripng_nexthop_rte (struct rte *rte,
 }
 
 /* If ifp has same link-local address then return 1. */
-int
+static int
 ripng_lladdr_check (struct interface *ifp, struct in6_addr *addr)
 {
   struct listnode *node;
@@ -397,7 +397,7 @@ ripng_lladdr_check (struct interface *ifp, struct in6_addr *addr)
 }
 
 /* RIPng route garbage collect timer. */
-int
+static int
 ripng_garbage_collect (struct thread *t)
 {
   struct ripng_info *rinfo;
@@ -423,7 +423,7 @@ ripng_garbage_collect (struct thread *t)
 }
 
 /* Timeout RIPng routes. */
-int
+static int
 ripng_timeout (struct thread *t)
 {
   struct ripng_info *rinfo;
@@ -460,7 +460,7 @@ ripng_timeout (struct thread *t)
   return 0;
 }
 
-void
+static void
 ripng_timeout_update (struct ripng_info *rinfo)
 {
   if (rinfo->metric != RIPNG_METRIC_INFINITY)
@@ -470,7 +470,7 @@ ripng_timeout_update (struct ripng_info *rinfo)
     }
 }
 
-int
+static int
 ripng_incoming_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 {
   struct distribute *dist;
@@ -541,7 +541,7 @@ ripng_incoming_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
   return 0;
 }
 
-int
+static int
 ripng_outgoing_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 {
   struct distribute *dist;
@@ -612,7 +612,7 @@ ripng_outgoing_filter (struct prefix_ipv6 *p, struct ripng_interface *ri)
 }
 
 /* Process RIPng route according to RFC2080. */
-void
+static void
 ripng_route_process (struct rte *rte, struct sockaddr_in6 *from,
 		     struct ripng_nexthop *ripng_nexthop,
 		     struct interface *ifp)
@@ -1100,7 +1100,7 @@ ripng_redistribute_withdraw (int type)
 }
 
 /* RIP routing information. */
-void
+static void
 ripng_response_process (struct ripng_packet *packet, int size, 
 			struct sockaddr_in6 *from, struct interface *ifp,
 			int hoplimit)
@@ -1233,7 +1233,7 @@ ripng_response_process (struct ripng_packet *packet, int size,
 }
 
 /* Response to request message. */
-void
+static void
 ripng_request_process (struct ripng_packet *packet,int size, 
 		       struct sockaddr_in6 *from, struct interface *ifp)
 {
@@ -1320,7 +1320,7 @@ ripng_request_process (struct ripng_packet *packet,int size,
 }
 
 /* First entry point of reading RIPng packet. */
-int
+static int
 ripng_read (struct thread *thread)
 {
   int len;
@@ -1410,8 +1410,8 @@ ripng_read (struct thread *thread)
 }
 
 /* Walk down the RIPng routing table then clear changed flag. */
-void
-ripng_clear_changed_flag ()
+static void
+ripng_clear_changed_flag (void)
 {
   struct route_node *rp;
   struct ripng_info *rinfo;
@@ -1424,7 +1424,7 @@ ripng_clear_changed_flag ()
 
 /* Regular update of RIPng route.  Send all routing formation to RIPng
    enabled interface. */
-int
+static int
 ripng_update (struct thread *t)
 {
   struct listnode *node;
@@ -1484,7 +1484,7 @@ ripng_update (struct thread *t)
 }
 
 /* Triggered update interval timer. */
-int
+static int
 ripng_triggered_interval (struct thread *t)
 {
   ripng->t_triggered_interval = NULL;
@@ -1813,8 +1813,8 @@ ripng_output_process (struct interface *ifp, struct sockaddr_in6 *to,
 }
 
 /* Create new RIPng instance and set it to global variable. */
-int
-ripng_create ()
+static int
+ripng_create (void)
 {
   /* ripng should be NULL. */
   assert (ripng == NULL);
@@ -1880,7 +1880,7 @@ ripng_request (struct interface *ifp)
 }
 
 
-int
+static int
 ripng_update_jitter (int time)
 {
   return ((rand () % (time + 1)) - (time / 2));
@@ -1949,7 +1949,7 @@ ripng_vty_out_uptime (struct vty *vty, struct ripng_info *rinfo)
     }
 }
 
-char *
+static char *
 ripng_route_subtype_print (struct ripng_info *rinfo)
 {
   static char str[3];
@@ -2102,8 +2102,6 @@ DEFUN (show_ipv6_ripng_status,
 {
   struct listnode *node;
   struct interface *ifp;
-  int ripng_network_write (struct vty *, int);
-  void ripng_redistribute_write (struct vty *, int);
 
   if (! ripng)
     return CMD_SUCCESS;
@@ -2607,7 +2605,7 @@ DEFUN (no_ripng_default_information_originate,
 }
 
 /* RIPng configuration write function. */
-int
+static int
 ripng_config_write (struct vty *vty)
 {
   int ripng_network_write (struct vty *, int);
@@ -2692,7 +2690,7 @@ struct cmd_node cmd_ripng_node =
   1,
 };
 
-void
+static void
 ripng_distribute_update (struct distribute *dist)
 {
   struct interface *ifp;
@@ -2765,7 +2763,7 @@ ripng_distribute_update_interface (struct interface *ifp)
 }
 
 /* Update all interface's distribute list. */
-void
+static void
 ripng_distribute_update_all (struct prefix_list *notused)
 {
   struct interface *ifp;
@@ -2775,7 +2773,7 @@ ripng_distribute_update_all (struct prefix_list *notused)
     ripng_distribute_update_interface (ifp);
 }
 
-void
+static void
 ripng_distribute_update_all_wrapper (struct access_list *notused)
 {
   ripng_distribute_update_all(NULL);
@@ -2878,7 +2876,7 @@ ripng_reset ()
   ripng_zclient_reset ();
 }
 
-void
+static void
 ripng_if_rmap_update (struct if_rmap *if_rmap)
 {
   struct interface *ifp;
@@ -2924,7 +2922,7 @@ ripng_if_rmap_update_interface (struct interface *ifp)
     ripng_if_rmap_update (if_rmap);
 }
 
-void
+static void
 ripng_routemap_update_redistribute (void)
 {
   int i;
@@ -2940,7 +2938,7 @@ ripng_routemap_update_redistribute (void)
     }
 }
 
-void
+static void
 ripng_routemap_update (const char *unused)
 {
   struct interface *ifp;

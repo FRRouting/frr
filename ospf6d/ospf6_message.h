@@ -116,26 +116,26 @@ struct ospf6_lsupdate
 /* It is just a sequence of LSA Headers */
 
 /* Function definition */
-void ospf6_hello_print (struct ospf6_header *);
-void ospf6_dbdesc_print (struct ospf6_header *);
-void ospf6_lsreq_print (struct ospf6_header *);
-void ospf6_lsupdate_print (struct ospf6_header *);
-void ospf6_lsack_print (struct ospf6_header *);
+extern void ospf6_hello_print (struct ospf6_header *);
+extern void ospf6_dbdesc_print (struct ospf6_header *);
+extern void ospf6_lsreq_print (struct ospf6_header *);
+extern void ospf6_lsupdate_print (struct ospf6_header *);
+extern void ospf6_lsack_print (struct ospf6_header *);
 
-int ospf6_iobuf_size (unsigned int size);
-int ospf6_receive (struct thread *thread);
+extern int ospf6_iobuf_size (unsigned int size);
+extern int ospf6_receive (struct thread *thread);
 
-int ospf6_hello_send (struct thread *thread);
-int ospf6_dbdesc_send (struct thread *thread);
-int ospf6_dbdesc_send_newone (struct thread *thread);
-int ospf6_lsreq_send (struct thread *thread);
-int ospf6_lsupdate_send_interface (struct thread *thread);
-int ospf6_lsupdate_send_neighbor (struct thread *thread);
-int ospf6_lsack_send_interface (struct thread *thread);
-int ospf6_lsack_send_neighbor (struct thread *thread);
+extern int ospf6_hello_send (struct thread *thread);
+extern int ospf6_dbdesc_send (struct thread *thread);
+extern int ospf6_dbdesc_send_newone (struct thread *thread);
+extern int ospf6_lsreq_send (struct thread *thread);
+extern int ospf6_lsupdate_send_interface (struct thread *thread);
+extern int ospf6_lsupdate_send_neighbor (struct thread *thread);
+extern int ospf6_lsack_send_interface (struct thread *thread);
+extern int ospf6_lsack_send_neighbor (struct thread *thread);
 
-int config_write_ospf6_debug_message (struct vty *);
-void install_element_ospf6_debug_message ();
+extern int config_write_ospf6_debug_message (struct vty *);
+extern void install_element_ospf6_debug_message (void);
 
 #endif /* OSPF6_MESSAGE_H */
 

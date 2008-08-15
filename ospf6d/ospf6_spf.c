@@ -43,7 +43,7 @@
 
 unsigned char conf_debug_ospf6_spf = 0;
 
-int
+static int
 ospf6_vertex_cmp (void *a, void *b)
 {
   struct ospf6_vertex *va = (struct ospf6_vertex *) a;
@@ -53,7 +53,7 @@ ospf6_vertex_cmp (void *a, void *b)
   return (va->cost - vb->cost);
 }
 
-int
+static int
 ospf6_vertex_id_cmp (void *a, void *b)
 {
   struct ospf6_vertex *va = (struct ospf6_vertex *) a;
@@ -70,7 +70,7 @@ ospf6_vertex_id_cmp (void *a, void *b)
   return ret;
 }
 
-struct ospf6_vertex *
+static struct ospf6_vertex *
 ospf6_vertex_create (struct ospf6_lsa *lsa)
 {
   struct ospf6_vertex *v;
@@ -113,14 +113,14 @@ ospf6_vertex_create (struct ospf6_lsa *lsa)
   return v;
 }
 
-void
+static void
 ospf6_vertex_delete (struct ospf6_vertex *v)
 {
   list_delete (v->child_list);
   XFREE (MTYPE_OSPF6_VERTEX, v);
 }
 
-struct ospf6_lsa *
+static struct ospf6_lsa *
 ospf6_lsdesc_lsa (caddr_t lsdesc, struct ospf6_vertex *v)
 {
   struct ospf6_lsa *lsa;
@@ -166,7 +166,7 @@ ospf6_lsdesc_lsa (caddr_t lsdesc, struct ospf6_vertex *v)
   return lsa;
 }
 
-char *
+static char *
 ospf6_lsdesc_backlink (struct ospf6_lsa *lsa,
                        caddr_t lsdesc, struct ospf6_vertex *v)
 {
@@ -218,7 +218,7 @@ ospf6_lsdesc_backlink (struct ospf6_lsa *lsa,
   return found;
 }
 
-void
+static void
 ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
                     caddr_t lsdesc)
 {
@@ -274,7 +274,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
     zlog_debug ("No nexthop for %s found", w->name);
 }
 
-int
+static int
 ospf6_spf_install (struct ospf6_vertex *v,
                    struct ospf6_route_table *result_table)
 {
@@ -487,7 +487,7 @@ ospf6_spf_calculation (u_int32_t router_id,
   pqueue_delete (candidate_list);
 }
 
-void
+static void
 ospf6_spf_log_database (struct ospf6_area *oa)
 {
   char *p, *end, buffer[256];
@@ -512,7 +512,7 @@ ospf6_spf_log_database (struct ospf6_area *oa)
   zlog_debug ("%s", buffer);
 }
 
-int
+static int
 ospf6_spf_calculation_thread (struct thread *t)
 {
   struct ospf6_area *oa;
@@ -689,7 +689,7 @@ config_write_ospf6_debug_spf (struct vty *vty)
 }
 
 void
-install_element_ospf6_debug_spf ()
+install_element_ospf6_debug_spf (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_spf_process_cmd);
   install_element (ENABLE_NODE, &debug_ospf6_spf_time_cmd);
@@ -706,7 +706,7 @@ install_element_ospf6_debug_spf ()
 }
 
 void
-ospf6_spf_init ()
+ospf6_spf_init (void)
 {
 }
 

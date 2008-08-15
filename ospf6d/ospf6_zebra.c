@@ -47,7 +47,7 @@ struct zclient *zclient = NULL;
 struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */
-int
+static int
 ospf6_router_id_update_zebra (int command, struct zclient *zclient,
 			      zebra_size_t length)
 {
@@ -88,7 +88,7 @@ ospf6_zebra_no_redistribute (int type)
 }
 
 /* Inteface addition message from zebra. */
-int
+static int
 ospf6_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct interface *ifp;
@@ -101,7 +101,7 @@ ospf6_zebra_if_add (int command, struct zclient *zclient, zebra_size_t length)
   return 0;
 }
 
-int
+static int
 ospf6_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
 {
   struct interface *ifp;
@@ -125,7 +125,7 @@ ospf6_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
   return 0;
 }
 
-int
+static int
 ospf6_zebra_if_state_update (int command, struct zclient *zclient,
                              zebra_size_t length)
 {
@@ -141,7 +141,7 @@ ospf6_zebra_if_state_update (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 ospf6_zebra_if_address_update_add (int command, struct zclient *zclient,
                                    zebra_size_t length)
 {
@@ -164,7 +164,7 @@ ospf6_zebra_if_address_update_add (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 ospf6_zebra_if_address_update_delete (int command, struct zclient *zclient,
                                zebra_size_t length)
 {
@@ -187,7 +187,7 @@ ospf6_zebra_if_address_update_delete (int command, struct zclient *zclient,
   return 0;
 }
 
-int
+static int
 ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
                        zebra_size_t length)
 {
@@ -317,7 +317,7 @@ DEFUN (no_router_zebra,
 }
 
 /* Zebra configuration write function. */
-int
+static int
 config_write_ospf6_zebra (struct vty *vty)
 {
   if (! zclient->enable)
@@ -553,7 +553,7 @@ DEFUN (no_redistribute_ospf6,
 }
 
 void
-ospf6_zebra_init ()
+ospf6_zebra_init (void)
 {
   /* Allocate zebra structure. */
   zclient = zclient_new ();
@@ -623,7 +623,7 @@ ALIAS (debug_ospf6_zebra_sendrecv,
        DEBUG_STR
        OSPF6_STR
        "Debug connection between zebra\n"
-      );
+      )
 
 
 DEFUN (no_debug_ospf6_zebra_sendrecv,
@@ -660,7 +660,7 @@ ALIAS (no_debug_ospf6_zebra_sendrecv,
        DEBUG_STR
        OSPF6_STR
        "Debug connection between zebra\n"
-      );
+      )
 
 int
 config_write_ospf6_debug_zebra (struct vty *vty)
@@ -678,7 +678,7 @@ config_write_ospf6_debug_zebra (struct vty *vty)
 }
 
 void
-install_element_ospf6_debug_zebra ()
+install_element_ospf6_debug_zebra (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_zebra_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_zebra_cmd);

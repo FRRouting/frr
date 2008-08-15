@@ -112,11 +112,10 @@ do {                                                           \
           OSPF6_PREFIX_SPACE ((op)->prefix_length));           \
 } while (0)
 
-void ospf6_prefix_apply_mask (struct ospf6_prefix *op);
-void ospf6_prefix_options_printbuf (u_int8_t prefix_options,
-                                    char *buf, int size);
-void ospf6_capability_printbuf (char capability, char *buf, int size);
-void ospf6_options_printbuf (u_char *options, char *buf, int size);
+extern void ospf6_prefix_apply_mask (struct ospf6_prefix *op);
+extern void ospf6_prefix_options_printbuf (u_int8_t prefix_options,
+                                           char *buf, int size);
+extern void ospf6_capability_printbuf (char capability, char *buf, int size);
+extern void ospf6_options_printbuf (u_char *options, char *buf, int size);
 
 #endif /* OSPF6_PROTO_H */
-

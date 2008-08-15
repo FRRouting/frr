@@ -472,7 +472,7 @@ ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
   ospf6_lsa_originate_area (lsa, area);
 }
 
-void
+static void
 ospf6_abr_range_update (struct ospf6_route *range)
 {
   u_int32_t cost = 0;
@@ -762,7 +762,7 @@ ospf6_abr_reimport (struct ospf6_area *oa)
 
 
 /* Display functions */
-int
+static int
 ospf6_inter_area_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   struct ospf6_inter_prefix_lsa *prefix_lsa;
@@ -787,7 +787,7 @@ ospf6_inter_area_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   return 0;
 }
 
-int
+static int
 ospf6_inter_area_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   struct ospf6_inter_router_lsa *router_lsa;
@@ -841,7 +841,7 @@ config_write_ospf6_debug_abr (struct vty *vty)
 }
 
 void
-install_element_ospf6_debug_abr ()
+install_element_ospf6_debug_abr (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_abr_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_abr_cmd);
@@ -864,7 +864,7 @@ struct ospf6_lsa_handler inter_router_handler =
 };
 
 void
-ospf6_abr_init ()
+ospf6_abr_init (void)
 {
   ospf6_install_lsa_handler (&inter_prefix_handler);
   ospf6_install_lsa_handler (&inter_router_handler);

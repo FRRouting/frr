@@ -44,16 +44,11 @@ struct ripng_aggregate
   u_short tag_out;
 };
 
-void
-ripng_aggregate_increment (struct route_node *rp, struct ripng_info *rinfo);
-
-void
-ripng_aggregate_decrement (struct route_node *rp, struct ripng_info *rinfo);
-
-int
-ripng_aggregate_add (struct prefix *p);
-
-int
-ripng_aggregate_delete (struct prefix *p);
+extern void ripng_aggregate_increment (struct route_node *rp,
+                                       struct ripng_info *rinfo);
+extern void ripng_aggregate_decrement (struct route_node *rp,
+                                       struct ripng_info *rinfo);
+extern int ripng_aggregate_add (struct prefix *p);
+extern int ripng_aggregate_delete (struct prefix *p);
 
 #endif /* _ZEBRA_RIPNG_ROUTE_H */

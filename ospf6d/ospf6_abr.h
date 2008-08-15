@@ -52,24 +52,22 @@ struct ospf6_inter_router_lsa
   { (E)->metric &= htonl (0x00000000); \
     (E)->metric |= htonl (0x00ffffff) & htonl (C); }
 
-int ospf6_is_router_abr (struct ospf6 *o);
+extern int ospf6_is_router_abr (struct ospf6 *o);
 
-void ospf6_abr_enable_area (struct ospf6_area *oa);
-void ospf6_abr_disable_area (struct ospf6_area *oa);
+extern void ospf6_abr_enable_area (struct ospf6_area *oa);
+extern void ospf6_abr_disable_area (struct ospf6_area *oa);
 
-void ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
-                                          struct ospf6_area *area);
-void ospf6_abr_originate_summary (struct ospf6_route *route);
-void ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa);
-void ospf6_abr_examin_brouter (u_int32_t router_id);
-void ospf6_abr_reimport (struct ospf6_area *oa);
+extern void ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
+                                                struct ospf6_area *area);
+extern void ospf6_abr_originate_summary (struct ospf6_route *route);
+extern void ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa);
+extern void ospf6_abr_examin_brouter (u_int32_t router_id);
+extern void ospf6_abr_reimport (struct ospf6_area *oa);
 
-int config_write_ospf6_debug_abr (struct vty *vty);
-void install_element_ospf6_debug_abr ();
-int ospf6_abr_config_write (struct vty *vty);
+extern int config_write_ospf6_debug_abr (struct vty *vty);
+extern void install_element_ospf6_debug_abr (void);
+extern int ospf6_abr_config_write (struct vty *vty);
 
-void ospf6_abr_init ();
+extern void ospf6_abr_init (void);
 
 #endif /*OSPF6_ABR_H*/
-
-

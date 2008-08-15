@@ -50,51 +50,49 @@ struct ospf6_lsdb
   } while (0)
 
 /* Function Prototypes */
-struct ospf6_lsdb *ospf6_lsdb_create (void *data);
-void ospf6_lsdb_delete (struct ospf6_lsdb *lsdb);
+extern struct ospf6_lsdb *ospf6_lsdb_create (void *data);
+extern void ospf6_lsdb_delete (struct ospf6_lsdb *lsdb);
 
-struct ospf6_lsa *
-ospf6_lsdb_lookup (u_int16_t type, u_int32_t id, u_int32_t adv_router,
-                   struct ospf6_lsdb *lsdb);
-struct ospf6_lsa *
-ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id,
-                        u_int32_t adv_router, struct ospf6_lsdb *lsdb);
+extern struct ospf6_lsa *ospf6_lsdb_lookup (u_int16_t type, u_int32_t id,
+                                            u_int32_t adv_router,
+                                            struct ospf6_lsdb *lsdb);
+extern struct ospf6_lsa *ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id,
+                                                 u_int32_t adv_router,
+                                                 struct ospf6_lsdb *lsdb);
 
-void ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
-void ospf6_lsdb_remove (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
+extern void ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
+extern void ospf6_lsdb_remove (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
 
-struct ospf6_lsa *ospf6_lsdb_head (struct ospf6_lsdb *lsdb);
-struct ospf6_lsa *ospf6_lsdb_next (struct ospf6_lsa *lsa);
+extern struct ospf6_lsa *ospf6_lsdb_head (struct ospf6_lsdb *lsdb);
+extern struct ospf6_lsa *ospf6_lsdb_next (struct ospf6_lsa *lsa);
 
-struct ospf6_lsa *ospf6_lsdb_type_router_head (u_int16_t type,
+extern struct ospf6_lsa *ospf6_lsdb_type_router_head (u_int16_t type,
                                                u_int32_t adv_router,
                                                struct ospf6_lsdb *lsdb);
-struct ospf6_lsa *ospf6_lsdb_type_router_next (u_int16_t type,
+extern struct ospf6_lsa *ospf6_lsdb_type_router_next (u_int16_t type,
                                                u_int32_t adv_router,
                                                struct ospf6_lsa *lsa);
 
-struct ospf6_lsa *ospf6_lsdb_type_head (u_int16_t type,
-                                        struct ospf6_lsdb *lsdb);
-struct ospf6_lsa *ospf6_lsdb_type_next (u_int16_t type,
-                                        struct ospf6_lsa *lsa);
+extern struct ospf6_lsa *ospf6_lsdb_type_head (u_int16_t type,
+                                               struct ospf6_lsdb *lsdb);
+extern struct ospf6_lsa *ospf6_lsdb_type_next (u_int16_t type,
+                                               struct ospf6_lsa *lsa);
 
-void ospf6_lsdb_remove_all (struct ospf6_lsdb *lsdb);
+extern void ospf6_lsdb_remove_all (struct ospf6_lsdb *lsdb);
 
 #define OSPF6_LSDB_SHOW_LEVEL_NORMAL   0
 #define OSPF6_LSDB_SHOW_LEVEL_DETAIL   1
 #define OSPF6_LSDB_SHOW_LEVEL_INTERNAL 2
 #define OSPF6_LSDB_SHOW_LEVEL_DUMP     3
 
-void ospf6_lsdb_show
-  (struct vty *vty, int level,
-   u_int16_t *type, u_int32_t *id, u_int32_t *adv_router,
-   struct ospf6_lsdb *lsdb);
+extern void ospf6_lsdb_show (struct vty *vty, int level, u_int16_t *type,
+                             u_int32_t *id, u_int32_t *adv_router,
+                             struct ospf6_lsdb *lsdb);
 
-u_int32_t ospf6_new_ls_id
-  (u_int16_t type, u_int32_t adv_router, struct ospf6_lsdb *lsdb);
-u_int32_t ospf6_new_ls_seqnum
-  (u_int16_t type, u_int32_t id, u_int32_t adv_router, struct ospf6_lsdb *lsdb);
+extern u_int32_t ospf6_new_ls_id (u_int16_t type, u_int32_t adv_router,
+                                  struct ospf6_lsdb *lsdb);
+extern u_int32_t ospf6_new_ls_seqnum (u_int16_t type, u_int32_t id,
+                                      u_int32_t adv_router,
+                                      struct ospf6_lsdb *lsdb);
 
 #endif /* OSPF6_LSDB_H */
-
-

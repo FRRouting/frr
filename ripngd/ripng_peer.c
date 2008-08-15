@@ -39,8 +39,8 @@
 /* Linked list of RIPng peer. */
 struct list *peer_list;
 
-struct ripng_peer *
-ripng_peer_new ()
+static struct ripng_peer *
+ripng_peer_new (void)
 {
   struct ripng_peer *new;
 
@@ -49,7 +49,7 @@ ripng_peer_new ()
   return new;
 }
 
-void
+static void
 ripng_peer_free (struct ripng_peer *peer)
 {
   XFREE (MTYPE_RIPNG_PEER, peer);
@@ -86,7 +86,7 @@ ripng_peer_lookup_next (struct in6_addr *addr)
 /* RIPng peer is timeout.
  * Garbage collector.
  **/
-int
+static int
 ripng_peer_timeout (struct thread *t)
 {
   struct ripng_peer *peer;
@@ -99,7 +99,7 @@ ripng_peer_timeout (struct thread *t)
 }
 
 /* Get RIPng peer.  At the same time update timeout thread. */
-struct ripng_peer *
+static struct ripng_peer *
 ripng_peer_get (struct in6_addr *addr)
 {
   struct ripng_peer *peer;
@@ -153,7 +153,7 @@ ripng_peer_bad_packet (struct sockaddr_in6 *from)
 }
 
 /* Display peer uptime. */
-char *
+static char *
 ripng_peer_uptime (struct ripng_peer *peer, char *buf, size_t len)
 {
   time_t uptime;
@@ -206,7 +206,7 @@ ripng_peer_display (struct vty *vty)
     }
 }
 
-int
+static int
 ripng_peer_list_cmp (struct ripng_peer *p1, struct ripng_peer *p2)
 {
   return addr6_cmp(&p1->addr, &p2->addr) > 0;

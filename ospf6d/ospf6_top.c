@@ -51,7 +51,7 @@
 /* global ospf6d variable */
 struct ospf6 *ospf6;
 
-void
+static void
 ospf6_top_lsdb_hook_add (struct ospf6_lsa *lsa)
 {
   switch (ntohs (lsa->header->type))
@@ -65,7 +65,7 @@ ospf6_top_lsdb_hook_add (struct ospf6_lsa *lsa)
     }
 }
 
-void
+static void
 ospf6_top_lsdb_hook_remove (struct ospf6_lsa *lsa)
 {
   switch (ntohs (lsa->header->type))
@@ -79,21 +79,21 @@ ospf6_top_lsdb_hook_remove (struct ospf6_lsa *lsa)
     }
 }
 
-void
+static void
 ospf6_top_route_hook_add (struct ospf6_route *route)
 {
   ospf6_abr_originate_summary (route);
   ospf6_zebra_route_update_add (route);
 }
 
-void
+static void
 ospf6_top_route_hook_remove (struct ospf6_route *route)
 {
   ospf6_abr_originate_summary (route);
   ospf6_zebra_route_update_remove (route);
 }
 
-void
+static void
 ospf6_top_brouter_hook_add (struct ospf6_route *route)
 {
   ospf6_abr_examin_brouter (ADV_ROUTER_IN_PREFIX (&route->prefix));
@@ -101,7 +101,7 @@ ospf6_top_brouter_hook_add (struct ospf6_route *route)
   ospf6_abr_originate_summary (route);
 }
 
-void
+static void
 ospf6_top_brouter_hook_remove (struct ospf6_route *route)
 {
   ospf6_abr_examin_brouter (ADV_ROUTER_IN_PREFIX (&route->prefix));
@@ -109,8 +109,8 @@ ospf6_top_brouter_hook_remove (struct ospf6_route *route)
   ospf6_abr_originate_summary (route);
 }
 
-struct ospf6 *
-ospf6_create ()
+static struct ospf6 *
+ospf6_create (void)
 {
   struct ospf6 *o;
 
@@ -144,7 +144,7 @@ ospf6_create ()
   return o;
 }
 
-void
+static void
 ospf6_delete (struct ospf6 *o)
 {
   struct listnode *node, *nnode;
@@ -165,7 +165,7 @@ ospf6_delete (struct ospf6 *o)
   XFREE (MTYPE_OSPF6_TOP, o);
 }
 
-void
+static void
 ospf6_enable (struct ospf6 *o)
 {
   struct listnode *node, *nnode;
@@ -179,7 +179,7 @@ ospf6_enable (struct ospf6 *o)
     }
 }
 
-void
+static void
 ospf6_disable (struct ospf6 *o)
 {
   struct listnode *node, *nnode;
@@ -198,7 +198,7 @@ ospf6_disable (struct ospf6 *o)
     }
 }
 
-int
+static int
 ospf6_maxage_remover (struct thread *thread)
 {
   struct ospf6 *o = (struct ospf6 *) THREAD_ARG (thread);
@@ -427,7 +427,7 @@ DEFUN (no_ospf6_interface_area,
   return CMD_SUCCESS;
 }
 
-void
+static void
 ospf6_show (struct vty *vty, struct ospf6 *o)
 {
   struct listnode *n;
@@ -499,7 +499,7 @@ ALIAS (show_ipv6_ospf6_route,
        "Specify IPv6 prefix\n"
        "Detailed information\n"
        "Summary of route table\n"
-       );
+       )
 
 DEFUN (show_ipv6_ospf6_route_match,
        show_ipv6_ospf6_route_match_cmd,
@@ -562,7 +562,7 @@ ALIAS (show_ipv6_ospf6_route_match,
        ROUTE_STR
        "Specify IPv6 prefix\n"
        "Display routes longer than the specified route\n"
-       );
+       )
 
 DEFUN (show_ipv6_ospf6_route_match_detail,
        show_ipv6_ospf6_route_longer_detail_cmd,
@@ -587,7 +587,7 @@ ALIAS (show_ipv6_ospf6_route,
        "Dispaly Inter-Area routes\n"
        "Dispaly Type-1 External routes\n"
        "Dispaly Type-2 External routes\n"
-       );
+       )
 
 DEFUN (show_ipv6_ospf6_route_type_detail,
        show_ipv6_ospf6_route_type_detail_cmd,
@@ -618,7 +618,7 @@ DEFUN (show_ipv6_ospf6_route_type_detail,
 }
 
 /* OSPF configuration write function. */
-int
+static int
 config_write_ospf6 (struct vty *vty)
 {
   char router_id[16];
@@ -660,7 +660,7 @@ struct cmd_node ospf6_node =
 
 /* Install ospf related commands. */
 void
-ospf6_top_init ()
+ospf6_top_init (void)
 {
   /* Install ospf6 top node. */
   install_node (&ospf6_node, config_write_ospf6);

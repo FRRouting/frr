@@ -241,7 +241,7 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
 
 /* RFC2740 section 3.5.2. Sending Link State Update packets */
 /* RFC2328 section 13.3 Next step in the flooding procedure */
-void
+static void
 ospf6_flood_interface (struct ospf6_neighbor *from,
                        struct ospf6_lsa *lsa, struct ospf6_interface *oi)
 {
@@ -387,7 +387,7 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
     }
 }
 
-void
+static void
 ospf6_flood_area (struct ospf6_neighbor *from,
                   struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
@@ -410,7 +410,7 @@ ospf6_flood_area (struct ospf6_neighbor *from,
     }
 }
 
-void
+static void
 ospf6_flood_process (struct ospf6_neighbor *from,
                      struct ospf6_lsa *lsa, struct ospf6 *process)
 {
@@ -440,7 +440,7 @@ ospf6_flood (struct ospf6_neighbor *from, struct ospf6_lsa *lsa)
   ospf6_flood_process (from, lsa, ospf6);
 }
 
-void
+static void
 ospf6_flood_clear_interface (struct ospf6_lsa *lsa, struct ospf6_interface *oi)
 {
   struct listnode *node, *nnode;
@@ -463,7 +463,7 @@ ospf6_flood_clear_interface (struct ospf6_lsa *lsa, struct ospf6_interface *oi)
     }
 }
 
-void
+static void
 ospf6_flood_clear_area (struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
   struct listnode *node, *nnode;
@@ -485,7 +485,7 @@ ospf6_flood_clear_area (struct ospf6_lsa *lsa, struct ospf6_area *oa)
     }
 }
 
-void
+static void
 ospf6_flood_clear_process (struct ospf6_lsa *lsa, struct ospf6 *process)
 {
   struct listnode *node, *nnode;
@@ -676,7 +676,7 @@ ospf6_acknowledge_lsa_allother (struct ospf6_lsa *lsa, int ismore_recent,
      early of ospf6_receive_lsa () */
 }
 
-void
+static void
 ospf6_acknowledge_lsa (struct ospf6_lsa *lsa, int ismore_recent,
                        struct ospf6_neighbor *from)
 {
@@ -1013,7 +1013,7 @@ config_write_ospf6_debug_flood (struct vty *vty)
 }
 
 void
-install_element_ospf6_debug_flood ()
+install_element_ospf6_debug_flood (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_flooding_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_flooding_cmd);

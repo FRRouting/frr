@@ -89,7 +89,7 @@ ripng_zebra_ipv6_delete (struct prefix_ipv6 *p, struct in6_addr *nexthop,
 }
 
 /* Zebra route add and delete treatment. */
-int
+static int
 ripng_zebra_read_ipv6 (int command, struct zclient *zclient,
 		       zebra_size_t length)
 {
@@ -143,12 +143,12 @@ ripng_zebra_read_ipv6 (int command, struct zclient *zclient,
 }
 
 void
-ripng_zclient_reset ()
+ripng_zclient_reset (void)
 {
   zclient_reset (zclient);
 }
 
-int
+static int
 ripng_redistribute_unset (int type)
 {
   if (! zclient->redist[type])
@@ -170,14 +170,14 @@ ripng_redistribute_check (int type)
   return (zclient->redist[type]);
 }
 
-void
+static void
 ripng_redistribute_metric_set (int type, int metric)
 {
   ripng->route_map[type].metric_config = 1;
   ripng->route_map[type].metric = metric;
 }
 
-int
+static int
 ripng_redistribute_metric_unset (int type)
 {
   ripng->route_map[type].metric_config = 0;
@@ -185,7 +185,7 @@ ripng_redistribute_metric_unset (int type)
   return 0;
 }
 
-void
+static void
 ripng_redistribute_routemap_set (int type, const char *name)
 {
   if (ripng->route_map[type].name)
@@ -195,7 +195,7 @@ ripng_redistribute_routemap_set (int type, const char *name)
   ripng->route_map[type].map = route_map_lookup_by_name (name);
 }
 
-void
+static void
 ripng_redistribute_routemap_unset (int type)
 {
   if (ripng->route_map[type].name)
@@ -520,7 +520,7 @@ ripng_redistribute_write (struct vty *vty, int config_mode)
 }
 
 /* RIPng configuration write function. */
-int
+static int
 zebra_config_write (struct vty *vty)
 {
   if (! zclient->enable)

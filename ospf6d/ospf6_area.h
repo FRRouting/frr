@@ -112,19 +112,18 @@ struct ospf6_area
 #define IS_AREA_STUB(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_STUB))
 
 /* prototypes */
-int ospf6_area_cmp (void *va, void *vb);
+extern int ospf6_area_cmp (void *va, void *vb);
 
-struct ospf6_area *ospf6_area_create (u_int32_t, struct ospf6 *);
-void ospf6_area_delete (struct ospf6_area *);
-struct ospf6_area *ospf6_area_lookup (u_int32_t, struct ospf6 *);
+extern struct ospf6_area *ospf6_area_create (u_int32_t, struct ospf6 *);
+extern void ospf6_area_delete (struct ospf6_area *);
+extern struct ospf6_area *ospf6_area_lookup (u_int32_t, struct ospf6 *);
 
-void ospf6_area_enable (struct ospf6_area *);
-void ospf6_area_disable (struct ospf6_area *);
+extern void ospf6_area_enable (struct ospf6_area *);
+extern void ospf6_area_disable (struct ospf6_area *);
 
-void ospf6_area_show (struct vty *, struct ospf6_area *);
+extern void ospf6_area_show (struct vty *, struct ospf6_area *);
 
-void ospf6_area_config_write (struct vty *vty);
-void ospf6_area_init ();
+extern void ospf6_area_config_write (struct vty *vty);
+extern void ospf6_area_init (void);
 
 #endif /* OSPF_AREA_H */
-

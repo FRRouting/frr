@@ -23,6 +23,9 @@
 #ifndef _ZEBRA_RIPNG_RIPNGD_H
 #define _ZEBRA_RIPNG_RIPNGD_H
 
+#include <zclient.h>
+#include <vty.h>
+
 /* RIPng version and port number. */
 #define RIPNG_V1                         1
 #define RIPNG_PORT_DEFAULT             521
@@ -340,60 +343,79 @@ extern struct ripng *ripng;
 extern struct thread_master *master;
 
 /* Prototypes. */
-void ripng_init ();
-void ripng_reset ();
-void ripng_clean ();
-void ripng_clean_network ();
-void ripng_interface_clean ();
-void ripng_interface_reset ();
-void ripng_passive_interface_clean ();
-void ripng_if_init ();
-void ripng_route_map_init ();
-void ripng_route_map_reset ();
-void ripng_terminate ();
+extern void ripng_init (void);
+extern void ripng_reset (void);
+extern void ripng_clean (void);
+extern void ripng_clean_network (void);
+extern void ripng_interface_clean (void);
+extern void ripng_interface_reset (void);
+extern void ripng_passive_interface_clean (void);
+extern void ripng_if_init (void);
+extern void ripng_route_map_init (void);
+extern void ripng_route_map_reset (void);
+extern void ripng_terminate (void);
  /* zclient_init() is done by ripng_zebra.c:zebra_init() */
-void zebra_init ();
-void ripng_zclient_start ();
-void ripng_zclient_reset ();
-void ripng_offset_init ();
+extern void zebra_init (void);
+extern void ripng_zclient_start (void);
+extern void ripng_zclient_reset (void);
+extern void ripng_offset_init (void);
 
-int config_write_ripng_offset_list (struct vty *);
+extern int config_write_ripng_offset_list (struct vty *);
 
-void ripng_peer_init ();
-void ripng_peer_update (struct sockaddr_in6 *, u_char);
-void ripng_peer_bad_route (struct sockaddr_in6 *);
-void ripng_peer_bad_packet (struct sockaddr_in6 *);
-void ripng_peer_display (struct vty *);
-struct ripng_peer *ripng_peer_lookup (struct in6_addr *);
-struct ripng_peer *ripng_peer_lookup_next (struct in6_addr *);
+extern void ripng_peer_init (void);
+extern void ripng_peer_update (struct sockaddr_in6 *, u_char);
+extern void ripng_peer_bad_route (struct sockaddr_in6 *);
+extern void ripng_peer_bad_packet (struct sockaddr_in6 *);
+extern void ripng_peer_display (struct vty *);
+extern struct ripng_peer *ripng_peer_lookup (struct in6_addr *);
+extern struct ripng_peer *ripng_peer_lookup_next (struct in6_addr *);
 
-int ripng_offset_list_apply_in (struct prefix_ipv6 *, struct interface *, u_char *);
-int ripng_offset_list_apply_out (struct prefix_ipv6 *, struct interface *, u_char *);
-void ripng_offset_clean ();
+extern int ripng_offset_list_apply_in (struct prefix_ipv6 *,
+                                       struct interface *, u_char *);
+extern int ripng_offset_list_apply_out (struct prefix_ipv6 *,
+                                        struct interface *, u_char *);
+extern void ripng_offset_clean (void);
 
-struct ripng_info * ripng_info_new ();
-void ripng_info_free (struct ripng_info *rinfo);
-void ripng_event (enum ripng_event, int);
-int ripng_request (struct interface *ifp);
-void ripng_redistribute_add (int, int, struct prefix_ipv6 *, unsigned int,
-			     struct in6_addr *);
-void ripng_redistribute_delete (int, int, struct prefix_ipv6 *, unsigned int);
-void ripng_redistribute_withdraw (int type);
+extern struct ripng_info * ripng_info_new (void);
+extern void ripng_info_free (struct ripng_info *rinfo);
+extern void ripng_event (enum ripng_event, int);
+extern int ripng_request (struct interface *ifp);
+extern void ripng_redistribute_add (int, int, struct prefix_ipv6 *,
+                                    unsigned int, struct in6_addr *);
+extern void ripng_redistribute_delete (int, int, struct prefix_ipv6 *,
+                                       unsigned int);
+extern void ripng_redistribute_withdraw (int type);
 
-void ripng_distribute_update_interface (struct interface *);
-void ripng_if_rmap_update_interface (struct interface *);
+extern void ripng_distribute_update_interface (struct interface *);
+extern void ripng_if_rmap_update_interface (struct interface *);
 
-void ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop, unsigned int ifindex, u_char metric);
-void ripng_zebra_ipv6_delete (struct prefix_ipv6 *p, struct in6_addr *nexthop, unsigned int ifindex);
+extern void ripng_zebra_ipv6_add (struct prefix_ipv6 *p,
+                                  struct in6_addr *nexthop,
+                                  unsigned int ifindex, u_char metric);
+extern void ripng_zebra_ipv6_delete (struct prefix_ipv6 *p,
+                                     struct in6_addr *nexthop,
+                                     unsigned int ifindex);
 
-void ripng_redistribute_clean ();
+extern void ripng_redistribute_clean (void);
+extern int ripng_redistribute_check (int);
+extern void ripng_redistribute_write (struct vty *, int);
 
-int ripng_write_rte (int num, struct stream *s, struct prefix_ipv6 *p,
-		     struct in6_addr *nexthop, u_int16_t tag, u_char metric);
-int ripng_send_packet (caddr_t buf, int bufsize, struct sockaddr_in6 *to, 
-		       struct interface *ifp);
+extern int ripng_write_rte (int num, struct stream *s, struct prefix_ipv6 *p,
+                            struct in6_addr *nexthop,
+                            u_int16_t tag, u_char metric);
+extern int ripng_send_packet (caddr_t buf, int bufsize,
+                              struct sockaddr_in6 *to, struct interface *ifp);
 
-void ripng_packet_dump (struct ripng_packet *packet, int size, const char *sndrcv);
+extern void ripng_packet_dump (struct ripng_packet *packet, int size,
+                               const char *sndrcv);
 
+extern int ripng_interface_up (int command, struct zclient *, zebra_size_t);
+extern int ripng_interface_down (int command, struct zclient *, zebra_size_t);
+extern int ripng_interface_add (int command, struct zclient *, zebra_size_t);
+extern int ripng_interface_delete (int command, struct zclient *, zebra_size_t);
+extern int ripng_interface_address_add (int command, struct zclient *, zebra_size_t);
+extern int ripng_interface_address_delete (int command, struct zclient *, zebra_size_t);
+
+extern int ripng_network_write (struct vty *, int);
 
 #endif /* _ZEBRA_RIPNG_RIPNGD_H */

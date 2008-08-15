@@ -27,12 +27,13 @@
 #include "ripngd/ripng_route.h"
 #include "ripngd/ripngd.h"
 
-struct list * ripng_rte_new(void);
-void ripng_rte_free(struct list *ripng_rte_list);
-void ripng_rte_add(struct list *ripng_rte_list, struct prefix_ipv6 *p,
-                   struct ripng_info *rinfo, struct ripng_aggregate *aggregate);
-void ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
-                    struct sockaddr_in6 *to);
+extern struct list * ripng_rte_new(void);
+extern void ripng_rte_free(struct list *ripng_rte_list);
+extern void ripng_rte_add(struct list *ripng_rte_list, struct prefix_ipv6 *p,
+                          struct ripng_info *rinfo,
+                          struct ripng_aggregate *aggregate);
+extern void ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
+                           struct sockaddr_in6 *to);
 
 /***
  * 1 if A > B

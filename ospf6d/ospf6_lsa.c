@@ -45,7 +45,7 @@
 
 vector ospf6_lsa_handler_vector;
 
-int
+static int
 ospf6_unknown_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   u_char *start, *end, *current;
@@ -703,14 +703,14 @@ ospf6_lsa_checksum (struct ospf6_lsa_header *lsa_header)
 }
 
 void
-ospf6_lsa_init ()
+ospf6_lsa_init (void)
 {
   ospf6_lsa_handler_vector = vector_init (0);
   ospf6_install_lsa_handler (&unknown_handler);
 }
 
 
-char *
+static char *
 ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)
 {
   static char buf[64];
@@ -870,7 +870,7 @@ struct cmd_element no_debug_ospf6_lsa_type_cmd;
 struct cmd_element no_debug_ospf6_lsa_type_detail_cmd;
 
 void
-install_element_ospf6_debug_lsa ()
+install_element_ospf6_debug_lsa (void)
 {
   u_int i;
   struct ospf6_lsa_handler *handler;

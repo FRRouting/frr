@@ -183,7 +183,7 @@ ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on)
 }
 
 /* RFC2328 section 10.4 */
-int
+static int
 need_adjacency (struct ospf6_neighbor *on)
 {
   if (on->ospf6_if->state == OSPF6_INTERFACE_POINTTOPOINT ||
@@ -551,7 +551,7 @@ inactivity_timer (struct thread *thread)
 
 /* vty functions */
 /* show neighbor structure */
-void
+static void
 ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
 {
   char router_id[16];
@@ -612,7 +612,7 @@ ospf6_neighbor_show (struct vty *vty, struct ospf6_neighbor *on)
            ospf6_interface_state_str[on->ospf6_if->state], VNL);
 }
 
-void
+static void
 ospf6_neighbor_show_drchoice (struct vty *vty, struct ospf6_neighbor *on)
 {
   char router_id[16];
@@ -641,7 +641,7 @@ ospf6_neighbor_show_drchoice (struct vty *vty, struct ospf6_neighbor *on)
            VNL);
 }
 
-void
+static void
 ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
 {
   char drouter[16], bdrouter[16];
@@ -801,7 +801,7 @@ ALIAS (show_ipv6_ospf6_neighbor,
        "Neighbor list\n"
        "Display details\n"
        "Display DR choices\n"
-      );
+      )
 
 DEFUN (show_ipv6_ospf6_neighbor_one,
        show_ipv6_ospf6_neighbor_one_cmd,
@@ -839,7 +839,7 @@ DEFUN (show_ipv6_ospf6_neighbor_one,
 }
 
 void
-ospf6_neighbor_init ()
+ospf6_neighbor_init (void)
 {
   install_element (VIEW_NODE, &show_ipv6_ospf6_neighbor_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_neighbor_detail_cmd);
@@ -878,7 +878,7 @@ ALIAS (debug_ospf6_neighbor,
        "Debug OSPFv3 Neighbor\n"
        "Debug OSPFv3 Neighbor State Change\n"
        "Debug OSPFv3 Neighbor Event\n"
-      );
+      )
 
 DEFUN (no_debug_ospf6_neighbor,
        no_debug_ospf6_neighbor_cmd,
@@ -913,7 +913,7 @@ ALIAS (no_debug_ospf6_neighbor,
        "Debug OSPFv3 Neighbor\n"
        "Debug OSPFv3 Neighbor State Change\n"
        "Debug OSPFv3 Neighbor Event\n"
-      );
+      )
 
 int
 config_write_ospf6_debug_neighbor (struct vty *vty)
@@ -929,7 +929,7 @@ config_write_ospf6_debug_neighbor (struct vty *vty)
 }
 
 void
-install_element_ospf6_debug_neighbor ()
+install_element_ospf6_debug_neighbor (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_neighbor_cmd);
   install_element (ENABLE_NODE, &debug_ospf6_neighbor_detail_cmd);

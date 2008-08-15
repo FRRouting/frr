@@ -54,7 +54,7 @@ ospf6_area_cmp (void *va, void *vb)
 }
 
 /* schedule routing table recalculation */
-void
+static void
 ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
 {
   switch (ntohs (lsa->header->type))
@@ -84,7 +84,7 @@ ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
     }
 }
 
-void
+static void
 ospf6_area_lsdb_hook_remove (struct ospf6_lsa *lsa)
 {
   switch (ntohs (lsa->header->type))
@@ -114,14 +114,14 @@ ospf6_area_lsdb_hook_remove (struct ospf6_lsa *lsa)
     }
 }
 
-void
+static void
 ospf6_area_route_hook_add (struct ospf6_route *route)
 {
   struct ospf6_route *copy = ospf6_route_copy (route);
   ospf6_route_add (copy, ospf6->route_table);
 }
 
-void
+static void
 ospf6_area_route_hook_remove (struct ospf6_route *route)
 {
   struct ospf6_route *copy;
@@ -230,7 +230,7 @@ ospf6_area_lookup (u_int32_t area_id, struct ospf6 *ospf6)
   return (struct ospf6_area *) NULL;
 }
 
-struct ospf6_area *
+static struct ospf6_area *
 ospf6_area_get (u_int32_t area_id, struct ospf6 *o)
 {
   struct ospf6_area *oa;
@@ -364,7 +364,7 @@ ALIAS (area_range,
        OSPF6_AREA_ID_STR
        "Configured address range\n"
        "Specify IPv6 prefix\n"
-       );
+       )
 
 DEFUN (no_area_range,
        no_area_range_cmd,
@@ -746,7 +746,7 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 }
 
 void
-ospf6_area_init ()
+ospf6_area_init (void)
 {
   install_element (VIEW_NODE, &show_ipv6_ospf6_spf_tree_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_area_spf_tree_cmd);

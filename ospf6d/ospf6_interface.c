@@ -72,7 +72,7 @@ ospf6_interface_lookup_by_ifindex (int ifindex)
 }
 
 /* schedule routing table recalculation */
-void
+static void
 ospf6_interface_lsdb_hook (struct ospf6_lsa *lsa)
 {
   switch (ntohs (lsa->header->type))
@@ -692,7 +692,7 @@ neighbor_change (struct thread *thread)
   return 0;
 }
 
-int
+static int
 loopind (struct thread *thread)
 {
   struct ospf6_interface *oi;
@@ -739,7 +739,7 @@ interface_down (struct thread *thread)
 
 
 /* show specified interface structure */
-int
+static int
 ospf6_interface_show (struct vty *vty, struct interface *ifp)
 {
   struct ospf6_interface *oi;
@@ -897,7 +897,7 @@ ALIAS (show_ipv6_ospf6_interface,
        IP6_STR
        OSPF6_STR
        INTERFACE_STR
-       );
+       )
 
 DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
        show_ipv6_ospf6_interface_ifname_prefix_cmd,
@@ -946,7 +946,7 @@ ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
        OSPF6_ROUTE_ADDRESS_STR
        OSPF6_ROUTE_PREFIX_STR
        "Dispaly details of the prefixes\n"
-       );
+       )
 
 ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
        show_ipv6_ospf6_interface_ifname_prefix_match_cmd,
@@ -960,7 +960,7 @@ ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
        OSPF6_ROUTE_PREFIX_STR
        OSPF6_ROUTE_MATCH_STR
        "Dispaly details of the prefixes\n"
-       );
+       )
 
 DEFUN (show_ipv6_ospf6_interface_prefix,
        show_ipv6_ospf6_interface_prefix_cmd,
@@ -999,7 +999,7 @@ ALIAS (show_ipv6_ospf6_interface_prefix,
        OSPF6_ROUTE_ADDRESS_STR
        OSPF6_ROUTE_PREFIX_STR
        "Dispaly details of the prefixes\n"
-       );
+       )
 
 ALIAS (show_ipv6_ospf6_interface_prefix,
        show_ipv6_ospf6_interface_prefix_match_cmd,
@@ -1012,7 +1012,7 @@ ALIAS (show_ipv6_ospf6_interface_prefix,
        OSPF6_ROUTE_PREFIX_STR
        OSPF6_ROUTE_MATCH_STR
        "Dispaly details of the prefixes\n"
-       );
+       )
 
 
 /* interface variable set command */
@@ -1463,7 +1463,7 @@ DEFUN (no_ipv6_ospf6_advertise_prefix_list,
   return CMD_SUCCESS;
 }
 
-int
+static int
 config_write_ospf6_interface (struct vty *vty)
 {
   struct listnode *i;
@@ -1519,7 +1519,7 @@ struct cmd_node interface_node =
 };
 
 void
-ospf6_interface_init ()
+ospf6_interface_init (void)
 {
   /* Install interface node. */
   install_node (&interface_node, config_write_ospf6_interface);
@@ -1596,7 +1596,7 @@ config_write_ospf6_debug_interface (struct vty *vty)
 }
 
 void
-install_element_ospf6_debug_interface ()
+install_element_ospf6_debug_interface (void)
 {
   install_element (ENABLE_NODE, &debug_ospf6_interface_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_interface_cmd);

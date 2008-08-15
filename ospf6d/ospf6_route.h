@@ -246,61 +246,60 @@ extern const char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
   (*(u_int32_t *)(&(x)->u.prefix6.s6_addr[4]))
 
 /* Function prototype */
-void ospf6_linkstate_prefix (u_int32_t adv_router, u_int32_t id,
-                             struct prefix *prefix);
-void ospf6_linkstate_prefix2str (struct prefix *prefix, char *buf, int size);
+extern void ospf6_linkstate_prefix (u_int32_t adv_router, u_int32_t id,
+                                    struct prefix *prefix);
+extern void ospf6_linkstate_prefix2str (struct prefix *prefix, char *buf,
+                                        int size);
 
-struct ospf6_route *ospf6_route_create ();
-void ospf6_route_delete (struct ospf6_route *);
-struct ospf6_route *ospf6_route_copy (struct ospf6_route *route);
+extern struct ospf6_route *ospf6_route_create (void);
+extern void ospf6_route_delete (struct ospf6_route *);
+extern struct ospf6_route *ospf6_route_copy (struct ospf6_route *route);
 
-void ospf6_route_lock (struct ospf6_route *route);
-void ospf6_route_unlock (struct ospf6_route *route);
+extern void ospf6_route_lock (struct ospf6_route *route);
+extern void ospf6_route_unlock (struct ospf6_route *route);
 
-struct ospf6_route *
-ospf6_route_lookup (struct prefix *prefix,
-                    struct ospf6_route_table *table);
-struct ospf6_route *
-ospf6_route_lookup_identical (struct ospf6_route *route,
-                              struct ospf6_route_table *table);
-struct ospf6_route *
-ospf6_route_lookup_bestmatch (struct prefix *prefix,
-                              struct ospf6_route_table *table);
-
-struct ospf6_route *
-ospf6_route_add (struct ospf6_route *route, struct ospf6_route_table *table);
-void
-ospf6_route_remove (struct ospf6_route *route, struct ospf6_route_table *table);
-
-struct ospf6_route *ospf6_route_head (struct ospf6_route_table *table);
-struct ospf6_route *ospf6_route_next (struct ospf6_route *route);
-struct ospf6_route *ospf6_route_best_next (struct ospf6_route *route);
-
-struct ospf6_route *ospf6_route_match_head (struct prefix *prefix,
+extern struct ospf6_route *ospf6_route_lookup (struct prefix *prefix,
+                                               struct ospf6_route_table *table);
+extern struct ospf6_route *ospf6_route_lookup_identical (struct ospf6_route *route,
                                             struct ospf6_route_table *table);
-struct ospf6_route *ospf6_route_match_next (struct prefix *prefix,
+extern struct ospf6_route *ospf6_route_lookup_bestmatch (struct prefix *prefix,
+                                              struct ospf6_route_table *table);
+
+extern struct ospf6_route *ospf6_route_add (struct ospf6_route *route,
+                                            struct ospf6_route_table *table);
+extern void ospf6_route_remove (struct ospf6_route *route,
+                                struct ospf6_route_table *table);
+
+extern struct ospf6_route *ospf6_route_head (struct ospf6_route_table *table);
+extern struct ospf6_route *ospf6_route_next (struct ospf6_route *route);
+extern struct ospf6_route *ospf6_route_best_next (struct ospf6_route *route);
+
+extern struct ospf6_route *ospf6_route_match_head (struct prefix *prefix,
+                                            struct ospf6_route_table *table);
+extern struct ospf6_route *ospf6_route_match_next (struct prefix *prefix,
                                             struct ospf6_route *route);
 
-void ospf6_route_remove_all (struct ospf6_route_table *);
-struct ospf6_route_table *ospf6_route_table_create (int s, int t);
-void ospf6_route_table_delete (struct ospf6_route_table *);
-void ospf6_route_dump (struct ospf6_route_table *table);
+extern void ospf6_route_remove_all (struct ospf6_route_table *);
+extern struct ospf6_route_table *ospf6_route_table_create (int s, int t);
+extern void ospf6_route_table_delete (struct ospf6_route_table *);
+extern void ospf6_route_dump (struct ospf6_route_table *table);
 
 
-void ospf6_route_show (struct vty *vty, struct ospf6_route *route);
-void ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route);
+extern void ospf6_route_show (struct vty *vty, struct ospf6_route *route);
+extern void ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route);
 
-int ospf6_route_table_show (struct vty *, int, const char *[],
-                            struct ospf6_route_table *);
-int ospf6_linkstate_table_show (struct vty *vty, int argc, const char *argv[],
-                            struct ospf6_route_table *table);
+extern int ospf6_route_table_show (struct vty *, int, const char *[],
+                                   struct ospf6_route_table *);
+extern int ospf6_linkstate_table_show (struct vty *vty, int argc,
+                                       const char *argv[],
+                                       struct ospf6_route_table *table);
 
-void ospf6_brouter_show_header (struct vty *vty);
-void ospf6_brouter_show (struct vty *vty, struct ospf6_route *route);
+extern void ospf6_brouter_show_header (struct vty *vty);
+extern void ospf6_brouter_show (struct vty *vty, struct ospf6_route *route);
 
-int config_write_ospf6_debug_route (struct vty *vty);
-void install_element_ospf6_debug_route ();
-void ospf6_route_init ();
+extern int config_write_ospf6_debug_route (struct vty *vty);
+extern void install_element_ospf6_debug_route (void);
+extern void ospf6_route_init (void);
 
 #endif /* OSPF6_ROUTE_H */
 
