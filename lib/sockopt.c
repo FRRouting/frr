@@ -499,6 +499,7 @@ int
 sockopt_tcp_signature (int sock, union sockunion *su, const char *password)
 {
 #if HAVE_DECL_TCP_MD5SIG
+  int ret;
 #ifndef GNU_LINUX
   /*
    * XXX Need to do PF_KEY operation here to add/remove an SA entry,
@@ -509,7 +510,6 @@ sockopt_tcp_signature (int sock, union sockunion *su, const char *password)
   int keylen = password ? strlen (password) : 0;
   struct tcp_md5sig md5sig;
   union sockunion *su2, *susock;
-  int ret;
   
   /* Figure out whether the socket and the sockunion are the same family..
    * adding AF_INET to AF_INET6 needs to be v4 mapped, you'd think..
@@ -553,9 +553,9 @@ sockopt_tcp_signature (int sock, union sockunion *su, const char *password)
   md5sig.tcpm_keylen = keylen;
   if (keylen)
     memcpy (md5sig.tcpm_key, password, keylen);
+  sockunion_free (susock);
 #endif /* GNU_LINUX */
   ret = setsockopt (sock, IPPROTO_TCP, TCP_MD5SIG, &md5sig, sizeof md5sig);
-  sockunion_free (susock);
   return ret;
 #else /* HAVE_TCP_MD5SIG */
   return -2;
