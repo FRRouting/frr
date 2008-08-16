@@ -112,6 +112,45 @@ set_ifindex(struct interface *ifp, unsigned int ifi_index)
   ifp->ifindex = ifi_index;
 }
 
+static int
+netlink_recvbuf (struct nlsock *nl, uint32_t newsize)
+{
+  u_int32_t oldsize;
+  socklen_t newlen = sizeof(newsize);
+  socklen_t oldlen = sizeof(oldsize);
+  int ret;
+
+  ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &oldsize, &oldlen);
+  if (ret < 0)
+    {
+      zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
+	    safe_strerror (errno));
+      return -1;
+    }
+
+  ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &nl_rcvbufsize,
+		   sizeof(nl_rcvbufsize));
+  if (ret < 0)
+    {
+      zlog (NULL, LOG_ERR, "Can't set %s receive buffer size: %s", nl->name,
+	    safe_strerror (errno));
+      return -1;
+    }
+
+  ret = getsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &newsize, &newlen);
+  if (ret < 0)
+    {
+      zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
+	    safe_strerror (errno));
+      return -1;
+    }
+
+  zlog (NULL, LOG_INFO,
+	"Setting netlink socket receive buffer size: %u -> %u",
+	oldsize, newsize);
+  return 0;
+}
+
 /* Make socket for Linux netlink interface. */
 static int
 netlink_socket (struct nlsock *nl, unsigned long groups)
@@ -128,49 +167,6 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
       zlog (NULL, LOG_ERR, "Can't open %s socket: %s", nl->name,
             safe_strerror (errno));
       return -1;
-    }
-
-
-  /* Set receive buffer size if it's set from command line */
-  if (nl_rcvbufsize)
-    {
-      u_int32_t oldsize, oldlen;
-      u_int32_t newsize, newlen;
-
-      oldlen = sizeof(oldsize);
-      newlen = sizeof(newsize);
-
-      ret = getsockopt(sock, SOL_SOCKET, SO_RCVBUF, &oldsize, &oldlen);
-      if (ret < 0)
-	{
-	  zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
-		safe_strerror (errno));
-	  close (sock);
-	  return -1;
-	}
-
-      ret = setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &nl_rcvbufsize,
-		       sizeof(nl_rcvbufsize));
-      if (ret < 0)
-	{
-	  zlog (NULL, LOG_ERR, "Can't set %s receive buffer size: %s", nl->name,
-		safe_strerror (errno));
-	  close (sock);
-	  return -1;
-	}
-
-      ret = getsockopt(sock, SOL_SOCKET, SO_RCVBUF, &newsize, &newlen);
-      if (ret < 0)
-	{
-	  zlog (NULL, LOG_ERR, "Can't get %s receive buffer size: %s", nl->name,
-		safe_strerror (errno));
-	  close (sock);
-	  return -1;
-	}
-
-      zlog (NULL, LOG_INFO,
-	    "Setting netlink socket receive buffer size: %u -> %u",
-	    oldsize, newsize);
     }
 
   memset (&snl, 0, sizeof snl);
@@ -1897,6 +1893,10 @@ kernel_init (void)
       if (fcntl (netlink.sock, F_SETFL, O_NONBLOCK) < 0)
 	zlog (NULL, LOG_ERR, "Can't set %s socket flags: %s", netlink.name,
 		safe_strerror (errno));
+
+      /* Set receive buffer size if it's set from command line */
+      if (nl_rcvbufsize)
+	netlink_recvbuf (&netlink, nl_rcvbufsize);
 
       netlink_install_filter (netlink.sock, netlink_cmd.snl.nl_pid);
       thread_add_read (zebrad.master, kernel_read, NULL, netlink.sock);
