@@ -931,14 +931,15 @@ fi
 dnl -----------------------
 dnl check proc file system.
 dnl -----------------------
-if test -r /proc/net/dev; then
-  AC_DEFINE(HAVE_PROC_NET_DEV,,/proc/net/dev)
-  IF_PROC=if_proc.o
-fi
-
-if test -r /proc/net/if_inet6; then
-  AC_DEFINE(HAVE_PROC_NET_IF_INET6,,/proc/net/if_inet6)
-  IF_PROC=if_proc.o
+if test "$netlink" != yes; then
+  if test -r /proc/net/dev; then
+    AC_DEFINE(HAVE_PROC_NET_DEV,,/proc/net/dev)
+    IF_PROC=if_proc.o
+  fi
+  if test -r /proc/net/if_inet6; then
+    AC_DEFINE(HAVE_PROC_NET_IF_INET6,,/proc/net/if_inet6)
+    IF_PROC=if_proc.o
+  fi
 fi
 AC_SUBST(IF_PROC)
 
