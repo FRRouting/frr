@@ -236,7 +236,7 @@ DEFUN (no_debug_zebra_rib,
 
 DEFUN (no_debug_zebra_rib_q,
        no_debug_zebra_rib_q_cmd,
-       "no debug zebra rib queueu",
+       "no debug zebra rib queue",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
