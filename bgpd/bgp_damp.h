@@ -140,7 +140,7 @@ extern void bgp_damp_info_free (struct bgp_damp_info *, int);
 extern void bgp_damp_info_clean (void);
 extern char * bgp_get_reuse_time (unsigned int, char*, size_t);
 extern int bgp_damp_decay (time_t, int);
-extern int bgp_config_write_damp (struct vty *);
+extern void bgp_config_write_damp (struct vty *);
 extern void bgp_damp_info_vty (struct vty *, struct bgp_info *);
 extern char * bgp_damp_reuse_time_vty (struct vty *, struct bgp_info *);
 
