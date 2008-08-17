@@ -285,25 +285,16 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
       struct sockaddr_nl snl;
       struct msghdr msg = { (void *) &snl, sizeof snl, &iov, 1, NULL, 0, 0 };
       struct nlmsghdr *h;
-      int save_errno;
-
-      if (zserv_privs.change (ZPRIVS_RAISE))
-        zlog (NULL, LOG_ERR, "Can't raise privileges");
 
       status = recvmsg (nl->sock, &msg, 0);
-      save_errno = errno;
-
-      if (zserv_privs.change (ZPRIVS_LOWER))
-        zlog (NULL, LOG_ERR, "Can't lower privileges");
-
       if (status < 0)
         {
-          if (save_errno == EINTR)
+          if (errno == EINTR)
             continue;
-          if (save_errno == EWOULDBLOCK || save_errno == EAGAIN)
+          if (errno == EWOULDBLOCK || errno == EAGAIN)
             break;
           zlog (NULL, LOG_ERR, "%s recvmsg overrun: %s",
-	  	nl->name, safe_strerror(save_errno));
+	  	nl->name, safe_strerror(errno));
           continue;
         }
 
