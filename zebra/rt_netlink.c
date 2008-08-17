@@ -331,6 +331,8 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
           if (h->nlmsg_type == NLMSG_ERROR)
             {
               struct nlmsgerr *err = (struct nlmsgerr *) NLMSG_DATA (h);
+	      int errnum = err->error;
+	      int msg_type = err->msg.nlmsg_type;
 
               /* If the error field is zero, then this is an ACK */
               if (err->error == 0)
@@ -359,27 +361,24 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
                   return -1;
                 }
 
-              /* Deal with Error Noise  - MAG */
-              {
-                int loglvl = LOG_ERR;
-                int errnum = err->error;
-                int msg_type = err->msg.nlmsg_type;
+              /* Deal with errors that occur because of races in link handling */
+	      if (nl == &netlink_cmd
+		  && ((msg_type == RTM_DELROUTE &&
+		       (-errnum == ENODEV || -errnum == ESRCH))
+		      || (msg_type == RTM_NEWROUTE && -errnum == EEXIST)))
+		{
+		  if (IS_ZEBRA_DEBUG_KERNEL)
+		    zlog_debug ("%s: error: %s type=%s(%u), seq=%u, pid=%u",
+				nl->name, safe_strerror (-errnum),
+				lookup (nlmsg_str, msg_type),
+				msg_type, err->msg.nlmsg_seq, err->msg.nlmsg_pid);
+		  return 0;
+		}
 
-                if (nl == &netlink_cmd
-                    && (-errnum == ENODEV || -errnum == ESRCH)
-                    && (msg_type == RTM_NEWROUTE || msg_type == RTM_DELROUTE))
-                  loglvl = LOG_DEBUG;
-
-                zlog (NULL, loglvl, "%s error: %s, type=%s(%u), "
-                      "seq=%u, pid=%u",
-                      nl->name, safe_strerror (-errnum),
-                      lookup (nlmsg_str, msg_type),
-                      msg_type, err->msg.nlmsg_seq, err->msg.nlmsg_pid);
-              }
-              /*
-                 ret = -1;
-                 continue;
-               */
+	      zlog_err ("%s error: %s, type=%s(%u), seq=%u, pid=%u",
+			nl->name, safe_strerror (-errnum),
+			lookup (nlmsg_str, msg_type),
+			msg_type, err->msg.nlmsg_seq, err->msg.nlmsg_pid);
               return -1;
             }
 
