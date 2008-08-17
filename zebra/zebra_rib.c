@@ -376,8 +376,12 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 
       /* Pick up selected route. */
       for (match = rn->info; match; match = match->next)
-	if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
-	  break;
+	{
+	  if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+	    continue;
+	  if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
+	    break;
+	}
 
       /* If there is no selected route or matched route is EGP, go up
          tree. */
@@ -473,8 +477,12 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 
       /* Pick up selected route. */
       for (match = rn->info; match; match = match->next)
-	if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
-	  break;
+	{
+	  if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+	    continue;
+	  if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
+	    break;
+	}
 
       /* If there is no selected route or matched route is EGP, go up
          tree. */
@@ -560,8 +568,12 @@ rib_match_ipv4 (struct in_addr addr)
       
       /* Pick up selected route. */
       for (match = rn->info; match; match = match->next)
-	if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
-	  break;
+	{
+	  if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+	    continue;
+	  if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
+	    break;
+	}
 
       /* If there is no selected route or matched route is EGP, go up
          tree. */
@@ -613,10 +625,13 @@ rib_lookup_ipv4 (struct prefix_ipv4 *p)
   /* Unlock node. */
   route_unlock_node (rn);
 
-  /* Pick up selected route. */
   for (match = rn->info; match; match = match->next)
-    if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
-      break;
+    {
+      if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+	continue;
+      if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
+	break;
+    }
 
   if (! match || match->type == ZEBRA_ROUTE_BGP)
     return NULL;
@@ -668,12 +683,12 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate)
 
   /* Find out if a "selected" RR for the discovered RIB entry exists ever. */
   for (match = rn->info; match; match = match->next)
-  {
-    if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
-      continue;
-    if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
-      break;
-  }
+    {
+      if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+	continue;
+      if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
+	break;
+    }
 
   /* None such found :( */
   if (!match)
@@ -735,8 +750,12 @@ rib_match_ipv6 (struct in6_addr *addr)
       
       /* Pick up selected route. */
       for (match = rn->info; match; match = match->next)
-	if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
-	  break;
+	{
+	  if (CHECK_FLAG (match->status, RIB_ENTRY_REMOVED))
+	    continue;
+	  if (CHECK_FLAG (match->flags, ZEBRA_FLAG_SELECTED))
+	    break;
+	}
 
       /* If there is no selected route or matched route is EGP, go up
          tree. */
