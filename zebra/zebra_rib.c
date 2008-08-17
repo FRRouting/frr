@@ -51,7 +51,7 @@ extern struct zebra_t zebrad;
 int rib_process_hold_time = 10;
 
 /* Each route type's string and default distance value. */
-struct
+static const struct
 {  
   int key;
   int distance;
@@ -70,7 +70,7 @@ struct
 };
 
 /* Vector for routing table.  */
-vector vrf_vector;
+static vector vrf_vector;
 
 /* Allocate new VRF.  */
 static struct vrf *
