@@ -49,8 +49,7 @@ struct zclient *
 zclient_new ()
 {
   struct zclient *zclient;
-  zclient = XMALLOC (MTYPE_ZCLIENT, sizeof (struct zclient));
-  memset (zclient, 0, sizeof (struct zclient));
+  zclient = XCALLOC (MTYPE_ZCLIENT, sizeof (struct zclient));
 
   zclient->ibuf = stream_new (ZEBRA_MAX_PACKET_SIZ);
   zclient->obuf = stream_new (ZEBRA_MAX_PACKET_SIZ);

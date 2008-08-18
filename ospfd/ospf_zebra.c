@@ -1113,10 +1113,7 @@ ospf_prefix_list_update (struct prefix_list *plist)
 static struct ospf_distance *
 ospf_distance_new (void)
 {
-  struct ospf_distance *new;
-  new = XMALLOC (MTYPE_OSPF_DISTANCE, sizeof (struct ospf_distance));
-  memset (new, 0, sizeof (struct ospf_distance));
-  return new;
+  return XCALLOC (MTYPE_OSPF_DISTANCE, sizeof (struct ospf_distance));
 }
 
 static void

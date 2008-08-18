@@ -51,11 +51,7 @@ community_list_master_lookup (struct community_list_handler *ch, int master)
 static struct community_entry *
 community_entry_new ()
 {
-  struct community_entry *new;
-
-  new = XMALLOC (MTYPE_COMMUNITY_LIST_ENTRY, sizeof (struct community_entry));
-  memset (new, 0, sizeof (struct community_entry));
-  return new;
+  return XCALLOC (MTYPE_COMMUNITY_LIST_ENTRY, sizeof (struct community_entry));
 }
 
 /* Free community list entry.  */
@@ -92,11 +88,7 @@ community_entry_free (struct community_entry *entry)
 static struct community_list *
 community_list_new ()
 {
-  struct community_list *new;
-
-  new = XMALLOC (MTYPE_COMMUNITY_LIST, sizeof (struct community_list));
-  memset (new, 0, sizeof (struct community_list));
-  return new;
+  return XCALLOC (MTYPE_COMMUNITY_LIST, sizeof (struct community_list));
 }
 
 /* Free community-list.  */

@@ -36,8 +36,7 @@ bgp_table_init (afi_t afi, safi_t safi)
 {
   struct bgp_table *rt;
 
-  rt = XMALLOC (MTYPE_BGP_TABLE, sizeof (struct bgp_table));
-  memset (rt, 0, sizeof (struct bgp_table));
+  rt = XCALLOC (MTYPE_BGP_TABLE, sizeof (struct bgp_table));
 
   rt->type = BGP_TABLE_MAIN;
   rt->afi = afi;
@@ -56,11 +55,7 @@ bgp_table_finish (struct bgp_table **rt)
 static struct bgp_node *
 bgp_node_create ()
 {
-  struct bgp_node *rn;
-
-  rn = (struct bgp_node *) XMALLOC (MTYPE_BGP_NODE, sizeof (struct bgp_node));
-  memset (rn, 0, sizeof (struct bgp_node));
-  return rn;
+  return XCALLOC (MTYPE_BGP_NODE, sizeof (struct bgp_node));
 }
 
 /* Allocate new route node with prefix set. */

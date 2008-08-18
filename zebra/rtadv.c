@@ -84,10 +84,7 @@ struct rtadv *rtadv = NULL;
 static struct rtadv *
 rtadv_new (void)
 {
-  struct rtadv *new;
-  new = XMALLOC (MTYPE_TMP, sizeof (struct rtadv));
-  memset (new, 0, sizeof (struct rtadv));
-  return new;
+  return XCALLOC (MTYPE_TMP, sizeof (struct rtadv));
 }
 
 static void
@@ -529,12 +526,7 @@ rtadv_make_socket (void)
 static struct rtadv_prefix *
 rtadv_prefix_new ()
 {
-  struct rtadv_prefix *new;
-
-  new = XMALLOC (MTYPE_RTADV_PREFIX, sizeof (struct rtadv_prefix));
-  memset (new, 0, sizeof (struct rtadv_prefix));
-
-  return new;
+  return XCALLOC (MTYPE_RTADV_PREFIX, sizeof (struct rtadv_prefix));
 }
 
 static void

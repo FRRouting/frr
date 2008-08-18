@@ -259,8 +259,7 @@ ospf_apiclient_connect (char *host, int syncport)
   close (async_server_sock);
 
   /* Create new client-side instance */
-  new = XMALLOC (MTYPE_OSPF_APICLIENT, sizeof (struct ospf_apiclient));
-  memset (new, 0, sizeof (struct ospf_apiclient));
+  new = XCALLOC (MTYPE_OSPF_APICLIENT, sizeof (struct ospf_apiclient));
 
   /* Initialize socket descriptors for sync and async channels */
   new->fd_sync = fd1;

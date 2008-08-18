@@ -180,8 +180,7 @@ sockunion_str2su (const char *str)
   int ret;
   union sockunion *su;
 
-  su = XMALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
-  memset (su, 0, sizeof (union sockunion));
+  su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
 
   ret = inet_pton (AF_INET, str, &su->sin.sin_addr);
   if (ret > 0)			/* Valid IPv4 address format. */

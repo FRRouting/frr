@@ -36,11 +36,7 @@ struct list *peer_list;
 static struct rip_peer *
 rip_peer_new (void)
 {
-  struct rip_peer *new;
-
-  new = XMALLOC (MTYPE_RIP_PEER, sizeof (struct rip_peer));
-  memset (new, 0, sizeof (struct rip_peer));
-  return new;
+  return XCALLOC (MTYPE_RIP_PEER, sizeof (struct rip_peer));
 }
 
 static void

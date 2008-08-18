@@ -48,8 +48,7 @@ if_zebra_new_hook (struct interface *ifp)
 {
   struct zebra_if *zebra_if;
 
-  zebra_if = XMALLOC (MTYPE_TMP, sizeof (struct zebra_if));
-  memset (zebra_if, 0, sizeof (struct zebra_if));
+  zebra_if = XCALLOC (MTYPE_TMP, sizeof (struct zebra_if));
 
   zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
   zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_UNSPEC;

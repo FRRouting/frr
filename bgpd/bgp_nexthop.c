@@ -98,11 +98,7 @@ bnc_nexthop_free (struct bgp_nexthop_cache *bnc)
 static struct bgp_nexthop_cache *
 bnc_new ()
 {
-  struct bgp_nexthop_cache *new;
-
-  new = XMALLOC (MTYPE_BGP_NEXTHOP_CACHE, sizeof (struct bgp_nexthop_cache));
-  memset (new, 0, sizeof (struct bgp_nexthop_cache));
-  return new;
+  return XCALLOC (MTYPE_BGP_NEXTHOP_CACHE, sizeof (struct bgp_nexthop_cache));
 }
 
 static void
@@ -575,8 +571,7 @@ bgp_connected_add (struct connected *ifc)
 	}
       else
 	{
-	  bc = XMALLOC (0, sizeof (struct bgp_connected_ref));
-	  memset (bc, 0, sizeof (struct bgp_connected_ref));
+	  bc = XCALLOC (0, sizeof (struct bgp_connected_ref));
 	  bc->refcnt = 1;
 	  rn->info = bc;
 	}
@@ -601,8 +596,7 @@ bgp_connected_add (struct connected *ifc)
 	}
       else
 	{
-	  bc = XMALLOC (0, sizeof (struct bgp_connected_ref));
-	  memset (bc, 0, sizeof (struct bgp_connected_ref));
+	  bc = XCALLOC (0, sizeof (struct bgp_connected_ref));
 	  bc->refcnt = 1;
 	  rn->info = bc;
 	}
@@ -748,8 +742,7 @@ zlookup_read ()
 
       for (i = 0; i < nexthop_num; i++)
 	{
-	  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-	  memset (nexthop, 0, sizeof (struct nexthop));
+	  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
 	  nexthop->type = stream_getc (s);
 	  switch (nexthop->type)
 	    {
@@ -858,8 +851,7 @@ zlookup_read_ipv6 ()
 
       for (i = 0; i < nexthop_num; i++)
 	{
-	  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-	  memset (nexthop, 0, sizeof (struct nexthop));
+	  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
 	  nexthop->type = stream_getc (s);
 	  switch (nexthop->type)
 	    {

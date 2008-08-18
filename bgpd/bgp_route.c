@@ -129,12 +129,7 @@ bgp_info_extra_get (struct bgp_info *ri)
 static struct bgp_info *
 bgp_info_new ()
 {
-  struct bgp_info *new;
-
-  new = XMALLOC (MTYPE_BGP_ROUTE, sizeof (struct bgp_info));
-  memset (new, 0, sizeof (struct bgp_info));
-
-  return new;
+  return XCALLOC (MTYPE_BGP_ROUTE, sizeof (struct bgp_info));
 }
 
 /* Free bgp route information. */
@@ -3121,10 +3116,7 @@ bgp_nlri_sanity_check (struct peer *peer, int afi, u_char *pnt,
 static struct bgp_static *
 bgp_static_new ()
 {
-  struct bgp_static *new;
-  new = XMALLOC (MTYPE_BGP_STATIC, sizeof (struct bgp_static));
-  memset (new, 0, sizeof (struct bgp_static));
-  return new;
+  return XCALLOC (MTYPE_BGP_STATIC, sizeof (struct bgp_static));
 }
 
 static void
@@ -4509,10 +4501,7 @@ struct bgp_aggregate
 static struct bgp_aggregate *
 bgp_aggregate_new ()
 {
-  struct bgp_aggregate *new;
-  new = XMALLOC (MTYPE_BGP_AGGREGATE, sizeof (struct bgp_aggregate));
-  memset (new, 0, sizeof (struct bgp_aggregate));
-  return new;
+  return XCALLOC (MTYPE_BGP_AGGREGATE, sizeof (struct bgp_aggregate));
 }
 
 static void
@@ -10859,10 +10848,7 @@ struct bgp_distance
 static struct bgp_distance *
 bgp_distance_new ()
 {
-  struct bgp_distance *new;
-  new = XMALLOC (MTYPE_BGP_DISTANCE, sizeof (struct bgp_distance));
-  memset (new, 0, sizeof (struct bgp_distance));
-  return new;
+  return XCALLOC (MTYPE_BGP_DISTANCE, sizeof (struct bgp_distance));
 }
 
 static void

@@ -1390,9 +1390,8 @@ ospf_nbr_nbma_new (void)
 {
   struct ospf_nbr_nbma *nbr_nbma;
 
-  nbr_nbma = XMALLOC (MTYPE_OSPF_NEIGHBOR_STATIC,
+  nbr_nbma = XCALLOC (MTYPE_OSPF_NEIGHBOR_STATIC,
 		      sizeof (struct ospf_nbr_nbma));
-  memset (nbr_nbma, 0, sizeof (struct ospf_nbr_nbma));
 
   nbr_nbma->priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
   nbr_nbma->v_poll = OSPF_POLL_INTERVAL_DEFAULT;

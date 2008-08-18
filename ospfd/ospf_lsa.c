@@ -304,12 +304,7 @@ ospf_lsa_discard (struct ospf_lsa *lsa)
 struct lsa_header *
 ospf_lsa_data_new (size_t size)
 {
-  struct lsa_header *new;
-
-  new = (struct lsa_header *) XMALLOC (MTYPE_OSPF_LSA_DATA, size);
-  memset (new, 0, size);
-
-  return new;
+  return XCALLOC (MTYPE_OSPF_LSA_DATA, size);
 }
 
 /* Duplicate LSA data. */
@@ -3635,9 +3630,7 @@ ospf_schedule_lsa_flood_area (struct ospf_area *area, struct ospf_lsa *lsa)
 {
   struct lsa_action *data;
 
-  data = XMALLOC (MTYPE_OSPF_MESSAGE, sizeof (struct lsa_action));
-  memset (data, 0, sizeof (struct lsa_action));
-
+  data = XCALLOC (MTYPE_OSPF_MESSAGE, sizeof (struct lsa_action));
   data->action = LSA_ACTION_FLOOD_AREA;
   data->area = area;
   data->lsa  = ospf_lsa_lock (lsa); /* Message / Flood area */
@@ -3650,9 +3643,7 @@ ospf_schedule_lsa_flush_area (struct ospf_area *area, struct ospf_lsa *lsa)
 {
   struct lsa_action *data;
 
-  data = XMALLOC (MTYPE_OSPF_MESSAGE, sizeof (struct lsa_action));
-  memset (data, 0, sizeof (struct lsa_action));
-
+  data = XCALLOC (MTYPE_OSPF_MESSAGE, sizeof (struct lsa_action));
   data->action = LSA_ACTION_FLUSH_AREA;
   data->area = area;
   data->lsa  = ospf_lsa_lock (lsa); /* Message / Flush area */

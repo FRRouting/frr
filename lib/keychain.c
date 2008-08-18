@@ -31,10 +31,7 @@ struct list *keychain_list;
 static struct keychain *
 keychain_new (void)
 {
-  struct keychain *new;
-  new = XMALLOC (MTYPE_KEYCHAIN, sizeof (struct keychain));
-  memset (new, 0, sizeof (struct keychain));
-  return new;
+  return XCALLOC (MTYPE_KEYCHAIN, sizeof (struct keychain));
 }
 
 static void
@@ -46,10 +43,7 @@ keychain_free (struct keychain *keychain)
 static struct key *
 key_new (void)
 {
-  struct key *new;
-  new = XMALLOC (MTYPE_KEY, sizeof (struct key));
-  memset (new, 0, sizeof (struct key));
-  return new;
+  return XCALLOC (MTYPE_KEY, sizeof (struct key));
 }
 
 static void

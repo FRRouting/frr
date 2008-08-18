@@ -153,8 +153,7 @@ cluster_dup (struct cluster_list *cluster)
 {
   struct cluster_list *new;
 
-  new = XMALLOC (MTYPE_CLUSTER, sizeof (struct cluster_list));
-  memset (new, 0, sizeof (struct cluster_list));
+  new = XCALLOC (MTYPE_CLUSTER, sizeof (struct cluster_list));
   new->length = cluster->length;
 
   if (cluster->length)
@@ -1495,10 +1494,7 @@ bgp_attr_unknown (struct peer *peer, struct attr *attr, u_char flag,
 
   /* Store transitive attribute to the end of attr->transit. */
   if (! ((attre = bgp_attr_extra_get(attr))->transit) )
-    {
-      attre->transit = XMALLOC (MTYPE_TRANSIT, sizeof (struct transit));
-      memset (attre->transit, 0, sizeof (struct transit));
-    }
+      attre->transit = XCALLOC (MTYPE_TRANSIT, sizeof (struct transit));
 
   transit = attre->transit;
 

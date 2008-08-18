@@ -508,12 +508,10 @@ ospf_new_if_params (void)
 {
   struct ospf_if_params *oip;
 
-  oip = XMALLOC (MTYPE_OSPF_IF_PARAMS, sizeof (struct ospf_if_params));
+  oip = XCALLOC (MTYPE_OSPF_IF_PARAMS, sizeof (struct ospf_if_params));
 
   if (!oip)
     return NULL;
-
-  memset (oip, 0, sizeof (struct ospf_if_params));
 
   UNSET_IF_PARAM (oip, output_cost_cmd);
   UNSET_IF_PARAM (oip, transmit_delay);
@@ -638,8 +636,7 @@ ospf_if_new_hook (struct interface *ifp)
 {
   int rc = 0;
 
-  ifp->info = XMALLOC (MTYPE_OSPF_IF_INFO, sizeof (struct ospf_if_info));
-  memset (ifp->info, 0, sizeof (struct ospf_if_info));
+  ifp->info = XCALLOC (MTYPE_OSPF_IF_INFO, sizeof (struct ospf_if_info));
   
   IF_OIFS (ifp) = route_table_init ();
   IF_OIFS_PARAMS (ifp) = route_table_init ();
@@ -814,8 +811,7 @@ ospf_vl_data_new (struct ospf_area *area, struct in_addr vl_peer)
 {
   struct ospf_vl_data *vl_data;
 
-  vl_data = XMALLOC (MTYPE_OSPF_VL_DATA, sizeof (struct ospf_vl_data));
-  memset (vl_data, 0, sizeof (struct ospf_vl_data));
+  vl_data = XCALLOC (MTYPE_OSPF_VL_DATA, sizeof (struct ospf_vl_data));
 
   vl_data->vl_peer.s_addr = vl_peer.s_addr;
   vl_data->vl_area_id = area->area_id;
@@ -1180,12 +1176,7 @@ ospf_vls_in_area (struct ospf_area *area)
 struct crypt_key *
 ospf_crypt_key_new ()
 {
-  struct crypt_key *ck;
-
-  ck = XMALLOC (MTYPE_OSPF_CRYPT_KEY, sizeof (struct crypt_key));
-  memset (ck, 0, sizeof (struct crypt_key));
-
-  return ck;
+  return XCALLOC (MTYPE_OSPF_CRYPT_KEY, sizeof (struct crypt_key));
 }
 
 void

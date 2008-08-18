@@ -99,8 +99,7 @@ msg_new (u_char msgtype, void *msgbody, u_int32_t seqnum, u_int16_t msglen)
 {
   struct msg *new;
 
-  new = XMALLOC (MTYPE_OSPF_API_MSG, sizeof (struct msg));
-  memset (new, 0, sizeof (struct msg));
+  new = XCALLOC (MTYPE_OSPF_API_MSG, sizeof (struct msg));
 
   new->hdr.version = OSPF_API_VERSION;
   new->hdr.msgtype = msgtype;
@@ -271,12 +270,7 @@ msg_get_seq (struct msg *msg)
 struct msg_fifo *
 msg_fifo_new ()
 {
-  struct msg_fifo *new;
-
-  new = XMALLOC (MTYPE_OSPF_API_FIFO, sizeof (struct msg_fifo));
-  memset (new, 0, sizeof (struct msg_fifo));
-
-  return new;
+  return XCALLOC (MTYPE_OSPF_API_FIFO, sizeof (struct msg_fifo));
 }
 
 /* Add new message to fifo. */

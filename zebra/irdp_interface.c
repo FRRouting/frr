@@ -175,10 +175,7 @@ if_set_defaults(struct interface *ifp)
 
 struct Adv *Adv_new (void)
 {
-  struct Adv *new;
-  new = XMALLOC (MTYPE_TMP, sizeof (struct Adv));
-  memset (new, 0, sizeof (struct Adv));
-  return new;
+  return XCALLOC (MTYPE_TMP, sizeof (struct Adv));
 }
 
 static void

@@ -1405,11 +1405,7 @@ struct ospf_snmp_if
 static struct ospf_snmp_if *
 ospf_snmp_if_new ()
 {
-  struct ospf_snmp_if *osif;
-
-  osif = XMALLOC (0, sizeof (struct ospf_snmp_if));
-  memset (osif, 0, sizeof (struct ospf_snmp_if));
-  return osif;
+  return XCALLOC (0, sizeof (struct ospf_snmp_if));
 }
 
 static void

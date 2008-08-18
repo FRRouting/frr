@@ -101,10 +101,7 @@ struct list *userlist;
 struct vtysh_user *
 user_new ()
 {
-  struct vtysh_user *user;
-  user = XMALLOC (0, sizeof (struct vtysh_user));
-  memset (user, 0, sizeof (struct vtysh_user));
-  return user;
+  return XCALLOC (0, sizeof (struct vtysh_user));
 }
 
 void

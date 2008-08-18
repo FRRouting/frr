@@ -69,8 +69,7 @@ ospf_nbr_new (struct ospf_interface *oi)
   struct ospf_neighbor *nbr;
 
   /* Allcate new neighbor. */
-  nbr = XMALLOC (MTYPE_OSPF_NEIGHBOR, sizeof (struct ospf_neighbor));
-  memset (nbr, 0, sizeof (struct ospf_neighbor));
+  nbr = XCALLOC (MTYPE_OSPF_NEIGHBOR, sizeof (struct ospf_neighbor));
 
   /* Relate neighbor to the interface. */
   nbr->oi = oi;

@@ -468,8 +468,7 @@ ospf6_lsa_create (struct ospf6_lsa_header *header)
   /* LSA information structure */
   /* allocate memory */
   lsa = (struct ospf6_lsa *)
-    XMALLOC (MTYPE_OSPF6_LSA, sizeof (struct ospf6_lsa));
-  memset (lsa, 0, sizeof (struct ospf6_lsa));
+    XCALLOC (MTYPE_OSPF6_LSA, sizeof (struct ospf6_lsa));
 
   lsa->header = (struct ospf6_lsa_header *) new_header;
 
@@ -498,8 +497,7 @@ ospf6_lsa_create_headeronly (struct ospf6_lsa_header *header)
   /* LSA information structure */
   /* allocate memory */
   lsa = (struct ospf6_lsa *)
-    XMALLOC (MTYPE_OSPF6_LSA, sizeof (struct ospf6_lsa));
-  memset (lsa, 0, sizeof (struct ospf6_lsa));
+    XCALLOC (MTYPE_OSPF6_LSA, sizeof (struct ospf6_lsa));
 
   lsa->header = (struct ospf6_lsa_header *) new_header;
   SET_FLAG (lsa->flag, OSPF6_LSA_HEADERONLY);

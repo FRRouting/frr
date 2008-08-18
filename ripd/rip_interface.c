@@ -118,8 +118,7 @@ rip_interface_new (void)
 {
   struct rip_interface *ri;
 
-  ri = XMALLOC (MTYPE_RIP_INTERFACE, sizeof (struct rip_interface));
-  memset (ri, 0, sizeof (struct rip_interface));
+  ri = XCALLOC (MTYPE_RIP_INTERFACE, sizeof (struct rip_interface));
 
   /* Default authentication type is simple password for Cisco
      compatibility. */

@@ -96,11 +96,9 @@ ospf6_interface_create (struct interface *ifp)
   unsigned int iobuflen;
 
   oi = (struct ospf6_interface *)
-    XMALLOC (MTYPE_OSPF6_IF, sizeof (struct ospf6_interface));
+    XCALLOC (MTYPE_OSPF6_IF, sizeof (struct ospf6_interface));
 
-  if (oi)
-    memset (oi, 0, sizeof (struct ospf6_interface));
-  else
+  if (!oi)
     {
       zlog_err ("Can't malloc ospf6_interface for ifindex %d", ifp->ifindex);
       return (struct ospf6_interface *) NULL;

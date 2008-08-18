@@ -620,9 +620,7 @@ DEFUN (show_address,
 struct connected *
 connected_new (void)
 {
-  struct connected *new = XMALLOC (MTYPE_CONNECTED, sizeof (struct connected));
-  memset (new, 0, sizeof (struct connected));
-  return new;
+  return XCALLOC (MTYPE_CONNECTED, sizeof (struct connected));
 }
 
 /* Free connected structure. */

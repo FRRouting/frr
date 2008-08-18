@@ -504,8 +504,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
   memcpy (&route->prefix, prefix, sizeof (struct prefix));
 
   info = (struct ospf6_external_info *)
-    XMALLOC (MTYPE_OSPF6_EXTERNAL_INFO, sizeof (struct ospf6_external_info));
-  memset (info, 0, sizeof (struct ospf6_external_info));
+    XCALLOC (MTYPE_OSPF6_EXTERNAL_INFO, sizeof (struct ospf6_external_info));
   route->route_option = info;
   info->id = ospf6->external_id++;
 

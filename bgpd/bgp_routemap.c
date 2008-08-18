@@ -956,8 +956,7 @@ route_set_ip_nexthop_compile (const char *arg)
 	}
     }
 
-  rins = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct rmap_ip_nexthop_set));
-  memset (rins, 0, sizeof (struct rmap_ip_nexthop_set));
+  rins = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct rmap_ip_nexthop_set));
 
   rins->address = address;
   rins->peer_address = peer_address;
@@ -1426,9 +1425,7 @@ route_set_community_compile (const char *arg)
 	return NULL;
     }
   
-  rcs = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct rmap_com_set));
-  memset (rcs, 0, sizeof (struct rmap_com_set));
-  
+  rcs = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct rmap_com_set));
   rcs->com = com;
   rcs->additive = additive;
   rcs->none = none;
@@ -1790,9 +1787,7 @@ route_set_aggregator_as_compile (const char *arg)
   char as[10];
   char address[20];
 
-  aggregator = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct aggregator));
-  memset (aggregator, 0, sizeof (struct aggregator));
-
+  aggregator = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct aggregator));
   sscanf (arg, "%s %s", as, address);
 
   aggregator->as = strtoul (as, NULL, 10);

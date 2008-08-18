@@ -1820,8 +1820,7 @@ ripng_create (void)
   assert (ripng == NULL);
 
   /* Allocaste RIPng instance. */
-  ripng = XMALLOC (MTYPE_RIPNG, sizeof (struct ripng));
-  memset (ripng, 0, sizeof (struct ripng));
+  ripng = XCALLOC (MTYPE_RIPNG, sizeof (struct ripng));
 
   /* Default version and timer values. */
   ripng->version = RIPNG_V1;

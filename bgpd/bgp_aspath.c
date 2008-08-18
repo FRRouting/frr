@@ -322,11 +322,7 @@ assegment_normalise (struct assegment *head)
 static struct aspath *
 aspath_new (void)
 {
-  struct aspath *aspath;
-
-  aspath = XMALLOC (MTYPE_AS_PATH, sizeof (struct aspath));
-  memset (aspath, 0, sizeof (struct aspath));
-  return aspath;
+  return XCALLOC (MTYPE_AS_PATH, sizeof (struct aspath));
 }
 
 /* Free AS path structure. */

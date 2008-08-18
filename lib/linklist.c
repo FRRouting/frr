@@ -28,11 +28,7 @@
 struct list *
 list_new (void)
 {
-  struct list *new;
-
-  new = XMALLOC (MTYPE_LINK_LIST, sizeof (struct list));
-  memset (new, 0, sizeof (struct list));
-  return new;
+  return XCALLOC (MTYPE_LINK_LIST, sizeof (struct list));
 }
 
 /* Free list. */
@@ -46,11 +42,7 @@ list_free (struct list *l)
 static struct listnode *
 listnode_new (void)
 {
-  struct listnode *node;
-
-  node = XMALLOC (MTYPE_LINK_NODE, sizeof (struct listnode));
-  memset (node, 0, sizeof (struct listnode));
-  return node;
+  return XCALLOC (MTYPE_LINK_NODE, sizeof (struct listnode));
 }
 
 /* Free listnode. */

@@ -63,11 +63,7 @@ strcmp_safe (const char *s1, const char *s2)
 static struct rip_offset_list *
 rip_offset_list_new (void)
 {
-  struct rip_offset_list *new;
-
-  new = XMALLOC (MTYPE_RIP_OFFSET_LIST, sizeof (struct rip_offset_list));
-  memset (new, 0, sizeof (struct rip_offset_list));
-  return new;
+  return XCALLOC (MTYPE_RIP_OFFSET_LIST, sizeof (struct rip_offset_list));
 }
 
 static void

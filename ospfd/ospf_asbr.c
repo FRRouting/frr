@@ -104,8 +104,7 @@ ospf_external_info_new (u_char type)
   struct external_info *new;
 
   new = (struct external_info *)
-    XMALLOC (MTYPE_OSPF_EXTERNAL_INFO, sizeof (struct external_info));
-  memset (new, 0, sizeof (struct external_info));
+    XCALLOC (MTYPE_OSPF_EXTERNAL_INFO, sizeof (struct external_info));
   new->type = type;
 
   ospf_reset_route_map_set_values (&new->route_map_set);

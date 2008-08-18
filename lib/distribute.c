@@ -38,12 +38,7 @@ void (*distribute_delete_hook) (struct distribute *);
 static struct distribute *
 distribute_new (void)
 {
-  struct distribute *new;
-
-  new = XMALLOC (MTYPE_DISTRIBUTE, sizeof (struct distribute));
-  memset (new, 0, sizeof (struct distribute));
-
-  return new;
+  return XCALLOC (MTYPE_DISTRIBUTE, sizeof (struct distribute));
 }
 
 /* Free distribute object. */

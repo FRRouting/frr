@@ -561,13 +561,13 @@ ospf_mpls_te_new_if (struct interface *ifp)
       goto out;
     }
 
-  if ((new = XMALLOC (MTYPE_OSPF_MPLS_TE_LINKPARAMS,
-                  sizeof (struct mpls_te_link))) == NULL)
+  new = XCALLOC (MTYPE_OSPF_MPLS_TE_LINKPARAMS,
+                  sizeof (struct mpls_te_link));
+  if (new == NULL)
     {
       zlog_warn ("ospf_mpls_te_new_if: XMALLOC: %s", safe_strerror (errno));
       goto out;
     }
-  memset (new, 0, sizeof (struct mpls_te_link));
 
   new->area = NULL;
   new->flags = 0;

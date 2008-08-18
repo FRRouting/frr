@@ -937,8 +937,7 @@ ospf_apiserver_register_opaque_type (struct ospf_apiserver *apiserv,
      type. */
 
   regtype =
-    XMALLOC (MTYPE_OSPF_APISERVER, sizeof (struct registered_opaque_type));
-  memset (regtype, 0, sizeof (struct registered_opaque_type));
+    XCALLOC (MTYPE_OSPF_APISERVER, sizeof (struct registered_opaque_type));
   regtype->lsa_type = lsa_type;
   regtype->opaque_type = opaque_type;
 

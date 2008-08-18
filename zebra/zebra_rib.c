@@ -209,8 +209,7 @@ nexthop_ifindex_add (struct rib *rib, unsigned int ifindex)
 {
   struct nexthop *nexthop;
 
-  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-  memset (nexthop, 0, sizeof (struct nexthop));
+  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IFINDEX;
   nexthop->ifindex = ifindex;
 
@@ -224,8 +223,7 @@ nexthop_ifname_add (struct rib *rib, char *ifname)
 {
   struct nexthop *nexthop;
 
-  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-  memset (nexthop, 0, sizeof (struct nexthop));
+  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IFNAME;
   nexthop->ifname = XSTRDUP (0, ifname);
 
@@ -239,8 +237,7 @@ nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4, struct in_addr *src)
 {
   struct nexthop *nexthop;
 
-  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-  memset (nexthop, 0, sizeof (struct nexthop));
+  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IPV4;
   nexthop->gate.ipv4 = *ipv4;
   if (src)
@@ -257,8 +254,7 @@ nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4,
 {
   struct nexthop *nexthop;
 
-  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-  memset (nexthop, 0, sizeof (struct nexthop));
+  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
   nexthop->gate.ipv4 = *ipv4;
   if (src)
@@ -276,8 +272,7 @@ nexthop_ipv6_add (struct rib *rib, struct in6_addr *ipv6)
 {
   struct nexthop *nexthop;
 
-  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-  memset (nexthop, 0, sizeof (struct nexthop));
+  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IPV6;
   nexthop->gate.ipv6 = *ipv6;
 
@@ -292,8 +287,7 @@ nexthop_ipv6_ifname_add (struct rib *rib, struct in6_addr *ipv6,
 {
   struct nexthop *nexthop;
 
-  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-  memset (nexthop, 0, sizeof (struct nexthop));
+  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IPV6_IFNAME;
   nexthop->gate.ipv6 = *ipv6;
   nexthop->ifname = XSTRDUP (0, ifname);
@@ -309,8 +303,7 @@ nexthop_ipv6_ifindex_add (struct rib *rib, struct in6_addr *ipv6,
 {
   struct nexthop *nexthop;
 
-  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-  memset (nexthop, 0, sizeof (struct nexthop));
+  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
   nexthop->gate.ipv6 = *ipv6;
   nexthop->ifindex = ifindex;
@@ -326,8 +319,7 @@ nexthop_blackhole_add (struct rib *rib)
 {
   struct nexthop *nexthop;
 
-  nexthop = XMALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
-  memset (nexthop, 0, sizeof (struct nexthop));
+  nexthop = XCALLOC (MTYPE_NEXTHOP, sizeof (struct nexthop));
   nexthop->type = NEXTHOP_TYPE_BLACKHOLE;
   SET_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE);
 
@@ -2197,8 +2189,7 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
     static_delete_ipv4 (p, gate, ifname, update->distance, vrf_id);
 
   /* Make new static route structure. */
-  si = XMALLOC (MTYPE_STATIC_IPV4, sizeof (struct static_ipv4));
-  memset (si, 0, sizeof (struct static_ipv4));
+  si = XCALLOC (MTYPE_STATIC_IPV4, sizeof (struct static_ipv4));
 
   si->type = type;
   si->distance = distance;
@@ -2741,8 +2732,7 @@ static_add_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
     }
 
   /* Make new static route structure. */
-  si = XMALLOC (MTYPE_STATIC_IPV6, sizeof (struct static_ipv6));
-  memset (si, 0, sizeof (struct static_ipv6));
+  si = XCALLOC (MTYPE_STATIC_IPV6, sizeof (struct static_ipv6));
 
   si->type = type;
   si->distance = distance;

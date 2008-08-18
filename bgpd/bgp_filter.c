@@ -99,11 +99,7 @@ static struct as_list_master as_list_master =
 static struct as_filter *
 as_filter_new ()
 {
-  struct as_filter *new;
-
-  new = XMALLOC (MTYPE_AS_FILTER, sizeof (struct as_filter));
-  memset (new, 0, sizeof (struct as_filter));
-  return new;
+  return XCALLOC (MTYPE_AS_FILTER, sizeof (struct as_filter));
 }
 
 /* Free allocated AS filter. */
@@ -179,11 +175,7 @@ as_list_lookup (const char *name)
 static struct as_list *
 as_list_new ()
 {
-  struct as_list *new;
-
-  new = XMALLOC (MTYPE_AS_LIST, sizeof (struct as_list));
-  memset (new, 0, sizeof (struct as_list));
-  return new;
+  return XCALLOC (MTYPE_AS_LIST, sizeof (struct as_list));
 }
 
 static void

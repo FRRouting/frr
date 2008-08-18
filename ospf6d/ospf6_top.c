@@ -114,8 +114,7 @@ ospf6_create (void)
 {
   struct ospf6 *o;
 
-  o = XMALLOC (MTYPE_OSPF6_TOP, sizeof (struct ospf6));
-  memset (o, 0, sizeof (struct ospf6));
+  o = XCALLOC (MTYPE_OSPF6_TOP, sizeof (struct ospf6));
 
   /* initialize */
   gettimeofday (&o->starttime, (struct timezone *) NULL);
