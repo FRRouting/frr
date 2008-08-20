@@ -981,7 +981,21 @@ ospf_spf_process_stubs (struct ospf_area *area, struct vertex *v,
                 (l->m[0].tos_count * ROUTER_LSA_TOS_SIZE));
 
           if (l->m[0].type == LSA_LINK_TYPE_STUB)
-            ospf_intra_add_stub (rt, l, v, area);
+	    {
+	      /* PtP links with /32 masks adds host routes to the remote host,
+		 see RFC 2328, 12.4.1.1, Option 1.
+		 Make sure that such routes are ignored */
+	      /* XXX: Change to breadth-first and avoid the lookup */
+	      if (l->link_data.s_addr == 0xffffffff &&
+		  ospf_if_lookup_by_local_addr (area->ospf, NULL, l->link_id))
+		{
+		  if (IS_DEBUG_OSPF_EVENT)
+		    zlog_debug ("ospf_spf_process_stubs(): ignoring host route "
+				"%s/32 to self.", inet_ntoa (l->link_id));
+		  continue;
+		}
+	      ospf_intra_add_stub (rt, l, v, area);
+	    }
         }
     }
 
