@@ -1,1 +1,1 @@
-EXTRA_DIST= ChangeLog Makefile.am README.txt
+EXTRA_DIST=Makefile.am README.txt
