@@ -412,6 +412,15 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
 	setsockopt_ipv4_tos (sock, IPTOS_PREC_INTERNETCONTROL);
 #endif
 
+#ifdef IPV6_V6ONLY
+      /* Want only IPV6 on ipv6 socket (not mapped addresses) */
+      if (ainfo->ai_family == AF_INET6) {
+	int on = 1;
+	setsockopt (sock, IPPROTO_IPV6, IPV6_V6ONLY, 
+		    (void *) &on, sizeof (on));
+      }
+#endif
+
       if (bgpd_privs.change (ZPRIVS_RAISE) )
         zlog_err ("bgp_socket: could not raise privs");
 
