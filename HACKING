@@ -1,5 +1,21 @@
 -*- mode: text; -*-
-$Id$
+$QuaggaId: Format:%an, %ai, %h$ $
+
+Contents:
+
+* GUIDELINES FOR HACKING ON QUAGGA
+* COMPILE-TIME CONDITIONAL CODE
+* COMMIT MESSAGE
+* HACKING THE BUILD SYSTEM
+* RELEASE PROCEDURE
+* SHARED LIBRARY VERSIONING
+* RELEASE PROCEDURE
+* TOOL VERSIONS
+* SHARED LIBRARY VERSIONING
+* PATCH SUBMISSION
+* PATCH APPLICATION
+* STABLE PLATFORMS AND DAEMONS
+* IMPORT OR UPDATE VENDOR SPECIFIC ROUTING PROTOCOLS
 
 GUIDELINES FOR HACKING ON QUAGGA
 
@@ -31,10 +47,17 @@ New code should have good comments, and changes to existing code
 should in many cases upgrade the comments when necessary for a
 reviewer to conclude that the change has no unintended consequences.
 
-Each file in CVS should have the RCS keyword Id, somewhere very near
-the top, commented out appropriately for the file type.  Just add
-<dollar>Id:<dollar>, replacing <dollar> with $.  See line 2 of HACKING
-for an example; on checkout :$ is expanded to include the value.
+Each file in the Git repository should have a git format-placeholder (like
+an RCS Id keyword), somewhere very near the top, commented out appropriately
+for the file type. The placeholder used for Quagga (replacing <dollar> with
+$) is:
+
+	$QuaggaId: <dollar>Format:%an, %ai, %h<dollar> $
+
+See line 2 of HACKING for an example;
+
+This placeholder string will be expanded out by the 'git archive' commands,
+wihch is used to generate the tar archives for snapshots and releases.
 
 Please document fully the proper use of a new function in the header file
 in which it is declared.  And please consult existing headers for
@@ -98,44 +121,34 @@ rather than:
 Note that the former approach requires ensuring that SOME_SYMBOL will be
 defined (watch your AC_DEFINEs).
 
-CHANGELOG
+COMMIT MESSAGES
 
-Add a ChangeLog entry whenever changing code, except for minor fixes
-to a commit (with a ChangeLog entry) within the last few days.
+The commit message should provide:
 
-Most directories have a ChangeLog file; changes to code in that
-directory should go in the per-directory ChangeLog.  Global or
-structural changes should also be mentioned in the top-level
-ChangeLog.
+* A suitable one-line summary as the very first line of the message, in the
+  form:
 
-Certain directories do not contain project code, but contain project
-meta-data, eg packaging information, changes to files in these
-directory may not require the global ChangeLog to be updated (at the
-discretion of the maintainer who usually maintains that meta-data).
-Also, CVS meta-data such as cvsignore files do not require ChangeLog
-updates, just a sane commit message.
+  [topic] high-level, one line summary
 
-The ChangeLog should provide:
+  Where topic may be name of a subdirectory, and/or daemon. 
 
-* The date, in YYYY-MM-DD format
-* The author's name and email.
-* a short description of each change made
+* An optional introduction, discussing the general intent of the change.
+* a short description of each change made, preferably:
   * file by file
-    * function by function (use of "ditto" is allowed)
+    * function by function (use of "ditto", or globs is allowed)
 
-(detailed discussion of non-obvious reasoning behind and/or
-implications of a change should be made in comments in the code
-concerned). The changelog optionally may have a (general) description,
-to provide a short description of the general intent of the patch. The
-reason for such itemised ChangeLogs is to encourage the author to
-self-review every line of the patch, as well as provide reviewers an
-index of which changes are intended, along with a short description for
-each. E.g.:
+to provide a short description of the general intent of the patch. 
 
-2012-05-29 Joe Bar <joe@example.com>
+The reason for such itemised commit messages is to encourage the author to
+self-review every line of the patch, as well as provide reviewers an index
+of which changes are intended, along with a short description for each.
+An example (where the general discussion is obviously somewhat redundant,
+given the one-line summary):
+
+[zebra] Enhance frob FSM to detect loss of frob
 
 	* (general) Add a new DOWN state to the frob state machine
-	  to allow the barinator to detect loss of frob.
+	  to allow the barinator to detect loss of frob. 
 	* frob.h: (struct frob) Add DOWN state flag.
 	* frob.c: (frob_change) set/clear DOWN appropriately on state
 	  change.
@@ -152,26 +165,35 @@ etc.), try to check that the following things still work:
 	- out-of-tree builds 
 
 The quagga.net site relies on make dist to work to generate snapshots. It
-must work. Commong problems are to forget to have some additional file
+must work. Common problems are to forget to have some additional file
 included in the dist, or to have a make rule refer to a source file without
 using the srcdir variable.
 
 RELEASE PROCEDURE
 
-  Tag the repository with release tag (follow existing conventions).
+* Tag the apppropriate commit with a release tag (follow existing
+  conventions).
   [This enables recreating the release, and is just good CM practice.]
 
-  Check out the tag, and do a test build.
+* Create a fresh tar archive of the quagga.net repository, and do a test
+  build:
 
-  In an empty directory, do a fresh checkout with -r <release-tag>
-  [This makes the dates in the tarball be the modified dates in CVS.]
+    git-clone git:///code.quagga.net/quagga.git quagga
+    git-archive --remote=git://code.quagga.net/quagga.git \
+        --prefix=quagga-release/ master | tar -xf -
+    cd quagga-release
 
-  ./configure
-  make dist
+    ./update-autotools
+    ./configure
+    make
+    make dist
 
-If any errors occur, move tags as needed and start over from the fresh
-checkouts.  Do not append to tarballs, as this has produced
-non-standards-conforming tarballs in the past.
+The tarball which 'make dist' creates is the tarball to be released! The
+git-archive step ensures you're working with code corresponding to that in
+the official repository, and also carries out keyword expansion. If any
+errors occur, move tags as needed and start over from the fresh checkouts. 
+Do not append to tarballs, as this has produced non-standards-conforming
+tarballs in the past.
 
 [TODO: collation of a list of deprecated commands. Possibly can be scripted
 to extract from vtysh/vtysh_cmd.c]
@@ -209,13 +231,21 @@ installed together.
 
 PATCH SUBMISSION
 
-* Send a clean diff against the head of CVS in unified diff format, eg by:
-  cvs <cvs opts> diff -upwb ....
+* Send a clean diff against the 'master' branch of the quagga.git
+  repository, in unified diff format, preferably with the '-p' argument to 
+  show C function affected by any chunk, and with the -w and -b arguments to
+  minimise changes. E.g: 
 
-* Include ChangeLog and NEWS entries as appropriate before the patch
-  (or in it if you are 100% up to date). A good ChangeLog makes it easier to
-  review a patch, hence failure to include a good ChangeLog is prejudicial
-  to proper review of the patch, and hence the possibility of inclusion.
+    git diff -u -p -w -b mybranch..remotes/quagga.net/master
+
+  Or by using git-format-patch.
+
+*  Not doing so is a definite hindrance to patch application.
+
+* Include NEWS entries as appropriate. 
+
+* Please, please include an appropriate commit message with any emailed
+  patches. Doing so makes it easier to review a patch, and apply it.
 
 * Include only one semantic change or group of changes per patch.
 
@@ -233,36 +263,19 @@ PATCH SUBMISSION
   dropped from the "should be checked" list.
 
 
-PATCH APPLICATION TO CVS
+PATCH APPLICATION
 
 * Only apply patches that meet the submission guidelines.
-
-* If a patch is large (perhaps more than 100 new/changed lines), tag
-  the repository before and after the change with e.g. before-foo-fix
-  and after-foo-fix.
 
 * If the patch might break something, issue a call for testing on the
   mailinglist.
 
-* Give an appropriate commit message, prefixed with a category name
-  (either the name of the daemon, the library component or the general
-  topic) and a one-line short summary of the change as the first line,
-  suitable for use as a Subject in an email. The ChangeLog entry should
-  suffice as the body of the commit message, if it does not, then the
-  ChangeLog entry itself needs to be corrected. The commit message text
-  should be identical to that added to the ChangeLog message. (One
-  suggestion: when commiting, use your editor to read in the ChangeLog
-  and delete all previous ChangeLogs.) An example:
-  
-  ----------------------------------------------------------------
-  [frob] Defangulator needs to specify frob
-  
-  2012-05-12 Joe Bar <joe@example.com>
-  
-  	* frobinate.c: (frob_lookup) fix NULL dereference
-  	  (defangulate) check whether frob is in state FROB_VALID
-  	  before defangulating.
-  ----------------------------------------------------------------
+* Give an appropriate commit message (see above), and use the --author
+  argument to git-commit, if required, to ensure proper attribution (you
+  should still be listed as committer)
+
+* Immediately after commiting, double-check (with git-log and/or gitk). If
+  there's a small mistake you can easily fix it with 'git commit --amend ..'
 
 * By committing a patch, you are responsible for fixing problems
   resulting from it (or backing it out).
@@ -303,37 +316,14 @@ The source code of Quagga is based on two vendors:
    zebra_org (http://www.zebra.org/)
    isisd_sf (http://isisd.sf.net/)
 
-[20041105: Is isisd.sf.netf still where isisd word is happening, or is
-the quagga repo now the canonical place?  The last tarball on sf is
-two years old.  --gdt]
+To import code from further sources, e.g. for archival purposes without
+necessarily having to review and/or fix some changeset, create a branch from
+'master':
 
-In order to import source code, the following procedure should be used:
+	git checkout -b archive/foo master
+	<apply changes>
+	git commit -a "Joe Bar <joe@example.com>"
+	git push quagga archive/foo
 
-* Tag the Current Quagga CVS repository:
-
-    cvs tag import_isisd_sf_20031223
-
-* Import the source code into the Quagga's framework. You must not modified
-  this source code. It will be merged later.
-
-    cd dir_isisd
-    export CVSROOT=:pserver:LOGIN@anoncvs.quagga.net:/var/cvsroot 
-    cvs import quagga/isisd isisd_sf isisd_sf_20031223
-  ---COMMENTS---
-    Vendor: [isisd_sf] Sampo's ISISd from Sourceforge
-    Tag: [isisd_sf_20031217] Current CVS release
-  ---
-
-* Update your Quagga's directory:
-
-    cd dir_quagga
-    cvs update -dP
-
-  or
-
-    cvs co -d quagga_isisd quagga
-
-* Merge the code, then commit:
-
-    cvs commit
-
+presuming 'quagga' corresponds to a file in your .git/remotes with
+configuration for the appropriate Quagga.net repository.
