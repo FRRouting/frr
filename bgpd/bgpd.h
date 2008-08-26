@@ -59,7 +59,6 @@ struct bgp_master
 #define BGP_OPT_NO_FIB                   (1 << 0)
 #define BGP_OPT_MULTIPLE_INSTANCE        (1 << 1)
 #define BGP_OPT_CONFIG_CISCO             (1 << 2)
-#define BGP_OPT_ALWAYS_OPEN		 (1 << 3)
 };
 
 /* BGP instance structure.  */

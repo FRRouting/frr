@@ -279,28 +279,6 @@ DEFUN (no_bgp_config_type,
   return CMD_SUCCESS;
 }
 
-DEFUN_HIDDEN (bgp_open_accept,
-              bgp_open_accept_cmd,
-              "bgp open-accept",
-              BGP_STR
-              "Send OPEN immediately on accepted connections\n")
-{
-  bgp_option_set (BGP_OPT_ALWAYS_OPEN);
-  return CMD_SUCCESS;
-}
-
-DEFUN_HIDDEN (no_bgp_open_accept,
-              no_bgp_open_accept_cmd,
-              "no bgp open-accept",
-              NO_STR
-              BGP_STR
-              "Send OPEN immediately on accepted connections\n")
-
-{
-  bgp_option_unset (BGP_OPT_ALWAYS_OPEN);
-  return CMD_SUCCESS;
-}
-
 DEFUN (no_synchronization,
        no_synchronization_cmd,
        "no synchronization",
@@ -8841,10 +8819,6 @@ bgp_vty_init (void)
   /* "bgp config-type" commands. */
   install_element (CONFIG_NODE, &bgp_config_type_cmd);
   install_element (CONFIG_NODE, &no_bgp_config_type_cmd);
-
-  /* "bgp open-all" commands. */
-  install_element (CONFIG_NODE, &bgp_open_accept_cmd);
-  install_element (CONFIG_NODE, &no_bgp_open_accept_cmd);
 
   /* Dummy commands (Currently not supported) */
   install_element (BGP_NODE, &no_synchronization_cmd);

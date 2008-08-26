@@ -616,8 +616,7 @@ bgp_connect_success (struct peer *peer)
 	zlog_debug ("%s passive open", peer->host);
     }
 
-  if (!CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER)
-      || bgp_option_check (BGP_OPT_ALWAYS_OPEN))
+  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
     bgp_open_send (peer);
 
   return 0;
