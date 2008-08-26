@@ -1,5 +1,5 @@
 /*
- * $Id: client_main.c,v 1.1 2002/12/13 20:15:30 paul Exp $
+ * $Quagga: $Format:%an, %ai, %h$ $
  *
  * GNU Zebra client test main routine.
  * Copyright (C) 1997 Kunihiro Ishiguro
