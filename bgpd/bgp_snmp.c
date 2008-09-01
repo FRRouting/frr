@@ -23,10 +23,12 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifdef HAVE_SNMP
 #ifdef HAVE_NETSNMP
 #include <net-snmp/net-snmp-config.h>
-#endif
+#include <net-snmp/net-snmp-includes.h>
+#else
 #include <asn1.h>
 #include <snmp.h>
 #include <snmp_impl.h>
+#endif
 
 #include "if.h"
 #include "log.h"

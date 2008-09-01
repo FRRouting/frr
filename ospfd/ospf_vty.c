@@ -3093,7 +3093,7 @@ DEFUN (show_ip_ospf_neighbor_all,
        "Neighbor list\n"
        "include down status neighbor\n")
 {
-  struct ospf *ospf = vty->index;
+  struct ospf *ospf = ospf_lookup ();
   struct listnode *node;
   struct ospf_interface *oi;
 
