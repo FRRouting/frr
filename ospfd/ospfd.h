@@ -588,7 +588,7 @@ extern int ospf_nbr_nbma_poll_interval_set (struct ospf *, struct in_addr,
 extern int ospf_nbr_nbma_poll_interval_unset (struct ospf *, struct in_addr);
 extern void ospf_prefix_list_update (struct prefix_list *);
 extern void ospf_init (void);
-extern void ospf_if_update (struct ospf *);
+extern void ospf_if_update (struct ospf *, struct interface *);
 extern void ospf_ls_upd_queue_empty (struct ospf_interface *);
 extern void ospf_terminate (void);
 extern void ospf_nbr_nbma_if_update (struct ospf *, struct ospf_interface *);
