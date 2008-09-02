@@ -3151,7 +3151,10 @@ ospf_db_desc_send (struct ospf_neighbor *nbr)
   op->length = length;
 
   /* Decide destination address. */
-  op->dst = nbr->address.u.prefix4;
+  if (oi->type == OSPF_IFTYPE_POINTOPOINT) 
+    op->dst.s_addr = htonl (OSPF_ALLSPFROUTERS);
+  else
+    op->dst = nbr->address.u.prefix4;
 
   /* Add packet to the interface output queue. */
   ospf_packet_add (oi, op);
@@ -3210,7 +3213,10 @@ ospf_ls_req_send (struct ospf_neighbor *nbr)
   op->length = length;
 
   /* Decide destination address. */
-  op->dst = nbr->address.u.prefix4;
+  if (oi->type == OSPF_IFTYPE_POINTOPOINT) 
+    op->dst.s_addr = htonl (OSPF_ALLSPFROUTERS);
+  else
+    op->dst = nbr->address.u.prefix4;
 
   /* Add packet to the interface output queue. */
   ospf_packet_add (oi, op);
@@ -3326,7 +3332,10 @@ ospf_ls_upd_queue_send (struct ospf_interface *oi, struct list *update,
   op->length = length;
 
   /* Decide destination address. */
-  op->dst.s_addr = addr.s_addr;
+  if (oi->type == OSPF_IFTYPE_POINTOPOINT) 
+    op->dst.s_addr = htonl (OSPF_ALLSPFROUTERS);
+  else
+    op->dst.s_addr = addr.s_addr;
 
   /* Add packet to the interface output queue. */
   ospf_packet_add (oi, op);
@@ -3403,12 +3412,11 @@ ospf_ls_upd_send (struct ospf_neighbor *nbr, struct list *update, int flag)
   /* Decide destination address. */
   if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
     p.prefix = oi->vl_data->peer_addr;
+  else if (oi->type == OSPF_IFTYPE_POINTOPOINT) 
+     p.prefix.s_addr = htonl (OSPF_ALLSPFROUTERS);
   else if (flag == OSPF_SEND_PACKET_DIRECT)
      p.prefix = nbr->address.u.prefix4;
   else if (oi->state == ISM_DR || oi->state == ISM_Backup)
-     p.prefix.s_addr = htonl (OSPF_ALLSPFROUTERS);
-  else if ((oi->type == OSPF_IFTYPE_POINTOPOINT) 
-	   && (flag == OSPF_SEND_PACKET_INDIRECT))
      p.prefix.s_addr = htonl (OSPF_ALLSPFROUTERS);
   else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
      p.prefix.s_addr = htonl (OSPF_ALLSPFROUTERS);
