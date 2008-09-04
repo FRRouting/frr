@@ -140,7 +140,8 @@ extern void ospf_intra_add_transit (struct route_table *, struct vertex *,
 
 extern void ospf_intra_add_stub (struct route_table *,
 				 struct router_lsa_link *, struct vertex *,
-				 struct ospf_area *);
+				 struct ospf_area *,
+				 int parent_is_root);
 
 extern int ospf_route_cmp (struct ospf *, struct ospf_route *,
 			   struct ospf_route *);

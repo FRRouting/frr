@@ -481,7 +481,8 @@ ospf_intra_add_transit (struct route_table *rt, struct vertex *v,
 /* RFC2328 16.1. second stage. */
 void
 ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
-		     struct vertex *v, struct ospf_area *area)
+		     struct vertex *v, struct ospf_area *area,
+		     int parent_is_root)
 {
   u_int32_t cost;
   struct route_node *rn;
@@ -514,7 +515,20 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_intra_add_stub(): calculated cost is %d + %d = %d", 
 	       v->distance, ntohs(link->m[0].metric), cost);
-
+  
+  /* PtP links with /32 masks adds host routes to remote, directly
+   * connected hosts, see RFC 2328, 12.4.1.1, Option 1.
+   * Such routes can just be ignored for the sake of tidyness.
+   */
+  if (parent_is_root && link->link_data.s_addr == 0xffffffff &&
+      ospf_if_lookup_by_local_addr (area->ospf, NULL, link->link_id))
+    {
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_debug ("%s: ignoring host route %s/32 to self.",
+                    __func__, inet_ntoa (link->link_id));
+      return;
+    }
+  
   rn = route_node_get (rt, (struct prefix *) &p);
 
   /* Lookup current routing table. */
