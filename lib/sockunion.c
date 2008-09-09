@@ -227,6 +227,24 @@ sockunion_su2str (union sockunion *su)
   return XSTRDUP (MTYPE_TMP, str);
 }
 
+/* Convert IPv4 compatible IPv6 address to IPv4 address. */
+static void
+sockunion_normalise_mapped (union sockunion *su)
+{
+  struct sockaddr_in sin;
+  
+#ifdef HAVE_IPV6
+  if (su->sa.sa_family == AF_INET6 
+      && IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))
+    {
+      memset (&sin, 0, sizeof (struct sockaddr_in));
+      sin.sin_family = AF_INET;
+      memcpy (&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);
+      memcpy (su, &sin, sizeof (struct sockaddr_in));
+    }
+#endif /* HAVE_IPV6 */
+}
+
 /* Return socket of sockunion. */
 int
 sockunion_socket (union sockunion *su)
@@ -253,23 +271,6 @@ sockunion_accept (int sock, union sockunion *su)
   len = sizeof (union sockunion);
   client_sock = accept (sock, (struct sockaddr *) su, &len);
   
-  /* Convert IPv4 compatible IPv6 address to IPv4 address. */
-#if 0
-#ifdef HAVE_IPV6
-  if (su->sa.sa_family == AF_INET6)
-    {
-      if (IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))
-	{
-	  struct sockaddr_in sin;
-
-	  memset (&sin, 0, sizeof (struct sockaddr_in));
-	  sin.sin_family = AF_INET;
-	  memcpy (&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);
-	  memcpy (su, &sin, sizeof (struct sockaddr_in));
-	}
-    }
-#endif /* HAVE_IPV6 */
-#endif
   return client_sock;
 }
 
@@ -592,18 +593,7 @@ sockunion_getsockname (int fd)
     {
       su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in6));
-
-#if 0
-      if (IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))
-	{
-	  struct sockaddr_in sin;
-
-	  sin.sin_family = AF_INET;
-	  memcpy (&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);
-	  sin.sin_port = su->sin6.sin6_port;
-	  memcpy (su, &sin, sizeof (struct sockaddr_in));
-	}
-#endif
+      sockunion_normalise_mapped (su);
       return su;
     }
 #endif /* HAVE_IPV6 */
@@ -648,17 +638,7 @@ sockunion_getpeername (int fd)
     {
       su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in6));
-#if 0
-      if (IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))
-	{
-	  struct sockaddr_in sin;
-
-	  sin.sin_family = AF_INET;
-	  memcpy (&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);
-	  sin.sin_port = su->sin6.sin6_port;
-	  memcpy (su, &sin, sizeof (struct sockaddr_in));
-	}
-#endif
+      sockunion_normalise_mapped (su);
       return su;
     }
 #endif /* HAVE_IPV6 */
