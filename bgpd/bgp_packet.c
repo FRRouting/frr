@@ -1304,8 +1304,8 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
 	}
 	else if (ret == 0 && realpeer->status != Active
 	         && realpeer->status != OpenSent
-		 && realpeer->status != OpenConfirm)
-
+		 && realpeer->status != OpenConfirm
+		 && realpeer->status != Connect)
  	{
  	  /* XXX: This is an awful problem.. 
  	   *
@@ -1363,8 +1363,9 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
  	}
 
       if (BGP_DEBUG (events, EVENTS))
-	zlog_debug ("%s [Event] Transfer temporary BGP peer to existing one",
-		   peer->host);
+	zlog_debug ("%s [Event] Transfer accept BGP peer to real (state %s)",
+		   peer->host, 
+		   LOOKUP (bgp_status_msg, realpeer->status));
 
       bgp_stop (realpeer);
       
