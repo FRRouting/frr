@@ -963,8 +963,6 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
       break;
 #ifdef HAVE_IPV6
     case AF_INET6:
-      if (IS_ZEBRA_DEBUG_RIB)
-        zlog_debug ("%s: calling kernel_delete_ipv4 (%p, %p)", __func__, rn, rib);
       ret = kernel_delete_ipv6 (&rn->p, rib);
       break;
 #endif /* HAVE_IPV6 */
