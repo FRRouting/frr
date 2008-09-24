@@ -1390,10 +1390,8 @@ CONFDATE=`date '+%Y%m%d'`
 AC_SUBST(CONFDATE)
 
 dnl Conditionally enable PIE support for GNU toolchains.
-enable_pie=yes
-
 AC_ARG_ENABLE(pie, AS_HELP_STRING([--disable-pie], [Do not build tools as a Position Independent Executables]))
-if test "$enable_pie" = "yes"; then
+if test "$enable_pie" != "no"; then
   AC_CACHE_CHECK([whether $CC accepts PIE flags], [ap_cv_cc_pie], [
     save_CFLAGS=$CFLAGS
     save_LDFLAGS=$LDFLAGS
