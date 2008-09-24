@@ -998,8 +998,8 @@ ospf_if_update (struct ospf *ospf, struct interface *ifp)
   if (!ospf)
     ospf = ospf_lookup ();
 
-  /* Router-ID must be configured. */
-  if (ospf->router_id.s_addr == 0)
+  /* OSPF must be on and Router-ID must be configured. */
+  if (!ospf || ospf->router_id.s_addr == 0)
     return;
   
   /* Run each netowrk for this interface. */
