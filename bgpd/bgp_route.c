@@ -10291,7 +10291,7 @@ ALIAS (show_ip_bgp_view_rsclient,
 
 DEFUN (show_ip_bgp_view_rsclient_route,
        show_ip_bgp_view_rsclient_route_cmd,
-       "show bgp view WORD rsclient (A.B.C.D|X:X::X:X) A.B.C.D",
+       "show ip bgp view WORD rsclient (A.B.C.D|X:X::X:X) A.B.C.D",
        SHOW_STR
        IP_STR
        BGP_STR
