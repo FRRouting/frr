@@ -765,24 +765,6 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
       return;
     }
 
-  /* If incoming interface is passive one, ignore Hello. */
-  if (OSPF_IF_PASSIVE_STATUS (oi) == OSPF_IF_PASSIVE) {
-    char buf[3][INET_ADDRSTRLEN];
-    zlog_debug ("ignoring HELLO from router %s sent to %s, "
-	        "received on a passive interface, %s",
-	        inet_ntop(AF_INET, &ospfh->router_id, buf[0], sizeof(buf[0])),
-	        inet_ntop(AF_INET, &iph->ip_dst, buf[1], sizeof(buf[1])),
-	        inet_ntop(AF_INET, &oi->address->u.prefix4,
-	      		  buf[2], sizeof(buf[2])));
-    if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS))
-      {
-        /* Try to fix multicast membership. */
-        OI_MEMBER_JOINED(oi, MEMBER_ALLROUTERS);
-        ospf_if_set_multicast(oi);
-      }
-    return;
-  }
-
   /* get neighbor prefix. */
   p.family = AF_INET;
   p.prefixlen = ip_masklen (hello->network_mask);
@@ -2392,6 +2374,32 @@ ospf_read (struct thread *thread)
 
   /* associate packet with ospf interface */
   oi = ospf_if_lookup_recv_if (ospf, iph->ip_src);
+
+  /* If incoming interface is passive one, ignore it. */
+  if (oi && OSPF_IF_PASSIVE_STATUS (oi) == OSPF_IF_PASSIVE)
+    {
+      char buf[3][INET_ADDRSTRLEN];
+
+      if (IS_DEBUG_OSPF_EVENT)
+	zlog_debug ("ignoring packet from router %s sent to %s, "
+		    "received on a passive interface, %s",
+		    inet_ntop(AF_INET, &ospfh->router_id, buf[0], sizeof(buf[0])),
+		    inet_ntop(AF_INET, &iph->ip_dst, buf[1], sizeof(buf[1])),
+		    inet_ntop(AF_INET, &oi->address->u.prefix4,
+			      buf[2], sizeof(buf[2])));
+
+      if (iph->ip_dst.s_addr == htonl(OSPF_ALLSPFROUTERS))
+	{
+	  /* Try to fix multicast membership.
+	   * Some OS:es may have problems in this area,
+	   * make sure it is removed.
+	   */
+	  OI_MEMBER_JOINED(oi, MEMBER_ALLROUTERS);
+	  ospf_if_set_multicast(oi);
+	}
+      return 0;
+  }
+
 
   /* if no local ospf_interface, 
    * or header area is backbone but ospf_interface is not
