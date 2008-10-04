@@ -31,7 +31,8 @@ vtysh_cmd_FILES = $(top_srcdir)/bgpd/*.c $(top_srcdir)/isisd/*.c \
 		  $(top_srcdir)/zebra/interface.c \
 		  $(top_srcdir)/zebra/irdp_interface.c \
 		  $(top_srcdir)/zebra/rtadv.c $(top_srcdir)/zebra/zebra_vty.c \
-		  $(top_srcdir)/zebra/zserv.c $(top_srcdir)/zebra/router-id.c
+		  $(top_srcdir)/zebra/zserv.c $(top_srcdir)/zebra/router-id.c \
+		  $(top_srcdir)/zebra/zebra_routemap.c
 
 vtysh_cmd.c: $(vtysh_cmd_FILES)
 	./$(EXTRA_DIST) $(vtysh_cmd_FILES) > vtysh_cmd.c
