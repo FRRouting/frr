@@ -659,7 +659,7 @@ funcname_thread_add_timer_timeval (struct thread_master *m,
   thread = thread_get (m, type, func, arg, funcname);
 
   /* Do we need jitter here? */
-  quagga_gettimeofday (&recent_time);
+  quagga_get_relative (NULL);
   alarm_time.tv_sec = relative_time.tv_sec + time_relative->tv_sec;
   alarm_time.tv_usec = relative_time.tv_usec + time_relative->tv_usec;
   thread->u.sands = timeval_adjust(alarm_time);
