@@ -52,34 +52,31 @@ in_cksum(void *parg, int nbytes)
 /* To be consistent, offset is 0-based index, rather than the 1-based 
    index required in the specification ISO 8473, Annex C.1 */
 u_int16_t
-fletcher_checksum(u_char * buffer, int len, u_int16_t offset)
+fletcher_checksum(u_char * buffer, const size_t len, const uint16_t offset)
 {
   u_int8_t *p;
-  int x;
-  int y;
-  u_int32_t mul;
-  u_int32_t c0;
-  u_int32_t c1;
+  int x, y, c0, c1;
   u_int16_t checksum;
   u_int16_t *csum;
-  int i, init_len, partial_len;
-
+  size_t partial_len, i, left = len;
+  
   checksum = 0;
+
+  assert (offset < len);
 
   /*
    * Zero the csum in the packet.
    */
   csum = (u_int16_t *) (buffer + offset);
-  *(csum) = checksum;
+  *(csum) = 0;
 
   p = buffer;
   c0 = 0;
   c1 = 0;
-  init_len = len;
 
-  while (len != 0)
+  while (left != 0)
     {
-      partial_len = MIN(len, MODX);
+      partial_len = MIN(left, MODX);
 
       for (i = 0; i < partial_len; i++)
 	{
@@ -90,27 +87,18 @@ fletcher_checksum(u_char * buffer, int len, u_int16_t offset)
       c0 = c0 % 255;
       c1 = c1 % 255;
 
-      len -= partial_len;
+      left -= partial_len;
     }
+  
+  /* The cast is important, to ensure the mod is taken as a signed value. */
+  x = ((int)(len - offset - 1) * c0 - c1) % 255;
 
-  mul = (init_len - offset)*(c0);
-
-  x = mul - c0 - c1;
-  y = c1 - mul - 1;
-
-  if (y > 0)
-    y++;
-  if (x < 0)
-    x--;
-
-  x %= 255;
-  y %= 255;
-
-  if (x == 0)
-    x = 255;
-  if (y == 0)
-    y = 1;
-
+  if (x <= 0)
+    x += 255;
+  y = 510 - c0 - x;
+  if (y > 255)  
+    y -= 255;
+  
   /*
    * Now we write this to the packet.
    * We could skip this step too, since the checksum returned would
