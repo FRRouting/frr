@@ -6509,6 +6509,32 @@ ALIAS (clear_ip_bgp_peer_rsclient,
        "BGP IPv6 neighbor to clear\n"
        "Soft reconfig for rsclient RIB\n")
 
+DEFUN (show_bgp_views,
+       show_bgp_views_cmd,
+       "show bgp views",
+       SHOW_STR
+       BGP_STR
+       "Show the defined BGP views\n")
+{
+  struct list *inst = bm->bgp;
+  struct listnode *node;
+  struct bgp *bgp;
+
+  if (!bgp_option_check (BGP_OPT_MULTIPLE_INSTANCE))
+    {
+      vty_out (vty, "Multiple BGP views are not defined%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  
+  vty_out (vty, "Defined BGP views:%s", VTY_NEWLINE);
+  for (ALL_LIST_ELEMENTS_RO(inst, node, bgp))
+    vty_out (vty, "\t%s (AS%u)%s", 
+             bgp->name ? bgp->name : "(null)",
+             bgp->as, VTY_NEWLINE);
+  
+  return CMD_SUCCESS;
+}
+
 DEFUN (show_bgp_memory, 
        show_bgp_memory_cmd,
        "show bgp memory",
@@ -9874,6 +9900,11 @@ bgp_vty_init (void)
   install_element (VIEW_NODE, &show_bgp_memory_cmd);
   install_element (RESTRICTED_NODE, &show_bgp_memory_cmd);
   install_element (ENABLE_NODE, &show_bgp_memory_cmd);
+  
+  /* "show bgp views" commands. */
+  install_element (VIEW_NODE, &show_bgp_views_cmd);
+  install_element (RESTRICTED_NODE, &show_bgp_views_cmd);
+  install_element (ENABLE_NODE, &show_bgp_views_cmd);
   
   /* Community-list. */
   community_list_vty ();
