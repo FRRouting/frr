@@ -91,7 +91,7 @@ fletcher_checksum(u_char * buffer, const size_t len, const uint16_t offset)
     }
   
   /* The cast is important, to ensure the mod is taken as a signed value. */
-  x = ((int)(len - offset - 1) * c0 - c1) % 255;
+  x = (int)((len - offset - 1) * c0 - c1) % 255;
 
   if (x <= 0)
     x += 255;
