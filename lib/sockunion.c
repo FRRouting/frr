@@ -271,6 +271,7 @@ sockunion_accept (int sock, union sockunion *su)
   len = sizeof (union sockunion);
   client_sock = accept (sock, (struct sockaddr *) su, &len);
   
+  sockunion_normalise_mapped (su);
   return client_sock;
 }
 
