@@ -48,16 +48,16 @@
 %define quagga_buildreqs %{quagga_buildreqs} patch libcap-devel
 
 # FC4 and 5 split texi2html out of tetex package.
-%if "%dist" == "fc4" || "%dist" == "fc5"
+%if "%dist" != "fc2" || "%dist" != "fc3"
 %define  quagga_buildreqs %{quagga_buildreqs} texi2html
 %endif
 
 # pam_stack is deprecated in FC5
 # default to pam_stack, default should be changed later.
-%if "%dist" == "fc5"
-%define	quagga_pam_source quagga.pam
-%else
+%if "%dist" == "fc4" || "%dist" == "fc3"
 %define	quagga_pam_source quagga.pam.stack
+%else
+%define	quagga_pam_source quagga.pam
 %endif
 ############################################################################
 
