@@ -427,6 +427,65 @@ verify (u_char * buffer, testsz_t len)
   return 1;
 }
 
+int  /* return checksum in low-order 16 bits */
+in_cksum_optimized(void *parg, int nbytes)
+{
+	u_short *ptr = parg;
+	register long		sum;		/* assumes long == 32 bits */
+	register u_short	answer;		/* assumes u_short == 16 bits */
+	register int count;
+	/*
+	 * Our algorithm is simple, using a 32-bit accumulator (sum),
+	 * we add sequential 16-bit words to it, and at the end, fold back
+	 * all the carry bits from the top 16 bits into the lower 16 bits.
+	 */
+
+	sum = 0;
+	count = nbytes >> 1; /* div by 2 */
+	for(ptr--; count; --count)
+	  sum += *++ptr;
+
+	if (nbytes & 1) /* Odd */
+	  sum += *(u_char *)(++ptr);   /* one byte only */
+
+	/*
+	 * Add back carry outs from top 16 bits to low 16 bits.
+	 */
+
+	sum  = (sum >> 16) + (sum & 0xffff);	/* add high-16 to low-16 */
+	sum += (sum >> 16);			/* add carry */
+	answer = ~sum;		/* ones-complement, then truncate to 16 bits */
+	return(answer);
+}
+
+
+int /* return checksum in low-order 16 bits */
+in_cksum_rfc(void *parg, int count)
+/* from RFC 1071 */
+{
+	u_short *addr = parg;
+	/* Compute Internet Checksum for "count" bytes
+	 *         beginning at location "addr".
+	 */
+	register long  sum = 0;
+
+	while (count > 1)  {
+	  /*  This is the inner loop */
+	  sum += *addr++;
+	  count -= 2;
+	}
+	/*  Add left-over byte, if any */
+	if (count > 0) {
+	  sum += *(u_char *)addr;
+	}
+
+	/*  Fold 32-bit sum to 16 bits */
+	while (sum>>16)
+           sum = (sum & 0xffff) + (sum >> 16);
+	return ~sum;
+}
+
+
 int
 main(int argc, char **argv)
 {
@@ -440,18 +499,27 @@ main(int argc, char **argv)
   srandom (time (NULL));
   
   while (1) {
-    u_int16_t ospfd, isisd, lib;
-    
+    u_int16_t ospfd, isisd, lib, in_csum, in_csum_res, in_csum_rfc;
+    int i,j;
+
     exercise += EXERCISESTEP;
     exercise %= MAXDATALEN;
     
-    for (int i = 0; i < exercise; i += sizeof (long int)) {
+    for (i = 0; i < exercise; i += sizeof (long int)) {
       long int rand = random ();
       
-      for (int j = sizeof (long int); j > 0; j--)
+      for (j = sizeof (long int); j > 0; j--)
         buffer[i + (sizeof (long int) - j)] = (rand >> (j * 8)) & 0xff;
     }
     
+    in_csum = in_cksum(buffer, exercise);
+    in_csum_res = in_cksum_optimized(buffer, exercise);
+    in_csum_rfc = in_cksum_rfc(buffer, exercise);
+    if (in_csum_res != in_csum || in_csum != in_csum_rfc)
+      printf ("verify: in_chksum failed in_csum:%x, in_csum_res:%x,"
+	      "in_csum_rfc %x, len:%d\n", 
+	      in_csum, in_csum_res, in_csum_rfc, exercise);
+
     ospfd = ospfd_checksum (buffer, exercise + sizeof(u_int16_t), exercise);
     if (verify (buffer, exercise + sizeof(u_int16_t)))
       printf ("verify: ospfd failed\n");
@@ -477,7 +545,7 @@ main(int argc, char **argv)
       if (ospfd_vals.a.c0 == isisd_vals.a.c0
           && ospfd_vals.a.c1 == isisd_vals.a.c1) {
         printf ("\n");
-        for (int i = 0; reducts[i].name != NULL; i++) {	
+        for (i = 0; reducts[i].name != NULL; i++) {	
           ospfd = reducts[i].f (&ospfd_vals,
                                 exercise + sizeof (u_int16_t),
                                 exercise);
@@ -487,7 +555,7 @@ main(int argc, char **argv)
       }
               
       printf ("\n  u_char testdata [] = {\n  ");
-      for (int i = 0; i < exercise; i++) {
+      for (i = 0; i < exercise; i++) {
         printf ("0x%02x,%s",
                 buffer[i],
                 (i + 1) % 8 ? " " : "\n  ");
