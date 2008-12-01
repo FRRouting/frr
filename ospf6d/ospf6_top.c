@@ -650,7 +650,7 @@ config_write_ospf6 (struct vty *vty)
 }
 
 /* OSPF6 node structure. */
-struct cmd_node ospf6_node =
+static struct cmd_node ospf6_node =
 {
   OSPF6_NODE,
   "%s(config-ospf6)# ",

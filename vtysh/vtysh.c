@@ -711,97 +711,97 @@ vtysh_completion (char *text, int start, int end)
 #endif
 
 /* Vty node structures. */
-struct cmd_node bgp_node =
+static struct cmd_node bgp_node =
 {
   BGP_NODE,
   "%s(config-router)# ",
 };
 
-struct cmd_node rip_node =
+static struct cmd_node rip_node =
 {
   RIP_NODE,
   "%s(config-router)# ",
 };
 
-struct cmd_node isis_node =
+static struct cmd_node isis_node =
 {
   ISIS_NODE,
   "%s(config-router)# ",
 };
 
-struct cmd_node interface_node =
+static struct cmd_node interface_node =
 {
   INTERFACE_NODE,
   "%s(config-if)# ",
 };
 
-struct cmd_node rmap_node =
+static struct cmd_node rmap_node =
 {
   RMAP_NODE,
   "%s(config-route-map)# "
 };
 
-struct cmd_node zebra_node =
+static struct cmd_node zebra_node =
 {
   ZEBRA_NODE,
   "%s(config-router)# "
 };
 
-struct cmd_node bgp_vpnv4_node =
+static struct cmd_node bgp_vpnv4_node =
 {
   BGP_VPNV4_NODE,
   "%s(config-router-af)# "
 };
 
-struct cmd_node bgp_ipv4_node =
+static struct cmd_node bgp_ipv4_node =
 {
   BGP_IPV4_NODE,
   "%s(config-router-af)# "
 };
 
-struct cmd_node bgp_ipv4m_node =
+static struct cmd_node bgp_ipv4m_node =
 {
   BGP_IPV4M_NODE,
   "%s(config-router-af)# "
 };
 
-struct cmd_node bgp_ipv6_node =
+static struct cmd_node bgp_ipv6_node =
 {
   BGP_IPV6_NODE,
   "%s(config-router-af)# "
 };
 
-struct cmd_node bgp_ipv6m_node =
+static struct cmd_node bgp_ipv6m_node =
 {
   BGP_IPV6M_NODE,
   "%s(config-router-af)# "
 };
 
-struct cmd_node ospf_node =
+static struct cmd_node ospf_node =
 {
   OSPF_NODE,
   "%s(config-router)# "
 };
 
-struct cmd_node ripng_node =
+static struct cmd_node ripng_node =
 {
   RIPNG_NODE,
   "%s(config-router)# "
 };
 
-struct cmd_node ospf6_node =
+static struct cmd_node ospf6_node =
 {
   OSPF6_NODE,
   "%s(config-ospf6)# "
 };
 
-struct cmd_node keychain_node =
+static struct cmd_node keychain_node =
 {
   KEYCHAIN_NODE,
   "%s(config-keychain)# "
 };
 
-struct cmd_node keychain_key_node =
+static struct cmd_node keychain_key_node =
 {
   KEYCHAIN_KEY_NODE,
   "%s(config-keychain-key)# "

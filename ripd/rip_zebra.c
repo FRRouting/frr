@@ -651,7 +651,7 @@ config_write_rip_redistribute (struct vty *vty, int config_mode)
 }
 
 /* Zebra node structure. */
-struct cmd_node zebra_node =
+static struct cmd_node zebra_node =
 {
   ZEBRA_NODE,
   "%s(config-router)# ",

@@ -848,14 +848,14 @@ DEFUN (send_lifetime_duration_month_day,
 				    argv[3], argv[4]);
 }
 
-struct cmd_node keychain_node =
+static struct cmd_node keychain_node =
 {
   KEYCHAIN_NODE,
   "%s(config-keychain)# ",
   1
 };
 
-struct cmd_node keychain_key_node =
+static struct cmd_node keychain_key_node =
 {
   KEYCHAIN_KEY_NODE,
   "%s(config-keychain-key)# ",

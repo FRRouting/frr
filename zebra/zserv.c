@@ -1569,7 +1569,7 @@ config_write_table (struct vty *vty)
 }
 
 /* table node for routing tables. */
-struct cmd_node table_node =
+static struct cmd_node table_node =
 {
   TABLE_NODE,
   "",				/* This node has no interface. */
@@ -1689,7 +1689,7 @@ config_write_forwarding (struct vty *vty)
 }
 
 /* table node for routing tables. */
-struct cmd_node forwarding_node =
+static struct cmd_node forwarding_node =
 {
   FORWARDING_NODE,
   "",				/* This node has no interface. */

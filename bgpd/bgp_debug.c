@@ -856,7 +856,7 @@ bgp_config_write_debug (struct vty *vty)
   return write;
 }
 
-struct cmd_node debug_node =
+static struct cmd_node debug_node =
 {
   DEBUG_NODE,
   "",

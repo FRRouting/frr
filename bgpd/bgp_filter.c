@@ -671,7 +671,7 @@ config_write_as_list (struct vty *vty)
   return write;
 }
 
-struct cmd_node as_list_node =
+static struct cmd_node as_list_node =
 {
   AS_LIST_NODE,
   "",

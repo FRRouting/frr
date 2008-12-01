@@ -2076,7 +2076,7 @@ isis_config_write (struct vty *vty)
   return write;
 }
 
-struct cmd_node isis_node = {
+static struct cmd_node isis_node = {
   ISIS_NODE,
   "%s(config-router)# ",
   1

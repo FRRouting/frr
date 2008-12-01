@@ -773,7 +773,7 @@ DEFUN (no_dump_bgp_routes,
 }
 
 /* BGP node structure. */
-struct cmd_node bgp_dump_node =
+static struct cmd_node bgp_dump_node =
 {
   DUMP_NODE,
   "",

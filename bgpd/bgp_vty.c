@@ -8775,42 +8775,42 @@ bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
 }
 
 /* BGP node structure. */
-struct cmd_node bgp_node =
+static struct cmd_node bgp_node =
 {
   BGP_NODE,
   "%s(config-router)# ",
   1,
 };
 
-struct cmd_node bgp_ipv4_unicast_node =
+static struct cmd_node bgp_ipv4_unicast_node =
 {
   BGP_IPV4_NODE,
   "%s(config-router-af)# ",
   1,
 };
 
-struct cmd_node bgp_ipv4_multicast_node =
+static struct cmd_node bgp_ipv4_multicast_node =
 {
   BGP_IPV4M_NODE,
   "%s(config-router-af)# ",
   1,
 };
 
-struct cmd_node bgp_ipv6_unicast_node = 
+static struct cmd_node bgp_ipv6_unicast_node =
 {
   BGP_IPV6_NODE,
   "%s(config-router-af)# ",
   1,
 };
 
-struct cmd_node bgp_ipv6_multicast_node =
+static struct cmd_node bgp_ipv6_multicast_node =
 {
   BGP_IPV6M_NODE,
   "%s(config-router-af)# ",
   1,
 };
 
-struct cmd_node bgp_vpnv4_node =
+static struct cmd_node bgp_vpnv4_node =
 {
   BGP_VPNV4_NODE,
   "%s(config-router-af)# ",
@@ -10734,7 +10734,7 @@ community_list_config_write (struct vty *vty)
   return write;
 }
 
-struct cmd_node community_list_node =
+static struct cmd_node community_list_node =
 {
   COMMUNITY_LIST_NODE,
   "",

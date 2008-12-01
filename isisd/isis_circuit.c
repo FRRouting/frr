@@ -2028,7 +2028,7 @@ DEFUN (no_ipv6_router_isis,
 }
 #endif /* HAVE_IPV6 */
 
-struct cmd_node interface_node = {
+static struct cmd_node interface_node = {
   INTERFACE_NODE,
   "%s(config-if)# ",
   1,

@@ -335,7 +335,7 @@ config_write_ospf6_zebra (struct vty *vty)
 }
 
 /* Zebra node structure. */
-struct cmd_node zebra_node =
+static struct cmd_node zebra_node =
 {
   ZEBRA_NODE,
   "%s(config-zebra)# ",

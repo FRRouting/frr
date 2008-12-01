@@ -41,37 +41,37 @@ vector cmdvec = NULL;
 struct host host;
 
 /* Standard command node structures. */
-struct cmd_node auth_node =
+static struct cmd_node auth_node =
 {
   AUTH_NODE,
   "Password: ",
 };
 
-struct cmd_node view_node =
+static struct cmd_node view_node =
 {
   VIEW_NODE,
   "%s> ",
 };
 
-struct cmd_node restricted_node =
+static struct cmd_node restricted_node =
 {
   RESTRICTED_NODE,
   "%s$ ",
 };
 
-struct cmd_node auth_enable_node =
+static struct cmd_node auth_enable_node =
 {
   AUTH_ENABLE_NODE,
   "Password: ",
 };
 
-struct cmd_node enable_node =
+static struct cmd_node enable_node =
 {
   ENABLE_NODE,
   "%s# ",
 };
 
-struct cmd_node config_node =
+static struct cmd_node config_node =
 {
   CONFIG_NODE,
   "%s(config)# ",

@@ -1280,7 +1280,7 @@ route_map_config_write (struct vty *vty)
 }
 
 /* Route map node structure. */
-struct cmd_node rmap_node =
+static struct cmd_node rmap_node =
 {
   RMAP_NODE,
   "%s(config-route-map)# ",

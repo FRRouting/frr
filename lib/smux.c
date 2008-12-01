@@ -73,7 +73,7 @@ int debug_smux = 0;
 int fail = 0;
 
 /* SMUX node. */
-struct cmd_node smux_node =
+static struct cmd_node smux_node =
 {
   SMUX_NODE,
   ""                            /* SMUX has no interface. */

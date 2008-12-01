@@ -3680,7 +3680,7 @@ config_write_rip (struct vty *vty)
 }
 
 /* RIP node structure. */
-struct cmd_node rip_node =
+static struct cmd_node rip_node =
 {
   RIP_NODE,
   "%s(config-router)# ",

@@ -2030,10 +2030,10 @@ static int config_write_protocol(struct vty *vty)
 }   
 
 /* table node for protocol filtering */
-struct cmd_node protocol_node = { PROTOCOL_NODE, "", 1 };
+static struct cmd_node protocol_node = { PROTOCOL_NODE, "", 1 };
 
 /* IP node for static routes. */
-struct cmd_node ip_node = { IP_NODE,  "",  1 };
+static struct cmd_node ip_node = { IP_NODE,  "",  1 };
 
 /* Route VTY.  */
 void

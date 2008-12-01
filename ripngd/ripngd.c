@@ -2682,7 +2682,7 @@ ripng_config_write (struct vty *vty)
 }
 
 /* RIPng node structure. */
-struct cmd_node cmd_ripng_node =
+static struct cmd_node cmd_ripng_node =
 {
   RIPNG_NODE,
   "%s(config-router)# ",

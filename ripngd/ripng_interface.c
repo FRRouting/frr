@@ -1200,7 +1200,7 @@ interface_config_write (struct vty *vty)
 }
 
 /* ripngd's interface node. */
-struct cmd_node interface_node =
+static struct cmd_node interface_node =
 {
   INTERFACE_NODE,
   "%s(config-if)# ",

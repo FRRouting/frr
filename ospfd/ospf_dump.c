@@ -1509,7 +1509,7 @@ DEFUN (show_debugging_ospf,
 }
 
 /* Debug node. */
-struct cmd_node debug_node =
+static struct cmd_node debug_node =
 {
   DEBUG_NODE,
   "",

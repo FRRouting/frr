@@ -2623,7 +2623,7 @@ prefix_list_reset_orf (void)
 
 
 /* Prefix-list node. */
-struct cmd_node prefix_node =
+static struct cmd_node prefix_node =
 {
   PREFIX_NODE,
   "",				/* Prefix list has no interface. */
@@ -2732,7 +2732,7 @@ prefix_list_init_ipv4 (void)
 
 #ifdef HAVE_IPV6
 /* Prefix-list node. */
-struct cmd_node prefix_ipv6_node =
+static struct cmd_node prefix_ipv6_node =
 {
   PREFIX_IPV6_NODE,
   "",				/* Prefix list has no interface. */
