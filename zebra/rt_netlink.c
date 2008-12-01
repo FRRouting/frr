@@ -469,7 +469,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h)
   ifp = if_get_by_name (name);
   set_ifindex(ifp, ifi->ifi_index);
   ifp->flags = ifi->ifi_flags & 0x0000fffff;
-  ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
+  ifp->mtu6 = ifp->mtu = *(uint32_t *) RTA_DATA (tb[IFLA_MTU]);
   ifp->metric = 1;
 
   /* Hardware type and address. */
