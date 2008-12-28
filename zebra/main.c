@@ -69,7 +69,6 @@ struct option longopts[] =
   { "batch",       no_argument,       NULL, 'b'},
   { "daemon",      no_argument,       NULL, 'd'},
   { "keep_kernel", no_argument,       NULL, 'k'},
-  { "log_mode",    no_argument,       NULL, 'l'},
   { "config_file", required_argument, NULL, 'f'},
   { "pid_file",    required_argument, NULL, 'i'},
   { "help",        no_argument,       NULL, 'h'},
@@ -131,7 +130,6 @@ usage (char *progname, int status)
 	      "-i, --pid_file     Set process identifier file name\n"\
 	      "-k, --keep_kernel  Don't delete old routes which installed by "\
 				  "zebra.\n"\
-	      "-l, --log_mode     Set verbose log mode flag\n"\
 	      "-C, --dryrun       Check configuration for validity and exit\n"\
 	      "-A, --vty_addr     Set vty's bind address\n"\
 	      "-P, --vty_port     Set vty's port number\n"\
@@ -231,9 +229,9 @@ main (int argc, char **argv)
       int opt;
   
 #ifdef HAVE_NETLINK  
-      opt = getopt_long (argc, argv, "bdklf:i:hA:P:ru:g:vs:C", longopts, 0);
+      opt = getopt_long (argc, argv, "bdkf:i:hA:P:ru:g:vs:C", longopts, 0);
 #else
-      opt = getopt_long (argc, argv, "bdklf:i:hA:P:ru:g:vC", longopts, 0);
+      opt = getopt_long (argc, argv, "bdkf:i:hA:P:ru:g:vC", longopts, 0);
 #endif /* HAVE_NETLINK */
 
       if (opt == EOF)
@@ -253,9 +251,6 @@ main (int argc, char **argv)
 	  break;
 	case 'C':
 	  dryrun = 1;
-	  break;
-	case 'l':
-	  /* log_mode = 1; */
 	  break;
 	case 'f':
 	  config_file = optarg;

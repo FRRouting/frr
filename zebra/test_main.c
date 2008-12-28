@@ -56,7 +56,6 @@ struct option longopts[] =
 {
   { "batch",       no_argument,       NULL, 'b'},
   { "daemon",      no_argument,       NULL, 'd'},
-  { "log_mode",    no_argument,       NULL, 'l'},
   { "config_file", required_argument, NULL, 'f'},
   { "help",        no_argument,       NULL, 'h'},
   { "vty_addr",    required_argument, NULL, 'A'},
@@ -93,7 +92,6 @@ usage (char *progname, int status)
 	      "-b, --batch        Runs in batch mode\n"\
 	      "-d, --daemon       Runs in daemon mode\n"\
 	      "-f, --config_file  Set configuration file name\n"\
-	      "-l, --log_mode     Set verbose log mode flag\n"\
 	      "-A, --vty_addr     Set vty's bind address\n"\
 	      "-P, --vty_port     Set vty's port number\n"\
 	      "-r, --rib_hold	  Set rib-queue hold time\n"\
@@ -224,7 +222,7 @@ main (int argc, char **argv)
     {
       int opt;
   
-      opt = getopt_long (argc, argv, "bdlf:hA:P:r:v", longopts, 0);
+      opt = getopt_long (argc, argv, "bdf:hA:P:r:v", longopts, 0);
 
       if (opt == EOF)
 	break;
@@ -237,9 +235,6 @@ main (int argc, char **argv)
 	  batch_mode = 1;
 	case 'd':
 	  daemon_mode = 1;
-	  break;
-	case 'l':
-	  /* log_mode = 1; */
 	  break;
 	case 'f':
 	  config_file = optarg;
