@@ -2451,7 +2451,10 @@ ospf_router_lsa_install (struct ospf *ospf,
   if (rt_recalc)
     ospf_spf_calculate_schedule (ospf);
 
-  if (IS_LSA_SELF (new))
+  /* Only install LSA if it is originated/refreshed by us.
+   * If LSA was received by flooding, the RECEIVED flag is set so do
+   * not link the LSA */
+  if (IS_LSA_SELF (new) && !CHECK_FLAG (new->flags, OSPF_LSA_RECEIVED))
     {
       /* Set router-LSA refresh timer. */
       OSPF_TIMER_OFF (area->t_router_lsa_self);

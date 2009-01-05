@@ -133,10 +133,8 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
     {
     case OSPF_ROUTER_LSA:
       /* Originate a new instance and schedule flooding */
-      /* It shouldn't be necessary, but anyway */
-      ospf_lsa_unlock (&area->router_lsa_self);
-      area->router_lsa_self = ospf_lsa_lock (new);
-
+      if (area->router_lsa_self)
+	area->router_lsa_self->data->ls_seqnum = new->data->ls_seqnum;
       ospf_router_lsa_timer_add (area);
       return;
     case OSPF_NETWORK_LSA:
@@ -170,9 +168,8 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
               }
 #endif /* HAVE_OPAQUE_LSA */
 
-            ospf_lsa_unlock (&oi->network_lsa_self);
-            oi->network_lsa_self = ospf_lsa_lock (new);
-            
+            if (oi->network_lsa_self)
+	      oi->network_lsa_self->data->ls_seqnum = new->data->ls_seqnum;
             /* Schedule network-LSA origination. */
             ospf_network_lsa_timer_add (oi);
             return;
