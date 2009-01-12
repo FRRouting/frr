@@ -28,11 +28,15 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "plist.h"
 #include "memory.h"
 #include "log.h"
-#ifdef HAVE_GNU_REGEX
-#include <regex.h>
+#ifdef HAVE_LIBPCREPOSIX
+# include <pcreposix.h>
 #else
-#include "regex-gnu.h"
-#endif /* HAVE_GNU_REGEX */
+# ifdef HAVE_GNU_REGEX
+#  include <regex.h>
+# else
+#  include "regex-gnu.h"
+# endif /* HAVE_GNU_REGEX */
+#endif /* HAVE_LIBPCREPOSIX */
 #include "buffer.h"
 #include "sockunion.h"
 

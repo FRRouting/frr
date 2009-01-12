@@ -23,11 +23,15 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include <zebra.h>
 
-#ifdef HAVE_GNU_REGEX
-#include <regex.h>
+#ifdef HAVE_LIBPCREPOSIX
+# include <pcreposix.h>
 #else
-#include "regex-gnu.h"
-#endif /* HAVE_GNU_REGEX */
+# ifdef HAVE_GNU_REGEX
+#  include <regex.h>
+# else
+#  include "regex-gnu.h"
+# endif /* HAVE_GNU_REGEX */
+#endif /* HAVE_LIBPCREPOSIX */
 
 extern void bgp_regex_free (regex_t *regex);
 extern regex_t *bgp_regcomp (const char *str);

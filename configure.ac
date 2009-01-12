@@ -253,6 +253,8 @@ AC_ARG_ENABLE(gcc-rdynamic,
 [  --enable-gcc-rdynamic   enable gcc linking with -rdynamic for better backtraces])
 AC_ARG_ENABLE(time-check,
 [  --disable-time-check          disable slow thread warning messages])
+AC_ARG_ENABLE(pcreposix,
+[  --enable-pcreposix          enable using PCRE Posix libs for regex functions])
 
 if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
   CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"
@@ -1259,13 +1261,24 @@ AC_CHECK_FUNC(__inet_pton, AC_DEFINE(HAVE_INET_PTON,,__inet_pton))
 AC_CHECK_FUNC(__inet_aton, AC_DEFINE(HAVE_INET_ATON,,__inet_aton))
 
 dnl ---------------------------
+dnl check system has PCRE regexp
+dnl ---------------------------
+if test "x$enable_pcreposix" = "xyes"; then
+  AC_CHECK_LIB(pcreposix, pcreposix_regexec, ,[enable_pcreposix=no
+  AC_MSG_WARN([*** falling back to other regex library ***]) ])
+fi
+
+if test "x$enable_pcreposix" != "xyes"; then
+dnl ---------------------------
 dnl check system has GNU regexp
 dnl ---------------------------
-dnl AC_MSG_CHECKING(whether system has GNU regex)
+AC_MSG_CHECKING(whether system has GNU regex)
 AC_CHECK_LIB(c, regexec,
 [AC_DEFINE(HAVE_GNU_REGEX,,GNU regexp library)
  LIB_REGEX=""],
 [LIB_REGEX="regex.o"])
+fi
+AC_SUBST(HAVE_LIBPCREPOSIX)
 AC_SUBST(LIB_REGEX)
 
 dnl ------------------
