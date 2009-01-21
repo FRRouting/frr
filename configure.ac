@@ -167,7 +167,6 @@ AC_CACHE_CHECK([if ${MAKE-make} is GNU make], [quagga_cv_gnu_make],
 dnl -----------------
 dnl System extensions
 dnl -----------------
-AC_AIX
 AC_GNU_SOURCE
 
 dnl -------
