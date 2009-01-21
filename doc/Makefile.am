@@ -12,6 +12,7 @@
 # TeX implementation, which we depend on already anyway.
 #
 # dia -> (dia) -> png -> (convert) -> eps -> (epstopdf) -> pdf
+SUFFIXES = .png .eps .dia .pdf
 DIATOPNG = dia -t png -e
 DIATOEPS = dia -t eps -e
 PNGTOEPS = convert -dither -antialias -contrast -despeckle
@@ -21,11 +22,11 @@ EPSTOPDF = epstopdf
 # The figure sources
 figures_names_parts = -normal-processing -rs-processing \
 	_topologies_full _topologies_rs
-figures_sources := $(figures_names_parts:%=fig%.dia)
-figures_png := $(figures_names_parts:%=fig%.png)
-figures_pdf := $(figures_names_parts:%=fig%.pdf)
-figures_eps := $(figures_names_parts:%=fig%.eps)
-figures_txt := $(figures_names_parts:%=fig%.txt)
+figures_sources = $(figures_names_parts:%=fig%.dia)
+figures_png = $(figures_names_parts:%=fig%.png)
+figures_pdf = $(figures_names_parts:%=fig%.pdf)
+figures_eps = $(figures_names_parts:%=fig%.eps)
+figures_txt = $(figures_names_parts:%=fig%.txt)
 
 # rather twisted logic because we have to build PDFs of the EPS figures for
 # PDFTex and yet build one PDF, quagga.pdf, from texi source. Which means we
@@ -51,13 +52,13 @@ quagga_TEXINFOS = appendix.texi basic.texi bgpd.texi filter.texi install.texi \
 	vtysh.texi routeserver.texi defines.texi $(figures_png) snmptrap.texi \
 	$(figures_txt)
 
-%.eps: %.png
+.png.eps:
 	$(PNGTOEPS) $< "$@"
 
-%.pdf: %.png
+.png.pdf:
 	$(PNGTOPDF) $< "$@"
 
-%.png: %.dia
+.dia.png:
 	$(DIATOPNG) "$@" $<
 
 man_MANS = vtysh.1 bgpd.8 ospf6d.8 ospfd.8 ripd.8 ripngd.8 zebra.8 isisd.8

@@ -10,16 +10,16 @@
 pkg_names = daemons dev doc libs smf
 pkg_quagga_daemons = zebra bgpd ospfd ospf6d ripd ripngd
 pkg_name_rev = @PACKAGE_VERSION@-@CONFDATE@-@target_os@-@target_cpu@
-pkg_depends := $(pkg_names:%=depend.%)
-pkg_packages := $(pkg_names:%=@PACKAGE_TARNAME@-%-$(pkg_name_rev).pkg)
-pkg_pkginfos := $(pkg_names:%=pkginfo.%.full)
-pkg_prototypes := $(pkg_names:%=prototype.%)
-pkg_manifests := quagga.xml
+pkg_depends = $(pkg_names:%=depend.%)
+pkg_packages = $(pkg_names:%=@PACKAGE_TARNAME@-%-$(pkg_name_rev).pkg)
+pkg_pkginfos = $(pkg_names:%=pkginfo.%.full)
+pkg_prototypes = $(pkg_names:%=prototype.%)
+pkg_manifests = quagga.xml
 
 # pkgmk variable substitutions wont grok ${variable} in prototype
 # file, so we cant let autoconf generate the file sadly
 # wish automake would just provide a template for this
-edit := $(SED) \
+edit = $(SED) \
 	-e 's,@prefix\@,$(prefix),g' \
 	-e 's,@exec_prefix,$(exec_prefix),g' \
 	-e 's,@bindir\@,$(bindir),g' \
@@ -47,7 +47,7 @@ edit := $(SED) \
  	-e 's,[@]target_os[@],$(target_os),g'
 
 # common options for pkgmk
-pkg_make_vars := exec_prefix=@exec_prefix@ prefix=@prefix@ \
+pkg_make_vars = exec_prefix=@exec_prefix@ prefix=@prefix@ \
 	builddir=@builddir@ srcdir=@srcdir@ \
 	top_builddir=@top_builddir@ top_srcdir=@top_srcdir@ \
 	abs_builddir=@abs_builddir@ abs_srcdir=@abs_srcdir@ \
@@ -110,9 +110,9 @@ quagga.init: $(srcdir)/quagga.init.in Makefile
 BUILT_SOURCES = $(pkg_pkginfos) pkginfo.tmpl $(pkg_prototypes) \
 	$(pkg_manifests) $(pkg_depends) quagga.init
 
-CLEANFILES := $(BUILT_SOURCES) $(pkg_packages)
+CLEANFILES = $(BUILT_SOURCES) $(pkg_packages)
 
-EXTRA_DIST := $(pkg_manifests:%=%.in) $(pkg_prototypes:%=%.in) \
+EXTRA_DIST = $(pkg_manifests:%=%.in) $(pkg_prototypes:%=%.in) \
 	$(pkg_names:%=pkginfo.%.tmpl.in) $(srcdir)/pkginfo.tmpl.in \
 	$(pkg_depends:%=%.in) quagga.init.in README.txt
 
