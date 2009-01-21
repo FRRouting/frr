@@ -837,29 +837,26 @@ main()
 dnl ------------------------------
 dnl check kernel route read method
 dnl ------------------------------
-AC_CACHE_CHECK(route read method check, zebra_rtread,
-[if test "$netlink" = yes; then
-  RTREAD_METHOD="rtread_netlink.o"
-  zebra_rtread="netlink"
+AC_CACHE_CHECK([route read method], [quagga_cv_rtread_method],
+[if test "x$netlink" = xyes; then
+  quagga_cv_rtread_method="netlink"
 else
-for zebra_rtread in /proc/net/route /dev/ip /dev/null;
+for quagga_cv_rtread_method in /proc/net/route /dev/ip /dev/null;
 do
-  test x`ls $zebra_rtread 2>/dev/null` = x"$zebra_rtread" && break
+  test x`ls $quagga_cv_rtread_method 2>/dev/null` = x"$quagga_cv_rtread_method" && break
 done
-case $zebra_rtread in
-  "/proc/net/route") RTREAD_METHOD="rtread_proc.o"
-                     zebra_rtread="proc";;
+case $quagga_cv_rtread_method in
+  "/proc/net/route") quagga_cv_rtread_method="proc";;
   "/dev/ip")
                      case "$host" in
-                       *-freebsd*)    RTREAD_METHOD=rtread_sysctl.o
-                                      zebra_rtread="sysctl";;
-                       *)             RTREAD_METHOD="rtread_getmsg.o"
-                                      zebra_rtread="getmsg";;
+                       *-freebsd*)    quagga_cv_rtread_method="sysctl";;
+                       *)             quagga_cv_rtread_method="getmsg";;
                      esac;;
-  *)                 RTREAD_METHOD="rtread_sysctl.o"
-                     zebra_rtread="sysctl";;
+	*)
+                     quagga_cv_rtread_method="sysctl";;
 esac
 fi])
+RTREAD_METHOD=rtread_${quagga_cv_rtread_method}.o
 AC_SUBST(RTREAD_METHOD)
 
 dnl -----------------------------
@@ -965,26 +962,22 @@ AC_SUBST(IF_PROC)
 dnl -----------------------------
 dnl check ipforward detect method
 dnl -----------------------------
-AC_CACHE_CHECK(ipforward method check, zebra_ipforward_path,
-[for zebra_ipforward_path in /proc/net/snmp /dev/ip /dev/null;
+AC_CACHE_CHECK([ipforward method], [quagga_cv_ipforward_method],
+[for quagga_cv_ipforward_method in /proc/net/snmp /dev/ip /dev/null;
 do
-  test x`ls $zebra_ipforward_path 2>/dev/null` = x"$zebra_ipforward_path" && break
+  test x`ls $quagga_cv_ipforward_method 2>/dev/null` = x"$quagga_cv_ipforward_method" && break
 done
-case $zebra_ipforward_path in
-  "/proc/net/snmp")  IPFORWARD=ipforward_proc.o
-                     zebra_ipforward_path="proc";;
+case $quagga_cv_ipforward_method in
+  "/proc/net/snmp")  quagga_cv_ipforward_method="proc";;
   "/dev/ip")         
                      case "$host" in
-                       *-nec-sysv4*)  IPFORWARD=ipforward_ews.o
-                                      zebra_ipforward_path="ews";;
-                       *-freebsd*)    IPFORWARD=ipforward_sysctl.o
-                                      zebra_ipforward_path="sysctl";;
-                       *)             IPFORWARD=ipforward_solaris.o
-                                      zebra_ipforward_path="solaris";;
+                       *-nec-sysv4*)  quagga_cv_ipforward_method="ews";;
+                       *-freebsd*)    quagga_cv_ipforward_method="sysctl";;
+                       *)             quagga_cv_ipforward_method="solaris";;
                      esac;;
-  *)                 IPFORWARD=ipforward_sysctl.o
-                     zebra_ipforward_path="sysctl";;
+  *)                 quagga_cv_ipforward_method="sysctl";;
 esac])
+IPFORWARD=ipforward_${quagga_cv_ipforward_method}.o
 AC_SUBST(IPFORWARD)
 
 AC_CHECK_FUNCS(getaddrinfo, [have_getaddrinfo=yes], [have_getaddrinfo=no])
