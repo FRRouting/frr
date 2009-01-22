@@ -332,7 +332,7 @@ send_packet(struct interface *ifp,
 	zlog_warn("sendto %s", safe_strerror (errno));
   }
 
-  bzero(&sockdst,sizeof(sockdst));
+  memset(&sockdst,0,sizeof(sockdst));
   sockdst.sin_family=AF_INET;
   sockdst.sin_addr.s_addr = dst;
 

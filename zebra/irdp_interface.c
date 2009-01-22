@@ -101,7 +101,7 @@ if_group (struct interface *ifp,
 
   zi = ifp->info;
 
-  bzero (&m, sizeof (m));
+  memset (&m, 0, sizeof (m));
   m.imr_multiaddr.s_addr = htonl (group);
   p = irdp_get_prefix(ifp);
 

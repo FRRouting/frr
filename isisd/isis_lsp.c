@@ -769,7 +769,7 @@ lsp_print_detail (dnode_t * node, struct vty *vty, char dynhost)
   /* for the hostname tlv */
   if (lsp->tlv_data.hostname)
     {
-      bzero (hostname, sizeof (hostname));
+      memset (hostname, 0, sizeof (hostname));
       memcpy (hostname, lsp->tlv_data.hostname->name,
 	      lsp->tlv_data.hostname->namelen);
       vty_out (vty, "  Hostname: %s%s", hostname, VTY_NEWLINE);
