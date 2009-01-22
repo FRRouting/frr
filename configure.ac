@@ -1444,14 +1444,14 @@ AC_SUBST(PILDFLAGS)
 dnl ------------------------------
 dnl set paths for state directory
 dnl ------------------------------
+AC_MSG_CHECKING(directory to use for state file)
 if test "${prefix}" = "NONE"; then
   quagga_statedir_prefix="";
 else
   quagga_statedir_prefix=${prefix}
 fi
 if test "${localstatedir}" = '${prefix}/var'; then
-  AC_CACHE_CHECK(state directory,ac_statedir,
-  [for QUAGGA_STATE_DIR in ${quagga_statedir_prefix}/var/run dnl
+  for QUAGGA_STATE_DIR in ${quagga_statedir_prefix}/var/run dnl
 			${quagga_statedir_prefix}/var/adm dnl
 			${quagga_statedir_prefix}/etc dnl
 			/var/run	dnl
@@ -1461,16 +1461,15 @@ if test "${localstatedir}" = '${prefix}/var'; then
   do
     test -d $QUAGGA_STATE_DIR && break
   done
-  quagga_statedir=$QUAGGA_STATE_DIR])
+  quagga_statedir=$QUAGGA_STATE_DIR
 else
   quagga_statedir=${localstatedir}
-  AC_MSG_CHECKING(directory to use for state file)
-  AC_MSG_RESULT(${quagga_statedir})
-  AC_SUBST(quagga_statedir)
 fi
 if test $quagga_statedir = "/dev/null"; then
     AC_MSG_ERROR('STATE DIRECTORY NOT FOUND! FIX OR SPECIFY --localstatedir!')
 fi
+AC_MSG_RESULT(${quagga_statedir})
+AC_SUBST(quagga_statedir)
 
 AC_DEFINE_UNQUOTED(PATH_ZEBRA_PID, "$quagga_statedir/zebra.pid",zebra PID)
 AC_DEFINE_UNQUOTED(PATH_RIPD_PID, "$quagga_statedir/ripd.pid",ripd PID)
