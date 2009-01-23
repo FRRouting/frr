@@ -23,6 +23,8 @@
 #ifndef _ZEBRA_OSPFD_H
 #define _ZEBRA_OSPFD_H
 
+#include <zebra.h>
+
 #include "filter.h"
 #include "log.h"
 
