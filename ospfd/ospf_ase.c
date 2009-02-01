@@ -593,6 +593,8 @@ ospf_ase_route_match_same (struct route_table *rt, struct prefix *prefix,
        
        if (! IPV4_ADDR_SAME (&op->nexthop, &newop->nexthop))
 	 return 0;
+       if (op->oi->ifp->ifindex != newop->oi->ifp->ifindex)
+	 return 0;
      }
    return 1;
 }

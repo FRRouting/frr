@@ -165,6 +165,8 @@ ospf_route_match_same (struct route_table *rt, struct prefix_ipv4 *prefix,
 
 	       if (! IPV4_ADDR_SAME (&op->nexthop, &newop->nexthop))
 		 return 0;
+	       if (op->oi->ifp->ifindex != newop->oi->ifp->ifindex)
+		 return 0;
 	     }
 	   return 1;
 	 }
@@ -827,10 +829,15 @@ ospf_path_lookup (struct list *plist, struct ospf_path *path)
   struct ospf_path *op;
 
   for (ALL_LIST_ELEMENTS_RO (plist, node, op))
-    if (IPV4_ADDR_SAME (&op->nexthop, &path->nexthop) &&
-        IPV4_ADDR_SAME (&op->adv_router, &path->adv_router))
-      return op;
-
+  {
+    if (!IPV4_ADDR_SAME (&op->nexthop, &path->nexthop))
+      continue;
+    if (!IPV4_ADDR_SAME (&op->adv_router, &path->adv_router))
+      continue;
+    if (op->oi->ifp->ifindex != path->oi->ifp->ifindex)
+      continue;
+    return op;
+  }
   return NULL;
 }
 
