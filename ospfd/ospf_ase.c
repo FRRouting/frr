@@ -448,20 +448,23 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
 
   /* if there is a Intra/Inter area route to the N
      do not install external route */
-  if ((rn = route_node_lookup (ospf->new_table,
-			       (struct prefix *) &p)) != NULL
-      && (rn->info != NULL))
+  if (rn = route_node_lookup (ospf->new_table,
+			      (struct prefix *) &p))
     {
+      route_unlock_node(rn);
+      if (rn->info == NULL)
+	zlog_info ("Route[External]: rn->info NULL");
       if (new)
 	ospf_route_free (new);
       return 0;
     }
-  
   /* Find a route to the same dest */
   /* If there is no route, create new one. */
-  if ((rn = route_node_lookup (ospf->new_external_route,
-			       (struct prefix *) &p)) == NULL 
-      || (or = rn->info) == NULL)
+  if (rn = route_node_lookup (ospf->new_external_route,
+			       (struct prefix *) &p))
+      route_unlock_node(rn);
+
+  if (!rn || (or = rn->info) == NULL)
     {
       if (IS_DEBUG_OSPF (lsa, LSA))
 	zlog_debug ("Route[External]: Adding a new route %s/%d",
@@ -783,16 +786,18 @@ ospf_ase_incremental_update (struct ospf *ospf, struct ospf_lsa *lsa)
      (internal routes take precedence). */
   
   rn = route_node_lookup (ospf->new_table, (struct prefix *) &p);
-  if (rn && rn->info)
+  if (rn)
     {
       route_unlock_node (rn);
-      return;
+      if (rn->info)
+	return;
     }
 
   rn = route_node_lookup (ospf->external_lsas, (struct prefix *) &p);
   assert (rn && rn->info);
   lsas = rn->info;
-  
+  route_unlock_node (rn);
+
   for (ALL_LIST_ELEMENTS_RO (lsas, node, lsa))
     ospf_ase_calculate_route (ospf, lsa);
 
