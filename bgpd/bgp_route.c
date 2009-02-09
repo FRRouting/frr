@@ -127,7 +127,7 @@ bgp_info_extra_get (struct bgp_info *ri)
 
 /* Allocate new bgp info structure. */
 static struct bgp_info *
-bgp_info_new ()
+bgp_info_new (void)
 {
   return XCALLOC (MTYPE_BGP_ROUTE, sizeof (struct bgp_info));
 }
@@ -2911,7 +2911,7 @@ bgp_clear_stale_route (struct peer *peer, afi_t afi, safi_t safi)
 
 /* Delete all kernel routes. */
 void
-bgp_cleanup_routes ()
+bgp_cleanup_routes (void)
 {
   struct bgp *bgp;
   struct listnode *node, *nnode;
@@ -2942,7 +2942,7 @@ bgp_cleanup_routes ()
 }
 
 void
-bgp_reset ()
+bgp_reset (void)
 {
   vty_reset ();
   bgp_zclient_reset ();
@@ -3114,7 +3114,7 @@ bgp_nlri_sanity_check (struct peer *peer, int afi, u_char *pnt,
 }
 
 static struct bgp_static *
-bgp_static_new ()
+bgp_static_new (void)
 {
   return XCALLOC (MTYPE_BGP_STATIC, sizeof (struct bgp_static));
 }
@@ -4499,7 +4499,7 @@ struct bgp_aggregate
 };
 
 static struct bgp_aggregate *
-bgp_aggregate_new ()
+bgp_aggregate_new (void)
 {
   return XCALLOC (MTYPE_BGP_AGGREGATE, sizeof (struct bgp_aggregate));
 }
@@ -10846,7 +10846,7 @@ struct bgp_distance
 };
 
 static struct bgp_distance *
-bgp_distance_new ()
+bgp_distance_new (void)
 {
   return XCALLOC (MTYPE_BGP_DISTANCE, sizeof (struct bgp_distance));
 }
@@ -10944,7 +10944,7 @@ bgp_distance_unset (struct vty *vty, const char *distance_str,
 }
 
 static void
-bgp_distance_reset ()
+bgp_distance_reset (void)
 {
   struct bgp_node *rn;
   struct bgp_distance *bdistance;
@@ -11551,7 +11551,7 @@ bgp_config_write_distance (struct vty *vty, struct bgp *bgp)
 
 /* Allocate routing table structure and install commands. */
 void
-bgp_route_init ()
+bgp_route_init (void)
 {
   /* Init BGP distance table. */
   bgp_distance_table = bgp_table_init (AFI_IP, SAFI_UNICAST);

@@ -902,7 +902,7 @@ bgp_ignore (struct peer *peer)
 
 /* Finite State Machine structure */
 struct {
-  int (*func) ();
+  int (*func) (struct peer *);
   int next_state;
 } FSM [BGP_STATUS_MAX - 1][BGP_EVENTS_MAX - 1] = 
 {

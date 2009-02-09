@@ -524,7 +524,7 @@ rtadv_make_socket (void)
 }
 
 static struct rtadv_prefix *
-rtadv_prefix_new ()
+rtadv_prefix_new (void)
 {
   return XCALLOC (MTYPE_RTADV_PREFIX, sizeof (struct rtadv_prefix));
 }

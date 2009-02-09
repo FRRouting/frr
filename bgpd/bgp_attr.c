@@ -274,7 +274,7 @@ transit_hash_cmp (const void *p1, const void *p2)
 }
 
 static void
-transit_init ()
+transit_init (void)
 {
   transit_hash = hash_create (transit_hash_key_make, transit_hash_cmp);
 }

@@ -53,7 +53,7 @@ bgp_table_finish (struct bgp_table **rt)
 }
 
 static struct bgp_node *
-bgp_node_create ()
+bgp_node_create (void)
 {
   return XCALLOC (MTYPE_BGP_NODE, sizeof (struct bgp_node));
 }

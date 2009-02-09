@@ -444,7 +444,7 @@ if_dump (const struct interface *ifp)
 
 /* Interface printing for all interface. */
 void
-if_dump_all ()
+if_dump_all (void)
 {
   struct listnode *node;
   void *p;

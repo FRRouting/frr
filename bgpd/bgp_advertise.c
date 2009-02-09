@@ -40,7 +40,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
    one packet.  To do that we maintain attribute hash in struct
    peer.  */
 static struct bgp_advertise_attr *
-baa_new ()
+baa_new (void)
 {
   return (struct bgp_advertise_attr *)
     XCALLOC (MTYPE_BGP_ADVERTISE_ATTR, sizeof (struct bgp_advertise_attr));
@@ -84,7 +84,7 @@ baa_hash_cmp (const void *p1, const void *p2)
    structure.  This structure is referred from BGP adjacency
    information.  */
 static struct bgp_advertise *
-bgp_advertise_new ()
+bgp_advertise_new (void)
 {
   return (struct bgp_advertise *) 
     XCALLOC (MTYPE_BGP_ADVERTISE, sizeof (struct bgp_advertise));

@@ -617,7 +617,7 @@ community_str2com (const char *str)
 
 /* Return communities hash entry count.  */
 unsigned long
-community_count ()
+community_count (void)
 {
   return comhash->count;
 }

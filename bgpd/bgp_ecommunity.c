@@ -34,7 +34,7 @@ struct hash *ecomhash;
 
 /* Allocate a new ecommunities.  */
 struct ecommunity *
-ecommunity_new ()
+ecommunity_new (void)
 {
   return (struct ecommunity *) XCALLOC (MTYPE_ECOMMUNITY,
 					sizeof (struct ecommunity));
@@ -108,7 +108,7 @@ ecommunity_uniq_sort (struct ecommunity *ecom)
   if (! ecom)
     return NULL;
   
-  new = ecommunity_new ();;
+  new = ecommunity_new ();
   
   for (i = 0; i < ecom->size; i++)
     {

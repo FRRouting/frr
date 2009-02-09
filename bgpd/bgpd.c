@@ -1321,7 +1321,7 @@ peer_group_active (struct peer *peer)
 
 /* Peer group cofiguration. */
 static struct peer_group *
-peer_group_new ()
+peer_group_new (void)
 {
   return (struct peer_group *) XCALLOC (MTYPE_PEER_GROUP,
 					sizeof (struct peer_group));
@@ -3929,7 +3929,7 @@ peer_aslist_unset (struct peer *peer,afi_t afi, safi_t safi, int direct)
 }
 
 static void
-peer_aslist_update ()
+peer_aslist_update (void)
 {
   afi_t afi;
   safi_t safi;
@@ -5136,7 +5136,7 @@ bgp_init (void)
 }
 
 void
-bgp_terminate ()
+bgp_terminate (void)
 {
   struct bgp *bgp;
   struct peer *peer;
