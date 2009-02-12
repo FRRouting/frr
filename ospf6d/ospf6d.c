@@ -1647,6 +1647,12 @@ DEFUN (show_ipv6_ospf6_border_routers,
 
       ospf6_linkstate_prefix (adv_router, 0, &prefix);
       ro = ospf6_route_lookup (&prefix, ospf6->brouter_table);
+      if (!ro)
+        {
+          vty_out (vty, "No Route found for Router ID: %s%s", argv[0], VNL);
+          return CMD_SUCCESS;
+        }
+
       ospf6_route_show_detail (vty, ro);
       return CMD_SUCCESS;
     }
