@@ -697,7 +697,6 @@ ospf6_top_init (void)
   install_element (OSPF6_NODE, &ospf6_router_id_cmd);
   install_element (OSPF6_NODE, &ospf6_interface_area_cmd);
   install_element (OSPF6_NODE, &no_ospf6_interface_area_cmd);
-  install_element (OSPF6_NODE, &no_router_ospf6_cmd);
 }
 
 
