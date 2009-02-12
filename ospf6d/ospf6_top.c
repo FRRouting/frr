@@ -403,6 +403,13 @@ DEFUN (no_ospf6_interface_area,
       return CMD_SUCCESS;
     }
 
+  /* Verify Area */
+  if (oi->area == NULL)
+    {
+      vty_out (vty, "No such Area-ID: %s%s", argv[1], VNL);
+      return CMD_SUCCESS;
+    }
+
   if (oi->area->area_id != area_id)
     {
       vty_out (vty, "Wrong Area-ID: %s is attached to area %s%s",
