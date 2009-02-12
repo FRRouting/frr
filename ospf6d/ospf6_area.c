@@ -353,6 +353,12 @@ DEFUN (area_range,
         UNSET_FLAG (range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
     }
 
+  if (range->rnode)
+    {
+      vty_out (vty, "Range already defined: %s%s", argv[-1], VNL);
+      return CMD_WARNING;
+    }
+
   ospf6_route_add (range, oa->range_table);
   return CMD_SUCCESS;
 }
