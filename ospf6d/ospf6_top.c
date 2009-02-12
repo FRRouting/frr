@@ -667,6 +667,7 @@ ospf6_top_init (void)
   install_element (VIEW_NODE, &show_ipv6_ospf6_cmd);
   install_element (ENABLE_NODE, &show_ipv6_ospf6_cmd);
   install_element (CONFIG_NODE, &router_ospf6_cmd);
+  install_element (CONFIG_NODE, &no_router_ospf6_cmd);
 
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_cmd);
   install_element (VIEW_NODE, &show_ipv6_ospf6_route_detail_cmd);
