@@ -185,6 +185,8 @@ AC_ARG_ENABLE(vtysh,
 [  --enable-vtysh          include integrated vty shell for Quagga])
 AC_ARG_ENABLE(ipv6,
 [  --disable-ipv6          turn off IPv6 related features and daemons])
+AC_ARG_ENABLE(doc,
+[  --disable-doc           do not build docs])
 AC_ARG_ENABLE(zebra,
 [  --disable-zebra         do not build zebra daemon])
 AC_ARG_ENABLE(bgpd,
@@ -1154,6 +1156,13 @@ QUAGGA_INCLUDES
 #endif
 ])dnl
 
+dnl disable doc check
+if test "${enable_doc}" = "no";then
+  DOC=""
+else
+  DOC="doc"
+fi
+
 dnl --------------------
 dnl Daemon disable check
 dnl --------------------
@@ -1230,6 +1239,7 @@ else
   AC_DEFINE(DISABLE_BGP_ANNOUNCE,0,Disable BGP installation to zebra)
 fi
 
+AC_SUBST(DOC)
 AC_SUBST(ZEBRA)
 AC_SUBST(BGPD)
 AC_SUBST(RIPD)
