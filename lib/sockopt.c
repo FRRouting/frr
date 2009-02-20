@@ -553,6 +553,7 @@ sockopt_tcp_signature (int sock, union sockunion *su, const char *password)
           return -1;
         };
       
+#ifdef HAVE_IPV6
       /* If this does not work, then all users of this sockopt will need to
        * differentiate between IPv4 and IPv6, and keep seperate sockets for
        * each. 
@@ -569,6 +570,7 @@ sockopt_tcp_signature (int sock, union sockunion *su, const char *password)
            su2->sin6.sin6_addr.s6_addr32[2] = htonl(0xffff);
            memcpy (&su2->sin6.sin6_addr.s6_addr32[3], &su->sin.sin_addr, 4);
         }
+#endif
     }
   
   memset (&md5sig, 0, sizeof (md5sig));
