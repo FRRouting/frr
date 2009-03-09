@@ -435,10 +435,10 @@ zlog_backtrace_sigsafe(int priority, void *program_counter)
 {
 #ifdef HAVE_STACK_TRACE
   static const char pclabel[] = "Program counter: ";
-  void *array[20];
+  void *array[64];
   int size;
   char buf[100];
-  char *s;
+  char *s, **bt = NULL;
 #define LOC s,buf+sizeof(buf)-s
 
 #ifdef HAVE_GLIBC_BACKTRACE
@@ -485,20 +485,29 @@ zlog_backtrace_sigsafe(int priority, void *program_counter)
 	syslog_sigsafe(priority|zlog_default->facility,buf,s-buf);
       {
 	int i;
+#ifdef HAVE_GLIBC_BACKTRACE
+        bt = backtrace_symbols(array, size);
+#endif
 	/* Just print the function addresses. */
 	for (i = 0; i < size; i++)
 	  {
 	    s = buf;
-	    s = str_append(LOC,"[bt ");
-	    s = num_append(LOC,i);
-	    s = str_append(LOC,"] 0x");
-	    s = hex_append(LOC,(u_long)(array[i]));
+	    if (bt) 
+	      s = str_append(LOC, bt[i]);
+	    else {
+	      s = str_append(LOC,"[bt ");
+	      s = num_append(LOC,i);
+	      s = str_append(LOC,"] 0x");
+	      s = hex_append(LOC,(u_long)(array[i]));
+	    }
 	    *s = '\0';
 	    if (priority <= zlog_default->maxlvl[ZLOG_DEST_MONITOR])
 	      vty_log_fixed(buf,s-buf);
 	    if (priority <= zlog_default->maxlvl[ZLOG_DEST_SYSLOG])
 	      syslog_sigsafe(priority|zlog_default->facility,buf,s-buf);
 	  }
+	  if (bt)
+	    free(bt);
       }
     }
 #undef DUMP
