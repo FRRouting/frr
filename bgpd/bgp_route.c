@@ -2726,8 +2726,7 @@ bgp_clear_node_complete (struct work_queue *wq)
 static void
 bgp_clear_node_queue_init (struct peer *peer)
 {
-#define CLEAR_QUEUE_NAME_LEN 26 /* "clear 2001:123:123:123::1" */
-  char wname[CLEAR_QUEUE_NAME_LEN];
+  char wname[sizeof("clear xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx"];
   
   snprintf (wname, CLEAR_QUEUE_NAME_LEN, "clear %s", peer->host);
 #undef CLEAR_QUEUE_NAME_LEN
