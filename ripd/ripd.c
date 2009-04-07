@@ -3544,6 +3544,9 @@ DEFUN (show_ip_rip_status,
     {
       ri = ifp->info;
 
+      if (!ri->running)
+	continue;
+
       if (ri->enable_network || ri->enable_interface)
 	{
 	  if (ri->ri_send == RI_RIP_UNSPEC)
