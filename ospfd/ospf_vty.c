@@ -4737,7 +4737,7 @@ ALIAS (no_ip_ospf_message_digest_key,
        "Key ID\n")
 
 DEFUN (ip_ospf_cost,
-       ip_ospf_cost_addr_cmd,
+       ip_ospf_cost_u32_inet4_cmd,
        "ip ospf cost <1-65535> A.B.C.D",
        "IP Information\n"
        "OSPF interface commands\n"
@@ -4785,7 +4785,7 @@ DEFUN (ip_ospf_cost,
 }
 
 ALIAS (ip_ospf_cost,
-       ip_ospf_cost_cmd,
+       ip_ospf_cost_u32_cmd,
        "ip ospf cost <1-65535>",
        "IP Information\n"
        "OSPF interface commands\n"
@@ -4793,14 +4793,22 @@ ALIAS (ip_ospf_cost,
        "Cost")
 
 ALIAS (ip_ospf_cost,
-       ospf_cost_cmd,
+       ospf_cost_u32_cmd,
        "ospf cost <1-65535>",
        "OSPF interface commands\n"
        "Interface cost\n"
        "Cost")
 
+ALIAS (ip_ospf_cost,
+       ospf_cost_u32_inet4_cmd,
+       "ospf cost <1-65535> A.B.C.D",
+       "OSPF interface commands\n"
+       "Interface cost\n"
+       "Cost\n"
+       "Address of interface")
+
 DEFUN (no_ip_ospf_cost,
-       no_ip_ospf_cost_addr_cmd,
+       no_ip_ospf_cost_inet4_cmd,
        "no ip ospf cost A.B.C.D",
        NO_STR
        "IP Information\n"
@@ -4858,6 +4866,15 @@ ALIAS (no_ip_ospf_cost,
        NO_STR
        "OSPF interface commands\n"
        "Interface cost\n")
+
+ALIAS (no_ip_ospf_cost,
+       no_ospf_cost_inet4_cmd,
+       "no ospf cost A.B.C.D",
+       NO_STR
+       "OSPF interface commands\n"
+       "Interface cost\n"
+       "Address of interface")
+
 
 static void
 ospf_nbr_timer_update (struct ospf_interface *oi)
@@ -8095,9 +8112,9 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &no_ip_ospf_message_digest_key_cmd);
 
   /* "ip ospf cost" commands. */
-  install_element (INTERFACE_NODE, &ip_ospf_cost_addr_cmd);
-  install_element (INTERFACE_NODE, &ip_ospf_cost_cmd);
-  install_element (INTERFACE_NODE, &no_ip_ospf_cost_addr_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_cost_u32_inet4_cmd);
+  install_element (INTERFACE_NODE, &ip_ospf_cost_u32_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_cost_inet4_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_cost_cmd);
 
   /* "ip ospf mtu-ignore" commands. */
@@ -8147,8 +8164,10 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &no_ospf_authentication_key_cmd);
   install_element (INTERFACE_NODE, &ospf_message_digest_key_cmd);
   install_element (INTERFACE_NODE, &no_ospf_message_digest_key_cmd);
-  install_element (INTERFACE_NODE, &ospf_cost_cmd);
+  install_element (INTERFACE_NODE, &ospf_cost_u32_cmd);
+  install_element (INTERFACE_NODE, &ospf_cost_u32_inet4_cmd);
   install_element (INTERFACE_NODE, &no_ospf_cost_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_cost_inet4_cmd);
   install_element (INTERFACE_NODE, &ospf_dead_interval_cmd);
   install_element (INTERFACE_NODE, &no_ospf_dead_interval_cmd);
   install_element (INTERFACE_NODE, &ospf_hello_interval_cmd);
