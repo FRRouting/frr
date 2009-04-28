@@ -1874,8 +1874,8 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   struct rib *fib = NULL;
   struct rib *same = NULL;
   struct nexthop *nexthop;
-  char buf1[BUFSIZ];
-  char buf2[BUFSIZ];
+  char buf1[INET_ADDRSTRLEN];
+  char buf2[INET_ADDRSTRLEN];
 
   /* Lookup table.  */
   table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
@@ -1887,7 +1887,7 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
 
   if (IS_ZEBRA_DEBUG_KERNEL && gate)
     zlog_debug ("rib_delete_ipv4(): route delete %s/%d via %s ifindex %d",
-		       inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
+		       inet_ntop (AF_INET, &p->prefix, buf1, INET_ADDRSTRLEN),
 		       p->prefixlen, 
 		       inet_ntoa (*gate), 
 		       ifindex);
@@ -1900,13 +1900,13 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
 	{
 	  if (gate)
 	    zlog_debug ("route %s/%d via %s ifindex %d doesn't exist in rib",
-		       inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
+		       inet_ntop (AF_INET, &p->prefix, buf1, INET_ADDRSTRLEN),
 		       p->prefixlen,
-		       inet_ntop (AF_INET, gate, buf2, BUFSIZ),
+		       inet_ntop (AF_INET, gate, buf2, INET_ADDRSTRLEN),
 		       ifindex);
 	  else
 	    zlog_debug ("route %s/%d ifindex %d doesn't exist in rib",
-		       inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
+		       inet_ntop (AF_INET, &p->prefix, buf1, INET_ADDRSTRLEN),
 		       p->prefixlen,
 		       ifindex);
 	}
@@ -1966,14 +1966,14 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
 	    {
 	      if (gate)
 		zlog_debug ("route %s/%d via %s ifindex %d type %d doesn't exist in rib",
-			   inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
+			   inet_ntop (AF_INET, &p->prefix, buf1, INET_ADDRSTRLEN),
 			   p->prefixlen,
-			   inet_ntop (AF_INET, gate, buf2, BUFSIZ),
+			   inet_ntop (AF_INET, gate, buf2, INET_ADDRSTRLEN),
 			   ifindex,
 			   type);
 	      else
 		zlog_debug ("route %s/%d ifindex %d type %d doesn't exist in rib",
-			   inet_ntop (AF_INET, &p->prefix, buf1, BUFSIZ),
+			   inet_ntop (AF_INET, &p->prefix, buf1, INET_ADDRSTRLEN),
 			   p->prefixlen,
 			   ifindex,
 			   type);
@@ -2429,8 +2429,8 @@ rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
   struct rib *fib = NULL;
   struct rib *same = NULL;
   struct nexthop *nexthop;
-  char buf1[BUFSIZ];
-  char buf2[BUFSIZ];
+  char buf1[INET6_ADDRSTRLEN];
+  char buf2[INET6_ADDRSTRLEN];
 
   /* Apply mask. */
   apply_mask_ipv6 (p);
@@ -2448,13 +2448,13 @@ rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
 	{
 	  if (gate)
 	    zlog_debug ("route %s/%d via %s ifindex %d doesn't exist in rib",
-		       inet_ntop (AF_INET6, &p->prefix, buf1, BUFSIZ),
+		       inet_ntop (AF_INET6, &p->prefix, buf1, INET6_ADDRSTRLEN),
 		       p->prefixlen,
-		       inet_ntop (AF_INET6, gate, buf2, BUFSIZ),
+		       inet_ntop (AF_INET6, gate, buf2, INET6_ADDRSTRLEN),
 		       ifindex);
 	  else
 	    zlog_debug ("route %s/%d ifindex %d doesn't exist in rib",
-		       inet_ntop (AF_INET6, &p->prefix, buf1, BUFSIZ),
+		       inet_ntop (AF_INET6, &p->prefix, buf1, INET6_ADDRSTRLEN),
 		       p->prefixlen,
 		       ifindex);
 	}
@@ -2514,14 +2514,14 @@ rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
 	    {
 	      if (gate)
 		zlog_debug ("route %s/%d via %s ifindex %d type %d doesn't exist in rib",
-			   inet_ntop (AF_INET6, &p->prefix, buf1, BUFSIZ),
+			   inet_ntop (AF_INET6, &p->prefix, buf1, INET6_ADDRSTRLEN),
 			   p->prefixlen,
-			   inet_ntop (AF_INET6, gate, buf2, BUFSIZ),
+			   inet_ntop (AF_INET6, gate, buf2, INET6_ADDRSTRLEN),
 			   ifindex,
 			   type);
 	      else
 		zlog_debug ("route %s/%d ifindex %d type %d doesn't exist in rib",
-			   inet_ntop (AF_INET6, &p->prefix, buf1, BUFSIZ),
+			   inet_ntop (AF_INET6, &p->prefix, buf1, INET6_ADDRSTRLEN),
 			   p->prefixlen,
 			   ifindex,
 			   type);

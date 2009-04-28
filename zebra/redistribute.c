@@ -369,13 +369,14 @@ zebra_interface_address_add_update (struct interface *ifp,
   struct listnode *node, *nnode;
   struct zserv *client;
   struct prefix *p;
-  char buf[BUFSIZ];
 
   if (IS_ZEBRA_DEBUG_EVENT)
     {
+      char buf[INET6_ADDRSTRLEN];
+
       p = ifc->address;
       zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %s/%d on %s",
-		  inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
+		  inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN),
 		  p->prefixlen, ifc->ifp->name);
     }
 
@@ -394,13 +395,14 @@ zebra_interface_address_delete_update (struct interface *ifp,
   struct listnode *node, *nnode;
   struct zserv *client;
   struct prefix *p;
-  char buf[BUFSIZ];
 
   if (IS_ZEBRA_DEBUG_EVENT)
     {
+      char buf[INET6_ADDRSTRLEN];
+
       p = ifc->address;
       zlog_debug ("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %s/%d on %s",
-		  inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
+		  inet_ntop (p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN),
 		 p->prefixlen, ifc->ifp->name);
     }
 
