@@ -857,7 +857,7 @@ static int bgp_attr_aspath_check( struct peer *peer,
 	  && ! aspath_firstas_check (attr->aspath, peer->as))
  	{
  	  zlog (peer->log, LOG_ERR,
- 		"%s incorrect first AS (must be %d)", peer->host, peer->as);
+ 		"%s incorrect first AS (must be %u)", peer->host, peer->as);
  	  bgp_notify_send (peer,
  			   BGP_NOTIFY_UPDATE_ERR,
  			   BGP_NOTIFY_UPDATE_MAL_AS_PATH);

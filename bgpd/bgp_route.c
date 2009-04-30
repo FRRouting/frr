@@ -834,7 +834,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
     {
       if (BGP_DEBUG (filter, FILTER))  
         zlog (peer->log, LOG_DEBUG, 
-	      "%s [Update:SEND] suppress announcement to peer AS %d is AS path.",
+	      "%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
 	      peer->host, peer->as);
       return 0;
     }
@@ -847,7 +847,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 	{
 	  if (BGP_DEBUG (filter, FILTER))  
 	    zlog (peer->log, LOG_DEBUG, 
-		  "%s [Update:SEND] suppress announcement to peer AS %d is AS path.",
+		  "%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
 		  peer->host,
 		  bgp->confed_id);
 	  return 0;
@@ -1163,7 +1163,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
     {
       if (BGP_DEBUG (filter, FILTER))
         zlog (rsclient->log, LOG_DEBUG,
-             "%s [Update:SEND] suppress announcement to peer AS %d is AS path.",
+             "%s [Update:SEND] suppress announcement to peer AS %u is AS path.",
              rsclient->host, rsclient->as);
       return 0;
     }
@@ -5956,7 +5956,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (CHECK_FLAG (binfo->flags, BGP_INFO_STALE))
 	vty_out (vty, ", (stale)");
       if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR)))
-	vty_out (vty, ", (aggregated by %d %s)", 
+	vty_out (vty, ", (aggregated by %u %s)", 
 	         attr->extra->aggregator_as,
 		 inet_ntoa (attr->extra->aggregator_addr));
       if (CHECK_FLAG (binfo->peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT))

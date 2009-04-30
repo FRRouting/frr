@@ -673,7 +673,7 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
 	  eas.val = (*pnt++ << 8);
 	  eas.val |= (*pnt++);
 
-	  len = sprintf( str_buf + str_pnt, "%s%d:%d", prefix,
+	  len = sprintf( str_buf + str_pnt, "%s%u:%d", prefix,
                         eas.as, eas.val );
 	  str_pnt += len;
 	  first = 0;
@@ -688,7 +688,7 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
 	  eas.val |= (*pnt++ << 8);
 	  eas.val |= (*pnt++);
 
-	  len = sprintf (str_buf + str_pnt, "%s%d:%d", prefix,
+	  len = sprintf (str_buf + str_pnt, "%s%u:%d", prefix,
 			 eas.as, eas.val);
 	  str_pnt += len;
 	  first = 0;

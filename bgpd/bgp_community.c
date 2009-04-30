@@ -282,7 +282,7 @@ community_com2str  (struct community *com)
 	default:
 	  as = (comval >> 16) & 0xFFFF;
 	  val = comval & 0xFFFF;
-	  sprintf (pnt, "%d:%d", as, val);
+	  sprintf (pnt, "%u:%d", as, val);
 	  pnt += strlen (pnt);
 	  break;
 	}

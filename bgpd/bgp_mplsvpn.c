@@ -265,7 +265,7 @@ prefix_rd2str (struct prefix_rd *prd, char *buf, size_t size)
   if (type == RD_TYPE_AS)
     {
       decode_rd_as (pnt + 2, &rd_as);
-      snprintf (buf, size, "%d:%d", rd_as.as, rd_as.val);
+      snprintf (buf, size, "%u:%d", rd_as.as, rd_as.val);
       return buf;
     }
   else if (type == RD_TYPE_IP)
@@ -371,7 +371,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd)
                     vty_out (vty, "Route Distinguisher: ");
 
                     if (type == RD_TYPE_AS)
-                      vty_out (vty, "%d:%d", rd_as.as, rd_as.val);
+                      vty_out (vty, "%u:%d", rd_as.as, rd_as.val);
                     else if (type == RD_TYPE_IP)
                       vty_out (vty, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
 
@@ -478,7 +478,7 @@ bgp_show_mpls_vpn (struct vty *vty, struct prefix_rd *prd, enum bgp_show_type ty
 		    vty_out (vty, "Route Distinguisher: ");
 
 		    if (type == RD_TYPE_AS)
-		      vty_out (vty, "%d:%d", rd_as.as, rd_as.val);
+		      vty_out (vty, "%u:%d", rd_as.as, rd_as.val);
 		    else if (type == RD_TYPE_IP)
 		      vty_out (vty, "%s:%d", inet_ntoa (rd_ip.ip), rd_ip.val);
 		  

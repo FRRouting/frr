@@ -205,7 +205,7 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
     snprintf (buf + strlen (buf), size - strlen (buf), ", atomic-aggregate");
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR)))
-    snprintf (buf + strlen (buf), size - strlen (buf), ", aggregated by %d %s",
+    snprintf (buf + strlen (buf), size - strlen (buf), ", aggregated by %u %s",
 	      attr->extra->aggregator_as,
 	      inet_ntoa (attr->extra->aggregator_addr));
 
