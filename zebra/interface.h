@@ -187,9 +187,6 @@ struct zebra_if
   /* Router advertise configuration. */
   u_char rtadv_enable;
 
-  /* Interface's address. */
-  struct list *address;
-
   /* Installed addresses chains tree. */
   struct route_table *ipv4_subnets;
 
