@@ -150,6 +150,13 @@ in milliseconds, between successive unsolicited Router Advertisements.
 Default: not set
 @end deffn
 
+@deffn {Interface Command} {ipv6 nd router-preference (high|medium|low)} {}
+@deffnx {Interface Command} {no ipv6 nd router-preference} {}
+Set default router preference in IPv6 router advertisements per RFC4191.
+
+Default: medium
+@end deffn
+
 @example
 @group
 interface eth0
@@ -160,4 +167,5 @@ interface eth0
 
 For more information see @cite{RFC2462 (IPv6 Stateless Address Autoconfiguration)}
 , @cite{RFC2461 (Neighbor Discovery for IP Version 6 (IPv6))}
-and @cite{RFC3775 (Mobility Support in IPv6 (Mobile IPv6))}.
+, @cite{RFC3775 (Mobility Support in IPv6 (Mobile IPv6))}
+and @cite{RFC4191 (Default Router Preferences and More-Specific Routes)}.

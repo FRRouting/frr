@@ -206,7 +206,12 @@ rtadv_send_packet (int sock, struct interface *ifp)
   rtadv->nd_ra_cksum = 0;
 
   rtadv->nd_ra_curhoplimit = 64;
-  rtadv->nd_ra_flags_reserved = 0;
+
+  /* RFC4191: Default Router Preference is 0 if Router Lifetime is 0. */
+  rtadv->nd_ra_flags_reserved =
+    zif->rtadv.AdvDefaultLifetime == 0 ? 0 : zif->rtadv.DefaultPreference;
+  rtadv->nd_ra_flags_reserved <<= 3;
+
   if (zif->rtadv.AdvManagedFlag)
     rtadv->nd_ra_flags_reserved |= ND_RA_FLAG_MANAGED;
   if (zif->rtadv.AdvOtherConfigFlag)
@@ -1364,6 +1369,56 @@ DEFUN (no_ipv6_nd_prefix,
 
   return CMD_SUCCESS;
 }
+
+DEFUN (ipv6_nd_router_preference,
+       ipv6_nd_router_preference_cmd,
+       "ipv6 nd router-preference (high|medium|low)",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Default router preference\n"
+       "High default router preference\n"
+       "Low default router preference\n"
+       "Medium default router preference (default)\n")
+{
+  struct interface *ifp;
+  struct zebra_if *zif;
+  int i = 0;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  while (0 != rtadv_pref_strs[i])
+    {
+      if (strncmp (argv[0], rtadv_pref_strs[i], 1) == 0)
+	{
+	  zif->rtadv.DefaultPreference = i;
+	  return CMD_SUCCESS;
+	}
+      i++;
+    }
+
+  return CMD_ERR_NO_MATCH;
+}
+
+DEFUN (no_ipv6_nd_router_preference,
+       no_ipv6_nd_router_preference_cmd,
+       "no ipv6 nd router-preference",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Default router preference\n")
+{
+  struct interface *ifp;
+  struct zebra_if *zif;
+
+  ifp = (struct interface *) vty->index;
+  zif = ifp->info;
+
+  zif->rtadv.DefaultPreference = RTADV_PREF_MEDIUM; /* Default per RFC4191. */
+
+  return CMD_SUCCESS;
+}
+
 /* Write configuration about router advertisement. */
 void
 rtadv_config_write (struct vty *vty, struct interface *ifp)
@@ -1410,6 +1465,11 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
 
   if (zif->rtadv.AdvOtherConfigFlag)
     vty_out (vty, " ipv6 nd other-config-flag%s", VTY_NEWLINE);
+
+  if (zif->rtadv.DefaultPreference != RTADV_PREF_MEDIUM)
+    vty_out (vty, " ipv6 nd router-preference %s%s",
+	     rtadv_pref_strs[zif->rtadv.DefaultPreference],
+	     VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO (zif->rtadv.AdvPrefixList, node, rprefix))
     {
@@ -1532,6 +1592,8 @@ rtadv_init (void)
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_noval_rtaddr_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_prefix_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_router_preference_cmd);
 }
 
 static int

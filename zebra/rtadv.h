@@ -94,4 +94,6 @@ struct nd_opt_homeagent_info {  /* Home Agent info */
 } __attribute__((__packed__));
 #endif
 
+extern const char *rtadv_pref_strs[];
+
 #endif /* _ZEBRA_RTADV_H */

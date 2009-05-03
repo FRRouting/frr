@@ -41,6 +41,11 @@
 #include "zebra/debug.h"
 #include "zebra/irdp.h"
 
+#ifdef RTADV
+/* Order is intentional.  Matches RFC4191.  This array is also used for
+   command matching, so only modify with care. */
+const char *rtadv_pref_strs[] = { "medium", "high", "INVALID", "low", 0 };
+#endif /* RTADV */
 
 /* Called when new interface is added. */
 static int
@@ -75,6 +80,7 @@ if_zebra_new_hook (struct interface *ifp)
     rtadv->HomeAgentPreference = 0;
     rtadv->HomeAgentLifetime = RTADV_ADV_DEFAULT_LIFETIME;
     rtadv->AdvIntervalOption = 0;
+    rtadv->DefaultPreference = RTADV_PREF_MEDIUM;
 
     rtadv->AdvPrefixList = list_new ();
   }    
@@ -622,6 +628,9 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 		 VTY_NEWLINE);
       vty_out (vty, "  ND router advertisements live for %d seconds%s",
 	       rtadv->AdvDefaultLifetime, VTY_NEWLINE);
+      vty_out (vty, "  ND router advertisement default router preference is "
+			"%s%s", rtadv_pref_strs[rtadv->DefaultPreference],
+		 VTY_NEWLINE);
       if (rtadv->AdvManagedFlag)
 	vty_out (vty, "  Hosts use DHCP to obtain routable addresses.%s",
 		 VTY_NEWLINE);

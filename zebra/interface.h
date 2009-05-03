@@ -46,7 +46,7 @@
 #endif
 
 #ifdef RTADV
-/* Router advertisement parameter.  From RFC2461 and RFC3775. */
+/* Router advertisement parameter.  From RFC2461, RFC3775 and RFC4191. */
 struct rtadvconf
 {
   /* A flag indicating whether or not the router sends periodic Router
@@ -171,6 +171,13 @@ struct rtadvconf
 
      Default: FALSE */
   int AdvIntervalOption;
+
+  /* The value to be placed in the Default Router Preference field of
+     a router advertisement. See [RFC 4191 2.1 & 2.2]
+
+     Default: 0 (medium) */
+  int DefaultPreference;
+#define RTADV_PREF_MEDIUM 0x0 /* Per RFC4191. */
 };
 
 #endif /* RTADV */
