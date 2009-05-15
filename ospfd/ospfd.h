@@ -535,17 +535,17 @@ struct ospf_nbr_nbma
 
 /* Extern variables. */
 extern struct ospf_master *om;
-extern struct message ospf_ism_state_msg[];
-extern struct message ospf_nsm_state_msg[];
-extern struct message ospf_lsa_type_msg[];
-extern struct message ospf_link_state_id_type_msg[];
-extern struct message ospf_network_type_msg[];
-extern int ospf_ism_state_msg_max;
-extern int ospf_nsm_state_msg_max;
-extern int ospf_lsa_type_msg_max;
-extern int ospf_link_state_id_type_msg_max;
-extern int ospf_redistributed_proto_max;
-extern int ospf_network_type_msg_max;
+extern const struct message ospf_ism_state_msg[];
+extern const struct message ospf_nsm_state_msg[];
+extern const struct message ospf_lsa_type_msg[];
+extern const struct message ospf_link_state_id_type_msg[];
+extern const struct message ospf_network_type_msg[];
+extern const int ospf_ism_state_msg_max;
+extern const int ospf_nsm_state_msg_max;
+extern const int ospf_lsa_type_msg_max;
+extern const int ospf_link_state_id_type_msg_max;
+extern const int ospf_redistributed_proto_max;
+extern const int ospf_network_type_msg_max;
 extern struct zclient *zclient;
 extern struct thread_master *master;
 extern int ospf_zlog;

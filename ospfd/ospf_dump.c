@@ -42,7 +42,7 @@
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_network.h"
 
-struct message ospf_ism_state_msg[] =
+const struct message ospf_ism_state_msg[] =
 {
   { ISM_DependUpon,   "DependUpon" },
   { ISM_Down,         "Down" },
@@ -53,9 +53,9 @@ struct message ospf_ism_state_msg[] =
   { ISM_Backup,       "Backup" },
   { ISM_DR,           "DR" },
 };
-int ospf_ism_state_msg_max = OSPF_ISM_STATE_MAX;
+const int ospf_ism_state_msg_max = OSPF_ISM_STATE_MAX;
 
-struct message ospf_nsm_state_msg[] =
+const struct message ospf_nsm_state_msg[] =
 {
   { NSM_DependUpon, "DependUpon" },
   { NSM_Deleted,    "Deleted"    },
@@ -68,9 +68,9 @@ struct message ospf_nsm_state_msg[] =
   { NSM_Loading,    "Loading" },
   { NSM_Full,       "Full" },
 };
-int ospf_nsm_state_msg_max = OSPF_NSM_STATE_MAX;
+const int ospf_nsm_state_msg_max = OSPF_NSM_STATE_MAX;
 
-struct message ospf_lsa_type_msg[] =
+const struct message ospf_lsa_type_msg[] =
 {
   { OSPF_UNKNOWN_LSA,      "unknown" },
   { OSPF_ROUTER_LSA,       "router-LSA" },
@@ -85,9 +85,9 @@ struct message ospf_lsa_type_msg[] =
   { OSPF_OPAQUE_AREA_LSA,  "Area-Local Opaque-LSA" },
   { OSPF_OPAQUE_AS_LSA,    "AS-external Opaque-LSA" },
 };
-int ospf_lsa_type_msg_max = OSPF_MAX_LSA;
+const int ospf_lsa_type_msg_max = OSPF_MAX_LSA;
 
-struct message ospf_link_state_id_type_msg[] =
+const struct message ospf_link_state_id_type_msg[] =
 {
   { OSPF_UNKNOWN_LSA,      "(unknown)" },
   { OSPF_ROUTER_LSA,       "" },
@@ -102,9 +102,9 @@ struct message ospf_link_state_id_type_msg[] =
   { OSPF_OPAQUE_AREA_LSA,  "(Area-Local Opaque-Type/ID)" },
   { OSPF_OPAQUE_AS_LSA,    "(AS-external Opaque-Type/ID)" },
 };
-int ospf_link_state_id_type_msg_max = OSPF_MAX_LSA;
+const int ospf_link_state_id_type_msg_max = OSPF_MAX_LSA;
 
-struct message ospf_network_type_msg[] =
+const struct message ospf_network_type_msg[] =
 {
   { OSPF_IFTYPE_NONE,		  "NONE" },
   { OSPF_IFTYPE_POINTOPOINT,      "Point-to-Point" },
@@ -113,7 +113,7 @@ struct message ospf_network_type_msg[] =
   { OSPF_IFTYPE_POINTOMULTIPOINT, "Point-to-MultiPoint" },
   { OSPF_IFTYPE_VIRTUALLINK,      "Virtual-Link" },
 };
-int ospf_network_type_msg_max = OSPF_IFTYPE_MAX;
+const int ospf_network_type_msg_max = OSPF_IFTYPE_MAX;
 
 /* Configuration debug option variables. */
 unsigned long conf_debug_ospf_packet[5] = {0, 0, 0, 0, 0};

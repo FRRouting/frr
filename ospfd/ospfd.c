@@ -1025,13 +1025,13 @@ ospf_remove_vls_through_area (struct ospf *ospf, struct ospf_area *area)
 }
 
 
-struct message ospf_area_type_msg[] =
+static const struct message ospf_area_type_msg[] =
 {
   { OSPF_AREA_DEFAULT,	"Default" },
   { OSPF_AREA_STUB,     "Stub" },
   { OSPF_AREA_NSSA,     "NSSA" },
 };
-int ospf_area_type_msg_max = OSPF_AREA_TYPE_MAX;
+static const int ospf_area_type_msg_max = OSPF_AREA_TYPE_MAX;
 
 static void
 ospf_area_type_set (struct ospf_area *area, int type)
