@@ -26,7 +26,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_community.h"
 
 /* Hash of community attribute. */
-struct hash *comhash;
+static struct hash *comhash;
 
 /* Allocate a new communities value.  */
 static struct community *
