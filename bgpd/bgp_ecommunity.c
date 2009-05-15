@@ -30,10 +30,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_aspath.h"
 
 /* Hash of community attribute. */
-struct hash *ecomhash;
+static struct hash *ecomhash;
 
 /* Allocate a new ecommunities.  */
-struct ecommunity *
+static struct ecommunity *
 ecommunity_new (void)
 {
   return (struct ecommunity *) XCALLOC (MTYPE_ECOMMUNITY,

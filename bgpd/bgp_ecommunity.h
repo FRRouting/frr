@@ -67,7 +67,6 @@ struct ecommunity_val
 
 extern void ecommunity_init (void);
 extern void ecommunity_free (struct ecommunity *);
-extern struct ecommunity *ecommunity_new (void);
 extern struct ecommunity *ecommunity_parse (u_int8_t *, u_short);
 extern struct ecommunity *ecommunity_dup (struct ecommunity *);
 extern struct ecommunity *ecommunity_merge (struct ecommunity *, struct ecommunity *);
