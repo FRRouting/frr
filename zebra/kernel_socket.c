@@ -161,7 +161,7 @@ const struct message rtm_type_str[] =
   {0,            NULL}
 };
 
-struct message rtm_flag_str[] =
+static const struct message rtm_flag_str[] =
 {
   {RTF_UP,        "UP"},
   {RTF_GATEWAY,   "GATEWAY"},
