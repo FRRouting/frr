@@ -771,7 +771,7 @@ lookup (const struct message *mes, int key)
  * provided otherwise.
  */
 const char *
-mes_lookup (struct message *meslist, int max, int index, const char *none)
+mes_lookup (const struct message *meslist, int max, int index, const char *none)
 {
   int pos = index - meslist[0].key;
   
