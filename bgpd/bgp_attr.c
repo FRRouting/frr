@@ -39,7 +39,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_ecommunity.h"
 
 /* Attribute strings for logging. */
-static struct message attr_str [] = 
+static const struct message attr_str [] = 
 {
   { BGP_ATTR_ORIGIN,           "ORIGIN" }, 
   { BGP_ATTR_AS_PATH,          "AS_PATH" }, 
@@ -61,9 +61,9 @@ static struct message attr_str [] =
   { BGP_ATTR_AS4_AGGREGATOR,   "AS4_AGGREGATOR" }, 
   { BGP_ATTR_AS_PATHLIMIT,     "AS_PATHLIMIT" },
 };
-int attr_str_max = sizeof(attr_str)/sizeof(attr_str[0]);
+static const int attr_str_max = sizeof(attr_str)/sizeof(attr_str[0]);
 
-struct hash *cluster_hash;
+static struct hash *cluster_hash;
 
 static void *
 cluster_hash_alloc (void *p)
@@ -200,7 +200,7 @@ cluster_init (void)
 }
 
 /* Unknown transit attribute. */
-struct hash *transit_hash;
+static struct hash *transit_hash;
 
 static void
 transit_free (struct transit *transit)
@@ -280,7 +280,7 @@ transit_init (void)
 }
 
 /* Attribute hash routines. */
-struct hash *attrhash;
+static struct hash *attrhash;
 
 static struct attr_extra *
 bgp_attr_extra_new (void)
