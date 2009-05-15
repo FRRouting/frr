@@ -194,20 +194,22 @@ bgp_capability_orf_not_support (struct peer *peer, afi_t afi, safi_t safi,
 	       peer->host, afi, safi, type, mode);
 }
 
-static struct message orf_type_str[] =
+static const struct message orf_type_str[] =
 {
   { ORF_TYPE_PREFIX,		"Prefixlist"		},
   { ORF_TYPE_PREFIX_OLD,	"Prefixlist (old)"	},
 };
-static int orf_type_str_max = sizeof(orf_type_str)/sizeof(orf_type_str[0]);
+static const int orf_type_str_max
+	= sizeof(orf_type_str)/sizeof(orf_type_str[0]);
 
-static struct message orf_mode_str[] =
+static const struct message orf_mode_str[] =
 {
   { ORF_MODE_RECEIVE,	"Receive"	},
   { ORF_MODE_SEND,	"Send"		},
   { ORF_MODE_BOTH,	"Both"		},
 };
-static int orf_mode_str_max = sizeof(orf_mode_str)/sizeof(orf_mode_str[0]);
+static const int orf_mode_str_max
+	 = sizeof(orf_mode_str)/sizeof(orf_mode_str[0]);
 
 static int
 bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
