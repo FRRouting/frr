@@ -37,7 +37,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_mplsvpn.h"
 
 /* bgpd options, we use GNU getopt library. */
-struct option longopts[] = 
+static const struct option longopts[] = 
 {
   { "daemon",      no_argument,       NULL, 'd'},
   { "config_file", required_argument, NULL, 'f'},
@@ -61,7 +61,7 @@ void sighup (void);
 void sigint (void);
 void sigusr1 (void);
 
-struct quagga_signal_t bgp_signals[] = 
+static struct quagga_signal_t bgp_signals[] = 
 {
   { 
     .signal = SIGHUP, 
@@ -85,7 +85,7 @@ struct quagga_signal_t bgp_signals[] =
 char config_default[] = SYSCONFDIR BGP_DEFAULT_CONFIG;
 
 /* Route retain mode flag. */
-int retain_mode = 0;
+static int retain_mode = 0;
 
 /* Master of threads. */
 struct thread_master *master;
@@ -94,14 +94,14 @@ struct thread_master *master;
 char *config_file = NULL;
 
 /* Process ID saved for use by init system */
-const char *pid_file = PATH_BGPD_PID;
+static const char *pid_file = PATH_BGPD_PID;
 
 /* VTY port number and address.  */
 int vty_port = BGP_VTY_PORT;
 char *vty_addr = NULL;
 
 /* privileges */
-zebra_capabilities_t _caps_p [] =  
+static zebra_capabilities_t _caps_p [] =  
 {
     ZCAP_BIND, 
     ZCAP_NET_RAW,
@@ -316,8 +316,12 @@ main (int argc, char **argv)
     return(0);
   
   /* Turn into daemon if daemon_mode is set. */
-  if (daemon_mode)
-    daemon (0, 0);
+  if (daemon_mode && daemon (0, 0) < 0)
+    {
+      zlog_err("BGPd daemon failed: %s", strerror(errno));
+      return (1);
+    }
+
 
   /* Process ID file creation. */
   pid_output (pid_file);
