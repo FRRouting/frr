@@ -36,7 +36,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 /* Global variable to access damping configuration */
 struct bgp_damp_config bgp_damp_cfg;
-struct bgp_damp_config *damp = &bgp_damp_cfg;
+static struct bgp_damp_config *damp = &bgp_damp_cfg;
 
 /* Utility macro to add and delete BGP dampening information to no
    used list.  */
@@ -543,7 +543,7 @@ bgp_config_write_damp (struct vty *vty)
 
 #define BGP_UPTIME_LEN 25
 
-char *
+static const char *
 bgp_get_reuse_time (unsigned int penalty, char *buf, size_t len)
 {
   time_t reuse_time = 0;
@@ -615,7 +615,7 @@ bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo)
   vty_out (vty, "%s", VTY_NEWLINE);
 }
 
-char *
+const char *
 bgp_damp_reuse_time_vty (struct vty *vty, struct bgp_info *binfo)
 {
   struct bgp_damp_info *bdi;
