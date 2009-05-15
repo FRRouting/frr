@@ -83,7 +83,7 @@ static struct cmd_node smux_node =
 static struct thread_master *master;
 
 void *
-oid_copy (void *dest, void *src, size_t size)
+oid_copy (void *dest, const void *src, size_t size)
 {
   return memcpy (dest, src, size * sizeof (oid));
 }
@@ -157,7 +157,7 @@ oid_compare_part (oid *o1, int o1_len, oid *o2, int o2_len)
 }
 
 static void
-smux_oid_dump (const char *prefix, oid *oid, size_t oid_len)
+smux_oid_dump (const char *prefix, const oid *oid, size_t oid_len)
 {
   unsigned int i;
   int first = 1;
@@ -174,7 +174,7 @@ smux_oid_dump (const char *prefix, oid *oid, size_t oid_len)
 }
 
 static int
-smux_socket ()
+smux_socket (void)
 {
   int ret;
 #ifdef HAVE_IPV6
@@ -993,9 +993,9 @@ smux_open (int sock)
 }
 
 int
-smux_trap (oid *name, size_t namelen,
-	   oid *iname, size_t inamelen,
-	   struct trap_object *trapobj, size_t trapobjlen,
+smux_trap (const oid *name, size_t namelen,
+	   const oid *iname, size_t inamelen,
+	   const struct trap_object *trapobj, size_t trapobjlen,
 	   unsigned int tick, u_char sptrap)
 {
   unsigned int i;
@@ -1227,7 +1227,7 @@ smux_connect (struct thread *t)
 
 /* Clear all SMUX related resources. */
 static void
-smux_stop ()
+smux_stop (void)
 {
   if (smux_read_thread)
     {
@@ -1388,7 +1388,7 @@ smux_header_generic (struct variable *v, oid *name, size_t *length, int exact,
 }
 
 static int
-smux_peer_default ()
+smux_peer_default (void)
 {
   if (smux_oid)
     {
