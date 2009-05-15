@@ -122,7 +122,7 @@ extern const char *bgp_type_str[];
 extern int bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
 extern void bgp_notify_print (struct peer *, struct bgp_notify *, const char *);
 
-extern struct message bgp_status_msg[];
-extern int bgp_status_msg_max;
+extern const struct message bgp_status_msg[];
+extern const int bgp_status_msg_max;
 
 #endif /* _QUAGGA_BGP_DEBUG_H */

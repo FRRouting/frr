@@ -57,7 +57,7 @@ unsigned long term_bgp_debug_normal;
 unsigned long term_bgp_debug_zebra;
 
 /* messages for BGP-4 status */
-struct message bgp_status_msg[] = 
+const struct message bgp_status_msg[] = 
 {
   { Idle, "Idle" },
   { Connect, "Connect" },
@@ -68,7 +68,7 @@ struct message bgp_status_msg[] =
   { Clearing,    "Clearing"    },
   { Deleted,     "Deleted"     },
 };
-int bgp_status_msg_max = BGP_STATUS_MAX;
+const int bgp_status_msg_max = BGP_STATUS_MAX;
 
 /* BGP message type string. */
 const char *bgp_type_str[] =
@@ -83,7 +83,7 @@ const char *bgp_type_str[] =
 };
 
 /* message for BGP-4 Notify */
-struct message bgp_notify_msg[] = 
+static const struct message bgp_notify_msg[] = 
 {
   { BGP_NOTIFY_HEADER_ERR, "Message Header Error"},
   { BGP_NOTIFY_OPEN_ERR, "OPEN Message Error"},
@@ -93,17 +93,17 @@ struct message bgp_notify_msg[] =
   { BGP_NOTIFY_CEASE, "Cease"},
   { BGP_NOTIFY_CAPABILITY_ERR, "CAPABILITY Message Error"},
 };
-int bgp_notify_msg_max = BGP_NOTIFY_MAX;
+static const int bgp_notify_msg_max = BGP_NOTIFY_MAX;
 
-struct message bgp_notify_head_msg[] = 
+static const struct message bgp_notify_head_msg[] = 
 {
   { BGP_NOTIFY_HEADER_NOT_SYNC, "/Connection Not Synchronized"},
   { BGP_NOTIFY_HEADER_BAD_MESLEN, "/Bad Message Length"},
   { BGP_NOTIFY_HEADER_BAD_MESTYPE, "/Bad Message Type"}
 };
-int bgp_notify_head_msg_max = BGP_NOTIFY_HEADER_MAX;
+static const int bgp_notify_head_msg_max = BGP_NOTIFY_HEADER_MAX;
 
-struct message bgp_notify_open_msg[] = 
+static const struct message bgp_notify_open_msg[] = 
 {
   { BGP_NOTIFY_OPEN_UNSUP_VERSION, "/Unsupported Version Number" },
   { BGP_NOTIFY_OPEN_BAD_PEER_AS, "/Bad Peer AS"},
@@ -113,9 +113,9 @@ struct message bgp_notify_open_msg[] =
   { BGP_NOTIFY_OPEN_UNACEP_HOLDTIME, "/Unacceptable Hold Time"}, 
   { BGP_NOTIFY_OPEN_UNSUP_CAPBL, "/Unsupported Capability"},
 };
-int bgp_notify_open_msg_max = BGP_NOTIFY_OPEN_MAX;
+static const int bgp_notify_open_msg_max = BGP_NOTIFY_OPEN_MAX;
 
-struct message bgp_notify_update_msg[] = 
+static const struct message bgp_notify_update_msg[] = 
 {
   { BGP_NOTIFY_UPDATE_MAL_ATTR, "/Malformed Attribute List"},
   { BGP_NOTIFY_UPDATE_UNREC_ATTR, "/Unrecognized Well-known Attribute"},
@@ -129,9 +129,9 @@ struct message bgp_notify_update_msg[] =
   { BGP_NOTIFY_UPDATE_INVAL_NETWORK, "/Invalid Network Field"},
   { BGP_NOTIFY_UPDATE_MAL_AS_PATH, "/Malformed AS_PATH"},
 };
-int bgp_notify_update_msg_max = BGP_NOTIFY_UPDATE_MAX;
+static const int bgp_notify_update_msg_max = BGP_NOTIFY_UPDATE_MAX;
 
-struct message bgp_notify_cease_msg[] =
+static const struct message bgp_notify_cease_msg[] =
 {
   { BGP_NOTIFY_CEASE_MAX_PREFIX, "/Maximum Number of Prefixes Reached"},
   { BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN, "/Administratively Shutdown"},
@@ -142,15 +142,15 @@ struct message bgp_notify_cease_msg[] =
   { BGP_NOTIFY_CEASE_COLLISION_RESOLUTION, "/Connection collision resolution"},
   { BGP_NOTIFY_CEASE_OUT_OF_RESOURCE, "/Out of Resource"},
 };
-int bgp_notify_cease_msg_max = BGP_NOTIFY_CEASE_MAX;
+static const int bgp_notify_cease_msg_max = BGP_NOTIFY_CEASE_MAX;
 
-struct message bgp_notify_capability_msg[] = 
+static const struct message bgp_notify_capability_msg[] = 
 {
   { BGP_NOTIFY_CAPABILITY_INVALID_ACTION, "/Invalid Action Value" },
   { BGP_NOTIFY_CAPABILITY_INVALID_LENGTH, "/Invalid Capability Length"},
   { BGP_NOTIFY_CAPABILITY_MALFORMED_CODE, "/Malformed Capability Value"},
 };
-int bgp_notify_capability_msg_max = BGP_NOTIFY_CAPABILITY_MAX;
+static const int bgp_notify_capability_msg_max = BGP_NOTIFY_CAPABILITY_MAX;
 
 /* Origin strings. */
 const char *bgp_origin_str[] = {"i","e","?"};
