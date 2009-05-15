@@ -441,7 +441,7 @@ bgp_capability_as4 (struct peer *peer, struct capability_header *hdr)
   return as4;
 }
 
-static struct message capcode_str[] =
+static const struct message capcode_str[] =
 {
   { CAPABILITY_CODE_MP,			"MultiProtocol Extensions"	},
   { CAPABILITY_CODE_REFRESH,		"Route Refresh"			},
@@ -452,10 +452,10 @@ static struct message capcode_str[] =
   { CAPABILITY_CODE_REFRESH_OLD,	"Route Refresh (Old)"		},
   { CAPABILITY_CODE_ORF_OLD,		"ORF (Old)"			},
 };
-int capcode_str_max = sizeof(capcode_str)/sizeof(capcode_str[0]);
+static const int capcode_str_max = sizeof(capcode_str)/sizeof(capcode_str[0]);
 
 /* Minimum sizes for length field of each cap (so not inc. the header) */
-static size_t cap_minsizes[] = 
+static const size_t cap_minsizes[] = 
 {
   [CAPABILITY_CODE_MP]		= sizeof (struct capability_mp_data),
   [CAPABILITY_CODE_REFRESH]	= CAPABILITY_CODE_REFRESH_LEN,
@@ -529,7 +529,8 @@ bgp_capability_parse (struct peer *peer, size_t length, u_char **error)
                              " expected at least %u",
                              peer->host, 
                              LOOKUP (capcode_str, caphdr.code),
-                             caphdr.length, cap_minsizes[caphdr.code]);
+                             caphdr.length, 
+			     (unsigned) cap_minsizes[caphdr.code]);
                   bgp_notify_send (peer, BGP_NOTIFY_CEASE, 0);
                   return -1;
                 }
