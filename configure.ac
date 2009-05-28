@@ -1321,6 +1321,16 @@ AC_TRY_COMPILE([#include <sys/resource.h>
  AC_DEFINE(HAVE_RUSAGE,,rusage)],
  AC_MSG_RESULT(no))
 
+dnl --------------------------------------
+dnl checking for clock_time monotonic struct and call
+dnl --------------------------------------
+AC_CHECK_LIB(rt, clock_gettime,
+[AC_DEFINE(HAVE_MONOTONIC_CLOCK,, Have monotonic clock)
+ LIBS="$LIBS -lrt"]
+)
+
+
+
 dnl -------------------
 dnl capabilities checks
 dnl -------------------
