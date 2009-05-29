@@ -78,7 +78,7 @@ community_del_val (struct community *com, u_int32_t *val)
 	  c = com->size -i -1;
 
 	  if (c > 0)
-	    memcpy (com->val + i, com->val + (i + 1), c * sizeof (val));
+	    memcpy (com->val + i, com->val + (i + 1), c * sizeof (*val));
 
 	  com->size--;
 
