@@ -3321,7 +3321,7 @@ DEFUN (set_ecommunity_rt,
        "set extcommunity rt .ASN:nn_or_IP-address:nn",
        SET_STR
        "BGP extended community attribute\n"
-       "Route Target extened communityt\n"
+       "Route Target extended community\n"
        "VPN extended community\n")
 {
   int ret;
@@ -3340,7 +3340,7 @@ DEFUN (no_set_ecommunity_rt,
        NO_STR
        SET_STR
        "BGP extended community attribute\n"
-       "Route Target extened communityt\n")
+       "Route Target extended community\n")
 {
   return bgp_route_set_delete (vty, vty->index, "extcommunity rt", NULL);
 }
@@ -3351,7 +3351,7 @@ ALIAS (no_set_ecommunity_rt,
        NO_STR
        SET_STR
        "BGP extended community attribute\n"
-       "Route Target extened communityt\n"
+       "Route Target extended community\n"
        "VPN extended community\n")
 
 DEFUN (set_ecommunity_soo,
