@@ -91,6 +91,9 @@ work_queue_new (struct thread_master *m, const char *queue_name)
 void
 work_queue_free (struct work_queue *wq)
 {
+  if (wq->thread != NULL)
+    thread_cancel(wq->thread);
+  
   /* list_delete frees items via callback */
   list_delete (wq->items);
   listnode_delete (&work_queues, wq);
