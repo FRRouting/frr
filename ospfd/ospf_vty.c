@@ -2115,8 +2115,10 @@ DEFUN (no_ospf_abr_type,
     abr_type = OSPF_ABR_CISCO;
   else if (strncmp (argv[0], "i", 1) == 0)
     abr_type = OSPF_ABR_IBM;
-  else if (strncmp (argv[0], "s", 1) == 0)
+  else if (strncmp (argv[0], "sh", 2) == 0)
     abr_type = OSPF_ABR_SHORTCUT;
+  else if (strncmp (argv[0], "st", 2) == 0)
+    abr_type = OSPF_ABR_STAND;
   else
     return CMD_WARNING;
 
