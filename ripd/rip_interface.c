@@ -591,7 +591,7 @@ rip_if_down(struct interface *ifp)
 	      {
 		rip_zebra_ipv4_delete ((struct prefix_ipv4 *) &rp->p,
 				       &rinfo->nexthop,
-				       rinfo->ifindex);
+				       rinfo->metric);
 
 		rip_redistribute_delete (rinfo->type,rinfo->sub_type,
 					 (struct prefix_ipv4 *)&rp->p,
