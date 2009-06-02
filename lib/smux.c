@@ -138,7 +138,7 @@ oid_compare (oid *o1, int o1_len, oid *o2, int o2_len)
   return 0;
 }
 
-int
+static int
 oid_compare_part (oid *o1, int o1_len, oid *o2, int o2_len)
 {
   int i;
@@ -156,7 +156,7 @@ oid_compare_part (oid *o1, int o1_len, oid *o2, int o2_len)
   return 0;
 }
 
-void
+static void
 smux_oid_dump (const char *prefix, oid *oid, size_t oid_len)
 {
   unsigned int i;
@@ -173,7 +173,7 @@ smux_oid_dump (const char *prefix, oid *oid, size_t oid_len)
   zlog_debug ("%s: %s", prefix, buf);
 }
 
-int
+static int
 smux_socket ()
 {
   int ret;
@@ -266,7 +266,7 @@ smux_socket ()
   return sock;
 }
 
-void
+static void
 smux_getresp_send (oid objid[], size_t objid_len, long reqid, long errstat,
 		   long errindex, u_char val_type, void *arg, size_t arg_len)
 {
@@ -324,13 +324,13 @@ smux_getresp_send (oid objid[], size_t objid_len, long reqid, long errstat,
   asn_build_sequence(h1,&length,(u_char)SMUX_GETRSP,ptr-h1e);
 
   if (debug_smux)
-    zlog_debug ("SMUX getresp send: %ld", (ptr - buf));
+    zlog_debug ("SMUX getresp send: %td", (ptr - buf));
   
   ret = send (smux_sock, buf, (ptr - buf), 0);
 }
 
-char *
-smux_var (char *ptr, size_t len, oid objid[], size_t *objid_len,
+static u_char *
+smux_var (u_char *ptr, size_t len, oid objid[], size_t *objid_len,
           size_t *var_val_len,
           u_char *var_val_type,
           void **var_value)
@@ -341,14 +341,14 @@ smux_var (char *ptr, size_t len, oid objid[], size_t *objid_len,
   u_char *val;
 
   if (debug_smux)
-    zlog_debug ("SMUX var parse: len %ld", len);
+    zlog_debug ("SMUX var parse: len %zd", len);
 
   /* Parse header. */
   ptr = asn_parse_header (ptr, &len, &type);
   
   if (debug_smux)
     {
-      zlog_debug ("SMUX var parse: type %d len %ld", type, len);
+      zlog_debug ("SMUX var parse: type %d len %zd", type, len);
       zlog_debug ("SMUX var parse: type must be %d", 
 		 (ASN_SEQUENCE | ASN_CONSTRUCTOR));
     }
@@ -430,7 +430,7 @@ smux_var (char *ptr, size_t len, oid objid[], size_t *objid_len,
    ucd-snmp smux and as such suppose, that the peer receives in the message
    only one variable. Fortunately, IBM seems to do the same in AIX. */
 
-int
+static int
 smux_set (oid *reqid, size_t *reqid_len,
           u_char val_type, void *val, size_t val_len, int action)
 {
@@ -498,7 +498,7 @@ smux_set (oid *reqid, size_t *reqid_len,
   return SNMP_ERR_NOSUCHNAME;
 }
 
-int
+static int
 smux_get (oid *reqid, size_t *reqid_len, int exact, 
 	  u_char *val_type,void **val, size_t *val_len)
 {
@@ -564,7 +564,7 @@ smux_get (oid *reqid, size_t *reqid_len, int exact,
   return SNMP_ERR_NOSUCHNAME;
 }
 
-int
+static int
 smux_getnext (oid *reqid, size_t *reqid_len, int exact, 
 	      u_char *val_type,void **val, size_t *val_len)
 {
@@ -650,8 +650,8 @@ smux_getnext (oid *reqid, size_t *reqid_len, int exact,
 }
 
 /* GET message header. */
-char *
-smux_parse_get_header (char *ptr, size_t *len, long *reqid)
+static u_char *
+smux_parse_get_header (u_char *ptr, size_t *len, long *reqid)
 {
   u_char type;
   long errstat;
@@ -667,19 +667,19 @@ smux_parse_get_header (char *ptr, size_t *len, long *reqid)
   ptr = asn_parse_int (ptr, len, &type, &errstat, sizeof (errstat));
 
   if (debug_smux)
-    zlog_debug ("SMUX GET errstat %ld len: %ld", errstat, *len);
+    zlog_debug ("SMUX GET errstat %ld len: %zd", errstat, *len);
 
   /* Error index. */
   ptr = asn_parse_int (ptr, len, &type, &errindex, sizeof (errindex));
 
   if (debug_smux)
-    zlog_debug ("SMUX GET errindex %ld len: %ld", errindex, *len);
+    zlog_debug ("SMUX GET errindex %ld len: %zd", errindex, *len);
 
   return ptr;
 }
 
-void
-smux_parse_set (char *ptr, size_t len, int action)
+static void
+smux_parse_set (u_char *ptr, size_t len, int action)
 {
   long reqid;
   oid oid[MAX_OID_LEN];
@@ -690,7 +690,7 @@ smux_parse_set (char *ptr, size_t len, int action)
   int ret;
 
   if (debug_smux)
-    zlog_debug ("SMUX SET(%s) message parse: len %ld",
+    zlog_debug ("SMUX SET(%s) message parse: len %zd",
                (RESERVE1 == action) ? "RESERVE1" : ((FREE == action) ? "FREE" : "COMMIT"),
                len);
 
@@ -709,8 +709,8 @@ smux_parse_set (char *ptr, size_t len, int action)
     smux_getresp_send (oid, oid_len, reqid, ret, 3, ASN_NULL, NULL, 0);
 }
 
-void
-smux_parse_get (char *ptr, size_t len, int exact)
+static void
+smux_parse_get (u_char *ptr, size_t len, int exact)
 {
   long reqid;
   oid oid[MAX_OID_LEN];
@@ -721,7 +721,7 @@ smux_parse_get (char *ptr, size_t len, int exact)
   int ret;
 
   if (debug_smux)
-    zlog_debug ("SMUX GET message parse: len %ld", len);
+    zlog_debug ("SMUX GET message parse: len %zd", len);
   
   /* Parse GET message header. */
   ptr = smux_parse_get_header (ptr, &len, &reqid);
@@ -743,8 +743,8 @@ smux_parse_get (char *ptr, size_t len, int exact)
 }
 
 /* Parse SMUX_CLOSE message. */
-void
-smux_parse_close (char *ptr, int len)
+static void
+smux_parse_close (u_char *ptr, int len)
 {
   long reason = 0;
 
@@ -757,10 +757,10 @@ smux_parse_close (char *ptr, int len)
 }
 
 /* SMUX_RRSP message. */
-void
-smux_parse_rrsp (char *ptr, size_t len)
+static void
+smux_parse_rrsp (u_char *ptr, size_t len)
 {
-  char val;
+  u_char val;
   long errstat;
   
   ptr = asn_parse_int (ptr, &len, &val, &errstat, sizeof (errstat));
@@ -770,8 +770,8 @@ smux_parse_rrsp (char *ptr, size_t len)
 }
 
 /* Parse SMUX message. */
-int
-smux_parse (char *ptr, size_t len)
+static int
+smux_parse (u_char *ptr, size_t len)
 {
   /* This buffer we'll use for SOUT message. We could allocate it with
      malloc and save only static pointer/lenght, but IMHO static
@@ -791,7 +791,7 @@ process_rest: /* see note below: YYY */
   ptr = asn_parse_header (ptr, &len, &type);
 
   if (debug_smux)
-    zlog_debug ("SMUX message received type: %d rest len: %ld", type, len);
+    zlog_debug ("SMUX message received type: %d rest len: %zd", type, len);
 
   switch (type)
     {
@@ -883,7 +883,7 @@ process_rest: /* see note below: YYY */
 }
 
 /* SMUX message read function. */
-int
+static int
 smux_read (struct thread *t)
 {
   int sock;
@@ -939,13 +939,13 @@ smux_read (struct thread *t)
   return 0;
 }
 
-int
+static int
 smux_open (int sock)
 {
   u_char buf[BUFSIZ];
   u_char *ptr;
   size_t len;
-  u_long version;
+  long version;
   u_char progname[] = QUAGGA_PROGNAME "-" QUAGGA_VERSION;
 
   if (debug_smux)
@@ -983,7 +983,7 @@ smux_open (int sock)
   ptr = asn_build_string (ptr, &len, 
 			  (u_char)
 			  (ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_OCTET_STR),
-			  smux_passwd, strlen (smux_passwd));
+			  (u_char *)smux_passwd, strlen (smux_passwd));
 
   /* Fill in real SMUX header.  We exclude ASN header size (2). */
   len = BUFSIZ;
@@ -1034,13 +1034,13 @@ smux_trap (oid *name, size_t namelen,
   val = SNMP_TRAP_ENTERPRISESPECIFIC;
   ptr = asn_build_int (ptr, &len, 
 		       (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		       &val, sizeof (val));
+		       (long *)&val, sizeof (val));
 
   /* Specific trap integer. */
   val = sptrap;
   ptr = asn_build_int (ptr, &len, 
 		       (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
-		       &val, sizeof (val));
+		       (long *)&val, sizeof (val));
 
   /* Timeticks timestamp. */
   val = 0;
@@ -1118,7 +1118,7 @@ smux_trap (oid *name, size_t namelen,
   return send (smux_sock, buf, (ptr - buf), 0);
 }
 
-int
+static int
 smux_register (int sock)
 {
   u_char buf[BUFSIZ];
@@ -1175,7 +1175,7 @@ smux_register (int sock)
 }
 
 /* Try to connect to SNMP agent. */
-int
+static int
 smux_connect (struct thread *t)
 {
   int ret;
@@ -1226,7 +1226,7 @@ smux_connect (struct thread *t)
 }
 
 /* Clear all SMUX related resources. */
-void
+static void
 smux_stop ()
 {
   if (smux_read_thread)
@@ -1269,7 +1269,7 @@ smux_event (enum smux_event event, int sock)
     }
 }
 
-int
+static int
 smux_str2oid (const char *str, oid *oid, size_t *oid_len)
 {
   int len;
@@ -1312,7 +1312,7 @@ smux_str2oid (const char *str, oid *oid, size_t *oid_len)
   return 0;
 }
 
-oid *
+static oid *
 smux_oid_dup (oid *objid, size_t objid_len)
 {
   oid *new;
@@ -1323,7 +1323,7 @@ smux_oid_dup (oid *objid, size_t objid_len)
   return new;
 }
 
-int
+static int
 smux_peer_oid (struct vty *vty, const char *oid_str, const char *passwd_str)
 {
   int ret;
@@ -1387,7 +1387,7 @@ smux_header_generic (struct variable *v, oid *name, size_t *length, int exact,
   return MATCH_SUCCEEDED;
 }
 
-int
+static int
 smux_peer_default ()
 {
   if (smux_oid)
@@ -1467,7 +1467,7 @@ ALIAS (no_smux_peer,
        "SMUX peering object ID\n"
        "SMUX peering password\n")
 
-int
+static int
 config_write_smux (struct vty *vty)
 {
   int first = 1;
@@ -1502,13 +1502,6 @@ smux_register_mib (const char *descr, struct variable *var,
   tree->variables_width = width;
   tree->registered = 0;
   listnode_add_sort(treelist, tree);
-}
-
-void
-smux_reset ()
-{
-  /* Setting configuration to default. */
-  smux_peer_default ();
 }
 
 /* Compare function to keep treelist sorted */

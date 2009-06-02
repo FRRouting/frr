@@ -43,6 +43,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_snmp.h"
 
 /* BGP4-MIB described in RFC1657. */
 #define BGP4MIB 1,3,6,1,2,1,15
@@ -128,12 +129,18 @@ oid bgp_oid [] = { BGP4MIB };
 static struct in_addr bgp_empty_addr = {0};
 
 /* Hook functions. */
-static u_char *bgpVersion ();
-static u_char *bgpLocalAs ();
-static u_char *bgpPeerTable ();
-static u_char *bgpRcvdPathAttrTable ();
-static u_char *bgpIdentifier ();
-static u_char *bgp4PathAttrTable ();
+static u_char *bgpVersion (struct variable *, oid [], size_t *, int,
+			   size_t *, WriteMethod **);
+static u_char *bgpLocalAs (struct variable *, oid [], size_t *,
+			   int, size_t *, WriteMethod **);
+static u_char *bgpPeerTable (struct variable *, oid [], size_t *,
+			     int, size_t *, WriteMethod **);
+static u_char *bgpRcvdPathAttrTable (struct variable *, oid [], size_t *,
+				     int, size_t *, WriteMethod **);
+static u_char *bgpIdentifier (struct variable *, oid [], size_t *,
+			      int, size_t *, WriteMethod **);
+static u_char *bgp4PathAttrTable (struct variable *, oid [], size_t *,
+				  int, size_t *, WriteMethod **);
 /* static u_char *bgpTraps (); */
 
 struct variable bgp_variables[] = 
@@ -277,7 +284,7 @@ bgpLocalAs (struct variable *v, oid name[], size_t *length,
   return SNMP_INTEGER (bgp->as);
 }
 
-struct peer *
+static struct peer *
 peer_lookup_addr_ipv4 (struct in_addr *src)
 {
   struct bgp *bgp;
@@ -302,7 +309,7 @@ peer_lookup_addr_ipv4 (struct in_addr *src)
   return NULL;
 }
 
-struct peer *
+static struct peer *
 bgp_peer_lookup_next (struct in_addr *src)
 {
   struct bgp *bgp;
@@ -335,7 +342,7 @@ bgp_peer_lookup_next (struct in_addr *src)
   return NULL;
 }
 
-struct peer *
+static struct peer *
 bgpPeerTable_lookup (struct variable *v, oid name[], size_t *length, 
 		     struct in_addr *addr, int exact)
 {
@@ -374,7 +381,7 @@ bgpPeerTable_lookup (struct variable *v, oid name[], size_t *length,
 }
 
 /* BGP write methods. */
-int
+static int
 write_bgpPeerTable (int action, u_char *var_val,
 		    u_char var_val_type, size_t var_val_len,
 		    u_char *statP, oid *name, size_t length,
@@ -383,7 +390,7 @@ write_bgpPeerTable (int action, u_char *var_val,
   struct in_addr addr;
   struct peer *peer;
   long intval;
-  int bigsize = SNMP_MAX_LEN;
+  size_t bigsize = SNMP_MAX_LEN;
   
   if (var_val_type != ASN_INTEGER) 
     {
@@ -446,7 +453,7 @@ write_bgpPeerTable (int action, u_char *var_val,
   return SNMP_ERR_NOERROR;
 }
 
-u_char *
+static u_char *
 bgpPeerTable (struct variable *v, oid name[], size_t *length,
 	      int exact, size_t *var_len, WriteMethod **write_method)
 {
@@ -586,7 +593,7 @@ bgpPeerTable (struct variable *v, oid name[], size_t *length,
   return NULL;
 }
 
-u_char *
+static u_char *
 bgpIdentifier (struct variable *v, oid name[], size_t *length,
 	       int exact, size_t *var_len, WriteMethod **write_method)
 {
@@ -603,7 +610,7 @@ bgpIdentifier (struct variable *v, oid name[], size_t *length,
   return SNMP_IPADDRESS (bgp->router_id);
 }
 
-u_char *
+static u_char *
 bgpRcvdPathAttrTable (struct variable *v, oid name[], size_t *length,
 		      int exact, size_t *var_len, WriteMethod **write_method)
 {
@@ -614,7 +621,7 @@ bgpRcvdPathAttrTable (struct variable *v, oid name[], size_t *length,
   return NULL;
 }
 
-struct bgp_info *
+static struct bgp_info *
 bgp4PathAttrLookup (struct variable *v, oid name[], size_t *length,
 		    struct bgp *bgp, struct prefix_ipv4 *addr, int exact)
 {
@@ -751,7 +758,7 @@ bgp4PathAttrLookup (struct variable *v, oid name[], size_t *length,
   return NULL;
 }
 
-u_char *
+static u_char *
 bgp4PathAttrTable (struct variable *v, oid name[], size_t *length,
 		   int exact, size_t *var_len, WriteMethod **write_method)
 {

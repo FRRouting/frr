@@ -53,6 +53,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_snmp.h"
 
 /* OSPF2-MIB. */
 #define OSPF2MIB 1,3,6,1,2,1,14
@@ -220,19 +221,32 @@ oid ospf_oid [] = { OSPF2MIB };
 static struct in_addr ospf_empty_addr = {0};
 
 /* Hook functions. */
-static u_char *ospfGeneralGroup ();
-static u_char *ospfAreaEntry ();
-static u_char *ospfStubAreaEntry ();
-static u_char *ospfLsdbEntry ();
-static u_char *ospfAreaRangeEntry ();
-static u_char *ospfHostEntry ();
-static u_char *ospfIfEntry ();
-static u_char *ospfIfMetricEntry ();
-static u_char *ospfVirtIfEntry ();
-static u_char *ospfNbrEntry ();
-static u_char *ospfVirtNbrEntry ();
-static u_char *ospfExtLsdbEntry ();
-static u_char *ospfAreaAggregateEntry ();
+static u_char *ospfGeneralGroup (struct variable *, oid *, size_t *,
+				 int, size_t *, WriteMethod **);
+static u_char *ospfAreaEntry (struct variable *, oid *, size_t *, int,
+			      size_t *, WriteMethod **);
+static u_char *ospfStubAreaEntry (struct variable *, oid *, size_t *,
+				  int, size_t *, WriteMethod **);
+static u_char *ospfLsdbEntry (struct variable *, oid *, size_t *, int,
+			      size_t *, WriteMethod **);
+static u_char *ospfAreaRangeEntry (struct variable *, oid *, size_t *, int,
+				   size_t *, WriteMethod **);
+static u_char *ospfHostEntry (struct variable *, oid *, size_t *, int,
+			      size_t *, WriteMethod **);
+static u_char *ospfIfEntry (struct variable *, oid *, size_t *, int,
+			    size_t *, WriteMethod **);
+static u_char *ospfIfMetricEntry (struct variable *, oid *, size_t *, int,
+				  size_t *, WriteMethod **);
+static u_char *ospfVirtIfEntry (struct variable *, oid *, size_t *, int,
+				size_t *, WriteMethod **);
+static u_char *ospfNbrEntry (struct variable *, oid *, size_t *, int,
+			     size_t *, WriteMethod **);
+static u_char *ospfVirtNbrEntry (struct variable *, oid *, size_t *, int,
+				 size_t *, WriteMethod **);
+static u_char *ospfExtLsdbEntry (struct variable *, oid *, size_t *, int,
+				 size_t *, WriteMethod **);
+static u_char *ospfAreaAggregateEntry (struct variable *, oid *, size_t *,
+				       int, size_t *, WriteMethod **);
 
 struct variable ospf_variables[] = 
 {
@@ -495,7 +509,7 @@ struct variable ospf_variables[] =
 
 /* The administrative status of OSPF.  When OSPF is enbled on at least
    one interface return 1. */
-int
+static int
 ospf_admin_stat (struct ospf *ospf)
 {
   struct listnode *node;
@@ -612,7 +626,7 @@ ospfGeneralGroup (struct variable *v, oid *name, size_t *length,
   return NULL;
 }
 
-struct ospf_area *
+static struct ospf_area *
 ospf_area_lookup_next (struct ospf *ospf, struct in_addr *area_id, int first)
 {
   struct ospf_area *area;
@@ -643,7 +657,7 @@ ospf_area_lookup_next (struct ospf *ospf, struct in_addr *area_id, int first)
   return NULL;
 }
 
-struct ospf_area *
+static struct ospf_area *
 ospfAreaLookup (struct variable *v, oid name[], size_t *length,
 		struct in_addr *addr, int exact)
 {
@@ -746,7 +760,7 @@ ospfAreaEntry (struct variable *v, oid *name, size_t *length, int exact,
   return NULL;
 }
 
-struct ospf_area *
+static struct ospf_area *
 ospf_stub_area_lookup_next (struct in_addr *area_id, int first)
 {
   struct ospf_area *area;
@@ -776,7 +790,7 @@ ospf_stub_area_lookup_next (struct in_addr *area_id, int first)
   return NULL;
 }
 
-struct ospf_area *
+static struct ospf_area *
 ospfStubAreaLookup (struct variable *v, oid name[], size_t *length,
 		    struct in_addr *addr, int exact)
 {
@@ -877,7 +891,7 @@ ospfStubAreaEntry (struct variable *v, oid *name, size_t *length,
   return NULL;
 }
 
-struct ospf_lsa *
+static struct ospf_lsa *
 lsdb_lookup_next (struct ospf_area *area, u_char *type, int type_next,
 		  struct in_addr *ls_id, int ls_id_next,
 		  struct in_addr *router_id, int router_id_next)
@@ -912,7 +926,7 @@ lsdb_lookup_next (struct ospf_area *area, u_char *type, int type_next,
   return NULL;
 }
 
-struct ospf_lsa *
+static struct ospf_lsa *
 ospfLsdbLookup (struct variable *v, oid *name, size_t *length,
 		struct in_addr *area_id, u_char *type,
 		struct in_addr *ls_id, struct in_addr *router_id, int exact)
@@ -1124,7 +1138,7 @@ ospfLsdbEntry (struct variable *v, oid *name, size_t *length, int exact,
   return NULL;
 }
 
-struct ospf_area_range *
+static struct ospf_area_range *
 ospfAreaRangeLookup (struct variable *v, oid *name, size_t *length,
 		     struct in_addr *area_id, struct in_addr *range_net,
 		     int exact)
@@ -1273,7 +1287,7 @@ ospfAreaRangeEntry (struct variable *v, oid *name, size_t *length, int exact,
   return NULL;
 }
 
-struct ospf_nbr_nbma *
+static struct ospf_nbr_nbma *
 ospfHostLookup (struct variable *v, oid *name, size_t *length,
 		struct in_addr *addr, int exact)
 {
@@ -1388,7 +1402,7 @@ struct ospf_snmp_if
   struct interface *ifp;
 };
 
-struct ospf_snmp_if *
+static struct ospf_snmp_if *
 ospf_snmp_if_new ()
 {
   struct ospf_snmp_if *osif;
@@ -1398,7 +1412,7 @@ ospf_snmp_if_new ()
   return osif;
 }
 
-void
+static void
 ospf_snmp_if_free (struct ospf_snmp_if *osif)
 {
   XFREE (0, osif);
@@ -1488,7 +1502,7 @@ ospf_snmp_if_update (struct interface *ifp)
   listnode_add_after (ospf_snmp_iflist, pn, osif);
 }
 
-int
+static int
 ospf_snmp_is_if_have_addr (struct interface *ifp)
 {
   struct listnode *nn;
@@ -1504,7 +1518,7 @@ ospf_snmp_is_if_have_addr (struct interface *ifp)
   return 0;
 }
 
-struct ospf_interface *
+static struct ospf_interface *
 ospf_snmp_if_lookup (struct in_addr *ifaddr, unsigned int *ifindex)
 {
   struct listnode *node;
@@ -1528,7 +1542,7 @@ ospf_snmp_if_lookup (struct in_addr *ifaddr, unsigned int *ifindex)
   return oi;
 }
 
-struct ospf_interface *
+static struct ospf_interface *
 ospf_snmp_if_lookup_next (struct in_addr *ifaddr, unsigned int *ifindex,
 			  int ifaddr_next, int ifindex_next)
 {
@@ -1563,19 +1577,21 @@ ospf_snmp_if_lookup_next (struct in_addr *ifaddr, unsigned int *ifindex,
     {
       /* Usual interface */
       if (ifaddr->s_addr) 
-        /* The interface must have valid AF_INET connected address */
-        /* it must have lager IPv4 address value than the lookup entry */
-        if ((ospf_snmp_is_if_have_addr(osif->ifp)) &&
-            (ntohl (osif->addr.s_addr) > ntohl (ifaddr->s_addr)))
-          {
-            *ifaddr = osif->addr;
-            *ifindex = osif->ifindex;
+	{
+	  /* The interface must have valid AF_INET connected address */
+	  /* it must have lager IPv4 address value than the lookup entry */
+	  if ((ospf_snmp_is_if_have_addr(osif->ifp)) &&
+	      (ntohl (osif->addr.s_addr) > ntohl (ifaddr->s_addr)))
+	    {
+	      *ifaddr = osif->addr;
+	      *ifindex = osif->ifindex;
         
-            /* and it must be an OSPF interface */
-            oi = ospf_if_lookup_by_local_addr (ospf, osif->ifp, *ifaddr);
-            if (oi)
-              return oi;
-          }
+	      /* and it must be an OSPF interface */
+	      oi = ospf_if_lookup_by_local_addr (ospf, osif->ifp, *ifaddr);
+	      if (oi)
+		return oi;
+	    }
+	}
       /* Unnumbered interface */
       else  
         /* The interface must NOT have valid AF_INET connected address */
@@ -1595,7 +1611,7 @@ ospf_snmp_if_lookup_next (struct in_addr *ifaddr, unsigned int *ifindex,
   return NULL;
 }
 
-int
+static int
 ospf_snmp_iftype (struct interface *ifp)
 {
 #define ospf_snmp_iftype_broadcast         1
@@ -1609,7 +1625,7 @@ ospf_snmp_iftype (struct interface *ifp)
   return ospf_snmp_iftype_broadcast;
 }
 
-struct ospf_interface *
+static struct ospf_interface *
 ospfIfLookup (struct variable *v, oid *name, size_t *length,
 	      struct in_addr *ifaddr, unsigned int *ifindex, int exact)
 {
@@ -1665,7 +1681,7 @@ ospfIfLookup (struct variable *v, oid *name, size_t *length,
 
 static u_char *
 ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
-	     size_t  *var_len, WriteMethod **write_method)
+	     size_t *var_len, WriteMethod **write_method)
 {
   unsigned int ifindex;
   struct in_addr ifaddr;
@@ -1769,7 +1785,7 @@ ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
 
 #define OSPF_SNMP_METRIC_VALUE 1
 
-struct ospf_interface *
+static struct ospf_interface *
 ospfIfMetricLookup (struct variable *v, oid *name, size_t *length,
 		    struct in_addr *ifaddr, unsigned int *ifindex, int exact)
 {
@@ -1915,7 +1931,7 @@ ospf_snmp_vl_delete (struct ospf_vl_data *vl_data)
   route_unlock_node (rn);
 }
 
-struct ospf_vl_data *
+static struct ospf_vl_data *
 ospf_snmp_vl_lookup (struct in_addr *area_id, struct in_addr *neighbor)
 {
   struct prefix_ls lp;
@@ -1938,7 +1954,7 @@ ospf_snmp_vl_lookup (struct in_addr *area_id, struct in_addr *neighbor)
   return NULL;
 }
 
-struct ospf_vl_data *
+static struct ospf_vl_data *
 ospf_snmp_vl_lookup_next (struct in_addr *area_id, struct in_addr *neighbor,
 			  int first)
 {
@@ -1975,7 +1991,7 @@ ospf_snmp_vl_lookup_next (struct in_addr *area_id, struct in_addr *neighbor,
   return NULL;
 }
 
-struct ospf_vl_data *
+static struct ospf_vl_data *
 ospfVirtIfLookup (struct variable *v, oid *name, size_t *length,
 		  struct in_addr *area_id, struct in_addr *neighbor, int exact)
 {
@@ -2025,7 +2041,7 @@ ospfVirtIfLookup (struct variable *v, oid *name, size_t *length,
 
 static u_char *
 ospfVirtIfEntry (struct variable *v, oid *name, size_t *length, int exact,
-		 size_t  *var_len, WriteMethod **write_method)
+		 size_t *var_len, WriteMethod **write_method)
 {
   struct ospf_vl_data *vl_data;
   struct ospf_interface *oi;
@@ -2089,7 +2105,7 @@ ospfVirtIfEntry (struct variable *v, oid *name, size_t *length, int exact,
   return NULL;
 }
 
-struct ospf_neighbor *
+static struct ospf_neighbor *
 ospf_snmp_nbr_lookup (struct ospf *ospf, struct in_addr *nbr_addr,
 		      unsigned int *ifindex)
 {
@@ -2118,7 +2134,7 @@ ospf_snmp_nbr_lookup (struct ospf *ospf, struct in_addr *nbr_addr,
   return NULL;
 }
 
-struct ospf_neighbor *
+static struct ospf_neighbor *
 ospf_snmp_nbr_lookup_next (struct in_addr *nbr_addr, unsigned int *ifindex,
 			   int first)
 {
@@ -2164,7 +2180,7 @@ ospf_snmp_nbr_lookup_next (struct in_addr *nbr_addr, unsigned int *ifindex,
   return NULL;
 }
 
-struct ospf_neighbor *
+static struct ospf_neighbor *
 ospfNbrLookup (struct variable *v, oid *name, size_t *length,
 	       struct in_addr *nbr_addr, unsigned int *ifindex, int exact)
 {
@@ -2258,7 +2274,7 @@ ospf_snmp_neighbor_state(u_char nst)
 
 static u_char *
 ospfNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
-	      size_t  *var_len, WriteMethod **write_method)
+	      size_t *var_len, WriteMethod **write_method)
 {
   struct in_addr nbr_addr;
   unsigned int ifindex;
@@ -2320,7 +2336,7 @@ ospfNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
 
 static u_char *
 ospfVirtNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
-		  size_t  *var_len, WriteMethod **write_method)
+		  size_t *var_len, WriteMethod **write_method)
 {
   struct ospf_vl_data *vl_data;
   struct in_addr area_id;
@@ -2373,7 +2389,7 @@ ospfVirtNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
   return NULL;
 }
 
-struct ospf_lsa *
+static struct ospf_lsa *
 ospfExtLsdbLookup (struct variable *v, oid *name, size_t *length, u_char *type,
 		   struct in_addr *ls_id, struct in_addr *router_id, int exact)
 {
@@ -2466,7 +2482,7 @@ ospfExtLsdbLookup (struct variable *v, oid *name, size_t *length, u_char *type,
 
 static u_char *
 ospfExtLsdbEntry (struct variable *v, oid *name, size_t *length, int exact,
-		  size_t  *var_len, WriteMethod **write_method)
+		  size_t *var_len, WriteMethod **write_method)
 {
   struct ospf_lsa *lsa;
   struct lsa_header *lsah;

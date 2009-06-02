@@ -90,10 +90,14 @@ extern struct zebra_t zebrad;
 oid ipfw_oid [] = { IPFWMIB };
 
 /* Hook functions. */
-u_char * ipFwNumber ();
-u_char * ipFwTable ();
-u_char * ipCidrNumber ();
-u_char * ipCidrTable ();
+static u_char * ipFwNumber (struct variable *, oid [], size_t *,
+		     int, size_t *, WriteMethod **);
+static u_char * ipFwTable (struct variable *, oid [], size_t *,
+			   int, size_t *, WriteMethod **);
+static u_char * ipCidrNumber (struct variable *, oid [], size_t *,
+			      int, size_t *, WriteMethod **);
+static u_char * ipCidrTable (struct variable *, oid [], size_t *,
+			     int, size_t *, WriteMethod **);
 
 struct variable zebra_variables[] = 
   {
@@ -133,7 +137,7 @@ struct variable zebra_variables[] =
   };
 
 
-u_char *
+static u_char *
 ipFwNumber (struct variable *v, oid objid[], size_t *objid_len,
 	    int exact, size_t *val_len, WriteMethod **write_method)
 {
@@ -158,7 +162,7 @@ ipFwNumber (struct variable *v, oid objid[], size_t *objid_len,
   return (u_char *)&result;
 }
 
-u_char *
+static u_char *
 ipCidrNumber (struct variable *v, oid objid[], size_t *objid_len,
 	      int exact, size_t *val_len, WriteMethod **write_method)
 {
@@ -183,7 +187,7 @@ ipCidrNumber (struct variable *v, oid objid[], size_t *objid_len,
   return (u_char *)&result;
 }
 
-int
+static int
 in_addr_cmp(u_char *p1, u_char *p2)
 {
   int i;
@@ -199,7 +203,7 @@ in_addr_cmp(u_char *p1, u_char *p2)
   return 0;
 }
 
-int 
+static int 
 in_addr_add(u_char *p, int num)
 {
   int i, ip0;
@@ -224,7 +228,8 @@ in_addr_add(u_char *p, int num)
   return 1;
 }
 
-int proto_trans(int type)
+static int
+proto_trans(int type)
 {
   switch (type)
     {
@@ -251,7 +256,7 @@ int proto_trans(int type)
     }
 }
 
-void
+static void
 check_replace(struct route_node *np2, struct rib *rib2, 
               struct route_node **np, struct rib **rib)
 {
@@ -294,7 +299,7 @@ check_replace(struct route_node *np2, struct rib *rib2,
   return;
 }
 
-void
+static void
 get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len, 
 		       int exact, struct route_node **np, struct rib **rib)
 {
@@ -339,7 +344,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
    * ipForwardDest, ipForwardProto, ipForwardPolicy, ipForwardNextHop
    */
 
-  if (*objid_len > v->namelen)
+  if (*objid_len > (unsigned) v->namelen)
     oid2in_addr (objid + v->namelen, MIN(4, *objid_len - v->namelen), &dest);
 
   if (*objid_len > (unsigned) v->namelen + 4)
@@ -441,7 +446,7 @@ get_fwtable_route_node(struct variable *v, oid objid[], size_t *objid_len,
   return;
 }
 
-u_char *
+static u_char *
 ipFwTable (struct variable *v, oid objid[], size_t *objid_len,
 	   int exact, size_t *val_len, WriteMethod **write_method)
 {
@@ -546,7 +551,7 @@ ipFwTable (struct variable *v, oid objid[], size_t *objid_len,
   return NULL;
 }
 
-u_char *
+static u_char *
 ipCidrTable (struct variable *v, oid objid[], size_t *objid_len,
 	     int exact, size_t *val_len, WriteMethod **write_method)
 {

@@ -93,10 +93,14 @@ oid rip_oid [] = { RIPV2MIB };
 struct route_table *rip_ifaddr_table;
 
 /* Hook functions. */
-static u_char *rip2Globals ();
-static u_char *rip2IfStatEntry ();
-static u_char *rip2IfConfAddress ();
-static u_char *rip2PeerTable ();
+static u_char *rip2Globals (struct variable *, oid [], size_t *,
+			    int, size_t *, WriteMethod **);
+static u_char *rip2IfStatEntry (struct variable *, oid [], size_t *,
+				int, size_t *, WriteMethod **);
+static u_char *rip2IfConfAddress (struct variable *, oid [], size_t *,
+				  int, size_t *, WriteMethod **);
+static u_char *rip2PeerTable (struct variable *, oid [], size_t *,
+			      int, size_t *, WriteMethod **);
 
 struct variable rip_variables[] = 
 {
@@ -215,7 +219,7 @@ rip_ifaddr_delete (struct interface *ifp, struct connected *ifc)
     }
 }
 
-struct interface *
+static struct interface *
 rip_ifaddr_lookup_next (struct in_addr *addr)
 {
   struct prefix_ipv4 p;

@@ -47,6 +47,7 @@
 #include "ospf6_message.h"
 #include "ospf6_neighbor.h"
 #include "ospf6d.h"
+#include "ospf6_snmp.h"
 
 /* OSPFv3-MIB */
 #define OSPFv3MIB 1,3,6,1,3,102
@@ -128,9 +129,12 @@ oid ospfv3_oid [] = { OSPFv3MIB };
 static struct in_addr ospf6_empty_id = {0};
 
 /* Hook functions. */
-static u_char *ospfv3GeneralGroup ();
-static u_char *ospfv3AreaEntry ();
-static u_char *ospfv3AreaLsdbEntry ();
+static u_char *ospfv3GeneralGroup (struct variable *, oid *, size_t *,
+				   int, size_t *, WriteMethod **);
+static u_char *ospfv3AreaEntry (struct variable *, oid *, size_t *,
+				int, size_t *, WriteMethod **);
+static u_char *ospfv3AreaLsdbEntry (struct variable *, oid *, size_t *,
+				    int, size_t *, WriteMethod **);
 
 struct variable ospfv3_variables[] =
 {
