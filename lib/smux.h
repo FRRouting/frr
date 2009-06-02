@@ -127,12 +127,12 @@ struct trap_object
 
 /* Declare SMUX return value. */
 #define SNMP_LOCAL_VARIABLES \
-  static int32_t snmp_int_val; \
+  static long snmp_int_val; \
   static struct in_addr snmp_in_addr_val;
 
 #define SNMP_INTEGER(V) \
   ( \
-    *var_len = sizeof (int32_t), \
+    *var_len = sizeof (snmp_int_val), \
     snmp_int_val = V, \
     (u_char *) &snmp_int_val \
   )
