@@ -782,12 +782,13 @@ ospf_network_unset (struct ospf *ospf, struct prefix_ipv4 *p,
     return 0;
 
   network = rn->info;
+  route_unlock_node (rn);
   if (!IPV4_ADDR_SAME (&area_id, &network->area_id))
     return 0;
 
   ospf_network_free (ospf, rn->info);
   rn->info = NULL;
-  route_unlock_node (rn);
+  route_unlock_node (rn);	/* initial reference */
 
   /* Find interfaces that not configured already.  */
   for (ALL_LIST_ELEMENTS (ospf->oiflist, node, nnode, oi))
