@@ -3053,7 +3053,7 @@ ALIAS (no_set_weight,
 
 DEFUN (set_aspath_prepend,
        set_aspath_prepend_cmd,
-       "set as-path prepend .<1-65535>",
+       "set as-path prepend ." CMD_AS_RANGE,
        SET_STR
        "Transform BGP AS_PATH attribute\n"
        "Prepend to the as-path\n"
@@ -3091,7 +3091,7 @@ DEFUN (no_set_aspath_prepend,
 
 ALIAS (no_set_aspath_prepend,
        no_set_aspath_prepend_val_cmd,
-       "no set as-path prepend .<1-65535>",
+       "no set as-path prepend ." CMD_AS_RANGE,
        NO_STR
        SET_STR
        "Transform BGP AS_PATH attribute\n"
@@ -3100,7 +3100,7 @@ ALIAS (no_set_aspath_prepend,
 
 DEFUN (set_aspath_exclude,
        set_aspath_exclude_cmd,
-       "set as-path exclude .<1-65535>",
+       "set as-path exclude ." CMD_AS_RANGE,
        SET_STR
        "Transform BGP AS-path attribute\n"
        "Exclude from the as-path\n"
@@ -3137,7 +3137,7 @@ DEFUN (no_set_aspath_exclude,
 
 ALIAS (no_set_aspath_exclude,
        no_set_aspath_exclude_val_cmd,
-       "no set as-path exclude .<1-65535>",
+       "no set as-path exclude ." CMD_AS_RANGE,
        NO_STR
        SET_STR
        "Transform BGP AS_PATH attribute\n"

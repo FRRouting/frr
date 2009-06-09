@@ -1642,7 +1642,7 @@ aspath_gettoken (const char *buf, enum as_token *token, u_long *asno)
   /* Check actual AS value. */
   if (isdigit ((int) *p)) 
     {
-      u_short asval;
+      as_t asval;
       
       *token = as_token_asval;
       asval = (*p - '0');
