@@ -498,7 +498,30 @@ sockopt_iphdrincl_swab_systoh (struct ip *iph)
 int
 sockopt_tcp_signature (int sock, union sockunion *su, const char *password)
 {
-#if HAVE_DECL_TCP_MD5SIG
+#if defined(HAVE_TCP_MD5_LINUX24) && defined(GNU_LINUX)
+  /* Support for the old Linux 2.4 TCP-MD5 patch, taken from Hasso Tepper's
+   * version of the Quagga patch (based on work by Rick Payne, and Bruce
+   * Simpson)
+   */
+#define TCP_MD5_AUTH 13
+#define TCP_MD5_AUTH_ADD 1
+#define TCP_MD5_AUTH_DEL 2
+  struct tcp_rfc2385_cmd {
+    u_int8_t     command;    /* Command - Add/Delete */
+    u_int32_t    address;    /* IPV4 address associated */
+    u_int8_t     keylen;     /* MD5 Key len (do NOT assume 0 terminated ascii) */
+    void         *key;       /* MD5 Key */
+  } cmd;
+  struct in_addr *addr = &su->sin.sin_addr;
+  
+  cmd.command = (password != NULL ? TCP_MD5_AUTH_ADD : TCP_MD5_AUTH_DEL);
+  cmd.address = addr->s_addr;
+  cmd.keylen = (password != NULL ? strlen (password) : 0);
+  cmd.key = password;
+  
+  return setsockopt (sock, IPPROTO_TCP, TCP_MD5_AUTH, &cmd, sizeof cmd);
+  
+#elif HAVE_DECL_TCP_MD5SIG
   int ret;
 #ifndef GNU_LINUX
   /*
@@ -559,5 +582,5 @@ sockopt_tcp_signature (int sock, union sockunion *su, const char *password)
   return ret;
 #else /* HAVE_TCP_MD5SIG */
   return -2;
-#endif /* HAVE_TCP_MD5SIG */
+#endif /* !HAVE_TCP_MD5SIG */
 }

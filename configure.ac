@@ -247,6 +247,8 @@ AC_ARG_ENABLE(capabilities,
 [  --disable-capabilities        disable using POSIX capabilities])
 AC_ARG_ENABLE(gcc_ultra_verbose,
 [  --enable-gcc-ultra-verbose    enable ultra verbose GCC warnings])
+AC_ARG_ENABLE(linux24_tcp_md5,
+[  --enable-linux24-tcp-md5  enable support for old, Linux-2.4 RFC2385 patch])
 AC_ARG_ENABLE(gcc-rdynamic,
 [  --enable-gcc-rdynamic   enable gcc linking with -rdynamic for better backtraces])
 AC_ARG_ENABLE(time-check,
@@ -291,6 +293,10 @@ fi
 if test "${enable_ospf_te}" = "yes"; then
   AC_DEFINE(HAVE_OPAQUE_LSA,,OSPF Opaque LSA)
   AC_DEFINE(HAVE_OSPF_TE,,OSPF TE)
+fi
+
+if test "${enable_linux24_tcp_md5}" = "yes"; then
+  AC_DEFINE(HAVE_TCP_MD5_LINUX24,,Old Linux 2.4 TCP MD5 Signature Patch)
 fi
 
 AC_MSG_CHECKING(if zebra should be configurable to send Route Advertisements)
