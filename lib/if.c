@@ -422,7 +422,7 @@ if_flag_dump (unsigned long flag)
 
 /* For debugging */
 static void
-if_dump (struct interface *ifp)
+if_dump (const struct interface *ifp)
 {
   struct listnode *node;
   struct connected *c;
