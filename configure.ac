@@ -391,7 +391,7 @@ dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h sys/times.h sys/select.h \
 	sys/types.h linux/version.h netdb.h asm/types.h \
 	sys/param.h limits.h signal.h libutil.h \
-	sys/socket.h netinet/in.h])
+	sys/socket.h netinet/in.h time.h sys/time.h])
 
 dnl Utility macro to avoid retyping includes all the time
 m4_define([QUAGGA_INCLUDES],
@@ -425,6 +425,16 @@ m4_define([QUAGGA_INCLUDES],
 #if HAVE_NETINET_IN_H
 # include <netinet/in.h>
 #endif
+#ifdef TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif /* TIME_WITH_SYS_TIME */
 ])dnl
 
 AC_CHECK_HEADERS([sys/un.h net/if.h netinet/in_systm.h netinet/in_var.h \
@@ -1324,12 +1334,10 @@ AC_TRY_COMPILE([#include <sys/resource.h>
 dnl --------------------------------------
 dnl checking for clock_time monotonic struct and call
 dnl --------------------------------------
-AC_CHECK_LIB(rt, clock_gettime,
-[AC_DEFINE(HAVE_MONOTONIC_CLOCK,, Have monotonic clock)
- LIBS="$LIBS -lrt"]
-)
-
-
+AC_CHECK_DECL(CLOCK_MONOTONIC,
+	[AC_CHECK_LIB(rt, clock_gettime, [LIBS="$LIBS -lrt"])
+	 AC_DEFINE(HAVE_MONOTONIC_CLOCK,, Have monotonic clock)
+], [AC_MSG_RESULT(no)], [QUAGGA_INCLUDES])
 
 dnl -------------------
 dnl capabilities checks
