@@ -2208,7 +2208,10 @@ bgp_capability_msg_parse (struct peer *peer, u_char *pnt, bgp_size_t length)
   return 0;
 }
 
-/* Dynamic Capability is received. */
+/* Dynamic Capability is received. 
+ *
+ * This is exported for unit-test purposes
+ */
 int
 bgp_capability_receive (struct peer *peer, bgp_size_t size)
 {
