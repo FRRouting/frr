@@ -2808,10 +2808,10 @@ peer_update_source_vty (struct vty *vty, const char *peer_str,
   return CMD_SUCCESS;
 }
 
-#define BGP_UPDATE_SOURCE_STR "(A.B.C.D|WORD)"
+#define BGP_UPDATE_SOURCE_STR "(A.B.C.D|X:X::X:X)"
 #define BGP_UPDATE_SOURCE_HELP_STR \
   "IPv4 address\n" \
-  "Interface name\n"
+  "IPv6 address\n"
 
 DEFUN (neighbor_update_source,
        neighbor_update_source_cmd,
