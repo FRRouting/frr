@@ -225,7 +225,7 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
       ospf6_flood_clear (old);
     }
 
-  gettimeofday (&now, (struct timezone *) NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
   if (! OSPF6_LSA_IS_MAXAGE (lsa))
     lsa->expire = thread_add_timer (master, ospf6_lsa_expire, lsa,
                                     MAXAGE + lsa->birth.tv_sec - now.tv_sec);
@@ -837,7 +837,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
       if (old)
         {
           struct timeval now, res;
-          gettimeofday (&now, (struct timezone *) NULL);
+          quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
           timersub (&now, &old->installed, &res);
           if (res.tv_sec < MIN_LS_ARRIVAL)
             {
@@ -848,7 +848,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
             }
         }
 
-      gettimeofday (&new->received, (struct timezone *) NULL);
+      quagga_gettime (QUAGGA_CLK_MONOTONIC, &new->received);
 
       if (is_debug)
         zlog_debug ("Flood, Install, Possibly acknowledge the received LSA");

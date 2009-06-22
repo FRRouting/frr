@@ -1456,7 +1456,7 @@ ospf6_dbdesc_send (struct thread *thread)
   if (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT))
     {
       struct timeval tv;
-      if (gettimeofday (&tv, (struct timezone *) NULL) < 0)
+      if (quagga_gettime (QUAGGA_CLK_MONOTONIC, &tv) < 0)
         tv.tv_sec = 1;
       on->dbdesc_seqnum = tv.tv_sec;
     }

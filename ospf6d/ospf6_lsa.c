@@ -180,8 +180,8 @@ ospf6_lsa_age_set (struct ospf6_lsa *lsa)
 
   assert (lsa && lsa->header);
 
-  if (gettimeofday (&now, (struct timezone *)NULL) < 0)
-    zlog_warn ("LSA: gettimeofday failed, may fail LSA AGEs: %s",
+  if (quagga_gettime (QUAGGA_CLK_MONOTONIC, &now) < 0)
+    zlog_warn ("LSA: quagga_gettime failed, may fail LSA AGEs: %s",
                safe_strerror (errno));
 
   lsa->birth.tv_sec = now.tv_sec - ntohs (lsa->header->age);
@@ -203,8 +203,8 @@ ospf6_lsa_age_current (struct ospf6_lsa *lsa)
   assert (lsa->header);
 
   /* current time */
-  if (gettimeofday (&now, (struct timezone *)NULL) < 0)
-    zlog_warn ("LSA: gettimeofday failed, may fail LSA AGEs: %s",
+  if (quagga_gettime (QUAGGA_CLK_MONOTONIC, &now) < 0)
+    zlog_warn ("LSA: quagga_gettime failed, may fail LSA AGEs: %s",
                safe_strerror (errno));
 
   /* calculate age */
@@ -351,7 +351,7 @@ ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa)
   inet_ntop (AF_INET, &lsa->header->adv_router, adv_router,
              sizeof (adv_router));
 
-  gettimeofday (&now, NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
   timersub (&now, &lsa->installed, &res);
   timerstring (&res, duration, sizeof (duration));
 

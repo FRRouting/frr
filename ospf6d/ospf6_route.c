@@ -378,7 +378,7 @@ ospf6_route_add (struct ospf6_route *route,
   else if (IS_OSPF6_DEBUG_ROUTE (TABLE))
     zlog_debug ("%s: route add: %s", ospf6_route_table_name (table), buf);
 
-  gettimeofday (&now, NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
 
   node = route_node_get (table->table, &route->prefix);
   route->rnode = node;
@@ -792,7 +792,7 @@ ospf6_route_show (struct vty *vty, struct ospf6_route *route)
   char duration[16], ifname[IFNAMSIZ];
   struct timeval now, res;
 
-  gettimeofday (&now, (struct timezone *) NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
   timersub (&now, &route->changed, &res);
   timerstring (&res, duration, sizeof (duration));
 
@@ -841,7 +841,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
   char duration[16];
   int i;
 
-  gettimeofday (&now, (struct timezone *) NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
 
   /* destination */
   if (route->type == OSPF6_DEST_TYPE_LINKSTATE)

@@ -825,7 +825,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   vty_out (vty, "  Number of I/F scoped LSAs is %u%s",
            oi->lsdb->count, VNL);
 
-  gettimeofday (&now, (struct timezone *) NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
 
   timerclear (&res);
   if (oi->thread_send_lsupdate)

@@ -1256,11 +1256,11 @@ ospf6_brouter_debug_print (struct ospf6_route *brouter)
   ospf6_linkstate_prefix2str (&brouter->prefix, destination,
                               sizeof (destination));
 
-  gettimeofday (&now, (struct timezone *) NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
   timersub (&now, &brouter->installed, &res);
   timerstring (&res, installed, sizeof (installed));
 
-  gettimeofday (&now, (struct timezone *) NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
   timersub (&now, &brouter->changed, &res);
   timerstring (&res, changed, sizeof (changed));
 

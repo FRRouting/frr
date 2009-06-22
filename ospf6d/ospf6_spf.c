@@ -527,9 +527,9 @@ ospf6_spf_calculation_thread (struct thread *t)
     ospf6_spf_log_database (oa);
 
   /* execute SPF calculation */
-  gettimeofday (&start, (struct timezone *) NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &start);
   ospf6_spf_calculation (oa->ospf6->router_id, oa->spf_table, oa);
-  gettimeofday (&end, (struct timezone *) NULL);
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &end);
   timersub (&end, &start, &runtime);
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
