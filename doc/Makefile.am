@@ -15,7 +15,7 @@
 SUFFIXES = .png .eps .dia .pdf
 DIATOPNG = dia -t png -e
 DIATOEPS = dia -t eps -e
-PNGTOEPS = convert -dither -antialias -contrast -despeckle
+PNGTOEPS = convert -antialias -contrast -despeckle
 PNGTOPDF = $(PNGTOEPS)
 EPSTOPDF = epstopdf
 
