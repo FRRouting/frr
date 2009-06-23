@@ -281,7 +281,7 @@ start () {
 	eval exec $DAEMON_PATH/$DAEMON $DAEMON_ARGS --pid_file ${PIDFILE} &
 }
 
-stop () {
+stop_by_pidfile () {
 	if [ -f "${PIDFILE}" ]; then
 		/usr/bin/kill -TERM `/usr/bin/cat "${PIDFILE}"`
 	fi
@@ -292,7 +292,7 @@ case "$QUAGGA_METHOD" in
 	start
 	;;
 'stop')
-	stop
+	stop_by_pidfile
 	;;
 
 *)
