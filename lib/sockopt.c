@@ -550,8 +550,8 @@ sockopt_tcp_signature (int sock, union sockunion *su, const char *password)
       if (su2->sa.sa_family == AF_INET)
         {
           sockunion_free (susock);
-          return -1;
-        };
+          return 0;
+        }
       
 #ifdef HAVE_IPV6
       /* If this does not work, then all users of this sockopt will need to
@@ -580,7 +580,16 @@ sockopt_tcp_signature (int sock, union sockunion *su, const char *password)
     memcpy (md5sig.tcpm_key, password, keylen);
   sockunion_free (susock);
 #endif /* GNU_LINUX */
-  ret = setsockopt (sock, IPPROTO_TCP, TCP_MD5SIG, &md5sig, sizeof md5sig);
+  if ((ret = setsockopt (sock, IPPROTO_TCP, TCP_MD5SIG, &md5sig, sizeof md5sig)) < 0)
+    {
+      /* ENOENT is harmless.  It is returned when we clear a password for which
+	 one was not previously set. */
+      if (ENOENT == errno)
+	ret = 0;
+      else
+	zlog_err ("sockopt_tcp_signature: setsockopt(%d): %s",
+		  sock, safe_strerror(errno));
+    }
   return ret;
 #else /* HAVE_TCP_MD5SIG */
   return -2;

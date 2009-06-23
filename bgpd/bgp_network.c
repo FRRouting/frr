@@ -517,6 +517,7 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
       return ret;
     }
 
+  listnode_add (bm->listen_sockets, (void *)sock);
   thread_add_read (bm->master, bgp_accept, bgp, sock);
 
   return sock;
