@@ -778,14 +778,6 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
     break;
   }
 
-  /* Performance hack. Send hello immideately when some neighbor enter
-     Init state.  This whay we decrease neighbor discovery time. Gleb.*/
-  if (state == NSM_Init)
-    {
-      OSPF_ISM_TIMER_OFF (oi->t_hello);
-      OSPF_ISM_TIMER_MSEC_ON (oi->t_hello, ospf_hello_timer, 1);
-    }
-
   /* Preserve old status? */
 }
 
