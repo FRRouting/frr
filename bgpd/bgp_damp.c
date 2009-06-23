@@ -541,8 +541,6 @@ bgp_config_write_damp (struct vty *vty)
 	     VTY_NEWLINE);
 }
 
-#define BGP_UPTIME_LEN 25
-
 static const char *
 bgp_get_reuse_time (unsigned int penalty, char *buf, size_t len)
 {
@@ -616,11 +614,11 @@ bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo)
 }
 
 const char *
-bgp_damp_reuse_time_vty (struct vty *vty, struct bgp_info *binfo)
+bgp_damp_reuse_time_vty (struct vty *vty, struct bgp_info *binfo,
+                         char *timebuf, size_t len)
 {
   struct bgp_damp_info *bdi;
   time_t t_now, t_diff;
-  char timebuf[BGP_UPTIME_LEN];
   int penalty;
   
   if (!binfo->extra)
@@ -639,5 +637,5 @@ bgp_damp_reuse_time_vty (struct vty *vty, struct bgp_info *binfo)
   t_diff = t_now - bdi->t_updated;
   penalty = bgp_damp_decay (t_diff, bdi->penalty);
 
-  return  bgp_get_reuse_time (penalty, timebuf, BGP_UPTIME_LEN);
+  return  bgp_get_reuse_time (penalty, timebuf, len);
 }
