@@ -244,6 +244,8 @@ vtysh_config_parse_line (const char *line)
 	       || strncmp (line, "enable password",
 			   strlen ("enable password")) == 0)
 	config = config_get (AAA_NODE, line);
+      else if (strncmp (line, "ip protocol", strlen ("ip protocol")) == 0)
+	config = config_get (PROTOCOL_NODE, line);
       else
 	{
 	  if (strncmp (line, "log", strlen ("log")) == 0

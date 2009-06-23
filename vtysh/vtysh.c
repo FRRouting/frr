@@ -1722,8 +1722,6 @@ DEFUN (vtysh_write_terminal,
 
   vtysh_config_dump (fp);
 
-  vty_out (vty, "end%s", VTY_NEWLINE);
-  
   if (vtysh_pager_name && fp)
     {
       fflush (fp);
@@ -1735,6 +1733,8 @@ DEFUN (vtysh_write_terminal,
       fp = NULL;
     }
 
+  vty_out (vty, "end%s", VTY_NEWLINE);
+  
   return CMD_SUCCESS;
 }
 
