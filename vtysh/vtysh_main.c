@@ -42,6 +42,7 @@ char *progname;
 
 /* Configuration file name and directory. */
 char config_default[] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
+char history_file[MAXPATHLEN];
 
 /* Flag for indicate executing child command. */
 int execute_flag = 0;
@@ -188,8 +189,10 @@ vtysh_rl_gets ()
     {
       using_history();
       last = previous_history();
-      if (!last || strcmp (last->line, line_read) != 0)
+      if (!last || strcmp (last->line, line_read) != 0) {
 	add_history (line_read);
+	append_history(1,history_file);
+      }
     }
      
   return (line_read);
@@ -399,10 +402,13 @@ main (int argc, char **argv, char **env)
   sigsetjmp (jmpbuf, 1);
   jmpflag = 1;
 
+  snprintf(history_file, sizeof(history_file), "%s/.history_quagga", getenv("HOME"));
+  read_history(history_file);
   /* Main command loop. */
   while (vtysh_rl_gets ())
     vtysh_execute (line_read);
 
+  history_truncate_file(history_file,1000);
   printf ("\n");
 
   /* Rest in peace. */
