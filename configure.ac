@@ -28,6 +28,8 @@ BSD awk complains: awk: gensub doesn't support backreferences (subst "\1") ])
 fi
 AC_ARG_VAR([GAWK],[GNU AWK])
 
+AC_SYS_LARGEFILE
+
 dnl default is to match previous behavior
 exampledir=${sysconfdir}
 AC_ARG_ENABLE([exampledir],
