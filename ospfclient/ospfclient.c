@@ -12,6 +12,7 @@
 #include <zebra.h>
 #include "prefix.h" /* needed by ospf_asbr.h */
 #include "privs.h"
+#include "log.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"

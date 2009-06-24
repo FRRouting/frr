@@ -25,6 +25,7 @@
 #include "prefix.h"
 #include "table.h"
 #include "memory.h"
+#include "log.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
