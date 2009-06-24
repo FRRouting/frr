@@ -2869,7 +2869,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
 {
   struct ospf_lsa *lsa;
   struct listnode *node;
-  u_int16_t length = OSPF_LS_UPD_MIN_SIZE;
+  u_int16_t length = 0;
   unsigned int size_noauth;
   unsigned long delta = stream_get_endp (s);
   unsigned long pp;
@@ -2880,6 +2880,7 @@ ospf_make_ls_upd (struct ospf_interface *oi, struct list *update, struct stream 
 
   pp = stream_get_endp (s);
   stream_forward_endp (s, OSPF_LS_UPD_MIN_SIZE);
+  length += OSPF_LS_UPD_MIN_SIZE;
 
   /* Calculate amount of packet usable for data. */
   size_noauth = stream_get_size(s) - ospf_packet_authspace(oi);
@@ -3298,7 +3299,6 @@ ospf_ls_upd_packet_new (struct list *update, struct ospf_interface *oi)
   else
     size = oi->ifp->mtu;
 
-  /* XXX Should this be - sizeof(struct ip)?? -gdt */
   if (size > OSPF_MAX_PACKET_SIZE)
     {
       zlog_warn ("ospf_ls_upd_packet_new: oversized LSA id:%s too big,"
@@ -3310,7 +3310,16 @@ ospf_ls_upd_packet_new (struct list *update, struct ospf_interface *oi)
       return NULL;
     }
 
-  return ospf_packet_new (size);
+  /* IP header is built up separately by ospf_write(). This means, that we must
+   * reduce the "affordable" size just calculated by length of an IP header.
+   * This makes sure, that even if we manage to fill the payload with LSA data
+   * completely, the final packet (our data plus IP header) still fits into
+   * outgoing interface MTU. This correction isn't really meaningful for an
+   * oversized LSA, but for consistency the correction is done for both cases.
+   *
+   * P.S. OSPF_MAX_PACKET_SIZE above already includes IP header size
+   */
+  return ospf_packet_new (size - sizeof (struct ip));
 }
 
 static void
