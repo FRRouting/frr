@@ -9635,7 +9635,33 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, int
   return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_bgp_neighbor_advertised_route,
+DEFUN (show_ip_bgp_view_neighbor_advertised_route,
+       show_ip_bgp_view_neighbor_advertised_route_cmd,
+       "show ip bgp view WORD neighbors (A.B.C.D|X:X::X:X) advertised-routes",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\n"
+       "View name\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Display the routes advertised to a BGP neighbor\n")
+{
+  struct peer *peer;
+
+  if (argc == 2)
+    peer = peer_lookup_in_view (vty, argv[0], argv[1]);
+  else
+    peer = peer_lookup_in_view (vty, NULL, argv[0]);
+
+  if (! peer) 
+    return CMD_WARNING;
+ 
+  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 0);
+}
+
+ALIAS (show_ip_bgp_view_neighbor_advertised_route,
        show_ip_bgp_neighbor_advertised_route_cmd,
        "show ip bgp neighbors (A.B.C.D|X:X::X:X) advertised-routes",
        SHOW_STR
@@ -9645,15 +9671,6 @@ DEFUN (show_ip_bgp_neighbor_advertised_route,
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
        "Display the routes advertised to a BGP neighbor\n")
-{
-  struct peer *peer;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0]);  
-  if (! peer) 
-    return CMD_WARNING;
- 
-  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 0);
-}
 
 DEFUN (show_ip_bgp_ipv4_neighbor_advertised_route,
        show_ip_bgp_ipv4_neighbor_advertised_route_cmd,
@@ -9813,7 +9830,33 @@ DEFUN (ipv6_mbgp_neighbor_advertised_route,
 }
 #endif /* HAVE_IPV6 */
 
-DEFUN (show_ip_bgp_neighbor_received_routes,
+DEFUN (show_ip_bgp_view_neighbor_received_routes,
+       show_ip_bgp_view_neighbor_received_routes_cmd,
+       "show ip bgp view WORD neighbors (A.B.C.D|X:X::X:X) received-routes",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP view\n"
+       "View name\n"
+       "Detailed information on TCP and BGP neighbor connections\n"
+       "Neighbor to display information about\n"
+       "Neighbor to display information about\n"
+       "Display the received routes from neighbor\n")
+{
+  struct peer *peer;
+
+  if (argc == 2)
+    peer = peer_lookup_in_view (vty, argv[0], argv[1]);
+  else
+    peer = peer_lookup_in_view (vty, NULL, argv[0]);
+
+  if (! peer)
+    return CMD_WARNING;
+
+  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 1);
+}
+
+ALIAS (show_ip_bgp_view_neighbor_received_routes,
        show_ip_bgp_neighbor_received_routes_cmd,
        "show ip bgp neighbors (A.B.C.D|X:X::X:X) received-routes",
        SHOW_STR
@@ -9823,15 +9866,6 @@ DEFUN (show_ip_bgp_neighbor_received_routes,
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
        "Display the received routes from neighbor\n")
-{
-  struct peer *peer;
-
-  peer = peer_lookup_in_view (vty, NULL, argv[0]);
-  if (! peer)
-    return CMD_WARNING;
-
-  return peer_adj_routes (vty, peer, AFI_IP, SAFI_UNICAST, 1);
-}
 
 DEFUN (show_ip_bgp_ipv4_neighbor_received_routes,
        show_ip_bgp_ipv4_neighbor_received_routes_cmd,
@@ -11758,6 +11792,8 @@ bgp_route_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_rsclient_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_rsclient_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_rsclient_prefix_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_advertised_route_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_view_neighbor_received_routes_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_view_rsclient_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_view_rsclient_route_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_view_rsclient_prefix_cmd);
@@ -11863,6 +11899,8 @@ bgp_route_init (void)
   install_element (ENABLE_NODE, &show_ip_bgp_rsclient_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_rsclient_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_rsclient_prefix_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_advertised_route_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_view_neighbor_received_routes_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_view_rsclient_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_view_rsclient_route_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_view_rsclient_prefix_cmd);
