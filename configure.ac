@@ -580,6 +580,18 @@ AC_CHECK_HEADERS([ucontext.h], [], [],
 QUAGGA_INCLUDES
 ])
 
+m4_define([UCONTEXT_INCLUDES],
+[#include <ucontext.h>])dnl
+
+AC_CHECK_MEMBERS([ucontext_t.uc_mcontext.uc_regs],
+  [], [], [UCONTEXT_INCLUDES])
+AC_CHECK_MEMBERS([ucontext_t.uc_mcontext.regs],
+  [AC_CHECK_MEMBERS([ucontext_t.uc_mcontext.regs.nip],
+   [], [], [UCONTEXT_INCLUDES])],
+  [], [UCONTEXT_INCLUDES])
+AC_CHECK_MEMBERS([ucontext_t.uc_mcontext.gregs],
+  [], [], [UCONTEXT_INCLUDES])
+
 m4_define([QUAGGA_INCLUDES],
 QUAGGA_INCLUDES
 [#if HAVE_SYS_UN_H

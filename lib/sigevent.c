@@ -175,11 +175,35 @@ program_counter(void *context)
 {
 #ifdef HAVE_UCONTEXT_H
 #ifdef GNU_LINUX
-#ifdef REG_EIP
-  if (context)
-    return (void *)(((ucontext_t *)context)->uc_mcontext.gregs[REG_EIP]);
-#endif /* REG_EIP */
+  /* these are from GNU libc, rather than Linux, strictly speaking */
+# if defined(REG_EIP)
+#  define REG_INDEX REG_EIP
+# elif defined(REG_RIP)
+#  define REG_INDEX REG_RIP
+# elif defined(__powerpc__)
+#  define REG_INDEX 32
+# endif
+#elif defined(SUNOS_5) /* !GNU_LINUX */
+# define REG_INDEX REG_PC
 #endif /* GNU_LINUX */
+
+#ifdef REG_INDEX
+# ifdef HAVE_UCONTEXT_T_UC_MCONTEXT_GREGS
+#  define REGS gregs[REG_INDEX]
+# elif defined(HAVE_UCONTEXT_T_UC_MCONTEXT_UC_REGS)
+#  define REGS uc_regs->gregs[REG_INDEX]
+# endif /* HAVE_UCONTEXT_T_UC_MCONTEXT_GREGS */
+#endif /* REG_INDEX */
+
+#ifdef REGS
+  if (context)
+    return (void *)(((ucontext_t *)context)->uc_mcontext.REGS);
+#elif defined(HAVE_UCONTEXT_T_UC_MCONTEXT_REGS__NIP) 
+  /* older Linux / struct pt_regs ? */
+  if (context)
+    return (void *)(((ucontext_t *)context)->uc_mcontext.regs->nip);
+#endif /* REGS */
+
 #endif /* HAVE_UCONTEXT_H */
   return NULL;
 }
