@@ -530,19 +530,35 @@ bgp_input_filter (struct peer *peer, struct prefix *p, struct attr *attr,
 
   filter = &peer->filter[afi][safi];
 
-  if (DISTRIBUTE_IN_NAME (filter))
+#define FILTER_EXIST_WARN(F,f,filter) \
+  if (BGP_DEBUG (update, UPDATE_IN) \
+      && !(F ## _IN (filter))) \
+    plog_warn (peer->log, "%s: Could not find configured input %s-list %s!", \
+               peer->host, #f, F ## _IN_NAME(filter));
+  
+  if (DISTRIBUTE_IN_NAME (filter)) {
+    FILTER_EXIST_WARN(DISTRIBUTE, distribute, filter);
+      
     if (access_list_apply (DISTRIBUTE_IN (filter), p) == FILTER_DENY)
       return FILTER_DENY;
+  }
 
-  if (PREFIX_LIST_IN_NAME (filter))
+  if (PREFIX_LIST_IN_NAME (filter)) {
+    FILTER_EXIST_WARN(PREFIX_LIST, prefix, filter);
+    
     if (prefix_list_apply (PREFIX_LIST_IN (filter), p) == PREFIX_DENY)
       return FILTER_DENY;
+  }
   
-  if (FILTER_LIST_IN_NAME (filter))
+  if (FILTER_LIST_IN_NAME (filter)) {
+    FILTER_EXIST_WARN(FILTER_LIST, as, filter);
+    
     if (as_list_apply (FILTER_LIST_IN (filter), attr->aspath)== AS_FILTER_DENY)
       return FILTER_DENY;
-
+  }
+  
   return FILTER_PERMIT;
+#undef FILTER_EXIST_WARN
 }
 
 static enum filter_type
@@ -553,19 +569,35 @@ bgp_output_filter (struct peer *peer, struct prefix *p, struct attr *attr,
 
   filter = &peer->filter[afi][safi];
 
-  if (DISTRIBUTE_OUT_NAME (filter))
+#define FILTER_EXIST_WARN(F,f,filter) \
+  if (BGP_DEBUG (update, UPDATE_OUT) \
+      && !(F ## _OUT (filter))) \
+    plog_warn (peer->log, "%s: Could not find configured output %s-list %s!", \
+               peer->host, #f, F ## _OUT_NAME(filter));
+
+  if (DISTRIBUTE_OUT_NAME (filter)) {
+    FILTER_EXIST_WARN(DISTRIBUTE, distribute, filter);
+    
     if (access_list_apply (DISTRIBUTE_OUT (filter), p) == FILTER_DENY)
       return FILTER_DENY;
+  }
 
-  if (PREFIX_LIST_OUT_NAME (filter))
+  if (PREFIX_LIST_OUT_NAME (filter)) {
+    FILTER_EXIST_WARN(PREFIX_LIST, prefix, filter);
+    
     if (prefix_list_apply (PREFIX_LIST_OUT (filter), p) == PREFIX_DENY)
       return FILTER_DENY;
+  }
 
-  if (FILTER_LIST_OUT_NAME (filter))
+  if (FILTER_LIST_OUT_NAME (filter)) {
+    FILTER_EXIST_WARN(FILTER_LIST, as, filter);
+    
     if (as_list_apply (FILTER_LIST_OUT (filter), attr->aspath) == AS_FILTER_DENY)
       return FILTER_DENY;
+  }
 
   return FILTER_PERMIT;
+#undef FILTER_EXIST_WARN
 }
 
 /* If community attribute includes no_export then return 1. */
