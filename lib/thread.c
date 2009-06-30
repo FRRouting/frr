@@ -269,7 +269,7 @@ cpu_record_hash_print(struct hash_backet *bucket,
 {
   struct cpu_thread_history *totals = args[0];
   struct vty *vty = args[1];
-  unsigned char *filter = args[2];
+  thread_type *filter = args[2];
   struct cpu_thread_history *a = bucket->data;
   
   a = bucket->data;
@@ -288,7 +288,7 @@ cpu_record_hash_print(struct hash_backet *bucket,
 }
 
 static void
-cpu_record_print(struct vty *vty, unsigned char filter)
+cpu_record_print(struct vty *vty, thread_type filter)
 {
   struct cpu_thread_history tmp;
   void *args[3] = {&tmp, vty, &filter};
@@ -323,7 +323,7 @@ DEFUN(show_thread_cpu,
       "Display filter (rwtexb)\n")
 {
   int i = 0;
-  unsigned char filter = 0xff;
+  thread_type filter = (thread_type) -1U;
 
   if (argc > 0)
     {

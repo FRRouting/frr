@@ -57,11 +57,13 @@ struct thread_master
   unsigned long alloc;
 };
 
+typedef unsigned char thread_type;
+
 /* Thread itself. */
 struct thread
 {
-  unsigned char type;		/* thread type */
-  unsigned char add_type;	/* thread type */
+  thread_type type;		/* thread type */
+  thread_type add_type;		/* thread type */
   struct thread *next;		/* next pointer of the thread */   
   struct thread *prev;		/* previous pointer of the thread */
   struct thread_master *master;	/* pointer to the struct thread_master. */
@@ -89,7 +91,7 @@ struct cpu_thread_history
 #ifdef HAVE_RUSAGE
   struct time_stats cpu;
 #endif
-  unsigned char types;
+  thread_type types;
 };
 
 /* Clocks supported by Quagga */
