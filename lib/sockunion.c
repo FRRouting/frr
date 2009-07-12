@@ -238,6 +238,7 @@ sockunion_normalise_mapped (union sockunion *su)
     {
       memset (&sin, 0, sizeof (struct sockaddr_in));
       sin.sin_family = AF_INET;
+      sin.sin_port = su->sin6.sin6_port;
       memcpy (&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);
       memcpy (su, &sin, sizeof (struct sockaddr_in));
     }
