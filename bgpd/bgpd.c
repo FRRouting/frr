@@ -2073,9 +2073,14 @@ bgp_delete (struct bgp *bgp)
     peer_delete(bgp->peer_self);
     bgp->peer_self = NULL;
   }
-
+  
+  /* Remove visibility via the master list - there may however still be
+   * routes to be processed still referencing the struct bgp.
+   */
+  listnode_delete (bm->bgp, bgp);
+  
   bgp_unlock(bgp);  /* initial reference */
-
+  
   return 0;
 }
 
@@ -2104,8 +2109,6 @@ bgp_free (struct bgp *bgp)
   list_delete (bgp->peer);
   list_delete (bgp->rsclient);
 
-  listnode_delete (bm->bgp, bgp);
-  
   if (bgp->name)
     free (bgp->name);
   
