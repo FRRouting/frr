@@ -207,6 +207,12 @@ ospf6_lsa_age_current (struct ospf6_lsa *lsa)
     zlog_warn ("LSA: quagga_gettime failed, may fail LSA AGEs: %s",
                safe_strerror (errno));
 
+  if (lsa->header->age >= htons (MAXAGE))
+    {
+      /* LSA may have been prematurely aged */
+      lsa->header->age = htons (MAXAGE);
+      return MAXAGE;
+    }
   /* calculate age */
   ulage = now.tv_sec - lsa->birth.tv_sec;
 
@@ -239,7 +245,12 @@ ospf6_lsa_premature_aging (struct ospf6_lsa *lsa)
   THREAD_OFF (lsa->expire);
   THREAD_OFF (lsa->refresh);
 
+  /* 
+   * The below technique to age out LSA does not work when using relative time 
+   *
   memset (&lsa->birth, 0, sizeof (struct timeval));
+   */
+  lsa->header->age = htons (MAXAGE);
   thread_execute (master, ospf6_lsa_expire, lsa, 0);
 }
 
