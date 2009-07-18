@@ -1207,12 +1207,14 @@ process_subq (struct list * subq, u_char qindex)
 
   if (rnode->info) /* The first RIB record is holding the flags bitmask. */
     UNSET_FLAG (((struct rib *)rnode->info)->rn_status, RIB_ROUTE_QUEUED(qindex));
+#if 0
   else
     {
       zlog_debug ("%s: called for route_node (%p, %d) with no ribs",
                   __func__, rnode, rnode->lock);
       zlog_backtrace(LOG_DEBUG);
     }
+#endif
   route_unlock_node (rnode);
   list_delete_node (subq, lnode);
   return 1;
