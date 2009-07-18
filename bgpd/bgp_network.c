@@ -104,7 +104,7 @@ bgp_md5_set (struct peer *peer)
    */
   for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, socket))
     {
-      ret = bgp_md5_set_socket ((int )socket, &peer->su, peer->password);
+      ret = bgp_md5_set_socket ((int)(long)socket, &peer->su, peer->password);
       if (ret < 0)
         fret = ret;
     }
@@ -444,7 +444,7 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
 	  continue;
 	}
       
-      listnode_add (bm->listen_sockets, (void *)sock);
+      listnode_add (bm->listen_sockets, (void *)(long)sock);
       thread_add_read (master, bgp_accept, bgp, sock);
     }
   while ((ainfo = ainfo->ai_next) != NULL);
@@ -517,7 +517,7 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
       return ret;
     }
 
-  listnode_add (bm->listen_sockets, (void *)sock);
+  listnode_add (bm->listen_sockets, (void *)(long)sock);
   thread_add_read (bm->master, bgp_accept, bgp, sock);
 
   return sock;
