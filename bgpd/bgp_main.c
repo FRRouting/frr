@@ -31,10 +31,22 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "log.h"
 #include "privs.h"
 #include "sigevent.h"
+#include "zclient.h"
+#include "routemap.h"
+#include "filter.h"
+#include "plist.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_aspath.h"
+#include "bgpd/bgp_dump.h"
+#include "bgpd/bgp_route.h"
+#include "bgpd/bgp_nexthop.h"
+#include "bgpd/bgp_regex.h"
+#include "bgpd/bgp_clist.h"
+#include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_filter.h"
 
 /* bgpd options, we use GNU getopt library. */
 static const struct option longopts[] = 
@@ -60,6 +72,8 @@ static const struct option longopts[] =
 void sighup (void);
 void sigint (void);
 void sigusr1 (void);
+
+static void bgp_exit (int);
 
 static struct quagga_signal_t bgp_signals[] = 
 {
@@ -182,7 +196,7 @@ sigint (void)
   if (! retain_mode)
     bgp_terminate ();
 
-  exit (0);
+  bgp_exit (0);
 }
 
 /* SIGUSR1 handler. */
@@ -190,6 +204,99 @@ void
 sigusr1 (void)
 {
   zlog_rotate (NULL);
+}
+
+/*
+  Try to free up allocations we know about so that diagnostic tools such as
+  valgrind are able to better illuminate leaks.
+
+  Zebra route removal and protocol teardown are not meant to be done here.
+  For example, "retain_mode" may be set.
+*/
+static void
+bgp_exit (int status)
+{
+  struct bgp *bgp;
+  struct listnode *node, *nnode;
+  int *socket;
+  struct interface *ifp;
+  extern struct zclient *zclient;
+  extern struct zclient *zlookup;
+
+  /* it only makes sense for this to be called on a clean exit */
+  assert (status == 0);
+
+  /* reverse bgp_master_init */
+  for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
+    bgp_delete (bgp);
+  list_free (bm->bgp);
+
+  /* reverse bgp_master_init */
+  for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, socket))
+    {
+      if (close ((int)(long)socket) == -1)
+        zlog_err ("close (%d): %s", (int)(long)socket, safe_strerror (errno));
+    }
+  list_delete (bm->listen_sockets);
+
+  /* reverse bgp_zebra_init/if_init */
+  if (retain_mode)
+    if_add_hook (IF_DELETE_HOOK, NULL);
+  for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
+    if_delete (ifp);
+  list_free (iflist);
+
+  /* reverse bgp_attr_init */
+  bgp_attr_finish ();
+
+  /* reverse bgp_dump_init */
+  bgp_dump_finish ();
+
+  /* reverse bgp_route_init */
+  bgp_route_finish ();
+
+  /* reverse bgp_route_map_init/route_map_init */
+  route_map_finish ();
+
+  /* reverse bgp_scan_init */
+  bgp_scan_finish ();
+
+  /* reverse access_list_init */
+  access_list_add_hook (NULL);
+  access_list_delete_hook (NULL);
+  access_list_reset ();
+
+  /* reverse bgp_filter_init */
+  as_list_add_hook (NULL);
+  as_list_delete_hook (NULL);
+  bgp_filter_reset ();
+
+  /* reverse prefix_list_init */
+  prefix_list_add_hook (NULL);
+  prefix_list_delete_hook (NULL);
+  prefix_list_reset ();
+
+  /* reverse community_list_init */
+  community_list_terminate (bgp_clist);
+
+  cmd_terminate ();
+  vty_terminate ();
+  if (zclient)
+    zclient_free (zclient);
+  if (zlookup)
+    zclient_free (zlookup);
+
+  /* reverse bgp_master_init */
+  if (master)
+    thread_master_free (master);
+
+  if (zlog_default)
+    closezlog (zlog_default);
+
+  if (CONF_BGP_DEBUG (normal, NORMAL))
+    log_memstats_stderr ("bgpd");
+
+  exit (status);
 }
 
 /* Main routine of bgpd. Treatment of argument and start bgp finite

@@ -181,6 +181,11 @@ as_list_new (void)
 static void
 as_list_free (struct as_list *aslist)
 {
+  if (aslist->name)
+    {
+      free (aslist->name);
+      aslist->name = NULL;
+    }
   XFREE (MTYPE_AS_LIST, aslist);
 }
 
@@ -198,6 +203,7 @@ as_list_insert (const char *name)
   /* Allocate new access_list and copy given name. */
   aslist = as_list_new ();
   aslist->name = strdup (name);
+  assert (aslist->name);
 
   /* If name is made by all digit character.  We treat it as
      number. */
@@ -692,4 +698,29 @@ bgp_filter_init (void)
   install_element (VIEW_NODE, &show_ip_as_path_access_list_all_cmd);
   install_element (ENABLE_NODE, &show_ip_as_path_access_list_cmd);
   install_element (ENABLE_NODE, &show_ip_as_path_access_list_all_cmd);
+}
+
+void
+bgp_filter_reset (void)
+{
+  struct as_list *aslist;
+  struct as_list *next;
+
+  for (aslist = as_list_master.num.head; aslist; aslist = next)
+    {
+      next = aslist->next;
+      as_list_delete (aslist);
+    }
+
+  for (aslist = as_list_master.str.head; aslist; aslist = next)
+    {
+      next = aslist->next;
+      as_list_delete (aslist);
+    }
+
+  assert (as_list_master.num.head == NULL);
+  assert (as_list_master.num.tail == NULL);
+
+  assert (as_list_master.str.head == NULL);
+  assert (as_list_master.str.tail == NULL);
 }

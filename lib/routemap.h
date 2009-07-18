@@ -153,6 +153,7 @@ struct route_map
 /* Prototypes. */
 extern void route_map_init (void);
 extern void route_map_init_vty (void);
+extern void route_map_finish (void);
 
 /* Add match statement to route map. */
 extern int route_map_add_match (struct route_map_index *index,

@@ -1034,7 +1034,7 @@ vty_describe_command (struct vty *vty)
 	if (desc->cmd[0] == '\0')
 	  continue;
 	
-	if (strcmp (desc->cmd, "<cr>") == 0)
+	if (strcmp (desc->cmd, command_cr) == 0)
 	  {
 	    desc_cr = desc;
 	    continue;
@@ -2987,4 +2987,18 @@ vty_init (struct thread_master *master_thread)
   install_element (VTY_NODE, &vty_ipv6_access_class_cmd);
   install_element (VTY_NODE, &no_vty_ipv6_access_class_cmd);
 #endif /* HAVE_IPV6 */
+}
+
+void
+vty_terminate (void)
+{
+  if (vty_cwd)
+    XFREE (MTYPE_TMP, vty_cwd);
+
+  if (vtyvec && Vvty_serv_thread)
+    {
+      vty_reset ();
+      vector_free (vtyvec);
+      vector_free (Vvty_serv_thread);
+    }
 }

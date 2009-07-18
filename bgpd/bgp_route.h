@@ -61,7 +61,7 @@ struct bgp_info
   time_t uptime;
 
   /* reference count */
-  unsigned int lock;
+  int lock;
   
   /* BGP information status.  */
   u_int16_t flags;
@@ -160,8 +160,15 @@ struct bgp_static
 #define UNSUPPRESS_MAP_NAME(F)  ((F)->usmap.name)
 #define UNSUPPRESS_MAP(F)       ((F)->usmap.map)
 
+enum bgp_clear_route_type
+{
+  BGP_CLEAR_ROUTE_NORMAL,
+  BGP_CLEAR_ROUTE_MY_RSCLIENT
+};
+
 /* Prototypes. */
 extern void bgp_route_init (void);
+extern void bgp_route_finish (void);
 extern void bgp_cleanup_routes (void);
 extern void bgp_announce_route (struct peer *, afi_t, safi_t);
 extern void bgp_announce_route_all (struct peer *);
@@ -169,7 +176,8 @@ extern void bgp_default_originate (struct peer *, afi_t, safi_t, int);
 extern void bgp_soft_reconfig_in (struct peer *, afi_t, safi_t);
 extern void bgp_soft_reconfig_rsclient (struct peer *, afi_t, safi_t);
 extern void bgp_check_local_routes_rsclient (struct peer *rsclient, afi_t afi, safi_t safi);
-extern void bgp_clear_route (struct peer *, afi_t, safi_t);
+extern void bgp_clear_route (struct peer *, afi_t, safi_t,
+                             enum bgp_clear_route_type);
 extern void bgp_clear_route_all (struct peer *);
 extern void bgp_clear_adj_in (struct peer *, afi_t, safi_t);
 extern void bgp_clear_stale_route (struct peer *, afi_t, safi_t);

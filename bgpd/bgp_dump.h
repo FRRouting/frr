@@ -48,6 +48,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define TABLE_DUMP_V2_PEER_INDEX_TABLE_AS4 2
 
 extern void bgp_dump_init (void);
+extern void bgp_dump_finish (void);
 extern void bgp_dump_state (struct peer *, int, int);
 extern void bgp_dump_packet (struct peer *, int, struct stream *);
 

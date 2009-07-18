@@ -649,7 +649,9 @@ void
 closezlog (struct zlog *zl)
 {
   closelog();
-  fclose (zl->fp);
+
+  if (zl->fp != NULL)
+    fclose (zl->fp);
 
   XFREE (MTYPE_ZLOG, zl);
 }

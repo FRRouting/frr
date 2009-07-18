@@ -239,6 +239,15 @@ cpu_record_hash_alloc (struct cpu_thread_history *a)
   return new;
 }
 
+static void
+cpu_record_hash_free (void *a)
+{
+  struct cpu_thread_history *hist = a;
+ 
+  XFREE (MTYPE_THREAD_FUNCNAME, hist->funcname);
+  XFREE (MTYPE_THREAD_STATS, hist);
+}
+
 static inline void 
 vty_out_cpu_thread_history(struct vty* vty,
 			   struct cpu_thread_history *a)
@@ -485,7 +494,8 @@ thread_list_free (struct thread_master *m, struct thread_list *list)
   for (t = list->head; t; t = next)
     {
       next = t->next;
-      XFREE (MTYPE_THREAD_FUNCNAME, t->funcname);
+      if (t->funcname)
+        XFREE (MTYPE_THREAD_FUNCNAME, t->funcname);
       XFREE (MTYPE_THREAD, t);
       list->count--;
       m->alloc--;
@@ -505,6 +515,13 @@ thread_master_free (struct thread_master *m)
   thread_list_free (m, &m->background);
   
   XFREE (MTYPE_THREAD_MASTER, m);
+
+  if (cpu_record)
+    {
+      hash_clean (cpu_record, cpu_record_hash_free);
+      hash_free (cpu_record);
+      cpu_record = NULL;
+    }
 }
 
 /* Thread list is empty or not.  */
@@ -836,6 +853,7 @@ thread_run (struct thread_master *m, struct thread *thread,
 {
   *fetch = *thread;
   thread->type = THREAD_UNUSED;
+  thread->funcname = NULL;  /* thread_call will free fetch's copied pointer */
   thread_add_unuse (m, thread);
   return fetch;
 }
@@ -1079,6 +1097,8 @@ thread_call (struct thread *thread)
 		 realtime/1000, cputime/1000);
     }
 #endif /* CONSUMED_TIME_CHECK */
+
+  XFREE (MTYPE_THREAD_FUNCNAME, thread->funcname);
 }
 
 /* Execute thread */

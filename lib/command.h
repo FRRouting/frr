@@ -147,8 +147,8 @@ struct cmd_element
 /* Command description structure. */
 struct desc
 {
-  const char *cmd;			/* Command string. */
-  const char *str;			/* Command's description. */
+  char *cmd;                    /* Command string. */
+  char *str;                    /* Command's description. */
 };
 
 /* Return value of the commands. */
@@ -347,6 +347,7 @@ extern int cmd_execute_command (vector, struct vty *, struct cmd_element **, int
 extern int cmd_execute_command_strict (vector, struct vty *, struct cmd_element **);
 extern void config_replace_string (struct cmd_element *, char *, ...);
 extern void cmd_init (int);
+extern void cmd_terminate (void);
 
 /* Export typical functions. */
 extern struct cmd_element config_end_cmd;
@@ -361,4 +362,7 @@ extern void print_version (const char *);
 
 /* struct host global, ick */
 extern struct host host; 
+
+/* "<cr>" global */
+extern char *command_cr;
 #endif /* _ZEBRA_COMMAND_H */

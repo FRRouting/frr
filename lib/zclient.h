@@ -125,6 +125,7 @@ extern void zclient_init (struct zclient *, int);
 extern int zclient_start (struct zclient *);
 extern void zclient_stop (struct zclient *);
 extern void zclient_reset (struct zclient *);
+extern void zclient_free (struct zclient *);
 
 /* Get TCP socket connection to zebra daemon at loopback address. */
 extern int zclient_socket (void);

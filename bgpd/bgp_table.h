@@ -35,8 +35,10 @@ struct bgp_table
   afi_t afi;
   safi_t safi;
   
+  int lock;
+
   /* The owner of this 'bgp_table' structure. */
-  void *owner;
+  struct peer *owner;
 
   struct bgp_node *top;
   
@@ -61,13 +63,15 @@ struct bgp_node
 
   struct bgp_node *prn;
 
-  unsigned int lock;
+  int lock;
 
   u_char flags;
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 };
 
 extern struct bgp_table *bgp_table_init (afi_t, safi_t);
+extern void bgp_table_lock (struct bgp_table *);
+extern void bgp_table_unlock (struct bgp_table *);
 extern void bgp_table_finish (struct bgp_table **);
 extern void bgp_unlock_node (struct bgp_node *node);
 extern struct bgp_node *bgp_table_top (const struct bgp_table *const);

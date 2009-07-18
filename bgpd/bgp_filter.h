@@ -28,6 +28,7 @@ enum as_filter_type
 };
 
 extern void bgp_filter_init (void);
+extern void bgp_filter_reset (void);
 
 extern enum as_filter_type as_list_apply (struct as_list *, void *);
 

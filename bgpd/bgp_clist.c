@@ -829,7 +829,7 @@ community_list_init (void)
 }
 
 /* Terminate community-list.  */
-static void
+void
 community_list_terminate (struct community_list_handler *ch)
 {
   struct community_list_master *cm;

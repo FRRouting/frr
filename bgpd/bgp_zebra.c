@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_debug.h"
 
 /* All information about zebra. */
-static struct zclient *zclient = NULL;
+struct zclient *zclient = NULL;
 struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */

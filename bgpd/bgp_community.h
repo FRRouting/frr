@@ -52,6 +52,7 @@ struct community
 
 /* Prototypes of communities attribute functions.  */
 extern void community_init (void);
+extern void community_finish (void);
 extern void community_free (struct community *);
 extern struct community *community_uniq_sort (struct community *);
 extern struct community *community_parse (u_int32_t *, u_short);

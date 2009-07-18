@@ -865,3 +865,10 @@ bgp_dump_init (void)
   install_element (CONFIG_NODE, &dump_bgp_routes_interval_cmd);
   install_element (CONFIG_NODE, &no_dump_bgp_routes_cmd);
 }
+
+void
+bgp_dump_finish (void)
+{
+  stream_free (bgp_dump_obuf);
+  bgp_dump_obuf = NULL;
+}

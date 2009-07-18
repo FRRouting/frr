@@ -2074,6 +2074,7 @@ peer_rsclient_set_vty (struct vty *vty, const char *peer_str,
   struct listnode *node, *nnode;
   struct bgp_filter *pfilter;
   struct bgp_filter *gfilter;
+  int locked_and_added = 0;
 
   bgp = vty->index;
 
@@ -2089,15 +2090,25 @@ peer_rsclient_set_vty (struct vty *vty, const char *peer_str,
     {
       peer = peer_lock (peer); /* rsclient peer list reference */
       listnode_add_sort (bgp->rsclient, peer);
+      locked_and_added = 1;
     }
 
   ret = peer_af_flag_set (peer, afi, safi, PEER_FLAG_RSERVER_CLIENT);
   if (ret < 0)
-    return bgp_vty_return (vty, ret);
+    {
+      if (locked_and_added)
+        {
+          listnode_delete (bgp->rsclient, peer);
+          peer_unlock (peer); /* rsclient peer list reference */
+        }
+
+      return bgp_vty_return (vty, ret);
+    }
 
   peer->rib[afi][safi] = bgp_table_init (afi, safi);
   peer->rib[afi][safi]->type = BGP_TABLE_RSCLIENT;
-  peer->rib[afi][safi]->owner = peer;
+  /* RIB peer reference.  Released when table is free'd in bgp_table_free. */
+  peer->rib[afi][safi]->owner = peer_lock (peer);
 
   /* Check for existing 'network' and 'redistribute' routes. */
   bgp_check_local_routes_rsclient (peer, afi, safi);
@@ -2190,8 +2201,9 @@ peer_rsclient_unset_vty (struct vty *vty, const char *peer_str,
 
   if ( ! peer_rsclient_active (peer) )
     {
-      peer_unlock (peer); /* peer bgp rsclient reference */
+      bgp_clear_route (peer, afi, safi, BGP_CLEAR_ROUTE_MY_RSCLIENT);
       listnode_delete (bgp->rsclient, peer);
+      peer_unlock (peer); /* peer bgp rsclient reference */
     }
 
   bgp_table_finish (&peer->rib[bgp_node_afi(vty)][bgp_node_safi(vty)]);

@@ -37,6 +37,9 @@ Boston, MA 02111-1307, USA.  */
    each daemon maintains each own cmdvec. */
 vector cmdvec = NULL;
 
+struct desc desc_cr;
+char *command_cr = NULL;
+
 /* Host information structure. */
 struct host host;
 
@@ -199,8 +202,8 @@ install_node (struct cmd_node *node,
 static int
 cmp_node (const void *p, const void *q)
 {
-  const struct cmd_element *a = *(struct cmd_element **)p;
-  const struct cmd_element *b = *(struct cmd_element **)q;
+  const struct cmd_element *a = *(struct cmd_element * const *)p;
+  const struct cmd_element *b = *(struct cmd_element * const *)q;
 
   return strcmp (a->string, b->string);
 }
@@ -208,8 +211,8 @@ cmp_node (const void *p, const void *q)
 static int
 cmp_desc (const void *p, const void *q)
 {
-  const struct desc *a = *(struct desc **)p;
-  const struct desc *b = *(struct desc **)q;
+  const struct desc *a = *(struct desc * const *)p;
+  const struct desc *b = *(struct desc * const *)q;
 
   return strcmp (a->cmd, b->cmd);
 }
@@ -223,7 +226,7 @@ sort_node ()
   vector descvec;
   struct cmd_element *cmd_element;
 
-  for (i = 0; i < vector_active (cmdvec); i++) 
+  for (i = 0; i < vector_active (cmdvec); i++)
     if ((cnode = vector_slot (cmdvec, i)) != NULL)
       {	
 	vector cmd_vector = cnode->cmd_vector;
@@ -497,7 +500,9 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
 
   vector_set (cnode->cmd_vector, cmd);
 
-  cmd->strvec = cmd_make_descvec (cmd->string, cmd->doc);
+  if (cmd->strvec == NULL)
+    cmd->strvec = cmd_make_descvec (cmd->string, cmd->doc);
+
   cmd->cmdsize = cmd_cmdsize (cmd->strvec);
 }
 
@@ -1588,7 +1593,6 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
   int ret;
   enum match_type match;
   char *command;
-  static struct desc desc_cr = { "<cr>", "" };
 
   /* Set index. */
   if (vector_active (vline) == 0)
@@ -1665,7 +1669,6 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
   for (i = 0; i < vector_active (cmd_vector); i++)
     if ((cmd_element = vector_slot (cmd_vector, i)) != NULL)
       {
-	const char *string = NULL;
 	vector strvec = cmd_element->strvec;
 
 	/* if command is NULL, index may be equal to vector_active */
@@ -1676,8 +1679,7 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 	    /* Check if command is completed. */
 	    if (command == NULL && index == vector_active (strvec))
 	      {
-		string = "<cr>";
-		if (!desc_unique_string (matchvec, string))
+		if (!desc_unique_string (matchvec, command_cr))
 		  vector_set (matchvec, &desc_cr);
 	      }
 	    else
@@ -1689,6 +1691,8 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
 		for (j = 0; j < vector_active (descvec); j++)
 		  if ((desc = vector_slot (descvec, j)))
 		    {
+		      const char *string;
+
 		      string = cmd_entry_function_desc (command, desc->cmd);
 		      if (string)
 			{
@@ -3506,6 +3510,8 @@ DEFUN (no_banner_motd,
 void
 host_config_set (char *filename)
 {
+  if (host.config)
+    XFREE (MTYPE_HOST, host.config);
   host.config = XSTRDUP (MTYPE_HOST, filename);
 }
 
@@ -3529,6 +3535,10 @@ install_default (enum node_type node)
 void
 cmd_init (int terminal)
 {
+  command_cr = XSTRDUP(MTYPE_STRVEC, "<cr>");
+  desc_cr.cmd = command_cr;
+  desc_cr.str = XSTRDUP(MTYPE_STRVEC, "");
+
   /* Allocate initial top vector of commands. */
   cmdvec = vector_init (VECTOR_MIN_SIZE);
 
@@ -3644,4 +3654,75 @@ cmd_init (int terminal)
       install_element (ENABLE_NODE, &show_work_queues_cmd);
     }
   srand(time(NULL));
+}
+
+void
+cmd_terminate ()
+{
+  unsigned int i, j, k, l;
+  struct cmd_node *cmd_node;
+  struct cmd_element *cmd_element;
+  struct desc *desc;
+  vector cmd_node_v, cmd_element_v, desc_v;
+
+  if (cmdvec)
+    {
+      for (i = 0; i < vector_active (cmdvec); i++) 
+        if ((cmd_node = vector_slot (cmdvec, i)) != NULL)
+          {
+            cmd_node_v = cmd_node->cmd_vector;
+
+            for (j = 0; j < vector_active (cmd_node_v); j++)
+              if ((cmd_element = vector_slot (cmd_node_v, j)) != NULL &&
+                  cmd_element->strvec != NULL)
+                {
+                  cmd_element_v = cmd_element->strvec;
+
+                  for (k = 0; k < vector_active (cmd_element_v); k++)
+                    if ((desc_v = vector_slot (cmd_element_v, k)) != NULL)
+                      {
+                        for (l = 0; l < vector_active (desc_v); l++)
+                          if ((desc = vector_slot (desc_v, l)) != NULL)
+                            {
+                              if (desc->cmd)
+                                XFREE (MTYPE_STRVEC, desc->cmd);
+                              if (desc->str)
+                                XFREE (MTYPE_STRVEC, desc->str);
+
+                              XFREE (MTYPE_DESC, desc);
+                            }
+                        vector_free (desc_v);
+                      }
+
+                  cmd_element->strvec = NULL;
+                  vector_free (cmd_element_v);
+                }
+
+            vector_free (cmd_node_v);
+          }
+
+      vector_free (cmdvec);
+      cmdvec = NULL;
+    }
+
+  if (command_cr)
+    XFREE(MTYPE_STRVEC, command_cr);
+  if (desc_cr.str)
+    XFREE(MTYPE_STRVEC, desc_cr.str);
+  if (host.name)
+    XFREE (MTYPE_HOST, host.name);
+  if (host.password)
+    XFREE (MTYPE_HOST, host.password);
+  if (host.password_encrypt)
+    XFREE (MTYPE_HOST, host.password_encrypt);
+  if (host.enable)
+    XFREE (MTYPE_HOST, host.enable);
+  if (host.enable_encrypt)
+    XFREE (MTYPE_HOST, host.enable_encrypt);
+  if (host.logfile)
+    XFREE (MTYPE_HOST, host.logfile);
+  if (host.motdfile)
+    XFREE (MTYPE_HOST, host.motdfile);
+  if (host.config)
+    XFREE (MTYPE_HOST, host.config);
 }

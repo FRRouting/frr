@@ -65,7 +65,7 @@ static struct bgp_table *cache2_table[AFI_MAX];
 static struct bgp_table *bgp_connected_table[AFI_MAX];
 
 /* BGP nexthop lookup query client. */
-static struct zclient *zlookup = NULL;
+struct zclient *zlookup = NULL;
 
 /* Add nexthop to the end of the list.  */
 static void
@@ -1281,8 +1281,6 @@ bgp_scan_init (void)
 {
   zlookup = zclient_new ();
   zlookup->sock = -1;
-  zlookup->ibuf = stream_new (ZEBRA_MAX_PACKET_SIZ);
-  zlookup->obuf = stream_new (ZEBRA_MAX_PACKET_SIZ);
   zlookup->t_connect = thread_add_event (master, zlookup_connect, zlookup, 0);
 
   bgp_scan_interval = BGP_SCAN_INTERVAL_DEFAULT;
@@ -1313,4 +1311,28 @@ bgp_scan_init (void)
   install_element (VIEW_NODE, &show_ip_bgp_scan_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_scan_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_scan_cmd);
+}
+
+void
+bgp_scan_finish (void)
+{
+  bgp_table_unlock (cache1_table[AFI_IP]);
+  cache1_table[AFI_IP] = NULL;
+
+  bgp_table_unlock (cache2_table[AFI_IP]);
+  cache2_table[AFI_IP] = NULL;
+
+  bgp_table_unlock (bgp_connected_table[AFI_IP]);
+  bgp_connected_table[AFI_IP] = NULL;
+
+#ifdef HAVE_IPV6
+  bgp_table_unlock (cache1_table[AFI_IP6]);
+  cache1_table[AFI_IP6] = NULL;
+
+  bgp_table_unlock (cache2_table[AFI_IP6]);
+  cache2_table[AFI_IP6] = NULL;
+
+  bgp_table_unlock (bgp_connected_table[AFI_IP6]);
+  bgp_connected_table[AFI_IP6] = NULL;
+#endif /* HAVE_IPV6 */
 }

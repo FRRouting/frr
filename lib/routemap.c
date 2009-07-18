@@ -889,6 +889,15 @@ route_map_init (void)
   route_match_vec = vector_init (1);
   route_set_vec = vector_init (1);
 }
+
+void
+route_map_finish (void)
+{
+  vector_free (route_match_vec);
+  route_match_vec = NULL;
+  vector_free (route_set_vec);
+  route_set_vec = NULL;
+}
 
 /* VTY related functions. */
 DEFUN (route_map,

@@ -38,6 +38,7 @@ bgp_table_init (afi_t afi, safi_t safi)
 
   rt = XCALLOC (MTYPE_BGP_TABLE, sizeof (struct bgp_table));
 
+  bgp_table_lock(rt);
   rt->type = BGP_TABLE_MAIN;
   rt->afi = afi;
   rt->safi = safi;
@@ -46,10 +47,29 @@ bgp_table_init (afi_t afi, safi_t safi)
 }
 
 void
+bgp_table_lock (struct bgp_table *rt)
+{
+  rt->lock++;
+}
+
+void
+bgp_table_unlock (struct bgp_table *rt)
+{
+  assert (rt->lock > 0);
+  rt->lock--;
+
+  if (rt->lock == 0)
+    bgp_table_free (rt);
+}
+
+void
 bgp_table_finish (struct bgp_table **rt)
 {
-  bgp_table_free (*rt);
-  *rt = NULL;
+  if (*rt != NULL)
+    {
+      bgp_table_unlock(*rt);
+      *rt = NULL;
+    }
 }
 
 static struct bgp_node *
@@ -91,6 +111,9 @@ bgp_table_free (struct bgp_table *rt)
 
   node = rt->top;
 
+  /* Bulk deletion of nodes remaining in this table.  This function is not
+     called until workers have completed their dependency on this table.
+     A final bgp_unlock_node() will not be called for these nodes. */
   while (node)
     {
       if (node->l_left)
@@ -108,22 +131,31 @@ bgp_table_free (struct bgp_table *rt)
       tmp_node = node;
       node = node->parent;
 
+      tmp_node->table->count--;
+      tmp_node->lock = 0;  /* to cause assert if unlocked after this */
+      bgp_node_free (tmp_node);
+
       if (node != NULL)
 	{
 	  if (node->l_left == tmp_node)
 	    node->l_left = NULL;
 	  else
 	    node->l_right = NULL;
-
-	  bgp_node_free (tmp_node);
 	}
       else
 	{
-	  bgp_node_free (tmp_node);
 	  break;
 	}
     }
  
+  assert (rt->count == 0);
+
+  if (rt->owner)
+    {
+      peer_unlock (rt->owner);
+      rt->owner = NULL;
+    }
+
   XFREE (MTYPE_BGP_TABLE, rt);
   return;
 }
@@ -217,6 +249,7 @@ bgp_lock_node (struct bgp_node *node)
 void
 bgp_unlock_node (struct bgp_node *node)
 {
+  assert (node->lock > 0);
   node->lock--;
 
   if (node->lock == 0)
@@ -344,6 +377,7 @@ bgp_node_get (struct bgp_table *const table, struct prefix *p)
       if (new->p.prefixlen != p->prefixlen)
 	{
 	  match = new;
+	  bgp_lock_node (match);
 	  new = bgp_node_set (table, p);
 	  set_link (match, new);
 	  table->count++;

@@ -140,6 +140,7 @@ struct transit
 
 /* Prototypes. */
 extern void bgp_attr_init (void);
+extern void bgp_attr_finish (void);
 extern int bgp_attr_parse (struct peer *, struct attr *, bgp_size_t,
 		    struct bgp_nlri *, struct bgp_nlri *);
 extern int bgp_attr_check (struct peer *, struct attr *);

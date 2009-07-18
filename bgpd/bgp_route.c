@@ -1464,11 +1464,9 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
   struct bgp_info *new_select;
   struct bgp_info *old_select;
   struct bgp_info_pair old_and_new;
-  struct attr attr;
   struct listnode *node, *nnode;
   struct peer *rsclient = rn->table->owner;
   
-  memset (&attr, 0, sizeof (struct attr));
   /* Best path selection. */
   bgp_best_selection (bgp, rn, &old_and_new);
   new_select = old_and_new.new;
@@ -1476,23 +1474,25 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
 
   if (CHECK_FLAG (rsclient->sflags, PEER_STATUS_GROUP))
     {
-      for (ALL_LIST_ELEMENTS (rsclient->group->peer, node, nnode, rsclient))
-	{
-	  /* Nothing to do. */
-	  if (old_select && old_select == new_select)
-	    if (!CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
-	      continue;
+      if (rsclient->group)
+        for (ALL_LIST_ELEMENTS (rsclient->group->peer, node, nnode, rsclient))
+          {
+            /* Nothing to do. */
+            if (old_select && old_select == new_select)
+              if (!CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
+                continue;
 
-	  if (old_select)
-	    bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);
-	  if (new_select)
-	    {
-	      bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
-	      bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
-	    }
+            if (old_select)
+              bgp_info_unset_flag (rn, old_select, BGP_INFO_SELECTED);
+            if (new_select)
+              {
+                bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
+                bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
+              }
 
-	  bgp_process_announce_selected (rsclient, new_select, rn, afi, safi);
-	}
+            bgp_process_announce_selected (rsclient, new_select, rn,
+                                           afi, safi);
+          }
     }
   else
     {
@@ -1508,8 +1508,6 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
 
   if (old_select && CHECK_FLAG (old_select->flags, BGP_INFO_REMOVED))
     bgp_info_reap (rn, old_select);
-  
-  bgp_attr_extra_free (&attr);
   
   UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
   return WQ_SUCCESS;
@@ -1593,9 +1591,11 @@ static void
 bgp_processq_del (struct work_queue *wq, void *data)
 {
   struct bgp_process_queue *pq = data;
+  struct bgp_table *table = pq->rn->table;
   
-  bgp_unlock(pq->bgp);
+  bgp_unlock (pq->bgp);
   bgp_unlock_node (pq->rn);
+  bgp_table_unlock (table);
   XFREE (MTYPE_BGP_PROCESS_QUEUE, pq);
 }
 
@@ -1641,10 +1641,12 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
                     sizeof (struct bgp_process_queue));
   if (!pqnode)
     return;
-  
-  pqnode->rn = bgp_lock_node (rn); /* unlocked by bgp_processq_del */
+
+  /* all unlocked in bgp_processq_del */
+  bgp_table_lock (rn->table);
+  pqnode->rn = bgp_lock_node (rn);
   pqnode->bgp = bgp;
-  bgp_lock(bgp);
+  bgp_lock (bgp);
   pqnode->afi = afi;
   pqnode->safi = safi;
   
@@ -1805,8 +1807,6 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
   const char *reason;
   char buf[SU_ADDRSTRLEN];
 
-  //memset (new_attr, 0, sizeof (struct attr));
-  
   /* Do not insert announces from a rsclient into its own 'bgp_table'. */
   if (peer == rsclient)
     return;
@@ -1894,10 +1894,10 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
                     inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
                     p->prefixlen, rsclient->host);
 
-                    bgp_unlock_node (rn);
-                    bgp_attr_unintern (attr_new);
+          bgp_unlock_node (rn);
+          bgp_attr_unintern (attr_new);
 
-                    return;
+          return;
         }
 
       /* Withdraw/Announce before we fully processed the withdraw */
@@ -1992,13 +1992,13 @@ static void
 bgp_withdraw_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
       struct peer *peer, struct prefix *p, int type, int sub_type,
       struct prefix_rd *prd, u_char *tag)
-    {
+{
   struct bgp_node *rn;
   struct bgp_info *ri;
   char buf[SU_ADDRSTRLEN];
 
   if (rsclient == peer)
-       return;
+    return;
 
   rn = bgp_afi_node_get (rsclient->rib[afi][safi], afi, safi, p, prd);
 
@@ -2017,8 +2017,8 @@ bgp_withdraw_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
           p->prefixlen);
 
   /* Unlock bgp_node_get() lock. */
-      bgp_unlock_node (rn);
-    }
+  bgp_unlock_node (rn);
+}
 
 static int
 bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
@@ -2432,7 +2432,7 @@ void
 bgp_default_originate (struct peer *peer, afi_t afi, safi_t safi, int withdraw)
 {
   struct bgp *bgp;
-  struct attr attr;
+  struct attr attr = { 0 };
   struct aspath *aspath = { 0 };
   struct prefix p;
   struct bgp_info binfo;
@@ -2521,9 +2521,7 @@ bgp_announce_table (struct peer *peer, afi_t afi, safi_t safi,
 {
   struct bgp_node *rn;
   struct bgp_info *ri;
-  struct attr attr;
-  
-  memset (&attr, 0, sizeof (struct attr));
+  struct attr attr = { 0 };
   
   if (! table)
     table = (rsclient) ? peer->rib[afi][safi] : peer->bgp->rib[afi][safi];
@@ -2667,10 +2665,18 @@ bgp_soft_reconfig_in (struct peer *peer, afi_t afi, safi_t safi)
 	bgp_soft_reconfig_table (peer, afi, safi, table);
 }
 
+
+struct bgp_clear_node_queue
+{
+  struct bgp_node *rn;
+  enum bgp_clear_route_type purpose;
+};
+
 static wq_item_status
 bgp_clear_route_node (struct work_queue *wq, void *data)
 {
-  struct bgp_node *rn = data;
+  struct bgp_clear_node_queue *cnq = data;
+  struct bgp_node *rn = cnq->rn;
   struct peer *peer = wq->spec.data;
   struct bgp_info *ri;
   afi_t afi = rn->table->afi;
@@ -2679,7 +2685,7 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
   assert (rn && peer);
   
   for (ri = rn->info; ri; ri = ri->next)
-    if (ri->peer == peer)
+    if (ri->peer == peer || cnq->purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
       {
         /* graceful restart STALE flag set. */
         if (CHECK_FLAG (peer->sflags, PEER_STATUS_NSF_WAIT)
@@ -2697,9 +2703,13 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
 static void
 bgp_clear_node_queue_del (struct work_queue *wq, void *data)
 {
-  struct bgp_node *rn = data;
+  struct bgp_clear_node_queue *cnq = data;
+  struct bgp_node *rn = cnq->rn;
+  struct bgp_table *table = rn->table;
   
   bgp_unlock_node (rn); 
+  bgp_table_unlock (table);
+  XFREE (MTYPE_BGP_CLEAR_NODE_QUEUE, cnq);
 }
 
 static void
@@ -2707,10 +2717,10 @@ bgp_clear_node_complete (struct work_queue *wq)
 {
   struct peer *peer = wq->spec.data;
   
-  peer_unlock (peer); /* bgp_clear_node_complete */
-  
   /* Tickle FSM to start moving again */
   BGP_EVENT_ADD (peer, Clearing_Completed);
+
+  peer_unlock (peer); /* bgp_clear_route */
 }
 
 static void
@@ -2739,7 +2749,8 @@ bgp_clear_node_queue_init (struct peer *peer)
 
 static void
 bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
-                      struct bgp_table *table, struct peer *rsclient)
+                       struct bgp_table *table, struct peer *rsclient,
+                       enum bgp_clear_route_type purpose)
 {
   struct bgp_node *rn;
   
@@ -2792,21 +2803,30 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
        * problem at this time,
        */
       for (ri = rn->info; ri; ri = ri->next)
-        if (ri->peer == peer)
+        if (ri->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
           {
-            bgp_lock_node (rn); /* unlocked: bgp_clear_node_queue_del */
-            work_queue_add (peer->clear_node_queue, rn);
+            struct bgp_clear_node_queue *cnq;
+
+            /* both unlocked in bgp_clear_node_queue_del */
+            bgp_table_lock (rn->table);
+            bgp_lock_node (rn);
+            cnq = XCALLOC (MTYPE_BGP_CLEAR_NODE_QUEUE,
+                           sizeof (struct bgp_clear_node_queue));
+            cnq->rn = rn;
+            cnq->purpose = purpose;
+            work_queue_add (peer->clear_node_queue, cnq);
+            break;
           }
 
       for (ain = rn->adj_in; ain; ain = ain->next)
-        if (ain->peer == peer)
+        if (ain->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
           {
             bgp_adj_in_remove (rn, ain);
             bgp_unlock_node (rn);
             break;
           }
       for (aout = rn->adj_out; aout; aout = aout->next)
-        if (aout->peer == peer)
+        if (aout->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
           {
             bgp_adj_out_remove (rn, aout, peer, afi, safi);
             bgp_unlock_node (rn);
@@ -2817,7 +2837,8 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
 }
 
 void
-bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
+bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi,
+                 enum bgp_clear_route_type purpose)
 {
   struct bgp_node *rn;
   struct bgp_table *table;
@@ -2841,19 +2862,31 @@ bgp_clear_route (struct peer *peer, afi_t afi, safi_t safi)
    */
   if (!peer->clear_node_queue->thread)
     peer_lock (peer); /* bgp_clear_node_complete */
-  
-  if (safi != SAFI_MPLS_VPN)
-    bgp_clear_route_table (peer, afi, safi, NULL, NULL);
-  else
-    for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn;
-	 rn = bgp_route_next (rn))
-      if ((table = rn->info) != NULL)
-       bgp_clear_route_table (peer, afi, safi, table, NULL);
 
-  for (ALL_LIST_ELEMENTS (peer->bgp->rsclient, node, nnode, rsclient))
+  switch (purpose)
     {
-      if (CHECK_FLAG(rsclient->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT))
-        bgp_clear_route_table (peer, afi, safi, NULL, rsclient);
+    case BGP_CLEAR_ROUTE_NORMAL:
+      if (safi != SAFI_MPLS_VPN)
+        bgp_clear_route_table (peer, afi, safi, NULL, NULL, purpose);
+      else
+        for (rn = bgp_table_top (peer->bgp->rib[afi][safi]); rn;
+             rn = bgp_route_next (rn))
+          if ((table = rn->info) != NULL)
+            bgp_clear_route_table (peer, afi, safi, table, NULL, purpose);
+
+      for (ALL_LIST_ELEMENTS (peer->bgp->rsclient, node, nnode, rsclient))
+        if (CHECK_FLAG(rsclient->af_flags[afi][safi],
+                       PEER_FLAG_RSERVER_CLIENT))
+          bgp_clear_route_table (peer, afi, safi, NULL, rsclient, purpose);
+      break;
+
+    case BGP_CLEAR_ROUTE_MY_RSCLIENT:
+      bgp_clear_route_table (peer, afi, safi, NULL, peer, purpose);
+      break;
+
+    default:
+      assert (0);
+      break;
     }
   
   /* If no routes were cleared, nothing was added to workqueue, the
@@ -2887,7 +2920,7 @@ bgp_clear_route_all (struct peer *peer)
 
   for (afi = AFI_IP; afi < AFI_MAX; afi++)
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-      bgp_clear_route (peer, afi, safi);
+      bgp_clear_route (peer, afi, safi, BGP_CLEAR_ROUTE_NORMAL);
 }
 
 void
@@ -12275,4 +12308,11 @@ bgp_route_init (void)
   install_element (BGP_IPV4_NODE, &bgp_damp_set3_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_unset_cmd);
   install_element (BGP_IPV4_NODE, &bgp_damp_unset2_cmd);
+}
+
+void
+bgp_route_finish (void)
+{
+  bgp_table_unlock (bgp_distance_table);
+  bgp_distance_table = NULL;
 }

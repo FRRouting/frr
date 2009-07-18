@@ -58,13 +58,11 @@ zclient_new ()
   return zclient;
 }
 
-#if 0
-/* This function is never used.  And it must not be used, because
+/* This function is only called when exiting, because
    many parts of the code do not check for I/O errors, so they could
    reference an invalid pointer if the structure was ever freed.
-*/
 
-/* Free zclient structure. */
+   Free zclient structure. */
 void
 zclient_free (struct zclient *zclient)
 {
@@ -77,7 +75,6 @@ zclient_free (struct zclient *zclient)
 
   XFREE (MTYPE_ZCLIENT, zclient);
 }
-#endif
 
 /* Initialize zebra client.  Argument redist_default is unwanted
    redistribute route type. */

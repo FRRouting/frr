@@ -2193,7 +2193,7 @@ bgp_capability_msg_parse (struct peer *peer, u_char *pnt, bgp_size_t length)
               peer->afc_nego[afi][safi] = 0;
 
               if (peer_active_nego (peer))
-                bgp_clear_route (peer, afi, safi);
+                bgp_clear_route (peer, afi, safi, BGP_CLEAR_ROUTE_NORMAL);
               else
                 BGP_EVENT_ADD (peer, BGP_Stop);
             }

@@ -203,6 +203,7 @@ extern char integrate_default[];
 /* Prototypes. */
 extern void vty_init (struct thread_master *);
 extern void vty_init_vtysh (void);
+extern void vty_terminate (void);
 extern void vty_reset (void);
 extern struct vty *vty_new (void);
 extern int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);

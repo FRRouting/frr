@@ -262,6 +262,13 @@ ecommunity_init (void)
 {
   ecomhash = hash_create (ecommunity_hash_make, ecommunity_cmp);
 }
+
+void
+ecommunity_finish (void)
+{
+  hash_free (ecomhash);
+  ecomhash = NULL;
+}
 
 /* Extended Communities token enum. */
 enum ecommunity_token

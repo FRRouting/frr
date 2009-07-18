@@ -125,6 +125,7 @@ extern struct community_list_handler *bgp_clist;
 
 /* Prototypes.  */
 extern struct community_list_handler *community_list_init (void);
+extern void community_list_terminate (struct community_list_handler *);
 
 extern int community_list_set (struct community_list_handler *ch,
 			       const char *name, const char *str, int direct,

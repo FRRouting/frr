@@ -127,7 +127,7 @@ zstrdup (int type, const char *str)
 static struct 
 {
   const char *name;
-  unsigned long alloc;
+  long alloc;
   unsigned long t_malloc;
   unsigned long c_malloc;
   unsigned long t_calloc;
@@ -214,9 +214,9 @@ mtype_zstrdup (const char *file, int line, int type, const char *str)
 static struct 
 {
   char *name;
-  unsigned long alloc;
+  long alloc;
 } mstat [MTYPE_MAX];
-#endif /* MTPYE_LOG */
+#endif /* MEMORY_LOG */
 
 /* Increment allocation counter. */
 static void
@@ -251,6 +251,47 @@ log_memstats(int pri)
 	if (m->index && mstat[m->index].alloc)
 	  zlog (NULL, pri, "  %-30s: %10ld", m->format, mstat[m->index].alloc);
     }
+}
+
+void
+log_memstats_stderr (const char *prefix)
+{
+  struct mlist *ml;
+  struct memory_list *m;
+  int i;
+  int j = 0;
+
+  for (ml = mlists; ml->list; ml++)
+    {
+      i = 0;
+
+      for (m = ml->list; m->index >= 0; m++)
+        if (m->index && mstat[m->index].alloc)
+          {
+            if (!i)
+              fprintf (stderr,
+                       "%s: memstats: Current memory utilization in module %s:\n",
+                       prefix,
+                       ml->name);
+            fprintf (stderr,
+                     "%s: memstats:  %-30s: %10ld%s\n",
+                     prefix,
+                     m->format,
+                     mstat[m->index].alloc,
+                     mstat[m->index].alloc < 0 ? " (REPORT THIS BUG!)" : "");
+            i = j = 1;
+          }
+    }
+
+  if (j)
+    fprintf (stderr,
+             "%s: memstats: NOTE: If configuration exists, utilization may be "
+             "expected.\n",
+             prefix);
+  else
+    fprintf (stderr,
+             "%s: memstats: No remaining tracked memory utilization.\n",
+             prefix);
 }
 
 static void
