@@ -2247,6 +2247,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
       if ((afi == AFI_IP || afi == AFI_IP6)
 	  && safi == SAFI_UNICAST 
 	  && (peer_sort (peer) == BGP_PEER_IBGP
+              || peer_sort (peer) == BGP_PEER_CONFED
 	      || (peer_sort (peer) == BGP_PEER_EBGP && peer->ttl != 1)
 	      || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)))
 	{
@@ -2293,6 +2294,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
   if ((afi == AFI_IP || afi == AFI_IP6)
       && safi == SAFI_UNICAST
       && (peer_sort (peer) == BGP_PEER_IBGP
+          || peer_sort (peer) == BGP_PEER_CONFED
 	  || (peer_sort (peer) == BGP_PEER_EBGP && peer->ttl != 1)
 	  || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)))
     {
