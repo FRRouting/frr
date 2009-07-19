@@ -10,6 +10,7 @@ AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.13, [http://bugzilla.quagga.net])
 AC_CONFIG_SRCDIR(lib/zebra.h)
+AC_CONFIG_MACRO_DIR([m4])
 
 dnl -----------------------------------
 dnl Get hostname and other information.
@@ -27,8 +28,6 @@ if test "x$GAWK" = "xnot-in-PATH" ; then
 BSD awk complains: awk: gensub doesn't support backreferences (subst "\1") ])
 fi
 AC_ARG_VAR([GAWK],[GNU AWK])
-
-AC_SYS_LARGEFILE
 
 dnl default is to match previous behavior
 exampledir=${sysconfdir}
@@ -553,6 +552,8 @@ case "$host" in
       AC_DEFINE(IRIX_65,,IRIX 6.5)
   ;;
 esac
+
+AC_SYS_LARGEFILE
 
 dnl ---------------------
 dnl Integrated VTY option
