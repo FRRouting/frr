@@ -872,6 +872,17 @@ static int bgp_attr_aspath_check( struct peer *peer,
 
   bgp = peer->bgp;
     
+  /* Confederation sanity check. */
+  if ((peer_sort (peer) == BGP_PEER_CONFED && ! aspath_left_confed_check (attr->aspath)) ||
+     (peer_sort (peer) == BGP_PEER_EBGP && aspath_confed_check (attr->aspath)))
+    {
+      zlog (peer->log, LOG_ERR, "Malformed AS path from %s", peer->host);
+      bgp_notify_send (peer, 
+		       BGP_NOTIFY_UPDATE_ERR, 
+		       BGP_NOTIFY_UPDATE_MAL_AS_PATH);
+      return -1;
+    }
+
   /* First AS check for EBGP. */
   if (bgp != NULL && bgp_flag_check (bgp, BGP_FLAG_ENFORCE_FIRST_AS))
     {

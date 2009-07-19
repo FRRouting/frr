@@ -1122,6 +1122,42 @@ aspath_private_as_check (struct aspath *aspath)
   return 1;
 }
 
+/* AS path confed check.  If aspath contains confed set or sequence then return 1. */
+int
+aspath_confed_check (struct aspath *aspath)
+{
+  struct assegment *seg;
+
+  if ( !(aspath && aspath->segments) )
+    return 0;
+
+  seg = aspath->segments;
+
+  while (seg)
+    {
+      if (seg->type == AS_CONFED_SET || seg->type == AS_CONFED_SEQUENCE)
+	  return 1;
+      seg = seg->next;
+    }
+  return 0;
+}
+
+/* Leftmost AS path segment confed check.  If leftmost AS segment is of type
+  AS_CONFED_SEQUENCE or AS_CONFED_SET then return 1.  */
+int
+aspath_left_confed_check (struct aspath *aspath)
+{
+
+  if ( !(aspath && aspath->segments) )
+    return 0;
+
+  if ( (aspath->segments->type == AS_CONFED_SEQUENCE)
+      || (aspath->segments->type == AS_CONFED_SET) )
+    return 1;
+
+  return 0;
+}
+
 /* Merge as1 to as2.  as2 should be uninterned aspath. */
 static struct aspath *
 aspath_merge (struct aspath *as1, struct aspath *as2)
