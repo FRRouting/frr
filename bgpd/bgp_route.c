@@ -2726,9 +2726,9 @@ bgp_clear_node_complete (struct work_queue *wq)
 static void
 bgp_clear_node_queue_init (struct peer *peer)
 {
-  char wname[sizeof("clear xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx"];
+  char wname[sizeof("clear xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx")];
   
-  snprintf (wname, CLEAR_QUEUE_NAME_LEN, "clear %s", peer->host);
+  snprintf (wname, sizeof(wname), "clear %s", peer->host);
 #undef CLEAR_QUEUE_NAME_LEN
 
   if ( (peer->clear_node_queue = work_queue_new (bm->master, wname)) == NULL)
