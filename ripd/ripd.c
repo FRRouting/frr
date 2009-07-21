@@ -1372,6 +1372,9 @@ rip_create_socket (struct sockaddr_in *from)
 #ifdef RIP_RECVMSG
   setsockopt_pktinfo (sock);
 #endif /* RIP_RECVMSG */
+#ifdef IPTOS_PREC_INTERNETCONTROL
+  setsockopt_ipv4_tos (sock, IPTOS_PREC_INTERNETCONTROL);
+#endif
 
   if (ripd_privs.change (ZPRIVS_RAISE))
       zlog_err ("rip_create_socket: could not raise privs");
