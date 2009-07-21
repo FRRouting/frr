@@ -21,7 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_NETWORK_H
 #define _QUAGGA_BGP_NETWORK_H
 
-extern int bgp_socket (struct bgp *, unsigned short, char *);
+extern int bgp_socket (unsigned short, const char *);
+extern void bgp_close (void);
 extern int bgp_connect (struct peer *);
 extern void bgp_getsockname (struct peer *);
 

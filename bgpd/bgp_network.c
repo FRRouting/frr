@@ -39,6 +39,13 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 extern struct zebra_privs_t bgpd_privs;
 
+/* BGP listening socket. */
+struct bgp_listener
+{
+  int fd;
+  union sockunion su;
+  struct thread *thread;
+};
 
 /*
  * Set MD5 key for the socket, for the given IPv4 peer address.
@@ -365,37 +372,90 @@ bgp_getsockname (struct peer *peer)
   bgp_nexthop_set (peer->su_local, peer->su_remote, &peer->nexthop, peer);
 }
 
+
+static int
+bgp_listener (int sock, struct sockaddr *sa, socklen_t salen)
+{
+  struct bgp_listener *listener;
+  int ret, en;
+
+  sockopt_reuseaddr (sock);
+  sockopt_reuseport (sock);
+
+#ifdef IPTOS_PREC_INTERNETCONTROL
+  if (sa->sa_family == AF_INET)
+    setsockopt_ipv4_tos (sock, IPTOS_PREC_INTERNETCONTROL);
+#endif
+
+#ifdef IPV6_V6ONLY
+  /* Want only IPV6 on ipv6 socket (not mapped addresses) */
+  if (sa->sa_family == AF_INET6) {
+    int on = 1;
+    setsockopt (sock, IPPROTO_IPV6, IPV6_V6ONLY,
+		(void *) &on, sizeof (on));
+  }
+#endif
+
+  if (bgpd_privs.change (ZPRIVS_RAISE) )
+    zlog_err ("bgp_socket: could not raise privs");
+
+  ret = bind (sock, sa, salen);
+  en = errno;
+  if (bgpd_privs.change (ZPRIVS_LOWER) )
+    zlog_err ("bgp_bind_address: could not lower privs");
+
+  if (ret < 0)
+    {
+      zlog_err ("bind: %s", safe_strerror (en));
+      return ret;
+    }
+
+  ret = listen (sock, 3);
+  if (ret < 0)
+    {
+      zlog_err ("listen: %s", safe_strerror (errno));
+      return ret;
+    }
+
+  listener = XMALLOC (MTYPE_BGP_LISTENER, sizeof(*listener));
+  listener->fd = sock;
+  memcpy(&listener->su, sa, salen);
+  listener->thread = thread_add_read (master, bgp_accept, listener, sock);
+  listnode_add (bm->listen_sockets, listener);
+
+  return 0;
+}
+
 /* IPv6 supported version of BGP server socket setup.  */
 #if defined (HAVE_IPV6) && ! defined (NRL)
 int
-bgp_socket (struct bgp *bgp, unsigned short port, char *address)
+bgp_socket (unsigned short port, const char *address)
 {
-  int ret, en;
-  struct addrinfo req;
   struct addrinfo *ainfo;
   struct addrinfo *ainfo_save;
-  int sock = 0;
+  static const struct addrinfo req = {
+    .ai_family = AF_UNSPEC,
+    .ai_flags = AI_PASSIVE,
+    .ai_socktype = SOCK_STREAM,
+  };
+  int ret, count;
   char port_str[BUFSIZ];
 
-  memset (&req, 0, sizeof (struct addrinfo));
-
-  req.ai_flags = AI_PASSIVE;
-  req.ai_family = AF_UNSPEC;
-  req.ai_socktype = SOCK_STREAM;
   snprintf (port_str, sizeof(port_str), "%d", port);
   port_str[sizeof (port_str) - 1] = '\0';
 
-  ret = getaddrinfo (address, port_str, &req, &ainfo);
+  ret = getaddrinfo (address, port_str, &req, &ainfo_save);
   if (ret != 0)
     {
       zlog_err ("getaddrinfo: %s", gai_strerror (ret));
       return -1;
     }
 
-  ainfo_save = ainfo;
-
-  do
+  count = 0;
+  for (ainfo = ainfo_save; ainfo; ainfo = ainfo->ai_next)
     {
+      int sock;
+
       if (ainfo->ai_family != AF_INET && ainfo->ai_family != AF_INET6)
 	continue;
      
@@ -406,59 +466,25 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
 	  continue;
 	}
 
-      sockopt_reuseaddr (sock);
-      sockopt_reuseport (sock);
-      
-#ifdef IPTOS_PREC_INTERNETCONTROL
-      if (ainfo->ai_family == AF_INET)
-	setsockopt_ipv4_tos (sock, IPTOS_PREC_INTERNETCONTROL);
-#endif
-
-#ifdef IPV6_V6ONLY
-      /* Want only IPV6 on ipv6 socket (not mapped addresses) */
-      if (ainfo->ai_family == AF_INET6) {
-	int on = 1;
-	setsockopt (sock, IPPROTO_IPV6, IPV6_V6ONLY, 
-		    (void *) &on, sizeof (on));
-      }
-#endif
-
-      if (bgpd_privs.change (ZPRIVS_RAISE) )
-        zlog_err ("bgp_socket: could not raise privs");
-
-      ret = bind (sock, ainfo->ai_addr, ainfo->ai_addrlen);
-      en = errno;
-      if (bgpd_privs.change (ZPRIVS_LOWER) )
-	zlog_err ("bgp_bind_address: could not lower privs");
-
-      if (ret < 0)
-	{
-	  zlog_err ("bind: %s", safe_strerror (en));
-	  close(sock);
-	  continue;
-	}
-      
-      ret = listen (sock, 3);
-      if (ret < 0) 
-	{
-	  zlog_err ("listen: %s", safe_strerror (errno));
-	  close (sock);
-	  continue;
-	}
-      
-      listnode_add (bm->listen_sockets, (void *)(long)sock);
-      thread_add_read (master, bgp_accept, bgp, sock);
+      ret = bgp_listener (sock, ainfo->ai_addr, ainfo->ai_addrlen);
+      if (ret == 0)
+	++count;
+      else
+	close(sock);
     }
-  while ((ainfo = ainfo->ai_next) != NULL);
-
   freeaddrinfo (ainfo_save);
+  if (count == 0)
+    {
+      zlog_err ("%s: no usable addresses", __func__);
+      return -1;
+    }
 
-  return sock;
+  return 0;
 }
 #else
 /* Traditional IPv4 only version.  */
 int
-bgp_socket (struct bgp *bgp, unsigned short port, char *address)
+bgp_socket (unsigned short port, const char *address)
 {
   int sock;
   int socklen;
@@ -472,15 +498,7 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
       return sock;
     }
 
-  sockopt_reuseaddr (sock);
-  sockopt_reuseport (sock);
-
-#ifdef IPTOS_PREC_INTERNETCONTROL
-  setsockopt_ipv4_tos (sock, IPTOS_PREC_INTERNETCONTROL);
-#endif
-
   memset (&sin, 0, sizeof (struct sockaddr_in));
-
   sin.sin_family = AF_INET;
   sin.sin_port = htons (port);
   socklen = sizeof (struct sockaddr_in);
@@ -495,33 +513,27 @@ bgp_socket (struct bgp *bgp, unsigned short port, char *address)
   sin.sin_len = socklen;
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
-  if ( bgpd_privs.change (ZPRIVS_RAISE) )
-    zlog_err ("bgp_socket: could not raise privs");
-
-  ret = bind (sock, (struct sockaddr *) &sin, socklen);
-  en = errno;
-
-  if (bgpd_privs.change (ZPRIVS_LOWER) )
-    zlog_err ("bgp_socket: could not lower privs");
-
-  if (ret < 0)
-    {
-      zlog_err ("bind: %s", safe_strerror (en));
-      close (sock);
-      return ret;
-    }
-  
-  ret = listen (sock, 3);
+  ret = bgp_listener (sock, (struct sockaddr *) &sin, socklen);
   if (ret < 0) 
     {
-      zlog_err ("listen: %s", safe_strerror (errno));
       close (sock);
       return ret;
     }
-
-  listnode_add (bm->listen_sockets, (void *)(long)sock);
-  thread_add_read (bm->master, bgp_accept, bgp, sock);
-
   return sock;
 }
 #endif /* HAVE_IPV6 && !NRL */
+
+void
+bgp_close (void)
+{
+  struct listnode *node, *next;
+  struct bgp_listener *listener;
+
+  for (ALL_LIST_ELEMENTS (bm->listen_sockets, node, next, listener))
+    {
+      thread_cancel (listener->thread);
+      close (listener->fd);
+      listnode_delete (bm->listen_sockets, listener);
+      XFREE (MTYPE_BGP_LISTENER, listener);
+    }
+}

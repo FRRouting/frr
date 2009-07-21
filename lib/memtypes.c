@@ -91,6 +91,7 @@ struct memory_list memory_list_zebra[] =
 struct memory_list memory_list_bgp[] =
 {
   { MTYPE_BGP,			"BGP instance"			},
+  { MTYPE_BGP_LISTENER,		"BGP listen socket details"	},
   { MTYPE_BGP_PEER,		"BGP peer"			},
   { MTYPE_BGP_PEER_HOST,	"BGP peer hostname"		},
   { MTYPE_PEER_GROUP,		"Peer group"			},
