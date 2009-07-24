@@ -382,6 +382,9 @@ main (int argc, char **argv)
   /* Needed for BSD routing socket. */
   pid = getpid ();
 
+  /* This must be done only after locking pidfile (bug #403). */
+  zebra_zserv_socket_init ();
+
   /* Make vty server socket. */
   vty_serv_sock (vty_addr, vty_port, ZEBRA_VTYSH_PATH);
 
