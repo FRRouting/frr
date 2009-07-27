@@ -369,7 +369,11 @@ ospf_get_next_link (struct vertex *v, struct vertex *w,
 {
   u_char *p;
   u_char *lim;
+  u_char lsa_type =  LSA_LINK_TYPE_TRANSIT;
   struct router_lsa_link *l;
+
+  if (w->type == OSPF_VERTEX_ROUTER)
+    lsa_type = LSA_LINK_TYPE_POINTOPOINT;
 
   if (prev_link == NULL)
     p = ((u_char *) v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
@@ -388,13 +392,7 @@ ospf_get_next_link (struct vertex *v, struct vertex *w,
 
       p += (ROUTER_LSA_MIN_SIZE + (l->m[0].tos_count * ROUTER_LSA_TOS_SIZE));
 
-      if (l->m[0].type == LSA_LINK_TYPE_STUB)
-        continue;
-
-      /* Defer NH calculation via VLs until summaries from
-         transit areas area confidered             */
-
-      if (l->m[0].type == LSA_LINK_TYPE_VIRTUALLINK)
+      if (l->m[0].type != lsa_type)
         continue;
 
       if (IPV4_ADDR_SAME (&l->link_id, &w->id))
