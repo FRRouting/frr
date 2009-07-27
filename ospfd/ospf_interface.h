@@ -252,7 +252,8 @@ extern struct ospf_interface *ospf_if_table_lookup (struct interface *,
 						    struct prefix *);
 extern struct ospf_interface *ospf_if_addr_local (struct in_addr);
 extern struct ospf_interface *ospf_if_lookup_recv_if (struct ospf *,
-						      struct in_addr);
+						      struct in_addr,
+						      struct interface *);
 extern struct ospf_interface *ospf_if_is_configured (struct ospf *,
 						     struct in_addr *);
 

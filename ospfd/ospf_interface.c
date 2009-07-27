@@ -439,11 +439,12 @@ ospf_if_lookup_by_prefix (struct ospf *ospf, struct prefix_ipv4 *p)
   return NULL;
 }
 
-/* determine receiving interface by source of packet */
+/* determine receiving interface by ifp and source address */
 struct ospf_interface *
-ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src)
+ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src,
+			struct interface *ifp)
 {
-  struct listnode *node;
+  struct route_node *rn;
   struct prefix_ipv4 addr;
   struct ospf_interface *oi, *match;
 
@@ -453,11 +454,16 @@ ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src)
 
   match = NULL;
 
-  for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
+  for (rn = route_top (IF_OIFS (ifp)); rn; rn = route_next (rn))
     {
+      oi = rn->info;
+
+      if (!oi) /* oi can be NULL for PtP aliases */
+	continue;
+
       if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
 	continue;
-      
+
       if (if_is_loopback (oi->ifp))
         continue;
 
