@@ -145,7 +145,7 @@ ospf_if_reset_variables (struct ospf_interface *oi)
 }
 
 /* lookup oi for specified prefix/ifp */
-static struct ospf_interface *
+struct ospf_interface *
 ospf_if_table_lookup (struct interface *ifp, struct prefix *prefix)
 {
   struct prefix p;

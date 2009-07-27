@@ -901,15 +901,12 @@ ospf_network_run_interface (struct prefix *p, struct ospf_area *area,
      then create socket and join multicast group. */
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, co))
     {
-      struct prefix *addr;
-      
+
       if (CHECK_FLAG(co->flags,ZEBRA_IFA_SECONDARY))
         continue;
 
-      addr = CONNECTED_ID(co);
-
       if (p->family == co->address->family 
-          && ! ospf_if_is_configured (area->ospf, &(addr->u.prefix4))
+	  && ! ospf_if_table_lookup(ifp, co->address)
           && ospf_network_match_iface(co,p))
         {
            struct ospf_interface *oi;
