@@ -135,6 +135,7 @@ ospf_ase_complete_direct_routes (struct ospf_route *ro, struct in_addr nexthop)
 {
   struct listnode *node;
   struct ospf_path *op;
+  struct interface *ifp;
 
   for (ALL_LIST_ELEMENTS_RO (ro->paths, node, op))
     if (op->nexthop.s_addr == 0)
@@ -593,7 +594,7 @@ ospf_ase_route_match_same (struct route_table *rt, struct prefix *prefix,
        
        if (! IPV4_ADDR_SAME (&op->nexthop, &newop->nexthop))
 	 return 0;
-       if (op->oi->ifp->ifindex != newop->oi->ifp->ifindex)
+       if (op->ifindex != newop->ifindex)
 	 return 0;
      }
    return 1;

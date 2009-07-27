@@ -1077,13 +1077,14 @@ ospf_rtrs_print (struct route_table *rtrs)
                 {
                   if (IS_DEBUG_OSPF_EVENT)
                     zlog_debug ("   directly attached to %s\r\n",
-                               IF_NAME (path->oi));
+				ifindex2ifname (path->ifindex));
                 }
               else
                 {
                   if (IS_DEBUG_OSPF_EVENT)
                     zlog_debug ("   via %s, %s\r\n",
-                               inet_ntoa (path->nexthop), IF_NAME (path->oi));
+				inet_ntoa (path->nexthop),
+				ifindex2ifname (path->ifindex));
                 }
             }
         }

@@ -378,8 +378,8 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
           else
             {
               stream_putc (s, ZEBRA_NEXTHOP_IFINDEX);
-              if (path->oi)
-                stream_putl (s, path->oi->ifp->ifindex);
+              if (path->ifindex)
+                stream_putl (s, path->ifindex);
               else
                 stream_putl (s, 0);
             }
@@ -439,11 +439,11 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
               nexthop = &path->nexthop;
               api.nexthop = &nexthop;
             }
-          else if (ospf_if_exists(path->oi) && (path->oi->ifp))
+          else if (if_lookup_by_index(path->ifindex))
             {
               SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
               api.ifindex_num = 1;
-              api.ifindex = &path->oi->ifp->ifindex;
+              api.ifindex = &path->ifindex;
             }
           else if ( IS_DEBUG_OSPF(zebra,ZEBRA_REDISTRIBUTE) )
             {
