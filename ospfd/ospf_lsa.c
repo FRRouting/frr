@@ -2414,28 +2414,28 @@ ospf_router_lsa_install (struct ospf *ospf,
      the shortest path calculations for each area (not just the
      area whose link-state database has changed). 
   */
-  if (rt_recalc)
-    ospf_spf_calculate_schedule (ospf);
 
-  /* Only install LSA if it is originated/refreshed by us.
-   * If LSA was received by flooding, the RECEIVED flag is set so do
-   * not link the LSA */
-  if (IS_LSA_SELF (new) && !CHECK_FLAG (new->flags, OSPF_LSA_RECEIVED))
+  if (IS_LSA_SELF (new))
     {
+
+      /* Only install LSA if it is originated/refreshed by us.
+       * If LSA was received by flooding, the RECEIVED flag is set so do
+       * not link the LSA */
+      if (CHECK_FLAG (new->flags, OSPF_LSA_RECEIVED))
+	return new; /* ignore stale LSA */
+
       /* Set router-LSA refresh timer. */
       OSPF_TIMER_OFF (area->t_router_lsa_self);
       OSPF_AREA_TIMER_ON (area->t_router_lsa_self,
                           ospf_router_lsa_timer, OSPF_LS_REFRESH_TIME);
-      
+
       /* Set self-originated router-LSA. */
       ospf_lsa_unlock (&area->router_lsa_self);
       area->router_lsa_self = ospf_lsa_lock (new);
 
-      if (IS_DEBUG_OSPF (lsa, LSA_INSTALL))
-        zlog_debug("LSA[Type%d]: ID %s seq 0x%x is self-originated",
-                  new->data->type, inet_ntoa (new->data->id),
-                  ntohl(new->data->ls_seqnum));
     }
+  if (rt_recalc)
+    ospf_spf_calculate_schedule (ospf);
 
   return new;
 }
@@ -2457,14 +2457,14 @@ ospf_network_lsa_install (struct ospf *ospf,
      the shortest path calculations for each area (not just the
      area whose link-state database has changed). 
   */
-  if (rt_recalc)
-    ospf_spf_calculate_schedule (ospf);
-
-  /* We supposed that when LSA is originated by us, we pass the int
-     for which it was originated. If LSA was received by flooding,
-     the RECEIVED flag is set, so we do not link the LSA to the int. */
-  if (IS_LSA_SELF (new) && !CHECK_FLAG (new->flags, OSPF_LSA_RECEIVED))
+  if (IS_LSA_SELF (new))
     {
+      /* We supposed that when LSA is originated by us, we pass the int
+	 for which it was originated. If LSA was received by flooding,
+	 the RECEIVED flag is set, so we do not link the LSA to the int. */
+      if (CHECK_FLAG (new->flags, OSPF_LSA_RECEIVED))
+	return new; /* ignore stale LSA */
+
       /* Set LSRefresh timer. */
       OSPF_TIMER_OFF (oi->t_network_lsa_self);
 
@@ -2475,6 +2475,8 @@ ospf_network_lsa_install (struct ospf *ospf,
       ospf_lsa_unlock (&oi->network_lsa_self);
       oi->network_lsa_self = ospf_lsa_lock (new);
     }
+  if (rt_recalc)
+    ospf_spf_calculate_schedule (ospf);
 
   return new;
 }
@@ -3291,6 +3293,9 @@ ospf_lsa_different (struct ospf_lsa *l1, struct ospf_lsa *l2)
 
   if (l1->data->length ==  0)
     return 1;
+
+  if (CHECK_FLAG ((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
+    return 1; /* May be a stale LSA in the LSBD */
 
   assert ( ntohs(l1->data->length) > OSPF_LSA_HEADER_SIZE);
 
