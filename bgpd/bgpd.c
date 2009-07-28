@@ -2145,28 +2145,22 @@ peer_lookup (struct bgp *bgp, union sockunion *su)
   struct listnode *node, *nnode;
 
   if (bgp != NULL)
-  {
-    for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {
-      if (sockunion_same (&peer->su, su)
-	  && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-	return peer;
+      for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+        if (sockunion_same (&peer->su, su)
+            && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
+          return peer;
     }
-  }
   else if (bm->bgp != NULL)
-  {
-    struct listnode *bgpnode, *nbgpnode;
+    {
+      struct listnode *bgpnode, *nbgpnode;
   
-    for(ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
-    {
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-    {
-      if (sockunion_same (&peer->su, su)
-	  && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-	return peer;
+      for (ALL_LIST_ELEMENTS (bm->bgp, bgpnode, nbgpnode, bgp))
+        for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+          if (sockunion_same (&peer->su, su)
+              && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
+            return peer;
     }
-    }
-  }
   return NULL;
 }
 
@@ -2182,20 +2176,19 @@ peer_lookup_with_open (union sockunion *su, as_t remote_as,
   if (! bm->bgp)
     return NULL;
 
-  for(ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp))
-  {
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-    {
-      if (sockunion_same (&peer->su, su)
-	  && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-	{
-	  if (peer->as == remote_as
-	      && peer->remote_id.s_addr == remote_id->s_addr)
-	    return peer;
-	  if (peer->as == remote_as)
-	    *as = 1;
-	}
-    }
+  for (ALL_LIST_ELEMENTS (bm->bgp, bgpnode, nbgpnode, bgp))
+    for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+      {
+        if (sockunion_same (&peer->su, su)
+            && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
+          {
+            if (peer->as == remote_as
+                && peer->remote_id.s_addr == remote_id->s_addr)
+              return peer;
+            if (peer->as == remote_as)
+              *as = 1;
+          }
+      }
 
   for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
     {

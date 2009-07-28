@@ -447,10 +447,10 @@ bgp_stop (struct peer *peer)
 
   /* Can't do this in Clearing; events are used for state transitions */
   if (peer->status != Clearing)
-  {
-  /* Delete all existing events of the peer */
-  BGP_EVENT_FLUSH (peer);
-  }
+    {
+      /* Delete all existing events of the peer */
+      BGP_EVENT_FLUSH (peer);
+    }
 
   /* Increment Dropped count. */
   if (peer->status == Established)
