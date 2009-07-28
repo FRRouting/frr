@@ -1704,13 +1704,6 @@ zebra_init (void)
   /* Client list init. */
   zebrad.client_list = list_new ();
 
-  /* Make zebra server socket. */
-#ifdef HAVE_TCP_ZEBRA
-  zebra_serv ();
-#else
-  zebra_serv_un (ZEBRA_SERV_PATH);
-#endif /* HAVE_TCP_ZEBRA */
-
   /* Install configuration write function. */
   install_node (&table_node, config_write_table);
   install_node (&forwarding_node, config_write_forwarding);
@@ -1736,4 +1729,15 @@ zebra_init (void)
 
   /* Route-map */
   zebra_route_map_init ();
+}
+
+/* Make zebra server socket, wiping any existing one (see bug #403). */
+void
+zebra_zserv_socket_init (void)
+{
+#ifdef HAVE_TCP_ZEBRA
+  zebra_serv ();
+#else
+  zebra_serv_un (ZEBRA_SERV_PATH);
+#endif /* HAVE_TCP_ZEBRA */
 }
