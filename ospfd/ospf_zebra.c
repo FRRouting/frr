@@ -91,8 +91,9 @@ ospf_interface_add (int command, struct zclient *zclient, zebra_size_t length)
   ifp = zebra_interface_add_read (zclient->ibuf);
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-    zlog_debug ("Zebra: interface add %s index %d flags %ld metric %d mtu %d",
-               ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
+    zlog_debug ("Zebra: interface add %s index %d flags %llx metric %d mtu %d",
+               ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
+               ifp->metric, ifp->mtu);
 
   assert (ifp->info);
 
@@ -132,7 +133,7 @@ ospf_interface_delete (int command, struct zclient *zclient,
 
   if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
     zlog_debug
-      ("Zebra: interface delete %s index %d flags %ld metric %d mtu %d",
+      ("Zebra: interface delete %s index %d flags %lld metric %d mtu %d",
        ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu);
 
 #ifdef HAVE_SNMP

@@ -134,8 +134,9 @@ ospf6_zebra_if_state_update (int command, struct zclient *zclient,
   ifp = zebra_interface_state_read (zclient->ibuf);
   if (IS_OSPF6_DEBUG_ZEBRA (RECV))
     zlog_debug ("Zebra Interface state change: "
-                "%s index %d flags %ld metric %d mtu %d",
-		ifp->name, ifp->ifindex, ifp->flags, ifp->metric, ifp->mtu6);
+                "%s index %d flags %llx metric %d mtu %d",
+		ifp->name, ifp->ifindex, (unsigned long long)ifp->flags, 
+		ifp->metric, ifp->mtu6);
 
   ospf6_interface_state_update (ifp);
   return 0;
