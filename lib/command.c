@@ -2777,14 +2777,18 @@ cmd_execute_command_strict (vector vline, struct vty *vty,
 
 /* Configuration make from file. */
 int
-config_from_file (struct vty *vty, FILE *fp)
+config_from_file (struct vty *vty, FILE *fp, unsigned int *line_num)
 {
   int ret, error_ret=0;
   int saved_node;
+  *line_num = 0;
   vector vline;
 
   while (fgets (vty->buf, VTY_BUFSIZ, fp))
     {
+      if (!error_ret)
+	++(*line_num);
+
       vline = cmd_make_strvec (vty->buf);
 
       /* In case of comment line */
