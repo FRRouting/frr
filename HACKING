@@ -128,31 +128,39 @@ The commit message should provide:
 * A suitable one-line summary as the very first line of the message, in the
   form:
 
-  [topic] high-level, one line summary
+  topic: high-level, one line summary
 
-  Where topic may be name of a subdirectory, and/or daemon. 
+  Where topic would tend to be name of a subdirectory, and/or daemon, unless
+  there's a more suitable topic (e.g. 'build').  This topic is used to
+  organise change summaries in release announcements.
 
 * An optional introduction, discussing the general intent of the change.
-* a short description of each change made, preferably:
+* A short description of each change made, preferably:
   * file by file
     * function by function (use of "ditto", or globs is allowed)
 
-to provide a short description of the general intent of the patch. 
+to provide a short description of the general intent of the patch, in terms
+of the problem it solves and how it achieves it, to help reviewers
+understand. 
+
 
 The reason for such itemised commit messages is to encourage the author to
 self-review every line of the patch, as well as provide reviewers an index
-of which changes are intended, along with a short description for each.
+of which changes are intended, along with a short description for each. 
+Some discretion is obviously required.  A C-to-english description is not
+desireable.  For short patches, a per-function/file break-down may be
+redundant.  For longer patches, such a break-down may be essential.
+
 An example (where the general discussion is obviously somewhat redundant,
 given the one-line summary):
 
-[zebra] Enhance frob FSM to detect loss of frob
+zebra: Enhance frob FSM to detect loss of frob
 
-	* (general) Add a new DOWN state to the frob state machine
-	  to allow the barinator to detect loss of frob. 
-	* frob.h: (struct frob) Add DOWN state flag.
-	* frob.c: (frob_change) set/clear DOWN appropriately on state
-	  change.
-	* bar.c: (barinate) Check frob for DOWN state.
+* (general) Add a new DOWN state to the frob state machine
+   to allow the barinator to detect loss of frob. 
+* frob.h: (struct frob) Add DOWN state flag.
+* frob.c: (frob_change) set/clear DOWN appropriately on state change.
+* bar.c: (barinate) Check frob for DOWN state.
 
 
 HACKING THE BUILD SYSTEM
@@ -183,7 +191,7 @@ RELEASE PROCEDURE
         --prefix=quagga-release/ master | tar -xf -
     cd quagga-release
 
-    ./update-autotools
+    autoreconf -i
     ./configure
     make
     make dist
@@ -194,6 +202,8 @@ the official repository, and also carries out keyword expansion. If any
 errors occur, move tags as needed and start over from the fresh checkouts. 
 Do not append to tarballs, as this has produced non-standards-conforming
 tarballs in the past.
+
+See also: http://wiki.quagga.net/index.php/Main/Processes
 
 [TODO: collation of a list of deprecated commands. Possibly can be scripted
 to extract from vtysh/vtysh_cmd.c]
@@ -236,7 +246,7 @@ PATCH SUBMISSION
   show C function affected by any chunk, and with the -w and -b arguments to
   minimise changes. E.g: 
 
-    git diff -u -p -w -b mybranch..remotes/quagga.net/master
+    git diff -up mybranch..remotes/quagga.net/master
 
   Or by using git-format-patch.
 
