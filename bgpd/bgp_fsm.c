@@ -426,7 +426,18 @@ bgp_fsm_change_status (struct peer *peer, int status)
 		LOOKUP (bgp_status_msg, peer->status));
 }
 
+/* Flush the event queue and ensure the peer is shut down */
+int
+bgp_clearing_completed (struct peer *peer)
+{
+  int rc = bgp_stop(peer);
+  BGP_EVENT_FLUSH (peer);
+
+  return rc;
+}
+
 /* Administrative BGP peer stop event. */
+/* May be called multiple times for the same peer */
 int
 bgp_stop (struct peer *peer)
 {
@@ -434,8 +445,12 @@ bgp_stop (struct peer *peer)
   safi_t safi;
   char orf_name[BUFSIZ];
 
+  /* Can't do this in Clearing; events are used for state transitions */
+  if (peer->status != Clearing)
+  {
   /* Delete all existing events of the peer */
   BGP_EVENT_FLUSH (peer);
+  }
 
   /* Increment Dropped count. */
   if (peer->status == Established)
@@ -756,6 +771,9 @@ bgp_fsm_holdtime_expire (struct peer *peer)
       return -1;
     }
 
+  /* bgp_stop needs to be invoked while in Established state */
+  bgp_stop(peer);
+
   return 0;
 }
 
@@ -999,9 +1017,9 @@ static const struct {
     {bgp_stop,                    Clearing}, /* BGP_Stop                     */
     {bgp_stop,                    Clearing}, /* TCP_connection_open          */
     {bgp_stop,                    Clearing}, /* TCP_connection_closed        */
-    {bgp_ignore,                  Clearing}, /* TCP_connection_open_failed   */
+    {bgp_stop,                 Clearing},	/* TCP_connection_open_failed   */
     {bgp_stop,                    Clearing}, /* TCP_fatal_error              */
-    {bgp_ignore,                  Clearing}, /* ConnectRetry_timer_expired   */
+    {bgp_stop,                 Clearing},	/* ConnectRetry_timer_expired   */
     {bgp_fsm_holdtime_expire,     Clearing}, /* Hold_Timer_expired           */
     {bgp_fsm_keepalive_expire, Established}, /* KeepAlive_timer_expired      */
     {bgp_stop,                    Clearing}, /* Receive_OPEN_message         */
@@ -1013,19 +1031,19 @@ static const struct {
   {
     /* Clearing, */
     {bgp_ignore,  Clearing},	/* BGP_Start                    */
-    {bgp_ignore,  Clearing},	/* BGP_Stop                     */
-    {bgp_ignore,  Clearing},	/* TCP_connection_open          */
-    {bgp_ignore,  Clearing},	/* TCP_connection_closed        */
-    {bgp_ignore,  Clearing},	/* TCP_connection_open_failed   */
-    {bgp_ignore,  Clearing},	/* TCP_fatal_error              */
-    {bgp_ignore,  Clearing},	/* ConnectRetry_timer_expired   */
-    {bgp_ignore,  Clearing},	/* Hold_Timer_expired           */
-    {bgp_ignore,  Clearing},	/* KeepAlive_timer_expired      */
-    {bgp_ignore,  Clearing},	/* Receive_OPEN_message         */
-    {bgp_ignore,  Clearing},	/* Receive_KEEPALIVE_message    */
-    {bgp_ignore,  Clearing},	/* Receive_UPDATE_message       */
-    {bgp_ignore,  Clearing},	/* Receive_NOTIFICATION_message */
-    {bgp_ignore,  Idle    },	/* Clearing_Completed           */
+    {bgp_stop,			Clearing},	/* BGP_Stop                     */
+    {bgp_stop,			Clearing},	/* TCP_connection_open          */
+    {bgp_stop,			Clearing},	/* TCP_connection_closed        */
+    {bgp_stop,			Clearing},	/* TCP_connection_open_failed   */
+    {bgp_stop,			Clearing},	/* TCP_fatal_error              */
+    {bgp_stop,			Clearing},	/* ConnectRetry_timer_expired   */
+    {bgp_stop,			Clearing},	/* Hold_Timer_expired           */
+    {bgp_stop,			Clearing},	/* KeepAlive_timer_expired      */
+    {bgp_stop,			Clearing},	/* Receive_OPEN_message         */
+    {bgp_stop,			Clearing},	/* Receive_KEEPALIVE_message    */
+    {bgp_stop,			Clearing},	/* Receive_UPDATE_message       */
+    {bgp_stop,			Clearing},	/* Receive_NOTIFICATION_message */
+    {bgp_clearing_completed,    Idle},		/* Clearing_Completed           */
   },
   {
     /* Deleted, */
