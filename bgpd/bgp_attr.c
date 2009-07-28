@@ -1333,6 +1333,9 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
     {
     case 4:
       stream_get (&attre->mp_nexthop_global_in, s, 4);
+      /* Probably needed for RFC 2283 */
+      if (attr->nexthop.s_addr == 0)
+        memcpy(&attr->nexthop.s_addr, &attre->mp_nexthop_global_in, 4);
       break;
     case 12:
       {
