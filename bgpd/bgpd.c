@@ -2202,7 +2202,6 @@ peer_lookup_with_open (union sockunion *su, as_t remote_as,
 	    *as = 1;
 	}
     }
-  }
   return NULL;
 }
 
