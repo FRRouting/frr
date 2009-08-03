@@ -1528,7 +1528,10 @@ ospf_external_lsa_nexthop_get (struct ospf *ospf, struct in_addr nexthop)
   nh.family = AF_INET;
   nh.u.prefix4 = nexthop;
   nh.prefixlen = IPV4_MAX_BITLEN;
-
+  
+  /* XXX/SCALE: If there were a lot of oi's on an ifp, then it'd be
+   * better to make use of the per-ifp table of ois.
+   */
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
     if (if_is_operative (oi->ifp))
       if (oi->address->family == AF_INET)

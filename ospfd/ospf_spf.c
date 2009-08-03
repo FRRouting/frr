@@ -678,6 +678,19 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
                 }
             }
         }
+      /* NB: This code is non-trivial.
+       * 
+       * E.g. it is not enough to know that V connects to the root. It is
+       * also important that the while above, looping through all links from
+       * W->V found at least one link, so that we know there is
+       * bi-directional connectivity between V and W.  Otherwise, if we
+       * /always/ return here, but don't check that W->V exists then we
+       * we will prevent SPF from finding/using higher cost paths..
+       *
+       * See also bug #330, and also:
+       *
+       * http://blogs.sun.com/paulj/entry/the_difference_a_line_makes
+       */
       if (added)
         return added;
     }
@@ -1163,12 +1176,6 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
       *(v->stat) = LSA_SPF_IN_SPFTREE;
 
       ospf_vertex_add_parent (v);
-
-      /* Note that when there is a choice of vertices closest to the
-         root, network vertices must be chosen before router vertices
-         in order to necessarily find all equal-cost paths. */
-      /* We don't do this at this moment, we should add the treatment
-         above codes. -- kunihiro. */
 
       /* RFC2328 16.1. (4). */
       if (v->type == OSPF_VERTEX_ROUTER)
