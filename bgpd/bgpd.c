@@ -2169,38 +2169,40 @@ peer_lookup_with_open (union sockunion *su, as_t remote_as,
 		       struct in_addr *remote_id, int *as)
 {
   struct peer *peer;
-  struct listnode *node, *nnode;
-  struct listnode *bgpnode, *nbgpnode;
+  struct listnode *node;
+  struct listnode *bgpnode;
   struct bgp *bgp;
 
   if (! bm->bgp)
     return NULL;
 
-  for (ALL_LIST_ELEMENTS (bm->bgp, bgpnode, nbgpnode, bgp))
-    for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
-      {
-        if (sockunion_same (&peer->su, su)
-            && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-          {
-            if (peer->as == remote_as
-                && peer->remote_id.s_addr == remote_id->s_addr)
-              return peer;
-            if (peer->as == remote_as)
-              *as = 1;
-          }
-      }
-
-  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+  for (ALL_LIST_ELEMENTS_RO (bm->bgp, bgpnode, bgp))
     {
-      if (sockunion_same (&peer->su, su)
-	  &&  ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-	{
-	  if (peer->as == remote_as
-	      && peer->remote_id.s_addr == 0)
-	    return peer;
-	  if (peer->as == remote_as)
-	    *as = 1;
-	}
+      for (ALL_LIST_ELEMENTS_RO (bgp->peer, node, peer))
+        {
+          if (sockunion_same (&peer->su, su)
+              && ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
+            {
+              if (peer->as == remote_as
+                  && peer->remote_id.s_addr == remote_id->s_addr)
+                return peer;
+              if (peer->as == remote_as)
+                *as = 1;
+            }
+        }
+
+      for (ALL_LIST_ELEMENTS_RO (bgp->peer, node, peer))
+        {
+          if (sockunion_same (&peer->su, su)
+              &&  ! CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
+            {
+              if (peer->as == remote_as
+                  && peer->remote_id.s_addr == 0)
+                return peer;
+              if (peer->as == remote_as)
+                *as = 1;
+            }
+        }
     }
   return NULL;
 }
