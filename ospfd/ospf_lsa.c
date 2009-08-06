@@ -2958,19 +2958,6 @@ ospf_maxage_lsa_remover (struct thread *thread)
   return 0;
 }
 
-static int
-ospf_lsa_maxage_exist (struct ospf *ospf, struct ospf_lsa *new)
-{
-  struct listnode *node;
-  struct ospf_lsa *lsa;
-  
-  for (ALL_LIST_ELEMENTS_RO (ospf->maxage_lsa, node, lsa))
-    if (lsa == new)
-      return 1;
-
-  return 0;
-}
-
 void
 ospf_lsa_maxage_delete (struct ospf *ospf, struct ospf_lsa *lsa)
 {
@@ -2979,6 +2966,7 @@ ospf_lsa_maxage_delete (struct ospf *ospf, struct ospf_lsa *lsa)
   if ((n = listnode_lookup (ospf->maxage_lsa, lsa)))
     {
       list_delete_node (ospf->maxage_lsa, n);
+      UNSET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
       ospf_lsa_unlock (&lsa); /* maxage_lsa */
     }
 }
@@ -2988,7 +2976,7 @@ ospf_lsa_maxage (struct ospf *ospf, struct ospf_lsa *lsa)
 {
   /* When we saw a MaxAge LSA flooded to us, we put it on the list
      and schedule the MaxAge LSA remover. */
-  if (ospf_lsa_maxage_exist (ospf, lsa))
+  if (CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE))
     {
       if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
 	zlog_debug ("LSA[Type%d:%s]: %p already exists on MaxAge LSA list",
@@ -2997,6 +2985,7 @@ ospf_lsa_maxage (struct ospf *ospf, struct ospf_lsa *lsa)
     }
 
   listnode_add (ospf->maxage_lsa, ospf_lsa_lock (lsa));
+  SET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
 
   if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
     zlog_debug ("LSA[%s]: MaxAge LSA remover scheduled.", dump_lsa_key (lsa));

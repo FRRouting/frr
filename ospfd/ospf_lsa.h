@@ -80,6 +80,7 @@ struct ospf_lsa
 #define OSPF_LSA_DISCARD	  0x10
 #define OSPF_LSA_LOCAL_XLT	  0x20
 #define OSPF_LSA_PREMATURE_AGE	  0x40
+#define OSPF_LSA_IN_MAXAGE	  0x80
 
   /* LSA data. */
   struct lsa_header *data;
