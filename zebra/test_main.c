@@ -270,7 +270,11 @@ main (int argc, char **argv)
   
   /* port and conf file mandatory */
   if (!vty_port || !config_file)
-    usage (progname, 1);
+    {
+      fprintf (stderr, "Error: --vty_port and --config_file arguments"
+                       " are both required\n");
+      usage (progname, 1);
+    }
   
   /* Make master thread emulator. */
   zebrad.master = thread_master_create ();
