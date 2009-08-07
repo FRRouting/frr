@@ -682,16 +682,13 @@ ospf_external_lsa_originate_check (struct ospf *ospf,
 int
 ospf_distribute_check_connected (struct ospf *ospf, struct external_info *ei)
 {
-  struct route_node *rn;
+  struct listnode *node;
+  struct ospf_interface *oi;
 
-  for (rn = route_top (ospf->networks); rn; rn = route_next (rn))
-    if (rn->info != NULL)
-      if (prefix_match (&rn->p, (struct prefix *) &ei->p))
-        {
-          route_unlock_node (rn);
+
+  for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
+      if (prefix_match (oi->address, (struct prefix *) &ei->p))
           return 0;
-        }
-
   return 1;
 }
 
