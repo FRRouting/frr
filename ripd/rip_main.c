@@ -292,8 +292,11 @@ main (int argc, char **argv)
     return (0);
   
   /* Change to the daemon program. */
-  if (daemon_mode)
-    daemon (0, 0);
+  if (daemon_mode && daemon (0, 0) < 0)
+    {
+      zlog_err("RIPd daemon failed: %s", strerror(errno));
+      exit (1);
+    }
 
   /* Pid file create. */
   pid_output (pid_file);

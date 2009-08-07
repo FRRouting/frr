@@ -308,8 +308,11 @@ main (int argc, char **argv)
     exit (0);
 
   /* Daemonize. */
-  if (daemon_mode)
-    daemon (0, 0);
+  if (daemon_mode && daemon (0, 0) < 0)
+    {
+      perror("daemon start failed");
+      exit (1);
+    }
 
   /* Needed for BSD routing socket. */
   pid = getpid ();

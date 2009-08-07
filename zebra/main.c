@@ -362,8 +362,11 @@ main (int argc, char **argv)
     exit (0);
 
   /* Daemonize. */
-  if (daemon_mode)
-    daemon (0, 0);
+  if (daemon_mode && daemon (0, 0) < 0)
+    {
+      zlog_err("Zebra daemon failed: %s", strerror(errno));
+      exit (1);
+    }
 
   /* Output pid of zebra. */
   pid_output (pid_file);

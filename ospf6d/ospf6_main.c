@@ -282,8 +282,11 @@ main (int argc, char *argv[], char *envp[])
   if (dryrun)
     return(0);
   
-  if (daemon_mode)
-    daemon (0, 0);
+  if (daemon_mode && daemon (0, 0) < 0)
+    {
+      zlog_err("OSPF6d daemon failed: %s", strerror(errno));
+      exit (1);
+    }
 
   /* pid file create */
   pid_output (pid_file);

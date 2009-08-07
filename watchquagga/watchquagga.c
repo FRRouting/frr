@@ -1343,7 +1343,11 @@ main(int argc, char **argv)
   if (daemon_mode)
     {
       zlog_set_level(NULL, ZLOG_DEST_SYSLOG, MIN(gs.loglevel,LOG_DEBUG));
-      daemon(0, 0);
+      if (daemon (0, 0) < 0)
+	{
+	  fprintf(stderr, "Watchquagga daemon failed: %s", strerror(errno));
+	  exit (1);
+	}
     }
   else
     zlog_set_level(NULL, ZLOG_DEST_STDOUT, MIN(gs.loglevel,LOG_DEBUG));

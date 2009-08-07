@@ -174,8 +174,11 @@ main (int argc, char **argv)
   sort_node ();
 
   /* Change to the daemon program. */
-  if (daemon_mode)
-    daemon (0, 0);
+  if (daemon_mode && daemon (0, 0) < 0)
+    {
+      fprintf(stderr, "daemon failed: %s", strerror(errno));
+      exit (1);
+    }
 
   /* Create VTY socket */
   vty_serv_sock (vty_addr, vty_port, "/tmp/.heavy.sock");

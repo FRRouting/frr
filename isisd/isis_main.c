@@ -333,8 +333,11 @@ main (int argc, char **argv, char **envp)
     return(0);
   
   /* demonize */
-  if (daemon_mode)
-    daemon (0, 0);
+  if (daemon_mode && daemon (0, 0) < 0)
+    {
+      zlog_err("ISISd daemon failed: %s", strerror(errno));
+      exit (1);
+    }
 
   /* Process ID file creation. */
   pid_output (pid_file);
