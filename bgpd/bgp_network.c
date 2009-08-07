@@ -128,21 +128,19 @@ bgp_accept (struct thread *thread)
   int bgp_sock;
   int accept_sock;
   union sockunion su;
+  struct bgp_listener *listener = THREAD_ARG(thread);
   struct peer *peer;
   struct peer *peer1;
-  struct bgp *bgp;
   char buf[SU_ADDRSTRLEN];
 
-  /* Regiser accept thread. */
+  /* Register accept thread. */
   accept_sock = THREAD_FD (thread);
-  bgp = THREAD_ARG (thread);
-
   if (accept_sock < 0)
     {
       zlog_err ("accept_sock is nevative value %d", accept_sock);
       return -1;
     }
-  thread_add_read (master, bgp_accept, bgp, accept_sock);
+  listener->thread = thread_add_read (master, bgp_accept, listener, accept_sock);
 
   /* Accept client connection. */
   bgp_sock = sockunion_accept (accept_sock, &su);
@@ -156,7 +154,7 @@ bgp_accept (struct thread *thread)
     zlog_debug ("[Event] BGP connection from host %s", inet_sutop (&su, buf));
   
   /* Check remote IP address */
-  peer1 = peer_lookup (bgp, &su);
+  peer1 = peer_lookup (NULL, &su);
   if (! peer1 || peer1->status == Idle)
     {
       if (BGP_DEBUG (events, EVENTS))
@@ -176,9 +174,6 @@ bgp_accept (struct thread *thread)
   if (peer_sort (peer1) == BGP_PEER_EBGP)
     sockopt_ttl (peer1->su.sa.sa_family, bgp_sock, peer1->ttl);
 
-  if (! bgp)
-    bgp = peer1->bgp;
-
   /* Make dummy peer until read Open packet. */
   if (BGP_DEBUG (events, EVENTS))
     zlog_debug ("[Event] Make dummy peer structure until read Open packet");
@@ -186,7 +181,7 @@ bgp_accept (struct thread *thread)
   {
     char buf[SU_ADDRSTRLEN + 1];
 
-    peer = peer_create_accept (bgp);
+    peer = peer_create_accept (peer1->bgp);
     SET_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER);
     peer->su = su;
     peer->fd = bgp_sock;
