@@ -296,6 +296,9 @@ struct ospf
   /* Statistics for LSA used for new instantiation. */
   u_int32_t rx_lsa_count;
  
+  /* Counter of "ip ospf area x.x.x.x" */
+  u_int32_t if_ospf_cli_count;
+
   struct route_table *distance_table;
 };
 
@@ -578,4 +581,6 @@ extern void ospf_snmp_init (void);
 
 extern void ospf_master_init (void);
 
+extern int ospf_interface_set (struct interface *ifp, struct in_addr area_id);
+extern int ospf_interface_unset (struct interface *ifp);
 #endif /* _ZEBRA_OSPFD_H */
