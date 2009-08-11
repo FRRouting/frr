@@ -2425,8 +2425,9 @@ ospf_read (struct thread *thread)
    */
   else if (oi->ifp != ifp)
     {
-      zlog_warn ("Packet from [%s] received on wrong link %s",
-                 inet_ntoa (iph->ip_src), ifp->name); 
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_warn ("Packet from [%s] received on wrong link %s",
+                   inet_ntoa (iph->ip_src), ifp->name); 
       return 0;
     }
   else if (oi->state == ISM_Down)
