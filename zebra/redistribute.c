@@ -245,26 +245,15 @@ zebra_redistribute_add (int command, struct zserv *client, int length)
 
   type = stream_getc (client->ibuf);
 
-  switch (type)
+  if (type == 0 || type >= ZEBRA_ROUTE_MAX)
+    return;
+
+  if (! client->redist[type])
     {
-    case ZEBRA_ROUTE_KERNEL:
-    case ZEBRA_ROUTE_CONNECT:
-    case ZEBRA_ROUTE_STATIC:
-    case ZEBRA_ROUTE_RIP:
-    case ZEBRA_ROUTE_RIPNG:
-    case ZEBRA_ROUTE_OSPF:
-    case ZEBRA_ROUTE_OSPF6:
-    case ZEBRA_ROUTE_BGP:
-      if (! client->redist[type])
-	{
-	  client->redist[type] = 1;
-	  zebra_redistribute (client, type);
-	}
-      break;
-    default:
-      break;
+      client->redist[type] = 1;
+      zebra_redistribute (client, type);
     }
-}     
+}
 
 void
 zebra_redistribute_delete (int command, struct zserv *client, int length)
@@ -273,22 +262,11 @@ zebra_redistribute_delete (int command, struct zserv *client, int length)
 
   type = stream_getc (client->ibuf);
 
-  switch (type)
-    {
-    case ZEBRA_ROUTE_KERNEL:
-    case ZEBRA_ROUTE_CONNECT:
-    case ZEBRA_ROUTE_STATIC:
-    case ZEBRA_ROUTE_RIP:
-    case ZEBRA_ROUTE_RIPNG:
-    case ZEBRA_ROUTE_OSPF:
-    case ZEBRA_ROUTE_OSPF6:
-    case ZEBRA_ROUTE_BGP:
-      client->redist[type] = 0;
-      break;
-    default:
-      break;
-    }
-}     
+  if (type == 0 || type >= ZEBRA_ROUTE_MAX)
+    return;
+
+  client->redist[type] = 0;
+}
 
 void
 zebra_redistribute_default_add (int command, struct zserv *client, int length)
