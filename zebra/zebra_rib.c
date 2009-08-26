@@ -67,6 +67,7 @@ static const struct
   {ZEBRA_ROUTE_OSPF6,   110},
   {ZEBRA_ROUTE_ISIS,    115},
   {ZEBRA_ROUTE_BGP,      20  /* IBGP is 200. */}
+  /* no entry/default: 150 */
 };
 
 /* Vector for routing table.  */
@@ -1511,7 +1512,10 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   /* Set default distance by route type. */
   if (distance == 0)
     {
-      distance = route_info[type].distance;
+      if ((unsigned)type >= sizeof(route_info) / sizeof(route_info[0]))
+	distance = 150;
+      else
+        distance = route_info[type].distance;
 
       /* iBGP distance is 200. */
       if (type == ZEBRA_ROUTE_BGP && CHECK_FLAG (flags, ZEBRA_FLAG_IBGP))
