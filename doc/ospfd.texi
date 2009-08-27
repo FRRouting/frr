@@ -223,6 +223,7 @@ OSPF domain.
 @deffnx {OSPF Command} {network @var{a.b.c.d/m} area @var{<0-4294967295>}} {}
 @deffnx {OSPF Command} {no network @var{a.b.c.d/m} area @var{a.b.c.d}} {}
 @deffnx {OSPF Command} {no network @var{a.b.c.d/m} area @var{<0-4294967295>}} {}
+@anchor{OSPF network command}
 This command specifies the OSPF enabled interface(s).  If the interface has
 an address from range 192.168.1.0/24 then the command below enables ospf
 on this interface so router can provide network information to the other
@@ -246,6 +247,10 @@ Currently, if a peer prefix has been configured,
 then we test whether the prefix in the network command contains
 the destination prefix.  Otherwise, we test whether the network command prefix
 contains the local address prefix of the interface. 
+
+In some cases it may be more convenient to enable OSPF on a per
+interface/subnet basis (@pxref{OSPF ip ospf area command}).
+
 @end deffn
 
 @node OSPF area
@@ -412,6 +417,19 @@ settings will override any per-area authentication setting.
 
 @node OSPF interface
 @section OSPF interface
+
+@deffn {Interface Command} {ip ospf area @var{AREA} [@var{ADDR}]} {} 
+@deffnx {Interface Command} {no ip ospf area [@var{ADDR}]} {}
+@anchor{OSPF ip ospf area command}
+
+Enable OSPF on the interface, optionally restricted to just the IP address
+given by @var{ADDR}, putting it in the @var{AREA} area. Per interface area
+settings take precedence to network commands (@pxref{OSPF network command}).
+
+If you have a lot of interfaces, and/or a lot of subnets, then enabling OSPF
+via this command may result in a slight performance improvement.
+
+@end deffn
 
 @deffn {Interface Command} {ip ospf authentication-key @var{AUTH_KEY}} {}
 @deffnx {Interface Command} {no ip ospf authentication-key} {}

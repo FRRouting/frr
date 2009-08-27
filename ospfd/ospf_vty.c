@@ -6967,26 +6967,31 @@ DEFUN_HIDDEN (no_ospf_transmit_delay,
 
 DEFUN (ip_ospf_area,
        ip_ospf_area_cmd,
-       "ip ospf [(1-65535)] area <A.B.C.D|(0-4294967295)>",
+       "ip ospf [(1-65535)] area <A.B.C.D|(0-4294967295)> [A.B.C.D]",
        "IP Information\n"
        "OSPF interface commands\n"
        "Instance ID\n"
        "Enable OSPF on this interface\n"
        "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n")
+       "OSPF area ID as a decimal value\n"
+       "Address of interface\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
   int format, ret;
   struct in_addr area_id;
-  struct ospf *ospf;
+  struct in_addr addr;
   struct ospf_if_params *params;
   struct route_node *rn;
+  struct ospf *ospf;
   u_short instance = 0;
+  char *areaid;
 
   if (argv_find (argv, argc, "(1-65535)", &idx))
     instance = strtol (argv[idx]->arg, NULL, 10);
-  char *areaid = argv[argc - 1]->arg;
+
+  argv_find (argv, argc, "area", &idx);
+  areaid = argv[idx + 1]->arg;
 
   ospf = ospf_lookup_instance (instance);
   if (ospf == NULL)
@@ -6994,7 +6999,8 @@ DEFUN (ip_ospf_area,
       params = IF_DEF_PARAMS (ifp);
       if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
         {
-          ospf_interface_unset (ifp);
+	  UNSET_IF_PARAM (params, if_area);
+          ospf_interface_area_unset (ifp);
           ospf = ospf_lookup();
           ospf->if_ospf_cli_count--;
         }
@@ -7023,6 +7029,21 @@ DEFUN (ip_ospf_area,
       return CMD_WARNING;
     }
 
+  // Check if we have an address arg and proccess it
+  if (argc == idx + 3) {
+    VTY_GET_IPV4_ADDRESS("interface address", addr, argv[(idx+2)]->arg);
+    // update/create address-level params
+    params = ospf_get_if_params ((ifp), (addr));
+    if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
+      {
+	vty_out (vty,
+		 "Must remove previous area/address config before changing ospf area %s",
+		 VTY_NEWLINE);
+	return CMD_WARNING;
+      }
+    ospf_if_update_params ((ifp), (addr));
+  }
+
   for (rn = route_top (ospf->networks); rn; rn = route_next (rn))
     {
       if (rn->info != NULL)
@@ -7033,7 +7054,9 @@ DEFUN (ip_ospf_area,
     }
 
   /* enable ospf on this interface with area_id */
-  ospf_interface_set (ifp, area_id);
+  SET_IF_PARAM (params, if_area);
+  params->if_area = area_id;
+  ospf_interface_area_set (ifp);
   ospf->if_ospf_cli_count++;
 
   return CMD_SUCCESS;
@@ -7041,35 +7064,56 @@ DEFUN (ip_ospf_area,
 
 DEFUN (no_ip_ospf_area,
        no_ip_ospf_area_cmd,
-       "no ip ospf [(1-65535)] area [<A.B.C.D|(0-4294967295)>]",
+       "no ip ospf [(1-65535)] area [<A.B.C.D|(0-4294967295)> [A.B.C.D]]",
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
        "Instance ID\n"
        "Disable OSPF on this interface\n"
        "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n")
+       "OSPF area ID as a decimal value\n"
+       "Address of interface\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx = 0;
   struct ospf *ospf;
   struct ospf_if_params *params;
   u_short instance = 0;
-
+  struct in_addr addr;
+  
   if (argv_find (argv, argc, "(1-65535)", &idx))
     instance = strtol (argv[idx]->arg, NULL, 10);
 
   if ((ospf = ospf_lookup_instance (instance)) == NULL)
     return CMD_SUCCESS;
 
-  params = IF_DEF_PARAMS (ifp);
+  argv_find (argv, argc, "area", &idx);
+
+  // Check if we have an address arg and proccess it
+  if (argc == idx + 3) {
+    VTY_GET_IPV4_ADDRESS("interface address", addr, argv[(idx+2)]->arg);
+    params = ospf_lookup_if_params (ifp, addr);
+    if ((params) == NULL)
+      return CMD_SUCCESS;
+  }
+  else
+    params = IF_DEF_PARAMS (ifp);
+
   if (!OSPF_IF_PARAM_CONFIGURED(params, if_area))
     {
-      vty_out (vty, "Can't find specified interface area configuration.%s", VTY_NEWLINE);
+      vty_out (vty, "Can't find specified interface area configuration.%s",
+	       VTY_NEWLINE);
       return CMD_WARNING;
-    }
+    }  
 
-  ospf_interface_unset (ifp);
+  UNSET_IF_PARAM (params, if_area);
+  if (params != IF_DEF_PARAMS ((ifp)))
+    {
+      ospf_free_if_params ((ifp), (addr));
+      ospf_if_update_params ((ifp), (addr));
+    }
+  
+  ospf_interface_area_unset (ifp);
   ospf->if_ospf_cli_count--;
   return CMD_SUCCESS;
 }
@@ -8348,12 +8392,14 @@ config_write_interface (struct vty *vty)
 	if (OSPF_IF_PARAM_CONFIGURED (params, if_area))
 	  {
 	    if (ospf->instance)
-	      vty_out (vty, " ip ospf %d area %s%s", ospf->instance,
-		       inet_ntoa (params->if_area), VTY_NEWLINE);
+	      vty_out (vty, " ip ospf %d", ospf->instance);
 	    else
-	      vty_out (vty, " ip ospf area %s%s",
-		       inet_ntoa (params->if_area), VTY_NEWLINE);
+	      vty_out (vty, " ip ospf");
 
+	    vty_out (vty, " area %s", inet_ntoa (params->if_area));
+	    if (params != IF_DEF_PARAMS (ifp))
+	      vty_out (vty, " %s", inet_ntoa (rn->p.u.prefix4));
+            vty_out (vty, "%s", VTY_NEWLINE);
 	  }
 
 	/* bfd  print. */
