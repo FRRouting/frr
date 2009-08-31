@@ -292,19 +292,33 @@ rtadv_send_packet (int sock, struct interface *ifp)
   if (sdl != NULL && sdl->sdl_alen != 0)
     {
       buf[len++] = ND_OPT_SOURCE_LINKADDR;
-      buf[len++] = (sdl->sdl_alen + 2) >> 3;
+
+      /* Option length should be rounded up to next octet if
+         the link address does not end on an octet boundary. */
+      buf[len++] = (sdl->sdl_alen + 9) >> 3;
 
       memcpy (buf + len, LLADDR (sdl), sdl->sdl_alen);
       len += sdl->sdl_alen;
+
+      /* Pad option to end on an octet boundary. */
+      memset (buf + len, 0, -(sdl->sdl_alen + 2) & 0x7);
+      len += -(sdl->sdl_alen + 2) & 0x7;
     }
 #else
   if (ifp->hw_addr_len != 0)
     {
       buf[len++] = ND_OPT_SOURCE_LINKADDR;
-      buf[len++] = (ifp->hw_addr_len + 2) >> 3;
+
+      /* Option length should be rounded up to next octet if
+         the link address does not end on an octet boundary. */
+      buf[len++] = (ifp->hw_addr_len + 9) >> 3;
 
       memcpy (buf + len, ifp->hw_addr, ifp->hw_addr_len);
       len += ifp->hw_addr_len;
+
+      /* Pad option to end on an octet boundary. */
+      memset (buf + len, 0, -(ifp->hw_addr_len + 2) & 0x7);
+      len += -(ifp->hw_addr_len + 2) & 0x7;
     }
 #endif /* HAVE_STRUCT_SOCKADDR_DL */
 
