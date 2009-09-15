@@ -616,27 +616,16 @@ ospf6_asbr_redistribute_remove (int type, int ifindex, struct prefix *prefix)
 
 DEFUN (ospf6_redistribute,
        ospf6_redistribute_cmd,
-       "redistribute (static|kernel|connected|ripng|bgp)",
+       "redistribute " QUAGGA_REDIST_STR_OSPF6D,
        "Redistribute\n"
-       "Static route\n"
-       "Kernel route\n"
-       "Connected route\n"
-       "RIPng route\n"
-       "BGP route\n"
+       QUAGGA_REDIST_HELP_STR_OSPF6D
       )
 {
-  int type = 0;
+  int type;
 
-  if (strncmp (argv[0], "sta", 3) == 0)
-    type = ZEBRA_ROUTE_STATIC;
-  else if (strncmp (argv[0], "ker", 3) == 0)
-    type = ZEBRA_ROUTE_KERNEL;
-  else if (strncmp (argv[0], "con", 3) == 0)
-    type = ZEBRA_ROUTE_CONNECT;
-  else if (strncmp (argv[0], "rip", 3) == 0)
-    type = ZEBRA_ROUTE_RIPNG;
-  else if (strncmp (argv[0], "bgp", 3) == 0)
-    type = ZEBRA_ROUTE_BGP;
+  type = proto_redistnum(AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
+    return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
   ospf6_asbr_routemap_unset (type);
@@ -646,29 +635,18 @@ DEFUN (ospf6_redistribute,
 
 DEFUN (ospf6_redistribute_routemap,
        ospf6_redistribute_routemap_cmd,
-       "redistribute (static|kernel|connected|ripng|bgp) route-map WORD",
+       "redistribute " QUAGGA_REDIST_STR_OSPF6D " route-map WORD",
        "Redistribute\n"
-       "Static routes\n"
-       "Kernel route\n"
-       "Connected route\n"
-       "RIPng route\n"
-       "BGP route\n"
+       QUAGGA_REDIST_HELP_STR_OSPF6D
        "Route map reference\n"
        "Route map name\n"
       )
 {
-  int type = 0;
+  int type;
 
-  if (strncmp (argv[0], "sta", 3) == 0)
-    type = ZEBRA_ROUTE_STATIC;
-  else if (strncmp (argv[0], "ker", 3) == 0)
-    type = ZEBRA_ROUTE_KERNEL;
-  else if (strncmp (argv[0], "con", 3) == 0)
-    type = ZEBRA_ROUTE_CONNECT;
-  else if (strncmp (argv[0], "rip", 3) == 0)
-    type = ZEBRA_ROUTE_RIPNG;
-  else if (strncmp (argv[0], "bgp", 3) == 0)
-    type = ZEBRA_ROUTE_BGP;
+  type = proto_redistnum(AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
+    return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
   ospf6_asbr_routemap_set (type, argv[1]);
@@ -678,28 +656,17 @@ DEFUN (ospf6_redistribute_routemap,
 
 DEFUN (no_ospf6_redistribute,
        no_ospf6_redistribute_cmd,
-       "no redistribute (static|kernel|connected|ripng|bgp)",
+       "no redistribute " QUAGGA_REDIST_STR_OSPF6D,
        NO_STR
        "Redistribute\n"
-       "Static route\n"
-       "Kernel route\n"
-       "Connected route\n"
-       "RIPng route\n"
-       "BGP route\n"
+       QUAGGA_REDIST_HELP_STR_OSPF6D
       )
 {
-  int type = 0;
+  int type;
 
-  if (strncmp (argv[0], "sta", 3) == 0)
-    type = ZEBRA_ROUTE_STATIC;
-  else if (strncmp (argv[0], "ker", 3) == 0)
-    type = ZEBRA_ROUTE_KERNEL;
-  else if (strncmp (argv[0], "con", 3) == 0)
-    type = ZEBRA_ROUTE_CONNECT;
-  else if (strncmp (argv[0], "rip", 3) == 0)
-    type = ZEBRA_ROUTE_RIPNG;
-  else if (strncmp (argv[0], "bgp", 3) == 0)
-    type = ZEBRA_ROUTE_BGP;
+  type = proto_redistnum(AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_OSPF6)
+    return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
   ospf6_asbr_routemap_unset (type);
