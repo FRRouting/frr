@@ -93,29 +93,6 @@ ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
 
 
 static int
-str2distribute_source (const char *str, int *source)
-{
-  /* Sanity check. */
-  if (str == NULL)
-    return 0;
-
-  if (strncmp (str, "k", 1) == 0)
-    *source = ZEBRA_ROUTE_KERNEL;
-  else if (strncmp (str, "c", 1) == 0)
-    *source = ZEBRA_ROUTE_CONNECT;
-  else if (strncmp (str, "s", 1) == 0)
-    *source = ZEBRA_ROUTE_STATIC;
-  else if (strncmp (str, "r", 1) == 0)
-    *source = ZEBRA_ROUTE_RIP;
-  else if (strncmp (str, "b", 1) == 0)
-    *source = ZEBRA_ROUTE_BGP;
-  else
-    return 0;
-
-  return 1;
-}
-
-static int
 str2metric (const char *str, int *metric)
 {
   /* Sanity check. */
@@ -5825,7 +5802,8 @@ DEFUN (ospf_redistribute_source_metric_type,
   int metric = -1;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   /* Get metric value. */
@@ -5886,7 +5864,8 @@ DEFUN (ospf_redistribute_source_type_metric,
   int metric = -1;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   /* Get metric value. */
@@ -5950,7 +5929,8 @@ DEFUN (ospf_redistribute_source_metric_routemap,
   int metric = -1;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   /* Get metric value. */
@@ -5983,7 +5963,8 @@ DEFUN (ospf_redistribute_source_type_routemap,
   int type = -1;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   /* Get metric value. */
@@ -6011,7 +5992,8 @@ DEFUN (ospf_redistribute_source_routemap,
   int source;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   if (argc == 2)
@@ -6032,7 +6014,8 @@ DEFUN (no_ospf_redistribute_source,
   struct ospf *ospf = vty->index;
   int source;
 
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   ospf_routemap_unset (ospf, source);
@@ -6051,7 +6034,8 @@ DEFUN (ospf_distribute_list_out,
   int source;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[1], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   return ospf_distribute_list_out_set (ospf, source, argv[0]);
@@ -6069,7 +6053,8 @@ DEFUN (no_ospf_distribute_list_out,
   struct ospf *ospf = vty->index;
   int source;
 
-  if (!str2distribute_source (argv[1], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   return ospf_distribute_list_out_unset (ospf, source, argv[0]);

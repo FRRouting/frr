@@ -42,13 +42,13 @@
 
 ##  type                cname      daemon  C    4  6  short help
 ZEBRA_ROUTE_SYSTEM,     system,    NULL,   'X', 0, 0, "Reserved"
-ZEBRA_ROUTE_KERNEL,     kernel,    zebra,  'K', 1, 1, NULL
-ZEBRA_ROUTE_CONNECT,    connected, zebra,  'C', 1, 1, NULL
-ZEBRA_ROUTE_STATIC,     static,    zebra,  'S', 1, 1, NULL
+ZEBRA_ROUTE_KERNEL,     kernel,    zebra,  'K', 1, 1, "kernel route"
+ZEBRA_ROUTE_CONNECT,    connected, zebra,  'C', 1, 1, "connected"
+ZEBRA_ROUTE_STATIC,     static,    zebra,  'S', 1, 1, "static"
 ZEBRA_ROUTE_RIP,        rip,       ripd,   'R', 1, 0, "RIP"
 ZEBRA_ROUTE_RIPNG,      ripng,     ripngd, 'R', 0, 1, "RIPng"
 ZEBRA_ROUTE_OSPF,       ospf,      ospfd,  'O', 1, 0, "OSPF"
-ZEBRA_ROUTE_OSPF6,      ospf6,     ospf6d, 'O', 0, 1, "OSPF"
+ZEBRA_ROUTE_OSPF6,      ospf6,     ospf6d, 'O', 0, 1, "OSPFv6"
 ZEBRA_ROUTE_ISIS,       isis,      isisd,  'I', 1, 1, "IS-IS"
 ZEBRA_ROUTE_BGP,        bgp,       bgpd,   'B', 1, 1, "BGP"
 # HSLS and OLSR both are AFI independent (so: 1, 1), however
@@ -57,7 +57,7 @@ ZEBRA_ROUTE_BGP,        bgp,       bgpd,   'B', 1, 1, "BGP"
 # to 'switch on' redist support (direct numeric entry remaining
 # possible).
 ZEBRA_ROUTE_HSLS,       hsls,      hslsd,  'H', 0, 0, "HSLS"
-ZEBRA_ROUTE_OLSR,       olsr,      oslrd,  'o', 0, 0, "OLSR"
+ZEBRA_ROUTE_OLSR,       olsr,      olsrd,  'o', 0, 0, "OLSR"
 
 ## help strings
 ZEBRA_ROUTE_SYSTEM, "Reserved route type, for internal use only"

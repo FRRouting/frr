@@ -8373,57 +8373,16 @@ ALIAS (show_bgp_instance_ipv6_safi_rsclient_summary,
 
 /* Redistribute VTY commands.  */
 
-/* Utility function to convert user input route type string to route
-   type.  */
-static int
-bgp_str2route_type (int afi, const char *str)
-{
-  if (! str)
-    return 0;
-
-  if (afi == AFI_IP)
-    {
-      if (strncmp (str, "k", 1) == 0)
-	return ZEBRA_ROUTE_KERNEL;
-      else if (strncmp (str, "c", 1) == 0)
-	return ZEBRA_ROUTE_CONNECT;
-      else if (strncmp (str, "s", 1) == 0)
-	return ZEBRA_ROUTE_STATIC;
-      else if (strncmp (str, "r", 1) == 0)
-	return ZEBRA_ROUTE_RIP;
-      else if (strncmp (str, "o", 1) == 0)
-	return ZEBRA_ROUTE_OSPF;
-    }
-  if (afi == AFI_IP6)
-    {
-      if (strncmp (str, "k", 1) == 0)
-	return ZEBRA_ROUTE_KERNEL;
-      else if (strncmp (str, "c", 1) == 0)
-	return ZEBRA_ROUTE_CONNECT;
-      else if (strncmp (str, "s", 1) == 0)
-	return ZEBRA_ROUTE_STATIC;
-      else if (strncmp (str, "r", 1) == 0)
-	return ZEBRA_ROUTE_RIPNG;
-      else if (strncmp (str, "o", 1) == 0)
-	return ZEBRA_ROUTE_OSPF6;
-    }
-  return 0;
-}
-
 DEFUN (bgp_redistribute_ipv4,
        bgp_redistribute_ipv4_cmd,
-       "redistribute (connected|kernel|ospf|rip|static)",
+       "redistribute " QUAGGA_IP_REDIST_STR_BGPD,
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPF)\n"
-       "Routing Information Protocol (RIP)\n"
-       "Static routes\n")
+       QUAGGA_IP_REDIST_HELP_STR_BGPD)
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8433,20 +8392,16 @@ DEFUN (bgp_redistribute_ipv4,
 
 DEFUN (bgp_redistribute_ipv4_rmap,
        bgp_redistribute_ipv4_rmap_cmd,
-       "redistribute (connected|kernel|ospf|rip|static) route-map WORD",
+       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD",
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPF)\n"
-       "Routing Information Protocol (RIP)\n"
-       "Static routes\n"
+       QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8458,21 +8413,17 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 
 DEFUN (bgp_redistribute_ipv4_metric,
        bgp_redistribute_ipv4_metric_cmd,
-       "redistribute (connected|kernel|ospf|rip|static) metric <0-4294967295>",
+       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPF)\n"
-       "Routing Information Protocol (RIP)\n"
-       "Static routes\n"
+       QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
   int type;
   u_int32_t metric;
 
-  type = bgp_str2route_type (AFI_IP, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8485,13 +8436,9 @@ DEFUN (bgp_redistribute_ipv4_metric,
 
 DEFUN (bgp_redistribute_ipv4_rmap_metric,
        bgp_redistribute_ipv4_rmap_metric_cmd,
-       "redistribute (connected|kernel|ospf|rip|static) route-map WORD metric <0-4294967295>",
+       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPF)\n"
-       "Routing Information Protocol (RIP)\n"
-       "Static routes\n"
+       QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -8500,8 +8447,8 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
   int type;
   u_int32_t metric;
 
-  type = bgp_str2route_type (AFI_IP, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8515,13 +8462,9 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv4_metric_rmap,
        bgp_redistribute_ipv4_metric_rmap_cmd,
-       "redistribute (connected|kernel|ospf|rip|static) metric <0-4294967295> route-map WORD",
+       "redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPF)\n"
-       "Routing Information Protocol (RIP)\n"
-       "Static routes\n"
+       QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -8530,8 +8473,8 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
   int type;
   u_int32_t metric;
 
-  type = bgp_str2route_type (AFI_IP, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8545,19 +8488,15 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 
 DEFUN (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_cmd,
-       "no redistribute (connected|kernel|ospf|rip|static)",
+       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD,
        NO_STR
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPF)\n"
-       "Routing Information Protocol (RIP)\n"
-       "Static routes\n")
+       QUAGGA_IP_REDIST_HELP_STR_BGPD)
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8568,21 +8507,17 @@ DEFUN (no_bgp_redistribute_ipv4,
 
 DEFUN (no_bgp_redistribute_ipv4_rmap,
        no_bgp_redistribute_ipv4_rmap_cmd,
-       "no redistribute (connected|kernel|ospf|rip|static) route-map WORD",
+       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPF)\n"
-       "Routing Information Protocol (RIP)\n"
-       "Static routes\n"
+       QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8594,21 +8529,17 @@ DEFUN (no_bgp_redistribute_ipv4_rmap,
 
 DEFUN (no_bgp_redistribute_ipv4_metric,
        no_bgp_redistribute_ipv4_metric_cmd,
-       "no redistribute (connected|kernel|ospf|rip|static) metric <0-4294967295>",
+       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPF)\n"
-       "Routing Information Protocol (RIP)\n"
-       "Static routes\n"
+       QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8620,14 +8551,10 @@ DEFUN (no_bgp_redistribute_ipv4_metric,
 
 DEFUN (no_bgp_redistribute_ipv4_rmap_metric,
        no_bgp_redistribute_ipv4_rmap_metric_cmd,
-       "no redistribute (connected|kernel|ospf|rip|static) route-map WORD metric <0-4294967295>",
+       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPF)\n"
-       "Routing Information Protocol (RIP)\n"
-       "Static routes\n"
+       QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -8635,8 +8562,8 @@ DEFUN (no_bgp_redistribute_ipv4_rmap_metric,
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8649,14 +8576,10 @@ DEFUN (no_bgp_redistribute_ipv4_rmap_metric,
 
 ALIAS (no_bgp_redistribute_ipv4_rmap_metric,
        no_bgp_redistribute_ipv4_metric_rmap_cmd,
-       "no redistribute (connected|kernel|ospf|rip|static) metric <0-4294967295> route-map WORD",
+       "no redistribute " QUAGGA_IP_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPF)\n"
-       "Routing Information Protocol (RIP)\n"
-       "Static routes\n"
+       QUAGGA_IP_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -8665,18 +8588,14 @@ ALIAS (no_bgp_redistribute_ipv4_rmap_metric,
 #ifdef HAVE_IPV6
 DEFUN (bgp_redistribute_ipv6,
        bgp_redistribute_ipv6_cmd,
-       "redistribute (connected|kernel|ospf6|ripng|static)",
+       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD,
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPFv3)\n"
-       "Routing Information Protocol (RIPng)\n"
-       "Static routes\n")
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD)
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP6, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8687,20 +8606,16 @@ DEFUN (bgp_redistribute_ipv6,
 
 DEFUN (bgp_redistribute_ipv6_rmap,
        bgp_redistribute_ipv6_rmap_cmd,
-       "redistribute (connected|kernel|ospf6|ripng|static) route-map WORD",
+       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD",
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPFv3)\n"
-       "Routing Information Protocol (RIPng)\n"
-       "Static routes\n"
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP6, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8712,21 +8627,17 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 
 DEFUN (bgp_redistribute_ipv6_metric,
        bgp_redistribute_ipv6_metric_cmd,
-       "redistribute (connected|kernel|ospf6|ripng|static) metric <0-4294967295>",
+       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPFv3)\n"
-       "Routing Information Protocol (RIPng)\n"
-       "Static routes\n"
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
   int type;
   u_int32_t metric;
 
-  type = bgp_str2route_type (AFI_IP6, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8739,13 +8650,9 @@ DEFUN (bgp_redistribute_ipv6_metric,
 
 DEFUN (bgp_redistribute_ipv6_rmap_metric,
        bgp_redistribute_ipv6_rmap_metric_cmd,
-       "redistribute (connected|kernel|ospf6|ripng|static) route-map WORD metric <0-4294967295>",
+       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPFv3)\n"
-       "Routing Information Protocol (RIPng)\n"
-       "Static routes\n"
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -8754,8 +8661,8 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
   int type;
   u_int32_t metric;
 
-  type = bgp_str2route_type (AFI_IP6, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8769,13 +8676,9 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv6_metric_rmap,
        bgp_redistribute_ipv6_metric_rmap_cmd,
-       "redistribute (connected|kernel|ospf6|ripng|static) metric <0-4294967295> route-map WORD",
+       "redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPFv3)\n"
-       "Routing Information Protocol (RIPng)\n"
-       "Static routes\n"
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -8784,8 +8687,8 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
   int type;
   u_int32_t metric;
 
-  type = bgp_str2route_type (AFI_IP6, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8799,19 +8702,15 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 
 DEFUN (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_cmd,
-       "no redistribute (connected|kernel|ospf6|ripng|static)",
+       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD,
        NO_STR
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPFv3)\n"
-       "Routing Information Protocol (RIPng)\n"
-       "Static routes\n")
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD)
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP6, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8822,21 +8721,17 @@ DEFUN (no_bgp_redistribute_ipv6,
 
 DEFUN (no_bgp_redistribute_ipv6_rmap,
        no_bgp_redistribute_ipv6_rmap_cmd,
-       "no redistribute (connected|kernel|ospf6|ripng|static) route-map WORD",
+       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPFv3)\n"
-       "Routing Information Protocol (RIPng)\n"
-       "Static routes\n"
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP6, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8848,21 +8743,17 @@ DEFUN (no_bgp_redistribute_ipv6_rmap,
 
 DEFUN (no_bgp_redistribute_ipv6_metric,
        no_bgp_redistribute_ipv6_metric_cmd,
-       "no redistribute (connected|kernel|ospf6|ripng|static) metric <0-4294967295>",
+       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPFv3)\n"
-       "Routing Information Protocol (RIPng)\n"
-       "Static routes\n"
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP6, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8874,14 +8765,10 @@ DEFUN (no_bgp_redistribute_ipv6_metric,
 
 DEFUN (no_bgp_redistribute_ipv6_rmap_metric,
        no_bgp_redistribute_ipv6_rmap_metric_cmd,
-       "no redistribute (connected|kernel|ospf6|ripng|static) route-map WORD metric <0-4294967295>",
+       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " route-map WORD metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPFv3)\n"
-       "Routing Information Protocol (RIPng)\n"
-       "Static routes\n"
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -8889,8 +8776,8 @@ DEFUN (no_bgp_redistribute_ipv6_rmap_metric,
 {
   int type;
 
-  type = bgp_str2route_type (AFI_IP6, argv[0]);
-  if (! type)
+  type = proto_redistnum (AFI_IP6, argv[0]);
+  if (type < 0 || type == ZEBRA_ROUTE_BGP)
     {
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -8903,14 +8790,10 @@ DEFUN (no_bgp_redistribute_ipv6_rmap_metric,
 
 ALIAS (no_bgp_redistribute_ipv6_rmap_metric,
        no_bgp_redistribute_ipv6_metric_rmap_cmd,
-       "no redistribute (connected|kernel|ospf6|ripng|static) metric <0-4294967295> route-map WORD",
+       "no redistribute " QUAGGA_IP6_REDIST_STR_BGPD " metric <0-4294967295> route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
-       "Connected\n"
-       "Kernel routes\n"
-       "Open Shurtest Path First (OSPFv3)\n"
-       "Routing Information Protocol (RIPng)\n"
-       "Static routes\n"
+       QUAGGA_IP6_REDIST_HELP_STR_BGPD
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
