@@ -692,11 +692,9 @@ dnl ----------------------------
 AC_FUNC_CHOWN
 AC_FUNC_FNMATCH
 AC_FUNC_FORK
-AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_FUNC_MKTIME
 AC_FUNC_STRFTIME
-AC_FUNC_REALLOC
 AC_FUNC_STAT
 AC_FUNC_SELECT_ARGTYPES
 AC_FUNC_STRFTIME
@@ -1008,10 +1006,18 @@ dnl -----------------------------
 dnl check ipforward detect method
 dnl -----------------------------
 AC_CACHE_CHECK([ipforward method], [quagga_cv_ipforward_method],
-[for quagga_cv_ipforward_method in /proc/net/snmp /dev/ip /dev/null;
-do
-  test x`ls $quagga_cv_ipforward_method 2>/dev/null` = x"$quagga_cv_ipforward_method" && break
-done
+[if test x$cross_compiling = xyes; then
+  if test x"$opsys" = x"gnu-linux"; then
+    quagga_cv_ipforward_method=/proc/net/snmp
+  else
+    quagga_cv_ipforward_method=/dev/ip
+  fi
+else
+  for quagga_cv_ipforward_method in /proc/net/snmp /dev/ip /dev/null;
+  do
+    test x`ls $quagga_cv_ipforward_method 2>/dev/null` = x"$quagga_cv_ipforward_method" && break
+  done
+fi
 case $quagga_cv_ipforward_method in
   "/proc/net/snmp")  quagga_cv_ipforward_method="proc";;
   "/dev/ip")         
