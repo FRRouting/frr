@@ -4877,6 +4877,90 @@ ALIAS (no_ip_ospf_cost,
        "Interface cost\n"
        "Address of interface")
 
+DEFUN (no_ip_ospf_cost2,
+       no_ip_ospf_cost_u32_cmd,
+       "no ip ospf cost <1-65535>",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Interface cost\n"
+       "Cost")
+{
+  struct interface *ifp = vty->index;
+  struct in_addr addr;
+  u_int32_t cost;
+  int ret;
+  struct ospf_if_params *params;
+
+  ifp = vty->index;
+  params = IF_DEF_PARAMS (ifp);
+
+  /* According to the semantics we are mimicking "no ip ospf cost N" is
+   * always treated as "no ip ospf cost" regardless of the actual value
+   * of N already configured for the interface. Thus the first argument
+   * is always checked to be a number, but is ignored after that.
+   */
+  cost = strtol (argv[0], NULL, 10);
+  if (cost < 1 || cost > 65535)
+    {
+      vty_out (vty, "Interface output cost is invalid%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (argc == 2)
+    {
+      ret = inet_aton(argv[1], &addr);
+      if (!ret)
+	{
+	  vty_out (vty, "Please specify interface address by A.B.C.D%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+
+      params = ospf_lookup_if_params (ifp, addr);
+      if (params == NULL)
+	return CMD_SUCCESS;
+    }
+
+  UNSET_IF_PARAM (params, output_cost_cmd);
+
+  if (params != IF_DEF_PARAMS (ifp))
+    {
+      ospf_free_if_params (ifp, addr);
+      ospf_if_update_params (ifp, addr);
+    }
+
+  ospf_if_recalculate_output_cost (ifp);
+
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ip_ospf_cost2,
+       no_ospf_cost_u32_cmd,
+       "no ospf cost <1-65535>",
+       NO_STR
+       "OSPF interface commands\n"
+       "Interface cost\n"
+       "Cost")
+
+ALIAS (no_ip_ospf_cost2,
+       no_ip_ospf_cost_u32_inet4_cmd,
+       "no ip ospf cost <1-65535> A.B.C.D",
+       NO_STR
+       "IP Information\n"
+       "OSPF interface commands\n"
+       "Interface cost\n"
+       "Cost\n"
+       "Address of interface")
+
+ALIAS (no_ip_ospf_cost2,
+       no_ospf_cost_u32_inet4_cmd,
+       "no ospf cost <1-65535> A.B.C.D",
+       NO_STR
+       "OSPF interface commands\n"
+       "Interface cost\n"
+       "Cost\n"
+       "Address of interface")
 
 static void
 ospf_nbr_timer_update (struct ospf_interface *oi)
@@ -8119,6 +8203,8 @@ ospf_vty_if_init (void)
   /* "ip ospf cost" commands. */
   install_element (INTERFACE_NODE, &ip_ospf_cost_u32_inet4_cmd);
   install_element (INTERFACE_NODE, &ip_ospf_cost_u32_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_cost_u32_cmd);
+  install_element (INTERFACE_NODE, &no_ip_ospf_cost_u32_inet4_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_cost_inet4_cmd);
   install_element (INTERFACE_NODE, &no_ip_ospf_cost_cmd);
 
@@ -8172,6 +8258,8 @@ ospf_vty_if_init (void)
   install_element (INTERFACE_NODE, &ospf_cost_u32_cmd);
   install_element (INTERFACE_NODE, &ospf_cost_u32_inet4_cmd);
   install_element (INTERFACE_NODE, &no_ospf_cost_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_cost_u32_cmd);
+  install_element (INTERFACE_NODE, &no_ospf_cost_u32_inet4_cmd);
   install_element (INTERFACE_NODE, &no_ospf_cost_inet4_cmd);
   install_element (INTERFACE_NODE, &ospf_dead_interval_cmd);
   install_element (INTERFACE_NODE, &no_ospf_dead_interval_cmd);
