@@ -527,6 +527,30 @@ sockopt_ttl (int family, int sock, int ttl)
   return 0;
 }
 
+int
+sockopt_v6only (int family, int sock)
+{
+  int ret, on = 1;
+
+#ifdef HAVE_IPV6
+#ifdef IPV6_V6ONLY
+  if (family == AF_INET6)
+    {
+      ret = setsockopt (sock, IPPROTO_IPV6, IPV6_V6ONLY,
+			(void *) &on, sizeof (int));
+      if (ret < 0)
+	{
+	  zlog (NULL, LOG_WARNING, "can't set sockopt IPV6_V6ONLY "
+		    "to socket %d", sock);
+	  return -1;
+	}
+      return 0;
+    }
+#endif /* IPV6_V6ONLY */
+#endif /* HAVE_IPV6 */
+  return 0;
+}
+
 /* If same family and same prefix return 1. */
 int
 sockunion_same (union sockunion *su1, union sockunion *su2)

@@ -1816,6 +1816,7 @@ vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
       if (sock < 0)
 	continue;
 
+      sockopt_v6only (ainfo->ai_family, sock);
       sockopt_reuseaddr (sock);
       sockopt_reuseport (sock);
 
