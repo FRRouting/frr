@@ -395,14 +395,7 @@ bgp_listener (int sock, struct sockaddr *sa, socklen_t salen)
 #  endif
 #endif
 
-#ifdef IPV6_V6ONLY
-  /* Want only IPV6 on ipv6 socket (not mapped addresses) */
-  if (sa->sa_family == AF_INET6) {
-    int on = 1;
-    setsockopt (sock, IPPROTO_IPV6, IPV6_V6ONLY,
-		(void *) &on, sizeof (on));
-  }
-#endif
+  sockopt_v6only (sa->sa_family, sock);
 
   ret = bind (sock, sa, salen);
   en = errno;
