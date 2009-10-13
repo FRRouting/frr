@@ -1048,6 +1048,7 @@ ospf_network_lsa_new (struct ospf_interface *oi)
   struct stream *s;
   struct ospf_lsa *new;
   struct lsa_header *lsah;
+  struct ospf_if_params *oip;
   int length;
 
   /* If there are no neighbours on this network (the net is stub),
@@ -1086,7 +1087,23 @@ ospf_network_lsa_new (struct ospf_interface *oi)
   new->data = ospf_lsa_data_new (length);
   memcpy (new->data, lsah, length);
   stream_free (s);
-
+  
+  /* Remember prior network LSA sequence numbers, even if we stop
+   * originating one for this oi, to try avoid re-originating LSAs with a
+   * prior sequence number, and thus speed up adjency forming & convergence.
+   */
+  if ((oip = ospf_lookup_if_params (oi->ifp, oi->address->u.prefix4)))
+    {
+      new->data->ls_seqnum = oip->network_lsa_seqnum;
+      new->data->ls_seqnum = lsa_seqnum_increment (new);
+    }
+  else
+    {
+      oip = ospf_get_if_params (oi->ifp, oi->address->u.prefix4);
+      ospf_if_update_params (oi->ifp, oi->address->u.prefix4);
+    }
+  oip->network_lsa_seqnum = new->data->ls_seqnum;
+  
   return new;
 }
 
@@ -1125,6 +1142,7 @@ ospf_network_lsa_refresh (struct ospf_lsa *lsa, struct ospf_interface *oi)
 {
   struct ospf_area *area = lsa->area;
   struct ospf_lsa *new;
+  struct ospf_if_params *oip;
 
   assert (lsa->data);
 
@@ -1135,7 +1153,10 @@ ospf_network_lsa_refresh (struct ospf_lsa *lsa, struct ospf_interface *oi)
   new = ospf_network_lsa_new (oi);
   if (new == NULL)
     return -1;
-  new->data->ls_seqnum = lsa_seqnum_increment (lsa);
+  
+  oip = ospf_lookup_if_params (oi->ifp, oi->address->u.prefix4);
+  assert (oip != NULL);
+  oip->network_lsa_seqnum = new->data->ls_seqnum = lsa_seqnum_increment (lsa);
 
   ospf_lsa_install (area->ospf, oi, new);
 

@@ -73,6 +73,9 @@ struct ospf_if_params
   
   DECLARE_IF_PARAM (struct list *, auth_crypt);    /* List of Auth cryptographic data. */
   DECLARE_IF_PARAM (int, auth_type);               /* OSPF authentication type */
+  
+  /* Other, non-configuration state */
+  u_int32_t network_lsa_seqnum;		/* Network LSA seqnum */
 };
 
 enum
@@ -167,6 +170,7 @@ struct ospf_interface
 
   /* Configured varables. */
   struct ospf_if_params *params;
+  
   u_int32_t crypt_seqnum;		/* Cryptographic Sequence Number */ 
   u_int32_t output_cost;	        /* Acutual Interface Output Cost */
 

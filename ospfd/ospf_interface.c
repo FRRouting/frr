@@ -531,6 +531,8 @@ ospf_new_if_params (void)
 
   oip->auth_crypt = list_new ();
   
+  oip->network_lsa_seqnum = htonl(OSPF_INITIAL_SEQUENCE_NUMBER);
+
   return oip;
 }
 
@@ -569,7 +571,8 @@ ospf_free_if_params (struct interface *ifp, struct in_addr addr)
       !OSPF_IF_PARAM_CONFIGURED (oip, type) &&
       !OSPF_IF_PARAM_CONFIGURED (oip, auth_simple) &&
       !OSPF_IF_PARAM_CONFIGURED (oip, auth_type) &&
-      listcount (oip->auth_crypt) == 0)
+      listcount (oip->auth_crypt) == 0 &&
+      ntohl (oip->network_lsa_seqnum) != OSPF_INITIAL_SEQUENCE_NUMBER)
     {
       ospf_del_if_params (oip);
       rn->info = NULL;
