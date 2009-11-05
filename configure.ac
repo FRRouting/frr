@@ -1356,7 +1356,7 @@ dnl checking for clock_time monotonic struct and call
 dnl --------------------------------------
 AC_CHECK_DECL(CLOCK_MONOTONIC,
 	[AC_CHECK_LIB(rt, clock_gettime, [LIBS="$LIBS -lrt"])
-	 AC_DEFINE(HAVE_MONOTONIC_CLOCK,, Have monotonic clock)
+	 AC_DEFINE(HAVE_CLOCK_MONOTONIC,, Have monotonic clock)
 ], [AC_MSG_RESULT(no)], [QUAGGA_INCLUDES])
 
 dnl -------------------
