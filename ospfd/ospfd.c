@@ -118,8 +118,15 @@ ospf_router_id_update (struct ospf *ospf)
     {
 
       for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))
-        /* Update self-neighbor's router_id. */
-        oi->nbr_self->router_id = router_id;
+	{
+	  /* Some nbrs are identified by router_id, these needs
+	   * to be rebuilt. Possible optimization would be to do
+	   * oi->nbr_self->router_id = router_id for
+	   * !(virtual | ptop) links
+	   */
+	  ospf_nbr_delete(oi->nbr_self);
+	  ospf_nbr_add_self(oi);
+	}
 
       /* If AS-external-LSA is queued, then flush those LSAs. */
       if (router_id_old.s_addr == 0 && ospf->external_origin)
