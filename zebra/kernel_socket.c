@@ -319,6 +319,7 @@ int
 ifm_read (struct if_msghdr *ifm)
 {
   struct interface *ifp = NULL;
+  struct sockaddr_dl *sdl;
   char ifname[IFNAMSIZ];
   short ifnlen = 0;
   caddr_t *cp;
@@ -356,6 +357,7 @@ ifm_read (struct if_msghdr *ifm)
   RTA_ADDR_GET (NULL, RTA_GATEWAY, ifm->ifm_addrs, cp);
   RTA_ATTR_GET (NULL, RTA_NETMASK, ifm->ifm_addrs, cp);
   RTA_ADDR_GET (NULL, RTA_GENMASK, ifm->ifm_addrs, cp);
+  sdl = (struct sockaddr_dl *)cp;
   RTA_NAME_GET (ifname, RTA_IFP, ifm->ifm_addrs, cp, ifnlen);
   RTA_ADDR_GET (NULL, RTA_IFA, ifm->ifm_addrs, cp);
   RTA_ADDR_GET (NULL, RTA_AUTHOR, ifm->ifm_addrs, cp);
@@ -453,6 +455,16 @@ ifm_read (struct if_msghdr *ifm)
       if_get_mtu (ifp);
 #endif /* __bsdi__ */
       if_get_metric (ifp);
+
+      /*
+       * XXX sockaddr_dl contents can be larger than the structure
+       * definition, so the user of the stored structure must be
+       * careful not to read off the end.
+       *
+       * a nonzero ifnlen from RTA_NAME_GET() means sdl is valid
+       */
+      if (ifnlen)
+	memcpy (&ifp->sdl, sdl, sizeof (struct sockaddr_dl));
 
       if_add_update (ifp);
     }
