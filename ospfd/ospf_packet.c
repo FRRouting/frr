@@ -383,7 +383,7 @@ static int
 ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
 {
   struct ospf_header *ospfh;
-  unsigned char digest[OSPF_AUTH_MD5_SIZE];
+  unsigned char digest[OSPF_AUTH_MD5_SIZE] = {0};
   MD5_CTX ctx;
   void *ibuf;
   u_int32_t t;
@@ -410,7 +410,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
 
   /* Get MD5 Authentication key from auth_key list. */
   if (list_isempty (OSPF_IF_PARAM (oi, auth_crypt)))
-    auth_key = (const u_int8_t *) "";
+    auth_key = (const u_int8_t *) digest;
   else
     {
       ck = listgetdata (listtail(OSPF_IF_PARAM (oi, auth_crypt)));
