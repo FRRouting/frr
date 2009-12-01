@@ -553,7 +553,10 @@ ospf6_new_ls_id (u_int16_t type, u_int32_t adv_router,
       if (ntohl (lsa->header->id) < id)
         continue;
       if (ntohl (lsa->header->id) > id)
+      {
+        ospf6_lsa_unlock (lsa);
         break;
+      }
       id++;
     }
 
