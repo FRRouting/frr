@@ -362,7 +362,7 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
     {
       route_unlock_node (rn);
       
-      /* If lookup self prefix return immidiately. */
+      /* If lookup self prefix return immediately. */
       if (rn == top)
 	return 0;
 
@@ -463,7 +463,7 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
     {
       route_unlock_node (rn);
       
-      /* If lookup self prefix return immidiately. */
+      /* If lookup self prefix return immediately. */
       if (rn == top)
 	return 0;
 
@@ -1294,11 +1294,11 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 static void
 rib_queue_add (struct zebra_t *zebra, struct route_node *rn)
 {
-  char buf[INET_ADDRSTRLEN];
+  char buf[INET6_ADDRSTRLEN];
   assert (zebra && rn);
   
   if (IS_ZEBRA_DEBUG_RIB_Q)
-    inet_ntop (AF_INET, &rn->p.u.prefix, buf, INET_ADDRSTRLEN);
+    inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
 
   /* Pointless to queue a route_node with no RIB entries to add or remove */
   if (!rn->info)
