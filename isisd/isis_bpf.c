@@ -56,7 +56,7 @@ struct bpf_insn llcfilter[] = {
   BPF_STMT (BPF_RET + BPF_K, (u_int) - 1),
   BPF_STMT (BPF_RET + BPF_K, 0)
 };
-int readblen = 0;
+u_int readblen = 0;
 u_char *readbuff = NULL;
 
 /*
@@ -77,8 +77,7 @@ open_bpf_dev (struct isis_circuit *circuit)
   int i = 0, fd;
   char bpfdev[128];
   struct ifreq ifr;
-  u_int16_t blen;
-  int true = 1, false = 0;
+  u_int blen, immediate, seesent;
   struct timeval timeout;
   struct bpf_program bpf_prog;
 
@@ -123,7 +122,8 @@ open_bpf_dev (struct isis_circuit *circuit)
    *  Otherwise, a read will block until either the kernel
    *  buffer becomes full or a timeout occurs. 
    */
-  if (ioctl (fd, BIOCIMMEDIATE, (caddr_t) & true) < 0)
+  immediate = 1;
+  if (ioctl (fd, BIOCIMMEDIATE, (caddr_t) & immediate) < 0)
     {
       zlog_warn ("failed to set BPF dev to immediate mode");
     }
@@ -132,7 +132,8 @@ open_bpf_dev (struct isis_circuit *circuit)
   /*
    * We want to see only incoming packets
    */
-  if (ioctl (fd, BIOCSSEESENT, (caddr_t) & false) < 0)
+  seesent = 0;
+  if (ioctl (fd, BIOCSSEESENT, (caddr_t) & seesent) < 0)
     {
       zlog_warn ("failed to set BPF dev to incoming only mode");
     }
@@ -141,7 +142,7 @@ open_bpf_dev (struct isis_circuit *circuit)
   /*
    * ...but all of them
    */
-  if (ioctl (fd, BIOCPROMISC, (caddr_t) & true) < 0)
+  if (ioctl (fd, BIOCPROMISC) < 0)
     {
       zlog_warn ("failed to set BPF dev to promiscuous mode");
     }
