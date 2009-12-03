@@ -236,7 +236,7 @@ af_check (int family)
 static void
 rtm_flag_dump (int flag)
 {
-  struct message *mes;
+  const struct message *mes;
   static char buf[BUFSIZ];
 
   buf[0] = '\0';
