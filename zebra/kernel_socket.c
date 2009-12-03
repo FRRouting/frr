@@ -173,7 +173,9 @@ static const struct message rtm_flag_str[] =
 #ifdef RTF_MASK
   {RTF_MASK,      "MASK"},
 #endif /* RTF_MASK */
+#ifdef RTF_CLONING
   {RTF_CLONING,   "CLONING"},
+#endif /* RTF_CLONING */
   {RTF_XRESOLVE,  "XRESOLVE"},
   {RTF_LLINFO,    "LLINFO"},
   {RTF_STATIC,    "STATIC"},
@@ -999,9 +1001,14 @@ rtm_write (int message,
   if (gate && message == RTM_ADD)
     msg.rtm.rtm_flags |= RTF_GATEWAY;
 
+  /* When RTF_CLONING is unavailable on BSD, should we set some
+   * other flag instead?
+   */
+#ifdef RTF_CLONING
   if (! gate && message == RTM_ADD && ifp &&
       (ifp->flags & IFF_POINTOPOINT) == 0)
     msg.rtm.rtm_flags |= RTF_CLONING;
+#endif /* RTF_CLONING */
 
   /* If no protocol specific gateway is specified, use link
      address for gateway. */
