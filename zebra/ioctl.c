@@ -372,7 +372,7 @@ if_get_flags (struct interface *ifp)
   if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
     {
       (void) memset(&ifmr, 0, sizeof(ifmr));
-      strncpy (&ifmr.ifm_name, ifp->name, IFNAMSIZ);
+      strncpy (ifmr.ifm_name, ifp->name, IFNAMSIZ);
       
       /* Seems not all interfaces implement this ioctl */
       if (if_ioctl(SIOCGIFMEDIA, (caddr_t) &ifmr) < 0)
