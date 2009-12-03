@@ -558,7 +558,6 @@ extern struct ospf *ospf_lookup (void);
 extern struct ospf *ospf_get (void);
 extern void ospf_finish (struct ospf *);
 extern void ospf_router_id_update (struct ospf *ospf);
-extern int ospf_network_match_iface (struct connected *, struct prefix *);
 extern int ospf_network_set (struct ospf *, struct prefix_ipv4 *,
 			     struct in_addr);
 extern int ospf_network_unset (struct ospf *, struct prefix_ipv4 *,

@@ -71,6 +71,8 @@ static void ospf_area_free (struct ospf_area *);
 static void ospf_network_run (struct prefix *, struct ospf_area *);
 static void ospf_network_run_interface (struct prefix *, struct ospf_area *,
                                         struct interface *);
+static int ospf_network_match_iface (const struct connected *,
+				     const struct prefix *);
 static void ospf_finish_final (struct ospf *);
 
 #define OSPF_EXTERNAL_LSA_ORIGINATE_DELAY 1
@@ -589,7 +591,7 @@ ospf_area_new (struct ospf *ospf, struct in_addr area_id)
   return new;
 }
 
-void
+static void
 ospf_area_free (struct ospf_area *area)
 {
   struct route_node *rn;
@@ -719,7 +721,7 @@ ospf_network_new (struct in_addr area_id, int format)
   return new;
 }
 
-void
+static void
 ospf_network_free (struct ospf *ospf, struct ospf_network *network)
 {
   ospf_area_check_free (ospf, network->area_id);
@@ -832,62 +834,14 @@ ospf_network_unset (struct ospf *ospf, struct prefix_ipv4 *p,
 /* Check whether interface matches given network
  * returns: 1, true. 0, false
  */
-int 
-ospf_network_match_iface(struct connected *co, struct prefix *net)
+static int
+ospf_network_match_iface(const struct connected *co, const struct prefix *net)
 {
-/* #define COMPATIBILITY_MODE */
-  /* The old code used to have a special case for PtP interfaces:
-
-     if (if_is_pointopoint (co->ifp) && co->destination &&
-	 IPV4_ADDR_SAME ( &(co->destination->u.prefix4), &(net->u.prefix4)))
-       return 1;
-
-     The new approach is much more general.  If a peer address is supplied,
-     then we are routing to that prefix, so that's the address to compare
-     against (not the local address, which may not be unique).
-  */
-#ifndef COMPATIBILITY_MODE
   /* new approach: more elegant and conceptually clean */
   return prefix_match(net, CONNECTED_PREFIX(co));
-#else /* COMPATIBILITY_MODE */
-  /* match old (strange?) behavior */
-
-  /* Behaviour to match both Cisco where:
-   *   iface address lies within network specified -> ospf
-   * and zebra 0.9[2ish-3]:
-   *   PtP special case: network specified == iface peer addr -> ospf
-   */
-
-  /* For PtP, match if peer address matches network address exactly.
-   * This can be addr/32 or addr/p for p < 32, but the addr must match
-   * exactly; this is not a test for falling within the prefix.  This
-   * test is solely for compatibility with zebra.
-   */
-  if (CONNECTED_PEER(co) &&
-      IPV4_ADDR_SAME ( &(co->destination->u.prefix4), &(net->u.prefix4)))
-    return 1;
-
-#if 0
-  /* Decline to accept PtP if dst address does not match the
-   * prefix. (ifdefed out because this is a workaround, not the
-   * desired behavior.) */
-  if (if_is_pointopoint (co->ifp) &&
-      ! prefix_match (net, co->destination))
-    return 0;
-#endif
-
-  /* If the address is within the prefix, accept.  Note that this
-   * applies to PtP as well as other types.
-   */
-  if (prefix_match (net, co->address))
-    return 1;
-
-  return 0;			/* no match */
-
-#endif /* COMPATIBILITY_MODE */
 }
 
-void
+static void
 ospf_network_run_interface (struct prefix *p, struct ospf_area *area,
                             struct interface *ifp)
 {
@@ -944,7 +898,7 @@ ospf_network_run_interface (struct prefix *p, struct ospf_area *area,
     }
 }
 
-void
+static void
 ospf_network_run (struct prefix *p, struct ospf_area *area)
 {
   struct interface *ifp;
