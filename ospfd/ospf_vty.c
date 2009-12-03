@@ -3511,7 +3511,7 @@ show_lsa_summary (struct vty *vty, struct ospf_lsa *lsa, int self)
   return 0;
 }
 
-const char *show_database_desc[] =
+static const char *show_database_desc[] =
 {
   "unknown",
   "Router Link States",
@@ -3529,10 +3529,7 @@ const char *show_database_desc[] =
 #endif /* HAVE_OPAQUE_LSA */
 };
 
-#define SHOW_OSPF_COMMON_HEADER \
-  "Link ID         ADV Router      Age  Seq#       CkSum"
-
-const char *show_database_header[] =
+static const char *show_database_header[] =
 {
   "",
   "Link ID         ADV Router      Age  Seq#       CkSum  Link count",
@@ -3548,16 +3545,6 @@ const char *show_database_header[] =
   "Opaque-Type/Id  ADV Router      Age  Seq#       CkSum",
   "Opaque-Type/Id  ADV Router      Age  Seq#       CkSum",
 #endif /* HAVE_OPAQUE_LSA */
-};
-
-const char *show_lsa_flags[] =
-{
-  "Self-originated",
-  "Checked",
-  "Received",
-  "Approved",
-  "Discard",
-  "Translated",
 };
 
 static void
