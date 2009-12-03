@@ -1545,7 +1545,7 @@ echo "
 Quagga configuration
 --------------------
 quagga version          : ${PACKAGE_VERSION}
-host operationg system  : ${host_os}
+host operating system  : ${host_os}
 source code location    : ${srcdir}
 compiler                : ${CC}
 compiler flags          : ${CFLAGS}
