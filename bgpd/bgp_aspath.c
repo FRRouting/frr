@@ -728,8 +728,11 @@ assegments_parse (struct stream *s, size_t length, int use32bit)
       if ( ((bytes + seg_size) > length)
           /* 1771bis 4.3b: seg length contains one or more */
           || (segh.length == 0) 
-          /* Paranoia in case someone changes type of segment length */
-          || ((sizeof segh.length > 1) && (segh.length > AS_SEGMENT_MAX)) )
+          /* Paranoia in case someone changes type of segment length.
+           * Shift both values by 0x10 to make the comparison operate
+           * on more, than 8 bits (otherwise it's a warning, bug #564).
+           */
+          || ((sizeof segh.length > 1) && (0x10 + segh.length > 0x10 + AS_SEGMENT_MAX)) )
         {
           if (head)
             assegment_free_all (head);
