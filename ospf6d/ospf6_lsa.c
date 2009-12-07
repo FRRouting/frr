@@ -256,7 +256,7 @@ ospf6_lsa_premature_aging (struct ospf6_lsa *lsa)
 int
 ospf6_lsa_compare (struct ospf6_lsa *a, struct ospf6_lsa *b)
 {
-  signed long seqnuma, seqnumb;
+  int seqnuma, seqnumb;
   u_int16_t cksuma, cksumb;
   u_int16_t agea, ageb;
 
@@ -264,16 +264,13 @@ ospf6_lsa_compare (struct ospf6_lsa *a, struct ospf6_lsa *b)
   assert (b && b->header);
   assert (OSPF6_LSA_IS_SAME (a, b));
 
-  seqnuma = ((signed long) ntohl (a->header->seqnum))
-             - (signed long) INITIAL_SEQUENCE_NUMBER;
-  seqnumb = ((signed long) ntohl (b->header->seqnum))
-             - (signed long) INITIAL_SEQUENCE_NUMBER;
+  seqnuma = (int) ntohl (a->header->seqnum);
+  seqnumb = (int) ntohl (b->header->seqnum);
 
   /* compare by sequence number */
-  /* XXX, LS sequence number wrapping */
   if (seqnuma > seqnumb)
     return -1;
-  else if (seqnuma < seqnumb)
+  if (seqnuma < seqnumb)
     return 1;
 
   /* Checksum */
