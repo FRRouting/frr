@@ -1692,6 +1692,7 @@ vty_accept (struct thread *thread)
   int accept_sock;
   struct prefix *p = NULL;
   struct access_list *acl = NULL;
+  char *bufp;
 
   accept_sock = THREAD_FD (thread);
 
@@ -1763,6 +1764,11 @@ vty_accept (struct thread *thread)
   if (ret < 0)
     zlog (NULL, LOG_INFO, "can't set sockopt to vty_sock : %s", 
 	  safe_strerror (errno));
+
+  zlog (NULL, LOG_INFO, "Vty connection from %s",
+    (bufp = sockunion_su2str (&su)));
+  if (bufp)
+    XFREE (MTYPE_TMP, bufp);
 
   vty = vty_create (vty_sock, &su);
 
