@@ -87,12 +87,6 @@ rtadv_new (void)
   return XCALLOC (MTYPE_TMP, sizeof (struct rtadv));
 }
 
-static void
-rtadv_free (struct rtadv *rtadv)
-{
-  XFREE (MTYPE_TMP, rtadv);
-}
-
 static int
 rtadv_recv_packet (int sock, u_char *buf, int buflen,
 		   struct sockaddr_in6 *from, unsigned int *ifindex,
@@ -138,7 +132,10 @@ rtadv_recv_packet (int sock, u_char *buf, int buflen,
       /* Incoming packet's hop limit. */
       if (cmsgptr->cmsg_level == IPPROTO_IPV6 &&
 	  cmsgptr->cmsg_type == IPV6_HOPLIMIT)
-	*hoplimit = *((int *) CMSG_DATA (cmsgptr));
+	{
+	  int *hoptr = (int *) CMSG_DATA (cmsgptr);
+	  *hoplimit = *hoptr;
+	}
     }
   return ret;
 }
@@ -467,7 +464,7 @@ rtadv_read (struct thread *thread)
   int len;
   u_char buf[RTADV_MSG_SIZE];
   struct sockaddr_in6 from;
-  unsigned int ifindex;
+  unsigned int ifindex = 0;
   int hoplimit = -1;
 
   sock = THREAD_FD (thread);
