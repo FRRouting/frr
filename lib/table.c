@@ -125,7 +125,7 @@ route_table_free (struct route_table *rt)
 }
 
 /* Utility mask array. */
-static u_char maskbit[] = 
+static const u_char maskbit[] =
 {
   0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff
 };
@@ -170,11 +170,11 @@ route_common (struct prefix *n, struct prefix *p, struct prefix *new)
 
 /* Check bit of the prefix. */
 static int
-check_bit (u_char *prefix, u_char prefixlen)
+check_bit (const u_char *prefix, u_char prefixlen)
 {
-  int offset;
-  int shift;
-  u_char *p = (u_char *)prefix;
+  unsigned int offset;
+  unsigned int shift;
+  const u_char *p = prefix;
 
   assert (prefixlen <= 128);
 
@@ -221,7 +221,7 @@ route_unlock_node (struct route_node *node)
 
 /* Find matched prefix. */
 struct route_node *
-route_node_match (struct route_table *table, struct prefix *p)
+route_node_match (const struct route_table *table, const struct prefix *p)
 {
   struct route_node *node;
   struct route_node *matched;
@@ -247,7 +247,8 @@ route_node_match (struct route_table *table, struct prefix *p)
 }
 
 struct route_node *
-route_node_match_ipv4 (struct route_table *table, struct in_addr *addr)
+route_node_match_ipv4 (const struct route_table *table,
+		       const struct in_addr *addr)
 {
   struct prefix_ipv4 p;
 
@@ -261,7 +262,8 @@ route_node_match_ipv4 (struct route_table *table, struct in_addr *addr)
 
 #ifdef HAVE_IPV6
 struct route_node *
-route_node_match_ipv6 (struct route_table *table, struct in6_addr *addr)
+route_node_match_ipv6 (const struct route_table *table,
+		       const struct in6_addr *addr)
 {
   struct prefix_ipv6 p;
 
