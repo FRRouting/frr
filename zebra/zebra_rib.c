@@ -93,34 +93,11 @@ vrf_alloc (const char *name)
   return vrf;
 }
 
-/* Free VRF.  */
-static void
-vrf_free (struct vrf *vrf)
-{
-  if (vrf->name)
-    XFREE (MTYPE_VRF_NAME, vrf->name);
-  XFREE (MTYPE_VRF, vrf);
-}
-
 /* Lookup VRF by identifier.  */
 struct vrf *
 vrf_lookup (u_int32_t id)
 {
   return vector_lookup (vrf_vector, id);
-}
-
-/* Lookup VRF by name.  */
-static struct vrf *
-vrf_lookup_by_name (char *name)
-{
-  unsigned int i;
-  struct vrf *vrf;
-
-  for (i = 0; i < vector_active (vrf_vector); i++)
-    if ((vrf = vector_slot (vrf_vector, i)) != NULL)
-      if (vrf->name && name && strcmp (vrf->name, name) == 0)
-	return vrf;
-  return NULL;
 }
 
 /* Initialize VRF.  */
@@ -791,7 +768,7 @@ rib_match_ipv6 (struct in6_addr *addr)
  * The return value is the final value of 'ACTIVE' flag.
  */
 
-static int
+static unsigned
 nexthop_active_check (struct route_node *rn, struct rib *rib,
 		      struct nexthop *nexthop, int set)
 {
@@ -905,7 +882,7 @@ static int
 nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
 {
   struct nexthop *nexthop;
-  int prev_active, prev_index, new_active;
+  unsigned int prev_active, prev_index, new_active;
 
   rib->nexthop_active_num = 0;
   UNSET_FLAG (rib->flags, ZEBRA_FLAG_CHANGED);
@@ -1653,10 +1630,10 @@ void rib_dump (const char * func, const struct prefix_ipv4 * p, const struct rib
   zlog_debug ("%s: dumping RIB entry %p for %s/%d", func, rib, straddr1, p->prefixlen);
   zlog_debug
   (
-    "%s: refcnt == %lu, uptime == %u, type == %u, table == %d",
+    "%s: refcnt == %lu, uptime == %lu, type == %u, table == %d",
     func,
     rib->refcnt,
-    rib->uptime,
+    (unsigned long) rib->uptime,
     rib->type,
     rib->table
   );
@@ -2860,19 +2837,6 @@ rib_update (void)
         rib_queue_add (&zebrad, rn);
 }
 
-/* Interface goes up. */
-static void
-rib_if_up (struct interface *ifp)
-{
-  rib_update ();
-}
-
-/* Interface goes down. */
-static void
-rib_if_down (struct interface *ifp)
-{
-  rib_update ();
-}
 
 /* Remove all routes which comes from non main table.  */
 static void
