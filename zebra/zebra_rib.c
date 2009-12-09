@@ -1271,49 +1271,28 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 static void
 rib_queue_add (struct zebra_t *zebra, struct route_node *rn)
 {
-  char buf[INET6_ADDRSTRLEN];
-  assert (zebra && rn);
   
   if (IS_ZEBRA_DEBUG_RIB_Q)
-    inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
-
-  /* Pointless to queue a route_node with no RIB entries to add or remove */
-  if (!rn->info)
     {
-      zlog_debug ("%s: called for route_node (%p, %d) with no ribs",
-                  __func__, rn, rn->lock);
-      zlog_backtrace(LOG_DEBUG);
-      return;
+      char buf[INET6_ADDRSTRLEN];
+
+      zlog_info ("%s: %s/%d: work queue added", __func__,
+		 inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN),
+		 rn->p.prefixlen);
     }
 
-  if (IS_ZEBRA_DEBUG_RIB_Q)
-    zlog_info ("%s: %s/%d: work queue added", __func__, buf, rn->p.prefixlen);
-
-  assert (zebra);
-
-  if (zebra->ribq == NULL)
-    {
-      zlog_err ("%s: work_queue does not exist!", __func__);
-      return;
-    }
-
-  /* The RIB queue should normally be either empty or holding the only work_queue_item
-   * element. In the latter case this element would hold a pointer to the meta queue
-   * structure, which must be used to actually queue the route nodes to process. So
-   * create the MQ holder, if necessary, then push the work into it in any case.
+  /*
+   * The RIB queue should normally be either empty or holding the only
+   * work_queue_item element. In the latter case this element would
+   * hold a pointer to the meta queue structure, which must be used to
+   * actually queue the route nodes to process. So create the MQ
+   * holder, if necessary, then push the work into it in any case.
    * This semantics was introduced after 0.99.9 release.
    */
-
-  /* Should I invent work_queue_empty() and use it, or it's Ok to do as follows? */
   if (!zebra->ribq->items->count)
     work_queue_add (zebra->ribq, zebra->mq);
 
   rib_meta_queue_add (zebra->mq, rn);
-
-  if (IS_ZEBRA_DEBUG_RIB_Q)
-    zlog_debug ("%s: %s/%d: rn %p queued", __func__, buf, rn->p.prefixlen, rn);
-
-  return;
 }
 
 /* Create new meta queue.
@@ -1341,8 +1320,6 @@ meta_queue_new (void)
 static void
 rib_queue_init (struct zebra_t *zebra)
 {
-  assert (zebra);
-  
   if (! (zebra->ribq = work_queue_new (zebra->master, 
                                        "route_node processing")))
     {
@@ -1358,11 +1335,7 @@ rib_queue_init (struct zebra_t *zebra)
   zebra->ribq->spec.hold = rib_process_hold_time;
   
   if (!(zebra->mq = meta_queue_new ()))
-  {
     zlog_err ("%s: could not initialise meta queue!", __func__);
-    return;
-  }
-  return;
 }
 
 /* RIB updates are processed via a queue of pointers to route_nodes.
