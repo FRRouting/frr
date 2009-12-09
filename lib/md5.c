@@ -232,7 +232,7 @@ static void md5_calc(const uint8_t *b64, md5_ctxt * ctxt)
 	const uint32_t *X = (const uint32_t *)b64;
 #elif (BYTE_ORDER == BIG_ENDIAN)
 	uint32_t X[16];
-#endif
+
 	if (BYTE_ORDER == BIG_ENDIAN)
 	  {
 	    /* 4 byte words */
@@ -255,6 +255,7 @@ static void md5_calc(const uint8_t *b64, md5_ctxt * ctxt)
 	    y[56] = b64[59]; y[57] = b64[58]; y[58] = b64[57]; y[59] = b64[56];
 	    y[60] = b64[63]; y[61] = b64[62]; y[62] = b64[61]; y[63] = b64[60];
 	  }
+#endif
 
 	ROUND1(A, B, C, D,  0, Sa,  1); ROUND1(D, A, B, C,  1, Sb,  2);
 	ROUND1(C, D, A, B,  2, Sc,  3); ROUND1(B, C, D, A,  3, Sd,  4);
