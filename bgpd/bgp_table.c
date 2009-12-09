@@ -201,37 +201,10 @@ route_common (struct prefix *n, struct prefix *p, struct prefix *new)
     }
 }
 
-/* Macro version of check_bit (). */
-#define CHECK_BIT(X,P) ((((u_char *)(X))[(P) / 8]) >> (7 - ((P) % 8)) & 1)
-
-/* Check bit of the prefix. */
-static int
-check_bit (u_char *prefix, u_char prefixlen)
-{
-  int offset;
-  int shift;
-  u_char *p = (u_char *)prefix;
-
-  assert (prefixlen <= 128);
-
-  offset = prefixlen / 8;
-  shift = 7 - (prefixlen % 8);
-  
-  return (p[offset] >> shift & 1);
-}
-
-/* Macro version of set_link (). */
-#define SET_LINK(X,Y) (X)->link[CHECK_BIT(&(Y)->prefix,(X)->prefixlen)] = (Y);\
-                      (Y)->parent = (X)
-
 static void
 set_link (struct bgp_node *node, struct bgp_node *new)
 {
-  int bit;
-    
-  bit = check_bit (&new->p.u.prefix, node->p.prefixlen);
-
-  assert (bit == 0 || bit == 1);
+  unsigned int bit = prefix_bit (&new->p.u.prefix, node->p.prefixlen);
 
   node->link[bit] = new;
   new->parent = node;
@@ -273,7 +246,7 @@ bgp_node_match (const struct bgp_table *table, struct prefix *p)
     {
       if (node->info)
 	matched = node;
-      node = node->link[check_bit(&p->u.prefix, node->p.prefixlen)];
+      node = node->link[prefix_bit(&p->u.prefix, node->p.prefixlen)];
     }
 
   /* If matched route found, return it. */
@@ -325,7 +298,7 @@ bgp_node_lookup (const struct bgp_table *table, struct prefix *p)
       if (node->p.prefixlen == p->prefixlen && node->info)
 	return bgp_lock_node (node);
 
-      node = node->link[check_bit(&p->u.prefix, node->p.prefixlen)];
+      node = node->link[prefix_bit(&p->u.prefix, node->p.prefixlen)];
     }
 
   return NULL;
@@ -350,7 +323,7 @@ bgp_node_get (struct bgp_table *const table, struct prefix *p)
 	  return node;
 	}
       match = node;
-      node = node->link[check_bit(&p->u.prefix, node->p.prefixlen)];
+      node = node->link[prefix_bit(&p->u.prefix, node->p.prefixlen)];
     }
 
   if (node == NULL)

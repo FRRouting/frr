@@ -706,9 +706,6 @@ ospf6_route_best_next (struct ospf6_route *route)
   return next;
 }
 
-/* Macro version of check_bit (). */
-#define CHECK_BIT(X,P) ((((u_char *)(X))[(P) / 8]) >> (7 - ((P) % 8)) & 1)
-
 struct ospf6_route *
 ospf6_route_match_head (struct prefix *prefix,
                         struct ospf6_route_table *table)
@@ -720,7 +717,7 @@ ospf6_route_match_head (struct prefix *prefix,
   node = table->table->top;
   while (node && node->p.prefixlen < prefix->prefixlen &&
 	 prefix_match (&node->p, prefix))
-    node = node->link[CHECK_BIT(&prefix->u.prefix, node->p.prefixlen)];
+    node = node->link[prefix_bit(&prefix->u.prefix, node->p.prefixlen)];
 
   if (node)
     route_lock_node (node);

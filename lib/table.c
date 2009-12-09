@@ -165,37 +165,10 @@ route_common (struct prefix *n, struct prefix *p, struct prefix *new)
     }
 }
 
-/* Macro version of check_bit (). */
-#define CHECK_BIT(X,P) ((((u_char *)(X))[(P) / 8]) >> (7 - ((P) % 8)) & 1)
-
-/* Check bit of the prefix. */
-static int
-check_bit (const u_char *prefix, u_char prefixlen)
-{
-  unsigned int offset;
-  unsigned int shift;
-  const u_char *p = prefix;
-
-  assert (prefixlen <= 128);
-
-  offset = prefixlen / 8;
-  shift = 7 - (prefixlen % 8);
-  
-  return (p[offset] >> shift & 1);
-}
-
-/* Macro version of set_link (). */
-#define SET_LINK(X,Y) do { (X)->link[CHECK_BIT(&(Y)->p.u.prefix,(X)->p.prefixlen)] = (Y);\
-                      (Y)->parent = (X); } while (0)
-
 static void
 set_link (struct route_node *node, struct route_node *new)
 {
-  int bit;
-    
-  bit = check_bit (&new->p.u.prefix, node->p.prefixlen);
-
-  assert (bit == 0 || bit == 1);
+  unsigned int bit = prefix_bit (&new->p.u.prefix, node->p.prefixlen);
 
   node->link[bit] = new;
   new->parent = node;
@@ -236,7 +209,7 @@ route_node_match (const struct route_table *table, const struct prefix *p)
     {
       if (node->info)
 	matched = node;
-      node = node->link[check_bit(&p->u.prefix, node->p.prefixlen)];
+      node = node->link[prefix_bit(&p->u.prefix, node->p.prefixlen)];
     }
 
   /* If matched route found, return it. */
@@ -290,7 +263,7 @@ route_node_lookup (struct route_table *table, struct prefix *p)
       if (node->p.prefixlen == p->prefixlen && node->info)
 	return route_lock_node (node);
 
-      node = node->link[check_bit(&p->u.prefix, node->p.prefixlen)];
+      node = node->link[prefix_bit(&p->u.prefix, node->p.prefixlen)];
     }
 
   return NULL;
@@ -315,7 +288,7 @@ route_node_get (struct route_table *table, struct prefix *p)
 	  return node;
 	}
       match = node;
-      node = node->link[check_bit(&p->u.prefix, node->p.prefixlen)];
+      node = node->link[prefix_bit(&p->u.prefix, node->p.prefixlen)];
     }
 
   if (node == NULL)

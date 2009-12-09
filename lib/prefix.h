@@ -127,6 +127,16 @@ struct prefix_rd
 /* Prefix's family member. */
 #define PREFIX_FAMILY(p)  ((p)->family)
 
+/* Check bit of the prefix. */
+static inline unsigned int
+prefix_bit (const u_char *prefix, const u_char prefixlen)
+{
+  unsigned int offset = prefixlen / 8;
+  unsigned int shift  = 7 - (prefixlen % 8);
+
+  return (prefix[offset] >> shift) & 1;
+}
+
 /* Prototypes. */
 extern int afi2family (int);
 extern int family2afi (int);
