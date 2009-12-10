@@ -137,6 +137,12 @@ prefix_bit (const u_char *prefix, const u_char prefixlen)
   return (prefix[offset] >> shift) & 1;
 }
 
+static inline unsigned int
+prefix6_bit (const struct in6_addr *prefix, const u_char prefixlen)
+{
+  return prefix_bit((const u_char *) &prefix->s6_addr, prefixlen);
+}
+
 /* Prototypes. */
 extern int afi2family (int);
 extern int family2afi (int);

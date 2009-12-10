@@ -381,7 +381,7 @@ ospf6_lsdb_type_router_head (u_int16_t type, u_int32_t adv_router,
   /* Walk down tree. */
   while (node && node->p.prefixlen <= key.prefixlen &&
 	 prefix_match (&node->p, (struct prefix *) &key))
-    node = node->link[prefix_bit(&key.prefix, node->p.prefixlen)];
+    node = node->link[prefix6_bit(&key.prefix, node->p.prefixlen)];
 
   if (node)
     route_lock_node (node);
@@ -435,7 +435,7 @@ ospf6_lsdb_type_head (u_int16_t type, struct ospf6_lsdb *lsdb)
   node = lsdb->table->top;
   while (node && node->p.prefixlen <= key.prefixlen &&
 	 prefix_match (&node->p, (struct prefix *) &key))
-    node = node->link[prefix_bit(&key.prefix, node->p.prefixlen)];
+    node = node->link[prefix6_bit(&key.prefix, node->p.prefixlen)];
 
   if (node)
     route_lock_node (node);
