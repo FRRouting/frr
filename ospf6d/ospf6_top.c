@@ -143,6 +143,7 @@ ospf6_create (void)
   return o;
 }
 
+#if 0
 static void
 ospf6_delete (struct ospf6 *o)
 {
@@ -163,6 +164,7 @@ ospf6_delete (struct ospf6 *o)
 
   XFREE (MTYPE_OSPF6_TOP, o);
 }
+#endif
 
 static void
 ospf6_enable (struct ospf6 *o)

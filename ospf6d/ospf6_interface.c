@@ -690,23 +690,6 @@ neighbor_change (struct thread *thread)
   return 0;
 }
 
-static int
-loopind (struct thread *thread)
-{
-  struct ospf6_interface *oi;
-
-  oi = (struct ospf6_interface *) THREAD_ARG (thread);
-  assert (oi && oi->interface);
-
-  if (IS_OSPF6_DEBUG_INTERFACE)
-    zlog_debug ("Interface Event %s: [LoopInd]",
-		oi->interface->name);
-
-  /* XXX not yet */
-
-  return 0;
-}
-
 int
 interface_down (struct thread *thread)
 {
