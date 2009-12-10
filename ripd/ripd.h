@@ -395,6 +395,8 @@ extern int if_check_address (struct in_addr addr);
 extern int rip_request_send (struct sockaddr_in *, struct interface *, u_char,
                       struct connected *);
 extern int rip_neighbor_lookup (struct sockaddr_in *);
+
+extern int rip_redistribute_check (int);
 extern void rip_redistribute_add (int, int, struct prefix_ipv4 *, unsigned int, 
 			   struct in_addr *, unsigned int, unsigned char);
 extern void rip_redistribute_delete (int, int, struct prefix_ipv4 *, unsigned int);
