@@ -639,39 +639,6 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
   return ret;
 }
 
-#ifdef HAVE_IPV6
-static unsigned int
-bgp_ifindex_by_nexthop (struct in6_addr *addr)
-{
-  struct listnode *ifnode;
-  struct listnode *cnode;
-  struct interface *ifp;
-  struct connected *connected;
-  struct prefix_ipv6 p;
-  
-  p.family = AF_INET6;
-  p.prefix = *addr;
-  p.prefixlen = IPV6_MAX_BITLEN;
-
-  for (ALL_LIST_ELEMENTS_RO (iflist, ifnode, ifp))
-    {
-      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
-	{
-	  struct prefix *cp; 
-
-	  cp = connected->address;
-	    
-	  if (cp->family == AF_INET6)
-	    {
-	      if (prefix_match (cp, (struct prefix *)&p))
-		return ifp->ifindex;
-	    }
-	}
-    }
-  return 0;
-}
-#endif /* HAVE_IPV6 */
-
 void
 bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
 {

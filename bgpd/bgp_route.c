@@ -11031,23 +11031,6 @@ bgp_distance_unset (struct vty *vty, const char *distance_str,
   return CMD_SUCCESS;
 }
 
-static void
-bgp_distance_reset (void)
-{
-  struct bgp_node *rn;
-  struct bgp_distance *bdistance;
-
-  for (rn = bgp_table_top (bgp_distance_table); rn; rn = bgp_route_next (rn))
-    if ((bdistance = rn->info) != NULL)
-      {
-	if (bdistance->access_list)
-	  free (bdistance->access_list);
-	bgp_distance_free (bdistance);
-	rn->info = NULL;
-	bgp_unlock_node (rn);
-      }
-}
-
 /* Apply BGP information to distance method. */
 u_char
 bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, struct bgp *bgp)

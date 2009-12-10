@@ -920,30 +920,6 @@ bgp_notify_send (struct peer *peer, u_char code, u_char sub_code)
   bgp_notify_send_with_data (peer, code, sub_code, NULL, 0);
 }
 
-static const char *
-afi2str (afi_t afi)
-{
-  if (afi == AFI_IP)
-    return "AFI_IP";
-  else if (afi == AFI_IP6)
-    return "AFI_IP6";
-  else
-    return "Unknown AFI";
-}
-
-static const char *
-safi2str (safi_t safi)
-{
-  if (safi == SAFI_UNICAST)
-    return "SAFI_UNICAST";
-  else if (safi == SAFI_MULTICAST)
-    return "SAFI_MULTICAST";
-  else if (safi == SAFI_MPLS_VPN || safi == BGP_SAFI_VPNV4)
-    return "SAFI_MPLS_VPN";
-  else
-    return "Unknown SAFI";
-}
-
 /* Send route refresh message to the peer. */
 void
 bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,

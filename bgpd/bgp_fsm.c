@@ -427,7 +427,7 @@ bgp_fsm_change_status (struct peer *peer, int status)
 }
 
 /* Flush the event queue and ensure the peer is shut down */
-int
+static int
 bgp_clearing_completed (struct peer *peer)
 {
   int rc = bgp_stop(peer);
