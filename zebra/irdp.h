@@ -146,5 +146,12 @@ extern void irdp_init(void);
 extern int irdp_sock_init(void);
 extern void irdp_finish(void);
 extern void irdp_config_write (struct vty *, struct interface *);
+extern int irdp_send_thread(struct thread *t_advert);
+extern void irdp_advert_off(struct interface *ifp);
+extern void process_solicit (struct interface *ifp);
+extern int irdp_read_raw(struct thread *r);
+extern void send_packet(struct interface *ifp, struct stream *s,
+			u_int32_t dst, struct prefix *p, u_int32_t ttl);
+
 
 #endif /* _IRDP_H */

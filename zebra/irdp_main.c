@@ -60,6 +60,7 @@
 #include "zebra/irdp.h"
 #include <netinet/ip_icmp.h>
 
+#include "checksum.h"
 #include "if.h"
 #include "sockunion.h"
 #include "log.h"
@@ -74,25 +75,6 @@ struct thread *t_irdp_raw;
 
 /* Timer interval of irdp. */
 int irdp_timer_interval = IRDP_DEFAULT_INTERVAL;
-
-int irdp_read_raw(struct thread *r);
-int in_cksum (void *ptr, int nbytes);
-void send_packet(struct interface *ifp, 
-		 struct stream *s,
-		 u_int32_t dst,
-		 struct prefix *p,
-		 u_int32_t ttl);
-
-char *
-inet_2a(u_int32_t a, char *b)
-{
-  sprintf(b, "%u.%u.%u.%u", 
-          (a    ) & 0xFF,
-          (a>> 8) & 0xFF, 
-          (a>>16) & 0xFF, 
-          (a>>24) & 0xFF);
-  return  b;
-}
 
 int
 irdp_sock_init (void)

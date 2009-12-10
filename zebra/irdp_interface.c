@@ -65,14 +65,19 @@
 /* Master of threads. */
 extern struct zebra_t zebrad;
 
-int in_cksum (void *ptr, int nbytes);
 extern int irdp_sock;
-int irdp_send_thread(struct thread *t_advert);
-char *inet_2a(u_int32_t a, char *b);
-void irdp_advert_off(struct interface *ifp);
 
+static const char *
+inet_2a(u_int32_t a, char *b)
+{
+  sprintf(b, "%u.%u.%u.%u",
+          (a    ) & 0xFF,
+          (a>> 8) & 0xFF,
+          (a>>16) & 0xFF,
+          (a>>24) & 0xFF);
+  return  b;
+}
 
-char b1[16], b2[16], b3[16], b4[16];  /* For inet_2a */
 
 static struct prefix *
 irdp_get_prefix(struct interface *ifp)
@@ -98,6 +103,7 @@ if_group (struct interface *ifp,
   struct ip_mreq m;
   struct prefix *p;
   int ret;
+  char b1[INET_ADDRSTRLEN];
 
   zi = ifp->info;
 
@@ -117,8 +123,8 @@ if_group (struct interface *ifp,
   if (ret < 0)
     zlog_warn ("IRDP: %s can't setsockopt %s: %s",
 	       add_leave == IP_ADD_MEMBERSHIP? "join group":"leave group", 
-               inet_2a(group, b1),
-               safe_strerror (errno));
+	       inet_2a(group, b1),
+	       safe_strerror (errno));
 
   return ret;
 }
@@ -129,6 +135,7 @@ if_add_group (struct interface *ifp)
   struct zebra_if *zi= ifp->info;
   struct irdp_interface *irdp = &zi->irdp;
   int ret;
+  char b1[INET_ADDRSTRLEN];
 
   ret = if_group (ifp, irdp_sock, INADDR_ALLRTRS_GROUP, IP_ADD_MEMBERSHIP);
   if (ret < 0) {
@@ -148,6 +155,7 @@ if_drop_group (struct interface *ifp)
   struct zebra_if *zi= ifp->info;
   struct irdp_interface *irdp = &zi->irdp;
   int ret;
+  char b1[INET_ADDRSTRLEN];
 
   ret = if_group (ifp, irdp_sock, INADDR_ALLRTRS_GROUP, IP_DROP_MEMBERSHIP);
   if (ret < 0)
@@ -173,7 +181,7 @@ if_set_defaults(struct interface *ifp)
 }
 
 
-struct Adv *Adv_new (void)
+static struct Adv *Adv_new (void)
 {
   return XCALLOC (MTYPE_TMP, sizeof (struct Adv));
 }
@@ -338,6 +346,7 @@ void irdp_config_write (struct vty *vty, struct interface *ifp)
   struct irdp_interface *irdp=&zi->irdp;
   struct Adv *adv;
   struct listnode *node;
+  char b1[INET_ADDRSTRLEN];
 
   if(irdp->flags & IF_ACTIVE || irdp->flags & IF_SHUTDOWN) {
 
