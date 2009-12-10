@@ -272,7 +272,10 @@ ripng_recv_packet (int sock, u_char *buf, int bufsize,
       /* Incoming packet's multicast hop limit. */
       if (cmsgptr->cmsg_level == IPPROTO_IPV6 &&
 	  cmsgptr->cmsg_type == IPV6_HOPLIMIT)
-	*hoplimit = *((int *) CMSG_DATA (cmsgptr));
+	{
+	  int *phoplimit = (int *) CMSG_DATA (cmsgptr);
+	  *hoplimit = *phoplimit;
+	}
     }
 
   /* Hoplimit check shold be done when destination address is
