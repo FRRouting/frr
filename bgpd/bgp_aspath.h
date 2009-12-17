@@ -99,7 +99,6 @@ extern size_t aspath_put (struct stream *, struct aspath *, int);
 
 extern struct aspath *aspath_reconcile_as4 (struct aspath *, struct aspath *);
 extern unsigned int aspath_has_as4 (struct aspath *);
-extern unsigned int aspath_count_numas (struct aspath *);
 
 /* For SNMP BGP4PATHATTRASPATHSEGMENT, might be useful for debug */
 extern u_char *aspath_snmp_pathseg (struct aspath *, size_t *);

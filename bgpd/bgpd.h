@@ -952,6 +952,4 @@ extern int peer_maximum_prefix_unset (struct peer *, afi_t, safi_t);
 extern int peer_clear (struct peer *);
 extern int peer_clear_soft (struct peer *, afi_t, safi_t, enum bgp_clear_type);
 
-extern void peer_nsf_stop (struct peer *);
-
 #endif /* _QUAGGA_BGPD_H */

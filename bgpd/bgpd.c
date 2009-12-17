@@ -1129,7 +1129,7 @@ peer_deactivate (struct peer *peer, afi_t afi, safi_t safi)
   return 0;
 }
 
-void
+static void
 peer_nsf_stop (struct peer *peer)
 {
   afi_t afi;

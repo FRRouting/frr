@@ -86,7 +86,7 @@ struct assegment_header
 };
 
 /* Hash for aspath.  This is the top level structure of AS path. */
-struct hash *ashash;
+static struct hash *ashash;
 
 /* Stream for SNMP. See aspath_snmp_pathseg */
 static struct stream *snmp_stream;
@@ -499,22 +499,6 @@ aspath_has_as4 (struct aspath *aspath)
       seg = seg->next;
     }
   return 0;
-}
-
-/* Return number of as numbers in in path */
-unsigned int
-aspath_count_numas (struct aspath *aspath)
-{
-  struct assegment *seg = aspath->segments;
-  unsigned int num;
-  
-  num=0;
-  while (seg)
-    {
-      num += seg->length;
-      seg = seg->next;
-    }
-  return num;
 }
 
 /* Convert aspath structure to string expression. */
