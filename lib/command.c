@@ -82,14 +82,14 @@ static struct cmd_node config_node =
 };
 
 /* Default motd string. */
-const char *default_motd =
+static const char *default_motd =
 "\r\n\
 Hello, this is " QUAGGA_PROGNAME " (version " QUAGGA_VERSION ").\r\n\
 " QUAGGA_COPYRIGHT "\r\n\
 \r\n";
 
 
-static struct facility_map {
+static const struct facility_map {
   int facility;
   const char *name;
   size_t match;
@@ -122,7 +122,7 @@ static struct facility_map {
 static const char *
 facility_name(int facility)
 {
-  struct facility_map *fm;
+  const struct facility_map *fm;
 
   for (fm = syslog_facilities; fm->name; fm++)
     if (fm->facility == facility)
@@ -133,7 +133,7 @@ facility_name(int facility)
 static int
 facility_match(const char *str)
 {
-  struct facility_map *fm;
+  const struct facility_map *fm;
 
   for (fm = syslog_facilities; fm->name; fm++)
     if (!strncmp(str,fm->name,fm->match))
@@ -506,7 +506,7 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
   cmd->cmdsize = cmd_cmdsize (cmd->strvec);
 }
 
-static unsigned char itoa64[] =	
+static const unsigned char itoa64[] =
 "./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 static void
