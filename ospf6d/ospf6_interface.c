@@ -1394,13 +1394,17 @@ DEFUN (ipv6_ospf6_advertise_prefix_list,
   oi->plist_name = XSTRDUP (MTYPE_PREFIX_LIST_STR, argv[0]);
 
   ospf6_interface_connected_route_update (oi->interface);
-  OSPF6_LINK_LSA_SCHEDULE (oi);
-  if (oi->state == OSPF6_INTERFACE_DR)
+
+  if (oi->area)
     {
-      OSPF6_NETWORK_LSA_SCHEDULE (oi);
-      OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
+      OSPF6_LINK_LSA_SCHEDULE (oi);
+      if (oi->state == OSPF6_INTERFACE_DR)
+        {
+          OSPF6_NETWORK_LSA_SCHEDULE (oi);
+          OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
+        }
+      OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (oi->area);
     }
-  OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (oi->area);
 
   return CMD_SUCCESS;
 }
@@ -1433,13 +1437,17 @@ DEFUN (no_ipv6_ospf6_advertise_prefix_list,
     }
 
   ospf6_interface_connected_route_update (oi->interface);
-  OSPF6_LINK_LSA_SCHEDULE (oi);
-  if (oi->state == OSPF6_INTERFACE_DR)
+
+  if (oi->area)
     {
-      OSPF6_NETWORK_LSA_SCHEDULE (oi);
-      OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
+      OSPF6_LINK_LSA_SCHEDULE (oi);
+      if (oi->state == OSPF6_INTERFACE_DR)
+        {
+          OSPF6_NETWORK_LSA_SCHEDULE (oi);
+          OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
+        }
+      OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (oi->area);
     }
-  OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (oi->area);
 
   return CMD_SUCCESS;
 }
