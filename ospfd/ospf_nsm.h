@@ -39,7 +39,7 @@
 
 /* OSPF Neighbor State Machine Event. */
 #define NSM_NoEvent	        0
-#define NSM_HelloReceived	1
+#define NSM_PacketReceived	1 /* HelloReceived in the protocol */
 #define NSM_Start		2
 #define NSM_TwoWayReceived	3
 #define NSM_NegotiationDone	4
