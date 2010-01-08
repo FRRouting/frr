@@ -1614,14 +1614,13 @@ bgp_process_queue_init (void)
     }
   
   bm->process_main_queue->spec.workfunc = &bgp_process_main;
-  bm->process_rsclient_queue->spec.workfunc = &bgp_process_rsclient;
   bm->process_main_queue->spec.del_item_data = &bgp_processq_del;
-  bm->process_rsclient_queue->spec.del_item_data
-    =  bm->process_main_queue->spec.del_item_data;
-  bm->process_main_queue->spec.max_retries
-    = bm->process_main_queue->spec.max_retries = 0;
-  bm->process_rsclient_queue->spec.hold
-    = bm->process_main_queue->spec.hold = 50;
+  bm->process_main_queue->spec.max_retries = 0;
+  bm->process_main_queue->spec.hold = 50;
+  
+  memcpy (bm->process_rsclient_queue, bm->process_main_queue,
+          sizeof (struct work_queue *));
+  bm->process_rsclient_queue->spec.workfunc = &bgp_process_rsclient;
 }
 
 void
