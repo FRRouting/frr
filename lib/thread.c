@@ -382,6 +382,89 @@ DEFUN(show_thread_cpu,
   cpu_record_print(vty, filter);
   return CMD_SUCCESS;
 }
+
+static void
+cpu_record_hash_clear (struct hash_backet *bucket, 
+		      void *args)
+{
+  thread_type *filter = args;
+  struct cpu_thread_history *a = bucket->data;
+  
+  a = bucket->data;
+  if ( !(a->types & *filter) )
+       return;
+  
+  hash_release (cpu_record, bucket->data);
+}
+
+static void
+cpu_record_clear (thread_type filter)
+{
+  thread_type *tmp = &filter;
+  hash_iterate (cpu_record,
+	        (void (*) (struct hash_backet*,void*)) cpu_record_hash_clear,
+	        tmp);
+}
+
+DEFUN(clear_thread_cpu,
+      clear_thread_cpu_cmd,
+      "clear thread cpu [FILTER]",
+      "Clear stored data\n"
+      "Thread information\n"
+      "Thread CPU usage\n"
+      "Display filter (rwtexb)\n")
+{
+  int i = 0;
+  thread_type filter = (thread_type) -1U;
+
+  if (argc > 0)
+    {
+      filter = 0;
+      while (argv[0][i] != '\0')
+	{
+	  switch ( argv[0][i] )
+	    {
+	    case 'r':
+	    case 'R':
+	      filter |= (1 << THREAD_READ);
+	      break;
+	    case 'w':
+	    case 'W':
+	      filter |= (1 << THREAD_WRITE);
+	      break;
+	    case 't':
+	    case 'T':
+	      filter |= (1 << THREAD_TIMER);
+	      break;
+	    case 'e':
+	    case 'E':
+	      filter |= (1 << THREAD_EVENT);
+	      break;
+	    case 'x':
+	    case 'X':
+	      filter |= (1 << THREAD_EXECUTE);
+	      break;
+	    case 'b':
+	    case 'B':
+	      filter |= (1 << THREAD_BACKGROUND);
+	      break;
+	    default:
+	      break;
+	    }
+	  ++i;
+	}
+      if (filter == 0)
+	{
+	  vty_out(vty, "Invalid filter \"%s\" specified,"
+                  " must contain at least one of 'RWTEXB'%s",
+		  argv[0], VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+    }
+
+  cpu_record_clear (filter);
+  return CMD_SUCCESS;
+}
 
 /* List allocation and head/tail print out. */
 static void
