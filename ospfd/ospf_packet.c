@@ -1946,7 +1946,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	      quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
 	      
 	      if (tv_cmp (tv_sub (now, current->tv_orig), 
-			  int2tv (OSPF_MIN_LS_ARRIVAL)) > 0)
+			  int2tv (OSPF_MIN_LS_ARRIVAL)) >= 0)
 		/* Trap NSSA type later.*/
 		ospf_ls_upd_send_lsa (nbr, current, OSPF_SEND_PACKET_DIRECT);
 	      DISCARD_LSA (lsa, 8);
