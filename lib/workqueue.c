@@ -341,7 +341,7 @@ work_queue_run (struct thread *thread)
 
 stats:
 
-#define WQ_HYSTERIS_FACTOR 2
+#define WQ_HYSTERESIS_FACTOR 4
 
   /* we yielded, check whether granularity should be reduced */
   if (yielded && (cycles < wq->cycles.granularity))
@@ -349,17 +349,18 @@ stats:
       wq->cycles.granularity = ((cycles > 0) ? cycles 
                                              : WORK_QUEUE_MIN_GRANULARITY);
     }
-  
-  if (cycles >= (wq->cycles.granularity))
+  /* otherwise, should granularity increase? */
+  else if (cycles >= (wq->cycles.granularity))
     {
       if (cycles > wq->cycles.best)
         wq->cycles.best = cycles;
       
-      /* along with yielded check, provides hysteris for granularity */
-      if (cycles > (wq->cycles.granularity * WQ_HYSTERIS_FACTOR * 2))
-        wq->cycles.granularity *= WQ_HYSTERIS_FACTOR; /* quick ramp-up */
-      else if (cycles > (wq->cycles.granularity * WQ_HYSTERIS_FACTOR))
-        wq->cycles.granularity += WQ_HYSTERIS_FACTOR;
+      /* along with yielded check, provides hysteresis for granularity */
+      if (cycles > (wq->cycles.granularity * WQ_HYSTERESIS_FACTOR
+                                           * WQ_HYSTERESIS_FACTOR))
+        wq->cycles.granularity *= WQ_HYSTERESIS_FACTOR; /* quick ramp-up */
+      else if (cycles > (wq->cycles.granularity * WQ_HYSTERESIS_FACTOR))
+        wq->cycles.granularity += WQ_HYSTERESIS_FACTOR;
     }
 #undef WQ_HYSTERIS_FACTOR
   
