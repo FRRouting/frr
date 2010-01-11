@@ -82,7 +82,7 @@ struct thread
 struct cpu_thread_history 
 {
   int (*func)(struct thread *);
-  const char *funcname;
+  char *funcname;
   unsigned int total_calls;
   struct time_stats
   {

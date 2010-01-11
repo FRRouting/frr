@@ -303,7 +303,7 @@ cpu_record_print(struct vty *vty, thread_type filter)
   void *args[3] = {&tmp, vty, &filter};
 
   memset(&tmp, 0, sizeof tmp);
-  tmp.funcname = "TOTAL";
+  tmp.funcname = (char *)"TOTAL";
   tmp.types = filter;
 
 #ifdef HAVE_RUSAGE
