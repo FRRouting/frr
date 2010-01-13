@@ -817,32 +817,6 @@ stream_read (struct stream *s, int fd, size_t size)
   return nbytes;
 }
 
-/* Read size from fd. */
-int
-stream_read_unblock (struct stream *s, int fd, size_t size)
-{
-  int nbytes;
-  int val;
-  
-  STREAM_VERIFY_SANE(s);
-  
-  if (STREAM_WRITEABLE (s) < size)
-    {
-      STREAM_BOUND_WARN (s, "put");
-      return 0;
-    }
-  
-  val = fcntl (fd, F_GETFL, 0);
-  fcntl (fd, F_SETFL, val|O_NONBLOCK);
-  nbytes = read (fd, s->data + s->endp, size);
-  fcntl (fd, F_SETFL, val);
-
-  if (nbytes > 0)
-    s->endp += nbytes;
-  
-  return nbytes;
-}
-
 ssize_t
 stream_read_try(struct stream *s, int fd, size_t size)
 {

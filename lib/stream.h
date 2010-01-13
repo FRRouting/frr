@@ -199,10 +199,6 @@ extern u_int32_t stream_get_ipv4 (struct stream *);
    Use stream_read_try instead.  */
 extern int stream_read (struct stream *, int, size_t);
 
-/* Deprecated: all file descriptors should already be non-blocking.
-   Will be removed.  Use stream_read_try instead. */
-extern int stream_read_unblock (struct stream *, int, size_t);
-
 /* Read up to size bytes into the stream.
    Return code:
      >0: number of bytes read
