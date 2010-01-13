@@ -2293,6 +2293,9 @@ peer_change_action (struct peer *peer, afi_t afi, safi_t safi,
   if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     return;
 
+  if (peer->status != Established)
+    return;
+
   if (type == peer_change_reset)
     bgp_notify_send (peer, BGP_NOTIFY_CEASE,
 		     BGP_NOTIFY_CEASE_CONFIG_CHANGE);
