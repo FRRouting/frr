@@ -46,7 +46,10 @@ extern struct mlist mlists[];
 #define XREALLOC(mtype, ptr, size)  \
   mtype_zrealloc (__FILE__, __LINE__, (mtype), (ptr), (size))
 #define XFREE(mtype, ptr) \
-  mtype_zfree (__FILE__, __LINE__, (mtype), (ptr))
+  do { \
+    mtype_zfree (__FILE__, __LINE__, (mtype), (ptr)); \
+    ptr = NULL; } \
+  while (0)
 #define XSTRDUP(mtype, str) \
   mtype_zstrdup (__FILE__, __LINE__, (mtype), (str))
 #else
@@ -69,8 +72,7 @@ extern char *zstrdup (int type, const char *str);
 
 extern void *mtype_zmalloc (const char *file, int line, int type, size_t size);
 
-extern void *mtype_zcalloc (const char *file, int line, int type, 
-                            size_t num, size_t size);
+extern void *mtype_zcalloc (const char *file, int line, int type, size_t size);
 
 extern void *mtype_zrealloc (const char *file, int line, int type, void *ptr,
 		             size_t size);
