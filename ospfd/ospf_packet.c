@@ -1724,17 +1724,17 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
         /* Reject from STUB or NSSA */
         if (nbr->oi->area->external_routing != OSPF_AREA_DEFAULT) 
 	  {
-	    DISCARD_LSA (lsa, 1);
 	    if (IS_DEBUG_OSPF_NSSA)
 	      zlog_debug("Incoming External LSA Discarded: We are NSSA/STUB Area");
+	    DISCARD_LSA (lsa, 1);
 	  }
 
       if (lsa->data->type == OSPF_AS_NSSA_LSA)
 	if (nbr->oi->area->external_routing != OSPF_AREA_NSSA)
 	  {
-	    DISCARD_LSA (lsa,2);
 	    if (IS_DEBUG_OSPF_NSSA)
 	      zlog_debug("Incoming NSSA LSA Discarded:  Not NSSA Area");
+	    DISCARD_LSA (lsa,2);
 	  }
 
       /* Find the LSA in the current database. */
@@ -1953,7 +1953,8 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	    }
 	}
     }
-  
+#undef DISCARD_LSA
+
   assert (listcount (lsas) == 0);
   list_delete (lsas);
 }
