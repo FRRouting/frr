@@ -75,7 +75,6 @@ ospf_lsdb_cleanup (struct ospf_lsdb *lsdb)
 static void
 lsdb_prefix_set (struct prefix_ls *lp, struct ospf_lsa *lsa)
 {
-  memset (lp, 0, sizeof (struct prefix_ls));
   lp->family = 0;
   lp->prefixlen = 64;
   lp->id = lsa->data->id;
