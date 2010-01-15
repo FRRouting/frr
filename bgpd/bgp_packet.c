@@ -1805,7 +1805,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 
   /* Increment packet counter. */
   peer->update_in++;
-  peer->update_time = time (NULL);
+  peer->update_time = bgp_clock ();
 
   /* Generate BGP event. */
   BGP_EVENT_ADD (peer, Receive_UPDATE_message);

@@ -241,6 +241,17 @@ bgp_cluster_id_unset (struct bgp *bgp)
   return 0;
 }
 
+/* time_t value that is monotonicly increasing
+ * and uneffected by adjustments to system clock
+ */
+time_t bgp_clock (void)
+{
+  struct timeval tv;
+
+  quagga_gettime(QUAGGA_CLK_MONOTONIC, &tv);
+  return tv.tv_sec;
+}
+
 /* BGP timer configuration.  */
 int
 bgp_timers_set (struct bgp *bgp, u_int32_t keepalive, u_int32_t holdtime)
@@ -850,11 +861,8 @@ peer_create (union sockunion *su, struct bgp *bgp, as_t local_as,
   if (afi && safi)
     peer->afc[afi][safi] = 1;
 
-  /* Last read time set */
-  peer->readtime = time (NULL);
-
-  /* Last reset time set */
-  peer->resettime = time (NULL);
+  /* Last read and reset time set */
+  peer->readtime = peer->resettime = bgp_clock ();
 
   /* Default TTL set. */
   peer->ttl = (peer_sort (peer) == BGP_PEER_IBGP ? 255 : 1);
@@ -4453,7 +4461,7 @@ peer_uptime (time_t uptime2, char *buf, size_t len)
     }
 
   /* Get current time. */
-  uptime1 = time (NULL);
+  uptime1 = bgp_clock ();
   uptime1 -= uptime2;
   tm = gmtime (&uptime1);
 
@@ -5145,7 +5153,7 @@ bgp_master_init (void)
   bm->listen_sockets = list_new ();
   bm->port = BGP_PORT_DEFAULT;
   bm->master = thread_master_create ();
-  bm->start_time = time (NULL);
+  bm->start_time = bgp_clock ();
 }
 
 

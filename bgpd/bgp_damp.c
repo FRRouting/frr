@@ -117,7 +117,7 @@ bgp_reuse_timer (struct thread *t)
   damp->t_reuse =
     thread_add_timer (master, bgp_reuse_timer, NULL, DELTA_REUSE);
 
-  t_now = time (NULL);
+  t_now = bgp_clock ();
 
   /* 1.  save a pointer to the current zeroth queue head and zero the
      list head entry.  */
@@ -181,7 +181,7 @@ bgp_damp_withdraw (struct bgp_info *binfo, struct bgp_node *rn,
   struct bgp_damp_info *bdi = NULL;
   double last_penalty = 0;
   
-  t_now = time (NULL);
+  t_now = bgp_clock ();
 
   /* Processing Unreachable Messages.  */
   if (binfo->extra)
@@ -268,7 +268,7 @@ bgp_damp_update (struct bgp_info *binfo, struct bgp_node *rn,
   if (!binfo->extra || !((bdi = binfo->extra->damp_info)))
     return BGP_DAMP_USED;
 
-  t_now = time (NULL);
+  t_now = bgp_clock ();
   bgp_info_unset_flag (rn, binfo, BGP_INFO_HISTORY);
 
   bdi->lastrecord = BGP_RECORD_UPDATE;
@@ -306,7 +306,7 @@ bgp_damp_scan (struct bgp_info *binfo, afi_t afi, safi_t safi)
   
   assert (binfo->extra && binfo->extra->damp_info);
   
-  t_now = time (NULL);
+  t_now = bgp_clock ();
   bdi = binfo->extra->damp_info;
  
   if (CHECK_FLAG (binfo->flags, BGP_INFO_DAMPED))
@@ -597,7 +597,7 @@ bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo)
     return;
 
   /* Calculate new penalty.  */
-  t_now = time (NULL);
+  t_now = bgp_clock ();
   t_diff = t_now - bdi->t_updated;
   penalty = bgp_damp_decay (t_diff, bdi->penalty);
 
@@ -633,7 +633,7 @@ bgp_damp_reuse_time_vty (struct vty *vty, struct bgp_info *binfo,
     return NULL;
 
   /* Calculate new penalty.  */
-  t_now = time (NULL);
+  t_now = bgp_clock ();
   t_diff = t_now - bdi->t_updated;
   penalty = bgp_damp_decay (t_diff, bdi->penalty);
 

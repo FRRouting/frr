@@ -1878,7 +1878,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
   /* If the update is implicit withdraw. */
   if (ri)
     {
-      ri->uptime = time (NULL);
+      ri->uptime = bgp_clock ();
 
       /* Same attribute comes in. */
       if (!CHECK_FLAG(ri->flags, BGP_INFO_REMOVED)
@@ -1946,7 +1946,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
   new->sub_type = sub_type;
   new->peer = peer;
   new->attr = attr_new;
-  new->uptime = time (NULL);
+  new->uptime = bgp_clock ();
 
   /* Update MPLS tag. */
   if (safi == SAFI_MPLS_VPN)
@@ -2133,7 +2133,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
   /* If the update is implicit withdraw. */
   if (ri)
     {
-      ri->uptime = time (NULL);
+      ri->uptime = bgp_clock ();
 
       /* Same attribute comes in. */
       if (!CHECK_FLAG (ri->flags, BGP_INFO_REMOVED) 
@@ -2284,7 +2284,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
   new->sub_type = sub_type;
   new->peer = peer;
   new->attr = attr_new;
-  new->uptime = time (NULL);
+  new->uptime = bgp_clock ();
 
   /* Update MPLS tag. */
   if (safi == SAFI_MPLS_VPN)
@@ -3337,7 +3337,7 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
 	    bgp_info_restore(rn, ri);
           bgp_attr_unintern (ri->attr);
           ri->attr = attr_new;
-          ri->uptime = time (NULL);
+          ri->uptime = bgp_clock ();
 
           /* Process change. */
           bgp_process (bgp, rn, afi, safi);
@@ -3355,7 +3355,7 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
   new->peer = bgp->peer_self;
   SET_FLAG (new->flags, BGP_INFO_VALID);
   new->attr = attr_new;
-  new->uptime = time (NULL);
+  new->uptime = bgp_clock ();
 
   /* Register new BGP information. */
   bgp_info_add (rn, new);
@@ -3463,7 +3463,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 	    bgp_aggregate_decrement (bgp, p, ri, afi, safi);
 	  bgp_attr_unintern (ri->attr);
 	  ri->attr = attr_new;
-	  ri->uptime = time (NULL);
+	  ri->uptime = bgp_clock ();
 
 	  /* Process change. */
 	  bgp_aggregate_increment (bgp, p, ri, afi, safi);
@@ -3482,7 +3482,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
   new->peer = bgp->peer_self;
   SET_FLAG (new->flags, BGP_INFO_VALID);
   new->attr = attr_new;
-  new->uptime = time (NULL);
+  new->uptime = bgp_clock ();
 
   /* Aggregate address increment. */
   bgp_aggregate_increment (bgp, p, new, afi, safi);
@@ -3533,7 +3533,7 @@ bgp_static_update_vpnv4 (struct bgp *bgp, struct prefix *p, u_int16_t afi,
   new->peer = bgp->peer_self;
   new->attr = bgp_attr_default_intern (BGP_ORIGIN_IGP);
   SET_FLAG (new->flags, BGP_INFO_VALID);
-  new->uptime = time (NULL);
+  new->uptime = bgp_clock ();
   new->extra = bgp_info_extra_new();
   memcpy (new->extra->tag, tag, 3);
 
@@ -4729,7 +4729,7 @@ bgp_aggregate_route (struct bgp *bgp, struct prefix *p, struct bgp_info *rinew,
       new->peer = bgp->peer_self;
       SET_FLAG (new->flags, BGP_INFO_VALID);
       new->attr = bgp_attr_aggregate_intern (bgp, origin, aspath, community, aggregate->as_set);
-      new->uptime = time (NULL);
+      new->uptime = bgp_clock ();
 
       bgp_info_add (rn, new);
       bgp_unlock_node (rn);
@@ -4900,7 +4900,7 @@ bgp_aggregate_add (struct bgp *bgp, struct prefix *p, afi_t afi, safi_t safi,
       new->peer = bgp->peer_self;
       SET_FLAG (new->flags, BGP_INFO_VALID);
       new->attr = bgp_attr_aggregate_intern (bgp, origin, aspath, community, aggregate->as_set);
-      new->uptime = time (NULL);
+      new->uptime = bgp_clock ();
 
       bgp_info_add (rn, new);
       bgp_unlock_node (rn);
@@ -5514,7 +5514,7 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
 		    bgp_aggregate_decrement (bgp, p, bi, afi, SAFI_UNICAST);
  		  bgp_attr_unintern (bi->attr);
  		  bi->attr = new_attr;
- 		  bi->uptime = time (NULL);
+ 		  bi->uptime = bgp_clock ();
  
  		  /* Process change. */
  		  bgp_aggregate_increment (bgp, p, bi, afi, SAFI_UNICAST);
@@ -5532,7 +5532,7 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
 	  new->peer = bgp->peer_self;
 	  SET_FLAG (new->flags, BGP_INFO_VALID);
 	  new->attr = new_attr;
-	  new->uptime = time (NULL);
+	  new->uptime = bgp_clock ();
 
 	  bgp_aggregate_increment (bgp, p, new, afi, SAFI_UNICAST);
 	  bgp_info_add (bn, new);

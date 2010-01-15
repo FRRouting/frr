@@ -305,7 +305,7 @@ bgp_routeadv_timer (struct thread *thread)
 	  "%s [FSM] Timer (routeadv timer expire)",
 	  peer->host);
 
-  peer->synctime = time (NULL);
+  peer->synctime = bgp_clock ();
 
   BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 
@@ -313,13 +313,6 @@ bgp_routeadv_timer (struct thread *thread)
 		peer->v_routeadv);
 
   return 0;
-}
-
-/* Reset bgp update timer */
-static void
-bgp_uptime_reset (struct peer *peer)
-{
-  peer->uptime = time (NULL);
 }
 
 /* BGP Peer Down Cause */
@@ -493,16 +486,11 @@ bgp_stop (struct peer *peer)
 	}
 
       /* set last reset time */
-      peer->resettime = time (NULL);
-      /* Reset uptime. */
-      bgp_uptime_reset (peer);
+      peer->resettime = peer->uptime = bgp_clock ();
 
 #ifdef HAVE_SNMP
       bgpTrapBackwardTransition (peer);
 #endif /* HAVE_SNMP */
-
-      /* Reset uptime. */
-      bgp_uptime_reset (peer);
 
       /* Reset peer synctime */
       peer->synctime = 0;
@@ -857,7 +845,7 @@ bgp_establish (struct peer *peer)
 #endif /* HAVE_SNMP */
 
   /* Reset uptime, send keepalive, send current table. */
-  bgp_uptime_reset (peer);
+  peer->uptime = bgp_clock ();
 
   /* Send route-refresh when ORF is enabled */
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
