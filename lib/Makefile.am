@@ -14,6 +14,9 @@ libzebra_la_SOURCES = \
 	zclient.c sockopt.c smux.c md5.c if_rmap.c keychain.c privs.c \
 	sigevent.c pqueue.c jhash.c memtypes.c workqueue.c
 
+AM_CFLAGS = $(PICFLAGS)
+AM_LDFLAGS = $(PILDFLAGS)
+
 BUILT_SOURCES = memtypes.h route_types.h
 
 libzebra_la_DEPENDENCIES = @LIB_REGEX@
