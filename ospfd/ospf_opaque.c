@@ -1630,7 +1630,7 @@ ospf_opaque_lsa_refresh (struct ospf_lsa *lsa)
         zlog_debug ("LSA[Type%d:%s]: Flush stray Opaque-LSA", lsa->data->type, inet_ntoa (lsa->data->id));
 
       lsa->data->ls_age = htons (OSPF_LSA_MAXAGE);
-      ospf_lsa_maxage (ospf, lsa);
+      ospf_lsa_flush (ospf, lsa);
     }
   else
     (* functab->lsa_refresher)(lsa);
@@ -2108,7 +2108,7 @@ ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa0)
     zlog_debug ("Schedule Type-%u Opaque-LSA to FLUSH: [opaque-type=%u, opaque-id=%x]", lsa->data->type, GET_OPAQUE_TYPE (ntohl (lsa->data->id.s_addr)), GET_OPAQUE_ID (ntohl (lsa->data->id.s_addr)));
 
   /* This lsa will be flushed and removed eventually. */
-  ospf_lsa_maxage (lsa0->area->ospf, lsa);
+  ospf_lsa_flush (lsa0->area->ospf, lsa);
 
 out:
   return;

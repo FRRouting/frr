@@ -991,3 +991,33 @@ ospf_lsa_flush_as (struct ospf *ospf, struct ospf_lsa *lsa)
   ospf_flood_through_as (ospf, NULL, lsa);
   ospf_lsa_maxage (ospf, lsa);
 }
+
+void
+ospf_lsa_flush (struct ospf *ospf, struct ospf_lsa *lsa)
+{
+  lsa->data->ls_age = htons (OSPF_LSA_MAXAGE);
+  
+  switch (lsa->data->type)
+    {
+      case OSPF_ROUTER_LSA:
+      case OSPF_NETWORK_LSA:
+      case OSPF_SUMMARY_LSA:
+      case OSPF_ASBR_SUMMARY_LSA:
+      case OSPF_AS_NSSA_LSA:
+#ifdef HAVE_OPAQUE_LSA
+      case OSPF_OPAQUE_LINK_LSA:
+      case OSPF_OPAQUE_AREA_LSA:
+#endif /* HAVE_OPAQUE_LSA */
+        ospf_lsa_flush_area (lsa, lsa->area);
+        break;
+      case OSPF_AS_EXTERNAL_LSA:
+#ifdef HAVE_OPAQUE_LSA
+      case OSPF_OPAQUE_AS_LSA:
+#endif /* HAVE_OPAQUE_LSA */
+        ospf_lsa_flush_as (ospf, lsa);
+        break;
+      default:
+        zlog_info ("%s: Unknown LSA type %u", __func__, lsa->data->type);
+        break;
+    }
+}

@@ -372,7 +372,7 @@ lsa_header_set (struct stream *s, u_char options,
 
   lsah = (struct lsa_header *) STREAM_DATA (s);
 
-  lsah->ls_age = htons (0);
+  lsah->ls_age = htons (OSPF_LSA_INITIAL_AGE);
   lsah->options = options;
   lsah->type = type;
   lsah->id = id;
@@ -2762,7 +2762,7 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
                    new->data->type, 
                    inet_ntoa (new->data->id), 
                    lsa);
-      ospf_lsa_maxage (ospf, lsa);
+      ospf_lsa_flush (ospf, lsa);
     }
 
   return new;
@@ -2794,35 +2794,6 @@ ospf_check_nbr_status (struct ospf *ospf)
 }
 
 
-#ifdef ORIGINAL_CODING
-/* This function flood the maxaged LSA to DR. */
-void
-ospf_maxage_flood (struct ospf_lsa *lsa)
-{
-  switch (lsa->data->type)
-    {
-    case OSPF_ROUTER_LSA:
-    case OSPF_NETWORK_LSA:
-    case OSPF_SUMMARY_LSA:
-    case OSPF_ASBR_SUMMARY_LSA:
-    case OSPF_AS_NSSA_LSA:
-#ifdef HAVE_OPAQUE_LSA
-    case OSPF_OPAQUE_LINK_LSA:
-    case OSPF_OPAQUE_AREA_LSA:
-#endif /* HAVE_OPAQUE_LSA */
-      ospf_flood_through_area (lsa->area, NULL, lsa);
-      break;
-    case OSPF_AS_EXTERNAL_LSA:
-#ifdef HAVE_OPAQUE_LSA
-    case OSPF_OPAQUE_AS_LSA:
-#endif /* HAVE_OPAQUE_LSA */
-      ospf_flood_through_as (NULL, lsa);
-      break;
-    default:
-      break;
-    }
-}
-#endif /* ORIGINAL_CODING */
 
 static int
 ospf_maxage_lsa_remover (struct thread *thread)
@@ -2862,13 +2833,6 @@ ospf_maxage_lsa_remover (struct thread *thread)
           zlog_debug ("LSA[Type%d:%s]: MaxAge LSA removed from list",
                      lsa->data->type, inet_ntoa (lsa->data->id));
 
-	/* Flood max age LSA. */
-#ifdef ORIGINAL_CODING
-	ospf_maxage_flood (lsa);
-#else /* ORIGINAL_CODING */
-        ospf_flood_through (ospf, NULL, lsa);
-#endif /* ORIGINAL_CODING */
-
 	if (CHECK_FLAG (lsa->flags, OSPF_LSA_PREMATURE_AGE))
           {
             if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
@@ -2892,7 +2856,8 @@ ospf_maxage_lsa_remover (struct thread *thread)
         neighbor Link state retransmission lists and b) none of the router's
         neighbors are in states Exchange or Loading. */
   if (reschedule)
-    OSPF_TIMER_ON (ospf->t_maxage, ospf_maxage_lsa_remover, 2);
+    OSPF_TIMER_ON (ospf->t_maxage, ospf_maxage_lsa_remover,
+                   ospf->maxage_delay);
 
   return 0;
 }
@@ -2910,6 +2875,11 @@ ospf_lsa_maxage_delete (struct ospf *ospf, struct ospf_lsa *lsa)
     }
 }
 
+/* Add LSA onto the MaxAge list, and schedule for removal.
+ * This does *not* lead to the LSA being flooded, that must be taken
+ * care of elsewhere, see, e.g., ospf_lsa_flush* (which are callers of this
+ * function).
+ */
 void
 ospf_lsa_maxage (struct ospf *ospf, struct ospf_lsa *lsa)
 {
@@ -2929,7 +2899,8 @@ ospf_lsa_maxage (struct ospf *ospf, struct ospf_lsa *lsa)
   if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
     zlog_debug ("LSA[%s]: MaxAge LSA remover scheduled.", dump_lsa_key (lsa));
 
-  OSPF_TIMER_ON (ospf->t_maxage, ospf_maxage_lsa_remover, 2);
+  OSPF_TIMER_ON (ospf->t_maxage, ospf_maxage_lsa_remover,
+                 ospf->maxage_delay);
 }
 
 static int
@@ -3296,6 +3267,7 @@ ospf_lsa_flush_schedule (struct ospf *ospf, struct ospf_lsa *lsa)
   switch (lsa->data->type)
     {
 #ifdef HAVE_OPAQUE_LSA
+    /* Opaque wants to be notified of flushes */
     case OSPF_OPAQUE_LINK_LSA:
     case OSPF_OPAQUE_AREA_LSA:
     case OSPF_OPAQUE_AS_LSA:
@@ -3303,7 +3275,7 @@ ospf_lsa_flush_schedule (struct ospf *ospf, struct ospf_lsa *lsa)
       break;
 #endif /* HAVE_OPAQUE_LSA */
     default:
-      ospf_lsa_maxage (ospf, lsa);
+      ospf_lsa_flush (ospf, lsa);
       break;
     }
 
