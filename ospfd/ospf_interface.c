@@ -97,7 +97,7 @@ ospf_if_recalculate_output_cost (struct interface *ifp)
       if (oi->output_cost != newcost)
 	{
 	  oi->output_cost = newcost;
-	  ospf_router_lsa_timer_add (oi->area);
+	  ospf_router_lsa_update_area (oi->area);
 	}
     }
 }
@@ -298,8 +298,6 @@ ospf_if_cleanup (struct ospf_interface *oi)
   ospf_nbr_delete (oi->nbr_self);
   oi->nbr_self = ospf_nbr_new (oi);
   ospf_nbr_add_self (oi);
-  
-  OSPF_TIMER_OFF (oi->t_network_lsa_self);
 }
 
 void
@@ -1121,8 +1119,8 @@ ospf_vl_up_check (struct ospf_area *area, struct in_addr rid,
              if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
                zlog_debug ("ospf_vl_up_check: VL cost change,"
                           " scheduling router lsa refresh");
-             if(ospf->backbone)
-               ospf_router_lsa_timer_add (ospf->backbone);
+             if (ospf->backbone)
+               ospf_router_lsa_update_area (ospf->backbone);
              else if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
                zlog_debug ("ospf_vl_up_check: VL cost change, no backbone!");
            }

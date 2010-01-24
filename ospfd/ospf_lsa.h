@@ -115,10 +115,8 @@ struct ospf_lsa
   /* Refreshement List or Queue */
   int refresh_list;
 
-#ifdef HAVE_OPAQUE_LSA
-  /* For Type-9 Opaque-LSAs, reference to ospf-interface is required. */
+  /* For Type-9 Opaque-LSAs or Type-2 Network-LSAs */
   struct ospf_interface *oi;
-#endif /* HAVE_OPAQUE_LSA */
 };
 
 /* OSPF LSA Link Type. */
@@ -254,19 +252,16 @@ extern struct lsa_header *ospf_lsa_data_dup (struct lsa_header *);
 extern void ospf_lsa_data_free (struct lsa_header *);
 
 /* Prototype for various LSAs */
-extern int ospf_router_lsa_update_timer (struct thread *);
-extern void ospf_router_lsa_timer_add (struct ospf_area *);
+extern int ospf_router_lsa_update (struct ospf *);
+extern int ospf_router_lsa_update_area (struct ospf_area *);
 
-extern int ospf_network_lsa_refresh (struct ospf_lsa *, struct ospf_interface *);
-extern void ospf_network_lsa_timer_add (struct ospf_interface *);
+extern void ospf_network_lsa_update (struct ospf_interface *);
 
 extern struct ospf_lsa *ospf_summary_lsa_originate (struct prefix_ipv4 *, u_int32_t,
 					     struct ospf_area *);
 extern struct ospf_lsa *ospf_summary_asbr_lsa_originate (struct prefix_ipv4 *,
 						  u_int32_t,
 						  struct ospf_area *);
-extern struct ospf_lsa *ospf_summary_lsa_refresh (struct ospf *, struct ospf_lsa *);
-extern struct ospf_lsa *ospf_summary_asbr_lsa_refresh (struct ospf *, struct ospf_lsa *);
 
 extern struct ospf_lsa *ospf_lsa_install (struct ospf *,
 				   struct ospf_interface *, struct ospf_lsa *);
@@ -300,12 +295,15 @@ extern void ospf_lsa_maxage (struct ospf *, struct ospf_lsa *);
 extern u_int32_t get_metric (u_char *);
 
 extern int ospf_lsa_maxage_walker (struct thread *);
-
+extern struct ospf_lsa *ospf_lsa_refresh (struct ospf *, struct ospf_lsa *);
+ 
 extern void ospf_external_lsa_refresh_default (struct ospf *);
 
 extern void ospf_external_lsa_refresh_type (struct ospf *, u_char, int);
-extern void ospf_external_lsa_refresh (struct ospf *, struct ospf_lsa *,
-				struct external_info *, int);
+extern struct ospf_lsa *ospf_external_lsa_refresh (struct ospf *,
+                                                   struct ospf_lsa *,
+                                                   struct external_info *,
+                                                   int);
 extern struct in_addr ospf_lsa_unique_id (struct ospf *, struct ospf_lsdb *, u_char,
 				   struct prefix_ipv4 *);
 extern void ospf_schedule_lsa_flood_area (struct ospf_area *, struct ospf_lsa *);

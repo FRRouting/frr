@@ -711,7 +711,7 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
 		 LOOKUP(ospf_nsm_state_msg, old_state),
 		 LOOKUP(ospf_nsm_state_msg, state));
 
-      ospf_router_lsa_timer_add (oi->area);
+      ospf_router_lsa_update_area (oi->area);
 
       if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
 	{
@@ -719,7 +719,7 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
 	    ospf_area_lookup_by_area_id (oi->ospf, oi->vl_data->vl_area_id);
 	  
 	  if (vl_area)
-	    ospf_router_lsa_timer_add (vl_area);
+	    ospf_router_lsa_update_area (vl_area);
 	}
 
       /* Originate network-LSA. */
@@ -730,10 +730,9 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
 	      ospf_lsa_flush_area (oi->network_lsa_self, oi->area);
 	      ospf_lsa_unlock (&oi->network_lsa_self);
 	      oi->network_lsa_self = NULL;
-	      OSPF_TIMER_OFF (oi->t_network_lsa_self);
 	    }
 	  else
-	    ospf_network_lsa_timer_add (oi);
+	    ospf_network_lsa_update (oi);
 	}
     }
 

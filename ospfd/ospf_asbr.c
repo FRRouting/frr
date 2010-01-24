@@ -264,8 +264,7 @@ ospf_asbr_status_update (struct ospf *ospf, u_char status)
 
   /* Transition from/to status ASBR, schedule timer. */
   ospf_spf_calculate_schedule (ospf);
-  OSPF_TIMER_ON (ospf->t_router_lsa_update,
-		 ospf_router_lsa_update_timer, OSPF_LSA_UPDATE_DELAY);
+  ospf_router_lsa_update (ospf);
 }
 
 void

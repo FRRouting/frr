@@ -131,8 +131,8 @@ ospf_router_id_update (struct ospf *ospf)
 	  ospf->external_origin = 0;
 	}
 
-      OSPF_TIMER_ON (ospf->t_router_lsa_update,
-		     ospf_router_lsa_update_timer, OSPF_LSA_UPDATE_DELAY);
+      /* update router-lsa's for each area */
+      ospf_router_lsa_update (ospf);
       
       /* update ospf_interface's */
       for (ALL_LIST_ELEMENTS_RO (om->iflist, node, ifp))
@@ -337,7 +337,7 @@ ospf_deferred_shutdown_check (struct ospf *ospf)
           SET_FLAG (area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
           
           if (!CHECK_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
-              ospf_router_lsa_timer_add (area);
+            ospf_router_lsa_update_area (area);
         }
       timeout = ospf->stub_router_shutdown_time;
     }
@@ -473,7 +473,6 @@ ospf_finish_final (struct ospf *ospf)
 
   /* Cancel all timers. */
   OSPF_TIMER_OFF (ospf->t_external_lsa);
-  OSPF_TIMER_OFF (ospf->t_router_lsa_update);
   OSPF_TIMER_OFF (ospf->t_spf_calc);
   OSPF_TIMER_OFF (ospf->t_ase_calc);
   OSPF_TIMER_OFF (ospf->t_maxage);
@@ -631,7 +630,6 @@ ospf_area_free (struct ospf_area *area)
     free (IMPORT_NAME (area));
 
   /* Cancel timer. */
-  OSPF_TIMER_OFF (area->t_router_lsa_self);
   OSPF_TIMER_OFF (area->t_stub_router);
 #ifdef HAVE_OPAQUE_LSA
   OSPF_TIMER_OFF (area->t_opaque_lsa_self);
@@ -1041,7 +1039,7 @@ ospf_area_type_set (struct ospf_area *area, int type)
       break;
     }
 
-  ospf_router_lsa_timer_add (area);
+  ospf_router_lsa_update_area (area);
   ospf_schedule_abr_task (area->ospf);
 }
 
@@ -1052,7 +1050,7 @@ ospf_area_shortcut_set (struct ospf *ospf, struct ospf_area *area, int mode)
     return 0;
 
   area->shortcut_configured = mode;
-  ospf_router_lsa_timer_add (area);
+  ospf_router_lsa_update_area (area);
   ospf_schedule_abr_task (ospf);
 
   ospf_area_check_free (ospf, area->area_id);
@@ -1064,7 +1062,7 @@ int
 ospf_area_shortcut_unset (struct ospf *ospf, struct ospf_area *area)
 {
   area->shortcut_configured = OSPF_SHORTCUT_DEFAULT;
-  ospf_router_lsa_timer_add (area);
+  ospf_router_lsa_update_area (area);
   ospf_area_check_free (ospf, area->area_id);
   ospf_schedule_abr_task (ospf);
 

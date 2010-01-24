@@ -251,7 +251,6 @@ struct ospf
   int redistribute;                     /* Num of redistributed protocols. */
 
   /* Threads. */
-  struct thread *t_router_lsa_update;   /* router-LSA update timer. */
   struct thread *t_abr_task;            /* ABR task timer. */
   struct thread *t_asbr_check;          /* ASBR check timer. */
   struct thread *t_distribute_update;   /* Distirbute list update timer. */
@@ -433,7 +432,6 @@ struct ospf_area
   struct vertex *spf;
 
   /* Threads. */
-  struct thread *t_router_lsa_self;/* Self-originated router-LSA timer. */
   struct thread *t_stub_router;    /* Stub-router timer */
 #ifdef HAVE_OPAQUE_LSA
   struct thread *t_opaque_lsa_self;	/* Type-10 Opaque-LSAs origin. */

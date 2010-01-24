@@ -135,7 +135,7 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
       /* Originate a new instance and schedule flooding */
       if (area->router_lsa_self)
 	area->router_lsa_self->data->ls_seqnum = new->data->ls_seqnum;
-      ospf_router_lsa_timer_add (area);
+      ospf_router_lsa_update_area (area);
       return;
     case OSPF_NETWORK_LSA:
 #ifdef HAVE_OPAQUE_LSA
@@ -171,7 +171,7 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
             if (oi->network_lsa_self)
 	      oi->network_lsa_self->data->ls_seqnum = new->data->ls_seqnum;
             /* Schedule network-LSA origination. */
-            ospf_network_lsa_timer_add (oi);
+            ospf_network_lsa_update (oi);
             return;
           }
       break;

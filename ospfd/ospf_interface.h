@@ -210,8 +210,6 @@ struct ospf_interface
   struct thread *t_ls_ack;              /* timer */
   struct thread *t_ls_ack_direct;       /* event */
   struct thread *t_ls_upd_event;        /* event */
-  struct thread *t_network_lsa_self;    /* self-originated network-LSA
-                                           reflesh thread. timer */
 #ifdef HAVE_OPAQUE_LSA
   struct thread *t_opaque_lsa_self;     /* Type-9 Opaque-LSAs */
 #endif /* HAVE_OPAQUE_LSA */

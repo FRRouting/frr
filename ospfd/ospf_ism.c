@@ -578,20 +578,17 @@ ism_change_state (struct ospf_interface *oi, int state)
     oi->area->act_ints++;
 
   /* schedule router-LSA originate. */
-  ospf_router_lsa_timer_add (oi->area);
+  ospf_router_lsa_update_area (oi->area);
 
   /* Originate network-LSA. */
   if (old_state != ISM_DR && state == ISM_DR)
-    ospf_network_lsa_timer_add (oi);
+    ospf_network_lsa_update (oi);
   else if (old_state == ISM_DR && state != ISM_DR)
     {
       /* Free self originated network LSA. */
       lsa = oi->network_lsa_self;
       if (lsa)
-	{
-	  ospf_lsa_flush_area (lsa, oi->area);
-	  OSPF_TIMER_OFF (oi->t_network_lsa_self);
-	}
+        ospf_lsa_flush_area (lsa, oi->area);
 
       ospf_lsa_unlock (&oi->network_lsa_self);
       oi->network_lsa_self = NULL;

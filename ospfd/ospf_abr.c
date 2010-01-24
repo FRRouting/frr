@@ -565,8 +565,7 @@ ospf_check_abr_status (struct ospf *ospf)
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_debug ("ospf_check_abr_status(): new router flags: %x",new_flags);
       ospf->flags = new_flags;
-      OSPF_TIMER_ON (ospf->t_router_lsa_update,
-		     ospf_router_lsa_update_timer, OSPF_LSA_UPDATE_DELAY);
+      ospf_router_lsa_update (ospf);
     }
 }
 
@@ -760,7 +759,7 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
             zlog_debug ("ospf_abr_announce_network_to_area(): "
                        "refreshing summary");
           set_metric (old, cost);
-          lsa = ospf_summary_lsa_refresh (area->ospf, old);
+          lsa = ospf_lsa_refresh (area->ospf, old);
           
           if (!lsa)
             {
@@ -1148,7 +1147,7 @@ ospf_abr_announce_rtr_to_area (struct prefix_ipv4 *p, u_int32_t cost,
       if (old) 
 	{ 
 	  set_metric (old, cost);
-	  lsa = ospf_summary_asbr_lsa_refresh (area->ospf, old);
+	  lsa = ospf_lsa_refresh (area->ospf, old);
 	}
       else
 	lsa = ospf_summary_asbr_lsa_originate (p, cost, area);
