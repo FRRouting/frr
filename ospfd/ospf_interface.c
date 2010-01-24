@@ -219,9 +219,6 @@ ospf_if_new (struct ospf *ospf, struct interface *ifp, struct prefix *p)
   ospf_add_to_if (ifp, oi);
   listnode_add (ospf->oiflist, oi);
   
-  /* Clear self-originated network-LSA. */
-  oi->network_lsa_self = NULL;
-
   /* Initialize neighbor list. */
   oi->nbrs = route_table_init ();
 
@@ -302,8 +299,6 @@ ospf_if_cleanup (struct ospf_interface *oi)
   oi->nbr_self = ospf_nbr_new (oi);
   ospf_nbr_add_self (oi);
   
-  ospf_lsa_unlock (&oi->network_lsa_self);
-  oi->network_lsa_self = NULL;
   OSPF_TIMER_OFF (oi->t_network_lsa_self);
 }
 
