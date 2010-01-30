@@ -100,14 +100,43 @@ static void connected_announce(struct interface *ifp, struct connected *ifc)
 }
 
 /* If same interface address is already exist... */
-struct connected *connected_check(struct interface *ifp, struct prefix *p)
+struct connected *connected_check(struct interface *ifp,
+				  union prefixconstptr pu)
 {
+	const struct prefix *p = pu.p;
 	struct connected *ifc;
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
 		if (prefix_same(ifc->address, p))
 			return ifc;
+
+	return NULL;
+}
+
+/* same, but with peer address */
+struct connected *connected_check_ptp(struct interface *ifp,
+				      union prefixconstptr pu,
+				      union prefixconstptr du)
+{
+	const struct prefix *p = pu.p;
+	const struct prefix *d = du.p;
+	struct connected *ifc;
+	struct listnode *node;
+
+	/* ignore broadcast addresses */
+	if (p->prefixlen != IPV4_MAX_PREFIXLEN)
+		d = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+		if (!prefix_same(ifc->address, p))
+			continue;
+		if (!CONNECTED_PEER(ifc) && !d)
+			return ifc;
+		if (CONNECTED_PEER(ifc) && d
+		    && prefix_same(ifc->destination, d))
+			return ifc;
+	}
 
 	return NULL;
 }
@@ -145,7 +174,8 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 	struct connected *current;
 
 	/* Check same connected route. */
-	if ((current = connected_check(ifp, (struct prefix *)ifc->address))) {
+	current = connected_check_ptp(ifp, ifc->address, ifc->destination);
+	if (current) {
 		if (CHECK_FLAG(current->conf, ZEBRA_IFC_CONFIGURED))
 			SET_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED);
 
@@ -238,7 +268,8 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 	p = prefix_ipv4_new();
 	p->family = AF_INET;
 	p->prefix = *addr;
-	p->prefixlen = prefixlen;
+	p->prefixlen = CHECK_FLAG(flags, ZEBRA_IFA_PEER) ? IPV4_MAX_PREFIXLEN
+							 : prefixlen;
 	ifc->address = (struct prefix *)p;
 
 	/* If there is broadcast or peer address. */
@@ -350,15 +381,25 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 			   struct in_addr *addr, u_char prefixlen,
 			   struct in_addr *broad)
 {
-	struct prefix_ipv4 p;
+	struct prefix_ipv4 p, d;
 	struct connected *ifc;
 
 	memset(&p, 0, sizeof(struct prefix_ipv4));
 	p.family = AF_INET;
 	p.prefix = *addr;
-	p.prefixlen = prefixlen;
+	p.prefixlen = CHECK_FLAG(flags, ZEBRA_IFA_PEER) ? IPV4_MAX_PREFIXLEN
+							: prefixlen;
 
-	ifc = connected_check(ifp, (struct prefix *)&p);
+	if (broad) {
+		memset(&d, 0, sizeof(struct prefix_ipv4));
+		d.family = AF_INET;
+		d.prefix = *broad;
+		d.prefixlen = prefixlen;
+		ifc = connected_check_ptp(ifp, (struct prefix *)&p,
+					  (struct prefix *)&d);
+	} else
+		ifc = connected_check_ptp(ifp, (struct prefix *)&p, NULL);
+
 	if (!ifc)
 		return;
 

@@ -23,7 +23,10 @@
 #define _ZEBRA_CONNECTED_H
 
 extern struct connected *connected_check(struct interface *ifp,
-					 struct prefix *p);
+					 union prefixconstptr p);
+extern struct connected *connected_check_ptp(struct interface *ifp,
+					     union prefixconstptr p,
+					     union prefixconstptr d);
 
 extern void connected_add_ipv4(struct interface *ifp, int flags,
 			       struct in_addr *addr, u_char prefixlen,
