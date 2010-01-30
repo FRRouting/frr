@@ -2373,38 +2373,56 @@ static int ip_address_install(struct vty *vty, struct interface *ifp,
 			      const char *label)
 {
 	struct zebra_if *if_data;
-	struct prefix_ipv4 cp;
+	struct prefix_ipv4 lp, pp;
 	struct connected *ifc;
 	struct prefix_ipv4 *p;
 	int ret;
 
 	if_data = ifp->info;
 
-	ret = str2prefix_ipv4(addr_str, &cp);
+	ret = str2prefix_ipv4(addr_str, &lp);
 	if (ret <= 0) {
 		vty_out(vty, "%% Malformed address \n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (ipv4_martian(&cp.prefix)) {
+	if (ipv4_martian(&lp.prefix)) {
 		vty_out(vty, "%% Invalid address\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ifc = connected_check(ifp, (struct prefix *)&cp);
+	if (peer_str) {
+		if (lp.prefixlen != 32) {
+			vty_out(vty,
+				"%% Local prefix length for P-t-P address must be /32\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		ret = str2prefix_ipv4(peer_str, &pp);
+		if (ret <= 0) {
+			vty_out(vty, "%% Malformed peer address\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
+	ifc = connected_check_ptp(ifp, &lp, peer_str ? &pp : NULL);
 	if (!ifc) {
 		ifc = connected_new();
 		ifc->ifp = ifp;
 
 		/* Address. */
 		p = prefix_ipv4_new();
-		*p = cp;
+		*p = lp;
 		ifc->address = (struct prefix *)p;
 
-		/* Broadcast. */
-		if (p->prefixlen <= IPV4_MAX_PREFIXLEN - 2) {
+		if (peer_str) {
+			SET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 			p = prefix_ipv4_new();
-			*p = cp;
+			*p = pp;
+			ifc->destination = (struct prefix *)p;
+		} else if (p->prefixlen <= IPV4_MAX_PREFIXLEN - 2) {
+			p = prefix_ipv4_new();
+			*p = lp;
 			p->prefix.s_addr = ipv4_broadcast_addr(p->prefix.s_addr,
 							       p->prefixlen);
 			ifc->destination = (struct prefix *)p;
@@ -2453,19 +2471,33 @@ static int ip_address_uninstall(struct vty *vty, struct interface *ifp,
 				const char *addr_str, const char *peer_str,
 				const char *label)
 {
-	struct prefix_ipv4 cp;
+	struct prefix_ipv4 lp, pp;
 	struct connected *ifc;
 	int ret;
 
 	/* Convert to prefix structure. */
-	ret = str2prefix_ipv4(addr_str, &cp);
+	ret = str2prefix_ipv4(addr_str, &lp);
 	if (ret <= 0) {
 		vty_out(vty, "%% Malformed address \n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (peer_str) {
+		if (lp.prefixlen != 32) {
+			vty_out(vty,
+				"%% Local prefix length for P-t-P address must be /32\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		ret = str2prefix_ipv4(peer_str, &pp);
+		if (ret <= 0) {
+			vty_out(vty, "%% Malformed peer address\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+
 	/* Check current interface address. */
-	ifc = connected_check(ifp, (struct prefix *)&cp);
+	ifc = connected_check_ptp(ifp, &lp, peer_str ? &pp : NULL);
 	if (!ifc) {
 		vty_out(vty, "%% Can't find address\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2525,6 +2557,32 @@ DEFUN (no_ip_address,
 				    NULL, NULL);
 }
 
+DEFUN (ip_address_peer,
+       ip_address_peer_cmd,
+       "ip address A.B.C.D peer A.B.C.D/M",
+       "Interface Internet Protocol config commands\n"
+       "Set the IP address of an interface\n"
+       "Local IP (e.g. 10.0.0.1) for P-t-P address\n"
+       "Specify P-t-P address\n"
+       "Peer IP address (e.g. 10.0.0.1/8)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	return ip_address_install(vty, ifp, argv[2]->arg, argv[4]->arg, NULL);
+}
+
+DEFUN (no_ip_address_peer,
+       no_ip_address_peer_cmd,
+       "no ip address A.B.C.D peer A.B.C.D/M",
+       NO_STR
+       "Interface Internet Protocol config commands\n"
+       "Set the IP address of an interface\n"
+       "Local IP (e.g. 10.0.0.1) for P-t-P address\n"
+       "Specify P-t-P address\n"
+       "Peer IP address (e.g. 10.0.0.1/8)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	return ip_address_uninstall(vty, ifp, argv[3]->arg, argv[5]->arg, NULL);
+}
 
 #ifdef HAVE_NETLINK
 DEFUN (ip_address_label,
@@ -2828,7 +2886,16 @@ static int if_config_write(struct vty *vty)
 				p = ifc->address;
 				vty_out(vty, " ip%s address %s",
 					p->family == AF_INET ? "" : "v6",
-					prefix2str(p, buf, sizeof(buf)));
+					inet_ntop(p->family, &p->u.prefix,
+						  buf, sizeof(buf)));
+				if (CONNECTED_PEER (ifc)) {
+					p = ifc->destination;
+					vty_out(vty, " peer %s",
+						inet_ntop(p->family,
+							  &p->u.prefix,
+							  buf, sizeof(buf)));
+				}
+				vty_out (vty, "/%d", p->prefixlen);
 
 				if (ifc->label)
 					vty_out(vty, " label %s", ifc->label);
@@ -2884,6 +2951,8 @@ void zebra_if_init(void)
 	install_element(INTERFACE_NODE, &no_bandwidth_if_cmd);
 	install_element(INTERFACE_NODE, &ip_address_cmd);
 	install_element(INTERFACE_NODE, &no_ip_address_cmd);
+	install_element(INTERFACE_NODE, &ip_address_peer_cmd);
+	install_element(INTERFACE_NODE, &no_ip_address_peer_cmd);
 	install_element(INTERFACE_NODE, &ipv6_address_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_address_cmd);
 #ifdef HAVE_NETLINK
