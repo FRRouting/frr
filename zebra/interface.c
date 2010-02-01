@@ -1297,13 +1297,28 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
 	       safe_strerror(errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
+  /* success! call returned that the address deletion went through.
+   * this is a synchronous operation, so we know it succeeded and can
+   * now update all internal state. */
 
-#if 0
-  /* Redistribute this information. */
-  zebra_interface_address_delete_update (ifp, ifc);
+  /* the HAVE_NETLINK check is only here because, on BSD, although the
+   * call above is still synchronous, we get a second confirmation later
+   * through the route socket, and we don't want to touch that behaviour
+   * for now.  It should work without the #ifdef, but why take the risk...
+   * -- equinox 2012-07-13 */
+#ifdef HAVE_NETLINK
 
   /* Remove connected route. */
   connected_down_ipv4 (ifp, ifc);
+
+  /* Redistribute this information. */
+  zebra_interface_address_delete_update (ifp, ifc);
+
+  /* IP address propery set. */
+  UNSET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
+
+  /* remove from interface, remark secondaries */
+  if_subnet_delete (ifp, ifc);
 
   /* Free address information. */
   listnode_delete (ifp->connected, ifc);
