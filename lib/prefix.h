@@ -157,12 +157,14 @@ extern int prefix2str (const struct prefix *, char *, int);
 extern int prefix_match (const struct prefix *, const struct prefix *);
 extern int prefix_same (const struct prefix *, const struct prefix *);
 extern int prefix_cmp (const struct prefix *, const struct prefix *);
+extern int prefix_common_bits (const struct prefix *, const struct prefix *);
 extern void prefix_copy (struct prefix *dest, const struct prefix *src);
 extern void apply_mask (struct prefix *);
 
 extern struct prefix *sockunion2prefix (const union sockunion *dest,
                                         const union sockunion *mask);
 extern struct prefix *sockunion2hostprefix (const union sockunion *);
+extern void prefix2sockunion (const struct prefix *, union sockunion *);
 
 extern struct prefix_ipv4 *prefix_ipv4_new (void);
 extern void prefix_ipv4_free (struct prefix_ipv4 *);

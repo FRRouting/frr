@@ -181,6 +181,46 @@ prefix_cmp (const struct prefix *p1, const struct prefix *p2)
   return 0;
 }
 
+/*
+ * Count the number of common bits in 2 prefixes. The prefix length is
+ * ignored for this function; the whole prefix is compared. If the prefix
+ * address families don't match, return -1; otherwise the return value is
+ * in range 0 ... maximum prefix length for the address family.
+ */
+int
+prefix_common_bits (const struct prefix *p1, const struct prefix *p2)
+{
+  int pos, bit;
+  int length = 0;
+  u_char xor;
+
+  /* Set both prefix's head pointer. */
+  const u_char *pp1 = (const u_char *)&p1->u.prefix;
+  const u_char *pp2 = (const u_char *)&p2->u.prefix;
+
+  if (p1->family == AF_INET)
+    length = IPV4_MAX_BYTELEN;
+#ifdef HAVE_IPV6
+  if (p1->family == AF_INET6)
+    length = IPV6_MAX_BYTELEN;
+#endif
+  if (p1->family != p2->family || !length)
+    return -1;
+
+  for (pos = 0; pos < length; pos++)
+    if (pp1[pos] != pp2[pos])
+      break;
+  if (pos == length)
+    return pos * 8;
+
+  xor = pp1[pos] ^ pp2[pos];
+  for (bit = 0; bit < 8; bit++)
+    if (xor & (1 << (7 - bit)))
+      break;
+
+  return pos * 8 + bit;
+}
+
 /* Return prefix family type string. */
 const char *
 prefix_family_str (const struct prefix *p)
@@ -568,6 +608,20 @@ sockunion2hostprefix (const union sockunion *su)
     }
 #endif /* HAVE_IPV6 */
   return NULL;
+}
+
+void
+prefix2sockunion (const struct prefix *p, union sockunion *su)
+{
+  memset (su, 0, sizeof (*su));
+
+  su->sa.sa_family = p->family;
+  if (p->family == AF_INET)
+    su->sin.sin_addr = p->u.prefix4;
+#ifdef HAVE_IPV6
+  if (p->family == AF_INET6)
+    memcpy (&su->sin6.sin6_addr, &p->u.prefix6, sizeof (struct in6_addr));
+#endif /* HAVE_IPV6 */
 }
 
 int
