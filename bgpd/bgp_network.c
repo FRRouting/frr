@@ -238,32 +238,6 @@ bgp_bind (struct peer *peer)
 }
 
 static int
-bgp_bind_address (int sock, struct in_addr *addr)
-{
-  int ret;
-  struct sockaddr_in local;
-
-  memset (&local, 0, sizeof (struct sockaddr_in));
-  local.sin_family = AF_INET;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-  local.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-  memcpy (&local.sin_addr, addr, sizeof (struct in_addr));
-
-  if ( bgpd_privs.change (ZPRIVS_RAISE) )
-    zlog_err ("bgp_bind_address: could not raise privs");
-    
-  ret = bind (sock, (struct sockaddr *)&local, sizeof (struct sockaddr_in));
-  if (ret < 0)
-    ;
-    
-  if (bgpd_privs.change (ZPRIVS_LOWER) )
-    zlog_err ("bgp_bind_address: could not lower privs");
-    
-  return 0;
-}
-
-static int
 bgp_update_address (struct interface *ifp, const union sockunion *dst,
 		    union sockunion *addr)
 {
