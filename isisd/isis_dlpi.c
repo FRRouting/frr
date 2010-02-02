@@ -21,6 +21,7 @@
  */
 
 #include <zebra.h>
+#if ISIS_METHOD == ISIS_METHOD_DLPI
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <sys/types.h>
@@ -622,3 +623,5 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
     sock_buff, stream_get_endp (circuit->snd_stream) + LLC_LEN, 0);
   return ISIS_OK;
 }
+
+#endif /* ISIS_METHOD == ISIS_METHOD_DLPI */

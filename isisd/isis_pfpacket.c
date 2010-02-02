@@ -21,6 +21,7 @@
  */
 
 #include <zebra.h>
+#if ISIS_METHOD == ISIS_METHOD_PFPACKET
 #include <net/ethernet.h>	/* the L2 protocols */
 #include <netpacket/packet.h>
 
@@ -371,3 +372,5 @@ isis_send_pdu_p2p (struct isis_circuit *circuit, int level)
 
   return ISIS_OK;
 }
+
+#endif /* ISIS_METHOD == ISIS_METHOD_PFPACKET */

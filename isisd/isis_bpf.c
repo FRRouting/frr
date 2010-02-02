@@ -21,6 +21,7 @@
  */
 
 #include <zebra.h>
+#if ISIS_METHOD == ISIS_METHOD_BPF
 #include <net/if.h>
 #include <netinet/if_ether.h>
 #include <sys/time.h>
@@ -339,3 +340,5 @@ isis_send_pdu_p2p (struct isis_circuit *circuit, int level)
 {
   return ISIS_OK;
 }
+
+#endif /* ISIS_METHOD == ISIS_METHOD_BPF */

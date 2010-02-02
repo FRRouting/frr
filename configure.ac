@@ -782,15 +782,18 @@ AC_SUBST(OTHER_METHOD)
 dnl --------------------------
 dnl Determine IS-IS I/O method
 dnl --------------------------
+AC_DEFINE(ISIS_METHOD_PFPACKET,	1, [ constant value for isis method pfpacket ])
+AC_DEFINE(ISIS_METHOD_DLPI,	2, [ constant value for isis method dlpi ])
+AC_DEFINE(ISIS_METHOD_BPF,	3, [ constant value for isis method bpf ])
 AC_CHECK_HEADER(net/bpf.h)
 AC_CHECK_HEADER(sys/dlpi.h)
 AC_MSG_CHECKING(zebra IS-IS I/O method)
 if test x"$opsys" = x"gnu-linux"; then
   AC_MSG_RESULT(pfpacket)
-  ISIS_METHOD=isis_pfpacket.o
+  ISIS_METHOD_MACRO="ISIS_METHOD_PFPACKET"
 elif test x"$opsys" = x"sol2-6" -o x"$opsys" = x"sol8"; then
   AC_MSG_RESULT(DLPI)
-  ISIS_METHOD="isis_dlpi.o"
+  ISIS_METHOD_MACRO="ISIS_METHOD_DLPI"
 else
   if test $ac_cv_header_net_bpf_h = no; then
     if test $ac_cv_header_sys_dlpi_h = no; then
@@ -800,13 +803,13 @@ else
     else
       AC_MSG_RESULT(DLPI)
     fi
-    ISIS_METHOD="isis_dlpi.o"
+    ISIS_METHOD_MACRO="ISIS_METHOD_DLPI"
   else
     AC_MSG_RESULT(BPF)
-    ISIS_METHOD="isis_bpf.o"
+    ISIS_METHOD_MACRO="ISIS_METHOD_BPF"
   fi
 fi
-AC_SUBST(ISIS_METHOD)
+AC_DEFINE_UNQUOTED(ISIS_METHOD, $ISIS_METHOD_MACRO, [ selected method for isis, == one of the constants ])
 
 dnl ------------------------------------
 dnl check for broken CMSG_FIRSTHDR macro
