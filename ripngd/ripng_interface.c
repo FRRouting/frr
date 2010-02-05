@@ -1084,7 +1084,7 @@ static int interface_config_write(struct vty *vty)
 		    && (ri->split_horizon == ri->split_horizon_default))
 			continue;
 
-		vty_out(vty, "interface %s\n", ifp->name);
+		vty_frame(vty, "interface %s\n", ifp->name);
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 
@@ -1105,7 +1105,7 @@ static int interface_config_write(struct vty *vty)
 			}
 		}
 
-		vty_out(vty, "!\n");
+		vty_endframe(vty, "!\n");
 
 		write++;
 	}

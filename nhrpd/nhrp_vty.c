@@ -854,7 +854,7 @@ static int interface_config_write(struct vty *vty)
 	int i;
 
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
-		vty_out (vty, "interface %s\n", ifp->name);
+		vty_frame(vty, "interface %s\n", ifp->name);
 		if (ifp->desc)
 			vty_out (vty, " description %s\n", ifp->desc);
 
@@ -913,7 +913,7 @@ static int interface_config_write(struct vty *vty)
 			}
 		}
 
-		vty_out (vty, "!\n");
+		vty_endframe(vty, "!\n");
 	}
 
 	return 0;

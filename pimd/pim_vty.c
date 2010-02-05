@@ -255,7 +255,7 @@ int pim_interface_config_write(struct vty *vty)
 
 			/* IF name */
 			if (vrf->vrf_id == VRF_DEFAULT)
-				vty_out(vty, "interface %s\n", ifp->name);
+				vty_frame(vty, "interface %s\n", ifp->name);
 			else
 				vty_out(vty, "interface %s vrf %s\n", ifp->name,
 					vrf->name);
@@ -363,7 +363,7 @@ int pim_interface_config_write(struct vty *vty)
 					pim_static_write_mroute(pim, vty, ifp);
 				pim_bfd_write_config(vty, ifp);
 			}
-			vty_out(vty, "!\n");
+			vty_endframe(vty, "!\n");
 			++writes;
 		}
 	}

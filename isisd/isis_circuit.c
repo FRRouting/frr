@@ -948,7 +948,7 @@ int isis_interface_config_write(struct vty *vty)
 			continue;
 
 		/* IF name */
-		vty_out(vty, "interface %s\n", ifp->name);
+		vty_frame(vty, "interface %s\n", ifp->name);
 		write++;
 		/* IF desc */
 		if (ifp->desc) {
@@ -1145,7 +1145,7 @@ int isis_interface_config_write(struct vty *vty)
 			}
 			write += circuit_write_mt_settings(circuit, vty);
 		}
-		vty_out(vty, "!\n");
+		vty_endframe(vty, "!\n");
 	}
 
 	return write;
