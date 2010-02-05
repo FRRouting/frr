@@ -125,6 +125,12 @@ struct vty {
 
 	/* What address is this vty comming from. */
 	char address[SU_ADDRSTRLEN];
+
+	/* "frame" output.  This is buffered and will be printed if some
+	 * actual output follows, or will be discarded if the frame ends
+	 * without any output. */
+	size_t frame_pos;
+	char frame[1024];
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -247,7 +253,16 @@ extern void vty_terminate(void);
 extern void vty_reset(void);
 extern struct vty *vty_new(void);
 extern struct vty *vty_stdio(void (*atclose)(int isexit));
+
+/* - vty_frame() output goes to a buffer (for context-begin markers)
+ * - vty_out() will first print this buffer, and clear it
+ * - vty_endframe() clears the buffer without printing it, and prints an
+ *   extra string if the buffer was empty before (for context-end markers)
+ */
 extern int vty_out(struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
+extern void vty_frame(struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
+extern void vty_endframe(struct vty *, const char *);
+
 extern void vty_read_config(const char *, char *);
 extern void vty_time_print(struct vty *, int);
 extern void vty_serv_sock(const char *, unsigned short, const char *);
