@@ -240,13 +240,27 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	void *gate = NULL;
 	void *prefsrc = NULL; /* IPv4 preferred source host address */
 	void *src = NULL;     /* IPv6 srcdest   source prefix */
+	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 
 	rtm = NLMSG_DATA(h);
 
 	if (startup && h->nlmsg_type != RTM_NEWROUTE)
 		return 0;
-	if (startup && rtm->rtm_type != RTN_UNICAST)
+	switch (rtm->rtm_type) {
+	case RTN_UNICAST:
+		break;
+	case RTN_BLACKHOLE:
+		bh_type = BLACKHOLE_NULL;
+		break;
+	case RTN_UNREACHABLE:
+		bh_type = BLACKHOLE_REJECT;
+		break;
+	case RTN_PROHIBIT:
+		bh_type = BLACKHOLE_ADMINPROHIB;
+		break;
+	default:
 		return 0;
+	}
 
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct rtmsg));
 	if (len < 0)
@@ -380,8 +394,10 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				nh.type = (afi == AFI_IP)
 					? NEXTHOP_TYPE_IPV4
 					: NEXTHOP_TYPE_IPV6;
-			else
+			else {
 				nh.type = NEXTHOP_TYPE_BLACKHOLE;
+				nh.bh_type = bh_type;
+			}
 			nh.ifindex = index;
 			if (prefsrc)
 				memcpy(&nh.src, prefsrc, sz);
@@ -623,18 +639,10 @@ int netlink_route_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	if (len < 0)
 		return -1;
 
-	switch (rtm->rtm_type) {
-	case RTN_UNICAST:
-		netlink_route_change_read_unicast(snl, h, ns_id, startup);
-		break;
-	case RTN_MULTICAST:
+	if (rtm->rtm_type == RTN_MULTICAST)
 		netlink_route_change_read_multicast(snl, h, ns_id, startup);
-		break;
-	default:
-		return 0;
-		break;
-	}
-
+	else
+		netlink_route_change_read_unicast(snl, h, ns_id, startup);
 	return 0;
 }
 
