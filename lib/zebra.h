@@ -404,13 +404,13 @@ extern const char *zserv_command_string(unsigned int command);
 /* Zebra message flags */
 #define ZEBRA_FLAG_INTERNAL           0x01
 #define ZEBRA_FLAG_SELFROUTE          0x02
-#define ZEBRA_FLAG_BLACKHOLE          0x04
 #define ZEBRA_FLAG_IBGP               0x08
 #define ZEBRA_FLAG_SELECTED           0x10
 #define ZEBRA_FLAG_STATIC             0x40
-#define ZEBRA_FLAG_REJECT             0x80
 #define ZEBRA_FLAG_SCOPE_LINK         0x100
 #define ZEBRA_FLAG_FIB_OVERRIDE       0x200
+/* ZEBRA_FLAG_BLACKHOLE was 0x04 */
+/* ZEBRA_FLAG_REJECT was 0x80 */
 
 /* Zebra FEC flags. */
 #define ZEBRA_FEC_REGISTER_LABEL_INDEX        0x1

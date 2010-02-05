@@ -1221,7 +1221,7 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	struct sockaddr_nl snl;
 	struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num;
-	int discard;
+	int discard = 0;
 	int family = PREFIX_FAMILY(p);
 	const char *routedesc;
 	int setsrc = 0;
@@ -1252,24 +1252,23 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	req.r.rtm_src_len = src_p ? src_p->prefixlen : 0;
 	req.r.rtm_protocol = get_rt_proto(re->type);
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
+	req.r.rtm_type = RTN_UNICAST;
 
-	if ((re->flags & ZEBRA_FLAG_BLACKHOLE)
-	    || (re->flags & ZEBRA_FLAG_REJECT))
+	if (re->nexthop_num == 1
+	    && re->nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
 		discard = 1;
-	else
-		discard = 0;
 
-	if (cmd == RTM_NEWROUTE) {
-		if (discard) {
-			if (re->flags & ZEBRA_FLAG_BLACKHOLE)
-				req.r.rtm_type = RTN_BLACKHOLE;
-			else if (re->flags & ZEBRA_FLAG_REJECT)
-				req.r.rtm_type = RTN_UNREACHABLE;
-			else
-				assert(RTN_BLACKHOLE
-				       != RTN_UNREACHABLE); /* false */
-		} else
-			req.r.rtm_type = RTN_UNICAST;
+		switch (re->nexthop->bh_type) {
+		case BLACKHOLE_ADMINPROHIB:
+			req.r.rtm_type = RTN_PROHIBIT;
+			break;
+		case BLACKHOLE_REJECT:
+			req.r.rtm_type = RTN_UNREACHABLE;
+			break;
+		default:
+			req.r.rtm_type = RTN_BLACKHOLE;
+			break;
+		}
 	}
 
 	addattr_l(&req.n, sizeof req, RTA_DST, &p->u.prefix, bytelen);
@@ -1294,6 +1293,9 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 		addattr32(&req.n, sizeof req, RTA_TABLE, re->table);
 	}
 
+	if (discard)
+		goto skip;
+
 	if (re->mtu || re->nexthop_mtu) {
 		char buf[NL_PKT_BUF_SIZE];
 		struct rtattr *rta = (void *)buf;
@@ -1305,21 +1307,6 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 		rta_addattr_l(rta, NL_PKT_BUF_SIZE, RTAX_MTU, &mtu, sizeof mtu);
 		addattr_l(&req.n, NL_PKT_BUF_SIZE, RTA_METRICS, RTA_DATA(rta),
 			  RTA_PAYLOAD(rta));
-	}
-
-	if (discard) {
-		if (cmd == RTM_NEWROUTE)
-			for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
-				/* We shouldn't encounter recursive nexthops on
-				 * discard routes,
-				 * but it is probably better to handle that case
-				 * correctly anyway.
-				 */
-				if (CHECK_FLAG(nexthop->flags,
-					       NEXTHOP_FLAG_RECURSIVE))
-					continue;
-			}
-		goto skip;
 	}
 
 	/* Count overall nexthops so we can decide whether to use singlepath

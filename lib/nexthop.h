@@ -76,7 +76,10 @@ struct nexthop {
 #define NEXTHOP_FLAG_FILTERED   (1 << 5) /* rmap filtered, used by static only */
 
 	/* Nexthop address */
-	union g_addr gate;
+	union {
+		union g_addr gate;
+		enum blackhole_type bh_type;
+	};
 	union g_addr src;
 	union g_addr rmap_src; /* Src is set via routemap */
 

@@ -291,13 +291,14 @@ struct nexthop *route_entry_nexthop_ipv6_ifindex_add(struct route_entry *re,
 	return nexthop;
 }
 
-struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *re)
+struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *re,
+                                                  enum blackhole_type bh_type)
 {
 	struct nexthop *nexthop;
 
 	nexthop = nexthop_new();
 	nexthop->type = NEXTHOP_TYPE_BLACKHOLE;
-	SET_FLAG(re->flags, ZEBRA_FLAG_BLACKHOLE);
+	nexthop->bh_type = bh_type;
 
 	route_entry_nexthop_add(re, nexthop);
 
@@ -471,12 +472,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			continue;
 		}
 
-		/* If the longest prefix match for the nexthop yields
-		 * a blackhole, mark it as inactive. */
-		if (CHECK_FLAG(match->flags, ZEBRA_FLAG_BLACKHOLE)
-		    || CHECK_FLAG(match->flags, ZEBRA_FLAG_REJECT))
-			return 0;
-
 		if (match->type == ZEBRA_ROUTE_CONNECT) {
 			/* Directly point connected route. */
 			newhop = match->nexthop;
@@ -488,41 +483,46 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 			return 1;
 		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_INTERNAL)) {
 			resolved = 0;
-			for (ALL_NEXTHOPS(match->nexthop, newhop))
-				if (CHECK_FLAG(newhop->flags, NEXTHOP_FLAG_FIB)
-				    && !CHECK_FLAG(newhop->flags,
-						   NEXTHOP_FLAG_RECURSIVE)) {
-					if (set) {
-						SET_FLAG(
-							nexthop->flags,
-							NEXTHOP_FLAG_RECURSIVE);
-						SET_FLAG(
-							re->status,
-							ROUTE_ENTRY_NEXTHOPS_CHANGED);
+			for (ALL_NEXTHOPS(match->nexthop, newhop)) {
+				if (newhop->type == NEXTHOP_TYPE_BLACKHOLE)
+					continue;
+				if (!CHECK_FLAG(newhop->flags,
+						NEXTHOP_FLAG_FIB))
+					continue;
+				if (CHECK_FLAG(newhop->flags,
+					       NEXTHOP_FLAG_RECURSIVE))
+					continue;
 
-						nexthop_set_resolved(
-							afi, newhop, nexthop);
-					}
-					resolved = 1;
+				if (set) {
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_RECURSIVE);
+					SET_FLAG(re->status,
+						 ROUTE_ENTRY_NEXTHOPS_CHANGED);
+					nexthop_set_resolved(afi, newhop,
+							     nexthop);
 				}
+				resolved = 1;
+			}
 			if (resolved && set)
 				re->nexthop_mtu = match->mtu;
 			return resolved;
 		} else if (re->type == ZEBRA_ROUTE_STATIC) {
 			resolved = 0;
-			for (ALL_NEXTHOPS(match->nexthop, newhop))
-				if (CHECK_FLAG(newhop->flags,
-					       NEXTHOP_FLAG_FIB)) {
-					if (set) {
-						SET_FLAG(
-							nexthop->flags,
-							NEXTHOP_FLAG_RECURSIVE);
+			for (ALL_NEXTHOPS(match->nexthop, newhop)) {
+				if (newhop->type == NEXTHOP_TYPE_BLACKHOLE)
+					continue;
+				if (!CHECK_FLAG(newhop->flags,
+						NEXTHOP_FLAG_FIB))
+					continue;
 
-						nexthop_set_resolved(
-							afi, newhop, nexthop);
-					}
-					resolved = 1;
+				if (set) {
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_RECURSIVE);
+					nexthop_set_resolved(afi, newhop,
+							     nexthop);
 				}
+				resolved = 1;
+			}
 			if (resolved && set)
 				re->nexthop_mtu = match->mtu;
 			return resolved;

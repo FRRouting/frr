@@ -887,11 +887,15 @@ void rtm_read(struct rt_msghdr *rtm)
 	if (flags & RTF_STATIC)
 		SET_FLAG(zebra_flags, ZEBRA_FLAG_STATIC);
 
+	memset(&nh, 0, sizeof(nh));
 	/* This is a reject or blackhole route */
-	if (flags & RTF_REJECT)
-		SET_FLAG(zebra_flags, ZEBRA_FLAG_REJECT);
-	if (flags & RTF_BLACKHOLE)
-		SET_FLAG(zebra_flags, ZEBRA_FLAG_BLACKHOLE);
+	if (flags & RTF_REJECT) {
+		nh.type = NEXTHOP_TYPE_BLACKHOLE;
+		nh.bh_type = BLACKHOLE_REJECT;
+	} else if (flags & RTF_BLACKHOLE) {
+		nh.type = NEXTHOP_TYPE_BLACKHOLE;
+		nh.bh_type = BLACKHOLE_NULL;
+	}
 
 	if (dest.sa.sa_family == AF_INET) {
 		struct prefix p;
@@ -1017,11 +1021,12 @@ void rtm_read(struct rt_msghdr *rtm)
 		if (rtm->rtm_type == RTM_CHANGE)
 			rib_delete(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p,
-				   NULL, 0, 0);
+				   NULL, NULL, 0, 0);
 
-		memset(&nh, 0, sizeof(nh));
-		nh.type = NEXTHOP_TYPE_IPV4;
-		nh.gate.ipv4 = gate.sin;
+		if (!nh.type) {
+			nh.type = NEXTHOP_TYPE_IPV4;
+			nh.gate.ipv4 = gate.sin.sin_addr;
+		}
 
 		if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 		    || rtm->rtm_type == RTM_CHANGE)
@@ -1064,11 +1069,12 @@ void rtm_read(struct rt_msghdr *rtm)
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p,
 				   NULL, NULL, 0, 0);
 
-		memset(&nh, 0, sizeof(nh));
-		nh.type = ifindex ? NEXTHOP_TYPE_IPV6_IFINDEX
-				  : NEXTHOP_TYPE_IPV6;
-		nh.gate.ipv6 = gate.sin6;
-		nh.ifindex = ifindex;
+		if (!nh.type) {
+			nh.type = ifindex ? NEXTHOP_TYPE_IPV6_IFINDEX
+					  : NEXTHOP_TYPE_IPV6;
+			nh.gate.ipv6 = gate.sin6.sin6_addr;
+			nh.ifindex = ifindex;
+		}
 
 		if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 		    || rtm->rtm_type == RTM_CHANGE)
@@ -1088,7 +1094,7 @@ void rtm_read(struct rt_msghdr *rtm)
  */
 int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 	      union sockunion *gate, union sockunion *mpls, unsigned int index,
-	      int zebra_flags, int metric)
+	      enum blackhole_type bh_type, int metric)
 {
 	int ret;
 	caddr_t pnt;
@@ -1178,11 +1184,16 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 	/* Tagging route with flags */
 	msg.rtm.rtm_flags |= (RTF_PROTO1);
 
-	/* Additional flags. */
-	if (zebra_flags & ZEBRA_FLAG_BLACKHOLE)
-		msg.rtm.rtm_flags |= RTF_BLACKHOLE;
-	if (zebra_flags & ZEBRA_FLAG_REJECT)
+	switch (bh_type) {
+	case BLACKHOLE_UNSPEC:
+		break;
+	case BLACKHOLE_REJECT:
 		msg.rtm.rtm_flags |= RTF_REJECT;
+		break;
+	default:
+		msg.rtm.rtm_flags |= RTF_BLACKHOLE;
+		break;
+	}
 
 
 #define SOCKADDRSET(X, R)                                                      \

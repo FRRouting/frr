@@ -91,7 +91,8 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 								  si->ifindex);
 			break;
 		case STATIC_BLACKHOLE:
-			nexthop = route_entry_nexthop_blackhole_add(re);
+			nexthop = route_entry_nexthop_blackhole_add(re,
+								    si->bh_type);
 			break;
 		case STATIC_IPV6_GATEWAY:
 			nexthop = route_entry_nexthop_ipv6_add(re,
@@ -166,7 +167,8 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 								  si->ifindex);
 			break;
 		case STATIC_BLACKHOLE:
-			nexthop = route_entry_nexthop_blackhole_add(re);
+			nexthop = route_entry_nexthop_blackhole_add(re,
+								    si->bh_type);
 			break;
 		case STATIC_IPV6_GATEWAY:
 			nexthop = route_entry_nexthop_ipv6_add(re,
@@ -186,9 +188,6 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nexthop_add_labels(nexthop, ZEBRA_LSP_STATIC,
 					   si->snh_label.num_labels,
 					   &si->snh_label.label[0]);
-
-		/* Save the flags of this static routes (reject, blackhole) */
-		re->flags = si->flags;
 
 		if (IS_ZEBRA_DEBUG_RIB) {
 			char buf[INET6_ADDRSTRLEN];
@@ -364,7 +363,7 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 
 int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 		     struct prefix_ipv6 *src_p, union g_addr *gate,
-		     const char *ifname, u_char flags,
+		     const char *ifname, enum blackhole_type bh_type,
 		     route_tag_t tag, u_char distance, struct zebra_vrf *zvrf,
 		     struct static_nh_label *snh_label)
 {
@@ -405,7 +404,7 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 			if ((distance == si->distance) && (tag == si->tag)
 			    && !memcmp(&si->snh_label, snh_label,
 				       sizeof(struct static_nh_label))
-			    && si->flags == flags) {
+			    && si->bh_type == bh_type) {
 				route_unlock_node(rn);
 				return 0;
 			} else
@@ -424,7 +423,7 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 
 	si->type = type;
 	si->distance = distance;
-	si->flags = flags;
+	si->bh_type = bh_type;
 	si->tag = tag;
 	si->vrf_id = zvrf_id(zvrf);
 	if (ifname)

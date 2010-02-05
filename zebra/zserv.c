@@ -1051,6 +1051,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 	struct route_entry *re;
 	struct nexthop *nexthop = NULL;
 	int i, ret;
+	enum blackhole_type bh_type = BLACKHOLE_NULL;
 
 	s = client->ibuf;
 	if (zapi_route_decode(s, &api) < 0)
@@ -1093,7 +1094,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 					api_nh->ifindex);
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
-				route_entry_nexthop_blackhole_add(re);
+				route_entry_nexthop_blackhole_add(re, bh_type);
 				break;
 			}
 
@@ -1163,7 +1164,7 @@ static int zread_route_del(struct zserv *client, u_short length,
 		src_p = &api.src_prefix;
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &api.prefix, src_p, NULL, 0, zvrf->table_id,
+		   api.flags, &api.prefix, src_p, NULL, zvrf->table_id,
 		   api.metric);
 
 	/* Stats */
@@ -1201,6 +1202,7 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 	enum lsp_types_t label_type = ZEBRA_LSP_NONE;
 	mpls_label_t label;
 	struct nexthop *nexthop;
+	enum blackhole_type bh_type = BLACKHOLE_NULL;
 
 	/* Get input stream.  */
 	s = client->ibuf;
@@ -1264,7 +1266,7 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 				stream_forward_getp(s, IPV6_MAX_BYTELEN);
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
-				route_entry_nexthop_blackhole_add(re);
+				route_entry_nexthop_blackhole_add(re, bh_type);
 				break;
 			}
 		}
@@ -1329,7 +1331,7 @@ static int zread_ipv4_delete(struct zserv *client, u_short length,
 	table_id = zvrf->table_id;
 
 	rib_delete(AFI_IP, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, NULL, NULL, 0, table_id, 0);
+		   api.flags, &p, NULL, NULL, table_id, 0);
 	client->v4_route_del_cnt++;
 	return 0;
 }
@@ -1367,6 +1369,7 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 	enum lsp_types_t label_type = ZEBRA_LSP_NONE;
 	mpls_label_t label;
 	struct nexthop *nexthop;
+	enum blackhole_type bh_type = BLACKHOLE_NULL;
 
 	/* Get input stream.  */
 	s = client->ibuf;
@@ -1434,7 +1437,7 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 				}
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
-				route_entry_nexthop_blackhole_add(re);
+				route_entry_nexthop_blackhole_add(re, bh_type);
 				break;
 			}
 		}
@@ -1516,6 +1519,7 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 	enum lsp_types_t label_type = ZEBRA_LSP_NONE;
 	mpls_label_t label;
 	struct nexthop *nexthop;
+	enum blackhole_type bh_type = BLACKHOLE_NULL;
 
 	/* Get input stream.  */
 	s = client->ibuf;
@@ -1594,7 +1598,7 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 				}
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
-				route_entry_nexthop_blackhole_add(re);
+				route_entry_nexthop_blackhole_add(re, bh_type);
 				break;
 			}
 		}
@@ -1689,7 +1693,7 @@ static int zread_ipv6_delete(struct zserv *client, u_short length,
 		src_pp = NULL;
 
 	rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, src_pp, NULL, 0, client->rtm_table, 0);
+		   api.flags, &p, src_pp, NULL, client->rtm_table, 0);
 
 	client->v6_route_del_cnt++;
 	return 0;

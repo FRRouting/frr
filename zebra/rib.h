@@ -231,7 +231,8 @@ typedef enum {
 
 extern struct nexthop *route_entry_nexthop_ifindex_add(struct route_entry *,
 						       ifindex_t);
-extern struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *);
+extern struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *,
+							 enum blackhole_type);
 extern struct nexthop *route_entry_nexthop_ipv4_add(struct route_entry *,
 						    struct in_addr *,
 						    struct in_addr *);
