@@ -723,6 +723,8 @@ ospf_ase_register_external_lsa (struct ospf_lsa *lsa, struct ospf *top)
   rn = route_node_get (top->external_lsas, (struct prefix *) &p);
   if ((lst = rn->info) == NULL)
     rn->info = lst = list_new();
+  else
+    route_unlock_node (rn);
 
   /* We assume that if LSA is deleted from DB
      is is also deleted from this RT */
@@ -743,13 +745,13 @@ ospf_ase_unregister_external_lsa (struct ospf_lsa *lsa, struct ospf *top)
   p.prefixlen = ip_masklen (al->mask);
   apply_mask_ipv4 (&p);
 
-  rn = route_node_get (top->external_lsas, (struct prefix *) &p);
-  lst = rn->info;
+  rn = route_node_lookup (top->external_lsas, (struct prefix *) &p);
 
-  /* XXX lst can be NULL */
-  if (lst) {
+  if (rn) {
+    lst = rn->info;
     listnode_delete (lst, lsa);
     ospf_lsa_unlock (&lsa); /* external_lsas list */
+    route_unlock_node (rn);
   }
 }
 
