@@ -315,6 +315,7 @@ ospf_interface_address_delete (int command, struct zclient *zclient,
 
   assert (rn->info);
   oi = rn->info;
+  route_unlock_node (rn);
 
   /* Call interface hook functions to clean up */
   ospf_if_free (oi);
