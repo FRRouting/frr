@@ -3879,6 +3879,8 @@ ospf_ls_upd_send (struct ospf_neighbor *nbr, struct list *update, int flag)
 
   if (rn->info == NULL)
     rn->info = list_new ();
+  else
+    route_unlock_node (rn);
 
   for (ALL_LIST_ELEMENTS_RO (update, node, lsa))
     listnode_add (rn->info, ospf_lsa_lock (lsa)); /* oi->ls_upd_queue */
