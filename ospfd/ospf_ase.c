@@ -821,6 +821,7 @@ ospf_ase_incremental_update (struct ospf *ospf, struct ospf_lsa *lsa)
     {
       rn2 = route_node_get (tmp_old, (struct prefix *) &p);
       rn2->info = rn->info;
+      route_unlock_node (rn);
     }
 
   /* install changes to zebra */
@@ -844,7 +845,6 @@ ospf_ase_incremental_update (struct ospf *ospf, struct ospf_lsa *lsa)
       if (rn)
 	{
 	  rn->info = NULL;
-	  route_unlock_node (rn);
 	  route_unlock_node (rn);
 	}
     }
