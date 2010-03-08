@@ -1830,6 +1830,8 @@ ospf_nbr_nbma_set (struct ospf *ospf, struct in_addr nbr_addr)
   p.prefixlen = IPV4_MAX_BITLEN;
 
   rn = route_node_get (ospf->nbr_nbma, (struct prefix *)&p);
+  if (rn->info)
+    route_unlock_node (rn);
   rn->info = nbr_nbma;
 
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, node, oi))

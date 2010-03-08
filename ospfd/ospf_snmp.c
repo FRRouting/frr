@@ -1927,6 +1927,9 @@ ospf_snmp_vl_add (struct ospf_vl_data *vl_data)
   lp.adv_router = vl_data->vl_peer;
 
   rn = route_node_get (ospf_snmp_vl_table, (struct prefix *) &lp);
+  if (rn->info)
+    route_unlock_node (rn);
+
   rn->info = vl_data;
 }
 
