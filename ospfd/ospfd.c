@@ -1020,7 +1020,10 @@ ospf_network_unset (struct ospf *ospf, struct prefix_ipv4 *p,
         }
 
       if (found == 0)
-        ospf_if_free (oi);
+	{
+	  ospf_if_free (oi);
+	  ospf_area_check_free (ospf, area_id);
+	}
     }
   
   /* Update connected redistribute. */
