@@ -1106,7 +1106,7 @@ Cisco compatible BGP configuration output.
 When bgp config-type cisco is specified, 
 
 ``no synchronization'' is displayed.
-``no auto-summary'' is desplayed.
+``no auto-summary'' is displayed.
 
 ``network'' and ``aggregate-address'' argument is displayed as
 ``A.B.C.D M.M.M.M''
