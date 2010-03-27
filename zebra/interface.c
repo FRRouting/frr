@@ -569,7 +569,7 @@ static void if_uninstall_connected(struct interface *ifp)
 static void if_delete_connected(struct interface *ifp)
 {
 	struct connected *ifc;
-	struct prefix *p;
+	struct prefix cp;
 	struct route_node *rn;
 	struct zebra_if *zebra_if;
 
@@ -582,11 +582,13 @@ static void if_delete_connected(struct interface *ifp)
 		while ((node = (last ? last->next
 				     : listhead(ifp->connected)))) {
 			ifc = listgetdata(node);
-			p = ifc->address;
 
-			if (p->family == AF_INET
+			cp = *CONNECTED_PREFIX(ifc);
+			apply_mask(&cp);
+
+			if (cp.family == AF_INET
 			    && (rn = route_node_lookup(zebra_if->ipv4_subnets,
-						       p))) {
+						       &cp))) {
 				struct listnode *anode;
 				struct listnode *next;
 				struct listnode *first;
@@ -639,7 +641,7 @@ static void if_delete_connected(struct interface *ifp)
 				list_delete(addr_list);
 				rn->info = NULL;
 				route_unlock_node(rn);
-			} else if (p->family == AF_INET6) {
+			} else if (cp.family == AF_INET6) {
 				connected_down_ipv6(ifp, ifc);
 
 				zebra_interface_address_delete_update(ifp, ifc);
