@@ -451,8 +451,8 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
 
   /* if there is a Intra/Inter area route to the N
      do not install external route */
-  if (rn = route_node_lookup (ospf->new_table,
-			      (struct prefix *) &p))
+  if ((rn = route_node_lookup (ospf->new_table,
+			      (struct prefix *) &p)))
     {
       route_unlock_node(rn);
       if (rn->info == NULL)
@@ -463,8 +463,8 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
     }
   /* Find a route to the same dest */
   /* If there is no route, create new one. */
-  if (rn = route_node_lookup (ospf->new_external_route,
-			       (struct prefix *) &p))
+  if ((rn = route_node_lookup (ospf->new_external_route,
+			       (struct prefix *) &p)))
       route_unlock_node(rn);
 
   if (!rn || (or = rn->info) == NULL)
@@ -718,7 +718,6 @@ ospf_ase_register_external_lsa (struct ospf_lsa *lsa, struct ospf *top)
 
   /* We assume that if LSA is deleted from DB
      is is also deleted from this RT */
-
   listnode_add (lst, ospf_lsa_lock (lsa)); /* external_lsas lst */
 }
 
@@ -799,7 +798,8 @@ ospf_ase_incremental_update (struct ospf *ospf, struct ospf_lsa *lsa)
     }
 
   rn = route_node_lookup (ospf->external_lsas, (struct prefix *) &p);
-  assert (rn && rn->info);
+  assert (rn); 
+  assert (rn->info);
   lsas = rn->info;
   route_unlock_node (rn);
 

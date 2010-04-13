@@ -120,7 +120,10 @@ ospf_lsdb_add (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
   
   /* nothing to do? */
   if (rn->info && rn->info == lsa)
-    return;
+    {
+      route_unlock_node (rn);
+      return;
+    }
   
   /* purge old entry? */
   if (rn->info)
@@ -162,12 +165,13 @@ ospf_lsdb_delete (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
       return;
     }
   
+  assert (lsa->data->type < OSPF_MAX_LSA);
   table = lsdb->type[lsa->data->type].db;
   lsdb_prefix_set (&lp, lsa);
-  rn = route_node_lookup (table, (struct prefix *) &lp);
-  if (rn && (rn->info == lsa))
+  if ((rn = route_node_lookup (table, (struct prefix *) &lp)))
     {
-      ospf_lsdb_delete_entry (lsdb, rn);
+      if (rn->info == lsa)
+        ospf_lsdb_delete_entry (lsdb, rn);
       route_unlock_node (rn); /* route_node_lookup */
     }
 }
@@ -274,7 +278,8 @@ ospf_lsdb_lookup_by_id_next (struct ospf_lsdb *lsdb, u_char type,
       rn = route_top (table);
   else
     {
-      rn = route_node_get (table, (struct prefix *) &lp);
+      if ((rn = route_node_lookup (table, (struct prefix *) &lp)) == NULL)
+        return NULL;
       rn = route_next (rn);
     }
 
