@@ -962,6 +962,7 @@ ospf_router_lsa_update (struct ospf *ospf)
 	  if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
 	    zlog_debug("LSA[Type%d:%s]: Refresh router-LSA for Area %s",
 		      lsa->data->type, inet_ntoa (lsa->data->id), area_str);
+          ospf_refresher_unregister_lsa (ospf, lsa);
 	  ospf_lsa_flush_area (lsa, area);
 	  ospf_lsa_unlock (&area->router_lsa_self);
 	  area->router_lsa_self = NULL;
@@ -2244,6 +2245,7 @@ ospf_external_lsa_refresh_default (struct ospf *ospf)
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
 	    zlog_debug ("LSA[Type5:0.0.0.0]: Flush AS-external-LSA");
+          ospf_refresher_unregister_lsa (ospf, lsa);
 	  ospf_lsa_flush_as (ospf, lsa);
 	}
     }
@@ -3275,6 +3277,7 @@ ospf_lsa_flush_schedule (struct ospf *ospf, struct ospf_lsa *lsa)
       break;
 #endif /* HAVE_OPAQUE_LSA */
     default:
+      ospf_refresher_unregister_lsa (ospf, lsa);
       ospf_lsa_flush (ospf, lsa);
       break;
     }
@@ -3298,8 +3301,10 @@ ospf_flush_self_originated_lsas_now (struct ospf *ospf)
       if ((lsa = area->router_lsa_self) != NULL)
         {
           if (IS_DEBUG_OSPF_EVENT)
-            zlog_debug ("LSA[Type%d:%s]: Schedule self-originated LSA to FLUSH", lsa->data->type, inet_ntoa (lsa->data->id));
-
+            zlog_debug ("LSA[Type%d:%s]: Schedule self-originated LSA to FLUSH",
+                        lsa->data->type, inet_ntoa (lsa->data->id));
+          
+          ospf_refresher_unregister_lsa (ospf, lsa);
           ospf_lsa_flush_area (lsa, area);
           ospf_lsa_unlock (&area->router_lsa_self);
           area->router_lsa_self = NULL;
@@ -3312,8 +3317,10 @@ ospf_flush_self_originated_lsas_now (struct ospf *ospf)
                &&   oi->full_nbrs > 0)
             {
               if (IS_DEBUG_OSPF_EVENT)
-                zlog_debug ("LSA[Type%d:%s]: Schedule self-originated LSA to FLUSH", lsa->data->type, inet_ntoa (lsa->data->id));
-
+                zlog_debug ("LSA[Type%d:%s]: Schedule self-originated LSA to FLUSH",
+                            lsa->data->type, inet_ntoa (lsa->data->id));
+              
+              ospf_refresher_unregister_lsa (ospf, oi->network_lsa_self);
               ospf_lsa_flush_area (oi->network_lsa_self, area);
               ospf_lsa_unlock (&oi->network_lsa_self);
               oi->network_lsa_self = NULL;
