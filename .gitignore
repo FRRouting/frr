@@ -34,4 +34,5 @@ build
 .rebase-*
 *~
 *.loT
+m4/*.m4
 
