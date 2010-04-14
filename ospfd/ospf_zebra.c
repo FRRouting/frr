@@ -972,9 +972,9 @@ ospf_distribute_list_update (struct ospf *ospf, int type)
   if (!(rt = EXTERNAL_INFO (type)))
     return;
 
-  /* If exists previously invoked thread, then cancel it. */
+  /* If exists previously invoked thread, then let it continue. */
   if (ospf->t_distribute_update)
-    OSPF_TIMER_OFF (ospf->t_distribute_update);
+    return;
 
   /* Set timer. */
   ospf->t_distribute_update =
