@@ -929,13 +929,8 @@ ospf_distribute_list_update_timer (struct thread *thread)
   struct external_info *ei;
   struct route_table *rt;
   struct ospf_lsa *lsa;
-  intptr_t type;
+  int type;
   struct ospf *ospf;
-
-  type = (intptr_t)THREAD_ARG (thread);
-  assert (type <= ZEBRA_ROUTE_MAX);
-  
-  rt = EXTERNAL_INFO (type);
 
   ospf = ospf_lookup ();
   if (ospf == NULL)
@@ -946,17 +941,22 @@ ospf_distribute_list_update_timer (struct thread *thread)
   zlog_info ("Zebra[Redistribute]: distribute-list update timer fired!");
 
   /* foreach all external info. */
-  if (rt)
-    for (rn = route_top (rt); rn; rn = route_next (rn))
-      if ((ei = rn->info) != NULL)
-        {
-          if (is_prefix_default (&ei->p))
-            ospf_external_lsa_refresh_default (ospf);
-          else if ((lsa = ospf_external_info_find_lsa (ospf, &ei->p)))
-            ospf_external_lsa_refresh (ospf, lsa, ei, LSA_REFRESH_IF_CHANGED);
-          else
-            ospf_external_lsa_originate (ospf, ei);
-        }
+  for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
+    {
+      rt = EXTERNAL_INFO (type);
+      if (!rt)
+	continue;
+      for (rn = route_top (rt); rn; rn = route_next (rn))
+	if ((ei = rn->info) != NULL)
+	  {
+	    if (is_prefix_default (&ei->p))
+	      ospf_external_lsa_refresh_default (ospf);
+	    else if ((lsa = ospf_external_info_find_lsa (ospf, &ei->p)))
+	      ospf_external_lsa_refresh (ospf, lsa, ei, LSA_REFRESH_IF_CHANGED);
+	    else
+	      ospf_external_lsa_originate (ospf, ei);
+	  }
+    }
   return 0;
 }
 
