@@ -929,7 +929,7 @@ ospf_distribute_list_update_timer (struct thread *thread)
   struct external_info *ei;
   struct route_table *rt;
   struct ospf_lsa *lsa;
-  int type;
+  int type, default_refresh = 0;
   struct ospf *ospf;
 
   ospf = ospf_lookup ();
@@ -950,13 +950,15 @@ ospf_distribute_list_update_timer (struct thread *thread)
 	if ((ei = rn->info) != NULL)
 	  {
 	    if (is_prefix_default (&ei->p))
-	      ospf_external_lsa_refresh_default (ospf);
+	      default_refresh = 1;
 	    else if ((lsa = ospf_external_info_find_lsa (ospf, &ei->p)))
 	      ospf_external_lsa_refresh (ospf, lsa, ei, LSA_REFRESH_IF_CHANGED);
 	    else
 	      ospf_external_lsa_originate (ospf, ei);
 	  }
     }
+  if (default_refresh)
+    ospf_external_lsa_refresh_default (ospf);
   return 0;
 }
 
