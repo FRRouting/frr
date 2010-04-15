@@ -1045,7 +1045,6 @@ ospf_network_lsa_new (struct ospf_interface *oi)
     }
   
   new->area = oi->area;
-  new->oi = oi;
   SET_FLAG (new->flags, OSPF_LSA_SELF | OSPF_LSA_SELF_CHECKED);
 
   /* Copy LSA to store. */
@@ -1114,10 +1113,23 @@ ospf_network_lsa_refresh (struct ospf_lsa *lsa)
   struct ospf_area *area = lsa->area;
   struct ospf_lsa *new, *new2;
   struct ospf_if_params *oip;
-  struct ospf_interface *oi = lsa->oi;
+  struct ospf_interface *oi;
   
   assert (lsa->data);
-
+  
+  /* Retrieve the oi for the network LSA */
+  oi = ospf_if_lookup_by_local_addr (area->ospf, NULL, lsa->data->id);
+  if (oi == NULL)
+    {
+      if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+        {
+          zlog_debug ("LSA[Type%d:%s]: network-LSA refresh: "
+                      "no oi found, ick, ignoring.",
+		      lsa->data->type, inet_ntoa (lsa->data->id));
+          ospf_lsa_header_dump (lsa->data);
+        }
+      return NULL;
+    }
   /* Delete LSA from neighbor retransmit-list. */
   ospf_ls_retransmit_delete_nbr_area (area, lsa);
 

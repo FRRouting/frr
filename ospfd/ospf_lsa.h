@@ -114,9 +114,6 @@ struct ospf_lsa
 
   /* Refreshement List or Queue */
   int refresh_list;
-
-  /* For Type-9 Opaque-LSAs or Type-2 Network-LSAs */
-  struct ospf_interface *oi;
 };
 
 /* OSPF LSA Link Type. */
