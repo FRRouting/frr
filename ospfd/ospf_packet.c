@@ -653,6 +653,13 @@ ospf_write (struct thread *thread)
   iph.ip_tos = IPTOS_PREC_INTERNETCONTROL;
   iph.ip_len = (iph.ip_hl << OSPF_WRITE_IPHL_SHIFT) + op->length;
 
+#if defined(__DragonFly__)
+  /*
+   * DragonFly's raw socket expects ip_len/ip_off in network byte order.
+   */
+  iph.ip_len = htons(iph.ip_len);
+#endif
+
 #ifdef WANT_OSPF_WRITE_FRAGMENT
   /* XXX-MT: not thread-safe at all..
    * XXX: this presumes this is only programme sending OSPF packets 
@@ -2080,6 +2087,15 @@ ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
   ip_len = ip_len + (iph->ip_hl << 2);
 #endif
   
+#if defined(__DragonFly__)
+  /*
+   * in DragonFly's raw socket, ip_len/ip_off are read 
+   * in network byte order.
+   * As OpenBSD < 200311 adjust ip_len to strip IP header size!
+   */
+  ip_len = ntohs(iph->ip_len) + (iph->ip_hl << 2);
+#endif
+
   ifindex = getsockopt_ifindex (AF_INET, &msgh);
   
   *ifp = if_lookup_by_index (ifindex);
