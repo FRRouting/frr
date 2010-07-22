@@ -1301,8 +1301,8 @@ int
 bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
 		    struct bgp_nlri *mp_update)
 {
-  u_int16_t afi;
-  u_char safi;
+  afi_t afi;
+  safi_t safi;
   bgp_size_t nlri_len;
   size_t start;
   int ret;
@@ -1436,8 +1436,8 @@ bgp_mp_unreach_parse (struct peer *peer, bgp_size_t length,
 		      struct bgp_nlri *mp_withdraw)
 {
   struct stream *s;
-  u_int16_t afi;
-  u_char safi;
+  afi_t afi;
+  safi_t safi;
   u_int16_t withdraw_len;
   int ret;
 

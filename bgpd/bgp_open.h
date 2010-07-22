@@ -31,9 +31,9 @@ struct capability_header
 /* Generic MP capability data */
 struct capability_mp_data
 {
-  u_int16_t afi;
+  afi_t afi;
   u_char reserved;
-  u_char safi;
+  safi_t safi;
 };
 
 #pragma pack(1)
@@ -55,8 +55,8 @@ struct capability_as4
 
 struct graceful_restart_af
 {
-  u_int16_t afi;
-  u_char safi;
+  afi_t afi;
+  safi_t safi;
   u_char flag;
 };
 

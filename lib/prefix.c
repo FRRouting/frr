@@ -41,7 +41,7 @@ static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 
 /* Address Famiy Identifier to Address Family converter. */
 int
-afi2family (int afi)
+afi2family (afi_t afi)
 {
   if (afi == AFI_IP)
     return AF_INET;
@@ -52,7 +52,7 @@ afi2family (int afi)
   return 0;
 }
 
-int
+afi_t
 family2afi (int family)
 {
   if (family == AF_INET)

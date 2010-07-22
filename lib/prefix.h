@@ -144,8 +144,8 @@ prefix6_bit (const struct in6_addr *prefix, const u_char prefixlen)
 }
 
 /* Prototypes. */
-extern int afi2family (int);
-extern int family2afi (int);
+extern int afi2family (afi_t);
+extern afi_t family2afi (int);
 
 extern struct prefix *prefix_new (void);
 extern void prefix_free (struct prefix *);
