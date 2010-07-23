@@ -111,6 +111,9 @@ zrealloc (int type, void *ptr, size_t size)
   memory = realloc (ptr, size);
   if (memory == NULL)
     zerror ("realloc", type, size);
+  if (ptr == NULL)
+    alloc_inc (type);
+
   return memory;
 }
 
@@ -123,8 +126,11 @@ zrealloc (int type, void *ptr, size_t size)
 void
 zfree (int type, void *ptr)
 {
-  alloc_dec (type);
-  free (ptr);
+  if (ptr != NULL)
+    {
+      alloc_dec (type);
+      free (ptr);
+    }
 }
 
 /*
