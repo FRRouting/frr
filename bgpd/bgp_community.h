@@ -70,5 +70,6 @@ extern int community_include (struct community *, u_int32_t);
 extern void community_del_val (struct community *, u_int32_t *);
 extern unsigned long community_count (void);
 extern struct hash *community_hash (void);
+extern struct community *community_lookup (struct community *);
 
 #endif /* _QUAGGA_BGP_COMMUNITY_H */

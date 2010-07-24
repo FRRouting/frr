@@ -1297,7 +1297,7 @@ route_set_community (void *rule, struct prefix *prefix,
 	new = community_dup (rcs->com);
       
       /* will be interned by caller if required */
-      attr->community = new;
+      attr->community = community_intern (new);
 
       attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES);
     }
@@ -1311,6 +1311,7 @@ route_set_community_compile (const char *arg)
 {
   struct rmap_com_set *rcs;
   struct community *com = NULL;
+  struct community *comint;
   char *sp;
   int additive = 0;
   int none = 0;
@@ -1337,8 +1338,9 @@ route_set_community_compile (const char *arg)
 	return NULL;
     }
   
+  comint = community_intern (com);
   rcs = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (struct rmap_com_set));
-  rcs->com = com;
+  rcs->com = comint;
   rcs->additive = additive;
   rcs->none = none;
   
@@ -1401,7 +1403,7 @@ route_set_community_delete (void *rule, struct prefix *prefix,
 	    }
 	  else
 	    {
-	      binfo->attr->community = new;
+	      binfo->attr->community = community_intern (new);
 	      binfo->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES);
 	    }
 	}

@@ -292,6 +292,13 @@ community_com2str  (struct community *com)
   return str;
 }
 
+/* Find an 'intern'ed community structure */
+struct community *
+community_lookup (struct community *com)
+{
+   return (struct community *) hash_lookup (comhash, com);
+}
+
 /* Intern communities attribute.  */
 struct community *
 community_intern (struct community *com)
