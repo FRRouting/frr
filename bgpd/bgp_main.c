@@ -243,7 +243,15 @@ bgp_exit (int status)
   if (retain_mode)
     if_add_hook (IF_DELETE_HOOK, NULL);
   for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
-    if_delete (ifp);
+    {
+      struct listnode *c_node, *c_nnode;
+      struct connected *c;
+
+      for (ALL_LIST_ELEMENTS (ifp->connected, c_node, c_nnode, c))
+        bgp_connected_delete (c);
+
+      if_delete (ifp);
+    }
   list_free (iflist);
 
   /* reverse bgp_attr_init */

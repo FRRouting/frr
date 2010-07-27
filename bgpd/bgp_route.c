@@ -6561,7 +6561,10 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
               if ((rm = bgp_node_match (table, &match)) != NULL)
                 {
                   if (prefix_check && rm->p.prefixlen != match.prefixlen)
-                    continue;
+                    {
+                      bgp_unlock_node (rm);
+                      continue;
+                    }
 
                   for (ri = rm->info; ri; ri = ri->next)
                     {
@@ -6575,6 +6578,8 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
                       display++;
                       route_vty_out_detail (vty, bgp, &rm->p, ri, AFI_IP, SAFI_MPLS_VPN);
                     }
+
+                  bgp_unlock_node (rm);
                 }
             }
         }
@@ -6598,6 +6603,8 @@ bgp_show_route_in_table (struct vty *vty, struct bgp *bgp,
                   route_vty_out_detail (vty, bgp, &rn->p, ri, afi, safi);
                 }
             }
+
+          bgp_unlock_node (rn);
         }
     }
 
@@ -11355,41 +11362,49 @@ bgp_clear_damp_route (struct vty *vty, const char *view_name,
 
 	  if ((table = rn->info) != NULL)
 	    if ((rm = bgp_node_match (table, &match)) != NULL)
-	      if (! prefix_check || rm->p.prefixlen == match.prefixlen)
-		{
-		  ri = rm->info;
-		  while (ri)
-		    {
-		      if (ri->extra && ri->extra->damp_info)
-			{
-			  ri_temp = ri->next;
-			  bgp_damp_info_free (ri->extra->damp_info, 1);
-			  ri = ri_temp;
-			}
-		      else
-			ri = ri->next;
-		    }
-		}
+              {
+                if (! prefix_check || rm->p.prefixlen == match.prefixlen)
+                  {
+                    ri = rm->info;
+                    while (ri)
+                      {
+                        if (ri->extra && ri->extra->damp_info)
+                          {
+                            ri_temp = ri->next;
+                            bgp_damp_info_free (ri->extra->damp_info, 1);
+                            ri = ri_temp;
+                          }
+                        else
+                          ri = ri->next;
+                      }
+                  }
+
+                bgp_unlock_node (rm);
+              }
         }
     }
   else
     {
       if ((rn = bgp_node_match (bgp->rib[afi][safi], &match)) != NULL)
-	if (! prefix_check || rn->p.prefixlen == match.prefixlen)
-	  {
-	    ri = rn->info;
-	    while (ri)
-	      {
-		if (ri->extra && ri->extra->damp_info)
-		  {
-		    ri_temp = ri->next;
-		    bgp_damp_info_free (ri->extra->damp_info, 1);
-		    ri = ri_temp;
-		  }
-		else
-		  ri = ri->next;
-	      }
-	  }
+        {
+          if (! prefix_check || rn->p.prefixlen == match.prefixlen)
+            {
+              ri = rn->info;
+              while (ri)
+                {
+                  if (ri->extra && ri->extra->damp_info)
+                    {
+                      ri_temp = ri->next;
+                      bgp_damp_info_free (ri->extra->damp_info, 1);
+                      ri = ri_temp;
+                    }
+                  else
+                    ri = ri->next;
+                }
+            }
+
+          bgp_unlock_node (rn);
+        }
     }
 
   return CMD_SUCCESS;

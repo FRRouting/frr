@@ -276,6 +276,8 @@ bgp_nexthop_lookup_ipv6 (struct peer *peer, struct bgp_info *ri, int *changed,
 
 		  if (bnc->metric != oldbnc->metric)
 		    bnc->metricchanged = 1;
+
+                  bgp_unlock_node (oldrn);
 		}
 	    }
 	}
@@ -365,6 +367,8 @@ bgp_nexthop_lookup (afi_t afi, struct peer *peer, struct bgp_info *ri,
 
 		  if (bnc->metric != oldbnc->metric)
 		    bnc->metricchanged = 1;
+
+                  bgp_unlock_node (oldrn);
 		}
 	    }
 	}
@@ -571,7 +575,7 @@ bgp_connected_add (struct connected *ifc)
 	}
       else
 	{
-	  bc = XCALLOC (0, sizeof (struct bgp_connected_ref));
+	  bc = XCALLOC (MTYPE_BGP_CONN, sizeof (struct bgp_connected_ref));
 	  bc->refcnt = 1;
 	  rn->info = bc;
 	}
@@ -596,7 +600,7 @@ bgp_connected_add (struct connected *ifc)
 	}
       else
 	{
-	  bc = XCALLOC (0, sizeof (struct bgp_connected_ref));
+	  bc = XCALLOC (MTYPE_BGP_CONN, sizeof (struct bgp_connected_ref));
 	  bc->refcnt = 1;
 	  rn->info = bc;
 	}
@@ -636,7 +640,7 @@ bgp_connected_delete (struct connected *ifc)
       bc->refcnt--;
       if (bc->refcnt == 0)
 	{
-	  XFREE (0, bc);
+	  XFREE (MTYPE_BGP_CONN, bc);
 	  rn->info = NULL;
 	}
       bgp_unlock_node (rn);
@@ -662,7 +666,7 @@ bgp_connected_delete (struct connected *ifc)
       bc->refcnt--;
       if (bc->refcnt == 0)
 	{
-	  XFREE (0, bc);
+	  XFREE (MTYPE_BGP_CONN, bc);
 	  rn->info = NULL;
 	}
       bgp_unlock_node (rn);
@@ -1136,11 +1140,15 @@ bgp_multiaccess_check_v4 (struct in_addr nexthop, char *peer)
   rn1 = bgp_node_match (bgp_connected_table[AFI_IP], &p1);
   if (! rn1)
     return 0;
+  bgp_unlock_node (rn1);
   
   rn2 = bgp_node_match (bgp_connected_table[AFI_IP], &p2);
   if (! rn2)
     return 0;
+  bgp_unlock_node (rn2);
 
+  /* This is safe, even with above unlocks, since we are just
+     comparing pointers to the objects, not the objects themselves. */
   if (rn1 == rn2)
     return 1;
 
@@ -1316,6 +1324,9 @@ bgp_scan_init (void)
 void
 bgp_scan_finish (void)
 {
+  /* Only the current one needs to be reset. */
+  bgp_nexthop_cache_reset (bgp_nexthop_cache_table[AFI_IP]);
+
   bgp_table_unlock (cache1_table[AFI_IP]);
   cache1_table[AFI_IP] = NULL;
 
@@ -1326,6 +1337,9 @@ bgp_scan_finish (void)
   bgp_connected_table[AFI_IP] = NULL;
 
 #ifdef HAVE_IPV6
+  /* Only the current one needs to be reset. */
+  bgp_nexthop_cache_reset (bgp_nexthop_cache_table[AFI_IP6]);
+
   bgp_table_unlock (cache1_table[AFI_IP6]);
   cache1_table[AFI_IP6] = NULL;
 

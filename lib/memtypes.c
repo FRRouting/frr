@@ -108,6 +108,7 @@ struct memory_list memory_list_bgp[] =
   { MTYPE_BGP_NODE,		"BGP node"			},
   { MTYPE_BGP_ROUTE,		"BGP route"			},
   { MTYPE_BGP_ROUTE_EXTRA,	"BGP ancillary route info"	},
+  { MTYPE_BGP_CONN,		"BGP connected"			},
   { MTYPE_BGP_STATIC,		"BGP static"			},
   { MTYPE_BGP_ADVERTISE_ATTR,	"BGP adv attr"			},
   { MTYPE_BGP_ADVERTISE,	"BGP adv"			},
