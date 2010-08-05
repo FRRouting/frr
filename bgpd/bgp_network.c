@@ -150,6 +150,7 @@ bgp_accept (struct thread *thread)
       zlog_err ("[Error] BGP socket accept failed (%s)", safe_strerror (errno));
       return -1;
     }
+  set_nonblocking (bgp_sock);
 
   if (BGP_DEBUG (events, EVENTS))
     zlog_debug ("[Event] BGP connection from host %s", inet_sutop (&su, buf));

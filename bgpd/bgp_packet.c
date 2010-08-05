@@ -598,7 +598,6 @@ bgp_write (struct thread *thread)
   struct stream *s; 
   int num;
   unsigned int count = 0;
-  int write_errno;
 
   /* Yes first of all get peer pointer. */
   peer = THREAD_ARG (thread);
@@ -620,36 +619,24 @@ bgp_write (struct thread *thread)
       s = bgp_write_packet (peer);
       if (! s)
 	return 0;
-      
-      /* XXX: FIXME, the socket should be NONBLOCK from the start
-       * status shouldnt need to be toggled on each write
-       */
-      val = fcntl (peer->fd, F_GETFL, 0);
-      fcntl (peer->fd, F_SETFL, val|O_NONBLOCK);
 
       /* Number of bytes to be sent.  */
       writenum = stream_get_endp (s) - stream_get_getp (s);
 
       /* Call write() system call.  */
       num = write (peer->fd, STREAM_PNT (s), writenum);
-      write_errno = errno;
-      fcntl (peer->fd, F_SETFL, val);
-      if (num <= 0)
+      if (num < 0)
 	{
-	  /* Partial write. */
-	  if (write_errno == EWOULDBLOCK || write_errno == EAGAIN)
-	      break;
-
-	  BGP_EVENT_ADD (peer, TCP_fatal_error);
+	  /* need to try again */
+	  if (!ERRNO_IO_RETRY(errno))
+	    BGP_EVENT_ADD (peer, TCP_fatal_error);
 	  return 0;
 	}
+
       if (num != writenum)
 	{
+	  /* Partial write */
 	  stream_forward_getp (s, num);
-
-	  if (write_errno == EAGAIN)
-	    break;
-
 	  continue;
 	}
 
@@ -706,7 +693,7 @@ bgp_write (struct thread *thread)
 static int
 bgp_write_notify (struct peer *peer)
 {
-  int ret;
+  int ret, val;
   u_char type;
   struct stream *s; 
 
@@ -716,7 +703,10 @@ bgp_write_notify (struct peer *peer)
     return 0;
   assert (stream_get_endp (s) >= BGP_HEADER_SIZE);
 
-  /* I'm not sure fd is writable. */
+  /* Put socket in blocking mode. */
+  val = fcntl (peer->fd, F_GETFL, 0);
+  fcntl (peer->fd, F_SETFL, val & ~O_NONBLOCK);
+
   ret = writen (peer->fd, STREAM_DATA (s), stream_get_endp (s));
   if (ret <= 0)
     {
@@ -2263,12 +2253,13 @@ bgp_read_packet (struct peer *peer)
     return 0;
 
   /* Read packet from fd. */
-  nbytes = stream_read_unblock (peer->ibuf, peer->fd, readsize);
+  nbytes = stream_read_try (peer->ibuf, peer->fd, readsize);
 
   /* If read byte is smaller than zero then error occured. */
   if (nbytes < 0) 
     {
-      if (errno == EAGAIN)
+      /* Transient error should retry */
+      if (nbytes == -2)
 	return -1;
 
       plog_err (peer->log, "%s [Error] bgp_read_packet error: %s",
