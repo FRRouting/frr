@@ -541,22 +541,30 @@ int
 sockopt_minttl (int family, int sock, int minttl)
 {
 #ifdef IP_MINTTL
-  int ret;
-  
-  ret = setsockopt (sock, IPPROTO_IP, IP_MINTTL, &minttl, sizeof(minttl));
-  if (ret < 0)
+  if (family == AF_INET)
     {
-      zlog (NULL, LOG_WARNING,
-            "can't set sockopt IP_MINTTL to %d on socket %d: %s",
-            minttl, sock, safe_strerror (errno));
-      return -1;
+      int ret = setsockopt (sock, IPPROTO_IP, IP_MINTTL, &minttl, sizeof(minttl));
+      if (ret < 0)
+	  zlog (NULL, LOG_WARNING,
+		"can't set sockopt IP_MINTTL to %d on socket %d: %s",
+		minttl, sock, safe_strerror (errno));
+      return ret;
     }
+#endif /* IP_MINTTL */
+#ifdef IPV6_MINHOPCNT
+  if (family == AF_INET6)
+    {
+      int ret = setsockopt (sock, IPPROTO_IPV6, IPV6_MINHOPCNT, &minttl, sizeof(minttl));
+      if (ret < 0)
+	  zlog (NULL, LOG_WARNING,
+		"can't set sockopt IPV6_MINHOPCNT to %d on socket %d: %s",
+		minttl, sock, safe_strerror (errno));
+      return ret;
+    }
+#endif
 
-  return 0;
-#else
   errno = EOPNOTSUPP;
   return -1;
-#endif /* IP_MINTTL */
 }
 
 /* If same family and same prefix return 1. */
