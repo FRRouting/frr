@@ -610,15 +610,16 @@ bgp_write (struct thread *thread)
       return 0;
     }
 
-    /* Nonblocking write until TCP output buffer is full.  */
-  while (1)
+  s = bgp_write_packet (peer);
+  if (!s)
+    return 0;	/* nothing to send */
+
+  sockopt_cork (peer->fd, 1);
+
+  /* Nonblocking write until TCP output buffer is full.  */
+  do
     {
       int writenum;
-      int val;
-
-      s = bgp_write_packet (peer);
-      if (! s)
-	return 0;
 
       /* Number of bytes to be sent.  */
       writenum = stream_get_endp (s) - stream_get_getp (s);
@@ -627,9 +628,11 @@ bgp_write (struct thread *thread)
       num = write (peer->fd, STREAM_PNT (s), writenum);
       if (num < 0)
 	{
-	  /* need to try again */
-	  if (!ERRNO_IO_RETRY(errno))
-	    BGP_EVENT_ADD (peer, TCP_fatal_error);
+	  /* write failed either retry needed or error */
+	  if (ERRNO_IO_RETRY(errno))
+		break;
+
+          BGP_EVENT_ADD (peer, TCP_fatal_error);
 	  return 0;
 	}
 
@@ -637,7 +640,7 @@ bgp_write (struct thread *thread)
 	{
 	  /* Partial write */
 	  stream_forward_getp (s, num);
-	  continue;
+	  break;
 	}
 
       /* Retrieve BGP packet type. */
@@ -678,13 +681,14 @@ bgp_write (struct thread *thread)
 
       /* OK we send packet so delete it. */
       bgp_packet_delete (peer);
-
-      if (++count >= BGP_WRITE_PACKET_MAX)
-	break;
     }
+  while (++count < BGP_WRITE_PACKET_MAX &&
+	 (s = bgp_write_packet (peer)) != NULL);
   
   if (bgp_write_proceed (peer))
     BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
+  else
+    sockopt_cork (peer->fd, 0);
   
   return 0;
 }
