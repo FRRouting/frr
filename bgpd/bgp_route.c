@@ -4985,7 +4985,53 @@ bgp_aggregate_delete (struct bgp *bgp, struct prefix *p, afi_t afi,
 #define AGGREGATE_AS_SET       1
 
 static int
-bgp_aggregate_set (struct vty *vty, const char *prefix_str, 
+bgp_aggregate_unset (struct vty *vty, const char *prefix_str,
+                     afi_t afi, safi_t safi)
+{
+  int ret;
+  struct prefix p;
+  struct bgp_node *rn;
+  struct bgp *bgp;
+  struct bgp_aggregate *aggregate;
+
+  /* Convert string to prefix structure. */
+  ret = str2prefix (prefix_str, &p);
+  if (!ret)
+    {
+      vty_out (vty, "Malformed prefix%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  apply_mask (&p);
+
+  /* Get BGP structure. */
+  bgp = vty->index;
+
+  /* Old configuration check. */
+  rn = bgp_node_lookup (bgp->aggregate[afi][safi], &p);
+  if (! rn)
+    {
+      vty_out (vty, "%% There is no aggregate-address configuration.%s",
+               VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  aggregate = rn->info;
+  if (aggregate->safi & SAFI_UNICAST)
+    bgp_aggregate_delete (bgp, &p, afi, SAFI_UNICAST, aggregate);
+  if (aggregate->safi & SAFI_MULTICAST)
+    bgp_aggregate_delete (bgp, &p, afi, SAFI_MULTICAST, aggregate);
+
+  /* Unlock aggregate address configuration. */
+  rn->info = NULL;
+  bgp_aggregate_free (aggregate);
+  bgp_unlock_node (rn);
+  bgp_unlock_node (rn);
+
+  return CMD_SUCCESS;
+}
+
+static int
+bgp_aggregate_set (struct vty *vty, const char *prefix_str,
                    afi_t afi, safi_t safi,
 		   u_char summary_only, u_char as_set)
 {
@@ -5013,8 +5059,13 @@ bgp_aggregate_set (struct vty *vty, const char *prefix_str,
   if (rn->info)
     {
       vty_out (vty, "There is already same aggregate network.%s", VTY_NEWLINE);
-      bgp_unlock_node (rn);
-      return CMD_WARNING;
+      /* remove  old entry */
+      ret = bgp_aggregate_unset (vty, prefix_str, afi, safi);
+      if (ret)
+        {
+          vty_out (vty, "Error deleteing aggregate%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+        }
     }
 
   /* Make aggregate address structure. */
@@ -5029,52 +5080,6 @@ bgp_aggregate_set (struct vty *vty, const char *prefix_str,
     bgp_aggregate_add (bgp, &p, afi, SAFI_UNICAST, aggregate);
   if (safi & SAFI_MULTICAST)
     bgp_aggregate_add (bgp, &p, afi, SAFI_MULTICAST, aggregate);
-
-  return CMD_SUCCESS;
-}
-
-static int
-bgp_aggregate_unset (struct vty *vty, const char *prefix_str, 
-                     afi_t afi, safi_t safi)
-{
-  int ret;
-  struct prefix p;
-  struct bgp_node *rn;
-  struct bgp *bgp;
-  struct bgp_aggregate *aggregate;
-
-  /* Convert string to prefix structure. */
-  ret = str2prefix (prefix_str, &p);
-  if (!ret)
-    {
-      vty_out (vty, "Malformed prefix%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  apply_mask (&p);
-
-  /* Get BGP structure. */
-  bgp = vty->index;
-
-  /* Old configuration check. */
-  rn = bgp_node_lookup (bgp->aggregate[afi][safi], &p);
-  if (! rn)
-    {
-      vty_out (vty, "%% There is no aggregate-address configuration.%s",
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  aggregate = rn->info;
-  if (aggregate->safi & SAFI_UNICAST)
-    bgp_aggregate_delete (bgp, &p, afi, SAFI_UNICAST, aggregate);
-  if (aggregate->safi & SAFI_MULTICAST)
-    bgp_aggregate_delete (bgp, &p, afi, SAFI_MULTICAST, aggregate);
-
-  /* Unlock aggregate address configuration. */
-  rn->info = NULL;
-  bgp_aggregate_free (aggregate);
-  bgp_unlock_node (rn);
-  bgp_unlock_node (rn);
 
   return CMD_SUCCESS;
 }
