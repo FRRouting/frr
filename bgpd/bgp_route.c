@@ -5059,11 +5059,12 @@ bgp_aggregate_set (struct vty *vty, const char *prefix_str,
   if (rn->info)
     {
       vty_out (vty, "There is already same aggregate network.%s", VTY_NEWLINE);
-      /* remove  old entry */
+      /* try to remove the old entry */
       ret = bgp_aggregate_unset (vty, prefix_str, afi, safi);
       if (ret)
         {
-          vty_out (vty, "Error deleteing aggregate%s", VTY_NEWLINE);
+          vty_out (vty, "Error deleting aggregate.%s", VTY_NEWLINE);
+	  bgp_unlock_node (rn);
 	  return CMD_WARNING;
         }
     }
