@@ -3280,7 +3280,7 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
   else
     attr_new = bgp_attr_intern (&attr);
   
-  new_attr = *attr_new;
+  bgp_attr_dup(&new_attr, attr_new);
   
   SET_FLAG (bgp->peer_self->rmap_type, PEER_RMAP_TYPE_NETWORK);
 
@@ -3309,6 +3309,7 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
 
   bgp_attr_unintern (attr_new);
   attr_new = bgp_attr_intern (&new_attr);
+  bgp_attr_extra_free (&new_attr);
 
   for (ri = rn->info; ri; ri = ri->next)
     if (ri->peer == bgp->peer_self && ri->type == ZEBRA_ROUTE_BGP
