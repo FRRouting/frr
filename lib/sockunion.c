@@ -527,6 +527,16 @@ sockopt_ttl (int family, int sock, int ttl)
   return 0;
 }
 
+int
+sockopt_cork (int sock, int onoff)
+{
+#ifdef TCP_CORK
+  return setsockopt (sock, IPPROTO_TCP, TCP_CORK, &onoff, sizeof(onoff));
+#else
+  return 0;
+#endif
+}
+
 /* If same family and same prefix return 1. */
 int
 sockunion_same (union sockunion *su1, union sockunion *su2)
