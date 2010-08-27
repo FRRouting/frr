@@ -28,6 +28,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "stream.h"
 #include "log.h"
 #include "hash.h"
+#include "jhash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -116,18 +117,9 @@ cluster_loop_check (struct cluster_list *cluster, struct in_addr originator)
 static unsigned int
 cluster_hash_key_make (void *p)
 {
-  struct cluster_list * cluster = (struct cluster_list *) p;
-  unsigned int key = 0;
-  int length;
-  caddr_t pnt;
+  const struct cluster_list *cluster = p;
 
-  length = cluster->length;
-  pnt = (caddr_t) cluster->list;
-  
-  while (length)
-    key += pnt[--length];
-
-  return key;
+  return jhash(cluster->list, cluster->length, 0);
 }
 
 static int
@@ -258,18 +250,9 @@ transit_unintern (struct transit *transit)
 static unsigned int
 transit_hash_key_make (void *p)
 {
-  struct transit * transit = (struct transit *) p;
-  unsigned int key = 0;
-  int length;
-  caddr_t pnt;
+  const struct transit * transit = p;
 
-  length = transit->length;
-  pnt = (caddr_t) transit->val;
-  
-  while (length)
-    key += pnt[--length];
-
-  return key;
+  return jhash(transit->val, transit->length, 0);
 }
 
 static int
@@ -352,51 +335,47 @@ attr_unknown_count (void)
 unsigned int
 attrhash_key_make (void *p)
 {
-  struct attr * attr = (struct attr *) p;
-  unsigned int key = 0;
+  const struct attr * attr = (struct attr *) p;
+  uint32_t key = 0;
+#define MIX(val)	key = jhash_1word(val, key)
 
-  key += attr->origin;
-  key += attr->nexthop.s_addr;
-  key += attr->med;
-  key += attr->local_pref;
+  MIX(attr->origin);
+  MIX(attr->nexthop.s_addr);
+  MIX(attr->med);
+  MIX(attr->local_pref);
+
   if (attr->pathlimit.as)
     {
-      key += attr->pathlimit.ttl;
-      key += attr->pathlimit.as;
+      MIX(attr->pathlimit.ttl);
+      MIX(attr->pathlimit.as);
     }
   
   if (attr->extra)
     {
-      key += attr->extra->aggregator_as;
-      key += attr->extra->aggregator_addr.s_addr;
-      key += attr->extra->weight;
-      key += attr->extra->mp_nexthop_global_in.s_addr;
+      MIX(attr->extra->aggregator_as);
+      MIX(attr->extra->aggregator_addr.s_addr);
+      MIX(attr->extra->weight);
+      MIX(attr->extra->mp_nexthop_global_in.s_addr);
     }
   
   if (attr->aspath)
-    key += aspath_key_make (attr->aspath);
+    MIX(aspath_key_make (attr->aspath));
   if (attr->community)
-    key += community_hash_make (attr->community);
+    MIX(community_hash_make (attr->community));
   
   if (attr->extra)
     {
       if (attr->extra->ecommunity)
-        key += ecommunity_hash_make (attr->extra->ecommunity);
+        MIX(ecommunity_hash_make (attr->extra->ecommunity));
       if (attr->extra->cluster)
-        key += cluster_hash_key_make (attr->extra->cluster);
+        MIX(cluster_hash_key_make (attr->extra->cluster));
       if (attr->extra->transit)
-        key += transit_hash_key_make (attr->extra->transit);
+        MIX(transit_hash_key_make (attr->extra->transit));
 
 #ifdef HAVE_IPV6
-      {
-        int i;
-        
-        key += attr->extra->mp_nexthop_len;
-        for (i = 0; i < 16; i++)
-          key += attr->extra->mp_nexthop_global.s6_addr[i];
-        for (i = 0; i < 16; i++)
-          key += attr->extra->mp_nexthop_local.s6_addr[i];
-      }
+      MIX(attr->extra->mp_nexthop_len);
+      key = jhash2(attr->extra->mp_nexthop_global.s6_addr32, 4, key);
+      key = jhash2(attr->extra->mp_nexthop_local.s6_addr32, 4, key);
 #endif /* HAVE_IPV6 */
     }
 
