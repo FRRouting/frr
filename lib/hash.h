@@ -70,4 +70,6 @@ extern void hash_iterate (struct hash *,
 extern void hash_clean (struct hash *, void (*) (void *));
 extern void hash_free (struct hash *);
 
+extern unsigned int string_hash_make (const char *);
+
 #endif /* _ZEBRA_HASH_H */

@@ -114,16 +114,11 @@ distribute_get (const char *ifname)
 }
 
 static unsigned int
-distribute_hash_make (struct distribute *dist)
+distribute_hash_make (void *arg)
 {
-  unsigned int i, key;
+  const struct distribute *dist = arg;
 
-  key = 0;
-  if (dist->ifname)
-    for (i = 0; i < strlen (dist->ifname); i++)
-      key += dist->ifname[i];
-
-  return key;
+  return dist->ifname ? string_hash_make (dist->ifname) : 0;
 }
 
 /* If two distribute-list have same value then return 1 else return
@@ -763,7 +758,7 @@ distribute_list_reset ()
 void
 distribute_list_init (int node)
 {
-  disthash = hash_create ((unsigned int (*) (void *)) distribute_hash_make,
+  disthash = hash_create (distribute_hash_make,
                           (int (*) (const void *, const void *)) distribute_cmp);
 
   if(node==RIP_NODE) {

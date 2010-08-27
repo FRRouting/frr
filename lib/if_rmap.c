@@ -109,14 +109,9 @@ if_rmap_get (const char *ifname)
 static unsigned int
 if_rmap_hash_make (void *data)
 {
-  struct if_rmap *if_rmap = data;
-  unsigned int i, key;
+  const struct if_rmap *if_rmap = data;
 
-  key = 0;
-  for (i = 0; i < strlen (if_rmap->ifname); i++)
-    key += if_rmap->ifname[i];
-
-  return key;
+  return string_hash_make (if_rmap->ifname);
 }
 
 static int

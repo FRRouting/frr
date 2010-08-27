@@ -101,6 +101,17 @@ hash_lookup (struct hash *hash, void *data)
   return hash_get (hash, data, NULL);
 }
 
+/* Simple Bernstein hash which is simple and fast for common case */
+unsigned int string_hash_make (const char *str)
+{
+  unsigned int hash = 0;
+
+  while (*str)
+    hash = (hash * 33) ^ (unsigned int) *str++;
+
+  return hash;
+}
+
 /* This function release registered value from specified hash.  When
    release is successfully finished, return the data pointer in the
    hash backet.  */
