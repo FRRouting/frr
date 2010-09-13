@@ -1393,6 +1393,13 @@ route_set_community_delete (void *rule, struct prefix *prefix,
 	  new = community_uniq_sort (merge);
 	  community_free (merge);
 
+	  /* HACK: if the old community is not intern'd,
+	   * we should free it here, or all reference to it may be lost.
+	   * Really need to cleanup attribute caching sometime.
+	   */
+	  if (old->refcnt == 0)
+	    community_free (old);
+
 	  if (new->size == 0)
 	    {
 	      binfo->attr->community = NULL;
