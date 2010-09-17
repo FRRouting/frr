@@ -19,7 +19,14 @@ collected in his git repository.
 This repository has topic branches for patches intended for inclusion
 in the main quagga tree, named patches/, plus some other branches.
 
+** git remote add balajig http://github.com/balajig/quagga-next.git 
+
+Balaji G has prepared a git repository where a number of patches to
+the list have been stored.
+
 * posted patches
+
+** Boeing
 
 Boeing has posted patches
 
