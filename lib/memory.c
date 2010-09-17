@@ -58,7 +58,11 @@ zerror (const char *fname, int type, size_t size)
   abort();
 }
 
-/* Memory allocation. */
+/*
+ * Allocate memory of a given size, to be tracked by a given type.
+ * Effects: Returns a pointer to usable memory.  If memory cannot
+ * be allocated, aborts execution.
+ */
 void *
 zmalloc (int type, size_t size)
 {
@@ -74,7 +78,9 @@ zmalloc (int type, size_t size)
   return memory;
 }
 
-/* Memory allocation with num * size with cleared. */
+/*
+ * Allocate memory as in zmalloc, and also clear the memory.
+ */
 void *
 zcalloc (int type, size_t size)
 {
@@ -90,7 +96,13 @@ zcalloc (int type, size_t size)
   return memory;
 }
 
-/* Memory reallocation. */
+/* 
+ * Given a pointer returned by zmalloc or zcalloc, free it and
+ * return a pointer to a new size, basically acting like realloc().
+ * Requires: ptr was returned by zmalloc, zcalloc, or zrealloc with the
+ * same type.
+ * Effects: Returns a pointer to the new memory, or aborts.
+ */
 void *
 zrealloc (int type, void *ptr, size_t size)
 {
@@ -102,7 +114,12 @@ zrealloc (int type, void *ptr, size_t size)
   return memory;
 }
 
-/* Memory free. */
+/*
+ * Free memory allocated by z*alloc or zstrdup.
+ * Requires: ptr was returned by zmalloc, zcalloc, or zrealloc with the
+ * same type.
+ * Effects: The memory is freed and may no longer be referenced.
+ */
 void
 zfree (int type, void *ptr)
 {
@@ -110,7 +127,12 @@ zfree (int type, void *ptr)
   free (ptr);
 }
 
-/* String duplication. */
+/*
+ * Duplicate a string, counting memory usage by type.
+ * Effects: The string is duplicated, and the return value must
+ * eventually be passed to zfree with the same type.  The function will
+ * succeed or abort.
+ */
 char *
 zstrdup (int type, const char *str)
 {
