@@ -24,6 +24,14 @@ in the main quagga tree, named patches/, plus some other branches.
 Balaji G has prepared a git repository where a number of patches to
 the list have been stored.
 
+** git remote add mtr http://github.com/tomhenderson/quagga-mtr.git
+
+Tom Henderson of Boeing has created a repository to work on
+multi-topology routing support for OSPF.
+
+(This repository does not appear to be a clone of the main quagga
+repository.)
+
 * posted patches
 
 ** Boeing
