@@ -339,11 +339,11 @@ zclient_start (struct zclient *zclient)
   /* Create read thread. */
   zclient_event (ZCLIENT_READ, zclient);
 
-  /* We need interface information. */
-  zebra_message_send (zclient, ZEBRA_INTERFACE_ADD);
-
   /* We need router-id information. */
   zebra_message_send (zclient, ZEBRA_ROUTER_ID_ADD);
+
+  /* We need interface information. */
+  zebra_message_send (zclient, ZEBRA_INTERFACE_ADD);
 
   /* Flush all redistribute request. */
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
