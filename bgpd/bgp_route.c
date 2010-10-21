@@ -6145,7 +6145,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	bgp_damp_info_vty (vty, binfo);
 
       /* Line 7 display Uptime */
-      vty_out (vty, "      Last update: %s", ctime (&binfo->uptime));
+      time_t tbuf = time(NULL) - (bgp_clock() - binfo->uptime);
+      vty_out (vty, "      Last update: %s", ctime(&tbuf));
     }
   vty_out (vty, "%s", VTY_NEWLINE);
 }  
