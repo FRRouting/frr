@@ -125,8 +125,8 @@ COMMIT MESSAGES
 
 The commit message should provide:
 
-* A suitable one-line summary as the very first line of the message, in the
-  form:
+* A suitable one-line summary followed by a blank line as the very
+  first line of the message, in the form:
 
   topic: high-level, one line summary
 
@@ -143,6 +143,8 @@ to provide a short description of the general intent of the patch, in terms
 of the problem it solves and how it achieves it, to help reviewers
 understand. 
 
+The one-line summary must be limited to 54 characters, and all other
+lines to 72 characters.
 
 The reason for such itemised commit messages is to encourage the author to
 self-review every line of the patch, as well as provide reviewers an index
@@ -162,6 +164,8 @@ zebra: Enhance frob FSM to detect loss of frob
 * frob.c: (frob_change) set/clear DOWN appropriately on state change.
 * bar.c: (barinate) Check frob for DOWN state.
 
+Note that the commit message format follows git norms, so that "git
+log --oneline" will have useful output.
 
 HACKING THE BUILD SYSTEM
 
