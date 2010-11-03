@@ -17,6 +17,7 @@ Contents:
 * STABLE PLATFORMS AND DAEMONS
 * IMPORT OR UPDATE VENDOR SPECIFIC ROUTING PROTOCOLS
 
+
 GUIDELINES FOR HACKING ON QUAGGA
 
 [this is a draft in progress]
@@ -98,6 +99,7 @@ release.
 
 See also below regarding SHARED LIBRARY VERSIONING.
 
+
 COMPILE-TIME CONDITIONAL CODE
 
 Please think very carefully before making code conditional at compile time,
@@ -121,6 +123,7 @@ rather than:
 Note that the former approach requires ensuring that SOME_SYMBOL will be
 defined (watch your AC_DEFINEs).
 
+
 COMMIT MESSAGES
 
 The commit message should provide:
@@ -141,14 +144,14 @@ The commit message should provide:
 
 to provide a short description of the general intent of the patch, in terms
 of the problem it solves and how it achieves it, to help reviewers
-understand. 
+understand.
 
 The one-line summary must be limited to 54 characters, and all other
 lines to 72 characters.
 
 The reason for such itemised commit messages is to encourage the author to
 self-review every line of the patch, as well as provide reviewers an index
-of which changes are intended, along with a short description for each. 
+of which changes are intended, along with a short description for each.
 Some discretion is obviously required.  A C-to-english description is not
 desireable.  For short patches, a per-function/file break-down may be
 redundant.  For longer patches, such a break-down may be essential.
@@ -159,7 +162,7 @@ given the one-line summary):
 zebra: Enhance frob FSM to detect loss of frob
 
 * (general) Add a new DOWN state to the frob state machine
-   to allow the barinator to detect loss of frob. 
+   to allow the barinator to detect loss of frob.
 * frob.h: (struct frob) Add DOWN state flag.
 * frob.c: (frob_change) set/clear DOWN appropriately on state change.
 * bar.c: (barinate) Check frob for DOWN state.
@@ -174,12 +177,13 @@ etc.), try to check that the following things still work:
 
 	- make dist
 	- resulting dist tarball builds
-	- out-of-tree builds 
+	- out-of-tree builds
 
 The quagga.net site relies on make dist to work to generate snapshots. It
 must work. Common problems are to forget to have some additional file
 included in the dist, or to have a make rule refer to a source file without
 using the srcdir variable.
+
 
 RELEASE PROCEDURE
 
@@ -203,7 +207,7 @@ RELEASE PROCEDURE
 The tarball which 'make dist' creates is the tarball to be released! The
 git-archive step ensures you're working with code corresponding to that in
 the official repository, and also carries out keyword expansion. If any
-errors occur, move tags as needed and start over from the fresh checkouts. 
+errors occur, move tags as needed and start over from the fresh checkouts.
 Do not append to tarballs, as this has produced non-standards-conforming
 tarballs in the past.
 
@@ -246,9 +250,9 @@ installed together.
 PATCH SUBMISSION
 
 * Send a clean diff against the 'master' branch of the quagga.git
-  repository, in unified diff format, preferably with the '-p' argument to 
+  repository, in unified diff format, preferably with the '-p' argument to
   show C function affected by any chunk, and with the -w and -b arguments to
-  minimise changes. E.g: 
+  minimise changes. E.g:
 
     git diff -up mybranch..remotes/quagga.net/master
 
@@ -256,7 +260,7 @@ PATCH SUBMISSION
 
 *  Not doing so is a definite hindrance to patch application.
 
-* Include NEWS entries as appropriate. 
+* Include NEWS entries as appropriate.
 
 * Please, please include an appropriate commit message with any emailed
   patches. Doing so makes it easier to review a patch, and apply it.
