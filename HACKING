@@ -247,6 +247,14 @@ library libzebra and the included daemons should always be built and
 installed together.
 
 
+GIT COMMIT SUBSMISSION
+
+The preferred method for changes is to provide git commits via a
+publically-accessible git repository.
+
+All content guidelines in PATCH SUBMISSION apply.
+
+
 PATCH SUBMISSION
 
 * Send a clean diff against the 'master' branch of the quagga.git
@@ -256,14 +264,16 @@ PATCH SUBMISSION
 
     git diff -up mybranch..remotes/quagga.net/master
 
-  Or by using git-format-patch.
+  It is preferable to use git format-patch, and even more preferred to
+  publish a git repostory.
 
-*  Not doing so is a definite hindrance to patch application.
+  If not using git format-patch, Include the commit message in the email.
+
+* After a commit, code should have comments explaining to the reviewer
+  why it is correct, without reference to history.  The commit message
+  should explain why the change is correct.
 
 * Include NEWS entries as appropriate.
-
-* Please, please include an appropriate commit message with any emailed
-  patches. Doing so makes it easier to review a patch, and apply it.
 
 * Include only one semantic change or group of changes per patch.
 
