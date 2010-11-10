@@ -878,3 +878,21 @@ if_init (void)
 
   memset (&if_master, 0, sizeof if_master);
 }
+
+void
+if_terminate (void)
+{
+  for (;;)
+    {
+      struct interface *ifp;
+
+      ifp = listnode_head (iflist);
+      if (ifp == NULL)
+	break;
+
+      if_delete (ifp);
+    }
+
+  list_delete (iflist);
+  iflist = NULL;
+}

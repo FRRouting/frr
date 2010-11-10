@@ -266,6 +266,7 @@ extern int if_is_pointopoint (struct interface *);
 extern int if_is_multicast (struct interface *);
 extern void if_add_hook (int, int (*)(struct interface *));
 extern void if_init (void);
+extern void if_terminate (void);
 extern void if_dump_all (void);
 extern const char *if_flag_dump(unsigned long);
 
