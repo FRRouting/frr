@@ -653,6 +653,9 @@ closezlog (struct zlog *zl)
   if (zl->fp != NULL)
     fclose (zl->fp);
 
+  if (zl->filename != NULL)
+    free (zl->filename);
+
   XFREE (MTYPE_ZLOG, zl);
 }
 
