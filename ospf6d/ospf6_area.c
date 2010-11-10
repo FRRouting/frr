@@ -199,6 +199,7 @@ ospf6_area_delete (struct ospf6_area *oa)
   ospf6_lsdb_delete (oa->lsdb);
   ospf6_lsdb_delete (oa->lsdb_self);
 
+  ospf6_spf_table_finish (oa->spf_table);
   ospf6_route_table_delete (oa->spf_table);
   ospf6_route_table_delete (oa->route_table);
 
