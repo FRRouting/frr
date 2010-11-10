@@ -203,11 +203,6 @@ ospf6_area_delete (struct ospf6_area *oa)
   ospf6_route_table_delete (oa->spf_table);
   ospf6_route_table_delete (oa->route_table);
 
-#if 0
-  ospf6_spftree_delete (oa->spf_tree);
-  ospf6_route_table_delete (oa->topology_table);
-#endif /*0*/
-
   THREAD_OFF (oa->thread_spf_calculation);
   THREAD_OFF (oa->thread_route_calculation);
 
