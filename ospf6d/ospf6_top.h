@@ -69,6 +69,7 @@ extern struct ospf6 *ospf6;
 
 /* prototypes */
 extern void ospf6_top_init (void);
+extern void ospf6_delete (struct ospf6 *o);
 
 extern void ospf6_maxage_remove (struct ospf6 *o);
 

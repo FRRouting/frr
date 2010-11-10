@@ -243,6 +243,7 @@ extern void ospf6_install_lsa_handler (struct ospf6_lsa_handler *handler);
 extern struct ospf6_lsa_handler *ospf6_get_lsa_handler (u_int16_t type);
 
 extern void ospf6_lsa_init (void);
+extern void ospf6_lsa_terminate (void);
 extern void ospf6_lsa_cmd_init (void);
 
 extern int config_write_ospf6_debug_lsa (struct vty *vty);

@@ -51,6 +51,8 @@
 /* global ospf6d variable */
 struct ospf6 *ospf6;
 
+static void ospf6_disable (struct ospf6 *o);
+
 static void
 ospf6_top_lsdb_hook_add (struct ospf6_lsa *lsa)
 {
@@ -143,15 +145,17 @@ ospf6_create (void)
   return o;
 }
 
-#if 0
-static void
+void
 ospf6_delete (struct ospf6 *o)
 {
   struct listnode *node, *nnode;
   struct ospf6_area *oa;
 
+  ospf6_disable (ospf6);
+
   for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))
     ospf6_area_delete (oa);
+  list_delete (o->area_list);
 
   ospf6_lsdb_delete (o->lsdb);
   ospf6_lsdb_delete (o->lsdb_self);
@@ -164,7 +168,6 @@ ospf6_delete (struct ospf6 *o)
 
   XFREE (MTYPE_OSPF6_TOP, o);
 }
-#endif
 
 static void
 ospf6_enable (struct ospf6 *o)
