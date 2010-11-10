@@ -1275,6 +1275,11 @@ ospf6_asbr_init (void)
   install_element (OSPF6_NODE, &no_ospf6_redistribute_cmd);
 }
 
+void
+ospf6_asbr_terminate (void)
+{
+  route_map_finish ();
+}
 
 DEFUN (debug_ospf6_asbr,
        debug_ospf6_asbr_cmd,

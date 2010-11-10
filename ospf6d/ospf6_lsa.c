@@ -722,6 +722,11 @@ ospf6_lsa_init (void)
   ospf6_install_lsa_handler (&unknown_handler);
 }
 
+void
+ospf6_lsa_terminate (void)
+{
+  vector_free (ospf6_lsa_handler_vector);
+}
 
 static char *
 ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)

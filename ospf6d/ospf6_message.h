@@ -123,6 +123,7 @@ extern void ospf6_lsupdate_print (struct ospf6_header *);
 extern void ospf6_lsack_print (struct ospf6_header *);
 
 extern int ospf6_iobuf_size (unsigned int size);
+extern void ospf6_message_terminate (void);
 extern int ospf6_receive (struct thread *thread);
 
 extern int ospf6_hello_send (struct thread *thread);
