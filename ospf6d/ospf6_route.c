@@ -690,6 +690,8 @@ ospf6_route_best_next (struct ospf6_route *route)
   struct route_node *rnode;
   struct ospf6_route *next;
 
+  ospf6_route_unlock (route);
+
   rnode = route->rnode;
   route_lock_node (rnode);
   rnode = route_next (rnode);
@@ -701,7 +703,6 @@ ospf6_route_best_next (struct ospf6_route *route)
 
   assert (rnode->info);
   next = (struct ospf6_route *) rnode->info;
-  ospf6_route_unlock (route);
   ospf6_route_lock (next);
   return next;
 }

@@ -1177,6 +1177,8 @@ ospf6_intra_prefix_lsa_remove (struct ospf6_lsa *lsa)
             }
           ospf6_route_remove (route, oa->route_table);
         }
+      if (route)
+	ospf6_route_unlock (route);
     }
 
   if (current != end && IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
