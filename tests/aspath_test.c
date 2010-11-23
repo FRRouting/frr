@@ -408,7 +408,7 @@ static struct test_segment {
     "#ASNs = 0, data = seq(8466 3 52737 4096 3456)",
     { 0x2,0x0, 0x21,0x12, 0x00,0x03, 0xce,0x01, 0x10,0x00, 0x0d,0x80 },
     12,
-    { "", "",
+    { NULL, NULL,
       0, 0, 0, 0, 0, 0 },
   },
   { /* 26  */ 
@@ -418,7 +418,7 @@ static struct test_segment {
       0x2,0x2, 0x10,0x00, 0x0d,0x80 },
     14
     ,
-    { "", "",
+    { NULL, NULL,
       0, 0, 0, 0, 0, 0 },
   },
   { /* 27  */ 
@@ -427,7 +427,7 @@ static struct test_segment {
     { 0x8,0x2, 0x10,0x00, 0x0d,0x80 },
     14
     ,
-    { "", "",
+    { NULL, NULL,
       0, 0, 0, 0, 0, 0 },
   },  { NULL, NULL, {0}, 0, { NULL, 0, 0 } }
 };
@@ -869,6 +869,12 @@ validate (struct aspath *as, const struct test_spec *sp)
   static struct stream *s;
   struct aspath *asinout, *asconfeddel, *asstr, *as4;
   
+  if (as == NULL && sp->shouldbe == NULL)
+    {
+      printf ("Correctly failed to parse\n");
+      return fails;
+    }
+  
   out = aspath_snmp_pathseg (as, &bytes);
   asinout = make_aspath (out, bytes, 0);
   
@@ -1013,7 +1019,7 @@ parse_test (struct test_segment *t)
   printf ("%s: %s\n", t->name, t->desc);
 
   asp = make_aspath (t->asdata, t->len, 0);
-
+  
   printf ("aspath: %s\nvalidating...:\n", aspath_print (asp));
 
   if (!validate (asp, &t->sp))
@@ -1022,7 +1028,9 @@ parse_test (struct test_segment *t)
     printf (FAILED "\n");
   
   printf ("\n");
-  aspath_unintern (asp);
+  
+  if (asp)
+    aspath_unintern (asp);
 }
 
 /* prepend testing */
@@ -1078,7 +1086,8 @@ empty_prepend_test (struct test_segment *t)
     printf (FAILED "!\n");
   
   printf ("\n");
-  aspath_unintern (asp1);
+  if (asp1)
+    aspath_unintern (asp1);
   aspath_free (asp2);
 }
 

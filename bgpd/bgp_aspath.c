@@ -674,8 +674,9 @@ aspath_hash_alloc (void *arg)
 }
 
 /* parse as-segment byte stream in struct assegment */
-static struct assegment *
-assegments_parse (struct stream *s, size_t length, int use32bit)
+static int
+assegments_parse (struct stream *s, size_t length, 
+                  struct assegment **result, int use32bit)
 {
   struct assegment_header segh;
   struct assegment *seg, *prev = NULL, *head = NULL;
@@ -683,7 +684,7 @@ assegments_parse (struct stream *s, size_t length, int use32bit)
   
   /* empty aspath (ie iBGP or somesuch) */
   if (length == 0)
-    return NULL;
+    return 0;
   
   if (BGP_DEBUG (as4, AS4_SEGMENT))
     zlog_debug ("[AS4SEG] Parse aspath segment: got total byte length %lu",
@@ -692,7 +693,7 @@ assegments_parse (struct stream *s, size_t length, int use32bit)
   if ((STREAM_READABLE(s) < length)
       || (STREAM_READABLE(s) < AS_HEADER_SIZE) 
       || (length % AS16_VALUE_SIZE ))
-    return NULL;
+    return -1;
   
   while (bytes < length)
     {
@@ -703,7 +704,7 @@ assegments_parse (struct stream *s, size_t length, int use32bit)
         {
           if (head)
             assegment_free_all (head);
-          return NULL;
+          return -1;
         }
       
       /* softly softly, get the header first on its own */
@@ -729,7 +730,7 @@ assegments_parse (struct stream *s, size_t length, int use32bit)
         {
           if (head)
             assegment_free_all (head);
-          return NULL;
+          return -1;
         }
       
       switch (segh.type)
@@ -742,7 +743,7 @@ assegments_parse (struct stream *s, size_t length, int use32bit)
           default:
             if (head)
               assegment_free_all (head);
-            return NULL;
+            return -1;
         }
       
       /* now its safe to trust lengths */
@@ -765,12 +766,16 @@ assegments_parse (struct stream *s, size_t length, int use32bit)
       prev = seg;
     }
  
-  return assegment_normalise (head);
+  *result = assegment_normalise (head);
+  return 0;
 }
 
 /* AS path parse function.  pnt is a pointer to byte stream and length
    is length of byte stream.  If there is same AS path in the the AS
-   path hash then return it else make new AS path structure. */
+   path hash then return it else make new AS path structure. 
+   
+   On error NULL is returned.
+ */
 struct aspath *
 aspath_parse (struct stream *s, size_t length, int use32bit)
 {
@@ -787,7 +792,8 @@ aspath_parse (struct stream *s, size_t length, int use32bit)
     return NULL;
 
   memset (&as, 0, sizeof (struct aspath));
-  as.segments = assegments_parse (s, length, use32bit);
+  if (assegments_parse (s, length, &as.segments, use32bit) < 0)
+    return NULL;
   
   /* If already same aspath exist then return it. */
   find = hash_get (ashash, &as, aspath_hash_alloc);
