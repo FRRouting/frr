@@ -500,6 +500,7 @@ bgp_attr_intern (struct attr *attr)
             attre->ecommunity = ecommunity_intern (attre->ecommunity);
           else
             attre->ecommunity->refcnt++;
+          
         }
       if (attre->cluster)
         {
@@ -516,10 +517,10 @@ bgp_attr_intern (struct attr *attr)
             attre->transit->refcnt++;
         }
     }
-
+  
   find = (struct attr *) hash_get (attrhash, attr, bgp_attr_hash_alloc);
   find->refcnt++;
-
+  
   return find;
 }
 
@@ -561,7 +562,7 @@ bgp_attr_default_intern (u_char origin)
   new = bgp_attr_intern (&attr);
   bgp_attr_extra_free (&attr);
   
-  aspath_unintern (new->aspath);
+  aspath_unintern (&new->aspath);
   return new;
 }
 
@@ -613,13 +614,13 @@ bgp_attr_aggregate_intern (struct bgp *bgp, u_char origin,
   new = bgp_attr_intern (&attr);
   bgp_attr_extra_free (&attr);
   
-  aspath_unintern (new->aspath);
+  aspath_unintern (&new->aspath);
   return new;
 }
 
 /* Free bgp attribute and aspath. */
 void
-bgp_attr_unintern (struct attr *attr)
+bgp_attr_unintern (struct attr **attr)
 {
   struct attr *ret;
   struct aspath *aspath;
@@ -627,34 +628,35 @@ bgp_attr_unintern (struct attr *attr)
   struct ecommunity *ecommunity = NULL;
   struct cluster_list *cluster = NULL;
   struct transit *transit = NULL;
-
+  
   /* Decrement attribute reference. */
-  attr->refcnt--;
-  aspath = attr->aspath;
-  community = attr->community;
-  if (attr->extra)
+  (*attr)->refcnt--;
+  aspath = (*attr)->aspath;
+  community = (*attr)->community;
+  if ((*attr)->extra)
     {
-      ecommunity = attr->extra->ecommunity;
-      cluster = attr->extra->cluster;
-      transit = attr->extra->transit;
+      ecommunity = (*attr)->extra->ecommunity;
+      cluster = (*attr)->extra->cluster;
+      transit = (*attr)->extra->transit;
     }
-
+  
   /* If reference becomes zero then free attribute object. */
-  if (attr->refcnt == 0)
+  if ((*attr)->refcnt == 0)
     {    
-      ret = hash_release (attrhash, attr);
+      ret = hash_release (attrhash, *attr);
       assert (ret != NULL);
-      bgp_attr_extra_free (attr);
-      XFREE (MTYPE_ATTR, attr);
+      bgp_attr_extra_free (*attr);
+      XFREE (MTYPE_ATTR, *attr);
+      *attr = NULL;
     }
 
   /* aspath refcount shoud be decrement. */
   if (aspath)
-    aspath_unintern (aspath);
+    aspath_unintern (&aspath);
   if (community)
-    community_unintern (community);
+    community_unintern (&community);
   if (ecommunity)
-    ecommunity_unintern (ecommunity);
+    ecommunity_unintern (&ecommunity);
   if (cluster)
     cluster_unintern (cluster);
   if (transit)
@@ -671,8 +673,9 @@ bgp_attr_flush (struct attr *attr)
   if (attr->extra)
     {
       struct attr_extra *attre = attr->extra;
+
       if (attre->ecommunity && ! attre->ecommunity->refcnt)
-        ecommunity_free (attre->ecommunity);
+        ecommunity_free (&attre->ecommunity);
       if (attre->cluster && ! attre->cluster->refcnt)
         cluster_free (attre->cluster);
       if (attre->transit && ! attre->transit->refcnt)
@@ -840,7 +843,7 @@ static int bgp_attr_aspath_check( struct peer *peer,
     {
       aspath = aspath_dup (attr->aspath);
       aspath = aspath_add_seq (aspath, peer->change_local_as);
-      aspath_unintern (attr->aspath);
+      aspath_unintern (&attr->aspath);
       attr->aspath = aspath_intern (aspath);
     }
 
@@ -1146,7 +1149,7 @@ bgp_attr_munge_as4_attrs (struct peer *peer, struct attr *attr,
   if ( !ignore_as4_path && (attr->flag & ( ATTR_FLAG_BIT( BGP_ATTR_AS4_PATH))) )
     {
        newpath = aspath_reconcile_as4 (attr->aspath, as4_path);
-       aspath_unintern (attr->aspath);
+       aspath_unintern (&attr->aspath);
        attr->aspath = aspath_intern (newpath);
     }
   return 0;
@@ -1707,8 +1710,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
    */
   if ( as4_path )
     {
-      aspath_unintern( as4_path ); /* unintern - it is in the hash */
-      as4_path = NULL;
+      aspath_unintern (&as4_path); /* unintern - it is in the hash */
       /* The flag that we got this is still there, but that does not
        * do any trouble
        */

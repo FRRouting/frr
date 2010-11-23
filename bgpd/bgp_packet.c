@@ -206,7 +206,7 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 
       /* Synchnorize attribute.  */
       if (adj->attr)
-	bgp_attr_unintern (adj->attr);
+	bgp_attr_unintern (&adj->attr);
       else
 	peer->scount[afi][safi]++;
 
@@ -1785,13 +1785,13 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   /* Everything is done.  We unintern temporary structures which
      interned in bgp_attr_parse(). */
   if (attr.aspath)
-    aspath_unintern (attr.aspath);
+    aspath_unintern (&attr.aspath);
   if (attr.community)
-    community_unintern (attr.community);
+    community_unintern (&attr.community);
   if (attr.extra)
     {
       if (attr.extra->ecommunity)
-        ecommunity_unintern (attr.extra->ecommunity);
+        ecommunity_unintern (&attr.extra->ecommunity);
       if (attr.extra->cluster)
         cluster_unintern (attr.extra->cluster);
       if (attr.extra->transit)

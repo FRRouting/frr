@@ -340,19 +340,21 @@ aspath_free (struct aspath *aspath)
 
 /* Unintern aspath from AS path bucket. */
 void
-aspath_unintern (struct aspath *aspath)
+aspath_unintern (struct aspath **aspath)
 {
   struct aspath *ret;
+  struct aspath *asp = *aspath;
+  
+  if (asp->refcnt)
+    asp->refcnt--;
 
-  if (aspath->refcnt)
-    aspath->refcnt--;
-
-  if (aspath->refcnt == 0)
+  if (asp->refcnt == 0)
     {
       /* This aspath must exist in aspath hash table. */
-      ret = hash_release (ashash, aspath);
+      ret = hash_release (ashash, asp);
       assert (ret != NULL);
-      aspath_free (aspath);
+      aspath_free (asp);
+      *aspath = NULL;
     }
 }
 

@@ -137,7 +137,7 @@ static void
 bgp_info_free (struct bgp_info *binfo)
 {
   if (binfo->attr)
-    bgp_attr_unintern (binfo->attr);
+    bgp_attr_unintern (&binfo->attr);
   
   bgp_info_extra_free (&binfo->extra);
 
@@ -1802,14 +1802,14 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
   /* Apply import policy. */
   if (bgp_import_modifier (rsclient, peer, p, &new_attr, afi, safi) == RMAP_DENY)
     {
-      bgp_attr_unintern (attr_new2);
+      bgp_attr_unintern (&attr_new2);
 
       reason = "import-policy;";
       goto filtered;
     }
 
   attr_new = bgp_attr_intern (&new_attr);
-  bgp_attr_unintern (attr_new2);
+  bgp_attr_unintern (&attr_new2);
 
   /* IPv4 unicast next hop check.  */
   if (afi == AFI_IP && safi == SAFI_UNICAST)
@@ -1818,7 +1818,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
       if (new_attr.nexthop.s_addr == 0
          || ntohl (new_attr.nexthop.s_addr) >= 0xe0000000)
        {
-         bgp_attr_unintern (attr_new);
+         bgp_attr_unintern (&attr_new);
 
          reason = "martian next-hop;";
          goto filtered;
@@ -1848,7 +1848,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
                     p->prefixlen, rsclient->host);
 
           bgp_unlock_node (rn);
-          bgp_attr_unintern (attr_new);
+          bgp_attr_unintern (&attr_new);
 
           return;
         }
@@ -1868,7 +1868,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
       bgp_info_set_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
 
       /* Update to new attribute.  */
-      bgp_attr_unintern (ri->attr);
+      bgp_attr_unintern (&ri->attr);
       ri->attr = attr_new;
 
       /* Update MPLS tag.  */
@@ -2128,7 +2128,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	    }
 
 	  bgp_unlock_node (rn);
-	  bgp_attr_unintern (attr_new);
+	  bgp_attr_unintern (&attr_new);
 	  bgp_attr_extra_free (&new_attr);
 	  
 	  return 0;
@@ -2175,7 +2175,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	}
 	
       /* Update to new attribute.  */
-      bgp_attr_unintern (ri->attr);
+      bgp_attr_unintern (&ri->attr);
       ri->attr = attr_new;
 
       /* Update MPLS tag.  */
@@ -2467,7 +2467,7 @@ bgp_default_originate (struct peer *peer, afi_t afi, safi_t safi, int withdraw)
     }
   
   bgp_attr_extra_free (&attr);
-  aspath_unintern (aspath);
+  aspath_unintern (&aspath);
 }
 
 static void
@@ -3215,7 +3215,7 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
           bgp_attr_flush (&attr_tmp);
 
           /* Unintern original. */
-          aspath_unintern (attr.aspath);
+          aspath_unintern (&attr.aspath);
           bgp_static_withdraw_rsclient (bgp, rsclient, p, afi, safi);
           bgp_attr_extra_free (&attr);
           
@@ -3242,8 +3242,8 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
 
       bgp->peer_self->rmap_type = 0;
 
-      bgp_attr_unintern (attr_new);
-      aspath_unintern (attr.aspath);
+      bgp_attr_unintern (&attr_new);
+      aspath_unintern (&attr.aspath);
       bgp_attr_extra_free (&attr);
 
       bgp_static_withdraw_rsclient (bgp, rsclient, p, afi, safi);
@@ -3253,7 +3253,7 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
 
   bgp->peer_self->rmap_type = 0;
 
-  bgp_attr_unintern (attr_new);
+  bgp_attr_unintern (&attr_new);
   attr_new = bgp_attr_intern (&new_attr);
   bgp_attr_extra_free (&new_attr);
 
@@ -3268,8 +3268,8 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
 	  !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
         {
           bgp_unlock_node (rn);
-          bgp_attr_unintern (attr_new);
-          aspath_unintern (attr.aspath);
+          bgp_attr_unintern (&attr_new);
+          aspath_unintern (&attr.aspath);
           bgp_attr_extra_free (&attr);
           return;
        }
@@ -3281,14 +3281,14 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
           /* Rewrite BGP route information. */
 	  if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
 	    bgp_info_restore(rn, ri);
-          bgp_attr_unintern (ri->attr);
+          bgp_attr_unintern (&ri->attr);
           ri->attr = attr_new;
           ri->uptime = bgp_clock ();
 
           /* Process change. */
           bgp_process (bgp, rn, afi, safi);
           bgp_unlock_node (rn);
-          aspath_unintern (attr.aspath);
+          aspath_unintern (&attr.aspath);
           bgp_attr_extra_free (&attr);
           return;
         }
@@ -3313,7 +3313,7 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
   bgp_process (bgp, rn, afi, safi);
 
   /* Unintern original. */
-  aspath_unintern (attr.aspath);
+  aspath_unintern (&attr.aspath);
   bgp_attr_extra_free (&attr);
 }
 
@@ -3363,7 +3363,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 	  bgp_attr_flush (&attr_tmp);
 
 	  /* Unintern original. */
-	  aspath_unintern (attr.aspath);
+	  aspath_unintern (&attr.aspath);
 	  bgp_attr_extra_free (&attr);
 	  bgp_static_withdraw (bgp, p, afi, safi);
 	  return;
@@ -3384,8 +3384,8 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 	  !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
 	{
 	  bgp_unlock_node (rn);
-	  bgp_attr_unintern (attr_new);
-	  aspath_unintern (attr.aspath);
+	  bgp_attr_unintern (&attr_new);
+	  aspath_unintern (&attr.aspath);
 	  bgp_attr_extra_free (&attr);
 	  return;
 	}
@@ -3399,7 +3399,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 	    bgp_info_restore(rn, ri);
 	  else
 	    bgp_aggregate_decrement (bgp, p, ri, afi, safi);
-	  bgp_attr_unintern (ri->attr);
+	  bgp_attr_unintern (&ri->attr);
 	  ri->attr = attr_new;
 	  ri->uptime = bgp_clock ();
 
@@ -3407,7 +3407,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
 	  bgp_aggregate_increment (bgp, p, ri, afi, safi);
 	  bgp_process (bgp, rn, afi, safi);
 	  bgp_unlock_node (rn);
-	  aspath_unintern (attr.aspath);
+	  aspath_unintern (&attr.aspath);
 	  bgp_attr_extra_free (&attr);
 	  return;
 	}
@@ -3435,7 +3435,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
   bgp_process (bgp, rn, afi, safi);
 
   /* Unintern original. */
-  aspath_unintern (attr.aspath);
+  aspath_unintern (&attr.aspath);
   bgp_attr_extra_free (&attr);
 }
 
@@ -5297,7 +5297,7 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
 		  bgp_attr_extra_free (&attr_new);
 		  
 		  /* Unintern original. */
-		  aspath_unintern (attr.aspath);
+		  aspath_unintern (&attr.aspath);
 		  bgp_attr_extra_free (&attr);
 		  bgp_redistribute_delete (p, type);
 		  return;
@@ -5320,8 +5320,8 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
  	      if (attrhash_cmp (bi->attr, new_attr) &&
 		  !CHECK_FLAG(bi->flags, BGP_INFO_REMOVED))
  		{
- 		  bgp_attr_unintern (new_attr);
- 		  aspath_unintern (attr.aspath);
+ 		  bgp_attr_unintern (&new_attr);
+ 		  aspath_unintern (&attr.aspath);
  		  bgp_attr_extra_free (&attr);
  		  bgp_unlock_node (bn);
  		  return;
@@ -5336,7 +5336,7 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
 		    bgp_info_restore(bn, bi);
 		  else
 		    bgp_aggregate_decrement (bgp, p, bi, afi, SAFI_UNICAST);
- 		  bgp_attr_unintern (bi->attr);
+ 		  bgp_attr_unintern (&bi->attr);
  		  bi->attr = new_attr;
  		  bi->uptime = bgp_clock ();
  
@@ -5344,7 +5344,7 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
  		  bgp_aggregate_increment (bgp, p, bi, afi, SAFI_UNICAST);
  		  bgp_process (bgp, bn, afi, SAFI_UNICAST);
  		  bgp_unlock_node (bn);
- 		  aspath_unintern (attr.aspath);
+ 		  aspath_unintern (&attr.aspath);
  		  bgp_attr_extra_free (&attr);
  		  return;
  		} 
@@ -5366,7 +5366,7 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
     }
 
   /* Unintern original. */
-  aspath_unintern (attr.aspath);
+  aspath_unintern (&attr.aspath);
   bgp_attr_extra_free (&attr);
 }
 

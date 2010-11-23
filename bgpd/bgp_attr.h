@@ -142,7 +142,7 @@ extern struct attr_extra *bgp_attr_extra_get (struct attr *);
 extern void bgp_attr_extra_free (struct attr *);
 extern void bgp_attr_dup (struct attr *, struct attr *);
 extern struct attr *bgp_attr_intern (struct attr *attr);
-extern void bgp_attr_unintern (struct attr *);
+extern void bgp_attr_unintern (struct attr **);
 extern void bgp_attr_flush (struct attr *);
 extern struct attr *bgp_attr_default_set (struct attr *attr, u_char);
 extern struct attr *bgp_attr_default_intern (u_char);
