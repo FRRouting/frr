@@ -25,13 +25,14 @@ for H in `seq 1 ${NUM}` ; do
 		NEXTAS=$((${ASBASE} + $NEXT))
 		PREVADDR="${PREFIX}${PREV}"
 		PREVAS=$((${ASBASE} + $PREV))
+		ASN=$((64560+${H}))
 		
 		# Edit config to suit.
 		cat > "$CONF" <<- EOF
 			password whatever
 			service advanced-vty
 			!
-			router bgp $((64560+${H}))
+			router bgp ${ASN}
 			 bgp router-id ${ADDR}
 			 network 10.${H}.1.0/24 pathlimit 1
 			 network 10.${H}.2.0/24 pathlimit 2
@@ -40,6 +41,7 @@ for H in `seq 1 ${NUM}` ; do
 			 neighbor default update-source ${ADDR}
 			 neighbor default capability orf prefix-list both
 			 neighbor default soft-reconfiguration inbound
+			 neighbor default route-map test out
 			 neighbor ${NEXTADDR} remote-as ${NEXTAS}
 			 neighbor ${NEXTADDR} peer-group default
 			 neighbor ${PREVADDR} remote-as ${PREVAS}
@@ -53,10 +55,15 @@ for H in `seq 1 ${NUM}` ; do
 			 neighbor default activate
 			 neighbor default capability orf prefix-list both
 			 neighbor default default-originate
+			 neighbor default route-map test out
 			 neighbor ${NEXTADDR} peer-group default
 			 neighbor ${PREVADDR} peer-group default
 			 exit-address-family
 			!
+			route-map test permit 10
+			 set extcommunity rt ${ASN}:1
+			 set extcommunity soo ${ASN}:2
+			 set community ${ASN}:1
 			line vty
 			!
 			end
