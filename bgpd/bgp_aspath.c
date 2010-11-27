@@ -671,78 +671,77 @@ aspath_hash_alloc (void *arg)
   return aspath;
 }
 
-/* parse as-segment byte stream in struct assegment
- *
- * Returns NULL if the AS_PATH or AS4_PATH is not valid.
- */
+/* parse as-segment byte stream in struct assegment */
 static struct assegment *
-assegments_parse (struct stream *s, size_t length, int use32bit, int as4_path)
+assegments_parse (struct stream *s, size_t length, int use32bit)
 {
   struct assegment_header segh;
   struct assegment *seg, *prev = NULL, *head = NULL;
+  size_t bytes = 0;
   
-  assert (length > 0);  /* does not expect empty AS_PATH or AS4_PATH    */
+  /* empty aspath (ie iBGP or somesuch) */
+  if (length == 0)
+    return NULL;
   
   if (BGP_DEBUG (as4, AS4_SEGMENT))
     zlog_debug ("[AS4SEG] Parse aspath segment: got total byte length %lu",
 		(unsigned long) length);
-
-  /* double check that length does not exceed stream    */
-  if (STREAM_READABLE(s) < length)
+  /* basic checks */
+  if ((STREAM_READABLE(s) < length)
+      || (STREAM_READABLE(s) < AS_HEADER_SIZE) 
+      || (length % AS16_VALUE_SIZE ))
     return NULL;
   
-  /* deal with each segment in turn                             */
-  while (length > 0)
+  while (bytes < length)
     {
       int i;
       size_t seg_size;
       
-      /* softly softly, get the header first on its own */
-      if (length >= AS_HEADER_SIZE)
+      if ((length - bytes) <= AS_HEADER_SIZE)
         {
+          if (head)
+            assegment_free_all (head);
+          return NULL;
+        }
+      
+      /* softly softly, get the header first on its own */
       segh.type = stream_getc (s);
       segh.length = stream_getc (s);
       
       seg_size = ASSEGMENT_SIZE(segh.length, use32bit);
-                                      /* includes the header bytes */
 
       if (BGP_DEBUG (as4, AS4_SEGMENT))
 	zlog_debug ("[AS4SEG] Parse aspath segment: got type %d, length %d",
                     segh.type, segh.length);
       
-          switch (segh.type)
-          {
-            case AS_SEQUENCE:
-            case AS_SET:
-              break ;
-
-            case AS_CONFED_SEQUENCE:
-            case AS_CONFED_SET:
-              if (!as4_path)
-                break ;
-              /* RFC4893 3: "invalid for the AS4_PATH attribute"            */
-              /* fall through */
-
-            default:    /* reject unknown or invalid AS_PATH segment types  */
-              seg_size = 0 ;
-          } ;
-        }
-      else
-        seg_size = 0 ;
-
-     /* Stop now if segment is not valid (discarding anything collected to date)
-      *
-      * RFC4271 4.3, Path Attributes, b) AS_PATH:
-      *
-      *   "path segment value field contains one or more AS numbers"
+      /* check it.. */
+      if ( ((bytes + seg_size) > length)
+          /* 1771bis 4.3b: seg length contains one or more */
+          || (segh.length == 0) 
+          /* Paranoia in case someone changes type of segment length.
+           * Shift both values by 0x10 to make the comparison operate
+           * on more, than 8 bits (otherwise it's a warning, bug #564).
            */
-      if ((seg_size == 0) || (seg_size > length) || (segh.length == 0))
+          || ((sizeof segh.length > 1) 
+              && (0x10 + segh.length > 0x10 + AS_SEGMENT_MAX)))
         {
+          if (head)
             assegment_free_all (head);
           return NULL;
         }
       
-      length -= seg_size ;
+      switch (segh.type)
+        {
+          case AS_SEQUENCE:
+          case AS_SET:
+          case AS_CONFED_SEQUENCE:
+          case AS_CONFED_SET:
+            break;
+          default:
+            if (head)
+              assegment_free_all (head);
+            return NULL;
+        }
       
       /* now its safe to trust lengths */
       seg = assegment_new (segh.type, segh.length);
@@ -755,9 +754,11 @@ assegments_parse (struct stream *s, size_t length, int use32bit, int as4_path)
       for (i = 0; i < segh.length; i++)
 	seg->as[i] = (use32bit) ? stream_getl (s) : stream_getw (s);
 
+      bytes += seg_size;
+      
       if (BGP_DEBUG (as4, AS4_SEGMENT))
-	zlog_debug ("[AS4SEG] Parse aspath segment: length left: %lu",
-	            (unsigned long) length);
+	zlog_debug ("[AS4SEG] Parse aspath segment: Bytes now: %lu",
+	            (unsigned long) bytes);
       
       prev = seg;
     }
@@ -765,41 +766,29 @@ assegments_parse (struct stream *s, size_t length, int use32bit, int as4_path)
   return assegment_normalise (head);
 }
 
-/* AS path parse function -- parses AS_PATH and AS4_PATH attributes
- *
- * Requires: s        -- stream, currently positioned before first segment
- *                       of AS_PATH or AS4_PATH (ie after attribute header)
- *           length   -- length of the value of the AS_PATH or AS4_PATH
- *           use32bit -- true <=> 4Byte ASN, otherwise 2Byte ASN
- *           as4_path -- true <=> AS4_PATH, otherwise AS_PATH
- *
- * Returns: if valid: address of struct aspath in the hash of known aspaths,
- *                    with reference count incremented.
- *              else: NULL
- *
- * NB: empty AS path (length == 0) is valid.  The returned struct aspath will
- *     have segments == NULL and str == zero length string (unique).
- */
+/* AS path parse function.  pnt is a pointer to byte stream and length
+   is length of byte stream.  If there is same AS path in the the AS
+   path hash then return it else make new AS path structure. */
 struct aspath *
-aspath_parse (struct stream *s, size_t length, int use32bit, int as4_path)
+aspath_parse (struct stream *s, size_t length, int use32bit)
 {
   struct aspath as;
   struct aspath *find;
 
-  /* Parse each segment and construct normalised list of struct assegment */
-  memset (&as, 0, sizeof (struct aspath));
-  if (length != 0)
-    {
-      as.segments = assegments_parse (s, length, use32bit, as4_path);
+  /* If length is odd it's malformed AS path. */
+  /* Nit-picking: if (use32bit == 0) it is malformed if odd,
+   * otherwise its malformed when length is larger than 2 and (length-2) 
+   * is not dividable by 4.
+   * But... this time we're lazy
+   */
+  if (length % AS16_VALUE_SIZE )
+    return NULL;
 
-      if (as.segments == NULL)
-        return NULL ;   /* Invalid AS_PATH or AS4_PATH  */
-    } ;
+  memset (&as, 0, sizeof (struct aspath));
+  as.segments = assegments_parse (s, length, use32bit);
   
   /* If already same aspath exist then return it. */
   find = hash_get (ashash, &as, aspath_hash_alloc);
-  
-  assert(find) ;        /* valid aspath, so must find or create */
   
   /* aspath_hash_alloc dupes segments too. that probably could be
    * optimised out.
@@ -808,6 +797,8 @@ aspath_parse (struct stream *s, size_t length, int use32bit, int as4_path)
   if (as.str)
     XFREE (MTYPE_AS_STR, as.str);
   
+  if (! find)
+    return NULL;
   find->refcnt++;
 
   return find;
@@ -1631,7 +1622,7 @@ aspath_segment_add (struct aspath *as, int type)
 struct aspath *
 aspath_empty (void)
 {
-  return aspath_parse (NULL, 0, 1, 0); /* 32Bit ;-) not AS4_PATH */
+  return aspath_parse (NULL, 0, 1); /* 32Bit ;-) */
 }
 
 struct aspath *
