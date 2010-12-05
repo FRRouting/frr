@@ -110,12 +110,6 @@ struct attr
   u_int32_t med;
   u_int32_t local_pref;
   
-  /* AS-Pathlimit */
-  struct {
-    u_int32_t as;
-    u_char ttl;
-  } pathlimit;
-  
   /* Path origin attribute */
   u_char origin;
 };

@@ -116,9 +116,6 @@ struct bgp_static
 
   /* MPLS label.  */
   u_char tag[3];
-  
-  /* AS-Pathlimit TTL */
-  u_char ttl;
 };
 
 /* Flags which indicate a route is unuseable in some form */
