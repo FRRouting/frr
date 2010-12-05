@@ -1235,13 +1235,16 @@ bgp_attr_community (struct peer *peer, bgp_size_t length,
       attr->community = NULL;
       return 0;
     }
-  else
-    {
-      attr->community = 
-        community_parse ((u_int32_t *)stream_pnt (peer->ibuf), length);
-      stream_forward_getp (peer->ibuf, length);
-    }
+  
+  attr->community =
+    community_parse ((u_int32_t *)stream_pnt (peer->ibuf), length);
+  
+  /* XXX: fix community_parse to use stream API and remove this */
+  stream_forward_getp (peer->ibuf, length);
 
+  if (!attr->community)
+    return -1;
+  
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES);
 
   return 0;
@@ -1478,13 +1481,18 @@ bgp_attr_ext_communities (struct peer *peer, bgp_size_t length,
     {
       if (attr->extra)
         attr->extra->ecommunity = NULL;
+      /* Empty extcomm doesn't seem to be invalid per se */
+      return 0;
     }
-  else
-    {
-      (bgp_attr_extra_get (attr))->ecommunity = 
-        ecommunity_parse ((u_int8_t *)stream_pnt (peer->ibuf), length);
-      stream_forward_getp (peer->ibuf, length);
-    }
+
+  (bgp_attr_extra_get (attr))->ecommunity =
+    ecommunity_parse ((u_int8_t *)stream_pnt (peer->ibuf), length);
+  /* XXX: fix ecommunity_parse to use stream API */
+  stream_forward_getp (peer->ibuf, length);
+  
+  if (!attr->extra->ecommunity)
+    return -1;
+  
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
 
   return 0;
