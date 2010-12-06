@@ -221,8 +221,8 @@ ospf_dr_election (struct ospf_interface *oi)
 
   new_state = ospf_ism_state (oi);
 
-  zlog_info ("DR-Election[1st]: Backup %s", inet_ntoa (BDR (oi)));
-  zlog_info ("DR-Election[1st]: DR     %s", inet_ntoa (DR (oi)));
+  zlog_debug ("DR-Election[1st]: Backup %s", inet_ntoa (BDR (oi)));
+  zlog_debug ("DR-Election[1st]: DR     %s", inet_ntoa (DR (oi)));
 
   if (new_state != old_state &&
       !(new_state == ISM_DROther && old_state < ISM_DROther))
@@ -232,8 +232,8 @@ ospf_dr_election (struct ospf_interface *oi)
 
       new_state = ospf_ism_state (oi);
 
-      zlog_info ("DR-Election[2nd]: Backup %s", inet_ntoa (BDR (oi)));
-      zlog_info ("DR-Election[2nd]: DR     %s", inet_ntoa (DR (oi)));
+      zlog_debug ("DR-Election[2nd]: Backup %s", inet_ntoa (BDR (oi)));
+      zlog_debug ("DR-Election[2nd]: DR     %s", inet_ntoa (DR (oi)));
     }
 
   list_delete (el_list);
