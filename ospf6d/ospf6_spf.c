@@ -50,7 +50,9 @@ ospf6_vertex_cmp (void *a, void *b)
   struct ospf6_vertex *vb = (struct ospf6_vertex *) b;
 
   /* ascending order */
-  return (va->cost - vb->cost);
+  if (va->cost != vb->cost)
+    return (va->cost - vb->cost);
+  return (va->hops - vb->hops);
 }
 
 static int
@@ -320,22 +322,8 @@ ospf6_spf_install (struct ospf6_vertex *v,
         }
 
       prev = (struct ospf6_vertex *) route->route_option;
-      if (prev->hops > v->hops)
-        {
-          for (ALL_LIST_ELEMENTS (prev->child_list, node, nnode, w))
-            {
-              assert (w->parent == prev);
-              w->parent = v;
-              listnode_add_sort (v->child_list, w);
-            }
-          listnode_delete (prev->parent->child_list, prev);
-          listnode_add_sort (v->parent->child_list, v);
-
-          ospf6_vertex_delete (prev);
-          route->route_option = v;
-        }
-      else
-        ospf6_vertex_delete (v);
+      assert (prev->hops <= v->hops);
+      ospf6_vertex_delete (v);
 
       return -1;
     }
