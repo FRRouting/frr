@@ -350,7 +350,6 @@ bgp_node_get (struct bgp_table *const table, struct prefix *p)
       if (new->p.prefixlen != p->prefixlen)
 	{
 	  match = new;
-	  bgp_lock_node (match);
 	  new = bgp_node_set (table, p);
 	  set_link (match, new);
 	  table->count++;
