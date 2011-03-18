@@ -356,7 +356,11 @@ bgp_dump_routes_func (int afi, int first_run, unsigned int seq)
           stream_putw(obuf, info->peer->table_dump_index);
 
           /* Originated */
+#ifdef HAVE_CLOCK_MONOTONIC
+          stream_putl (obuf, time(NULL) - (bgp_clock() - info->uptime));
+#else
           stream_putl (obuf, info->uptime);
+#endif /* HAVE_CLOCK_MONOTONIC */
 
           /* Dump attribute. */
           /* Skip prefix & AFI/SAFI for MP_NLRI */
