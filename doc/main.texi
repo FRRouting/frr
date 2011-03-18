@@ -49,9 +49,9 @@ Up or down the current interface.
 @end deffn
 
 @deffn {Interface Command} {ip address @var{address/prefix}} {}
-@deffnx {Interface Command} {ip6 address @var{address/prefix}} {}
+@deffnx {Interface Command} {ipv6 address @var{address/prefix}} {}
 @deffnx {Interface Command} {no ip address @var{address/prefix}} {}
-@deffnx {Interface Command} {no ip6 address @var{address/prefix}} {}
+@deffnx {Interface Command} {no ipv6 address @var{address/prefix}} {}
 Set the IPv4 or IPv6 address/prefix for the interface.
 @end deffn
 
