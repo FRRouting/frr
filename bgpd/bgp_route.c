@@ -5979,6 +5979,9 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
   char buf1[BUFSIZ];
   struct attr *attr;
   int sockunion_vty_out (struct vty *, union sockunion *);
+#ifdef HAVE_CLOCK_MONOTONIC
+  time_t tbuf;
+#endif
 	
   attr = binfo->attr;
 
@@ -6145,8 +6148,12 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	bgp_damp_info_vty (vty, binfo);
 
       /* Line 7 display Uptime */
-      time_t tbuf = time(NULL) - (bgp_clock() - binfo->uptime);
+#ifdef HAVE_CLOCK_MONOTONIC
+      tbuf = time(NULL) - (bgp_clock() - binfo->uptime);
       vty_out (vty, "      Last update: %s", ctime(&tbuf));
+#else
+      vty_out (vty, "      Last update: %s", ctime(&binfo->uptime));
+#endif /* HAVE_CLOCK_MONOTONIC */
     }
   vty_out (vty, "%s", VTY_NEWLINE);
 }  
