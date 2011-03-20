@@ -1885,12 +1885,6 @@ bgp_notify_receive (struct peer *peer, bgp_size_t size)
       bgp_notify.subcode == BGP_NOTIFY_OPEN_UNSUP_PARAM )
     UNSET_FLAG (peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
-  /* Also apply to Unsupported Capability until remote router support
-     capability. */
-  if (bgp_notify.code == BGP_NOTIFY_OPEN_ERR &&
-      bgp_notify.subcode == BGP_NOTIFY_OPEN_UNSUP_CAPBL)
-    UNSET_FLAG (peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
-
   BGP_EVENT_ADD (peer, Receive_NOTIFICATION_message);
 }
 

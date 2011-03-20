@@ -29,7 +29,6 @@
 #define RIPNG_DEBUG_PACKET  0x01
 #define RIPNG_DEBUG_SEND    0x20
 #define RIPNG_DEBUG_RECV    0x40
-#define RIPNG_DEBUG_DETAIL  0x80
 
 #define RIPNG_DEBUG_ZEBRA   0x01
 
@@ -39,7 +38,6 @@
 #define IS_RIPNG_DEBUG_PACKET (ripng_debug_packet & RIPNG_DEBUG_PACKET)
 #define IS_RIPNG_DEBUG_SEND   (ripng_debug_packet & RIPNG_DEBUG_SEND)
 #define IS_RIPNG_DEBUG_RECV   (ripng_debug_packet & RIPNG_DEBUG_RECV)
-#define IS_RIPNG_DEBUG_DETAIL (ripng_debug_packet & RIPNG_DEBUG_DETAIL)
 
 #define IS_RIPNG_DEBUG_ZEBRA  (ripng_debug_zebra & RIPNG_DEBUG_ZEBRA)
 

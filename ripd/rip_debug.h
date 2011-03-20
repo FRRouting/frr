@@ -40,7 +40,6 @@
 #define IS_RIP_DEBUG_PACKET (rip_debug_packet & RIP_DEBUG_PACKET)
 #define IS_RIP_DEBUG_SEND   (rip_debug_packet & RIP_DEBUG_SEND)
 #define IS_RIP_DEBUG_RECV   (rip_debug_packet & RIP_DEBUG_RECV)
-#define IS_RIP_DEBUG_DETAIL (rip_debug_packet & RIP_DEBUG_DETAIL)
 
 #define IS_RIP_DEBUG_ZEBRA  (rip_debug_zebra & RIP_DEBUG_ZEBRA)
 

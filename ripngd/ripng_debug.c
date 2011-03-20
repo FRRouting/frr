@@ -45,19 +45,16 @@ DEFUN (show_debugging_ripng,
     {
       if (IS_RIPNG_DEBUG_SEND && IS_RIPNG_DEBUG_RECV)
 	{
-	  vty_out (vty, "  RIPng packet%s debugging is on%s",
-		   IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
+	  vty_out (vty, "  RIPng packet debugging is on%s",
 		   VTY_NEWLINE);
 	}
       else
 	{
 	  if (IS_RIPNG_DEBUG_SEND)
-	    vty_out (vty, "  RIPng packet send%s debugging is on%s",
-		     IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
+	    vty_out (vty, "  RIPng packet send debugging is on%s",
 		     VTY_NEWLINE);
 	  else
-	    vty_out (vty, "  RIPng packet receive%s debugging is on%s",
-		     IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
+	    vty_out (vty, "  RIPng packet receive debugging is on%s",
 		     VTY_NEWLINE);
 	}
     }
@@ -106,11 +103,13 @@ DEFUN (debug_ripng_packet_direct,
     ripng_debug_packet |= RIPNG_DEBUG_SEND;
   if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
     ripng_debug_packet |= RIPNG_DEBUG_RECV;
-  ripng_debug_packet &= ~RIPNG_DEBUG_DETAIL;
+
   return CMD_SUCCESS;
 }
 
-DEFUN (debug_ripng_packet_detail,
+/* N.B. the "detail" modifier is a no-op.  we leave this command
+   for legacy compatibility. */
+DEFUN_DEPRECATED (debug_ripng_packet_detail,
        debug_ripng_packet_detail_cmd,
        "debug ripng packet (recv|send) detail",
        DEBUG_STR
@@ -125,7 +124,7 @@ DEFUN (debug_ripng_packet_detail,
     ripng_debug_packet |= RIPNG_DEBUG_SEND;
   if (strncmp ("recv", argv[0], strlen (argv[0])) == 0)
     ripng_debug_packet |= RIPNG_DEBUG_RECV;
-  ripng_debug_packet |= RIPNG_DEBUG_DETAIL;
+
   return CMD_SUCCESS;
 }
 
@@ -225,20 +224,17 @@ config_write_debug (struct vty *vty)
     {
       if (IS_RIPNG_DEBUG_SEND && IS_RIPNG_DEBUG_RECV)
 	{
-	  vty_out (vty, "debug ripng packet%s%s",
-		   IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
+	  vty_out (vty, "debug ripng packet%s",
 		   VTY_NEWLINE);
 	  write++;
 	}
       else
 	{
 	  if (IS_RIPNG_DEBUG_SEND)
-	    vty_out (vty, "debug ripng packet send%s%s",
-		     IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
+	    vty_out (vty, "debug ripng packet send%s",
 		     VTY_NEWLINE);
 	  else
-	    vty_out (vty, "debug ripng packet recv%s%s",
-		     IS_RIPNG_DEBUG_DETAIL ? " detail" : "",
+	    vty_out (vty, "debug ripng packet recv%s",
 		     VTY_NEWLINE);
 	  write++;
 	}
