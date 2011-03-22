@@ -120,7 +120,7 @@ ospf_register_opaque_functab (
   void (* config_write_debug )(struct vty *vty),
   void (* show_opaque_info   )(struct vty *vty, struct ospf_lsa *lsa),
   int  (* lsa_originator)(void *arg),
-  void (* lsa_refresher )(struct ospf_lsa *lsa),
+  struct ospf_lsa *(* lsa_refresher )(struct ospf_lsa *lsa),
   int (* new_lsa_hook)(struct ospf_lsa *lsa),
   int (* del_lsa_hook)(struct ospf_lsa *lsa)
 );
@@ -143,7 +143,7 @@ extern void ospf_opaque_lsa_originate_schedule (struct ospf_interface *oi,
 						int *init_delay);
 extern struct ospf_lsa *ospf_opaque_lsa_install (struct ospf_lsa *,
 						 int rt_recalc);
-extern void ospf_opaque_lsa_refresh (struct ospf_lsa *lsa);
+extern struct ospf_lsa *ospf_opaque_lsa_refresh (struct ospf_lsa *lsa);
 
 extern void ospf_opaque_lsa_reoriginate_schedule (void *lsa_type_dependent,
 						  u_char lsa_type,

@@ -251,7 +251,7 @@ struct ospf_opaque_functab
   void (* config_write_debug )(struct vty *vty);
   void (* show_opaque_info   )(struct vty *vty, struct ospf_lsa *lsa);
   int  (* lsa_originator)(void *arg);
-  void (* lsa_refresher )(struct ospf_lsa *lsa);
+  struct ospf_lsa *(* lsa_refresher )(struct ospf_lsa *lsa);
   int (* new_lsa_hook)(struct ospf_lsa *lsa);
   int (* del_lsa_hook)(struct ospf_lsa *lsa);
 };
@@ -354,7 +354,7 @@ ospf_register_opaque_functab (
   void (* config_write_debug )(struct vty *vty),
   void (* show_opaque_info   )(struct vty *vty, struct ospf_lsa *lsa),
   int  (* lsa_originator)(void *arg),
-  void (* lsa_refresher )(struct ospf_lsa *lsa),
+  struct ospf_lsa *(* lsa_refresher )(struct ospf_lsa *lsa),
   int (* new_lsa_hook)(struct ospf_lsa *lsa),
   int (* del_lsa_hook)(struct ospf_lsa *lsa))
 {
@@ -1608,12 +1608,13 @@ out:
   return new;
 }
 
-void
+struct ospf_lsa *
 ospf_opaque_lsa_refresh (struct ospf_lsa *lsa)
 {
   struct ospf *ospf;
   struct ospf_opaque_functab *functab;
-
+  struct ospf_lsa *new = NULL;
+  
   ospf = ospf_lookup ();
 
   if ((functab = ospf_opaque_functab_lookup (lsa)) == NULL
@@ -1633,9 +1634,9 @@ ospf_opaque_lsa_refresh (struct ospf_lsa *lsa)
       ospf_lsa_flush (ospf, lsa);
     }
   else
-    (* functab->lsa_refresher)(lsa);
+    new = (* functab->lsa_refresher)(lsa);
 
-  return;
+  return new;
 }
 
 /*------------------------------------------------------------------------*

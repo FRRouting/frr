@@ -216,7 +216,7 @@ ospf_db_summary_add (struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
     {
     case OSPF_OPAQUE_LINK_LSA:
       /* Exclude type-9 LSAs that does not have the same "oi" with "nbr". */
-      if (lsa->oi != nbr->oi)
+      if (nbr->oi && ospf_if_exists (lsa->oi) != nbr->oi)
           return 0;
       break;
     case OSPF_OPAQUE_AREA_LSA:
