@@ -373,8 +373,8 @@ attrhash_key_make (void *p)
 
 #ifdef HAVE_IPV6
       MIX(attr->extra->mp_nexthop_len);
-      key = jhash2(attr->extra->mp_nexthop_global.s6_addr32, 4, key);
-      key = jhash2(attr->extra->mp_nexthop_local.s6_addr32, 4, key);
+      key = jhash2(attr->extra->mp_nexthop_global.s6_addr, 16, key);
+      key = jhash2(attr->extra->mp_nexthop_local.s6_addr, 16, key);
 #endif /* HAVE_IPV6 */
     }
 
