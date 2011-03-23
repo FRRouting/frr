@@ -1379,6 +1379,7 @@ peer_group_get (struct bgp *bgp, const char *name)
   group->conf->group = group;
   group->conf->as = 0; 
   group->conf->ttl = 1;
+  group->conf->gtsm_hops = 0;
   group->conf->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
   UNSET_FLAG (group->conf->config, PEER_CONFIG_TIMER);
   UNSET_FLAG (group->conf->config, PEER_CONFIG_CONNECT);
@@ -1415,6 +1416,9 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
 
   /* TTL */
   peer->ttl = conf->ttl;
+
+  /* GTSM hops */
+  peer->gtsm_hops = conf->gtsm_hops;
 
   /* Weight */
   peer->weight = conf->weight;
@@ -2663,9 +2667,35 @@ peer_ebgp_multihop_set (struct peer *peer, int ttl)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
+  struct peer *peer1;
 
   if (peer_sort (peer) == BGP_PEER_IBGP)
     return 0;
+
+  /* see comment in peer_ttl_security_hops_set() */
+  if (ttl != MAXTTL)
+    {
+      if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+        {
+          group = peer->group;
+          if (group->conf->gtsm_hops != 0)
+            return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+
+          for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer1))
+            {
+              if (peer_sort (peer1) == BGP_PEER_IBGP)
+                continue;
+
+              if (peer1->gtsm_hops != 0)
+                return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+            }
+        }
+      else
+        {
+          if (peer->gtsm_hops != 0)
+            return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+        }
+    }
 
   peer->ttl = ttl;
 
@@ -2699,6 +2729,9 @@ peer_ebgp_multihop_unset (struct peer *peer)
 
   if (peer_sort (peer) == BGP_PEER_IBGP)
     return 0;
+
+  if (peer->gtsm_hops != 0 && peer->ttl != MAXTTL)
+      return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
   if (peer_group_active (peer))
     peer->ttl = peer->group->conf->ttl;
@@ -4331,6 +4364,121 @@ peer_maximum_prefix_unset (struct peer *peer, afi_t afi, safi_t safi)
   return 0;
 }
 
+/* Set # of hops between us and BGP peer. */
+int
+peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
+{
+  struct peer_group *group;
+  struct listnode *node, *nnode;
+  struct peer *peer1;
+  int ret;
+
+  zlog_debug ("peer_ttl_security_hops_set: set gtsm_hops to %d for %s", gtsm_hops, peer->host);
+
+  if (peer_sort (peer) == BGP_PEER_IBGP)
+      return 0;
+
+  /* We cannot configure ttl-security hops when ebgp-multihop is already
+     set.  For non peer-groups, the check is simple.  For peer-groups, it's
+     slightly messy, because we need to check both the peer-group structure
+     and all peer-group members for any trace of ebgp-multihop configuration
+     before actually applying the ttl-security rules.  Cisco really made a
+     mess of this configuration parameter, and OpenBGPD got it right.
+  */
+
+  if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    {
+      group = peer->group;
+      if (group->conf->ttl != 1)
+        return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer1))
+        {
+          if (peer_sort (peer1) == BGP_PEER_IBGP)
+            continue;
+
+          if (peer1->ttl != 1)
+            return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+        }
+    }
+  else
+    {
+      if (peer->ttl != 1)
+        return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+    }
+
+  peer->gtsm_hops = gtsm_hops;
+
+  /* specify MAXTTL on outgoing packets */
+  ret = peer_ebgp_multihop_set (peer, MAXTTL);
+  if (ret != 0)
+    return ret;
+
+  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    {
+      if (peer->fd >= 0 && peer_sort (peer) != BGP_PEER_IBGP)
+	sockopt_minttl (peer->su.sa.sa_family, peer->fd, MAXTTL + 1 - gtsm_hops);
+    }
+  else
+    {
+      group = peer->group;
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+	{
+	  if (peer_sort (peer) == BGP_PEER_IBGP)
+	    continue;
+
+	  peer->gtsm_hops = group->conf->gtsm_hops;
+
+	  if (peer->fd >= 0 && peer->gtsm_hops != 0)
+            sockopt_minttl (peer->su.sa.sa_family, peer->fd, MAXTTL + 1 - peer->gtsm_hops);
+	}
+    }
+
+  return 0;
+}
+
+int
+peer_ttl_security_hops_unset (struct peer *peer)
+{
+  struct peer_group *group;
+  struct listnode *node, *nnode;
+  struct peer *opeer;
+
+  zlog_debug ("peer_ttl_security_hops_unset: set gtsm_hops to zero for %s", peer->host);
+
+  if (peer_sort (peer) == BGP_PEER_IBGP)
+      return 0;
+
+  /* if a peer-group member, then reset to peer-group default rather than 0 */
+  if (peer_group_active (peer))
+    peer->gtsm_hops = peer->group->conf->gtsm_hops;
+  else
+    peer->gtsm_hops = 0;
+
+  opeer = peer;
+  if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    {
+      if (peer->fd >= 0 && peer_sort (peer) != BGP_PEER_IBGP)
+	sockopt_minttl (peer->su.sa.sa_family, peer->fd, 0);
+    }
+  else
+    {
+      group = peer->group;
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
+	{
+	  if (peer_sort (peer) == BGP_PEER_IBGP)
+	    continue;
+
+	  peer->gtsm_hops = 0;
+	  
+	  if (peer->fd >= 0)
+	    sockopt_minttl (peer->su.sa.sa_family, peer->fd, 0);
+	}
+    }
+
+  return peer_ebgp_multihop_unset (opeer);
+}
+
 int
 peer_clear (struct peer *peer)
 {
@@ -4635,11 +4783,18 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	  vty_out (vty, " neighbor %s passive%s", addr, VTY_NEWLINE);
 
       /* EBGP multihop.  */
-      if (peer_sort (peer) != BGP_PEER_IBGP && peer->ttl != 1)
+      if (peer_sort (peer) != BGP_PEER_IBGP && peer->ttl != 1 &&
+                   !(peer->gtsm_hops != 0 && peer->ttl == MAXTTL))
         if (! peer_group_active (peer) ||
 	    g_peer->ttl != peer->ttl)
 	  vty_out (vty, " neighbor %s ebgp-multihop %d%s", addr, peer->ttl,
 		   VTY_NEWLINE);
+
+     /* ttl-security hops */
+      if (peer_sort (peer) != BGP_PEER_IBGP && peer->gtsm_hops != 0)
+        if (! peer_group_active (peer) || g_peer->gtsm_hops != peer->gtsm_hops)
+          vty_out (vty, " neighbor %s ttl-security hops %d%s", addr, 
+                   peer->gtsm_hops, VTY_NEWLINE);
 
       /* disable-connected-check.  */
       if (CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))

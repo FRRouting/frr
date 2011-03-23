@@ -303,6 +303,7 @@ struct peer
   /* Peer information */
   int fd;			/* File descriptor */
   int ttl;			/* TTL of TCP connection to the peer. */
+  int gtsm_hops;		/* minimum hopcount to peer */
   char *desc;			/* Description of the peer. */
   unsigned short port;          /* Destination port for peer */
   char *host;			/* Printable address of the peer. */
@@ -800,7 +801,8 @@ enum bgp_clear_type
 #define BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP  -27
 #define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS    -28
 #define BGP_ERR_TCPSIG_FAILED			-29
-#define BGP_ERR_MAX                             -30
+#define BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK	-30
+#define BGP_ERR_MAX				-31
 
 extern struct bgp_master *bm;
 
@@ -952,5 +954,8 @@ extern int peer_maximum_prefix_unset (struct peer *, afi_t, safi_t);
 
 extern int peer_clear (struct peer *);
 extern int peer_clear_soft (struct peer *, afi_t, safi_t, enum bgp_clear_type);
+
+extern int peer_ttl_security_hops_set (struct peer *, int);
+extern int peer_ttl_security_hops_unset (struct peer *);
 
 #endif /* _QUAGGA_BGPD_H */

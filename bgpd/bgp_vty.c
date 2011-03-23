@@ -213,6 +213,9 @@ bgp_vty_return (struct vty *vty, int ret)
     case BGP_ERR_TCPSIG_FAILED:
       str = "Error while applying TCP-Sig to session(s)";
       break;
+    case BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK:
+      str = "ebgp-multihop and ttl-security cannot be configured together";
+      break;
     }
   if (str)
     {
@@ -2626,6 +2629,7 @@ peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str,
 {
   struct peer *peer;
   unsigned int ttl;
+  int ret;
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
@@ -2636,23 +2640,24 @@ peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str,
   else
     VTY_GET_INTEGER_RANGE ("TTL", ttl, ttl_str, 1, 255);
 
-  peer_ebgp_multihop_set (peer, ttl);
-
-  return CMD_SUCCESS;
+  ret = peer_ebgp_multihop_set (peer, ttl);
+  
+  return bgp_vty_return (vty, ret);
 }
 
 static int
 peer_ebgp_multihop_unset_vty (struct vty *vty, const char *ip_str) 
 {
   struct peer *peer;
+  int ret;
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
     return CMD_WARNING;
 
-  peer_ebgp_multihop_unset (peer);
-
-  return CMD_SUCCESS;
+  ret = peer_ebgp_multihop_unset (peer);
+  
+  return bgp_vty_return (vty, ret);
 }
 
 /* neighbor ebgp-multihop. */
@@ -3950,6 +3955,47 @@ DEFUN (no_neighbor_allowas_in,
     return CMD_WARNING;
 
   ret = peer_allowas_in_unset (peer, bgp_node_afi (vty), bgp_node_safi (vty));
+
+  return bgp_vty_return (vty, ret);
+}
+
+DEFUN (neighbor_ttl_security,
+       neighbor_ttl_security_cmd,
+       NEIGHBOR_CMD2 "ttl-security hops <1-254>",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Specify the maximum number of hops to the BGP peer\n")
+{
+  struct peer *peer;
+  int ret, gtsm_hops;
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+    
+  VTY_GET_INTEGER_RANGE ("", gtsm_hops, argv[1], 1, 254);
+
+  ret = peer_ttl_security_hops_set (peer, gtsm_hops);
+
+  return bgp_vty_return (vty, ret);
+}
+
+DEFUN (no_neighbor_ttl_security,
+       no_neighbor_ttl_security_cmd,
+       NO_NEIGHBOR_CMD2 "ttl-security hops <1-254>",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Specify the maximum number of hops to the BGP peer\n")
+{
+  struct peer *peer;
+  int ret;
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+
+  ret = peer_ttl_security_hops_unset (peer);
 
   return bgp_vty_return (vty, ret);
 }
@@ -10059,6 +10105,10 @@ bgp_vty_init (void)
   install_element (BGP_IPV6_NODE, &no_bgp_redistribute_ipv6_rmap_metric_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_redistribute_ipv6_metric_rmap_cmd);
 #endif /* HAVE_IPV6 */
+
+  /* ttl_security commands */
+  install_element (BGP_NODE, &neighbor_ttl_security_cmd);
+  install_element (BGP_NODE, &no_neighbor_ttl_security_cmd);
 
   /* "show bgp memory" commands. */
   install_element (VIEW_NODE, &show_bgp_memory_cmd);
