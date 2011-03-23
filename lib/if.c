@@ -664,7 +664,7 @@ connected_log (struct connected *connected, char *str)
       strncat (logbuf, inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
 	       BUFSIZ - strlen(logbuf));
     }
-  zlog (NULL, LOG_INFO, logbuf);
+  zlog (NULL, LOG_INFO, "%s", logbuf);
 }
 
 /* If two connected address has same prefix return 1. */
