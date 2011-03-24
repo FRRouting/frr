@@ -4376,7 +4376,7 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
   zlog_debug ("peer_ttl_security_hops_set: set gtsm_hops to %d for %s", gtsm_hops, peer->host);
 
   if (peer_sort (peer) == BGP_PEER_IBGP)
-      return 0;
+    return 0;
 
   /* We cannot configure ttl-security hops when ebgp-multihop is already
      set.  For non peer-groups, the check is simple.  For peer-groups, it's
@@ -4385,34 +4385,35 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
      before actually applying the ttl-security rules.  Cisco really made a
      mess of this configuration parameter, and OpenBGPD got it right.
   */
+  
+  if (peer->gtsm_hops == 0) {
+    if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+      {
+        group = peer->group;
+        if (group->conf->ttl != 1)
+          return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
-  if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-    {
-      group = peer->group;
-      if (group->conf->ttl != 1)
-        return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+        for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer1))
+          {
+            if (peer_sort (peer1) == BGP_PEER_IBGP)
+              continue;
 
-      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer1))
-        {
-          if (peer_sort (peer1) == BGP_PEER_IBGP)
-            continue;
-
-          if (peer1->ttl != 1)
-            return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
-        }
-    }
-  else
-    {
-      if (peer->ttl != 1)
-        return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
-    }
-
+            if (peer1->ttl != 1)
+              return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+          }
+      }
+    else
+      {
+        if (peer->ttl != 1)
+          return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+      }
+    /* specify MAXTTL on outgoing packets */
+    ret = peer_ebgp_multihop_set (peer, MAXTTL);
+    if (ret != 0)
+      return ret;
+  }
+  
   peer->gtsm_hops = gtsm_hops;
-
-  /* specify MAXTTL on outgoing packets */
-  ret = peer_ebgp_multihop_set (peer, MAXTTL);
-  if (ret != 0)
-    return ret;
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
@@ -4793,7 +4794,7 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
      /* ttl-security hops */
       if (peer_sort (peer) != BGP_PEER_IBGP && peer->gtsm_hops != 0)
         if (! peer_group_active (peer) || g_peer->gtsm_hops != peer->gtsm_hops)
-          vty_out (vty, " neighbor %s ttl-security hops %d%s", addr, 
+          vty_out (vty, " neighbor %s ttl-security hops %d%s", addr,
                    peer->gtsm_hops, VTY_NEWLINE);
 
       /* disable-connected-check.  */

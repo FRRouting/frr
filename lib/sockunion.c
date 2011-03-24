@@ -540,23 +540,23 @@ sockopt_cork (int sock, int onoff)
 int
 sockopt_minttl (int family, int sock, int minttl)
 {
+#ifdef IP_MINTTL
   int ret;
   
-  zlog_debug ("sockopt_minttl: set minttl to %d", minttl);
-
-#ifdef IP_MINTTL
   ret = setsockopt (sock, IPPROTO_IP, IP_MINTTL, &minttl, sizeof(minttl));
-#else
-  ret = -1;
-  errno = EOPNOTSUPP;
-#endif /* IP_MINTTL */
   if (ret < 0)
     {
-      zlog (NULL, LOG_WARNING, "can't set sockopt IP_MINTTL to %d on socket %d: %s", minttl, sock, safe_strerror (errno));
+      zlog (NULL, LOG_WARNING,
+            "can't set sockopt IP_MINTTL to %d on socket %d: %s",
+            minttl, sock, safe_strerror (errno));
       return -1;
     }
 
   return 0;
+#else
+  errno = EOPNOTSUPP;
+  return -1;
+#endif /* IP_MINTTL */
 }
 
 /* If same family and same prefix return 1. */

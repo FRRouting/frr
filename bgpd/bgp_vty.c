@@ -2629,7 +2629,6 @@ peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str,
 {
   struct peer *peer;
   unsigned int ttl;
-  int ret;
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
@@ -2640,24 +2639,19 @@ peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str,
   else
     VTY_GET_INTEGER_RANGE ("TTL", ttl, ttl_str, 1, 255);
 
-  ret = peer_ebgp_multihop_set (peer, ttl);
-  
-  return bgp_vty_return (vty, ret);
+  return bgp_vty_return (vty,  peer_ebgp_multihop_set (peer, ttl));
 }
 
 static int
 peer_ebgp_multihop_unset_vty (struct vty *vty, const char *ip_str) 
 {
   struct peer *peer;
-  int ret;
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
     return CMD_WARNING;
 
-  ret = peer_ebgp_multihop_unset (peer);
-  
-  return bgp_vty_return (vty, ret);
+  return bgp_vty_return (vty, peer_ebgp_multihop_unset (peer));
 }
 
 /* neighbor ebgp-multihop. */
@@ -3967,7 +3961,7 @@ DEFUN (neighbor_ttl_security,
        "Specify the maximum number of hops to the BGP peer\n")
 {
   struct peer *peer;
-  int ret, gtsm_hops;
+  int gtsm_hops;
 
   peer = peer_and_group_lookup_vty (vty, argv[0]);
   if (! peer)
@@ -3975,9 +3969,7 @@ DEFUN (neighbor_ttl_security,
     
   VTY_GET_INTEGER_RANGE ("", gtsm_hops, argv[1], 1, 254);
 
-  ret = peer_ttl_security_hops_set (peer, gtsm_hops);
-
-  return bgp_vty_return (vty, ret);
+  return bgp_vty_return (vty, peer_ttl_security_hops_set (peer, gtsm_hops));
 }
 
 DEFUN (no_neighbor_ttl_security,
@@ -3989,15 +3981,12 @@ DEFUN (no_neighbor_ttl_security,
        "Specify the maximum number of hops to the BGP peer\n")
 {
   struct peer *peer;
-  int ret;
 
   peer = peer_and_group_lookup_vty (vty, argv[0]);
   if (! peer)
     return CMD_WARNING;
 
-  ret = peer_ttl_security_hops_unset (peer);
-
-  return bgp_vty_return (vty, ret);
+  return bgp_vty_return (vty, peer_ttl_security_hops_unset (peer));
 }
 
 /* Address family configuration.  */
