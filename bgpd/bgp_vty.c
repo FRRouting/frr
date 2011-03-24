@@ -216,6 +216,9 @@ bgp_vty_return (struct vty *vty, int ret)
     case BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK:
       str = "ebgp-multihop and ttl-security cannot be configured together";
       break;
+    case BGP_ERR_NO_IBGP_WITH_TTLHACK:
+      str = "ttl-security only allowed for EBGP peers";
+      break;
     }
   if (str)
     {
@@ -7643,10 +7646,16 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 		 p->host, VTY_NEWLINE);
     }
 
-  /* EBGP Multihop */
-  if (peer_sort (p) != BGP_PEER_IBGP && p->ttl > 1)
-    vty_out (vty, "  External BGP neighbor may be up to %d hops away.%s",
-	     p->ttl, VTY_NEWLINE);
+  /* EBGP Multihop and GTSM */
+  if (peer_sort (p) != BGP_PEER_IBGP)
+    {
+      if (p->gtsm_hops > 0)
+	vty_out (vty, "  External BGP neighbor may be up to %d hops away.%s",
+		 p->gtsm_hops, VTY_NEWLINE);
+      else if (p->ttl > 1)
+	vty_out (vty, "  External BGP neighbor may be up to %d hops away.%s",
+		 p->ttl, VTY_NEWLINE);
+    }
 
   /* Local address. */
   if (p->su_local)

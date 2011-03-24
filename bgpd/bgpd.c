@@ -4376,7 +4376,7 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
   zlog_debug ("peer_ttl_security_hops_set: set gtsm_hops to %d for %s", gtsm_hops, peer->host);
 
   if (peer_sort (peer) == BGP_PEER_IBGP)
-    return 0;
+    return BGP_ERR_NO_IBGP_WITH_TTLHACK;
 
   /* We cannot configure ttl-security hops when ebgp-multihop is already
      set.  For non peer-groups, the check is simple.  For peer-groups, it's
@@ -4430,8 +4430,23 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
 
 	  peer->gtsm_hops = group->conf->gtsm_hops;
 
-	  if (peer->fd >= 0 && peer->gtsm_hops != 0)
-            sockopt_minttl (peer->su.sa.sa_family, peer->fd, MAXTTL + 1 - peer->gtsm_hops);
+	  /* Change setting of existing peer
+	   *   established then change value (may break connectivity)
+	   *   not established yet (teardown session and restart)
+	   *   no session then do nothing (will get handled by next connection)
+	   */
+	  if (peer->status == Established)
+	    {
+	      if (peer->fd >= 0 && peer->gtsm_hops != 0)
+		sockopt_minttl (peer->su.sa.sa_family, peer->fd,
+				MAXTTL + 1 - peer->gtsm_hops);
+	    }
+	  else if (peer->status < Established)
+	    {
+	      if (BGP_DEBUG (events, EVENTS))
+		zlog_debug ("%s Min-ttl changed", peer->host);
+	      BGP_EVENT_ADD (peer, BGP_Stop);
+	    }
 	}
     }
 

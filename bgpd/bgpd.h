@@ -802,7 +802,8 @@ enum bgp_clear_type
 #define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS    -28
 #define BGP_ERR_TCPSIG_FAILED			-29
 #define BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK	-30
-#define BGP_ERR_MAX				-31
+#define BGP_ERR_NO_IBGP_WITH_TTLHACK		-31
+#define BGP_ERR_MAX				-32
 
 extern struct bgp_master *bm;
 
