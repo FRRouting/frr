@@ -216,7 +216,7 @@ if_subnet_delete (struct interface *ifp, struct connected *ifc)
  * interface will affect only the primary interface/address on Solaris.
  ************************End Solaris flags hacks ***********************
  */
-static inline void
+static void
 if_flags_mangle (struct interface *ifp, uint64_t *newflags)
 {
 #ifdef SUNOS_5

@@ -695,7 +695,7 @@ peer_sort (struct peer *peer)
     }
 }
 
-static inline void
+static void
 peer_free (struct peer *peer)
 {
   assert (peer->status == Deleted);

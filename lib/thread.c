@@ -248,7 +248,7 @@ cpu_record_hash_free (void *a)
   XFREE (MTYPE_THREAD_STATS, hist);
 }
 
-static inline void 
+static void 
 vty_out_cpu_thread_history(struct vty* vty,
 			   struct cpu_thread_history *a)
 {
@@ -608,7 +608,7 @@ thread_master_free (struct thread_master *m)
 }
 
 /* Thread list is empty or not.  */
-static inline int
+static int
 thread_empty (struct thread_list *list)
 {
   return  list->head ? 0 : 1;

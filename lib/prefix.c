@@ -2317,6 +2317,21 @@ static const char map64kto17_nbo[0xffff + 1] =
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
 
+unsigned int
+prefix_bit (const u_char *prefix, const u_char prefixlen)
+{
+  unsigned int offset = prefixlen / 8;
+  unsigned int shift  = 7 - (prefixlen % 8);
+  
+  return (prefix[offset] >> shift) & 1;
+}
+
+unsigned int
+prefix6_bit (const struct in6_addr *prefix, const u_char prefixlen)
+{
+  return prefix_bit((const u_char *) &prefix->s6_addr, prefixlen);
+}
+
 /* Address Famiy Identifier to Address Family converter. */
 int
 afi2family (afi_t afi)

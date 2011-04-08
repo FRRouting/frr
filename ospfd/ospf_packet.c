@@ -266,7 +266,7 @@ ospf_packet_dup (struct ospf_packet *op)
 }
 
 /* XXX inline */
-static inline unsigned int
+static unsigned int
 ospf_packet_authspace (struct ospf_interface *oi)
 {
   int auth = 0;
@@ -2213,7 +2213,7 @@ ospf_associate_packet_vl (struct ospf *ospf, struct interface *ifp,
   return NULL;
 }
 
-static inline int
+static int
 ospf_check_area_id (struct ospf_interface *oi, struct ospf_header *ospfh)
 {
   /* Check match the Area ID of the receiving interface. */

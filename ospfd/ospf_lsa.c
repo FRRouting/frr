@@ -746,7 +746,7 @@ ospf_stub_router_timer (struct thread *t)
   return 0;
 }
 
-inline static void
+static void
 ospf_stub_router_check (struct ospf_area *area)
 {
   /* area must either be administratively configured to be stub

@@ -91,13 +91,13 @@ static struct hash *ashash;
 /* Stream for SNMP. See aspath_snmp_pathseg */
 static struct stream *snmp_stream;
 
-static inline as_t *
+static as_t *
 assegment_data_new (int num)
 {
   return (XCALLOC (MTYPE_AS_SEG_DATA, ASSEGMENT_DATA_SIZE (num, 1)));
 }
 
-static inline void
+static void
 assegment_data_free (as_t *asdata)
 {
   XFREE (MTYPE_AS_SEG_DATA,asdata);
@@ -812,7 +812,7 @@ aspath_parse (struct stream *s, size_t length, int use32bit)
   return find;
 }
 
-static inline void
+static void
 assegment_data_put (struct stream *s, as_t *as, int num, int use32bit)
 {
   int i;
@@ -830,7 +830,7 @@ assegment_data_put (struct stream *s, as_t *as, int num, int use32bit)
       }
 }
 
-static inline size_t
+static size_t
 assegment_header_put (struct stream *s, u_char type, int length)
 {
   size_t lenp;
