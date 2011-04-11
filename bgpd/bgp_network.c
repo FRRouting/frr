@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "command.h"
 #include "privs.h"
 #include "linklist.h"
+#include "network.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_fsm.h"

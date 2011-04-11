@@ -698,8 +698,12 @@ assegments_parse (struct stream *s, size_t length, int use32bit, int as4_path)
       size_t seg_size;
       
       /* softly softly, get the header first on its own */
-      if (length >= AS_HEADER_SIZE)
+      if (length < AS_HEADER_SIZE)
         {
+          assegment_free_all (head);
+          return NULL;
+        }
+      
       segh.type = stream_getc (s);
       segh.length = stream_getc (s);
       
@@ -710,26 +714,23 @@ assegments_parse (struct stream *s, size_t length, int use32bit, int as4_path)
 	zlog_debug ("[AS4SEG] Parse aspath segment: got type %d, length %d",
                     segh.type, segh.length);
       
-          switch (segh.type)
-          {
-            case AS_SEQUENCE:
-            case AS_SET:
-              break ;
+      switch (segh.type)
+        {
+          case AS_SEQUENCE:
+          case AS_SET:
+            break ;
 
-            case AS_CONFED_SEQUENCE:
-            case AS_CONFED_SET:
-              if (!as4_path)
-                break ;
+          case AS_CONFED_SEQUENCE:
+          case AS_CONFED_SET:
+            if (!as4_path)
+              break ;
               /* RFC4893 3: "invalid for the AS4_PATH attribute"            */
               /* fall through */
 
-            default:    /* reject unknown or invalid AS_PATH segment types  */
-              seg_size = 0 ;
-          } ;
+          default:    /* reject unknown or invalid AS_PATH segment types  */
+            seg_size = 0 ;
         }
-      else
-        seg_size = 0 ;
-
+     
      /* Stop now if segment is not valid (discarding anything collected to date)
       *
       * RFC4271 4.3, Path Attributes, b) AS_PATH:
@@ -738,7 +739,7 @@ assegments_parse (struct stream *s, size_t length, int use32bit, int as4_path)
            */
       if ((seg_size == 0) || (seg_size > length) || (segh.length == 0))
         {
-            assegment_free_all (head);
+          assegment_free_all (head);
           return NULL;
         }
       

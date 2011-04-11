@@ -2009,7 +2009,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
                    * as possible without going beyond the bounds of the entry,
                    * to maximise debug information.
                    */
-		  int ok ;
+		  int ok;
 		  memset (&orfp, 0, sizeof (struct orf_prefix));
 		  common = *p_pnt++;
 		  /* after ++: p_pnt <= p_end */
@@ -2021,11 +2021,11 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 		      break;
 		    }
 		  ok = ((p_end - p_pnt) >= sizeof(u_int32_t)) ;
-		  if (ok)
+		  if (!ok)
 		    {
-		  memcpy (&seq, p_pnt, sizeof (u_int32_t));
-		  p_pnt += sizeof (u_int32_t);
-		  orfp.seq = ntohl (seq);
+		      memcpy (&seq, p_pnt, sizeof (u_int32_t));
+                      p_pnt += sizeof (u_int32_t);
+                      orfp.seq = ntohl (seq);
 		    }
 		  else
 		    p_pnt = p_end ;
@@ -2063,16 +2063,17 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 			       inet_ntop (orfp.p.family, &orfp.p.u.prefix, buf, BUFSIZ),
 			       orfp.p.prefixlen, orfp.ge, orfp.le,
 			       ok ? "" : " MALFORMED");
-
+                  
 		  if (ok)
-		  ret = prefix_bgp_orf_set (name, afi, &orfp,
-				 (common & ORF_COMMON_PART_DENY ? 0 : 1 ),
-				 (common & ORF_COMMON_PART_REMOVE ? 0 : 1));
+		    ret = prefix_bgp_orf_set (name, afi, &orfp,
+				   (common & ORF_COMMON_PART_DENY ? 0 : 1 ),
+				   (common & ORF_COMMON_PART_REMOVE ? 0 : 1));
 
 		  if (!ok || (ret != CMD_SUCCESS))
 		    {
 		      if (BGP_DEBUG (normal, NORMAL))
-			zlog_debug ("%s Received misformatted prefixlist ORF. Remove All pfxlist", peer->host);
+			zlog_debug ("%s Received misformatted prefixlist ORF."
+			            " Remove All pfxlist", peer->host);
 		      prefix_bgp_orf_remove_all (name);
 		      break;
 		    }
