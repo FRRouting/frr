@@ -219,7 +219,7 @@ msg_print (struct msg *msg)
 #else /* ORIGINAL_CODING */
   /* API message common header part. */
   zlog_debug
-    ("API-msg [%s]: type(%d),len(%d),seq(%lu),data(%p),size(%lu)",
+    ("API-msg [%s]: type(%d),len(%d),seq(%lu),data(%p),size(%zd)",
      ospf_api_typename (msg->hdr.msgtype), msg->hdr.msgtype, 
      ntohs (msg->hdr.msglen), (unsigned long) ntohl (msg->hdr.msgseq),
      STREAM_DATA (msg->s), STREAM_SIZE (msg->s));

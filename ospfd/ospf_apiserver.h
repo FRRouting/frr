@@ -180,7 +180,7 @@ extern void ospf_apiserver_config_write_router (struct vty *vty);
 extern void ospf_apiserver_config_write_if (struct vty *vty, struct interface *ifp);
 extern void ospf_apiserver_show_info (struct vty *vty, struct ospf_lsa *lsa);
 extern int ospf_ospf_apiserver_lsa_originator (void *arg);
-extern void ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa);
+extern struct ospf_lsa *ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa);
 extern void ospf_apiserver_flush_opaque_lsa (struct ospf_apiserver *apiserv,
 				      u_char lsa_type, u_char opaque_type);
 

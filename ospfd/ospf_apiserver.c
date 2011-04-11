@@ -1831,7 +1831,7 @@ ospf_apiserver_lsa11_originator (void *arg)
 
 /* Periodically refresh opaque LSAs so that they do not expire in
    other routers. */
-void
+struct ospf_lsa *
 ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa)
 {
   struct ospf_apiserver *apiserv;
@@ -1904,7 +1904,7 @@ ospf_apiserver_lsa_refresher (struct ospf_lsa *lsa)
     }
 
 out:
-  return;
+  return new;
 }
 
 
