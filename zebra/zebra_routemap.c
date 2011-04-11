@@ -642,17 +642,14 @@ route_set_src (void *rule, struct prefix *prefix,
 static void *
 route_set_src_compile (const char *arg)
 {
-  sa_family_t family;
   union g_addr src, *psrc;
 
-  if (inet_pton(AF_INET, arg, &src.ipv4) > 0)
-    family = AF_INET;
+  if (inet_pton(AF_INET, arg, &src.ipv4) != 1
 #ifdef HAVE_IPV6
-  else if (inet_pton(AF_INET6, arg, &src.ipv6) > 0)
-    family = AF_INET6;
+      && inet_pton(AF_INET6, arg, &src.ipv6) != 1
 #endif /* HAVE_IPV6 */
-  else
-   return NULL;
+     )
+    return NULL;
 
   psrc = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (union g_addr));
   *psrc = src;
