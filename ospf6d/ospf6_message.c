@@ -1721,6 +1721,13 @@ ospf6_hello_send (struct thread *thread)
       return 0;
     }
 
+  if (iobuflen == 0)
+    {
+      zlog_debug ("Unable to send Hello on interface %s iobuflen is 0",
+                 oi->interface->name);
+      return 0;
+    }
+
   /* set next thread */
   oi->thread_send_hello = thread_add_timer (master, ospf6_hello_send,
                                             oi, oi->hello_interval);

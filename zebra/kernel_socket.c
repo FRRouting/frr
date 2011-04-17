@@ -299,6 +299,7 @@ ifan_read (struct if_announcemsghdr *ifan)
 				       sizeof(ifan->ifan_name)));
       ifp->ifindex = ifan->ifan_index;
 
+      if_get_metric (ifp);
       if_add_update (ifp);
     }
   else if (ifp != NULL && ifan->ifan_what == IFAN_DEPARTURE)
