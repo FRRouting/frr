@@ -76,6 +76,9 @@ struct ospf6_interface
   /* OSPF6 Interface flag */
   char flag;
 
+  /* MTU mismatch check */
+  u_char mtu_ignore;
+
   /* Decision of DR Election */
   u_int32_t drouter;
   u_int32_t bdrouter;
