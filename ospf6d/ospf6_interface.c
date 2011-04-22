@@ -118,6 +118,7 @@ ospf6_interface_create (struct interface *ifp)
   oi->cost = 1;
   oi->state = OSPF6_INTERFACE_DOWN;
   oi->flag = 0;
+  oi->mtu_ignore = 0;
 
   /* Try to adjust I/O buffer size with IfMtu */
   oi->ifmtu = ifp->mtu6;
@@ -784,6 +785,8 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
     {
       vty_out (vty, "  Instance ID %d, Interface MTU %d (autodetect: %d)%s",
 	       oi->instance_id, oi->ifmtu, ifp->mtu6, VNL);
+      vty_out (vty, "  MTU mismatch detection: %s%s", oi->mtu_ignore ?
+	       "disabled" : "enabled", VNL);
       inet_ntop (AF_INET, &oi->area->area_id,
                  strbuf, sizeof (strbuf));
       vty_out (vty, "  Area ID %s, Cost %hu%s", strbuf, oi->cost,
@@ -1368,6 +1371,55 @@ DEFUN (no_ipv6_ospf6_passive,
   return CMD_SUCCESS;
 }
 
+DEFUN (ipv6_ospf6_mtu_ignore,
+       ipv6_ospf6_mtu_ignore_cmd,
+       "ipv6 ospf6 mtu-ignore",
+       IP6_STR
+       OSPF6_STR
+       "Ignore MTU mismatch on this interface\n"
+       )
+{
+  struct ospf6_interface *oi;
+  struct interface *ifp;
+
+  ifp = (struct interface *) vty->index;
+  assert (ifp);
+
+  oi = (struct ospf6_interface *) ifp->info;
+  if (oi == NULL)
+    oi = ospf6_interface_create (ifp);
+  assert (oi);
+
+  oi->mtu_ignore = 1;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_ospf6_mtu_ignore,
+       no_ipv6_ospf6_mtu_ignore_cmd,
+       "no ipv6 ospf6 mtu-ignore",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Ignore MTU mismatch on this interface\n"
+       )
+{
+  struct ospf6_interface *oi;
+  struct interface *ifp;
+
+  ifp = (struct interface *) vty->index;
+  assert (ifp);
+
+  oi = (struct ospf6_interface *) ifp->info;
+  if (oi == NULL)
+    oi = ospf6_interface_create (ifp);
+  assert (oi);
+
+  oi->mtu_ignore = 0;
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (ipv6_ospf6_advertise_prefix_list,
        ipv6_ospf6_advertise_prefix_list_cmd,
        "ipv6 ospf6 advertise prefix-list WORD",
@@ -1495,6 +1547,9 @@ config_write_ospf6_interface (struct vty *vty)
       if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE))
         vty_out (vty, " ipv6 ospf6 passive%s", VNL);
 
+      if (oi->mtu_ignore)
+        vty_out (vty, " ipv6 ospf6 mtu-ignore%s", VNL);
+
       vty_out (vty, "!%s", VNL);
     }
   return 0;
@@ -1546,6 +1601,9 @@ ospf6_interface_init (void)
 
   install_element (INTERFACE_NODE, &ipv6_ospf6_passive_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_ospf6_passive_cmd);
+
+  install_element (INTERFACE_NODE, &ipv6_ospf6_mtu_ignore_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_ospf6_mtu_ignore_cmd);
 
   install_element (INTERFACE_NODE, &ipv6_ospf6_advertise_prefix_list_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_ospf6_advertise_prefix_list_cmd);
