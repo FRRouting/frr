@@ -20,13 +20,15 @@ PREFIX=/usr/pkg
 case $1 in
 
     build)
+	# Omitted because it is now default:
+	#   --enable-opaque-lsa
 	./bootstrap.sh
 	LDFLAGS="-L/usr/pkg/lib -R/usr/pkg/lib" CPPFLAGS="-I/usr/pkg/include" \
     	./configure --prefix=${PREFIX} \
 	    --sysconfdir=/etc/zebra --localstatedir=/var/run/zebra \
 	    --enable-exampledir=${PREFIX}/share/examples/zebra \
 	    --enable-pkgsrcrcdir=${PREFIX}/etc/rc.d \
-	    --enable-opaque-lsa --enable-vtysh
+	    --enable-vtysh
 	${MAKE}
 	;;
 
