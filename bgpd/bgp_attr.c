@@ -359,11 +359,6 @@ attrhash_key_make (void *p)
   key += attr->nexthop.s_addr;
   key += attr->med;
   key += attr->local_pref;
-  if (attr->pathlimit.as)
-    {
-      key += attr->pathlimit.ttl;
-      key += attr->pathlimit.as;
-    }
   
   if (attr->extra)
     {
@@ -415,9 +410,7 @@ attrhash_cmp (const void *p1, const void *p2)
       && attr1->aspath == attr2->aspath
       && attr1->community == attr2->community
       && attr1->med == attr2->med
-      && attr1->local_pref == attr2->local_pref
-      && attr1->pathlimit.ttl == attr2->pathlimit.ttl
-      && attr1->pathlimit.as == attr2->pathlimit.as)
+      && attr1->local_pref == attr2->local_pref)
     {
       const struct attr_extra *ae1 = attr1->extra;
       const struct attr_extra *ae2 = attr2->extra;
@@ -704,43 +697,6 @@ bgp_attr_flush (struct attr *attr)
     }
 }
 
-/* Parse AS_PATHLIMIT attribute in an UPDATE */
-static int
-bgp_attr_aspathlimit (struct peer *peer, bgp_size_t length,
-                      struct attr *attr, u_char flag, u_char *startp)
-{
-  bgp_size_t total;
-  
-  total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
-  
-  if (!CHECK_FLAG(flag, BGP_ATTR_FLAG_TRANS)
-       || !CHECK_FLAG(flag, BGP_ATTR_FLAG_OPTIONAL))
-    {
-      zlog (peer->log, LOG_ERR, 
-	    "AS-Pathlimit attribute flag isn't transitive %d", flag);
-      bgp_notify_send_with_data (peer, 
-				 BGP_NOTIFY_UPDATE_ERR, 
-				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
-				 startp, total);
-      return -1;
-    }
-  
-  if (length != 5)
-    {
-      zlog (peer->log, LOG_ERR, 
-	    "AS-Pathlimit length, %u, is not 5", length);
-      bgp_notify_send_with_data (peer, 
-				 BGP_NOTIFY_UPDATE_ERR, 
-				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
-				 startp, total);
-      return -1;
-    }
-  
-  attr->pathlimit.ttl = stream_getc (BGP_INPUT(peer));
-  attr->pathlimit.as = stream_getl (BGP_INPUT(peer));
-  attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AS_PATHLIMIT);
-  return 0;
-}
 /* Get origin attribute of the update message. */
 static int
 bgp_attr_origin (struct peer *peer, bgp_size_t length, 
@@ -1717,9 +1673,6 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 	case BGP_ATTR_EXT_COMMUNITIES:
 	  ret = bgp_attr_ext_communities (peer, length, attr, flag);
 	  break;
-        case BGP_ATTR_AS_PATHLIMIT:
-          ret = bgp_attr_aspathlimit (peer, length, attr, flag, startp);
-          break;
 	default:
 	  ret = bgp_attr_unknown (peer, attr, flag, type, length, startp);
 	  break;
@@ -2274,24 +2227,6 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       stream_put_ipv4 (s, attr->extra->aggregator_addr.s_addr);
     }
   
-  /* AS-Pathlimit */
-  if (attr->pathlimit.ttl)
-    {
-      u_int32_t as = attr->pathlimit.as;
-      
-      /* should already have been done in announce_check(), 
-       * but just in case..
-       */
-      if (!as)
-        as = peer->local_as;
-      
-      stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
-      stream_putc (s, BGP_ATTR_AS_PATHLIMIT);
-      stream_putc (s, 5);
-      stream_putc (s, attr->pathlimit.ttl);
-      stream_putl (s, as);
-    }
-  
   /* Unknown transit attribute. */
   if (attr->extra && attr->extra->transit)
     stream_put (s, attr->extra->transit->val, attr->extra->transit->length);
@@ -2502,16 +2437,6 @@ bgp_dump_routes_attr (struct stream *s, struct attr *attr,
       stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);
     }
 #endif /* HAVE_IPV6 */
-
-  /* AS-Pathlimit */
-  if (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_AS_PATHLIMIT))
-    {
-      stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_TRANS);
-      stream_putc (s, BGP_ATTR_AS_PATHLIMIT);
-      stream_putc (s, 5);
-      stream_putc (s, attr->pathlimit.ttl);
-      stream_putl (s, attr->pathlimit.as);
-    }
 
   /* Return total size of attribute. */
   len = stream_get_endp (s) - cp - 2;
