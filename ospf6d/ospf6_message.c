@@ -47,6 +47,8 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 
+#include <netinet/ip6.h>
+
 unsigned char conf_debug_ospf6_message[6] = {0x03, 0, 0, 0, 0, 0};
 const char *ospf6_message_type_str[] =
   { "Unknown", "Hello", "DbDesc", "LSReq", "LSUpdate", "LSAck" };
@@ -1774,6 +1776,12 @@ ospf6_send (struct in6_addr *src, struct in6_addr *dst,
     zlog_err ("Could not send entire message");
 }
 
+static int
+ospf6_packet_max(struct ospf6_interface *oi)
+{
+  return oi->ifmtu - sizeof(struct ip6_hdr);
+}
+
 int
 ospf6_hello_send (struct thread *thread)
 {
@@ -1820,7 +1828,7 @@ ospf6_hello_send (struct thread *thread)
       if (on->state < OSPF6_NEIGHBOR_INIT)
         continue;
 
-      if (p - sendbuf + sizeof (u_int32_t) > oi->ifmtu)
+      if (p - sendbuf + sizeof (u_int32_t) > ospf6_packet_max(oi))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_HELLO, SEND))
             zlog_debug ("sending Hello message: exceeds I/F MTU");
@@ -1896,7 +1904,7 @@ ospf6_dbdesc_send (struct thread *thread)
 
           /* MTU check */
           if (p - sendbuf + sizeof (struct ospf6_lsa_header) >
-              on->ospf6_if->ifmtu)
+              ospf6_packet_max(on->ospf6_if))
             {
               ospf6_lsa_unlock (lsa);
               break;
@@ -1930,7 +1938,7 @@ ospf6_dbdesc_send_newone (struct thread *thread)
   for (lsa = ospf6_lsdb_head (on->summary_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
-      if (size + sizeof (struct ospf6_lsa_header) > on->ospf6_if->ifmtu)
+      if (size + sizeof (struct ospf6_lsa_header) > ospf6_packet_max(on->ospf6_if))
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -1997,7 +2005,7 @@ ospf6_lsreq_send (struct thread *thread)
        lsa = ospf6_lsdb_next (lsa))
     {
       /* MTU check */
-      if (p - sendbuf + sizeof (struct ospf6_lsreq_entry) > on->ospf6_if->ifmtu)
+      if (p - sendbuf + sizeof (struct ospf6_lsreq_entry) > ospf6_packet_max(on->ospf6_if))
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -2066,7 +2074,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
     {
       /* MTU check */
       if ( (p - sendbuf + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
-          > on->ospf6_if->ifmtu)
+          > ospf6_packet_max(on->ospf6_if))
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -2086,7 +2094,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
     {
       /* MTU check */
       if ( (p - sendbuf + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
-          > on->ospf6_if->ifmtu)
+          > ospf6_packet_max(on->ospf6_if))
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -2159,7 +2167,7 @@ ospf6_lsupdate_send_interface (struct thread *thread)
     {
       /* MTU check */
       if ( (p - sendbuf + ((unsigned int)OSPF6_LSA_SIZE (lsa->header)))
-          > oi->ifmtu)
+          > ospf6_packet_max(oi))
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -2226,7 +2234,7 @@ ospf6_lsack_send_neighbor (struct thread *thread)
        lsa = ospf6_lsdb_next (lsa))
     {
       /* MTU check */
-      if (p - sendbuf + sizeof (struct ospf6_lsa_header) > on->ospf6_if->ifmtu)
+      if (p - sendbuf + sizeof (struct ospf6_lsa_header) > ospf6_packet_max(on->ospf6_if))
         {
           /* if we run out of packet size/space here,
              better to try again soon. */
@@ -2286,7 +2294,7 @@ ospf6_lsack_send_interface (struct thread *thread)
        lsa = ospf6_lsdb_next (lsa))
     {
       /* MTU check */
-      if (p - sendbuf + sizeof (struct ospf6_lsa_header) > oi->ifmtu)
+      if (p - sendbuf + sizeof (struct ospf6_lsa_header) > ospf6_packet_max(oi))
         {
           /* if we run out of packet size/space here,
              better to try again soon. */
