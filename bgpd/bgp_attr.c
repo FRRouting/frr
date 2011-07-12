@@ -1553,7 +1553,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 	{
 	  /* XXX warning: long int format, int arg (arg 5) */
 	  zlog (peer->log, LOG_WARNING, 
-		"%s error BGP attribute length %lu is smaller than min len",
+		"%s: error BGP attribute length %lu is smaller than min len",
 		peer->host,
 		(unsigned long) (endp - STREAM_PNT (BGP_INPUT (peer))));
 
@@ -1573,7 +1573,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
           && ((endp - startp) < (BGP_ATTR_MIN_LEN + 1)))
 	{
 	  zlog (peer->log, LOG_WARNING, 
-		"%s Extended length set, but just %lu bytes of attr header",
+		"%s: Extended length set, but just %lu bytes of attr header",
 		peer->host,
 		(unsigned long) (endp - STREAM_PNT (BGP_INPUT (peer))));
 
@@ -1596,7 +1596,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       if (CHECK_BITMAP (seen, type))
 	{
 	  zlog (peer->log, LOG_WARNING,
-		"%s error BGP attribute type %d appears twice in a message",
+		"%s: error BGP attribute type %d appears twice in a message",
 		peer->host, type);
 
 	  bgp_notify_send (peer, 
@@ -1616,7 +1616,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
       if (attr_endp > endp)
 	{
 	  zlog (peer->log, LOG_WARNING, 
-		"%s BGP type %d length %d is too large, attribute total length is %d.  attr_endp is %p.  endp is %p", peer->host, type, length, size, attr_endp, endp);
+		"%s: BGP type %d length %d is too large, attribute total length is %d.  attr_endp is %p.  endp is %p", peer->host, type, length, size, attr_endp, endp);
 	  bgp_notify_send (peer, 
 			   BGP_NOTIFY_UPDATE_ERR, 
 			   BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
@@ -1708,7 +1708,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
   if (BGP_INPUT_PNT (peer) != endp)
     {
       zlog (peer->log, LOG_WARNING, 
-	    "%s BGP attribute %s, length mismatch",
+	    "%s: BGP attribute %s, length mismatch",
 	    peer->host, LOOKUP (attr_str, type));
       bgp_notify_send (peer, 
 		       BGP_NOTIFY_UPDATE_ERR, 
