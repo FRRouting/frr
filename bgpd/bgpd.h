@@ -726,7 +726,7 @@ struct bgp_nlri
 
 /* SAFI which used in open capability negotiation.  */
 #define BGP_SAFI_VPNV4                         128
-#define BGP_SAFI_VPNV6                         129
+#define BGP_SAFI_VPNV6                         128
 
 /* Max TTL value.  */
 #define TTL_MAX                                255

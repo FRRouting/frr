@@ -9090,7 +9090,7 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
         safi = SAFI_UNICAST;
       else if (strncmp (safi_str, "vpnv4", 5) == 0)
         safi = BGP_SAFI_VPNV4;
-      else if (strncmp (safi_str, "vpnv6", 6) == 0)
+      else if (strncmp (safi_str, "vpnv6", 5) == 0)
         safi = BGP_SAFI_VPNV6;
       else
         {
