@@ -616,6 +616,13 @@ AC_SUBST(LIBREADLINE)
 
 dnl ----------
 dnl PAM module
+dnl
+dnl Quagga detects the PAM library it is built against by checking for a
+dnl functional pam_misc.h (Linux-PAM) or openpam.h (OpenPAM) header. pam_misc.h
+dnl is known to #include pam_appl.h, the standard header of a PAM library, and
+dnl openpam.h doesn't do that, although depends on the header too. Hence a
+dnl little assistance to AC_CHECK_HEADER is necessary for the proper detection
+dnl of OpenPAM.
 dnl ----------
 if test "$with_libpam" = "yes"; then
   AC_CHECK_HEADER([security/pam_misc.h],
@@ -629,7 +636,7 @@ if test "$with_libpam" = "yes"; then
      AC_DEFINE(PAM_CONV_FUNC,openpam_ttyconv,Have openpam_ttyconv)
      pam_conv_func="openpam_ttyconv"
     ],
-    [], QUAGGA_INCLUDES)
+    [], QUAGGA_INCLUDES[#include <security/pam_appl.h>])
   if test -z "$ac_cv_header_security_pam_misc_h$ac_cv_header_security_openpam_h" ; then
     AC_MSG_WARN([*** pam support will not be built ***])
     with_libpam="no"
