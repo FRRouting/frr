@@ -939,7 +939,7 @@ bgp_route_refresh_send (struct peer *peer, afi_t afi, safi_t safi,
 
   /* Adjust safi code. */
   if (safi == SAFI_MPLS_VPN)
-    safi = BGP_SAFI_VPNV4;
+    safi = SAFI_MPLS_LABELED_VPN;
   
   s = stream_new (BGP_MAX_PACKET_SIZE);
 
@@ -1029,7 +1029,7 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
 
   /* Adjust safi code. */
   if (safi == SAFI_MPLS_VPN)
-    safi = BGP_SAFI_VPNV4;
+    safi = SAFI_MPLS_LABELED_VPN;
 
   s = stream_new (BGP_MAX_PACKET_SIZE);
 
@@ -1761,17 +1761,17 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
     {
       if (mp_update.length 
 	  && mp_update.afi == AFI_IP 
-	  && mp_update.safi == BGP_SAFI_VPNV4)
+	  && mp_update.safi == SAFI_MPLS_LABELED_VPN)
 	bgp_nlri_parse_vpnv4 (peer, &attr, &mp_update);
 
       if (mp_withdraw.length 
 	  && mp_withdraw.afi == AFI_IP 
-	  && mp_withdraw.safi == BGP_SAFI_VPNV4)
+	  && mp_withdraw.safi == SAFI_MPLS_LABELED_VPN)
 	bgp_nlri_parse_vpnv4 (peer, NULL, &mp_withdraw);
 
       if (! withdraw_len
 	  && mp_withdraw.afi == AFI_IP
-	  && mp_withdraw.safi == BGP_SAFI_VPNV4
+	  && mp_withdraw.safi == SAFI_MPLS_LABELED_VPN
 	  && mp_withdraw.length == 0)
 	{
 	  /* End-of-RIB received */
@@ -1942,7 +1942,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
   /* Check AFI and SAFI. */
   if ((afi != AFI_IP && afi != AFI_IP6)
       || (safi != SAFI_UNICAST && safi != SAFI_MULTICAST
-	  && safi != BGP_SAFI_VPNV4))
+	  && safi != SAFI_MPLS_LABELED_VPN))
     {
       if (BGP_DEBUG (normal, NORMAL))
 	{
@@ -1953,7 +1953,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
     }
 
   /* Adjust safi code. */
-  if (safi == BGP_SAFI_VPNV4)
+  if (safi == SAFI_MPLS_LABELED_VPN)
     safi = SAFI_MPLS_VPN;
 
   if (size != BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE)

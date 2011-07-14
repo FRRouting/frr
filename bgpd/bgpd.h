@@ -724,9 +724,8 @@ struct bgp_nlri
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
 
-/* SAFI which used in open capability negotiation.  */
-#define BGP_SAFI_VPNV4                         128
-#define BGP_SAFI_VPNV6                         128
+/* RFC4364 */
+#define SAFI_MPLS_LABELED_VPN                  128
 
 /* Max TTL value.  */
 #define TTL_MAX                                255
