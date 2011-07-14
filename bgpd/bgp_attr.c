@@ -1520,7 +1520,7 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
       return BGP_ATTR_PARSE_ERROR;
     }
  
-  if (safi != BGP_SAFI_VPNV4)
+  if (safi != SAFI_MPLS_LABELED_VPN)
     {
       ret = bgp_nlri_sanity_check (peer, afi, stream_pnt (s), nlri_len);
       if (ret < 0) 
@@ -1564,7 +1564,7 @@ bgp_mp_unreach_parse (struct peer *peer, bgp_size_t length,
   
   withdraw_len = length - BGP_MP_UNREACH_MIN_SIZE;
 
-  if (safi != BGP_SAFI_VPNV4)
+  if (safi != SAFI_MPLS_LABELED_VPN)
     {
       ret = bgp_nlri_sanity_check (peer, afi, stream_pnt (s), withdraw_len);
       if (ret < 0)
@@ -2269,7 +2269,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       sizep = stream_get_endp (s);
       stream_putc (s, 0);	/* Length of this attribute. */
       stream_putw (s, AFI_IP);	/* AFI */
-      stream_putc (s, BGP_SAFI_VPNV4);	/* SAFI */
+      stream_putc (s, SAFI_MPLS_LABELED_VPN);	/* SAFI */
 
       stream_putc (s, 12);
       stream_putl (s, 0);
@@ -2432,7 +2432,7 @@ bgp_packet_withdraw (struct peer *peer, struct stream *s, struct prefix *p,
   if (safi == SAFI_MPLS_VPN)
     {
       /* SAFI */
-      stream_putc (s, BGP_SAFI_VPNV4);
+      stream_putc (s, SAFI_MPLS_LABELED_VPN);
 
       /* prefix. */
       stream_putc (s, p->prefixlen + 88);

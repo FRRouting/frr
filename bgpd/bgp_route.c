@@ -1659,7 +1659,7 @@ bgp_maximum_prefix_overflow (struct peer *peer, afi_t afi,
        u_int8_t ndata[7];
 
        if (safi == SAFI_MPLS_VPN)
-         safi = BGP_SAFI_VPNV4;
+         safi = SAFI_MPLS_LABELED_VPN;
          
        ndata[0] = (afi >>  8);
        ndata[1] = afi;
@@ -9379,10 +9379,8 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
         safi = SAFI_MULTICAST;
       else if (strncmp (safi_str, "u", 1) == 0)
         safi = SAFI_UNICAST;
-      else if (strncmp (safi_str, "vpnv4", 5) == 0)
-        safi = BGP_SAFI_VPNV4;
-      else if (strncmp (safi_str, "vpnv6", 5) == 0)
-        safi = BGP_SAFI_VPNV6;
+      else if (strncmp (safi_str, "vpnv4", 5) == 0 || strncmp (safi_str, "vpnv6", 5) == 0)
+        safi = SAFI_MPLS_LABELED_VPN;
       else
         {
           vty_out (vty, "%% Invalid subsequent address family %s%s",
@@ -9397,13 +9395,6 @@ bgp_table_stats_vty (struct vty *vty, const char *name,
       return CMD_WARNING;
     }
 
-  if ((afi == AFI_IP && safi ==  BGP_SAFI_VPNV6)
-      || (afi == AFI_IP6 && safi == BGP_SAFI_VPNV4))
-    {
-      vty_out (vty, "%% Invalid subsequent address family %s for %s%s",
-               afi_str, safi_str, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
   return bgp_table_stats (vty, bgp, afi, safi);
 }
 
