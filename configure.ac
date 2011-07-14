@@ -443,8 +443,35 @@ m4_define([QUAGGA_INCLUDES],
 #endif /* TIME_WITH_SYS_TIME */
 ])dnl
 
-AC_CHECK_HEADERS([sys/un.h net/if.h netinet/in_systm.h netinet/in_var.h \
-	net/if_dl.h net/if_var.h net/netopt.h net/route.h \
+dnl HAVE_NET_IF_H must be discovered by the time the longer AC_CHECK_HEADERS
+dnl round below execution begins, otherwise it doesn't properly detect
+dnl HAVE_NETINET6_IN6_VAR_H, HAVE_NET_IF_VAR_H and HAVE_STRUCT_IN6_ALIASREQ
+dnl on FreeBSD (BZ#408).
+
+AC_CHECK_HEADERS([net/if.h], [], [], QUAGGA_INCLUDES)
+
+m4_define([QUAGGA_INCLUDES],
+QUAGGA_INCLUDES
+[#if HAVE_NET_IF_H
+# include <net/if.h>
+#endif
+])dnl
+
+dnl Same applies for HAVE_NET_IF_VAR_H, which HAVE_NETINET6_ND6_H and
+dnl HAVE_NETINET_IN_VAR_H depend upon. But if_var.h depends on if.h, hence
+dnl an additional round for it.
+
+AC_CHECK_HEADERS([net/if_var.h], [], [], QUAGGA_INCLUDES)
+
+m4_define([QUAGGA_INCLUDES],
+QUAGGA_INCLUDES
+[#if HAVE_NET_IF_VAR_H
+# include <net/if_var.h>
+#endif
+])dnl
+
+AC_CHECK_HEADERS([sys/un.h netinet/in_systm.h netinet/in_var.h \
+	net/if_dl.h net/netopt.h net/route.h \
 	inet/nd.h arpa/inet.h netinet/ip_icmp.h \
 	fcntl.h stddef.h sys/ioctl.h syslog.h wchar.h wctype.h \
 	sys/sysctl.h sys/sockio.h kvm.h sys/conf.h],
@@ -459,10 +486,7 @@ QUAGGA_INCLUDES
 
 m4_define([QUAGGA_INCLUDES],
 QUAGGA_INCLUDES
-[#if HAVE_NET_IF_H
-# include <net/if.h>
-#endif
-#if HAVE_SYS_UN_H
+[#if HAVE_SYS_UN_H
 # include <sys/un.h>
 #endif
 #if HAVE_NETINET_IN_SYSTM_H
@@ -473,9 +497,6 @@ QUAGGA_INCLUDES
 #endif
 #if HAVE_NET_IF_DL_H
 # include <net/if_dl.h>
-#endif
-#if HAVE_NET_IF_VAR_H
-# include <net/if_var.h>
 #endif
 #if HAVE_NET_NETOPT_H
 # include <net/netopt.h>
