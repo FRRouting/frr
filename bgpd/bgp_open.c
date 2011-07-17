@@ -93,9 +93,6 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer)
 	    case SAFI_MULTICAST:
 	      vty_out (vty, "SAFI Multicast");
 	      break;
-	    case SAFI_UNICAST_MULTICAST:
-	      vty_out (vty, "SAFI Unicast Multicast");
-	      break;
 	    case SAFI_MPLS_LABELED_VPN:
 	      vty_out (vty, "SAFI MPLS-labeled VPN");
 	      break;
