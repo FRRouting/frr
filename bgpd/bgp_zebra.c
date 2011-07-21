@@ -37,10 +37,14 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_mpath.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 struct in_addr router_id_zebra;
+
+/* Growable buffer for nexthops sent to zebra */
+struct stream *bgp_nexthop_buf = NULL;
 
 /* Router-id update message from zebra. */
 static int
@@ -645,6 +649,8 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
   int flags;
   u_char distance;
   struct peer *peer;
+  struct bgp_info *mpinfo;
+  size_t oldsize, newsize;
 
   if (zclient->sock < 0)
     return;
@@ -665,6 +671,21 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
       || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
     SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
 
+  /* resize nexthop buffer size if necessary */
+  if ((oldsize = stream_get_size (bgp_nexthop_buf)) <
+      (sizeof (struct in_addr *) * (bgp_info_mpath_count (info) + 1)))
+    {
+      newsize = (sizeof (struct in_addr *) * (bgp_info_mpath_count (info) + 1));
+      newsize = stream_resize (bgp_nexthop_buf, newsize);
+      if (newsize == oldsize)
+	{
+	  zlog_err ("can't resize nexthop buffer");
+	  return;
+	}
+    }
+
+  stream_reset (bgp_nexthop_buf);
+
   if (p->family == AF_INET)
     {
       struct zapi_ipv4 api;
@@ -672,12 +693,19 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
 
       api.flags = flags;
       nexthop = &info->attr->nexthop;
+      stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in_addr *));
+      for (mpinfo = bgp_info_mpath_first (info); mpinfo;
+	   mpinfo = bgp_info_mpath_next (mpinfo))
+	{
+	  nexthop = &mpinfo->attr->nexthop;
+	  stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in_addr *));
+	}
 
       api.type = ZEBRA_ROUTE_BGP;
       api.message = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = 1;
-      api.nexthop = &nexthop;
+      api.nexthop_num = 1 + bgp_info_mpath_count (info);
+      api.nexthop = (struct in_addr **)STREAM_DATA (bgp_nexthop_buf);
       api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
       api.metric = info->attr->med;
@@ -692,12 +720,18 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp)
 
       if (BGP_DEBUG(zebra, ZEBRA))
 	{
+	  int i;
 	  char buf[2][INET_ADDRSTRLEN];
-	  zlog_debug("Zebra send: IPv4 route add %s/%d nexthop %s metric %u",
+	  zlog_debug("Zebra send: IPv4 route add %s/%d nexthop %s metric %u"
+		     " count %d",
 		     inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
 		     p->prefixlen,
-		     inet_ntop(AF_INET, nexthop, buf[1], sizeof(buf[1])),
-		     api.metric);
+		     inet_ntop(AF_INET, api.nexthop[0], buf[1], sizeof(buf[1])),
+		     api.metric, api.nexthop_num);
+	  for (i = 1; i < api.nexthop_num; i++)
+	    zlog_debug("Zebra send: IPv4 route add [nexthop %d] %s",
+		       i, inet_ntop(AF_INET, api.nexthop[i], buf[1],
+				    sizeof(buf[1])));
 	}
 
       zapi_ipv4_route (ZEBRA_IPV4_ROUTE_ADD, zclient, 
@@ -1043,4 +1077,6 @@ bgp_zebra_init (void)
 
   /* Interface related init. */
   if_init ();
+
+  bgp_nexthop_buf = stream_new(BGP_NEXTHOP_BUF_SIZE);
 }

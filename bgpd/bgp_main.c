@@ -35,6 +35,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "routemap.h"
 #include "filter.h"
 #include "plist.h"
+#include "stream.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -47,6 +48,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_clist.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_filter.h"
+#include "bgpd/bgp_zebra.h"
 
 /* bgpd options, we use GNU getopt library. */
 static const struct option longopts[] = 
@@ -293,6 +295,8 @@ bgp_exit (int status)
     zclient_free (zclient);
   if (zlookup)
     zclient_free (zlookup);
+  if (bgp_nexthop_buf)
+    stream_free (bgp_nexthop_buf);
 
   /* reverse bgp_master_init */
   if (master)

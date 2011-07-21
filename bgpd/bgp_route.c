@@ -1487,7 +1487,8 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
               {
                 bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
                 bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
-              }
+		UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
+             }
 
             bgp_process_announce_selected (rsclient, new_select, rn,
                                            afi, safi);
@@ -1501,6 +1502,7 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
 	{
 	  bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
 	  bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
+	  UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
 	}
       bgp_process_announce_selected (rsclient, new_select, rn, afi, safi);
     }
@@ -1537,9 +1539,11 @@ bgp_process_main (struct work_queue *wq, void *data)
     {
       if (! CHECK_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED))
         {
-          if (CHECK_FLAG (old_select->flags, BGP_INFO_IGP_CHANGED))
+          if (CHECK_FLAG (old_select->flags, BGP_INFO_IGP_CHANGED) ||
+	      CHECK_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG))
             bgp_zebra_announce (p, old_select, bgp);
           
+	  UNSET_FLAG (old_select->flags, BGP_INFO_MULTIPATH_CHG);
           UNSET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
           return WQ_SUCCESS;
         }
@@ -1551,6 +1555,7 @@ bgp_process_main (struct work_queue *wq, void *data)
     {
       bgp_info_set_flag (rn, new_select, BGP_INFO_SELECTED);
       bgp_info_unset_flag (rn, new_select, BGP_INFO_ATTR_CHANGED);
+      UNSET_FLAG (new_select->flags, BGP_INFO_MULTIPATH_CHG);
     }
 
 
