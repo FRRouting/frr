@@ -71,6 +71,7 @@ extern void ecommunity_free (struct ecommunity *);
 extern struct ecommunity *ecommunity_parse (u_int8_t *, u_short);
 extern struct ecommunity *ecommunity_dup (struct ecommunity *);
 extern struct ecommunity *ecommunity_merge (struct ecommunity *, struct ecommunity *);
+extern struct ecommunity *ecommunity_uniq_sort (struct ecommunity *);
 extern struct ecommunity *ecommunity_intern (struct ecommunity *);
 extern int ecommunity_cmp (const void *, const void *);
 extern void ecommunity_unintern (struct ecommunity *);

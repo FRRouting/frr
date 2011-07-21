@@ -34,6 +34,9 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_aspath.h"
+#include "bgpd/bgp_community.h"
+#include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_mpath.h"
 
 /*
@@ -103,8 +106,8 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
   struct attr_extra *ae1, *ae2;
   int compare;
 
-  ae1 = bgp_attr_extra_get (bi1->attr);
-  ae2 = bgp_attr_extra_get (bi2->attr);
+  ae1 = bi1->attr->extra;
+  ae2 = bi2->attr->extra;
 
   compare = IPV4_ADDR_CMP (&bi1->attr->nexthop, &bi2->attr->nexthop);
 
@@ -226,6 +229,8 @@ bgp_info_mpath_free (struct bgp_info_mpath **mpath)
 {
   if (mpath && *mpath)
     {
+      if ((*mpath)->mp_attr)
+        bgp_attr_unintern ((*mpath)->mp_attr);
       XFREE (MTYPE_BGP_MPATH_INFO, *mpath);
       *mpath = NULL;
     }
@@ -348,6 +353,37 @@ bgp_info_mpath_count_set (struct bgp_info *binfo, u_int32_t count)
   if (!mpath)
     return;
   mpath->mp_count = count;
+}
+
+/*
+ * bgp_info_mpath_attr
+ *
+ * Given bestpath bgp_info, return aggregated attribute set used
+ * for advertising the multipath route
+ */
+struct attr *
+bgp_info_mpath_attr (struct bgp_info *binfo)
+{
+  if (!binfo->mpath)
+    return NULL;
+  return binfo->mpath->mp_attr;
+}
+
+/*
+ * bgp_info_mpath_attr_set
+ *
+ * Sets the aggregated attribute into bestpath's mpath element
+ */
+static void
+bgp_info_mpath_attr_set (struct bgp_info *binfo, struct attr *attr)
+{
+  struct bgp_info_mpath *mpath;
+  if (!attr && !binfo->mpath)
+    return;
+  mpath = bgp_info_mpath_get (binfo);
+  if (!mpath)
+    return;
+  mpath->mp_attr = attr;
 }
 
 /*
@@ -537,4 +573,157 @@ bgp_mp_dmed_deselect (struct bgp_info *dmed_best)
   bgp_info_mpath_count_set (dmed_best, 0);
   UNSET_FLAG (dmed_best->flags, BGP_INFO_MULTIPATH_CHG);
   assert (bgp_info_mpath_first (dmed_best) == 0);
+}
+
+/*
+ * bgp_info_mpath_aggregate_update
+ *
+ * Set the multipath aggregate attribute. We need to see if the
+ * aggregate has changed and then set the ATTR_CHANGED flag on the
+ * bestpath info so that a peer update will be generated. The
+ * change is detected by generating the current attribute,
+ * interning it, and then comparing the interned pointer with the
+ * current value. We can skip this generate/compare step if there
+ * is no change in multipath selection and no attribute change in
+ * any multipath.
+ */
+void
+bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
+                                 struct bgp_info *old_best)
+{
+  struct bgp_info *mpinfo;
+  struct aspath *aspath;
+  struct aspath *asmerge;
+  struct attr *new_attr, *old_attr;
+  u_char origin, attr_chg;
+  struct community *community, *commerge;
+  struct ecommunity *ecomm, *ecommerge;
+  struct attr_extra *ae;
+  struct attr attr = { 0 };
+
+  if (old_best && (old_best != new_best) &&
+      (old_attr = bgp_info_mpath_attr (old_best)))
+    {
+      bgp_attr_unintern (old_attr);
+      bgp_info_mpath_attr_set (old_best, NULL);
+    }
+
+  if (!new_best)
+    return;
+
+  if (!bgp_info_mpath_count (new_best))
+    {
+      if ((new_attr = bgp_info_mpath_attr (new_best)))
+        {
+          bgp_attr_unintern (new_attr);
+          bgp_info_mpath_attr_set (new_best, NULL);
+          SET_FLAG (new_best->flags, BGP_INFO_ATTR_CHANGED);
+        }
+      return;
+    }
+
+  /*
+   * Bail out here if the following is true:
+   * - MULTIPATH_CHG bit is not set on new_best, and
+   * - ATTR_CHANGED bit is not set on new_best or any of the multipaths
+   */
+  attr_chg = 0;
+  if (CHECK_FLAG (new_best->flags, BGP_INFO_ATTR_CHANGED))
+    attr_chg = 1;
+  else
+    for (mpinfo = bgp_info_mpath_first (new_best); mpinfo;
+         mpinfo = bgp_info_mpath_next (mpinfo))
+      {
+        if (CHECK_FLAG (mpinfo->flags, BGP_INFO_ATTR_CHANGED))
+          {
+            attr_chg = 1;
+            break;
+          }
+      }
+  if (!CHECK_FLAG (new_best->flags, BGP_INFO_MULTIPATH_CHG) && !attr_chg)
+    {
+      assert (bgp_info_mpath_attr (new_best));
+      return;
+    }
+
+  bgp_attr_dup (&attr, new_best->attr);
+
+  /* aggregate attribute from multipath constituents */
+  aspath = aspath_dup (attr.aspath);
+  origin = attr.origin;
+  community = attr.community ? community_dup (attr.community) : NULL;
+  ae = attr.extra;
+  ecomm = (ae && ae->ecommunity) ? ecommunity_dup (ae->ecommunity) : NULL;
+
+  for (mpinfo = bgp_info_mpath_first (new_best); mpinfo;
+       mpinfo = bgp_info_mpath_next (mpinfo))
+    {
+      asmerge = aspath_aggregate (aspath, mpinfo->attr->aspath);
+      aspath_free (aspath);
+      aspath = asmerge;
+
+      if (origin < mpinfo->attr->origin)
+        origin = mpinfo->attr->origin;
+
+      if (mpinfo->attr->community)
+        {
+          if (community)
+            {
+              commerge = community_merge (community, mpinfo->attr->community);
+              community = community_uniq_sort (commerge);
+              community_free (commerge);
+            }
+          else
+            community = community_dup (mpinfo->attr->community);
+        }
+
+      ae = mpinfo->attr->extra;
+      if (ae && ae->ecommunity)
+        {
+          if (ecomm)
+            {
+              ecommerge = ecommunity_merge (ecomm, ae->ecommunity);
+              ecomm = ecommunity_uniq_sort (ecommerge);
+              ecommunity_free (ecommerge);
+            }
+          else
+            ecomm = ecommunity_dup (ae->ecommunity);
+        }
+    }
+
+  attr.aspath = aspath;
+  attr.origin = origin;
+  if (community)
+    {
+      attr.community = community;
+      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES);
+    }
+  if (ecomm)
+    {
+      ae = bgp_attr_extra_get (&attr);
+      ae->ecommunity = ecomm;
+      attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
+    }
+
+  /* Zap multipath attr nexthop so we set nexthop to self */
+  attr.nexthop.s_addr = 0;
+#ifdef HAVE_IPV6
+  if (attr.extra)
+    memset (&attr.extra->mp_nexthop_global, 0, sizeof (struct in6_addr));
+#endif /* HAVE_IPV6 */
+
+  /* TODO: should we set ATOMIC_AGGREGATE and AGGREGATOR? */
+
+  new_attr = bgp_attr_intern (&attr);
+  bgp_attr_extra_free (&attr);
+
+  if (new_attr != bgp_info_mpath_attr (new_best))
+    {
+      if ((old_attr = bgp_info_mpath_attr (new_best)))
+        bgp_attr_unintern (old_attr);
+      bgp_info_mpath_attr_set (new_best, new_attr);
+      SET_FLAG (new_best->flags, BGP_INFO_ATTR_CHANGED);
+    }
+  else
+    bgp_attr_unintern (new_attr);
 }

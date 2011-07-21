@@ -785,10 +785,12 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   struct bgp *bgp;
   int transparent;
   int reflect;
+  struct attr *riattr;
 
   from = ri->peer;
   filter = &peer->filter[afi][safi];
   bgp = peer->bgp;
+  riattr = bgp_info_mpath_count (ri) ? bgp_info_mpath_attr (ri) : ri->attr;
   
   if (DISABLE_BGP_ANNOUNCE)
     return 0;
@@ -803,11 +805,11 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 
   /* If peer's id and route's nexthop are same. draft-ietf-idr-bgp4-23 5.1.3 */
   if (p->family == AF_INET
-      && IPV4_ADDR_SAME(&peer->remote_id, &ri->attr->nexthop))
+      && IPV4_ADDR_SAME(&peer->remote_id, &riattr->nexthop))
     return 0;
 #ifdef HAVE_IPV6
   if (p->family == AF_INET6
-     && IPV6_ADDR_SAME(&peer->remote_id, &ri->attr->nexthop))
+     && IPV6_ADDR_SAME(&peer->remote_id, &riattr->nexthop))
     return 0;
 #endif
 
@@ -835,14 +837,14 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
     transparent = 0;
 
   /* If community is not disabled check the no-export and local. */
-  if (! transparent && bgp_community_filter (peer, ri->attr)) 
+  if (! transparent && bgp_community_filter (peer, riattr))
     return 0;
 
   /* If the attribute has originator-id and it is same as remote
      peer's id. */
-  if (ri->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID))
+  if (riattr->flag & ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID))
     {
-      if (IPV4_ADDR_SAME (&peer->remote_id, &ri->attr->extra->originator_id))
+      if (IPV4_ADDR_SAME (&peer->remote_id, &riattr->extra->originator_id))
 	{
 	  if (BGP_DEBUG (filter, FILTER))  
 	    zlog (peer->log, LOG_DEBUG,
@@ -865,7 +867,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
       }
 
   /* Output filter check. */
-  if (bgp_output_filter (peer, p, ri->attr, afi, safi) == FILTER_DENY)
+  if (bgp_output_filter (peer, p, riattr, afi, safi) == FILTER_DENY)
     {
       if (BGP_DEBUG (filter, FILTER))
 	zlog (peer->log, LOG_DEBUG,
@@ -878,7 +880,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 
 #ifdef BGP_SEND_ASPATH_CHECK
   /* AS path loop check. */
-  if (aspath_loop_check (ri->attr->aspath, peer->as))
+  if (aspath_loop_check (riattr->aspath, peer->as))
     {
       if (BGP_DEBUG (filter, FILTER))  
         zlog (peer->log, LOG_DEBUG, 
@@ -891,7 +893,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   /* If we're a CONFED we need to loop check the CONFED ID too */
   if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION))
     {
-      if (aspath_loop_check(ri->attr->aspath, bgp->confed_id))
+      if (aspath_loop_check(riattr->aspath, bgp->confed_id))
 	{
 	  if (BGP_DEBUG (filter, FILTER))  
 	    zlog (peer->log, LOG_DEBUG, 
@@ -932,7 +934,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
     }
   
   /* For modify attribute, copy it to temporary structure. */
-  bgp_attr_dup (attr, ri->attr);
+  bgp_attr_dup (attr, riattr);
   
   /* If local-preference is not set. */
   if ((peer_sort (peer) == BGP_PEER_IBGP 
@@ -1091,10 +1093,12 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
   struct bgp_info info;
   struct peer *from;
   struct bgp *bgp;
+  struct attr *riattr;
 
   from = ri->peer;
   filter = &rsclient->filter[afi][safi];
   bgp = rsclient->bgp;
+  riattr = bgp_info_mpath_count (ri) ? bgp_info_mpath_attr (ri) : ri->attr;
 
   if (DISABLE_BGP_ANNOUNCE)
     return 0;
@@ -1122,10 +1126,10 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
 
   /* If the attribute has originator-id and it is same as remote
      peer's id. */
-  if (ri->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID))
+  if (riattr->flag & ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID))
     {
       if (IPV4_ADDR_SAME (&rsclient->remote_id, 
-                          &ri->attr->extra->originator_id))
+                          &riattr->extra->originator_id))
         {
          if (BGP_DEBUG (filter, FILTER))
            zlog (rsclient->log, LOG_DEBUG,
@@ -1148,7 +1152,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
       }
 
   /* Output filter check. */
-  if (bgp_output_filter (rsclient, p, ri->attr, afi, safi) == FILTER_DENY)
+  if (bgp_output_filter (rsclient, p, riattr, afi, safi) == FILTER_DENY)
     {
       if (BGP_DEBUG (filter, FILTER))
        zlog (rsclient->log, LOG_DEBUG,
@@ -1161,7 +1165,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
 
 #ifdef BGP_SEND_ASPATH_CHECK
   /* AS path loop check. */
-  if (aspath_loop_check (ri->attr->aspath, rsclient->as))
+  if (aspath_loop_check (riattr->aspath, rsclient->as))
     {
       if (BGP_DEBUG (filter, FILTER))
         zlog (rsclient->log, LOG_DEBUG,
@@ -1172,7 +1176,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
 #endif /* BGP_SEND_ASPATH_CHECK */
 
   /* For modify attribute, copy it to temporary structure. */
-  bgp_attr_dup (attr, ri->attr);
+  bgp_attr_dup (attr, riattr);
 
   /* next-hop-set */
   if ((p->family == AF_INET && attr->nexthop.s_addr == 0)
@@ -1410,6 +1414,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
   if (!bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
     bgp_info_mpath_update (rn, new_select, old_select, &mp_list, mpath_cfg);
 
+  bgp_info_mpath_aggregate_update (new_select, old_select);
   bgp_mp_list_clear (&mp_list);
 
   result->old = old_select;

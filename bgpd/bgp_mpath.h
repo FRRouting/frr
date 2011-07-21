@@ -43,6 +43,9 @@ struct bgp_info_mpath
 
   /* When attached to best path, the number of selected multipaths */
   u_int32_t mp_count;
+
+  /* Aggregated attribute for advertising multipath route */
+  struct attr *mp_attr;
 };
 
 /* Functions to support maximum-paths configuration */
@@ -59,6 +62,8 @@ extern void bgp_mp_dmed_deselect (struct bgp_info *);
 extern void bgp_info_mpath_update (struct bgp_node *, struct bgp_info *,
                                    struct bgp_info *, struct list *,
                                    struct bgp_maxpaths_cfg *);
+extern void bgp_info_mpath_aggregate_update (struct bgp_info *,
+                                             struct bgp_info *);
 
 /* Unlink and free multipath information associated with a bgp_info */
 extern void bgp_info_mpath_dequeue (struct bgp_info *);
@@ -70,5 +75,6 @@ extern struct bgp_info *bgp_info_mpath_next (struct bgp_info *);
 
 /* Accessors for multipath information */
 extern u_int32_t bgp_info_mpath_count (struct bgp_info *);
+extern struct attr *bgp_info_mpath_attr (struct bgp_info *);
 
 #endif /* _QUAGGA_BGP_MPATH_H */
