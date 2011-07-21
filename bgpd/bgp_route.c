@@ -1316,6 +1316,9 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 	  continue;
 
 	new_select = ri1;
+	if (do_mpath)
+	  bgp_mp_list_add (&mp_list, ri1);
+	old_select = CHECK_FLAG (ri1->flags, BGP_INFO_SELECTED) ? ri1 : NULL;
 	if (ri1->next)
 	  for (ri2 = ri1->next; ri2; ri2 = ri2->next)
 	    {
@@ -1328,17 +1331,30 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 		  || aspath_cmp_left_confed (ri1->attr->aspath,
 					     ri2->attr->aspath))
 		{
+		  if (CHECK_FLAG (ri2->flags, BGP_INFO_SELECTED))
+		    old_select = ri2;
 		  if (bgp_info_cmp (bgp, ri2, new_select, &paths_eq))
 		    {
 		      bgp_info_unset_flag (rn, new_select, BGP_INFO_DMED_SELECTED);
 		      new_select = ri2;
+		      if (do_mpath && !paths_eq)
+			{
+			  bgp_mp_list_clear (&mp_list);
+			  bgp_mp_list_add (&mp_list, ri2);
+			}
 		    }
+
+		  if (do_mpath && paths_eq)
+		    bgp_mp_list_add (&mp_list, ri2);
 
 		  bgp_info_set_flag (rn, ri2, BGP_INFO_DMED_CHECK);
 		}
 	    }
 	bgp_info_set_flag (rn, new_select, BGP_INFO_DMED_CHECK);
 	bgp_info_set_flag (rn, new_select, BGP_INFO_DMED_SELECTED);
+
+	bgp_info_mpath_update (rn, new_select, old_select, &mp_list, mpath_cfg);
+	bgp_mp_list_clear (&mp_list);
       }
 
   /* Check old selected route and new selected route. */
@@ -1372,6 +1388,9 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 
       if (bgp_info_cmp (bgp, ri, new_select, &paths_eq))
 	{
+	  if (do_mpath && bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
+	    bgp_mp_dmed_deselect (new_select);
+
 	  new_select = ri;
 
 	  if (do_mpath && !paths_eq)
@@ -1380,13 +1399,16 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
 	      bgp_mp_list_add (&mp_list, ri);
 	    }
 	}
+      else if (do_mpath && bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
+	bgp_mp_dmed_deselect (ri);
 
       if (do_mpath && paths_eq)
 	bgp_mp_list_add (&mp_list, ri);
     }
     
 
-  bgp_info_mpath_update (rn, new_select, old_select, &mp_list, mpath_cfg);
+  if (!bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
+    bgp_info_mpath_update (rn, new_select, old_select, &mp_list, mpath_cfg);
 
   bgp_mp_list_clear (&mp_list);
 

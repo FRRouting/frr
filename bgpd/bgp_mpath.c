@@ -513,3 +513,28 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
         SET_FLAG (new_best->flags, BGP_INFO_MULTIPATH_CHG);
     }
 }
+
+/*
+ * bgp_mp_dmed_deselect
+ *
+ * Clean up multipath information for BGP_INFO_DMED_SELECTED path that
+ * is not selected as best path
+ */
+void
+bgp_mp_dmed_deselect (struct bgp_info *dmed_best)
+{
+  struct bgp_info *mpinfo, *mpnext;
+
+  if (!dmed_best)
+    return;
+
+  for (mpinfo = bgp_info_mpath_first (dmed_best); mpinfo; mpinfo = mpnext)
+    {
+      mpnext = bgp_info_mpath_next (mpinfo);
+      bgp_info_mpath_dequeue (mpinfo);
+    }
+
+  bgp_info_mpath_count_set (dmed_best, 0);
+  UNSET_FLAG (dmed_best->flags, BGP_INFO_MULTIPATH_CHG);
+  assert (bgp_info_mpath_first (dmed_best) == 0);
+}

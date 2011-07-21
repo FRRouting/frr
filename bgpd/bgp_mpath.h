@@ -55,6 +55,7 @@ extern int bgp_maximum_paths_unset (struct bgp *, afi_t, safi_t, int);
 extern void bgp_mp_list_init (struct list *);
 extern void bgp_mp_list_clear (struct list *);
 extern void bgp_mp_list_add (struct list *, struct bgp_info *);
+extern void bgp_mp_dmed_deselect (struct bgp_info *);
 extern void bgp_info_mpath_update (struct bgp_node *, struct bgp_info *,
                                    struct bgp_info *, struct list *,
                                    struct bgp_maxpaths_cfg *);
