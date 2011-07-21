@@ -1821,7 +1821,7 @@ aspath_key_make (void *p)
 }
 
 /* If two aspath have same value then return 1 else return 0 */
-static int
+int
 aspath_cmp (const void *arg1, const void *arg2)
 {
   const struct assegment *seg1 = ((const struct aspath *)arg1)->segments;

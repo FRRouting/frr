@@ -31,9 +31,10 @@
 #include "zclient.h"
 
 #include "bgpd/bgpd.h"
-#include "bgpd/bgp_mpath.h"
 #include "bgpd/bgp_table.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_attr.h"
+#include "bgpd/bgp_mpath.h"
 
 #define VT100_RESET "\x1b[0m"
 #define VT100_RED "\x1b[31m"
@@ -191,10 +192,97 @@ testcase_t test_bgp_cfg_maximum_paths = {
 };
 
 /*=========================================================
+ * Testcase for bgp_mp_list
+ */
+struct peer test_mp_list_peer[5];
+int test_mp_list_peer_count = sizeof (test_mp_list_peer)/ sizeof (struct peer);
+struct attr test_mp_list_attr[4];
+struct bgp_info test_mp_list_info[] = {
+  { .peer = &test_mp_list_peer[0], .attr = &test_mp_list_attr[0] },
+  { .peer = &test_mp_list_peer[1], .attr = &test_mp_list_attr[1] },
+  { .peer = &test_mp_list_peer[2], .attr = &test_mp_list_attr[1] },
+  { .peer = &test_mp_list_peer[3], .attr = &test_mp_list_attr[2] },
+  { .peer = &test_mp_list_peer[4], .attr = &test_mp_list_attr[3] },
+};
+int test_mp_list_info_count =
+  sizeof (test_mp_list_info)/sizeof (struct bgp_info);
+
+static int
+setup_bgp_mp_list (testcase_t *t)
+{
+  test_mp_list_attr[0].nexthop.s_addr = 0x01010101;
+  test_mp_list_attr[1].nexthop.s_addr = 0x02020202;
+  test_mp_list_attr[2].nexthop.s_addr = 0x03030303;
+  test_mp_list_attr[3].nexthop.s_addr = 0x04040404;
+
+  if ((test_mp_list_peer[0].su_remote = sockunion_str2su ("1.1.1.1")) == NULL)
+    return -1;
+  if ((test_mp_list_peer[1].su_remote = sockunion_str2su ("2.2.2.2")) == NULL)
+    return -1;
+  if ((test_mp_list_peer[2].su_remote = sockunion_str2su ("3.3.3.3")) == NULL)
+    return -1;
+  if ((test_mp_list_peer[3].su_remote = sockunion_str2su ("4.4.4.4")) == NULL)
+    return -1;
+  if ((test_mp_list_peer[4].su_remote = sockunion_str2su ("5.5.5.5")) == NULL)
+    return -1;
+
+  return 0;
+}
+
+static int
+run_bgp_mp_list (testcase_t *t)
+{
+  struct list mp_list;
+  struct listnode *mp_node;
+  struct bgp_info *info;
+  int i;
+  int test_result = TEST_PASSED;
+  bgp_mp_list_init (&mp_list);
+  EXPECT_TRUE (listcount(&mp_list) == 0, test_result);
+
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[1]);
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[4]);
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[2]);
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[3]);
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[0]);
+
+  for (i = 0, mp_node = listhead(&mp_list); i < test_mp_list_info_count;
+       i++, mp_node = listnextnode(mp_node))
+    {
+      info = listgetdata(mp_node);
+      EXPECT_TRUE (info == &test_mp_list_info[i], test_result);
+    }
+
+  bgp_mp_list_clear (&mp_list);
+  EXPECT_TRUE (listcount(&mp_list) == 0, test_result);
+
+  return test_result;
+}
+
+static int
+cleanup_bgp_mp_list (testcase_t *t)
+{
+  int i;
+
+  for (i = 0; i < test_mp_list_peer_count; i++)
+    sockunion_free (test_mp_list_peer[i].su_remote);
+
+  return 0;
+}
+
+testcase_t test_bgp_mp_list = {
+  .desc = "Test bgp_mp_list",
+  .setup = setup_bgp_mp_list,
+  .run = run_bgp_mp_list,
+  .cleanup = cleanup_bgp_mp_list,
+};
+
+/*=========================================================
  * Set up testcase vector
  */
 testcase_t *all_tests[] = {
   &test_bgp_cfg_maximum_paths,
+  &test_bgp_mp_list,
 };
 
 int all_tests_count = (sizeof(all_tests)/sizeof(testcase_t *));

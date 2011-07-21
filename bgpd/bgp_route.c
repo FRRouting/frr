@@ -54,6 +54,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_mpath.h"
 
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
@@ -316,7 +317,8 @@ bgp_med_value (struct attr *attr, struct bgp *bgp)
 
 /* Compare two bgp route entity.  br is preferable then return 1. */
 static int
-bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist)
+bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
+	      int *paths_eq)
 {
   u_int32_t new_pref;
   u_int32_t exist_pref;
@@ -331,6 +333,9 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist)
   int internal_as_route = 0;
   int confed_as_route = 0;
   int ret;
+  uint32_t newm, existm;
+
+  *paths_eq = 0;
 
   /* 0. Null check. */
   if (new == NULL)
@@ -454,18 +459,32 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist)
     return 0;
 
   /* 8. IGP metric check. */
-  if (new->extra || exist->extra)
-    {
-      uint32_t newm = (new->extra ? new->extra->igpmetric : 0);
-      uint32_t existm = (exist->extra ? exist->extra->igpmetric : 0);
-      
-      if (newm < existm)
-        return 1;
-      if (newm > existm)
-        return 0;
-    }
+  newm = (new->extra ? new->extra->igpmetric : 0);
+  existm = (exist->extra ? exist->extra->igpmetric : 0);
+  if (newm < existm)
+    ret = 1;
+  if (newm > existm)
+    ret = 0;
 
   /* 9. Maximum path check. */
+  if (newm == existm)
+    {
+      if ((peer_sort (new->peer) == BGP_PEER_IBGP))
+	{
+	  if (aspath_cmp (new->attr->aspath, exist->attr->aspath))
+	    *paths_eq = 1;
+	}
+      else if (new->peer->as == exist->peer->as)
+	*paths_eq = 1;
+    }
+  else
+    {
+      /*
+       * TODO: If unequal cost ibgp multipath is enabled we can
+       * mark the paths as equal here instead of returning
+       */
+      return ret;
+    }
 
   /* 10. If both paths are external, prefer the path that was received
      first (the oldest one).  This step minimizes route-flap, since a
@@ -1267,7 +1286,9 @@ struct bgp_info_pair
 };
 
 static void
-bgp_best_selection (struct bgp *bgp, struct bgp_node *rn, struct bgp_info_pair *result)
+bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
+		    struct bgp_maxpaths_cfg *mpath_cfg,
+		    struct bgp_info_pair *result)
 {
   struct bgp_info *new_select;
   struct bgp_info *old_select;
@@ -1275,7 +1296,13 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn, struct bgp_info_pair *
   struct bgp_info *ri1;
   struct bgp_info *ri2;
   struct bgp_info *nextri = NULL;
-  
+  int paths_eq, do_mpath;
+  struct list mp_list;
+
+  bgp_mp_list_init (&mp_list);
+  do_mpath = (mpath_cfg->maxpaths_ebgp != BGP_DEFAULT_MAXPATHS ||
+	      mpath_cfg->maxpaths_ibgp != BGP_DEFAULT_MAXPATHS);
+
   /* bgp deterministic-med */
   new_select = NULL;
   if (bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED))
@@ -1299,7 +1326,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn, struct bgp_info_pair *
 		  || aspath_cmp_left_confed (ri1->attr->aspath,
 					     ri2->attr->aspath))
 		{
-		  if (bgp_info_cmp (bgp, ri2, new_select))
+		  if (bgp_info_cmp (bgp, ri2, new_select, &paths_eq))
 		    {
 		      bgp_info_unset_flag (rn, new_select, BGP_INFO_DMED_SELECTED);
 		      new_select = ri2;
@@ -1341,14 +1368,58 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn, struct bgp_info_pair *
       bgp_info_unset_flag (rn, ri, BGP_INFO_DMED_CHECK);
       bgp_info_unset_flag (rn, ri, BGP_INFO_DMED_SELECTED);
 
-      if (bgp_info_cmp (bgp, ri, new_select))
-	new_select = ri;
+      if (bgp_info_cmp (bgp, ri, new_select, &paths_eq))
+	{
+	  new_select = ri;
+
+	  if (do_mpath && !paths_eq)
+	    {
+	      bgp_mp_list_clear (&mp_list);
+	      bgp_mp_list_add (&mp_list, ri);
+	    }
+	}
+
+      if (do_mpath && paths_eq)
+	bgp_mp_list_add (&mp_list, ri);
     }
     
-    result->old = old_select;
-    result->new = new_select;
 
-    return;
+  /*
+   * TODO: Will add some additional filtering later to only
+   * output debugs when multipath state for the route changes
+   */
+  if (BGP_DEBUG (events, EVENTS) && do_mpath)
+    {
+      struct listnode *mp_node;
+      struct bgp_info *mp_info;
+      char buf[2][INET_ADDRSTRLEN];
+
+      prefix2str (&rn->p, buf[0], sizeof (buf[0]));
+      zlog_debug ("%s bestpath nexthop %s, %d mpath candidates",
+		  buf[0],
+		  (new_select ?
+		   inet_ntop(AF_INET, &new_select->attr->nexthop,
+			     buf[1], sizeof (buf[1])) :
+		   "None"),
+		  listcount (&mp_list));
+      for (mp_node = listhead (&mp_list); mp_node;
+	   mp_node = listnextnode (mp_node))
+	{
+	  mp_info = listgetdata (mp_node);
+	  if (mp_info == new_select)
+	    continue;
+	  zlog_debug (" candidate mpath nexthop %s",
+		      inet_ntop(AF_INET, &mp_info->attr->nexthop, buf[0],
+				sizeof (buf[0])));
+	}
+    }
+
+  bgp_mp_list_clear (&mp_list);
+
+  result->old = old_select;
+  result->new = new_select;
+
+  return;
 }
 
 static int
@@ -1422,7 +1493,7 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
   struct peer *rsclient = rn->table->owner;
   
   /* Best path selection. */
-  bgp_best_selection (bgp, rn, &old_and_new);
+  bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new);
   new_select = old_and_new.new;
   old_select = old_and_new.old;
 
@@ -1483,7 +1554,7 @@ bgp_process_main (struct work_queue *wq, void *data)
   struct peer *peer;
   
   /* Best path selection. */
-  bgp_best_selection (bgp, rn, &old_and_new);
+  bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new);
   old_select = old_and_new.old;
   new_select = old_and_new.new;
 
