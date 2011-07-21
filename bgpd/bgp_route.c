@@ -141,6 +141,7 @@ bgp_info_free (struct bgp_info *binfo)
     bgp_attr_unintern (binfo->attr);
   
   bgp_info_extra_free (&binfo->extra);
+  bgp_info_mpath_free (&binfo->mpath);
 
   peer_unlock (binfo->peer); /* bgp_info peer reference */
 
@@ -211,6 +212,7 @@ bgp_info_reap (struct bgp_node *rn, struct bgp_info *ri)
   else
     rn->info = ri->next;
   
+  bgp_info_mpath_dequeue (ri);
   bgp_info_unlock (ri);
   bgp_unlock_node (rn);
 }
@@ -1384,35 +1386,7 @@ bgp_best_selection (struct bgp *bgp, struct bgp_node *rn,
     }
     
 
-  /*
-   * TODO: Will add some additional filtering later to only
-   * output debugs when multipath state for the route changes
-   */
-  if (BGP_DEBUG (events, EVENTS) && do_mpath)
-    {
-      struct listnode *mp_node;
-      struct bgp_info *mp_info;
-      char buf[2][INET_ADDRSTRLEN];
-
-      prefix2str (&rn->p, buf[0], sizeof (buf[0]));
-      zlog_debug ("%s bestpath nexthop %s, %d mpath candidates",
-		  buf[0],
-		  (new_select ?
-		   inet_ntop(AF_INET, &new_select->attr->nexthop,
-			     buf[1], sizeof (buf[1])) :
-		   "None"),
-		  listcount (&mp_list));
-      for (mp_node = listhead (&mp_list); mp_node;
-	   mp_node = listnextnode (mp_node))
-	{
-	  mp_info = listgetdata (mp_node);
-	  if (mp_info == new_select)
-	    continue;
-	  zlog_debug (" candidate mpath nexthop %s",
-		      inet_ntop(AF_INET, &mp_info->attr->nexthop, buf[0],
-				sizeof (buf[0])));
-	}
-    }
+  bgp_info_mpath_update (rn, new_select, old_select, &mp_list, mpath_cfg);
 
   bgp_mp_list_clear (&mp_list);
 
@@ -5995,6 +5969,11 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE))
 	vty_out (vty, ", atomic-aggregate");
 	  
+      if (CHECK_FLAG (binfo->flags, BGP_INFO_MULTIPATH) ||
+	  (CHECK_FLAG (binfo->flags, BGP_INFO_SELECTED) &&
+	   bgp_info_mpath_count (binfo)))
+	vty_out (vty, ", multipath");
+
       if (CHECK_FLAG (binfo->flags, BGP_INFO_SELECTED))
 	vty_out (vty, ", best");
 

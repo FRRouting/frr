@@ -194,7 +194,13 @@ testcase_t test_bgp_cfg_maximum_paths = {
 /*=========================================================
  * Testcase for bgp_mp_list
  */
-struct peer test_mp_list_peer[5];
+struct peer test_mp_list_peer[] = {
+  { .local_as = 1, .as = 2 },
+  { .local_as = 1, .as = 2 },
+  { .local_as = 1, .as = 2 },
+  { .local_as = 1, .as = 2 },
+  { .local_as = 1, .as = 2 },
+};
 int test_mp_list_peer_count = sizeof (test_mp_list_peer)/ sizeof (struct peer);
 struct attr test_mp_list_attr[4];
 struct bgp_info test_mp_list_info[] = {
@@ -278,11 +284,87 @@ testcase_t test_bgp_mp_list = {
 };
 
 /*=========================================================
+ * Testcase for bgp_info_mpath_update
+ */
+
+struct bgp_node test_rn;
+
+static int
+setup_bgp_info_mpath_update (testcase_t *t)
+{
+  int i;
+  str2prefix ("42.1.1.0/24", &test_rn.p);
+  setup_bgp_mp_list (t);
+  for (i = 0; i < test_mp_list_info_count; i++)
+    bgp_info_add (&test_rn, &test_mp_list_info[i]);
+  return 0;
+}
+
+static int
+run_bgp_info_mpath_update (testcase_t *t)
+{
+  struct bgp_info *new_best, *old_best, *mpath;
+  struct list mp_list;
+  struct bgp_maxpaths_cfg mp_cfg = { 3, 3 };
+  int test_result = TEST_PASSED;
+  bgp_mp_list_init (&mp_list);
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[4]);
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[3]);
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[0]);
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[1]);
+  new_best = &test_mp_list_info[3];
+  old_best = NULL;
+  bgp_info_mpath_update (&test_rn, new_best, old_best, &mp_list, &mp_cfg);
+  bgp_mp_list_clear (&mp_list);
+  EXPECT_TRUE (bgp_info_mpath_count (new_best) == 2, test_result);
+  mpath = bgp_info_mpath_first (new_best);
+  EXPECT_TRUE (mpath == &test_mp_list_info[0], test_result);
+  EXPECT_TRUE (CHECK_FLAG (mpath->flags, BGP_INFO_MULTIPATH), test_result);
+  mpath = bgp_info_mpath_next (mpath);
+  EXPECT_TRUE (mpath == &test_mp_list_info[1], test_result);
+  EXPECT_TRUE (CHECK_FLAG (mpath->flags, BGP_INFO_MULTIPATH), test_result);
+
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[0]);
+  bgp_mp_list_add (&mp_list, &test_mp_list_info[1]);
+  new_best = &test_mp_list_info[0];
+  old_best = &test_mp_list_info[3];
+  bgp_info_mpath_update (&test_rn, new_best, old_best, &mp_list, &mp_cfg);
+  bgp_mp_list_clear (&mp_list);
+  EXPECT_TRUE (bgp_info_mpath_count (new_best) == 1, test_result);
+  mpath = bgp_info_mpath_first (new_best);
+  EXPECT_TRUE (mpath == &test_mp_list_info[1], test_result);
+  EXPECT_TRUE (CHECK_FLAG (mpath->flags, BGP_INFO_MULTIPATH), test_result);
+  EXPECT_TRUE (!CHECK_FLAG (test_mp_list_info[0].flags, BGP_INFO_MULTIPATH),
+               test_result);
+
+  return test_result;
+}
+
+static int
+cleanup_bgp_info_mpath_update (testcase_t *t)
+{
+  int i;
+
+  for (i = 0; i < test_mp_list_peer_count; i++)
+    sockunion_free (test_mp_list_peer[i].su_remote);
+
+  return 0;
+}
+
+testcase_t test_bgp_info_mpath_update = {
+  .desc = "Test bgp_info_mpath_update",
+  .setup = setup_bgp_info_mpath_update,
+  .run = run_bgp_info_mpath_update,
+  .cleanup = cleanup_bgp_info_mpath_update,
+};
+
+/*=========================================================
  * Set up testcase vector
  */
 testcase_t *all_tests[] = {
   &test_bgp_cfg_maximum_paths,
   &test_bgp_mp_list,
+  &test_bgp_info_mpath_update,
 };
 
 int all_tests_count = (sizeof(all_tests)/sizeof(testcase_t *));
