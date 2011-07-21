@@ -1,0 +1,309 @@
+/* $QuaggaId: Format:%an, %ai, %h$ $
+ *
+ * BGP Multipath Unit Test
+ * Copyright (C) 2010 Google Inc.
+ *
+ * This file is part of Quagga
+ *
+ * Quagga is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2, or (at your option) any
+ * later version.
+ *
+ * Quagga is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Quagga; see the file COPYING.  If not, write to the Free
+ * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
+ */
+
+#include <zebra.h>
+
+#include "vty.h"
+#include "stream.h"
+#include "privs.h"
+#include "linklist.h"
+#include "memory.h"
+#include "zclient.h"
+
+#include "bgpd/bgpd.h"
+#include "bgpd/bgp_mpath.h"
+#include "bgpd/bgp_table.h"
+#include "bgpd/bgp_route.h"
+
+#define VT100_RESET "\x1b[0m"
+#define VT100_RED "\x1b[31m"
+#define VT100_GREEN "\x1b[32m"
+#define VT100_YELLOW "\x1b[33m"
+#define OK VT100_GREEN "OK" VT100_RESET
+#define FAILED VT100_RED "failed" VT100_RESET
+
+#define TEST_PASSED 0
+#define TEST_FAILED -1
+
+#define EXPECT_TRUE(expr, res)                                          \
+  if (!(expr))                                                          \
+    {                                                                   \
+      printf ("Test failure in %s line %u: %s\n",                       \
+              __FUNCTION__, __LINE__, #expr);                           \
+      (res) = TEST_FAILED;                                              \
+    }
+
+typedef struct testcase_t__ testcase_t;
+
+typedef int (*test_setup_func)(testcase_t *);
+typedef int (*test_run_func)(testcase_t *);
+typedef int (*test_cleanup_func)(testcase_t *);
+
+struct testcase_t__ {
+  const char *desc;
+  void *test_data;
+  void *verify_data;
+  void *tmp_data;
+  test_setup_func setup;
+  test_run_func run;
+  test_cleanup_func cleanup;
+};
+
+/* need these to link in libbgp */
+struct thread_master *master = NULL;
+struct zclient *zclient;
+struct zebra_privs_t bgpd_privs =
+{
+  .user = NULL,
+  .group = NULL,
+  .vty_group = NULL,
+};
+
+static int tty = 0;
+
+/* Create fake bgp instance */
+static struct bgp *
+bgp_create_fake (as_t *as, const char *name)
+{
+  struct bgp *bgp;
+  afi_t afi;
+  safi_t safi;
+
+  if ( (bgp = XCALLOC (MTYPE_BGP, sizeof (struct bgp))) == NULL)
+    return NULL;
+
+  bgp_lock (bgp);
+  //bgp->peer_self = peer_new (bgp);
+  //bgp->peer_self->host = XSTRDUP (MTYPE_BGP_PEER_HOST, "Static announcement");
+
+  bgp->peer = list_new ();
+  //bgp->peer->cmp = (int (*)(void *, void *)) peer_cmp;
+
+  bgp->group = list_new ();
+  //bgp->group->cmp = (int (*)(void *, void *)) peer_group_cmp;
+
+  bgp->rsclient = list_new ();
+  //bgp->rsclient->cmp = (int (*)(void*, void*)) peer_cmp;
+
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      {
+        bgp->route[afi][safi] = bgp_table_init (afi, safi);
+        bgp->aggregate[afi][safi] = bgp_table_init (afi, safi);
+        bgp->rib[afi][safi] = bgp_table_init (afi, safi);
+        bgp->maxpaths[afi][safi].maxpaths_ebgp = BGP_DEFAULT_MAXPATHS;
+        bgp->maxpaths[afi][safi].maxpaths_ibgp = BGP_DEFAULT_MAXPATHS;
+      }
+
+  bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
+  bgp->default_holdtime = BGP_DEFAULT_HOLDTIME;
+  bgp->default_keepalive = BGP_DEFAULT_KEEPALIVE;
+  bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
+  bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
+
+  bgp->as = *as;
+
+  if (name)
+    bgp->name = strdup (name);
+
+  return bgp;
+}
+
+/*=========================================================
+ * Testcase for maximum-paths configuration
+ */
+static int
+setup_bgp_cfg_maximum_paths (testcase_t *t)
+{
+  as_t asn = 1;
+  t->tmp_data = bgp_create_fake (&asn, NULL);
+  if (!t->tmp_data)
+    return -1;
+  return 0;
+}
+
+static int
+run_bgp_cfg_maximum_paths (testcase_t *t)
+{
+  afi_t afi;
+  safi_t safi;
+  struct bgp *bgp;
+  int api_result;
+  int test_result = TEST_PASSED;
+
+  bgp = t->tmp_data;
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+    for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+      {
+        /* test bgp_maximum_paths_set */
+        api_result = bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_EBGP, 10);
+        EXPECT_TRUE (api_result == 0, test_result);
+        api_result = bgp_maximum_paths_set (bgp, afi, safi, BGP_PEER_IBGP, 10);
+        EXPECT_TRUE (api_result == 0, test_result);
+        EXPECT_TRUE (bgp->maxpaths[afi][safi].maxpaths_ebgp == 10, test_result);
+        EXPECT_TRUE (bgp->maxpaths[afi][safi].maxpaths_ibgp == 10, test_result);
+
+        /* test bgp_maximum_paths_unset */
+        api_result = bgp_maximum_paths_unset (bgp, afi, safi, BGP_PEER_EBGP);
+        EXPECT_TRUE (api_result == 0, test_result);
+        api_result = bgp_maximum_paths_unset (bgp, afi, safi, BGP_PEER_IBGP);
+        EXPECT_TRUE (api_result == 0, test_result);
+        EXPECT_TRUE ((bgp->maxpaths[afi][safi].maxpaths_ebgp ==
+                      BGP_DEFAULT_MAXPATHS), test_result);
+        EXPECT_TRUE ((bgp->maxpaths[afi][safi].maxpaths_ibgp ==
+                      BGP_DEFAULT_MAXPATHS), test_result);
+      }
+
+  return test_result;
+}
+
+static int
+cleanup_bgp_cfg_maximum_paths (testcase_t *t)
+{
+  return bgp_delete ((struct bgp *)t->tmp_data);
+}
+
+testcase_t test_bgp_cfg_maximum_paths = {
+  .desc = "Test bgp maximum-paths config",
+  .setup = setup_bgp_cfg_maximum_paths,
+  .run = run_bgp_cfg_maximum_paths,
+  .cleanup = cleanup_bgp_cfg_maximum_paths,
+};
+
+/*=========================================================
+ * Set up testcase vector
+ */
+testcase_t *all_tests[] = {
+  &test_bgp_cfg_maximum_paths,
+};
+
+int all_tests_count = (sizeof(all_tests)/sizeof(testcase_t *));
+
+/*=========================================================
+ * Test Driver Functions
+ */
+static int
+global_test_init (void)
+{
+  master = thread_master_create ();
+  zclient = zclient_new ();
+  bgp_master_init ();
+
+  if (fileno (stdout) >= 0)
+    tty = isatty (fileno (stdout));
+  return 0;
+}
+
+static int
+global_test_cleanup (void)
+{
+  zclient_free (zclient);
+  thread_master_free (master);
+  return 0;
+}
+
+static void
+display_result (testcase_t *test, int result)
+{
+  if (tty)
+    printf ("%s: %s\n", test->desc, result == TEST_PASSED ? OK : FAILED);
+  else
+    printf ("%s: %s\n", test->desc, result == TEST_PASSED ? "OK" : "FAILED");
+}
+
+static int
+setup_test (testcase_t *t)
+{
+  int res = 0;
+  if (t->setup)
+    res = t->setup (t);
+  return res;
+}
+
+static int
+cleanup_test (testcase_t *t)
+{
+  int res = 0;
+  if (t->cleanup)
+    res = t->cleanup (t);
+  return res;
+}
+
+static void
+run_tests (testcase_t *tests[], int num_tests, int *pass_count, int *fail_count)
+{
+  int test_index, result;
+  testcase_t *cur_test;
+
+  *pass_count = *fail_count = 0;
+
+  for (test_index = 0; test_index < num_tests; test_index++)
+    {
+      cur_test = tests[test_index];
+      if (!cur_test->desc)
+        {
+          printf ("error: test %d has no description!\n", test_index);
+          continue;
+        }
+      if (!cur_test->run)
+        {
+          printf ("error: test %s has no run function!\n", cur_test->desc);
+          continue;
+        }
+      if (setup_test (cur_test) != 0)
+        {
+          printf ("error: setup failed for test %s\n", cur_test->desc);
+          continue;
+        }
+      result = cur_test->run (cur_test);
+      if (result == TEST_PASSED)
+        *pass_count += 1;
+      else
+        *fail_count += 1;
+      display_result (cur_test, result);
+      if (cleanup_test (cur_test) != 0)
+        {
+          printf ("error: cleanup failed for test %s\n", cur_test->desc);
+          continue;
+        }
+    }
+}
+
+int
+main (void)
+{
+  int pass_count, fail_count;
+  time_t cur_time;
+
+  time (&cur_time);
+  printf("BGP Multipath Tests Run at %s", ctime(&cur_time));
+  if (global_test_init () != 0)
+    {
+      printf("Global init failed. Terminating.\n");
+      exit(1);
+    }
+  run_tests (all_tests, all_tests_count, &pass_count, &fail_count);
+  global_test_cleanup ();
+  printf("Total pass/fail: %d/%d\n", pass_count, fail_count);
+  return fail_count;
+}
