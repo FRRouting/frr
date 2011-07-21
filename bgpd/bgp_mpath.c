@@ -626,25 +626,32 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
   /*
    * Bail out here if the following is true:
    * - MULTIPATH_CHG bit is not set on new_best, and
+   * - No change in bestpath, and
    * - ATTR_CHANGED bit is not set on new_best or any of the multipaths
    */
-  attr_chg = 0;
-  if (CHECK_FLAG (new_best->flags, BGP_INFO_ATTR_CHANGED))
-    attr_chg = 1;
-  else
-    for (mpinfo = bgp_info_mpath_first (new_best); mpinfo;
-         mpinfo = bgp_info_mpath_next (mpinfo))
-      {
-        if (CHECK_FLAG (mpinfo->flags, BGP_INFO_ATTR_CHANGED))
-          {
-            attr_chg = 1;
-            break;
-          }
-      }
-  if (!CHECK_FLAG (new_best->flags, BGP_INFO_MULTIPATH_CHG) && !attr_chg)
+  if (!CHECK_FLAG (new_best->flags, BGP_INFO_MULTIPATH_CHG) &&
+      (old_best == new_best))
     {
-      assert (bgp_info_mpath_attr (new_best));
-      return;
+      attr_chg = 0;
+
+      if (CHECK_FLAG (new_best->flags, BGP_INFO_ATTR_CHANGED))
+        attr_chg = 1;
+      else
+        for (mpinfo = bgp_info_mpath_first (new_best); mpinfo;
+             mpinfo = bgp_info_mpath_next (mpinfo))
+          {
+            if (CHECK_FLAG (mpinfo->flags, BGP_INFO_ATTR_CHANGED))
+              {
+                attr_chg = 1;
+                break;
+              }
+          }
+
+      if (!attr_chg)
+        {
+          assert (bgp_info_mpath_attr (new_best));
+          return;
+        }
     }
 
   bgp_attr_dup (&attr, new_best->attr);
