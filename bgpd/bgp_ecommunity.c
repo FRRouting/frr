@@ -42,13 +42,14 @@ ecommunity_new (void)
 
 /* Allocate ecommunities.  */
 void
-ecommunity_free (struct ecommunity *ecom)
+ecommunity_free (struct ecommunity **ecom)
 {
-  if (ecom->val)
-    XFREE (MTYPE_ECOMMUNITY_VAL, ecom->val);
-  if (ecom->str)
-    XFREE (MTYPE_ECOMMUNITY_STR, ecom->str);
-  XFREE (MTYPE_ECOMMUNITY, ecom);
+  if ((*ecom)->val)
+    XFREE (MTYPE_ECOMMUNITY_VAL, (*ecom)->val);
+  if ((*ecom)->str)
+    XFREE (MTYPE_ECOMMUNITY_STR, (*ecom)->str);
+  XFREE (MTYPE_ECOMMUNITY, *ecom);
+  ecom = NULL;
 }
 
 /* Add a new Extended Communities value to Extended Communities
@@ -197,7 +198,7 @@ ecommunity_intern (struct ecommunity *ecom)
   find = (struct ecommunity *) hash_get (ecomhash, ecom, hash_alloc_intern);
 
   if (find != ecom)
-    ecommunity_free (ecom);
+    ecommunity_free (&ecom);
 
   find->refcnt++;
 
@@ -209,18 +210,18 @@ ecommunity_intern (struct ecommunity *ecom)
 
 /* Unintern Extended Communities Attribute.  */
 void
-ecommunity_unintern (struct ecommunity *ecom)
+ecommunity_unintern (struct ecommunity **ecom)
 {
   struct ecommunity *ret;
 
-  if (ecom->refcnt)
-    ecom->refcnt--;
-
+  if ((*ecom)->refcnt)
+    (*ecom)->refcnt--;
+    
   /* Pull off from hash.  */
-  if (ecom->refcnt == 0)
+  if ((*ecom)->refcnt == 0)
     {
       /* Extended community must be in the hash.  */
-      ret = (struct ecommunity *) hash_release (ecomhash, ecom);
+      ret = (struct ecommunity *) hash_release (ecomhash, *ecom);
       assert (ret != NULL);
 
       ecommunity_free (ecom);
@@ -516,7 +517,7 @@ ecommunity_str2com (const char *str, int type, int keyword_included)
 	  if (! keyword_included || keyword)
 	    {
 	      if (ecom)
-		ecommunity_free (ecom);
+		ecommunity_free (&ecom);
 	      return NULL;
 	    }
 	  keyword = 1;
@@ -536,7 +537,7 @@ ecommunity_str2com (const char *str, int type, int keyword_included)
 	      if (! keyword)
 		{
 		  if (ecom)
-		    ecommunity_free (ecom);
+		    ecommunity_free (&ecom);
 		  return NULL;
 		}
 	      keyword = 0;
@@ -549,7 +550,7 @@ ecommunity_str2com (const char *str, int type, int keyword_included)
 	case ecommunity_token_unknown:
 	default:
 	  if (ecom)
-	    ecommunity_free (ecom);
+	    ecommunity_free (&ecom);
 	  return NULL;
 	}
     }

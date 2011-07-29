@@ -132,17 +132,25 @@ struct transit
 
 #define ATTR_FLAG_BIT(X)  (1 << ((X) - 1))
 
+typedef enum {
+ BGP_ATTR_PARSE_PROCEED = 0,
+ BGP_ATTR_PARSE_ERROR = -1,
+ BGP_ATTR_PARSE_WITHDRAW = -2,
+} bgp_attr_parse_ret_t;
+
 /* Prototypes. */
 extern void bgp_attr_init (void);
 extern void bgp_attr_finish (void);
-extern int bgp_attr_parse (struct peer *, struct attr *, bgp_size_t,
-		    struct bgp_nlri *, struct bgp_nlri *);
+extern bgp_attr_parse_ret_t bgp_attr_parse (struct peer *, struct attr *,
+                                           bgp_size_t, struct bgp_nlri *,
+                                           struct bgp_nlri *);
 extern int bgp_attr_check (struct peer *, struct attr *);
 extern struct attr_extra *bgp_attr_extra_get (struct attr *);
 extern void bgp_attr_extra_free (struct attr *);
 extern void bgp_attr_dup (struct attr *, struct attr *);
 extern struct attr *bgp_attr_intern (struct attr *attr);
-extern void bgp_attr_unintern (struct attr *);
+extern void bgp_attr_unintern_sub (struct attr *);
+extern void bgp_attr_unintern (struct attr **);
 extern void bgp_attr_flush (struct attr *);
 extern struct attr *bgp_attr_default_set (struct attr *attr, u_char);
 extern struct attr *bgp_attr_default_intern (u_char);

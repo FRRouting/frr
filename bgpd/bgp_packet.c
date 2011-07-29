@@ -206,7 +206,7 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 
       /* Synchnorize attribute.  */
       if (adj->attr)
-	bgp_attr_unintern (adj->attr);
+	bgp_attr_unintern (&adj->attr);
       else
 	peer->scount[afi][safi]++;
 
@@ -1583,26 +1583,47 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 		       BGP_NOTIFY_UPDATE_MAL_ATTR);
       return -1;
     }
+  
+  /* Certain attribute parsing errors should not be considered bad enough
+   * to reset the session for, most particularly any partial/optional
+   * attributes that have 'tunneled' over speakers that don't understand
+   * them. Instead we withdraw only the prefix concerned.
+   * 
+   * Complicates the flow a little though..
+   */
+  bgp_attr_parse_ret_t attr_parse_ret = BGP_ATTR_PARSE_PROCEED;
+  /* This define morphs the update case into a withdraw when lower levels
+   * have signalled an error condition where this is best.
+   */
+#define NLRI_ATTR_ARG (attr_parse_ret != BGP_ATTR_PARSE_WITHDRAW ? &attr : NULL)
 
   /* Parse attribute when it exists. */
   if (attribute_len)
     {
-      ret = bgp_attr_parse (peer, &attr, attribute_len, 
+      attr_parse_ret = bgp_attr_parse (peer, &attr, attribute_len, 
 			    &mp_update, &mp_withdraw);
-      if (ret < 0)
+      if (attr_parse_ret == BGP_ATTR_PARSE_ERROR)
 	return -1;
     }
-
+  
   /* Logging the attribute. */
-  if (BGP_DEBUG (update, UPDATE_IN))
+  if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW
+      || BGP_DEBUG (update, UPDATE_IN))
     {
       ret= bgp_dump_attr (peer, &attr, attrstr, BUFSIZ);
+      int lvl = (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW)
+                 ? LOG_ERR : LOG_DEBUG;
+      
+      if (attr_parse_ret == BGP_ATTR_PARSE_WITHDRAW)
+        zlog (peer->log, LOG_ERR,
+              "%s rcvd UPDATE with errors in attr(s)!! Withdrawing route.",
+              peer->host);
 
       if (ret)
-	zlog (peer->log, LOG_DEBUG, "%s rcvd UPDATE w/ attr: %s",
+	zlog (peer->log, lvl, "%s rcvd UPDATE w/ attr: %s",
 	      peer->host, attrstr);
     }
-
+  
   /* Network Layer Reachability Information. */
   update_len = end - stream_pnt (s);
 
@@ -1611,7 +1632,12 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       /* Check NLRI packet format and prefix length. */
       ret = bgp_nlri_sanity_check (peer, AFI_IP, stream_pnt (s), update_len);
       if (ret < 0)
-	return -1;
+        {
+          bgp_attr_unintern_sub (&attr);
+          if (attr.extra)
+            bgp_attr_extra_free (&attr);
+	  return -1;
+	}
 
       /* Set NLRI portion to structure. */
       update.afi = AFI_IP;
@@ -1634,15 +1660,20 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	     update. */
 	  ret = bgp_attr_check (peer, &attr);
 	  if (ret < 0)
-	    return -1;
+	    {
+	      bgp_attr_unintern_sub (&attr);
+              if (attr.extra)
+                bgp_attr_extra_free (&attr);
+	      return -1;
+            }
 
-	  bgp_nlri_parse (peer, &attr, &update);
+	  bgp_nlri_parse (peer, NLRI_ATTR_ARG, &update);
 	}
 
       if (mp_update.length
 	  && mp_update.afi == AFI_IP 
 	  && mp_update.safi == SAFI_UNICAST)
-	bgp_nlri_parse (peer, &attr, &mp_update);
+	bgp_nlri_parse (peer, NLRI_ATTR_ARG, &mp_update);
 
       if (mp_withdraw.length
 	  && mp_withdraw.afi == AFI_IP 
@@ -1669,7 +1700,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       if (mp_update.length
 	  && mp_update.afi == AFI_IP 
 	  && mp_update.safi == SAFI_MULTICAST)
-	bgp_nlri_parse (peer, &attr, &mp_update);
+	bgp_nlri_parse (peer, NLRI_ATTR_ARG, &mp_update);
 
       if (mp_withdraw.length
 	  && mp_withdraw.afi == AFI_IP 
@@ -1699,7 +1730,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       if (mp_update.length 
 	  && mp_update.afi == AFI_IP6 
 	  && mp_update.safi == SAFI_UNICAST)
-	bgp_nlri_parse (peer, &attr, &mp_update);
+	bgp_nlri_parse (peer, NLRI_ATTR_ARG, &mp_update);
 
       if (mp_withdraw.length 
 	  && mp_withdraw.afi == AFI_IP6 
@@ -1728,7 +1759,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       if (mp_update.length 
 	  && mp_update.afi == AFI_IP6 
 	  && mp_update.safi == SAFI_MULTICAST)
-	bgp_nlri_parse (peer, &attr, &mp_update);
+	bgp_nlri_parse (peer, NLRI_ATTR_ARG, &mp_update);
 
       if (mp_withdraw.length 
 	  && mp_withdraw.afi == AFI_IP6 
@@ -1756,7 +1787,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       if (mp_update.length 
 	  && mp_update.afi == AFI_IP 
 	  && mp_update.safi == BGP_SAFI_VPNV4)
-	bgp_nlri_parse_vpnv4 (peer, &attr, &mp_update);
+	bgp_nlri_parse_vpnv4 (peer, NLRI_ATTR_ARG, &mp_update);
 
       if (mp_withdraw.length 
 	  && mp_withdraw.afi == AFI_IP 
@@ -1778,21 +1809,10 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 
   /* Everything is done.  We unintern temporary structures which
      interned in bgp_attr_parse(). */
-  if (attr.aspath)
-    aspath_unintern (attr.aspath);
-  if (attr.community)
-    community_unintern (attr.community);
+  bgp_attr_unintern_sub (&attr);
   if (attr.extra)
-    {
-      if (attr.extra->ecommunity)
-        ecommunity_unintern (attr.extra->ecommunity);
-      if (attr.extra->cluster)
-        cluster_unintern (attr.extra->cluster);
-      if (attr.extra->transit)
-        transit_unintern (attr.extra->transit);
-      bgp_attr_extra_free (&attr);
-    }
-
+    bgp_attr_extra_free (&attr);
+  
   /* If peering is stopped due to some reason, do not generate BGP
      event.  */
   if (peer->status != Established)

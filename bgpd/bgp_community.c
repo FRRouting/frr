@@ -321,21 +321,22 @@ community_intern (struct community *com)
 
 /* Free community attribute. */
 void
-community_unintern (struct community *com)
+community_unintern (struct community **com)
 {
   struct community *ret;
 
-  if (com->refcnt)
-    com->refcnt--;
+  if ((*com)->refcnt)
+    (*com)->refcnt--;
 
   /* Pull off from hash.  */
-  if (com->refcnt == 0)
+  if ((*com)->refcnt == 0)
     {
       /* Community value com must exist in hash. */
-      ret = (struct community *) hash_release (comhash, com);
+      ret = (struct community *) hash_release (comhash, *com);
       assert (ret != NULL);
 
-      community_free (com);
+      community_free (*com);
+      *com = NULL;
     }
 }
 
