@@ -451,8 +451,6 @@ getsockopt_ipv4_ifindex (struct msghdr *msgh)
 int
 getsockopt_ifindex (int af, struct msghdr *msgh)
 {
-  int ifindex = 0;
-  
   switch (af)
     {
       case AF_INET:
@@ -465,7 +463,7 @@ getsockopt_ifindex (int af, struct msghdr *msgh)
 #endif
       default:
         zlog_warn ("getsockopt_ifindex: unknown address family %d", af);
-        return (ifindex = 0);
+        return 0;
     }
 }
 
