@@ -5,7 +5,6 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id$
 AC_PREREQ(2.53)
 
 AC_INIT(Quagga, 0.99.17.1, [https://bugzilla.quagga.net])
