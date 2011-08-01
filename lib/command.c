@@ -1,6 +1,4 @@
 /*
-   $Id$
- 
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
 

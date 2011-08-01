@@ -5,8 +5,6 @@
  *
  * The script is sensitive to the format (though not whitespace), see
  * the top of memtypes.awk for more details.
- *
- * $Id$
  */
 
 #include "zebra.h"

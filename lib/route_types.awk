@@ -1,5 +1,3 @@
-# $Id$
-#
 # Scan a file of route-type definitions (see eg route_types.txt) and
 # generate a corresponding header file with:
 #

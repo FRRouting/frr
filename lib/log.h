@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * Zebra logging funcions.
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
  *
