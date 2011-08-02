@@ -720,10 +720,6 @@ ospf_asbr_route_cmp (struct ospf *ospf, struct ospf_route *r1,
   r1_type = r1->path_type;
   r2_type = r2->path_type;
 
-  /* If RFC1583Compat flag is on -- all paths are equal. */
-  if (CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
-    return 0;
-
   /* r1/r2 itself is backbone, and it's Inter-area path. */
   if (OSPF_IS_AREA_ID_BACKBONE (r1->u.std.area_id))
     r1_type = OSPF_PATH_INTER_AREA;
