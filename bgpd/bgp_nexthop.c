@@ -1192,16 +1192,13 @@ ALIAS (no_bgp_scan_time,
        "Configure background scanner interval\n"
        "Scanner interval (seconds)\n")
 
-DEFUN (show_ip_bgp_scan,
-       show_ip_bgp_scan_cmd,
-       "show ip bgp scan",
-       SHOW_STR
-       IP_STR
-       BGP_STR
-       "BGP scan status\n")
+static int
+show_ip_bgp_scan_tables (struct vty *vty, const char detail)
 {
   struct bgp_node *rn;
   struct bgp_nexthop_cache *bnc;
+  char buf[INET6_ADDRSTRLEN];
+  u_char i;
 
   if (bgp_scan_thread)
     vty_out (vty, "BGP scan is running%s", VTY_NEWLINE);
@@ -1214,28 +1211,37 @@ DEFUN (show_ip_bgp_scan,
     if ((bnc = rn->info) != NULL)
       {
 	if (bnc->valid)
+	{
 	  vty_out (vty, " %s valid [IGP metric %d]%s",
-		   inet_ntoa (rn->p.u.prefix4), bnc->metric, VTY_NEWLINE);
+		   inet_ntop (AF_INET, &rn->p.u.prefix4, buf, INET6_ADDRSTRLEN), bnc->metric, VTY_NEWLINE);
+	  if (detail)
+	    for (i = 0; i < bnc->nexthop_num; i++)
+	      vty_out (vty, "  %s%s", inet_ntop (AF_INET, &bnc->nexthop[i].gate.ipv4, buf, INET6_ADDRSTRLEN), VTY_NEWLINE);
+	}
 	else
 	  vty_out (vty, " %s invalid%s",
-		   inet_ntoa (rn->p.u.prefix4), VTY_NEWLINE);
+		   inet_ntop (AF_INET, &rn->p.u.prefix4, buf, INET6_ADDRSTRLEN), VTY_NEWLINE);
       }
 
 #ifdef HAVE_IPV6
   {
-    char buf[BUFSIZ];
     for (rn = bgp_table_top (bgp_nexthop_cache_table[AFI_IP6]); 
          rn; 
          rn = bgp_route_next (rn))
       if ((bnc = rn->info) != NULL)
 	{
 	  if (bnc->valid)
+	  {
 	    vty_out (vty, " %s valid [IGP metric %d]%s",
-		     inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, BUFSIZ),
+		     inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, INET6_ADDRSTRLEN),
 		     bnc->metric, VTY_NEWLINE);
+	    if (detail)
+	      for (i = 0; i < bnc->nexthop_num; i++)
+	        vty_out (vty, "  %s%s", inet_ntop (AF_INET6, &bnc->nexthop[i].gate.ipv4, buf, INET6_ADDRSTRLEN), VTY_NEWLINE);
+	  }
 	  else
 	    vty_out (vty, " %s invalid%s",
-		     inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, BUFSIZ),
+		     inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, INET6_ADDRSTRLEN),
 		     VTY_NEWLINE);
 	}
   }
@@ -1251,20 +1257,41 @@ DEFUN (show_ip_bgp_scan,
 
 #ifdef HAVE_IPV6
   {
-    char buf[BUFSIZ];
-
     for (rn = bgp_table_top (bgp_connected_table[AFI_IP6]); 
          rn; 
          rn = bgp_route_next (rn))
       if (rn->info != NULL)
 	vty_out (vty, " %s/%d%s",
-		 inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, BUFSIZ),
+		 inet_ntop (AF_INET6, &rn->p.u.prefix6, buf, INET6_ADDRSTRLEN),
 		 rn->p.prefixlen,
 		 VTY_NEWLINE);
   }
 #endif /* HAVE_IPV6 */
 
   return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_bgp_scan,
+       show_ip_bgp_scan_cmd,
+       "show ip bgp scan",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP scan status\n")
+{
+  return show_ip_bgp_scan_tables (vty, 0);
+}
+
+DEFUN (show_ip_bgp_scan_detail,
+       show_ip_bgp_scan_detail_cmd,
+       "show ip bgp scan detail",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       "BGP scan status\n"
+       "More detailed output\n")
+{
+  return show_ip_bgp_scan_tables (vty, 1);
 }
 
 int
@@ -1308,8 +1335,10 @@ bgp_scan_init (void)
   install_element (BGP_NODE, &no_bgp_scan_time_cmd);
   install_element (BGP_NODE, &no_bgp_scan_time_val_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_scan_cmd);
+  install_element (VIEW_NODE, &show_ip_bgp_scan_detail_cmd);
   install_element (RESTRICTED_NODE, &show_ip_bgp_scan_cmd);
   install_element (ENABLE_NODE, &show_ip_bgp_scan_cmd);
+  install_element (ENABLE_NODE, &show_ip_bgp_scan_detail_cmd);
 }
 
 void
