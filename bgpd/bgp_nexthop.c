@@ -146,7 +146,7 @@ bgp_nexthop_same (struct nexthop *next1, struct nexthop *next2)
 }
 
 static int
-bgp_nexthop_cache_changed (struct bgp_nexthop_cache *bnc1,
+bgp_nexthop_cache_different (struct bgp_nexthop_cache *bnc1,
 			   struct bgp_nexthop_cache *bnc2)
 {
   int i;
@@ -171,7 +171,7 @@ bgp_nexthop_cache_changed (struct bgp_nexthop_cache *bnc1,
 
 /* If nexthop exists on connected network return 1. */
 int
-bgp_nexthop_check_ebgp (afi_t afi, struct attr *attr)
+bgp_nexthop_onlink (afi_t afi, struct attr *attr)
 {
   struct bgp_node *rn;
 
@@ -256,12 +256,11 @@ bgp_nexthop_lookup_ipv6 (struct peer *peer, struct bgp_info *ri, int *changed,
       bnc = zlookup_query_ipv6 (&attr->extra->mp_nexthop_global);
       if (bnc)
 	{
-	  struct bgp_table *old;
-	  struct bgp_node *oldrn;
-	  struct bgp_nexthop_cache *oldbnc;
-
 	  if (changed)
 	    {
+	      struct bgp_table *old;
+	      struct bgp_node *oldrn;
+
 	      if (bgp_nexthop_cache_table[AFI_IP6] == cache1_table[AFI_IP6])
 		old = cache2_table[AFI_IP6];
 	      else
@@ -270,9 +269,9 @@ bgp_nexthop_lookup_ipv6 (struct peer *peer, struct bgp_info *ri, int *changed,
 	      oldrn = bgp_node_lookup (old, &p);
 	      if (oldrn)
 		{
-		  oldbnc = oldrn->info;
+		  struct bgp_nexthop_cache *oldbnc = oldrn->info;
 
-		  bnc->changed = bgp_nexthop_cache_changed (bnc, oldbnc);
+		  bnc->changed = bgp_nexthop_cache_different (bnc, oldbnc);
 
 		  if (bnc->metric != oldbnc->metric)
 		    bnc->metricchanged = 1;
@@ -284,7 +283,6 @@ bgp_nexthop_lookup_ipv6 (struct peer *peer, struct bgp_info *ri, int *changed,
       else
 	{
 	  bnc = bnc_new ();
-	  bnc->valid = 0;
 	}
       rn->info = bnc;
     }
@@ -347,12 +345,11 @@ bgp_nexthop_lookup (afi_t afi, struct peer *peer, struct bgp_info *ri,
       bnc = zlookup_query (addr);
       if (bnc)
 	{
-	  struct bgp_table *old;
-	  struct bgp_node *oldrn;
-	  struct bgp_nexthop_cache *oldbnc;
-
 	  if (changed)
 	    {
+	      struct bgp_table *old;
+	      struct bgp_node *oldrn;
+
 	      if (bgp_nexthop_cache_table[AFI_IP] == cache1_table[AFI_IP])
 		old = cache2_table[AFI_IP];
 	      else
@@ -361,9 +358,9 @@ bgp_nexthop_lookup (afi_t afi, struct peer *peer, struct bgp_info *ri,
 	      oldrn = bgp_node_lookup (old, &p);
 	      if (oldrn)
 		{
-		  oldbnc = oldrn->info;
+		  struct bgp_nexthop_cache *oldbnc = oldrn->info;
 
-		  bnc->changed = bgp_nexthop_cache_changed (bnc, oldbnc);
+		  bnc->changed = bgp_nexthop_cache_different (bnc, oldbnc);
 
 		  if (bnc->metric != oldbnc->metric)
 		    bnc->metricchanged = 1;
@@ -375,7 +372,6 @@ bgp_nexthop_lookup (afi_t afi, struct peer *peer, struct bgp_info *ri,
       else
 	{
 	  bnc = bnc_new ();
-	  bnc->valid = 0;
 	}
       rn->info = bnc;
     }
@@ -462,7 +458,7 @@ bgp_scan (afi_t afi, safi_t safi)
 	      metricchanged = 0;
 
 	      if (peer_sort (bi->peer) == BGP_PEER_EBGP && bi->peer->ttl == 1)
-		valid = bgp_nexthop_check_ebgp (afi, bi->attr);
+		valid = bgp_nexthop_onlink (afi, bi->attr);
 	      else
 		valid = bgp_nexthop_lookup (afi, bi->peer, bi,
 					    &changed, &metricchanged);

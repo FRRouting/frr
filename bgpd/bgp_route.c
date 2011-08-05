@@ -2061,7 +2061,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
       /* If the peer is EBGP and nexthop is not on connected route,
 	 discard it.  */
       if (peer_sort (peer) == BGP_PEER_EBGP && peer->ttl == 1
-	  && ! bgp_nexthop_check_ebgp (afi, &new_attr)
+	  && ! bgp_nexthop_onlink (afi, &new_attr)
 	  && ! CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
 	{
 	  reason = "non-connected next-hop;";
