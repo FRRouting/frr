@@ -175,10 +175,6 @@ bgp_nexthop_onlink (afi_t afi, struct attr *attr)
 {
   struct bgp_node *rn;
 
-  /* If zebra is not enabled return */
-  if (zlookup->sock < 0)
-    return 1;
-
   /* Lookup the address is onlink or not. */
   if (afi == AFI_IP)
     {
@@ -223,14 +219,6 @@ bgp_nexthop_lookup_ipv6 (struct peer *peer, struct bgp_info *ri, int *changed,
   struct bgp_nexthop_cache *bnc;
   struct attr *attr;
 
-  /* If lookup is not enabled, return valid. */
-  if (zlookup->sock < 0)
-    {
-      if (ri->extra)
-        ri->extra->igpmetric = 0;
-      return 1;
-    }
-
   /* Only check IPv6 global address only nexthop. */
   attr = ri->attr;
 
@@ -253,8 +241,9 @@ bgp_nexthop_lookup_ipv6 (struct peer *peer, struct bgp_info *ri, int *changed,
     }
   else
     {
-      bnc = zlookup_query_ipv6 (&attr->extra->mp_nexthop_global);
-      if (bnc)
+      if (NULL == (bnc = zlookup_query_ipv6 (&attr->extra->mp_nexthop_global)))
+	bnc = bnc_new ();
+      else
 	{
 	  if (changed)
 	    {
@@ -279,10 +268,6 @@ bgp_nexthop_lookup_ipv6 (struct peer *peer, struct bgp_info *ri, int *changed,
                   bgp_unlock_node (oldrn);
 		}
 	    }
-	}
-      else
-	{
-	  bnc = bnc_new ();
 	}
       rn->info = bnc;
     }
@@ -312,14 +297,6 @@ bgp_nexthop_lookup (afi_t afi, struct peer *peer, struct bgp_info *ri,
   struct bgp_nexthop_cache *bnc;
   struct in_addr addr;
 
-  /* If lookup is not enabled, return valid. */
-  if (zlookup->sock < 0)
-    {
-      if (ri->extra)
-        ri->extra->igpmetric = 0;
-      return 1;
-    }
-
 #ifdef HAVE_IPV6
   if (afi == AFI_IP6)
     return bgp_nexthop_lookup_ipv6 (peer, ri, changed, metricchanged);
@@ -342,8 +319,9 @@ bgp_nexthop_lookup (afi_t afi, struct peer *peer, struct bgp_info *ri,
     }
   else
     {
-      bnc = zlookup_query (addr);
-      if (bnc)
+      if (NULL == (bnc = zlookup_query (addr)))
+	bnc = bnc_new ();
+      else
 	{
 	  if (changed)
 	    {
@@ -368,10 +346,6 @@ bgp_nexthop_lookup (afi_t afi, struct peer *peer, struct bgp_info *ri,
                   bgp_unlock_node (oldrn);
 		}
 	    }
-	}
-      else
-	{
-	  bnc = bnc_new ();
 	}
       rn->info = bnc;
     }
