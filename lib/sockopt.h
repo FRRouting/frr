@@ -82,13 +82,11 @@ extern int setsockopt_ipv6_multicast_loop (int, int);
   (((af) == AF_INET) : SOPT_SIZE_CMSG_IFINDEX_IPV4() \
                     ? SOPT_SIZE_CMSG_PKTINFO_IPV6())
 
-extern int setsockopt_multicast_ipv4(int sock, int optname, 
-			             struct in_addr if_addr
-					 /* required: interface to join on */,
+extern int setsockopt_ipv4_multicast_if(int sock,
+			             unsigned int ifindex);
+extern int setsockopt_ipv4_multicast(int sock, int optname,
                                      unsigned int mcast_addr,
-			             unsigned int ifindex
-					 /* optional: if non-zero, may be used
-					 	instead of if_addr */);
+			             unsigned int ifindex);
 extern int setsockopt_ipv4_tos(int sock, int tos);
 
 /* Ask for, and get, ifindex, by whatever method is supported. */

@@ -184,7 +184,7 @@ getsockopt_ipv6_ifindex (struct msghdr *msgh)
 
 /*
  * Process multicast socket options for IPv4 in an OS-dependent manner.
- * Supported options are IP_MULTICAST_IF and IP_{ADD,DROP}_MEMBERSHIP.
+ * Supported options are IP_{ADD,DROP}_MEMBERSHIP.
  *
  * Many operating systems have a limit on the number of groups that
  * can be joined per socket (where each group and local address
@@ -204,22 +204,18 @@ getsockopt_ipv6_ifindex (struct msghdr *msgh)
  * allow leaves, or implicitly leave all groups joined to down interfaces.
  */
 int
-setsockopt_multicast_ipv4(int sock, 
+setsockopt_ipv4_multicast(int sock,
 			int optname, 
-			struct in_addr if_addr /* required */,
 			unsigned int mcast_addr,
-			unsigned int ifindex /* optional: if non-zero, may be
-						  used instead of if_addr */)
+			unsigned int ifindex)
 {
 
 #ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
-  /* This is better because it uses ifindex directly */
   struct ip_mreqn mreqn;
   int ret;
   
   switch (optname)
     {
-    case IP_MULTICAST_IF:
     case IP_ADD_MEMBERSHIP:
     case IP_DROP_MEMBERSHIP:
       memset (&mreqn, 0, sizeof(mreqn));
@@ -227,23 +223,19 @@ setsockopt_multicast_ipv4(int sock,
       if (mcast_addr)
 	mreqn.imr_multiaddr.s_addr = mcast_addr;
       
-      if (ifindex)
-	mreqn.imr_ifindex = ifindex;
-      else
-	mreqn.imr_address = if_addr;
+      mreqn.imr_ifindex = ifindex;
       
       ret = setsockopt(sock, IPPROTO_IP, optname,
 		       (void *)&mreqn, sizeof(mreqn));
       if ((ret < 0) && (optname == IP_ADD_MEMBERSHIP) && (errno == EADDRINUSE))
         {
 	  /* see above: handle possible problem when interface comes back up */
-	  char buf[2][INET_ADDRSTRLEN];
-	  zlog_info("setsockopt_multicast_ipv4 attempting to drop and "
-		    "re-add (fd %d, ifaddr %s, mcast %s, ifindex %u)",
+	  char buf[1][INET_ADDRSTRLEN];
+	  zlog_info("setsockopt_ipv4_multicast attempting to drop and "
+		    "re-add (fd %d, mcast %s, ifindex %u)",
 		    sock,
-		    inet_ntop(AF_INET, &if_addr, buf[0], sizeof(buf[0])),
 		    inet_ntop(AF_INET, &mreqn.imr_multiaddr,
-			      buf[1], sizeof(buf[1])), ifindex);
+			      buf[0], sizeof(buf[0])), ifindex);
 	  setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP,
 		     (void *)&mreqn, sizeof(mreqn));
 	  ret = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
@@ -264,26 +256,17 @@ setsockopt_multicast_ipv4(int sock,
   /* #elif  defined(BOGON_NIX) && EXAMPLE_VERSION_CODE > -100000 */
   /* Add your favourite OS here! */
 
-#else /* #if OS_TYPE */ 
+#elif defined(HAVE_BSD_STRUCT_IP_MREQ_HACK) /* #if OS_TYPE */ 
   /* standard BSD API */
 
   struct in_addr m;
   struct ip_mreq mreq;
   int ret;
 
-#ifdef HAVE_BSD_STRUCT_IP_MREQ_HACK
-  if (ifindex)
-    m.s_addr = htonl(ifindex);
-  else
-#endif
-    m = if_addr;
+  m.s_addr = htonl(ifindex);
 
   switch (optname)
     {
-    case IP_MULTICAST_IF:
-      return setsockopt (sock, IPPROTO_IP, optname, (void *)&m, sizeof(m)); 
-      break;
-
     case IP_ADD_MEMBERSHIP:
     case IP_DROP_MEMBERSHIP:
       memset (&mreq, 0, sizeof(mreq));
@@ -294,13 +277,12 @@ setsockopt_multicast_ipv4(int sock,
       if ((ret < 0) && (optname == IP_ADD_MEMBERSHIP) && (errno == EADDRINUSE))
         {
 	  /* see above: handle possible problem when interface comes back up */
-	  char buf[2][INET_ADDRSTRLEN];
-	  zlog_info("setsockopt_multicast_ipv4 attempting to drop and "
-		    "re-add (fd %d, ifaddr %s, mcast %s, ifindex %u)",
+	  char buf[1][INET_ADDRSTRLEN];
+	  zlog_info("setsockopt_ipv4_multicast attempting to drop and "
+		    "re-add (fd %d, mcast %s, ifindex %u)",
 		    sock,
-		    inet_ntop(AF_INET, &if_addr, buf[0], sizeof(buf[0])),
 		    inet_ntop(AF_INET, &mreq.imr_multiaddr,
-			      buf[1], sizeof(buf[1])), ifindex);
+			      buf[0], sizeof(buf[0])), ifindex);
 	  setsockopt (sock, IPPROTO_IP, IP_DROP_MEMBERSHIP,
 		      (void *)&mreq, sizeof(mreq));
 	  ret = setsockopt (sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
@@ -315,10 +297,41 @@ setsockopt_multicast_ipv4(int sock,
       return -1;
       break;
     }
+#else
+  #error "Unsupported multicast API"
 #endif /* #if OS_TYPE */
 
 }
 
+/*
+ * Set IP_MULTICAST_IF socket option in an OS-dependent manner.
+ */
+int
+setsockopt_ipv4_multicast_if(int sock,
+			unsigned int ifindex)
+{
+
+#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
+  struct ip_mreqn mreqn;
+
+  mreqn.imr_ifindex = ifindex;
+  return setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, (void *)&mreqn, sizeof(mreqn));
+
+  /* Example defines for another OS, boilerplate off other code in this
+     function */
+  /* #elif  defined(BOGON_NIX) && EXAMPLE_VERSION_CODE > -100000 */
+  /* Add your favourite OS here! */
+#elif defined(HAVE_BSD_STRUCT_IP_MREQ_HACK)
+  struct in_addr m;
+
+  m.s_addr = htonl(ifindex);
+
+  return setsockopt (sock, IPPROTO_IP, IP_MULTICAST_IF, (void *)&m, sizeof(m));
+#else
+  #error "Unsupported multicast API"
+#endif
+}
+  
 static int
 setsockopt_ipv4_ifindex (int sock, int val)
 {
