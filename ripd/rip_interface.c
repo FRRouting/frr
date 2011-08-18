@@ -78,9 +78,8 @@ ipv4_multicast_join (int sock,
 {
   int ret;
 
-  ret = setsockopt_multicast_ipv4 (sock, 
+  ret = setsockopt_ipv4_multicast (sock,
 				   IP_ADD_MEMBERSHIP, 
-				   ifa, 
 				   group.s_addr, 
 				   ifindex); 
 
@@ -100,9 +99,8 @@ ipv4_multicast_leave (int sock,
 {
   int ret;
 
-  ret = setsockopt_multicast_ipv4 (sock, 
+  ret = setsockopt_ipv4_multicast (sock,
 				   IP_DROP_MEMBERSHIP, 
-				   ifa, 
 				   group.s_addr, 
 				   ifindex);
 
@@ -138,18 +136,13 @@ rip_interface_new (void)
 void
 rip_interface_multicast_set (int sock, struct connected *connected)
 {
-  struct in_addr addr;
-  
   assert (connected != NULL);
   
-  addr = CONNECTED_ID(connected)->u.prefix4;
-
-  if (setsockopt_multicast_ipv4 (sock, IP_MULTICAST_IF, addr, 0, 
-                                 connected->ifp->ifindex) < 0) 
+  if (setsockopt_ipv4_multicast_if (sock, connected->ifp->ifindex) < 0)
     {
       zlog_warn ("Can't setsockopt IP_MULTICAST_IF on fd %d to "
-		 "source address %s for interface %s",
-		 sock, inet_ntoa(addr),
+		 "ifindex %d for interface %s",
+		 sock, connected->ifp->ifindex,
 		 connected->ifp->name);
     }
   
