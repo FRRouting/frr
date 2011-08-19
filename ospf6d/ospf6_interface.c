@@ -929,7 +929,7 @@ ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
        "Display connected prefixes to advertise\n"
        OSPF6_ROUTE_ADDRESS_STR
        OSPF6_ROUTE_PREFIX_STR
-       "Dispaly details of the prefixes\n"
+       "Display details of the prefixes\n"
        )
 
 ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
@@ -943,7 +943,7 @@ ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
        "Display connected prefixes to advertise\n"
        OSPF6_ROUTE_PREFIX_STR
        OSPF6_ROUTE_MATCH_STR
-       "Dispaly details of the prefixes\n"
+       "Display details of the prefixes\n"
        )
 
 DEFUN (show_ipv6_ospf6_interface_prefix,
@@ -982,7 +982,7 @@ ALIAS (show_ipv6_ospf6_interface_prefix,
        "Display connected prefixes to advertise\n"
        OSPF6_ROUTE_ADDRESS_STR
        OSPF6_ROUTE_PREFIX_STR
-       "Dispaly details of the prefixes\n"
+       "Display details of the prefixes\n"
        )
 
 ALIAS (show_ipv6_ospf6_interface_prefix,
@@ -995,7 +995,7 @@ ALIAS (show_ipv6_ospf6_interface_prefix,
        "Display connected prefixes to advertise\n"
        OSPF6_ROUTE_PREFIX_STR
        OSPF6_ROUTE_MATCH_STR
-       "Dispaly details of the prefixes\n"
+       "Display details of the prefixes\n"
        )
 
 

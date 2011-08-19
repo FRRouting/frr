@@ -591,10 +591,10 @@ ALIAS (show_ipv6_ospf6_route,
        IP6_STR
        OSPF6_STR
        ROUTE_STR
-       "Dispaly Intra-Area routes\n"
-       "Dispaly Inter-Area routes\n"
-       "Dispaly Type-1 External routes\n"
-       "Dispaly Type-2 External routes\n"
+       "Display Intra-Area routes\n"
+       "Display Inter-Area routes\n"
+       "Display Type-1 External routes\n"
+       "Display Type-2 External routes\n"
        )
 
 DEFUN (show_ipv6_ospf6_route_type_detail,
@@ -604,10 +604,10 @@ DEFUN (show_ipv6_ospf6_route_type_detail,
        IP6_STR
        OSPF6_STR
        ROUTE_STR
-       "Dispaly Intra-Area routes\n"
-       "Dispaly Inter-Area routes\n"
-       "Dispaly Type-1 External routes\n"
-       "Dispaly Type-2 External routes\n"
+       "Display Intra-Area routes\n"
+       "Display Inter-Area routes\n"
+       "Display Type-1 External routes\n"
+       "Display Type-2 External routes\n"
        "Detailed information\n"
        )
 {
