@@ -214,42 +214,31 @@ setsockopt_ipv4_multicast(int sock,
   struct ip_mreqn mreqn;
   int ret;
   
-  switch (optname)
+  assert(optname == IP_ADD_MEMBERSHIP || optname == IP_DROP_MEMBERSHIP);
+  memset (&mreqn, 0, sizeof(mreqn));
+
+  if (mcast_addr)
+    mreqn.imr_multiaddr.s_addr = mcast_addr;
+  
+  mreqn.imr_ifindex = ifindex;
+  
+  ret = setsockopt(sock, IPPROTO_IP, optname,
+                   (void *)&mreqn, sizeof(mreqn));
+  if ((ret < 0) && (optname == IP_ADD_MEMBERSHIP) && (errno == EADDRINUSE))
     {
-    case IP_ADD_MEMBERSHIP:
-    case IP_DROP_MEMBERSHIP:
-      memset (&mreqn, 0, sizeof(mreqn));
-
-      if (mcast_addr)
-	mreqn.imr_multiaddr.s_addr = mcast_addr;
-      
-      mreqn.imr_ifindex = ifindex;
-      
-      ret = setsockopt(sock, IPPROTO_IP, optname,
-		       (void *)&mreqn, sizeof(mreqn));
-      if ((ret < 0) && (optname == IP_ADD_MEMBERSHIP) && (errno == EADDRINUSE))
-        {
-	  /* see above: handle possible problem when interface comes back up */
-	  char buf[1][INET_ADDRSTRLEN];
-	  zlog_info("setsockopt_ipv4_multicast attempting to drop and "
-		    "re-add (fd %d, mcast %s, ifindex %u)",
-		    sock,
-		    inet_ntop(AF_INET, &mreqn.imr_multiaddr,
-			      buf[0], sizeof(buf[0])), ifindex);
-	  setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP,
-		     (void *)&mreqn, sizeof(mreqn));
-	  ret = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-			   (void *)&mreqn, sizeof(mreqn));
-        }
-      return ret;
-      break;
-
-    default:
-      /* Can out and give an understandable error */
-      errno = EINVAL;
-      return -1;
-      break;
+      /* see above: handle possible problem when interface comes back up */
+      char buf[1][INET_ADDRSTRLEN];
+      zlog_info("setsockopt_ipv4_multicast attempting to drop and "
+                "re-add (fd %d, mcast %s, ifindex %u)",
+                sock,
+                inet_ntop(AF_INET, &mreqn.imr_multiaddr,
+                          buf[0], sizeof(buf[0])), ifindex);
+      setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP,
+                 (void *)&mreqn, sizeof(mreqn));
+      ret = setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+                       (void *)&mreqn, sizeof(mreqn));
     }
+  return ret;
 
   /* Example defines for another OS, boilerplate off other code in this
      function, AND handle optname as per other sections for consistency !! */
@@ -263,40 +252,31 @@ setsockopt_ipv4_multicast(int sock,
   struct ip_mreq mreq;
   int ret;
 
+  assert(optname == IP_ADD_MEMBERSHIP || optname == IP_DROP_MEMBERSHIP);
+
   m.s_addr = htonl(ifindex);
 
-  switch (optname)
+  memset (&mreq, 0, sizeof(mreq));
+  mreq.imr_multiaddr.s_addr = mcast_addr;
+  mreq.imr_interface = m;
+  
+  ret = setsockopt (sock, IPPROTO_IP, optname, (void *)&mreq, sizeof(mreq));
+  if ((ret < 0) && (optname == IP_ADD_MEMBERSHIP) && (errno == EADDRINUSE))
     {
-    case IP_ADD_MEMBERSHIP:
-    case IP_DROP_MEMBERSHIP:
-      memset (&mreq, 0, sizeof(mreq));
-      mreq.imr_multiaddr.s_addr = mcast_addr;
-      mreq.imr_interface = m;
-      
-      ret = setsockopt (sock, IPPROTO_IP, optname, (void *)&mreq, sizeof(mreq));
-      if ((ret < 0) && (optname == IP_ADD_MEMBERSHIP) && (errno == EADDRINUSE))
-        {
-	  /* see above: handle possible problem when interface comes back up */
-	  char buf[1][INET_ADDRSTRLEN];
-	  zlog_info("setsockopt_ipv4_multicast attempting to drop and "
-		    "re-add (fd %d, mcast %s, ifindex %u)",
-		    sock,
-		    inet_ntop(AF_INET, &mreq.imr_multiaddr,
-			      buf[0], sizeof(buf[0])), ifindex);
-	  setsockopt (sock, IPPROTO_IP, IP_DROP_MEMBERSHIP,
-		      (void *)&mreq, sizeof(mreq));
-	  ret = setsockopt (sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
-	  		    (void *)&mreq, sizeof(mreq));
-        }
-      return ret;
-      break;
-      
-    default:
-      /* Can out and give an understandable error */
-      errno = EINVAL;
-      return -1;
-      break;
+      /* see above: handle possible problem when interface comes back up */
+      char buf[1][INET_ADDRSTRLEN];
+      zlog_info("setsockopt_ipv4_multicast attempting to drop and "
+                "re-add (fd %d, mcast %s, ifindex %u)",
+                sock,
+                inet_ntop(AF_INET, &mreq.imr_multiaddr,
+                          buf[0], sizeof(buf[0])), ifindex);
+      setsockopt (sock, IPPROTO_IP, IP_DROP_MEMBERSHIP,
+                  (void *)&mreq, sizeof(mreq));
+      ret = setsockopt (sock, IPPROTO_IP, IP_ADD_MEMBERSHIP,
+                        (void *)&mreq, sizeof(mreq));
     }
+  return ret;
+
 #else
   #error "Unsupported multicast API"
 #endif /* #if OS_TYPE */
