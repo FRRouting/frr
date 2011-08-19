@@ -313,6 +313,7 @@ setsockopt_ipv4_multicast_if(int sock,
 
 #ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
   struct ip_mreqn mreqn;
+  memset (&mreqn, 0, sizeof(mreqn));
 
   mreqn.imr_ifindex = ifindex;
   return setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, (void *)&mreqn, sizeof(mreqn));
