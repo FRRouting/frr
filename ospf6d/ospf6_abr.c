@@ -555,7 +555,8 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
       prefix.family = AF_INET6;
       prefix.prefixlen = prefix_lsa->prefix.prefix_length;
       ospf6_prefix_in6_addr (&prefix.u.prefix6, &prefix_lsa->prefix);
-      prefix2str (&prefix, buf, sizeof (buf));
+      if (is_debug)
+        prefix2str (&prefix, buf, sizeof (buf));
       table = oa->ospf6->route_table;
       type = OSPF6_DEST_TYPE_NETWORK;
       prefix_options = prefix_lsa->prefix.prefix_options;
@@ -574,7 +575,8 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
       router_lsa = (struct ospf6_inter_router_lsa *)
         OSPF6_LSA_HEADER_END (lsa->header);
       ospf6_linkstate_prefix (router_lsa->router_id, htonl (0), &prefix);
-      inet_ntop (AF_INET, &router_lsa->router_id, buf, sizeof (buf));
+      if (is_debug)
+        inet_ntop (AF_INET, &router_lsa->router_id, buf, sizeof (buf));
       table = oa->ospf6->brouter_table;
       type = OSPF6_DEST_TYPE_ROUTER;
       options[0] = router_lsa->options[0];
