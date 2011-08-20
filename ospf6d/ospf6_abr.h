@@ -22,6 +22,9 @@
 #ifndef OSPF6_ABR_H
 #define OSPF6_ABR_H
 
+/* for struct ospf6_route */
+#include "ospf6_route.h"
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_abr;
 #define OSPF6_DEBUG_ABR_ON() \
