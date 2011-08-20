@@ -227,8 +227,6 @@ ospf6_lsack_print (struct ospf6_header *oh)
 }
 
 /* Receive function */
-#define MSG_OK    0
-#define MSG_NG    1
 static int
 ospf6_header_examin (struct in6_addr *src, struct in6_addr *dst,
                      struct ospf6_interface *oi, struct ospf6_header *oh)
