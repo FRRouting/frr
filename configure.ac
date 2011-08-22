@@ -944,6 +944,15 @@ AC_TRY_COMPILE([#ifdef HAVE_SYS_PARAM_H
 AC_DEFINE(HAVE_BSD_STRUCT_IP_MREQ_HACK,,[Can pass ifindex in struct ip_mreq])],
 AC_MSG_RESULT(no))
 
+AC_MSG_CHECKING([for RFC3678 protocol-independed API])
+AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <netinet/in.h>
+], [struct group_req gr; int sock; setsockopt(sock, IPPROTO_IP, MCAST_JOIN_GROUP, (void*)&gr, sizeof(gr));
+], [AC_MSG_RESULT(yes)
+AC_DEFINE(HAVE_RFC3678,1,[Have RFC3678 protocol-independed API])],
+AC_MSG_RESULT(no))
+
 dnl ---------------------------------------------------------------
 dnl figure out how to check link-state
 dnl ---------------------------------------------------------------
