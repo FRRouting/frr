@@ -209,17 +209,35 @@ setsockopt_ipv4_multicast(int sock,
 			unsigned int mcast_addr,
 			unsigned int ifindex)
 {
+#ifdef HAVE_RFC3678
+  struct group_req gr;
+  struct sockaddr_in *si;
+  int ret;
+  memset (&gr, 0, sizeof(gr));
+  si = (struct sockaddr_in *)&gr.gr_group;
+  gr.gr_interface = ifindex;
+  si->sin_family = AF_INET;
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+  si->sin_len = sizeof(struct sockaddr_in);
+#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+  si->sin_addr.s_addr = mcast_addr;
+  ret = setsockopt(sock, IPPROTO_IP, (optname == IP_ADD_MEMBERSHIP) ? 
+    MCAST_JOIN_GROUP : MCAST_LEAVE_GROUP, (void *)&gr, sizeof(gr));
+  if ((ret < 0) && (optname == IP_ADD_MEMBERSHIP) && (errno == EADDRINUSE))
+    {
+      setsockopt(sock, IPPROTO_IP, MCAST_LEAVE_GROUP, (void *)&gr, sizeof(gr));
+      ret = setsockopt(sock, IPPROTO_IP, MCAST_JOIN_GROUP, (void *)&gr, sizeof(gr));
+    }
+  return ret;
 
-#ifdef HAVE_STRUCT_IP_MREQN_IMR_IFINDEX
+#elif defined(HAVE_STRUCT_IP_MREQN_IMR_IFINDEX) && !defined(__FreeBSD__)
   struct ip_mreqn mreqn;
   int ret;
   
   assert(optname == IP_ADD_MEMBERSHIP || optname == IP_DROP_MEMBERSHIP);
   memset (&mreqn, 0, sizeof(mreqn));
 
-  if (mcast_addr)
-    mreqn.imr_multiaddr.s_addr = mcast_addr;
-  
+  mreqn.imr_multiaddr.s_addr = mcast_addr;
   mreqn.imr_ifindex = ifindex;
   
   ret = setsockopt(sock, IPPROTO_IP, optname,
