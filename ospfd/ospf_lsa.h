@@ -49,6 +49,7 @@
 
 #define OSPF_LSA_HEADER_SIZE	     20U
 #define OSPF_ROUTER_LSA_LINK_SIZE    12U
+#define OSPF_ROUTER_LSA_TOS_SIZE      4U
 #define OSPF_MAX_LSA_SIZE	   1500U
 
 /* AS-external-LSA refresh method. */
