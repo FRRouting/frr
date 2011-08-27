@@ -282,8 +282,7 @@ ospf6_spf_install (struct ospf6_vertex *v,
 {
   struct ospf6_route *route;
   int i, j;
-  struct ospf6_vertex *prev, *w;
-  struct listnode *node, *nnode;
+  struct ospf6_vertex *prev;
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS))
     zlog_debug ("SPF install %s hops %d cost %d",

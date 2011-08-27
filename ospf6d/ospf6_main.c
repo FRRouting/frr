@@ -34,8 +34,13 @@
 #include "plist.h"
 #include "privs.h"
 #include "sigevent.h"
+#include "zclient.h"
 
 #include "ospf6d.h"
+#include "ospf6_top.h"
+#include "ospf6_message.h"
+#include "ospf6_asbr.h"
+#include "ospf6_lsa.h"
 
 /* Default configuration file name for ospf6d. */
 #define OSPF6_DEFAULT_CONFIG       "ospf6d.conf"
