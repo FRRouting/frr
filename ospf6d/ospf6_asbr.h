@@ -22,6 +22,13 @@
 #ifndef OSPF6_ASBR_H
 #define OSPF6_ASBR_H
 
+/* for struct ospf6_prefix */
+#include "ospf6_proto.h"
+/* for struct ospf6_lsa */
+#include "ospf6_lsa.h"
+/* for struct ospf6_route */
+#include "ospf6_route.h"
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_asbr;
 #define OSPF6_DEBUG_ASBR_ON() \
