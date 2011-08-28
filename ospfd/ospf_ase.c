@@ -135,7 +135,6 @@ ospf_ase_complete_direct_routes (struct ospf_route *ro, struct in_addr nexthop)
 {
   struct listnode *node;
   struct ospf_path *op;
-  struct interface *ifp;
 
   for (ALL_LIST_ELEMENTS_RO (ro->paths, node, op))
     if (op->nexthop.s_addr == 0)
@@ -451,8 +450,8 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
 
   /* if there is a Intra/Inter area route to the N
      do not install external route */
-  if (rn = route_node_lookup (ospf->new_table,
-			      (struct prefix *) &p))
+  if (NULL != (rn = route_node_lookup (ospf->new_table,
+			      (struct prefix *) &p)))
     {
       route_unlock_node(rn);
       if (rn->info == NULL)
@@ -463,8 +462,8 @@ ospf_ase_calculate_route (struct ospf *ospf, struct ospf_lsa * lsa)
     }
   /* Find a route to the same dest */
   /* If there is no route, create new one. */
-  if (rn = route_node_lookup (ospf->new_external_route,
-			       (struct prefix *) &p))
+  if (NULL != (rn = route_node_lookup (ospf->new_external_route,
+			       (struct prefix *) &p)))
       route_unlock_node(rn);
 
   if (!rn || (or = rn->info) == NULL)
