@@ -21,6 +21,9 @@
  */
 
 #include <zebra.h>
+
+#include "zebra/zserv.h"
+
 extern void netlink_route_read (void);
 
 void route_read (void)
