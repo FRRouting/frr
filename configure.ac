@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.53)
 
-AC_INIT(Quagga, 0.99.17.2, [https://bugzilla.quagga.net])
+AC_INIT(Quagga, 0.99.17.3, [https://bugzilla.quagga.net])
 AC_CONFIG_SRCDIR(lib/zebra.h)
 AC_CONFIG_MACRO_DIR([m4])
 
