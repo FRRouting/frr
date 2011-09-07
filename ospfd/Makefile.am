@@ -4,9 +4,6 @@ INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib @SNMP_INCLUDES@
 DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 
-AM_CFLAGS = $(PICFLAGS)
-AM_LDFLAGS = $(PILDFLAGS)
-
 lib_LTLIBRARIES = libospf.la
 libospf_la_LDFLAGS = -version 0:0:0
 
