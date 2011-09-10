@@ -670,7 +670,7 @@ ospf_external_lsa_originate_check (struct ospf *ospf,
   if (is_prefix_default (&ei->p))
     if (ospf->default_originate == DEFAULT_ORIGINATE_NONE)
       {
-        zlog_info ("LSA[Type5:0.0.0.0]: Not originate AS-exntenal-LSA "
+        zlog_info ("LSA[Type5:0.0.0.0]: Not originate AS-external-LSA "
                    "for default");
         return 0;
       }
