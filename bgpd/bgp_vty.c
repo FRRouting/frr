@@ -3705,7 +3705,7 @@ peer_maximum_prefix_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
   if (! peer)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER ("maxmum number", max, num_str);
+  VTY_GET_INTEGER ("maximum number", max, num_str);
   if (threshold_str)
     threshold = atoi (threshold_str);
   else
