@@ -7902,9 +7902,9 @@ config_write_ospf_distribute (struct vty *vty, struct ospf *ospf)
     {
       /* distribute-list print. */
       for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
-	if (ospf->dlist[type].name)
+	if (DISTRIBUTE_NAME (ospf, type))
 	  vty_out (vty, " distribute-list %s out %s%s", 
-		   ospf->dlist[type].name,
+		   DISTRIBUTE_NAME (ospf, type),
 		   zebra_route_string(type), VTY_NEWLINE);
 
       /* default-information print. */
