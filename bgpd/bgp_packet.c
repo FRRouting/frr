@@ -915,7 +915,7 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
      zlog_info ("Notification sent to neighbor %s: configuration change",
                 peer->host);
 
-  /* Call imidiately. */
+  /* Call immediately. */
   BGP_WRITE_OFF (peer->t_write);
 
   bgp_write_notify (peer);
