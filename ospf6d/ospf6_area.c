@@ -441,14 +441,14 @@ DEFUN (area_filter_list,
   argc--;
   argv++;
 
-  plist = prefix_list_lookup (AFI_IP6, argv[1]);
-  if (strncmp (argv[2], "in", 2) == 0)
+  plist = prefix_list_lookup (AFI_IP6, argv[0]);
+  if (strncmp (argv[1], "in", 2) == 0)
     {
       PREFIX_LIST_IN (area) = plist;
       if (PREFIX_NAME_IN (area))
 	free (PREFIX_NAME_IN (area));
 
-      PREFIX_NAME_IN (area) = strdup (argv[1]);
+      PREFIX_NAME_IN (area) = strdup (argv[0]);
       ospf6_abr_reimport (area);
     }
   else
@@ -457,7 +457,7 @@ DEFUN (area_filter_list,
       if (PREFIX_NAME_OUT (area))
 	free (PREFIX_NAME_OUT (area));
 
-      PREFIX_NAME_OUT (area) = strdup (argv[1]);
+      PREFIX_NAME_OUT (area) = strdup (argv[0]);
       ospf6_abr_enable_area (area);
     }
 
@@ -483,11 +483,11 @@ DEFUN (no_area_filter_list,
   argc--;
   argv++;
 
-  plist = prefix_list_lookup (AFI_IP6, argv[1]);
-  if (strncmp (argv[2], "in", 2) == 0)
+  plist = prefix_list_lookup (AFI_IP6, argv[0]);
+  if (strncmp (argv[1], "in", 2) == 0)
     {
       if (PREFIX_NAME_IN (area))
-	if (strcmp (PREFIX_NAME_IN (area), argv[1]) != 0)
+	if (strcmp (PREFIX_NAME_IN (area), argv[0]) != 0)
 	  return CMD_SUCCESS;
 
       PREFIX_LIST_IN (area) = NULL;
@@ -500,7 +500,7 @@ DEFUN (no_area_filter_list,
   else
     {
       if (PREFIX_NAME_OUT (area))
-	if (strcmp (PREFIX_NAME_OUT (area), argv[1]) != 0)
+	if (strcmp (PREFIX_NAME_OUT (area), argv[0]) != 0)
 	  return CMD_SUCCESS;
 
       PREFIX_LIST_OUT (area) = NULL;
