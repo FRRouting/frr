@@ -901,12 +901,25 @@ bgp_notify_send_with_data (struct peer *peer, u_char code, u_char sub_code,
   if (sub_code != BGP_NOTIFY_CEASE_CONFIG_CHANGE)
     {
       if (sub_code == BGP_NOTIFY_CEASE_ADMIN_RESET)
-      peer->last_reset = PEER_DOWN_USER_RESET;
+      {
+        peer->last_reset = PEER_DOWN_USER_RESET;
+        zlog_info ("Notification sent to neighbor %s: User reset", peer->host);
+      }
       else if (sub_code == BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN)
-      peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+      {
+        peer->last_reset = PEER_DOWN_USER_SHUTDOWN;
+        zlog_info ("Notification sent to neighbor %s: shutdown", peer->host);
+      }
       else
-      peer->last_reset = PEER_DOWN_NOTIFY_SEND;
+      {
+        peer->last_reset = PEER_DOWN_NOTIFY_SEND;
+        zlog_info ("Notification sent to neighbor %s: type %u/%u",
+                   peer->host, code, sub_code);
+      }
     }
+  else
+     zlog_info ("Notification sent to neighbor %s: configuration change",
+                peer->host);
 
   /* Call immediately. */
   BGP_WRITE_OFF (peer->t_write);
