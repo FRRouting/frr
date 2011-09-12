@@ -380,7 +380,7 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
                   peer->v_gr_restart);
     }
 
-  while (stream_get_getp (s) + 4 < end)
+  while (stream_get_getp (s) + 4 <= end)
     {
       afi_t afi = stream_getw (s);
       safi_t safi = stream_getc (s);
