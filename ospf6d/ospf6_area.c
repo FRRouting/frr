@@ -420,6 +420,18 @@ ospf6_area_config_write (struct vty *vty)
           prefix2str (&range->prefix, buf, sizeof (buf));
           vty_out (vty, " area %s range %s%s", oa->name, buf, VNL);
         }
+      if (PREFIX_NAME_IN (oa))
+        vty_out (vty, " area %s filter-list prefix %s in%s",
+                 oa->name, PREFIX_NAME_IN (oa), VNL);
+      if (PREFIX_NAME_OUT (oa))
+        vty_out (vty, " area %s filter-list prefix %s out%s",
+                 oa->name, PREFIX_NAME_OUT (oa), VNL);
+      if (IMPORT_NAME (oa))
+        vty_out (vty, " area %s import-list %s%s",
+                 oa->name, IMPORT_NAME (oa), VNL);
+      if (EXPORT_NAME (oa))
+        vty_out (vty, " area %s export-list %s%s",
+                 oa->name, EXPORT_NAME (oa), VNL);
     }
 }
 
