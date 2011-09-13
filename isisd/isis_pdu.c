@@ -29,7 +29,7 @@
 #include "log.h"
 #include "stream.h"
 #include "vty.h"
-#include "hash.c"
+#include "hash.h"
 #include "prefix.h"
 #include "if.h"
 #include "checksum.h"
