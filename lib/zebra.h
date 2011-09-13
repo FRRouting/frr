@@ -237,10 +237,6 @@ typedef int socklen_t;
 #define UINT32_MAX	(4294967295U)
 #endif
 
-#ifdef HAVE_LIBUTIL_H
-#include <libutil.h>
-#endif /* HAVE_LIBUTIL_H */
-
 #ifdef HAVE_GLIBC_BACKTRACE
 #include <execinfo.h>
 #endif /* HAVE_GLIBC_BACKTRACE */
