@@ -99,7 +99,7 @@ behaviors implemented in Cisco and IBM routers."
 to section G.2 (changes) in section 16.4 a change to the path
 preference algorithm that prevents possible routing loops that were
 possible in the old version of OSPFv2. More specifically it demands
-that inter-area paths and intra-area path are now of equal preference
+that inter-area paths and intra-area backbone path are now of equal preference
 but still both preferred to external paths.
 
 This command should NOT be set normally.
