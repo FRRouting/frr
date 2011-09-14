@@ -52,6 +52,7 @@
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
 #include "isisd/isis_events.h"
+#include "isisd/isis_csm.h"
 
 #ifdef TOPOLOGY_GENERATE
 #include "spgrid.h"
@@ -217,20 +218,30 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
       for (ALL_LIST_ELEMENTS (area->circuit_list, node, nnode, circuit))
 	{
 	  /* The fact that it's in circuit_list means that it was configured */
+	  isis_csm_state_change (ISIS_DISABLE, circuit, area);
+	  isis_circuit_down (circuit);
 	  isis_circuit_deconfigure (circuit, area);
-	  isis_circuit_del (circuit);
 	}
       
       list_delete (area->circuit_list);
     }
   listnode_delete (isis->area_list, area);
+
   THREAD_TIMER_OFF (area->t_tick);
   if (area->t_remove_aged)
     thread_cancel (area->t_remove_aged);
   THREAD_TIMER_OFF (area->t_lsp_refresh[0]);
   THREAD_TIMER_OFF (area->t_lsp_refresh[1]);
 
+  THREAD_TIMER_OFF (area->spftree[0]->t_spf);
+  THREAD_TIMER_OFF (area->spftree[1]->t_spf);
+
+  THREAD_TIMER_OFF (area->t_lsp_l1_regenerate);
+  THREAD_TIMER_OFF (area->t_lsp_l2_regenerate);
+
   XFREE (MTYPE_ISIS_AREA, area);
+
+  isis->sysid_set=0;
 
   return CMD_SUCCESS;
 }

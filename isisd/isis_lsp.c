@@ -1640,7 +1640,7 @@ lsp_regenerate_schedule (struct isis_area *area)
       if (diff < MIN_LSP_GEN_INTERVAL)
 	{
 	  area->lsp_regenerate_pending[0] = 1;
-	  thread_add_timer (master, lsp_l1_regenerate, area,
+	  area->t_lsp_l1_regenerate=thread_add_timer (master, lsp_l1_regenerate, area,
 			    MIN_LSP_GEN_INTERVAL - diff);
 	  goto L2;
 	}
@@ -1663,7 +1663,7 @@ L2:
       if (diff < MIN_LSP_GEN_INTERVAL)
 	{
 	  area->lsp_regenerate_pending[1] = 1;
-	  thread_add_timer (master, lsp_l2_regenerate, area,
+	  area->t_lsp_l2_regenerate=thread_add_timer (master, lsp_l2_regenerate, area,
 			    MIN_LSP_GEN_INTERVAL - diff);
 	  return ISIS_OK;
 	}
