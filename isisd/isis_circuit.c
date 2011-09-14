@@ -142,6 +142,11 @@ isis_circuit_deconfigure (struct isis_circuit *circuit,
 			  struct isis_area *area)
 {
 
+  /* destroy adjacencies */
+  if (circuit->u.bc.adjdb[0])
+    isis_adjdb_iterate (circuit->u.bc.adjdb[0], (void(*) (struct isis_adjacency *, void *)) isis_delete_adj, circuit->u.bc.adjdb[0]);
+  if (circuit->u.bc.adjdb[1])
+    isis_adjdb_iterate (circuit->u.bc.adjdb[1], (void(*) (struct isis_adjacency *, void *)) isis_delete_adj, circuit->u.bc.adjdb[1]);
   /* Remove circuit from area */
   listnode_delete (area->circuit_list, circuit);
   /* Free the index of SRM and SSN flags */
@@ -602,6 +607,13 @@ isis_circuit_down (struct isis_circuit *circuit)
     {
       THREAD_TIMER_OFF (circuit->u.p2p.t_send_p2p_hello);
     }
+
+  if (circuit->t_send_psnp[0]) {
+    THREAD_TIMER_OFF (circuit->t_send_psnp[0]);
+  }
+  if (circuit->t_send_psnp[1]) {
+    THREAD_TIMER_OFF (circuit->t_send_psnp[1]);
+  }
   /* close the socket */
   close (circuit->fd);
 

@@ -93,6 +93,8 @@ struct isis_area
   struct flags flags;
   struct thread *t_tick;	/* LSP walker */
   struct thread *t_remove_aged;
+  struct thread *t_lsp_l1_regenerate;
+  struct thread *t_lsp_l2_regenerate;
   int lsp_regenerate_pending[ISIS_LEVELS];
   struct thread *t_lsp_refresh[ISIS_LEVELS];
 

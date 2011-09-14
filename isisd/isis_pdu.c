@@ -1781,6 +1781,9 @@ isis_receive (struct thread *thread)
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
+  if (!circuit->area)
+    return ISIS_OK;
+
   if (circuit->rcv_stream == NULL)
     circuit->rcv_stream = stream_new (ISO_MTU (circuit));
   else
@@ -2088,6 +2091,11 @@ send_lan_l2_hello (struct thread *thread)
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
+
+  if (!circuit->area) {
+    return ISIS_OK;
+  }
+
   circuit->u.bc.t_send_lan_hello[1] = NULL;
 
   if (circuit->u.bc.run_dr_elect[1])
