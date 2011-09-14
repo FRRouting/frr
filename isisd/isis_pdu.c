@@ -1943,6 +1943,9 @@ send_hello (struct isis_circuit *circuit, int level)
   memset (&hello_hdr, 0, sizeof (struct isis_lan_hello_hdr));
   interval = circuit->hello_multiplier[level - 1] *
     circuit->hello_interval[level - 1];
+  /* If we are the DIS then hello interval is divided by three, as is the hold-timer */
+  if (circuit->u.bc.is_dr[level - 1])
+    interval=interval/3;
   if (interval > USHRT_MAX)
     interval = USHRT_MAX;
   hello_hdr.circuit_t = circuit->circuit_is_type;
@@ -2065,9 +2068,21 @@ send_lan_l1_hello (struct thread *thread)
 {
   struct isis_circuit *circuit;
   int retval;
+  unsigned long next_hello;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
+
+  if (!circuit->area) {
+    return ISIS_OK;
+  }
+
+  /* Pseudonode sends hellos three times more than the other nodes */
+  if (circuit->u.bc.is_dr[0])
+    next_hello=circuit->hello_interval[0]/3+1;
+  else
+    next_hello=circuit->hello_interval[0];
+
   circuit->u.bc.t_send_lan_hello[0] = NULL;
 
   if (circuit->u.bc.run_dr_elect[0])
@@ -2078,7 +2093,7 @@ send_lan_l1_hello (struct thread *thread)
   /* set next timer thread */
   THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[0],
 		   send_lan_l1_hello, circuit,
-		   isis_jitter (circuit->hello_interval[0], IIH_JITTER));
+                  isis_jitter (next_hello, IIH_JITTER));
 
   return retval;
 }
@@ -2088,6 +2103,7 @@ send_lan_l2_hello (struct thread *thread)
 {
   struct isis_circuit *circuit;
   int retval;
+  unsigned long next_hello;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
@@ -2095,6 +2111,12 @@ send_lan_l2_hello (struct thread *thread)
   if (!circuit->area) {
     return ISIS_OK;
   }
+
+  /* Pseudonode sends hellos three times more than the other nodes */
+  if (circuit->u.bc.is_dr[1])
+    next_hello=circuit->hello_interval[1]/3+1;
+  else
+    next_hello=circuit->hello_interval[1];
 
   circuit->u.bc.t_send_lan_hello[1] = NULL;
 
@@ -2106,7 +2128,7 @@ send_lan_l2_hello (struct thread *thread)
   /* set next timer thread */
   THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[1],
 		   send_lan_l2_hello, circuit,
-		   isis_jitter (circuit->hello_interval[1], IIH_JITTER));
+                  isis_jitter (next_hello, IIH_JITTER));
 
   return retval;
 }
