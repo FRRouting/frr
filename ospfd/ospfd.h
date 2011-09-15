@@ -72,10 +72,6 @@
 #define OSPF_ALLSPFROUTERS              0xe0000005      /* 224.0.0.5 */
 #define OSPF_ALLDROUTERS                0xe0000006      /* 224.0.0.6 */
 
-/* XXX Where is this used? And why it was used only if compiled with
- * NSSA support. */
-#define OSPF_LOOPer                     0x7f000000      /* 127.0.0.0 */
-
 #define OSPF_AREA_BACKBONE              0x00000000      /* 0.0.0.0 */
 
 /* OSPF Authentication Type. */
