@@ -1439,14 +1439,12 @@ AC_SUBST(LIBCAP)
 dnl ---------------------------
 dnl check for glibc 'backtrace'
 dnl --------------------------- 
-if test "${glibc}" = "yes"; then
-   AC_CHECK_HEADER([execinfo.h],
-    [AC_CHECK_FUNC([backtrace],
-    	[AC_DEFINE(HAVE_GLIBC_BACKTRACE,,[Glibc backtrace])
-    	 AC_DEFINE(HAVE_STACK_TRACE,,[Stack symbol decoding])
-    	])
-    ])
-fi
+AC_CHECK_HEADER([execinfo.h],
+  [AC_CHECK_FUNC([backtrace],
+    [AC_DEFINE(HAVE_GLIBC_BACKTRACE,,[Glibc backtrace])
+     AC_DEFINE(HAVE_STACK_TRACE,,[Stack symbol decoding])
+  ])
+])
 
 dnl -----------------------------------------
 dnl check for malloc mallinfo struct and call
