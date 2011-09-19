@@ -965,8 +965,33 @@ bgp_attr_med (struct peer *peer, bgp_size_t length,
 /* Local preference attribute. */
 static int
 bgp_attr_local_pref (struct peer *peer, bgp_size_t length, 
-		     struct attr *attr, u_char flag)
+		     struct attr *attr, u_char flag, u_char *startp)
 {
+  bgp_size_t total;
+
+  total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
+  /* Flag checks. */
+  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "LOCAL_PREF attribute must be flagged as \"well-known\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+  if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "LOCAL_PREF attribute must be flagged as \"transitive\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+
   /* If it is contained in an UPDATE message that is received from an
      external peer, then this attribute MUST be ignored by the
      receiving speaker. */
@@ -1644,7 +1669,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 	  ret = bgp_attr_med (peer, length, attr, flag, startp);
 	  break;
 	case BGP_ATTR_LOCAL_PREF:
-	  ret = bgp_attr_local_pref (peer, length, attr, flag);
+	  ret = bgp_attr_local_pref (peer, length, attr, flag, startp);
 	  break;
 	case BGP_ATTR_ATOMIC_AGGREGATE:
 	  ret = bgp_attr_atomic (peer, length, attr, flag);
