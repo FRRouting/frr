@@ -942,6 +942,38 @@ bgp_attr_med (struct peer *peer, bgp_size_t length,
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
 
+  /* Flag checks. */
+  if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "MULTI_EXIT_DISC attribute must be flagged as \"optional\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "MULTI_EXIT_DISC attribute must not be flagged as \"transitive\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "MULTI_EXIT_DISC attribute must not be flagged as \"partial\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+
   /* Length check. */
   if (length != 4)
     {
