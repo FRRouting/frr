@@ -774,7 +774,8 @@ lookup (const struct message *mes, int key)
  * provided otherwise.
  */
 const char *
-mes_lookup (const struct message *meslist, int max, int index, const char *none)
+mes_lookup (const struct message *meslist, int max, int index,
+  const char *none, const char *mesname)
 {
   int pos = index - meslist[0].key;
   
@@ -797,13 +798,13 @@ mes_lookup (const struct message *meslist, int max, int index, const char *none)
 	  {
 	    const char *str = (meslist->str ? meslist->str : none);
 	    
-	    zlog_debug ("message index %d [%s] found in position %d (max is %d)",
-		      index, str, i, max);
+	    zlog_debug ("message index %d [%s] found in %s at position %d (max is %d)",
+		      index, str, mesname, i, max);
 	    return str;
 	  }
       }
   }
-  zlog_err("message index %d not found (max is %d)", index, max);
+  zlog_err("message index %d not found in %s (max is %d)", index, mesname, max);
   assert (none);
   return none;
 }
