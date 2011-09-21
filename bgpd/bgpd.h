@@ -632,6 +632,8 @@ struct bgp_nlri
 #define BGP_NOTIFY_CAPABILITY_ERR                7
 #define BGP_NOTIFY_MAX	                         8
 
+#define BGP_NOTIFY_SUBCODE_UNSPECIFIC            0
+
 /* BGP_NOTIFY_HEADER_ERR sub codes.  */
 #define BGP_NOTIFY_HEADER_NOT_SYNC               1
 #define BGP_NOTIFY_HEADER_BAD_MESLEN             2
@@ -662,7 +664,7 @@ struct bgp_nlri
 #define BGP_NOTIFY_UPDATE_MAL_AS_PATH           11
 #define BGP_NOTIFY_UPDATE_MAX                   12
 
-/* BGP_NOTIFY_CEASE sub codes (draft-ietf-idr-cease-subcode-05).  */
+/* BGP_NOTIFY_CEASE sub codes (RFC 4486).  */
 #define BGP_NOTIFY_CEASE_MAX_PREFIX              1
 #define BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN          2
 #define BGP_NOTIFY_CEASE_PEER_UNCONFIG           3
