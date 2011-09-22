@@ -898,17 +898,37 @@ bgp_attr_nexthop (struct peer *peer, bgp_size_t length,
 		  struct attr *attr, u_char flag, u_char *startp)
 {
   bgp_size_t total;
+  in_addr_t nexthop_h, nexthop_n;
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
 
-  /* Flag check. */
-  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL)
-      || ! CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+  /* Flags check. */
+  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
     {
-      zlog (peer->log, LOG_ERR, 
-	    "Origin attribute flag isn't transitive %d", flag);
-      bgp_notify_send_with_data (peer, 
-				 BGP_NOTIFY_UPDATE_ERR, 
+      zlog (peer->log, LOG_ERR,
+	    "NEXT_HOP attribute must not be flagged as \"optional\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+  if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "NEXT_HOP attribute must be flagged as \"transitive\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "NEXT_HOP attribute must not be flagged as \"partial\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
 				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
 				 startp, total);
       return -1;
@@ -927,7 +947,26 @@ bgp_attr_nexthop (struct peer *peer, bgp_size_t length,
       return -1;
     }
 
-  attr->nexthop.s_addr = stream_get_ipv4 (peer->ibuf);
+  /* According to section 6.3 of RFC4271, syntactically incorrect NEXT_HOP
+     attribute must result in a NOTIFICATION message (this is implemented below).
+     At the same time, semantically incorrect NEXT_HOP is more likely to be just
+     logged locally (this is implemented somewhere else). The UPDATE message
+     gets ignored in any of these cases. */
+  nexthop_n = stream_get_ipv4 (peer->ibuf);
+  nexthop_h = ntohl (nexthop_n);
+  if (IPV4_NET0 (nexthop_h) || IPV4_NET127 (nexthop_h) || IPV4_CLASS_DE (nexthop_h))
+    {
+      char buf[INET_ADDRSTRLEN];
+      inet_ntop (AF_INET, &nexthop_h, buf, INET_ADDRSTRLEN);
+      zlog (peer->log, LOG_ERR, "Martian nexthop %s", buf);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
+				 startp, total);
+      return -1;
+    }
+
+  attr->nexthop.s_addr = nexthop_n;
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
 
   return 0;
