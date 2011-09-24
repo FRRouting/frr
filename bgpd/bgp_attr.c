@@ -712,12 +712,32 @@ bgp_attr_origin (struct peer *peer, bgp_size_t length,
      with the Attribute Type Code, then the Error Subcode is set to
      Attribute Flags Error.  The Data field contains the erroneous
      attribute (type, length and value). */
-  if (flag != BGP_ATTR_FLAG_TRANS)
+  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
     {
-      zlog (peer->log, LOG_ERR, 
-	    "Origin attribute flag isn't transitive %d", flag);
-      bgp_notify_send_with_data (peer, 
-				 BGP_NOTIFY_UPDATE_ERR, 
+      zlog (peer->log, LOG_ERR,
+	    "ORIGIN attribute must not be flagged as \"optional\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+  if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "ORIGIN attribute must be flagged as \"transitive\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "ORIGIN attribute must not be flagged as \"partial\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
 				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
 				 startp, total);
       return -1;
@@ -780,15 +800,28 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
 {
   u_char require ;
   struct aspath *asp ;
+  bgp_size_t total;
+
+  total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
 
   /* Check the attribute flags                                          */
+  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "AS_PATH attribute must not be flagged as \"partial\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return NULL;
+    }
+
   require = as4_path ? BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS
                      :                          BGP_ATTR_FLAG_TRANS ;
 
   if ((flag & (BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS)) != require)
     {
       const char* path_type ;
-      bgp_size_t total;
 
       path_type = as4_path ? "AS4_PATH" : "AS_PATH" ;
 
@@ -800,8 +833,6 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
         zlog (peer->log, LOG_ERR,
             "%s attribute flag must %sbe optional %d", path_type,
             (flag & BGP_ATTR_FLAG_OPTIONAL) ? "not " : "", flag) ;
-
-      total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
 
       bgp_notify_send_with_data (peer, 
 				 BGP_NOTIFY_UPDATE_ERR, 
@@ -1056,6 +1087,16 @@ bgp_attr_local_pref (struct peer *peer, bgp_size_t length,
     {
       zlog (peer->log, LOG_ERR,
 	    "LOCAL_PREF attribute must be flagged as \"transitive\" (%u)", flag);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+      return -1;
+    }
+  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
+    {
+      zlog (peer->log, LOG_ERR,
+	    "LOCAL_PREF attribute must not be flagged as \"partial\" (%u)", flag);
       bgp_notify_send_with_data (peer,
 				 BGP_NOTIFY_UPDATE_ERR,
 				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
