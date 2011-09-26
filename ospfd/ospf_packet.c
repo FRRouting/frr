@@ -2321,6 +2321,13 @@ ospf_verify_header (struct stream *ibuf, struct ospf_interface *oi,
       return -1;
     }
 
+  /* Valid OSPFv2 packet types are 1 through 5 inclusive. */
+  if (ospfh->type < 1 || ospfh->type > 5)
+  {
+    zlog_warn ("interface %s: invalid packet type %u", IF_NAME (oi), ospfh->type);
+    return -1;
+  }
+
   /* Check Area ID. */
   if (!ospf_check_area_id (oi, ospfh))
     {
@@ -2448,6 +2455,17 @@ ospf_read (struct thread *thread)
   /* associate packet with ospf interface */
   oi = ospf_if_lookup_recv_if (ospf, iph->ip_src, ifp);
 
+  /* Verify header fields before any further processing. */
+  ret = ospf_verify_header (ibuf, oi, iph, ospfh);
+  if (ret < 0)
+  {
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("ospf_read[%s]: Header check failed, "
+                  "dropping.",
+                  inet_ntoa (iph->ip_src));
+    return ret;
+  }
+
   /* If incoming interface is passive one, ignore it. */
   if (oi && OSPF_IF_PASSIVE_STATUS (oi) == OSPF_IF_PASSIVE)
     {
@@ -2556,20 +2574,6 @@ ospf_read (struct thread *thread)
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, DETAIL))
 	zlog_debug ("-----------------------------------------------------");
   }
-
-  /* Some header verification. */
-  ret = ospf_verify_header (ibuf, oi, iph, ospfh);
-  if (ret < 0)
-    {
-      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
-        {
-          zlog_debug ("ospf_read[%s/%s]: Header check failed, "
-                     "dropping.",
-                     ospf_packet_type_str[ospfh->type],
-                     inet_ntoa (iph->ip_src));
-        }
-      return ret;
-    }
 
   stream_forward_getp (ibuf, OSPF_HEADER_SIZE);
 
