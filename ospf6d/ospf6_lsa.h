@@ -79,6 +79,7 @@
   (ntohs (type) & OSPF6_LSTYPE_SCOPE_MASK)
 
 /* LSA Header */
+#define OSPF6_LSA_HEADER_SIZE                 20U
 struct ospf6_lsa_header
 {
   u_int16_t age;        /* LS age */

@@ -44,6 +44,7 @@ struct ospf6_external_info
 };
 
 /* AS-External-LSA */
+#define OSPF6_AS_EXTERNAL_LSA_MIN_SIZE         4U /* w/o IPv6 prefix */
 struct ospf6_as_external_lsa
 {
   u_int32_t bits_metric;

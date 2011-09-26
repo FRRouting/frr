@@ -35,6 +35,7 @@ extern unsigned char conf_debug_ospf6_abr;
   (conf_debug_ospf6_abr)
 
 /* Inter-Area-Prefix-LSA */
+#define OSPF6_INTER_PREFIX_LSA_MIN_SIZE        4U /* w/o IPv6 prefix */
 struct ospf6_inter_prefix_lsa
 {
   u_int32_t metric;
@@ -42,6 +43,7 @@ struct ospf6_inter_prefix_lsa
 };
 
 /* Inter-Area-Router-LSA */
+#define OSPF6_INTER_ROUTER_LSA_FIX_SIZE       12U
 struct ospf6_inter_router_lsa
 {
   u_char mbz;
