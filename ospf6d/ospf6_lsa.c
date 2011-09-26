@@ -163,9 +163,19 @@ ospf6_lsa_is_changed (struct ospf6_lsa *lsa1,
     return 1;
   if (ntohs (lsa1->header->length) != ntohs (lsa2->header->length))
     return 1;
+  /* Going beyond LSA headers to compare the payload only makes sense, when both LSAs aren't header-only. */
+  if (CHECK_FLAG (lsa1->flag, OSPF6_LSA_HEADERONLY) != CHECK_FLAG (lsa2->flag, OSPF6_LSA_HEADERONLY))
+  {
+    zlog_warn ("%s: only one of two (%s, %s) LSAs compared is header-only", __func__, lsa1->name, lsa2->name);
+    return 1;
+  }
+  if (CHECK_FLAG (lsa1->flag, OSPF6_LSA_HEADERONLY))
+    return 0;
 
   length = OSPF6_LSA_SIZE (lsa1->header) - sizeof (struct ospf6_lsa_header);
-  assert (length > 0);
+  /* Once upper layer verifies LSAs received, length underrun should become a warning. */
+  if (length <= 0)
+    return 0;
 
   return memcmp (OSPF6_LSA_HEADER_END (lsa1->header),
                  OSPF6_LSA_HEADER_END (lsa2->header), length);
