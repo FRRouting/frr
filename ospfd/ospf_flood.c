@@ -319,7 +319,8 @@ ospf_flood (struct ospf *ospf, struct ospf_neighbor *nbr,
      procedure cannot overwrite the newly installed LSA until
      MinLSArrival seconds have elapsed. */  
 
-  new = ospf_lsa_install (ospf, nbr->oi, new);
+  if (! (new = ospf_lsa_install (ospf, nbr->oi, new)))
+    return 0; /* unknown LSA type */
 
   /* Acknowledge the receipt of the LSA by sending a Link State
      Acknowledgment packet back out the receiving interface. */
