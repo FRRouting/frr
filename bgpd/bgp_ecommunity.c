@@ -619,6 +619,13 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
 
   for (i = 0; i < ecom->size; i++)
     {
+      /* Make it sure size is enough.  */
+      while (str_pnt + ECOMMUNITY_STR_DEFAULT_LEN >= str_size)
+	{
+	  str_size *= 2;
+	  str_buf = XREALLOC (MTYPE_ECOMMUNITY_STR, str_buf, str_size);
+	}
+
       /* Space between each value.  */
       if (! first)
 	str_buf[str_pnt++] = ' ';
@@ -660,13 +667,6 @@ ecommunity_ecom2str (struct ecommunity *ecom, int format)
 	default:
 	  prefix = "";
 	  break;
-	}
-
-      /* Make it sure size is enough.  */
-      while (str_pnt + ECOMMUNITY_STR_DEFAULT_LEN >= str_size)
-	{
-	  str_size *= 2;
-	  str_buf = XREALLOC (MTYPE_ECOMMUNITY_STR, str_buf, str_size);
 	}
 
       /* Put string into buffer.  */
