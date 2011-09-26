@@ -73,6 +73,7 @@
 #define OSPF6_OPT_V6 (1 << 0)   /* IPv6 forwarding Capability */
 
 /* OSPF6 Prefix */
+#define OSPF6_PREFIX_MIN_SIZE                  4U /* .length == 0 */
 struct ospf6_prefix
 {
   u_int8_t prefix_length;
