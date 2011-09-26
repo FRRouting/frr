@@ -2430,10 +2430,19 @@ ospf_read (struct thread *thread)
       return 0;
     }
 
-  /* Adjust size to message length. */
+  /* Advance from IP header to OSPF header (iph->ip_hl has been verified
+     by ospf_recv_packet() to be correct). */
   stream_forward_getp (ibuf, iph->ip_hl * 4);
-  
-  /* Get ospf packet header. */
+
+  /* Make sure the OSPF header is really there. */
+  if (stream_get_endp (ibuf) - stream_get_getp (ibuf) < OSPF_HEADER_SIZE)
+  {
+    zlog_debug ("ospf_read: ignored OSPF packet with undersized (%u bytes) header",
+                stream_get_endp (ibuf) - stream_get_getp (ibuf));
+    return -1;
+  }
+
+  /* Now it is safe to access all fields of OSPF packet header. */
   ospfh = (struct ospf_header *) STREAM_PNT (ibuf);
 
   /* associate packet with ospf interface */
