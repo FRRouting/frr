@@ -1788,7 +1788,10 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 
       /* Fetch attribute flag and type. */
       startp = BGP_INPUT_PNT (peer);
-      flag = stream_getc (BGP_INPUT (peer));
+      /* "The lower-order four bits of the Attribute Flags octet are
+         unused.  They MUST be zero when sent and MUST be ignored when
+         received." */
+      flag = 0xF0 & stream_getc (BGP_INPUT (peer));
       type = stream_getc (BGP_INPUT (peer));
 
       /* Check whether Extended-Length applies and is in bounds */
