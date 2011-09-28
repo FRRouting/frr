@@ -35,6 +35,7 @@ extern int setsockopt_ipv6_multicast_hops (int, int);
 extern int setsockopt_ipv6_unicast_hops (int, int);
 extern int setsockopt_ipv6_hoplimit (int, int);
 extern int setsockopt_ipv6_multicast_loop (int, int);
+extern int setsockopt_ipv6_tclass (int, int);
 #endif /* HAVE_IPV6 */
 
 /*

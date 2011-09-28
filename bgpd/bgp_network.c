@@ -330,6 +330,10 @@ bgp_connect (struct peer *peer)
 #ifdef IPTOS_PREC_INTERNETCONTROL
   if (sockunion_family (&peer->su) == AF_INET)
     setsockopt_ipv4_tos (peer->fd, IPTOS_PREC_INTERNETCONTROL);
+# ifdef HAVE_IPV6
+  else if (sockunion_family (&peer->su) == AF_INET6)
+    setsockopt_ipv6_tclass (peer->fd, IPTOS_PREC_INTERNETCONTROL);
+# endif
 #endif
 
   if (peer->password)
@@ -389,6 +393,10 @@ bgp_listener (int sock, struct sockaddr *sa, socklen_t salen)
 #ifdef IPTOS_PREC_INTERNETCONTROL
   if (sa->sa_family == AF_INET)
     setsockopt_ipv4_tos (sock, IPTOS_PREC_INTERNETCONTROL);
+#  ifdef HAVE_IPV6
+  else if (sa->sa_family == AF_INET6)
+    setsockopt_ipv6_tclass (sock, IPTOS_PREC_INTERNETCONTROL);
+#  endif
 #endif
 
 #ifdef IPV6_V6ONLY
