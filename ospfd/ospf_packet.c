@@ -2392,16 +2392,10 @@ ospf_read (struct thread *thread)
   /* associate packet with ospf interface */
   oi = ospf_if_lookup_recv_if (ospf, iph->ip_src, ifp);
 
-  /* Verify header fields before any further processing. */
-  ret = ospf_verify_header (ibuf, oi, iph, ospfh);
-  if (ret < 0)
-  {
-    if (IS_DEBUG_OSPF_PACKET (0, RECV))
-      zlog_debug ("ospf_read[%s]: Header check failed, "
-                  "dropping.",
-                  inet_ntoa (iph->ip_src));
-    return ret;
-  }
+  /* ospf_verify_header() relies on a valid "oi" and thus can be called only
+     after the passive/backbone/other checks below are passed. These checks
+     in turn access the fields of unverified "ospfh" structure for their own
+     purposes and must remain very accurate in doing this. */
 
   /* If incoming interface is passive one, ignore it. */
   if (oi && OSPF_IF_PASSIVE_STATUS (oi) == OSPF_IF_PASSIVE)
@@ -2492,6 +2486,17 @@ ospf_read (struct thread *thread)
       ospf_if_set_multicast(oi);
       return 0;
     }
+
+  /* Verify more OSPF header fields. */
+  ret = ospf_verify_header (ibuf, oi, iph, ospfh);
+  if (ret < 0)
+  {
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("ospf_read[%s]: Header check failed, "
+                  "dropping.",
+                  inet_ntoa (iph->ip_src));
+    return ret;
+  }
 
   /* Show debug receiving packet. */
   if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
