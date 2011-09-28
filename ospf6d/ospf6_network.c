@@ -64,6 +64,14 @@ ospf6_set_pktinfo (void)
 }
 
 void
+ospf6_set_transport_class (void)
+{
+#ifdef IPTOS_PREC_INTERNETCONTROL
+  setsockopt_ipv6_tclass (ospf6_sock, IPTOS_PREC_INTERNETCONTROL);
+#endif
+}
+
+void
 ospf6_set_checksum (void)
 {
   int offset = 12;
@@ -102,6 +110,7 @@ ospf6_serv_sock (void)
 #endif /*1*/
   ospf6_reset_mcastloop ();
   ospf6_set_pktinfo ();
+  ospf6_set_transport_class ();
   ospf6_set_checksum ();
 
   /* setup global in6_addr, allspf6 and alldr6 for later use */

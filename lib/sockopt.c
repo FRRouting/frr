@@ -179,8 +179,19 @@ getsockopt_ipv6_ifindex (struct msghdr *msgh)
   
   return pktinfo->ipi6_ifindex;
 }
-#endif /* HAVE_IPV6 */
 
+int
+setsockopt_ipv6_tclass(int sock, int tclass)
+{
+  int ret;
+
+  ret = setsockopt (sock, IPPROTO_IPV6, IPV6_TCLASS, &tclass, sizeof (tclass));
+  if (ret < 0)
+    zlog_warn ("Can't set IPV6_TCLASS option for fd %d to %#x: %s",
+	       sock, tclass, safe_strerror(errno));
+  return ret;
+}
+#endif /* HAVE_IPV6 */
 
 /*
  * Process multicast socket options for IPv4 in an OS-dependent manner.
