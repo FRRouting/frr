@@ -1326,8 +1326,23 @@ bgp_attr_originator_id (struct peer *peer, bgp_size_t length,
 /* Cluster list attribute. */
 static int
 bgp_attr_cluster_list (struct peer *peer, bgp_size_t length, 
-		       struct attr *attr, u_char flag)
+		       struct attr *attr, u_char flag, u_char *startp)
 {
+  bgp_size_t total;
+
+  total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
+  /* Flag checks. */
+  if (flag != BGP_ATTR_FLAG_OPTIONAL)
+  {
+    if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
+      zlog (peer->log, LOG_ERR, "CLUSTER_LIST attribute must be flagged as \"optional\" (%u)", flag);
+    if (CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+      zlog (peer->log, LOG_ERR, "CLUSTER_LIST attribute must not be flagged as \"transitive\" (%u)", flag);
+    if (CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
+      zlog (peer->log, LOG_ERR, "CLUSTER_LIST attribute must not be flagged as \"partial\" (%u)", flag);
+    bgp_notify_send_with_data (peer, BGP_NOTIFY_UPDATE_ERR, BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR, startp, total);
+    return -1;
+  }
   /* Check length. */
   if (length % 4)
     {
@@ -1759,7 +1774,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 	  ret = bgp_attr_originator_id (peer, length, attr, flag, startp);
 	  break;
 	case BGP_ATTR_CLUSTER_LIST:
-	  ret = bgp_attr_cluster_list (peer, length, attr, flag);
+	  ret = bgp_attr_cluster_list (peer, length, attr, flag, startp);
 	  break;
 	case BGP_ATTR_MP_REACH_NLRI:
 	  ret = bgp_mp_reach_parse (peer, length, attr, mp_update);
