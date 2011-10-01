@@ -65,6 +65,7 @@ struct isis_p2p_info
 struct isis_circuit
 {
   int state;
+  int connected;
   u_char circuit_id;		/* l1/l2 p2p/bcast CircuitID */
   struct isis_area *area;	/* back pointer to the area */
   struct interface *interface;	/* interface info from z */

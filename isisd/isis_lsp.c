@@ -2037,6 +2037,8 @@ lsp_tick (struct thread *thread)
 	    {
               for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
 		{
+		  if (circuit->state != C_STATE_UP)
+		    continue;
                   for (ALL_LIST_ELEMENTS_RO (lsp_list, lspnode, lsp))
 		    {
 		      if (ISIS_CHECK_FLAG (lsp->SRMflags, circuit))

@@ -1916,6 +1916,9 @@ send_hello (struct isis_circuit *circuit, int level)
   unsigned long len_pointer, length;
   int retval;
 
+  if (circuit->state != C_STATE_UP || circuit->interface == NULL)
+    return ISIS_WARNING;
+
   if (circuit->interface->mtu == 0)
     {
       zlog_warn ("circuit has zero MTU");
@@ -2222,6 +2225,9 @@ send_csnp (struct isis_circuit *circuit, int level)
   struct listnode *node;
   struct isis_lsp *lsp;
 
+  if (circuit->state != C_STATE_UP || circuit->interface == NULL)
+    return ISIS_WARNING;
+
   memset (start, 0x00, ISIS_SYS_ID_LEN + 2);
   memset (stop, 0xff, ISIS_SYS_ID_LEN + 2);
 
@@ -2387,6 +2393,9 @@ send_psnp (int level, struct isis_circuit *circuit)
   struct list *list = NULL;
   struct listnode *node;
 
+  if (circuit->state != C_STATE_UP || circuit->interface == NULL)
+    return ISIS_WARNING;
+
   if ((circuit->circ_type == CIRCUIT_T_BROADCAST &&
        !circuit->u.bc.is_dr[level - 1]) ||
       circuit->circ_type != CIRCUIT_T_BROADCAST)
@@ -2493,85 +2502,85 @@ send_lsp (struct thread *thread)
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
-  if (circuit->state == C_STATE_UP)
+  if (circuit->state != C_STATE_UP || circuit->interface == NULL)
+    return ISIS_WARNING;
+
+  lsp = listgetdata ((node = listhead (circuit->lsp_queue)));
+
+  /*
+   * Do not send if levels do not match
+   */
+  if (!(lsp->level & circuit->circuit_is_type))
+    goto dontsend;
+
+  /*
+   * Do not send if we do not have adjacencies in state up on the circuit
+   */
+  if (circuit->upadjcount[lsp->level - 1] == 0)
+    goto dontsend;
+  /* only send if it needs sending */
+  if ((time (NULL) - lsp->last_sent) >=
+      circuit->area->lsp_gen_interval[lsp->level - 1])
     {
-      lsp = listgetdata ((node = listhead (circuit->lsp_queue)));
 
-      /*
-       * Do not send if levels do not match
-       */
-      if (!(lsp->level & circuit->circuit_is_type))
-	goto dontsend;
-
-      /*
-       * Do not send if we do not have adjacencies in state up on the circuit
-       */
-      if (circuit->upadjcount[lsp->level - 1] == 0)
-	goto dontsend;
-      /* only send if it needs sending */
-      if ((time (NULL) - lsp->last_sent) >=
-	  circuit->area->lsp_gen_interval[lsp->level - 1])
+      if (isis->debugs & DEBUG_UPDATE_PACKETS)
 	{
+	  zlog_debug
+	    ("ISIS-Upd (%s): Sent L%d LSP %s, seq 0x%08x, cksum 0x%04x,"
+	     " lifetime %us on %s", circuit->area->area_tag, lsp->level,
+	     rawlspid_print (lsp->lsp_header->lsp_id),
+	     ntohl (lsp->lsp_header->seq_num),
+	     ntohs (lsp->lsp_header->checksum),
+	     ntohs (lsp->lsp_header->rem_lifetime),
+	     circuit->interface->name);
+	}
+	/* copy our lsp to the send buffer */
+	stream_copy (circuit->snd_stream, lsp->pdu);
 
-	  if (isis->debugs & DEBUG_UPDATE_PACKETS)
-	    {
-	      zlog_debug
-		("ISIS-Upd (%s): Sent L%d LSP %s, seq 0x%08x, cksum 0x%04x,"
-		 " lifetime %us on %s", circuit->area->area_tag, lsp->level,
-		 rawlspid_print (lsp->lsp_header->lsp_id),
-		 ntohl (lsp->lsp_header->seq_num),
-		 ntohs (lsp->lsp_header->checksum),
-		 ntohs (lsp->lsp_header->rem_lifetime),
-		 circuit->interface->name);
-	    }
-	  /* copy our lsp to the send buffer */
-	  stream_copy (circuit->snd_stream, lsp->pdu);
+	retval = circuit->tx (circuit, lsp->level);
 
-	  retval = circuit->tx (circuit, lsp->level);
+      /*
+       * If the sending succeeded, we can del the lsp from circuits
+       * lsp_queue
+       */
+      if (retval == ISIS_OK)
+	{
+	  list_delete_node (circuit->lsp_queue, node);
 
 	  /*
-	   * If the sending succeeded, we can del the lsp from circuits
-	   * lsp_queue
+	   * On broadcast circuits also the SRMflag can be cleared
 	   */
-	  if (retval == ISIS_OK)
-	    {
-	      list_delete_node (circuit->lsp_queue, node);
+	  if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+	    ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
 
+	  if (flags_any_set (lsp->SRMflags) == 0)
+	    {
 	      /*
-	       * On broadcast circuits also the SRMflag can be cleared
+	       * need to remember when we were last sent
 	       */
-	      if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-		ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
-
-	      if (flags_any_set (lsp->SRMflags) == 0)
-		{
-		  /*
-		   * need to remember when we were last sent
-		   */
-		  lsp->last_sent = time (NULL);
-		}
-	    }
-	  else
-	    {
-	      zlog_debug ("sending of level %d link state failed", lsp->level);
+	      lsp->last_sent = time (NULL);
 	    }
 	}
       else
 	{
-	  /* my belief is that if it wasn't his time, the lsp can be removed
-	   * from the queue
-	   */
-	dontsend:
-	  list_delete_node (circuit->lsp_queue, node);
+	  zlog_debug ("sending of level %d link state failed", lsp->level);
 	}
-#if 0
-      /*
-       * If there are still LSPs send next one after lsp-interval (33 msecs)
-       */
-      if (listcount (circuit->lsp_queue) > 0)
-	thread_add_timer (master, send_lsp, circuit, 1);
-#endif
     }
+  else
+    {
+      /* my belief is that if it wasn't his time, the lsp can be removed
+       * from the queue
+       */
+    dontsend:
+      list_delete_node (circuit->lsp_queue, node);
+    }
+#if 0
+  /*
+   * If there are still LSPs send next one after lsp-interval (33 msecs)
+   */
+  if (listcount (circuit->lsp_queue) > 0)
+    thread_add_timer (master, send_lsp, circuit, 1);
+#endif
 
   return retval;
 }
