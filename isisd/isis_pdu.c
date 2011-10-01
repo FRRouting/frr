@@ -1187,6 +1187,7 @@ dontcheckadj:
       /* 7.3.15.1 e) 1) LSP newer than the one in db or no LSP in db */
       if ((!lsp || comp == LSP_NEWER))
 	{
+	  int regenerate = (lsp == NULL);
 	  /* i */
 	  if (lsp)
 	    {
@@ -1232,6 +1233,9 @@ dontcheckadj:
 	  if (circuit->circ_type != CIRCUIT_T_BROADCAST)
 	    ISIS_SET_FLAG (lsp->SSNflags, circuit);
 	  /* FIXME: v) */
+	    if (regenerate && circuit->u.bc.is_dr[level - 1]) {
+	    lsp_l1_pseudo_generate (circuit);
+	  }
 	}
       /* 7.3.15.1 e) 2) LSP equal to the one in db */
       else if (comp == LSP_EQUAL)
