@@ -1222,7 +1222,6 @@ dontcheckadj:
 				     ntohs (hdr->pdu_len), lsp0,
 				     circuit->area);
 	  lsp->level = level;
-	  lsp->adj = adj;
 	  lsp_insert (lsp, circuit->area->lspdb[level - 1]);
 	  /* ii */
 	  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
@@ -1254,8 +1253,7 @@ dontcheckadj:
 	  ISIS_CLEAR_FLAG (lsp->SSNflags, circuit);
 	}
     }
-  if (lsp)
-    lsp->adj = adj;
+
   return retval;
 }
 
