@@ -830,6 +830,21 @@ isis_interface_config_write (struct vty *vty)
 		    }
 		}
 	    }
+	  if (c->passwd.type==ISIS_PASSWD_TYPE_HMAC_MD5)
+	    {
+	      vty_out (vty, " isis password md5 %s%s", c->passwd.passwd,
+		       VTY_NEWLINE);
+	      write++;
+	    }
+	  else
+	    {
+	      if (c->passwd.type==ISIS_PASSWD_TYPE_CLEARTXT)
+		{
+		  vty_out (vty, " isis password clear %s%s", c->passwd.passwd,
+			   VTY_NEWLINE);
+		  write++;
+		}
+	    }
 
 	}
     }
@@ -1022,11 +1037,44 @@ DEFUN (no_isis_circuit_type,
   return CMD_SUCCESS;
 }
 
-DEFUN (isis_passwd,
-       isis_passwd_cmd,
-       "isis password WORD",
+DEFUN (isis_passwd_md5,
+       isis_passwd_md5_cmd,
+       "isis password md5 WORD",
        "IS-IS commands\n"
        "Configure the authentication password for interface\n"
+       "Authentication Type\n"
+       "Password\n")
+{
+  struct isis_circuit *circuit;
+  struct interface *ifp;
+  int len;
+
+  ifp = vty->index;
+  circuit = ifp->info;
+  if (circuit == NULL)
+    {
+      return CMD_WARNING;
+    }
+
+  len = strlen (argv[0]);
+  if (len > 254)
+    {
+      vty_out (vty, "Too long circuit password (>254)%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+  circuit->passwd.len = len;
+  circuit->passwd.type = ISIS_PASSWD_TYPE_HMAC_MD5;
+  strncpy ((char *)circuit->passwd.passwd, argv[0], 255);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (isis_passwd_clear,
+       isis_passwd_clear_cmd,
+       "isis password clear WORD",
+       "IS-IS commands\n"
+       "Configure the authentication password for interface\n"
+       "Authentication Type\n"
        "Password\n")
 {
   struct isis_circuit *circuit;
@@ -1074,7 +1122,6 @@ DEFUN (no_isis_passwd,
 
   return CMD_SUCCESS;
 }
-
 
 DEFUN (isis_priority,
        isis_priority_cmd,
@@ -2086,7 +2133,8 @@ isis_circuit_init ()
   install_element (INTERFACE_NODE, &isis_circuit_type_cmd);
   install_element (INTERFACE_NODE, &no_isis_circuit_type_cmd);
 
-  install_element (INTERFACE_NODE, &isis_passwd_cmd);
+  install_element (INTERFACE_NODE, &isis_passwd_clear_cmd);
+  install_element (INTERFACE_NODE, &isis_passwd_md5_cmd);
   install_element (INTERFACE_NODE, &no_isis_passwd_cmd);
 
   install_element (INTERFACE_NODE, &isis_priority_cmd);

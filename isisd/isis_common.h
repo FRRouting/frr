@@ -35,6 +35,7 @@ struct isis_passwd
   u_char len;
 #define ISIS_PASSWD_TYPE_UNUSED   0
 #define ISIS_PASSWD_TYPE_CLEARTXT 1
+#define ISIS_PASSWD_TYPE_HMAC_MD5 54
 #define ISIS_PASSWD_TYPE_PRIVATE  255
   u_char type;
   /* Authenticate SNPs? */

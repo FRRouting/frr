@@ -33,6 +33,7 @@
 #include "prefix.h"
 #include "if.h"
 #include "checksum.h"
+#include "md5.h"
 
 #include "isisd/dict.h"
 #include "isisd/include-netbsd/iso.h"
@@ -168,26 +169,38 @@ accept_level (int level, int circuit_t)
   return retval;
 }
 
+
+/*
+ * Verify authentication information
+ * Support cleartext and HMAC MD5 authentication
+ */
 int
-authentication_check (struct isis_passwd *one, struct isis_passwd *theother)
+authentication_check (struct isis_passwd *remote, struct isis_passwd *local, struct isis_circuit* c)
 {
-  if (one->type != theother->type)
+  unsigned char digest[ISIS_AUTH_MD5_SIZE];
+
+  if (c->passwd.type)
     {
-      zlog_warn ("Unsupported authentication type %d", theother->type);
-      return 1;			/* Auth fail (different authentication types) */
-    }
-  switch (one->type)
+      switch (c->passwd.type)
     {
+	  case ISIS_PASSWD_TYPE_HMAC_MD5:
+	    /* HMAC MD5 (RFC 3567) */
+	    /* MD5 computation according to RFC 2104 */
+	    hmac_md5(c->rcv_stream->data, stream_get_endp(c->rcv_stream), (unsigned char *) &(local->passwd), c->passwd.len, (unsigned char *) &digest);
+	    return memcmp (digest, remote->passwd, ISIS_AUTH_MD5_SIZE);
+	    break;
     case ISIS_PASSWD_TYPE_CLEARTXT:
-      if (one->len != theother->len)
+	    /* Cleartext (ISO 10589) */
+	    if (local->len != remote->len)
 	return 1;		/* Auth fail () - passwd len mismatch */
-      return memcmp (one->passwd, theother->passwd, one->len);
+	    return memcmp (local->passwd, remote->passwd, local->len);
       break;
     default:
       zlog_warn ("Unsupported authentication type");
       break;
     }
-  return 0;			/* Auth pass */
+    }
+  return 0; /* Authentication pass when no authentication is configured */
 }
 
 /*
@@ -372,7 +385,7 @@ process_p2p_hello (struct isis_circuit *circuit)
   if (circuit->passwd.type)
     {
       if (!(found & TLVFLAG_AUTH_INFO) ||
-	  authentication_check (&circuit->passwd, &tlvs.auth_info))
+	  authentication_check (&tlvs.auth_info, &circuit->passwd, circuit))
 	{
 	  isis_event_auth_failure (circuit->area->area_tag,
 				   "P2P hello authentication failure",
@@ -744,10 +757,11 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       goto out;
     }
 
+  /* Verify authentication, either cleartext of HMAC MD5 */
   if (circuit->passwd.type)
     {
       if (!(found & TLVFLAG_AUTH_INFO) ||
-	  authentication_check (&circuit->passwd, &tlvs.auth_info))
+	   authentication_check (&tlvs.auth_info, &circuit->passwd, circuit))
 	{
 	  isis_event_auth_failure (circuit->area->area_tag,
 				   "LAN hello authentication failure",
@@ -1416,7 +1430,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
       if (passwd->type)
 	{
 	  if (!(found & TLVFLAG_AUTH_INFO) ||
-	      authentication_check (passwd, &tlvs.auth_info))
+	      authentication_check (&tlvs.auth_info, passwd, circuit))
 	    {
 	      isis_event_auth_failure (circuit->area->area_tag,
 				       "SNP authentication" " failure",
@@ -1913,9 +1927,10 @@ send_hello (struct isis_circuit *circuit, int level)
   struct isis_fixed_hdr fixed_hdr;
   struct isis_lan_hello_hdr hello_hdr;
   struct isis_p2p_hello_hdr p2p_hello_hdr;
+  char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
 
   u_int32_t interval;
-  unsigned long len_pointer, length;
+  unsigned long len_pointer, length, auth_tlv;
   int retval;
 
   if (circuit->state != C_STATE_UP || circuit->interface == NULL)
@@ -1987,11 +2002,24 @@ send_hello (struct isis_circuit *circuit, int level)
   /*
    * Then the variable length part 
    */
+
   /* add circuit password */
-  if (circuit->passwd.type)
-    if (tlv_add_authinfo (circuit->passwd.type, circuit->passwd.len,
+  /* Cleartext */
+  if (circuit->passwd.type == ISIS_PASSWD_TYPE_CLEARTXT)
+    if (tlv_add_authinfo (ISIS_PASSWD_TYPE_CLEARTXT, circuit->passwd.len,
 			  circuit->passwd.passwd, circuit->snd_stream))
       return ISIS_WARNING;
+
+  /* or HMAC MD5 */
+  if (circuit->passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5)
+    {
+      /* Remember where TLV is written so we can later overwrite the MD5 hash */
+      auth_tlv = stream_get_endp (circuit->snd_stream);
+      memset(&hmac_md5_hash, 0, ISIS_AUTH_MD5_SIZE);
+      if (tlv_add_authinfo (ISIS_PASSWD_TYPE_HMAC_MD5, ISIS_AUTH_MD5_SIZE,
+			   hmac_md5_hash, circuit->snd_stream))
+	return ISIS_WARNING;
+    }
 
   /* Protocols Supported TLV */
   if (circuit->nlpids.count > 0)
@@ -2040,6 +2068,14 @@ send_hello (struct isis_circuit *circuit, int level)
   length = stream_get_endp (circuit->snd_stream);
   /* Update PDU length */
   stream_putw_at (circuit->snd_stream, len_pointer, (u_int16_t) length);
+
+  /* For HMAC MD5 we need to compute the md5 hash and store it */
+  if (circuit->passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5)
+    {
+      hmac_md5(circuit->snd_stream->data, stream_get_endp(circuit->snd_stream), (unsigned char *) &circuit->passwd.passwd, circuit->passwd.len, (unsigned char *) &hmac_md5_hash);
+      /* Copy the hash into the stream */
+      memcpy(circuit->snd_stream->data+auth_tlv+3,hmac_md5_hash,ISIS_AUTH_MD5_SIZE);
+    }
 
   retval = circuit->tx (circuit, level);
   if (retval)
