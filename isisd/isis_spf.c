@@ -1030,15 +1030,22 @@ isis_run_spf (struct isis_area *area, int level, int family)
 
   while (listcount (spftree->tents) > 0)
     {
+      /* C.2.7 a) 1) */
       node = listhead (spftree->tents);
       vertex = listgetdata (node);
-      /* Remove from tent list */
+
+      /* C.2.7 a) 2) */
       list_delete_node (spftree->tents, node);
+
+      /* C.2.7 a) 3) */
       if (isis_find_vertex (spftree->paths, vertex->N.id, vertex->type))
 	continue;
       add_to_paths (spftree, vertex, area, level);
+
       if (vertex->type == VTYPE_PSEUDO_IS ||
-	  vertex->type == VTYPE_NONPSEUDO_IS)
+	  vertex->type == VTYPE_NONPSEUDO_IS ||
+	  vertex->type == VTYPE_PSEUDO_TE_IS ||
+	  vertex->type == VTYPE_NONPSEUDO_TE_IS )
 	{
 	  if (listcount(vertex->Adj_N) == 0) {
 	    continue;
@@ -1054,7 +1061,6 @@ isis_run_spf (struct isis_area *area, int level, int family)
 		{
 		  isis_spf_process_pseudo_lsp (spftree, lsp, vertex->d_N,
 					       vertex->depth, family, adj);
-
 		}
 	      else
 		{

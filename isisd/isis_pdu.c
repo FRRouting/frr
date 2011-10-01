@@ -1992,11 +1992,33 @@ send_hello (struct isis_circuit *circuit, int level)
     if (tlv_add_authinfo (circuit->passwd.type, circuit->passwd.len,
 			  circuit->passwd.passwd, circuit->snd_stream))
       return ISIS_WARNING;
+
+  /* Protocols Supported TLV */
+  if (circuit->nlpids.count > 0)
+    if (tlv_add_nlpid (&circuit->nlpids, circuit->snd_stream))
+      return ISIS_WARNING;
+
   /*  Area Addresses TLV */
   assert (circuit->area);
   if (circuit->area->area_addrs && circuit->area->area_addrs->count > 0)
     if (tlv_add_area_addrs (circuit->area->area_addrs, circuit->snd_stream))
       return ISIS_WARNING;
+
+  /* IP interface Address TLV */
+  if (circuit->ip_router && circuit->ip_addrs && circuit->ip_addrs->count > 0)
+    if (tlv_add_ip_addrs (circuit->ip_addrs, circuit->snd_stream))
+      return ISIS_WARNING;
+
+#ifdef HAVE_IPV6
+  /* IPv6 Interface Address TLV */
+  if (circuit->ipv6_router && circuit->ipv6_link &&
+      circuit->ipv6_link->count > 0)
+    if (tlv_add_ipv6_addrs (circuit->ipv6_link, circuit->snd_stream))
+      return ISIS_WARNING;
+#endif /* HAVE_IPV6 */
+
+  /* Restart signaling, vendor C sends it too */
+  retval = add_tlv (211, 3, 0, circuit->snd_stream);
 
   /*  LAN Neighbors TLV */
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
@@ -2010,23 +2032,6 @@ send_hello (struct isis_circuit *circuit, int level)
 				circuit->snd_stream))
 	  return ISIS_WARNING;
     }
-
-  /* Protocols Supported TLV */
-  if (circuit->nlpids.count > 0)
-    if (tlv_add_nlpid (&circuit->nlpids, circuit->snd_stream))
-      return ISIS_WARNING;
-  /* IP interface Address TLV */
-  if (circuit->ip_router && circuit->ip_addrs && circuit->ip_addrs->count > 0)
-    if (tlv_add_ip_addrs (circuit->ip_addrs, circuit->snd_stream))
-      return ISIS_WARNING;
-
-#ifdef HAVE_IPV6
-  /* IPv6 Interface Address TLV */
-  if (circuit->ipv6_router && circuit->ipv6_link &&
-      circuit->ipv6_link->count > 0)
-    if (tlv_add_ipv6_addrs (circuit->ipv6_link, circuit->snd_stream))
-      return ISIS_WARNING;
-#endif /* HAVE_IPV6 */
 
   if (circuit->u.bc.pad_hellos)
     if (tlv_add_padding (circuit->snd_stream))
@@ -2284,9 +2289,7 @@ send_l1_csnp (struct thread *thread)
   circuit->t_send_csnp[0] = NULL;
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST && circuit->u.bc.is_dr[0])
-    {
       send_csnp (circuit, 1);
-    }
   /* set next timer thread */
   THREAD_TIMER_ON (master, circuit->t_send_csnp[0], send_l1_csnp, circuit,
 		   isis_jitter (circuit->csnp_interval[0], CSNP_JITTER));
@@ -2306,9 +2309,7 @@ send_l2_csnp (struct thread *thread)
   circuit->t_send_csnp[1] = NULL;
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST && circuit->u.bc.is_dr[1])
-    {
       send_csnp (circuit, 2);
-    }
   /* set next timer thread */
   THREAD_TIMER_ON (master, circuit->t_send_csnp[1], send_l2_csnp, circuit,
 		   isis_jitter (circuit->csnp_interval[1], CSNP_JITTER));

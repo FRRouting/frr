@@ -741,7 +741,7 @@ add_tlv (u_char tag, u_char len, u_char * value, struct stream *stream)
   stream_putc (stream, len);	/* LENGTH */
   stream_put (stream, value, (int) len);	/* VALUE */
 
-#ifdef EXTREME_DEBUG
+#ifdef EXTREME_TLV_DEBUG
   zlog_debug ("Added TLV %d len %d", tag, len);
 #endif /* EXTREME DEBUG */
   return ISIS_OK;
