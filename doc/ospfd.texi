@@ -568,10 +568,6 @@ redistributed into OSPF (@pxref{OSPF redistribute}).
 @deffnx {OSPF Command} {no distance ospf} {}
 @end deffn
 
-@deffn {Command} {router zebra} {}
-@deffnx {Command} {no router zebra} {}
-@end deffn
-
 @node Showing OSPF information
 @section Showing OSPF information
 
