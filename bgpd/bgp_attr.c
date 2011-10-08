@@ -1027,6 +1027,16 @@ bgp_attr_local_pref (struct peer *peer, bgp_size_t length,
     bgp_notify_send_with_data (peer, BGP_NOTIFY_UPDATE_ERR, BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR, startp, total);
     return -1;
   }
+  /* Length check. */
+  if (length != 4)
+  {
+    zlog (peer->log, LOG_ERR, "LOCAL_PREF attribute length isn't 4 [%u]", length);
+    bgp_notify_send_with_data (peer,
+                               BGP_NOTIFY_UPDATE_ERR,
+                               BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+                               startp, total);
+    return -1;
+  }
 
   /* If it is contained in an UPDATE message that is received from an
      external peer, then this attribute MUST be ignored by the
@@ -1037,10 +1047,7 @@ bgp_attr_local_pref (struct peer *peer, bgp_size_t length,
       return 0;
     }
 
-  if (length == 4) 
-    attr->local_pref = stream_getl (peer->ibuf);
-  else 
-    attr->local_pref = 0;
+  attr->local_pref = stream_getl (peer->ibuf);
 
   /* Set atomic aggregate flag. */
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF);
@@ -1072,11 +1079,11 @@ bgp_attr_atomic (struct peer *peer, bgp_size_t length,
   /* Length check. */
   if (length != 0)
     {
-      zlog (peer->log, LOG_ERR, "Bad atomic aggregate length %d", length);
-
-      bgp_notify_send (peer, 
-		       BGP_NOTIFY_UPDATE_ERR, 
-		       BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
+      zlog (peer->log, LOG_ERR, "ATOMIC_AGGREGATE attribute length isn't 0 [%u]", length);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				 startp, total);
       return -1;
     }
 
@@ -1089,22 +1096,24 @@ bgp_attr_atomic (struct peer *peer, bgp_size_t length,
 /* Aggregator attribute */
 static int
 bgp_attr_aggregator (struct peer *peer, bgp_size_t length,
-		     struct attr *attr, u_char flag)
+		     struct attr *attr, u_char flag, u_char *startp)
 {
   int wantedlen = 6;
   struct attr_extra *attre = bgp_attr_extra_get (attr);
+  bgp_size_t total;
   
+  total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
   /* peer with AS4 will send 4 Byte AS, peer without will send 2 Byte */
   if ( CHECK_FLAG (peer->cap, PEER_CAP_AS4_RCV ) )
     wantedlen = 8;
   
   if (length != wantedlen)
     {
-      zlog (peer->log, LOG_ERR, "Aggregator length is not %d [%d]", wantedlen, length);
-
-      bgp_notify_send (peer,
-		       BGP_NOTIFY_UPDATE_ERR,
-		       BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
+      zlog (peer->log, LOG_ERR, "AGGREGATOR attribute length isn't %u [%u]", wantedlen, length);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				 startp, total);
       return -1;
     }
   
@@ -1762,7 +1771,7 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 	  ret = bgp_attr_atomic (peer, length, attr, flag, startp);
 	  break;
 	case BGP_ATTR_AGGREGATOR:
-	  ret = bgp_attr_aggregator (peer, length, attr, flag);
+	  ret = bgp_attr_aggregator (peer, length, attr, flag, startp);
 	  break;
 	case BGP_ATTR_AS4_AGGREGATOR:
 	  ret = bgp_attr_as4_aggregator (peer, length, attr, &as4_aggregator, &as4_aggregator_addr);
