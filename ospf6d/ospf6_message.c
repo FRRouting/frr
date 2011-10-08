@@ -128,8 +128,7 @@ ospf6_hello_print (struct ospf6_header *oh)
       zlog_debug ("    Neighbor: %s", neighbor);
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    zlog_debug ("Trailing garbage exists");
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 void
@@ -161,8 +160,7 @@ ospf6_dbdesc_print (struct ospf6_header *oh)
        p += sizeof (struct ospf6_lsa_header))
     ospf6_lsa_header_print_raw ((struct ospf6_lsa_header *) p);
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    zlog_debug ("Trailing garbage exists");
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 void
@@ -185,8 +183,7 @@ ospf6_lsreq_print (struct ospf6_header *oh)
                  ospf6_lstype_name (e->type), id, adv_router);
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    zlog_debug ("Trailing garbage exists");
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 void
@@ -211,35 +208,9 @@ ospf6_lsupdate_print (struct ospf6_header *oh)
        p += OSPF6_LSA_SIZE (p))
     {
       ospf6_lsa_header_print_raw ((struct ospf6_lsa_header *) p);
-      if (OSPF6_LSA_SIZE (p) < sizeof (struct ospf6_lsa_header))
-        {
-          zlog_debug ("    Malformed LSA length, quit printing");
-          break;
-        }
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      char buf[32];
-
-      int num = 0;
-      memset (buf, 0, sizeof (buf));
-
-      zlog_debug ("    Trailing garbage exists");
-      while (p < OSPF6_MESSAGE_END (oh))
-        {
-          snprintf (buf, sizeof (buf), "%s %2x", buf, *p++);
-          num++;
-          if (num == 8)
-            {
-              zlog_debug ("    %s", buf);
-              memset (buf, 0, sizeof (buf));
-              num = 0;
-            }
-        }
-      if (num)
-        zlog_debug ("    %s", buf);
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 void
@@ -255,8 +226,7 @@ ospf6_lsack_print (struct ospf6_header *oh)
        p += sizeof (struct ospf6_lsa_header))
     ospf6_lsa_header_print_raw ((struct ospf6_lsa_header *) p);
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    zlog_debug ("Trailing garbage exists");
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 static void
@@ -323,11 +293,7 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
         twoway++;
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 
   /* RouterPriority check */
   if (on->priority != hello->priority)
@@ -560,11 +526,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
         }
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 
   /* Increment sequence number */
   on->dbdesc_seqnum ++;
@@ -772,11 +734,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
         ospf6_lsa_delete (his);
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 
   /* Set sequence number to Master's */
   on->dbdesc_seqnum = ntohl (dbdesc->seqnum);
@@ -912,11 +870,7 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->lsupdate_list);
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 
   /* schedule send lsupdate */
   THREAD_OFF (on->thread_send_lsupdate);
@@ -1357,7 +1311,6 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
 {
   struct ospf6_neighbor *on;
   struct ospf6_lsupdate *lsupdate;
-  unsigned long num;
   char *p;
 
   on = ospf6_neighbor_lookup (oh->router_id, oi);
@@ -1380,37 +1333,16 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
   lsupdate = (struct ospf6_lsupdate *)
     ((caddr_t) oh + sizeof (struct ospf6_header));
 
-  num = ntohl (lsupdate->lsa_number);
-
   /* Process LSAs */
   for (p = (char *) ((caddr_t) lsupdate + sizeof (struct ospf6_lsupdate));
        p < OSPF6_MESSAGE_END (oh) &&
        p + OSPF6_LSA_SIZE (p) <= OSPF6_MESSAGE_END (oh);
        p += OSPF6_LSA_SIZE (p))
     {
-      if (num == 0)
-        break;
-      if (OSPF6_LSA_SIZE (p) < sizeof (struct ospf6_lsa_header))
-        {
-          if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_debug ("Malformed LSA length, quit processing");
-          break;
-        }
-
       ospf6_receive_lsa (on, (struct ospf6_lsa_header *) p);
-      num--;
     }
 
-  if (num != 0)
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Malformed LSA number or LSA length");
-    }
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 
   /* RFC2328 Section 10.9: When the neighbor responds to these requests
      with the proper Link State Update packet(s), the Link state request
@@ -1526,11 +1458,7 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
       ospf6_lsa_delete (his);
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 static u_char *recvbuf = NULL;
@@ -1652,8 +1580,6 @@ ospf6_receive (struct thread *thread)
                  OSPF6_MESSAGE_TYPE_NAME (oh->type), oi->interface->name);
       zlog_debug ("    src: %s", srcname);
       zlog_debug ("    dst: %s", dstname);
-      if (len != ntohs (oh->length))
-        zlog_debug ("Message length does not match actually received: %d", len);
 
       switch (oh->type)
         {
@@ -1673,8 +1599,7 @@ ospf6_receive (struct thread *thread)
             ospf6_lsack_print (oh);
             break;
           default:
-            zlog_debug ("Unknown message");
-            break;
+            assert (0);
         }
     }
 
@@ -1701,9 +1626,7 @@ ospf6_receive (struct thread *thread)
         break;
 
       default:
-        if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
-          zlog_debug ("Unknown message");
-        break;
+        assert (0);
     }
 
   return 0;
