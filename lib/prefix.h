@@ -176,7 +176,7 @@ extern int prefix_ipv4_any (const struct prefix_ipv4 *);
 extern void apply_classful_mask_ipv4 (struct prefix_ipv4 *);
 
 extern u_char ip_masklen (struct in_addr);
-extern void masklen2ip (int, struct in_addr *);
+extern void masklen2ip (const int, struct in_addr *);
 /* returns the network portion of the host address */
 extern in_addr_t ipv4_network_addr (in_addr_t hostaddr, int masklen);
 /* given the address of a host on a network and the network mask length,

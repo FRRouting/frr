@@ -31,6 +31,42 @@
 /* Maskbit. */
 static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 			         0xf8, 0xfc, 0xfe, 0xff};
+static const u_int32_t maskbytes[] =
+{
+  0x00000000, /* /0  0.0.0.0         */
+  0x80000000, /* /1  128.0.0.0       */
+  0xc0000000, /* /2  192.0.0.0       */
+  0xe0000000, /* /3  224.0.0.0       */
+  0xf0000000, /* /4  240.0.0.0       */
+  0xf8000000, /* /5  248.0.0.0       */
+  0xfc000000, /* /6  252.0.0.0       */
+  0xfe000000, /* /7  254.0.0.0       */
+  0xff000000, /* /8  255.0.0.0       */
+  0xff800000, /* /9  255.128.0.0     */
+  0xffc00000, /* /10 255.192.0.0     */
+  0xffe00000, /* /11 255.224.0.0     */
+  0xfff00000, /* /12 255.240.0.0     */
+  0xfff80000, /* /13 255.248.0.0     */
+  0xfffc0000, /* /14 255.252.0.0     */
+  0xfffe0000, /* /15 255.254.0.0     */
+  0xffff0000, /* /16 255.255.0.0     */
+  0xffff8000, /* /17 255.255.128.0   */
+  0xffffc000, /* /18 255.255.192.0   */
+  0xffffe000, /* /19 255.255.224.0   */
+  0xfffff000, /* /20 255.255.240.0   */
+  0xfffff800, /* /21 255.255.248.0   */
+  0xfffffc00, /* /22 255.255.252.0   */
+  0xfffffe00, /* /23 255.255.254.0   */
+  0xffffff00, /* /24 255.255.255.0   */
+  0xffffff80, /* /25 255.255.255.128 */
+  0xffffffc0, /* /26 255.255.255.192 */
+  0xffffffe0, /* /27 255.255.255.224 */
+  0xfffffff0, /* /28 255.255.255.240 */
+  0xfffffff8, /* /29 255.255.255.248 */
+  0xfffffffc, /* /30 255.255.255.252 */
+  0xfffffffe, /* /31 255.255.255.254 */
+  0xffffffff  /* /32 255.255.255.255 */
+};
 
 /* Number of bits in prefix type. */
 #ifndef PNBBY
@@ -263,23 +299,10 @@ str2prefix_ipv4 (const char *str, struct prefix_ipv4 *p)
 
 /* Convert masklen into IP address's netmask. */
 void
-masklen2ip (int masklen, struct in_addr *netmask)
+masklen2ip (const int masklen, struct in_addr *netmask)
 {
-  u_char *pnt;
-  int bit;
-  int offset;
-
-  memset (netmask, 0, sizeof (struct in_addr));
-  pnt = (unsigned char *) netmask;
-
-  offset = masklen / 8;
-  bit = masklen % 8;
-  
-  while (offset--)
-    *pnt++ = 0xff;
-
-  if (bit)
-    *pnt = maskbit[bit];
+  assert (masklen >= 0 && masklen <= 32);
+  netmask->s_addr = maskbytes[masklen];
 }
 
 /* Convert IP address's netmask into integer. We assume netmask is
