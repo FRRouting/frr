@@ -449,9 +449,9 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
   printf ("%s: %s\n", t->name, t->desc);
 
   if (type == BGP_ATTR_MP_REACH_NLRI)
-    ret = bgp_mp_reach_parse (peer, t->len, &attr, &nlri);
+    ret = bgp_mp_reach_parse (peer, t->len, &attr, BGP_ATTR_FLAG_OPTIONAL, BGP_INPUT_PNT (peer), &nlri);
   else
-    ret = bgp_mp_unreach_parse (peer, t->len, &nlri);
+    ret = bgp_mp_unreach_parse (peer, t->len, BGP_ATTR_FLAG_OPTIONAL, BGP_INPUT_PNT (peer), &nlri);
 
   if (!ret)
     {

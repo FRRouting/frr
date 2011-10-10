@@ -1375,8 +1375,8 @@ bgp_attr_cluster_list (struct peer *peer, bgp_size_t length,
 
 /* Multiprotocol reachability information parse. */
 int
-bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
-		    struct bgp_nlri *mp_update)
+bgp_mp_reach_parse (struct peer *peer, const bgp_size_t length,
+                    struct attr *attr, const u_char flag, u_char *startp, struct bgp_nlri *mp_update)
 {
   afi_t afi;
   safi_t safi;
@@ -1385,7 +1385,21 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
   int ret;
   struct stream *s;
   struct attr_extra *attre = bgp_attr_extra_get(attr);
-  
+  bgp_size_t total;
+
+  total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
+  /* Flag checks. */
+  if (flag != BGP_ATTR_FLAG_OPTIONAL)
+  {
+    if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
+      zlog (peer->log, LOG_ERR, "MP_REACH_NLRI attribute must be flagged as \"optional\" (%u)", flag);
+    if (CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+      zlog (peer->log, LOG_ERR, "MP_REACH_NLRI attribute must not be flagged as \"transitive\" (%u)", flag);
+    if (CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
+      zlog (peer->log, LOG_ERR, "MP_REACH_NLRI attribute must not be flagged as \"partial\" (%u)", flag);
+    bgp_notify_send_with_data (peer, BGP_NOTIFY_UPDATE_ERR, BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR, startp, total);
+    return -1;
+  }
   /* Set end of packet. */
   s = BGP_INPUT(peer);
   start = stream_get_getp(s);
@@ -1509,7 +1523,8 @@ bgp_mp_reach_parse (struct peer *peer, bgp_size_t length, struct attr *attr,
 
 /* Multiprotocol unreachable parse */
 int
-bgp_mp_unreach_parse (struct peer *peer, bgp_size_t length, 
+bgp_mp_unreach_parse (struct peer *peer, const bgp_size_t length,
+                      const u_char flag, u_char *startp,
 		      struct bgp_nlri *mp_withdraw)
 {
   struct stream *s;
@@ -1517,6 +1532,21 @@ bgp_mp_unreach_parse (struct peer *peer, bgp_size_t length,
   safi_t safi;
   u_int16_t withdraw_len;
   int ret;
+  bgp_size_t total;
+
+  total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
+  /* Flag checks. */
+  if (flag != BGP_ATTR_FLAG_OPTIONAL)
+  {
+    if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
+      zlog (peer->log, LOG_ERR, "MP_UNREACH_NLRI attribute must be flagged as \"optional\" (%u)", flag);
+    if (CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+      zlog (peer->log, LOG_ERR, "MP_UNREACH_NLRI attribute must not be flagged as \"transitive\" (%u)", flag);
+    if (CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
+      zlog (peer->log, LOG_ERR, "MP_UNREACH_NLRI attribute must not be flagged as \"partial\" (%u)", flag);
+    bgp_notify_send_with_data (peer, BGP_NOTIFY_UPDATE_ERR, BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR, startp, total);
+    return -1;
+  }
 
   s = peer->ibuf;
   
@@ -1786,10 +1816,10 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 	  ret = bgp_attr_cluster_list (peer, length, attr, flag, startp);
 	  break;
 	case BGP_ATTR_MP_REACH_NLRI:
-	  ret = bgp_mp_reach_parse (peer, length, attr, mp_update);
+	  ret = bgp_mp_reach_parse (peer, length, attr, flag, startp, mp_update);
 	  break;
 	case BGP_ATTR_MP_UNREACH_NLRI:
-	  ret = bgp_mp_unreach_parse (peer, length, mp_withdraw);
+	  ret = bgp_mp_unreach_parse (peer, length, flag, startp, mp_withdraw);
 	  break;
 	case BGP_ATTR_EXT_COMMUNITIES:
 	  ret = bgp_attr_ext_communities (peer, length, attr, flag);
