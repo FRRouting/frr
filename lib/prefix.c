@@ -31,7 +31,7 @@
 /* Maskbit. */
 static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 			         0xf8, 0xfc, 0xfe, 0xff};
-static const u_int32_t maskbytes[] =
+static const u_int32_t maskbytes_host[] =
 {
   0x00000000, /* /0  0.0.0.0         */
   0x80000000, /* /1  128.0.0.0       */
@@ -65,6 +65,42 @@ static const u_int32_t maskbytes[] =
   0xfffffff8, /* /29 255.255.255.248 */
   0xfffffffc, /* /30 255.255.255.252 */
   0xfffffffe, /* /31 255.255.255.254 */
+  0xffffffff  /* /32 255.255.255.255 */
+};
+static const u_int32_t maskbytes_network[] =
+{
+  0x00000000, /* /0  0.0.0.0         */
+  0x00000080, /* /1  128.0.0.0       */
+  0x000000c0, /* /2  192.0.0.0       */
+  0x000000e0, /* /3  224.0.0.0       */
+  0x000000f0, /* /4  240.0.0.0       */
+  0x000000f8, /* /5  248.0.0.0       */
+  0x000000fc, /* /6  252.0.0.0       */
+  0x000000fe, /* /7  254.0.0.0       */
+  0x000000ff, /* /8  255.0.0.0       */
+  0x000080ff, /* /9  255.128.0.0     */
+  0x0000c0ff, /* /10 255.192.0.0     */
+  0x0000e0ff, /* /11 255.224.0.0     */
+  0x0000f0ff, /* /12 255.240.0.0     */
+  0x0000f8ff, /* /13 255.248.0.0     */
+  0x0000fcff, /* /14 255.252.0.0     */
+  0x0000feff, /* /15 255.254.0.0     */
+  0x0000ffff, /* /16 255.255.0.0     */
+  0x0080ffff, /* /17 255.255.128.0   */
+  0x00c0ffff, /* /18 255.255.192.0   */
+  0x00e0ffff, /* /19 255.255.224.0   */
+  0x00f0ffff, /* /20 255.255.240.0   */
+  0x00f8ffff, /* /21 255.255.248.0   */
+  0x00fcffff, /* /22 255.255.252.0   */
+  0x00feffff, /* /23 255.255.254.0   */
+  0x00ffffff, /* /24 255.255.255.0   */
+  0x80ffffff, /* /25 255.255.255.128 */
+  0xc0ffffff, /* /26 255.255.255.192 */
+  0xe0ffffff, /* /27 255.255.255.224 */
+  0xf0ffffff, /* /28 255.255.255.240 */
+  0xf8ffffff, /* /29 255.255.255.248 */
+  0xfcffffff, /* /30 255.255.255.252 */
+  0xfeffffff, /* /31 255.255.255.254 */
   0xffffffff  /* /32 255.255.255.255 */
 };
 
@@ -297,12 +333,12 @@ str2prefix_ipv4 (const char *str, struct prefix_ipv4 *p)
   return ret;
 }
 
-/* Convert masklen into IP address's netmask. */
+/* Convert masklen into IP address's netmask (network byte order). */
 void
 masklen2ip (const int masklen, struct in_addr *netmask)
 {
   assert (masklen >= 0 && masklen <= 32);
-  netmask->s_addr = maskbytes[masklen];
+  netmask->s_addr = maskbytes_network[masklen];
 }
 
 /* Convert IP address's netmask into integer. We assume netmask is
