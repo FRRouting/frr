@@ -712,7 +712,7 @@ bgp_attr_origin (struct peer *peer, bgp_size_t length,
      with the Attribute Type Code, then the Error Subcode is set to
      Attribute Flags Error.  The Data field contains the erroneous
      attribute (type, length and value). */
-  if (flag != BGP_ATTR_FLAG_TRANS)
+  if ((flag & ~BGP_ATTR_FLAG_EXTLEN) != BGP_ATTR_FLAG_TRANS)
   {
     if (CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
       zlog (peer->log, LOG_ERR, "ORIGIN attribute must not be flagged as \"optional\" (%u)", flag);
@@ -915,7 +915,7 @@ bgp_attr_nexthop (struct peer *peer, bgp_size_t length,
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
 
   /* Flags check. */
-  if (flag != BGP_ATTR_FLAG_TRANS)
+  if ((flag & ~BGP_ATTR_FLAG_EXTLEN) != BGP_ATTR_FLAG_TRANS)
   {
     if (CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
       zlog (peer->log, LOG_ERR, "NEXT_HOP attribute must not be flagged as \"optional\" (%u)", flag);
@@ -975,7 +975,7 @@ bgp_attr_med (struct peer *peer, bgp_size_t length,
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
 
   /* Flag checks. */
-  if (flag != BGP_ATTR_FLAG_OPTIONAL)
+  if ((flag & ~BGP_ATTR_FLAG_EXTLEN) != BGP_ATTR_FLAG_OPTIONAL)
   {
     if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
       zlog (peer->log, LOG_ERR, "MULTI_EXIT_DISC attribute must be flagged as \"optional\" (%u)", flag);
@@ -1016,7 +1016,7 @@ bgp_attr_local_pref (struct peer *peer, bgp_size_t length,
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
   /* Flag checks. */
-  if (flag != BGP_ATTR_FLAG_TRANS)
+  if ((flag & ~BGP_ATTR_FLAG_EXTLEN) != BGP_ATTR_FLAG_TRANS)
   {
     if (CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
       zlog (peer->log, LOG_ERR, "LOCAL_PREF attribute must not be flagged as \"optional\" (%u)", flag);
@@ -1057,7 +1057,7 @@ bgp_attr_atomic (struct peer *peer, bgp_size_t length,
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
   /* Flag checks. */
-  if (flag != BGP_ATTR_FLAG_TRANS)
+  if ((flag & ~BGP_ATTR_FLAG_EXTLEN) != BGP_ATTR_FLAG_TRANS)
   {
     if (CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
       zlog (peer->log, LOG_ERR, "ATOMIC_AGGREGATE attribute must not be flagged as \"optional\" (%u)", flag);
