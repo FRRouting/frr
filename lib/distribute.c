@@ -407,7 +407,7 @@ ALIAS (distribute_list,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 
-DEFUN (no_districute_list, no_distribute_list_cmd,
+DEFUN (no_distribute_list, no_distribute_list_cmd,
        "no distribute-list WORD (in|out) WORD",
        NO_STR
        "Filter networks in routing updates\n"
@@ -439,7 +439,7 @@ DEFUN (no_districute_list, no_distribute_list_cmd,
   return CMD_SUCCESS;
 }       
 
-ALIAS (no_districute_list, no_ipv6_distribute_list_cmd,
+ALIAS (no_distribute_list, no_ipv6_distribute_list_cmd,
        "no distribute-list WORD (in|out) WORD",
        NO_STR
        "Filter networks in routing updates\n"
@@ -448,7 +448,7 @@ ALIAS (no_districute_list, no_ipv6_distribute_list_cmd,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 
-DEFUN (districute_list_prefix_all,
+DEFUN (distribute_list_prefix_all,
        distribute_list_prefix_all_cmd,
        "distribute-list prefix WORD (in|out)",
        "Filter networks in routing updates\n"
@@ -478,7 +478,7 @@ DEFUN (districute_list_prefix_all,
   return CMD_SUCCESS;
 }       
 
-ALIAS (districute_list_prefix_all,
+ALIAS (distribute_list_prefix_all,
        ipv6_distribute_list_prefix_all_cmd,
        "distribute-list prefix WORD (in|out)",
        "Filter networks in routing updates\n"
@@ -487,7 +487,7 @@ ALIAS (districute_list_prefix_all,
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n")
 
-DEFUN (no_districute_list_prefix_all,
+DEFUN (no_distribute_list_prefix_all,
        no_distribute_list_prefix_all_cmd,
        "no distribute-list prefix WORD (in|out)",
        NO_STR
@@ -521,7 +521,7 @@ DEFUN (no_districute_list_prefix_all,
   return CMD_SUCCESS;
 }       
 
-ALIAS (no_districute_list_prefix_all,
+ALIAS (no_distribute_list_prefix_all,
        no_ipv6_distribute_list_prefix_all_cmd,
        "no distribute-list prefix WORD (in|out)",
        NO_STR
@@ -531,7 +531,7 @@ ALIAS (no_districute_list_prefix_all,
        "Filter incoming routing updates\n"
        "Filter outgoing routing updates\n")
 
-DEFUN (districute_list_prefix, distribute_list_prefix_cmd,
+DEFUN (distribute_list_prefix, distribute_list_prefix_cmd,
        "distribute-list prefix WORD (in|out) WORD",
        "Filter networks in routing updates\n"
        "Filter prefixes in routing updates\n"
@@ -561,7 +561,7 @@ DEFUN (districute_list_prefix, distribute_list_prefix_cmd,
   return CMD_SUCCESS;
 }       
 
-ALIAS (districute_list_prefix, ipv6_distribute_list_prefix_cmd,
+ALIAS (distribute_list_prefix, ipv6_distribute_list_prefix_cmd,
        "distribute-list prefix WORD (in|out) WORD",
        "Filter networks in routing updates\n"
        "Filter prefixes in routing updates\n"
@@ -570,7 +570,7 @@ ALIAS (districute_list_prefix, ipv6_distribute_list_prefix_cmd,
        "Filter outgoing routing updates\n"
        "Interface name\n")
 
-DEFUN (no_districute_list_prefix, no_distribute_list_prefix_cmd,
+DEFUN (no_distribute_list_prefix, no_distribute_list_prefix_cmd,
        "no distribute-list prefix WORD (in|out) WORD",
        NO_STR
        "Filter networks in routing updates\n"
@@ -604,7 +604,7 @@ DEFUN (no_districute_list_prefix, no_distribute_list_prefix_cmd,
   return CMD_SUCCESS;
 }       
 
-ALIAS (no_districute_list_prefix, no_ipv6_distribute_list_prefix_cmd,
+ALIAS (no_distribute_list_prefix, no_ipv6_distribute_list_prefix_cmd,
        "no distribute-list prefix WORD (in|out) WORD",
        NO_STR
        "Filter networks in routing updates\n"
