@@ -44,13 +44,6 @@ extern unsigned char conf_debug_ospf6_message[];
 #define OSPF6_MESSAGE_TYPE_LSACK    0x5  /* Flooding acknowledgment */
 #define OSPF6_MESSAGE_TYPE_ALL      0x6  /* For debug option */
 
-#define OSPF6_MESSAGE_TYPE_CANONICAL(T) \
-  ((T) > OSPF6_MESSAGE_TYPE_LSACK ? OSPF6_MESSAGE_TYPE_UNKNOWN : (T))
-
-extern const char *ospf6_message_type_str[];
-#define OSPF6_MESSAGE_TYPE_NAME(T) \
-  (ospf6_message_type_str[ OSPF6_MESSAGE_TYPE_CANONICAL (T) ])
-
 /* OSPFv3 packet header */
 #define OSPF6_HEADER_SIZE                     16U
 struct ospf6_header
