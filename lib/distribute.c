@@ -304,7 +304,6 @@ DEFUN (distribute_list_all,
        "Filter outgoing routing updates\n")
 {
   enum distribute_type type;
-  struct distribute *dist;
 
   /* Check of distribute list type. */
   if (strncmp (argv[1], "i", 1) == 0)
@@ -319,7 +318,7 @@ DEFUN (distribute_list_all,
     }
 
   /* Get interface name corresponding distribute list. */
-  dist = distribute_list_set (NULL, type, argv[0]);
+  distribute_list_set (NULL, type, argv[0]);
 
   return CMD_SUCCESS;
 }
@@ -384,7 +383,6 @@ DEFUN (distribute_list,
        "Interface name\n")
 {
   enum distribute_type type;
-  struct distribute *dist;
 
   /* Check of distribute list type. */
   if (strncmp (argv[1], "i", 1) == 0)
@@ -398,7 +396,7 @@ DEFUN (distribute_list,
     }
 
   /* Get interface name corresponding distribute list. */
-  dist = distribute_list_set (argv[2], type, argv[0]);
+  distribute_list_set (argv[2], type, argv[0]);
 
   return CMD_SUCCESS;
 }       
@@ -463,7 +461,6 @@ DEFUN (distribute_list_prefix_all,
        "Filter outgoing routing updates\n")
 {
   enum distribute_type type;
-  struct distribute *dist;
 
   /* Check of distribute list type. */
   if (strncmp (argv[1], "i", 1) == 0)
@@ -478,7 +475,7 @@ DEFUN (distribute_list_prefix_all,
     }
 
   /* Get interface name corresponding distribute list. */
-  dist = distribute_list_prefix_set (NULL, type, argv[0]);
+  distribute_list_prefix_set (NULL, type, argv[0]);
 
   return CMD_SUCCESS;
 }       
@@ -546,7 +543,6 @@ DEFUN (distribute_list_prefix, distribute_list_prefix_cmd,
        "Interface name\n")
 {
   enum distribute_type type;
-  struct distribute *dist;
 
   /* Check of distribute list type. */
   if (strncmp (argv[1], "i", 1) == 0)
@@ -561,7 +557,7 @@ DEFUN (distribute_list_prefix, distribute_list_prefix_cmd,
     }
 
   /* Get interface name corresponding distribute list. */
-  dist = distribute_list_prefix_set (argv[2], type, argv[0]);
+  distribute_list_prefix_set (argv[2], type, argv[0]);
 
   return CMD_SUCCESS;
 }       
