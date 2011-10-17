@@ -199,7 +199,7 @@ extern void apply_mask_ipv6 (struct prefix_ipv6 *);
 	*((struct prefix_ipv6 *)(DST)) = *((const struct prefix_ipv6 *)(SRC));
 
 extern int ip6_masklen (struct in6_addr);
-extern void masklen2ip6 (int, struct in6_addr *);
+extern void masklen2ip6 (const int, struct in6_addr *);
 
 extern void str2in6_addr (const char *, struct in6_addr *);
 extern const char *inet6_ntoa (struct in6_addr);
