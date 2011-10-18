@@ -1360,7 +1360,7 @@ bgp_attr_originator_id (struct peer *peer, bgp_size_t length,
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
   /* Flag checks. */
-  if (flag != BGP_ATTR_FLAG_OPTIONAL)
+  if ((flag & ~BGP_ATTR_FLAG_EXTLEN) != BGP_ATTR_FLAG_OPTIONAL)
   {
     if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
       zlog (peer->log, LOG_ERR, "ORIGINATOR_ID attribute must be flagged as \"optional\" (%u)", flag);
@@ -1399,7 +1399,7 @@ bgp_attr_cluster_list (struct peer *peer, bgp_size_t length,
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
   /* Flag checks. */
-  if (flag != BGP_ATTR_FLAG_OPTIONAL)
+  if ((flag & ~BGP_ATTR_FLAG_EXTLEN) != BGP_ATTR_FLAG_OPTIONAL)
   {
     if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
       zlog (peer->log, LOG_ERR, "CLUSTER_LIST attribute must be flagged as \"optional\" (%u)", flag);
@@ -1448,7 +1448,7 @@ bgp_mp_reach_parse (struct peer *peer, const bgp_size_t length,
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
   /* Flag checks. */
-  if (flag != BGP_ATTR_FLAG_OPTIONAL)
+  if ((flag & ~BGP_ATTR_FLAG_EXTLEN) != BGP_ATTR_FLAG_OPTIONAL)
   {
     if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
       zlog (peer->log, LOG_ERR, "MP_REACH_NLRI attribute must be flagged as \"optional\" (%u)", flag);
@@ -1596,7 +1596,7 @@ bgp_mp_unreach_parse (struct peer *peer, const bgp_size_t length,
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
   /* Flag checks. */
-  if (flag != BGP_ATTR_FLAG_OPTIONAL)
+  if ((flag & ~BGP_ATTR_FLAG_EXTLEN) != BGP_ATTR_FLAG_OPTIONAL)
   {
     if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
       zlog (peer->log, LOG_ERR, "MP_UNREACH_NLRI attribute must be flagged as \"optional\" (%u)", flag);
