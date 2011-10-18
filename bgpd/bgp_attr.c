@@ -813,7 +813,7 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
       if ((flag & BGP_ATTR_FLAG_OPTIONAL) != (require & BGP_ATTR_FLAG_OPTIONAL))
         zlog (peer->log, LOG_ERR,
             "%s attribute flag must %sbe optional %d", path_type,
-            (flag & BGP_ATTR_FLAG_OPTIONAL) ? "not " : "", flag) ;
+            CHECK_FLAG (require, BGP_ATTR_FLAG_OPTIONAL) ? "" : "not ", flag);
 
       bgp_notify_send_with_data (peer, 
 				 BGP_NOTIFY_UPDATE_ERR, 
