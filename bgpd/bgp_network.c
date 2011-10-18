@@ -328,12 +328,16 @@ bgp_connect (struct peer *peer)
   sockopt_reuseport (peer->fd);
   
 #ifdef IPTOS_PREC_INTERNETCONTROL
+  if (bgpd_privs.change (ZPRIVS_RAISE))
+    zlog_err ("%s: could not raise privs", __func__);
   if (sockunion_family (&peer->su) == AF_INET)
     setsockopt_ipv4_tos (peer->fd, IPTOS_PREC_INTERNETCONTROL);
 # ifdef HAVE_IPV6
   else if (sockunion_family (&peer->su) == AF_INET6)
     setsockopt_ipv6_tclass (peer->fd, IPTOS_PREC_INTERNETCONTROL);
 # endif
+  if (bgpd_privs.change (ZPRIVS_LOWER))
+    zlog_err ("%s: could not lower privs", __func__);
 #endif
 
   if (peer->password)
@@ -390,6 +394,9 @@ bgp_listener (int sock, struct sockaddr *sa, socklen_t salen)
   sockopt_reuseaddr (sock);
   sockopt_reuseport (sock);
 
+  if (bgpd_privs.change (ZPRIVS_RAISE))
+    zlog_err ("%s: could not raise privs", __func__);
+
 #ifdef IPTOS_PREC_INTERNETCONTROL
   if (sa->sa_family == AF_INET)
     setsockopt_ipv4_tos (sock, IPTOS_PREC_INTERNETCONTROL);
@@ -408,13 +415,10 @@ bgp_listener (int sock, struct sockaddr *sa, socklen_t salen)
   }
 #endif
 
-  if (bgpd_privs.change (ZPRIVS_RAISE) )
-    zlog_err ("bgp_socket: could not raise privs");
-
   ret = bind (sock, sa, salen);
   en = errno;
-  if (bgpd_privs.change (ZPRIVS_LOWER) )
-    zlog_err ("bgp_bind_address: could not lower privs");
+  if (bgpd_privs.change (ZPRIVS_LOWER))
+    zlog_err ("%s: could not lower privs", __func__);
 
   if (ret < 0)
     {
