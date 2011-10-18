@@ -545,27 +545,12 @@ ip_masklen (struct in_addr netmask)
   return len;
 }
 
-/* Apply mask to IPv4 prefix. */
+/* Apply mask to IPv4 prefix (network byte order). */
 void
 apply_mask_ipv4 (struct prefix_ipv4 *p)
 {
-  u_char *pnt;
-  int index;
-  int offset;
-
-  index = p->prefixlen / 8;
-
-  if (index < 4)
-    {
-      pnt = (u_char *) &p->prefix;
-      offset = p->prefixlen % 8;
-
-      pnt[index] &= maskbit[offset];
-      index++;
-
-      while (index < 4)
-	pnt[index++] = 0;
-    }
+  assert (p->prefixlen >= 0 && p->prefixlen <= IPV4_MAX_BITLEN);
+  p->prefix.s_addr &= maskbytes_network[p->prefixlen];
 }
 
 /* If prefix is 0.0.0.0/0 then return 1 else return 0. */
