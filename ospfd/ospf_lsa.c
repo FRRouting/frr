@@ -3684,7 +3684,7 @@ ospf_refresher_register_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
       lsa->refresh_list = index;
       if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
         zlog_debug ("LSA[Refresh:%s]: ospf_refresher_register_lsa(): "
-                   "setting refresh_list on lsa %p (slod %d)", 
+                   "setting refresh_list on lsa %p (index %u)", 
                    inet_ntoa (lsa->data->id), lsa, index);
     }
 }
