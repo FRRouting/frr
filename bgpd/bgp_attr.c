@@ -1160,6 +1160,23 @@ bgp_attr_aggregator (struct peer *peer, bgp_size_t length,
   bgp_size_t total;
   
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
+  /* Flags check. */
+  if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
+  {
+    zlog (peer->log, LOG_ERR,
+          "AGGREGATOR attribute must be flagged as \"optional\" (%u)", flag);
+    return bgp_attr_malformed (peer, BGP_ATTR_AGGREGATOR, flag,
+                               BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+                               startp, total);
+  }
+  if (! CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+  {
+    zlog (peer->log, LOG_ERR,
+          "AGGREGATOR attribute must be flagged as \"transitive\" (%u)", flag);
+    return bgp_attr_malformed (peer, BGP_ATTR_AGGREGATOR, flag,
+                               BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+                               startp, total);
+  }
   /* peer with AS4 will send 4 Byte AS, peer without will send 2 Byte */
   if (CHECK_FLAG (peer->cap, PEER_CAP_AS4_RCV))
     wantedlen = 8;
