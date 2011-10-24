@@ -2913,7 +2913,7 @@ ospf_maxage_lsa_remover (struct thread *thread)
           }
 
         /* Remove LSA from the LSDB */
-        if (CHECK_FLAG (lsa->flags, OSPF_LSA_SELF))
+        if (IS_LSA_SELF (lsa))
           if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
             zlog_debug ("LSA[Type%d:%s]: LSA 0x%lx is self-oririnated: ",
                        lsa->data->type, inet_ntoa (lsa->data->id), (u_long)lsa);
@@ -3457,7 +3457,7 @@ ospf_lsa_is_self_originated (struct ospf *ospf, struct ospf_lsa *lsa)
 
   /* This LSA is already checked. */
   if (CHECK_FLAG (lsa->flags, OSPF_LSA_SELF_CHECKED))
-    return CHECK_FLAG (lsa->flags, OSPF_LSA_SELF);
+    return IS_LSA_SELF (lsa);
 
   /* Make sure LSA is self-checked. */
   SET_FLAG (lsa->flags, OSPF_LSA_SELF_CHECKED);
@@ -3482,11 +3482,11 @@ ospf_lsa_is_self_originated (struct ospf *ospf, struct ospf_lsa *lsa)
 	      {
 		/* to make it easier later */
 		SET_FLAG (lsa->flags, OSPF_LSA_SELF);
-		return CHECK_FLAG (lsa->flags, OSPF_LSA_SELF);
+		return IS_LSA_SELF (lsa);
 	      }
       }
 
-  return CHECK_FLAG (lsa->flags, OSPF_LSA_SELF);
+  return IS_LSA_SELF (lsa);
 }
 
 /* Get unique Link State ID. */
@@ -3607,7 +3607,7 @@ static void
 ospf_lsa_refresh (struct ospf *ospf, struct ospf_lsa *lsa)
 {
   struct external_info *ei;
-  assert (CHECK_FLAG (lsa->flags, OSPF_LSA_SELF));
+  assert (IS_LSA_SELF (lsa));
 
   switch (lsa->data->type)
     {
@@ -3650,7 +3650,7 @@ ospf_refresher_register_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
 {
   u_int16_t index, current_index;
   
-  assert (CHECK_FLAG (lsa->flags, OSPF_LSA_SELF));
+  assert (IS_LSA_SELF (lsa));
 
   if (lsa->refresh_list < 0)
     {
@@ -3692,7 +3692,7 @@ ospf_refresher_register_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
 void
 ospf_refresher_unregister_lsa (struct ospf *ospf, struct ospf_lsa *lsa)
 {
-  assert (CHECK_FLAG (lsa->flags, OSPF_LSA_SELF));
+  assert (IS_LSA_SELF (lsa));
   if (lsa->refresh_list >= 0)
     {
       struct list *refresh_list = ospf->lsa_refresh_queue.qs[lsa->refresh_list];
