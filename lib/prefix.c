@@ -371,8 +371,8 @@ prefix_cmp (const struct prefix *p1, const struct prefix *p2)
   if (p1->family != p2->family || p1->prefixlen != p2->prefixlen)
     return 1;
 
-  offset = p1->prefixlen / 8;
-  shift = p1->prefixlen % 8;
+  offset = p1->prefixlen / PNBBY;
+  shift = p1->prefixlen % PNBBY;
 
   if (shift)
     if (maskbit[shift] & (pp1[offset] ^ pp2[offset]))
@@ -509,7 +509,7 @@ str2prefix_ipv4 (const char *str, struct prefix_ipv4 *p)
 void
 masklen2ip (const int masklen, struct in_addr *netmask)
 {
-  assert (masklen >= 0 && masklen <= 32);
+  assert (masklen >= 0 && masklen <= IPV4_MAX_BITLEN);
   netmask->s_addr = maskbytes_network[masklen];
 }
 
@@ -612,7 +612,7 @@ str2prefix_ipv6 (const char *str, struct prefix_ipv6 *p)
       if (ret == 0)
 	return 0;
       plen = (u_char) atoi (++pnt);
-      if (plen > 128)
+      if (plen > IPV6_MAX_BITLEN)
 	return 0;
       p->prefixlen = plen;
     }
@@ -632,13 +632,13 @@ ip6_masklen (struct in6_addr netmask)
   
   pnt = (unsigned char *) & netmask;
 
-  while ((*pnt == 0xff) && len < 128) 
+  while ((*pnt == 0xff) && len < IPV6_MAX_BITLEN)
     {
       len += 8;
       pnt++;
     } 
   
-  if (len < 128) 
+  if (len < IPV6_MAX_BITLEN)
     {
       val = *pnt;
       while (val) 
@@ -653,7 +653,7 @@ ip6_masklen (struct in6_addr netmask)
 void
 masklen2ip6 (const int masklen, struct in6_addr *netmask)
 {
-  assert (masklen >=0 && masklen <= 128);
+  assert (masklen >= 0 && masklen <= IPV6_MAX_BITLEN);
   memcpy (netmask, maskbytes6 + masklen, sizeof (struct in6_addr));
 }
 
