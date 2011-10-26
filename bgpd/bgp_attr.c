@@ -1396,7 +1396,7 @@ bgp_attr_originator_id (struct peer *peer, bgp_size_t length,
 
       return bgp_attr_malformed (peer, BGP_ATTR_ORIGINATOR_ID, flag,
                                  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
-                                 NULL, 0);
+                                 startp, total);
     }
 
   (bgp_attr_extra_get (attr))->originator_id.s_addr 
@@ -1435,7 +1435,7 @@ bgp_attr_cluster_list (struct peer *peer, bgp_size_t length,
 
       return bgp_attr_malformed (peer, BGP_ATTR_CLUSTER_LIST, flag,
                                  BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
-                                 NULL, 0);
+                                 startp, total);
     }
 
   (bgp_attr_extra_get (attr))->cluster 
