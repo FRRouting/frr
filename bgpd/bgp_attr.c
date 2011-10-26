@@ -1354,9 +1354,10 @@ bgp_attr_originator_id (struct peer *peer, bgp_size_t length,
     {
       zlog (peer->log, LOG_ERR, "Bad originator ID length %d", length);
 
-      bgp_notify_send (peer, 
-		       BGP_NOTIFY_UPDATE_ERR, 
-		       BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				 startp, total);
       return -1;
     }
 
@@ -1388,9 +1389,10 @@ bgp_attr_cluster_list (struct peer *peer, bgp_size_t length,
     {
       zlog (peer->log, LOG_ERR, "Bad cluster list length %d", length);
 
-      bgp_notify_send (peer, 
-		       BGP_NOTIFY_UPDATE_ERR, 
-		       BGP_NOTIFY_UPDATE_ATTR_LENG_ERR);
+      bgp_notify_send_with_data (peer,
+				 BGP_NOTIFY_UPDATE_ERR,
+				 BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+				 startp, total);
       return -1;
     }
 
