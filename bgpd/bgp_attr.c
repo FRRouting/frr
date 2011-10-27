@@ -826,7 +826,7 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
 
   /* Check the attribute flags                                          */
-  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
+  if (!as4_path && CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
     {
       zlog (peer->log, LOG_ERR,
 	    "AS_PATH attribute must not be flagged as \"partial\" (%u)", flag);
