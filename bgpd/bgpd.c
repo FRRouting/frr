@@ -4844,6 +4844,11 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
       && ! peer->af_group[afi][safi])
     vty_out (vty, " neighbor %s route-server-client%s", addr, VTY_NEWLINE);
 
+  /* Nexthop-local unchanged. */
+  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
+      && ! peer->af_group[afi][safi])
+    vty_out (vty, " neighbor %s nexthop-local unchanged%s", addr, VTY_NEWLINE);
+
   /* Allow AS in.  */
   if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_ALLOWAS_IN))
     if (! peer_group_active (peer)
