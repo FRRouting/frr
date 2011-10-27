@@ -320,7 +320,7 @@ ospf_flood (struct ospf *ospf, struct ospf_neighbor *nbr,
      MinLSArrival seconds have elapsed. */  
 
   if (! (new = ospf_lsa_install (ospf, nbr->oi, new)))
-    return 0; /* unknown LSA type */
+    return -1; /* unknown LSA type or any other error condition */
 
   /* Acknowledge the receipt of the LSA by sending a Link State
      Acknowledgment packet back out the receiving interface. */
