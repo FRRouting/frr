@@ -4215,18 +4215,10 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
   if (sort == clear_as)
     {
       as_t as;
-      unsigned long as_ul;
       int find = 0;
 
-      VTY_GET_LONG ("AS", as_ul, arg);
+      VTY_GET_INTEGER_RANGE ("AS", as, arg, 1, BGP_AS4_MAX);
       
-      if (!as_ul)
-	{
-	  vty_out (vty, "Invalid AS number%s", VTY_NEWLINE); 
-	  return CMD_WARNING;
-	}
-      as = (as_t) as_ul;
-
       for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
 	  if (peer->as != as) 
