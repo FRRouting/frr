@@ -447,6 +447,7 @@ ospf6_asbr_redistribute_add (int type, int ifindex, struct prefix *prefix,
       memset (&troute, 0, sizeof (troute));
       memset (&tinfo, 0, sizeof (tinfo));
       troute.route_option = &tinfo;
+      tinfo.ifindex = ifindex;
 
       ret = route_map_apply (ospf6->rmap[type].map, prefix,
                              RMAP_OSPF6, &troute);
@@ -813,6 +814,54 @@ ospf6_routemap_rule_match_address_prefixlist_cmd =
   ospf6_routemap_rule_match_address_prefixlist_free,
 };
 
+/* `match interface IFNAME' */
+/* Match function should return 1 if match is success else return
+   zero. */
+static route_map_result_t
+ospf6_routemap_rule_match_interface (void *rule, struct prefix *prefix,
+		       route_map_object_t type, void *object)
+{
+  struct interface   *ifp;
+  struct ospf6_external_info *ei;
+
+  if (type == RMAP_OSPF6)
+    {
+      ei = ((struct ospf6_route *) object)->route_option;
+      ifp = if_lookup_by_name ((char *)rule);
+
+      if (ifp != NULL
+      &&  ei->ifindex == ifp->ifindex)
+          return RMAP_MATCH;
+    }
+
+  return RMAP_NOMATCH;
+}
+
+/* Route map `interface' match statement.  `arg' should be
+   interface name. */
+static void *
+ospf6_routemap_rule_match_interface_compile (const char *arg)
+{
+  return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+/* Free route map's compiled `interface' value. */
+static void
+ospf6_routemap_rule_match_interface_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for interface matching. */
+struct route_map_rule_cmd
+ospf6_routemap_rule_match_interface_cmd =
+{
+  "interface",
+  ospf6_routemap_rule_match_interface,
+  ospf6_routemap_rule_match_interface_compile,
+  ospf6_routemap_rule_match_interface_free
+};
+
 static route_map_result_t
 ospf6_routemap_rule_set_metric_type (void *rule, struct prefix *prefix,
                                      route_map_object_t type, void *object)
@@ -990,6 +1039,39 @@ DEFUN (ospf6_routemap_no_match_address_prefixlist,
   return route_map_command_status (vty, ret);
 }
 
+/* "match interface" */
+DEFUN (ospf6_routemap_match_interface,
+       ospf6_routemap_match_interface_cmd,
+       "match interface WORD",
+       MATCH_STR
+       "Match first hop interface of route\n"
+       "Interface name\n")
+{
+  return route_map_add_match ((struct route_map_index *) vty->index,
+                              "interface", argv[0]);
+}
+
+/* "no match interface WORD" */
+DEFUN (ospf6_routemap_no_match_interface,
+       ospf6_routemap_no_match_interface_cmd,
+       "no match interface",
+       MATCH_STR
+       NO_STR
+       "Match first hop interface of route\n")
+{
+  int ret = route_map_delete_match ((struct route_map_index *) vty->index,
+                                    "interface", (argc == 0) ? NULL : argv[0]);
+  return route_map_command_status (vty, ret);
+}
+
+ALIAS (ospf6_routemap_no_match_interface,
+       ospf6_routemap_no_match_interface_val_cmd,
+       "no match interface WORD",
+       MATCH_STR
+       NO_STR
+       "Match first hop interface of route\n"
+       "Interface name\n")
+
 /* add "set metric-type" */
 DEFUN (ospf6_routemap_set_metric_type,
        ospf6_routemap_set_metric_type_cmd,
@@ -1082,6 +1164,8 @@ ospf6_routemap_init (void)
   route_map_delete_hook (ospf6_asbr_routemap_update);
 
   route_map_install_match (&ospf6_routemap_rule_match_address_prefixlist_cmd);
+  route_map_install_match (&ospf6_routemap_rule_match_interface_cmd);
+
   route_map_install_set (&ospf6_routemap_rule_set_metric_type_cmd);
   route_map_install_set (&ospf6_routemap_rule_set_metric_cmd);
   route_map_install_set (&ospf6_routemap_rule_set_forwarding_cmd);
@@ -1089,6 +1173,11 @@ ospf6_routemap_init (void)
   /* Match address prefix-list */
   install_element (RMAP_NODE, &ospf6_routemap_match_address_prefixlist_cmd);
   install_element (RMAP_NODE, &ospf6_routemap_no_match_address_prefixlist_cmd);
+
+  /* Match interface */
+  install_element (RMAP_NODE, &ospf6_routemap_match_interface_cmd);
+  install_element (RMAP_NODE, &ospf6_routemap_no_match_interface_cmd);
+  install_element (RMAP_NODE, &ospf6_routemap_no_match_interface_val_cmd);
 
   /* ASE Metric Type (e.g. Type-1/Type-2) */
   install_element (RMAP_NODE, &ospf6_routemap_set_metric_type_cmd);
