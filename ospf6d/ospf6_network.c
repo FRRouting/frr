@@ -120,86 +120,22 @@ ospf6_serv_sock (void)
   return 0;
 }
 
+/* ospf6 set socket option */
 void
-ospf6_join_allspfrouters (u_int ifindex)
+ospf6_sso (u_int ifindex, struct in6_addr *group, int option)
 {
   struct ipv6_mreq mreq6;
-  int retval;
+  int ret;
 
   assert (ifindex);
   mreq6.ipv6mr_interface = ifindex;
-  memcpy (&mreq6.ipv6mr_multiaddr, &allspfrouters6,
-          sizeof (struct in6_addr));
+  memcpy (&mreq6.ipv6mr_multiaddr, group, sizeof (struct in6_addr));
 
-  retval = setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
-                       &mreq6, sizeof (mreq6));
-
-  if (retval < 0)
-    zlog_err ("Network: Join AllSPFRouters on ifindex %d failed: %s",
-              ifindex, safe_strerror (errno));
-#if 0
-  else
-    zlog_debug ("Network: Join AllSPFRouters on ifindex %d", ifindex);
-#endif
-}
-
-void
-ospf6_leave_allspfrouters (u_int ifindex)
-{
-  struct ipv6_mreq mreq6;
-
-  assert (ifindex);
-  mreq6.ipv6mr_interface = ifindex;
-  memcpy (&mreq6.ipv6mr_multiaddr, &allspfrouters6,
-          sizeof (struct in6_addr));
-
-  if (setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
-                  &mreq6, sizeof (mreq6)) < 0)
-    zlog_warn ("Network: Leave AllSPFRouters on ifindex %d Failed: %s",
-               ifindex, safe_strerror (errno));
-#if 0
-  else
-    zlog_debug ("Network: Leave AllSPFRouters on ifindex %d", ifindex);
-#endif
-}
-
-void
-ospf6_join_alldrouters (u_int ifindex)
-{
-  struct ipv6_mreq mreq6;
-
-  assert (ifindex);
-  mreq6.ipv6mr_interface = ifindex;
-  memcpy (&mreq6.ipv6mr_multiaddr, &alldrouters6,
-          sizeof (struct in6_addr));
-
-  if (setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
-                  &mreq6, sizeof (mreq6)) < 0)
-    zlog_warn ("Network: Join AllDRouters on ifindex %d Failed: %s",
-               ifindex, safe_strerror (errno));
-#if 0
-  else
-    zlog_debug ("Network: Join AllDRouters on ifindex %d", ifindex);
-#endif
-}
-
-void
-ospf6_leave_alldrouters (u_int ifindex)
-{
-  struct ipv6_mreq mreq6;
-
-  assert (ifindex);
-  mreq6.ipv6mr_interface = ifindex;
-  memcpy (&mreq6.ipv6mr_multiaddr, &alldrouters6,
-          sizeof (struct in6_addr));
-
-  if (setsockopt (ospf6_sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP,
-                  &mreq6, sizeof (mreq6)) < 0)
-    zlog_warn ("Network: Leave AllDRouters on ifindex %d Failed", ifindex);
-#if 0
-  else
-    zlog_debug ("Network: Leave AllDRouters on ifindex %d", ifindex);
-#endif
+  ret = setsockopt (ospf6_sock, IPPROTO_IPV6, option,
+                    &mreq6, sizeof (mreq6));
+  if (ret < 0)
+    zlog_err ("Network: setsockopt (%d) on ifindex %d failed: %s",
+              option, ifindex, safe_strerror (errno));
 }
 
 static int

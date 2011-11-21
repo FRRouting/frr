@@ -399,12 +399,12 @@ ospf6_interface_state_change (u_char next_state, struct ospf6_interface *oi)
        prev_state == OSPF6_INTERFACE_BDR) &&
       (next_state != OSPF6_INTERFACE_DR &&
        next_state != OSPF6_INTERFACE_BDR))
-    ospf6_leave_alldrouters (oi->interface->ifindex);
+    ospf6_sso (oi->interface->ifindex, &alldrouters6, IPV6_LEAVE_GROUP);
   if ((prev_state != OSPF6_INTERFACE_DR &&
        prev_state != OSPF6_INTERFACE_BDR) &&
       (next_state == OSPF6_INTERFACE_DR ||
        next_state == OSPF6_INTERFACE_BDR))
-    ospf6_join_alldrouters (oi->interface->ifindex);
+    ospf6_sso (oi->interface->ifindex, &alldrouters6, IPV6_JOIN_GROUP);
 
   OSPF6_ROUTER_LSA_SCHEDULE (oi->area);
   if (next_state == OSPF6_INTERFACE_DOWN)
@@ -612,7 +612,7 @@ interface_up (struct thread *thread)
     }
 
   /* Join AllSPFRouters */
-  ospf6_join_allspfrouters (oi->interface->ifindex);
+  ospf6_sso (oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP);
 
   /* Update interface route */
   ospf6_interface_connected_route_update (oi->interface);
@@ -707,7 +707,7 @@ interface_down (struct thread *thread)
 
   /* Leave AllSPFRouters */
   if (oi->state > OSPF6_INTERFACE_DOWN)
-    ospf6_leave_allspfrouters (oi->interface->ifindex);
+    ospf6_sso (oi->interface->ifindex, &allspfrouters6, IPV6_LEAVE_GROUP);
 
   ospf6_interface_state_change (OSPF6_INTERFACE_DOWN, oi);
 
