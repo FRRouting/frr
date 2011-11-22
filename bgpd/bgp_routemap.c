@@ -790,6 +790,75 @@ struct route_map_rule_cmd route_match_origin_cmd =
   route_match_origin_compile,
   route_match_origin_free
 };
+
+/* match probability  { */
+
+static route_map_result_t
+route_match_probability (void *rule, struct prefix *prefix,
+		    route_map_object_t type, void *object)
+{
+  long r;
+#if _SVID_SOURCE || _BSD_SOURCE || _XOPEN_SOURCE >= 500
+  r = random();
+#else
+  r = (long) rand();
+#endif
+
+  switch (*(unsigned *) rule)
+  {
+    case 0: break;
+    case RAND_MAX: return RMAP_MATCH;
+    default:
+      if (r < *(unsigned *) rule)
+        {
+          return RMAP_MATCH;
+        }
+  }
+
+  return RMAP_NOMATCH;
+}
+
+static void *
+route_match_probability_compile (const char *arg)
+{
+  unsigned *lobule;
+  unsigned  perc;
+
+#if _SVID_SOURCE || _BSD_SOURCE || _XOPEN_SOURCE >= 500
+  srandom (time (NULL));
+#else
+  srand (time (NULL));
+#endif
+
+  perc    = atoi (arg);
+  lobule  = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (unsigned));
+
+  switch (perc)
+    {
+      case 0:   *lobule = 0; break;
+      case 100: *lobule = RAND_MAX; break;
+      default:  *lobule = RAND_MAX / 100 * perc;
+    }
+
+  return lobule;
+}
+
+static void
+route_match_probability_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_match_probability_cmd =
+{
+  "probability",
+  route_match_probability,
+  route_match_probability_compile,
+  route_match_probability_free
+};
+
+/* } */
+
 /* `set ip next-hop IP_ADDRESS' */
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
@@ -2462,6 +2531,38 @@ ALIAS (no_match_ip_next_hop,
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
 
+/* match probability { */
+
+DEFUN (match_probability,
+       match_probability_cmd,
+       "match probability <0-100>",
+       MATCH_STR
+       "Match portion of routes defined by percentage value\n"
+       "Percentage of routes\n")
+{
+  return bgp_route_match_add (vty, vty->index, "probability", argv[0]);
+}
+
+DEFUN (no_match_probability,
+       no_match_probability_cmd,
+       "no match probability",
+       NO_STR
+       MATCH_STR
+       "Match portion of routes defined by percentage value\n")
+{
+  return bgp_route_match_delete (vty, vty->index, "probability", argc ? argv[0] : NULL);
+}
+
+ALIAS (no_match_probability,
+       no_match_probability_val_cmd,
+       "no match probability <1-99>",
+       NO_STR
+       MATCH_STR
+       "Match portion of routes defined by percentage value\n"
+       "Percentage of routes\n")
+
+/* } */
+
 DEFUN (match_ip_route_source, 
        match_ip_route_source_cmd,
        "match ip route-source (<1-199>|<1300-2699>|WORD)",
@@ -3749,6 +3850,7 @@ bgp_route_map_init (void)
   route_map_install_match (&route_match_ecommunity_cmd);
   route_map_install_match (&route_match_metric_cmd);
   route_map_install_match (&route_match_origin_cmd);
+  route_map_install_match (&route_match_probability_cmd);
 
   route_map_install_set (&route_set_ip_nexthop_cmd);
   route_map_install_set (&route_set_local_pref_cmd);
@@ -3780,7 +3882,6 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &match_ip_route_source_cmd);
   install_element (RMAP_NODE, &no_match_ip_route_source_cmd);
   install_element (RMAP_NODE, &no_match_ip_route_source_val_cmd);
-
   install_element (RMAP_NODE, &match_ip_address_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_prefix_list_val_cmd);
@@ -3808,6 +3909,9 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &match_origin_cmd);
   install_element (RMAP_NODE, &no_match_origin_cmd);
   install_element (RMAP_NODE, &no_match_origin_val_cmd);
+  install_element (RMAP_NODE, &match_probability_cmd);
+  install_element (RMAP_NODE, &no_match_probability_cmd);
+  install_element (RMAP_NODE, &no_match_probability_val_cmd);
 
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_peer_cmd);
