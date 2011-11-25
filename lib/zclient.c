@@ -41,6 +41,8 @@ static void zclient_event (enum event, struct zclient *);
 
 extern struct thread_master *master;
 
+char *zclient_serv_path = NULL;
+
 /* This file local debug flag. */
 int zclient_debug = 0;
 
@@ -143,8 +145,10 @@ zclient_reset (struct zclient *zclient)
   zclient_init (zclient, zclient->redist_default);
 }
 
+#ifdef HAVE_TCP_ZEBRA
+
 /* Make socket to zebra daemon. Return zebra socket. */
-int
+static int
 zclient_socket(void)
 {
   int sock;
@@ -175,10 +179,12 @@ zclient_socket(void)
   return sock;
 }
 
+#endif /* HAVE_TCP_ZEBRA */
+
 /* For sockaddr_un. */
 #include <sys/un.h>
 
-int
+static int
 zclient_socket_un (const char *path)
 {
   int ret;
@@ -206,6 +212,24 @@ zclient_socket_un (const char *path)
       return -1;
     }
   return sock;
+}
+
+/**
+ * Connect to zebra daemon.
+ * @param zclient a pointer to zclient structure
+ * @return socket fd just to make sure that connection established
+ * @see zclient_init
+ * @see zclient_new
+ */
+int
+zclient_socket_connect (struct zclient *zclient)
+{
+#ifdef HAVE_TCP_ZEBRA
+  zclient->sock = zclient_socket ();
+#else
+  zclient->sock = zclient_socket_un (zclient_serv_path ? zclient_serv_path : ZEBRA_SERV_PATH);
+#endif
+  return zclient->sock;
 }
 
 static int
@@ -313,13 +337,7 @@ zclient_start (struct zclient *zclient)
   if (zclient->t_connect)
     return 0;
 
-  /* Make socket. */
-#ifdef HAVE_TCP_ZEBRA
-  zclient->sock = zclient_socket ();
-#else
-  zclient->sock = zclient_socket_un (ZEBRA_SERV_PATH);
-#endif /* HAVE_TCP_ZEBRA */
-  if (zclient->sock < 0)
+  if (zclient_socket_connect(zclient) < 0)
     {
       if (zclient_debug)
 	zlog_debug ("zclient connection fail");
@@ -1018,3 +1036,29 @@ zclient_event (enum event event, struct zclient *zclient)
       break;
     }
 }
+
+void
+zclient_serv_path_set (char *path)
+{
+  struct stat sb;
+
+  /* reset */
+  zclient_serv_path = NULL;
+
+  /* test if `path' is socket. don't set it otherwise. */
+  if (stat(path, &sb) == -1)
+    {
+      zlog_warn ("%s: zebra socket `%s' does not exist", __func__, path);
+      return;
+    }
+
+  if ((sb.st_mode & S_IFMT) != S_IFSOCK)
+    {
+      zlog_warn ("%s: `%s' is not unix socket, sir", __func__, path);
+      return;
+    }
+
+  /* it seems that path is unix socket */
+  zclient_serv_path = path;
+}
+
