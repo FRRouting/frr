@@ -1733,11 +1733,11 @@ zebra_init (void)
 
 /* Make zebra server socket, wiping any existing one (see bug #403). */
 void
-zebra_zserv_socket_init (void)
+zebra_zserv_socket_init (char *path)
 {
 #ifdef HAVE_TCP_ZEBRA
   zebra_serv ();
 #else
-  zebra_serv_un (ZEBRA_SERV_PATH);
+  zebra_serv_un (path ? path : ZEBRA_SERV_PATH);
 #endif /* HAVE_TCP_ZEBRA */
 }

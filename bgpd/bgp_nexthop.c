@@ -1064,12 +1064,7 @@ zlookup_connect (struct thread *t)
   if (zlookup->sock != -1)
     return 0;
 
-#ifdef HAVE_TCP_ZEBRA
-  zlookup->sock = zclient_socket ();
-#else
-  zlookup->sock = zclient_socket_un (ZEBRA_SERV_PATH);
-#endif /* HAVE_TCP_ZEBRA */
-  if (zlookup->sock < 0)
+  if (zclient_socket_connect (zlookup) < 0)
     return -1;
 
   return 0;

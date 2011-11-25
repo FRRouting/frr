@@ -127,11 +127,8 @@ extern void zclient_stop (struct zclient *);
 extern void zclient_reset (struct zclient *);
 extern void zclient_free (struct zclient *);
 
-/* Get TCP socket connection to zebra daemon at loopback address. */
-extern int zclient_socket (void);
-
-/* Get unix stream socket connection to zebra daemon at given path. */
-extern int zclient_socket_un (const char *);
+extern int  zclient_socket_connect (struct zclient *);
+extern void zclient_serv_path_set  (char *path);
 
 /* Send redistribute command to zebra daemon. Do not update zclient state. */
 extern int zebra_redistribute_send (int command, struct zclient *, int type);
