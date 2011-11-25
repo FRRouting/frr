@@ -75,16 +75,16 @@ struct zebra_privs_t isisd_privs = {
 
 /* isisd options */
 struct option longopts[] = {
-  {"daemon", no_argument, NULL, 'd'},
+  {"daemon",      no_argument,       NULL, 'd'},
   {"config_file", required_argument, NULL, 'f'},
-  {"pid_file", required_argument, NULL, 'i'},
-  {"vty_addr", required_argument, NULL, 'A'},
-  {"vty_port", required_argument, NULL, 'P'},
-  {"user", required_argument, NULL, 'u'},
-  {"group", required_argument, NULL, 'g'},
-  {"version", no_argument, NULL, 'v'},
-  {"dryrun", no_argument, NULL, 'C'},
-  {"help", no_argument, NULL, 'h'},
+  {"pid_file",    required_argument, NULL, 'i'},
+  {"vty_addr",    required_argument, NULL, 'A'},
+  {"vty_port",    required_argument, NULL, 'P'},
+  {"user",        required_argument, NULL, 'u'},
+  {"group",       required_argument, NULL, 'g'},
+  {"version",     no_argument,       NULL, 'v'},
+  {"dryrun",      no_argument,       NULL, 'C'},
+  {"help",        no_argument,       NULL, 'h'},
   {0}
 };
 
