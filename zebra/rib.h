@@ -249,13 +249,13 @@ extern struct route_table *vrf_static_table (afi_t afi, safi_t safi, u_int32_t i
 extern int rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p, 
 			 struct in_addr *gate, struct in_addr *src,
 			 unsigned int ifindex, u_int32_t vrf_id,
-			 u_int32_t, u_char);
+			 u_int32_t, u_char, safi_t);
 
-extern int rib_add_ipv4_multipath (struct prefix_ipv4 *, struct rib *);
+extern int rib_add_ipv4_multipath (struct prefix_ipv4 *, struct rib *, safi_t);
 
 extern int rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
 		            struct in_addr *gate, unsigned int ifindex, 
-		            u_int32_t);
+		            u_int32_t, safi_t safi);
 
 extern struct rib *rib_match_ipv4 (struct in_addr);
 

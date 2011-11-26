@@ -189,7 +189,7 @@ connected_up_ipv4 (struct interface *ifp, struct connected *ifc)
     return;
 
   rib_add_ipv4 (ZEBRA_ROUTE_CONNECT, 0, &p, NULL, NULL, ifp->ifindex,
-	RT_TABLE_MAIN, ifp->metric, 0);
+	RT_TABLE_MAIN, ifp->metric, 0, SAFI_UNICAST);
 
   rib_update ();
 }
@@ -295,7 +295,7 @@ connected_down_ipv4 (struct interface *ifp, struct connected *ifc)
     return;
 
   /* Same logic as for connected_up_ipv4(): push the changes into the head. */
-  rib_delete_ipv4 (ZEBRA_ROUTE_CONNECT, 0, &p, NULL, ifp->ifindex, 0);
+  rib_delete_ipv4 (ZEBRA_ROUTE_CONNECT, 0, &p, NULL, ifp->ifindex, 0, SAFI_UNICAST);
 
   rib_update ();
 }

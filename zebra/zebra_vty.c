@@ -1947,6 +1947,81 @@ DEFUN (show_ipv6_route_summary,
   return CMD_SUCCESS;
 }
 
+/*
+ * Show IP mroute command to dump the BGP Multicast 
+ * routing table
+ */
+DEFUN (show_ip_mroute,
+       show_ip_mroute_cmd,
+       "show ip mroute",
+       SHOW_STR
+       IP_STR
+       "IP Multicast routing table\n")
+{
+  struct route_table *table;
+  struct route_node *rn;
+  struct rib *rib;
+  int first = 1;
+
+  table = vrf_table (AFI_IP, SAFI_MULTICAST, 0);
+  if (! table)
+    return CMD_SUCCESS;
+
+  /* Show all IPv4 routes. */
+  for (rn = route_top (table); rn; rn = route_next (rn))
+    for (rib = rn->info; rib; rib = rib->next)
+      {
+       if (first)
+         {
+           vty_out (vty, SHOW_ROUTE_V4_HEADER, VTY_NEWLINE, VTY_NEWLINE,
+                    VTY_NEWLINE);
+           first = 0;
+         }
+       vty_show_ip_route (vty, rn, rib);
+      }
+  return CMD_SUCCESS;
+}
+
+/*
+ * Show IPv6 mroute command.Used to dump
+ * the Multicast routing table.
+ */
+
+DEFUN (show_ipv6_mroute,
+       show_ipv6_mroute_cmd,
+       "show ipv6 mroute",
+       SHOW_STR
+       IP_STR
+       "IPv6 Multicast routing table\n")
+{
+  struct route_table *table;
+  struct route_node *rn;
+  struct rib *rib;
+  int first = 1;
+
+  table = vrf_table (AFI_IP6, SAFI_MULTICAST, 0);
+  if (! table)
+    return CMD_SUCCESS;
+
+  /* Show all IPv6 route. */
+  for (rn = route_top (table); rn; rn = route_next (rn))
+    for (rib = rn->info; rib; rib = rib->next)
+      {
+       if (first)
+         {
+           vty_out (vty, SHOW_ROUTE_V6_HEADER, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+           first = 0;
+         }
+       vty_show_ipv6_route (vty, rn, rib);
+      }
+  return CMD_SUCCESS;
+}
+
+
+
+
+
+
 /* Write IPv6 static route configuration. */
 static int
 static_config_ipv6 (struct vty *vty)
@@ -2089,6 +2164,10 @@ zebra_vty_init (void)
   install_element (ENABLE_NODE, &show_ip_route_supernets_cmd);
   install_element (ENABLE_NODE, &show_ip_route_summary_cmd);
 
+  install_element (VIEW_NODE, &show_ip_mroute_cmd);
+  install_element (ENABLE_NODE, &show_ip_mroute_cmd);
+
+
 #ifdef HAVE_IPV6
   install_element (CONFIG_NODE, &ipv6_route_cmd);
   install_element (CONFIG_NODE, &ipv6_route_flags_cmd);
@@ -2118,5 +2197,8 @@ zebra_vty_init (void)
   install_element (ENABLE_NODE, &show_ipv6_route_prefix_cmd);
   install_element (ENABLE_NODE, &show_ipv6_route_prefix_longer_cmd);
   install_element (ENABLE_NODE, &show_ipv6_route_summary_cmd);
+
+  install_element (VIEW_NODE, &show_ipv6_mroute_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_mroute_cmd);
 #endif /* HAVE_IPV6 */
 }

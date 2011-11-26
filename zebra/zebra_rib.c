@@ -90,6 +90,11 @@ vrf_alloc (const char *name)
   vrf->table[AFI_IP6][SAFI_UNICAST] = route_table_init ();
   vrf->stable[AFI_IP][SAFI_UNICAST] = route_table_init ();
   vrf->stable[AFI_IP6][SAFI_UNICAST] = route_table_init ();
+  vrf->table[AFI_IP][SAFI_MULTICAST] = route_table_init ();
+  vrf->table[AFI_IP6][SAFI_MULTICAST] = route_table_init ();
+  vrf->stable[AFI_IP][SAFI_MULTICAST] = route_table_init ();
+  vrf->stable[AFI_IP6][SAFI_MULTICAST] = route_table_init ();
+
 
   return vrf;
 }
@@ -1493,7 +1498,7 @@ int
 rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p, 
 	      struct in_addr *gate, struct in_addr *src,
 	      unsigned int ifindex, u_int32_t vrf_id,
-	      u_int32_t metric, u_char distance)
+	      u_int32_t metric, u_char distance, safi_t safi)
 {
   struct rib *rib;
   struct rib *same = NULL;
@@ -1502,7 +1507,7 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   struct nexthop *nexthop;
 
   /* Lookup table.  */
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = vrf_table (AFI_IP, safi, 0);
   if (! table)
     return 0;
 
@@ -1751,7 +1756,7 @@ void rib_lookup_and_pushup (struct prefix_ipv4 * p)
 }
 
 int
-rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib)
+rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib, safi_t safi)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -1759,9 +1764,10 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib)
   struct nexthop *nexthop;
   
   /* Lookup table.  */
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = vrf_table (AFI_IP, safi, 0);
   if (! table)
     return 0;
+
   /* Make it sure prefixlen is applied to the prefix. */
   apply_mask_ipv4 (p);
 
@@ -1824,7 +1830,7 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib)
 /* XXX factor with rib_delete_ipv6 */
 int
 rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
-		 struct in_addr *gate, unsigned int ifindex, u_int32_t vrf_id)
+		 struct in_addr *gate, unsigned int ifindex, u_int32_t vrf_id, safi_t safi)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -1836,7 +1842,7 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   char buf2[INET_ADDRSTRLEN];
 
   /* Lookup table.  */
-  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  table = vrf_table (AFI_IP, safi, 0);
   if (! table)
     return 0;
 
