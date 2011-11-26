@@ -538,6 +538,7 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
   stream_putc (s, api->type);
   stream_putc (s, api->flags);
   stream_putc (s, api->message);
+  stream_putw (s, api->safi);
   
   /* Put prefix information. */
   psize = PSIZE (p->prefixlen);

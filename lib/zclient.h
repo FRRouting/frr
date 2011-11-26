@@ -167,6 +167,8 @@ struct zapi_ipv6
 
   u_char message;
 
+  safi_t safi;
+
   u_char nexthop_num;
   struct in6_addr **nexthop;
 
