@@ -1973,8 +1973,7 @@ DEFUN (show_ip_mroute,
       {
        if (first)
          {
-           vty_out (vty, SHOW_ROUTE_V4_HEADER, VTY_NEWLINE, VTY_NEWLINE,
-                    VTY_NEWLINE);
+	   vty_out (vty, SHOW_ROUTE_V4_HEADER);
            first = 0;
          }
        vty_show_ip_route (vty, rn, rib);
@@ -2009,7 +2008,7 @@ DEFUN (show_ipv6_mroute,
       {
        if (first)
          {
-           vty_out (vty, SHOW_ROUTE_V6_HEADER, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+	   vty_out (vty, SHOW_ROUTE_V6_HEADER);
            first = 0;
          }
        vty_show_ipv6_route (vty, rn, rib);
