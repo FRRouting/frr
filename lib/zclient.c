@@ -179,7 +179,7 @@ zclient_socket(void)
   return sock;
 }
 
-#endif /* HAVE_TCP_ZEBRA */
+#else
 
 /* For sockaddr_un. */
 #include <sys/un.h>
@@ -213,6 +213,8 @@ zclient_socket_un (const char *path)
     }
   return sock;
 }
+
+#endif /* HAVE_TCP_ZEBRA */
 
 /**
  * Connect to zebra daemon.
