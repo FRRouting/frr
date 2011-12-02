@@ -1679,7 +1679,7 @@ ospf_external_lsa_new (struct ospf *ospf,
   if (ei == NULL)
     {
       if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
-	zlog_debug ("LSA[Type5]: External info is NULL, could not originated");
+	zlog_debug ("LSA[Type5]: External info is NULL, can't originate");
       return NULL;
     }
 
@@ -2915,7 +2915,7 @@ ospf_maxage_lsa_remover (struct thread *thread)
         /* Remove LSA from the LSDB */
         if (IS_LSA_SELF (lsa))
           if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
-            zlog_debug ("LSA[Type%d:%s]: LSA 0x%lx is self-oririnated: ",
+            zlog_debug ("LSA[Type%d:%s]: LSA 0x%lx is self-originated: ",
                        lsa->data->type, inet_ntoa (lsa->data->id), (u_long)lsa);
 
         if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
