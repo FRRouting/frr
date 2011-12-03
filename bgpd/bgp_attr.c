@@ -675,6 +675,7 @@ bgp_attr_unintern (struct attr **attr)
     }
 
   bgp_attr_unintern_sub (&tmp);
+  bgp_attr_extra_free (&tmp);
 }
 
 void
