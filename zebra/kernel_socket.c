@@ -606,7 +606,7 @@ ifam_read_mesg (struct ifa_msghdr *ifm,
 
   /* Assert read up end point matches to end point */
   if (pnt != end)
-    zlog_warn ("ifam_read() does't read all socket data");
+    zlog_warn ("ifam_read() doesn't read all socket data");
 }
 
 /* Interface's address information get. */
@@ -754,7 +754,7 @@ rtm_read_mesg (struct rt_msghdr *rtm,
 
   /* Assert read up to the end of pointer. */
   if (pnt != end) 
-      zlog (NULL, LOG_WARNING, "rtm_read() does't read all socket data.");
+      zlog (NULL, LOG_WARNING, "rtm_read() doesn't read all socket data.");
 
   return rtm->rtm_flags;
 }
