@@ -53,6 +53,7 @@ ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop,
       api.type = ZEBRA_ROUTE_RIPNG;
       api.flags = 0;
       api.message = 0;
+      api.safi = SAFI_UNICAST;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
       api.nexthop_num = 1;
       api.nexthop = &nexthop;
@@ -77,6 +78,7 @@ ripng_zebra_ipv6_delete (struct prefix_ipv6 *p, struct in6_addr *nexthop,
       api.type = ZEBRA_ROUTE_RIPNG;
       api.flags = 0;
       api.message = 0;
+      api.safi = SAFI_UNICAST;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
       api.nexthop_num = 1;
       api.nexthop = &nexthop;
