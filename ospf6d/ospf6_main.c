@@ -129,7 +129,7 @@ Report bugs to zebra@zebra.org\n", progname);
   exit (status);
 }
 
-static void
+static void __attribute__ ((noreturn))
 ospf6_exit (int status)
 {
   extern struct ospf6 *ospf6;
