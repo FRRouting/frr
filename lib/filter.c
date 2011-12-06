@@ -1337,13 +1337,13 @@ DEFUN (no_access_list_all,
 
   master = access->master;
 
-  /* Delete all filter from access-list. */
-  access_list_delete (access);
-
   /* Run hook function. */
   if (master->delete_hook)
     (*master->delete_hook) (access);
  
+  /* Delete all filter from access-list. */
+  access_list_delete (access);
+
   return CMD_SUCCESS;
 }
 
@@ -1508,12 +1508,12 @@ DEFUN (no_ipv6_access_list_all,
 
   master = access->master;
 
-  /* Delete all filter from access-list. */
-  access_list_delete (access);
-
   /* Run hook function. */
   if (master->delete_hook)
     (*master->delete_hook) (access);
+
+  /* Delete all filter from access-list. */
+  access_list_delete (access);
 
   return CMD_SUCCESS;
 }
