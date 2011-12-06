@@ -285,6 +285,9 @@ ospf_redistribute_withdraw (struct ospf *ospf, u_char type)
 	      continue;
 	    ospf_external_lsa_flush (ospf, type, &ei->p,
 				     ei->ifindex /*, ei->nexthop */);
-	    ospf_external_info_delete (type, ei->p);
+
+	    ospf_external_info_free (ei);
+	    route_unlock_node (rn);
+	    rn->info = NULL;
 	  }
 }
