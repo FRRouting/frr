@@ -1685,6 +1685,7 @@ static int
 vty_accept (struct thread *thread)
 {
   int vty_sock;
+  struct vty *vty;
   union sockunion su;
   int ret;
   unsigned int on;
@@ -1769,7 +1770,7 @@ vty_accept (struct thread *thread)
   if (bufp)
     XFREE (MTYPE_TMP, bufp);
 
-  vty_create (vty_sock, &su);
+  vty = vty_create (vty_sock, &su);
 
   return 0;
 }
