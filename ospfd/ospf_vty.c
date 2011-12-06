@@ -3761,7 +3761,7 @@ show_as_external_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
   return 0;
 }
 
-/* N.B. This function currently seems to be unused. */
+#if 0
 static int
 show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
 {
@@ -3785,6 +3785,7 @@ show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
 
   return 0;
 }
+#endif
 
 /* Show AS-NSSA-LSA detail information. */
 static int
