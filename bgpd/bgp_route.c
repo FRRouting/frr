@@ -5244,7 +5244,8 @@ ALIAS (no_ipv6_aggregate_address_summary_only,
 
 /* Redistribute route treatment. */
 void
-bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
+bgp_redistribute_add (struct prefix *p, const struct in_addr *nexthop,
+		      const struct in6_addr *nexthop6,
 		      u_int32_t metric, u_char type)
 {
   struct bgp *bgp;
@@ -5263,6 +5264,15 @@ bgp_redistribute_add (struct prefix *p, struct in_addr *nexthop,
   bgp_attr_default_set (&attr, BGP_ORIGIN_INCOMPLETE);
   if (nexthop)
     attr.nexthop = *nexthop;
+
+#ifdef HAVE_IPV6
+  if (nexthop6)
+    {
+      struct attr_extra *extra = bgp_attr_extra_get(&attr);
+      extra->mp_nexthop_global = *nexthop6;
+      extra->mp_nexthop_len = 16;
+    }
+#endif
 
   attr.med = metric;
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
