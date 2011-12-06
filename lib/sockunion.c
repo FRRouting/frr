@@ -297,27 +297,24 @@ sockunion_sizeof (union sockunion *su)
 }
 
 /* return sockunion structure : this function should be revised. */
-static char *
-sockunion_log (union sockunion *su)
+static const char *
+sockunion_log (union sockunion *su, char *buf, size_t len)
 {
-  static char buf[SU_ADDRSTRLEN];
-
   switch (su->sa.sa_family) 
     {
     case AF_INET:
-      snprintf (buf, SU_ADDRSTRLEN, "%s", inet_ntoa (su->sin.sin_addr));
-      break;
+      return inet_ntop(AF_INET, &su->sin.sin_addr, buf, len);
+
 #ifdef HAVE_IPV6
     case AF_INET6:
-      snprintf (buf, SU_ADDRSTRLEN, "%s",
-		inet_ntop (AF_INET6, &(su->sin6.sin6_addr), buf, SU_ADDRSTRLEN));
+      return inet_ntop(AF_INET6, &(su->sin6.sin6_addr), buf, len);
       break;
 #endif /* HAVE_IPV6 */
+
     default:
-      snprintf (buf, SU_ADDRSTRLEN, "af_unknown %d ", su->sa.sa_family);
-      break;
+      snprintf (buf, len, "af_unknown %d ", su->sa.sa_family);
+      return buf;
     }
-  return (XSTRDUP (MTYPE_TMP, buf));
 }
 
 /* sockunion_connect returns
@@ -379,8 +376,10 @@ sockunion_connect (int fd, union sockunion *peersu, unsigned short port,
     {
       if (errno != EINPROGRESS)
 	{
+	  char str[SU_ADDRSTRLEN];
 	  zlog_info ("can't connect to %s fd %d : %s",
-		     sockunion_log (&su), fd, safe_strerror (errno));
+		     sockunion_log (&su, str, sizeof str),
+		     fd, safe_strerror (errno));
 	  return connect_error;
 	}
     }
