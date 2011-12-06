@@ -614,15 +614,6 @@ set_metric (struct ospf_lsa *lsa, u_int32_t metric)
   memcpy(header->metric, mp, 3);
 }
 
-static int
-ospf_abr_check_nssa_range (struct prefix_ipv4 *p, u_int32_t cost,
-				   struct ospf_area *area)
-{
-  /* The Type-7 is tested against the aggregated prefix and forwarded
-       for lsa installation and flooding */
-  return 0;
-}
-
 /* ospf_abr_translate_nssa */
 static int
 ospf_abr_translate_nssa (struct ospf_area *area, struct ospf_lsa *lsa)
@@ -1575,42 +1566,6 @@ ospf_abr_send_nssa_aggregates (struct ospf *ospf) /* temporarily turned off */
 
   if (IS_DEBUG_OSPF_NSSA)
     zlog_debug ("ospf_abr_send_nssa_aggregates(): Stop");
-}
-
-static void
-ospf_abr_announce_nssa_defaults (struct ospf *ospf) /* By ABR-Translator */
-{
-  struct listnode *node;
-  struct ospf_area *area;
-
-  if (! IS_OSPF_ABR (ospf))
-    return;
-
-  if (IS_DEBUG_OSPF_NSSA)
-    zlog_debug ("ospf_abr_announce_stub_defaults(): Start");
-
-  for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
-    {
-      if (IS_DEBUG_OSPF_NSSA)
-        zlog_debug ("ospf_abr_announce_nssa_defaults(): looking at area %s",
-                   inet_ntoa (area->area_id));
-
-      if (area->external_routing != OSPF_AREA_NSSA)
-        continue;
-
-      if (OSPF_IS_AREA_BACKBONE (area))
-        continue; /* Sanity Check */
-
-      /* if (!TranslatorRole continue V 1.0 look for "always" conf */
-      if (area->NSSATranslatorState)
-        {
-          if (IS_DEBUG_OSPF_NSSA)
-            zlog_debug ("ospf_abr_announce_nssa_defaults(): "
-                       "announcing 0.0.0.0/0 to this nssa");
-          /* ospf_abr_announce_nssa_asbr_to_as (&p, area->default_cost, area); */
-          /*ospf_abr_announce_network_to_area (&p, area->default_cost, area);*/
-        }
-    }
 }
 
 static void
