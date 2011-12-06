@@ -197,6 +197,7 @@ sigint (void)
   if (! retain_mode)
     bgp_terminate ();
 
+  zprivs_terminate (&bgpd_privs);
   bgp_exit (0);
 }
 
