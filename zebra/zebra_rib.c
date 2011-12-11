@@ -2881,7 +2881,41 @@ rib_sweep_route (void)
   rib_sweep_table (vrf_table (AFI_IP, SAFI_UNICAST, 0));
   rib_sweep_table (vrf_table (AFI_IP6, SAFI_UNICAST, 0));
 }
-
+
+/* Remove specific by protocol routes from 'table'. */
+static unsigned long
+rib_score_proto_table (u_char proto, struct route_table *table)
+{
+  struct route_node *rn;
+  struct rib *rib;
+  struct rib *next;
+  unsigned long n = 0;
+
+  if (table)
+    for (rn = route_top (table); rn; rn = route_next (rn))
+      for (rib = rn->info; rib; rib = next)
+        {
+          next = rib->next;
+          if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+            continue;
+          if (rib->type == proto)
+            {
+              rib_delnode (rn, rib);
+              n++;
+            }
+        }
+
+  return n;
+}
+
+/* Remove specific by protocol routes. */
+unsigned long
+rib_score_proto (u_char proto)
+{
+  return  rib_score_proto_table (proto, vrf_table (AFI_IP,  SAFI_UNICAST, 0))
+         +rib_score_proto_table (proto, vrf_table (AFI_IP6, SAFI_UNICAST, 0));
+}
+
 /* Close RIB and clean up kernel routes. */
 static void
 rib_close_table (struct route_table *table)

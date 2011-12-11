@@ -64,6 +64,15 @@ zserv_delayed_close(struct thread *thread)
   return 0;
 }
 
+/* When client connects, it sends hello message
+ * with promise to send zebra routes of specific type.
+ * Zebra stores a socket fd of the client into
+ * this array. And use it to clean up routes that
+ * client didn't remove for some reasons after closing
+ * connection.
+ */
+static int route_type_oaths[ZEBRA_ROUTE_MAX];
+
 static int
 zserv_flush_data(struct thread *thread)
 {
@@ -1071,6 +1080,49 @@ zread_router_id_delete (struct zserv *client, u_short length)
   return 0;
 }
 
+/* Tie up route-type and client->sock */
+static void
+zread_hello (struct zserv *client)
+{
+  /* type of protocol (lib/zebra.h) */
+  u_char proto;
+  proto = stream_getc (client->ibuf);
+
+  /* accept only dynamic routing protocols */
+  if ((proto < ZEBRA_ROUTE_MAX)
+  &&  (proto > ZEBRA_ROUTE_STATIC))
+    {
+      zlog_notice ("client %d says hello and bids fair to announce only %s routes",
+                    client->sock, zebra_route_string(proto));
+
+      /* if route-type was binded by other client */
+      if (route_type_oaths[proto])
+        zlog_warn ("sender of %s routes changed %c->%c",
+                    zebra_route_string(proto), route_type_oaths[proto],
+                    client->sock);
+
+      route_type_oaths[proto] = client->sock;
+    }
+}
+
+/* If client sent routes of specific type, zebra removes it
+ * and returns number of deleted routes.
+ */
+static void
+zebra_score_rib (int client_sock)
+{
+  int i;
+
+  for (i = ZEBRA_ROUTE_RIP; i < ZEBRA_ROUTE_MAX; i++)
+    if (client_sock == route_type_oaths[i])
+      {
+        zlog_notice ("client %d disconnected. %lu %s routes removed from the rib",
+                      client_sock, rib_score_proto (i), zebra_route_string (i));
+        route_type_oaths[i] = 0;
+        break;
+      }
+}
+
 /* Close zebra client. */
 static void
 zebra_client_close (struct zserv *client)
@@ -1079,6 +1131,7 @@ zebra_client_close (struct zserv *client)
   if (client->sock)
     {
       close (client->sock);
+      zebra_score_rib (client->sock);
       client->sock = -1;
     }
 
@@ -1283,6 +1336,9 @@ zebra_client_read (struct thread *thread)
     case ZEBRA_IPV4_IMPORT_LOOKUP:
       zread_ipv4_import_lookup (client, length);
       break;
+    case ZEBRA_HELLO:
+      zread_hello (client);
+      break;
     default:
       zlog_info ("Zebra received unknown command %d", command);
       break;
@@ -1352,6 +1408,7 @@ zebra_serv ()
       return;
     }
 
+  memset (&route_type_oaths, 0, sizeof (route_type_oaths));
   memset (&addr, 0, sizeof (struct sockaddr_in));
   addr.sin_family = AF_INET;
   addr.sin_port = htons (ZEBRA_PORT);
@@ -1421,6 +1478,8 @@ zebra_serv_un (const char *path)
       zlog_warn ("zebra can't provide full functionality due to above error");
       return;
     }
+
+  memset (&route_type_oaths, 0, sizeof (route_type_oaths));
 
   /* Make server socket. */
   memset (&serv, 0, sizeof (struct sockaddr_un));
