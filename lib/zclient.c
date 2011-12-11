@@ -318,6 +318,25 @@ zebra_message_send (struct zclient *zclient, int command)
   return zclient_send_message(zclient);
 }
 
+static int
+zebra_hello_send (struct zclient *zclient)
+{
+  struct stream *s;
+
+  if (zclient->redist_default)
+    {
+      s = zclient->obuf;
+      stream_reset (s);
+
+      zclient_create_header (s, ZEBRA_HELLO);
+      stream_putc (s, zclient->redist_default);
+      stream_putw_at (s, 0, stream_get_endp (s));
+      return zclient_send_message(zclient);
+    }
+
+  return 0;
+}
+
 /* Make connection to zebra daemon. */
 int
 zclient_start (struct zclient *zclient)
@@ -358,6 +377,8 @@ zclient_start (struct zclient *zclient)
       
   /* Create read thread. */
   zclient_event (ZCLIENT_READ, zclient);
+
+  zebra_hello_send (zclient);
 
   /* We need router-id information. */
   zebra_message_send (zclient, ZEBRA_ROUTER_ID_ADD);

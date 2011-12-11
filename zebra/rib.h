@@ -266,6 +266,7 @@ extern void rib_weed_tables (void);
 extern void rib_sweep_route (void);
 extern void rib_close (void);
 extern void rib_init (void);
+extern unsigned long rib_score_proto (u_char proto);
 
 extern int
 static_add_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
