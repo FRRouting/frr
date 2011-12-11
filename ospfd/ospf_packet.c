@@ -1520,8 +1520,13 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
       sum = lsah->checksum;
       if (sum != ospf_lsa_checksum (lsah))
 	{
-	  zlog_warn ("Link State Update: LSA checksum error %x, %x.",
-		     sum, lsah->checksum);
+	  /* (bug #685) more details in a one-line message make it possible
+	   * to identify problem source on the one hand and to have a better
+	   * chance to compress repeated messages in syslog on the other */
+	  zlog_warn ("Link State Update: LSA checksum error %x/%x, ID=%s from: nbr %s, router ID %s, adv router %s",
+		     sum, lsah->checksum, inet_ntoa (lsah->id),
+		     inet_ntoa (nbr->src), inet_ntoa (nbr->router_id),
+		     inet_ntoa (lsah->adv_router));
 	  continue;
 	}
 
