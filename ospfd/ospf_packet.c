@@ -2121,7 +2121,7 @@ ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
   
   ip_len = iph->ip_len;
   
-#if !defined(GNU_LINUX) && (OpenBSD < 200311)
+#if !defined(GNU_LINUX) && (OpenBSD < 200311) && (__FreeBSD_version < 1000000)
   /*
    * Kernel network code touches incoming IP header parameters,
    * before protocol specific processing.
