@@ -2054,7 +2054,7 @@ bgp_route_refresh_receive (struct peer *peer, bgp_size_t size)
 		      break;
 		    }
 		  ok = ((p_end - p_pnt) >= sizeof(u_int32_t)) ;
-		  if (!ok)
+		  if (ok)
 		    {
 		      memcpy (&seq, p_pnt, sizeof (u_int32_t));
                       p_pnt += sizeof (u_int32_t);
