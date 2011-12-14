@@ -391,6 +391,8 @@ ospf6_spf_calculation (u_int32_t router_id,
   caddr_t lsdesc;
   struct ospf6_lsa *lsa;
 
+  ospf6_spf_table_finish (result_table);
+
   /* Install the calculating router itself as the root of the SPF tree */
   /* construct root vertex */
   lsa = ospf6_lsdb_lookup (htons (OSPF6_LSTYPE_ROUTER), htonl (0),
@@ -401,8 +403,6 @@ ospf6_spf_calculation (u_int32_t router_id,
   /* initialize */
   candidate_list = pqueue_create ();
   candidate_list->cmp = ospf6_vertex_cmp;
-
-  ospf6_spf_table_finish (result_table);
 
   root = ospf6_vertex_create (lsa);
   root->area = oa;
