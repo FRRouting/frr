@@ -2592,8 +2592,13 @@ masklen2ip (const int masklen, struct in_addr *netmask)
 u_char
 ip_masklen (struct in_addr netmask)
 {
-  u_int16_t * int16 = (u_int16_t *) &netmask.s_addr;
-  return map64kto17_nbo[int16[0]] + map64kto17_nbo[int16[1]];
+  union
+  {
+    u_int32_t int32;
+    u_int16_t int16[2];
+  } u;
+  u.int32 = netmask.s_addr;
+  return map64kto17_nbo[u.int16[0]] + map64kto17_nbo[u.int16[1]];
 }
 
 /* Apply mask to IPv4 prefix (network byte order). */
