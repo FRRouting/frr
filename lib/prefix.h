@@ -112,7 +112,7 @@ struct prefix_rd
 #define IPV4_NET0(a)    ((((u_int32_t) (a)) & 0xff000000) == 0x00000000)
 #define IPV4_NET127(a)  ((((u_int32_t) (a)) & 0xff000000) == 0x7f000000)
 #define IPV4_LINKLOCAL(a) ((((u_int32_t) (a)) & 0xffff0000) == 0xa9fe0000)
-#define IPV4_CLASS_DE(a) ((u_int32_t) (a) >= 0xe0000000)
+#define IPV4_CLASS_DE(a)  ((((u_int32_t) (a)) & 0xe0000000) == 0xe0000000)
 
 /* Max bit/byte length of IPv6 address. */
 #define IPV6_MAX_BYTELEN    16

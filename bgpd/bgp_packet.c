@@ -1387,7 +1387,7 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
 
   /* remote router-id check. */
   if (remote_id.s_addr == 0
-      || ntohl (remote_id.s_addr) >= 0xe0000000
+      || IPV4_CLASS_DE (ntohl (remote_id.s_addr))
       || ntohl (peer->local_id.s_addr) == ntohl (remote_id.s_addr))
     {
       if (BGP_DEBUG (normal, NORMAL))
