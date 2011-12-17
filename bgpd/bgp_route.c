@@ -1812,9 +1812,9 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
   /* IPv4 unicast next hop check.  */
   if (afi == AFI_IP && safi == SAFI_UNICAST)
     {
-     /* Next hop must not be 0.0.0.0 nor Class E address. */
+     /* Next hop must not be 0.0.0.0 nor Class D/E address. */
       if (new_attr.nexthop.s_addr == 0
-         || ntohl (new_attr.nexthop.s_addr) >= 0xe0000000)
+         || IPV4_CLASS_DE (ntohl (new_attr.nexthop.s_addr)))
        {
          bgp_attr_unintern (&attr_new);
 
@@ -2068,11 +2068,11 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	  goto filtered;
 	}
 
-      /* Next hop must not be 0.0.0.0 nor Class E address.  Next hop
+      /* Next hop must not be 0.0.0.0 nor Class D/E address. Next hop
 	 must not be my own address.  */
       if (bgp_nexthop_self (afi, &new_attr)
 	  || new_attr.nexthop.s_addr == 0
-	  || ntohl (new_attr.nexthop.s_addr) >= 0xe0000000)
+	  || IPV4_CLASS_DE (ntohl (new_attr.nexthop.s_addr)))
 	{
 	  reason = "martian next-hop;";
 	  goto filtered;
