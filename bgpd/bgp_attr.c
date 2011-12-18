@@ -175,14 +175,12 @@ cluster_intern (struct cluster_list *cluster)
 void
 cluster_unintern (struct cluster_list *cluster)
 {
-  struct cluster_list *ret;
-
   if (cluster->refcnt)
     cluster->refcnt--;
 
   if (cluster->refcnt == 0)
     {
-      ret = hash_release (cluster_hash, cluster);
+      hash_release (cluster_hash, cluster);
       cluster_free (cluster);
     }
 }
@@ -235,14 +233,12 @@ transit_intern (struct transit *transit)
 void
 transit_unintern (struct transit *transit)
 {
-  struct transit *ret;
-
   if (transit->refcnt)
     transit->refcnt--;
 
   if (transit->refcnt == 0)
     {
-      ret = hash_release (transit_hash, transit);
+      hash_release (transit_hash, transit);
       transit_free (transit);
     }
 }
@@ -552,10 +548,9 @@ bgp_attr_default_intern (u_char origin)
 {
   struct attr attr;
   struct attr *new;
-  struct attr_extra *attre;
   
   memset (&attr, 0, sizeof (struct attr));
-  attre = bgp_attr_extra_get (&attr);
+  bgp_attr_extra_get (&attr);
   
   bgp_attr_default_set(&attr, origin);
 
@@ -1516,14 +1511,9 @@ bgp_mp_reach_parse (struct peer *peer, const bgp_size_t length,
         memcpy(&attr->nexthop.s_addr, &attre->mp_nexthop_global_in, 4);
       break;
     case 12:
-      {
-	u_int32_t rd_high;
-	u_int32_t rd_low;
-
-	rd_high = stream_getl (s);
-	rd_low = stream_getl (s);
-	stream_get (&attre->mp_nexthop_global_in, s, 4);
-      }
+      stream_getl (s); /* RD high */
+      stream_getl (s); /* RD low */
+      stream_get (&attre->mp_nexthop_global_in, s, 4);
       break;
 #ifdef HAVE_IPV6
     case 16:

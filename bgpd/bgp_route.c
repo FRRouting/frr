@@ -1069,11 +1069,9 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
   struct bgp_filter *filter;
   struct bgp_info info;
   struct peer *from;
-  struct bgp *bgp;
 
   from = ri->peer;
   filter = &rsclient->filter[afi][safi];
-  bgp = rsclient->bgp;
 
   if (DISABLE_BGP_ANNOUNCE)
     return 0;

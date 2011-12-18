@@ -1827,11 +1827,7 @@ extern struct thread_master *master;
 static int
 kernel_read (struct thread *thread)
 {
-  int ret;
-  int sock;
-
-  sock = THREAD_FD (thread);
-  ret = netlink_parse_info (netlink_information_fetch, &netlink);
+  netlink_parse_info (netlink_information_fetch, &netlink);
   thread_add_read (zebrad.master, kernel_read, NULL, netlink.sock);
 
   return 0;

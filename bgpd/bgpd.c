@@ -4721,12 +4721,10 @@ static void
 bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 		       struct peer *peer, afi_t afi, safi_t safi)
 {
-  struct bgp_filter *filter;
   struct peer *g_peer = NULL;
   char buf[SU_ADDRSTRLEN];
   char *addr;
 
-  filter = &peer->filter[afi][safi];
   addr = peer->host;
   if (peer_group_active (peer))
     g_peer = peer->group->conf;

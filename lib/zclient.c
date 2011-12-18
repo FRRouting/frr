@@ -816,7 +816,6 @@ zebra_interface_address_read (int type, struct stream *s)
 static int
 zclient_read (struct thread *thread)
 {
-  int ret;
   size_t already;
   uint16_t length, command;
   uint8_t marker, version;
@@ -911,47 +910,47 @@ zclient_read (struct thread *thread)
     {
     case ZEBRA_ROUTER_ID_UPDATE:
       if (zclient->router_id_update)
-	ret = (*zclient->router_id_update) (command, zclient, length);
+	(*zclient->router_id_update) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_ADD:
       if (zclient->interface_add)
-	ret = (*zclient->interface_add) (command, zclient, length);
+	(*zclient->interface_add) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_DELETE:
       if (zclient->interface_delete)
-	ret = (*zclient->interface_delete) (command, zclient, length);
+	(*zclient->interface_delete) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_ADDRESS_ADD:
       if (zclient->interface_address_add)
-	ret = (*zclient->interface_address_add) (command, zclient, length);
+	(*zclient->interface_address_add) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_ADDRESS_DELETE:
       if (zclient->interface_address_delete)
-	ret = (*zclient->interface_address_delete) (command, zclient, length);
+	(*zclient->interface_address_delete) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_UP:
       if (zclient->interface_up)
-	ret = (*zclient->interface_up) (command, zclient, length);
+	(*zclient->interface_up) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_DOWN:
       if (zclient->interface_down)
-	ret = (*zclient->interface_down) (command, zclient, length);
+	(*zclient->interface_down) (command, zclient, length);
       break;
     case ZEBRA_IPV4_ROUTE_ADD:
       if (zclient->ipv4_route_add)
-	ret = (*zclient->ipv4_route_add) (command, zclient, length);
+	(*zclient->ipv4_route_add) (command, zclient, length);
       break;
     case ZEBRA_IPV4_ROUTE_DELETE:
       if (zclient->ipv4_route_delete)
-	ret = (*zclient->ipv4_route_delete) (command, zclient, length);
+	(*zclient->ipv4_route_delete) (command, zclient, length);
       break;
     case ZEBRA_IPV6_ROUTE_ADD:
       if (zclient->ipv6_route_add)
-	ret = (*zclient->ipv6_route_add) (command, zclient, length);
+	(*zclient->ipv6_route_add) (command, zclient, length);
       break;
     case ZEBRA_IPV6_ROUTE_DELETE:
       if (zclient->ipv6_route_delete)
-	ret = (*zclient->ipv6_route_delete) (command, zclient, length);
+	(*zclient->ipv6_route_delete) (command, zclient, length);
       break;
     default:
       break;
