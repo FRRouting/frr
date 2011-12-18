@@ -384,7 +384,7 @@ ospf_abr_nssa_am_elected (struct ospf_area *area)
       if (best == NULL)
       	best = &lsa->data->id;
       else
-        if ( IPV4_ADDR_CMP (&best, &lsa->data->id) < 0)
+        if (IPV4_ADDR_CMP (&best->s_addr, &lsa->data->id.s_addr) < 0)
           best = &lsa->data->id;
     }
     
@@ -395,7 +395,7 @@ ospf_abr_nssa_am_elected (struct ospf_area *area)
     if (best == NULL)
       return 1;
     
-    if ( IPV4_ADDR_CMP (&best, &area->ospf->router_id) < 0)
+    if (IPV4_ADDR_CMP (&best->s_addr, &area->ospf->router_id.s_addr) < 0)
       return 1;
     else
       return 0;
