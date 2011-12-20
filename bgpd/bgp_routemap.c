@@ -525,8 +525,13 @@ route_match_metric_compile (const char *arg)
   char *endptr = NULL;
   unsigned long tmpval;
 
+  /* Metric value shoud be integer. */
+  if (! all_digit (arg))
+    return NULL;
+
+  errno = 0;
   tmpval = strtoul (arg, &endptr, 10);
-  if (*endptr != '\0' || tmpval == ULONG_MAX || tmpval > UINT32_MAX)
+  if (*endptr != '\0' || errno || tmpval > UINT32_MAX)
     return NULL;
     
   med = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
@@ -1002,8 +1007,9 @@ route_set_local_pref_compile (const char *arg)
   if (! all_digit (arg))
     return NULL;
   
+  errno = 0;
   tmp = strtoul (arg, &endptr, 10);
-  if (*endptr != '\0' || tmp == ULONG_MAX || tmp > UINT32_MAX)
+  if (*endptr != '\0' || errno || tmp > UINT32_MAX)
     return NULL;
    
   local_pref = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t)); 
@@ -1070,9 +1076,9 @@ route_set_weight_compile (const char *arg)
   if (! all_digit (arg))
     return NULL;
 
-
+  errno = 0;
   tmp = strtoul (arg, &endptr, 10);
-  if (*endptr != '\0' || tmp == ULONG_MAX || tmp > UINT32_MAX)
+  if (*endptr != '\0' || errno || tmp > UINT32_MAX)
     return NULL;
   
   weight = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
@@ -1161,8 +1167,9 @@ route_set_metric_compile (const char *arg)
   if (all_digit (arg))
     {
       /* set metric value check*/
+      errno = 0;
       larg = strtoul (arg, &endptr, 10);
-      if (*endptr != '\0' || larg == ULONG_MAX || larg > UINT32_MAX)
+      if (*endptr != '\0' || errno || larg > UINT32_MAX)
         return NULL;
       metric = larg;
     }
@@ -1174,8 +1181,9 @@ route_set_metric_compile (const char *arg)
 	   || (! all_digit (arg+1)))
 	return NULL;
 
+      errno = 0;
       larg = strtoul (arg+1, &endptr, 10);
-      if (*endptr != '\0' || larg == ULONG_MAX || larg > UINT32_MAX)
+      if (*endptr != '\0' || errno || larg > UINT32_MAX)
 	return NULL;
       metric = larg;
     }

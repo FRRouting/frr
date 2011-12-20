@@ -152,8 +152,9 @@ struct vty
 #define VTY_GET_LONG(NAME,V,STR) \
 do { \
   char *endptr = NULL; \
+  errno = 0; \
   (V) = strtoul ((STR), &endptr, 10); \
-  if (*endptr != '\0' || (V) == ULONG_MAX) \
+  if (*(STR) == '-' || *endptr != '\0' || errno) \
     { \
       vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE); \
       return CMD_WARNING; \
