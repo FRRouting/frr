@@ -262,6 +262,13 @@ main (int argc, char *argv[], char *envp[])
         }
     }
 
+  if (geteuid () != 0)
+    {
+      errno = EPERM;
+      perror (progname);
+      exit (1);
+    }
+
   /* thread master */
   master = thread_master_create ();
 
