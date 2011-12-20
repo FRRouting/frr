@@ -80,8 +80,11 @@ ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
   /* match "<0-4294967295>". */
   else
     {
+      if (*str == '-')
+        return -1;
+      errno = 0;
       ret = strtoul (str, &endptr, 10);
-      if (*endptr != '\0' || (ret == ULONG_MAX && errno == ERANGE))
+      if (*endptr != '\0' || errno || ret > UINT32_MAX)
         return -1;
 
       area_id->s_addr = htonl (ret);

@@ -233,9 +233,13 @@ str2tag (const char *str, u_char *tag)
   char *endptr;
   u_int32_t t;
 
-  l = strtoul (str, &endptr, 10);
+  if (*str == '-')
+    return 0;
   
-  if (*endptr == '\0' || l == ULONG_MAX || l > UINT32_MAX)
+  errno = 0;
+  l = strtoul (str, &endptr, 10);
+
+  if (*endptr != '\0' || errno || l > UINT32_MAX)
     return 0;
 
   t = (u_int32_t) l;
