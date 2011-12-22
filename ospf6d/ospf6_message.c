@@ -1104,7 +1104,7 @@ ospf6_lsaseq_examin
     if (length < OSPF6_LSA_HEADER_SIZE)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
-        zlog_debug ("%s: undersized (%u B) trailing (#%u) LSA header",
+        zlog_debug ("%s: undersized (%zu B) trailing (#%u) LSA header",
                     __func__, length, counted_lsas);
       return MSG_NG;
     }
@@ -1136,7 +1136,7 @@ ospf6_lsaseq_examin
       if (lsalen > length)
       {
         if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
-          zlog_debug ("%s: anomaly in %s LSA #%u: declared length is %u B, buffered length is %u B",
+          zlog_debug ("%s: anomaly in %s LSA #%u: declared length is %u B, buffered length is %zu B",
                       __func__, ospf6_lstype_name (lsah->type), counted_lsas, lsalen, length);
         return MSG_NG;
       }
@@ -1707,10 +1707,11 @@ ospf6_send (struct in6_addr *src, struct in6_addr *dst,
     zlog_err ("Could not send entire message");
 }
 
-static int
+static uint32_t
 ospf6_packet_max(struct ospf6_interface *oi)
 {
-  return oi->ifmtu - sizeof(struct ip6_hdr);
+  assert (oi->ifmtu > sizeof (struct ip6_hdr));
+  return oi->ifmtu - (sizeof (struct ip6_hdr));
 }
 
 int
