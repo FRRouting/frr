@@ -22,6 +22,9 @@
 #ifndef _ZEBRA_ZCLIENT_H
 #define _ZEBRA_ZCLIENT_H
 
+/* For struct zapi_ipv{4,6}. */
+#include "prefix.h"
+
 /* For struct interface and struct connected. */
 #include "if.h"
 

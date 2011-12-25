@@ -466,6 +466,17 @@ DEFUN (show_memory_ripng,
   return CMD_SUCCESS;
 }
 
+DEFUN (show_memory_babel,
+       show_memory_babel_cmd,
+       "show memory babel",
+       SHOW_STR
+       "Memory statistics\n"
+       "Babel memory\n")
+{
+  show_memory_vty (vty, memory_list_babel);
+  return CMD_SUCCESS;
+}
+
 DEFUN (show_memory_bgp,
        show_memory_bgp_cmd,
        "show memory bgp",

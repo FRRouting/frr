@@ -1,0 +1,31 @@
+# placeholder
+# This is an example. See documentation for more results.
+# 
+# let 'eth0' be an interface.
+#
+# Remark: '#' and '!' are comments.
+# NB, just for this example:
+#      each line at the same indentation is only dependant of the less level
+#      line. BUT the quagga parser is insensitive.
+
+
+# setup the routing for Babel.
+router babel                #activate the Babel routing                 babeld.c
+  network eth0              #eth0 is match                           interface.c
+  redistribute kernel       #(kernel|connected|static|ospf6|bgp)   babel_zebra.c
+  no redistribute static    #...
+
+
+# setup each interface, one by one...
+Interface eth0              #Set eth0 options                        interface.c
+! wired                     #with wire                               interface.c
+  wireless                  #without wire (défaut)                   interface.c
+! babel split-horizon       #with Split-horizon                      interface.c
+  no babel split-horizon    #without (defaut)                        interface.c
+  hello interval 4096       #default = 4096 (in miliseconds)         interface.c
+
+
+# setup the log destination.
+# log stdout
+# log stdout debugging
+log file /var/log/quagga/babeld.log
