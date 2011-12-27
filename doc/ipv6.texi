@@ -157,6 +157,15 @@ Set default router preference in IPv6 router advertisements per RFC4191.
 Default: medium
 @end deffn
 
+@deffn {Interface Command} {ipv6 nd mtu <1-65535>} {}
+@deffnx {Interface Command} {no ipv6 nd mtu [<1-65535>]} {}
+Include an MTU (type 5) option in each RA packet to assist the attached hosts
+in proper interface configuration. The announced value is not verified to be
+consistent with router interface MTU.
+
+Default: don't advertise any MTU option
+@end deffn
+
 @example
 @group
 interface eth0

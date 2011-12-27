@@ -319,6 +319,17 @@ rtadv_send_packet (int sock, struct interface *ifp)
     }
 #endif /* HAVE_STRUCT_SOCKADDR_DL */
 
+  /* MTU */
+  if (zif->rtadv.AdvLinkMTU)
+    {
+      struct nd_opt_mtu * opt = (struct nd_opt_mtu *) (buf + len);
+      opt->nd_opt_mtu_type = ND_OPT_MTU;
+      opt->nd_opt_mtu_len = 1;
+      opt->nd_opt_mtu_reserved = 0;
+      opt->nd_opt_mtu_mtu = htonl (zif->rtadv.AdvLinkMTU);
+      len += sizeof (struct nd_opt_mtu);
+    }
+
   msg.msg_name = (void *) &addr;
   msg.msg_namelen = sizeof (struct sockaddr_in6);
   msg.msg_iov = &iov;
@@ -1430,6 +1441,43 @@ DEFUN (no_ipv6_nd_router_preference,
   return CMD_SUCCESS;
 }
 
+DEFUN (ipv6_nd_mtu,
+       ipv6_nd_mtu_cmd,
+       "ipv6 nd mtu <1-65535>",
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Advertised MTU\n"
+       "MTU in bytes\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct zebra_if *zif = ifp->info;
+  VTY_GET_INTEGER_RANGE ("MTU", zif->rtadv.AdvLinkMTU, argv[0], 1, 65535);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_nd_mtu,
+       no_ipv6_nd_mtu_cmd,
+       "no ipv6 nd mtu",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Advertised MTU\n")
+{
+  struct interface *ifp = (struct interface *) vty->index;
+  struct zebra_if *zif = ifp->info;
+  zif->rtadv.AdvLinkMTU = 0;
+  return CMD_SUCCESS;
+}
+
+ALIAS (no_ipv6_nd_mtu,
+       no_ipv6_nd_mtu_val_cmd,
+       "no ipv6 nd mtu <1-65535>",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Advertised MTU\n"
+       "MTU in bytes\n")
+
 /* Write configuration about router advertisement. */
 void
 rtadv_config_write (struct vty *vty, struct interface *ifp)
@@ -1481,6 +1529,9 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
     vty_out (vty, " ipv6 nd router-preference %s%s",
 	     rtadv_pref_strs[zif->rtadv.DefaultPreference],
 	     VTY_NEWLINE);
+
+  if (zif->rtadv.AdvLinkMTU)
+    vty_out (vty, " ipv6 nd mtu %d%s", zif->rtadv.AdvLinkMTU, VTY_NEWLINE);
 
   for (ALL_LIST_ELEMENTS_RO (zif->rtadv.AdvPrefixList, node, rprefix))
     {
@@ -1605,6 +1656,9 @@ rtadv_init (void)
   install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_router_preference_cmd);
+  install_element (INTERFACE_NODE, &ipv6_nd_mtu_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_mtu_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_mtu_val_cmd);
 }
 
 static int
