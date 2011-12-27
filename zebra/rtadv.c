@@ -1511,9 +1511,23 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
       vty_out (vty, " ipv6 nd ra-interval %d%s", interval / 1000,
 	     VTY_NEWLINE);
 
+  if (zif->rtadv.AdvIntervalOption)
+    vty_out (vty, " ipv6 nd adv-interval-option%s", VTY_NEWLINE);
+
   if (zif->rtadv.AdvDefaultLifetime != RTADV_ADV_DEFAULT_LIFETIME)
     vty_out (vty, " ipv6 nd ra-lifetime %d%s", zif->rtadv.AdvDefaultLifetime,
 	     VTY_NEWLINE);
+
+  if (zif->rtadv.HomeAgentPreference)
+    vty_out (vty, " ipv6 nd home-agent-preference %u%s",
+	     zif->rtadv.HomeAgentPreference, VTY_NEWLINE);
+
+  if (zif->rtadv.HomeAgentLifetime)
+    vty_out (vty, " ipv6 nd home-agent-lifetime %u%s",
+	     zif->rtadv.HomeAgentLifetime, VTY_NEWLINE);
+
+  if (zif->rtadv.AdvHomeAgentFlag)
+    vty_out (vty, " ipv6 nd home-agent-config-flag%s", VTY_NEWLINE);
 
   if (zif->rtadv.AdvReachableTime)
     vty_out (vty, " ipv6 nd reachable-time %d%s", zif->rtadv.AdvReachableTime,
