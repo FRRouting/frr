@@ -368,7 +368,7 @@ rtadv_timer (struct thread *thread)
 
   for (ALL_LIST_ELEMENTS (iflist, node, nnode, ifp))
     {
-      if (if_is_loopback (ifp))
+      if (if_is_loopback (ifp) || ! if_is_operative (ifp))
 	continue;
 
       zif = ifp->info;
