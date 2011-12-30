@@ -69,7 +69,7 @@ struct rtadvconf
      MUST be no greater than .75 * MaxRtrAdvInterval.
 
      Default: 0.33 * MaxRtrAdvInterval */
-  int MinRtrAdvInterval;
+  int MinRtrAdvInterval; /* This field is currently unused. */
 #define RTADV_MIN_RTR_ADV_INTERVAL (0.33 * RTADV_MAX_RTR_ADV_INTERVAL)
 
   /* Unsolicited Router Advertisements' interval timer. */
@@ -131,8 +131,7 @@ struct rtadvconf
 
      Default: 3 * MaxRtrAdvInterval */
   int AdvDefaultLifetime;
-#define RTADV_ADV_DEFAULT_LIFETIME (3 * RTADV_MAX_RTR_ADV_INTERVAL)
-
+#define RTADV_MAX_RTRLIFETIME 9000 /* 2.5 hours */
 
   /* A list of prefixes to be placed in Prefix Information options in
      Router Advertisement messages sent from the interface.

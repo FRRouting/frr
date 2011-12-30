@@ -163,6 +163,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
   struct rtadv_prefix *rprefix;
   u_char all_nodes_addr[] = {0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
   struct listnode *node;
+  u_int16_t pkt_RouterLifetime;
 
   /*
    * Allocate control message bufffer.  This is dynamic because
@@ -215,13 +216,32 @@ rtadv_send_packet (int sock, struct interface *ifp)
     rtadv->nd_ra_flags_reserved |= ND_RA_FLAG_OTHER;
   if (zif->rtadv.AdvHomeAgentFlag)
     rtadv->nd_ra_flags_reserved |= ND_RA_FLAG_HOME_AGENT;
-  rtadv->nd_ra_router_lifetime = htons (zif->rtadv.AdvDefaultLifetime);
+  /* Note that according to Neighbor Discovery (RFC 4861 [18]),
+   * AdvDefaultLifetime is by default based on the value of
+   * MaxRtrAdvInterval.  AdvDefaultLifetime is used in the Router Lifetime
+   * field of Router Advertisements.  Given that this field is expressed
+   * in seconds, a small MaxRtrAdvInterval value can result in a zero
+   * value for this field.  To prevent this, routers SHOULD keep
+   * AdvDefaultLifetime in at least one second, even if the use of
+   * MaxRtrAdvInterval would result in a smaller value. -- RFC6275, 7.5 */
+  pkt_RouterLifetime = zif->rtadv.AdvDefaultLifetime != -1 ?
+    zif->rtadv.AdvDefaultLifetime :
+    MAX (1, 0.003 * zif->rtadv.MaxRtrAdvInterval);
+  rtadv->nd_ra_router_lifetime = htons (pkt_RouterLifetime);
   rtadv->nd_ra_reachable = htonl (zif->rtadv.AdvReachableTime);
   rtadv->nd_ra_retransmit = htonl (0);
 
   len = sizeof (struct nd_router_advert);
 
-  if (zif->rtadv.AdvHomeAgentFlag)
+  /* If both the Home Agent Preference and Home Agent Lifetime are set to
+   * their default values specified above, this option SHOULD NOT be
+   * included in the Router Advertisement messages sent by this home
+   * agent. -- RFC6275, 7.4 */
+  if
+  (
+    zif->rtadv.AdvHomeAgentFlag &&
+    (zif->rtadv.HomeAgentPreference || zif->rtadv.HomeAgentLifetime != -1)
+  )
     {
       struct nd_opt_homeagent_info *ndopt_hai = 
 	(struct nd_opt_homeagent_info *)(buf + len);
@@ -229,7 +249,17 @@ rtadv_send_packet (int sock, struct interface *ifp)
       ndopt_hai->nd_opt_hai_len = 1;
       ndopt_hai->nd_opt_hai_reserved = 0;
       ndopt_hai->nd_opt_hai_preference = htons(zif->rtadv.HomeAgentPreference);
-      ndopt_hai->nd_opt_hai_lifetime = htons(zif->rtadv.HomeAgentLifetime);
+      /* 16-bit unsigned integer.  The lifetime associated with the home
+       * agent in units of seconds.  The default value is the same as the
+       * Router Lifetime, as specified in the main body of the Router
+       * Advertisement.  The maximum value corresponds to 18.2 hours.  A
+       * value of 0 MUST NOT be used. -- RFC6275, 7.5 */
+      ndopt_hai->nd_opt_hai_lifetime = htons
+      (
+        zif->rtadv.HomeAgentLifetime != -1 ?
+        zif->rtadv.HomeAgentLifetime :
+        MAX (1, pkt_RouterLifetime) /* 0 is OK for RL, but not for HAL*/
+      );
       len += sizeof(struct nd_opt_homeagent_info);
     }
 
@@ -389,6 +419,8 @@ rtadv_timer (struct thread *thread)
 	  zif->rtadv.AdvIntervalTimer -= period;
 	  if (zif->rtadv.AdvIntervalTimer <= 0)
 	    {
+	      /* FIXME: using MaxRtrAdvInterval each time isn't what section
+	         6.2.4 of RFC4861 tells to do. */
 	      zif->rtadv.AdvIntervalTimer = zif->rtadv.MaxRtrAdvInterval;
 	      rtadv_send_packet (rtadv->sock, ifp);
 	    }
@@ -707,7 +739,11 @@ DEFUN (ipv6_nd_ra_interval_msec,
 
   interval = atoi (argv[0]);
 
-  if (interval <= 0)
+  if
+  (
+    interval < 70 || interval > 1800000 ||
+    (zif->rtadv.AdvDefaultLifetime != -1 && interval > zif->rtadv.AdvDefaultLifetime * 1000)
+  )
     {
       vty_out (vty, "Invalid Router Advertisement Interval%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -743,7 +779,11 @@ DEFUN (ipv6_nd_ra_interval,
 
   interval = atoi (argv[0]);
 
-  if (interval <= 0)
+  if
+  (
+    interval < 1 || interval > 1800 ||
+    (zif->rtadv.AdvDefaultLifetime != -1 && interval > zif->rtadv.AdvDefaultLifetime)
+  )
     {
       vty_out (vty, "Invalid Router Advertisement Interval%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -803,7 +843,15 @@ DEFUN (ipv6_nd_ra_lifetime,
 
   lifetime = atoi (argv[0]);
 
-  if (lifetime < 0 || lifetime > 0xffff)
+  /* The value to be placed in the Router Lifetime field
+   * of Router Advertisements sent from the interface,
+   * in seconds.  MUST be either zero or between
+   * MaxRtrAdvInterval and 9000 seconds. -- RFC4861, 6.2.1 */
+  if
+  (
+    lifetime > RTADV_MAX_RTRLIFETIME ||
+    (lifetime != 0 && lifetime * 1000 < zif->rtadv.MaxRtrAdvInterval)
+  )
     {
       vty_out (vty, "Invalid Router Lifetime%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -828,7 +876,7 @@ DEFUN (no_ipv6_nd_ra_lifetime,
   ifp = (struct interface *) vty->index;
   zif = ifp->info;
 
-  zif->rtadv.AdvDefaultLifetime = RTADV_ADV_DEFAULT_LIFETIME;
+  zif->rtadv.AdvDefaultLifetime = -1;
 
   return CMD_SUCCESS;
 }
@@ -944,7 +992,7 @@ DEFUN (ipv6_nd_homeagent_lifetime,
 
   ha_ltime = (u_int32_t) atol (argv[0]);
 
-  if (ha_ltime > RTADV_MAX_HALIFETIME)
+  if (ha_ltime < 1 || ha_ltime > RTADV_MAX_HALIFETIME)
     {
       vty_out (vty, "Invalid Home Agent Lifetime time%s", VTY_NEWLINE);
       return CMD_WARNING;
@@ -969,7 +1017,7 @@ DEFUN (no_ipv6_nd_homeagent_lifetime,
   ifp = (struct interface *) vty->index;
   zif = ifp->info;
 
-  zif->rtadv.HomeAgentLifetime = 0;
+  zif->rtadv.HomeAgentLifetime = -1;
 
   return CMD_SUCCESS;
 }
@@ -1514,7 +1562,7 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
   if (zif->rtadv.AdvIntervalOption)
     vty_out (vty, " ipv6 nd adv-interval-option%s", VTY_NEWLINE);
 
-  if (zif->rtadv.AdvDefaultLifetime != RTADV_ADV_DEFAULT_LIFETIME)
+  if (zif->rtadv.AdvDefaultLifetime != -1)
     vty_out (vty, " ipv6 nd ra-lifetime %d%s", zif->rtadv.AdvDefaultLifetime,
 	     VTY_NEWLINE);
 
@@ -1522,7 +1570,7 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
     vty_out (vty, " ipv6 nd home-agent-preference %u%s",
 	     zif->rtadv.HomeAgentPreference, VTY_NEWLINE);
 
-  if (zif->rtadv.HomeAgentLifetime)
+  if (zif->rtadv.HomeAgentLifetime != -1)
     vty_out (vty, " ipv6 nd home-agent-lifetime %u%s",
 	     zif->rtadv.HomeAgentLifetime, VTY_NEWLINE);
 
