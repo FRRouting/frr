@@ -660,13 +660,23 @@ masklen2ip6 (const int masklen, struct in6_addr *netmask)
 void
 apply_mask_ipv6 (struct prefix_ipv6 *p)
 {
-  assert (p->prefixlen >= 0 && p->prefixlen <= IPV6_MAX_BITLEN);
-  u_int32_t *addr_word = (u_int32_t *) &p->prefix;
-  u_int32_t *mask_word = (u_int32_t *) (maskbytes6 + p->prefixlen);
-  *addr_word++ &= *mask_word++;
-  *addr_word++ &= *mask_word++;
-  *addr_word++ &= *mask_word++;
-  *addr_word &= *mask_word;
+  u_char *pnt;
+  int index;
+  int offset;
+
+  index = p->prefixlen / 8;
+
+  if (index < 16)
+    {
+      pnt = (u_char *) &p->prefix;
+      offset = p->prefixlen % 8;
+
+      pnt[index] &= maskbit[offset];
+      index++;
+
+      while (index < 16)
+	pnt[index++] = 0;
+    }
 }
 
 void
