@@ -180,6 +180,7 @@ static void
 sigterm (void)
 {
   zlog_notice ("Terminating on signal SIGTERM");
+  ospf6_clean();
   ospf6_exit (0);
 }
 
