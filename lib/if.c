@@ -426,16 +426,20 @@ if_flag_dump (unsigned long flag)
 static void
 if_dump (const struct interface *ifp)
 {
-  zlog_info ("Interface %s index %d metric %d mtu %d "
+  struct listnode *node;
+  struct connected *c;
+
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, c))
+    zlog_info ("Interface %s index %d metric %d mtu %d "
 #ifdef HAVE_IPV6
-             "mtu6 %d "
+               "mtu6 %d "
 #endif /* HAVE_IPV6 */
-             "%s",
-	     ifp->name, ifp->ifindex, ifp->metric, ifp->mtu, 
+               "%s",
+               ifp->name, ifp->ifindex, ifp->metric, ifp->mtu, 
 #ifdef HAVE_IPV6
-	     ifp->mtu6,
+               ifp->mtu6,
 #endif /* HAVE_IPV6 */
-	     if_flag_dump (ifp->flags));
+               if_flag_dump (ifp->flags));
 }
 
 /* Interface printing for all interface. */
