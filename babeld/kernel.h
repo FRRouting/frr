@@ -55,28 +55,15 @@ struct kernel_route {
 #define ROUTE_ADD 1
 #define ROUTE_MODIFY 2
 
-#define CHANGE_LINK  (1 << 0)
-#define CHANGE_ROUTE (1 << 1)
-#define CHANGE_ADDR  (1 << 2)
-
 extern int export_table, import_table;
 
-int kernel_setup(int setup);
-int kernel_setup_socket(int setup);
-int kernel_setup_interface(int setup, struct interface *interface);
 int kernel_interface_operational(struct interface *interface);
-int kernel_interface_ipv4(struct interface *interface,
-                          unsigned char *addr_r);
 int kernel_interface_mtu(struct interface *interface);
 int kernel_interface_wireless(struct interface *interface);
 int kernel_route(int operation, const unsigned char *dest, unsigned short plen,
                  const unsigned char *gate, int ifindex, unsigned int metric,
                  const unsigned char *newgate, int newifindex,
                  unsigned int newmetric);
-int kernel_routes(struct kernel_route *routes, int maxroutes);
-int kernel_callback(int (*fn)(int, void*), void *closure);
-int kernel_addresses(struct interface *interface, int ll,
-                     struct kernel_route *routes, int maxroutes);
 int if_eui64(char *ifname, int ifindex, unsigned char *eui);
 int gettime(struct timeval *tv);
 int read_random_bytes(void *buf, size_t len);

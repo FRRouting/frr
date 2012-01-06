@@ -80,39 +80,10 @@ kernel_route_delete_v6(const unsigned char *pref, unsigned short plen,
                        const unsigned char *newgate, int newifindex,
                        unsigned int newmetric);
 
-
-int export_table = -1, import_table = -1; /* just for compatibility */
-
-int
-kernel_setup(int setup)
-{
-    return 0;
-}
-
-/* get a connection with zebra client, at all costs */
-int
-kernel_setup_socket(int setup)
-{
-    return -1;
-}
-
-int
-kernel_setup_interface(int setup, struct interface *interface)
-{
-    return 1;
-}
-
 int
 kernel_interface_operational(struct interface *interface)
 {
     return if_is_operative(interface);
-}
-
-int
-kernel_interface_ipv4(struct interface *interface, unsigned char *addr_r)
-{
-    assert(0); /* function not used */
-    return -1;
 }
 
 int
@@ -126,10 +97,6 @@ kernel_interface_wireless(struct interface *interface)
 {
     return 0;
 }
-
-extern int
-zapi_ipv6_route (u_char cmd, struct zclient *zclient,
-                 struct prefix_ipv6 *p, struct zapi_ipv6 *api);
 
 int
 kernel_route(int operation, const unsigned char *pref, unsigned short plen,
@@ -398,33 +365,6 @@ kernel_route_delete_v6(const unsigned char *pref, unsigned short plen,
     debugf(BABEL_DEBUG_ROUTE, "removing route (ipv6) to zebra");
     return zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient,
                             &quagga_prefix, &api);
-}
-
-int
-kernel_routes(struct kernel_route *routes, int maxroutes)
-{
-    fprintf(stderr, "\tkernel_routes  --- not implemented\n");
-    return 0;
-}
-
-int
-kernel_callback(int (*fn)(int, void*), void *closure)
-{
-    struct thread thread;
-    fprintf(stderr, "\tkernel_callback\n");
-    /* do a little work on threads */
-    if (thread_fetch(master, &thread) != NULL) {
-        thread_call (&thread);
-    }
-    return 0;
-}
-
-int
-kernel_addresses(struct interface *interface, int ll,
-                 struct kernel_route *routes, int maxroutes)
-{
-    fprintf(stderr, "\tkernel_addresses  --- not implemented\n");
-    return 0;
 }
 
 int
