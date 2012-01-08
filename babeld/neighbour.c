@@ -217,13 +217,13 @@ reset_txcost(struct neighbour *neigh)
 
     delay = timeval_minus_msec(&babel_now, &neigh->ihu_time);
 
-    if(neigh->ihu_interval > 0 && delay < neigh->ihu_interval * 10 * 3)
+    if(neigh->ihu_interval > 0 && delay < neigh->ihu_interval * 10U * 3U)
         return 0;
 
     /* If we're losing a lot of packets, we probably lost an IHU too */
     if(delay >= 180000 || (neigh->reach & 0xFFF0) == 0 ||
        (neigh->ihu_interval > 0 &&
-        delay >= neigh->ihu_interval * 10 * 10)) {
+        delay >= neigh->ihu_interval * 10U * 10U)) {
         neigh->txcost = INFINITY;
         neigh->ihu_time = babel_now;
         return 1;
@@ -266,9 +266,9 @@ check_neighbours()
         update_neighbour_metric(neigh, changed);
 
         if(neigh->hello_interval > 0)
-            msecs = MIN(msecs, neigh->hello_interval * 10);
+            msecs = MIN(msecs, neigh->hello_interval * 10U);
         if(neigh->ihu_interval > 0)
-            msecs = MIN(msecs, neigh->ihu_interval * 10);
+            msecs = MIN(msecs, neigh->ihu_interval * 10U);
         neigh = neigh->next;
     }
 

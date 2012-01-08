@@ -61,7 +61,7 @@ static int interface_reset(struct interface *ifp);
 static int babel_if_new_hook    (struct interface *ifp);
 static int babel_if_delete_hook (struct interface *ifp);
 static int interface_config_write (struct vty *vty);
-static babel_interface_nfo * babel_interface_allocate ();
+static babel_interface_nfo * babel_interface_allocate (void);
 static void babel_interface_free (babel_interface_nfo *bi);
 
 
@@ -738,7 +738,7 @@ interface_config_write (struct vty *vty)
 /* functions to allocate or free memory for a babel_interface_nfo, filling
  needed fields */
 static babel_interface_nfo *
-babel_interface_allocate ()
+babel_interface_allocate (void)
 {
     babel_interface_nfo *babel_ifp;
     babel_ifp = XMALLOC(MTYPE_BABEL_IF, sizeof(babel_interface_nfo));
