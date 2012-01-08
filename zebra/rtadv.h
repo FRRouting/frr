@@ -30,7 +30,7 @@
 struct rtadv_prefix
 {
   /* Prefix to be advertised. */
-  struct prefix prefix;
+  struct prefix_ipv6 prefix;
   
   /* The value to be placed in the Valid Lifetime in the Prefix */
   u_int32_t AdvValidLifetime;

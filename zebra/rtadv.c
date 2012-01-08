@@ -191,7 +191,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
   addr.sin6_len = sizeof (struct sockaddr_in6);
 #endif /* SIN6_LEN */
   addr.sin6_port = htons (IPPROTO_ICMPV6);
-  memcpy (&addr.sin6_addr, all_nodes_addr, sizeof (struct in6_addr));
+  IPV6_ADDR_COPY (&addr.sin6_addr, all_nodes_addr);
 
   /* Fetch interface information. */
   zif = ifp->info;
@@ -297,8 +297,7 @@ rtadv_send_packet (int sock, struct interface *ifp)
       pinfo->nd_opt_pi_preferred_time = htonl (rprefix->AdvPreferredLifetime);
       pinfo->nd_opt_pi_reserved2 = 0;
 
-      memcpy (&pinfo->nd_opt_pi_prefix, &rprefix->prefix.u.prefix6,
-	      sizeof (struct in6_addr));
+      IPV6_ADDR_COPY (&pinfo->nd_opt_pi_prefix, &rprefix->prefix.prefix);
 
 #ifdef DEBUG
       {
@@ -595,19 +594,19 @@ rtadv_prefix_free (struct rtadv_prefix *rtadv_prefix)
 }
 
 static struct rtadv_prefix *
-rtadv_prefix_lookup (struct list *rplist, struct prefix *p)
+rtadv_prefix_lookup (struct list *rplist, struct prefix_ipv6 *p)
 {
   struct listnode *node;
   struct rtadv_prefix *rprefix;
 
   for (ALL_LIST_ELEMENTS_RO (rplist, node, rprefix))
-    if (prefix_same (&rprefix->prefix, p))
+    if (prefix_same ((struct prefix *) &rprefix->prefix, (struct prefix *) p))
       return rprefix;
   return NULL;
 }
 
 static struct rtadv_prefix *
-rtadv_prefix_get (struct list *rplist, struct prefix *p)
+rtadv_prefix_get (struct list *rplist, struct prefix_ipv6 *p)
 {
   struct rtadv_prefix *rprefix;
   
@@ -616,7 +615,7 @@ rtadv_prefix_get (struct list *rplist, struct prefix *p)
     return rprefix;
 
   rprefix = rtadv_prefix_new ();
-  memcpy (&rprefix->prefix, p, sizeof (struct prefix));
+  memcpy (&rprefix->prefix, p, sizeof (struct prefix_ipv6));
   listnode_add (rplist, rprefix);
 
   return rprefix;
@@ -1196,7 +1195,7 @@ DEFUN (ipv6_nd_prefix,
   ifp = (struct interface *) vty->index;
   zebra_if = ifp->info;
 
-  ret = str2prefix_ipv6 (argv[0], (struct prefix_ipv6 *) &rp.prefix);
+  ret = str2prefix_ipv6 (argv[0], &rp.prefix);
   if (!ret)
     {
       vty_out (vty, "Malformed IPv6 prefix%s", VTY_NEWLINE);
@@ -1424,7 +1423,7 @@ DEFUN (no_ipv6_nd_prefix,
   ifp = (struct interface *) vty->index;
   zebra_if = ifp->info;
 
-  ret = str2prefix_ipv6 (argv[0], (struct prefix_ipv6 *) &rp.prefix);
+  ret = str2prefix_ipv6 (argv[0], &rp.prefix);
   if (!ret)
     {
       vty_out (vty, "Malformed IPv6 prefix%s", VTY_NEWLINE);
@@ -1600,7 +1599,7 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
   for (ALL_LIST_ELEMENTS_RO (zif->rtadv.AdvPrefixList, node, rprefix))
     {
       vty_out (vty, " ipv6 nd prefix %s/%d",
-	       inet_ntop (AF_INET6, &rprefix->prefix.u.prefix6, 
+	       inet_ntop (AF_INET6, &rprefix->prefix.prefix,
 			  (char *) buf, INET6_ADDRSTRLEN),
 	       rprefix->prefix.prefixlen);
       if ((rprefix->AdvValidLifetime != RTADV_VALID_LIFETIME) || 
