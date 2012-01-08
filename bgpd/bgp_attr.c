@@ -867,7 +867,7 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
 
   total = length + (CHECK_FLAG (flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
 
-  /* Flag check. */
+  /* Flags check. */
   if (CHECK_FLAG (flag, BGP_ATTR_FLAG_PARTIAL))
     {
       zlog (peer->log, LOG_ERR,
@@ -877,11 +877,20 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
 				 startp, total);
     }
 
-  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL)
-      || ! CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+  if (!CHECK_FLAG (flag, BGP_ATTR_FLAG_TRANS))
+    {
+      zlog (peer->log, LOG_ERR,
+            "AS_PATH attribute must be flagged as \"transitive\" (%u)", flag);
+      return bgp_attr_malformed (peer, BGP_ATTR_AS_PATH, flag,
+				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+				 startp, total);
+    }
+  
+  if (CHECK_FLAG (flag, BGP_ATTR_FLAG_OPTIONAL))
     {
       zlog (peer->log, LOG_ERR, 
-	    "As-Path attribute flag isn't transitive %d", flag);
+            "AS_PATH attribute must not be flagged as \"optional\" (%u)", flag);
+      
       return bgp_attr_malformed (peer, BGP_ATTR_AS_PATH, flag,
                                  BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
                                  startp, total);
