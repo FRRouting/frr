@@ -210,7 +210,7 @@ xroute_add_new_route(unsigned char prefix[16], unsigned char plen,
     if(metric < INFINITY) {
         rc = add_xroute(prefix, plen, metric, ifindex, proto);
         if(rc > 0) {
-            struct route *route;
+            struct babel_route *route;
             route = find_installed_route(prefix, plen);
             if(route) {
                 if(allow_duplicates < 0 ||

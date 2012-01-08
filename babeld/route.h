@@ -40,7 +40,7 @@ THE SOFTWARE.
 #include "babel_interface.h"
 #include "source.h"
 
-struct route {
+struct babel_route {
     struct source *src;
     unsigned short metric;
     unsigned short refmetric;
@@ -53,38 +53,38 @@ struct route {
 };
 
 static inline int
-route_metric(const struct route *route)
+route_metric(const struct babel_route *route)
 {
     return route->metric;
 }
 
-extern struct route *routes;
+extern struct babel_route *routes;
 extern int numroutes, maxroutes;
 extern int kernel_metric, allow_duplicates;
 
-struct route *find_route(const unsigned char *prefix, unsigned char plen,
+struct babel_route *find_route(const unsigned char *prefix, unsigned char plen,
                          struct neighbour *neigh, const unsigned char *nexthop);
-struct route *find_installed_route(const unsigned char *prefix,
+struct babel_route *find_installed_route(const unsigned char *prefix,
                                    unsigned char plen);
-void flush_route(struct route *route);
+void flush_route(struct babel_route *route);
 void flush_neighbour_routes(struct neighbour *neigh);
 void flush_interface_routes(struct interface *ifp, int v4only);
-void install_route(struct route *route);
-void uninstall_route(struct route *route);
-void switch_route(struct route *old, struct route *new);
-int route_feasible(struct route *route);
-int route_old(struct route *route);
-int route_expired(struct route *route);
+void install_route(struct babel_route *route);
+void uninstall_route(struct babel_route *route);
+void switch_route(struct babel_route *old, struct babel_route *new);
+int route_feasible(struct babel_route *route);
+int route_old(struct babel_route *route);
+int route_expired(struct babel_route *route);
 int update_feasible(struct source *src,
                     unsigned short seqno, unsigned short refmetric);
-struct route *find_best_route(const unsigned char *prefix, unsigned char plen,
+struct babel_route *find_best_route(const unsigned char *prefix, unsigned char plen,
                               int feasible, struct neighbour *exclude);
-struct route *install_best_route(const unsigned char prefix[16],
+struct babel_route *install_best_route(const unsigned char prefix[16],
                                  unsigned char plen);
 void update_neighbour_metric(struct neighbour *neigh, int change);
 void update_interface_metric(struct interface *ifp);
-void update_route_metric(struct route *route);
-struct route *update_route(const unsigned char *a,
+void update_route_metric(struct babel_route *route);
+struct babel_route *update_route(const unsigned char *a,
                            const unsigned char *p, unsigned char plen,
                            unsigned short seqno, unsigned short refmetric,
                            unsigned short interval, struct neighbour *neigh,
@@ -93,12 +93,12 @@ void retract_neighbour_routes(struct neighbour *neigh);
 void send_unfeasible_request(struct neighbour *neigh, int force,
                              unsigned short seqno, unsigned short metric,
                              struct source *src);
-void send_triggered_update(struct route *route,
+void send_triggered_update(struct babel_route *route,
                            struct source *oldsrc, unsigned oldmetric);
-void route_changed(struct route *route,
+void route_changed(struct babel_route *route,
                    struct source *oldsrc, unsigned short oldmetric);
 void route_lost(struct source *src, unsigned oldmetric);
 void expire_routes(void);
 
 void babel_uninstall_all_routes(void);
-struct route *babel_route_get_by_source(struct source *src);
+struct babel_route *babel_route_get_by_source(struct source *src);

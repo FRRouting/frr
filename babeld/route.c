@@ -58,14 +58,14 @@ THE SOFTWARE.
 #include "message.h"
 #include "resend.h"
 
-static void consider_route(struct route *route);
+static void consider_route(struct babel_route *route);
 
-struct route *routes = NULL;
+struct babel_route *routes = NULL;
 int numroutes = 0, maxroutes = 0;
 int kernel_metric = 0;
 int allow_duplicates = -1;
 
-struct route *
+struct babel_route *
 find_route(const unsigned char *prefix, unsigned char plen,
            struct neighbour *neigh, const unsigned char *nexthop)
 {
@@ -79,7 +79,7 @@ find_route(const unsigned char *prefix, unsigned char plen,
     return NULL;
 }
 
-struct route *
+struct babel_route *
 find_installed_route(const unsigned char *prefix, unsigned char plen)
 {
     int i;
@@ -91,7 +91,7 @@ find_installed_route(const unsigned char *prefix, unsigned char plen)
 }
 
 void
-flush_route(struct route *route)
+flush_route(struct babel_route *route)
 {
     int i;
     struct source *src;
@@ -111,18 +111,18 @@ flush_route(struct route *route)
     src = route->src;
 
     if(i != numroutes - 1)
-        memcpy(routes + i, routes + numroutes - 1, sizeof(struct route));
+        memcpy(routes + i, routes + numroutes - 1, sizeof(struct babel_route));
     numroutes--;
-    VALGRIND_MAKE_MEM_UNDEFINED(routes + numroutes, sizeof(struct route));
+    VALGRIND_MAKE_MEM_UNDEFINED(routes + numroutes, sizeof(struct babel_route));
 
     if(numroutes == 0) {
         free(routes);
         routes = NULL;
         maxroutes = 0;
     } else if(maxroutes > 8 && numroutes < maxroutes / 4) {
-        struct route *new_routes;
+        struct babel_route *new_routes;
         int n = maxroutes / 2;
-        new_routes = realloc(routes, n * sizeof(struct route));
+        new_routes = realloc(routes, n * sizeof(struct babel_route));
         if(new_routes != NULL) {
             routes = new_routes;
             maxroutes = n;
@@ -171,7 +171,7 @@ metric_to_kernel(int metric)
 }
 
 void
-install_route(struct route *route)
+install_route(struct babel_route *route)
 {
     int rc;
 
@@ -196,7 +196,7 @@ install_route(struct route *route)
 }
 
 void
-uninstall_route(struct route *route)
+uninstall_route(struct babel_route *route)
 {
     int rc;
 
@@ -218,7 +218,7 @@ uninstall_route(struct route *route)
    must be the same. */
 
 static void
-switch_routes(struct route *old, struct route *new)
+switch_routes(struct babel_route *old, struct babel_route *new)
 {
     int rc;
 
@@ -249,7 +249,7 @@ switch_routes(struct route *old, struct route *new)
 }
 
 static void
-change_route_metric(struct route *route, unsigned newmetric)
+change_route_metric(struct babel_route *route, unsigned newmetric)
 {
     int old, new;
 
@@ -276,26 +276,26 @@ change_route_metric(struct route *route, unsigned newmetric)
 }
 
 static void
-retract_route(struct route *route)
+retract_route(struct babel_route *route)
 {
     route->refmetric = INFINITY;
     change_route_metric(route, INFINITY);
 }
 
 int
-route_feasible(struct route *route)
+route_feasible(struct babel_route *route)
 {
     return update_feasible(route->src, route->seqno, route->refmetric);
 }
 
 int
-route_old(struct route *route)
+route_old(struct babel_route *route)
 {
     return route->time < babel_now.tv_sec - route->hold_time * 7 / 8;
 }
 
 int
-route_expired(struct route *route)
+route_expired(struct babel_route *route)
 {
     return route->time < babel_now.tv_sec - route->hold_time;
 }
@@ -320,11 +320,11 @@ update_feasible(struct source *src,
 }
 
 /* This returns the feasible route with the smallest metric. */
-struct route *
+struct babel_route *
 find_best_route(const unsigned char *prefix, unsigned char plen, int feasible,
                 struct neighbour *exclude)
 {
-    struct route *route = NULL;
+    struct babel_route *route = NULL;
     int i;
 
     for(i = 0; i < numroutes; i++) {
@@ -344,7 +344,7 @@ find_best_route(const unsigned char *prefix, unsigned char plen, int feasible,
 }
 
 void
-update_route_metric(struct route *route)
+update_route_metric(struct babel_route *route)
 {
     int oldmetric = route_metric(route);
 
@@ -404,14 +404,14 @@ update_interface_metric(struct interface *ifp)
 }
 
 /* This is called whenever we receive an update. */
-struct route *
+struct babel_route *
 update_route(const unsigned char *router_id,
              const unsigned char *prefix, unsigned char plen,
              unsigned short seqno, unsigned short refmetric,
              unsigned short interval,
              struct neighbour *neigh, const unsigned char *nexthop)
 {
-    struct route *route;
+    struct babel_route *route;
     struct source *src;
     int metric, feasible;
     int add_metric;
@@ -488,11 +488,11 @@ update_route(const unsigned char *router_id,
             return NULL;
         }
         if(numroutes >= maxroutes) {
-            struct route *new_routes;
+            struct babel_route *new_routes;
             int n = maxroutes < 1 ? 8 : 2 * maxroutes;
             new_routes = routes == NULL ?
-                malloc(n * sizeof(struct route)) :
-                realloc(routes, n * sizeof(struct route));
+                malloc(n * sizeof(struct babel_route)) :
+                realloc(routes, n * sizeof(struct babel_route));
             if(new_routes == NULL)
                 return NULL;
             maxroutes = n;
@@ -521,7 +521,7 @@ send_unfeasible_request(struct neighbour *neigh, int force,
                         unsigned short seqno, unsigned short metric,
                         struct source *src)
 {
-    struct route *route = find_installed_route(src->prefix, src->plen);
+    struct babel_route *route = find_installed_route(src->prefix, src->plen);
 
     if(seqno_minus(src->seqno, seqno) > 100) {
         /* Probably a source that lost its seqno.  Let it time-out. */
@@ -539,9 +539,9 @@ send_unfeasible_request(struct neighbour *neigh, int force,
 
 /* This takes a feasible route and decides whether to install it. */
 static void
-consider_route(struct route *route)
+consider_route(struct babel_route *route)
 {
-    struct route *installed;
+    struct babel_route *installed;
     struct xroute *xroute;
 
     if(route->installed)
@@ -606,7 +606,7 @@ retract_neighbour_routes(struct neighbour *neigh)
 }
 
 void
-send_triggered_update(struct route *route, struct source *oldsrc,
+send_triggered_update(struct babel_route *route, struct source *oldsrc,
                       unsigned oldmetric)
 {
     unsigned newmetric, diff;
@@ -665,12 +665,12 @@ send_triggered_update(struct route *route, struct source *oldsrc,
 /* A route has just changed.  Decide whether to switch to a different route or
    send an update. */
 void
-route_changed(struct route *route,
+route_changed(struct babel_route *route,
               struct source *oldsrc, unsigned short oldmetric)
 {
     if(route->installed) {
         if(route_metric(route) > oldmetric) {
-            struct route *better_route;
+            struct babel_route *better_route;
             better_route =
                 find_best_route(route->src->prefix, route->src->plen, 1, NULL);
             if(better_route &&
@@ -692,7 +692,7 @@ route_changed(struct route *route,
 void
 route_lost(struct source *src, unsigned oldmetric)
 {
-    struct route *new_route;
+    struct babel_route *new_route;
     new_route = find_best_route(src->prefix, src->plen, 1, NULL);
     if(new_route) {
         consider_route(new_route);
@@ -715,7 +715,7 @@ expire_routes(void)
 
     i = 0;
     while(i < numroutes) {
-        struct route *route = &routes[i];
+        struct babel_route *route = &routes[i];
 
         if(route->time > babel_now.tv_sec || /* clock stepped */
            route_old(route)) {
@@ -744,7 +744,7 @@ babel_uninstall_all_routes(void)
     }
 }
 
-struct route *
+struct babel_route *
 babel_route_get_by_source(struct source *src)
 {
     int i;
