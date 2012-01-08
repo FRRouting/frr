@@ -37,14 +37,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <assert.h>
-#include <sys/time.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 #include <zebra.h>
 #include "if.h"
 
@@ -1216,7 +1208,6 @@ void
 send_request(struct interface *ifp,
              const unsigned char *prefix, unsigned char plen)
 {
-    babel_interface_nfo *babel_ifp = NULL;
     int v4, len;
 
     if(ifp == NULL) {
@@ -1236,7 +1227,6 @@ send_request(struct interface *ifp,
     if(!if_up(ifp))
         return;
 
-    babel_ifp = babel_get_if_nfo(ifp);
     debugf(BABEL_DEBUG_COMMON,"sending request to %s for %s.",
            ifp->name, prefix ? format_prefix(prefix, plen) : "any");
     v4 = plen >= 96 && v4mapped(prefix);
@@ -1288,7 +1278,6 @@ send_multihop_request(struct interface *ifp,
                       unsigned short seqno, const unsigned char *id,
                       unsigned short hop_count)
 {
-    babel_interface_nfo *babel_ifp = NULL;
     int v4, pb, len;
 
     /* Make sure any buffered updates go out before this request. */
@@ -1308,7 +1297,6 @@ send_multihop_request(struct interface *ifp,
     if(!if_up(ifp))
         return;
 
-    babel_ifp = babel_get_if_nfo(ifp);
     debugf(BABEL_DEBUG_COMMON,"Sending request (%d) on %s for %s.",
            hop_count, ifp->name, format_prefix(prefix, plen));
     v4 = plen >= 96 && v4mapped(prefix);

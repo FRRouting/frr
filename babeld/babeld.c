@@ -560,7 +560,7 @@ babel_distribute_update (struct distribute *dist)
     }
 }
 
-void
+static void
 babel_distribute_update_interface (struct interface *ifp)
 {
     struct distribute *dist;

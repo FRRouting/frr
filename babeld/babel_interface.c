@@ -37,17 +37,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <sys/time.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <net/if.h>
-#include <arpa/inet.h>
-
 #include <zebra.h>
 #include "memory.h"
 #include "log.h"
@@ -724,12 +713,9 @@ interface_config_write (struct vty *vty)
 {
     struct listnode *node;
     struct interface *ifp;
-    babel_interface_nfo *babel_ifp;
     int write = 0;
 
     for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp)) {
-        babel_ifp = babel_get_if_nfo(ifp);
-
         /* Do not display the interface if there is no configuration about it */
         if (ifp->desc == NULL)
             continue;
