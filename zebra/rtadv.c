@@ -1202,6 +1202,7 @@ DEFUN (ipv6_nd_prefix,
       vty_out (vty, "Malformed IPv6 prefix%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
+  apply_mask_ipv6 (&rp.prefix); /* RFC4861 4.6.2 */
   rp.AdvOnLinkFlag = 1;
   rp.AdvAutonomousFlag = 1;
   rp.AdvRouterAddressFlag = 0;
@@ -1429,6 +1430,7 @@ DEFUN (no_ipv6_nd_prefix,
       vty_out (vty, "Malformed IPv6 prefix%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
+  apply_mask_ipv6 (&rp.prefix); /* RFC4861 4.6.2 */
 
   ret = rtadv_prefix_reset (zebra_if, &rp);
   if (!ret)
