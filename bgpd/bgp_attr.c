@@ -872,7 +872,7 @@ bgp_attr_aspath (struct peer *peer, bgp_size_t length,
     {
       zlog (peer->log, LOG_ERR,
 	    "AS_PATH attribute must not be flagged as \"partial\" (%u)", flag);
-      return bgp_attr_malformed (peer, BGP_ATTR_ORIGIN, flag,
+      return bgp_attr_malformed (peer, BGP_ATTR_AS_PATH, flag,
 				 BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
 				 startp, total);
     }
@@ -989,7 +989,7 @@ bgp_attr_as4_path (struct peer *peer, bgp_size_t length,
     {
       zlog (peer->log, LOG_ERR, 
 	    "As4-Path attribute flag isn't optional/transitive %d", flag);
-      return bgp_attr_malformed (peer, BGP_ATTR_AS_PATH, flag,
+      return bgp_attr_malformed (peer, BGP_ATTR_AS4_PATH, flag,
                                  BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
                                  startp, total);
     }
