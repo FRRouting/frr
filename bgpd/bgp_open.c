@@ -421,13 +421,20 @@ bgp_capability_restart (struct peer *peer, struct capability_header *caphdr)
 static as_t
 bgp_capability_as4 (struct peer *peer, struct capability_header *hdr)
 {
+  SET_FLAG (peer->cap, PEER_CAP_AS4_RCV);
+  
+  if (hdr->length != CAPABILITY_CODE_AS4_LEN)
+    {
+      zlog_err ("%s AS4 capability has incorrect data length %d",
+                peer->host, hdr->length);
+      return 0;
+    }
+  
   as_t as4 = stream_getl (BGP_INPUT(peer));
   
   if (BGP_DEBUG (as4, AS4))
     zlog_debug ("%s [AS4] about to set cap PEER_CAP_AS4_RCV, got as4 %u",
                 peer->host, as4);
-  SET_FLAG (peer->cap, PEER_CAP_AS4_RCV);
-  
   return as4;
 }
 
@@ -689,9 +696,6 @@ peek_for_as4_capability (struct peer *peer, u_char length)
 
 	      if (hdr.code == CAPABILITY_CODE_AS4)
 	        {
-	          if (hdr.length != CAPABILITY_CODE_AS4_LEN)
-	            goto end;
-                  
 	          if (BGP_DEBUG (as4, AS4))
 	            zlog_info ("[AS4] found AS4 capability, about to parse");
 	          as4 = bgp_capability_as4 (peer, &hdr);
