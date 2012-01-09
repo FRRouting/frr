@@ -20,7 +20,7 @@ for H in `seq 1 ${NUM}` ; do
 	if [ ! -e "$CONF" ] ; then
 		# This sets up a ring of bgpd peerings
 		NEXT=$(( ($H % ${NUM}) + 1 ))
-		PREV=$(( (($H + 3) % ${NUM}) + 1 ))
+		PREV=$(( (($H + $NUM - 2) % ${NUM}) + 1 ))
 		NEXTADDR="${PREFIX}${NEXT}"
 		NEXTAS=$((${ASBASE} + $NEXT))
 		PREVADDR="${PREFIX}${PREV}"
@@ -60,6 +60,7 @@ for H in `seq 1 ${NUM}` ; do
 			 neighbor ${PREVADDR} peer-group default
 			 exit-address-family
 			!
+			! bgpd still has problems with extcommunity rt/soo
 			route-map test permit 10
 			 set extcommunity rt ${ASN}:1
 			 set extcommunity soo ${ASN}:2
