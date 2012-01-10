@@ -87,14 +87,14 @@ int link_detect = 0;
 int wireless_hello_interval = -1;
 int wired_hello_interval = -1;
 int idle_hello_interval = -1;
-static char *pidfile = PATH_BABELD_PID;
+static const char *pidfile = PATH_BABELD_PID;
 
 const unsigned char zeroes[16] = {0};
 const unsigned char ones[16] =
     {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
      0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-static char *state_file = "/var/lib/babeld/babel-state";
+static const char *state_file = "/var/lib/babeld/babel-state";
 
 unsigned char protocol_group[16]; /* babel's link-local multicast address */
 int protocol_port;                /* babel's port */

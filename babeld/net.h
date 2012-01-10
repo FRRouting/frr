@@ -39,6 +39,6 @@ THE SOFTWARE.
 int babel_socket(int port);
 int babel_recv(int s, void *buf, int buflen, struct sockaddr *sin, int slen);
 int babel_send(int s,
-               const void *buf1, int buflen1, const void *buf2, int buflen2,
-               const struct sockaddr *sin, int slen);
+               void *buf1, int buflen1, void *buf2, int buflen2,
+               struct sockaddr *sin, int slen);
 int tcp_server_socket(int port, int local);

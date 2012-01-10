@@ -139,16 +139,16 @@ babel_recv(int s, void *buf, int buflen, struct sockaddr *sin, int slen)
 
 int
 babel_send(int s,
-           const void *buf1, int buflen1, const void *buf2, int buflen2,
-           const struct sockaddr *sin, int slen)
+           void *buf1, int buflen1, void *buf2, int buflen2,
+           struct sockaddr *sin, int slen)
 {
     struct iovec iovec[2];
     struct msghdr msg;
     int rc;
 
-    iovec[0].iov_base = (void*)buf1;
+    iovec[0].iov_base = buf1;
     iovec[0].iov_len = buflen1;
-    iovec[1].iov_base = (void*)buf2;
+    iovec[1].iov_base = buf2;
     iovec[1].iov_len = buflen2;
     memset(&msg, 0, sizeof(msg));
     msg.msg_name = (struct sockaddr*)sin;
