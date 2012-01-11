@@ -933,8 +933,10 @@ proto_redistnum(int afi, const char *s)
 	return ZEBRA_ROUTE_OSPF;
       else if (strncmp (s, "i", 1) == 0)
 	return ZEBRA_ROUTE_ISIS;
-      else if (strncmp (s, "b", 1) == 0)
+      else if (strncmp (s, "bg", 2) == 0)
 	return ZEBRA_ROUTE_BGP;
+      else if (strncmp (s, "ba", 2) == 0)
+	return ZEBRA_ROUTE_BABEL;
     }
   if (afi == AFI_IP6)
     {
@@ -950,8 +952,10 @@ proto_redistnum(int afi, const char *s)
 	return ZEBRA_ROUTE_OSPF6;
       else if (strncmp (s, "i", 1) == 0)
 	return ZEBRA_ROUTE_ISIS;
-      else if (strncmp (s, "b", 1) == 0)
+      else if (strncmp (s, "bg", 2) == 0)
 	return ZEBRA_ROUTE_BGP;
+      else if (strncmp (s, "ba", 2) == 0)
+	return ZEBRA_ROUTE_BABEL;
     }
   return -1;
 }
