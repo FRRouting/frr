@@ -163,4 +163,7 @@ extern int ospf_ls_ack_timer (struct thread *);
 extern int ospf_poll_timer (struct thread *);
 extern int ospf_hello_reply_timer (struct thread *);
 
+extern const struct message ospf_packet_type_str[];
+extern const size_t ospf_packet_type_str_max;
+
 #endif /* _ZEBRA_OSPF_PACKET_H */

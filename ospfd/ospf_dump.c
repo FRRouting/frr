@@ -661,7 +661,7 @@ ospf_header_dump (struct ospf_header *ospfh)
   zlog_debug ("Header");
   zlog_debug ("  Version %d", ospfh->version);
   zlog_debug ("  Type %d (%s)", ospfh->type,
-	     ospf_packet_type_str[ospfh->type]);
+	     LOOKUP (ospf_packet_type_str, ospfh->type));
   zlog_debug ("  Packet Len %d", ntohs (ospfh->length));
   zlog_debug ("  Router ID %s", inet_ntoa (ospfh->router_id));
   zlog_debug ("  Area ID %s", inet_ntoa (ospfh->area_id));
@@ -1457,7 +1457,7 @@ DEFUN (show_debugging_ospf,
     if (IS_DEBUG_OSPF_PACKET (i, SEND) && IS_DEBUG_OSPF_PACKET (i, RECV))
       {
 	vty_out (vty, "  OSPF packet %s%s debugging is on%s",
-		 ospf_packet_type_str[i + 1],
+		 LOOKUP (ospf_packet_type_str, i + 1),
 		 IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
 		 VTY_NEWLINE);
       }
@@ -1465,12 +1465,12 @@ DEFUN (show_debugging_ospf,
       {
 	if (IS_DEBUG_OSPF_PACKET (i, SEND))
 	  vty_out (vty, "  OSPF packet %s send%s debugging is on%s",
-		   ospf_packet_type_str[i + 1],
+		   LOOKUP (ospf_packet_type_str, i + 1),
 		   IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
 		   VTY_NEWLINE);
 	if (IS_DEBUG_OSPF_PACKET (i, RECV))
 	  vty_out (vty, "  OSPF packet %s receive%s debugging is on%s",
-		   ospf_packet_type_str[i + 1],
+		   LOOKUP (ospf_packet_type_str, i + 1),
 		   IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
 		   VTY_NEWLINE);
       }

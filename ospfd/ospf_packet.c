@@ -50,15 +50,16 @@
 #include "ospfd/ospf_dump.h"
 
 /* Packet Type String. */
-const char *ospf_packet_type_str[] =
+const struct message ospf_packet_type_str[] =
 {
-  "unknown",
-  "Hello",
-  "Database Description",
-  "Link State Request",
-  "Link State Update",
-  "Link State Acknowledgment",
+  { OSPF_MSG_HELLO,   "Hello"                     },
+  { OSPF_MSG_DB_DESC, "Database Description"      },
+  { OSPF_MSG_LS_REQ,  "Link State Request"        },
+  { OSPF_MSG_LS_UPD,  "Link State Update"         },
+  { OSPF_MSG_LS_ACK,  "Link State Acknowledgment" },
 };
+const size_t ospf_packet_type_str_max = sizeof (ospf_packet_type_str) /
+  sizeof (ospf_packet_type_str[0]);
 
 /* OSPF authentication checking function */
 static int
@@ -201,7 +202,7 @@ ospf_packet_add (struct ospf_interface *oi, struct ospf_packet *op)
 	       "destination %s) called with NULL obuf, ignoring "
 	       "(please report this bug)!\n",
 	       IF_NAME(oi), oi->state, LOOKUP (ospf_ism_state_msg, oi->state),
-	       ospf_packet_type_str[stream_getc_from(op->s, 1)],
+	       LOOKUP (ospf_packet_type_str, stream_getc_from(op->s, 1)),
 	       inet_ntoa (op->dst));
       return;
     }
@@ -755,7 +756,7 @@ ospf_write (struct thread *thread)
 	}
 
       zlog_debug ("%s sent to [%s] via [%s].",
-		 ospf_packet_type_str[type], inet_ntoa (op->dst),
+		 LOOKUP (ospf_packet_type_str, type), inet_ntoa (op->dst),
 		 IF_NAME (oi));
 
       if (IS_DEBUG_OSPF_PACKET (type - 1, DETAIL))
@@ -801,7 +802,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
         {
           zlog_debug ("ospf_header[%s/%s]: selforiginated, "
                      "dropping.",
-                     ospf_packet_type_str[ospfh->type],
+                     LOOKUP (ospf_packet_type_str, ospfh->type),
                      inet_ntoa (iph->ip_src));
         }
       return;
@@ -2576,7 +2577,7 @@ ospf_read (struct thread *thread)
         }
 
       zlog_debug ("%s received from [%s] via [%s]",
-                 ospf_packet_type_str[ospfh->type],
+                 LOOKUP (ospf_packet_type_str, ospfh->type),
                  inet_ntoa (ospfh->router_id), IF_NAME (oi));
       zlog_debug (" src [%s],", inet_ntoa (iph->ip_src));
       zlog_debug (" dst [%s]", inet_ntoa (iph->ip_dst));
