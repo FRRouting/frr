@@ -64,7 +64,6 @@ THE SOFTWARE.
 
 
 static void babel_init (int argc, char **argv);
-static void babel_usage (char *progname);
 static char *babel_get_progname(char *argv_0);
 static void babel_fail(void);
 static void babel_init_random(void);
@@ -155,6 +154,30 @@ main(int argc, char **argv)
     return 0;
 }
 
+static void
+babel_usage (char *progname, int status)
+{
+  if (status != 0)
+    fprintf (stderr, "Try `%s --help' for more information.\n", progname);
+  else
+    {
+      printf ("Usage : %s [OPTION...]\n\
+Daemon which manages Babel routing protocol.\n\n\
+-d, --daemon       Runs in daemon mode\n\
+-f, --config_file  Set configuration file name\n\
+-i, --pid_file     Set process identifier file name\n\
+-A, --vty_addr     Set vty's bind address\n\
+-P, --vty_port     Set vty's port number\n\
+-u, --user         User to run as\n\
+-g, --group        Group to run as\n\
+-v, --version      Print program version\n\
+-h, --help         Display this help and exit\n\
+\n\
+Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
+    }
+  exit (status);
+}
+
 /* make initialisations witch don't need infos about kernel(interfaces, etc.) */
 static void
 babel_init(int argc, char **argv)
@@ -217,10 +240,10 @@ babel_init(int argc, char **argv)
                 exit (0);
                 break;
             case 'h':
-                babel_usage (progname);
+                babel_usage (progname, 0);
                 break;
             default:
-                babel_usage(progname);
+                babel_usage (progname, 1);
                 break;
         }
     }
@@ -299,26 +322,6 @@ static char *
 babel_get_progname(char *argv_0) {
     char *p = strrchr (argv_0, '/');
     return (p ? ++p : argv_0);
-}
-
-static void
-babel_usage(char *progname)
-{
-    fprintf(stderr,
-            "Syntax: %s "
-            "[-m multicast_address] [-p port] [-S state-file]\n"
-            "                "
-            "[-h hello] [-H wired_hello] [-i idle_hello]\n"
-            "                "
-            "[-k metric] [-A metric] [-s] [-P] [-l] [-w] [-d level] [-g port]\n"
-            "                "
-            "[-t table] [-T table] [-c file] [-C statement]\n"
-            "                "
-            "[-D] [-L logfile] [-I pidfile]\n"
-            "                "
-            "[id] interface...\n",
-            progname);
-    exit(1);
 }
 
 static void
