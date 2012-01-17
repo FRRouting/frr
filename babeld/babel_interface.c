@@ -486,6 +486,13 @@ interface_recalculate(struct interface *ifp)
     int mtu, rc;
     struct ipv6_mreq mreq;
 
+    if (!if_is_operative(ifp) || !CHECK_FLAG(ifp->flags, IFF_RUNNING)) {
+        interface_reset(ifp);
+        return -1;
+    }
+
+    babel_ifp->flags |= BABEL_IF_IS_UP;
+
     mtu = MIN(ifp->mtu, ifp->mtu6);
 
     /* We need to be able to fit at least two messages into a packet,
@@ -576,6 +583,9 @@ interface_reset(struct interface *ifp)
     int rc;
     struct ipv6_mreq mreq;
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+
+    debugf(BABEL_DEBUG_IF, "interface reset: %s", ifp->name);
+    babel_ifp->flags &= ~BABEL_IF_IS_UP;
 
     flush_interface_routes(ifp, 0);
     babel_ifp->buffered = 0;
