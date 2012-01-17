@@ -660,6 +660,62 @@ is_interface_ll_address(struct interface *ifp, const unsigned char *address)
     return 0;
 }
 
+static void
+show_babel_interface_sub (struct vty *vty, struct interface *ifp)
+{
+  int is_up;
+  babel_interface_nfo *babel_ifp;
+
+  vty_out (vty, "%s is %s%s", ifp->name,
+    ((is_up = if_is_operative(ifp)) ? "up" : "down"), VTY_NEWLINE);
+  vty_out (vty, "  ifindex %u, MTU %u bytes %s%s",
+    ifp->ifindex, ifp->mtu, if_flag_dump(ifp->flags), VTY_NEWLINE);
+
+  if (babel_enable_if_lookup (ifp->name) < 0)
+  {
+    vty_out (vty, "  Babel protocol is not enabled on this interface%s", VTY_NEWLINE);
+    return;
+  }
+  if (!is_up)
+  {
+    vty_out (vty, "  Babel protocol is enabled, but not running on this interface%s", VTY_NEWLINE);
+    return;
+  }
+  babel_ifp = babel_get_if_nfo (ifp);
+  vty_out (vty, "  Babel protocol is running on this interface%s", VTY_NEWLINE);
+  vty_out (vty, "  Operating mode is \"%s\"%s",
+           CHECK_FLAG (babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless", VTY_NEWLINE);
+  vty_out (vty, "  Split horizon mode is %s%s",
+           CHECK_FLAG (babel_ifp->flags, BABEL_IF_SPLIT_HORIZON) ? "On" : "Off", VTY_NEWLINE);
+  vty_out (vty, "  Hello interval is %u ms%s", babel_ifp->hello_interval, VTY_NEWLINE);
+}
+
+DEFUN (show_babel_interface,
+       show_babel_interface_cmd,
+       "show babel interface [INTERFACE]",
+       SHOW_STR
+       IP_STR
+       "Babel information\n"
+       "Interface information\n"
+       "Interface name\n")
+{
+  struct interface *ifp;
+  struct listnode *node;
+
+  if (argc == 0)
+  {
+    for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+      show_babel_interface_sub (vty, ifp);
+    return CMD_SUCCESS;
+  }
+  if ((ifp = if_lookup_by_name (argv[0])) == NULL)
+  {
+    vty_out (vty, "No such interface name%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
+  show_babel_interface_sub (vty, ifp);
+  return CMD_SUCCESS;
+}
 
 void
 babel_if_init ()
@@ -688,6 +744,10 @@ babel_if_init ()
     install_element(INTERFACE_NODE, &babel_set_hello_interval_cmd);
     install_element(INTERFACE_NODE, &babel_passive_interface_cmd);
     install_element(INTERFACE_NODE, &no_babel_passive_interface_cmd);
+
+  /* "show babel ..." commands */
+  install_element (VIEW_NODE, &show_babel_interface_cmd);
+  install_element (ENABLE_NODE, &show_babel_interface_cmd);
 }
 
 /* hooks: functions called respectively when struct interface is
