@@ -172,8 +172,8 @@ install_route(struct babel_route *route)
         return;
 
     if(!route_feasible(route))
-        fprintf(stderr, "WARNING: installing unfeasible route "
-                "(this shouldn't happen).");
+        zlog_err("WARNING: installing unfeasible route "
+                 "(this shouldn't happen).");
 
     rc = kernel_route(ROUTE_ADD, route->src->prefix, route->src->plen,
                       route->nexthop,
@@ -224,8 +224,8 @@ switch_routes(struct babel_route *old, struct babel_route *new)
         return;
 
     if(!route_feasible(new))
-        fprintf(stderr, "WARNING: switching to unfeasible route "
-                "(this shouldn't happen).");
+        zlog_err("WARNING: switching to unfeasible route "
+                 "(this shouldn't happen).");
 
     rc = kernel_route(ROUTE_MODIFY, old->src->prefix, old->src->plen,
                       old->nexthop, old->neigh->ifp->ifindex,
@@ -414,8 +414,8 @@ update_route(const unsigned char *router_id,
         return NULL; /* I have announced the route */
 
     if(martian_prefix(prefix, plen)) {
-        fprintf(stderr, "Rejecting martian route to %s through %s.\n",
-                format_prefix(prefix, plen), format_address(router_id));
+        zlog_err("Rejecting martian route to %s through %s.",
+                 format_prefix(prefix, plen), format_address(router_id));
         return NULL;
     }
 

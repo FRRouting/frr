@@ -277,7 +277,6 @@ void babelz_zebra_init(void)
 static int
 zebra_config_write (struct vty *vty)
 {
-    fprintf(stderr, "\tzebra_config_write\n");
     if (! zclient->enable)
     {
         vty_out (vty, "no router zebra%s", VTY_NEWLINE);

@@ -503,7 +503,7 @@ interface_recalculate(struct interface *ifp)
     tmp = babel_ifp->sendbuf;
     babel_ifp->sendbuf = realloc(babel_ifp->sendbuf, babel_ifp->bufsize);
     if(babel_ifp->sendbuf == NULL) {
-        fprintf(stderr, "Couldn't reallocate sendbuf.\n");
+        zlog_err("Couldn't reallocate sendbuf.");
         free(tmp);
         babel_ifp->bufsize = 0;
         return -1;
