@@ -110,6 +110,7 @@ struct option longopts[] =
     { "daemon",      no_argument,       NULL, 'd'},
     { "config_file", required_argument, NULL, 'f'},
     { "pid_file",    required_argument, NULL, 'i'},
+    { "socket",      required_argument, NULL, 'z'},
     { "help",        no_argument,       NULL, 'h'},
     { "vty_addr",    required_argument, NULL, 'A'},
     { "vty_port",    required_argument, NULL, 'P'},
@@ -166,6 +167,7 @@ Daemon which manages Babel routing protocol.\n\n\
 -d, --daemon       Runs in daemon mode\n\
 -f, --config_file  Set configuration file name\n\
 -i, --pid_file     Set process identifier file name\n\
+-z, --socket       Set path of zebra socket\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -u, --user         User to run as\n\
@@ -204,7 +206,7 @@ babel_init(int argc, char **argv)
 
     /* get options */
     while(1) {
-        opt = getopt_long(argc, argv, "df:i:hA:P:u:g:v", longopts, 0);
+        opt = getopt_long(argc, argv, "df:i:z:hA:P:u:g:v", longopts, 0);
         if(opt < 0)
             break;
 
@@ -219,6 +221,9 @@ babel_init(int argc, char **argv)
                 break;
             case 'i':
                 pidfile = optarg;
+                break;
+            case 'z':
+                zclient_serv_path_set (optarg);
                 break;
             case 'A':
                 babel_vty_addr = optarg;
