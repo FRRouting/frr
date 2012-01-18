@@ -93,7 +93,7 @@ const unsigned char ones[16] =
     {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
      0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-static const char *state_file = "/var/lib/babeld/babel-state";
+static const char *state_file = DAEMON_VTY_DIR "/babel-state";
 
 unsigned char protocol_group[16]; /* babel's link-local multicast address */
 int protocol_port;                /* babel's port */
