@@ -179,10 +179,19 @@ extern void cluster_unintern (struct cluster_list *);
 /* Transit attribute prototypes. */
 void transit_unintern (struct transit *);
 
-/* Exported for unit-test purposes only */
-extern int bgp_mp_reach_parse (struct peer *, const bgp_size_t, struct attr *,
-			       const u_char, u_char *, struct bgp_nlri *);
-extern int bgp_mp_unreach_parse (struct peer *, const bgp_size_t, const u_char,
-                                 u_char *, struct bgp_nlri *);
+/* Below exported for unit-test purposes only */
+struct bgp_attr_parser_args {
+  struct peer *peer;
+  bgp_size_t length; /* attribute data length; */
+  bgp_size_t total; /* total length, inc header */
+  struct attr *attr;
+  u_int8_t type;
+  u_int8_t flags;
+  u_char *startp;   
+};
+extern int bgp_mp_reach_parse (struct bgp_attr_parser_args *args, 
+			       struct bgp_nlri *);
+extern int bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
+                                 struct bgp_nlri *);
 
 #endif /* _QUAGGA_BGP_ATTR_H */
