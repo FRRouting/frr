@@ -52,6 +52,8 @@ THE SOFTWARE.
 #include "route.h"
 #include "babel_zebra.h"
 #include "neighbour.h"
+#include "route.h"
+#include "xroute.h"
 
 
 static int babel_enable_if_lookup (const char *ifname);
@@ -773,6 +775,60 @@ DEFUN (show_babel_neighbour,
     return CMD_SUCCESS;
 }
 
+static void
+show_babel_routes_sub (struct vty *vty, struct babel_route *route)
+{
+    const unsigned char *nexthop =
+        memcmp(route->nexthop, route->neigh->address, 16) == 0 ?
+        NULL : route->nexthop;
+
+    vty_out(vty,
+            "%s metric %d refmetric %d id %s seqno %d age %d "
+            "via %s neigh %s%s%s%s%s",
+            format_prefix(route->src->prefix, route->src->plen),
+            route_metric(route), route->refmetric,
+            format_eui64(route->src->id),
+            (int)route->seqno,
+            (int)(babel_now.tv_sec - route->time),
+            route->neigh->ifp->name,
+            format_address(route->neigh->address),
+            nexthop ? " nexthop " : "",
+            nexthop ? format_address(nexthop) : "",
+            route->installed ? " (installed)" :
+            route_feasible(route) ? " (feasible)" : "",
+            VTY_NEWLINE);
+}
+
+static void
+show_babel_xroutes_sub (struct vty *vty, struct xroute *xroute)
+{
+    vty_out(vty, "%s metric %d (exported)%s",
+            format_prefix(xroutes->prefix, xroute->plen),
+            xroutes->metric,
+            VTY_NEWLINE);
+}
+
+DEFUN (show_babel_database,
+       show_babel_database_cmd,
+       "show babel database",
+       SHOW_STR
+       IP_STR
+       "Babel information\n"
+       "Database information\n"
+       "No attributes\n")
+{
+    int i;
+
+    for(i = 0; i < numroutes; i++) {
+        show_babel_routes_sub(vty, &routes[i]);
+    }
+    for(i = 0; i < numxroutes; i++) {
+        show_babel_xroutes_sub(vty, &xroutes[i]);
+    }
+
+    return CMD_SUCCESS;
+}
+
 void
 babel_if_init ()
 {
@@ -806,6 +862,8 @@ babel_if_init ()
   install_element (ENABLE_NODE, &show_babel_interface_cmd);
     install_element(VIEW_NODE, &show_babel_neighbour_cmd);
     install_element(ENABLE_NODE, &show_babel_neighbour_cmd);
+    install_element(VIEW_NODE, &show_babel_database_cmd);
+    install_element(ENABLE_NODE, &show_babel_database_cmd);
 }
 
 /* hooks: functions called respectively when struct interface is
