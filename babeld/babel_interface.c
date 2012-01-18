@@ -51,6 +51,7 @@ THE SOFTWARE.
 #include "message.h"
 #include "route.h"
 #include "babel_zebra.h"
+#include "neighbour.h"
 
 
 static int babel_enable_if_lookup (const char *ifname);
@@ -727,6 +728,51 @@ DEFUN (show_babel_interface,
   return CMD_SUCCESS;
 }
 
+static void
+show_babel_neighbour_sub (struct vty *vty, struct neighbour *neigh)
+{
+    vty_out (vty,
+             "Neighbour %s dev %s reach %04x rxcost %d txcost %d %s.%s",
+             format_address(neigh->address),
+             neigh->ifp->name,
+             neigh->reach,
+             neighbour_rxcost(neigh),
+             neigh->txcost,
+             if_up(neigh->ifp) ? "" : " (down)",
+             VTY_NEWLINE);
+}
+
+DEFUN (show_babel_neighbour,
+       show_babel_neighbour_cmd,
+       "show babel neighbour [INTERFACE]",
+       SHOW_STR
+       IP_STR
+       "Babel information\n"
+       "Print neighbours\n"
+       "Interface name\n")
+{
+    struct neighbour *neigh;
+    struct interface *ifp;
+
+    if (argc == 0) {
+        FOR_ALL_NEIGHBOURS(neigh) {
+            show_babel_neighbour_sub(vty, neigh);
+        }
+        return CMD_SUCCESS;
+    }
+    if ((ifp = if_lookup_by_name (argv[0])) == NULL)
+    {
+        vty_out (vty, "No such interface name%s", VTY_NEWLINE);
+        return CMD_WARNING;
+    }
+    FOR_ALL_NEIGHBOURS(neigh) {
+        if(ifp->ifindex == neigh->ifp->ifindex) {
+            show_babel_neighbour_sub(vty, neigh);
+        }
+    }
+    return CMD_SUCCESS;
+}
+
 void
 babel_if_init ()
 {
@@ -758,6 +804,8 @@ babel_if_init ()
   /* "show babel ..." commands */
   install_element (VIEW_NODE, &show_babel_interface_cmd);
   install_element (ENABLE_NODE, &show_babel_interface_cmd);
+    install_element(VIEW_NODE, &show_babel_neighbour_cmd);
+    install_element(ENABLE_NODE, &show_babel_neighbour_cmd);
 }
 
 /* hooks: functions called respectively when struct interface is
