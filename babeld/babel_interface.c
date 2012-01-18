@@ -368,8 +368,8 @@ DEFUN (babel_split_horizon,
        babel_split_horizon_cmd,
        "babel split-horizon",
        IPV6_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n")
+       "Perform split horizon\n"
+       "No attributes\n")
 {
     struct interface *ifp;
     babel_interface_nfo *babel_ifp;
@@ -388,8 +388,8 @@ DEFUN (no_babel_split_horizon,
        "no babel split-horizon",
        NO_STR
        IPV6_STR
-       "Routing Information Protocol\n"
-       "Perform split horizon\n")
+       "Disable split horizon\n"
+       "No attributes\n")
 {
     struct interface *ifp;
     babel_interface_nfo *babel_ifp;
@@ -427,7 +427,7 @@ DEFUN (babel_passive_interface,
        babel_passive_interface_cmd,
        "passive-interface",
        "The daemon will only announce redistributed routes\n"
-       "Interface name\n")
+       "No attributes\n")
 {
     if (allow_duplicates) {
         return CMD_WARNING;
@@ -442,7 +442,7 @@ DEFUN (no_babel_passive_interface,
        "no passive-interface",
        NO_STR
        "The daemon will announce all (filtred) routes\n"
-       "Interface name\n")
+       "No attributes\n")
 {
     parasitic = 0;
     return CMD_SUCCESS;
