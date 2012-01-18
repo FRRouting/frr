@@ -154,12 +154,12 @@ static inline void debugf(int level, const char *format, ...) { return; }
 #if defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
 #define debugf(level, ...) \
 do { \
-if(UNLIKELY(debug & level)) do_debugf(__VA_ARGS__);     \
+if(UNLIKELY(debug & level)) zlog_debug(__VA_ARGS__);     \
 } while(0)
 #elif defined __GNUC__
 #define debugf(level, _args...) \
 do { \
-if(UNLIKELY(debug & level)) do_debugf(_args);   \
+if(UNLIKELY(debug & level)) zlog_debug(_args);   \
 } while(0)
 #else
 static inline void debugf(int level, const char *format, ...) { return; }
