@@ -80,9 +80,7 @@ struct timeval babel_now;         /* current time             */
 unsigned char myid[8];            /* unique id (mac address of an interface) */
 int debug = BABEL_DEBUG_COMMON;
 
-time_t reboot_time;
 int idle_time = 320;
-int link_detect = 0;
 int wireless_hello_interval = -1;
 int wired_hello_interval = -1;
 int idle_hello_interval = -1;
@@ -385,6 +383,7 @@ babel_replace_by_null(int fd)
 static void
 babel_load_state_file(void)
 {
+    time_t reboot_time;
     reboot_time = babel_now.tv_sec;
     int fd;
     int rc;
