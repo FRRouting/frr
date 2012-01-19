@@ -764,3 +764,10 @@ redistribute_filter(const unsigned char *prefix, unsigned short plen,
 
     return babel_filter_redistribute(&p, NULL);
 }
+
+void
+show_babeld_configuration (struct vty *vty)
+{
+    vty_out(vty, "babeld running process %s.%s",
+            babel_routing_process ? "enable" : "disable", VTY_NEWLINE);
+}

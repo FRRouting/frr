@@ -527,3 +527,69 @@ babel_save_state_file(void)
         close(fd);
     }
 }
+
+void
+show_babel_main_configuration (struct vty *vty)
+{
+#ifdef NO_DEBUG
+    vty_out(vty, "No debug.%s", VTY_NEWLINE);
+#else
+    vty_out(vty, "Activated debug options:");
+    if (debug == BABEL_DEBUG_ALL) {
+        vty_out(vty, " all%s", VTY_NEWLINE);
+    } else {
+        vty_out(vty, "%s%s%s%s%s%s%s%s%s%s%s%s%s",
+                debug & BABEL_DEBUG_COMMON  ? VTY_NEWLINE    : "",
+                debug & BABEL_DEBUG_COMMON  ? "    common"   : "",
+                debug & BABEL_DEBUG_KERNEL  ? VTY_NEWLINE    : "",
+                debug & BABEL_DEBUG_KERNEL  ? "    kernel"   : "",
+                debug & BABEL_DEBUG_FILTER  ? VTY_NEWLINE    : "",
+                debug & BABEL_DEBUG_FILTER  ? "    filter"   : "",
+                debug & BABEL_DEBUG_TIMEOUT ? VTY_NEWLINE    : "",
+                debug & BABEL_DEBUG_TIMEOUT ? "    timeout"  : "",
+                debug & BABEL_DEBUG_IF      ? VTY_NEWLINE    : "",
+                debug & BABEL_DEBUG_IF      ? "    interface": "",
+                debug & BABEL_DEBUG_ROUTE   ? VTY_NEWLINE    : "",
+                debug & BABEL_DEBUG_ROUTE   ? "    route"    : "",
+                VTY_NEWLINE);
+    }
+#endif
+
+    vty_out(vty,
+            "pid file                = %s%s"
+            "state file              = %s%s"
+            "configuration file      = %s%s"
+            "protocol informations:%s"
+            "  multicast address     = %s%s"
+            "  port                  = %d%s"
+            "vty address             = %s%s"
+            "vty port                = %d%s"
+            "id                      = %s%s"
+            "idle time               = %d%s"
+            "wireless hello interval = %d%s"
+            "wired hello interval    = %d%s"
+            "idle hello interval     = %d%s"
+            "parasitic               = %s%s"
+            "split-horizon           = %s%s"
+            "allow_duplicates        = %s%s"
+            "kernel_metric           = %d%s",
+            pidfile, VTY_NEWLINE,
+            state_file, VTY_NEWLINE,
+            babel_config_file ? babel_config_file : babel_config_default,
+            VTY_NEWLINE,
+            VTY_NEWLINE,
+            format_address(protocol_group), VTY_NEWLINE,
+            protocol_port, VTY_NEWLINE,
+            babel_vty_addr ? babel_vty_addr : "None",
+            VTY_NEWLINE,
+            babel_vty_port, VTY_NEWLINE,
+            format_eui64(myid), VTY_NEWLINE,
+            idle_time, VTY_NEWLINE,
+            wireless_hello_interval, VTY_NEWLINE,
+            wired_hello_interval, VTY_NEWLINE,
+            idle_hello_interval, VTY_NEWLINE,
+            format_bool(parasitic), VTY_NEWLINE,
+            format_bool(split_horizon), VTY_NEWLINE,
+            format_bool(allow_duplicates), VTY_NEWLINE,
+            kernel_metric, VTY_NEWLINE);
+}

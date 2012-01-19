@@ -41,6 +41,7 @@ THE SOFTWARE.
 #define BABEL_BABELD_H
 
 #include <zebra.h>
+#include "vty.h"
 
 #define INFINITY ((unsigned short)(~0))
 
@@ -131,6 +132,7 @@ extern int redistribute_filter(const unsigned char *prefix, unsigned short plen,
                                unsigned int ifindex, int proto);
 extern int resize_receive_buffer(int size);
 extern void schedule_neighbours_check(int msecs, int override);
+extern void show_babeld_configuration (struct vty *vty);
 
 
 #endif /* BABEL_BABELD_H */

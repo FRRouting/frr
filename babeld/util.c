@@ -298,6 +298,10 @@ format_eui64(const unsigned char *eui)
     return buf[i];
 }
 
+const char *format_bool(const int b) {
+    return b ? "true" : "false";
+}
+
 int
 parse_address(const char *address, unsigned char *addr_r, int *af_r)
 {

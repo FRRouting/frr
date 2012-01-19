@@ -36,6 +36,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+#include "vty.h"
+
 extern struct timeval babel_now;         /* current time             */
 extern struct thread_master *master;     /* quagga's threads handler */
 extern int debug;
@@ -52,3 +54,5 @@ extern unsigned char protocol_group[16];
 extern int protocol_socket;
 extern int kernel_socket;
 extern int max_request_hopcount;
+
+void show_babel_main_configuration (struct vty *vty);
