@@ -46,6 +46,7 @@ THE SOFTWARE.
 #include "babel_zebra.h"
 #include "babel_interface.h"
 #include "xroute.h"
+#include "util.h"
 
 void babelz_zebra_init(void);
 
@@ -64,6 +65,22 @@ static struct {
     {ZEBRA_ROUTE_STATIC,  1, "static"},
     {ZEBRA_ROUTE_OSPF6,   1, "ospf6"},
     {ZEBRA_ROUTE_BGP,     1, "bgp"},
+    {0, 0, NULL}
+};
+
+/* Debug types */
+static struct {
+    int type;
+    int str_min_len;
+    const char *str;
+} debug_type[] = {
+    {BABEL_DEBUG_COMMON,  1, "common"},
+    {BABEL_DEBUG_KERNEL,  1, "kernel"},
+    {BABEL_DEBUG_FILTER,  1, "filter"},
+    {BABEL_DEBUG_TIMEOUT, 1, "timeout"},
+    {BABEL_DEBUG_IF,      1, "interface"},
+    {BABEL_DEBUG_ROUTE,   1, "route"},
+    {BABEL_DEBUG_ALL,     1, "all"},
     {0, 0, NULL}
 };
 
@@ -252,6 +269,64 @@ DEFUN (no_babel_redistribute_type,
     return CMD_WARNING;
 }
 
+#ifndef NO_DEBUG
+/* [Babel Command] */
+DEFUN (babel_debug,
+       babel_debug_cmd,
+       "debug (common|kernel|filter|timeout|interface|route|all)",
+       "Enable debug messages for specific or all part.\n"
+       "Common messages (default)\n"
+       "Kernel messages\n"
+       "Filter messages\n"
+       "Timeout messages\n"
+       "Interface messages\n"
+       "Route messages\n"
+       "All messages\n")
+{
+    int i;
+
+    for(i = 0; debug_type[i].str != NULL; i++) {
+        if (strncmp (debug_type[i].str, argv[0],
+                     debug_type[i].str_min_len) == 0) {
+            debug |= debug_type[i].type;
+            return CMD_SUCCESS;
+        }
+    }
+
+    vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
+
+    return CMD_WARNING;
+}
+
+/* [Babel Command] */
+DEFUN (no_babel_debug,
+       no_babel_debug_cmd,
+       "no debug (common|kernel|filter|timeout|interface|route|all)",
+       NO_STR
+       "Disable debug messages for specific or all part.\n"
+       "Common messages (default)\n"
+       "Kernel messages\n"
+       "Filter messages\n"
+       "Timeout messages\n"
+       "Interface messages\n"
+       "Route messages\n"
+       "All messages\n")
+{
+    int i;
+
+    for (i = 0; debug_type[i].str; i++) {
+        if (strncmp(debug_type[i].str, argv[0],
+                    debug_type[i].str_min_len) == 0) {
+            debug &= ~debug_type[i].type;
+        }
+    }
+
+    vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
+
+    return CMD_WARNING;
+}
+#endif /* NO_DEBUG */
+
 
 void babelz_zebra_init(void)
 {
@@ -272,6 +347,8 @@ void babelz_zebra_init(void)
     install_node (&zebra_node, zebra_config_write);
     install_element(BABEL_NODE, &babel_redistribute_type_cmd);
     install_element(BABEL_NODE, &no_babel_redistribute_type_cmd);
+    install_element(BABEL_NODE, &babel_debug_cmd);
+    install_element(BABEL_NODE, &no_babel_debug_cmd);
 }
 
 static int
