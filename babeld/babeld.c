@@ -708,7 +708,7 @@ input_filter(const unsigned char *id,
     struct interface *ifp = NULL;
     struct prefix p;
     p.family = v4mapped(prefix) ? AF_INET : AF_INET6;
-    p.prefixlen = plen;
+    p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
     if (p.family == AF_INET) {
         uchar_to_inaddr(&p.u.prefix4, prefix);
     } else {
@@ -730,7 +730,7 @@ output_filter(const unsigned char *id, const unsigned char *prefix,
     struct interface *ifp = NULL;
     struct prefix p;
     p.family = v4mapped(prefix) ? AF_INET : AF_INET6;
-    p.prefixlen = plen;
+    p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
     if (p.family == AF_INET) {
         uchar_to_inaddr(&p.u.prefix4, prefix);
     } else {
@@ -752,7 +752,7 @@ redistribute_filter(const unsigned char *prefix, unsigned short plen,
     struct interface *ifp = NULL;
     struct prefix p;
     p.family = v4mapped(prefix) ? AF_INET : AF_INET6;
-    p.prefixlen = plen;
+    p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
     if (p.family == AF_INET) {
         uchar_to_inaddr(&p.u.prefix4, prefix);
     } else {

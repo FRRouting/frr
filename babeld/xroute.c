@@ -63,8 +63,8 @@ babel_ipv4_route_add (struct zapi_ipv4 *api, struct prefix_ipv4 *prefix,
 
     inaddr_to_uchar(uchar_prefix, &prefix->prefix);
     debugf(BABEL_DEBUG_ROUTE, "Adding new ipv4 route comming from Zebra.");
-    xroute_add_new_route(uchar_prefix, prefix->prefixlen, api->metric, ifindex,
-                         0, 1);
+    xroute_add_new_route(uchar_prefix, prefix->prefixlen + 96,
+                         api->metric, ifindex, 0, 1);
     return 0;
 }
 
@@ -77,7 +77,7 @@ babel_ipv4_route_delete (struct zapi_ipv4 *api, struct prefix_ipv4 *prefix,
     struct xroute *xroute = NULL;
 
     inaddr_to_uchar(uchar_prefix, &prefix->prefix);
-    xroute = find_xroute(uchar_prefix, prefix->prefixlen);
+    xroute = find_xroute(uchar_prefix, prefix->prefixlen + 96);
     if (xroute != NULL) {
         debugf(BABEL_DEBUG_ROUTE, "Removing ipv4 route (from zebra).");
         flush_xroute(xroute);
