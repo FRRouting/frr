@@ -223,7 +223,7 @@ ospf_packet_add_top (struct ospf_interface *oi, struct ospf_packet *op)
 	       "destination %s) called with NULL obuf, ignoring "
 	       "(please report this bug)!\n",
 	       IF_NAME(oi), oi->state, LOOKUP (ospf_ism_state_msg, oi->state),
-	       ospf_packet_type_str[stream_getc_from(op->s, 1)],
+	       LOOKUP (ospf_packet_type_str, stream_getc_from(op->s, 1)),
 	       inet_ntoa (op->dst));
       return;
     }
