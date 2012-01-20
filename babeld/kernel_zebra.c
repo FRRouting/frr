@@ -142,26 +142,7 @@ kernel_route(int operation, const unsigned char *pref, unsigned short plen,
             if(newmetric == metric && memcmp(newgate, gate, 16) == 0 &&
                newifindex == ifindex)
                 return 0;
-            /* It is better to add the new route before removing the old
-             one, to avoid losing packets.  However, if the old and new
-             priorities are equal, this only works if the kernel supports
-             ECMP.  So we first try the "right" order, and fall back on
-             the "wrong" order if it fails with EEXIST. */
-            rc = ipv4 ?
-                 kernel_route_add_v4(pref, plen,
-                                     newgate, newifindex, newmetric,
-                                     NULL, 0, 0):
-                 kernel_route_add_v6(pref, plen,
-                                     newgate, newifindex, newmetric,
-                                     NULL, 0, 0);
-            if(rc < 0) {
-                if(errno != EEXIST)
-                    return rc;
-                added = 0;
-            } else {
-                added = 1;
-            }
-
+            debugf(BABEL_DEBUG_ROUTE, "Modify route: delete old; add new.");
             if (ipv4) {
                 kernel_route_delete_v4(pref, plen,
                                        gate, ifindex, metric,
@@ -172,21 +153,19 @@ kernel_route(int operation, const unsigned char *pref, unsigned short plen,
                                        NULL, 0, 0);
             }
 
-            if(!added) {
-                rc = ipv4 ?
-                     kernel_route_add_v4(pref, plen,
-                                         newgate, newifindex, newmetric,
-                                         NULL, 0, 0):
-                     kernel_route_add_v6(pref, plen,
-                                         newgate, newifindex, newmetric,
-                                         NULL, 0, 0);
-                if(rc < 0) {
-                    if(errno == EEXIST)
-                        rc = 1;
-                    /* In principle, we should try to re-install the flushed
-                     route on failure to preserve.  However, this should
-                     hopefully not matter much in practice. */
-                }
+            rc = ipv4 ?
+            kernel_route_add_v4(pref, plen,
+                                newgate, newifindex, newmetric,
+                                NULL, 0, 0):
+            kernel_route_add_v6(pref, plen,
+                                newgate, newifindex, newmetric,
+                                NULL, 0, 0);
+            if(rc < 0) {
+                if(errno == EEXIST)
+                    rc = 1;
+                /* In principle, we should try to re-install the flushed
+                 route on failure to preserve.  However, this should
+                 hopefully not matter much in practice. */
             }
 
             return rc;
