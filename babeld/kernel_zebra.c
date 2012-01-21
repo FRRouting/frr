@@ -206,6 +206,7 @@ kernel_route_add_v4(const unsigned char *pref, unsigned short plen,
     api.type  = ZEBRA_ROUTE_BABEL;
     api.flags = 0;
     api.message = 0;
+    api.safi = SAFI_UNICAST;
     SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
     api.nexthop_num = 1;
     api.nexthop = &nexthop_pointer;
@@ -248,6 +249,7 @@ kernel_route_add_v6(const unsigned char *pref, unsigned short plen,
     api.type  = ZEBRA_ROUTE_BABEL;
     api.flags = 0;
     api.message = 0;
+    api.safi = SAFI_UNICAST;
     SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
     api.nexthop_num = 1;
     api.nexthop = &nexthop_pointer;
@@ -291,6 +293,7 @@ kernel_route_delete_v4(const unsigned char *pref, unsigned short plen,
     api.type  = ZEBRA_ROUTE_BABEL;
     api.flags = 0;
     api.message = 0;
+    api.safi = SAFI_UNICAST;
     SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
     api.nexthop_num = 1;
     api.nexthop = &nexthop_pointer;
@@ -334,6 +337,7 @@ kernel_route_delete_v6(const unsigned char *pref, unsigned short plen,
     api.type  = ZEBRA_ROUTE_BABEL;
     api.flags = 0;
     api.message = 0;
+    api.safi = SAFI_UNICAST;
     SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
     api.nexthop_num = 1;
     api.nexthop = &nexthop_pointer;
