@@ -843,6 +843,7 @@ static const struct zebra_desc_table command_types[] = {
   DESC_ENTRY	(ZEBRA_ROUTER_ID_ADD),
   DESC_ENTRY	(ZEBRA_ROUTER_ID_DELETE),
   DESC_ENTRY	(ZEBRA_ROUTER_ID_UPDATE),
+  DESC_ENTRY	(ZEBRA_HELLO),
 };
 #undef DESC_ENTRY
 
