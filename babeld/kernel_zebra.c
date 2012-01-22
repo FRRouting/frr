@@ -105,7 +105,6 @@ kernel_route(int operation, const unsigned char *pref, unsigned short plen,
              unsigned int newmetric)
 {
     int rc;
-    int added;
     int ipv4;
 
     /* Check that the protocol family is consistent. */
