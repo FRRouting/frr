@@ -50,9 +50,12 @@ THE SOFTWARE.
 #include "util.h"
 #include "babel_interface.h"
 
-struct xroute *xroutes;
-int numxroutes = 0;
-int maxxroutes = 0;
+static int xroute_add_new_route(unsigned char prefix[16], unsigned char plen,
+                                unsigned short metric, unsigned int ifindex,
+                                int proto, int send_updates);
+
+static struct xroute *xroutes;
+static int numxroutes = 0, maxxroutes = 0;
 
 /* Add redistributed route to Babel table. */
 int
@@ -189,8 +192,24 @@ add_xroute(unsigned char prefix[16], unsigned char plen,
     return 1;
 }
 
-/* add an xroute, verifying some conditions; return 0 if there is no changes */
+/* Returns an overestimate of the number of xroutes. */
 int
+xroutes_estimate()
+{
+    return numxroutes;
+}
+
+void
+for_all_xroutes(void (*f)(struct xroute*, void*), void *closure)
+{
+    int i;
+
+    for(i = 0; i < numxroutes; i++)
+        (*f)(&xroutes[i], closure);
+}
+
+/* add an xroute, verifying some conditions; return 0 if there is no changes */
+static int
 xroute_add_new_route(unsigned char prefix[16], unsigned char plen,
                      unsigned short metric, unsigned int ifindex,
                      int proto, int send_updates)

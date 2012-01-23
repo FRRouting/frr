@@ -45,14 +45,8 @@ struct xroute {
     int proto;
 };
 
-extern struct xroute *xroutes;
-extern int numxroutes;
-
 struct xroute *find_xroute(const unsigned char *prefix, unsigned char plen);
 void flush_xroute(struct xroute *xroute);
-int xroute_add_new_route(unsigned char prefix[16], unsigned char plen,
-                         unsigned short metric, unsigned int ifindex,
-                         int proto, int send_updates);
 int babel_ipv4_route_add (struct zapi_ipv4 *api, struct prefix_ipv4 *prefix,
                           unsigned int ifindex, struct in_addr *nexthop);
 int babel_ipv4_route_delete (struct zapi_ipv4 *api, struct prefix_ipv4 *prefix,
@@ -61,3 +55,5 @@ int babel_ipv6_route_add (struct zapi_ipv6 *api, struct prefix_ipv6 *prefix,
                           unsigned int ifindex, struct in6_addr *nexthop);
 int babel_ipv6_route_delete (struct zapi_ipv6 *api, struct prefix_ipv6 *prefix,
                              unsigned int ifindex);
+int xroutes_estimate(void);
+void for_all_xroutes(void (*f)(struct xroute*, void*), void *closure);

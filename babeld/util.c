@@ -200,17 +200,6 @@ parse_msec(const char *string)
     return -1;
 }
 
-void
-do_debugf(const char *format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    vfprintf(stderr, format, args);
-    fprintf(stderr, "\n");
-    fflush(stderr);
-    va_end(args);
-}
-
 int
 in_prefix(const unsigned char *restrict address,
           const unsigned char *restrict prefix, unsigned char plen)
@@ -325,63 +314,6 @@ parse_address(const char *address, unsigned char *addr_r, int *af_r)
     }
 
     return -1;
-}
-
-int
-parse_net(const char *net, unsigned char *prefix_r, unsigned char *plen_r,
-          int *af_r)
-{
-    char buf[INET6_ADDRSTRLEN];
-    char *slash, *end;
-    unsigned char prefix[16];
-    long plen;
-    int af;
-    struct in_addr ina;
-    struct in6_addr ina6;
-    int rc;
-
-    if(strcmp(net, "default") == 0) {
-        memset(prefix, 0, 16);
-        plen = 0;
-    } else {
-        slash = strchr(net, '/');
-        if(slash == NULL) {
-            rc = parse_address(net, prefix, &af);
-            if(rc < 0)
-                return rc;
-            plen = 128;
-        } else {
-            if(slash - net >= INET6_ADDRSTRLEN)
-                return -1;
-            memcpy(buf, net, slash - net);
-            buf[slash - net] = '\0';
-            rc = inet_pton(AF_INET, buf, &ina);
-            if(rc > 0) {
-                memcpy(prefix, v4prefix, 12);
-                memcpy(prefix + 12, &ina, 4);
-                plen = strtol(slash + 1, &end, 0);
-                if(*end != '\0' || plen < 0 || plen > 32)
-                    return -1;
-                plen += 96;
-                af = AF_INET;
-            } else {
-                rc = inet_pton(AF_INET6, buf, &ina6);
-                if(rc > 0) {
-                    memcpy(prefix, &ina6, 16);
-                    plen = strtol(slash + 1, &end, 0);
-                    if(*end != '\0' || plen < 0 || plen > 128)
-                        return -1;
-                    af = AF_INET6;
-                } else {
-                    return -1;
-                }
-            }
-        }
-    }
-    mask_prefix(prefix_r, prefix, plen);
-    *plen_r = plen;
-    if(af_r) *af_r = af;
-    return 0;
 }
 
 int

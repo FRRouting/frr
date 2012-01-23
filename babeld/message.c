@@ -69,6 +69,8 @@ struct timeval unicast_flush_timeout = {0, 0};
 static const unsigned char v4prefix[16] =
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF, 0, 0, 0, 0 };
 
+/* Parse a network prefix, encoded in the somewhat baroque compressed
+   representation used by Babel.  Return the number of bytes parsed. */
 static int
 network_prefix(int ae, int plen, unsigned int omitted,
                const unsigned char *p, const unsigned char *dp,
@@ -76,6 +78,7 @@ network_prefix(int ae, int plen, unsigned int omitted,
 {
     unsigned pb;
     unsigned char prefix[16];
+    int ret = -1;
 
     if(plen >= 0)
         pb = (plen + 7) / 8;
@@ -90,7 +93,9 @@ network_prefix(int ae, int plen, unsigned int omitted,
     memset(prefix, 0, 16);
 
     switch(ae) {
-    case 0: break;
+    case 0:
+        ret = 0;
+        break;
     case 1:
         if(omitted > 4 || pb > 4 || (pb > omitted && len < pb - omitted))
             return -1;
@@ -100,6 +105,7 @@ network_prefix(int ae, int plen, unsigned int omitted,
             memcpy(prefix, dp, 12 + omitted);
         }
         if(pb > omitted) memcpy(prefix + 12 + omitted, p, pb - omitted);
+        ret = pb - omitted;
         break;
     case 2:
         if(omitted > 16 || (pb > omitted && len < pb - omitted)) return -1;
@@ -108,19 +114,68 @@ network_prefix(int ae, int plen, unsigned int omitted,
             memcpy(prefix, dp, omitted);
         }
         if(pb > omitted) memcpy(prefix + omitted, p, pb - omitted);
+        ret = pb - omitted;
         break;
     case 3:
         if(pb > 8 && len < pb - 8) return -1;
         prefix[0] = 0xfe;
         prefix[1] = 0x80;
         if(pb > 8) memcpy(prefix + 8, p, pb - 8);
+        ret = pb - 8;
         break;
     default:
         return -1;
     }
 
     mask_prefix(p_r, prefix, plen < 0 ? 128 : ae == 1 ? plen + 96 : plen);
-    return 1;
+    return ret;
+}
+
+static void
+parse_route_attributes(const unsigned char *a, int alen,
+                       unsigned char *channels)
+{
+    int type, len, i = 0;
+
+    while(i < alen) {
+        type = a[i];
+        if(type == 0) {
+            i++;
+            continue;
+        }
+
+        if(i + 1 > alen) {
+            fprintf(stderr, "Received truncated attributes.\n");
+            return;
+        }
+        len = a[i + 1];
+        if(i + len > alen) {
+            fprintf(stderr, "Received truncated attributes.\n");
+            return;
+        }
+
+        if(type == 1) {
+            /* Nothing. */
+        } else if(type == 2) {
+            if(len > DIVERSITY_HOPS) {
+                fprintf(stderr,
+                        "Received overlong channel information (%d > %d).\n",
+                        len, DIVERSITY_HOPS);
+                len = DIVERSITY_HOPS;
+            }
+            if(memchr(a + i + 2, 0, len) != NULL) {
+                /* 0 is reserved. */
+                fprintf(stderr, "Channel information contains 0!");
+                return;
+            }
+            memset(channels, 0, DIVERSITY_HOPS);
+            memcpy(channels, a + i + 2, len);
+        } else {
+            fprintf(stderr, "Received unknown route attribute %d.\n", type);
+        }
+
+        i += len + 2;
+    }
 }
 
 static int
@@ -128,6 +183,13 @@ network_address(int ae, const unsigned char *a, unsigned int len,
                 unsigned char *a_r)
 {
     return network_prefix(ae, -1, 0, a, NULL, len, a_r);
+}
+
+static int
+channels_len(unsigned char *channels)
+{
+    unsigned char *p = memchr(channels, 0, DIVERSITY_HOPS);
+    return p ? (p - channels) : DIVERSITY_HOPS;
 }
 
 void
@@ -284,8 +346,9 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         } else if(type == MESSAGE_UPDATE) {
             unsigned char prefix[16], *nh;
             unsigned char plen;
+            unsigned char channels[DIVERSITY_HOPS];
             unsigned short interval, seqno, metric;
-            int rc;
+            int rc, parsed_len;
             if(len < 10) {
                 if(len < 2 || message[3] & 0x80)
                     have_v4_prefix = have_v6_prefix = 0;
@@ -307,6 +370,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                     have_v4_prefix = have_v6_prefix = 0;
                 goto fail;
             }
+            parsed_len = 10 + rc;
 
             plen = message[4] + (message[2] == 1 ? 96 : 0);
 
@@ -360,8 +424,27 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                     goto done;
             }
 
+            if((ifp->flags & BABEL_IF_FARAWAY)) {
+                channels[0] = 0;
+            } else {
+                /* This will be overwritten by parse_route_attributes below. */
+                if(metric < 256) {
+                    /* Assume non-interfering (wired) link. */
+                    channels[0] = 0;
+                } else {
+                    /* Assume interfering. */
+                    channels[0] = BABEL_IF_CHANNEL_INTERFERING;
+                    channels[1] = 0;
+                }
+
+                if(parsed_len < len)
+                    parse_route_attributes(message + 2 + parsed_len,
+                                           len - parsed_len, channels);
+            }
+
             update_route(router_id, prefix, plen, seqno, metric, interval,
-                         neigh, nh);
+                         neigh, nh,
+                         channels, channels_len(channels));
         } else if(type == MESSAGE_REQUEST) {
             unsigned char prefix[16], plen;
             int rc;
@@ -374,10 +457,17 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    message[2] == 0 ? "any" : format_prefix(prefix, plen),
                    format_address(from), ifp->name);
             if(message[2] == 0) {
+                struct babel_interface *babel_ifp =babel_get_if_nfo(neigh->ifp);
                 /* If a neighbour is requesting a full route dump from us,
                    we might as well send it an IHU. */
                 send_ihu(neigh, NULL);
-                send_update(neigh->ifp, 0, NULL, 0);
+                /* Since nodes send wildcard requests on boot, booting
+                   a large number of nodes at the same time may cause an
+                   update storm.  Ignore a wildcard request that happens
+                   shortly after we sent a full update. */
+                if(babel_ifp->last_update_time <
+                   babel_now.tv_sec - MAX(babel_ifp->hello_interval / 100, 1))
+                    send_update(neigh->ifp, 0, NULL, 0);
             } else {
                 send_update(neigh->ifp, 0, prefix, plen);
             }
@@ -665,10 +755,12 @@ send_hello_noupdate(struct interface *ifp, unsigned interval)
 void
 send_hello(struct interface *ifp)
 {
+    int changed;
+    changed = update_hello_interval(ifp);
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     send_hello_noupdate(ifp, (babel_ifp->hello_interval + 9) / 10);
     /* Send full IHU every 3 hellos, and marginal IHU each time */
-    if(babel_ifp->hello_seqno % 3 == 0)
+    if(changed || babel_ifp->hello_seqno % 3 == 0)
         send_ihu(NULL, ifp);
     else
         send_marginal_ihu(ifp);
@@ -724,12 +816,19 @@ static void
 really_send_update(struct interface *ifp,
                    const unsigned char *id,
                    const unsigned char *prefix, unsigned char plen,
-                   unsigned short seqno, unsigned short metric)
+                   unsigned short seqno, unsigned short metric,
+                   unsigned char *channels, int channels_len)
 {
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     int add_metric, v4, real_plen, omit = 0;
     const unsigned char *real_prefix;
     unsigned short flags = 0;
+    int channels_size;
+
+    if(diversity_kind != DIVERSITY_CHANNEL)
+        channels_len = -1;
+
+    channels_size = channels_len >= 0 ? channels_len + 2 : 0;
 
     if(!if_up(ifp))
         return;
@@ -786,7 +885,8 @@ really_send_update(struct interface *ifp,
         babel_ifp->have_buffered_id = 1;
     }
 
-    start_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit);
+    start_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit +
+                  channels_size);
     accumulate_byte(ifp, v4 ? 1 : 2);
     accumulate_byte(ifp, flags);
     accumulate_byte(ifp, real_plen);
@@ -795,7 +895,14 @@ really_send_update(struct interface *ifp,
     accumulate_short(ifp, seqno);
     accumulate_short(ifp, metric);
     accumulate_bytes(ifp, real_prefix + omit, (real_plen + 7) / 8 - omit);
-    end_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit);
+    /* Note that an empty channels TLV is different from no such TLV. */
+    if(channels_len >= 0) {
+        accumulate_byte(ifp, 2);
+        accumulate_byte(ifp, channels_len);
+        accumulate_bytes(ifp, channels, channels_len);
+    }
+    end_message(ifp, MESSAGE_UPDATE, 10 + (real_plen + 7) / 8 - omit +
+                channels_size);
 
     if(flags & 0x80) {
         memcpy(babel_ifp->buffered_prefix, prefix, 16);
@@ -884,9 +991,6 @@ flushupdates(struct interface *ifp)
         qsort(b, n, sizeof(struct buffered_update), compare_buffered_updates);
 
         for(i = 0; i < n; i++) {
-            unsigned short seqno;
-            unsigned short metric;
-
             /* The same update may be scheduled multiple times before it is
                sent out.  Since our buffer is now sorted, it is enough to
                compare with the previous update. */
@@ -903,22 +1007,51 @@ flushupdates(struct interface *ifp)
             if(xroute && (!route || xroute->metric <= kernel_metric)) {
                 really_send_update(ifp, myid,
                                    xroute->prefix, xroute->plen,
-                                   myseqno, xroute->metric);
+                                   myseqno, xroute->metric,
+                                   NULL, 0);
                 last_prefix = xroute->prefix;
                 last_plen = xroute->plen;
             } else if(route) {
+                unsigned char channels[DIVERSITY_HOPS];
+                int chlen;
+                struct interface *route_ifp = route->neigh->ifp;
+                struct babel_interface *babel_route_ifp = NULL;
+                unsigned short metric;
+                unsigned short seqno;
+
                 seqno = route->seqno;
-                metric = route_metric(route);
+                metric =
+                    route_interferes(route, ifp) ?
+                    route_metric(route) :
+                    route_metric_noninterfering(route);
+
                 if(metric < INFINITY)
                     satisfy_request(route->src->prefix, route->src->plen,
                                     seqno, route->src->id, ifp);
                 if((babel_ifp->flags & BABEL_IF_SPLIT_HORIZON) &&
                    route->neigh->ifp == ifp)
                     continue;
+
+                babel_route_ifp = babel_get_if_nfo(route_ifp);
+                if(babel_route_ifp->channel ==BABEL_IF_CHANNEL_NONINTERFERING) {
+                    memcpy(channels, route->channels, DIVERSITY_HOPS);
+                } else {
+                    if(babel_route_ifp->channel == BABEL_IF_CHANNEL_UNKNOWN)
+                        channels[0] = BABEL_IF_CHANNEL_INTERFERING;
+                    else {
+                        assert(babel_route_ifp->channel > 0 &&
+                               babel_route_ifp->channel <= 255);
+                        channels[0] = babel_route_ifp->channel;
+                    }
+                    memcpy(channels + 1, route->channels, DIVERSITY_HOPS - 1);
+                }
+
+                chlen = channels_len(channels);
                 really_send_update(ifp, route->src->id,
                                    route->src->prefix,
                                    route->src->plen,
-                                   seqno, metric);
+                                   seqno, metric,
+                                   channels, chlen);
                 update_source(route->src, seqno, metric);
                 last_prefix = route->src->prefix;
                 last_plen = route->src->plen;
@@ -926,7 +1059,7 @@ flushupdates(struct interface *ifp)
             /* There's no route for this prefix.  This can happen shortly
                after an xroute has been retracted, so send a retraction. */
                 really_send_update(ifp, myid, b[i].prefix, b[i].plen,
-                                   myseqno, INFINITY);
+                                   myseqno, INFINITY, NULL, -1);
             }
         }
         schedule_flush_now(ifp);
@@ -961,12 +1094,17 @@ buffer_update(struct interface *ifp,
     if(babel_ifp->update_bufsize == 0) {
         int n;
         assert(babel_ifp->buffered_updates == NULL);
-        n = MAX(babel_ifp->bufsize / 16, 4);
+        /* Allocate enough space to hold a full update.  Since the
+           number of installed routes will grow over time, make sure we
+           have enough space to send a full-ish frame. */
+        n = installed_routes_estimate() + xroutes_estimate() + 4;
+        n = MAX(n, babel_ifp->bufsize / 16);
     again:
         babel_ifp->buffered_updates = malloc(n *sizeof(struct buffered_update));
         if(babel_ifp->buffered_updates == NULL) {
             zlog_err("malloc(buffered_updates): %s", safe_strerror(errno));
             if(n > 4) {
+                /* Try again with a tiny buffer. */
                 n = 4;
                 goto again;
             }
@@ -982,12 +1120,18 @@ buffer_update(struct interface *ifp,
     babel_ifp->num_buffered_updates++;
 }
 
+static void
+buffer_update_callback(struct babel_route *route, void *closure)
+{
+    buffer_update((struct interface*)closure,
+                  route->src->prefix, route->src->plen);
+}
+
 void
 send_update(struct interface *ifp, int urgent,
             const unsigned char *prefix, unsigned char plen)
 {
     babel_interface_nfo *babel_ifp = NULL;
-    int i;
 
     if(ifp == NULL) {
       struct interface *ifp_aux;
@@ -1020,15 +1164,13 @@ send_update(struct interface *ifp, int urgent,
         if(!interface_idle(babel_ifp)) {
             send_self_update(ifp);
             if(!parasitic) {
-                debugf(BABEL_DEBUG_COMMON,"Sending update to %s for any.", ifp->name);
-                for(i = 0; i < numroutes; i++)
-                    if(routes[i].installed)
-                        buffer_update(ifp,
-                                      routes[i].src->prefix,
-                                      routes[i].src->plen);
+                debugf(BABEL_DEBUG_COMMON,"Sending update to %s for any.",
+                       ifp->name);
+                for_all_installed_routes(buffer_update_callback, ifp);
             }
         }
         set_timeout(&babel_ifp->update_timeout, babel_ifp->update_interval);
+        babel_ifp->last_update_time = babel_now.tv_sec;
     }
     schedule_update_flush(ifp, urgent);
 }
@@ -1086,11 +1228,16 @@ update_myseqno()
     seqno_time = babel_now;
 }
 
+static void
+send_xroute_update_callback(struct xroute *xroute, void *closure)
+{
+    struct interface *ifp = (struct interface*)closure;
+    send_update(ifp, 0, xroute->prefix, xroute->plen);
+}
+
 void
 send_self_update(struct interface *ifp)
 {
-    int i;
-
     if(ifp == NULL) {
       struct interface *ifp_aux;
       struct listnode *linklist_node = NULL;
@@ -1104,8 +1251,7 @@ send_self_update(struct interface *ifp)
 
     if(!interface_idle(babel_get_if_nfo(ifp))) {
         debugf(BABEL_DEBUG_COMMON,"Sending self update to %s.", ifp->name);
-        for(i = 0; i < numxroutes; i++)
-            send_update(ifp, 0, xroutes[i].prefix, xroutes[i].plen);
+        for_all_xroutes(send_xroute_update_callback, ifp);
     }
 }
 

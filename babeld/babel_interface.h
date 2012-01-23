@@ -42,10 +42,15 @@ THE SOFTWARE.
 #include <zebra.h>
 #include "zclient.h"
 
+#define CONFIG_DEFAULT 0
+#define CONFIG_NO 1
+#define CONFIG_YES 2
+
 /* babeld interface informations */
 struct babel_interface {
     unsigned short flags;                     /* see below */
     unsigned short cost;
+    int channel;
     struct timeval hello_timeout;
     struct timeval update_timeout;
     struct timeval flush_timeout;
@@ -67,6 +72,7 @@ struct babel_interface {
     time_t bucket_time;
     unsigned int bucket;
     time_t activity_time;
+    time_t last_update_time;
     unsigned short hello_seqno;
     unsigned hello_interval;
     unsigned update_interval;
@@ -85,12 +91,20 @@ static inline babel_interface_nfo* babel_get_if_nfo(struct interface *ifp)
     return ((babel_interface_nfo*) ifp->info);
 }
 
+#define IF_CONF(_ifp, _field) babel_get_if_nfo(_ifp)->_field
+
 /* babel_interface_nfo flags */
+#define BABEL_IF_IS_UP         (1 << 0)
 #define BABEL_IF_WIRED         (1 << 1)
 #define BABEL_IF_SPLIT_HORIZON (1 << 2)
 #define BABEL_IF_LQ            (1 << 3)
-#define BABEL_IF_IS_ENABLE     (1 << 4)
-#define BABEL_IF_IS_UP         (1 << 5)
+#define BABEL_IF_FARAWAY       (1 << 4)
+#define BABEL_IF_IS_ENABLE     (1 << 7)
+
+/* Only INTERFERING can appear on the wire. */
+#define BABEL_IF_CHANNEL_UNKNOWN 0
+#define BABEL_IF_CHANNEL_INTERFERING 255
+#define BABEL_IF_CHANNEL_NONINTERFERING -2
 
 static inline int
 if_up(struct interface *ifp)
@@ -133,6 +147,7 @@ int babel_interface_address_delete (int, struct zclient *, zebra_size_t);
 
 /* others functions */
 int interface_idle(babel_interface_nfo *);
+int update_hello_interval(struct interface *ifp);
 unsigned jitter(babel_interface_nfo *, int);
 unsigned update_jitter(babel_interface_nfo *babel_ifp, int urgent);
 /* return "true" if "address" is one of our ipv6 addresses */

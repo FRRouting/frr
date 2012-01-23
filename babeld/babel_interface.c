@@ -456,6 +456,30 @@ interface_idle(babel_interface_nfo *babel_ifp)
             babel_ifp->activity_time < babel_now.tv_sec - idle_time);
 }
 
+int
+update_hello_interval(struct interface *ifp)
+{
+    int rc = 0;
+    unsigned short interval;
+    struct babel_interface *babel_ifp = babel_get_if_nfo(ifp);
+
+    if(interface_idle(babel_ifp))
+        interval = idle_hello_interval;
+    else if(IF_CONF(ifp, hello_interval) > 0)
+        interval = IF_CONF(ifp, hello_interval);
+    else if((ifp->flags & BABEL_IF_WIRED))
+        interval = wired_hello_interval;
+    else
+        interval = wireless_hello_interval;
+
+    if(babel_ifp->hello_interval != interval) {
+        babel_ifp->hello_interval = interval;
+        rc = 1;
+    }
+
+    return rc;
+}
+
 /* This should be no more than half the hello interval, so that hellos
    aren't sent late.  The result is in milliseconds. */
 unsigned
@@ -560,10 +584,11 @@ interface_recalculate(struct interface *ifp)
     update_interface_metric(ifp);
 
     debugf(BABEL_DEBUG_COMMON,
-           "Upped network %s (%s, cost=%d%s).",
+           "Upped interface %s (%s, cost=%d, channel=%d%s).",
            ifp->name,
            (babel_ifp->flags & BABEL_IF_WIRED) ? "wired" : "wireless",
            babel_ifp->cost,
+           babel_ifp->channel,
            babel_ifp->ipv4 ? ", IPv4" : "");
 
     if(rc > 0)
@@ -777,19 +802,41 @@ DEFUN (show_babel_neighbour,
 }
 
 static void
-show_babel_routes_sub (struct vty *vty, struct babel_route *route)
+show_babel_routes_sub (struct babel_route *route, void *closure)
 {
+    struct vty *vty = (struct vty*) closure;
     const unsigned char *nexthop =
         memcmp(route->nexthop, route->neigh->address, 16) == 0 ?
         NULL : route->nexthop;
+    char channels[100];
+
+    if(route->channels[0] == 0)
+        channels[0] = '\0';
+    else {
+        int k, j = 0;
+        snprintf(channels, 100, " chan (");
+        j = strlen(channels);
+        for(k = 0; k < DIVERSITY_HOPS; k++) {
+            if(route->channels[k] == 0)
+                break;
+            if(k > 0)
+                channels[j++] = ',';
+            snprintf(channels + j, 100 - j, "%d", route->channels[k]);
+            j = strlen(channels);
+        }
+        snprintf(channels + j, 100 - j, ")");
+        if(k == 0)
+            channels[0] = '\0';
+    }
 
     vty_out(vty,
-            "%s metric %d refmetric %d id %s seqno %d age %d "
+            "%s metric %d refmetric %d id %s seqno %d%s age %d "
             "via %s neigh %s%s%s%s%s",
             format_prefix(route->src->prefix, route->src->plen),
             route_metric(route), route->refmetric,
             format_eui64(route->src->id),
             (int)route->seqno,
+            channels,
             (int)(babel_now.tv_sec - route->time),
             route->neigh->ifp->name,
             format_address(route->neigh->address),
@@ -801,11 +848,12 @@ show_babel_routes_sub (struct vty *vty, struct babel_route *route)
 }
 
 static void
-show_babel_xroutes_sub (struct vty *vty, struct xroute *xroute)
+show_babel_xroutes_sub (struct xroute *xroute, void *closure)
 {
+    struct vty *vty = (struct vty *) closure;
     vty_out(vty, "%s metric %d (exported)%s",
-            format_prefix(xroutes->prefix, xroute->plen),
-            xroutes->metric,
+            format_prefix(xroute->prefix, xroute->plen),
+            xroute->metric,
             VTY_NEWLINE);
 }
 
@@ -818,15 +866,8 @@ DEFUN (show_babel_database,
        "Database information\n"
        "No attributes\n")
 {
-    int i;
-
-    for(i = 0; i < numroutes; i++) {
-        show_babel_routes_sub(vty, &routes[i]);
-    }
-    for(i = 0; i < numxroutes; i++) {
-        show_babel_xroutes_sub(vty, &xroutes[i]);
-    }
-
+    for_all_routes(show_babel_routes_sub, vty);
+    for_all_xroutes(show_babel_xroutes_sub, vty);
     return CMD_SUCCESS;
 }
 
@@ -950,6 +991,7 @@ babel_interface_allocate (void)
     babel_ifp->bucket = BUCKET_TOKENS_MAX;
     babel_ifp->hello_seqno = (random() & 0xFFFF);
     babel_ifp->hello_interval = BABELD_DEFAULT_HELLO_INTERVAL;
+    babel_ifp->channel = BABEL_IF_CHANNEL_INTERFERING;
 
     return babel_ifp;
 }

@@ -482,7 +482,7 @@ babel_exit_properly(void)
 
     /* Uninstall and flush all routes. */
     debugf(BABEL_DEBUG_COMMON, "Uninstall routes.");
-    babel_uninstall_all_routes();
+    flush_all_routes();
     babel_interface_close_all();
     babel_zebra_close_connexion();
     babel_save_state_file();

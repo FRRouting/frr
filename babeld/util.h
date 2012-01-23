@@ -100,8 +100,6 @@ int timeval_compare(const struct timeval *s1, const struct timeval *s2)
 void timeval_min(struct timeval *d, const struct timeval *s);
 void timeval_min_sec(struct timeval *d, time_t secs);
 int parse_msec(const char *string) ATTRIBUTE ((pure));
-void do_debugf(const char *format, ...)
-    ATTRIBUTE ((format (printf, 1, 2))) COLD;
 int in_prefix(const unsigned char *restrict address,
               const unsigned char *restrict prefix, unsigned char plen)
     ATTRIBUTE ((pure));
@@ -113,8 +111,6 @@ const char *format_prefix(const unsigned char *address, unsigned char prefix);
 const char *format_eui64(const unsigned char *eui);
 const char *format_bool(const int b);
 int parse_address(const char *address, unsigned char *addr_r, int *af_r);
-int parse_net(const char *ifp, unsigned char *prefix_r, unsigned char *plen_r,
-              int *af_r);
 int parse_eui64(const char *eui, unsigned char *eui_r);
 int wait_for_fd(int direction, int fd, int msecs);
 int martian_prefix(const unsigned char *prefix, int plen) ATTRIBUTE ((pure));

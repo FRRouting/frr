@@ -58,6 +58,7 @@ babel_socket(int port)
     int s, rc;
     int saved_errno;
     int one = 1, zero = 0;
+    const int ds = 0xc0;        /* CS6 - Network Control */
 
     s = socket(PF_INET6, SOCK_DGRAM, 0);
     if(s < 0)
@@ -85,6 +86,15 @@ babel_socket(int port)
                     &one, sizeof(one));
     if(rc < 0)
         goto fail;
+
+#ifdef IPV6_TCLASS
+    rc = setsockopt(s, IPPROTO_IPV6, IPV6_TCLASS, &ds, sizeof(ds));
+#else
+    rc = -1;
+    errno = ENOSYS;
+#endif
+    if(rc < 0)
+        perror("Couldn't set traffic class");
 
     rc = fcntl(s, F_GETFL, 0);
     if(rc < 0)

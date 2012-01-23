@@ -43,41 +43,69 @@ THE SOFTWARE.
 #include "babel_interface.h"
 #include "source.h"
 
+#define DIVERSITY_NONE 0
+#define DIVERSITY_INTERFACE_1 1
+#define DIVERSITY_CHANNEL_1 2
+#define DIVERSITY_CHANNEL 3
+
+#define DIVERSITY_HOPS 8
+
 struct babel_route {
     struct source *src;
-    unsigned short metric;
     unsigned short refmetric;
+    unsigned short cost;
+    unsigned short add_metric;
     unsigned short seqno;
     struct neighbour *neigh;
     unsigned char nexthop[16];
     time_t time;
     unsigned short hold_time;    /* in seconds */
     short installed;
+    unsigned char channels[DIVERSITY_HOPS];
+    struct babel_route *next;
 };
 
-static inline unsigned short
+extern struct babel_route **routes;
+extern int kernel_metric, allow_duplicates;
+extern int diversity_kind, diversity_factor;
+extern int keep_unfeasible;
+
+static inline int
 route_metric(const struct babel_route *route)
 {
-    return route->metric;
+    int m = (int)route->refmetric + route->cost + route->add_metric;
+    return MIN(m, INFINITY);
 }
 
-extern struct babel_route *routes;
-extern int numroutes, maxroutes;
-extern int kernel_metric, allow_duplicates;
+static inline int
+route_metric_noninterfering(const struct babel_route *route)
+{
+    int m =
+        (int)route->refmetric +
+        (diversity_factor * route->cost + 128) / 256 +
+        route->add_metric;
+    m = MAX(m, route->refmetric + 1);
+    return MIN(m, INFINITY);
+}
 
 struct babel_route *find_route(const unsigned char *prefix, unsigned char plen,
                          struct neighbour *neigh, const unsigned char *nexthop);
 struct babel_route *find_installed_route(const unsigned char *prefix,
                                    unsigned char plen);
+int installed_routes_estimate(void);
 void flush_route(struct babel_route *route);
+void flush_all_routes(void);
 void flush_neighbour_routes(struct neighbour *neigh);
 void flush_interface_routes(struct interface *ifp, int v4only);
+void for_all_routes(void (*f)(struct babel_route*, void*), void *closure);
+void for_all_installed_routes(void (*f)(struct babel_route*, void*), void *closure);
 void install_route(struct babel_route *route);
 void uninstall_route(struct babel_route *route);
 void switch_route(struct babel_route *old, struct babel_route *new);
 int route_feasible(struct babel_route *route);
 int route_old(struct babel_route *route);
 int route_expired(struct babel_route *route);
+int route_interferes(struct babel_route *route, struct interface *ifp);
 int update_feasible(struct source *src,
                     unsigned short seqno, unsigned short refmetric);
 struct babel_route *find_best_route(const unsigned char *prefix, unsigned char plen,
@@ -87,11 +115,12 @@ struct babel_route *install_best_route(const unsigned char prefix[16],
 void update_neighbour_metric(struct neighbour *neigh, int change);
 void update_interface_metric(struct interface *ifp);
 void update_route_metric(struct babel_route *route);
-struct babel_route *update_route(const unsigned char *a,
-                           const unsigned char *p, unsigned char plen,
+struct babel_route *update_route(const unsigned char *id,
+                           const unsigned char *prefix, unsigned char plen,
                            unsigned short seqno, unsigned short refmetric,
                            unsigned short interval, struct neighbour *neigh,
-                           const unsigned char *nexthop);
+                           const unsigned char *nexthop,
+                           const unsigned char *channels, int channels_len);
 void retract_neighbour_routes(struct neighbour *neigh);
 void send_unfeasible_request(struct neighbour *neigh, int force,
                              unsigned short seqno, unsigned short metric,
@@ -102,8 +131,5 @@ void route_changed(struct babel_route *route,
                    struct source *oldsrc, unsigned short oldmetric);
 void route_lost(struct source *src, unsigned oldmetric);
 void expire_routes(void);
-
-void babel_uninstall_all_routes(void);
-struct babel_route *babel_route_get_by_source(struct source *src);
 
 #endif
