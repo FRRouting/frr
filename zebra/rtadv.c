@@ -723,30 +723,22 @@ DEFUN (no_ipv6_nd_suppress_ra,
 
 DEFUN (ipv6_nd_ra_interval_msec,
        ipv6_nd_ra_interval_msec_cmd,
-       "ipv6 nd ra-interval msec MILLISECONDS",
+       "ipv6 nd ra-interval msec <70-1800000>",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router Advertisement interval\n"
        "Router Advertisement interval in milliseconds\n")
 {
-  int interval;
-  struct interface *ifp;
-  struct zebra_if *zif;
+  unsigned interval;
+  struct interface *ifp = (struct interface *) vty->index;
+  struct zebra_if *zif = ifp->info;
 
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
-
-  interval = atoi (argv[0]);
-
-  if
-  (
-    interval < 70 || interval > 1800000 ||
-    (zif->rtadv.AdvDefaultLifetime != -1 && interval > zif->rtadv.AdvDefaultLifetime * 1000)
-  )
-    {
-      vty_out (vty, "Invalid Router Advertisement Interval%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  VTY_GET_INTEGER_RANGE ("router advertisement interval", interval, argv[0], 70, 1800000);
+  if ((zif->rtadv.AdvDefaultLifetime != -1 && interval > (unsigned)zif->rtadv.AdvDefaultLifetime * 1000))
+  {
+    vty_out (vty, "This ra-interval would conflict with configured ra-lifetime!%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
 
   if (zif->rtadv.MaxRtrAdvInterval % 1000)
     rtadv->adv_msec_if_count--;
@@ -763,30 +755,22 @@ DEFUN (ipv6_nd_ra_interval_msec,
 
 DEFUN (ipv6_nd_ra_interval,
        ipv6_nd_ra_interval_cmd,
-       "ipv6 nd ra-interval SECONDS",
+       "ipv6 nd ra-interval <1-1800>",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router Advertisement interval\n"
        "Router Advertisement interval in seconds\n")
 {
-  int interval;
-  struct interface *ifp;
-  struct zebra_if *zif;
+  unsigned interval;
+  struct interface *ifp = (struct interface *) vty->index;
+  struct zebra_if *zif = ifp->info;
 
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
-
-  interval = atoi (argv[0]);
-
-  if
-  (
-    interval < 1 || interval > 1800 ||
-    (zif->rtadv.AdvDefaultLifetime != -1 && interval > zif->rtadv.AdvDefaultLifetime)
-  )
-    {
-      vty_out (vty, "Invalid Router Advertisement Interval%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  VTY_GET_INTEGER_RANGE ("router advertisement interval", interval, argv[0], 1, 1800);
+  if ((zif->rtadv.AdvDefaultLifetime != -1 && interval > (unsigned)zif->rtadv.AdvDefaultLifetime))
+  {
+    vty_out (vty, "This ra-interval would conflict with configured ra-lifetime!%s", VTY_NEWLINE);
+    return CMD_WARNING;
+  }
 
   if (zif->rtadv.MaxRtrAdvInterval % 1000)
     rtadv->adv_msec_if_count--;
@@ -825,13 +809,30 @@ DEFUN (no_ipv6_nd_ra_interval,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_ipv6_nd_ra_interval,
+       no_ipv6_nd_ra_interval_val_cmd,
+       "no ipv6 nd ra-interval <1-1800>",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Router Advertisement interval\n")
+
+ALIAS (no_ipv6_nd_ra_interval,
+       no_ipv6_nd_ra_interval_msec_val_cmd,
+       "no ipv6 nd ra-interval msec <1-1800000>",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Router Advertisement interval\n"
+       "Router Advertisement interval in milliseconds\n")
+
 DEFUN (ipv6_nd_ra_lifetime,
        ipv6_nd_ra_lifetime_cmd,
-       "ipv6 nd ra-lifetime SECONDS",
+       "ipv6 nd ra-lifetime <0-9000>",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Router lifetime\n"
-       "Router lifetime in seconds\n")
+       "Router lifetime in seconds (0 stands for a non-default gw)\n")
 {
   int lifetime;
   struct interface *ifp;
@@ -840,19 +841,15 @@ DEFUN (ipv6_nd_ra_lifetime,
   ifp = (struct interface *) vty->index;
   zif = ifp->info;
 
-  lifetime = atoi (argv[0]);
+  VTY_GET_INTEGER_RANGE ("router lifetime", lifetime, argv[0], 0, 9000);
 
   /* The value to be placed in the Router Lifetime field
    * of Router Advertisements sent from the interface,
    * in seconds.  MUST be either zero or between
    * MaxRtrAdvInterval and 9000 seconds. -- RFC4861, 6.2.1 */
-  if
-  (
-    lifetime > RTADV_MAX_RTRLIFETIME ||
-    (lifetime != 0 && lifetime * 1000 < zif->rtadv.MaxRtrAdvInterval)
-  )
+  if ((lifetime != 0 && lifetime * 1000 < zif->rtadv.MaxRtrAdvInterval))
     {
-      vty_out (vty, "Invalid Router Lifetime%s", VTY_NEWLINE);
+      vty_out (vty, "This ra-lifetime would conflict with configured ra-interval%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
@@ -880,31 +877,26 @@ DEFUN (no_ipv6_nd_ra_lifetime,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_ipv6_nd_ra_lifetime,
+       no_ipv6_nd_ra_lifetime_val_cmd,
+       "no ipv6 nd ra-lifetime <0-9000>",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Router lifetime\n"
+       "Router lifetime in seconds (0 stands for a non-default gw)\n")
+
 DEFUN (ipv6_nd_reachable_time,
        ipv6_nd_reachable_time_cmd,
-       "ipv6 nd reachable-time MILLISECONDS",
+       "ipv6 nd reachable-time <1-3600000>",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Reachable time\n"
        "Reachable time in milliseconds\n")
 {
-  u_int32_t rtime;
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
-
-  rtime = (u_int32_t) atol (argv[0]);
-
-  if (rtime > RTADV_MAX_REACHABLE_TIME)
-    {
-      vty_out (vty, "Invalid Reachable time%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  zif->rtadv.AdvReachableTime = rtime;
-
+  struct interface *ifp = (struct interface *) vty->index;
+  struct zebra_if *zif = ifp->info;
+  VTY_GET_INTEGER_RANGE ("reachable time", zif->rtadv.AdvReachableTime, argv[0], 1, RTADV_MAX_REACHABLE_TIME);
   return CMD_SUCCESS;
 }
 
@@ -927,31 +919,26 @@ DEFUN (no_ipv6_nd_reachable_time,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_ipv6_nd_reachable_time,
+       no_ipv6_nd_reachable_time_val_cmd,
+       "no ipv6 nd reachable-time <1-3600000>",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Reachable time\n"
+       "Reachable time in milliseconds\n")
+
 DEFUN (ipv6_nd_homeagent_preference,
        ipv6_nd_homeagent_preference_cmd,
-       "ipv6 nd home-agent-preference PREFERENCE",
+       "ipv6 nd home-agent-preference <0-65535>",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Home Agent preference\n"
-       "Home Agent preference value 0..65535\n")
+       "preference value (default is 0, least preferred)\n")
 {
-  u_int32_t hapref;
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
-
-  hapref = (u_int32_t) atol (argv[0]);
-
-  if (hapref > 65535)
-    {
-      vty_out (vty, "Invalid Home Agent preference%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  zif->rtadv.HomeAgentPreference = hapref;
-
+  struct interface *ifp = (struct interface *) vty->index;
+  struct zebra_if *zif = ifp->info;
+  VTY_GET_INTEGER_RANGE ("home agent preference", zif->rtadv.HomeAgentPreference, argv[0], 0, 65535);
   return CMD_SUCCESS;
 }
 
@@ -974,31 +961,26 @@ DEFUN (no_ipv6_nd_homeagent_preference,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_ipv6_nd_homeagent_preference,
+       no_ipv6_nd_homeagent_preference_val_cmd,
+       "no ipv6 nd home-agent-preference <0-65535>",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Home Agent preference\n"
+       "preference value (default is 0, least preferred)\n")
+
 DEFUN (ipv6_nd_homeagent_lifetime,
        ipv6_nd_homeagent_lifetime_cmd,
-       "ipv6 nd home-agent-lifetime SECONDS",
+       "ipv6 nd home-agent-lifetime <0-65520>",
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"
        "Home Agent lifetime\n"
-       "Home Agent lifetime in seconds\n")
+       "Home Agent lifetime in seconds (0 to track ra-lifetime)\n")
 {
-  u_int32_t ha_ltime;
-  struct interface *ifp;
-  struct zebra_if *zif;
-
-  ifp = (struct interface *) vty->index;
-  zif = ifp->info;
-
-  ha_ltime = (u_int32_t) atol (argv[0]);
-
-  if (ha_ltime < 1 || ha_ltime > RTADV_MAX_HALIFETIME)
-    {
-      vty_out (vty, "Invalid Home Agent Lifetime time%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  zif->rtadv.HomeAgentLifetime = ha_ltime;
-
+  struct interface *ifp = (struct interface *) vty->index;
+  struct zebra_if *zif = ifp->info;
+  VTY_GET_INTEGER_RANGE ("home agent lifetime", zif->rtadv.HomeAgentLifetime, argv[0], 0, RTADV_MAX_HALIFETIME);
   return CMD_SUCCESS;
 }
 
@@ -1020,6 +1002,15 @@ DEFUN (no_ipv6_nd_homeagent_lifetime,
 
   return CMD_SUCCESS;
 }
+
+ALIAS (no_ipv6_nd_homeagent_lifetime,
+       no_ipv6_nd_homeagent_lifetime_val_cmd,
+       "no ipv6 nd home-agent-lifetime <0-65520>",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Home Agent lifetime\n"
+       "Home Agent lifetime in seconds (0 to track ra-lifetime)\n")
 
 DEFUN (ipv6_nd_managed_config_flag,
        ipv6_nd_managed_config_flag_cmd,
@@ -1490,6 +1481,17 @@ DEFUN (no_ipv6_nd_router_preference,
   return CMD_SUCCESS;
 }
 
+ALIAS (no_ipv6_nd_router_preference,
+       no_ipv6_nd_router_preference_val_cmd,
+       "no ipv6 nd router-preference (high|medium|low",
+       NO_STR
+       "Interface IPv6 config commands\n"
+       "Neighbor discovery\n"
+       "Default router preference\n"
+       "High default router preference\n"
+       "Low default router preference\n"
+       "Medium default router preference (default)\n")
+
 DEFUN (ipv6_nd_mtu,
        ipv6_nd_mtu_cmd,
        "ipv6 nd mtu <1-65535>",
@@ -1686,10 +1688,14 @@ rtadv_init (void)
   install_element (INTERFACE_NODE, &ipv6_nd_ra_interval_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_ra_interval_msec_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_val_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_ra_interval_msec_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_ra_lifetime_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_ra_lifetime_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_ra_lifetime_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_reachable_time_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_reachable_time_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_reachable_time_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_managed_config_flag_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_managed_config_flag_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_other_config_flag_cmd);
@@ -1698,8 +1704,10 @@ rtadv_init (void)
   install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_config_flag_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_homeagent_preference_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_preference_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_preference_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_homeagent_lifetime_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_lifetime_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_homeagent_lifetime_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_adv_interval_config_option_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_adv_interval_config_option_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_prefix_cmd);
@@ -1719,6 +1727,7 @@ rtadv_init (void)
   install_element (INTERFACE_NODE, &no_ipv6_nd_prefix_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_router_preference_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_router_preference_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_nd_router_preference_val_cmd);
   install_element (INTERFACE_NODE, &ipv6_nd_mtu_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_mtu_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_nd_mtu_val_cmd);
