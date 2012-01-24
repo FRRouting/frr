@@ -46,7 +46,7 @@
 #endif
 
 #ifdef RTADV
-/* Router advertisement parameter.  From RFC2461, RFC3775 and RFC4191. */
+/* Router advertisement parameter.  From RFC4861, RFC6275 and RFC4191. */
 struct rtadvconf
 {
   /* A flag indicating whether or not the router sends periodic Router
@@ -56,8 +56,8 @@ struct rtadvconf
 
   /* The maximum time allowed between sending unsolicited multicast
      Router Advertisements from the interface, in milliseconds.
-     MUST be no less than 70 ms (RFC3775, section 7.4) and no greater 
-     than 1800000 ms (See RFC2461).
+     MUST be no less than 70 ms [RFC6275 7.5] and no greater
+     than 1800000 ms [RFC4861 6.2.1].
 
      Default: 600000 milliseconds */
   int MaxRtrAdvInterval;
@@ -65,7 +65,7 @@ struct rtadvconf
 
   /* The minimum time allowed between sending unsolicited multicast
      Router Advertisements from the interface, in milliseconds.
-     MUST be no less than 30 ms (See RFC3775, section 7.4). 
+     MUST be no less than 30 ms [RFC6275 7.5].
      MUST be no greater than .75 * MaxRtrAdvInterval.
 
      Default: 0.33 * MaxRtrAdvInterval */
@@ -143,7 +143,7 @@ struct rtadvconf
   struct list *AdvPrefixList;
 
   /* The TRUE/FALSE value to be placed in the "Home agent"
-     flag field in the Router Advertisement.  See [RFC3775 7.1].
+     flag field in the Router Advertisement.  See [RFC6275 7.1].
 
      Default: FALSE */
   int AdvHomeAgentFlag;
@@ -166,7 +166,7 @@ struct rtadvconf
 #define RTADV_MAX_HALIFETIME 65520 /* 18.2 hours */
 
   /* The TRUE/FALSE value to insert or not an Advertisement Interval
-     option. See [RFC 3775 7.3]
+     option. See [RFC 6275 7.3]
 
      Default: FALSE */
   int AdvIntervalOption;

@@ -175,6 +175,6 @@ interface eth0
 @end example
 
 For more information see @cite{RFC2462 (IPv6 Stateless Address Autoconfiguration)}
-, @cite{RFC2461 (Neighbor Discovery for IP Version 6 (IPv6))}
-, @cite{RFC3775 (Mobility Support in IPv6 (Mobile IPv6))}
+, @cite{RFC4861 (Neighbor Discovery for IP Version 6 (IPv6))}
+, @cite{RFC6275 (Mobility Support in IPv6)}
 and @cite{RFC4191 (Default Router Preferences and More-Specific Routes)}.
