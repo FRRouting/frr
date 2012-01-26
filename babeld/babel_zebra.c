@@ -54,19 +54,6 @@ void babelz_zebra_init(void);
 /* we must use a pointer because of zclient.c's functions (new, free). */
 struct zclient *zclient;
 static int zebra_config_write (struct vty *vty);
-/* Redistribution types */
-static struct {
-    int type;
-    int str_min_len;
-    const char *str;
-} redist_type[] = {
-    {ZEBRA_ROUTE_KERNEL,  1, "kernel"},
-    {ZEBRA_ROUTE_CONNECT, 1, "connected"},
-    {ZEBRA_ROUTE_STATIC,  1, "static"},
-    {ZEBRA_ROUTE_OSPF6,   1, "ospf6"},
-    {ZEBRA_ROUTE_BGP,     1, "bgp"},
-    {0, 0, NULL}
-};
 
 /* Debug types */
 static struct {
@@ -219,54 +206,47 @@ babel_redistribute_unset (int type)
 /* [Babel Command] */
 DEFUN (babel_redistribute_type,
        babel_redistribute_type_cmd,
-       "redistribute (kernel|connected|static|ospf6|bgp)",
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Connected\n"
-       "Static routes\n"
-       "Open Shortest Path First (OSPFv3)\n"
-       "Border Gateway Protocol (BGP)\n")
+       "redistribute " QUAGGA_REDIST_STR_BABELD,
+       "Redistribute\n"
+       QUAGGA_REDIST_HELP_STR_BABELD)
 {
-    int i;
+    int type;
 
-    for(i = 0; redist_type[i].str != NULL; i++) {
-        if (strncmp (redist_type[i].str, argv[0],
-                     redist_type[i].str_min_len) == 0) {
-            zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient,
-                                  redist_type[i].type);
-            return CMD_SUCCESS;
-        }
+    type = proto_redistnum(AFI_IP6, argv[0]);
+
+    if (type < 0)
+        type = proto_redistnum(AFI_IP, argv[0]);
+
+    if (type < 0) {
+        vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
+        return CMD_WARNING;
     }
 
-    vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
-
-    return CMD_WARNING;
+    zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, type);
+    return CMD_SUCCESS;
 }
 
 /* [Babel Command] */
 DEFUN (no_babel_redistribute_type,
        no_babel_redistribute_type_cmd,
-       "no redistribute (kernel|connected|static|ospf6|bgp)",
+       "no redistribute " QUAGGA_REDIST_STR_BABELD,
        NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Kernel routes\n"
-       "Connected\n"
-       "Static routes\n"
-       "Open Shortest Path First (OSPFv3)\n"
-       "Border Gateway Protocol (BGP)\n")
+       "Redistribute\n"
+       QUAGGA_REDIST_HELP_STR_BABELD)
 {
-    int i;
+    int type;
 
-    for (i = 0; redist_type[i].str; i++) {
-        if (strncmp(redist_type[i].str, argv[0],
-                    redist_type[i].str_min_len) == 0) {
-            return babel_redistribute_unset (redist_type[i].type);
-        }
+    type = proto_redistnum(AFI_IP6, argv[0]);
+
+    if (type < 0)
+        type = proto_redistnum(AFI_IP, argv[0]);
+
+    if (type < 0) {
+        vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
+        return CMD_WARNING;
     }
 
-    vty_out(vty, "Invalid type %s%s", argv[0], VTY_NEWLINE);
-
-    return CMD_WARNING;
+    return babel_redistribute_unset (type);
 }
 
 #ifndef NO_DEBUG
