@@ -423,7 +423,9 @@ babel_load_state_file(void)
                     if(memcmp(sid, myid, 8) == 0)
                         myseqno = seqno_plus(s, 1);
                     else
-                        zlog_err("ID mismatch in babel-state.");
+                        zlog_err("ID mismatch in babel-state. id=%s; old=%s",
+                                 format_eui64(myid),
+                                 format_eui64(sid));
                     /* Convert realtime into monotonic time. */
                     if(t >= 1176800000L && t <= realnow.tv_sec)
                         reboot_time = babel_now.tv_sec - (realnow.tv_sec - t);

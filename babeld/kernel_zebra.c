@@ -371,11 +371,6 @@ if_eui64(char *ifname, int ifindex, unsigned char *eui)
         eui[3] = 0xFF;
         eui[4] = 0xFE;
         memcpy(eui+5, tmp+3, 3);
-    } else if (len > 8) {
-        memcpy(eui, tmp, 8);
-    } else if (len > 0){
-        memset(eui, 0, 8 - len);
-        memcpy(eui + 8 - len, tmp, len);
     } else {
         return -1;
     }
