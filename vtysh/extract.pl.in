@@ -68,7 +68,7 @@ foreach (@ARGV) {
     close (FH);
 
     @defun = ($line =~ /(?:DEFUN|ALIAS)\s*\((.+?)\);?\s?\s?\n/sg);
-    @install = ($line =~ /install_element \(\s*[0-9A-Z_]+,\s*&[^;]*;\s*\n/sg);
+    @install = ($line =~ /install_element\s*\(\s*[0-9A-Z_]+,\s*&[^;]*;\s*\n/sg);
 
     # DEFUN process
     foreach (@defun) {
