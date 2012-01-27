@@ -298,6 +298,7 @@ DEFUN (no_babel_debug,
         if (strncmp(debug_type[i].str, argv[0],
                     debug_type[i].str_min_len) == 0) {
             debug &= ~debug_type[i].type;
+            return CMD_SUCCESS;
         }
     }
 
