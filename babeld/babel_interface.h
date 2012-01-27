@@ -99,7 +99,6 @@ static inline babel_interface_nfo* babel_get_if_nfo(struct interface *ifp)
 #define BABEL_IF_SPLIT_HORIZON (1 << 2)
 #define BABEL_IF_LQ            (1 << 3)
 #define BABEL_IF_FARAWAY       (1 << 4)
-#define BABEL_IF_IS_ENABLE     (1 << 7)
 
 /* Only INTERFERING can appear on the wire. */
 #define BABEL_IF_CHANNEL_UNKNOWN 0
@@ -111,9 +110,7 @@ if_up(struct interface *ifp)
 {
     return (if_is_operative(ifp) &&
             ifp->connected != NULL &&
-            babel_get_if_nfo(ifp) != NULL &&
-            (babel_get_if_nfo(ifp)->flags & BABEL_IF_IS_UP) &&
-            (babel_get_if_nfo(ifp)->flags & BABEL_IF_IS_ENABLE));
+            (babel_get_if_nfo(ifp)->flags & BABEL_IF_IS_UP));
 }
 
 /* types:

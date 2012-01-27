@@ -57,6 +57,8 @@ THE SOFTWARE.
 #include "xroute.h"
 
 
+#define IS_ENABLE(ifp) (babel_enable_if_lookup(ifp->name) >= 0)
+
 static int babel_enable_if_lookup (const char *ifname);
 static int babel_enable_if_add (const char *ifname);
 static int babel_enable_if_delete (const char *ifname);
@@ -87,7 +89,7 @@ babel_interface_up (int cmd, struct zclient *client, zebra_size_t length)
     debugf(BABEL_DEBUG_IF, "receive a 'interface up'");
 
     s = zclient->ibuf;
-    ifp = zebra_interface_state_read(s);
+    ifp = zebra_interface_state_read(s); /* it updates iflist */
 
     if (ifp == NULL) {
         return 0;
@@ -106,7 +108,7 @@ babel_interface_down (int cmd, struct zclient *client, zebra_size_t length)
     debugf(BABEL_DEBUG_IF, "receive a 'interface down'");
 
     s = zclient->ibuf;
-    ifp = zebra_interface_state_read(s);
+    ifp = zebra_interface_state_read(s); /* it updates iflist */
 
     if (ifp == NULL) {
         return 0;
@@ -131,14 +133,30 @@ babel_interface_add (int cmd, struct zclient *client, zebra_size_t length)
     }
 
     interface_recalculate(ifp);
-
     return 0;
 }
 
 int
 babel_interface_delete (int cmd, struct zclient *client, zebra_size_t length)
 {
+    struct interface *ifp;
+    struct stream *s;
+
     debugf(BABEL_DEBUG_IF, "receive a 'interface delete'");
+
+    s = zclient->ibuf;
+    ifp = zebra_interface_state_read(s); /* it updates iflist */
+
+    if (ifp == NULL)
+        return 0;
+
+    if (IS_ENABLE(ifp))
+        interface_reset(ifp);
+
+    /* To support pseudo interface do not free interface structure.  */
+    /* if_delete(ifp); */
+    ifp->ifindex = IFINDEX_INTERNAL;
+
     return 0;
 }
 
@@ -242,7 +260,7 @@ babel_enable_if_add (const char *ifname)
 
     ifp = if_lookup_by_name(ifname);
     if (ifp != NULL)
-        babel_get_if_nfo(ifp)->flags |= BABEL_IF_IS_ENABLE;
+        interface_recalculate(ifp);
 
     return 1;
 }
@@ -265,7 +283,7 @@ babel_enable_if_delete (const char *ifname)
 
     ifp = if_lookup_by_name(ifname);
     if (ifp != NULL)
-        babel_get_if_nfo(ifp)->flags &= ~BABEL_IF_IS_ENABLE;
+        interface_reset(ifp);
 
     return 1;
 }
@@ -514,6 +532,9 @@ interface_recalculate(struct interface *ifp)
     int mtu, rc;
     struct ipv6_mreq mreq;
 
+    if (!IS_ENABLE(ifp))
+        return -1;
+
     if (!if_is_operative(ifp) || !CHECK_FLAG(ifp->flags, IFF_RUNNING)) {
         interface_reset(ifp);
         return -1;
@@ -594,13 +615,6 @@ interface_recalculate(struct interface *ifp)
     if(rc > 0)
         send_update(ifp, 0, NULL, 0);
 
-    /* Check and set if interface is enable. */
-    if (babel_enable_if_lookup(ifp->name) >= 0) {
-        babel_ifp->flags |= BABEL_IF_IS_ENABLE;
-    } else {
-        babel_ifp->flags &= ~BABEL_IF_IS_ENABLE;
-    }
-
     return 1;
 }
 
@@ -612,6 +626,9 @@ interface_reset(struct interface *ifp)
     int rc;
     struct ipv6_mreq mreq;
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
+
+    if (!(babel_ifp->flags & BABEL_IF_IS_UP))
+        return 0;
 
     debugf(BABEL_DEBUG_IF, "interface reset: %s", ifp->name);
     babel_ifp->flags &= ~BABEL_IF_IS_UP;
