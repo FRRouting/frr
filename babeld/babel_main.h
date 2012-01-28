@@ -54,4 +54,5 @@ extern int protocol_socket;
 extern int kernel_socket;
 extern int max_request_hopcount;
 
+void babel_load_state_file(void);
 void show_babel_main_configuration (struct vty *vty);

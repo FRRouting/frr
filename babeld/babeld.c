@@ -173,7 +173,9 @@ babel_read_protocol (struct thread *thread)
 static int
 babel_init_routing_process(struct thread *thread)
 {
+    myseqno = (random() & 0xFFFF);
     babel_get_myid();
+    babel_load_state_file();
     debugf(BABEL_DEBUG_COMMON, "My ID is : %s.", format_eui64(myid));
     babel_initial_noise();
     babel_main_loop(thread);/* this function self-add to the t_update thread */

@@ -68,7 +68,6 @@ static char *babel_get_progname(char *argv_0);
 static void babel_fail(void);
 static void babel_init_random(void);
 static void babel_replace_by_null(int fd);
-static void babel_load_state_file(void);
 static void babel_init_signals(void);
 static void babel_exit_properly(void);
 static void babel_save_state_file(void);
@@ -304,9 +303,6 @@ babel_init(int argc, char **argv)
     zlog_set_level (NULL, ZLOG_DEST_STDOUT, ZLOG_DISABLED);
     vty_read_config (babel_config_file, babel_config_default);
 
-    myseqno = (random() & 0xFFFF);
-    babel_load_state_file();
-
     /* Create VTY socket */
     vty_serv_sock (babel_vty_addr, babel_vty_port, BABEL_VTYSH_PATH);
 
@@ -380,7 +376,7 @@ babel_replace_by_null(int fd)
  Load the state file: check last babeld's running state, usefull in case of
  "/etc/init.d/babeld restart"
  */
-static void
+void
 babel_load_state_file(void)
 {
     time_t reboot_time;
