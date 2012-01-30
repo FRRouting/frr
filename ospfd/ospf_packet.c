@@ -304,24 +304,14 @@ ospf_packet_max (struct ospf_interface *oi)
 
 
 static int
-ospf_check_md5_digest (struct ospf_interface *oi, struct stream *s,
-                       u_int16_t length)
+ospf_check_md5_digest (struct ospf_interface *oi, struct ospf_header *ospfh)
 {
-  unsigned char *ibuf;
   MD5_CTX ctx;
   unsigned char digest[OSPF_AUTH_MD5_SIZE];
-  unsigned char *pdigest;
   struct crypt_key *ck;
-  struct ospf_header *ospfh;
   struct ospf_neighbor *nbr;
+  u_int16_t length = ntohs (ospfh->length);
   
-
-  ibuf = STREAM_PNT (s);
-  ospfh = (struct ospf_header *) ibuf;
-
-  /* Get pointer to the end of the packet. */
-  pdigest = ibuf + length;
-
   /* Get secret key. */
   ck = ospf_crypt_key_lookup (OSPF_IF_PARAM (oi, auth_crypt),
 			      ospfh->u.crypt.key_id);
@@ -347,12 +337,12 @@ ospf_check_md5_digest (struct ospf_interface *oi, struct stream *s,
   /* Generate a digest for the ospf packet - their digest + our digest. */
   memset(&ctx, 0, sizeof(ctx));
   MD5Init(&ctx);
-  MD5Update(&ctx, ibuf, length);
+  MD5Update(&ctx, ospfh, length);
   MD5Update(&ctx, ck->auth_key, OSPF_AUTH_MD5_SIZE);
   MD5Final(digest, &ctx);
 
   /* compare the two */
-  if (memcmp (pdigest, digest, OSPF_AUTH_MD5_SIZE))
+  if (memcmp ((caddr_t)ospfh + length, digest, OSPF_AUTH_MD5_SIZE))
     {
       zlog_warn ("interface %s: ospf_check_md5 checksum mismatch",
 		 IF_NAME (oi));
@@ -2431,7 +2421,7 @@ ospf_verify_header (struct stream *ibuf, struct ospf_interface *oi,
     {
       if (ospfh->checksum != 0)
 	return -1;
-      if (ospf_check_md5_digest (oi, ibuf, ntohs (ospfh->length)) == 0)
+      if (ospf_check_md5_digest (oi, ospfh) == 0)
 	{
 	  zlog_warn ("interface %s: ospf_read md5 authentication failed.",
 		     IF_NAME (oi));
