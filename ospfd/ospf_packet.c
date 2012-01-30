@@ -2260,8 +2260,7 @@ ospf_check_network_mask (struct ospf_interface *oi, struct in_addr ip_src)
 }
 
 static int
-ospf_check_auth (struct ospf_interface *oi, struct stream *ibuf,
-		 struct ospf_header *ospfh)
+ospf_check_auth (struct ospf_interface *oi, struct ospf_header *ospfh)
 {
   int ret = 0;
   struct crypt_key *ck;
@@ -2287,7 +2286,7 @@ ospf_check_auth (struct ospf_interface *oi, struct stream *ibuf,
       /* This is very basic, the digest processing is elsewhere */
       if (ospfh->u.crypt.auth_data_len == OSPF_AUTH_MD5_SIZE && 
           ospfh->u.crypt.key_id == ck->key_id &&
-          ntohs (ospfh->length) + OSPF_AUTH_SIMPLE_SIZE <= stream_get_size (ibuf))
+          ntohs (ospfh->length) + OSPF_AUTH_MD5_SIZE <= OSPF_MAX_PACKET_SIZE)
         ret = 1;
       else
         ret = 0;
@@ -2411,7 +2410,7 @@ ospf_verify_header (struct stream *ibuf, struct ospf_interface *oi,
       return -1;
     }
 
-  if (! ospf_check_auth (oi, ibuf, ospfh))
+  if (! ospf_check_auth (oi, ospfh))
     {
       zlog_warn ("interface %s: ospf_read authentication failed.",
 		 IF_NAME (oi));
