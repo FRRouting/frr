@@ -46,6 +46,10 @@
 
 #define OSPF_HELLO_REPLY_DELAY          1
 
+/* Return values of functions involved in packet verification, see ospf6d. */
+#define MSG_OK    0
+#define MSG_NG    1
+
 struct ospf_packet
 {
   struct ospf_packet *next;

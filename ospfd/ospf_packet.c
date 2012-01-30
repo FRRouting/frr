@@ -61,6 +61,18 @@ const struct message ospf_packet_type_str[] =
 const size_t ospf_packet_type_str_max = sizeof (ospf_packet_type_str) /
   sizeof (ospf_packet_type_str[0]);
 
+/* Minimum (besides OSPF_HEADER_SIZE) lengths for OSPF packets of
+   particular types, offset is the "type" field of a packet. */
+static const u_int16_t ospf_packet_minlen[] =
+{
+  0,
+  OSPF_HELLO_MIN_SIZE,
+  OSPF_DB_DESC_MIN_SIZE,
+  OSPF_LS_REQ_MIN_SIZE,
+  OSPF_LS_UPD_MIN_SIZE,
+  OSPF_LS_ACK_MIN_SIZE,
+};
+
 /* OSPF authentication checking function */
 static int
 ospf_auth_type (struct ospf_interface *oi)
@@ -2314,6 +2326,47 @@ ospf_check_sum (struct ospf_header *ospfh)
   return 1;
 }
 
+/* Verify a complete OSPF packet for proper sizing/alignment. */
+static unsigned
+ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
+{
+  u_int16_t bytesdeclared;
+
+  /* Length, 1st approximation. */
+  if (bytesonwire < OSPF_HEADER_SIZE)
+  {
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("%s: undersized (%u B) packet", __func__, bytesonwire);
+    return MSG_NG;
+  }
+  /* Now it is safe to access header fields. Performing length check, allow
+   * for possible extra bytes of crypto auth/padding, which are not counted
+   * in the OSPF header "length" field. */
+  bytesdeclared = ntohs (oh->length);
+  if (bytesdeclared > bytesonwire)
+  {
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("%s: packet length error (%u real, %u declared)",
+                  __func__, bytesonwire, bytesdeclared);
+    return MSG_NG;
+  }
+  /* Length, 2nd approximation. The type-specific constraint is checked
+     against declared length, not amount of bytes on wire. */
+  if
+  (
+    oh->type >= OSPF_MSG_HELLO &&
+    oh->type <= OSPF_MSG_LS_ACK &&
+    bytesdeclared < OSPF_HEADER_SIZE + ospf_packet_minlen[oh->type]
+  )
+  {
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("%s: undersized (%u B) %s packet", __func__,
+                  bytesdeclared, LOOKUP (ospf_packet_type_str, oh->type));
+    return MSG_NG;
+  }
+  return MSG_OK;
+}
+
 /* OSPF Header verification. */
 static int
 ospf_verify_header (struct stream *ibuf, struct ospf_interface *oi,
@@ -2409,10 +2462,10 @@ ospf_read (struct thread *thread)
   /* prepare for next packet. */
   ospf->t_read = thread_add_read (master, ospf_read, ospf, ospf->fd);
 
-  /* read OSPF packet. */
   stream_reset(ospf->ibuf);
   if (!(ibuf = ospf_recv_packet (ospf->fd, &ifp, ospf->ibuf)))
     return -1;
+  /* This raw packet is known to be at least as big as its IP header. */
   
   /* Note that there should not be alignment problems with this assignment
      because this is at the beginning of the stream data buffer. */
@@ -2447,16 +2500,10 @@ ospf_read (struct thread *thread)
      by ospf_recv_packet() to be correct). */
   stream_forward_getp (ibuf, iph->ip_hl * 4);
 
-  /* Make sure the OSPF header is really there. */
-  if (stream_get_endp (ibuf) - stream_get_getp (ibuf) < OSPF_HEADER_SIZE)
-  {
-    zlog_debug ("ospf_read: ignored OSPF packet with undersized (%u bytes) header",
-                stream_get_endp (ibuf) - stream_get_getp (ibuf));
-    return -1;
-  }
-
-  /* Now it is safe to access all fields of OSPF packet header. */
   ospfh = (struct ospf_header *) STREAM_PNT (ibuf);
+  if (MSG_OK != ospf_packet_examin (ospfh, stream_get_endp (ibuf) - stream_get_getp (ibuf)))
+    return -1;
+  /* Now it is safe to access all fields of OSPF packet header. */
 
   /* associate packet with ospf interface */
   oi = ospf_if_lookup_recv_if (ospf, iph->ip_src, ifp);
