@@ -1,0 +1,116 @@
+@c -*-texinfo-*-
+@c This is part of the Quagga Manual.
+@c @value{COPYRIGHT_STR}
+@c See file quagga.texi for copying conditions.
+@node Babel
+@chapter Babel
+
+Babel is an interior gateway protocol that is suitable both for wired
+networks and for wireless mesh networks.  Babel has been described as
+``RIP on speed'' --- it is based on the same principles as RIP, but
+includes a number of refinements that make it react much faster to
+topology changes without ever counting to infinity, and allow it to
+perform reliable link quality estimation on wireless links.  Babel is
+a double-stack routing protocol, meaning that a single Babel instance
+is able to perform routing for both IPv4 and IPv6.
+
+Quagga implements Babel as described in RFC6126, as well as the
+``Babel-Z'' extensions that optimise routes for radio frequency
+diversity.
+
+@menu
+* Configuring babeld::          
+* Babel configuration::         
+* Babel redistribution::        
+* Show Babel information::      
+* Babel debugging commands::    
+@end menu
+
+@node Configuring babeld, Babel configuration, Babel, Babel
+@section Configuring babeld
+
+The @command{babeld} daemon can be invoked with any of the common
+options (@pxref{Common Invocation Options}).
+
+The @command{zebra} daemon must be running before @command{babeld} is
+inovked. Also, if @command{zebra} is restarted then @command{babeld}
+must be too.
+
+Configuration of @command{babeld} is done in its configuration file
+@file{babeld.conf}.
+
+@node Babel configuration, Babel redistribution, Configuring babeld, Babel
+@section Babel configuration
+
+@deffn Command {router babel} {}
+@deffnx Command {no router babel} {}
+Enable or disable Babel routing.
+@end deffn
+
+@deffn {Babel Command} {network @var{ifname}} {}
+@deffnx {Babel Command} {no network @var{ifname}} {}
+Enable or disable Babel on the given interface.
+@end deffn
+
+@deffn {Babel Command} {protocol group @var{group}} {}
+@deffnx {Babel Command} {protocol port @var{port}} {}
+Specify the multicast group and UDP port used for Babel traffic.  The
+default is to use group @code{ff02::1:6} and port 6696, as allocated
+by IANA.  (Note that RFC6126 specifies a port number that has been
+obsoleted after publication.)
+@end deffn
+
+@deffn {Interface Command} {wireless} {}
+@deffnx {Interface Command} {no wireless} {}
+Specifies whether this interface is wireless, which disables a number
+of optimisations that are only correct on wired interfaces.
+Specifying @code{no wireless} is always correct, but may cause extra
+routing overhead.  The default is autodetected if possible,
+@code{wireless} otherwise.
+@end deffn
+
+@deffn {Interface Command} {babel split-horizon}
+@deffnx {Interface Command} {no babel split-horizon}
+Specifies whether to perform split-horizon on the interface.  Default
+is @code{babel split-horizon} on wired interfaces, and @code{no babel
+split-horizon} on wireless interfaces.  Please note that performing split
+horizon on wireless interfaces is not correct in general, and may lead
+to communication failures.
+@end deffn
+
+@deffn {Interface Command} {passive-interface}
+@deffnx {Interface Command} {passive-interface}
+Specifies whether this interface is passive.  Note that this is
+a little weaker than RIP's notion of passive interface, since Babel
+always sends Hello packets, even on passive interfaces.
+@end deffn
+
+@node Babel redistribution, Show Babel information, Babel configuration, Babel
+@section Babel redistribution
+
+@deffn {Babel command} {redistribute @var{kind}}
+@deffnx {Babel command} {no redistribute @var{kind}}
+Specify which kind of routes should be redistributed into Babel.
+@end deffn
+
+@node Show Babel information, Babel debugging commands, Babel redistribution, Babel
+@section Show Babel information
+
+@deffn {Command} {show babel database} {}
+@deffnx {Command} {show babel interface} {}
+@deffnx {Command} {show babel neighbour} {}
+@deffnx {Command} {show babel running-config} {}
+These commands dump various parts of @command{babeld}'s internal
+state.  They are mostly useful for troubleshooting.
+@end deffn
+
+@node Babel debugging commands,  , Show Babel information, Babel
+@section Babel debugging commands
+
+@deffn {Babel Command} {debug @var{kind}} {}
+@deffnx {Babel Command} {no debug @var{kind}} {}
+Enable or disable debugging messages of a given kind.  @var{kind} can
+be one of @samp{common}, @samp{kernel}, @samp{filter}, @samp{timeout},
+@samp{interface}, @samp{route} or @samp{all}.
+@end deffn
+
