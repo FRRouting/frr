@@ -430,7 +430,7 @@ DEFUN (babel_set_hello_interval,
     struct interface *ifp;
     babel_interface_nfo *babel_ifp;
 
-    int interval = atoi(argv[1]);
+    int interval = atoi(argv[0]);
 
     ifp = vty->index;
     babel_ifp = babel_get_if_nfo(ifp);
