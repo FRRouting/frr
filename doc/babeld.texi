@@ -14,9 +14,7 @@ perform reliable link quality estimation on wireless links.  Babel is
 a double-stack routing protocol, meaning that a single Babel instance
 is able to perform routing for both IPv4 and IPv6.
 
-Quagga implements Babel as described in RFC6126, as well as the
-``Babel-Z'' extensions that optimise routes for radio frequency
-diversity.
+Quagga implements Babel as described in RFC6126.
 
 @menu
 * Configuring babeld::          
@@ -33,7 +31,7 @@ The @command{babeld} daemon can be invoked with any of the common
 options (@pxref{Common Invocation Options}).
 
 The @command{zebra} daemon must be running before @command{babeld} is
-inovked. Also, if @command{zebra} is restarted then @command{babeld}
+invoked. Also, if @command{zebra} is restarted then @command{babeld}
 must be too.
 
 Configuration of @command{babeld} is done in its configuration file
@@ -79,7 +77,7 @@ to communication failures.
 @end deffn
 
 @deffn {Interface Command} {passive-interface}
-@deffnx {Interface Command} {passive-interface}
+@deffnx {Interface Command} {no passive-interface}
 Specifies whether this interface is passive.  Note that this is
 a little weaker than RIP's notion of passive interface, since Babel
 always sends Hello packets, even on passive interfaces.
@@ -111,6 +109,7 @@ state.  They are mostly useful for troubleshooting.
 @deffnx {Babel Command} {no debug @var{kind}} {}
 Enable or disable debugging messages of a given kind.  @var{kind} can
 be one of @samp{common}, @samp{kernel}, @samp{filter}, @samp{timeout},
-@samp{interface}, @samp{route} or @samp{all}.
+@samp{interface}, @samp{route} or @samp{all}.  Note that if you have
+compiled with the NO_DEBUG flag, then these commands aren't available.
 @end deffn
 
