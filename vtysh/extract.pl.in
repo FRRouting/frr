@@ -37,6 +37,7 @@ $ignore{'"router ripng"'} = "ignore";
 $ignore{'"router ospf"'} = "ignore";
 $ignore{'"router ospf <0-65535>"'} = "ignore";
 $ignore{'"router ospf6"'} = "ignore";
+$ignore{'"router babel"'} = "ignore";
 $ignore{'"router bgp " "<1-4294967295>"'} = "ignore";
 $ignore{'"router bgp " "<1-4294967295>" " view WORD"'} = "ignore";
 $ignore{'"router isis WORD"'} = "ignore";
