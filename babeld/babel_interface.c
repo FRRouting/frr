@@ -935,9 +935,9 @@ babel_if_init ()
     install_element(INTERFACE_NODE, &babel_passive_interface_cmd);
     install_element(INTERFACE_NODE, &no_babel_passive_interface_cmd);
 
-  /* "show babel ..." commands */
-  install_element (VIEW_NODE, &show_babel_interface_cmd);
-  install_element (ENABLE_NODE, &show_babel_interface_cmd);
+    /* "show babel ..." commands */
+    install_element(VIEW_NODE, &show_babel_interface_cmd);
+    install_element(ENABLE_NODE, &show_babel_interface_cmd);
     install_element(VIEW_NODE, &show_babel_neighbour_cmd);
     install_element(ENABLE_NODE, &show_babel_neighbour_cmd);
     install_element(VIEW_NODE, &show_babel_database_cmd);
