@@ -608,6 +608,7 @@ DEFUN (router_babel,
         /* Notice to user we couldn't create Babel. */
         if (ret < 0) {
             zlog_warn ("can't create Babel");
+            return CMD_WARNING;
         }
     }
 
@@ -666,9 +667,11 @@ DEFUN (babel_set_protocol_port,
        "Set the protocol port (default is defined in RFC).\n"
        "IPv6 address")
 {
-    int port = atoi(argv[0]);
-    protocol_port = port;
+    int port;
 
+    VTY_GET_INTEGER_RANGE("port", port, argv[0], 1, 0xFFFF);
+
+    protocol_port = port;
     return CMD_SUCCESS;
 }
 

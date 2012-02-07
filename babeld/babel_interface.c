@@ -429,13 +429,14 @@ DEFUN (babel_set_hello_interval,
 {
     struct interface *ifp;
     babel_interface_nfo *babel_ifp;
+    int interval;
 
-    int interval = atoi(argv[0]);
+    VTY_GET_INTEGER_RANGE("hello interval", interval, argv[0], 20, 10 * 0xFFFE);
 
     ifp = vty->index;
     babel_ifp = babel_get_if_nfo(ifp);
-
     assert (babel_ifp != NULL);
+
     babel_ifp->hello_interval = interval;
     return CMD_SUCCESS;
 }
@@ -450,7 +451,7 @@ DEFUN (babel_passive_interface,
     if (allow_duplicates) {
         return CMD_WARNING;
     }
-    parasitic = -1;
+    parasitic = 1;
     return CMD_SUCCESS;
 }
 
@@ -900,7 +901,7 @@ DEFUN (show_babel_running_config,
     vty_out(vty, "    -- Babel running configuration --%s", VTY_NEWLINE);
     show_babel_main_configuration(vty);
     show_babeld_configuration(vty);
-    vty_out(vty, "    -- ditribution lists --%s", VTY_NEWLINE);
+    vty_out(vty, "    -- distribution lists --%s", VTY_NEWLINE);
     config_show_distribute(vty);
 
     return CMD_SUCCESS;

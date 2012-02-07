@@ -227,8 +227,7 @@ babel_init(int argc, char **argv)
                 break;
             case 'P':
                 babel_vty_port = atoi (optarg);
-                if (babel_vty_port < 0 || babel_vty_port > 0xffff
-                    || (babel_vty_port == 0 && optarg[0] != '0'/*atoi error*/))
+                if (babel_vty_port <= 0 || babel_vty_port > 0xffff)
                     babel_vty_port = BABEL_VTY_PORT;
                 break;
             case 'u':
