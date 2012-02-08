@@ -58,11 +58,11 @@ by IANA.  (Note that RFC6126 specifies a port number that has been
 obsoleted after publication.)
 @end deffn
 
-@deffn {Interface Command} {wireless} {}
-@deffnx {Interface Command} {no wireless} {}
+@deffn {Interface Command} {babel wired} {}
+@deffnx {Interface Command} {babel wireless} {}
 Specifies whether this interface is wireless, which disables a number
 of optimisations that are only correct on wired interfaces.
-Specifying @code{no wireless} is always correct, but may cause extra
+Specifying @code{wireless} is always correct, but may cause extra
 routing overhead.  The default is autodetected if possible,
 @code{wireless} otherwise.
 @end deffn
