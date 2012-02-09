@@ -43,12 +43,7 @@ THE SOFTWARE.
 #include "prefix.h"
 #include "babel_interface.h"
 
-/* filter route coming from other worlds */
-int babel_filter_in  (struct prefix *, babel_interface_nfo *);
-/* filter route sending to other worlds */
-int babel_filter_out (struct prefix *, babel_interface_nfo *);
-/* filter route coming from our friend zebra */
-int babel_filter_redistribute
-                     (struct prefix *, babel_interface_nfo *);
+int babel_filter(int output, const unsigned char *prefix, unsigned short plen,
+                 unsigned int index);
 
 #endif /* BABELD_BABEL_FILTER_H */

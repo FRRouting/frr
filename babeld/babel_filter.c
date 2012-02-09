@@ -45,144 +45,80 @@ THE SOFTWARE.
 #include "distribute.h"
 #include "util.h"
 
-
 int
-babel_filter_in (struct prefix *p, babel_interface_nfo *babel_ifp)
+babel_filter(int output, const unsigned char *prefix, unsigned short plen,
+             unsigned int ifindex)
 {
+    struct interface *ifp = if_lookup_by_index(ifindex);
+    babel_interface_nfo *babel_ifp = ifp ? babel_get_if_nfo(ifp) : NULL;
+    struct prefix p;
     struct distribute *dist;
     struct access_list *alist;
     struct prefix_list *plist;
+    int filter = output ? BABEL_FILTER_OUT : BABEL_FILTER_IN;
+    int distribute = output ? DISTRIBUTE_OUT : DISTRIBUTE_IN;
 
-    /* Input distribute-list filtering. */
-    if (babel_ifp != NULL && babel_ifp->list[BABEL_FILTER_IN]) {
-        if (access_list_apply (babel_ifp->list[BABEL_FILTER_IN], p)
+    p.family = v4mapped(prefix) ? AF_INET : AF_INET6;
+    p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
+    if (p.family == AF_INET)
+        uchar_to_inaddr(&p.u.prefix4, prefix);
+    else
+        uchar_to_in6addr(&p.u.prefix6, prefix);
+
+    if (babel_ifp != NULL && babel_ifp->list[filter]) {
+        if (access_list_apply (babel_ifp->list[filter], &p)
             == FILTER_DENY) {
             debugf(BABEL_DEBUG_FILTER,
                    "%s/%d filtered by distribute in",
-                   p->family == AF_INET ?
-                   inet_ntoa(p->u.prefix4) :
-                   inet6_ntoa (p->u.prefix6),
-                   p->prefixlen);
-            return -1;
+                   p.family == AF_INET ?
+                   inet_ntoa(p.u.prefix4) :
+                   inet6_ntoa (p.u.prefix6),
+                   p.prefixlen);
+            return INFINITY;
 	}
     }
-    if (babel_ifp != NULL && babel_ifp->prefix[BABEL_FILTER_IN]) {
-        if (prefix_list_apply (babel_ifp->prefix[BABEL_FILTER_IN], p)
+    if (babel_ifp != NULL && babel_ifp->prefix[filter]) {
+        if (prefix_list_apply (babel_ifp->prefix[filter], &p)
             == PREFIX_DENY) {
             debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute in",
-                        p->family == AF_INET ?
-                        inet_ntoa(p->u.prefix4) :
-                        inet6_ntoa (p->u.prefix6),
-                        p->prefixlen);
-            return -1;
+                        p.family == AF_INET ?
+                        inet_ntoa(p.u.prefix4) :
+                        inet6_ntoa (p.u.prefix6),
+                        p.prefixlen);
+            return INFINITY;
 	}
     }
 
     /* All interface filter check. */
     dist = distribute_lookup (NULL);
     if (dist) {
-        if (dist->list[DISTRIBUTE_IN]) {
-            alist = access_list_lookup (AFI_IP6, dist->list[DISTRIBUTE_IN]);
+        if (dist->list[distribute]) {
+            alist = access_list_lookup (AFI_IP6, dist->list[distribute]);
 
             if (alist) {
-                if (access_list_apply (alist, p) == FILTER_DENY) {
+                if (access_list_apply (alist, &p) == FILTER_DENY) {
                     debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute in",
-                                p->family == AF_INET ?
-                                inet_ntoa(p->u.prefix4) :
-                                inet6_ntoa (p->u.prefix6),
-                                p->prefixlen);
-                    return -1;
+                                p.family == AF_INET ?
+                                inet_ntoa(p.u.prefix4) :
+                                inet6_ntoa (p.u.prefix6),
+                                p.prefixlen);
+                    return INFINITY;
 		}
 	    }
 	}
-        if (dist->prefix[DISTRIBUTE_IN]) {
-            plist = prefix_list_lookup (AFI_IP6, dist->prefix[DISTRIBUTE_IN]);
+        if (dist->prefix[distribute]) {
+            plist = prefix_list_lookup (AFI_IP6, dist->prefix[distribute]);
             if (plist) {
-                if (prefix_list_apply (plist, p) == PREFIX_DENY) {
+                if (prefix_list_apply (plist, &p) == PREFIX_DENY) {
                     debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute in",
-                                p->family == AF_INET ?
-                                inet_ntoa(p->u.prefix4) :
-                                inet6_ntoa (p->u.prefix6),
-                                p->prefixlen);
-                    return -1;
+                                p.family == AF_INET ?
+                                inet_ntoa(p.u.prefix4) :
+                                inet6_ntoa (p.u.prefix6),
+                                p.prefixlen);
+                    return INFINITY;
 		}
 	    }
 	}
     }
     return 0;
-}
-
-int
-babel_filter_out (struct prefix *p, babel_interface_nfo *babel_ifp)
-{
-    struct distribute *dist;
-    struct access_list *alist;
-    struct prefix_list *plist;
-
-    if (babel_ifp != NULL && babel_ifp->list[BABEL_FILTER_OUT]) {
-        if (access_list_apply (babel_ifp->list[BABEL_FILTER_OUT], p)
-            == FILTER_DENY) {
-            debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute out",
-                        p->family == AF_INET ?
-                        inet_ntoa(p->u.prefix4) :
-                        inet6_ntoa (p->u.prefix6),
-                        p->prefixlen);
-            return -1;
-	}
-    }
-    if (babel_ifp != NULL && babel_ifp->prefix[BABEL_FILTER_OUT]) {
-        if (prefix_list_apply (babel_ifp->prefix[BABEL_FILTER_OUT], p)
-            == PREFIX_DENY) {
-            debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute out",
-                        p->family == AF_INET ?
-                        inet_ntoa(p->u.prefix4) :
-                        inet6_ntoa (p->u.prefix6),
-                        p->prefixlen);
-            return -1;
-	}
-    }
-
-    /* All interface filter check. */
-    dist = distribute_lookup (NULL);
-    if (dist) {
-        if (dist->list[DISTRIBUTE_OUT]) {
-            alist = access_list_lookup (AFI_IP6, dist->list[DISTRIBUTE_OUT]);
-            if (alist) {
-                if (access_list_apply (alist, p) == FILTER_DENY) {
-                    debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute out",
-                                p->family == AF_INET ?
-                                inet_ntoa(p->u.prefix4) :
-                                inet6_ntoa (p->u.prefix6),
-                                p->prefixlen);
-                    return -1;
-		}
-	    }
-	}
-        if (dist->prefix[DISTRIBUTE_OUT]) {
-            plist = prefix_list_lookup (AFI_IP6, dist->prefix[DISTRIBUTE_OUT]);
-            if (plist) {
-                if (prefix_list_apply (plist, p) == PREFIX_DENY) {
-                    debugf(BABEL_DEBUG_FILTER, "%s/%d filtered by distribute out",
-                                p->family == AF_INET ?
-                                inet_ntoa(p->u.prefix4) :
-                                inet6_ntoa (p->u.prefix6),
-                                p->prefixlen);
-                    return -1;
-		}
-	    }
-	}
-    }
-    return 0;
-}
-
-int
-babel_filter_redistribute (struct prefix *p,
-                           babel_interface_nfo *babel_ifp)
-{
-    debugf(BABEL_DEBUG_FILTER, "%s/%d WARNING: no redistribute filter implemented !!!!",
-                p->family == AF_INET ?
-                inet_ntoa(p->u.prefix4) :
-                inet6_ntoa (p->u.prefix6),
-                p->prefixlen);
-    return 0; /* TODO: it redistributes always */
 }

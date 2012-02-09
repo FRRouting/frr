@@ -705,71 +705,30 @@ babeld_quagga_init(void)
     distribute_list_delete_hook (babel_distribute_update);
 }
 
-int /* DEPRECATED: for compatibility with old babeld (configuration.{c,h})*/
+/* Stubs to adapt Babel's filtering calls to Quagga's infrastructure. */
+
+int
 input_filter(const unsigned char *id,
              const unsigned char *prefix, unsigned short plen,
              const unsigned char *neigh, unsigned int ifindex)
 {
-    struct interface *ifp = NULL;
-    struct prefix p;
-    p.family = v4mapped(prefix) ? AF_INET : AF_INET6;
-    p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
-    if (p.family == AF_INET) {
-        uchar_to_inaddr(&p.u.prefix4, prefix);
-    } else {
-        uchar_to_in6addr(&p.u.prefix6, prefix);
-    }
-
-    ifp = if_lookup_by_index(ifindex);
-    if (ifp != NULL) {
-        return babel_filter_in(&p, babel_get_if_nfo(ifp));
-    }
-
-    return babel_filter_in(&p, NULL);
+    return babel_filter(0, prefix, plen, ifindex);
 }
 
-int /* DEPRECATED: for compatibility with old babeld */
+int
 output_filter(const unsigned char *id, const unsigned char *prefix,
               unsigned short plen, unsigned int ifindex)
 {
-    struct interface *ifp = NULL;
-    struct prefix p;
-    p.family = v4mapped(prefix) ? AF_INET : AF_INET6;
-    p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
-    if (p.family == AF_INET) {
-        uchar_to_inaddr(&p.u.prefix4, prefix);
-    } else {
-        uchar_to_in6addr(&p.u.prefix6, prefix);
-    }
-
-    ifp = if_lookup_by_index(ifindex);
-    if (ifp != NULL) {
-        return babel_filter_out(&p, babel_get_if_nfo(ifp));
-    }
-
-    return babel_filter_out(&p, NULL);
+    return babel_filter(1, prefix, plen, ifindex);
 }
 
-int /* DEPRECATED: for compatibility with old babeld */
+/* There's no redistribute filter in Quagga -- the zebra daemon does its
+   own filtering. */
+int
 redistribute_filter(const unsigned char *prefix, unsigned short plen,
                     unsigned int ifindex, int proto)
 {
-    struct interface *ifp = NULL;
-    struct prefix p;
-    p.family = v4mapped(prefix) ? AF_INET : AF_INET6;
-    p.prefixlen = v4mapped(prefix) ? plen - 96 : plen;
-    if (p.family == AF_INET) {
-        uchar_to_inaddr(&p.u.prefix4, prefix);
-    } else {
-        uchar_to_in6addr(&p.u.prefix6, prefix);
-    }
-
-    ifp = if_lookup_by_index(ifindex);
-    if (ifp != NULL) {
-        return babel_filter_redistribute(&p,babel_get_if_nfo(ifp));
-    }
-
-    return babel_filter_redistribute(&p, NULL);
+    return 0;
 }
 
 void
