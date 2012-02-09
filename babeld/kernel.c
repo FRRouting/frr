@@ -50,44 +50,7 @@ THE SOFTWARE.
 int
 gettime(struct timeval *tv)
 {
-    int rc;
-    static time_t offset = 0, previous = 0;
-
-#if defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0 && defined(CLOCK_MONOTONIC)
-    static int have_posix_clocks = -1;
-
-    if(UNLIKELY(have_posix_clocks < 0)) {
-        struct timespec ts;
-        rc = clock_gettime(CLOCK_MONOTONIC, &ts);
-        if(rc < 0) {
-            have_posix_clocks = 0;
-        } else {
-            have_posix_clocks = 1;
-        }
-    }
-
-    if(have_posix_clocks) {
-        struct timespec ts;
-        int rc;
-        rc = clock_gettime(CLOCK_MONOTONIC, &ts);
-        if(rc < 0)
-            return rc;
-        tv->tv_sec = ts.tv_sec;
-        tv->tv_usec = ts.tv_nsec / 1000;
-        return rc;
-    }
-#endif
-
-    rc = gettimeofday(tv, NULL);
-    if(rc < 0)
-        return rc;
-    tv->tv_sec += offset;
-    if(UNLIKELY(previous > tv->tv_sec)) {
-        offset += previous - tv->tv_sec;
-        tv->tv_sec = previous;
-    }
-    previous = tv->tv_sec;
-    return rc;
+    return quagga_gettime(QUAGGA_CLK_MONOTONIC, tv);
 }
 
 /* If /dev/urandom doesn't exist, this will fail with ENOENT, which the
