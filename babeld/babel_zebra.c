@@ -186,23 +186,6 @@ babel_zebra_read_ipv4 (int command, struct zclient *zclient,
     return 0;
 }
 
-static int
-babel_redistribute_unset (int type)
-{
-    if (! zclient->redist[type])
-        return CMD_SUCCESS;
-
-    zclient->redist[type] = 0;
-
-    if (zclient->sock > 0)
-        zebra_redistribute_send (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
-
-    /* perhaps should we remove xroutes having the same type... */
-
-    return CMD_SUCCESS;
-}
-
-
 /* [Babel Command] */
 DEFUN (babel_redistribute_type,
        babel_redistribute_type_cmd,
@@ -246,7 +229,9 @@ DEFUN (no_babel_redistribute_type,
         return CMD_WARNING;
     }
 
-    return babel_redistribute_unset (type);
+    zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, type);
+    /* perhaps should we remove xroutes having the same type... */
+    return CMD_SUCCESS;
 }
 
 #ifndef NO_DEBUG
