@@ -50,14 +50,6 @@ Enable or disable Babel routing.
 Enable or disable Babel on the given interface.
 @end deffn
 
-@deffn {Babel Command} {protocol group @var{group}} {}
-@deffnx {Babel Command} {protocol port @var{port}} {}
-Specify the multicast group and UDP port used for Babel traffic.  The
-default is to use group @code{ff02::1:6} and port 6696, as allocated
-by IANA.  (Note that RFC6126 specifies a port number that has been
-obsoleted after publication.)
-@end deffn
-
 @deffn {Interface Command} {babel wired} {}
 @deffnx {Interface Command} {babel wireless} {}
 Specifies whether this interface is wireless, which disables a number
@@ -76,11 +68,31 @@ horizon on wireless interfaces is not correct in general, and may lead
 to communication failures.
 @end deffn
 
-@deffn {Interface Command} {passive-interface}
-@deffnx {Interface Command} {no passive-interface}
+@deffn {Interface Command} {babel passive-interface}
+@deffnx {Interface Command} {no babel passive-interface}
 Specifies whether this interface is passive.  Note that this is
 a little weaker than RIP's notion of passive interface, since Babel
-always sends Hello packets, even on passive interfaces.
+always sends Hello packets and announces redistributed routes, even on
+passive interfaces.
+@end deffn
+
+@deffn {Interface Command} {babel hello-interval <20-655340>}
+Specifies the time in milliseconds between two scheduled hellos.
+Babel notices a link failure within two hello intervals on wired
+links; on wireless links, the link quality value is reestimated at
+every hello interval.
+@end deffn
+
+@deffn {Interface Command} {babel hello-interval <20-655340>}
+Specifies the time in milliseconds between two scheduled updates.
+Since Babel makes extensive use of triggered updates, this can be
+set to fairly high values on links with little packet loss.
+@end deffn
+
+@deffn {Babel Command} {babel resend-delay <20-655340>}
+Specifies the time in milliseconds after which an ``important''
+request or update will be resent.  This is a global, not per-interface
+value.
 @end deffn
 
 @node Babel redistribution, Show Babel information, Babel configuration, Babel
