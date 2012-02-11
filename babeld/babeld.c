@@ -629,53 +629,6 @@ DEFUN (no_router_babel,
     return CMD_SUCCESS;
 }
 
-/* [Babel Command] */
-DEFUN (babel_set_protocol_group,
-       babel_set_protocol_group_cmd,
-       "protocol group ADDR",
-       "Set the protocol group, default is ff02::1:6.\n"
-       "IPv6 address")
-{
-    int ret;
-    struct prefix p;
-
-    ret = str2prefix (argv[0], &p);
-
-    /* Given string is:                 */
-    if (ret) { /* an IPv4 or v6 network */
-        if (p.family != AF_INET6) {
-            return CMD_WARNING;
-        }
-        in6addr_to_uchar(protocol_group, &p.u.prefix6);
-    } else {   /* an interface name     */
-        return CMD_WARNING;
-    }
-
-    if (ret < 0) {
-        vty_out (vty, "%s must be an ipv6 address%s", argv[0],
-                 VTY_NEWLINE);
-        return CMD_WARNING;
-    }
-
-    return CMD_SUCCESS;
-}
-
-/* [Babel Command] */
-DEFUN (babel_set_protocol_port,
-       babel_set_protocol_port_cmd,
-       "protocol port <1-65535>",
-       "Set the protocol port (default is defined in RFC).\n"
-       "IPv6 address")
-{
-    int port;
-
-    VTY_GET_INTEGER_RANGE("port", port, argv[0], 1, 0xFFFF);
-
-    protocol_port = port;
-    return CMD_SUCCESS;
-}
-
-
 void
 babeld_quagga_init(void)
 {
