@@ -83,7 +83,7 @@ links; on wireless links, the link quality value is reestimated at
 every hello interval.
 @end deffn
 
-@deffn {Interface Command} {babel hello-interval <20-655340>}
+@deffn {Interface Command} {babel update-interval <20-655340>}
 Specifies the time in milliseconds between two scheduled updates.
 Since Babel makes extensive use of triggered updates, this can be
 set to fairly high values on links with little packet loss.
