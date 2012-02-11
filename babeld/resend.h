@@ -37,7 +37,7 @@ THE SOFTWARE.
 */
 
 #define REQUEST_TIMEOUT 65000
-#define UPDATE_MAX 4
+#define RESEND_MAX 3
 
 #define RESEND_REQUEST 1
 #define RESEND_UPDATE 2

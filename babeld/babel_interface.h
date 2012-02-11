@@ -71,7 +71,6 @@ struct babel_interface {
     int update_bufsize;
     time_t bucket_time;
     unsigned int bucket;
-    time_t activity_time;
     time_t last_update_time;
     unsigned short hello_seqno;
     unsigned hello_interval;
@@ -142,9 +141,6 @@ int babel_interface_delete (int, struct zclient *, zebra_size_t);
 int babel_interface_address_add (int, struct zclient *, zebra_size_t);
 int babel_interface_address_delete (int, struct zclient *, zebra_size_t);
 
-/* others functions */
-int interface_idle(babel_interface_nfo *);
-int update_hello_interval(struct interface *ifp);
 unsigned jitter(babel_interface_nfo *, int);
 unsigned update_jitter(babel_interface_nfo *babel_ifp, int urgent);
 /* return "true" if "address" is one of our ipv6 addresses */

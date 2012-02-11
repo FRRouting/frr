@@ -682,7 +682,7 @@ update_route(const unsigned char *router_id,
     int hold_time = MAX((4 * interval) / 100 + interval / 50, 15);
 
     if(memcmp(router_id, myid, 8) == 0)
-        return NULL; /* I have announced the route */
+        return NULL;
 
     if(martian_prefix(prefix, plen)) {
         zlog_err("Rejecting martian route to %s through %s.",

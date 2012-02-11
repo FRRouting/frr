@@ -79,10 +79,9 @@ struct timeval babel_now;         /* current time             */
 unsigned char myid[8];            /* unique id (mac address of an interface) */
 int debug = BABEL_DEBUG_COMMON;
 
-int idle_time = 320;
-int wireless_hello_interval = -1;
-int wired_hello_interval = -1;
-int idle_hello_interval = -1;
+int default_wireless_hello_interval = -1;
+int default_wired_hello_interval = -1;
+int resend_delay = -1;
 static const char *pidfile = PATH_BABELD_PID;
 
 const unsigned char zeroes[16] = {0};
@@ -259,17 +258,19 @@ babel_init(int argc, char **argv)
     vty_init (master);
     memory_init ();
 
-    /* babeld inits (default options) */
-    /* set default interval's values */
-    if(wireless_hello_interval <= 0)
-        wireless_hello_interval = 4000;
-    wireless_hello_interval = MAX(wireless_hello_interval, 5);
+    if(default_wireless_hello_interval <= 0)
+        default_wireless_hello_interval = 4000;
+    default_wireless_hello_interval = MAX(default_wireless_hello_interval, 5);
 
-    if(wired_hello_interval <= 0)
-        wired_hello_interval = 4000;
-    wired_hello_interval = MAX(wired_hello_interval, 5);
+    if(default_wired_hello_interval <= 0)
+        default_wired_hello_interval = 4000;
+    default_wired_hello_interval = MAX(default_wired_hello_interval, 5);
 
-    /* an assertion */
+    resend_delay = 2000;
+    resend_delay = MIN(resend_delay, default_wireless_hello_interval / 2);
+    resend_delay = MIN(resend_delay, default_wired_hello_interval / 2);
+    resend_delay = MAX(resend_delay, 20);
+
     if(parasitic && allow_duplicates >= 0) {
         /* Too difficult to get right. */
         zlog_err("Sorry, -P and -A are incompatible.");
@@ -561,10 +562,6 @@ show_babel_main_configuration (struct vty *vty)
             "vty address             = %s%s"
             "vty port                = %d%s"
             "id                      = %s%s"
-            "idle time               = %d%s"
-            "wireless hello interval = %d%s"
-            "wired hello interval    = %d%s"
-            "idle hello interval     = %d%s"
             "parasitic               = %s%s"
             "split-horizon           = %s%s"
             "allow_duplicates        = %s%s"
@@ -580,10 +577,6 @@ show_babel_main_configuration (struct vty *vty)
             VTY_NEWLINE,
             babel_vty_port, VTY_NEWLINE,
             format_eui64(myid), VTY_NEWLINE,
-            idle_time, VTY_NEWLINE,
-            wireless_hello_interval, VTY_NEWLINE,
-            wired_hello_interval, VTY_NEWLINE,
-            idle_hello_interval, VTY_NEWLINE,
             format_bool(parasitic), VTY_NEWLINE,
             format_bool(split_horizon), VTY_NEWLINE,
             format_bool(allow_duplicates), VTY_NEWLINE,

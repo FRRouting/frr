@@ -282,7 +282,6 @@ parse_packet(const unsigned char *from, struct interface *ifp,
             debugf(BABEL_DEBUG_COMMON,"Received hello %d (%d) from %s on %s.",
                    seqno, interval,
                    format_address(from), ifp->name);
-            babel_get_if_nfo(ifp)->activity_time = babel_now.tv_sec;
             changed = update_neighbour(neigh, seqno, interval);
             update_neighbour_metric(neigh, changed);
             if(interval > 0)
@@ -466,7 +465,8 @@ parse_packet(const unsigned char *from, struct interface *ifp,
                    update storm.  Ignore a wildcard request that happens
                    shortly after we sent a full update. */
                 if(babel_ifp->last_update_time <
-                   babel_now.tv_sec - MAX(babel_ifp->hello_interval / 100, 1))
+                   (time_t)(babel_now.tv_sec -
+                            MAX(babel_ifp->hello_interval / 100, 1)))
                     send_update(neigh->ifp, 0, NULL, 0);
             } else {
                 send_update(neigh->ifp, 0, prefix, plen);
@@ -755,12 +755,10 @@ send_hello_noupdate(struct interface *ifp, unsigned interval)
 void
 send_hello(struct interface *ifp)
 {
-    int changed;
-    changed = update_hello_interval(ifp);
     babel_interface_nfo *babel_ifp = babel_get_if_nfo(ifp);
     send_hello_noupdate(ifp, (babel_ifp->hello_interval + 9) / 10);
     /* Send full IHU every 3 hellos, and marginal IHU each time */
-    if(changed || babel_ifp->hello_seqno % 3 == 0)
+    if(babel_ifp->hello_seqno % 3 == 0)
         send_ihu(NULL, ifp);
     else
         send_marginal_ihu(ifp);
@@ -1161,13 +1159,11 @@ send_update(struct interface *ifp, int urgent,
             buffer_update(ifp, prefix, plen);
         }
     } else {
-        if(!interface_idle(babel_ifp)) {
-            send_self_update(ifp);
-            if(!parasitic) {
-                debugf(BABEL_DEBUG_COMMON,"Sending update to %s for any.",
-                       ifp->name);
-                for_all_installed_routes(buffer_update_callback, ifp);
-            }
+        send_self_update(ifp);
+        if(!parasitic) {
+            debugf(BABEL_DEBUG_COMMON,"Sending update to %s for any.",
+                   ifp->name);
+            for_all_installed_routes(buffer_update_callback, ifp);
         }
         set_timeout(&babel_ifp->update_timeout, babel_ifp->update_interval);
         babel_ifp->last_update_time = babel_now.tv_sec;
@@ -1179,17 +1175,10 @@ void
 send_update_resend(struct interface *ifp,
                    const unsigned char *prefix, unsigned char plen)
 {
-    int delay;
-
     assert(prefix != NULL);
 
     send_update(ifp, 1, prefix, plen);
-
-    delay = 2000;
-    delay = MIN(delay, wireless_hello_interval / 2);
-    delay = MIN(delay, wired_hello_interval / 2);
-    delay = MAX(delay, 10);
-    record_resend(RESEND_UPDATE, prefix, plen, 0, 0, NULL, delay);
+    record_resend(RESEND_UPDATE, prefix, plen, 0, 0, NULL, resend_delay);
 }
 
 void
@@ -1249,10 +1238,8 @@ send_self_update(struct interface *ifp)
         return;
     }
 
-    if(!interface_idle(babel_get_if_nfo(ifp))) {
-        debugf(BABEL_DEBUG_COMMON,"Sending self update to %s.", ifp->name);
-        for_all_xroutes(send_xroute_update_callback, ifp);
-    }
+    debugf(BABEL_DEBUG_COMMON,"Sending self update to %s.", ifp->name);
+    for_all_xroutes(send_xroute_update_callback, ifp);
 }
 
 void
@@ -1501,19 +1488,13 @@ send_request_resend(struct neighbour *neigh,
                     const unsigned char *prefix, unsigned char plen,
                     unsigned short seqno, unsigned char *id)
 {
-    int delay;
-
     if(neigh)
         send_unicast_multihop_request(neigh, prefix, plen, seqno, id, 127);
     else
         send_multihop_request(NULL, prefix, plen, seqno, id, 127);
 
-    delay = 2000;
-    delay = MIN(delay, wireless_hello_interval / 2);
-    delay = MIN(delay, wired_hello_interval / 2);
-    delay = MAX(delay, 10);
     record_resend(RESEND_REQUEST, prefix, plen, seqno, id,
-                  neigh ? neigh->ifp : NULL, delay);
+                  neigh ? neigh->ifp : NULL, resend_delay);
 }
 
 void

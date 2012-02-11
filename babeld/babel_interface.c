@@ -467,38 +467,6 @@ DEFUN (no_babel_passive_interface,
     return CMD_SUCCESS;
 }
 
-
-int
-interface_idle(babel_interface_nfo *babel_ifp)
-{
-    return (idle_hello_interval > 0 &&
-            babel_ifp->activity_time < babel_now.tv_sec - idle_time);
-}
-
-int
-update_hello_interval(struct interface *ifp)
-{
-    int rc = 0;
-    unsigned short interval;
-    struct babel_interface *babel_ifp = babel_get_if_nfo(ifp);
-
-    if(interface_idle(babel_ifp))
-        interval = idle_hello_interval;
-    else if(IF_CONF(ifp, hello_interval) > 0)
-        interval = IF_CONF(ifp, hello_interval);
-    else if((ifp->flags & BABEL_IF_WIRED))
-        interval = wired_hello_interval;
-    else
-        interval = wireless_hello_interval;
-
-    if(babel_ifp->hello_interval != interval) {
-        babel_ifp->hello_interval = interval;
-        rc = 1;
-    }
-
-    return rc;
-}
-
 /* This should be no more than half the hello interval, so that hellos
    aren't sent late.  The result is in milliseconds. */
 unsigned
@@ -577,7 +545,6 @@ interface_recalculate(struct interface *ifp)
         babel_ifp->flags |= BABEL_IF_LQ;
     }
 
-    babel_ifp->activity_time = babel_now.tv_sec;
     /* Since the interface was marked as active above, the
      idle_hello_interval cannot be the one being used here. */
     babel_ifp->update_interval = babel_ifp->hello_interval * 4;
@@ -1004,7 +971,6 @@ babel_interface_allocate (void)
     /* Here are set the default values for an interface. */
     memset(babel_ifp, 0, sizeof(babel_interface_nfo));
     /* All flags are unset */
-    babel_ifp->activity_time = babel_now.tv_sec;
     babel_ifp->bucket_time = babel_now.tv_sec;
     babel_ifp->bucket = BUCKET_TOKENS_MAX;
     babel_ifp->hello_seqno = (random() & 0xFFFF);

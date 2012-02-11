@@ -41,8 +41,8 @@ THE SOFTWARE.
 extern struct timeval babel_now;         /* current time             */
 extern struct thread_master *master;     /* quagga's threads handler */
 extern int debug;
-extern int wireless_hello_interval, wired_hello_interval, idle_hello_interval;
-extern int idle_time;
+extern int default_wireless_hello_interval, default_wired_hello_interval;
+extern int resend_delay;
 
 extern unsigned char myid[8];
 
