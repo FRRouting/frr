@@ -293,7 +293,7 @@ babel_enable_if_delete (const char *ifname)
 DEFUN (babel_network,
        babel_network_cmd,
        "network IF_OR_ADDR",
-       "Babel enable on specified interface or network.\n"
+       "Enable Babel protocol on specified interface or network.\n"
        "Interface or address")
 {
     int ret;
@@ -321,7 +321,7 @@ DEFUN (no_babel_network,
        no_babel_network_cmd,
        "no network IF_OR_ADDR",
        NO_STR
-       "Babel enable on specified interface or network.\n"
+       "Disable Babel protocol on specified interface or network.\n"
        "Interface or address")
 {
     int ret;
@@ -348,8 +348,8 @@ DEFUN (no_babel_network,
 DEFUN (babel_set_wired,
        babel_set_wired_cmd,
        "babel wired",
-       "Set this interface as wired (default: wireless).\n"
-       "No attributes")
+       "Babel interface commands\n"
+       "Enable wired optimisations")
 {
     struct interface *ifp;
     babel_interface_nfo *babel_ifp;
@@ -366,9 +366,8 @@ DEFUN (babel_set_wired,
 DEFUN (babel_set_wireless,
        babel_set_wireless_cmd,
        "babel wireless",
-       NO_STR
-       "Set this interface as wireless (is default).\n"
-       "No attributes")
+       "Babel interface commands\n"
+       "Disable wired optimiations (assume wireless)")
 {
     struct interface *ifp;
     babel_interface_nfo *babel_ifp;
@@ -385,9 +384,8 @@ DEFUN (babel_set_wireless,
 DEFUN (babel_split_horizon,
        babel_split_horizon_cmd,
        "babel split-horizon",
-       IPV6_STR
-       "Perform split horizon\n"
-       "No attributes\n")
+       "Babel interface commands\n"
+       "Enable split horizon processing")
 {
     struct interface *ifp;
     babel_interface_nfo *babel_ifp;
@@ -405,9 +403,8 @@ DEFUN (no_babel_split_horizon,
        no_babel_split_horizon_cmd,
        "no babel split-horizon",
        NO_STR
-       IPV6_STR
-       "Disable split horizon\n"
-       "No attributes\n")
+       "Babel interface commands\n"
+       "Disable split horizon processing")
 {
     struct interface *ifp;
     babel_interface_nfo *babel_ifp;
@@ -423,15 +420,16 @@ DEFUN (no_babel_split_horizon,
 /* [Interface Command]. */
 DEFUN (babel_set_hello_interval,
        babel_set_hello_interval_cmd,
-       "hello interval <5-1000000>",
-       "Set interface's hello interval (default: 4000).\n"
-       "Value in miliseconds\n")
+       "babel hello-interval <20-655340>",
+       "Babel interface commands\n"
+       "Time between scheduled hellos\n"
+       "Milliseconds\n")
 {
     struct interface *ifp;
     babel_interface_nfo *babel_ifp;
     int interval;
 
-    VTY_GET_INTEGER_RANGE("hello interval", interval, argv[0], 20, 10 * 0xFFFE);
+    VTY_GET_INTEGER_RANGE("milliseconds", interval, argv[0], 20, 10 * 0xFFFE);
 
     ifp = vty->index;
     babel_ifp = babel_get_if_nfo(ifp);
@@ -442,11 +440,33 @@ DEFUN (babel_set_hello_interval,
 }
 
 /* [Interface Command]. */
+DEFUN (babel_set_update_interval,
+       babel_set_update_interval_cmd,
+       "babel update-interval <20-655340>",
+       "Babel interface commands\n"
+       "Time between scheduled updates\n"
+       "Milliseconds\n")
+{
+    struct interface *ifp;
+    babel_interface_nfo *babel_ifp;
+    int interval;
+
+    VTY_GET_INTEGER_RANGE("milliseconds", interval, argv[0], 20, 10 * 0xFFFE);
+
+    ifp = vty->index;
+    babel_ifp = babel_get_if_nfo(ifp);
+    assert (babel_ifp != NULL);
+
+    babel_ifp->update_interval = interval;
+    return CMD_SUCCESS;
+}
+
+/* [Interface Command]. */
 DEFUN (babel_passive_interface,
        babel_passive_interface_cmd,
-       "passive-interface",
-       "The daemon will only announce redistributed routes\n"
-       "No attributes\n")
+       "babel passive-interface",
+       "Babel interface commands\n"
+       "Only announce redistributed routes on this interface\n")
 {
     if (allow_duplicates) {
         return CMD_WARNING;
@@ -458,10 +478,10 @@ DEFUN (babel_passive_interface,
 /* [Interface Command]. */
 DEFUN (no_babel_passive_interface,
        no_babel_passive_interface_cmd,
-       "no passive-interface",
+       "no babel passive-interface",
        NO_STR
-       "The daemon will announce all (filtred) routes\n"
-       "No attributes\n")
+       "Babel interface commands\n"
+       "Announce all routes on this interface\n")
 {
     parasitic = 0;
     return CMD_SUCCESS;
@@ -899,6 +919,7 @@ babel_if_init ()
     install_element(INTERFACE_NODE, &babel_set_wired_cmd);
     install_element(INTERFACE_NODE, &babel_set_wireless_cmd);
     install_element(INTERFACE_NODE, &babel_set_hello_interval_cmd);
+    install_element(INTERFACE_NODE, &babel_set_update_interval_cmd);
     install_element(INTERFACE_NODE, &babel_passive_interface_cmd);
     install_element(INTERFACE_NODE, &no_babel_passive_interface_cmd);
 

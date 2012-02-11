@@ -629,6 +629,22 @@ DEFUN (no_router_babel,
     return CMD_SUCCESS;
 }
 
+/* [Babel Command] */
+DEFUN (babel_set_resend_delay,
+       babel_set_resend_delay_cmd,
+       "babel resend-delay <20-655340>",
+       "Babel commands\n"
+       "Time before resending a message\n"
+       "Milliseconds\n")
+{
+    int interval;
+
+    VTY_GET_INTEGER_RANGE("milliseconds", interval, argv[0], 20, 10 * 0xFFFE);
+
+    resend_delay = interval;
+    return CMD_SUCCESS;
+}
+
 void
 babeld_quagga_init(void)
 {
@@ -639,6 +655,7 @@ babeld_quagga_init(void)
     install_element(CONFIG_NODE, &no_router_babel_cmd);
 
     install_default(BABEL_NODE);
+    install_element(BABEL_NODE, &babel_set_resend_delay_cmd);
 
     babel_if_init();
 
