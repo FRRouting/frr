@@ -563,7 +563,7 @@ show_babel_main_configuration (struct vty *vty)
             "vty port                = %d%s"
             "id                      = %s%s"
             "parasitic               = %s%s"
-            "split-horizon           = %s%s"
+            "resend-delay            = %d%s"
             "allow_duplicates        = %s%s"
             "kernel_metric           = %d%s",
             pidfile, VTY_NEWLINE,
@@ -578,7 +578,7 @@ show_babel_main_configuration (struct vty *vty)
             babel_vty_port, VTY_NEWLINE,
             format_eui64(myid), VTY_NEWLINE,
             format_bool(parasitic), VTY_NEWLINE,
-            format_bool(split_horizon), VTY_NEWLINE,
+            resend_delay, VTY_NEWLINE,
             format_bool(allow_duplicates), VTY_NEWLINE,
             kernel_metric, VTY_NEWLINE);
 }

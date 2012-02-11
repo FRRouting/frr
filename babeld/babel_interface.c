@@ -732,6 +732,7 @@ show_babel_interface_sub (struct vty *vty, struct interface *ifp)
   vty_out (vty, "  Split horizon mode is %s%s",
            CHECK_FLAG (babel_ifp->flags, BABEL_IF_SPLIT_HORIZON) ? "On" : "Off", VTY_NEWLINE);
   vty_out (vty, "  Hello interval is %u ms%s", babel_ifp->hello_interval, VTY_NEWLINE);
+  vty_out (vty, "  Update interval is %u ms%s", babel_ifp->update_interval, VTY_NEWLINE);
 }
 
 DEFUN (show_babel_interface,
