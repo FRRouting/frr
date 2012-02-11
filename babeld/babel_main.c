@@ -379,8 +379,6 @@ babel_replace_by_null(int fd)
 void
 babel_load_state_file(void)
 {
-    time_t reboot_time;
-    reboot_time = babel_now.tv_sec;
     int fd;
     int rc;
 
@@ -422,9 +420,6 @@ babel_load_state_file(void)
                         zlog_err("ID mismatch in babel-state. id=%s; old=%s",
                                  format_eui64(myid),
                                  format_eui64(sid));
-                    /* Convert realtime into monotonic time. */
-                    if(t >= 1176800000L && t <= realnow.tv_sec)
-                        reboot_time = babel_now.tv_sec - (realnow.tv_sec - t);
                 }
             } else {
                 zlog_err("Couldn't parse babel-state.");
