@@ -236,10 +236,11 @@ DEFUN (no_babel_redistribute_type,
 
 #ifndef NO_DEBUG
 /* [Babel Command] */
-DEFUN (babel_debug,
-       babel_debug_cmd,
-       "debug (common|kernel|filter|timeout|interface|route|all)",
+DEFUN (debug_babel,
+       debug_babel_cmd,
+       "debug babel (common|kernel|filter|timeout|interface|route|all)",
        "Enable debug messages for specific or all part.\n"
+       "Babel information\n"
        "Common messages (default)\n"
        "Kernel messages\n"
        "Filter messages\n"
@@ -264,11 +265,12 @@ DEFUN (babel_debug,
 }
 
 /* [Babel Command] */
-DEFUN (no_babel_debug,
-       no_babel_debug_cmd,
-       "no debug (common|kernel|filter|timeout|interface|route|all)",
+DEFUN (no_debug_babel,
+       no_debug_babel_cmd,
+       "no debug babel (common|kernel|filter|timeout|interface|route|all)",
        NO_STR
        "Disable debug messages for specific or all part.\n"
+       "Babel information\n"
        "Common messages (default)\n"
        "Kernel messages\n"
        "Filter messages\n"
@@ -293,6 +295,39 @@ DEFUN (no_babel_debug,
 }
 #endif /* NO_DEBUG */
 
+/* Output "debug" statement lines, if necessary. */
+int
+debug_babel_config_write (struct vty * vty)
+{
+#ifdef NO_DEBUG
+    return 0;
+#else
+    int i, lines = 0;
+
+    if (debug == BABEL_DEBUG_ALL)
+    {
+        vty_out (vty, "debug babel all%s", VTY_NEWLINE);
+        lines++;
+    }
+    else
+        for (i = 0; debug_type[i].str != NULL; i++)
+            if
+            (
+                debug_type[i].type != BABEL_DEBUG_ALL
+                && CHECK_FLAG (debug, debug_type[i].type)
+            )
+            {
+                vty_out (vty, "debug babel %s%s", debug_type[i].str, VTY_NEWLINE);
+                lines++;
+            }
+    if (lines)
+    {
+        vty_out (vty, "!%s", VTY_NEWLINE);
+        lines++;
+    }
+    return lines;
+#endif /* NO_DEBUG */
+}
 
 void babelz_zebra_init(void)
 {
@@ -313,8 +348,10 @@ void babelz_zebra_init(void)
     install_node (&zebra_node, zebra_config_write);
     install_element(BABEL_NODE, &babel_redistribute_type_cmd);
     install_element(BABEL_NODE, &no_babel_redistribute_type_cmd);
-    install_element(BABEL_NODE, &babel_debug_cmd);
-    install_element(BABEL_NODE, &no_babel_debug_cmd);
+    install_element(ENABLE_NODE, &debug_babel_cmd);
+    install_element(ENABLE_NODE, &no_debug_babel_cmd);
+    install_element(CONFIG_NODE, &debug_babel_cmd);
+    install_element(CONFIG_NODE, &no_debug_babel_cmd);
 }
 
 static int

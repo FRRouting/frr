@@ -109,7 +109,7 @@ Specify which kind of routes should be redistributed into Babel.
 @deffn {Command} {show babel database} {}
 @deffnx {Command} {show babel interface} {}
 @deffnx {Command} {show babel neighbour} {}
-@deffnx {Command} {show babel running-config} {}
+@deffnx {Command} {show babel parameters} {}
 These commands dump various parts of @command{babeld}'s internal
 state.  They are mostly useful for troubleshooting.
 @end deffn
@@ -117,8 +117,8 @@ state.  They are mostly useful for troubleshooting.
 @node Babel debugging commands,  , Show Babel information, Babel
 @section Babel debugging commands
 
-@deffn {Babel Command} {debug @var{kind}} {}
-@deffnx {Babel Command} {no debug @var{kind}} {}
+@deffn {Babel Command} {debug babel @var{kind}} {}
+@deffnx {Babel Command} {no debug babel @var{kind}} {}
 Enable or disable debugging messages of a given kind.  @var{kind} can
 be one of @samp{common}, @samp{kernel}, @samp{filter}, @samp{timeout},
 @samp{interface}, @samp{route} or @samp{all}.  Note that if you have

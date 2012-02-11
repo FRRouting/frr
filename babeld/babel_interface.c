@@ -877,9 +877,9 @@ DEFUN (show_babel_database,
     return CMD_SUCCESS;
 }
 
-DEFUN (show_babel_running_config,
-       show_babel_running_config_cmd,
-       "show babel running-config",
+DEFUN (show_babel_parameters,
+       show_babel_parameters_cmd,
+       "show babel parameters",
        SHOW_STR
        IP_STR
        "Babel information\n"
@@ -888,7 +888,6 @@ DEFUN (show_babel_running_config,
 {
     vty_out(vty, "    -- Babel running configuration --%s", VTY_NEWLINE);
     show_babel_main_configuration(vty);
-    show_babeld_configuration(vty);
     vty_out(vty, "    -- distribution lists --%s", VTY_NEWLINE);
     config_show_distribute(vty);
 
@@ -931,8 +930,8 @@ babel_if_init ()
     install_element(ENABLE_NODE, &show_babel_neighbour_cmd);
     install_element(VIEW_NODE, &show_babel_database_cmd);
     install_element(ENABLE_NODE, &show_babel_database_cmd);
-    install_element(VIEW_NODE, &show_babel_running_config_cmd);
-    install_element(ENABLE_NODE, &show_babel_running_config_cmd);
+    install_element(VIEW_NODE, &show_babel_parameters_cmd);
+    install_element(ENABLE_NODE, &show_babel_parameters_cmd);
 }
 
 /* hooks: functions called respectively when struct interface is
@@ -978,6 +977,22 @@ interface_config_write (struct vty *vty)
         write++;
     }
     return write;
+}
+
+/* Output a "network" statement line for each of the enabled interfaces. */
+int
+babel_enable_if_config_write (struct vty * vty)
+{
+    unsigned int i, lines = 0;
+    char *str;
+
+    for (i = 0; i < vector_active (babel_enable_if); i++)
+        if ((str = vector_slot (babel_enable_if, i)) != NULL)
+        {
+            vty_out (vty, " network %s%s", str, VTY_NEWLINE);
+            lines++;
+        }
+    return lines;
 }
 
 /* functions to allocate or free memory for a babel_interface_nfo, filling

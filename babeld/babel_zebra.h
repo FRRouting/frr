@@ -36,8 +36,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
+#ifndef BABEL_ZEBRA_H
+#define BABEL_ZEBRA_H
+
+#include "vty.h"
 
 extern struct zclient *zclient;
 
 void babelz_zebra_init(void);
 void babel_zebra_close_connexion(void);
+extern int debug_babel_config_write (struct vty *);
+
+#endif

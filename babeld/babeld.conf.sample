@@ -1,11 +1,19 @@
+debug babel common
+!debug babel kernel
+!debug babel filter
+!debug babel timeout
+!debug babel interface
+!debug babel route
+!debug babel all
+
 router babel
 ! network eth0
 ! redistribute kernel
 ! no redistribute static
 
 !interface eth0
-! wired
-! wireless
+! babel wired
+! babel wireless
 ! babel split-horizon
 ! no babel split-horizon
 

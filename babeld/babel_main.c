@@ -77,7 +77,7 @@ struct thread_master *master;     /* quagga's threads handler */
 struct timeval babel_now;         /* current time             */
 
 unsigned char myid[8];            /* unique id (mac address of an interface) */
-int debug = BABEL_DEBUG_COMMON;
+int debug = 0;
 
 int default_wireless_hello_interval = -1;
 int default_wired_hello_interval = -1;
@@ -523,30 +523,6 @@ babel_save_state_file(void)
 void
 show_babel_main_configuration (struct vty *vty)
 {
-#ifdef NO_DEBUG
-    vty_out(vty, "No debug.%s", VTY_NEWLINE);
-#else
-    vty_out(vty, "Activated debug options:");
-    if (debug == BABEL_DEBUG_ALL) {
-        vty_out(vty, " all%s", VTY_NEWLINE);
-    } else {
-        vty_out(vty, "%s%s%s%s%s%s%s%s%s%s%s%s%s",
-                debug & BABEL_DEBUG_COMMON  ? VTY_NEWLINE    : "",
-                debug & BABEL_DEBUG_COMMON  ? "    common"   : "",
-                debug & BABEL_DEBUG_KERNEL  ? VTY_NEWLINE    : "",
-                debug & BABEL_DEBUG_KERNEL  ? "    kernel"   : "",
-                debug & BABEL_DEBUG_FILTER  ? VTY_NEWLINE    : "",
-                debug & BABEL_DEBUG_FILTER  ? "    filter"   : "",
-                debug & BABEL_DEBUG_TIMEOUT ? VTY_NEWLINE    : "",
-                debug & BABEL_DEBUG_TIMEOUT ? "    timeout"  : "",
-                debug & BABEL_DEBUG_IF      ? VTY_NEWLINE    : "",
-                debug & BABEL_DEBUG_IF      ? "    interface": "",
-                debug & BABEL_DEBUG_ROUTE   ? VTY_NEWLINE    : "",
-                debug & BABEL_DEBUG_ROUTE   ? "    route"    : "",
-                VTY_NEWLINE);
-    }
-#endif
-
     vty_out(vty,
             "pid file                = %s%s"
             "state file              = %s%s"

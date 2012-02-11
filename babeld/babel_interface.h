@@ -41,6 +41,7 @@ THE SOFTWARE.
 
 #include <zebra.h>
 #include "zclient.h"
+#include "vty.h"
 
 #define CONFIG_DEFAULT 0
 #define CONFIG_NO 1
@@ -147,6 +148,7 @@ unsigned update_jitter(babel_interface_nfo *babel_ifp, int urgent);
 int is_interface_ll_address(struct interface *ifp, const unsigned char *address);
 /* Send retraction to all, and reset all interfaces statistics. */
 void babel_interface_close_all(void);
+extern int babel_enable_if_config_write (struct vty *);
 
 
 #endif
