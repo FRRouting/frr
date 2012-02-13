@@ -1646,7 +1646,7 @@ bgp_attr_ext_communities (struct bgp_attr_parser_args *args)
 static bgp_attr_parse_ret_t
 bgp_attr_unknown (struct bgp_attr_parser_args *args)
 {
-  bgp_size_t total;
+  bgp_size_t total = args->total;
   struct transit *transit;
   struct attr_extra *attre;
   struct peer *const peer = args->peer; 
