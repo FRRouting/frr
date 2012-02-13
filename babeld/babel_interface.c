@@ -951,7 +951,8 @@ babel_if_delete_hook (struct interface *ifp)
     return 0;
 }
 
-/* Configuration write function for babeld. */
+/* Output an "interface" section for each of the known interfaces with
+babeld-specific statement lines where appropriate. */
 static int
 interface_config_write (struct vty *vty)
 {
@@ -960,20 +961,27 @@ interface_config_write (struct vty *vty)
     int write = 0;
 
     for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp)) {
-        /* Do not display the interface if there is no configuration about it */
-        if (ifp->desc == NULL)
-            continue;
-
         vty_out (vty, "interface %s%s", ifp->name,
                  VTY_NEWLINE);
         if (ifp->desc)
             vty_out (vty, " description %s%s", ifp->desc,
                      VTY_NEWLINE);
-
-        /* TODO: to be completed... */
-
+        if (IS_ENABLE (ifp))
+        {
+            babel_interface_nfo *babel_ifp = babel_get_if_nfo (ifp);
+            /* wireless/no split-horizon is the default */
+            if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_WIRED))
+            {
+                vty_out (vty, " babel wired%s", VTY_NEWLINE);
+                write++;
+            }
+            if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_SPLIT_HORIZON))
+            {
+                vty_out (vty, " babel split-horizon%s", VTY_NEWLINE);
+                write++;
+            }
+        }
         vty_out (vty, "!%s", VTY_NEWLINE);
-
         write++;
     }
     return write;
