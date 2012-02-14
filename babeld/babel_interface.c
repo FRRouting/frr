@@ -986,6 +986,16 @@ interface_config_write (struct vty *vty)
                 vty_out (vty, " babel split-horizon%s", VTY_NEWLINE);
                 write++;
             }
+            if (babel_ifp->hello_interval != BABEL_DEFAULT_HELLO_INTERVAL)
+            {
+                vty_out (vty, " babel hello-interval %u%s", babel_ifp->hello_interval, VTY_NEWLINE);
+                write++;
+            }
+            if (babel_ifp->update_interval != BABEL_DEFAULT_UPDATE_INTERVAL)
+            {
+                vty_out (vty, " babel update-interval %u%s", babel_ifp->update_interval, VTY_NEWLINE);
+                write++;
+            }
         }
         vty_out (vty, "!%s", VTY_NEWLINE);
         write++;

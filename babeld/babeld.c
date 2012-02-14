@@ -102,6 +102,11 @@ babel_config_write (struct vty *vty)
     if (!babel_routing_process)
         return lines;
     vty_out (vty, "router babel%s", VTY_NEWLINE);
+    if (resend_delay != BABEL_DEFAULT_RESEND_DELAY)
+    {
+        vty_out (vty, " babel resend-delay %u%s", resend_delay, VTY_NEWLINE);
+        lines++;
+    }
     /* list enabled interfaces */
     lines = 1 + babel_enable_if_config_write (vty);
     /* list redistributed protocols */
