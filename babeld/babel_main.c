@@ -79,8 +79,6 @@ struct timeval babel_now;         /* current time             */
 unsigned char myid[8];            /* unique id (mac address of an interface) */
 int debug = 0;
 
-int default_wireless_hello_interval = -1;
-int default_wired_hello_interval = -1;
 int resend_delay = -1;
 static const char *pidfile = PATH_BABELD_PID;
 
@@ -258,18 +256,7 @@ babel_init(int argc, char **argv)
     vty_init (master);
     memory_init ();
 
-    if(default_wireless_hello_interval <= 0)
-        default_wireless_hello_interval = 4000;
-    default_wireless_hello_interval = MAX(default_wireless_hello_interval, 5);
-
-    if(default_wired_hello_interval <= 0)
-        default_wired_hello_interval = 4000;
-    default_wired_hello_interval = MAX(default_wired_hello_interval, 5);
-
-    resend_delay = 2000;
-    resend_delay = MIN(resend_delay, default_wireless_hello_interval / 2);
-    resend_delay = MIN(resend_delay, default_wired_hello_interval / 2);
-    resend_delay = MAX(resend_delay, 20);
+    resend_delay = BABEL_DEFAULT_RESEND_DELAY;
 
     if(parasitic && allow_duplicates >= 0) {
         /* Too difficult to get right. */

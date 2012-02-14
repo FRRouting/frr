@@ -91,8 +91,6 @@ static inline babel_interface_nfo* babel_get_if_nfo(struct interface *ifp)
     return ((babel_interface_nfo*) ifp->info);
 }
 
-#define IF_CONF(_ifp, _field) babel_get_if_nfo(_ifp)->_field
-
 /* babel_interface_nfo flags */
 #define BABEL_IF_IS_UP         (1 << 0)
 #define BABEL_IF_WIRED         (1 << 1)

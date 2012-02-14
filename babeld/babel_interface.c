@@ -565,10 +565,6 @@ interface_recalculate(struct interface *ifp)
         babel_ifp->flags |= BABEL_IF_LQ;
     }
 
-    /* Since the interface was marked as active above, the
-     idle_hello_interval cannot be the one being used here. */
-    babel_ifp->update_interval = babel_ifp->hello_interval * 4;
-
     memset(&mreq, 0, sizeof(mreq));
     memcpy(&mreq.ipv6mr_multiaddr, protocol_group, 16);
     mreq.ipv6mr_interface = ifp->ifindex;
@@ -1019,7 +1015,8 @@ babel_interface_allocate (void)
     babel_ifp->bucket_time = babel_now.tv_sec;
     babel_ifp->bucket = BUCKET_TOKENS_MAX;
     babel_ifp->hello_seqno = (random() & 0xFFFF);
-    babel_ifp->hello_interval = BABELD_DEFAULT_HELLO_INTERVAL;
+    babel_ifp->hello_interval = BABEL_DEFAULT_HELLO_INTERVAL;
+    babel_ifp->update_interval = BABEL_DEFAULT_UPDATE_INTERVAL;
     babel_ifp->channel = BABEL_IF_CHANNEL_INTERFERING;
 
     return babel_ifp;
