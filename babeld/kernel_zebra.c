@@ -231,6 +231,7 @@ kernel_route_add_v6(const unsigned char *pref, unsigned short plen,
     api.safi = SAFI_UNICAST;
     SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
     if(metric >= KERNEL_INFINITY) {
+        api.flags = ZEBRA_FLAG_BLACKHOLE;
         api.nexthop_num = 0;
         api.ifindex_num = 0;
     } else {
