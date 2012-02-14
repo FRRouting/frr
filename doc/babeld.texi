@@ -66,14 +66,6 @@ correct, while @code{babel split-horizon} is an optimisation that
 should only be used on symmetric and transitive (wired) networks.
 @end deffn
 
-@deffn {Interface Command} {babel passive-interface}
-@deffnx {Interface Command} {no babel passive-interface}
-Specifies whether this interface is passive.  Note that this is
-a little weaker than RIP's notion of passive interface, since Babel
-always sends Hello packets and announces redistributed routes, even on
-passive interfaces.
-@end deffn
-
 @deffn {Interface Command} {babel hello-interval <20-655340>}
 Specifies the time in milliseconds between two scheduled hellos.  On
 wired links, Babel notices a link failure within two hello intervals;

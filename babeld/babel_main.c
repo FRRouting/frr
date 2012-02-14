@@ -258,12 +258,6 @@ babel_init(int argc, char **argv)
 
     resend_delay = BABEL_DEFAULT_RESEND_DELAY;
 
-    if(parasitic && allow_duplicates >= 0) {
-        /* Too difficult to get right. */
-        zlog_err("Sorry, -P and -A are incompatible.");
-        exit(1);
-    }
-
     babel_replace_by_null(STDIN_FILENO);
 
     if (do_daemonise && daemonise() < 0) {
@@ -520,7 +514,6 @@ show_babel_main_configuration (struct vty *vty)
             "vty address             = %s%s"
             "vty port                = %d%s"
             "id                      = %s%s"
-            "parasitic               = %s%s"
             "allow_duplicates        = %s%s"
             "kernel_metric           = %d%s",
             pidfile, VTY_NEWLINE,
@@ -534,7 +527,6 @@ show_babel_main_configuration (struct vty *vty)
             VTY_NEWLINE,
             babel_vty_port, VTY_NEWLINE,
             format_eui64(myid), VTY_NEWLINE,
-            format_bool(parasitic), VTY_NEWLINE,
             format_bool(allow_duplicates), VTY_NEWLINE,
             kernel_metric, VTY_NEWLINE);
 }

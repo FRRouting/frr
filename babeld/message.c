@@ -54,7 +54,6 @@ THE SOFTWARE.
 
 unsigned char packet_header[4] = {42, 2};
 
-int parasitic = 0;
 int split_horizon = 1;
 
 unsigned short myseqno = 0;
@@ -1153,18 +1152,13 @@ send_update(struct interface *ifp, int urgent,
 
     babel_ifp = babel_get_if_nfo(ifp);
     if(prefix) {
-        if(!parasitic || find_xroute(prefix, plen)) {
-            debugf(BABEL_DEBUG_COMMON,"Sending update to %s for %s.",
-                   ifp->name, format_prefix(prefix, plen));
-            buffer_update(ifp, prefix, plen);
-        }
+        debugf(BABEL_DEBUG_COMMON,"Sending update to %s for %s.",
+               ifp->name, format_prefix(prefix, plen));
+        buffer_update(ifp, prefix, plen);
     } else {
         send_self_update(ifp);
-        if(!parasitic) {
-            debugf(BABEL_DEBUG_COMMON,"Sending update to %s for any.",
-                   ifp->name);
-            for_all_installed_routes(buffer_update_callback, ifp);
-        }
+        debugf(BABEL_DEBUG_COMMON,"Sending update to %s for any.", ifp->name);
+        for_all_installed_routes(buffer_update_callback, ifp);
         set_timeout(&babel_ifp->update_timeout, babel_ifp->update_interval);
         babel_ifp->last_update_time = babel_now.tv_sec;
     }

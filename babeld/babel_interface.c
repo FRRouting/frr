@@ -479,32 +479,6 @@ DEFUN (babel_set_update_interval,
     return CMD_SUCCESS;
 }
 
-/* [Interface Command]. */
-DEFUN (babel_passive_interface,
-       babel_passive_interface_cmd,
-       "babel passive-interface",
-       "Babel interface commands\n"
-       "Only announce redistributed routes on this interface\n")
-{
-    if (allow_duplicates) {
-        return CMD_WARNING;
-    }
-    parasitic = 1;
-    return CMD_SUCCESS;
-}
-
-/* [Interface Command]. */
-DEFUN (no_babel_passive_interface,
-       no_babel_passive_interface_cmd,
-       "no babel passive-interface",
-       NO_STR
-       "Babel interface commands\n"
-       "Announce all routes on this interface\n")
-{
-    parasitic = 0;
-    return CMD_SUCCESS;
-}
-
 /* This should be no more than half the hello interval, so that hellos
    aren't sent late.  The result is in milliseconds. */
 unsigned
@@ -926,8 +900,6 @@ babel_if_init ()
     install_element(INTERFACE_NODE, &babel_set_wireless_cmd);
     install_element(INTERFACE_NODE, &babel_set_hello_interval_cmd);
     install_element(INTERFACE_NODE, &babel_set_update_interval_cmd);
-    install_element(INTERFACE_NODE, &babel_passive_interface_cmd);
-    install_element(INTERFACE_NODE, &no_babel_passive_interface_cmd);
 
     /* "show babel ..." commands */
     install_element(VIEW_NODE, &show_babel_interface_cmd);
