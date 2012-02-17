@@ -121,6 +121,10 @@ struct ospf_db_desc
   u_int32_t dd_seqnum;
 };
 
+struct ospf_ls_update
+{
+  u_int32_t num_lsas;
+};
 
 /* Macros. */
 /* XXX Perhaps obsolete; function in ospf_packet.c */

@@ -153,6 +153,7 @@ struct router_lsa_link
 };
 
 /* OSPF Router-LSAs structure. */
+#define OSPF_ROUTER_LSA_MIN_SIZE                  16U /* w/1 link descriptor */
 struct router_lsa
 {
   struct lsa_header header;
@@ -170,6 +171,7 @@ struct router_lsa
 };
 
 /* OSPF Network-LSAs structure. */
+#define OSPF_NETWORK_LSA_MIN_SIZE                  8U /* w/1 router-ID */
 struct network_lsa
 {
   struct lsa_header header;
@@ -178,6 +180,7 @@ struct network_lsa
 };
 
 /* OSPF Summary-LSAs structure. */
+#define OSPF_SUMMARY_LSA_MIN_SIZE                  8U /* w/1 TOS metric block */
 struct summary_lsa
 {
   struct lsa_header header;
@@ -187,6 +190,7 @@ struct summary_lsa
 };
 
 /* OSPF AS-external-LSAs structure. */
+#define OSPF_AS_EXTERNAL_LSA_MIN_SIZE             16U /* w/1 TOS forwarding block */
 struct as_external_lsa
 {
   struct lsa_header header;

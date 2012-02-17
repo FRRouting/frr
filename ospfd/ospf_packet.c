@@ -73,6 +73,24 @@ static const u_int16_t ospf_packet_minlen[] =
   OSPF_LS_ACK_MIN_SIZE,
 };
 
+/* Minimum (besides OSPF_LSA_HEADER_SIZE) lengths for LSAs of particular
+   types, offset is the "LSA type" field. */
+static const u_int16_t ospf_lsa_minlen[] =
+{
+  0,
+  OSPF_ROUTER_LSA_MIN_SIZE,
+  OSPF_NETWORK_LSA_MIN_SIZE,
+  OSPF_SUMMARY_LSA_MIN_SIZE,
+  OSPF_SUMMARY_LSA_MIN_SIZE,
+  OSPF_AS_EXTERNAL_LSA_MIN_SIZE,
+  0,
+  OSPF_AS_EXTERNAL_LSA_MIN_SIZE,
+  0,
+  0,
+  0,
+  0,
+};
+
 /* OSPF authentication checking function */
 static int
 ospf_auth_type (struct ospf_interface *oi)
@@ -2315,11 +2333,199 @@ ospf_check_sum (struct ospf_header *ospfh)
   return 1;
 }
 
+/* Verify, that given link/TOS records are properly sized/aligned and match
+   Router-LSA "# links" and "# TOS" fields as specified in RFC2328 A.4.2. */
+static unsigned
+ospf_router_lsa_links_examin
+(
+  struct router_lsa_link * link,
+  u_int16_t linkbytes,
+  const u_int16_t num_links
+)
+{
+  unsigned counted_links = 0, thislinklen;
+
+  while (linkbytes)
+  {
+    thislinklen = OSPF_ROUTER_LSA_LINK_SIZE + 4 * link->m[0].tos_count;
+    if (thislinklen > linkbytes)
+    {
+      if (IS_DEBUG_OSPF_PACKET (0, RECV))
+        zlog_debug ("%s: length error in link block #%u", __func__, counted_links);
+      return MSG_NG;
+    }
+    link = (struct router_lsa_link *)((caddr_t) link + thislinklen);
+    linkbytes -= thislinklen;
+    counted_links++;
+  }
+  if (counted_links != num_links)
+  {
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("%s: %u link blocks declared, %u present",
+                  __func__, num_links, counted_links);
+    return MSG_NG;
+  }
+  return MSG_OK;
+}
+
+/* Verify, that the given LSA is properly sized/aligned (including type-specific
+   minimum length constraint). */
+static unsigned
+ospf_lsa_examin (struct lsa_header * lsah, const u_int16_t lsalen, const u_char headeronly)
+{
+  unsigned ret;
+  struct router_lsa * rlsa;
+  if
+  (
+    lsah->type < OSPF_MAX_LSA &&
+    ospf_lsa_minlen[lsah->type] &&
+    lsalen < OSPF_LSA_HEADER_SIZE + ospf_lsa_minlen[lsah->type]
+  )
+  {
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("%s: undersized (%u B) %s",
+                  __func__, lsalen, LOOKUP (ospf_lsa_type_msg, lsah->type));
+    return MSG_NG;
+  }
+  switch (lsah->type)
+  {
+  case OSPF_ROUTER_LSA:
+    /* RFC2328 A.4.2, LSA header + 4 bytes followed by N>=1 (12+)-byte link blocks */
+    if (headeronly)
+    {
+      ret = (lsalen - OSPF_LSA_HEADER_SIZE - OSPF_ROUTER_LSA_MIN_SIZE) % 4 ? MSG_NG : MSG_OK;
+      break;
+    }
+    rlsa = (struct router_lsa *) lsah;
+    ret = ospf_router_lsa_links_examin
+    (
+      (struct router_lsa_link *) rlsa->link,
+      lsalen - OSPF_LSA_HEADER_SIZE - 4, /* skip: basic header, "flags", 0, "# links" */
+      ntohs (rlsa->links) /* 16 bits */
+    );
+    break;
+  case OSPF_AS_EXTERNAL_LSA:
+    /* RFC2328 A.4.5, LSA header + 4 bytes followed by N>=1 12-bytes long blocks */
+  case OSPF_AS_NSSA_LSA:
+    /* RFC3101 C, idem */
+    ret = (lsalen - OSPF_LSA_HEADER_SIZE - OSPF_AS_EXTERNAL_LSA_MIN_SIZE) % 12 ? MSG_NG : MSG_OK;
+    break;
+  /* Following LSA types are considered OK length-wise as soon as their minimum
+   * length constraint is met and length of the whole LSA is a multiple of 4
+   * (basic LSA header size is already a multiple of 4). */
+  case OSPF_NETWORK_LSA:
+    /* RFC2328 A.4.3, LSA header + 4 bytes followed by N>=1 router-IDs */
+  case OSPF_SUMMARY_LSA:
+  case OSPF_ASBR_SUMMARY_LSA:
+    /* RFC2328 A.4.4, LSA header + 4 bytes followed by N>=1 4-bytes TOS blocks */
+#ifdef HAVE_OPAQUE_LSA
+  case OSPF_OPAQUE_LINK_LSA:
+  case OSPF_OPAQUE_AREA_LSA:
+  case OSPF_OPAQUE_AS_LSA:
+    /* RFC5250 A.2, "some number of octets (of application-specific
+     * data) padded to 32-bit alignment." This is considered equivalent
+     * to 4-byte alignment of all other LSA types, see OSPF-ALIGNMENT.txt
+     * file for the detailed analysis of this passage. */
+#endif
+    ret = lsalen % 4 ? MSG_NG : MSG_OK;
+    break;
+  default:
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("%s: unsupported LSA type 0x%02x", __func__, lsah->type);
+    return MSG_NG;
+  }
+  if (ret != MSG_OK && IS_DEBUG_OSPF_PACKET (0, RECV))
+    zlog_debug ("%s: alignment error in %s",
+                __func__, LOOKUP (ospf_lsa_type_msg, lsah->type));
+  return ret;
+}
+
+/* Verify if the provided input buffer is a valid sequence of LSAs. This
+   includes verification of LSA blocks length/alignment and dispatching
+   of deeper-level checks. */
+static unsigned
+ospf_lsaseq_examin
+(
+  struct lsa_header *lsah, /* start of buffered data */
+  size_t length,
+  const u_char headeronly,
+  /* When declared_num_lsas is not 0, compare it to the real number of LSAs
+     and treat the difference as an error. */
+  const u_int32_t declared_num_lsas
+)
+{
+  u_int32_t counted_lsas = 0;
+
+  while (length)
+  {
+    u_int16_t lsalen;
+    if (length < OSPF_LSA_HEADER_SIZE)
+    {
+      if (IS_DEBUG_OSPF_PACKET (0, RECV))
+        zlog_debug ("%s: undersized (%zu B) trailing (#%u) LSA header",
+                    __func__, length, counted_lsas);
+      return MSG_NG;
+    }
+    /* save on ntohs() calls here and in the LSA validator */
+    lsalen = ntohs (lsah->length);
+    if (lsalen < OSPF_LSA_HEADER_SIZE)
+    {
+      if (IS_DEBUG_OSPF_PACKET (0, RECV))
+        zlog_debug ("%s: malformed LSA header #%u, declared length is %u B",
+                    __func__, counted_lsas, lsalen);
+      return MSG_NG;
+    }
+    if (headeronly)
+    {
+      /* less checks here and in ospf_lsa_examin() */
+      if (MSG_OK != ospf_lsa_examin (lsah, lsalen, 1))
+      {
+        if (IS_DEBUG_OSPF_PACKET (0, RECV))
+          zlog_debug ("%s: malformed header-only LSA #%u", __func__, counted_lsas);
+        return MSG_NG;
+      }
+      lsah = (struct lsa_header *) ((caddr_t) lsah + OSPF_LSA_HEADER_SIZE);
+      length -= OSPF_LSA_HEADER_SIZE;
+    }
+    else
+    {
+      /* make sure the input buffer is deep enough before further checks */
+      if (lsalen > length)
+      {
+        if (IS_DEBUG_OSPF_PACKET (0, RECV))
+          zlog_debug ("%s: anomaly in LSA #%u: declared length is %u B, buffered length is %zu B",
+                      __func__, counted_lsas, lsalen, length);
+        return MSG_NG;
+      }
+      if (MSG_OK != ospf_lsa_examin (lsah, lsalen, 0))
+      {
+        if (IS_DEBUG_OSPF_PACKET (0, RECV))
+          zlog_debug ("%s: malformed LSA #%u", __func__, counted_lsas);
+        return MSG_NG;
+      }
+      lsah = (struct lsa_header *) ((caddr_t) lsah + lsalen);
+      length -= lsalen;
+    }
+    counted_lsas++;
+  }
+
+  if (declared_num_lsas && counted_lsas != declared_num_lsas)
+  {
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("%s: #LSAs declared (%u) does not match actual (%u)",
+                  __func__, declared_num_lsas, counted_lsas);
+    return MSG_NG;
+  }
+  return MSG_OK;
+}
+
 /* Verify a complete OSPF packet for proper sizing/alignment. */
 static unsigned
 ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
 {
   u_int16_t bytesdeclared;
+  unsigned ret;
+  struct ospf_ls_update * lsupd;
 
   /* Length, 1st approximation. */
   if (bytesonwire < OSPF_HEADER_SIZE)
@@ -2353,7 +2559,59 @@ ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
                   bytesdeclared, LOOKUP (ospf_packet_type_str, oh->type));
     return MSG_NG;
   }
-  return MSG_OK;
+  switch (oh->type)
+  {
+  case OSPF_MSG_HELLO:
+    /* RFC2328 A.3.2, packet header + OSPF_HELLO_MIN_SIZE bytes followed
+       by N>=0 router-IDs. */
+    ret = (bytesonwire - OSPF_HEADER_SIZE - OSPF_HELLO_MIN_SIZE) % 4 ? MSG_NG : MSG_OK;
+    break;
+  case OSPF_MSG_DB_DESC:
+    /* RFC2328 A.3.3, packet header + OSPF_DB_DESC_MIN_SIZE bytes followed
+       by N>=0 header-only LSAs. */
+    ret = ospf_lsaseq_examin
+    (
+      (struct lsa_header *) ((caddr_t) oh + OSPF_HEADER_SIZE + OSPF_DB_DESC_MIN_SIZE),
+      bytesonwire - OSPF_HEADER_SIZE - OSPF_DB_DESC_MIN_SIZE,
+      1, /* header-only LSAs */
+      0
+    );
+    break;
+  case OSPF_MSG_LS_REQ:
+    /* RFC2328 A.3.4, packet header followed by N>=0 12-bytes request blocks. */
+    ret = (bytesonwire - OSPF_HEADER_SIZE - OSPF_LS_REQ_MIN_SIZE) %
+      OSPF_LSA_KEY_SIZE ? MSG_NG : MSG_OK;
+    break;
+  case OSPF_MSG_LS_UPD:
+    /* RFC2328 A.3.5, packet header + OSPF_LS_UPD_MIN_SIZE bytes followed
+       by N>=0 full LSAs (with N declared beforehand). */
+    lsupd = (struct ospf_ls_update *) ((caddr_t) oh + OSPF_HEADER_SIZE);
+    ret = ospf_lsaseq_examin
+    (
+      (struct lsa_header *) ((caddr_t) lsupd + OSPF_LS_UPD_MIN_SIZE),
+      bytesonwire - OSPF_HEADER_SIZE - OSPF_LS_UPD_MIN_SIZE,
+      0, /* full LSAs */
+      ntohl (lsupd->num_lsas) /* 32 bits */
+    );
+    break;
+  case OSPF_MSG_LS_ACK:
+    /* RFC2328 A.3.6, packet header followed by N>=0 header-only LSAs. */
+    ret = ospf_lsaseq_examin
+    (
+      (struct lsa_header *) ((caddr_t) oh + OSPF_HEADER_SIZE + OSPF_LS_ACK_MIN_SIZE),
+      bytesonwire - OSPF_HEADER_SIZE - OSPF_LS_ACK_MIN_SIZE,
+      1, /* header-only LSAs */
+      0
+    );
+    break;
+  default:
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("%s: invalid packet type 0x%02x", __func__, oh->type);
+    return MSG_NG;
+  }
+  if (ret != MSG_OK && IS_DEBUG_OSPF_PACKET (0, RECV))
+    zlog_debug ("%s: malformed %s packet", __func__, LOOKUP (ospf_packet_type_str, oh->type));
+  return ret;
 }
 
 /* OSPF Header verification. */
