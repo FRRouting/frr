@@ -2564,7 +2564,7 @@ ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
   case OSPF_MSG_HELLO:
     /* RFC2328 A.3.2, packet header + OSPF_HELLO_MIN_SIZE bytes followed
        by N>=0 router-IDs. */
-    ret = (bytesonwire - OSPF_HEADER_SIZE - OSPF_HELLO_MIN_SIZE) % 4 ? MSG_NG : MSG_OK;
+    ret = (bytesdeclared - OSPF_HEADER_SIZE - OSPF_HELLO_MIN_SIZE) % 4 ? MSG_NG : MSG_OK;
     break;
   case OSPF_MSG_DB_DESC:
     /* RFC2328 A.3.3, packet header + OSPF_DB_DESC_MIN_SIZE bytes followed
@@ -2572,14 +2572,14 @@ ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
     ret = ospf_lsaseq_examin
     (
       (struct lsa_header *) ((caddr_t) oh + OSPF_HEADER_SIZE + OSPF_DB_DESC_MIN_SIZE),
-      bytesonwire - OSPF_HEADER_SIZE - OSPF_DB_DESC_MIN_SIZE,
+      bytesdeclared - OSPF_HEADER_SIZE - OSPF_DB_DESC_MIN_SIZE,
       1, /* header-only LSAs */
       0
     );
     break;
   case OSPF_MSG_LS_REQ:
     /* RFC2328 A.3.4, packet header followed by N>=0 12-bytes request blocks. */
-    ret = (bytesonwire - OSPF_HEADER_SIZE - OSPF_LS_REQ_MIN_SIZE) %
+    ret = (bytesdeclared - OSPF_HEADER_SIZE - OSPF_LS_REQ_MIN_SIZE) %
       OSPF_LSA_KEY_SIZE ? MSG_NG : MSG_OK;
     break;
   case OSPF_MSG_LS_UPD:
@@ -2589,7 +2589,7 @@ ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
     ret = ospf_lsaseq_examin
     (
       (struct lsa_header *) ((caddr_t) lsupd + OSPF_LS_UPD_MIN_SIZE),
-      bytesonwire - OSPF_HEADER_SIZE - OSPF_LS_UPD_MIN_SIZE,
+      bytesdeclared - OSPF_HEADER_SIZE - OSPF_LS_UPD_MIN_SIZE,
       0, /* full LSAs */
       ntohl (lsupd->num_lsas) /* 32 bits */
     );
@@ -2599,7 +2599,7 @@ ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
     ret = ospf_lsaseq_examin
     (
       (struct lsa_header *) ((caddr_t) oh + OSPF_HEADER_SIZE + OSPF_LS_ACK_MIN_SIZE),
-      bytesonwire - OSPF_HEADER_SIZE - OSPF_LS_ACK_MIN_SIZE,
+      bytesdeclared - OSPF_HEADER_SIZE - OSPF_LS_ACK_MIN_SIZE,
       1, /* header-only LSAs */
       0
     );
