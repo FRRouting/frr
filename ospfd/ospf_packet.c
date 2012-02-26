@@ -91,6 +91,9 @@ static const u_int16_t ospf_lsa_minlen[] =
   0,
 };
 
+/* for ospf_check_auth() */
+static int ospf_check_sum (struct ospf_header *);
+
 /* OSPF authentication checking function */
 static int
 ospf_auth_type (struct ospf_interface *oi)
@@ -2267,44 +2270,91 @@ ospf_check_network_mask (struct ospf_interface *oi, struct in_addr ip_src)
  return 0;
 }
 
+/* Return 1, if the packet is properly authenticated and checksummed,
+   0 otherwise. In particular, check that AuType header field is valid and
+   matches the locally configured AuType, and that D.5 requirements are met. */
 static int
 ospf_check_auth (struct ospf_interface *oi, struct ospf_header *ospfh)
 {
-  int ret = 0;
   struct crypt_key *ck;
+  u_int16_t iface_auth_type;
+  u_int16_t pkt_auth_type = ntohs (ospfh->auth_type);
 
-  switch (ntohs (ospfh->auth_type))
+  switch (pkt_auth_type)
+  {
+  case OSPF_AUTH_NULL: /* RFC2328 D.5.1 */
+    if (OSPF_AUTH_NULL != (iface_auth_type = ospf_auth_type (oi)))
     {
-    case OSPF_AUTH_NULL:
-      ret = 1;
-      break;
-    case OSPF_AUTH_SIMPLE:
-      if (!memcmp (OSPF_IF_PARAM (oi, auth_simple), ospfh->u.auth_data, OSPF_AUTH_SIMPLE_SIZE))
-	ret = 1;
-      else
-	ret = 0;
-      break;
-    case OSPF_AUTH_CRYPTOGRAPHIC:
-      if ((ck = listgetdata (listtail(OSPF_IF_PARAM (oi,auth_crypt)))) == NULL)
-	{
-	  ret = 0;
-	  break;
-	}
-      
-      /* This is very basic, the digest processing is elsewhere */
-      if (ospfh->u.crypt.auth_data_len == OSPF_AUTH_MD5_SIZE && 
-          ospfh->u.crypt.key_id == ck->key_id &&
-          ntohs (ospfh->length) + OSPF_AUTH_MD5_SIZE <= OSPF_MAX_PACKET_SIZE)
-        ret = 1;
-      else
-        ret = 0;
-      break;
-    default:
-      ret = 0;
-      break;
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        zlog_warn ("interface %s: auth-type mismatch, local %s, rcvd Null",
+                   IF_NAME (oi), LOOKUP (ospf_auth_type_str, iface_auth_type));
+      return 0;
     }
-
-  return ret;
+    if (! ospf_check_sum (ospfh))
+    {
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        zlog_warn ("interface %s: Null auth OK, but checksum error, Router-ID %s",
+                   IF_NAME (oi), inet_ntoa (ospfh->router_id));
+      return 0;
+    }
+    return 1;
+  case OSPF_AUTH_SIMPLE: /* RFC2328 D.5.2 */
+    if (OSPF_AUTH_SIMPLE != (iface_auth_type = ospf_auth_type (oi)))
+    {
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        zlog_warn ("interface %s: auth-type mismatch, local %s, rcvd Simple",
+                   IF_NAME (oi), LOOKUP (ospf_auth_type_str, iface_auth_type));
+      return 0;
+    }
+    if (memcmp (OSPF_IF_PARAM (oi, auth_simple), ospfh->u.auth_data, OSPF_AUTH_SIMPLE_SIZE))
+    {
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        zlog_warn ("interface %s: Simple auth failed", IF_NAME (oi));
+      return 0;
+    }
+    if (! ospf_check_sum (ospfh))
+    {
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        zlog_warn ("interface %s: Simple auth OK, checksum error, Router-ID %s",
+                   IF_NAME (oi), inet_ntoa (ospfh->router_id));
+      return 0;
+    }
+    return 1;
+  case OSPF_AUTH_CRYPTOGRAPHIC: /* RFC2328 D.5.3 */
+    if (OSPF_AUTH_CRYPTOGRAPHIC != (iface_auth_type = ospf_auth_type (oi)))
+    {
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        zlog_warn ("interface %s: auth-type mismatch, local %s, rcvd Cryptographic",
+                   IF_NAME (oi), LOOKUP (ospf_auth_type_str, iface_auth_type));
+      return 0;
+    }
+    if (ospfh->checksum)
+    {
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        zlog_warn ("interface %s: OSPF header checksum is not 0", IF_NAME (oi));
+      return 0;
+    }
+    /* only MD5 crypto method can pass ospf_packet_examin() */
+    if
+    (
+      NULL == (ck = listgetdata (listtail(OSPF_IF_PARAM (oi,auth_crypt)))) ||
+      ospfh->u.crypt.key_id != ck->key_id ||
+      /* Condition above uses the last key ID on the list, which is
+         different from what ospf_crypt_key_lookup() does. A bug? */
+      ! ospf_check_md5_digest (oi, ospfh)
+    )
+    {
+      if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+        zlog_warn ("interface %s: MD5 auth failed", IF_NAME (oi));
+      return 0;
+    }
+    return 1;
+  default:
+    if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
+      zlog_warn ("interface %s: invalid packet auth-type (%02x)",
+                 IF_NAME (oi), pkt_auth_type);
+    return 0;
+  }
 }
 
 static int
@@ -2523,7 +2573,7 @@ ospf_lsaseq_examin
 static unsigned
 ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
 {
-  u_int16_t bytesdeclared;
+  u_int16_t bytesdeclared, bytesauth;
   unsigned ret;
   struct ospf_ls_update * lsupd;
 
@@ -2538,11 +2588,24 @@ ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
    * for possible extra bytes of crypto auth/padding, which are not counted
    * in the OSPF header "length" field. */
   bytesdeclared = ntohs (oh->length);
-  if (bytesdeclared > bytesonwire)
+  if (ntohs (oh->auth_type) != OSPF_AUTH_CRYPTOGRAPHIC)
+    bytesauth = 0;
+  else
+  {
+    if (oh->u.crypt.auth_data_len != OSPF_AUTH_MD5_SIZE)
+    {
+      if (IS_DEBUG_OSPF_PACKET (0, RECV))
+        zlog_debug ("%s: unsupported crypto auth length (%u B)",
+                    __func__, oh->u.crypt.auth_data_len);
+      return MSG_NG;
+    }
+    bytesauth = OSPF_AUTH_MD5_SIZE;
+  }
+  if (bytesdeclared + bytesauth > bytesonwire)
   {
     if (IS_DEBUG_OSPF_PACKET (0, RECV))
-      zlog_debug ("%s: packet length error (%u real, %u declared)",
-                  __func__, bytesonwire, bytesdeclared);
+      zlog_debug ("%s: packet length error (%u real, %u+%u declared)",
+                  __func__, bytesonwire, bytesdeclared, bytesauth);
     return MSG_NG;
   }
   /* Length, 2nd approximation. The type-specific constraint is checked
@@ -2650,42 +2713,9 @@ ospf_verify_header (struct stream *ibuf, struct ospf_interface *oi,
       return -1;
     }
 
-  /* Check authentication. */
-  if (ospf_auth_type (oi) != ntohs (ospfh->auth_type))
-    {
-      zlog_warn ("interface %s: auth-type mismatch, local %d, rcvd %d",
-		 IF_NAME (oi), ospf_auth_type (oi), ntohs (ospfh->auth_type));
-      return -1;
-    }
-
+  /* Check authentication. The function handles logging actions, where required. */
   if (! ospf_check_auth (oi, ospfh))
-    {
-      zlog_warn ("interface %s: ospf_read authentication failed.",
-		 IF_NAME (oi));
-      return -1;
-    }
-
-  /* if check sum is invalid, packet is discarded. */
-  if (ntohs (ospfh->auth_type) != OSPF_AUTH_CRYPTOGRAPHIC)
-    {
-      if (! ospf_check_sum (ospfh))
-	{
-	  zlog_warn ("interface %s: ospf_read packet checksum error %s",
-		     IF_NAME (oi), inet_ntoa (ospfh->router_id));
-	  return -1;
-	}
-    }
-  else
-    {
-      if (ospfh->checksum != 0)
-	return -1;
-      if (ospf_check_md5_digest (oi, ospfh) == 0)
-	{
-	  zlog_warn ("interface %s: ospf_read md5 authentication failed.",
-		     IF_NAME (oi));
-	  return -1;
-	}
-    }
+    return -1;
 
   return 0;
 }
