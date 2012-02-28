@@ -972,10 +972,12 @@ static unsigned int
 thread_timer_process (struct thread_list *list, struct timeval *timenow)
 {
   struct thread *thread;
+  struct thread *next;
   unsigned int ready = 0;
   
-  for (thread = list->head; thread; thread = thread->next)
+  for (thread = list->head; thread; thread = next)
     {
+      next = thread->next;
       if (timeval_cmp (*timenow, thread->u.sands) < 0)
         return ready;
       thread_list_delete (list, thread);
@@ -991,10 +993,12 @@ static unsigned int
 thread_process (struct thread_list *list)
 {
   struct thread *thread;
+  struct thread *next;
   unsigned int ready = 0;
   
-  for (thread = list->head; thread; thread = thread->next)
+  for (thread = list->head; thread; thread = next)
     {
+      next = thread->next;
       thread_list_delete (list, thread);
       thread->type = THREAD_READY;
       thread_list_add (&thread->master->ready, thread);
