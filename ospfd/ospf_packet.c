@@ -2587,6 +2587,12 @@ ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
   /* Now it is safe to access header fields. Performing length check, allow
    * for possible extra bytes of crypto auth/padding, which are not counted
    * in the OSPF header "length" field. */
+  if (oh->version != OSPF_VERSION)
+  {
+    if (IS_DEBUG_OSPF_PACKET (0, RECV))
+      zlog_debug ("%s: invalid (%u) protocol version", __func__, oh->version);
+    return MSG_NG;
+  }
   bytesdeclared = ntohs (oh->length);
   if (ntohs (oh->auth_type) != OSPF_AUTH_CRYPTOGRAPHIC)
     bytesauth = 0;
@@ -2682,21 +2688,6 @@ static int
 ospf_verify_header (struct stream *ibuf, struct ospf_interface *oi,
 		    struct ip *iph, struct ospf_header *ospfh)
 {
-  /* check version. */
-  if (ospfh->version != OSPF_VERSION)
-    {
-      zlog_warn ("interface %s: ospf_read version number mismatch.",
-		 IF_NAME (oi));
-      return -1;
-    }
-
-  /* Valid OSPFv2 packet types are 1 through 5 inclusive. */
-  if (ospfh->type < 1 || ospfh->type > 5)
-  {
-    zlog_warn ("interface %s: invalid packet type %u", IF_NAME (oi), ospfh->type);
-    return -1;
-  }
-
   /* Check Area ID. */
   if (!ospf_check_area_id (oi, ospfh))
     {
