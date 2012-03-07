@@ -8,10 +8,9 @@ Contents:
 * COMMIT MESSAGE
 * HACKING THE BUILD SYSTEM
 * RELEASE PROCEDURE
-* SHARED LIBRARY VERSIONING
-* RELEASE PROCEDURE
 * TOOL VERSIONS
 * SHARED LIBRARY VERSIONING
+* GIT COMMIT SUBSMISSION
 * PATCH SUBMISSION
 * PATCH APPLICATION
 * STABLE PLATFORMS AND DAEMONS
@@ -29,7 +28,7 @@ assumes that tabs are every 8 columns.  Do not attempt to redefine the
 location of tab stops.  Note also that some indentation does not
 follow GNU style.  This is a historical accident, and we generally
 only clean up whitespace when code is unmaintainable due to whitespace
-issues, as fewer changes from zebra lead to easier merges.
+issues, to minimise merging conflicts.
 
 For GNU emacs, use indentation style "gnu".
 
@@ -44,9 +43,10 @@ set noexpandtab
 Be particularly careful not to break platforms/protocols that you
 cannot test.
 
-New code should have good comments, and changes to existing code
-should in many cases upgrade the comments when necessary for a
-reviewer to conclude that the change has no unintended consequences.
+New code should have good comments, which explain why the code is correct.
+Changes to existing code should in many cases upgrade the comments when
+necessary for a reviewer to conclude that the change has no unintended
+consequences.
 
 Each file in the Git repository should have a git format-placeholder (like
 an RCS Id keyword), somewhere very near the top, commented out appropriately
@@ -109,7 +109,8 @@ typically code should be good enough to be in Quagga, or it shouldn't be
 there at all.
 
 When code must be compile-time conditional, try have the compiler make it
-conditional rather than the C pre-processor. I.e. this:
+conditional rather than the C pre-processor - so that it will still be
+checked by the compiler, even if disabled. I.e.  this:
 
     if (SOME_SYMBOL)
       frobnicate();
@@ -126,7 +127,7 @@ defined (watch your AC_DEFINEs).
 
 COMMIT MESSAGES
 
-The commit message should provide:
+The commit message MUST provide:
 
 * A suitable one-line summary followed by a blank line as the very
   first line of the message, in the form:
@@ -137,35 +138,53 @@ The commit message should provide:
   there's a more suitable topic (e.g. 'build').  This topic is used to
   organise change summaries in release announcements.
 
-* An optional introduction, discussing the general intent of the change.
-* A short description of each change made, preferably:
-  * file by file
-    * function by function (use of "ditto", or globs is allowed)
+The remainder of the commit message - its "body" - should ideally try to
+address the following areas, so as to help reviewers and future browsers of
+the code-base understand why the change is correct (note also the code
+comment requirements):
 
-to provide a short description of the general intent of the patch, in terms
-of the problem it solves and how it achieves it, to help reviewers
-understand.
+* The motivation for the change (does it fix a bug, if so which? 
+  add a feature?)
+* The general approach taken, and trade-offs versus any other approaches.
+* Any testing undertaken or other information affecting the confidence
+  that can be had in the change.
+* Information to allow reviewers to be able to tell which specific changes
+  to the code are intended (and hence be able to spot any accidental
+  unintended changes).
 
 The one-line summary must be limited to 54 characters, and all other
 lines to 72 characters.
 
-The reason for such itemised commit messages is to encourage the author to
-self-review every line of the patch, as well as provide reviewers an index
-of which changes are intended, along with a short description for each.
-Some discretion is obviously required.  A C-to-english description is not
-desireable.  For short patches, a per-function/file break-down may be
-redundant.  For longer patches, such a break-down may be essential.
+Commit message bodies in the Quagga project have typically taken the
+following form:
 
-An example (where the general discussion is obviously somewhat redundant,
-given the one-line summary):
+* An optional introduction, describing the change generally.
+* A short description of each specific change made, preferably:
+  * file by file
+    * function by function (use of "ditto", or globs is allowed)
+
+Contributors are strongly encouraged to follow this form.
+
+This itemised commit messages allows reviewers to have confidence that the
+author has self-reviewed every line of the patch, as well as providing
+reviewers a clear index of which changes are intended, and descriptions for
+them (C-to-english descriptions are not desireable - some discretion is
+useful).  For short patches, a per-function/file break-down may be
+redundant.  For longer patches, such a break-down may be essential.  A
+contrived example (where the general discussion is obviously somewhat
+redundant, given the one-line summary):
 
 zebra: Enhance frob FSM to detect loss of frob
 
-* (general) Add a new DOWN state to the frob state machine
-   to allow the barinator to detect loss of frob.
+Add a new DOWN state to the frob state machine to allow the barinator to
+detect loss of frob.
+
 * frob.h: (struct frob) Add DOWN state flag.
 * frob.c: (frob_change) set/clear DOWN appropriately on state change.
 * bar.c: (barinate) Check frob for DOWN state.
+
+Please have a look at the git commit logs to get a feel for what the norms
+are.
 
 Note that the commit message format follows git norms, so that "git
 log --oneline" will have useful output.
@@ -249,13 +268,29 @@ installed together.
 
 GIT COMMIT SUBSMISSION
 
-The preferred method for changes is to provide git commits via a
-publically-accessible git repository.
+The preferred method for submitting changes is to provide git commits via a
+publically-accessible git repository, which the maintainers can easily pull.
+
+The commits should be in a branch based off the Quagga.net master - a
+"feature branch".  Ideally there should be no commits to this branch other
+than those in master, and those intended to be submitted.  However, merge
+commits to this branch from the Quagga master are permitted, though strongly
+discouraged - use another (potentially local and throw-away) branch to test
+merge with the latest Quagga master.
+
+Recommended practice is to keep different logical sets of changes on
+separate branches - "topic" or "feature" branches.  This allows you to still
+merge them together to one branch (potentially local and/or "throw-away")
+for testing or use, while retaining smaller, independent branches that are
+easier to merge.
 
 All content guidelines in PATCH SUBMISSION apply.
 
 
 PATCH SUBMISSION
+
+* For complex changes, contributors are strongly encouraged to first start a
+  design discussion on the quagga-dev list before starting any coding.
 
 * Send a clean diff against the 'master' branch of the quagga.git
   repository, in unified diff format, preferably with the '-p' argument to
@@ -265,7 +300,7 @@ PATCH SUBMISSION
     git diff -up mybranch..remotes/quagga.net/master
 
   It is preferable to use git format-patch, and even more preferred to
-  publish a git repostory.
+  publish a git repostory (see GIT COMMIT SUBSMISSION).
 
   If not using git format-patch, Include the commit message in the email.
 
@@ -279,6 +314,20 @@ PATCH SUBMISSION
 
 * Do not make gratuitous changes to whitespace. See the w and b arguments
   to diff.
+
+* Changes should be arranged so that the least contraversial and most
+  trivial are first, and the most complex or more contraversial are last. 
+  This will maximise how many the Quagga maintainers can merge, even if some
+  other commits need further work.
+
+* Providing a unit-test is strongly encouraged. Doing so will make it
+  much easier for maintainers to have confidence that they will be able
+  to support your change.
+
+* New code should be arranged so that it easy to verify and test. E.g. 
+  stateful logic should be separated out from functional logic as much as
+  possible: wherever possible, move complex logic out to smaller helper
+  functions which access no state other than their arguments.
 
 * State on which platforms and with what daemons the patch has been
   tested.  Understand that if the set of testing locations is small,
@@ -305,9 +354,9 @@ PATCH APPLICATION
 * Immediately after commiting, double-check (with git-log and/or gitk). If
   there's a small mistake you can easily fix it with 'git commit --amend ..'
 
-* By committing a patch, you are responsible for fixing problems
-  resulting from it (or backing it out).
-
+* When merging a branch, always use an explicit merge commit. Giving --no-ff
+  ensures a merge commit is created which documents "this human decided to
+  merge this branch at this time".
 
 STABLE PLATFORMS AND DAEMONS
 
