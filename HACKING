@@ -300,7 +300,7 @@ PATCH SUBMISSION
     git diff -up mybranch..remotes/quagga.net/master
 
   It is preferable to use git format-patch, and even more preferred to
-  publish a git repostory (see GIT COMMIT SUBSMISSION).
+  publish a git repository (see GIT COMMIT SUBMISSION).
 
   If not using git format-patch, Include the commit message in the email.
 
