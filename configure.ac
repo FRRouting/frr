@@ -72,6 +72,16 @@ dnl autoconf 2.59 appears not to support AC_PROG_SED
 dnl AC_PROG_SED
 AC_CHECK_PROG([SED],[sed],[sed],[/bin/false])
 
+dnl pdflatex and latexmk are needed to build HACKING.pdf
+AC_CHECK_PROG([PDFLATEX],[pdflatex],[pdflatex],[/bin/false])
+AC_CHECK_PROG([LATEXMK],[latexmk],[latexmk],[/bin/false])
+if test "x$PDFLATEX" = "x/bin/false" -o "x$LATEXMK" = "x/bin/false"; then
+	AC_MSG_WARN([Will not be able to make PDF versions of TeX documents])
+else
+	HAVE_LATEX=true
+fi
+AM_CONDITIONAL([HAVE_LATEX], [test "x$HAVE_LATEX" = "xtrue"])
+
 dnl ------------------------------------------------------------------
 dnl Intel compiler check. Although Intel tries really hard to make icc
 dnl look like gcc, there are some differences. It's very verbose with

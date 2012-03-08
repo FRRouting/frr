@@ -1,0 +1,462 @@
+%% -*- mode: text; -*-
+%% $QuaggaId: Format:%an, %ai, %h$ $
+
+\documentclass[oneside]{article}
+\usepackage{parskip}
+\usepackage[bookmarks,colorlinks=true]{hyperref}
+
+\title{Conventions for working on Quagga}
+
+\begin{document}
+\maketitle
+
+This is a living document. Suggestions for updates, via the
+\href{http://lists.quagga.net/mailman/listinfo/quagga-dev}{quagga-dev list},
+are welcome.
+
+\tableofcontents
+
+\section{GUIDELINES FOR HACKING ON QUAGGA}
+\label{sec:guidelines}
+
+
+GNU coding standards apply.  Indentation follows the result of
+invoking GNU indent (as of 2.2.8a) with no arguments.  Note that this
+uses tabs instead of spaces where possible for leading whitespace, and
+assumes that tabs are every 8 columns.  Do not attempt to redefine the
+location of tab stops.  Note also that some indentation does not
+follow GNU style.  This is a historical accident, and we generally
+only clean up whitespace when code is unmaintainable due to whitespace
+issues, to minimise merging conflicts.
+
+For GNU emacs, use indentation style ``gnu''.
+
+For Vim, use the following lines (note that tabs are at 8, and that
+softtabstop sets the indentation level):
+
+set tabstop=8
+set softtabstop=2
+set shiftwidth=2
+set noexpandtab
+
+Be particularly careful not to break platforms/protocols that you
+cannot test.
+
+New code should have good comments, which explain why the code is correct.
+Changes to existing code should in many cases upgrade the comments when
+necessary for a reviewer to conclude that the change has no unintended
+consequences.
+
+Each file in the Git repository should have a git format-placeholder (like
+an RCS Id keyword), somewhere very near the top, commented out appropriately
+for the file type. The placeholder used for Quagga (replacing <dollar> with
+\$) is:
+
+	\verb|$QuaggaId: <dollar>Format:%an, %ai, %h<dollar> $|
+
+See line 2 of HACKING.tex, the source for this document, for an example.
+
+This placeholder string will be expanded out by the `git archive' commands,
+wihch is used to generate the tar archives for snapshots and releases.
+
+Please document fully the proper use of a new function in the header file
+in which it is declared.  And please consult existing headers for
+documentation on how to use existing functions.  In particular, please consult
+these header files:
+
+\begin{description}
+  \item{lib/log.h}	logging levels and usage guidance
+  \item{[more to be added]}
+\end{description}
+
+If changing an exported interface, please try to deprecate the interface in
+an orderly manner. If at all possible, try to retain the old deprecated
+interface as is, or functionally equivalent. Make a note of when the
+interface was deprecated and guard the deprecated interface definitions in
+the header file, ie:
+
+\begin{verbatim}
+/* Deprecated: 20050406 */
+#if !defined(QUAGGA_NO_DEPRECATED_INTERFACES)
+#warning "Using deprecated <libname> (interface(s)|function(s))"
+...
+#endif /* QUAGGA_NO_DEPRECATED_INTERFACES */
+\end{verbatim}
+
+This is to ensure that the core Quagga sources do not use the deprecated
+interfaces (you should update Quagga sources to use new interfaces, if
+applicable), while allowing external sources to continue to build. 
+Deprecated interfaces should be excised in the next unstable cycle.
+
+Note: If you wish, you can test for GCC and use a function
+marked with the 'deprecated' attribute. However, you must provide the
+warning for other compilers.
+
+If changing or removing a command definition, \emph{ensure} that you
+properly deprecate it - use the \_DEPRECATED form of the appropriate DEFUN
+macro.  This is \emph{critical}.  Even if the command can no longer
+function, you \emph{MUST} still implement it as a do-nothing stub. 
+
+Failure to follow this causes grief for systems administrators, as an
+upgrade may cause daemons to fail to start because of unrecognised commands. 
+Deprecated commands should be excised in the next unstable cycle.  A list of
+deprecated commands should be collated for each release.
+
+See also section~\ref{sec:dll-versioning} below regarding SHARED LIBRARY
+VERSIONING.
+
+
+\section{COMPILE-TIME CONDITIONAL CODE}
+
+Please think very carefully before making code conditional at compile time,
+as it increases maintenance burdens and user confusion. In particular,
+please avoid gratuitious --enable-\ldots switches to the configure script -
+typically code should be good enough to be in Quagga, or it shouldn't be
+there at all.
+
+When code must be compile-time conditional, try have the compiler make it
+conditional rather than the C pre-processor - so that it will still be
+checked by the compiler, even if disabled. I.e.  this:
+
+\begin{verbatim}
+    if (SOME_SYMBOL)
+      frobnicate();
+\end{verbatim}
+
+rather than:
+
+\begin{verbatim}
+  #ifdef SOME_SYMBOL
+  frobnicate ();
+  #endif /* SOME_SYMBOL */
+\end{verbatim}
+
+Note that the former approach requires ensuring that SOME\_SYMBOL will be
+defined (watch your AC\_DEFINEs).
+
+
+\section{COMMIT MESSAGES}
+
+The commit message requirements are:
+
+\begin{itemize}
+
+\item The message \emph{MUST} provide a suitable one-line summary followed
+      by a blank line as the very first line of the message, in the form:
+
+  \verb|topic: high-level, one line summary|
+
+  Where topic would tend to be name of a subdirectory, and/or daemon, unless
+  there's a more suitable topic (e.g.  'build').  This topic is used to
+  organise change summaries in release announcements.
+
+\item It should have a suitable "body", which tries  to address the
+      following areas, so as to help reviewers and future browsers of the
+      code-base understand why the change is correct (note also the code
+      comment requirements):
+
+  \begin{itemize}
+  
+  \item The motivation for the change (does it fix a bug, if so which? 
+        add a feature?)
+  
+  \item The general approach taken, and trade-offs versus any other
+        approaches.
+  
+  \item Any testing undertaken or other information affecting the confidence
+        that can be had in the change.
+  
+  \item Information to allow reviewers to be able to tell which specific
+        changes to the code are intended (and hence be able to spot any accidental
+        unintended changes).
+
+  \end{itemize}
+\end{itemize}
+
+The one-line summary must be limited to 54 characters, and all other
+lines to 72 characters.
+
+Commit message bodies in the Quagga project have typically taken the
+following form:
+
+\begin{itemize}
+\item An optional introduction, describing the change generally.
+\item A short description of each specific change made, preferably:
+  \begin{itemize} \item file by file
+    \begin{itemize} \item function by function (use of "ditto", or globs is
+                          allowed)
+    \end{itemize}
+  \end{itemize}
+\end{itemize}
+
+Contributors are strongly encouraged to follow this form.
+
+This itemised commit messages allows reviewers to have confidence that the
+author has self-reviewed every line of the patch, as well as providing
+reviewers a clear index of which changes are intended, and descriptions for
+them (C-to-english descriptions are not desireable - some discretion is
+useful).  For short patches, a per-function/file break-down may be
+redundant.  For longer patches, such a break-down may be essential.  A
+contrived example (where the general discussion is obviously somewhat
+redundant, given the one-line summary):
+
+\begin{quote}\begin{verbatim}
+zebra: Enhance frob FSM to detect loss of frob
+
+Add a new DOWN state to the frob state machine to allow the barinator to
+detect loss of frob.
+
+* frob.h: (struct frob) Add DOWN state flag.
+* frob.c: (frob\_change) set/clear DOWN appropriately on state change.
+* bar.c: (barinate) Check frob for DOWN state.
+\end{verbatim}\end{quote}
+
+Please have a look at the git commit logs to get a feel for what the norms
+are.
+
+Note that the commit message format follows git norms, so that ``git
+log --oneline'' will have useful output.
+
+\section{HACKING THE BUILD SYSTEM}
+
+If you change or add to the build system (configure.ac, any Makefile.am,
+etc.), try to check that the following things still work:
+
+\begin{itemize}
+\item make dist
+\item resulting dist tarball builds
+\item out-of-tree builds
+\end{itemize}
+
+The quagga.net site relies on make dist to work to generate snapshots. It
+must work. Common problems are to forget to have some additional file
+included in the dist, or to have a make rule refer to a source file without
+using the srcdir variable.
+
+
+\section{RELEASE PROCEDURE}
+
+\begin{itemize}
+\item Tag the apppropriate commit with a release tag (follow existing
+  conventions).
+  
+  [This enables recreating the release, and is just good CM practice.]
+
+\item Create a fresh tar archive of the quagga.net repository, and do a test
+  build:
+
+  \begin{verbatim}
+    git-clone git:///code.quagga.net/quagga.git quagga
+    git-archive --remote=git://code.quagga.net/quagga.git \
+        --prefix=quagga-release/ master | tar -xf -
+    cd quagga-release
+
+    autoreconf -i
+    ./configure
+    make
+    make dist
+  \end{verbatim}
+\end{itemize}
+
+The tarball which `make dist' creates is the tarball to be released! The
+git-archive step ensures you're working with code corresponding to that in
+the official repository, and also carries out keyword expansion. If any
+errors occur, move tags as needed and start over from the fresh checkouts.
+Do not append to tarballs, as this has produced non-standards-conforming
+tarballs in the past.
+
+See also: \url{http://wiki.quagga.net/index.php/Main/Processes}
+
+[TODO: collation of a list of deprecated commands. Possibly can be scripted
+to extract from vtysh/vtysh\_cmd.c]
+
+
+\section{TOOL VERSIONS}
+
+Require versions of support tools are listed in INSTALL.quagga.txt.
+Required versions should only be done with due deliberation, as it can
+cause environments to no longer be able to compile quagga.
+
+
+\section{SHARED LIBRARY VERSIONING}
+\label{sec:dll-versioning}
+
+[this section is at the moment just gdt's opinion]
+
+Quagga builds several shared libaries (lib/libzebra, ospfd/libospf, 
+ospfclient/libsopfapiclient).  These may be used by external programs,
+e.g. a new routing protocol that works with the zebra daemon, or
+ospfapi clients.  The libtool info pages (node Versioning) explain
+when major and minor version numbers should be changed.  These values
+are set in Makefile.am near the definition of the library.  If you
+make a change that requires changing the shared library version,
+please update Makefile.am.
+
+libospf exports far more than it should, and is needed by ospfapi
+clients.  Only bump libospf for changes to functions for which it is
+reasonable for a user of ospfapi to call, and please err on the side
+of not bumping.
+
+There is no support intended for installing part of zebra.  The core
+library libzebra and the included daemons should always be built and
+installed together.
+
+
+\section{GIT COMMIT SUBMISSION}
+\label{sec:git-submission}
+
+The preferred method for submitting changes is to provide git commits via a
+publically-accessible git repository, which the maintainers can easily pull.
+
+The commits should be in a branch based off the Quagga.net master - a
+"feature branch".  Ideally there should be no commits to this branch other
+than those in master, and those intended to be submitted.  However, merge
+commits to this branch from the Quagga master are permitted, though strongly
+discouraged - use another (potentially local and throw-away) branch to test
+merge with the latest Quagga master.
+
+Recommended practice is to keep different logical sets of changes on
+separate branches - "topic" or "feature" branches.  This allows you to still
+merge them together to one branch (potentially local and/or "throw-away")
+for testing or use, while retaining smaller, independent branches that are
+easier to merge.
+
+All content guidelines in section \ref{sec:patch-submission}, PATCH
+SUBMISSION apply.
+
+
+\section{PATCH SUBMISSION}
+\label{sec:patch-submission}
+
+\begin{itemize}
+
+\item For complex changes, contributors are strongly encouraged to first
+      start a design discussion on the quagga-dev list \emph{before}
+      starting any coding.
+
+\item Send a clean diff against the 'master' branch of the quagga.git
+      repository, in unified diff format, preferably with the '-p' argument to
+      show C function affected by any chunk, and with the -w and -b arguments to
+      minimise changes. E.g:
+
+     git diff -up mybranch..remotes/quagga.net/master
+
+     It is preferable to use git format-patch, and even more preferred to
+     publish a git repository (see GIT COMMIT SUBMISSION, section
+     \ref{sec:git-submission}).
+
+     If not using git format-patch, Include the commit message in the email.
+
+\item After a commit, code should have comments explaining to the reviewer
+      why it is correct, without reference to history.  The commit message
+      should explain why the change is correct.
+
+\item Include NEWS entries as appropriate.
+
+\item Include only one semantic change or group of changes per patch.
+
+\item Do not make gratuitous changes to whitespace. See the w and b arguments
+      to diff.
+
+\item Changes should be arranged so that the least contraversial and most
+      trivial are first, and the most complex or more contraversial are
+      last.  This will maximise how many the Quagga maintainers can merge,
+      even if some other commits need further work.
+
+\item Providing a unit-test is strongly encouraged. Doing so will make it
+      much easier for maintainers to have confidence that they will be able
+      to support your change.
+
+\item New code should be arranged so that it easy to verify and test. E.g. 
+      stateful logic should be separated out from functional logic as much as
+      possible: wherever possible, move complex logic out to smaller helper
+      functions which access no state other than their arguments.
+
+\item State on which platforms and with what daemons the patch has been
+      tested.  Understand that if the set of testing locations is small,
+      and the patch might have unforeseen or hard to fix consequences that
+      there may be a call for testers on quagga-dev, and that the patch
+      may be blocked until test results appear.
+
+      If there are no users for a platform on quagga-dev who are able and
+      willing to verify -current occasionally, that platform may be
+      dropped from the "should be checked" list.
+
+\end{itemize}
+
+\section{PATCH APPLICATION}
+
+\begin{itemize}
+
+\item Only apply patches that meet the submission guidelines.
+
+\item If the patch might break something, issue a call for testing on the
+      mailinglist.
+
+\item Give an appropriate commit message (see above), and use the --author
+      argument to git-commit, if required, to ensure proper attribution (you
+      should still be listed as committer)
+
+\item Immediately after commiting, double-check (with git-log and/or gitk).
+      If there's a small mistake you can easily fix it with `git commit
+      --amend ..'
+
+\item When merging a branch, always use an explicit merge commit. Giving
+      --no-ff ensures a merge commit is created which documents ``this human
+      decided to merge this branch at this time''.
+\end{itemize}
+
+\section{STABLE PLATFORMS AND DAEMONS}
+
+The list of platforms that should be tested follow.  This is a list
+derived from what quagga is thought to run on and for which
+maintainers can test or there are people on quagga-dev who are able
+and willing to verify that -current does or does not work correctly.
+
+\begin{itemize}
+  \item BSD (Free, Net or Open, any platform)
+  \item GNU/Linux (any distribution, i386)
+  \item Solaris (strict alignment, any platform)
+  \item future: NetBSD/sparc64
+\end{itemize}
+
+The list of daemons that are thought to be stable and that should be
+tested are:
+
+\begin{itemize}
+  \item zebra
+  \item bgpd
+  \item ripd
+  \item ospfd
+  \item ripngd
+\end{itemize}
+Daemons which are in a testing phase are
+
+\begin{itemize}
+  \item ospf6d
+  \item isisd
+  \item watchquagga
+\end{itemize}
+
+\section{IMPORT OR UPDATE VENDOR SPECIFIC ROUTING PROTOCOLS}
+
+The source code of Quagga is based on two vendors:
+
+   \verb|zebra_org| (\url{http://www.zebra.org/})
+   \verb|isisd_sf| (\url{http://isisd.sf.net/})
+
+To import code from further sources, e.g. for archival purposes without
+necessarily having to review and/or fix some changeset, create a branch from
+`master':
+
+\begin{verbatim}
+	git checkout -b archive/foo master
+	<apply changes>
+	git commit -a "Joe Bar <joe@example.com>"
+	git push quagga archive/foo
+\end{verbatim}
+
+presuming `quagga' corresponds to a file in your .git/remotes with
+configuration for the appropriate Quagga.net repository.
+
+\end{document}

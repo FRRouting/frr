@@ -14,4 +14,14 @@ EXTRA_DIST = aclocal.m4 SERVICES TODO REPORTING-BUGS INSTALL.quagga.txt \
 	tools/mrlg.cgi tools/rrcheck.pl tools/rrlookup.pl tools/zc.pl \
 	tools/zebra.el tools/multiple-bgpd.sh
 
+if HAVE_LATEX
+
+HACKING.pdf: HACKING.tex
+	$(LATEXMK) -pdf $<
+
+clean-local:
+	-$(LATEXMK) -C HACKING.tex
+
+endif
+
 ACLOCAL_AMFLAGS = -I m4
