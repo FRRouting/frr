@@ -18,7 +18,7 @@ libbabel_a_SOURCES = \
 noinst_HEADERS = \
 	babel_zebra.h net.h kernel.h util.h source.h neighbour.h	\
 	route.h xroute.h message.h resend.h babel_interface.h babeld.h	\
-	babel_filter.h
+	babel_filter.h babel_main.h
 
 babeld_SOURCES = \
 	babel_main.c $(libbabel_a_SOURCES)
