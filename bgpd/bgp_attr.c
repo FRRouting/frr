@@ -719,16 +719,23 @@ bgp_attr_malformed (struct bgp_attr_parser_args *args, u_char subcode,
    * send the attribute data with the NOTIFY depends on the error,
    * the caller therefore signals this with the seperate length argument
    */
-  u_char *startp = (length > 0 ? args->startp : NULL);
+  u_char *notify_datap = (length > 0 ? args->startp : NULL);
   
   /* Only relax error handling for eBGP peers */
   if (peer_sort (peer) != BGP_PEER_EBGP)
     {
       bgp_notify_send_with_data (peer, BGP_NOTIFY_UPDATE_ERR, subcode,
-                                 startp, length);
+                                 notify_datap, length);
       return BGP_ATTR_PARSE_ERROR;
 
     }
+  
+  /* Adjust the stream getp to the end of the attribute, in case we can
+   * still proceed but the caller hasn't read all the attribute.
+   */
+  stream_set_getp (BGP_INPUT (peer),
+                   (args->startp - STREAM_DATA (BGP_INPUT (peer)))
+                    + args->total);
   
   switch (args->type) {
     /* where an optional attribute is inconsequential, e.g. it does not affect
@@ -756,7 +763,7 @@ bgp_attr_malformed (struct bgp_attr_parser_args *args, u_char subcode,
     case BGP_ATTR_MP_UNREACH_NLRI:
     case BGP_ATTR_EXT_COMMUNITIES:
       bgp_notify_send_with_data (peer, BGP_NOTIFY_UPDATE_ERR, subcode,
-                                 startp, length);
+                                 notify_datap, length);
       return BGP_ATTR_PARSE_ERROR;
   }
   
