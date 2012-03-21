@@ -146,7 +146,7 @@ if_delete_retain (struct interface *ifp)
     (*if_master.if_delete_hook) (ifp);
 
   /* Free connected address list */
-  list_delete (ifp->connected);
+  list_delete_all_node (ifp->connected);
 }
 
 /* Delete and free interface structure. */
@@ -156,6 +156,8 @@ if_delete (struct interface *ifp)
   listnode_delete (iflist, ifp);
 
   if_delete_retain(ifp);
+
+  list_free (ifp->connected);
 
   XFREE (MTYPE_IF, ifp);
 }
