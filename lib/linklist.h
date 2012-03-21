@@ -54,9 +54,9 @@ struct list
   void (*del) (void *val);
 };
 
-#define listnextnode(X) ((X)->next)
-#define listhead(X) ((X)->head)
-#define listtail(X) ((X)->tail)
+#define listnextnode(X) ((X) ? ((X)->next) : NULL)
+#define listhead(X) ((X) ? ((X)->head) : NULL)
+#define listtail(X) ((X) ? ((X)->tail) : NULL)
 #define listcount(X) ((X)->count)
 #define list_isempty(X) ((X)->head == NULL && (X)->tail == NULL)
 #define listgetdata(X) (assert((X)->data != NULL), (X)->data)
@@ -88,10 +88,10 @@ extern void list_add_list (struct list *, struct list *);
  * It is safe to delete the listnode using this macro.
  */
 #define ALL_LIST_ELEMENTS(list,node,nextnode,data) \
-  (node) = listhead(list); \
+  (node) = listhead(list), ((data) = NULL); \
   (node) != NULL && \
     ((data) = listgetdata(node),(nextnode) = listnextnode(node), 1); \
-  (node) = (nextnode)
+  (node) = (nextnode), ((data) = NULL)
 
 /* read-only list iteration macro.
  * Usage: as per ALL_LIST_ELEMENTS, but not safe to delete the listnode Only
@@ -100,9 +100,9 @@ extern void list_add_list (struct list *, struct list *);
  * of previous macro.
  */
 #define ALL_LIST_ELEMENTS_RO(list,node,data) \
-  (node) = listhead(list); \
+  (node) = listhead(list), ((data) = NULL);\
   (node) != NULL && ((data) = listgetdata(node), 1); \
-  (node) = listnextnode(node)
+  (node) = listnextnode(node), ((data) = NULL)
 
 /* these *do not* cleanup list nodes and referenced data, as the functions
  * do - these macros simply {de,at}tach a listnode from/to a list.
