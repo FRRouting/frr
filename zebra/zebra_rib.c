@@ -225,7 +225,7 @@ nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4, struct in_addr *src)
   return nexthop;
 }
 
-static struct nexthop *
+struct nexthop *
 nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4, 
                           struct in_addr *src, unsigned int ifindex)
 {
