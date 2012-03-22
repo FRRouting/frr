@@ -131,6 +131,30 @@ zserv_create_header (struct stream *s, uint16_t cmd)
   stream_putw (s, cmd);
 }
 
+static void
+zserv_encode_interface (struct stream *s, struct interface *ifp)
+{
+  /* Interface information. */
+  stream_put (s, ifp->name, INTERFACE_NAMSIZ);
+  stream_putl (s, ifp->ifindex);
+  stream_putc (s, ifp->status);
+  stream_putq (s, ifp->flags);
+  stream_putl (s, ifp->metric);
+  stream_putl (s, ifp->mtu);
+  stream_putl (s, ifp->mtu6);
+  stream_putl (s, ifp->bandwidth);
+#ifdef HAVE_STRUCT_SOCKADDR_DL
+  stream_put (s, &ifp->sdl, sizeof (ifp->sdl));
+#else
+  stream_putl (s, ifp->hw_addr_len);
+  if (ifp->hw_addr_len)
+    stream_put (s, ifp->hw_addr, ifp->hw_addr_len);
+#endif /* HAVE_STRUCT_SOCKADDR_DL */
+
+  /* Write packet size. */
+  stream_putw_at (s, 0, stream_get_endp (s));
+}
+
 /* Interface is added. Send ZEBRA_INTERFACE_ADD to client. */
 /*
  * This function is called in the following situations:
@@ -154,28 +178,8 @@ zsend_interface_add (struct zserv *client, struct interface *ifp)
   s = client->obuf;
   stream_reset (s);
 
-  /* Message type. */
   zserv_create_header (s, ZEBRA_INTERFACE_ADD);
-
-  /* Interface information. */
-  stream_put (s, ifp->name, INTERFACE_NAMSIZ);
-  stream_putl (s, ifp->ifindex);
-  stream_putc (s, ifp->status);
-  stream_putq (s, ifp->flags);
-  stream_putl (s, ifp->metric);
-  stream_putl (s, ifp->mtu);
-  stream_putl (s, ifp->mtu6);
-  stream_putl (s, ifp->bandwidth);
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-  stream_put (s, &ifp->sdl, sizeof (ifp->sdl));
-#else
-  stream_putl (s, ifp->hw_addr_len);
-  if (ifp->hw_addr_len)
-    stream_put (s, ifp->hw_addr, ifp->hw_addr_len);
-#endif /* HAVE_STRUCT_SOCKADDR_DL */
-
-  /* Write packet size. */
-  stream_putw_at (s, 0, stream_get_endp (s));
+  zserv_encode_interface (s, ifp);
 
   return zebra_server_send_message(client);
 }
@@ -192,21 +196,9 @@ zsend_interface_delete (struct zserv *client, struct interface *ifp)
 
   s = client->obuf;
   stream_reset (s);
-  
-  zserv_create_header (s, ZEBRA_INTERFACE_DELETE);
-  
-  /* Interface information. */
-  stream_put (s, ifp->name, INTERFACE_NAMSIZ);
-  stream_putl (s, ifp->ifindex);
-  stream_putc (s, ifp->status);
-  stream_putq (s, ifp->flags);
-  stream_putl (s, ifp->metric);
-  stream_putl (s, ifp->mtu);
-  stream_putl (s, ifp->mtu6);
-  stream_putl (s, ifp->bandwidth);
 
-  /* Write packet length. */
-  stream_putw_at (s, 0, stream_get_endp (s));
+  zserv_create_header (s, ZEBRA_INTERFACE_DELETE);
+  zserv_encode_interface (s, ifp);
 
   return zebra_server_send_message (client);
 }
@@ -319,19 +311,7 @@ zsend_interface_update (int cmd, struct zserv *client, struct interface *ifp)
   stream_reset (s);
 
   zserv_create_header (s, cmd);
-
-  /* Interface information. */
-  stream_put (s, ifp->name, INTERFACE_NAMSIZ);
-  stream_putl (s, ifp->ifindex);
-  stream_putc (s, ifp->status);
-  stream_putq (s, ifp->flags);
-  stream_putl (s, ifp->metric);
-  stream_putl (s, ifp->mtu);
-  stream_putl (s, ifp->mtu6);
-  stream_putl (s, ifp->bandwidth);
-
-  /* Write packet size. */
-  stream_putw_at (s, 0, stream_get_endp (s));
+  zserv_encode_interface (s, ifp);
 
   return zebra_server_send_message(client);
 }

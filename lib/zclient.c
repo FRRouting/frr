@@ -611,24 +611,8 @@ zebra_interface_add_read (struct stream *s)
   /* Lookup/create interface by name. */
   ifp = if_get_by_name_len (ifname_tmp, strnlen(ifname_tmp, INTERFACE_NAMSIZ));
 
-  /* Read interface's index. */
-  ifp->ifindex = stream_getl (s);
+  zebra_interface_if_set_value (s, ifp);
 
-  /* Read interface's value. */
-  ifp->status = stream_getc (s);
-  ifp->flags = stream_getq (s);
-  ifp->metric = stream_getl (s);
-  ifp->mtu = stream_getl (s);
-  ifp->mtu6 = stream_getl (s);
-  ifp->bandwidth = stream_getl (s);
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-  stream_get (&ifp->sdl, s, sizeof (ifp->sdl));
-#else
-  ifp->hw_addr_len = stream_getl (s);
-  if (ifp->hw_addr_len)
-    stream_get (ifp->hw_addr, s, ifp->hw_addr_len);
-#endif /* HAVE_STRUCT_SOCKADDR_DL */
-  
   return ifp;
 }
 
@@ -656,16 +640,7 @@ zebra_interface_state_read (struct stream *s)
   if (! ifp)
      return NULL;
 
-  /* Read interface's index. */
-  ifp->ifindex = stream_getl (s);
-
-  /* Read interface's value. */
-  ifp->status = stream_getc (s);
-  ifp->flags = stream_getq (s);
-  ifp->metric = stream_getl (s);
-  ifp->mtu = stream_getl (s);
-  ifp->mtu6 = stream_getl (s);
-  ifp->bandwidth = stream_getl (s);
+  zebra_interface_if_set_value (s, ifp);
 
   return ifp;
 }
@@ -715,6 +690,13 @@ zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
   ifp->mtu = stream_getl (s);
   ifp->mtu6 = stream_getl (s);
   ifp->bandwidth = stream_getl (s);
+#ifdef HAVE_STRUCT_SOCKADDR_DL
+  stream_get (&ifp->sdl, s, sizeof (ifp->sdl));
+#else
+  ifp->hw_addr_len = stream_getl (s);
+  if (ifp->hw_addr_len)
+    stream_get (ifp->hw_addr, s, ifp->hw_addr_len);
+#endif /* HAVE_STRUCT_SOCKADDR_DL */
 }
 
 static int
