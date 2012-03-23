@@ -892,7 +892,7 @@ bgp_attr_flag_invalid (struct bgp_attr_parser_args *args)
       && CHECK_FLAG (flags, BGP_ATTR_FLAG_TRANS))
     SET_FLAG (mask, BGP_ATTR_FLAG_PARTIAL);
   
-  if ((flags & ~attr_flags_values[attr_code])
+  if ((flags & ~mask)
       == attr_flags_values[attr_code])
     return 0;
   
