@@ -31,7 +31,7 @@
 /* Maskbit. */
 static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 			         0xf8, 0xfc, 0xfe, 0xff};
-static const u_int32_t maskbytes_host[] =
+static const u_int32_t maskbytes_big_endian[] =
 {
   0x00000000, /* /0  0.0.0.0         */
   0x80000000, /* /1  128.0.0.0       */
@@ -67,7 +67,8 @@ static const u_int32_t maskbytes_host[] =
   0xfffffffe, /* /31 255.255.255.254 */
   0xffffffff  /* /32 255.255.255.255 */
 };
-static const u_int32_t maskbytes_network[] =
+
+static const u_int32_t maskbytes_little_endian[] =
 {
   0x00000000, /* /0  0.0.0.0         */
   0x00000080, /* /1  128.0.0.0       */
@@ -103,6 +104,7 @@ static const u_int32_t maskbytes_network[] =
   0xfeffffff, /* /31 255.255.255.254 */
   0xffffffff  /* /32 255.255.255.255 */
 };
+
 static const struct in6_addr maskbytes6[] =
 {
   /* /0   */ { { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } },
@@ -2599,7 +2601,11 @@ void
 masklen2ip (const int masklen, struct in_addr *netmask)
 {
   assert (masklen >= 0 && masklen <= IPV4_MAX_BITLEN);
-  netmask->s_addr = maskbytes_network[masklen];
+#if (BYTE_ORDER == LITTLE_ENDIAN)
+  netmask->s_addr = maskbytes_little_endian[masklen];
+#elif (BYTE_ORDER == BIG_ENDIAN)
+  netmask->s_addr = maskbytes_big_endian[masklen];
+#endif
 }
 
 /* Convert IP address's netmask into integer. We assume netmask is
@@ -2621,7 +2627,11 @@ void
 apply_mask_ipv4 (struct prefix_ipv4 *p)
 {
   assert (p->prefixlen >= 0 && p->prefixlen <= IPV4_MAX_BITLEN);
-  p->prefix.s_addr &= maskbytes_network[p->prefixlen];
+#if (BYTE_ORDER == LITTLE_ENDIAN)
+  p->prefix.s_addr &= maskbytes_little_endian[p->prefixlen];
+#elif (BYTE_ORDER == BIG_ENDIAN)
+  p->prefix.s_addr &= maskbytes_big_endian[p->prefixlen];
+#endif
 }
 
 /* If prefix is 0.0.0.0/0 then return 1 else return 0. */
