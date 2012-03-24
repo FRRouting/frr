@@ -32,7 +32,9 @@
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
+#include "isisd/isis_flags.h"
 #include "isisd/isis_circuit.h"
+#include "isisd/isis_csm.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_misc.h"
 
@@ -40,6 +42,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_adjacency.h"
+#include "isisd/isis_dynhn.h"
 
 /* staticly assigned vars for printing purposes */
 struct in_addr new_prefix;
@@ -99,10 +102,10 @@ isonet_print (u_char * from, int len)
  * extract dot from the dotted str, and insert all the number in a buff 
  */
 int
-dotformat2buff (u_char * buff, const u_char * dotted)
+dotformat2buff (u_char * buff, const char * dotted)
 {
   int dotlen, len = 0;
-  const u_char *pos = dotted;
+  const char *pos = dotted;
   u_char number[3];
   int nextdotpos = 2;
 
@@ -157,10 +160,10 @@ dotformat2buff (u_char * buff, const u_char * dotted)
  * conversion of XXXX.XXXX.XXXX to memory
  */
 int
-sysid2buff (u_char * buff, const u_char * dotted)
+sysid2buff (u_char * buff, const char * dotted)
 {
   int len = 0;
-  const u_char *pos = dotted;
+  const char *pos = dotted;
   u_char number[3];
 
   number[2] = '\0';
@@ -271,7 +274,7 @@ speaks (struct nlpids *nlpids, int family)
  * Returns 0 on error, IS-IS Circuit Type on ok
  */
 int
-string2circuit_t (const u_char * str)
+string2circuit_t (const char * str)
 {
 
   if (!str)
@@ -287,6 +290,42 @@ string2circuit_t (const u_char * str)
     return IS_LEVEL_1_AND_2;
 
   return 0;
+}
+
+const char *
+circuit_state2string (int state)
+{
+
+  switch (state)
+    {
+    case C_STATE_INIT:
+      return "Init";
+    case C_STATE_CONF:
+      return "Config";
+    case C_STATE_UP:
+      return "Up";
+    default:
+      return "Unknown";
+    }
+  return NULL;
+}
+
+const char *
+circuit_type2string (int type)
+{
+
+  switch (type)
+    {
+    case CIRCUIT_T_P2P:
+      return "p2p";
+    case CIRCUIT_T_BROADCAST:
+      return "lan";
+    case CIRCUIT_T_LOOPBACK:
+      return "loopback";
+    default:
+      return "Unknown";
+    }
+  return NULL;
 }
 
 const char *
@@ -498,7 +537,6 @@ unix_hostname (void)
 {
   static struct utsname names;
   const char *hostname;
-  extern struct host host;
 
   hostname = host.name;
   if (!hostname)
@@ -508,4 +546,88 @@ unix_hostname (void)
     }
 
   return hostname;
+}
+
+/*
+ * Returns the dynamic hostname associated with the passed system ID.
+ * If no dynamic hostname found then returns formatted system ID.
+ */
+const char *
+print_sys_hostname (u_char *sysid)
+{
+  struct isis_dynhn *dyn;
+
+  if (!sysid)
+    return "nullsysid";
+
+  /* For our system ID return our host name */
+  if (memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN) == 0)
+    return unix_hostname();
+
+  dyn = dynhn_find_by_id (sysid);
+  if (dyn)
+    return (const char *)dyn->name.name;
+
+  return sysid_print (sysid);
+}
+
+/*
+ * This function is a generic utility that logs data of given length.
+ * Move this to a shared lib so that any protocol can use it.
+ */
+void
+zlog_dump_data (void *data, int len)
+{
+  int i;
+  unsigned char *p;
+  unsigned char c;
+  char bytestr[4];
+  char addrstr[10];
+  char hexstr[ 16*3 + 5];
+  char charstr[16*1 + 5];
+
+  p = data;
+  memset (bytestr, 0, sizeof(bytestr));
+  memset (addrstr, 0, sizeof(addrstr));
+  memset (hexstr, 0, sizeof(hexstr));
+  memset (charstr, 0, sizeof(charstr));
+
+  for (i = 1; i <= len; i++)
+  {
+    c = *p;
+    if (isalnum (c) == 0)
+      c = '.';
+
+    /* store address for this line */
+    if ((i % 16) == 1)
+      snprintf (addrstr, sizeof(addrstr), "%p", p);
+
+    /* store hex str (for left side) */
+    snprintf (bytestr, sizeof (bytestr), "%02X ", *p);
+    strncat (hexstr, bytestr, sizeof (hexstr) - strlen (hexstr) - 1);
+
+    /* store char str (for right side) */
+    snprintf (bytestr, sizeof (bytestr), "%c", c);
+    strncat (charstr, bytestr, sizeof (charstr) - strlen (charstr) - 1);
+
+    if ((i % 16) == 0)
+    {
+      /* line completed */
+      zlog_debug ("[%8.8s]   %-50.50s  %s", addrstr, hexstr, charstr);
+      hexstr[0] = 0;
+      charstr[0] = 0;
+    }
+    else if ((i % 8) == 0)
+    {
+      /* half line: add whitespaces */
+      strncat (hexstr, "  ", sizeof (hexstr) - strlen (hexstr) - 1);
+      strncat (charstr, " ", sizeof (charstr) - strlen (charstr) - 1);
+    }
+    p++; /* next byte */
+  }
+
+  /* print rest of buffer if not empty */
+  if (strlen (hexstr) > 0)
+    zlog_debug ("[%8.8s]   %-50.50s  %s", addrstr, hexstr, charstr);
+  return;
 }

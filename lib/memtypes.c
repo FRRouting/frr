@@ -242,6 +242,8 @@ struct memory_list memory_list_isis[] =
   { MTYPE_ISIS_ROUTE_INFO,    "ISIS route info"			},
   { MTYPE_ISIS_NEXTHOP,       "ISIS nexthop"			},
   { MTYPE_ISIS_NEXTHOP6,      "ISIS nexthop6"			},
+  { MTYPE_ISIS_DICT,          "ISIS dictionary"			},
+  { MTYPE_ISIS_DICT_NODE,     "ISIS dictionary node"		},
   { -1, NULL },
 };
 

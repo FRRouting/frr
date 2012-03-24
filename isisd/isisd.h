@@ -40,6 +40,7 @@ struct isis
   u_long process_id;
   int sysid_set;
   u_char sysid[ISIS_SYS_ID_LEN];	/* SystemID for this IS */
+  u_int32_t router_id;          /* Router ID from zebra */
   struct list *area_list;	/* list of IS-IS areas */
   struct list *init_circ_list;
   struct list *nexthops;	/* IPv4 next hops from this IS */
@@ -78,6 +79,8 @@ struct isis
 #endif
 };
 
+extern struct isis *isis;
+
 struct isis_area
 {
   struct isis *isis;				  /* back pointer */
@@ -92,9 +95,8 @@ struct isis_area
   struct list *circuit_list;	/* IS-IS circuits */
   struct flags flags;
   struct thread *t_tick;	/* LSP walker */
-  struct thread *t_remove_aged;
-  int lsp_regenerate_pending[ISIS_LEVELS];
   struct thread *t_lsp_refresh[ISIS_LEVELS];
+  int lsp_regenerate_pending[ISIS_LEVELS];
 
   /*
    * Configurables 
@@ -112,6 +114,8 @@ struct isis_area
   struct list *area_addrs;
   u_int16_t max_lsp_lifetime[ISIS_LEVELS];
   char is_type;			/* level-1 level-1-2 or level-2-only */
+  /* are we overloaded? */
+  char overload_bit;
   u_int16_t lsp_refresh[ISIS_LEVELS];
   /* minimum time allowed before lsp retransmission */
   u_int16_t lsp_gen_interval[ISIS_LEVELS];
@@ -120,6 +124,8 @@ struct isis_area
   /* the percentage of LSP mtu size used, before generating a new frag */
   int lsp_frag_threshold;
   int ip_circuits;
+  /* logging adjacency changes? */
+  u_char log_adj_changes;
 #ifdef HAVE_IPV6
   int ipv6_circuits;
 #endif				/* HAVE_IPV6 */
@@ -128,14 +134,21 @@ struct isis_area
 
 #ifdef TOPOLOGY_GENERATE
   struct list *topology;
-  char topology_baseis[ISIS_SYS_ID_LEN];  /* IS for the first IS emulated. */
+  u_char topology_baseis[ISIS_SYS_ID_LEN];  /* IS for the first IS emulated. */
   char *topology_basedynh;                /* Dynamic hostname base. */
   char top_params[200];                   /* FIXME: what is reasonable? */
 #endif /* TOPOLOGY_GENERATE */
 };
 
 void isis_init (void);
+void isis_new(unsigned long);
+struct isis_area *isis_area_create(const char *);
 struct isis_area *isis_area_lookup (const char *);
+int isis_area_get (struct vty *vty, const char *area_tag);
+void print_debug(struct vty *, int, int);
+
+/* Master of threads. */
+extern struct thread_master *master;
 
 #define DEBUG_ADJ_PACKETS                (1<<0)
 #define DEBUG_CHECKSUM_ERRORS            (1<<1)
@@ -149,5 +162,6 @@ struct isis_area *isis_area_lookup (const char *);
 #define DEBUG_RTE_EVENTS                 (1<<9)
 #define DEBUG_EVENTS                     (1<<10)
 #define DEBUG_ZEBRA                      (1<<11)
+#define DEBUG_PACKET_DUMP                (1<<12)
 
 #endif /* ISISD_H */

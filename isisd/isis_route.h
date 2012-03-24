@@ -43,8 +43,9 @@ struct isis_nexthop
 
 struct isis_route_info
 {
-#define ISIS_ROUTE_FLAG_ZEBRA_SYNC 0x01
-#define ISIS_ROUTE_FLAG_ACTIVE     0x02
+#define ISIS_ROUTE_FLAG_ACTIVE       0x01  /* active route for the prefix */
+#define ISIS_ROUTE_FLAG_ZEBRA_SYNCED 0x02  /* set when route synced to zebra */
+#define ISIS_ROUTE_FLAG_ZEBRA_RESYNC 0x04  /* set when route needs to sync */
   u_char flag;
   u_int32_t cost;
   u_int32_t depth;
@@ -59,6 +60,9 @@ struct isis_route_info *isis_route_create (struct prefix *prefix,
 					   struct list *adjacencies,
 					   struct isis_area *area, int level);
 
-int isis_route_validate (struct thread *thread);
+void isis_route_validate (struct isis_area *area);
+void isis_route_invalidate_table (struct isis_area *area,
+                                  struct route_table *table);
+void isis_route_invalidate (struct isis_area *area);
 
 #endif /* _ZEBRA_ISIS_ROUTE_H */

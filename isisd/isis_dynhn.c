@@ -41,8 +41,6 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_constants.h"
 
-extern struct isis *isis;
-extern struct thread_master *master;
 extern struct host host;
 
 struct list *dyn_cache = NULL;
@@ -51,7 +49,8 @@ static int dyn_cache_cleanup (struct thread *);
 void
 dyn_cache_init (void)
 {
-  dyn_cache = list_new ();
+  if (dyn_cache == NULL)
+    dyn_cache = list_new ();
   THREAD_TIMER_ON (master, isis->t_dync_clean, dyn_cache_cleanup, NULL, 120);
   return;
 }
@@ -67,8 +66,8 @@ dyn_cache_cleanup (struct thread *thread)
 
   for (ALL_LIST_ELEMENTS (dyn_cache, node, nnode, dyn))
     {
-      if ((now - dyn->refresh) < (MAX_AGE + 120))
-	continue;
+      if ((now - dyn->refresh) < MAX_LSP_LIFETIME)
+        continue;
 
       list_delete_node (dyn_cache, node);
       XFREE (MTYPE_ISIS_DYNHN, dyn);
@@ -86,6 +85,19 @@ dynhn_find_by_id (u_char * id)
 
   for (ALL_LIST_ELEMENTS_RO (dyn_cache, node, dyn))
     if (memcmp (dyn->id, id, ISIS_SYS_ID_LEN) == 0)
+      return dyn;
+
+  return NULL;
+}
+
+struct isis_dynhn *
+dynhn_find_by_name (const char *hostname)
+{
+  struct listnode *node = NULL;
+  struct isis_dynhn *dyn = NULL;
+
+  for (ALL_LIST_ELEMENTS_RO (dyn_cache, node, dyn))
+    if (strncmp ((char *)dyn->name.name, hostname, 255) == 0)
       return dyn;
 
   return NULL;
@@ -119,6 +131,19 @@ isis_dynhn_insert (u_char * id, struct hostname *hostname, int level)
 
   listnode_add (dyn_cache, dyn);
 
+  return;
+}
+
+void
+isis_dynhn_remove (u_char * id)
+{
+  struct isis_dynhn *dyn;
+
+  dyn = dynhn_find_by_id (id);
+  if (!dyn)
+    return;
+  listnode_delete (dyn_cache, dyn);
+  XFREE (MTYPE_ISIS_DYNHN, dyn);
   return;
 }
 

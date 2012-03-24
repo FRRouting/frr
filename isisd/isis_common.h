@@ -21,6 +21,9 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#ifndef ISIS_COMMON_H
+#define ISIS_COMMON_H
+
 /*
  * Area Address
  */
@@ -35,6 +38,7 @@ struct isis_passwd
   u_char len;
 #define ISIS_PASSWD_TYPE_UNUSED   0
 #define ISIS_PASSWD_TYPE_CLEARTXT 1
+#define ISIS_PASSWD_TYPE_HMAC_MD5 54
 #define ISIS_PASSWD_TYPE_PRIVATE  255
   u_char type;
   /* Authenticate SNPs? */
@@ -64,11 +68,4 @@ struct nlpids
   u_char nlpids[4];		/* FIXME: enough ? */
 };
 
-/*
- * Flags structure for SSN and SRM flags
- */
-struct flags
-{
-  int maxindex;
-  struct list *free_idcs;
-};
+#endif

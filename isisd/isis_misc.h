@@ -24,8 +24,10 @@
 #ifndef _ZEBRA_ISIS_MISC_H
 #define _ZEBRA_ISIS_MISC_H
 
-int string2circuit_t (const u_char *);
+int string2circuit_t (const char *);
 const char *circuit_t2string (int);
+const char *circuit_state2string (int state);
+const char *circuit_type2string (int type);
 const char *syst2string (int);
 struct in_addr newprefix2inaddr (u_char * prefix_start,
 				 u_char prefix_masklen);
@@ -33,8 +35,8 @@ struct in_addr newprefix2inaddr (u_char * prefix_start,
  * Converting input to memory stored format
  * return value of 0 indicates wrong input
  */
-int dotformat2buff (u_char *, const u_char *);
-int sysid2buff (u_char *, const u_char *);
+int dotformat2buff (u_char *, const char *);
+int sysid2buff (u_char *, const char *);
 
 /*
  * Printing functions
@@ -46,6 +48,8 @@ const char *rawlspid_print (u_char *);
 const char *time2string (u_int32_t);
 /* typedef struct nlpids nlpids; */
 char *nlpid2string (struct nlpids *);
+const char *print_sys_hostname (u_char *sysid);
+void zlog_dump_data (void *data, int len);
 
 /*
  * misc functions
@@ -57,7 +61,8 @@ const char *unix_hostname (void);
 /*
  * macros
  */
-#define GETSYSID(A,L) (A->area_addr + (A->addr_len - (L + 1)))
+#define GETSYSID(A) (A->area_addr + (A->addr_len - \
+                                     (ISIS_SYS_ID_LEN + ISIS_NSEL_LEN)))
 
 /* used for calculating nice string representation instead of plain seconds */
 

@@ -301,7 +301,16 @@ int
 isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
 {
   struct ether_header *eth;
-  int written;
+  int written, buflen;
+
+  buflen = stream_get_endp (circuit->snd_stream) + LLC_LEN + ETHER_HDR_LEN;
+  if (buflen > sizeof (sock_buff))
+    {
+      zlog_warn ("isis_send_pdu_bcast: sock_buff size %lu is less than "
+		 "output pdu size %d on circuit %s",
+		 sizeof (sock_buff), buflen, circuit->interface->name);
+      return ISIS_WARNING;
+    }
 
   stream_set_getp (circuit->snd_stream, 0);
 
@@ -328,9 +337,7 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
 	  stream_get_endp (circuit->snd_stream));
 
   /* now we can send this */
-  written = write (circuit->fd, sock_buff,
-		   stream_get_endp (circuit->snd_stream) 
-		    + LLC_LEN + ETHER_HDR_LEN);
+  written = write (circuit->fd, sock_buff, buflen);
 
   return ISIS_OK;
 }

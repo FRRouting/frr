@@ -52,8 +52,6 @@ struct isis_bcast_info
   u_char l1_desig_is[ISIS_SYS_ID_LEN + 1];	/* level-1 DR */
   u_char l2_desig_is[ISIS_SYS_ID_LEN + 1];	/* level-2 DR */
   struct thread *t_refresh_pseudo_lsp[2];	/* refresh pseudo-node LSPs */
-  int pad_hellos;		/* add padding to Hello PDUs ? */
-  u_char priority[2];		/* l1/2 IS Priority */
 };
 
 struct isis_p2p_info
@@ -78,31 +76,36 @@ struct isis_circuit
   struct thread *t_send_csnp[2];
   struct thread *t_send_psnp[2];
   struct list *lsp_queue;	/* LSPs to be txed (both levels) */
+  time_t lsp_queue_last_cleared;/* timestamp used to enforce transmit interval;
+                                 * for scalability, use one timestamp per 
+                                 * circuit, instead of one per lsp per circuit
+                                 */
   /* there is no real point in two streams, just for programming kicker */
   int (*rx) (struct isis_circuit * circuit, u_char * ssnpa);
   struct stream *rcv_stream;	/* Stream for receiving */
   int (*tx) (struct isis_circuit * circuit, int level);
   struct stream *snd_stream;	/* Stream for sending */
   int idx;			/* idx in S[RM|SN] flags */
-#define CIRCUIT_T_BROADCAST  0
-#define CIRCUIT_T_P2P        1
-#define CIRCUIT_T_STATIC_IN  2
-#define CIRCUIT_T_STATIC_OUT 3
-#define CIRCUIT_T_DA         4
+#define CIRCUIT_T_UNKNOWN    0
+#define CIRCUIT_T_BROADCAST  1
+#define CIRCUIT_T_P2P        2
+#define CIRCUIT_T_LOOPBACK   3
   int circ_type;		/* type of the physical interface */
+  int circ_type_config;		/* config type of the physical interface */
   union
   {
     struct isis_bcast_info bc;
     struct isis_p2p_info p2p;
   } u;
+  u_char priority[2];		/* l1/2 IS configured priority */
+  int pad_hellos;		/* add padding to Hello PDUs ? */
   char ext_domain;		/* externalDomain   (boolean) */
+  int lsp_regenerate_pending[ISIS_LEVELS];
   /* 
    * Configurables 
    */
   struct isis_passwd passwd;	/* Circuit rx/tx password */
-  long lsp_interval;
-  int manual_l2_only;		/* manualL2OnlyMode (boolean) */
-  int circuit_is_type;		/* circuit is type == level of circuit
+  int is_type;	                /* circuit is type == level of circuit
 				 * diffrenciated from circuit type (media) */
   u_int32_t hello_interval[2];	/* l1HelloInterval in msecs */
   u_int16_t hello_multiplier[2];	/* l1HelloMultiplier */
@@ -110,24 +113,17 @@ struct isis_circuit
   u_int16_t psnp_interval[2];	/* level-1 psnp-interval in seconds */
   struct metric metrics[2];	/* l1XxxMetric */
   u_int32_t te_metric[2];
-  struct password *c_rx_passwds;	/* circuitReceivePasswords */
-  struct password *c_tc_passwd;	/* circuitTransmitPassword */
   int ip_router;		/* Route IP ? */
+  int is_passive;		/* Is Passive ? */
   struct list *ip_addrs;	/* our IP addresses */
 #ifdef HAVE_IPV6
   int ipv6_router;		/* Route IPv6 ? */
   struct list *ipv6_link;	/* our link local IPv6 addresses */
   struct list *ipv6_non_link;	/* our non-link local IPv6 addresses */
 #endif				/* HAVE_IPV6 */
-  /* 
-   * RFC 2973 IS-IS Mesh Groups 
-   */
-#define MESH_INACTIVE 0
-#define MESH_BLOCKED  1
-#define MESH_SET      2
-  int mesh_enabled;		/* meshGroupEnabled */
-  u_int16_t mesh_group;		/* meshGroup */
   u_int16_t upadjcount[2];
+#define ISIS_CIRCUIT_FLAPPED_AFTER_SPF 0x01
+  u_char flags;
   /*
    * Counters as in 10589--11.2.5.9
    */
@@ -141,25 +137,30 @@ struct isis_circuit
 
 void isis_circuit_init (void);
 struct isis_circuit *isis_circuit_new (void);
+void isis_circuit_del (struct isis_circuit *circuit);
 struct isis_circuit *circuit_lookup_by_ifp (struct interface *ifp,
 					    struct list *list);
 struct isis_circuit *circuit_scan_by_ifp (struct interface *ifp);
-void isis_circuit_del (struct isis_circuit *circuit);
 void isis_circuit_configure (struct isis_circuit *circuit,
 			     struct isis_area *area);
-void isis_circuit_up (struct isis_circuit *circuit);
 void isis_circuit_deconfigure (struct isis_circuit *circuit,
 			       struct isis_area *area);
-
-int isis_circuit_destroy (struct isis_circuit *circuit);
 void isis_circuit_if_add (struct isis_circuit *circuit,
 			  struct interface *ifp);
-void isis_circuit_if_del (struct isis_circuit *circuit);
-void circuit_update_nlpids (struct isis_circuit *circuit);
-void isis_circuit_update_params (struct isis_circuit *circuit,
-				 struct interface *ifp);
+void isis_circuit_if_del (struct isis_circuit *circuit,
+			  struct interface *ifp);
+void isis_circuit_if_bind (struct isis_circuit *circuit,
+                           struct interface *ifp);
+void isis_circuit_if_unbind (struct isis_circuit *circuit,
+                             struct interface *ifp);
 void isis_circuit_add_addr (struct isis_circuit *circuit,
 			    struct connected *conn);
 void isis_circuit_del_addr (struct isis_circuit *circuit,
 			    struct connected *conn);
+int isis_circuit_up (struct isis_circuit *circuit);
+void isis_circuit_down (struct isis_circuit *);
+void circuit_update_nlpids (struct isis_circuit *circuit);
+void isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
+                             char detail);
+
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */

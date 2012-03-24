@@ -29,21 +29,22 @@
 #include "log.h"
 #include "stream.h"
 #include "vty.h"
-#include "hash.c"
+#include "hash.h"
 #include "prefix.h"
 #include "if.h"
 #include "checksum.h"
+#include "md5.h"
 
 #include "isisd/dict.h"
 #include "isisd/include-netbsd/iso.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
+#include "isisd/isis_flags.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_network.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_dr.h"
-#include "isisd/isis_flags.h"
 #include "isisd/isis_tlv.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_dynhn.h"
@@ -52,9 +53,6 @@
 #include "isisd/iso_checksum.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
-
-extern struct thread_master *master;
-extern struct isis *isis;
 
 #define ISIS_MINIMUM_FIXED_HDR_LEN 15
 #define ISIS_MIN_PDU_LEN           13	/* partial seqnum pdu with id_len=2 */
@@ -168,31 +166,151 @@ accept_level (int level, int circuit_t)
   return retval;
 }
 
-int
-authentication_check (struct isis_passwd *one, struct isis_passwd *theother)
+/*
+ * Verify authentication information
+ * Support cleartext and HMAC MD5 authentication
+ */
+static int
+authentication_check (struct isis_passwd *remote, struct isis_passwd *local,
+                      struct stream *stream, uint32_t auth_tlv_offset)
 {
-  if (one->type != theother->type)
-    {
-      zlog_warn ("Unsupported authentication type %d", theother->type);
-      return 1;			/* Auth fail (different authentication types) */
-    }
-  switch (one->type)
-    {
+  unsigned char digest[ISIS_AUTH_MD5_SIZE];
+
+  /* Auth fail () - passwd type mismatch */
+  if (local->type != remote->type)
+    return ISIS_ERROR;
+
+  switch (local->type)
+  {
+    /* No authentication required */
+    case ISIS_PASSWD_TYPE_UNUSED:
+      break;
+
+    /* Cleartext (ISO 10589) */
     case ISIS_PASSWD_TYPE_CLEARTXT:
-      if (one->len != theother->len)
-	return 1;		/* Auth fail () - passwd len mismatch */
-      return memcmp (one->passwd, theother->passwd, one->len);
-      break;
+      /* Auth fail () - passwd len mismatch */
+      if (remote->len != local->len)
+        return ISIS_ERROR;
+      return memcmp (local->passwd, remote->passwd, local->len);
+
+    /* HMAC MD5 (RFC 3567) */
+    case ISIS_PASSWD_TYPE_HMAC_MD5:
+      /* Auth fail () - passwd len mismatch */
+      if (remote->len != ISIS_AUTH_MD5_SIZE)
+        return ISIS_ERROR;
+      /* Set the authentication value to 0 before the check */
+      memset (STREAM_DATA (stream) + auth_tlv_offset + 3, 0,
+              ISIS_AUTH_MD5_SIZE);
+      /* Compute the digest */
+      hmac_md5 (STREAM_DATA (stream), stream_get_endp (stream),
+                (unsigned char *) &(local->passwd), local->len,
+                (caddr_t) &digest);
+      /* Copy back the authentication value after the check */
+      memcpy (STREAM_DATA (stream) + auth_tlv_offset + 3,
+              remote->passwd, ISIS_AUTH_MD5_SIZE);
+      return memcmp (digest, remote->passwd, ISIS_AUTH_MD5_SIZE);
+
     default:
-      zlog_warn ("Unsupported authentication type");
-      break;
+      zlog_err ("Unsupported authentication type");
+      return ISIS_ERROR;
+  }
+
+  /* Authentication pass when no authentication is configured */
+  return ISIS_OK;
+}
+
+static int
+lsp_authentication_check (struct stream *stream, struct isis_area *area,
+                          int level, struct isis_passwd *passwd)
+{
+  struct isis_link_state_hdr *hdr;
+  uint32_t expected = 0, found = 0, auth_tlv_offset = 0;
+  uint16_t checksum, rem_lifetime;
+  struct tlvs tlvs;
+  int retval = ISIS_OK;
+
+  hdr = (struct isis_link_state_hdr *) (STREAM_PNT (stream));
+  expected |= TLVFLAG_AUTH_INFO;
+  auth_tlv_offset = stream_get_getp (stream) + ISIS_LSP_HDR_LEN;
+  retval = parse_tlvs (area->area_tag, STREAM_PNT (stream) + ISIS_LSP_HDR_LEN,
+                       ntohs (hdr->pdu_len) - ISIS_FIXED_HDR_LEN -
+                       ISIS_LSP_HDR_LEN,
+                       &expected, &found, &tlvs, &auth_tlv_offset);
+
+  if (retval != ISIS_OK)
+    {
+      zlog_err ("ISIS-Upd (%s): Parse failed L%d LSP %s, seq 0x%08x, "
+                "cksum 0x%04x, lifetime %us, len %u",
+                area->area_tag, level, rawlspid_print (hdr->lsp_id),
+                ntohl (hdr->seq_num), ntohs (hdr->checksum),
+                ntohs (hdr->rem_lifetime), ntohs (hdr->pdu_len));
+      if ((isis->debugs & DEBUG_UPDATE_PACKETS) &&
+          (isis->debugs & DEBUG_PACKET_DUMP))
+        zlog_dump_data (STREAM_DATA (stream), stream_get_endp (stream));
+      return retval;
     }
-  return 0;			/* Auth pass */
+
+  if (!(found & TLVFLAG_AUTH_INFO))
+    {
+      zlog_err ("No authentication tlv in LSP");
+      return ISIS_ERROR;
+    }
+
+  if (tlvs.auth_info.type != ISIS_PASSWD_TYPE_CLEARTXT &&
+      tlvs.auth_info.type != ISIS_PASSWD_TYPE_HMAC_MD5)
+    {
+      zlog_err ("Unknown authentication type in LSP");
+      return ISIS_ERROR;
+    }
+
+  /*
+   * RFC 5304 set checksum and remaining lifetime to zero before
+   * verification and reset to old values after verification.
+   */
+  checksum = hdr->checksum;
+  rem_lifetime = hdr->rem_lifetime;
+  hdr->checksum = 0;
+  hdr->rem_lifetime = 0;
+  retval = authentication_check (&tlvs.auth_info, passwd, stream,
+                                 auth_tlv_offset);
+  hdr->checksum = checksum;
+  hdr->rem_lifetime = rem_lifetime;
+
+  return retval;
 }
 
 /*
  * Processing helper functions
  */
+static void
+del_addr (void *val)
+{
+  XFREE (MTYPE_ISIS_TMP, val);
+}
+
+static void
+tlvs_to_adj_area_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
+{
+  struct listnode *node;
+  struct area_addr *area_addr, *malloced;
+
+  if (adj->area_addrs)
+    {
+      adj->area_addrs->del = del_addr;
+      list_delete (adj->area_addrs);
+    }
+  adj->area_addrs = list_new ();
+  if (tlvs->area_addrs)
+    {
+      for (ALL_LIST_ELEMENTS_RO (tlvs->area_addrs, node, area_addr))
+      {
+	malloced = XMALLOC (MTYPE_ISIS_TMP, sizeof (struct area_addr));
+	memcpy (malloced, area_addr, sizeof (struct area_addr));
+	listnode_add (adj->area_addrs, malloced);
+      }
+    }
+}
+
 static void
 tlvs_to_adj_nlpids (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
@@ -214,12 +332,6 @@ tlvs_to_adj_nlpids (struct tlvs *tlvs, struct isis_adjacency *adj)
 }
 
 static void
-del_ip_addr (void *val)
-{
-  XFREE (MTYPE_ISIS_TMP, val);
-}
-
-static void
 tlvs_to_adj_ipv4_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
   struct listnode *node;
@@ -227,7 +339,7 @@ tlvs_to_adj_ipv4_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
 
   if (adj->ipv4_addrs)
     {
-      adj->ipv4_addrs->del = del_ip_addr;
+      adj->ipv4_addrs->del = del_addr;
       list_delete (adj->ipv4_addrs);
     }
   adj->ipv4_addrs = list_new ();
@@ -251,7 +363,7 @@ tlvs_to_adj_ipv6_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
 
   if (adj->ipv6_addrs)
     {
-      adj->ipv6_addrs->del = del_ip_addr;
+      adj->ipv6_addrs->del = del_addr;
       list_delete (adj->ipv6_addrs);
     }
   adj->ipv6_addrs = list_new ();
@@ -284,8 +396,24 @@ process_p2p_hello (struct isis_circuit *circuit)
   int retval = ISIS_OK;
   struct isis_p2p_hello_hdr *hdr;
   struct isis_adjacency *adj;
-  u_int32_t expected = 0, found;
+  u_int32_t expected = 0, found = 0, auth_tlv_offset = 0;
   struct tlvs tlvs;
+
+  if (isis->debugs & DEBUG_ADJ_PACKETS)
+    {
+      zlog_debug ("ISIS-Adj (%s): Rcvd P2P IIH on %s, cirType %s, cirID %u",
+                  circuit->area->area_tag, circuit->interface->name,
+                  circuit_t2string (circuit->is_type), circuit->circuit_id);
+      if (isis->debugs & DEBUG_PACKET_DUMP)
+        zlog_dump_data (STREAM_DATA (circuit->rcv_stream),
+                        stream_get_endp (circuit->rcv_stream));
+    }
+
+  if (circuit->circ_type != CIRCUIT_T_P2P)
+    {
+      zlog_warn ("p2p hello on non p2p circuit");
+      return ISIS_WARNING;
+    }
 
   if ((stream_get_endp (circuit->rcv_stream) -
        stream_get_getp (circuit->rcv_stream)) < ISIS_P2PHELLO_HDRLEN)
@@ -311,7 +439,7 @@ process_p2p_hello (struct isis_circuit *circuit)
    * Get the header
    */
   hdr = (struct isis_p2p_hello_hdr *) STREAM_PNT (circuit->rcv_stream);
-  circuit->rcv_stream->getp += ISIS_P2PHELLO_HDRLEN;
+  stream_forward_getp (circuit->rcv_stream, ISIS_P2PHELLO_HDRLEN);
 
   /*  hdr.circuit_t = stream_getc (stream);
      stream_get (hdr.source_id, stream, ISIS_SYS_ID_LEN);
@@ -319,34 +447,14 @@ process_p2p_hello (struct isis_circuit *circuit)
      hdr.pdu_len   = stream_getw (stream);
      hdr.local_id  = stream_getc (stream); */
 
-  /*
-   * My interpertation of the ISO, if no adj exists we will create one for 
-   * the circuit
-   */
-
-  if (isis->debugs & DEBUG_ADJ_PACKETS)
+  if (ntohs (hdr->pdu_len) > ISO_MTU(circuit))
     {
-      zlog_debug ("ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s,"
-		  " cir id %02d, length %d",
-		  circuit->area->area_tag, circuit->interface->name,
-		  circuit_t2string (circuit->circuit_is_type),
-		  circuit->circuit_id, ntohs (hdr->pdu_len));
+      zlog_warn ("ISIS-Adj (%s): Rcvd P2P IIH from (%s) with "
+                 "invalid pdu length %d",
+                 circuit->area->area_tag, circuit->interface->name,
+                 ntohs (hdr->pdu_len));
+      return ISIS_WARNING;
     }
-
-  adj = circuit->u.p2p.neighbor;
-  if (!adj)
-    {
-      adj = isis_new_adj (hdr->source_id, NULL, 0, circuit);
-      if (adj == NULL)
-	return ISIS_ERROR;
-      circuit->u.p2p.neighbor = adj;
-      isis_adj_state_change (adj, ISIS_ADJ_INITIALIZING, NULL);
-      adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
-    }
-
-  /* 8.2.6 Monitoring point-to-point adjacencies */
-  adj->hold_time = ntohs (hdr->hold_time);
-  adj->last_upd = time (NULL);
 
   /*
    * Lets get the TLVS now
@@ -357,37 +465,94 @@ process_p2p_hello (struct isis_circuit *circuit)
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV6_ADDR;
 
+  auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
 		       STREAM_PNT (circuit->rcv_stream),
 		       ntohs (hdr->pdu_len) - ISIS_P2PHELLO_HDRLEN
-		       - ISIS_FIXED_HDR_LEN, &expected, &found, &tlvs);
+		       - ISIS_FIXED_HDR_LEN, &expected, &found, &tlvs,
+                       &auth_tlv_offset);
 
   if (retval > ISIS_WARNING)
     {
+      zlog_warn ("parse_tlvs() failed");
       free_tlvs (&tlvs);
       return retval;
     };
+
+  if (!(found & TLVFLAG_AREA_ADDRS))
+    {
+      zlog_warn ("No Area addresses TLV in P2P IS to IS hello");
+      free_tlvs (&tlvs);
+      return ISIS_WARNING;
+    }
 
   /* 8.2.5.1 c) Authentication */
   if (circuit->passwd.type)
     {
       if (!(found & TLVFLAG_AUTH_INFO) ||
-	  authentication_check (&circuit->passwd, &tlvs.auth_info))
-	{
-	  isis_event_auth_failure (circuit->area->area_tag,
-				   "P2P hello authentication failure",
-				   hdr->source_id);
-	  return ISIS_OK;
-	}
+          authentication_check (&tlvs.auth_info, &circuit->passwd,
+                                circuit->rcv_stream, auth_tlv_offset))
+        {
+          isis_event_auth_failure (circuit->area->area_tag,
+                                   "P2P hello authentication failure",
+                                   hdr->source_id);
+          free_tlvs (&tlvs);
+          return ISIS_OK;
+        }
     }
 
+  /*
+   * check if it's own interface ip match iih ip addrs
+   */
+  if ((found & TLVFLAG_IPV4_ADDR) == 0 ||
+      ip_match (circuit->ip_addrs, tlvs.ipv4_addrs) == 0)
+    {
+      zlog_warn ("ISIS-Adj: No usable IP interface addresses "
+                 "in LAN IIH from %s\n", circuit->interface->name);
+      free_tlvs (&tlvs);
+      return ISIS_WARNING;
+    }
+
+  /*
+   * My interpertation of the ISO, if no adj exists we will create one for
+   * the circuit
+   */
+  adj = circuit->u.p2p.neighbor;
+  if (!adj || adj->level != hdr->circuit_t)
+    {
+      if (!adj)
+        {
+          adj = isis_new_adj (hdr->source_id, NULL, hdr->circuit_t, circuit);
+          if (adj == NULL)
+            return ISIS_ERROR;
+        }
+      else
+        {
+          adj->level = hdr->circuit_t;
+        }
+      circuit->u.p2p.neighbor = adj;
+      isis_adj_state_change (adj, ISIS_ADJ_INITIALIZING, NULL);
+      adj->sys_type = ISIS_SYSTYPE_UNKNOWN;
+    }
+
+  /* 8.2.6 Monitoring point-to-point adjacencies */
+  adj->hold_time = ntohs (hdr->hold_time);
+  adj->last_upd = time (NULL);
+
   /* we do this now because the adj may not survive till the end... */
+  tlvs_to_adj_area_addrs (&tlvs, adj);
+
+  /* which protocol are spoken ??? */
+  if (found & TLVFLAG_NLPID)
+    tlvs_to_adj_nlpids (&tlvs, adj);
 
   /* we need to copy addresses to the adj */
-  tlvs_to_adj_ipv4_addrs (&tlvs, adj);
+  if (found & TLVFLAG_IPV4_ADDR)
+    tlvs_to_adj_ipv4_addrs (&tlvs, adj);
 
 #ifdef HAVE_IPV6
-  tlvs_to_adj_ipv6_addrs (&tlvs, adj);
+  if (found & TLVFLAG_IPV6_ADDR)
+    tlvs_to_adj_ipv6_addrs (&tlvs, adj);
 #endif /* HAVE_IPV6 */
 
   /* lets take care of the expiry */
@@ -422,6 +587,7 @@ process_p2p_hello (struct isis_circuit *circuit)
 		{
 		  /* (7) reject - wrong system type event */
 		  zlog_warn ("wrongSystemType");
+                  free_tlvs (&tlvs);
 		  return ISIS_WARNING;	/* Reject */
 		}
 	      else if (adj->adj_usage == ISIS_ADJ_LEVEL1)
@@ -508,6 +674,7 @@ process_p2p_hello (struct isis_circuit *circuit)
 		{
 		  /* (5) reject - wrong system type event */
 		  zlog_warn ("wrongSystemType");
+                  free_tlvs (&tlvs);
 		  return ISIS_WARNING;	/* Reject */
 		}
 	      else if ((adj->adj_usage == ISIS_ADJ_LEVEL1AND2) ||
@@ -540,7 +707,7 @@ process_p2p_hello (struct isis_circuit *circuit)
 	}
     }
   /* 8.2.5.2 b) if no match was detected */
-  else
+  else if (listcount (circuit->area->area_addrs) > 0)
     {
       if (circuit->area->is_type == IS_LEVEL_1)
 	{
@@ -566,6 +733,7 @@ process_p2p_hello (struct isis_circuit *circuit)
 		{
 		  /* (6) reject - Area Mismatch event */
 		  zlog_warn ("AreaMismatch");
+                  free_tlvs (&tlvs);
 		  return ISIS_WARNING;	/* Reject */
 		}
 	      else if (adj->adj_usage == ISIS_ADJ_LEVEL1)
@@ -618,6 +786,11 @@ process_p2p_hello (struct isis_circuit *circuit)
 	    }
 	}
     }
+  else
+    {
+      /* down - area mismatch */
+      isis_adj_state_change (adj, ISIS_ADJ_DOWN, "Area Mismatch");
+    }
   /* 8.2.5.2 c) if the action was up - comparing circuit IDs */
   /* FIXME - Missing parts */
 
@@ -641,7 +814,15 @@ process_p2p_hello (struct isis_circuit *circuit)
     }
 
   adj->circuit_t = hdr->circuit_t;
-  adj->level = hdr->circuit_t;
+
+  if (isis->debugs & DEBUG_ADJ_PACKETS)
+    {
+      zlog_debug ("ISIS-Adj (%s): Rcvd P2P IIH from (%s), cir type %s,"
+		  " cir id %02d, length %d",
+		  circuit->area->area_tag, circuit->interface->name,
+		  circuit_t2string (circuit->is_type),
+		  circuit->circuit_id, ntohs (hdr->pdu_len));
+    }
 
   free_tlvs (&tlvs);
 
@@ -657,10 +838,27 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   int retval = ISIS_OK;
   struct isis_lan_hello_hdr hdr;
   struct isis_adjacency *adj;
-  u_int32_t expected = 0, found;
+  u_int32_t expected = 0, found = 0, auth_tlv_offset = 0;
   struct tlvs tlvs;
   u_char *snpa;
   struct listnode *node;
+
+  if (isis->debugs & DEBUG_ADJ_PACKETS)
+    {
+      zlog_debug ("ISIS-Adj (%s): Rcvd L%d LAN IIH on %s, cirType %s, "
+                  "cirID %u",
+                  circuit->area->area_tag, level, circuit->interface->name,
+                  circuit_t2string (circuit->is_type), circuit->circuit_id);
+      if (isis->debugs & DEBUG_PACKET_DUMP)
+        zlog_dump_data (STREAM_DATA (circuit->rcv_stream),
+                        stream_get_endp (circuit->rcv_stream));
+    }
+
+  if (circuit->circ_type != CIRCUIT_T_BROADCAST)
+    {
+      zlog_warn ("lan hello on non broadcast circuit");
+      return ISIS_WARNING;
+    }
 
   if ((stream_get_endp (circuit->rcv_stream) -
        stream_get_getp (circuit->rcv_stream)) < ISIS_LANHELLO_HDRLEN)
@@ -676,7 +874,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       return ISIS_WARNING;
     }
 
-  if (!accept_level (level, circuit->circuit_is_type))
+  if (!accept_level (level, circuit->is_type))
     {
       if (isis->debugs & DEBUG_ADJ_PACKETS)
 	{
@@ -708,13 +906,25 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   hdr.prio = stream_getc (circuit->rcv_stream);
   stream_get (hdr.lan_id, circuit->rcv_stream, ISIS_SYS_ID_LEN + 1);
 
-  if (hdr.circuit_t != IS_LEVEL_1 && hdr.circuit_t != IS_LEVEL_2 &&
-      hdr.circuit_t != IS_LEVEL_1_AND_2)
+  if (hdr.pdu_len > ISO_MTU(circuit))
     {
-      zlog_warn ("Level %d LAN Hello with Circuit Type %d", level,
-		 hdr.circuit_t);
+      zlog_warn ("ISIS-Adj (%s): Rcvd LAN IIH from (%s) with "
+                 "invalid pdu length %d",
+                 circuit->area->area_tag, circuit->interface->name,
+                 hdr.pdu_len);
+      hdr.pdu_len = stream_get_endp (circuit->rcv_stream);
+    }
+
+  if (hdr.circuit_t != IS_LEVEL_1 &&
+      hdr.circuit_t != IS_LEVEL_2 &&
+      hdr.circuit_t != IS_LEVEL_1_AND_2 &&
+      (level & hdr.circuit_t) == 0)
+    {
+      zlog_err ("Level %d LAN Hello with Circuit Type %d", level,
+                hdr.circuit_t);
       return ISIS_ERROR;
     }
+
   /*
    * Then get the tlvs
    */
@@ -725,10 +935,12 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   expected |= TLVFLAG_IPV4_ADDR;
   expected |= TLVFLAG_IPV6_ADDR;
 
+  auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
-		       STREAM_PNT (circuit->rcv_stream),
-		       hdr.pdu_len - ISIS_LANHELLO_HDRLEN -
-		       ISIS_FIXED_HDR_LEN, &expected, &found, &tlvs);
+                       STREAM_PNT (circuit->rcv_stream),
+                       hdr.pdu_len - ISIS_LANHELLO_HDRLEN - ISIS_FIXED_HDR_LEN,
+                       &expected, &found, &tlvs,
+                       &auth_tlv_offset);
 
   if (retval > ISIS_WARNING)
     {
@@ -744,24 +956,28 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       goto out;
     }
 
+  /* Verify authentication, either cleartext of HMAC MD5 */
   if (circuit->passwd.type)
     {
       if (!(found & TLVFLAG_AUTH_INFO) ||
-	  authentication_check (&circuit->passwd, &tlvs.auth_info))
-	{
-	  isis_event_auth_failure (circuit->area->area_tag,
-				   "LAN hello authentication failure",
-				   hdr.source_id);
-	  retval = ISIS_WARNING;
-	  goto out;
-	}
+          authentication_check (&tlvs.auth_info, &circuit->passwd,
+                                circuit->rcv_stream, auth_tlv_offset))
+        {
+          isis_event_auth_failure (circuit->area->area_tag,
+                                   "LAN hello authentication failure",
+                                   hdr.source_id);
+          retval = ISIS_WARNING;
+          goto out;
+        }
     }
 
   /*
    * Accept the level 1 adjacency only if a match between local and
    * remote area addresses is found
    */
-  if (level == 1 && !area_match (circuit->area->area_addrs, tlvs.area_addrs))
+  if (listcount (circuit->area->area_addrs) == 0 ||
+      (level == IS_LEVEL_1 &&
+       area_match (circuit->area->area_addrs, tlvs.area_addrs) == 0))
     {
       if (isis->debugs & DEBUG_ADJ_PACKETS)
 	{
@@ -788,43 +1004,49 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   /*
    * check if it's own interface ip match iih ip addrs
    */
-  if (!(found & TLVFLAG_IPV4_ADDR)
-      || !ip_match (circuit->ip_addrs, tlvs.ipv4_addrs))
+  if ((found & TLVFLAG_IPV4_ADDR) == 0 ||
+      ip_match (circuit->ip_addrs, tlvs.ipv4_addrs) == 0)
     {
-      zlog_debug
-	("ISIS-Adj: No usable IP interface addresses in LAN IIH from %s\n",
-	 circuit->interface->name);
+      zlog_debug ("ISIS-Adj: No usable IP interface addresses "
+                  "in LAN IIH from %s\n", circuit->interface->name);
       retval = ISIS_WARNING;
       goto out;
     }
 
   adj = isis_adj_lookup (hdr.source_id, circuit->u.bc.adjdb[level - 1]);
-  if (!adj)
+  if ((adj == NULL) || (memcmp(adj->snpa, ssnpa, ETH_ALEN)) ||
+      (adj->level != level))
     {
-      /*
-       * Do as in 8.4.2.5
-       */
-      adj = isis_new_adj (hdr.source_id, ssnpa, level, circuit);
-      if (adj == NULL)
-	{
-	  retval = ISIS_ERROR;
-	  goto out;
-	}
-
-      adj->level = level;
+      if (!adj)
+        {
+          /*
+           * Do as in 8.4.2.5
+           */
+          adj = isis_new_adj (hdr.source_id, ssnpa, level, circuit);
+          if (adj == NULL)
+            {
+              retval = ISIS_ERROR;
+              goto out;
+            }
+        }
+      else
+        {
+          if (ssnpa) {
+            memcpy (adj->snpa, ssnpa, 6);
+          } else {
+            memset (adj->snpa, ' ', 6);
+          }
+          adj->level = level;
+        }
       isis_adj_state_change (adj, ISIS_ADJ_INITIALIZING, NULL);
 
-      if (level == 1)
-	{
-	  adj->sys_type = ISIS_SYSTYPE_L1_IS;
-	}
+      if (level == IS_LEVEL_1)
+          adj->sys_type = ISIS_SYSTYPE_L1_IS;
       else
-	{
-	  adj->sys_type = ISIS_SYSTYPE_L2_IS;
-	}
+          adj->sys_type = ISIS_SYSTYPE_L2_IS;
       list_delete_all_node (circuit->u.bc.lan_neighs[level - 1]);
       isis_adj_build_neigh_list (circuit->u.bc.adjdb[level - 1],
-				 circuit->u.bc.lan_neighs[level - 1]);
+                                 circuit->u.bc.lan_neighs[level - 1]);
     }
 
   if(adj->dis_record[level-1].dis==ISIS_IS_DIS)
@@ -833,7 +1055,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       case 1:
 	if (memcmp (circuit->u.bc.l1_desig_is, hdr.lan_id, ISIS_SYS_ID_LEN + 1))
 	  {
-	    thread_add_event (master, isis_event_dis_status_change, circuit, 0);
+            thread_add_event (master, isis_event_dis_status_change, circuit, 0);
 	    memcpy (&circuit->u.bc.l1_desig_is, hdr.lan_id,
 		    ISIS_SYS_ID_LEN + 1);
 	  }
@@ -841,7 +1063,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       case 2:
 	if (memcmp (circuit->u.bc.l2_desig_is, hdr.lan_id, ISIS_SYS_ID_LEN + 1))
 	  {
-	    thread_add_event (master, isis_event_dis_status_change, circuit, 0);
+            thread_add_event (master, isis_event_dis_status_change, circuit, 0);
 	    memcpy (&circuit->u.bc.l2_desig_is, hdr.lan_id,
 		    ISIS_SYS_ID_LEN + 1);
 	  }
@@ -853,6 +1075,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   adj->prio[level - 1] = hdr.prio;
 
   memcpy (adj->lanid, hdr.lan_id, ISIS_SYS_ID_LEN + 1);
+
+  tlvs_to_adj_area_addrs (&tlvs, adj);
 
   /* which protocol are spoken ??? */
   if (found & TLVFLAG_NLPID)
@@ -872,7 +1096,7 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   /* lets take care of the expiry */
   THREAD_TIMER_OFF (adj->t_expire);
   THREAD_TIMER_ON (master, adj->t_expire, isis_adj_expire, adj,
-		   (long) adj->hold_time);
+                   (long) adj->hold_time);
 
   /*
    * If the snpa for this circuit is found from LAN Neighbours TLV
@@ -880,31 +1104,48 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
    */
 
   if (found & TLVFLAG_LAN_NEIGHS)
+  {
+    if (adj->adj_state != ISIS_ADJ_UP)
     {
-      if (adj->adj_state != ISIS_ADJ_UP)
-	{
-	  for (ALL_LIST_ELEMENTS_RO (tlvs.lan_neighs, node, snpa))
-	    if (!memcmp (snpa, circuit->u.bc.snpa, ETH_ALEN))
-	    {
-	      isis_adj_state_change (adj, ISIS_ADJ_UP,
-				     "own SNPA found in LAN Neighbours TLV");
-	    }
-	}
+      for (ALL_LIST_ELEMENTS_RO (tlvs.lan_neighs, node, snpa))
+      {
+        if (!memcmp (snpa, circuit->u.bc.snpa, ETH_ALEN))
+        {
+          isis_adj_state_change (adj, ISIS_ADJ_UP,
+                                 "own SNPA found in LAN Neighbours TLV");
+        }
+      }
     }
+    else
+    {
+      int found = 0;
+      for (ALL_LIST_ELEMENTS_RO (tlvs.lan_neighs, node, snpa))
+        if (!memcmp (snpa, circuit->u.bc.snpa, ETH_ALEN))
+        {
+          found = 1;
+          break;
+        }
+      if (found == 0)
+        isis_adj_state_change (adj, ISIS_ADJ_INITIALIZING,
+                               "own SNPA not found in LAN Neighbours TLV");
+    }
+  }
+  else if (adj->adj_state == ISIS_ADJ_UP)
+  {
+    isis_adj_state_change (adj, ISIS_ADJ_INITIALIZING,
+                           "no LAN Neighbours TLV found");
+  }
 
 out:
-  /* DEBUG_ADJ_PACKETS */
   if (isis->debugs & DEBUG_ADJ_PACKETS)
     {
-      /* FIXME: is this place right? fix missing info */
       zlog_debug ("ISIS-Adj (%s): Rcvd L%d LAN IIH from %s on %s, cirType %s, "
 		  "cirID %u, length %ld",
 		  circuit->area->area_tag,
 		  level, snpa_print (ssnpa), circuit->interface->name,
-		  circuit_t2string (circuit->circuit_is_type),
+		  circuit_t2string (circuit->is_type),
 		  circuit->circuit_id,
-		  /* FIXME: use %z when we stop supporting old compilers. */
-		  (unsigned long) stream_get_endp (circuit->rcv_stream));
+		  stream_get_endp (circuit->rcv_stream));
     }
 
   free_tlvs (&tlvs);
@@ -927,7 +1168,16 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
   u_char lspid[ISIS_SYS_ID_LEN + 2];
   struct isis_passwd *passwd;
 
-  /* Sanity check - FIXME: move to correct place */
+  if (isis->debugs & DEBUG_UPDATE_PACKETS)
+    {
+      zlog_debug ("ISIS-Upd (%s): Rcvd L%d LSP on %s, cirType %s, cirID %u",
+                  circuit->area->area_tag, level, circuit->interface->name,
+                  circuit_t2string (circuit->is_type), circuit->circuit_id);
+      if (isis->debugs & DEBUG_PACKET_DUMP)
+        zlog_dump_data (STREAM_DATA (circuit->rcv_stream),
+                        stream_get_endp (circuit->rcv_stream));
+    }
+
   if ((stream_get_endp (circuit->rcv_stream) -
        stream_get_getp (circuit->rcv_stream)) < ISIS_LSP_HDR_LEN)
     {
@@ -941,19 +1191,26 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
   if (isis->debugs & DEBUG_UPDATE_PACKETS)
     {
       zlog_debug ("ISIS-Upd (%s): Rcvd L%d LSP %s, seq 0x%08x, cksum 0x%04x, "
-		  "lifetime %us, len %lu, on %s",
+		  "lifetime %us, len %u, on %s",
 		  circuit->area->area_tag,
 		  level,
 		  rawlspid_print (hdr->lsp_id),
 		  ntohl (hdr->seq_num),
 		  ntohs (hdr->checksum),
 		  ntohs (hdr->rem_lifetime),
-		  /* FIXME: use %z when we stop supporting old compilers. */
-		  (unsigned long) stream_get_endp (circuit->rcv_stream), 
+		  ntohs (hdr->pdu_len),
 		  circuit->interface->name);
     }
 
-  assert (ntohs (hdr->pdu_len) > ISIS_LSP_HDR_LEN);
+  if (ntohs (hdr->pdu_len) <= ISIS_LSP_HDR_LEN ||
+      ntohs (hdr->pdu_len)  > ISO_MTU(circuit))
+    {
+      zlog_debug ("ISIS-Upd (%s): LSP %s invalid LSP length %d",
+		  circuit->area->area_tag,
+		  rawlspid_print (hdr->lsp_id), ntohs (hdr->pdu_len));
+
+      return ISIS_WARNING;
+    }
 
   /* Checksum sanity check - FIXME: move to correct place */
   /* 12 = sysid+pdu+remtime */
@@ -979,13 +1236,13 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
     }
 
   /* 7.3.15.1 a) 2,3 - manualL2OnlyMode not implemented */
-  if (!accept_level (level, circuit->circuit_is_type))
+  if (!accept_level (level, circuit->is_type))
     {
       zlog_debug ("ISIS-Upd (%s): LSP %s received at level %d over circuit of"
 		  " type %s",
 		  circuit->area->area_tag,
 		  rawlspid_print (hdr->lsp_id),
-		  level, circuit_t2string (circuit->circuit_is_type));
+		  level, circuit_t2string (circuit->is_type));
 
       return ISIS_WARNING;
     }
@@ -995,12 +1252,12 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
   /* 7.3.15.1 a) 5 - maximum area match, can be ommited since we only use 3 */
 
   /* 7.3.15.1 a) 7 - password check */
-  (level == ISIS_LEVEL1) ? (passwd = &circuit->area->area_passwd) :
-    (passwd = &circuit->area->domain_passwd);
+  (level == IS_LEVEL_1) ? (passwd = &circuit->area->area_passwd) :
+                          (passwd = &circuit->area->domain_passwd);
   if (passwd->type)
     {
-      if (isis_lsp_authinfo_check (circuit->rcv_stream, circuit->area,
-				   ntohs (hdr->pdu_len), passwd))
+      if (lsp_authentication_check (circuit->rcv_stream, circuit->area,
+                                    level, passwd))
 	{
 	  isis_event_auth_failure (circuit->area->area_tag,
 				   "LSP authentication failure", hdr->lsp_id);
@@ -1021,7 +1278,6 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 
   /* 7.3.15.1 a) 6 - Must check that we have an adjacency of the same level  */
   /* for broadcast circuits, snpa should be compared */
-  /* FIXME : Point To Point */
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
@@ -1038,7 +1294,6 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 	  return ISIS_WARNING;	/* Silently discard */
 	}
     }
-
   /* for non broadcast, we just need to find same level adj */
   else
     {
@@ -1049,13 +1304,15 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 	}
       else
 	{
-	  if (((level == 1) &&
+	  if (((level == IS_LEVEL_1) &&
 	       (circuit->u.p2p.neighbor->adj_usage == ISIS_ADJ_LEVEL2)) ||
-	      ((level == 2) &&
+	      ((level == IS_LEVEL_2) &&
 	       (circuit->u.p2p.neighbor->adj_usage == ISIS_ADJ_LEVEL1)))
 	    return ISIS_WARNING;	/* Silently discard */
+	  adj = circuit->u.p2p.neighbor;
 	}
     }
+
 dontcheckadj:
   /* 7.3.15.1 a) 7 - Passwords for level 1 - not implemented  */
 
@@ -1082,10 +1339,9 @@ dontcheckadj:
 	      /* 7.3.16.4 b) 1)  */
 	      if (comp == LSP_NEWER)
 		{
-		  lsp_update (lsp, hdr, circuit->rcv_stream, circuit->area,
-			      level);
+                  lsp_update (lsp, circuit->rcv_stream, circuit->area, level);
 		  /* ii */
-		  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
+                  lsp_set_all_srmflags (lsp);
 		  /* iii */
 		  ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
 		  /* v */
@@ -1109,38 +1365,25 @@ dontcheckadj:
 		  ISIS_CLEAR_FLAG (lsp->SSNflags, circuit);
 		}
 	    }
-	  else
-	    {
-	      /* our own LSP -> 7.3.16.4 c) */
-	      if (LSP_PSEUDO_ID (lsp->lsp_header->lsp_id) !=
-		  circuit->circuit_id
-		  || (LSP_PSEUDO_ID (lsp->lsp_header->lsp_id) ==
-		      circuit->circuit_id
-		      && circuit->u.bc.is_dr[level - 1] == 1))
-		{
-		  lsp->lsp_header->seq_num = htonl (ntohl (hdr->seq_num) + 1);
-		  if (isis->debugs & DEBUG_UPDATE_PACKETS)
-		    zlog_debug ("LSP LEN: %d",
-				ntohs (lsp->lsp_header->pdu_len));
-		  fletcher_checksum (STREAM_DATA (lsp->pdu) + 12,
-				   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
-		  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
-		  if (isis->debugs & DEBUG_UPDATE_PACKETS)
-		    zlog_debug ("ISIS-Upd (%s): (1) re-originating LSP %s new "
-				"seq 0x%08x", circuit->area->area_tag,
-				rawlspid_print (hdr->lsp_id),
-				ntohl (lsp->lsp_header->seq_num));
-		  lsp->lsp_header->rem_lifetime =
-		    htons (isis_jitter
-			   (circuit->area->max_lsp_lifetime[level - 1],
-			    MAX_AGE_JITTER));
-		}
-	      else
-		{
-		  /* Got purge for own pseudo-lsp, and we are not DR  */
-		  lsp_purge_dr (lsp->lsp_header->lsp_id, circuit, level);
-		}
-	    }
+          else if (lsp->lsp_header->rem_lifetime != 0)
+            {
+              /* our own LSP -> 7.3.16.4 c) */
+              if (comp == LSP_NEWER)
+                {
+                  lsp_inc_seqnum (lsp, ntohl (hdr->seq_num));
+                  lsp_set_all_srmflags (lsp);
+                }
+              else
+                {
+                  ISIS_SET_FLAG (lsp->SRMflags, circuit);
+                  ISIS_CLEAR_FLAG (lsp->SSNflags, circuit);
+                }
+              if (isis->debugs & DEBUG_UPDATE_PACKETS)
+                zlog_debug ("ISIS-Upd (%s): (1) re-originating LSP %s new "
+                            "seq 0x%08x", circuit->area->area_tag,
+                            rawlspid_print (hdr->lsp_id),
+                            ntohl (lsp->lsp_header->seq_num));
+            }
 	}
       return retval;
     }
@@ -1163,21 +1406,13 @@ dontcheckadj:
       else if (ntohl (hdr->seq_num) > ntohl (lsp->lsp_header->seq_num))
 	{
 	  /* 7.3.16.1  */
-	  lsp->lsp_header->seq_num = htonl (ntohl (hdr->seq_num) + 1);
-
-	  fletcher_checksum (STREAM_DATA (lsp->pdu) + 12,
-			   ntohs (lsp->lsp_header->pdu_len) - 12, 12);
-
-	  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
+          lsp_inc_seqnum (lsp, ntohl (hdr->seq_num));
+          lsp_set_all_srmflags (lsp);
 	  if (isis->debugs & DEBUG_UPDATE_PACKETS)
 	    zlog_debug ("ISIS-Upd (%s): (2) re-originating LSP %s new seq "
 			"0x%08x", circuit->area->area_tag,
 			rawlspid_print (hdr->lsp_id),
 			ntohl (lsp->lsp_header->seq_num));
-	  lsp->lsp_header->rem_lifetime =
-	    htons (isis_jitter
-		   (circuit->area->max_lsp_lifetime[level - 1],
-		    MAX_AGE_JITTER));
 	}
     }
   else
@@ -1187,21 +1422,6 @@ dontcheckadj:
       /* 7.3.15.1 e) 1) LSP newer than the one in db or no LSP in db */
       if ((!lsp || comp == LSP_NEWER))
 	{
-	  /* i */
-	  if (lsp)
-	    {
-#ifdef EXTREME_DEBUG
-	      zlog_debug ("level %d number is - %ld", level,
-			  circuit->area->lspdb[level - 1]->dict_nodecount);
-#endif /* EXTREME DEBUG */
-	      lsp_search_and_destroy (hdr->lsp_id,
-				      circuit->area->lspdb[level - 1]);
-	      /* exists, so we overwrite */
-#ifdef EXTREME_DEBUG
-	      zlog_debug ("level %d number is - %ld", level,
-			  circuit->area->lspdb[level - 1]->dict_nodecount);
-#endif /* EXTREME DEBUG */
-	    }
 	  /*
 	   * If this lsp is a frag, need to see if we have zero lsp present
 	   */
@@ -1212,19 +1432,24 @@ dontcheckadj:
 	      lsp0 = lsp_search (lspid, circuit->area->lspdb[level - 1]);
 	      if (!lsp0)
 		{
-		  zlog_debug ("Got lsp frag, while zero lsp not database");
+		  zlog_debug ("Got lsp frag, while zero lsp not in database");
 		  return ISIS_OK;
 		}
 	    }
-	  lsp =
-	    lsp_new_from_stream_ptr (circuit->rcv_stream,
-				     ntohs (hdr->pdu_len), lsp0,
-				     circuit->area);
-	  lsp->level = level;
-	  lsp->adj = adj;
-	  lsp_insert (lsp, circuit->area->lspdb[level - 1]);
+	  /* i */
+	  if (!lsp)
+            {
+	      lsp = lsp_new_from_stream_ptr (circuit->rcv_stream,
+                                             ntohs (hdr->pdu_len), lsp0,
+                                             circuit->area, level);
+              lsp_insert (lsp, circuit->area->lspdb[level - 1]);
+            }
+          else /* exists, so we overwrite */
+            {
+              lsp_update (lsp, circuit->rcv_stream, circuit->area, level);
+            }
 	  /* ii */
-	  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
+          lsp_set_all_srmflags (lsp);
 	  /* iii */
 	  ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
 
@@ -1237,11 +1462,9 @@ dontcheckadj:
       else if (comp == LSP_EQUAL)
 	{
 	  ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
-	  lsp_update (lsp, hdr, circuit->rcv_stream, circuit->area, level);
+	  lsp_update (lsp, circuit->rcv_stream, circuit->area, level);
 	  if (circuit->circ_type != CIRCUIT_T_BROADCAST)
-	    {
-	      ISIS_SET_FLAG (lsp->SSNflags, circuit);
-	    }
+	    ISIS_SET_FLAG (lsp->SSNflags, circuit);
 	}
       /* 7.3.15.1 e) 3) LSP older than the one in db */
       else
@@ -1250,8 +1473,6 @@ dontcheckadj:
 	  ISIS_CLEAR_FLAG (lsp->SSNflags, circuit);
 	}
     }
-  if (lsp)
-    lsp->adj = adj;
   return retval;
 }
 
@@ -1268,11 +1489,11 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   int retval = ISIS_OK;
   int cmp, own_lsp;
   char typechar = ' ';
-  int len;
+  unsigned int len;
   struct isis_adjacency *adj;
   struct isis_complete_seqnum_hdr *chdr = NULL;
   struct isis_partial_seqnum_hdr *phdr = NULL;
-  uint32_t found = 0, expected = 0;
+  uint32_t found = 0, expected = 0, auth_tlv_offset = 0;
   struct isis_lsp *lsp;
   struct lsp_entry *entry;
   struct listnode *node, *nnode;
@@ -1289,9 +1510,9 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	(struct isis_complete_seqnum_hdr *) STREAM_PNT (circuit->rcv_stream);
       circuit->rcv_stream->getp += ISIS_CSNP_HDRLEN;
       len = ntohs (chdr->pdu_len);
-      if (len < ISIS_CSNP_HDRLEN)
+      if (len < ISIS_CSNP_HDRLEN || len > ISO_MTU(circuit))
 	{
-	  zlog_warn ("Received a CSNP with bogus length!");
+	  zlog_warn ("Received a CSNP with bogus length %d", len);
 	  return ISIS_OK;
 	}
     }
@@ -1302,9 +1523,9 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	(struct isis_partial_seqnum_hdr *) STREAM_PNT (circuit->rcv_stream);
       circuit->rcv_stream->getp += ISIS_PSNP_HDRLEN;
       len = ntohs (phdr->pdu_len);
-      if (len < ISIS_PSNP_HDRLEN)
+      if (len < ISIS_PSNP_HDRLEN || len > ISO_MTU(circuit))
 	{
-	  zlog_warn ("Received a CSNP with bogus length!");
+	  zlog_warn ("Received a CSNP with bogus length %d", len);
 	  return ISIS_OK;
 	}
     }
@@ -1322,7 +1543,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
     }
 
   /* 7.3.15.2 a) 2,3 - manualL2OnlyMode not implemented */
-  if (!accept_level (level, circuit->circuit_is_type))
+  if (!accept_level (level, circuit->is_type))
     {
 
       zlog_debug ("ISIS-Snp (%s): Rcvd L%d %cSNP on %s, "
@@ -1331,26 +1552,23 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 		  level,
 		  typechar,
 		  circuit->interface->name,
-		  circuit_t2string (circuit->circuit_is_type), level);
+		  circuit_t2string (circuit->is_type), level);
 
       return ISIS_OK;
     }
 
   /* 7.3.15.2 a) 4 - not applicable for CSNP  only PSNPs on broadcast */
   if ((snp_type == ISIS_SNP_PSNP_FLAG) &&
-      (circuit->circ_type == CIRCUIT_T_BROADCAST))
+      (circuit->circ_type == CIRCUIT_T_BROADCAST) &&
+      (!circuit->u.bc.is_dr[level - 1]))
     {
-      if (!circuit->u.bc.is_dr[level - 1])
-	{
+      zlog_debug ("ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s, "
+                  "skipping: we are not the DIS",
+                  circuit->area->area_tag,
+                  level,
+                  typechar, snpa_print (ssnpa), circuit->interface->name);
 
-	  zlog_debug ("ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s, "
-		      "skipping: we are not the DIS",
-		      circuit->area->area_tag,
-		      level,
-		      typechar, snpa_print (ssnpa), circuit->interface->name);
-
-	  return ISIS_OK;
-	}
+      return ISIS_OK;
     }
 
   /* 7.3.15.2 a) 5 - need to make sure IDLength matches - already checked */
@@ -1380,7 +1598,10 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   else
     {
       if (!circuit->u.p2p.neighbor)
-	return ISIS_OK;		/* Silently discard */
+      {
+        zlog_warn ("no p2p neighbor on circuit %s", circuit->interface->name);
+        return ISIS_OK;		/* Silently discard */
+      }
     }
 
   /* 7.3.15.2 a) 8 - Passwords for level 1 - not implemented  */
@@ -1392,10 +1613,12 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   /* parse the SNP */
   expected |= TLVFLAG_LSP_ENTRIES;
   expected |= TLVFLAG_AUTH_INFO;
+
+  auth_tlv_offset = stream_get_getp (circuit->rcv_stream);
   retval = parse_tlvs (circuit->area->area_tag,
 		       STREAM_PNT (circuit->rcv_stream),
 		       len - circuit->rcv_stream->getp,
-		       &expected, &found, &tlvs);
+		       &expected, &found, &tlvs, &auth_tlv_offset);
 
   if (retval > ISIS_WARNING)
     {
@@ -1404,7 +1627,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
       return retval;
     }
 
-  if (level == 1)
+  if (level == IS_LEVEL_1)
     passwd = &circuit->area->area_passwd;
   else
     passwd = &circuit->area->domain_passwd;
@@ -1412,16 +1635,19 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_RECV))
     {
       if (passwd->type)
-	{
-	  if (!(found & TLVFLAG_AUTH_INFO) ||
-	      authentication_check (passwd, &tlvs.auth_info))
-	    {
-	      isis_event_auth_failure (circuit->area->area_tag,
-				       "SNP authentication" " failure",
-				       phdr ? phdr->source_id : chdr->source_id);
-	      return ISIS_OK;
-	    }
-	}
+        {
+          if (!(found & TLVFLAG_AUTH_INFO) ||
+              authentication_check (&tlvs.auth_info, passwd,
+                                    circuit->rcv_stream, auth_tlv_offset))
+            {
+              isis_event_auth_failure (circuit->area->area_tag,
+                                       "SNP authentication" " failure",
+                                       phdr ? phdr->source_id :
+                                       chdr->source_id);
+              free_tlvs (&tlvs);
+              return ISIS_OK;
+            }
+        }
     }
 
   /* debug isis snp-packets */
@@ -1461,19 +1687,18 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	    /* 7.3.15.2 b) 2) if it equals, clear SRM on p2p */
 	    if (cmp == LSP_EQUAL)
 	      {
-		if (circuit->circ_type != CIRCUIT_T_BROADCAST)
-		  ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
-		/* 7.3.15.2 b) 3) if it is older, clear SSN and set SRM */
+		/* if (circuit->circ_type != CIRCUIT_T_BROADCAST) */
+	        ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
 	      }
+	    /* 7.3.15.2 b) 3) if it is older, clear SSN and set SRM */
 	    else if (cmp == LSP_OLDER)
 	      {
 		ISIS_CLEAR_FLAG (lsp->SSNflags, circuit);
 		ISIS_SET_FLAG (lsp->SRMflags, circuit);
 	      }
+	    /* 7.3.15.2 b) 4) if it is newer, set SSN and clear SRM on p2p */
 	    else
 	      {
-		/* 7.3.15.2 b) 4) if it is newer, set SSN and clear SRM
-		 * on p2p */
 		if (own_lsp)
 		  {
 		    lsp_inc_seqnum (lsp, ntohl (entry->seq_num));
@@ -1482,8 +1707,8 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 		else
 		  {
 		    ISIS_SET_FLAG (lsp->SSNflags, circuit);
-		    if (circuit->circ_type != CIRCUIT_T_BROADCAST)
-		      ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
+		    /* if (circuit->circ_type != CIRCUIT_T_BROADCAST) */
+		    ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
 		  }
 	      }
 	  }
@@ -1496,7 +1721,9 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	      {
 		lsp = lsp_new (entry->lsp_id, ntohs (entry->rem_lifetime),
 			       0, 0, entry->checksum, level);
+		lsp->area = circuit->area;
 		lsp_insert (lsp, circuit->area->lspdb[level - 1]);
+		ISIS_FLAGS_CLEAR_ALL (lsp->SRMflags);
 		ISIS_SET_FLAG (lsp->SSNflags, circuit);
 	      }
 	  }
@@ -1507,7 +1734,8 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
   if (snp_type == ISIS_SNP_CSNP_FLAG)
     {
       /*
-       * Build a list from our own LSP db bounded with start_ and stop_lsp_id
+       * Build a list from our own LSP db bounded with
+       * start_lsp_id and stop_lsp_id
        */
       lsp_list = list_new ();
       lsp_build_list_nonzero_ht (chdr->start_lsp_id, chdr->stop_lsp_id,
@@ -1530,11 +1758,10 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	}
       /* on remaining LSPs we set SRM (neighbor knew not of) */
       for (ALL_LIST_ELEMENTS_RO (lsp_list, node, lsp))
-      {
 	ISIS_SET_FLAG (lsp->SRMflags, circuit);
-      }
       /* lets free it */
-      list_free (lsp_list);
+      list_delete (lsp_list);
+
     }
 
   free_tlvs (&tlvs);
@@ -1544,6 +1771,16 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 static int
 process_csnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 {
+  if (isis->debugs & DEBUG_SNP_PACKETS)
+    {
+      zlog_debug ("ISIS-Snp (%s): Rcvd L%d CSNP on %s, cirType %s, cirID %u",
+                  circuit->area->area_tag, level, circuit->interface->name,
+                  circuit_t2string (circuit->is_type), circuit->circuit_id);
+      if (isis->debugs & DEBUG_PACKET_DUMP)
+        zlog_dump_data (STREAM_DATA (circuit->rcv_stream),
+                        stream_get_endp (circuit->rcv_stream));
+    }
+
   /* Sanity check - FIXME: move to correct place */
   if ((stream_get_endp (circuit->rcv_stream) -
        stream_get_getp (circuit->rcv_stream)) < ISIS_CSNP_HDRLEN)
@@ -1558,10 +1795,20 @@ process_csnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 static int
 process_psnp (int level, struct isis_circuit *circuit, u_char * ssnpa)
 {
+  if (isis->debugs & DEBUG_SNP_PACKETS)
+    {
+      zlog_debug ("ISIS-Snp (%s): Rcvd L%d PSNP on %s, cirType %s, cirID %u",
+                  circuit->area->area_tag, level, circuit->interface->name,
+                  circuit_t2string (circuit->is_type), circuit->circuit_id);
+      if (isis->debugs & DEBUG_PACKET_DUMP)
+        zlog_dump_data (STREAM_DATA (circuit->rcv_stream),
+                        stream_get_endp (circuit->rcv_stream));
+    }
+
   if ((stream_get_endp (circuit->rcv_stream) -
        stream_get_getp (circuit->rcv_stream)) < ISIS_PSNP_HDRLEN)
     {
-      zlog_warn ("Packet too short");
+      zlog_warn ("Packet too short ( < %d)", ISIS_PSNP_HDRLEN);
       return ISIS_WARNING;
     }
 
@@ -1584,6 +1831,16 @@ process_is_hello (struct isis_circuit *circuit)
   int retval = ISIS_OK;
   u_char neigh_len;
   u_char *sysid;
+
+  if (isis->debugs & DEBUG_ADJ_PACKETS)
+    {
+      zlog_debug ("ISIS-Adj (%s): Rcvd ISH on %s, cirType %s, cirID %u",
+                  circuit->area->area_tag, circuit->interface->name,
+                  circuit_t2string (circuit->is_type), circuit->circuit_id);
+      if (isis->debugs & DEBUG_PACKET_DUMP)
+        zlog_dump_data (STREAM_DATA (circuit->rcv_stream),
+                        stream_get_endp (circuit->rcv_stream));
+    }
 
   /* In this point in time we are not yet able to handle is_hellos
    * on lan - Sorry juniper...
@@ -1649,7 +1906,6 @@ static int
 isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
 {
   struct isis_fixed_hdr *hdr;
-  struct esis_fixed_hdr *esis_hdr;
 
   int retval = ISIS_OK;
 
@@ -1660,7 +1916,7 @@ isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
 
   if ((hdr->idrp != ISO10589_ISIS) && (hdr->idrp != ISO9542_ESIS))
     {
-      zlog_warn ("Not an IS-IS or ES-IS packet IDRP=%02x", hdr->idrp);
+      zlog_err ("Not an IS-IS or ES-IS packet IDRP=%02x", hdr->idrp);
       return ISIS_ERROR;
     }
 
@@ -1669,28 +1925,11 @@ isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
    */
   if (hdr->idrp == ISO9542_ESIS)
     {
-      esis_hdr = (struct esis_fixed_hdr *) STREAM_DATA (circuit->rcv_stream);
-      stream_set_getp (circuit->rcv_stream, ESIS_FIXED_HDR_LEN);
-      /* FIXME: Need to do some acceptence tests */
-      /* example length... */
-      switch (esis_hdr->pdu_type)
-	{
-	case ESH_PDU:
-	  /* FIXME */
-	  break;
-	case ISH_PDU:
-	  zlog_debug ("AN ISH PDU!!");
-	  retval = process_is_hello (circuit);
-	  break;
-	default:
-	  return ISIS_ERROR;
-	}
-      return retval;
+      zlog_err ("No support for ES-IS packet IDRP=%02x", hdr->idrp);
+      return ISIS_ERROR;
     }
-  else
-    {
-      stream_set_getp (circuit->rcv_stream, ISIS_FIXED_HDR_LEN);
-    }
+  stream_set_getp (circuit->rcv_stream, ISIS_FIXED_HDR_LEN);
+
   /*
    * and then process it
    */
@@ -1721,6 +1960,14 @@ isis_handle_pdu (struct isis_circuit *circuit, u_char * ssnpa)
       zlog_warn ("Unsupported ISIS version %u", hdr->version2);
       return ISIS_WARNING;
     }
+
+  if (circuit->is_passive)
+    {
+      zlog_warn ("Received ISIS PDU on passive circuit %s",
+		 circuit->interface->name);
+      return ISIS_WARNING;
+    }
+
   /* either 3 or 0 */
   if ((hdr->max_area_addrs != 0)
       && (hdr->max_area_addrs != isis->max_area_addrs))
@@ -1795,8 +2042,11 @@ isis_receive (struct thread *thread)
   /* 
    * prepare for next packet. 
    */
-  THREAD_READ_ON (master, circuit->t_read, isis_receive, circuit,
-		  circuit->fd);
+  if (!circuit->is_passive)
+  {
+    THREAD_READ_ON (master, circuit->t_read, isis_receive, circuit,
+                    circuit->fd);
+  }
 
   return retval;
 }
@@ -1830,10 +2080,13 @@ isis_receive (struct thread *thread)
   /* 
    * prepare for next packet. 
    */
-  circuit->t_read = thread_add_timer_msec (master, isis_receive, circuit,
-					   listcount
-					   (circuit->area->circuit_list) *
-					   100);
+  if (!circuit->is_passive)
+  {
+    circuit->t_read = thread_add_timer_msec (master, isis_receive, circuit,
+  					     listcount
+					     (circuit->area->circuit_list) *
+					     100);
+  }
 
   return retval;
 }
@@ -1908,10 +2161,13 @@ send_hello (struct isis_circuit *circuit, int level)
   struct isis_fixed_hdr fixed_hdr;
   struct isis_lan_hello_hdr hello_hdr;
   struct isis_p2p_hello_hdr p2p_hello_hdr;
-
+  unsigned char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
+  unsigned long len_pointer, length, auth_tlv_offset = 0;
   u_int32_t interval;
-  unsigned long len_pointer, length;
   int retval;
+
+  if (circuit->is_passive)
+    return ISIS_OK;
 
   if (circuit->interface->mtu == 0)
     {
@@ -1925,7 +2181,7 @@ send_hello (struct isis_circuit *circuit, int level)
     stream_reset (circuit->snd_stream);
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-    if (level == 1)
+    if (level == IS_LEVEL_1)
       fill_fixed_hdr_andstream (&fixed_hdr, L1_LAN_HELLO,
 				circuit->snd_stream);
     else
@@ -1942,7 +2198,7 @@ send_hello (struct isis_circuit *circuit, int level)
     circuit->hello_interval[level - 1];
   if (interval > USHRT_MAX)
     interval = USHRT_MAX;
-  hello_hdr.circuit_t = circuit->circuit_is_type;
+  hello_hdr.circuit_t = circuit->is_type;
   memcpy (hello_hdr.source_id, isis->sysid, ISIS_SYS_ID_LEN);
   hello_hdr.hold_time = htons ((u_int16_t) interval);
 
@@ -1959,13 +2215,13 @@ send_hello (struct isis_circuit *circuit, int level)
     }
   else
     {
-      hello_hdr.prio = circuit->u.bc.priority[level - 1];
-      if (level == 1 && circuit->u.bc.l1_desig_is)
+      hello_hdr.prio = circuit->priority[level - 1];
+      if (level == IS_LEVEL_1)
 	{
 	  memcpy (hello_hdr.lan_id, circuit->u.bc.l1_desig_is,
 		  ISIS_SYS_ID_LEN + 1);
 	}
-      else if (level == 2 && circuit->u.bc.l2_desig_is)
+      else if (level == IS_LEVEL_2)
 	{
 	  memcpy (hello_hdr.lan_id, circuit->u.bc.l2_desig_is,
 		  ISIS_SYS_ID_LEN + 1);
@@ -1974,27 +2230,49 @@ send_hello (struct isis_circuit *circuit, int level)
     }
 
   /*
-   * Then the variable length part 
+   * Then the variable length part.
    */
+
   /* add circuit password */
-  if (circuit->passwd.type)
-    if (tlv_add_authinfo (circuit->passwd.type, circuit->passwd.len,
-			  circuit->passwd.passwd, circuit->snd_stream))
-      return ISIS_WARNING;
+  switch (circuit->passwd.type)
+  {
+    /* Cleartext */
+    case ISIS_PASSWD_TYPE_CLEARTXT:
+      if (tlv_add_authinfo (circuit->passwd.type, circuit->passwd.len,
+                            circuit->passwd.passwd, circuit->snd_stream))
+        return ISIS_WARNING;
+      break;
+
+    /* HMAC MD5 */
+    case ISIS_PASSWD_TYPE_HMAC_MD5:
+      /* Remember where TLV is written so we can later overwrite the MD5 hash */
+      auth_tlv_offset = stream_get_endp (circuit->snd_stream);
+      memset(&hmac_md5_hash, 0, ISIS_AUTH_MD5_SIZE);
+      if (tlv_add_authinfo (circuit->passwd.type, ISIS_AUTH_MD5_SIZE,
+                            hmac_md5_hash, circuit->snd_stream))
+        return ISIS_WARNING;
+      break;
+
+    default:
+      break;
+  }
+
   /*  Area Addresses TLV */
-  assert (circuit->area);
-  if (circuit->area->area_addrs && circuit->area->area_addrs->count > 0)
-    if (tlv_add_area_addrs (circuit->area->area_addrs, circuit->snd_stream))
-      return ISIS_WARNING;
+  if (listcount (circuit->area->area_addrs) == 0)
+    return ISIS_WARNING;
+  if (tlv_add_area_addrs (circuit->area->area_addrs, circuit->snd_stream))
+    return ISIS_WARNING;
 
   /*  LAN Neighbors TLV */
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
     {
-      if (level == 1 && circuit->u.bc.lan_neighs[0]->count > 0)
+      if (level == IS_LEVEL_1 && circuit->u.bc.lan_neighs[0] &&
+          listcount (circuit->u.bc.lan_neighs[0]) > 0)
 	if (tlv_add_lan_neighs (circuit->u.bc.lan_neighs[0],
 				circuit->snd_stream))
 	  return ISIS_WARNING;
-      if (level == 2 && circuit->u.bc.lan_neighs[1]->count > 0)
+      if (level == IS_LEVEL_2 && circuit->u.bc.lan_neighs[1] &&
+          listcount (circuit->u.bc.lan_neighs[1]) > 0)
 	if (tlv_add_lan_neighs (circuit->u.bc.lan_neighs[1],
 				circuit->snd_stream))
 	  return ISIS_WARNING;
@@ -2005,19 +2283,20 @@ send_hello (struct isis_circuit *circuit, int level)
     if (tlv_add_nlpid (&circuit->nlpids, circuit->snd_stream))
       return ISIS_WARNING;
   /* IP interface Address TLV */
-  if (circuit->ip_router && circuit->ip_addrs && circuit->ip_addrs->count > 0)
+  if (circuit->ip_router && circuit->ip_addrs &&
+      listcount (circuit->ip_addrs) > 0)
     if (tlv_add_ip_addrs (circuit->ip_addrs, circuit->snd_stream))
       return ISIS_WARNING;
 
 #ifdef HAVE_IPV6
   /* IPv6 Interface Address TLV */
   if (circuit->ipv6_router && circuit->ipv6_link &&
-      circuit->ipv6_link->count > 0)
+      listcount (circuit->ipv6_link) > 0)
     if (tlv_add_ipv6_addrs (circuit->ipv6_link, circuit->snd_stream))
       return ISIS_WARNING;
 #endif /* HAVE_IPV6 */
 
-  if (circuit->u.bc.pad_hellos)
+  if (circuit->pad_hellos)
     if (tlv_add_padding (circuit->snd_stream))
       return ISIS_WARNING;
 
@@ -2025,11 +2304,18 @@ send_hello (struct isis_circuit *circuit, int level)
   /* Update PDU length */
   stream_putw_at (circuit->snd_stream, len_pointer, (u_int16_t) length);
 
-  retval = circuit->tx (circuit, level);
-  if (retval)
-    zlog_warn ("sending of LAN Level %d Hello failed", level);
+  /* For HMAC MD5 we need to compute the md5 hash and store it */
+  if (circuit->passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5)
+    {
+      hmac_md5 (STREAM_DATA (circuit->snd_stream),
+                stream_get_endp (circuit->snd_stream),
+                (unsigned char *) &circuit->passwd.passwd, circuit->passwd.len,
+                (caddr_t) &hmac_md5_hash);
+      /* Copy the hash into the stream */
+      memcpy (STREAM_DATA (circuit->snd_stream) + auth_tlv_offset + 3,
+              hmac_md5_hash, ISIS_AUTH_MD5_SIZE);
+    }
 
-  /* DEBUG_ADJ_PACKETS */
   if (isis->debugs & DEBUG_ADJ_PACKETS)
     {
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
@@ -2037,24 +2323,26 @@ send_hello (struct isis_circuit *circuit, int level)
 	  zlog_debug ("ISIS-Adj (%s): Sent L%d LAN IIH on %s, length %ld",
 		      circuit->area->area_tag, level, circuit->interface->name,
 		      /* FIXME: use %z when we stop supporting old compilers. */
-		      (unsigned long) STREAM_SIZE (circuit->snd_stream));
+		      length);
 	}
       else
 	{
 	  zlog_debug ("ISIS-Adj (%s): Sent P2P IIH on %s, length %ld",
 		      circuit->area->area_tag, circuit->interface->name,
 		      /* FIXME: use %z when we stop supporting old compilers. */
-		      (unsigned long) STREAM_SIZE (circuit->snd_stream));
+		      length);
 	}
+      if (isis->debugs & DEBUG_PACKET_DUMP)
+        zlog_dump_data (STREAM_DATA (circuit->snd_stream),
+                        stream_get_endp (circuit->snd_stream));
     }
 
-  return retval;
-}
+  retval = circuit->tx (circuit, level);
+  if (retval != ISIS_OK)
+    zlog_err ("ISIS-Adj (%s): Send L%d IIH on %s failed",
+              circuit->area->area_tag, level, circuit->interface->name);
 
-static int
-send_lan_hello (struct isis_circuit *circuit, int level)
-{
-  return send_hello (circuit, level);
+  return retval;
 }
 
 int
@@ -2070,7 +2358,7 @@ send_lan_l1_hello (struct thread *thread)
   if (circuit->u.bc.run_dr_elect[0])
     retval = isis_dr_elect (circuit, 1);
 
-  retval = send_lan_hello (circuit, 1);
+  retval = send_hello (circuit, 1);
 
   /* set next timer thread */
   THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[0],
@@ -2093,7 +2381,7 @@ send_lan_l2_hello (struct thread *thread)
   if (circuit->u.bc.run_dr_elect[1])
     retval = isis_dr_elect (circuit, 2);
 
-  retval = send_lan_hello (circuit, 2);
+  retval = send_hello (circuit, 2);
 
   /* set next timer thread */
   THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[1],
@@ -2128,11 +2416,18 @@ build_csnp (int level, u_char * start, u_char * stop, struct list *lsps,
 {
   struct isis_fixed_hdr fixed_hdr;
   struct isis_passwd *passwd;
-  int retval = ISIS_OK;
   unsigned long lenp;
   u_int16_t length;
+  unsigned char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
+  unsigned long auth_tlv_offset = 0;
+  int retval = ISIS_OK;
 
-  if (level == 1)
+  if (circuit->snd_stream == NULL)
+    circuit->snd_stream = stream_new (ISO_MTU (circuit));
+  else
+    stream_reset (circuit->snd_stream);
+
+  if (level == IS_LEVEL_1)
     fill_fixed_hdr_andstream (&fixed_hdr, L1_COMPLETE_SEQ_NUM,
 			      circuit->snd_stream);
   else
@@ -2156,26 +2451,140 @@ build_csnp (int level, u_char * start, u_char * stop, struct list *lsps,
   /*
    * And TLVs
    */
-  if (level == 1)
+  if (level == IS_LEVEL_1)
     passwd = &circuit->area->area_passwd;
   else
     passwd = &circuit->area->domain_passwd;
 
   if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
-    if (passwd->type)
-      retval = tlv_add_authinfo (passwd->type, passwd->len,
-				 passwd->passwd, circuit->snd_stream);
-
-  if (!retval && lsps)
+  {
+    switch (passwd->type)
     {
-      retval = tlv_add_lsp_entries (lsps, circuit->snd_stream);
+      /* Cleartext */
+      case ISIS_PASSWD_TYPE_CLEARTXT:
+        if (tlv_add_authinfo (ISIS_PASSWD_TYPE_CLEARTXT, passwd->len,
+                              passwd->passwd, circuit->snd_stream))
+          return ISIS_WARNING;
+        break;
+
+        /* HMAC MD5 */
+      case ISIS_PASSWD_TYPE_HMAC_MD5:
+        /* Remember where TLV is written so we can later overwrite the MD5 hash */
+        auth_tlv_offset = stream_get_endp (circuit->snd_stream);
+        memset(&hmac_md5_hash, 0, ISIS_AUTH_MD5_SIZE);
+        if (tlv_add_authinfo (ISIS_PASSWD_TYPE_HMAC_MD5, ISIS_AUTH_MD5_SIZE,
+                              hmac_md5_hash, circuit->snd_stream))
+          return ISIS_WARNING;
+        break;
+
+      default:
+        break;
     }
+  }
+
+  retval = tlv_add_lsp_entries (lsps, circuit->snd_stream);
+  if (retval != ISIS_OK)
+    return retval;
+
   length = (u_int16_t) stream_get_endp (circuit->snd_stream);
-  assert (length >= ISIS_CSNP_HDRLEN);
   /* Update PU length */
   stream_putw_at (circuit->snd_stream, lenp, length);
 
+  /* For HMAC MD5 we need to compute the md5 hash and store it */
+  if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND) &&
+      passwd->type == ISIS_PASSWD_TYPE_HMAC_MD5)
+    {
+      hmac_md5 (STREAM_DATA (circuit->snd_stream),
+                stream_get_endp(circuit->snd_stream),
+                (unsigned char *) &passwd->passwd, passwd->len,
+                (caddr_t) &hmac_md5_hash);
+      /* Copy the hash into the stream */
+      memcpy (STREAM_DATA (circuit->snd_stream) + auth_tlv_offset + 3,
+              hmac_md5_hash, ISIS_AUTH_MD5_SIZE);
+    }
+
   return retval;
+}
+
+/*
+ * Count the maximum number of lsps that can be accomodated by a given size.
+ */
+static uint16_t
+get_max_lsp_count (uint16_t size)
+{
+  uint16_t tlv_count;
+  uint16_t lsp_count;
+  uint16_t remaining_size;
+
+  /* First count the full size TLVs */
+  tlv_count = size / MAX_LSP_ENTRIES_TLV_SIZE;
+  lsp_count = tlv_count * (MAX_LSP_ENTRIES_TLV_SIZE / LSP_ENTRIES_LEN);
+
+  /* The last TLV, if any */
+  remaining_size = size % MAX_LSP_ENTRIES_TLV_SIZE;
+  if (remaining_size - 2 >= LSP_ENTRIES_LEN)
+    lsp_count += (remaining_size - 2) / LSP_ENTRIES_LEN;
+
+  return lsp_count;
+}
+
+/*
+ * Calculate the length of Authentication Info. TLV.
+ */
+static uint16_t
+auth_tlv_length (int level, struct isis_circuit *circuit)
+{
+  struct isis_passwd *passwd;
+  uint16_t length;
+
+  if (level == IS_LEVEL_1)
+    passwd = &circuit->area->area_passwd;
+  else
+    passwd = &circuit->area->domain_passwd;
+
+  /* Also include the length of TLV header */
+  length = AUTH_INFO_HDRLEN;
+  if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
+  {
+    switch (passwd->type)
+    {
+      /* Cleartext */
+      case ISIS_PASSWD_TYPE_CLEARTXT:
+        length += passwd->len;
+        break;
+
+        /* HMAC MD5 */
+      case ISIS_PASSWD_TYPE_HMAC_MD5:
+        length += ISIS_AUTH_MD5_SIZE;
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  return length;
+}
+
+/*
+ * Calculate the maximum number of lsps that can be accomodated in a CSNP/PSNP.
+ */
+static uint16_t
+max_lsps_per_snp (int snp_type, int level, struct isis_circuit *circuit)
+{
+  int snp_hdr_len;
+  int auth_tlv_len;
+  uint16_t lsp_count;
+
+  snp_hdr_len = ISIS_FIXED_HDR_LEN;
+  if (snp_type == ISIS_SNP_CSNP_FLAG)
+    snp_hdr_len += ISIS_CSNP_HDRLEN;
+  else
+    snp_hdr_len += ISIS_PSNP_HDRLEN;
+
+  auth_tlv_len = auth_tlv_length (level, circuit);
+  lsp_count = get_max_lsp_count (
+      stream_get_size (circuit->snd_stream) - snp_hdr_len - auth_tlv_len);
 }
 
 /*
@@ -2185,52 +2594,100 @@ build_csnp (int level, u_char * start, u_char * stop, struct list *lsps,
 int
 send_csnp (struct isis_circuit *circuit, int level)
 {
-  int retval = ISIS_OK;
   u_char start[ISIS_SYS_ID_LEN + 2];
   u_char stop[ISIS_SYS_ID_LEN + 2];
   struct list *list = NULL;
   struct listnode *node;
   struct isis_lsp *lsp;
+  u_char num_lsps, loop = 1;
+  int i, retval = ISIS_OK;
+
+  if (circuit->area->lspdb[level - 1] == NULL ||
+      dict_count (circuit->area->lspdb[level - 1]) == 0)
+    return retval;
 
   memset (start, 0x00, ISIS_SYS_ID_LEN + 2);
   memset (stop, 0xff, ISIS_SYS_ID_LEN + 2);
 
-  if (circuit->area->lspdb[level - 1] &&
-      dict_count (circuit->area->lspdb[level - 1]) > 0)
+  num_lsps = max_lsps_per_snp (ISIS_SNP_CSNP_FLAG, level, circuit);
+
+  while (loop)
     {
       list = list_new ();
-      lsp_build_list (start, stop, list, circuit->area->lspdb[level - 1]);
-
-      if (circuit->snd_stream == NULL)
-	circuit->snd_stream = stream_new (ISO_MTU (circuit));
+      lsp_build_list (start, stop, num_lsps, list,
+                      circuit->area->lspdb[level - 1]);
+      /*
+       * Update the stop lsp_id before encoding this CSNP.
+       */
+      if (listcount (list) < num_lsps)
+        {
+          memset (stop, 0xff, ISIS_SYS_ID_LEN + 2);
+        }
       else
-	stream_reset (circuit->snd_stream);
+        {
+          node = listtail (list);
+          lsp = listgetdata (node);
+          memcpy (stop, lsp->lsp_header->lsp_id, ISIS_SYS_ID_LEN + 2);
+        }
 
       retval = build_csnp (level, start, stop, list, circuit);
+      if (retval != ISIS_OK)
+        {
+          zlog_err ("ISIS-Snp (%s): Build L%d CSNP on %s failed",
+                    circuit->area->area_tag, level, circuit->interface->name);
+          list_delete (list);
+          return retval;
+        }
 
       if (isis->debugs & DEBUG_SNP_PACKETS)
-	{
-	  zlog_debug ("ISIS-Snp (%s): Sent L%d CSNP on %s, length %ld",
-		     circuit->area->area_tag, level, circuit->interface->name,
-		     /* FIXME: use %z when we stop supporting old compilers. */
-		     (unsigned long) STREAM_SIZE (circuit->snd_stream));
-	  for (ALL_LIST_ELEMENTS_RO (list, node, lsp))
-	  {
-	    zlog_debug ("ISIS-Snp (%s):         CSNP entry %s, seq 0x%08x,"
-			" cksum 0x%04x, lifetime %us",
-			circuit->area->area_tag,
-			rawlspid_print (lsp->lsp_header->lsp_id),
-			ntohl (lsp->lsp_header->seq_num),
-			ntohs (lsp->lsp_header->checksum),
-			ntohs (lsp->lsp_header->rem_lifetime));
-	  }
-	}
+        {
+          zlog_debug ("ISIS-Snp (%s): Sent L%d CSNP on %s, length %ld",
+                      circuit->area->area_tag, level, circuit->interface->name,
+                      stream_get_endp (circuit->snd_stream));
+          for (ALL_LIST_ELEMENTS_RO (list, node, lsp))
+            {
+              zlog_debug ("ISIS-Snp (%s):         CSNP entry %s, seq 0x%08x,"
+                          " cksum 0x%04x, lifetime %us",
+                          circuit->area->area_tag,
+                          rawlspid_print (lsp->lsp_header->lsp_id),
+                          ntohl (lsp->lsp_header->seq_num),
+                          ntohs (lsp->lsp_header->checksum),
+                          ntohs (lsp->lsp_header->rem_lifetime));
+            }
+          if (isis->debugs & DEBUG_PACKET_DUMP)
+            zlog_dump_data (STREAM_DATA (circuit->snd_stream),
+                            stream_get_endp (circuit->snd_stream));
+        }
 
+      retval = circuit->tx (circuit, level);
+      if (retval != ISIS_OK)
+        {
+          zlog_err ("ISIS-Snp (%s): Send L%d CSNP on %s failed",
+                    circuit->area->area_tag, level,
+                    circuit->interface->name);
+          list_delete (list);
+          return retval;
+        }
+
+      /*
+       * Start lsp_id of the next CSNP should be one plus the
+       * stop lsp_id in this current CSNP.
+       */
+      memcpy (start, stop, ISIS_SYS_ID_LEN + 2);
+      loop = 0;
+      for (i = ISIS_SYS_ID_LEN + 1; i >= 0; --i)
+        {
+          if (start[i] < (u_char)0xff)
+            {
+              start[i] += 1;
+              loop = 1;
+              break;
+            }
+        }
+      memset (stop, 0xff, ISIS_SYS_ID_LEN + 2);
       list_delete (list);
-
-      if (retval == ISIS_OK)
-	retval = circuit->tx (circuit, level);
     }
+
   return retval;
 }
 
@@ -2284,12 +2741,19 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
   struct isis_fixed_hdr fixed_hdr;
   unsigned long lenp;
   u_int16_t length;
-  int retval = 0;
   struct isis_lsp *lsp;
   struct isis_passwd *passwd;
   struct listnode *node;
+  unsigned char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
+  unsigned long auth_tlv_offset = 0;
+  int retval = ISIS_OK;
 
-  if (level == 1)
+  if (circuit->snd_stream == NULL)
+    circuit->snd_stream = stream_new (ISO_MTU (circuit));
+  else
+    stream_reset (circuit->snd_stream);
+
+  if (level == IS_LEVEL_1)
     fill_fixed_hdr_andstream (&fixed_hdr, L1_PARTIAL_SEQ_NUM,
 			      circuit->snd_stream);
   else
@@ -2308,20 +2772,40 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
    * And TLVs
    */
 
-  if (level == 1)
+  if (level == IS_LEVEL_1)
     passwd = &circuit->area->area_passwd;
   else
     passwd = &circuit->area->domain_passwd;
 
   if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
-    if (passwd->type)
-      retval = tlv_add_authinfo (passwd->type, passwd->len,
-				 passwd->passwd, circuit->snd_stream);
-
-  if (!retval && lsps)
+  {
+    switch (passwd->type)
     {
-      retval = tlv_add_lsp_entries (lsps, circuit->snd_stream);
+      /* Cleartext */
+      case ISIS_PASSWD_TYPE_CLEARTXT:
+        if (tlv_add_authinfo (ISIS_PASSWD_TYPE_CLEARTXT, passwd->len,
+                              passwd->passwd, circuit->snd_stream))
+          return ISIS_WARNING;
+        break;
+
+        /* HMAC MD5 */
+      case ISIS_PASSWD_TYPE_HMAC_MD5:
+        /* Remember where TLV is written so we can later overwrite the MD5 hash */
+        auth_tlv_offset = stream_get_endp (circuit->snd_stream);
+        memset(&hmac_md5_hash, 0, ISIS_AUTH_MD5_SIZE);
+        if (tlv_add_authinfo (ISIS_PASSWD_TYPE_HMAC_MD5, ISIS_AUTH_MD5_SIZE,
+                              hmac_md5_hash, circuit->snd_stream))
+          return ISIS_WARNING;
+        break;
+
+      default:
+        break;
     }
+  }
+
+  retval = tlv_add_lsp_entries (lsps, circuit->snd_stream);
+  if (retval != ISIS_OK)
+    return retval;
 
   if (isis->debugs & DEBUG_SNP_PACKETS)
     {
@@ -2338,9 +2822,21 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
     }
 
   length = (u_int16_t) stream_get_endp (circuit->snd_stream);
-  assert (length >= ISIS_PSNP_HDRLEN);
   /* Update PDU length */
   stream_putw_at (circuit->snd_stream, lenp, length);
+
+  /* For HMAC MD5 we need to compute the md5 hash and store it */
+  if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND) &&
+      passwd->type == ISIS_PASSWD_TYPE_HMAC_MD5)
+    {
+      hmac_md5 (STREAM_DATA (circuit->snd_stream),
+                stream_get_endp(circuit->snd_stream),
+                (unsigned char *) &passwd->passwd, passwd->len,
+                (caddr_t) &hmac_md5_hash);
+      /* Copy the hash into the stream */
+      memcpy (STREAM_DATA (circuit->snd_stream) + auth_tlv_offset + 3,
+              hmac_md5_hash, ISIS_AUTH_MD5_SIZE);
+    }
 
   return ISIS_OK;
 }
@@ -2352,54 +2848,71 @@ build_psnp (int level, struct isis_circuit *circuit, struct list *lsps)
 static int
 send_psnp (int level, struct isis_circuit *circuit)
 {
-  int retval = ISIS_OK;
   struct isis_lsp *lsp;
   struct list *list = NULL;
   struct listnode *node;
+  u_char num_lsps;
+  int retval = ISIS_OK;
 
-  if ((circuit->circ_type == CIRCUIT_T_BROADCAST &&
-       !circuit->u.bc.is_dr[level - 1]) ||
-      circuit->circ_type != CIRCUIT_T_BROADCAST)
+  if (circuit->circ_type == CIRCUIT_T_BROADCAST &&
+      circuit->u.bc.is_dr[level - 1])
+    return ISIS_OK;
+
+  if (circuit->area->lspdb[level - 1] == NULL ||
+      dict_count (circuit->area->lspdb[level - 1]) == 0)
+    return ISIS_OK;
+
+  num_lsps = max_lsps_per_snp (ISIS_SNP_PSNP_FLAG, level, circuit);
+
+  while (1)
     {
+      list = list_new ();
+      lsp_build_list_ssn (circuit, num_lsps, list,
+                          circuit->area->lspdb[level - 1]);
 
-      if (circuit->area->lspdb[level - 1] &&
-	  dict_count (circuit->area->lspdb[level - 1]) > 0)
-	{
-	  list = list_new ();
-	  lsp_build_list_ssn (circuit, list, circuit->area->lspdb[level - 1]);
+      if (listcount (list) == 0)
+        {
+          list_delete (list);
+          return ISIS_OK;
+        }
 
-	  if (listcount (list) > 0)
-	    {
-	      if (circuit->snd_stream == NULL)
-		circuit->snd_stream = stream_new (ISO_MTU (circuit));
-	      else
-		stream_reset (circuit->snd_stream);
+      retval = build_psnp (level, circuit, list);
+      if (retval != ISIS_OK)
+        {
+          zlog_err ("ISIS-Snp (%s): Build L%d PSNP on %s failed",
+                    circuit->area->area_tag, level, circuit->interface->name);
+          list_delete (list);
+          return retval;
+        }
 
+      if (isis->debugs & DEBUG_SNP_PACKETS)
+        {
+          zlog_debug ("ISIS-Snp (%s): Sent L%d PSNP on %s, length %ld",
+                      circuit->area->area_tag, level,
+                      circuit->interface->name,
+                      stream_get_endp (circuit->snd_stream));
+          if (isis->debugs & DEBUG_PACKET_DUMP)
+            zlog_dump_data (STREAM_DATA (circuit->snd_stream),
+                            stream_get_endp (circuit->snd_stream));
+        }
 
-	      if (isis->debugs & DEBUG_SNP_PACKETS)
-		zlog_debug ("ISIS-Snp (%s): Sent L%d PSNP on %s, length %ld",
-			    circuit->area->area_tag, level,
-			    circuit->interface->name,
-			    /* FIXME: use %z when we stop supporting old
-			     * compilers. */
-			    (unsigned long) STREAM_SIZE (circuit->snd_stream));
+      retval = circuit->tx (circuit, level);
+      if (retval != ISIS_OK)
+        {
+          zlog_err ("ISIS-Snp (%s): Send L%d PSNP on %s failed",
+                    circuit->area->area_tag, level,
+                    circuit->interface->name);
+          list_delete (list);
+          return retval;
+        }
 
-	      retval = build_psnp (level, circuit, list);
-	      if (retval == ISIS_OK)
-		retval = circuit->tx (circuit, level);
-
-	      if (retval == ISIS_OK)
-		{
-		  /*
-		   * sending succeeded, we can clear SSN flags of this circuit
-		   * for the LSPs in list
-		   */
-		  for (ALL_LIST_ELEMENTS_RO (list, node, lsp))
-                    ISIS_CLEAR_FLAG (lsp->SSNflags, circuit);
-		}
-	    }
-	  list_delete (list);
-	}
+      /*
+       * sending succeeded, we can clear SSN flags of this circuit
+       * for the LSPs in list
+       */
+      for (ALL_LIST_ELEMENTS_RO (list, node, lsp))
+        ISIS_CLEAR_FLAG (lsp->SSNflags, circuit);
+      list_delete (list);
     }
 
   return retval;
@@ -2458,90 +2971,80 @@ send_lsp (struct thread *thread)
   struct isis_circuit *circuit;
   struct isis_lsp *lsp;
   struct listnode *node;
-  int retval = 0;
+  int retval = ISIS_OK;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
-  if (circuit->state == C_STATE_UP)
+  if (circuit->state != C_STATE_UP || circuit->is_passive == 1)
+  {
+    return retval;
+  }
+
+  lsp = listgetdata ((node = listhead (circuit->lsp_queue)));
+
+  /*
+   * Do not send if levels do not match
+   */
+  if (!(lsp->level & circuit->is_type))
     {
-      lsp = listgetdata ((node = listhead (circuit->lsp_queue)));
-
-      /*
-       * Do not send if levels do not match
-       */
-      if (!(lsp->level & circuit->circuit_is_type))
-	goto dontsend;
-
-      /*
-       * Do not send if we do not have adjacencies in state up on the circuit
-       */
-      if (circuit->upadjcount[lsp->level - 1] == 0)
-	goto dontsend;
-      /* only send if it needs sending */
-      if ((time (NULL) - lsp->last_sent) >=
-	  circuit->area->lsp_gen_interval[lsp->level - 1])
-	{
-
-	  if (isis->debugs & DEBUG_UPDATE_PACKETS)
-	    {
-	      zlog_debug
-		("ISIS-Upd (%s): Sent L%d LSP %s, seq 0x%08x, cksum 0x%04x,"
-		 " lifetime %us on %s", circuit->area->area_tag, lsp->level,
-		 rawlspid_print (lsp->lsp_header->lsp_id),
-		 ntohl (lsp->lsp_header->seq_num),
-		 ntohs (lsp->lsp_header->checksum),
-		 ntohs (lsp->lsp_header->rem_lifetime),
-		 circuit->interface->name);
-	    }
-	  /* copy our lsp to the send buffer */
-	  stream_copy (circuit->snd_stream, lsp->pdu);
-
-	  retval = circuit->tx (circuit, lsp->level);
-
-	  /*
-	   * If the sending succeeded, we can del the lsp from circuits
-	   * lsp_queue
-	   */
-	  if (retval == ISIS_OK)
-	    {
-	      list_delete_node (circuit->lsp_queue, node);
-
-	      /*
-	       * On broadcast circuits also the SRMflag can be cleared
-	       */
-	      if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-		ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
-
-	      if (flags_any_set (lsp->SRMflags) == 0)
-		{
-		  /*
-		   * need to remember when we were last sent
-		   */
-		  lsp->last_sent = time (NULL);
-		}
-	    }
-	  else
-	    {
-	      zlog_debug ("sending of level %d link state failed", lsp->level);
-	    }
-	}
-      else
-	{
-	  /* my belief is that if it wasn't his time, the lsp can be removed
-	   * from the queue
-	   */
-	dontsend:
-	  list_delete_node (circuit->lsp_queue, node);
-	}
-#if 0
-      /*
-       * If there are still LSPs send next one after lsp-interval (33 msecs)
-       */
-      if (listcount (circuit->lsp_queue) > 0)
-	thread_add_timer (master, send_lsp, circuit, 1);
-#endif
+      list_delete_node (circuit->lsp_queue, node);
+      return retval;
     }
+
+  /*
+   * Do not send if we do not have adjacencies in state up on the circuit
+   */
+  if (circuit->upadjcount[lsp->level - 1] == 0)
+    {
+      list_delete_node (circuit->lsp_queue, node);
+      return retval;
+    }
+
+  /* copy our lsp to the send buffer */
+  stream_copy (circuit->snd_stream, lsp->pdu);
+
+  if (isis->debugs & DEBUG_UPDATE_PACKETS)
+    {
+      zlog_debug
+        ("ISIS-Upd (%s): Sent L%d LSP %s, seq 0x%08x, cksum 0x%04x,"
+         " lifetime %us on %s", circuit->area->area_tag, lsp->level,
+         rawlspid_print (lsp->lsp_header->lsp_id),
+         ntohl (lsp->lsp_header->seq_num),
+         ntohs (lsp->lsp_header->checksum),
+         ntohs (lsp->lsp_header->rem_lifetime),
+         circuit->interface->name);
+      if (isis->debugs & DEBUG_PACKET_DUMP)
+        zlog_dump_data (STREAM_DATA (circuit->snd_stream),
+                        stream_get_endp (circuit->snd_stream));
+    }
+
+  retval = circuit->tx (circuit, lsp->level);
+  if (retval != ISIS_OK)
+    {
+      zlog_err ("ISIS-Upd (%s): Send L%d LSP on %s failed",
+                circuit->area->area_tag, lsp->level,
+                circuit->interface->name);
+      return retval;
+    }
+
+  /*
+   * If the sending succeeded, we can del the lsp from circuits
+   * lsp_queue
+   */
+  list_delete_node (circuit->lsp_queue, node);
+
+  /* Set the last-cleared time if the queue is empty. */
+  /* TODO: Is is possible that new lsps keep being added to the queue
+   * that the queue is never empty? */
+  if (list_isempty (circuit->lsp_queue))
+    circuit->lsp_queue_last_cleared = time (NULL);
+
+  /*
+   * On broadcast circuits also the SRMflag can be cleared
+   */
+  if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+    ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
 
   return retval;
 }
@@ -2560,8 +3063,8 @@ ack_lsp (struct isis_link_state_hdr *hdr, struct isis_circuit *circuit,
   else
     stream_reset (circuit->snd_stream);
 
-//  fill_llc_hdr (stream);
-  if (level == 1)
+  //  fill_llc_hdr (stream);
+  if (level == IS_LEVEL_1)
     fill_fixed_hdr_andstream (&fixed_hdr, L1_PARTIAL_SEQ_NUM,
 			      circuit->snd_stream);
   else
@@ -2586,7 +3089,10 @@ ack_lsp (struct isis_link_state_hdr *hdr, struct isis_circuit *circuit,
   stream_putw_at (circuit->snd_stream, lenp, length);
 
   retval = circuit->tx (circuit, level);
+  if (retval != ISIS_OK)
+    zlog_err ("ISIS-Upd (%s): Send L%d LSP PSNP on %s failed",
+              circuit->area->area_tag, level,
+              circuit->interface->name);
 
   return retval;
 }
-
