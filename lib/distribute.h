@@ -22,6 +22,9 @@
 #ifndef _ZEBRA_DISTRIBUTE_H
 #define _ZEBRA_DISTRIBUTE_H
 
+#include <zebra.h>
+#include "if.h"
+
 /* Disctirubte list types. */
 enum distribute_type
 {

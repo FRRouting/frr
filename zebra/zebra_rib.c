@@ -55,18 +55,19 @@ static const struct
 {  
   int key;
   int distance;
-} route_info[] =
+} route_info[ZEBRA_ROUTE_MAX] =
 {
-  {ZEBRA_ROUTE_SYSTEM,    0},
-  {ZEBRA_ROUTE_KERNEL,    0},
-  {ZEBRA_ROUTE_CONNECT,   0},
-  {ZEBRA_ROUTE_STATIC,    1},
-  {ZEBRA_ROUTE_RIP,     120},
-  {ZEBRA_ROUTE_RIPNG,   120},
-  {ZEBRA_ROUTE_OSPF,    110},
-  {ZEBRA_ROUTE_OSPF6,   110},
-  {ZEBRA_ROUTE_ISIS,    115},
-  {ZEBRA_ROUTE_BGP,      20  /* IBGP is 200. */}
+  [ZEBRA_ROUTE_SYSTEM]  = {ZEBRA_ROUTE_SYSTEM,    0},
+  [ZEBRA_ROUTE_KERNEL]  = {ZEBRA_ROUTE_KERNEL,    0},
+  [ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT,   0},
+  [ZEBRA_ROUTE_STATIC]  = {ZEBRA_ROUTE_STATIC,    1},
+  [ZEBRA_ROUTE_RIP]     = {ZEBRA_ROUTE_RIP,     120},
+  [ZEBRA_ROUTE_RIPNG]   = {ZEBRA_ROUTE_RIPNG,   120},
+  [ZEBRA_ROUTE_OSPF]    = {ZEBRA_ROUTE_OSPF,    110},
+  [ZEBRA_ROUTE_OSPF6]   = {ZEBRA_ROUTE_OSPF6,   110},
+  [ZEBRA_ROUTE_ISIS]    = {ZEBRA_ROUTE_ISIS,    115},
+  [ZEBRA_ROUTE_BGP]     = {ZEBRA_ROUTE_BGP,      20  /* IBGP is 200. */},
+  [ZEBRA_ROUTE_BABEL]   = {ZEBRA_ROUTE_BABEL,    95},
   /* no entry/default: 150 */
 };
 
@@ -1235,6 +1236,7 @@ static const u_char meta_queue_map[ZEBRA_ROUTE_MAX] = {
   [ZEBRA_ROUTE_ISIS]    = 2,
   [ZEBRA_ROUTE_BGP]     = 3,
   [ZEBRA_ROUTE_HSLS]    = 4,
+  [ZEBRA_ROUTE_BABEL]   = 2,
 };
 
 /* Look into the RN and queue it into one or more priority queues,

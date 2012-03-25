@@ -49,7 +49,8 @@ typedef enum
   ZLOG_RIP,
   ZLOG_BGP,
   ZLOG_OSPF,
-  ZLOG_RIPNG,  
+  ZLOG_RIPNG,
+  ZLOG_BABEL,
   ZLOG_OSPF6,
   ZLOG_ISIS,
   ZLOG_MASC

@@ -37,6 +37,7 @@ $ignore{'"router ripng"'} = "ignore";
 $ignore{'"router ospf"'} = "ignore";
 $ignore{'"router ospf <0-65535>"'} = "ignore";
 $ignore{'"router ospf6"'} = "ignore";
+$ignore{'"router babel"'} = "ignore";
 $ignore{'"router bgp " "<1-4294967295>"'} = "ignore";
 $ignore{'"router bgp " "<1-4294967295>" " view WORD"'} = "ignore";
 $ignore{'"router isis WORD"'} = "ignore";
@@ -68,7 +69,7 @@ foreach (@ARGV) {
     close (FH);
 
     @defun = ($line =~ /(?:DEFUN|ALIAS)\s*\((.+?)\);?\s?\s?\n/sg);
-    @install = ($line =~ /install_element \(\s*[0-9A-Z_]+,\s*&[^;]*;\s*\n/sg);
+    @install = ($line =~ /install_element\s*\(\s*[0-9A-Z_]+,\s*&[^;]*;\s*\n/sg);
 
     # DEFUN process
     foreach (@defun) {
