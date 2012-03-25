@@ -738,10 +738,10 @@ bgp_attr_malformed (struct bgp_attr_parser_args *args, u_char subcode,
                     + args->total);
   
   switch (args->type) {
-    /* where an optional attribute is inconsequential, e.g. it does not affect
-     * route selection, and can be safely ignored then any such attributes
-     * which are malformed should just be ignored and the route processed as
-     * normal.
+    /* where an attribute is relatively inconsequential, e.g. it does not
+     * affect route selection, and can be safely ignored, then any such
+     * attributes which are malformed should just be ignored and the route
+     * processed as normal.
      */
     case BGP_ATTR_AS4_AGGREGATOR:
     case BGP_ATTR_AGGREGATOR:
@@ -749,7 +749,7 @@ bgp_attr_malformed (struct bgp_attr_parser_args *args, u_char subcode,
       return BGP_ATTR_PARSE_PROCEED;
     
     /* Core attributes, particularly ones which may influence route
-     * selection should always cause session resets
+     * selection, should always cause session resets
      */
     case BGP_ATTR_ORIGIN:
     case BGP_ATTR_AS_PATH:
@@ -1823,9 +1823,15 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
          Attribute Flags Error.  The Data field contains the erroneous
          attribute (type, length and value). */
       if (bgp_attr_flag_invalid (&attr_args))
-        return bgp_attr_malformed (&attr_args,
-                                   BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
-                                   attr_args.total);
+        {
+          bgp_attr_parse_ret_t ret;
+          ret = bgp_attr_malformed (&attr_args,
+                                    BGP_NOTIFY_UPDATE_ATTR_FLAG_ERR,
+                                    attr_args.total);
+          if (ret == BGP_ATTR_PARSE_PROCEED)
+            continue;
+          return ret;
+        }
 
       /* OK check attribute and store it's value. */
       switch (type)
