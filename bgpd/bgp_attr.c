@@ -809,7 +809,14 @@ bgp_attr_flags_diagnose (struct bgp_attr_parser_args *args,
             attr_flag_str[i].str);
       seen = 1;
     }
-  assert (seen);
+  if (!seen)
+    {
+      zlog (args->peer->log, LOG_DEBUG,
+            "Strange, %s called for attr %s, but no problem found with flags"
+            " (real flags 0x%x, desired 0x%x)",
+            __func__, LOOKUP (attr_str, attr_code),
+            real_flags, desired_flags);
+    }
 }
 
 /* Required flags for attributes. EXTLEN will be masked off when testing,
