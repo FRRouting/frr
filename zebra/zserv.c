@@ -786,10 +786,10 @@ zread_ipv4_add (struct zserv *client, u_short length)
 	    case ZEBRA_NEXTHOP_IPV6:
 	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
 	      break;
-      case ZEBRA_NEXTHOP_BLACKHOLE:
-        nexthop_blackhole_add (rib);
-        break;
-	    }
+            case ZEBRA_NEXTHOP_BLACKHOLE:
+              nexthop_blackhole_add (rib);
+              break;
+            }
 	}
     }
 
@@ -814,7 +814,7 @@ zread_ipv4_delete (struct zserv *client, u_short length)
   int i;
   struct stream *s;
   struct zapi_ipv4 api;
-  struct in_addr nexthop;
+  struct in_addr nexthop, *nexthop_p;
   unsigned long ifindex;
   struct prefix_ipv4 p;
   u_char nexthop_num;
@@ -824,6 +824,7 @@ zread_ipv4_delete (struct zserv *client, u_short length)
   s = client->ibuf;
   ifindex = 0;
   nexthop.s_addr = 0;
+  nexthop_p = NULL;
 
   /* Type, flags, message. */
   api.type = stream_getc (s);
@@ -856,6 +857,7 @@ zread_ipv4_delete (struct zserv *client, u_short length)
 	      break;
 	    case ZEBRA_NEXTHOP_IPV4:
 	      nexthop.s_addr = stream_get_ipv4 (s);
+	      nexthop_p = &nexthop;
 	      break;
 	    case ZEBRA_NEXTHOP_IPV6:
 	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
@@ -876,7 +878,7 @@ zread_ipv4_delete (struct zserv *client, u_short length)
   else
     api.metric = 0;
     
-  rib_delete_ipv4 (api.type, api.flags, &p, &nexthop, ifindex,
+  rib_delete_ipv4 (api.type, api.flags, &p, nexthop_p, ifindex,
 		   client->rtm_table);
   return 0;
 }
