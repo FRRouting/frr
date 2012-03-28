@@ -720,7 +720,7 @@ DEFUN (clear_isis_neighbor,
 
 DEFUN (clear_isis_neighbor_arg,
        clear_isis_neighbor_arg_cmd,
-       "claer isis neighbor WORD",
+       "clear isis neighbor WORD",
        CLEAR_STR
        "ISIS network information\n"
        "ISIS neighbor adjacencies\n"
@@ -1273,9 +1273,12 @@ DEFUN (show_isis_summary,
       vty_out (vty, "      minimum interval  : %d%s",
           area->min_spf_interval[level - 1], VTY_NEWLINE);
 
-      vty_out (vty, "      last run          : ");
-      vty_out_timestr(vty, spftree->lastrun);
+      vty_out (vty, "      last run elapsed  : ");
+      vty_out_timestr(vty, spftree->last_run_timestamp);
       vty_out (vty, "%s", VTY_NEWLINE);
+
+      vty_out (vty, "      last run duration : %u usec%s",
+               (u_int32_t)spftree->last_run_duration, VTY_NEWLINE);
 
       vty_out (vty, "      run count         : %d%s",
           spftree->runcount, VTY_NEWLINE);
@@ -1290,9 +1293,12 @@ DEFUN (show_isis_summary,
       vty_out (vty, "      minimum interval  : %d%s",
           area->min_spf_interval[level - 1], VTY_NEWLINE);
 
-      vty_out (vty, "      last run          : ");
-      vty_out_timestr(vty, spftree->lastrun);
+      vty_out (vty, "      last run elapsed  : ");
+      vty_out_timestr(vty, spftree->last_run_timestamp);
       vty_out (vty, "%s", VTY_NEWLINE);
+
+      vty_out (vty, "      last run duration : %u msec%s",
+               spftree->last_run_duration, VTY_NEWLINE);
 
       vty_out (vty, "      run count         : %d%s",
           spftree->runcount, VTY_NEWLINE);
@@ -1329,7 +1335,7 @@ show_isis_database (struct vty *vty, const char *argv, int ui_level)
   struct isis_dynhn *dynhn;
   const char *pos = argv;
   u_char lspid[ISIS_SYS_ID_LEN+2];
-  char sysid[15]; /* len of xxxx.xxxx.xxxx + place for #0 termination */
+  char sysid[255];
   u_char number[3];
   int level, lsp_count;
 
@@ -1337,13 +1343,7 @@ show_isis_database (struct vty *vty, const char *argv, int ui_level)
     return CMD_SUCCESS;
 
   memset (&lspid, 0, ISIS_SYS_ID_LEN);
-  memset (&sysid, 0, 15);
-
-  if (argv)
-    {
-      strncpy (sysid, argv, 15);
-      sysid[14] = '\0';
-    }
+  memset (&sysid, 0, 255);
 
   /*
    * extract fragment and pseudo id from the string argv
@@ -1354,6 +1354,8 @@ show_isis_database (struct vty *vty, const char *argv, int ui_level)
    * Where systemid is in the form:
    * xxxx.xxxx.xxxx
    */
+  if (argv)
+     strncpy (sysid, argv, 254);
   if (argv && strlen (argv) > 3)
     {
       pos = argv + strlen (argv) - 3;
@@ -2033,6 +2035,44 @@ ALIAS (no_lsp_gen_interval_l2,
        "Set interval for level 2 only\n"
        "Minimum interval in seconds\n")
 
+static int
+validate_metric_style_narrow (struct vty *vty, struct isis_area *area)
+{
+  struct isis_circuit *circuit;
+  struct listnode *node;
+  
+  if (! vty)
+    return CMD_ERR_AMBIGUOUS;
+
+  if (! area)
+    {
+      vty_out (vty, "ISIS area is invalid%s", VTY_NEWLINE);
+      return CMD_ERR_AMBIGUOUS;
+    }
+
+  for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
+    {
+      if ((area->is_type & IS_LEVEL_1) &&
+          (circuit->is_type & IS_LEVEL_1) &&
+          (circuit->metrics[0].metric_default > MAX_NARROW_LINK_METRIC))
+        {
+          vty_out (vty, "ISIS circuit %s metric is invalid%s",
+                   circuit->interface->name, VTY_NEWLINE);
+          return CMD_ERR_AMBIGUOUS;
+        }
+      if ((area->is_type & IS_LEVEL_2) &&
+          (circuit->is_type & IS_LEVEL_2) &&
+          (circuit->metrics[1].metric_default > MAX_NARROW_LINK_METRIC))
+        {
+          vty_out (vty, "ISIS circuit %s metric is invalid%s",
+                   circuit->interface->name, VTY_NEWLINE);
+          return CMD_ERR_AMBIGUOUS;
+        }
+    }
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (metric_style,
        metric_style_cmd,
        "metric-style (narrow|transition|wide)",
@@ -2042,8 +2082,7 @@ DEFUN (metric_style,
        "Use new style of TLVs to carry wider metric\n")
 {
   struct isis_area *area;
-  struct isis_circuit *circuit;
-  struct listnode *node;
+  int ret;
 
   area = vty->index;
   assert (area);
@@ -2060,25 +2099,10 @@ DEFUN (metric_style,
     }
   else if (strncmp (argv[0], "n", 1) == 0)
     {
-      for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
-        {
-          if ((area->is_type & IS_LEVEL_1) &&
-              (circuit->is_type & IS_LEVEL_1) &&
-              (circuit->metrics[0].metric_default > MAX_NARROW_LINK_METRIC))
-            {
-              vty_out (vty, "ISIS circuit %s metric is invalid%s",
-                       circuit->interface->name, VTY_NEWLINE);
-              return CMD_ERR_AMBIGUOUS;
-            }
-          if ((area->is_type & IS_LEVEL_2) &&
-              (circuit->is_type & IS_LEVEL_2) &&
-              (circuit->metrics[1].metric_default > MAX_NARROW_LINK_METRIC))
-            {
-              vty_out (vty, "ISIS circuit %s metric is invalid%s",
-                       circuit->interface->name, VTY_NEWLINE);
-              return CMD_ERR_AMBIGUOUS;
-            }
-        }
+      ret = validate_metric_style_narrow (vty, area);
+      if (ret != CMD_SUCCESS)
+        return ret;
+
       area->newmetric = 0;
       area->oldmetric = 1;
     }
@@ -2093,9 +2117,14 @@ DEFUN (no_metric_style,
        "Use old-style (ISO 10589) or new-style packet formats\n")
 {
   struct isis_area *area;
+  int ret;
 
   area = vty->index;
   assert (area);
+
+  ret = validate_metric_style_narrow (vty, area);
+  if (ret != CMD_SUCCESS)
+    return ret;
 
   /* Default is narrow metric. */
   area->newmetric = 0;
@@ -2819,11 +2848,11 @@ isis_config_write (struct vty *vty)
 	    vty_out (vty, " no hostname dynamic%s", VTY_NEWLINE);
 	    write++;
 	  }
-	/* ISIS - Metric-Style - when true displays narrow */
-	if (area->oldmetric)
+	/* ISIS - Metric-Style - when true displays wide */
+	if (area->newmetric)
 	  {
-	    if (!area->newmetric)
-	      vty_out (vty, " metric-style narrow%s", VTY_NEWLINE);
+	    if (!area->oldmetric)
+	      vty_out (vty, " metric-style wide%s", VTY_NEWLINE);
 	    else
 	      vty_out (vty, " metric-style transition%s", VTY_NEWLINE);
 	    write++;

@@ -2720,6 +2720,15 @@ isis_if_new_hook (struct interface *ifp)
 int
 isis_if_delete_hook (struct interface *ifp)
 {
+  struct isis_circuit *circuit;
+  /* Clean up the circuit data */
+  if (ifp && ifp->info)
+    {
+      circuit = ifp->info;
+      isis_csm_state_change (IF_DOWN_FROM_Z, circuit, circuit->area);
+      isis_csm_state_change (ISIS_DISABLE, circuit, circuit->area);
+    }
+
   return 0;
 }
 
@@ -2734,6 +2743,7 @@ isis_circuit_init ()
   /* Install interface node */
   install_node (&interface_node, isis_interface_config_write);
   install_element (CONFIG_NODE, &interface_cmd);
+  install_element (CONFIG_NODE, &no_interface_cmd);
 
   install_default (INTERFACE_NODE);
   install_element (INTERFACE_NODE, &interface_desc_cmd);

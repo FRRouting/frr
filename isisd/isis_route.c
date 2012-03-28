@@ -244,6 +244,7 @@ adjinfo2nexthop (struct list *nexthops, struct isis_adjacency *adj)
 	{
 	  nh = isis_nexthop_create (ipv4_addr,
 				    adj->circuit->interface->ifindex);
+          nh->router_address = adj->router_address;
 	  listnode_add (nexthops, nh);
 	}
     }
@@ -267,6 +268,7 @@ adjinfo2nexthop6 (struct list *nexthops6, struct isis_adjacency *adj)
 	{
 	  nh6 = isis_nexthop6_create (ipv6_addr,
 				      adj->circuit->interface->ifindex);
+          nh6->router_address6 = adj->router_address6;
 	  listnode_add (nexthops6, nh6);
 	}
     }
@@ -274,8 +276,8 @@ adjinfo2nexthop6 (struct list *nexthops6, struct isis_adjacency *adj)
 #endif /* HAVE_IPV6 */
 
 static struct isis_route_info *
-isis_route_info_new (uint32_t cost, uint32_t depth, u_char family,
-		     struct list *adjacencies)
+isis_route_info_new (struct prefix *prefix, uint32_t cost, uint32_t depth,
+                     struct list *adjacencies)
 {
   struct isis_route_info *rinfo;
   struct isis_adjacency *adj;
@@ -288,7 +290,7 @@ isis_route_info_new (uint32_t cost, uint32_t depth, u_char family,
       return NULL;
     }
 
-  if (family == AF_INET)
+  if (prefix->family == AF_INET)
     {
       rinfo->nexthops = list_new ();
       for (ALL_LIST_ELEMENTS_RO (adjacencies, node, adj))
@@ -296,11 +298,14 @@ isis_route_info_new (uint32_t cost, uint32_t depth, u_char family,
           /* check for force resync this route */
           if (CHECK_FLAG (adj->circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF))
             SET_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
+          /* update neighbor router address */
+          if (depth == 2 && prefix->prefixlen == 32)
+            adj->router_address = prefix->u.prefix4;
           adjinfo2nexthop (rinfo->nexthops, adj);
         }
     }
 #ifdef HAVE_IPV6
-  if (family == AF_INET6)
+  if (prefix->family == AF_INET6)
     {
       rinfo->nexthops6 = list_new ();
       for (ALL_LIST_ELEMENTS_RO (adjacencies, node, adj))
@@ -308,6 +313,9 @@ isis_route_info_new (uint32_t cost, uint32_t depth, u_char family,
           /* check for force resync this route */
           if (CHECK_FLAG (adj->circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF))
             SET_FLAG (rinfo->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
+          /* update neighbor router address */
+          if (depth == 2 && prefix->prefixlen == 128)
+            adj->router_address6 = prefix->u.prefix6;
           adjinfo2nexthop6 (rinfo->nexthops6, adj);
         }
     }
@@ -415,7 +423,7 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
   /* for debugs */
   prefix2str (prefix, (char *) buff, BUFSIZ);
 
-  rinfo_new = isis_route_info_new (cost, depth, family, adjacencies);
+  rinfo_new = isis_route_info_new (prefix, cost, depth, adjacencies);
   if (!rinfo_new)
     {
       zlog_err ("ISIS-Rte (%s): isis_route_create: out of memory!",

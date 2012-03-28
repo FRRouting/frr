@@ -68,8 +68,9 @@ struct isis_spftree
   struct list *tents;		/* TENT */
   struct isis_area *area;       /* back pointer to area */
   int pending;			/* already scheduled */
-  time_t lastrun;		/* for scheduling */
   unsigned int runcount;        /* number of runs since uptime */
+  time_t last_run_timestamp;    /* last run timestamp for scheduling */
+  time_t last_run_duration;     /* last run duration in msec */
 };
 
 struct isis_spftree * isis_spftree_new (struct isis_area *area);

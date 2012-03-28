@@ -220,29 +220,33 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
         if ((adj->level & level) == 0)
           continue;
         if (new_state == ISIS_ADJ_UP)
-	  {
-	    circuit->upadjcount[level - 1]++;
-	    isis_event_adjacency_state_change (adj, new_state);
-	    /* update counter & timers for debugging purposes */
-	    adj->last_flap = time (NULL);
-	    adj->flaps++;
-	  }
+        {
+          circuit->upadjcount[level - 1]++;
+          isis_event_adjacency_state_change (adj, new_state);
+          /* update counter & timers for debugging purposes */
+          adj->last_flap = time (NULL);
+          adj->flaps++;
+        }
         else if (new_state == ISIS_ADJ_DOWN)
-	  {
-	    listnode_delete (circuit->u.bc.adjdb[level - 1], adj);
-	    circuit->upadjcount[level - 1]--;
-	    if (circuit->upadjcount[level - 1] == 0)
-	      {
-		/* Clean lsp_queue when no adj is up. */
-		if (circuit->lsp_queue)
-		  list_delete_all_node (circuit->lsp_queue);
-	      }
-	    isis_event_adjacency_state_change (adj, new_state);
-	    isis_delete_adj (adj);
-	  }
-        list_delete_all_node (circuit->u.bc.lan_neighs[level - 1]);
-        isis_adj_build_neigh_list (circuit->u.bc.adjdb[level - 1],
-                                   circuit->u.bc.lan_neighs[level - 1]);
+        {
+          listnode_delete (circuit->u.bc.adjdb[level - 1], adj);
+          circuit->upadjcount[level - 1]--;
+          if (circuit->upadjcount[level - 1] == 0)
+            {
+              /* Clean lsp_queue when no adj is up. */
+              if (circuit->lsp_queue)
+                list_delete_all_node (circuit->lsp_queue);
+            }
+          isis_event_adjacency_state_change (adj, new_state);
+          isis_delete_adj (adj);
+        }
+
+        if (circuit->u.bc.lan_neighs[level - 1])
+          {
+            list_delete_all_node (circuit->u.bc.lan_neighs[level - 1]);
+            isis_adj_build_neigh_list (circuit->u.bc.adjdb[level - 1],
+                                       circuit->u.bc.lan_neighs[level - 1]);
+          }
 
         /* On adjacency state change send new pseudo LSP if we are the DR */
         if (circuit->u.bc.is_dr[level - 1])
@@ -256,35 +260,35 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
         if ((adj->level & level) == 0)
           continue;
         if (new_state == ISIS_ADJ_UP)
-	  {
-	    circuit->upadjcount[level - 1]++;
-	    isis_event_adjacency_state_change (adj, new_state);
+        {
+          circuit->upadjcount[level - 1]++;
+          isis_event_adjacency_state_change (adj, new_state);
 
-	    if (adj->sys_type == ISIS_SYSTYPE_UNKNOWN)
-	      send_hello (circuit, level);
+          if (adj->sys_type == ISIS_SYSTYPE_UNKNOWN)
+            send_hello (circuit, level);
 
-	    /* update counter & timers for debugging purposes */
-	    adj->last_flap = time (NULL);
-	    adj->flaps++;
+          /* update counter & timers for debugging purposes */
+          adj->last_flap = time (NULL);
+          adj->flaps++;
 
-	    /* 7.3.17 - going up on P2P -> send CSNP */
-	    /* FIXME: yup, I know its wrong... but i will do it! (for now) */
-	    send_csnp (circuit, level);
-	  }
+          /* 7.3.17 - going up on P2P -> send CSNP */
+          /* FIXME: yup, I know its wrong... but i will do it! (for now) */
+          send_csnp (circuit, level);
+        }
         else if (new_state == ISIS_ADJ_DOWN)
-	  {
-	    if (adj->circuit->u.p2p.neighbor == adj)
-	      adj->circuit->u.p2p.neighbor = NULL;
-	    circuit->upadjcount[level - 1]--;
-	    if (circuit->upadjcount[level - 1] == 0)
-	      {
-		/* Clean lsp_queue when no adj is up. */
-		if (circuit->lsp_queue)
-		  list_delete_all_node (circuit->lsp_queue);
-	      }
-	    isis_event_adjacency_state_change (adj, new_state);
-	    isis_delete_adj (adj);
-	  }
+        {
+          if (adj->circuit->u.p2p.neighbor == adj)
+            adj->circuit->u.p2p.neighbor = NULL;
+          circuit->upadjcount[level - 1]--;
+          if (circuit->upadjcount[level - 1] == 0)
+            {
+              /* Clean lsp_queue when no adj is up. */
+              if (circuit->lsp_queue)
+                list_delete_all_node (circuit->lsp_queue);
+            }
+          isis_event_adjacency_state_change (adj, new_state);
+          isis_delete_adj (adj);
+        }
       }
     }
 

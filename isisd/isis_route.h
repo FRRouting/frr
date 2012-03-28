@@ -30,6 +30,7 @@ struct isis_nexthop6
 {
   unsigned int ifindex;
   struct in6_addr ip6;
+  struct in6_addr router_address6;
   unsigned int lock;
 };
 #endif /* HAVE_IPV6 */
@@ -38,6 +39,7 @@ struct isis_nexthop
 {
   unsigned int ifindex;
   struct in_addr ip;
+  struct in_addr router_address;
   unsigned int lock;
 };
 

@@ -44,6 +44,7 @@ enum isis_system_type
 
 enum isis_adj_state
 {
+  ISIS_ADJ_UNKNOWN,
   ISIS_ADJ_INITIALIZING,
   ISIS_ADJ_UP,
   ISIS_ADJ_DOWN
@@ -83,8 +84,10 @@ struct isis_adjacency
   struct list *area_addrs;		/* areaAdressesOfNeighbour */
   struct nlpids nlpids;			/* protocols spoken ... */
   struct list *ipv4_addrs;
+  struct in_addr router_address;
 #ifdef HAVE_IPV6
   struct list *ipv6_addrs;
+  struct in6_addr router_address6;
 #endif				/* HAVE_IPV6 */
   u_char prio[ISIS_LEVELS];	/* priorityOfNeighbour for DIS */
   int circuit_t;		/* from hello PDU hdr */

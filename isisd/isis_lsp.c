@@ -441,6 +441,19 @@ lsp_seqnum_update (struct isis_lsp *lsp0)
   return;
 }
 
+static u_int8_t
+lsp_bits_generate (int level, int overload_bit)
+{
+  u_int8_t lsp_bits = 0;
+  if (level == IS_LEVEL_1)
+    lsp_bits = IS_LEVEL_1;
+  else
+    lsp_bits = IS_LEVEL_1_AND_2;
+  if (overload_bit)
+    lsp_bits |= overload_bit;
+  return lsp_bits;
+}
+
 static void
 lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
                  struct isis_area *area, int level)
@@ -470,8 +483,6 @@ lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
   expected |= TLVFLAG_AUTH_INFO;
   expected |= TLVFLAG_AREA_ADDRS;
   expected |= TLVFLAG_IS_NEIGHS;
-  if ((lsp->lsp_header->lsp_bits & 3) == 3)	/* a level 2 LSP */
-    expected |= TLVFLAG_PARTITION_DESIG_LEVEL2_IS;
   expected |= TLVFLAG_NLPID;
   if (area->dynhostname)
     expected |= TLVFLAG_DYN_HOSTNAME;
@@ -503,10 +514,9 @@ lsp_update_data (struct isis_lsp *lsp, struct stream *stream,
 
   if ((found & TLVFLAG_DYN_HOSTNAME) && (area->dynhostname))
     {
-	isis_dynhn_insert (lsp->lsp_header->lsp_id, lsp->tlv_data.hostname,
-			   (lsp->lsp_header->lsp_bits & LSPBIT_IST) ==
-			   IS_LEVEL_1_AND_2 ? IS_LEVEL_2 :
-			   (lsp->lsp_header->lsp_bits & LSPBIT_IST));
+      isis_dynhn_insert (lsp->lsp_header->lsp_id, lsp->tlv_data.hostname,
+                         (lsp->lsp_header->lsp_bits & LSPBIT_IST) ==
+                          IS_LEVEL_1_AND_2 ? IS_LEVEL_2 : IS_LEVEL_1);
     }
 
   return;
@@ -1125,7 +1135,7 @@ lsp_next_frag (u_char frag_num, struct isis_lsp *lsp0, struct isis_area *area,
       return lsp;
     }
   lsp = lsp_new (frag_id, ntohs(lsp0->lsp_header->rem_lifetime), 0,
-                 area->is_type | area->overload_bit, 0, level);
+                 lsp_bits_generate (level, area->overload_bit), 0, level);
   lsp->area = area;
   lsp->own_lsp = 1;
   lsp_insert (lsp, area->lspdb[level - 1]);
@@ -1644,7 +1654,7 @@ lsp_regenerate (struct isis_area *area, int level)
 
   lsp_clear_data (lsp);
   lsp_build (lsp, area);
-  lsp->lsp_header->lsp_bits = area->is_type | area->overload_bit;
+  lsp->lsp_header->lsp_bits = lsp_bits_generate (level, area->overload_bit);
   rem_lifetime = lsp_rem_lifetime (area, level);
   lsp->lsp_header->rem_lifetime = htons (rem_lifetime);
   lsp_seqnum_update (lsp);
@@ -1653,7 +1663,8 @@ lsp_regenerate (struct isis_area *area, int level)
   lsp_set_all_srmflags (lsp);
   for (ALL_LIST_ELEMENTS_RO (lsp->lspu.frags, node, frag))
     {
-      frag->lsp_header->lsp_bits = area->is_type | area->overload_bit;
+      frag->lsp_header->lsp_bits = lsp_bits_generate (level,
+                                                      area->overload_bit);
       /* Set the lifetime values of all the fragments to the same value,
        * so that no fragment expires before the lsp is refreshed.
        */
@@ -1803,10 +1814,7 @@ lsp_build_pseudo (struct isis_lsp *lsp, struct isis_circuit *circuit,
 
   lsp->level = level;
   /* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
-  if (level == IS_LEVEL_1)
-    lsp->lsp_header->lsp_bits |= IS_LEVEL_1;
-  else
-    lsp->lsp_header->lsp_bits |= IS_LEVEL_2;
+  lsp->lsp_header->lsp_bits = lsp_bits_generate (level, 0);
 
   /*
    * add self to IS neighbours 
@@ -2002,7 +2010,7 @@ lsp_regenerate_pseudo (struct isis_circuit *circuit, int level)
   lsp_build_pseudo (lsp, circuit, level);
 
   /* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
-  lsp->lsp_header->lsp_bits = circuit->area->is_type;
+  lsp->lsp_header->lsp_bits = lsp_bits_generate (level, 0);
   rem_lifetime = lsp_rem_lifetime (circuit->area, level);
   lsp->lsp_header->rem_lifetime = htons (rem_lifetime);
   lsp_inc_seqnum (lsp, 0);
@@ -2321,7 +2329,8 @@ lsp_purge_non_exist (struct isis_link_state_hdr *lsp_hdr,
    */
   lsp = XCALLOC (MTYPE_ISIS_LSP, sizeof (struct isis_lsp));
   lsp->area = area;
-  lsp->level = ((lsp_hdr->lsp_bits & LSPBIT_IST) == IS_LEVEL_1) ? 1 : 2;
+  lsp->level = ((lsp_hdr->lsp_bits & LSPBIT_IST) == IS_LEVEL_1) ?
+    IS_LEVEL_1 : IS_LEVEL_2;
   /* FIXME: Should be minimal mtu? */
   lsp->pdu = stream_new (1500);
   lsp->isis_header = (struct isis_fixed_hdr *) STREAM_DATA (lsp->pdu);
@@ -2404,7 +2413,8 @@ top_lsp_refresh (struct thread *thread)
   isis_dynhn_insert (lsp->lsp_header->lsp_id, lsp->tlv_data.hostname,
 		     IS_LEVEL_1);
 
-  lsp->lsp_header->lsp_bits = lsp->area->is_type | lsp->area->overload_bit;
+  lsp->lsp_header->lsp_bits = lsp_bits_generate (level,
+                                                 lsp->area->overload_bit);
   rem_lifetime = lsp_rem_lifetime (lsp->area, IS_LEVEL_1);
   lsp->lsp_header->rem_lifetime = htons (rem_lifetime);
 

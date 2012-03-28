@@ -274,7 +274,8 @@ isis_spftree_new (struct isis_area *area)
   tree->tents = list_new ();
   tree->paths = list_new ();
   tree->area = area;
-  tree->lastrun = 0;
+  tree->last_run_timestamp = 0;
+  tree->last_run_duration = 0;
   tree->runcount = 0;
   tree->pending = 0;
   return tree;
@@ -408,12 +409,16 @@ spftree_area_adj_del (struct isis_area *area, struct isis_adjacency *adj)
 static struct isis_lsp *
 isis_root_system_lsp (struct isis_area *area, int level, u_char *sysid)
 {
+  struct isis_lsp *lsp;
   u_char lspid[ISIS_SYS_ID_LEN + 2];
 
   memcpy (lspid, sysid, ISIS_SYS_ID_LEN);
   LSP_PSEUDO_ID (lspid) = 0;
   LSP_FRAGMENT (lspid) = 0;
-  return (lsp_search (lspid, area->lspdb[level - 1]));
+  lsp = lsp_search (lspid, area->lspdb[level - 1]);
+  if (lsp && lsp->lsp_header->rem_lifetime != 0)
+    return lsp;
+  return NULL;
 }
 
 /*
@@ -1021,7 +1026,7 @@ isis_spf_preload_tent (struct isis_spftree *spftree, int level,
 		  LSP_PSEUDO_ID (lsp_id) = 0;
 		  LSP_FRAGMENT (lsp_id) = 0;
 		  lsp = lsp_search (lsp_id, spftree->area->lspdb[level - 1]);
-		  if (!lsp)
+                  if (lsp == NULL || lsp->lsp_header->rem_lifetime == 0)
                     zlog_warn ("ISIS-Spf: No LSP %s found for IS adjacency "
                         "L%d on %s (ID %u)",
 			rawlspid_print (lsp_id), level,
@@ -1171,6 +1176,13 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
   u_char lsp_id[ISIS_SYS_ID_LEN + 2];
   struct isis_lsp *lsp;
   struct route_table *table = NULL;
+  struct timespec time_now;
+  unsigned long long start_time, end_time;
+
+  /* Get time that can't roll backwards. */
+  clock_gettime(CLOCK_MONOTONIC, &time_now);
+  start_time = time_now.tv_sec;
+  start_time = (start_time * 1000000) + (time_now.tv_nsec / 1000);
 
   if (family == AF_INET)
     spftree = area->spftree[level - 1];
@@ -1237,7 +1249,7 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
 	  memcpy (lsp_id, vertex->N.id, ISIS_SYS_ID_LEN + 1);
 	  LSP_FRAGMENT (lsp_id) = 0;
 	  lsp = lsp_search (lsp_id, area->lspdb[level - 1]);
-	  if (lsp)
+	  if (lsp && lsp->lsp_header->rem_lifetime != 0)
 	    {
 	      if (LSP_PSEUDO_ID (lsp_id))
 		{
@@ -1263,9 +1275,14 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
 
 out:
   isis_route_validate (area);
-  spftree->lastrun = time (NULL);
-  spftree->runcount++;
   spftree->pending = 0;
+  spftree->runcount++;
+  spftree->last_run_timestamp = time (NULL);
+  clock_gettime(CLOCK_MONOTONIC, &time_now);
+  end_time = time_now.tv_sec;
+  end_time = (end_time * 1000000) + (time_now.tv_nsec / 1000);
+  spftree->last_run_duration = end_time - start_time;
+
 
   return retval;
 }
@@ -1332,7 +1349,7 @@ isis_spf_schedule (struct isis_area *area, int level)
 {
   struct isis_spftree *spftree = area->spftree[level - 1];
   time_t now = time (NULL);
-  int diff = now - spftree->lastrun;
+  int diff = now - spftree->last_run_timestamp;
 
   assert (diff >= 0);
   assert (area->is_type & level);
@@ -1346,20 +1363,20 @@ isis_spf_schedule (struct isis_area *area, int level)
 
   THREAD_TIMER_OFF (spftree->t_spf);
 
-  /* wait MINIMUM_SPF_INTERVAL before doing the SPF */
-  if (diff >= MINIMUM_SPF_INTERVAL)
+  /* wait configured min_spf_interval before doing the SPF */
+  if (diff >= area->min_spf_interval[level-1])
       return isis_run_spf (area, level, AF_INET, isis->sysid);
 
   if (level == 1)
     THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l1, area,
-                     MINIMUM_SPF_INTERVAL - diff);
+                     area->min_spf_interval[0] - diff);
   else
     THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf_l2, area,
-                     MINIMUM_SPF_INTERVAL - diff);
+                     area->min_spf_interval[1] - diff);
 
   if (isis->debugs & DEBUG_SPF_EVENTS)
     zlog_debug ("ISIS-Spf (%s) L%d SPF scheduled %d sec from now",
-                area->area_tag, level, MINIMUM_SPF_INTERVAL - diff);
+                area->area_tag, level, area->min_spf_interval[level-1] - diff);
 
   spftree->pending = 1;
 
@@ -1428,34 +1445,37 @@ isis_spf_schedule6 (struct isis_area *area, int level)
 {
   int retval = ISIS_OK;
   struct isis_spftree *spftree = area->spftree6[level - 1];
-  time_t diff, now = time (NULL);
+  time_t now = time (NULL);
+  time_t diff = now - spftree->last_run_timestamp;
+
+  assert (diff >= 0);
+  assert (area->is_type & level);
+
+  if (isis->debugs & DEBUG_SPF_EVENTS)
+    zlog_debug ("ISIS-Spf (%s) L%d SPF schedule called, lastrun %d sec ago",
+                area->area_tag, level, diff);
 
   if (spftree->pending)
-    return retval;
+    return ISIS_OK;
 
   THREAD_TIMER_OFF (spftree->t_spf);
 
-  /* FIXME: let's wait MINIMUM_SPF_INTERVAL before doing the SPF */
-  if (now - isis->uptime < MINIMUM_SPF_INTERVAL || isis->uptime == 0)
-      diff = 0;
-  else
-      diff = now - spftree->lastrun;
+  /* wait configured min_spf_interval before doing the SPF */
+  if (diff >= area->min_spf_interval[level-1])
+      return isis_run_spf (area, level, AF_INET6, isis->sysid);
 
-  if (diff < MINIMUM_SPF_INTERVAL)
-    {
-      if (level == 1)
-	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l1, area,
-			 MINIMUM_SPF_INTERVAL - diff);
-      else
-	THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l2, area,
-			 MINIMUM_SPF_INTERVAL - diff);
-
-      spftree->pending = 1;
-    }
+  if (level == 1)
+    THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l1, area,
+                     area->min_spf_interval[0] - diff);
   else
-    {
-      retval = isis_run_spf (area, level, AF_INET6, isis->sysid);
-    }
+    THREAD_TIMER_ON (master, spftree->t_spf, isis_run_spf6_l2, area,
+                     area->min_spf_interval[1] - diff);
+
+  if (isis->debugs & DEBUG_SPF_EVENTS)
+    zlog_debug ("ISIS-Spf (%s) L%d SPF scheduled %d sec from now",
+                area->area_tag, level, area->min_spf_interval[level-1] - diff);
+
+  spftree->pending = 1;
 
   return retval;
 }

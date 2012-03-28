@@ -130,20 +130,16 @@ isis_event_system_type_change (struct isis_area *area, int newtype)
   {
     case IS_LEVEL_1:
       if (newtype == IS_LEVEL_2)
-      {
         area_resign_level (area, IS_LEVEL_1);
-      }
-      else
-      {
-        if (area->lspdb[1] == NULL)
-          area->lspdb[1] = lsp_db_init ();
-        if (area->route_table[1] == NULL)
-          area->route_table[1] = route_table_init ();
+
+      if (area->lspdb[1] == NULL)
+        area->lspdb[1] = lsp_db_init ();
+      if (area->route_table[1] == NULL)
+        area->route_table[1] = route_table_init ();
 #ifdef HAVE_IPV6
-        if (area->route_table6[1] == NULL)
-          area->route_table6[1] = route_table_init ();
+      if (area->route_table6[1] == NULL)
+        area->route_table6[1] = route_table_init ();
 #endif /* HAVE_IPV6 */
-      }
       break;
 
     case IS_LEVEL_1_AND_2:
@@ -155,21 +151,18 @@ isis_event_system_type_change (struct isis_area *area, int newtype)
 
     case IS_LEVEL_2:
       if (newtype == IS_LEVEL_1)
-      {
         area_resign_level (area, IS_LEVEL_2);
-      }
-      else
-      {
-        if (area->lspdb[0] == NULL)
-          area->lspdb[0] = lsp_db_init ();
-        if (area->route_table[0] == NULL)
-          area->route_table[0] = route_table_init ();
+
+      if (area->lspdb[0] == NULL)
+        area->lspdb[0] = lsp_db_init ();
+      if (area->route_table[0] == NULL)
+        area->route_table[0] = route_table_init ();
 #ifdef HAVE_IPV6
-        if (area->route_table6[0] == NULL)
-          area->route_table6[0] = route_table_init ();
+      if (area->route_table6[0] == NULL)
+        area->route_table6[0] = route_table_init ();
 #endif /* HAVE_IPV6 */
-      }
       break;
+
     default:
       break;
   }
@@ -199,8 +192,9 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
 {
   if (level == 1)
     {
-      THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
-		       isis_jitter (circuit->psnp_interval[0], PSNP_JITTER));
+      if (! circuit->is_passive)
+        THREAD_TIMER_ON (master, circuit->t_send_psnp[0], send_l1_psnp, circuit,
+		         isis_jitter (circuit->psnp_interval[0], PSNP_JITTER));
 
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	{
@@ -217,8 +211,9 @@ circuit_commence_level (struct isis_circuit *circuit, int level)
     }
   else
     {
-      THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
-		       isis_jitter (circuit->psnp_interval[1], PSNP_JITTER));
+      if (! circuit->is_passive)
+        THREAD_TIMER_ON (master, circuit->t_send_psnp[1], send_l2_psnp, circuit,
+		         isis_jitter (circuit->psnp_interval[1], PSNP_JITTER));
 
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
 	{
