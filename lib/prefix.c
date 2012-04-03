@@ -31,79 +31,6 @@
 /* Maskbit. */
 static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 			         0xf8, 0xfc, 0xfe, 0xff};
-static const u_int32_t maskbytes_big_endian[] =
-{
-  0x00000000, /* /0  0.0.0.0         */
-  0x80000000, /* /1  128.0.0.0       */
-  0xc0000000, /* /2  192.0.0.0       */
-  0xe0000000, /* /3  224.0.0.0       */
-  0xf0000000, /* /4  240.0.0.0       */
-  0xf8000000, /* /5  248.0.0.0       */
-  0xfc000000, /* /6  252.0.0.0       */
-  0xfe000000, /* /7  254.0.0.0       */
-  0xff000000, /* /8  255.0.0.0       */
-  0xff800000, /* /9  255.128.0.0     */
-  0xffc00000, /* /10 255.192.0.0     */
-  0xffe00000, /* /11 255.224.0.0     */
-  0xfff00000, /* /12 255.240.0.0     */
-  0xfff80000, /* /13 255.248.0.0     */
-  0xfffc0000, /* /14 255.252.0.0     */
-  0xfffe0000, /* /15 255.254.0.0     */
-  0xffff0000, /* /16 255.255.0.0     */
-  0xffff8000, /* /17 255.255.128.0   */
-  0xffffc000, /* /18 255.255.192.0   */
-  0xffffe000, /* /19 255.255.224.0   */
-  0xfffff000, /* /20 255.255.240.0   */
-  0xfffff800, /* /21 255.255.248.0   */
-  0xfffffc00, /* /22 255.255.252.0   */
-  0xfffffe00, /* /23 255.255.254.0   */
-  0xffffff00, /* /24 255.255.255.0   */
-  0xffffff80, /* /25 255.255.255.128 */
-  0xffffffc0, /* /26 255.255.255.192 */
-  0xffffffe0, /* /27 255.255.255.224 */
-  0xfffffff0, /* /28 255.255.255.240 */
-  0xfffffff8, /* /29 255.255.255.248 */
-  0xfffffffc, /* /30 255.255.255.252 */
-  0xfffffffe, /* /31 255.255.255.254 */
-  0xffffffff  /* /32 255.255.255.255 */
-};
-
-static const u_int32_t maskbytes_little_endian[] =
-{
-  0x00000000, /* /0  0.0.0.0         */
-  0x00000080, /* /1  128.0.0.0       */
-  0x000000c0, /* /2  192.0.0.0       */
-  0x000000e0, /* /3  224.0.0.0       */
-  0x000000f0, /* /4  240.0.0.0       */
-  0x000000f8, /* /5  248.0.0.0       */
-  0x000000fc, /* /6  252.0.0.0       */
-  0x000000fe, /* /7  254.0.0.0       */
-  0x000000ff, /* /8  255.0.0.0       */
-  0x000080ff, /* /9  255.128.0.0     */
-  0x0000c0ff, /* /10 255.192.0.0     */
-  0x0000e0ff, /* /11 255.224.0.0     */
-  0x0000f0ff, /* /12 255.240.0.0     */
-  0x0000f8ff, /* /13 255.248.0.0     */
-  0x0000fcff, /* /14 255.252.0.0     */
-  0x0000feff, /* /15 255.254.0.0     */
-  0x0000ffff, /* /16 255.255.0.0     */
-  0x0080ffff, /* /17 255.255.128.0   */
-  0x00c0ffff, /* /18 255.255.192.0   */
-  0x00e0ffff, /* /19 255.255.224.0   */
-  0x00f0ffff, /* /20 255.255.240.0   */
-  0x00f8ffff, /* /21 255.255.248.0   */
-  0x00fcffff, /* /22 255.255.252.0   */
-  0x00feffff, /* /23 255.255.254.0   */
-  0x00ffffff, /* /24 255.255.255.0   */
-  0x80ffffff, /* /25 255.255.255.128 */
-  0xc0ffffff, /* /26 255.255.255.192 */
-  0xe0ffffff, /* /27 255.255.255.224 */
-  0xf0ffffff, /* /28 255.255.255.240 */
-  0xf8ffffff, /* /29 255.255.255.248 */
-  0xfcffffff, /* /30 255.255.255.252 */
-  0xfeffffff, /* /31 255.255.255.254 */
-  0xffffffff  /* /32 255.255.255.255 */
-};
 
 static const struct in6_addr maskbytes6[] =
 {
@@ -527,11 +454,15 @@ void
 masklen2ip (const int masklen, struct in_addr *netmask)
 {
   assert (masklen >= 0 && masklen <= IPV4_MAX_BITLEN);
-#if (BYTE_ORDER == LITTLE_ENDIAN)
-  netmask->s_addr = maskbytes_little_endian[masklen];
-#elif (BYTE_ORDER == BIG_ENDIAN)
-  netmask->s_addr = maskbytes_big_endian[masklen];
-#endif
+
+  /* left shift is only defined for less than the size of the type.
+   * we unconditionally use long long in case the target platform
+   * has defined behaviour for << 32 (or has a 64-bit left shift) */
+
+  if (sizeof(unsigned long long) > 4)
+    netmask->s_addr = htonl(0xffffffffULL << (32 - masklen));
+  else
+    netmask->s_addr = htonl(masklen ? 0xffffffffU << (32 - masklen) : 0);
 }
 
 /* Convert IP address's netmask into integer. We assume netmask is
@@ -539,43 +470,22 @@ masklen2ip (const int masklen, struct in_addr *netmask)
 u_char
 ip_masklen (struct in_addr netmask)
 {
-  u_char len;
-  u_char *pnt;
-  u_char *end;
-  u_char val;
-
-  len = 0;
-  pnt = (u_char *) &netmask;
-  end = pnt + 4;
-
-  while ((pnt < end) && (*pnt == 0xff))
-    {
-      len+= 8;
-      pnt++;
-    } 
-
-  if (pnt < end)
-    {
-      val = *pnt;
-      while (val)
-	{
-	  len++;
-	  val <<= 1;
-	}
-    }
-  return len;
+  uint32_t tmp = ~ntohl(netmask.s_addr);
+  if (tmp)
+    /* clz: count leading zeroes. sadly, the behaviour of this builtin
+     * is undefined for a 0 argument, even though most CPUs give 32 */
+    return __builtin_clz(tmp);
+  else
+    return 32;
 }
 
 /* Apply mask to IPv4 prefix (network byte order). */
 void
 apply_mask_ipv4 (struct prefix_ipv4 *p)
 {
-  assert (p->prefixlen >= 0 && p->prefixlen <= IPV4_MAX_BITLEN);
-#if (BYTE_ORDER == LITTLE_ENDIAN)
-  p->prefix.s_addr &= maskbytes_little_endian[p->prefixlen];
-#elif (BYTE_ORDER == BIG_ENDIAN)
-  p->prefix.s_addr &= maskbytes_big_endian[p->prefixlen];
-#endif
+  struct in_addr mask;
+  masklen2ip(p->prefixlen, &mask);
+  p->prefix.s_addr &= mask.s_addr;
 }
 
 /* If prefix is 0.0.0.0/0 then return 1 else return 0. */
