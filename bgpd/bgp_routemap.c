@@ -525,8 +525,13 @@ route_match_metric_compile (const char *arg)
   char *endptr = NULL;
   unsigned long tmpval;
 
+  /* Metric value shoud be integer. */
+  if (! all_digit (arg))
+    return NULL;
+
+  errno = 0;
   tmpval = strtoul (arg, &endptr, 10);
-  if (*endptr != '\0' || tmpval == ULONG_MAX || tmpval > UINT32_MAX)
+  if (*endptr != '\0' || errno || tmpval > UINT32_MAX)
     return NULL;
     
   med = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
@@ -790,6 +795,75 @@ struct route_map_rule_cmd route_match_origin_cmd =
   route_match_origin_compile,
   route_match_origin_free
 };
+
+/* match probability  { */
+
+static route_map_result_t
+route_match_probability (void *rule, struct prefix *prefix,
+		    route_map_object_t type, void *object)
+{
+  long r;
+#if _SVID_SOURCE || _BSD_SOURCE || _XOPEN_SOURCE >= 500
+  r = random();
+#else
+  r = (long) rand();
+#endif
+
+  switch (*(unsigned *) rule)
+  {
+    case 0: break;
+    case RAND_MAX: return RMAP_MATCH;
+    default:
+      if (r < *(unsigned *) rule)
+        {
+          return RMAP_MATCH;
+        }
+  }
+
+  return RMAP_NOMATCH;
+}
+
+static void *
+route_match_probability_compile (const char *arg)
+{
+  unsigned *lobule;
+  unsigned  perc;
+
+#if _SVID_SOURCE || _BSD_SOURCE || _XOPEN_SOURCE >= 500
+  srandom (time (NULL));
+#else
+  srand (time (NULL));
+#endif
+
+  perc    = atoi (arg);
+  lobule  = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (unsigned));
+
+  switch (perc)
+    {
+      case 0:   *lobule = 0; break;
+      case 100: *lobule = RAND_MAX; break;
+      default:  *lobule = RAND_MAX / 100 * perc;
+    }
+
+  return lobule;
+}
+
+static void
+route_match_probability_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_match_probability_cmd =
+{
+  "probability",
+  route_match_probability,
+  route_match_probability_compile,
+  route_match_probability_free
+};
+
+/* } */
+
 /* `set ip next-hop IP_ADDRESS' */
 
 /* Set nexthop to object.  ojbect must be pointer to struct attr. */
@@ -933,8 +1007,9 @@ route_set_local_pref_compile (const char *arg)
   if (! all_digit (arg))
     return NULL;
   
+  errno = 0;
   tmp = strtoul (arg, &endptr, 10);
-  if (*endptr != '\0' || tmp == ULONG_MAX || tmp > UINT32_MAX)
+  if (*endptr != '\0' || errno || tmp > UINT32_MAX)
     return NULL;
    
   local_pref = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t)); 
@@ -1001,9 +1076,9 @@ route_set_weight_compile (const char *arg)
   if (! all_digit (arg))
     return NULL;
 
-
+  errno = 0;
   tmp = strtoul (arg, &endptr, 10);
-  if (*endptr != '\0' || tmp == ULONG_MAX || tmp > UINT32_MAX)
+  if (*endptr != '\0' || errno || tmp > UINT32_MAX)
     return NULL;
   
   weight = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
@@ -1092,8 +1167,9 @@ route_set_metric_compile (const char *arg)
   if (all_digit (arg))
     {
       /* set metric value check*/
+      errno = 0;
       larg = strtoul (arg, &endptr, 10);
-      if (*endptr != '\0' || larg == ULONG_MAX || larg > UINT32_MAX)
+      if (*endptr != '\0' || errno || larg > UINT32_MAX)
         return NULL;
       metric = larg;
     }
@@ -1105,8 +1181,9 @@ route_set_metric_compile (const char *arg)
 	   || (! all_digit (arg+1)))
 	return NULL;
 
+      errno = 0;
       larg = strtoul (arg+1, &endptr, 10);
-      if (*endptr != '\0' || larg == ULONG_MAX || larg > UINT32_MAX)
+      if (*endptr != '\0' || errno || larg > UINT32_MAX)
 	return NULL;
       metric = larg;
     }
@@ -1482,10 +1559,10 @@ route_set_ecommunity_rt (void *rule, struct prefix *prefix,
       else
 	new_ecom = ecommunity_dup (ecom);
 
-      bgp_info->attr->extra->ecommunity = new_ecom;
+      bgp_info->attr->extra->ecommunity = ecommunity_intern (new_ecom);
 
       if (old_ecom)
-	ecommunity_free (old_ecom);
+	ecommunity_unintern (&old_ecom);
 
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
     }
@@ -1501,7 +1578,7 @@ route_set_ecommunity_rt_compile (const char *arg)
   ecom = ecommunity_str2com (arg, ECOMMUNITY_ROUTE_TARGET, 0);
   if (! ecom)
     return NULL;
-  return ecom;
+  return ecommunity_intern (ecom);
 }
 
 /* Free function for set community. */
@@ -1509,7 +1586,7 @@ static void
 route_set_ecommunity_rt_free (void *rule)
 {
   struct ecommunity *ecom = rule;
-  ecommunity_free (ecom);
+  ecommunity_unintern (&ecom);
 }
 
 /* Set community rule structure. */
@@ -1528,7 +1605,7 @@ static route_map_result_t
 route_set_ecommunity_soo (void *rule, struct prefix *prefix, 
 			 route_map_object_t type, void *object)
 {
-  struct ecommunity *ecom;
+  struct ecommunity *ecom, *old_ecom, *new_ecom;
   struct bgp_info *bgp_info;
 
   if (type == RMAP_BGP)
@@ -1539,8 +1616,19 @@ route_set_ecommunity_soo (void *rule, struct prefix *prefix,
       if (! ecom)
 	return RMAP_OKAY;
     
+      old_ecom = (bgp_attr_extra_get (bgp_info->attr))->ecommunity;
+      
+      if (old_ecom)
+	new_ecom = ecommunity_merge (ecommunity_dup (old_ecom), ecom);
+      else
+	new_ecom = ecommunity_dup (ecom);
+
+      bgp_info->attr->extra->ecommunity = ecommunity_intern (new_ecom);
+
+      if (old_ecom)
+	ecommunity_unintern (&old_ecom);
+
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
-      (bgp_attr_extra_get (bgp_info->attr))->ecommunity = ecommunity_dup (ecom);
     }
   return RMAP_OKAY;
 }
@@ -1555,7 +1643,7 @@ route_set_ecommunity_soo_compile (const char *arg)
   if (! ecom)
     return NULL;
   
-  return ecom;
+  return ecommunity_intern (ecom);
 }
 
 /* Free function for set community. */
@@ -1563,7 +1651,7 @@ static void
 route_set_ecommunity_soo_free (void *rule)
 {
   struct ecommunity *ecom = rule;
-  ecommunity_free (ecom);
+  ecommunity_unintern (&ecom);
 }
 
 /* Set community rule structure. */
@@ -2450,6 +2538,38 @@ ALIAS (no_match_ip_next_hop,
        "IP access-list number\n"
        "IP access-list number (expanded range)\n"
        "IP Access-list name\n")
+
+/* match probability { */
+
+DEFUN (match_probability,
+       match_probability_cmd,
+       "match probability <0-100>",
+       MATCH_STR
+       "Match portion of routes defined by percentage value\n"
+       "Percentage of routes\n")
+{
+  return bgp_route_match_add (vty, vty->index, "probability", argv[0]);
+}
+
+DEFUN (no_match_probability,
+       no_match_probability_cmd,
+       "no match probability",
+       NO_STR
+       MATCH_STR
+       "Match portion of routes defined by percentage value\n")
+{
+  return bgp_route_match_delete (vty, vty->index, "probability", argc ? argv[0] : NULL);
+}
+
+ALIAS (no_match_probability,
+       no_match_probability_val_cmd,
+       "no match probability <1-99>",
+       NO_STR
+       MATCH_STR
+       "Match portion of routes defined by percentage value\n"
+       "Percentage of routes\n")
+
+/* } */
 
 DEFUN (match_ip_route_source, 
        match_ip_route_source_cmd,
@@ -3738,6 +3858,7 @@ bgp_route_map_init (void)
   route_map_install_match (&route_match_ecommunity_cmd);
   route_map_install_match (&route_match_metric_cmd);
   route_map_install_match (&route_match_origin_cmd);
+  route_map_install_match (&route_match_probability_cmd);
 
   route_map_install_set (&route_set_ip_nexthop_cmd);
   route_map_install_set (&route_set_local_pref_cmd);
@@ -3769,7 +3890,6 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &match_ip_route_source_cmd);
   install_element (RMAP_NODE, &no_match_ip_route_source_cmd);
   install_element (RMAP_NODE, &no_match_ip_route_source_val_cmd);
-
   install_element (RMAP_NODE, &match_ip_address_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_prefix_list_val_cmd);
@@ -3797,6 +3917,9 @@ bgp_route_map_init (void)
   install_element (RMAP_NODE, &match_origin_cmd);
   install_element (RMAP_NODE, &no_match_origin_cmd);
   install_element (RMAP_NODE, &no_match_origin_val_cmd);
+  install_element (RMAP_NODE, &match_probability_cmd);
+  install_element (RMAP_NODE, &no_match_probability_cmd);
+  install_element (RMAP_NODE, &no_match_probability_val_cmd);
 
   install_element (RMAP_NODE, &set_ip_nexthop_cmd);
   install_element (RMAP_NODE, &set_ip_nexthop_peer_cmd);

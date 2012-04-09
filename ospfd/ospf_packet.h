@@ -46,6 +46,10 @@
 
 #define OSPF_HELLO_REPLY_DELAY          1
 
+/* Return values of functions involved in packet verification, see ospf6d. */
+#define MSG_OK    0
+#define MSG_NG    1
+
 struct ospf_packet
 {
   struct ospf_packet *next;
@@ -117,6 +121,10 @@ struct ospf_db_desc
   u_int32_t dd_seqnum;
 };
 
+struct ospf_ls_update
+{
+  u_int32_t num_lsas;
+};
 
 /* Macros. */
 /* XXX Perhaps obsolete; function in ospf_packet.c */
@@ -162,5 +170,8 @@ extern int ospf_ls_upd_timer (struct thread *);
 extern int ospf_ls_ack_timer (struct thread *);
 extern int ospf_poll_timer (struct thread *);
 extern int ospf_hello_reply_timer (struct thread *);
+
+extern const struct message ospf_packet_type_str[];
+extern const size_t ospf_packet_type_str_max;
 
 #endif /* _ZEBRA_OSPF_PACKET_H */

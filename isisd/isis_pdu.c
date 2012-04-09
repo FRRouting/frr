@@ -29,10 +29,11 @@
 #include "log.h"
 #include "stream.h"
 #include "vty.h"
-#include "hash.c"
+#include "hash.h"
 #include "prefix.h"
 #include "if.h"
 #include "checksum.h"
+#include "md5.h"
 
 #include "isisd/dict.h"
 #include "isisd/include-netbsd/iso.h"
@@ -168,26 +169,38 @@ accept_level (int level, int circuit_t)
   return retval;
 }
 
+
+/*
+ * Verify authentication information
+ * Support cleartext and HMAC MD5 authentication
+ */
 int
-authentication_check (struct isis_passwd *one, struct isis_passwd *theother)
+authentication_check (struct isis_passwd *remote, struct isis_passwd *local, struct isis_circuit* c)
 {
-  if (one->type != theother->type)
+  unsigned char digest[ISIS_AUTH_MD5_SIZE];
+
+  if (c->passwd.type)
     {
-      zlog_warn ("Unsupported authentication type %d", theother->type);
-      return 1;			/* Auth fail (different authentication types) */
-    }
-  switch (one->type)
+      switch (c->passwd.type)
     {
+	  case ISIS_PASSWD_TYPE_HMAC_MD5:
+	    /* HMAC MD5 (RFC 3567) */
+	    /* MD5 computation according to RFC 2104 */
+	    hmac_md5(c->rcv_stream->data, stream_get_endp(c->rcv_stream), (unsigned char *) &(local->passwd), c->passwd.len, (unsigned char *) &digest);
+	    return memcmp (digest, remote->passwd, ISIS_AUTH_MD5_SIZE);
+	    break;
     case ISIS_PASSWD_TYPE_CLEARTXT:
-      if (one->len != theother->len)
+	    /* Cleartext (ISO 10589) */
+	    if (local->len != remote->len)
 	return 1;		/* Auth fail () - passwd len mismatch */
-      return memcmp (one->passwd, theother->passwd, one->len);
+	    return memcmp (local->passwd, remote->passwd, local->len);
       break;
     default:
       zlog_warn ("Unsupported authentication type");
       break;
     }
-  return 0;			/* Auth pass */
+    }
+  return 0; /* Authentication pass when no authentication is configured */
 }
 
 /*
@@ -372,7 +385,7 @@ process_p2p_hello (struct isis_circuit *circuit)
   if (circuit->passwd.type)
     {
       if (!(found & TLVFLAG_AUTH_INFO) ||
-	  authentication_check (&circuit->passwd, &tlvs.auth_info))
+	  authentication_check (&tlvs.auth_info, &circuit->passwd, circuit))
 	{
 	  isis_event_auth_failure (circuit->area->area_tag,
 				   "P2P hello authentication failure",
@@ -744,10 +757,11 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       goto out;
     }
 
+  /* Verify authentication, either cleartext of HMAC MD5 */
   if (circuit->passwd.type)
     {
       if (!(found & TLVFLAG_AUTH_INFO) ||
-	  authentication_check (&circuit->passwd, &tlvs.auth_info))
+	   authentication_check (&tlvs.auth_info, &circuit->passwd, circuit))
 	{
 	  isis_event_auth_failure (circuit->area->area_tag,
 				   "LAN hello authentication failure",
@@ -1187,6 +1201,7 @@ dontcheckadj:
       /* 7.3.15.1 e) 1) LSP newer than the one in db or no LSP in db */
       if ((!lsp || comp == LSP_NEWER))
 	{
+	  int regenerate = (lsp == NULL);
 	  /* i */
 	  if (lsp)
 	    {
@@ -1221,7 +1236,6 @@ dontcheckadj:
 				     ntohs (hdr->pdu_len), lsp0,
 				     circuit->area);
 	  lsp->level = level;
-	  lsp->adj = adj;
 	  lsp_insert (lsp, circuit->area->lspdb[level - 1]);
 	  /* ii */
 	  ISIS_FLAGS_SET_ALL (lsp->SRMflags);
@@ -1232,6 +1246,9 @@ dontcheckadj:
 	  if (circuit->circ_type != CIRCUIT_T_BROADCAST)
 	    ISIS_SET_FLAG (lsp->SSNflags, circuit);
 	  /* FIXME: v) */
+	    if (regenerate && circuit->u.bc.is_dr[level - 1]) {
+	    lsp_l1_pseudo_generate (circuit);
+	  }
 	}
       /* 7.3.15.1 e) 2) LSP equal to the one in db */
       else if (comp == LSP_EQUAL)
@@ -1250,8 +1267,7 @@ dontcheckadj:
 	  ISIS_CLEAR_FLAG (lsp->SSNflags, circuit);
 	}
     }
-  if (lsp)
-    lsp->adj = adj;
+
   return retval;
 }
 
@@ -1414,7 +1430,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
       if (passwd->type)
 	{
 	  if (!(found & TLVFLAG_AUTH_INFO) ||
-	      authentication_check (passwd, &tlvs.auth_info))
+	      authentication_check (&tlvs.auth_info, passwd, circuit))
 	    {
 	      isis_event_auth_failure (circuit->area->area_tag,
 				       "SNP authentication" " failure",
@@ -1781,6 +1797,9 @@ isis_receive (struct thread *thread)
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
+  if (!circuit->area)
+    return ISIS_OK;
+
   if (circuit->rcv_stream == NULL)
     circuit->rcv_stream = stream_new (ISO_MTU (circuit));
   else
@@ -1908,10 +1927,14 @@ send_hello (struct isis_circuit *circuit, int level)
   struct isis_fixed_hdr fixed_hdr;
   struct isis_lan_hello_hdr hello_hdr;
   struct isis_p2p_hello_hdr p2p_hello_hdr;
+  char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
 
   u_int32_t interval;
-  unsigned long len_pointer, length;
+  unsigned long len_pointer, length, auth_tlv;
   int retval;
+
+  if (circuit->state != C_STATE_UP || circuit->interface == NULL)
+    return ISIS_WARNING;
 
   if (circuit->interface->mtu == 0)
     {
@@ -1940,6 +1963,9 @@ send_hello (struct isis_circuit *circuit, int level)
   memset (&hello_hdr, 0, sizeof (struct isis_lan_hello_hdr));
   interval = circuit->hello_multiplier[level - 1] *
     circuit->hello_interval[level - 1];
+  /* If we are the DIS then hello interval is divided by three, as is the hold-timer */
+  if (circuit->u.bc.is_dr[level - 1])
+    interval=interval/3;
   if (interval > USHRT_MAX)
     interval = USHRT_MAX;
   hello_hdr.circuit_t = circuit->circuit_is_type;
@@ -1976,16 +2002,51 @@ send_hello (struct isis_circuit *circuit, int level)
   /*
    * Then the variable length part 
    */
+
   /* add circuit password */
-  if (circuit->passwd.type)
-    if (tlv_add_authinfo (circuit->passwd.type, circuit->passwd.len,
+  /* Cleartext */
+  if (circuit->passwd.type == ISIS_PASSWD_TYPE_CLEARTXT)
+    if (tlv_add_authinfo (ISIS_PASSWD_TYPE_CLEARTXT, circuit->passwd.len,
 			  circuit->passwd.passwd, circuit->snd_stream))
       return ISIS_WARNING;
+
+  /* or HMAC MD5 */
+  if (circuit->passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5)
+    {
+      /* Remember where TLV is written so we can later overwrite the MD5 hash */
+      auth_tlv = stream_get_endp (circuit->snd_stream);
+      memset(&hmac_md5_hash, 0, ISIS_AUTH_MD5_SIZE);
+      if (tlv_add_authinfo (ISIS_PASSWD_TYPE_HMAC_MD5, ISIS_AUTH_MD5_SIZE,
+			   hmac_md5_hash, circuit->snd_stream))
+	return ISIS_WARNING;
+    }
+
+  /* Protocols Supported TLV */
+  if (circuit->nlpids.count > 0)
+    if (tlv_add_nlpid (&circuit->nlpids, circuit->snd_stream))
+      return ISIS_WARNING;
+
   /*  Area Addresses TLV */
   assert (circuit->area);
   if (circuit->area->area_addrs && circuit->area->area_addrs->count > 0)
     if (tlv_add_area_addrs (circuit->area->area_addrs, circuit->snd_stream))
       return ISIS_WARNING;
+
+  /* IP interface Address TLV */
+  if (circuit->ip_router && circuit->ip_addrs && circuit->ip_addrs->count > 0)
+    if (tlv_add_ip_addrs (circuit->ip_addrs, circuit->snd_stream))
+      return ISIS_WARNING;
+
+#ifdef HAVE_IPV6
+  /* IPv6 Interface Address TLV */
+  if (circuit->ipv6_router && circuit->ipv6_link &&
+      circuit->ipv6_link->count > 0)
+    if (tlv_add_ipv6_addrs (circuit->ipv6_link, circuit->snd_stream))
+      return ISIS_WARNING;
+#endif /* HAVE_IPV6 */
+
+  /* Restart signaling, vendor C sends it too */
+  retval = add_tlv (211, 3, 0, circuit->snd_stream);
 
   /*  LAN Neighbors TLV */
   if (circuit->circ_type == CIRCUIT_T_BROADCAST)
@@ -2000,23 +2061,6 @@ send_hello (struct isis_circuit *circuit, int level)
 	  return ISIS_WARNING;
     }
 
-  /* Protocols Supported TLV */
-  if (circuit->nlpids.count > 0)
-    if (tlv_add_nlpid (&circuit->nlpids, circuit->snd_stream))
-      return ISIS_WARNING;
-  /* IP interface Address TLV */
-  if (circuit->ip_router && circuit->ip_addrs && circuit->ip_addrs->count > 0)
-    if (tlv_add_ip_addrs (circuit->ip_addrs, circuit->snd_stream))
-      return ISIS_WARNING;
-
-#ifdef HAVE_IPV6
-  /* IPv6 Interface Address TLV */
-  if (circuit->ipv6_router && circuit->ipv6_link &&
-      circuit->ipv6_link->count > 0)
-    if (tlv_add_ipv6_addrs (circuit->ipv6_link, circuit->snd_stream))
-      return ISIS_WARNING;
-#endif /* HAVE_IPV6 */
-
   if (circuit->u.bc.pad_hellos)
     if (tlv_add_padding (circuit->snd_stream))
       return ISIS_WARNING;
@@ -2024,6 +2068,14 @@ send_hello (struct isis_circuit *circuit, int level)
   length = stream_get_endp (circuit->snd_stream);
   /* Update PDU length */
   stream_putw_at (circuit->snd_stream, len_pointer, (u_int16_t) length);
+
+  /* For HMAC MD5 we need to compute the md5 hash and store it */
+  if (circuit->passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5)
+    {
+      hmac_md5(circuit->snd_stream->data, stream_get_endp(circuit->snd_stream), (unsigned char *) &circuit->passwd.passwd, circuit->passwd.len, (unsigned char *) &hmac_md5_hash);
+      /* Copy the hash into the stream */
+      memcpy(circuit->snd_stream->data+auth_tlv+3,hmac_md5_hash,ISIS_AUTH_MD5_SIZE);
+    }
 
   retval = circuit->tx (circuit, level);
   if (retval)
@@ -2062,9 +2114,21 @@ send_lan_l1_hello (struct thread *thread)
 {
   struct isis_circuit *circuit;
   int retval;
+  unsigned long next_hello;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
+
+  if (!circuit->area) {
+    return ISIS_OK;
+  }
+
+  /* Pseudonode sends hellos three times more than the other nodes */
+  if (circuit->u.bc.is_dr[0])
+    next_hello=circuit->hello_interval[0]/3+1;
+  else
+    next_hello=circuit->hello_interval[0];
+
   circuit->u.bc.t_send_lan_hello[0] = NULL;
 
   if (circuit->u.bc.run_dr_elect[0])
@@ -2075,7 +2139,7 @@ send_lan_l1_hello (struct thread *thread)
   /* set next timer thread */
   THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[0],
 		   send_lan_l1_hello, circuit,
-		   isis_jitter (circuit->hello_interval[0], IIH_JITTER));
+                  isis_jitter (next_hello, IIH_JITTER));
 
   return retval;
 }
@@ -2085,9 +2149,21 @@ send_lan_l2_hello (struct thread *thread)
 {
   struct isis_circuit *circuit;
   int retval;
+  unsigned long next_hello;
 
   circuit = THREAD_ARG (thread);
   assert (circuit);
+
+  if (!circuit->area) {
+    return ISIS_OK;
+  }
+
+  /* Pseudonode sends hellos three times more than the other nodes */
+  if (circuit->u.bc.is_dr[1])
+    next_hello=circuit->hello_interval[1]/3+1;
+  else
+    next_hello=circuit->hello_interval[1];
+
   circuit->u.bc.t_send_lan_hello[1] = NULL;
 
   if (circuit->u.bc.run_dr_elect[1])
@@ -2098,7 +2174,7 @@ send_lan_l2_hello (struct thread *thread)
   /* set next timer thread */
   THREAD_TIMER_ON (master, circuit->u.bc.t_send_lan_hello[1],
 		   send_lan_l2_hello, circuit,
-		   isis_jitter (circuit->hello_interval[1], IIH_JITTER));
+                  isis_jitter (next_hello, IIH_JITTER));
 
   return retval;
 }
@@ -2192,6 +2268,9 @@ send_csnp (struct isis_circuit *circuit, int level)
   struct listnode *node;
   struct isis_lsp *lsp;
 
+  if (circuit->state != C_STATE_UP || circuit->interface == NULL)
+    return ISIS_WARNING;
+
   memset (start, 0x00, ISIS_SYS_ID_LEN + 2);
   memset (stop, 0xff, ISIS_SYS_ID_LEN + 2);
 
@@ -2246,9 +2325,7 @@ send_l1_csnp (struct thread *thread)
   circuit->t_send_csnp[0] = NULL;
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST && circuit->u.bc.is_dr[0])
-    {
       send_csnp (circuit, 1);
-    }
   /* set next timer thread */
   THREAD_TIMER_ON (master, circuit->t_send_csnp[0], send_l1_csnp, circuit,
 		   isis_jitter (circuit->csnp_interval[0], CSNP_JITTER));
@@ -2268,9 +2345,7 @@ send_l2_csnp (struct thread *thread)
   circuit->t_send_csnp[1] = NULL;
 
   if (circuit->circ_type == CIRCUIT_T_BROADCAST && circuit->u.bc.is_dr[1])
-    {
       send_csnp (circuit, 2);
-    }
   /* set next timer thread */
   THREAD_TIMER_ON (master, circuit->t_send_csnp[1], send_l2_csnp, circuit,
 		   isis_jitter (circuit->csnp_interval[1], CSNP_JITTER));
@@ -2356,6 +2431,9 @@ send_psnp (int level, struct isis_circuit *circuit)
   struct isis_lsp *lsp;
   struct list *list = NULL;
   struct listnode *node;
+
+  if (circuit->state != C_STATE_UP || circuit->interface == NULL)
+    return ISIS_WARNING;
 
   if ((circuit->circ_type == CIRCUIT_T_BROADCAST &&
        !circuit->u.bc.is_dr[level - 1]) ||
@@ -2463,85 +2541,85 @@ send_lsp (struct thread *thread)
   circuit = THREAD_ARG (thread);
   assert (circuit);
 
-  if (circuit->state == C_STATE_UP)
+  if (circuit->state != C_STATE_UP || circuit->interface == NULL)
+    return ISIS_WARNING;
+
+  lsp = listgetdata ((node = listhead (circuit->lsp_queue)));
+
+  /*
+   * Do not send if levels do not match
+   */
+  if (!(lsp->level & circuit->circuit_is_type))
+    goto dontsend;
+
+  /*
+   * Do not send if we do not have adjacencies in state up on the circuit
+   */
+  if (circuit->upadjcount[lsp->level - 1] == 0)
+    goto dontsend;
+  /* only send if it needs sending */
+  if ((time (NULL) - lsp->last_sent) >=
+      circuit->area->lsp_gen_interval[lsp->level - 1])
     {
-      lsp = listgetdata ((node = listhead (circuit->lsp_queue)));
 
-      /*
-       * Do not send if levels do not match
-       */
-      if (!(lsp->level & circuit->circuit_is_type))
-	goto dontsend;
-
-      /*
-       * Do not send if we do not have adjacencies in state up on the circuit
-       */
-      if (circuit->upadjcount[lsp->level - 1] == 0)
-	goto dontsend;
-      /* only send if it needs sending */
-      if ((time (NULL) - lsp->last_sent) >=
-	  circuit->area->lsp_gen_interval[lsp->level - 1])
+      if (isis->debugs & DEBUG_UPDATE_PACKETS)
 	{
+	  zlog_debug
+	    ("ISIS-Upd (%s): Sent L%d LSP %s, seq 0x%08x, cksum 0x%04x,"
+	     " lifetime %us on %s", circuit->area->area_tag, lsp->level,
+	     rawlspid_print (lsp->lsp_header->lsp_id),
+	     ntohl (lsp->lsp_header->seq_num),
+	     ntohs (lsp->lsp_header->checksum),
+	     ntohs (lsp->lsp_header->rem_lifetime),
+	     circuit->interface->name);
+	}
+	/* copy our lsp to the send buffer */
+	stream_copy (circuit->snd_stream, lsp->pdu);
 
-	  if (isis->debugs & DEBUG_UPDATE_PACKETS)
-	    {
-	      zlog_debug
-		("ISIS-Upd (%s): Sent L%d LSP %s, seq 0x%08x, cksum 0x%04x,"
-		 " lifetime %us on %s", circuit->area->area_tag, lsp->level,
-		 rawlspid_print (lsp->lsp_header->lsp_id),
-		 ntohl (lsp->lsp_header->seq_num),
-		 ntohs (lsp->lsp_header->checksum),
-		 ntohs (lsp->lsp_header->rem_lifetime),
-		 circuit->interface->name);
-	    }
-	  /* copy our lsp to the send buffer */
-	  stream_copy (circuit->snd_stream, lsp->pdu);
+	retval = circuit->tx (circuit, lsp->level);
 
-	  retval = circuit->tx (circuit, lsp->level);
+      /*
+       * If the sending succeeded, we can del the lsp from circuits
+       * lsp_queue
+       */
+      if (retval == ISIS_OK)
+	{
+	  list_delete_node (circuit->lsp_queue, node);
 
 	  /*
-	   * If the sending succeeded, we can del the lsp from circuits
-	   * lsp_queue
+	   * On broadcast circuits also the SRMflag can be cleared
 	   */
-	  if (retval == ISIS_OK)
-	    {
-	      list_delete_node (circuit->lsp_queue, node);
+	  if (circuit->circ_type == CIRCUIT_T_BROADCAST)
+	    ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
 
+	  if (flags_any_set (lsp->SRMflags) == 0)
+	    {
 	      /*
-	       * On broadcast circuits also the SRMflag can be cleared
+	       * need to remember when we were last sent
 	       */
-	      if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-		ISIS_CLEAR_FLAG (lsp->SRMflags, circuit);
-
-	      if (flags_any_set (lsp->SRMflags) == 0)
-		{
-		  /*
-		   * need to remember when we were last sent
-		   */
-		  lsp->last_sent = time (NULL);
-		}
-	    }
-	  else
-	    {
-	      zlog_debug ("sending of level %d link state failed", lsp->level);
+	      lsp->last_sent = time (NULL);
 	    }
 	}
       else
 	{
-	  /* my belief is that if it wasn't his time, the lsp can be removed
-	   * from the queue
-	   */
-	dontsend:
-	  list_delete_node (circuit->lsp_queue, node);
+	  zlog_debug ("sending of level %d link state failed", lsp->level);
 	}
-#if 0
-      /*
-       * If there are still LSPs send next one after lsp-interval (33 msecs)
-       */
-      if (listcount (circuit->lsp_queue) > 0)
-	thread_add_timer (master, send_lsp, circuit, 1);
-#endif
     }
+  else
+    {
+      /* my belief is that if it wasn't his time, the lsp can be removed
+       * from the queue
+       */
+    dontsend:
+      list_delete_node (circuit->lsp_queue, node);
+    }
+#if 0
+  /*
+   * If there are still LSPs send next one after lsp-interval (33 msecs)
+   */
+  if (listcount (circuit->lsp_queue) > 0)
+    thread_add_timer (master, send_lsp, circuit, 1);
+#endif
 
   return retval;
 }

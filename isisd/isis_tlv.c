@@ -446,6 +446,10 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	      tlvs->auth_info.len = length-1;
 	      pnt++;
 	      memcpy (tlvs->auth_info.passwd, pnt, length - 1);
+	     /* Fill authentication with 0 for later computation
+	      * of MD5 (RFC 5304, 2)
+	      */
+	     memset (pnt, 0, length - 1);
 	      pnt += length - 1;
 	    }
 	  else
@@ -741,7 +745,7 @@ add_tlv (u_char tag, u_char len, u_char * value, struct stream *stream)
   stream_putc (stream, len);	/* LENGTH */
   stream_put (stream, value, (int) len);	/* VALUE */
 
-#ifdef EXTREME_DEBUG
+#ifdef EXTREME_TLV_DEBUG
   zlog_debug ("Added TLV %d len %d", tag, len);
 #endif /* EXTREME DEBUG */
   return ISIS_OK;
@@ -878,7 +882,7 @@ tlv_add_authinfo (char auth_type, char auth_len, u_char *auth_value,
 {
   u_char value[255];
   u_char *pos = value;
-  *pos++ = ISIS_PASSWD_TYPE_CLEARTXT;
+  *pos++ = auth_type;
   memcpy (pos, auth_value, auth_len);
 
   return add_tlv (AUTH_INFO, auth_len + 1, value, stream);

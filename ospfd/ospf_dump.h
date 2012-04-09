@@ -121,8 +121,9 @@ extern unsigned long term_debug_ospf_zebra;
 extern unsigned long term_debug_ospf_nssa;
 
 /* Message Strings. */
-extern const char *ospf_packet_type_str[];
 extern char *ospf_lsa_type_str[];
+extern const struct message ospf_auth_type_str[];
+extern const size_t ospf_auth_type_str_max;
 
 /* Prototypes. */
 extern const char *ospf_area_name_string (struct ospf_area *);

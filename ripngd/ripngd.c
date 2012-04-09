@@ -117,6 +117,11 @@ ripng_make_socket (void)
   ret = setsockopt_ipv6_pktinfo (sock, 1);
   if (ret < 0)
     return ret;
+#ifdef IPTOS_PREC_INTERNETCONTROL
+  ret = setsockopt_ipv6_tclass (sock, IPTOS_PREC_INTERNETCONTROL);
+  if (ret < 0)
+    return ret;
+#endif
   ret = setsockopt_ipv6_multicast_hops (sock, 255);
   if (ret < 0)
     return ret;
@@ -2480,28 +2485,10 @@ DEFUN (ripng_timers,
   unsigned long update;
   unsigned long timeout;
   unsigned long garbage;
-  char *endptr = NULL;
 
-  update = strtoul (argv[0], &endptr, 10);
-  if (update == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "update timer value error%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  
-  timeout = strtoul (argv[1], &endptr, 10);
-  if (timeout == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "timeout timer value error%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  
-  garbage = strtoul (argv[2], &endptr, 10);
-  if (garbage == ULONG_MAX || *endptr != '\0')
-    {
-      vty_out (vty, "garbage timer value error%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+  VTY_GET_INTEGER_RANGE("update timer", update, argv[0], 0, 65535);
+  VTY_GET_INTEGER_RANGE("timeout timer", timeout, argv[1], 0, 65535);
+  VTY_GET_INTEGER_RANGE("garbage timer", garbage, argv[2], 0, 65535);
 
   /* Set each timer value. */
   ripng->update_time = update;

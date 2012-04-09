@@ -5,10 +5,9 @@
 ##  Copyright (c) 1996, 97, 98, 99, 2000 Kunihiro Ishiguro <kunihiro@zebra.org>
 ##  Portions Copyright (c) 2003 Paul Jakma <paul@dishone.st>
 ##
-## $Id$
 AC_PREREQ(2.53)
 
-AC_INIT(Quagga, 0.99.18, [https://bugzilla.quagga.net])
+AC_INIT(Quagga, 0.99.20, [https://bugzilla.quagga.net])
 AC_CONFIG_SRCDIR(lib/zebra.h)
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -72,6 +71,16 @@ AC_PROG_EGREP
 dnl autoconf 2.59 appears not to support AC_PROG_SED
 dnl AC_PROG_SED
 AC_CHECK_PROG([SED],[sed],[sed],[/bin/false])
+
+dnl pdflatex and latexmk are needed to build HACKING.pdf
+AC_CHECK_PROG([PDFLATEX],[pdflatex],[pdflatex],[/bin/false])
+AC_CHECK_PROG([LATEXMK],[latexmk],[latexmk],[/bin/false])
+if test "x$PDFLATEX" = "x/bin/false" -o "x$LATEXMK" = "x/bin/false"; then
+	AC_MSG_WARN([Will not be able to make PDF versions of TeX documents])
+else
+	HAVE_LATEX=true
+fi
+AM_CONDITIONAL([HAVE_LATEX], [test "x$HAVE_LATEX" = "xtrue"])
 
 dnl ------------------------------------------------------------------
 dnl Intel compiler check. Although Intel tries really hard to make icc
@@ -198,6 +207,8 @@ AC_ARG_ENABLE(ospfd,
 [  --disable-ospfd         do not build ospfd])
 AC_ARG_ENABLE(ospf6d,
 [  --disable-ospf6d        do not build ospf6d])
+AC_ARG_ENABLE(babeld,
+[  --disable-babeld        do not build babeld])
 AC_ARG_ENABLE(watchquagga,
 [  --disable-watchquagga   do not build watchquagga])
 AC_ARG_ENABLE(isisd,
@@ -395,7 +406,7 @@ dnl Check other header files.
 dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h sys/times.h sys/select.h \
 	sys/types.h linux/version.h netdb.h asm/types.h \
-	sys/param.h limits.h signal.h libutil.h \
+	sys/param.h limits.h signal.h \
 	sys/socket.h netinet/in.h time.h sys/time.h])
 
 dnl Utility macro to avoid retyping includes all the time
@@ -442,8 +453,35 @@ m4_define([QUAGGA_INCLUDES],
 #endif /* TIME_WITH_SYS_TIME */
 ])dnl
 
-AC_CHECK_HEADERS([sys/un.h net/if.h netinet/in_systm.h netinet/in_var.h \
-	net/if_dl.h net/if_var.h net/netopt.h net/route.h \
+dnl HAVE_NET_IF_H must be discovered by the time the longer AC_CHECK_HEADERS
+dnl round below execution begins, otherwise it doesn't properly detect
+dnl HAVE_NETINET6_IN6_VAR_H, HAVE_NET_IF_VAR_H and HAVE_STRUCT_IN6_ALIASREQ
+dnl on FreeBSD (BZ#408).
+
+AC_CHECK_HEADERS([net/if.h], [], [], QUAGGA_INCLUDES)
+
+m4_define([QUAGGA_INCLUDES],
+QUAGGA_INCLUDES
+[#if HAVE_NET_IF_H
+# include <net/if.h>
+#endif
+])dnl
+
+dnl Same applies for HAVE_NET_IF_VAR_H, which HAVE_NETINET6_ND6_H and
+dnl HAVE_NETINET_IN_VAR_H depend upon. But if_var.h depends on if.h, hence
+dnl an additional round for it.
+
+AC_CHECK_HEADERS([net/if_var.h], [], [], QUAGGA_INCLUDES)
+
+m4_define([QUAGGA_INCLUDES],
+QUAGGA_INCLUDES
+[#if HAVE_NET_IF_VAR_H
+# include <net/if_var.h>
+#endif
+])dnl
+
+AC_CHECK_HEADERS([sys/un.h netinet/in_systm.h netinet/in_var.h \
+	net/if_dl.h net/netopt.h net/route.h \
 	inet/nd.h arpa/inet.h netinet/ip_icmp.h \
 	fcntl.h stddef.h sys/ioctl.h syslog.h wchar.h wctype.h \
 	sys/sysctl.h sys/sockio.h kvm.h sys/conf.h],
@@ -458,10 +496,7 @@ QUAGGA_INCLUDES
 
 m4_define([QUAGGA_INCLUDES],
 QUAGGA_INCLUDES
-[#if HAVE_NET_IF_H
-# include <net/if.h>
-#endif
-#if HAVE_SYS_UN_H
+[#if HAVE_SYS_UN_H
 # include <sys/un.h>
 #endif
 #if HAVE_NETINET_IN_SYSTM_H
@@ -472,9 +507,6 @@ QUAGGA_INCLUDES
 #endif
 #if HAVE_NET_IF_DL_H
 # include <net/if_dl.h>
-#endif
-#if HAVE_NET_IF_VAR_H
-# include <net/if_var.h>
 #endif
 #if HAVE_NET_NETOPT_H
 # include <net/netopt.h>
@@ -595,6 +627,13 @@ AC_SUBST(LIBREADLINE)
 
 dnl ----------
 dnl PAM module
+dnl
+dnl Quagga detects the PAM library it is built against by checking for a
+dnl functional pam_misc.h (Linux-PAM) or openpam.h (OpenPAM) header. pam_misc.h
+dnl is known to #include pam_appl.h, the standard header of a PAM library, and
+dnl openpam.h doesn't do that, although depends on the header too. Hence a
+dnl little assistance to AC_CHECK_HEADER is necessary for the proper detection
+dnl of OpenPAM.
 dnl ----------
 if test "$with_libpam" = "yes"; then
   AC_CHECK_HEADER([security/pam_misc.h],
@@ -608,7 +647,7 @@ if test "$with_libpam" = "yes"; then
      AC_DEFINE(PAM_CONV_FUNC,openpam_ttyconv,Have openpam_ttyconv)
      pam_conv_func="openpam_ttyconv"
     ],
-    [], QUAGGA_INCLUDES)
+    [], QUAGGA_INCLUDES[#include <security/pam_appl.h>])
   if test -z "$ac_cv_header_security_pam_misc_h$ac_cv_header_security_openpam_h" ; then
     AC_MSG_WARN([*** pam support will not be built ***])
     with_libpam="no"
@@ -665,11 +704,9 @@ dnl ----------------------------
 AC_FUNC_CHOWN
 AC_FUNC_FNMATCH
 AC_FUNC_FORK
-AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_FUNC_MKTIME
 AC_FUNC_STRFTIME
-AC_FUNC_REALLOC
 AC_FUNC_STAT
 AC_FUNC_SELECT_ARGTYPES
 AC_FUNC_STRFTIME
@@ -916,6 +953,15 @@ AC_TRY_COMPILE([#ifdef HAVE_SYS_PARAM_H
 AC_DEFINE(HAVE_BSD_STRUCT_IP_MREQ_HACK,,[Can pass ifindex in struct ip_mreq])],
 AC_MSG_RESULT(no))
 
+AC_MSG_CHECKING([for RFC3678 protocol-independed API])
+AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <netinet/in.h>
+], [struct group_req gr; int sock; setsockopt(sock, IPPROTO_IP, MCAST_JOIN_GROUP, (void*)&gr, sizeof(gr));
+], [AC_MSG_RESULT(yes)
+AC_DEFINE(HAVE_RFC3678,1,[Have RFC3678 protocol-independed API])],
+AC_MSG_RESULT(no))
+
 dnl ---------------------------------------------------------------
 dnl figure out how to check link-state
 dnl ---------------------------------------------------------------
@@ -972,10 +1018,18 @@ dnl -----------------------------
 dnl check ipforward detect method
 dnl -----------------------------
 AC_CACHE_CHECK([ipforward method], [quagga_cv_ipforward_method],
-[for quagga_cv_ipforward_method in /proc/net/snmp /dev/ip /dev/null;
-do
-  test x`ls $quagga_cv_ipforward_method 2>/dev/null` = x"$quagga_cv_ipforward_method" && break
-done
+[if test x$cross_compiling = xyes; then
+  if test x"$opsys" = x"gnu-linux"; then
+    quagga_cv_ipforward_method=/proc/net/snmp
+  else
+    quagga_cv_ipforward_method=/dev/ip
+  fi
+else
+  for quagga_cv_ipforward_method in /proc/net/snmp /dev/ip /dev/null;
+  do
+    test x`ls $quagga_cv_ipforward_method 2>/dev/null` = x"$quagga_cv_ipforward_method" && break
+  done
+fi
 case $quagga_cv_ipforward_method in
   "/proc/net/snmp")  quagga_cv_ipforward_method="proc";;
   "/dev/ip")         
@@ -1193,6 +1247,12 @@ else
   OSPFD="ospfd"
 fi
 
+if test "${enable_babeld}" = "no";then
+  BABELD=""
+else
+  BABELD="babeld"
+fi
+
 if test "${enable_watchquagga}" = "no";then
   WATCHQUAGGA=""
 else
@@ -1249,6 +1309,7 @@ AC_SUBST(RIPD)
 AC_SUBST(RIPNGD)
 AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
+AC_SUBST(BABELD)
 AC_SUBST(WATCHQUAGGA)
 AC_SUBST(ISISD)
 AC_SUBST(SOLARIS)
@@ -1403,14 +1464,12 @@ AC_SUBST(LIBCAP)
 dnl ---------------------------
 dnl check for glibc 'backtrace'
 dnl --------------------------- 
-if test "${glibc}" = "yes"; then
-   AC_CHECK_HEADER([execinfo.h],
-    [AC_CHECK_FUNC([backtrace],
-    	[AC_DEFINE(HAVE_GLIBC_BACKTRACE,,[Glibc backtrace])
-    	 AC_DEFINE(HAVE_STACK_TRACE,,[Stack symbol decoding])
-    	])
-    ])
-fi
+AC_CHECK_HEADER([execinfo.h],
+  [AC_CHECK_FUNC([backtrace],
+    [AC_DEFINE(HAVE_GLIBC_BACKTRACE,,[Glibc backtrace])
+     AC_DEFINE(HAVE_STACK_TRACE,,[Stack symbol decoding])
+  ])
+])
 
 dnl -----------------------------------------
 dnl check for malloc mallinfo struct and call
@@ -1494,6 +1553,7 @@ AC_DEFINE_UNQUOTED(PATH_RIPNGD_PID, "$quagga_statedir/ripngd.pid",ripngd PID)
 AC_DEFINE_UNQUOTED(PATH_BGPD_PID, "$quagga_statedir/bgpd.pid",bgpd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPFD_PID, "$quagga_statedir/ospfd.pid",ospfd PID)
 AC_DEFINE_UNQUOTED(PATH_OSPF6D_PID, "$quagga_statedir/ospf6d.pid",ospf6d PID)
+AC_DEFINE_UNQUOTED(PATH_BABELD_PID, "$quagga_statedir/babeld.pid",babeld PID)
 AC_DEFINE_UNQUOTED(PATH_ISISD_PID, "$quagga_statedir/isisd.pid",isisd PID)
 AC_DEFINE_UNQUOTED(PATH_WATCHQUAGGA_PID, "$quagga_statedir/watchquagga.pid",watchquagga PID)
 AC_DEFINE_UNQUOTED(ZEBRA_SERV_PATH, "$quagga_statedir/zserv.api",zebra api socket)
@@ -1503,6 +1563,7 @@ AC_DEFINE_UNQUOTED(RIPNG_VTYSH_PATH, "$quagga_statedir/ripngd.vty",ripng vty soc
 AC_DEFINE_UNQUOTED(BGP_VTYSH_PATH, "$quagga_statedir/bgpd.vty",bgpd vty socket)
 AC_DEFINE_UNQUOTED(OSPF_VTYSH_PATH, "$quagga_statedir/ospfd.vty",ospfd vty socket)
 AC_DEFINE_UNQUOTED(OSPF6_VTYSH_PATH, "$quagga_statedir/ospf6d.vty",ospf6d vty socket)
+AC_DEFINE_UNQUOTED(BABEL_VTYSH_PATH, "$quagga_statedir/babeld.vty",babeld vty socket)
 AC_DEFINE_UNQUOTED(ISIS_VTYSH_PATH, "$quagga_statedir/isisd.vty",isisd vty socket)
 AC_DEFINE_UNQUOTED(DAEMON_VTY_DIR, "$quagga_statedir",daemon vty directory)
 
@@ -1527,8 +1588,9 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 
 AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile 
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchquagga/Makefile
-	  ospf6d/Makefile isisd/Makefile vtysh/Makefile doc/Makefile 
-	  ospfclient/Makefile tests/Makefile m4/Makefile redhat/Makefile
+	  ospf6d/Makefile isisd/Makefile babeld/Makefile vtysh/Makefile
+          doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
+          redhat/Makefile
 	  pkgsrc/Makefile
 	  redhat/quagga.spec 
 	  lib/version.h

@@ -1889,4 +1889,11 @@ ospf6_init (void)
   thread_add_read (master, ospf6_receive, NULL, ospf6_sock);
 }
 
-
+void
+ospf6_clean (void)
+{
+  if (ospf6->route_table)
+    ospf6_route_remove_all (ospf6->route_table);
+  if (ospf6->brouter_table)
+    ospf6_route_remove_all (ospf6->brouter_table);
+}

@@ -115,6 +115,16 @@ const struct message ospf_network_type_msg[] =
 };
 const int ospf_network_type_msg_max = OSPF_IFTYPE_MAX;
 
+/* AuType */
+const struct message ospf_auth_type_str[] =
+{
+  { OSPF_AUTH_NULL,          "Null"          },
+  { OSPF_AUTH_SIMPLE,        "Simple"        },
+  { OSPF_AUTH_CRYPTOGRAPHIC, "Cryptographic" },
+};
+const size_t ospf_auth_type_str_max = sizeof (ospf_auth_type_str) /
+  sizeof (ospf_auth_type_str[0]);
+
 /* Configuration debug option variables. */
 unsigned long conf_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
 unsigned long conf_debug_ospf_event = 0;
@@ -657,18 +667,19 @@ static void
 ospf_header_dump (struct ospf_header *ospfh)
 {
   char buf[9];
+  u_int16_t auth_type = ntohs (ospfh->auth_type);
 
   zlog_debug ("Header");
   zlog_debug ("  Version %d", ospfh->version);
   zlog_debug ("  Type %d (%s)", ospfh->type,
-	     ospf_packet_type_str[ospfh->type]);
+	     LOOKUP (ospf_packet_type_str, ospfh->type));
   zlog_debug ("  Packet Len %d", ntohs (ospfh->length));
   zlog_debug ("  Router ID %s", inet_ntoa (ospfh->router_id));
   zlog_debug ("  Area ID %s", inet_ntoa (ospfh->area_id));
   zlog_debug ("  Checksum 0x%x", ntohs (ospfh->checksum));
-  zlog_debug ("  AuType %d", ntohs (ospfh->auth_type));
+  zlog_debug ("  AuType %s", LOOKUP (ospf_auth_type_str, auth_type));
 
-  switch (ntohs (ospfh->auth_type))
+  switch (auth_type)
     {
     case OSPF_AUTH_NULL:
       break;
@@ -1457,7 +1468,7 @@ DEFUN (show_debugging_ospf,
     if (IS_DEBUG_OSPF_PACKET (i, SEND) && IS_DEBUG_OSPF_PACKET (i, RECV))
       {
 	vty_out (vty, "  OSPF packet %s%s debugging is on%s",
-		 ospf_packet_type_str[i + 1],
+		 LOOKUP (ospf_packet_type_str, i + 1),
 		 IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
 		 VTY_NEWLINE);
       }
@@ -1465,12 +1476,12 @@ DEFUN (show_debugging_ospf,
       {
 	if (IS_DEBUG_OSPF_PACKET (i, SEND))
 	  vty_out (vty, "  OSPF packet %s send%s debugging is on%s",
-		   ospf_packet_type_str[i + 1],
+		   LOOKUP (ospf_packet_type_str, i + 1),
 		   IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
 		   VTY_NEWLINE);
 	if (IS_DEBUG_OSPF_PACKET (i, RECV))
 	  vty_out (vty, "  OSPF packet %s receive%s debugging is on%s",
-		   ospf_packet_type_str[i + 1],
+		   LOOKUP (ospf_packet_type_str, i + 1),
 		   IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
 		   VTY_NEWLINE);
       }

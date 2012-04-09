@@ -71,6 +71,7 @@ struct option longopts[] =
   { "keep_kernel", no_argument,       NULL, 'k'},
   { "config_file", required_argument, NULL, 'f'},
   { "pid_file",    required_argument, NULL, 'i'},
+  { "socket",      required_argument, NULL, 'z'},
   { "help",        no_argument,       NULL, 'h'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
@@ -128,6 +129,7 @@ usage (char *progname, int status)
 	      "-d, --daemon       Runs in daemon mode\n"\
 	      "-f, --config_file  Set configuration file name\n"\
 	      "-i, --pid_file     Set process identifier file name\n"\
+	      "-z, --socket       Set path of zebra socket\n"\
 	      "-k, --keep_kernel  Don't delete old routes which installed by "\
 				  "zebra.\n"\
 	      "-C, --dryrun       Check configuration for validity and exit\n"\
@@ -214,6 +216,7 @@ main (int argc, char **argv)
   char *config_file = NULL;
   char *progname;
   struct thread thread;
+  char *zserv_path = NULL;
 
   /* Set umask before anything for security */
   umask (0027);
@@ -229,9 +232,9 @@ main (int argc, char **argv)
       int opt;
   
 #ifdef HAVE_NETLINK  
-      opt = getopt_long (argc, argv, "bdkf:i:hA:P:ru:g:vs:C", longopts, 0);
+      opt = getopt_long (argc, argv, "bdkf:i:z:hA:P:ru:g:vs:C", longopts, 0);
 #else
-      opt = getopt_long (argc, argv, "bdkf:i:hA:P:ru:g:vC", longopts, 0);
+      opt = getopt_long (argc, argv, "bdkf:i:z:hA:P:ru:g:vC", longopts, 0);
 #endif /* HAVE_NETLINK */
 
       if (opt == EOF)
@@ -261,6 +264,9 @@ main (int argc, char **argv)
         case 'i':
           pid_file = optarg;
           break;
+	case 'z':
+	  zserv_path = optarg;
+	  break;
 	case 'P':
 	  /* Deal with atoi() returning 0 on failure, and zebra not
 	     listening on zebra port... */
@@ -386,7 +392,7 @@ main (int argc, char **argv)
   pid = getpid ();
 
   /* This must be done only after locking pidfile (bug #403). */
-  zebra_zserv_socket_init ();
+  zebra_zserv_socket_init (zserv_path);
 
   /* Make vty server socket. */
   vty_serv_sock (vty_addr, vty_port, ZEBRA_VTYSH_PATH);

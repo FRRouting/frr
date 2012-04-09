@@ -353,10 +353,25 @@ isis_lsp_authinfo_check (struct stream *stream, struct isis_area *area,
 		       ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN,
 		       pdulen - ISIS_FIXED_HDR_LEN
 		       - ISIS_LSP_HDR_LEN, &expected, &found, &tlvs);
+
   if (retval || !(found & TLVFLAG_AUTH_INFO))
     return 1;			/* Auth fail (parsing failed or no auth-tlv) */
 
-  return authentication_check (passwd, &tlvs.auth_info);
+  switch (tlvs.auth_info.type)
+    {
+      case ISIS_PASSWD_TYPE_HMAC_MD5:
+	zlog_debug("Got LSP with ISIS_PASSWD_TYPE_HMAC_MD5");
+	break;
+      case ISIS_PASSWD_TYPE_CLEARTXT:
+	zlog_debug("Got LSP with ISIS_PASSWD_TYPE_CLEARTXT");
+	break;
+      default:
+	zlog_debug("Unknown authentication type in LSP");
+	break;
+    }
+
+  return 0;
+  /* return authentication_check (passwd, &tlvs.auth_info);*/
 }
 
 static void
@@ -1640,7 +1655,7 @@ lsp_regenerate_schedule (struct isis_area *area)
       if (diff < MIN_LSP_GEN_INTERVAL)
 	{
 	  area->lsp_regenerate_pending[0] = 1;
-	  thread_add_timer (master, lsp_l1_regenerate, area,
+	  area->t_lsp_l1_regenerate=thread_add_timer (master, lsp_l1_regenerate, area,
 			    MIN_LSP_GEN_INTERVAL - diff);
 	  goto L2;
 	}
@@ -1663,7 +1678,7 @@ L2:
       if (diff < MIN_LSP_GEN_INTERVAL)
 	{
 	  area->lsp_regenerate_pending[1] = 1;
-	  thread_add_timer (master, lsp_l2_regenerate, area,
+	  area->t_lsp_l2_regenerate=thread_add_timer (master, lsp_l2_regenerate, area,
 			    MIN_LSP_GEN_INTERVAL - diff);
 	  return ISIS_OK;
 	}
@@ -2037,6 +2052,8 @@ lsp_tick (struct thread *thread)
 	    {
               for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
 		{
+		  if (circuit->state != C_STATE_UP)
+		    continue;
                   for (ALL_LIST_ELEMENTS_RO (lsp_list, lspnode, lsp))
 		    {
 		      if (ISIS_CHECK_FLAG (lsp->SRMflags, circuit))

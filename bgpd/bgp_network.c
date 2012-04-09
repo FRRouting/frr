@@ -238,46 +238,36 @@ bgp_bind (struct peer *peer)
 }
 
 static int
-bgp_bind_address (int sock, struct in_addr *addr)
+bgp_update_address (struct interface *ifp, const union sockunion *dst,
+		    union sockunion *addr)
 {
-  int ret;
-  struct sockaddr_in local;
-
-  memset (&local, 0, sizeof (struct sockaddr_in));
-  local.sin_family = AF_INET;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-  local.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-  memcpy (&local.sin_addr, addr, sizeof (struct in_addr));
-
-  if ( bgpd_privs.change (ZPRIVS_RAISE) )
-    zlog_err ("bgp_bind_address: could not raise privs");
-    
-  ret = bind (sock, (struct sockaddr *)&local, sizeof (struct sockaddr_in));
-  if (ret < 0)
-    ;
-    
-  if (bgpd_privs.change (ZPRIVS_LOWER) )
-    zlog_err ("bgp_bind_address: could not lower privs");
-    
-  return 0;
-}
-
-static struct in_addr *
-bgp_update_address (struct interface *ifp)
-{
-  struct prefix_ipv4 *p;
+  struct prefix *p, *sel, *d;
   struct connected *connected;
   struct listnode *node;
+  int common;
+
+  d = sockunion2hostprefix (dst);
+  sel = NULL;
+  common = -1;
 
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, connected))
     {
-      p = (struct prefix_ipv4 *) connected->address;
-
-      if (p->family == AF_INET)
-	return &p->prefix;
+      p = connected->address;
+      if (p->family != d->family)
+	continue;
+      if (prefix_common_bits (p, d) > common)
+	{
+	  sel = p;
+	  common = prefix_common_bits (sel, d);
+	}
     }
-  return NULL;
+
+  prefix_free (d);
+  if (!sel)
+    return 1;
+
+  prefix2sockunion (sel, addr);
+  return 0;
 }
 
 /* Update source selection.  */
@@ -285,7 +275,7 @@ static void
 bgp_update_source (struct peer *peer)
 {
   struct interface *ifp;
-  struct in_addr *addr;
+  union sockunion addr;
 
   /* Source is specified with interface name.  */
   if (peer->update_if)
@@ -294,11 +284,10 @@ bgp_update_source (struct peer *peer)
       if (! ifp)
 	return;
 
-      addr = bgp_update_address (ifp);
-      if (! addr)
+      if (bgp_update_address (ifp, &peer->su, &addr))
 	return;
 
-      bgp_bind_address (peer->fd, addr);
+      sockunion_bind (peer->fd, &addr, 0, &addr);
     }
 
   /* Source is specified with IP address.  */
@@ -328,8 +317,16 @@ bgp_connect (struct peer *peer)
   sockopt_reuseport (peer->fd);
   
 #ifdef IPTOS_PREC_INTERNETCONTROL
+  if (bgpd_privs.change (ZPRIVS_RAISE))
+    zlog_err ("%s: could not raise privs", __func__);
   if (sockunion_family (&peer->su) == AF_INET)
     setsockopt_ipv4_tos (peer->fd, IPTOS_PREC_INTERNETCONTROL);
+# ifdef HAVE_IPV6
+  else if (sockunion_family (&peer->su) == AF_INET6)
+    setsockopt_ipv6_tclass (peer->fd, IPTOS_PREC_INTERNETCONTROL);
+# endif
+  if (bgpd_privs.change (ZPRIVS_LOWER))
+    zlog_err ("%s: could not lower privs", __func__);
 #endif
 
   if (peer->password)
@@ -386,27 +383,24 @@ bgp_listener (int sock, struct sockaddr *sa, socklen_t salen)
   sockopt_reuseaddr (sock);
   sockopt_reuseport (sock);
 
+  if (bgpd_privs.change (ZPRIVS_RAISE))
+    zlog_err ("%s: could not raise privs", __func__);
+
 #ifdef IPTOS_PREC_INTERNETCONTROL
   if (sa->sa_family == AF_INET)
     setsockopt_ipv4_tos (sock, IPTOS_PREC_INTERNETCONTROL);
+#  ifdef HAVE_IPV6
+  else if (sa->sa_family == AF_INET6)
+    setsockopt_ipv6_tclass (sock, IPTOS_PREC_INTERNETCONTROL);
+#  endif
 #endif
 
-#ifdef IPV6_V6ONLY
-  /* Want only IPV6 on ipv6 socket (not mapped addresses) */
-  if (sa->sa_family == AF_INET6) {
-    int on = 1;
-    setsockopt (sock, IPPROTO_IPV6, IPV6_V6ONLY,
-		(void *) &on, sizeof (on));
-  }
-#endif
-
-  if (bgpd_privs.change (ZPRIVS_RAISE) )
-    zlog_err ("bgp_socket: could not raise privs");
+  sockopt_v6only (sa->sa_family, sock);
 
   ret = bind (sock, sa, salen);
   en = errno;
-  if (bgpd_privs.change (ZPRIVS_LOWER) )
-    zlog_err ("bgp_bind_address: could not lower privs");
+  if (bgpd_privs.change (ZPRIVS_LOWER))
+    zlog_err ("%s: could not lower privs", __func__);
 
   if (ret < 0)
     {

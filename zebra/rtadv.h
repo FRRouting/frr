@@ -30,7 +30,7 @@
 struct rtadv_prefix
 {
   /* Prefix to be advertised. */
-  struct prefix prefix;
+  struct prefix_ipv6 prefix;
   
   /* The value to be placed in the Valid Lifetime in the Prefix */
   u_int32_t AdvValidLifetime;
@@ -47,7 +47,7 @@ struct rtadv_prefix
   /* The value to be placed in the Autonomous Flag. */
   int AdvAutonomousFlag;
 
-  /* The value to be placed in the Router Address Flag (RFC3775 7.2). */
+  /* The value to be placed in the Router Address Flag [RFC6275 7.2]. */
   int AdvRouterAddressFlag;
 #ifndef ND_OPT_PI_FLAG_RADDR
 #define ND_OPT_PI_FLAG_RADDR         0x20
@@ -58,7 +58,7 @@ struct rtadv_prefix
 extern void rtadv_config_write (struct vty *, struct interface *);
 extern void rtadv_init (void);
 
-/* draft-ietf-mip6-mipext-advapi-03 */
+/* RFC4584 Extension to Sockets API for Mobile IPv6 */
 
 #ifndef ND_OPT_ADV_INTERVAL
 #define ND_OPT_ADV_INTERVAL	7   /* Adv Interval Option */

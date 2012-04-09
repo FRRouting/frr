@@ -274,6 +274,8 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
       stream_putc (stream, flags);
       /* message */
       stream_putc (stream, message);
+      /* SAFI */
+      stream_putw (stream, SAFI_UNICAST);
       /* prefix information */
       psize = PSIZE (prefix->prefixlen);
       stream_putc (stream, prefix->prefixlen);
@@ -321,6 +323,7 @@ isis_zebra_route_del_ipv4 (struct prefix *prefix,
       api.type = ZEBRA_ROUTE_ISIS;
       api.flags = 0;
       api.message = 0;
+      api.safi = SAFI_UNICAST;
       prefix4.family = AF_INET;
       prefix4.prefixlen = prefix->prefixlen;
       prefix4.prefix = prefix->u.prefix4;
@@ -350,6 +353,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
   api.type = ZEBRA_ROUTE_ISIS;
   api.flags = 0;
   api.message = 0;
+  api.safi = SAFI_UNICAST;
   SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
   SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
   SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
@@ -433,6 +437,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
   api.type = ZEBRA_ROUTE_ISIS;
   api.flags = 0;
   api.message = 0;
+  api.safi = SAFI_UNICAST;
   SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
   SET_FLAG (api.message, ZAPI_MESSAGE_IFINDEX);
   api.nexthop_num = listcount (route_info->nexthops6);

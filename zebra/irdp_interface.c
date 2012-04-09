@@ -99,13 +99,10 @@ if_group (struct interface *ifp,
 	  u_int32_t group, 
 	  int add_leave)
 {
-  struct zebra_if *zi;
   struct ip_mreq m;
   struct prefix *p;
   int ret;
   char b1[INET_ADDRSTRLEN];
-
-  zi = ifp->info;
 
   memset (&m, 0, sizeof (m));
   m.imr_multiaddr.s_addr = htonl (group);

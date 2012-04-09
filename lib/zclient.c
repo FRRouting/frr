@@ -41,6 +41,8 @@ static void zclient_event (enum event, struct zclient *);
 
 extern struct thread_master *master;
 
+char *zclient_serv_path = NULL;
+
 /* This file local debug flag. */
 int zclient_debug = 0;
 
@@ -143,8 +145,10 @@ zclient_reset (struct zclient *zclient)
   zclient_init (zclient, zclient->redist_default);
 }
 
+#ifdef HAVE_TCP_ZEBRA
+
 /* Make socket to zebra daemon. Return zebra socket. */
-int
+static int
 zclient_socket(void)
 {
   int sock;
@@ -175,10 +179,12 @@ zclient_socket(void)
   return sock;
 }
 
+#else
+
 /* For sockaddr_un. */
 #include <sys/un.h>
 
-int
+static int
 zclient_socket_un (const char *path)
 {
   int ret;
@@ -206,6 +212,26 @@ zclient_socket_un (const char *path)
       return -1;
     }
   return sock;
+}
+
+#endif /* HAVE_TCP_ZEBRA */
+
+/**
+ * Connect to zebra daemon.
+ * @param zclient a pointer to zclient structure
+ * @return socket fd just to make sure that connection established
+ * @see zclient_init
+ * @see zclient_new
+ */
+int
+zclient_socket_connect (struct zclient *zclient)
+{
+#ifdef HAVE_TCP_ZEBRA
+  zclient->sock = zclient_socket ();
+#else
+  zclient->sock = zclient_socket_un (zclient_serv_path ? zclient_serv_path : ZEBRA_SERV_PATH);
+#endif
+  return zclient->sock;
 }
 
 static int
@@ -292,6 +318,25 @@ zebra_message_send (struct zclient *zclient, int command)
   return zclient_send_message(zclient);
 }
 
+static int
+zebra_hello_send (struct zclient *zclient)
+{
+  struct stream *s;
+
+  if (zclient->redist_default)
+    {
+      s = zclient->obuf;
+      stream_reset (s);
+
+      zclient_create_header (s, ZEBRA_HELLO);
+      stream_putc (s, zclient->redist_default);
+      stream_putw_at (s, 0, stream_get_endp (s));
+      return zclient_send_message(zclient);
+    }
+
+  return 0;
+}
+
 /* Make connection to zebra daemon. */
 int
 zclient_start (struct zclient *zclient)
@@ -313,13 +358,7 @@ zclient_start (struct zclient *zclient)
   if (zclient->t_connect)
     return 0;
 
-  /* Make socket. */
-#ifdef HAVE_TCP_ZEBRA
-  zclient->sock = zclient_socket ();
-#else
-  zclient->sock = zclient_socket_un (ZEBRA_SERV_PATH);
-#endif /* HAVE_TCP_ZEBRA */
-  if (zclient->sock < 0)
+  if (zclient_socket_connect(zclient) < 0)
     {
       if (zclient_debug)
 	zlog_debug ("zclient connection fail");
@@ -338,6 +377,8 @@ zclient_start (struct zclient *zclient)
       
   /* Create read thread. */
   zclient_event (ZCLIENT_READ, zclient);
+
+  zebra_hello_send (zclient);
 
   /* We need router-id information. */
   zebra_message_send (zclient, ZEBRA_ROUTER_ID_ADD);
@@ -435,6 +476,7 @@ zapi_ipv4_route (u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
   stream_putc (s, api->type);
   stream_putc (s, api->flags);
   stream_putc (s, api->message);
+  stream_putw (s, api->safi);
 
   /* Put prefix information. */
   psize = PSIZE (p->prefixlen);
@@ -496,6 +538,7 @@ zapi_ipv6_route (u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
   stream_putc (s, api->type);
   stream_putc (s, api->flags);
   stream_putc (s, api->message);
+  stream_putw (s, api->safi);
   
   /* Put prefix information. */
   psize = PSIZE (p->prefixlen);
@@ -796,7 +839,6 @@ zebra_interface_address_read (int type, struct stream *s)
 static int
 zclient_read (struct thread *thread)
 {
-  int ret;
   size_t already;
   uint16_t length, command;
   uint8_t marker, version;
@@ -891,47 +933,47 @@ zclient_read (struct thread *thread)
     {
     case ZEBRA_ROUTER_ID_UPDATE:
       if (zclient->router_id_update)
-	ret = (*zclient->router_id_update) (command, zclient, length);
+	(*zclient->router_id_update) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_ADD:
       if (zclient->interface_add)
-	ret = (*zclient->interface_add) (command, zclient, length);
+	(*zclient->interface_add) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_DELETE:
       if (zclient->interface_delete)
-	ret = (*zclient->interface_delete) (command, zclient, length);
+	(*zclient->interface_delete) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_ADDRESS_ADD:
       if (zclient->interface_address_add)
-	ret = (*zclient->interface_address_add) (command, zclient, length);
+	(*zclient->interface_address_add) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_ADDRESS_DELETE:
       if (zclient->interface_address_delete)
-	ret = (*zclient->interface_address_delete) (command, zclient, length);
+	(*zclient->interface_address_delete) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_UP:
       if (zclient->interface_up)
-	ret = (*zclient->interface_up) (command, zclient, length);
+	(*zclient->interface_up) (command, zclient, length);
       break;
     case ZEBRA_INTERFACE_DOWN:
       if (zclient->interface_down)
-	ret = (*zclient->interface_down) (command, zclient, length);
+	(*zclient->interface_down) (command, zclient, length);
       break;
     case ZEBRA_IPV4_ROUTE_ADD:
       if (zclient->ipv4_route_add)
-	ret = (*zclient->ipv4_route_add) (command, zclient, length);
+	(*zclient->ipv4_route_add) (command, zclient, length);
       break;
     case ZEBRA_IPV4_ROUTE_DELETE:
       if (zclient->ipv4_route_delete)
-	ret = (*zclient->ipv4_route_delete) (command, zclient, length);
+	(*zclient->ipv4_route_delete) (command, zclient, length);
       break;
     case ZEBRA_IPV6_ROUTE_ADD:
       if (zclient->ipv6_route_add)
-	ret = (*zclient->ipv6_route_add) (command, zclient, length);
+	(*zclient->ipv6_route_add) (command, zclient, length);
       break;
     case ZEBRA_IPV6_ROUTE_DELETE:
       if (zclient->ipv6_route_delete)
-	ret = (*zclient->ipv6_route_delete) (command, zclient, length);
+	(*zclient->ipv6_route_delete) (command, zclient, length);
       break;
     default:
       break;
@@ -1018,3 +1060,29 @@ zclient_event (enum event event, struct zclient *zclient)
       break;
     }
 }
+
+void
+zclient_serv_path_set (char *path)
+{
+  struct stat sb;
+
+  /* reset */
+  zclient_serv_path = NULL;
+
+  /* test if `path' is socket. don't set it otherwise. */
+  if (stat(path, &sb) == -1)
+    {
+      zlog_warn ("%s: zebra socket `%s' does not exist", __func__, path);
+      return;
+    }
+
+  if ((sb.st_mode & S_IFMT) != S_IFSOCK)
+    {
+      zlog_warn ("%s: `%s' is not unix socket, sir", __func__, path);
+      return;
+    }
+
+  /* it seems that path is unix socket */
+  zclient_serv_path = path;
+}
+

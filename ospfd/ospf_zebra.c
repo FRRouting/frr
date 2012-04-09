@@ -358,6 +358,7 @@ ospf_zebra_add (struct prefix_ipv4 *p, struct ospf_route *or)
       stream_putc (s, ZEBRA_ROUTE_OSPF);
       stream_putc (s, flags);
       stream_putc (s, message);
+      stream_putw (s, SAFI_UNICAST);
 
       /* Put prefix information. */
       psize = PSIZE (p->prefixlen);
@@ -427,6 +428,7 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
       api.type = ZEBRA_ROUTE_OSPF;
       api.flags = 0;
       api.message = 0;
+      api.safi = SAFI_UNICAST;
       api.ifindex_num = 0;
       api.nexthop_num = 0;
 
@@ -483,6 +485,7 @@ ospf_zebra_add_discard (struct prefix_ipv4 *p)
       api.type = ZEBRA_ROUTE_OSPF;
       api.flags = ZEBRA_FLAG_BLACKHOLE;
       api.message = 0;
+      api.safi = SAFI_UNICAST;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
       api.nexthop_num = 0;
       api.ifindex_num = 0;
@@ -505,6 +508,7 @@ ospf_zebra_delete_discard (struct prefix_ipv4 *p)
       api.type = ZEBRA_ROUTE_OSPF;
       api.flags = ZEBRA_FLAG_BLACKHOLE;
       api.message = 0;
+      api.safi = SAFI_UNICAST;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
       api.nexthop_num = 0;
       api.ifindex_num = 0;
@@ -670,7 +674,7 @@ ospf_external_lsa_originate_check (struct ospf *ospf,
   if (is_prefix_default (&ei->p))
     if (ospf->default_originate == DEFAULT_ORIGINATE_NONE)
       {
-        zlog_info ("LSA[Type5:0.0.0.0]: Not originate AS-exntenal-LSA "
+        zlog_info ("LSA[Type5:0.0.0.0]: Not originate AS-external-LSA "
                    "for default");
         return 0;
       }

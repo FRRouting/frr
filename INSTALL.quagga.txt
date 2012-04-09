@@ -1,5 +1,3 @@
-# $Id$
-
 --------------------------------------------------------------------------
 Building and Installing Quagga from releases or snapshots:
 

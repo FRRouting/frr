@@ -300,6 +300,7 @@ extern void ospf6_brouter_show (struct vty *vty, struct ospf6_route *route);
 extern int config_write_ospf6_debug_route (struct vty *vty);
 extern void install_element_ospf6_debug_route (void);
 extern void ospf6_route_init (void);
+extern void ospf6_clean (void);
 
 #endif /* OSPF6_ROUTE_H */
 

@@ -272,61 +272,6 @@ ospf_route_install (struct ospf *ospf, struct route_table *rt)
       }
 }
 
-static void
-ospf_intra_route_add (struct route_table *rt, struct vertex *v,
-		      struct ospf_area *area)
-{
-  struct route_node *rn;
-  struct ospf_route *or;
-  struct prefix_ipv4 p;
-  struct ospf_path *path;
-  struct vertex_parent *parent;
-  struct listnode *node, *nnode;
-
-  p.family = AF_INET;
-  p.prefix = v->id;
-  if (v->type == OSPF_VERTEX_ROUTER)
-    p.prefixlen = IPV4_MAX_BITLEN;
-  else
-    {
-      struct network_lsa *lsa = (struct network_lsa *) v->lsa;
-      p.prefixlen = ip_masklen (lsa->mask);
-    }
-  apply_mask_ipv4 (&p);
-
-  rn = route_node_get (rt, (struct prefix *) &p);
-  if (rn->info)
-    {
-      zlog_warn ("Same routing information exists for %s", inet_ntoa (v->id));
-      route_unlock_node (rn);
-      return;
-    }
-
-  or = ospf_route_new ();
-
-  if (v->type == OSPF_VERTEX_NETWORK)
-    {
-      or->type = OSPF_DESTINATION_NETWORK;
-
-      for (ALL_LIST_ELEMENTS (v->parents, node, nnode, parent))
-        {
-          path = ospf_path_new ();
-          path->nexthop = parent->nexthop->router;
-          listnode_add (or->paths, path);
-        }
-    }
-  else
-    or->type = OSPF_DESTINATION_ROUTER;
-
-  or->id = v->id;
-  or->u.std.area_id = area->area_id;
-  or->u.std.external_routing= area->external_routing;
-  or->path_type = OSPF_PATH_INTRA_AREA;
-  or->cost = v->distance;
-
-  rn->info = or;
-}
-
 /* RFC2328 16.1. (4). For "router". */
 void
 ospf_intra_add_router (struct route_table *rt, struct vertex *v,
@@ -719,10 +664,6 @@ ospf_asbr_route_cmp (struct ospf *ospf, struct ospf_route *r1,
 
   r1_type = r1->path_type;
   r2_type = r2->path_type;
-
-  /* If RFC1583Compat flag is on -- all paths are equal. */
-  if (CHECK_FLAG (ospf->config, OSPF_RFC1583_COMPATIBLE))
-    return 0;
 
   /* r1/r2 itself is backbone, and it's Inter-area path. */
   if (OSPF_IS_AREA_ID_BACKBONE (r1->u.std.area_id))

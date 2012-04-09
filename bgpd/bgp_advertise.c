@@ -140,13 +140,13 @@ bgp_advertise_unintern (struct hash *hash, struct bgp_advertise_attr *baa)
     baa->refcnt--;
 
   if (baa->refcnt && baa->attr)
-    bgp_attr_unintern (baa->attr);
+    bgp_attr_unintern (&baa->attr);
   else
     {
       if (baa->attr)
 	{
 	  hash_release (hash, baa);
-	  bgp_attr_unintern (baa->attr);
+	  bgp_attr_unintern (&baa->attr);
 	}
       baa_free (baa);
     }
@@ -319,7 +319,7 @@ bgp_adj_out_remove (struct bgp_node *rn, struct bgp_adj_out *adj,
 		    struct peer *peer, afi_t afi, safi_t safi)
 {
   if (adj->attr)
-    bgp_attr_unintern (adj->attr);
+    bgp_attr_unintern (&adj->attr);
 
   if (adj->adv)
     bgp_advertise_clean (peer, adj, afi, safi);
@@ -339,7 +339,7 @@ bgp_adj_in_set (struct bgp_node *rn, struct peer *peer, struct attr *attr)
 	{
 	  if (adj->attr != attr)
 	    {
-	      bgp_attr_unintern (adj->attr);
+	      bgp_attr_unintern (&adj->attr);
 	      adj->attr = bgp_attr_intern (attr);
 	    }
 	  return;
@@ -355,7 +355,7 @@ bgp_adj_in_set (struct bgp_node *rn, struct peer *peer, struct attr *attr)
 void
 bgp_adj_in_remove (struct bgp_node *rn, struct bgp_adj_in *bai)
 {
-  bgp_attr_unintern (bai->attr);
+  bgp_attr_unintern (&bai->attr);
   BGP_ADJ_IN_DEL (rn, bai);
   peer_unlock (bai->peer); /* adj_in peer reference */
   XFREE (MTYPE_BGP_ADJ_IN, bai);

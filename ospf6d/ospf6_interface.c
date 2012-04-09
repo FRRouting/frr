@@ -108,14 +108,14 @@ ospf6_interface_create (struct interface *ifp)
   oi->neighbor_list = list_new ();
   oi->neighbor_list->cmp = ospf6_neighbor_cmp;
   oi->linklocal_addr = (struct in6_addr *) NULL;
-  oi->instance_id = 0;
-  oi->transdelay = 1;
-  oi->priority = 1;
+  oi->instance_id = OSPF6_INTERFACE_INSTANCE_ID;
+  oi->transdelay = OSPF6_INTERFACE_TRANSDELAY;
+  oi->priority = OSPF6_INTERFACE_PRIORITY;
 
-  oi->hello_interval = 10;
-  oi->dead_interval = 40;
-  oi->rxmt_interval = 5;
-  oi->cost = 1;
+  oi->hello_interval = OSPF6_INTERFACE_HELLO_INTERVAL;
+  oi->dead_interval = OSPF6_INTERFACE_DEAD_INTERVAL;
+  oi->rxmt_interval = OSPF6_INTERFACE_RXMT_INTERVAL;
+  oi->cost = OSPF6_INTERFACE_COST;
   oi->state = OSPF6_INTERFACE_DOWN;
   oi->flag = 0;
   oi->mtu_ignore = 0;
@@ -399,12 +399,12 @@ ospf6_interface_state_change (u_char next_state, struct ospf6_interface *oi)
        prev_state == OSPF6_INTERFACE_BDR) &&
       (next_state != OSPF6_INTERFACE_DR &&
        next_state != OSPF6_INTERFACE_BDR))
-    ospf6_leave_alldrouters (oi->interface->ifindex);
+    ospf6_sso (oi->interface->ifindex, &alldrouters6, IPV6_LEAVE_GROUP);
   if ((prev_state != OSPF6_INTERFACE_DR &&
        prev_state != OSPF6_INTERFACE_BDR) &&
       (next_state == OSPF6_INTERFACE_DR ||
        next_state == OSPF6_INTERFACE_BDR))
-    ospf6_join_alldrouters (oi->interface->ifindex);
+    ospf6_sso (oi->interface->ifindex, &alldrouters6, IPV6_JOIN_GROUP);
 
   OSPF6_ROUTER_LSA_SCHEDULE (oi->area);
   if (next_state == OSPF6_INTERFACE_DOWN)
@@ -612,7 +612,7 @@ interface_up (struct thread *thread)
     }
 
   /* Join AllSPFRouters */
-  ospf6_join_allspfrouters (oi->interface->ifindex);
+  ospf6_sso (oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP);
 
   /* Update interface route */
   ospf6_interface_connected_route_update (oi->interface);
@@ -707,7 +707,7 @@ interface_down (struct thread *thread)
 
   /* Leave AllSPFRouters */
   if (oi->state > OSPF6_INTERFACE_DOWN)
-    ospf6_leave_allspfrouters (oi->interface->ifindex);
+    ospf6_sso (oi->interface->ifindex, &allspfrouters6, IPV6_LEAVE_GROUP);
 
   ospf6_interface_state_change (OSPF6_INTERFACE_DOWN, oi);
 
@@ -929,7 +929,7 @@ ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
        "Display connected prefixes to advertise\n"
        OSPF6_ROUTE_ADDRESS_STR
        OSPF6_ROUTE_PREFIX_STR
-       "Dispaly details of the prefixes\n"
+       "Display details of the prefixes\n"
        )
 
 ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
@@ -943,7 +943,7 @@ ALIAS (show_ipv6_ospf6_interface_ifname_prefix,
        "Display connected prefixes to advertise\n"
        OSPF6_ROUTE_PREFIX_STR
        OSPF6_ROUTE_MATCH_STR
-       "Dispaly details of the prefixes\n"
+       "Display details of the prefixes\n"
        )
 
 DEFUN (show_ipv6_ospf6_interface_prefix,
@@ -982,7 +982,7 @@ ALIAS (show_ipv6_ospf6_interface_prefix,
        "Display connected prefixes to advertise\n"
        OSPF6_ROUTE_ADDRESS_STR
        OSPF6_ROUTE_PREFIX_STR
-       "Dispaly details of the prefixes\n"
+       "Display details of the prefixes\n"
        )
 
 ALIAS (show_ipv6_ospf6_interface_prefix,
@@ -995,7 +995,7 @@ ALIAS (show_ipv6_ospf6_interface_prefix,
        "Display connected prefixes to advertise\n"
        OSPF6_ROUTE_PREFIX_STR
        OSPF6_ROUTE_MATCH_STR
-       "Dispaly details of the prefixes\n"
+       "Display details of the prefixes\n"
        )
 
 
@@ -1522,23 +1522,36 @@ config_write_ospf6_interface (struct vty *vty)
 
       if (ifp->desc)
         vty_out (vty, " description %s%s", ifp->desc, VNL);
-
       if (ifp->mtu6 != oi->ifmtu)
         vty_out (vty, " ipv6 ospf6 ifmtu %d%s", oi->ifmtu, VNL);
-      vty_out (vty, " ipv6 ospf6 cost %d%s",
-               oi->cost, VNL);
-      vty_out (vty, " ipv6 ospf6 hello-interval %d%s",
-               oi->hello_interval, VNL);
-      vty_out (vty, " ipv6 ospf6 dead-interval %d%s",
-               oi->dead_interval, VNL);
-      vty_out (vty, " ipv6 ospf6 retransmit-interval %d%s",
-               oi->rxmt_interval, VNL);
-      vty_out (vty, " ipv6 ospf6 priority %d%s",
-               oi->priority, VNL);
-      vty_out (vty, " ipv6 ospf6 transmit-delay %d%s",
-               oi->transdelay, VNL);
-      vty_out (vty, " ipv6 ospf6 instance-id %d%s",
-               oi->instance_id, VNL);
+
+      if (oi->cost != OSPF6_INTERFACE_COST)
+        vty_out (vty, " ipv6 ospf6 cost %d%s",
+                 oi->cost, VNL);
+
+      if (oi->hello_interval != OSPF6_INTERFACE_HELLO_INTERVAL)
+        vty_out (vty, " ipv6 ospf6 hello-interval %d%s",
+                 oi->hello_interval, VNL);
+
+      if (oi->dead_interval != OSPF6_INTERFACE_DEAD_INTERVAL)
+        vty_out (vty, " ipv6 ospf6 dead-interval %d%s",
+                 oi->dead_interval, VNL);
+
+      if (oi->rxmt_interval != OSPF6_INTERFACE_RXMT_INTERVAL)
+        vty_out (vty, " ipv6 ospf6 retransmit-interval %d%s",
+                 oi->rxmt_interval, VNL);
+
+      if (oi->priority != OSPF6_INTERFACE_PRIORITY)
+        vty_out (vty, " ipv6 ospf6 priority %d%s",
+                 oi->priority, VNL);
+
+      if (oi->transdelay != OSPF6_INTERFACE_TRANSDELAY)
+        vty_out (vty, " ipv6 ospf6 transmit-delay %d%s",
+                 oi->transdelay, VNL);
+
+      if (oi->instance_id != OSPF6_INTERFACE_INSTANCE_ID)
+        vty_out (vty, " ipv6 ospf6 instance-id %d%s",
+                 oi->instance_id, VNL);
 
       if (oi->plist_name)
         vty_out (vty, " ipv6 ospf6 advertise prefix-list %s%s",

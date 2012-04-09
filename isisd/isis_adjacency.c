@@ -172,7 +172,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state state,
 	circuit->upadjcount[level - 1]++;
       if (state == ISIS_ADJ_DOWN)
 	{
-	  isis_delete_adj (adj, adj->circuit->u.bc.adjdb[level - 1]);
+	  listnode_delete (adj->circuit->u.bc.adjdb[level - 1], adj);
 	  circuit->upadjcount[level - 1]--;
 	}
 

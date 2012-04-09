@@ -1204,6 +1204,7 @@ ospf_area_nssa_translator_role_set (struct ospf *ospf, struct in_addr area_id,
   return 1;
 }
 
+#if 0
 /* XXX: unused? Leave for symmetry? */
 static int
 ospf_area_nssa_translator_role_unset (struct ospf *ospf,
@@ -1221,6 +1222,7 @@ ospf_area_nssa_translator_role_unset (struct ospf *ospf,
 
   return 1;
 }
+#endif
 
 int
 ospf_area_export_list_set (struct ospf *ospf,

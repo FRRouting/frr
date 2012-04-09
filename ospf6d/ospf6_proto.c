@@ -42,11 +42,10 @@ ospf6_prefix_apply_mask (struct ospf6_prefix *op)
       return;
     }
 
-  if (index == 16)
-    return;
-
-  pnt[index] &= mask;
-  index ++;
+  /* nonzero mask means no check for this byte because if it contains
+   * prefix bits it must be there for us to write */
+  if (mask)
+    pnt[index++] &= mask;
 
   while (index < OSPF6_PREFIX_SPACE (op->prefix_length))
     pnt[index++] = 0;

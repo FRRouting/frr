@@ -58,7 +58,6 @@ struct isis_lsp
 #endif
   /* used for 60 second counting when rem_lifetime is zero */
   int age_out;
-  struct isis_adjacency *adj;
   /* FIXME: For now only topology LSP's use this. Is it helpful for others? */
   struct isis_area *area;
   struct tlvs tlv_data;		/* Simplifies TLV access */

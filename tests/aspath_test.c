@@ -6,6 +6,7 @@
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
+#include "bgpd/bgp_attr.h"
 
 #define VT100_RESET "\x1b[0m"
 #define VT100_RED "\x1b[31m"
@@ -407,7 +408,7 @@ static struct test_segment {
     "#ASNs = 0, data = seq(8466 3 52737 4096 3456)",
     { 0x2,0x0, 0x21,0x12, 0x00,0x03, 0xce,0x01, 0x10,0x00, 0x0d,0x80 },
     12,
-    { "", "",
+    { NULL, NULL,
       0, 0, 0, 0, 0, 0 },
   },
   { /* 26  */ 
@@ -417,10 +418,190 @@ static struct test_segment {
       0x2,0x2, 0x10,0x00, 0x0d,0x80 },
     14
     ,
-    { "", "",
+    { NULL, NULL,
       0, 0, 0, 0, 0, 0 },
   },
-  { NULL, NULL, {0}, 0, { NULL, 0, 0 } }
+  { /* 27  */ 
+    "invalid segment type",
+    "type=8(4096 3456)",
+    { 0x8,0x2, 0x10,0x00, 0x0d,0x80 },
+    14
+    ,
+    { NULL, NULL,
+      0, 0, 0, 0, 0, 0 },
+  },  { NULL, NULL, {0}, 0, { NULL, 0, 0 } }
+};
+
+/* */
+static struct aspath_tests {
+  const char *desc;
+  const struct test_segment *segment;
+  const char *shouldbe;  /* String it should evaluate to */
+  const enum as4 { AS4_DATA, AS2_DATA }
+          as4; 	/* whether data should be as4 or not (ie as2) */
+  const int result;	/* expected result for bgp_attr_parse */
+  const int cap;	/* capabilities to set for peer */
+  const char attrheader [1024];
+  size_t len;
+} aspath_tests [] =
+{
+  /* 0 */
+  {
+    "basic test",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS2_DATA, 0,
+    0,
+    { BGP_ATTR_FLAG_TRANS,
+      BGP_ATTR_AS_PATH, 
+      10,
+    },
+    3,
+  },
+  /* 1 */
+  {
+    "length too short",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS2_DATA, -1,
+    0,
+    { BGP_ATTR_FLAG_TRANS,
+      BGP_ATTR_AS_PATH, 
+      8,
+    },
+    3,
+  },
+  /* 2 */
+  {
+    "length too long",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS2_DATA, -1,
+    0,
+    { BGP_ATTR_FLAG_TRANS,
+      BGP_ATTR_AS_PATH, 
+      12,
+    },
+    3,
+  },
+  /* 3 */
+  {
+    "incorrect flag",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS2_DATA, -1,
+    0,
+    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+      BGP_ATTR_AS_PATH, 
+      10,
+    },
+    3,
+  },
+  /* 4 */
+  {
+    "as4_path, with as2 format data",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS2_DATA, -1,
+    0,
+    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+      BGP_ATTR_AS4_PATH, 
+      10,
+    },
+    3,
+  },
+  /* 5 */
+  {
+    "as4, with incorrect attr length",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS4_DATA, -1,
+    PEER_CAP_AS4_RCV,
+    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+      BGP_ATTR_AS4_PATH, 
+      10,
+    },
+    3,
+  },
+  /* 6 */
+  {
+    "basic 4-byte as-path",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS4_DATA, 0,
+    PEER_CAP_AS4_RCV|PEER_CAP_AS4_ADV,
+    { BGP_ATTR_FLAG_TRANS,
+      BGP_ATTR_AS_PATH, 
+      18,
+    },
+    3,
+  },
+  /* 7 */
+  {
+    "4b AS_PATH: too short",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS4_DATA, -1,
+    PEER_CAP_AS4_RCV|PEER_CAP_AS4_ADV,
+    { BGP_ATTR_FLAG_TRANS,
+      BGP_ATTR_AS_PATH, 
+      16,
+    },
+    3,
+  },
+  /* 8 */
+  {
+    "4b AS_PATH: too long",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS4_DATA, -1,
+    PEER_CAP_AS4_RCV|PEER_CAP_AS4_ADV,
+    { BGP_ATTR_FLAG_TRANS,
+      BGP_ATTR_AS_PATH, 
+      20,
+    },
+    3,
+  },
+  /* 9 */
+  {
+    "4b AS_PATH: too long2",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS4_DATA, -1,
+    PEER_CAP_AS4_RCV|PEER_CAP_AS4_ADV,
+    { BGP_ATTR_FLAG_TRANS,
+      BGP_ATTR_AS_PATH, 
+      22,
+    },
+    3,
+  },
+  /* 10 */
+  {
+    "4b AS_PATH: bad flags",
+    &test_segments[0],
+    "8466 3 52737 4096",
+    AS4_DATA, -1,
+    PEER_CAP_AS4_RCV|PEER_CAP_AS4_ADV,
+    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+      BGP_ATTR_AS_PATH, 
+      18,
+    },
+    3,
+  },
+  /* 11 */
+  {
+    "4b AS_PATH: confed",
+    &test_segments[6],
+    "8466 3 52737 4096",
+    AS4_DATA, -1,
+    PEER_CAP_AS4_ADV,
+    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+      BGP_ATTR_AS4_PATH, 
+      14,
+    },
+    3,
+  },
+  { NULL, NULL, NULL, 0, 0, 0, { 0 }, 0 },
 };
 
 /* prepending tests */
@@ -430,21 +611,25 @@ static struct tests {
   struct test_spec sp;
 } prepend_tests[] = 
 {
+  /* 0 */
   { &test_segments[0], &test_segments[1],
     { "8466 3 52737 4096 8722 4",
       "8466 3 52737 4096 8722 4",
       6, 0, NOT_ALL_PRIVATE, 4096, 1, 8466 },
   },
+  /* 1 */
   { &test_segments[1], &test_segments[3],
     { "8722 4 8482 51457 {5204}",
       "8722 4 8482 51457 {5204}",
       5, 0, NOT_ALL_PRIVATE, 5204, 1, 8722 }
   },
+  /* 2 */
   { &test_segments[3], &test_segments[4],
     { "8482 51457 {5204} 8467 59649 {4196,48658} {17322,30745}",
       "8482 51457 {5204} 8467 59649 {4196,48658} {17322,30745}",
       7, 0, NOT_ALL_PRIVATE, 5204, 1, 8482 },
   },
+  /* 3 */
   { &test_segments[4], &test_segments[5],
     { "8467 59649 {4196,48658} {17322,30745} 6435 59408 21665"
       " {2457,4369,61697} 1842 41590 51793",
@@ -452,11 +637,13 @@ static struct tests {
       " {2457,4369,61697} 1842 41590 51793",
       11, 0, NOT_ALL_PRIVATE, 61697, 1, 8467 }
   },
+  /* 4 */
   { &test_segments[5], &test_segments[6],
-    { "6435 59408 21665 {2457,4369,61697} 1842 41590 51793 (123 456 789)",
-      "6435 59408 21665 {2457,4369,61697} 1842 41590 51793 (123 456 789)",
-      7, 3, NOT_ALL_PRIVATE, 123, 1, 6435 },
+    { "6435 59408 21665 {2457,4369,61697} 1842 41590 51793",
+      "6435 59408 21665 {2457,4369,61697} 1842 41590 51793",
+      7, 0, NOT_ALL_PRIVATE, 1842, 1, 6435 },
   },
+  /* 5 */
   { &test_segments[6], &test_segments[7],
     { "(123 456 789) (123 456 789) (111 222)",
       "",
@@ -649,7 +836,7 @@ make_aspath (const u_char *data, size_t len, int use32bit)
       s = stream_new (len);
       stream_put (s, data, len);
     }
-  as = aspath_parse (s, len, use32bit, 0);
+  as = aspath_parse (s, len, use32bit);
   
   if (s)
     stream_free (s);
@@ -681,6 +868,12 @@ validate (struct aspath *as, const struct test_spec *sp)
   const u_char *out;
   static struct stream *s;
   struct aspath *asinout, *asconfeddel, *asstr, *as4;
+  
+  if (as == NULL && sp->shouldbe == NULL)
+    {
+      printf ("Correctly failed to parse\n");
+      return fails;
+    }
   
   out = aspath_snmp_pathseg (as, &bytes);
   asinout = make_aspath (out, bytes, 0);
@@ -826,7 +1019,7 @@ parse_test (struct test_segment *t)
   printf ("%s: %s\n", t->name, t->desc);
 
   asp = make_aspath (t->asdata, t->len, 0);
-
+  
   printf ("aspath: %s\nvalidating...:\n", aspath_print (asp));
 
   if (!validate (asp, &t->sp))
@@ -835,7 +1028,9 @@ parse_test (struct test_segment *t)
     printf (FAILED "\n");
   
   printf ("\n");
-  aspath_unintern (asp);
+  
+  if (asp)
+    aspath_unintern (asp);
 }
 
 /* prepend testing */
@@ -891,7 +1086,8 @@ empty_prepend_test (struct test_segment *t)
     printf (FAILED "!\n");
   
   printf ("\n");
-  aspath_unintern (asp1);
+  if (asp1)
+    aspath_unintern (asp1);
   aspath_free (asp2);
 }
 
@@ -993,30 +1189,106 @@ cmp_test ()
       aspath_unintern (asp2);
     }
 }
-     
+
+static int
+handle_attr_test (struct aspath_tests *t)
+{
+  struct bgp bgp = { 0 }; 
+  struct peer peer = { 0 };
+  struct attr attr = { 0 };  
+  int ret;
+  int initfail = failed;
+  struct aspath *asp;
+  size_t datalen;
+  
+  asp = make_aspath (t->segment->asdata, t->segment->len, 0);
+    
+  peer.ibuf = stream_new (BGP_MAX_PACKET_SIZE);
+  peer.obuf = stream_fifo_new ();
+  peer.bgp = &bgp;
+  peer.host = (char *)"none";
+  peer.fd = -1;
+  peer.cap = t->cap;
+  
+  stream_write (peer.ibuf, t->attrheader, t->len);
+  datalen = aspath_put (peer.ibuf, asp, t->as4 == AS4_DATA);
+  
+  ret = bgp_attr_parse (&peer, &attr, t->len + datalen, NULL, NULL);
+  
+  if (ret != t->result)
+    {
+      printf ("bgp_attr_parse returned %d, expected %d\n", ret, t->result);
+      printf ("datalen %d\n", datalen);
+      failed++;
+    }
+  if (ret != 0)
+    goto out;
+  
+  if (attr.aspath == NULL)
+    {
+      printf ("aspath is NULL!\n");
+      failed++;
+    }
+  if (attr.aspath && strcmp (attr.aspath->str, t->shouldbe))
+    {
+      printf ("attr str and 'shouldbe' mismatched!\n"
+              "attr str:  %s\n"
+              "shouldbe:  %s\n",
+              attr.aspath->str, t->shouldbe);
+      failed++;
+    }
+
+out:
+  if (attr.aspath)
+    aspath_unintern (attr.aspath);
+  if (asp)
+    aspath_unintern (asp);
+  return failed - initfail;
+}
+
+static void
+attr_test (struct aspath_tests *t)
+{
+    printf ("%s\n", t->desc);
+    printf ("%s\n\n", handle_attr_test (t) ? FAILED : OK);  
+}
+
 int
 main (void)
 {
   int i = 0;
-  aspath_init();
+  bgp_master_init ();
+  master = bm->master;
+  bgp_attr_init ();
+  
   while (test_segments[i].name)
     {
+      printf ("test %u\n", i);
       parse_test (&test_segments[i]);
       empty_prepend_test (&test_segments[i++]);
     }
   
   i = 0;
   while (prepend_tests[i].test1)
-    prepend_test (&prepend_tests[i++]);
+    {
+      printf ("prepend test %u\n", i);
+      prepend_test (&prepend_tests[i++]);
+    }
   
   i = 0;
   while (aggregate_tests[i].test1)
-    aggregate_test (&aggregate_tests[i++]);
+    {
+      printf ("aggregate test %u\n", i);
+      aggregate_test (&aggregate_tests[i++]);
+    }
   
   i = 0;
   
   while (reconcile_tests[i].test1)
-    as4_reconcile_test (&reconcile_tests[i++]);
+    {
+      printf ("reconcile test %u\n", i);
+      as4_reconcile_test (&reconcile_tests[i++]);
+    }
   
   i = 0;
   
@@ -1025,6 +1297,14 @@ main (void)
   i = 0;
   
   empty_get_test();
+  
+  i = 0;
+  
+  while (aspath_tests[i].desc)
+    {
+      printf ("aspath_attr test %d\n", i);
+      attr_test (&aspath_tests[i++]);
+    }
   
   printf ("failures: %d\n", failed);
   printf ("aspath count: %ld\n", aspath_count());

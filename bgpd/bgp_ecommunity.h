@@ -67,14 +67,14 @@ struct ecommunity_val
 
 extern void ecommunity_init (void);
 extern void ecommunity_finish (void);
-extern void ecommunity_free (struct ecommunity *);
+extern void ecommunity_free (struct ecommunity **);
 extern struct ecommunity *ecommunity_parse (u_int8_t *, u_short);
 extern struct ecommunity *ecommunity_dup (struct ecommunity *);
 extern struct ecommunity *ecommunity_merge (struct ecommunity *, struct ecommunity *);
 extern struct ecommunity *ecommunity_uniq_sort (struct ecommunity *);
 extern struct ecommunity *ecommunity_intern (struct ecommunity *);
 extern int ecommunity_cmp (const void *, const void *);
-extern void ecommunity_unintern (struct ecommunity *);
+extern void ecommunity_unintern (struct ecommunity **);
 extern unsigned int ecommunity_hash_make (void *);
 extern struct ecommunity *ecommunity_str2com (const char *, int, int);
 extern char *ecommunity_ecom2str (struct ecommunity *, int);

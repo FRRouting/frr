@@ -1,5 +1,4 @@
 # Solaris packages automake file
-# $Id$
 
 # XXX This file uses GNU make extensions.
 

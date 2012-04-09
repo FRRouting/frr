@@ -207,7 +207,6 @@ DEFUN (if_rmap,
        "Route map interface name\n")
 {
   enum if_rmap_type type;
-  struct if_rmap *if_rmap;
 
   if (strncmp (argv[1], "i", 1) == 0)
     type = IF_RMAP_IN;
@@ -219,7 +218,7 @@ DEFUN (if_rmap,
       return CMD_WARNING;
     }
 
-  if_rmap = if_rmap_set (argv[2], type, argv[0]);
+  if_rmap_set (argv[2], type, argv[0]);
 
   return CMD_SUCCESS;
 }      

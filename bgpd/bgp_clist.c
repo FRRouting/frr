@@ -70,7 +70,7 @@ community_entry_free (struct community_entry *entry)
       if (entry->config)
         XFREE (MTYPE_ECOMMUNITY_STR, entry->config);
       if (entry->u.ecom)
-        ecommunity_free (entry->u.ecom);
+        ecommunity_free (&entry->u.ecom);
       break;
     case COMMUNITY_LIST_EXPANDED:
     case EXTCOMMUNITY_LIST_EXPANDED:
@@ -806,7 +806,7 @@ extcommunity_list_unset (struct community_list_handler *ch,
     entry = community_list_entry_lookup (list, str, direct);
 
   if (ecom)
-    ecommunity_free (ecom);
+    ecommunity_free (&ecom);
   if (regex)
     bgp_regex_free (regex);
 

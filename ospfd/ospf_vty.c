@@ -80,8 +80,11 @@ ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
   /* match "<0-4294967295>". */
   else
     {
+      if (*str == '-')
+        return -1;
+      errno = 0;
       ret = strtoul (str, &endptr, 10);
-      if (*endptr != '\0' || (ret == ULONG_MAX && errno == ERANGE))
+      if (*endptr != '\0' || errno || ret > UINT32_MAX)
         return -1;
 
       area_id->s_addr = htonl (ret);
@@ -92,29 +95,6 @@ ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
 }
 
 
-static int
-str2distribute_source (const char *str, int *source)
-{
-  /* Sanity check. */
-  if (str == NULL)
-    return 0;
-
-  if (strncmp (str, "k", 1) == 0)
-    *source = ZEBRA_ROUTE_KERNEL;
-  else if (strncmp (str, "c", 1) == 0)
-    *source = ZEBRA_ROUTE_CONNECT;
-  else if (strncmp (str, "s", 1) == 0)
-    *source = ZEBRA_ROUTE_STATIC;
-  else if (strncmp (str, "r", 1) == 0)
-    *source = ZEBRA_ROUTE_RIP;
-  else if (strncmp (str, "b", 1) == 0)
-    *source = ZEBRA_ROUTE_BGP;
-  else
-    return 0;
-
-  return 1;
-}
-
 static int
 str2metric (const char *str, int *metric)
 {
@@ -3761,7 +3741,7 @@ show_as_external_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
   return 0;
 }
 
-/* N.B. This function currently seems to be unused. */
+#if 0
 static int
 show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
 {
@@ -3785,6 +3765,7 @@ show_as_external_lsa_stdvty (struct ospf_lsa *lsa)
 
   return 0;
 }
+#endif
 
 /* Show AS-NSSA-LSA detail information. */
 static int
@@ -5824,7 +5805,8 @@ DEFUN (ospf_redistribute_source_metric_type,
   int metric = -1;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   /* Get metric value. */
@@ -5885,7 +5867,8 @@ DEFUN (ospf_redistribute_source_type_metric,
   int metric = -1;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   /* Get metric value. */
@@ -5949,7 +5932,8 @@ DEFUN (ospf_redistribute_source_metric_routemap,
   int metric = -1;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   /* Get metric value. */
@@ -5982,7 +5966,8 @@ DEFUN (ospf_redistribute_source_type_routemap,
   int type = -1;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   /* Get metric value. */
@@ -6010,7 +5995,8 @@ DEFUN (ospf_redistribute_source_routemap,
   int source;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   if (argc == 2)
@@ -6031,7 +6017,8 @@ DEFUN (no_ospf_redistribute_source,
   struct ospf *ospf = vty->index;
   int source;
 
-  if (!str2distribute_source (argv[0], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   ospf_routemap_unset (ospf, source);
@@ -6050,7 +6037,8 @@ DEFUN (ospf_distribute_list_out,
   int source;
 
   /* Get distribute source. */
-  if (!str2distribute_source (argv[1], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   return ospf_distribute_list_out_set (ospf, source, argv[0]);
@@ -6068,7 +6056,8 @@ DEFUN (no_ospf_distribute_list_out,
   struct ospf *ospf = vty->index;
   int source;
 
-  if (!str2distribute_source (argv[1], &source))
+  source = proto_redistnum(AFI_IP, argv[0]);
+  if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
   return ospf_distribute_list_out_unset (ospf, source, argv[0]);
@@ -7902,9 +7891,9 @@ config_write_ospf_distribute (struct vty *vty, struct ospf *ospf)
     {
       /* distribute-list print. */
       for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
-	if (ospf->dlist[type].name)
+	if (DISTRIBUTE_NAME (ospf, type))
 	  vty_out (vty, " distribute-list %s out %s%s", 
-		   ospf->dlist[type].name,
+		   DISTRIBUTE_NAME (ospf, type),
 		   zebra_route_string(type), VTY_NEWLINE);
 
       /* default-information print. */

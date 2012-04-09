@@ -696,7 +696,7 @@ peer_sort (struct peer *peer)
     }
 }
 
-static inline void
+static void
 peer_free (struct peer *peer)
 {
   assert (peer->status == Deleted);
@@ -1148,7 +1148,7 @@ peer_nsf_stop (struct peer *peer)
   UNSET_FLAG (peer->sflags, PEER_STATUS_NSF_MODE);
 
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
-    for (safi = SAFI_UNICAST ; safi < SAFI_UNICAST_MULTICAST ; safi++)
+    for (safi = SAFI_UNICAST ; safi < SAFI_RESERVED_3 ; safi++)
       peer->nsf[afi][safi] = 0;
 
   if (peer->t_gr_restart)
@@ -2051,6 +2051,10 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
 	}
     }
 
+  bgp = bgp_create (as, name);
+  bgp_router_id_set(bgp, &router_id_zebra);
+  *bgp_val = bgp;
+
   /* Create BGP server socket, if first instance.  */
   if (list_isempty(bm->bgp))
     {
@@ -2058,10 +2062,7 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
 	return BGP_ERR_INVALID_VALUE;
     }
 
-  bgp = bgp_create (as, name);
   listnode_add (bm->bgp, bgp);
-  bgp_router_id_set(bgp, &router_id_zebra);
-  *bgp_val = bgp;
 
   return 0;
 }
@@ -4723,12 +4724,10 @@ static void
 bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 		       struct peer *peer, afi_t afi, safi_t safi)
 {
-  struct bgp_filter *filter;
   struct peer *g_peer = NULL;
   char buf[SU_ADDRSTRLEN];
   char *addr;
 
-  filter = &peer->filter[afi][safi];
   addr = peer->host;
   if (peer_group_active (peer))
     g_peer = peer->group->conf;
@@ -5016,6 +5015,11 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)
       && ! peer->af_group[afi][safi])
     vty_out (vty, " neighbor %s route-server-client%s", addr, VTY_NEWLINE);
+
+  /* Nexthop-local unchanged. */
+  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
+      && ! peer->af_group[afi][safi])
+    vty_out (vty, " neighbor %s nexthop-local unchanged%s", addr, VTY_NEWLINE);
 
   /* Allow AS in.  */
   if (peer_af_flag_check (peer, afi, safi, PEER_FLAG_ALLOWAS_IN))

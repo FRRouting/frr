@@ -258,8 +258,7 @@ int ack_lsp (struct isis_link_state_hdr *hdr,
 void fill_fixed_hdr (struct isis_fixed_hdr *hdr, u_char pdu_type);
 int send_hello (struct isis_circuit *circuit, int level);
 
-
-int authentication_check (struct isis_passwd *one,
-			  struct isis_passwd *theother);
+#define ISIS_AUTH_MD5_SIZE       16U
+int authentication_check (struct isis_passwd *remote, struct isis_passwd *local, struct isis_circuit *c);
 
 #endif /* _ZEBRA_ISIS_PDU_H */

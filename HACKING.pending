@@ -14,6 +14,11 @@ collected in his git repository.
 
 * public git repositories
 
+** git remote add quagga-re git://github.com/Quagga-RE/quagga-RE.git
+
+Maintained by Denis Ovsienko, and geared towards producing a
+production-ready branch of Quagga, in the Quagga-RE-stable branch.
+
 ** git remote add equinox git://git.spaceboyz.net/equinox/quagga.git/
 
 This repository has topic branches for patches intended for inclusion

@@ -232,6 +232,10 @@ isis_recv_pdu_bcast (struct isis_circuit *circuit, u_char * ssnpa)
 			LLC_LEN, MSG_PEEK,
 			(struct sockaddr *) &s_addr, (socklen_t *) &addr_len);
 
+  if (!circuit->area) {
+    return ISIS_OK;
+  }
+
   if (bytesread < 0)
     {
       zlog_warn ("isis_recv_packet_bcast(): fd %d, recvfrom (): %s",

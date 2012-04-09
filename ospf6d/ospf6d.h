@@ -49,6 +49,9 @@ extern struct thread_master *master;
 #endif /* IPV6_DROP_MEMBERSHIP */
 #endif /* ! IPV6_LEAVE_GROUP */
 
+#define MSG_OK    0
+#define MSG_NG    1
+
 /* cast macro: XXX - these *must* die, ick ick. */
 #define OSPF6_PROCESS(x) ((struct ospf6 *) (x))
 #define OSPF6_AREA(x) ((struct ospf6_area *) (x))

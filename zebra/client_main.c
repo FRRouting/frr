@@ -115,6 +115,7 @@ struct zebra_info
   { "static", ZEBRA_ROUTE_STATIC },
   { "rip",    ZEBRA_ROUTE_RIP },
   { "ripng",  ZEBRA_ROUTE_RIPNG },
+  { "babel",  ZEBRA_ROUTE_BABEL },
   { "ospf",   ZEBRA_ROUTE_OSPF },
   { "ospf6",  ZEBRA_ROUTE_OSPF6 },
   { "bgp",    ZEBRA_ROUTE_BGP },
