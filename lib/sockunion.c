@@ -174,39 +174,6 @@ sockunion2str (union sockunion *su, char *buf, size_t len)
   return NULL;
 }
 
-union sockunion *
-sockunion_str2su (const char *str)
-{
-  int ret;
-  union sockunion *su;
-
-  su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
-
-  ret = inet_pton (AF_INET, str, &su->sin.sin_addr);
-  if (ret > 0)			/* Valid IPv4 address format. */
-    {
-      su->sin.sin_family = AF_INET;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-      su->sin.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-      return su;
-    }
-#ifdef HAVE_IPV6
-  ret = inet_pton (AF_INET6, str, &su->sin6.sin6_addr);
-  if (ret > 0)			/* Valid IPv6 address format. */
-    {
-      su->sin6.sin6_family = AF_INET6;
-#ifdef SIN6_LEN
-      su->sin6.sin6_len = sizeof(struct sockaddr_in6);
-#endif /* SIN6_LEN */
-      return su;
-    }
-#endif /* HAVE_IPV6 */
-
-  XFREE (MTYPE_SOCKUNION, su);
-  return NULL;
-}
-
 /* Convert IPv4 compatible IPv6 address to IPv4 address. */
 static void
 sockunion_normalise_mapped (union sockunion *su)

@@ -10202,15 +10202,18 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n")
 {
   char name[BUFSIZ];
-  union sockunion *su;
+  union sockunion su;
   struct peer *peer;
-  int count;
+  int count, ret;
 
-  su = sockunion_str2su (argv[0]);
-  if (su == NULL)
-    return CMD_WARNING;
+  ret = str2sockunion (argv[0], &su);
+  if (ret < 0)
+    {
+      vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
-  peer = peer_lookup (NULL, su);
+  peer = peer_lookup (NULL, &su);
   if (! peer)
     return CMD_WARNING;
 
@@ -10241,15 +10244,18 @@ DEFUN (show_ip_bgp_ipv4_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n")
 {
   char name[BUFSIZ];
-  union sockunion *su;
+  union sockunion su;
   struct peer *peer;
-  int count;
+  int count, ret;
 
-  su = sockunion_str2su (argv[1]);
-  if (su == NULL)
-    return CMD_WARNING;
+  ret = str2sockunion (argv[1], &su);
+  if (ret < 0)
+    {
+      vty_out (vty, "Malformed address: %s%s", argv[1], VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
-  peer = peer_lookup (NULL, su);
+  peer = peer_lookup (NULL, &su);
   if (! peer)
     return CMD_WARNING;
 
@@ -10312,15 +10318,18 @@ DEFUN (show_bgp_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n")
 {
   char name[BUFSIZ];
-  union sockunion *su;
+  union sockunion su;
   struct peer *peer;
-  int count;
+  int count, ret;
 
-  su = sockunion_str2su (argv[0]);
-  if (su == NULL)
-    return CMD_WARNING;
+  ret = str2sockunion (argv[0], &su);
+  if (ret < 0)
+    {
+      vty_out (vty, "Malformed address: %s%s", argv[0], VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
-  peer = peer_lookup (NULL, su);
+  peer = peer_lookup (NULL, &su);
   if (! peer)
     return CMD_WARNING;
 
@@ -10394,10 +10403,10 @@ DEFUN (show_bgp_view_neighbor_received_prefix_filter,
        "Display the prefixlist filter\n")
 {
   char name[BUFSIZ];
-  union sockunion *su;
+  union sockunion su;
   struct peer *peer;
   struct bgp *bgp;
-  int count;
+  int count, ret;
 
   /* BGP structure lookup. */
   bgp = bgp_lookup_by_name (argv[0]);
@@ -10407,11 +10416,14 @@ DEFUN (show_bgp_view_neighbor_received_prefix_filter,
 	  return CMD_WARNING;
 	}
   
-  su = sockunion_str2su (argv[1]);
-  if (su == NULL)
-    return CMD_WARNING;
+  ret = str2sockunion (argv[1], &su);
+  if (ret < 0)
+    {
+      vty_out (vty, "Malformed address: %s%s", argv[1], VTY_NEWLINE);
+      return CMD_WARNING;
+    }
 
-  peer = peer_lookup (bgp, su);
+  peer = peer_lookup (bgp, &su);
   if (! peer)
     return CMD_WARNING;
 

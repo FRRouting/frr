@@ -111,7 +111,8 @@ route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
       void *object)
 {
   union sockunion *su;
-  union sockunion *su2;
+  union sockunion su_def = { .sa.sa_family = AF_INET,
+			     .sin.sin_addr.s_addr = INADDR_ANY };
   struct peer_group *group;
   struct peer *peer;
   struct listnode *node, *nnode;
@@ -127,8 +128,7 @@ route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
 
       /* If su='0.0.0.0' (command 'match peer local'), and it's a NETWORK,
           REDISTRIBUTE or DEFAULT_GENERATED route => return RMAP_MATCH */
-      su2 = sockunion_str2su ("0.0.0.0");
-      if ( sockunion_same (su, su2) )
+      if (sockunion_same (su, &su_def))
         {
           int ret;
           if ( CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_NETWORK) ||
@@ -137,12 +137,9 @@ route_match_peer (void *rule, struct prefix *prefix, route_map_object_t type,
             ret = RMAP_MATCH;
           else
             ret = RMAP_NOMATCH;
-          
-          sockunion_free (su2);
           return ret;
         }
-      sockunion_free (su2);
-      
+
       if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
         {
           if (sockunion_same (su, &peer->su))
