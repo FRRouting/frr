@@ -878,7 +878,6 @@ route_set_ip_nexthop (void *rule, struct prefix *prefix,
 		      route_map_object_t type, void *object)
 {
   struct rmap_ip_nexthop_set *rins = rule;
-  struct in_addr peer_address;
   struct bgp_info *bgp_info;
   struct peer *peer;
 
@@ -894,16 +893,14 @@ route_set_ip_nexthop (void *rule, struct prefix *prefix,
 	      && peer->su_remote 
 	      && sockunion_family (peer->su_remote) == AF_INET)
 	    {
-              inet_aton (sockunion_su2str (peer->su_remote), &peer_address);
-              bgp_info->attr->nexthop = peer_address;
+	      bgp_info->attr->nexthop.s_addr = sockunion2ip (peer->su_remote);
 	      bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
 	    }
 	  else if (CHECK_FLAG (peer->rmap_type, PEER_RMAP_TYPE_OUT)
 		   && peer->su_local
 		   && sockunion_family (peer->su_local) == AF_INET)
 	    {
-              inet_aton (sockunion_su2str (peer->su_local), &peer_address);
-              bgp_info->attr->nexthop = peer_address;
+	      bgp_info->attr->nexthop.s_addr = sockunion2ip (peer->su_local);
 	      bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
 	    }
 	}

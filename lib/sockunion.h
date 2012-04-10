@@ -86,6 +86,8 @@ enum connect_result
 
 #define sockunion_family(X)  (X)->sa.sa_family
 
+#define sockunion2ip(X)      (X)->sin.sin_addr.s_addr
+
 /* Prototypes. */
 extern int str2sockunion (const char *, union sockunion *);
 extern const char *sockunion2str (union sockunion *, char *, size_t);
