@@ -207,25 +207,6 @@ sockunion_str2su (const char *str)
   return NULL;
 }
 
-char *
-sockunion_su2str (union sockunion *su)
-{
-  char str[SU_ADDRSTRLEN];
-
-  switch (su->sa.sa_family)
-    {
-    case AF_INET:
-      inet_ntop (AF_INET, &su->sin.sin_addr, str, sizeof (str));
-      break;
-#ifdef HAVE_IPV6
-    case AF_INET6:
-      inet_ntop (AF_INET6, &su->sin6.sin6_addr, str, sizeof (str));
-      break;
-#endif /* HAVE_IPV6 */
-    }
-  return XSTRDUP (MTYPE_TMP, str);
-}
-
 /* Convert IPv4 compatible IPv6 address to IPv4 address. */
 static void
 sockunion_normalise_mapped (union sockunion *su)

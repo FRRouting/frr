@@ -1612,13 +1612,16 @@ vty_flush (struct thread *thread)
 static struct vty *
 vty_create (int vty_sock, union sockunion *su)
 {
+  char buf[SU_ADDRSTRLEN];
   struct vty *vty;
+
+  sockunion2str(su, buf, SU_ADDRSTRLEN);
 
   /* Allocate new vty structure and set up default values. */
   vty = vty_new ();
   vty->fd = vty_sock;
   vty->type = VTY_TERM;
-  vty->address = sockunion_su2str (su);
+  strcpy (vty->address, buf);
   if (no_password_check)
     {
       if (restricted_mode)
@@ -1693,7 +1696,7 @@ vty_accept (struct thread *thread)
   int accept_sock;
   struct prefix *p = NULL;
   struct access_list *acl = NULL;
-  char *bufp;
+  char buf[SU_ADDRSTRLEN];
 
   accept_sock = THREAD_FD (thread);
 
@@ -1719,10 +1722,8 @@ vty_accept (struct thread *thread)
       if ((acl = access_list_lookup (AFI_IP, vty_accesslist_name)) &&
 	  (access_list_apply (acl, p) == FILTER_DENY))
 	{
-	  char *buf;
 	  zlog (NULL, LOG_INFO, "Vty connection refused from %s",
-		(buf = sockunion_su2str (&su)));
-	  free (buf);
+		sockunion2str (&su, buf, SU_ADDRSTRLEN));
 	  close (vty_sock);
 	  
 	  /* continue accepting connections */
@@ -1741,10 +1742,8 @@ vty_accept (struct thread *thread)
       if ((acl = access_list_lookup (AFI_IP6, vty_ipv6_accesslist_name)) &&
 	  (access_list_apply (acl, p) == FILTER_DENY))
 	{
-	  char *buf;
 	  zlog (NULL, LOG_INFO, "Vty connection refused from %s",
-		(buf = sockunion_su2str (&su)));
-	  free (buf);
+		sockunion2str (&su, buf, SU_ADDRSTRLEN));
 	  close (vty_sock);
 	  
 	  /* continue accepting connections */
@@ -1767,9 +1766,7 @@ vty_accept (struct thread *thread)
 	  safe_strerror (errno));
 
   zlog (NULL, LOG_INFO, "Vty connection from %s",
-    (bufp = sockunion_su2str (&su)));
-  if (bufp)
-    XFREE (MTYPE_TMP, bufp);
+	sockunion2str (&su, buf, SU_ADDRSTRLEN));
 
   vty_create (vty_sock, &su);
 
@@ -2193,8 +2190,6 @@ vty_close (struct vty *vty)
   if (vty->fd > 0)
     close (vty->fd);
 
-  if (vty->address)
-    XFREE (MTYPE_TMP, vty->address);
   if (vty->buf)
     XFREE (MTYPE_VTY, vty->buf);
 

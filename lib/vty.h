@@ -23,6 +23,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #include "thread.h"
 #include "log.h"
+#include "sockunion.h"
 
 #define VTY_BUFSIZ 512
 #define VTY_MAXHIST 20
@@ -38,9 +39,6 @@ struct vty
 
   /* Node status of this vty */
   int node;
-
-  /* What address is this vty comming from. */
-  char *address;
 
   /* Failure count */
   int fail;
@@ -118,6 +116,9 @@ struct vty
   /* Timeout seconds and thread. */
   unsigned long v_timeout;
   struct thread *t_timeout;
+
+  /* What address is this vty comming from. */
+  char address[SU_ADDRSTRLEN];
 };
 
 /* Integrated configuration file. */
