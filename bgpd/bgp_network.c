@@ -185,7 +185,7 @@ bgp_accept (struct thread *thread)
     zlog_debug ("[Event] Make dummy peer structure until read Open packet");
 
   {
-    char buf[SU_ADDRSTRLEN + 1];
+    char buf[SU_ADDRSTRLEN];
 
     peer = peer_create_accept (peer1->bgp);
     SET_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER);
