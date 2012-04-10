@@ -678,8 +678,8 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate)
     if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
     {
       /* We are happy with either direct or recursive hexthop */
-      if (nexthop->gate.ipv4.s_addr == qgate->sin.sin_addr.s_addr ||
-          nexthop->rgate.ipv4.s_addr == qgate->sin.sin_addr.s_addr)
+      if (nexthop->gate.ipv4.s_addr == sockunion2ip (qgate) ||
+          nexthop->rgate.ipv4.s_addr == sockunion2ip (qgate))
         return ZEBRA_RIB_FOUND_EXACT;
       else
       {
@@ -688,7 +688,7 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate)
           char gate_buf[INET_ADDRSTRLEN], rgate_buf[INET_ADDRSTRLEN], qgate_buf[INET_ADDRSTRLEN];
           inet_ntop (AF_INET, &nexthop->gate.ipv4.s_addr, gate_buf, INET_ADDRSTRLEN);
           inet_ntop (AF_INET, &nexthop->rgate.ipv4.s_addr, rgate_buf, INET_ADDRSTRLEN);
-          inet_ntop (AF_INET, &qgate->sin.sin_addr.s_addr, qgate_buf, INET_ADDRSTRLEN);
+          inet_ntop (AF_INET, &sockunion2ip (qgate), qgate_buf, INET_ADDRSTRLEN);
           zlog_debug ("%s: qgate == %s, gate == %s, rgate == %s", __func__, qgate_buf, gate_buf, rgate_buf);
         }
         return ZEBRA_RIB_FOUND_NOGATE;

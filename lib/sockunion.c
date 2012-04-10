@@ -370,7 +370,7 @@ sockunion_bind (int sock, union sockunion *su, unsigned short port,
       su->sin.sin_len = size;
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
       if (su_addr == NULL)
-	su->sin.sin_addr.s_addr = htonl (INADDR_ANY);
+	sockunion2ip (su) = htonl (INADDR_ANY);
     }
 #ifdef HAVE_IPV6
   else if (su->sa.sa_family == AF_INET6)
@@ -727,9 +727,9 @@ sockunion_cmp (union sockunion *su1, union sockunion *su2)
 
   if (su1->sa.sa_family == AF_INET)
     {
-      if (ntohl (su1->sin.sin_addr.s_addr) == ntohl (su2->sin.sin_addr.s_addr))
+      if (ntohl (sockunion2ip (su1)) == ntohl (sockunion2ip (su2)))
 	return 0;
-      if (ntohl (su1->sin.sin_addr.s_addr) > ntohl (su2->sin.sin_addr.s_addr))
+      if (ntohl (sockunion2ip (su1)) > ntohl (sockunion2ip (su2)))
 	return 1;
       else
 	return -1;
