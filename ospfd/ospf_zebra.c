@@ -442,9 +442,9 @@ void ospf_zebra_add_discard(struct prefix_ipv4 *p)
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
-	api.flags = ZEBRA_FLAG_BLACKHOLE;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
+	zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
@@ -462,9 +462,9 @@ void ospf_zebra_delete_discard(struct prefix_ipv4 *p)
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
-	api.flags = ZEBRA_FLAG_BLACKHOLE;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
+	zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
 
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
@@ -900,17 +900,10 @@ static int ospf_zebra_read_route(int command, struct zclient *zclient,
 
 	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
 		/* XXX|HACK|TODO|FIXME:
-		 * Maybe we should ignore reject/blackhole routes? Testing shows
-		 * that
-		 * there is no problems though and this is only way to
-		 * "summarize"
-		 * routes in ASBR at the moment. Maybe we need just a better
-		 * generalised
-		 * solution for these types?
-		 *
-		 * if ( CHECK_FLAG (api.flags, ZEBRA_FLAG_BLACKHOLE)
-		 *     || CHECK_FLAG (api.flags, ZEBRA_FLAG_REJECT))
-		 * return 0;
+		 * Maybe we should ignore reject/blackhole routes? Testing
+		 * shows that there is no problems though and this is only way
+		 * to "summarize" routes in ASBR at the moment. Maybe we need
+		 * just a better generalised solution for these types?
 		 */
 
 		/* Protocol tag overwrites all other tag value sent by zebra */

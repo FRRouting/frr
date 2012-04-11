@@ -43,6 +43,13 @@ enum nexthop_types_t {
 	NEXTHOP_TYPE_BLACKHOLE,    /* Null0 nexthop.  */
 };
 
+enum blackhole_type {
+	BLACKHOLE_UNSPEC = 0,
+	BLACKHOLE_NULL,
+	BLACKHOLE_REJECT,
+	BLACKHOLE_ADMINPROHIB,
+};
+
 /* Nexthop label structure. */
 struct nexthop_label {
 	u_int8_t num_labels;

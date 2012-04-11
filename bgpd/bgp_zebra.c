@@ -1022,7 +1022,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	 * in
 	 * the RIB */
 	if (info->sub_type == BGP_ROUTE_AGGREGATE)
-		SET_FLAG(api.flags, ZEBRA_FLAG_BLACKHOLE);
+		zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
 
 	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
 	    || info->sub_type == BGP_ROUTE_AGGREGATE) {
@@ -1152,7 +1152,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (has_valid_label)
 		SET_FLAG(api.message, ZAPI_MESSAGE_LABEL);
 
-	if (!CHECK_FLAG(api.flags, ZEBRA_FLAG_BLACKHOLE))
+	if (info->sub_type != BGP_ROUTE_AGGREGATE)
 		api.nexthop_num = valid_nh_count;
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);

@@ -222,7 +222,10 @@ struct zserv_header {
 struct zapi_nexthop {
 	enum nexthop_types_t type;
 	ifindex_t ifindex;
-	union g_addr gate;
+	union {
+		union g_addr gate;
+		enum blackhole_type bh_type;
+	};
 
 	/* MPLS labels for BGP-LU or Segment Routing */
 	uint8_t label_num;
@@ -428,5 +431,15 @@ extern int zapi_ipv4_route_ipv6_nexthop(u_char, struct zclient *,
 extern int zclient_route_send(u_char, struct zclient *, struct zapi_route *);
 extern int zapi_route_encode(u_char, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
+
+static inline void zapi_route_set_blackhole(struct zapi_route *api,
+				     enum blackhole_type bh_type)
+{
+	api->nexthop_num = 1;
+	api->nexthops[0].type = NEXTHOP_TYPE_BLACKHOLE;
+	api->nexthops[0].bh_type = bh_type;
+	SET_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP);
+};
+
 
 #endif /* _ZEBRA_ZCLIENT_H */

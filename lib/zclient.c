@@ -621,10 +621,9 @@ static int zclient_connect(struct thread *t)
  * |       IPv4 Nexthop address or Interface Index number          |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
- * Alternatively, if the flags field has ZEBRA_FLAG_BLACKHOLE or
- * ZEBRA_FLAG_REJECT is set then Nexthop count is set to 1, then _no_
- * nexthop information is provided, and the message describes a prefix
- * to blackhole or reject route.
+ * Alternatively, if the route is a blackhole route, then Nexthop count
+ * is set to 1 and a nexthop of type NEXTHOP_TYPE_BLACKHOLE is the sole
+ * nexthop.
  *
  * The original struct zapi_ipv4, zapi_ipv4_route() and zread_ipv4_*()
  * infrastructure was built around the traditional (32-bit "gate OR
@@ -692,14 +691,7 @@ int zapi_ipv4_route(u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
 
 	/* Nexthop, ifindex, distance and metric information. */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
-		/* traditional 32-bit data units */
-		if (CHECK_FLAG(api->flags, ZEBRA_FLAG_BLACKHOLE)) {
-			stream_putc(s, 1);
-			stream_putc(s, NEXTHOP_TYPE_BLACKHOLE);
-			/* XXX assert(api->nexthop_num == 0); */
-			/* XXX assert(api->ifindex_num == 0); */
-		} else
-			stream_putc(s, api->nexthop_num + api->ifindex_num);
+		stream_putc(s, api->nexthop_num + api->ifindex_num);
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			stream_putc(s, NEXTHOP_TYPE_IPV4);
@@ -769,13 +761,7 @@ int zapi_ipv4_route_ipv6_nexthop(u_char cmd, struct zclient *zclient,
 
 	/* Nexthop, ifindex, distance and metric information. */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
-		if (CHECK_FLAG(api->flags, ZEBRA_FLAG_BLACKHOLE)) {
-			stream_putc(s, 1);
-			stream_putc(s, NEXTHOP_TYPE_BLACKHOLE);
-			/* XXX assert(api->nexthop_num == 0); */
-			/* XXX assert(api->ifindex_num == 0); */
-		} else
-			stream_putc(s, api->nexthop_num + api->ifindex_num);
+		stream_putc(s, api->nexthop_num + api->ifindex_num);
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			stream_putc(s, NEXTHOP_TYPE_IPV6);
@@ -855,13 +841,7 @@ int zapi_ipv6_route(u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
 
 	/* Nexthop, ifindex, distance and metric information. */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
-		if (CHECK_FLAG(api->flags, ZEBRA_FLAG_BLACKHOLE)) {
-			stream_putc(s, 1);
-			stream_putc(s, NEXTHOP_TYPE_BLACKHOLE);
-			/* XXX assert(api->nexthop_num == 0); */
-			/* XXX assert(api->ifindex_num == 0); */
-		} else
-			stream_putc(s, api->nexthop_num + api->ifindex_num);
+		stream_putc(s, api->nexthop_num + api->ifindex_num);
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			stream_putc(s, NEXTHOP_TYPE_IPV6);
