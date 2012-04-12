@@ -44,14 +44,8 @@ extern unsigned char conf_debug_ospf6_message[];
 #define OSPF6_MESSAGE_TYPE_LSACK    0x5  /* Flooding acknowledgment */
 #define OSPF6_MESSAGE_TYPE_ALL      0x6  /* For debug option */
 
-#define OSPF6_MESSAGE_TYPE_CANONICAL(T) \
-  ((T) > OSPF6_MESSAGE_TYPE_LSACK ? OSPF6_MESSAGE_TYPE_UNKNOWN : (T))
-
-extern const char *ospf6_message_type_str[];
-#define OSPF6_MESSAGE_TYPE_NAME(T) \
-  (ospf6_message_type_str[ OSPF6_MESSAGE_TYPE_CANONICAL (T) ])
-
 /* OSPFv3 packet header */
+#define OSPF6_HEADER_SIZE                     16U
 struct ospf6_header
 {
   u_char    version;
@@ -67,6 +61,7 @@ struct ospf6_header
 #define OSPF6_MESSAGE_END(H) ((caddr_t) (H) + ntohs ((H)->length))
 
 /* Hello */
+#define OSPF6_HELLO_MIN_SIZE                  20U
 struct ospf6_hello
 {
   u_int32_t interface_id;
@@ -80,6 +75,7 @@ struct ospf6_hello
 };
 
 /* Database Description */
+#define OSPF6_DB_DESC_MIN_SIZE                12U
 struct ospf6_dbdesc
 {
   u_char    reserved1;
@@ -96,7 +92,9 @@ struct ospf6_dbdesc
 #define OSPF6_DBDESC_IBIT  (0x04) /* initial bit */
 
 /* Link State Request */
+#define OSPF6_LS_REQ_MIN_SIZE                  0U
 /* It is just a sequence of entries below */
+#define OSPF6_LSREQ_LSDESC_FIX_SIZE           12U
 struct ospf6_lsreq_entry
 {
   u_int16_t reserved;     /* Must Be Zero */
@@ -106,6 +104,7 @@ struct ospf6_lsreq_entry
 };
 
 /* Link State Update */
+#define OSPF6_LS_UPD_MIN_SIZE                  4U
 struct ospf6_lsupdate
 {
   u_int32_t lsa_number;
@@ -113,6 +112,7 @@ struct ospf6_lsupdate
 };
 
 /* Link State Acknowledgement */
+#define OSPF6_LS_ACK_MIN_SIZE                  0U
 /* It is just a sequence of LSA Headers */
 
 /* Function definition */

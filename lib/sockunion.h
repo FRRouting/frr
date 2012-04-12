@@ -99,6 +99,7 @@ extern int sockunion_accept (int sock, union sockunion *);
 extern int sockunion_stream_socket (union sockunion *);
 extern int sockopt_reuseaddr (int);
 extern int sockopt_reuseport (int);
+extern int sockopt_v6only (int family, int sock);
 extern int sockunion_bind (int sock, union sockunion *, 
                            unsigned short, union sockunion *);
 extern int sockopt_ttl (int family, int sock, int ttl);

@@ -99,7 +99,7 @@ behaviors implemented in Cisco and IBM routers."
 to section G.2 (changes) in section 16.4 a change to the path
 preference algorithm that prevents possible routing loops that were
 possible in the old version of OSPFv2. More specifically it demands
-that inter-area paths and intra-area path are now of equal preference
+that inter-area paths and intra-area backbone path are now of equal preference
 but still both preferred to external paths.
 
 This command should NOT be set normally.
@@ -566,10 +566,6 @@ redistributed into OSPF (@pxref{OSPF redistribute}).
 
 @deffn {OSPF Command} {distance ospf (intra-area|inter-area|external) <1-255>} {}
 @deffnx {OSPF Command} {no distance ospf} {}
-@end deffn
-
-@deffn {Command} {router zebra} {}
-@deffnx {Command} {no router zebra} {}
 @end deffn
 
 @node Showing OSPF information

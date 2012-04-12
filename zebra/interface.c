@@ -76,9 +76,9 @@ if_zebra_new_hook (struct interface *ifp)
     rtadv->AdvReachableTime = 0;
     rtadv->AdvRetransTimer = 0;
     rtadv->AdvCurHopLimit = 0;
-    rtadv->AdvDefaultLifetime = RTADV_ADV_DEFAULT_LIFETIME;
+    rtadv->AdvDefaultLifetime = -1; /* derive from MaxRtrAdvInterval */
     rtadv->HomeAgentPreference = 0;
-    rtadv->HomeAgentLifetime = RTADV_ADV_DEFAULT_LIFETIME;
+    rtadv->HomeAgentLifetime = -1; /* derive from AdvDefaultLifetime */
     rtadv->AdvIntervalOption = 0;
     rtadv->DefaultPreference = RTADV_PREF_MEDIUM;
 
@@ -216,7 +216,7 @@ if_subnet_delete (struct interface *ifp, struct connected *ifc)
  * interface will affect only the primary interface/address on Solaris.
  ************************End Solaris flags hacks ***********************
  */
-static inline void
+static void
 if_flags_mangle (struct interface *ifp, uint64_t *newflags)
 {
 #ifdef SUNOS_5
@@ -630,8 +630,12 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
         vty_out (vty, "  ND router advertisements are sent every "
 			"%d seconds%s", interval / 1000,
 		 VTY_NEWLINE);
-      vty_out (vty, "  ND router advertisements live for %d seconds%s",
-	       rtadv->AdvDefaultLifetime, VTY_NEWLINE);
+      if (rtadv->AdvDefaultLifetime != -1)
+	vty_out (vty, "  ND router advertisements live for %d seconds%s",
+		 rtadv->AdvDefaultLifetime, VTY_NEWLINE);
+      else
+	vty_out (vty, "  ND router advertisements lifetime tracks ra-interval%s",
+		 VTY_NEWLINE);
       vty_out (vty, "  ND router advertisement default router preference is "
 			"%s%s", rtadv_pref_strs[rtadv->DefaultPreference],
 		 VTY_NEWLINE);
@@ -642,9 +646,19 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 	vty_out (vty, "  Hosts use stateless autoconfig for addresses.%s",
 		 VTY_NEWLINE);
       if (rtadv->AdvHomeAgentFlag)
+      {
       	vty_out (vty, "  ND router advertisements with "
 				"Home Agent flag bit set.%s",
 		 VTY_NEWLINE);
+	if (rtadv->HomeAgentLifetime != -1)
+	  vty_out (vty, "  Home Agent lifetime is %u seconds%s",
+	           rtadv->HomeAgentLifetime, VTY_NEWLINE);
+	else
+	  vty_out (vty, "  Home Agent lifetime tracks ra-lifetime%s",
+	           VTY_NEWLINE);
+	vty_out (vty, "  Home Agent preference is %u%s",
+	         rtadv->HomeAgentPreference, VTY_NEWLINE);
+      }
       if (rtadv->AdvIntervalOption)
       	vty_out (vty, "  ND router advertisements with Adv. Interval option.%s",
 		 VTY_NEWLINE);

@@ -248,7 +248,7 @@ cpu_record_hash_free (void *a)
   XFREE (MTYPE_THREAD_STATS, hist);
 }
 
-static inline void 
+static void 
 vty_out_cpu_thread_history(struct vty* vty,
 			   struct cpu_thread_history *a)
 {
@@ -608,7 +608,7 @@ thread_master_free (struct thread_master *m)
 }
 
 /* Thread list is empty or not.  */
-static inline int
+static int
 thread_empty (struct thread_list *list)
 {
   return  list->head ? 0 : 1;
@@ -972,10 +972,12 @@ static unsigned int
 thread_timer_process (struct thread_list *list, struct timeval *timenow)
 {
   struct thread *thread;
+  struct thread *next;
   unsigned int ready = 0;
   
-  for (thread = list->head; thread; thread = thread->next)
+  for (thread = list->head; thread; thread = next)
     {
+      next = thread->next;
       if (timeval_cmp (*timenow, thread->u.sands) < 0)
         return ready;
       thread_list_delete (list, thread);
@@ -991,10 +993,12 @@ static unsigned int
 thread_process (struct thread_list *list)
 {
   struct thread *thread;
+  struct thread *next;
   unsigned int ready = 0;
   
-  for (thread = list->head; thread; thread = thread->next)
+  for (thread = list->head; thread; thread = next)
     {
+      next = thread->next;
       thread_list_delete (list, thread);
       thread->type = THREAD_READY;
       thread_list_add (&thread->master->ready, thread);

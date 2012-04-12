@@ -39,12 +39,55 @@
 #include "ospf6_neighbor.h"
 #include "ospf6_interface.h"
 
+/* for structures and macros ospf6_lsa_examin() needs */
+#include "ospf6_abr.h"
+#include "ospf6_asbr.h"
+#include "ospf6_intra.h"
+
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 
+#include <netinet/ip6.h>
+
 unsigned char conf_debug_ospf6_message[6] = {0x03, 0, 0, 0, 0, 0};
-const char *ospf6_message_type_str[] =
-  { "Unknown", "Hello", "DbDesc", "LSReq", "LSUpdate", "LSAck" };
+static const struct message ospf6_message_type_str [] =
+{
+  { OSPF6_MESSAGE_TYPE_HELLO,    "Hello"    },
+  { OSPF6_MESSAGE_TYPE_DBDESC,   "DbDesc"   },
+  { OSPF6_MESSAGE_TYPE_LSREQ,    "LSReq"    },
+  { OSPF6_MESSAGE_TYPE_LSUPDATE, "LSUpdate" },
+  { OSPF6_MESSAGE_TYPE_LSACK,    "LSAck"    },
+};
+static const size_t ospf6_message_type_str_max =
+  sizeof (ospf6_message_type_str) / sizeof (ospf6_message_type_str[0]);
+
+/* Minimum (besides the standard OSPF packet header) lengths for OSPF
+   packets of particular types, offset is the "type" field. */
+const u_int16_t ospf6_packet_minlen[OSPF6_MESSAGE_TYPE_ALL] =
+{
+  0,
+  OSPF6_HELLO_MIN_SIZE,
+  OSPF6_DB_DESC_MIN_SIZE,
+  OSPF6_LS_REQ_MIN_SIZE,
+  OSPF6_LS_UPD_MIN_SIZE,
+  OSPF6_LS_ACK_MIN_SIZE
+};
+
+/* Minimum (besides the standard LSA header) lengths for LSAs of particular
+   types, offset is the "LSA function code" portion of "LSA type" field. */
+const u_int16_t ospf6_lsa_minlen[OSPF6_LSTYPE_SIZE] =
+{
+  0,
+  /* 0x2001 */ OSPF6_ROUTER_LSA_MIN_SIZE,
+  /* 0x2002 */ OSPF6_NETWORK_LSA_MIN_SIZE,
+  /* 0x2003 */ OSPF6_INTER_PREFIX_LSA_MIN_SIZE,
+  /* 0x2004 */ OSPF6_INTER_ROUTER_LSA_FIX_SIZE,
+  /* 0x4005 */ OSPF6_AS_EXTERNAL_LSA_MIN_SIZE,
+  /* 0x2006 */ 0,
+  /* 0x2007 */ OSPF6_AS_EXTERNAL_LSA_MIN_SIZE,
+  /* 0x0008 */ OSPF6_LINK_LSA_MIN_SIZE,
+  /* 0x2009 */ OSPF6_INTRA_PREFIX_LSA_MIN_SIZE
+};
 
 /* print functions */
 
@@ -93,8 +136,7 @@ ospf6_hello_print (struct ospf6_header *oh)
       zlog_debug ("    Neighbor: %s", neighbor);
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    zlog_debug ("Trailing garbage exists");
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 void
@@ -126,8 +168,7 @@ ospf6_dbdesc_print (struct ospf6_header *oh)
        p += sizeof (struct ospf6_lsa_header))
     ospf6_lsa_header_print_raw ((struct ospf6_lsa_header *) p);
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    zlog_debug ("Trailing garbage exists");
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 void
@@ -150,8 +191,7 @@ ospf6_lsreq_print (struct ospf6_header *oh)
                  ospf6_lstype_name (e->type), id, adv_router);
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    zlog_debug ("Trailing garbage exists");
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 void
@@ -176,35 +216,9 @@ ospf6_lsupdate_print (struct ospf6_header *oh)
        p += OSPF6_LSA_SIZE (p))
     {
       ospf6_lsa_header_print_raw ((struct ospf6_lsa_header *) p);
-      if (OSPF6_LSA_SIZE (p) < sizeof (struct ospf6_lsa_header))
-        {
-          zlog_debug ("    Malformed LSA length, quit printing");
-          break;
-        }
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      char buf[32];
-
-      int num = 0;
-      memset (buf, 0, sizeof (buf));
-
-      zlog_debug ("    Trailing garbage exists");
-      while (p < OSPF6_MESSAGE_END (oh))
-        {
-          snprintf (buf, sizeof (buf), "%s %2x", buf, *p++);
-          num++;
-          if (num == 8)
-            {
-              zlog_debug ("    %s", buf);
-              memset (buf, 0, sizeof (buf));
-              num = 0;
-            }
-        }
-      if (num)
-        zlog_debug ("    %s", buf);
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 void
@@ -220,56 +234,7 @@ ospf6_lsack_print (struct ospf6_header *oh)
        p += sizeof (struct ospf6_lsa_header))
     ospf6_lsa_header_print_raw ((struct ospf6_lsa_header *) p);
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    zlog_debug ("Trailing garbage exists");
-}
-
-/* Receive function */
-#define MSG_OK    0
-#define MSG_NG    1
-static int
-ospf6_header_examin (struct in6_addr *src, struct in6_addr *dst,
-                     struct ospf6_interface *oi, struct ospf6_header *oh)
-{
-  u_char type;
-  type = OSPF6_MESSAGE_TYPE_CANONICAL (oh->type);
-
-  /* version check */
-  if (oh->version != OSPFV3_VERSION)
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (type, RECV))
-        zlog_debug ("Message with unknown version");
-      return MSG_NG;
-    }
-
-  /* Area-ID check */
-  if (oh->area_id != oi->area->area_id)
-    {
-      if (oh->area_id == BACKBONE_AREA_ID)
-        {
-          if (IS_OSPF6_DEBUG_MESSAGE (type, RECV))
-            zlog_debug ("Message may be via Virtual Link: not supported");
-          return MSG_NG;
-        }
-
-      if (IS_OSPF6_DEBUG_MESSAGE (type, RECV))
-        zlog_debug ("Area-ID mismatch");
-      return MSG_NG;
-    }
-
-  /* Instance-ID check */
-  if (oh->instance_id != oi->instance_id)
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (type, RECV))
-        zlog_debug ("Instance-ID mismatch");
-      return MSG_NG;
-    }
-
-  /* Router-ID check */
-  if (oh->router_id == oi->area->ospf6->router_id)
-    zlog_warn ("Detect duplicate Router-ID");
-
-  return MSG_OK;
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 static void
@@ -282,9 +247,6 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
   int twoway = 0;
   int neighborchange = 0;
   int backupseen = 0;
-
-  if (ospf6_header_examin (src, dst, oi, oh) != MSG_OK)
-    return;
 
   hello = (struct ospf6_hello *)
     ((caddr_t) oh + sizeof (struct ospf6_header));
@@ -339,11 +301,7 @@ ospf6_hello_recv (struct in6_addr *src, struct in6_addr *dst,
         twoway++;
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 
   /* RouterPriority check */
   if (on->priority != hello->priority)
@@ -576,11 +534,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
         }
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 
   /* Increment sequence number */
   on->dbdesc_seqnum ++;
@@ -788,11 +742,7 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
         ospf6_lsa_delete (his);
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 
   /* Set sequence number to Master's */
   on->dbdesc_seqnum = ntohl (dbdesc->seqnum);
@@ -816,9 +766,6 @@ ospf6_dbdesc_recv (struct in6_addr *src, struct in6_addr *dst,
 {
   struct ospf6_neighbor *on;
   struct ospf6_dbdesc *dbdesc;
-
-  if (ospf6_header_examin (src, dst, oi, oh) != MSG_OK)
-    return;
 
   on = ospf6_neighbor_lookup (oh->router_id, oi);
   if (on == NULL)
@@ -868,9 +815,6 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
   struct ospf6_lsreq_entry *e;
   struct ospf6_lsdb *lsdb = NULL;
   struct ospf6_lsa *lsa;
-
-  if (ospf6_header_examin (src, dst, oi, oh) != MSG_OK)
-    return;
 
   on = ospf6_neighbor_lookup (oh->router_id, oi);
   if (on == NULL)
@@ -934,16 +878,439 @@ ospf6_lsreq_recv (struct in6_addr *src, struct in6_addr *dst,
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), on->lsupdate_list);
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 
   /* schedule send lsupdate */
   THREAD_OFF (on->thread_send_lsupdate);
   on->thread_send_lsupdate =
     thread_add_event (master, ospf6_lsupdate_send_neighbor, on, 0);
+}
+
+/* Verify, that the specified memory area contains exactly N valid IPv6
+   prefixes as specified by RFC5340, A.4.1. */
+static unsigned
+ospf6_prefixes_examin
+(
+  struct ospf6_prefix *current, /* start of buffer    */
+  unsigned length,
+  const u_int32_t req_num_pfxs  /* always compared with the actual number of prefixes */
+)
+{
+  u_char requested_pfx_bytes;
+  u_int32_t real_num_pfxs = 0;
+
+  while (length)
+  {
+    if (length < OSPF6_PREFIX_MIN_SIZE)
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: undersized IPv6 prefix header", __func__);
+      return MSG_NG;
+    }
+    /* safe to look deeper */
+    if (current->prefix_length > IPV6_MAX_BITLEN)
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: invalid PrefixLength (%u bits)", __func__, current->prefix_length);
+      return MSG_NG;
+    }
+    /* covers both fixed- and variable-sized fields */
+    requested_pfx_bytes = OSPF6_PREFIX_MIN_SIZE + OSPF6_PREFIX_SPACE (current->prefix_length);
+    if (requested_pfx_bytes > length)
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: undersized IPv6 prefix", __func__);
+      return MSG_NG;
+    }
+    /* next prefix */
+    length -= requested_pfx_bytes;
+    current = (struct ospf6_prefix *) ((caddr_t) current + requested_pfx_bytes);
+    real_num_pfxs++;
+  }
+  if (real_num_pfxs != req_num_pfxs)
+  {
+    if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+      zlog_debug ("%s: IPv6 prefix number mismatch (%u required, %u real)",
+                  __func__, req_num_pfxs, real_num_pfxs);
+    return MSG_NG;
+  }
+  return MSG_OK;
+}
+
+/* Verify an LSA to have a valid length and dispatch further (where
+   appropriate) to check if the contents, including nested IPv6 prefixes,
+   is properly sized/aligned within the LSA. Note that this function gets
+   LSA type in network byte order, uses in host byte order and passes to
+   ospf6_lstype_name() in network byte order again. */
+static unsigned
+ospf6_lsa_examin (struct ospf6_lsa_header *lsah, const u_int16_t lsalen, const u_char headeronly)
+{
+  struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
+  struct ospf6_as_external_lsa *as_external_lsa;
+  struct ospf6_link_lsa *link_lsa;
+  unsigned exp_length;
+  u_int8_t ltindex;
+  u_int16_t lsatype;
+
+  /* In case an additional minimum length constraint is defined for current
+     LSA type, make sure that this constraint is met. */
+  lsatype = ntohs (lsah->type);
+  ltindex = lsatype & OSPF6_LSTYPE_FCODE_MASK;
+  if
+  (
+    ltindex < OSPF6_LSTYPE_SIZE &&
+    ospf6_lsa_minlen[ltindex] &&
+    lsalen < ospf6_lsa_minlen[ltindex] + OSPF6_LSA_HEADER_SIZE
+  )
+  {
+    if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+      zlog_debug ("%s: undersized (%u B) LSA", __func__, lsalen);
+    return MSG_NG;
+  }
+  switch (lsatype)
+  {
+  case OSPF6_LSTYPE_ROUTER:
+    /* RFC5340 A.4.3, LSA header + OSPF6_ROUTER_LSA_MIN_SIZE bytes followed
+       by N>=0 interface descriptions. */
+    if ((lsalen - OSPF6_LSA_HEADER_SIZE - OSPF6_ROUTER_LSA_MIN_SIZE) % OSPF6_ROUTER_LSDESC_FIX_SIZE)
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: interface description alignment error", __func__);
+      return MSG_NG;
+    }
+    break;
+  case OSPF6_LSTYPE_NETWORK:
+    /* RFC5340 A.4.4, LSA header + OSPF6_NETWORK_LSA_MIN_SIZE bytes
+       followed by N>=0 attached router descriptions. */
+    if ((lsalen - OSPF6_LSA_HEADER_SIZE - OSPF6_NETWORK_LSA_MIN_SIZE) % OSPF6_NETWORK_LSDESC_FIX_SIZE)
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: router description alignment error", __func__);
+      return MSG_NG;
+    }
+    break;
+  case OSPF6_LSTYPE_INTER_PREFIX:
+    /* RFC5340 A.4.5, LSA header + OSPF6_INTER_PREFIX_LSA_MIN_SIZE bytes
+       followed by 3-4 fields of a single IPv6 prefix. */
+    if (headeronly)
+      break;
+    return ospf6_prefixes_examin
+    (
+      (struct ospf6_prefix *) ((caddr_t) lsah + OSPF6_LSA_HEADER_SIZE + OSPF6_INTER_PREFIX_LSA_MIN_SIZE),
+      lsalen - OSPF6_LSA_HEADER_SIZE - OSPF6_INTER_PREFIX_LSA_MIN_SIZE,
+      1
+    );
+  case OSPF6_LSTYPE_INTER_ROUTER:
+    /* RFC5340 A.4.6, fixed-size LSA. */
+    if (lsalen > OSPF6_LSA_HEADER_SIZE + OSPF6_INTER_ROUTER_LSA_FIX_SIZE)
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: oversized (%u B) LSA", __func__, lsalen);
+      return MSG_NG;
+    }
+    break;
+  case OSPF6_LSTYPE_AS_EXTERNAL: /* RFC5340 A.4.7, same as A.4.8. */
+  case OSPF6_LSTYPE_TYPE_7:
+    /* RFC5340 A.4.8, LSA header + OSPF6_AS_EXTERNAL_LSA_MIN_SIZE bytes
+       followed by 3-4 fields of IPv6 prefix and 3 conditional LSA fields:
+       16 bytes of forwarding address, 4 bytes of external route tag,
+       4 bytes of referenced link state ID. */
+    if (headeronly)
+      break;
+    as_external_lsa = (struct ospf6_as_external_lsa *) ((caddr_t) lsah + OSPF6_LSA_HEADER_SIZE);
+    exp_length = OSPF6_LSA_HEADER_SIZE + OSPF6_AS_EXTERNAL_LSA_MIN_SIZE;
+    /* To find out if the last optional field (Referenced Link State ID) is
+       assumed in this LSA, we need to access fixed fields of the IPv6
+       prefix before ospf6_prefix_examin() confirms its sizing. */
+    if (exp_length + OSPF6_PREFIX_MIN_SIZE > lsalen)
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: undersized (%u B) LSA header", __func__, lsalen);
+      return MSG_NG;
+    }
+    /* forwarding address */
+    if (CHECK_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F))
+      exp_length += 16;
+    /* external route tag */
+    if (CHECK_FLAG (as_external_lsa->bits_metric, OSPF6_ASBR_BIT_T))
+      exp_length += 4;
+    /* referenced link state ID */
+    if (as_external_lsa->prefix.u._prefix_referenced_lstype)
+      exp_length += 4;
+    /* All the fixed-size fields (mandatory and optional) must fit. I.e.,
+       this check does not include any IPv6 prefix fields. */
+    if (exp_length > lsalen)
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: undersized (%u B) LSA header", __func__, lsalen);
+      return MSG_NG;
+    }
+    /* The last call completely covers the remainder (IPv6 prefix). */
+    return ospf6_prefixes_examin
+    (
+      (struct ospf6_prefix *) ((caddr_t) as_external_lsa + OSPF6_AS_EXTERNAL_LSA_MIN_SIZE),
+      lsalen - exp_length,
+      1
+    );
+  case OSPF6_LSTYPE_LINK:
+    /* RFC5340 A.4.9, LSA header + OSPF6_LINK_LSA_MIN_SIZE bytes followed
+       by N>=0 IPv6 prefix blocks (with N declared beforehand). */
+    if (headeronly)
+      break;
+    link_lsa = (struct ospf6_link_lsa *) ((caddr_t) lsah + OSPF6_LSA_HEADER_SIZE);
+    return ospf6_prefixes_examin
+    (
+      (struct ospf6_prefix *) ((caddr_t) link_lsa + OSPF6_LINK_LSA_MIN_SIZE),
+      lsalen - OSPF6_LSA_HEADER_SIZE - OSPF6_LINK_LSA_MIN_SIZE,
+      ntohl (link_lsa->prefix_num) /* 32 bits */
+    );
+  case OSPF6_LSTYPE_INTRA_PREFIX:
+  /* RFC5340 A.4.10, LSA header + OSPF6_INTRA_PREFIX_LSA_MIN_SIZE bytes
+     followed by N>=0 IPv6 prefixes (with N declared beforehand). */
+    if (headeronly)
+      break;
+    intra_prefix_lsa = (struct ospf6_intra_prefix_lsa *) ((caddr_t) lsah + OSPF6_LSA_HEADER_SIZE);
+    return ospf6_prefixes_examin
+    (
+      (struct ospf6_prefix *) ((caddr_t) intra_prefix_lsa + OSPF6_INTRA_PREFIX_LSA_MIN_SIZE),
+      lsalen - OSPF6_LSA_HEADER_SIZE - OSPF6_INTRA_PREFIX_LSA_MIN_SIZE,
+      ntohs (intra_prefix_lsa->prefix_num) /* 16 bits */
+    );
+  }
+  /* No additional validation is possible for unknown LSA types, which are
+     themselves valid in OPSFv3, hence the default decision is to accept. */
+  return MSG_OK;
+}
+
+/* Verify if the provided input buffer is a valid sequence of LSAs. This
+   includes verification of LSA blocks length/alignment and dispatching
+   of deeper-level checks. */
+static unsigned
+ospf6_lsaseq_examin
+(
+  struct ospf6_lsa_header *lsah, /* start of buffered data */
+  size_t length,
+  const u_char headeronly,
+  /* When declared_num_lsas is not 0, compare it to the real number of LSAs
+     and treat the difference as an error. */
+  const u_int32_t declared_num_lsas
+)
+{
+  u_int32_t counted_lsas = 0;
+
+  while (length)
+  {
+    u_int16_t lsalen;
+    if (length < OSPF6_LSA_HEADER_SIZE)
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: undersized (%zu B) trailing (#%u) LSA header",
+                    __func__, length, counted_lsas);
+      return MSG_NG;
+    }
+    /* save on ntohs() calls here and in the LSA validator */
+    lsalen = OSPF6_LSA_SIZE (lsah);
+    if (lsalen < OSPF6_LSA_HEADER_SIZE)
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: malformed LSA header #%u, declared length is %u B",
+                    __func__, counted_lsas, lsalen);
+      return MSG_NG;
+    }
+    if (headeronly)
+    {
+      /* less checks here and in ospf6_lsa_examin() */
+      if (MSG_OK != ospf6_lsa_examin (lsah, lsalen, 1))
+      {
+        if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+          zlog_debug ("%s: anomaly in header-only %s LSA #%u", __func__,
+                      ospf6_lstype_name (lsah->type), counted_lsas);
+        return MSG_NG;
+      }
+      lsah = (struct ospf6_lsa_header *) ((caddr_t) lsah + OSPF6_LSA_HEADER_SIZE);
+      length -= OSPF6_LSA_HEADER_SIZE;
+    }
+    else
+    {
+      /* make sure the input buffer is deep enough before further checks */
+      if (lsalen > length)
+      {
+        if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+          zlog_debug ("%s: anomaly in %s LSA #%u: declared length is %u B, buffered length is %zu B",
+                      __func__, ospf6_lstype_name (lsah->type), counted_lsas, lsalen, length);
+        return MSG_NG;
+      }
+      if (MSG_OK != ospf6_lsa_examin (lsah, lsalen, 0))
+      {
+        if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+          zlog_debug ("%s: anomaly in %s LSA #%u", __func__,
+                      ospf6_lstype_name (lsah->type), counted_lsas);
+        return MSG_NG;
+      }
+      lsah = (struct ospf6_lsa_header *) ((caddr_t) lsah + lsalen);
+      length -= lsalen;
+    }
+    counted_lsas++;
+  }
+
+  if (declared_num_lsas && counted_lsas != declared_num_lsas)
+  {
+    if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+      zlog_debug ("%s: #LSAs declared (%u) does not match actual (%u)",
+                  __func__, declared_num_lsas, counted_lsas);
+    return MSG_NG;
+  }
+  return MSG_OK;
+}
+
+/* Verify a complete OSPF packet for proper sizing/alignment. */
+static unsigned
+ospf6_packet_examin (struct ospf6_header *oh, const unsigned bytesonwire)
+{
+  struct ospf6_lsupdate *lsupd;
+  unsigned test;
+
+  /* length, 1st approximation */
+  if (bytesonwire < OSPF6_HEADER_SIZE)
+  {
+    if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+      zlog_debug ("%s: undersized (%u B) packet", __func__, bytesonwire);
+    return MSG_NG;
+  }
+  /* Now it is safe to access header fields. */
+  if (bytesonwire != ntohs (oh->length))
+  {
+    if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+      zlog_debug ("%s: packet length error (%u real, %u declared)",
+                  __func__, bytesonwire, ntohs (oh->length));
+    return MSG_NG;
+  }
+  /* version check */
+  if (oh->version != OSPFV3_VERSION)
+  {
+    if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+      zlog_debug ("%s: invalid (%u) protocol version", __func__, oh->version);
+    return MSG_NG;
+  }
+  /* length, 2nd approximation */
+  if
+  (
+    oh->type < OSPF6_MESSAGE_TYPE_ALL &&
+    ospf6_packet_minlen[oh->type] &&
+    bytesonwire < OSPF6_HEADER_SIZE + ospf6_packet_minlen[oh->type]
+  )
+  {
+    if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+      zlog_debug ("%s: undersized (%u B) %s packet", __func__,
+                  bytesonwire, LOOKUP (ospf6_message_type_str, oh->type));
+    return MSG_NG;
+  }
+  /* type-specific deeper validation */
+  switch (oh->type)
+  {
+  case OSPF6_MESSAGE_TYPE_HELLO:
+    /* RFC5340 A.3.2, packet header + OSPF6_HELLO_MIN_SIZE bytes followed
+       by N>=0 router-IDs. */
+    if (0 == (bytesonwire - OSPF6_HEADER_SIZE - OSPF6_HELLO_MIN_SIZE) % 4)
+      return MSG_OK;
+    if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+      zlog_debug ("%s: alignment error in %s packet",
+                  __func__, LOOKUP (ospf6_message_type_str, oh->type));
+    return MSG_NG;
+  case OSPF6_MESSAGE_TYPE_DBDESC:
+    /* RFC5340 A.3.3, packet header + OSPF6_DB_DESC_MIN_SIZE bytes followed
+       by N>=0 header-only LSAs. */
+    test = ospf6_lsaseq_examin
+    (
+      (struct ospf6_lsa_header *) ((caddr_t) oh + OSPF6_HEADER_SIZE + OSPF6_DB_DESC_MIN_SIZE),
+      bytesonwire - OSPF6_HEADER_SIZE - OSPF6_DB_DESC_MIN_SIZE,
+      1,
+      0
+    );
+    break;
+  case OSPF6_MESSAGE_TYPE_LSREQ:
+    /* RFC5340 A.3.4, packet header + N>=0 LS description blocks. */
+    if (0 == (bytesonwire - OSPF6_HEADER_SIZE - OSPF6_LS_REQ_MIN_SIZE) % OSPF6_LSREQ_LSDESC_FIX_SIZE)
+      return MSG_OK;
+    if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+      zlog_debug ("%s: alignment error in %s packet",
+                  __func__, LOOKUP (ospf6_message_type_str, oh->type));
+    return MSG_NG;
+  case OSPF6_MESSAGE_TYPE_LSUPDATE:
+    /* RFC5340 A.3.5, packet header + OSPF6_LS_UPD_MIN_SIZE bytes followed
+       by N>=0 full LSAs (with N declared beforehand). */
+    lsupd = (struct ospf6_lsupdate *) ((caddr_t) oh + OSPF6_HEADER_SIZE);
+    test = ospf6_lsaseq_examin
+    (
+      (struct ospf6_lsa_header *) ((caddr_t) lsupd + OSPF6_LS_UPD_MIN_SIZE),
+      bytesonwire - OSPF6_HEADER_SIZE - OSPF6_LS_UPD_MIN_SIZE,
+      0,
+      ntohl (lsupd->lsa_number) /* 32 bits */
+    );
+    break;
+  case OSPF6_MESSAGE_TYPE_LSACK:
+    /* RFC5340 A.3.6, packet header + N>=0 header-only LSAs. */
+    test = ospf6_lsaseq_examin
+    (
+      (struct ospf6_lsa_header *) ((caddr_t) oh + OSPF6_HEADER_SIZE + OSPF6_LS_ACK_MIN_SIZE),
+      bytesonwire - OSPF6_HEADER_SIZE - OSPF6_LS_ACK_MIN_SIZE,
+      1,
+      0
+    );
+    break;
+  default:
+    if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+      zlog_debug ("%s: invalid (%u) message type", __func__, oh->type);
+    return MSG_NG;
+  }
+  if (test != MSG_OK && IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+    zlog_debug ("%s: anomaly in %s packet", __func__, LOOKUP (ospf6_message_type_str, oh->type));
+  return test;
+}
+
+/* Verify particular fields of otherwise correct received OSPF packet to
+   meet the requirements of RFC. */
+static int
+ospf6_rxpacket_examin (struct ospf6_interface *oi, struct ospf6_header *oh, const unsigned bytesonwire)
+{
+  char buf[2][INET_ADDRSTRLEN];
+
+  if (MSG_OK != ospf6_packet_examin (oh, bytesonwire))
+    return MSG_NG;
+
+  /* Area-ID check */
+  if (oh->area_id != oi->area->area_id)
+  {
+    if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+    {
+      if (oh->area_id == BACKBONE_AREA_ID)
+        zlog_debug ("%s: Message may be via Virtual Link: not supported", __func__);
+      else
+        zlog_debug
+        (
+          "%s: Area-ID mismatch (my %s, rcvd %s)", __func__,
+          inet_ntop (AF_INET, &oi->area->area_id, buf[0], INET_ADDRSTRLEN),
+          inet_ntop (AF_INET, &oh->area_id, buf[1], INET_ADDRSTRLEN)
+         );
+    }
+    return MSG_NG;
+  }
+
+  /* Instance-ID check */
+  if (oh->instance_id != oi->instance_id)
+  {
+    if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
+      zlog_debug ("%s: Instance-ID mismatch (my %u, rcvd %u)", __func__, oi->instance_id, oh->instance_id);
+    return MSG_NG;
+  }
+
+  /* Router-ID check */
+  if (oh->router_id == oi->area->ospf6->router_id)
+  {
+    zlog_warn ("%s: Duplicate Router-ID (%s)", __func__, inet_ntop (AF_INET, &oh->router_id, buf[0], INET_ADDRSTRLEN));
+    return MSG_NG;
+  }
+  return MSG_OK;
 }
 
 static void
@@ -952,11 +1319,7 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
 {
   struct ospf6_neighbor *on;
   struct ospf6_lsupdate *lsupdate;
-  unsigned long num;
   char *p;
-
-  if (ospf6_header_examin (src, dst, oi, oh) != MSG_OK)
-    return;
 
   on = ospf6_neighbor_lookup (oh->router_id, oi);
   if (on == NULL)
@@ -978,37 +1341,16 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
   lsupdate = (struct ospf6_lsupdate *)
     ((caddr_t) oh + sizeof (struct ospf6_header));
 
-  num = ntohl (lsupdate->lsa_number);
-
   /* Process LSAs */
   for (p = (char *) ((caddr_t) lsupdate + sizeof (struct ospf6_lsupdate));
        p < OSPF6_MESSAGE_END (oh) &&
        p + OSPF6_LSA_SIZE (p) <= OSPF6_MESSAGE_END (oh);
        p += OSPF6_LSA_SIZE (p))
     {
-      if (num == 0)
-        break;
-      if (OSPF6_LSA_SIZE (p) < sizeof (struct ospf6_lsa_header))
-        {
-          if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-            zlog_debug ("Malformed LSA length, quit processing");
-          break;
-        }
-
       ospf6_receive_lsa (on, (struct ospf6_lsa_header *) p);
-      num--;
     }
 
-  if (num != 0)
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Malformed LSA number or LSA length");
-    }
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 
   /* RFC2328 Section 10.9: When the neighbor responds to these requests
      with the proper Link State Update packet(s), the Link state request
@@ -1035,8 +1377,6 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
   struct ospf6_lsdb *lsdb = NULL;
 
   assert (oh->type == OSPF6_MESSAGE_TYPE_LSACK);
-  if (ospf6_header_examin (src, dst, oi, oh) != MSG_OK)
-    return;
 
   on = ospf6_neighbor_lookup (oh->router_id, oi);
   if (on == NULL)
@@ -1126,11 +1466,7 @@ ospf6_lsack_recv (struct in6_addr *src, struct in6_addr *dst,
       ospf6_lsa_delete (his);
     }
 
-  if (p != OSPF6_MESSAGE_END (oh))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Trailing garbage ignored");
-    }
+  assert (p == OSPF6_MESSAGE_END (oh));
 }
 
 static u_char *recvbuf = NULL;
@@ -1219,11 +1555,6 @@ ospf6_receive (struct thread *thread)
       zlog_err ("Excess message read");
       return 0;
     }
-  else if (len < sizeof (struct ospf6_header))
-    {
-      zlog_err ("Deficient message read");
-      return 0;
-    }
 
   oi = ospf6_interface_lookup_by_ifindex (ifindex);
   if (oi == NULL || oi->area == NULL)
@@ -1231,8 +1562,22 @@ ospf6_receive (struct thread *thread)
       zlog_debug ("Message received on disabled interface");
       return 0;
     }
+  if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE))
+    {
+      if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
+        zlog_debug ("%s: Ignore message on passive interface %s",
+                    __func__, oi->interface->name);
+      return 0;
+    }
 
   oh = (struct ospf6_header *) recvbuf;
+  if (ospf6_rxpacket_examin (oi, oh, len) != MSG_OK)
+    return 0;
+
+  /* Being here means, that no sizing/alignment issues were detected in
+     the input packet. This renders the additional checks performed below
+     and also in the type-specific dispatching functions a dead code,
+     which can be dismissed in a cleanup-focused review round later. */
 
   /* Log */
   if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
@@ -1240,11 +1585,9 @@ ospf6_receive (struct thread *thread)
       inet_ntop (AF_INET6, &src, srcname, sizeof (srcname));
       inet_ntop (AF_INET6, &dst, dstname, sizeof (dstname));
       zlog_debug ("%s received on %s",
-                 OSPF6_MESSAGE_TYPE_NAME (oh->type), oi->interface->name);
+                 LOOKUP (ospf6_message_type_str, oh->type), oi->interface->name);
       zlog_debug ("    src: %s", srcname);
       zlog_debug ("    dst: %s", dstname);
-      if (len != ntohs (oh->length))
-        zlog_debug ("Message length does not match actually received: %d", len);
 
       switch (oh->type)
         {
@@ -1264,17 +1607,8 @@ ospf6_receive (struct thread *thread)
             ospf6_lsack_print (oh);
             break;
           default:
-            zlog_debug ("Unknown message");
-            break;
+            assert (0);
         }
-    }
-
-  if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE))
-    {
-      if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
-        zlog_debug ("Ignore message on passive interface %s",
-                   oi->interface->name);
-      return 0;
     }
 
   switch (oh->type)
@@ -1300,9 +1634,7 @@ ospf6_receive (struct thread *thread)
         break;
 
       default:
-        if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
-          zlog_debug ("Unknown message");
-        break;
+        assert (0);
     }
 
   return 0;
@@ -1341,7 +1673,7 @@ ospf6_send (struct in6_addr *src, struct in6_addr *dst,
       else
         memset (srcname, 0, sizeof (srcname));
       zlog_debug ("%s send on %s",
-                 OSPF6_MESSAGE_TYPE_NAME (oh->type), oi->interface->name);
+                 LOOKUP (ospf6_message_type_str, oh->type), oi->interface->name);
       zlog_debug ("    src: %s", srcname);
       zlog_debug ("    dst: %s", dstname);
 
@@ -1373,6 +1705,13 @@ ospf6_send (struct in6_addr *src, struct in6_addr *dst,
   len = ospf6_sendmsg (src, dst, &oi->interface->ifindex, iovector);
   if (len != ntohs (oh->length))
     zlog_err ("Could not send entire message");
+}
+
+static uint32_t
+ospf6_packet_max(struct ospf6_interface *oi)
+{
+  assert (oi->ifmtu > sizeof (struct ip6_hdr));
+  return oi->ifmtu - (sizeof (struct ip6_hdr));
 }
 
 int
@@ -1421,7 +1760,7 @@ ospf6_hello_send (struct thread *thread)
       if (on->state < OSPF6_NEIGHBOR_INIT)
         continue;
 
-      if (p - sendbuf + sizeof (u_int32_t) > oi->ifmtu)
+      if (p - sendbuf + sizeof (u_int32_t) > ospf6_packet_max(oi))
         {
           if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_HELLO, SEND))
             zlog_debug ("sending Hello message: exceeds I/F MTU");
@@ -1497,7 +1836,7 @@ ospf6_dbdesc_send (struct thread *thread)
 
           /* MTU check */
           if (p - sendbuf + sizeof (struct ospf6_lsa_header) >
-              on->ospf6_if->ifmtu)
+              ospf6_packet_max(on->ospf6_if))
             {
               ospf6_lsa_unlock (lsa);
               break;
@@ -1531,7 +1870,7 @@ ospf6_dbdesc_send_newone (struct thread *thread)
   for (lsa = ospf6_lsdb_head (on->summary_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     {
-      if (size + sizeof (struct ospf6_lsa_header) > on->ospf6_if->ifmtu)
+      if (size + sizeof (struct ospf6_lsa_header) > ospf6_packet_max(on->ospf6_if))
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -1598,7 +1937,7 @@ ospf6_lsreq_send (struct thread *thread)
        lsa = ospf6_lsdb_next (lsa))
     {
       /* MTU check */
-      if (p - sendbuf + sizeof (struct ospf6_lsreq_entry) > on->ospf6_if->ifmtu)
+      if (p - sendbuf + sizeof (struct ospf6_lsreq_entry) > ospf6_packet_max(on->ospf6_if))
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -1667,7 +2006,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
     {
       /* MTU check */
       if ( (p - sendbuf + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
-          > on->ospf6_if->ifmtu)
+          > ospf6_packet_max(on->ospf6_if))
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -1687,7 +2026,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
     {
       /* MTU check */
       if ( (p - sendbuf + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
-          > on->ospf6_if->ifmtu)
+          > ospf6_packet_max(on->ospf6_if))
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -1760,7 +2099,7 @@ ospf6_lsupdate_send_interface (struct thread *thread)
     {
       /* MTU check */
       if ( (p - sendbuf + ((unsigned int)OSPF6_LSA_SIZE (lsa->header)))
-          > oi->ifmtu)
+          > ospf6_packet_max(oi))
         {
           ospf6_lsa_unlock (lsa);
           break;
@@ -1827,7 +2166,7 @@ ospf6_lsack_send_neighbor (struct thread *thread)
        lsa = ospf6_lsdb_next (lsa))
     {
       /* MTU check */
-      if (p - sendbuf + sizeof (struct ospf6_lsa_header) > on->ospf6_if->ifmtu)
+      if (p - sendbuf + sizeof (struct ospf6_lsa_header) > ospf6_packet_max(on->ospf6_if))
         {
           /* if we run out of packet size/space here,
              better to try again soon. */
@@ -1887,7 +2226,7 @@ ospf6_lsack_send_interface (struct thread *thread)
        lsa = ospf6_lsdb_next (lsa))
     {
       /* MTU check */
-      if (p - sendbuf + sizeof (struct ospf6_lsa_header) > oi->ifmtu)
+      if (p - sendbuf + sizeof (struct ospf6_lsa_header) > ospf6_packet_max(oi))
         {
           /* if we run out of packet size/space here,
              better to try again soon. */

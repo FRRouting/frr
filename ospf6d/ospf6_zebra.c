@@ -451,6 +451,7 @@ ospf6_zebra_route_update (int type, struct ospf6_route *request)
   api.type = ZEBRA_ROUTE_OSPF6;
   api.flags = 0;
   api.message = 0;
+  api.safi = SAFI_UNICAST;
   SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
   api.nexthop_num = nhcount;
   api.nexthop = nexthops;

@@ -103,7 +103,7 @@ work_queue_free (struct work_queue *wq)
   return;
 }
 
-static inline int
+static int
 work_queue_schedule (struct work_queue *wq, unsigned int delay)
 {
   /* if appropriate, schedule work queue thread */

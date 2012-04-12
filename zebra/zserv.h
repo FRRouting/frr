@@ -93,7 +93,7 @@ struct zebra_t
 /* Prototypes. */
 extern void zebra_init (void);
 extern void zebra_if_init (void);
-extern void zebra_zserv_socket_init (void);
+extern void zebra_zserv_socket_init (char *path);
 extern void hostinfo_get (void);
 extern void rib_init (void);
 extern void interface_list (void);

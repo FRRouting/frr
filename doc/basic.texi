@@ -46,14 +46,14 @@ starting.
 
 Config files are generally found in:
 
-@itemize @asis
+@itemize @w{}
 @item @file{@value{INSTALL_PREFIX_ETC}/*.conf}
 @end itemize
 
 Each of the daemons has its own
 config file.  For example, zebra's default config file name is:
 
-@itemize @asis
+@itemize @w{}
 @item @file{@value{INSTALL_PREFIX_ETC}/zebra.conf}
 @end itemize
 

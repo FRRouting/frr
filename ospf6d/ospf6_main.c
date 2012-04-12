@@ -34,8 +34,13 @@
 #include "plist.h"
 #include "privs.h"
 #include "sigevent.h"
+#include "zclient.h"
 
 #include "ospf6d.h"
+#include "ospf6_top.h"
+#include "ospf6_message.h"
+#include "ospf6_asbr.h"
+#include "ospf6_lsa.h"
 
 /* Default configuration file name for ospf6d. */
 #define OSPF6_DEFAULT_CONFIG       "ospf6d.conf"
@@ -72,6 +77,7 @@ struct option longopts[] =
   { "daemon",      no_argument,       NULL, 'd'},
   { "config_file", required_argument, NULL, 'f'},
   { "pid_file",    required_argument, NULL, 'i'},
+  { "socket",      required_argument, NULL, 'z'},
   { "vty_addr",    required_argument, NULL, 'A'},
   { "vty_port",    required_argument, NULL, 'P'},
   { "user",        required_argument, NULL, 'u'},
@@ -110,6 +116,7 @@ Daemon which manages OSPF version 3.\n\n\
 -d, --daemon       Runs in daemon mode\n\
 -f, --config_file  Set configuration file name\n\
 -i, --pid_file     Set process identifier file name\n\
+-z, --socket       Set path of zebra socket\n\
 -A, --vty_addr     Set vty's bind address\n\
 -P, --vty_port     Set vty's port number\n\
 -u, --user         User to run as\n\
@@ -124,7 +131,7 @@ Report bugs to zebra@zebra.org\n", progname);
   exit (status);
 }
 
-static void
+static void __attribute__ ((noreturn))
 ospf6_exit (int status)
 {
   extern struct ospf6 *ospf6;
@@ -173,6 +180,7 @@ static void
 sigterm (void)
 {
   zlog_notice ("Terminating on signal SIGTERM");
+  ospf6_clean();
   ospf6_exit (0);
 }
 
@@ -226,7 +234,7 @@ main (int argc, char *argv[], char *envp[])
   /* Command line argument treatment. */
   while (1) 
     {
-      opt = getopt_long (argc, argv, "df:i:hp:A:P:u:g:vC", longopts, 0);
+      opt = getopt_long (argc, argv, "df:i:z:hp:A:P:u:g:vC", longopts, 0);
     
       if (opt == EOF)
         break;
@@ -246,6 +254,9 @@ main (int argc, char *argv[], char *envp[])
           break;
         case 'i':
           pid_file = optarg;
+          break;
+        case 'z':
+          zclient_serv_path_set (optarg);
           break;
         case 'P':
          /* Deal with atoi() returning 0 on failure, and ospf6d not
@@ -279,6 +290,13 @@ main (int argc, char *argv[], char *envp[])
           usage (progname, 1);
           break;
         }
+    }
+
+  if (geteuid () != 0)
+    {
+      errno = EPERM;
+      perror (progname);
+      exit (1);
     }
 
   /* thread master */

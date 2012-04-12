@@ -22,6 +22,8 @@
 
 #include <zebra.h>
 
+#include "zebra/zserv.h"
+
 extern int interface_lookup_netlink (void);
 
 /* Interface information read by netlink. */

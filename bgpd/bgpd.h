@@ -632,6 +632,8 @@ struct bgp_nlri
 #define BGP_NOTIFY_CAPABILITY_ERR                7
 #define BGP_NOTIFY_MAX	                         8
 
+#define BGP_NOTIFY_SUBCODE_UNSPECIFIC            0
+
 /* BGP_NOTIFY_HEADER_ERR sub codes.  */
 #define BGP_NOTIFY_HEADER_NOT_SYNC               1
 #define BGP_NOTIFY_HEADER_BAD_MESLEN             2
@@ -662,7 +664,7 @@ struct bgp_nlri
 #define BGP_NOTIFY_UPDATE_MAL_AS_PATH           11
 #define BGP_NOTIFY_UPDATE_MAX                   12
 
-/* BGP_NOTIFY_CEASE sub codes (draft-ietf-idr-cease-subcode-05).  */
+/* BGP_NOTIFY_CEASE sub codes (RFC 4486).  */
 #define BGP_NOTIFY_CEASE_MAX_PREFIX              1
 #define BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN          2
 #define BGP_NOTIFY_CEASE_PEER_UNCONFIG           3
@@ -725,9 +727,8 @@ struct bgp_nlri
 #define BGP_DEFAULT_RESTART_TIME               120
 #define BGP_DEFAULT_STALEPATH_TIME             360
 
-/* SAFI which used in open capability negotiation.  */
-#define BGP_SAFI_VPNV4                         128
-#define BGP_SAFI_VPNV6                         129
+/* RFC4364 */
+#define SAFI_MPLS_LABELED_VPN                  128
 
 /* Max TTL value.  */
 #define TTL_MAX                                255

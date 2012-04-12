@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * Logging of zebra
  * Copyright (C) 1997, 1998, 1999 Kunihiro Ishiguro
  *
@@ -21,6 +19,8 @@
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.  
  */
+
+#define QUAGGA_DEFINE_DESC_TABLE
 
 #include <zebra.h>
 
@@ -48,6 +48,7 @@ const char *zlog_proto_names[] =
   "BGP",
   "OSPF",
   "RIPNG",
+  "BABEL",
   "OSPF6",
   "ISIS",
   "MASC",
@@ -776,7 +777,8 @@ lookup (const struct message *mes, int key)
  * provided otherwise.
  */
 const char *
-mes_lookup (const struct message *meslist, int max, int index, const char *none)
+mes_lookup (const struct message *meslist, int max, int index,
+  const char *none, const char *mesname)
 {
   int pos = index - meslist[0].key;
   
@@ -799,13 +801,13 @@ mes_lookup (const struct message *meslist, int max, int index, const char *none)
 	  {
 	    const char *str = (meslist->str ? meslist->str : none);
 	    
-	    zlog_debug ("message index %d [%s] found in position %d (max is %d)",
-		      index, str, i, max);
+	    zlog_debug ("message index %d [%s] found in %s at position %d (max is %d)",
+		      index, str, mesname, i, max);
 	    return str;
 	  }
       }
   }
-  zlog_err("message index %d not found (max is %d)", index, max);
+  zlog_err("message index %d not found in %s (max is %d)", index, mesname, max);
   assert (none);
   return none;
 }
@@ -817,29 +819,6 @@ safe_strerror(int errnum)
   const char *s = strerror(errnum);
   return (s != NULL) ? s : "Unknown error";
 }
-
-struct zebra_desc_table
-{
-  unsigned int type;
-  const char *string;
-  char chr;
-};
-
-#define DESC_ENTRY(T,S,C) [(T)] = { (T), (S), (C) }
-static const struct zebra_desc_table route_types[] = {
-  DESC_ENTRY	(ZEBRA_ROUTE_SYSTEM,	"system",	'X' ),
-  DESC_ENTRY	(ZEBRA_ROUTE_KERNEL,	"kernel",	'K' ),
-  DESC_ENTRY	(ZEBRA_ROUTE_CONNECT,	"connected",	'C' ),
-  DESC_ENTRY	(ZEBRA_ROUTE_STATIC,	"static",	'S' ),
-  DESC_ENTRY	(ZEBRA_ROUTE_RIP,	"rip",		'R' ),
-  DESC_ENTRY	(ZEBRA_ROUTE_RIPNG,	"ripng",	'R' ),
-  DESC_ENTRY	(ZEBRA_ROUTE_OSPF,	"ospf",		'O' ),
-  DESC_ENTRY	(ZEBRA_ROUTE_OSPF6,	"ospf6",	'O' ),
-  DESC_ENTRY	(ZEBRA_ROUTE_ISIS,	"isis",		'I' ),
-  DESC_ENTRY	(ZEBRA_ROUTE_BGP,	"bgp",		'B' ),
-  DESC_ENTRY	(ZEBRA_ROUTE_HSLS,	"hsls",		'H' ),
-};
-#undef DESC_ENTRY
 
 #define DESC_ENTRY(T) [(T)] = { (T), (#T), '\0' }
 static const struct zebra_desc_table command_types[] = {
@@ -865,6 +844,7 @@ static const struct zebra_desc_table command_types[] = {
   DESC_ENTRY	(ZEBRA_ROUTER_ID_ADD),
   DESC_ENTRY	(ZEBRA_ROUTER_ID_DELETE),
   DESC_ENTRY	(ZEBRA_ROUTER_ID_UPDATE),
+  DESC_ENTRY	(ZEBRA_HELLO),
 };
 #undef DESC_ENTRY
 
@@ -930,4 +910,52 @@ proto_name2num(const char *s)
        return route_types[i].type;
    return -1;
 }
+
 #undef RTSIZE
+
+int
+proto_redistnum(int afi, const char *s)
+{
+  if (! s)
+    return -1;
+
+  if (afi == AFI_IP)
+    {
+      if (strncmp (s, "k", 1) == 0)
+	return ZEBRA_ROUTE_KERNEL;
+      else if (strncmp (s, "c", 1) == 0)
+	return ZEBRA_ROUTE_CONNECT;
+      else if (strncmp (s, "s", 1) == 0)
+	return ZEBRA_ROUTE_STATIC;
+      else if (strncmp (s, "r", 1) == 0)
+	return ZEBRA_ROUTE_RIP;
+      else if (strncmp (s, "o", 1) == 0)
+	return ZEBRA_ROUTE_OSPF;
+      else if (strncmp (s, "i", 1) == 0)
+	return ZEBRA_ROUTE_ISIS;
+      else if (strncmp (s, "bg", 2) == 0)
+	return ZEBRA_ROUTE_BGP;
+      else if (strncmp (s, "ba", 2) == 0)
+	return ZEBRA_ROUTE_BABEL;
+    }
+  if (afi == AFI_IP6)
+    {
+      if (strncmp (s, "k", 1) == 0)
+	return ZEBRA_ROUTE_KERNEL;
+      else if (strncmp (s, "c", 1) == 0)
+	return ZEBRA_ROUTE_CONNECT;
+      else if (strncmp (s, "s", 1) == 0)
+	return ZEBRA_ROUTE_STATIC;
+      else if (strncmp (s, "r", 1) == 0)
+	return ZEBRA_ROUTE_RIPNG;
+      else if (strncmp (s, "o", 1) == 0)
+	return ZEBRA_ROUTE_OSPF6;
+      else if (strncmp (s, "i", 1) == 0)
+	return ZEBRA_ROUTE_ISIS;
+      else if (strncmp (s, "bg", 2) == 0)
+	return ZEBRA_ROUTE_BGP;
+      else if (strncmp (s, "ba", 2) == 0)
+	return ZEBRA_ROUTE_BABEL;
+    }
+  return -1;
+}

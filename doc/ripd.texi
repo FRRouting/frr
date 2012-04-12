@@ -424,10 +424,10 @@ must be different. Maybe it'd be better to made new matches - say
 Match if route destination is permitted by access-list.
 @end deffn
 
-@deffn {Route Map} {match ip next-hop A.B.C.D} {}
-Cisco uses here <access-list>, @command{ripd} IPv4 address. Match if
-route has this next-hop (meaning next-hop listed in the rip route
-table - "show ip rip")
+@deffn {Route Map} {match ip next-hop @var{word}} {}
+@deffnx {Route Map} {match ip next-hop prefix-list @var{word}} {}
+Match if route next-hop (meaning next-hop listed in the rip route-table
+as displayed by "show ip rip") is permitted by access-list.
 @end deffn
 
 @deffn {Route Map} {match metric <0-4294967295>} {}

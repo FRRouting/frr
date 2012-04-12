@@ -85,6 +85,7 @@ so @code{router-id} is set to 0.0.0.0.  So please set router-id by hand.
 @menu
 * BGP distance::                
 * BGP decision process::        
+* BGP route flap dampening::      
 @end menu
 
 @node BGP distance
@@ -121,6 +122,27 @@ This command set distance value to
 This command specifies that the length of confederation path sets and
 sequences should should be taken into account during the BGP best path
 decision process.
+@end deffn
+
+@node BGP route flap dampening
+@subsection BGP route flap dampening
+
+@deffn {BGP} {bgp dampening @var{<1-45>} @var{<1-20000>} @var{<1-20000>} @var{<1-255>}} {}
+This command enables BGP route-flap dampening and specifies dampening parameters.
+
+@table @asis
+@item @asis{half-life}
+Half-life time for the penalty
+@item @asis{reuse-threshold}
+Value to start reusing a route
+@item @asis{suppress-threshold}
+Value to start suppressing a route
+@item @asis{max-suppress}
+Maximum duration to suppress a stable route
+@end table
+
+The route-flap damping algorithm is compatible with @cite{RFC2439}. The use of this command
+is not recommended nowadays, see @uref{http://www.ripe.net/ripe/docs/ripe-378,,RIPE-378}.
 @end deffn
 
 @node BGP network
@@ -928,6 +950,14 @@ Clear peers which have addresses of X.X.X.X
 
 @deffn {Command} {clear ip bgp @var{peer} soft in} {}
 Clear peer using soft reconfiguration.
+@end deffn
+
+@deffn {Command} {show ip bgp dampened-paths} {}
+Display paths suppressed due to dampening
+@end deffn
+
+@deffn {Command} {show ip bgp flap-statistics} {}
+Display flap statistics of routes
 @end deffn
 
 @deffn {Command} {show debug} {}

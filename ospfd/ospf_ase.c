@@ -135,7 +135,6 @@ ospf_ase_complete_direct_routes (struct ospf_route *ro, struct in_addr nexthop)
 {
   struct listnode *node;
   struct ospf_path *op;
-  struct interface *ifp;
 
   for (ALL_LIST_ELEMENTS_RO (ro->paths, node, op))
     if (op->nexthop.s_addr == 0)

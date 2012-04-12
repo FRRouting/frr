@@ -79,6 +79,7 @@
   (ntohs (type) & OSPF6_LSTYPE_SCOPE_MASK)
 
 /* LSA Header */
+#define OSPF6_LSA_HEADER_SIZE                 20U
 struct ospf6_lsa_header
 {
   u_int16_t age;        /* LS age */
@@ -244,7 +245,6 @@ extern struct ospf6_lsa_handler *ospf6_get_lsa_handler (u_int16_t type);
 
 extern void ospf6_lsa_init (void);
 extern void ospf6_lsa_terminate (void);
-extern void ospf6_lsa_cmd_init (void);
 
 extern int config_write_ospf6_debug_lsa (struct vty *vty);
 extern void install_element_ospf6_debug_lsa (void);

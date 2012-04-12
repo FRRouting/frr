@@ -5,8 +5,6 @@
  *
  * The script is sensitive to the format (though not whitespace), see
  * the top of memtypes.awk for more details.
- *
- * $Id$
  */
 
 #include "zebra.h"
@@ -173,6 +171,13 @@ struct memory_list memory_list_ripng[] =
   { MTYPE_RIPNG_PEER,         "RIPng peer"			},
   { MTYPE_RIPNG_OFFSET_LIST,  "RIPng offset lst"		},
   { MTYPE_RIPNG_RTE_DATA,     "RIPng rte data"			},
+  { -1, NULL }
+};
+
+struct memory_list memory_list_babel[] =
+{
+  { MTYPE_BABEL,              "Babel structure"			},
+  { MTYPE_BABEL_IF,           "Babel interface"			},
   { -1, NULL }
 };
 

@@ -1,6 +1,4 @@
 /*
-    $Id$
-
     Monitor status of quagga daemons and restart if necessary.
 
     Copyright (C) 2004  Andrew J. Schorr

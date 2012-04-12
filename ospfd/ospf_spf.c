@@ -356,9 +356,6 @@ ospf_lsa_has_link (struct lsa_header *w, struct lsa_header *v)
   return -1;
 }
 
-#define ROUTER_LSA_MIN_SIZE 12
-#define ROUTER_LSA_TOS_SIZE 4
-
 /* Find the next link after prev_link from v to w.  If prev_link is
  * NULL, return the first link from v to w.  Ignore stub and virtual links;
  * these link types will never be returned.
@@ -380,8 +377,8 @@ ospf_get_next_link (struct vertex *v, struct vertex *w,
   else
     {
       p = (u_char *) prev_link;
-      p += (ROUTER_LSA_MIN_SIZE +
-            (prev_link->m[0].tos_count * ROUTER_LSA_TOS_SIZE));
+      p += (OSPF_ROUTER_LSA_LINK_SIZE +
+            (prev_link->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
     }
 
   lim = ((u_char *) v->lsa) + ntohs (v->lsa->length);
@@ -390,7 +387,7 @@ ospf_get_next_link (struct vertex *v, struct vertex *w,
     {
       l = (struct router_lsa_link *) p;
 
-      p += (ROUTER_LSA_MIN_SIZE + (l->m[0].tos_count * ROUTER_LSA_TOS_SIZE));
+      p += (OSPF_ROUTER_LSA_LINK_SIZE + (l->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
 
       if (l->m[0].type != lsa_type)
         continue;
@@ -755,8 +752,8 @@ ospf_spf_next (struct vertex *v, struct ospf_area *area,
         {
           l = (struct router_lsa_link *) p;
 
-          p += (ROUTER_LSA_MIN_SIZE +
-                (l->m[0].tos_count * ROUTER_LSA_TOS_SIZE));
+          p += (OSPF_ROUTER_LSA_LINK_SIZE +
+                (l->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
 
           /* (a) If this is a link to a stub network, examine the next
              link in V's LSA.  Links to stub networks will be
@@ -989,8 +986,8 @@ ospf_spf_process_stubs (struct ospf_area *area, struct vertex *v,
         {
           l = (struct router_lsa_link *) p;
 
-          p += (ROUTER_LSA_MIN_SIZE +
-                (l->m[0].tos_count * ROUTER_LSA_TOS_SIZE));
+          p += (OSPF_ROUTER_LSA_LINK_SIZE +
+                (l->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
 
           if (l->m[0].type == LSA_LINK_TYPE_STUB)
             ospf_intra_add_stub (rt, l, v, area, parent_is_root);
@@ -1045,6 +1042,7 @@ ospf_rtrs_free (struct route_table *rtrs)
   route_table_finish (rtrs);
 }
 
+#if 0
 static void
 ospf_rtrs_print (struct route_table *rtrs)
 {
@@ -1104,6 +1102,7 @@ ospf_rtrs_print (struct route_table *rtrs)
 
   zlog_debug ("ospf_rtrs_print() end");
 }
+#endif
 
 /* Calculating the shortest-path tree for an area. */
 static void
