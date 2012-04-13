@@ -194,11 +194,11 @@ bgp_dump_attr (struct peer *peer, struct attr *attr, char *buf, size_t size)
 #endif /* HAVE_IPV6 */
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))
-    snprintf (buf + strlen (buf), size - strlen (buf), ", localpref %d",
+    snprintf (buf + strlen (buf), size - strlen (buf), ", localpref %u",
 	      attr->local_pref);
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))) 
-    snprintf (buf + strlen (buf), size - strlen (buf), ", metric %d",
+    snprintf (buf + strlen (buf), size - strlen (buf), ", metric %u",
 	      attr->med);
 
   if (CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES))) 

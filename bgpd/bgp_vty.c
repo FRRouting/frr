@@ -8966,7 +8966,7 @@ bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
 	  vty_out (vty, " redistribute %s", zebra_route_string(i));
 
 	  if (bgp->redist_metric_flag[afi][i])
-	    vty_out (vty, " metric %d", bgp->redist_metric[afi][i]);
+	    vty_out (vty, " metric %u", bgp->redist_metric[afi][i]);
 
 	  if (bgp->rmap[afi][i].name)
 	    vty_out (vty, " route-map %s", bgp->rmap[afi][i].name);

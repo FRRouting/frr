@@ -5954,7 +5954,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	  if (! CHECK_FLAG (binfo->flags, BGP_INFO_VALID))
 	    vty_out (vty, " (inaccessible)"); 
 	  else if (binfo->extra && binfo->extra->igpmetric)
-	    vty_out (vty, " (metric %d)", binfo->extra->igpmetric);
+	    vty_out (vty, " (metric %u)", binfo->extra->igpmetric);
 	  vty_out (vty, " from %s", sockunion2str (&binfo->peer->su, buf, SU_ADDRSTRLEN));
 	  if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
 	    vty_out (vty, " (%s)", inet_ntoa (attr->extra->originator_id));

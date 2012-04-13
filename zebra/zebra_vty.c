@@ -541,7 +541,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 	       inet_ntoa (rn->p.u.prefix4), rn->p.prefixlen,
 	       VTY_NEWLINE);
       vty_out (vty, "  Known via \"%s\"", zebra_route_string (rib->type));
-      vty_out (vty, ", distance %d, metric %d", rib->distance, rib->metric);
+      vty_out (vty, ", distance %u, metric %u", rib->distance, rib->metric);
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	vty_out (vty, ", best");
       if (rib->refcnt)
@@ -1519,7 +1519,7 @@ vty_show_ipv6_route_detail (struct vty *vty, struct route_node *rn)
 	       rn->p.prefixlen,
 	       VTY_NEWLINE);
       vty_out (vty, "  Known via \"%s\"", zebra_route_string (rib->type));
-      vty_out (vty, ", distance %d, metric %d", rib->distance, rib->metric);
+      vty_out (vty, ", distance %u, metric %u", rib->distance, rib->metric);
       if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	vty_out (vty, ", best");
       if (rib->refcnt)
