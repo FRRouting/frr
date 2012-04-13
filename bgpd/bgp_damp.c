@@ -498,6 +498,10 @@ bgp_damp_info_clean (void)
 int
 bgp_damp_disable (struct bgp *bgp, afi_t afi, safi_t safi)
 {
+  /* If it wasn't enabled, there's nothing to do. */
+  if (! CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
+    return 0;
+
   /* Cancel reuse thread. */
   if (damp->t_reuse )
     thread_cancel (damp->t_reuse);
