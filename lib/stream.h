@@ -146,6 +146,7 @@ extern size_t stream_get_size (struct stream *);
 extern u_char *stream_get_data (struct stream *);
 
 extern void stream_set_getp (struct stream *, size_t);
+extern void stream_set_endp (struct stream *, size_t);
 extern void stream_forward_getp (struct stream *, size_t);
 extern void stream_forward_endp (struct stream *, size_t);
 

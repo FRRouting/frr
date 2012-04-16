@@ -38,6 +38,10 @@ struct zserv
   /* Client file descriptor. */
   int sock;
 
+  /* Client route type. */
+  /* Assuming each client contains only one type of route. */
+  int route_type;
+
   /* Input/output buffer to the client. */
   struct stream *ibuf;
   struct stream *obuf;

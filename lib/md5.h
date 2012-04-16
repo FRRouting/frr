@@ -83,6 +83,7 @@ do {				\
 } while (0)
 
 /* From RFC 2104 */
-void hmac_md5(unsigned char* text, int text_len, unsigned char* key, int key_len, caddr_t digest);
+void hmac_md5(unsigned char* text, int text_len, unsigned char* key,
+              int key_len, caddr_t digest);
 
 #endif /* ! _LIBZEBRA_MD5_H_*/

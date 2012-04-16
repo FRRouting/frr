@@ -232,7 +232,7 @@ nexthop_ipv4_add (struct rib *rib, struct in_addr *ipv4, struct in_addr *src)
   return nexthop;
 }
 
-static struct nexthop *
+struct nexthop *
 nexthop_ipv4_ifindex_add (struct rib *rib, struct in_addr *ipv4, 
                           struct in_addr *src, unsigned int ifindex)
 {
@@ -1279,14 +1279,30 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 static void
 rib_queue_add (struct zebra_t *zebra, struct route_node *rn)
 {
+  char buf[INET_ADDRSTRLEN];
+  assert (zebra && rn);
   
   if (IS_ZEBRA_DEBUG_RIB_Q)
-    {
-      char buf[INET6_ADDRSTRLEN];
+    inet_ntop (AF_INET, &rn->p.u.prefix, buf, INET_ADDRSTRLEN);
 
-      zlog_info ("%s: %s/%d: work queue added", __func__,
-		 inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN),
-		 rn->p.prefixlen);
+  /* Pointless to queue a route_node with no RIB entries to add or remove */
+  if (!rn->info)
+    {
+      zlog_debug ("%s: called for route_node (%p, %d) with no ribs",
+                  __func__, rn, rn->lock);
+      zlog_backtrace(LOG_DEBUG);
+      return;
+    }
+
+  if (IS_ZEBRA_DEBUG_RIB_Q)
+    zlog_info ("%s: %s/%d: work queue added", __func__, buf, rn->p.prefixlen);
+
+  assert (zebra);
+
+  if (zebra->ribq == NULL)
+    {
+      zlog_err ("%s: work_queue does not exist!", __func__);
+      return;
     }
 
   /*
@@ -1301,6 +1317,11 @@ rib_queue_add (struct zebra_t *zebra, struct route_node *rn)
     work_queue_add (zebra->ribq, zebra->mq);
 
   rib_meta_queue_add (zebra->mq, rn);
+
+  if (IS_ZEBRA_DEBUG_RIB_Q)
+    zlog_debug ("%s: %s/%d: rn %p queued", __func__, buf, rn->p.prefixlen, rn);
+
+  return;
 }
 
 /* Create new meta queue.
@@ -1328,6 +1349,8 @@ meta_queue_new (void)
 static void
 rib_queue_init (struct zebra_t *zebra)
 {
+  assert (zebra);
+  
   if (! (zebra->ribq = work_queue_new (zebra->master, 
                                        "route_node processing")))
     {
@@ -1343,7 +1366,11 @@ rib_queue_init (struct zebra_t *zebra)
   zebra->ribq->spec.hold = rib_process_hold_time;
   
   if (!(zebra->mq = meta_queue_new ()))
+  {
     zlog_err ("%s: could not initialise meta queue!", __func__);
+    return;
+  }
+  return;
 }
 
 /* RIB updates are processed via a queue of pointers to route_nodes.
@@ -2893,6 +2920,62 @@ rib_sweep_route (void)
   rib_sweep_table (vrf_table (AFI_IP, SAFI_UNICAST, 0));
   rib_sweep_table (vrf_table (AFI_IP6, SAFI_UNICAST, 0));
 }
+
+/* Delete routes learned from a given client.  */
+/* TODO(wsun) May need to split the sweep process into multiple batches,
+ * so that the process won't take too long if the table is large. */
+static void
+rib_sweep_client_table (struct route_table *table, int rib_type)
+{
+  struct route_node *rn;
+  struct rib *rib;
+  struct rib *next;
+  int ret = 0;
+
+  if (table)
+    for (rn = route_top (table); rn; rn = route_next (rn))
+      for (rib = rn->info; rib; rib = next)
+	{
+	  next = rib->next;
+
+	  if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
+	    continue;
+
+	  if (rib->type == rib_type)
+            if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
+	      {
+                /* TODO(wsun) Is this mandatory? What about graceful restart/
+                 * non-stop forwarding */
+	        ret = rib_uninstall_kernel (rn, rib);
+	        if (! ret)
+                  rib_delnode (rn, rib);
+                else
+                  zlog_err ("%s: could not delete routes from kernel!",
+                            __func__);
+	      }
+            else
+              {
+                /* Always delete the node. */
+                rib_delnode (rn, rib);
+              }
+	}
+}
+
+/* Sweep all routes learned from a given client from RIB tables.  */
+void
+rib_sweep_client_route (struct zserv *client)
+{
+  assert(client);
+  int route_type = client->route_type;
+  if (route_type != ZEBRA_ROUTE_MAX)
+    {
+      zlog_debug ("%s: Removing existing routes from client type %d",
+                  __func__, route_type);
+      rib_sweep_client_table (vrf_table (AFI_IP, SAFI_UNICAST, 0), route_type);
+      rib_sweep_client_table (vrf_table (AFI_IP6, SAFI_UNICAST, 0), route_type);
+    }
+}
+
 
 /* Remove specific by protocol routes from 'table'. */
 static unsigned long

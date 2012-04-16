@@ -36,6 +36,7 @@
 #include "isisd/include-netbsd/iso.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
+#include "isisd/isis_flags.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_tlv.h"
 #include "isisd/isis_lsp.h"
@@ -45,7 +46,6 @@
 #include "isisd/isis_constants.h"
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_dr.h"
-#include "isisd/isis_flags.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_csm.h"
 #include "isisd/isis_events.h"
@@ -85,6 +85,7 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
     case C_STATE_NA:
       if (circuit)
 	zlog_warn ("Non-null circuit while state C_STATE_NA");
+      assert (circuit == NULL);
       switch (event)
 	{
 	case ISIS_ENABLE:
@@ -106,24 +107,29 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	}
       break;
     case C_STATE_INIT:
+      assert (circuit);
       switch (event)
 	{
 	case ISIS_ENABLE:
 	  isis_circuit_configure (circuit, (struct isis_area *) arg);
-	  isis_circuit_up (circuit);
+	  if (isis_circuit_up (circuit) != ISIS_OK)
+	    {
+	      isis_circuit_deconfigure (circuit, (struct isis_area *) arg);
+	      break;
+	    }
 	  circuit->state = C_STATE_UP;
-	  circuit->connected = 1;
-	  isis_event_circuit_state_change (circuit, 1);
+	  isis_event_circuit_state_change (circuit, circuit->area, 1);
 	  listnode_delete (isis->init_circ_list, circuit);
 	  break;
 	case IF_UP_FROM_Z:
+          assert (circuit);
 	  zlog_warn ("circuit already connected");
 	  break;
 	case ISIS_DISABLE:
 	  zlog_warn ("circuit already disabled");
 	  break;
 	case IF_DOWN_FROM_Z:
-	  isis_circuit_if_del (circuit);
+	  isis_circuit_if_del (circuit, (struct interface *) arg);
 	  listnode_delete (isis->init_circ_list, circuit);
 	  isis_circuit_del (circuit);
 	  circuit = NULL;
@@ -131,19 +137,21 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	}
       break;
     case C_STATE_CONF:
+      assert (circuit);
       switch (event)
 	{
 	case ISIS_ENABLE:
 	  zlog_warn ("circuit already enabled");
 	  break;
 	case IF_UP_FROM_Z:
-	  if (!circuit->connected) {
-	    isis_circuit_if_add (circuit, (struct interface *) arg);
-	    isis_circuit_up (circuit);
-	  }
+	  isis_circuit_if_add (circuit, (struct interface *) arg);
+	  if (isis_circuit_up (circuit) != ISIS_OK)
+            {
+              isis_circuit_if_del (circuit, (struct interface *) arg);
+	      break;
+            }
 	  circuit->state = C_STATE_UP;
-	  circuit->connected = 1;
-	  isis_event_circuit_state_change (circuit, 1);
+	  isis_event_circuit_state_change (circuit, circuit->area, 1);
 	  break;
 	case ISIS_DISABLE:
 	  isis_circuit_deconfigure (circuit, (struct isis_area *) arg);
@@ -156,6 +164,7 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	}
       break;
     case C_STATE_UP:
+      assert (circuit);
       switch (event)
 	{
 	case ISIS_ENABLE:
@@ -165,14 +174,18 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	  zlog_warn ("circuit already connected");
 	  break;
 	case ISIS_DISABLE:
+	  isis_circuit_down (circuit);
 	  isis_circuit_deconfigure (circuit, (struct isis_area *) arg);
-	  listnode_add (isis->init_circ_list, circuit);
 	  circuit->state = C_STATE_INIT;
-	  isis_event_circuit_state_change (circuit, 0);
+	  isis_event_circuit_state_change (circuit,
+                                           (struct isis_area *)arg, 0);
+	  listnode_add (isis->init_circ_list, circuit);
 	  break;
 	case IF_DOWN_FROM_Z:
+	  isis_circuit_down (circuit);
+          isis_circuit_if_del (circuit, (struct interface *) arg);
 	  circuit->state = C_STATE_CONF;
-	  isis_event_circuit_state_change (circuit, 0);
+	  isis_event_circuit_state_change (circuit, circuit->area, 0);
 	  break;
 	}
       break;

@@ -30,7 +30,7 @@
  * Name                   Value  IIH LSP SNP Status
  *                               LAN
  * ____________________________________________________________________________
- * 
+ *
  * Area Addresses             1   y   y   n  ISO10589
  * IIS Neighbors              2   n   y   n  ISO10589
  * ES Neighbors               3   n   y   n  ISO10589
@@ -39,52 +39,52 @@
  * LSP Entries                9   n   n   y  ISO10589
  * Authentication            10   y   y   y  ISO10589, RFC3567
  * Checksum                  12   y   n   y  RFC3358
- * TE IS Reachability        22   n   y   n  RFC3784
+ * TE IS Reachability        22   n   y   n  RFC5305
  * IS Alias                  24   n   y   n  RFC3786
  * IP Int. Reachability     128   n   y   n  RFC1195
  * Protocols Supported      129   y   y   n  RFC1195
  * IP Ext. Reachability     130   n   y   n  RFC1195
  * IDRPI                    131   n   y   y  RFC1195
  * IP Interface Address     132   y   y   n  RFC1195
- * TE Router ID             134   n   y   n  RFC3784
- * Extended IP Reachability 135   n   y   n  RFC3784
+ * TE Router ID             134   n   y   n  RFC5305
+ * Extended IP Reachability 135   n   y   n  RFC5305
  * Dynamic Hostname         137   n   y   n  RFC2763
- * Shared Risk Link Group   138   n   y   y  draft-ietf-isis-gmpls-extensions
+ * Shared Risk Link Group   138   n   y   y  RFC5307
  * Restart TLV              211   y   n   n  RFC3847
- * MT IS Reachability       222   n   y   n  draft-ietf-isis-wg-multi-topology
- * MT Supported             229   y   y   n  draft-ietf-isis-wg-multi-topology
- * IPv6 Interface Address   232   y   y   n  draft-ietf-isis_ipv6
- * MT IP Reachability       235   n   y   n  draft-ietf-isis-wg-multi-topology
- * IPv6 IP Reachability     236   n   y   n  draft-ietf-isis_ipv6
- * MT IPv6 IP Reachability  237   n   y   n  draft-ietf-isis-wg-multi-topology
+ * MT IS Reachability       222   n   y   n  RFC5120
+ * MT Supported             229   y   y   n  RFC5120
+ * IPv6 Interface Address   232   y   y   n  RFC5308
+ * MT IP Reachability       235   n   y   n  RFC5120
+ * IPv6 IP Reachability     236   n   y   n  RFC5308
+ * MT IPv6 IP Reachability  237   n   y   n  RFC5120
  * P2P Adjacency State      240   y   n   n  RFC3373
  * IIH Sequence Number      241   y   n   n  draft-shen-isis-iih-sequence
  * Router Capability        242   -   -   -  draft-ietf-isis-caps
  *
- * 
+ *
  * IS Reachability sub-TLVs we (should) support.
  * ____________________________________________________________________________
  * Name                           Value   Status
  * ____________________________________________________________________________
- * Administartive group (color)       3   RFC3784
- * Link Local/Remote Identifiers      4   draft-ietf-isis-gmpls-extensions
- * IPv4 interface address             6   RFC3784
- * IPv4 neighbor address              8   RFC3784
- * Maximum link bandwidth             9   RFC3784
- * Reservable link bandwidth         10   RFC3784
- * Unreserved bandwidth              11   RFC3784
- * TE Default metric                 18   RFC3784
- * Link Protection Type              20   draft-ietf-isis-gmpls-extensions
- * Interface Switching Capability    21   draft-ietf-isis-gmpls-extensions
+ * Administartive group (color)       3   RFC5305
+ * Link Local/Remote Identifiers      4   RFC5307
+ * IPv4 interface address             6   RFC5305
+ * IPv4 neighbor address              8   RFC5305
+ * Maximum link bandwidth             9   RFC5305
+ * Reservable link bandwidth         10   RFC5305
+ * Unreserved bandwidth              11   RFC5305
+ * TE Default metric                 18   RFC5305
+ * Link Protection Type              20   RFC5307
+ * Interface Switching Capability    21   RFC5307
  *
- * 
+ *
  * IP Reachability sub-TLVs we (should) support.
  * ____________________________________________________________________________
  * Name                           Value   Status
  * ____________________________________________________________________________
- * 32bit administrative tag           1   draft-ietf-isis-admin-tags
- * 64bit administrative tag           2   draft-ietf-isis-admin-tags
- * Management prefix color          117   draft-ietf-isis-wg-multi-topology
+ * 32bit administrative tag           1   RFC5130
+ * 64bit administrative tag           2   RFC5130
+ * Management prefix color          117   RFC5120
  */
 
 #define AREA_ADDRESSES            1
@@ -110,11 +110,14 @@
 #define IPV6_REACHABILITY         236
 #define WAY3_HELLO                240
 
+#define AUTH_INFO_HDRLEN          3
+
 #define IS_NEIGHBOURS_LEN (ISIS_SYS_ID_LEN + 5)
 #define LAN_NEIGHBOURS_LEN 6
 #define LSP_ENTRIES_LEN (10 + ISIS_SYS_ID_LEN)	/* FIXME: should be entry */
 #define IPV4_REACH_LEN 12
 #define IPV6_REACH_LEN 22
+#define TE_IPV4_REACH_LEN 9
 
 /* struct for neighbor */
 struct is_neigh
@@ -130,6 +133,15 @@ struct te_is_neigh
   u_char te_metric[3];
   u_char sub_tlvs_length;
 };
+
+/* Decode and encode three-octet metric into host byte order integer */
+#define GET_TE_METRIC(t) \
+  (((unsigned)(t)->te_metric[0]<<16) | ((t)->te_metric[1]<<8) | \
+   (t)->te_metric[2])
+#define SET_TE_METRIC(t, m) \
+  (((t)->te_metric[0] = (m) >> 16), \
+   ((t)->te_metric[1] = (m) >> 8), \
+   ((t)->te_metric[2] = (m)))
 
 /* struct for es neighbors */
 struct es_neigh
@@ -213,7 +225,6 @@ struct ipv6_reachability
   u_char prefix_len;
   u_char prefix[16];
 };
-#endif /* HAVE_IPV6 */
 
 /* bits in control_info */
 #define CTRL_INFO_DIRECTION    0x80
@@ -223,12 +234,17 @@ struct ipv6_reachability
 #define DISTRIBUTION_INTERNAL  0
 #define DISTRIBUTION_EXTERNAL  1
 #define CTRL_INFO_SUBTLVS      0x20
+#endif /* HAVE_IPV6 */
 
 /*
  * Pointer to each tlv type, filled by parse_tlvs()
  */
 struct tlvs
 {
+  struct checksum *checksum;
+  struct hostname *hostname;
+  struct nlpids *nlpids;
+  struct te_router_id *router_id;
   struct list *area_addrs;
   struct list *is_neighs;
   struct list *te_is_neighs;
@@ -236,14 +252,10 @@ struct tlvs
   struct list *lsp_entries;
   struct list *prefix_neighs;
   struct list *lan_neighs;
-  struct checksum *checksum;
-  struct nlpids *nlpids;
   struct list *ipv4_addrs;
   struct list *ipv4_int_reachs;
   struct list *ipv4_ext_reachs;
   struct list *te_ipv4_reachs;
-  struct hostname *hostname;
-  struct te_router_id *router_id;
 #ifdef HAVE_IPV6
   struct list *ipv6_addrs;
   struct list *ipv6_reachs;
@@ -281,7 +293,9 @@ struct tlvs
 void init_tlvs (struct tlvs *tlvs, uint32_t expected);
 void free_tlvs (struct tlvs *tlvs);
 int parse_tlvs (char *areatag, u_char * stream, int size,
-		u_int32_t * expected, u_int32_t * found, struct tlvs *tlvs);
+		u_int32_t * expected, u_int32_t * found, struct tlvs *tlvs,
+                u_int32_t * auth_tlv_offset);
+int add_tlv (u_char, u_char, u_char *, struct stream *);
 void free_tlv (void *val);
 
 int tlv_add_area_addrs (struct list *area_addrs, struct stream *stream);
@@ -290,7 +304,7 @@ int tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream);
 int tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream);
 int tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream);
 int tlv_add_checksum (struct checksum *checksum, struct stream *stream);
-int tlv_add_authinfo (char auth_type, char authlen, u_char *auth_value,
+int tlv_add_authinfo (u_char auth_type, u_char authlen, u_char *auth_value,
 		      struct stream *stream);
 int tlv_add_ip_addrs (struct list *ip_addrs, struct stream *stream);
 int tlv_add_in_addr (struct in_addr *, struct stream *stream, u_char tag);

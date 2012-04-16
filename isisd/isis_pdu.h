@@ -95,7 +95,7 @@ struct isis_fixed_hdr
   u_char version2;
   u_char reserved;
   u_char max_area_addrs;
-};
+} __attribute__ ((packed));
 
 #define ISIS_FIXED_HDR_LEN 8
 
@@ -114,7 +114,7 @@ struct isis_fixed_hdr
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * |                        Holding  Time                          | 2     
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * |                        PDU Lenght                             | 2    
+ * |                        PDU Length                             | 2    
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * |   R   |                Priority                               | 1
  * +-------+-------+-------+-------+-------+-------+-------+-------+
@@ -142,7 +142,7 @@ struct isis_lan_hello_hdr
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * +                        Holding  Time                          + 2     
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * +                        PDU Lenght                             + 2    
+ * +                        PDU Length                             + 2    
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * |                        Local Circuit ID                       | 1
  * +-------+-------+-------+-------+-------+-------+-------+-------+
@@ -186,12 +186,23 @@ struct isis_link_state_hdr
 } __attribute__ ((packed));
 #define ISIS_LSP_HDR_LEN 19
 
+/*
+ * Since the length field of LSP Entries TLV is one byte long, and each LSP
+ * entry is LSP_ENTRIES_LEN (16) bytes long, the maximum number of LSP entries
+ * can be accomodated in a TLV is
+ * 255 / 16 = 15.
+ * 
+ * Therefore, the maximum length of the LSP Entries TLV is
+ * 16 * 15 + 2 (header) = 242 bytes.
+ */
+#define MAX_LSP_ENTRIES_TLV_SIZE 242
+
 #define L1_COMPLETE_SEQ_NUM  24
 #define L2_COMPLETE_SEQ_NUM  25
 /*
  *      L1 and L2 IS to IS complete sequence numbers PDU header
  * +-------+-------+-------+-------+-------+-------+-------+-------+
- * +                        PDU Lenght                             + 2    
+ * +                        PDU Length                             + 2    
  * +-------+-------+-------+-------+-------+-------+-------+-------+
  * +                        Source ID                              + id_len + 1
  * +-------+-------+-------+-------+-------+-------+-------+-------+
@@ -241,6 +252,8 @@ int isis_receive (struct thread *thread);
 #define ISIS_SNP_PSNP_FLAG 0
 #define ISIS_SNP_CSNP_FLAG 1
 
+#define ISIS_AUTH_MD5_SIZE       16U
+
 /*
  * Sending functions
  */
@@ -257,8 +270,5 @@ int ack_lsp (struct isis_link_state_hdr *hdr,
 	     struct isis_circuit *circuit, int level);
 void fill_fixed_hdr (struct isis_fixed_hdr *hdr, u_char pdu_type);
 int send_hello (struct isis_circuit *circuit, int level);
-
-#define ISIS_AUTH_MD5_SIZE       16U
-int authentication_check (struct isis_passwd *remote, struct isis_passwd *local, struct isis_circuit *c);
 
 #endif /* _ZEBRA_ISIS_PDU_H */

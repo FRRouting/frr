@@ -44,6 +44,9 @@
 #include "isisd/isis_circuit.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_dynhn.h"
+#include "isisd/isis_spf.h"
+#include "isisd/isis_route.h"
+#include "isisd/isis_zebra.h"
 
 /* Default configuration file name */
 #define ISISD_DEFAULT_CONFIG "isisd.conf"
@@ -67,7 +70,7 @@ struct zebra_privs_t isisd_privs = {
   .vty_group = VTY_GROUP,
 #endif
   .caps_p = _caps_p,
-  .cap_num_p = 2,
+  .cap_num_p = sizeof (_caps_p) / sizeof (*_caps_p),
   .cap_num_i = 0
 };
 
@@ -154,7 +157,10 @@ reload ()
   zlog_debug ("Reload");
   /* FIXME: Clean up func call here */
   vty_reset ();
+  (void) isisd_privs.change (ZPRIVS_RAISE);
   execve (_progpath, _argv, _envp);
+  zlog_err ("Reload failed: cannot exec %s: %s", _progpath,
+      safe_strerror (errno));
 }
 
 static void
@@ -325,13 +331,18 @@ main (int argc, char **argv, char **envp)
   memory_init ();
   access_list_init();
   isis_init ();
-  dyn_cache_init ();
+  isis_circuit_init ();
+  isis_spf_cmds_init ();
+
+  /* create the global 'isis' instance */
+  isis_new (1);
+
+  isis_zebra_init ();
+
   sort_node ();
 
   /* parse config file */
   /* this is needed three times! because we have interfaces before the areas */
-  vty_read_config (config_file, config_default);
-  vty_read_config (config_file, config_default);
   vty_read_config (config_file, config_default);
 
   /* Start execution only if not in dry-run mode */
@@ -339,14 +350,12 @@ main (int argc, char **argv, char **envp)
     return(0);
   
   /* demonize */
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      zlog_err("ISISd daemon failed: %s", strerror(errno));
-      exit (1);
-    }
+  if (daemon_mode)
+    daemon (0, 0);
 
   /* Process ID file creation. */
-  pid_output (pid_file);
+  if (pid_file[0] != '\0')
+    pid_output (pid_file);
 
   /* Make isis vty socket. */
   vty_serv_sock (vty_addr, vty_port, ISIS_VTYSH_PATH);

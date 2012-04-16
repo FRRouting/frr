@@ -26,13 +26,12 @@
  * Events related to area
  */
 void isis_event_system_type_change (struct isis_area *area, int newtype);
-void isis_event_area_addr_change (struct isis_area *area);
 
 /*
  * Events related to circuit
  */
 void isis_event_circuit_state_change (struct isis_circuit *circuit,
-				      int state);
+				      struct isis_area *area, int state);
 void isis_event_circuit_type_change (struct isis_circuit *circuit,
 				     int newtype);
 /*

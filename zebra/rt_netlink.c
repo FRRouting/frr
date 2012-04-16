@@ -32,6 +32,7 @@
 #include "prefix.h"
 #include "connected.h"
 #include "table.h"
+#include "memory.h"
 #include "rib.h"
 #include "thread.h"
 #include "privs.h"
@@ -426,6 +427,37 @@ netlink_parse_rtattr (struct rtattr **tb, int max, struct rtattr *rta,
     }
 }
 
+/* Utility function to parse hardware link-layer address and update ifp */
+static void
+netlink_interface_update_hw_addr (struct rtattr **tb, struct interface *ifp)
+{
+  int i;
+
+  if (tb[IFLA_ADDRESS])
+    {
+      int hw_addr_len;
+
+      hw_addr_len = RTA_PAYLOAD (tb[IFLA_ADDRESS]);
+
+      if (hw_addr_len > INTERFACE_HWADDR_MAX)
+        zlog_warn ("Hardware address is too large: %d", hw_addr_len);
+      else
+        {
+          ifp->hw_addr_len = hw_addr_len;
+          memcpy (ifp->hw_addr, RTA_DATA (tb[IFLA_ADDRESS]), hw_addr_len);
+
+          for (i = 0; i < hw_addr_len; i++)
+            if (ifp->hw_addr[i] != 0)
+              break;
+
+          if (i == hw_addr_len)
+            ifp->hw_addr_len = 0;
+          else
+            ifp->hw_addr_len = hw_addr_len;
+        }
+    }
+}
+
 /* Called from interface_lookup_netlink().  This function is only used
    during bootstrap. */
 static int
@@ -436,7 +468,6 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h)
   struct rtattr *tb[IFLA_MAX + 1];
   struct interface *ifp;
   char *name;
-  int i;
 
   ifi = NLMSG_DATA (h);
 
@@ -474,30 +505,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h)
 
   /* Hardware type and address. */
   ifp->hw_type = ifi->ifi_type;
-
-  if (tb[IFLA_ADDRESS])
-    {
-      int hw_addr_len;
-
-      hw_addr_len = RTA_PAYLOAD (tb[IFLA_ADDRESS]);
-
-      if (hw_addr_len > INTERFACE_HWADDR_MAX)
-        zlog_warn ("Hardware address is too large: %d", hw_addr_len);
-      else
-        {
-          ifp->hw_addr_len = hw_addr_len;
-          memcpy (ifp->hw_addr, RTA_DATA (tb[IFLA_ADDRESS]), hw_addr_len);
-
-          for (i = 0; i < hw_addr_len; i++)
-            if (ifp->hw_addr[i] != 0)
-              break;
-
-          if (i == hw_addr_len)
-            ifp->hw_addr_len = 0;
-          else
-            ifp->hw_addr_len = hw_addr_len;
-        }
-    }
+  netlink_interface_update_hw_addr (tb, ifp);
 
   if_add_update (ifp);
 
@@ -709,7 +717,6 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
   if (tb[RTA_PREFSRC])
     src = RTA_DATA (tb[RTA_PREFSRC]);
 
-  /* Multipath treatment is needed. */
   if (tb[RTA_GATEWAY])
     gate = RTA_DATA (tb[RTA_GATEWAY]);
 
@@ -723,7 +730,64 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h)
       memcpy (&p.prefix, dest, 4);
       p.prefixlen = rtm->rtm_dst_len;
 
-      rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, flags, &p, gate, src, index, table, metric, 0, SAFI_UNICAST);
+      if (!tb[RTA_MULTIPATH])
+          rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, flags, &p, gate, src, index,
+                        table, metric, 0, SAFI_UNICAST);
+      else
+        {
+          /* This is a multipath route */
+
+          struct rib *rib;
+          struct rtnexthop *rtnh =
+            (struct rtnexthop *) RTA_DATA (tb[RTA_MULTIPATH]);
+
+          len = RTA_PAYLOAD (tb[RTA_MULTIPATH]);
+
+          rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
+          rib->type = ZEBRA_ROUTE_KERNEL;
+          rib->distance = 0;
+          rib->flags = flags;
+          rib->metric = metric;
+          rib->table = table;
+          rib->nexthop_num = 0;
+          rib->uptime = time (NULL);
+
+          for (;;)
+            {
+              if (len < (int) sizeof (*rtnh) || rtnh->rtnh_len > len)
+                break;
+
+              rib->nexthop_num++;
+              index = rtnh->rtnh_ifindex;
+              gate = 0;
+              if (rtnh->rtnh_len > sizeof (*rtnh))
+                {
+                  memset (tb, 0, sizeof (tb));
+                  netlink_parse_rtattr (tb, RTA_MAX, RTNH_DATA (rtnh),
+                                        rtnh->rtnh_len - sizeof (*rtnh));
+                  if (tb[RTA_GATEWAY])
+                    gate = RTA_DATA (tb[RTA_GATEWAY]);
+                }
+
+              if (gate)
+                {
+                  if (index)
+                    nexthop_ipv4_ifindex_add (rib, gate, src, index);
+                  else
+                    nexthop_ipv4_add (rib, gate, src);
+                }
+              else
+                nexthop_ifindex_add (rib, index);
+
+              len -= NLMSG_ALIGN(rtnh->rtnh_len);
+              rtnh = RTNH_NEXT(rtnh);
+            }
+
+          if (rib->nexthop_num == 0)
+            XFREE (MTYPE_RIB, rib);
+          else
+            rib_add_ipv4_multipath (&p, rib, SAFI_UNICAST);
+        }
     }
 #ifdef HAVE_IPV6
   if (rtm->rtm_family == AF_INET6)
@@ -867,7 +931,66 @@ netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
         }
 
       if (h->nlmsg_type == RTM_NEWROUTE)
-        rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, &p, gate, src, index, table, metric, 0, SAFI_UNICAST);
+        {
+          if (!tb[RTA_MULTIPATH])
+            rib_add_ipv4 (ZEBRA_ROUTE_KERNEL, 0, &p, gate, src, index, table,
+                          metric, 0, SAFI_UNICAST);
+          else
+            {
+              /* This is a multipath route */
+
+              struct rib *rib;
+              struct rtnexthop *rtnh =
+                (struct rtnexthop *) RTA_DATA (tb[RTA_MULTIPATH]);
+
+              len = RTA_PAYLOAD (tb[RTA_MULTIPATH]);
+
+              rib = XCALLOC (MTYPE_RIB, sizeof (struct rib));
+              rib->type = ZEBRA_ROUTE_KERNEL;
+              rib->distance = 0;
+              rib->flags = 0;
+              rib->metric = metric;
+              rib->table = table;
+              rib->nexthop_num = 0;
+              rib->uptime = time (NULL);
+
+              for (;;)
+                {
+                  if (len < (int) sizeof (*rtnh) || rtnh->rtnh_len > len)
+                    break;
+
+                  rib->nexthop_num++;
+                  index = rtnh->rtnh_ifindex;
+                  gate = 0;
+                  if (rtnh->rtnh_len > sizeof (*rtnh))
+                    {
+                      memset (tb, 0, sizeof (tb));
+                      netlink_parse_rtattr (tb, RTA_MAX, RTNH_DATA (rtnh),
+                                            rtnh->rtnh_len - sizeof (*rtnh));
+                      if (tb[RTA_GATEWAY])
+                        gate = RTA_DATA (tb[RTA_GATEWAY]);
+                    }
+
+                  if (gate)
+                    {
+                      if (index)
+                        nexthop_ipv4_ifindex_add (rib, gate, src, index);
+                      else
+                        nexthop_ipv4_add (rib, gate, src);
+                    }
+                  else
+                    nexthop_ifindex_add (rib, index);
+
+                  len -= NLMSG_ALIGN(rtnh->rtnh_len);
+                  rtnh = RTNH_NEXT(rtnh);
+                }
+
+              if (rib->nexthop_num == 0)
+                XFREE (MTYPE_RIB, rib);
+              else
+                rib_add_ipv4_multipath (&p, rib, SAFI_UNICAST);
+            }
+        }
       else
         rib_delete_ipv4 (ZEBRA_ROUTE_KERNEL, 0, &p, gate, index, table, SAFI_UNICAST);
     }
@@ -960,6 +1083,8 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
           ifp->metric = 1;
 
+          netlink_interface_update_hw_addr (tb, ifp);
+
           /* If new link is added. */
           if_add_update (ifp);
         }
@@ -969,6 +1094,8 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
           set_ifindex(ifp, ifi->ifi_index);
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
           ifp->metric = 1;
+
+          netlink_interface_update_hw_addr (tb, ifp);
 
           if (if_is_operative (ifp))
             {

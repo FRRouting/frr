@@ -36,30 +36,37 @@
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
+#include "isisd/isis_flags.h"
+#include "isisd/isis_misc.h"
+#include "isisd/isis_circuit.h"
+#include "isisd/isis_tlv.h"
 #include "isisd/isisd.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_csm.h"
+#include "isisd/isis_lsp.h"
 #include "isisd/isis_route.h"
 #include "isisd/isis_zebra.h"
 
 struct zclient *zclient = NULL;
-
-extern struct thread_master *master;
-extern struct isis *isis;
-
-struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */
 static int
 isis_router_id_update_zebra (int command, struct zclient *zclient,
 			     zebra_size_t length)
 {
+  struct isis_area *area;
+  struct listnode *node;
   struct prefix router_id;
 
-  zebra_router_id_update_read (zclient->ibuf,&router_id);
-  router_id_zebra = router_id.u.prefix4;
+  zebra_router_id_update_read (zclient->ibuf, &router_id);
+  if (isis->router_id == router_id.u.prefix4.s_addr)
+    return 0;
 
-  /* FIXME: Do we react somehow? */
+  isis->router_id = router_id.u.prefix4.s_addr;
+  for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
+    if (listcount (area->area_addrs) > 0)
+      lsp_regenerate_schedule (area, area->is_type, 0);
+
   return 0;
 }
 
@@ -100,29 +107,15 @@ isis_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
     zlog_debug ("Zebra I/F delete: %s index %d flags %ld metric %d mtu %d",
 		ifp->name, ifp->ifindex, (long)ifp->flags, ifp->metric, ifp->mtu);
 
+  isis_csm_state_change (IF_DOWN_FROM_Z, circuit_scan_by_ifp (ifp), ifp);
 
   /* Cannot call if_delete because we should retain the pseudo interface
      in case there is configuration info attached to it. */
   if_delete_retain(ifp);
 
-  isis_csm_state_change (IF_DOWN_FROM_Z, circuit_scan_by_ifp (ifp), ifp);
-
   ifp->ifindex = IFINDEX_INTERNAL;
 
   return 0;
-}
-
-static struct interface *
-zebra_interface_if_lookup (struct stream *s)
-{
-  char ifname_tmp[INTERFACE_NAMSIZ];
-
-  /* Read interface name. */
-  stream_get (ifname_tmp, s, INTERFACE_NAMSIZ);
-
-  /* And look it up. */
-  return if_lookup_by_name_len(ifname_tmp,
-			       strnlen(ifname_tmp, INTERFACE_NAMSIZ));
 }
 
 static int
@@ -131,22 +124,11 @@ isis_zebra_if_state_up (int command, struct zclient *zclient,
 {
   struct interface *ifp;
 
-  ifp = zebra_interface_if_lookup (zclient->ibuf);
+  ifp = zebra_interface_state_read (zclient->ibuf);
 
-  if (!ifp)
+  if (ifp == NULL)
     return 0;
 
-  if (if_is_operative (ifp))
-    {
-      zebra_interface_if_set_value (zclient->ibuf, ifp);
-      /* HT: This is wrong actually. We can't assume that circuit exist
-       * if we delete circuit during if_state_down event. Needs rethink.
-       * TODO */
-      isis_circuit_update_params (circuit_scan_by_ifp (ifp), ifp);
-      return 0;
-    }
-
-  zebra_interface_if_set_value (zclient->ibuf, ifp);
   isis_csm_state_change (IF_UP_FROM_Z, circuit_scan_by_ifp (ifp), ifp);
 
   return 0;
@@ -157,17 +139,17 @@ isis_zebra_if_state_down (int command, struct zclient *zclient,
 			  zebra_size_t length)
 {
   struct interface *ifp;
+  struct isis_circuit *circuit;
 
-  ifp = zebra_interface_if_lookup (zclient->ibuf);
+  ifp = zebra_interface_state_read (zclient->ibuf);
 
   if (ifp == NULL)
     return 0;
 
-  if (if_is_operative (ifp))
-    {
-      zebra_interface_if_set_value (zclient->ibuf, ifp);
-      isis_csm_state_change (IF_DOWN_FROM_Z, circuit_scan_by_ifp (ifp), ifp);
-    }
+  circuit = isis_csm_state_change (IF_DOWN_FROM_Z, circuit_scan_by_ifp (ifp),
+                                   ifp);
+  if (circuit)
+    SET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
 
   return 0;
 }
@@ -251,7 +233,7 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
   struct isis_nexthop *nexthop;
   struct listnode *node;
 
-  if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC))
+  if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
     return;
 
   if (zclient->redist[ZEBRA_ROUTE_ISIS])
@@ -307,7 +289,8 @@ isis_zebra_route_add_ipv4 (struct prefix *prefix,
 
       stream_putw_at (stream, 0, stream_get_endp (stream));
       zclient_send_message(zclient);
-      SET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC);
+      SET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+      UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
     }
 }
 
@@ -329,7 +312,7 @@ isis_zebra_route_del_ipv4 (struct prefix *prefix,
       prefix4.prefix = prefix->u.prefix4;
       zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, &prefix4, &api);
     }
-  UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC);
+  UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 
   return;
 }
@@ -347,7 +330,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
   struct listnode *node;
   struct prefix_ipv6 prefix6;
 
-  if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC))
+  if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
     return;
 
   api.type = ZEBRA_ROUTE_ISIS;
@@ -410,7 +393,8 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
       prefix6.prefixlen = prefix->prefixlen;
       memcpy (&prefix6.prefix, &prefix->u.prefix6, sizeof (struct in6_addr));
       zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, &prefix6, &api);
-      SET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC);
+      SET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+      UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
     }
 
   XFREE (MTYPE_ISIS_TMP, nexthop_list);
@@ -431,7 +415,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
   struct listnode *node;
   struct prefix_ipv6 prefix6;
 
-  if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC))
+  if (CHECK_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
     return;
 
   api.type = ZEBRA_ROUTE_ISIS;
@@ -488,7 +472,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
       prefix6.prefixlen = prefix->prefixlen;
       memcpy (&prefix6.prefix, &prefix->u.prefix6, sizeof (struct in6_addr));
       zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, &prefix6, &api);
-      UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNC);
+      UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
     }
 
   XFREE (MTYPE_ISIS_TMP, nexthop_list);

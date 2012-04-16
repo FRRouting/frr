@@ -44,6 +44,7 @@ enum isis_system_type
 
 enum isis_adj_state
 {
+  ISIS_ADJ_UNKNOWN,
   ISIS_ADJ_INITIALIZING,
   ISIS_ADJ_UP,
   ISIS_ADJ_DOWN
@@ -83,8 +84,10 @@ struct isis_adjacency
   struct list *area_addrs;		/* areaAdressesOfNeighbour */
   struct nlpids nlpids;			/* protocols spoken ... */
   struct list *ipv4_addrs;
+  struct in_addr router_address;
 #ifdef HAVE_IPV6
   struct list *ipv6_addrs;
+  struct in6_addr router_address6;
 #endif				/* HAVE_IPV6 */
   u_char prio[ISIS_LEVELS];	/* priorityOfNeighbour for DIS */
   int circuit_t;		/* from hello PDU hdr */
@@ -103,25 +106,13 @@ struct isis_adjacency *isis_adj_lookup_snpa (u_char * ssnpa,
 					     struct list *adjdb);
 struct isis_adjacency *isis_new_adj (u_char * id, u_char * snpa, int level,
 				     struct isis_circuit *circuit);
-void isis_delete_adj (struct isis_adjacency *adj, struct list *adjdb);
+void isis_delete_adj (void *adj);
 void isis_adj_state_change (struct isis_adjacency *adj,
 			    enum isis_adj_state state, const char *reason);
 void isis_adj_print (struct isis_adjacency *adj);
 int isis_adj_expire (struct thread *thread);
-void isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty);
-void isis_adj_print_vty_detail (struct isis_adjacency *adj, struct vty *vty);
-void isis_adj_print_vty_extensive (struct isis_adjacency *adj,
-				   struct vty *vty);
-void isis_adj_p2p_print_vty (struct isis_adjacency *adj, struct vty *vty);
-void isis_adj_p2p_print_vty_detail (struct isis_adjacency *adj,
-				    struct vty *vty);
-void isis_adj_p2p_print_vty_extensive (struct isis_adjacency *adj,
-				       struct vty *vty);
-
+void isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail);
 void isis_adj_build_neigh_list (struct list *adjdb, struct list *list);
 void isis_adj_build_up_list (struct list *adjdb, struct list *list);
-void isis_adjdb_iterate (struct list *adjdb,
-			 void (*func) (struct isis_adjacency *,
-				       void *), void *arg);
 
 #endif /* ISIS_ADJACENCY_H */

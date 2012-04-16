@@ -442,12 +442,12 @@ open_dlpi_dev (struct isis_circuit *circuit)
    * 8.4.2 - Broadcast subnetwork IIH PDUs
    */
   retval = 0;
-  if (circuit->circuit_is_type & IS_LEVEL_1)
+  if (circuit->is_type & IS_LEVEL_1)
     {
       retval |= dlpimcast (fd, ALL_L1_ISS);
       retval |= dlpimcast (fd, ALL_ISS);
     }
-  if (circuit->circuit_is_type & IS_LEVEL_2)
+  if (circuit->is_type & IS_LEVEL_2)
     retval |= dlpimcast (fd, ALL_L2_ISS);
 
   if (retval != 0)
@@ -589,6 +589,16 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   dl_unitdata_req_t *dur = (dl_unitdata_req_t *)dlpi_ctl;
   char *dstaddr;
   u_short *dstsap;
+  int buflen;
+
+  buflen = stream_get_endp (circuit->snd_stream) + LLC_LEN;
+  if (buflen > sizeof (sock_buff))
+    {
+      zlog_warn ("isis_send_pdu_bcast: sock_buff size %lu is less than "
+		 "output pdu size %d on circuit %s",
+		 sizeof (sock_buff), buflen, circuit->interface->name);
+      return ISIS_WARNING;
+    }
 
   stream_set_getp (circuit->snd_stream, 0);
 
@@ -612,7 +622,7 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   else
     memcpy (dstaddr, ALL_L2_ISS, ETHERADDRL);
   /* Note: DLPI SAP values are in host byte order */
-  *dstsap = stream_get_endp (circuit->snd_stream) + LLC_LEN;
+  *dstsap = buflen;
 
   sock_buff[0] = ISO_SAP;
   sock_buff[1] = ISO_SAP;
@@ -620,7 +630,7 @@ isis_send_pdu_bcast (struct isis_circuit *circuit, int level)
   memcpy (sock_buff + LLC_LEN, circuit->snd_stream->data,
 	  stream_get_endp (circuit->snd_stream));
   dlpisend (circuit->fd, dur, sizeof (*dur) + dur->dl_dest_addr_length,
-    sock_buff, stream_get_endp (circuit->snd_stream) + LLC_LEN, 0);
+	    sock_buff, buflen, 0);
   return ISIS_OK;
 }
 

@@ -52,7 +52,7 @@
  * using stream_put..._at() functions.
  */
 #define STREAM_WARN_OFFSETS(S) \
-  zlog_warn ("&(struct stream): %p, size: %lu, endp: %lu, getp: %lu\n", \
+  zlog_warn ("&(struct stream): %p, size: %lu, getp: %lu, endp: %lu\n", \
              (S), \
              (unsigned long) (S)->size, \
              (unsigned long) (S)->getp, \
@@ -212,6 +212,20 @@ stream_set_getp (struct stream *s, size_t pos)
     }
 
   s->getp = pos;
+}
+
+void
+stream_set_endp (struct stream *s, size_t pos)
+{
+  STREAM_VERIFY_SANE(s);
+
+  if (!GETP_VALID (s, pos))
+    {
+      STREAM_BOUND_WARN (s, "set endp");
+      pos = s->endp;
+    }
+
+  s->endp = pos;
 }
 
 /* Forward pointer. */
@@ -934,9 +948,9 @@ stream_fifo_pop (struct stream_fifo *fifo)
 
       if (fifo->head == NULL)
 	fifo->tail = NULL;
-    }
 
-  fifo->count--;
+      fifo->count--;
+    }
 
   return s; 
 }

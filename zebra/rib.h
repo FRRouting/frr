@@ -225,6 +225,10 @@ extern struct nexthop *nexthop_ifname_add (struct rib *, char *);
 extern struct nexthop *nexthop_blackhole_add (struct rib *);
 extern struct nexthop *nexthop_ipv4_add (struct rib *, struct in_addr *,
 					 struct in_addr *);
+extern struct nexthop *nexthop_ipv4_ifindex_add (struct rib *,
+                                                 struct in_addr *,
+                                                 struct in_addr *,
+                                                 unsigned int);
 extern void rib_lookup_and_dump (struct prefix_ipv4 *);
 extern void rib_lookup_and_pushup (struct prefix_ipv4 *);
 extern void rib_dump (const char *, const struct prefix_ipv4 *, const struct rib *);

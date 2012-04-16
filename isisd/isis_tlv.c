@@ -43,13 +43,6 @@
 #include "isisd/isis_pdu.h"
 #include "isisd/isis_lsp.h"
 
-extern struct isis *isis;
-
-/*
- * Prototypes.
- */
-int add_tlv (u_char, u_char, u_char *, struct stream *);
-
 void
 free_tlv (void *val)
 {
@@ -75,10 +68,10 @@ free_tlvs (struct tlvs *tlvs)
     list_delete (tlvs->es_neighs);
   if (tlvs->lsp_entries)
     list_delete (tlvs->lsp_entries);
-  if (tlvs->lan_neighs)
-    list_delete (tlvs->lan_neighs);
   if (tlvs->prefix_neighs)
     list_delete (tlvs->prefix_neighs);
+  if (tlvs->lan_neighs)
+    list_delete (tlvs->lan_neighs);
   if (tlvs->ipv4_addrs)
     list_delete (tlvs->ipv4_addrs);
   if (tlvs->ipv4_int_reachs)
@@ -93,7 +86,9 @@ free_tlvs (struct tlvs *tlvs)
   if (tlvs->ipv6_reachs)
     list_delete (tlvs->ipv6_reachs);
 #endif /* HAVE_IPV6 */
-  
+
+  memset (tlvs, 0, sizeof (struct tlvs));
+
   return;
 }
 
@@ -103,7 +98,7 @@ free_tlvs (struct tlvs *tlvs)
  */
 int
 parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
-	    u_int32_t * found, struct tlvs *tlvs)
+	    u_int32_t * found, struct tlvs *tlvs, u_int32_t *auth_tlv_offset)
 {
   u_char type, length;
   struct lan_neigh *lan_nei;
@@ -122,7 +117,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 #endif /* HAVE_IPV6 */
   u_char virtual;
   int value_len, retval = ISIS_OK;
-  u_char *pnt = stream;
+  u_char *start = stream, *pnt = stream;
 
   *found = 0;
   memset (tlvs, 0, sizeof (struct tlvs));
@@ -443,14 +438,22 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  if (*expected & TLVFLAG_AUTH_INFO)
 	    {
 	      tlvs->auth_info.type = *pnt;
-	      tlvs->auth_info.len = length-1;
+              if (length == 0)
+                {
+                  zlog_warn ("ISIS-TLV (%s): TLV (type %d, length %d) "
+                             "incorrect.", areatag, type, length);
+                  return ISIS_WARNING;
+                }
+              --length;
+	      tlvs->auth_info.len = length;
 	      pnt++;
-	      memcpy (tlvs->auth_info.passwd, pnt, length - 1);
-	     /* Fill authentication with 0 for later computation
-	      * of MD5 (RFC 5304, 2)
-	      */
-	     memset (pnt, 0, length - 1);
-	      pnt += length - 1;
+	      memcpy (tlvs->auth_info.passwd, pnt, length);
+              /* Return the authentication tlv pos for later computation
+               * of MD5 (RFC 5304, 2)
+               */
+              if (auth_tlv_offset)
+                *auth_tlv_offset += (pnt - start - 3);
+              pnt += length;
 	    }
 	  else
 	    {
@@ -734,10 +737,14 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 int
 add_tlv (u_char tag, u_char len, u_char * value, struct stream *stream)
 {
-
-  if (STREAM_SIZE (stream) - stream_get_endp (stream) < (unsigned) len + 2)
+  if ((stream_get_size (stream) - stream_get_endp (stream)) <
+      (((unsigned)len) + 2))
     {
-      zlog_warn ("No room for TLV of type %d", tag);
+      zlog_warn ("No room for TLV of type %d "
+                 "(total size %d available %d required %d)",
+                 tag, (int)stream_get_size (stream),
+                 (int)(stream_get_size (stream) - stream_get_endp (stream)),
+                 len+2);
       return ISIS_WARNING;
     }
 
@@ -745,7 +752,7 @@ add_tlv (u_char tag, u_char len, u_char * value, struct stream *stream)
   stream_putc (stream, len);	/* LENGTH */
   stream_put (stream, value, (int) len);	/* VALUE */
 
-#ifdef EXTREME_TLV_DEBUG
+#ifdef EXTREME_DEBUG
   zlog_debug ("Added TLV %d len %d", tag, len);
 #endif /* EXTREME DEBUG */
   return ISIS_OK;
@@ -877,7 +884,7 @@ tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream)
 }
 
 int
-tlv_add_authinfo (char auth_type, char auth_len, u_char *auth_value,
+tlv_add_authinfo (u_char auth_type, u_char auth_len, u_char *auth_value,
 		  struct stream *stream)
 {
   u_char value[255];
@@ -1006,7 +1013,6 @@ tlv_add_ipv4_reachs (struct list *ipv4_reachs, struct stream *stream)
       pos += IPV4_MAX_BYTELEN;
     }
 
-
   return add_tlv (IPV4_INT_REACHABILITY, pos - value, value, stream);
 }
 
@@ -1027,7 +1033,7 @@ tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream)
       if (pos - value + (5 + prefix_size) > 255)
 	{
 	  retval =
-	    add_tlv (IPV4_INT_REACHABILITY, pos - value, value, stream);
+	    add_tlv (TE_IPV4_REACHABILITY, pos - value, value, stream);
 	  if (retval != ISIS_OK)
 	    return retval;
 	  pos = value;
@@ -1110,7 +1116,7 @@ tlv_add_padding (struct stream *stream)
   /*
    * How many times can we add full padding ?
    */
-  fullpads = (STREAM_SIZE (stream) - stream_get_endp (stream)) / 257;
+  fullpads = (stream_get_size (stream) - stream_get_endp (stream)) / 257;
   for (i = 0; i < fullpads; i++)
     {
       if (!stream_putc (stream, (u_char) PADDING))	/* TAG */
@@ -1120,7 +1126,7 @@ tlv_add_padding (struct stream *stream)
       stream_put (stream, NULL, 255);		/* zero padding */
     }
 
-  left = STREAM_SIZE (stream) - stream_get_endp (stream);
+  left = stream_get_size (stream) - stream_get_endp (stream);
 
   if (left < 2)
     return ISIS_OK;

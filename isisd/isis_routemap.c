@@ -35,6 +35,7 @@
 
 #include "isis_constants.h"
 #include "isis_common.h"
+#include "isis_flags.h"
 #include "dict.h"
 #include "isisd.h"
 #include "isis_misc.h"

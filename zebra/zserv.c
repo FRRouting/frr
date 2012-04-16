@@ -140,6 +140,30 @@ zserv_create_header (struct stream *s, uint16_t cmd)
   stream_putw (s, cmd);
 }
 
+static void
+zserv_encode_interface (struct stream *s, struct interface *ifp)
+{
+  /* Interface information. */
+  stream_put (s, ifp->name, INTERFACE_NAMSIZ);
+  stream_putl (s, ifp->ifindex);
+  stream_putc (s, ifp->status);
+  stream_putq (s, ifp->flags);
+  stream_putl (s, ifp->metric);
+  stream_putl (s, ifp->mtu);
+  stream_putl (s, ifp->mtu6);
+  stream_putl (s, ifp->bandwidth);
+#ifdef HAVE_STRUCT_SOCKADDR_DL
+  stream_put (s, &ifp->sdl, sizeof (ifp->sdl));
+#else
+  stream_putl (s, ifp->hw_addr_len);
+  if (ifp->hw_addr_len)
+    stream_put (s, ifp->hw_addr, ifp->hw_addr_len);
+#endif /* HAVE_STRUCT_SOCKADDR_DL */
+
+  /* Write packet size. */
+  stream_putw_at (s, 0, stream_get_endp (s));
+}
+
 /* Interface is added. Send ZEBRA_INTERFACE_ADD to client. */
 /*
  * This function is called in the following situations:
@@ -163,28 +187,8 @@ zsend_interface_add (struct zserv *client, struct interface *ifp)
   s = client->obuf;
   stream_reset (s);
 
-  /* Message type. */
   zserv_create_header (s, ZEBRA_INTERFACE_ADD);
-
-  /* Interface information. */
-  stream_put (s, ifp->name, INTERFACE_NAMSIZ);
-  stream_putl (s, ifp->ifindex);
-  stream_putc (s, ifp->status);
-  stream_putq (s, ifp->flags);
-  stream_putl (s, ifp->metric);
-  stream_putl (s, ifp->mtu);
-  stream_putl (s, ifp->mtu6);
-  stream_putl (s, ifp->bandwidth);
-#ifdef HAVE_STRUCT_SOCKADDR_DL
-  stream_put (s, &ifp->sdl, sizeof (ifp->sdl));
-#else
-  stream_putl (s, ifp->hw_addr_len);
-  if (ifp->hw_addr_len)
-    stream_put (s, ifp->hw_addr, ifp->hw_addr_len);
-#endif /* HAVE_STRUCT_SOCKADDR_DL */
-
-  /* Write packet size. */
-  stream_putw_at (s, 0, stream_get_endp (s));
+  zserv_encode_interface (s, ifp);
 
   return zebra_server_send_message(client);
 }
@@ -201,21 +205,9 @@ zsend_interface_delete (struct zserv *client, struct interface *ifp)
 
   s = client->obuf;
   stream_reset (s);
-  
-  zserv_create_header (s, ZEBRA_INTERFACE_DELETE);
-  
-  /* Interface information. */
-  stream_put (s, ifp->name, INTERFACE_NAMSIZ);
-  stream_putl (s, ifp->ifindex);
-  stream_putc (s, ifp->status);
-  stream_putq (s, ifp->flags);
-  stream_putl (s, ifp->metric);
-  stream_putl (s, ifp->mtu);
-  stream_putl (s, ifp->mtu6);
-  stream_putl (s, ifp->bandwidth);
 
-  /* Write packet length. */
-  stream_putw_at (s, 0, stream_get_endp (s));
+  zserv_create_header (s, ZEBRA_INTERFACE_DELETE);
+  zserv_encode_interface (s, ifp);
 
   return zebra_server_send_message (client);
 }
@@ -328,19 +320,7 @@ zsend_interface_update (int cmd, struct zserv *client, struct interface *ifp)
   stream_reset (s);
 
   zserv_create_header (s, cmd);
-
-  /* Interface information. */
-  stream_put (s, ifp->name, INTERFACE_NAMSIZ);
-  stream_putl (s, ifp->ifindex);
-  stream_putc (s, ifp->status);
-  stream_putq (s, ifp->flags);
-  stream_putl (s, ifp->metric);
-  stream_putl (s, ifp->mtu);
-  stream_putl (s, ifp->mtu6);
-  stream_putl (s, ifp->bandwidth);
-
-  /* Write packet size. */
-  stream_putw_at (s, 0, stream_get_endp (s));
+  zserv_encode_interface (s, ifp);
 
   return zebra_server_send_message(client);
 }
@@ -761,6 +741,13 @@ zread_ipv4_add (struct zserv *client, u_short length)
   
   /* Type, flags, message. */
   rib->type = stream_getc (s);
+  /* Update client's route type if it is not done yet. */
+  /* It is done here since only zread_ipv4/6_add() and
+   * zread_ipv4/6_delete() decode Zebra messages and retrieve
+   * route types. */
+  if (client->route_type == ZEBRA_ROUTE_MAX)
+    client->route_type = rib->type;
+
   rib->flags = stream_getc (s);
   message = stream_getc (s); 
   safi = stream_getw (s);
@@ -798,10 +785,10 @@ zread_ipv4_add (struct zserv *client, u_short length)
 	    case ZEBRA_NEXTHOP_IPV6:
 	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
 	      break;
-      case ZEBRA_NEXTHOP_BLACKHOLE:
-        nexthop_blackhole_add (rib);
-        break;
-	    }
+            case ZEBRA_NEXTHOP_BLACKHOLE:
+              nexthop_blackhole_add (rib);
+              break;
+            }
 	}
     }
 
@@ -826,7 +813,7 @@ zread_ipv4_delete (struct zserv *client, u_short length)
   int i;
   struct stream *s;
   struct zapi_ipv4 api;
-  struct in_addr nexthop;
+  struct in_addr nexthop, *nexthop_p;
   unsigned long ifindex;
   struct prefix_ipv4 p;
   u_char nexthop_num;
@@ -836,6 +823,7 @@ zread_ipv4_delete (struct zserv *client, u_short length)
   s = client->ibuf;
   ifindex = 0;
   nexthop.s_addr = 0;
+  nexthop_p = NULL;
 
   /* Type, flags, message. */
   api.type = stream_getc (s);
@@ -869,6 +857,7 @@ zread_ipv4_delete (struct zserv *client, u_short length)
 	      break;
 	    case ZEBRA_NEXTHOP_IPV4:
 	      nexthop.s_addr = stream_get_ipv4 (s);
+	      nexthop_p = &nexthop;
 	      break;
 	    case ZEBRA_NEXTHOP_IPV6:
 	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
@@ -889,7 +878,7 @@ zread_ipv4_delete (struct zserv *client, u_short length)
   else
     api.metric = 0;
     
-  rib_delete_ipv4 (api.type, api.flags, &p, &nexthop, ifindex,
+  rib_delete_ipv4 (api.type, api.flags, &p, nexthop_p, ifindex,
 		   client->rtm_table, api.safi);
   return 0;
 }
@@ -935,6 +924,11 @@ zread_ipv6_add (struct zserv *client, u_short length)
 
   /* Type, flags, message. */
   api.type = stream_getc (s);
+  /* Update the route type of the client. 
+   * Same as in zread_ipv4_add(). */
+  if (client->route_type == ZEBRA_ROUTE_MAX)
+    client->route_type = api.type;
+
   api.flags = stream_getc (s);
   api.message = stream_getc (s);
   api.safi = stream_getw (s);
@@ -1133,6 +1127,14 @@ zebra_score_rib (int client_sock)
 static void
 zebra_client_close (struct zserv *client)
 {
+  struct stream *s;
+
+  /* Sweep all routes learned from the client first. */
+  rib_sweep_client_route(client);
+  /* Reset the route type. It may not be necessary since the
+   * whole client will be freed. */
+  client->route_type = ZEBRA_ROUTE_MAX;
+
   /* Close file descriptor. */
   if (client->sock)
     {
@@ -1172,6 +1174,9 @@ zebra_client_create (int sock)
 
   /* Make client input/output buffer. */
   client->sock = sock;
+  /* Set the default route type to ZEBRA_ROUTE_MAX; it will be updated
+   * once new routes are received. */
+  client->route_type = ZEBRA_ROUTE_MAX;
   client->ibuf = stream_new (ZEBRA_MAX_PACKET_SIZ);
   client->obuf = stream_new (ZEBRA_MAX_PACKET_SIZ);
   client->wb = buffer_new(0);
