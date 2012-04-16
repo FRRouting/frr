@@ -113,6 +113,7 @@ struct memory_list memory_list_bgp[] =
   { MTYPE_BGP_SYNCHRONISE,	"BGP synchronise"		},
   { MTYPE_BGP_ADJ_IN,		"BGP adj in"			},
   { MTYPE_BGP_ADJ_OUT,		"BGP adj out"			},
+  { MTYPE_BGP_MPATH_INFO,	"BGP multipath info"		},
   { 0, NULL },
   { MTYPE_AS_LIST,		"BGP AS list"			},
   { MTYPE_AS_FILTER,		"BGP AS filter"			},

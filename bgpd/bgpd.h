@@ -162,6 +162,12 @@ struct bgp
   /* BGP graceful restart */
   u_int32_t restart_time;
   u_int32_t stalepath_time;
+
+  /* Maximum-paths configuration */
+  struct bgp_maxpaths_cfg {
+    u_int16_t maxpaths_ebgp;
+    u_int16_t maxpaths_ibgp;
+  } maxpaths[AFI_MAX][SAFI_MAX];
 };
 
 /* BGP peer-group support. */
