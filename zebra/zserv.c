@@ -741,13 +741,6 @@ zread_ipv4_add (struct zserv *client, u_short length)
   
   /* Type, flags, message. */
   rib->type = stream_getc (s);
-  /* Update client's route type if it is not done yet. */
-  /* It is done here since only zread_ipv4/6_add() and
-   * zread_ipv4/6_delete() decode Zebra messages and retrieve
-   * route types. */
-  if (client->route_type == ZEBRA_ROUTE_MAX)
-    client->route_type = rib->type;
-
   rib->flags = stream_getc (s);
   message = stream_getc (s); 
   safi = stream_getw (s);
@@ -924,11 +917,6 @@ zread_ipv6_add (struct zserv *client, u_short length)
 
   /* Type, flags, message. */
   api.type = stream_getc (s);
-  /* Update the route type of the client. 
-   * Same as in zread_ipv4_add(). */
-  if (client->route_type == ZEBRA_ROUTE_MAX)
-    client->route_type = api.type;
-
   api.flags = stream_getc (s);
   api.message = stream_getc (s);
   api.safi = stream_getw (s);
@@ -1127,14 +1115,6 @@ zebra_score_rib (int client_sock)
 static void
 zebra_client_close (struct zserv *client)
 {
-  struct stream *s;
-
-  /* Sweep all routes learned from the client first. */
-  rib_sweep_client_route(client);
-  /* Reset the route type. It may not be necessary since the
-   * whole client will be freed. */
-  client->route_type = ZEBRA_ROUTE_MAX;
-
   /* Close file descriptor. */
   if (client->sock)
     {
@@ -1174,9 +1154,6 @@ zebra_client_create (int sock)
 
   /* Make client input/output buffer. */
   client->sock = sock;
-  /* Set the default route type to ZEBRA_ROUTE_MAX; it will be updated
-   * once new routes are received. */
-  client->route_type = ZEBRA_ROUTE_MAX;
   client->ibuf = stream_new (ZEBRA_MAX_PACKET_SIZ);
   client->obuf = stream_new (ZEBRA_MAX_PACKET_SIZ);
   client->wb = buffer_new(0);

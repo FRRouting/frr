@@ -2920,62 +2920,6 @@ rib_sweep_route (void)
   rib_sweep_table (vrf_table (AFI_IP, SAFI_UNICAST, 0));
   rib_sweep_table (vrf_table (AFI_IP6, SAFI_UNICAST, 0));
 }
-
-/* Delete routes learned from a given client.  */
-/* TODO(wsun) May need to split the sweep process into multiple batches,
- * so that the process won't take too long if the table is large. */
-static void
-rib_sweep_client_table (struct route_table *table, int rib_type)
-{
-  struct route_node *rn;
-  struct rib *rib;
-  struct rib *next;
-  int ret = 0;
-
-  if (table)
-    for (rn = route_top (table); rn; rn = route_next (rn))
-      for (rib = rn->info; rib; rib = next)
-	{
-	  next = rib->next;
-
-	  if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
-	    continue;
-
-	  if (rib->type == rib_type)
-            if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
-	      {
-                /* TODO(wsun) Is this mandatory? What about graceful restart/
-                 * non-stop forwarding */
-	        ret = rib_uninstall_kernel (rn, rib);
-	        if (! ret)
-                  rib_delnode (rn, rib);
-                else
-                  zlog_err ("%s: could not delete routes from kernel!",
-                            __func__);
-	      }
-            else
-              {
-                /* Always delete the node. */
-                rib_delnode (rn, rib);
-              }
-	}
-}
-
-/* Sweep all routes learned from a given client from RIB tables.  */
-void
-rib_sweep_client_route (struct zserv *client)
-{
-  assert(client);
-  int route_type = client->route_type;
-  if (route_type != ZEBRA_ROUTE_MAX)
-    {
-      zlog_debug ("%s: Removing existing routes from client type %d",
-                  __func__, route_type);
-      rib_sweep_client_table (vrf_table (AFI_IP, SAFI_UNICAST, 0), route_type);
-      rib_sweep_client_table (vrf_table (AFI_IP6, SAFI_UNICAST, 0), route_type);
-    }
-}
-
 
 /* Remove specific by protocol routes from 'table'. */
 static unsigned long
