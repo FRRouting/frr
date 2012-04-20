@@ -1368,7 +1368,7 @@ netlink_route (int cmd, int family, void *dest, int length, void *gate,
     char buf[NL_PKT_BUF_SIZE];
   } req;
 
-  memset (&req, 0, sizeof req);
+  memset (&req, 0, sizeof req - NL_PKT_BUF_SIZE);
 
   bytelen = (family == AF_INET ? 4 : 16);
 
@@ -1443,7 +1443,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
     char buf[NL_PKT_BUF_SIZE];
   } req;
 
-  memset (&req, 0, sizeof req);
+  memset (&req, 0, sizeof req - NL_PKT_BUF_SIZE);
 
   bytelen = (family == AF_INET ? 4 : 16);
 
@@ -1903,7 +1903,7 @@ netlink_address (int cmd, int family, struct interface *ifp,
   } req;
 
   p = ifc->address;
-  memset (&req, 0, sizeof req);
+  memset (&req, 0, sizeof req - NL_PKT_BUF_SIZE);
 
   bytelen = (family == AF_INET ? 4 : 16);
 
