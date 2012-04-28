@@ -230,7 +230,7 @@ bgp_info_mpath_free (struct bgp_info_mpath **mpath)
   if (mpath && *mpath)
     {
       if ((*mpath)->mp_attr)
-        bgp_attr_unintern ((*mpath)->mp_attr);
+        bgp_attr_unintern (&(*mpath)->mp_attr);
       XFREE (MTYPE_BGP_MPATH_INFO, *mpath);
       *mpath = NULL;
     }
@@ -605,7 +605,7 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
   if (old_best && (old_best != new_best) &&
       (old_attr = bgp_info_mpath_attr (old_best)))
     {
-      bgp_attr_unintern (old_attr);
+      bgp_attr_unintern (&old_attr);
       bgp_info_mpath_attr_set (old_best, NULL);
     }
 
@@ -616,7 +616,7 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
     {
       if ((new_attr = bgp_info_mpath_attr (new_best)))
         {
-          bgp_attr_unintern (new_attr);
+          bgp_attr_unintern (&new_attr);
           bgp_info_mpath_attr_set (new_best, NULL);
           SET_FLAG (new_best->flags, BGP_INFO_ATTR_CHANGED);
         }
@@ -692,7 +692,7 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
             {
               ecommerge = ecommunity_merge (ecomm, ae->ecommunity);
               ecomm = ecommunity_uniq_sort (ecommerge);
-              ecommunity_free (ecommerge);
+              ecommunity_free (&ecommerge);
             }
           else
             ecomm = ecommunity_dup (ae->ecommunity);
@@ -728,10 +728,10 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
   if (new_attr != bgp_info_mpath_attr (new_best))
     {
       if ((old_attr = bgp_info_mpath_attr (new_best)))
-        bgp_attr_unintern (old_attr);
+        bgp_attr_unintern (&old_attr);
       bgp_info_mpath_attr_set (new_best, new_attr);
       SET_FLAG (new_best->flags, BGP_INFO_ATTR_CHANGED);
     }
   else
-    bgp_attr_unintern (new_attr);
+    bgp_attr_unintern (&new_attr);
 }
