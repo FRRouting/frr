@@ -1,18 +1,19 @@
 #
 # Default: Bind all daemon vtys to the loopback(s) only
 #
-QCONFDIR="/etc/quagga"
-BGPD_OPTS="-A 127.0.0.1 -f ${QCONFDIR}/bgpd.conf"
-OSPF6D_OPTS="-A ::1 -f ${QCONFDIR}/ospf6d.conf"
-OSPFD_OPTS="-A 127.0.0.1 -f ${QCONFDIR}/ospfd.conf"
-RIPD_OPTS="-A 127.0.0.1 -f ${QCONFDIR}/ripd.conf"
-RIPNGD_OPTS="-A ::1 -f ${QCONFDIR}/ripngd.conf"
-ZEBRA_OPTS="-A 127.0.0.1 -f ${QCONFDIR}/zebra.conf"
-ISISD_OPTS="-A ::1 -f ${QCONFDIR}/isisd.conf"
+BABELD_OPTS="-A 127.0.0.1"
+BGPD_OPTS="-A 127.0.0.1"
+ISISD_OPTS="-A ::1"
+OSPF6D_OPTS="-A ::1"
+OSPFD_OPTS="-A 127.0.0.1"
+RIPD_OPTS="-A 127.0.0.1"
+RIPNGD_OPTS="-A ::1"
+ZEBRA_OPTS="-A 127.0.0.1"
 
-# Watchquagga configuration (please check timer values before using):
-WATCH_OPTS=""
-WATCH_DAEMONS="zebra bgpd ospfd ospf6d ripd ripngd"
-# To enable restarts, uncomment this line (but first be sure to edit
-# the WATCH_DAEMONS line to reflect the daemons you are actually using):
-#WATCH_OPTS="-Az -b_ -r/sbin/service_%s_restart -s/sbin/service_%s_start -k/sbin/service_%s_stop"
+# Watchquagga configuration
+#
+# Uncomment and edit this line to reflect the daemons you are actually using:
+#WATCH_DAEMONS="zebra bgpd ospfd ospf6d ripd ripngd"
+#
+# Timer values can be adjusting by editing this line:
+WATCH_OPTS="-Az -b_ -r/sbin/service_%s_restart -s/sbin/service_%s_start -k/sbin/service_%s_stop"

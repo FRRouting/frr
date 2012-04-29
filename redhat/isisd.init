@@ -1,10 +1,12 @@
 #!/bin/bash
-#
-# chkconfig: 2345 16 84
-# description: An ISIS routing engine for use with Quagga
-#
-# processname: isisd
+# chkconfig: - 16 84
 # config: /etc/quagga/isisd.conf
+
+### BEGIN INIT INFO
+# Provides: isisd
+# Short-Description: IS-IS routing engine
+# Description: IS-IS routing engine for use with Zebra
+### END INIT INFO
 
 # source function library
 . /etc/rc.d/init.d/functions
@@ -12,50 +14,59 @@
 # Get network config
 . /etc/sysconfig/network
 
-# Check that networking is up.
-[ "${NETWORKING}" = "no" ] && exit 0
-
-# The process must be configured first.
-[ -f /etc/quagga/isisd.conf ] || exit 0
+# quagga command line options
+. /etc/sysconfig/quagga
 
 RETVAL=0
-
-prog="isisd"
+PROG="isisd"
+cmd=isisd
+LOCK_FILE=/var/lock/subsys/isisd
+CONF_FILE=/etc/quagga/isisd.conf
 
 case "$1" in
   start)
-	echo -n $"Starting $prog: "
-        daemon /usr/sbin/isisd -d
+	# Check that networking is up.
+	[ "${NETWORKING}" = "no" ] && exit 1
+
+	# The process must be configured first.
+	[ -f $CONF_FILE ] || exit 6
+	if [ `id -u` -ne 0 ]; then
+		echo $"Insufficient privilege" 1>&2
+		exit 4
+	fi
+
+	echo -n $"Starting $PROG: "
+	daemon $cmd -d $ISISD_OPTS -f $CONF_FILE
 	RETVAL=$?
-	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/isisd
+	[ $RETVAL -eq 0 ] && touch $LOCK_FILE
 	echo
 	;;
   stop)
-	echo -n $"Shutting down $prog: "
-	killproc isisd
+	echo -n $"Shutting down $PROG: "
+	killproc $cmd
 	RETVAL=$?
-	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/isisd
+	[ $RETVAL -eq 0 ] && rm -f $LOCK_FILE
 	echo
 	;;
-  restart|reload)
-        $0 stop
-        $0 start
+  restart|reload|force-reload)
+	$0 stop
+	$0 start
 	RETVAL=$?
-        ;;
-  condrestart)
-        if [ -f /var/lock/subsys/isisd ]; then
-                $0 stop
+	;;
+  condrestart|try-restart)
+	if [ -f $LOCK_FILE ]; then
+		$0 stop
 		$0 start
-        fi
+	fi
 	RETVAL=$?
-        ;;
+	;;
   status)
-        status isisd
+	status $cmd
 	RETVAL=$?
-        ;;
+	;;
   *)
-	echo $"Usage: $0 {start|stop|restart|reload|condrestart|status}"
-	exit 1
+	echo $"Usage: $0 {start|stop|restart|reload|force-reload|condrestart|try-restart|status}"
+	exit 2
 esac
 
 exit $RETVAL

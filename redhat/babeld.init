@@ -1,11 +1,11 @@
 #!/bin/bash
 # chkconfig: - 16 84
-# config: /etc/quagga/ospf6d.conf
+# config: /etc/quagga/babeld.conf
 
 ### BEGIN INIT INFO
-# Provides: ospf6d
-# Short-Description: OSPF routing engine for IPv6
-# Description: OSPF routing engine for use with Zebra and IPv6
+# Provides: babeld
+# Short-Description: Babel routing engine
+# Description: Babel routing engine for use with Zebra
 ### END INIT INFO
 
 # source function library
@@ -18,10 +18,10 @@
 . /etc/sysconfig/quagga
 
 RETVAL=0
-PROG="ospf6d"
-cmd=ospf6d
-LOCK_FILE=/var/lock/subsys/ospf6d
-CONF_FILE=/etc/quagga/ospf6d.conf
+PROG="babeld"
+cmd=babeld
+LOCK_FILE=/var/lock/subsys/babeld
+CONF_FILE=/etc/quagga/babeld.conf
 
 case "$1" in
   start)
@@ -36,7 +36,7 @@ case "$1" in
 	fi
 
 	echo -n $"Starting $PROG: "
-	daemon $cmd -d $OSPF6D_OPTS -f $CONF_FILE
+	daemon $cmd -d $BABELD_OPTS -f $CONF_FILE
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch $LOCK_FILE
 	echo

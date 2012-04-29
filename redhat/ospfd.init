@@ -1,10 +1,12 @@
 #!/bin/bash
-#
-# chkconfig: 2345 16 84
-# description: An OSPF v2 routing engine for use with Zebra
-#
-# processname: ospfd
+# chkconfig: - 16 84
 # config: /etc/quagga/ospfd.conf
+
+### BEGIN INIT INFO
+# Provides: ospfd
+# Short-Description: OSPF routing engine
+# Description: OSPF routing engine for use with Zebra
+### END INIT INFO
 
 # source function library
 . /etc/rc.d/init.d/functions
@@ -15,50 +17,56 @@
 # quagga command line options
 . /etc/sysconfig/quagga
 
-# Check that networking is up.
-[ "${NETWORKING}" = "no" ] && exit 0
-
-# The process must be configured first.
-[ -f /etc/quagga/ospfd.conf ] || exit 0
-
 RETVAL=0
-
-prog="ospfd"
+PROG="ospfd"
+cmd=ospfd
+LOCK_FILE=/var/lock/subsys/ospfd
+CONF_FILE=/etc/quagga/ospfd.conf
 
 case "$1" in
   start)
-	echo -n $"Starting $prog: "
-        daemon /usr/sbin/ospfd -d $OSPFD_OPTS
+	# Check that networking is up.
+	[ "${NETWORKING}" = "no" ] && exit 1
+
+	# The process must be configured first.
+	[ -f $CONF_FILE ] || exit 6
+	if [ `id -u` -ne 0 ]; then
+		echo $"Insufficient privilege" 1>&2
+		exit 4
+	fi
+
+	echo -n $"Starting $PROG: "
+	daemon $cmd -d $OSPFD_OPTS -f $CONF_FILE
 	RETVAL=$?
-	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/ospfd
+	[ $RETVAL -eq 0 ] && touch $LOCK_FILE
 	echo
 	;;
   stop)
-	echo -n $"Shutting down $prog: "
-	killproc ospfd
+	echo -n $"Shutting down $PROG: "
+	killproc $cmd
 	RETVAL=$?
-	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/ospfd
+	[ $RETVAL -eq 0 ] && rm -f $LOCK_FILE
 	echo
 	;;
-  restart|reload)
-        $0 stop
-        $0 start
+  restart|reload|force-reload)
+	$0 stop
+	$0 start
 	RETVAL=$?
-        ;;
-  condrestart)
-        if [ -f /var/lock/subsys/ospfd ]; then
-                $0 stop
+	;;
+  condrestart|try-restart)
+	if [ -f $LOCK_FILE ]; then
+		$0 stop
 		$0 start
-        fi
+	fi
 	RETVAL=$?
-        ;;
+	;;
   status)
-        status ospfd
+	status $cmd
 	RETVAL=$?
-        ;;
+	;;
   *)
-	echo $"Usage: $0 {start|stop|restart|reload|condrestart|status}"
-	exit 1
+	echo $"Usage: $0 {start|stop|restart|reload|force-reload|condrestart|try-restart|status}"
+	exit 2
 esac
 
 exit $RETVAL

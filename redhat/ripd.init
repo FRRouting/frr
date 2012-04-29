@@ -1,10 +1,12 @@
 #!/bin/bash
-#
-# chkconfig: 2345 16 84
-# description: A RIP routing engine for use with Zebra
-#
-# processname: ripd
+# chkconfig: - 16 84
 # config: /etc/quagga/ripd.conf
+
+### BEGIN INIT INFO
+# Provides: ripd
+# Short-Description: RIP routing engine
+# Description: RIP routing engine for use with Zebra
+### END INIT INFO
 
 # source function library
 . /etc/rc.d/init.d/functions
@@ -15,49 +17,56 @@
 # quagga command line options
 . /etc/sysconfig/quagga
 
-# Check that networking is up.
-[ "${NETWORKING}" = "no" ] && exit 0
-
-# The process must be configured first.
-[ -f /etc/quagga/ripd.conf ] || exit 0
-
 RETVAL=0
-prog="ripd"
+PROG="ripd"
+cmd=ripd
+LOCK_FILE=/var/lock/subsys/ripd
+CONF_FILE=/etc/quagga/ripd.conf
 
 case "$1" in
   start)
-	echo -n $"Starting $prog: "
-        daemon /usr/sbin/ripd -d $RIPD_OPTS
+	# Check that networking is up.
+	[ "${NETWORKING}" = "no" ] && exit 1
+
+	# The process must be configured first.
+	[ -f $CONF_FILE ] || exit 6
+	if [ `id -u` -ne 0 ]; then
+		echo $"Insufficient privilege" 1>&2
+		exit 4
+	fi
+
+	echo -n $"Starting $PROG: "
+	daemon $cmd -d $RIPD_OPTS -f $CONF_FILE
 	RETVAL=$?
-	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/ripd
+	[ $RETVAL -eq 0 ] && touch $LOCK_FILE
 	echo
 	;;
   stop)
-	echo -n $"Shutting down $prog: "
-	killproc ripd
+	echo -n $"Shutting down $PROG: "
+	killproc $cmd
 	RETVAL=$?
-	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/ripd
+	[ $RETVAL -eq 0 ] && rm -f $LOCK_FILE
 	echo
 	;;
-  restart|reload)
-        $0 stop
-        $0 start
+  restart|reload|force-reload)
+	$0 stop
+	$0 start
 	RETVAL=$?
-        ;;
-  condrestart)
-        if [ -f /var/lock/subsys/ripd ]; then
-                $0 stop
+	;;
+  condrestart|try-restart)
+	if [ -f $LOCK_FILE ]; then
+		$0 stop
 		$0 start
-        fi
+	fi
 	RETVAL=$?
-        ;;
+	;;
   status)
-        status ripd
+	status $cmd
 	RETVAL=$?
-        ;;
+	;;
   *)
-	echo $"Usage: $0 {start|stop|restart|reload|condrestart|status}"
-	exit 1
+	echo $"Usage: $0 {start|stop|restart|reload|force-reload|condrestart|try-restart|status}"
+	exit 2
 esac
 
 exit $RETVAL

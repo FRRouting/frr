@@ -1,10 +1,12 @@
 #!/bin/bash
-#
-# chkconfig: 2345 16 84
-# description: A RIP routing engine for use with Zebra and IPv6
-#
-# processname: ripngd
+# chkconfig: - 16 84
 # config: /etc/quagga/ripngd.conf
+
+### BEGIN INIT INFO
+# Provides: ripngd
+# Short-Description: RIP routing engine for IPv6
+# Description: RIP routing engine for use with Zebra and IPv6
+### END INIT INFO
 
 # source function library
 . /etc/rc.d/init.d/functions
@@ -15,49 +17,56 @@
 # quagga command line options
 . /etc/sysconfig/quagga
 
-# Check that networking is up.
-[ "${NETWORKING_IPV6}" = "no" ] && exit 0
-
-# The process must be configured first.
-[ -f /etc/quagga/ripngd.conf ] || exit 0
-
 RETVAL=0
-prog="ripngd"
+PROG="ripngd"
+cmd=ripngd
+LOCK_FILE=/var/lock/subsys/ripngd
+CONF_FILE=/etc/quagga/ripngd.conf
 
 case "$1" in
   start)
-	echo -n $"Starting $prog: "
-        daemon /usr/sbin/ripngd -d $RIPNGD_OPTS
+	# Check that networking is up.
+	[ "${NETWORKING}" = "no" ] && exit 1
+
+	# The process must be configured first.
+	[ -f $CONF_FILE ] || exit 6
+	if [ `id -u` -ne 0 ]; then
+		echo $"Insufficient privilege" 1>&2
+		exit 4
+	fi
+
+	echo -n $"Starting $PROG: "
+	daemon $cmd -d $RIPNGD_OPTS -f $CONF_FILE
 	RETVAL=$?
-	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/ripngd
+	[ $RETVAL -eq 0 ] && touch $LOCK_FILE
 	echo
 	;;
   stop)
-	echo -n $"Shutting down $prog: "
-	killproc ripngd
+	echo -n $"Shutting down $PROG: "
+	killproc $cmd
 	RETVAL=$?
-	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/ripngd
+	[ $RETVAL -eq 0 ] && rm -f $LOCK_FILE
 	echo
 	;;
-  restart|reload)
-        $0 stop
-        $0 start
+  restart|reload|force-reload)
+	$0 stop
+	$0 start
 	RETVAL=$?
-        ;;
-  condrestart)
-        if [ -f /var/lock/subsys/ripngd ]; then
-                $0 stop
+	;;
+  condrestart|try-restart)
+	if [ -f $LOCK_FILE ]; then
+		$0 stop
 		$0 start
-        fi
+	fi
 	RETVAL=$?
-        ;;
+	;;
   status)
-        status ripngd
+	status $cmd
 	RETVAL=$?
-        ;;
+	;;
   *)
-	echo $"Usage: $0 {start|stop|restart|reload|condrestart|status}"
-	exit 1
+	echo $"Usage: $0 {start|stop|restart|reload|force-reload|condrestart|try-restart|status}"
+	exit 2
 esac
 
 exit $RETVAL
