@@ -1,4 +1,4 @@
-#! /usr/local/bin/perl
+#!/usr/bin/env perl
 ##
 ## Read BGPd logfile and lookup RR's whois database.
 ##
