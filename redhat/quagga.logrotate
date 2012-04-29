@@ -6,11 +6,27 @@
     endscript
 }
 
+/var/log/quagga/babeld.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/quagga/babeld.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
 /var/log/quagga/bgpd.log {
     notifempty
     missingok
     postrotate
 	/bin/kill -USR1 `cat /var/run/quagga/bgpd.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
+/var/log/quagga/isisd.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -USR1 `cat /var/run/quagga/isisd.pid 2> /dev/null` 2> /dev/null || true
     endscript
 }
 
