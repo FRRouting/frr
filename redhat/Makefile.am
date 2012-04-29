@@ -1,4 +1,6 @@
 
-EXTRA_DIST = quagga.pam quagga.sysconfig quagga.spec quagga.logrotate \
-	zebra.init ripd.init ospfd.init ripngd.init ospf6d.init bgpd.init \
-	isisd.init babeld.init watchquagga.init quagga.pam.stack
+EXTRA_DIST = babeld.init babeld.service bgpd.init bgpd.service isisd.init \
+	isisd.service ospf6d.init ospf6d.service ospfd.init ospfd.service \
+	quagga.logrotate quagga.pam quagga.pam.stack quagga.spec \
+	quagga.sysconfig ripd.init ripd.service ripngd.init ripngd.service \
+	watchquagga.init zebra.init zebra.service
