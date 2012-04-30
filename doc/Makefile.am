@@ -61,9 +61,43 @@ quagga_TEXINFOS = appendix.texi babeld.texi basic.texi bgpd.texi filter.texi \
 .dia.png:
 	$(DIATOPNG) "$@" $<
 
-man_MANS = vtysh.1 bgpd.8 ospf6d.8 ospfd.8 ripd.8 ripngd.8 zebra.8 isisd.8
+man_MANS = 
 
-EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt $(man_MANS) \
+if BGPD
+man_MANS += bgpd.8
+endif
+
+if ISISD
+man_MANS += isisd.8
+endif
+
+if OSPF6D
+man_MANS += ospf6d.8
+endif
+
+if OSPFD
+man_MANS += ospfd.8
+endif
+
+if RIPD
+man_MANS += ripd.8
+endif
+
+if RIPNGD
+man_MANS += ripngd.8
+endif
+
+if VTYSH
+man_MANS += vtysh.1
+endif
+
+if ZEBRA
+man_MANS += zebra.8
+endif
+
+EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt \
+	bgpd.8 isisd.8 ospf6d.8 ospfd.8 ripd.8 \
+	ripngd.8 vtysh.1 zebra.8 \
 	mpls/ChangeLog.opaque.txt mpls/cli_summary.txt \
 	mpls/opaque_lsa.txt mpls/ospfd.conf \
 	$(figures_sources) $(figures_png) $(figures_txt)

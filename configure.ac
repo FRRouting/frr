@@ -624,6 +624,7 @@ dnl	 [TODO] on Linux, and in [TODO] on Solaris.
   *    ) ;;
 esac
 AC_SUBST(LIBREADLINE)
+AM_CONDITIONAL(VTYSH, test "x$VTYSH" = "xvtysh")
 
 dnl ----------
 dnl PAM module
@@ -1228,36 +1229,42 @@ if test "${enable_zebra}" = "no";then
 else
   ZEBRA="zebra"
 fi
+AM_CONDITIONAL(ZEBRA, test "x$ZEBRA" = "xzebra")
 
 if test "${enable_bgpd}" = "no";then
   BGPD=""
 else
   BGPD="bgpd"
 fi
+AM_CONDITIONAL(BGPD, test "x$BGPD" = "xbgpd")
 
 if test "${enable_ripd}" = "no";then
   RIPD=""
 else
   RIPD="ripd"
 fi
+AM_CONDITIONAL(RIPD, test "x$RIPD" = "xripd")
 
 if test "${enable_ospfd}" = "no";then
   OSPFD=""
 else
   OSPFD="ospfd"
 fi
+AM_CONDITIONAL(OSPFD, test "x$OSPFD" = "xospfd")
 
 if test "${enable_babeld}" = "no";then
   BABELD=""
 else
   BABELD="babeld"
 fi
+AM_CONDITIONAL(BABELD, test "x$BABELD" = "xbabeld")
 
 if test "${enable_watchquagga}" = "no";then
   WATCHQUAGGA=""
 else
   WATCHQUAGGA="watchquagga"
 fi
+AM_CONDITIONAL(WATCHQUAGGA, test "x$WATCHQUAGGA" = "xwatchquagga")
 
 OSPFCLIENT=""
 if test "${enable_opaque_lsa}" != "no"; then
@@ -1270,24 +1277,28 @@ if test "${enable_opaque_lsa}" != "no"; then
   fi
 
 fi
+AM_CONDITIONAL(OSPFCLIENT, test "x$OSPFCLIENT" = "xospfclient")
 
 case "${enable_ripngd}" in
   "yes") RIPNGD="ripngd";;
   "no" ) RIPNGD="";;
   *    ) ;;
 esac
+AM_CONDITIONAL(RIPNGD, test "x$RIPNGD" = "xripngd")
 
 case "${enable_ospf6d}" in
   "yes") OSPF6D="ospf6d";;
   "no" ) OSPF6D="";;
   *    ) ;;
 esac
+AM_CONDITIONAL(OSPF6D, test "x$OSPF6D" = "xospf6d")
 
 case "${enable_isisd}" in
   "yes") ISISD="isisd";;
   "no" ) ISISD="";;
   *    ) ;;
 esac
+AM_CONDITIONAL(ISISD, test "x$ISISD" = "xisisd")
 
 # XXX Perhaps auto-enable on Solaris, but that's messy for cross builds.
 case "${enable_solaris}" in
