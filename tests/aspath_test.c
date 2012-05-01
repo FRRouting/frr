@@ -983,8 +983,8 @@ validate (struct aspath *as, const struct test_spec *sp)
       printf ("private check: %d %d\n", sp->private_as,
               aspath_private_as_check (as));
     }
-  aspath_unintern (asinout);
-  aspath_unintern (as4);
+  aspath_unintern (&asinout);
+  aspath_unintern (&as4);
   
   aspath_free (asconfeddel);
   aspath_free (asstr);
@@ -1030,7 +1030,7 @@ parse_test (struct test_segment *t)
   printf ("\n");
   
   if (asp)
-    aspath_unintern (asp);
+    aspath_unintern (&asp);
 }
 
 /* prepend testing */
@@ -1046,7 +1046,7 @@ prepend_test (struct tests *t)
   asp2 = make_aspath (t->test2->asdata, t->test2->len, 0);
   
   ascratch = aspath_dup (asp2);
-  aspath_unintern (asp2);
+  aspath_unintern (&asp2);
   
   asp2 = aspath_prepend (asp1, ascratch);
   
@@ -1058,7 +1058,7 @@ prepend_test (struct tests *t)
     printf ("%s!\n", FAILED);
   
   printf ("\n");
-  aspath_unintern (asp1);
+  aspath_unintern (&asp1);
   aspath_free (asp2);
 }
 
@@ -1074,7 +1074,7 @@ empty_prepend_test (struct test_segment *t)
   asp2 = aspath_empty ();
   
   ascratch = aspath_dup (asp2);
-  aspath_unintern (asp2);
+  aspath_unintern (&asp2);
   
   asp2 = aspath_prepend (asp1, ascratch);
   
@@ -1087,7 +1087,7 @@ empty_prepend_test (struct test_segment *t)
   
   printf ("\n");
   if (asp1)
-    aspath_unintern (asp1);
+    aspath_unintern (&asp1);
   aspath_free (asp2);
 }
 
@@ -1111,8 +1111,8 @@ as4_reconcile_test (struct tests *t)
     printf (FAILED "!\n");
   
   printf ("\n");
-  aspath_unintern (asp1);
-  aspath_unintern (asp2);
+  aspath_unintern (&asp1);
+  aspath_unintern (&asp2);
   aspath_free (ascratch);
 }
 
@@ -1137,8 +1137,8 @@ aggregate_test (struct tests *t)
     printf (FAILED "!\n");
   
   printf ("\n");
-  aspath_unintern (asp1);
-  aspath_unintern (asp2);
+  aspath_unintern (&asp1);
+  aspath_unintern (&asp2);
   aspath_free (ascratch);
 /*  aspath_unintern (ascratch);*/
 }
@@ -1185,8 +1185,8 @@ cmp_test ()
         printf (OK "\n");
       
       printf ("\n");
-      aspath_unintern (asp1);
-      aspath_unintern (asp2);
+      aspath_unintern (&asp1);
+      aspath_unintern (&asp2);
     }
 }
 
@@ -1218,7 +1218,7 @@ handle_attr_test (struct aspath_tests *t)
   if (ret != t->result)
     {
       printf ("bgp_attr_parse returned %d, expected %d\n", ret, t->result);
-      printf ("datalen %d\n", datalen);
+      printf ("datalen %zd\n", datalen);
       failed++;
     }
   if (ret != 0)
@@ -1240,9 +1240,9 @@ handle_attr_test (struct aspath_tests *t)
 
 out:
   if (attr.aspath)
-    aspath_unintern (attr.aspath);
+    aspath_unintern (&attr.aspath);
   if (asp)
-    aspath_unintern (asp);
+    aspath_unintern (&asp);
   return failed - initfail;
 }
 

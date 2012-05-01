@@ -438,6 +438,15 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
   int oldfailed = failed;
   struct attr attr;
   struct bgp_nlri nlri;
+  struct bgp_attr_parser_args attr_args = {
+    .peer = peer,
+    .length = t->len,
+    .total = 1,
+    .attr = &attr,
+    .type = BGP_ATTR_MP_REACH_NLRI,
+    .flags = BGP_ATTR_FLAG_OPTIONAL, 
+    .startp = BGP_INPUT_PNT (peer),
+  };
 #define RANDOM_FUZZ 35
   
   stream_reset (peer->ibuf);
@@ -447,11 +456,12 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
   stream_write (peer->ibuf, t->data, t->len);
   
   printf ("%s: %s\n", t->name, t->desc);
-
+  
+  
   if (type == BGP_ATTR_MP_REACH_NLRI)
-    ret = bgp_mp_reach_parse (peer, t->len, &attr, BGP_ATTR_FLAG_OPTIONAL, BGP_INPUT_PNT (peer), &nlri);
+    ret = bgp_mp_reach_parse (&attr_args, &nlri);
   else
-    ret = bgp_mp_unreach_parse (peer, t->len, BGP_ATTR_FLAG_OPTIONAL, BGP_INPUT_PNT (peer), &nlri);
+    ret = bgp_mp_unreach_parse (&attr_args, &nlri);
 
   if (!ret)
     {
