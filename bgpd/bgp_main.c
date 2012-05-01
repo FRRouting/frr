@@ -441,6 +441,12 @@ main (int argc, char **argv)
   if(dryrun)
     return(0);
   
+  if (bgp_socket_init ())
+    {
+      zlog_err ("BGP socket creation failed");
+      return 1;
+    }
+  
   /* Turn into daemon if daemon_mode is set. */
   if (daemon_mode && daemon (0, 0) < 0)
     {
