@@ -1,3 +1,17 @@
+Note: this file lists major user-visible changes only.
+
+* Changes in Quagga 0.99.21
+
+- [bgpd] BGP multipath support has been merged
+- [bgpd] SAFI (Multicast topology) support has been extended to propagate
+  the topology to zebra.
+- [bgpd] AS path limit functionality has been removed
+- [babeld] a new routing daemon implementing the BABEL ad-hoc mesh routing
+  protocol has been merged.
+- [isisd] a major overhaul has been picked up. Please note that isisd is
+  STILL NOT SUITABLE FOR PRODUCTION USE.
+- [*] a lot of bugs have been fixed, please refer to the git log
+
 * Changes in Quagga 0.99.10
 
 - [bgpd] 4-byte AS support added
