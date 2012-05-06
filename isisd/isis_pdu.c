@@ -442,7 +442,8 @@ process_p2p_hello (struct isis_circuit *circuit)
   hdr = (struct isis_p2p_hello_hdr *) STREAM_PNT (circuit->rcv_stream);
   pdu_len = ntohs (hdr->pdu_len);
 
-  if (pdu_len > ISO_MTU(circuit) ||
+  if (pdu_len < (ISIS_FIXED_HDR_LEN + ISIS_P2PHELLO_HDRLEN) ||
+      pdu_len > ISO_MTU(circuit) ||
       pdu_len > stream_get_endp (circuit->rcv_stream))
     {
       zlog_warn ("ISIS-Adj (%s): Rcvd P2P IIH from (%s) with "
@@ -909,7 +910,8 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   hdr.prio = stream_getc (circuit->rcv_stream);
   stream_get (hdr.lan_id, circuit->rcv_stream, ISIS_SYS_ID_LEN + 1);
 
-  if (hdr.pdu_len > ISO_MTU(circuit) ||
+  if (hdr.pdu_len < (ISIS_FIXED_HDR_LEN + ISIS_LANHELLO_HDRLEN) ||
+      hdr.pdu_len > ISO_MTU(circuit) ||
       hdr.pdu_len > stream_get_endp (circuit->rcv_stream))
     {
       zlog_warn ("ISIS-Adj (%s): Rcvd LAN IIH from (%s) with "
@@ -1202,7 +1204,7 @@ process_lsp (int level, struct isis_circuit *circuit, u_char * ssnpa)
   pdu_len = ntohs (hdr->pdu_len);
 
   /* lsp length check */
-  if (pdu_len < ISIS_LSP_HDR_LEN ||
+  if (pdu_len < (ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN) ||
       pdu_len > ISO_MTU(circuit) ||
       pdu_len > stream_get_endp (circuit->rcv_stream))
     {
@@ -1545,7 +1547,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	(struct isis_complete_seqnum_hdr *) STREAM_PNT (circuit->rcv_stream);
       stream_forward_getp (circuit->rcv_stream, ISIS_CSNP_HDRLEN);
       pdu_len = ntohs (chdr->pdu_len);
-      if (pdu_len < ISIS_CSNP_HDRLEN ||
+      if (pdu_len < (ISIS_FIXED_HDR_LEN + ISIS_CSNP_HDRLEN) ||
           pdu_len > ISO_MTU(circuit) ||
           pdu_len > stream_get_endp (circuit->rcv_stream))
 	{
@@ -1560,7 +1562,7 @@ process_snp (int snp_type, int level, struct isis_circuit *circuit,
 	(struct isis_partial_seqnum_hdr *) STREAM_PNT (circuit->rcv_stream);
       stream_forward_getp (circuit->rcv_stream, ISIS_PSNP_HDRLEN);
       pdu_len = ntohs (phdr->pdu_len);
-      if (pdu_len < ISIS_PSNP_HDRLEN ||
+      if (pdu_len < (ISIS_FIXED_HDR_LEN + ISIS_PSNP_HDRLEN) ||
           pdu_len > ISO_MTU(circuit) ||
           pdu_len > stream_get_endp (circuit->rcv_stream))
 	{
