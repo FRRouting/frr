@@ -219,13 +219,23 @@ stream_set_endp (struct stream *s, size_t pos)
 {
   STREAM_VERIFY_SANE(s);
 
-  if (!GETP_VALID (s, pos))
+  if (!ENDP_VALID(s, pos))
     {
       STREAM_BOUND_WARN (s, "set endp");
-      pos = s->endp;
+      return;
+    }
+
+  /*
+   * Make sure the current read pointer is not beyond the new endp.
+   */
+  if (s->getp > pos)
+    {
+      STREAM_BOUND_WARN(s, "set endp");
+      return;
     }
 
   s->endp = pos;
+  STREAM_VERIFY_SANE(s);
 }
 
 /* Forward pointer. */
