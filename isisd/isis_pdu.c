@@ -3033,7 +3033,19 @@ send_lsp (struct thread *thread)
     return retval;
   }
 
-  lsp = listgetdata ((node = listhead (circuit->lsp_queue)));
+  node = listhead (circuit->lsp_queue);
+
+  /*
+   * Handle case where there are no LSPs on the queue. This can
+   * happen, for instance, if an adjacency goes down before this
+   * thread gets a chance to run.
+   */
+  if (!node)
+    {
+      return retval;
+    }
+
+  lsp = listgetdata(node);
 
   /*
    * Do not send if levels do not match
