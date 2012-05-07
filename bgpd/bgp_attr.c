@@ -342,7 +342,8 @@ attr_unknown_count (void)
 unsigned int
 attrhash_key_make (void *p)
 {
-  const struct attr * attr = (struct attr *) p;
+  const struct attr *attr = (struct attr *) p;
+  const struct attr_extra *extra = attr->extra;
   uint32_t key = 0;
 #define MIX(val)	key = jhash_1word(val, key)
 
@@ -356,12 +357,12 @@ attrhash_key_make (void *p)
   key += attr->med;
   key += attr->local_pref;
   
-  if (attr->extra)
+  if (extra)
     {
-      MIX(attr->extra->aggregator_as);
-      MIX(attr->extra->aggregator_addr.s_addr);
-      MIX(attr->extra->weight);
-      MIX(attr->extra->mp_nexthop_global_in.s_addr);
+      MIX(extra->aggregator_as);
+      MIX(extra->aggregator_addr.s_addr);
+      MIX(extra->weight);
+      MIX(extra->mp_nexthop_global_in.s_addr);
     }
   
   if (attr->aspath)
@@ -369,19 +370,19 @@ attrhash_key_make (void *p)
   if (attr->community)
     MIX(community_hash_make (attr->community));
   
-  if (attr->extra)
+  if (extra)
     {
-      if (attr->extra->ecommunity)
-        MIX(ecommunity_hash_make (attr->extra->ecommunity));
-      if (attr->extra->cluster)
-        MIX(cluster_hash_key_make (attr->extra->cluster));
-      if (attr->extra->transit)
-        MIX(transit_hash_key_make (attr->extra->transit));
+      if (extra->ecommunity)
+        MIX(ecommunity_hash_make (extra->ecommunity));
+      if (extra->cluster)
+        MIX(cluster_hash_key_make (extra->cluster));
+      if (extra->transit)
+        MIX(transit_hash_key_make (extra->transit));
 
 #ifdef HAVE_IPV6
-      MIX(attr->extra->mp_nexthop_len);
-      key = jhash(attr->extra->mp_nexthop_global.s6_addr, 16, key);
-      key = jhash(attr->extra->mp_nexthop_local.s6_addr, 16, key);
+      MIX(extra->mp_nexthop_len);
+      key = jhash(extra->mp_nexthop_global.s6_addr, 16, key);
+      key = jhash(extra->mp_nexthop_local.s6_addr, 16, key);
 #endif /* HAVE_IPV6 */
     }
 
