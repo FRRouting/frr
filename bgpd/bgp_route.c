@@ -2067,8 +2067,8 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
   
   /* When peer's soft reconfiguration enabled.  Record input packet in
      Adj-RIBs-In.  */
-  if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
-      && peer != bgp->peer_self && ! soft_reconfig)
+  if (! soft_reconfig && CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SOFT_RECONFIG)
+      && peer != bgp->peer_self)
     bgp_adj_in_set (rn, peer, attr);
 
   /* Check previously received route. */
