@@ -916,6 +916,24 @@ thread_cancel_event (struct thread_master *m, void *arg)
           thread_add_unuse (m, t);
         }
     }
+
+  /* thread can be on the ready list too */
+  thread = m->ready.head;
+  while (thread)
+    {
+      struct thread *t;
+
+      t = thread;
+      thread = t->next;
+
+      if (t->arg == arg)
+        {
+          ret++;
+          thread_list_delete (&m->ready, t);
+          t->type = THREAD_UNUSED;
+          thread_add_unuse (m, t);
+        }
+    }
   return ret;
 }
 
