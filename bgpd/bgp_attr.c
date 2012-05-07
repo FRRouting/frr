@@ -319,10 +319,14 @@ bgp_attr_extra_get (struct attr *attr)
 void
 bgp_attr_dup (struct attr *new, struct attr *orig)
 {
+  struct attr_extra *extra = new->extra;
+
   *new = *orig;
   if (orig->extra)
     {
-      new->extra = bgp_attr_extra_new();
+      /* if caller provided attr_extra space use it */
+      if (! extra)
+        new->extra = bgp_attr_extra_new();
       *new->extra = *orig->extra;
     }
 }
