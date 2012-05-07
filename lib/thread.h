@@ -62,6 +62,9 @@ struct thread_master
 
 typedef unsigned char thread_type;
 
+/* ISO C99 maximum function name length is 63 */
+#define FUNCNAME_LEN	64
+
 /* Thread itself. */
 struct thread
 {
@@ -79,13 +82,12 @@ struct thread
   } u;
   struct timeval real;
   struct cpu_thread_history *hist; /* cache pointer to cpu_history */
-  char* funcname;
+  char funcname[FUNCNAME_LEN];
 };
 
 struct cpu_thread_history 
 {
   int (*func)(struct thread *);
-  char *funcname;
   unsigned int total_calls;
   struct time_stats
   {
@@ -95,6 +97,7 @@ struct cpu_thread_history
   struct time_stats cpu;
 #endif
   thread_type types;
+  char funcname[FUNCNAME_LEN];
 };
 
 /* Clocks supported by Quagga */

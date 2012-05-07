@@ -21,7 +21,6 @@ struct memory_list memory_list_lib[] =
   { MTYPE_THREAD,		"Thread"			},
   { MTYPE_THREAD_MASTER,	"Thread master"			},
   { MTYPE_THREAD_STATS,		"Thread stats"			},
-  { MTYPE_THREAD_FUNCNAME,	"Thread function name" 		},
   { MTYPE_VTY,			"VTY"				},
   { MTYPE_VTY_OUT_BUF,		"VTY output buffer"		},
   { MTYPE_VTY_HIST,		"VTY history"			},
