@@ -2455,7 +2455,7 @@ bgp_default_originate (struct peer *peer, afi_t afi, safi_t safi, int withdraw)
 {
   struct bgp *bgp;
   struct attr attr;
-  struct aspath *aspath = { 0 };
+  struct aspath *aspath;
   struct prefix p;
   struct bgp_info binfo;
   struct peer *from;
