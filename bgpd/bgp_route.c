@@ -447,17 +447,17 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     }
 
   /* 7. Peer type check. */
-  if (peer_sort (new->peer) == BGP_PEER_EBGP 
-      && peer_sort (exist->peer) == BGP_PEER_IBGP)
+  if (new->peer->sort == BGP_PEER_EBGP
+      && exist->peer->sort == BGP_PEER_IBGP)
     return 1;
-  if (peer_sort (new->peer) == BGP_PEER_EBGP 
-      && peer_sort (exist->peer) == BGP_PEER_CONFED)
+  if (new->peer->sort == BGP_PEER_EBGP
+      && exist->peer->sort == BGP_PEER_CONFED)
     return 1;
-  if (peer_sort (new->peer) == BGP_PEER_IBGP 
-      && peer_sort (exist->peer) == BGP_PEER_EBGP)
+  if (new->peer->sort == BGP_PEER_IBGP
+      && exist->peer->sort == BGP_PEER_EBGP)
     return 0;
-  if (peer_sort (new->peer) == BGP_PEER_CONFED 
-      && peer_sort (exist->peer) == BGP_PEER_EBGP)
+  if (new->peer->sort == BGP_PEER_CONFED
+      && exist->peer->sort == BGP_PEER_EBGP)
     return 0;
 
   /* 8. IGP metric check. */
@@ -471,7 +471,7 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   /* 9. Maximum path check. */
   if (newm == existm)
     {
-      if ((peer_sort (new->peer) == BGP_PEER_IBGP))
+      if (new->peer->sort == BGP_PEER_IBGP)
 	{
 	  if (aspath_cmp (new->attr->aspath, exist->attr->aspath))
 	    *paths_eq = 1;
@@ -493,8 +493,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
      newer path won't displace an older one, even if it was the
      preferred route based on the additional decision criteria below.  */
   if (! bgp_flag_check (bgp, BGP_FLAG_COMPARE_ROUTER_ID)
-      && peer_sort (new->peer) == BGP_PEER_EBGP
-      && peer_sort (exist->peer) == BGP_PEER_EBGP)
+      && new->peer->sort == BGP_PEER_EBGP
+      && exist->peer->sort == BGP_PEER_EBGP)
     {
       if (CHECK_FLAG (new->flags, BGP_INFO_SELECTED))
 	return 1;
@@ -632,13 +632,13 @@ bgp_community_filter (struct peer *peer, struct attr *attr)
 	return 1;
 
       /* NO_EXPORT check. */
-      if (peer_sort (peer) == BGP_PEER_EBGP &&
+      if (peer->sort == BGP_PEER_EBGP &&
 	  community_include (attr->community, COMMUNITY_NO_EXPORT))
 	return 1;
 
       /* NO_EXPORT_SUBCONFED check. */
-      if (peer_sort (peer) == BGP_PEER_EBGP 
-	  || peer_sort (peer) == BGP_PEER_CONFED)
+      if (peer->sort == BGP_PEER_EBGP
+	  || peer->sort == BGP_PEER_CONFED)
 	if (community_include (attr->community, COMMUNITY_NO_EXPORT_SUBCONFED))
 	  return 1;
     }
@@ -905,7 +905,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
     }
 
   /* Route-Reflect check. */
-  if (peer_sort (from) == BGP_PEER_IBGP && peer_sort (peer) == BGP_PEER_IBGP)
+  if (from->sort == BGP_PEER_IBGP && peer->sort == BGP_PEER_IBGP)
     reflect = 1;
   else
     reflect = 0;
@@ -937,8 +937,8 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
   bgp_attr_dup (attr, riattr);
   
   /* If local-preference is not set. */
-  if ((peer_sort (peer) == BGP_PEER_IBGP 
-       || peer_sort (peer) == BGP_PEER_CONFED) 
+  if ((peer->sort == BGP_PEER_IBGP
+       || peer->sort == BGP_PEER_CONFED)
       && (! (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF))))
     {
       attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF);
@@ -946,7 +946,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
     }
 
   /* Remove MED if its an EBGP peer - will get overwritten by route-maps */
-  if (peer_sort (peer) == BGP_PEER_EBGP 
+  if (peer->sort == BGP_PEER_EBGP
       && attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))
     {
       if (ri->peer != bgp->peer_self && ! transparent
@@ -972,7 +972,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 	   || (p->family == AF_INET6 && 
                IN6_IS_ADDR_UNSPECIFIED(&attr->extra->mp_nexthop_global))
 #endif /* HAVE_IPV6 */
-	   || (peer_sort (peer) == BGP_PEER_EBGP
+	   || (peer->sort == BGP_PEER_EBGP
 	       && bgp_multiaccess_check_v4 (attr->nexthop, peer->host) == 0))
     {
       /* Set IPv4 nexthop. */
@@ -1038,7 +1038,7 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 #endif /* HAVE_IPV6 */
 
   /* If this is EBGP peer and remove-private-AS is set.  */
-  if (peer_sort (peer) == BGP_PEER_EBGP
+  if (peer->sort == BGP_PEER_EBGP
       && peer_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS)
       && aspath_private_as_check (attr->aspath))
     attr->aspath = aspath_empty_get ();
@@ -1055,8 +1055,8 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
 
       /* The route reflector is not allowed to modify the attributes
 	 of the reflected IBGP routes. */
-      if (peer_sort (from) == BGP_PEER_IBGP 
-	  && peer_sort (peer) == BGP_PEER_IBGP)
+      if (from->sort == BGP_PEER_IBGP
+	  && peer->sort == BGP_PEER_IBGP)
 	{
 	  bgp_attr_dup (&dummy_attr, attr);
 	  info.attr = &dummy_attr;
@@ -1253,7 +1253,7 @@ bgp_announce_check_rsclient (struct bgp_info *ri, struct peer *rsclient,
 
 
   /* If this is EBGP peer and remove-private-AS is set.  */
-  if (peer_sort (rsclient) == BGP_PEER_EBGP
+  if (rsclient->sort == BGP_PEER_EBGP
       && peer_af_flag_check (rsclient, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS)
       && aspath_private_as_check (attr->aspath))
     attr->aspath = aspath_empty_get ();
@@ -1809,7 +1809,7 @@ bgp_rib_withdraw (struct bgp_node *rn, struct bgp_info *ri, struct peer *peer,
    * the bgp_info in the RIB for historical reference.
    */
   if (CHECK_FLAG (peer->bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
-      && peer_sort (peer) == BGP_PEER_EBGP)
+      && peer->sort == BGP_PEER_EBGP)
     if ( (status = bgp_damp_withdraw (ri, rn, afi, safi, 0)) 
          == BGP_DAMP_SUPPRESSED)
       {
@@ -2137,7 +2137,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
     {
       /* If the peer is EBGP and nexthop is not on connected route,
 	 discard it.  */
-      if (peer_sort (peer) == BGP_PEER_EBGP && peer->ttl == 1
+      if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1
 	  && ! bgp_nexthop_onlink (afi, &new_attr)
 	  && ! CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
 	{
@@ -2170,7 +2170,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	  bgp_info_unset_flag (rn, ri, BGP_INFO_ATTR_CHANGED);
 
 	  if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
-	      && peer_sort (peer) == BGP_PEER_EBGP
+	      && peer->sort == BGP_PEER_EBGP
 	      && CHECK_FLAG (ri->flags, BGP_INFO_HISTORY))
 	    {
 	      if (BGP_DEBUG (update, UPDATE_IN))  
@@ -2241,7 +2241,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
       
       /* Update bgp route dampening information.  */
       if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
-	  && peer_sort (peer) == BGP_PEER_EBGP)
+	  && peer->sort == BGP_PEER_EBGP)
 	{
 	  /* This is implicit withdraw so we should update dampening
 	     information.  */
@@ -2259,7 +2259,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 
       /* Update bgp route dampening information.  */
       if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
-	  && peer_sort (peer) == BGP_PEER_EBGP)
+	  && peer->sort == BGP_PEER_EBGP)
 	{
 	  /* Now we do normal update dampening.  */
 	  ret = bgp_damp_update (ri, rn, afi, safi);
@@ -2274,9 +2274,9 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
       /* Nexthop reachability check. */
       if ((afi == AFI_IP || afi == AFI_IP6)
 	  && safi == SAFI_UNICAST 
-	  && (peer_sort (peer) == BGP_PEER_IBGP
-              || peer_sort (peer) == BGP_PEER_CONFED
-	      || (peer_sort (peer) == BGP_PEER_EBGP && peer->ttl != 1)
+	  && (peer->sort == BGP_PEER_IBGP
+              || peer->sort == BGP_PEER_CONFED
+	      || (peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
 	      || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)))
 	{
 	  if (bgp_nexthop_lookup (afi, peer, ri, NULL, NULL))
@@ -2321,9 +2321,9 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
   /* Nexthop reachability check. */
   if ((afi == AFI_IP || afi == AFI_IP6)
       && safi == SAFI_UNICAST
-      && (peer_sort (peer) == BGP_PEER_IBGP
-          || peer_sort (peer) == BGP_PEER_CONFED
-	  || (peer_sort (peer) == BGP_PEER_EBGP && peer->ttl != 1)
+      && (peer->sort == BGP_PEER_IBGP
+          || peer->sort == BGP_PEER_CONFED
+	  || (peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
 	  || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)))
     {
       if (bgp_nexthop_lookup (afi, peer, new, NULL, NULL))
@@ -11794,7 +11794,7 @@ bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, struct bgp *bgp)
 	}
     }
 
-  if (peer_sort (peer) == BGP_PEER_EBGP)
+  if (peer->sort == BGP_PEER_EBGP)
     {
       if (bgp->distance_ebgp)
 	return bgp->distance_ebgp;

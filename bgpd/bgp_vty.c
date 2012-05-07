@@ -4340,7 +4340,7 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
     {
       for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
-	  if (peer_sort (peer) == BGP_PEER_IBGP) 
+	  if (peer->sort == BGP_PEER_IBGP)
 	    continue;
 
 	  if (stype == BGP_CLEAR_SOFT_NONE)
@@ -7781,7 +7781,7 @@ bgp_show_peer (struct vty *vty, struct peer *p)
     }
 
   /* EBGP Multihop and GTSM */
-  if (peer_sort (p) != BGP_PEER_IBGP)
+  if (p->sort != BGP_PEER_IBGP)
     {
       if (p->gtsm_hops > 0)
 	vty_out (vty, "  External BGP neighbor may be up to %d hops away.%s",

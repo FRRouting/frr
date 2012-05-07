@@ -259,6 +259,16 @@ struct bgp_filter
   } usmap;
 };
 
+/* IBGP/EBGP identifier.  We also have a CONFED peer, which is to say,
+   a peer who's AS is part of our Confederation.  */
+typedef enum
+{
+  BGP_PEER_IBGP = 1,
+  BGP_PEER_EBGP,
+  BGP_PEER_INTERNAL,
+  BGP_PEER_CONFED,
+} bgp_peer_sort_t;
+
 /* BGP neighbor structure. */
 struct peer
 {
@@ -281,6 +291,8 @@ struct peer
 
   /* Peer's local AS number. */
   as_t local_as;
+
+  bgp_peer_sort_t sort;
 
   /* Peer's Change local AS number. */
   as_t change_local_as;
@@ -749,16 +761,6 @@ struct bgp_nlri
 /* Check AS path loop when we send NLRI.  */
 /* #define BGP_SEND_ASPATH_CHECK */
 
-/* IBGP/EBGP identifier.  We also have a CONFED peer, which is to say,
-   a peer who's AS is part of our Confederation.  */
-enum
-{
-  BGP_PEER_IBGP,
-  BGP_PEER_EBGP,
-  BGP_PEER_INTERNAL,
-  BGP_PEER_CONFED
-};
-
 /* Flag for peer_clear_soft().  */
 enum bgp_clear_type
 {
@@ -833,7 +835,7 @@ extern struct peer *peer_lookup_with_open (union sockunion *, as_t, struct in_ad
 				    int *);
 extern struct peer *peer_lock (struct peer *);
 extern struct peer *peer_unlock (struct peer *);
-extern int peer_sort (struct peer *peer);
+extern bgp_peer_sort_t peer_sort (struct peer *peer);
 extern int peer_active (struct peer *);
 extern int peer_active_nego (struct peer *);
 extern struct peer *peer_create_accept (struct bgp *);

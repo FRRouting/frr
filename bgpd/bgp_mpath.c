@@ -420,7 +420,7 @@ bgp_info_mpath_update (struct bgp_node *rn, struct bgp_info *new_best,
       mpath_count++;
       if (new_best != old_best)
         bgp_info_mpath_dequeue (new_best);
-      maxpaths = (peer_sort (new_best->peer) == BGP_PEER_IBGP) ?
+      maxpaths = (new_best->peer->sort == BGP_PEER_IBGP) ?
         mpath_cfg->maxpaths_ibgp : mpath_cfg->maxpaths_ebgp;
     }
 

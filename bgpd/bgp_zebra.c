@@ -664,13 +664,13 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp, sa
   flags = 0;
   peer = info->peer;
 
-  if (peer_sort (peer) == BGP_PEER_IBGP || peer_sort (peer) == BGP_PEER_CONFED)
+  if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED)
     {
       SET_FLAG (flags, ZEBRA_FLAG_IBGP);
       SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
     }
 
-  if ((peer_sort (peer) == BGP_PEER_EBGP && peer->ttl != 1)
+  if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
       || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
     SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
 
@@ -828,13 +828,13 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
   peer = info->peer;
   flags = 0;
 
-  if (peer_sort (peer) == BGP_PEER_IBGP)
+  if (peer->sort == BGP_PEER_IBGP)
     {
       SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
       SET_FLAG (flags, ZEBRA_FLAG_IBGP);
     }
 
-  if ((peer_sort (peer) == BGP_PEER_EBGP && peer->ttl != 1)
+  if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
       || CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
     SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
 

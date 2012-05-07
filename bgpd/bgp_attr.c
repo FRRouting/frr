@@ -722,7 +722,7 @@ bgp_attr_malformed (struct bgp_attr_parser_args *args, u_char subcode,
   u_char *notify_datap = (length > 0 ? args->startp : NULL);
   
   /* Only relax error handling for eBGP peers */
-  if (peer_sort (peer) != BGP_PEER_EBGP)
+  if (peer->sort != BGP_PEER_EBGP)
     {
       bgp_notify_send_with_data (peer, BGP_NOTIFY_UPDATE_ERR, subcode,
                                  notify_datap, length);
@@ -996,11 +996,9 @@ bgp_attr_aspath_check (struct peer *const peer, struct attr *const attr)
   struct bgp *bgp = peer->bgp;
   struct aspath *aspath;
 
-  bgp = peer->bgp;
-    
   /* Confederation sanity check. */
-  if ((peer_sort (peer) == BGP_PEER_CONFED && ! aspath_left_confed_check (attr->aspath)) ||
-     (peer_sort (peer) == BGP_PEER_EBGP && aspath_confed_check (attr->aspath)))
+  if ((peer->sort == BGP_PEER_CONFED && ! aspath_left_confed_check (attr->aspath)) ||
+     (peer->sort == BGP_PEER_EBGP && aspath_confed_check (attr->aspath)))
     {
       zlog (peer->log, LOG_ERR, "Malformed AS path from %s", peer->host);
       bgp_notify_send (peer, BGP_NOTIFY_UPDATE_ERR,
@@ -1011,7 +1009,7 @@ bgp_attr_aspath_check (struct peer *const peer, struct attr *const attr)
   /* First AS check for EBGP. */
   if (bgp != NULL && bgp_flag_check (bgp, BGP_FLAG_ENFORCE_FIRST_AS))
     {
-      if (peer_sort (peer) == BGP_PEER_EBGP 
+      if (peer->sort == BGP_PEER_EBGP
 	  && ! aspath_firstas_check (attr->aspath, peer->as))
  	{
  	  zlog (peer->log, LOG_ERR,
@@ -1155,7 +1153,7 @@ bgp_attr_local_pref (struct bgp_attr_parser_args *args)
   /* If it is contained in an UPDATE message that is received from an
      external peer, then this attribute MUST be ignored by the
      receiving speaker. */
-  if (peer_sort (peer) == BGP_PEER_EBGP)
+  if (peer->sort == BGP_PEER_EBGP)
     {
       stream_forward_getp (peer->ibuf, length);
       return BGP_ATTR_PARSE_PROCEED;
@@ -2020,7 +2018,7 @@ bgp_attr_check (struct peer *peer, struct attr *attr)
   if (! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP)))
     type = BGP_ATTR_NEXT_HOP;
 
-  if (peer_sort (peer) == BGP_PEER_IBGP
+  if (peer->sort == BGP_PEER_IBGP
       && ! CHECK_FLAG (attr->flag, ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF)))
     type = BGP_ATTR_LOCAL_PREF;
 
@@ -2069,7 +2067,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   /* AS path attribute. */
 
   /* If remote-peer is EBGP */
-  if (peer_sort (peer) == BGP_PEER_EBGP
+  if (peer->sort == BGP_PEER_EBGP
       && (! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED)
 	  || attr->aspath->segments == NULL)
       && (! CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_RSERVER_CLIENT)))
@@ -2090,7 +2088,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 	    aspath = aspath_add_seq (aspath, peer->change_local_as);
 	}
     }
-  else if (peer_sort (peer) == BGP_PEER_CONFED)
+  else if (peer->sort == BGP_PEER_CONFED)
     {
       /* A confed member, so we need to do the AS_CONFED_SEQUENCE thing */
       aspath = aspath_dup (attr->aspath);
@@ -2147,8 +2145,8 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     }
 
   /* Local preference. */
-  if (peer_sort (peer) == BGP_PEER_IBGP ||
-      peer_sort (peer) == BGP_PEER_CONFED)
+  if (peer->sort == BGP_PEER_IBGP ||
+      peer->sort == BGP_PEER_CONFED)
     {
       stream_putc (s, BGP_ATTR_FLAG_TRANS);
       stream_putc (s, BGP_ATTR_LOCAL_PREF);
@@ -2221,9 +2219,9 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
     }
 
   /* Route Reflector. */
-  if (peer_sort (peer) == BGP_PEER_IBGP
+  if (peer->sort == BGP_PEER_IBGP
       && from
-      && peer_sort (from) == BGP_PEER_IBGP)
+      && from->sort == BGP_PEER_IBGP)
     {
       /* Originator ID. */
       stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
@@ -2359,8 +2357,8 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       
       assert (attre);
       
-      if (peer_sort (peer) == BGP_PEER_IBGP 
-          || peer_sort (peer) == BGP_PEER_CONFED)
+      if (peer->sort == BGP_PEER_IBGP
+          || peer->sort == BGP_PEER_CONFED)
 	{
 	  if (attre->ecommunity->size * 8 > 255)
 	    {
