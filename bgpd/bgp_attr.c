@@ -652,30 +652,31 @@ bgp_attr_unintern_sub (struct attr *attr)
 
 /* Free bgp attribute and aspath. */
 void
-bgp_attr_unintern (struct attr **attr)
+bgp_attr_unintern (struct attr **pattr)
 {
+  struct attr *attr = *pattr;
   struct attr *ret;
   struct attr tmp;
   
   /* Decrement attribute reference. */
-  (*attr)->refcnt--;
+  attr->refcnt--;
   
-  tmp = *(*attr);
+  tmp = *attr;
   
-  if ((*attr)->extra)
+  if (attr->extra)
     {
       tmp.extra = bgp_attr_extra_new ();
-      memcpy (tmp.extra, (*attr)->extra, sizeof (struct attr_extra));
+      memcpy (tmp.extra, attr->extra, sizeof (struct attr_extra));
     }
   
   /* If reference becomes zero then free attribute object. */
-  if ((*attr)->refcnt == 0)
-    {    
-      ret = hash_release (attrhash, *attr);
+  if (attr->refcnt == 0)
+    {
+      ret = hash_release (attrhash, attr);
       assert (ret != NULL);
-      bgp_attr_extra_free (*attr);
-      XFREE (MTYPE_ATTR, *attr);
-      *attr = NULL;
+      bgp_attr_extra_free (attr);
+      XFREE (MTYPE_ATTR, attr);
+      *pattr = NULL;
     }
 
   bgp_attr_unintern_sub (&tmp);
