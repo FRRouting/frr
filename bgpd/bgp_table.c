@@ -289,16 +289,18 @@ struct bgp_node *
 bgp_node_lookup (const struct bgp_table *table, struct prefix *p)
 {
   struct bgp_node *node;
+  u_char prefixlen = p->prefixlen;
+  const u_char *prefix = &p->u.prefix;
 
   node = table->top;
 
-  while (node && node->p.prefixlen <= p->prefixlen && 
+  while (node && node->p.prefixlen <= prefixlen &&
 	 prefix_match (&node->p, p))
     {
-      if (node->p.prefixlen == p->prefixlen && node->info)
+      if (node->p.prefixlen == prefixlen && node->info)
 	return bgp_lock_node (node);
 
-      node = node->link[prefix_bit(&p->u.prefix, node->p.prefixlen)];
+      node = node->link[prefix_bit(prefix, node->p.prefixlen)];
     }
 
   return NULL;
@@ -311,19 +313,21 @@ bgp_node_get (struct bgp_table *const table, struct prefix *p)
   struct bgp_node *new;
   struct bgp_node *node;
   struct bgp_node *match;
+  u_char prefixlen = p->prefixlen;
+  const u_char *prefix = &p->u.prefix;
 
   match = NULL;
   node = table->top;
-  while (node && node->p.prefixlen <= p->prefixlen && 
+  while (node && node->p.prefixlen <= prefixlen &&
 	 prefix_match (&node->p, p))
     {
-      if (node->p.prefixlen == p->prefixlen)
+      if (node->p.prefixlen == prefixlen)
 	{
 	  bgp_lock_node (node);
 	  return node;
 	}
       match = node;
-      node = node->link[prefix_bit(&p->u.prefix, node->p.prefixlen)];
+      node = node->link[prefix_bit(prefix, node->p.prefixlen)];
     }
 
   if (node == NULL)
@@ -347,7 +351,7 @@ bgp_node_get (struct bgp_table *const table, struct prefix *p)
       else
 	table->top = new;
 
-      if (new->p.prefixlen != p->prefixlen)
+      if (new->p.prefixlen != prefixlen)
 	{
 	  match = new;
 	  new = bgp_node_set (table, p);
