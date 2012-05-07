@@ -2810,9 +2810,6 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
       struct bgp_info *ri;
       struct bgp_adj_in *ain;
       struct bgp_adj_out *aout;
-      
-      if (rn->info == NULL)
-        continue;
 
       /* XXX:TODO: This is suboptimal, every non-empty route_node is
        * queued for every clearing peer, regardless of whether it is
