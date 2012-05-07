@@ -394,16 +394,19 @@ community_str (struct community *com)
 unsigned int
 community_hash_make (struct community *com)
 {
+  unsigned char *pnt = (unsigned char *)com->val;
+  int size = com->size * 4;
+  unsigned int key = 0;
   int c;
-  unsigned int key;
-  unsigned char *pnt;
 
-  key = 0;
-  pnt = (unsigned char *)com->val;
-  
-  for(c = 0; c < com->size * 4; c++)
-    key += pnt[c];
-      
+  for (c = 0; c < size; c += 4)
+    {
+      key += pnt[c];
+      key += pnt[c + 1];
+      key += pnt[c + 2];
+      key += pnt[c + 3];
+    }
+
   return key;
 }
 

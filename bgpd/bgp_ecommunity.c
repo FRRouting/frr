@@ -233,15 +233,22 @@ unsigned int
 ecommunity_hash_make (void *arg)
 {
   const struct ecommunity *ecom = arg;
+  int size = ecom->size * ECOMMUNITY_SIZE;
+  u_int8_t *pnt = ecom->val;
+  unsigned int key = 0;
   int c;
-  unsigned int key;
-  u_int8_t *pnt;
 
-  key = 0;
-  pnt = ecom->val;
-  
-  for (c = 0; c < ecom->size * ECOMMUNITY_SIZE; c++)
-    key += pnt[c];
+  for (c = 0; c < size; c += ECOMMUNITY_SIZE)
+    {
+      key += pnt[c];
+      key += pnt[c + 1];
+      key += pnt[c + 2];
+      key += pnt[c + 3];
+      key += pnt[c + 4];
+      key += pnt[c + 5];
+      key += pnt[c + 6];
+      key += pnt[c + 7];
+    }
 
   return key;
 }
