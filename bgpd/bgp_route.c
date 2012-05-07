@@ -2465,7 +2465,7 @@ void
 bgp_default_originate (struct peer *peer, afi_t afi, safi_t safi, int withdraw)
 {
   struct bgp *bgp;
-  struct attr attr = { 0 };
+  struct attr attr;
   struct aspath *aspath = { 0 };
   struct prefix p;
   struct bgp_info binfo;
@@ -3270,8 +3270,8 @@ bgp_static_update_rsclient (struct peer *rsclient, struct prefix *p,
   struct bgp_info *new;
   struct bgp_info info;
   struct attr *attr_new;
-  struct attr attr = {0 };
-  struct attr new_attr = { .extra = 0 };
+  struct attr attr;
+  struct attr new_attr = { 0 };
   struct bgp *bgp;
   int ret;
   char buf[SU_ADDRSTRLEN];
@@ -3423,7 +3423,7 @@ bgp_static_update_main (struct bgp *bgp, struct prefix *p,
   struct bgp_info *ri;
   struct bgp_info *new;
   struct bgp_info info;
-  struct attr attr = { 0 };
+  struct attr attr;
   struct attr *attr_new;
   int ret;
 
@@ -5352,7 +5352,7 @@ bgp_redistribute_add (struct prefix *p, const struct in_addr *nexthop,
   struct bgp_info *bi;
   struct bgp_info info;
   struct bgp_node *bn;
-  struct attr attr = { 0 };
+  struct attr attr;
   struct attr attr_new = { 0 };
   struct attr *new_attr;
   afi_t afi;
