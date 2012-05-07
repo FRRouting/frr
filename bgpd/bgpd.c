@@ -5358,6 +5358,7 @@ bgp_init (void)
   bgp_dump_init ();
   bgp_route_init ();
   bgp_route_map_init ();
+  bgp_address_init ();
   bgp_scan_init ();
   bgp_mplsvpn_init ();
 

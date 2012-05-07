@@ -2147,9 +2147,9 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 
       /* Next hop must not be 0.0.0.0 nor Class D/E address. Next hop
 	 must not be my own address.  */
-      if (bgp_nexthop_self (afi, &new_attr)
-	  || new_attr.nexthop.s_addr == 0
-	  || IPV4_CLASS_DE (ntohl (new_attr.nexthop.s_addr)))
+      if (new_attr.nexthop.s_addr == 0
+	  || IPV4_CLASS_DE (ntohl (new_attr.nexthop.s_addr))
+	  || bgp_nexthop_self (&new_attr))
 	{
 	  reason = "martian next-hop;";
 	  goto filtered;
