@@ -91,16 +91,11 @@ static struct hash *ashash;
 /* Stream for SNMP. See aspath_snmp_pathseg */
 static struct stream *snmp_stream;
 
+/* Callers are required to initialize the memory */
 static as_t *
 assegment_data_new (int num)
 {
-  return (XCALLOC (MTYPE_AS_SEG_DATA, ASSEGMENT_DATA_SIZE (num, 1)));
-}
-
-static void
-assegment_data_free (as_t *asdata)
-{
-  XFREE (MTYPE_AS_SEG_DATA,asdata);
+  return (XMALLOC (MTYPE_AS_SEG_DATA, ASSEGMENT_DATA_SIZE (num, 1)));
 }
 
 /* Get a new segment. Note that 0 is an allowed length,
@@ -191,6 +186,7 @@ static struct assegment *
 assegment_prepend_asns (struct assegment *seg, as_t asnum, int num)
 {
   as_t *newas;
+  int i;
   
   if (!num)
     return seg;
@@ -199,22 +195,16 @@ assegment_prepend_asns (struct assegment *seg, as_t asnum, int num)
     return seg; /* we don't do huge prepends */
   
   newas = assegment_data_new (seg->length + num);
-  
-  if (newas)
-    {
-      int i;
-      for (i = 0; i < num; i++)
-        newas[i] = asnum;
-      
-      memcpy (newas + num, seg->as, ASSEGMENT_DATA_SIZE (seg->length, 1));
-      XFREE (MTYPE_AS_SEG_DATA, seg->as);
-      seg->as = newas; 
-      seg->length += num;
-      return seg;
-    }
 
-  assegment_free_all (seg);
-  return NULL;
+  for (i = 0; i < num; i++)
+    newas[i] = asnum;
+
+  memcpy (newas + num, seg->as, ASSEGMENT_DATA_SIZE (seg->length, 1));
+  XFREE (MTYPE_AS_SEG_DATA, seg->as);
+  seg->as = newas;
+  seg->length += num;
+
+  return seg;
 }
 
 /* append given array of as numbers to the segment */
@@ -504,7 +494,7 @@ aspath_has_as4 (struct aspath *aspath)
 }
 
 /* Convert aspath structure to string expression. */
-static char *
+static void
 aspath_make_str_count (struct aspath *as)
 {
   struct assegment *seg;
@@ -515,9 +505,10 @@ aspath_make_str_count (struct aspath *as)
   /* Empty aspath. */
   if (!as->segments)
     {
-      str_buf = XMALLOC (MTYPE_AS_STR, 1);
-      str_buf[0] = '\0';
-      return str_buf;
+      as->str = XMALLOC (MTYPE_AS_STR, 1);
+      as->str[0] = '\0';
+      as->str_len = 0;
+      return;
     }
   
   seg = as->segments;
@@ -554,7 +545,9 @@ aspath_make_str_count (struct aspath *as)
             break;
           default:
             XFREE (MTYPE_AS_STR, str_buf);
-            return NULL;
+            as->str = NULL;
+            as->str_len = 0;
+            return;
         }
       
       /* We might need to increase str_buf, particularly if path has
@@ -601,8 +594,10 @@ aspath_make_str_count (struct aspath *as)
   assert (len < str_size);
   
   str_buf[len] = '\0';
+  as->str = str_buf;
+  as->str_len = len;
 
-  return str_buf;
+  return;
 }
 
 static void
@@ -610,7 +605,7 @@ aspath_str_update (struct aspath *as)
 {
   if (as->str)
     XFREE (MTYPE_AS_STR, as->str);
-  as->str = aspath_make_str_count (as);
+  aspath_make_str_count (as);
 }
 
 /* Intern allocated AS path. */
@@ -618,20 +613,18 @@ struct aspath *
 aspath_intern (struct aspath *aspath)
 {
   struct aspath *find;
-  
-  /* Assert this AS path structure is not interned. */
+
+  /* Assert this AS path structure is not interned and has the string
+     representation built. */
   assert (aspath->refcnt == 0);
+  assert (aspath->str);
 
   /* Check AS path hash. */
   find = hash_get (ashash, aspath, hash_alloc_intern);
-
   if (find != aspath)
     aspath_free (aspath);
 
   find->refcnt++;
-
-  if (! find->str)
-    find->str = aspath_make_str_count (find);
 
   return find;
 }
@@ -641,16 +634,25 @@ aspath_intern (struct aspath *aspath)
 struct aspath *
 aspath_dup (struct aspath *aspath)
 {
+  unsigned short buflen = aspath->str_len + 1;
   struct aspath *new;
 
   new = XCALLOC (MTYPE_AS_PATH, sizeof (struct aspath));
 
   if (aspath->segments)
     new->segments = assegment_dup_all (aspath->segments);
-  else
-    new->segments = NULL;
 
-  new->str = aspath_make_str_count (aspath);
+  if (!aspath->str)
+    return new;
+
+  new->str = XMALLOC (MTYPE_AS_STR, buflen);
+  new->str_len = aspath->str_len;
+
+  /* copy the string data */
+  if (aspath->str_len > 0)
+    memcpy (new->str, aspath->str, buflen);
+  else
+    new->str[0] = '\0';
 
   return new;
 }
@@ -658,19 +660,24 @@ aspath_dup (struct aspath *aspath)
 static void *
 aspath_hash_alloc (void *arg)
 {
-  struct aspath *aspath;
+  const struct aspath *aspath = arg;
+  struct aspath *new;
+
+  /* Malformed AS path value. */
+  assert (aspath->str);
+  if (! aspath->str)
+    return NULL;
 
   /* New aspath structure is needed. */
-  aspath = aspath_dup (arg);
-  
-  /* Malformed AS path value. */
-  if (! aspath->str)
-    {
-      aspath_free (aspath);
-      return NULL;
-    }
+  new = XMALLOC (MTYPE_AS_PATH, sizeof (struct aspath));
 
-  return aspath;
+  /* Reuse segments and string representation */
+  new->refcnt = 0;
+  new->segments = aspath->segments;
+  new->str = aspath->str;
+  new->str_len = aspath->str_len;
+
+  return new;
 }
 
 /* parse as-segment byte stream in struct assegment */
@@ -794,19 +801,21 @@ aspath_parse (struct stream *s, size_t length, int use32bit)
   memset (&as, 0, sizeof (struct aspath));
   if (assegments_parse (s, length, &as.segments, use32bit) < 0)
     return NULL;
-  
+
   /* If already same aspath exist then return it. */
   find = hash_get (ashash, &as, aspath_hash_alloc);
-  
-  /* aspath_hash_alloc dupes segments too. that probably could be
-   * optimised out.
-   */
-  assegment_free_all (as.segments);
-  if (as.str)
-    XFREE (MTYPE_AS_STR, as.str);
-  
-  if (! find)
-    return NULL;
+
+  /* bug! should not happen, let the daemon crash below */
+  assert (find);
+
+  /* if the aspath was already hashed free temporary memory. */
+  if (find->refcnt)
+    {
+      assegment_free_all (as.segments);
+      /* aspath_key_make() always updates the string */
+      XFREE (MTYPE_AS_STR, as.str);
+    }
+
   find->refcnt++;
 
   return find;
@@ -1400,8 +1409,8 @@ aspath_add_seq (struct aspath *aspath, as_t asno)
 int
 aspath_cmp_left (const struct aspath *aspath1, const struct aspath *aspath2)
 {
-  const struct assegment *seg1 = NULL;
-  const struct assegment *seg2 = NULL;
+  const struct assegment *seg1;
+  const struct assegment *seg2;
 
   if (!(aspath1 && aspath2))
     return 0;
@@ -1639,7 +1648,7 @@ aspath_empty_get (void)
   struct aspath *aspath;
 
   aspath = aspath_new ();
-  aspath->str = aspath_make_str_count (aspath);
+  aspath_make_str_count (aspath);
   return aspath;
 }
 
@@ -1798,7 +1807,7 @@ aspath_str2aspath (const char *str)
 	}
     }
 
-  aspath->str = aspath_make_str_count (aspath);
+  aspath_make_str_count (aspath);
 
   return aspath;
 }
@@ -1807,13 +1816,13 @@ aspath_str2aspath (const char *str)
 unsigned int
 aspath_key_make (void *p)
 {
-  struct aspath * aspath = (struct aspath *) p;
+  struct aspath *aspath = (struct aspath *) p;
   unsigned int key = 0;
 
   if (!aspath->str)
     aspath_str_update (aspath);
-  
-  key = jhash (aspath->str, strlen(aspath->str), 2334325);
+
+  key = jhash (aspath->str, aspath->str_len, 2334325);
 
   return key;
 }
@@ -1876,7 +1885,7 @@ aspath_print_vty (struct vty *vty, const char *format, struct aspath *as, const 
 {
   assert (format);
   vty_out (vty, format, as->str);
-  if (strlen (as->str) && strlen (suffix))
+  if (as->str_len && strlen (suffix))
     vty_out (vty, "%s", suffix);
 }
 

@@ -58,6 +58,7 @@ struct aspath
   /* String expression of AS path.  This string is used by vty output
      and AS path regular expression match.  */
   char *str;
+  unsigned short str_len;
 };
 
 #define ASPATH_STR_DEFAULT_LEN 32
