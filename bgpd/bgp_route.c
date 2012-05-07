@@ -2488,12 +2488,8 @@ bgp_default_originate (struct peer *peer, afi_t afi, safi_t safi, int withdraw)
 #ifdef HAVE_IPV6
   else if (afi == AFI_IP6)
     {
-      struct attr_extra *ae;
-      attr.extra = NULL;
-      
-      ae = bgp_attr_extra_get (&attr);
-      attr.extra = ae;
-      
+      struct attr_extra *ae = attr.extra;
+
       str2prefix ("::/0", &p);
 
       /* IPv6 global nexthop must be included. */
