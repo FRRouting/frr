@@ -2842,6 +2842,21 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
        * this may actually be achievable. It doesn't seem to be a huge
        * problem at this time,
        */
+      for (ain = rn->adj_in; ain; ain = ain->next)
+        if (ain->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
+          {
+            bgp_adj_in_remove (rn, ain);
+            bgp_unlock_node (rn);
+            break;
+          }
+      for (aout = rn->adj_out; aout; aout = aout->next)
+        if (aout->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
+          {
+            bgp_adj_out_remove (rn, aout, peer, afi, safi);
+            bgp_unlock_node (rn);
+            break;
+          }
+
       for (ri = rn->info; ri; ri = ri->next)
         if (ri->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
           {
@@ -2855,21 +2870,6 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
             cnq->rn = rn;
             cnq->purpose = purpose;
             work_queue_add (peer->clear_node_queue, cnq);
-            break;
-          }
-
-      for (ain = rn->adj_in; ain; ain = ain->next)
-        if (ain->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
-          {
-            bgp_adj_in_remove (rn, ain);
-            bgp_unlock_node (rn);
-            break;
-          }
-      for (aout = rn->adj_out; aout; aout = aout->next)
-        if (aout->peer == peer || purpose == BGP_CLEAR_ROUTE_MY_RSCLIENT)
-          {
-            bgp_adj_out_remove (rn, aout, peer, afi, safi);
-            bgp_unlock_node (rn);
             break;
           }
     }
