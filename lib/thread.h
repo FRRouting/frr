@@ -77,7 +77,7 @@ struct thread
     int fd;			/* file descriptor in case of read/write. */
     struct timeval sands;	/* rest of time sands value. */
   } u;
-  RUSAGE_T ru;			/* Indepth usage info.  */
+  struct timeval real;
   struct cpu_thread_history *hist; /* cache pointer to cpu_history */
   char* funcname;
 };
