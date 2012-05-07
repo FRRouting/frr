@@ -322,20 +322,24 @@ static int
 bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	      int *paths_eq)
 {
+  struct attr *newattr, *existattr;
+  struct attr_extra *newattre, *existattre;
+  bgp_peer_sort_t new_sort;
+  bgp_peer_sort_t exist_sort;
   u_int32_t new_pref;
   u_int32_t exist_pref;
   u_int32_t new_med;
   u_int32_t exist_med;
-  u_int32_t new_weight = 0;
-  u_int32_t exist_weight = 0;
+  u_int32_t new_weight;
+  u_int32_t exist_weight;
+  uint32_t newm, existm;
   struct in_addr new_id;
   struct in_addr exist_id;
   int new_cluster;
   int exist_cluster;
-  int internal_as_route = 0;
-  int confed_as_route = 0;
+  int internal_as_route;
+  int confed_as_route;
   int ret;
-  uint32_t newm, existm;
 
   *paths_eq = 0;
 
@@ -345,60 +349,59 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   if (exist == NULL)
     return 1;
 
+  newattr = new->attr;
+  existattr = exist->attr;
+  newattre = newattr->extra;
+  existattre = existattr->extra;
+
   /* 1. Weight check. */
-  if (new->attr->extra)
-    new_weight = new->attr->extra->weight;
-  if (exist->attr->extra)
-    exist_weight = exist->attr->extra->weight;
+  new_weight = exist_weight = 0;
+
+  if (newattre)
+    new_weight = newattre->weight;
+  if (existattre)
+    exist_weight = existattre->weight;
+
   if (new_weight > exist_weight)
     return 1;
   if (new_weight < exist_weight)
     return 0;
 
   /* 2. Local preference check. */
-  if (new->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF))
-    new_pref = new->attr->local_pref;
-  else
-    new_pref = bgp->default_local_pref;
+  new_pref = exist_pref = bgp->default_local_pref;
 
-  if (exist->attr->flag & ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF))
-    exist_pref = exist->attr->local_pref;
-  else
-    exist_pref = bgp->default_local_pref;
-    
+  if (newattr->flag & ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF))
+    new_pref = newattr->local_pref;
+  if (existattr->flag & ATTR_FLAG_BIT (BGP_ATTR_LOCAL_PREF))
+    exist_pref = existattr->local_pref;
+
   if (new_pref > exist_pref)
     return 1;
   if (new_pref < exist_pref)
     return 0;
 
-  /* 3. Local route check. */
-  if (new->sub_type == BGP_ROUTE_STATIC)
-    return 1;
-  if (exist->sub_type == BGP_ROUTE_STATIC)
-    return 0;
-
-  if (new->sub_type == BGP_ROUTE_REDISTRIBUTE)
-    return 1;
-  if (exist->sub_type == BGP_ROUTE_REDISTRIBUTE)
-    return 0;
-
-  if (new->sub_type == BGP_ROUTE_AGGREGATE)
-    return 1;
-  if (exist->sub_type == BGP_ROUTE_AGGREGATE)
-    return 0;
+  /* 3. Local route check. We prefer:
+   *  - BGP_ROUTE_STATIC
+   *  - BGP_ROUTE_AGGREGATE
+   *  - BGP_ROUTE_REDISTRIBUTE
+   */
+  if (! (new->sub_type == BGP_ROUTE_NORMAL))
+     return 1;
+  if (! (exist->sub_type == BGP_ROUTE_NORMAL))
+     return 0;
 
   /* 4. AS path length check. */
   if (! bgp_flag_check (bgp, BGP_FLAG_ASPATH_IGNORE))
     {
-      int exist_hops = aspath_count_hops (exist->attr->aspath);
-      int exist_confeds = aspath_count_confeds (exist->attr->aspath);
+      int exist_hops = aspath_count_hops (existattr->aspath);
+      int exist_confeds = aspath_count_confeds (existattr->aspath);
       
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_CONFED))
 	{
 	  int aspath_hops;
 	  
-	  aspath_hops = aspath_count_hops (new->attr->aspath);
-          aspath_hops += aspath_count_confeds (new->attr->aspath);
+	  aspath_hops = aspath_count_hops (newattr->aspath);
+          aspath_hops += aspath_count_confeds (newattr->aspath);
           
 	  if ( aspath_hops < (exist_hops + exist_confeds))
 	    return 1;
@@ -407,7 +410,7 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
 	}
       else
 	{
-	  int newhops = aspath_count_hops (new->attr->aspath);
+	  int newhops = aspath_count_hops (newattr->aspath);
 	  
 	  if (newhops < exist_hops)
 	    return 1;
@@ -417,24 +420,24 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     }
 
   /* 5. Origin check. */
-  if (new->attr->origin < exist->attr->origin)
+  if (newattr->origin < existattr->origin)
     return 1;
-  if (new->attr->origin > exist->attr->origin)
+  if (newattr->origin > existattr->origin)
     return 0;
 
   /* 6. MED check. */
-  internal_as_route = (aspath_count_hops (new->attr->aspath) == 0
-		      && aspath_count_hops (exist->attr->aspath) == 0);
-  confed_as_route = (aspath_count_confeds (new->attr->aspath) > 0
-		    && aspath_count_confeds (exist->attr->aspath) > 0
-		    && aspath_count_hops (new->attr->aspath) == 0
-		    && aspath_count_hops (exist->attr->aspath) == 0);
+  internal_as_route = (aspath_count_hops (newattr->aspath) == 0
+		      && aspath_count_hops (existattr->aspath) == 0);
+  confed_as_route = (aspath_count_confeds (newattr->aspath) > 0
+		    && aspath_count_confeds (existattr->aspath) > 0
+		    && aspath_count_hops (newattr->aspath) == 0
+		    && aspath_count_hops (existattr->aspath) == 0);
   
   if (bgp_flag_check (bgp, BGP_FLAG_ALWAYS_COMPARE_MED)
       || (bgp_flag_check (bgp, BGP_FLAG_MED_CONFED)
 	 && confed_as_route)
-      || aspath_cmp_left (new->attr->aspath, exist->attr->aspath)
-      || aspath_cmp_left_confed (new->attr->aspath, exist->attr->aspath)
+      || aspath_cmp_left (newattr->aspath, existattr->aspath)
+      || aspath_cmp_left_confed (newattr->aspath, existattr->aspath)
       || internal_as_route)
     {
       new_med = bgp_med_value (new->attr, bgp);
@@ -447,22 +450,24 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     }
 
   /* 7. Peer type check. */
-  if (new->peer->sort == BGP_PEER_EBGP
-      && exist->peer->sort == BGP_PEER_IBGP)
+  new_sort = new->peer->sort;
+  exist_sort = exist->peer->sort;
+
+  if (new_sort == BGP_PEER_EBGP
+      && (exist_sort == BGP_PEER_IBGP || exist_sort == BGP_PEER_CONFED))
     return 1;
-  if (new->peer->sort == BGP_PEER_EBGP
-      && exist->peer->sort == BGP_PEER_CONFED)
-    return 1;
-  if (new->peer->sort == BGP_PEER_IBGP
-      && exist->peer->sort == BGP_PEER_EBGP)
-    return 0;
-  if (new->peer->sort == BGP_PEER_CONFED
-      && exist->peer->sort == BGP_PEER_EBGP)
+  if (exist_sort == BGP_PEER_EBGP
+      && (new_sort == BGP_PEER_IBGP || new_sort == BGP_PEER_CONFED))
     return 0;
 
   /* 8. IGP metric check. */
-  newm = (new->extra ? new->extra->igpmetric : 0);
-  existm = (exist->extra ? exist->extra->igpmetric : 0);
+  newm = existm = 0;
+
+  if (new->extra)
+    newm = new->extra->igpmetric;
+  if (exist->extra)
+    existm = exist->extra->igpmetric;
+
   if (newm < existm)
     ret = 1;
   if (newm > existm)
@@ -493,8 +498,8 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
      newer path won't displace an older one, even if it was the
      preferred route based on the additional decision criteria below.  */
   if (! bgp_flag_check (bgp, BGP_FLAG_COMPARE_ROUTER_ID)
-      && new->peer->sort == BGP_PEER_EBGP
-      && exist->peer->sort == BGP_PEER_EBGP)
+      && new_sort == BGP_PEER_EBGP
+      && exist_sort == BGP_PEER_EBGP)
     {
       if (CHECK_FLAG (new->flags, BGP_INFO_SELECTED))
 	return 1;
@@ -503,12 +508,12 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     }
 
   /* 11. Rourter-ID comparision. */
-  if (new->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
-    new_id.s_addr = new->attr->extra->originator_id.s_addr;
+  if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
+    new_id.s_addr = newattre->originator_id.s_addr;
   else
     new_id.s_addr = new->peer->remote_id.s_addr;
-  if (exist->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
-    exist_id.s_addr = exist->attr->extra->originator_id.s_addr;
+  if (existattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
+    exist_id.s_addr = existattre->originator_id.s_addr;
   else
     exist_id.s_addr = exist->peer->remote_id.s_addr;
 
@@ -518,14 +523,12 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
     return 0;
 
   /* 12. Cluster length comparision. */
-  if (new->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))
-    new_cluster = new->attr->extra->cluster->length;
-  else
-    new_cluster = 0;
-  if (exist->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))
-    exist_cluster = exist->attr->extra->cluster->length;
-  else
-    exist_cluster = 0;
+  new_cluster = exist_cluster = 0;
+
+  if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))
+    new_cluster = newattre->cluster->length;
+  if (existattr->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))
+    exist_cluster = existattre->cluster->length;
 
   if (new_cluster < exist_cluster)
     return 1;
