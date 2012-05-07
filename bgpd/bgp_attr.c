@@ -657,6 +657,7 @@ bgp_attr_unintern (struct attr **pattr)
   struct attr *attr = *pattr;
   struct attr *ret;
   struct attr tmp;
+  struct attr_extra tmp_extra;
   
   /* Decrement attribute reference. */
   attr->refcnt--;
@@ -665,7 +666,7 @@ bgp_attr_unintern (struct attr **pattr)
   
   if (attr->extra)
     {
-      tmp.extra = bgp_attr_extra_new ();
+      tmp.extra = &tmp_extra;
       memcpy (tmp.extra, attr->extra, sizeof (struct attr_extra));
     }
   
@@ -680,7 +681,6 @@ bgp_attr_unintern (struct attr **pattr)
     }
 
   bgp_attr_unintern_sub (&tmp);
-  bgp_attr_extra_free (&tmp);
 }
 
 void
