@@ -667,11 +667,10 @@ static struct thread *
 thread_get (struct thread_master *m, u_char type,
 	    int (*func) (struct thread *), void *arg, const char* funcname)
 {
-  struct thread *thread;
+  struct thread *thread = thread_trim_head (&m->unuse);
 
-  if (!thread_empty (&m->unuse))
+  if (thread)
     {
-      thread = thread_trim_head (&m->unuse);
       if (thread->funcname)
         XFREE(MTYPE_THREAD_FUNCNAME, thread->funcname);
     }
