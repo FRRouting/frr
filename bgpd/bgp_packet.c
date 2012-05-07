@@ -1519,6 +1519,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   u_char *end;
   struct stream *s;
   struct attr attr;
+  struct attr_extra extra;
   bgp_size_t attribute_len;
   bgp_size_t update_len;
   bgp_size_t withdraw_len;
@@ -1538,10 +1539,12 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 
   /* Set initial values. */
   memset (&attr, 0, sizeof (struct attr));
+  memset (&extra, 0, sizeof (struct attr_extra));
   memset (&update, 0, sizeof (struct bgp_nlri));
   memset (&withdraw, 0, sizeof (struct bgp_nlri));
   memset (&mp_update, 0, sizeof (struct bgp_nlri));
   memset (&mp_withdraw, 0, sizeof (struct bgp_nlri));
+  attr.extra = &extra;
 
   s = peer->ibuf;
   end = stream_pnt (s) + size;
@@ -1669,8 +1672,6 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       if (ret < 0)
         {
           bgp_attr_unintern_sub (&attr);
-          if (attr.extra)
-            bgp_attr_extra_free (&attr);
 	  return -1;
 	}
 
@@ -1697,8 +1698,6 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
 	  if (ret < 0)
 	    {
 	      bgp_attr_unintern_sub (&attr);
-              if (attr.extra)
-                bgp_attr_extra_free (&attr);
 	      return -1;
             }
 
@@ -1845,9 +1844,7 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   /* Everything is done.  We unintern temporary structures which
      interned in bgp_attr_parse(). */
   bgp_attr_unintern_sub (&attr);
-  if (attr.extra)
-    bgp_attr_extra_free (&attr);
-  
+
   /* If peering is stopped due to some reason, do not generate BGP
      event.  */
   if (peer->status != Established)
