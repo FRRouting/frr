@@ -813,6 +813,8 @@ lspfragloop:
     for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.te_ipv4_reachs,
                                node, te_ipv4_reach))
     {
+      assert ((te_ipv4_reach->control & 0x3F) <= IPV4_MAX_BITLEN);
+
       dist = cost + ntohl (te_ipv4_reach->te_metric);
       vtype = VTYPE_IPREACH_TE;
       prefix.u.prefix4 = newprefix2inaddr (&te_ipv4_reach->prefix_start,
@@ -829,6 +831,8 @@ lspfragloop:
     prefix.family = AF_INET6;
     for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.ipv6_reachs, node, ip6reach))
     {
+      assert (ip6reach->prefix_len <= IPV6_MAX_BITLEN);
+
       dist = cost + ip6reach->metric;
       vtype = (ip6reach->control_info & CTRL_INFO_DISTRIBUTION) ?
         VTYPE_IP6REACH_EXTERNAL : VTYPE_IP6REACH_INTERNAL;
