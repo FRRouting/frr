@@ -311,7 +311,7 @@ tlvs_to_adj_area_addrs (struct tlvs *tlvs, struct isis_adjacency *adj)
     }
 }
 
-static void
+static int
 tlvs_to_adj_nlpids (struct tlvs *tlvs, struct isis_adjacency *adj)
 {
   int i;
@@ -321,6 +321,8 @@ tlvs_to_adj_nlpids (struct tlvs *tlvs, struct isis_adjacency *adj)
     {
 
       tlv_nlpids = tlvs->nlpids;
+      if (tlv_nlpids->count > array_size (adj->nlpids.nlpids))
+        return 1;
 
       adj->nlpids.count = tlv_nlpids->count;
 
@@ -329,6 +331,7 @@ tlvs_to_adj_nlpids (struct tlvs *tlvs, struct isis_adjacency *adj)
 	  adj->nlpids.nlpids[i] = tlv_nlpids->nlpids[i];
 	}
     }
+  return 0;
 }
 
 static void
@@ -548,7 +551,8 @@ process_p2p_hello (struct isis_circuit *circuit)
 
   /* which protocol are spoken ??? */
   if (found & TLVFLAG_NLPID)
-    tlvs_to_adj_nlpids (&tlvs, adj);
+    if (tlvs_to_adj_nlpids (&tlvs, adj))
+      return ISIS_ERROR;
 
   /* we need to copy addresses to the adj */
   if (found & TLVFLAG_IPV4_ADDR)
