@@ -117,7 +117,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 #endif /* HAVE_IPV6 */
   u_char virtual;
   int value_len, retval = ISIS_OK;
-  u_char *start = stream, *pnt = stream;
+  u_char *start = stream, *pnt = stream, *endpnt;
 
   *found = 0;
   memset (tlvs, 0, sizeof (struct tlvs));
@@ -584,11 +584,20 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  zlog_debug ("ISIS-TLV (%s): IPv4 extended Reachability length %d",
 		      areatag, length);
 #endif /* EXTREME_TLV_DEBUG */
+	  endpnt = pnt + length;
 	  if (*expected & TLVFLAG_TE_IPV4_REACHABILITY)
 	    {
 	      while (length > value_len)
 		{
 		  te_ipv4_reach = (struct te_ipv4_reachability *) pnt;
+		  if ((te_ipv4_reach->control & 0x3F) > IPV4_MAX_BITLEN)
+		    {
+		      zlog_warn ("ISIS-TLV (%s): invalid IPv4 extended reach"
+				 "ability prefix length %d", areatag,
+				 te_ipv4_reach->control & 0x3F);
+		      retval = ISIS_WARNING;
+		      break;
+		    }
 		  if (!tlvs->te_ipv4_reachs)
 		    tlvs->te_ipv4_reachs = list_new ();
 		  listnode_add (tlvs->te_ipv4_reachs, te_ipv4_reach);
@@ -600,10 +609,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 		              ((((te_ipv4_reach->control & 0x3F) - 1) >> 3) + 1) : 0);
 		}
 	    }
-	  else
-	    {
-	      pnt += length;
-	    }
+
+	  pnt = endpnt;
 	  break;
 
 #ifdef  HAVE_IPV6
@@ -648,11 +655,22 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	   * +---------------------------------------------------------------+
 	   */
 	  *found |= TLVFLAG_IPV6_REACHABILITY;
+	  endpnt = pnt + length;
+
 	  if (*expected & TLVFLAG_IPV6_REACHABILITY)
 	    {
 	      while (length > value_len)
 		{
 		  ipv6_reach = (struct ipv6_reachability *) pnt;
+		  if (ipv6_reach->prefix_len > IPV6_MAX_BITLEN)
+		    {
+		      zlog_warn ("ISIS-TLV (%s): invalid IPv6 extended reach"
+				 "ability prefix length %d", areatag,
+				 ipv6_reach->prefix_len);
+		      retval = ISIS_WARNING;
+		      break;
+		    }
+
 		  prefix_octets = ((ipv6_reach->prefix_len + 7) / 8);
 		  value_len += prefix_octets + 6;
 		  pnt += prefix_octets + 6;
@@ -662,10 +680,8 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 		  listnode_add (tlvs->ipv6_reachs, ipv6_reach);
 		}
 	    }
-	  else
-	    {
-	      pnt += length;
-	    }
+
+	  pnt = endpnt;
 	  break;
 #endif /* HAVE_IPV6 */
 
