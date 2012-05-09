@@ -26,6 +26,9 @@
 #include "vty.h"
 #include "zebra/interface.h"
 
+/* NB: RTADV is defined in zebra/interface.h above */
+#ifdef RTADV
+
 /* Router advertisement prefix. */
 struct rtadv_prefix
 {
@@ -95,5 +98,7 @@ struct nd_opt_homeagent_info {  /* Home Agent info */
 #endif
 
 extern const char *rtadv_pref_strs[];
+
+#endif /* RTADV */
 
 #endif /* _ZEBRA_RTADV_H */

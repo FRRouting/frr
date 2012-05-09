@@ -327,7 +327,9 @@ main (int argc, char **argv)
   zebra_vty_init ();
   access_list_init ();
   prefix_list_init ();
+#ifdef RTADV
   rtadv_init ();
+#endif
 #ifdef HAVE_IRDP
   irdp_init();
 #endif
