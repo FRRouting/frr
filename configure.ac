@@ -1370,8 +1370,7 @@ if test "${enable_snmp}" = "yes"; then
         LIBS="${LIBS} -lcrypto";
     fi
     AC_CHECK_LIB(netsnmp, asn_parse_int,
-    	[AC_DEFINE(HAVE_NETSNMP,,Net SNMP) 
-    	 AC_DEFINE(HAVE_SNMP,,SNMP)
+    	[AC_DEFINE(HAVE_SNMP,,SNMP)
     	 LIBS="${LIBS} -lnetsnmp"],
     	[AC_MSG_ERROR([--enable-snmp given, but cannot find support for SNMP])])
 
