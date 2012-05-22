@@ -221,8 +221,6 @@ AC_ARG_ENABLE(netlink,
 [  --enable-netlink        force to use Linux netlink interface])
 AC_ARG_ENABLE(broken-aliases,
 [  --enable-broken-aliases enable aliases as distinct interfaces for Linux 2.2.X])
-AC_ARG_WITH(crypto,
-[  --without-crypto        do not use libcrypto in SNMP])
 AC_ARG_ENABLE(snmp,
 [  --enable-snmp           enable SNMP support])
 AC_ARG_WITH(libpam,
@@ -1366,19 +1364,24 @@ dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
 if test "${enable_snmp}" = "yes"; then
-    if test "$with_crypto" != "no"; then
-        LIBS="${LIBS} -lcrypto";
-    fi
-    AC_CHECK_LIB(netsnmp, asn_parse_int,
-    	[AC_DEFINE(HAVE_SNMP,,SNMP)
-    	 LIBS="${LIBS} -lnetsnmp"],
-    	[AC_MSG_ERROR([--enable-snmp given, but cannot find support for SNMP])])
-
-    AC_CHECK_HEADER([net-snmp/net-snmp-config.h],
-        [],
-        [AC_MSG_ERROR([--enable-snmp given, but cannot find net-snmp-config.h])],
-	QUAGGA_INCLUDES)
-    AC_SUBST(SNMP_INCLUDES)
+   AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
+   if test x"$NETSNMP_CONFIG" = x"no"; then
+      AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
+   fi
+   LIBS="$LIBS `${NETSNMP_CONFIG} --agent-libs`"
+   CFLAGS="`${NETSNMP_CONFIG} --base-cflags` $CFLAGS"
+   AC_MSG_CHECKING([whether we can link to Net-SNMP])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([
+int main(void);
+],
+[
+{
+  return 0;
+}
+])],[AC_MSG_RESULT(yes)],[
+     AC_MSG_RESULT(no)
+     AC_MSG_ERROR([--enable-snmp given but not usable])])
+   AC_DEFINE(HAVE_SNMP,,SNMP)
 fi
 
 dnl ---------------------------
@@ -1624,7 +1627,7 @@ source code location    : ${srcdir}
 compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 make                    : ${MAKE-make}
-includes                : ${INCLUDES} ${SNMP_INCLUDES}
+includes                : ${INCLUDES}
 linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${quagga_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``
