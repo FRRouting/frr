@@ -44,7 +44,7 @@
 #include "ospf6_snmp.h"
 
 /* OSPFv3-MIB */
-#define OSPFv3MIB 1,3,6,1,3,102
+#define OSPFv3MIB 1,3,6,1,2,1,191
 
 /* OSPFv3 MIB General Group values. */
 #define OSPFv3ROUTERID                   1
@@ -58,19 +58,22 @@
 #define OSPFv3RXNEWLSAS                  9
 #define OSPFv3EXTLSACOUNT               10
 #define OSPFv3EXTAREALSDBLIMIT          11
-#define OSPFv3MULTICASTEXTENSIONS       12
-#define OSPFv3EXITOVERFLOWINTERVAL      13
-#define OSPFv3DEMANDEXTENSIONS          14
-#define OSPFv3TRAFFICENGINEERINGSUPPORT 15
-#define OSPFv3REFERENCEBANDWIDTH        16
-#define OSPFv3RESTARTSUPPORT            17
-#define OSPFv3RESTARTINTERVAL           18
-#define OSPFv3RESTARTSTATUS             19
-#define OSPFv3RESTARTAGE                20
-#define OSPFv3RESTARTEXITREASON         21
+#define OSPFv3EXITOVERFLOWINTERVAL      12
+#define OSPFv3DEMANDEXTENSIONS          13
+#define OSPFv3REFERENCEBANDWIDTH        14
+#define OSPFv3RESTARTSUPPORT            15
+#define OSPFv3RESTARTINTERVAL           16
+#define OSPFv3RESTARTSTRICTLSACHECKING  17
+#define OSPFv3RESTARTSTATUS             18
+#define OSPFv3RESTARTAGE                19
+#define OSPFv3RESTARTEXITREASON         20
+#define OSPFv3NOTIFICATIONENABLE        21
+#define OSPFv3STUBROUTERSUPPORT         22
+#define OSPFv3STUBROUTERADVERTISEMENT   23
+#define OSPFv3DISCONTINUITYTIME         24
+#define OSPFv3RESTARTTIME               25
 
-/* OSPFv3 MIB Area Table values. */
-#define OSPFv3AREAID                     1
+/* OSPFv3 MIB Area Table values: ospfv3AreaTable */
 #define OSPFv3IMPORTASEXTERN             2
 #define OSPFv3AREASPFRUNS                3
 #define OSPFv3AREABDRRTRCOUNT            4
@@ -78,24 +81,123 @@
 #define OSPFv3AREASCOPELSACOUNT          6
 #define OSPFv3AREASCOPELSACKSUMSUM       7
 #define OSPFv3AREASUMMARY                8
-#define OSPFv3AREASTATUS                 9
-#define OSPFv3STUBMETRIC                10
+#define OSPFv3AREAROWSTATUS              9
+#define OSPFv3AREASTUBMETRIC            10
 #define OSPFv3AREANSSATRANSLATORROLE    11
 #define OSPFv3AREANSSATRANSLATORSTATE   12
-#define OSPFv3AREANSSATRANSLATORSTABILITYINTERVAL    13
+#define OSPFv3AREANSSATRANSLATORSTABINTERVAL    13
 #define OSPFv3AREANSSATRANSLATOREVENTS  14
 #define OSPFv3AREASTUBMETRICTYPE        15
+#define OSPFv3AREATEENABLED             16
 
-/* OSPFv3 MIB Area Lsdb Table values. */
-#define OSPFv3AREALSDBAREAID             1
-#define OSPFv3AREALSDBTYPE               2
-#define OSPFv3AREALSDBROUTERID           3
-#define OSPFv3AREALSDBLSID               4
+/* OSPFv3 MIB AS Lsdb Table values: ospfv3AsLsdbTable */
+#define OSPFv3ASLSDBSEQUENCE             4
+#define OSPFv3ASLSDBAGE                  5
+#define OSPFv3ASLSDBCHECKSUM             6
+#define OSPFv3ASLSDBADVERTISEMENT        7
+#define OSPFv3ASLSDBTYPEKNOWN            8
+
+/* OSPFv3 MIB Area Lsdb Table values: ospfv3AreaLsdbTable */
 #define OSPFv3AREALSDBSEQUENCE           5
 #define OSPFv3AREALSDBAGE                6
 #define OSPFv3AREALSDBCHECKSUM           7
 #define OSPFv3AREALSDBADVERTISEMENT      8
 #define OSPFv3AREALSDBTYPEKNOWN          9
+
+/* OSPFv3 MIB Link Lsdb Table values: ospfv3LinkLsdbTable */
+#define OSPFv3LINKLSDBSEQUENCE           6
+#define OSPFv3LINKLSDBAGE                7
+#define OSPFv3LINKLSDBCHECKSUM           8
+#define OSPFv3LINKLSDBADVERTISEMENT      9
+#define OSPFv3LINKLSDBTYPEKNOWN         10
+
+/* OSPFv3 MIB Host Table values: ospfv3HostTable */
+#define OSPFv3HOSTMETRIC                 3
+#define OSPFv3HOSTROWSTATUS              4
+#define OSPFv3HOSTAREAID                 5
+
+/* OSPFv3 MIB Interface Table values: ospfv3IfTable */
+#define OSPFv3IFAREAID                   3
+#define OSPFv3IFTYPE                     4
+#define OSPFv3IFADMINSTATUS              5
+#define OSPFv3IFRTRPRIORITY              6
+#define OSPFv3IFTRANSITDELAY             7
+#define OSPFv3IFRETRANSINTERVAL          8
+#define OSPFv3IFHELLOINTERVAL            9
+#define OSPFv3IFRTRDEADINTERVAL         10
+#define OSPFv3IFPOLLINTERVAL            11
+#define OSPFv3IFSTATE                   12
+#define OSPFv3IFDESIGNATEDROUTER        13
+#define OSPFv3IFBACKUPDESIGNATEDROUTER  14
+#define OSPFv3IFEVENTS                  15
+#define OSPFv3IFROWSTATUS               16
+#define OSPFv3IFDEMAND                  17
+#define OSPFv3IFMETRICVALUE             18
+#define OSPFv3IFLINKSCOPELSACOUNT       19
+#define OSPFv3IFLINKLSACKSUMSUM         20
+#define OSPFv3IFDEMANDNBRPROBE          21
+#define OSPFv3IFDEMANDNBRPROBERETRANSLIMIT 22
+#define OSPFv3IFDEMANDNBRPROBEINTERVAL  23
+#define OSPFv3IFTEDISABLED              24
+#define OSPFv3IFLINKLSASUPPRESSION      25
+
+/* OSPFv3 MIB Virtual Interface Table values: ospfv3VirtIfTable */
+#define OSPFv3VIRTIFINDEX           3
+#define OSPFv3VIRTIFINSTID          4
+#define OSPFv3VIRTIFTRANSITDELAY    5
+#define OSPFv3VIRTIFRETRANSINTERVAL 6
+#define OSPFv3VIRTIFHELLOINTERVAL   7
+#define OSPFv3VIRTIFRTRDEADINTERVAL 8
+#define OSPFv3VIRTIFSTATE           9
+#define OSPFv3VIRTIFEVENTS         10
+#define OSPFv3VIRTIFROWSTATUS      11
+#define OSPFv3VIRTIFLINKSCOPELSACOUNT 12
+#define OSPFv3VIRTIFLINKLSACKSUMSUM   13
+
+/* OSPFv3 MIB Neighbors Table values: ospfv3NbrTable */
+#define OSPFv3NBRADDRESSTYPE      4
+#define OSPFv3NBRADDRESS          5
+#define OSPFv3NBROPTIONS          6
+#define OSPFv3NBRPRIORITY         7
+#define OSPFv3NBRSTATE            8
+#define OSPFv3NBREVENTS           9
+#define OSPFv3NBRLSRETRANSQLEN   10
+#define OSPFv3NBRHELLOSUPPRESSED 11
+#define OSPFv3NBRIFID            12
+#define OSPFv3NBRRESTARTHELPERSTATUS     13
+#define OSPFv3NBRRESTARTHELPERAGE        14
+#define OSPFv3NBRRESTARTHELPEREXITREASON 15
+
+/* OSPFv3 MIB Configured Neighbors Table values: ospfv3CfgNbrTable */
+#define OSPFv3CFGNBRPRIORITY  5
+#define OSPFv3CFGNBRROWSTATUS 6
+
+/* OSPFv3 MIB Virtual Neighbors Table values: ospfv3VirtNbrTable */
+#define OSPFv3VIRTNBRIFINDEX          3
+#define OSPFv3VIRTNBRIFINSTID         4
+#define OSPFv3VIRTNBRADDRESSTYPE      5
+#define OSPFv3VIRTNBRADDRESS          6
+#define OSPFv3VIRTNBROPTIONS          7
+#define OSPFv3VIRTNBRSTATE            8
+#define OSPFv3VIRTNBREVENTS           9
+#define OSPFv3VIRTNBRLSRETRANSQLEN   10
+#define OSPFv3VIRTNBRHELLOSUPPRESSED 11
+#define OSPFv3VIRTNBRIFID            12
+#define OSPFv3VIRTNBRRESTARTHELPERSTATUS     13
+#define OSPFv3VIRTNBRRESTARTHELPERAGE        14
+#define OSPFv3VIRTNBRRESTARTHELPEREXITREASON 15
+
+/* OSPFv3 MIB Area Aggregate Table values: ospfv3AreaAggregateTable */
+#define OSPFv3AREAAGGREGATEROWSTATUS  6
+#define OSPFv3AREAAGGREGATEEFFECT     7
+#define OSPFv3AREAAGGREGATEROUTETAG   8
+
+/* OSPFv3 MIB Virtual Link Lsdb Table values: ospfv3VirtLinkLsdbTable */
+#define OSPFv3VIRTLINKLSDBSEQUENCE       6
+#define OSPFv3VIRTLINKLSDBAGE            7
+#define OSPFv3VIRTLINKLSDBCHECKSUM       8
+#define OSPFv3VIRTLINKLSDBADVERTISEMENT  9
+#define OSPFv3VIRTLINKLSDBTYPEKNOWN     10
 
 /* SYNTAX Status from OSPF-MIB. */
 #define OSPF_STATUS_ENABLED  1
@@ -105,6 +207,7 @@
 #define COUNTER     ASN_COUNTER
 #define INTEGER     ASN_INTEGER
 #define GAUGE       ASN_GAUGE
+#define UNSIGNED    ASN_UNSIGNED
 #define TIMETICKS   ASN_TIMETICKS
 #define IPADDRESS   ASN_IPADDRESS
 #define STRING      ASN_OCTET_STR
@@ -112,15 +215,8 @@
 /* For return values e.g. SNMP_INTEGER macro */
 SNMP_LOCAL_VARIABLES
 
-static struct in_addr tmp;
-#define INT32_INADDR(x) \
-  (tmp.s_addr = (x), tmp)
-
 /* OSPFv3-MIB instances. */
 oid ospfv3_oid [] = { OSPFv3MIB };
-
-/* empty ID 0.0.0.0 e.g. empty router-id */
-static struct in_addr ospf6_empty_id = {0};
 
 /* Hook functions. */
 static u_char *ospfv3GeneralGroup (struct variable *, oid *, size_t *,
@@ -133,7 +229,7 @@ static u_char *ospfv3AreaLsdbEntry (struct variable *, oid *, size_t *,
 struct variable ospfv3_variables[] =
 {
   /* OSPF general variables */
-  {OSPFv3ROUTERID,              IPADDRESS, RWRITE, ospfv3GeneralGroup,
+  {OSPFv3ROUTERID,             UNSIGNED,   RWRITE, ospfv3GeneralGroup,
    3, {1, 1, 1}},
   {OSPFv3ADMINSTAT,             INTEGER,   RWRITE, ospfv3GeneralGroup,
    3, {1, 1, 2}},
@@ -145,7 +241,7 @@ struct variable ospfv3_variables[] =
    3, {1, 1, 5}},
   {OSPFv3ASSCOPELSACOUNT,       GAUGE,     RONLY,  ospfv3GeneralGroup,
    3, {1, 1, 6}},
-  {OSPFv3ASSCOPELSACHECKSUMSUM, INTEGER,   RONLY,  ospfv3GeneralGroup,
+  {OSPFv3ASSCOPELSACHECKSUMSUM,UNSIGNED,   RONLY,  ospfv3GeneralGroup,
    3, {1, 1, 7}},
   {OSPFv3ORIGINATENEWLSAS,      COUNTER,   RONLY,  ospfv3GeneralGroup,
    3, {1, 1, 8}},
@@ -155,30 +251,36 @@ struct variable ospfv3_variables[] =
    3, {1, 1, 10}},
   {OSPFv3EXTAREALSDBLIMIT,      INTEGER,   RWRITE, ospfv3GeneralGroup,
    3, {1, 1, 11}},
-  {OSPFv3MULTICASTEXTENSIONS,   INTEGER,   RWRITE, ospfv3GeneralGroup,
+  {OSPFv3EXITOVERFLOWINTERVAL, UNSIGNED,   RWRITE, ospfv3GeneralGroup,
    3, {1, 1, 12}},
-  {OSPFv3EXITOVERFLOWINTERVAL,  INTEGER,   RWRITE, ospfv3GeneralGroup,
-   3, {1, 1, 13}},
   {OSPFv3DEMANDEXTENSIONS,      INTEGER,   RWRITE, ospfv3GeneralGroup,
+   3, {1, 1, 13}},
+  {OSPFv3REFERENCEBANDWIDTH,   UNSIGNED, RWRITE, ospfv3GeneralGroup,
    3, {1, 1, 14}},
-  {OSPFv3TRAFFICENGINEERINGSUPPORT, INTEGER, RWRITE, ospfv3GeneralGroup,
-   3, {1, 1, 15}},
-  {OSPFv3REFERENCEBANDWIDTH,    INTEGER, RWRITE, ospfv3GeneralGroup,
-   3, {1, 1, 16}},
   {OSPFv3RESTARTSUPPORT,        INTEGER, RWRITE, ospfv3GeneralGroup,
+   3, {1, 1, 15}},
+  {OSPFv3RESTARTINTERVAL,      UNSIGNED, RWRITE, ospfv3GeneralGroup,
+   3, {1, 1, 16}},
+  {OSPFv3RESTARTSTRICTLSACHECKING, INTEGER, RWRITE, ospfv3GeneralGroup,
    3, {1, 1, 17}},
-  {OSPFv3RESTARTINTERVAL,       INTEGER, RWRITE, ospfv3GeneralGroup,
-   3, {1, 1, 18}},
   {OSPFv3RESTARTSTATUS,         INTEGER, RONLY,  ospfv3GeneralGroup,
+   3, {1, 1, 18}},
+  {OSPFv3RESTARTAGE,           UNSIGNED, RONLY,  ospfv3GeneralGroup,
    3, {1, 1, 19}},
-  {OSPFv3RESTARTAGE,            INTEGER, RONLY,  ospfv3GeneralGroup,
-   3, {1, 1, 20}},
   {OSPFv3RESTARTEXITREASON,     INTEGER, RONLY,  ospfv3GeneralGroup,
+   3, {1, 1, 20}},
+  {OSPFv3NOTIFICATIONENABLE,    INTEGER, RWRITE, ospfv3GeneralGroup,
    3, {1, 1, 21}},
+  {OSPFv3STUBROUTERSUPPORT,     INTEGER, RONLY,  ospfv3GeneralGroup,
+   3, {1, 1, 22}},
+  {OSPFv3STUBROUTERADVERTISEMENT, INTEGER, RWRITE, ospfv3GeneralGroup,
+   3, {1, 1, 23}},
+  {OSPFv3DISCONTINUITYTIME,     TIMETICKS, RONLY,  ospfv3GeneralGroup,
+   3, {1, 1, 24}},
+  {OSPFv3RESTARTTIME,           TIMETICKS, RONLY,  ospfv3GeneralGroup,
+   3, {1, 1, 25}},
 
   /* OSPFv3 Area Data Structure */
-  {OSPFv3AREAID,                IPADDRESS, RONLY,  ospfv3AreaEntry,
-   4, {1, 2, 1, 1}},
   {OSPFv3IMPORTASEXTERN,        INTEGER,   RWRITE, ospfv3AreaEntry,
    4, {1, 2, 1, 2}},
   {OSPFv3AREASPFRUNS,           COUNTER,   RONLY,  ospfv3AreaEntry,
@@ -189,36 +291,31 @@ struct variable ospfv3_variables[] =
    4, {1, 2, 1, 5}},
   {OSPFv3AREASCOPELSACOUNT,     GAUGE,     RONLY,  ospfv3AreaEntry,
    4, {1, 2, 1, 6}},
-  {OSPFv3AREASCOPELSACKSUMSUM,  INTEGER,   RONLY,  ospfv3AreaEntry,
+  {OSPFv3AREASCOPELSACKSUMSUM, UNSIGNED,   RONLY,  ospfv3AreaEntry,
    4, {1, 2, 1, 7}},
   {OSPFv3AREASUMMARY,           INTEGER,   RWRITE, ospfv3AreaEntry,
    4, {1, 2, 1, 8}},
-  {OSPFv3AREASTATUS,            INTEGER,   RWRITE, ospfv3AreaEntry,
+  {OSPFv3AREAROWSTATUS,         INTEGER,   RWRITE, ospfv3AreaEntry,
    4, {1, 2, 1, 9}},
-  {OSPFv3STUBMETRIC,            INTEGER,   RWRITE, ospfv3AreaEntry,
+  {OSPFv3AREASTUBMETRIC,        INTEGER,   RWRITE, ospfv3AreaEntry,
    4, {1, 2, 1, 10}},
   {OSPFv3AREANSSATRANSLATORROLE, INTEGER,  RWRITE, ospfv3AreaEntry,
    4, {1, 2, 1, 11}},
   {OSPFv3AREANSSATRANSLATORSTATE, INTEGER, RONLY,  ospfv3AreaEntry,
    4, {1, 2, 1, 12}},
-  {OSPFv3AREANSSATRANSLATORSTABILITYINTERVAL, INTEGER, RWRITE, ospfv3AreaEntry,
+  {OSPFv3AREANSSATRANSLATORSTABINTERVAL, UNSIGNED, RWRITE, ospfv3AreaEntry,
    4, {1, 2, 1, 13}},
   {OSPFv3AREANSSATRANSLATOREVENTS, COUNTER, RONLY, ospfv3AreaEntry,
    4, {1, 2, 1, 14}},
   {OSPFv3AREASTUBMETRICTYPE,    INTEGER, RWRITE, ospfv3AreaEntry,
    4, {1, 2, 1, 15}},
+  {OSPFv3AREATEENABLED,         INTEGER, RWRITE, ospfv3AreaEntry,
+   4, {1, 2, 1, 16}},
 
-  {OSPFv3AREALSDBAREAID,        IPADDRESS, RONLY,  ospfv3AreaLsdbEntry,
-   4, {1, 4, 1, 1}},
-  {OSPFv3AREALSDBTYPE,          GAUGE,     RONLY,  ospfv3AreaLsdbEntry,
-   4, {1, 4, 1, 2}},
-  {OSPFv3AREALSDBROUTERID,      IPADDRESS, RONLY,  ospfv3AreaLsdbEntry,
-   4, {1, 4, 1, 3}},
-  {OSPFv3AREALSDBLSID,          IPADDRESS, RONLY,  ospfv3AreaLsdbEntry,
-   4, {1, 4, 1, 4}},
+  /* OSPFv3 Area LSDB */
   {OSPFv3AREALSDBSEQUENCE,      INTEGER,   RONLY,  ospfv3AreaLsdbEntry,
    4, {1, 4, 1, 5}},
-  {OSPFv3AREALSDBAGE,           INTEGER,   RONLY,  ospfv3AreaLsdbEntry,
+  {OSPFv3AREALSDBAGE,          UNSIGNED,   RONLY,  ospfv3AreaLsdbEntry,
    4, {1, 4, 1, 6}},
   {OSPFv3AREALSDBCHECKSUM,      INTEGER,   RONLY,  ospfv3AreaLsdbEntry,
    4, {1, 4, 1, 7}},
@@ -241,54 +338,36 @@ ospfv3GeneralGroup (struct variable *v, oid *name, size_t *length,
   /* Return the current value of the variable */
   switch (v->magic)
     {
-    case OSPFv3ROUTERID:                  /* 1*/
+    case OSPFv3ROUTERID:
       /* Router-ID of this OSPF instance. */
       if (ospf6)
-	return SNMP_IPADDRESS (INT32_INADDR (ospf6->router_id));
-      else
-	return SNMP_IPADDRESS (ospf6_empty_id);
-      break;
-    case OSPFv3ADMINSTAT:                 /* 2*/
-      break;
-    case OSPFv3VERSIONNUMBER:             /* 3*/
-      break;
-    case OSPFv3AREABDRRTRSTATUS:          /* 4*/
-      break;
-    case OSPFv3ASBDRRTRSTATUS:            /* 5*/
-      break;
-    case OSPFv3ASSCOPELSACOUNT:           /* 6*/
-      break;
-    case OSPFv3ASSCOPELSACHECKSUMSUM:     /* 7*/
-      break;
-    case OSPFv3ORIGINATENEWLSAS:          /* 8*/
-      break;
-    case OSPFv3RXNEWLSAS:                 /* 9*/
-      break;
-    case OSPFv3EXTLSACOUNT:               /*10*/
-      break;
-    case OSPFv3EXTAREALSDBLIMIT:          /*11*/
-      break;
-    case OSPFv3MULTICASTEXTENSIONS:       /*12*/
-      break;
-    case OSPFv3EXITOVERFLOWINTERVAL:      /*13*/
-      break;
-    case OSPFv3DEMANDEXTENSIONS:          /*14*/
-      break;
-    case OSPFv3TRAFFICENGINEERINGSUPPORT: /*15*/
-      break;
-    case OSPFv3REFERENCEBANDWIDTH:        /*16*/
-      break;
-    case OSPFv3RESTARTSUPPORT:            /*17*/
-      break;
-    case OSPFv3RESTARTINTERVAL:           /*18*/
-      break;
-    case OSPFv3RESTARTSTATUS:             /*19*/
-      break;
-    case OSPFv3RESTARTAGE:                /*20*/
-      break;
-    case OSPFv3RESTARTEXITREASON:         /*21*/
-      break;
-    default:
+	return SNMP_INTEGER (ntohl (ospf6->router_id));
+      return SNMP_INTEGER (0);
+    case OSPFv3ADMINSTAT:
+    case OSPFv3VERSIONNUMBER:
+    case OSPFv3AREABDRRTRSTATUS:
+    case OSPFv3ASBDRRTRSTATUS:
+    case OSPFv3ASSCOPELSACOUNT:
+    case OSPFv3ASSCOPELSACHECKSUMSUM:
+    case OSPFv3ORIGINATENEWLSAS:
+    case OSPFv3RXNEWLSAS:
+    case OSPFv3EXTLSACOUNT:
+    case OSPFv3EXTAREALSDBLIMIT:
+    case OSPFv3EXITOVERFLOWINTERVAL:
+    case OSPFv3DEMANDEXTENSIONS:
+    case OSPFv3REFERENCEBANDWIDTH:
+    case OSPFv3RESTARTSUPPORT:
+    case OSPFv3RESTARTINTERVAL:
+    case OSPFv3RESTARTSTRICTLSACHECKING:
+    case OSPFv3RESTARTSTATUS:
+    case OSPFv3RESTARTAGE:
+    case OSPFv3RESTARTEXITREASON:
+    case OSPFv3NOTIFICATIONENABLE:
+    case OSPFv3STUBROUTERSUPPORT:
+    case OSPFv3STUBROUTERADVERTISEMENT:
+    case OSPFv3DISCONTINUITYTIME:
+    case OSPFv3RESTARTTIME:
+      /* TODO: Not implemented */
       return NULL;
     }
   return NULL;
@@ -302,6 +381,7 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
   u_int32_t area_id = 0;
   struct listnode *node;
   unsigned int len;
+  char a[16];
 
   if (ospf6 == NULL)
     return NULL;
@@ -311,15 +391,15 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
     return NULL;
 
   len = *length - v->namelen;
-  len = (len >= sizeof (u_int32_t) ? sizeof (u_int32_t) : 0);
-  if (exact && len != sizeof (u_int32_t))
+  len = (len >= 1 ? sizeof 1 : 0);
+  if (exact && len != 1)
     return NULL;
   if (len)
-    oid2in_addr (name + v->namelen, len, (struct in_addr *) &area_id);
+    area_id  = htonl (name[v->namelen]);
 
+  inet_ntop (AF_INET, &area_id, a, sizeof (a));
   zlog_debug ("SNMP access by area: %s, exact=%d len=%d length=%lu",
-	      inet_ntoa (* (struct in_addr *) &area_id),
-	      exact, len, (u_long)*length);
+	      a, exact, len, (u_long)*length);
 
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
@@ -337,25 +417,34 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
   if (area == NULL)
     return NULL;
 
-  *length = v->namelen + sizeof (u_int32_t);
-  oid_copy_addr (name + v->namelen, (struct in_addr *) &area->area_id,
-                 sizeof (u_int32_t));
+  *length = v->namelen + 1;
+  name[v->namelen] = ntohl (area->area_id);
 
+  inet_ntop (AF_INET, &area->area_id, a, sizeof (a));
   zlog_debug ("SNMP found area: %s, exact=%d len=%d length=%lu",
-	      inet_ntoa (* (struct in_addr *) &area->area_id),
-	      exact, len, (u_long)*length);
+	      a, exact, len, (u_long)*length);
 
   switch (v->magic)
     {
-    case OSPFv3AREAID:                   /* 1*/
-      return SNMP_IPADDRESS (INT32_INADDR (area->area_id));
-      break;
-    case OSPFv3IMPORTASEXTERN:           /* 2*/
+    case OSPFv3IMPORTASEXTERN:
       return SNMP_INTEGER (ospf6->external_table->count);
       break;
-    default:
+    case OSPFv3AREASPFRUNS:
+    case OSPFv3AREABDRRTRCOUNT:
+    case OSPFv3AREAASBDRRTRCOUNT:
+    case OSPFv3AREASCOPELSACOUNT:
+    case OSPFv3AREASCOPELSACKSUMSUM:
+    case OSPFv3AREASUMMARY:
+    case OSPFv3AREAROWSTATUS:
+    case OSPFv3AREASTUBMETRIC:
+    case OSPFv3AREANSSATRANSLATORROLE:
+    case OSPFv3AREANSSATRANSLATORSTATE:
+    case OSPFv3AREANSSATRANSLATORSTABINTERVAL:
+    case OSPFv3AREANSSATRANSLATOREVENTS:
+    case OSPFv3AREASTUBMETRICTYPE:
+    case OSPFv3AREATEENABLED:
+      /* Not implemented. */
       return NULL;
-      break;
     }
   return NULL;
 }
@@ -365,10 +454,8 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
                      int exact, size_t *var_len, WriteMethod **write_method)
 {
   struct ospf6_lsa *lsa = NULL;
-  struct in_addr area_id;
+  u_int32_t area_id, id, adv_router;
   u_int16_t type;
-  struct in_addr id;
-  struct in_addr adv_router;
   int len;
   oid *offset;
   int offsetlen;
@@ -380,10 +467,7 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
       == MATCH_FAILED)
     return NULL;
 
-  memset (&area_id, 0, sizeof (struct in_addr));
-  type = 0;
-  memset (&id, 0, sizeof (struct in_addr));
-  memset (&adv_router, 0, sizeof (struct in_addr));
+  area_id = type = id = adv_router = 0;
 
   /* Check OSPFv3 instance. */
   if (ospf6 == NULL)
@@ -393,37 +477,36 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
   offset = name + v->namelen;
   offsetlen = *length - v->namelen;
 
-#define OSPFV3_AREA_LSDB_ENTRY_EXACT_OFFSET \
-  (IN_ADDR_SIZE + 1 + IN_ADDR_SIZE + IN_ADDR_SIZE)
+#define OSPFV3_AREA_LSDB_ENTRY_EXACT_OFFSET 4
 
   if (exact && offsetlen != OSPFV3_AREA_LSDB_ENTRY_EXACT_OFFSET)
     return NULL;
 
   /* Parse area-id */
-  len = (offsetlen < IN_ADDR_SIZE ? offsetlen : IN_ADDR_SIZE);
+  len = (offsetlen < 1 ? 0 : 1);
   if (len)
-    oid2in_addr (offset, len, &area_id);
+    area_id = htonl (*offset);
   offset += len;
   offsetlen -= len;
 
   /* Parse type */
-  len = (offsetlen < 1 ? offsetlen : 1);
+  len = (offsetlen < 1 ? 0 : 1);
   if (len)
     type = htons (*offset);
   offset += len;
   offsetlen -= len;
 
   /* Parse Router-ID */
-  len = (offsetlen < IN_ADDR_SIZE ? offsetlen : IN_ADDR_SIZE);
+  len = (offsetlen < 1 ? 0 : 1);
   if (len)
-    oid2in_addr (offset, len, &adv_router);
+    adv_router = htonl (*offset);
   offset += len;
   offsetlen -= len;
 
   /* Parse LS-ID */
-  len = (offsetlen < IN_ADDR_SIZE ? offsetlen : IN_ADDR_SIZE);
+  len = (offsetlen < 1 ? 0 : 1);
   if (len)
-    oid2in_addr (offset, len, &id);
+    id = htonl (*offset);
   offset += len;
   offsetlen -= len;
 
@@ -436,8 +519,8 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
 
   if (exact)
     {
-      oa = ospf6_area_lookup (area_id.s_addr, ospf6);
-      lsa = ospf6_lsdb_lookup (type, id.s_addr, adv_router.s_addr, oa->lsdb);
+      oa = ospf6_area_lookup (area_id, ospf6);
+      lsa = ospf6_lsdb_lookup (type, id, adv_router, oa->lsdb);
     }
   else
     {
@@ -445,16 +528,16 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
         {
           if (lsa)
             continue;
-          if (ntohl (oa->area_id) < ntohl (area_id.s_addr))
+          if (oa->area_id < area_id)
             continue;
 
-          lsa = ospf6_lsdb_lookup_next (type, id.s_addr, adv_router.s_addr,
+          lsa = ospf6_lsdb_lookup_next (type, id, adv_router,
                                         oa->lsdb);
           if (! lsa)
             {
               type = 0;
-              memset (&id, 0, sizeof (struct in_addr));
-              memset (&adv_router, 0, sizeof (struct in_addr));
+	      id = 0;
+	      adv_router = 0;
             }
         }
     }
@@ -471,54 +554,35 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
   /* Add Index (AreaId, Type, RouterId, Lsid) */
   *length = v->namelen + OSPFV3_AREA_LSDB_ENTRY_EXACT_OFFSET;
   offset = name + v->namelen;
-  oid_copy_addr (offset, (struct in_addr *) &oa->area_id, IN_ADDR_SIZE);
-  offset += IN_ADDR_SIZE;
+  *offset = ntohl (oa->area_id);
+  offset++;
   *offset = ntohs (lsa->header->type);
   offset++;
-  oid_copy_addr (offset, (struct in_addr *) &lsa->header->adv_router,
-                 IN_ADDR_SIZE);
-  offset += IN_ADDR_SIZE;
-  oid_copy_addr (offset, (struct in_addr *) &lsa->header->id, IN_ADDR_SIZE);
-  offset += IN_ADDR_SIZE;
+  *offset = ntohl (lsa->header->adv_router);
+  offset++;
+  *offset = ntohl (lsa->header->id);
+  offset++;
 
   /* Return the current value of the variable */
   switch (v->magic)
     {
-    case OSPFv3AREALSDBAREAID:        /* 1 */
-      area_id.s_addr = OSPF6_AREA (lsa->lsdb->data)->area_id;
-      return SNMP_IPADDRESS (area_id);
+    case OSPFv3AREALSDBSEQUENCE:
+      return SNMP_INTEGER (ntohl (lsa->header->seqnum));
       break;
-    case OSPFv3AREALSDBTYPE:          /* 2 */
-      return SNMP_INTEGER (ntohs (lsa->header->type));
-      break;
-    case OSPFv3AREALSDBROUTERID:      /* 3 */
-      adv_router.s_addr = lsa->header->adv_router;
-      return SNMP_IPADDRESS (adv_router);
-      break;
-    case OSPFv3AREALSDBLSID:          /* 4 */
-      id.s_addr = lsa->header->id;
-      return SNMP_IPADDRESS (id);
-      break;
-    case OSPFv3AREALSDBSEQUENCE:      /* 5 */
-      return SNMP_INTEGER (lsa->header->seqnum);
-      break;
-    case OSPFv3AREALSDBAGE:           /* 6 */
+    case OSPFv3AREALSDBAGE:
       ospf6_lsa_age_current (lsa);
-      return SNMP_INTEGER (lsa->header->age);
+      return SNMP_INTEGER (ntohs (lsa->header->age));
       break;
-    case OSPFv3AREALSDBCHECKSUM:      /* 7 */
-      return SNMP_INTEGER (lsa->header->checksum);
+    case OSPFv3AREALSDBCHECKSUM:
+      return SNMP_INTEGER (ntohs (lsa->header->checksum));
       break;
-    case OSPFv3AREALSDBADVERTISEMENT: /* 8 */
+    case OSPFv3AREALSDBADVERTISEMENT:
       *var_len = ntohs (lsa->header->length);
       return (u_char *) lsa->header;
       break;
-    case OSPFv3AREALSDBTYPEKNOWN:     /* 9 */
+    case OSPFv3AREALSDBTYPEKNOWN:
       return SNMP_INTEGER (OSPF6_LSA_IS_KNOWN (lsa->header->type) ?
                            SNMP_TRUE : SNMP_FALSE);
-      break;
-    default:
-      return NULL;
       break;
     }
   return NULL;
