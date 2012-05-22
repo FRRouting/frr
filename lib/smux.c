@@ -34,6 +34,45 @@
 #include "sockunion.h"
 #include "smux.h"
 
+#define SMUX_PORT_DEFAULT 199
+
+#define SMUXMAXPKTSIZE    1500
+#define SMUXMAXSTRLEN      256
+
+#define SMUX_OPEN       (ASN_APPLICATION | ASN_CONSTRUCTOR | 0)
+#define SMUX_CLOSE      (ASN_APPLICATION | ASN_PRIMITIVE | 1)
+#define SMUX_RREQ       (ASN_APPLICATION | ASN_CONSTRUCTOR | 2)
+#define SMUX_RRSP       (ASN_APPLICATION | ASN_PRIMITIVE | 3)
+#define SMUX_SOUT       (ASN_APPLICATION | ASN_PRIMITIVE | 4)
+
+#define SMUX_GET        (ASN_CONTEXT | ASN_CONSTRUCTOR | 0)
+#define SMUX_GETNEXT    (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)
+#define SMUX_GETRSP     (ASN_CONTEXT | ASN_CONSTRUCTOR | 2)
+#define SMUX_SET	(ASN_CONTEXT | ASN_CONSTRUCTOR | 3)
+#define SMUX_TRAP	(ASN_CONTEXT | ASN_CONSTRUCTOR | 4)
+
+#define SMUX_MAX_FAILURE 3
+
+/* SNMP tree. */
+struct subtree
+{
+  /* Tree's oid. */
+  oid name[MAX_OID_LEN];
+  u_char name_len;
+
+  /* List of the variables. */
+  struct variable *variables;
+
+  /* Length of the variables list. */
+  int variables_num;
+
+  /* Width of the variables list. */
+  int variables_width;
+
+  /* Registered flag. */
+  int registered;
+};
+
 #define min(A,B) ((A) < (B) ? (A) : (B))
 
 enum smux_event {SMUX_SCHEDULE, SMUX_CONNECT, SMUX_READ};
@@ -76,62 +115,6 @@ static struct cmd_node smux_node =
 /* thread master */
 static struct thread_master *master;
 
-void *
-oid_copy (void *dest, const void *src, size_t size)
-{
-  return memcpy (dest, src, size * sizeof (oid));
-}
-
-void
-oid2in_addr (oid oid[], int len, struct in_addr *addr)
-{
-  int i;
-  u_char *pnt;
-  
-  if (len == 0)
-    return;
-
-  pnt = (u_char *) addr;
-
-  for (i = 0; i < len; i++)
-    *pnt++ = oid[i];
-}
-
-void
-oid_copy_addr (oid oid[], struct in_addr *addr, int len)
-{
-  int i;
-  u_char *pnt;
-  
-  if (len == 0)
-    return;
-
-  pnt = (u_char *) addr;
-
-  for (i = 0; i < len; i++)
-    oid[i] = *pnt++;
-}
-
-int
-oid_compare (oid *o1, int o1_len, oid *o2, int o2_len)
-{
-  int i;
-
-  for (i = 0; i < min (o1_len, o2_len); i++)
-    {
-      if (o1[i] < o2[i])
-	return -1;
-      else if (o1[i] > o2[i])
-	return 1;
-    }
-  if (o1_len < o2_len)
-    return -1;
-  if (o1_len > o2_len)
-    return 1;
-
-  return 0;
-}
-
 static int
 oid_compare_part (oid *o1, int o1_len, oid *o2, int o2_len)
 {
@@ -473,7 +456,7 @@ smux_set (oid *reqid, size_t *reqid_len,
                   if (write_method)
                     {
                       return (*write_method)(action, val, val_type, val_len,
-					     statP, suffix, suffix_len, v);
+					     statP, suffix, suffix_len);
                     }
                   else
                     {
@@ -1352,32 +1335,6 @@ smux_peer_oid (struct vty *vty, const char *oid_str, const char *passwd_str)
     smux_passwd = strdup ("");
 
   return 0;
-}
-
-int
-smux_header_generic (struct variable *v, oid *name, size_t *length, int exact,
-		     size_t *var_len, WriteMethod **write_method)
-{
-  oid fulloid[MAX_OID_LEN];
-  int ret;
-
-  oid_copy (fulloid, v->name, v->namelen);
-  fulloid[v->namelen] = 0;
-  /* Check against full instance. */
-  ret = oid_compare (name, *length, fulloid, v->namelen + 1);
-
-  /* Check single instance. */
-  if ((exact && (ret != 0)) || (!exact && (ret >= 0)))
-	return MATCH_FAILED;
-
-  /* In case of getnext, fill in full instance. */
-  memcpy (name, fulloid, (v->namelen + 1) * sizeof (oid));
-  *length = v->namelen + 1;
-
-  *write_method = 0;
-  *var_len = sizeof(long);    /* default to 'long' results */
-
-  return MATCH_SUCCEEDED;
 }
 
 static int
