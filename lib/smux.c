@@ -21,7 +21,7 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SNMP
+#if defined HAVE_SNMP && defined SNMP_SMUX
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
