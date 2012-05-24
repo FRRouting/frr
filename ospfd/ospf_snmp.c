@@ -2616,7 +2616,7 @@ ospfTrapNbrStateChange (struct ospf_neighbor *on)
              index,  IN_ADDR_SIZE + 1,
              ospfNbrTrapList, 
              sizeof ospfNbrTrapList / sizeof (struct trap_object),
-             time (NULL), NBRSTATECHANGE);
+             NBRSTATECHANGE);
 }
 
 void
@@ -2633,7 +2633,7 @@ ospfTrapVirtNbrStateChange (struct ospf_neighbor *on)
              index,  IN_ADDR_SIZE + 1,
              ospfVirtNbrTrapList, 
              sizeof ospfVirtNbrTrapList / sizeof (struct trap_object),
-             time (NULL), VIRTNBRSTATECHANGE);
+             VIRTNBRSTATECHANGE);
 }
 
 void
@@ -2652,7 +2652,7 @@ ospfTrapIfStateChange (struct ospf_interface *oi)
              index, IN_ADDR_SIZE + 1,
              ospfIfTrapList, 
              sizeof ospfIfTrapList / sizeof (struct trap_object),
-             time (NULL), IFSTATECHANGE);
+             IFSTATECHANGE);
 }
 
 void
@@ -2669,7 +2669,7 @@ ospfTrapVirtIfStateChange (struct ospf_interface *oi)
              index, IN_ADDR_SIZE + 1,
              ospfVirtIfTrapList,
              sizeof ospfVirtIfTrapList / sizeof (struct trap_object),
-             time (NULL), VIRTIFSTATECHANGE);
+             VIRTIFSTATECHANGE);
 }
 /* Register OSPF2-MIB. */
 void

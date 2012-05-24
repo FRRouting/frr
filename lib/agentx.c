@@ -125,7 +125,7 @@ int
 smux_trap (const oid *name, size_t namelen,
 	   const oid *iname, size_t inamelen,
 	   const struct trap_object *trapobj, size_t trapobjlen,
-	   unsigned int tick, u_char sptrap)
+	   u_char sptrap)
 {
   return 1;
 }

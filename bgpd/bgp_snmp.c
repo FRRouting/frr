@@ -853,7 +853,7 @@ bgpTrapEstablished (struct peer *peer)
   smux_trap (bgp_oid, sizeof bgp_oid / sizeof (oid),
 	     index, IN_ADDR_SIZE,
 	     bgpTrapList, sizeof bgpTrapList / sizeof (struct trap_object),
-	     bm->start_time - bgp_clock (), BGPESTABLISHED);
+	     BGPESTABLISHED);
 }
 
 void
@@ -872,7 +872,7 @@ bgpTrapBackwardTransition (struct peer *peer)
   smux_trap (bgp_oid, sizeof bgp_oid / sizeof (oid),
 	     index, IN_ADDR_SIZE,
 	     bgpTrapList, sizeof bgpTrapList / sizeof (struct trap_object),
-	     bm->start_time - bgp_clock (), BGPBACKWARDTRANSITION);
+	     BGPBACKWARDTRANSITION);
 }
 
 void

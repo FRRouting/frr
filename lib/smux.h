@@ -78,7 +78,7 @@ extern int smux_header_generic (struct variable *, oid [], size_t *,
                                 int, size_t *, WriteMethod **);
 extern int smux_trap (const oid *, size_t, const oid *, size_t, 
 		      const struct trap_object *, 
-                      size_t, unsigned int, u_char);
+                      size_t, u_char);
 
 extern int oid_compare (oid *, int, oid *, int);
 extern void oid2in_addr (oid [], int, struct in_addr *);
