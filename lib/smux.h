@@ -75,9 +75,34 @@ extern void smux_register_mib(const char *, struct variable *,
                               size_t, int, oid [], size_t);
 extern int smux_header_generic (struct variable *, oid [], size_t *, 
                                 int, size_t *, WriteMethod **);
-extern int smux_trap (const oid *, size_t, const oid *, size_t, 
-		      const struct trap_object *, 
-                      size_t, u_char);
+
+/* For traps, three OID are provided:
+
+ 1. The enterprise OID to use (the last argument will be appended to
+    it to form the SNMP trap OID)
+
+ 2. The base OID for objects to be sent in traps.
+
+ 3. The index OID for objects to be sent in traps. This index is used
+    to designate a particular instance of a column.
+
+ The provided trap object contains the bindings to be sent with the
+ trap. The base OID will be prefixed to the provided OID and, if the
+ length is positive, the requested OID is assumed to be a columnar
+ object and the index OID will be appended.
+
+ The two first arguments are the MIB registry used to locate the trap
+ objects.
+
+ The use of the arguments may differ depending on the implementation
+ used.
+*/
+extern int smux_trap (struct variable *, size_t,
+		      const oid *, size_t,
+		      const oid *, size_t,
+		      const oid *, size_t,
+		      const struct trap_object *, size_t,
+		      u_char);
 
 extern int oid_compare (oid *, int, oid *, int);
 extern void oid2in_addr (oid [], int, struct in_addr *);

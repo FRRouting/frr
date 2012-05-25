@@ -968,8 +968,15 @@ smux_open (int sock)
   return send (sock, buf, (ptr - buf), 0);
 }
 
+/* `ename` is ignored. Instead of using the provided enterprise OID,
+   the SMUX peer is used. This keep compatibility with the previous
+   versions of Quagga.
+
+   All other fields are used as they are intended. */
 int
-smux_trap (const oid *name, size_t namelen,
+smux_trap (struct variable *vp, size_t vp_len,
+	   const oid *ename, size_t enamelen,
+	   const oid *name, size_t namelen,
 	   const oid *iname, size_t inamelen,
 	   const struct trap_object *trapobj, size_t trapobjlen,
 	   u_char sptrap)

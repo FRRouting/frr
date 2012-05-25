@@ -210,6 +210,7 @@ SNMP_LOCAL_VARIABLES
 
 /* OSPF-MIB instances. */
 oid ospf_oid [] = { OSPF2MIB };
+oid ospf_trap_oid [] = { OSPF2MIB, 16, 2 }; /* Not reverse mappable! */
 
 /* IP address 0.0.0.0. */
 static struct in_addr ospf_empty_addr = {0};
@@ -2612,7 +2613,9 @@ ospfTrapNbrStateChange (struct ospf_neighbor *on)
   oid_copy_addr (index, &(on->address.u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
 
-  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+  smux_trap (ospf_variables, sizeof ospf_variables / sizeof (struct variable),
+	     ospf_trap_oid, sizeof ospf_trap_oid / sizeof (oid),
+	     ospf_oid, sizeof ospf_oid / sizeof (oid),
              index,  IN_ADDR_SIZE + 1,
              ospfNbrTrapList, 
              sizeof ospfNbrTrapList / sizeof (struct trap_object),
@@ -2629,7 +2632,9 @@ ospfTrapVirtNbrStateChange (struct ospf_neighbor *on)
   oid_copy_addr (index, &(on->address.u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
 
-  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+  smux_trap (ospf_variables, sizeof ospf_variables / sizeof (struct variable),
+	     ospf_trap_oid, sizeof ospf_trap_oid / sizeof (oid),
+	     ospf_oid, sizeof ospf_oid / sizeof (oid),
              index,  IN_ADDR_SIZE + 1,
              ospfVirtNbrTrapList, 
              sizeof ospfVirtNbrTrapList / sizeof (struct trap_object),
@@ -2648,7 +2653,9 @@ ospfTrapIfStateChange (struct ospf_interface *oi)
   oid_copy_addr (index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
 
-  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+  smux_trap (ospf_variables, sizeof ospf_variables / sizeof (struct variable),
+	     ospf_trap_oid, sizeof ospf_trap_oid / sizeof (oid),
+	     ospf_oid, sizeof ospf_oid / sizeof (oid),
              index, IN_ADDR_SIZE + 1,
              ospfIfTrapList, 
              sizeof ospfIfTrapList / sizeof (struct trap_object),
@@ -2665,7 +2672,9 @@ ospfTrapVirtIfStateChange (struct ospf_interface *oi)
   oid_copy_addr (index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
 
-  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+  smux_trap (ospf_variables, sizeof ospf_variables / sizeof (struct variable),
+	     ospf_trap_oid, sizeof ospf_trap_oid / sizeof (oid),
+	     ospf_oid, sizeof ospf_oid / sizeof (oid),
              index, IN_ADDR_SIZE + 1,
              ospfVirtIfTrapList,
              sizeof ospfVirtIfTrapList / sizeof (struct trap_object),

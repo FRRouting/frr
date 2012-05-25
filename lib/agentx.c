@@ -122,11 +122,91 @@ smux_register_mib (const char *descr, struct variable *var,
 }
 
 int
-smux_trap (const oid *name, size_t namelen,
+smux_trap (struct variable *vp, size_t vp_len,
+	   const oid *ename, size_t enamelen,
+	   const oid *name, size_t namelen,
 	   const oid *iname, size_t inamelen,
 	   const struct trap_object *trapobj, size_t trapobjlen,
 	   u_char sptrap)
 {
+  oid objid_snmptrap[] = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0 };
+  size_t objid_snmptrap_len = sizeof objid_snmptrap / sizeof (oid);
+  oid notification_oid[MAX_OID_LEN];
+  size_t notification_oid_len;
+  unsigned int i;
+
+  netsnmp_variable_list *notification_vars = NULL;
+  if (!agentx_enabled) return 0;
+
+  /* snmpTrapOID */
+  oid_copy (notification_oid, ename, enamelen);
+  notification_oid[enamelen] = sptrap;
+  notification_oid_len = enamelen + 1;
+  snmp_varlist_add_variable (&notification_vars,
+			     objid_snmptrap, objid_snmptrap_len,
+			     ASN_OBJECT_ID,
+			     (u_char *) notification_oid,
+			     notification_oid_len * sizeof(oid));
+
+  /* Provided bindings */
+  for (i = 0; i < trapobjlen; i++)
+    {
+      unsigned int j;
+      oid oid[MAX_OID_LEN];
+      size_t oid_len, onamelen;
+      u_char *val;
+      size_t val_len;
+      WriteMethod *wm = NULL;
+      struct variable cvp;
+
+      /* Make OID. */
+      if (trapobj[i].namelen > 0)
+        {
+	  /* Columnar object */
+	  onamelen = trapobj[i].namelen;
+	  oid_copy (oid, name, namelen);
+	  oid_copy (oid + namelen, trapobj[i].name, onamelen);
+	  oid_copy (oid + namelen + onamelen, iname, inamelen);
+	  oid_len = namelen + onamelen + inamelen;
+        }
+      else
+        {
+	  /* Scalar object */
+	  onamelen = trapobj[i].namelen * (-1);
+	  oid_copy (oid, name, namelen);
+	  oid_copy (oid + namelen, trapobj[i].name, onamelen);
+	  oid[onamelen + namelen] = 0;
+	  oid_len = namelen + onamelen + 1;
+        }
+
+      /* Locate the appropriate function and type in the MIB registry. */
+      for (j = 0; j < vp_len; j++)
+	{
+	  if (oid_compare (trapobj[i].name, onamelen, vp[j].name, vp[j].namelen) != 0)
+	    continue;
+	  /* We found the appropriate variable in the MIB registry. */
+	  oid_copy(cvp.name, name, namelen);
+	  oid_copy(cvp.name + namelen, vp[j].name, vp[j].namelen);
+	  cvp.namelen = namelen + vp[j].namelen;
+	  cvp.type = vp[j].type;
+	  cvp.magic = vp[j].magic;
+	  cvp.acl = vp[j].acl;
+	  cvp.findVar = vp[j].findVar;
+	  /* Grab the result. */
+	  val = cvp.findVar (&cvp, oid, &oid_len, 1, &val_len, &wm);
+	  if (!val) break;
+	  snmp_varlist_add_variable (&notification_vars,
+				     oid, oid_len,
+				     vp[j].type,
+				     val,
+				     val_len);
+	  break;
+	}
+    }
+
+
+  send_v2trap (notification_vars);
+  snmp_free_varbind (notification_vars);
   return 1;
 }
 
