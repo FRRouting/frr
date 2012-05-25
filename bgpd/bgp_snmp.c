@@ -833,8 +833,8 @@ bgp4PathAttrTable (struct variable *v, oid name[], size_t *length,
 /* BGP Traps. */
 struct trap_object bgpTrapList[] =
 {
-  {bgpPeerTable, 3, {3, 1, BGPPEERLASTERROR}},
-  {bgpPeerTable, 3, {3, 1, BGPPEERSTATE}}
+  {3, {3, 1, BGPPEERLASTERROR}},
+  {3, {3, 1, BGPPEERSTATE}}
 };
 
 void

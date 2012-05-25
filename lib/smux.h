@@ -47,8 +47,7 @@
 
 struct trap_object
 {
-  FindVarMethod *findVar;
-  int namelen;
+  int namelen; /* Negative if the object is not indexed */
   oid name[MAX_OID_LEN];
 };
 

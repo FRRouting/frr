@@ -2568,35 +2568,35 @@ ospfAreaAggregateEntry (struct variable *v, oid *name, size_t *length,
 
 struct trap_object ospfNbrTrapList[] =
 {
-  {ospfGeneralGroup, -2, {1, OSPFROUTERID}},
-  {ospfNbrEntry, 3, {10, 1, OSPFNBRIPADDR}},
-  {ospfNbrEntry, 3, {10, 1, OSPFNBRRTRID}},
-  {ospfNbrEntry, 3, {10, 1, OSPFNBRSTATE}}
+  {-2, {1, OSPFROUTERID}},
+  {3, {10, 1, OSPFNBRIPADDR}},
+  {3, {10, 1, OSPFNBRRTRID}},
+  {3, {10, 1, OSPFNBRSTATE}}
 };
 
 
 struct trap_object ospfVirtNbrTrapList[] =
 {
-  {ospfGeneralGroup, -2, {1, 1}},
-  {ospfVirtNbrEntry, 3, {11, 1, OSPFVIRTNBRAREA}},
-  {ospfVirtNbrEntry, 3, {11, 1, OSPFVIRTNBRRTRID}},
-  {ospfVirtNbrEntry, 3, {11, 1, OSPFVIRTNBRSTATE}}
+  {-2, {1, 1}},
+  {3, {11, 1, OSPFVIRTNBRAREA}},
+  {3, {11, 1, OSPFVIRTNBRRTRID}},
+  {3, {11, 1, OSPFVIRTNBRSTATE}}
 };
 
 struct trap_object ospfIfTrapList[] =
 {
-  {ospfGeneralGroup, -2, {1, OSPFROUTERID}},
-  {ospfIfEntry, 3, {7, 1, OSPFIFIPADDRESS}},
-  {ospfIfEntry, 3, {7, 1, OSPFADDRESSLESSIF}},
-  {ospfIfEntry, 3, {7, 1, OSPFIFSTATE}}
+  {-2, {1, OSPFROUTERID}},
+  {3, {7, 1, OSPFIFIPADDRESS}},
+  {3, {7, 1, OSPFADDRESSLESSIF}},
+  {3, {7, 1, OSPFIFSTATE}}
 };
 
 struct trap_object ospfVirtIfTrapList[] =
 {
-  {ospfGeneralGroup, -2, {1, OSPFROUTERID}},
-  {ospfVirtIfEntry, 3, {9, 1, OSPFVIRTIFAREAID}},
-  {ospfVirtIfEntry, 3, {9, 1, OSPFVIRTIFNEIGHBOR}},
-  {ospfVirtIfEntry, 3, {9, 1, OSPFVIRTIFSTATE}}
+  {-2, {1, OSPFROUTERID}},
+  {3, {9, 1, OSPFVIRTIFAREAID}},
+  {3, {9, 1, OSPFVIRTIFNEIGHBOR}},
+  {3, {9, 1, OSPFVIRTIFSTATE}}
 };
 
 void
