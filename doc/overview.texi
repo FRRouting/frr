@@ -7,7 +7,7 @@ provides TCP/IP based routing services with routing protocols support such
 as RIPv1, RIPv2, RIPng, OSPFv2, OSPFv3, BGP-4, and BGP-4+ (@pxref{Supported
 RFCs}). Quagga also supports special BGP Route Reflector and Route Server
 behavior.  In addition to traditional IPv4 routing protocols, Quagga also
-supports IPv6 routing protocols.  With SNMP daemon which supports SMUX
+supports IPv6 routing protocols.  With SNMP daemon which supports SMUX and AgentX
 protocol, Quagga provides routing protocol MIBs (@pxref{SNMP Support}).
 
   Quagga uses an advanced software architecture to provide you with a high
@@ -237,6 +237,9 @@ J. Chu, Editor. July 1994.}
 @item @asis{RFC1850}
 @cite{OSPF Version 2 Management Information Base. F. Baker, R. Coltun.
 November 1995.}
+
+@item @asis{RFC2741}
+@cite{Agent Extensibility (AgentX) Protocol. M. Daniele, B. Wijnen. January 2000.}
 
 @end table
 
