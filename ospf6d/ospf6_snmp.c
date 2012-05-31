@@ -225,6 +225,8 @@ static u_char *ospfv3AreaEntry (struct variable *, oid *, size_t *,
 				int, size_t *, WriteMethod **);
 static u_char *ospfv3AreaLsdbEntry (struct variable *, oid *, size_t *,
 				    int, size_t *, WriteMethod **);
+static u_char *ospfv3NbrEntry (struct variable *, oid *, size_t *,
+			       int, size_t *, WriteMethod **);
 
 struct variable ospfv3_variables[] =
 {
@@ -324,6 +326,31 @@ struct variable ospfv3_variables[] =
   {OSPFv3AREALSDBTYPEKNOWN,     INTEGER,   RONLY,  ospfv3AreaLsdbEntry,
    4, {1, 4, 1, 9}},
 
+  /* OSPFv3 neighbors */
+  {OSPFv3NBRADDRESSTYPE,        INTEGER,   RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 4}},
+  {OSPFv3NBRADDRESS,            STRING,    RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 5}},
+  {OSPFv3NBROPTIONS,            INTEGER,   RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 6}},
+  {OSPFv3NBRPRIORITY,           INTEGER,   RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 7}},
+  {OSPFv3NBRSTATE,              INTEGER,   RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 8}},
+  {OSPFv3NBREVENTS,             COUNTER,   RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 9}},
+  {OSPFv3NBRLSRETRANSQLEN,        GAUGE,   RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 10}},
+  {OSPFv3NBRHELLOSUPPRESSED,    INTEGER,   RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 11}},
+  {OSPFv3NBRIFID,               INTEGER,   RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 12}},
+  {OSPFv3NBRRESTARTHELPERSTATUS, INTEGER,  RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 13}},
+  {OSPFv3NBRRESTARTHELPERAGE,  UNSIGNED,   RONLY,  ospfv3NbrEntry,
+   4, {1, 9, 1, 14}},
+  {OSPFv3NBRRESTARTHELPEREXITREASON, INTEGER, RONLY, ospfv3NbrEntry,
+   4, {1, 9, 1, 15}},
 };
 
 static u_char *
@@ -585,6 +612,143 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
                            SNMP_TRUE : SNMP_FALSE);
       break;
     }
+  return NULL;
+}
+
+static int
+if_icmp_func (struct interface *ifp1, struct interface *ifp2)
+{
+  return (ifp1->ifindex - ifp2->ifindex);
+}
+
+static u_char *
+ospfv3NbrEntry (struct variable *v, oid *name, size_t *length,
+		int exact, size_t *var_len, WriteMethod **write_method)
+{
+  unsigned int ifindex, instid, rtrid;
+  struct ospf6_interface *oi = NULL;
+  struct ospf6_neighbor  *on = NULL;
+  struct interface      *iif;
+  struct listnode *i, *j;
+  struct list *ifslist;
+  oid *offset;
+  int offsetlen, len;
+
+  if (smux_header_table (v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
+  ifindex = instid = rtrid = 0;
+
+  /* Check OSPFv3 instance. */
+  if (ospf6 == NULL)
+    return NULL;
+
+  /* Get variable length. */
+  offset = name + v->namelen;
+  offsetlen = *length - v->namelen;
+
+  if (exact && offsetlen != 3)
+    return NULL;
+
+  /* Parse if index */
+  len = (offsetlen < 1 ? 0 : 1);
+  if (len)
+    ifindex = *offset;
+  offset += len;
+  offsetlen -= len;
+
+  /* Parse instance ID */
+  len = (offsetlen < 1 ? 0 : 1);
+  if (len)
+    instid = *offset;
+  offset += len;
+  offsetlen -= len;
+
+  /* Parse router ID */
+  len = (offsetlen < 1 ? 0 : 1);
+  if (len)
+    rtrid = htonl (*offset);
+  offset += len;
+  offsetlen -= len;
+
+  if (exact)
+    {
+      oi = ospf6_interface_lookup_by_ifindex (ifindex);
+      on = ospf6_neighbor_lookup (rtrid, oi);
+      if (oi->instance_id != instid) return NULL;
+    }
+  else
+    {
+      /* We build a sorted list of interfaces */
+      ifslist = list_new ();
+      if (!ifslist) return NULL;
+      ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
+      for (ALL_LIST_ELEMENTS_RO (iflist, i, iif))
+	listnode_add_sort (ifslist, iif);
+
+      for (ALL_LIST_ELEMENTS_RO (ifslist, i, iif))
+        {
+          if (!iif->ifindex) continue;
+          oi = ospf6_interface_lookup_by_ifindex (iif->ifindex);
+          if (!oi) continue;
+          for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, j, on)) {
+            if (iif->ifindex > ifindex ||
+                (iif->ifindex == ifindex &&
+                 (oi->instance_id > instid ||
+                  (oi->instance_id == instid &&
+                   ntohl (on->router_id) > ntohl (rtrid)))))
+              break;
+          }
+          if (on) break;
+          oi = on = NULL;
+        }
+
+      list_delete_all_node (ifslist);
+    }
+
+  if (!oi || !on) return NULL;
+
+  /* Add Index (IfIndex, IfInstId, RtrId) */
+  *length = v->namelen + 3;
+  offset = name + v->namelen;
+  *offset = oi->interface->ifindex;
+  offset++;
+  *offset = oi->instance_id;
+  offset++;
+  *offset = ntohl (on->router_id);
+  offset++;
+
+  /* Return the current value of the variable */
+  switch (v->magic)
+    {
+    case OSPFv3NBRADDRESSTYPE:
+      return SNMP_INTEGER (2);	/* IPv6 only */
+    case OSPFv3NBRADDRESS:
+      *var_len = sizeof (struct in6_addr);
+      return (u_char *) &on->linklocal_addr;
+    case OSPFv3NBROPTIONS:
+      return SNMP_INTEGER (on->options[2]);
+    case OSPFv3NBRPRIORITY:
+      return SNMP_INTEGER (on->priority);
+    case OSPFv3NBRSTATE:
+      return SNMP_INTEGER (on->state);
+    case OSPFv3NBREVENTS:
+      return SNMP_INTEGER (on->state_change);
+    case OSPFv3NBRLSRETRANSQLEN:
+      return SNMP_INTEGER (on->retrans_list->count);
+    case OSPFv3NBRHELLOSUPPRESSED:
+      return SNMP_INTEGER (SNMP_FALSE);
+    case OSPFv3NBRIFID:
+      return SNMP_INTEGER (on->ifindex);
+    case OSPFv3NBRRESTARTHELPERSTATUS:
+    case OSPFv3NBRRESTARTHELPERAGE:
+    case OSPFv3NBRRESTARTHELPEREXITREASON:
+      /* Not implemented. Only works if all the last ones are not
+	 implemented! */
+      return NULL;
+    }
+
   return NULL;
 }
 

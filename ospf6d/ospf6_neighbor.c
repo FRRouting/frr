@@ -89,6 +89,7 @@ ospf6_neighbor_create (u_int32_t router_id, struct ospf6_interface *oi)
             buf, oi->interface->name);
   on->ospf6_if = oi;
   on->state = OSPF6_NEIGHBOR_DOWN;
+  on->state_change = 0;
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &on->last_changed);
   on->router_id = router_id;
 
@@ -154,6 +155,7 @@ ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on)
   if (prev_state == next_state)
     return;
 
+  on->state_change++;
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &on->last_changed);
 
   /* log */

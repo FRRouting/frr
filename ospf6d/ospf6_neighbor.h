@@ -46,6 +46,7 @@ struct ospf6_neighbor
   u_char state;
 
   /* timestamp of last changing state */
+  u_int32_t state_change;
   struct timeval last_changed;
 
   /* Neighbor Router ID */
