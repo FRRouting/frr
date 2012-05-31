@@ -455,7 +455,9 @@ bgpPeerTable (struct variable *v, oid name[], size_t *length,
   static struct in_addr addr;
   struct peer *peer;
 
-  *write_method = NULL;
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
   memset (&addr, 0, sizeof (struct in_addr));
 
   peer = bgpPeerTable_lookup (v, name, length, &addr, exact);
@@ -765,6 +767,9 @@ bgp4PathAttrTable (struct variable *v, oid name[], size_t *length,
   if (! bgp)
     return NULL;
 
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
   memset (&addr, 0, sizeof (struct prefix_ipv4));
 
   binfo = bgp4PathAttrLookup (v, name, length, bgp, &addr, exact);

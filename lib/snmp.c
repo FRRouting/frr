@@ -110,4 +110,24 @@ smux_header_generic (struct variable *v, oid *name, size_t *length, int exact,
 
   return MATCH_SUCCEEDED;
 }
+
+int
+smux_header_table (struct variable *v, oid *name, size_t *length, int exact,
+		   size_t *var_len, WriteMethod **write_method)
+{
+  /* If the requested OID name is less than OID prefix we
+     handle, adjust it to our prefix. */
+  if ((oid_compare (name, *length, v->name, v->namelen)) < 0)
+    {
+      if (exact)
+	return MATCH_FAILED;
+      oid_copy(name, v->name, v->namelen);
+      *length = v->namelen;
+    }
+
+  *write_method = 0;
+  *var_len = sizeof(long);
+
+  return MATCH_SUCCEEDED;
+}
 #endif /* HAVE_SNMP */

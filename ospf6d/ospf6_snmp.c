@@ -306,6 +306,10 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
   if (ospf6 == NULL)
     return NULL;
 
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   len = *length - v->namelen;
   len = (len >= sizeof (u_int32_t) ? sizeof (u_int32_t) : 0);
   if (exact && len != sizeof (u_int32_t))
@@ -371,6 +375,10 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
   char a[16], b[16], c[16];
   struct ospf6_area *oa;
   struct listnode *node;
+
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
 
   memset (&area_id, 0, sizeof (struct in_addr));
   type = 0;

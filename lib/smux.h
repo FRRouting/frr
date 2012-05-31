@@ -75,6 +75,8 @@ extern void smux_register_mib(const char *, struct variable *,
                               size_t, int, oid [], size_t);
 extern int smux_header_generic (struct variable *, oid [], size_t *, 
                                 int, size_t *, WriteMethod **);
+extern int smux_header_table (struct variable *, oid *, size_t *, 
+			      int, size_t *, WriteMethod **);
 
 /* For traps, three OID are provided:
 

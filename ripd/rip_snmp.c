@@ -345,6 +345,10 @@ rip2IfStatEntry (struct variable *v, oid name[], size_t *length,
   static struct in_addr addr;
   static long valid = SNMP_VALID;
 
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   memset (&addr, 0, sizeof (struct in_addr));
   
   /* Lookup interface. */
@@ -448,6 +452,10 @@ rip2IfConfAddress (struct variable *v, oid name[], size_t *length,
   struct interface *ifp;
   struct rip_interface *ri;
 
+  if (smux_header_table(v, name, length, exact, val_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   memset (&addr, 0, sizeof (struct in_addr));
   
   /* Lookup interface. */
@@ -517,6 +525,10 @@ rip2PeerTable (struct variable *v, oid name[], size_t *length,
   /* static time_t uptime; */
 
   struct rip_peer *peer;
+
+  if (smux_header_table(v, name, length, exact, val_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
 
   memset (&addr, 0, sizeof (struct in_addr));
   
