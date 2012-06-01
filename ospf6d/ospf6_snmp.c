@@ -357,6 +357,10 @@ static u_char *
 ospfv3GeneralGroup (struct variable *v, oid *name, size_t *length,
                     int exact, size_t *var_len, WriteMethod **write_method)
 {
+  u_int16_t sum;
+  u_int32_t count;
+  struct ospf6_lsa *lsa = NULL;
+
   /* Check whether the instance identifier is valid */
   if (smux_header_generic (v, name, length, exact, var_len, write_method)
       == MATCH_FAILED)
@@ -371,18 +375,58 @@ ospfv3GeneralGroup (struct variable *v, oid *name, size_t *length,
 	return SNMP_INTEGER (ntohl (ospf6->router_id));
       return SNMP_INTEGER (0);
     case OSPFv3ADMINSTAT:
+      if (ospf6)
+	return SNMP_INTEGER (CHECK_FLAG (ospf6->flag, OSPF6_DISABLED)?
+			     OSPF_STATUS_DISABLED:OSPF_STATUS_ENABLED);
+      return SNMP_INTEGER (OSPF_STATUS_DISABLED);
     case OSPFv3VERSIONNUMBER:
+      return SNMP_INTEGER (3);
     case OSPFv3AREABDRRTRSTATUS:
+      if (ospf6)
+	return SNMP_INTEGER (ospf6_is_router_abr (ospf6)?SNMP_TRUE:SNMP_FALSE);
+      return SNMP_INTEGER (SNMP_FALSE);
     case OSPFv3ASBDRRTRSTATUS:
+      if (ospf6)
+	return SNMP_INTEGER (ospf6_asbr_is_asbr (ospf6)?SNMP_TRUE:SNMP_FALSE);
+      return SNMP_INTEGER (SNMP_FALSE);
     case OSPFv3ASSCOPELSACOUNT:
+      if (ospf6)
+	return SNMP_INTEGER (ospf6->lsdb->count);
+      return SNMP_INTEGER (0);
     case OSPFv3ASSCOPELSACHECKSUMSUM:
+      if (ospf6)
+        {
+          for (sum = 0, lsa = ospf6_lsdb_head (ospf6->lsdb);
+               lsa;
+               lsa = ospf6_lsdb_next (lsa))
+            sum += ntohs (lsa->header->checksum);
+          return SNMP_INTEGER (sum);
+        }
+      return SNMP_INTEGER (0);
     case OSPFv3ORIGINATENEWLSAS:
+      return SNMP_INTEGER (0);	/* Don't know where to get this value... */
     case OSPFv3RXNEWLSAS:
+      return SNMP_INTEGER (0);	/* Don't know where to get this value... */
     case OSPFv3EXTLSACOUNT:
+      if (ospf6)
+        {
+          for (count = 0, lsa = ospf6_lsdb_type_head (htons (OSPF6_LSTYPE_AS_EXTERNAL),
+                                                      ospf6->lsdb);
+               lsa;
+               lsa = ospf6_lsdb_type_next (htons (OSPF6_LSTYPE_AS_EXTERNAL),
+                                           lsa))
+            count += 1;
+          return SNMP_INTEGER (count);
+        }
+      return SNMP_INTEGER (0);
     case OSPFv3EXTAREALSDBLIMIT:
+      return SNMP_INTEGER (-1);
     case OSPFv3EXITOVERFLOWINTERVAL:
+      return SNMP_INTEGER (0);	/* Not supported */
     case OSPFv3DEMANDEXTENSIONS:
+      return SNMP_INTEGER (0);	/* Not supported */
     case OSPFv3REFERENCEBANDWIDTH:
+      return SNMP_INTEGER (100000);
     case OSPFv3RESTARTSUPPORT:
     case OSPFv3RESTARTINTERVAL:
     case OSPFv3RESTARTSTRICTLSACHECKING:
