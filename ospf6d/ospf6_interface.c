@@ -394,6 +394,7 @@ ospf6_interface_state_change (u_char next_state, struct ospf6_interface *oi)
 		  ospf6_interface_state_str[prev_state],
 		  ospf6_interface_state_str[next_state]);
     }
+  oi->state_change++;
 
   if ((prev_state == OSPF6_INTERFACE_DR ||
        prev_state == OSPF6_INTERFACE_BDR) &&

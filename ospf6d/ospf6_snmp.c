@@ -227,6 +227,8 @@ static u_char *ospfv3AreaLsdbEntry (struct variable *, oid *, size_t *,
 				    int, size_t *, WriteMethod **);
 static u_char *ospfv3NbrEntry (struct variable *, oid *, size_t *,
 			       int, size_t *, WriteMethod **);
+static u_char *ospfv3IfEntry (struct variable *, oid *, size_t *,
+			      int, size_t *, WriteMethod **);
 
 struct variable ospfv3_variables[] =
 {
@@ -325,6 +327,54 @@ struct variable ospfv3_variables[] =
    4, {1, 4, 1, 8}},
   {OSPFv3AREALSDBTYPEKNOWN,     INTEGER,   RONLY,  ospfv3AreaLsdbEntry,
    4, {1, 4, 1, 9}},
+
+  /* OSPFv3 interfaces */
+  {OSPFv3IFAREAID,             UNSIGNED, RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 3}},
+  {OSPFv3IFTYPE,               INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 4}},
+  {OSPFv3IFADMINSTATUS,        INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 5}},
+  {OSPFv3IFRTRPRIORITY,        INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 6}},
+  {OSPFv3IFTRANSITDELAY,       UNSIGNED, RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 7}},
+  {OSPFv3IFRETRANSINTERVAL,    UNSIGNED, RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 8}},
+  {OSPFv3IFHELLOINTERVAL,      INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 9}},
+  {OSPFv3IFRTRDEADINTERVAL,    UNSIGNED, RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 10}},
+  {OSPFv3IFPOLLINTERVAL,       UNSIGNED, RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 11}},
+  {OSPFv3IFSTATE,              INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 12}},
+  {OSPFv3IFDESIGNATEDROUTER,   UNSIGNED, RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 13}},
+  {OSPFv3IFBACKUPDESIGNATEDROUTER, UNSIGNED, RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 14}},
+  {OSPFv3IFEVENTS,             COUNTER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 15}},
+  {OSPFv3IFROWSTATUS,          INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 16}},
+  {OSPFv3IFDEMAND,             INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 17}},
+  {OSPFv3IFMETRICVALUE,        INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 18}},
+  {OSPFv3IFLINKSCOPELSACOUNT,  GAUGE,    RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 19}},
+  {OSPFv3IFLINKLSACKSUMSUM,    UNSIGNED, RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 20}},
+  {OSPFv3IFDEMANDNBRPROBE,     INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 21}},
+  {OSPFv3IFDEMANDNBRPROBERETRANSLIMIT, UNSIGNED, RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 22}},
+  {OSPFv3IFDEMANDNBRPROBEINTERVAL, UNSIGNED, RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 23}},
+  {OSPFv3IFTEDISABLED,         INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 24}},
+  {OSPFv3IFLINKLSASUPPRESSION, INTEGER,  RONLY, ospfv3IfEntry,
+   4, {1, 7, 1, 25}},
 
   /* OSPFv3 neighbors */
   {OSPFv3NBRADDRESSTYPE,        INTEGER,   RONLY,  ospfv3NbrEntry,
@@ -692,6 +742,159 @@ if_icmp_func (struct interface *ifp1, struct interface *ifp2)
 }
 
 static u_char *
+ospfv3IfEntry (struct variable *v, oid *name, size_t *length,
+		int exact, size_t *var_len, WriteMethod **write_method)
+{
+  unsigned int ifindex, instid;
+  struct ospf6_interface *oi = NULL;
+  struct ospf6_lsa *lsa = NULL;
+  struct interface      *iif;
+  struct listnode *i;
+  struct list *ifslist;
+  oid *offset;
+  int offsetlen, len;
+  u_int32_t sum;
+
+  if (smux_header_table (v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
+  ifindex = instid = 0;
+
+  /* Check OSPFv3 instance. */
+  if (ospf6 == NULL)
+    return NULL;
+
+  /* Get variable length. */
+  offset = name + v->namelen;
+  offsetlen = *length - v->namelen;
+
+  if (exact && offsetlen != 2)
+    return NULL;
+
+  /* Parse if index */
+  len = (offsetlen < 1 ? 0 : 1);
+  if (len)
+    ifindex = *offset;
+  offset += len;
+  offsetlen -= len;
+
+  /* Parse instance ID */
+  len = (offsetlen < 1 ? 0 : 1);
+  if (len)
+    instid = *offset;
+  offset += len;
+  offsetlen -= len;
+
+  if (exact)
+    {
+      oi = ospf6_interface_lookup_by_ifindex (ifindex);
+      if (oi->instance_id != instid) return NULL;
+    }
+  else
+    {
+      /* We build a sorted list of interfaces */
+      ifslist = list_new ();
+      if (!ifslist) return NULL;
+      ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
+      for (ALL_LIST_ELEMENTS_RO (iflist, i, iif))
+	listnode_add_sort (ifslist, iif);
+
+      for (ALL_LIST_ELEMENTS_RO (ifslist, i, iif))
+        {
+          if (!iif->ifindex) continue;
+          oi = ospf6_interface_lookup_by_ifindex (iif->ifindex);
+          if (!oi) continue;
+          if (iif->ifindex > ifindex ||
+              (iif->ifindex == ifindex &&
+               (oi->instance_id > instid)))
+            break;
+          oi = NULL;
+        }
+
+      list_delete_all_node (ifslist);
+    }
+
+  if (!oi) return NULL;
+
+  /* Add Index (IfIndex, IfInstId) */
+  *length = v->namelen + 2;
+  offset = name + v->namelen;
+  *offset = oi->interface->ifindex;
+  offset++;
+  *offset = oi->instance_id;
+  offset++;
+
+  /* Return the current value of the variable */
+  switch (v->magic)
+    {
+    case OSPFv3IFAREAID:
+      if (oi->area)
+	return SNMP_INTEGER (ntohl (oi->area->area_id));
+      break;
+    case OSPFv3IFTYPE:
+      if (if_is_broadcast (oi->interface))
+	return SNMP_INTEGER (1);
+      else if (if_is_pointopoint (oi->interface))
+	return SNMP_INTEGER (3);
+      else break;		/* Unknown, don't put anything */
+    case OSPFv3IFADMINSTATUS:
+      if (oi->area)
+	return SNMP_INTEGER (OSPF_STATUS_ENABLED);
+      return SNMP_INTEGER (OSPF_STATUS_DISABLED);
+    case OSPFv3IFRTRPRIORITY:
+      return SNMP_INTEGER (oi->priority);
+    case OSPFv3IFTRANSITDELAY:
+      return SNMP_INTEGER (oi->transdelay);
+    case OSPFv3IFRETRANSINTERVAL:
+      return SNMP_INTEGER (oi->rxmt_interval);
+    case OSPFv3IFHELLOINTERVAL:
+      return SNMP_INTEGER (oi->hello_interval);
+    case OSPFv3IFRTRDEADINTERVAL:
+      return SNMP_INTEGER (oi->dead_interval);
+    case OSPFv3IFPOLLINTERVAL:
+      /* No support for NBMA */
+      break;
+    case OSPFv3IFSTATE:
+      return SNMP_INTEGER (oi->state);
+    case OSPFv3IFDESIGNATEDROUTER:
+      return SNMP_INTEGER (ntohl (oi->drouter));
+    case OSPFv3IFBACKUPDESIGNATEDROUTER:
+      return SNMP_INTEGER (ntohl (oi->bdrouter));
+    case OSPFv3IFEVENTS:
+      return SNMP_INTEGER (oi->state_change);
+    case OSPFv3IFROWSTATUS:
+      return SNMP_INTEGER (1);
+    case OSPFv3IFDEMAND:
+      return SNMP_INTEGER (SNMP_FALSE);
+    case OSPFv3IFMETRICVALUE:
+      return SNMP_INTEGER (oi->cost);
+    case OSPFv3IFLINKSCOPELSACOUNT:
+      return SNMP_INTEGER (oi->lsdb->count);
+    case OSPFv3IFLINKLSACKSUMSUM:
+      for (sum = 0, lsa = ospf6_lsdb_head (oi->lsdb);
+	   lsa;
+	   lsa = ospf6_lsdb_next (lsa))
+	sum += ntohs (lsa->header->checksum);
+      return SNMP_INTEGER (sum);
+    case OSPFv3IFDEMANDNBRPROBE:
+    case OSPFv3IFDEMANDNBRPROBERETRANSLIMIT:
+    case OSPFv3IFDEMANDNBRPROBEINTERVAL:
+    case OSPFv3IFTEDISABLED:
+    case OSPFv3IFLINKLSASUPPRESSION:
+      /* Not implemented. Only works if all the last ones are not
+	 implemented! */
+      return NULL;
+    }
+
+  /* Try an internal getnext. Some columns are missing in this table. */
+  if (!exact && (name[*length-1] < MAX_SUBID))
+    return ospfv3IfEntry(v, name, length,
+			 exact, var_len, write_method);
+  return NULL;
+}
+
+static u_char *
 ospfv3NbrEntry (struct variable *v, oid *name, size_t *length,
 		int exact, size_t *var_len, WriteMethod **write_method)
 {
@@ -821,7 +1024,6 @@ ospfv3NbrEntry (struct variable *v, oid *name, size_t *length,
 
   return NULL;
 }
-
 
 /* Register OSPFv3-MIB. */
 void

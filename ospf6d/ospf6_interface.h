@@ -64,6 +64,8 @@ struct ospf6_interface
   u_int16_t dead_interval;
   u_int32_t rxmt_interval;
 
+  u_int32_t state_change;
+
   /* Cost */
   u_int32_t cost;
 
