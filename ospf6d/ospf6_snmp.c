@@ -204,6 +204,7 @@ SNMP_LOCAL_VARIABLES
 
 /* OSPFv3-MIB instances. */
 oid ospfv3_oid [] = { OSPFv3MIB };
+oid ospfv3_trap_oid [] = { OSPFv3MIB, 0 };
 
 /* Hook functions. */
 static u_char *ospfv3GeneralGroup (struct variable *, oid *, size_t *,
@@ -1108,6 +1109,61 @@ ospfv3NbrEntry (struct variable *v, oid *name, size_t *length,
     }
 
   return NULL;
+}
+
+/* OSPF Traps. */
+#define NBRSTATECHANGE      2
+#define IFSTATECHANGE      10
+
+static struct trap_object ospf6NbrTrapList[] =
+{
+  {-3, {1, 1, OSPFv3ROUTERID}},
+  {4, {1, 9, 1, OSPFv3NBRADDRESSTYPE}},
+  {4, {1, 9, 1, OSPFv3NBRADDRESS}},
+  {4, {1, 9, 1, OSPFv3NBRSTATE}}
+};
+
+static struct trap_object ospf6IfTrapList[] =
+{
+  {-3, {1, 1, OSPFv3ROUTERID}},
+  {4, {1, 7, 1, OSPFv3IFSTATE}},
+  {4, {1, 7, 1, OSPFv3IFADMINSTATUS}},
+  {4, {1, 7, 1, OSPFv3IFAREAID}}
+};
+
+void
+ospf6TrapNbrStateChange (struct ospf6_neighbor *on)
+{
+  oid index[3];
+
+  index[0] = on->ospf6_if->interface->ifindex;
+  index[1] = on->ospf6_if->instance_id;
+  index[2] = ntohl (on->router_id);
+
+  smux_trap (ospfv3_variables, sizeof ospfv3_variables / sizeof (struct variable),
+	     ospfv3_trap_oid, sizeof ospfv3_trap_oid / sizeof (oid),
+	     ospfv3_oid, sizeof ospfv3_oid / sizeof (oid),
+             index,  3,
+             ospf6NbrTrapList, 
+             sizeof ospf6NbrTrapList / sizeof (struct trap_object),
+             NBRSTATECHANGE);
+}
+
+void
+ospf6TrapIfStateChange (struct ospf6_interface *oi)
+{
+  oid index[2];
+
+  index[0] = oi->interface->ifindex;
+  index[1] = oi->instance_id;
+
+  smux_trap (ospfv3_variables, sizeof ospfv3_variables / sizeof (struct variable),
+	     ospfv3_trap_oid, sizeof ospfv3_trap_oid / sizeof (oid),
+	     ospfv3_oid, sizeof ospfv3_oid / sizeof (oid),
+             index,  2,
+             ospf6IfTrapList, 
+             sizeof ospf6IfTrapList / sizeof (struct trap_object),
+             IFSTATECHANGE);
 }
 
 /* Register OSPFv3-MIB. */

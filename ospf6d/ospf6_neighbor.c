@@ -182,6 +182,15 @@ ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on)
       (next_state != OSPF6_NEIGHBOR_EXCHANGE &&
        next_state != OSPF6_NEIGHBOR_LOADING))
     ospf6_maxage_remove (on->ospf6_if->area->ospf6);
+
+#ifdef HAVE_SNMP
+  /* Terminal state or regression */ 
+  if ((next_state == OSPF6_NEIGHBOR_FULL)  ||
+      (next_state == OSPF6_NEIGHBOR_TWOWAY) ||
+      (next_state < prev_state))
+    ospf6TrapNbrStateChange (on);
+#endif
+
 }
 
 /* RFC2328 section 10.4 */

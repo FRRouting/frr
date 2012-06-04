@@ -421,6 +421,17 @@ ospf6_interface_state_change (u_char next_state, struct ospf6_interface *oi)
       OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
       OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (oi->area);
     }
+
+#ifdef HAVE_SNMP
+  /* Terminal state or regression */ 
+  if ((next_state == OSPF6_INTERFACE_POINTTOPOINT) ||
+      (next_state == OSPF6_INTERFACE_DROTHER) ||
+      (next_state == OSPF6_INTERFACE_BDR) ||
+      (next_state == OSPF6_INTERFACE_DR) ||
+      (next_state < prev_state))
+    ospf6TrapIfStateChange (oi);
+#endif
+
 }
 
 
