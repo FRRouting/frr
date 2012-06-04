@@ -473,6 +473,8 @@ ospf6_spf_calculation (u_int32_t router_id,
     }
 
   pqueue_delete (candidate_list);
+
+  oa->spf_calculation++;
 }
 
 static void

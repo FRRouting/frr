@@ -449,10 +449,14 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
                  int exact, size_t *var_len, WriteMethod **write_method)
 {
   struct ospf6_area *oa, *area = NULL;
+  struct ospf6_lsa *lsa = NULL;
   u_int32_t area_id = 0;
+  u_int32_t count;
+  u_int16_t sum;
   struct listnode *node;
   unsigned int len;
   char a[16];
+  struct ospf6_route *ro;
 
   if (ospf6 == NULL)
     return NULL;
@@ -498,15 +502,37 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
   switch (v->magic)
     {
     case OSPFv3IMPORTASEXTERN:
-      return SNMP_INTEGER (ospf6->external_table->count);
-      break;
+      /* No NSSA support */
+      return SNMP_INTEGER (IS_AREA_STUB(area)?2:1);
     case OSPFv3AREASPFRUNS:
+      return SNMP_INTEGER (area->spf_calculation);
     case OSPFv3AREABDRRTRCOUNT:
     case OSPFv3AREAASBDRRTRCOUNT:
+      count = 0;
+      for (ro = ospf6_route_head (ospf6->brouter_table); ro;
+	   ro = ospf6_route_next (ro))
+        {
+          if (ntohl (ro->path.area_id) != ntohl (area->area_id)) continue;
+          if (v->magic == OSPFv3AREABDRRTRCOUNT &&
+              CHECK_FLAG (ro->path.router_bits, OSPF6_ROUTER_BIT_B))
+            count++;
+          if (v->magic == OSPFv3AREAASBDRRTRCOUNT &&
+              CHECK_FLAG (ro->path.router_bits, OSPF6_ROUTER_BIT_E))
+            count++;
+        }
+      return SNMP_INTEGER (count);
     case OSPFv3AREASCOPELSACOUNT:
+      return SNMP_INTEGER (area->lsdb->count);
     case OSPFv3AREASCOPELSACKSUMSUM:
+      for (sum = 0, lsa = ospf6_lsdb_head (area->lsdb);
+	   lsa;
+	   lsa = ospf6_lsdb_next (lsa))
+	sum += ntohs (lsa->header->checksum);
+      return SNMP_INTEGER (sum);
     case OSPFv3AREASUMMARY:
+      return SNMP_INTEGER (2); /* sendAreaSummary */
     case OSPFv3AREAROWSTATUS:
+      return SNMP_INTEGER (1); /* Active */
     case OSPFv3AREASTUBMETRIC:
     case OSPFv3AREANSSATRANSLATORROLE:
     case OSPFv3AREANSSATRANSLATORSTATE:
