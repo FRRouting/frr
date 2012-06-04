@@ -90,26 +90,20 @@
 #define OSPFv3AREASTUBMETRICTYPE        15
 #define OSPFv3AREATEENABLED             16
 
-/* OSPFv3 MIB AS Lsdb Table values: ospfv3AsLsdbTable */
-#define OSPFv3ASLSDBSEQUENCE             4
-#define OSPFv3ASLSDBAGE                  5
-#define OSPFv3ASLSDBCHECKSUM             6
-#define OSPFv3ASLSDBADVERTISEMENT        7
-#define OSPFv3ASLSDBTYPEKNOWN            8
+/* OSPFv3 MIB * Lsdb Table values: ospfv3*LsdbTable */
+#define OSPFv3WWLSDBSEQUENCE             1
+#define OSPFv3WWLSDBAGE                  2
+#define OSPFv3WWLSDBCHECKSUM             3
+#define OSPFv3WWLSDBADVERTISEMENT        4
+#define OSPFv3WWLSDBTYPEKNOWN            5
 
-/* OSPFv3 MIB Area Lsdb Table values: ospfv3AreaLsdbTable */
-#define OSPFv3AREALSDBSEQUENCE           5
-#define OSPFv3AREALSDBAGE                6
-#define OSPFv3AREALSDBCHECKSUM           7
-#define OSPFv3AREALSDBADVERTISEMENT      8
-#define OSPFv3AREALSDBTYPEKNOWN          9
-
-/* OSPFv3 MIB Link Lsdb Table values: ospfv3LinkLsdbTable */
-#define OSPFv3LINKLSDBSEQUENCE           6
-#define OSPFv3LINKLSDBAGE                7
-#define OSPFv3LINKLSDBCHECKSUM           8
-#define OSPFv3LINKLSDBADVERTISEMENT      9
-#define OSPFv3LINKLSDBTYPEKNOWN         10
+/* Three first bits are to identify column */
+#define OSPFv3WWCOLUMN 0x7
+/* Then we use other bits to identify table */
+#define OSPFv3WWASTABLE   (1 << 3)
+#define OSPFv3WWAREATABLE (1 << 4)
+#define OSPFv3WWLINKTABLE (1 << 5)
+#define OSPFv3WWVIRTLINKTABLE (1 << 6)
 
 /* OSPFv3 MIB Host Table values: ospfv3HostTable */
 #define OSPFv3HOSTMETRIC                 3
@@ -192,13 +186,6 @@
 #define OSPFv3AREAAGGREGATEEFFECT     7
 #define OSPFv3AREAAGGREGATEROUTETAG   8
 
-/* OSPFv3 MIB Virtual Link Lsdb Table values: ospfv3VirtLinkLsdbTable */
-#define OSPFv3VIRTLINKLSDBSEQUENCE       6
-#define OSPFv3VIRTLINKLSDBAGE            7
-#define OSPFv3VIRTLINKLSDBCHECKSUM       8
-#define OSPFv3VIRTLINKLSDBADVERTISEMENT  9
-#define OSPFv3VIRTLINKLSDBTYPEKNOWN     10
-
 /* SYNTAX Status from OSPF-MIB. */
 #define OSPF_STATUS_ENABLED  1
 #define OSPF_STATUS_DISABLED 2
@@ -223,8 +210,8 @@ static u_char *ospfv3GeneralGroup (struct variable *, oid *, size_t *,
 				   int, size_t *, WriteMethod **);
 static u_char *ospfv3AreaEntry (struct variable *, oid *, size_t *,
 				int, size_t *, WriteMethod **);
-static u_char *ospfv3AreaLsdbEntry (struct variable *, oid *, size_t *,
-				    int, size_t *, WriteMethod **);
+static u_char *ospfv3WwLsdbEntry (struct variable *, oid *, size_t *,
+				  int, size_t *, WriteMethod **);
 static u_char *ospfv3NbrEntry (struct variable *, oid *, size_t *,
 			       int, size_t *, WriteMethod **);
 static u_char *ospfv3IfEntry (struct variable *, oid *, size_t *,
@@ -316,17 +303,41 @@ struct variable ospfv3_variables[] =
   {OSPFv3AREATEENABLED,         INTEGER, RWRITE, ospfv3AreaEntry,
    4, {1, 2, 1, 16}},
 
+  /* OSPFv3 AS LSDB */
+  {OSPFv3WWLSDBSEQUENCE | OSPFv3WWASTABLE,      INTEGER,   RONLY,  ospfv3WwLsdbEntry,
+   4, {1, 3, 1, 4}},
+  {OSPFv3WWLSDBAGE | OSPFv3WWASTABLE,           UNSIGNED,  RONLY,  ospfv3WwLsdbEntry,
+   4, {1, 3, 1, 5}},
+  {OSPFv3WWLSDBCHECKSUM | OSPFv3WWASTABLE,      INTEGER,   RONLY,  ospfv3WwLsdbEntry,
+   4, {1, 3, 1, 6}},
+  {OSPFv3WWLSDBADVERTISEMENT | OSPFv3WWASTABLE, STRING,    RONLY,  ospfv3WwLsdbEntry,
+   4, {1, 3, 1, 7}},
+  {OSPFv3WWLSDBTYPEKNOWN | OSPFv3WWASTABLE,     INTEGER,   RONLY,  ospfv3WwLsdbEntry,
+   4, {1, 3, 1, 8}},
+
   /* OSPFv3 Area LSDB */
-  {OSPFv3AREALSDBSEQUENCE,      INTEGER,   RONLY,  ospfv3AreaLsdbEntry,
+  {OSPFv3WWLSDBSEQUENCE | OSPFv3WWAREATABLE,      INTEGER,   RONLY,  ospfv3WwLsdbEntry,
    4, {1, 4, 1, 5}},
-  {OSPFv3AREALSDBAGE,          UNSIGNED,   RONLY,  ospfv3AreaLsdbEntry,
+  {OSPFv3WWLSDBAGE | OSPFv3WWAREATABLE,           UNSIGNED,  RONLY,  ospfv3WwLsdbEntry,
    4, {1, 4, 1, 6}},
-  {OSPFv3AREALSDBCHECKSUM,      INTEGER,   RONLY,  ospfv3AreaLsdbEntry,
+  {OSPFv3WWLSDBCHECKSUM | OSPFv3WWAREATABLE,      INTEGER,   RONLY,  ospfv3WwLsdbEntry,
    4, {1, 4, 1, 7}},
-  {OSPFv3AREALSDBADVERTISEMENT, STRING,    RONLY,  ospfv3AreaLsdbEntry,
+  {OSPFv3WWLSDBADVERTISEMENT | OSPFv3WWAREATABLE, STRING,    RONLY,  ospfv3WwLsdbEntry,
    4, {1, 4, 1, 8}},
-  {OSPFv3AREALSDBTYPEKNOWN,     INTEGER,   RONLY,  ospfv3AreaLsdbEntry,
+  {OSPFv3WWLSDBTYPEKNOWN | OSPFv3WWAREATABLE,     INTEGER,   RONLY,  ospfv3WwLsdbEntry,
    4, {1, 4, 1, 9}},
+
+  /* OSPFv3 Link LSDB */
+  {OSPFv3WWLSDBSEQUENCE | OSPFv3WWLINKTABLE,      INTEGER,   RONLY,  ospfv3WwLsdbEntry,
+   4, {1, 5, 1, 6}},
+  {OSPFv3WWLSDBAGE | OSPFv3WWLINKTABLE,           UNSIGNED,  RONLY,  ospfv3WwLsdbEntry,
+   4, {1, 5, 1, 7}},
+  {OSPFv3WWLSDBCHECKSUM | OSPFv3WWLINKTABLE,      INTEGER,   RONLY,  ospfv3WwLsdbEntry,
+   4, {1, 5, 1, 8}},
+  {OSPFv3WWLSDBADVERTISEMENT | OSPFv3WWLINKTABLE, STRING,    RONLY,  ospfv3WwLsdbEntry,
+   4, {1, 5, 1, 9}},
+  {OSPFv3WWLSDBTYPEKNOWN | OSPFv3WWLINKTABLE,     INTEGER,   RONLY,  ospfv3WwLsdbEntry,
+   4, {1, 5, 1, 10}},
 
   /* OSPFv3 interfaces */
   {OSPFv3IFAREAID,             UNSIGNED, RONLY, ospfv3IfEntry,
@@ -596,12 +607,18 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
   return NULL;
 }
 
+static int
+if_icmp_func (struct interface *ifp1, struct interface *ifp2)
+{
+  return (ifp1->ifindex - ifp2->ifindex);
+}
+
 static u_char *
-ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
+ospfv3WwLsdbEntry (struct variable *v, oid *name, size_t *length,
                      int exact, size_t *var_len, WriteMethod **write_method)
 {
   struct ospf6_lsa *lsa = NULL;
-  u_int32_t area_id, id, adv_router;
+  u_int32_t ifindex, area_id, id, instid, adv_router;
   u_int16_t type;
   int len;
   oid *offset;
@@ -609,12 +626,15 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
   char a[16], b[16], c[16];
   struct ospf6_area *oa;
   struct listnode *node;
+  struct interface *iif;
+  struct ospf6_interface *oi = NULL;
+  struct list *ifslist;
 
   if (smux_header_table(v, name, length, exact, var_len, write_method)
       == MATCH_FAILED)
     return NULL;
 
-  area_id = type = id = adv_router = 0;
+  instid = ifindex = area_id = type = id = adv_router = 0;
 
   /* Check OSPFv3 instance. */
   if (ospf6 == NULL)
@@ -624,17 +644,38 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
   offset = name + v->namelen;
   offsetlen = *length - v->namelen;
 
-#define OSPFV3_AREA_LSDB_ENTRY_EXACT_OFFSET 4
-
-  if (exact && offsetlen != OSPFV3_AREA_LSDB_ENTRY_EXACT_OFFSET)
+  if (exact && (v->magic & OSPFv3WWASTABLE) && offsetlen != 3)
+    return NULL;
+  if (exact && (v->magic & OSPFv3WWAREATABLE) && offsetlen != 4)
+    return NULL;
+  if (exact && (v->magic & OSPFv3WWLINKTABLE) && offsetlen != 5)
     return NULL;
 
-  /* Parse area-id */
-  len = (offsetlen < 1 ? 0 : 1);
-  if (len)
-    area_id = htonl (*offset);
-  offset += len;
-  offsetlen -= len;
+  if (v->magic & OSPFv3WWLINKTABLE)
+    {
+      /* Parse ifindex */
+      len = (offsetlen < 1 ? 0 : 1);
+      if (len)
+        ifindex = *offset;
+      offset += len;
+      offsetlen -= len;
+
+      /* Parse instance ID */
+      len = (offsetlen < 1 ? 0 : 1);
+      if (len)
+        instid = *offset;
+      offset += len;
+      offsetlen -= len;
+    }
+  else if (v->magic & OSPFv3WWAREATABLE)
+    {
+      /* Parse area-id */
+      len = (offsetlen < 1 ? 0 : 1);
+      if (len)
+        area_id = htonl (*offset);
+      offset += len;
+      offsetlen -= len;
+    }
 
   /* Parse type */
   len = (offsetlen < 1 ? 0 : 1);
@@ -657,52 +698,102 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
   offset += len;
   offsetlen -= len;
 
-  inet_ntop (AF_INET, &area_id, a, sizeof (a));
-  inet_ntop (AF_INET, &adv_router, b, sizeof (b));
-  inet_ntop (AF_INET, &id, c, sizeof (c));
-  zlog_debug ("SNMP access by lsdb: area=%s exact=%d length=%lu magic=%d"
-	      " type=%#x adv_router=%s id=%s",
-	      a, exact, (u_long)*length, v->magic, ntohs (type), b, c);
-
   if (exact)
     {
-      oa = ospf6_area_lookup (area_id, ospf6);
-      lsa = ospf6_lsdb_lookup (type, id, adv_router, oa->lsdb);
+      if (v->magic & OSPFv3WWASTABLE)
+        {
+          lsa = ospf6_lsdb_lookup (type, id, adv_router, ospf6->lsdb);
+        }
+      else if (v->magic & OSPFv3WWAREATABLE)
+        {
+          oa = ospf6_area_lookup (area_id, ospf6);
+          lsa = ospf6_lsdb_lookup (type, id, adv_router, oa->lsdb);
+        }
+      else if (v->magic & OSPFv3WWLINKTABLE)
+        {
+          oi = ospf6_interface_lookup_by_ifindex (ifindex);
+          if (oi->instance_id != instid) return NULL;
+          lsa = ospf6_lsdb_lookup (type, id, adv_router, oi->lsdb);
+        }
     }
   else
     {
-      for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
-        {
-          if (lsa)
-            continue;
-          if (oa->area_id < area_id)
-            continue;
+      if (v->magic & OSPFv3WWASTABLE)
+	{
+	  if (ospf6->lsdb->count)
+	    lsa = ospf6_lsdb_lookup_next (type, id, adv_router,
+					  ospf6->lsdb);
+	}
+      else if (v->magic & OSPFv3WWAREATABLE)
+	for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
+          {
+            if (oa->area_id < area_id)
+              continue;
 
-          lsa = ospf6_lsdb_lookup_next (type, id, adv_router,
-                                        oa->lsdb);
-          if (! lsa)
+            if (oa->lsdb->count)
+              lsa = ospf6_lsdb_lookup_next (type, id, adv_router,
+                                            oa->lsdb);
+            if (lsa) break;
+            type = 0;
+            id = 0;
+            adv_router = 0;
+          }
+      else if (v->magic & OSPFv3WWLINKTABLE)
+        {
+          /* We build a sorted list of interfaces */
+          ifslist = list_new ();
+          if (!ifslist) return NULL;
+          ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
+          for (ALL_LIST_ELEMENTS_RO (iflist, node, iif))
+            listnode_add_sort (ifslist, iif);
+          
+          for (ALL_LIST_ELEMENTS_RO (ifslist, node, iif))
             {
+              if (!iif->ifindex) continue;
+              oi = ospf6_interface_lookup_by_ifindex (iif->ifindex);
+              if (!oi) continue;
+              if (iif->ifindex < ifindex) continue;
+              if (oi->instance_id < instid) continue;
+              
+              if (oi->lsdb->count)
+                lsa = ospf6_lsdb_lookup_next (type, id, adv_router,
+                                            oi->lsdb);
+              if (lsa) break;
               type = 0;
-	      id = 0;
-	      adv_router = 0;
+              id = 0;
+              adv_router = 0;
+              oi = NULL;
             }
+
+          list_delete_all_node (ifslist);
         }
     }
 
   if (! lsa)
-    {
-      zlog_debug ("SNMP respond: No LSA to return");
       return NULL;
+
+  /* Add indexes */
+  if (v->magic & OSPFv3WWASTABLE)
+    {
+      *length = v->namelen + 3;
+      offset = name + v->namelen;
     }
-  oa = OSPF6_AREA (lsa->lsdb->data);
-
-  zlog_debug ("SNMP respond: area: %s lsa: %s", oa->name, lsa->name);
-
-  /* Add Index (AreaId, Type, RouterId, Lsid) */
-  *length = v->namelen + OSPFV3_AREA_LSDB_ENTRY_EXACT_OFFSET;
-  offset = name + v->namelen;
-  *offset = ntohl (oa->area_id);
-  offset++;
+  else if (v->magic & OSPFv3WWAREATABLE)
+    {
+      *length = v->namelen + 4;
+      offset = name + v->namelen;
+      *offset = ntohl (oa->area_id);
+      offset++;
+    }
+  else if (v->magic & OSPFv3WWLINKTABLE)
+    {
+      *length = v->namelen + 5;
+      offset = name + v->namelen;
+      *offset = oi->interface->ifindex;
+      offset++;
+      *offset = oi->instance_id;
+      offset++;
+    }
   *offset = ntohs (lsa->header->type);
   offset++;
   *offset = ntohl (lsa->header->adv_router);
@@ -711,34 +802,28 @@ ospfv3AreaLsdbEntry (struct variable *v, oid *name, size_t *length,
   offset++;
 
   /* Return the current value of the variable */
-  switch (v->magic)
+  switch (v->magic & OSPFv3WWCOLUMN)
     {
-    case OSPFv3AREALSDBSEQUENCE:
+    case OSPFv3WWLSDBSEQUENCE:
       return SNMP_INTEGER (ntohl (lsa->header->seqnum));
       break;
-    case OSPFv3AREALSDBAGE:
+    case OSPFv3WWLSDBAGE:
       ospf6_lsa_age_current (lsa);
       return SNMP_INTEGER (ntohs (lsa->header->age));
       break;
-    case OSPFv3AREALSDBCHECKSUM:
+    case OSPFv3WWLSDBCHECKSUM:
       return SNMP_INTEGER (ntohs (lsa->header->checksum));
       break;
-    case OSPFv3AREALSDBADVERTISEMENT:
+    case OSPFv3WWLSDBADVERTISEMENT:
       *var_len = ntohs (lsa->header->length);
       return (u_char *) lsa->header;
       break;
-    case OSPFv3AREALSDBTYPEKNOWN:
+    case OSPFv3WWLSDBTYPEKNOWN:
       return SNMP_INTEGER (OSPF6_LSA_IS_KNOWN (lsa->header->type) ?
                            SNMP_TRUE : SNMP_FALSE);
       break;
     }
   return NULL;
-}
-
-static int
-if_icmp_func (struct interface *ifp1, struct interface *ifp2)
-{
-  return (ifp1->ifindex - ifp2->ifindex);
 }
 
 static u_char *
