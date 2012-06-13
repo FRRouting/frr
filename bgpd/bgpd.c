@@ -2063,6 +2063,13 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
   bgp_router_id_set(bgp, &router_id_zebra);
   *bgp_val = bgp;
 
+  /* Create BGP server socket, if first instance.  */
+  if (list_isempty(bm->bgp))
+    {
+      if (bgp_socket (bm->port, bm->address) < 0)
+	return BGP_ERR_INVALID_VALUE;
+    }
+
   listnode_add (bm->bgp, bgp);
 
   return 0;
@@ -5342,15 +5349,6 @@ bgp_master_init (void)
 }
 
 
-int
-bgp_socket_init (void)
-{
-  /* Create BGP server socket */
-  if (bgp_socket (bm->port, bm->address) < 0)
-    return BGP_ERR_INVALID_VALUE;
-  return 0;
-}
-
 void
 bgp_init (void)
 {

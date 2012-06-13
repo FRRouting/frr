@@ -846,7 +846,6 @@ extern void bgp_config_write_family_header (struct vty *, afi_t, safi_t, int *);
 extern void bgp_master_init (void);
 
 extern void bgp_init (void);
-extern int bgp_socket_init (void);
 extern void bgp_route_map_init (void);
 
 extern int bgp_option_set (int);
