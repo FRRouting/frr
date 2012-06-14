@@ -82,6 +82,7 @@ bgp_option_set (int flag)
     case BGP_OPT_NO_FIB:
     case BGP_OPT_MULTIPLE_INSTANCE:
     case BGP_OPT_CONFIG_CISCO:
+    case BGP_OPT_NO_LISTEN:
       SET_FLAG (bm->options, flag);
       break;
     default:
@@ -2064,7 +2065,8 @@ bgp_get (struct bgp **bgp_val, as_t *as, const char *name)
   *bgp_val = bgp;
 
   /* Create BGP server socket, if first instance.  */
-  if (list_isempty(bm->bgp))
+  if (list_isempty(bm->bgp)
+      && !bgp_option_check (BGP_OPT_NO_LISTEN))
     {
       if (bgp_socket (bm->port, bm->address) < 0)
 	return BGP_ERR_INVALID_VALUE;
