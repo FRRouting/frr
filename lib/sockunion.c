@@ -174,6 +174,18 @@ sockunion2str (union sockunion *su, char *buf, size_t len)
   return NULL;
 }
 
+union sockunion *
+sockunion_str2su (const char *str)
+{
+  union sockunion *su = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
+  
+  if (!str2sockunion (str, su))
+    return su;
+  
+  XFREE (MTYPE_SOCKUNION, su);
+  return NULL;
+}
+
 /* Convert IPv4 compatible IPv6 address to IPv4 address. */
 static void
 sockunion_normalise_mapped (union sockunion *su)

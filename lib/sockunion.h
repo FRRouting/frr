@@ -88,6 +88,7 @@ extern const char *sockunion2str (union sockunion *, char *, size_t);
 extern int sockunion_cmp (union sockunion *, union sockunion *);
 extern int sockunion_same (union sockunion *, union sockunion *);
 
+extern union sockunion *sockunion_str2su (const char *str);
 extern int sockunion_accept (int sock, union sockunion *);
 extern int sockunion_stream_socket (union sockunion *);
 extern int sockopt_reuseaddr (int);
