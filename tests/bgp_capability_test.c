@@ -618,6 +618,7 @@ main (void)
   
   master = thread_master_create ();
   bgp_master_init ();
+  bgp_option_set (BGP_OPT_NO_LISTEN);
   
   if (fileno (stdout) >= 0) 
     tty = isatty (fileno (stdout));

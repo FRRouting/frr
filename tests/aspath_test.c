@@ -1259,6 +1259,7 @@ main (void)
   int i = 0;
   bgp_master_init ();
   master = bm->master;
+  bgp_option_set (BGP_OPT_NO_LISTEN);
   bgp_attr_init ();
   
   while (test_segments[i].name)
