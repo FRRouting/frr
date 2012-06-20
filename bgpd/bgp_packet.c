@@ -1854,8 +1854,9 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   peer->update_in++;
   peer->update_time = bgp_clock ();
 
-  /* Cancel holdtime timer */
+  /* Rearm holdtime timer */
   BGP_TIMER_OFF (peer->t_holdtime);
+  bgp_timer_set (peer);
 
   return 0;
 }
