@@ -4678,9 +4678,7 @@ bgp_aggregate_increment (struct bgp *bgp, struct prefix *p,
   if (BGP_INFO_HOLDDOWN (ri))
     return;
 
-  child = bgp_node_lookup (table, p);
-  if (! child)
-    return;
+  child = bgp_node_get (table, p);
 
   /* Aggregate address configuration check. */
   for (rn = child; rn; rn = rn->parent)
@@ -4714,9 +4712,7 @@ bgp_aggregate_decrement (struct bgp *bgp, struct prefix *p,
   if (p->prefixlen == 0)
     return;
 
-  child = bgp_node_lookup (table, p);
-  if (! child)
-    return;
+  child = bgp_node_get (table, p);
 
   /* Aggregate address configuration check. */
   for (rn = child; rn; rn = rn->parent)
