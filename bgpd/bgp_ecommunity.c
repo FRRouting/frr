@@ -770,7 +770,9 @@ ecommunity_match (const struct ecommunity *ecom1,
   /* Every community on com2 needs to be on com1 for this to match */
   while (i < ecom1->size && j < ecom2->size)
     {
-      if (memcmp (ecom1->val + i, ecom2->val + j, ECOMMUNITY_SIZE) == 0)
+      if (memcmp (ecom1->val + i * ECOMMUNITY_SIZE,
+                  ecom2->val + j * ECOMMUNITY_SIZE,
+                  ECOMMUNITY_SIZE) == 0)
         j++;
       i++;
     }
@@ -780,4 +782,3 @@ ecommunity_match (const struct ecommunity *ecom1,
   else
     return 0;
 }
-
