@@ -127,6 +127,10 @@ struct ospf_interface
   /* OSPF Area. */
   struct ospf_area *area;
 
+  /* Position range in Router LSA */
+  uint16_t lsa_pos_beg; /* inclusive, >= */
+  uint16_t lsa_pos_end; /* exclusive, <  */
+
   /* Interface data from zebra. */
   struct interface *ifp;
   struct ospf_vl_data *vl_data;		/* Data for Virtual Link */
@@ -244,6 +248,8 @@ extern int ospf_if_down (struct ospf_interface *);
 
 extern int ospf_if_is_up (struct ospf_interface *);
 extern struct ospf_interface *ospf_if_exists (struct ospf_interface *);
+extern struct ospf_interface *ospf_if_lookup_by_lsa_pos (struct ospf_area *,
+							 int);
 extern struct ospf_interface *ospf_if_lookup_by_local_addr (struct ospf *,
 							    struct interface
 							    *,

@@ -670,6 +670,7 @@ router_lsa_link_set (struct stream *s, struct ospf_area *area)
 	{
 	  if (oi->state != ISM_Down)
 	    {
+	      oi->lsa_pos_beg = links;
 	      /* Describe each link. */
 	      switch (oi->type)
 		{
@@ -691,6 +692,7 @@ router_lsa_link_set (struct stream *s, struct ospf_area *area)
 		case OSPF_IFTYPE_LOOPBACK:
 		  links += lsa_link_loopback_set (s, oi); 
 		}
+	      oi->lsa_pos_end = links;
 	    }
 	}
     }

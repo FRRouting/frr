@@ -392,6 +392,21 @@ ospf_if_exists (struct ospf_interface *oic)
   return NULL;
 }
 
+/* Lookup OSPF interface by router LSA posistion */
+struct ospf_interface *
+ospf_if_lookup_by_lsa_pos (struct ospf_area *area, int lsa_pos)
+{
+  struct listnode *node;
+  struct ospf_interface *oi;
+
+  for (ALL_LIST_ELEMENTS_RO (area->oiflist, node, oi))
+    {
+      if (lsa_pos >= oi->lsa_pos_beg && lsa_pos < oi->lsa_pos_end)
+	return oi;
+    }
+  return NULL;
+}
+
 struct ospf_interface *
 ospf_if_lookup_by_local_addr (struct ospf *ospf,
 			      struct interface *ifp, struct in_addr address)
@@ -801,6 +816,9 @@ ospf_if_down (struct ospf_interface *oi)
     return 0;
 
   OSPF_ISM_EVENT_EXECUTE (oi, ISM_InterfaceDown);
+  /* delete position in router LSA */
+  oi->lsa_pos_beg = 0;
+  oi->lsa_pos_end = 0;
   /* Shutdown packet reception and sending */
   ospf_if_stream_unset (oi);
 
