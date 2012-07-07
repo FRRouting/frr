@@ -775,6 +775,11 @@ zread_ipv4_add (struct zserv *client, u_short length)
 	      nexthop.s_addr = stream_get_ipv4 (s);
 	      nexthop_ipv4_add (rib, &nexthop, NULL);
 	      break;
+	    case ZEBRA_NEXTHOP_IPV4_IFINDEX:
+	      nexthop.s_addr = stream_get_ipv4 (s);
+	      ifindex = stream_getl (s);
+	      nexthop_ipv4_ifindex_add (rib, &nexthop, NULL, ifindex);
+	      break;
 	    case ZEBRA_NEXTHOP_IPV6:
 	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
 	      break;
@@ -851,6 +856,10 @@ zread_ipv4_delete (struct zserv *client, u_short length)
 	    case ZEBRA_NEXTHOP_IPV4:
 	      nexthop.s_addr = stream_get_ipv4 (s);
 	      nexthop_p = &nexthop;
+	      break;
+	    case ZEBRA_NEXTHOP_IPV4_IFINDEX:
+	      nexthop.s_addr = stream_get_ipv4 (s);
+	      ifindex = stream_getl (s);
 	      break;
 	    case ZEBRA_NEXTHOP_IPV6:
 	      stream_forward_getp (s, IPV6_MAX_BYTELEN);
