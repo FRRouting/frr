@@ -675,23 +675,11 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
 		  added = 1;
                   ospf_spf_add_parent (v, w, nh, distance);
                 }
+	      /* Always return here as we known that 16.1.1 para 4
+		 does not apply one you have found a connection to root */
+	      return added;
             }
         }
-      /* NB: This code is non-trivial.
-       * 
-       * E.g. it is not enough to know that V connects to the root. It is
-       * also important that the while above, looping through all links from
-       * W->V found at least one link, so that we know there is
-       * bi-directional connectivity between V and W.  Otherwise, if we
-       * /always/ return here, but don't check that W->V exists then we
-       * we will prevent SPF from finding/using higher cost paths..
-       *
-       * See also bug #330, and also:
-       *
-       * http://blogs.sun.com/paulj/entry/the_difference_a_line_makes
-       */
-      if (added)
-        return added;
     }
 
   /* 16.1.1 para 4.  If there is at least one intervening router in the
