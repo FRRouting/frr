@@ -429,7 +429,7 @@ ospf_intra_add_transit (struct route_table *rt, struct vertex *v,
 void
 ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
 		     struct vertex *v, struct ospf_area *area,
-		     int parent_is_root)
+		     int parent_is_root, int lsa_pos)
 {
   u_int32_t cost;
   struct route_node *rn;
@@ -577,7 +577,7 @@ ospf_intra_add_stub (struct route_table *rt, struct router_lsa_link *link,
       if (IS_DEBUG_OSPF_EVENT)
 	zlog_debug ("ospf_intra_add_stub(): this network is on this router");
 
-      if ((oi = ospf_if_lookup_by_prefix (area->ospf, &p)))
+      if ((oi = ospf_if_lookup_by_lsa_pos (area, lsa_pos)))
 	{
 	  if (IS_DEBUG_OSPF_EVENT)
 	    zlog_debug ("ospf_intra_add_stub(): the interface is %s",

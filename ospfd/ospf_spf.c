@@ -973,6 +973,7 @@ ospf_spf_process_stubs (struct ospf_area *area, struct vertex *v,
       u_char *lim;
       struct router_lsa_link *l;
       struct router_lsa *rlsa;
+      int lsa_pos = 0;
 
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("ospf_process_stubs():processing router LSA, id: %s",
@@ -994,7 +995,8 @@ ospf_spf_process_stubs (struct ospf_area *area, struct vertex *v,
                 (l->m[0].tos_count * OSPF_ROUTER_LSA_TOS_SIZE));
 
           if (l->m[0].type == LSA_LINK_TYPE_STUB)
-            ospf_intra_add_stub (rt, l, v, area, parent_is_root);
+	    ospf_intra_add_stub (rt, l, v, area, parent_is_root, lsa_pos);
+	  lsa_pos++;
         }
     }
 
