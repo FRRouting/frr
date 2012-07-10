@@ -708,12 +708,13 @@ ospfv3WwLsdbEntry (struct variable *v, oid *name, size_t *length,
       else if (v->magic & OSPFv3WWAREATABLE)
         {
           oa = ospf6_area_lookup (area_id, ospf6);
+          if (!oa) return NULL;
           lsa = ospf6_lsdb_lookup (type, id, adv_router, oa->lsdb);
         }
       else if (v->magic & OSPFv3WWLINKTABLE)
         {
           oi = ospf6_interface_lookup_by_ifindex (ifindex);
-          if (oi->instance_id != instid) return NULL;
+          if (!oi || oi->instance_id != instid) return NULL;
           lsa = ospf6_lsdb_lookup (type, id, adv_router, oi->lsdb);
         }
     }
@@ -875,7 +876,7 @@ ospfv3IfEntry (struct variable *v, oid *name, size_t *length,
   if (exact)
     {
       oi = ospf6_interface_lookup_by_ifindex (ifindex);
-      if (oi->instance_id != instid) return NULL;
+      if (!oi || oi->instance_id != instid) return NULL;
     }
   else
     {
@@ -1034,8 +1035,8 @@ ospfv3NbrEntry (struct variable *v, oid *name, size_t *length,
   if (exact)
     {
       oi = ospf6_interface_lookup_by_ifindex (ifindex);
+      if (!oi || oi->instance_id != instid) return NULL;
       on = ospf6_neighbor_lookup (rtrid, oi);
-      if (oi->instance_id != instid) return NULL;
     }
   else
     {
@@ -1060,7 +1061,8 @@ ospfv3NbrEntry (struct variable *v, oid *name, size_t *length,
               break;
           }
           if (on) break;
-          oi = on = NULL;
+          oi = NULL;
+          on = NULL;
         }
 
       list_delete_all_node (ifslist);
