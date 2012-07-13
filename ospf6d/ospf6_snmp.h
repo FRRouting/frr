@@ -22,6 +22,8 @@
 #ifndef OSPF6_SNMP_H
 #define OSPF6_SNMP_H
 
+extern void ospf6TrapNbrStateChange (struct ospf6_neighbor *);
+extern void ospf6TrapIfStateChange (struct ospf6_interface *);
 extern void ospf6_snmp_init (struct thread_master *);
 
 #endif /*OSPF6_SNMP_H*/
