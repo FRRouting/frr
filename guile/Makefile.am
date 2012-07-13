@@ -1,6 +1,6 @@
 ## Process this file with Automake to create Makefile.in
 
-INCLUDES = @GUILE_CFLAGS@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib
+INCLUDES = @GUILE_CFLAGS@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 DEFS = @DEFS@ -I. -I$(srcdir)
 
 AM_CFLAGS = $(PICFLAGS)

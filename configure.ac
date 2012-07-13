@@ -221,10 +221,8 @@ AC_ARG_ENABLE(netlink,
 [  --enable-netlink        force to use Linux netlink interface])
 AC_ARG_ENABLE(broken-aliases,
 [  --enable-broken-aliases enable aliases as distinct interfaces for Linux 2.2.X])
-AC_ARG_WITH(crypto,
-[  --without-crypto        do not use libcrypto in SNMP])
 AC_ARG_ENABLE(snmp,
-[  --enable-snmp           enable SNMP support])
+[  --enable-snmp=ARG       enable SNMP support (smux or agentx)])
 AC_ARG_WITH(libpam,
 [  --with-libpam           use libpam for PAM support in vtysh])
 AC_ARG_ENABLE(tcp-zebra,
@@ -1365,21 +1363,39 @@ AC_SUBST(LIB_REGEX)
 dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
-if test "${enable_snmp}" = "yes"; then
-    if test "$with_crypto" != "no"; then
-        LIBS="${LIBS} -lcrypto";
-    fi
-    AC_CHECK_LIB(netsnmp, asn_parse_int,
-    	[AC_DEFINE(HAVE_NETSNMP,,Net SNMP) 
-    	 AC_DEFINE(HAVE_SNMP,,SNMP)
-    	 LIBS="${LIBS} -lnetsnmp"],
-    	[AC_MSG_ERROR([--enable-snmp given, but cannot find support for SNMP])])
-
-    AC_CHECK_HEADER([net-snmp/net-snmp-config.h],
-        [],
-        [AC_MSG_ERROR([--enable-snmp given, but cannot find net-snmp-config.h])],
-	QUAGGA_INCLUDES)
-    AC_SUBST(SNMP_INCLUDES)
+if test "${enable_snmp}" != ""; then
+   AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
+   if test x"$NETSNMP_CONFIG" = x"no"; then
+      AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
+   fi
+   LIBS="$LIBS `${NETSNMP_CONFIG} --agent-libs`"
+   CFLAGS="`${NETSNMP_CONFIG} --base-cflags` $CFLAGS"
+   AC_MSG_CHECKING([whether we can link to Net-SNMP])
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([
+int main(void);
+],
+[
+{
+  return 0;
+}
+])],[AC_MSG_RESULT(yes)],[
+     AC_MSG_RESULT(no)
+     AC_MSG_ERROR([--enable-snmp given but not usable])])
+   AC_DEFINE(HAVE_SNMP,,SNMP)
+   case "${enable_snmp}" in
+     yes)
+      SNMP_METHOD=agentx
+      ;;
+     smux|agentx)
+      SNMP_METHOD="${enable_snmp}"
+      ;;
+     *)
+      AC_MSG_ERROR([--enable-snmp given with an unknown method (${enable_snmp}). Use smux or agentx])
+      ;;
+   esac
+   AH_TEMPLATE([SNMP_SMUX], [Use SNMP SMUX to interface with snmpd])
+   AH_TEMPLATE([SNMP_AGENTX], [Use SNMP AgentX to interface with snmpd])
+   AC_DEFINE_UNQUOTED(AS_TR_CPP(SNMP_${SNMP_METHOD}),,SNMP method to interface with snmpd)
 fi
 
 dnl ---------------------------
@@ -1625,7 +1641,7 @@ source code location    : ${srcdir}
 compiler                : ${CC}
 compiler flags          : ${CFLAGS}
 make                    : ${MAKE-make}
-includes                : ${INCLUDES} ${SNMP_INCLUDES}
+includes                : ${INCLUDES}
 linker flags            : ${LDFLAGS} ${LIBS} ${LIBCAP} ${LIBREADLINE} ${LIBM}
 state file directory    : ${quagga_statedir}
 config file directory   : `eval echo \`echo ${sysconfdir}\``

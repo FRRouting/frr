@@ -29,6 +29,16 @@
 #include "hash.h"
 #include "command.h"
 #include "sigevent.h"
+
+#if defined HAVE_SNMP && defined SNMP_AGENTX
+#include <net-snmp/net-snmp-config.h>
+#include <net-snmp/net-snmp-includes.h>
+#include <net-snmp/agent/net-snmp-agent-includes.h>
+#include <net-snmp/agent/snmp_vars.h>
+
+extern int agentx_enabled;
+#endif
+
 
 /* Recent absolute time of day */
 struct timeval recent_time;
@@ -1030,6 +1040,11 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
   while (1)
     {
       int num = 0;
+#if defined HAVE_SNMP && defined SNMP_AGENTX
+      struct timeval snmp_timer_wait;
+      int snmpblock = 0;
+      int fdsetsize;
+#endif
       
       /* Signals pre-empt everything */
       quagga_sigevent_process ();
@@ -1065,6 +1080,26 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
             timer_wait = timer_wait_bg;
         }
       
+#if defined HAVE_SNMP && defined SNMP_AGENTX
+      /* When SNMP is enabled, we may have to select() on additional
+	 FD. snmp_select_info() will add them to `readfd'. The trick
+	 with this function is its last argument. We need to set it to
+	 0 if timer_wait is not NULL and we need to use the provided
+	 new timer only if it is still set to 0. */
+      if (agentx_enabled)
+        {
+          fdsetsize = FD_SETSIZE;
+          snmpblock = 1;
+          if (timer_wait)
+            {
+              snmpblock = 0;
+              memcpy(&snmp_timer_wait, timer_wait, sizeof(struct timeval));
+            }
+          snmp_select_info(&fdsetsize, &readfd, &snmp_timer_wait, &snmpblock);
+          if (snmpblock == 0)
+            timer_wait = &snmp_timer_wait;
+        }
+#endif
       num = select (FD_SETSIZE, &readfd, &writefd, &exceptfd, timer_wait);
       
       /* Signals should get quick treatment */
@@ -1075,6 +1110,20 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
           zlog_warn ("select() error: %s", safe_strerror (errno));
             return NULL;
         }
+
+#if defined HAVE_SNMP && defined SNMP_AGENTX
+      if (agentx_enabled)
+        {
+          if (num > 0)
+            snmp_read(&readfd);
+          else if (num == 0)
+            {
+              snmp_timeout();
+              run_alarms();
+            }
+          netsnmp_check_outstanding_agent_requests();
+        }
+#endif
 
       /* Check foreground timers.  Historically, they have had higher
          priority than I/O threads, so let's push them onto the ready

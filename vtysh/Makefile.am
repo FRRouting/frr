@@ -1,6 +1,6 @@
 ## Process this file with Automake to create Makefile.in
 
-INCLUDES = @INCLUDES@ -I$(top_srcdir) -I$(top_srcdir)/lib
+INCLUDES = @INCLUDES@ -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 
 LIBS = @LIBS@ @CURSES@ @LIBPAM@

@@ -22,14 +22,8 @@
 #include <zebra.h>
 
 #ifdef HAVE_SNMP
-#ifdef HAVE_NETSNMP
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
-#else
-#include <asn1.h>
-#include <snmp.h>
-#include <snmp_impl.h>
-#endif
 
 #include "if.h"
 #include "log.h"
@@ -457,6 +451,10 @@ ipFwTable (struct variable *v, oid objid[], size_t *objid_len,
   static struct in_addr netmask;
   struct nexthop *nexthop;
 
+  if (smux_header_table(v, objid, objid_len, exact, val_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   get_fwtable_route_node(v, objid, objid_len, exact, &np, &rib);
   if (!np)
     return NULL;
@@ -555,6 +553,10 @@ static u_char *
 ipCidrTable (struct variable *v, oid objid[], size_t *objid_len,
 	     int exact, size_t *val_len, WriteMethod **write_method)
 {
+  if (smux_header_table(v, objid, objid_len, exact, val_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   switch (v->magic)
     {
     case IPCIDRROUTEDEST:

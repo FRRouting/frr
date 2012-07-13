@@ -21,14 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <zebra.h>
 
 #ifdef HAVE_SNMP
-#ifdef HAVE_NETSNMP
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
-#else
-#include <asn1.h>
-#include <snmp.h>
-#include <snmp_impl.h>
-#endif
 
 #include "if.h"
 #include "log.h"
@@ -124,6 +118,7 @@ SNMP_LOCAL_VARIABLES
 
 /* BGP-MIB instances. */
 oid bgp_oid [] = { BGP4MIB };
+oid bgp_trap_oid [] = { BGP4MIB, 0 };
 
 /* IP address 0.0.0.0. */
 static struct in_addr bgp_empty_addr = {0};
@@ -460,7 +455,9 @@ bgpPeerTable (struct variable *v, oid name[], size_t *length,
   static struct in_addr addr;
   struct peer *peer;
 
-  *write_method = NULL;
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
   memset (&addr, 0, sizeof (struct in_addr));
 
   peer = bgpPeerTable_lookup (v, name, length, &addr, exact);
@@ -770,6 +767,9 @@ bgp4PathAttrTable (struct variable *v, oid name[], size_t *length,
   if (! bgp)
     return NULL;
 
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
   memset (&addr, 0, sizeof (struct prefix_ipv4));
 
   binfo = bgp4PathAttrLookup (v, name, length, bgp, &addr, exact);
@@ -839,8 +839,8 @@ bgp4PathAttrTable (struct variable *v, oid name[], size_t *length,
 /* BGP Traps. */
 struct trap_object bgpTrapList[] =
 {
-  {bgpPeerTable, 3, {3, 1, BGPPEERLASTERROR}},
-  {bgpPeerTable, 3, {3, 1, BGPPEERSTATE}}
+  {3, {3, 1, BGPPEERLASTERROR}},
+  {3, {3, 1, BGPPEERSTATE}}
 };
 
 void
@@ -856,10 +856,12 @@ bgpTrapEstablished (struct peer *peer)
 
   oid_copy_addr (index, &addr, IN_ADDR_SIZE);
 
-  smux_trap (bgp_oid, sizeof bgp_oid / sizeof (oid),
+  smux_trap (bgp_variables, sizeof bgp_variables / sizeof (struct variable),
+	     bgp_trap_oid, sizeof bgp_trap_oid / sizeof (oid),
+	     bgp_oid, sizeof bgp_oid / sizeof (oid),
 	     index, IN_ADDR_SIZE,
 	     bgpTrapList, sizeof bgpTrapList / sizeof (struct trap_object),
-	     bm->start_time - bgp_clock (), BGPESTABLISHED);
+	     BGPESTABLISHED);
 }
 
 void
@@ -875,10 +877,12 @@ bgpTrapBackwardTransition (struct peer *peer)
 
   oid_copy_addr (index, &addr, IN_ADDR_SIZE);
 
-  smux_trap (bgp_oid, sizeof bgp_oid / sizeof (oid),
+  smux_trap (bgp_variables, sizeof bgp_variables / sizeof (struct variable),
+	     bgp_trap_oid, sizeof bgp_trap_oid / sizeof (oid),
+	     bgp_oid, sizeof bgp_oid / sizeof (oid),
 	     index, IN_ADDR_SIZE,
 	     bgpTrapList, sizeof bgpTrapList / sizeof (struct trap_object),
-	     bm->start_time - bgp_clock (), BGPBACKWARDTRANSITION);
+	     BGPBACKWARDTRANSITION);
 }
 
 void

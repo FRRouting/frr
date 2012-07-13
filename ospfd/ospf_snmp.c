@@ -25,14 +25,8 @@
 #include <zebra.h>
 
 #ifdef HAVE_SNMP
-#ifdef HAVE_NETSNMP
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
-#else
-#include <asn1.h>
-#include <snmp.h>
-#include <snmp_impl.h>
-#endif
 
 #include "if.h"
 #include "log.h"
@@ -216,6 +210,7 @@ SNMP_LOCAL_VARIABLES
 
 /* OSPF-MIB instances. */
 oid ospf_oid [] = { OSPF2MIB };
+oid ospf_trap_oid [] = { OSPF2MIB, 16, 2 }; /* Not reverse mappable! */
 
 /* IP address 0.0.0.0. */
 static struct in_addr ospf_empty_addr = {0};
@@ -709,6 +704,10 @@ ospfAreaEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct ospf_area *area;
   struct in_addr addr;
 
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   memset (&addr, 0, sizeof (struct in_addr));
 
   area = ospfAreaLookup (v, name, length, &addr, exact);
@@ -851,6 +850,10 @@ ospfStubAreaEntry (struct variable *v, oid *name, size_t *length,
 {
   struct ospf_area *area;
   struct in_addr addr;
+
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
 
   memset (&addr, 0, sizeof (struct in_addr));
 
@@ -1083,6 +1086,10 @@ ospfLsdbEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct in_addr router_id;
   struct ospf *ospf;
 
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   /* INDEX { ospfLsdbAreaId, ospfLsdbType,
      ospfLsdbLsid, ospfLsdbRouterId } */
 
@@ -1245,6 +1252,10 @@ ospfAreaRangeEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct in_addr mask;
   struct ospf *ospf;
   
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   /* Check OSPF instance. */
   ospf = ospf_lookup ();
   if (ospf == NULL)
@@ -1348,6 +1359,10 @@ ospfHostEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct ospf_interface *oi;
   struct in_addr addr;
   struct ospf *ospf;
+
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
 
   /* Check OSPF instance. */
   ospf = ospf_lookup ();
@@ -1684,6 +1699,10 @@ ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct ospf_interface *oi;
   struct ospf *ospf;
 
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   ifindex = 0;
   memset (&ifaddr, 0, sizeof (struct in_addr));
 
@@ -1851,6 +1870,10 @@ ospfIfMetricEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct in_addr ifaddr;
   struct ospf_interface *oi;
   struct ospf *ospf;
+
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
 
   ifindex = 0;
   memset (&ifaddr, 0, sizeof (struct in_addr));
@@ -2043,6 +2066,10 @@ ospfVirtIfEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct ospf_interface *oi;
   struct in_addr area_id;
   struct in_addr neighbor;
+
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
 
   memset (&area_id, 0, sizeof (struct in_addr));
   memset (&neighbor, 0, sizeof (struct in_addr));
@@ -2277,6 +2304,10 @@ ospfNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct ospf_neighbor *nbr;
   struct ospf_interface *oi;
 
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   memset (&nbr_addr, 0, sizeof (struct in_addr));
   ifindex = 0;
   
@@ -2338,6 +2369,10 @@ ospfVirtNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct in_addr area_id;
   struct in_addr neighbor;
   struct ospf *ospf;
+
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
 
   memset (&area_id, 0, sizeof (struct in_addr));
   memset (&neighbor, 0, sizeof (struct in_addr));
@@ -2487,6 +2522,10 @@ ospfExtLsdbEntry (struct variable *v, oid *name, size_t *length, int exact,
   struct in_addr router_id;
   struct ospf *ospf;
 
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   type = OSPF_AS_EXTERNAL_LSA;
   memset (&ls_id, 0, sizeof (struct in_addr));
   memset (&router_id, 0, sizeof (struct in_addr));
@@ -2538,6 +2577,10 @@ static u_char *
 ospfAreaAggregateEntry (struct variable *v, oid *name, size_t *length,
 			int exact, size_t *var_len, WriteMethod **write_method)
 {
+  if (smux_header_table(v, name, length, exact, var_len, write_method)
+      == MATCH_FAILED)
+    return NULL;
+
   /* Return the current value of the variable */
   switch (v->magic) 
     {
@@ -2574,35 +2617,35 @@ ospfAreaAggregateEntry (struct variable *v, oid *name, size_t *length,
 
 struct trap_object ospfNbrTrapList[] =
 {
-  {ospfGeneralGroup, -2, {1, OSPFROUTERID}},
-  {ospfNbrEntry, 3, {10, 1, OSPFNBRIPADDR}},
-  {ospfNbrEntry, 3, {10, 1, OSPFNBRRTRID}},
-  {ospfNbrEntry, 3, {10, 1, OSPFNBRSTATE}}
+  {-2, {1, OSPFROUTERID}},
+  {3, {10, 1, OSPFNBRIPADDR}},
+  {3, {10, 1, OSPFNBRRTRID}},
+  {3, {10, 1, OSPFNBRSTATE}}
 };
 
 
 struct trap_object ospfVirtNbrTrapList[] =
 {
-  {ospfGeneralGroup, -2, {1, 1}},
-  {ospfVirtNbrEntry, 3, {11, 1, OSPFVIRTNBRAREA}},
-  {ospfVirtNbrEntry, 3, {11, 1, OSPFVIRTNBRRTRID}},
-  {ospfVirtNbrEntry, 3, {11, 1, OSPFVIRTNBRSTATE}}
+  {-2, {1, 1}},
+  {3, {11, 1, OSPFVIRTNBRAREA}},
+  {3, {11, 1, OSPFVIRTNBRRTRID}},
+  {3, {11, 1, OSPFVIRTNBRSTATE}}
 };
 
 struct trap_object ospfIfTrapList[] =
 {
-  {ospfGeneralGroup, -2, {1, OSPFROUTERID}},
-  {ospfIfEntry, 3, {7, 1, OSPFIFIPADDRESS}},
-  {ospfIfEntry, 3, {7, 1, OSPFADDRESSLESSIF}},
-  {ospfIfEntry, 3, {7, 1, OSPFIFSTATE}}
+  {-2, {1, OSPFROUTERID}},
+  {3, {7, 1, OSPFIFIPADDRESS}},
+  {3, {7, 1, OSPFADDRESSLESSIF}},
+  {3, {7, 1, OSPFIFSTATE}}
 };
 
 struct trap_object ospfVirtIfTrapList[] =
 {
-  {ospfGeneralGroup, -2, {1, OSPFROUTERID}},
-  {ospfVirtIfEntry, 3, {9, 1, OSPFVIRTIFAREAID}},
-  {ospfVirtIfEntry, 3, {9, 1, OSPFVIRTIFNEIGHBOR}},
-  {ospfVirtIfEntry, 3, {9, 1, OSPFVIRTIFSTATE}}
+  {-2, {1, OSPFROUTERID}},
+  {3, {9, 1, OSPFVIRTIFAREAID}},
+  {3, {9, 1, OSPFVIRTIFNEIGHBOR}},
+  {3, {9, 1, OSPFVIRTIFSTATE}}
 };
 
 void
@@ -2618,11 +2661,13 @@ ospfTrapNbrStateChange (struct ospf_neighbor *on)
   oid_copy_addr (index, &(on->address.u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
 
-  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+  smux_trap (ospf_variables, sizeof ospf_variables / sizeof (struct variable),
+	     ospf_trap_oid, sizeof ospf_trap_oid / sizeof (oid),
+	     ospf_oid, sizeof ospf_oid / sizeof (oid),
              index,  IN_ADDR_SIZE + 1,
              ospfNbrTrapList, 
              sizeof ospfNbrTrapList / sizeof (struct trap_object),
-             time (NULL), NBRSTATECHANGE);
+             NBRSTATECHANGE);
 }
 
 void
@@ -2635,11 +2680,13 @@ ospfTrapVirtNbrStateChange (struct ospf_neighbor *on)
   oid_copy_addr (index, &(on->address.u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
 
-  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+  smux_trap (ospf_variables, sizeof ospf_variables / sizeof (struct variable),
+	     ospf_trap_oid, sizeof ospf_trap_oid / sizeof (oid),
+	     ospf_oid, sizeof ospf_oid / sizeof (oid),
              index,  IN_ADDR_SIZE + 1,
              ospfVirtNbrTrapList, 
              sizeof ospfVirtNbrTrapList / sizeof (struct trap_object),
-             time (NULL), VIRTNBRSTATECHANGE);
+             VIRTNBRSTATECHANGE);
 }
 
 void
@@ -2654,11 +2701,13 @@ ospfTrapIfStateChange (struct ospf_interface *oi)
   oid_copy_addr (index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
 
-  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+  smux_trap (ospf_variables, sizeof ospf_variables / sizeof (struct variable),
+	     ospf_trap_oid, sizeof ospf_trap_oid / sizeof (oid),
+	     ospf_oid, sizeof ospf_oid / sizeof (oid),
              index, IN_ADDR_SIZE + 1,
              ospfIfTrapList, 
              sizeof ospfIfTrapList / sizeof (struct trap_object),
-             time (NULL), IFSTATECHANGE);
+             IFSTATECHANGE);
 }
 
 void
@@ -2671,11 +2720,13 @@ ospfTrapVirtIfStateChange (struct ospf_interface *oi)
   oid_copy_addr (index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;
 
-  smux_trap (ospf_oid, sizeof ospf_oid / sizeof (oid),
+  smux_trap (ospf_variables, sizeof ospf_variables / sizeof (struct variable),
+	     ospf_trap_oid, sizeof ospf_trap_oid / sizeof (oid),
+	     ospf_oid, sizeof ospf_oid / sizeof (oid),
              index, IN_ADDR_SIZE + 1,
              ospfVirtIfTrapList,
              sizeof ospfVirtIfTrapList / sizeof (struct trap_object),
-             time (NULL), VIRTIFSTATECHANGE);
+             VIRTIFSTATECHANGE);
 }
 /* Register OSPF2-MIB. */
 void

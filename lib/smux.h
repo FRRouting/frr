@@ -22,24 +22,8 @@
 #ifndef _ZEBRA_SNMP_H
 #define _ZEBRA_SNMP_H
 
-#define SMUX_PORT_DEFAULT 199
-
-#define SMUXMAXPKTSIZE    1500
-#define SMUXMAXSTRLEN      256
-
-#define SMUX_OPEN       (ASN_APPLICATION | ASN_CONSTRUCTOR | 0)
-#define SMUX_CLOSE      (ASN_APPLICATION | ASN_PRIMITIVE | 1)
-#define SMUX_RREQ       (ASN_APPLICATION | ASN_CONSTRUCTOR | 2)
-#define SMUX_RRSP       (ASN_APPLICATION | ASN_PRIMITIVE | 3)
-#define SMUX_SOUT       (ASN_APPLICATION | ASN_PRIMITIVE | 4)
-
-#define SMUX_GET        (ASN_CONTEXT | ASN_CONSTRUCTOR | 0)
-#define SMUX_GETNEXT    (ASN_CONTEXT | ASN_CONSTRUCTOR | 1)
-#define SMUX_GETRSP     (ASN_CONTEXT | ASN_CONSTRUCTOR | 2)
-#define SMUX_SET	(ASN_CONTEXT | ASN_CONSTRUCTOR | 3)
-#define SMUX_TRAP	(ASN_CONTEXT | ASN_CONSTRUCTOR | 4)
-
-#define SMUX_MAX_FAILURE 3
+#include <net-snmp/agent/net-snmp-agent-includes.h>
+#include <net-snmp/agent/snmp_vars.h>
 
 /* Structures here are mostly compatible with UCD SNMP 4.1.1 */
 #define MATCH_FAILED     (-1)
@@ -55,73 +39,15 @@
 
 #define IN_ADDR_SIZE sizeof(struct in_addr)
 
-struct variable;
-
+#undef REGISTER_MIB
 #define REGISTER_MIB(descr, var, vartype, theoid)		\
     smux_register_mib(descr, (struct variable *)var, sizeof(struct vartype), \
     sizeof(var)/sizeof(struct vartype),			\
     theoid, sizeof(theoid)/sizeof(oid))
 
-typedef int (WriteMethod)(int action,
-			  u_char  *var_val,
-			  u_char   var_val_type,
-			  size_t   var_val_len,
-			  u_char  *statP,
-			  oid     *name,
-			  size_t   length,
-			  struct variable *v);
-
-typedef u_char *(FindVarMethod)(struct variable *v,
-				oid     *name,
-				size_t  *length,
-				int      exact,
-				size_t  *var_len,
-				WriteMethod   **write_method);
-
-/* SNMP variable */
-struct variable
-{
-  /* Index of the MIB.*/
-  u_char magic;
-
-  /* Type of variable. */
-  char type;
-
-  /* Access control list. */
-  u_short acl;
-
-  /* Callback function. */
-  FindVarMethod *findVar;
-
-  /* Suffix of the MIB. */
-  int namelen;
-  oid name[MAX_OID_LEN];
-};
-
-/* SNMP tree. */
-struct subtree
-{
-  /* Tree's oid. */
-  oid name[MAX_OID_LEN];
-  u_char name_len;
-
-  /* List of the variables. */
-  struct variable *variables;
-
-  /* Length of the variables list. */
-  int variables_num;
-
-  /* Width of the variables list. */
-  int variables_width;
-
-  /* Registered flag. */
-  int registered;
-};
-
 struct trap_object
 {
-  FindVarMethod *findVar;
-  int namelen;
+  int namelen; /* Negative if the object is not indexed */
   oid name[MAX_OID_LEN];
 };
 
@@ -145,14 +71,41 @@ struct trap_object
   )
 
 extern void smux_init (struct thread_master *tm);
-extern void smux_start (void);
 extern void smux_register_mib(const char *, struct variable *, 
                               size_t, int, oid [], size_t);
 extern int smux_header_generic (struct variable *, oid [], size_t *, 
                                 int, size_t *, WriteMethod **);
-extern int smux_trap (const oid *, size_t, const oid *, size_t, 
-		      const struct trap_object *, 
-                      size_t, unsigned int, u_char);
+extern int smux_header_table (struct variable *, oid *, size_t *, 
+			      int, size_t *, WriteMethod **);
+
+/* For traps, three OID are provided:
+
+ 1. The enterprise OID to use (the last argument will be appended to
+    it to form the SNMP trap OID)
+
+ 2. The base OID for objects to be sent in traps.
+
+ 3. The index OID for objects to be sent in traps. This index is used
+    to designate a particular instance of a column.
+
+ The provided trap object contains the bindings to be sent with the
+ trap. The base OID will be prefixed to the provided OID and, if the
+ length is positive, the requested OID is assumed to be a columnar
+ object and the index OID will be appended.
+
+ The two first arguments are the MIB registry used to locate the trap
+ objects.
+
+ The use of the arguments may differ depending on the implementation
+ used.
+*/
+extern int smux_trap (struct variable *, size_t,
+		      const oid *, size_t,
+		      const oid *, size_t,
+		      const oid *, size_t,
+		      const struct trap_object *, size_t,
+		      u_char);
+
 extern int oid_compare (oid *, int, oid *, int);
 extern void oid2in_addr (oid [], int, struct in_addr *);
 extern void *oid_copy (void *, const void *, size_t);
