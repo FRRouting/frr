@@ -954,7 +954,12 @@ cmd_ipv6_prefix_match (const char *str)
 	      if (*(str + 1) == ':')
 		state = STATE_COLON;
 	      else if (*(str + 1) == '.')
-		state = STATE_DOT;
+		{
+		  if (colons || double_colon)
+		    state = STATE_DOT;
+		  else
+		    return no_match;
+		}
 	      else if (*(str + 1) == '/')
 		state = STATE_SLASH;
 	    }
