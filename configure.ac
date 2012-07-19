@@ -330,7 +330,7 @@ fi
 
 if test "${enable_isisd}" = "yes" && test "${enable_isis_topology}" = yes; then
   AC_DEFINE(TOPOLOGY_GENERATE,,Enable IS-IS topology generator code)
-  ISIS_TOPOLOGY_INCLUDES="-I./topology"
+  ISIS_TOPOLOGY_INCLUDES="-I\$(srcdir)/topology"
   ISIS_TOPOLOGY_DIR="topology"
   ISIS_TOPOLOGY_LIB="./topology/libtopology.a"
 fi
