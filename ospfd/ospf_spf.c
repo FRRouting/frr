@@ -422,7 +422,8 @@ ospf_spf_add_parent (struct vertex *v, struct vertex *w,
                      struct vertex_nexthop *newhop,
                      unsigned int distance)
 {
-  struct vertex_parent *vp;
+  struct vertex_parent *vp, *wp;
+  struct listnode *node;
     
   /* we must have a newhop, and a distance */
   assert (v && w && newhop);
@@ -456,7 +457,19 @@ ospf_spf_add_parent (struct vertex *v, struct vertex *w,
       w->distance = distance;
     }
   
-  /* new parent is <= existing parents, add it to parent list */  
+  /* new parent is <= existing parents, add it to parent list (if nexthop
+   * not on parent list)
+   */  
+  for (ALL_LIST_ELEMENTS_RO(w->parents, node, wp))
+    {
+      if (memcmp(newhop, wp->nexthop, sizeof(*newhop)) == 0)
+        {
+          if (IS_DEBUG_OSPF_EVENT)
+            zlog_debug ("%s: ... nexthop already on parent list, skipping add", __func__);
+          return;
+        }
+    }
+
   vp = vertex_parent_new (v, ospf_lsa_has_link (w->lsa, v->lsa), newhop);
   listnode_add (w->parents, vp);
 
