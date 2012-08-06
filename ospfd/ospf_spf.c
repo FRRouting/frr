@@ -675,11 +675,37 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
 		  added = 1;
                   ospf_spf_add_parent (v, w, nh, distance);
                 }
-	      /* Always return here as we known that 16.1.1 para 4
-		 does not apply one you have found a connection to root */
-	      return added;
-            }
+              /* Note lack of return is deliberate. See next comment. */
+          }
         }
+      /* NB: This code is non-trivial.
+       * 
+       * E.g. it is not enough to know that V connects to the root. It is
+       * also important that the while above, looping through all links from
+       * W->V found at least one link, so that we know there is
+       * bi-directional connectivity between V and W (which need not be the
+       * case, e.g.  when OSPF has not yet converged fully).  Otherwise, if
+       * we /always/ return here, without having checked that root->V->-W
+       * actually resulted in a valid nexthop being created, then we we will
+       * prevent SPF from finding/using higher cost paths.
+       *
+       * It is important, if root->V->W has not been added, that we continue
+       * through to the intervening-router nexthop code below.  So as to
+       * ensure other paths to V may be used.  This avoids unnecessary
+       * blackholes while OSPF is convergening.
+       *
+       * I.e. we may have arrived at this function, examining V -> W, via
+       * workable paths other than root -> V, and it's important to avoid
+       * getting "confused" by non-working root->V->W path - it's important
+       * to *not* lose the working non-root paths, just because of a
+       * non-viable root->V->W.
+       *
+       * See also bug #330 (required reading!), and:
+       *
+       * http://blogs.oracle.com/paulj/entry/the_difference_a_line_makes
+       */
+      if (added)
+        return added;
     }
 
   /* 16.1.1 para 4.  If there is at least one intervening router in the
