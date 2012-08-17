@@ -67,6 +67,17 @@ struct bgp_node
 #define BGP_NODE_PROCESS_SCHEDULED	(1 << 0)
 };
 
+/*
+ * bgp_table_iter_t
+ * 
+ * Structure that holds state for iterating over a bgp table.
+ */
+typedef struct bgp_table_iter_t_
+{
+  struct bgp_table *table;
+  route_table_iter_t rt_iter;
+} bgp_table_iter_t;
+
 extern struct bgp_table *bgp_table_init (afi_t, safi_t);
 extern void bgp_table_lock (struct bgp_table *);
 extern void bgp_table_unlock (struct bgp_table *);
@@ -272,6 +283,73 @@ static inline unsigned long
 bgp_table_count (const struct bgp_table *const table)
 {
   return route_table_count (table->route_table);
+}
+
+/*
+ * bgp_table_get_next
+ */
+static inline struct bgp_node *
+bgp_table_get_next (const struct bgp_table *table, struct prefix *p)
+{
+  return bgp_node_from_rnode (route_table_get_next (table->route_table, p));
+}
+
+/*
+ * bgp_table_iter_init
+ */
+static inline void
+bgp_table_iter_init (bgp_table_iter_t * iter, struct bgp_table *table)
+{
+  bgp_table_lock (table);
+  iter->table = table;
+  route_table_iter_init (&iter->rt_iter, table->route_table);
+}
+
+/*
+ * bgp_table_iter_next
+ */
+static inline struct bgp_node *
+bgp_table_iter_next (bgp_table_iter_t * iter)
+{
+  return bgp_node_from_rnode (route_table_iter_next (&iter->rt_iter));
+}
+
+/*
+ * bgp_table_iter_cleanup
+ */
+static inline void
+bgp_table_iter_cleanup (bgp_table_iter_t * iter)
+{
+  route_table_iter_cleanup (&iter->rt_iter);
+  bgp_table_unlock (iter->table);
+  iter->table = NULL;
+}
+
+/*
+ * bgp_table_iter_pause
+ */
+static inline void
+bgp_table_iter_pause (bgp_table_iter_t * iter)
+{
+  route_table_iter_pause (&iter->rt_iter);
+}
+
+/*
+ * bgp_table_iter_is_done
+ */
+static inline int
+bgp_table_iter_is_done (bgp_table_iter_t * iter)
+{
+  return route_table_iter_is_done (&iter->rt_iter);
+}
+
+/*
+ * bgp_table_iter_started
+ */
+static inline int
+bgp_table_iter_started (bgp_table_iter_t * iter)
+{
+  return route_table_iter_started (&iter->rt_iter);
 }
 
 #endif /* _QUAGGA_BGP_TABLE_H */

@@ -528,3 +528,285 @@ route_table_init (void)
 {
   return route_table_init_with_delegate (&default_delegate);
 }
+
+/**
+ * route_table_prefix_iter_cmp
+ *
+ * Compare two prefixes according to the order in which they appear in
+ * an iteration over a tree.
+ * 
+ * @return -1 if p1 occurs before p2 (p1 < p2)
+ *          0 if the prefixes are identical (p1 == p2)
+ *         +1 if p1 occurs after p2 (p1 > p2)
+ */
+int
+route_table_prefix_iter_cmp (struct prefix *p1, struct prefix *p2)
+{
+  struct prefix common_space;
+  struct prefix *common = &common_space;
+
+  if (p1->prefixlen <= p2->prefixlen)
+    {
+      if (prefix_match (p1, p2))
+	{
+
+	  /*
+	   * p1 contains p2, or is equal to it.
+	   */
+	  return (p1->prefixlen == p2->prefixlen) ? 0 : -1;
+	}
+    }
+  else
+    {
+
+      /*
+       * Check if p2 contains p1.
+       */
+      if (prefix_match (p2, p1))
+	  return 1;
+    }
+
+  route_common (p1, p2, common);
+  assert (common->prefixlen < p1->prefixlen);
+  assert (common->prefixlen < p2->prefixlen);
+
+  /*
+   * Both prefixes are longer than the common prefix.
+   *
+   * We need to check the bit after the common prefixlen to determine
+   * which one comes later.
+   */
+  if (prefix_bit (&p1->u.prefix, common->prefixlen))
+    {
+
+      /*
+       * We branch to the right to get to p1 from the common prefix.
+       */
+      assert (!prefix_bit (&p2->u.prefix, common->prefixlen));
+      return 1;
+    }
+
+  /*
+   * We branch to the right to get to p2 from the common prefix.
+   */
+  assert (prefix_bit (&p2->u.prefix, common->prefixlen));
+  return -1;
+}
+
+/*
+ * route_get_subtree_next
+ *
+ * Helper function that returns the first node that follows the nodes
+ * in the sub-tree under 'node' in iteration order.
+ */
+static struct route_node *
+route_get_subtree_next (struct route_node *node)
+{
+  while (node->parent)
+    {
+      if (node->parent->l_left == node && node->parent->l_right)
+	return node->parent->l_right;
+
+      node = node->parent;
+    }
+
+  return NULL;
+}
+
+/**
+ * route_table_get_next_internal
+ *
+ * Helper function to find the node that occurs after the given prefix in
+ * order of iteration.
+ *
+ * @see route_table_get_next
+ */
+static struct route_node *
+route_table_get_next_internal (const struct route_table *table,
+			       struct prefix *p)
+{
+  struct route_node *node, *tmp_node;
+  u_char prefixlen;
+  int cmp;
+
+  prefixlen = p->prefixlen;
+
+  node = table->top;
+
+  while (node)
+    {
+      int match;
+
+      if (node->p.prefixlen < p->prefixlen)
+	match = prefix_match (&node->p, p);
+      else
+	match = prefix_match (p, &node->p);
+
+      if (match)
+	{
+	  if (node->p.prefixlen == p->prefixlen)
+	    {
+
+	      /*
+	       * The prefix p exists in the tree, just return the next
+	       * node.
+	       */
+	      route_lock_node (node);
+	      node = route_next (node);
+	      if (node)
+		route_unlock_node (node);
+
+	      return (node);
+	    }
+
+	  if (node->p.prefixlen > p->prefixlen)
+	    {
+
+	      /*
+	       * Node is in the subtree of p, and hence greater than p.
+	       */
+	      return node;
+	    }
+
+	  /*
+	   * p is in the sub-tree under node.
+	   */
+	  tmp_node = node->link[prefix_bit (&p->u.prefix, node->p.prefixlen)];
+
+	  if (tmp_node)
+	    {
+	      node = tmp_node;
+	      continue;
+	    }
+
+	  /*
+	   * There are no nodes in the direction where p should be. If
+	   * node has a right child, then it must be greater than p.
+	   */
+	  if (node->l_right)
+	    return node->l_right;
+
+	  /*
+	   * No more children to follow, go upwards looking for the next
+	   * node.
+	   */
+	  return route_get_subtree_next (node);
+	}
+
+      /*
+       * Neither node prefix nor 'p' contains the other.
+       */
+      cmp = route_table_prefix_iter_cmp (&node->p, p);
+      if (cmp > 0)
+	{
+
+	  /*
+	   * Node follows p in iteration order. Return it.
+	   */
+	  return node;
+	}
+
+      assert (cmp < 0);
+
+      /*
+       * Node and the subtree under it come before prefix p in
+       * iteration order. Prefix p and its sub-tree are not present in
+       * the tree. Go upwards and find the first node that follows the
+       * subtree. That node will also succeed p.
+       */
+      return route_get_subtree_next (node);
+    }
+
+  return NULL;
+}
+
+/**
+ * route_table_get_next
+ *
+ * Find the node that occurs after the given prefix in order of
+ * iteration.
+ */
+struct route_node *
+route_table_get_next (const struct route_table *table, struct prefix *p)
+{
+  struct route_node *node;
+
+  node = route_table_get_next_internal (table, p);
+  if (node)
+    {
+      assert (route_table_prefix_iter_cmp (&node->p, p) > 0);
+      route_lock_node (node);
+    }
+  return node;
+}
+
+/*
+ * route_table_iter_init
+ */
+void
+route_table_iter_init (route_table_iter_t * iter, struct route_table *table)
+{
+  memset (iter, 0, sizeof (*iter));
+  iter->state = RT_ITER_STATE_INIT;
+  iter->table = table;
+}
+
+/*
+ * route_table_iter_pause
+ *
+ * Pause an iteration over the table. This allows the iteration to be
+ * resumed point after arbitrary additions/deletions from the table.
+ * An iteration can be resumed by just calling route_table_iter_next()
+ * on the iterator.
+ */
+void
+route_table_iter_pause (route_table_iter_t * iter)
+{
+  switch (iter->state)
+    {
+
+    case RT_ITER_STATE_INIT:
+    case RT_ITER_STATE_PAUSED:
+    case RT_ITER_STATE_DONE:
+      return;
+
+    case RT_ITER_STATE_ITERATING:
+
+      /*
+       * Save the prefix that we are currently at. The next call to
+       * route_table_iter_next() will return the node after this prefix
+       * in the tree.
+       */
+      prefix_copy (&iter->pause_prefix, &iter->current->p);
+      route_unlock_node (iter->current);
+      iter->current = NULL;
+      iter->state = RT_ITER_STATE_PAUSED;
+      return;
+
+    default:
+      assert (0);
+    }
+
+}
+
+/*
+ * route_table_iter_cleanup
+ *
+ * Release any resources held by the iterator.
+ */
+void
+route_table_iter_cleanup (route_table_iter_t * iter)
+{
+  if (iter->state == RT_ITER_STATE_ITERATING)
+    {
+      route_unlock_node (iter->current);
+      iter->current = NULL;
+    }
+  assert (!iter->current);
+
+  /*
+   * Set the state to RT_ITER_STATE_DONE to make any
+   * route_table_iter_next() calls on this iterator return NULL.
+   */
+  iter->state = RT_ITER_STATE_DONE;
+}

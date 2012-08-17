@@ -98,6 +98,43 @@ struct route_node
 #define l_right  link[1]
 };
 
+typedef struct route_table_iter_t_ route_table_iter_t;
+
+typedef enum 
+{
+  RT_ITER_STATE_INIT,
+  RT_ITER_STATE_ITERATING,
+  RT_ITER_STATE_PAUSED,
+  RT_ITER_STATE_DONE
+} route_table_iter_state_t;
+
+/*
+ * route_table_iter_t
+ * 
+ * Structure that holds state for iterating over a route table.
+ */
+struct route_table_iter_t_ 
+{
+
+  route_table_iter_state_t state;
+
+  /*
+   * Routing table that we are iterating over. The caller must ensure
+   * that that table outlives the iterator.
+   */
+  struct route_table *table;
+
+  /*
+   * The node that the iterator is currently on.
+   */
+  struct route_node *current;
+
+  /*
+   * The last prefix that the iterator processed before it was paused.
+   */  
+  struct prefix pause_prefix;
+};
+
 /* Prototypes. */
 extern struct route_table *route_table_init (void);
 
@@ -125,4 +162,93 @@ extern struct route_node *route_node_match_ipv6 (const struct route_table *,
 #endif /* HAVE_IPV6 */
 
 extern unsigned long route_table_count (const struct route_table *);
+
+extern struct route_node *
+route_table_get_next (const struct route_table *table, struct prefix *p);
+extern int
+route_table_prefix_iter_cmp (struct prefix *p1, struct prefix *p2);
+
+/*
+ * Iterator functions.
+ */
+extern void route_table_iter_init (route_table_iter_t *iter,
+				   struct route_table *table);
+extern void route_table_iter_pause (route_table_iter_t *iter);
+extern void route_table_iter_cleanup (route_table_iter_t *iter);
+
+/*
+ * Inline functions.
+ */
+
+/*
+ * route_table_iter_next
+ *
+ * Get the next node in the tree.
+ */
+static inline struct route_node *
+route_table_iter_next (route_table_iter_t * iter)
+{
+  struct route_node *node;
+
+  switch (iter->state)
+    {
+
+    case RT_ITER_STATE_INIT:
+
+      /*
+       * We're just starting the iteration.
+       */
+      node = route_top (iter->table);
+      break;
+
+    case RT_ITER_STATE_ITERATING:
+      node = route_next (iter->current);
+      break;
+
+    case RT_ITER_STATE_PAUSED:
+
+      /*
+       * Start with the node following pause_prefix.
+       */
+      node = route_table_get_next (iter->table, &iter->pause_prefix);
+      break;
+
+    case RT_ITER_STATE_DONE:
+      return NULL;
+
+    default:
+      assert (0);
+    }
+
+  iter->current = node;
+  if (node)
+    iter->state = RT_ITER_STATE_ITERATING;
+  else
+    iter->state = RT_ITER_STATE_DONE;
+
+  return node;
+}
+
+/*
+ * route_table_iter_is_done
+ *
+ * Returns TRUE if the iteration is complete.
+ */
+static inline int
+route_table_iter_is_done (route_table_iter_t *iter)
+{
+  return iter->state == RT_ITER_STATE_DONE;
+}
+
+/*
+ * route_table_iter_started
+ *
+ * Returns TRUE if this iterator has started iterating over the tree.
+ */
+static inline int
+route_table_iter_started (route_table_iter_t *iter)
+{
+  return iter->state != RT_ITER_STATE_INIT;
+}
+
 #endif /* _ZEBRA_TABLE_H */
