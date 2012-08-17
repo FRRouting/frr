@@ -240,11 +240,15 @@ bgp_info_restore (struct bgp_node *rn, struct bgp_info *ri)
 static void
 bgp_pcount_adjust (struct bgp_node *rn, struct bgp_info *ri)
 {
-  assert (rn && rn->table);
+  struct bgp_table *table;
+
+  assert (rn && bgp_node_table (rn));
   assert (ri && ri->peer && ri->peer->bgp);
 
+  table = bgp_node_table (rn);
+
   /* Ignore 'pcount' for RS-client tables */
-  if (rn->table->type != BGP_TABLE_MAIN
+  if (table->type != BGP_TABLE_MAIN
       || ri->peer == ri->peer->bgp->peer_self)
     return;
     
@@ -255,8 +259,8 @@ bgp_pcount_adjust (struct bgp_node *rn, struct bgp_info *ri)
       UNSET_FLAG (ri->flags, BGP_INFO_COUNTED);
       
       /* slight hack, but more robust against errors. */
-      if (ri->peer->pcount[rn->table->afi][rn->table->safi])
-        ri->peer->pcount[rn->table->afi][rn->table->safi]--;
+      if (ri->peer->pcount[table->afi][table->safi])
+        ri->peer->pcount[table->afi][table->safi]--;
       else
         {
           zlog_warn ("%s: Asked to decrement 0 prefix count for peer %s",
@@ -269,7 +273,7 @@ bgp_pcount_adjust (struct bgp_node *rn, struct bgp_info *ri)
            && !CHECK_FLAG (ri->flags, BGP_INFO_COUNTED))
     {
       SET_FLAG (ri->flags, BGP_INFO_COUNTED);
-      ri->peer->pcount[rn->table->afi][rn->table->safi]++;
+      ri->peer->pcount[table->afi][table->safi]++;
     }
 }
 
@@ -1448,7 +1452,7 @@ bgp_process_announce_selected (struct peer *peer, struct bgp_info *selected,
   /* It's initialized in bgp_announce_[check|check_rsclient]() */
   attr.extra = &extra;
 
-  switch (rn->table->type)
+  switch (bgp_node_table (rn)->type)
     {
       case BGP_TABLE_MAIN:
       /* Announcement to peer->conf.  If the route is filtered,
@@ -1492,7 +1496,7 @@ bgp_process_rsclient (struct work_queue *wq, void *data)
   struct bgp_info *old_select;
   struct bgp_info_pair old_and_new;
   struct listnode *node, *nnode;
-  struct peer *rsclient = rn->table->owner;
+  struct peer *rsclient = bgp_node_table (rn)->owner;
   
   /* Best path selection. */
   bgp_best_selection (bgp, rn, &bgp->maxpaths[afi][safi], &old_and_new);
@@ -1623,7 +1627,7 @@ static void
 bgp_processq_del (struct work_queue *wq, void *data)
 {
   struct bgp_process_queue *pq = data;
-  struct bgp_table *table = pq->rn->table;
+  struct bgp_table *table = bgp_node_table (pq->rn);
   
   bgp_unlock (pq->bgp);
   bgp_unlock_node (pq->rn);
@@ -1674,14 +1678,14 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
     return;
 
   /* all unlocked in bgp_processq_del */
-  bgp_table_lock (rn->table);
+  bgp_table_lock (bgp_node_table (rn));
   pqnode->rn = bgp_lock_node (rn);
   pqnode->bgp = bgp;
   bgp_lock (bgp);
   pqnode->afi = afi;
   pqnode->safi = safi;
   
-  switch (rn->table->type)
+  switch (bgp_node_table (rn)->type)
     {
       case BGP_TABLE_MAIN:
         work_queue_add (bm->process_main_queue, pqnode);
@@ -2719,8 +2723,8 @@ bgp_clear_route_node (struct work_queue *wq, void *data)
   struct bgp_node *rn = cnq->rn;
   struct peer *peer = wq->spec.data;
   struct bgp_info *ri;
-  afi_t afi = rn->table->afi;
-  safi_t safi = rn->table->safi;
+  afi_t afi = bgp_node_table (rn)->afi;
+  safi_t safi = bgp_node_table (rn)->safi;
   
   assert (rn && peer);
   
@@ -2745,7 +2749,7 @@ bgp_clear_node_queue_del (struct work_queue *wq, void *data)
 {
   struct bgp_clear_node_queue *cnq = data;
   struct bgp_node *rn = cnq->rn;
-  struct bgp_table *table = rn->table;
+  struct bgp_table *table = bgp_node_table (rn);
   
   bgp_unlock_node (rn); 
   bgp_table_unlock (table);
@@ -2847,7 +2851,7 @@ bgp_clear_route_table (struct peer *peer, afi_t afi, safi_t safi,
             struct bgp_clear_node_queue *cnq;
 
             /* both unlocked in bgp_clear_node_queue_del */
-            bgp_table_lock (rn->table);
+            bgp_table_lock (bgp_node_table (rn));
             bgp_lock_node (rn);
             cnq = XCALLOC (MTYPE_BGP_CLEAR_NODE_QUEUE,
                            sizeof (struct bgp_clear_node_queue));
@@ -4669,7 +4673,7 @@ bgp_aggregate_increment (struct bgp *bgp, struct prefix *p,
   table = bgp->aggregate[afi][safi];
 
   /* No aggregates configured. */
-  if (table->top == NULL)
+  if (bgp_table_top_nolock (table) == NULL)
     return;
 
   if (p->prefixlen == 0)
@@ -4681,7 +4685,7 @@ bgp_aggregate_increment (struct bgp *bgp, struct prefix *p,
   child = bgp_node_get (table, p);
 
   /* Aggregate address configuration check. */
-  for (rn = child; rn; rn = rn->parent)
+  for (rn = child; rn; rn = bgp_node_parent_nolock (rn))
     if ((aggregate = rn->info) != NULL && rn->p.prefixlen < p->prefixlen)
       {
 	bgp_aggregate_delete (bgp, &rn->p, afi, safi, aggregate);
@@ -4706,7 +4710,7 @@ bgp_aggregate_decrement (struct bgp *bgp, struct prefix *p,
   table = bgp->aggregate[afi][safi];
 
   /* No aggregates configured. */
-  if (table->top == NULL)
+  if (bgp_table_top_nolock (table) == NULL)
     return;
 
   if (p->prefixlen == 0)
@@ -4715,7 +4719,7 @@ bgp_aggregate_decrement (struct bgp *bgp, struct prefix *p,
   child = bgp_node_get (table, p);
 
   /* Aggregate address configuration check. */
-  for (rn = child; rn; rn = rn->parent)
+  for (rn = child; rn; rn = bgp_node_parent_nolock (rn))
     if ((aggregate = rn->info) != NULL && rn->p.prefixlen < p->prefixlen)
       {
 	bgp_aggregate_delete (bgp, &rn->p, afi, safi, aggregate);
@@ -9299,7 +9303,7 @@ bgp_table_stats_walker (struct thread *t)
   for (rn = top; rn; rn = bgp_route_next (rn))
     {
       struct bgp_info *ri;
-      struct bgp_node *prn = rn->parent;
+      struct bgp_node *prn = bgp_node_parent_nolock (rn);
       unsigned int rinum = 0;
       
       if (rn == top)
@@ -9320,7 +9324,7 @@ bgp_table_stats_walker (struct thread *t)
       
       /* check if the prefix is included by any other announcements */
       while (prn && !prn->info)
-        prn = prn->parent;
+        prn = bgp_node_parent_nolock (prn);
       
       if (prn == NULL || prn == top)
         {
