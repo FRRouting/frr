@@ -27,8 +27,8 @@
 #include "memory.h"
 #include "sockunion.h"
 
-void route_node_delete (struct route_node *);
-void route_table_free (struct route_table *);
+static void route_node_delete (struct route_node *);
+static void route_table_free (struct route_table *);
 
 struct route_table *
 route_table_init (void)
@@ -76,7 +76,7 @@ route_node_free (struct route_node *node)
 }
 
 /* Free route table. */
-void
+static void
 route_table_free (struct route_table *rt)
 {
   struct route_node *tmp_node;
@@ -87,6 +87,9 @@ route_table_free (struct route_table *rt)
 
   node = rt->top;
 
+  /* Bulk deletion of nodes remaining in this table.  This function is not
+     called until workers have completed their dependency on this table.
+     A final route_unlock_node() will not be called for these nodes. */
   while (node)
     {
       if (node->l_left)
@@ -104,22 +107,25 @@ route_table_free (struct route_table *rt)
       tmp_node = node;
       node = node->parent;
 
+      tmp_node->table->count--;
+      tmp_node->lock = 0;  /* to cause assert if unlocked after this */
+      route_node_free (tmp_node);
+
       if (node != NULL)
 	{
 	  if (node->l_left == tmp_node)
 	    node->l_left = NULL;
 	  else
 	    node->l_right = NULL;
-
-	  route_node_free (tmp_node);
 	}
       else
 	{
-	  route_node_free (tmp_node);
 	  break;
 	}
     }
  
+  assert (rt->count == 0);
+
   XFREE (MTYPE_ROUTE_TABLE, rt);
   return;
 }
@@ -186,6 +192,7 @@ route_lock_node (struct route_node *node)
 void
 route_unlock_node (struct route_node *node)
 {
+  assert (node->lock > 0);
   node->lock--;
 
   if (node->lock == 0)
@@ -255,7 +262,7 @@ route_node_match_ipv6 (const struct route_table *table,
 
 /* Lookup same prefix node.  Return NULL when we can't find route. */
 struct route_node *
-route_node_lookup (struct route_table *table, struct prefix *p)
+route_node_lookup (const struct route_table *table, struct prefix *p)
 {
   struct route_node *node;
   u_char prefixlen = p->prefixlen;
@@ -277,7 +284,7 @@ route_node_lookup (struct route_table *table, struct prefix *p)
 
 /* Add node to routing table. */
 struct route_node *
-route_node_get (struct route_table *table, struct prefix *p)
+route_node_get (struct route_table *const table, struct prefix *p)
 {
   struct route_node *new;
   struct route_node *node;
@@ -323,15 +330,17 @@ route_node_get (struct route_table *table, struct prefix *p)
 	  match = new;
 	  new = route_node_set (table, p);
 	  set_link (match, new);
+	  table->count++;
 	}
     }
+  table->count++;
   route_lock_node (new);
   
   return new;
 }
 
 /* Delete node from the routing table. */
-void
+static void
 route_node_delete (struct route_node *node)
 {
   struct route_node *child;
@@ -362,6 +371,8 @@ route_node_delete (struct route_node *node)
     }
   else
     node->table->top = child;
+
+  node->table->count--;
 
   route_node_free (node);
 
@@ -464,4 +475,10 @@ route_next_until (struct route_node *node, struct route_node *limit)
     }
   route_unlock_node (start);
   return NULL;
+}
+
+unsigned long
+route_table_count (const struct route_table *table)
+{
+  return table->count;
 }
