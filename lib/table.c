@@ -30,12 +30,17 @@
 static void route_node_delete (struct route_node *);
 static void route_table_free (struct route_table *);
 
+
+/*
+ * route_table_init_with_delegate
+ */
 struct route_table *
-route_table_init (void)
+route_table_init_with_delegate (route_table_delegate_t *delegate)
 {
   struct route_table *rt;
 
   rt = XCALLOC (MTYPE_ROUTE_TABLE, sizeof (struct route_table));
+  rt->delegate = delegate;
   return rt;
 }
 
@@ -47,11 +52,9 @@ route_table_finish (struct route_table *rt)
 
 /* Allocate new route node. */
 static struct route_node *
-route_node_new (void)
+route_node_new (struct route_table *table)
 {
-  struct route_node *node;
-  node = XCALLOC (MTYPE_ROUTE_NODE, sizeof (struct route_node));
-  return node;
+  return table->delegate->create_node (table->delegate, table);
 }
 
 /* Allocate new route node with prefix set. */
@@ -60,7 +63,7 @@ route_node_set (struct route_table *table, struct prefix *prefix)
 {
   struct route_node *node;
   
-  node = route_node_new ();
+  node = route_node_new (table);
 
   prefix_copy (&node->p, prefix);
   node->table = table;
@@ -70,9 +73,9 @@ route_node_set (struct route_table *table, struct prefix *prefix)
 
 /* Free route node. */
 static void
-route_node_free (struct route_node *node)
+route_node_free (struct route_table *table, struct route_node *node)
 {
-  XFREE (MTYPE_ROUTE_NODE, node);
+  table->delegate->destroy_node (table->delegate, table, node);
 }
 
 /* Free route table. */
@@ -109,7 +112,7 @@ route_table_free (struct route_table *rt)
 
       tmp_node->table->count--;
       tmp_node->lock = 0;  /* to cause assert if unlocked after this */
-      route_node_free (tmp_node);
+      route_node_free (rt, tmp_node);
 
       if (node != NULL)
 	{
@@ -314,7 +317,7 @@ route_node_get (struct route_table *const table, struct prefix *p)
     }
   else
     {
-      new = route_node_new ();
+      new = route_node_new (table);
       route_common (&node->p, p, &new->p);
       new->p.family = p->family;
       new->table = table;
@@ -374,7 +377,7 @@ route_node_delete (struct route_node *node)
 
   node->table->count--;
 
-  route_node_free (node);
+  route_node_free (node->table, node);
 
   /* If parent node is stub then delete it also. */
   if (parent && parent->lock == 0)
@@ -481,4 +484,47 @@ unsigned long
 route_table_count (const struct route_table *table)
 {
   return table->count;
+}
+
+/**
+ * route_node_create
+ *
+ * Default function for creating a route node.
+ */
+static struct route_node *
+route_node_create (route_table_delegate_t *delegate,
+		   struct route_table *table)
+{
+  struct route_node *node;
+  node = XCALLOC (MTYPE_ROUTE_NODE, sizeof (struct route_node));
+  return node;
+}
+
+/**
+ * route_node_destroy
+ *
+ * Default function for destroying a route node.
+ */
+static void
+route_node_destroy (route_table_delegate_t *delegate,
+		    struct route_table *table, struct route_node *node)
+{
+  XFREE (MTYPE_ROUTE_NODE, node);
+}
+
+/*
+ * Default delegate.
+ */
+static route_table_delegate_t default_delegate = {
+  .create_node = route_node_create,
+  .destroy_node = route_node_destroy
+};
+
+/*
+ * route_table_init
+ */
+struct route_table *
+route_table_init (void)
+{
+  return route_table_init_with_delegate (&default_delegate);
 }
