@@ -1475,6 +1475,7 @@ rip_send_packet (u_char * buf, int size, struct sockaddr_in *to,
       sin.sin_addr.s_addr = htonl (INADDR_RIP_GROUP);
       
       /* multicast send should bind to local interface address */
+      memset (&from, 0, sizeof (from));
       from.sin_family = AF_INET;
       from.sin_port = htons (RIP_PORT_DEFAULT);
       from.sin_addr = ifc->address->u.prefix4;
