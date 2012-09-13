@@ -733,7 +733,6 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
 {
   struct ospf6_lsa *new = NULL, *old = NULL, *rem = NULL;
   int ismore_recent;
-  unsigned short cksum;
   int is_debug = 0;
 
   ismore_recent = 1;
@@ -751,8 +750,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
     }
 
   /* (1) LSA Checksum */
-  cksum = ntohs (new->header->checksum);
-  if (ntohs (ospf6_lsa_checksum (new->header)) != cksum)
+  if (! ospf6_lsa_checksum_valid (new->header))
     {
       if (is_debug)
         zlog_debug ("Wrong LSA Checksum, discard");

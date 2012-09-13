@@ -51,6 +51,8 @@ in_cksum(void *parg, int nbytes)
 
 /* To be consistent, offset is 0-based index, rather than the 1-based 
    index required in the specification ISO 8473, Annex C.1 */
+/* calling with offset == FLETCHER_CHECKSUM_VALIDATE will validate the checksum
+   without modifying the buffer; a valid checksum returns 0 */
 u_int16_t
 fletcher_checksum(u_char * buffer, const size_t len, const uint16_t offset)
 {
@@ -62,13 +64,14 @@ fletcher_checksum(u_char * buffer, const size_t len, const uint16_t offset)
   
   checksum = 0;
 
-  assert (offset < len);
 
-  /*
-   * Zero the csum in the packet.
-   */
-  csum = (u_int16_t *) (buffer + offset);
-  *(csum) = 0;
+  if (offset != FLETCHER_CHECKSUM_VALIDATE)
+    /* Zero the csum in the packet. */
+    {
+      assert (offset < (len - 1)); /* account for two bytes of checksum */
+      csum = (u_int16_t *) (buffer + offset);
+      *(csum) = 0;
+    }
 
   p = buffer;
   c0 = 0;
@@ -89,7 +92,7 @@ fletcher_checksum(u_char * buffer, const size_t len, const uint16_t offset)
 
       left -= partial_len;
     }
-  
+
   /* The cast is important, to ensure the mod is taken as a signed value. */
   x = (int)((len - offset - 1) * c0 - c1) % 255;
 
@@ -98,17 +101,24 @@ fletcher_checksum(u_char * buffer, const size_t len, const uint16_t offset)
   y = 510 - c0 - x;
   if (y > 255)  
     y -= 255;
-  
-  /*
-   * Now we write this to the packet.
-   * We could skip this step too, since the checksum returned would
-   * be stored into the checksum field by the caller.
-   */
-  buffer[offset] = x;
-  buffer[offset + 1] = y;
 
-  /* Take care of the endian issue */
-  checksum = htons((x << 8) | (y & 0xFF));
+  if (offset == FLETCHER_CHECKSUM_VALIDATE)
+    {
+      checksum = (c1 << 8) + c0;
+    }
+  else
+    {
+      /*
+       * Now we write this to the packet.
+       * We could skip this step too, since the checksum returned would
+       * be stored into the checksum field by the caller.
+       */
+      buffer[offset] = x;
+      buffer[offset + 1] = y;
+
+      /* Take care of the endian issue */
+      checksum = htons((x << 8) | (y & 0xFF));
+    }
 
   return checksum;
 }

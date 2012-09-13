@@ -29,6 +29,7 @@
 #include "command.h"
 #include "memory.h"
 #include "thread.h"
+#include "checksum.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -672,47 +673,36 @@ ospf6_lsa_refresh (struct thread *thread)
 
 
 
-/* enhanced Fletcher checksum algorithm, RFC1008 7.2 */
-#define MODX                4102
-#define LSA_CHECKSUM_OFFSET   15
+/* Fletcher Checksum -- Refer to RFC1008. */
 
+/* All the offsets are zero-based. The offsets in the RFC1008 are
+   one-based. */
 unsigned short
 ospf6_lsa_checksum (struct ospf6_lsa_header *lsa_header)
 {
-  u_char *sp, *ep, *p, *q;
-  int c0 = 0, c1 = 0;
-  int x, y;
-  u_int16_t length;
+  u_char *buffer = (u_char *) &lsa_header->type;
+  int type_offset = buffer - (u_char *) &lsa_header->age; /* should be 2 */
 
-  lsa_header->checksum = 0;
-  length = ntohs (lsa_header->length) - 2;
-  sp = (u_char *) &lsa_header->type;
+  /* Skip the AGE field */
+  u_int16_t len = ntohs(lsa_header->length) - type_offset;
 
-  for (ep = sp + length; sp < ep; sp = q)
-    {
-      q = sp + MODX;
-      if (q > ep)
-        q = ep;
-      for (p = sp; p < q; p++)
-        {
-          c0 += *p;
-          c1 += c0;
-        }
-      c0 %= 255;
-      c1 %= 255;
-    }
+  /* Checksum offset starts from "type" field, not the beginning of the
+     lsa_header struct. The offset is 14, rather than 16. */
+  int checksum_offset = (u_char *) &lsa_header->checksum - buffer;
 
-  /* r = (c1 << 8) + c0; */
-  x = ((length - LSA_CHECKSUM_OFFSET) * c0 - c1) % 255;
-  if (x <= 0)
-    x += 255;
-  y = 510 - c0 - x;
-  if (y > 255)
-    y -= 255;
+  return (unsigned short)fletcher_checksum(buffer, len, checksum_offset);
+}
 
-  lsa_header->checksum = htons ((x << 8) + y);
+int
+ospf6_lsa_checksum_valid (struct ospf6_lsa_header *lsa_header)
+{
+  u_char *buffer = (u_char *) &lsa_header->type;
+  int type_offset = buffer - (u_char *) &lsa_header->age; /* should be 2 */
 
-  return (lsa_header->checksum);
+  /* Skip the AGE field */
+  u_int16_t len = ntohs(lsa_header->length) - type_offset;
+
+  return (fletcher_checksum(buffer, len, FLETCHER_CHECKSUM_VALIDATE) == 0);
 }
 
 void

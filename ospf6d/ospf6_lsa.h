@@ -237,6 +237,7 @@ extern int ospf6_lsa_expire (struct thread *);
 extern int ospf6_lsa_refresh (struct thread *);
 
 extern unsigned short ospf6_lsa_checksum (struct ospf6_lsa_header *);
+extern int ospf6_lsa_checksum_valid (struct ospf6_lsa_header *);
 extern int ospf6_lsa_prohibited_duration (u_int16_t type, u_int32_t id,
                                           u_int32_t adv_router, void *scope);
 

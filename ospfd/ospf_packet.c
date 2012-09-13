@@ -1590,7 +1590,7 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
 
       /* Validate the LSA's LS checksum. */
       sum = lsah->checksum;
-      if (sum != ospf_lsa_checksum (lsah))
+      if (! ospf_lsa_checksum_valid (lsah))
 	{
 	  /* (bug #685) more details in a one-line message make it possible
 	   * to identify problem source on the one hand and to have a better

@@ -192,6 +192,18 @@ ospf_lsa_checksum (struct lsa_header *lsa)
   return fletcher_checksum(buffer, len, checksum_offset);
 }
 
+int
+ospf_lsa_checksum_valid (struct lsa_header *lsa)
+{
+  u_char *buffer = (u_char *) &lsa->options;
+  int options_offset = buffer - (u_char *) &lsa->ls_age; /* should be 2 */
+
+  /* Skip the AGE field */
+  u_int16_t len = ntohs(lsa->length) - options_offset;
+
+  return(fletcher_checksum(buffer, len, FLETCHER_CHECKSUM_VALIDATE) == 0);
+}
+
 
 
 /* Create OSPF LSA. */
