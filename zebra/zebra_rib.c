@@ -2036,6 +2036,7 @@ static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
       rib->type = ZEBRA_ROUTE_STATIC;
       rib->distance = si->distance;
       rib->metric = 0;
+      rib->table = zebrad.rtm_table_default;
       rib->nexthop_num = 0;
 
       switch (si->type)
