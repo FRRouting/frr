@@ -566,12 +566,20 @@ ospf_check_abr_status (struct ospf *ospf)
 
 static void
 ospf_abr_update_aggregate (struct ospf_area_range *range,
-                           struct ospf_route *or)
+                           struct ospf_route *or, struct ospf_area *area)
 {
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_abr_update_aggregate(): Start");
 
-  if (range->cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
+  if (CHECK_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED) &&
+      (range->cost != OSPF_STUB_MAX_METRIC_SUMMARY_COST))
+    {
+      range->cost = OSPF_STUB_MAX_METRIC_SUMMARY_COST;
+      if (IS_DEBUG_OSPF_EVENT)
+        zlog_debug ("ospf_abr_update_aggregate(): use summary max-metric 0x%08x",
+                   range->cost);
+    }
+  else if (range->cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
     {
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("ospf_abr_update_aggregate(): use configured cost %d",
@@ -582,12 +590,18 @@ ospf_abr_update_aggregate (struct ospf_area_range *range,
   else
     {
       if (range->specifics == 0)
-        range->cost = or->cost; /* 1st time get 1st cost */
+	{
+	  if (IS_DEBUG_OSPF_EVENT)
+	    zlog_debug ("ospf_abr_update_aggregate(): use or->cost %d",
+			or->cost);
+
+	  range->cost = or->cost; /* 1st time get 1st cost */
+	}
 
       if (or->cost > range->cost)
         {
           if (IS_DEBUG_OSPF_EVENT)
-            zlog_debug ("ospf_abr_update_aggregate(): largest cost, update");
+            zlog_debug ("ospf_abr_update_aggregate(): update to %d", or->cost);
 
           range->cost = or->cost;
         }
@@ -711,9 +725,15 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
 {
   struct ospf_lsa *lsa, *old = NULL;
   struct summary_lsa *sl = NULL;
+  u_int32_t full_cost;
 
   if (IS_DEBUG_OSPF_EVENT)
     zlog_debug ("ospf_abr_announce_network_to_area(): Start");
+
+  if (CHECK_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
+    full_cost = OSPF_STUB_MAX_METRIC_SUMMARY_COST;
+  else
+    full_cost = cost;
 
   old = ospf_lsa_lookup_by_prefix (area->lsdb, OSPF_SUMMARY_LSA, 
                                    (struct prefix_ipv4 *) p,
@@ -730,7 +750,7 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
         	   "old metric: %d, new metric: %d",
                GET_METRIC (sl->metric), cost);
 
-      if ((GET_METRIC (sl->metric) == cost) &&
+      if ((GET_METRIC (sl->metric) == full_cost) &&
 	  ((old->flags & OSPF_LSA_IN_MAXAGE) == 0))
         {
           /* unchanged. simply reapprove it */
@@ -745,7 +765,7 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
           if (IS_DEBUG_OSPF_EVENT)
             zlog_debug ("ospf_abr_announce_network_to_area(): "
                        "refreshing summary");
-          set_metric (old, cost);
+          set_metric (old, full_cost);
           lsa = ospf_lsa_refresh (area->ospf, old);
           
           if (!lsa)
@@ -769,7 +789,7 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
       if (IS_DEBUG_OSPF_EVENT)
         zlog_debug ("ospf_abr_announce_network_to_area(): "
         	   "creating new summary");
-      lsa = ospf_summary_lsa_originate ( (struct prefix_ipv4 *)p, cost, area);
+      lsa = ospf_summary_lsa_originate ( (struct prefix_ipv4 *)p, full_cost, area);
           /* This will flood through area. */
       
       if (!lsa)
@@ -930,7 +950,7 @@ ospf_abr_announce_network (struct ospf *ospf,
                        inet_ntoa (p->prefix), p->prefixlen);
             if ((range = ospf_area_range_match (or_area, p)) 
                  && !ospf_area_is_transit (area))
-              ospf_abr_update_aggregate (range, or);
+              ospf_abr_update_aggregate (range, or, area);
             else
               ospf_abr_announce_network_to_area (p, or->cost, area);
         }

@@ -196,6 +196,8 @@ struct ospf
   unsigned int stub_router_shutdown_time;	/* seconds */
 #define OSPF_STUB_ROUTER_UNCONFIGURED	  0
 
+#define OSPF_STUB_MAX_METRIC_SUMMARY_COST	0x00ff0000
+
   /* SPF parameters */
   unsigned int spf_delay;		/* SPF delay time. */
   unsigned int spf_holdtime;		/* SPF hold time. */
