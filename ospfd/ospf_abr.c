@@ -88,23 +88,18 @@ ospf_area_range_add (struct ospf_area *area, struct ospf_area_range *range)
 }
 
 static void
-ospf_area_range_delete (struct ospf_area *area, struct ospf_area_range *range)
+ospf_area_range_delete (struct ospf_area *area, struct route_node *rn)
 {
-  struct route_node *rn;
-  struct prefix_ipv4 p;
+  struct ospf_area_range *range = rn->info;
 
-  p.family = AF_INET;
-  p.prefixlen = range->masklen;
-  p.prefix = range->addr;
+  if (range->specifics != 0)
+    ospf_delete_discard_route (area->ospf->new_table,
+			       (struct prefix_ipv4 *) &rn->p);
 
-  rn = route_node_lookup (area->ranges, (struct prefix *)&p);
-  if (rn)
-    {
-      ospf_area_range_free (rn->info);
-      rn->info = NULL;
-      route_unlock_node (rn);
-      route_unlock_node (rn);
-    }
+  ospf_area_range_free (range);
+  rn->info = NULL;
+  route_unlock_node (rn);
+  route_unlock_node (rn);
 }
 
 struct ospf_area_range *
@@ -263,20 +258,20 @@ ospf_area_range_unset (struct ospf *ospf, struct in_addr area_id,
 		       struct prefix_ipv4 *p)
 {
   struct ospf_area *area;
-  struct ospf_area_range *range;
+  struct route_node *rn;
 
   area = ospf_area_lookup_by_area_id (ospf, area_id);
   if (area == NULL)
     return 0;
 
-  range = ospf_area_range_lookup (area, p);
-  if (range == NULL)
+  rn = route_node_lookup (area->ranges, (struct prefix*)p);
+  if (rn == NULL)
     return 0;
 
-  if (ospf_area_range_active (range))
+  if (ospf_area_range_active (rn->info))
     ospf_schedule_abr_task (ospf);
 
-  ospf_area_range_delete (area, range);
+  ospf_area_range_delete (area, rn);
 
   return 1;
 }
@@ -1695,7 +1690,8 @@ ospf_abr_manage_discard_routes (struct ospf *ospf)
 	      ospf_add_discard_route (ospf->new_table, area,
 				      (struct prefix_ipv4 *) &rn->p);
 	    else
-	      ospf_delete_discard_route ((struct prefix_ipv4 *) &rn->p);
+	      ospf_delete_discard_route (ospf->new_table,
+					 (struct prefix_ipv4 *) &rn->p);
 	  }
 }
 
