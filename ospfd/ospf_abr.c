@@ -729,8 +729,9 @@ ospf_abr_announce_network_to_area (struct prefix_ipv4 *p, u_int32_t cost,
         zlog_debug ("ospf_abr_announce_network_to_area(): "
         	   "old metric: %d, new metric: %d",
                GET_METRIC (sl->metric), cost);
-               
-      if (GET_METRIC (sl->metric) == cost)
+
+      if ((GET_METRIC (sl->metric) == cost) &&
+	  ((old->flags & OSPF_LSA_IN_MAXAGE) == 0))
         {
           /* unchanged. simply reapprove it */
           if (IS_DEBUG_OSPF_EVENT)
