@@ -153,7 +153,7 @@ zserv_encode_interface (struct stream *s, struct interface *ifp)
   stream_putl (s, ifp->mtu6);
   stream_putl (s, ifp->bandwidth);
 #ifdef HAVE_STRUCT_SOCKADDR_DL
-  stream_put (s, &ifp->sdl, sizeof (ifp->sdl));
+  stream_put (s, &ifp->sdl, sizeof (ifp->sdl_storage));
 #else
   stream_putl (s, ifp->hw_addr_len);
   if (ifp->hw_addr_len)

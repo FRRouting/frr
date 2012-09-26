@@ -477,13 +477,22 @@ ifm_read (struct if_msghdr *ifm)
 
       /*
        * XXX sockaddr_dl contents can be larger than the structure
-       * definition, so the user of the stored structure must be
-       * careful not to read off the end.
-       *
+       * definition.  There are 2 big families here:
+       *  - BSD has sdl_len + sdl_data[16] + overruns sdl_data
+       *    we MUST use sdl_len here or we'll truncate data.
+       *  - Solaris has no sdl_len, but sdl_data[244]
+       *    presumably, it's not going to run past that, so sizeof()
+       *    is fine here.
        * a nonzero ifnlen from RTA_NAME_GET() means sdl is valid
        */
       if (ifnlen)
+      {
+#ifdef HAVE_STRUCT_SOCKADDR_DL_SDL_LEN
+	memcpy (&ifp->sdl, sdl, sdl->sdl_len);
+#else
 	memcpy (&ifp->sdl, sdl, sizeof (struct sockaddr_dl));
+#endif /* HAVE_STRUCT_SOCKADDR_DL_SDL_LEN */
+      }
 
       if_add_update (ifp);
     }

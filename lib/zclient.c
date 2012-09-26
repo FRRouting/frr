@@ -734,7 +734,7 @@ zebra_interface_if_set_value (struct stream *s, struct interface *ifp)
   ifp->mtu6 = stream_getl (s);
   ifp->bandwidth = stream_getl (s);
 #ifdef HAVE_STRUCT_SOCKADDR_DL
-  stream_get (&ifp->sdl, s, sizeof (ifp->sdl));
+  stream_get (&ifp->sdl, s, sizeof (ifp->sdl_storage));
 #else
   ifp->hw_addr_len = stream_getl (s);
   if (ifp->hw_addr_len)

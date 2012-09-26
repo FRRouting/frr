@@ -1469,6 +1469,7 @@ AC_CHECK_TYPES([struct sockaddr, struct sockaddr_in,
 AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 	struct sockaddr_in.sin_len, struct sockaddr_un.sun_len,
 	struct sockaddr_in6.sin6_scope_id,
+	struct sockaddr_dl.sdl_len,
 	struct if6_aliasreq.ifra_lifetime,
 	struct nd_opt_adv_interval.nd_opt_ai_type],
 	[], [], QUAGGA_INCLUDES)

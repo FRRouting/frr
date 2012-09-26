@@ -103,7 +103,13 @@ struct interface
 
   /* Hardware address. */
 #ifdef HAVE_STRUCT_SOCKADDR_DL
-  struct sockaddr_dl sdl;
+  union {
+    /* note that sdl_storage is never accessed, it only exists to make space.
+     * all actual uses refer to sdl - but use sizeof(sdl_storage)!  this fits
+     * best with C aliasing rules. */
+    struct sockaddr_dl sdl;
+    struct sockaddr_storage sdl_storage;
+  };
 #else
   unsigned short hw_type;
   u_char hw_addr[INTERFACE_HWADDR_MAX];
