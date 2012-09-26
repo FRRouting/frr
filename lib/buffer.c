@@ -262,7 +262,7 @@ buffer_flush_window (struct buffer *b, int fd, int width, int height,
   /* For erase and more data add two to b's buffer_data count.*/
   if (b->head->next == NULL)
     {
-      iov_alloc = sizeof(small_iov)/sizeof(small_iov[0]);
+      iov_alloc = array_size(small_iov);
       iov = small_iov;
     }
   else

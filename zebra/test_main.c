@@ -280,7 +280,7 @@ main (int argc, char **argv)
   zebrad.master = thread_master_create ();
 
   /* Vty related initialize. */
-  signal_init (zebrad.master, Q_SIGC(zebra_signals), zebra_signals);
+  signal_init (zebrad.master, array_size(zebra_signals), zebra_signals);
   cmd_init (1);
   vty_init (zebrad.master);
   memory_init ();

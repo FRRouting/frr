@@ -275,7 +275,7 @@ main (int argc, char **argv)
 
   /* Library initialization. */
   zprivs_init (&ripd_privs);
-  signal_init (master, Q_SIGC(ripd_signals), ripd_signals);
+  signal_init (master, array_size(ripd_signals), ripd_signals);
   cmd_init (1);
   vty_init (master);
   memory_init ();

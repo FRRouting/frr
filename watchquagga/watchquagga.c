@@ -27,6 +27,7 @@
 #include <getopt.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <memory.h>
 
 #ifndef MIN
 #define MIN(X,Y) (((X) <= (Y)) ? (X) : (Y))
@@ -1279,7 +1280,7 @@ main(int argc, char **argv)
       
   gs.restart.interval = gs.min_restart_interval;
   master = thread_master_create();
-  signal_init (master, Q_SIGC(my_signals), my_signals);
+  signal_init (master, array_size(my_signals), my_signals);
   srandom(time(NULL));
 
   {

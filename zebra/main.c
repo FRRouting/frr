@@ -104,7 +104,7 @@ struct zebra_privs_t zserv_privs =
   .vty_group = VTY_GROUP,
 #endif
   .caps_p = _caps_p,
-  .cap_num_p = sizeof(_caps_p)/sizeof(_caps_p[0]),
+  .cap_num_p = array_size(_caps_p),
   .cap_num_i = 0
 };
 
@@ -313,7 +313,7 @@ main (int argc, char **argv)
   zprivs_init (&zserv_privs);
 
   /* Vty related initialize. */
-  signal_init (zebrad.master, Q_SIGC(zebra_signals), zebra_signals);
+  signal_init (zebrad.master, array_size(zebra_signals), zebra_signals);
   cmd_init (1);
   vty_init (zebrad.master);
   memory_init ();

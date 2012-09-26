@@ -62,7 +62,7 @@ static const struct message attr_str [] =
   { BGP_ATTR_AS4_AGGREGATOR,   "AS4_AGGREGATOR" }, 
   { BGP_ATTR_AS_PATHLIMIT,     "AS_PATHLIMIT" },
 };
-static const int attr_str_max = sizeof(attr_str)/sizeof(attr_str[0]);
+static const int attr_str_max = array_size(attr_str);
 
 static const struct message attr_flag_str[] =
 {
@@ -72,8 +72,7 @@ static const struct message attr_flag_str[] =
   /* bgp_attr_flags_diagnose() relies on this bit being last in this list */
   { BGP_ATTR_FLAG_EXTLEN,   "Extended Length" },
 };
-static const size_t attr_flag_str_max =
-  sizeof (attr_flag_str) / sizeof (attr_flag_str[0]);
+static const size_t attr_flag_str_max = array_size(attr_flag_str);
 
 static struct hash *cluster_hash;
 

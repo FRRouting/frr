@@ -61,7 +61,6 @@ struct vtysh_client
   { .fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .path = BABEL_VTYSH_PATH},
 };
 
-#define VTYSH_INDEX_MAX (sizeof(vtysh_client)/sizeof(vtysh_client[0]))
 
 /* We need direct access to ripd to implement vtysh_exit_ripd_only. */
 static struct vtysh_client *ripd_client = NULL;
@@ -374,7 +373,7 @@ vtysh_execute_func (const char *line, int pager)
 
 	if (! strcmp(cmd->string,"configure terminal"))
 	  {
-	    for (i = 0; i < VTYSH_INDEX_MAX; i++)
+	    for (i = 0; i < array_size(vtysh_client); i++)
 	      {
 	        cmd_stat = vtysh_client_execute(&vtysh_client[i], line, fp);
 		if (cmd_stat == CMD_WARNING)
@@ -413,7 +412,7 @@ vtysh_execute_func (const char *line, int pager)
 	  }
 
 	cmd_stat = CMD_SUCCESS;
-	for (i = 0; i < VTYSH_INDEX_MAX; i++)
+	for (i = 0; i < array_size(vtysh_client); i++)
 	  {
 	    if (cmd->daemon & vtysh_client[i].flag)
 	      {
@@ -525,7 +524,7 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
 	    u_int i;
 	    int cmd_stat = CMD_SUCCESS;
 
-	    for (i = 0; i < VTYSH_INDEX_MAX; i++)
+	    for (i = 0; i < array_size(vtysh_client); i++)
 	      {
 	        if (cmd->daemon & vtysh_client[i].flag)
 		  {
@@ -1354,7 +1353,7 @@ DEFUN (vtysh_show_memory,
   int ret = CMD_SUCCESS;
   char line[] = "show memory\n";
   
-  for (i = 0; i < VTYSH_INDEX_MAX; i++)
+  for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
       {
         fprintf (stdout, "Memory statistics for %s:\n", 
@@ -1377,7 +1376,7 @@ DEFUN (vtysh_show_logging,
   int ret = CMD_SUCCESS;
   char line[] = "show logging\n";
   
-  for (i = 0; i < VTYSH_INDEX_MAX; i++)
+  for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
       {
         fprintf (stdout,"Logging configuration for %s:\n", 
@@ -1733,7 +1732,7 @@ DEFUN (vtysh_write_terminal,
 	   VTY_NEWLINE);
   vty_out (vty, "!%s", VTY_NEWLINE);
 
-  for (i = 0; i < VTYSH_INDEX_MAX; i++)
+  for (i = 0; i < array_size(vtysh_client); i++)
     ret = vtysh_client_config (&vtysh_client[i], line);
 
   /* Integrate vtysh specific configuration. */
@@ -1807,7 +1806,7 @@ write_config_integrated(void)
       return CMD_SUCCESS;
     }
 
-  for (i = 0; i < VTYSH_INDEX_MAX; i++)
+  for (i = 0; i < array_size(vtysh_client); i++)
     ret = vtysh_client_config (&vtysh_client[i], line);
 
   vtysh_config_dump (fp);
@@ -1844,7 +1843,7 @@ DEFUN (vtysh_write_memory,
 
   fprintf (stdout,"Building Configuration...\n");
 	  
-  for (i = 0; i < VTYSH_INDEX_MAX; i++)
+  for (i = 0; i < array_size(vtysh_client); i++)
     ret = vtysh_client_execute (&vtysh_client[i], line, stdout);
   
   fprintf (stdout,"[OK]\n");
@@ -1934,7 +1933,7 @@ DEFUN (vtysh_show_daemons,
 {
   u_int i;
 
-  for (i = 0; i < VTYSH_INDEX_MAX; i++)
+  for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
       vty_out(vty, " %s", vtysh_client[i].name);
   vty_out(vty, "%s", VTY_NEWLINE);
@@ -2184,7 +2183,7 @@ vtysh_connect_all(const char *daemon_name)
   int rc = 0;
   int matches = 0;
 
-  for (i = 0; i < VTYSH_INDEX_MAX; i++)
+  for (i = 0; i < array_size(vtysh_client); i++)
     {
       if (!daemon_name || !strcmp(daemon_name, vtysh_client[i].name))
 	{

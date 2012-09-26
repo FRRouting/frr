@@ -1985,7 +1985,7 @@ static void netlink_install_filter (int sock, __u32 pid)
   };
 
   struct sock_fprog prog = {
-    .len = sizeof(filter) / sizeof(filter[0]),
+    .len = array_size(filter),
     .filter = filter,
   };
 

@@ -155,7 +155,7 @@ ospf_api_typename (int msgtype)
     { MSG_NSM_CHANGE,            "NSM change",             },
   };
 
-  int i, n = sizeof (NameTab) / sizeof (NameTab[0]);
+  int i, n = array_size(NameTab);
   const char *name = NULL;
 
   for (i = 0; i < n; i++)
@@ -187,7 +187,7 @@ ospf_api_errname (int errcode)
     { OSPF_API_UNDEF,                   "Undefined",                  },
   };
 
-  int i, n = sizeof (NameTab) / sizeof (NameTab[0]);
+  int i, n = array_size(NameTab);
   const char *name = NULL;
 
   for (i = 0; i < n; i++)

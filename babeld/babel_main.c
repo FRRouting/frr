@@ -444,7 +444,7 @@ babel_init_signals(void)
         },
     };
 
-    signal_init (master, Q_SIGC(babel_signals), babel_signals);
+    signal_init (master, array_size(babel_signals), babel_signals);
 }
 
 static void

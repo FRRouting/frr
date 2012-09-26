@@ -22,6 +22,7 @@
 #include <zebra.h>
 #include <sigevent.h>
 #include <log.h>
+#include <memory.h>
 
 #ifdef SA_SIGINFO
 #ifdef HAVE_UCONTEXT_H
@@ -266,13 +267,13 @@ trap_default_signals(void)
 #endif
 		   );
   } sigmap[] = {
-    { core_signals, sizeof(core_signals)/sizeof(core_signals[0]), core_handler},
-    { exit_signals, sizeof(exit_signals)/sizeof(exit_signals[0]), exit_handler},
-    { ignore_signals, sizeof(ignore_signals)/sizeof(ignore_signals[0]), NULL},
+    { core_signals, array_size(core_signals), core_handler},
+    { exit_signals, array_size(exit_signals), exit_handler},
+    { ignore_signals, array_size(ignore_signals), NULL},
   };
   u_int i;
 
-  for (i = 0; i < sizeof(sigmap)/sizeof(sigmap[0]); i++)
+  for (i = 0; i < array_size(sigmap); i++)
     {
       u_int j;
 

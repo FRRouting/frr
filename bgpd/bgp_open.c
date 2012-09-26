@@ -187,8 +187,7 @@ static const struct message orf_type_str[] =
   { ORF_TYPE_PREFIX,		"Prefixlist"		},
   { ORF_TYPE_PREFIX_OLD,	"Prefixlist (old)"	},
 };
-static const int orf_type_str_max
-	= sizeof(orf_type_str)/sizeof(orf_type_str[0]);
+static const int orf_type_str_max = array_size(orf_type_str);
 
 static const struct message orf_mode_str[] =
 {
@@ -196,8 +195,7 @@ static const struct message orf_mode_str[] =
   { ORF_MODE_SEND,	"Send"		},
   { ORF_MODE_BOTH,	"Both"		},
 };
-static const int orf_mode_str_max
-	 = sizeof(orf_mode_str)/sizeof(orf_mode_str[0]);
+static const int orf_mode_str_max = array_size(orf_mode_str);
 
 static int
 bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
@@ -449,7 +447,7 @@ static const struct message capcode_str[] =
   { CAPABILITY_CODE_REFRESH_OLD,	"Route Refresh (Old)"		},
   { CAPABILITY_CODE_ORF_OLD,		"ORF (Old)"			},
 };
-static const int capcode_str_max = sizeof(capcode_str)/sizeof(capcode_str[0]);
+static const int capcode_str_max = array_size(capcode_str);
 
 /* Minimum sizes for length field of each cap (so not inc. the header) */
 static const size_t cap_minsizes[] = 

@@ -308,7 +308,7 @@ main (int argc, char *argv[], char *envp[])
                            LOG_DAEMON);
   zprivs_init (&ospf6d_privs);
   /* initialize zebra libraries */
-  signal_init (master, Q_SIGC(ospf6_signals), ospf6_signals);
+  signal_init (master, array_size(ospf6_signals), ospf6_signals);
   cmd_init (1);
   vty_init (master);
   memory_init ();

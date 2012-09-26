@@ -27,7 +27,6 @@
 #include <thread.h>
 
 #define QUAGGA_SIGNAL_TIMER_INTERVAL 2L
-#define Q_SIGC(sig) (sizeof(sig)/sizeof(sig[0]))
 
 struct quagga_signal_t
 {

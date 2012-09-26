@@ -58,8 +58,7 @@ static const struct message ospf6_message_type_str [] =
   { OSPF6_MESSAGE_TYPE_LSUPDATE, "LSUpdate" },
   { OSPF6_MESSAGE_TYPE_LSACK,    "LSAck"    },
 };
-static const size_t ospf6_message_type_str_max =
-  sizeof (ospf6_message_type_str) / sizeof (ospf6_message_type_str[0]);
+static const size_t ospf6_message_type_str_max = array_size(ospf6_message_type_str);
 
 /* Minimum (besides the standard OSPF packet header) lengths for OSPF
    packets of particular types, offset is the "type" field. */

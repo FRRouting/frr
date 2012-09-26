@@ -443,8 +443,8 @@ zlog_backtrace_sigsafe(int priority, void *program_counter)
 #define LOC s,buf+sizeof(buf)-s
 
 #ifdef HAVE_GLIBC_BACKTRACE
-  if (((size = backtrace(array,sizeof(array)/sizeof(array[0]))) <= 0) ||
-      ((size_t)size > sizeof(array)/sizeof(array[0])))
+  if (((size = backtrace(array,array_size(array)) <= 0) ||
+      ((size_t)size > array_size(array))))
     return;
 
 #define DUMP(FD) { \
@@ -526,12 +526,12 @@ zlog_backtrace(int priority)
   int size, i;
   char **strings;
 
-  if (((size = backtrace(array,sizeof(array)/sizeof(array[0]))) <= 0) ||
-      ((size_t)size > sizeof(array)/sizeof(array[0])))
+  if (((size = backtrace(array,array_size(array))) <= 0) ||
+      ((size_t)size > array_size(array)))
     {
       zlog_err("Cannot get backtrace, returned invalid # of frames %d "
 	       "(valid range is between 1 and %lu)",
-	       size, (unsigned long)(sizeof(array)/sizeof(array[0])));
+	       size, (unsigned long)(array_size(array)));
       return;
     }
   zlog(NULL, priority, "Backtrace for %d stack frames:", size);
@@ -636,7 +636,7 @@ openzlog (const char *progname, zlog_proto_t protocol,
   zl->syslog_options = syslog_flags;
 
   /* Set default logging levels. */
-  for (i = 0; i < sizeof(zl->maxlvl)/sizeof(zl->maxlvl[0]); i++)
+  for (i = 0; i < array_size(zl->maxlvl); i++)
     zl->maxlvl[i] = ZLOG_DISABLED;
   zl->maxlvl[ZLOG_DEST_MONITOR] = LOG_DEBUG;
   zl->default_lvl = LOG_DEBUG;
@@ -855,14 +855,14 @@ zroute_lookup(u_int zroute)
 {
   u_int i;
 
-  if (zroute >= sizeof(route_types)/sizeof(route_types[0]))
+  if (zroute >= array_size(route_types))
     {
       zlog_err("unknown zebra route type: %u", zroute);
       return &unknown;
     }
   if (zroute == route_types[zroute].type)
     return &route_types[zroute];
-  for (i = 0; i < sizeof(route_types)/sizeof(route_types[0]); i++)
+  for (i = 0; i < array_size(route_types); i++)
     {
       if (zroute == route_types[i].type)
         {
@@ -890,7 +890,7 @@ zebra_route_char(u_int zroute)
 const char *
 zserv_command_string (unsigned int command)
 {
-  if (command >= sizeof(command_types)/sizeof(command_types[0]))
+  if (command >= array_size(command_types))
     {
       zlog_err ("unknown zserv command type: %u", command);
       return unknown.string;
@@ -898,20 +898,16 @@ zserv_command_string (unsigned int command)
   return command_types[command].string;
 }
 
-#define RTSIZE	(sizeof(route_types)/sizeof(route_types[0]))
-
 int
 proto_name2num(const char *s)
 {
    unsigned i;
 
-   for (i=0; i<RTSIZE; ++i)
+   for (i=0; i<array_size(route_types); ++i)
      if (strcasecmp(s, route_types[i].string) == 0)
        return route_types[i].type;
    return -1;
 }
-
-#undef RTSIZE
 
 int
 proto_redistnum(int afi, const char *s)

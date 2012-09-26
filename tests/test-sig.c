@@ -43,7 +43,7 @@ int
 main (void)
 {
   master = thread_master_create ();
-  signal_init (master, Q_SIGC(sigs), sigs);
+  signal_init (master, array_size(sigs), sigs);
   
   zlog_default = openzlog("testsig", ZLOG_NONE,
                           LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);

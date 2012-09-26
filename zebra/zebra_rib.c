@@ -1546,7 +1546,7 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   /* Set default distance by route type. */
   if (distance == 0)
     {
-      if ((unsigned)type >= sizeof(route_info) / sizeof(route_info[0]))
+      if ((unsigned)type >= array_size(route_info))
 	distance = 150;
       else
         distance = route_info[type].distance;

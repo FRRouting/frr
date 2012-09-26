@@ -325,7 +325,7 @@ main (int argc, char **argv, char **envp)
    *  initializations
    */
   zprivs_init (&isisd_privs);
-  signal_init (master, Q_SIGC (isisd_signals), isisd_signals);
+  signal_init (master, array_size (isisd_signals), isisd_signals);
   cmd_init (1);
   vty_init (master);
   memory_init ();
