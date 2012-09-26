@@ -357,6 +357,7 @@ struct in_pktinfo
  */
 #if defined(__NetBSD__) || defined(__FreeBSD__) \
    || (defined(__OpenBSD__) && (OpenBSD < 200311)) \
+   || (defined(__APPLE__)) \
    || (defined(SUNOS_5) && defined(WORDS_BIGENDIAN))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
