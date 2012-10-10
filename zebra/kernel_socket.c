@@ -84,28 +84,41 @@ extern struct zebra_t zebrad;
            ROUNDUP(sizeof(struct sockaddr_dl)) : sizeof(struct sockaddr)))
 #endif /* HAVE_STRUCT_SOCKADDR_SA_LEN */
 
-/* We use an additional pointer in following, pdest, rather than (DEST)
- * directly, because gcc will warn if the macro is expanded and DEST is NULL,
- * complaining that memcpy is being passed a NULL value, despite the fact
- * the if (NULL) makes it impossible.
+/*
+ * We use a call to an inline function to copy (PNT) to (DEST)
+ * 1. Calculating the length of the copy requires an #ifdef to determine
+ *    if sa_len is a field and can't be used directly inside a #define
+ * 2. So the compiler doesn't complain when DEST is NULL, which is only true
+ *    when we are skipping the copy and incrementing to the next SA
  */
+static void inline
+rta_copy (union sockunion *dest, caddr_t src) {
+  int len;
+#ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
+  len = (((struct sockaddr *)src)->sa_len > sizeof (*dest)) ?
+            sizeof (*dest) : ((struct sockaddr *)src)->sa_len ;
+#else
+  len = (SAROUNDUP (src) > sizeof (*dest)) ?
+            sizeof (*dest) : SAROUNDUP (src) ;
+#endif
+  memcpy (dest, src, len);
+}
+
 #define RTA_ADDR_GET(DEST, RTA, RTMADDRS, PNT) \
   if ((RTMADDRS) & (RTA)) \
     { \
-      void *pdest = (DEST); \
       int len = SAROUNDUP ((PNT)); \
       if ( ((DEST) != NULL) && \
            af_check (((struct sockaddr *)(PNT))->sa_family)) \
-        memcpy (pdest, (PNT), len); \
+        rta_copy((DEST), (PNT)); \
       (PNT) += len; \
     }
 #define RTA_ATTR_GET(DEST, RTA, RTMADDRS, PNT) \
   if ((RTMADDRS) & (RTA)) \
     { \
-      void *pdest = (DEST); \
       int len = SAROUNDUP ((PNT)); \
       if ((DEST) != NULL) \
-        memcpy (pdest, (PNT), len); \
+        rta_copy((DEST), (PNT)); \
       (PNT) += len; \
     }
 
@@ -328,7 +341,7 @@ ifm_read (struct if_msghdr *ifm)
   struct sockaddr_dl *sdl;
   char ifname[IFNAMSIZ];
   short ifnlen = 0;
-  caddr_t *cp;
+  caddr_t cp;
   
   /* terminate ifname at head (for strnlen) and tail (for safety) */
   ifname[IFNAMSIZ - 1] = '\0';
