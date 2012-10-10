@@ -48,9 +48,15 @@ extern struct zebra_t zebrad;
  * XXX: why is ROUNDUP(0) sizeof(long)?  0 is an illegal sockaddr
  * length anyway (< sizeof (struct sockaddr)), so this shouldn't
  * matter.
+ * On OS X, both 32, 64bit syatems align on 4 byte boundary
  */
+#ifdef __APPLE__
+#define ROUNDUP(a) \
+  ((a) > 0 ? (1 + (((a) - 1) | (sizeof(int) - 1))) : sizeof(int))
+#else
 #define ROUNDUP(a) \
   ((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
+#endif
 
 /*
  * Given a pointer (sockaddr or void *), return the number of bytes
