@@ -992,6 +992,16 @@ AC_CHECK_HEADER([net/if.h],
     QUAGGA_INCLUDES)], 
   [], QUAGGA_INCLUDES )
 
+dnl ---------------------------------------------------------------
+dnl Additional, newer way to check link-state using ifi_link_state.
+dnl Not available in all BSD's when ifmediareq available
+dnl ---------------------------------------------------------------
+AC_CHECK_HEADER([net/if.h],
+    AC_CHECK_MEMBERS([struct if_data.ifi_link_state],
+      AC_DEFINE(HAVE_BSD_IFI_LINK_STATE,,[BSD ifi_link_state available]),
+      [], QUAGGA_INCLUDES),
+    ,)
+
 dnl ------------------------
 dnl TCP_MD5SIG socket option
 dnl ------------------------

@@ -316,7 +316,7 @@ ifan_read (struct if_announcemsghdr *ifan)
 }
 #endif /* RTM_IFANNOUNCE */
 
-#ifdef HAVE_BSD_LINK_DETECT
+#ifdef HAVE_BSD_IFI_LINK_STATE
 /* BSD link detect translation */
 static void
 bsd_linkdetect_translate (struct if_msghdr *ifm)
@@ -327,7 +327,7 @@ bsd_linkdetect_translate (struct if_msghdr *ifm)
   else
     UNSET_FLAG(ifm->ifm_flags, IFF_RUNNING);
 }
-#endif /* HAVE_BSD_LINK_DETECT */
+#endif /* HAVE_BSD_IFI_LINK_STATE */
 
 /*
  * Handle struct if_msghdr obtained from reading routing socket or
@@ -463,9 +463,9 @@ ifm_read (struct if_msghdr *ifm)
        */
       ifp->ifindex = ifm->ifm_index;
       
-#ifdef HAVE_BSD_LINK_DETECT /* translate BSD kernel msg for link-state */
+#ifdef HAVE_BSD_IFI_LINK_STATE /* translate BSD kernel msg for link-state */
       bsd_linkdetect_translate(ifm);
-#endif /* HAVE_BSD_LINK_DETECT */
+#endif /* HAVE_BSD_IFI_LINK_STATE */
 
       if_flags_update (ifp, ifm->ifm_flags);
 #if defined(__bsdi__)
@@ -504,9 +504,9 @@ ifm_read (struct if_msghdr *ifm)
           return -1;
         }
       
-#ifdef HAVE_BSD_LINK_DETECT /* translate BSD kernel msg for link-state */
+#ifdef HAVE_BSD_IFI_LINK_STATE /* translate BSD kernel msg for link-state */
       bsd_linkdetect_translate(ifm);
-#endif /* HAVE_BSD_LINK_DETECT */
+#endif /* HAVE_BSD_IFI_LINK_STATE */
 
       /* update flags and handle operative->inoperative transition, if any */
       if_flags_update (ifp, ifm->ifm_flags);
