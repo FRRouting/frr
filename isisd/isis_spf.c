@@ -1180,13 +1180,13 @@ isis_run_spf (struct isis_area *area, int level, int family, u_char *sysid)
   u_char lsp_id[ISIS_SYS_ID_LEN + 2];
   struct isis_lsp *lsp;
   struct route_table *table = NULL;
-  struct timespec time_now;
+  struct timeval time_now;
   unsigned long long start_time, end_time;
 
   /* Get time that can't roll backwards. */
-  clock_gettime(CLOCK_MONOTONIC, &time_now);
+  quagga_gettime(QUAGGA_CLK_MONOTONIC, &time_now);
   start_time = time_now.tv_sec;
-  start_time = (start_time * 1000000) + (time_now.tv_nsec / 1000);
+  start_time = (start_time * 1000000) + time_now.tv_usec;
 
   if (family == AF_INET)
     spftree = area->spftree[level - 1];
@@ -1282,9 +1282,9 @@ out:
   spftree->pending = 0;
   spftree->runcount++;
   spftree->last_run_timestamp = time (NULL);
-  clock_gettime(CLOCK_MONOTONIC, &time_now);
+  quagga_gettime(QUAGGA_CLK_MONOTONIC, &time_now);
   end_time = time_now.tv_sec;
-  end_time = (end_time * 1000000) + (time_now.tv_nsec / 1000);
+  end_time = (end_time * 1000000) + time_now.tv_usec;
   spftree->last_run_duration = end_time - start_time;
 
 
