@@ -39,6 +39,11 @@
 extern int agentx_enabled;
 #endif
 
+#if defined(__APPLE__)
+#include <mach/mach.h>
+#include <mach/mach_time.h>
+#endif
+
 
 /* Recent absolute time of day */
 struct timeval recent_time;
@@ -103,7 +108,7 @@ timeval_elapsed (struct timeval a, struct timeval b)
 	  + (a.tv_usec - b.tv_usec));
 }
 
-#ifndef HAVE_CLOCK_MONOTONIC
+#if !defined(HAVE_CLOCK_MONOTONIC) && !defined(__APPLE__)
 static void
 quagga_gettimeofday_relative_adjust (void)
 {
@@ -122,7 +127,7 @@ quagga_gettimeofday_relative_adjust (void)
     }
   last_recent_time = recent_time;
 }
-#endif /* !HAVE_CLOCK_MONOTONIC */
+#endif /* !HAVE_CLOCK_MONOTONIC && !__APPLE__ */
 
 /* gettimeofday wrapper, to keep recent_time updated */
 static int
@@ -162,7 +167,23 @@ quagga_get_relative (struct timeval *tv)
         relative_time.tv_usec = tp.tv_nsec / 1000;
       }
   }
-#else /* !HAVE_CLOCK_MONOTONIC */
+#elif defined(__APPLE__)
+  {
+    uint64_t ticks;
+    uint64_t useconds;
+    static mach_timebase_info_data_t timebase_info;
+
+    ticks = mach_absolute_time();
+    if (timebase_info.denom == 0)
+      mach_timebase_info(&timebase_info);
+
+    useconds = ticks * timebase_info.numer / timebase_info.denom / 1000;
+    relative_time.tv_sec = useconds / 1000000;
+    relative_time.tv_usec = useconds % 1000000;
+
+    return 0;
+  }
+#else /* !HAVE_CLOCK_MONOTONIC && !__APPLE__ */
   if (!(ret = quagga_gettimeofday (&recent_time)))
     quagga_gettimeofday_relative_adjust();
 #endif /* HAVE_CLOCK_MONOTONIC */
