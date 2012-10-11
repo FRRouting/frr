@@ -1866,7 +1866,7 @@ ospf_translated_nssa_originate (struct ospf *ospf, struct ospf_lsa *type7)
   
   if ( (new = ospf_lsa_install (ospf, NULL, new)) == NULL)
     {
-      if (IS_DEBUG_OSPF_NSSA);
+      if (IS_DEBUG_OSPF_NSSA)
         zlog_debug ("ospf_lsa_translated_nssa_originate(): "
                    "Could not install LSA "
                    "id %s", inet_ntoa (type7->data->id));
