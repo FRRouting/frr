@@ -1912,13 +1912,13 @@ rib_add_ipv4 (int type, int flags, struct prefix_ipv4 *p,
  * question are passed as 1st and 2nd arguments.
  */
 
-void rib_dump (const char * func, const struct prefix_ipv4 * p, const struct rib * rib)
+void rib_dump (const char * func, const struct prefix * p, const struct rib * rib)
 {
-  char straddr[INET_ADDRSTRLEN];
+  char straddr[INET6_ADDRSTRLEN];
   struct nexthop *nexthop, *tnexthop;
   int recursing;
 
-  inet_ntop (AF_INET, &p->prefix, straddr, INET_ADDRSTRLEN);
+  inet_ntop (p->family, &p->u.prefix, straddr, INET6_ADDRSTRLEN);
   zlog_debug ("%s: dumping RIB entry %p for %s/%d", func, rib, straddr, p->prefixlen);
   zlog_debug
   (
@@ -1946,9 +1946,10 @@ void rib_dump (const char * func, const struct prefix_ipv4 * p, const struct rib
     rib->nexthop_active_num,
     rib->nexthop_fib_num
   );
+
   for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
     {
-      inet_ntop (AF_INET, &nexthop->gate.ipv4.s_addr, straddr, INET_ADDRSTRLEN);
+      inet_ntop (p->family, &nexthop->gate, straddr, INET6_ADDRSTRLEN);
       zlog_debug
       (
         "%s: %s %s with flags %s%s%s",
@@ -2008,7 +2009,7 @@ void rib_lookup_and_dump (struct prefix_ipv4 * p)
       (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED) ? "removed" : "NOT removed"),
       (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED) ? "selected" : "NOT selected")
     );
-    rib_dump (__func__, p, rib);
+    rib_dump (__func__, (struct prefix *) p, rib);
   }
 }
 
@@ -2055,7 +2056,7 @@ void rib_lookup_and_pushup (struct prefix_ipv4 * p)
         char buf[INET_ADDRSTRLEN];
         inet_ntop (rn->p.family, &p->prefix, buf, INET_ADDRSTRLEN);
         zlog_debug ("%s: freeing way for connected prefix %s/%d", __func__, buf, p->prefixlen);
-        rib_dump (__func__, (struct prefix_ipv4 *)&rn->p, rib);
+        rib_dump (__func__, &rn->p, rib);
       }
       rib_uninstall (rn, rib);
     }
@@ -2117,7 +2118,7 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib, safi_t safi)
   {
     zlog_debug ("%s: called rib_addnode (%p, %p) on new RIB entry",
       __func__, rn, rib);
-    rib_dump (__func__, p, rib);
+    rib_dump (__func__, (struct prefix *) p, rib);
   }
 
   /* Free implicit route.*/
@@ -2127,7 +2128,7 @@ rib_add_ipv4_multipath (struct prefix_ipv4 *p, struct rib *rib, safi_t safi)
     {
       zlog_debug ("%s: calling rib_delnode (%p, %p) on existing RIB entry",
         __func__, rn, same);
-      rib_dump (__func__, p, same);
+      rib_dump (__func__, (struct prefix *) p, same);
     }
     rib_delnode (rn, same);
   }
@@ -2693,10 +2694,24 @@ rib_add_ipv6 (int type, int flags, struct prefix_ipv6 *p,
 
   /* Link new rib to node.*/
   rib_addnode (rn, rib);
+  if (IS_ZEBRA_DEBUG_RIB)
+  {
+    zlog_debug ("%s: called rib_addnode (%p, %p) on new RIB entry",
+      __func__, rn, rib);
+    rib_dump (__func__, (struct prefix *) p, rib);
+  }
 
   /* Free implicit route.*/
   if (same)
+  {
+    if (IS_ZEBRA_DEBUG_RIB)
+    {
+      zlog_debug ("%s: calling rib_delnode (%p, %p) on existing RIB entry",
+        __func__, rn, same);
+      rib_dump (__func__, (struct prefix *) p, same);
+    }
     rib_delnode (rn, same);
+  }
   
   route_unlock_node (rn);
   return 0;
