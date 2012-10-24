@@ -66,6 +66,18 @@ within the hold-time of the previous SPF calculation.
 
 @end deffn
 
+@deffn {OSPF6 Command} {auto-cost reference-bandwidth @var{cost}} {}
+@deffnx {OSPF6 Command} {no auto-cost reference-bandwidth} {}
+This sets the reference bandwidth for cost calculations, where this
+bandwidth is considered equivalent to an OSPF cost of 1, specified in
+Mbits/s. The default is 100Mbit/s (i.e. a link of bandwidth 100Mbit/s
+or higher will have a cost of 1. Cost of lower bandwidth links will be
+scaled with reference to this cost).
+
+This configuration setting MUST be consistent across all routers
+within the OSPF domain.
+@end deffn
+
 @node OSPF6 area
 @section OSPF6 area
 
@@ -75,7 +87,8 @@ Area support for OSPFv3 is not yet implemented.
 @section OSPF6 interface
 
 @deffn {Interface Command} {ipv6 ospf6 cost COST} {}
-Sets interface's output cost.  Default value depends on the interface bandwidth.
+Sets interface's output cost.  Default value depends on the interface
+bandwidth and on the auto-cost reference bandwidth.
 @end deffn
 
 @deffn {Interface Command} {ipv6 ospf6 hello-interval HELLOINTERVAL} {}

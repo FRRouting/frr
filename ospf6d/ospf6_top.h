@@ -80,6 +80,8 @@ struct ospf6
   struct thread *t_spf_calc;	        /* SPF calculation timer. */
   struct thread *t_ase_calc;		/* ASE calculation timer. */
   struct thread *maxage_remover;
+
+  u_int32_t ref_bandwidth;
 };
 
 #define OSPF6_DISABLED    0x01

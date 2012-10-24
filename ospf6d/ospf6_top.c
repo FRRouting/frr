@@ -148,6 +148,8 @@ ospf6_create (void)
 
   o->external_id_table = route_table_init ();
 
+  o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
+
   return o;
 }
 
@@ -889,6 +891,10 @@ config_write_ospf6 (struct vty *vty)
 	vty_out(vty, " detail");
       vty_out(vty, "%s", VTY_NEWLINE);
     }
+
+  if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
+    vty_out (vty, " auto-cost reference-bandwidth %d%s", ospf6->ref_bandwidth / 1000,
+             VNL);
 
   ospf6_stub_router_config_write (vty);
   ospf6_redistribute_config_write (vty);

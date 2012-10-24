@@ -125,7 +125,7 @@ ospf6_interface_get_cost (struct ospf6_interface *oi)
   u_int32_t bw, refbw;
 
   bw = oi->interface->bandwidth ? oi->interface->bandwidth : OSPF6_INTERFACE_BANDWIDTH;
-  refbw = OSPF6_REFERENCE_BANDWIDTH;
+  refbw = ospf6 ? ospf6->ref_bandwidth : OSPF6_REFERENCE_BANDWIDTH;
 
   /* A specifed ip ospf cost overrides a calculated one. */
   if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
@@ -1300,6 +1300,61 @@ DEFUN (no_ipv6_ospf6_cost,
   return CMD_SUCCESS;
 }
 
+DEFUN (auto_cost_reference_bandwidth,
+       auto_cost_reference_bandwidth_cmd,
+       "auto-cost reference-bandwidth <1-4294967>",
+       "Calculate OSPF interface cost according to bandwidth\n"
+       "Use reference bandwidth method to assign OSPF cost\n"
+       "The reference bandwidth in terms of Mbits per second\n")
+{
+  struct ospf6 *o = vty->index;
+  struct ospf6_area *oa;
+  struct ospf6_interface *oi;
+  struct listnode *i, *j;
+  u_int32_t refbw;
+
+  refbw = strtol (argv[0], NULL, 10);
+  if (refbw < 1 || refbw > 4294967)
+    {
+      vty_out (vty, "reference-bandwidth value is invalid%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  /* If reference bandwidth is changed. */
+  if ((refbw * 1000) == o->ref_bandwidth)
+    return CMD_SUCCESS;
+
+  o->ref_bandwidth = refbw * 1000;
+  for (ALL_LIST_ELEMENTS_RO (o->area_list, i, oa))
+      for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
+          ospf6_interface_recalculate_cost (oi);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_auto_cost_reference_bandwidth,
+       no_auto_cost_reference_bandwidth_cmd,
+       "no auto-cost reference-bandwidth",
+       NO_STR
+       "Calculate OSPF interface cost according to bandwidth\n"
+       "Use reference bandwidth method to assign OSPF cost\n")
+{
+  struct ospf6 *o = vty->index;
+  struct ospf6_area *oa;
+  struct ospf6_interface *oi;
+  struct listnode *i, *j;
+
+  if (o->ref_bandwidth == OSPF6_REFERENCE_BANDWIDTH)
+    return CMD_SUCCESS;
+
+  o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
+  for (ALL_LIST_ELEMENTS_RO (o->area_list, i, oa))
+      for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
+          ospf6_interface_recalculate_cost (oi);
+
+  return CMD_SUCCESS;
+}
+
 DEFUN (ipv6_ospf6_hellointerval,
        ipv6_ospf6_hellointerval_cmd,
        "ipv6 ospf6 hello-interval <1-65535>",
@@ -1854,6 +1909,10 @@ ospf6_interface_init (void)
 
   install_element (INTERFACE_NODE, &ipv6_ospf6_network_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_ospf6_network_cmd);
+
+  /* reference bandwidth commands */
+  install_element (OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);
+  install_element (OSPF6_NODE, &no_auto_cost_reference_bandwidth_cmd);
 }
 
 DEFUN (debug_ospf6_interface,

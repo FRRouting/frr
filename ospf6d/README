@@ -85,6 +85,15 @@ OSPF6 NODE:
     Binds interface to specified Area, and start
     sending OSPFv3 packets.
 
+  auto-cost reference-bandwidth COST
+    Sets the reference bandwidth for cost calculations, where this
+    bandwidth is considered equivalent to an OSPF cost of 1, specified
+    in Mbits/s. The default is 100Mbit/s (i.e. a link of bandwidth
+    100Mbit/s or higher will have a cost of 1. Cost of lower bandwidth
+    links will be scaled with reference to this cost).  This
+    configuration setting MUST be consistent across all routers within
+    the OSPF domain.
+
 Sample configuration is in ospf6d.conf.sample.
 
 --

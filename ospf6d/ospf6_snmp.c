@@ -488,7 +488,9 @@ ospfv3GeneralGroup (struct variable *v, oid *name, size_t *length,
     case OSPFv3DEMANDEXTENSIONS:
       return SNMP_INTEGER (0);	/* Not supported */
     case OSPFv3REFERENCEBANDWIDTH:
-      return SNMP_INTEGER (100000);
+      if (ospf6)
+        return SNMP_INTEGER (ospf6->ref_bandwidth);
+      /* Otherwise, like for "not implemented". */
     case OSPFv3RESTARTSUPPORT:
     case OSPFv3RESTARTINTERVAL:
     case OSPFv3RESTARTSTRICTLSACHECKING:
