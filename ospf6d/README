@@ -60,7 +60,7 @@ CONFIG NODE:
 
 INTERFACE NODE:
   ipv6 ospf6 cost COST
-    Sets the interface's output cost. default 1
+    Sets the interface's output cost. Depends on interface bandwidth by default.
 
   ipv6 ospf6 hello-interval HELLOINTERVAL
     Sets the interface's Hello Interval. default 10

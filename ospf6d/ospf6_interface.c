@@ -117,6 +117,52 @@ ospf6_default_iftype(struct interface *ifp)
     return OSPF_IFTYPE_BROADCAST;
 }
 
+static u_int32_t
+ospf6_interface_get_cost (struct ospf6_interface *oi)
+{
+  /* If all else fails, use default OSPF cost */
+  u_int32_t cost;
+  u_int32_t bw, refbw;
+
+  bw = oi->interface->bandwidth ? oi->interface->bandwidth : OSPF6_INTERFACE_BANDWIDTH;
+  refbw = OSPF6_REFERENCE_BANDWIDTH;
+
+  /* A specifed ip ospf cost overrides a calculated one. */
+  if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
+    cost = oi->cost;
+  else
+    {
+      cost = (u_int32_t) ((double)refbw / (double)bw + (double)0.5);
+      if (cost < 1) cost = 1;
+      else if (cost > UINT32_MAX) cost = UINT32_MAX;
+    }
+
+  return cost;
+}
+
+static void
+ospf6_interface_recalculate_cost (struct ospf6_interface *oi)
+{
+  u_int32_t newcost;
+
+  newcost = ospf6_interface_get_cost (oi);
+  if (newcost == oi->cost) return;
+  oi->cost = newcost;
+
+  /* update cost held in route_connected list in ospf6_interface */
+  ospf6_interface_connected_route_update (oi->interface);
+
+  /* execute LSA hooks */
+  if (oi->area)
+    {
+      OSPF6_LINK_LSA_SCHEDULE (oi);
+      OSPF6_ROUTER_LSA_SCHEDULE (oi->area);
+      OSPF6_NETWORK_LSA_SCHEDULE (oi);
+      OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
+      OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (oi->area);
+    }
+}
+
 /* Create new ospf6 interface structure */
 struct ospf6_interface *
 ospf6_interface_create (struct interface *ifp)
@@ -144,7 +190,6 @@ ospf6_interface_create (struct interface *ifp)
   oi->hello_interval = OSPF_HELLO_INTERVAL_DEFAULT;
   oi->dead_interval = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
   oi->rxmt_interval = OSPF_RETRANSMIT_INTERVAL_DEFAULT;
-  oi->cost = OSPF6_INTERFACE_COST;
   oi->type = ospf6_default_iftype (ifp);
   oi->state = OSPF6_INTERFACE_DOWN;
   oi->flag = 0;
@@ -174,6 +219,9 @@ ospf6_interface_create (struct interface *ifp)
   /* link both */
   oi->interface = ifp;
   ifp->info = oi;
+
+  /* Compute cost. */
+  oi->cost = ospf6_interface_get_cost(oi);
 
   return oi;
 }
@@ -657,6 +705,9 @@ interface_up (struct thread *thread)
 		    oi->interface->name);
 	return 0;
     }
+
+  /* Recompute cost */
+  ospf6_interface_recalculate_cost (oi);
 
   /* if already enabled, do nothing */
   if (oi->state > OSPF6_INTERFACE_DOWN)
@@ -1214,19 +1265,37 @@ DEFUN (ipv6_ospf6_cost,
     return CMD_SUCCESS;
   
   oi->cost = lcost;
-  
-  /* update cost held in route_connected list in ospf6_interface */
-  ospf6_interface_connected_route_update (oi->interface);
+  SET_FLAG (oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
 
-  /* execute LSA hooks */
-  if (oi->area)
-    {
-      OSPF6_LINK_LSA_SCHEDULE (oi);
-      OSPF6_ROUTER_LSA_SCHEDULE (oi->area);
-      OSPF6_NETWORK_LSA_SCHEDULE (oi);
-      OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
-      OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB (oi->area);
-    }
+  ospf6_interface_recalculate_cost(oi);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_ospf6_cost,
+       no_ipv6_ospf6_cost_cmd,
+       "no ipv6 ospf6 cost",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Calculate interface cost from bandwidth\n"
+       )
+{
+  struct ospf6_interface *oi;
+  struct interface *ifp;
+  unsigned long int lcost;
+
+  ifp = (struct interface *) vty->index;
+  assert (ifp);
+
+  oi = (struct ospf6_interface *) ifp->info;
+  if (oi == NULL)
+    oi = ospf6_interface_create (ifp);
+  assert (oi);
+
+  UNSET_FLAG (oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
+
+  ospf6_interface_recalculate_cost(oi);
 
   return CMD_SUCCESS;
 }
@@ -1681,7 +1750,7 @@ config_write_ospf6_interface (struct vty *vty)
       if (ifp->mtu6 != oi->ifmtu)
         vty_out (vty, " ipv6 ospf6 ifmtu %d%s", oi->ifmtu, VNL);
 
-      if (oi->cost != OSPF6_INTERFACE_COST)
+      if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
         vty_out (vty, " ipv6 ospf6 cost %d%s",
                  oi->cost, VNL);
 
@@ -1764,6 +1833,7 @@ ospf6_interface_init (void)
   install_element (INTERFACE_NODE, &interface_desc_cmd);
   install_element (INTERFACE_NODE, &no_interface_desc_cmd);
   install_element (INTERFACE_NODE, &ipv6_ospf6_cost_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_ospf6_cost_cmd);
   install_element (INTERFACE_NODE, &ipv6_ospf6_ifmtu_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_ospf6_ifmtu_cmd);
   install_element (INTERFACE_NODE, &ipv6_ospf6_deadinterval_cmd);

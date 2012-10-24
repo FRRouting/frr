@@ -75,7 +75,7 @@ Area support for OSPFv3 is not yet implemented.
 @section OSPF6 interface
 
 @deffn {Interface Command} {ipv6 ospf6 cost COST} {}
-Sets interface's output cost.  Default value is 1.
+Sets interface's output cost.  Default value depends on the interface bandwidth.
 @end deffn
 
 @deffn {Interface Command} {ipv6 ospf6 hello-interval HELLOINTERVAL} {}
