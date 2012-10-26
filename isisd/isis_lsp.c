@@ -1783,7 +1783,18 @@ lsp_regenerate_schedule (struct isis_area *area, int level, int all_pseudo)
         }
       else
         {
-          lsp_regenerate (area, lvl);
+          /*
+           * lsps are not regenerated if lsp_regenerate function is called
+           * directly. However if the lsp_regenerate call is queued for
+           * later execution it works.
+           */
+          area->lsp_regenerate_pending[lvl - 1] = 1;
+          if (lvl == IS_LEVEL_1)
+            THREAD_TIMER_ON (master, area->t_lsp_refresh[lvl - 1],
+                             lsp_l1_refresh, area, 0);
+          else if (lvl == IS_LEVEL_2)
+            THREAD_TIMER_ON (master, area->t_lsp_refresh[lvl - 1],
+                             lsp_l2_refresh, area, 0);
         }
     }
 
