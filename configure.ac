@@ -198,6 +198,8 @@ AC_ARG_ENABLE(ipv6,
 [  --disable-ipv6          turn off IPv6 related features and daemons])
 AC_ARG_ENABLE(doc,
 [  --disable-doc           do not build docs])
+AC_ARG_ENABLE(tests,
+[  --disable-tests         do not build tests])
 AC_ARG_ENABLE(zebra,
 [  --disable-zebra         do not build zebra daemon])
 AC_ARG_ENABLE(bgpd,
@@ -1232,6 +1234,13 @@ else
   DOC="doc"
 fi
 
+dnl can't use TESTS as name, that's special with automake
+if test "${enable_tests}" = "no";then
+  BUILD_TESTS=""
+else
+  BUILD_TESTS="tests"
+fi
+
 dnl --------------------
 dnl Daemon disable check
 dnl --------------------
@@ -1325,6 +1334,7 @@ else
 fi
 
 AC_SUBST(DOC)
+AC_SUBST(BUILD_TESTS)
 AC_SUBST(ZEBRA)
 AC_SUBST(BGPD)
 AC_SUBST(RIPD)
