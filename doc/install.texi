@@ -79,21 +79,27 @@ file does not match to the current running kernel, configure script will
 not turn on netlink support.
 @item --enable-snmp
 Enable SNMP support.  By default, SNMP support is disabled.
-@item --enable-opaque-lsa
-Enable support for Opaque LSAs (RFC2370) in ospfd.
+@item --disable-opaque-lsa
+Disable support for Opaque LSAs (RFC2370) in ospfd.
 @item --disable-ospfapi
 Disable support for OSPF-API, an API to interface directly with ospfd.
 OSPF-API is enabled if --enable-opaque-lsa is set.
 @item --disable-ospfclient
 Disable building of the example OSPF-API client.
-@item --enable-ospf-te
-Enable support for OSPF Traffic Engineering Extension (internet-draft) this
+@item --disable-ospf-te
+Disable support for OSPF Traffic Engineering Extension (internet-draft) this
 requires support for Opaque LSAs.
 @item --enable-multipath=@var{ARG}
 Enable support for Equal Cost Multipath. @var{ARG} is the maximum number
 of ECMP paths to allow, set to 0 to allow unlimited number of paths.
-@item --enable-rtadv
-Enable support IPV6 router advertisement in zebra.
+@item --disable-rtadv
+Disable support IPV6 router advertisement in zebra.
+@item --disable-tests
+Do not build tests.  Test programs are built by default, but not ran or
+installed.  They can be excluded from build with this option, which will
+minimally decrease compile time and overhead.  They can always be built and
+executed at a later time by running @command{make check} in the @file{tests/}
+subdirectory, even if they're excluded from build.
 @end table
 
 You may specify any combination of the above options to the configure
