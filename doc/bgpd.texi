@@ -339,6 +339,27 @@ routes.
 @deffnx {BGP} {no neighbor @var{peer} maximum-prefix @var{number}} {}
 @end deffn
 
+@deffn {BGP} {neighbor @var{peer} local-as @var{as-number}} {}
+@deffnx {BGP} {neighbor @var{peer} local-as @var{as-number} no-prepend} {}
+@deffnx {BGP} {neighbor @var{peer} local-as @var{as-number} no-prepend replace-as} {}
+@deffnx {BGP} {no neighbor @var{peer} local-as} {}
+Specify an alternate AS for this BGP process when interacting with the
+specified peer.  With no modifiers, the specified local-as is prepended to
+the received AS_PATH when receiving routing updates from the peer, and
+prepended to the outgoing AS_PATH (after the process local AS) when
+transmitting local routes to the peer.
+
+If the no-prepend attribute is specified, then the supplied local-as is not
+prepended to the received AS_PATH.
+
+If the replace-as attribute is specified, then only the supplied local-as is
+prepended to the AS_PATH when transmitting local-route updates to this peer.
+
+Note that replace-as can only be specified if no-prepend is.
+
+This command is only allowed for eBGP peers.
+@end deffn
+
 @node Peer filtering
 @subsection Peer filtering
 
