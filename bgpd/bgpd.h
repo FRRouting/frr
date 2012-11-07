@@ -381,6 +381,7 @@ struct peer
 #define PEER_FLAG_DYNAMIC_CAPABILITY        (1 << 5) /* dynamic capability */
 #define PEER_FLAG_DISABLE_CONNECTED_CHECK   (1 << 6) /* disable-connected-check */
 #define PEER_FLAG_LOCAL_AS_NO_PREPEND       (1 << 7) /* local-as no-prepend */
+#define PEER_FLAG_LOCAL_AS_REPLACE_AS       (1 << 8) /* local-as no-prepend replace-as */
 
   /* NSF mode (graceful restart) */
   u_char nsf[AFI_MAX][SAFI_MAX];
@@ -814,6 +815,7 @@ enum bgp_clear_type
 #define BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK	-30
 #define BGP_ERR_NO_IBGP_WITH_TTLHACK		-31
 #define BGP_ERR_MAX				-32
+#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS    -33
 
 extern struct bgp_master *bm;
 
@@ -941,7 +943,7 @@ extern int peer_distribute_unset (struct peer *, afi_t, safi_t, int);
 extern int peer_allowas_in_set (struct peer *, afi_t, safi_t, int);
 extern int peer_allowas_in_unset (struct peer *, afi_t, safi_t);
 
-extern int peer_local_as_set (struct peer *, as_t, int);
+extern int peer_local_as_set (struct peer *, as_t, int, int);
 extern int peer_local_as_unset (struct peer *);
 
 extern int peer_prefix_list_set (struct peer *, afi_t, safi_t, int, const char *);

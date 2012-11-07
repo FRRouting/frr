@@ -1570,7 +1570,7 @@ DEFUN (neighbor_local_as,
   if (! peer)
     return CMD_WARNING;
 
-  ret = peer_local_as_set (peer, atoi (argv[1]), 0);
+  ret = peer_local_as_set (peer, atoi (argv[1]), 0, 0);
   return bgp_vty_return (vty, ret);
 }
 
@@ -1590,9 +1590,31 @@ DEFUN (neighbor_local_as_no_prepend,
   if (! peer)
     return CMD_WARNING;
 
-  ret = peer_local_as_set (peer, atoi (argv[1]), 1);
+  ret = peer_local_as_set (peer, atoi (argv[1]), 1, 0);
   return bgp_vty_return (vty, ret);
 }
+
+DEFUN (neighbor_local_as_no_prepend_replace_as,
+       neighbor_local_as_no_prepend_replace_as_cmd,
+       NEIGHBOR_CMD2 "local-as " CMD_AS_RANGE " no-prepend replace-as",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Specify a local-as number\n"
+       "AS number used as local AS\n"
+       "Do not prepend local-as to updates from ebgp peers\n"
+       "Do not prepend local-as to updates from ibgp peers\n")
+{
+  struct peer *peer;
+  int ret;
+
+  peer = peer_and_group_lookup_vty (vty, argv[0]);
+  if (! peer)
+    return CMD_WARNING;
+
+  ret = peer_local_as_set (peer, atoi (argv[1]), 1, 1);
+  return bgp_vty_return (vty, ret);
+}
+
 
 DEFUN (no_neighbor_local_as,
        no_neighbor_local_as_cmd,
@@ -1631,6 +1653,17 @@ ALIAS (no_neighbor_local_as,
        "Specify a local-as number\n"
        "AS number used as local AS\n"
        "Do not prepend local-as to updates from ebgp peers\n")
+
+ALIAS (no_neighbor_local_as,
+       no_neighbor_local_as_val3_cmd,
+       NO_NEIGHBOR_CMD2 "local-as " CMD_AS_RANGE " no-prepend replace-as",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Specify a local-as number\n"
+       "AS number used as local AS\n"
+       "Do not prepend local-as to updates from ebgp peers\n"
+       "Do not prepend local-as to updates from ibgp peers\n")
 
 DEFUN (neighbor_password,
        neighbor_password_cmd,
@@ -7494,10 +7527,12 @@ bgp_show_peer (struct vty *vty, struct peer *p)
   /* Configured IP address. */
   vty_out (vty, "BGP neighbor is %s, ", p->host);
   vty_out (vty, "remote AS %u, ", p->as);
-  vty_out (vty, "local AS %u%s, ",
+  vty_out (vty, "local AS %u%s%s, ",
 	   p->change_local_as ? p->change_local_as : p->local_as,
 	   CHECK_FLAG (p->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) ?
-	   " no-prepend" : "");
+	   " no-prepend" : "",
+	   CHECK_FLAG (p->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) ?
+	   " replace-as" : "");
   vty_out (vty, "%s link%s",
 	   p->as == p->local_as ? "internal" : "external",
 	   VTY_NEWLINE);
@@ -9175,9 +9210,11 @@ bgp_vty_init (void)
   /* "neighbor local-as" commands. */
   install_element (BGP_NODE, &neighbor_local_as_cmd);
   install_element (BGP_NODE, &neighbor_local_as_no_prepend_cmd);
+  install_element (BGP_NODE, &neighbor_local_as_no_prepend_replace_as_cmd);
   install_element (BGP_NODE, &no_neighbor_local_as_cmd);
   install_element (BGP_NODE, &no_neighbor_local_as_val_cmd);
   install_element (BGP_NODE, &no_neighbor_local_as_val2_cmd);
+  install_element (BGP_NODE, &no_neighbor_local_as_val3_cmd);
 
   /* "neighbor password" commands. */
   install_element (BGP_NODE, &neighbor_password_cmd);

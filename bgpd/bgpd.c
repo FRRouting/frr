@@ -962,6 +962,7 @@ peer_as_change (struct peer *peer, as_t as)
     {
       peer->change_local_as = 0;
       UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+      UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
     }
 }
 
@@ -1830,6 +1831,7 @@ peer_group_bind (struct bgp *bgp, union sockunion *su,
 	{
 	  group->conf->change_local_as = 0;
 	  UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+	  UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
 	}
     }
 
@@ -3405,7 +3407,7 @@ peer_allowas_in_unset (struct peer *peer, afi_t afi, safi_t safi)
 }
 
 int
-peer_local_as_set (struct peer *peer, as_t as, int no_prepend)
+peer_local_as_set (struct peer *peer, as_t as, int no_prepend, int replace_as)
 {
   struct bgp *bgp = peer->bgp;
   struct peer_group *group;
@@ -3421,9 +3423,14 @@ peer_local_as_set (struct peer *peer, as_t as, int no_prepend)
   if (peer_group_active (peer))
     return BGP_ERR_INVALID_FOR_PEER_GROUP_MEMBER;
 
+  if (peer->as == as)
+    return BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS;
+
   if (peer->change_local_as == as &&
       ((CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) && no_prepend)
-       || (! CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) && ! no_prepend)))
+       || (! CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) && ! no_prepend)) &&
+      ((CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) && replace_as)
+       || (! CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) && ! replace_as)))
     return 0;
 
   peer->change_local_as = as;
@@ -3431,6 +3438,11 @@ peer_local_as_set (struct peer *peer, as_t as, int no_prepend)
     SET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
   else
     UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+
+  if (replace_as)
+    SET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+  else
+    UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
@@ -3454,6 +3466,11 @@ peer_local_as_set (struct peer *peer, as_t as, int no_prepend)
 	SET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
       else
 	UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+
+      if (replace_as)
+        SET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
+      else
+        UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
 
       if (peer->status == Established)
        {
@@ -3482,6 +3499,7 @@ peer_local_as_unset (struct peer *peer)
 
   peer->change_local_as = 0;
   UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+  UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
@@ -3502,6 +3520,7 @@ peer_local_as_unset (struct peer *peer)
     {
       peer->change_local_as = 0;
       UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND);
+      UNSET_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS);
 
       if (peer->status == Established)
        {
@@ -4770,10 +4789,12 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
       /* local-as. */
       if (peer->change_local_as)
 	if (! peer_group_active (peer))
-	  vty_out (vty, " neighbor %s local-as %u%s%s", addr,
+	  vty_out (vty, " neighbor %s local-as %u%s%s%s", addr,
 		   peer->change_local_as,
 		   CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) ?
-		   " no-prepend" : "", VTY_NEWLINE);
+		   " no-prepend" : "",
+		   CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) ?
+		   " replace-as" : "", VTY_NEWLINE);
 
       /* Description. */
       if (peer->desc)

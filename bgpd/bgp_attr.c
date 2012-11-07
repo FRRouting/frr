@@ -2085,9 +2085,16 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 	}
       else
 	{
-	  aspath = aspath_add_seq (aspath, peer->local_as);
-	  if (peer->change_local_as)
+	  if (peer->change_local_as) {
+            /* If replace-as is specified, we only use the change_local_as when
+               advertising routes. */
+            if( ! CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) ) {
+              aspath = aspath_add_seq (aspath, peer->local_as);
+            }
 	    aspath = aspath_add_seq (aspath, peer->change_local_as);
+          } else {
+            aspath = aspath_add_seq (aspath, peer->local_as);
+          }
 	}
     }
   else if (peer->sort == BGP_PEER_CONFED)
