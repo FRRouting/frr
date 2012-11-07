@@ -1709,7 +1709,7 @@ bgp_attr_unknown (struct bgp_attr_parser_args *args)
 }
 
 /* Read attribute of update packet.  This function is called from
-   bgp_update() in bgpd.c.  */
+   bgp_update_receive() in bgp_packet.c.  */
 bgp_attr_parse_ret_t
 bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 		struct bgp_nlri *mp_update, struct bgp_nlri *mp_withdraw)
