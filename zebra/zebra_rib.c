@@ -3077,3 +3077,106 @@ rib_init (void)
   /* VRF initialization.  */
   vrf_init ();
 }
+
+/*
+ * vrf_id_get_next
+ *
+ * Get the first vrf id that is greater than the given vrf id if any.
+ *
+ * Returns TRUE if a vrf id was found, FALSE otherwise.
+ */
+static inline int
+vrf_id_get_next (uint32_t id, uint32_t *next_id_p)
+{
+  while (++id < vector_active (vrf_vector))
+    {
+      if (vrf_lookup (id))
+	{
+	  *next_id_p = id;
+	  return 1;
+	}
+    }
+
+  return 0;
+}
+
+/*
+ * rib_tables_iter_next
+ *
+ * Returns the next table in the iteration.
+ */
+struct route_table *
+rib_tables_iter_next (rib_tables_iter_t *iter)
+{
+  struct route_table *table;
+
+  /*
+   * Array that helps us go over all AFI/SAFI combinations via one
+   * index.
+   */
+  static struct {
+    afi_t afi;
+    safi_t safi;
+  } afi_safis[] = {
+    { AFI_IP, SAFI_UNICAST },
+    { AFI_IP, SAFI_MULTICAST },
+    { AFI_IP6, SAFI_UNICAST },
+    { AFI_IP6, SAFI_MULTICAST },
+  };
+
+  table = NULL;
+
+  switch (iter->state)
+    {
+
+    case RIB_TABLES_ITER_S_INIT:
+      iter->vrf_id = 0;
+      iter->afi_safi_ix = -1;
+
+      /* Fall through */
+
+    case RIB_TABLES_ITER_S_ITERATING:
+      iter->afi_safi_ix++;
+      while (1)
+	{
+
+	  while (iter->afi_safi_ix < (int) ZEBRA_NUM_OF (afi_safis))
+	    {
+	      table = vrf_table (afi_safis[iter->afi_safi_ix].afi,
+				 afi_safis[iter->afi_safi_ix].safi,
+				 iter->vrf_id);
+	      if (table)
+		break;
+
+	      iter->afi_safi_ix++;
+	    }
+
+	  /*
+	   * Found another table in this vrf.
+	   */
+	  if (table)
+	    break;
+
+	  /*
+	   * Done with all tables in the current vrf, go to the next
+	   * one.
+	   */
+	  if (!vrf_id_get_next (iter->vrf_id, &iter->vrf_id))
+	    break;
+
+	  iter->afi_safi_ix = 0;
+	}
+
+      break;
+
+    case RIB_TABLES_ITER_S_DONE:
+      return NULL;
+    }
+
+  if (table)
+    iter->state = RIB_TABLES_ITER_S_ITERATING;
+  else
+    iter->state = RIB_TABLES_ITER_S_DONE;
+
+  return table;
+}

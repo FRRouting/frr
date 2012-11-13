@@ -387,6 +387,8 @@ struct in_pktinfo
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
+#define ZEBRA_NUM_OF(x) (sizeof (x) / sizeof (x[0]))
+
 /* For old definition. */
 #ifndef IN6_ARE_ADDR_EQUAL
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL

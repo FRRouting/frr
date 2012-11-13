@@ -286,6 +286,25 @@ typedef struct rib_table_info_t_
 
 } rib_table_info_t;
 
+typedef enum
+{
+  RIB_TABLES_ITER_S_INIT,
+  RIB_TABLES_ITER_S_ITERATING,
+  RIB_TABLES_ITER_S_DONE
+} rib_tables_iter_state_t;
+
+/*
+ * Structure that holds state for iterating over all tables in the
+ * Routing Information Base.
+ */
+typedef struct rib_tables_iter_t_
+{
+  uint32_t vrf_id;
+  int afi_safi_ix;
+
+  rib_tables_iter_state_t state;
+} rib_tables_iter_t;
+
 extern struct nexthop *nexthop_ifindex_add (struct rib *, unsigned int);
 extern struct nexthop *nexthop_ifname_add (struct rib *, char *);
 extern struct nexthop *nexthop_blackhole_add (struct rib *);
@@ -374,6 +393,7 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 #endif /* HAVE_IPV6 */
 
 extern int rib_gc_dest (struct route_node *rn);
+extern struct route_table *rib_tables_iter_next (rib_tables_iter_t *iter);
 
 /*
  * Inline functions.
@@ -451,6 +471,38 @@ static inline struct vrf *
 rib_dest_vrf (rib_dest_t *dest)
 {
   return rib_table_info (rib_dest_table (dest))->vrf;
+}
+
+/*
+ * rib_tables_iter_init
+ */
+static inline void
+rib_tables_iter_init (rib_tables_iter_t *iter)
+
+{
+  memset (iter, 0, sizeof (*iter));
+  iter->state = RIB_TABLES_ITER_S_INIT;
+}
+
+/*
+ * rib_tables_iter_started
+ *
+ * Returns TRUE if this iterator has started iterating over the set of
+ * tables.
+ */
+static inline int
+rib_tables_iter_started (rib_tables_iter_t *iter)
+{
+  return iter->state != RIB_TABLES_ITER_S_INIT;
+}
+
+/*
+ * rib_tables_iter_cleanup
+ */
+static inline void
+rib_tables_iter_cleanup (rib_tables_iter_t *iter)
+{
+  iter->state = RIB_TABLES_ITER_S_DONE;
 }
 
 #endif /*_ZEBRA_RIB_H */
