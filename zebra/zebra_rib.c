@@ -74,6 +74,27 @@ static const struct
 /* Vector for routing table.  */
 static vector vrf_vector;
 
+/*
+ * vrf_table_create
+ */
+static void
+vrf_table_create (struct vrf *vrf, afi_t afi, safi_t safi)
+{
+  rib_table_info_t *info;
+  struct route_table *table;
+
+  assert (!vrf->table[afi][safi]);
+
+  table = route_table_init ();
+  vrf->table[afi][safi] = table;
+
+  info = XCALLOC (MTYPE_RIB_TABLE_INFO, sizeof (*info));
+  info->vrf = vrf;
+  info->afi = afi;
+  info->safi = safi;
+  table->info = info;
+}
+
 /* Allocate new VRF.  */
 static struct vrf *
 vrf_alloc (const char *name)
@@ -87,12 +108,12 @@ vrf_alloc (const char *name)
     vrf->name = XSTRDUP (MTYPE_VRF_NAME, name);
 
   /* Allocate routing table and static table.  */
-  vrf->table[AFI_IP][SAFI_UNICAST] = route_table_init ();
-  vrf->table[AFI_IP6][SAFI_UNICAST] = route_table_init ();
+  vrf_table_create (vrf, AFI_IP, SAFI_UNICAST);
+  vrf_table_create (vrf, AFI_IP6, SAFI_UNICAST);
   vrf->stable[AFI_IP][SAFI_UNICAST] = route_table_init ();
   vrf->stable[AFI_IP6][SAFI_UNICAST] = route_table_init ();
-  vrf->table[AFI_IP][SAFI_MULTICAST] = route_table_init ();
-  vrf->table[AFI_IP6][SAFI_MULTICAST] = route_table_init ();
+  vrf_table_create (vrf, AFI_IP, SAFI_MULTICAST);
+  vrf_table_create (vrf, AFI_IP6, SAFI_MULTICAST);
   vrf->stable[AFI_IP][SAFI_MULTICAST] = route_table_init ();
   vrf->stable[AFI_IP6][SAFI_MULTICAST] = route_table_init ();
 

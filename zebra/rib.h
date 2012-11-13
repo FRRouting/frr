@@ -268,6 +268,24 @@ struct vrf
   struct route_table *stable[AFI_MAX][SAFI_MAX];
 };
 
+/*
+ * rib_table_info_t
+ *
+ * Structure that is hung off of a route_table that holds information about
+ * the table.
+ */
+typedef struct rib_table_info_t_
+{
+
+  /*
+   * Back pointer to vrf.
+   */
+  struct vrf *vrf;
+  afi_t afi;
+  safi_t safi;
+
+} rib_table_info_t;
+
 extern struct nexthop *nexthop_ifindex_add (struct rib *, unsigned int);
 extern struct nexthop *nexthop_ifname_add (struct rib *, char *);
 extern struct nexthop *nexthop_blackhole_add (struct rib *);
@@ -362,6 +380,15 @@ extern int rib_gc_dest (struct route_node *rn);
  */
 
 /*
+ * rib_table_info
+ */
+static inline rib_table_info_t *
+rib_table_info (struct route_table *table)
+{
+  return (rib_table_info_t *) table->info;
+}
+
+/*
  * rib_dest_from_rnode
  */
 static inline rib_dest_t *
@@ -415,6 +442,15 @@ static inline struct route_table *
 rib_dest_table (rib_dest_t *dest)
 {
   return dest->rnode->table;
+}
+
+/*
+ * rib_dest_vrf
+ */
+static inline struct vrf *
+rib_dest_vrf (rib_dest_t *dest)
+{
+  return rib_table_info (rib_dest_table (dest))->vrf;
 }
 
 #endif /*_ZEBRA_RIB_H */
