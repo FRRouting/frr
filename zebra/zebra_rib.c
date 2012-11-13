@@ -170,6 +170,31 @@ vrf_static_table (afi_t afi, safi_t safi, u_int32_t id)
   return vrf->stable[afi][safi];
 }
 
+/*
+ * nexthop_type_to_str
+ */
+const char *
+nexthop_type_to_str (enum nexthop_types_t nh_type)
+{
+  static const char *desc[] = {
+    "none",
+    "Directly connected",
+    "Interface route",
+    "IPv4 nexthop",
+    "IPv4 nexthop with ifindex",
+    "IPv4 nexthop with ifname",
+    "IPv6 nexthop",
+    "IPv6 nexthop with ifindex",
+    "IPv6 nexthop with ifname",
+    "Null0 nexthop",
+  };
+
+  if (nh_type >= ZEBRA_NUM_OF (desc))
+    return "<Invalid nh type>";
+
+  return desc[nh_type];
+}
+
 /* Add nexthop to the end of the list.  */
 static void
 nexthop_add (struct rib *rib, struct nexthop *nexthop)

@@ -305,6 +305,7 @@ typedef struct rib_tables_iter_t_
   rib_tables_iter_state_t state;
 } rib_tables_iter_t;
 
+extern const char *nexthop_type_to_str (enum nexthop_types_t nh_type);
 extern struct nexthop *nexthop_ifindex_add (struct rib *, unsigned int);
 extern struct nexthop *nexthop_ifname_add (struct rib *, char *);
 extern struct nexthop *nexthop_blackhole_add (struct rib *);
