@@ -167,6 +167,7 @@ netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop)
     {
       nhi.recursive = 1;
       nhi.type = nexthop->rtype;
+      nhi.if_index = nexthop->rifindex;
 
       if (nexthop->rtype == NEXTHOP_TYPE_IPV4
 	  || nexthop->rtype == NEXTHOP_TYPE_IPV4_IFINDEX)
@@ -186,15 +187,9 @@ netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop)
 #endif /* HAVE_IPV6 */
 
       if (nexthop->rtype == NEXTHOP_TYPE_IFINDEX
-	  || nexthop->rtype == NEXTHOP_TYPE_IFNAME
-	  || nexthop->rtype == NEXTHOP_TYPE_IPV4_IFINDEX
-	  || nexthop->rtype == NEXTHOP_TYPE_IPV6_IFINDEX
-	  || nexthop->rtype == NEXTHOP_TYPE_IPV6_IFNAME)
+	  || nexthop->rtype == NEXTHOP_TYPE_IFNAME)
 	{
-	  nhi.if_index = nexthop->rifindex;
-	  if ((nexthop->rtype == NEXTHOP_TYPE_IPV4_IFINDEX
-	       || nexthop->rtype == NEXTHOP_TYPE_IFINDEX)
-	      && nexthop->src.ipv4.s_addr)
+	  if (nexthop->src.ipv4.s_addr)
 	    src = &nexthop->src;
 	}
 
@@ -203,6 +198,7 @@ netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop)
 
   nhi.recursive = 0;
   nhi.type = nexthop->type;
+  nhi.if_index = nexthop->ifindex;
 
   if (nexthop->type == NEXTHOP_TYPE_IPV4
       || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
@@ -220,19 +216,12 @@ netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop)
       nhi.gateway = &nexthop->gate;
     }
 #endif /* HAVE_IPV6 */
-  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-      || nexthop->type == NEXTHOP_TYPE_IFNAME
-      || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
-    {
-      nhi.if_index = nexthop->ifindex;
 
+  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
+      || nexthop->type == NEXTHOP_TYPE_IFNAME)
+    {
       if (nexthop->src.ipv4.s_addr)
 	src = &nexthop->src;
-    }
-  else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
-	   || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME)
-    {
-      nhi.if_index = nexthop->ifindex;
     }
 
   /*
