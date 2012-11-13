@@ -272,6 +272,8 @@ AC_ARG_ENABLE(time-check,
 [  --disable-time-check          disable slow thread warning messages])
 AC_ARG_ENABLE(pcreposix,
 [  --enable-pcreposix          enable using PCRE Posix libs for regex functions])
+AC_ARG_ENABLE(fpm,
+[  --enable-fpm            enable Forwarding Plane Manager support])
 
 if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
   CFLAGS="${CFLAGS} -W -Wcast-qual -Wstrict-prototypes"
@@ -290,6 +292,10 @@ if test x"${enable_time_check}" != x"no" ; then
   else
     AC_DEFINE_UNQUOTED(CONSUMED_TIME_CHECK,$enable_time_check,Consumed Time Check)
   fi
+fi
+
+if test "${enable_fpm}" = "yes"; then
+   AC_DEFINE(HAVE_FPM,,Forwarding Plane Manager support)
 fi
 
 if test "${enable_broken_aliases}" = "yes"; then
@@ -828,6 +834,7 @@ fi
 AC_SUBST(RT_METHOD)
 AC_SUBST(KERNEL_METHOD)
 AC_SUBST(OTHER_METHOD)
+AM_CONDITIONAL([HAVE_NETLINK], [test "x$netlink" = "xyes"])
 
 dnl --------------------------
 dnl Determine IS-IS I/O method

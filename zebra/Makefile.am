@@ -19,6 +19,10 @@ ioctl_method = @IOCTL_METHOD@
 otherobj = $(ioctl_method) $(ipforward) $(if_method) $(if_proc) \
 	$(rt_method) $(rtread_method) $(kernel_method) $(other_method)
 
+if HAVE_NETLINK
+othersrc = zebra_fpm_netlink.c
+endif
+
 AM_CFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PILDFLAGS)
 
@@ -29,7 +33,8 @@ noinst_PROGRAMS = testzebra
 zebra_SOURCES = \
 	zserv.c main.c interface.c connected.c zebra_rib.c zebra_routemap.c \
 	redistribute.c debug.c rtadv.c zebra_snmp.c zebra_vty.c \
-	irdp_main.c irdp_interface.c irdp_packet.c router-id.c
+	irdp_main.c irdp_interface.c irdp_packet.c router-id.c zebra_fpm.c \
+	$(othersrc)
 
 testzebra_SOURCES = test_main.c zebra_rib.c interface.c connected.c debug.c \
 	zebra_vty.c \

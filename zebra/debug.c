@@ -29,6 +29,7 @@ unsigned long zebra_debug_event;
 unsigned long zebra_debug_packet;
 unsigned long zebra_debug_kernel;
 unsigned long zebra_debug_rib;
+unsigned long zebra_debug_fpm;
 
 DEFUN (show_debugging_zebra,
        show_debugging_zebra_cmd,
@@ -70,6 +71,9 @@ DEFUN (show_debugging_zebra,
     vty_out (vty, "  Zebra RIB debugging is on%s", VTY_NEWLINE);
   if (IS_ZEBRA_DEBUG_RIB_Q)
     vty_out (vty, "  Zebra RIB queue debugging is on%s", VTY_NEWLINE);
+
+  if (IS_ZEBRA_DEBUG_FPM)
+    vty_out (vty, "  Zebra FPM debugging is on%s", VTY_NEWLINE);
 
   return CMD_SUCCESS;
 }
@@ -169,6 +173,17 @@ DEFUN (debug_zebra_rib_q,
   return CMD_SUCCESS;
 }
 
+DEFUN (debug_zebra_fpm,
+       debug_zebra_fpm_cmd,
+       "debug zebra fpm",
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra FPM events\n")
+{
+  SET_FLAG (zebra_debug_fpm, ZEBRA_DEBUG_FPM);
+  return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_zebra_events,
        no_debug_zebra_events_cmd,
        "no debug zebra events",
@@ -247,6 +262,18 @@ DEFUN (no_debug_zebra_rib_q,
   return CMD_SUCCESS;
 }
 
+DEFUN (no_debug_zebra_fpm,
+       no_debug_zebra_fpm_cmd,
+       "no debug zebra fpm",
+       NO_STR
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra FPM events\n")
+{
+  zebra_debug_fpm = 0;
+  return CMD_SUCCESS;
+}
+
 /* Debug node. */
 struct cmd_node debug_node =
 {
@@ -302,6 +329,11 @@ config_write_debug (struct vty *vty)
       vty_out (vty, "debug zebra rib queue%s", VTY_NEWLINE);
       write++;
     }
+  if (IS_ZEBRA_DEBUG_FPM)
+    {
+      vty_out (vty, "debug zebra fpm%s", VTY_NEWLINE);
+      write++;
+    }
   return write;
 }
 
@@ -312,6 +344,7 @@ zebra_debug_init (void)
   zebra_debug_packet = 0;
   zebra_debug_kernel = 0;
   zebra_debug_rib = 0;
+  zebra_debug_fpm = 0;
 
   install_node (&debug_node, config_write_debug);
 
@@ -325,11 +358,13 @@ zebra_debug_init (void)
   install_element (ENABLE_NODE, &debug_zebra_kernel_cmd);
   install_element (ENABLE_NODE, &debug_zebra_rib_cmd);
   install_element (ENABLE_NODE, &debug_zebra_rib_q_cmd);
+  install_element (ENABLE_NODE, &debug_zebra_fpm_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_events_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_packet_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_kernel_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_rib_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_rib_q_cmd);
+  install_element (ENABLE_NODE, &no_debug_zebra_fpm_cmd);
 
   install_element (CONFIG_NODE, &debug_zebra_events_cmd);
   install_element (CONFIG_NODE, &debug_zebra_packet_cmd);
@@ -338,9 +373,11 @@ zebra_debug_init (void)
   install_element (CONFIG_NODE, &debug_zebra_kernel_cmd);
   install_element (CONFIG_NODE, &debug_zebra_rib_cmd);
   install_element (CONFIG_NODE, &debug_zebra_rib_q_cmd);
+  install_element (CONFIG_NODE, &debug_zebra_fpm_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_events_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_packet_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_kernel_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_rib_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_rib_q_cmd);
+  install_element (CONFIG_NODE, &no_debug_zebra_fpm_cmd);
 }

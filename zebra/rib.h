@@ -25,6 +25,7 @@
 
 #include "prefix.h"
 #include "table.h"
+#include "queue.h"
 
 #define DISTANCE_INFINITY  255
 
@@ -116,6 +117,11 @@ typedef struct rib_dest_t_
    */
   u_int32_t flags;
 
+  /*
+   * Linkage to put dest on the FPM processing queue.
+   */
+  TAILQ_ENTRY(rib_dest_t_) fpm_q_entries;
+
 } rib_dest_t;
 
 #define RIB_ROUTE_QUEUED(x)	(1 << (x))
@@ -124,6 +130,18 @@ typedef struct rib_dest_t_
  * The maximum qindex that can be used.
  */
 #define ZEBRA_MAX_QINDEX        (MQ_SIZE - 1)
+
+/*
+ * This flag indicates that a given prefix has been 'advertised' to
+ * the FPM to be installed in the forwarding plane.
+ */
+#define RIB_DEST_SENT_TO_FPM   (1 << (ZEBRA_MAX_QINDEX + 1))
+
+/*
+ * This flag is set when we need to send an update to the FPM about a
+ * dest.
+ */
+#define RIB_DEST_UPDATE_FPM    (1 << (ZEBRA_MAX_QINDEX + 2))
 
 /*
  * Macro to iterate over each route for a destination (prefix).

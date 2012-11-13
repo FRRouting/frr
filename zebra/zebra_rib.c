@@ -40,6 +40,7 @@
 #include "zebra/zserv.h"
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
+#include "zebra/zebra_fpm.h"
 
 /* Default rtm_table for all clients */
 extern struct zebra_t zebrad;
@@ -961,6 +962,11 @@ rib_install_kernel (struct route_node *rn, struct rib *rib)
   int ret = 0;
   struct nexthop *nexthop;
 
+  /*
+   * Make sure we update the FPM any time we send new information to
+   * the kernel.
+   */
+  zfpm_trigger_update (rn, "installing in kernel");
   switch (PREFIX_FAMILY (&rn->p))
     {
     case AF_INET:
@@ -988,6 +994,12 @@ rib_uninstall_kernel (struct route_node *rn, struct rib *rib)
   int ret = 0;
   struct nexthop *nexthop;
 
+  /*
+   * Make sure we update the FPM any time we send new information to
+   * the kernel.
+   */
+  zfpm_trigger_update (rn, "uninstalling from kernel");
+
   switch (PREFIX_FAMILY (&rn->p))
     {
     case AF_INET:
@@ -1012,6 +1024,8 @@ rib_uninstall (struct route_node *rn, struct rib *rib)
 {
   if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
     {
+      zfpm_trigger_update (rn, "rib_uninstall");
+
       redistribute_delete (&rn->p, rib);
       if (! RIB_SYSTEM_ROUTE (rib))
 	rib_uninstall_kernel (rn, rib);
@@ -1033,6 +1047,14 @@ rib_can_delete_dest (rib_dest_t *dest)
     {
       return 0;
     }
+
+  /*
+   * Don't delete the dest if we have to update the FPM about this
+   * prefix.
+   */
+  if (CHECK_FLAG (dest->flags, RIB_DEST_UPDATE_FPM) ||
+      CHECK_FLAG (dest->flags, RIB_DEST_SENT_TO_FPM))
+    return 0;
 
   return 1;
 }
@@ -1187,6 +1209,8 @@ rib_process (struct route_node *rn)
                      __func__, buf, rn->p.prefixlen, select, fib);
       if (CHECK_FLAG (select->flags, ZEBRA_FLAG_CHANGED))
         {
+	  zfpm_trigger_update (rn, "updating existing route");
+
           redistribute_delete (&rn->p, select);
           if (! RIB_SYSTEM_ROUTE (select))
             rib_uninstall_kernel (rn, select);
@@ -1228,6 +1252,9 @@ rib_process (struct route_node *rn)
       if (IS_ZEBRA_DEBUG_RIB)
         zlog_debug ("%s: %s/%d: Removing existing route, fib %p", __func__,
           buf, rn->p.prefixlen, fib);
+
+      zfpm_trigger_update (rn, "removing existing route");
+
       redistribute_delete (&rn->p, fib);
       if (! RIB_SYSTEM_ROUTE (fib))
 	rib_uninstall_kernel (rn, fib);
@@ -1246,6 +1273,9 @@ rib_process (struct route_node *rn)
       if (IS_ZEBRA_DEBUG_RIB)
         zlog_debug ("%s: %s/%d: Adding route, select %p", __func__, buf,
           rn->p.prefixlen, select);
+
+      zfpm_trigger_update (rn, "new route selected");
+
       /* Set real nexthop. */
       nexthop_active_update (rn, select, 1);
 
@@ -3080,6 +3110,8 @@ rib_close_table (struct route_table *table)
         {
           if (!CHECK_FLAG (rib->flags, ZEBRA_FLAG_SELECTED))
 	    continue;
+
+	  zfpm_trigger_update (rn, NULL);
 
 	  if (! RIB_SYSTEM_ROUTE (rib))
 	    rib_uninstall_kernel (rn, rib);

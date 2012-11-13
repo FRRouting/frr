@@ -39,6 +39,7 @@
 #include "zebra/router-id.h"
 #include "zebra/irdp.h"
 #include "zebra/rtadv.h"
+#include "zebra/zebra_fpm.h"
 
 /* Zebra instance */
 struct zebra_t zebrad =
@@ -348,6 +349,12 @@ main (int argc, char **argv)
 #ifdef HAVE_SNMP
   zebra_snmp_init ();
 #endif /* HAVE_SNMP */
+
+#ifdef HAVE_FPM
+  zfpm_init (zebrad.master, 1, 0);
+#else
+  zfpm_init (zebrad.master, 0, 0);
+#endif
 
   /* Process the configuration file. Among other configuration
   *  directives we can meet those installing static routes. Such
