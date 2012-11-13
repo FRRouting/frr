@@ -107,7 +107,7 @@ zebra_redistribute_default (struct zserv *client)
       rn = route_node_lookup (table, (struct prefix *)&p);
       if (rn)
 	{
-	  for (newrib = rn->info; newrib; newrib = newrib->next)
+	  RNODE_FOREACH_RIB (rn, newrib)
 	    if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
 		&& newrib->distance != DISTANCE_INFINITY)
 	      zsend_route_multipath (ZEBRA_IPV4_ROUTE_ADD, client, &rn->p, newrib);
@@ -127,7 +127,7 @@ zebra_redistribute_default (struct zserv *client)
       rn = route_node_lookup (table, (struct prefix *)&p6);
       if (rn)
 	{
-	  for (newrib = rn->info; newrib; newrib = newrib->next)
+	  RNODE_FOREACH_RIB (rn, newrib)
 	    if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
 		&& newrib->distance != DISTANCE_INFINITY)
 	      zsend_route_multipath (ZEBRA_IPV6_ROUTE_ADD, client, &rn->p, newrib);
@@ -148,7 +148,7 @@ zebra_redistribute (struct zserv *client, int type)
   table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
-      for (newrib = rn->info; newrib; newrib = newrib->next)
+      RNODE_FOREACH_RIB (rn, newrib)
 	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED) 
 	    && newrib->type == type 
 	    && newrib->distance != DISTANCE_INFINITY
@@ -159,7 +159,7 @@ zebra_redistribute (struct zserv *client, int type)
   table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
   if (table)
     for (rn = route_top (table); rn; rn = route_next (rn))
-      for (newrib = rn->info; newrib; newrib = newrib->next)
+      RNODE_FOREACH_RIB (rn, newrib)
 	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
 	    && newrib->type == type 
 	    && newrib->distance != DISTANCE_INFINITY

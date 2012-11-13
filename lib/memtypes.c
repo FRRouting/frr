@@ -82,6 +82,7 @@ struct memory_list memory_list_zebra[] =
   { MTYPE_RIB_QUEUE,		"RIB process work queue"	},
   { MTYPE_STATIC_IPV4,		"Static IPv4 route"		},
   { MTYPE_STATIC_IPV6,		"Static IPv6 route"		},
+  { MTYPE_RIB_DEST,		"RIB destination"		},
   { -1, NULL },
 };
 

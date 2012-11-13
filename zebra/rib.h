@@ -24,6 +24,7 @@
 #define _ZEBRA_RIB_H
 
 #include "prefix.h"
+#include "table.h"
 
 #define DISTANCE_INFINITY  255
 
@@ -38,10 +39,6 @@ union g_addr {
 
 struct rib
 {
-  /* Status Flags for the *route_node*, but kept in the head RIB.. */
-  u_char rn_status;
-#define RIB_ROUTE_QUEUED(x)	(1 << (x))
-
   /* Link list. */
   struct rib *next;
   struct rib *prev;
@@ -96,6 +93,57 @@ struct meta_queue
   struct list *subq[MQ_SIZE];
   u_int32_t size; /* sum of lengths of all subqueues */
 };
+
+/*
+ * Structure that represents a single destination (prefix).
+ */
+typedef struct rib_dest_t_
+{
+
+  /*
+   * Back pointer to the route node for this destination. This helps
+   * us get to the prefix that this structure is for.
+   */
+  struct route_node *rnode;
+
+  /*
+   * Doubly-linked list of routes for this prefix.
+   */
+  struct rib *routes;
+
+  /*
+   * Flags, see below.
+   */
+  u_int32_t flags;
+
+} rib_dest_t;
+
+#define RIB_ROUTE_QUEUED(x)	(1 << (x))
+
+/*
+ * The maximum qindex that can be used.
+ */
+#define ZEBRA_MAX_QINDEX        (MQ_SIZE - 1)
+
+/*
+ * Macro to iterate over each route for a destination (prefix).
+ */
+#define RIB_DEST_FOREACH_ROUTE(dest, rib)				\
+  for ((rib) = (dest) ? (dest)->routes : NULL; (rib); (rib) = (rib)->next)
+
+/*
+ * Same as above, but allows the current node to be unlinked.
+ */
+#define RIB_DEST_FOREACH_ROUTE_SAFE(dest, rib, next)	\
+  for ((rib) = (dest) ? (dest)->routes : NULL;		\
+       (rib) && ((next) = (rib)->next, 1);		\
+       (rib) = (next))
+
+#define RNODE_FOREACH_RIB(rn, rib)				\
+  RIB_DEST_FOREACH_ROUTE (rib_dest_from_rnode (rn), rib)
+
+#define RNODE_FOREACH_RIB_SAFE(rn, rib, next)				\
+  RIB_DEST_FOREACH_ROUTE_SAFE (rib_dest_from_rnode (rn), rib, next)
 
 /* Static route information. */
 struct static_ipv4
@@ -306,5 +354,67 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
 		    const char *ifname, u_char distance, u_int32_t vrf_id);
 
 #endif /* HAVE_IPV6 */
+
+extern int rib_gc_dest (struct route_node *rn);
+
+/*
+ * Inline functions.
+ */
+
+/*
+ * rib_dest_from_rnode
+ */
+static inline rib_dest_t *
+rib_dest_from_rnode (struct route_node *rn)
+{
+  return (rib_dest_t *) rn->info;
+}
+
+/*
+ * rnode_to_ribs
+ *
+ * Returns a pointer to the list of routes corresponding to the given
+ * route_node.
+ */
+static inline struct rib *
+rnode_to_ribs (struct route_node *rn)
+{
+  rib_dest_t *dest;
+
+  dest = rib_dest_from_rnode (rn);
+  if (!dest)
+    return NULL;
+
+  return dest->routes;
+}
+
+/*
+ * rib_dest_prefix
+ */
+static inline struct prefix *
+rib_dest_prefix (rib_dest_t *dest)
+{
+  return &dest->rnode->p;
+}
+
+/*
+ * rib_dest_af
+ *
+ * Returns the address family that the destination is for.
+ */
+static inline u_char
+rib_dest_af (rib_dest_t *dest)
+{
+  return dest->rnode->p.family;
+}
+
+/*
+ * rib_dest_table
+ */
+static inline struct route_table *
+rib_dest_table (rib_dest_t *dest)
+{
+  return dest->rnode->table;
+}
 
 #endif /*_ZEBRA_RIB_H */
