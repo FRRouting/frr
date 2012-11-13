@@ -11,6 +11,7 @@ different routing protocols.
 * Interface Commands::          Commands for zebra interfaces
 * Static Route Commands::       Commands for adding static routes
 * zebra Route Filtering::       Commands for zebra route filtering
+* zebra FIB push interface::    Interface to optional FPM component
 * zebra Terminal Mode Commands::  Commands for zebra's VTY
 @end menu
 
@@ -227,6 +228,54 @@ ip protocol rip route-map RM1
 @end group
 @end example
 
+@node zebra FIB push interface
+@section zebra FIB push interface
+
+Zebra supports a 'FIB push' interface that allows an external
+component to learn the forwarding information computed by the Quagga
+routing suite.
+
+In Quagga, the Routing Information Base (RIB) resides inside
+zebra. Routing protocols communicate their best routes to zebra, and
+zebra computes the best route across protocols for each prefix. This
+latter information makes up the Forwarding Information Base
+(FIB). Zebra feeds the FIB to the kernel, which allows the IP stack in
+the kernel to forward packets according to the routes computed by
+Quagga. The kernel FIB is updated in an OS-specific way. For example,
+the @code{netlink} interface is used on Linux, and route sockets are
+used on FreeBSD.
+
+The FIB push interface aims to provide a cross-platform mechanism to
+support scenarios where the router has a forwarding path that is
+distinct from the kernel, commonly a hardware-based fast path. In
+these cases, the FIB needs to be maintained reliably in the fast path
+as well. We refer to the component that programs the forwarding plane
+(directly or indirectly) as the Forwarding Plane Manager or FPM.
+
+The FIB push interface comprises of a TCP connection between zebra and
+the FPM. The connection is initiated by zebra -- that is, the FPM acts
+as the TCP server.
+
+The relevant zebra code kicks in when zebra is configured with the
+@code{--enable-fpm} flag. Zebra periodically attempts to connect to
+the well-known FPM port. Once the connection is up, zebra starts
+sending messages containing routes over the socket to the FPM. Zebra
+sends a complete copy of the forwarding table to the FPM, including
+routes that it may have picked up from the kernel. The existing
+interaction of zebra with the kernel remains unchanged -- that is, the
+kernel continues to receive FIB updates as before.
+
+The format of the messages exchanged with the FPM is defined by the
+file @file{fpm/fpm.h} in the quagga tree.
+
+The zebra FPM interface uses replace semantics. That is, if a 'route
+add' message for a prefix is followed by another 'route add' message,
+the information in the second message is complete by itself, and
+replaces the information sent in the first message.
+
+If the connection to the FPM goes down for some reason, zebra sends
+the FPM a complete copy of the forwarding table(s) when it reconnects.
+
 @node zebra Terminal Mode Commands
 @section zebra Terminal Mode Commands
 
@@ -270,4 +319,14 @@ If so, the box can't work as a router.
 
 @deffn Command {show ipv6forward} {}
 Display whether the host's IP v6 forwarding is enabled or not.
+@end deffn
+
+@deffn Command {show zebra fpm stats} {}
+Display statistics related to the zebra code that interacts with the
+optional Forwarding Plane Manager (FPM) component.
+@end deffn
+
+@deffn Command {clear zebra fpm stats} {}
+Reset statistics related to the zebra code that interacts with the
+optional Forwarding Plane Manager (FPM) component.
 @end deffn
