@@ -4915,7 +4915,7 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 	vty_out (vty, " neighbor %s strict-capability-match%s", addr,
 	     VTY_NEWLINE);
 
-      if (! peer_group_active (peer))
+      if (! peer->af_group[AFI_IP][SAFI_UNICAST])
 	{
 	  if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4))
 	    {
