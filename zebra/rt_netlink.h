@@ -24,7 +24,7 @@
 
 #ifdef HAVE_NETLINK
 
-#define NL_PKT_BUF_SIZE 4096
+#define NL_PKT_BUF_SIZE 8192
 
 extern int
 addattr32 (struct nlmsghdr *n, int maxlen, int type, int data);
