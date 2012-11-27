@@ -14,7 +14,7 @@ libzebra_la_SOURCES = \
 	zclient.c sockopt.c smux.c agentx.c snmp.c md5.c if_rmap.c keychain.c privs.c \
 	sigevent.c pqueue.c jhash.c memtypes.c workqueue.c
 
-BUILT_SOURCES = memtypes.h route_types.h
+BUILT_SOURCES = memtypes.h route_types.h gitversion.h
 
 libzebra_la_DEPENDENCIES = @LIB_REGEX@
 
@@ -36,3 +36,25 @@ memtypes.h: $(srcdir)/memtypes.c $(srcdir)/memtypes.awk
 
 route_types.h: $(srcdir)/route_types.txt $(srcdir)/route_types.pl
 	@PERL@ $(srcdir)/route_types.pl < $(srcdir)/route_types.txt > $@
+
+if GIT_VERSION
+
+# bit of a trick here to always have up-to-date git stamps without triggering
+# unneccessary rebuilds.  .PHONY causes the .tmp file to be rebuilt always,
+# but if we use that on gitversion.h it'll ripple through the .c file deps.
+# (even if gitversion.h's file timestamp doesn't change, make will think it
+# did, because of .PHONY...)
+
+.PHONY: gitversion.h.tmp
+.SILENT: gitversion.h gitversion.h.tmp
+GITH=gitversion.h
+gitversion.h.tmp: $(srcdir)/../.git
+	@PERL@ $(srcdir)/gitversion.pl $(srcdir) > ${GITH}.tmp
+gitversion.h: gitversion.h.tmp
+	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp -v ${GITH}.tmp ${GITH}
+
+else
+.PHONY: gitversion.h
+gitversion.h:
+	/bin/true
+endif

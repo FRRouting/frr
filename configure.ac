@@ -21,6 +21,7 @@ AC_CANONICAL_TARGET()
 AM_INIT_AUTOMAKE(1.6)
 AM_CONFIG_HEADER(config.h)
 
+AC_PATH_PROG(PERL, perl)
 AC_CHECK_PROG([GAWK],[gawk],[gawk],[not-in-PATH])
 if test "x$GAWK" = "xnot-in-PATH" ; then
 	AC_MSG_ERROR([GNU awk is required for lib/memtype.h made by memtypes.awk.
@@ -192,6 +193,12 @@ dnl ----------------------
 AC_ARG_WITH(pkg-extra-version,
 	AS_HELP_STRING([--with-pkg-extra-version=VER], [add extra version field, for packagers/distributions]),
 	[EXTRAVERSION=$withval],)
+AC_ARG_WITH(pkg-git-version,
+	AS_HELP_STRING([--with-pkg-git-version], [add git information to MOTD and build version string]),
+	[ if test "x$withval" != "xno"; then
+		with_pkg_git_version="1"
+		AC_DEFINE(GIT_VERSION, [1], [include git version info])
+	fi ],)
 AC_ARG_ENABLE(vtysh,
 [  --enable-vtysh          include integrated vty shell for Quagga])
 AC_ARG_ENABLE(ipv6,
@@ -398,10 +405,12 @@ dnl Add extra version string to package
 dnl name, string and version fields.
 dnl -----------------------------------
 if test "x${EXTRAVERSION}" != "x" ; then
-  VERSION=${VERSION}${EXTRAVERSION}
-  PACKAGE_VERSION=${PACKAGE_VERSION}${EXTRAVERSION}
-  PACKAGE_STRING=${PACKAGE_STRING}${EXTRAVERSION}
+  VERSION="${VERSION}${EXTRAVERSION}"
+  PACKAGE_VERSION="${PACKAGE_VERSION}${EXTRAVERSION}"
+  PACKAGE_STRING="${PACKAGE_STRING}${EXTRAVERSION}"
 fi
+
+AM_CONDITIONAL([GIT_VERSION], [test "x$with_pkg_git_version" != "x"])
 
 dnl ------------------------------------
 dnl Check C keywords and standard  types
@@ -611,7 +620,6 @@ dnl ---------------------
 case "${enable_vtysh}" in
   "yes") VTYSH="vtysh";
          AC_DEFINE(VTYSH,,VTY shell)
-	 AC_PATH_PROG(PERL, perl)
 dnl	 Vtysh uses libreadline, which looks for termcap functions at
 dnl	 configure time.  We follow readlines search order.
 dnl	 The required procedures are in libtermcap on NetBSD, in

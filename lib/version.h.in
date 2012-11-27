@@ -24,9 +24,20 @@
 #ifndef _ZEBRA_VERSION_H
 #define _ZEBRA_VERSION_H
 
+#ifdef GIT_VERSION
+#include "gitversion.h"
+#endif
+
+#ifndef GIT_SUFFIX
+#define GIT_SUFFIX ""
+#endif
+#ifndef GIT_INFO
+#define GIT_INFO ""
+#endif
+
 #define QUAGGA_PROGNAME   "@PACKAGE_NAME@"
 
-#define QUAGGA_VERSION     "@PACKAGE_VERSION@"
+#define QUAGGA_VERSION     "@PACKAGE_VERSION@" GIT_SUFFIX
 
 #define ZEBRA_BUG_ADDRESS "@PACKAGE_BUGREPORT@"
 
