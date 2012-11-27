@@ -988,6 +988,13 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
         }
     }
 
+  if (!memcmp (hdr.source_id, isis->sysid, ISIS_SYS_ID_LEN))
+    {
+      zlog_warn ("ISIS-Adj (%s): duplicate system ID on interface %s",
+		 circuit->area->area_tag, circuit->interface->name);
+      return ISIS_WARNING;
+    }
+
   /*
    * Accept the level 1 adjacency only if a match between local and
    * remote area addresses is found
