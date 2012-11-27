@@ -2857,6 +2857,11 @@ isis_config_write (struct vty *vty)
 	      vty_out (vty, " metric-style transition%s", VTY_NEWLINE);
 	    write++;
 	  }
+	else
+	  {
+	    vty_out (vty, " metric-style narrow%s", VTY_NEWLINE);
+	    write++;
+	  }
 	/* ISIS - overload-bit */
 	if (area->overload_bit)
 	  {
