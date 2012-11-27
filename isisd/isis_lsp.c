@@ -1631,7 +1631,7 @@ lsp_generate (struct isis_area *area, int level)
 static int
 lsp_regenerate (struct isis_area *area, int level)
 {
-  dict_t *lspdb = area->lspdb[level - 1];
+  dict_t *lspdb;
   struct isis_lsp *lsp, *frag;
   struct listnode *node;
   u_char lspid[ISIS_SYS_ID_LEN + 2];
@@ -1639,6 +1639,8 @@ lsp_regenerate (struct isis_area *area, int level)
 
   if ((area == NULL) || (area->is_type & level) != level)
     return ISIS_ERROR;
+
+  lspdb = area->lspdb[level - 1];
 
   memset (lspid, 0, ISIS_SYS_ID_LEN + 2);
   memcpy (lspid, isis->sysid, ISIS_SYS_ID_LEN);

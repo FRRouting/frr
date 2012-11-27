@@ -438,7 +438,11 @@ isis_route_create (struct prefix *prefix, u_int32_t cost, u_int32_t depth,
     route_node = route_node_get (area->route_table6[level - 1], prefix);
 #endif /* HAVE_IPV6 */
   else
-    return NULL;
+    {
+      isis_route_info_delete (rinfo_new);
+      return NULL;
+    }
+
   rinfo_old = route_node->info;
   if (!rinfo_old)
     {

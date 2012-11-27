@@ -712,6 +712,7 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
             Neighbor Extended Local Circuit ID (four octets, if Neighbor
               System ID is present) */
 		  pnt += length;
+		  value_len += length;
 		}
 	    }
 	  else

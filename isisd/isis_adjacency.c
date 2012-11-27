@@ -207,7 +207,7 @@ isis_adj_state_change (struct isis_adjacency *adj, enum isis_adj_state new_state
 
       zlog_info ("%%ADJCHANGE: Adjacency to %s (%s) changed from %s to %s, %s",
 		 adj_name,
-		 adj->circuit ? adj->circuit->interface->name : "no circuit",
+		 adj->circuit->interface->name,
 		 adj_state2string (old_state),
 		 adj_state2string (new_state),
 		 reason ? reason : "unspecified");
@@ -427,7 +427,7 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
       vty_out (vty, ", Speaks: %s", nlpid2string (&adj->nlpids));
       vty_out (vty, "%s", VTY_NEWLINE);
       vty_out (vty, "    SNPA: %s", snpa_print (adj->snpa));
-      if (adj->circuit->circ_type == CIRCUIT_T_BROADCAST)
+      if (adj->circuit && (adj->circuit->circ_type == CIRCUIT_T_BROADCAST))
       {
         dyn = dynhn_find_by_id (adj->lanid);
         if (dyn)

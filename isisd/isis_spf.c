@@ -1492,7 +1492,7 @@ isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
   struct listnode *anode;
   struct isis_vertex *vertex;
   struct isis_adjacency *adj;
-  u_char buff[255];
+  u_char buff[BUFSIZ];
 
   vty_out (vty, "Vertex               Type         Metric "
                 "Next-Hop             Interface Parent%s", VTY_NEWLINE);

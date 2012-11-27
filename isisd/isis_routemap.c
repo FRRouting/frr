@@ -69,8 +69,7 @@ isis_route_map_upd (const char *name)
   for (i = 0; i <= ZEBRA_ROUTE_MAX; i++)
     {
       if (isis->rmap[i].name)
-	isis->rmap[i].map = isis->rmap[i].map =
-	  route_map_lookup_by_name (isis->rmap[i].name);
+	isis->rmap[i].map = route_map_lookup_by_name (isis->rmap[i].name);
       else
 	isis->rmap[i].map = NULL;
     }

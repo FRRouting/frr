@@ -129,6 +129,7 @@ open_packet_socket (struct isis_circuit *circuit)
 	    sizeof (struct sockaddr_ll)) < 0)
     {
       zlog_warn ("open_packet_socket(): bind() failed: %s", safe_strerror (errno));
+      close (fd);
       return ISIS_WARNING;
     }
 

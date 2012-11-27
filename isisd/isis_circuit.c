@@ -327,6 +327,8 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 	  zlog_warn ("Nonexitant ip address %s removal attempt from \
                       circuit %d", buf, circuit->circuit_id);
 	}
+
+      prefix_ipv4_free (ipv4);
     }
 #ifdef HAVE_IPV6
   if (connected->address->family == AF_INET6)
@@ -370,6 +372,8 @@ isis_circuit_del_addr (struct isis_circuit *circuit,
 	}
       else if (circuit->area)
 	  lsp_regenerate_schedule (circuit->area, circuit->is_type, 0);
+
+      prefix_ipv6_free (ipv6);
     }
 #endif /* HAVE_IPV6 */
   return;

@@ -101,6 +101,7 @@ isis_csm_state_change (int event, struct isis_circuit *circuit, void *arg)
 	  break;
 	case ISIS_DISABLE:
 	  zlog_warn ("circuit already disabled");
+	  break;
 	case IF_DOWN_FROM_Z:
 	  zlog_warn ("circuit already disconnected");
 	  break;
