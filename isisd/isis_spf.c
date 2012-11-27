@@ -365,7 +365,7 @@ spftree_area_del (struct isis_area *area)
       area->spftree[1] = NULL;
     }
 #ifdef HAVE_IPV6
-    if (area->spftree[1] != NULL)
+    if (area->spftree6[1] != NULL)
     {
       isis_spftree_del (area->spftree6[1]);
       area->spftree6[1] = NULL;
