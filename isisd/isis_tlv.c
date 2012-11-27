@@ -932,10 +932,9 @@ tlv_add_ip_addrs (struct list *ip_addrs, struct stream *stream)
     {
       if (pos - value + IPV4_MAX_BYTELEN > 255)
 	{
-	  retval = add_tlv (IPV4_ADDR, pos - value, value, stream);
-	  if (retval != ISIS_OK)
-	    return retval;
-	  pos = value;
+	  /* RFC 1195 s4.2: only one tuple of 63 allowed. */
+	  zlog_warn ("tlv_add_ip_addrs(): cutting off at 63 IP addresses");
+	  break;
 	}
       *(u_int32_t *) pos = ipv4->prefix.s_addr;
       pos += IPV4_MAX_BYTELEN;
