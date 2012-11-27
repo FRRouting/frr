@@ -142,16 +142,14 @@ open_packet_socket (struct isis_circuit *circuit)
        * 8.4.2 - Broadcast subnetwork IIH PDUs
        * FIXME: is there a case only one will fail??
        */
-      if (circuit->is_type & IS_LEVEL_1)
-        /* joining ALL_L1_ISS */
-        retval = isis_multicast_join (circuit->fd, 1,
+      /* joining ALL_L1_ISS */
+      retval |= isis_multicast_join (circuit->fd, 1,
                                       circuit->interface->ifindex);
-      if (circuit->is_type & IS_LEVEL_2)
-        /* joining ALL_L2_ISS */
-        retval = isis_multicast_join (circuit->fd, 2,
+      /* joining ALL_L2_ISS */
+      retval |= isis_multicast_join (circuit->fd, 2,
                                       circuit->interface->ifindex);
       /* joining ALL_ISS (used in RFC 5309 p2p-over-lan as well) */
-      retval = isis_multicast_join (circuit->fd, 3,
+      retval |= isis_multicast_join (circuit->fd, 3,
                                     circuit->interface->ifindex);
     }
   else

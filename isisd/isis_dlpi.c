@@ -442,13 +442,9 @@ open_dlpi_dev (struct isis_circuit *circuit)
    * 8.4.2 - Broadcast subnetwork IIH PDUs
    */
   retval = 0;
-  if (circuit->is_type & IS_LEVEL_1)
-    {
-      retval |= dlpimcast (fd, ALL_L1_ISS);
-      retval |= dlpimcast (fd, ALL_ISS);
-    }
-  if (circuit->is_type & IS_LEVEL_2)
-    retval |= dlpimcast (fd, ALL_L2_ISS);
+  retval |= dlpimcast (fd, ALL_L1_ISS);
+  retval |= dlpimcast (fd, ALL_ISS);
+  retval |= dlpimcast (fd, ALL_L2_ISS);
 
   if (retval != 0)
     {
