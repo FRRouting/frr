@@ -2054,7 +2054,7 @@ validate_metric_style_narrow (struct vty *vty, struct isis_area *area)
     {
       if ((area->is_type & IS_LEVEL_1) &&
           (circuit->is_type & IS_LEVEL_1) &&
-          (circuit->metrics[0].metric_default > MAX_NARROW_LINK_METRIC))
+          (circuit->te_metric[0] > MAX_NARROW_LINK_METRIC))
         {
           vty_out (vty, "ISIS circuit %s metric is invalid%s",
                    circuit->interface->name, VTY_NEWLINE);
@@ -2062,7 +2062,7 @@ validate_metric_style_narrow (struct vty *vty, struct isis_area *area)
         }
       if ((area->is_type & IS_LEVEL_2) &&
           (circuit->is_type & IS_LEVEL_2) &&
-          (circuit->metrics[1].metric_default > MAX_NARROW_LINK_METRIC))
+          (circuit->te_metric[1] > MAX_NARROW_LINK_METRIC))
         {
           vty_out (vty, "ISIS circuit %s metric is invalid%s",
                    circuit->interface->name, VTY_NEWLINE);
