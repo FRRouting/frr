@@ -493,6 +493,13 @@ process_p2p_hello (struct isis_circuit *circuit)
       return ISIS_WARNING;
     }
 
+  if (!(found & TLVFLAG_NLPID))
+    {
+      zlog_warn ("No supported protocols TLV in P2P IS to IS hello");
+      free_tlvs (&tlvs);
+      return ISIS_WARNING;
+    }
+
   /* 8.2.5.1 c) Authentication */
   if (circuit->passwd.type)
     {
@@ -550,9 +557,11 @@ process_p2p_hello (struct isis_circuit *circuit)
   tlvs_to_adj_area_addrs (&tlvs, adj);
 
   /* which protocol are spoken ??? */
-  if (found & TLVFLAG_NLPID)
-    if (tlvs_to_adj_nlpids (&tlvs, adj))
-      return ISIS_ERROR;
+  if (tlvs_to_adj_nlpids (&tlvs, adj))
+    {
+      free_tlvs (&tlvs);
+      return ISIS_WARNING;
+    }
 
   /* we need to copy addresses to the adj */
   if (found & TLVFLAG_IPV4_ADDR)
@@ -973,6 +982,14 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
       goto out;
     }
 
+  if (!(found & TLVFLAG_NLPID))
+    {
+      zlog_warn ("No supported protocols TLV in Level %d LAN IS to IS hello",
+		 level);
+      retval = ISIS_WARNING;
+      goto out;
+    }
+
   /* Verify authentication, either cleartext of HMAC MD5 */
   if (circuit->passwd.type)
     {
@@ -1103,8 +1120,11 @@ process_lan_hello (int level, struct isis_circuit *circuit, u_char * ssnpa)
   tlvs_to_adj_area_addrs (&tlvs, adj);
 
   /* which protocol are spoken ??? */
-  if (found & TLVFLAG_NLPID)
-    tlvs_to_adj_nlpids (&tlvs, adj);
+  if (tlvs_to_adj_nlpids (&tlvs, adj))
+    {
+      retval = ISIS_WARNING;
+      goto out;
+    }
 
   /* we need to copy addresses to the adj */
   if (found & TLVFLAG_IPV4_ADDR)
