@@ -2092,19 +2092,22 @@ DEFUN (metric_style,
       area->newmetric = 1;
       area->oldmetric = 0;
     }
-  else if (strncmp (argv[0], "t", 1) == 0)
-    {
-      area->newmetric = 1;
-      area->oldmetric = 1;
-    }
-  else if (strncmp (argv[0], "n", 1) == 0)
+  else
     {
       ret = validate_metric_style_narrow (vty, area);
       if (ret != CMD_SUCCESS)
         return ret;
 
-      area->newmetric = 0;
-      area->oldmetric = 1;
+      if (strncmp (argv[0], "t", 1) == 0)
+	{
+	  area->newmetric = 1;
+	  area->oldmetric = 1;
+	}
+      else if (strncmp (argv[0], "n", 1) == 0)
+	{
+	  area->newmetric = 0;
+	  area->oldmetric = 1;
+	}
     }
 
   return CMD_SUCCESS;
