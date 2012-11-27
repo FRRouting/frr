@@ -90,7 +90,7 @@ extern void list_add_list (struct list *, struct list *);
 #define ALL_LIST_ELEMENTS(list,node,nextnode,data) \
   (node) = listhead(list), ((data) = NULL); \
   (node) != NULL && \
-    ((data) = listgetdata(node),(nextnode) = listnextnode(node), 1); \
+    ((data) = listgetdata(node),(nextnode) = node->next, 1); \
   (node) = (nextnode), ((data) = NULL)
 
 /* read-only list iteration macro.
