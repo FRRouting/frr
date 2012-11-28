@@ -833,7 +833,7 @@ lspfragloop:
     {
       assert (ip6reach->prefix_len <= IPV6_MAX_BITLEN);
 
-      dist = cost + ip6reach->metric;
+      dist = cost + ntohl(ip6reach->metric);
       vtype = (ip6reach->control_info & CTRL_INFO_DISTRIBUTION) ?
         VTYPE_IP6REACH_EXTERNAL : VTYPE_IP6REACH_INTERNAL;
       prefix.prefixlen = ip6reach->prefix_len;
