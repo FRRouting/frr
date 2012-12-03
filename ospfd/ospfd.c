@@ -182,7 +182,8 @@ ospf_new (void)
   
   new->stub_router_startup_time = OSPF_STUB_ROUTER_UNCONFIGURED;
   new->stub_router_shutdown_time = OSPF_STUB_ROUTER_UNCONFIGURED;
-  
+  new->stub_router_admin_set     = OSPF_STUB_ROUTER_ADMINISTRATIVE_UNSET;
+
   /* Distribute parameter init. */
   for (i = 0; i <= ZEBRA_ROUTE_MAX; i++)
     {
@@ -676,6 +677,10 @@ ospf_area_get (struct ospf *ospf, struct in_addr area_id, int format)
       area->format = format;
       listnode_add_sort (ospf->areas, area);
       ospf_check_abr_status (ospf);  
+      if (ospf->stub_router_admin_set == OSPF_STUB_ROUTER_ADMINISTRATIVE_SET)
+        {
+          SET_FLAG (area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
+        }
     }
 
   return area;

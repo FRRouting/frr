@@ -7020,6 +7020,10 @@ DEFUN (ospf_max_metric_router_lsa_admin,
       if (!CHECK_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
           ospf_router_lsa_update_area (area);
     }
+
+  /* Allows for areas configured later to get the property */
+  ospf->stub_router_admin_set = OSPF_STUB_ROUTER_ADMINISTRATIVE_SET;
+
   return CMD_SUCCESS;
 }
 
@@ -7047,6 +7051,7 @@ DEFUN (no_ospf_max_metric_router_lsa_admin,
           ospf_router_lsa_update_area (area);
         }
     }
+  ospf->stub_router_admin_set = OSPF_STUB_ROUTER_ADMINISTRATIVE_UNSET;
   return CMD_SUCCESS;
 }
 

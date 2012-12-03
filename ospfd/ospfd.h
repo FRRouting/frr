@@ -195,6 +195,9 @@ struct ospf
   unsigned int stub_router_startup_time;	/* seconds */
   unsigned int stub_router_shutdown_time;	/* seconds */
 #define OSPF_STUB_ROUTER_UNCONFIGURED	  0
+  u_char       stub_router_admin_set;
+#define OSPF_STUB_ROUTER_ADMINISTRATIVE_SET     1
+#define OSPF_STUB_ROUTER_ADMINISTRATIVE_UNSET   0
 
 #define OSPF_STUB_MAX_METRIC_SUMMARY_COST	0x00ff0000
 
