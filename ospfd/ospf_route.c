@@ -126,6 +126,31 @@ ospf_route_table_free (struct route_table *rt)
    route_table_finish (rt);
 }
 
+/* If a prefix exists in the new routing table, then return 1,
+   otherwise return 0. Since the ZEBRA-RIB does an implicit
+   withdraw, it is not necessary to send a delete, an add later
+   will act like an implicit delete. */
+static int
+ospf_route_exist_new_table (struct route_table *rt, struct prefix_ipv4 *prefix)
+{
+  struct route_node *rn;
+
+  assert (rt);
+  assert (prefix);
+
+  rn = route_node_lookup (rt, (struct prefix *) prefix);
+  if (!rn) {
+    return 0;
+  }
+  route_unlock_node (rn);
+
+  if (!rn->info) {
+    return 0;
+  }
+
+  return 1;
+}
+
 /* If a prefix and a nexthop match any route in the routing table,
    then return 1, otherwise return 0. */
 int
@@ -223,13 +248,13 @@ ospf_route_delete_uniq (struct route_table *rt, struct route_table *cmprt)
 	{
 	  if (or->type == OSPF_DESTINATION_NETWORK)
 	    {
-	      if (! ospf_route_match_same (cmprt, 
-					   (struct prefix_ipv4 *) &rn->p, or))
+	      if (! ospf_route_exist_new_table (cmprt,
+					   (struct prefix_ipv4 *) &rn->p))
 		ospf_zebra_delete ((struct prefix_ipv4 *) &rn->p, or);
 	    }
 	  else if (or->type == OSPF_DESTINATION_DISCARD)
-	    if (! ospf_route_match_same (cmprt,
-					 (struct prefix_ipv4 *) &rn->p, or))
+	    if (! ospf_route_exist_new_table (cmprt,
+					 (struct prefix_ipv4 *) &rn->p))
 	      ospf_zebra_delete_discard ((struct prefix_ipv4 *) &rn->p);
 	}
 }
