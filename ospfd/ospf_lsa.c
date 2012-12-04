@@ -1340,12 +1340,8 @@ static void
 ospf_summary_asbr_lsa_body_set (struct stream *s, struct prefix *p,
 				u_int32_t metric)
 {
-  struct in_addr mask;
-
-  masklen2ip (p->prefixlen, &mask);
-
   /* Put Network Mask. */
-  stream_put_ipv4 (s, mask.s_addr);
+  stream_put_ipv4 (s, (u_int32_t) 0);
 
   /* Set # TOS. */
   stream_putc (s, (u_char) 0);
