@@ -201,7 +201,7 @@ ospf_new (void)
 
   /* MaxAge init. */
   new->maxage_delay = OSFP_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
-  new->maxage_lsa = list_new ();
+  new->maxage_lsa = route_table_init();
   new->t_maxage_walker =
     thread_add_timer (master, ospf_lsa_maxage_walker,
                       new, OSPF_LSA_MAXAGE_CHECK_INTERVAL);
@@ -502,10 +502,18 @@ ospf_finish_final (struct ospf *ospf)
   ospf_lsdb_delete_all (ospf->lsdb);
   ospf_lsdb_free (ospf->lsdb);
 
-  for (ALL_LIST_ELEMENTS (ospf->maxage_lsa, node, nnode, lsa))
-    ospf_lsa_unlock (&lsa); /* maxage_lsa */
+  for (rn = route_top (ospf->maxage_lsa); rn; rn = route_next (rn))
+    {
+      struct ospf_lsa *lsa;
 
-  list_delete (ospf->maxage_lsa);
+      if ((lsa = rn->info) != NULL)
+	{
+	  ospf_lsa_unlock (&lsa);
+	  rn->info = NULL;
+	}
+      route_unlock_node (rn);
+    }
+  route_table_finish (ospf->maxage_lsa);
 
   if (ospf->old_table)
     ospf_route_table_free (ospf->old_table);

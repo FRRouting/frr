@@ -248,7 +248,7 @@ struct ospf
   /* Time stamps. */
   struct timeval ts_spf;		/* SPF calculation time stamp. */
 
-  struct list *maxage_lsa;              /* List of MaxAge LSA for deletion. */
+  struct route_table *maxage_lsa;       /* List of MaxAge LSA for deletion. */
   int redistribute;                     /* Num of redistributed protocols. */
 
   /* Threads. */

@@ -66,6 +66,7 @@ extern struct ospf_lsdb *ospf_lsdb_new (void);
 extern void ospf_lsdb_init (struct ospf_lsdb *);
 extern void ospf_lsdb_free (struct ospf_lsdb *);
 extern void ospf_lsdb_cleanup (struct ospf_lsdb *);
+extern void ls_prefix_set (struct prefix_ls *lp, struct ospf_lsa *lsa);
 extern void ospf_lsdb_add (struct ospf_lsdb *, struct ospf_lsa *);
 extern void ospf_lsdb_delete (struct ospf_lsdb *, struct ospf_lsa *);
 extern void ospf_lsdb_delete_all (struct ospf_lsdb *);

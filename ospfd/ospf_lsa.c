@@ -2828,7 +2828,7 @@ ospf_maxage_lsa_remover (struct thread *thread)
 {
   struct ospf *ospf = THREAD_ARG (thread);
   struct ospf_lsa *lsa;
-  struct listnode *node, *nnode;
+  struct route_node *rn;
   int reschedule = 0;
 
   ospf->t_maxage = NULL;
@@ -2839,8 +2839,13 @@ ospf_maxage_lsa_remover (struct thread *thread)
   reschedule = !ospf_check_nbr_status (ospf);
 
   if (!reschedule)
-    for (ALL_LIST_ELEMENTS (ospf->maxage_lsa, node, nnode, lsa))
+    for (rn = route_top(ospf->maxage_lsa); rn; rn = route_next(rn))
       {
+	if ((lsa = rn->info) == NULL)
+	  {
+	    continue;
+	  }
+
         if (lsa->retransmit_counter > 0)
           {
             reschedule = 1;
@@ -2893,13 +2898,22 @@ ospf_maxage_lsa_remover (struct thread *thread)
 void
 ospf_lsa_maxage_delete (struct ospf *ospf, struct ospf_lsa *lsa)
 {
-  struct listnode *n;
+  struct route_node *rn;
+  struct prefix_ls lsa_prefix;
 
-  if ((n = listnode_lookup (ospf->maxage_lsa, lsa)))
+  ls_prefix_set (&lsa_prefix, lsa);
+
+  if ((rn = route_node_lookup(ospf->maxage_lsa,
+			      (struct prefix *)&lsa_prefix)))
     {
-      list_delete_node (ospf->maxage_lsa, n);
-      UNSET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
-      ospf_lsa_unlock (&lsa); /* maxage_lsa */
+      if (rn->info == lsa)
+	{
+	  UNSET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
+	  ospf_lsa_unlock (&lsa); /* maxage_lsa */
+	  rn->info = NULL;
+	  route_unlock_node (rn); /* route_node_lookup */
+	}
+	  route_unlock_node (rn); /* route_node_lookup */
     }
 }
 
@@ -2911,6 +2925,9 @@ ospf_lsa_maxage_delete (struct ospf *ospf, struct ospf_lsa *lsa)
 void
 ospf_lsa_maxage (struct ospf *ospf, struct ospf_lsa *lsa)
 {
+  struct prefix_ls lsa_prefix;
+  struct route_node *rn;
+
   /* When we saw a MaxAge LSA flooded to us, we put it on the list
      and schedule the MaxAge LSA remover. */
   if (CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE))
@@ -2921,8 +2938,25 @@ ospf_lsa_maxage (struct ospf *ospf, struct ospf_lsa *lsa)
       return;
     }
 
-  listnode_add (ospf->maxage_lsa, ospf_lsa_lock (lsa));
-  SET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
+  ls_prefix_set (&lsa_prefix, lsa);
+  if ((rn = route_node_get (ospf->maxage_lsa,
+			    (struct prefix *)&lsa_prefix)) != NULL)
+    {
+      if (rn->info != NULL)
+	{
+	  route_unlock_node (rn);
+	}
+      else
+	{
+	  rn->info = ospf_lsa_lock(lsa);
+	  SET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
+	}
+    }
+  else
+    {
+      zlog_err("Unable to allocate memory for maxage lsa\n");
+      assert(0);
+    }
 
   if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
     zlog_debug ("LSA[%s]: MaxAge LSA remover scheduled.", dump_lsa_key (lsa));

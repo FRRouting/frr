@@ -4035,21 +4035,26 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
 static void
 show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
 {
-  struct listnode *node;
+  struct route_node *rn;
   struct ospf_lsa *lsa;
 
   vty_out (vty, "%s                MaxAge Link States:%s%s",
            VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO (ospf->maxage_lsa, node, lsa))
+  for (rn = route_top (ospf->maxage_lsa); rn; rn = route_next (rn))
     {
-      vty_out (vty, "Link type: %d%s", lsa->data->type, VTY_NEWLINE);
-      vty_out (vty, "Link State ID: %s%s",
-               inet_ntoa (lsa->data->id), VTY_NEWLINE);
-      vty_out (vty, "Advertising Router: %s%s",
-               inet_ntoa (lsa->data->adv_router), VTY_NEWLINE);
-      vty_out (vty, "LSA lock count: %d%s", lsa->lock, VTY_NEWLINE);
-      vty_out (vty, "%s", VTY_NEWLINE);
+      struct ospf_lsa *lsa;
+
+      if ((lsa = rn->info) != NULL)
+	{
+	  vty_out (vty, "Link type: %d%s", lsa->data->type, VTY_NEWLINE);
+	  vty_out (vty, "Link State ID: %s%s",
+		   inet_ntoa (lsa->data->id), VTY_NEWLINE);
+	  vty_out (vty, "Advertising Router: %s%s",
+		   inet_ntoa (lsa->data->adv_router), VTY_NEWLINE);
+	  vty_out (vty, "LSA lock count: %d%s", lsa->lock, VTY_NEWLINE);
+	  vty_out (vty, "%s", VTY_NEWLINE);
+	}
     }
 }
 
