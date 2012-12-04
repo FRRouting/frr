@@ -6042,7 +6042,7 @@ DEFUN (ospf_distribute_list_out,
   int source;
 
   /* Get distribute source. */
-  source = proto_redistnum(AFI_IP, argv[0]);
+  source = proto_redistnum(AFI_IP, argv[1]);
   if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
@@ -6061,7 +6061,7 @@ DEFUN (no_ospf_distribute_list_out,
   struct ospf *ospf = vty->index;
   int source;
 
-  source = proto_redistnum(AFI_IP, argv[0]);
+  source = proto_redistnum(AFI_IP, argv[1]);
   if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
