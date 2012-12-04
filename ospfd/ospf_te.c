@@ -205,7 +205,7 @@ get_mpls_te_instance_value (void)
 {
   static u_int32_t seqno = 0;
 
-  if (LEGAL_TE_INSTANCE_RANGE (seqno + 1))
+  if (seqno < MAX_LEGAL_TE_INSTANCE_NUM )
     seqno += 1;
   else
     seqno  = 1; /* Avoid zero. */

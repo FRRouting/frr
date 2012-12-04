@@ -41,7 +41,7 @@
  *
  */
 
-#define	LEGAL_TE_INSTANCE_RANGE(i)	(0 <= (i) && (i) <= 0xffff)
+#define	MAX_LEGAL_TE_INSTANCE_NUM (0xffff)
 
 /*
  *        24       16        8        0
