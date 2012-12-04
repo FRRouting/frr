@@ -2322,7 +2322,7 @@ DEFUN (ospf_neighbor,
   if (argc > 1)
     ospf_nbr_nbma_priority_set (ospf, nbr_addr, priority);
   if (argc > 2)
-    ospf_nbr_nbma_poll_interval_set (ospf, nbr_addr, priority);
+    ospf_nbr_nbma_poll_interval_set (ospf, nbr_addr, interval);
 
   return CMD_SUCCESS;
 }
