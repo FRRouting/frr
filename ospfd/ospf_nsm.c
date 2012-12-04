@@ -643,7 +643,7 @@ nsm_notice_state_change (struct ospf_neighbor *nbr, int next_state, int event)
 #endif
 }
 
-void
+static void
 nsm_change_state (struct ospf_neighbor *nbr, int state)
 {
   struct ospf_interface *oi = nbr->oi;
