@@ -1834,8 +1834,11 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	  ospf_ls_ack_send (nbr, lsa);
 
 	  /* Discard LSA. */	  
-	  zlog_info ("Link State Update[%s]: LS age is equal to MaxAge.",
-		     dump_lsa_key(lsa));
+          if (IS_DEBUG_OSPF (lsa, LSA))
+            {
+	       zlog_debug ("Link State Update[%s]: LS age is equal to MaxAge.",
+                           dump_lsa_key(lsa));
+            }
           DISCARD_LSA (lsa, 3);
 	}
 
