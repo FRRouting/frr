@@ -1764,7 +1764,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
   /* Process each LSA received in the one packet.
    *
    * Numbers in parentheses, e.g. (1), (2), etc., and the corresponding
-   * text below are from the stepsin RFC 2328, Section 13.
+   * text below are from the steps in RFC 2328, Section 13.
    */
   for (ALL_LIST_ELEMENTS (lsas, node, nnode, lsa))
     {

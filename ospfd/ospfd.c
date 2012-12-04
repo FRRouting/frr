@@ -223,7 +223,7 @@ ospf_new (void)
     }
   new->maxsndbuflen = getsockopt_so_sendbuf (new->fd);
   if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-    zlog_debug ("%s: starting with OSPF send buffer size %d",
+    zlog_debug ("%s: starting with OSPF send buffer size %u",
       __func__, new->maxsndbuflen);
   if ((new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE+1)) == NULL)
     {

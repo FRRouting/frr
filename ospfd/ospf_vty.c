@@ -1742,12 +1742,11 @@ DEFUN (no_ospf_area_default_cost,
   struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
-  u_int32_t cost;
   int format;
   struct prefix_ipv4 p;
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("default-cost", area_id, format, argv[0]);
-  VTY_GET_INTEGER_RANGE ("stub default cost", cost, argv[1], 0, 16777215);
+  VTY_CHECK_INTEGER_RANGE ("stub default cost", argv[1], 0, OSPF_LS_INFINITY);
 
   area = ospf_area_lookup_by_area_id (ospf, area_id);
   if (area == NULL)
@@ -1933,7 +1932,6 @@ DEFUN (no_ospf_area_filter_list,
   struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
-  struct prefix_list *plist;
   int format;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[0]);
@@ -1941,7 +1939,6 @@ DEFUN (no_ospf_area_filter_list,
   if ((area = ospf_area_lookup_by_area_id (ospf, area_id)) == NULL)
     return CMD_SUCCESS;
   
-  plist = prefix_list_lookup (AFI_IP, argv[1]);
   if (strncmp (argv[2], "in", 2) == 0)
     {
       if (PREFIX_NAME_IN (area))
@@ -2394,11 +2391,10 @@ DEFUN (no_ospf_neighbor,
 {
   struct ospf *ospf = vty->index;
   struct in_addr nbr_addr;
-  int ret;
 
   VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[0]);
 
-  ret = ospf_nbr_nbma_unset (ospf, nbr_addr);
+  (void)ospf_nbr_nbma_unset (ospf, nbr_addr);
 
   return CMD_SUCCESS;
 }
@@ -5408,7 +5404,7 @@ DEFUN (ip_ospf_priority,
        "Address of interface")
 {
   struct interface *ifp = vty->index;
-  u_int32_t priority;
+  long priority;
   struct route_node *rn;
   struct in_addr addr;
   int ret;

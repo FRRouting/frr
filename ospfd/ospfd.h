@@ -273,7 +273,7 @@ struct ospf
   struct thread *t_write;
   struct thread *t_read;
   int fd;
-  int maxsndbuflen;
+  unsigned int maxsndbuflen;
   struct stream *ibuf;
   struct list *oi_write_q;
   

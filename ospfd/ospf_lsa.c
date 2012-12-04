@@ -2733,7 +2733,9 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
       if (IS_LSA_SELF (lsa))
 	lsa->oi = oi; /* Specify outgoing ospf-interface for this LSA. */
       else
-	; /* Incoming "oi" for this LSA has set at LSUpd reception. */
+        {
+          /* Incoming "oi" for this LSA has set at LSUpd reception. */
+        }
       /* Fallthrough */
     case OSPF_OPAQUE_AREA_LSA:
     case OSPF_OPAQUE_AS_LSA:
