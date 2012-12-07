@@ -146,8 +146,9 @@ extern int zlog_reset_file (struct zlog *zl);
 /* Rotate log. */
 extern int zlog_rotate (struct zlog *);
 
-/* For hackey massage lookup and check */
-#define LOOKUP(x, y) mes_lookup(x, x ## _max, y, "(no item found)", #x)
+/* For hackey message lookup and check */
+#define LOOKUP_DEF(x, y, def) mes_lookup(x, x ## _max, y, def, #x)
+#define LOOKUP(x, y) LOOKUP_DEF(x, y, "(no item found)")
 
 extern const char *lookup (const struct message *, int);
 extern const char *mes_lookup (const struct message *meslist, 
