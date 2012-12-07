@@ -321,11 +321,24 @@ bgp_attr_dup (struct attr *new, struct attr *orig)
   struct attr_extra *extra = new->extra;
 
   *new = *orig;
-  if (orig->extra)
+  /* if caller provided attr_extra space, use it in any case.
+   *
+   * This is neccesary even if orig->extra equals NULL, because otherwise
+   * memory may be later allocated on the heap by bgp_attr_extra_get.
+   *
+   * That memory would eventually be leaked, because the caller must not
+   * call bgp_attr_extra_free if he provided attr_extra on the stack.
+   */
+  if (extra)
     {
-      /* if caller provided attr_extra space use it */
-      if (! extra)
-        new->extra = bgp_attr_extra_new();
+      new->extra = extra;
+      memset(new->extra, 0, sizeof(struct attr_extra));
+      if (orig->extra)
+        *new->extra = *orig->extra;
+    }
+  else if (orig->extra)
+    {
+      new->extra = bgp_attr_extra_new();
       *new->extra = *orig->extra;
     }
 }
