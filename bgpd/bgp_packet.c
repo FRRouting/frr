@@ -1411,14 +1411,16 @@ bgp_open_receive (struct peer *peer, bgp_size_t size)
   /* Peer BGP version check. */
   if (version != BGP_VERSION_4)
     {
-      u_int8_t maxver = BGP_VERSION_4;
+      u_int16_t maxver = htons(BGP_VERSION_4);
+      /* XXX this reply may not be correct if version < 4  XXX */
       if (BGP_DEBUG (normal, NORMAL))
 	zlog_debug ("%s bad protocol version, remote requested %d, local request %d",
 		   peer->host, version, BGP_VERSION_4);
+      /* Data must be in network byte order here */
       bgp_notify_send_with_data (peer, 
 				 BGP_NOTIFY_OPEN_ERR, 
 				 BGP_NOTIFY_OPEN_UNSUP_VERSION,
-				 &maxver, 1);
+				 (u_int8_t *) &maxver, 2);
       return -1;
     }
 
