@@ -1347,6 +1347,9 @@ route_set_community (void *rule, struct prefix *prefix,
 	{
 	  attr->flag &= ~(ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES));
 	  attr->community = NULL;
+	  /* See the longer comment down below. */
+	  if (old && old->refcnt == 0)
+	    community_free(old);
 	  return RMAP_OKAY;
 	}
 
