@@ -2462,8 +2462,9 @@ bgp_default_originate (struct peer *peer, afi_t afi, safi_t safi, int withdraw)
   struct attr attr;
   struct aspath *aspath;
   struct prefix p;
-  struct bgp_info binfo;
   struct peer *from;
+  struct bgp_node *rn;
+  struct bgp_info *ri;
   int ret = RMAP_DENYMATCH;
   
   if (!(afi == AFI_IP || afi == AFI_IP6))
@@ -2505,21 +2506,37 @@ bgp_default_originate (struct peer *peer, afi_t afi, safi_t safi, int withdraw)
 
   if (peer->default_rmap[afi][safi].name)
     {
-      binfo.peer = bgp->peer_self;
-      binfo.attr = &attr;
-
       SET_FLAG (bgp->peer_self->rmap_type, PEER_RMAP_TYPE_DEFAULT);
+      for (rn = bgp_table_top(bgp->rib[afi][safi]); rn; rn = bgp_route_next(rn))
+        {
+          for (ri = rn->info; ri; ri = ri->next)
+            {
+              struct attr dummy_attr;
+              struct attr_extra dummy_extra;
+              struct bgp_info info;
 
-      ret = route_map_apply (peer->default_rmap[afi][safi].map, &p,
-			     RMAP_BGP, &binfo);
+              /* Provide dummy so the route-map can't modify the attributes */
+              dummy_attr.extra = &dummy_extra;
+              bgp_attr_dup(&dummy_attr, ri->attr);
+              info.peer = ri->peer;
+              info.attr = &dummy_attr;
 
+              ret = route_map_apply(peer->default_rmap[afi][safi].map, &rn->p,
+                                    RMAP_BGP, &info);
+
+              /* The route map might have set attributes. If we don't flush them
+               * here, they will be leaked. */
+              bgp_attr_flush(&dummy_attr);
+              if (ret != RMAP_DENYMATCH)
+                break;
+            }
+          if (ret != RMAP_DENYMATCH)
+            break;
+        }
       bgp->peer_self->rmap_type = 0;
 
       if (ret == RMAP_DENYMATCH)
-	{
-	  bgp_attr_flush (&attr);
-	  withdraw = 1;
-	}
+        withdraw = 1;
     }
 
   if (withdraw)
@@ -2530,8 +2547,11 @@ bgp_default_originate (struct peer *peer, afi_t afi, safi_t safi, int withdraw)
     }
   else
     {
-      SET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_DEFAULT_ORIGINATE);
-      bgp_default_update_send (peer, &attr, afi, safi, from);
+      if (! CHECK_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_DEFAULT_ORIGINATE))
+        {
+          SET_FLAG (peer->af_sflags[afi][safi], PEER_STATUS_DEFAULT_ORIGINATE);
+          bgp_default_update_send (peer, &attr, afi, safi, from);
+        }
     }
   
   bgp_attr_extra_free (&attr);

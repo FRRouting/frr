@@ -1,5 +1,10 @@
 Note: this file lists major user-visible changes only.
 
+- [bgpd] The semantics of default-originate route-map have changed.
+  The route-map is now used to advertise the default route conditionally.
+  The old behaviour which allowed to set attributes on the originated
+  default route is no longer supported.
+
 * Changes in Quagga 0.99.21
 
 - [bgpd] BGP multipath support has been merged

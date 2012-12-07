@@ -506,6 +506,16 @@ bgp_scan (afi_t afi, safi_t safi)
       else if (afi == AFI_IP6)
 	zlog_debug ("scanning IPv6 Unicast routing tables");
     }
+
+  /* Reevaluate default-originate route-maps and announce/withdraw
+   * default route if neccesary. */
+  for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
+    {
+      if (peer->status == Established
+	  && CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE)
+	  && peer->default_rmap[afi][safi].name)
+	bgp_default_originate (peer, afi, safi, 0);
+    }
 }
 
 /* BGP scan thread.  This thread check nexthop reachability. */
