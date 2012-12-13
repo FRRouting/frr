@@ -195,10 +195,7 @@ AC_ARG_WITH(pkg-extra-version,
 	[EXTRAVERSION=$withval],)
 AC_ARG_WITH(pkg-git-version,
 	AS_HELP_STRING([--with-pkg-git-version], [add git information to MOTD and build version string]),
-	[ if test "x$withval" != "xno"; then
-		with_pkg_git_version="1"
-		AC_DEFINE(GIT_VERSION, [1], [include git version info])
-	fi ],)
+	[ test "x$withval" != "xno" && with_pkg_git_version="yes" ])
 AC_ARG_ENABLE(vtysh,
 [  --enable-vtysh          include integrated vty shell for Quagga])
 AC_ARG_ENABLE(ipv6,
@@ -410,7 +407,14 @@ if test "x${EXTRAVERSION}" != "x" ; then
   PACKAGE_STRING="${PACKAGE_STRING}${EXTRAVERSION}"
 fi
 
-AM_CONDITIONAL([GIT_VERSION], [test "x$with_pkg_git_version" != "x"])
+if test "x$with_pkg_git_version" = "xyes"; then
+	if test -d "${srcdir}/.git"; then
+		AC_DEFINE(GIT_VERSION, [1], [include git version info])
+	else	with_pkg_git_version="no"
+		AC_MSG_WARN([--with-pkg-git-version given, but this is not a git checkout])
+	fi
+fi
+AM_CONDITIONAL([GIT_VERSION], [test "x$with_pkg_git_version" = "xyes"])
 
 dnl ------------------------------------
 dnl Check C keywords and standard  types
