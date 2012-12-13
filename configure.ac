@@ -129,7 +129,7 @@ AC_MSG_CHECKING([whether to set a default CFLAGS])
 if test "x${cflags_specified}" = "x" ; then
   case ${COMPILER} in
     "ICC")
-        CFLAGS="-Os -g -Wall -wd 279,869,981"
+        CFLAGS="-Os -g -Wall"
         AC_MSG_RESULT([Intel default])
         ;;
     "GCC")
