@@ -769,6 +769,10 @@ interface_down (struct thread *thread)
   
   list_delete_all_node (oi->neighbor_list);
 
+  /* When interface state is reset, also reset information about
+   * DR election, as it is no longer valid. */
+  oi->drouter = oi->prev_drouter = htonl(0);
+  oi->bdrouter = oi->prev_bdrouter = htonl(0);
   return 0;
 }
 
