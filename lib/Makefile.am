@@ -29,7 +29,12 @@ pkginclude_HEADERS = \
 	privs.h sigevent.h pqueue.h jhash.h zassert.h memtypes.h \
 	workqueue.h route_types.h
 
-EXTRA_DIST = regex.c regex-gnu.h memtypes.awk route_types.pl route_types.txt
+EXTRA_DIST = \
+	regex.c regex-gnu.h \
+	queue.h \
+	memtypes.awk \
+	route_types.pl route_types.txt \
+	gitversion.pl
 
 memtypes.h: $(srcdir)/memtypes.c $(srcdir)/memtypes.awk
 	($(GAWK) -f $(srcdir)/memtypes.awk $(srcdir)/memtypes.c > $@)
