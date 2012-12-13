@@ -287,8 +287,7 @@ ospf6_interface_if_add (struct interface *ifp)
     }
 
   /* interface start */
-  if (oi->area)
-    thread_add_event (master, interface_up, oi, 0);
+  ospf6_interface_state_update(oi->interface);
 }
 
 void
@@ -327,7 +326,9 @@ ospf6_interface_state_update (struct interface *ifp)
   if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_DISABLE))
     return;
 
-  if (if_is_operative (ifp))
+  if (if_is_operative (ifp)
+      && (ospf6_interface_get_linklocal_address(oi->interface)
+          || if_is_loopback(oi->interface)))
     thread_add_event (master, interface_up, oi, 0);
   else
     thread_add_event (master, interface_down, oi, 0);
@@ -645,6 +646,16 @@ interface_up (struct thread *thread)
         zlog_debug ("Interface %s is down, can't execute [InterfaceUp]",
 		    oi->interface->name);
       return 0;
+    }
+
+  /* check interface has a link-local address */
+  if (! (ospf6_interface_get_linklocal_address(oi->interface)
+         || if_is_loopback(oi->interface)))
+    {
+      if (IS_OSPF6_DEBUG_INTERFACE)
+	zlog_debug ("Interface %s has no link local address, can't execute [InterfaceUp]",
+		    oi->interface->name);
+	return 0;
     }
 
   /* if already enabled, do nothing */
