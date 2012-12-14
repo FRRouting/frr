@@ -723,12 +723,20 @@ bgp_write_notify (struct peer *peer)
   val = fcntl (peer->fd, F_GETFL, 0);
   fcntl (peer->fd, F_SETFL, val & ~O_NONBLOCK);
 
-  ret = writen (peer->fd, STREAM_DATA (s), stream_get_endp (s));
+  /* Stop collecting data within the socket */
+  sockopt_cork (peer->fd, 0);
+
+  ret = write (peer->fd, STREAM_DATA (s), stream_get_endp (s));
   if (ret <= 0)
     {
       BGP_EVENT_ADD (peer, TCP_fatal_error);
       return 0;
     }
+
+  /* Disable Nagle, make NOTIFY packet go out right away */
+  val = 1;
+  (void) setsockopt (peer->fd, IPPROTO_TCP, TCP_NODELAY,
+                            (char *) &val, sizeof (val));
 
   /* Retrieve BGP packet type. */
   stream_set_getp (s, BGP_MARKER_SIZE + 2);
