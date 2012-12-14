@@ -36,4 +36,5 @@ build
 *~
 *.loT
 m4/*.m4
+!m4/ax_sys_weak_alias.m4
 
