@@ -61,5 +61,5 @@ gitversion.h: gitversion.h.tmp
 else
 .PHONY: gitversion.h
 gitversion.h:
-	/bin/true
+	true
 endif
