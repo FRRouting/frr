@@ -1695,6 +1695,7 @@ bgp_process (struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
         break;
     }
   
+  SET_FLAG (rn->flags, BGP_NODE_PROCESS_SCHEDULED);
   return;
 }
 
