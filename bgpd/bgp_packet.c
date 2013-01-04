@@ -2385,6 +2385,15 @@ bgp_marker_all_one (struct stream *s, int length)
   return 1;
 }
 
+/* Recent thread time.
+   On same clock base as bgp_clock (MONOTONIC)
+   but can be time of last context switch to bgp_read thread. */
+static time_t
+bgp_recent_clock (void)
+{
+  return recent_relative_time().tv_sec;
+}
+
 /* Starting point of packet process function. */
 int
 bgp_read (struct thread *thread)
@@ -2513,14 +2522,14 @@ bgp_read (struct thread *thread)
       bgp_open_receive (peer, size); /* XXX return value ignored! */
       break;
     case BGP_MSG_UPDATE:
-      peer->readtime = time(NULL);    /* Last read timer reset */
+      peer->readtime = bgp_recent_clock ();
       bgp_update_receive (peer, size);
       break;
     case BGP_MSG_NOTIFY:
       bgp_notify_receive (peer, size);
       break;
     case BGP_MSG_KEEPALIVE:
-      peer->readtime = time(NULL);    /* Last read timer reset */
+      peer->readtime = bgp_recent_clock ();
       bgp_keepalive_receive (peer, size);
       break;
     case BGP_MSG_ROUTE_REFRESH_NEW:
