@@ -41,7 +41,7 @@ struct hash
   /* Hash backet. */
   struct hash_backet **index;
 
-  /* Hash table size. */
+  /* Hash table size. Must be power of 2 */
   unsigned int size;
 
   /* Key make function. */

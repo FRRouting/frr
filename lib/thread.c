@@ -531,8 +531,8 @@ thread_master_create ()
 {
   if (cpu_record == NULL) 
     cpu_record 
-      = hash_create_size (1011, (unsigned int (*) (void *))cpu_record_hash_key, 
-                          (int (*) (const void *, const void *))cpu_record_hash_cmp);
+      = hash_create ((unsigned int (*) (void *))cpu_record_hash_key,
+		     (int (*) (const void *, const void *))cpu_record_hash_cmp);
     
   return (struct thread_master *) XCALLOC (MTYPE_THREAD_MASTER,
 					   sizeof (struct thread_master));

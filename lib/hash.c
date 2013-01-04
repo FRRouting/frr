@@ -31,6 +31,7 @@ hash_create_size (unsigned int size, unsigned int (*hash_key) (void *),
 {
   struct hash *hash;
 
+  assert ((size & (size-1)) == 0);
   hash = XMALLOC (MTYPE_HASH, sizeof (struct hash));
   hash->index = XCALLOC (MTYPE_HASH_INDEX,
 			 sizeof (struct hash_backet *) * size);
@@ -71,7 +72,7 @@ hash_get (struct hash *hash, void *data, void * (*alloc_func) (void *))
   struct hash_backet *backet;
 
   key = (*hash->hash_key) (data);
-  index = key % hash->size;
+  index = key & (hash->size - 1);
 
   for (backet = hash->index[index]; backet != NULL; backet = backet->next) 
     if (backet->key == key && (*hash->hash_cmp) (backet->data, data))
@@ -125,7 +126,7 @@ hash_release (struct hash *hash, void *data)
   struct hash_backet *pp;
 
   key = (*hash->hash_key) (data);
-  index = key % hash->size;
+  index = key & (hash->size - 1);
 
   for (backet = pp = hash->index[index]; backet; backet = backet->next)
     {
