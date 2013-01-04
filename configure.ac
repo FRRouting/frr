@@ -266,6 +266,8 @@ AC_ARG_ENABLE(isis_topology,
 [  --enable-isis-topology        enable IS-IS topology generator])
 AC_ARG_ENABLE(capabilities,
 [  --disable-capabilities        disable using POSIX capabilities])
+AC_ARG_ENABLE(rusage,
+[  --disable-rusage              disable using getrusage])
 AC_ARG_ENABLE(gcc_ultra_verbose,
 [  --enable-gcc-ultra-verbose    enable ultra verbose GCC warnings])
 AC_ARG_ENABLE(linux24_tcp_md5,
@@ -1486,12 +1488,13 @@ AC_CHECK_TYPES([struct in_pktinfo],
 dnl --------------------------------------
 dnl checking for getrusage struct and call
 dnl --------------------------------------
-AC_MSG_CHECKING(whether getrusage is available)
-AC_TRY_COMPILE([#include <sys/resource.h>
-],[struct rusage ac_x; getrusage (RUSAGE_SELF, &ac_x);],
-[AC_MSG_RESULT(yes)
- AC_DEFINE(HAVE_RUSAGE,,rusage)],
- AC_MSG_RESULT(no))
+if test "${enable_rusage}" != "no"; then
+  AC_MSG_CHECKING(whether getrusage is available)
+  AC_TRY_COMPILE([#include <sys/resource.h>],[struct rusage ac_x; getrusage (RUSAGE_SELF, &ac_x);],
+    [AC_MSG_RESULT(yes)
+     AC_DEFINE(HAVE_RUSAGE,,rusage)],
+      AC_MSG_RESULT(no))
+fi
 
 dnl --------------------------------------
 dnl checking for clock_time monotonic struct and call
