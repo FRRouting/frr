@@ -2780,15 +2780,14 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
      If received LSA' ls_age is MaxAge, or lsa is being prematurely aged
      (it's getting flushed out of the area), set LSA on MaxAge LSA list. 
    */
-  if ((lsa->flags & OSPF_LSA_PREMATURE_AGE) ||
-      (IS_LSA_MAXAGE (new) && !IS_LSA_SELF (new)))
+  if (IS_LSA_MAXAGE (new))
     {
       if (IS_DEBUG_OSPF (lsa, LSA_INSTALL))
         zlog_debug ("LSA[Type%d:%s]: Install LSA 0x%p, MaxAge",
                    new->data->type, 
                    inet_ntoa (new->data->id), 
                    lsa);
-      ospf_lsa_flush (ospf, lsa);
+      ospf_lsa_maxage (ospf, lsa);
     }
 
   return new;
