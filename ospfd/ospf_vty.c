@@ -1742,12 +1742,11 @@ DEFUN (no_ospf_area_default_cost,
   struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
-  u_int32_t cost;
   int format;
   struct prefix_ipv4 p;
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("default-cost", area_id, format, argv[0]);
-  VTY_GET_INTEGER_RANGE ("stub default cost", cost, argv[1], 0, 16777215);
+  VTY_CHECK_INTEGER_RANGE ("stub default cost", argv[1], 0, OSPF_LS_INFINITY);
 
   area = ospf_area_lookup_by_area_id (ospf, area_id);
   if (area == NULL)
@@ -1933,7 +1932,6 @@ DEFUN (no_ospf_area_filter_list,
   struct ospf *ospf = vty->index;
   struct ospf_area *area;
   struct in_addr area_id;
-  struct prefix_list *plist;
   int format;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[0]);
@@ -1941,7 +1939,6 @@ DEFUN (no_ospf_area_filter_list,
   if ((area = ospf_area_lookup_by_area_id (ospf, area_id)) == NULL)
     return CMD_SUCCESS;
   
-  plist = prefix_list_lookup (AFI_IP, argv[1]);
   if (strncmp (argv[2], "in", 2) == 0)
     {
       if (PREFIX_NAME_IN (area))
@@ -2322,7 +2319,7 @@ DEFUN (ospf_neighbor,
   if (argc > 1)
     ospf_nbr_nbma_priority_set (ospf, nbr_addr, priority);
   if (argc > 2)
-    ospf_nbr_nbma_poll_interval_set (ospf, nbr_addr, priority);
+    ospf_nbr_nbma_poll_interval_set (ospf, nbr_addr, interval);
 
   return CMD_SUCCESS;
 }
@@ -2394,11 +2391,10 @@ DEFUN (no_ospf_neighbor,
 {
   struct ospf *ospf = vty->index;
   struct in_addr nbr_addr;
-  int ret;
 
   VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[0]);
 
-  ret = ospf_nbr_nbma_unset (ospf, nbr_addr);
+  (void)ospf_nbr_nbma_unset (ospf, nbr_addr);
 
   return CMD_SUCCESS;
 }
@@ -4035,21 +4031,26 @@ show_ip_ospf_database_summary (struct vty *vty, struct ospf *ospf, int self)
 static void
 show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
 {
-  struct listnode *node;
+  struct route_node *rn;
   struct ospf_lsa *lsa;
 
   vty_out (vty, "%s                MaxAge Link States:%s%s",
            VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
 
-  for (ALL_LIST_ELEMENTS_RO (ospf->maxage_lsa, node, lsa))
+  for (rn = route_top (ospf->maxage_lsa); rn; rn = route_next (rn))
     {
-      vty_out (vty, "Link type: %d%s", lsa->data->type, VTY_NEWLINE);
-      vty_out (vty, "Link State ID: %s%s",
-               inet_ntoa (lsa->data->id), VTY_NEWLINE);
-      vty_out (vty, "Advertising Router: %s%s",
-               inet_ntoa (lsa->data->adv_router), VTY_NEWLINE);
-      vty_out (vty, "LSA lock count: %d%s", lsa->lock, VTY_NEWLINE);
-      vty_out (vty, "%s", VTY_NEWLINE);
+      struct ospf_lsa *lsa;
+
+      if ((lsa = rn->info) != NULL)
+	{
+	  vty_out (vty, "Link type: %d%s", lsa->data->type, VTY_NEWLINE);
+	  vty_out (vty, "Link State ID: %s%s",
+		   inet_ntoa (lsa->data->id), VTY_NEWLINE);
+	  vty_out (vty, "Advertising Router: %s%s",
+		   inet_ntoa (lsa->data->adv_router), VTY_NEWLINE);
+	  vty_out (vty, "LSA lock count: %d%s", lsa->lock, VTY_NEWLINE);
+	  vty_out (vty, "%s", VTY_NEWLINE);
+	}
     }
 }
 
@@ -5403,7 +5404,7 @@ DEFUN (ip_ospf_priority,
        "Address of interface")
 {
   struct interface *ifp = vty->index;
-  u_int32_t priority;
+  long priority;
   struct route_node *rn;
   struct in_addr addr;
   int ret;
@@ -6037,7 +6038,7 @@ DEFUN (ospf_distribute_list_out,
   int source;
 
   /* Get distribute source. */
-  source = proto_redistnum(AFI_IP, argv[0]);
+  source = proto_redistnum(AFI_IP, argv[1]);
   if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
@@ -6056,7 +6057,7 @@ DEFUN (no_ospf_distribute_list_out,
   struct ospf *ospf = vty->index;
   int source;
 
-  source = proto_redistnum(AFI_IP, argv[0]);
+  source = proto_redistnum(AFI_IP, argv[1]);
   if (source < 0 || source == ZEBRA_ROUTE_OSPF)
     return CMD_WARNING;
 
@@ -7020,6 +7021,10 @@ DEFUN (ospf_max_metric_router_lsa_admin,
       if (!CHECK_FLAG (area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED))
           ospf_router_lsa_update_area (area);
     }
+
+  /* Allows for areas configured later to get the property */
+  ospf->stub_router_admin_set = OSPF_STUB_ROUTER_ADMINISTRATIVE_SET;
+
   return CMD_SUCCESS;
 }
 
@@ -7047,6 +7052,7 @@ DEFUN (no_ospf_max_metric_router_lsa_admin,
           ospf_router_lsa_update_area (area);
         }
     }
+  ospf->stub_router_admin_set = OSPF_STUB_ROUTER_ADMINISTRATIVE_UNSET;
   return CMD_SUCCESS;
 }
 

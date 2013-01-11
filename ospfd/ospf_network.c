@@ -228,7 +228,7 @@ ospf_sock_init (void)
 }
 
 void
-ospf_adjust_sndbuflen (struct ospf * ospf, int buflen)
+ospf_adjust_sndbuflen (struct ospf * ospf, unsigned int buflen)
 {
   int ret, newbuflen;
   /* Check if any work has to be done at all. */
@@ -249,11 +249,11 @@ ospf_adjust_sndbuflen (struct ospf * ospf, int buflen)
    */
   ret = setsockopt_so_sendbuf (ospf->fd, buflen);
   newbuflen = getsockopt_so_sendbuf (ospf->fd);
-  if (ret < 0 || newbuflen < buflen)
-    zlog_warn ("%s: tried to set SO_SNDBUF to %d, but got %d",
+  if (ret < 0 || newbuflen < 0 || newbuflen < (int) buflen)
+    zlog_warn ("%s: tried to set SO_SNDBUF to %u, but got %d",
       __func__, buflen, newbuflen);
   if (newbuflen >= 0)
-    ospf->maxsndbuflen = newbuflen;
+    ospf->maxsndbuflen = (unsigned int)newbuflen;
   else
     zlog_warn ("%s: failed to get SO_SNDBUF", __func__);
   if (ospfd_privs.change (ZPRIVS_LOWER))

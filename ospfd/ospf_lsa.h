@@ -243,6 +243,7 @@ extern int tv_cmp (struct timeval, struct timeval);
 
 extern int get_age (struct ospf_lsa *);
 extern u_int16_t ospf_lsa_checksum (struct lsa_header *);
+extern int ospf_lsa_checksum_valid (struct lsa_header *);
 extern int ospf_lsa_refresh_delay (struct ospf_lsa *);
 
 extern const char *dump_lsa_key (struct ospf_lsa *);

@@ -72,13 +72,10 @@ ospf_inactivity_timer (struct thread *thread)
 static int
 ospf_db_desc_timer (struct thread *thread)
 {
-  struct ospf_interface *oi;
   struct ospf_neighbor *nbr;
 
   nbr = THREAD_ARG (thread);
   nbr->t_db_desc = NULL;
-
-  oi = nbr->oi;
 
   if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
     zlog (NULL, LOG_DEBUG, "NSM[%s:%s]: Timer (DD Retransmit timer expire)",
@@ -643,7 +640,7 @@ nsm_notice_state_change (struct ospf_neighbor *nbr, int next_state, int event)
 #endif
 }
 
-void
+static void
 nsm_change_state (struct ospf_neighbor *nbr, int state)
 {
   struct ospf_interface *oi = nbr->oi;
@@ -787,11 +784,9 @@ ospf_nsm_event (struct thread *thread)
   int event;
   int next_state;
   struct ospf_neighbor *nbr;
-  struct in_addr router_id;
 
   nbr = THREAD_ARG (thread);
   event = THREAD_VAL (thread);
-  router_id = nbr->router_id;
 
   if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
     zlog_debug ("NSM[%s:%s]: %s (%s)", IF_NAME (nbr->oi),

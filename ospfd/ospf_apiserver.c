@@ -299,13 +299,10 @@ void
 ospf_apiserver_event (enum event event, int fd,
 		      struct ospf_apiserver *apiserv)
 {
-  struct thread *apiserver_serv_thread;
-
   switch (event)
     {
     case OSPF_APISERVER_ACCEPT:
-      apiserver_serv_thread =
-	thread_add_read (master, ospf_apiserver_accept, apiserv, fd);
+      (void)thread_add_read (master, ospf_apiserver_accept, apiserv, fd);
       break;
     case OSPF_APISERVER_SYNC_READ:
       apiserv->t_sync_read =

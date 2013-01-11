@@ -72,13 +72,16 @@ ospf_lsdb_cleanup (struct ospf_lsdb *lsdb)
     route_table_finish (lsdb->type[i].db);
 }
 
-static void
-lsdb_prefix_set (struct prefix_ls *lp, struct ospf_lsa *lsa)
+void
+ls_prefix_set (struct prefix_ls *lp, struct ospf_lsa *lsa)
 {
-  lp->family = 0;
-  lp->prefixlen = 64;
-  lp->id = lsa->data->id;
-  lp->adv_router = lsa->data->adv_router;
+  if (lp && lsa && lsa->data)
+    {
+      lp->family = 0;
+      lp->prefixlen = 64;
+      lp->id = lsa->data->id;
+      lp->adv_router = lsa->data->adv_router;
+    }
 }
 
 static void
@@ -115,7 +118,7 @@ ospf_lsdb_add (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
   struct route_node *rn;
 
   table = lsdb->type[lsa->data->type].db;
-  lsdb_prefix_set (&lp, lsa);
+  ls_prefix_set (&lp, lsa);
   rn = route_node_get (table, (struct prefix *)&lp);
   
   /* nothing to do? */
@@ -167,7 +170,7 @@ ospf_lsdb_delete (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
   
   assert (lsa->data->type < OSPF_MAX_LSA);
   table = lsdb->type[lsa->data->type].db;
-  lsdb_prefix_set (&lp, lsa);
+  ls_prefix_set (&lp, lsa);
   if ((rn = route_node_lookup (table, (struct prefix *) &lp)))
     {
       if (rn->info == lsa)
@@ -218,7 +221,7 @@ ospf_lsdb_lookup (struct ospf_lsdb *lsdb, struct ospf_lsa *lsa)
   struct ospf_lsa *find;
 
   table = lsdb->type[lsa->data->type].db;
-  lsdb_prefix_set (&lp, lsa);
+  ls_prefix_set (&lp, lsa);
   rn = route_node_lookup (table, (struct prefix *) &lp);
   if (rn)
     {

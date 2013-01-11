@@ -223,9 +223,15 @@ ospf_opaque_type_name (u_char opaque_type)
     default:
       if (OPAQUE_TYPE_RANGE_UNASSIGNED (opaque_type))
         name = "Unassigned";
-      /* XXX warning: comparison is always true due to limited range of data type */
-      else if (OPAQUE_TYPE_RANGE_RESERVED (opaque_type))
-        name = "Private/Experimental";
+      else
+        {
+          u_int32_t bigger_range = opaque_type;
+          /*
+           * Get around type-limits warning: comparison is always true due to limited range of data type
+           */
+          if (OPAQUE_TYPE_RANGE_RESERVED (bigger_range))
+            name = "Private/Experimental";
+        }
       break;
     }
   return name;

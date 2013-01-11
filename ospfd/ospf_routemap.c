@@ -443,12 +443,16 @@ static void *
 route_set_metric_compile (const char *arg)
 {
   u_int32_t *metric;
+  int32_t ret;
 
   metric = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
-  *metric = atoi (arg);
+  ret = atoi (arg);
 
-  if (*metric >= 0)
-    return metric;
+  if (ret >= 0)
+    {
+      *metric = (u_int32_t)ret;
+      return metric;
+    }
 
   XFREE (MTYPE_ROUTE_MAP_COMPILED, metric);
   return NULL;

@@ -1761,7 +1761,11 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
         ospf_lsa_discard (L); \
 	continue; }
 
-  /* Process each LSA received in the one packet. */
+  /* Process each LSA received in the one packet.
+   *
+   * Numbers in parentheses, e.g. (1), (2), etc., and the corresponding
+   * text below are from the steps in RFC 2328, Section 13.
+   */
   for (ALL_LIST_ELEMENTS (lsas, node, nnode, lsa))
     {
       struct ospf_lsa *ls_ret, *current;
@@ -1785,11 +1789,11 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 
       listnode_delete (lsas, lsa); /* We don't need it in list anymore */
 
-      /* Validate Checksum - Done above by ospf_ls_upd_list_lsa() */
+      /* (1) Validate Checksum - Done above by ospf_ls_upd_list_lsa() */
 
-      /* LSA Type  - Done above by ospf_ls_upd_list_lsa() */
+      /* (2) LSA Type  - Done above by ospf_ls_upd_list_lsa() */
    
-      /* Do not take in AS External LSAs if we are a stub or NSSA. */
+      /* (3) Do not take in AS External LSAs if we are a stub or NSSA. */
 
       /* Do not take in AS NSSA if this neighbor and we are not NSSA */
 
@@ -1821,21 +1825,24 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 
       current = ospf_lsa_lookup_by_header (oi->area, lsa->data);
 
-      /* If the LSA's LS age is equal to MaxAge, and there is currently
+      /* (4) If the LSA's LS age is equal to MaxAge, and there is currently
 	 no instance of the LSA in the router's link state database,
 	 and none of router's neighbors are in states Exchange or Loading,
-	 then take the following actions. */
+	 then take the following actions: */
 
       if (IS_LSA_MAXAGE (lsa) && !current &&
 	  (ospf_nbr_count (oi, NSM_Exchange) +
 	   ospf_nbr_count (oi, NSM_Loading)) == 0)
 	{
-	  /* Response Link State Acknowledgment. */
+	  /* (4a) Response Link State Acknowledgment. */
 	  ospf_ls_ack_send (nbr, lsa);
 
-	  /* Discard LSA. */	  
-	  zlog_info ("Link State Update[%s]: LS age is equal to MaxAge.",
-		     dump_lsa_key(lsa));
+	  /* (4b) Discard LSA. */
+          if (IS_DEBUG_OSPF (lsa, LSA))
+            {
+	       zlog_debug ("Link State Update[%s]: LS age is equal to MaxAge.",
+                           dump_lsa_key(lsa));
+            }
           DISCARD_LSA (lsa, 3);
 	}
 
@@ -1890,7 +1897,7 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 #endif /* HAVE_OPAQUE_LSA */
 
       /* It might be happen that received LSA is self-originated network LSA, but
-       * router ID is cahnged. So, we should check if LSA is a network-LSA whose
+       * router ID is changed. So, we should check if LSA is a network-LSA whose
        * Link State ID is one of the router's own IP interface addresses but whose
        * Advertising Router is not equal to the router's own Router ID
        * According to RFC 2328 12.4.2 and 13.4 this LSA should be flushed.
@@ -1929,7 +1936,9 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
       /* (5) Find the instance of this LSA that is currently contained
 	 in the router's link state database.  If there is no
 	 database copy, or the received LSA is more recent than
-	 the database copy the following steps must be performed. */
+	 the database copy the following steps must be performed.
+         (The sub steps from RFC 2328 section 13 step (5) will be performed in
+         ospf_flood() ) */
 
       if (current == NULL ||
 	  (ret = ospf_lsa_more_recent (current, lsa)) < 0)

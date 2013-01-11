@@ -182,7 +182,8 @@ ospf_new (void)
   
   new->stub_router_startup_time = OSPF_STUB_ROUTER_UNCONFIGURED;
   new->stub_router_shutdown_time = OSPF_STUB_ROUTER_UNCONFIGURED;
-  
+  new->stub_router_admin_set     = OSPF_STUB_ROUTER_ADMINISTRATIVE_UNSET;
+
   /* Distribute parameter init. */
   for (i = 0; i <= ZEBRA_ROUTE_MAX; i++)
     {
@@ -200,7 +201,7 @@ ospf_new (void)
 
   /* MaxAge init. */
   new->maxage_delay = OSFP_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
-  new->maxage_lsa = list_new ();
+  new->maxage_lsa = route_table_init();
   new->t_maxage_walker =
     thread_add_timer (master, ospf_lsa_maxage_walker,
                       new, OSPF_LSA_MAXAGE_CHECK_INTERVAL);
@@ -222,7 +223,7 @@ ospf_new (void)
     }
   new->maxsndbuflen = getsockopt_so_sendbuf (new->fd);
   if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-    zlog_debug ("%s: starting with OSPF send buffer size %d",
+    zlog_debug ("%s: starting with OSPF send buffer size %u",
       __func__, new->maxsndbuflen);
   if ((new->ibuf = stream_new(OSPF_MAX_PACKET_SIZE+1)) == NULL)
     {
@@ -501,10 +502,18 @@ ospf_finish_final (struct ospf *ospf)
   ospf_lsdb_delete_all (ospf->lsdb);
   ospf_lsdb_free (ospf->lsdb);
 
-  for (ALL_LIST_ELEMENTS (ospf->maxage_lsa, node, nnode, lsa))
-    ospf_lsa_unlock (&lsa); /* maxage_lsa */
+  for (rn = route_top (ospf->maxage_lsa); rn; rn = route_next (rn))
+    {
+      struct ospf_lsa *lsa;
 
-  list_delete (ospf->maxage_lsa);
+      if ((lsa = rn->info) != NULL)
+	{
+	  ospf_lsa_unlock (&lsa);
+	  rn->info = NULL;
+	}
+      route_unlock_node (rn);
+    }
+  route_table_finish (ospf->maxage_lsa);
 
   if (ospf->old_table)
     ospf_route_table_free (ospf->old_table);
@@ -676,6 +685,10 @@ ospf_area_get (struct ospf *ospf, struct in_addr area_id, int format)
       area->format = format;
       listnode_add_sort (ospf->areas, area);
       ospf_check_abr_status (ospf);  
+      if (ospf->stub_router_admin_set == OSPF_STUB_ROUTER_ADMINISTRATIVE_SET)
+        {
+          SET_FLAG (area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED);
+        }
     }
 
   return area;

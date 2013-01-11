@@ -1340,12 +1340,8 @@ static void
 ospf_summary_asbr_lsa_body_set (struct stream *s, struct prefix *p,
 				u_int32_t metric)
 {
-  struct in_addr mask;
-
-  masklen2ip (p->prefixlen, &mask);
-
   /* Put Network Mask. */
-  stream_put_ipv4 (s, mask.s_addr);
+  stream_put_ipv4 (s, (u_int32_t) 0);
 
   /* Set # TOS. */
   stream_putc (s, (u_char) 0);
@@ -2737,7 +2733,9 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
       if (IS_LSA_SELF (lsa))
 	lsa->oi = oi; /* Specify outgoing ospf-interface for this LSA. */
       else
-	; /* Incoming "oi" for this LSA has set at LSUpd reception. */
+        {
+          /* Incoming "oi" for this LSA has set at LSUpd reception. */
+        }
       /* Fallthrough */
     case OSPF_OPAQUE_AREA_LSA:
     case OSPF_OPAQUE_AS_LSA:
@@ -2782,15 +2780,14 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
      If received LSA' ls_age is MaxAge, or lsa is being prematurely aged
      (it's getting flushed out of the area), set LSA on MaxAge LSA list. 
    */
-  if ((lsa->flags & OSPF_LSA_PREMATURE_AGE) ||
-      (IS_LSA_MAXAGE (new) && !IS_LSA_SELF (new)))
+  if (IS_LSA_MAXAGE (new))
     {
       if (IS_DEBUG_OSPF (lsa, LSA_INSTALL))
         zlog_debug ("LSA[Type%d:%s]: Install LSA 0x%p, MaxAge",
                    new->data->type, 
                    inet_ntoa (new->data->id), 
                    lsa);
-      ospf_lsa_flush (ospf, lsa);
+      ospf_lsa_maxage (ospf, lsa);
     }
 
   return new;
@@ -2828,7 +2825,7 @@ ospf_maxage_lsa_remover (struct thread *thread)
 {
   struct ospf *ospf = THREAD_ARG (thread);
   struct ospf_lsa *lsa;
-  struct listnode *node, *nnode;
+  struct route_node *rn;
   int reschedule = 0;
 
   ospf->t_maxage = NULL;
@@ -2839,8 +2836,13 @@ ospf_maxage_lsa_remover (struct thread *thread)
   reschedule = !ospf_check_nbr_status (ospf);
 
   if (!reschedule)
-    for (ALL_LIST_ELEMENTS (ospf->maxage_lsa, node, nnode, lsa))
+    for (rn = route_top(ospf->maxage_lsa); rn; rn = route_next(rn))
       {
+	if ((lsa = rn->info) == NULL)
+	  {
+	    continue;
+	  }
+
         if (lsa->retransmit_counter > 0)
           {
             reschedule = 1;
@@ -2893,13 +2895,22 @@ ospf_maxage_lsa_remover (struct thread *thread)
 void
 ospf_lsa_maxage_delete (struct ospf *ospf, struct ospf_lsa *lsa)
 {
-  struct listnode *n;
+  struct route_node *rn;
+  struct prefix_ls lsa_prefix;
 
-  if ((n = listnode_lookup (ospf->maxage_lsa, lsa)))
+  ls_prefix_set (&lsa_prefix, lsa);
+
+  if ((rn = route_node_lookup(ospf->maxage_lsa,
+			      (struct prefix *)&lsa_prefix)))
     {
-      list_delete_node (ospf->maxage_lsa, n);
-      UNSET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
-      ospf_lsa_unlock (&lsa); /* maxage_lsa */
+      if (rn->info == lsa)
+	{
+	  UNSET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
+	  ospf_lsa_unlock (&lsa); /* maxage_lsa */
+	  rn->info = NULL;
+	  route_unlock_node (rn); /* route_node_lookup */
+	}
+	  route_unlock_node (rn); /* route_node_lookup */
     }
 }
 
@@ -2911,6 +2922,9 @@ ospf_lsa_maxage_delete (struct ospf *ospf, struct ospf_lsa *lsa)
 void
 ospf_lsa_maxage (struct ospf *ospf, struct ospf_lsa *lsa)
 {
+  struct prefix_ls lsa_prefix;
+  struct route_node *rn;
+
   /* When we saw a MaxAge LSA flooded to us, we put it on the list
      and schedule the MaxAge LSA remover. */
   if (CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE))
@@ -2921,8 +2935,25 @@ ospf_lsa_maxage (struct ospf *ospf, struct ospf_lsa *lsa)
       return;
     }
 
-  listnode_add (ospf->maxage_lsa, ospf_lsa_lock (lsa));
-  SET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
+  ls_prefix_set (&lsa_prefix, lsa);
+  if ((rn = route_node_get (ospf->maxage_lsa,
+			    (struct prefix *)&lsa_prefix)) != NULL)
+    {
+      if (rn->info != NULL)
+	{
+	  route_unlock_node (rn);
+	}
+      else
+	{
+	  rn->info = ospf_lsa_lock(lsa);
+	  SET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
+	}
+    }
+  else
+    {
+      zlog_err("Unable to allocate memory for maxage lsa\n");
+      assert(0);
+    }
 
   if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
     zlog_debug ("LSA[%s]: MaxAge LSA remover scheduled.", dump_lsa_key (lsa));

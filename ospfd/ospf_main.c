@@ -191,6 +191,11 @@ main (int argc, char **argv)
   /* Set umask before anything for security */
   umask (0027);
 
+#ifdef SUPPORT_OSPF_API
+  /* OSPF apiserver is disabled by default. */
+  ospf_apiserver_enable = 0;
+#endif /* SUPPORT_OSPF_API */
+
   /* get program name */
   progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
 
@@ -274,11 +279,6 @@ main (int argc, char **argv)
 
   /* OSPF master init. */
   ospf_master_init ();
-
-#ifdef SUPPORT_OSPF_API
-  /* OSPF apiserver is disabled by default. */
-  ospf_apiserver_enable = 0;
-#endif /* SUPPORT_OSPF_API */
 
   /* Initializations. */
   master = om->master;
