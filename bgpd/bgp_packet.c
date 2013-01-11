@@ -677,7 +677,8 @@ bgp_write (struct thread *thread)
 
 	  /* Flush any existing events */
 	  BGP_EVENT_ADD (peer, BGP_Stop);
-	  return 0;
+	  goto done;
+
 	case BGP_MSG_KEEPALIVE:
 	  peer->keepalive_out++;
 	  break;
@@ -698,9 +699,9 @@ bgp_write (struct thread *thread)
   
   if (bgp_write_proceed (peer))
     BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
-  else
-    sockopt_cork (peer->fd, 0);
-  
+
+ done:
+  sockopt_cork (peer->fd, 0);
   return 0;
 }
 
