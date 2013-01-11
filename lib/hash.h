@@ -22,7 +22,8 @@ Boston, MA 02111-1307, USA.  */
 #define _ZEBRA_HASH_H
 
 /* Default hash table size.  */ 
-#define HASHTABSIZE     1024
+#define HASH_INITIAL_SIZE     256	/* initial number of backets. */
+#define HASH_THRESHOLD	      10	/* expand when backet. */
 
 struct hash_backet
 {
@@ -43,6 +44,9 @@ struct hash
 
   /* Hash table size. Must be power of 2 */
   unsigned int size;
+
+  /* If expansion failed. */
+  int no_expand;
 
   /* Key make function. */
   unsigned int (*hash_key) (void *);

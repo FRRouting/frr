@@ -48,7 +48,7 @@ struct hash *
 hash_create (unsigned int (*hash_key) (void *), 
              int (*hash_cmp) (const void *, const void *))
 {
-  return hash_create_size (HASHTABSIZE, hash_key, hash_cmp);
+  return hash_create_size (HASH_INITIAL_SIZE, hash_key, hash_cmp);
 }
 
 /* Utility function for hash_get().  When this function is specified
@@ -60,6 +60,52 @@ hash_alloc_intern (void *arg)
   return arg;
 }
 
+/* Expand hash if the chain length exceeds the threshold. */
+static void hash_expand (struct hash *hash)
+{
+  unsigned int i, new_size, losers;
+  struct hash_backet *hb, *hbnext, **new_index;
+
+  new_size = hash->size * 2;
+  new_index = XCALLOC(MTYPE_HASH_INDEX, sizeof(struct hash_backet *) * new_size);
+  if (new_index == NULL)
+    return;
+
+  for (i = 0; i < hash->size; i++)
+    for (hb = hash->index[i]; hb; hb = hbnext)
+      {
+	unsigned int h = hb->key & (new_size - 1);
+
+	hbnext = hb->next;
+	hb->next = new_index[h];
+	new_index[h] = hb;
+      }
+
+  /* Switch to new table */
+  XFREE(MTYPE_HASH_INDEX, hash->index);
+  hash->size = new_size;
+  hash->index = new_index;
+
+  /* Ideally, new index should have chains half as long as the original.
+     If expansion didn't help, then not worth expanding again,
+     the problem is the hash function. */
+  losers = 0;
+  for (i = 0; i < hash->size; i++)
+    {
+      unsigned int len = 0;
+      for (hb = hash->index[i]; hb; hb = hb->next)
+	{
+	  if (++len > HASH_THRESHOLD/2)
+	    ++losers;
+	  if (len >= HASH_THRESHOLD)
+	    hash->no_expand = 1;
+	}
+    }
+
+  if (losers > hash->count / 2)
+    hash->no_expand = 1;
+}
+
 /* Lookup and return hash backet in hash.  If there is no
    corresponding hash backet and alloc_func is specified, create new
    hash backet.  */
@@ -69,20 +115,31 @@ hash_get (struct hash *hash, void *data, void * (*alloc_func) (void *))
   unsigned int key;
   unsigned int index;
   void *newdata;
+  unsigned int len;
   struct hash_backet *backet;
 
   key = (*hash->hash_key) (data);
   index = key & (hash->size - 1);
+  len = 0;
 
-  for (backet = hash->index[index]; backet != NULL; backet = backet->next) 
-    if (backet->key == key && (*hash->hash_cmp) (backet->data, data))
-      return backet->data;
+  for (backet = hash->index[index]; backet != NULL; backet = backet->next)
+    {
+      if (backet->key == key && (*hash->hash_cmp) (backet->data, data))
+	return backet->data;
+      ++len;
+    }
 
   if (alloc_func)
     {
       newdata = (*alloc_func) (data);
       if (newdata == NULL)
 	return NULL;
+
+      if (len > HASH_THRESHOLD && !hash->no_expand)
+	{
+	  hash_expand (hash);
+	  index = key & (hash->size - 1);
+	}
 
       backet = XMALLOC (MTYPE_HASH_BACKET, sizeof (struct hash_backet));
       backet->data = newdata;
