@@ -472,6 +472,9 @@ m4_define([QUAGGA_INCLUDES],
 #if HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
 #endif
+#ifdef __APPLE__
+# define __APPLE_USE_RFC_3542
+#endif
 #if HAVE_NETINET_IN_H
 # include <netinet/in.h>
 #endif

@@ -142,6 +142,10 @@ typedef int socklen_t;
 #include <sys/sockio.h>
 #endif /* HAVE_SYS_SOCKIO_H */
 
+#ifdef __APPLE__
+#define __APPLE_USE_RFC_3542
+#endif
+
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif /* HAVE_NETINET_IN_H */
