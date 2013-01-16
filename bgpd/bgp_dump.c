@@ -95,7 +95,6 @@ static FILE *
 bgp_dump_open_file (struct bgp_dump *bgp_dump)
 {
   int ret;
-  int fd;
   time_t clock;
   struct tm *tm;
   char fullpath[MAXPATHLEN];
@@ -132,16 +131,6 @@ bgp_dump_open_file (struct bgp_dump *bgp_dump)
       umask(oldumask);
       return NULL;
     }
-  else
-    {
-      fd = fileno(bgp_dump->fp);
-      ret = flock( fd, LOCK_EX );
-      if (ret != 0)
-	{
-	  zlog_warn ("bgp_dump_open_file: Unable to flock() file %s: %s", realpath, strerror (errno));
-	}
-    }
-
   umask(oldumask);  
 
   return bgp_dump->fp;
@@ -206,7 +195,6 @@ bgp_dump_set_size (struct stream *s, int type)
 static void
 bgp_dump_routes_index_table(struct bgp *bgp)
 {
-  int ret;
   struct peer *peer;
   struct listnode *node;
   uint16_t peerno = 0;
@@ -278,11 +266,7 @@ bgp_dump_routes_index_table(struct bgp *bgp)
 
   bgp_dump_set_size(obuf, MSG_TABLE_DUMP_V2);
 
-  ret = fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump_routes.fp);
-  if (ret != 1)
-    {
-      zlog_warn ("bgp_dump_routes_index_table: fwrite returned %d, expected 1: %s", ret, strerror (errno));
-    }
+  fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump_routes.fp);
   fflush (bgp_dump_routes.fp);
 }
 
@@ -291,7 +275,6 @@ bgp_dump_routes_index_table(struct bgp *bgp)
 static unsigned int
 bgp_dump_routes_func (int afi, int first_run, unsigned int seq)
 {
-  int ret;
   struct stream *obuf;
   struct bgp_info *info;
   struct bgp_node *rn;
@@ -390,11 +373,8 @@ bgp_dump_routes_func (int afi, int first_run, unsigned int seq)
       seq++;
 
       bgp_dump_set_size(obuf, MSG_TABLE_DUMP_V2);
-      ret = fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump_routes.fp);
-      if (ret != 1)
-        {
-          zlog_warn ("bgp_dump_routes_func: fwrite returned %d, expected 1: %s", ret, strerror (errno));
-        }
+      fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump_routes.fp);
+
     }
 
   fflush (bgp_dump_routes.fp);
@@ -484,7 +464,6 @@ bgp_dump_common (struct stream *obuf, struct peer *peer, int forceas4)
 void
 bgp_dump_state (struct peer *peer, int status_old, int status_new)
 {
-  int ret;
   struct stream *obuf;
 
   /* If dump file pointer is disabled return immediately. */
@@ -505,11 +484,7 @@ bgp_dump_state (struct peer *peer, int status_old, int status_new)
   bgp_dump_set_size (obuf, MSG_PROTOCOL_BGP4MP);
 
   /* Write to the stream. */
-  ret = fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump_all.fp);
-  if (ret != 1)
-    {
-      zlog_warn ("bgp_dump_state: fwrite returned %d, expected 1: %s", ret, strerror (errno));
-    }
+  fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump_all.fp);
   fflush (bgp_dump_all.fp);
 }
 
@@ -517,7 +492,6 @@ static void
 bgp_dump_packet_func (struct bgp_dump *bgp_dump, struct peer *peer,
 		      struct stream *packet)
 {
-  int ret;
   struct stream *obuf;
 
   /* If dump file pointer is disabled return immediately. */
@@ -546,11 +520,7 @@ bgp_dump_packet_func (struct bgp_dump *bgp_dump, struct peer *peer,
   bgp_dump_set_size (obuf, MSG_PROTOCOL_BGP4MP);
 
   /* Write to the stream. */
-  ret = fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump->fp);
-  if (ret != 1)
-    {
-      zlog_warn ("bgp_dump_packet_func: fwrite returned %d, expected 1: %s", ret, strerror (errno));
-    }
+  fwrite (STREAM_DATA (obuf), stream_get_endp (obuf), 1, bgp_dump->fp);
   fflush (bgp_dump->fp);
 }
 
