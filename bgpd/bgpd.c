@@ -1457,13 +1457,8 @@ peer_group2peer_config_copy (struct peer_group *group, struct peer *peer,
     peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
 
   /* password apply */
-  if (peer->password)
-    XFREE (MTYPE_PEER_PASSWORD, peer->password);
-
-  if (conf->password)
+  if (conf->password && !peer->password)
     peer->password =  XSTRDUP (MTYPE_PEER_PASSWORD, conf->password);
-  else
-    peer->password = NULL;
 
   bgp_md5_set (peer);
 
