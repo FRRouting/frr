@@ -4,7 +4,7 @@
 
   @uref{http://www.quagga.net,,Quagga} is a routing software package that
 provides TCP/IP based routing services with routing protocols support such
-as RIPv1, RIPv2, RIPng, OSPFv2, OSPFv3, BGP-4, and BGP-4+ (@pxref{Supported
+as RIPv1, RIPv2, RIPng, OSPFv2, OSPFv3, IS-IS, BGP-4, and BGP-4+ (@pxref{Supported
 RFCs}). Quagga also supports special BGP Route Reflector and Route Server
 behavior.  In addition to traditional IPv4 routing protocols, Quagga also
 supports IPv6 routing protocols.  With SNMP daemon which supports SMUX and AgentX
@@ -52,7 +52,7 @@ software is very easy.  The only thing you have to do is to set up the
 interfaces and put a few commands about static routes and/or default routes. 
 If the network is rather large, or if the network structure changes
 frequently, you will want to take advantage of Quagga's dynamic routing
-protocol support for protocols such as RIP, OSPF or BGP.
+protocol support for protocols such as RIP, OSPF, IS-IS or BGP.
 
   Traditionally, UNIX based router configuration is done by
 @command{ifconfig} and @command{route} commands.  Status of routing
@@ -63,12 +63,13 @@ mode, the other is enable mode.  Normal mode user can only view system
 status, enable mode user can change system configuration.  This UNIX account
 independent feature will be great help to the router administrator.
 
-  Currently, Quagga supports common unicast routing protocols.  Multicast
-routing protocols such as BGMP, PIM-SM, PIM-DM may be supported in Quagga
-2.0.  MPLS support is going on.  In the future, TCP/IP filtering control,
-QoS control, diffserv configuration will be added to Quagga. Quagga
-project's final goal is making a productive, quality, free TCP/IP routing
-software.
+  Currently, Quagga supports common unicast routing protocols, that is BGP,
+OSPF, RIP and IS-IS.  Upcoming for MPLS support, an implementation of LDP is
+currently being prepared for merging.  Implementations of BFD and PIM-SSM
+(IPv4) also exist, but are not actively being worked on.
+
+  The ultimate goal of the Quagga project is making a productive, quality, free
+TCP/IP routing software package.
 
 @node System Architecture
 @comment  node-name,  next,  previous,  up
@@ -139,7 +140,7 @@ events.
 @cindex Compatibility with other systems
 @cindex Operating systems that support Quagga
 
-Currently Quagga supports @sc{gnu}/Linux, BSD and Solaris. Porting Quagga
+Currently Quagga supports @sc{gnu}/Linux and BSD. Porting Quagga
 to other platforms is not too difficult as platform dependent code should
 most be limited to the @command{zebra} daemon.  Protocol daemons are mostly
 platform independent. Please let us know when you find out Quagga runs on a
@@ -152,15 +153,40 @@ functionality on further platforms.
 @sp 1
 @itemize @bullet
 @item
-@sc{gnu}/Linux 2.4.x and higher
+@sc{gnu}/Linux
 @item
-FreeBSD 4.x and higher
+FreeBSD
 @item
-NetBSD 1.6 and higher
+NetBSD
 @item
-OpenBSD 2.5 and higher
+OpenBSD
+@end itemize
+
+Versions of these platforms that are older than around 2 years from the point
+of their original release (in case of @sc{gnu}/Linux, this is since the kernel's
+release on kernel.org) may need some work.  Similarly, the following platforms
+may work with some effort:
+
+@sp 1
+@itemize @bullet
 @item
-Solaris 8 and higher
+Solaris
+@item
+Mac OSX
+@end itemize
+
+Also note that, in particular regarding proprietary platforms, compiler
+and C library choice will affect Quagga.  Only recent versions of the
+following C compilers are well-tested:
+
+@sp 1
+@itemize @bullet
+@item
+@sc{gnu}'s GCC
+@item
+LLVM's clang
+@item
+Intel's ICC
 @end itemize
 
 @node Supported RFCs
