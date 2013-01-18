@@ -1,9 +1,21 @@
 Note: this file lists major user-visible changes only.
 
+* Changes in Quagga 0.99.22
+
 - [bgpd] The semantics of default-originate route-map have changed.
   The route-map is now used to advertise the default route conditionally.
   The old behaviour which allowed to set attributes on the originated
   default route is no longer supported.
+- [bgpd] There is now a replace-as option to neighbor ... local-as ...
+  no-prepend.  For details, refer to the user documentation.
+- [zebra] An FPM interface has been added.  This provides an alternate
+  interface to routing information and is geared at OpenFlow & co.
+- [snmp] AgentX is now supported;  the old smux backend is considered
+  deprecated.  ospf6d has also had OSPFV3-MIB added.
+- [*] several issues with configuration save/load/apply have been fixed,
+  in particular on ospf "max-metric router-lsa administrative" and
+  "distribute-list", bgpd "no neighbor activate", isisd "metric-style",
+- [*] a lot of bugs have been fixed, please refer to the git log
 
 * Changes in Quagga 0.99.21
 
