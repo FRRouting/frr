@@ -443,6 +443,7 @@ static struct aspath_tests {
   const int cap;	/* capabilities to set for peer */
   const char attrheader [1024];
   size_t len;
+  const struct test_segment *old_segment;
 } aspath_tests [] =
 {
   /* 0 */
@@ -590,16 +591,30 @@ static struct aspath_tests {
   },
   /* 11 */
   {
-    "4b AS_PATH: confed",
+    "4b AS4_PATH w/o AS_PATH",
     &test_segments[6],
-    "8466 3 52737 4096",
-    AS4_DATA, -1,
+    NULL,
+    AS4_DATA, 0,
     PEER_CAP_AS4_ADV,
     { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
       BGP_ATTR_AS4_PATH, 
       14,
     },
     3,
+  },
+  /* 12 */
+  {
+    "4b AS4_PATH: confed",
+    &test_segments[6],
+    "8466 3 52737 4096 (123 456 789)",
+    AS4_DATA, 0,
+    PEER_CAP_AS4_ADV,
+    { BGP_ATTR_FLAG_TRANS|BGP_ATTR_FLAG_OPTIONAL,
+      BGP_ATTR_AS4_PATH, 
+      14,
+    },
+    3,
+    &test_segments[0],
   },
   { NULL, NULL, NULL, 0, 0, 0, { 0 }, 0 },
 };
@@ -1212,6 +1227,14 @@ handle_attr_test (struct aspath_tests *t)
   
   stream_write (peer.ibuf, t->attrheader, t->len);
   datalen = aspath_put (peer.ibuf, asp, t->as4 == AS4_DATA);
+  if (t->old_segment)
+    {
+      char dummyaspath[] = { BGP_ATTR_FLAG_TRANS, BGP_ATTR_AS_PATH,
+                             t->old_segment->len };
+      stream_write (peer.ibuf, dummyaspath, sizeof (dummyaspath));
+      stream_write (peer.ibuf, t->old_segment->asdata, t->old_segment->len);
+      datalen += sizeof (dummyaspath) + t->old_segment->len;
+    }
   
   ret = bgp_attr_parse (&peer, &attr, t->len + datalen, NULL, NULL);
   
@@ -1224,17 +1247,22 @@ handle_attr_test (struct aspath_tests *t)
   if (ret != 0)
     goto out;
   
-  if (attr.aspath == NULL)
+  if (t->shouldbe && attr.aspath == NULL)
     {
-      printf ("aspath is NULL!\n");
+      printf ("aspath is NULL, but should be: %s\n", t->shouldbe);
       failed++;
     }
-  if (attr.aspath && strcmp (attr.aspath->str, t->shouldbe))
+  if (t->shouldbe && attr.aspath && strcmp (attr.aspath->str, t->shouldbe))
     {
       printf ("attr str and 'shouldbe' mismatched!\n"
               "attr str:  %s\n"
               "shouldbe:  %s\n",
               attr.aspath->str, t->shouldbe);
+      failed++;
+    }
+  if (!t->shouldbe && attr.aspath)
+    {
+      printf ("aspath should be NULL, but is: %s\n", attr.aspath->str);
       failed++;
     }
 
