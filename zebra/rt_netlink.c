@@ -101,6 +101,10 @@ set_ifindex(struct interface *ifp, unsigned int ifi_index)
   ifp->ifindex = ifi_index;
 }
 
+#ifndef SO_RCVBUFFORCE
+#define SO_RCVBUFFORCE  (33)
+#endif
+
 static int
 netlink_recvbuf (struct nlsock *nl, uint32_t newsize)
 {
@@ -117,8 +121,16 @@ netlink_recvbuf (struct nlsock *nl, uint32_t newsize)
       return -1;
     }
 
-  ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &nl_rcvbufsize,
+  /* Try force option (linux >= 2.6.14) and fall back to normal set */
+  if ( zserv_privs.change (ZPRIVS_RAISE) )
+    zlog_err ("routing_socket: Can't raise privileges");
+  ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUFFORCE, &nl_rcvbufsize,
 		   sizeof(nl_rcvbufsize));
+  if ( zserv_privs.change (ZPRIVS_LOWER) )
+    zlog_err ("routing_socket: Can't lower privileges");
+  if (ret < 0)
+     ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &nl_rcvbufsize,
+		      sizeof(nl_rcvbufsize));
   if (ret < 0)
     {
       zlog (NULL, LOG_ERR, "Can't set %s receive buffer size: %s", nl->name,

@@ -80,7 +80,7 @@ handle flood of netlink messages from kernel. If you ever see "recvmsg overrun"
 messages in zebra log, you are in trouble.
 
 Solution is to increase receive buffer of netlink socket. Note that kernel
-doesn't allow to increase it over maximum value defined in
+< 2.6.14 doesn't allow to increase it over maximum value defined in
 \fI/proc/sys/net/core/rmem_max\fR. If you want to do it, you have to increase
 maximum before starting zebra.
 
