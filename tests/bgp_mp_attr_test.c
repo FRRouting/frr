@@ -436,8 +436,8 @@ parse_test (struct peer *peer, struct test_segment *t, int type)
 {
   int ret;
   int oldfailed = failed;
-  struct attr attr;
-  struct bgp_nlri nlri;
+  struct attr attr = { };
+  struct bgp_nlri nlri = { };
   struct bgp_attr_parser_args attr_args = {
     .peer = peer,
     .length = t->len,
