@@ -230,7 +230,7 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
     }
   
   /* validate number field */
-  if (sizeof (struct capability_orf_entry) + (entry.num * 2) != hdr->length)
+  if (sizeof (struct capability_orf_entry) + (entry.num * 2) > hdr->length)
     {
       zlog_info ("%s ORF Capability entry length error,"
                  " Cap length %u, num %u",
