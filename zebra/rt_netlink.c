@@ -381,8 +381,11 @@ netlink_parse_info (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *),
                        lookup (nlmsg_str, h->nlmsg_type), h->nlmsg_type,
                        h->nlmsg_seq, h->nlmsg_pid);
 
-          /* skip unsolicited messages originating from command socket */
-          if (nl != &netlink_cmd && h->nlmsg_pid == netlink_cmd.snl.nl_pid)
+          /* skip unsolicited messages originating from command socket
+           * linux sets the originators port-id for {NEW|DEL}ADDR messages,
+           * so this has to be checked here. */
+          if (nl != &netlink_cmd && h->nlmsg_pid == netlink_cmd.snl.nl_pid
+              && (h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR))
             {
               if (IS_ZEBRA_DEBUG_KERNEL)
                 zlog_debug ("netlink_parse_info: %s packet comes from %s",
