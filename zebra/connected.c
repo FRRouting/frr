@@ -137,14 +137,10 @@ connected_same (struct connected *ifc1, struct connected *ifc2)
   return 1;
 }
 
-/* Handle implicit withdrawals of addresses, where a system ADDs an address
- * to an interface which already has the same address configured.
- *
- * Returns the struct connected which must be announced to clients,
- * or NULL if nothing to do.
- */
-static struct connected *
-connected_implicit_withdraw (struct interface *ifp, struct connected *ifc)
+/* Handle changes to addresses and send the neccesary announcements
+ * to clients. */
+static void
+connected_update(struct interface *ifp, struct connected *ifc)
 {
   struct connected *current;
   
@@ -161,13 +157,17 @@ connected_implicit_withdraw (struct interface *ifp, struct connected *ifc)
         {
           /* nothing to do */
           connected_free (ifc);
-          return NULL;
+          return;
         }
-      
+
+      /* Clear the configured flag on the old ifc, so it will be freed by
+       * connected withdraw. */
       UNSET_FLAG(current->conf, ZEBRA_IFC_CONFIGURED);
       connected_withdraw (current); /* implicit withdraw - freebsd does this */
     }
-  return ifc;
+
+  /* If the connected is new or has changed, announce it */
+  connected_announce(ifp, ifc);
 }
 
 /* Called from if_up(). */
@@ -273,11 +273,7 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
   if (label)
     ifc->label = XSTRDUP (MTYPE_CONNECTED_LABEL, label);
 
-  /* nothing to do? */
-  if ((ifc = connected_implicit_withdraw (ifp, ifc)) == NULL)
-    return;
-  
-  connected_announce (ifp, ifc);
+  connected_update(ifp, ifc);
 }
 
 void
@@ -401,11 +397,8 @@ connected_add_ipv6 (struct interface *ifp, int flags, struct in6_addr *addr,
   /* Label of this address. */
   if (label)
     ifc->label = XSTRDUP (MTYPE_CONNECTED_LABEL, label);
-  
-  if ((ifc = connected_implicit_withdraw (ifp, ifc)) == NULL)
-    return;
-  
-  connected_announce (ifp, ifc);
+
+  connected_update(ifp, ifc);
 }
 
 void
