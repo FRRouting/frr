@@ -37,7 +37,7 @@
 #include "zebra/connected.h"
 extern struct zebra_t zebrad;
 
-/* withdraw a connected address */
+/* communicate the withdrawal of a connected address */
 static void
 connected_withdraw (struct connected *ifc)
 {
@@ -81,24 +81,19 @@ connected_announce (struct interface *ifp, struct connected *ifc)
   listnode_add (ifp->connected, ifc);
 
   /* Update interface address information to protocol daemon. */
-  if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
+  if (ifc->address->family == AF_INET)
+    if_subnet_add (ifp, ifc);
+
+  zebra_interface_address_add_update (ifp, ifc);
+
+  if (if_is_operative(ifp))
     {
       if (ifc->address->family == AF_INET)
-        if_subnet_add (ifp, ifc);
-
-      SET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
-
-      zebra_interface_address_add_update (ifp, ifc);
-
-      if (if_is_operative(ifp))
-        {
-          if (ifc->address->family == AF_INET)
-	    connected_up_ipv4 (ifp, ifc);
+        connected_up_ipv4 (ifp, ifc);
 #ifdef HAVE_IPV6
-          else
-            connected_up_ipv6 (ifp, ifc);
+      else
+        connected_up_ipv6 (ifp, ifc);
 #endif
-        }
     }
 }
 
@@ -116,7 +111,7 @@ connected_check (struct interface *ifp, struct prefix *p)
   return NULL;
 }
 
-/* Check if two ifc's describe the same address */
+/* Check if two ifc's describe the same address in the same state */
 static int
 connected_same (struct connected *ifc1, struct connected *ifc2)
 {
@@ -135,6 +130,9 @@ connected_same (struct connected *ifc1, struct connected *ifc2)
       return 0;
 
   if (ifc1->flags != ifc2->flags)
+    return 0;
+
+  if (ifc1->conf != ifc2->conf)
     return 0;
   
   return 1;
@@ -156,7 +154,7 @@ connected_update(struct interface *ifp, struct connected *ifc)
       /* Avoid spurious withdraws, this might be just the kernel 'reflecting'
        * back an address we have already added.
        */
-      if (connected_same (current, ifc) && CHECK_FLAG(current->conf, ZEBRA_IFC_REAL))
+      if (connected_same (current, ifc))
         {
           /* nothing to do */
           connected_free (ifc);
@@ -169,8 +167,9 @@ connected_update(struct interface *ifp, struct connected *ifc)
       connected_withdraw (current); /* implicit withdraw - freebsd does this */
     }
 
-  /* If the connected is new or has changed, announce it */
-  connected_announce(ifp, ifc);
+  /* If the connected is new or has changed, announce it, if it is usable */
+  if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
+    connected_announce(ifp, ifc);
 }
 
 /* Called from if_up(). */
@@ -278,6 +277,10 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
   /* Label of this address. */
   if (label)
     ifc->label = XSTRDUP (MTYPE_CONNECTED_LABEL, label);
+
+  /* For all that I know an IPv4 address is always ready when we receive
+   * the notification. So it should be safe to set the REAL flag here. */
+  SET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
 
   connected_update(ifp, ifc);
 }
@@ -407,6 +410,14 @@ connected_add_ipv6 (struct interface *ifp, int flags, struct in6_addr *addr,
   if (label)
     ifc->label = XSTRDUP (MTYPE_CONNECTED_LABEL, label);
 
+  /* On Linux, we only get here when DAD is complete, therefore we can set
+   * ZEBRA_IFC_REAL.
+   *
+   * On BSD, there currently doesn't seem to be a way to check for completion of
+   * DAD, so we replicate the old behaviour and set ZEBRA_IFC_REAL, although DAD
+   * might still be running.
+   */
+  SET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
   connected_update(ifp, ifc);
 }
 
