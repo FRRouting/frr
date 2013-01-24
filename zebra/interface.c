@@ -161,11 +161,26 @@ if_subnet_delete (struct interface *ifp, struct connected *ifc)
   /* Get address derived subnet node. */
   rn = route_node_lookup (zebra_if->ipv4_subnets, ifc->address);
   if (! (rn && rn->info))
-    return -1;
+    {
+      zlog_warn("Trying to remove an address from an unknown subnet."
+                " (please report this bug)");
+      return -1;
+    }
   route_unlock_node (rn);
   
   /* Untie address from subnet's address list. */
   addr_list = rn->info;
+
+  /* Deleting an address that is not registered is a bug.
+   * In any case, we shouldn't decrement the lock counter if the address
+   * is unknown. */
+  if (!listnode_lookup(addr_list, ifc))
+    {
+      zlog_warn("Trying to remove an address from a subnet where it is not"
+                " currently registered. (please report this bug)");
+      return -1;
+    }
+
   listnode_delete (addr_list, ifc);
   route_unlock_node (rn);
 

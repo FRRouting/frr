@@ -49,8 +49,9 @@ connected_withdraw (struct connected *ifc)
     {
       zebra_interface_address_delete_update (ifc->ifp, ifc);
 
-      if_subnet_delete (ifc->ifp, ifc);
-      
+      if (ifc->address->family == AF_INET)
+        if_subnet_delete (ifc->ifp, ifc);
+
       if (ifc->address->family == AF_INET)
         connected_down_ipv4 (ifc->ifp, ifc);
 #ifdef HAVE_IPV6
