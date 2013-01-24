@@ -1,0 +1,28 @@
+set timeout 10
+spawn "./teststream"
+
+expect {
+	"endp: 15, readable: 15, writeable: 1009" { }
+	eof { fail "teststream"; exit; } timeout { fail "teststream"; exit; } }
+expect {
+	"0xef 0xbe 0xef 0xde 0xad 0xbe 0xef 0xde 0xad 0xbe 0xef 0xde 0xad 0xbe 0xef" { }
+	eof { fail "teststream"; exit; } timeout { fail "teststream"; exit; } }
+expect {
+	"endp: 15, readable: 15, writeable: 0" { }
+	eof { fail "teststream"; exit; } timeout { fail "teststream"; exit; } }
+expect {
+	"0xef 0xbe 0xef 0xde 0xad 0xbe 0xef 0xde 0xad 0xbe 0xef 0xde 0xad 0xbe 0xef" { }
+	eof { fail "teststream"; exit; } timeout { fail "teststream"; exit; } }
+expect {
+	"c: 0xef" { }
+	eof { fail "teststream"; exit; } timeout { fail "teststream"; exit; } }
+expect {
+	"w: 0xbeef" { }
+	eof { fail "teststream"; exit; } timeout { fail "teststream"; exit; } }
+expect {
+	"l: 0xdeadbeef" { }
+	eof { fail "teststream"; exit; } timeout { fail "teststream"; exit; } }
+expect {
+	"q: 0xdeadbeefdeadbeef" { }
+	eof { fail "teststream"; exit; } timeout { fail "teststream"; exit; } }
+pass "teststream"

@@ -20,6 +20,24 @@ if { $i >= 0 } {
 send_user "IPv6 enabled: $have_ipv6\n"
 set xfail 0
 
+proc onesimple { test_name match } {
+	global verbose
+	global aborted
+	global testprefix
+	if { $aborted > 0 } {
+		untested "$testprefix$test_name"
+		return
+	}
+	if { $verbose > 0 } {
+		send_user "$testprefix$test_name$note\n"
+	}
+	expect {
+		"$match"	{ pass "$testprefix$test_name"; }
+		eof		{ fail "$testprefix$test_name"; set aborted 1; }
+		timeout		{ unresolved "$testprefix$test_name"; set aborted 1; }
+	}
+}
+
 proc onetest { test_name note start } {
 	global aborted
 	global testprefix

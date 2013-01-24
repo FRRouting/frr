@@ -1,12 +1,15 @@
 AUTOMAKE_OPTIONS    = dejagnu
 export DEJAGNU
-DEJATOOL =
+DEJATOOL = libzebra
 
-SUBDIRS = bgpd.tests
+SUBDIRS = \
+	bgpd.tests \
+	libzebra.tests
 
 EXTRA_DIST = \
 	config/unix.exp \
 	lib/bgpd.exp \
+	lib/libzebra.exp \
 	global-conf.exp
 
 INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
