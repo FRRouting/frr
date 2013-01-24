@@ -56,7 +56,7 @@ if_zebra_new_hook (struct interface *ifp)
   zebra_if = XCALLOC (MTYPE_TMP, sizeof (struct zebra_if));
 
   zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
-  zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_UNSPEC;
+  zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
 
 #ifdef RTADV
   {
@@ -377,6 +377,14 @@ if_add_update (struct interface *ifp)
   if (! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
       SET_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE);
+
+      if (if_data && if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
+	{
+	  if (IS_ZEBRA_DEBUG_KERNEL)
+	    zlog_debug ("interface %s index %d is shutdown. Won't wake it up.",
+			ifp->name, ifp->ifindex);
+	  return;
+	}
 
       if_addr_wakeup (ifp);
 
@@ -1095,13 +1103,16 @@ DEFUN (shutdown_if,
   struct zebra_if *if_data;
 
   ifp = (struct interface *) vty->index;
-  ret = if_unset_flags (ifp, IFF_UP);
-  if (ret < 0)
+  if (ifp->ifindex != IFINDEX_INTERNAL)
     {
-      vty_out (vty, "Can't shutdown interface%s", VTY_NEWLINE);
-      return CMD_WARNING;
+        ret = if_unset_flags (ifp, IFF_UP);
+        if (ret < 0)
+          {
+            vty_out (vty, "Can't shutdown interface%s", VTY_NEWLINE);
+            return CMD_WARNING;
+          }
+        if_refresh (ifp);
     }
-  if_refresh (ifp);
   if_data = ifp->info;
   if_data->shutdown = IF_ZEBRA_SHUTDOWN_ON;
 
@@ -1119,13 +1130,23 @@ DEFUN (no_shutdown_if,
   struct zebra_if *if_data;
 
   ifp = (struct interface *) vty->index;
-  ret = if_set_flags (ifp, IFF_UP | IFF_RUNNING);
-  if (ret < 0)
+
+  if (ifp->ifindex != IFINDEX_INTERNAL)
     {
-      vty_out (vty, "Can't up interface%s", VTY_NEWLINE);
-      return CMD_WARNING;
+      ret = if_set_flags (ifp, IFF_UP | IFF_RUNNING);
+      if (ret < 0)
+	{
+	  vty_out (vty, "Can't up interface%s", VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
+      if_refresh (ifp);
+
+      /* Some addresses (in particular, IPv6 addresses on Linux) get
+       * removed when the interface goes down. They need to be readded.
+       */
+      if_addr_wakeup(ifp);
     }
-  if_refresh (ifp);
+
   if_data = ifp->info;
   if_data->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
 
@@ -1191,10 +1212,13 @@ ip_address_install (struct vty *vty, struct interface *ifp,
 		    const char *addr_str, const char *peer_str,
 		    const char *label)
 {
+  struct zebra_if *if_data;
   struct prefix_ipv4 cp;
   struct connected *ifc;
   struct prefix_ipv4 *p;
   int ret;
+
+  if_data = ifp->info;
 
   ret = str2prefix_ipv4 (addr_str, &cp);
   if (ret <= 0)
@@ -1237,7 +1261,8 @@ ip_address_install (struct vty *vty, struct interface *ifp,
 
   /* In case of this route need to install kernel. */
   if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_QUEUED)
-      && CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
+      && CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE)
+      && !(if_data && if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON))
     {
       /* Some system need to up the interface to set IP address. */
       if (! if_is_up (ifp))
@@ -1371,10 +1396,13 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
 		      const char *addr_str, const char *peer_str,
 		      const char *label, int secondary)
 {
+  struct zebra_if *if_data;
   struct prefix_ipv6 cp;
   struct connected *ifc;
   struct prefix_ipv6 *p;
   int ret;
+
+  if_data = ifp->info;
 
   ret = str2prefix_ipv6 (addr_str, &cp);
   if (ret <= 0)
@@ -1412,7 +1440,8 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
 
   /* In case of this route need to install kernel. */
   if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_QUEUED)
-      && CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
+      && CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE)
+      && !(if_data && if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON))
     {
       /* Some system need to up the interface to set IP address. */
       if (! if_is_up (ifp))
@@ -1533,6 +1562,12 @@ if_config_write (struct vty *vty)
       vty_out (vty, "interface %s%s", ifp->name,
 	       VTY_NEWLINE);
 
+      if (if_data)
+	{
+	  if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
+	    vty_out (vty, " shutdown%s", VTY_NEWLINE);
+	}
+
       if (ifp->desc)
 	vty_out (vty, " description %s%s", ifp->desc,
 		 VTY_NEWLINE);
@@ -1565,9 +1600,6 @@ if_config_write (struct vty *vty)
 
       if (if_data)
 	{
-	  if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
-	    vty_out (vty, " shutdown%s", VTY_NEWLINE);
-
 	  if (if_data->multicast != IF_ZEBRA_MULTICAST_UNSPEC)
 	    vty_out (vty, " %smulticast%s",
 		     if_data->multicast == IF_ZEBRA_MULTICAST_ON ? "" : "no ",
