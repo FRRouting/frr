@@ -62,6 +62,9 @@ connected_withdraw (struct connected *ifc)
       UNSET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
     }
 
+  /* The address is not in the kernel anymore, so clear the flag */
+  UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+
   if (!CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
     {
       listnode_delete (ifc->ifp->connected, ifc);
@@ -211,6 +214,9 @@ connected_add_ipv4 (struct interface *ifp, int flags, struct in_addr *addr,
   ifc = connected_new ();
   ifc->ifp = ifp;
   ifc->flags = flags;
+  /* If we get a notification from the kernel,
+   * we can safely assume the address is known to the kernel */
+  SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
   /* Allocate new connected address. */
   p = prefix_ipv4_new ();
@@ -363,6 +369,9 @@ connected_add_ipv6 (struct interface *ifp, int flags, struct in6_addr *addr,
   ifc = connected_new ();
   ifc->ifp = ifp;
   ifc->flags = flags;
+  /* If we get a notification from the kernel,
+   * we can safely assume the address is known to the kernel */
+  SET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
   /* Allocate new connected address. */
   p = prefix_ipv6_new ();

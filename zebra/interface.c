@@ -289,7 +289,7 @@ if_addr_wakeup (struct interface *ifp)
       p = ifc->address;
 	
       if (CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED)
-	  && ! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL))
+	  && ! CHECK_FLAG (ifc->conf, ZEBRA_IFC_QUEUED))
 	{
 	  /* Address check. */
 	  if (p->family == AF_INET)
@@ -321,6 +321,7 @@ if_addr_wakeup (struct interface *ifp)
 	      /* Add to subnet chain list. */
 	      if_subnet_add (ifp, ifc);
 
+	      SET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
 	      SET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
 
 	      zebra_interface_address_add_update (ifp, ifc);
@@ -345,6 +346,7 @@ if_addr_wakeup (struct interface *ifp)
 			     safe_strerror(errno));
 		  continue;
 		}
+	      SET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
 	      SET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
 
 	      zebra_interface_address_add_update (ifp, ifc);
@@ -454,6 +456,7 @@ if_delete_update (struct interface *ifp)
 		  zebra_interface_address_delete_update (ifp, ifc);
 
 		  UNSET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
+		  UNSET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
 
 		  /* Remove from subnet chain. */
 		  list_delete_node (addr_list, anode);
@@ -482,6 +485,7 @@ if_delete_update (struct interface *ifp)
 	      zebra_interface_address_delete_update (ifp, ifc);
 
 	      UNSET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
+	      UNSET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
 
 	      if (CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
 		last = node;
@@ -1229,7 +1233,7 @@ ip_address_install (struct vty *vty, struct interface *ifp,
     SET_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED);
 
   /* In case of this route need to install kernel. */
-  if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL)
+  if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_QUEUED)
       && CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
       /* Some system need to up the interface to set IP address. */
@@ -1251,6 +1255,7 @@ ip_address_install (struct vty *vty, struct interface *ifp,
       if_subnet_add (ifp, ifc);
 
       /* IP address propery set. */
+      SET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
       SET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
 
       /* Update interface address information to protocol daemon. */
@@ -1296,7 +1301,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
   UNSET_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED);
   
   /* This is not real address or interface is not active. */
-  if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL)
+  if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_QUEUED)
       || ! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
       listnode_delete (ifp->connected, ifc);
@@ -1321,6 +1326,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
    * through the route socket, and we don't want to touch that behaviour
    * for now.  It should work without the #ifdef, but why take the risk...
    * -- equinox 2012-07-13 */
+  UNSET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
 #ifdef HAVE_NETLINK
 
   /* Remove connected route. */
@@ -1437,7 +1443,7 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
     SET_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED);
 
   /* In case of this route need to install kernel. */
-  if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL)
+  if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_QUEUED)
       && CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
       /* Some system need to up the interface to set IP address. */
@@ -1457,6 +1463,7 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
 	}
 
       /* IP address propery set. */
+      SET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
       SET_FLAG (ifc->conf, ZEBRA_IFC_REAL);
 
       /* Update interface address information to protocol daemon. */
@@ -1502,7 +1509,7 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
   UNSET_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED);
 
   /* This is not real address or interface is not active. */
-  if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_REAL)
+  if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_QUEUED)
       || ! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
       listnode_delete (ifp->connected, ifc);
@@ -1518,6 +1525,8 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
 	       safe_strerror(errno), VTY_NEWLINE);
       return CMD_WARNING;
     }
+
+  UNSET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
 
   /* Redistribute this information. */
   zebra_interface_address_delete_update (ifp, ifc);
