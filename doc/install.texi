@@ -49,10 +49,6 @@ use to turn off IPv6 support, to disable the compilation of specific
 daemons, and to enable SNMP support.
 
 @table @option
-@item --enable-guile
-Turn on compilation of the zebra-guile interpreter.  You will need the
-guile library to make this.  zebra-guile implementation is not yet
-finished.  So this option is only useful for zebra-guile developers.
 @item --disable-ipv6
 Turn off IPv6 related features and daemons.  Quagga configure script
 automatically detects IPv6 stack.  But sometimes you might want to
