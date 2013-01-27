@@ -16,7 +16,7 @@ int kernel_delete_ipv4 (struct prefix *a, struct rib *b) { return 0; }
 #endif
 
 int kernel_add_ipv6 (struct prefix *a, struct rib *b) { return 0; }
-#ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA_PRAGMA
+#ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
 #pragma weak kernel_delete_ipv6 = kernel_add_ipv6
 #else
 int kernel_delete_ipv6 (struct prefix *a, struct rib *b) { return 0; }

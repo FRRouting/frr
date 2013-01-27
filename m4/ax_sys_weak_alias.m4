@@ -167,9 +167,8 @@ void weakf(int c) __attribute__((weak, alias("__weakf")));],
   ])
 
   # What was the result of the test?
-  AS_IF([test $ax_sys_weak_alias = no &&
-         test $ax_cv_sys_weak_alias_attribute = yes], [
-    ax_sys_weak_alias=attribute
+  AS_IF([test $ax_cv_sys_weak_alias_attribute = yes], [
+    test $ax_sys_weak_alias = no && ax_sys_weak_alias=attribute
     AC_DEFINE([HAVE_SYS_WEAK_ALIAS_ATTRIBUTE], 1,
               [Define this if weak aliases may be created with __attribute__])
   ])
@@ -192,9 +191,8 @@ void __weakf(int c) {}],
   ])
 
   # What was the result of the test?
-  AS_IF([test $ax_sys_weak_alias = no &&
-         test $ax_cv_sys_weak_alias_pragma = yes], [
-    ax_sys_weak_alias=pragma
+  AS_IF([test $ax_cv_sys_weak_alias_pragma = yes], [
+    test $ax_sys_weak_alias = no && ax_sys_weak_alias=pragma
     AC_DEFINE([HAVE_SYS_WEAK_ALIAS_PRAGMA], 1,
               [Define this if weak aliases may be created with @%:@pragma weak])
   ])
@@ -217,9 +215,8 @@ void __weakf(int c) {}],
   ])
 
   # What was the result of the test?
-  AS_IF([test $ax_sys_weak_alias = no &&
-         test $ax_cv_sys_weak_alias_hpsecondary = yes], [
-    ax_sys_weak_alias=hpsecondary
+  AS_IF([test $ax_cv_sys_weak_alias_hpsecondary = yes], [
+    test $ax_sys_weak_alias = no && ax_sys_weak_alias=hpsecondary
     AC_DEFINE([HAVE_SYS_WEAK_ALIAS_HPSECONDARY], 1,
               [Define this if weak aliases may be created with @%:@pragma _HP_SECONDARY_DEF])
   ])
@@ -242,9 +239,8 @@ void __weakf(int c) {}],
   ])
 
   # What was the result of the test?
-  AS_IF([test $ax_sys_weak_alias = no &&
-         test $ax_cv_sys_weak_alias_criduplicate = yes], [
-    ax_sys_weak_alias=criduplicate
+  AS_IF([test $ax_cv_sys_weak_alias_criduplicate = yes], [
+    test $ax_sys_weak_alias = no && ax_sys_weak_alias=criduplicate
     AC_DEFINE([HAVE_SYS_WEAK_ALIAS_CRIDUPLICATE], 1,
               [Define this if weak aliases may be created with @%:@pragma _CRI duplicate])
   ])
@@ -271,13 +267,13 @@ _ACEOF
 
 @%:@ifndef HAVE_SYS_WEAK_ALIAS_ATTRIBUTE
 extern void weakf(int c);
-@%:@endif
 @%:@if defined(HAVE_SYS_WEAK_ALIAS_PRAGMA)
 @%:@pragma weak weakf = __weakf
 @%:@elif defined(HAVE_SYS_WEAK_ALIAS_HPSECONDARY)
 @%:@pragma _HP_SECONDARY_DEF __weakf weakf
 @%:@elif defined(HAVE_SYS_WEAK_ALIAS_CRIDUPLICATE)
 @%:@pragma _CRI duplicate weakf as __weakf
+@%:@endif
 @%:@endif
 void __weakf(int c) {}
 @%:@ifdef HAVE_SYS_WEAK_ALIAS_ATTRIBUTE
