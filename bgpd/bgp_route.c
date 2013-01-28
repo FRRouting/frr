@@ -2643,10 +2643,10 @@ bgp_soft_reconfig_table_rsclient (struct peer *rsclient, afi_t afi,
     for (ain = rn->adj_in; ain; ain = ain->next)
       {
         struct bgp_info *ri = rn->info;
+        u_char *tag = (ri && ri->extra) ? ri->extra->tag : NULL;
 
         bgp_update_rsclient (rsclient, afi, safi, ain->attr, ain->peer,
-                &rn->p, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, prd,
-                (bgp_info_extra_get (ri))->tag);
+                &rn->p, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, prd, tag);
       }
 }
 
@@ -2690,10 +2690,11 @@ bgp_soft_reconfig_table (struct peer *peer, afi_t afi, safi_t safi,
 	if (ain->peer == peer)
 	  {
 	    struct bgp_info *ri = rn->info;
+	    u_char *tag = (ri && ri->extra) ? ri->extra->tag : NULL;
 
 	    ret = bgp_update (peer, &rn->p, ain->attr, afi, safi,
 			      ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-			      prd, (bgp_info_extra_get (ri))->tag, 1);
+			      prd, tag, 1);
 
 	    if (ret < 0)
 	      {
