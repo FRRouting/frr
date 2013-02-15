@@ -44,7 +44,7 @@
 %{!?dist:		%define		dist	%{default_dist}}
 
 # as distros change packages we depend on, our Requires have to change, sadly.
-%define quagga_buildreqs texinfo tetex autoconf pam-devel
+%define quagga_buildreqs texi2html texinfo tetex autoconf pam-devel
 %define quagga_buildreqs %{quagga_buildreqs} patch libcap-devel
 
 # FC4 and 5 split texi2html out of tetex package.
@@ -68,7 +68,7 @@
 %define		daemon_list	zebra ripd ospfd bgpd
 
 %if %{with_ipv6}
-%define		daemonv6_list	ripngd ospf6d
+%define		daemonv6_list	ripngd babeld ospf6d
 %else
 %define		daemonv6_list	""
 %endif
@@ -97,17 +97,17 @@ Source0:	http://www.quagga.net/snapshots/cvs/%{name}-%{version}.tar.gz
 URL:		http://www.quagga.net
 %if %{with_snmp}
 BuildRequires:	net-snmp-devel
-Prereq:		net-snmp
+Requires(pre):		net-snmp
 %endif
 %if %{with_vtysh}
 BuildRequires:	readline readline-devel ncurses ncurses-devel
-Prereq:		ncurses
+Requires(pre):		ncurses
 %endif
 BuildRequires:	texinfo tetex autoconf pam-devel patch libcap-devel tetex
 # Initscripts > 5.60 is required for IPv6 support
-Prereq:		initscripts >= 5.60
-Prereq:		ncurses pam
-Prereq:		/sbin/install-info
+Requires(pre):		initscripts >= 5.60
+Requires(pre):		ncurses pam
+Requires(pre):		/sbin/install-info
 Provides:	routingdaemon
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
 Obsoletes:	bird gated mrt zebra
@@ -406,6 +406,7 @@ rm -rf $RPM_BUILD_ROOT
 %if %{with_ipv6}
 %{_sbindir}/ripngd
 %{_sbindir}/ospf6d
+%{_sbindir}/babeld
 %endif
 %if %{with_isisd}
 %{_sbindir}/isisd
