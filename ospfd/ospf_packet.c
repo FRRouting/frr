@@ -1660,8 +1660,10 @@ ospf_ls_upd_list_lsa (struct ospf_neighbor *nbr, struct stream *s,
         case OSPF_AS_EXTERNAL_LSA:
 #ifdef HAVE_OPAQUE_LSA
         case OSPF_OPAQUE_AS_LSA:
+#endif /* HAVE_OPAQUE_LSA */
           lsa->area = NULL;
           break;
+#ifdef HAVE_OPAQUE_LSA
         case OSPF_OPAQUE_LINK_LSA:
           lsa->oi = oi; /* Remember incoming interface for flooding control. */
           /* Fallthrough */
