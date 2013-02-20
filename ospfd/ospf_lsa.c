@@ -2794,7 +2794,7 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
 }
 
 
-static int
+int
 ospf_check_nbr_status (struct ospf *ospf)
 {
   struct listnode *node, *nnode;
