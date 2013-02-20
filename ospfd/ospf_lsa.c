@@ -2843,6 +2843,9 @@ ospf_maxage_lsa_remover (struct thread *thread)
 	    continue;
 	  }
 
+        /* There is at least one neighbor from which we still await an ack
+         * for that LSA, so we are not allowed to remove it from our lsdb yet
+         * as per RFC 2328 section 14 para 4 a) */
         if (lsa->retransmit_counter > 0)
           {
             reschedule = 1;
@@ -2851,7 +2854,10 @@ ospf_maxage_lsa_remover (struct thread *thread)
         
         /* TODO: maybe convert this function to a work-queue */
         if (thread_should_yield (thread))
-          OSPF_TIMER_ON (ospf->t_maxage, ospf_maxage_lsa_remover, 0);
+          {
+            OSPF_TIMER_ON (ospf->t_maxage, ospf_maxage_lsa_remover, 0);
+            return 0;
+          }
           
         /* Remove LSA from the LSDB */
         if (IS_LSA_SELF (lsa))
