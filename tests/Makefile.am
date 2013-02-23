@@ -4,9 +4,15 @@ DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
 AM_CFLAGS = $(PICFLAGS)
 AM_LDFLAGS = $(PILDFLAGS)
 
+if BGPD
+TESTS_BGPD = aspathtest testbgpcap ecommtest testbgpmpattr testbgpmpath
+else
+TESTS_BGPD =
+endif
+
 noinst_PROGRAMS = testsig testbuffer testmemory heavy heavywq heavythread \
-		aspathtest testprivs teststream testbgpcap ecommtest \
-		testbgpmpattr testchecksum testbgpmpath tabletest
+		testprivs teststream testchecksum tabletest \
+		$(TESTS_BGPD)
 
 testsig_SOURCES = test-sig.c
 testbuffer_SOURCES = test-buffer.c
