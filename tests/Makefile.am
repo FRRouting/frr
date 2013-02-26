@@ -1,13 +1,13 @@
 AUTOMAKE_OPTIONS    = dejagnu
 export DEJAGNU
+DEJATOOL =
 
-SUBDIRS =
+SUBDIRS = bgpd.tests
 
 EXTRA_DIST = \
 	config/unix.exp \
+	lib/bgpd.exp \
 	global-conf.exp
-
-DEJATOOL =
 
 INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
@@ -17,6 +17,7 @@ AM_LDFLAGS = $(PILDFLAGS)
 
 if BGPD
 TESTS_BGPD = aspathtest testbgpcap ecommtest testbgpmpattr testbgpmpath
+DEJATOOL += bgpd
 else
 TESTS_BGPD =
 endif

@@ -1704,6 +1704,7 @@ AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchquagga/Makefile
 	  ospf6d/Makefile isisd/Makefile babeld/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
+	  tests/bgpd.tests/Makefile
 	  redhat/Makefile
 	  pkgsrc/Makefile
 	  redhat/quagga.spec 
