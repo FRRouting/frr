@@ -10,6 +10,10 @@ TAGS
 *.lo
 *.la
 *.libs
+*.bak
+*.log
+*.sum
+*.xml
 .arch-inventory
 .arch-ids
 aspathtest
@@ -27,3 +31,4 @@ testmemory
 testprivs
 testsig
 teststream
+site.exp

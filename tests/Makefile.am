@@ -1,3 +1,14 @@
+AUTOMAKE_OPTIONS    = dejagnu
+export DEJAGNU
+
+SUBDIRS =
+
+EXTRA_DIST = \
+	config/unix.exp \
+	global-conf.exp
+
+DEJATOOL =
+
 INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
 

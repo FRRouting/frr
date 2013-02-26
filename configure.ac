@@ -1619,6 +1619,18 @@ fi
 AC_SUBST(PICFLAGS)
 AC_SUBST(PILDFLAGS)
 
+dnl -------
+dnl DejaGNU
+dnl -------
+if test x"$DEJAGNU" = x
+then
+  DEJAGNU="\$(top_srcdir)/tests/global-conf.exp"
+fi
+RUNTESTDEFAULTFLAGS="-x --tool \$\$tool"
+
+AC_SUBST(DEJAGNU)
+AC_SUBST(RUNTESTDEFAULTFLAGS)
+
 dnl ------------------------------
 dnl set paths for state directory
 dnl ------------------------------
@@ -1691,8 +1703,8 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 AC_CONFIG_FILES([Makefile lib/Makefile zebra/Makefile ripd/Makefile 
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchquagga/Makefile
 	  ospf6d/Makefile isisd/Makefile babeld/Makefile vtysh/Makefile
-          doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
-          redhat/Makefile
+	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
+	  redhat/Makefile
 	  pkgsrc/Makefile
 	  redhat/quagga.spec 
 	  lib/version.h

@@ -85,6 +85,7 @@ for cfg in ${CONFIGS:-$defconfigs}; do
 	cd "$bdir"
 	../sdist/configure $args
 	make -j5
+	make check
 	make DESTDIR="$TEMP/inst_$cfg" install
 	cd ..
 done
