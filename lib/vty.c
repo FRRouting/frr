@@ -71,7 +71,7 @@ static char *vty_accesslist_name = NULL;
 static char *vty_ipv6_accesslist_name = NULL;
 
 /* VTY server thread. */
-vector Vvty_serv_thread;
+static vector Vvty_serv_thread;
 
 /* Current directory. */
 char *vty_cwd = NULL;
@@ -2509,7 +2509,8 @@ vty_event (enum event event, int sock, struct vty *vty)
       break;
 #ifdef VTYSH
     case VTYSH_SERV:
-      thread_add_read (master, vtysh_accept, vty, sock);
+      vty_serv_thread = thread_add_read (master, vtysh_accept, vty, sock);
+      vector_set_index (Vvty_serv_thread, sock, vty_serv_thread);
       break;
     case VTYSH_READ:
       vty->t_read = thread_add_read (master, vtysh_read, vty, sock);
