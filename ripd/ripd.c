@@ -482,8 +482,9 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
           new_dist = rip_distance_apply (&rinfotmp);
           new_dist = new_dist ? new_dist : ZEBRA_RIP_DISTANCE_DEFAULT;
           old_dist = rinfo->distance;
-          /* Only connected routes may have a valid NULL distance */
-          if (rinfo->type != ZEBRA_ROUTE_CONNECT)
+          /* Only routes directly connected to an interface (nexthop == 0)
+	   * may have a valid NULL distance */
+          if (rinfo->nexthop.s_addr != 0)
             old_dist = old_dist ? old_dist : ZEBRA_RIP_DISTANCE_DEFAULT;
           /* If imported route does not have STRICT precedence, 
              mark it as a ghost */
