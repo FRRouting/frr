@@ -18,7 +18,7 @@ BUILT_SOURCES = memtypes.h route_types.h gitversion.h
 
 libzebra_la_DEPENDENCIES = @LIB_REGEX@
 
-libzebra_la_LIBADD = @LIB_REGEX@
+libzebra_la_LIBADD = @LIB_REGEX@ @LIBCAP@
 
 pkginclude_HEADERS = \
 	buffer.h checksum.h command.h filter.h getopt.h hash.h \
