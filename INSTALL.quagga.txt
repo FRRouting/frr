@@ -16,23 +16,20 @@ workarounds for POSIX non-compliance are welcome.
 
 It is considered a bug if Quagga fails to build and run on any of the
 following systems (where .x indicates the most recent release), or
-such systems "-current" versions.  (Note that considering it a bug is
+such systems "-current" versions.  Or, it might be that this list is
+out of date and will be updated.  (Note that considering it a bug is
 not a guarantee of support, merely "we agree that it is broken".)
 
   Dragonfly ?
-  FreeBSD 4.x	[In 2007, this is getting tenous.]
-  FreeBSD 5.x
-  FreeBSD 6.x
+  FreeBSD (stable branches currently supported, plus perhaps one)
   FreeBSD-current
   Linux [kernel/distribution information needed]
-  NetBSD 2.x	[Note texinfo 4.6  in base system]
-  NetBSD 3.x
   NetBSD 4.x
+  NetBSD 5.x
+  NetBSD 6.x
   NetBSD-current
   OpenBSD ? [info needed on what should work]
-  Solaris 9
-  Solaris 10
-
+  Solaris (modern/supported versions, including OpenSolaris forks) 
 
 For further Quagga specific information on 'configure' and build-time
 configuration of the software, please read the Quagga info
@@ -70,7 +67,8 @@ deficient is made.
 	texinfo:	4.7 (released 2004-04-10; 4.8 is not yet common)
 	GNU AWK:	3.1.5 (released 2005-08-12)
 
-Becuase some systems provide texinfo 4.6 (4.7 is new), quagga.info is
+[TODO: texinfo 4.6 is now ancient and this should be revisited/fixed]
+Because some systems provide texinfo 4.6 (4.7 is new), quagga.info is
 checked in so that texinfo will generally not be invoked.  When
 texinfo 4.7 is widespread, quagga.info will be removed from CVS and
 texinfo will become required again.  (4.7 has figure support, needed
@@ -91,11 +89,12 @@ instructions.
 Notes on required versions:
 
 The general goal is to use a modern baseline of tools, while not
-imposing pain on those tracking stable distributions.  The notes below
-explain what versions are present in various environments.
+imposing pain on those tracking supported (or almost supported) stable
+distributions.  The notes below explain what versions are present in
+various environments.
 
-NetBSD 1.6 and 2 provide texinfo 4.6.  This is now considered old.
-NetBSD 3 and 4 provide texinfo 4.7.
+NetBSD 4 provides texinfo 4.7.
+NetBSD 5 and 6 provides texinfo 4.8
 
 Fedora Core ? provides autoconf 2.59.
 
