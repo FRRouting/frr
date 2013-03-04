@@ -677,8 +677,9 @@ new_completion (char *text, int start, int end)
   if (matches)
     {
       rl_point = rl_end;
-      if (complete_status == CMD_COMPLETE_FULL_MATCH)
-	rl_pending_input = ' ';
+      if (complete_status != CMD_COMPLETE_FULL_MATCH)
+        /* only append a space on full match */
+        rl_completion_append_character = '\0';
     }
 
   return matches;
@@ -2214,9 +2215,6 @@ vtysh_readline_init (void)
   rl_bind_key ('?', (Function *) vtysh_rl_describe);
   rl_completion_entry_function = vtysh_completion_entry_function;
   rl_attempted_completion_function = (CPPFunction *)new_completion;
-  /* do not append space after completion. It will be appended
-   * in new_completion() function explicitly. */
-  rl_completion_append_character = '\0';
 }
 
 char *
