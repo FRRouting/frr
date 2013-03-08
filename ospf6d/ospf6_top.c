@@ -161,6 +161,8 @@ ospf6_delete (struct ospf6 *o)
 
   for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))
     ospf6_area_delete (oa);
+
+
   list_delete (o->area_list);
 
   ospf6_lsdb_delete (o->lsdb);
@@ -202,9 +204,16 @@ ospf6_disable (struct ospf6 *o)
       for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))
         ospf6_area_disable (oa);
 
+      /* XXX: This also changes persistent settings */
+      ospf6_asbr_redistribute_reset();
+
       ospf6_lsdb_remove_all (o->lsdb);
       ospf6_route_remove_all (o->route_table);
       ospf6_route_remove_all (o->brouter_table);
+
+      THREAD_OFF(o->maxage_remover);
+      THREAD_OFF(o->t_spf_calc);
+      THREAD_OFF(o->t_ase_calc);
     }
 }
 
@@ -282,8 +291,6 @@ DEFUN (router_ospf6,
 {
   if (ospf6 == NULL)
     ospf6 = ospf6_create ();
-  if (CHECK_FLAG (ospf6->flag, OSPF6_DISABLED))
-    ospf6_enable (ospf6);
 
   /* set current ospf point. */
   vty->node = OSPF6_NODE;
@@ -299,10 +306,13 @@ DEFUN (no_router_ospf6,
        NO_STR
        OSPF6_ROUTER_STR)
 {
-  if (ospf6 == NULL || CHECK_FLAG (ospf6->flag, OSPF6_DISABLED))
-    vty_out (vty, "OSPFv3 is not running%s", VNL);
+  if (ospf6 == NULL)
+    vty_out (vty, "OSPFv3 is not configured%s", VNL);
   else
-    ospf6_disable (ospf6);
+    {
+      ospf6_delete (ospf6);
+      ospf6 = NULL;
+    }
 
   /* return to config node . */
   vty->node = CONFIG_NODE;
@@ -435,8 +445,12 @@ DEFUN (ospf6_interface_area,
 
   SET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
 
+  /* ospf6 process is currently disabled, not much more to do */
+  if (CHECK_FLAG (o->flag, OSPF6_DISABLED))
+    return CMD_SUCCESS;
+
   /* start up */
-  thread_add_event (master, interface_up, oi, 0);
+  ospf6_interface_enable (oi);
 
   /* If the router is ABR, originate summary routes */
   if (ospf6_is_router_abr (o))
@@ -860,8 +874,6 @@ config_write_ospf6 (struct vty *vty)
 
   /* OSPFv6 configuration. */
   if (ospf6 == NULL)
-    return CMD_SUCCESS;
-  if (CHECK_FLAG (ospf6->flag, OSPF6_DISABLED))
     return CMD_SUCCESS;
 
   inet_ntop (AF_INET, &ospf6->router_id_static, router_id, sizeof (router_id));

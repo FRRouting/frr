@@ -1543,7 +1543,7 @@ ospf6_receive (struct thread *thread)
     }
 
   oi = ospf6_interface_lookup_by_ifindex (ifindex);
-  if (oi == NULL || oi->area == NULL)
+  if (oi == NULL || oi->area == NULL || CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE))
     {
       zlog_debug ("Message received on disabled interface");
       return 0;

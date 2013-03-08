@@ -219,31 +219,28 @@ void
 ospf6_interface_enable (struct ospf6_interface *oi)
 {
   UNSET_FLAG (oi->flag, OSPF6_INTERFACE_DISABLE);
-
-  oi->thread_send_hello =
-    thread_add_event (master, ospf6_hello_send, oi, 0);
+  ospf6_interface_state_update (oi->interface);
 }
 
 void
 ospf6_interface_disable (struct ospf6_interface *oi)
 {
-  struct listnode *node, *nnode;
-  struct ospf6_neighbor *on;
-
   SET_FLAG (oi->flag, OSPF6_INTERFACE_DISABLE);
 
-  for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
-      ospf6_neighbor_delete (on);
-
-  list_delete_all_node (oi->neighbor_list);
+  thread_execute (master, interface_down, oi, 0);
 
   ospf6_lsdb_remove_all (oi->lsdb);
+  ospf6_lsdb_remove_all (oi->lsdb_self);
   ospf6_lsdb_remove_all (oi->lsupdate_list);
   ospf6_lsdb_remove_all (oi->lsack_list);
 
   THREAD_OFF (oi->thread_send_hello);
   THREAD_OFF (oi->thread_send_lsupdate);
   THREAD_OFF (oi->thread_send_lsack);
+
+  THREAD_OFF (oi->thread_network_lsa);
+  THREAD_OFF (oi->thread_link_lsa);
+  THREAD_OFF (oi->thread_intra_prefix_lsa);
 }
 
 static struct in6_addr *
@@ -327,6 +324,8 @@ ospf6_interface_state_update (struct interface *ifp)
     return;
   if (oi->area == NULL)
     return;
+  if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_DISABLE))
+    return;
 
   if (if_is_operative (ifp))
     thread_add_event (master, interface_up, oi, 0);
@@ -353,6 +352,9 @@ ospf6_interface_connected_route_update (struct interface *ifp)
 
   /* if area is null, do not make connected-route list */
   if (oi->area == NULL)
+    return;
+
+  if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_DISABLE))
     return;
 
   /* update "route to advertise" interface route table */

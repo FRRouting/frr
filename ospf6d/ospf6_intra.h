@@ -156,32 +156,37 @@ struct ospf6_intra_prefix_lsa
 
 #define OSPF6_ROUTER_LSA_SCHEDULE(oa) \
   do { \
-    if (! (oa)->thread_router_lsa) \
+    if (! (oa)->thread_router_lsa \
+        && CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE)) \
       (oa)->thread_router_lsa = \
         thread_add_event (master, ospf6_router_lsa_originate, oa, 0); \
   } while (0)
 #define OSPF6_NETWORK_LSA_SCHEDULE(oi) \
   do { \
-    if (! (oi)->thread_network_lsa) \
+    if (! (oi)->thread_network_lsa \
+        && ! CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE)) \
       (oi)->thread_network_lsa = \
         thread_add_event (master, ospf6_network_lsa_originate, oi, 0); \
   } while (0)
 #define OSPF6_LINK_LSA_SCHEDULE(oi) \
   do { \
-    if (! (oi)->thread_link_lsa) \
+    if (! (oi)->thread_link_lsa \
+        && ! CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE)) \
       (oi)->thread_link_lsa = \
         thread_add_event (master, ospf6_link_lsa_originate, oi, 0); \
   } while (0)
 #define OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oa) \
   do { \
-    if (! (oa)->thread_intra_prefix_lsa) \
+    if (! (oa)->thread_intra_prefix_lsa \
+        && CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE)) \
       (oa)->thread_intra_prefix_lsa = \
         thread_add_event (master, ospf6_intra_prefix_lsa_originate_stub, \
                           oa, 0); \
   } while (0)
 #define OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi) \
   do { \
-    if (! (oi)->thread_intra_prefix_lsa) \
+    if (! (oi)->thread_intra_prefix_lsa \
+        && ! CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE)) \
       (oi)->thread_intra_prefix_lsa = \
         thread_add_event (master, ospf6_intra_prefix_lsa_originate_transit, \
                           oi, 0); \

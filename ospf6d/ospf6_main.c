@@ -41,6 +41,8 @@
 #include "ospf6_message.h"
 #include "ospf6_asbr.h"
 #include "ospf6_lsa.h"
+#include "ospf6_interface.h"
+#include "ospf6_zebra.h"
 
 /* Default configuration file name for ospf6d. */
 #define OSPF6_DEFAULT_CONFIG       "ospf6d.conf"
@@ -134,11 +136,15 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 static void __attribute__ ((noreturn))
 ospf6_exit (int status)
 {
-  extern struct ospf6 *ospf6;
-  extern struct zclient *zclient;
+  struct listnode *node;
+  struct interface *ifp;
 
   if (ospf6)
     ospf6_delete (ospf6);
+
+  for (ALL_LIST_ELEMENTS_RO(iflist, node, ifp))
+    if (ifp->info != NULL)
+      ospf6_interface_delete(ifp->info);
 
   ospf6_message_terminate ();
   ospf6_asbr_terminate ();

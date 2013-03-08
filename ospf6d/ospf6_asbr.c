@@ -409,6 +409,8 @@ ospf6_asbr_redistribute_unset (int type)
       ospf6_asbr_redistribute_remove (info->type, route->nexthop[0].ifindex,
                                       &route->prefix);
     }
+
+  ospf6_asbr_routemap_unset (type);
 }
 
 void
@@ -636,7 +638,6 @@ DEFUN (ospf6_redistribute,
     return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
-  ospf6_asbr_routemap_unset (type);
   ospf6_asbr_redistribute_set (type);
   return CMD_SUCCESS;
 }
@@ -677,7 +678,6 @@ DEFUN (no_ospf6_redistribute,
     return CMD_WARNING;
 
   ospf6_asbr_redistribute_unset (type);
-  ospf6_asbr_routemap_unset (type);
 
   return CMD_SUCCESS;
 }
@@ -1310,6 +1310,20 @@ ospf6_asbr_init (void)
   install_element (OSPF6_NODE, &ospf6_redistribute_cmd);
   install_element (OSPF6_NODE, &ospf6_redistribute_routemap_cmd);
   install_element (OSPF6_NODE, &no_ospf6_redistribute_cmd);
+}
+
+void
+ospf6_asbr_redistribute_reset (void)
+{
+  int type;
+
+  for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
+    {
+      if (type == ZEBRA_ROUTE_OSPF6)
+        continue;
+      if (ospf6_zebra_is_redistribute (type))
+        ospf6_asbr_redistribute_unset(type);
+    }
 }
 
 void
