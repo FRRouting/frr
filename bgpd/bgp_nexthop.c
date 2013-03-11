@@ -604,6 +604,10 @@ bgp_address_del (struct prefix *p)
   tmp.addr = p->u.prefix4;
 
   addr = hash_lookup (bgp_address_hash, &tmp);
+  /* may have been deleted earlier by bgp_interface_down() */
+  if (addr == NULL)
+    return;
+
   addr->refcnt--;
 
   if (addr->refcnt == 0)
