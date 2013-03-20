@@ -297,6 +297,8 @@ ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa)
         }
       ospf6_route_remove (route, ospf6->route_table);
     }
+  if (route != NULL)
+    ospf6_route_unlock (route);
 }
 
 void
