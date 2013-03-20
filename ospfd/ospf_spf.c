@@ -568,8 +568,22 @@ ospf_nexthop_calculation (struct ospf_area *area, struct vertex *v,
               */
 	      if (oi->type == OSPF_IFTYPE_POINTOPOINT)
 		{
-		  added = 1;
-		  nexthop.s_addr = 0; /* Nexthop not required */
+		  /* Having nexthop = 0 is tempting, but NOT acceptable.
+		     It breaks AS-External routes with a forwarding address,
+		     since ospf_ase_complete_direct_routes() will mistakenly
+		     assume we've reached the last hop and should place the
+		     forwarding address as nexthop.
+		     Also, users may configure multi-access links in p2p mode,
+		     so we need the IP to ARP the nexthop.
+		  */
+		  struct ospf_neighbor *nbr_w;
+
+		  nbr_w = ospf_nbr_lookup_by_routerid (oi->nbrs, &l->link_id);
+		  if (nbr_w != NULL)
+		    {
+		      added = 1;
+		      nexthop = nbr_w->src;
+		    }
 		}
 	      else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
 		{
