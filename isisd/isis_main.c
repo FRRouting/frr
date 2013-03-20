@@ -144,7 +144,7 @@ Daemon which manages IS-IS routing\n\n\
 -C, --dryrun       Check configuration for validity and exit\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to http://bugzilla.quagga.net\n", progname);
+Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
     }
 
   exit (status);
