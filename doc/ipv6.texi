@@ -136,8 +136,8 @@ for the lowest preference possible.
 Default: 0
 @end deffn
 
-+@deffn {Interface Command} {ipv6 nd home-agent-lifetime <0-65520>} {}
-+@deffnx {Interface Command} {no ipv6 nd home-agent-lifetime [<0-65520>]} {}
+@deffn {Interface Command} {ipv6 nd home-agent-lifetime <0-65520>} {}
+@deffnx {Interface Command} {no ipv6 nd home-agent-lifetime [<0-65520>]} {}
 The value to be placed in Home Agent Option, when Home Agent config flag is set, 
 which indicates to hosts Home Agent Lifetime. The default value of 0 means to
 place the current Router Lifetime value.
