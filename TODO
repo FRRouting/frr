@@ -159,6 +159,21 @@ ospf6d:
 	Priority: high
 	State: patches tickling in from Cumulus Networks 2013-03-29 Dinesh Dutt
 
+[O601*] OSPFv3 autoconfiguration, prefix assignment and sourcedest routing
+	Priority: medium
+	State: work in progress 2013-03-29 Edward Seabrook
+	GSoC-Mentors: David Lamparter
+
+	OSPFv3 application in the homenet is being designed to use several
+	extensions to the base protocol.  In order of dependency,
+	autoconfiguration, prefix assignment and sourcedest routing should
+	be implemented.
+
+	This task requires a good level of OSPF understanding plus proper
+	ability to follow IETF discussion about these points.  Also, since work
+	has already started on this, improvements must obviously build on top
+	of that.
+
 isisd
 =====
 
