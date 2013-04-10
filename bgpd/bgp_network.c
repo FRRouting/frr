@@ -473,6 +473,7 @@ bgp_bind (struct peer *peer)
 {
 #ifdef SO_BINDTODEVICE
   int ret;
+  int myerrno;
   char *name = NULL;
 
   /* If not bound to an interface or part of a VRF, we don't care. */
@@ -504,6 +505,7 @@ bgp_bind (struct peer *peer)
   
   ret = setsockopt (peer->fd, SOL_SOCKET, SO_BINDTODEVICE,
 		    name, strlen(name));
+  myerrno = errno;
 
   if (bgpd_privs.change (ZPRIVS_LOWER) )
     zlog_err ("bgp_bind: could not lower privs");
@@ -511,7 +513,7 @@ bgp_bind (struct peer *peer)
   if (ret < 0)
     {
       if (bgp_debug_neighbor_events (peer))
-        zlog_debug ("bind to interface %s failed", name);
+        zlog_debug ("bind to interface %s failed, errno=%d", name, myerrno);
       return ret;
     }
 #endif /* SO_BINDTODEVICE */

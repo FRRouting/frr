@@ -215,6 +215,7 @@ cluster_init (void)
 static void
 cluster_finish (void)
 {
+  hash_clean (cluster_hash, (void (*)(void *))cluster_free);
   hash_free (cluster_hash);
   cluster_hash = NULL;
 }
@@ -413,6 +414,7 @@ transit_init (void)
 static void
 transit_finish (void)
 {
+  hash_clean (transit_hash, (void (*)(void *))transit_free);
   hash_free (transit_hash);
   transit_hash = NULL;
 }
@@ -661,9 +663,20 @@ attrhash_init (void)
   attrhash = hash_create (attrhash_key_make, attrhash_cmp);
 }
 
+/*
+ * special for hash_clean below
+ */
+static void
+attr_vfree (void *attr)
+{
+  bgp_attr_extra_free ((struct attr *)attr);
+  XFREE (MTYPE_ATTR, attr);
+}
+
 static void
 attrhash_finish (void)
 {
+  hash_clean(attrhash, attr_vfree);
   hash_free (attrhash);
   attrhash = NULL;
 }
