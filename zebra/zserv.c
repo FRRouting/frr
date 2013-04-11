@@ -1049,7 +1049,9 @@ zread_ipv6_nexthop_lookup (struct zserv *client, u_short length)
   char buf[BUFSIZ];
 
   stream_get (&addr, client->ibuf, 16);
-  printf ("DEBUG %s\n", inet_ntop (AF_INET6, &addr, buf, BUFSIZ));
+  if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+    zlog_debug("%s: looking up %s", __func__,
+               inet_ntop (AF_INET6, &addr, buf, BUFSIZ));
 
   return zsend_ipv6_nexthop_lookup (client, &addr);
 }
