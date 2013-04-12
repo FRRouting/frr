@@ -103,8 +103,10 @@ bgpd
 
 [B000] HUP signal support (reload configuration file).
 
-[B001] BGP multi-path extension, relaxed mode
+[B001*] BGP multi-path extension, relaxed mode
 	Priority: medium
+       Implemented, patch will be sent shortly
+       Pradosh Mohapatra, Cumulus Networks
 
 [B002] move FSM state to be per-connection, not per-peer.
 
@@ -155,9 +157,13 @@ ospfd:
 
 ospf6d:
 
-[O600] fix ospf6d in general
+[O600*] fix ospf6d in general
 	Priority: high
 	State: patches tickling in from Cumulus Networks 2013-03-29 Dinesh Dutt
+        Implemented: p2p link support, ABR, Stub area/Totally Stubby area,
+        SPF throttling, Improving state machine to get performance/scale,
+        max-metric support, Improving ECMP to be > 4, Various other bug fixes
+
 
 [O601*] OSPFv3 autoconfiguration, prefix assignment and sourcedest routing
 	Priority: medium
