@@ -643,6 +643,9 @@ isis_route_validate (struct isis_area *area)
     isis_route_validate_merge (area, AF_INET6);
 #endif
 
+  if (!area->circuit_list) {
+    return;
+  }
   /* walk all circuits and reset any spf specific flags */
   for (ALL_LIST_ELEMENTS_RO (area->circuit_list, node, circuit))
     UNSET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);

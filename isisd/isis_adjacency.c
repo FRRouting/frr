@@ -507,6 +507,11 @@ isis_adj_build_up_list (struct list *adjdb, struct list *list)
   struct isis_adjacency *adj;
   struct listnode *node;
 
+  if (adjdb == NULL) {
+    zlog_warn ("isis_adj_build_up_list(): adjacency DB is empty");
+    return;
+  }
+
   if (!list)
     {
       zlog_warn ("isis_adj_build_up_list(): NULL list");
