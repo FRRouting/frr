@@ -621,7 +621,11 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 		{
 		case NEXTHOP_TYPE_IPV4:
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
-		  vty_out (vty, " via %s)", inet_ntoa (nexthop->rgate.ipv4));
+		  vty_out (vty, " via %s", inet_ntoa (nexthop->rgate.ipv4));
+		  if (nexthop->rifindex)
+		    vty_out (vty, ", %s", ifindex2ifname (nexthop->rifindex));
+		  vty_out (vty, ")");
+
 		  break;
 		case NEXTHOP_TYPE_IFINDEX:
 		case NEXTHOP_TYPE_IFNAME:
@@ -731,7 +735,10 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	    {
 	    case NEXTHOP_TYPE_IPV4:
 	    case NEXTHOP_TYPE_IPV4_IFINDEX:
-	      vty_out (vty, " via %s)", inet_ntoa (nexthop->rgate.ipv4));
+	      vty_out (vty, " via %s", inet_ntoa (nexthop->rgate.ipv4));
+	      if (nexthop->rifindex)
+		vty_out (vty, ", %s", ifindex2ifname (nexthop->rifindex));
+	      vty_out (vty, ")");
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
 	    case NEXTHOP_TYPE_IFNAME:
