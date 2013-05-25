@@ -548,6 +548,8 @@ zsend_ipv4_nexthop_lookup (struct zserv *client, struct in_addr addr)
 
   if (rib)
     {
+      if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+        zlog_debug("%s: Matching rib entry found.", __func__);
       stream_putl (s, rib->metric);
       num = 0;
       nump = stream_get_endp(s);
@@ -560,6 +562,10 @@ zsend_ipv4_nexthop_lookup (struct zserv *client, struct in_addr addr)
 	      {
 	      case ZEBRA_NEXTHOP_IPV4:
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
+		break;
+	      case ZEBRA_NEXTHOP_IPV4_IFINDEX:
+		stream_put_in_addr (s, &nexthop->gate.ipv4);
+		stream_putl (s, nexthop->ifindex);
 		break;
 	      case ZEBRA_NEXTHOP_IFINDEX:
 	      case ZEBRA_NEXTHOP_IFNAME:
@@ -575,6 +581,8 @@ zsend_ipv4_nexthop_lookup (struct zserv *client, struct in_addr addr)
     }
   else
     {
+      if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+        zlog_debug("%s: No matching rib entry found.", __func__);
       stream_putl (s, 0);
       stream_putc (s, 0);
     }
@@ -890,8 +898,12 @@ static int
 zread_ipv4_nexthop_lookup (struct zserv *client, u_short length)
 {
   struct in_addr addr;
+  char buf[BUFSIZ];
 
   addr.s_addr = stream_get_ipv4 (client->ibuf);
+  if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+    zlog_debug("%s: looking up %s", __func__,
+               inet_ntop (AF_INET, &addr, buf, BUFSIZ));
   return zsend_ipv4_nexthop_lookup (client, addr);
 }
 
