@@ -627,6 +627,10 @@ zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p)
 	      case ZEBRA_NEXTHOP_IPV4:
 		stream_put_in_addr (s, &nexthop->gate.ipv4);
 		break;
+	      case ZEBRA_NEXTHOP_IPV4_IFINDEX:
+		stream_put_in_addr (s, &nexthop->gate.ipv4);
+		stream_putl (s, nexthop->ifindex);
+		break;
 	      case ZEBRA_NEXTHOP_IFINDEX:
 	      case ZEBRA_NEXTHOP_IFNAME:
 		stream_putl (s, nexthop->ifindex);

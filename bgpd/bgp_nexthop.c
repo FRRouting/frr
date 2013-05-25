@@ -1093,14 +1093,20 @@ bgp_import_check (struct prefix *p, u_int32_t *igpmetric,
     {
       nexthop.s_addr = 0;
       nexthop_type = stream_getc (s);
-      if (nexthop_type == ZEBRA_NEXTHOP_IPV4)
+      switch (nexthop_type)
 	{
+	case ZEBRA_NEXTHOP_IPV4:
 	  nexthop.s_addr = stream_get_ipv4 (s);
-	  if (igpnexthop)
-	    *igpnexthop = nexthop;
+	  break;
+	case ZEBRA_NEXTHOP_IPV4_IFINDEX:
+	  nexthop.s_addr = stream_get_ipv4 (s);
+	  /* ifindex */ (void)stream_getl (s);
+	  break;
+	default:
+	  /* do nothing */
+	  break;
 	}
-      else
-	*igpnexthop = nexthop;
+      *igpnexthop = nexthop;
 
       return 1;
     }
