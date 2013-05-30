@@ -2184,6 +2184,7 @@ static void vty_read_file(FILE *confp)
 	 * vty->fd will be -1 from vty_new()
 	 */
 	vty->wfd = STDERR_FILENO;
+	vty->fd = STDIN_FILENO;
 	vty->type = VTY_FILE;
 	vty->node = CONFIG_NODE;
 
