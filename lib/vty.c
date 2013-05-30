@@ -1611,6 +1611,34 @@ vty_flush (struct thread *thread)
   return 0;
 }
 
+/* allocate and initialise vty */
+static struct vty *
+vty_new_init (int vty_sock)
+{
+  struct vty *vty;
+
+  vty = vty_new ();
+  vty->fd = vty_sock;
+  vty->wfd = vty_sock;
+  vty->type = VTY_TERM;
+  vty->node = AUTH_NODE;
+  vty->fail = 0;
+  vty->cp = 0;
+  vty_clear_buf (vty);
+  vty->length = 0;
+  memset (vty->hist, 0, sizeof (vty->hist));
+  vty->hp = 0;
+  vty->hindex = 0;
+  vector_set_index (vtyvec, vty_sock, vty);
+  vty->status = VTY_NORMAL;
+  vty->lines = -1;
+  vty->iac = 0;
+  vty->iac_sb_in_progress = 0;
+  vty->sb_len = 0;
+
+  return vty;
+}
+
 /* Create new vty structure. */
 static struct vty *
 vty_create (int vty_sock, union sockunion *su)
@@ -1621,10 +1649,10 @@ vty_create (int vty_sock, union sockunion *su)
   sockunion2str(su, buf, SU_ADDRSTRLEN);
 
   /* Allocate new vty structure and set up default values. */
-  vty = vty_new ();
-  vty->fd = vty_sock;
-  vty->wfd = vty_sock;
-  vty->type = VTY_TERM;
+  vty = vty_new_init (vty_sock);
+
+  /* configurable parameters not part of basic init */
+  vty->v_timeout = vty_timeout_val;
   strcpy (vty->address, buf);
   if (no_password_check)
     {
@@ -1635,25 +1663,8 @@ vty_create (int vty_sock, union sockunion *su)
       else
 	vty->node = VIEW_NODE;
     }
-  else
-    vty->node = AUTH_NODE;
-  vty->fail = 0;
-  vty->cp = 0;
-  vty_clear_buf (vty);
-  vty->length = 0;
-  memset (vty->hist, 0, sizeof (vty->hist));
-  vty->hp = 0;
-  vty->hindex = 0;
-  vector_set_index (vtyvec, vty_sock, vty);
-  vty->status = VTY_NORMAL;
-  vty->v_timeout = vty_timeout_val;
   if (host.lines >= 0)
     vty->lines = host.lines;
-  else
-    vty->lines = -1;
-  vty->iac = 0;
-  vty->iac_sb_in_progress = 0;
-  vty->sb_len = 0;
 
   if (! no_password_check)
     {
@@ -1685,6 +1696,30 @@ vty_create (int vty_sock, union sockunion *su)
   /* Add read/write thread. */
   vty_event (VTY_WRITE, vty_sock, vty);
   vty_event (VTY_READ, vty_sock, vty);
+
+  return vty;
+}
+
+/* create vty for stdio */
+struct vty *
+vty_stdio (void)
+{
+  struct vty *vty;
+
+  vty = vty_new_init (0);
+  vty->wfd = 1;
+
+  /* always have stdio vty in a known _unchangeable_ state, don't want config
+   * to have any effect here to make sure scripting this works as intended */
+  vty->node = ENABLE_NODE;
+  vty->v_timeout = 0;
+  strcpy (vty->address, "console");
+
+  vty_prompt (vty);
+
+  /* Add read/write thread. */
+  vty_event (VTY_WRITE, 1, vty);
+  vty_event (VTY_READ, 0, vty);
 
   return vty;
 }

@@ -273,6 +273,7 @@ extern void vty_init_vtysh (void);
 extern void vty_terminate (void);
 extern void vty_reset (void);
 extern struct vty *vty_new (void);
+extern struct vty *vty_stdio (void);
 extern int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
 extern void vty_read_config (char *, char *);
 extern void vty_time_print (struct vty *, int);
