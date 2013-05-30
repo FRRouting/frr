@@ -3153,7 +3153,7 @@ DEFUN (config_write_file,
   
   /* Make vty for configuration file. */
   file_vty = vty_new ();
-  file_vty->fd = fd;
+  file_vty->wfd = fd;
   file_vty->type = VTY_FILE;
 
   /* Config file header print. */

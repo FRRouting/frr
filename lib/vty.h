@@ -34,6 +34,9 @@ struct vty
   /* File descripter of this vty. */
   int fd;
 
+  /* output FD, to support stdin/stdout combination */
+  int wfd;
+
   /* Is this vty connect to file or not */
   enum {VTY_TERM, VTY_FILE, VTY_SHELL, VTY_SHELL_SERV} type;
 
