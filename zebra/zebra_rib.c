@@ -950,6 +950,7 @@ static unsigned
 nexthop_active_check (struct route_node *rn, struct rib *rib,
 		      struct nexthop *nexthop, int set)
 {
+  rib_table_info_t *info = rn->table->info;
   struct interface *ifp;
   route_map_result_t ret = RMAP_MATCH;
   extern char *proto_rm[AFI_MAX][ZEBRA_ROUTE_MAX+1];
@@ -1027,10 +1028,21 @@ nexthop_active_check (struct route_node *rn, struct rib *rib,
   if (! CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
     return 0;
 
+  /* XXX: What exactly do those checks do? Do we support
+   * e.g. IPv4 routes with IPv6 nexthops or vice versa? */
   if (RIB_SYSTEM_ROUTE(rib) ||
       (family == AFI_IP && rn->p.family != AF_INET) ||
       (family == AFI_IP6 && rn->p.family != AF_INET6))
     return CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+
+  /* The original code didn't determine the family correctly
+   * e.g. for NEXTHOP_TYPE_IFINDEX. Retrieve the correct afi
+   * from the rib_table_info in those cases.
+   * Possibly it may be better to use only the rib_table_info
+   * in every case.
+   */
+  if (!family)
+    family = info->afi;
 
   rmap = 0;
   if (rib->type >= 0 && rib->type < ZEBRA_ROUTE_MAX &&
