@@ -500,16 +500,37 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 
 			resolved_hop = XCALLOC(MTYPE_NEXTHOP, sizeof (struct nexthop));
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
+			/* If the resolving route specifies a gateway, use it */
+			if (newhop->type == NEXTHOP_TYPE_IPV4
+			    || newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX
+			    || newhop->type == NEXTHOP_TYPE_IPV4_IFNAME)
+			  {
+			    resolved_hop->type = newhop->type;
+			    resolved_hop->gate.ipv4 = newhop->gate.ipv4;
 
-			resolved_hop->type = newhop->type;
-			if (newhop->type == NEXTHOP_TYPE_IPV4 ||
-			    newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
-			  resolved_hop->gate.ipv4 = newhop->gate.ipv4;
+			    if (newhop->ifindex)
+			      {
+				resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+				resolved_hop->ifindex = newhop->ifindex;
+			      }
+			  }
 
+			/* If the resolving route is an interface route,
+			 * it means the gateway we are looking up is connected
+			 * to that interface. (The actual network is _not_ onlink).
+			 * Therefore, the resolved route should have the original
+			 * gateway as nexthop as it is directly connected.
+			 *
+			 * On Linux, we have to set the onlink netlink flag because
+			 * otherwise, the kernel won't accept the route. */
 			if (newhop->type == NEXTHOP_TYPE_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IFNAME
-			    || newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
-			  resolved_hop->ifindex = newhop->ifindex;
+			    || newhop->type == NEXTHOP_TYPE_IFNAME)
+			  {
+			    resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
+			    resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			    resolved_hop->gate.ipv4 = nexthop->gate.ipv4;
+			    resolved_hop->ifindex = newhop->ifindex;
+			  }
 
 			_nexthop_add(&nexthop->resolved, resolved_hop);
 		      }
@@ -622,18 +643,30 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 
 			resolved_hop = XCALLOC(MTYPE_NEXTHOP, sizeof (struct nexthop));
 			SET_FLAG (resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
-
-			resolved_hop->type = newhop->type;
+			/* See nexthop_active_ipv4 for a description how the
+			 * resolved nexthop is constructed. */
 			if (newhop->type == NEXTHOP_TYPE_IPV6
 			    || newhop->type == NEXTHOP_TYPE_IPV6_IFINDEX
 			    || newhop->type == NEXTHOP_TYPE_IPV6_IFNAME)
-			  resolved_hop->gate.ipv6 = newhop->gate.ipv6;
+			  {
+			    resolved_hop->type = newhop->type;
+			    resolved_hop->gate.ipv6 = newhop->gate.ipv6;
+
+			    if (newhop->ifindex)
+			      {
+				resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+				resolved_hop->ifindex = newhop->ifindex;
+			      }
+			  }
 
 			if (newhop->type == NEXTHOP_TYPE_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IFNAME
-			    || newhop->type == NEXTHOP_TYPE_IPV6_IFINDEX
-			    || newhop->type == NEXTHOP_TYPE_IPV6_IFNAME)
-			  resolved_hop->ifindex = newhop->ifindex;
+			    || newhop->type == NEXTHOP_TYPE_IFNAME)
+			  {
+				resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
+				resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+				resolved_hop->gate.ipv6 = nexthop->gate.ipv6;
+				resolved_hop->ifindex = newhop->ifindex;
+			  }
 
 			_nexthop_add(&nexthop->resolved, resolved_hop);
 		      }
