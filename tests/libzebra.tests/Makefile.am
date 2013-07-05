@@ -1,2 +1,3 @@
 EXTRA_DIST = \
-	tabletest.exp
+	tabletest.exp \
+	testnexthopiter.exp

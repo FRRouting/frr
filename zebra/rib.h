@@ -254,15 +254,64 @@ struct nexthop
 #define NEXTHOP_FLAG_FIB        (1 << 1) /* FIB nexthop. */
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
 
-  /* Nexthop address or interface name. */
+  /* Nexthop address */
   union g_addr gate;
-
-  /* Recursive lookup nexthop. */
-  u_char rtype;
-  unsigned int rifindex;
-  union g_addr rgate;
   union g_addr src;
+
+  /* Nexthops obtained by recursive resolution.
+   *
+   * If the nexthop struct needs to be resolved recursively,
+   * NEXTHOP_FLAG_RECURSIVE will be set in flags and the nexthops
+   * obtained by recursive resolution will be added to `resolved'.
+   * Only one level of recursive resolution is currently supported. */
+  struct nexthop *resolved;
 };
+
+/* The following for loop allows to iterate over the nexthop
+ * structure of routes.
+ *
+ * We have to maintain quite a bit of state:
+ *
+ * nexthop:   The pointer to the current nexthop, either in the
+ *            top-level chain or in the resolved chain of ni.
+ * tnexthop:  The pointer to the current nexthop in the top-level
+ *            nexthop chain.
+ * recursing: Information if nh currently is in the top-level chain
+ *            (0) or in a resolved chain (1).
+ *
+ * Initialization: Set `nexthop' and `tnexthop' to the head of the
+ * top-level chain. As nexthop is in the top level chain, set recursing
+ * to 0.
+ *
+ * Iteration check: Check that the `nexthop' pointer is not NULL.
+ *
+ * Iteration step: This is the tricky part. Check if `nexthop' has
+ * NEXTHOP_FLAG_RECURSIVE set. If yes, this implies that `nexthop' is in
+ * the top level chain and has at least one nexthop attached to
+ * `nexthop->resolved'. As we want to descend into `nexthop->resolved',
+ * set `recursing' to 1 and set `nexthop' to `nexthop->resolved'.
+ * `tnexthop' is left alone in that case so we can remember which nexthop
+ * in the top level chain we are currently handling.
+ *
+ * If NEXTHOP_FLAG_RECURSIVE is not set, `nexthop' will progress in its
+ * current chain. If we are recursing, `nexthop' will be set to
+ * `nexthop->next' and `tnexthop' will be left alone. If we are not
+ * recursing, both `tnexthop' and `nexthop' will be set to `nexthop->next'
+ * as we are progressing in the top level chain.
+ *   If we encounter `nexthop->next == NULL', we will clear the `recursing'
+ * flag as we arived either at the end of the resolved chain or at the end
+ * of the top level chain. In both cases, we set `tnexthop' and `nexthop'
+ * to `tnexthop->next', progressing to the next position in the top-level
+ * chain and possibly to its end marked by NULL.
+ */
+#define ALL_NEXTHOPS_RO(head, nexthop, tnexthop, recursing) \
+  (tnexthop) = (nexthop) = (head), (recursing) = 0; \
+  (nexthop); \
+  (nexthop) = CHECK_FLAG((nexthop)->flags, NEXTHOP_FLAG_RECURSIVE) \
+    ? (((recursing) = 1), (nexthop)->resolved) \
+    : ((nexthop)->next ? ((recursing) ? (nexthop)->next \
+                                      : ((tnexthop) = (nexthop)->next)) \
+                       : (((recursing) = 0),((tnexthop) = (tnexthop)->next)))
 
 /* Routing table instance.  */
 struct vrf
@@ -333,6 +382,7 @@ extern struct nexthop *nexthop_ipv4_ifindex_add (struct rib *,
                                                  struct in_addr *,
                                                  struct in_addr *,
                                                  unsigned int);
+extern int nexthop_has_fib_child(struct nexthop *);
 extern void rib_lookup_and_dump (struct prefix_ipv4 *);
 extern void rib_lookup_and_pushup (struct prefix_ipv4 *);
 extern void rib_dump (const char *, const struct prefix_ipv4 *, const struct rib *);

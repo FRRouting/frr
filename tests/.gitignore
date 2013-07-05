@@ -31,4 +31,5 @@ testmemory
 testprivs
 testsig
 teststream
+testnexthopiter
 site.exp

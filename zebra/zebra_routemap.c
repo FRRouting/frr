@@ -422,14 +422,10 @@ route_match_ip_next_hop (void *rule, struct prefix *prefix,
       switch (nexthop->type) {
       case NEXTHOP_TYPE_IFINDEX:
       case NEXTHOP_TYPE_IFNAME:
+        /* Interface routes can't match ip next-hop */
+        return RMAP_NOMATCH;
       case NEXTHOP_TYPE_IPV4_IFINDEX:
       case NEXTHOP_TYPE_IPV4_IFNAME:
-        if (nexthop->rtype != NEXTHOP_TYPE_IPV4)
-		return RMAP_NOMATCH;
-        p.family = AF_INET;
-        p.prefix = nexthop->rgate.ipv4;
-        p.prefixlen = IPV4_MAX_BITLEN;
-        break;
       case NEXTHOP_TYPE_IPV4:
         p.family = AF_INET;
         p.prefix = nexthop->gate.ipv4;
@@ -488,14 +484,10 @@ route_match_ip_next_hop_prefix_list (void *rule, struct prefix *prefix,
       switch (nexthop->type) {
       case NEXTHOP_TYPE_IFINDEX:
       case NEXTHOP_TYPE_IFNAME:
+        /* Interface routes can't match ip next-hop */
+        return RMAP_NOMATCH;
       case NEXTHOP_TYPE_IPV4_IFINDEX:
       case NEXTHOP_TYPE_IPV4_IFNAME:
-        if (nexthop->rtype != NEXTHOP_TYPE_IPV4)
-		return RMAP_NOMATCH;
-        p.family = AF_INET;
-        p.prefix = nexthop->rgate.ipv4;
-        p.prefixlen = IPV4_MAX_BITLEN;
-        break;
       case NEXTHOP_TYPE_IPV4:
         p.family = AF_INET;
         p.prefix = nexthop->gate.ipv4;

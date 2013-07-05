@@ -169,7 +169,8 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
   int sock;
   struct rtentry rtentry;
   struct sockaddr_in sin_dest, sin_mask, sin_gate;
-  struct nexthop *nexthop;
+  struct nexthop *nexthop, *tnexthop;
+  int recursing;
   int nexthop_num = 0;
   struct interface *ifp;
 
@@ -188,65 +189,49 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
       SET_FLAG (rtentry.rt_flags, RTF_REJECT);
 
       if (cmd == SIOCADDRT)
-	for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-	  SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
-
+	for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
+	  {
+            /* We shouldn't encounter recursive nexthops on discard routes,
+             * but it is probably better to handle that case correctly anyway.
+             */
+	    if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+	      continue;
+	    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+	  }
       goto skip;
     }
 
   memset (&sin_gate, 0, sizeof (struct sockaddr_in));
 
   /* Make gateway. */
-  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+  for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
     {
+      if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+        continue;
+
       if ((cmd == SIOCADDRT 
 	   && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 	  || (cmd == SIOCDELRT
 	      && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
 	{
-	  if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+	  if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
+	      nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
 	    {
-	      if (nexthop->rtype == NEXTHOP_TYPE_IPV4 ||
-		  nexthop->rtype == NEXTHOP_TYPE_IPV4_IFINDEX)
-		{
-		  sin_gate.sin_family = AF_INET;
+	      sin_gate.sin_family = AF_INET;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		  sin_gate.sin_len = sizeof (struct sockaddr_in);
+	      sin_gate.sin_len = sizeof (struct sockaddr_in);
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-		  sin_gate.sin_addr = nexthop->rgate.ipv4;
-		  rtentry.rt_flags |= RTF_GATEWAY;
-		}
-	      if (nexthop->rtype == NEXTHOP_TYPE_IFINDEX
-		  || nexthop->rtype == NEXTHOP_TYPE_IFNAME)
-		{
-		  ifp = if_lookup_by_index (nexthop->rifindex);
-		  if (ifp)
-		    rtentry.rt_dev = ifp->name;
-		  else
-		    return -1;
-		}
+	      sin_gate.sin_addr = nexthop->gate.ipv4;
+	      rtentry.rt_flags |= RTF_GATEWAY;
 	    }
-	  else
+	  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
+	      || nexthop->type == NEXTHOP_TYPE_IFNAME)
 	    {
-	      if (nexthop->type == NEXTHOP_TYPE_IPV4 ||
-		  nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX)
-		{
-		  sin_gate.sin_family = AF_INET;
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-		  sin_gate.sin_len = sizeof (struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-		  sin_gate.sin_addr = nexthop->gate.ipv4;
-		  rtentry.rt_flags |= RTF_GATEWAY;
-		}
-	      if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-		  || nexthop->type == NEXTHOP_TYPE_IFNAME)
-		{
-		  ifp = if_lookup_by_index (nexthop->ifindex);
-		  if (ifp)
-		    rtentry.rt_dev = ifp->name;
-		  else
-		    return -1;
-		}
+	      ifp = if_lookup_by_index (nexthop->ifindex);
+	      if (ifp)
+	        rtentry.rt_dev = ifp->name;
+	      else
+	        return -1;
 	    }
 
 	  if (cmd == SIOCADDRT)
@@ -430,7 +415,8 @@ kernel_ioctl_ipv6_multipath (u_long cmd, struct prefix *p, struct rib *rib,
   int ret;
   int sock;
   struct in6_rtmsg rtm;
-  struct nexthop *nexthop;
+  struct nexthop *nexthop, *tnexthop;
+  int recursing;
   int nexthop_num = 0;
     
   memset (&rtm, 0, sizeof (struct in6_rtmsg));
@@ -456,48 +442,30 @@ kernel_ioctl_ipv6_multipath (u_long cmd, struct prefix *p, struct rib *rib,
   /* rtm.rtmsg_flags |= RTF_DYNAMIC; */
 
   /* Make gateway. */
-  for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+  for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
     {
+      if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+        continue;
+
       if ((cmd == SIOCADDRT 
 	   && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 	  || (cmd == SIOCDELRT
 	      && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
 	{
-	  if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+	  if (nexthop->type == NEXTHOP_TYPE_IPV6
+	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
+	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 	    {
-	      if (nexthop->rtype == NEXTHOP_TYPE_IPV6
-		  || nexthop->rtype == NEXTHOP_TYPE_IPV6_IFNAME
-		  || nexthop->rtype == NEXTHOP_TYPE_IPV6_IFINDEX)
-		{
-		  memcpy (&rtm.rtmsg_gateway, &nexthop->rgate.ipv6,
-			  sizeof (struct in6_addr));
-		}
-	      if (nexthop->rtype == NEXTHOP_TYPE_IFINDEX
-		  || nexthop->rtype == NEXTHOP_TYPE_IFNAME
-		  || nexthop->rtype == NEXTHOP_TYPE_IPV6_IFNAME
-		  || nexthop->rtype == NEXTHOP_TYPE_IPV6_IFINDEX)
-		rtm.rtmsg_ifindex = nexthop->rifindex;
-	      else
-		rtm.rtmsg_ifindex = 0;
-	      
+	      memcpy (&rtm.rtmsg_gateway, &nexthop->gate.ipv6,
+		      sizeof (struct in6_addr));
 	    }
+	  if (nexthop->type == NEXTHOP_TYPE_IFINDEX
+	      || nexthop->type == NEXTHOP_TYPE_IFNAME
+	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
+	      || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
+	    rtm.rtmsg_ifindex = nexthop->ifindex;
 	  else
-	    {
-	      if (nexthop->type == NEXTHOP_TYPE_IPV6
-		  || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
-		  || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
-		{
-		  memcpy (&rtm.rtmsg_gateway, &nexthop->gate.ipv6,
-			  sizeof (struct in6_addr));
-		}
-	      if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-		  || nexthop->type == NEXTHOP_TYPE_IFNAME
-		  || nexthop->type == NEXTHOP_TYPE_IPV6_IFNAME
-		  || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
-		rtm.rtmsg_ifindex = nexthop->ifindex;
-	      else
-		rtm.rtmsg_ifindex = 0;
-	    }
+	    rtm.rtmsg_ifindex = 0;
 
 	  if (cmd == SIOCADDRT)
 	    SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);

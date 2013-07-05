@@ -152,7 +152,8 @@ typedef struct netlink_route_info_t_
  * Returns TRUE if a nexthop was added, FALSE otherwise.
  */
 static int
-netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop)
+netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop,
+			   int recursive)
 {
   netlink_nh_info_t nhi;
   union g_addr *src;
@@ -163,40 +164,7 @@ netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop)
   if (ri->num_nhs >= (int) ZEBRA_NUM_OF (ri->nhs))
     return 0;
 
-  if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-    {
-      nhi.recursive = 1;
-      nhi.type = nexthop->rtype;
-      nhi.if_index = nexthop->rifindex;
-
-      if (nexthop->rtype == NEXTHOP_TYPE_IPV4
-	  || nexthop->rtype == NEXTHOP_TYPE_IPV4_IFINDEX)
-	{
-	  nhi.gateway = &nexthop->rgate;
-	  if (nexthop->src.ipv4.s_addr)
-	    src = &nexthop->src;
-	}
-
-#ifdef HAVE_IPV6
-      if (nexthop->rtype == NEXTHOP_TYPE_IPV6
-	  || nexthop->rtype == NEXTHOP_TYPE_IPV6_IFINDEX
-	  || nexthop->rtype == NEXTHOP_TYPE_IPV6_IFNAME)
-	{
-	  nhi.gateway = &nexthop->rgate;
-	}
-#endif /* HAVE_IPV6 */
-
-      if (nexthop->rtype == NEXTHOP_TYPE_IFINDEX
-	  || nexthop->rtype == NEXTHOP_TYPE_IFNAME)
-	{
-	  if (nexthop->src.ipv4.s_addr)
-	    src = &nexthop->src;
-	}
-
-      goto done;
-    }
-
-  nhi.recursive = 0;
+  nhi.recursive = recursive;
   nhi.type = nexthop->type;
   nhi.if_index = nexthop->ifindex;
 
@@ -224,11 +192,6 @@ netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop)
 	src = &nexthop->src;
     }
 
-  /*
-   * Fall through...
-   */
-
- done:
   if (!nhi.gateway && nhi.if_index == 0)
     return 0;
 
@@ -272,7 +235,8 @@ static int
 netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
 			 rib_dest_t *dest, struct rib *rib)
 {
-  struct nexthop *nexthop = NULL;
+  struct nexthop *nexthop, *tnexthop;
+  int recursing;
   int discard;
 
   memset (ri, 0, sizeof (*ri));
@@ -321,35 +285,20 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
       goto skip;
     }
 
-  /* Multipath case. */
-  if (rib->nexthop_active_num == 1 || MULTIPATH_NUM == 1)
+  for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing))
     {
-      for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
-        {
+      if (MULTIPATH_NUM != 0 && ri->num_nhs >= MULTIPATH_NUM)
+        break;
 
-          if ((cmd == RTM_NEWROUTE
-               && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-              || (cmd == RTM_DELROUTE
-                  && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
-            {
-	      netlink_route_info_add_nh (ri, nexthop);
-              break;
-            }
-        }
-    }
-  else
-    {
-      for (nexthop = rib->nexthop;
-           nexthop && (MULTIPATH_NUM == 0 || ri->num_nhs < MULTIPATH_NUM);
-           nexthop = nexthop->next)
+      if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+        continue;
+
+      if ((cmd == RTM_NEWROUTE
+           && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+          || (cmd == RTM_DELROUTE
+              && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
         {
-          if ((cmd == RTM_NEWROUTE
-               && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-              || (cmd == RTM_DELROUTE
-                  && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
-            {
-	      netlink_route_info_add_nh (ri, nexthop);
-            }
+          netlink_route_info_add_nh (ri, nexthop, recursing);
         }
     }
 
