@@ -615,6 +615,9 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn)
 	  if (! CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 	    vty_out (vty, " inactive");
 
+	  if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ONLINK))
+	    vty_out (vty, " onlink");
+
 	  if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 	    vty_out (vty, " (recursive)");
 
@@ -709,6 +712,9 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib)
 	}
       if (! CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 	vty_out (vty, " inactive");
+
+      if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ONLINK))
+	vty_out (vty, " onlink");
 
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 	vty_out (vty, " (recursive)");
@@ -1599,6 +1605,9 @@ vty_show_ipv6_route_detail (struct vty *vty, struct route_node *rn)
 	    }
 	  if (! CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 	    vty_out (vty, " inactive");
+
+	  if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ONLINK))
+	    vty_out (vty, " onlink");
 
 	  if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 	    vty_out (vty, " (recursive)");

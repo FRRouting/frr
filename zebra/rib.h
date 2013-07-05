@@ -253,6 +253,7 @@ struct nexthop
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
 #define NEXTHOP_FLAG_FIB        (1 << 1) /* FIB nexthop. */
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
+#define NEXTHOP_FLAG_ONLINK     (1 << 3) /* Nexthop should be installed onlink. */
 
   /* Nexthop address */
   union g_addr gate;
