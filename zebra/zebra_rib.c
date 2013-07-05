@@ -472,6 +472,12 @@ nexthop_active_ipv4 (struct rib *rib, struct nexthop *nexthop, int set,
 	}
       else
 	{
+	  /* If the longest prefix match for the nexthop yields
+	   * a blackhole, mark it as inactive. */
+	  if (CHECK_FLAG (match->flags, ZEBRA_FLAG_BLACKHOLE)
+	      || CHECK_FLAG (match->flags, ZEBRA_FLAG_REJECT))
+	    return 0;
+
 	  if (match->type == ZEBRA_ROUTE_CONNECT)
 	    {
 	      /* Directly point connected route. */
@@ -587,6 +593,12 @@ nexthop_active_ipv6 (struct rib *rib, struct nexthop *nexthop, int set,
 	}
       else
 	{
+	  /* If the longest prefix match for the nexthop yields
+	   * a blackhole, mark it as inactive. */
+	  if (CHECK_FLAG (match->flags, ZEBRA_FLAG_BLACKHOLE)
+	      || CHECK_FLAG (match->flags, ZEBRA_FLAG_REJECT))
+	    return 0;
+
 	  if (match->type == ZEBRA_ROUTE_CONNECT)
 	    {
 	      /* Directly point connected route. */
