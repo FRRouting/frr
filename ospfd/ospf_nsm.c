@@ -661,6 +661,25 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
     vl_area = ospf_area_lookup_by_area_id (oi->ospf, oi->vl_data->vl_area_id);
 
+  /* Generate NeighborChange ISM event.
+   *
+   * In response to NeighborChange, DR election is rerun. The information
+   * from the election process is required by the router-lsa construction.
+   *
+   * Therefore, trigger the event prior to refreshing the LSAs. */
+  switch (oi->state) {
+  case ISM_DROther:
+  case ISM_Backup:
+  case ISM_DR:
+    if ((old_state < NSM_TwoWay && state >= NSM_TwoWay) ||
+        (old_state >= NSM_TwoWay && state < NSM_TwoWay))
+      OSPF_ISM_EVENT_EXECUTE (oi, ISM_NeighborChange);
+    break;
+  default:
+    /* ISM_PointToPoint -> ISM_Down, ISM_Loopback -> ISM_Down, etc. */
+    break;
+  }
+
   /* One of the neighboring routers changes to/from the FULL state. */
   if ((old_state != NSM_Full && state == NSM_Full) ||
       (old_state == NSM_Full && state != NSM_Full))
@@ -760,20 +779,6 @@ nsm_change_state (struct ospf_neighbor *nbr, int state)
   if (state == NSM_Down)
     nbr->crypt_seqnum = 0;
   
-  /* Generete NeighborChange ISM event. */
-  switch (oi->state) {
-  case ISM_DROther:
-  case ISM_Backup:
-  case ISM_DR:
-    if ((old_state < NSM_TwoWay && state >= NSM_TwoWay) ||
-        (old_state >= NSM_TwoWay && state < NSM_TwoWay))
-      OSPF_ISM_EVENT_EXECUTE (oi, ISM_NeighborChange);
-    break;
-  default:
-    /* ISM_PointToPoint -> ISM_Down, ISM_Loopback -> ISM_Down, etc. */
-    break;
-  }
-
   /* Preserve old status? */
 }
 
