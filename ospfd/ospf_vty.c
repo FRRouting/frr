@@ -5309,7 +5309,13 @@ DEFUN (ip_ospf_network,
   struct interface *ifp = vty->index;
   int old_type = IF_DEF_PARAMS (ifp)->type;
   struct route_node *rn;
-  
+
+  if (old_type == OSPF_IFTYPE_LOOPBACK)
+    {
+      vty_out (vty, "This is a loopback interface. Can't set network type.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
   if (strncmp (argv[0], "b", 1) == 0)
     IF_DEF_PARAMS (ifp)->type = OSPF_IFTYPE_BROADCAST;
   else if (strncmp (argv[0], "n", 1) == 0)
