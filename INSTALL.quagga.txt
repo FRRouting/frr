@@ -46,9 +46,9 @@ The Quagga website (http://www.quagga.net) currently has the info
 files available in various formats.
 
 --------------------------------------------------------------------------
-Building Quagga from CVS checkouts:
+Building Quagga from git checkouts:
 
-In order to build from CVS, you will need recent versions of several GNU
+In order to build from git, you will need recent versions of several GNU
 tools, particularly autoconf, automake, libtool, GNU awk and texinfo.  Note
 that the CVS snapshots on the Quagga website should not require these tools;
 everything is already setup ready to run 'configure'.  If you have trouble
@@ -61,11 +61,16 @@ a bug.  Required versions can be moved earlier if no problems, or
 later after a judgement that a system without a higher version is
 deficient is made.
 
+	[TODO: this list is out of date as of 2013-07]
 	automake:	1.9.6 (released 2005-07-10)
 	autoconf:	2.59 (2.60 on 2006-06-26 is too recent to require)
 	libtool:	1.5.22 (released 2005-12-18)
 	texinfo:	4.7 (released 2004-04-10; 4.8 is not yet common)
 	GNU AWK:	3.1.5 (released 2005-08-12)
+
+For running tests, one also needs:
+
+	DejaGnu:
 
 [TODO: texinfo 4.6 is now ancient and this should be revisited/fixed]
 Because some systems provide texinfo 4.6 (4.7 is new), quagga.info is
