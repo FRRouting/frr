@@ -592,6 +592,32 @@ bgp_stop_with_error (struct peer *peer)
   return 0;
 }
 
+
+/* something went wrong, send notify and tear down */
+static int
+bgp_stop_with_notify (struct peer *peer, u_char code, u_char sub_code)
+{
+  /* Send notify to remote peer */
+  bgp_notify_send (peer, code, sub_code);
+
+  /* Sweep if it is temporary peer. */
+  if (CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
+    {
+      zlog_info ("%s [Event] Accepting BGP peer is deleted", peer->host);
+      peer_delete (peer);
+      return -1;
+    }
+
+  /* Clear start timer value to default. */
+  peer->v_start = BGP_INIT_START_TIMER;
+
+  /* bgp_stop needs to be invoked while in Established state */
+  bgp_stop(peer);
+
+  return 0;
+}
+
+
 /* TCP connection open.  Next we send open message to remote peer. And
    add read thread for reading open message. */
 static int
@@ -740,29 +766,26 @@ bgp_fsm_keepalive_expire (struct peer *peer)
   return 0;
 }
 
+/* FSM error, unexpected event.  This is error of BGP connection. So cut the
+   peer and change to Idle status. */
+static int
+bgp_fsm_event_error (struct peer *peer)
+{
+  plog_err (peer->log, "%s [FSM] unexpected packet received in state %s",
+	    peer->host, LOOKUP (bgp_status_msg, peer->status));
+
+  return bgp_stop_with_notify (peer, BGP_NOTIFY_FSM_ERR, 0);
+}
+
 /* Hold timer expire.  This is error of BGP connection. So cut the
    peer and change to Idle status. */
 static int
 bgp_fsm_holdtime_expire (struct peer *peer)
 {
   if (BGP_DEBUG (fsm, FSM))
-    zlog (peer->log, LOG_DEBUG, "%s [FSM] Hold timer expire", peer->host);
+    plog_debug (peer->log, "%s [FSM] Hold timer expire", peer->host);
 
-  /* Send notify to remote peer. */
-  bgp_notify_send (peer, BGP_NOTIFY_HOLD_ERR, 0);
-
-  /* Sweep if it is temporary peer. */
-  if (CHECK_FLAG (peer->sflags, PEER_STATUS_ACCEPT_PEER))
-    {
-      zlog_info ("%s [Event] Accepting BGP peer is deleted", peer->host);
-      peer_delete (peer);
-      return -1;
-    }
-
-  /* bgp_stop needs to be invoked while in Established state */
-  bgp_stop(peer);
-
-  return 0;
+  return bgp_stop_with_notify (peer, BGP_NOTIFY_HOLD_ERR, 0);
 }
 
 /* Status goes to Established.  Send keepalive packet then make first
@@ -977,8 +1000,8 @@ static const struct {
     {bgp_fsm_holdtime_expire, Idle},	/* Hold_Timer_expired           */
     {bgp_ignore,  Idle},	/* KeepAlive_timer_expired      */
     {bgp_fsm_open,    OpenConfirm},	/* Receive_OPEN_message         */
-    {bgp_ignore,  Idle},	/* Receive_KEEPALIVE_message    */
-    {bgp_ignore,  Idle},	/* Receive_UPDATE_message       */
+    {bgp_fsm_event_error, Idle}, /* Receive_KEEPALIVE_message    */
+    {bgp_fsm_event_error, Idle}, /* Receive_UPDATE_message       */
     {bgp_stop_with_error, Idle}, /* Receive_NOTIFICATION_message */
     {bgp_ignore, Idle},         /* Clearing_Completed           */
   },
