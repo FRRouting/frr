@@ -40,6 +40,7 @@ typedef int socklen_t;
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -175,7 +176,6 @@ typedef int socklen_t;
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/filter.h>
-#include <stddef.h>
 #else
 #define RT_TABLE_MAIN		0
 #endif /* HAVE_NETLINK */
