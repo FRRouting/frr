@@ -36,6 +36,7 @@ hash_create_size (unsigned int size, unsigned int (*hash_key) (void *),
   hash->index = XCALLOC (MTYPE_HASH_INDEX,
 			 sizeof (struct hash_backet *) * size);
   hash->size = size;
+  hash->no_expand = 0;
   hash->hash_key = hash_key;
   hash->hash_cmp = hash_cmp;
   hash->count = 0;
