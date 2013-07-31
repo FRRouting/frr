@@ -700,13 +700,13 @@ stream_put_prefix (struct stream *s, struct prefix *p)
   
   psize = PSIZE (p->prefixlen);
   
-  if (STREAM_WRITEABLE (s) < psize)
+  if (STREAM_WRITEABLE (s) < (psize + sizeof (u_char)))
     {
       STREAM_BOUND_WARN (s, "put");
       return 0;
     }
   
-  stream_putc (s, p->prefixlen);
+  s->data[s->endp++] = p->prefixlen;
   memcpy (s->data + s->endp, &p->u.prefix, psize);
   s->endp += psize;
   
