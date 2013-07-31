@@ -719,14 +719,15 @@ bgp_write_notify (struct peer *peer)
     return 0;
   assert (stream_get_endp (s) >= BGP_HEADER_SIZE);
 
-  /* Put socket in blocking mode. */
-  val = fcntl (peer->fd, F_GETFL, 0);
-  fcntl (peer->fd, F_SETFL, val & ~O_NONBLOCK);
-
   /* Stop collecting data within the socket */
   sockopt_cork (peer->fd, 0);
 
+  /* socket is in nonblocking mode, if we can't deliver the NOTIFY, well,
+   * we only care about getting a clean shutdown at this point. */
   ret = write (peer->fd, STREAM_DATA (s), stream_get_endp (s));
+
+  /* only connection reset/close gets counted as TCP_fatal_error, failure
+   * to write the entire NOTIFY doesn't get different FSM treatment */
   if (ret <= 0)
     {
       BGP_EVENT_ADD (peer, TCP_fatal_error);
