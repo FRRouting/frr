@@ -273,7 +273,9 @@ AC_ARG_ENABLE(gcc_ultra_verbose,
 AC_ARG_ENABLE(linux24_tcp_md5,
 [  --enable-linux24-tcp-md5  enable support for old, Linux-2.4 RFC2385 patch])
 AC_ARG_ENABLE(gcc-rdynamic,
-[  --enable-gcc-rdynamic   enable gcc linking with -rdynamic for better backtraces])
+[  --enable-gcc-rdynamic         enable linking with -rdynamic for better backtraces (default if gcc)])
+AC_ARG_ENABLE(backtrace,
+[  --disable-backtrace,          disable crash backtraces (default autodetect)])
 AC_ARG_ENABLE(time-check,
 [  --disable-time-check          disable slow thread warning messages])
 AC_ARG_ENABLE(pcreposix,
@@ -288,8 +290,10 @@ if test x"${enable_gcc_ultra_verbose}" = x"yes" ; then
   CFLAGS="${CFLAGS} -Wpacked -Wpadded"
 fi
 
-if test x"${enable_gcc_rdynamic}" = x"yes" ; then
-  LDFLAGS="${LDFLAGS} -rdynamic"
+if test x"${enable_gcc_rdynamic}" != x"no" ; then
+  if test x"${enable_gcc_rdynamic}" = x"yes" -o x"$COMPILER" = x"GCC"; then
+    LDFLAGS="${LDFLAGS} -rdynamic"
+  fi
 fi
 
 if test x"${enable_time_check}" != x"no" ; then
@@ -1566,12 +1570,21 @@ AX_SYS_WEAK_ALIAS
 dnl ---------------------------
 dnl check for glibc 'backtrace'
 dnl --------------------------- 
-AC_CHECK_HEADER([execinfo.h],
-  [AC_CHECK_FUNC([backtrace],
-    [AC_DEFINE(HAVE_GLIBC_BACKTRACE,,[Glibc backtrace])
-     AC_DEFINE(HAVE_STACK_TRACE,,[Stack symbol decoding])
+if test x"${enable_backtrace}" != x"no" ; then
+  backtrace_ok=no
+  AC_CHECK_HEADER([execinfo.h], [
+    AC_SEARCH_LIBS([backtrace], [execinfo], [
+      AC_DEFINE(HAVE_GLIBC_BACKTRACE,,[Glibc backtrace])
+      AC_DEFINE(HAVE_STACK_TRACE,,[Stack symbol decoding])
+      backtrace_ok=yes
+    ],, [-lm])
   ])
-])
+
+  if test x"${enable_backtrace}" = x"yes" -a x"${backtrace_ok}" = x"no"; then
+    dnl user explicitly requested backtrace but we failed to find support
+    AC_MSG_FAILURE([failed to find backtrace support])
+  fi
+fi
 
 dnl -----------------------------------------
 dnl check for malloc mallinfo struct and call

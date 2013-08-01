@@ -31,6 +31,9 @@ not a guarantee of support, merely "we agree that it is broken".)
   OpenBSD ? [info needed on what should work]
   Solaris (modern/supported versions, including OpenSolaris forks) 
 
+On BSD systems, installing libexecinfo is strongly recommended in order
+to get backtrace support.
+
 For further Quagga specific information on 'configure' and build-time
 configuration of the software, please read the Quagga info
 documentation, (doc/quagga.info).  To read the info page included with

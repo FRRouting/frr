@@ -96,6 +96,16 @@ installed.  They can be excluded from build with this option, which will
 minimally decrease compile time and overhead.  They can always be built and
 executed at a later time by running @command{make check} in the @file{tests/}
 subdirectory, even if they're excluded from build.
+@item --enable-gcc-rdynamic
+Pass the @command{-rdynamic} option to the linker driver.  This is in most
+cases neccessary for getting usable backtraces.  This option defaults to on
+if the compiler is detected as gcc, but giving an explicit enable/disable is
+suggested.
+@item --enable-backtrace
+Controls backtrace support for the crash handlers. This is autodetected by
+default. Using the switch will enforce the requested behaviour, failing with
+an error if support is requested but not available.  On BSD systems, this
+needs libexecinfo, while on glibc support for this is part of libc itself.
 @end table
 
 You may specify any combination of the above options to the configure
