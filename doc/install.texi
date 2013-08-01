@@ -90,12 +90,6 @@ Enable support for Equal Cost Multipath. @var{ARG} is the maximum number
 of ECMP paths to allow, set to 0 to allow unlimited number of paths.
 @item --disable-rtadv
 Disable support IPV6 router advertisement in zebra.
-@item --disable-tests
-Do not build tests.  Test programs are built by default, but not ran or
-installed.  They can be excluded from build with this option, which will
-minimally decrease compile time and overhead.  They can always be built and
-executed at a later time by running @command{make check} in the @file{tests/}
-subdirectory, even if they're excluded from build.
 @item --enable-gcc-rdynamic
 Pass the @command{-rdynamic} option to the linker driver.  This is in most
 cases neccessary for getting usable backtraces.  This option defaults to on
