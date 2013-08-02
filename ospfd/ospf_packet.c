@@ -1823,6 +1823,27 @@ ospf_ls_upd (struct ip *iph, struct ospf_header *ospfh,
 	    DISCARD_LSA (lsa,2);
 	  }
 
+      /* VU229804: Router-LSA Adv-ID must be equal to LS-ID */
+      if (lsa->data->type == OSPF_ROUTER_LSA)
+	if (!IPV4_ADDR_SAME(&lsa->data->id, &lsa->data->adv_router))
+	  {
+	    char buf1[INET_ADDRSTRLEN];
+	    char buf2[INET_ADDRSTRLEN];
+	    char buf3[INET_ADDRSTRLEN];
+
+	    zlog_err("Incoming Router-LSA from %s with "
+		      "Adv-ID[%s] != LS-ID[%s]",
+		      inet_ntop (AF_INET, &ospfh->router_id,
+				 buf1, INET_ADDRSTRLEN),
+		      inet_ntop (AF_INET, &lsa->data->id,
+				 buf2, INET_ADDRSTRLEN),
+		      inet_ntop (AF_INET, &lsa->data->adv_router,
+				 buf3, INET_ADDRSTRLEN));
+	    zlog_err("OSPF domain compromised by attack or corruption. "
+		     "Verify correct operation of -ALL- OSPF routers.");
+	    DISCARD_LSA (lsa, 0);
+	  }
+
       /* Find the LSA in the current database. */
 
       current = ospf_lsa_lookup_by_header (oi->area, lsa->data);
