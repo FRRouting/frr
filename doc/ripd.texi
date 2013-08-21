@@ -560,14 +560,14 @@ for routes redistributed into RIP.
 
 @c Exmaple here.
 
-@deffn Command {show ip protocols} {}
+@deffn Command {show ip rip status} {}
 The command displays current RIP status.  It includes RIP timer,
 filtering, version, RIP enabled interface and RIP peer inforation.
 @end deffn
 
 @example
 @group
-ripd> @b{show ip protocols}
+ripd> @b{show ip rip status}
 Routing Protocol is "rip"
   Sending updates every 30 seconds with +/-50%, next due in 35 seconds
   Timeout after 180 seconds, garbage collect after 120 seconds
