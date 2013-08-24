@@ -452,6 +452,11 @@ ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa)
            ntohs (lsa->header->length), VNL);
   vty_out (vty, "    Prev: %p This: %p Next: %p%s",
            lsa->prev, lsa, lsa->next, VNL);
+  vty_out (vty, "Flag: %x %s", lsa->flag, VNL);
+  vty_out (vty, "Lock: %d %s", lsa->lock, VNL);
+  vty_out (vty, "ReTx Count: %d%s", lsa->retrans_count, VNL);
+  vty_out (vty, "Threads: Expire: %x, Refresh: %x %s",
+	   lsa->expire, lsa->refresh, VNL);
   vty_out (vty, "%s", VNL);
   return;
 }
