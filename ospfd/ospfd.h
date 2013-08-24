@@ -211,10 +211,8 @@ struct ospf
   struct thread *t_opaque_lsa_self;	/* Type-11 Opaque-LSAs origin event. */
 #endif /* HAVE_OPAQUE_LSA */
 
-#define OSFP_LSA_MAXAGE_REMOVE_DELAY_DEFAULT	60
   unsigned int maxage_delay;		/* Delay on Maxage remover timer, sec */
   struct thread *t_maxage;              /* MaxAge LSA remover timer. */
-#define OSPF_LSA_MAXAGE_CHECK_INTERVAL		30
   struct thread *t_maxage_walker;       /* MaxAge LSA checking timer. */
 
   struct thread *t_deferred_shutdown;	/* deferred/stub-router shutdown timer*/

@@ -481,6 +481,29 @@ ospf6_lsdb_remove_all (struct ospf6_lsdb *lsdb)
     ospf6_lsdb_remove (lsa, lsdb);
 }
 
+int
+ospf6_lsdb_maxage_remover (struct ospf6_lsdb *lsdb)
+{
+  int reschedule = 0;
+  struct ospf6_lsa *lsa;
+
+  for (lsa = ospf6_lsdb_head (lsdb); lsa; lsa = ospf6_lsdb_next (lsa))
+    {
+      if (! OSPF6_LSA_IS_MAXAGE (lsa))
+	continue;
+      if (lsa->retrans_count != 0)
+	{
+	  reschedule = 1;
+	  continue;
+	}
+      if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type))
+	zlog_debug ("Remove MaxAge %s", lsa->name);
+      ospf6_lsdb_remove (lsa, lsdb);
+    }
+
+  return (reschedule);
+}
+
 void
 ospf6_lsdb_show (struct vty *vty, int level,
                  u_int16_t *type, u_int32_t *id, u_int32_t *adv_router,

@@ -200,7 +200,7 @@ ospf_new (void)
   new->spf_hold_multiplier = 1;
 
   /* MaxAge init. */
-  new->maxage_delay = OSFP_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
+  new->maxage_delay = OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT;
   new->maxage_lsa = route_table_init();
   new->t_maxage_walker =
     thread_add_timer (master, ospf_lsa_maxage_walker,

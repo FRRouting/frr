@@ -34,21 +34,6 @@ struct ospf6_lsdb
   void (*hook_remove) (struct ospf6_lsa *);
 };
 
-#define OSPF6_LSDB_MAXAGE_REMOVER(lsdb)                                  \
-  do {                                                                   \
-    struct ospf6_lsa *lsa;                                               \
-    for (lsa = ospf6_lsdb_head (lsdb); lsa; lsa = ospf6_lsdb_next (lsa)) \
-      {                                                                  \
-        if (! OSPF6_LSA_IS_MAXAGE (lsa))                                 \
-          continue;                                                      \
-        if (lsa->retrans_count != 0)                                     \
-          continue;                                                      \
-        if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type))                 \
-          zlog_debug ("Remove MaxAge %s", lsa->name);                    \
-        ospf6_lsdb_remove (lsa, lsdb);                                   \
-      }                                                                  \
-  } while (0)
-
 /* Function Prototypes */
 extern struct ospf6_lsdb *ospf6_lsdb_create (void *data);
 extern void ospf6_lsdb_delete (struct ospf6_lsdb *lsdb);
