@@ -122,10 +122,8 @@ ospf6_lsa_originate (struct ospf6_lsa *lsa)
       ospf6_lsa_header_print (lsa);
     }
 
-  if (old)
-    ospf6_flood_clear (old);
-  ospf6_flood (NULL, lsa);
   ospf6_install_lsa (lsa);
+  ospf6_flood (NULL, lsa);
 }
 
 void
@@ -849,7 +847,11 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
       quagga_gettime (QUAGGA_CLK_MONOTONIC, &new->received);
 
       if (is_debug)
-        zlog_debug ("Flood, Install, Possibly acknowledge the received LSA");
+        zlog_debug ("Install, Flood, Possibly acknowledge the received LSA");
+
+      /* Remove older copies of this LSA from retx lists */
+      if (old)
+	ospf6_flood_clear (old);
 
       /* (b) immediately flood and (c) remove from all retrans-list */
       /* Prevent self-originated LSA to be flooded. this is to make
@@ -857,10 +859,6 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
       due to MinLSArrival. */
       if (new->header->adv_router != from->ospf6_if->area->ospf6->router_id)
         ospf6_flood (from, new);
-
-      /* (c) Remove the current database copy from all neighbors' Link
-             state retransmission lists. */
-      /* XXX, flood_clear ? */
 
       /* (d), installing lsdb, which may cause routing
               table calculation (replacing database copy) */

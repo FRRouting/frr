@@ -636,11 +636,11 @@ ospf6_lsa_expire (struct thread *thread)
   if (CHECK_FLAG (lsa->flag, OSPF6_LSA_HEADERONLY))
     return 0;    /* dbexchange will do something ... */
 
-  /* reflood lsa */
-  ospf6_flood (NULL, lsa);
-
   /* reinstall lsa */
   ospf6_install_lsa (lsa);
+
+  /* reflood lsa */
+  ospf6_flood (NULL, lsa);
 
   /* schedule maxage remover */
   ospf6_maxage_remove (ospf6);
@@ -692,9 +692,8 @@ ospf6_lsa_refresh (struct thread *thread)
       ospf6_lsa_header_print (new);
     }
 
-  ospf6_flood_clear (old);
-  ospf6_flood (NULL, new);
   ospf6_install_lsa (new);
+  ospf6_flood (NULL, new);
 
   return 0;
 }
