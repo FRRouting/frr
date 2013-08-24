@@ -215,7 +215,7 @@ ospf6_router_lsa_originate (struct thread *thread)
         }
 
       /* Point-to-Point interfaces */
-      if (if_is_pointopoint (oi->interface))
+      if (oi->type == OSPF_IFTYPE_POINTOPOINT)
         {
           for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, j, on))
             {
@@ -233,7 +233,7 @@ ospf6_router_lsa_originate (struct thread *thread)
         }
 
       /* Broadcast and NBMA interfaces */
-      if (if_is_broadcast (oi->interface))
+      else if (oi->type == OSPF_IFTYPE_BROADCAST)
         {
           /* If this router is not DR,
              and If this router not fully adjacent with DR,
@@ -261,6 +261,10 @@ ospf6_router_lsa_originate (struct thread *thread)
 
           lsdesc++;
         }
+      else
+	{
+	  assert (0);		/* Unknown interface type */
+	}
 
       /* Virtual links */
         /* xxx */

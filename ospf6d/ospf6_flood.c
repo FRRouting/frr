@@ -366,7 +366,8 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
   /* (5) flood the LSA out the interface. */
   if (is_debug)
     zlog_debug ("Schedule flooding for the interface");
-  if (if_is_broadcast (oi->interface))
+  if ((oi->type == OSPF_IFTYPE_BROADCAST) ||
+      (oi->type == OSPF_IFTYPE_POINTOPOINT))
     {
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsupdate_list);
       if (oi->thread_send_lsupdate == NULL)

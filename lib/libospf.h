@@ -50,6 +50,16 @@
 #define OSPF_INITIAL_SEQUENCE_NUMBER    0x80000001
 #define OSPF_MAX_SEQUENCE_NUMBER        0x7fffffff
 
+/* OSPF Interface Types */
+#define OSPF_IFTYPE_NONE		0
+#define OSPF_IFTYPE_POINTOPOINT		1
+#define OSPF_IFTYPE_BROADCAST		2
+#define OSPF_IFTYPE_NBMA		3
+#define OSPF_IFTYPE_POINTOMULTIPOINT	4
+#define OSPF_IFTYPE_VIRTUALLINK		5
+#define OSPF_IFTYPE_LOOPBACK            6
+#define OSPF_IFTYPE_MAX			7
+
 /* OSPF interface default values. */
 #define OSPF_OUTPUT_COST_DEFAULT           10
 #define OSPF_OUTPUT_COST_INFINITE	   UINT16_MAX

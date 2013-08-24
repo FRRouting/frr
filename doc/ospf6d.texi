@@ -98,6 +98,10 @@ Sets interface's Router Priority.  Default value is 1.
 Sets interface's Inf-Trans-Delay.  Default value is 1.
 @end deffn
 
+@deffn {Interface Command} {ipv6 ospf6 network (broadcast|point-to-point)} {}
+Set explicitly network type for specifed interface.
+@end deffn
+
 @node Redistribute routes to OSPF6
 @section Redistribute routes to OSPF6
 

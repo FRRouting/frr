@@ -94,6 +94,17 @@ ospf6_interface_lsdb_hook (struct ospf6_lsa *lsa)
     }
 }
 
+static u_char
+ospf6_default_iftype(struct interface *ifp)
+{
+  if (if_is_pointopoint (ifp))
+    return OSPF_IFTYPE_POINTOPOINT;
+  else if (if_is_loopback (ifp))
+    return OSPF_IFTYPE_LOOPBACK;
+  else
+    return OSPF_IFTYPE_BROADCAST;
+}
+
 /* Create new ospf6 interface structure */
 struct ospf6_interface *
 ospf6_interface_create (struct interface *ifp)
@@ -122,6 +133,7 @@ ospf6_interface_create (struct interface *ifp)
   oi->dead_interval = OSPF_ROUTER_DEAD_INTERVAL_DEFAULT;
   oi->rxmt_interval = OSPF_RETRANSMIT_INTERVAL_DEFAULT;
   oi->cost = OSPF6_INTERFACE_COST;
+  oi->type = ospf6_default_iftype (ifp);
   oi->state = OSPF6_INTERFACE_DOWN;
   oi->flag = 0;
   oi->mtu_ignore = 0;
@@ -407,6 +419,7 @@ ospf6_interface_state_change (u_char next_state, struct ospf6_interface *oi)
       (next_state != OSPF6_INTERFACE_DR &&
        next_state != OSPF6_INTERFACE_BDR))
     ospf6_sso (oi->interface->ifindex, &alldrouters6, IPV6_LEAVE_GROUP);
+
   if ((prev_state != OSPF6_INTERFACE_DR &&
        prev_state != OSPF6_INTERFACE_BDR) &&
       (next_state == OSPF6_INTERFACE_DR ||
@@ -640,8 +653,10 @@ interface_up (struct thread *thread)
     thread_add_event (master, ospf6_hello_send, oi, 0);
 
   /* decide next interface state */
-  if (if_is_pointopoint (oi->interface))
+  if ((if_is_pointopoint (oi->interface)) ||
+      (oi->type == OSPF_IFTYPE_POINTOPOINT)) {
     ospf6_interface_state_change (OSPF6_INTERFACE_POINTTOPOINT, oi);
+  }
   else if (oi->priority == 0)
     ospf6_interface_state_change (OSPF6_INTERFACE_DROTHER, oi);
   else
@@ -1522,6 +1537,86 @@ DEFUN (no_ipv6_ospf6_advertise_prefix_list,
   return CMD_SUCCESS;
 }
 
+DEFUN (ipv6_ospf6_network,
+       ipv6_ospf6_network_cmd,
+       "ipv6 ospf6 network (broadcast|point-to-point)",
+       IP6_STR
+       OSPF6_STR
+       "Network Type\n"
+       "Specify OSPFv6 broadcast network\n"
+       "Specify OSPF6 point-to-point network\n"
+       )
+{
+  struct ospf6_interface *oi;
+  struct interface *ifp;
+
+  ifp = (struct interface *) vty->index;
+  assert (ifp);
+
+  oi = (struct ospf6_interface *) ifp->info;
+  if (oi == NULL) {
+    oi = ospf6_interface_create (ifp);
+  }
+  assert (oi);
+
+  if (strncmp (argv[0], "b", 1) == 0)
+    {
+      if (oi->type == OSPF_IFTYPE_BROADCAST)
+	return CMD_SUCCESS;
+
+      oi->type = OSPF_IFTYPE_BROADCAST;
+    }
+    else if (strncmp (argv[0], "point-to-p", 10) == 0)
+      {
+	if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
+	  return CMD_SUCCESS;
+	}
+	oi->type = OSPF_IFTYPE_POINTOPOINT;
+      }
+
+  /* Reset the interface */
+  thread_add_event (master, interface_down, oi, 0);
+  thread_add_event (master, interface_up, oi, 0);
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_ospf6_network,
+       no_ipv6_ospf6_network_cmd,
+       "no ipv6 ospf6 network",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Network Type\n"
+       "Default to whatever interface type system specifies"
+       )
+{
+  struct ospf6_interface *oi;
+  struct interface *ifp;
+  int type;
+
+  ifp = (struct interface *) vty->index;
+  assert (ifp);
+
+  oi = (struct ospf6_interface *) ifp->info;
+  if (oi == NULL) {
+    return CMD_SUCCESS;
+  }
+
+  type = ospf6_default_iftype (ifp);
+  if (oi->type == type)
+    {
+      return CMD_SUCCESS;
+    }
+  oi->type = type;
+
+  /* Reset the interface */
+  thread_add_event (master, interface_down, oi, 0);
+  thread_add_event (master, interface_up, oi, 0);
+
+  return CMD_SUCCESS;
+}
+
 static int
 config_write_ospf6_interface (struct vty *vty)
 {
@@ -1581,6 +1676,11 @@ config_write_ospf6_interface (struct vty *vty)
       if (oi->mtu_ignore)
         vty_out (vty, " ipv6 ospf6 mtu-ignore%s", VNL);
 
+      if (oi->type == OSPF_IFTYPE_POINTOPOINT)
+        vty_out (vty, " ipv6 ospf6 network point-to-point%s", VNL);
+      else if (oi->type == OSPF_IFTYPE_BROADCAST)
+	vty_out (vty, " ipv6 ospf6 network broadcast%s", VNL);
+
       vty_out (vty, "!%s", VNL);
     }
   return 0;
@@ -1638,6 +1738,9 @@ ospf6_interface_init (void)
 
   install_element (INTERFACE_NODE, &ipv6_ospf6_advertise_prefix_list_cmd);
   install_element (INTERFACE_NODE, &no_ipv6_ospf6_advertise_prefix_list_cmd);
+
+  install_element (INTERFACE_NODE, &ipv6_ospf6_network_cmd);
+  install_element (INTERFACE_NODE, &no_ipv6_ospf6_network_cmd);
 }
 
 DEFUN (debug_ospf6_interface,
