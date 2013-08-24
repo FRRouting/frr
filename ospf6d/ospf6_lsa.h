@@ -109,6 +109,8 @@ struct ospf6_lsa_header
 #define OSPF6_LSA_IS_DIFFER(L1, L2)  ospf6_lsa_is_differ (L1, L2)
 #define OSPF6_LSA_IS_MAXAGE(L) (ospf6_lsa_age_current (L) == OSPF_LSA_MAXAGE)
 #define OSPF6_LSA_IS_CHANGED(L1, L2) ospf6_lsa_is_changed (L1, L2)
+#define OSPF6_LSA_IS_SEQWRAP(L) ((L)->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER + 1))
+
 
 struct ospf6_lsa
 {
@@ -139,6 +141,7 @@ struct ospf6_lsa
 #define OSPF6_LSA_FLOODBACK  0x02
 #define OSPF6_LSA_DUPLICATE  0x04
 #define OSPF6_LSA_IMPLIEDACK 0x08
+#define OSPF6_LSA_SEQWRAPPED 0x20
 
 struct ospf6_lsa_handler
 {

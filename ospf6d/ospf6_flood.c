@@ -230,6 +230,25 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
   else
     lsa->expire = NULL;
 
+  if (OSPF6_LSA_IS_SEQWRAP(lsa) &&
+      ! (CHECK_FLAG(lsa->flag,OSPF6_LSA_SEQWRAPPED) &&
+         lsa->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER)))
+   {
+     if (IS_OSPF6_DEBUG_EXAMIN_TYPE (lsa->header->type))
+       zlog_debug("lsa install wrapping: sequence 0x%x",
+                  ntohl(lsa->header->seqnum));
+     SET_FLAG(lsa->flag, OSPF6_LSA_SEQWRAPPED);
+     /* in lieu of premature_aging, since we do not want to recreate this lsa
+      * and/or mess with timers etc, we just want to wrap the sequence number
+      * and reflood the lsa before continuing.
+      * NOTE: Flood needs to be called right after this function call, by the
+      * caller
+      */
+     lsa->header->seqnum = htonl (OSPF_MAX_SEQUENCE_NUMBER);
+     lsa->header->age = htons (OSPF_LSA_MAXAGE);
+     ospf6_lsa_checksum (lsa->header);
+   }
+
   /* actually install */
   lsa->installed = now;
   ospf6_lsdb_add (lsa, lsa->lsdb);

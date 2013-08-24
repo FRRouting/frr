@@ -465,7 +465,18 @@ ospf6_lsdb_maxage_remover (struct ospf6_lsdb *lsdb)
 	}
       if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type))
 	zlog_debug ("Remove MaxAge %s", lsa->name);
-      ospf6_lsdb_remove (lsa, lsdb);
+      if (CHECK_FLAG(lsa->flag, OSPF6_LSA_SEQWRAPPED))
+      {
+        UNSET_FLAG(lsa->flag, OSPF6_LSA_SEQWRAPPED);
+        /*
+         * lsa->header->age = 0;
+         */
+        lsa->header->seqnum = htonl(OSPF_MAX_SEQUENCE_NUMBER + 1);
+        ospf6_lsa_checksum (lsa->header);
+        thread_execute (master, ospf6_lsa_refresh, lsa, 0);
+      } else {
+        ospf6_lsdb_remove (lsa, lsdb);
+      }
     }
 
   return (reschedule);
