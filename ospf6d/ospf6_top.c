@@ -464,6 +464,101 @@ DEFUN (no_ospf6_interface_area,
   return CMD_SUCCESS;
 }
 
+DEFUN (ospf6_stub_router_admin,
+       ospf6_stub_router_admin_cmd,
+       "stub-router administrative",
+       "Make router a stub router\n"
+       "Advertise inability to be a transit router\n"
+       "Administratively applied, for an indefinite period\n")
+{
+  struct listnode *node;
+  struct ospf6_area *oa;
+
+  if (!CHECK_FLAG (ospf6->flag, OSPF6_STUB_ROUTER))
+    {
+      for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
+	{
+	   OSPF6_OPT_CLEAR (oa->options, OSPF6_OPT_V6);
+	   OSPF6_OPT_CLEAR (oa->options, OSPF6_OPT_R);
+	   OSPF6_ROUTER_LSA_SCHEDULE (oa);
+	}
+      SET_FLAG (ospf6->flag, OSPF6_STUB_ROUTER);
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_stub_router_admin,
+       no_ospf6_stub_router_admin_cmd,
+       "no stub-router administrative",
+       NO_STR
+       "Make router a stub router\n"
+       "Advertise ability to be a transit router\n"
+       "Administratively applied, for an indefinite period\n")
+{
+  struct listnode *node;
+  struct ospf6_area *oa;
+
+  if (CHECK_FLAG (ospf6->flag, OSPF6_STUB_ROUTER))
+    {
+      for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
+	{
+	   OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);
+	   OSPF6_OPT_SET (oa->options, OSPF6_OPT_R);
+	   OSPF6_ROUTER_LSA_SCHEDULE (oa);
+	}
+      UNSET_FLAG (ospf6->flag, OSPF6_STUB_ROUTER);
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ospf6_stub_router_startup,
+       ospf6_stub_router_startup_cmd,
+       "stub-router on-startup <5-86400>",
+       "Make router a stub router\n"
+       "Advertise inability to be a transit router\n"
+       "Automatically advertise as stub-router on startup of OSPF6\n"
+       "Time (seconds) to advertise self as stub-router\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_stub_router_startup,
+       no_ospf6_stub_router_startup_cmd,
+       "no stub-router on-startup",
+       NO_STR
+       "Make router a stub router\n"
+       "Advertise inability to be a transit router\n"
+       "Automatically advertise as stub-router on startup of OSPF6\n"
+       "Time (seconds) to advertise self as stub-router\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUN (ospf6_stub_router_shutdown,
+       ospf6_stub_router_shutdown_cmd,
+       "stub-router on-shutdown <5-86400>",
+       "Make router a stub router\n"
+       "Advertise inability to be a transit router\n"
+       "Automatically advertise as stub-router before shutdown\n"
+       "Time (seconds) to advertise self as stub-router\n")
+{
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_stub_router_shutdown,
+       no_ospf6_stub_router_shutdown_cmd,
+       "no stub-router on-shutdown",
+       NO_STR
+       "Make router a stub router\n"
+       "Advertise inability to be a transit router\n"
+       "Automatically advertise as stub-router before shutdown\n"
+       "Time (seconds) to advertise self as stub-router\n")
+{
+  return CMD_SUCCESS;
+}
+
 static void
 ospf6_show (struct vty *vty, struct ospf6 *o)
 {
@@ -485,6 +580,9 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
 
   /* Redistribute configuration */
   /* XXX */
+
+  if (CHECK_FLAG (o->flag, OSPF6_STUB_ROUTER))
+    vty_out (vty, " Router Is Stub Router%s", VNL);
 
   /* LSAs */
   vty_out (vty, " Number of AS scoped LSAs is %u%s",
@@ -654,6 +752,16 @@ DEFUN (show_ipv6_ospf6_route_type_detail,
   return CMD_SUCCESS;
 }
 
+static void
+ospf6_stub_router_config_write (struct vty *vty)
+{
+  if (CHECK_FLAG (ospf6->flag, OSPF6_STUB_ROUTER))
+    {
+      vty_out (vty, " stub-router administrative%s", VNL);
+    }
+    return;
+}
+
 /* OSPF configuration write function. */
 static int
 config_write_ospf6 (struct vty *vty)
@@ -674,6 +782,7 @@ config_write_ospf6 (struct vty *vty)
   if (ospf6->router_id_static != 0)
     vty_out (vty, " router-id %s%s", router_id, VNL);
 
+  ospf6_stub_router_config_write (vty);
   ospf6_redistribute_config_write (vty);
   ospf6_area_config_write (vty);
   ospf6_spf_config_write (vty);
@@ -729,6 +838,14 @@ ospf6_top_init (void)
   install_element (OSPF6_NODE, &ospf6_router_id_cmd);
   install_element (OSPF6_NODE, &ospf6_interface_area_cmd);
   install_element (OSPF6_NODE, &no_ospf6_interface_area_cmd);
+  install_element (OSPF6_NODE, &ospf6_stub_router_admin_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_stub_router_admin_cmd);
+  /* For a later time
+  install_element (OSPF6_NODE, &ospf6_stub_router_startup_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_stub_router_startup_cmd);
+  install_element (OSPF6_NODE, &ospf6_stub_router_shutdown_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_stub_router_shutdown_cmd);
+  */
 }
 
 

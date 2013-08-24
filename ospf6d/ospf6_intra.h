@@ -94,6 +94,13 @@ struct ospf6_router_lsdesc
 #define OSPF6_ROUTER_LSDESC_STUB_NETWORK       3
 #define OSPF6_ROUTER_LSDESC_VIRTUAL_LINK       4
 
+enum stub_router_mode
+  {
+    OSPF6_NOT_STUB_ROUTER,
+    OSPF6_IS_STUB_ROUTER,
+    OSPF6_IS_STUB_ROUTER_V6,
+  };
+
 #define ROUTER_LSDESC_IS_TYPE(t,x)                         \
   ((((struct ospf6_router_lsdesc *)(x))->type ==           \
    OSPF6_ROUTER_LSDESC_ ## t) ? 1 : 0)
@@ -200,6 +207,7 @@ extern char *ospf6_router_lsdesc_lookup (u_char type, u_int32_t interface_id,
 extern char *ospf6_network_lsdesc_lookup (u_int32_t router_id,
                                           struct ospf6_lsa *lsa);
 
+extern int ospf6_router_is_stub_router (struct ospf6_lsa *lsa);
 extern int ospf6_router_lsa_originate (struct thread *);
 extern int ospf6_network_lsa_originate (struct thread *);
 extern int ospf6_link_lsa_originate (struct thread *);

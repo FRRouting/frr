@@ -424,6 +424,11 @@ ospf6_spf_calculation (u_int32_t router_id,
       if (ospf6_spf_install (v, result_table) < 0)
         continue;
 
+      /* Skip overloaded routers */
+      if ((OSPF6_LSA_IS_TYPE (ROUTER, v->lsa) &&
+	   ospf6_router_is_stub_router (v->lsa)))
+	continue;
+
       /* For each LS description in the just-added vertex V's LSA */
       size = (VERTEX_IS_TYPE (ROUTER, v) ?
               sizeof (struct ospf6_router_lsdesc) :

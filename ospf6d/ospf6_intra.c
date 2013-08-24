@@ -105,6 +105,29 @@ ospf6_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 }
 
 int
+ospf6_router_is_stub_router (struct ospf6_lsa *lsa)
+{
+  struct ospf6_router_lsa *rtr_lsa;
+
+  if (lsa != NULL && OSPF6_LSA_IS_TYPE (ROUTER, lsa))
+    {
+      rtr_lsa = (struct ospf6_router_lsa *)
+	((caddr_t) lsa->header + sizeof (struct ospf6_lsa_header));
+
+      if (!OSPF6_OPT_ISSET (rtr_lsa->options, OSPF6_OPT_R))
+	{
+	  return (OSPF6_IS_STUB_ROUTER);
+	}
+      else if (!OSPF6_OPT_ISSET (rtr_lsa->options, OSPF6_OPT_V6))
+	{
+	  return (OSPF6_IS_STUB_ROUTER_V6);
+	}
+    }
+
+  return (OSPF6_NOT_STUB_ROUTER);
+}
+
+int
 ospf6_router_lsa_originate (struct thread *thread)
 {
   struct ospf6_area *oa;

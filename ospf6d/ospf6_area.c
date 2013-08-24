@@ -164,9 +164,18 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
   oa->summary_router->scope = oa;
 
   /* set default options */
-  OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);
+  if (CHECK_FLAG (o->flag, OSPF6_STUB_ROUTER))
+    {
+      OSPF6_OPT_CLEAR (oa->options, OSPF6_OPT_V6);
+      OSPF6_OPT_CLEAR (oa->options, OSPF6_OPT_R);
+    }
+  else
+    {
+      OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);
+      OSPF6_OPT_SET (oa->options, OSPF6_OPT_R);
+    }
+
   OSPF6_OPT_SET (oa->options, OSPF6_OPT_E);
-  OSPF6_OPT_SET (oa->options, OSPF6_OPT_R);
 
   oa->ospf6 = o;
   listnode_add_sort (o->area_list, oa);
