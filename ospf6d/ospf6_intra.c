@@ -272,35 +272,26 @@ ospf6_router_lsa_originate (struct thread *thread)
         /* xxx */
     }
 
-  if ((caddr_t) lsdesc != (caddr_t) router_lsa +
-                          sizeof (struct ospf6_router_lsa))
-    {
-      /* Fill LSA Header */
-      lsa_header->age = 0;
-      lsa_header->type = htons (OSPF6_LSTYPE_ROUTER);
-      lsa_header->id = htonl (link_state_id);
-      lsa_header->adv_router = oa->ospf6->router_id;
-      lsa_header->seqnum =
-        ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
-                             lsa_header->adv_router, oa->lsdb);
-      lsa_header->length = htons ((caddr_t) lsdesc - (caddr_t) buffer);
+  /* Fill LSA Header */
+  lsa_header->age = 0;
+  lsa_header->type = htons (OSPF6_LSTYPE_ROUTER);
+  lsa_header->id = htonl (link_state_id);
+  lsa_header->adv_router = oa->ospf6->router_id;
+  lsa_header->seqnum =
+    ospf6_new_ls_seqnum (lsa_header->type, lsa_header->id,
+                         lsa_header->adv_router, oa->lsdb);
+  lsa_header->length = htons ((caddr_t) lsdesc - (caddr_t) buffer);
 
-      /* LSA checksum */
-      ospf6_lsa_checksum (lsa_header);
+  /* LSA checksum */
+  ospf6_lsa_checksum (lsa_header);
 
-      /* create LSA */
-      lsa = ospf6_lsa_create (lsa_header);
+  /* create LSA */
+  lsa = ospf6_lsa_create (lsa_header);
 
-      /* Originate */
-      ospf6_lsa_originate_area (lsa, oa);
+  /* Originate */
+  ospf6_lsa_originate_area (lsa, oa);
 
-      link_state_id ++;
-    }
-  else
-    {
-      if (IS_OSPF6_DEBUG_ORIGINATE (ROUTER))
-        zlog_debug ("Nothing to describe in Router-LSA, suppress");
-    }
+  link_state_id ++;
 
   /* Do premature-aging of rest, undesired Router-LSAs */
   type = ntohs (OSPF6_LSTYPE_ROUTER);
