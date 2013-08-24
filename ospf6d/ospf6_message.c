@@ -1825,7 +1825,7 @@ ospf6_dbdesc_send (struct thread *thread)
           if (p - sendbuf + sizeof (struct ospf6_lsa_header) >
               ospf6_packet_max(on->ospf6_if))
             {
-              ospf6_lsa_unlock (lsa);
+              ospf6_lsdb_lsa_unlock (lsa);
               break;
             }
           memcpy (p, lsa->header, sizeof (struct ospf6_lsa_header));
@@ -1865,7 +1865,7 @@ ospf6_dbdesc_send_newone (struct thread *thread)
     {
       if (size + sizeof (struct ospf6_lsa_header) > ospf6_packet_max(on->ospf6_if))
         {
-          ospf6_lsa_unlock (lsa);
+          ospf6_lsdb_lsa_unlock (lsa);
           break;
         }
 
@@ -1928,7 +1928,7 @@ ospf6_lsreq_send (struct thread *thread)
       /* MTU check */
       if (p - sendbuf + sizeof (struct ospf6_lsreq_entry) > ospf6_packet_max(on->ospf6_if))
         {
-          ospf6_lsa_unlock (lsa);
+          ospf6_lsdb_lsa_unlock (lsa);
           break;
         }
 
@@ -2012,7 +2012,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
       if ( (p - sendbuf + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
 	   > ospf6_packet_max(on->ospf6_if))
 	{
-	  ospf6_lsa_unlock (lsa);
+	  ospf6_lsdb_lsa_unlock (lsa);
 	  break;
 	}
 
@@ -2058,7 +2058,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
       if ( (p - sendbuf + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
 	   > ospf6_packet_max(on->ospf6_if))
 	{
-	  ospf6_lsa_unlock (lsa);
+	  ospf6_lsdb_lsa_unlock (lsa);
 	  break;
 	}
 
@@ -2132,7 +2132,7 @@ ospf6_lsupdate_send_interface (struct thread *thread)
       if ( (p - sendbuf + ((unsigned int)OSPF6_LSA_SIZE (lsa->header)))
 	   > ospf6_packet_max(oi))
 	{
-	  ospf6_lsa_unlock (lsa);
+	  ospf6_lsdb_lsa_unlock (lsa);
 	  break;
 	}
 
@@ -2211,7 +2211,7 @@ ospf6_lsack_send_neighbor (struct thread *thread)
 	  on->thread_send_lsack =
 	    thread_add_event (master, ospf6_lsack_send_neighbor, on, 0);
 
-	  ospf6_lsa_unlock (lsa);
+	  ospf6_lsdb_lsa_unlock (lsa);
 	  break;
 	}
 
@@ -2283,7 +2283,7 @@ ospf6_lsack_send_interface (struct thread *thread)
 	  oi->thread_send_lsack =
 	    thread_add_event (master, ospf6_lsack_send_interface, oi, 0);
 
-	  ospf6_lsa_unlock (lsa);
+	  ospf6_lsdb_lsa_unlock (lsa);
 	  break;
 	}
 

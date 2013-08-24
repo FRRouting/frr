@@ -64,6 +64,7 @@ extern struct ospf6_lsa *ospf6_lsdb_type_next (u_int16_t type,
                                                struct ospf6_lsa *lsa);
 
 extern void ospf6_lsdb_remove_all (struct ospf6_lsdb *lsdb);
+extern void ospf6_lsdb_lsa_unlock (struct ospf6_lsa *lsa);
 
 #define OSPF6_LSDB_SHOW_LEVEL_NORMAL   0
 #define OSPF6_LSDB_SHOW_LEVEL_DETAIL   1
@@ -79,5 +80,6 @@ extern u_int32_t ospf6_new_ls_id (u_int16_t type, u_int32_t adv_router,
 extern u_int32_t ospf6_new_ls_seqnum (u_int16_t type, u_int32_t id,
                                       u_int32_t adv_router,
                                       struct ospf6_lsdb *lsdb);
+extern int ospf6_lsdb_maxage_remover (struct ospf6_lsdb *lsdb);
 
 #endif /* OSPF6_LSDB_H */

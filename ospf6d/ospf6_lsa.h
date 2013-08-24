@@ -114,8 +114,7 @@ struct ospf6_lsa
 {
   char              name[64];   /* dump string */
 
-  struct ospf6_lsa *prev;
-  struct ospf6_lsa *next;
+  struct route_node *rn;
 
   unsigned char     lock;           /* reference counter */
   unsigned char     flag;           /* special meaning (e.g. floodback) */
