@@ -316,7 +316,7 @@ ospf6_interface_state_update (struct interface *ifp)
   if (oi->area == NULL)
     return;
 
-  if (if_is_up (ifp))
+  if (if_is_operative (ifp))
     thread_add_event (master, interface_up, oi, 0);
   else
     thread_add_event (master, interface_down, oi, 0);
@@ -625,7 +625,7 @@ interface_up (struct thread *thread)
 		oi->interface->name);
 
   /* check physical interface is up */
-  if (! if_is_up (oi->interface))
+  if (! if_is_operative (oi->interface))
     {
       if (IS_OSPF6_DEBUG_INTERFACE)
         zlog_debug ("Interface %s is down, can't execute [InterfaceUp]",
@@ -779,7 +779,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
     type = "UNKNOWN";
 
   vty_out (vty, "%s is %s, type %s%s",
-           ifp->name, updown[if_is_up (ifp)], type,
+           ifp->name, updown[if_is_operative (ifp)], type,
 	   VNL);
   vty_out (vty, "  Interface ID: %d%s", ifp->ifindex, VNL);
 
