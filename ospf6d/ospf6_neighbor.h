@@ -86,6 +86,8 @@ struct ospf6_neighbor
   struct ospf6_lsdb *lsupdate_list;
   struct ospf6_lsdb *lsack_list;
 
+  struct ospf6_lsa *last_ls_req;
+
   /* Inactivity timer */
   struct thread *inactivity_timer;
 
@@ -130,6 +132,7 @@ extern int seqnumber_mismatch (struct thread *);
 extern int bad_lsreq (struct thread *);
 extern int oneway_received (struct thread *);
 extern int inactivity_timer (struct thread *);
+extern void ospf6_check_nbr_loading (struct ospf6_neighbor *);
 
 extern void ospf6_neighbor_init (void);
 extern int config_write_ospf6_debug_neighbor (struct vty *vty);

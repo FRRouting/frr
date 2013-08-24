@@ -517,20 +517,20 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
             zlog_debug ("Add request (No database copy)");
-          ospf6_lsdb_add (his, on->request_list);
+          ospf6_lsdb_add (ospf6_lsa_copy(his), on->request_list);
         }
       else if (ospf6_lsa_compare (his, mine) < 0)
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
             zlog_debug ("Add request (Received MoreRecent)");
-          ospf6_lsdb_add (his, on->request_list);
+          ospf6_lsdb_add (ospf6_lsa_copy(his), on->request_list);
         }
       else
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
             zlog_debug ("Discard (Existing MoreRecent)");
-          ospf6_lsa_delete (his);
         }
+      ospf6_lsa_delete (his);
     }
 
   assert (p == OSPF6_MESSAGE_END (oh));
@@ -539,7 +539,7 @@ ospf6_dbdesc_recv_master (struct ospf6_header *oh,
   on->dbdesc_seqnum ++;
 
   /* schedule send lsreq */
-  if (on->thread_send_lsreq == NULL)
+  if (on->request_list->count && (on->thread_send_lsreq == NULL))
     on->thread_send_lsreq =
       thread_add_event (master, ospf6_lsreq_send, on, 0);
 
@@ -735,10 +735,9 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
         {
           if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
             zlog_debug ("Add request-list: %s", his->name);
-          ospf6_lsdb_add (his, on->request_list);
+          ospf6_lsdb_add (ospf6_lsa_copy(his), on->request_list);
         }
-      else
-        ospf6_lsa_delete (his);
+      ospf6_lsa_delete (his);
     }
 
   assert (p == OSPF6_MESSAGE_END (oh));
@@ -747,7 +746,8 @@ ospf6_dbdesc_recv_slave (struct ospf6_header *oh,
   on->dbdesc_seqnum = ntohl (dbdesc->seqnum);
 
   /* schedule send lsreq */
-  if (on->thread_send_lsreq == NULL)
+  if ((on->thread_send_lsreq == NULL) &&
+      (on->request_list->count))
     on->thread_send_lsreq =
       thread_add_event (master, ospf6_lsreq_send, on, 0);
 
@@ -1351,19 +1351,6 @@ ospf6_lsupdate_recv (struct in6_addr *src, struct in6_addr *dst,
 
   assert (p == OSPF6_MESSAGE_END (oh));
 
-  /* RFC2328 Section 10.9: When the neighbor responds to these requests
-     with the proper Link State Update packet(s), the Link state request
-     list is truncated and a new Link State Request packet is sent. */
-  /* send new Link State Request packet if this LS Update packet
-     can be recognized as a response to our previous LS Request */
-  if (! IN6_IS_ADDR_MULTICAST (dst) &&
-      (on->state == OSPF6_NEIGHBOR_EXCHANGE ||
-       on->state == OSPF6_NEIGHBOR_LOADING))
-    {
-      THREAD_OFF (on->thread_send_lsreq);
-      on->thread_send_lsreq =
-        thread_add_event (master, ospf6_lsreq_send, on, 0);
-    }
 }
 
 static void
@@ -1907,7 +1894,7 @@ ospf6_lsreq_send (struct thread *thread)
   struct ospf6_header *oh;
   struct ospf6_lsreq_entry *e;
   u_char *p;
-  struct ospf6_lsa *lsa;
+  struct ospf6_lsa *lsa, *last_req;
 
   on = (struct ospf6_neighbor *) THREAD_ARG (thread);
   on->thread_send_lsreq = (struct thread *) NULL;
@@ -1929,13 +1916,9 @@ ospf6_lsreq_send (struct thread *thread)
       return 0;
     }
 
-  /* set next thread */
-  on->thread_send_lsreq =
-    thread_add_timer (master, ospf6_lsreq_send, on,
-                      on->ospf6_if->rxmt_interval);
-
   memset (sendbuf, 0, iobuflen);
   oh = (struct ospf6_header *) sendbuf;
+  last_req = NULL;
 
   /* set Request entries in lsreq */
   p = (u_char *)((caddr_t) oh + sizeof (struct ospf6_header));
@@ -1954,6 +1937,17 @@ ospf6_lsreq_send (struct thread *thread)
       e->id = lsa->header->id;
       e->adv_router = lsa->header->adv_router;
       p += sizeof (struct ospf6_lsreq_entry);
+      last_req = lsa;
+    }
+
+  if (last_req != NULL)
+    {
+      if (on->last_ls_req != NULL)
+	{
+	  ospf6_lsa_unlock (on->last_ls_req);
+	}
+      ospf6_lsa_lock (last_req);
+      on->last_ls_req = last_req;
     }
 
   oh->type = OSPF6_MESSAGE_TYPE_LSREQ;
@@ -1965,6 +1959,14 @@ ospf6_lsreq_send (struct thread *thread)
   else
     ospf6_send (on->ospf6_if->linklocal_addr, &on->linklocal_addr,
 		on->ospf6_if, oh);
+
+  /* set next thread */
+  if (on->request_list->count != 0)
+    {
+      on->thread_send_lsreq =
+	thread_add_timer (master, ospf6_lsreq_send, on,
+			  on->ospf6_if->rxmt_interval);
+    }
 
   return 0;
 }

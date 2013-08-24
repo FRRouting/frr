@@ -206,8 +206,8 @@ ospf6_decrement_retrans_count (struct ospf6_lsa *lsa)
 void
 ospf6_install_lsa (struct ospf6_lsa *lsa)
 {
-  struct ospf6_lsa *old;
   struct timeval now;
+  struct ospf6_lsa *old;
 
   if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type) ||
       IS_OSPF6_DEBUG_EXAMIN_TYPE (lsa->header->type))
@@ -290,7 +290,7 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
               if (ospf6_lsa_compare (lsa, req) > 0)
                 {
                   if (is_debug)
-                    zlog_debug ("Requesting is newer, next neighbor");
+                    zlog_debug ("Requesting is older, next neighbor");
                   continue;
                 }
 
@@ -298,18 +298,30 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
                  examin next neighbor */
               if (ospf6_lsa_compare (lsa, req) == 0)
                 {
-                  if (is_debug)
-                    zlog_debug ("Requesting the same, remove it, next neighbor");
+		  if (is_debug)
+		    zlog_debug ("Requesting the same, remove it, next neighbor");
+		  if (req == on->last_ls_req)
+		    {
+		      ospf6_lsa_unlock (req);
+		      on->last_ls_req = NULL;
+		    }
                   ospf6_lsdb_remove (req, on->request_list);
+		  ospf6_check_nbr_loading (on);
                   continue;
                 }
 
               /* If the new LSA is more recent, delete from request-list */
               if (ospf6_lsa_compare (lsa, req) < 0)
                 {
-                  if (is_debug)
-                    zlog_debug ("Received is newer, remove requesting");
+		  if (is_debug)
+		    zlog_debug ("Received is newer, remove requesting");
+		  if (req == on->last_ls_req)
+		    {
+		      ospf6_lsa_unlock (req);
+		      on->last_ls_req = NULL;
+		    }
                   ospf6_lsdb_remove (req, on->request_list);
+		  ospf6_check_nbr_loading (on);
                   /* fall through */
                 }
             }
@@ -796,7 +808,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
     {
       /* log */
       if (is_debug)
-        zlog_debug ("Drop MaxAge LSA with direct acknowledgement.");
+	zlog_debug ("Drop MaxAge LSA with direct acknowledgement.");
 
       /* a) Acknowledge back to neighbor (Direct acknowledgement, 13.5) */
       ospf6_lsdb_add (ospf6_lsa_copy (new), from->lsack_list);
@@ -950,8 +962,8 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
               zlog_debug ("The LSA is in Seqnumber Wrapping");
               zlog_debug ("MaxAge & MaxSeqNum, discard");
             }
-          ospf6_lsa_delete (new);
-          return;
+	  ospf6_lsa_delete (new);
+	  return;
         }
 
       /* Otherwise, Send database copy of this LSA to this neighbor */
@@ -968,8 +980,8 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
           if (from->thread_send_lsupdate == NULL)
             from->thread_send_lsupdate =
               thread_add_event (master, ospf6_lsupdate_send_neighbor, from, 0);
-          ospf6_lsa_delete (new);
-          return;
+	  ospf6_lsa_delete (new);
+	  return;
         }
       return;
     }

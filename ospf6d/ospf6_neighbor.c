@@ -98,7 +98,6 @@ ospf6_neighbor_create (u_int32_t router_id, struct ospf6_interface *oi)
   on->retrans_list = ospf6_lsdb_create (on);
 
   on->dbdesc_list = ospf6_lsdb_create (on);
-  on->lsreq_list = ospf6_lsdb_create (on);
   on->lsupdate_list = ospf6_lsdb_create (on);
   on->lsack_list = ospf6_lsdb_create (on);
 
@@ -121,7 +120,6 @@ ospf6_neighbor_delete (struct ospf6_neighbor *on)
     }
 
   ospf6_lsdb_remove_all (on->dbdesc_list);
-  ospf6_lsdb_remove_all (on->lsreq_list);
   ospf6_lsdb_remove_all (on->lsupdate_list);
   ospf6_lsdb_remove_all (on->lsack_list);
 
@@ -130,7 +128,6 @@ ospf6_neighbor_delete (struct ospf6_neighbor *on)
   ospf6_lsdb_delete (on->retrans_list);
 
   ospf6_lsdb_delete (on->dbdesc_list);
-  ospf6_lsdb_delete (on->lsreq_list);
   ospf6_lsdb_delete (on->lsupdate_list);
   ospf6_lsdb_delete (on->lsack_list);
 
@@ -360,9 +357,39 @@ exchange_done (struct thread *thread)
   if (on->request_list->count == 0)
     ospf6_neighbor_state_change (OSPF6_NEIGHBOR_FULL, on);
   else
-    ospf6_neighbor_state_change (OSPF6_NEIGHBOR_LOADING, on);
+    {
+      ospf6_neighbor_state_change (OSPF6_NEIGHBOR_LOADING, on);
+
+      if (on->thread_send_lsreq == NULL)
+	on->thread_send_lsreq =
+	  thread_add_event (master, ospf6_lsreq_send, on, 0);
+    }
 
   return 0;
+}
+
+/* Check loading state. */
+void
+ospf6_check_nbr_loading (struct ospf6_neighbor *on)
+{
+
+  /* RFC2328 Section 10.9: When the neighbor responds to these requests
+     with the proper Link State Update packet(s), the Link state request
+     list is truncated and a new Link State Request packet is sent.
+  */
+  if ((on->state == OSPF6_NEIGHBOR_LOADING) ||
+      (on->state == OSPF6_NEIGHBOR_EXCHANGE))
+    {
+      if (on->request_list->count == 0)
+	thread_add_event (master, loading_done, on, 0);
+      else if (on->last_ls_req == NULL)
+	{
+	  if (on->thread_send_lsreq != NULL)
+	    THREAD_OFF (on->thread_send_lsreq);
+	  on->thread_send_lsreq =
+	    thread_add_event (master, ospf6_lsreq_send, on, 0);
+	}
+    }
 }
 
 int
@@ -727,10 +754,10 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
     timersub (&on->thread_send_lsreq->u.sands, &now, &res);
   timerstring (&res, duration, sizeof (duration));
   vty_out (vty, "    %d Pending LSAs for LSReq in Time %s [thread %s]%s",
-           on->lsreq_list->count, duration,
+           on->request_list->count, duration,
            (on->thread_send_lsreq ? "on" : "off"),
            VNL);
-  for (lsa = ospf6_lsdb_head (on->lsreq_list); lsa;
+  for (lsa = ospf6_lsdb_head (on->request_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     vty_out (vty, "      %s%s", lsa->name, VNL);
 
