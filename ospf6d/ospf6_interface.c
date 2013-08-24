@@ -75,12 +75,18 @@ ospf6_interface_lookup_by_ifindex (int ifindex)
 static void
 ospf6_interface_lsdb_hook (struct ospf6_lsa *lsa)
 {
+  struct ospf6_interface *oi;
+
+  if (lsa == NULL)
+    return;
+
+  oi = lsa->lsdb->data;
   switch (ntohs (lsa->header->type))
     {
       case OSPF6_LSTYPE_LINK:
-        if (OSPF6_INTERFACE (lsa->lsdb->data)->state == OSPF6_INTERFACE_DR)
-          OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (OSPF6_INTERFACE (lsa->lsdb->data));
-        ospf6_spf_schedule (OSPF6_INTERFACE (lsa->lsdb->data)->area);
+        if (oi->state == OSPF6_INTERFACE_DR)
+          OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
+        ospf6_spf_schedule (oi->area->ospf6);
         break;
 
       default:

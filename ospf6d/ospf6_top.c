@@ -46,6 +46,7 @@
 #include "ospf6_asbr.h"
 #include "ospf6_abr.h"
 #include "ospf6_intra.h"
+#include "ospf6_spf.h"
 #include "ospf6d.h"
 
 /* global ospf6d variable */
@@ -126,6 +127,11 @@ ospf6_create (void)
   o->lsdb_self = ospf6_lsdb_create (o);
   o->lsdb->hook_add = ospf6_top_lsdb_hook_add;
   o->lsdb->hook_remove = ospf6_top_lsdb_hook_remove;
+
+  o->spf_delay = OSPF_SPF_DELAY_DEFAULT;
+  o->spf_holdtime = OSPF_SPF_HOLDTIME_DEFAULT;
+  o->spf_max_holdtime = OSPF_SPF_MAX_HOLDTIME_DEFAULT;
+  o->spf_hold_multiplier = 1;
 
   o->route_table = OSPF6_ROUTE_TABLE_CREATE (GLOBAL, ROUTES);
   o->route_table->scope = o;
@@ -650,6 +656,7 @@ config_write_ospf6 (struct vty *vty)
 
   ospf6_redistribute_config_write (vty);
   ospf6_area_config_write (vty);
+  ospf6_spf_config_write (vty);
 
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, j, oa))
     {

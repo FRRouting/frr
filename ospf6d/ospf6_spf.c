@@ -506,39 +506,128 @@ static int
 ospf6_spf_calculation_thread (struct thread *t)
 {
   struct ospf6_area *oa;
+  struct ospf6 *ospf6;
   struct timeval start, end, runtime;
+  struct listnode *node;
+  struct ospf6_route *route;
 
-  oa = (struct ospf6_area *) THREAD_ARG (t);
-  oa->thread_spf_calculation = NULL;
-
-  if (IS_OSPF6_DEBUG_SPF (PROCESS))
-    zlog_debug ("SPF calculation for Area %s", oa->name);
-  if (IS_OSPF6_DEBUG_SPF (DATABASE))
-    ospf6_spf_log_database (oa);
+  ospf6 = (struct ospf6 *)THREAD_ARG (t);
+  ospf6->t_spf_calc = NULL;
 
   /* execute SPF calculation */
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &start);
-  ospf6_spf_calculation (oa->ospf6->router_id, oa->spf_table, oa);
+
+  for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa))
+    {
+
+      if (oa == ospf6->backbone)
+	continue;
+
+      if (IS_OSPF6_DEBUG_SPF (PROCESS))
+	zlog_debug ("SPF calculation for Area %s", oa->name);
+      if (IS_OSPF6_DEBUG_SPF (DATABASE))
+	ospf6_spf_log_database (oa);
+
+      ospf6_spf_calculation (ospf6->router_id, oa->spf_table, oa);
+      ospf6_intra_route_calculation (oa);
+      ospf6_intra_brouter_calculation (oa);
+    }
+
+  if (ospf6->backbone)
+    {
+      if (IS_OSPF6_DEBUG_SPF (PROCESS))
+	zlog_debug ("SPF calculation for Backbone area %s",
+		    ospf6->backbone->name);
+      if (IS_OSPF6_DEBUG_SPF (DATABASE))
+	ospf6_spf_log_database(ospf6->backbone);
+
+      ospf6_spf_calculation(ospf6->router_id, ospf6->backbone->spf_table,
+			    ospf6->backbone);
+      ospf6_intra_route_calculation(ospf6->backbone);
+      ospf6_intra_brouter_calculation(ospf6->backbone);
+    }
+
+  /* Redo summaries if required */
+  for (route = ospf6_route_head (ospf6->route_table); route;
+       route = ospf6_route_next (route))
+    ospf6_abr_originate_summary(route);
+
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &end);
   timersub (&end, &start, &runtime);
+
+  ospf6->ts_spf_duration = runtime;
 
   if (IS_OSPF6_DEBUG_SPF (PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
     zlog_debug ("SPF runtime: %ld sec %ld usec",
 		runtime.tv_sec, runtime.tv_usec);
 
-  ospf6_intra_route_calculation (oa);
-  ospf6_intra_brouter_calculation (oa);
-
   return 0;
 }
 
+/* Add schedule for SPF calculation.  To avoid frequenst SPF calc, we
+   set timer for SPF calc. */
 void
-ospf6_spf_schedule (struct ospf6_area *oa)
+ospf6_spf_schedule (struct ospf6 *ospf6)
 {
-  if (oa->thread_spf_calculation)
+  unsigned long delay, elapsed, ht;
+  struct timeval now, result;
+
+  if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
+    zlog_debug ("SPF: calculation timer scheduled");
+
+  /* OSPF instance does not exist. */
+  if (ospf6 == NULL)
     return;
-  oa->thread_spf_calculation =
-    thread_add_event (master, ospf6_spf_calculation_thread, oa, 0);
+
+  /* SPF calculation timer is already scheduled. */
+  if (ospf6->t_spf_calc)
+    {
+      if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
+        zlog_debug ("SPF: calculation timer is already scheduled: %p",
+                   ospf6->t_spf_calc);
+      return;
+    }
+
+  /* XXX Monotic timers: we only care about relative time here. */
+  now = recent_relative_time ();
+  timersub (&now, &ospf6->ts_spf, &result);
+
+  elapsed = (result.tv_sec * 1000) + (result.tv_usec / 1000);
+  ht = ospf6->spf_holdtime * ospf6->spf_hold_multiplier;
+
+  if (ht > ospf6->spf_max_holdtime)
+    ht = ospf6->spf_max_holdtime;
+
+  /* Get SPF calculation delay time. */
+  if (elapsed < ht)
+    {
+      /* Got an event within the hold time of last SPF. We need to
+       * increase the hold_multiplier, if it's not already at/past
+       * maximum value, and wasn't already increased..
+       */
+      if (ht < ospf6->spf_max_holdtime)
+        ospf6->spf_hold_multiplier++;
+
+      /* always honour the SPF initial delay */
+      if ( (ht - elapsed) < ospf6->spf_delay)
+        delay = ospf6->spf_delay;
+      else
+        delay = ht - elapsed;
+    }
+  else
+    {
+      /* Event is past required hold-time of last SPF */
+      delay = ospf6->spf_delay;
+      ospf6->spf_hold_multiplier = 1;
+    }
+
+  if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
+    zlog_debug ("SPF: calculation timer delay = %ld", delay);
+
+  zlog_info ("SPF: Scheduled in %ld msec", delay);
+
+  ospf6->t_spf_calc =
+    thread_add_timer_msec (master, ospf6_spf_calculation_thread, ospf6, delay);
 }
 
 void
@@ -666,6 +755,59 @@ DEFUN (no_debug_ospf6_spf_database,
   return CMD_SUCCESS;
 }
 
+static int
+ospf6_timers_spf_set (struct vty *vty, unsigned int delay,
+                     unsigned int hold,
+                     unsigned int max)
+{
+  struct ospf6 *ospf = vty->index;
+
+  ospf->spf_delay = delay;
+  ospf->spf_holdtime = hold;
+  ospf->spf_max_holdtime = max;
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (ospf6_timers_throttle_spf,
+       ospf6_timers_throttle_spf_cmd,
+       "timers throttle spf <0-600000> <0-600000> <0-600000>",
+       "Adjust routing timers\n"
+       "Throttling adaptive timer\n"
+       "OSPF6 SPF timers\n"
+       "Delay (msec) from first change received till SPF calculation\n"
+       "Initial hold time (msec) between consecutive SPF calculations\n"
+       "Maximum hold time (msec)\n")
+{
+  unsigned int delay, hold, max;
+
+  if (argc != 3)
+    {
+      vty_out (vty, "Insufficient arguments%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  VTY_GET_INTEGER_RANGE ("SPF delay timer", delay, argv[0], 0, 600000);
+  VTY_GET_INTEGER_RANGE ("SPF hold timer", hold, argv[1], 0, 600000);
+  VTY_GET_INTEGER_RANGE ("SPF max-hold timer", max, argv[2], 0, 600000);
+
+  return ospf6_timers_spf_set (vty, delay, hold, max);
+}
+
+DEFUN (no_ospf6_timers_throttle_spf,
+       no_ospf6_timers_throttle_spf_cmd,
+       "no timers throttle spf",
+       NO_STR
+       "Adjust routing timers\n"
+       "Throttling adaptive timer\n"
+       "OSPF6 SPF timers\n")
+{
+  return ospf6_timers_spf_set (vty,
+                              OSPF_SPF_DELAY_DEFAULT,
+                              OSPF_SPF_HOLDTIME_DEFAULT,
+                              OSPF_SPF_MAX_HOLDTIME_DEFAULT);
+}
+
 int
 config_write_ospf6_debug_spf (struct vty *vty)
 {
@@ -676,6 +818,19 @@ config_write_ospf6_debug_spf (struct vty *vty)
   if (IS_OSPF6_DEBUG_SPF (DATABASE))
     vty_out (vty, "debug ospf6 spf database%s", VNL);
   return 0;
+}
+
+void
+ospf6_spf_config_write (struct vty *vty)
+{
+
+  if (ospf6->spf_delay != OSPF_SPF_DELAY_DEFAULT ||
+      ospf6->spf_holdtime != OSPF_SPF_HOLDTIME_DEFAULT ||
+      ospf6->spf_max_holdtime != OSPF_SPF_MAX_HOLDTIME_DEFAULT)
+    vty_out (vty, " timers throttle spf %d %d %d%s",
+	     ospf6->spf_delay, ospf6->spf_holdtime,
+	     ospf6->spf_max_holdtime, VTY_NEWLINE);
+
 }
 
 void
@@ -698,6 +853,6 @@ install_element_ospf6_debug_spf (void)
 void
 ospf6_spf_init (void)
 {
+  install_element (OSPF6_NODE, &ospf6_timers_throttle_spf_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_timers_throttle_spf_cmd);
 }
-
-

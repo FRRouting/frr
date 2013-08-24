@@ -22,6 +22,8 @@
 #ifndef OSPF6_SPF_H
 #define OSPF6_SPF_H
 
+#include "ospf6_top.h"
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_spf;
 #define OSPF6_DEBUG_SPF_PROCESS   0x01
@@ -81,11 +83,12 @@ extern void ospf6_spf_table_finish (struct ospf6_route_table *result_table);
 extern void ospf6_spf_calculation (u_int32_t router_id,
                                    struct ospf6_route_table *result_table,
                                    struct ospf6_area *oa);
-extern void ospf6_spf_schedule (struct ospf6_area *oa);
+extern void ospf6_spf_schedule (struct ospf6 *ospf);
 
 extern void ospf6_spf_display_subtree (struct vty *vty, const char *prefix,
                                        int rest, struct ospf6_vertex *v);
 
+extern void ospf6_spf_config_write (struct vty *vty);
 extern int config_write_ospf6_debug_spf (struct vty *vty);
 extern void install_element_ospf6_debug_spf (void);
 extern void ospf6_spf_init (void);

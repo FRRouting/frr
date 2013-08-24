@@ -67,7 +67,7 @@ ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
           zlog_debug ("Schedule SPF Calculation for %s",
 		      OSPF6_AREA (lsa->lsdb->data)->name);
         }
-      ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));
+      ospf6_spf_schedule (OSPF6_PROCESS(OSPF6_AREA (lsa->lsdb->data)->ospf6));
       break;
 
     case OSPF6_LSTYPE_INTRA_PREFIX:
@@ -97,7 +97,7 @@ ospf6_area_lsdb_hook_remove (struct ospf6_lsa *lsa)
           zlog_debug ("Schedule SPF Calculation for %s",
                      OSPF6_AREA (lsa->lsdb->data)->name);
         }
-      ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));
+      ospf6_spf_schedule (OSPF6_PROCESS(OSPF6_AREA (lsa->lsdb->data)->ospf6));
       break;
 
     case OSPF6_LSTYPE_INTRA_PREFIX:

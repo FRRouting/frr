@@ -38,6 +38,7 @@ struct ospf6
 
   /* list of areas */
   struct list *area_list;
+  struct ospf6_area *backbone;
 
   /* AS scope link state database */
   struct ospf6_lsdb *lsdb;
@@ -59,6 +60,18 @@ struct ospf6
 
   u_char flag;
 
+  /* SPF parameters */
+  unsigned int spf_delay;		/* SPF delay time. */
+  unsigned int spf_holdtime;		/* SPF hold time. */
+  unsigned int spf_max_holdtime;	/* SPF maximum-holdtime */
+  unsigned int spf_hold_multiplier;	/* Adaptive multiplier for hold time */
+
+  struct timeval ts_spf;		/* SPF calculation time stamp. */
+  struct timeval ts_spf_duration;	/* Execution time of last SPF */
+
+  /* Threads */
+  struct thread *t_spf_calc;	        /* SPF calculation timer. */
+  struct thread *t_ase_calc;		/* ASE calculation timer. */
   struct thread *maxage_remover;
 };
 
