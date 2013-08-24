@@ -1024,6 +1024,8 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
   struct ospf6_prefix *op;
   char *start, *current, *end;
   char buf[64];
+  struct interface *ifp;
+  int direct_connect = 0;
 
   if (OSPF6_LSA_IS_MAXAGE (lsa))
     return;
@@ -1060,6 +1062,12 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
       return;
     }
 
+  if (intra_prefix_lsa->ref_adv_router == oa->ospf6->router_id)
+    {
+      /* the intra-prefix are directly connected */
+      direct_connect = 1;
+    }
+
   prefix_num = ntohs (intra_prefix_lsa->prefix_num);
   start = (caddr_t) intra_prefix_lsa +
           sizeof (struct ospf6_intra_prefix_lsa);
@@ -1090,9 +1098,18 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
       route->path.cost = ls_entry->path.cost +
                          ntohs (op->prefix_metric);
 
-      for (i = 0; ospf6_nexthop_is_set (&ls_entry->nexthop[i]) &&
-           i < OSPF6_MULTI_PATH_LIMIT; i++)
-        ospf6_nexthop_copy (&route->nexthop[i], &ls_entry->nexthop[i]);
+      if (direct_connect)
+        {
+          ifp = if_lookup_prefix(&route->prefix);
+          if (ifp)
+            route->nexthop[0].ifindex = ifp->ifindex;
+        }
+      else
+        {
+          for (i = 0; ospf6_nexthop_is_set (&ls_entry->nexthop[i]) &&
+               i < OSPF6_MULTI_PATH_LIMIT; i++)
+            ospf6_nexthop_copy (&route->nexthop[i], &ls_entry->nexthop[i]);
+        }
 
       if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
         {

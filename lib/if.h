@@ -245,6 +245,7 @@ extern struct interface *if_create (const char *name, int namelen);
 extern struct interface *if_lookup_by_index (unsigned int);
 extern struct interface *if_lookup_exact_address (struct in_addr);
 extern struct interface *if_lookup_address (struct in_addr);
+extern struct interface *if_lookup_prefix (struct prefix *prefix);
 
 /* These 2 functions are to be used when the ifname argument is terminated
    by a '\0' character: */
