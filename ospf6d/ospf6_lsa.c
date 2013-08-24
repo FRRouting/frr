@@ -258,6 +258,29 @@ ospf6_lsa_premature_aging (struct ospf6_lsa *lsa)
   THREAD_OFF (lsa->expire);
   THREAD_OFF (lsa->refresh);
 
+  /*
+   * We clear the LSA from the neighbor retx lists now because it
+   * will not get deleted later. Essentially, changing the age to
+   * MaxAge will prevent this LSA from being matched with its
+   * existing entries in the retx list thereby causing those entries
+   * to be silently replaced with its MaxAged version, but with ever
+   * increasing retx count causing this LSA to remain forever and
+   * for the MaxAge remover thread to be called forever too.
+   *
+   * The reason the previous entry silently disappears is that when
+   * entry is added to a neighbor's retx list, it replaces the existing
+   * entry. But since the ospf6_lsdb_add() routine is generic and not aware
+   * of the special semantics of retx count, the retx count is not
+   * decremented when its replaced. Attempting to add the incr and decr
+   * retx count routines as the hook_add and hook_remove for the retx lists
+   * have a problem because the hook_remove routine is called for MaxAge
+   * entries (as will be the case in a traditional LSDB, unlike in this case
+   * where an LSDB is used as an efficient tree structure to store all kinds
+   * of data) that are added instead of calling the hook_add routine.
+   */
+
+  ospf6_flood_clear (lsa);
+
   lsa->header->age = htons (OSPF_LSA_MAXAGE);
   thread_execute (master, ospf6_lsa_expire, lsa, 0);
 }
