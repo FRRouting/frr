@@ -73,7 +73,7 @@ ospf6_lsdb_set_key (struct prefix_ipv6 *key, void *value, int len)
   key->prefixlen += len * 8;
 }
 
-#ifndef NDEBUG
+#ifdef DEBUG
 static void
 _lsdb_count_assert (struct ospf6_lsdb *lsdb)
 {
@@ -97,9 +97,9 @@ _lsdb_count_assert (struct ospf6_lsdb *lsdb)
   assert (num == lsdb->count);
 }
 #define ospf6_lsdb_count_assert(t) (_lsdb_count_assert (t))
-#else /*NDEBUG*/
+#else /*DEBUG*/
 #define ospf6_lsdb_count_assert(t) ((void) 0)
-#endif /*NDEBUG*/
+#endif /*DEBUG*/
 
 void
 ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
