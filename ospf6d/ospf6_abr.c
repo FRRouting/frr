@@ -537,13 +537,13 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
   int i;
   char buf[64];
   int is_debug = 0;
+  struct ospf6_inter_prefix_lsa *prefix_lsa = NULL;
+  struct ospf6_inter_router_lsa *router_lsa = NULL;
 
   memset (&prefix, 0, sizeof (prefix));
 
   if (lsa->header->type == htons (OSPF6_LSTYPE_INTER_PREFIX))
     {
-      struct ospf6_inter_prefix_lsa *prefix_lsa;
-
       if (IS_OSPF6_DEBUG_EXAMIN (INTER_PREFIX))
         {
           is_debug++;
@@ -564,8 +564,6 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
     }
   else if (lsa->header->type == htons (OSPF6_LSTYPE_INTER_ROUTER))
     {
-      struct ospf6_inter_router_lsa *router_lsa;
-
       if (IS_OSPF6_DEBUG_EXAMIN (INTER_ROUTER))
         {
           is_debug++;
@@ -632,6 +630,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
     }
 
   /* (3) if the prefix is equal to an active configured address range */
+  /*     or if the NU bit is set in the prefix */
   if (lsa->header->type == htons (OSPF6_LSTYPE_INTER_PREFIX))
     {
       range = ospf6_route_lookup (&prefix, oa->range_table);
@@ -643,6 +642,32 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
             ospf6_route_remove (old, table);
           return;
         }
+
+      if (CHECK_FLAG (prefix_lsa->prefix.prefix_options,
+		      OSPF6_PREFIX_OPTION_NU) ||
+	  CHECK_FLAG (prefix_lsa->prefix.prefix_options,
+		      OSPF6_PREFIX_OPTION_LA))
+	{
+          if (is_debug)
+            zlog_debug ("Prefix has NU/LA bit set, ignore");
+          if (old)
+            ospf6_route_remove (old, table);
+          return;
+	}
+    }
+
+  if (lsa->header->type == htons (OSPF6_LSTYPE_INTER_ROUTER))
+    {
+      /* To pass test suites */
+      if (! OSPF6_OPT_ISSET (router_lsa->options, OSPF6_OPT_R) ||
+	  ! OSPF6_OPT_ISSET (router_lsa->options, OSPF6_OPT_V6))
+	{
+          if (is_debug)
+            zlog_debug ("Prefix has NU/LA bit set, ignore");
+          if (old)
+            ospf6_route_remove (old, table);
+          return;
+	}
     }
 
   /* (4) if the routing table entry for the ABR does not exist */

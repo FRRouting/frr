@@ -1562,6 +1562,10 @@ ospf6_intra_brouter_calculation (struct ospf6_area *oa)
           ! CHECK_FLAG (brouter->path.router_bits, OSPF6_ROUTER_BIT_B))
         continue;
 
+      if (! OSPF6_OPT_ISSET (brouter->path.options, OSPF6_OPT_V6) ||
+	  ! OSPF6_OPT_ISSET (brouter->path.options, OSPF6_OPT_R))
+	continue;
+
       copy = ospf6_route_copy (brouter);
       copy->type = OSPF6_DEST_TYPE_ROUTER;
       copy->path.area_id = oa->area_id;

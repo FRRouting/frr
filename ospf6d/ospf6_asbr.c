@@ -181,6 +181,13 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
       return;
     }
 
+  if (CHECK_FLAG(external->prefix.prefix_options, OSPF6_PREFIX_OPTION_NU))
+    {
+      if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
+        zlog_debug ("Ignore LSA with NU bit set Metric");
+      return;
+    }
+
   ospf6_linkstate_prefix (lsa->header->adv_router, htonl (0), &asbr_id);
   asbr_entry = ospf6_route_lookup (&asbr_id, ospf6->brouter_table);
   if (asbr_entry == NULL ||
