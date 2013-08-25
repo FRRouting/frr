@@ -1797,7 +1797,8 @@ ospf6_dbdesc_send (struct thread *thread)
                                    sizeof (struct ospf6_header));
 
   /* if this is initial one, initialize sequence number for DbDesc */
-  if (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT))
+  if (CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT) &&
+      (on->dbdesc_seqnum == 0))
     {
       struct timeval tv;
       if (quagga_gettime (QUAGGA_CLK_MONOTONIC, &tv) < 0)
