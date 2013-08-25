@@ -484,6 +484,8 @@ seqnumber_mismatch (struct thread *thread)
     }
 
   THREAD_OFF (on->thread_send_dbdesc);
+  on->dbdesc_seqnum++;		/* Incr seqnum as per RFC2328, sec 10.3 */
+
   on->thread_send_dbdesc =
     thread_add_event (master, ospf6_dbdesc_send, on, 0);
 
@@ -520,6 +522,8 @@ bad_lsreq (struct thread *thread)
     }
 
   THREAD_OFF (on->thread_send_dbdesc);
+  on->dbdesc_seqnum++;		/* Incr seqnum as per RFC2328, sec 10.3 */
+
   on->thread_send_dbdesc =
     thread_add_event (master, ospf6_dbdesc_send, on, 0);
 
