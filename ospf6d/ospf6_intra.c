@@ -56,6 +56,42 @@ u_int32_t conf_debug_ospf6_brouter_specific_area_id;
 /* RFC2740 3.4.3.1 Router-LSA */
 /******************************/
 
+static char *
+ospf6_router_lsa_get_nbr_id (struct ospf6_lsa *lsa, char *buf, int buflen,
+			     int pos)
+{
+  struct ospf6_router_lsa *router_lsa;
+  struct ospf6_router_lsdesc *lsdesc;
+  char *start, *end;
+  char buf1[INET_ADDRSTRLEN], buf2[INET_ADDRSTRLEN];
+
+  if (lsa)
+    {
+      router_lsa = (struct ospf6_router_lsa *)
+	((char *) lsa->header + sizeof (struct ospf6_lsa_header));
+      start = (char *) router_lsa + sizeof (struct ospf6_router_lsa);
+      end = (char *) lsa->header + ntohs (lsa->header->length);
+
+      lsdesc = (struct ospf6_router_lsdesc *)
+	(start + pos*(sizeof (struct ospf6_router_lsdesc)));
+      if ((char *)lsdesc < end)
+	{
+	  if (buf && (buflen > INET_ADDRSTRLEN*2))
+	    {
+	      inet_ntop (AF_INET, &lsdesc->neighbor_interface_id,
+			 buf1, sizeof(buf1));
+	      inet_ntop (AF_INET, &lsdesc->neighbor_router_id,
+			 buf2, sizeof(buf2));
+	      sprintf (buf, "%s/%s", buf2, buf1);
+	    }
+	}
+      else
+	return NULL;
+    }
+
+  return buf;
+}
+
 static int
 ospf6_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
@@ -334,6 +370,36 @@ ospf6_router_lsa_originate (struct thread *thread)
 /* RFC2740 3.4.3.2 Network-LSA */
 /*******************************/
 
+static char *
+ospf6_network_lsa_get_ar_id (struct ospf6_lsa *lsa, char *buf, int buflen,
+			     int pos)
+{
+  char *start, *end, *current;
+  struct ospf6_network_lsa *network_lsa;
+  struct ospf6_network_lsdesc *lsdesc;
+
+  if (lsa)
+    {
+      network_lsa = (struct ospf6_network_lsa *)
+	((caddr_t) lsa->header + sizeof (struct ospf6_lsa_header));
+
+      start = (char *) network_lsa + sizeof (struct ospf6_network_lsa);
+      end = (char *) lsa->header + ntohs (lsa->header->length);
+      current = start + pos*(sizeof (struct ospf6_network_lsdesc));
+
+      if ((current + sizeof(struct ospf6_network_lsdesc)) <= end)
+	{
+	  lsdesc = (struct ospf6_network_lsdesc *)current;
+	  if (buf)
+	    inet_ntop (AF_INET, &lsdesc->router_id, buf, buflen);
+	}
+      else
+	return NULL;
+    }
+
+  return (buf);
+}
+
 static int
 ospf6_network_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
@@ -479,6 +545,61 @@ ospf6_network_lsa_originate (struct thread *thread)
 /****************************/
 /* RFC2740 3.4.3.6 Link-LSA */
 /****************************/
+
+static char *
+ospf6_link_lsa_get_prefix_str (struct ospf6_lsa *lsa, char *buf, int buflen,
+			       int pos)
+{
+  char *start, *end, *current;
+  struct ospf6_link_lsa *link_lsa;
+  struct in6_addr in6;
+  struct ospf6_prefix *prefix;
+  int cnt = 0, prefixnum;
+
+  if (lsa)
+    {
+      link_lsa = (struct ospf6_link_lsa *)
+	((caddr_t) lsa->header + sizeof (struct ospf6_lsa_header));
+
+      if (pos == 0) {
+	inet_ntop (AF_INET6, &link_lsa->linklocal_addr, buf, buflen);
+	return (buf);
+      }
+
+      prefixnum = ntohl (link_lsa->prefix_num);
+      if (pos > prefixnum)
+	return (NULL);
+
+      start = (char *) link_lsa + sizeof (struct ospf6_link_lsa);
+      end = (char *) lsa->header + ntohs (lsa->header->length);
+      current = start;
+
+      do
+	{
+	  prefix = (struct ospf6_prefix *) current;
+	  if (prefix->prefix_length == 0 ||
+	      current + OSPF6_PREFIX_SIZE (prefix) > end)
+	    {
+	      return (NULL);
+	    }
+
+	  if (cnt < pos)
+	    {
+	      current = start + pos*OSPF6_PREFIX_SIZE(prefix);
+	      cnt++;
+	    }
+	  else
+	    {
+	      memset (&in6, 0, sizeof (in6));
+	      memcpy (&in6, OSPF6_PREFIX_BODY (prefix),
+		      OSPF6_PREFIX_SPACE (prefix->prefix_length));
+	      inet_ntop (AF_INET6, &in6, buf, buflen);
+	      return (buf);
+	    }
+	} while (current <= end);
+    }
+  return (NULL);
+}
 
 static int
 ospf6_link_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
@@ -632,6 +753,56 @@ ospf6_link_lsa_originate (struct thread *thread)
 /*****************************************/
 /* RFC2740 3.4.3.7 Intra-Area-Prefix-LSA */
 /*****************************************/
+static char *
+ospf6_intra_prefix_lsa_get_prefix_str (struct ospf6_lsa *lsa, char *buf,
+				       int buflen, int pos)
+{
+  char *start, *end, *current;
+  struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
+  struct in6_addr in6;
+  int prefixnum, cnt = 0;
+  struct ospf6_prefix *prefix;
+
+  if (lsa)
+    {
+      intra_prefix_lsa = (struct ospf6_intra_prefix_lsa *)
+	((caddr_t) lsa->header + sizeof (struct ospf6_lsa_header));
+
+      prefixnum = ntohs (intra_prefix_lsa->prefix_num);
+      if (pos > prefixnum)
+	return (NULL);
+
+      start = (char *) intra_prefix_lsa + sizeof (struct ospf6_intra_prefix_lsa);
+      end = (char *) lsa->header + ntohs (lsa->header->length);
+      current = start;
+
+      do
+	{
+	  prefix = (struct ospf6_prefix *) current;
+	  if (prefix->prefix_length == 0 ||
+	      current + OSPF6_PREFIX_SIZE (prefix) > end)
+	    {
+	      return NULL;
+	    }
+
+	  if (cnt < pos)
+	    {
+	      current = start + pos*OSPF6_PREFIX_SIZE(prefix);
+	      cnt++;
+	    }
+	  else
+	    {
+	      memset (&in6, 0, sizeof (in6));
+	      memcpy (&in6, OSPF6_PREFIX_BODY (prefix),
+		      OSPF6_PREFIX_SPACE (prefix->prefix_length));
+	      inet_ntop (AF_INET6, &in6, buf, buflen);
+	      sprintf(&buf[strlen(buf)], "/%d", prefix->prefix_length);
+	      return (buf);
+	    }
+	} while (current <= end);
+    }
+  return (buf);
+}
 
 static int
 ospf6_intra_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
@@ -1103,6 +1274,20 @@ ospf6_intra_prefix_lsa_add (struct ospf6_lsa *lsa)
       if (end < current + OSPF6_PREFIX_SIZE (op))
         break;
 
+      /* Appendix A.4.1.1 */
+      if (CHECK_FLAG(op->prefix_options, OSPF6_PREFIX_OPTION_NU) ||
+	  CHECK_FLAG(op->prefix_options, OSPF6_PREFIX_OPTION_LA))
+	{
+	  if (IS_OSPF6_DEBUG_EXAMIN (INTRA_PREFIX))
+	    {
+	      ospf6_linkstate_prefix2str ((struct prefix *)OSPF6_PREFIX_BODY(op),
+					  buf, sizeof (buf));
+	      zlog_debug ("%s: Skipping Prefix %s has NU/LA option set",
+			  __func__, buf);
+	    }
+	  continue;
+	}
+
       route = ospf6_route_create ();
 
       memset (&route->prefix, 0, sizeof (struct prefix));
@@ -1454,28 +1639,36 @@ struct ospf6_lsa_handler router_handler =
 {
   OSPF6_LSTYPE_ROUTER,
   "Router",
-  ospf6_router_lsa_show
+  "Rtr",
+  ospf6_router_lsa_show,
+  ospf6_router_lsa_get_nbr_id
 };
 
 struct ospf6_lsa_handler network_handler =
 {
   OSPF6_LSTYPE_NETWORK,
   "Network",
-  ospf6_network_lsa_show
+  "Net",
+  ospf6_network_lsa_show,
+  ospf6_network_lsa_get_ar_id
 };
 
 struct ospf6_lsa_handler link_handler =
 {
   OSPF6_LSTYPE_LINK,
   "Link",
-  ospf6_link_lsa_show
+  "Lnk",
+  ospf6_link_lsa_show,
+  ospf6_link_lsa_get_prefix_str
 };
 
 struct ospf6_lsa_handler intra_prefix_handler =
 {
   OSPF6_LSTYPE_INTRA_PREFIX,
   "Intra-Prefix",
-  ospf6_intra_prefix_lsa_show
+  "INP",
+  ospf6_intra_prefix_lsa_show,
+  ospf6_intra_prefix_lsa_get_prefix_str
 };
 
 void

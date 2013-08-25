@@ -74,8 +74,10 @@ ospf6_unknown_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 struct ospf6_lsa_handler unknown_handler =
 {
   OSPF6_LSTYPE_UNKNOWN,
-  "unknown",
+  "Unknown",
+  "Unk",
   ospf6_unknown_lsa_show,
+  NULL,
   OSPF6_LSA_DEBUG,
 };
 
@@ -113,6 +115,20 @@ ospf6_lstype_name (u_int16_t type)
   handler = ospf6_get_lsa_handler (type);
   if (handler && handler != &unknown_handler)
     return handler->name;
+
+  snprintf (buf, sizeof (buf), "0x%04hx", ntohs (type));
+  return buf;
+}
+
+const char *
+ospf6_lstype_short_name (u_int16_t type)
+{
+  static char buf[8];
+  struct ospf6_lsa_handler *handler;
+
+  handler = ospf6_get_lsa_handler (type);
+  if (handler && handler != &unknown_handler)
+    return handler->short_name;
 
   snprintf (buf, sizeof (buf), "0x%04hx", ntohs (type));
   return buf;
@@ -371,17 +387,19 @@ ospf6_lsa_header_print (struct ospf6_lsa *lsa)
 void
 ospf6_lsa_show_summary_header (struct vty *vty)
 {
-  vty_out (vty, "%-12s %-15s %-15s %4s %8s %4s %4s %-8s%s",
+  vty_out (vty, "%-4s %-15s%-15s%4s %8s %30s%s",
            "Type", "LSId", "AdvRouter", "Age", "SeqNum",
-           "Cksm", "Len", "Duration", VNL);
+           "Payload", VNL);
 }
 
 void
 ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa)
 {
   char adv_router[16], id[16];
-  struct timeval now, res;
-  char duration[16];
+  int type;
+  struct ospf6_lsa_handler *handler;
+  char buf[64], tmpbuf[80];
+  int cnt = 0;
 
   assert (lsa);
   assert (lsa->header);
@@ -390,16 +408,38 @@ ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa)
   inet_ntop (AF_INET, &lsa->header->adv_router, adv_router,
              sizeof (adv_router));
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
-  timersub (&now, &lsa->installed, &res);
-  timerstring (&res, duration, sizeof (duration));
+  type = ntohs(lsa->header->type);
+  handler = ospf6_get_lsa_handler (lsa->header->type);
+  if ((type == OSPF6_LSTYPE_INTER_PREFIX) ||
+      (type == OSPF6_LSTYPE_INTER_ROUTER) ||
+      (type == OSPF6_LSTYPE_AS_EXTERNAL))
+    {
+      vty_out (vty, "%-4s %-15s%-15s%4hu %8lx %30s%s",
+	       ospf6_lstype_short_name (lsa->header->type),
+	       id, adv_router, ospf6_lsa_age_current (lsa),
+	       (u_long) ntohl (lsa->header->seqnum),
+	       handler->get_prefix_str(lsa, buf, sizeof(buf), 0), VNL);
+    }
+  else if (type != OSPF6_LSTYPE_UNKNOWN)
+    {
+      sprintf (tmpbuf, "%-4s %-15s%-15s%4hu %8lx",
+	       ospf6_lstype_short_name (lsa->header->type),
+	       id, adv_router, ospf6_lsa_age_current (lsa),
+	       (u_long) ntohl (lsa->header->seqnum));
 
-  vty_out (vty, "%-12s %-15s %-15s %4hu %8lx %04hx %4hu %8s%s",
-           ospf6_lstype_name (lsa->header->type),
-           id, adv_router, ospf6_lsa_age_current (lsa),
-           (u_long) ntohl (lsa->header->seqnum),
-           ntohs (lsa->header->checksum), ntohs (lsa->header->length),
-           duration, VNL);
+      while (handler->get_prefix_str(lsa, buf, sizeof(buf), cnt) != NULL)
+	{
+	  vty_out (vty, "%s %30s%s", tmpbuf, buf, VNL);
+	  cnt++;
+	}
+    }
+  else
+    {
+      vty_out (vty, "%-4s %-15s%-15s%4hu %8lx%s",
+	       ospf6_lstype_short_name (lsa->header->type),
+	       id, adv_router, ospf6_lsa_age_current (lsa),
+	       (u_long) ntohl (lsa->header->seqnum), VNL);
+    }
 }
 
 void
@@ -464,12 +504,18 @@ ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   char adv_router[64], id[64];
   struct ospf6_lsa_handler *handler;
+  struct timeval now, res;
+  char duration[16];
 
   assert (lsa && lsa->header);
 
   inet_ntop (AF_INET, &lsa->header->id, id, sizeof (id));
   inet_ntop (AF_INET, &lsa->header->adv_router,
              adv_router, sizeof (adv_router));
+
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  timersub (&now, &lsa->installed, &res);
+  timerstring (&res, duration, sizeof (duration));
 
   vty_out (vty, "Age: %4hu Type: %s%s", ospf6_lsa_age_current (lsa),
            ospf6_lstype_name (lsa->header->type), VNL);
@@ -480,6 +526,7 @@ ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   vty_out (vty, "CheckSum: %#06hx Length: %hu%s",
            ntohs (lsa->header->checksum),
            ntohs (lsa->header->length), VNL);
+  vty_out (vty, "Duration: %s%s", duration, VNL);
 
   handler = ospf6_get_lsa_handler (lsa->header->type);
   if (handler->show == NULL)

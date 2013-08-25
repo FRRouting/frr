@@ -147,7 +147,9 @@ struct ospf6_lsa_handler
 {
   u_int16_t type; /* host byte order */
   const char *name;
+  const char *short_name;
   int (*show) (struct vty *, struct ospf6_lsa *);
+  char *(*get_prefix_str) (struct ospf6_lsa *, char *buf, int buflen, int pos);
   u_char debug;
 };
 
@@ -210,6 +212,7 @@ extern struct ospf6_lsa_handler unknown_handler;
 
 /* Function Prototypes */
 extern const char *ospf6_lstype_name (u_int16_t type);
+extern const char *ospf6_lstype_short_name (u_int16_t type);
 extern u_char ospf6_lstype_debug (u_int16_t type);
 extern int ospf6_lsa_is_differ (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 extern int ospf6_lsa_is_changed (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);

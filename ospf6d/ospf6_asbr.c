@@ -1161,12 +1161,44 @@ ospf6_routemap_init (void)
 
 
 /* Display functions */
+static char *
+ospf6_as_external_lsa_get_prefix_str (struct ospf6_lsa *lsa, char *buf,
+				      int buflen, int pos)
+{
+  struct ospf6_as_external_lsa *external;
+  struct in6_addr in6;
+  int prefix_length = 0;
+
+  if (lsa)
+    {
+        external = (struct ospf6_as_external_lsa *)
+	  OSPF6_LSA_HEADER_END (lsa->header);
+
+	if (pos == 0)
+	  {
+	    ospf6_prefix_in6_addr (&in6, &external->prefix);
+	    prefix_length = external->prefix.prefix_length;
+	  }
+	else {
+	  in6 = *((struct in6_addr *)
+		  ((caddr_t) external + sizeof (struct ospf6_as_external_lsa) +
+		   OSPF6_PREFIX_SPACE (external->prefix.prefix_length)));
+	}
+	if (buf)
+	  {
+	    inet_ntop (AF_INET6, &in6, buf, buflen);
+	    if (prefix_length)
+	      sprintf (&buf[strlen(buf)], "/%d", prefix_length);
+	  }
+    }
+  return (buf);
+}
+
 static int
 ospf6_as_external_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   struct ospf6_as_external_lsa *external;
   char buf[64];
-  struct in6_addr in6, *forwarding;
 
   assert (lsa->header);
   external = (struct ospf6_as_external_lsa *)
@@ -1191,19 +1223,15 @@ ospf6_as_external_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
            ntohs (external->prefix.prefix_refer_lstype),
            VNL);
 
-  ospf6_prefix_in6_addr (&in6, &external->prefix);
-  inet_ntop (AF_INET6, &in6, buf, sizeof (buf));
-  vty_out (vty, "     Prefix: %s/%d%s", buf,
-           external->prefix.prefix_length, VNL);
+  vty_out (vty, "     Prefix: %s%s",
+	   ospf6_as_external_lsa_get_prefix_str (lsa, buf, sizeof(buf), 0), VNL);
 
   /* Forwarding-Address */
   if (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_F))
     {
-      forwarding = (struct in6_addr *)
-        ((caddr_t) external + sizeof (struct ospf6_as_external_lsa) +
-         OSPF6_PREFIX_SPACE (external->prefix.prefix_length));
-      inet_ntop (AF_INET6, forwarding, buf, sizeof (buf));
-      vty_out (vty, "     Forwarding-Address: %s%s", buf, VNL);
+      vty_out (vty, "     Forwarding-Address: %s%s",
+	       ospf6_as_external_lsa_get_prefix_str (lsa, buf, sizeof(buf), 1),
+	       VNL);
     }
 
   return 0;
@@ -1257,7 +1285,9 @@ struct ospf6_lsa_handler as_external_handler =
 {
   OSPF6_LSTYPE_AS_EXTERNAL,
   "AS-External",
-  ospf6_as_external_lsa_show
+  "ASE",
+  ospf6_as_external_lsa_show,
+  ospf6_as_external_lsa_get_prefix_str
 };
 
 void
