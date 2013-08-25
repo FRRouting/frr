@@ -387,11 +387,15 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
 
   /* (4) If the new LSA was received on this interface,
      and the interface state is BDR, examin next interface */
-  if (from && from->ospf6_if == oi && oi->state == OSPF6_INTERFACE_BDR)
+  if (from && from->ospf6_if == oi)
     {
-      if (is_debug)
-        zlog_debug ("Received is from the I/F, itself BDR, next interface");
-      return;
+      if (oi->state == OSPF6_INTERFACE_BDR)
+	{
+	  if (is_debug)
+	    zlog_debug ("Received is from the I/F, itself BDR, next interface");
+	  return;
+	}
+      SET_FLAG(lsa->flag, OSPF6_LSA_FLOODBACK);
     }
 
   /* (5) flood the LSA out the interface. */
@@ -559,15 +563,6 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
 
   assert (from && from->ospf6_if);
   oi = from->ospf6_if;
-
-  /* LSA has been flood back out receiving interface.
-     No acknowledgement sent. */
-  if (CHECK_FLAG (lsa->flag, OSPF6_LSA_FLOODBACK))
-    {
-      if (is_debug)
-        zlog_debug ("No acknowledgement (BDR & FloodBack)");
-      return;
-    }
 
   /* LSA is more recent than database copy, but was not flooded
      back out receiving interface. Delayed acknowledgement sent
