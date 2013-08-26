@@ -654,6 +654,14 @@ interface_up (struct thread *thread)
       return 0;
     }
 
+  /* If no area assigned, return */
+  if (oi->area == NULL)
+    {
+      zlog_debug ("%s: Not scheduleing Hello for %s as there is no area assigned yet", __func__,
+		  oi->interface->name);
+      return 0;
+    }
+
   /* Join AllSPFRouters */
   ospf6_sso (oi->interface->ifindex, &allspfrouters6, IPV6_JOIN_GROUP);
 
