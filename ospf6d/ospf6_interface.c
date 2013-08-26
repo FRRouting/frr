@@ -73,7 +73,7 @@ ospf6_interface_lookup_by_ifindex (int ifindex)
 
 /* schedule routing table recalculation */
 static void
-ospf6_interface_lsdb_hook (struct ospf6_lsa *lsa)
+ospf6_interface_lsdb_hook (struct ospf6_lsa *lsa, unsigned int reason)
 {
   struct ospf6_interface *oi;
 
@@ -86,12 +86,24 @@ ospf6_interface_lsdb_hook (struct ospf6_lsa *lsa)
       case OSPF6_LSTYPE_LINK:
         if (oi->state == OSPF6_INTERFACE_DR)
           OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT (oi);
-        ospf6_spf_schedule (oi->area->ospf6);
+        ospf6_spf_schedule (oi->area->ospf6, reason);
         break;
 
       default:
         break;
     }
+}
+
+static void
+ospf6_interface_lsdb_hook_add (struct ospf6_lsa *lsa)
+{
+  ospf6_interface_lsdb_hook(lsa, ospf6_lsadd_to_spf_reason(lsa));
+}
+
+static void
+ospf6_interface_lsdb_hook_remove (struct ospf6_lsa *lsa)
+{
+  ospf6_interface_lsdb_hook(lsa, ospf6_lsremove_to_spf_reason(lsa));
 }
 
 static u_char
@@ -152,8 +164,8 @@ ospf6_interface_create (struct interface *ifp)
   oi->lsupdate_list = ospf6_lsdb_create (oi);
   oi->lsack_list = ospf6_lsdb_create (oi);
   oi->lsdb = ospf6_lsdb_create (oi);
-  oi->lsdb->hook_add = ospf6_interface_lsdb_hook;
-  oi->lsdb->hook_remove = ospf6_interface_lsdb_hook;
+  oi->lsdb->hook_add = ospf6_interface_lsdb_hook_add;
+  oi->lsdb->hook_remove = ospf6_interface_lsdb_hook_remove;
   oi->lsdb_self = ospf6_lsdb_create (oi);
 
   oi->route_connected = OSPF6_ROUTE_TABLE_CREATE (INTERFACE, CONNECTED_ROUTES);

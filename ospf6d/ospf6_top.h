@@ -70,9 +70,11 @@ struct ospf6
   unsigned int spf_holdtime;		/* SPF hold time. */
   unsigned int spf_max_holdtime;	/* SPF maximum-holdtime */
   unsigned int spf_hold_multiplier;	/* Adaptive multiplier for hold time */
+  unsigned int spf_reason;              /* reason bits while scheduling SPF */
 
   struct timeval ts_spf;		/* SPF calculation time stamp. */
   struct timeval ts_spf_duration;	/* Execution time of last SPF */
+  unsigned int last_spf_reason;         /* Last SPF reason */
 
   /* Threads */
   struct thread *t_spf_calc;	        /* SPF calculation timer. */

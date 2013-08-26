@@ -615,7 +615,8 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
   struct listnode *n;
   struct ospf6_area *oa;
   char router_id[16], duration[32];
-  struct timeval now, running;
+  struct timeval now, running, result;
+  char buf[32], rbuf[32];
 
   /* process id, router id */
   inet_ntop (AF_INET, &o->router_id, router_id, sizeof (router_id));
@@ -630,6 +631,32 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
 
   /* Redistribute configuration */
   /* XXX */
+
+  /* Show SPF parameters */
+  vty_out(vty, " Initial SPF scheduling delay %d millisec(s)%s"
+	  " Minimum hold time between consecutive SPFs %d millsecond(s)%s"
+	  " Maximum hold time between consecutive SPFs %d millsecond(s)%s"
+	  " Hold time multiplier is currently %d%s",
+	  o->spf_delay, VNL,
+	  o->spf_holdtime, VNL,
+	  o->spf_max_holdtime, VNL,
+	  o->spf_hold_multiplier, VNL);
+
+  vty_out(vty, " SPF algorithm ");
+  if (o->ts_spf.tv_sec || o->ts_spf.tv_usec)
+    {
+      timersub(&now, &o->ts_spf, &result);
+      timerstring(&result, buf, sizeof(buf));
+      ospf6_spf_reason_string(o->last_spf_reason, rbuf, sizeof(rbuf));
+      vty_out(vty, "last executed %s ago, reason %s%s", buf, rbuf, VNL);
+      vty_out (vty, " Last SPF duration %ld sec %ld usec%s",
+	       o->ts_spf_duration.tv_sec, o->ts_spf_duration.tv_usec, VNL);
+    }
+  else
+    vty_out(vty, "has not been run$%s", VNL);
+  threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
+  vty_out (vty, " SPF timer %s%s%s",
+	   (o->t_spf_calc ? "due in " : "is "), buf, VNL);
 
   if (CHECK_FLAG (o->flag, OSPF6_STUB_ROUTER))
     vty_out (vty, " Router Is Stub Router%s", VNL);

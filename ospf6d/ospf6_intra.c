@@ -46,7 +46,7 @@
 #include "ospf6_abr.h"
 #include "ospf6_flood.h"
 #include "ospf6d.h"
-
+#include "ospf6_spf.h"
 
 unsigned char conf_debug_ospf6_brouter = 0;
 u_int32_t conf_debug_ospf6_brouter_specific_router_id;

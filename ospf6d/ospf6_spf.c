@@ -377,6 +377,36 @@ ospf6_spf_table_finish (struct ospf6_route_table *result_table)
     }
 }
 
+static const char *ospf6_spf_reason_str[] =
+  {
+    "R+",
+    "R-",
+    "N+",
+    "N-",
+    "L+",
+    "L-",
+    "R*",
+    "N*",
+  };
+
+void ospf6_spf_reason_string (unsigned int reason, char *buf, int size)
+{
+  int bit;
+  int len = 0;
+
+  if (!buf)
+    return;
+
+  for (bit = 0; bit <= (sizeof(ospf6_spf_reason_str) / sizeof(char *)); bit++)
+    {
+      if ((reason & (1 << bit)) && (len < size))
+	{
+	  len += snprintf((buf + len), (size - len), "%s%s",
+			  (len > 0) ? ", " : "", ospf6_spf_reason_str[bit]);
+	}
+    }
+}
+
 /* RFC2328 16.1.  Calculating the shortest-path tree for an area */
 /* RFC2740 3.8.1.  Calculating the shortest path tree for an area */
 void
@@ -515,6 +545,8 @@ ospf6_spf_calculation_thread (struct thread *t)
   struct timeval start, end, runtime;
   struct listnode *node;
   struct ospf6_route *route;
+  int areas_processed = 0;
+  char rbuf[32];
 
   ospf6 = (struct ospf6 *)THREAD_ARG (t);
   ospf6->t_spf_calc = NULL;
@@ -536,6 +568,8 @@ ospf6_spf_calculation_thread (struct thread *t)
       ospf6_spf_calculation (ospf6->router_id, oa->spf_table, oa);
       ospf6_intra_route_calculation (oa);
       ospf6_intra_brouter_calculation (oa);
+
+      areas_processed++;
     }
 
   if (ospf6->backbone)
@@ -550,6 +584,7 @@ ospf6_spf_calculation_thread (struct thread *t)
 			    ospf6->backbone);
       ospf6_intra_route_calculation(ospf6->backbone);
       ospf6_intra_brouter_calculation(ospf6->backbone);
+      areas_processed++;
     }
 
   /* Redo summaries if required */
@@ -562,23 +597,36 @@ ospf6_spf_calculation_thread (struct thread *t)
 
   ospf6->ts_spf_duration = runtime;
 
+  ospf6_spf_reason_string(ospf6->spf_reason, rbuf, sizeof(rbuf));
+
   if (IS_OSPF6_DEBUG_SPF (PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
     zlog_debug ("SPF runtime: %ld sec %ld usec",
 		runtime.tv_sec, runtime.tv_usec);
 
+  zlog_info("SPF processing: # Areas: %d, SPF runtime: %ld sec %ld usec, "
+	    "Reason: %s\n", areas_processed, runtime.tv_sec, runtime.tv_usec,
+	    rbuf);
+  ospf6->last_spf_reason = ospf6->spf_reason;
+  ospf6_reset_spf_reason(ospf6);
   return 0;
 }
 
 /* Add schedule for SPF calculation.  To avoid frequenst SPF calc, we
    set timer for SPF calc. */
 void
-ospf6_spf_schedule (struct ospf6 *ospf6)
+ospf6_spf_schedule (struct ospf6 *ospf6, unsigned int reason)
 {
   unsigned long delay, elapsed, ht;
   struct timeval now, result;
 
+  ospf6_set_spf_reason(ospf6, reason);
+
   if (IS_OSPF6_DEBUG_SPF(PROCESS) || IS_OSPF6_DEBUG_SPF (TIME))
-    zlog_debug ("SPF: calculation timer scheduled");
+    {
+      char rbuf[32];
+      ospf6_spf_reason_string(reason, rbuf, sizeof(rbuf));
+      zlog_debug ("SPF: calculation timer scheduled (reason %s)", rbuf);
+    }
 
   /* OSPF instance does not exist. */
   if (ospf6 == NULL)
