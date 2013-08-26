@@ -60,6 +60,11 @@ struct ospf6
 
   u_char flag;
 
+  /* Configured flags */
+  u_char config_flags;
+#define OSPF6_LOG_ADJACENCY_CHANGES      (1 << 0)
+#define OSPF6_LOG_ADJACENCY_DETAIL       (1 << 1)
+
   /* SPF parameters */
   unsigned int spf_delay;		/* SPF delay time. */
   unsigned int spf_holdtime;		/* SPF hold time. */

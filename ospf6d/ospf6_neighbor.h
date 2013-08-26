@@ -108,6 +108,44 @@ struct ospf6_neighbor
 #define OSPF6_NEIGHBOR_LOADING  7
 #define OSPF6_NEIGHBOR_FULL     8
 
+/* Neighbor Events */
+#define OSPF6_NEIGHBOR_EVENT_NO_EVENT             0
+#define OSPF6_NEIGHBOR_EVENT_HELLO_RCVD           1
+#define OSPF6_NEIGHBOR_EVENT_TWOWAY_RCVD          2
+#define OSPF6_NEIGHBOR_EVENT_NEGOTIATION_DONE     3
+#define OSPF6_NEIGHBOR_EVENT_EXCHANGE_DONE        4
+#define OSPF6_NEIGHBOR_EVENT_LOADING_DONE         5
+#define OSPF6_NEIGHBOR_EVENT_ADJ_OK               6
+#define OSPF6_NEIGHBOR_EVENT_SEQNUMBER_MISMATCH   7
+#define OSPF6_NEIGHBOR_EVENT_BAD_LSREQ            8
+#define OSPF6_NEIGHBOR_EVENT_ONEWAY_RCVD          9
+#define OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER    10
+#define OSPF6_NEIGHBOR_EVENT_MAX_EVENT           11
+
+static const char *ospf6_neighbor_event_str[] =
+  {
+    "NoEvent",
+    "HelloReceived",
+    "2-WayReceived",
+    "NegotiationDone",
+    "ExchangeDone",
+    "LoadingDone",
+    "AdjOK?",
+    "SeqNumberMismatch",
+    "BadLSReq",
+    "1-WayReceived",
+    "InactivityTimer",
+  };
+
+static const char *ospf6_neighbor_event_string (int event)
+{
+  #define OSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING "UnknownEvent"
+
+  if (event < OSPF6_NEIGHBOR_EVENT_MAX_EVENT)
+      return ospf6_neighbor_event_str[event];
+  return OSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING;
+}
+
 extern const char *ospf6_neighbor_state_str[];
 
 

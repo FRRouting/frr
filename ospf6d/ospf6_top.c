@@ -338,6 +338,56 @@ DEFUN (ospf6_router_id,
   return CMD_SUCCESS;
 }
 
+DEFUN (ospf6_log_adjacency_changes,
+       ospf6_log_adjacency_changes_cmd,
+       "log-adjacency-changes",
+       "Log changes in adjacency state\n")
+{
+  struct ospf6 *ospf6 = vty->index;
+
+  SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+  return CMD_SUCCESS;
+}
+
+DEFUN (ospf6_log_adjacency_changes_detail,
+       ospf6_log_adjacency_changes_detail_cmd,
+       "log-adjacency-changes detail",
+              "Log changes in adjacency state\n"
+       "Log all state changes\n")
+{
+  struct ospf6 *ospf6 = vty->index;
+
+  SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+  SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_log_adjacency_changes,
+       no_ospf6_log_adjacency_changes_cmd,
+       "no log-adjacency-changes",
+              NO_STR
+       "Log changes in adjacency state\n")
+{
+  struct ospf6 *ospf6 = vty->index;
+
+  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
+  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ospf6_log_adjacency_changes_detail,
+       no_ospf6_log_adjacency_changes_detail_cmd,
+       "no log-adjacency-changes detail",
+              NO_STR
+              "Log changes in adjacency state\n"
+       "Log all state changes\n")
+{
+  struct ospf6 *ospf6 = vty->index;
+
+  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
+  return CMD_SUCCESS;
+}
+
 DEFUN (ospf6_interface_area,
        ospf6_interface_area_cmd,
        "interface IFNAME area A.B.C.D",
@@ -592,6 +642,16 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
   vty_out (vty, " Number of areas in this router is %u%s",
            listcount (o->area_list), VNL);
 
+  if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
+    {
+      if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
+	vty_out(vty, " All adjacency changes are logged%s",VTY_NEWLINE);
+      else
+	vty_out(vty, " Adjacency changes are logged%s",VTY_NEWLINE);
+    }
+
+  vty_out (vty, "%s",VTY_NEWLINE);
+
   for (ALL_LIST_ELEMENTS_RO (o->area_list, n, oa))
     ospf6_area_show (vty, oa);
 }
@@ -782,6 +842,15 @@ config_write_ospf6 (struct vty *vty)
   if (ospf6->router_id_static != 0)
     vty_out (vty, " router-id %s%s", router_id, VNL);
 
+  /* log-adjacency-changes flag print. */
+  if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
+    {
+      vty_out(vty, " log-adjacency-changes");
+      if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
+	vty_out(vty, " detail");
+      vty_out(vty, "%s", VTY_NEWLINE);
+    }
+
   ospf6_stub_router_config_write (vty);
   ospf6_redistribute_config_write (vty);
   ospf6_area_config_write (vty);
@@ -836,6 +905,10 @@ ospf6_top_init (void)
 
   install_default (OSPF6_NODE);
   install_element (OSPF6_NODE, &ospf6_router_id_cmd);
+  install_element (OSPF6_NODE, &ospf6_log_adjacency_changes_cmd);
+  install_element (OSPF6_NODE, &ospf6_log_adjacency_changes_detail_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_log_adjacency_changes_cmd);
+  install_element (OSPF6_NODE, &no_ospf6_log_adjacency_changes_detail_cmd);
   install_element (OSPF6_NODE, &ospf6_interface_area_cmd);
   install_element (OSPF6_NODE, &no_ospf6_interface_area_cmd);
   install_element (OSPF6_NODE, &ospf6_stub_router_admin_cmd);
