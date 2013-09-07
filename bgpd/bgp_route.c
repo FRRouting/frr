@@ -965,6 +965,17 @@ bgp_announce_check (struct bgp_info *ri, struct peer *peer, struct prefix *p,
       attr->local_pref = bgp->default_local_pref;
     }
 
+  /* If originator-id is not set and the route is to be reflected,
+     set the originator id */
+  if (peer && from && peer->sort == BGP_PEER_IBGP &&
+      from->sort == BGP_PEER_IBGP &&
+      (! (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))))
+    {
+      attr->extra = bgp_attr_extra_get(attr);
+      IPV4_ADDR_COPY(&(attr->extra->originator_id), &(from->remote_id));
+      SET_FLAG(attr->flag, BGP_ATTR_ORIGINATOR_ID);
+    }
+
   /* Remove MED if its an EBGP peer - will get overwritten by route-maps */
   if (peer->sort == BGP_PEER_EBGP
       && attr->flag & ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC))

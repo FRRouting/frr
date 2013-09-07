@@ -379,6 +379,7 @@ attrhash_key_make (void *p)
       MIX(extra->aggregator_addr.s_addr);
       MIX(extra->weight);
       MIX(extra->mp_nexthop_global_in.s_addr);
+      MIX(extra->originator_id.s_addr);
     }
   
   if (attr->aspath)
@@ -434,7 +435,8 @@ attrhash_cmp (const void *p1, const void *p2)
           && IPV4_ADDR_SAME (&ae1->mp_nexthop_global_in, &ae2->mp_nexthop_global_in)
           && ae1->ecommunity == ae2->ecommunity
           && ae1->cluster == ae2->cluster
-          && ae1->transit == ae2->transit)
+          && ae1->transit == ae2->transit
+          && IPV4_ADDR_SAME (&ae1->originator_id, &ae2->originator_id))
         return 1;
       else if (ae1 || ae2)
         return 0;
