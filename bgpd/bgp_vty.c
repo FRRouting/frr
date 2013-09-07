@@ -1160,6 +1160,38 @@ DEFUN (no_bgp_bestpath_aspath_confed,
   return CMD_SUCCESS;
 }
 
+/* "bgp bestpath as-path multipath-relax" configuration.  */
+DEFUN (bgp_bestpath_aspath_multipath_relax,
+       bgp_bestpath_aspath_multipath_relax_cmd,
+       "bgp bestpath as-path multipath-relax",
+       "BGP specific commands\n"
+       "Change the default bestpath selection\n"
+       "AS-path attribute\n"
+       "Allow load sharing across routes that have different AS paths (but same length)\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_set (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_bestpath_aspath_multipath_relax,
+       no_bgp_bestpath_aspath_multipath_relax_cmd,
+       "no bgp bestpath as-path multipath-relax",
+       NO_STR
+       "BGP specific commands\n"
+       "Change the default bestpath selection\n"
+       "AS-path attribute\n"
+       "Allow load sharing across routes that have different AS paths (but same length)\n")
+{
+  struct bgp *bgp;
+
+  bgp = vty->index;
+  bgp_flag_unset (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
+  return CMD_SUCCESS;
+}
+
 /* "bgp log-neighbor-changes" configuration.  */
 DEFUN (bgp_log_neighbor_changes,
        bgp_log_neighbor_changes_cmd,
@@ -9171,6 +9203,10 @@ bgp_vty_init (void)
   /* "bgp bestpath as-path confed" commands */
   install_element (BGP_NODE, &bgp_bestpath_aspath_confed_cmd);
   install_element (BGP_NODE, &no_bgp_bestpath_aspath_confed_cmd);
+
+  /* "bgp bestpath as-path multipath-relax" commands */
+  install_element (BGP_NODE, &bgp_bestpath_aspath_multipath_relax_cmd);
+  install_element (BGP_NODE, &no_bgp_bestpath_aspath_multipath_relax_cmd);
 
   /* "bgp log-neighbor-changes" commands */
   install_element (BGP_NODE, &bgp_log_neighbor_changes_cmd);

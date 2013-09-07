@@ -480,7 +480,20 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   /* 9. Maximum path check. */
   if (newm == existm)
     {
-      if (new->peer->sort == BGP_PEER_IBGP)
+      if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX))
+        {
+
+	  /*
+	   * For the two paths, all comparison steps till IGP metric
+	   * have succeeded - including AS_PATH hop count. Since 'bgp
+	   * bestpath as-path multipath-relax' knob is on, we don't need
+	   * an exact match of AS_PATH. Thus, mark the paths are equal.
+	   * That will trigger both these paths to get into the multipath
+	   * array.
+	   */
+	  *paths_eq = 1;
+        }
+      else if (new->peer->sort == BGP_PEER_IBGP)
 	{
 	  if (aspath_cmp (new->attr->aspath, exist->attr->aspath))
 	    *paths_eq = 1;

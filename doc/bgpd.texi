@@ -124,6 +124,12 @@ sequences should should be taken into account during the BGP best path
 decision process.
 @end deffn
 
+@deffn {BGP} {bgp bestpath as-path multipath-relax} {}
+This command specifies that BGP decision process should consider paths
+of equal AS_PATH length candidates for multipath computation. Without
+the knob, the entire AS_PATH must match for multipath computation.
+@end deffn
+
 @node BGP route flap dampening
 @subsection BGP route flap dampening
 
