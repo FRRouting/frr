@@ -1856,9 +1856,11 @@ vty_serv_sock_family (const char* addr, unsigned short port, int family)
     {
       case AF_INET:
         naddr=&su.sin.sin_addr;
+        break;
 #ifdef HAVE_IPV6
       case AF_INET6:
         naddr=&su.sin6.sin6_addr;
+        break;
 #endif	
     }
 

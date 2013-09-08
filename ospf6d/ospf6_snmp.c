@@ -528,7 +528,7 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
     return NULL;
 
   len = *length - v->namelen;
-  len = (len >= 1 ? sizeof 1 : 0);
+  len = (len >= 1 ? 1 : 0);
   if (exact && len != 1)
     return NULL;
   if (len)

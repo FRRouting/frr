@@ -287,7 +287,7 @@ send_packet(struct interface *ifp,
   if (!(ifp->flags & IFF_UP))
     return;
 
-  if (!p) 
+  if (p)
     src = ntohl(p->u.prefix4.s_addr);
   else 
     src = 0; /* Is filled in */

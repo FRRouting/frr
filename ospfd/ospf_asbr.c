@@ -164,7 +164,8 @@ ospf_external_info_add (u_char type, struct prefix_ipv4 p,
   new->nexthop = nexthop;
   new->tag = 0;
 
-  rn->info = new;
+  if (rn)
+    rn->info = new;
 
   if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
     zlog_debug ("Redistribute[%s]: %s/%d external info created.",
