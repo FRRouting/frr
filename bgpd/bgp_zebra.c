@@ -147,12 +147,11 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length)
   for (ALL_LIST_ELEMENTS (ifp->connected, node, nnode, c))
     bgp_connected_delete (c);
 
-  /* Fast external-failover (Currently IPv4 only) */
+  /* Fast external-failover */
   {
     struct listnode *mnode;
     struct bgp *bgp;
     struct peer *peer;
-    struct interface *peer_if;
 
     for (ALL_LIST_ELEMENTS_RO (bm->bgp, mnode, bgp))
       {
@@ -161,15 +160,10 @@ bgp_interface_down (int command, struct zclient *zclient, zebra_size_t length)
 
 	for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	  {
-	    if (peer->ttl != 1)
+	    if ((peer->ttl != 1) && (peer->gtsm_hops != 1))
 	      continue;
 
-	    if (peer->su.sa.sa_family == AF_INET)
-	      peer_if = if_lookup_by_ipv4 (&peer->su.sin.sin_addr);
-	    else
-	      continue;
-
-	    if (ifp == peer_if)
+	    if (ifp == peer->nexthop.ifp)
 	      BGP_EVENT_ADD (peer, BGP_Stop);
 	  }
       }
