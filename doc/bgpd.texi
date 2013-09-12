@@ -366,6 +366,14 @@ Note that replace-as can only be specified if no-prepend is.
 This command is only allowed for eBGP peers.
 @end deffn
 
+@deffn {BGP} {neighbor @var{peer} ttl-security hops @var{number}} {}
+@deffnx {BGP} {no neighbor @var{peer} ttl-security hops @var{number}} {}
+This command enforces Generalized TTL Security Mechanism (GTSM), as
+specified in RFC 5082. With this command, only neighbors that are the
+specified number of hops away will be allowed to become neighbors. This
+command is mututally exclusive with @command{ebgp-multihop}.
+@end deffn
+
 @node Peer filtering
 @subsection Peer filtering
 

@@ -7857,6 +7857,12 @@ bgp_show_peer (struct vty *vty, struct peer *p)
 	vty_out (vty, "  External BGP neighbor may be up to %d hops away.%s",
 		 p->ttl, VTY_NEWLINE);
     }
+  else
+    {
+      if (p->gtsm_hops > 0)
+	vty_out (vty, "  Internal BGP neighbor may be up to %d hops away.%s",
+		 p->gtsm_hops, VTY_NEWLINE);
+    }
 
   /* Local address. */
   if (p->su_local)

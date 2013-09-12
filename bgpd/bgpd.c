@@ -4419,21 +4419,21 @@ static int is_ebgp_multihop_configured (struct peer *peer)
   if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
       group = peer->group;
-      if (group->conf->ttl != 1)
+      if ((peer_sort(peer) != BGP_PEER_IBGP) &&
+	  (group->conf->ttl != 1))
 	return 1;
 
       for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer1))
 	{
-	  if (peer1->sort == BGP_PEER_IBGP)
-	    continue;
-
-	  if (peer1->ttl != 1)
+	  if ((peer_sort (peer1) != BGP_PEER_IBGP) &&
+	      (peer1->ttl != 1))
 	    return 1;
 	}
     }
   else
     {
-      if (peer->ttl != 1)
+      if ((peer_sort(peer) != BGP_PEER_IBGP) &&
+	  (peer->ttl != 1))
 	return 1;
     }
   return 0;
@@ -4449,9 +4449,6 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
 
   zlog_debug ("peer_ttl_security_hops_set: set gtsm_hops to %d for %s", gtsm_hops, peer->host);
 
-  if (peer->sort == BGP_PEER_IBGP)
-    return BGP_ERR_NO_IBGP_WITH_TTLHACK;
-
   /* We cannot configure ttl-security hops when ebgp-multihop is already
      set.  For non peer-groups, the check is simple.  For peer-groups, it's
      slightly messy, because we need to check both the peer-group structure
@@ -4466,6 +4463,7 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
 	return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
       /* specify MAXTTL on outgoing packets */
+      /* Routine handles iBGP peers correctly */
       ret = peer_ebgp_multihop_set (peer, MAXTTL);
       if (ret != 0)
 	return ret;
@@ -4475,7 +4473,7 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
 
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (peer->fd >= 0 && peer->sort != BGP_PEER_IBGP)
+      if (peer->fd >= 0)
 	sockopt_minttl (peer->su.sa.sa_family, peer->fd, MAXTTL + 1 - gtsm_hops);
     }
   else
@@ -4483,9 +4481,6 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
       group = peer->group;
       for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
 	{
-	  if (peer->sort == BGP_PEER_IBGP)
-	    continue;
-
 	  peer->gtsm_hops = group->conf->gtsm_hops;
 
 	  /* Change setting of existing peer
@@ -4520,9 +4515,6 @@ peer_ttl_security_hops_unset (struct peer *peer)
 
   zlog_debug ("peer_ttl_security_hops_unset: set gtsm_hops to zero for %s", peer->host);
 
-  if (peer->sort == BGP_PEER_IBGP)
-      return 0;
-
   /* if a peer-group member, then reset to peer-group default rather than 0 */
   if (peer_group_active (peer))
     peer->gtsm_hops = peer->group->conf->gtsm_hops;
@@ -4532,7 +4524,7 @@ peer_ttl_security_hops_unset (struct peer *peer)
   opeer = peer;
   if (! CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-      if (peer->fd >= 0 && peer->sort != BGP_PEER_IBGP)
+      if (peer->fd >= 0)
 	sockopt_minttl (peer->su.sa.sa_family, peer->fd, 0);
     }
   else
@@ -4540,9 +4532,6 @@ peer_ttl_security_hops_unset (struct peer *peer)
       group = peer->group;
       for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer))
 	{
-	  if (peer->sort == BGP_PEER_IBGP)
-	    continue;
-
 	  peer->gtsm_hops = 0;
 	  
 	  if (peer->fd >= 0)
@@ -4865,7 +4854,7 @@ bgp_config_write_peer (struct vty *vty, struct bgp *bgp,
 		   VTY_NEWLINE);
 
      /* ttl-security hops */
-      if (peer->sort != BGP_PEER_IBGP && peer->gtsm_hops != 0)
+      if (peer->gtsm_hops != 0)
         if (! peer_group_active (peer) || g_peer->gtsm_hops != peer->gtsm_hops)
           vty_out (vty, " neighbor %s ttl-security hops %d%s", addr,
                    peer->gtsm_hops, VTY_NEWLINE);

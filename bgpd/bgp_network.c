@@ -148,11 +148,44 @@ bgp_update_sock_send_buffer_size (int fd)
 static void
 bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
 {
-  if (peer->sort == BGP_PEER_EBGP) {
-    sockopt_ttl (peer->su.sa.sa_family, bgp_sock, peer->ttl);
-    if (peer->gtsm_hops)
-      sockopt_minttl (peer->su.sa.sa_family, bgp_sock, MAXTTL + 1 - peer->gtsm_hops);
-  }
+  char buf[INET_ADDRSTRLEN];
+  int ret;
+
+  /* In case of peer is EBGP, we should set TTL for this connection.  */
+  if (!peer->gtsm_hops && (peer_sort (peer) == BGP_PEER_EBGP))
+    {
+      ret = sockopt_ttl (peer->su.sa.sa_family, bgp_sock, peer->ttl);
+      if (ret)
+	{
+	  zlog_err ("%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
+		    __func__,
+		    inet_ntop (AF_INET, &peer->remote_id, buf, sizeof(buf)),
+		    errno);
+	}
+    }
+  else if (peer->gtsm_hops)
+    {
+      /* On Linux, setting minttl without setting ttl seems to mess with the
+	 outgoing ttl. Therefore setting both.
+      */
+      ret = sockopt_ttl (peer->su.sa.sa_family, bgp_sock, MAXTTL);
+      if (ret)
+	{
+	  zlog_err ("%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
+		    __func__,
+		    inet_ntop (AF_INET, &peer->remote_id, buf, sizeof(buf)),
+		    errno);
+	}
+      ret = sockopt_minttl (peer->su.sa.sa_family, bgp_sock,
+			    MAXTTL + 1 - peer->gtsm_hops);
+      if (ret)
+	{
+	  zlog_err ("%s: Can't set MinTTL on peer (rtrid %s) socket, err = %d",
+		    __func__,
+		    inet_ntop (AF_INET, &peer->remote_id, buf, sizeof(buf)),
+		    errno);
+	}
+    }
 }
 
 /* Accept bgp connection. */
