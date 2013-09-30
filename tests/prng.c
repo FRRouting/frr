@@ -25,6 +25,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "prng.h"
 
@@ -73,6 +74,53 @@ prng_rand(struct prng *prng)
       rv <<= 1;
     }
   return rv;
+}
+
+const char *
+prng_fuzz(struct prng *prng,
+          const char *string,
+          const char *charset,
+          unsigned int operations)
+{
+  static char buf[256];
+  unsigned int charset_len;
+  unsigned int i;
+  unsigned int offset;
+  unsigned int op;
+  unsigned int character;
+
+  assert(strlen(string) < sizeof(buf));
+
+  strncpy(buf, string, sizeof(buf));
+  charset_len = strlen(charset);
+
+  for (i = 0; i < operations; i++)
+    {
+      offset = prng_rand(prng) % strlen(buf);
+      op = prng_rand(prng) % 3;
+
+      switch (op)
+        {
+        case 0:
+          /* replace */
+          character = prng_rand(prng) % charset_len;
+          buf[offset] = charset[character];
+          break;
+        case 1:
+          /* remove */
+          memmove(buf + offset, buf + offset + 1, strlen(buf) - offset);
+          break;
+        case 2:
+          /* insert */
+          assert(strlen(buf) + 1 < sizeof(buf));
+
+          memmove(buf + offset + 1, buf + offset, strlen(buf) + 1 - offset);
+          character = prng_rand(prng) % charset_len;
+          buf[offset] = charset[character];
+          break;
+        }
+    }
+  return buf;
 }
 
 void
