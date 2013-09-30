@@ -1483,7 +1483,7 @@ DEFUN (no_ipv6_nd_router_preference,
 
 ALIAS (no_ipv6_nd_router_preference,
        no_ipv6_nd_router_preference_val_cmd,
-       "no ipv6 nd router-preference (high|medium|low",
+       "no ipv6 nd router-preference (high|medium|low)",
        NO_STR
        "Interface IPv6 config commands\n"
        "Neighbor discovery\n"

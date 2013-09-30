@@ -280,9 +280,9 @@ DEFUN (ip_route_mask_flags_distance,
        "IP destination prefix mask\n"
        "IP gateway address\n"
        "IP gateway interface name\n"
-       "Distance value for this route\n"
        "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
+       "Silently discard pkts when matched\n"
+       "Distance value for this route\n")
 {
   return zebra_static_ipv4 (vty, 1, argv[0], argv[1], argv[2], argv[3], argv[4]);
 }
@@ -294,9 +294,9 @@ DEFUN (ip_route_mask_flags_distance2,
        "Establish static routes\n"
        "IP destination prefix\n"
        "IP destination prefix mask\n"
-       "Distance value for this route\n"
        "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n")
+       "Silently discard pkts when matched\n"
+       "Distance value for this route\n")
 {
   return zebra_static_ipv4 (vty, 1, argv[0], argv[1], NULL, argv[2], argv[3]);
 }

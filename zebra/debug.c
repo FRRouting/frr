@@ -35,8 +35,8 @@ DEFUN (show_debugging_zebra,
        show_debugging_zebra_cmd,
        "show debugging zebra",
        SHOW_STR
-       "Zebra configuration\n"
-       "Debugging information\n")
+       "Debugging information\n"
+       "Zebra configuration\n")
 {
   vty_out (vty, "Zebra debugging status:%s", VTY_NEWLINE);
 
@@ -128,7 +128,7 @@ DEFUN (debug_zebra_packet_detail,
        "Debug option set for zebra packet\n"
        "Debug option set for receive packet\n"
        "Debug option set for send packet\n"
-       "Debug option set detaied information\n")
+       "Debug option set detailed information\n")
 {
   zebra_debug_packet = ZEBRA_DEBUG_PACKET;
   if (strncmp ("send", argv[0], strlen (argv[0])) == 0)

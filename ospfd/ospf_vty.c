@@ -1976,6 +1976,8 @@ DEFUN (ospf_area_authentication_message_digest,
        ospf_area_authentication_message_digest_cmd,
        "area (A.B.C.D|<0-4294967295>) authentication message-digest",
        "OSPF area parameters\n"
+       "OSPF area ID in IP address format\n"
+       "OSPF area ID as a decimal value\n"
        "Enable authentication\n"
        "Use message-digest authentication\n")
 {
