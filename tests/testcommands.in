@@ -199,3 +199,18 @@ sow ip bgp ipv4 mulicast community no-export no-adertise no-export no-advertise
 sow ipv6 ospf6 databIase as-external adv-router 1.2.3.4
 Whow bgp view VARIAeBLE ipv4 unicast community local-AS no-advrtise no-advertise local-AS
 Wneighbor 1.2.3.4 dot-capabiliy-negotiate
+#
+#
+# Some teststrings explicitly used for keyword commands
+#
+#
+redistribute bgp
+redistribute bgp m 10
+redistribute bgp metric 10 metric-type 1
+redistribute bgp metric 10 metric 10
+redistribute bgp route-map RMAP_REDIST_BGP
+default-information originate metric-type 1 metric 10
+default-information originate always metric-type 1 metric 10
+default-information originate route-map RMAP_DEFAULT
+default-information originate route-map RMAP_DEFAULT metric 10
+default-information originate always metric-type 2 metric 23
