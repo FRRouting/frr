@@ -54,7 +54,7 @@ struct memory_list memory_list_lib[] =
   { MTYPE_ROUTE_MAP_RULE,	"Route map rule"		},
   { MTYPE_ROUTE_MAP_RULE_STR,	"Route map rule str"		},
   { MTYPE_ROUTE_MAP_COMPILED,	"Route map compiled"		},
-  { MTYPE_DESC,			"Command desc"			},
+  { MTYPE_CMD_TOKENS,		"Command desc"			},
   { MTYPE_KEY,			"Key"				},
   { MTYPE_KEYCHAIN,		"Key chain"			},
   { MTYPE_IF_RMAP,		"Interface route map"		},

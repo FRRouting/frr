@@ -431,9 +431,6 @@ main (int argc, char **argv)
   /* BGP related initialization.  */
   bgp_init ();
 
-  /* Sort CLI commands. */
-  sort_node ();
-
   /* Parse config file. */
   vty_read_config (config_file, config_default);
 

@@ -298,9 +298,6 @@ main (int argc, char **argv)
   route_read ();
   zebra_vty_init();
 
-  /* Sort VTY commands. */
-  sort_node ();
-
   /* Configuration file read*/
   vty_read_config (config_file, config_default);
 

@@ -310,8 +310,6 @@ main (int argc, char **argv)
   ospf_opaque_init ();
 #endif /* HAVE_OPAQUE_LSA */
   
-  sort_node ();
-
   /* Get configuration file. */
   vty_read_config (config_file, config_default);
 

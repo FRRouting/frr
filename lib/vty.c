@@ -931,23 +931,23 @@ vty_complete_command (struct vty *vty)
 
 static void
 vty_describe_fold (struct vty *vty, int cmd_width,
-		   unsigned int desc_width, struct desc *desc)
+		   unsigned int desc_width, struct cmd_token *token)
 {
   char *buf;
   const char *cmd, *p;
   int pos;
 
-  cmd = desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd;
+  cmd = token->cmd[0] == '.' ? token->cmd + 1 : token->cmd;
 
   if (desc_width <= 0)
     {
-      vty_out (vty, "  %-*s  %s%s", cmd_width, cmd, desc->str, VTY_NEWLINE);
+      vty_out (vty, "  %-*s  %s%s", cmd_width, cmd, token->desc, VTY_NEWLINE);
       return;
     }
 
-  buf = XCALLOC (MTYPE_TMP, strlen (desc->str) + 1);
+  buf = XCALLOC (MTYPE_TMP, strlen (token->desc) + 1);
 
-  for (p = desc->str; strlen (p) > desc_width; p += pos + 1)
+  for (p = token->desc; strlen (p) > desc_width; p += pos + 1)
     {
       for (pos = desc_width; pos > 0; pos--)
       if (*(p + pos) == ' ')
@@ -976,7 +976,7 @@ vty_describe_command (struct vty *vty)
   vector vline;
   vector describe;
   unsigned int i, width, desc_width;
-  struct desc *desc, *desc_cr = NULL;
+  struct cmd_token *token, *token_cr = NULL;
 
   vline = cmd_make_strvec (vty->buf);
 
@@ -1010,15 +1010,15 @@ vty_describe_command (struct vty *vty)
   /* Get width of command string. */
   width = 0;
   for (i = 0; i < vector_active (describe); i++)
-    if ((desc = vector_slot (describe, i)) != NULL)
+    if ((token = vector_slot (describe, i)) != NULL)
       {
 	unsigned int len;
 
-	if (desc->cmd[0] == '\0')
+	if (token->cmd[0] == '\0')
 	  continue;
 
-	len = strlen (desc->cmd);
-	if (desc->cmd[0] == '.')
+	len = strlen (token->cmd);
+	if (token->cmd[0] == '.')
 	  len--;
 
 	if (width < len)
@@ -1030,27 +1030,27 @@ vty_describe_command (struct vty *vty)
 
   /* Print out description. */
   for (i = 0; i < vector_active (describe); i++)
-    if ((desc = vector_slot (describe, i)) != NULL)
+    if ((token = vector_slot (describe, i)) != NULL)
       {
-	if (desc->cmd[0] == '\0')
+	if (token->cmd[0] == '\0')
 	  continue;
 	
-	if (strcmp (desc->cmd, command_cr) == 0)
+	if (strcmp (token->cmd, command_cr) == 0)
 	  {
-	    desc_cr = desc;
+	    token_cr = token;
 	    continue;
 	  }
 
-	if (!desc->str)
+	if (!token->desc)
 	  vty_out (vty, "  %-s%s",
-		   desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
+		   token->cmd[0] == '.' ? token->cmd + 1 : token->cmd,
 		   VTY_NEWLINE);
-	else if (desc_width >= strlen (desc->str))
+	else if (desc_width >= strlen (token->desc))
 	  vty_out (vty, "  %-*s  %s%s", width,
-		   desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
-		   desc->str, VTY_NEWLINE);
+		   token->cmd[0] == '.' ? token->cmd + 1 : token->cmd,
+		   token->desc, VTY_NEWLINE);
 	else
-	  vty_describe_fold (vty, width, desc_width, desc);
+	  vty_describe_fold (vty, width, desc_width, token);
 
 #if 0
 	vty_out (vty, "  %-*s %s%s", width
@@ -1059,18 +1059,18 @@ vty_describe_command (struct vty *vty)
 #endif /* 0 */
       }
 
-  if ((desc = desc_cr))
+  if ((token = token_cr))
     {
-      if (!desc->str)
+      if (!token->desc)
 	vty_out (vty, "  %-s%s",
-		 desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
+		 token->cmd[0] == '.' ? token->cmd + 1 : token->cmd,
 		 VTY_NEWLINE);
-      else if (desc_width >= strlen (desc->str))
+      else if (desc_width >= strlen (token->desc))
 	vty_out (vty, "  %-*s  %s%s", width,
-		 desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
-		 desc->str, VTY_NEWLINE);
+		 token->cmd[0] == '.' ? token->cmd + 1 : token->cmd,
+		 token->desc, VTY_NEWLINE);
       else
-	vty_describe_fold (vty, width, desc_width, desc);
+	vty_describe_fold (vty, width, desc_width, token);
     }
 
 out:

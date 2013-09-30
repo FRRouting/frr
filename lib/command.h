@@ -138,18 +138,32 @@ struct cmd_element
   int (*func) (struct cmd_element *, struct vty *, int, const char *[]);
   const char *doc;			/* Documentation of this command. */
   int daemon;                   /* Daemon to which this command belong. */
-  vector strvec;		/* Pointing out each description vector. */
-  unsigned int cmdsize;		/* Command index count. */
-  char *config;			/* Configuration string */
-  vector subconfig;		/* Sub configuration string */
+  vector tokens;		/* Vector of cmd_tokens */
   u_char attr;			/* Command attributes */
 };
 
-/* Command description structure. */
-struct desc
+
+enum cmd_token_type
 {
+  TOKEN_TERMINAL = 0,
+  TOKEN_MULTIPLE,
+  TOKEN_KEYWORD,
+};
+
+/* Command description structure. */
+struct cmd_token
+{
+  enum cmd_token_type type;
+
+  /* Used for type == MULTIPLE */
+  vector multiple; /* vector of cmd_token, type == FINAL */
+
+  /* Used for type == KEYWORD */
+  vector keyword; /* vector of vector of cmd_tokens */
+
+  /* Used for type == TERMINAL */
   char *cmd;                    /* Command string. */
-  char *str;                    /* Command's description. */
+  char *desc;                    /* Command's description. */
 };
 
 /* Return value of the commands. */
@@ -192,7 +206,170 @@ struct desc
      int argc __attribute__ ((unused)), \
      const char *argv[] __attribute__ ((unused)) )
 
-/* DEFUN for vty command interafce. Little bit hacky ;-). */
+/* DEFUN for vty command interafce. Little bit hacky ;-).
+ *
+ * DEFUN(funcname, cmdname, cmdstr, helpstr)
+ *
+ * funcname
+ * ========
+ *
+ * Name of the function that will be defined.
+ *
+ * cmdname
+ * =======
+ *
+ * Name of the struct that will be defined for the command.
+ *
+ * cmdstr
+ * ======
+ *
+ * The cmdstr defines the command syntax. It is used by the vty subsystem
+ * and vtysh to perform matching and completion in the cli. So you have to take
+ * care to construct it adhering to the following grammar. The names used
+ * for the production rules losely represent the names used in lib/command.c
+ *
+ * cmdstr = cmd_token , { " " , cmd_token } ;
+ *
+ * cmd_token = cmd_terminal
+ *           | cmd_multiple
+ *           | cmd_keyword ;
+ *
+ * cmd_terminal_fixed = fixed_string
+ *                    | variable
+ *                    | range
+ *                    | ipv4
+ *                    | ipv4_prefix
+ *                    | ipv6
+ *                    | ipv6_prefix ;
+ *
+ * cmd_terminal = cmd_terminal_fixed
+ *              | option
+ *              | vararg ;
+ *
+ * multiple_part = cmd_terminal_fixed ;
+ * cmd_multiple = "(" , multiple_part , ( "|" | { "|" , multiple_part } ) , ")" ;
+ *
+ * keyword_part = fixed_string , { " " , ( cmd_terminal_fixed | cmd_multiple ) } ;
+ * cmd_keyword = "{" , keyword_part , { "|" , keyword_part } , "}" ;
+ *
+ * lowercase = "a" | ... | "z" ;
+ * uppercase = "A" | ... | "Z" ;
+ * digit = "0" | ... | "9" ;
+ * number = digit , { digit } ;
+ *
+ * fixed_string = (lowercase | digit) , { lowercase | digit | uppercase | "-" | "_" } ;
+ * variable = uppercase , { uppercase | "_" } ;
+ * range = "<" , number , "-" , number , ">" ;
+ * ipv4 = "A.B.C.D" ;
+ * ipv4_prefix = "A.B.C.D/M" ;
+ * ipv6 = "X:X::X:X" ;
+ * ipv6_prefix = "X:X::X:X/M" ;
+ * option = "[" , variable , "]" ;
+ * vararg = "." , variable ;
+ *
+ * To put that all in a textual description: A cmdstr is a sequence of tokens,
+ * separated by spaces.
+ *
+ * Terminal Tokens:
+ *
+ * A very simple cmdstring would be something like: "show ip bgp". It consists
+ * of three Terminal Tokens, each containing a fixed string. When this command
+ * is called, no arguments will be passed down to the function implementing it,
+ * as it only consists of fixed strings.
+ *
+ * Apart from fixed strings, Terminal Tokens can also contain variables:
+ * An example would be "show ip bgp A.B.C.D". This command expects an IPv4
+ * as argument. As this is a variable, the IP address entered by the user will
+ * be passed down as an argument. Apart from two exceptions, the other options
+ * for Terminal Tokens behave exactly as we just discussed and only make a
+ * difference for the CLI. The two exceptions will be discussed in the next
+ * paragraphs.
+ *
+ * A Terminal Token can contain a so called option match. This is a simple
+ * string variable that the user may omit. An example would be:
+ * "show interface [IFNAME]". If the user calls this without an interface as
+ * argument, no arguments will be passed down to the function implementing
+ * this command. Otherwise, the interface name will be provided to the function
+ * as a regular argument.
+
+ * Also, a Terminal Token can contain a so called vararg. This is used e.g. in
+ * "show ip bgp regexp .LINE". The last token is a vararg match and will
+ * consume all the arguments the user inputs on the command line and append
+ * those to the list of arguments passed down to the function implementing this
+ * command. (Therefore, it doesn't make much sense to have any tokens after a
+ * vararg because the vararg will already consume all the words the user entered
+ * in the CLI)
+ *
+ * Multiple Tokens:
+ *
+ * The Multiple Token type can be used if there are multiple possibilities what
+ * arguments may be used for a command, but it should map to the same function
+ * nonetheless. An example would be "ip route A.B.C.D/M (reject|blackhole)"
+ * In that case both "reject" and "blackhole" would be acceptable as last
+ * arguments. The words matched by Multiple Tokens are always added to the
+ * argument list, even if they are matched by fixed strings. Such a Multiple
+ * Token can contain almost any type of token that would also be acceptable
+ * for a Terminal Token, the exception are optional variables and varag.
+ *
+ * There is one special case that is used in some places of Quagga that should be
+ * pointed out here shortly. An example would be "password (8|) WORD". This
+ * construct is used to have fixed strings communicated as arguments. (The "8"
+ * will be passed down as an argument in this case) It does not mean that
+ * the "8" is optional. Another historic and possibly surprising property of
+ * this construct is that it consumes two parts of helpstr. (Help
+ * strings will be explained later)
+ *
+ * Keyword Tokens:
+ *
+ * There are commands that take a lot of different and possibly optional arguments.
+ * An example from ospf would be the "default-information originate" command. This
+ * command takes a lot of optional arguments that may be provided in any order.
+ * To accomodate such commands, the Keyword Token has been implemented.
+ * Using the keyword token, the "default-information originate" command and all
+ * its possible options can be represented using this single cmdstr:
+ * "default-information originate \
+ *  {always|metric <0-16777214>|metric-type (1|2)|route-map WORD}"
+ *
+ * Keywords always start with a fixed string and may be followed by arguments.
+ * Except optional variables and vararg, everything is permitted here.
+ *
+ * For the special case of a keyword without arguments, either NULL or the
+ * keyword itself will be pushed as an argument, depending on whether the
+ * keyword is present.
+ * For the other keywords, arguments will be only pushed for
+ * variables/Multiple Tokens. If the keyword is not present, the arguments that
+ * would have been pushed will be substituted by NULL.
+ *
+ * A few examples:
+ *   "default information originate metric-type 1 metric 1000"
+ * would yield the following arguments:
+ *   { NULL, "1000", "1", NULL }
+ *
+ *   "default information originate always route-map RMAP-DEFAULT"
+ * would yield the following arguments:
+ *   { "always", NULL, NULL, "RMAP-DEFAULT" }
+ *
+ * helpstr
+ * =======
+ *
+ * The helpstr is used to show a short explantion for the commands that
+ * are available when the user presses '?' on the CLI. It is the concatenation
+ * of the helpstrings for all the tokens that make up the command.
+ *
+ * There should be one helpstring for each token in the cmdstr except those
+ * containing other tokens, like Multiple or Keyword Tokens. For those, there
+ * will only be the helpstrings of the contained tokens.
+ *
+ * The individual helpstrings are expected to be in the same order as their
+ * respective Tokens appear in the cmdstr. They should each be terminated with
+ * a linefeed. The last helpstring should be terminated with a linefeed as well.
+ *
+ * Care should also be taken to avoid having similar tokens with different
+ * helpstrings. Imagine e.g. the commands "show ip ospf" and "show ip bgp".
+ * they both contain a helpstring for "show", but only one will be displayed
+ * when the user enters "sh?". If those two helpstrings differ, it is not
+ * defined which one will be shown and the behavior is therefore unpredictable.
+ */
 #define DEFUN(funcname, cmdname, cmdstr, helpstr) \
   DEFUN_CMD_FUNC_DECL(funcname) \
   DEFUN_CMD_ELEMENT(funcname, cmdname, cmdstr, helpstr, 0, 0) \
@@ -330,7 +507,6 @@ struct desc
 extern void install_node (struct cmd_node *, int (*) (struct vty *));
 extern void install_default (enum node_type);
 extern void install_element (enum node_type, struct cmd_element *);
-extern void sort_node (void);
 
 /* Concatenates argv[shift] through argv[argc-1] into a single NUL-terminated
    string with a space between each element (allocated using
@@ -346,7 +522,6 @@ extern int config_from_file (struct vty *, FILE *);
 extern enum node_type node_parent (enum node_type);
 extern int cmd_execute_command (vector, struct vty *, struct cmd_element **, int);
 extern int cmd_execute_command_strict (vector, struct vty *, struct cmd_element **);
-extern void config_replace_string (struct cmd_element *, char *, ...);
 extern void cmd_init (int);
 extern void cmd_terminate (void);
 

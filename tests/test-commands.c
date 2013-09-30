@@ -233,8 +233,6 @@ test_init(void)
             cmd->daemon = 0;
             cmd->func = test_callback;
           }
-  sort_node();
-
   test_load();
   vty_init_vtysh();
 }
@@ -340,8 +338,8 @@ test_run(struct prng *prng, struct vty *vty, const char *cmd, unsigned int edit_
           {
             for (j = 0; j < vector_active(descriptions); j++)
               {
-                struct desc *cmd = vector_slot(descriptions, j);
-                printf("  '%s' '%s'\n", cmd->cmd, cmd->str);
+                struct cmd_token *cmd = vector_slot(descriptions, j);
+                printf("  '%s' '%s'\n", cmd->cmd, cmd->desc);
               }
             vector_free(descriptions);
           }

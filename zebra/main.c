@@ -343,9 +343,6 @@ main (int argc, char **argv)
   interface_list ();
   route_read ();
 
-  /* Sort VTY commands. */
-  sort_node ();
-
 #ifdef HAVE_SNMP
   zebra_snmp_init ();
 #endif /* HAVE_SNMP */

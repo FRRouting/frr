@@ -277,9 +277,6 @@ babel_init(int argc, char **argv)
     /* this replace kernel_setup && kernel_setup_socket */
     babelz_zebra_init ();
 
-    /* Sort all installed commands. */
-    sort_node ();
-
     /* Get zebra configuration file. */
     zlog_set_level (NULL, ZLOG_DEST_STDOUT, ZLOG_DISABLED);
     vty_read_config (babel_config_file, babel_config_default);

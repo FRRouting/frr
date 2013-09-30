@@ -287,9 +287,6 @@ main (int argc, char **argv)
   rip_zclient_init ();
   rip_peer_init ();
 
-  /* Sort all installed commands. */
-  sort_node ();
-
   /* Get configuration file. */
   vty_read_config (config_file, config_default);
 

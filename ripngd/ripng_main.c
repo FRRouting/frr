@@ -282,9 +282,6 @@ main (int argc, char **argv)
   zebra_init ();
   ripng_peer_init ();
 
-  /* Sort all installed commands. */
-  sort_node ();
-
   /* Get configuration file. */
   vty_read_config (config_file, config_default);
 

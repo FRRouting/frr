@@ -339,8 +339,6 @@ main (int argc, char **argv, char **envp)
 
   isis_zebra_init ();
 
-  sort_node ();
-
   /* parse config file */
   /* this is needed three times! because we have interfaces before the areas */
   vty_read_config (config_file, config_default);

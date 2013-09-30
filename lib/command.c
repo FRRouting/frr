@@ -1,6 +1,8 @@
 /*
    Command interpreter routine for virtual terminal [aka TeletYpe]
    Copyright (C) 1997, 98, 99 Kunihiro Ishiguro
+   Copyright (C) 2013 by Open Source Routing.
+   Copyright (C) 2013 by Internet Systems Consortium, Inc. ("ISC")
 
 This file is part of GNU Zebra.
  
@@ -35,8 +37,31 @@ Boston, MA 02111-1307, USA.  */
    each daemon maintains each own cmdvec. */
 vector cmdvec = NULL;
 
-struct desc desc_cr;
+struct cmd_token token_cr;
 char *command_cr = NULL;
+
+enum filter_type
+{
+  FILTER_RELAXED,
+  FILTER_STRICT
+};
+
+enum matcher_rv
+{
+  MATCHER_OK,
+  MATCHER_COMPLETE,
+  MATCHER_INCOMPLETE,
+  MATCHER_NO_MATCH,
+  MATCHER_AMBIGUOUS,
+  MATCHER_EXCEED_ARGC_MAX
+};
+
+#define MATCHER_ERROR(matcher_rv) \
+  (   (matcher_rv) == MATCHER_INCOMPLETE \
+   || (matcher_rv) == MATCHER_NO_MATCH \
+   || (matcher_rv) == MATCHER_AMBIGUOUS \
+   || (matcher_rv) == MATCHER_EXCEED_ARGC_MAX \
+  )
 
 /* Host information structure. */
 struct host host;
@@ -196,53 +221,6 @@ install_node (struct cmd_node *node,
   node->cmd_vector = vector_init (VECTOR_MIN_SIZE);
 }
 
-/* Compare two command's string.  Used in sort_node (). */
-static int
-cmp_node (const void *p, const void *q)
-{
-  const struct cmd_element *a = *(struct cmd_element * const *)p;
-  const struct cmd_element *b = *(struct cmd_element * const *)q;
-
-  return strcmp (a->string, b->string);
-}
-
-static int
-cmp_desc (const void *p, const void *q)
-{
-  const struct desc *a = *(struct desc * const *)p;
-  const struct desc *b = *(struct desc * const *)q;
-
-  return strcmp (a->cmd, b->cmd);
-}
-
-/* Sort each node's command element according to command string. */
-void
-sort_node ()
-{
-  unsigned int i, j;
-  struct cmd_node *cnode;
-  vector descvec;
-  struct cmd_element *cmd_element;
-
-  for (i = 0; i < vector_active (cmdvec); i++)
-    if ((cnode = vector_slot (cmdvec, i)) != NULL)
-      {	
-	vector cmd_vector = cnode->cmd_vector;
-	qsort (cmd_vector->index, vector_active (cmd_vector), 
-	       sizeof (void *), cmp_node);
-
-	for (j = 0; j < vector_active (cmd_vector); j++)
-	  if ((cmd_element = vector_slot (cmd_vector, j)) != NULL
-	      && vector_active (cmd_element->strvec))
-	    {
-	      descvec = vector_slot (cmd_element->strvec,
-				     vector_active (cmd_element->strvec) - 1);
-	      qsort (descvec->index, vector_active (descvec), 
-	             sizeof (void *), cmp_desc);
-	    }
-      }
-}
-
 /* Breaking up string into each command piece. I assume given
    character is separated by a space character. Return value is a
    vector which includes char ** data element. */
@@ -312,15 +290,46 @@ cmd_free_strvec (vector v)
   vector_free (v);
 }
 
-/* Fetch next description.  Used in cmd_make_descvec(). */
+struct format_parser_state
+{
+  vector topvect; /* Top level vector */
+  vector intvect; /* Intermediate level vector, used when there's
+                   * a multiple in a keyword. */
+  vector curvect; /* current vector where read tokens should be
+                     appended. */
+
+  const char *string; /* pointer to command string, not modified */
+  const char *cp; /* pointer in command string, moved along while
+                     parsing */
+  const char *dp;  /* pointer in description string, moved along while
+                     parsing */
+
+  int in_keyword; /* flag to remember if we are in a keyword group */
+  int in_multiple; /* flag to remember if we are in a multiple group */
+  int just_read_word; /* flag to remember if the last thing we red was a
+                       * real word and not some abstract token */
+};
+
+static void
+format_parser_error(struct format_parser_state *state, const char *message)
+{
+  int offset = state->cp - state->string + 1;
+
+  fprintf(stderr, "\nError parsing command: \"%s\"\n", state->string);
+  fprintf(stderr, "                        %*c\n", offset, '^');
+  fprintf(stderr, "%s at offset %d.\n", message, offset);
+  fprintf(stderr, "This is a programming error. Check your DEFUNs etc.\n");
+  exit(1);
+}
+
 static char *
-cmd_desc_str (const char **string)
+format_parser_desc_str(struct format_parser_state *state)
 {
   const char *cp, *start;
   char *token;
   int strlen;
-  
-  cp = *string;
+
+  cp = state->dp;
 
   if (cp == NULL)
     return NULL;
@@ -339,132 +348,226 @@ cmd_desc_str (const char **string)
     cp++;
 
   strlen = cp - start;
-  token = XMALLOC (MTYPE_STRVEC, strlen + 1);
+  token = XMALLOC (MTYPE_CMD_TOKENS, strlen + 1);
   memcpy (token, start, strlen);
   *(token + strlen) = '\0';
 
-  *string = cp;
+  state->dp = cp;
 
   return token;
 }
 
-/* New string vector. */
-static vector
-cmd_make_descvec (const char *string, const char *descstr)
+static void
+format_parser_begin_keyword(struct format_parser_state *state)
 {
-  int multiple = 0;
-  const char *sp;
-  char *token;
-  int len;
-  const char *cp;
-  const char *dp;
-  vector allvec;
-  vector strvec = NULL;
-  struct desc *desc;
+  struct cmd_token *token;
+  vector keyword_vect;
 
-  cp = string;
-  dp = descstr;
+  if (state->in_keyword
+      || state->in_multiple)
+    format_parser_error(state, "Unexpected '{'");
 
-  if (cp == NULL)
-    return NULL;
+  state->cp++;
+  state->in_keyword = 1;
 
-  allvec = vector_init (VECTOR_MIN_SIZE);
+  token = XCALLOC(MTYPE_CMD_TOKENS, sizeof(*token));
+  token->type = TOKEN_KEYWORD;
+  token->keyword = vector_init(VECTOR_MIN_SIZE);
 
-  while (1)
+  keyword_vect = vector_init(VECTOR_MIN_SIZE);
+  vector_set(token->keyword, keyword_vect);
+
+  vector_set(state->curvect, token);
+  state->curvect = keyword_vect;
+}
+
+static void
+format_parser_begin_multiple(struct format_parser_state *state)
+{
+  struct cmd_token *token;
+
+  if (state->in_keyword == 1)
+    format_parser_error(state, "Keyword starting with '('");
+
+  if (state->in_multiple)
+    format_parser_error(state, "Nested group");
+
+  state->cp++;
+  state->in_multiple = 1;
+  state->just_read_word = 0;
+
+  token = XCALLOC(MTYPE_CMD_TOKENS, sizeof(*token));
+  token->type = TOKEN_MULTIPLE;
+  token->multiple = vector_init(VECTOR_MIN_SIZE);
+
+  vector_set(state->curvect, token);
+  if (state->curvect != state->topvect)
+    state->intvect = state->curvect;
+  state->curvect = token->multiple;
+}
+
+static void
+format_parser_end_keyword(struct format_parser_state *state)
+{
+  if (state->in_multiple
+      || !state->in_keyword)
+    format_parser_error(state, "Unexpected '}'");
+
+  if (state->in_keyword == 1)
+    format_parser_error(state, "Empty keyword group");
+
+  state->cp++;
+  state->in_keyword = 0;
+  state->curvect = state->topvect;
+}
+
+static void
+format_parser_end_multiple(struct format_parser_state *state)
+{
+  char *dummy;
+
+  if (!state->in_multiple)
+    format_parser_error(state, "Unepexted ')'");
+
+  if (vector_active(state->curvect) == 0)
+    format_parser_error(state, "Empty multiple section");
+
+  if (!state->just_read_word)
     {
-      while (isspace ((int) *cp) && *cp != '\0')
-	cp++;
+      /* There are constructions like
+       * 'show ip ospf database ... (self-originate|)'
+       * in use.
+       * The old parser reads a description string for the
+       * word '' between |) which will never match.
+       * Simulate this behvaior by dropping the next desc
+       * string in such a case. */
 
-      if (*cp == '(')
-	{
-	  multiple = 1;
-	  cp++;
-	}
-      if (*cp == ')')
-	{
-	  multiple = 0;
-	  cp++;
-	}
-      if (*cp == '|')
-	{
-	  if (! multiple)
-	    {
-	      fprintf (stderr, "Command parse error!: %s\n", string);
-	      exit (1);
-	    }
-	  cp++;
-	}
-      
-      while (isspace ((int) *cp) && *cp != '\0')
-	cp++;
+      dummy = format_parser_desc_str(state);
+      XFREE(MTYPE_CMD_TOKENS, dummy);
+    }
 
-      if (*cp == '(')
-	{
-	  multiple = 1;
-	  cp++;
-	}
+  state->cp++;
+  state->in_multiple = 0;
 
-      if (*cp == '\0') 
-	return allvec;
+  if (state->intvect)
+    state->curvect = state->intvect;
+  else
+    state->curvect = state->topvect;
+}
 
-      sp = cp;
+static void
+format_parser_handle_pipe(struct format_parser_state *state)
+{
+  struct cmd_token *keyword_token;
+  vector keyword_vect;
 
-      while (! (isspace ((int) *cp) || *cp == '\r' || *cp == '\n' || *cp == ')' || *cp == '|') && *cp != '\0')
-	cp++;
+  if (state->in_multiple)
+    {
+      state->just_read_word = 0;
+      state->cp++;
+    }
+  else if (state->in_keyword)
+    {
+      state->in_keyword = 1;
+      state->cp++;
 
-      len = cp - sp;
-
-      token = XMALLOC (MTYPE_STRVEC, len + 1);
-      memcpy (token, sp, len);
-      *(token + len) = '\0';
-
-      desc = XCALLOC (MTYPE_DESC, sizeof (struct desc));
-      desc->cmd = token;
-      desc->str = cmd_desc_str (&dp);
-
-      if (multiple)
-	{
-	  if (multiple == 1)
-	    {
-	      strvec = vector_init (VECTOR_MIN_SIZE);
-	      vector_set (allvec, strvec);
-	    }
-	  multiple++;
-	}
-      else
-	{
-	  strvec = vector_init (VECTOR_MIN_SIZE);
-	  vector_set (allvec, strvec);
-	}
-      vector_set (strvec, desc);
+      keyword_token = vector_slot(state->topvect,
+                                  vector_active(state->topvect) - 1);
+      keyword_vect = vector_init(VECTOR_MIN_SIZE);
+      vector_set(keyword_token->keyword, keyword_vect);
+      state->curvect = keyword_vect;
+    }
+  else
+    {
+      format_parser_error(state, "Unexpected '|'");
     }
 }
 
-/* Count mandantory string vector size.  This is to determine inputed
-   command has enough command length. */
-static int
-cmd_cmdsize (vector strvec)
+static void
+format_parser_read_word(struct format_parser_state *state)
 {
-  unsigned int i;
-  int size = 0;
-  vector descvec;
-  struct desc *desc;
+  const char *start;
+  int len;
+  char *cmd;
+  struct cmd_token *token;
 
-  for (i = 0; i < vector_active (strvec); i++)
-    if ((descvec = vector_slot (strvec, i)) != NULL)
+  start = state->cp;
+
+  while (state->cp[0] != '\0'
+         && !strchr("\r\n(){}|", state->cp[0])
+         && !isspace((int)state->cp[0]))
+    state->cp++;
+
+  len = state->cp - start;
+  cmd = XMALLOC(MTYPE_CMD_TOKENS, len + 1);
+  memcpy(cmd, start, len);
+  cmd[len] = '\0';
+
+  token = XCALLOC(MTYPE_CMD_TOKENS, sizeof(*token));
+  token->type = TOKEN_TERMINAL;
+  token->cmd = cmd;
+  token->desc = format_parser_desc_str(state);
+  vector_set(state->curvect, token);
+
+  if (state->in_keyword == 1)
+    state->in_keyword = 2;
+
+  state->just_read_word = 1;
+}
+
+/**
+ * Parse a given command format string and build a tree of tokens from
+ * it that is suitable to be used by the command subsystem.
+ *
+ * @param string Command format string.
+ * @param descstr Description string.
+ * @return A vector of struct cmd_token representing the given command,
+ *         or NULL on error.
+ */
+static vector
+cmd_parse_format(const char *string, const char *descstr)
+{
+  struct format_parser_state state;
+
+  if (string == NULL)
+    return NULL;
+
+  memset(&state, 0, sizeof(state));
+  state.topvect = state.curvect = vector_init(VECTOR_MIN_SIZE);
+  state.cp = state.string = string;
+  state.dp = descstr;
+
+  while (1)
     {
-      if ((vector_active (descvec)) == 1
-        && (desc = vector_slot (descvec, 0)) != NULL)
-	{
-	  if (desc->cmd == NULL || CMD_OPTION (desc->cmd))
-	    return size;
-	  else
-	    size++;
-	}
-      else
-	size++;
+      while (isspace((int)state.cp[0]) && state.cp[0] != '\0')
+        state.cp++;
+
+      switch (state.cp[0])
+        {
+        case '\0':
+          if (state.in_keyword
+              || state.in_multiple)
+            format_parser_error(&state, "Unclosed group/keyword");
+          return state.topvect;
+        case '{':
+          format_parser_begin_keyword(&state);
+          break;
+        case '(':
+          format_parser_begin_multiple(&state);
+          break;
+        case '}':
+          format_parser_end_keyword(&state);
+          break;
+        case ')':
+          format_parser_end_multiple(&state);
+          break;
+        case '|':
+          format_parser_handle_pipe(&state);
+          break;
+        default:
+          format_parser_read_word(&state);
+        }
     }
-  return size;
 }
 
 /* Return prompt character of specified node. */
@@ -497,11 +600,8 @@ install_element (enum node_type ntype, struct cmd_element *cmd)
     }
 
   vector_set (cnode->cmd_vector, cmd);
-
-  if (cmd->strvec == NULL)
-    cmd->strvec = cmd_make_descvec (cmd->string, cmd->doc);
-
-  cmd->cmdsize = cmd_cmdsize (cmd->strvec);
+  if (cmd->tokens == NULL)
+    cmd->tokens = cmd_parse_format(cmd->string, cmd->doc);
 }
 
 static const unsigned char itoa64[] =
@@ -847,9 +947,6 @@ cmd_ipv4_prefix_match (const char *str)
 static enum match_type
 cmd_ipv6_match (const char *str)
 {
-  int state = STATE_START;
-  int colons = 0, nums = 0, double_colon = 0;
-  const char *sp = NULL;
   struct sockaddr_in6 sin6_dummy;
   int ret;
 
@@ -1056,254 +1153,700 @@ cmd_range_match (const char *range, const char *str)
   return 1;
 }
 
-/* Make completion match and return match type flag. */
 static enum match_type
-cmd_filter_by_completion (char *command, vector v, unsigned int index)
+cmd_word_match(struct cmd_token *token,
+               enum filter_type filter,
+               const char *word)
 {
-  unsigned int i;
   const char *str;
-  struct cmd_element *cmd_element;
   enum match_type match_type;
-  vector descvec;
-  struct desc *desc;
 
-  match_type = no_match;
+  str = token->cmd;
 
-  /* If command and cmd_element string does not match set NULL to vector */
-  for (i = 0; i < vector_active (v); i++)
-    if ((cmd_element = vector_slot (v, i)) != NULL)
-      {
-	if (index >= vector_active (cmd_element->strvec))
-	  vector_slot (v, i) = NULL;
-	else
-	  {
-	    unsigned int j;
-	    int matched = 0;
+  if (filter == FILTER_RELAXED)
+    if (!word || !strlen(word))
+      return partly_match;
 
-	    descvec = vector_slot (cmd_element->strvec, index);
+  if (!word)
+    return no_match;
 
-	    for (j = 0; j < vector_active (descvec); j++)
-	      if ((desc = vector_slot (descvec, j)))
-		{
-		  str = desc->cmd;
-		  
-		  if (CMD_VARARG (str))
-		    {
-		      if (match_type < vararg_match)
-			match_type = vararg_match;
-		      matched++;
-		    }
-		  else if (CMD_RANGE (str))
-		    {
-		      if (cmd_range_match (str, command))
-			{
-			  if (match_type < range_match)
-			    match_type = range_match;
-
-			  matched++;
-			}
-		    }
+  if (CMD_VARARG(str))
+    {
+      return vararg_match;
+    }
+  else if (CMD_RANGE(str))
+    {
+      if (cmd_range_match(str, word))
+        return range_match;
+    }
 #ifdef HAVE_IPV6
-		  else if (CMD_IPV6 (str))
-		    {
-		      if (cmd_ipv6_match (command))
-			{
-			  if (match_type < ipv6_match)
-			    match_type = ipv6_match;
+  else if (CMD_IPV6(str))
+    {
+      match_type = cmd_ipv6_match(word);
+      if ((filter == FILTER_RELAXED && match_type != no_match)
+          || (filter == FILTER_STRICT && match_type == exact_match))
+        return ipv6_match;
+    }
+  else if (CMD_IPV6_PREFIX(str))
+    {
+      match_type = cmd_ipv6_prefix_match(word);
+      if ((filter == FILTER_RELAXED && match_type != no_match)
+          || (filter == FILTER_STRICT && match_type == exact_match))
+        return ipv6_prefix_match;
+    }
+#endif /* HAVE_IPV6 */
+  else if (CMD_IPV4(str))
+    {
+      match_type = cmd_ipv4_match(word);
+      if ((filter == FILTER_RELAXED && match_type != no_match)
+          || (filter == FILTER_STRICT && match_type == exact_match))
+        return ipv4_match;
+    }
+  else if (CMD_IPV4_PREFIX(str))
+    {
+      match_type = cmd_ipv4_prefix_match(word);
+      if ((filter == FILTER_RELAXED && match_type != no_match)
+          || (filter == FILTER_STRICT && match_type == exact_match))
+        return ipv4_prefix_match;
+    }
+  else if (CMD_OPTION(str) || CMD_VARIABLE(str))
+    {
+      return extend_match;
+    }
+  else
+    {
+      if (filter == FILTER_RELAXED && !strncmp(str, word, strlen(word)))
+        {
+          if (!strcmp(str, word))
+            return exact_match;
+          return partly_match;
+        }
+      if (filter == FILTER_STRICT && !strcmp(str, word))
+        return exact_match;
+    }
 
-			  matched++;
-			}
-		    }
-		  else if (CMD_IPV6_PREFIX (str))
-		    {
-		      if (cmd_ipv6_prefix_match (command))
-			{
-			  if (match_type < ipv6_prefix_match)
-			    match_type = ipv6_prefix_match;
-
-			  matched++;
-			}
-		    }
-#endif /* HAVE_IPV6  */
-		  else if (CMD_IPV4 (str))
-		    {
-		      if (cmd_ipv4_match (command))
-			{
-			  if (match_type < ipv4_match)
-			    match_type = ipv4_match;
-
-			  matched++;
-			}
-		    }
-		  else if (CMD_IPV4_PREFIX (str))
-		    {
-		      if (cmd_ipv4_prefix_match (command))
-			{
-			  if (match_type < ipv4_prefix_match)
-			    match_type = ipv4_prefix_match;
-			  matched++;
-			}
-		    }
-		  else
-		    /* Check is this point's argument optional ? */
-		  if (CMD_OPTION (str) || CMD_VARIABLE (str))
-		    {
-		      if (match_type < extend_match)
-			match_type = extend_match;
-		      matched++;
-		    }
-		  else if (strncmp (command, str, strlen (command)) == 0)
-		    {
-		      if (strcmp (command, str) == 0)
-			match_type = exact_match;
-		      else
-			{
-			  if (match_type < partly_match)
-			    match_type = partly_match;
-			}
-		      matched++;
-		    }
-		}
-	    if (!matched)
-	      vector_slot (v, i) = NULL;
-	  }
-      }
-  return match_type;
+  return no_match;
 }
 
-/* Filter vector by command character with index. */
-static enum match_type
-cmd_filter_by_string (char *command, vector v, unsigned int index)
+struct cmd_matcher
+{
+  struct cmd_element *cmd; /* The command element the matcher is using */
+  enum filter_type filter; /* Whether to use strict or relaxed matching */
+  vector vline; /* The tokenized commandline which is to be matched */
+  unsigned int index; /* The index up to which matching should be done */
+
+  /* If set, construct a list of matches at the position given by index */
+  enum match_type *match_type;
+  vector *match;
+
+  unsigned int word_index; /* iterating over vline */
+};
+
+static int
+push_argument(int *argc, const char **argv, const char *arg)
+{
+  if (!arg || !strlen(arg))
+    arg = NULL;
+
+  if (!argc || !argv)
+    return 0;
+
+  if (*argc >= CMD_ARGC_MAX)
+    return -1;
+
+  argv[(*argc)++] = arg;
+  return 0;
+}
+
+static void
+cmd_matcher_record_match(struct cmd_matcher *matcher,
+                         enum match_type match_type,
+                         struct cmd_token *token)
+{
+  if (matcher->word_index != matcher->index)
+    return;
+
+  if (matcher->match)
+    {
+      if (!*matcher->match)
+        *matcher->match = vector_init(VECTOR_MIN_SIZE);
+      vector_set(*matcher->match, token);
+    }
+
+  if (matcher->match_type)
+    {
+      if (match_type > *matcher->match_type)
+        *matcher->match_type = match_type;
+    }
+}
+
+static int
+cmd_matcher_words_left(struct cmd_matcher *matcher)
+{
+  return matcher->word_index < vector_active(matcher->vline);
+}
+
+static const char*
+cmd_matcher_get_word(struct cmd_matcher *matcher)
+{
+  assert(cmd_matcher_words_left(matcher));
+
+  return vector_slot(matcher->vline, matcher->word_index);
+}
+
+static enum matcher_rv
+cmd_matcher_match_terminal(struct cmd_matcher *matcher,
+                           struct cmd_token *token,
+                           int *argc, const char **argv)
+{
+  const char *word;
+  enum match_type word_match;
+
+  assert(token->type == TOKEN_TERMINAL);
+
+  if (!cmd_matcher_words_left(matcher))
+    {
+      if (CMD_OPTION(token->cmd))
+        return MATCHER_OK; /* missing optional args are NOT pushed as NULL */
+      else
+        return MATCHER_INCOMPLETE;
+    }
+
+  word = cmd_matcher_get_word(matcher);
+  word_match = cmd_word_match(token, matcher->filter, word);
+  if (word_match == no_match)
+    return MATCHER_NO_MATCH;
+
+  /* We have to record the input word as argument if it matched
+   * against a variable. */
+  if (CMD_VARARG(token->cmd)
+      || CMD_VARIABLE(token->cmd)
+      || CMD_OPTION(token->cmd))
+    {
+      if (push_argument(argc, argv, word))
+        return MATCHER_EXCEED_ARGC_MAX;
+    }
+
+  cmd_matcher_record_match(matcher, word_match, token);
+
+  matcher->word_index++;
+
+  /* A vararg token should consume all left over words as arguments */
+  if (CMD_VARARG(token->cmd))
+    while (cmd_matcher_words_left(matcher))
+      {
+        word = cmd_matcher_get_word(matcher);
+        if (word && strlen(word))
+          push_argument(argc, argv, word);
+        matcher->word_index++;
+      }
+
+  return MATCHER_OK;
+}
+
+static enum matcher_rv
+cmd_matcher_match_multiple(struct cmd_matcher *matcher,
+                           struct cmd_token *token,
+                           int *argc, const char **argv)
+{
+  enum match_type multiple_match;
+  unsigned int multiple_index;
+  const char *word;
+  const char *arg;
+  struct cmd_token *word_token;
+  enum match_type word_match;
+
+  assert(token->type == TOKEN_MULTIPLE);
+
+  multiple_match = no_match;
+
+  if (!cmd_matcher_words_left(matcher))
+    return MATCHER_INCOMPLETE;
+
+  word = cmd_matcher_get_word(matcher);
+  for (multiple_index = 0;
+       multiple_index < vector_active(token->multiple);
+       multiple_index++)
+    {
+      word_token = vector_slot(token->multiple, multiple_index);
+
+      word_match = cmd_word_match(word_token, matcher->filter, word);
+      if (word_match == no_match)
+        continue;
+
+      cmd_matcher_record_match(matcher, word_match, word_token);
+
+      if (word_match > multiple_match)
+        {
+          multiple_match = word_match;
+          arg = word;
+        }
+      /* To mimic the behavior of the old command implementation, we
+       * tolerate any ambiguities here :/ */
+    }
+
+  matcher->word_index++;
+
+  if (multiple_match == no_match)
+    return MATCHER_NO_MATCH;
+
+  if (push_argument(argc, argv, arg))
+    return MATCHER_EXCEED_ARGC_MAX;
+
+  return MATCHER_OK;
+}
+
+static enum matcher_rv
+cmd_matcher_read_keywords(struct cmd_matcher *matcher,
+                          struct cmd_token *token,
+                          vector args_vector)
 {
   unsigned int i;
-  const char *str;
+  unsigned long keyword_mask;
+  unsigned int keyword_found;
+  enum match_type keyword_match;
+  enum match_type word_match;
+  vector keyword_vector;
+  struct cmd_token *word_token;
+  const char *word;
+  int keyword_argc;
+  const char **keyword_argv;
+  enum matcher_rv rv;
+
+  keyword_mask = 0;
+  while (1)
+    {
+      if (!cmd_matcher_words_left(matcher))
+        return MATCHER_OK;
+
+      word = cmd_matcher_get_word(matcher);
+
+      keyword_found = -1;
+      keyword_match = no_match;
+      for (i = 0; i < vector_active(token->keyword); i++)
+        {
+          if (keyword_mask & (1 << i))
+            continue;
+
+          keyword_vector = vector_slot(token->keyword, i);
+          word_token = vector_slot(keyword_vector, 0);
+
+          word_match = cmd_word_match(word_token, matcher->filter, word);
+          if (word_match == no_match)
+            continue;
+
+          cmd_matcher_record_match(matcher, word_match, word_token);
+
+          if (word_match > keyword_match)
+            {
+              keyword_match = word_match;
+              keyword_found = i;
+            }
+          else if (word_match == keyword_match)
+            {
+              if (matcher->word_index != matcher->index || args_vector)
+                return MATCHER_AMBIGUOUS;
+            }
+        }
+
+      if (keyword_found == (unsigned int)-1)
+        return MATCHER_NO_MATCH;
+
+      matcher->word_index++;
+
+      if (matcher->word_index > matcher->index)
+        return MATCHER_OK;
+
+      keyword_mask |= (1 << keyword_found);
+
+      if (args_vector)
+        {
+          keyword_argc = 0;
+          keyword_argv = XMALLOC(MTYPE_TMP, (CMD_ARGC_MAX + 1) * sizeof(char*));
+          /* We use -1 as a marker for unused fields as NULL might be a valid value */
+          for (i = 0; i < CMD_ARGC_MAX + 1; i++)
+            keyword_argv[i] = (void*)-1;
+          vector_set_index(args_vector, keyword_found, keyword_argv);
+        }
+      else
+        {
+          keyword_argv = NULL;
+        }
+
+      keyword_vector = vector_slot(token->keyword, keyword_found);
+      /* the keyword itself is at 0. We are only interested in the arguments,
+       * so start counting at 1. */
+      for (i = 1; i < vector_active(keyword_vector); i++)
+        {
+          word_token = vector_slot(keyword_vector, i);
+
+          switch (word_token->type)
+            {
+            case TOKEN_TERMINAL:
+              rv = cmd_matcher_match_terminal(matcher, word_token,
+                                              &keyword_argc, keyword_argv);
+              break;
+            case TOKEN_MULTIPLE:
+              rv = cmd_matcher_match_multiple(matcher, word_token,
+                                              &keyword_argc, keyword_argv);
+              break;
+            case TOKEN_KEYWORD:
+              assert(!"Keywords should never be nested.");
+              break;
+            }
+
+          if (MATCHER_ERROR(rv))
+            return rv;
+
+          if (matcher->word_index > matcher->index)
+            return MATCHER_OK;
+        }
+    }
+  /* not reached */
+}
+
+static enum matcher_rv
+cmd_matcher_build_keyword_args(struct cmd_matcher *matcher,
+                               struct cmd_token *token,
+                               int *argc, const char **argv,
+                               vector keyword_args_vector)
+{
+  unsigned int i, j;
+  const char **keyword_args;
+  vector keyword_vector;
+  struct cmd_token *word_token;
+  const char *arg;
+  enum matcher_rv rv;
+
+  rv = MATCHER_OK;
+
+  if (keyword_args_vector == NULL)
+    return rv;
+
+  for (i = 0; i < vector_active(token->keyword); i++)
+    {
+      keyword_vector = vector_slot(token->keyword, i);
+      keyword_args = vector_lookup(keyword_args_vector, i);
+
+      if (vector_active(keyword_vector) == 1)
+        {
+          /* this is a keyword without arguments */
+          if (keyword_args)
+            {
+              word_token = vector_slot(keyword_vector, 0);
+              arg = word_token->cmd;
+            }
+          else
+            {
+              arg = NULL;
+            }
+
+          if (push_argument(argc, argv, arg))
+            rv = MATCHER_EXCEED_ARGC_MAX;
+        }
+      else
+        {
+          /* this is a keyword with arguments */
+          if (keyword_args)
+            {
+              /* the keyword was present, so just fill in the arguments */
+              for (j = 0; keyword_args[j] != (void*)-1; j++)
+                if (push_argument(argc, argv, keyword_args[j]))
+                  rv = MATCHER_EXCEED_ARGC_MAX;
+              XFREE(MTYPE_TMP, keyword_args);
+            }
+          else
+            {
+              /* the keyword was not present, insert NULL for the arguments
+               * the keyword would have taken. */
+              for (j = 1; j < vector_active(keyword_vector); j++)
+                {
+                  word_token = vector_slot(keyword_vector, j);
+                  if ((word_token->type == TOKEN_TERMINAL
+                       && (CMD_VARARG(word_token->cmd)
+                           || CMD_VARIABLE(word_token->cmd)
+                           || CMD_OPTION(word_token->cmd)))
+                      || word_token->type == TOKEN_MULTIPLE)
+                    {
+                      if (push_argument(argc, argv, NULL))
+                        rv = MATCHER_EXCEED_ARGC_MAX;
+                    }
+                }
+            }
+        }
+    }
+  vector_free(keyword_args_vector);
+  return rv;
+}
+
+static enum matcher_rv
+cmd_matcher_match_keyword(struct cmd_matcher *matcher,
+                          struct cmd_token *token,
+                          int *argc, const char **argv)
+{
+  vector keyword_args_vector;
+  enum matcher_rv reader_rv;
+  enum matcher_rv builder_rv;
+
+  assert(token->type == TOKEN_KEYWORD);
+
+  if (argc && argv)
+    keyword_args_vector = vector_init(VECTOR_MIN_SIZE);
+  else
+    keyword_args_vector = NULL;
+
+  reader_rv = cmd_matcher_read_keywords(matcher, token, keyword_args_vector);
+  builder_rv = cmd_matcher_build_keyword_args(matcher, token, argc,
+                                              argv, keyword_args_vector);
+  /* keyword_args_vector is consumed by cmd_matcher_build_keyword_args */
+
+  if (!MATCHER_ERROR(reader_rv) && MATCHER_ERROR(builder_rv))
+    return builder_rv;
+
+  return reader_rv;
+}
+
+static void
+cmd_matcher_init(struct cmd_matcher *matcher,
+                 struct cmd_element *cmd,
+                 enum filter_type filter,
+                 vector vline,
+                 unsigned int index,
+                 enum match_type *match_type,
+                 vector *match)
+{
+  memset(matcher, 0, sizeof(*matcher));
+
+  matcher->cmd = cmd;
+  matcher->filter = filter;
+  matcher->vline = vline;
+  matcher->index = index;
+
+  matcher->match_type = match_type;
+  if (matcher->match_type)
+    *matcher->match_type = no_match;
+  matcher->match = match;
+
+  matcher->word_index = 0;
+}
+
+static enum matcher_rv
+cmd_element_match(struct cmd_element *cmd_element,
+                  enum filter_type filter,
+                  vector vline,
+                  unsigned int index,
+                  enum match_type *match_type,
+                  vector *match,
+                  int *argc,
+                  const char **argv)
+{
+  struct cmd_matcher matcher;
+  unsigned int token_index;
+  enum matcher_rv rv;
+
+  cmd_matcher_init(&matcher, cmd_element, filter,
+                   vline, index, match_type, match);
+
+  if (argc != NULL)
+    *argc = 0;
+
+  for (token_index = 0;
+       token_index < vector_active(cmd_element->tokens);
+       token_index++)
+    {
+      struct cmd_token *token = vector_slot(cmd_element->tokens, token_index);
+
+      switch (token->type)
+        {
+        case TOKEN_TERMINAL:
+          rv = cmd_matcher_match_terminal(&matcher, token, argc, argv);
+          break;
+        case TOKEN_MULTIPLE:
+          rv = cmd_matcher_match_multiple(&matcher, token, argc, argv);
+          break;
+        case TOKEN_KEYWORD:
+          rv = cmd_matcher_match_keyword(&matcher, token, argc, argv);
+        }
+
+      if (MATCHER_ERROR(rv))
+        return rv;
+
+      if (matcher.word_index > index)
+        return MATCHER_OK;
+    }
+
+  /* return MATCHER_COMPLETE if all words were consumed */
+  if (matcher.word_index >= vector_active(vline))
+    return MATCHER_COMPLETE;
+
+  /* return MATCHER_COMPLETE also if only an empty word is left. */
+  if (matcher.word_index == vector_active(vline) - 1
+      && (!vector_slot(vline, matcher.word_index)
+          || !strlen((char*)vector_slot(vline, matcher.word_index))))
+    return MATCHER_COMPLETE;
+
+  return MATCHER_NO_MATCH; /* command is too long to match */
+}
+
+/**
+ * Filter a given vector of commands against a given commandline and
+ * calculate possible completions.
+ *
+ * @param commands A vector of struct cmd_element*. Commands that don't
+ *                 match against the given command line will be overwritten
+ *                 with NULL in that vector.
+ * @param filter Either FILTER_RELAXED or FILTER_STRICT. This basically
+ *               determines how incomplete commands are handled, compare with
+ *               cmd_word_match for details.
+ * @param vline A vector of char* containing the tokenized commandline.
+ * @param index Only match up to the given token of the commandline.
+ * @param match_type Record the type of the best match here.
+ * @param matches Record the matches here. For each cmd_element in the commands
+ *                vector, a match vector will be created in the matches vector.
+ *                That vector will contain all struct command_token* of the
+ *                cmd_element which matched against the given vline at the given
+ *                index.
+ * @return A code specifying if an error occured. If all went right, it's
+ *         CMD_SUCCESS.
+ */
+static int
+cmd_vector_filter(vector commands,
+                  enum filter_type filter,
+                  vector vline,
+                  unsigned int index,
+                  enum match_type *match_type,
+                  vector *matches)
+{
+  unsigned int i;
   struct cmd_element *cmd_element;
-  enum match_type match_type;
-  vector descvec;
-  struct desc *desc;
+  enum match_type best_match;
+  enum match_type element_match;
+  enum matcher_rv matcher_rv;
 
-  match_type = no_match;
+  best_match = no_match;
+  *matches = vector_init(VECTOR_MIN_SIZE);
 
-  /* If command and cmd_element string does not match set NULL to vector */
-  for (i = 0; i < vector_active (v); i++)
-    if ((cmd_element = vector_slot (v, i)) != NULL)
+  for (i = 0; i < vector_active (commands); i++)
+    if ((cmd_element = vector_slot (commands, i)) != NULL)
       {
-	/* If given index is bigger than max string vector of command,
-	   set NULL */
-	if (index >= vector_active (cmd_element->strvec))
-	  vector_slot (v, i) = NULL;
-	else
-	  {
-	    unsigned int j;
-	    int matched = 0;
-
-	    descvec = vector_slot (cmd_element->strvec, index);
-
-	    for (j = 0; j < vector_active (descvec); j++)
-	      if ((desc = vector_slot (descvec, j)))
-		{
-		  str = desc->cmd;
-
-		  if (CMD_VARARG (str))
-		    {
-		      if (match_type < vararg_match)
-			match_type = vararg_match;
-		      matched++;
-		    }
-		  else if (CMD_RANGE (str))
-		    {
-		      if (cmd_range_match (str, command))
-			{
-			  if (match_type < range_match)
-			    match_type = range_match;
-			  matched++;
-			}
-		    }
-#ifdef HAVE_IPV6
-		  else if (CMD_IPV6 (str))
-		    {
-		      if (cmd_ipv6_match (command) == exact_match)
-			{
-			  if (match_type < ipv6_match)
-			    match_type = ipv6_match;
-			  matched++;
-			}
-		    }
-		  else if (CMD_IPV6_PREFIX (str))
-		    {
-		      if (cmd_ipv6_prefix_match (command) == exact_match)
-			{
-			  if (match_type < ipv6_prefix_match)
-			    match_type = ipv6_prefix_match;
-			  matched++;
-			}
-		    }
-#endif /* HAVE_IPV6  */
-		  else if (CMD_IPV4 (str))
-		    {
-		      if (cmd_ipv4_match (command) == exact_match)
-			{
-			  if (match_type < ipv4_match)
-			    match_type = ipv4_match;
-			  matched++;
-			}
-		    }
-		  else if (CMD_IPV4_PREFIX (str))
-		    {
-		      if (cmd_ipv4_prefix_match (command) == exact_match)
-			{
-			  if (match_type < ipv4_prefix_match)
-			    match_type = ipv4_prefix_match;
-			  matched++;
-			}
-		    }
-		  else if (CMD_OPTION (str) || CMD_VARIABLE (str))
-		    {
-		      if (match_type < extend_match)
-			match_type = extend_match;
-		      matched++;
-		    }
-		  else
-		    {
-		      if (strcmp (command, str) == 0)
-			{
-			  match_type = exact_match;
-			  matched++;
-			}
-		    }
-		}
-	    if (!matched)
-	      vector_slot (v, i) = NULL;
-	  }
+        vector_set_index(*matches, i, NULL);
+        matcher_rv = cmd_element_match(cmd_element, filter,
+                                       vline, index,
+                                       &element_match,
+                                       (vector*)&vector_slot(*matches, i),
+                                       NULL, NULL);
+        if (MATCHER_ERROR(matcher_rv))
+          {
+            vector_slot(commands, i) = NULL;
+            if (matcher_rv == MATCHER_AMBIGUOUS)
+              return CMD_ERR_AMBIGUOUS;
+            if (matcher_rv == MATCHER_EXCEED_ARGC_MAX)
+              return CMD_ERR_EXEED_ARGC_MAX;
+          }
+        else if (element_match > best_match)
+          {
+            best_match = element_match;
+          }
       }
-  return match_type;
+  *match_type = best_match;
+  return CMD_SUCCESS;
+}
+
+/**
+ * Check whether a given commandline is complete if used for a specific
+ * cmd_element.
+ *
+ * @param cmd_element A cmd_element against which the commandline should be
+ *                    checked.
+ * @param vline The tokenized commandline.
+ * @return 1 if the given commandline is complete, 0 otherwise.
+ */
+static int
+cmd_is_complete(struct cmd_element *cmd_element,
+                vector vline)
+{
+  enum matcher_rv rv;
+
+  rv = cmd_element_match(cmd_element,
+                         FILTER_RELAXED,
+                         vline, -1,
+                         NULL, NULL,
+                         NULL, NULL);
+  return (rv == MATCHER_COMPLETE);
+}
+
+/**
+ * Parse a given commandline and construct a list of arguments for the
+ * given command_element.
+ *
+ * @param cmd_element The cmd_element for which we want to construct arguments.
+ * @param vline The tokenized commandline.
+ * @param argc Where to store the argument count.
+ * @param argv Where to store the argument list. Should be at least
+ *             CMD_ARGC_MAX elements long.
+ * @return CMD_SUCCESS if everything went alright, an error otherwise.
+ */
+static int
+cmd_parse(struct cmd_element *cmd_element,
+          vector vline,
+          int *argc, const char **argv)
+{
+  enum matcher_rv rv = cmd_element_match(cmd_element,
+                                         FILTER_RELAXED,
+                                         vline, -1,
+                                         NULL, NULL,
+                                         argc, argv);
+  switch (rv)
+    {
+    case MATCHER_COMPLETE:
+      return CMD_SUCCESS;
+
+    case MATCHER_NO_MATCH:
+      return CMD_ERR_NO_MATCH;
+
+    case MATCHER_AMBIGUOUS:
+      return CMD_ERR_AMBIGUOUS;
+
+    case MATCHER_EXCEED_ARGC_MAX:
+      return CMD_ERR_EXEED_ARGC_MAX;
+
+    default:
+      return CMD_ERR_INCOMPLETE;
+    }
 }
 
 /* Check ambiguous match */
 static int
-is_cmd_ambiguous (char *command, vector v, int index, enum match_type type)
+is_cmd_ambiguous (vector cmd_vector,
+                  const char *command,
+                  vector matches,
+                  enum match_type type)
 {
   unsigned int i;
   unsigned int j;
   const char *str = NULL;
-  struct cmd_element *cmd_element;
   const char *matched = NULL;
-  vector descvec;
-  struct desc *desc;
+  vector match_vector;
+  struct cmd_token *cmd_token;
 
-  for (i = 0; i < vector_active (v); i++)
-    if ((cmd_element = vector_slot (v, i)) != NULL)
+  if (command == NULL)
+    command = "";
+
+  for (i = 0; i < vector_active (matches); i++)
+    if ((match_vector = vector_slot (matches, i)) != NULL)
       {
 	int match = 0;
 
-	descvec = vector_slot (cmd_element->strvec, index);
-
-	for (j = 0; j < vector_active (descvec); j++)
-	  if ((desc = vector_slot (descvec, j)))
+	for (j = 0; j < vector_active (match_vector); j++)
+	  if ((cmd_token = vector_slot (match_vector, j)) != NULL)
 	    {
 	      enum match_type ret;
-	      
-	      str = desc->cmd;
+
+	      assert(cmd_token->type == TOKEN_TERMINAL);
+	      if (cmd_token->type != TOKEN_TERMINAL)
+		continue;
+
+	      str = cmd_token->cmd;
 
 	      switch (type)
 		{
@@ -1371,7 +1914,7 @@ is_cmd_ambiguous (char *command, vector v, int index, enum match_type type)
 		}
 	    }
 	if (!match)
-	  vector_slot (v, i) = NULL;
+	  vector_slot (cmd_vector, i) = NULL;
       }
   return 0;
 }
@@ -1461,8 +2004,12 @@ cmd_entry_function_desc (const char *src, const char *dst)
     return NULL;
 }
 
-/* Check same string element existence.  If it isn't there return
-    1. */
+/**
+ * Check whether a string is already present in a vector of strings.
+ * @param v A vector of char*.
+ * @param str A char*.
+ * @return 0 if str is already present in the vector, 1 otherwise.
+ */
 static int
 cmd_unique_string (vector v, const char *str)
 {
@@ -1476,19 +2023,25 @@ cmd_unique_string (vector v, const char *str)
   return 1;
 }
 
-/* Compare string to description vector.  If there is same string
-   return 1 else return 0. */
+/**
+ * Check whether a struct cmd_token matching a given string is already
+ * present in a vector of struct cmd_token.
+ * @param v A vector of struct cmd_token*.
+ * @param str A char* which should be searched for.
+ * @return 0 if there is a struct cmd_token* with its cmd matching str,
+ *         1 otherwise.
+ */
 static int
 desc_unique_string (vector v, const char *str)
 {
   unsigned int i;
-  struct desc *desc;
+  struct cmd_token *token;
 
   for (i = 0; i < vector_active (v); i++)
-    if ((desc = vector_slot (v, i)) != NULL)
-      if (strcmp (desc->cmd, str) == 0)
-	return 1;
-  return 0;
+    if ((token = vector_slot (v, i)) != NULL)
+      if (strcmp (token->cmd, str) == 0)
+	return 0;
+  return 1;
 }
 
 static int 
@@ -1504,6 +2057,35 @@ cmd_try_do_shortcut (enum node_type node, char* first_word) {
   return 0;
 }
 
+static void
+cmd_matches_free(vector *matches)
+{
+  unsigned int i;
+  vector cmd_matches;
+
+  for (i = 0; i < vector_active(*matches); i++)
+    if ((cmd_matches = vector_slot(*matches, i)) != NULL)
+      vector_free(cmd_matches);
+  vector_free(*matches);
+  *matches = NULL;
+}
+
+static int
+cmd_describe_cmp(const void *a, const void *b)
+{
+  const struct cmd_token *first = *(struct cmd_token * const *)a;
+  const struct cmd_token *second = *(struct cmd_token * const *)b;
+
+  return strcmp(first->cmd, second->cmd);
+}
+
+static void
+cmd_describe_sort(vector matchvec)
+{
+  qsort(matchvec->index, vector_active(matchvec),
+        sizeof(void*), cmd_describe_cmp);
+}
+
 /* '?' describe command support. */
 static vector
 cmd_describe_command_real (vector vline, struct vty *vty, int *status)
@@ -1517,6 +2099,8 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
   int ret;
   enum match_type match;
   char *command;
+  vector matches = NULL;
+  vector match_vector;
 
   /* Set index. */
   if (vector_active (vline) == 0)
@@ -1524,111 +2108,121 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
       *status = CMD_ERR_NO_MATCH;
       return NULL;
     }
-  else
-    index = vector_active (vline) - 1;
-  
+
+  index = vector_active (vline) - 1;
+
   /* Make copy vector of current node's command vector. */
   cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
 
   /* Prepare match vector */
   matchvec = vector_init (INIT_MATCHVEC_SIZE);
 
-  /* Filter commands. */
-  /* Only words precedes current word will be checked in this loop. */
-  for (i = 0; i < index; i++)
-    if ((command = vector_slot (vline, i)))
-      {
-	match = cmd_filter_by_completion (command, cmd_vector, i);
-	
-	if (match == vararg_match)
-	  {
-	    struct cmd_element *cmd_element;
-	    vector descvec;
-	    unsigned int j, k;
+  /* Filter commands and build a list how they could possibly continue. */
+  for (i = 0; i <= index; i++)
+    {
+      command = vector_slot (vline, i);
 
-	    for (j = 0; j < vector_active (cmd_vector); j++)
-	      if ((cmd_element = vector_slot (cmd_vector, j)) != NULL
-		  && (vector_active (cmd_element->strvec)))
-		{
-		  descvec = vector_slot (cmd_element->strvec,
-					 vector_active (cmd_element->strvec) - 1);
-		  for (k = 0; k < vector_active (descvec); k++)
-		    {
-		      struct desc *desc = vector_slot (descvec, k);
-		      vector_set (matchvec, desc);
-		    }
-		}
-            
-	    vector_set (matchvec, &desc_cr);
-	    vector_free (cmd_vector);
+      if (matches)
+	cmd_matches_free(&matches);
 
-	    return matchvec;
-	  }
+      ret = cmd_vector_filter(cmd_vector,
+	                      FILTER_RELAXED,
+	                      vline, i,
+	                      &match,
+	                      &matches);
 
-	if ((ret = is_cmd_ambiguous (command, cmd_vector, i, match)) == 1)
-	  {
-	    vector_free (cmd_vector);
-	    vector_free (matchvec);
-	    *status = CMD_ERR_AMBIGUOUS;
-	    return NULL;
-	  }
-	else if (ret == 2)
-	  {
-	    vector_free (cmd_vector);
-	    vector_free (matchvec);
-	    *status = CMD_ERR_NO_MATCH;
-	    return NULL;
-	  }
-      }
+      if (ret != CMD_SUCCESS)
+	{
+	  vector_free (cmd_vector);
+	  vector_free (matchvec);
+	  cmd_matches_free(&matches);
+	  *status = ret;
+	  return NULL;
+	}
 
-  /* Prepare match vector */
-  /*  matchvec = vector_init (INIT_MATCHVEC_SIZE); */
+      /* The last match may well be ambigious, so break here */
+      if (i == index)
+	break;
 
-  /* Make sure that cmd_vector is filtered based on current word */
-  command = vector_slot (vline, index);
-  if (command)
-    match = cmd_filter_by_completion (command, cmd_vector, index);
+      if (match == vararg_match)
+	{
+	  /* We found a vararg match - so we can throw out the current matches here
+	   * and don't need to continue checking the command input */
+	  unsigned int j, k;
+
+	  for (j = 0; j < vector_active (matches); j++)
+	    if ((match_vector = vector_slot (matches, j)) != NULL)
+	      for (k = 0; k < vector_active (match_vector); k++)
+	        {
+	          struct cmd_token *token = vector_slot (match_vector, k);
+	          vector_set (matchvec, token);
+	        }
+
+	  *status = CMD_SUCCESS;
+	  vector_set(matchvec, &token_cr);
+	  vector_free (cmd_vector);
+	  cmd_matches_free(&matches);
+	  cmd_describe_sort(matchvec);
+	  return matchvec;
+	}
+
+      ret = is_cmd_ambiguous(cmd_vector, command, matches, match);
+      if (ret == 1)
+	{
+	  vector_free (cmd_vector);
+	  vector_free (matchvec);
+	  cmd_matches_free(&matches);
+	  *status = CMD_ERR_AMBIGUOUS;
+	  return NULL;
+	}
+      else if (ret == 2)
+	{
+	  vector_free (cmd_vector);
+	  vector_free (matchvec);
+	  cmd_matches_free(&matches);
+	  *status = CMD_ERR_NO_MATCH;
+	  return NULL;
+	}
+    }
 
   /* Make description vector. */
-  for (i = 0; i < vector_active (cmd_vector); i++)
+  for (i = 0; i < vector_active (matches); i++)
     if ((cmd_element = vector_slot (cmd_vector, i)) != NULL)
       {
-	vector strvec = cmd_element->strvec;
+        unsigned int j;
+        const char *last_word;
+        vector vline_trimmed;
 
-	/* if command is NULL, index may be equal to vector_active */
-	if (command && index >= vector_active (strvec))
-	  vector_slot (cmd_vector, i) = NULL;
-	else
-	  {
-	    /* Check if command is completed. */
-	    if (command == NULL && index == vector_active (strvec))
-	      {
-		if (!desc_unique_string (matchvec, command_cr))
-		  vector_set (matchvec, &desc_cr);
-	      }
-	    else
-	      {
-		unsigned int j;
-		vector descvec = vector_slot (strvec, index);
-		struct desc *desc;
+        last_word = vector_slot(vline, vector_active(vline) - 1);
+        if (last_word == NULL || !strlen(last_word))
+          {
+            vline_trimmed = vector_copy(vline);
+            vector_unset(vline_trimmed, vector_active(vline_trimmed) - 1);
 
-		for (j = 0; j < vector_active (descvec); j++)
-		  if ((desc = vector_slot (descvec, j)))
-		    {
-		      const char *string;
+            if (cmd_is_complete(cmd_element, vline_trimmed)
+                && desc_unique_string(matchvec, command_cr))
+              {
+                if (match != vararg_match)
+                  vector_set(matchvec, &token_cr);
+              }
 
-		      string = cmd_entry_function_desc (command, desc->cmd);
-		      if (string)
-			{
-			  /* Uniqueness check */
-			  if (!desc_unique_string (matchvec, string))
-			    vector_set (matchvec, desc);
-			}
-		    }
-	      }
-	  }
+            vector_free(vline_trimmed);
+          }
+
+        match_vector = vector_slot (matches, i);
+        if (match_vector)
+          for (j = 0; j < vector_active(match_vector); j++)
+            {
+              struct cmd_token *token = vector_slot(match_vector, j);
+              const char *string;
+
+              string = cmd_entry_function_desc(command, token->cmd);
+              if (string && desc_unique_string(matchvec, string))
+                vector_set(matchvec, token);
+            }
       }
   vector_free (cmd_vector);
+  cmd_matches_free(&matches);
 
   if (vector_slot (matchvec, 0) == NULL)
     {
@@ -1638,6 +2232,7 @@ cmd_describe_command_real (vector vline, struct vty *vty, int *status)
     }
 
   *status = CMD_SUCCESS;
+  cmd_describe_sort(matchvec);
   return matchvec;
 }
 
@@ -1708,6 +2303,31 @@ cmd_lcd (char **matched)
   return lcd;
 }
 
+static int
+cmd_complete_cmp(const void *a, const void *b)
+{
+  const char *first = *(char * const *)a;
+  const char *second = *(char * const *)b;
+
+  if (!first)
+    {
+      if (!second)
+        return 0;
+      return 1;
+    }
+  if (!second)
+    return -1;
+
+  return strcmp(first, second);
+}
+
+static void
+cmd_complete_sort(vector matchvec)
+{
+  qsort(matchvec->index, vector_active(matchvec),
+        sizeof(void*), cmd_complete_cmp);
+}
+
 /* Command line completion support. */
 static char **
 cmd_complete_command_real (vector vline, struct vty *vty, int *status)
@@ -1716,13 +2336,13 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
   vector cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
 #define INIT_MATCHVEC_SIZE 10
   vector matchvec;
-  struct cmd_element *cmd_element;
   unsigned int index;
   char **match_str;
-  struct desc *desc;
-  vector descvec;
+  struct cmd_token *token;
   char *command;
   int lcd;
+  vector matches = NULL;
+  vector match_vector;
 
   if (vector_active (vline) == 0)
     {
@@ -1733,66 +2353,80 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
   else
     index = vector_active (vline) - 1;
 
-  /* First, filter by preceeding command string */
-  for (i = 0; i < index; i++)
-    if ((command = vector_slot (vline, i)))
-      {
-	enum match_type match;
-	int ret;
+  /* First, filter by command string */
+  for (i = 0; i <= index; i++)
+    {
+      command = vector_slot (vline, i);
+      enum match_type match;
+      int ret;
 
-	/* First try completion match, if there is exactly match return 1 */
-	match = cmd_filter_by_completion (command, cmd_vector, i);
+      if (matches)
+        cmd_matches_free(&matches);
 
-	/* If there is exact match then filter ambiguous match else check
-	   ambiguousness. */
-	if ((ret = is_cmd_ambiguous (command, cmd_vector, i, match)) == 1)
-	  {
-	    vector_free (cmd_vector);
-	    *status = CMD_ERR_AMBIGUOUS;
-	    return NULL;
-	  }
-	/*
+      /* First try completion match, if there is exactly match return 1 */
+      ret = cmd_vector_filter(cmd_vector,
+	                      FILTER_RELAXED,
+	                      vline, i,
+	                      &match,
+	                      &matches);
+
+      if (ret != CMD_SUCCESS)
+	{
+	  vector_free(cmd_vector);
+	  cmd_matches_free(&matches);
+	  *status = ret;
+	  return NULL;
+	}
+
+      /* Break here - the completion mustn't be checked to be non-ambiguous */
+      if (i == index)
+	break;
+
+      /* If there is exact match then filter ambiguous match else check
+	 ambiguousness. */
+      ret = is_cmd_ambiguous (cmd_vector, command, matches, match);
+      if (ret == 1)
+	{
+	  vector_free (cmd_vector);
+	  cmd_matches_free(&matches);
+	  *status = CMD_ERR_AMBIGUOUS;
+	  return NULL;
+	}
+      /*
 	   else if (ret == 2)
 	   {
 	   vector_free (cmd_vector);
+	   cmd_matches_free(&matches);
 	   *status = CMD_ERR_NO_MATCH;
 	   return NULL;
 	   }
 	 */
-      }
+    }
   
   /* Prepare match vector. */
   matchvec = vector_init (INIT_MATCHVEC_SIZE);
 
-  /* Now we got into completion */
-  for (i = 0; i < vector_active (cmd_vector); i++)
-    if ((cmd_element = vector_slot (cmd_vector, i)))
+  /* Build the possible list of continuations into a list of completions */
+  for (i = 0; i < vector_active (matches); i++)
+    if ((match_vector = vector_slot (matches, i)))
       {
 	const char *string;
-	vector strvec = cmd_element->strvec;
+	unsigned int j;
 
-	/* Check field length */
-	if (index >= vector_active (strvec))
-	  vector_slot (cmd_vector, i) = NULL;
-	else
-	  {
-	    unsigned int j;
-
-	    descvec = vector_slot (strvec, index);
-	    for (j = 0; j < vector_active (descvec); j++)
-	      if ((desc = vector_slot (descvec, j)))
+	for (j = 0; j < vector_active (match_vector); j++)
+	  if ((token = vector_slot (match_vector, j)))
 		{
 		  if ((string = 
 		       cmd_entry_function (vector_slot (vline, index),
-					   desc->cmd)))
+					   token->cmd)))
 		    if (cmd_unique_string (matchvec, string))
 		      vector_set (matchvec, XSTRDUP (MTYPE_TMP, string));
 		}
-	  }
       }
 
   /* We don't need cmd_vector any more. */
   vector_free (cmd_vector);
+  cmd_matches_free(&matches);
 
   /* No matched command */
   if (vector_slot (matchvec, 0) == NULL)
@@ -1832,7 +2466,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 	    {
 	      char *lcdstr;
 
-	      lcdstr = XMALLOC (MTYPE_STRVEC, lcd + 1);
+	      lcdstr = XMALLOC (MTYPE_TMP, lcd + 1);
 	      memcpy (lcdstr, matchvec->index[0], lcd);
 	      lcdstr[lcd] = '\0';
 
@@ -1842,7 +2476,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
 	      for (i = 0; i < vector_active (matchvec); i++)
 		{
 		  if (vector_slot (matchvec, i))
-		    XFREE (MTYPE_STRVEC, vector_slot (matchvec, i));
+		    XFREE (MTYPE_TMP, vector_slot (matchvec, i));
 		}
 	      vector_free (matchvec);
 
@@ -1859,6 +2493,7 @@ cmd_complete_command_real (vector vline, struct vty *vty, int *status)
     }
 
   match_str = (char **) matchvec->index;
+  cmd_complete_sort(matchvec);
   vector_only_wrapper_free (matchvec);
   *status = CMD_COMPLETE_LIST_MATCH;
   return match_str;
@@ -1927,7 +2562,9 @@ node_parent ( enum node_type node )
 
 /* Execute command by argument vline vector. */
 static int
-cmd_execute_command_real (vector vline, struct vty *vty,
+cmd_execute_command_real (vector vline,
+			  enum filter_type filter,
+			  struct vty *vty,
 			  struct cmd_element **cmd)
 {
   unsigned int i;
@@ -1939,35 +2576,48 @@ cmd_execute_command_real (vector vline, struct vty *vty,
   int argc;
   const char *argv[CMD_ARGC_MAX];
   enum match_type match = 0;
-  int varflag;
   char *command;
+  int ret;
+  vector matches;
 
   /* Make copy of command elements. */
   cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
 
   for (index = 0; index < vector_active (vline); index++)
-    if ((command = vector_slot (vline, index)))
-      {
-	int ret;
+    {
+      command = vector_slot (vline, index);
+      ret = cmd_vector_filter(cmd_vector,
+			      filter,
+			      vline, index,
+			      &match,
+			      &matches);
 
-	match = cmd_filter_by_completion (command, cmd_vector, index);
+      if (ret != CMD_SUCCESS)
+	{
+	  cmd_matches_free(&matches);
+	  return ret;
+	}
 
-	if (match == vararg_match)
+      if (match == vararg_match)
+	{
+	  cmd_matches_free(&matches);
 	  break;
-        
-	ret = is_cmd_ambiguous (command, cmd_vector, index, match);
+	}
 
-	if (ret == 1)
-	  {
-	    vector_free (cmd_vector);
-	    return CMD_ERR_AMBIGUOUS;
-	  }
-	else if (ret == 2)
-	  {
-	    vector_free (cmd_vector);
-	    return CMD_ERR_NO_MATCH;
-	  }
-      }
+      ret = is_cmd_ambiguous (cmd_vector, command, matches, match);
+      cmd_matches_free(&matches);
+
+      if (ret == 1)
+	{
+	  vector_free(cmd_vector);
+	  return CMD_ERR_AMBIGUOUS;
+	}
+      else if (ret == 2)
+	{
+	  vector_free(cmd_vector);
+	  return CMD_ERR_NO_MATCH;
+	}
+    }
 
   /* Check matched count. */
   matched_element = NULL;
@@ -1977,12 +2627,9 @@ cmd_execute_command_real (vector vline, struct vty *vty,
   for (i = 0; i < vector_active (cmd_vector); i++)
     if ((cmd_element = vector_slot (cmd_vector, i)))
       {
-	if (match == vararg_match || index >= cmd_element->cmdsize)
+	if (cmd_is_complete(cmd_element, vline))
 	  {
 	    matched_element = cmd_element;
-#if 0
-	    printf ("DEBUG: %s\n", cmd_element->string);
-#endif
 	    matched_count++;
 	  }
 	else
@@ -2006,35 +2653,9 @@ cmd_execute_command_real (vector vline, struct vty *vty,
   if (matched_count > 1)
     return CMD_ERR_AMBIGUOUS;
 
-  /* Argument treatment */
-  varflag = 0;
-  argc = 0;
-
-  for (i = 0; i < vector_active (vline); i++)
-    {
-      if (varflag)
-	argv[argc++] = vector_slot (vline, i);
-      else
-	{
-	  vector descvec = vector_slot (matched_element->strvec, i);
-
-	  if (vector_active (descvec) == 1)
-	    {
-	      struct desc *desc = vector_slot (descvec, 0);
-
-	      if (CMD_VARARG (desc->cmd))
-		varflag = 1;
-
-	      if (varflag || CMD_VARIABLE (desc->cmd) || CMD_OPTION (desc->cmd))
-		argv[argc++] = vector_slot (vline, i);
-	    }
-	  else
-	    argv[argc++] = vector_slot (vline, i);
-	}
-
-      if (argc >= CMD_ARGC_MAX)
-	return CMD_ERR_EXEED_ARGC_MAX;
-    }
+  ret = cmd_parse(matched_element, vline, &argc, argv);
+  if (ret != CMD_SUCCESS)
+    return ret;
 
   /* For vtysh execution. */
   if (cmd)
@@ -2047,6 +2668,21 @@ cmd_execute_command_real (vector vline, struct vty *vty,
   return (*matched_element->func) (matched_element, vty, argc, argv);
 }
 
+/**
+ * Execute a given command, handling things like "do ..." and checking
+ * whether the given command might apply at a parent node if doesn't
+ * apply for the current node.
+ *
+ * @param vline Command line input, vector of char* where each element is
+ *              one input token.
+ * @param vty The vty context in which the command should be executed.
+ * @param cmd Pointer where the struct cmd_element of the matched command
+ *            will be stored, if any. May be set to NULL if this info is
+ *            not needed.
+ * @param vtysh If set != 0, don't lookup the command at parent nodes.
+ * @return The status of the command that has been executed or an error code
+ *         as to why no command could be executed.
+ */
 int
 cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
 		     int vtysh) {
@@ -2070,7 +2706,7 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
 	  vector_set_index (shifted_vline, index-1, vector_lookup(vline, index));
 	}
 
-      ret = cmd_execute_command_real (shifted_vline, vty, cmd);
+      ret = cmd_execute_command_real (shifted_vline, FILTER_RELAXED, vty, cmd);
 
       vector_free(shifted_vline);
       vty->node = onode;
@@ -2078,7 +2714,7 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
   }
 
 
-  saved_ret = ret = cmd_execute_command_real (vline, vty, cmd);
+  saved_ret = ret = cmd_execute_command_real (vline, FILTER_RELAXED, vty, cmd);
 
   if (vtysh)
     return saved_ret;
@@ -2089,7 +2725,7 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
     {
       try_node = node_parent(try_node);
       vty->node = try_node;
-      ret = cmd_execute_command_real (vline, vty, cmd);
+      ret = cmd_execute_command_real (vline, FILTER_RELAXED, vty, cmd);
       tried = 1;
       if (ret == CMD_SUCCESS || ret == CMD_WARNING)
 	{
@@ -2104,123 +2740,24 @@ cmd_execute_command (vector vline, struct vty *vty, struct cmd_element **cmd,
   return saved_ret;
 }
 
-/* Execute command by argument readline. */
+/**
+ * Execute a given command, matching it strictly against the current node.
+ * This mode is used when reading config files.
+ *
+ * @param vline Command line input, vector of char* where each element is
+ *              one input token.
+ * @param vty The vty context in which the command should be executed.
+ * @param cmd Pointer where the struct cmd_element* of the matched command
+ *            will be stored, if any. May be set to NULL if this info is
+ *            not needed.
+ * @return The status of the command that has been executed or an error code
+ *         as to why no command could be executed.
+ */
 int
 cmd_execute_command_strict (vector vline, struct vty *vty,
 			    struct cmd_element **cmd)
 {
-  unsigned int i;
-  unsigned int index;
-  vector cmd_vector;
-  struct cmd_element *cmd_element;
-  struct cmd_element *matched_element;
-  unsigned int matched_count, incomplete_count;
-  int argc;
-  const char *argv[CMD_ARGC_MAX];
-  int varflag;
-  enum match_type match = 0;
-  char *command;
-
-  /* Make copy of command element */
-  cmd_vector = vector_copy (cmd_node_vector (cmdvec, vty->node));
-
-  for (index = 0; index < vector_active (vline); index++)
-    if ((command = vector_slot (vline, index)))
-      {
-	int ret;
-	
-	match = cmd_filter_by_string (vector_slot (vline, index),
-				      cmd_vector, index);
-
-	/* If command meets '.VARARG' then finish matching. */
-	if (match == vararg_match)
-	  break;
-        
-	ret = is_cmd_ambiguous (command, cmd_vector, index, match);
-	if (ret == 1)
-	  {
-	    vector_free (cmd_vector);
-	    return CMD_ERR_AMBIGUOUS;
-	  }
-	if (ret == 2)
-	  {
-	    vector_free (cmd_vector);
-	    return CMD_ERR_NO_MATCH;
-	  }
-      }
-
-  /* Check matched count. */
-  matched_element = NULL;
-  matched_count = 0;
-  incomplete_count = 0;
-  for (i = 0; i < vector_active (cmd_vector); i++)
-    if (vector_slot (cmd_vector, i) != NULL)
-      {
-	cmd_element = vector_slot (cmd_vector, i);
-
-	if (match == vararg_match || index >= cmd_element->cmdsize)
-	  {
-	    matched_element = cmd_element;
-	    matched_count++;
-	  }
-	else
-	  incomplete_count++;
-      }
-
-  /* Finish of using cmd_vector. */
-  vector_free (cmd_vector);
-
-  /* To execute command, matched_count must be 1. */
-  if (matched_count == 0)
-    {
-      if (incomplete_count)
-	return CMD_ERR_INCOMPLETE;
-      else
-	return CMD_ERR_NO_MATCH;
-    }
-
-  if (matched_count > 1)
-    return CMD_ERR_AMBIGUOUS;
-
-  /* Argument treatment */
-  varflag = 0;
-  argc = 0;
-
-  for (i = 0; i < vector_active (vline); i++)
-    {
-      if (varflag)
-	argv[argc++] = vector_slot (vline, i);
-      else
-	{
-	  vector descvec = vector_slot (matched_element->strvec, i);
-
-	  if (vector_active (descvec) == 1)
-	    {
-	      struct desc *desc = vector_slot (descvec, 0);
-
-	      if (CMD_VARARG (desc->cmd))
-		varflag = 1;
-
-	      if (varflag || CMD_VARIABLE (desc->cmd) || CMD_OPTION (desc->cmd))
-		argv[argc++] = vector_slot (vline, i);
-	    }
-	  else
-	    argv[argc++] = vector_slot (vline, i);
-	}
-
-      if (argc >= CMD_ARGC_MAX)
-	return CMD_ERR_EXEED_ARGC_MAX;
-    }
-
-  /* For vtysh execution. */
-  if (cmd)
-    *cmd = matched_element;
-
-  if (matched_element->daemon)
-    return CMD_SUCCESS_DAEMON;
-
-  /* Now execute matched command */
-  return (*matched_element->func) (matched_element, vty, argc, argv);
+  return cmd_execute_command_real(vline, FILTER_STRICT, vty, cmd);
 }
 
 /* Configration make from file. */
@@ -3461,9 +3998,10 @@ install_default (enum node_type node)
 void
 cmd_init (int terminal)
 {
-  command_cr = XSTRDUP(MTYPE_STRVEC, "<cr>");
-  desc_cr.cmd = command_cr;
-  desc_cr.str = XSTRDUP(MTYPE_STRVEC, "");
+  command_cr = XSTRDUP(MTYPE_CMD_TOKENS, "<cr>");
+  token_cr.type = TOKEN_TERMINAL;
+  token_cr.cmd = command_cr;
+  token_cr.desc = XSTRDUP(MTYPE_CMD_TOKENS, "");
 
   /* Allocate initial top vector of commands. */
   cmdvec = vector_init (VECTOR_MIN_SIZE);
@@ -3584,14 +4122,61 @@ cmd_init (int terminal)
   srand(time(NULL));
 }
 
+static void
+cmd_terminate_token(struct cmd_token *token)
+{
+  unsigned int i, j;
+  vector keyword_vect;
+
+  if (token->multiple)
+    {
+      for (i = 0; i < vector_active(token->multiple); i++)
+        cmd_terminate_token(vector_slot(token->multiple, i));
+      vector_free(token->multiple);
+      token->multiple = NULL;
+    }
+
+  if (token->keyword)
+    {
+      for (i = 0; i < vector_active(token->keyword); i++)
+        {
+          keyword_vect = vector_slot(token->keyword, i);
+          for (j = 0; j < vector_active(keyword_vect); j++)
+            cmd_terminate_token(vector_slot(keyword_vect, j));
+          vector_free(keyword_vect);
+        }
+      vector_free(token->keyword);
+      token->keyword = NULL;
+    }
+
+  XFREE(MTYPE_CMD_TOKENS, token->cmd);
+  XFREE(MTYPE_CMD_TOKENS, token->desc);
+
+  XFREE(MTYPE_CMD_TOKENS, token);
+}
+
+static void
+cmd_terminate_element(struct cmd_element *cmd)
+{
+  unsigned int i;
+
+  if (cmd->tokens == NULL)
+    return;
+
+  for (i = 0; i < vector_active(cmd->tokens); i++)
+    cmd_terminate_token(vector_slot(cmd->tokens, i));
+
+  vector_free(cmd->tokens);
+  cmd->tokens = NULL;
+}
+
 void
 cmd_terminate ()
 {
-  unsigned int i, j, k, l;
+  unsigned int i, j;
   struct cmd_node *cmd_node;
   struct cmd_element *cmd_element;
-  struct desc *desc;
-  vector cmd_node_v, cmd_element_v, desc_v;
+  vector cmd_node_v;
 
   if (cmdvec)
     {
@@ -3601,30 +4186,8 @@ cmd_terminate ()
             cmd_node_v = cmd_node->cmd_vector;
 
             for (j = 0; j < vector_active (cmd_node_v); j++)
-              if ((cmd_element = vector_slot (cmd_node_v, j)) != NULL &&
-                  cmd_element->strvec != NULL)
-                {
-                  cmd_element_v = cmd_element->strvec;
-
-                  for (k = 0; k < vector_active (cmd_element_v); k++)
-                    if ((desc_v = vector_slot (cmd_element_v, k)) != NULL)
-                      {
-                        for (l = 0; l < vector_active (desc_v); l++)
-                          if ((desc = vector_slot (desc_v, l)) != NULL)
-                            {
-                              if (desc->cmd)
-                                XFREE (MTYPE_STRVEC, desc->cmd);
-                              if (desc->str)
-                                XFREE (MTYPE_STRVEC, desc->str);
-
-                              XFREE (MTYPE_DESC, desc);
-                            }
-                        vector_free (desc_v);
-                      }
-
-                  cmd_element->strvec = NULL;
-                  vector_free (cmd_element_v);
-                }
+              if ((cmd_element = vector_slot (cmd_node_v, j)) != NULL)
+                cmd_terminate_element(cmd_element);
 
             vector_free (cmd_node_v);
           }
@@ -3634,9 +4197,9 @@ cmd_terminate ()
     }
 
   if (command_cr)
-    XFREE(MTYPE_STRVEC, command_cr);
-  if (desc_cr.str)
-    XFREE(MTYPE_STRVEC, desc_cr.str);
+    XFREE(MTYPE_CMD_TOKENS, command_cr);
+  if (token_cr.desc)
+    XFREE(MTYPE_CMD_TOKENS, token_cr.desc);
   if (host.name)
     XFREE (MTYPE_HOST, host.name);
   if (host.password)

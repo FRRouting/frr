@@ -171,8 +171,6 @@ main (int argc, char **argv)
   /* OSPF vty inits. */
   test_vty_init ();
 
-  sort_node ();
-
   /* Change to the daemon program. */
   if (daemon_mode && daemon (0, 0) < 0)
     {

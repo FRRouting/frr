@@ -325,9 +325,6 @@ main (int argc, char *argv[], char *envp[])
   /* initialize ospf6 */
   ospf6_init ();
 
-  /* sort command vector */
-  sort_node ();
-
   /* parse config file */
   vty_read_config (config_file, config_default);
 

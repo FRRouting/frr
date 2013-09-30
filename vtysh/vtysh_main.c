@@ -299,8 +299,6 @@ main (int argc, char **argv, char **env)
 
   vty_init_vtysh ();
 
-  sort_node ();
-
   /* Read vtysh configuration file before connecting to daemons. */
   vtysh_read_config (config_default);
 
