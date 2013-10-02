@@ -778,6 +778,8 @@ enum bgp_clear_type
 /* Macros. */
 #define BGP_INPUT(P)         ((P)->ibuf)
 #define BGP_INPUT_PNT(P)     (STREAM_PNT(BGP_INPUT(P)))
+#define BGP_IS_VALID_STATE_FOR_NOTIF(S)\
+        (((S) == OpenSent) || ((S) == OpenConfirm) || ((S) == Established))
 
 /* Count prefix size from mask length */
 #define PSIZE(a) (((a) + 7) / (8))
