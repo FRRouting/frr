@@ -504,7 +504,7 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h)
   set_ifindex(ifp, ifi->ifi_index);
   ifp->flags = ifi->ifi_flags & 0x0000fffff;
   ifp->mtu6 = ifp->mtu = *(uint32_t *) RTA_DATA (tb[IFLA_MTU]);
-  ifp->metric = 1;
+  ifp->metric = 0;
 
   /* Hardware type and address. */
   ifp->hw_type = ifi->ifi_type;
@@ -1084,7 +1084,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
           set_ifindex(ifp, ifi->ifi_index);
           ifp->flags = ifi->ifi_flags & 0x0000fffff;
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
-          ifp->metric = 1;
+          ifp->metric = 0;
 
           netlink_interface_update_hw_addr (tb, ifp);
 
@@ -1096,7 +1096,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h)
           /* Interface status change. */
           set_ifindex(ifp, ifi->ifi_index);
           ifp->mtu6 = ifp->mtu = *(int *) RTA_DATA (tb[IFLA_MTU]);
-          ifp->metric = 1;
+          ifp->metric = 0;
 
           netlink_interface_update_hw_addr (tb, ifp);
 
