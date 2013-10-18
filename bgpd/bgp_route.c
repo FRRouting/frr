@@ -1881,7 +1881,7 @@ bgp_update_rsclient (struct peer *rsclient, afi_t afi, safi_t safi,
       break;
 
   /* AS path loop check. */
-  if (aspath_loop_check (attr->aspath, rsclient->as) > peer->allowas_in[afi][safi])
+  if (aspath_loop_check (attr->aspath, rsclient->as) > rsclient->allowas_in[afi][safi])
     {
       reason = "as-path contains our own AS;";
       goto filtered;
