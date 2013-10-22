@@ -386,7 +386,9 @@ extern struct nexthop *nexthop_ipv4_ifindex_add (struct rib *,
 extern int nexthop_has_fib_child(struct nexthop *);
 extern void rib_lookup_and_dump (struct prefix_ipv4 *);
 extern void rib_lookup_and_pushup (struct prefix_ipv4 *);
-extern void rib_dump (const char *, const struct prefix *, const struct rib *);
+#define rib_dump(prefix ,rib) _rib_dump(__func__, prefix, rib)
+extern void _rib_dump (const char *,
+		       union prefix46constptr, const struct rib *);
 extern int rib_lookup_ipv4_route (struct prefix_ipv4 *, union sockunion *);
 #define ZEBRA_RIB_LOOKUP_ERROR -1
 #define ZEBRA_RIB_FOUND_EXACT 0

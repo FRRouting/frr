@@ -160,7 +160,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct rib *rib, int family)
              {
                zlog_debug ("%s: %s/%d: attention! gate not found for rib %p",
                  __func__, prefix_buf, p->prefixlen, rib);
-               rib_dump (__func__, (struct prefix_ipv4 *)p, rib);
+               rib_dump (p, rib);
              }
              else
                inet_ntop (AF_INET, &sin_gate.sin_addr, gate_buf, INET_ADDRSTRLEN);

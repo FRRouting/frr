@@ -89,6 +89,25 @@ struct prefix_rd
   u_char val[8] __attribute__ ((aligned (8)));
 };
 
+/* helper to get type safety/avoid casts on calls
+ * (w/o this, functions accepting all prefix types need casts on the caller
+ * side, which strips type safety since the cast will accept any pointer
+ * type.)
+ */
+union prefix46ptr
+{
+  struct prefix *p;
+  struct prefix_ipv4 *p4;
+  struct prefix_ipv6 *p6;
+} __attribute__ ((transparent_union));
+
+union prefix46constptr
+{
+  const struct prefix *p;
+  const struct prefix_ipv4 *p4;
+  const struct prefix_ipv6 *p6;
+} __attribute__ ((transparent_union));
+
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16
 #endif /* INET_ADDRSTRLEN */
