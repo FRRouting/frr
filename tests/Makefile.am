@@ -28,6 +28,8 @@ check_PROGRAMS = testsig testbuffer testmemory heavy heavywq heavythread \
 		testprivs teststream testchecksum tabletest testnexthopiter \
 		$(TESTS_BGPD)
 
+noinst_HEADERS = prng.h
+
 testsig_SOURCES = test-sig.c
 testbuffer_SOURCES = test-buffer.c
 testmemory_SOURCES = test-memory.c
