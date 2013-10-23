@@ -107,7 +107,7 @@ struct ospf6_lsa_header
   ((L)->header->adv_router == (a) && (L)->header->id == (i) && \
    (L)->header->type == (t))
 #define OSPF6_LSA_IS_DIFFER(L1, L2)  ospf6_lsa_is_differ (L1, L2)
-#define OSPF6_LSA_IS_MAXAGE(L) (ospf6_lsa_age_current (L) == MAXAGE)
+#define OSPF6_LSA_IS_MAXAGE(L) (ospf6_lsa_age_current (L) == OSPF_LSA_MAXAGE)
 #define OSPF6_LSA_IS_CHANGED(L1, L2) ospf6_lsa_is_changed (L1, L2)
 
 struct ospf6_lsa

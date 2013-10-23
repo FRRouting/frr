@@ -174,7 +174,7 @@ ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
       return;
     }
 
-  if (OSPF6_ASBR_METRIC (external) == LS_INFINITY)
+  if (OSPF6_ASBR_METRIC (external) == OSPF_LS_INFINITY)
     {
       if (IS_OSPF6_DEBUG_EXAMIN (AS_EXTERNAL))
         zlog_debug ("Ignore LSA with LSInfinity Metric");
@@ -890,7 +890,7 @@ ospf6_routemap_rule_set_metric_compile (const char *arg)
   u_int32_t metric;
   char *endp;
   metric = strtoul (arg, &endp, 0);
-  if (metric > LS_INFINITY || *endp != '\0')
+  if (metric > OSPF_LS_INFINITY || *endp != '\0')
     return NULL;
   return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
 }

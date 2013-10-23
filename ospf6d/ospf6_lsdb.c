@@ -572,7 +572,7 @@ ospf6_new_ls_seqnum (u_int16_t type, u_int32_t id, u_int32_t adv_router,
   /* if current database copy not found, return InitialSequenceNumber */
   lsa = ospf6_lsdb_lookup (type, id, adv_router, lsdb);
   if (lsa == NULL)
-    seqnum = INITIAL_SEQUENCE_NUMBER;
+    seqnum = OSPF_INITIAL_SEQUENCE_NUMBER;
   else
     seqnum = (signed long) ntohl (lsa->header->seqnum) + 1;
 

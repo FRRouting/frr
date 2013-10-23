@@ -401,6 +401,7 @@ DEFUN (no_area_range,
     }
 
   ospf6_route_remove (range, oa->range_table);
+
   return CMD_SUCCESS;
 }
 

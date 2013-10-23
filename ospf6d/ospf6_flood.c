@@ -113,7 +113,7 @@ ospf6_lsa_originate (struct ospf6_lsa *lsa)
   ospf6_lsdb_add (ospf6_lsa_copy (lsa), lsdb_self);
 
   lsa->refresh = thread_add_timer (master, ospf6_lsa_refresh, lsa,
-                                   LS_REFRESH_TIME);
+                                   OSPF_LS_REFRESH_TIME);
 
   if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type) ||
       IS_OSPF6_DEBUG_ORIGINATE_TYPE (lsa->header->type))
@@ -228,7 +228,7 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
   if (! OSPF6_LSA_IS_MAXAGE (lsa))
     lsa->expire = thread_add_timer (master, ospf6_lsa_expire, lsa,
-                                    MAXAGE + lsa->birth.tv_sec - now.tv_sec);
+                                    OSPF_LSA_MAXAGE + lsa->birth.tv_sec - now.tv_sec);
   else
     lsa->expire = NULL;
 
@@ -837,7 +837,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
           struct timeval now, res;
           quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
           timersub (&now, &old->installed, &res);
-          if (res.tv_sec < MIN_LS_ARRIVAL)
+          if (res.tv_sec < OSPF_MIN_LS_ARRIVAL)
             {
               if (is_debug)
                 zlog_debug ("LSA can't be updated within MinLSArrival, discard");
@@ -944,7 +944,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
       /* If database copy is in 'Seqnumber Wrapping',
          simply discard the received LSA */
       if (OSPF6_LSA_IS_MAXAGE (old) &&
-          old->header->seqnum == htonl (MAX_SEQUENCE_NUMBER))
+          old->header->seqnum == htonl (OSPF_MAX_SEQUENCE_NUMBER))
         {
           if (is_debug)
             {

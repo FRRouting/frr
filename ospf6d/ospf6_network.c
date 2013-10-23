@@ -27,6 +27,7 @@
 #include "sockopt.h"
 #include "privs.h"
 
+#include "libospf.h"
 #include "ospf6_proto.h"
 #include "ospf6_network.h"
 

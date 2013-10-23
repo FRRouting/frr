@@ -24,6 +24,9 @@
 
 #define OSPF6_DAEMON_VERSION    "0.9.7r"
 
+#include "libospf.h"
+#include "thread.h"
+
 /* global variables */
 extern struct thread_master *master;
 

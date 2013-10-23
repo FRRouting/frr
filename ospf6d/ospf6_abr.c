@@ -253,7 +253,7 @@ ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
     }
 
   /* do not generate if the route cost is greater or equal to LSInfinity */
-  if (route->path.cost >= LS_INFINITY)
+  if (route->path.cost >= OSPF_LS_INFINITY)
     {
       if (is_debug)
         zlog_debug ("The cost exceeds LSInfinity, withdraw");
@@ -296,7 +296,7 @@ ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
       /* ranges are ignored when originate backbone routes to transit area.
          Otherwise, if ranges are configured, the route is suppressed. */
       if (range && ! CHECK_FLAG (range->flag, OSPF6_ROUTE_REMOVE) &&
-          (route->path.area_id != BACKBONE_AREA_ID ||
+          (route->path.area_id != OSPF_AREA_BACKBONE ||
            ! IS_AREA_TRANSIT (area)))
         {
           if (is_debug)
@@ -604,7 +604,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
     }
 
   /* (1) if cost == LSInfinity or if the LSA is MaxAge */
-  if (cost == LS_INFINITY)
+  if (cost == OSPF_LS_INFINITY)
     {
       if (is_debug)
         zlog_debug ("cost is LS_INFINITY, ignore");

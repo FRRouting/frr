@@ -24,21 +24,12 @@
 #define _ZEBRA_OSPFD_H
 
 #include <zebra.h>
+#include "libospf.h"
 
 #include "filter.h"
 #include "log.h"
 
 #define OSPF_VERSION            2
-
-/* Default protocol, port number. */
-#ifndef IPPROTO_OSPFIGP
-#define IPPROTO_OSPFIGP         89
-#endif /* IPPROTO_OSPFIGP */
-
-/* IP precedence. */
-#ifndef IPTOS_PREC_INTERNETCONTROL
-#define IPTOS_PREC_INTERNETCONTROL	0xC0
-#endif /* IPTOS_PREC_INTERNETCONTROL */
 
 /* VTY port number. */
 #define OSPF_VTY_PORT          2604
@@ -50,29 +41,11 @@
 /* Default configuration file name for ospfd. */
 #define OSPF_DEFAULT_CONFIG   "ospfd.conf"
 
-/* Architectual Constants */
-#ifdef DEBUG
-#define OSPF_LS_REFRESH_TIME                    60
-#else
-#define OSPF_LS_REFRESH_TIME                  1800
-#endif
-#define OSPF_MIN_LS_INTERVAL                     5
-#define OSPF_MIN_LS_ARRIVAL                      1
-#define OSPF_LSA_INITIAL_AGE                     0	/* useful for debug */
-#define OSPF_LSA_MAXAGE                       3600
-#define OSPF_CHECK_AGE                         300
-#define OSPF_LSA_MAXAGE_DIFF                   900
-#define OSPF_LS_INFINITY                  0xffffff
-#define OSPF_DEFAULT_DESTINATION        0x00000000      /* 0.0.0.0 */
-#define OSPF_INITIAL_SEQUENCE_NUMBER    0x80000001
-#define OSPF_MAX_SEQUENCE_NUMBER        0x7fffffff
-
 #define OSPF_NSSA_TRANS_STABLE_DEFAULT		40
 
 #define OSPF_ALLSPFROUTERS              0xe0000005      /* 224.0.0.5 */
 #define OSPF_ALLDROUTERS                0xe0000006      /* 224.0.0.6 */
 
-#define OSPF_AREA_BACKBONE              0x00000000      /* 0.0.0.0 */
 
 /* OSPF Authentication Type. */
 #define OSPF_AUTH_NULL                      0
@@ -84,30 +57,6 @@
 /* DO NIOT REMOVE!!! Need to detect whether a value has
    been given or not in VLink command handlers */
 #define OSPF_AUTH_CMD_NOTSEEN              -2
-
-/* OSPF SPF timer values. */
-#define OSPF_SPF_DELAY_DEFAULT              200
-#define OSPF_SPF_HOLDTIME_DEFAULT           1000
-#define OSPF_SPF_MAX_HOLDTIME_DEFAULT	    10000
-
-/* OSPF interface default values. */
-#define OSPF_OUTPUT_COST_DEFAULT           10
-#define OSPF_OUTPUT_COST_INFINITE	   UINT16_MAX
-#define OSPF_ROUTER_DEAD_INTERVAL_DEFAULT  40
-#define OSPF_ROUTER_DEAD_INTERVAL_MINIMAL   1
-#define OSPF_HELLO_INTERVAL_DEFAULT        10
-#define OSPF_ROUTER_PRIORITY_DEFAULT        1
-#define OSPF_RETRANSMIT_INTERVAL_DEFAULT    5
-#define OSPF_TRANSMIT_DELAY_DEFAULT         1
-#define OSPF_DEFAULT_BANDWIDTH		 10000	/* Kbps */
-
-#define OSPF_DEFAULT_REF_BANDWIDTH	100000  /* Kbps */
-
-#define OSPF_POLL_INTERVAL_DEFAULT         60
-#define OSPF_NEIGHBOR_PRIORITY_DEFAULT      0
-
-#define OSPF_MTU_IGNORE_DEFAULT             0
-#define OSPF_FAST_HELLO_DEFAULT             0
 
 /* OSPF options. */
 #define OSPF_OPTION_T                    0x01  /* TOS. */

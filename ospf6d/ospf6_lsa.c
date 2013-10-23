@@ -139,11 +139,11 @@ ospf6_lsa_is_differ (struct ospf6_lsa *lsa1,
 
   ospf6_lsa_age_current (lsa1);
   ospf6_lsa_age_current (lsa2);
-  if (ntohs (lsa1->header->age) == MAXAGE &&
-      ntohs (lsa2->header->age) != MAXAGE)
+  if (ntohs (lsa1->header->age) == OSPF_LSA_MAXAGE &&
+      ntohs (lsa2->header->age) != OSPF_LSA_MAXAGE)
     return 1;
-  if (ntohs (lsa1->header->age) != MAXAGE &&
-      ntohs (lsa2->header->age) == MAXAGE)
+  if (ntohs (lsa1->header->age) != OSPF_LSA_MAXAGE &&
+      ntohs (lsa2->header->age) == OSPF_LSA_MAXAGE)
     return 1;
 
   /* compare body */
@@ -218,19 +218,19 @@ ospf6_lsa_age_current (struct ospf6_lsa *lsa)
     zlog_warn ("LSA: quagga_gettime failed, may fail LSA AGEs: %s",
                safe_strerror (errno));
 
-  if (ntohs (lsa->header->age) >= MAXAGE)
+  if (ntohs (lsa->header->age) >= OSPF_LSA_MAXAGE)
     {
       /* ospf6_lsa_premature_aging () sets age to MAXAGE; when using
          relative time, we cannot compare against lsa birth time, so
          we catch this special case here. */
-      lsa->header->age = htons (MAXAGE);
-      return MAXAGE;
+      lsa->header->age = htons (OSPF_LSA_MAXAGE);
+      return OSPF_LSA_MAXAGE;
     }
   /* calculate age */
   ulage = now.tv_sec - lsa->birth.tv_sec;
 
   /* if over MAXAGE, set to it */
-  age = (ulage > MAXAGE ? MAXAGE : ulage);
+  age = (ulage > OSPF_LSA_MAXAGE ? OSPF_LSA_MAXAGE : ulage);
 
   lsa->header->age = htons (age);
   return age;
@@ -243,8 +243,8 @@ ospf6_lsa_age_update_to_send (struct ospf6_lsa *lsa, u_int32_t transdelay)
   unsigned short age;
 
   age = ospf6_lsa_age_current (lsa) + transdelay;
-  if (age > MAXAGE)
-    age = MAXAGE;
+  if (age > OSPF_LSA_MAXAGE)
+    age = OSPF_LSA_MAXAGE;
   lsa->header->age = htons (age);
 }
 
@@ -258,7 +258,7 @@ ospf6_lsa_premature_aging (struct ospf6_lsa *lsa)
   THREAD_OFF (lsa->expire);
   THREAD_OFF (lsa->refresh);
 
-  lsa->header->age = htons (MAXAGE);
+  lsa->header->age = htons (OSPF_LSA_MAXAGE);
   thread_execute (master, ospf6_lsa_expire, lsa, 0);
 }
 
@@ -297,15 +297,15 @@ ospf6_lsa_compare (struct ospf6_lsa *a, struct ospf6_lsa *b)
   ageb = ospf6_lsa_age_current (b);
 
   /* MaxAge check */
-  if (agea == MAXAGE && ageb != MAXAGE)
+  if (agea == OSPF_LSA_MAXAGE && ageb != OSPF_LSA_MAXAGE)
     return -1;
-  else if (agea != MAXAGE && ageb == MAXAGE)
+  else if (agea != OSPF_LSA_MAXAGE && ageb == OSPF_LSA_MAXAGE)
     return 1;
 
   /* Age check */
-  if (agea > ageb && agea - ageb >= MAX_AGE_DIFF)
+  if (agea > ageb && agea - ageb >= OSPF_LSA_MAXAGE_DIFF)
     return 1;
-  else if (agea < ageb && ageb - agea >= MAX_AGE_DIFF)
+  else if (agea < ageb && ageb - agea >= OSPF_LSA_MAXAGE_DIFF)
     return -1;
 
   /* neither recent */
@@ -653,7 +653,7 @@ ospf6_lsa_refresh (struct thread *thread)
   new = ospf6_lsa_create (self->header);
   new->lsdb = old->lsdb;
   new->refresh = thread_add_timer (master, ospf6_lsa_refresh, new,
-                                   LS_REFRESH_TIME);
+                                   OSPF_LS_REFRESH_TIME);
 
   /* store it in the LSDB for self-originated LSAs */
   ospf6_lsdb_add (ospf6_lsa_copy (new), lsdb_self);

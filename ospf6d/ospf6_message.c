@@ -1282,7 +1282,7 @@ ospf6_rxpacket_examin (struct ospf6_interface *oi, struct ospf6_header *oh, cons
   {
     if (IS_OSPF6_DEBUG_MESSAGE (oh->type, RECV))
     {
-      if (oh->area_id == BACKBONE_AREA_ID)
+      if (oh->area_id == OSPF_AREA_BACKBONE)
         zlog_debug ("%s: Message may be via Virtual Link: not supported", __func__);
       else
         zlog_debug
