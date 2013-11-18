@@ -1526,6 +1526,8 @@ thread_getrusage (RUSAGE_T *r)
 #endif /* HAVE_CLOCK_MONOTONIC */
 }
 
+struct thread *thread_current = NULL;
+
 /* We check thread consumed time. If the system has getrusage, we'll
    use that to get in-depth stats on the performance of the thread in addition
    to wall clock time stats from gettimeofday. */
@@ -1555,7 +1557,9 @@ thread_call (struct thread *thread)
   GETRUSAGE (&before);
   thread->real = before.real;
 
+  thread_current = thread;
   (*thread->func) (thread);
+  thread_current = NULL;
 
   GETRUSAGE (&after);
 
