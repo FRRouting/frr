@@ -22,6 +22,8 @@ heavy
 heavythread
 heavywq
 tabletest
+test-timer-correctness
+test-timer-performance
 testbgpcap
 testbgpmpath
 testbgpmpattr

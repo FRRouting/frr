@@ -28,7 +28,7 @@ endif
 
 check_PROGRAMS = testsig testsegv testbuffer testmemory heavy heavywq heavythread \
 		testprivs teststream testchecksum tabletest testnexthopiter \
-		testcommands \
+		testcommands test-timer-correctness test-timer-performance \
 		$(TESTS_BGPD)
 
 ../vtysh/vtysh_cmd.c:
@@ -63,6 +63,8 @@ testbgpmpath_SOURCES = bgp_mpath_test.c
 tabletest_SOURCES = table_test.c
 testnexthopiter_SOURCES = test-nexthop-iter.c prng.c
 testcommands_SOURCES = test-commands-defun.c test-commands.c prng.c
+test_timer_correctness_SOURCES = test-timer-correctness.c prng.c
+test_timer_performance_SOURCES = test-timer-performance.c prng.c
 
 testsig_LDADD = ../lib/libzebra.la @LIBCAP@
 testsegv_LDADD = ../lib/libzebra.la @LIBCAP@
@@ -82,3 +84,5 @@ testbgpmpath_LDADD = ../bgpd/libbgp.a ../lib/libzebra.la @LIBCAP@ -lm
 tabletest_LDADD = ../lib/libzebra.la @LIBCAP@ -lm
 testnexthopiter_LDADD = ../lib/libzebra.la @LIBCAP@
 testcommands_LDADD = ../lib/libzebra.la @LIBCAP@
+test_timer_correctness_LDADD = ../lib/libzebra.la @LIBCAP@
+test_timer_performance_LDADD = ../lib/libzebra.la @LIBCAP@
