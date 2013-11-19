@@ -168,3 +168,20 @@ pqueue_dequeue (struct pqueue *queue)
   trickle_down (0, queue);
   return data;
 }
+
+void
+pqueue_remove_at (int index, struct pqueue *queue)
+{
+  queue->array[index] = queue->array[--queue->size];
+
+  if (index > 0
+      && (*queue->cmp) (queue->array[index],
+                        queue->array[PARENT_OF(index)]) < 0)
+    {
+      trickle_up (index, queue);
+    }
+  else
+    {
+      trickle_down (index, queue);
+    }
+}

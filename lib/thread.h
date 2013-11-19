@@ -44,16 +44,18 @@ struct thread_list
   int count;
 };
 
+struct pqueue;
+
 /* Master of the theads. */
 struct thread_master
 {
   struct thread_list read;
   struct thread_list write;
-  struct thread_list timer;
+  struct pqueue *timer;
   struct thread_list event;
   struct thread_list ready;
   struct thread_list unuse;
-  struct thread_list background;
+  struct pqueue *background;
   fd_set readfd;
   fd_set writefd;
   fd_set exceptfd;
@@ -80,6 +82,7 @@ struct thread
     int fd;			/* file descriptor in case of read/write. */
     struct timeval sands;	/* rest of time sands value. */
   } u;
+  int index;			/* used for timers to store position in queue */
   struct timeval real;
   struct cpu_thread_history *hist; /* cache pointer to cpu_history */
   char funcname[FUNCNAME_LEN];
