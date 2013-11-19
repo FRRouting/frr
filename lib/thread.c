@@ -496,35 +496,6 @@ DEFUN(clear_thread_cpu,
   return CMD_SUCCESS;
 }
 
-/* List allocation and head/tail print out. */
-static void
-thread_list_debug (struct thread_list *list)
-{
-  printf ("count [%d] head [%p] tail [%p]\n",
-	  list->count, list->head, list->tail);
-}
-
-/* Debug print for thread_master. */
-static void  __attribute__ ((unused))
-thread_master_debug (struct thread_master *m)
-{
-  printf ("-----------\n");
-  printf ("readlist  : ");
-  thread_list_debug (&m->read);
-  printf ("writelist : ");
-  thread_list_debug (&m->write);
-  printf ("timerlist : ");
-  thread_list_debug (&m->timer);
-  printf ("eventlist : ");
-  thread_list_debug (&m->event);
-  printf ("unuselist : ");
-  thread_list_debug (&m->unuse);
-  printf ("bgndlist : ");
-  thread_list_debug (&m->background);
-  printf ("total alloc: [%ld]\n", m->alloc);
-  printf ("-----------\n");
-}
-
 /* Allocate new thread master.  */
 struct thread_master *
 thread_master_create ()
