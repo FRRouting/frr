@@ -29,6 +29,7 @@ testbuffer
 testchecksum
 testmemory
 testprivs
+testsegv
 testsig
 teststream
 testnexthopiter

@@ -24,13 +24,14 @@ else
 TESTS_BGPD =
 endif
 
-check_PROGRAMS = testsig testbuffer testmemory heavy heavywq heavythread \
+check_PROGRAMS = testsig testsegv testbuffer testmemory heavy heavywq heavythread \
 		testprivs teststream testchecksum tabletest testnexthopiter \
 		$(TESTS_BGPD)
 
 noinst_HEADERS = prng.h
 
 testsig_SOURCES = test-sig.c
+testsegv_SOURCES = test-segv.c
 testbuffer_SOURCES = test-buffer.c
 testmemory_SOURCES = test-memory.c
 testprivs_SOURCES = test-privs.c
@@ -48,6 +49,7 @@ tabletest_SOURCES = table_test.c
 testnexthopiter_SOURCES = test-nexthop-iter.c prng.c
 
 testsig_LDADD = ../lib/libzebra.la @LIBCAP@
+testsegv_LDADD = ../lib/libzebra.la @LIBCAP@
 testbuffer_LDADD = ../lib/libzebra.la @LIBCAP@
 testmemory_LDADD = ../lib/libzebra.la @LIBCAP@
 testprivs_LDADD = ../lib/libzebra.la @LIBCAP@
