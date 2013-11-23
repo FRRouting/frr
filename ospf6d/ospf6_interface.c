@@ -683,7 +683,7 @@ interface_up (struct thread *thread)
 
   /* Schedule Hello */
   if (! CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE))
-    thread_add_event (master, ospf6_hello_send, oi, 0);
+    oi->thread_send_hello = thread_add_event (master, ospf6_hello_send, oi, 0);
 
   /* decide next interface state */
   if ((if_is_pointopoint (oi->interface)) ||
@@ -770,6 +770,9 @@ interface_down (struct thread *thread)
   if (IS_OSPF6_DEBUG_INTERFACE)
     zlog_debug ("Interface Event %s: [InterfaceDown]",
 		oi->interface->name);
+
+  /* Stop Hellos */
+  THREAD_OFF (oi->thread_send_hello);
 
   /* Leave AllSPFRouters */
   if (oi->state > OSPF6_INTERFACE_DOWN)
