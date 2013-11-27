@@ -482,7 +482,7 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or)
 	  if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
 	    {
 	      char buf[2][INET_ADDRSTRLEN];
-	      zlog_debug("Zebra: Route add %s/%d nexthop %s",
+	      zlog_debug("Zebra: Route delete %s/%d nexthop %s",
 			 inet_ntop(AF_INET, &p->prefix,
 				   buf[0], sizeof(buf[0])),
 			 p->prefixlen,
