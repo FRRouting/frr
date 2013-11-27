@@ -2160,12 +2160,20 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   /* Apply mask. */
   apply_mask_ipv4 (p);
 
-  if (IS_ZEBRA_DEBUG_KERNEL && gate)
-    zlog_debug ("rib_delete_ipv4(): route delete %s/%d via %s ifindex %d",
-		       inet_ntop (AF_INET, &p->prefix, buf1, INET_ADDRSTRLEN),
-		       p->prefixlen, 
-		       inet_ntoa (*gate), 
-		       ifindex);
+  if (IS_ZEBRA_DEBUG_KERNEL)
+    {
+      if (gate)
+	zlog_debug ("rib_delete_ipv4(): route delete %s/%d via %s ifindex %d",
+		    inet_ntop (AF_INET, &p->prefix, buf1, INET_ADDRSTRLEN),
+		    p->prefixlen,
+		    inet_ntoa (*gate),
+		    ifindex);
+      else
+	zlog_debug ("rib_delete_ipv4(): route delete %s/%d ifindex %d",
+		    inet_ntop (AF_INET, &p->prefix, buf1, INET_ADDRSTRLEN),
+		    p->prefixlen,
+		    ifindex);
+    }
 
   /* Lookup route node. */
   rn = route_node_lookup (table, (struct prefix *) p);
