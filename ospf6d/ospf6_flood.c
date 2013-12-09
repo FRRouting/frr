@@ -220,6 +220,7 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
   if (old)
     {
       THREAD_OFF (old->expire);
+      THREAD_OFF (old->refresh);
       ospf6_flood_clear (old);
     }
 
