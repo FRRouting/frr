@@ -306,6 +306,8 @@ bgp_connect (struct peer *peer)
   if (peer->fd < 0)
     return -1;
 
+  set_nonblocking (peer->fd);
+
   /* If we can get socket for the peer, adjest TTL and make connection. */
   if (peer->sort == BGP_PEER_EBGP) {
     sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
