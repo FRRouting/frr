@@ -21,6 +21,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifndef _QUAGGA_BGP_NETWORK_H
 #define _QUAGGA_BGP_NETWORK_H
 
+#define BGP_SOCKET_SNDBUF_SIZE 65536
+
 extern int bgp_socket (unsigned short, const char *);
 extern void bgp_close (void);
 extern int bgp_connect (struct peer *);

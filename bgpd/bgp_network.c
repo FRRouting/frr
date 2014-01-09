@@ -122,7 +122,29 @@ bgp_md5_set (struct peer *peer)
   
   return ret;
 }
-
+
+/* Update BGP socket send buffer size */
+static void
+bgp_update_sock_send_buffer_size (int fd)
+{
+  int size = BGP_SOCKET_SNDBUF_SIZE;
+  int optval;
+  socklen_t optlen = sizeof(optval);
+
+  if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &optval, &optlen) < 0)
+    {
+      zlog_err("getsockopt of SO_SNDBUF failed %s\n", safe_strerror(errno));
+      return;
+    }
+  if (optval < size)
+    {
+      if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size)) < 0)
+        {
+          zlog_err("Couldn't increase send buffer: %s\n", safe_strerror(errno));
+        }
+    }
+}
+
 /* Accept bgp connection. */
 static int
 bgp_accept (struct thread *thread)
@@ -152,6 +174,9 @@ bgp_accept (struct thread *thread)
       return -1;
     }
   set_nonblocking (bgp_sock);
+
+  /* Set socket send buffer size */
+  bgp_update_sock_send_buffer_size(bgp_sock);
 
   if (BGP_DEBUG (events, EVENTS))
     zlog_debug ("[Event] BGP connection from host %s", inet_sutop (&su, buf));
@@ -307,6 +332,9 @@ bgp_connect (struct peer *peer)
     return -1;
 
   set_nonblocking (peer->fd);
+
+  /* Set socket send buffer size */
+  bgp_update_sock_send_buffer_size(peer->fd);
 
   /* If we can get socket for the peer, adjest TTL and make connection. */
   if (peer->sort == BGP_PEER_EBGP) {
