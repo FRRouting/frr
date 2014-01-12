@@ -196,4 +196,14 @@ extern const char *inet6_ntoa (struct in6_addr);
 
 extern int all_digit (const char *);
 
+static inline int ipv4_martian (struct in_addr *addr)
+{
+  in_addr_t ip = addr->s_addr;
+
+  if (IPV4_NET0(ip) || IPV4_NET127(ip) || IPV4_CLASS_DE(ip)) {
+    return 1;
+  }
+  return 0;
+}
+
 #endif /* _ZEBRA_PREFIX_H */

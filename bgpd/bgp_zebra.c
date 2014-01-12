@@ -534,6 +534,25 @@ if_get_ipv6_local (struct interface *ifp, struct in6_addr *addr)
 }
 #endif /* HAVE_IPV6 */
 
+static int
+if_get_ipv4_address (struct interface *ifp, struct in_addr *addr)
+{
+  struct listnode *cnode;
+  struct connected *connected;
+  struct prefix *cp;
+
+  for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, connected))
+    {
+      cp = connected->address;
+      if ((cp->family == AF_INET) && !ipv4_martian(&(cp->u.prefix4)))
+	  {
+	    *addr = cp->u.prefix4;
+	    return 1;
+	  }
+    }
+  return 0;
+}
+
 int
 bgp_nexthop_set (union sockunion *local, union sockunion *remote, 
 		 struct bgp_nexthop *nexthop, struct peer *peer)
@@ -592,8 +611,9 @@ bgp_nexthop_set (union sockunion *local, union sockunion *remote,
     {
       struct interface *direct = NULL;
 
-      /* IPv4 nexthop.  I don't care about it. */
-      if (peer->local_id.s_addr)
+      /* IPv4 nexthop. */
+      ret = if_get_ipv4_address(ifp, &nexthop->v4);
+      if (!ret && peer->local_id.s_addr)
 	nexthop->v4 = peer->local_id;
 
       /* Global address*/
