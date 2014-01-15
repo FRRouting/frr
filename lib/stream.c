@@ -154,6 +154,25 @@ stream_dup (struct stream *s)
   return (stream_copy (new, s));
 }
 
+struct stream *
+stream_dupcat (struct stream *s1, struct stream *s2, size_t offset)
+{
+  struct stream *new;
+
+  STREAM_VERIFY_SANE (s1);
+  STREAM_VERIFY_SANE (s2);
+
+  if ( (new = stream_new (s1->endp + s2->endp)) == NULL)
+    return NULL;
+
+  memcpy (new->data, s1->data, offset);
+  memcpy (new->data + offset, s2->data, s2->endp);
+  memcpy (new->data + offset + s2->endp, s1->data + offset,
+	  (s1->endp - offset));
+  new->endp = s1->endp + s2->endp;
+  return new;
+}
+
 size_t
 stream_resize (struct stream *s, size_t newsize)
 {

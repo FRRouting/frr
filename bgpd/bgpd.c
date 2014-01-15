@@ -832,6 +832,7 @@ peer_new (struct bgp *bgp)
   peer->ibuf = stream_new (BGP_MAX_PACKET_SIZE);
   peer->obuf = stream_fifo_new ();
   peer->work = stream_new (BGP_MAX_PACKET_SIZE);
+  peer->scratch = stream_new (BGP_MAX_PACKET_SIZE);
 
   bgp_sync_init (peer);
 
@@ -1272,8 +1273,10 @@ peer_delete (struct peer *peer)
     stream_fifo_free (peer->obuf);
   if (peer->work)
     stream_free (peer->work);
+  if (peer->scratch)
+    stream_free(peer->scratch);
   peer->obuf = NULL;
-  peer->work = peer->ibuf = NULL;
+  peer->work = peer->scratch = peer->ibuf = NULL;
 
   /* Local and remote addresses. */
   if (peer->su_local)

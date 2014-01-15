@@ -142,16 +142,21 @@ static struct stream *
 bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
 {
   struct stream *s;
+  struct stream *snlri;
   struct bgp_adj_out *adj;
   struct bgp_advertise *adv;
   struct stream *packet;
   struct bgp_node *rn = NULL;
   struct bgp_info *binfo = NULL;
   bgp_size_t total_attr_len = 0;
-  unsigned long pos;
+  unsigned long attrlen_pos = 0;
+  size_t mpattrlen_pos = 0;
+  size_t mpattr_pos = 0;
 
   s = peer->work;
   stream_reset (s);
+  snlri = peer->scratch;
+  stream_reset (snlri);
 
   adv = FIFO_HEAD (&peer->sync[afi][safi]->update);
 
@@ -164,39 +169,61 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
         binfo = adv->binfo;
 
       /* When remaining space can't include NLRI and it's length.  */
-      if (STREAM_REMAIN (s) <= BGP_NLRI_LENGTH + PSIZE (rn->p.prefixlen))
+      if (STREAM_CONCAT_REMAIN (s, snlri, STREAM_SIZE(s)) <=
+	  (BGP_NLRI_LENGTH + PSIZE (rn->p.prefixlen)))
 	break;
 
       /* If packet is empty, set attribute. */
       if (stream_empty (s))
 	{
-	  struct prefix_rd *prd = NULL;
-	  u_char *tag = NULL;
 	  struct peer *from = NULL;
-	  
-	  if (rn->prn)
-	    prd = (struct prefix_rd *) &rn->prn->p;
+
           if (binfo)
-            {
-              from = binfo->peer;
-              if (binfo->extra)
-                tag = binfo->extra->tag;
-            }
-          
+	    from = binfo->peer;
+
+	  /* 1: Write the BGP message header - 16 bytes marker, 2 bytes length,
+	   * one byte message type.
+	   */
 	  bgp_packet_set_marker (s, BGP_MSG_UPDATE);
-	  stream_putw (s, 0);		
-	  pos = stream_get_endp (s);
+
+	  /* 2: withdrawn routes length */
 	  stream_putw (s, 0);
-	  total_attr_len = bgp_packet_attribute (NULL, peer, s, 
+
+	  /* 3: total attributes length - attrlen_pos stores the position */
+	  attrlen_pos = stream_get_endp (s);
+	  stream_putw (s, 0);
+
+	  /* 4: if there is MP_REACH_NLRI attribute, that should be the first
+	   * attribute, according to draft-ietf-idr-error-handling. Save the
+	   * position.
+	   */
+	  mpattr_pos = stream_get_endp(s);
+
+	  /* 5: Encode all the attributes, except MP_REACH_NLRI attr. */
+	  total_attr_len = bgp_packet_attribute (NULL, peer, s,
 	                                         adv->baa->attr,
-	                                         &rn->p, afi, safi, 
-	                                         from, prd, tag);
-	  stream_putw_at (s, pos, total_attr_len);
+	                                         NULL, afi, safi,
+	                                         from, NULL, NULL);
 	}
 
       if (afi == AFI_IP && safi == SAFI_UNICAST)
 	stream_put_prefix (s, &rn->p);
-      
+      else
+	{
+	  /* Encode the prefix in MP_REACH_NLRI attribute */
+	  struct prefix_rd *prd = NULL;
+	  u_char *tag = NULL;
+
+	  if (rn->prn)
+	    prd = (struct prefix_rd *) &rn->prn->p;
+	  if (binfo && binfo->extra)
+	    tag = binfo->extra->tag;
+
+	  if (stream_empty(snlri))
+	    mpattrlen_pos = bgp_packet_mpattr_start(snlri, afi, safi,
+						    adv->baa->attr);
+	  bgp_packet_mpattr_prefix(snlri, afi, safi, &rn->p, prd, tag);
+	}
       if (BGP_DEBUG (update, UPDATE_OUT))
         {
           char buf[INET6_BUFSIZ];
@@ -216,18 +243,28 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
       adj->attr = bgp_attr_intern (adv->baa->attr);
 
       adv = bgp_advertise_clean (peer, adj, afi, safi);
-
-      if (! (afi == AFI_IP && safi == SAFI_UNICAST))
-	break;
     }
-	 
+
   if (! stream_empty (s))
     {
-      bgp_packet_set_size (s);
-      packet = stream_dup (s);
+      if (!stream_empty(snlri))
+	{
+	  bgp_packet_mpattr_end(snlri, mpattrlen_pos);
+	  total_attr_len += stream_get_endp(snlri);
+	}
+
+      /* set the total attribute length correctly */
+      stream_putw_at (s, attrlen_pos, total_attr_len);
+
+      if (!stream_empty(snlri))
+	packet = stream_dupcat(s, snlri, mpattr_pos);
+      else
+	packet = stream_dup (s);
+      bgp_packet_set_size (packet);
       bgp_packet_add (peer, packet);
       BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
       stream_reset (s);
+      stream_reset (snlri);
       return packet;
     }
   return NULL;
@@ -277,6 +314,15 @@ bgp_update_packet_eor (struct peer *peer, afi_t afi, safi_t safi)
 }
 
 /* Make BGP withdraw packet.  */
+/* For ipv4 unicast:
+   16-octet marker | 2-octet length | 1-octet type |
+    2-octet withdrawn route length | withdrawn prefixes | 2-octet attrlen (=0)
+*/
+/* For other afi/safis:
+   16-octet marker | 2-octet length | 1-octet type |
+    2-octet withdrawn route length (=0) | 2-octet attrlen |
+     mp_unreach attr type | attr len | afi | safi | withdrawn prefixes
+*/
 static struct stream *
 bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
 {
@@ -288,6 +334,10 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
   unsigned long pos;
   bgp_size_t unfeasible_len;
   bgp_size_t total_attr_len;
+  size_t mp_start = 0;
+  size_t attrlen_pos = 0;
+  size_t mplen_pos = 0;
+  u_char first_time = 1;
 
   s = peer->work;
   stream_reset (s);
@@ -298,31 +348,38 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
       adj = adv->adj;
       rn = adv->rn;
 
-      if (STREAM_REMAIN (s) 
+      if (STREAM_REMAIN (s)
 	  < (BGP_NLRI_LENGTH + BGP_TOTAL_ATTR_LEN + PSIZE (rn->p.prefixlen)))
 	break;
 
       if (stream_empty (s))
 	{
 	  bgp_packet_set_marker (s, BGP_MSG_UPDATE);
-	  stream_putw (s, 0);
+	  stream_putw (s, 0); /* unfeasible routes length */
 	}
+      else
+	first_time = 0;
 
       if (afi == AFI_IP && safi == SAFI_UNICAST)
 	stream_put_prefix (s, &rn->p);
       else
 	{
 	  struct prefix_rd *prd = NULL;
-	  
+
 	  if (rn->prn)
 	    prd = (struct prefix_rd *) &rn->prn->p;
-	  pos = stream_get_endp (s);
-	  stream_putw (s, 0);
-	  total_attr_len
-	    = bgp_packet_withdraw (peer, s, &rn->p, afi, safi, prd, NULL);
-      
-	  /* Set total path attribute length. */
-	  stream_putw_at (s, pos, total_attr_len);
+
+	  /* If first time, format the MP_UNREACH header */
+	  if (first_time)
+	    {
+	      attrlen_pos = stream_get_endp (s);
+	      /* total attr length = 0 for now. reevaluate later */
+	      stream_putw (s, 0);
+	      mp_start = stream_get_endp (s);
+	      mplen_pos = bgp_packet_mpunreach_start(s, afi, safi);
+	    }
+
+	  bgp_packet_mpunreach_prefix(s, &rn->p, afi, safi, prd, NULL);
 	}
 
       if (BGP_DEBUG (update, UPDATE_OUT))
@@ -339,19 +396,25 @@ bgp_withdraw_packet (struct peer *peer, afi_t afi, safi_t safi)
 
       bgp_adj_out_remove (rn, adj, peer, afi, safi);
       bgp_unlock_node (rn);
-
-      if (! (afi == AFI_IP && safi == SAFI_UNICAST))
-	break;
     }
 
   if (! stream_empty (s))
     {
       if (afi == AFI_IP && safi == SAFI_UNICAST)
 	{
-	  unfeasible_len 
+	  unfeasible_len
 	    = stream_get_endp (s) - BGP_HEADER_SIZE - BGP_UNFEASIBLE_LEN;
 	  stream_putw_at (s, BGP_HEADER_SIZE, unfeasible_len);
 	  stream_putw (s, 0);
+	}
+      else
+	{
+	  /* Set the mp_unreach attr's length */
+	  bgp_packet_mpunreach_end(s, mplen_pos);
+
+	  /* Set total path attribute length. */
+	  total_attr_len = stream_get_endp(s) - mp_start;
+	  stream_putw_at (s, attrlen_pos, total_attr_len);
 	}
       bgp_packet_set_size (s);
       packet = stream_dup (s);
@@ -439,10 +502,12 @@ bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
   struct stream *s;
   struct stream *packet;
   struct prefix p;
-  unsigned long pos;
+  unsigned long attrlen_pos = 0;
   unsigned long cp;
   bgp_size_t unfeasible_len;
   bgp_size_t total_attr_len;
+  size_t mp_start = 0;
+  size_t mplen_pos = 0;
 
   if (DISABLE_BGP_ANNOUNCE)
     return;
@@ -455,7 +520,6 @@ bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
 #endif /* HAVE_IPV6 */
 
   total_attr_len = 0;
-  pos = 0;
 
   if (BGP_DEBUG (update, UPDATE_OUT))
     {
@@ -490,12 +554,18 @@ bgp_default_withdraw_send (struct peer *peer, afi_t afi, safi_t safi)
     }
   else
     {
-      pos = stream_get_endp (s);
+      attrlen_pos = stream_get_endp (s);
       stream_putw (s, 0);
-      total_attr_len = bgp_packet_withdraw (peer, s, &p, afi, safi, NULL, NULL);
+      mp_start = stream_get_endp (s);
+      mplen_pos = bgp_packet_mpunreach_start(s, afi, safi);
+      bgp_packet_mpunreach_prefix(s, &p, afi, safi, NULL, NULL);
+
+      /* Set the mp_unreach attr's length */
+      bgp_packet_mpunreach_end(s, mplen_pos);
 
       /* Set total path attribute length. */
-      stream_putw_at (s, pos, total_attr_len);
+      total_attr_len = stream_get_endp(s) - mp_start;
+      stream_putw_at (s, attrlen_pos, total_attr_len);
     }
 
   bgp_packet_set_size (s);

@@ -2058,12 +2058,106 @@ bgp_attr_check (struct peer *peer, struct attr *attr)
 
 int stream_put_prefix (struct stream *, struct prefix *);
 
+size_t
+bgp_packet_mpattr_start (struct stream *s, afi_t afi, safi_t safi,
+			 struct attr *attr)
+{
+  size_t sizep;
+
+  /* Set extended bit always to encode the attribute length as 2 bytes */
+  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_EXTLEN);
+  stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
+  sizep = stream_get_endp (s);
+  stream_putw (s, 0);	/* Marker: Attribute length. */
+  stream_putw (s, afi);	/* AFI */
+  stream_putc (s, safi);	/* SAFI */
+
+  /* Nexthop */
+  switch (afi)
+    {
+    case AFI_IP:
+      switch (safi)
+	{
+	case SAFI_UNICAST:
+	case SAFI_MULTICAST:
+	  stream_putc (s, 4);
+	  stream_put_ipv4 (s, attr->nexthop.s_addr);
+	  break;
+	case SAFI_MPLS_VPN:
+	  stream_putc (s, 12);
+	  stream_putl (s, 0);
+	  stream_putl (s, 0);
+	  stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
+	  break;
+	default:
+	  break;
+	}
+      break;
+#ifdef HAVE_IPV6
+    case AFI_IP6:
+      switch (safi)
+      {
+      case SAFI_UNICAST:
+      case SAFI_MULTICAST:
+	{
+	  unsigned long sizep;
+	  struct attr_extra *attre = attr->extra;
+
+	  assert (attr->extra);
+	  stream_putc (s, attre->mp_nexthop_len);
+	  stream_put (s, &attre->mp_nexthop_global, 16);
+	  if (attre->mp_nexthop_len == 32)
+	    stream_put (s, &attre->mp_nexthop_local, 16);
+	}
+      default:
+	break;
+      }
+      break;
+#endif /*HAVE_IPV6*/
+    default:
+      break;
+    }
+
+  /* SNPA */
+  stream_putc (s, 0);
+  return sizep;
+}
+
+void
+bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
+			  struct prefix *p, struct prefix_rd *prd,
+			  u_char *tag)
+{
+  switch (safi)
+    {
+    case SAFI_MPLS_VPN:
+      /* Tag, RD, Prefix write. */
+      stream_putc (s, p->prefixlen + 88);
+      stream_put (s, tag, 3);
+      stream_put (s, prd->val, 8);
+      stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
+      break;
+    default:
+      /* Prefix write. */
+      stream_put_prefix (s, p);
+      break;
+    }
+}
+
+void
+bgp_packet_mpattr_end (struct stream *s, size_t sizep)
+{
+  /* Set MP attribute length. Don't count the (2) bytes used to encode
+     the attr length */
+  stream_putw_at (s, sizep, (stream_get_endp (s) - sizep) - 2);
+}
+
 /* Make attribute packet. */
 bgp_size_t
 bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
-		      struct stream *s, struct attr *attr, struct prefix *p,
-		      afi_t afi, safi_t safi, struct peer *from,
-		      struct prefix_rd *prd, u_char *tag)
+		      struct stream *s, struct attr *attr,
+		      struct prefix *p, afi_t afi, safi_t safi,
+		      struct peer *from, struct prefix_rd *prd, u_char *tag)
 {
   size_t cp;
   size_t aspath_sizep;
@@ -2071,12 +2165,20 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   int send_as4_path = 0;
   int send_as4_aggregator = 0;
   int use32bit = (CHECK_FLAG (peer->cap, PEER_CAP_AS4_RCV)) ? 1 : 0;
+  size_t mpattrlen_pos = 0;
 
   if (! bgp)
     bgp = bgp_get_default ();
 
   /* Remember current pointer. */
   cp = stream_get_endp (s);
+
+  if (p && !(afi == AFI_IP && safi == SAFI_UNICAST))
+    {
+      mpattrlen_pos = bgp_packet_mpattr_start(s, afi, safi, attr);
+      bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag);
+      bgp_packet_mpattr_end(s, mpattrlen_pos);
+    }
 
   /* Origin attribute. */
   stream_putc (s, BGP_ATTR_FLAG_TRANS);
@@ -2286,96 +2388,6 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 	}
     }
 
-#ifdef HAVE_IPV6
-  /* If p is IPv6 address put it into attribute. */
-  if (p->family == AF_INET6)
-    {
-      unsigned long sizep;
-      struct attr_extra *attre = attr->extra;
-      
-      assert (attr->extra);
-      
-      stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
-      stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
-      sizep = stream_get_endp (s);
-      stream_putc (s, 0);	/* Marker: Attribute length. */
-      stream_putw (s, AFI_IP6);	/* AFI */
-      stream_putc (s, safi);	/* SAFI */
-
-      stream_putc (s, attre->mp_nexthop_len);
-
-      if (attre->mp_nexthop_len == 16)
-	stream_put (s, &attre->mp_nexthop_global, 16);
-      else if (attre->mp_nexthop_len == 32)
-	{
-	  stream_put (s, &attre->mp_nexthop_global, 16);
-	  stream_put (s, &attre->mp_nexthop_local, 16);
-	}
-      
-      /* SNPA */
-      stream_putc (s, 0);
-
-      /* Prefix write. */
-      stream_put_prefix (s, p);
-
-      /* Set MP attribute length. */
-      stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);
-    }
-#endif /* HAVE_IPV6 */
-
-  if (p->family == AF_INET && safi == SAFI_MULTICAST)
-    {
-      unsigned long sizep;
-
-      stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
-      stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
-      sizep = stream_get_endp (s);
-      stream_putc (s, 0);	/* Marker: Attribute Length. */
-      stream_putw (s, AFI_IP);	/* AFI */
-      stream_putc (s, SAFI_MULTICAST);	/* SAFI */
-
-      stream_putc (s, 4);
-      stream_put_ipv4 (s, attr->nexthop.s_addr);
-
-      /* SNPA */
-      stream_putc (s, 0);
-
-      /* Prefix write. */
-      stream_put_prefix (s, p);
-
-      /* Set MP attribute length. */
-      stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);
-    }
-
-  if (p->family == AF_INET && safi == SAFI_MPLS_VPN)
-    {
-      unsigned long sizep;
-
-      stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
-      stream_putc (s, BGP_ATTR_MP_REACH_NLRI);
-      sizep = stream_get_endp (s);
-      stream_putc (s, 0);	/* Length of this attribute. */
-      stream_putw (s, AFI_IP);	/* AFI */
-      stream_putc (s, SAFI_MPLS_LABELED_VPN);	/* SAFI */
-
-      stream_putc (s, 12);
-      stream_putl (s, 0);
-      stream_putl (s, 0);
-      stream_put (s, &attr->extra->mp_nexthop_global_in, 4);
-
-      /* SNPA */
-      stream_putc (s, 0);
-
-      /* Tag, RD, Prefix write. */
-      stream_putc (s, p->prefixlen + 88);
-      stream_put (s, tag, 3);
-      stream_put (s, prd->val, 8);
-      stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
-
-      /* Set MP attribute length. */
-      stream_putc_at (s, sizep, (stream_get_endp (s) - sizep) - 1);
-    }
-
   /* Extended Communities attribute. */
   if (CHECK_FLAG (peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY) 
       && (attr->flag & ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES)))
@@ -2497,50 +2509,49 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
   return stream_get_endp (s) - cp;
 }
 
-bgp_size_t
-bgp_packet_withdraw (struct peer *peer, struct stream *s, struct prefix *p,
-		     afi_t afi, safi_t safi, struct prefix_rd *prd,
-		     u_char *tag)
+size_t
+bgp_packet_mpunreach_start (struct stream *s, afi_t afi, safi_t safi)
 {
-  unsigned long cp;
   unsigned long attrlen_pnt;
-  bgp_size_t size;
 
-  cp = stream_get_endp (s);
-
-  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL);
+  /* Set extended bit always to encode the attribute length as 2 bytes */
+  stream_putc (s, BGP_ATTR_FLAG_OPTIONAL|BGP_ATTR_FLAG_EXTLEN);
   stream_putc (s, BGP_ATTR_MP_UNREACH_NLRI);
 
   attrlen_pnt = stream_get_endp (s);
-  stream_putc (s, 0);		/* Length of this attribute. */
+  stream_putw (s, 0);		/* Length of this attribute. */
 
-  stream_putw (s, family2afi (p->family));
+  stream_putw (s, afi);
+  safi = (safi == SAFI_MPLS_VPN) ? SAFI_MPLS_LABELED_VPN : safi;
+  stream_putc (s, safi);
+  return attrlen_pnt;
+}
 
+void
+bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
+			     afi_t afi, safi_t safi, struct prefix_rd *prd,
+			     u_char *tag)
+{
   if (safi == SAFI_MPLS_VPN)
     {
-      /* SAFI */
-      stream_putc (s, SAFI_MPLS_LABELED_VPN);
-
-      /* prefix. */
       stream_putc (s, p->prefixlen + 88);
       stream_put (s, tag, 3);
       stream_put (s, prd->val, 8);
       stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
     }
   else
-    {
-      /* SAFI */
-      stream_putc (s, safi);
+    stream_put_prefix (s, p);
+}
 
-      /* prefix */
-      stream_put_prefix (s, p);
-    }
+void
+bgp_packet_mpunreach_end (struct stream *s, size_t attrlen_pnt)
+{
+  bgp_size_t size;
 
-  /* Set MP attribute length. */
-  size = stream_get_endp (s) - attrlen_pnt - 1;
-  stream_putc_at (s, attrlen_pnt, size);
-
-  return stream_get_endp (s) - cp;
+  /* Set MP attribute length. Don't count the (2) bytes used to encode
+     the attr length */
+  size = stream_get_endp (s) - attrlen_pnt - 2;
+  stream_putw_at (s, attrlen_pnt, size);
 }
 
 /* Initialization of attribute. */

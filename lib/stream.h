@@ -122,6 +122,9 @@ struct stream_fifo
   /* number of bytes still to be read */
 #define STREAM_READABLE(S) ((S)->endp - (S)->getp)
 
+#define STREAM_CONCAT_REMAIN(S1, S2, size) \
+  ((size) - (S1)->endp - (S2)->endp)
+
 /* deprecated macros - do not use in new code */
 #define STREAM_PNT(S)   stream_pnt((S))
 #define STREAM_DATA(S)  ((S)->data)
@@ -144,6 +147,14 @@ extern size_t stream_get_getp (struct stream *);
 extern size_t stream_get_endp (struct stream *);
 extern size_t stream_get_size (struct stream *);
 extern u_char *stream_get_data (struct stream *);
+
+/**
+ * Create a new stream structure; copy offset bytes from s1 to the new
+ * stream; copy s2 data to the new stream; copy rest of s1 data to the
+ * new stream.
+ */
+extern struct stream *stream_dupcat(struct stream *s1, struct stream *s2,
+				    size_t offset);
 
 extern void stream_set_getp (struct stream *, size_t);
 extern void stream_set_endp (struct stream *, size_t);
