@@ -742,7 +742,6 @@ parse_tlvs (char *areatag, u_char * stream, int size, u_int32_t * expected,
 	  zlog_warn ("ISIS-TLV (%s): unsupported TLV type %d, length %d",
 		     areatag, type, length);
 
-	  retval = ISIS_WARNING;
 	  pnt += length;
 	  break;
 	}
