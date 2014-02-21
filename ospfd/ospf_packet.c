@@ -2120,7 +2120,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 
       lsr = ospf_ls_retransmit_lookup (nbr, lsa);
 
-      if (lsr != NULL && lsr->data->ls_seqnum == lsa->data->ls_seqnum)
+      if (lsr != NULL && ospf_lsa_more_recent (lsr, lsa) == 0)
         {
 #ifdef HAVE_OPAQUE_LSA
           if (IS_OPAQUE_LSA (lsr->data->type))
