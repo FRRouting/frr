@@ -35,6 +35,16 @@ extern unsigned char conf_debug_ospf6_zebra;
 #define IS_OSPF6_DEBUG_ZEBRA(e) \
   (conf_debug_ospf6_zebra & OSPF6_DEBUG_ZEBRA_ ## e)
 
+/* OSPF6 distance */
+struct ospf6_distance
+{
+  /* Distance value for the IP source prefix */
+  u_char distance;
+
+  /* Name of the access-list to be matched */
+  char *access_list;
+};
+
 extern struct zclient *zclient;
 
 extern void ospf6_zebra_route_update_add (struct ospf6_route *request);
@@ -47,6 +57,15 @@ extern void ospf6_zebra_no_redistribute (int);
 extern void ospf6_zebra_init (struct thread_master *);
 extern void ospf6_zebra_add_discard (struct ospf6_route *request);
 extern void ospf6_zebra_delete_discard (struct ospf6_route *request);
+
+struct ospf6;
+extern void ospf6_distance_reset (struct ospf6 *);
+extern u_char ospf6_distance_apply (struct prefix_ipv6 *, struct ospf6_route *);
+
+extern int ospf6_distance_set (struct vty *, struct ospf6 *, const char *,
+                               const char *, const char *);
+extern int ospf6_distance_unset (struct vty *, struct ospf6 *, const char *,
+                                 const char *, const char *);
 
 extern int config_write_ospf6_debug_zebra (struct vty *vty);
 extern void install_element_ospf6_debug_zebra (void);
