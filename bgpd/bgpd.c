@@ -7123,6 +7123,8 @@ bgp_config_write_family (struct vty *vty, struct bgp *bgp, afi_t afi,
   struct peer_group *group;
   struct listnode *node, *nnode;
 
+  bgp_config_write_distance (vty, bgp, afi, safi, &write);
+
   bgp_config_write_network (vty, bgp, afi, safi, &write);
 
   bgp_config_write_redistribute (vty, bgp, afi, safi, &write);
@@ -7371,9 +7373,6 @@ bgp_config_write (struct vty *vty)
 	    bgp_config_write_peer_global (vty, bgp, peer);
 	}
 
-      /* Distance configuration. */
-      bgp_config_write_distance (vty, bgp);
-      
       /* listen range and limit for dynamic BGP neighbors */
       bgp_config_write_listen (vty, bgp);
 

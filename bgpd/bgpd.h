@@ -320,9 +320,9 @@ struct bgp
 #define RMAP_DEFAULT_ORIGINATE_EVAL_TIMER 5
 
   /* BGP distance configuration.  */
-  u_char distance_ebgp;
-  u_char distance_ibgp;
-  u_char distance_local;
+  u_char distance_ebgp[AFI_MAX][SAFI_MAX];
+  u_char distance_ibgp[AFI_MAX][SAFI_MAX];
+  u_char distance_local[AFI_MAX][SAFI_MAX];
   
   /* BGP default local-preference.  */
   u_int32_t default_local_pref;
