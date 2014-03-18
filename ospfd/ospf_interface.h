@@ -140,14 +140,6 @@ struct ospf_interface
 
   /* OSPF Network Type. */
   u_char type;
-#define OSPF_IFTYPE_NONE		0
-#define OSPF_IFTYPE_POINTOPOINT		1
-#define OSPF_IFTYPE_BROADCAST		2
-#define OSPF_IFTYPE_NBMA		3
-#define OSPF_IFTYPE_POINTOMULTIPOINT	4
-#define OSPF_IFTYPE_VIRTUALLINK		5
-#define OSPF_IFTYPE_LOOPBACK            6
-#define OSPF_IFTYPE_MAX			7
 
   /* State of Interface State Machine. */
   u_char state;

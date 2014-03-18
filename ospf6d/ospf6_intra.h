@@ -94,6 +94,13 @@ struct ospf6_router_lsdesc
 #define OSPF6_ROUTER_LSDESC_STUB_NETWORK       3
 #define OSPF6_ROUTER_LSDESC_VIRTUAL_LINK       4
 
+enum stub_router_mode
+  {
+    OSPF6_NOT_STUB_ROUTER,
+    OSPF6_IS_STUB_ROUTER,
+    OSPF6_IS_STUB_ROUTER_V6,
+  };
+
 #define ROUTER_LSDESC_IS_TYPE(t,x)                         \
   ((((struct ospf6_router_lsdesc *)(x))->type ==           \
    OSPF6_ROUTER_LSDESC_ ## t) ? 1 : 0)
@@ -149,32 +156,37 @@ struct ospf6_intra_prefix_lsa
 
 #define OSPF6_ROUTER_LSA_SCHEDULE(oa) \
   do { \
-    if (! (oa)->thread_router_lsa) \
+    if (! (oa)->thread_router_lsa \
+        && CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE)) \
       (oa)->thread_router_lsa = \
         thread_add_event (master, ospf6_router_lsa_originate, oa, 0); \
   } while (0)
 #define OSPF6_NETWORK_LSA_SCHEDULE(oi) \
   do { \
-    if (! (oi)->thread_network_lsa) \
+    if (! (oi)->thread_network_lsa \
+        && ! CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE)) \
       (oi)->thread_network_lsa = \
         thread_add_event (master, ospf6_network_lsa_originate, oi, 0); \
   } while (0)
 #define OSPF6_LINK_LSA_SCHEDULE(oi) \
   do { \
-    if (! (oi)->thread_link_lsa) \
+    if (! (oi)->thread_link_lsa \
+        && ! CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE)) \
       (oi)->thread_link_lsa = \
         thread_add_event (master, ospf6_link_lsa_originate, oi, 0); \
   } while (0)
 #define OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oa) \
   do { \
-    if (! (oa)->thread_intra_prefix_lsa) \
+    if (! (oa)->thread_intra_prefix_lsa \
+        && CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE)) \
       (oa)->thread_intra_prefix_lsa = \
         thread_add_event (master, ospf6_intra_prefix_lsa_originate_stub, \
                           oa, 0); \
   } while (0)
 #define OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi) \
   do { \
-    if (! (oi)->thread_intra_prefix_lsa) \
+    if (! (oi)->thread_intra_prefix_lsa \
+        && ! CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE)) \
       (oi)->thread_intra_prefix_lsa = \
         thread_add_event (master, ospf6_intra_prefix_lsa_originate_transit, \
                           oi, 0); \
@@ -200,6 +212,7 @@ extern char *ospf6_router_lsdesc_lookup (u_char type, u_int32_t interface_id,
 extern char *ospf6_network_lsdesc_lookup (u_int32_t router_id,
                                           struct ospf6_lsa *lsa);
 
+extern int ospf6_router_is_stub_router (struct ospf6_lsa *lsa);
 extern int ospf6_router_lsa_originate (struct thread *);
 extern int ospf6_network_lsa_originate (struct thread *);
 extern int ospf6_link_lsa_originate (struct thread *);

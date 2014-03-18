@@ -98,7 +98,6 @@ ospf6_neighbor_create (u_int32_t router_id, struct ospf6_interface *oi)
   on->retrans_list = ospf6_lsdb_create (on);
 
   on->dbdesc_list = ospf6_lsdb_create (on);
-  on->lsreq_list = ospf6_lsdb_create (on);
   on->lsupdate_list = ospf6_lsdb_create (on);
   on->lsack_list = ospf6_lsdb_create (on);
 
@@ -121,7 +120,6 @@ ospf6_neighbor_delete (struct ospf6_neighbor *on)
     }
 
   ospf6_lsdb_remove_all (on->dbdesc_list);
-  ospf6_lsdb_remove_all (on->lsreq_list);
   ospf6_lsdb_remove_all (on->lsupdate_list);
   ospf6_lsdb_remove_all (on->lsack_list);
 
@@ -130,7 +128,6 @@ ospf6_neighbor_delete (struct ospf6_neighbor *on)
   ospf6_lsdb_delete (on->retrans_list);
 
   ospf6_lsdb_delete (on->dbdesc_list);
-  ospf6_lsdb_delete (on->lsreq_list);
   ospf6_lsdb_delete (on->lsupdate_list);
   ospf6_lsdb_delete (on->lsack_list);
 
@@ -145,7 +142,7 @@ ospf6_neighbor_delete (struct ospf6_neighbor *on)
 }
 
 static void
-ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on)
+ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on, int event)
 {
   u_char prev_state;
 
@@ -161,10 +158,22 @@ ospf6_neighbor_state_change (u_char next_state, struct ospf6_neighbor *on)
   /* log */
   if (IS_OSPF6_DEBUG_NEIGHBOR (STATE))
     {
-      zlog_debug ("Neighbor state change %s: [%s]->[%s]", on->name,
+      zlog_debug ("Neighbor state change %s: [%s]->[%s] (%s)", on->name,
 		  ospf6_neighbor_state_str[prev_state],
-		  ospf6_neighbor_state_str[next_state]);
+		  ospf6_neighbor_state_str[next_state],
+		  ospf6_neighbor_event_string(event));
     }
+
+  /* Optionally notify about adjacency changes */
+  if (CHECK_FLAG(on->ospf6_if->area->ospf6->config_flags,
+		 OSPF6_LOG_ADJACENCY_CHANGES) &&
+      (CHECK_FLAG(on->ospf6_if->area->ospf6->config_flags,
+		  OSPF6_LOG_ADJACENCY_DETAIL) ||
+       (next_state == OSPF6_NEIGHBOR_FULL) || (next_state < prev_state)))
+    zlog_notice("AdjChg: Nbr %s: %s -> %s (%s)", on->name,
+		ospf6_neighbor_state_str[prev_state],
+		ospf6_neighbor_state_str[next_state],
+		ospf6_neighbor_event_string(event));
 
   if (prev_state == OSPF6_NEIGHBOR_FULL || next_state == OSPF6_NEIGHBOR_FULL)
     {
@@ -226,7 +235,8 @@ hello_received (struct thread *thread)
                                            on->ospf6_if->dead_interval);
 
   if (on->state <= OSPF6_NEIGHBOR_DOWN)
-    ospf6_neighbor_state_change (OSPF6_NEIGHBOR_INIT, on);
+    ospf6_neighbor_state_change (OSPF6_NEIGHBOR_INIT, on,
+				 OSPF6_NEIGHBOR_EVENT_HELLO_RCVD);
 
   return 0;
 }
@@ -249,11 +259,13 @@ twoway_received (struct thread *thread)
 
   if (! need_adjacency (on))
     {
-      ospf6_neighbor_state_change (OSPF6_NEIGHBOR_TWOWAY, on);
+      ospf6_neighbor_state_change (OSPF6_NEIGHBOR_TWOWAY, on,
+				   OSPF6_NEIGHBOR_EVENT_TWOWAY_RCVD);
       return 0;
     }
 
-  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on);
+  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on,
+			       OSPF6_NEIGHBOR_EVENT_TWOWAY_RCVD);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MBIT);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT);
@@ -330,7 +342,8 @@ negotiation_done (struct thread *thread)
     }
 
   UNSET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT);
-  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXCHANGE, on);
+  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXCHANGE, on,
+			       OSPF6_NEIGHBOR_EVENT_NEGOTIATION_DONE);
 
   return 0;
 }
@@ -358,11 +371,43 @@ exchange_done (struct thread *thread)
 */
 
   if (on->request_list->count == 0)
-    ospf6_neighbor_state_change (OSPF6_NEIGHBOR_FULL, on);
+    ospf6_neighbor_state_change (OSPF6_NEIGHBOR_FULL, on,
+				 OSPF6_NEIGHBOR_EVENT_EXCHANGE_DONE);
   else
-    ospf6_neighbor_state_change (OSPF6_NEIGHBOR_LOADING, on);
+    {
+      ospf6_neighbor_state_change (OSPF6_NEIGHBOR_LOADING, on,
+				   OSPF6_NEIGHBOR_EVENT_EXCHANGE_DONE);
+
+      if (on->thread_send_lsreq == NULL)
+	on->thread_send_lsreq =
+	  thread_add_event (master, ospf6_lsreq_send, on, 0);
+    }
 
   return 0;
+}
+
+/* Check loading state. */
+void
+ospf6_check_nbr_loading (struct ospf6_neighbor *on)
+{
+
+  /* RFC2328 Section 10.9: When the neighbor responds to these requests
+     with the proper Link State Update packet(s), the Link state request
+     list is truncated and a new Link State Request packet is sent.
+  */
+  if ((on->state == OSPF6_NEIGHBOR_LOADING) ||
+      (on->state == OSPF6_NEIGHBOR_EXCHANGE))
+    {
+      if (on->request_list->count == 0)
+	thread_add_event (master, loading_done, on, 0);
+      else if (on->last_ls_req == NULL)
+	{
+	  if (on->thread_send_lsreq != NULL)
+	    THREAD_OFF (on->thread_send_lsreq);
+	  on->thread_send_lsreq =
+	    thread_add_event (master, ospf6_lsreq_send, on, 0);
+	}
+    }
 }
 
 int
@@ -381,7 +426,8 @@ loading_done (struct thread *thread)
 
   assert (on->request_list->count == 0);
 
-  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_FULL, on);
+  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_FULL, on,
+			       OSPF6_NEIGHBOR_EVENT_LOADING_DONE);
 
   return 0;
 }
@@ -400,7 +446,8 @@ adj_ok (struct thread *thread)
 
   if (on->state == OSPF6_NEIGHBOR_TWOWAY && need_adjacency (on))
     {
-      ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on);
+      ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on,
+				   OSPF6_NEIGHBOR_EVENT_ADJ_OK);
       SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT);
       SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MBIT);
       SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT);
@@ -413,7 +460,8 @@ adj_ok (struct thread *thread)
   else if (on->state >= OSPF6_NEIGHBOR_EXSTART &&
            ! need_adjacency (on))
     {
-      ospf6_neighbor_state_change (OSPF6_NEIGHBOR_TWOWAY, on);
+      ospf6_neighbor_state_change (OSPF6_NEIGHBOR_TWOWAY, on,
+				   OSPF6_NEIGHBOR_EVENT_ADJ_OK);
       ospf6_lsdb_remove_all (on->summary_list);
       ospf6_lsdb_remove_all (on->request_list);
       for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
@@ -442,7 +490,8 @@ seqnumber_mismatch (struct thread *thread)
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
     zlog_debug ("Neighbor Event %s: *SeqNumberMismatch*", on->name);
 
-  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on);
+  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on,
+			       OSPF6_NEIGHBOR_EVENT_SEQNUMBER_MISMATCH);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MBIT);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT);
@@ -457,6 +506,8 @@ seqnumber_mismatch (struct thread *thread)
     }
 
   THREAD_OFF (on->thread_send_dbdesc);
+  on->dbdesc_seqnum++;		/* Incr seqnum as per RFC2328, sec 10.3 */
+
   on->thread_send_dbdesc =
     thread_add_event (master, ospf6_dbdesc_send, on, 0);
 
@@ -478,7 +529,8 @@ bad_lsreq (struct thread *thread)
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
     zlog_debug ("Neighbor Event %s: *BadLSReq*", on->name);
 
-  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on);
+  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_EXSTART, on,
+			       OSPF6_NEIGHBOR_EVENT_BAD_LSREQ);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MSBIT);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_MBIT);
   SET_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT);
@@ -493,6 +545,8 @@ bad_lsreq (struct thread *thread)
     }
 
   THREAD_OFF (on->thread_send_dbdesc);
+  on->dbdesc_seqnum++;		/* Incr seqnum as per RFC2328, sec 10.3 */
+
   on->thread_send_dbdesc =
     thread_add_event (master, ospf6_dbdesc_send, on, 0);
 
@@ -514,7 +568,8 @@ oneway_received (struct thread *thread)
   if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
     zlog_debug ("Neighbor Event %s: *1Way-Received*", on->name);
 
-  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_INIT, on);
+  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_INIT, on,
+			       OSPF6_NEIGHBOR_EVENT_ONEWAY_RCVD);
   thread_add_event (master, neighbor_change, on->ospf6_if, 0);
 
   ospf6_lsdb_remove_all (on->summary_list);
@@ -549,7 +604,8 @@ inactivity_timer (struct thread *thread)
   on->drouter = on->prev_drouter = 0;
   on->bdrouter = on->prev_bdrouter = 0;
 
-  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_DOWN, on);
+  ospf6_neighbor_state_change (OSPF6_NEIGHBOR_DOWN, on,
+			       OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER);
   thread_add_event (master, neighbor_change, on->ospf6_if, 0);
 
   listnode_delete (on->ospf6_if->neighbor_list, on);
@@ -727,10 +783,10 @@ ospf6_neighbor_show_detail (struct vty *vty, struct ospf6_neighbor *on)
     timersub (&on->thread_send_lsreq->u.sands, &now, &res);
   timerstring (&res, duration, sizeof (duration));
   vty_out (vty, "    %d Pending LSAs for LSReq in Time %s [thread %s]%s",
-           on->lsreq_list->count, duration,
+           on->request_list->count, duration,
            (on->thread_send_lsreq ? "on" : "off"),
            VNL);
-  for (lsa = ospf6_lsdb_head (on->lsreq_list); lsa;
+  for (lsa = ospf6_lsdb_head (on->request_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
     vty_out (vty, "      %s%s", lsa->name, VNL);
 

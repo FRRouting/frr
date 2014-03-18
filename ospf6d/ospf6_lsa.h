@@ -107,15 +107,16 @@ struct ospf6_lsa_header
   ((L)->header->adv_router == (a) && (L)->header->id == (i) && \
    (L)->header->type == (t))
 #define OSPF6_LSA_IS_DIFFER(L1, L2)  ospf6_lsa_is_differ (L1, L2)
-#define OSPF6_LSA_IS_MAXAGE(L) (ospf6_lsa_age_current (L) == MAXAGE)
+#define OSPF6_LSA_IS_MAXAGE(L) (ospf6_lsa_age_current (L) == OSPF_LSA_MAXAGE)
 #define OSPF6_LSA_IS_CHANGED(L1, L2) ospf6_lsa_is_changed (L1, L2)
+#define OSPF6_LSA_IS_SEQWRAP(L) ((L)->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER + 1))
+
 
 struct ospf6_lsa
 {
   char              name[64];   /* dump string */
 
-  struct ospf6_lsa *prev;
-  struct ospf6_lsa *next;
+  struct route_node *rn;
 
   unsigned char     lock;           /* reference counter */
   unsigned char     flag;           /* special meaning (e.g. floodback) */
@@ -140,12 +141,15 @@ struct ospf6_lsa
 #define OSPF6_LSA_FLOODBACK  0x02
 #define OSPF6_LSA_DUPLICATE  0x04
 #define OSPF6_LSA_IMPLIEDACK 0x08
+#define OSPF6_LSA_SEQWRAPPED 0x20
 
 struct ospf6_lsa_handler
 {
   u_int16_t type; /* host byte order */
   const char *name;
+  const char *short_name;
   int (*show) (struct vty *, struct ospf6_lsa *);
+  char *(*get_prefix_str) (struct ospf6_lsa *, char *buf, int buflen, int pos);
   u_char debug;
 };
 
@@ -208,6 +212,7 @@ extern struct ospf6_lsa_handler unknown_handler;
 
 /* Function Prototypes */
 extern const char *ospf6_lstype_name (u_int16_t type);
+extern const char *ospf6_lstype_short_name (u_int16_t type);
 extern u_char ospf6_lstype_debug (u_int16_t type);
 extern int ospf6_lsa_is_differ (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 extern int ospf6_lsa_is_changed (struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);

@@ -56,6 +56,9 @@ struct ospf6_interface
   /* I/F transmission delay */
   u_int32_t transdelay;
 
+  /* Network Type */
+  u_char type;
+
   /* Router Priority */
   u_char priority;
 

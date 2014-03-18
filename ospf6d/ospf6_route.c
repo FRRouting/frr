@@ -304,7 +304,7 @@ ospf6_route_lookup_bestmatch (struct prefix *prefix,
   return route;
 }
 
-#ifndef NDEBUG
+#ifdef DEBUG
 static void
 route_table_assert (struct ospf6_route_table *table)
 {
@@ -350,7 +350,7 @@ route_table_assert (struct ospf6_route_table *table)
 #define ospf6_route_table_assert(t) (route_table_assert (t))
 #else
 #define ospf6_route_table_assert(t) ((void) 0)
-#endif /*NDEBUG*/
+#endif /*DEBUG*/
 
 struct ospf6_route *
 ospf6_route_add (struct ospf6_route *route,

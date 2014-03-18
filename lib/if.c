@@ -304,6 +304,30 @@ if_lookup_address (struct in_addr src)
   return match;
 }
 
+/* Lookup interface by prefix */
+struct interface *
+if_lookup_prefix (struct prefix *prefix)
+{
+  struct listnode *node;
+  struct prefix addr;
+  int bestlen = 0;
+  struct listnode *cnode;
+  struct interface *ifp;
+  struct connected *c;
+
+  for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
+    {
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
+        {
+          if (prefix_cmp(c->address, prefix) == 0)
+            {
+              return ifp;
+            }
+        }
+    }
+  return NULL;
+}
+
 /* Get interface by name if given name interface doesn't exist create
    one. */
 struct interface *

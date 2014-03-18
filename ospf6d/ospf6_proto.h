@@ -26,32 +26,11 @@
 /* OSPF protocol version */
 #define OSPFV3_VERSION           3
 
-/* OSPF protocol number. */
-#ifndef IPPROTO_OSPFIGP
-#define IPPROTO_OSPFIGP         89
-#endif
-
 /* TOS field normaly null */
 #define DEFAULT_TOS_VALUE      0x0
 
-/* Architectural Constants */
-#define LS_REFRESH_TIME                1800  /* 30 min */
-#define MIN_LS_INTERVAL                   5
-#define MIN_LS_ARRIVAL                    1
-#define MAXAGE                         3600  /* 1 hour */
-#define CHECK_AGE                       300  /* 5 min */
-#define MAX_AGE_DIFF                    900  /* 15 min */
-#define LS_INFINITY                0xffffff  /* 24-bit binary value */
-#define INITIAL_SEQUENCE_NUMBER  0x80000001  /* signed 32-bit integer */
-#define MAX_SEQUENCE_NUMBER      0x7fffffff  /* signed 32-bit integer */
-
 #define ALLSPFROUTERS6 "ff02::5"
 #define ALLDROUTERS6   "ff02::6"
-
-/* Configurable Constants */
-
-#define DEFAULT_HELLO_INTERVAL       10
-#define DEFAULT_ROUTER_DEAD_INTERVAL 40
 
 #define OSPF6_ROUTER_BIT_W     (1 << 3)
 #define OSPF6_ROUTER_BIT_V     (1 << 2)

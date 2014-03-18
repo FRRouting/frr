@@ -117,7 +117,9 @@ ospf6_zebra_if_del (int command, struct zclient *zclient, zebra_size_t length)
 		ifp->name, ifp->ifindex, ifp->mtu6);
 
 #if 0
-  /* Why is this commented out? */
+  /* XXX: ospf6_interface_if_del is not the right way to handle this,
+   * because among other thinkable issues, it will also clear all
+   * settings as they are contained in the struct ospf6_interface. */
   ospf6_interface_if_del (ifp);
 #endif /*0*/
 
@@ -163,8 +165,10 @@ ospf6_zebra_if_address_update_add (int command, struct zclient *zclient,
 			   buf, sizeof (buf)), c->address->prefixlen);
 
   if (c->address->family == AF_INET6)
-    ospf6_interface_connected_route_update (c->ifp);
-
+    {
+      ospf6_interface_state_update (c->ifp);
+      ospf6_interface_connected_route_update (c->ifp);
+    }
   return 0;
 }
 
@@ -186,7 +190,10 @@ ospf6_zebra_if_address_update_delete (int command, struct zclient *zclient,
 			   buf, sizeof (buf)), c->address->prefixlen);
 
   if (c->address->family == AF_INET6)
-    ospf6_interface_connected_route_update (c->ifp);
+    {
+      ospf6_interface_connected_route_update (c->ifp);
+      ospf6_interface_state_update (c->ifp);
+    }
 
   return 0;
 }

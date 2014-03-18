@@ -75,7 +75,9 @@ struct ospf6_lsa_handler unknown_handler =
 {
   OSPF6_LSTYPE_UNKNOWN,
   "Unknown",
+  "Unk",
   ospf6_unknown_lsa_show,
+  NULL,
   OSPF6_LSA_DEBUG,
 };
 
@@ -118,6 +120,20 @@ ospf6_lstype_name (u_int16_t type)
   return buf;
 }
 
+const char *
+ospf6_lstype_short_name (u_int16_t type)
+{
+  static char buf[8];
+  struct ospf6_lsa_handler *handler;
+
+  handler = ospf6_get_lsa_handler (type);
+  if (handler && handler != &unknown_handler)
+    return handler->short_name;
+
+  snprintf (buf, sizeof (buf), "0x%04hx", ntohs (type));
+  return buf;
+}
+
 u_char
 ospf6_lstype_debug (u_int16_t type)
 {
@@ -139,11 +155,11 @@ ospf6_lsa_is_differ (struct ospf6_lsa *lsa1,
 
   ospf6_lsa_age_current (lsa1);
   ospf6_lsa_age_current (lsa2);
-  if (ntohs (lsa1->header->age) == MAXAGE &&
-      ntohs (lsa2->header->age) != MAXAGE)
+  if (ntohs (lsa1->header->age) == OSPF_LSA_MAXAGE &&
+      ntohs (lsa2->header->age) != OSPF_LSA_MAXAGE)
     return 1;
-  if (ntohs (lsa1->header->age) != MAXAGE &&
-      ntohs (lsa2->header->age) == MAXAGE)
+  if (ntohs (lsa1->header->age) != OSPF_LSA_MAXAGE &&
+      ntohs (lsa2->header->age) == OSPF_LSA_MAXAGE)
     return 1;
 
   /* compare body */
@@ -218,19 +234,19 @@ ospf6_lsa_age_current (struct ospf6_lsa *lsa)
     zlog_warn ("LSA: quagga_gettime failed, may fail LSA AGEs: %s",
                safe_strerror (errno));
 
-  if (ntohs (lsa->header->age) >= MAXAGE)
+  if (ntohs (lsa->header->age) >= OSPF_LSA_MAXAGE)
     {
       /* ospf6_lsa_premature_aging () sets age to MAXAGE; when using
          relative time, we cannot compare against lsa birth time, so
          we catch this special case here. */
-      lsa->header->age = htons (MAXAGE);
-      return MAXAGE;
+      lsa->header->age = htons (OSPF_LSA_MAXAGE);
+      return OSPF_LSA_MAXAGE;
     }
   /* calculate age */
   ulage = now.tv_sec - lsa->birth.tv_sec;
 
   /* if over MAXAGE, set to it */
-  age = (ulage > MAXAGE ? MAXAGE : ulage);
+  age = (ulage > OSPF_LSA_MAXAGE ? OSPF_LSA_MAXAGE : ulage);
 
   lsa->header->age = htons (age);
   return age;
@@ -243,8 +259,8 @@ ospf6_lsa_age_update_to_send (struct ospf6_lsa *lsa, u_int32_t transdelay)
   unsigned short age;
 
   age = ospf6_lsa_age_current (lsa) + transdelay;
-  if (age > MAXAGE)
-    age = MAXAGE;
+  if (age > OSPF_LSA_MAXAGE)
+    age = OSPF_LSA_MAXAGE;
   lsa->header->age = htons (age);
 }
 
@@ -258,7 +274,30 @@ ospf6_lsa_premature_aging (struct ospf6_lsa *lsa)
   THREAD_OFF (lsa->expire);
   THREAD_OFF (lsa->refresh);
 
-  lsa->header->age = htons (MAXAGE);
+  /*
+   * We clear the LSA from the neighbor retx lists now because it
+   * will not get deleted later. Essentially, changing the age to
+   * MaxAge will prevent this LSA from being matched with its
+   * existing entries in the retx list thereby causing those entries
+   * to be silently replaced with its MaxAged version, but with ever
+   * increasing retx count causing this LSA to remain forever and
+   * for the MaxAge remover thread to be called forever too.
+   *
+   * The reason the previous entry silently disappears is that when
+   * entry is added to a neighbor's retx list, it replaces the existing
+   * entry. But since the ospf6_lsdb_add() routine is generic and not aware
+   * of the special semantics of retx count, the retx count is not
+   * decremented when its replaced. Attempting to add the incr and decr
+   * retx count routines as the hook_add and hook_remove for the retx lists
+   * have a problem because the hook_remove routine is called for MaxAge
+   * entries (as will be the case in a traditional LSDB, unlike in this case
+   * where an LSDB is used as an efficient tree structure to store all kinds
+   * of data) that are added instead of calling the hook_add routine.
+   */
+
+  ospf6_flood_clear (lsa);
+
+  lsa->header->age = htons (OSPF_LSA_MAXAGE);
   thread_execute (master, ospf6_lsa_expire, lsa, 0);
 }
 
@@ -297,15 +336,15 @@ ospf6_lsa_compare (struct ospf6_lsa *a, struct ospf6_lsa *b)
   ageb = ospf6_lsa_age_current (b);
 
   /* MaxAge check */
-  if (agea == MAXAGE && ageb != MAXAGE)
+  if (agea == OSPF_LSA_MAXAGE && ageb != OSPF_LSA_MAXAGE)
     return -1;
-  else if (agea != MAXAGE && ageb == MAXAGE)
+  else if (agea != OSPF_LSA_MAXAGE && ageb == OSPF_LSA_MAXAGE)
     return 1;
 
   /* Age check */
-  if (agea > ageb && agea - ageb >= MAX_AGE_DIFF)
+  if (agea > ageb && agea - ageb >= OSPF_LSA_MAXAGE_DIFF)
     return 1;
-  else if (agea < ageb && ageb - agea >= MAX_AGE_DIFF)
+  else if (agea < ageb && ageb - agea >= OSPF_LSA_MAXAGE_DIFF)
     return -1;
 
   /* neither recent */
@@ -348,17 +387,19 @@ ospf6_lsa_header_print (struct ospf6_lsa *lsa)
 void
 ospf6_lsa_show_summary_header (struct vty *vty)
 {
-  vty_out (vty, "%-12s %-15s %-15s %4s %8s %4s %4s %-8s%s",
+  vty_out (vty, "%-4s %-15s%-15s%4s %8s %30s%s",
            "Type", "LSId", "AdvRouter", "Age", "SeqNum",
-           "Cksm", "Len", "Duration", VNL);
+           "Payload", VNL);
 }
 
 void
 ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa)
 {
   char adv_router[16], id[16];
-  struct timeval now, res;
-  char duration[16];
+  int type;
+  struct ospf6_lsa_handler *handler;
+  char buf[64], tmpbuf[80];
+  int cnt = 0;
 
   assert (lsa);
   assert (lsa->header);
@@ -367,16 +408,38 @@ ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa)
   inet_ntop (AF_INET, &lsa->header->adv_router, adv_router,
              sizeof (adv_router));
 
-  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
-  timersub (&now, &lsa->installed, &res);
-  timerstring (&res, duration, sizeof (duration));
+  type = ntohs(lsa->header->type);
+  handler = ospf6_get_lsa_handler (lsa->header->type);
+  if ((type == OSPF6_LSTYPE_INTER_PREFIX) ||
+      (type == OSPF6_LSTYPE_INTER_ROUTER) ||
+      (type == OSPF6_LSTYPE_AS_EXTERNAL))
+    {
+      vty_out (vty, "%-4s %-15s%-15s%4hu %8lx %30s%s",
+	       ospf6_lstype_short_name (lsa->header->type),
+	       id, adv_router, ospf6_lsa_age_current (lsa),
+	       (u_long) ntohl (lsa->header->seqnum),
+	       handler->get_prefix_str(lsa, buf, sizeof(buf), 0), VNL);
+    }
+  else if (type != OSPF6_LSTYPE_UNKNOWN)
+    {
+      sprintf (tmpbuf, "%-4s %-15s%-15s%4hu %8lx",
+	       ospf6_lstype_short_name (lsa->header->type),
+	       id, adv_router, ospf6_lsa_age_current (lsa),
+	       (u_long) ntohl (lsa->header->seqnum));
 
-  vty_out (vty, "%-12s %-15s %-15s %4hu %8lx %04hx %4hu %8s%s",
-           ospf6_lstype_name (lsa->header->type),
-           id, adv_router, ospf6_lsa_age_current (lsa),
-           (u_long) ntohl (lsa->header->seqnum),
-           ntohs (lsa->header->checksum), ntohs (lsa->header->length),
-           duration, VNL);
+      while (handler->get_prefix_str(lsa, buf, sizeof(buf), cnt) != NULL)
+	{
+	  vty_out (vty, "%s %30s%s", tmpbuf, buf, VNL);
+	  cnt++;
+	}
+    }
+  else
+    {
+      vty_out (vty, "%-4s %-15s%-15s%4hu %8lx%s",
+	       ospf6_lstype_short_name (lsa->header->type),
+	       id, adv_router, ospf6_lsa_age_current (lsa),
+	       (u_long) ntohl (lsa->header->seqnum), VNL);
+    }
 }
 
 void
@@ -427,8 +490,11 @@ ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa)
   vty_out (vty, "CheckSum: %#06hx Length: %hu%s",
            ntohs (lsa->header->checksum),
            ntohs (lsa->header->length), VNL);
-  vty_out (vty, "    Prev: %p This: %p Next: %p%s",
-           lsa->prev, lsa, lsa->next, VNL);
+  vty_out (vty, "Flag: %x %s", lsa->flag, VNL);
+  vty_out (vty, "Lock: %d %s", lsa->lock, VNL);
+  vty_out (vty, "ReTx Count: %d%s", lsa->retrans_count, VNL);
+  vty_out (vty, "Threads: Expire: %x, Refresh: %x %s",
+	   lsa->expire, lsa->refresh, VNL);
   vty_out (vty, "%s", VNL);
   return;
 }
@@ -438,12 +504,18 @@ ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   char adv_router[64], id[64];
   struct ospf6_lsa_handler *handler;
+  struct timeval now, res;
+  char duration[16];
 
   assert (lsa && lsa->header);
 
   inet_ntop (AF_INET, &lsa->header->id, id, sizeof (id));
   inet_ntop (AF_INET, &lsa->header->adv_router,
              adv_router, sizeof (adv_router));
+
+  quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
+  timersub (&now, &lsa->installed, &res);
+  timerstring (&res, duration, sizeof (duration));
 
   vty_out (vty, "Age: %4hu Type: %s%s", ospf6_lsa_age_current (lsa),
            ospf6_lstype_name (lsa->header->type), VNL);
@@ -454,6 +526,7 @@ ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   vty_out (vty, "CheckSum: %#06hx Length: %hu%s",
            ntohs (lsa->header->checksum),
            ntohs (lsa->header->length), VNL);
+  vty_out (vty, "Duration: %s%s", duration, VNL);
 
   handler = ospf6_get_lsa_handler (lsa->header->type);
   if (handler->show == NULL)
@@ -558,6 +631,7 @@ ospf6_lsa_copy (struct ospf6_lsa *lsa)
   copy->received = lsa->received;
   copy->installed = lsa->installed;
   copy->lsdb = lsa->lsdb;
+  copy->rn = NULL;
 
   return copy;
 }
@@ -608,11 +682,11 @@ ospf6_lsa_expire (struct thread *thread)
   if (CHECK_FLAG (lsa->flag, OSPF6_LSA_HEADERONLY))
     return 0;    /* dbexchange will do something ... */
 
-  /* reflood lsa */
-  ospf6_flood (NULL, lsa);
-
   /* reinstall lsa */
   ospf6_install_lsa (lsa);
+
+  /* reflood lsa */
+  ospf6_flood (NULL, lsa);
 
   /* schedule maxage remover */
   ospf6_maxage_remove (ospf6);
@@ -653,7 +727,7 @@ ospf6_lsa_refresh (struct thread *thread)
   new = ospf6_lsa_create (self->header);
   new->lsdb = old->lsdb;
   new->refresh = thread_add_timer (master, ospf6_lsa_refresh, new,
-                                   LS_REFRESH_TIME);
+                                   OSPF_LS_REFRESH_TIME);
 
   /* store it in the LSDB for self-originated LSAs */
   ospf6_lsdb_add (ospf6_lsa_copy (new), lsdb_self);
@@ -664,9 +738,8 @@ ospf6_lsa_refresh (struct thread *thread)
       ospf6_lsa_header_print (new);
     }
 
-  ospf6_flood_clear (old);
-  ospf6_flood (NULL, new);
   ospf6_install_lsa (new);
+  ospf6_flood (NULL, new);
 
   return 0;
 }
@@ -725,7 +798,7 @@ ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)
   unsigned int i; 
   unsigned int size = strlen (h->name);
 
-  if (!strcmp(h->name, "Unknown") &&
+  if (!strcmp(h->name, "unknown") &&
       h->type != OSPF6_LSTYPE_UNKNOWN)
     {
       snprintf (buf, sizeof (buf), "%#04hx", h->type);
@@ -745,7 +818,7 @@ ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)
 
 DEFUN (debug_ospf6_lsa_type,
        debug_ospf6_lsa_hex_cmd,
-       "debug ospf6 lsa XXXX/0xXXXX",
+       "debug ospf6 lsa (router|network|inter-prefix|inter-router|as-ext|grp-mbr|type7|link|intra-prefix|unknown)",
        DEBUG_STR
        OSPF6_STR
        "Debug Link State Advertisements (LSAs)\n"
@@ -754,42 +827,19 @@ DEFUN (debug_ospf6_lsa_type,
 {
   unsigned int i;
   struct ospf6_lsa_handler *handler = NULL;
-  unsigned long val;
-  char *endptr = NULL;
-  u_int16_t type = 0;
 
   assert (argc);
-
-  if ((strlen (argv[0]) == 6 && ! strncmp (argv[0], "0x", 2)) ||
-      (strlen (argv[0]) == 4))
-    {
-      val = strtoul (argv[0], &endptr, 16);
-      if (*endptr == '\0')
-        type = val;
-    }
 
   for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
     {
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)
         continue;
-      if (type && handler->type == type)
+      if (strncmp (argv[0], ospf6_lsa_handler_name(handler), strlen(argv[0])) == 0)
         break;
       if (! strcasecmp (argv[0], handler->name))
         break;
       handler = NULL;
-    }
-
-  if (type && handler == NULL)
-    {
-      handler = (struct ospf6_lsa_handler *)
-        malloc (sizeof (struct ospf6_lsa_handler));
-      memset (handler, 0, sizeof (struct ospf6_lsa_handler));
-      handler->type = type;
-      handler->name = "Unknown";
-      handler->show = ospf6_unknown_lsa_show;
-      vector_set_index (ospf6_lsa_handler_vector,
-                        handler->type & OSPF6_LSTYPE_FCODE_MASK, handler);
     }
 
   if (handler == NULL)
@@ -799,7 +849,7 @@ DEFUN (debug_ospf6_lsa_type,
     {
       if (! strcmp (argv[1], "originate"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_ORIGINATE);
-      if (! strcmp (argv[1], "examin"))
+      if (! strcmp (argv[1], "examine"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_EXAMIN);
       if (! strcmp (argv[1], "flooding"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_FLOOD);
@@ -810,9 +860,18 @@ DEFUN (debug_ospf6_lsa_type,
   return CMD_SUCCESS;
 }
 
+ALIAS (debug_ospf6_lsa_type,
+       debug_ospf6_lsa_hex_detail_cmd,
+       "debug ospf6 lsa (router|network|inter-prefix|inter-router|as-ext|grp-mbr|type7|link|intra-prefix|unknown) (originate|examine|flooding)",
+       DEBUG_STR
+       OSPF6_STR
+       "Debug Link State Advertisements (LSAs)\n"
+       "Specify LS type as Hexadecimal\n"
+      )
+
 DEFUN (no_debug_ospf6_lsa_type,
        no_debug_ospf6_lsa_hex_cmd,
-       "no debug ospf6 lsa XXXX/0xXXXX",
+       "no debug ospf6 lsa (router|network|inter-prefix|inter-router|as-ext|grp-mbr|type7|link|intra-prefix|unknown)",
        NO_STR
        DEBUG_STR
        OSPF6_STR
@@ -822,26 +881,15 @@ DEFUN (no_debug_ospf6_lsa_type,
 {
   u_int i;
   struct ospf6_lsa_handler *handler = NULL;
-  unsigned long val;
-  char *endptr = NULL;
-  u_int16_t type = 0;
 
   assert (argc);
-
-  if ((strlen (argv[0]) == 6 && ! strncmp (argv[0], "0x", 2)) ||
-      (strlen (argv[0]) == 4))
-    {
-      val = strtoul (argv[0], &endptr, 16);
-      if (*endptr == '\0')
-        type = val;
-    }
 
   for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
     {
       handler = vector_slot (ospf6_lsa_handler_vector, i);
       if (handler == NULL)
         continue;
-      if (type && handler->type == type)
+      if (strncmp (argv[0], ospf6_lsa_handler_name(handler), strlen(argv[0])) == 0)
         break;
       if (! strcasecmp (argv[0], handler->name))
         break;
@@ -854,7 +902,7 @@ DEFUN (no_debug_ospf6_lsa_type,
     {
       if (! strcmp (argv[1], "originate"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_ORIGINATE);
-      if (! strcmp (argv[1], "examin"))
+      if (! strcmp (argv[1], "examine"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_EXAMIN);
       if (! strcmp (argv[1], "flooding"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_FLOOD);
@@ -862,120 +910,30 @@ DEFUN (no_debug_ospf6_lsa_type,
   else
     UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG);
 
-  if (handler->debug == 0 &&
-      !strcmp(handler->name, "Unknown") && type != OSPF6_LSTYPE_UNKNOWN)
-    {
-      free (handler);
-      vector_slot (ospf6_lsa_handler_vector, i) = NULL;
-    }
-
   return CMD_SUCCESS;
 }
 
-struct cmd_element debug_ospf6_lsa_type_cmd;
-struct cmd_element debug_ospf6_lsa_type_detail_cmd;
-struct cmd_element no_debug_ospf6_lsa_type_cmd;
-struct cmd_element no_debug_ospf6_lsa_type_detail_cmd;
+ALIAS (no_debug_ospf6_lsa_type,
+       no_debug_ospf6_lsa_hex_detail_cmd,
+       "no debug ospf6 lsa (router|network|inter-prefix|inter-router|as-ext|grp-mbr|type7|link|intra-prefix) (originate|examine|flooding)",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR
+       "Debug Link State Advertisements (LSAs)\n"
+       "Specify LS type as Hexadecimal\n"
+      )
 
 void
 install_element_ospf6_debug_lsa (void)
 {
-  u_int i;
-  struct ospf6_lsa_handler *handler;
-#define STRSIZE  256
-#define DOCSIZE  1024
-  static char strbuf[STRSIZE];
-  static char docbuf[DOCSIZE];
-  static char detail_strbuf[STRSIZE];
-  static char detail_docbuf[DOCSIZE];
-  char *str, *no_str;
-  char *doc, *no_doc;
-
-  strbuf[0] = '\0';
-  no_str = &strbuf[strlen (strbuf)];
-  strncat (strbuf, "no ", STRSIZE - strlen (strbuf));
-  str = &strbuf[strlen (strbuf)];
-
-  strncat (strbuf, "debug ospf6 lsa (", STRSIZE - strlen (strbuf));
-  for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
-    {
-      handler = vector_slot (ospf6_lsa_handler_vector, i);
-      if (handler == NULL)
-        continue;
-      strncat (strbuf, ospf6_lsa_handler_name (handler),
-               STRSIZE - strlen (strbuf));
-      strncat (strbuf, "|", STRSIZE - strlen (strbuf));
-    }
-  strbuf[strlen (strbuf) - 1] = ')';
-  strbuf[strlen (strbuf)] = '\0';
-
-  docbuf[0] = '\0';
-  no_doc = &docbuf[strlen (docbuf)];
-  strncat (docbuf, NO_STR, DOCSIZE - strlen (docbuf));
-  doc = &docbuf[strlen (docbuf)];
-
-  strncat (docbuf, DEBUG_STR, DOCSIZE - strlen (docbuf));
-  strncat (docbuf, OSPF6_STR, DOCSIZE - strlen (docbuf));
-  strncat (docbuf, "Debug Link State Advertisements (LSAs)\n",
-           DOCSIZE - strlen (docbuf));
-
-  for (i = 0; i < vector_active (ospf6_lsa_handler_vector); i++)
-    {
-      handler = vector_slot (ospf6_lsa_handler_vector, i);
-      if (handler == NULL)
-        continue;
-      strncat (docbuf, "Debug ", DOCSIZE - strlen (docbuf));
-      strncat (docbuf, handler->name, DOCSIZE - strlen (docbuf));
-      strncat (docbuf, "-LSA\n", DOCSIZE - strlen (docbuf));
-    }
-  docbuf[strlen (docbuf)] = '\0';
-
-  debug_ospf6_lsa_type_cmd.string = str;
-  debug_ospf6_lsa_type_cmd.func = debug_ospf6_lsa_type;
-  debug_ospf6_lsa_type_cmd.doc = doc;
-
-  no_debug_ospf6_lsa_type_cmd.string = no_str;
-  no_debug_ospf6_lsa_type_cmd.func = no_debug_ospf6_lsa_type;
-  no_debug_ospf6_lsa_type_cmd.doc = no_doc;
-
-  strncpy (detail_strbuf, strbuf, STRSIZE);
-  strncat (detail_strbuf, " (originate|examin|flooding)",
-           STRSIZE - strlen (detail_strbuf));
-  detail_strbuf[strlen (detail_strbuf)] = '\0';
-  no_str = &detail_strbuf[0];
-  str = &detail_strbuf[strlen ("no ")];
-
-  strncpy (detail_docbuf, docbuf, DOCSIZE);
-  strncat (detail_docbuf, "Debug Originating LSA\n",
-           DOCSIZE - strlen (detail_docbuf));
-  strncat (detail_docbuf, "Debug Examining LSA\n",
-           DOCSIZE - strlen (detail_docbuf));
-  strncat (detail_docbuf, "Debug Flooding LSA\n",
-           DOCSIZE - strlen (detail_docbuf));
-  detail_docbuf[strlen (detail_docbuf)] = '\0';
-  no_doc = &detail_docbuf[0];
-  doc = &detail_docbuf[strlen (NO_STR)];
-
-  debug_ospf6_lsa_type_detail_cmd.string = str;
-  debug_ospf6_lsa_type_detail_cmd.func = debug_ospf6_lsa_type;
-  debug_ospf6_lsa_type_detail_cmd.doc = doc;
-
-  no_debug_ospf6_lsa_type_detail_cmd.string = no_str;
-  no_debug_ospf6_lsa_type_detail_cmd.func = no_debug_ospf6_lsa_type;
-  no_debug_ospf6_lsa_type_detail_cmd.doc = no_doc;
-
   install_element (ENABLE_NODE, &debug_ospf6_lsa_hex_cmd);
-  install_element (ENABLE_NODE, &debug_ospf6_lsa_type_cmd);
-  install_element (ENABLE_NODE, &debug_ospf6_lsa_type_detail_cmd);
+  install_element (ENABLE_NODE, &debug_ospf6_lsa_hex_detail_cmd);
   install_element (ENABLE_NODE, &no_debug_ospf6_lsa_hex_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_lsa_type_cmd);
-  install_element (ENABLE_NODE, &no_debug_ospf6_lsa_type_detail_cmd);
+  install_element (ENABLE_NODE, &no_debug_ospf6_lsa_hex_detail_cmd);
   install_element (CONFIG_NODE, &debug_ospf6_lsa_hex_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_lsa_type_cmd);
-  install_element (CONFIG_NODE, &debug_ospf6_lsa_type_detail_cmd);
+  install_element (CONFIG_NODE, &debug_ospf6_lsa_hex_detail_cmd);
   install_element (CONFIG_NODE, &no_debug_ospf6_lsa_hex_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_lsa_type_cmd);
-  install_element (CONFIG_NODE, &no_debug_ospf6_lsa_type_detail_cmd);
+  install_element (CONFIG_NODE, &no_debug_ospf6_lsa_hex_detail_cmd);
 }
 
 int
@@ -996,7 +954,7 @@ config_write_ospf6_debug_lsa (struct vty *vty)
         vty_out (vty, "debug ospf6 lsa %s originate%s",
                  ospf6_lsa_handler_name (handler), VNL);
       if (CHECK_FLAG (handler->debug, OSPF6_LSA_DEBUG_EXAMIN))
-        vty_out (vty, "debug ospf6 lsa %s examin%s",
+        vty_out (vty, "debug ospf6 lsa %s examine%s",
                  ospf6_lsa_handler_name (handler), VNL);
       if (CHECK_FLAG (handler->debug, OSPF6_LSA_DEBUG_FLOOD))
         vty_out (vty, "debug ospf6 lsa %s flooding%s",

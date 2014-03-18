@@ -89,6 +89,7 @@ extern void ospf6_asbr_redistribute_remove (int type, int ifindex,
 extern int ospf6_redistribute_config_write (struct vty *vty);
 
 extern void ospf6_asbr_init (void);
+extern void ospf6_asbr_redistribute_reset (void);
 extern void ospf6_asbr_terminate (void);
 
 extern int config_write_ospf6_debug_asbr (struct vty *vty);

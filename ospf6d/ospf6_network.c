@@ -27,6 +27,7 @@
 #include "sockopt.h"
 #include "privs.h"
 
+#include "libospf.h"
 #include "ospf6_proto.h"
 #include "ospf6_network.h"
 
@@ -205,7 +206,7 @@ ospf6_sendmsg (struct in6_addr *src, struct in6_addr *dst,
   smsghdr.msg_name = (caddr_t) &dst_sin6;
   smsghdr.msg_namelen = sizeof (struct sockaddr_in6);
   smsghdr.msg_control = (caddr_t) cmsgbuf;
-  smsghdr.msg_controllen = sizeof (cmsgbuf);
+  smsghdr.msg_controllen = scmsgp->cmsg_len;
 
   retval = sendmsg (ospf6_sock, &smsghdr, 0);
   if (retval != iov_totallen (message))

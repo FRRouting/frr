@@ -24,6 +24,9 @@
 
 #define OSPF6_DAEMON_VERSION    "0.9.7r"
 
+#include "libospf.h"
+#include "thread.h"
+
 /* global variables */
 extern struct thread_master *master;
 
@@ -97,6 +100,17 @@ extern struct thread_master *master;
     if (ret == 0)                                         \
       zlog_warn ("strftime error");                       \
   } while (0)
+
+#define threadtimer_string(now, t, buf, size)                         \
+  do {                                                                \
+    struct timeval result;                                            \
+    if (!t)                                                           \
+      snprintf(buf, size, "inactive");				      \
+    else {                                                            \
+      timersub(&t->u.sands, &now, &result);                           \
+      timerstring(&result, buf, size);                                \
+    }                                                                 \
+} while (0)
 
 /* for commands */
 #define OSPF6_AREA_STR      "Area information\n"

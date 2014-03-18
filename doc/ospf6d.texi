@@ -28,6 +28,44 @@ Bind interface to specified area, and start sending OSPF packets.  @var{area} ca
 be specified as 0.
 @end deffn
 
+@deffn {OSPF6 Command} {timers throttle spf @var{delay} @var{initial-holdtime} @var{max-holdtime}} {}
+@deffnx {OSPF6 Command} {no timers throttle spf} {}
+This command sets the initial @var{delay}, the @var{initial-holdtime}
+and the @var{maximum-holdtime} between when SPF is calculated and the
+event which triggered the calculation. The times are specified in
+milliseconds and must be in the range of 0 to 600000 milliseconds.
+
+The @var{delay} specifies the minimum amount of time to delay SPF
+calculation (hence it affects how long SPF calculation is delayed after
+an event which occurs outside of the holdtime of any previous SPF
+calculation, and also serves as a minimum holdtime).
+
+Consecutive SPF calculations will always be seperated by at least
+'hold-time' milliseconds. The hold-time is adaptive and initially is
+set to the @var{initial-holdtime} configured with the above command.
+Events which occur within the holdtime of the previous SPF calculation
+will cause the holdtime to be increased by @var{initial-holdtime}, bounded
+by the @var{maximum-holdtime} configured with this command. If the adaptive
+hold-time elapses without any SPF-triggering event occuring then
+the current holdtime is reset to the @var{initial-holdtime}.
+
+@example
+@group
+router ospf6
+ timers throttle spf 200 400 10000
+@end group
+@end example
+
+In this example, the @var{delay} is set to 200ms, the @var{initial
+holdtime} is set to 400ms and the @var{maximum holdtime} to 10s. Hence
+there will always be at least 200ms between an event which requires SPF
+calculation and the actual SPF calculation. Further consecutive SPF
+calculations will always be seperated by between 400ms to 10s, the
+hold-time increasing by 400ms each time an SPF-triggering event occurs
+within the hold-time of the previous SPF calculation.
+
+@end deffn
+
 @node OSPF6 area
 @section OSPF6 area
 
@@ -58,6 +96,10 @@ Sets interface's Router Priority.  Default value is 1.
 
 @deffn {Interface Command} {ipv6 ospf6 transmit-delay TRANSMITDELAY} {}
 Sets interface's Inf-Trans-Delay.  Default value is 1.
+@end deffn
+
+@deffn {Interface Command} {ipv6 ospf6 network (broadcast|point-to-point)} {}
+Set explicitly network type for specifed interface.
 @end deffn
 
 @node Redistribute routes to OSPF6

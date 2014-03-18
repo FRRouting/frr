@@ -105,8 +105,6 @@ struct ospf6_area
 #define OSPF6_AREA_TRANSIT    0x04 /* TransitCapability */
 #define OSPF6_AREA_STUB       0x08
 
-#define BACKBONE_AREA_ID (htonl (0))
-#define IS_AREA_BACKBONE(oa) ((oa)->area_id == BACKBONE_AREA_ID)
 #define IS_AREA_ENABLED(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_ENABLE))
 #define IS_AREA_ACTIVE(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_ACTIVE))
 #define IS_AREA_TRANSIT(oa) (CHECK_FLAG ((oa)->flag, OSPF6_AREA_TRANSIT))

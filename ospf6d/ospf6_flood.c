@@ -113,7 +113,7 @@ ospf6_lsa_originate (struct ospf6_lsa *lsa)
   ospf6_lsdb_add (ospf6_lsa_copy (lsa), lsdb_self);
 
   lsa->refresh = thread_add_timer (master, ospf6_lsa_refresh, lsa,
-                                   LS_REFRESH_TIME);
+                                   OSPF_LS_REFRESH_TIME);
 
   if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type) ||
       IS_OSPF6_DEBUG_ORIGINATE_TYPE (lsa->header->type))
@@ -122,10 +122,8 @@ ospf6_lsa_originate (struct ospf6_lsa *lsa)
       ospf6_lsa_header_print (lsa);
     }
 
-  if (old)
-    ospf6_flood_clear (old);
-  ospf6_flood (NULL, lsa);
   ospf6_install_lsa (lsa);
+  ospf6_flood (NULL, lsa);
 }
 
 void
@@ -208,8 +206,8 @@ ospf6_decrement_retrans_count (struct ospf6_lsa *lsa)
 void
 ospf6_install_lsa (struct ospf6_lsa *lsa)
 {
-  struct ospf6_lsa *old;
   struct timeval now;
+  struct ospf6_lsa *old;
 
   if (IS_OSPF6_DEBUG_LSA_TYPE (lsa->header->type) ||
       IS_OSPF6_DEBUG_EXAMIN_TYPE (lsa->header->type))
@@ -222,15 +220,35 @@ ospf6_install_lsa (struct ospf6_lsa *lsa)
   if (old)
     {
       THREAD_OFF (old->expire);
+      THREAD_OFF (old->refresh);
       ospf6_flood_clear (old);
     }
 
   quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
   if (! OSPF6_LSA_IS_MAXAGE (lsa))
     lsa->expire = thread_add_timer (master, ospf6_lsa_expire, lsa,
-                                    MAXAGE + lsa->birth.tv_sec - now.tv_sec);
+                                    OSPF_LSA_MAXAGE + lsa->birth.tv_sec - now.tv_sec);
   else
     lsa->expire = NULL;
+
+  if (OSPF6_LSA_IS_SEQWRAP(lsa) &&
+      ! (CHECK_FLAG(lsa->flag,OSPF6_LSA_SEQWRAPPED) &&
+         lsa->header->seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER)))
+   {
+     if (IS_OSPF6_DEBUG_EXAMIN_TYPE (lsa->header->type))
+       zlog_debug("lsa install wrapping: sequence 0x%x",
+                  ntohl(lsa->header->seqnum));
+     SET_FLAG(lsa->flag, OSPF6_LSA_SEQWRAPPED);
+     /* in lieu of premature_aging, since we do not want to recreate this lsa
+      * and/or mess with timers etc, we just want to wrap the sequence number
+      * and reflood the lsa before continuing.
+      * NOTE: Flood needs to be called right after this function call, by the
+      * caller
+      */
+     lsa->header->seqnum = htonl (OSPF_MAX_SEQUENCE_NUMBER);
+     lsa->header->age = htons (OSPF_LSA_MAXAGE);
+     ospf6_lsa_checksum (lsa->header);
+   }
 
   /* actually install */
   lsa->installed = now;
@@ -292,7 +310,7 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
               if (ospf6_lsa_compare (lsa, req) > 0)
                 {
                   if (is_debug)
-                    zlog_debug ("Requesting is newer, next neighbor");
+                    zlog_debug ("Requesting is older, next neighbor");
                   continue;
                 }
 
@@ -300,18 +318,30 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
                  examin next neighbor */
               if (ospf6_lsa_compare (lsa, req) == 0)
                 {
-                  if (is_debug)
-                    zlog_debug ("Requesting the same, remove it, next neighbor");
+		  if (is_debug)
+		    zlog_debug ("Requesting the same, remove it, next neighbor");
+		  if (req == on->last_ls_req)
+		    {
+		      ospf6_lsa_unlock (req);
+		      on->last_ls_req = NULL;
+		    }
                   ospf6_lsdb_remove (req, on->request_list);
+		  ospf6_check_nbr_loading (on);
                   continue;
                 }
 
               /* If the new LSA is more recent, delete from request-list */
               if (ospf6_lsa_compare (lsa, req) < 0)
                 {
-                  if (is_debug)
-                    zlog_debug ("Received is newer, remove requesting");
+		  if (is_debug)
+		    zlog_debug ("Received is newer, remove requesting");
+		  if (req == on->last_ls_req)
+		    {
+		      ospf6_lsa_unlock (req);
+		      on->last_ls_req = NULL;
+		    }
                   ospf6_lsdb_remove (req, on->request_list);
+		  ospf6_check_nbr_loading (on);
                   /* fall through */
                 }
             }
@@ -358,17 +388,22 @@ ospf6_flood_interface (struct ospf6_neighbor *from,
 
   /* (4) If the new LSA was received on this interface,
      and the interface state is BDR, examin next interface */
-  if (from && from->ospf6_if == oi && oi->state == OSPF6_INTERFACE_BDR)
+  if (from && from->ospf6_if == oi)
     {
-      if (is_debug)
-        zlog_debug ("Received is from the I/F, itself BDR, next interface");
-      return;
+      if (oi->state == OSPF6_INTERFACE_BDR)
+	{
+	  if (is_debug)
+	    zlog_debug ("Received is from the I/F, itself BDR, next interface");
+	  return;
+	}
+      SET_FLAG(lsa->flag, OSPF6_LSA_FLOODBACK);
     }
 
   /* (5) flood the LSA out the interface. */
   if (is_debug)
     zlog_debug ("Schedule flooding for the interface");
-  if (if_is_broadcast (oi->interface))
+  if ((oi->type == OSPF_IFTYPE_BROADCAST) ||
+      (oi->type == OSPF_IFTYPE_POINTOPOINT))
     {
       ospf6_lsdb_add (ospf6_lsa_copy (lsa), oi->lsupdate_list);
       if (oi->thread_send_lsupdate == NULL)
@@ -529,15 +564,6 @@ ospf6_acknowledge_lsa_bdrouter (struct ospf6_lsa *lsa, int ismore_recent,
 
   assert (from && from->ospf6_if);
   oi = from->ospf6_if;
-
-  /* LSA has been flood back out receiving interface.
-     No acknowledgement sent. */
-  if (CHECK_FLAG (lsa->flag, OSPF6_LSA_FLOODBACK))
-    {
-      if (is_debug)
-        zlog_debug ("No acknowledgement (BDR & FloodBack)");
-      return;
-    }
 
   /* LSA is more recent than database copy, but was not flooded
      back out receiving interface. Delayed acknowledgement sent
@@ -797,7 +823,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
     {
       /* log */
       if (is_debug)
-        zlog_debug ("Drop MaxAge LSA with direct acknowledgement.");
+	zlog_debug ("Drop MaxAge LSA with direct acknowledgement.");
 
       /* a) Acknowledge back to neighbor (Direct acknowledgement, 13.5) */
       ospf6_lsdb_add (ospf6_lsa_copy (new), from->lsack_list);
@@ -837,7 +863,7 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
           struct timeval now, res;
           quagga_gettime (QUAGGA_CLK_MONOTONIC, &now);
           timersub (&now, &old->installed, &res);
-          if (res.tv_sec < MIN_LS_ARRIVAL)
+          if (res.tv_sec < OSPF_MIN_LS_ARRIVAL)
             {
               if (is_debug)
                 zlog_debug ("LSA can't be updated within MinLSArrival, discard");
@@ -849,7 +875,11 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
       quagga_gettime (QUAGGA_CLK_MONOTONIC, &new->received);
 
       if (is_debug)
-        zlog_debug ("Flood, Install, Possibly acknowledge the received LSA");
+        zlog_debug ("Install, Flood, Possibly acknowledge the received LSA");
+
+      /* Remove older copies of this LSA from retx lists */
+      if (old)
+	ospf6_flood_clear (old);
 
       /* (b) immediately flood and (c) remove from all retrans-list */
       /* Prevent self-originated LSA to be flooded. this is to make
@@ -857,10 +887,6 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
       due to MinLSArrival. */
       if (new->header->adv_router != from->ospf6_if->area->ospf6->router_id)
         ospf6_flood (from, new);
-
-      /* (c) Remove the current database copy from all neighbors' Link
-             state retransmission lists. */
-      /* XXX, flood_clear ? */
 
       /* (d), installing lsdb, which may cause routing
               table calculation (replacing database copy) */
@@ -944,15 +970,15 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
       /* If database copy is in 'Seqnumber Wrapping',
          simply discard the received LSA */
       if (OSPF6_LSA_IS_MAXAGE (old) &&
-          old->header->seqnum == htonl (MAX_SEQUENCE_NUMBER))
+          old->header->seqnum == htonl (OSPF_MAX_SEQUENCE_NUMBER))
         {
           if (is_debug)
             {
               zlog_debug ("The LSA is in Seqnumber Wrapping");
               zlog_debug ("MaxAge & MaxSeqNum, discard");
             }
-          ospf6_lsa_delete (new);
-          return;
+	  ospf6_lsa_delete (new);
+	  return;
         }
 
       /* Otherwise, Send database copy of this LSA to this neighbor */
@@ -969,8 +995,8 @@ ospf6_receive_lsa (struct ospf6_neighbor *from,
           if (from->thread_send_lsupdate == NULL)
             from->thread_send_lsupdate =
               thread_add_event (master, ospf6_lsupdate_send_neighbor, from, 0);
-          ospf6_lsa_delete (new);
-          return;
+	  ospf6_lsa_delete (new);
+	  return;
         }
       return;
     }

@@ -253,7 +253,7 @@ ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
     }
 
   /* do not generate if the route cost is greater or equal to LSInfinity */
-  if (route->path.cost >= LS_INFINITY)
+  if (route->path.cost >= OSPF_LS_INFINITY)
     {
       if (is_debug)
         zlog_debug ("The cost exceeds LSInfinity, withdraw");
@@ -296,7 +296,7 @@ ospf6_abr_originate_summary_to_area (struct ospf6_route *route,
       /* ranges are ignored when originate backbone routes to transit area.
          Otherwise, if ranges are configured, the route is suppressed. */
       if (range && ! CHECK_FLAG (range->flag, OSPF6_ROUTE_REMOVE) &&
-          (route->path.area_id != BACKBONE_AREA_ID ||
+          (route->path.area_id != OSPF_AREA_BACKBONE ||
            ! IS_AREA_TRANSIT (area)))
         {
           if (is_debug)
@@ -537,13 +537,13 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
   int i;
   char buf[64];
   int is_debug = 0;
+  struct ospf6_inter_prefix_lsa *prefix_lsa = NULL;
+  struct ospf6_inter_router_lsa *router_lsa = NULL;
 
   memset (&prefix, 0, sizeof (prefix));
 
   if (lsa->header->type == htons (OSPF6_LSTYPE_INTER_PREFIX))
     {
-      struct ospf6_inter_prefix_lsa *prefix_lsa;
-
       if (IS_OSPF6_DEBUG_EXAMIN (INTER_PREFIX))
         {
           is_debug++;
@@ -564,8 +564,6 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
     }
   else if (lsa->header->type == htons (OSPF6_LSTYPE_INTER_ROUTER))
     {
-      struct ospf6_inter_router_lsa *router_lsa;
-
       if (IS_OSPF6_DEBUG_EXAMIN (INTER_ROUTER))
         {
           is_debug++;
@@ -604,7 +602,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
     }
 
   /* (1) if cost == LSInfinity or if the LSA is MaxAge */
-  if (cost == LS_INFINITY)
+  if (cost == OSPF_LS_INFINITY)
     {
       if (is_debug)
         zlog_debug ("cost is LS_INFINITY, ignore");
@@ -632,6 +630,7 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
     }
 
   /* (3) if the prefix is equal to an active configured address range */
+  /*     or if the NU bit is set in the prefix */
   if (lsa->header->type == htons (OSPF6_LSTYPE_INTER_PREFIX))
     {
       range = ospf6_route_lookup (&prefix, oa->range_table);
@@ -643,6 +642,32 @@ ospf6_abr_examin_summary (struct ospf6_lsa *lsa, struct ospf6_area *oa)
             ospf6_route_remove (old, table);
           return;
         }
+
+      if (CHECK_FLAG (prefix_lsa->prefix.prefix_options,
+		      OSPF6_PREFIX_OPTION_NU) ||
+	  CHECK_FLAG (prefix_lsa->prefix.prefix_options,
+		      OSPF6_PREFIX_OPTION_LA))
+	{
+          if (is_debug)
+            zlog_debug ("Prefix has NU/LA bit set, ignore");
+          if (old)
+            ospf6_route_remove (old, table);
+          return;
+	}
+    }
+
+  if (lsa->header->type == htons (OSPF6_LSTYPE_INTER_ROUTER))
+    {
+      /* To pass test suites */
+      if (! OSPF6_OPT_ISSET (router_lsa->options, OSPF6_OPT_R) ||
+	  ! OSPF6_OPT_ISSET (router_lsa->options, OSPF6_OPT_V6))
+	{
+          if (is_debug)
+            zlog_debug ("Prefix has NU/LA bit set, ignore");
+          if (old)
+            ospf6_route_remove (old, table);
+          return;
+	}
     }
 
   /* (4) if the routing table entry for the ABR does not exist */
@@ -764,12 +789,34 @@ ospf6_abr_reimport (struct ospf6_area *oa)
 
 
 /* Display functions */
+static char *
+ospf6_inter_area_prefix_lsa_get_prefix_str (struct ospf6_lsa *lsa, char *buf,
+					    int buflen, int pos)
+{
+  struct ospf6_inter_prefix_lsa *prefix_lsa;
+  struct in6_addr in6;
+
+  if (lsa != NULL)
+    {
+      prefix_lsa = (struct ospf6_inter_prefix_lsa *)
+	OSPF6_LSA_HEADER_END (lsa->header);
+
+      ospf6_prefix_in6_addr (&in6, &prefix_lsa->prefix);
+      if (buf)
+	{
+	  inet_ntop (AF_INET6, &in6, buf, buflen);
+	  sprintf (&buf[strlen(buf)], "/%d", prefix_lsa->prefix.prefix_length);
+	}
+    }
+
+  return (buf);
+}
+
 static int
 ospf6_inter_area_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 {
   struct ospf6_inter_prefix_lsa *prefix_lsa;
-  struct in6_addr in6;
-  char buf[64];
+  char buf[INET6_ADDRSTRLEN];
 
   prefix_lsa = (struct ospf6_inter_prefix_lsa *)
     OSPF6_LSA_HEADER_END (lsa->header);
@@ -781,12 +828,30 @@ ospf6_inter_area_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
                                  buf, sizeof (buf));
   vty_out (vty, "     Prefix Options: %s%s", buf, VNL);
 
-  ospf6_prefix_in6_addr (&in6, &prefix_lsa->prefix);
-  inet_ntop (AF_INET6, &in6, buf, sizeof (buf));
-  vty_out (vty, "     Prefix: %s/%d%s", buf,
-           prefix_lsa->prefix.prefix_length, VNL);
+  vty_out (vty, "     Prefix: %s%s",
+	   ospf6_inter_area_prefix_lsa_get_prefix_str (lsa, buf, sizeof(buf),
+						       0), VNL);
 
   return 0;
+}
+
+static char *
+ospf6_inter_area_router_lsa_get_prefix_str (struct ospf6_lsa *lsa, char *buf,
+					    int buflen, int pos)
+{
+  struct ospf6_inter_router_lsa *router_lsa;
+
+  if (lsa != NULL)
+    {
+      router_lsa = (struct ospf6_inter_router_lsa *)
+	OSPF6_LSA_HEADER_END (lsa->header);
+
+
+      if (buf)
+	inet_ntop (AF_INET, &router_lsa->router_id, buf, buflen);
+    }
+
+  return (buf);
 }
 
 static int
@@ -802,6 +867,7 @@ ospf6_inter_area_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   vty_out (vty, "     Options: %s%s", buf, VNL);
   vty_out (vty, "     Metric: %lu%s",
            (u_long) OSPF6_ABR_SUMMARY_METRIC (router_lsa), VNL);
+
   inet_ntop (AF_INET, &router_lsa->router_id, buf, sizeof (buf));
   vty_out (vty, "     Destination Router ID: %s%s", buf, VNL);
 
@@ -855,14 +921,18 @@ struct ospf6_lsa_handler inter_prefix_handler =
 {
   OSPF6_LSTYPE_INTER_PREFIX,
   "Inter-Prefix",
-  ospf6_inter_area_prefix_lsa_show
+  "IAP",
+  ospf6_inter_area_prefix_lsa_show,
+  ospf6_inter_area_prefix_lsa_get_prefix_str,
 };
 
 struct ospf6_lsa_handler inter_router_handler =
 {
   OSPF6_LSTYPE_INTER_ROUTER,
   "Inter-Router",
-  ospf6_inter_area_router_lsa_show
+  "IAR",
+  ospf6_inter_area_router_lsa_show,
+  ospf6_inter_area_router_lsa_get_prefix_str,
 };
 
 void

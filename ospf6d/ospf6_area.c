@@ -67,7 +67,8 @@ ospf6_area_lsdb_hook_add (struct ospf6_lsa *lsa)
           zlog_debug ("Schedule SPF Calculation for %s",
 		      OSPF6_AREA (lsa->lsdb->data)->name);
         }
-      ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));
+      ospf6_spf_schedule (OSPF6_PROCESS(OSPF6_AREA (lsa->lsdb->data)->ospf6),
+			  ospf6_lsadd_to_spf_reason(lsa));
       break;
 
     case OSPF6_LSTYPE_INTRA_PREFIX:
@@ -97,7 +98,8 @@ ospf6_area_lsdb_hook_remove (struct ospf6_lsa *lsa)
           zlog_debug ("Schedule SPF Calculation for %s",
                      OSPF6_AREA (lsa->lsdb->data)->name);
         }
-      ospf6_spf_schedule (OSPF6_AREA (lsa->lsdb->data));
+      ospf6_spf_schedule (OSPF6_PROCESS(OSPF6_AREA (lsa->lsdb->data)->ospf6),
+			  ospf6_lsremove_to_spf_reason(lsa));
       break;
 
     case OSPF6_LSTYPE_INTRA_PREFIX:
@@ -164,9 +166,18 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
   oa->summary_router->scope = oa;
 
   /* set default options */
-  OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);
+  if (CHECK_FLAG (o->flag, OSPF6_STUB_ROUTER))
+    {
+      OSPF6_OPT_CLEAR (oa->options, OSPF6_OPT_V6);
+      OSPF6_OPT_CLEAR (oa->options, OSPF6_OPT_R);
+    }
+  else
+    {
+      OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);
+      OSPF6_OPT_SET (oa->options, OSPF6_OPT_R);
+    }
+
   OSPF6_OPT_SET (oa->options, OSPF6_OPT_E);
-  OSPF6_OPT_SET (oa->options, OSPF6_OPT_R);
 
   oa->ospf6 = o;
   listnode_add_sort (o->area_list, oa);
@@ -182,18 +193,21 @@ ospf6_area_create (u_int32_t area_id, struct ospf6 *o)
 void
 ospf6_area_delete (struct ospf6_area *oa)
 {
-  struct listnode *n, *nnode;
+  struct listnode *n;
   struct ospf6_interface *oi;
 
   ospf6_route_table_delete (oa->range_table);
   ospf6_route_table_delete (oa->summary_prefix);
   ospf6_route_table_delete (oa->summary_router);
 
-  /* ospf6 interface list */
-  for (ALL_LIST_ELEMENTS (oa->if_list, n, nnode, oi))
-    {
-      ospf6_interface_delete (oi);
-    }
+  /* The ospf6_interface structs store configuration
+   * information which should not be lost/reset when
+   * deleting an area.
+   * So just detach the interface from the area and
+   * keep it around. */
+  for (ALL_LIST_ELEMENTS_RO (oa->if_list, n, oi))
+    oi->area = NULL;
+
   list_delete (oa->if_list);
 
   ospf6_lsdb_delete (oa->lsdb);
@@ -246,6 +260,7 @@ ospf6_area_enable (struct ospf6_area *oa)
 
   for (ALL_LIST_ELEMENTS (oa->if_list, node, nnode, oi))
     ospf6_interface_enable (oi);
+  ospf6_abr_enable_area (oa);
 }
 
 void
@@ -258,6 +273,19 @@ ospf6_area_disable (struct ospf6_area *oa)
 
   for (ALL_LIST_ELEMENTS (oa->if_list, node, nnode, oi))
     ospf6_interface_disable (oi);
+
+  ospf6_abr_disable_area (oa);
+  ospf6_lsdb_remove_all (oa->lsdb);
+  ospf6_lsdb_remove_all (oa->lsdb_self);
+
+  ospf6_spf_table_finish(oa->spf_table);
+  ospf6_route_remove_all(oa->route_table);
+
+  THREAD_OFF (oa->thread_spf_calculation);
+  THREAD_OFF (oa->thread_route_calculation);
+
+  THREAD_OFF (oa->thread_router_lsa);
+  THREAD_OFF (oa->thread_intra_prefix_lsa);
 }
 
 
@@ -401,6 +429,7 @@ DEFUN (no_area_range,
     }
 
   ospf6_route_remove (range, oa->range_table);
+
   return CMD_SUCCESS;
 }
 
