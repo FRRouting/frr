@@ -11,7 +11,7 @@ EXTRA_DIST = \
 	lib/libzebra.exp \
 	global-conf.exp \
 	testcommands.in \
-	testcommands.out
+	testcommands.refout
 
 INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
 DEFS = @DEFS@ $(LOCAL_OPTS) -DSYSCONFDIR=\"$(sysconfdir)/\"
@@ -42,6 +42,7 @@ test-commands-defun.c: ../vtysh/vtysh_cmd.c
 		< ../vtysh/vtysh_cmd.c \
 		> test-commands-defun.c
 
+BUILT_SOURCES = test-commands-defun.c
 noinst_HEADERS = prng.h
 
 testsig_SOURCES = test-sig.c
