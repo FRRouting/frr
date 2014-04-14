@@ -433,7 +433,7 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
   /* If offset-list does not modify the metric use interface's
      metric. */
   if (!ret)
-    rte->metric += ifp->metric;
+    rte->metric += ifp->metric ? ifp->metric : 1;
 
   if (rte->metric > RIP_METRIC_INFINITY)
     rte->metric = RIP_METRIC_INFINITY;
