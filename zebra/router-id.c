@@ -230,10 +230,8 @@ router_id_cmp (void *a, void *b)
 {
   const struct connected *ifa = (const struct connected *)a;
   const struct connected *ifb = (const struct connected *)b;
-  unsigned int A = ntohl(ifa->address->u.prefix4.s_addr);
-  unsigned int B = ntohl(ifb->address->u.prefix4.s_addr);
 
-  return (int) (A - B);
+  return IPV4_ADDR_CMP(&ifa->address->u.prefix4.s_addr,&ifb->address->u.prefix4.s_addr);
 }
 
 void
