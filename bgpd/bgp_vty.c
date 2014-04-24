@@ -2093,25 +2093,41 @@ DEFUN (no_neighbor_capability_orf_prefix,
 /* neighbor next-hop-self. */
 DEFUN (neighbor_nexthop_self,
        neighbor_nexthop_self_cmd,
-       NEIGHBOR_CMD2 "next-hop-self",
+       NEIGHBOR_CMD2 "next-hop-self {all}",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Disable the next hop calculation for this neighbor\n")
+       "Disable the next hop calculation for this neighbor\n"
+       "Apply also to ibgp-learned routes when acting as a route reflector\n")
 {
-  return peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
-			       bgp_node_safi (vty), PEER_FLAG_NEXTHOP_SELF);
+  u_int32_t flags = PEER_FLAG_NEXTHOP_SELF, unset = 0;
+  int rc;
+
+  /* Check if "all" is specified */
+  if (argv[1] != NULL)
+    flags |= PEER_FLAG_NEXTHOP_SELF_ALL;
+  else
+    unset |= PEER_FLAG_NEXTHOP_SELF_ALL;
+
+  rc = peer_af_flag_set_vty (vty, argv[0], bgp_node_afi (vty),
+			     bgp_node_safi (vty), flags);
+  if ( rc == CMD_SUCCESS && unset )
+    rc = peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
+				 bgp_node_safi (vty), unset);
+  return rc;
 }
 
 DEFUN (no_neighbor_nexthop_self,
        no_neighbor_nexthop_self_cmd,
-       NO_NEIGHBOR_CMD2 "next-hop-self",
+       NO_NEIGHBOR_CMD2 "next-hop-self {all}",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
-       "Disable the next hop calculation for this neighbor\n")
+       "Disable the next hop calculation for this neighbor\n"
+       "Apply also to ibgp-learned routes when acting as a route reflector\n")
 {
   return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
-				 bgp_node_safi (vty), PEER_FLAG_NEXTHOP_SELF);
+				 bgp_node_safi (vty),
+				 PEER_FLAG_NEXTHOP_SELF|PEER_FLAG_NEXTHOP_SELF_ALL);
 }
 
 /* neighbor remove-private-AS. */
