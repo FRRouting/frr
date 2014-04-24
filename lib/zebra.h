@@ -51,7 +51,6 @@ typedef int socklen_t;
 #ifdef HAVE_STROPTS_H
 #include <stropts.h>
 #endif /* HAVE_STROPTS_H */
-#include <sys/fcntl.h>
 #ifdef HAVE_SYS_SELECT_H
 #include <sys/select.h>
 #endif /* HAVE_SYS_SELECT_H */
