@@ -1149,7 +1149,7 @@ zread_ipv4_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   /* Table */
   rib->table = zvrf->table_id;
 
-  ret = rib_add_multipath (AFI_IP, safi, &p, rib);
+  ret = rib_add_multipath (AFI_IP, safi, &p, NULL, rib);
 
   /* Stats */
   if (ret > 0)
@@ -1243,7 +1243,7 @@ zread_ipv4_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   table_id = zvrf->table_id;
 
   rib_delete (AFI_IP, api.safi, zvrf_id (zvrf), api.type, api.instance,
-	      api.flags, &p, nexthop_p, ifindex, table_id);
+	      api.flags, &p, NULL, nexthop_p, ifindex, table_id);
   client->v4_route_del_cnt++;
   return 0;
 }
@@ -1378,7 +1378,7 @@ zread_ipv4_route_ipv6_nexthop_add (struct zserv *client, u_short length, struct 
   /* Table */
   rib->table = zvrf->table_id;
 
-  ret = rib_add_multipath (AFI_IP6, safi, &p, rib);
+  ret = rib_add_multipath (AFI_IP6, safi, &p, NULL, rib);
   /* Stats */
   if (ret > 0)
     client->v4_route_add_cnt++;
@@ -1399,6 +1399,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   u_char nexthop_num;
   u_char nexthop_type;
   struct prefix p;
+  struct prefix_ipv6 src_p, *src_pp;
   safi_t safi;
   static struct in6_addr nexthops[MULTIPATH_NUM];
   static unsigned int ifindices[MULTIPATH_NUM];
@@ -1425,6 +1426,17 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   p.family = AF_INET6;
   p.prefixlen = stream_getc (s);
   stream_get (&p.u.prefix6, s, PSIZE (p.prefixlen));
+
+  if (CHECK_FLAG (message, ZAPI_MESSAGE_SRCPFX))
+    {
+      memset (&src_p, 0, sizeof (struct prefix_ipv6));
+      src_p.family = AF_INET6;
+      src_p.prefixlen = stream_getc (s);
+      stream_get (&src_p.prefix, s, PSIZE (src_p.prefixlen));
+      src_pp = &src_p;
+    }
+  else
+    src_pp = NULL;
 
   /* We need to give nh-addr, nh-ifindex with the same next-hop object
    * to the rib to ensure that IPv6 multipathing works; need to coalesce
@@ -1500,7 +1512,7 @@ zread_ipv6_add (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   rib->vrf_id = zvrf_id (zvrf);
   rib->table = zvrf->table_id;
 
-  ret = rib_add_multipath (AFI_IP6, safi, &p, rib);
+  ret = rib_add_multipath (AFI_IP6, safi, &p, src_pp, rib);
   /* Stats */
   if (ret > 0)
     client->v6_route_add_cnt++;
@@ -1521,6 +1533,7 @@ zread_ipv6_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   union g_addr *pnexthop = NULL;
   unsigned long ifindex;
   struct prefix p;
+  struct prefix_ipv6 src_p, *src_pp;
   
   s = client->ibuf;
   ifindex = 0;
@@ -1538,6 +1551,17 @@ zread_ipv6_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
   p.family = AF_INET6;
   p.prefixlen = stream_getc (s);
   stream_get (&p.u.prefix6, s, PSIZE (p.prefixlen));
+
+  if (CHECK_FLAG (api.message, ZAPI_MESSAGE_SRCPFX))
+    {
+      memset (&src_p, 0, sizeof (struct prefix_ipv6));
+      src_p.family = AF_INET6;
+      src_p.prefixlen = stream_getc (s);
+      stream_get (&src_p.prefix, s, PSIZE (src_p.prefixlen));
+      src_pp = &src_p;
+    }
+  else
+    src_pp = NULL;
 
   /* Nexthop, ifindex, distance, metric. */
   if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP))
@@ -1582,10 +1606,10 @@ zread_ipv6_delete (struct zserv *client, u_short length, struct zebra_vrf *zvrf)
 
   if (IN6_IS_ADDR_UNSPECIFIED (&nexthop))
     rib_delete (AFI_IP6, api.safi, zvrf_id (zvrf), api.type, api.instance,
-		api.flags, &p, NULL, ifindex, client->rtm_table);
+		api.flags, &p, src_pp, NULL, ifindex, client->rtm_table);
   else
     rib_delete (AFI_IP6, api.safi, zvrf_id (zvrf), api.type, api.instance,
-		api.flags, &p, pnexthop, ifindex, client->rtm_table);
+		api.flags, &p, src_pp, pnexthop, ifindex, client->rtm_table);
 
   client->v6_route_del_cnt++;
   return 0;

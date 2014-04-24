@@ -992,17 +992,17 @@ rtm_read (struct rt_msghdr *rtm)
        */
       if (rtm->rtm_type == RTM_CHANGE)
         rib_delete (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-		    0, zebra_flags, &p, NULL, 0, 0);
+		    0, zebra_flags, &p, NULL, NULL, 0, 0);
       
       union g_addr ggate = { .ipv4 = gate.sin.sin_addr };
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
 	rib_add (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		 &p, &ggate, NULL, 0, 0, 0, 0, 0);
+		 &p, NULL, &ggate, NULL, 0, 0, 0, 0, 0);
       else
 	rib_delete (AFI_IP, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-		    0, zebra_flags, &p, &ggate, 0, 0);
+		    0, zebra_flags, &p, NULL, &ggate, 0, 0);
     }
   if (dest.sa.sa_family == AF_INET6)
     {
@@ -1034,18 +1034,18 @@ rtm_read (struct rt_msghdr *rtm)
        */
       if (rtm->rtm_type == RTM_CHANGE)
         rib_delete (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-		    0, zebra_flags, &p, NULL, 0, 0);
+		    0, zebra_flags, &p, NULL, NULL, 0, 0);
 
       union g_addr ggate = { .ipv6 = gate.sin6.sin6_addr };
       if (rtm->rtm_type == RTM_GET 
           || rtm->rtm_type == RTM_ADD
           || rtm->rtm_type == RTM_CHANGE)
 	rib_add (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-		 0, zebra_flags, &p, &ggate, NULL, ifindex,
+		 0, zebra_flags, &p, NULL, &ggate, NULL, ifindex,
 		 0, 0, 0, 0);
       else
 	rib_delete (AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-		    0, zebra_flags, &p, &ggate, ifindex, 0);
+		    0, zebra_flags, &p, NULL, &ggate, ifindex, 0);
     }
 }
 

@@ -2585,7 +2585,7 @@ void rib_lookup_and_pushup (struct prefix_ipv4 * p, vrf_id_t vrf_id)
 
 int
 rib_add_multipath (afi_t afi, safi_t safi, struct prefix *p,
-		   struct rib *rib)
+		   struct prefix_ipv6 *src_p, struct rib *rib)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -2674,8 +2674,8 @@ rib_add_multipath (afi_t afi, safi_t safi, struct prefix *p,
 
 int
 rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
-	    int flags, struct prefix *p, union g_addr *gate, ifindex_t ifindex,
-	    u_int32_t table_id)
+	    int flags, struct prefix *p, struct prefix_ipv6 *src_p,
+	    union g_addr *gate, ifindex_t ifindex, u_int32_t table_id)
 {
   struct route_table *table;
   struct route_node *rn;
@@ -2815,7 +2815,8 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 int
 rib_add (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	 u_short instance, int flags, struct prefix *p,
-	 union g_addr *gate, union g_addr *src, ifindex_t ifindex,
+	 struct prefix_ipv6 *src_p, union g_addr *gate,
+	 union g_addr *src, ifindex_t ifindex,
 	 u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
 	 u_char distance)
 {

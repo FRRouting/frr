@@ -238,7 +238,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
       if (!tb[RTA_MULTIPATH])
 	rib_add (AFI_IP, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-		 0, flags, &p, gate, src, index,
+		 0, flags, &p, NULL, gate, src, index,
 		 table, metric, mtu, 0);
       else
         {
@@ -296,7 +296,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
           if (rib->nexthop_num == 0)
             XFREE (MTYPE_RIB, rib);
           else
-            rib_add_multipath (AFI_IP, SAFI_UNICAST, &p, rib);
+            rib_add_multipath (AFI_IP, SAFI_UNICAST, &p, NULL, rib);
         }
     }
   if (rtm->rtm_family == AF_INET6)
@@ -306,7 +306,7 @@ netlink_routing_table (struct sockaddr_nl *snl, struct nlmsghdr *h,
       p.prefixlen = rtm->rtm_dst_len;
 
       rib_add (AFI_IP6, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-	       0, flags, &p, gate, src, index,
+	       0, flags, &p, NULL, gate, src, index,
 	       table, metric, mtu, 0);
     }
 
@@ -431,7 +431,7 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
         {
           if (!tb[RTA_MULTIPATH])
             rib_add (AFI_IP, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-		     0, 0, &p, gate, src, index,
+		     0, 0, &p, NULL, gate, src, index,
 		     table, metric, mtu, 0);
           else
             {
@@ -490,12 +490,12 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
               if (rib->nexthop_num == 0)
                 XFREE (MTYPE_RIB, rib);
               else
-                rib_add_multipath (AFI_IP, SAFI_UNICAST, &p, rib);
+                rib_add_multipath (AFI_IP, SAFI_UNICAST, &p, NULL, rib);
             }
         }
       else
         rib_delete (AFI_IP, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL, 0, zebra_flags,
-		    &p, gate, index, table);
+		    &p, NULL, gate, index, table);
     }
 
   if (rtm->rtm_family == AF_INET6)
@@ -516,11 +516,11 @@ netlink_route_change_read_unicast (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
       if (h->nlmsg_type == RTM_NEWROUTE)
         rib_add (AFI_IP6, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-		 0, 0, &p, gate, src, index,
+		 0, 0, &p, NULL, gate, src, index,
 		 table, metric, mtu, 0);
       else
         rib_delete (AFI_IP6, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-		    0, zebra_flags, &p, gate, index, table);
+		    0, zebra_flags, &p, NULL, gate, index, table);
     }
 
   return 0;

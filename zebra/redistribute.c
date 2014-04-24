@@ -519,7 +519,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 	        gate = (union g_addr *)&nhop->gate.ipv4;
 
 	      rib_add (AFI_IP, SAFI_UNICAST, rib->vrf_id, ZEBRA_ROUTE_TABLE,
-		       rib->table, 0, &p, gate, (union g_addr *)&nhop->src.ipv4,
+		       rib->table, 0, &p, NULL, gate, (union g_addr *)&nhop->src.ipv4,
 		       nhop->ifindex, zebrad.rtm_table_default,
 		       rib->metric, rib->mtu,
 		       zebra_import_table_distance[AFI_IP][rib->table]);
@@ -541,7 +541,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct rib *rib, const char
 	      for (nhop = rib->nexthop; nhop; nhop = nhop->next)
 	        rib_copy_nexthops(newrib, nhop);
 
-	      rib_add_multipath(AFI_IP, SAFI_UNICAST, &p, newrib);
+	      rib_add_multipath(AFI_IP, SAFI_UNICAST, &p, NULL, newrib);
 	    }
         }
     }
@@ -565,7 +565,7 @@ zebra_del_import_table_entry (struct route_node *rn, struct rib *rib)
       p.u.prefix4 = rn->p.u.prefix4;
 
       rib_delete (AFI_IP, SAFI_UNICAST, rib->vrf_id, ZEBRA_ROUTE_TABLE,
-		  rib->table, rib->flags, &p, NULL,
+		  rib->table, rib->flags, &p, NULL, NULL,
 		  0, zebrad.rtm_table_default);
     }
   /* DD: Add IPv6 code */

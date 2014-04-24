@@ -114,6 +114,7 @@ struct zclient
 #define ZAPI_MESSAGE_METRIC   0x08
 #define ZAPI_MESSAGE_TAG      0x10
 #define ZAPI_MESSAGE_MTU      0x20
+#define ZAPI_MESSAGE_SRCPFX   0x40
 
 /* Zserv protocol message header */
 struct zserv_header
