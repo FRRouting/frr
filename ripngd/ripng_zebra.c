@@ -99,7 +99,7 @@ ripng_zebra_ipv6_send (struct route_node *rp, u_char cmd)
         }
 
       zapi_ipv6_route (cmd, zclient,
-                       (struct prefix_ipv6 *)&rp->p, &api);
+                       (struct prefix_ipv6 *)&rp->p, NULL, &api);
 
       if (IS_RIPNG_DEBUG_ZEBRA)
         {

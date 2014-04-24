@@ -582,7 +582,7 @@ vnc_zebra_route_msg (
 
       zapi_ipv6_route ((add ? ZEBRA_IPV6_NEXTHOP_ADD :
                         ZEBRA_IPV6_NEXTHOP_DELETE), zclient_vnc,
-                       (struct prefix_ipv6 *) p, &api);
+                       (struct prefix_ipv6 *) p, NULL, &api);
     }
   else
     {

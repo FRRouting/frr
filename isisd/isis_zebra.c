@@ -424,7 +424,7 @@ isis_zebra_route_add_ipv6 (struct prefix *prefix,
       prefix6.family = AF_INET6;
       prefix6.prefixlen = prefix->prefixlen;
       memcpy (&prefix6.prefix, &prefix->u.prefix6, sizeof (struct in6_addr));
-      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, &prefix6, &api);
+      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_ADD, zclient, &prefix6, NULL, &api);
       SET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
       UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
     }
@@ -505,7 +505,7 @@ isis_zebra_route_del_ipv6 (struct prefix *prefix,
       prefix6.family = AF_INET6;
       prefix6.prefixlen = prefix->prefixlen;
       memcpy (&prefix6.prefix, &prefix->u.prefix6, sizeof (struct in6_addr));
-      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, &prefix6, &api);
+      zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, &prefix6, NULL, &api);
       UNSET_FLAG (route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
     }
 

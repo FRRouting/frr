@@ -1587,7 +1587,7 @@ bgp_zebra_announce (struct prefix *p, struct bgp_info *info, struct bgp *bgp,
 
           zapi_ipv6_route (valid_nh_count ?
                            ZEBRA_IPV6_ROUTE_ADD : ZEBRA_IPV6_ROUTE_DELETE,
-                           zclient, (struct prefix_ipv6 *) p, &api);
+                           zclient, (struct prefix_ipv6 *) p, NULL, &api);
         }
     }
 }
@@ -1725,7 +1725,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
 	}
 
       zapi_ipv6_route (ZEBRA_IPV6_ROUTE_DELETE, zclient, 
-                       (struct prefix_ipv6 *) p, &api);
+                       (struct prefix_ipv6 *) p, NULL, &api);
     }
 }
 
