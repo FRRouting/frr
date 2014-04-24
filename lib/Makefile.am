@@ -27,6 +27,7 @@ libzebra_la_SOURCES = \
 	qobj.c wheel.c \
 	event_counter.c \
 	grammar_sandbox.c \
+	srcdest_table.c \
 	strlcpy.c \
 	strlcat.c
 
@@ -48,7 +49,8 @@ pkginclude_HEADERS = \
 	fifo.h memory_vty.h mpls.h imsg.h openbsd-queue.h openbsd-tree.h \
 	skiplist.h qobj.h wheel.h \
 	event_counter.h \
-	monotime.h
+	monotime.h \
+	srcdest_table.h
 
 noinst_HEADERS = \
 	plist_int.h

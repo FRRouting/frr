@@ -28,7 +28,7 @@
 #include "sockunion.h"
 
 DEFINE_MTYPE(       LIB, ROUTE_TABLE, "Route table")
-DEFINE_MTYPE_STATIC(LIB, ROUTE_NODE,  "Route node")
+DEFINE_MTYPE(       LIB, ROUTE_NODE,  "Route node")
 
 static void route_node_delete (struct route_node *);
 static void route_table_free (struct route_table *);
@@ -399,6 +399,14 @@ route_node_delete (struct route_node *node)
     node->table->top = child;
 
   node->table->count--;
+
+  /* WARNING: FRAGILE CODE!
+   * route_node_free may have the side effect of free'ing the entire table.
+   * this is permitted only if table->count got decremented to zero above,
+   * because in that case parent will also be NULL, so that we won't try to
+   * delete a now-stale parent below.
+   *
+   * cf. srcdest_srcnode_destroy() in zebra/zebra_rib.c */
 
   route_node_free (node->table, node);
 

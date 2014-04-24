@@ -25,6 +25,7 @@
 
 #include "memory.h"
 DECLARE_MTYPE(ROUTE_TABLE)
+DECLARE_MTYPE(ROUTE_NODE)
 
 /*
  * Forward declarations.
