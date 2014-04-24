@@ -79,6 +79,37 @@ static const struct
   /* no entry/default: 150 */
 };
 
+static void
+_rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn, int priority,
+	    const char *msgfmt, ...)
+{
+  char buf[INET6_ADDRSTRLEN + 4], *bptr;
+  char msgbuf[512];
+  va_list ap;
+
+  va_start(ap, msgfmt);
+  vsnprintf(msgbuf, sizeof(msgbuf), msgfmt, ap);
+  va_end(ap);
+
+  if (rn)
+    {
+      inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
+      bptr = buf + strlen(buf);
+      snprintf(bptr, buf + sizeof(buf) - bptr, "/%d", rn->p.prefixlen);
+    }
+  else
+    {
+      snprintf(buf, sizeof(buf), "{(route_node *) NULL}");
+    }
+
+  zlog (NULL, priority, "%s: %d:%s: %s", _func, vrf_id, buf, msgbuf);
+}
+
+#define rnode_debug(node, vrf_id, ...) \
+	_rnode_zlog(__func__, vrf_id, node, LOG_DEBUG, __VA_ARGS__)
+#define rnode_info(node, ...) \
+	_rnode_zlog(__func__, vrf_id, node, LOG_INFO, __VA_ARGS__)
+
 int
 is_zebra_valid_kernel_table(u_int32_t table_id)
 {
@@ -1250,7 +1281,6 @@ int
 rib_gc_dest (struct route_node *rn)
 {
   rib_dest_t *dest;
-  char buf[INET6_ADDRSTRLEN];
   struct zebra_vrf *zvrf;
 
   dest = rib_dest_from_rnode (rn);
@@ -1261,12 +1291,8 @@ rib_gc_dest (struct route_node *rn)
     return 0;
 
   zvrf = rib_dest_vrf (dest);
-  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    {
-      inet_ntop (rn->p.family, &rn->p.u.prefix, buf, sizeof (buf));
-      zlog_debug ("%u:%s/%d: rn %p removing dest",
-		  zvrf->vrf_id, buf, rn->p.prefixlen, rn);
-    }
+  if (IS_ZEBRA_DEBUG_RIB)
+    rnode_debug (rn, zvrf->vrf_id, "removing dest from table");
 
   dest->rnode = NULL;
   XFREE (MTYPE_RIB_DEST, dest);
@@ -1546,8 +1572,7 @@ rib_process (struct route_node *rn)
           if (rib != fib)
             {
               if (IS_ZEBRA_DEBUG_RIB)
-                zlog_debug ("%u:%s/%d: Freeing route rn %p, rib %p (type %d)",
-                            vrf_id, buf, rn->p.prefixlen, rn, rib, rib->type);
+		rnode_debug (rn, vrf_id, "rn %p, removing rib %p", rn, rib);
 	      rib_unlink (rn, rib);
             }
           else
@@ -1677,6 +1702,9 @@ rib_process (struct route_node *rn)
 #if 0
   if (select && select == fib)
     {
+      if (IS_ZEBRA_DEBUG_RIB)
+	rnode_debug (rn, vrf_id, "Updating existing route, select %p, fib %p",
+		     select, fib);
       if (CHECK_FLAG (select->flags, ZEBRA_FLAG_CHANGED))
         {
 	  zfpm_trigger_update (rn, "updating existing route");
@@ -1747,6 +1775,9 @@ rib_process (struct route_node *rn)
    */
   if (fib)
     {
+      if (IS_ZEBRA_DEBUG_RIB)
+	rnode_debug (rn, vrf_id, "Removing existing route, fib %p", fib);
+
       zfpm_trigger_update (rn, "removing existing route");
 
       /* If there's no route to replace this with, withdraw redistribute and
@@ -1776,6 +1807,9 @@ rib_process (struct route_node *rn)
    */
   if (select)
     {
+      if (IS_ZEBRA_DEBUG_RIB)
+	rnode_debug (rn, "Adding route, select %p", select);
+
       zfpm_trigger_update (rn, "new route selected");
 
       /* Set real nexthop. */
@@ -1841,8 +1875,7 @@ rib_process (struct route_node *rn)
   if (del)
     {
       if (IS_ZEBRA_DEBUG_RIB)
-        zlog_debug ("%u:%s/%d: Freeing route rn %p, rib %p (type %d)",
-                    vrf_id, buf, rn->p.prefixlen, rn, del, del->type);
+        rnode_debug (rn, vrf_id, "Deleting fib %p, rn %p", del, rn);
       rib_unlink (rn, del);
     }
 
@@ -1969,10 +2002,6 @@ static void
 rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
 {
   struct rib *rib;
-  char buf[INET6_ADDRSTRLEN];
-
-  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-    inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
 
   RNODE_FOREACH_RIB (rn, rib)
     {
@@ -1982,7 +2011,12 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
       /* Invariant: at this point we always have rn->info set. */
       if (CHECK_FLAG (rib_dest_from_rnode (rn)->flags,
 		      RIB_ROUTE_QUEUED (qindex)))
-        continue;
+	{
+	  if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+	    rnode_debug (rn, rib->vrf_id,  "rn %p is already queued in sub-queue %u",
+			 rn, qindex);
+	  continue;
+	}
 
       SET_FLAG (rib_dest_from_rnode (rn)->flags, RIB_ROUTE_QUEUED (qindex));
       listnode_add (mq->subq[qindex], rn);
@@ -1990,8 +2024,8 @@ rib_meta_queue_add (struct meta_queue *mq, struct route_node *rn)
       mq->size++;
 
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-	zlog_debug ("%u:%s/%d: rn %p queued into sub-queue %u",
-		    rib->vrf_id, buf, rn->p.prefixlen, rn, qindex);
+	rnode_debug (rn, rib->vrf_id, "queued rn %p into sub-queue %u",
+		     rn, qindex);
 
       zvrf = zebra_vrf_lookup (rib->vrf_id);
       if (zvrf)
@@ -2129,7 +2163,6 @@ rib_link (struct route_node *rn, struct rib *rib, int process)
 {
   struct rib *head;
   rib_dest_t *dest;
-  char buf[INET6_ADDRSTRLEN];
   afi_t afi;
   const char *rmap_name;
 
@@ -2139,11 +2172,7 @@ rib_link (struct route_node *rn, struct rib *rib, int process)
   if (!dest)
     {
       if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-	{
-          inet_ntop (rn->p.family, &rn->p.u.prefix, buf, INET6_ADDRSTRLEN);
-          zlog_debug ("%u:%s/%d: rn %p adding dest",
-                      rib->vrf_id, buf, rn->p.prefixlen, rn);
-	}
+        rnode_debug (rn, rib->vrf_id, "rn %p adding dest", rn);
 
       dest = XCALLOC (MTYPE_RIB_DEST, sizeof (rib_dest_t));
       route_lock_node (rn); /* rn route table reference */
@@ -2179,6 +2208,9 @@ rib_addnode (struct route_node *rn, struct rib *rib, int process)
    */
   if (CHECK_FLAG (rib->status, RIB_ENTRY_REMOVED))
     {
+      if (IS_ZEBRA_DEBUG_RIB)
+        rnode_debug (rn, rib->vrf_id, "rn %p, un-removed rib %p", rn, rib);
+
       UNSET_FLAG (rib->status, RIB_ENTRY_REMOVED);
       return;
     }
@@ -2200,6 +2232,9 @@ rib_unlink (struct route_node *rn, struct rib *rib)
   rib_dest_t *dest;
 
   assert (rn && rib);
+
+  if (IS_ZEBRA_DEBUG_RIB)
+    rnode_debug (rn, rib->vrf_id, "rn %p, rib %p", rn, rib);
 
   dest = rib_dest_from_rnode (rn);
 
@@ -2225,6 +2260,8 @@ rib_delnode (struct route_node *rn, struct rib *rib)
 {
   afi_t afi;
 
+  if (IS_ZEBRA_DEBUG_RIB)
+    rnode_debug (rn, rib->vrf_id, "rn %p, rib %p, removing", rn, rib);
   SET_FLAG (rib->status, RIB_ENTRY_REMOVED);
 
   afi = (rn->p.family == AF_INET) ? AFI_IP :
