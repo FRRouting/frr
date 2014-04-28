@@ -568,6 +568,9 @@ lsa_link_broadcast_set (struct stream *s, struct ospf_interface *oi)
   /* Describe Type 3 Link. */
   if (oi->state == ISM_Waiting)
     {
+      if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+        zlog_debug ("LSA[Type1]: Interface %s is in state Waiting. "
+                    "Adding stub interface", oi->ifp->name);
       masklen2ip (oi->address->prefixlen, &mask);
       id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
       return link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0,
@@ -580,12 +583,18 @@ lsa_link_broadcast_set (struct stream *s, struct ospf_interface *oi)
 	     IPV4_ADDR_SAME (&oi->address->u.prefix4, &DR (oi))) &&
       ospf_nbr_count (oi, NSM_Full) > 0)
     {
+      if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+        zlog_debug ("LSA[Type1]: Interface %s has a DR. "
+                    "Adding transit interface", oi->ifp->name);
       return link_info_set (s, DR (oi), oi->address->u.prefix4,
                             LSA_LINK_TYPE_TRANSIT, 0, cost);
     }
   /* Describe type 3 link. */
   else
     {
+      if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
+        zlog_debug ("LSA[Type1]: Interface %s has no DR. "
+                    "Adding stub interface", oi->ifp->name);
       masklen2ip (oi->address->prefixlen, &mask);
       id.s_addr = oi->address->u.prefix4.s_addr & mask.s_addr;
       return link_info_set (s, id, mask, LSA_LINK_TYPE_STUB, 0,
