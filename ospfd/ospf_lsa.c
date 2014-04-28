@@ -2915,9 +2915,9 @@ ospf_lsa_maxage_delete (struct ospf *ospf, struct ospf_lsa *lsa)
 	  UNSET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
 	  ospf_lsa_unlock (&lsa); /* maxage_lsa */
 	  rn->info = NULL;
-	  route_unlock_node (rn); /* route_node_lookup */
+	  route_unlock_node (rn); /* unlock node because lsa is deleted */
 	}
-	  route_unlock_node (rn); /* route_node_lookup */
+      route_unlock_node (rn); /* route_node_lookup */
     }
 }
 
