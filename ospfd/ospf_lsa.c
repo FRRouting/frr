@@ -2856,6 +2856,7 @@ ospf_maxage_lsa_remover (struct thread *thread)
         if (thread_should_yield (thread))
           {
             OSPF_TIMER_ON (ospf->t_maxage, ospf_maxage_lsa_remover, 0);
+            route_unlock_node(rn); /* route_top/route_next */
             return 0;
           }
           
