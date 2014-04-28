@@ -52,6 +52,7 @@ struct prefix
       struct in_addr adv_router;
     } lp;
     u_char val[8];
+    uintptr_t ptr;
   } u __attribute__ ((aligned (8)));
 };
 
@@ -87,6 +88,14 @@ struct prefix_rd
   u_char family;
   u_char prefixlen;
   u_char val[8] __attribute__ ((aligned (8)));
+};
+
+/* Prefix for a generic pointer */
+struct prefix_ptr
+{
+  u_char family;
+  u_char prefixlen;
+  uintptr_t prefix __attribute__ ((aligned (8)));
 };
 
 /* helper to get type safety/avoid casts on calls
