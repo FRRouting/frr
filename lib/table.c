@@ -286,6 +286,28 @@ route_node_lookup (const struct route_table *table, const struct prefix *p)
   return NULL;
 }
 
+/* Lookup same prefix node.  Return NULL when we can't find route. */
+struct route_node *
+route_node_lookup_maynull (const struct route_table *table, const struct prefix *p)
+{
+  struct route_node *node;
+  u_char prefixlen = p->prefixlen;
+  const u_char *prefix = &p->u.prefix;
+
+  node = table->top;
+
+  while (node && node->p.prefixlen <= prefixlen &&
+	 prefix_match (&node->p, p))
+    {
+      if (node->p.prefixlen == prefixlen)
+        return route_lock_node (node);
+
+      node = node->link[prefix_bit(prefix, node->p.prefixlen)];
+    }
+
+  return NULL;
+}
+
 /* Add node to routing table. */
 struct route_node *
 route_node_get (struct route_table *const table, const struct prefix *p)
