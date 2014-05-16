@@ -162,6 +162,12 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
   int namelen;
   int save_errno;
 
+  if (zserv_privs.change (ZPRIVS_RAISE))
+    {
+      zlog (NULL, LOG_ERR, "Can't raise privileges");
+      return -1;
+    }
+
   sock = socket (AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
   if (sock < 0)
     {
@@ -175,12 +181,6 @@ netlink_socket (struct nlsock *nl, unsigned long groups)
   snl.nl_groups = groups;
 
   /* Bind the socket to the netlink structure for anything. */
-  if (zserv_privs.change (ZPRIVS_RAISE))
-    {
-      zlog (NULL, LOG_ERR, "Can't raise privileges");
-      return -1;
-    }
-
   ret = bind (sock, (struct sockaddr *) &snl, sizeof snl);
   save_errno = errno;
   if (zserv_privs.change (ZPRIVS_LOWER))
