@@ -4409,14 +4409,42 @@ peer_maximum_prefix_unset (struct peer *peer, afi_t afi, safi_t safi)
     }
   return 0;
 }
-
+
+static int is_ebgp_multihop_configured (struct peer *peer)
+{
+  struct peer_group *group;
+  struct listnode *node, *nnode;
+  struct peer *peer1;
+
+  if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
+    {
+      group = peer->group;
+      if (group->conf->ttl != 1)
+	return 1;
+
+      for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer1))
+	{
+	  if (peer1->sort == BGP_PEER_IBGP)
+	    continue;
+
+	  if (peer1->ttl != 1)
+	    return 1;
+	}
+    }
+  else
+    {
+      if (peer->ttl != 1)
+	return 1;
+    }
+  return 0;
+}
+
 /* Set # of hops between us and BGP peer. */
 int
 peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
 {
   struct peer_group *group;
   struct listnode *node, *nnode;
-  struct peer *peer1;
   int ret;
 
   zlog_debug ("peer_ttl_security_hops_set: set gtsm_hops to %d for %s", gtsm_hops, peer->host);
@@ -4432,32 +4460,16 @@ peer_ttl_security_hops_set (struct peer *peer, int gtsm_hops)
      mess of this configuration parameter, and OpenBGPD got it right.
   */
   
-  if (peer->gtsm_hops == 0) {
-    if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
-      {
-        group = peer->group;
-        if (group->conf->ttl != 1)
-          return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
+  if (peer->gtsm_hops == 0)
+    {
+      if (is_ebgp_multihop_configured (peer))
+	return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
-        for (ALL_LIST_ELEMENTS (group->peer, node, nnode, peer1))
-          {
-            if (peer1->sort == BGP_PEER_IBGP)
-              continue;
-
-            if (peer1->ttl != 1)
-              return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
-          }
-      }
-    else
-      {
-        if (peer->ttl != 1)
-          return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
-      }
-    /* specify MAXTTL on outgoing packets */
-    ret = peer_ebgp_multihop_set (peer, MAXTTL);
-    if (ret != 0)
-      return ret;
-  }
+      /* specify MAXTTL on outgoing packets */
+      ret = peer_ebgp_multihop_set (peer, MAXTTL);
+      if (ret != 0)
+	return ret;
+    }
   
   peer->gtsm_hops = gtsm_hops;
 
