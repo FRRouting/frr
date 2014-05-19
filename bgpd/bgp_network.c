@@ -145,6 +145,16 @@ bgp_update_sock_send_buffer_size (int fd)
     }
 }
 
+static void
+bgp_set_socket_ttl (struct peer *peer, int bgp_sock)
+{
+  if (peer->sort == BGP_PEER_EBGP) {
+    sockopt_ttl (peer->su.sa.sa_family, bgp_sock, peer->ttl);
+    if (peer->gtsm_hops)
+      sockopt_minttl (peer->su.sa.sa_family, bgp_sock, MAXTTL + 1 - peer->gtsm_hops);
+  }
+}
+
 /* Accept bgp connection. */
 static int
 bgp_accept (struct thread *thread)
@@ -198,12 +208,7 @@ bgp_accept (struct thread *thread)
       return -1;
     }
 
-  /* In case of peer is EBGP, we should set TTL for this connection.  */
-  if (peer1->sort == BGP_PEER_EBGP) {
-    sockopt_ttl (peer1->su.sa.sa_family, bgp_sock, peer1->ttl);
-    if (peer1->gtsm_hops)
-      sockopt_minttl (peer1->su.sa.sa_family, bgp_sock, MAXTTL + 1 - peer1->gtsm_hops);
-  }
+  bgp_set_socket_ttl (peer1, bgp_sock);
 
   /* Make dummy peer until read Open packet. */
   if (BGP_DEBUG (events, EVENTS))
@@ -336,12 +341,7 @@ bgp_connect (struct peer *peer)
   /* Set socket send buffer size */
   bgp_update_sock_send_buffer_size(peer->fd);
 
-  /* If we can get socket for the peer, adjest TTL and make connection. */
-  if (peer->sort == BGP_PEER_EBGP) {
-    sockopt_ttl (peer->su.sa.sa_family, peer->fd, peer->ttl);
-    if (peer->gtsm_hops)
-      sockopt_minttl (peer->su.sa.sa_family, peer->fd, MAXTTL + 1 - peer->gtsm_hops);
-  }
+  bgp_set_socket_ttl (peer, peer->fd);
 
   sockopt_reuseaddr (peer->fd);
   sockopt_reuseport (peer->fd);
