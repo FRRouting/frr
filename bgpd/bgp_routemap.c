@@ -93,7 +93,7 @@ o Cisco route-map
       tag               :  (This will not be implemented by bgpd)
       weight            :  Done
 
-o Local extention
+o Local extensions
 
   set ipv6 next-hop global: Done
   set ipv6 next-hop local : Done
@@ -1248,7 +1248,7 @@ route_set_aspath_prepend_free (void *rule)
   aspath_free (aspath);
 }
 
-/* Set metric rule structure. */
+/* Set as-path prepend rule structure. */
 struct route_map_rule_cmd route_set_aspath_prepend_cmd = 
 {
   "as-path prepend",
@@ -1705,7 +1705,7 @@ route_set_origin_free (void *rule)
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-/* Set metric rule structure. */
+/* Set origin rule structure. */
 struct route_map_rule_cmd route_set_origin_cmd = 
 {
   "origin",
@@ -2191,7 +2191,7 @@ route_set_originator_id_free (void *rule)
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-/* Set metric rule structure. */
+/* Set originator-id rule structure. */
 struct route_map_rule_cmd route_set_originator_id_cmd = 
 {
   "originator-id",
