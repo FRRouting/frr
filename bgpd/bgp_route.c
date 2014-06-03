@@ -713,11 +713,8 @@ bgp_input_modifier (struct peer *peer, struct prefix *p, struct attr *attr,
       peer->rmap_type = 0;
 
       if (ret == RMAP_DENYMATCH)
-	{
-	  /* Free newly generated AS path and community by route-map. */
-	  bgp_attr_flush (attr);
-	  return RMAP_DENY;
-	}
+	/* caller has multiple error paths with bgp_attr_flush() */
+	return RMAP_DENY;
     }
   return RMAP_PERMIT;
 }
@@ -2143,10 +2140,14 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
   new_attr.extra = &new_extra;
   bgp_attr_dup (&new_attr, attr);
 
-  /* Apply incoming route-map. */
+  /* Apply incoming route-map.
+   * NB: new_attr may now contain newly allocated values from route-map "set"
+   * commands, so we need bgp_attr_flush in the error paths, until we intern
+   * the attr (which takes over the memory references) */
   if (bgp_input_modifier (peer, p, &new_attr, afi, safi) == RMAP_DENY)
     {
       reason = "route-map;";
+      bgp_attr_flush (&new_attr);
       goto filtered;
     }
 
@@ -2160,6 +2161,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	  && ! CHECK_FLAG (peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
 	{
 	  reason = "non-connected next-hop;";
+	  bgp_attr_flush (&new_attr);
 	  goto filtered;
 	}
 
@@ -2170,6 +2172,7 @@ bgp_update_main (struct peer *peer, struct prefix *p, struct attr *attr,
 	  || bgp_nexthop_self (&new_attr))
 	{
 	  reason = "martian next-hop;";
+	  bgp_attr_flush (&new_attr);
 	  goto filtered;
 	}
     }
