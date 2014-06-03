@@ -1110,7 +1110,7 @@ bgp_attr_nexthop (struct bgp_attr_parser_args *args)
   if (IPV4_NET0 (nexthop_h) || IPV4_NET127 (nexthop_h) || IPV4_CLASS_DE (nexthop_h))
     {
       char buf[INET_ADDRSTRLEN];
-      inet_ntop (AF_INET, &nexthop_h, buf, INET_ADDRSTRLEN);
+      inet_ntop (AF_INET, &nexthop_n, buf, INET_ADDRSTRLEN);
       zlog (peer->log, LOG_ERR, "Martian nexthop %s", buf);
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
