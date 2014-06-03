@@ -1530,10 +1530,10 @@ struct route_map_rule_cmd route_set_community_delete_cmd =
 
 /* `set extcommunity rt COMMUNITY' */
 
-/* For community set mechanism. */
+/* For community set mechanism.  Used by _rt and _soo. */
 static route_map_result_t
-route_set_ecommunity_rt (void *rule, struct prefix *prefix, 
-			 route_map_object_t type, void *object)
+route_set_ecommunity (void *rule, struct prefix *prefix,
+		      route_map_object_t type, void *object)
 {
   struct ecommunity *ecom;
   struct ecommunity *new_ecom;
@@ -1578,9 +1578,9 @@ route_set_ecommunity_rt_compile (const char *arg)
   return ecommunity_intern (ecom);
 }
 
-/* Free function for set community. */
+/* Free function for set community.  Used by _rt and _soo */
 static void
-route_set_ecommunity_rt_free (void *rule)
+route_set_ecommunity_free (void *rule)
 {
   struct ecommunity *ecom = rule;
   ecommunity_unintern (&ecom);
@@ -1590,45 +1590,12 @@ route_set_ecommunity_rt_free (void *rule)
 struct route_map_rule_cmd route_set_ecommunity_rt_cmd = 
 {
   "extcommunity rt",
-  route_set_ecommunity_rt,
+  route_set_ecommunity,
   route_set_ecommunity_rt_compile,
-  route_set_ecommunity_rt_free,
+  route_set_ecommunity_free,
 };
 
 /* `set extcommunity soo COMMUNITY' */
-
-/* For community set mechanism. */
-static route_map_result_t
-route_set_ecommunity_soo (void *rule, struct prefix *prefix, 
-			 route_map_object_t type, void *object)
-{
-  struct ecommunity *ecom, *old_ecom, *new_ecom;
-  struct bgp_info *bgp_info;
-
-  if (type == RMAP_BGP)
-    {
-      ecom = rule;
-      bgp_info = object;
-    
-      if (! ecom)
-	return RMAP_OKAY;
-    
-      old_ecom = (bgp_attr_extra_get (bgp_info->attr))->ecommunity;
-      
-      if (old_ecom)
-	new_ecom = ecommunity_merge (ecommunity_dup (old_ecom), ecom);
-      else
-	new_ecom = ecommunity_dup (ecom);
-
-      bgp_info->attr->extra->ecommunity = ecommunity_intern (new_ecom);
-
-      if (old_ecom)
-	ecommunity_unintern (&old_ecom);
-
-      bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
-    }
-  return RMAP_OKAY;
-}
 
 /* Compile function for set community. */
 static void *
@@ -1643,21 +1610,13 @@ route_set_ecommunity_soo_compile (const char *arg)
   return ecommunity_intern (ecom);
 }
 
-/* Free function for set community. */
-static void
-route_set_ecommunity_soo_free (void *rule)
-{
-  struct ecommunity *ecom = rule;
-  ecommunity_unintern (&ecom);
-}
-
 /* Set community rule structure. */
 struct route_map_rule_cmd route_set_ecommunity_soo_cmd = 
 {
   "extcommunity soo",
-  route_set_ecommunity_soo,
+  route_set_ecommunity,
   route_set_ecommunity_soo_compile,
-  route_set_ecommunity_soo_free,
+  route_set_ecommunity_free,
 };
 
 /* `set origin ORIGIN' */
