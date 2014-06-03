@@ -1552,14 +1552,19 @@ route_set_ecommunity (void *rule, struct prefix *prefix,
       old_ecom = (bgp_attr_extra_get (bgp_info->attr))->ecommunity;
 
       if (old_ecom)
-	new_ecom = ecommunity_merge (ecommunity_dup (old_ecom), ecom);
+	{
+	  new_ecom = ecommunity_merge (ecommunity_dup (old_ecom), ecom);
+
+	  /* old_ecom->refcnt = 1 => owned elsewhere, e.g. bgp_update_receive()
+	   *         ->refcnt = 0 => set by a previous route-map statement */
+	  if (!old_ecom->refcnt)
+	    ecommunity_free (&old_ecom);
+	}
       else
 	new_ecom = ecommunity_dup (ecom);
 
-      bgp_info->attr->extra->ecommunity = ecommunity_intern (new_ecom);
-
-      if (old_ecom)
-	ecommunity_unintern (&old_ecom);
+      /* will be intern()'d or attr_flush()'d by bgp_update_main() */
+      bgp_info->attr->extra->ecommunity = new_ecom;
 
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
     }
