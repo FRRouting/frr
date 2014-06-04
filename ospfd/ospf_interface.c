@@ -49,7 +49,7 @@
 #include "ospfd/ospf_snmp.h"
 #endif /* HAVE_SNMP */
 
-
+
 int
 ospf_if_get_output_cost (struct ospf_interface *oi)
 {
@@ -334,7 +334,7 @@ ospf_if_free (struct ospf_interface *oi)
   XFREE (MTYPE_OSPF_IF, oi);
 }
 
-
+
 /*
 *  check if interface with given address is configured and
 *  return it if yes.  special treatment for PtP networks.
@@ -489,7 +489,7 @@ ospf_if_lookup_recv_if (struct ospf *ospf, struct in_addr src,
 
   return match;
 }
-
+
 void
 ospf_if_stream_set (struct ospf_interface *oi)
 {
@@ -518,7 +518,7 @@ ospf_if_stream_unset (struct ospf_interface *oi)
     }
 }
 
-
+
 static struct ospf_if_params *
 ospf_new_if_params (void)
 {
@@ -825,7 +825,7 @@ ospf_if_down (struct ospf_interface *oi)
   return 1;
 }
 
-
+
 /* Virtual Link related functions. */
 
 struct ospf_vl_data *
@@ -1194,7 +1194,7 @@ ospf_vls_in_area (struct ospf_area *area)
   return c;
 }
 
-
+
 struct crypt_key *
 ospf_crypt_key_new ()
 {

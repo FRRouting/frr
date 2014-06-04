@@ -209,7 +209,7 @@ extern struct ospf6_lsa_handler unknown_handler;
       continue;                                        \
     }
 
-
+
 /* Function Prototypes */
 extern const char *ospf6_lstype_name (u_int16_t type);
 extern const char *ospf6_lstype_short_name (u_int16_t type);

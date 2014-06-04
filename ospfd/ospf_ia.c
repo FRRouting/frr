@@ -193,7 +193,7 @@ ospf_ia_router_route (struct ospf *ospf, struct route_table *rtrs,
   listnode_add (rn->info, new_or);
 }
 
-
+
 static int
 process_summary_lsa (struct ospf_area *area, struct route_table *rt,
 		     struct route_table *rtrs, struct ospf_lsa *lsa)

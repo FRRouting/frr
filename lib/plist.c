@@ -110,7 +110,7 @@ static struct prefix_master prefix_master_orf =
   NULL,
   NULL,
 };
-
+
 static struct prefix_master *
 prefix_master_get (afi_t afi)
 {
@@ -621,7 +621,7 @@ prefix_list_print (struct prefix_list *plist)
 	}
     }
 }
-
+
 /* Retrun 1 when plist already include pentry policy. */
 static struct prefix_list_entry *
 prefix_entry_dup_check (struct prefix_list *plist,
@@ -1165,7 +1165,7 @@ vty_clear_prefix_list (struct vty *vty, afi_t afi, const char *name,
     }
   return CMD_SUCCESS;
 }
-
+
 DEFUN (ip_prefix_list,
        ip_prefix_list_cmd,
        "ip prefix-list WORD (deny|permit) (A.B.C.D/M|any)",
@@ -1759,7 +1759,7 @@ DEFUN (clear_ip_prefix_list_name_prefix,
 {
   return vty_clear_prefix_list (vty, AFI_IP, argv[0], argv[1]);
 }
-
+
 #ifdef HAVE_IPV6
 DEFUN (ipv6_prefix_list,
        ipv6_prefix_list_cmd,
@@ -2355,7 +2355,7 @@ DEFUN (clear_ipv6_prefix_list_name_prefix,
   return vty_clear_prefix_list (vty, AFI_IP6, argv[0], argv[1]);
 }
 #endif /* HAVE_IPV6 */
-
+
 /* Configuration write function. */
 static int
 config_write_prefix_afi (afi_t afi, struct vty *vty)

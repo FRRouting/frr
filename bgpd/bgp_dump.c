@@ -33,7 +33,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_dump.h"
-
+
 enum bgp_dump_type
 {
   BGP_DUMP_ALL,
@@ -89,7 +89,7 @@ struct bgp_dump bgp_dump_routes;
 
 /* Dump whole BGP table is very heavy process.  */
 struct thread *t_bgp_dump_routes;
-
+
 /* Some define for BGP packet dump. */
 static FILE *
 bgp_dump_open_file (struct bgp_dump *bgp_dump)
@@ -535,7 +535,7 @@ bgp_dump_packet (struct peer *peer, int type, struct stream *packet)
   if (type == BGP_MSG_UPDATE)
     bgp_dump_packet_func (&bgp_dump_updates, peer, packet);
 }
-
+
 static unsigned int
 bgp_dump_parse_time (const char *str)
 {
@@ -845,7 +845,7 @@ config_write_bgp_dump (struct vty *vty)
     }
   return 0;
 }
-
+
 /* Initialize BGP packet dump functionality. */
 void
 bgp_dump_init (void)

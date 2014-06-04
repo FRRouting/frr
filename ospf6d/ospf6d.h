@@ -127,7 +127,7 @@ extern struct thread_master *master;
       return CMD_SUCCESS; \
     }
 
-
+
 /* Function Prototypes */
 extern struct route_node *route_prev (struct route_node *node);
 

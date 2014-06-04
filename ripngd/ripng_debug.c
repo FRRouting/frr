@@ -28,7 +28,7 @@
 unsigned long ripng_debug_event = 0;
 unsigned long ripng_debug_packet = 0;
 unsigned long ripng_debug_zebra = 0;
-
+
 DEFUN (show_debugging_ripng,
        show_debugging_ripng_cmd,
        "show debugging ripng",

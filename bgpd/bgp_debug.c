@@ -290,7 +290,7 @@ bgp_notify_print(struct peer *peer, struct bgp_notify *bgp_notify,
 	       code_str, subcode_str, bgp_notify->length,
 	       bgp_notify->data ? bgp_notify->data : "");
 }
-
+
 /* Debug option setting interface. */
 unsigned long bgp_debug_option = 0;
 

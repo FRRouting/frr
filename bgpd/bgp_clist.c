@@ -30,7 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_clist.h"
-
+
 /* Lookup master structure for community-list or
    extcommunity-list.  */
 struct community_list_master *
@@ -262,7 +262,7 @@ community_list_empty_p (struct community_list *list)
 {
   return (list->head == NULL && list->tail == NULL) ? 1 : 0;
 }
-
+
 /* Add community-list entry to the list.  */
 static void
 community_list_entry_add (struct community_list *list,
@@ -329,7 +329,7 @@ community_list_entry_lookup (struct community_list *list, const void *arg,
     }
   return NULL;
 }
-
+
 /* Internal function to perform regular expression match for community
    attribute.  */
 static int
@@ -590,7 +590,7 @@ community_list_dup_check (struct community_list *list,
     }
   return 0;
 }
-
+
 /* Set community-list.  */
 int
 community_list_set (struct community_list_handler *ch,

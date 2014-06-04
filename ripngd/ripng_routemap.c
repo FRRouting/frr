@@ -29,7 +29,7 @@
 #include "sockunion.h"
 
 #include "ripngd/ripngd.h"
-
+
 struct rip_metric_modifier
 {
   enum 
@@ -42,7 +42,7 @@ struct rip_metric_modifier
   u_char metric;
 };
 
-
+
 static int
 ripng_route_match_add (struct vty *vty, struct route_map_index *index,
 		       const char *command, const char *arg)
@@ -130,7 +130,7 @@ ripng_route_set_delete (struct vty *vty, struct route_map_index *index,
     }
   return CMD_SUCCESS;
 }
-
+
 /* `match metric METRIC' */
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t
@@ -184,7 +184,7 @@ static struct route_map_rule_cmd route_match_metric_cmd =
   route_match_metric_compile,
   route_match_metric_free
 };
-
+
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t
@@ -284,7 +284,7 @@ static struct route_map_rule_cmd route_match_tag_cmd =
   route_match_tag_compile,
   route_match_tag_free
 };
-
+
 /* `set metric METRIC' */
 
 /* Set metric to attribute. */
@@ -496,7 +496,7 @@ static struct route_map_rule_cmd route_set_tag_cmd =
   route_set_tag_compile,
   route_set_tag_free
 };
-
+
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"
 

@@ -615,7 +615,7 @@ inactivity_timer (struct thread *thread)
 }
 
 
-
+
 /* vty functions */
 /* show neighbor structure */
 static void

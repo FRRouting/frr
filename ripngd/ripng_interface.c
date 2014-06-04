@@ -38,7 +38,7 @@
 
 #include "ripngd/ripngd.h"
 #include "ripngd/ripng_debug.h"
-
+
 /* If RFC2133 definition is used. */
 #ifndef IPV6_JOIN_GROUP
 #define IPV6_JOIN_GROUP  IPV6_ADD_MEMBERSHIP 
@@ -505,7 +505,7 @@ ripng_interface_address_delete (int command, struct zclient *zclient,
 
   return 0;
 }
-
+
 /* RIPng enable interface vector. */
 vector ripng_enable_if;
 
@@ -812,7 +812,7 @@ ripng_enable_apply_all (void)
   for (ALL_LIST_ELEMENTS_RO (iflist, node, ifp))
     ripng_enable_apply (ifp);
 }
-
+
 /* Clear all network and neighbor configuration */
 void
 ripng_clean_network ()
@@ -835,7 +835,7 @@ ripng_clean_network ()
       vector_slot (ripng_enable_if, i) = NULL;
     }
 }
-
+
 /* Vector to store passive-interface name. */
 vector Vripng_passive_interface;
 
@@ -1103,7 +1103,7 @@ DEFUN (no_ripng_passive_interface,
 {
   return ripng_passive_interface_unset (vty, argv[0]);
 }
-
+
 static struct ripng_interface *
 ri_new (void)
 {

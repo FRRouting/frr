@@ -314,7 +314,7 @@ DEFUN_DEPRECATED (neighbor_version,
 {
   return CMD_SUCCESS;
 }
-
+
 /* "router bgp" commands. */
 DEFUN (router_bgp, 
        router_bgp_cmd, 
@@ -364,7 +364,7 @@ ALIAS (router_bgp,
        AS_STR
        "BGP view\n"
        "view name\n")
-
+
 /* "no router bgp" commands. */
 DEFUN (no_router_bgp,
        no_router_bgp_cmd,
@@ -405,7 +405,7 @@ ALIAS (no_router_bgp,
        AS_STR
        "BGP view\n"
        "view name\n")
-
+
 /* BGP router-id.  */
 
 DEFUN (bgp_router_id,
@@ -476,7 +476,7 @@ ALIAS (no_bgp_router_id,
        BGP_STR
        "Override configured router identifier\n"
        "Manually configured router identifier\n")
-
+
 /* BGP Cluster ID.  */
 
 DEFUN (bgp_cluster_id,
@@ -546,7 +546,7 @@ ALIAS (no_bgp_cluster_id,
        BGP_STR
        "Configure Route-Reflector Cluster-id\n"
        "Route-Reflector Cluster-id in IP address format\n")
-
+
 DEFUN (bgp_confederation_identifier,
        bgp_confederation_identifier_cmd,
        "bgp confederation identifier " CMD_AS_RANGE,
@@ -596,7 +596,7 @@ ALIAS (no_bgp_confederation_identifier,
        "AS confederation parameters\n"
        "AS number\n"
        "Set routing domain confederation AS\n")
-
+
 DEFUN (bgp_confederation_peers,
        bgp_confederation_peers_cmd,
        "bgp confederation peers ." CMD_AS_RANGE,
@@ -650,7 +650,7 @@ DEFUN (no_bgp_confederation_peers,
     }
   return CMD_SUCCESS;
 }
-
+
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
@@ -793,7 +793,7 @@ bgp_config_write_maxpaths (struct vty *vty, struct bgp *bgp, afi_t afi,
 
   return 0;
 }
-
+
 /* BGP timers.  */
 
 DEFUN (bgp_timers,
@@ -849,7 +849,7 @@ ALIAS (no_bgp_timers,
        "BGP timers\n"
        "Keepalive interval\n"
        "Holdtime\n")
-
+
 DEFUN (bgp_client_to_client_reflection,
        bgp_client_to_client_reflection_cmd,
        "bgp client-to-client reflection",
@@ -906,7 +906,7 @@ DEFUN (no_bgp_always_compare_med,
   bgp_flag_unset (bgp, BGP_FLAG_ALWAYS_COMPARE_MED);
   return CMD_SUCCESS;
 }
-
+
 /* "bgp deterministic-med" configuration. */
 DEFUN (bgp_deterministic_med,
        bgp_deterministic_med_cmd,
@@ -1037,7 +1037,7 @@ DEFUN (no_bgp_fast_external_failover,
   bgp_flag_set (bgp, BGP_FLAG_NO_FAST_EXT_FAILOVER);
   return CMD_SUCCESS;
 }
-
+
 /* "bgp enforce-first-as" configuration. */
 DEFUN (bgp_enforce_first_as,
        bgp_enforce_first_as_cmd,
@@ -1065,7 +1065,7 @@ DEFUN (no_bgp_enforce_first_as,
   bgp_flag_unset (bgp, BGP_FLAG_ENFORCE_FIRST_AS);
   return CMD_SUCCESS;
 }
-
+
 /* "bgp bestpath compare-routerid" configuration.  */
 DEFUN (bgp_bestpath_compare_router_id,
        bgp_bestpath_compare_router_id_cmd,
@@ -1095,7 +1095,7 @@ DEFUN (no_bgp_bestpath_compare_router_id,
   bgp_flag_unset (bgp, BGP_FLAG_COMPARE_ROUTER_ID);
   return CMD_SUCCESS;
 }
-
+
 /* "bgp bestpath as-path ignore" configuration.  */
 DEFUN (bgp_bestpath_aspath_ignore,
        bgp_bestpath_aspath_ignore_cmd,
@@ -1127,7 +1127,7 @@ DEFUN (no_bgp_bestpath_aspath_ignore,
   bgp_flag_unset (bgp, BGP_FLAG_ASPATH_IGNORE);
   return CMD_SUCCESS;
 }
-
+
 /* "bgp bestpath as-path confed" configuration.  */
 DEFUN (bgp_bestpath_aspath_confed,
        bgp_bestpath_aspath_confed_cmd,
@@ -1159,7 +1159,7 @@ DEFUN (no_bgp_bestpath_aspath_confed,
   bgp_flag_unset (bgp, BGP_FLAG_ASPATH_CONFED);
   return CMD_SUCCESS;
 }
-
+
 /* "bgp bestpath as-path multipath-relax" configuration.  */
 DEFUN (bgp_bestpath_aspath_multipath_relax,
        bgp_bestpath_aspath_multipath_relax_cmd,
@@ -1191,7 +1191,7 @@ DEFUN (no_bgp_bestpath_aspath_multipath_relax,
   bgp_flag_unset (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX);
   return CMD_SUCCESS;
 }
-
+
 /* "bgp log-neighbor-changes" configuration.  */
 DEFUN (bgp_log_neighbor_changes,
        bgp_log_neighbor_changes_cmd,
@@ -1219,7 +1219,7 @@ DEFUN (no_bgp_log_neighbor_changes,
   bgp_flag_unset (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES);
   return CMD_SUCCESS;
 }
-
+
 /* "bgp bestpath med" configuration. */
 DEFUN (bgp_bestpath_med,
        bgp_bestpath_med_cmd,
@@ -1317,7 +1317,7 @@ ALIAS (no_bgp_bestpath_med2,
        "MED attribute\n"
        "Treat missing MED as the least preferred one\n"
        "Compare MED among confederation paths\n")
-
+
 /* "no bgp default ipv4-unicast". */
 DEFUN (no_bgp_default_ipv4_unicast,
        no_bgp_default_ipv4_unicast_cmd,
@@ -1347,7 +1347,7 @@ DEFUN (bgp_default_ipv4_unicast,
   bgp_flag_unset (bgp, BGP_FLAG_NO_DEFAULT_IPV4);
   return CMD_SUCCESS;
 }
-
+
 /* "bgp import-check" configuration.  */
 DEFUN (bgp_network_import_check,
        bgp_network_import_check_cmd,
@@ -1377,7 +1377,7 @@ DEFUN (no_bgp_network_import_check,
   bgp_flag_unset (bgp, BGP_FLAG_IMPORT_CHECK);
   return CMD_SUCCESS;
 }
-
+
 DEFUN (bgp_default_local_preference,
        bgp_default_local_preference_cmd,
        "bgp default local-preference <0-4294967295>",
@@ -1421,7 +1421,7 @@ ALIAS (no_bgp_default_local_preference,
        "Configure BGP defaults\n"
        "local preference (higher=more preferred)\n"
        "Configure default local preference value\n")
-
+
 static int
 peer_remote_as_vty (struct vty *vty, const char *peer_str, 
                     const char *as_str, afi_t afi, safi_t safi)
@@ -1481,7 +1481,7 @@ DEFUN (neighbor_remote_as,
 {
   return peer_remote_as_vty (vty, argv[0], argv[1], AFI_IP, SAFI_UNICAST);
 }
-
+
 DEFUN (neighbor_peer_group,
        neighbor_peer_group_cmd,
        "neighbor WORD peer-group",
@@ -1586,7 +1586,7 @@ DEFUN (no_neighbor_peer_group_remote_as,
     }
   return CMD_SUCCESS;
 }
-
+
 DEFUN (neighbor_local_as,
        neighbor_local_as_cmd,
        NEIGHBOR_CMD2 "local-as " CMD_AS_RANGE,
@@ -1696,7 +1696,7 @@ ALIAS (no_neighbor_local_as,
        "AS number used as local AS\n"
        "Do not prepend local-as to updates from ebgp peers\n"
        "Do not prepend local-as to updates from ibgp peers\n")
-
+
 DEFUN (neighbor_password,
        neighbor_password_cmd,
        NEIGHBOR_CMD2 "password LINE",
@@ -1734,7 +1734,7 @@ DEFUN (no_neighbor_password,
   ret = peer_password_unset (peer);
   return bgp_vty_return (vty, ret);
 }
-
+
 DEFUN (neighbor_activate,
        neighbor_activate_cmd,
        NEIGHBOR_CMD2 "activate",
@@ -1773,7 +1773,7 @@ DEFUN (no_neighbor_activate,
 
   return bgp_vty_return (vty, ret);
 }
-
+
 DEFUN (neighbor_set_peer_group,
        neighbor_set_peer_group_cmd,
        NEIGHBOR_CMD "peer-group WORD",
@@ -1855,7 +1855,7 @@ DEFUN (no_neighbor_set_peer_group,
 
   return bgp_vty_return (vty, ret);
 }
-
+
 static int
 peer_flag_modify_vty (struct vty *vty, const char *ip_str, 
                       u_int16_t flag, int set)
@@ -1908,7 +1908,7 @@ DEFUN (no_neighbor_passive,
 {
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_PASSIVE);
 }
-
+
 /* neighbor shutdown. */
 DEFUN (neighbor_shutdown,
        neighbor_shutdown_cmd,
@@ -1930,7 +1930,7 @@ DEFUN (no_neighbor_shutdown,
 {
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_SHUTDOWN);
 }
-
+
 /* Deprecated neighbor capability route-refresh. */
 DEFUN_DEPRECATED (neighbor_capability_route_refresh,
 		  neighbor_capability_route_refresh_cmd,
@@ -1954,7 +1954,7 @@ DEFUN_DEPRECATED (no_neighbor_capability_route_refresh,
 {
   return CMD_SUCCESS;
 }
-
+
 /* neighbor capability dynamic. */
 DEFUN (neighbor_capability_dynamic,
        neighbor_capability_dynamic_cmd,
@@ -1978,7 +1978,7 @@ DEFUN (no_neighbor_capability_dynamic,
 {
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_DYNAMIC_CAPABILITY);
 }
-
+
 /* neighbor dont-capability-negotiate */
 DEFUN (neighbor_dont_capability_negotiate,
        neighbor_dont_capability_negotiate_cmd,
@@ -2000,7 +2000,7 @@ DEFUN (no_neighbor_dont_capability_negotiate,
 {
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_DONT_CAPABILITY);
 }
-
+
 static int
 peer_af_flag_modify_vty (struct vty *vty, const char *peer_str, afi_t afi,
 			 safi_t safi, u_int32_t flag, int set)
@@ -2033,7 +2033,7 @@ peer_af_flag_unset_vty (struct vty *vty, const char *peer_str, afi_t afi,
 {
   return peer_af_flag_modify_vty (vty, peer_str, afi, safi, flag, 0);
 }
-
+
 /* neighbor capability orf prefix-list. */
 DEFUN (neighbor_capability_orf_prefix,
        neighbor_capability_orf_prefix_cmd,
@@ -2089,7 +2089,7 @@ DEFUN (no_neighbor_capability_orf_prefix,
   return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				 bgp_node_safi (vty), flag);
 }
-
+
 /* neighbor next-hop-self. */
 DEFUN (neighbor_nexthop_self,
        neighbor_nexthop_self_cmd,
@@ -2113,7 +2113,7 @@ DEFUN (no_neighbor_nexthop_self,
   return peer_af_flag_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				 bgp_node_safi (vty), PEER_FLAG_NEXTHOP_SELF);
 }
-
+
 /* neighbor remove-private-AS. */
 DEFUN (neighbor_remove_private_as,
        neighbor_remove_private_as_cmd,
@@ -2139,7 +2139,7 @@ DEFUN (no_neighbor_remove_private_as,
 				 bgp_node_safi (vty),
 				 PEER_FLAG_REMOVE_PRIVATE_AS);
 }
-
+
 /* neighbor send-community. */
 DEFUN (neighbor_send_community,
        neighbor_send_community_cmd,
@@ -2165,7 +2165,7 @@ DEFUN (no_neighbor_send_community,
 				 bgp_node_safi (vty),
 				 PEER_FLAG_SEND_COMMUNITY);
 }
-
+
 /* neighbor send-community extended. */
 DEFUN (neighbor_send_community_type,
        neighbor_send_community_type_cmd,
@@ -2217,7 +2217,7 @@ DEFUN (no_neighbor_send_community_type,
 				 (PEER_FLAG_SEND_COMMUNITY |
 				  PEER_FLAG_SEND_EXT_COMMUNITY));
 }
-
+
 /* neighbor soft-reconfig. */
 DEFUN (neighbor_soft_reconfiguration,
        neighbor_soft_reconfiguration_cmd,
@@ -2245,7 +2245,7 @@ DEFUN (no_neighbor_soft_reconfiguration,
 				 bgp_node_afi (vty), bgp_node_safi (vty),
 				 PEER_FLAG_SOFT_RECONFIG);
 }
-
+
 DEFUN (neighbor_route_reflector_client,
        neighbor_route_reflector_client_cmd,
        NEIGHBOR_CMD2 "route-reflector-client",
@@ -2277,7 +2277,7 @@ DEFUN (no_neighbor_route_reflector_client,
 				 bgp_node_safi (vty),
 				 PEER_FLAG_REFLECTOR_CLIENT);
 }
-
+
 static int
 peer_rsclient_set_vty (struct vty *vty, const char *peer_str, 
                        int afi, int safi)
@@ -2425,7 +2425,7 @@ peer_rsclient_unset_vty (struct vty *vty, const char *peer_str,
 
   return CMD_SUCCESS;
 }
-
+
 /* neighbor route-server-client. */
 DEFUN (neighbor_route_server_client,
        neighbor_route_server_client_cmd,
@@ -2449,7 +2449,7 @@ DEFUN (no_neighbor_route_server_client,
   return peer_rsclient_unset_vty (vty, argv[0], bgp_node_afi(vty),
                   bgp_node_safi(vty));
 }
-
+
 DEFUN (neighbor_nexthop_local_unchanged,
        neighbor_nexthop_local_unchanged_cmd,
        NEIGHBOR_CMD2 "nexthop-local unchanged",
@@ -2462,7 +2462,7 @@ DEFUN (neighbor_nexthop_local_unchanged,
                                 bgp_node_safi (vty),
                                 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED );
 }
-
+
 DEFUN (no_neighbor_nexthop_local_unchanged,
        no_neighbor_nexthop_local_unchanged_cmd,
        NO_NEIGHBOR_CMD2 "nexthop-local unchanged",
@@ -2476,7 +2476,7 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
 				 bgp_node_safi (vty),
                                 PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED );
 }
-
+
 DEFUN (neighbor_attr_unchanged,
        neighbor_attr_unchanged_cmd,
        NEIGHBOR_CMD2 "attribute-unchanged",
@@ -2833,7 +2833,7 @@ DEFUN_DEPRECATED (neighbor_transparent_nexthop,
 			       bgp_node_safi (vty),
 			       PEER_FLAG_NEXTHOP_UNCHANGED);
 }
-
+
 /* EBGP multihop configuration. */
 static int
 peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str, 
@@ -2907,7 +2907,7 @@ ALIAS (no_neighbor_ebgp_multihop,
        NEIGHBOR_ADDR_STR2
        "Allow EBGP neighbors not on directly connected networks\n"
        "maximum hop count\n")
-
+
 /* disable-connected-check */
 DEFUN (neighbor_disable_connected_check,
        neighbor_disable_connected_check_cmd,
@@ -2946,7 +2946,7 @@ ALIAS (no_neighbor_disable_connected_check,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Enforce EBGP neighbors perform multihop\n")
-
+
 DEFUN (neighbor_description,
        neighbor_description_cmd,
        NEIGHBOR_CMD2 "description .LINE",
@@ -3001,7 +3001,7 @@ ALIAS (no_neighbor_description,
        NEIGHBOR_ADDR_STR2
        "Neighbor specific description\n"
        "Up to 80 characters describing this neighbor\n")
-
+
 /* Neighbor update-source. */
 static int
 peer_update_source_vty (struct vty *vty, const char *peer_str, 
@@ -3056,7 +3056,7 @@ DEFUN (no_neighbor_update_source,
 {
   return peer_update_source_vty (vty, argv[0], NULL);
 }
-
+
 static int
 peer_default_originate_set_vty (struct vty *vty, const char *peer_str, 
                                 afi_t afi, safi_t safi, 
@@ -3123,7 +3123,7 @@ ALIAS (no_neighbor_default_originate,
        "Originate default route to this neighbor\n"
        "Route-map to specify criteria to originate default\n"
        "route-map name\n")
-
+
 /* Set neighbor's BGP port.  */
 static int
 peer_port_vty (struct vty *vty, const char *ip_str, int afi, 
@@ -3183,7 +3183,7 @@ ALIAS (no_neighbor_port,
        NEIGHBOR_ADDR_STR
        "Neighbor's BGP port\n"
        "TCP port number\n")
-
+
 /* neighbor weight. */
 static int
 peer_weight_set_vty (struct vty *vty, const char *ip_str, 
@@ -3248,7 +3248,7 @@ ALIAS (no_neighbor_weight,
        NEIGHBOR_ADDR_STR2
        "Set default weight for routes from this neighbor\n"
        "default weight\n")
-
+
 /* Override capability negotiation. */
 DEFUN (neighbor_override_capability,
        neighbor_override_capability_cmd,
@@ -3270,7 +3270,7 @@ DEFUN (no_neighbor_override_capability,
 {
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_OVERRIDE_CAPABILITY);
 }
-
+
 DEFUN (neighbor_strict_capability,
        neighbor_strict_capability_cmd,
        NEIGHBOR_CMD "strict-capability-match",
@@ -3291,7 +3291,7 @@ DEFUN (no_neighbor_strict_capability,
 {
   return peer_flag_unset_vty (vty, argv[0], PEER_FLAG_STRICT_CAP_MATCH);
 }
-
+
 static int
 peer_timers_set_vty (struct vty *vty, const char *ip_str, 
                      const char *keep_str, const char *hold_str)
@@ -3312,7 +3312,7 @@ peer_timers_set_vty (struct vty *vty, const char *ip_str,
 
   return bgp_vty_return (vty, ret);
 }
-
+
 static int
 peer_timers_unset_vty (struct vty *vty, const char *ip_str)
 {
@@ -3350,7 +3350,7 @@ DEFUN (no_neighbor_timers,
 {
   return peer_timers_unset_vty (vty, argv[0]);
 }
-
+
 static int
 peer_timers_connect_set_vty (struct vty *vty, const char *ip_str, 
                              const char *time_str)
@@ -3418,7 +3418,7 @@ ALIAS (no_neighbor_timers_connect,
        "BGP per neighbor timers\n"
        "BGP connect timer\n"
        "Connect timer\n")
-
+
 static int
 peer_advertise_interval_vty (struct vty *vty, const char *ip_str, 
                              const char *time_str, int set)  
@@ -3472,7 +3472,7 @@ ALIAS (no_neighbor_advertise_interval,
        NEIGHBOR_ADDR_STR
        "Minimum interval between sending BGP routing updates\n"
        "time in seconds\n")
-
+
 /* neighbor interface */
 static int
 peer_interface_vty (struct vty *vty, const char *ip_str, const char *str)
@@ -3514,7 +3514,7 @@ DEFUN (no_neighbor_interface,
 {
   return peer_interface_vty (vty, argv[0], NULL);
 }
-
+
 /* Set distribute list to the peer. */
 static int
 peer_distribute_set_vty (struct vty *vty, const char *ip_str, 
@@ -3595,7 +3595,7 @@ DEFUN (no_neighbor_distribute_list,
   return peer_distribute_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				    bgp_node_safi (vty), argv[2]);
 }
-
+
 /* Set prefix list to the peer. */
 static int
 peer_prefix_list_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
@@ -3672,7 +3672,7 @@ DEFUN (no_neighbor_prefix_list,
   return peer_prefix_list_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				     bgp_node_safi (vty), argv[2]);
 }
-
+
 static int
 peer_aslist_set_vty (struct vty *vty, const char *ip_str, 
                      afi_t afi, safi_t safi,
@@ -3749,7 +3749,7 @@ DEFUN (no_neighbor_filter_list,
   return peer_aslist_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				bgp_node_safi (vty), argv[2]);
 }
-
+
 /* Set route-map to the peer. */
 static int
 peer_route_map_set_vty (struct vty *vty, const char *ip_str, 
@@ -3838,7 +3838,7 @@ DEFUN (no_neighbor_route_map,
   return peer_route_map_unset_vty (vty, argv[0], bgp_node_afi (vty),
 				   bgp_node_safi (vty), argv[2]);
 }
-
+
 /* Set unsuppress-map to the peer. */
 static int
 peer_unsuppress_map_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
@@ -3897,7 +3897,7 @@ DEFUN (no_neighbor_unsuppress_map,
   return peer_unsuppress_map_unset_vty (vty, argv[0], bgp_node_afi (vty),
 					bgp_node_safi (vty));
 }
-
+
 static int
 peer_maximum_prefix_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
 			     safi_t safi, const char *num_str,  
@@ -4107,7 +4107,7 @@ ALIAS (no_neighbor_maximum_prefix,
        "Threshold value (%) at which to generate a warning msg\n"
        "Restart bgp connection after limit is exceeded\n"
        "Restart interval in minutes")
-
+
 /* "neighbor allowas-in" */
 DEFUN (neighbor_allowas_in,
        neighbor_allowas_in_cmd,
@@ -4162,7 +4162,7 @@ DEFUN (no_neighbor_allowas_in,
 
   return bgp_vty_return (vty, ret);
 }
-
+
 DEFUN (neighbor_ttl_security,
        neighbor_ttl_security_cmd,
        NEIGHBOR_CMD2 "ttl-security hops <1-254>",
@@ -4198,7 +4198,7 @@ DEFUN (no_neighbor_ttl_security,
 
   return bgp_vty_return (vty, peer_ttl_security_hops_unset (peer));
 }
-
+
 /* Address family configuration.  */
 DEFUN (address_family_ipv4,
        address_family_ipv4_cmd,
@@ -4282,7 +4282,7 @@ DEFUN (exit_address_family,
     vty->node = BGP_NODE;
   return CMD_SUCCESS;
 }
-
+
 /* BGP clear sort. */
 enum clear_sort
 {
@@ -4636,7 +4636,7 @@ ALIAS (clear_ip_bgp_as,
        BGP_STR
        "Address family\n"
        "Clear peers with the AS number\n")
-
+
 /* Outbound soft-reconfiguration */
 DEFUN (clear_ip_bgp_all_soft_out,
        clear_ip_bgp_all_soft_out_cmd,
@@ -5263,7 +5263,7 @@ ALIAS (clear_bgp_as_soft_out,
        "Address family\n"
        "Clear peers with the AS number\n"
        "Soft reconfig outbound update\n")
-
+
 /* Inbound soft-reconfiguration */
 DEFUN (clear_ip_bgp_all_soft_in,
        clear_ip_bgp_all_soft_in_cmd,
@@ -6225,7 +6225,7 @@ ALIAS (clear_bgp_as_in_prefix_filter,
        "Clear peers with the AS number\n"
        "Soft reconfig inbound update\n"
        "Push out prefix-list ORF and do inbound soft reconfig\n")
-
+
 /* Both soft-reconfiguration */
 DEFUN (clear_ip_bgp_all_soft,
        clear_ip_bgp_all_soft_cmd,
@@ -6599,7 +6599,7 @@ ALIAS (clear_bgp_as_soft,
        "Address family\n"
        "Clear peers with the AS number\n"
        "Soft reconfig\n")
-
+
 /* RS-client soft reconfiguration. */
 #ifdef HAVE_IPV6
 DEFUN (clear_bgp_all_rsclient,
@@ -7278,7 +7278,7 @@ DEFUN (show_ipv6_mbgp_summary,
   return bgp_show_summary_vty (vty, NULL, AFI_IP6, SAFI_MULTICAST);
 }
 #endif /* HAVE_IPV6 */
-
+
 const char *
 afi_safi_print (afi_t afi, safi_t safi)
 {
@@ -8188,7 +8188,7 @@ ALIAS (show_ip_bgp_instance_neighbors_peer,
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n")
-       
+       
 /* Show BGP's AS paths internal data.  There are both `show ip bgp
    paths' and `show ip mbgp paths'.  Those functions results are the
    same.*/
@@ -8221,7 +8221,7 @@ DEFUN (show_ip_bgp_ipv4_paths,
 
   return CMD_SUCCESS;
 }
-
+
 #include "hash.h"
 
 static void
@@ -8264,7 +8264,7 @@ DEFUN (show_ip_bgp_attr_info,
   attr_show_all (vty);
   return CMD_SUCCESS;
 }
-
+
 static int
 bgp_write_rsclient_summary (struct vty *vty, struct peer *rsclient,
         afi_t afi, safi_t safi)
@@ -8585,7 +8585,7 @@ ALIAS (show_bgp_instance_ipv6_safi_rsclient_summary,
        "Summary of all Route Server Clients\n")
 
 #endif /* HAVE IPV6 */
-
+
 /* Redistribute VTY commands.  */
 
 DEFUN (bgp_redistribute_ipv4,
@@ -8799,7 +8799,7 @@ ALIAS (no_bgp_redistribute_ipv4_rmap_metric,
        "Default metric\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
-
+
 #ifdef HAVE_IPV6
 DEFUN (bgp_redistribute_ipv6,
        bgp_redistribute_ipv6_cmd,
@@ -9014,7 +9014,7 @@ ALIAS (no_bgp_redistribute_ipv6_rmap_metric,
        "Route map reference\n"
        "Pointer to route-map entries\n")
 #endif /* HAVE_IPV6 */
-
+
 int
 bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
 			       safi_t safi, int *write)
@@ -9047,7 +9047,7 @@ bgp_config_write_redistribute (struct vty *vty, struct bgp *bgp, afi_t afi,
     }
   return *write;
 }
-
+
 /* BGP node structure. */
 static struct cmd_node bgp_node =
 {
@@ -9090,7 +9090,7 @@ static struct cmd_node bgp_vpnv4_node =
   "%s(config-router-af)# ",
   1
 };
-
+
 static void community_list_vty (void);
 
 void
@@ -10231,7 +10231,7 @@ bgp_vty_init (void)
   /* Community-list. */
   community_list_vty ();
 }
-
+
 #include "memory.h"
 #include "bgp_regex.h"
 #include "bgp_clist.h"
@@ -10630,7 +10630,7 @@ DEFUN (show_ip_community_list_arg,
 
   return CMD_SUCCESS;
 }
-
+
 static int
 extcommunity_list_set_vty (struct vty *vty, int argc, const char **argv, 
                            int style, int reject_all_digit_name)
@@ -10980,7 +10980,7 @@ DEFUN (show_ip_extcommunity_list_arg,
 
   return CMD_SUCCESS;
 }
-
+
 /* Return configuration string of community-list entry.  */
 static const char *
 community_list_config_str (struct community_entry *entry)

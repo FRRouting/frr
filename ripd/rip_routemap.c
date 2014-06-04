@@ -32,7 +32,7 @@
 #include "plist.h"
 
 #include "ripd/ripd.h"
-
+
 struct rip_metric_modifier
 {
   enum 
@@ -160,7 +160,7 @@ rip_route_map_update (const char *notused)
 	}
     }
 }
-
+
 /* `match metric METRIC' */
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t
@@ -323,7 +323,7 @@ static struct route_map_rule_cmd route_match_ip_next_hop_cmd =
   route_match_ip_next_hop_compile,
   route_match_ip_next_hop_free
 };
-
+
 /* `match ip next-hop prefix-list PREFIX_LIST' */
 
 static route_map_result_t
@@ -370,7 +370,7 @@ static struct route_map_rule_cmd route_match_ip_next_hop_prefix_list_cmd =
   route_match_ip_next_hop_prefix_list_compile,
   route_match_ip_next_hop_prefix_list_free
 };
-
+
 /* `match ip address IP_ACCESS_LIST' */
 
 /* Match function should return 1 if match is success else return
@@ -416,7 +416,7 @@ static struct route_map_rule_cmd route_match_ip_address_cmd =
   route_match_ip_address_compile,
   route_match_ip_address_free
 };
-
+
 /* `match ip address prefix-list PREFIX_LIST' */
 
 static route_map_result_t
@@ -507,7 +507,7 @@ struct route_map_rule_cmd route_match_tag_cmd =
   route_match_tag_compile,
   route_match_tag_free
 };
-
+
 /* `set metric METRIC' */
 
 /* Set metric to attribute. */
@@ -718,7 +718,7 @@ static struct route_map_rule_cmd route_set_tag_cmd =
   route_set_tag_compile,
   route_set_tag_free
 };
-
+
 #define MATCH_STR "Match values from routing table\n"
 #define SET_STR "Set values in destination routing protocol\n"
 

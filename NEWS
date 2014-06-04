@@ -198,7 +198,7 @@ which the PtP patch introduced.
 * Chages in ospf6d
 
 ** Many bugs are fixed.
-
+
 * Changes in zebra-0.92a
 
 * Changes in bgpd
@@ -215,7 +215,7 @@ which the PtP patch introduced.
 * Changes in zebra
 
 ** Treat kernel type routes as EGP routes.
-
+
 * Changes in zebra-0.92
 
 ** Overall security is improved.  Default umask is 0077.
@@ -272,7 +272,7 @@ router bgp 7675
 multiple IP address for an interface.
 
 ** Redistribution of loopback interface's address works fine.
-
+
 * Changes in zebra-0.91
 
 ** --enable-oldrib configure option is removed.
@@ -324,7 +324,7 @@ only supported on GNU/Linux with netlink interface.
 ** Fix bug of LSA MaxAge flood.
 
 ** Fix bug of NSSA codes.
-
+
 * Changes in zebra-0.90
 
 ** From this beta release, --enable-unixdomain and --enable-newrib
@@ -660,7 +660,7 @@ zebrastart.sh
 /usr/local/sbin/ospfd -d
 /usr/local/sbin/bgpd -d
 /usr/local/bin/vtysh -b
-
+
 * Changes in zebra-0.89
 
 * Changes in lib
@@ -754,7 +754,7 @@ value.
 it is available.
 
 ** Reflect IPv6 interface's address change to protocol daemons.
-
+
 * Changes in zebra-0.88
 
 * Changes in lib
@@ -875,7 +875,7 @@ generating MRT compatible dump output.
 * Changes in vtysh
 
 ** VTY shell is now included into the distribution.
-
+
 * Changes in zebra-0.87
 
 * Changes in lib
@@ -968,7 +968,7 @@ bgp ASN.
 * Changes in zebra
 
 ** Better interface up/down event handle.
-
+
 * Changes in zebra-0.86
 
 * Changes in lib
@@ -1052,7 +1052,7 @@ fixed.
 ** Remove client structure when client dies.
 
 ** Take care static route when interface goes up/down.
-
+
 * Changes in zebra-0.85
 
 * Changes in bgpd
@@ -1075,7 +1075,7 @@ drastically improved.
 * Changes in ripd
 
 ** RIPv1 update is done by class-full manner.
-
+
 * Changes in zebra-0.84b
 
 * Changes in lib
@@ -1094,14 +1094,14 @@ consume only one screen size memory.
 ** Fix debug output string.
 
 ** Add RIP peer handling.  RIP peer are shown by "show ip protocols".
-
+
 * Changes in zebra-0.84a
 
 * Changes in bgpd
 
 ** Fix serious bug of BGP-4+ peering under IPv6 link-local address.
    Due to the bug BGP-4+ peering may not be established.
-
+
 * Changes in zebra-0.84
 
 * Changes in lib
@@ -1180,7 +1180,7 @@ consume only one screen size memory.
    this command, you have to configure neighbor with
    "neighbor A.B.C.D soft-reconfiguration inbound" beforehand.
    
-
+
 * Changes in zebra-0.83
 
 * bgpd
@@ -1192,7 +1192,7 @@ introduced in zebra-0.82.
 
 ** When bgpd send Notify message, don't use thread manager.  It is now
 send to neighbor immediately.
-
+
 * Changes in zebra-0.82
 
 ** Solaris 2.6 support is added by Michael Handler
@@ -1243,7 +1243,7 @@ draft-ietf-idr-bgp4-cap-neg-04.txt.
 * Changes in ospf6d
 
 ** Many debug feature is added.
-
+
 * Changes in zebra-0.81
 
 ** SNMP support is disabled in default.--enable-snmp option is added
@@ -1252,7 +1252,7 @@ to configure script.
 * Changes in bgpd
 
 ** Fix FSM bug which introduced in zebra-0.80.
-
+
 * Changes in zebra-0.80
 
 * access-list
@@ -1515,7 +1515,7 @@ to configure script.
   From zebra-0.80, ripd will reload it's configuration file when ripd
   receives HUP signal.  Other daemon such as bgpd, ospfd will support
   HUP signal treatment soon.
-
+
 * Changes in zebra-0.79
 
 * Changes in zebra
@@ -1551,7 +1551,7 @@ not work for NetBSD-currnet on SparcStation 10.
 * Changes in ospf6d
 
 ** Enclosed KAME specific part with #ifdef #endif
-
+
 * Changes in zebra-0.78
 
 * Changes in lib
@@ -1596,7 +1596,7 @@ RIP_METRIC_INFINITY with network byte order using htonl ().
 * Changes in ospf6d
 
 ** `ip6' statement in configuration is changed to `ipv6'.
-
+
 * Changes in zebra-0.77
 
 * Changes in lib
@@ -1667,7 +1667,7 @@ timeout, garbage timer.
 * Changes in ospf6d
 
 ** Redistribute route works.
-
+
 * Changes in zebra-0.76
 
 * Changes in lib
@@ -1677,7 +1677,7 @@ timeout, garbage timer.
 ** Include SERVICES file to the distribution
 
 ** Update zebra.texi to zebra-0.76.
-
+
 * Changes in zebra-0.75
 
 * Changes in lib
@@ -1724,7 +1724,7 @@ used when `next-hop-self'.
 
 ** Never include a neighbor in Hello packet, when the neighbor goes
 down.
-
+
 * Changes in zebra-0.74
 
 * Changes in lib
@@ -1785,7 +1785,7 @@ router.
 ** LSA data structure is changed.
 
 ** Call of log_rotate() is removed.
-
+
 * Changes in zebra-0.73
 
 * Changes in lib
@@ -1847,7 +1847,7 @@ DEFAULT_LOCAL_PREF(100).
 ** Clean up logging message.
 
 ** Reflect routing information to zebra daemon.
-
+
 * Changes in zebra-0.72
 
 * Changes in lib
@@ -1868,7 +1868,7 @@ set ipv6 nexthop local  -> set ipv6 next-hop local
 * Changes in ospfd
 
 ** Fix bug of multiple `network area' directive crashes.
-
+
 * Changes in zebra-0.71
 
 * Changes in lib
@@ -1919,7 +1919,7 @@ NOTIFY Malformed AS path is send to the peer.
 * Chanegs in ospf6d
 
 ** Routing table code is rewritten.
-
+
 * Changes in zebra-0.70
 
 * Changes in zebra
@@ -1940,7 +1940,7 @@ nexthop is calculated by looking up IGP routing table.
 * Changes in ospfd
 
 ** DD null pointer bug is fixed.
-
+
 * Changes in zebra-0.69
 
 * Changes in zebra
@@ -1990,7 +1990,7 @@ peer.
 * Changes in ospfd
 
 ** LS request and LS update can be send and received.
-
+
 * Changes in zebra-0.68
 
 * Changes in lib
@@ -2023,7 +2023,7 @@ summary-only mode.
 * Changes in ospf6d
 
 ** router zebra related bug is fixed.
-
+
 * Changes in zebra-0.67
 
 * Changes in lib
@@ -2065,7 +2065,7 @@ it is fixed.
 * Changes in ospf6d
 
 ** `router zebra' is default behavior.
-
+
 * Changes in zebra-0.66
 
 * Changes in zebra
@@ -2109,7 +2109,7 @@ routes to the kernel, please configure like below:
 router zebra
  no redistribute ripng
 !
-
+
 * Changes in zebra-0.65
 
 * Changes in lib
@@ -2161,7 +2161,7 @@ zebra.
 * Changes in ospf6d
 
 ** Bug fix about network vertex.
-
+
 * Changes in zebra-0.64.1.
 
 This is bug fix release.
@@ -2199,7 +2199,7 @@ not work with previous version, sorry.
 ** Fix bug of no network IPV6_NETWORK.
 
 ** Important bug fix about intra-area-prefix-lsa.
-
+
 * Changes in zebra-0.64.
 
 * Changes in lib
@@ -2238,7 +2238,7 @@ Barcenilla.
 
 ** There are many changes.  If you have interested in ospf6d please
 visit ospf6d/README file.
-
+
 * Changes in zebra-0.63 first beta package.
 
 * Changes in lib
@@ -2257,7 +2257,7 @@ visit ospf6d/README file.
 * Changes in ospf6d
 
 ** Now ospf6d can be compiled on both Linux and *BSD system.
-
+
 * Changes in zebra-19990420 snapshot
 
 ** `make dist' at top directory works now.
@@ -2300,7 +2300,7 @@ router bgp ASN
 ** configure --enable-guile turns on zebra-guile build.
 
 ** (router-bgp ASN) allocates real bgp structre.
-
+
 * Changes in zebra-19990416 snapshot
 
 ** Set version to 0.60 for preparation of beta release.
@@ -2331,7 +2331,7 @@ Bligh <amb@gxn.net>.
 * Changes in ospfd
 
 ** DR and BDR information is shown by `show ip ospf interface' command.
-
+
 * Changes in zebra-19990408 snapshot
 
 * Changes in bgpd
@@ -2358,7 +2358,7 @@ kad@gibson.skif.net.
 
 ** With KAME stack, terminal interface is now bind AF_INET socket
 instead of AF_INET6 one.
-
+
 * Changes in zebra-19990403 snapshot
 
 * Changes in bgpd
@@ -2377,7 +2377,7 @@ segment.  This change is for announcement to gated under iBGP.
 
 ** Yasuhiro Ohara's ospf6d codes is imported.  It is under development
 and can't be compiled on any platform.
-
+
 * Changes in zebra-19990327 snapshot
 
 * Changes in bgpd
@@ -2422,7 +2422,7 @@ buffer when the address family is not supported and the length is big
 * Changes in ospfd
 
 ** Now ospfd receive OSPF packet.
-
+
 * Changes in zebra-19990319 snapshot
 
 * Changes in configuration and libraries
@@ -2513,8 +2513,8 @@ several files are included in ospfd directory.
 ** ospf6d codes are merged from Yasuhiro Ohara <yasu@sfc.wide.ad.jp>'s
 ospfd work.  Now codes are located in ospf6d directory.
 
-
+
 Local variables:
 mode: outline
-paragraph-separate: "[ 	]*$"
+paragraph-separate: "[ 	]*$"
 end:

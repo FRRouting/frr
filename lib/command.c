@@ -183,7 +183,7 @@ print_version (const char *progname)
   printf ("%s\n", QUAGGA_COPYRIGHT);
 }
 
-
+
 /* Utility function to concatenate argv argument into a single string
    with inserting ' ' character between each argument.  */
 char *

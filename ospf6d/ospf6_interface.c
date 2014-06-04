@@ -516,7 +516,7 @@ ospf6_interface_state_change (u_char next_state, struct ospf6_interface *oi)
 
 }
 
-
+
 /* DR Election, RFC2328 section 9.4 */
 
 #define IS_ELIGIBLE(n) \
@@ -673,7 +673,7 @@ dr_election (struct ospf6_interface *oi)
   return next_state;
 }
 
-
+
 /* Interface State Machine */
 int
 interface_up (struct thread *thread)
@@ -843,7 +843,7 @@ interface_down (struct thread *thread)
   return 0;
 }
 
-
+
 /* show specified interface structure */
 static int
 ospf6_interface_show (struct vty *vty, struct interface *ifp)

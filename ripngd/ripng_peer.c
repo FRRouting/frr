@@ -38,7 +38,7 @@
 
 /* Linked list of RIPng peer. */
 struct list *peer_list;
-
+
 static struct ripng_peer *
 ripng_peer_new (void)
 {

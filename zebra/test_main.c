@@ -103,7 +103,7 @@ usage (char *progname, int status)
 
   exit (status);
 }
-
+
 static unsigned int test_ifindex = 0;
 
 /* testrib commands */
@@ -149,7 +149,7 @@ test_cmd_init (void)
 {
   install_element (INTERFACE_NODE, &test_interface_state_cmd);
 }
-
+
 /* SIGHUP handler. */
 static void 
 sighup (void)
@@ -195,7 +195,7 @@ struct quagga_signal_t zebra_signals[] =
     .handler = &sigint,
   },
 };
-
+
 /* Main startup routine. */
 int
 main (int argc, char **argv)

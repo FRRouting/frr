@@ -42,7 +42,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/debug.h"
 #include "zebra/ipforward.h"
-
+
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
 
@@ -51,7 +51,7 @@ extern struct zebra_t zebrad;
 static void zebra_event (enum event event, int sock, struct zserv *client);
 
 extern struct zebra_privs_t zserv_privs;
-
+
 static void zebra_client_close (struct zserv *client);
 
 static int
@@ -661,7 +661,7 @@ zsend_ipv4_import_lookup (struct zserv *client, struct prefix_ipv4 *p)
   
   return zebra_server_send_message(client);
 }
-
+
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
 int
 zsend_router_id_update (struct zserv *client, struct prefix *p)
@@ -690,7 +690,7 @@ zsend_router_id_update (struct zserv *client, struct prefix *p)
 
   return zebra_server_send_message(client);
 }
-
+
 /* Register zebra server interface information.  Send current all
    interface and address information. */
 static int
@@ -1539,7 +1539,7 @@ zebra_serv_un (const char *path)
 
   zebra_event (ZEBRA_SERV, sock, NULL);
 }
-
+
 
 static void
 zebra_event (enum event event, int sock, struct zserv *client)
@@ -1558,7 +1558,7 @@ zebra_event (enum event event, int sock, struct zserv *client)
       break;
     }
 }
-
+
 /* Display default rtm_table for all clients. */
 DEFUN (show_table,
        show_table_cmd,
@@ -1658,7 +1658,7 @@ static struct cmd_node table_node =
   "",				/* This node has no interface. */
   1
 };
-
+
 /* Only display ip forwarding is enabled or not. */
 DEFUN (show_ip_forwarding,
        show_ip_forwarding_cmd,
@@ -1779,7 +1779,7 @@ static struct cmd_node forwarding_node =
   1
 };
 
-
+
 /* Initialisation of zebra and installation of commands. */
 void
 zebra_init (void)

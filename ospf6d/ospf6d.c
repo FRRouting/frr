@@ -77,7 +77,7 @@ route_prev (struct route_node *node)
   return prev;
 }
 
-
+
 /* show database functions */
 DEFUN (show_version_ospf6,
        show_version_ospf6_cmd,

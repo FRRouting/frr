@@ -123,7 +123,7 @@ zebra_route_set_delete (struct vty *vty, struct route_map_index *index,
   return CMD_SUCCESS;
 }
 
-
+
 /* `match interface IFNAME' */
 /* Match function return 1 if match is success else return zero. */
 static route_map_result_t
@@ -467,7 +467,7 @@ static struct route_map_rule_cmd route_match_ip_next_hop_cmd =
   route_match_ip_next_hop_compile,
   route_match_ip_next_hop_free
 };
-
+
 /* `match ip next-hop prefix-list PREFIX_LIST' */
 
 static route_map_result_t
@@ -525,7 +525,7 @@ static struct route_map_rule_cmd route_match_ip_next_hop_prefix_list_cmd =
   route_match_ip_next_hop_prefix_list_compile,
   route_match_ip_next_hop_prefix_list_free
 };
-
+
 /* `match ip address IP_ACCESS_LIST' */
 
 /* Match function should return 1 if match is success else return
@@ -571,7 +571,7 @@ static struct route_map_rule_cmd route_match_ip_address_cmd =
   route_match_ip_address_compile,
   route_match_ip_address_free
 };
-
+
 /* `match ip address prefix-list PREFIX_LIST' */
 
 static route_map_result_t
@@ -612,7 +612,7 @@ static struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd =
   route_match_ip_address_prefix_list_free
 };
 
-
+
 /* `set src A.B.C.D' */
 
 /* Set src. */

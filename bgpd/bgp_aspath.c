@@ -34,7 +34,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_attr.h"
-
+
 /* Attr. Flags and Attr. Type Code. */
 #define AS_HEADER_SIZE        2	 
 
@@ -90,7 +90,7 @@ static struct hash *ashash;
 
 /* Stream for SNMP. See aspath_snmp_pathseg */
 static struct stream *snmp_stream;
-
+
 /* Callers are required to initialize the memory */
 static as_t *
 assegment_data_new (int num)
@@ -308,7 +308,7 @@ assegment_normalise (struct assegment *head)
     }
   return head;
 }
-
+
 static struct aspath *
 aspath_new (void)
 {
@@ -1657,7 +1657,7 @@ aspath_count (void)
 {
   return ashash->count;
 }     
-
+
 /* 
    Theoretically, one as path can have:
 
@@ -1811,7 +1811,7 @@ aspath_str2aspath (const char *str)
 
   return aspath;
 }
-
+
 /* Make hash value by raw aspath data. */
 unsigned int
 aspath_key_make (void *p)
@@ -1868,7 +1868,7 @@ aspath_finish (void)
   if (snmp_stream)
     stream_free (snmp_stream);
 }
-
+
 /* return and as path value */
 const char *
 aspath_print (struct aspath *as)

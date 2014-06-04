@@ -171,7 +171,7 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
 
   exit (status);
 }
-
+
 /* SIGHUP handler. */
 void 
 sighup (void)
@@ -314,7 +314,7 @@ bgp_exit (int status)
 
   exit (status);
 }
-
+
 /* Main routine of bgpd. Treatment of argument and start bgp finite
    state machine is handled at here. */
 int

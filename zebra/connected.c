@@ -36,7 +36,7 @@
 #include "zebra/interface.h"
 #include "zebra/connected.h"
 extern struct zebra_t zebrad;
-
+
 /* communicate the withdrawal of a connected address */
 static void
 connected_withdraw (struct connected *ifc)
@@ -96,7 +96,7 @@ connected_announce (struct interface *ifp, struct connected *ifc)
 #endif
     }
 }
-
+
 /* If same interface address is already exist... */
 struct connected *
 connected_check (struct interface *ifp, struct prefix *p)

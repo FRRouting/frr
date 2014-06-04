@@ -288,7 +288,7 @@ ospf6_area_disable (struct ospf6_area *oa)
   THREAD_OFF (oa->thread_intra_prefix_lsa);
 }
 
-
+
 void
 ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
 {

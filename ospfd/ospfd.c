@@ -53,7 +53,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_ase.h"
 
-
+
 
 /* OSPF process wide configuration. */
 static struct ospf_master ospf_master;
@@ -64,7 +64,7 @@ struct ospf_master *om;
 extern struct zclient *zclient;
 extern struct in_addr router_id_zebra;
 
-
+
 static void ospf_remove_vls_through_area (struct ospf *, struct ospf_area *);
 static void ospf_network_free (struct ospf *, struct ospf_network *);
 static void ospf_area_free (struct ospf_area *);
@@ -76,7 +76,7 @@ static int ospf_network_match_iface (const struct connected *,
 static void ospf_finish_final (struct ospf *);
 
 #define OSPF_EXTERNAL_LSA_ORIGINATE_DELAY 1
-
+
 void
 ospf_router_id_update (struct ospf *ospf)
 {
@@ -139,7 +139,7 @@ ospf_router_id_update (struct ospf *ospf)
         ospf_if_update (ospf, ifp);
     }
 }
-
+
 /* For OSPF area sort by area id. */
 static int
 ospf_area_id_cmp (struct ospf_area *a1, struct ospf_area *a2)
@@ -279,7 +279,7 @@ ospf_get ()
 
   return ospf;
 }
-
+
 /* Handle the second half of deferred shutdown. This is called either
  * from the deferred-shutdown timer thread, or directly through
  * ospf_deferred_shutdown_check.
@@ -354,7 +354,7 @@ ospf_deferred_shutdown_check (struct ospf *ospf)
                  timeout);
   return;
 }
-
+
 /* Shut down the entire process */
 void
 ospf_terminate (void)
@@ -563,7 +563,7 @@ ospf_finish_final (struct ospf *ospf)
   XFREE (MTYPE_OSPF_TOP, ospf);
 }
 
-
+
 /* allocate new OSPF Area object */
 static struct ospf_area *
 ospf_area_new (struct ospf *ospf, struct in_addr area_id)
@@ -719,7 +719,7 @@ ospf_area_del_if (struct ospf_area *area, struct ospf_interface *oi)
   listnode_delete (area->oiflist, oi);
 }
 
-
+
 /* Config network statement related functions. */
 static struct ospf_network *
 ospf_network_new (struct in_addr area_id, int format)
@@ -987,7 +987,7 @@ ospf_remove_vls_through_area (struct ospf *ospf, struct ospf_area *area)
       ospf_vl_delete (ospf, vl_data);
 }
 
-
+
 static const struct message ospf_area_type_msg[] =
 {
   { OSPF_AREA_DEFAULT,	"Default" },
@@ -1350,7 +1350,7 @@ ospf_timers_refresh_unset (struct ospf *ospf)
   return 1;
 }
 
-
+
 static struct ospf_nbr_nbma *
 ospf_nbr_nbma_new (void)
 {

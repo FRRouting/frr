@@ -142,7 +142,7 @@ extern const char *ospf6_interface_state_str[];
 #define OSPF6_REFERENCE_BANDWIDTH      100000  /* Kbps */
 
 
-
+
 /* Function Prototypes */
 
 extern struct ospf6_interface *ospf6_interface_lookup_by_ifindex (int);

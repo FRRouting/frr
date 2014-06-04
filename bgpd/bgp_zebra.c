@@ -38,7 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_mpath.h"
-
+
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 struct in_addr router_id_zebra;
@@ -381,7 +381,7 @@ zebra_read_ipv6 (int command, struct zclient *zclient, zebra_size_t length)
   return 0;
 }
 #endif /* HAVE_IPV6 */
-
+
 struct interface *
 if_lookup_by_ipv4 (struct in_addr *addr)
 {
@@ -943,7 +943,7 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
     }
 #endif /* HAVE_IPV6 */
 }
-
+
 /* Other routes redistribution into BGP. */
 int
 bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type)
@@ -1069,7 +1069,7 @@ bgp_redistribute_metric_unset (struct bgp *bgp, afi_t afi, int type)
 
   return 1;
 }
-
+
 void
 bgp_zclient_reset (void)
 {

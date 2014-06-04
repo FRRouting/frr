@@ -32,7 +32,7 @@
 static void alloc_inc (int);
 static void alloc_dec (int);
 static void log_memstats(int log_priority);
-
+
 static const struct message mstr [] =
 {
   { MTYPE_THREAD, "thread" },
@@ -42,7 +42,7 @@ static const struct message mstr [] =
   { MTYPE_IF, "interface" },
   { 0, NULL },
 };
-
+
 /* Fatal memory allocation error occured. */
 static void __attribute__ ((noreturn))
 zerror (const char *fname, int type, size_t size)
@@ -150,7 +150,7 @@ zstrdup (int type, const char *str)
   alloc_inc (type);
   return dup;
 }
-
+
 #ifdef MEMORY_LOG
 static struct 
 {
@@ -259,7 +259,7 @@ alloc_dec (int type)
 {
   mstat[type].alloc--;
 }
-
+
 /* Looking up memory status from vty interface. */
 #include "vector.h"
 #include "vty.h"
@@ -558,7 +558,7 @@ memory_init (void)
   install_element (ENABLE_NODE, &show_memory_ospf6_cmd);
   install_element (ENABLE_NODE, &show_memory_isis_cmd);
 }
-
+
 /* Stats querying from users */
 /* Return a pointer to a human friendly string describing
  * the byte count passed in. E.g:

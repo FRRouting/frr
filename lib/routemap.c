@@ -28,7 +28,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "command.h"
 #include "vty.h"
 #include "log.h"
-
+
 /* Vector for route match rules. */
 static vector route_match_vec;
 
@@ -72,7 +72,7 @@ route_map_rule_delete (struct route_map_rule_list *,
 
 static void
 route_map_index_delete (struct route_map_index *, int);
-
+
 /* New route map allocation. Please note route map's name must be
    specified. */
 static struct route_map *
@@ -420,7 +420,7 @@ route_map_rule_new (void)
   new = XCALLOC (MTYPE_ROUTE_MAP_RULE, sizeof (struct route_map_rule));
   return new;
 }
-
+
 /* Install rule command to the match list. */
 void
 route_map_install_match (struct route_map_rule_cmd *cmd)
@@ -898,7 +898,7 @@ route_map_finish (void)
   vector_free (route_set_vec);
   route_set_vec = NULL;
 }
-
+
 /* VTY related functions. */
 DEFUN (route_map,
        route_map_cmd,

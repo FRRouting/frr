@@ -32,7 +32,7 @@
 
 /* Linked list of RIP peer. */
 struct list *peer_list;
-
+
 static struct rip_peer *
 rip_peer_new (void)
 {

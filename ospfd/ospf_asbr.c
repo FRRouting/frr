@@ -44,7 +44,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
 
-
+
 /* Remove external route. */
 void
 ospf_external_route_remove (struct ospf *ospf, struct prefix_ipv4 *p)
@@ -96,7 +96,7 @@ ospf_external_route_lookup (struct ospf *ospf,
   return NULL;
 }
 
-
+
 /* Add an External info for AS-external-LSA. */
 struct external_info *
 ospf_external_info_new (u_char type)
@@ -234,7 +234,7 @@ ospf_external_info_find_lsa (struct ospf *ospf,
   return lsa;
 }
 
-
+
 /* Update ASBR status. */
 void
 ospf_asbr_status_update (struct ospf *ospf, u_char status)

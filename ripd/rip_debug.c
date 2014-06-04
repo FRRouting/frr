@@ -27,7 +27,7 @@
 unsigned long rip_debug_event = 0;
 unsigned long rip_debug_packet = 0;
 unsigned long rip_debug_zebra = 0;
-
+
 DEFUN (show_debugging_rip,
        show_debugging_rip_cmd,
        "show debugging rip",

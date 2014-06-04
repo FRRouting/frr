@@ -332,7 +332,7 @@ kernel_delete_ipv4 (struct prefix *p, struct rib *rib)
 {
   return kernel_ioctl_ipv4 (SIOCDELRT, p, rib, AF_INET);
 }
-
+
 #ifdef HAVE_IPV6
 
 /* Below is hack for GNU libc definition and Linux 2.1.X header. */

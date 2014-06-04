@@ -658,7 +658,7 @@ ospf6_lsa_unlock (struct ospf6_lsa *lsa)
   ospf6_lsa_delete (lsa);
 }
 
-
+
 /* ospf6 lsa expiry */
 int
 ospf6_lsa_expire (struct thread *thread)
@@ -744,7 +744,7 @@ ospf6_lsa_refresh (struct thread *thread)
   return 0;
 }
 
-
+
 
 /* Fletcher Checksum -- Refer to RFC1008. */
 
@@ -790,7 +790,7 @@ ospf6_lsa_terminate (void)
 {
   vector_free (ospf6_lsa_handler_vector);
 }
-
+
 static char *
 ospf6_lsa_handler_name (struct ospf6_lsa_handler *h)
 {

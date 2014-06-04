@@ -323,7 +323,7 @@ ospf_packet_max (struct ospf_interface *oi)
   return max;
 }
 
-
+
 static int
 ospf_check_md5_digest (struct ospf_interface *oi, struct ospf_header *ospfh)
 {
@@ -438,7 +438,7 @@ ospf_make_md5_digest (struct ospf_interface *oi, struct ospf_packet *op)
   return OSPF_AUTH_MD5_SIZE;
 }
 
-
+
 static int
 ospf_ls_req_timer (struct thread *thread)
 {
@@ -2136,7 +2136,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 
   return;
 }
-
+
 static struct stream *
 ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
 {

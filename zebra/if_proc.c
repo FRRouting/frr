@@ -198,7 +198,7 @@ interface_list_proc ()
   fclose(fp);
   return 0;
 }
-
+
 #if defined(HAVE_IPV6) && defined(HAVE_PROC_NET_IF_INET6)
 
 #ifndef _PATH_PROC_NET_IF_INET6

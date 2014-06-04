@@ -35,7 +35,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_mplsvpn.h"
-
+
 /* BGP advertise attribute is used for pack same attribute update into
    one packet.  To do that we maintain attribute hash in struct
    peer.  */
@@ -79,7 +79,7 @@ baa_hash_cmp (const void *p1, const void *p2)
 
   return attrhash_cmp (baa1->attr, baa2->attr);
 }
-
+
 /* BGP update and withdraw information is stored in BGP advertise
    structure.  This structure is referred from BGP adjacency
    information.  */
@@ -151,7 +151,7 @@ bgp_advertise_unintern (struct hash *hash, struct bgp_advertise_attr *baa)
       baa_free (baa);
     }
 }
-
+
 /* BGP adjacency keeps minimal advertisement information.  */
 static void
 bgp_adj_out_free (struct bgp_adj_out *adj)
@@ -327,7 +327,7 @@ bgp_adj_out_remove (struct bgp_node *rn, struct bgp_adj_out *adj,
   BGP_ADJ_OUT_DEL (rn, adj);
   bgp_adj_out_free (adj);
 }
-
+
 void
 bgp_adj_in_set (struct bgp_node *rn, struct peer *peer, struct attr *attr)
 {
@@ -376,7 +376,7 @@ bgp_adj_in_unset (struct bgp_node *rn, struct peer *peer)
   bgp_adj_in_remove (rn, adj);
   bgp_unlock_node (rn);
 }
-
+
 void
 bgp_sync_init (struct peer *peer)
 {

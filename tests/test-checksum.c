@@ -24,7 +24,7 @@ typedef uint16_t testoff_t;
 
 /* Fletcher Checksum -- Refer to RFC1008. */
 #define MODX                 4102
-
+
 /* Accumulator phase of checksum */
 static 
 struct acc_vals
@@ -263,7 +263,7 @@ struct reductions_t {
   { .name = "isisd-mody", 	.f = reduce_isisd_mody },
   { NULL, NULL },
 };
-
+
 /* The original ospfd checksum */
 static u_int16_t
 ospfd_checksum (u_char *buffer, testsz_t len, testoff_t off)

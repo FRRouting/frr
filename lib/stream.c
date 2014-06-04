@@ -196,7 +196,7 @@ stream_resize (struct stream *s, size_t newsize)
   
   return s->size;
 }
-
+
 size_t
 stream_get_getp (struct stream *s)
 {
@@ -285,7 +285,7 @@ stream_forward_endp (struct stream *s, size_t size)
   
   s->endp += size;
 }
-
+
 /* Copy from stream to destination. */
 void
 stream_get (void *dst, struct stream *s, size_t size)
@@ -492,7 +492,7 @@ stream_get_ipv4 (struct stream *s)
 
   return l;
 }
-
+
 /* Copy to source to stream.
  *
  * XXX: This uses CHECK_SIZE and hence has funny semantics -> Size will wrap
@@ -731,7 +731,7 @@ stream_put_prefix (struct stream *s, struct prefix *p)
   
   return psize;
 }
-
+
 /* Read size from fd. */
 int
 stream_read (struct stream *s, int fd, size_t size)
@@ -937,7 +937,7 @@ stream_flush (struct stream *s, int fd)
   
   return nbytes;
 }
-
+
 /* Stream first in first out queue. */
 
 struct stream_fifo *

@@ -151,7 +151,7 @@ ospf6_as_external_lsa_originate (struct ospf6_route *route)
   ospf6_lsa_originate_process (lsa, ospf6);
 }
 
-
+
 void
 ospf6_asbr_lsa_add (struct ospf6_lsa *lsa)
 {
@@ -342,7 +342,7 @@ ospf6_asbr_lsentry_remove (struct ospf6_route *asbr_entry)
 }
 
 
-
+
 /* redistribute function */
 
 static void
@@ -748,7 +748,7 @@ ospf6_redistribute_show_config (struct vty *vty)
 }
 
 
-
+
 /* Routemap Functions */
 static route_map_result_t
 ospf6_routemap_rule_match_address_prefixlist (void *rule,
@@ -1168,7 +1168,7 @@ ospf6_routemap_init (void)
   install_element (RMAP_NODE, &ospf6_routemap_no_set_forwarding_cmd);
 }
 
-
+
 /* Display functions */
 static char *
 ospf6_as_external_lsa_get_prefix_str (struct ospf6_lsa *lsa, char *buf,

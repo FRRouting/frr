@@ -71,7 +71,7 @@ static const struct
   [ZEBRA_ROUTE_BABEL]   = {ZEBRA_ROUTE_BABEL,    95},
   /* no entry/default: 150 */
 };
-
+
 /* Vector for routing table.  */
 static vector vrf_vector;
 
@@ -176,7 +176,7 @@ vrf_static_table (afi_t afi, safi_t safi, u_int32_t id)
 
   return vrf->stable[afi][safi];
 }
-
+
 /*
  * nexthop_type_to_str
  */
@@ -1090,7 +1090,7 @@ nexthop_active_update (struct route_node *rn, struct rib *rib, int set)
   return rib->nexthop_active_num;
 }
 
-
+
 
 static void
 rib_install_kernel (struct route_node *rn, struct rib *rib)
@@ -2283,7 +2283,7 @@ rib_delete_ipv4 (int type, int flags, struct prefix_ipv4 *p,
   route_unlock_node (rn);
   return 0;
 }
-
+
 /* Install static route into rib. */
 static void
 static_install_ipv4 (struct prefix *p, struct static_ipv4 *si)
@@ -2596,7 +2596,7 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, const char *ifname,
   return 1;
 }
 
-
+
 #ifdef HAVE_IPV6
 static int
 rib_bogus_ipv6 (int type, struct prefix_ipv6 *p,
@@ -2857,7 +2857,7 @@ rib_delete_ipv6 (int type, int flags, struct prefix_ipv6 *p,
   route_unlock_node (rn);
   return 0;
 }
-
+
 /* Install static route into rib. */
 static void
 static_install_ipv6 (struct prefix *p, struct static_ipv6 *si)
@@ -3155,7 +3155,7 @@ static_delete_ipv6 (struct prefix *p, u_char type, struct in6_addr *gate,
   return 1;
 }
 #endif /* HAVE_IPV6 */
-
+
 /* RIB update function. */
 void
 rib_update (void)
@@ -3176,7 +3176,7 @@ rib_update (void)
         rib_queue_add (&zebrad, rn);
 }
 
-
+
 /* Remove all routes which comes from non main table.  */
 static void
 rib_weed_table (struct route_table *table)
@@ -3205,7 +3205,7 @@ rib_weed_tables (void)
   rib_weed_table (vrf_table (AFI_IP, SAFI_UNICAST, 0));
   rib_weed_table (vrf_table (AFI_IP6, SAFI_UNICAST, 0));
 }
-
+
 /* Delete self installed routes after zebra is relaunched.  */
 static void
 rib_sweep_table (struct route_table *table)
@@ -3301,7 +3301,7 @@ rib_close (void)
   rib_close_table (vrf_table (AFI_IP, SAFI_UNICAST, 0));
   rib_close_table (vrf_table (AFI_IP6, SAFI_UNICAST, 0));
 }
-
+
 /* Routing information base initialize. */
 void
 rib_init (void)

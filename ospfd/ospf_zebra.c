@@ -918,7 +918,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
 
   return 0;
 }
-
+
 
 int
 ospf_distribute_list_out_set (struct ospf *ospf, int type, const char *name)

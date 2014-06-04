@@ -110,7 +110,7 @@ static struct access_master access_master_ipv6 =
   NULL,
 };
 #endif /* HAVE_IPV6 */
-
+
 static struct access_master *
 access_master_get (afi_t afi)
 {
@@ -208,7 +208,7 @@ filter_match_zebra (struct filter *mfilter, struct prefix *p)
   else
     return 0;
 }
-
+
 /* Allocate new access list structure. */
 static struct access_list *
 access_list_new (void)
@@ -501,7 +501,7 @@ access_list_filter_delete (struct access_list *access, struct filter *filter)
   if (master->delete_hook)
     (*master->delete_hook) (access);
 }
-
+
 /*
   deny    Specify packets to reject
   permit  Specify packets to forward

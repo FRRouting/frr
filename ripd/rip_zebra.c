@@ -33,7 +33,7 @@
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
-
+
 /* RIPd to zebra command interface. */
 void
 rip_zebra_ipv4_add (struct prefix_ipv4 *p, struct in_addr *nexthop, 
@@ -196,7 +196,7 @@ rip_routemap_unset (int type, const char *name)
 
   return 0;
 }
-
+
 /* Redistribution types */
 static struct {
   int type;
@@ -551,7 +551,7 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
 
   return CMD_WARNING;
 }
-
+
 /* Default information originate. */
 
 DEFUN (rip_default_information_originate,
@@ -597,7 +597,7 @@ DEFUN (no_rip_default_information_originate,
 
   return CMD_SUCCESS;
 }
-
+
 /* RIP configuration write function. */
 static int
 config_write_zebra (struct vty *vty)

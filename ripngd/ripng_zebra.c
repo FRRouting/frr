@@ -41,7 +41,7 @@ int ripng_interface_add (int, struct zclient *, zebra_size_t);
 int ripng_interface_delete (int, struct zclient *, zebra_size_t);
 int ripng_interface_address_add (int, struct zclient *, zebra_size_t);
 int ripng_interface_address_delete (int, struct zclient *, zebra_size_t);
-
+
 void
 ripng_zebra_ipv6_add (struct prefix_ipv6 *p, struct in6_addr *nexthop,
 		      unsigned int ifindex, u_char metric)
@@ -206,7 +206,7 @@ ripng_redistribute_routemap_unset (int type)
   ripng->route_map[type].name = NULL;
   ripng->route_map[type].map = NULL;
 }
-
+
 /* Redistribution types */
 static struct {
   int type;

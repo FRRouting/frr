@@ -27,7 +27,7 @@
 #include "sockunion.h"
 #include "memory.h"
 #include "log.h"
-
+
 /* Maskbit. */
 static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
 			         0xf8, 0xfc, 0xfe, 0xff};
@@ -186,7 +186,7 @@ prefix6_bit (const struct in6_addr *prefix, const u_char prefixlen)
 {
   return prefix_bit((const u_char *) &prefix->s6_addr, prefixlen);
 }
-
+
 /* Address Famiy Identifier to Address Family converter. */
 int
 afi2family (afi_t afi)
@@ -494,7 +494,7 @@ prefix_ipv4_any (const struct prefix_ipv4 *p)
 {
   return (p->prefix.s_addr == 0 && p->prefixlen == 0);
 }
-
+
 #ifdef HAVE_IPV6
 
 /* Allocate a new ip version 6 route */

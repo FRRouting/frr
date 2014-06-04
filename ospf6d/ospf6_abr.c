@@ -787,7 +787,7 @@ ospf6_abr_reimport (struct ospf6_area *oa)
 }
 
 
-
+
 /* Display functions */
 static char *
 ospf6_inter_area_prefix_lsa_get_prefix_str (struct ospf6_lsa *lsa, char *buf,

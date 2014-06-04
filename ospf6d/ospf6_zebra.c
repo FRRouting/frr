@@ -274,7 +274,7 @@ ospf6_zebra_read_ipv6 (int command, struct zclient *zclient,
 
 
 
-
+
 DEFUN (show_zebra,
        show_zebra_cmd,
        "show zebra",
@@ -602,7 +602,7 @@ ospf6_zebra_init (void)
 }
 
 /* Debug */
-
+
 DEFUN (debug_ospf6_zebra_sendrecv,
        debug_ospf6_zebra_sendrecv_cmd,
        "debug ospf6 zebra (send|recv)",

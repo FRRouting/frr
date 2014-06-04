@@ -34,7 +34,7 @@
 
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
-
+
 #define IPFWMIB 1,3,6,1,2,1,4,24
 
 /* ipForwardTable */
@@ -78,7 +78,7 @@
 #define ROWSTATUS ASN_INTEGER
 #define IPADDRESS ASN_IPADDRESS
 #define OBJECTIDENTIFIER ASN_OBJECT_ID
-
+
 extern struct zebra_t zebrad;
 
 oid ipfw_oid [] = { IPFWMIB };
@@ -130,7 +130,7 @@ struct variable zebra_variables[] =
     {IPCIDRROUTESTATUS, ROWSTATUS, RONLY, ipCidrTable, 3, {4, 1, 16}}
   };
 
-
+
 static u_char *
 ipFwNumber (struct variable *v, oid objid[], size_t *objid_len,
 	    int exact, size_t *val_len, WriteMethod **write_method)

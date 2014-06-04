@@ -153,7 +153,7 @@ struct ospf6_intra_prefix_lsa
   /* followed by ospf6 prefix(es) */
 };
 
-
+
 #define OSPF6_ROUTER_LSA_SCHEDULE(oa) \
   do { \
     if (! (oa)->thread_router_lsa \

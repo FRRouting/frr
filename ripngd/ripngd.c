@@ -95,7 +95,7 @@ ripng_info_free (struct ripng_info *rinfo)
 {
   XFREE (MTYPE_RIPNG_ROUTE, rinfo);
 }
-
+
 /* Create ripng socket. */
 static int 
 ripng_make_socket (void)
@@ -1886,7 +1886,7 @@ ripng_request (struct interface *ifp)
 			    NULL, ifp);
 }
 
-
+
 static int
 ripng_update_jitter (int time)
 {
@@ -1928,7 +1928,7 @@ ripng_event (enum ripng_event event, int sock)
       break;
     }
 }
-
+
 
 /* Print out routes update time. */
 static void
@@ -2767,7 +2767,7 @@ ripng_distribute_update_all_wrapper (struct access_list *notused)
 {
   ripng_distribute_update_all(NULL);
 }
-
+
 /* delete all the added ripng routes. */
 void
 ripng_clean()

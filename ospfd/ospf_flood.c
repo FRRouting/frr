@@ -49,7 +49,7 @@
 #include "ospfd/ospf_dump.h"
 
 extern struct zclient *zclient;
-
+
 /* Do the LSA acking specified in table 19, Section 13.5, row 2
  * This get called from ospf_flood_out_interface. Declared inline 
  * for speed. */
@@ -757,7 +757,7 @@ ospf_flood_through (struct ospf *ospf,
   return (lsa_ack_flag);
 }
 
-
+
 
 /* Management functions for neighbor's Link State Request list. */
 void
@@ -835,7 +835,7 @@ ospf_ls_request_new (struct lsa_header *lsah)
   return new;
 }
 
-
+
 /* Management functions for neighbor's ls-retransmit list. */
 unsigned long
 ospf_ls_retransmit_count (struct ospf_neighbor *nbr)
@@ -973,7 +973,7 @@ ospf_ls_retransmit_delete_nbr_as (struct ospf *ospf, struct ospf_lsa *lsa)
     ospf_ls_retransmit_delete_nbr_if (oi, lsa);
 }
 
-
+
 /* Sets ls_age to MaxAge and floods throu the area. 
    When we implement ASE routing, there will be anothe function
    flushing an LSA from the whole domain. */

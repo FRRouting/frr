@@ -78,7 +78,7 @@ struct subtree
 enum smux_event {SMUX_SCHEDULE, SMUX_CONNECT, SMUX_READ};
 
 void smux_event (enum smux_event, int);
-
+
 
 /* SMUX socket. */
 int smux_sock = -1;
@@ -114,7 +114,7 @@ static struct cmd_node smux_node =
 
 /* thread master */
 static struct thread_master *master;
-
+
 static int
 oid_compare_part (oid *o1, int o1_len, oid *o2, int o2_len)
 {
@@ -132,7 +132,7 @@ oid_compare_part (oid *o1, int o1_len, oid *o2, int o2_len)
 
   return 0;
 }
-
+
 static void
 smux_oid_dump (const char *prefix, const oid *oid, size_t oid_len)
 {
@@ -1230,7 +1230,7 @@ smux_stop (void)
       smux_sock = -1;
     }
 }
-
+
 
 
 void
@@ -1251,7 +1251,7 @@ smux_event (enum smux_event event, int sock)
       break;
     }
 }
-
+
 static int
 smux_str2oid (const char *str, oid *oid, size_t *oid_len)
 {

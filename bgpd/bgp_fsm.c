@@ -43,7 +43,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifdef HAVE_SNMP
 #include "bgpd/bgp_snmp.h"
 #endif /* HAVE_SNMP */
-
+
 /* BGP FSM (finite state machine) has three types of functions.  Type
    one is thread functions.  Type two is event functions.  Type three
    is FSM functions.  Timer functions are set by bgp_timer_set
@@ -928,7 +928,7 @@ bgp_ignore (struct peer *peer)
     zlog (peer->log, LOG_DEBUG, "%s [FSM] bgp_ignore called", peer->host);
   return 0;
 }
-
+
 /* Finite State Machine structure */
 static const struct {
   int (*func) (struct peer *);

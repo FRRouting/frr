@@ -1210,7 +1210,7 @@ DEFUN (show_ip_mroute,
   return CMD_SUCCESS;
 }
 
-
+
 #ifdef HAVE_IPV6
 /* General fucntion for IPv6 static route. */
 static int

@@ -50,7 +50,7 @@
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
-
+
 static struct ospf_area_range *
 ospf_area_range_new (struct prefix_ipv4 *p)
 {

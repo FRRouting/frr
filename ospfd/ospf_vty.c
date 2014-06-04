@@ -49,7 +49,7 @@
 #include "ospfd/ospf_vty.h"
 #include "ospfd/ospf_dump.h"
 
-
+
 static const char *ospf_network_type_str[] =
 {
   "Null",
@@ -61,7 +61,7 @@ static const char *ospf_network_type_str[] =
   "LOOPBACK"
 };
 
-
+
 /* Utility functions. */
 static int
 ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
@@ -94,7 +94,7 @@ ospf_str2area_id (const char *str, struct in_addr *area_id, int *format)
   return 0;
 }
 
-
+
 static int
 str2metric (const char *str, int *metric)
 {
@@ -142,7 +142,7 @@ ospf_oi_count (struct interface *ifp)
   return i;
 }
 
-
+
 DEFUN (router_ospf,
        router_ospf_cmd,
        "router ospf",
@@ -490,7 +490,7 @@ DEFUN (no_ospf_network_area,
   return CMD_SUCCESS;
 }
 
-
+
 DEFUN (ospf_area_range,
        ospf_area_range_cmd,
        "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M",
@@ -634,7 +634,7 @@ ALIAS (no_ospf_area_range,
        "Advertise this range (default)\n"
        "User specified metric for this range\n"
        "Advertised metric for this range\n")
-
+
 DEFUN (ospf_area_range_substitute,
        ospf_area_range_substitute_cmd,
        "area (A.B.C.D|<0-4294967295>) range A.B.C.D/M substitute A.B.C.D/M",
@@ -686,7 +686,7 @@ DEFUN (no_ospf_area_range_substitute,
   return CMD_SUCCESS;
 }
 
-
+
 /* Command Handler Logic in VLink stuff is delicate!!
 
 	ALTER AT YOUR OWN RISK!!!!
@@ -1382,7 +1382,7 @@ ALIAS (no_ospf_area_vlink,
        VLINK_HELPSTR_AUTHTYPE_SIMPLE
        VLINK_HELPSTR_AUTH_MD5)
 
-
+
 DEFUN (ospf_area_shortcut,
        ospf_area_shortcut_cmd,
        "area (A.B.C.D|<0-4294967295>) shortcut (default|enable|disable)",
@@ -1450,7 +1450,7 @@ DEFUN (no_ospf_area_shortcut,
   return CMD_SUCCESS;
 }
 
-
+
 DEFUN (ospf_area_stub,
        ospf_area_stub_cmd,
        "area (A.B.C.D|<0-4294967295>) stub",
@@ -1971,7 +1971,7 @@ DEFUN (no_ospf_area_filter_list,
   return CMD_SUCCESS;
 }
 
-
+
 DEFUN (ospf_area_authentication_message_digest,
        ospf_area_authentication_message_digest_cmd,
        "area (A.B.C.D|<0-4294967295>) authentication message-digest",
@@ -2042,7 +2042,7 @@ DEFUN (no_ospf_area_authentication,
   return CMD_SUCCESS;
 }
 
-
+
 DEFUN (ospf_abr_type,
        ospf_abr_type_cmd,
        "ospf abr-type (cisco|ibm|shortcut|standard)",
@@ -2206,7 +2206,7 @@ ALIAS (no_ospf_compatible_rfc1583,
        NO_STR
        "OSPF specific commands\n"
        "Disable the RFC1583Compatibility flag\n")
-
+
 static int
 ospf_timers_spf_set (struct vty *vty, unsigned int delay,
                      unsigned int hold,
@@ -2297,7 +2297,7 @@ ALIAS_DEPRECATED (no_ospf_timers_throttle_spf,
                   NO_STR
                   "Adjust routing timers\n"
                   "OSPF SPF timers\n")
-
+
 DEFUN (ospf_neighbor,
        ospf_neighbor_cmd,
        "neighbor A.B.C.D",
@@ -2430,7 +2430,7 @@ ALIAS (no_ospf_neighbor,
        "Dead Neighbor Polling interval\n"
        "Seconds\n")
 
-
+
 DEFUN (ospf_refresh_timer, ospf_refresh_timer_cmd,
        "refresh timer <10-1800>",
        "Adjust refresh parameters\n"
@@ -2548,7 +2548,7 @@ const char *ospf_shortcut_mode_descr_str[] =
 };
 
 
-
+
 static void
 show_ip_ospf_area (struct vty *vty, struct ospf_area *area)
 {
@@ -2800,7 +2800,7 @@ DEFUN (show_ip_ospf,
   return CMD_SUCCESS;
 }
 
-
+
 static void
 show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf,
 			    struct interface *ifp)
@@ -3429,7 +3429,7 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
   return CMD_SUCCESS;
 }
 
-
+
 /* Show functions */
 static int
 show_lsa_summary (struct vty *vty, struct ospf_lsa *lsa, int self)
@@ -4302,7 +4302,7 @@ ALIAS (show_ip_ospf_database_type_adv_router,
        OSPF_LSA_TYPES_DESC
        "Self-originated link states\n")
 
-
+
 DEFUN (ip_ospf_authentication_args,
        ip_ospf_authentication_args_addr_cmd,
        "ip ospf authentication (null|message-digest) A.B.C.D",
@@ -6262,7 +6262,7 @@ ALIAS (no_ip_ospf_mtu_ignore,
       "IP Information\n"
       "OSPF interface commands\n"
       "Disable mtu mismatch detection\n")
-
+
 DEFUN (ospf_max_metric_router_lsa_admin,
        ospf_max_metric_router_lsa_admin_cmd,
        "max-metric router-lsa administrative",
@@ -6431,7 +6431,7 @@ config_write_stub_router (struct vty *vty, struct ospf *ospf)
     }
   return;
 }
-
+
 static void
 show_ip_ospf_route_network (struct vty *vty, struct route_table *rt)
 {
@@ -6650,7 +6650,7 @@ DEFUN (show_ip_ospf_route,
   return CMD_SUCCESS;
 }
 
-
+
 const char *ospf_abr_type_str[] = 
 {
   "unknown",
@@ -6679,7 +6679,7 @@ area_id2str (char *buf, int length, struct ospf_area *area)
     sprintf (buf, "%lu", (unsigned long) ntohl (area->area_id.s_addr));
 }
 
-
+
 const char *ospf_int_type_str[] = 
 {
   "unknown",		/* should never be used. */
@@ -7113,7 +7113,7 @@ config_write_virtual_link (struct vty *vty, struct ospf *ospf)
   return 0;
 }
 
-
+
 static int
 config_write_ospf_redistribute (struct vty *vty, struct ospf *ospf)
 {
@@ -7406,7 +7406,7 @@ ospf_vty_show_init (void)
   install_element (ENABLE_NODE, &show_ip_ospf_border_routers_cmd);
 }
 
-
+
 /* ospfd's interface node. */
 static struct cmd_node interface_node =
 {
@@ -7558,7 +7558,7 @@ static struct cmd_node ospf_node =
   1
 };
 
-
+
 /* Install OSPF related vty commands. */
 void
 ospf_vty_init (void)

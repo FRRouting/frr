@@ -1206,7 +1206,7 @@ ALIAS (no_bandwidth_if,
        NO_STR
        "Set bandwidth informational parameter\n"
        "Bandwidth in kilobits\n")
-
+
 static int
 ip_address_install (struct vty *vty, struct interface *ifp,
 		    const char *addr_str, const char *peer_str,

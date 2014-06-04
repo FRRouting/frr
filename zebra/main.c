@@ -151,7 +151,7 @@ usage (char *progname, int status)
 
   exit (status);
 }
-
+
 /* SIGHUP handler. */
 static void 
 sighup (void)
@@ -203,7 +203,7 @@ struct quagga_signal_t zebra_signals[] =
     .handler = &sigint,
   },
 };
-
+
 /* Main startup routine. */
 int
 main (int argc, char **argv)

@@ -69,7 +69,7 @@ const char *zlog_priority[] =
 };
   
 
-
+
 /* For time string format. */
 
 size_t
@@ -145,7 +145,7 @@ time_print(FILE *fp, struct timestamp_control *ctl)
   fprintf(fp, "%s ", ctl->buf);
 }
   
-
+
 /* va_list version of zlog. */
 static void
 vzlog (struct zlog *zl, int priority, const char *format, va_list args)
@@ -619,7 +619,7 @@ _zlog_assert_failed (const char *assertion, const char *file,
   abort();
 }
 
-
+
 /* Open log stream */
 struct zlog *
 openzlog (const char *progname, zlog_proto_t protocol,
@@ -756,7 +756,7 @@ zlog_rotate (struct zlog *zl)
 
   return 1;
 }
-
+
 /* Message lookup function. */
 const char *
 lookup (const struct message *mes, int key)

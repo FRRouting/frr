@@ -32,7 +32,7 @@ struct hash *ifrmaphash;
 /* Hook functions. */
 static void (*if_rmap_add_hook) (struct if_rmap *) = NULL;
 static void (*if_rmap_delete_hook) (struct if_rmap *) = NULL;
-
+
 static struct if_rmap *
 if_rmap_new (void)
 {
@@ -122,7 +122,7 @@ if_rmap_hash_cmp (const void *arg1, const void* arg2)
 
   return strcmp (if_rmap1->ifname, if_rmap2->ifname) == 0;
 }
-
+
 static struct if_rmap *
 if_rmap_set (const char *ifname, enum if_rmap_type type, 
              const char *routemap_name)
@@ -273,7 +273,7 @@ ALIAS (no_if_rmap,
        "Route map for input filtering\n"
        "Route map for output filtering\n"
        "Route map interface name\n")
-
+
 /* Configuration write function. */
 int
 config_write_if_rmap (struct vty *vty)

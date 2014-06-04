@@ -33,7 +33,7 @@
 #include "smux.h"
 
 #include "ripd/ripd.h"
-
+
 /* RIPv2-MIB. */
 #define RIPV2MIB 1,3,6,1,2,1,23
 
@@ -76,7 +76,7 @@
 #define TIMETICKS   ASN_TIMETICKS
 #define IPADDRESS   ASN_IPADDRESS
 #define STRING      ASN_OCTET_STR
-
+
 /* Define SNMP local variables. */
 SNMP_LOCAL_VARIABLES
 
@@ -149,7 +149,7 @@ struct variable rip_variables[] =
 };
 
 extern struct thread_master *master;
-
+
 static u_char *
 rip2Globals (struct variable *v, oid name[], size_t *length,
 	     int exact, size_t *var_len, WriteMethod **write_method)

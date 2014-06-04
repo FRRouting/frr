@@ -66,7 +66,7 @@ static void rtadv_event (enum rtadv_event, int);
 
 static int if_join_all_router (int, struct interface *);
 static int if_leave_all_router (int, struct interface *);
-
+
 /* Structure which hold status of router advertisement. */
 struct rtadv
 {
@@ -80,7 +80,7 @@ struct rtadv
 };
 
 struct rtadv *rtadv = NULL;
-
+
 static struct rtadv *
 rtadv_new (void)
 {
@@ -580,7 +580,7 @@ rtadv_make_socket (void)
 
   return sock;
 }
-
+
 static struct rtadv_prefix *
 rtadv_prefix_new (void)
 {

@@ -49,7 +49,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_vty.h"
 
 int stream_put_prefix (struct stream *, struct prefix *);
-
+
 /* Set up BGP packet marker and packet type. */
 static int
 bgp_packet_set_marker (struct stream *s, u_char type)
@@ -1166,7 +1166,7 @@ bgp_capability_send (struct peer *peer, afi_t afi, safi_t safi,
 
   BGP_WRITE_ON (peer->t_write, bgp_write, peer->fd);
 }
-
+
 /* RFC1771 6.8 Connection collision detection. */
 static int
 bgp_collision_detect (struct peer *new, struct in_addr remote_id)
@@ -2381,7 +2381,7 @@ bgp_capability_receive (struct peer *peer, bgp_size_t size)
   /* Parse packet. */
   return bgp_capability_msg_parse (peer, pnt, size);
 }
-
+
 /* BGP read utility function. */
 static int
 bgp_read_packet (struct peer *peer)

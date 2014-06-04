@@ -2326,7 +2326,7 @@ ospf6_lsack_send_interface (struct thread *thread)
   return 0;
 }
 
-
+
 /* Commands */
 DEFUN (debug_ospf6_message,
        debug_ospf6_message_cmd,
@@ -2400,7 +2400,7 @@ ALIAS (debug_ospf6_message,
        "Debug only receiving message\n"
        )
 
-
+
 DEFUN (no_debug_ospf6_message,
        no_debug_ospf6_message_cmd,
        "no debug ospf6 message (unknown|hello|dbdesc|lsreq|lsupdate|lsack|all)",

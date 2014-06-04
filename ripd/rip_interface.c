@@ -41,7 +41,7 @@
 #include "ripd/ripd.h"
 #include "ripd/rip_debug.h"
 #include "ripd/rip_interface.h"
-
+
 /* static prototypes */
 static void rip_enable_apply (struct interface *);
 static void rip_passive_interface_apply (struct interface *);
@@ -49,7 +49,7 @@ static int rip_if_down(struct interface *ifp);
 static int rip_enable_if_lookup (const char *ifname);
 static int rip_enable_network_lookup2 (struct connected *connected);
 static void rip_enable_apply_all (void);
-
+
 struct message ri_version_msg[] = 
 {
   {RI_RIP_VERSION_1,       "1"},
@@ -68,7 +68,7 @@ struct route_table *rip_enable_network;
 /* Vector to store passive-interface name. */
 static int passive_default;	/* are we in passive-interface default mode? */
 vector Vrip_passive_nondefault;
-
+
 /* Join to the RIP version 2 multicast group. */
 static int
 ipv4_multicast_join (int sock, 
@@ -109,7 +109,7 @@ ipv4_multicast_leave (int sock,
 
   return ret;
 }
-
+
 /* Allocate new RIP's interface configuration. */
 static struct rip_interface *
 rip_interface_new (void)
@@ -754,7 +754,7 @@ rip_interface_address_delete (int command, struct zclient *zclient,
 
   return 0;
 }
-
+
 /* Check interface is enabled by network statement. */
 /* Check wether the interface has at least a connected prefix that
  * is within the ripng_enable_network table. */
@@ -1142,7 +1142,7 @@ rip_clean_network ()
 	vector_slot (rip_enable_interface, i) = NULL;
       }
 }
-
+
 /* Utility function for looking up passive interface settings. */
 static int
 rip_passive_nondefault_lookup (const char *ifname)
@@ -1229,7 +1229,7 @@ rip_passive_nondefault_clean (void)
       }
   rip_passive_interface_apply_all ();
 }
-
+
 /* RIP enable network or interface configuration. */
 DEFUN (rip_network,
        rip_network_cmd,
@@ -1913,7 +1913,7 @@ DEFUN (no_rip_passive_interface,
   else
     return rip_passive_nondefault_unset (vty, ifname);
 }
-
+
 /* Write rip configuration of each interface. */
 static int
 rip_interface_config_write (struct vty *vty)

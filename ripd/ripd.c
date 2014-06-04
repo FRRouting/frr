@@ -61,20 +61,20 @@ long rip_global_route_changes = 0;
 
 /* RIP queries. */
 long rip_global_queries = 0;
-
+
 /* Prototypes. */
 static void rip_event (enum rip_event, int);
 static void rip_output_process (struct connected *, struct sockaddr_in *, int, u_char);
 static int rip_triggered_update (struct thread *);
 static int rip_update_jitter (unsigned long);
-
+
 /* RIP output routes type. */
 enum
 {
   rip_all_route,
   rip_changed_route
 };
-
+
 /* RIP command strings. */
 static const struct message rip_msg[] =
 {
@@ -86,7 +86,7 @@ static const struct message rip_msg[] =
   {RIP_POLL_ENTRY, "POLL ENTRY"},
   {0, NULL},
 };
-
+
 /* Utility function to set boradcast option to the socket. */
 static int
 sockopt_broadcast (int sock)
@@ -2774,7 +2774,7 @@ rip_request_send (struct sockaddr_in *to, struct interface *ifp,
     }
   return sizeof (rip_packet);
 }
-
+
 static int
 rip_update_jitter (unsigned long time)
 {
@@ -2828,7 +2828,7 @@ rip_event (enum rip_event event, int sock)
       break;
     }
 }
-
+
 DEFUN (router_rip,
        router_rip_cmd,
        "router rip",
@@ -3104,7 +3104,7 @@ ALIAS (no_rip_timers,
        "Routing information timeout timer. Default is 180.\n"
        "Garbage collection timer. Default is 120.\n")
 
-
+
 struct route_table *rip_distance_table;
 
 struct rip_distance
@@ -3372,7 +3372,7 @@ DEFUN (no_rip_distance_source_access_list,
   rip_distance_unset (vty, argv[0], argv[1], argv[2]);
   return CMD_SUCCESS;
 }
-
+
 /* Print out routes update time. */
 static void
 rip_vty_out_uptime (struct vty *vty, struct rip_info *rinfo)
@@ -3696,7 +3696,7 @@ static struct cmd_node rip_node =
   "%s(config-router)# ",
   1
 };
-
+
 /* Distribute-list update functions. */
 static void
 rip_distribute_update (struct distribute *dist)
@@ -3787,7 +3787,7 @@ rip_distribute_update_all_wrapper(struct access_list *notused)
 {
         rip_distribute_update_all(NULL);
 }
-
+
 /* Delete all added rip route. */
 void
 rip_clean (void)

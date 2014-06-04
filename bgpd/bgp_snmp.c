@@ -38,7 +38,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_snmp.h"
-
+
 /* BGP4-MIB described in RFC1657. */
 #define BGP4MIB 1,3,6,1,2,1,15
 
@@ -112,7 +112,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define OCTET_STRING ASN_OCTET_STR
 #define IPADDRESS ASN_IPADDRESS
 #define GAUGE32 ASN_UNSIGNED
-
+
 /* Declare static local variables for convenience. */
 SNMP_LOCAL_VARIABLES
 
@@ -242,7 +242,7 @@ struct variable bgp_variables[] =
    3, {6, 1, 14}},
 };
 
-
+
 static u_char *
 bgpVersion (struct variable *v, oid name[], size_t *length, int exact,
 	    size_t *var_len, WriteMethod **write_method)
@@ -835,7 +835,7 @@ bgp4PathAttrTable (struct variable *v, oid name[], size_t *length,
     }
   return NULL;
 }
-
+
 /* BGP Traps. */
 struct trap_object bgpTrapList[] =
 {

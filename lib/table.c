@@ -29,7 +29,7 @@
 
 static void route_node_delete (struct route_node *);
 static void route_table_free (struct route_table *);
-
+
 
 /*
  * route_table_init_with_delegate

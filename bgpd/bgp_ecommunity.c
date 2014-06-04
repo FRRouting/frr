@@ -31,7 +31,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 /* Hash of community attribute. */
 static struct hash *ecomhash;
-
+
 /* Allocate a new ecommunities.  */
 static struct ecommunity *
 ecommunity_new (void)
@@ -277,7 +277,7 @@ ecommunity_finish (void)
   hash_free (ecomhash);
   ecomhash = NULL;
 }
-
+
 /* Extended Communities token enum. */
 enum ecommunity_token
 {

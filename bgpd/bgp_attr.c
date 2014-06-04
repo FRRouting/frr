@@ -38,7 +38,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_ecommunity.h"
-
+
 /* Attribute strings for logging. */
 static const struct message attr_str [] = 
 {
@@ -73,7 +73,7 @@ static const struct message attr_flag_str[] =
   { BGP_ATTR_FLAG_EXTLEN,   "Extended Length" },
 };
 static const size_t attr_flag_str_max = array_size(attr_flag_str);
-
+
 static struct hash *cluster_hash;
 
 static void *
@@ -207,7 +207,7 @@ cluster_finish (void)
   hash_free (cluster_hash);
   cluster_hash = NULL;
 }
-
+
 /* Unknown transit attribute. */
 static struct hash *transit_hash;
 
@@ -283,7 +283,7 @@ transit_finish (void)
   hash_free (transit_hash);
   transit_hash = NULL;
 }
-
+
 /* Attribute hash routines. */
 static struct hash *attrhash;
 
@@ -2055,7 +2055,7 @@ bgp_attr_check (struct peer *peer, struct attr *attr)
     }
   return BGP_ATTR_PARSE_PROCEED;
 }
-
+
 int stream_put_prefix (struct stream *, struct prefix *);
 
 size_t

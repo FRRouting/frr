@@ -47,7 +47,7 @@ struct bgp_listener
   union sockunion su;
   struct thread *thread;
 };
-
+
 /*
  * Set MD5 key for the socket, for the given IPv4 peer address.
  * If the password is NULL or zero-length, the option will be disabled.

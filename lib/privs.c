@@ -47,7 +47,7 @@ struct _pset {
 typedef cap_value_t pvalue_t;
 typedef struct _pset pset_t;
 typedef cap_t pstorage_t;
-
+
 #elif defined (HAVE_SOLARIS_CAPABILITIES)
 typedef priv_t pvalue_t;
 typedef priv_set_t pset_t;
@@ -56,7 +56,7 @@ typedef priv_set_t *pstorage_t;
 #error "HAVE_CAPABILITIES defined, but neither LCAPS nor Solaris Capabilties!"
 #endif /* HAVE_LCAPS */
 #endif /* HAVE_CAPABILITIES */
-
+
 /* the default NULL state we report is RAISED, but could be LOWERED if
  * zprivs_terminate is called and the NULL handler is installed.
  */
@@ -139,7 +139,7 @@ static struct
   [ZCAP_FOWNER] =	{ 1, (pvalue_t []) { PRIV_FILE_OWNER		}, },
 #endif /* HAVE_SOLARIS_CAPABILITIES */
 };
-
+
 #ifdef HAVE_LCAPS
 /* Linux forms of capabilities methods */
 /* convert zebras privileges to system capabilities */
@@ -339,7 +339,7 @@ zprivs_caps_terminate (void)
   cap_free (zprivs_state.caps);
 }
 #elif defined (HAVE_SOLARIS_CAPABILITIES) /* !HAVE_LCAPS */
-
+
 /* Solaris specific capability/privilege methods 
  *
  * Resources:
@@ -556,7 +556,7 @@ zprivs_caps_terminate (void)
 #error "Neither Solaris nor Linux capabilities, dazed and confused..."
 #endif /* HAVE_LCAPS */
 #endif /* HAVE_CAPABILITIES */
-
+
 int
 zprivs_change_uid (zebra_privs_ops_t op)
 {

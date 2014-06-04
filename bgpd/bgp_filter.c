@@ -84,7 +84,7 @@ struct as_list
   struct as_filter *head;
   struct as_filter *tail;
 };
-
+
 /* ip as-path access-list 10 permit AS1. */
 
 static struct as_list_master as_list_master =
@@ -370,7 +370,7 @@ as_list_filter_delete (struct as_list *aslist, struct as_filter *asfilter)
   if (as_list_master.delete_hook)
     (*as_list_master.delete_hook) ();
 }
-
+
 static int
 as_filter_match (struct as_filter *asfilter, struct aspath *aspath)
 {
@@ -412,7 +412,7 @@ as_list_delete_hook (void (*func) (void))
 {
   as_list_master.delete_hook = func;
 }
-
+
 static int
 as_list_dup_check (struct as_list *aslist, struct as_filter *new)
 {

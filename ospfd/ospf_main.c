@@ -132,7 +132,7 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
     }
   exit (status);
 }
-
+
 /* SIGHUP handler. */
 static void 
 sighup (void)
@@ -174,7 +174,7 @@ struct quagga_signal_t ospf_signals[] =
     .handler = &sigint,
   },
 };
-
+
 /* OSPFd main routine. */
 int
 main (int argc, char **argv)

@@ -45,7 +45,7 @@ extern int agentx_enabled;
 #include <mach/mach_time.h>
 #endif
 
-
+
 /* Recent absolute time of day */
 struct timeval recent_time;
 static struct timeval last_recent_time;
@@ -54,9 +54,9 @@ static struct timeval relative_time;
 static struct timeval relative_time_base;
 /* init flag */
 static unsigned short timers_inited;
-
+
 static struct hash *cpu_record = NULL;
-
+
 /* Struct timeval's tv_usec one second value.  */
 #define TIMER_SECOND_MICRO 1000000L
 
@@ -108,7 +108,7 @@ timeval_elapsed (struct timeval a, struct timeval b)
   return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
 	  + (a.tv_usec - b.tv_usec));
 }
-
+
 #if !defined(HAVE_CLOCK_MONOTONIC) && !defined(__APPLE__)
 static void
 quagga_gettimeofday_relative_adjust (void)
@@ -247,7 +247,7 @@ recent_relative_time (void)
 {
   return relative_time;
 }
-
+
 static unsigned int
 cpu_record_hash_key (struct cpu_thread_history *a)
 {
@@ -496,7 +496,7 @@ DEFUN(clear_thread_cpu,
   cpu_record_clear (filter);
   return CMD_SUCCESS;
 }
-
+
 static int
 thread_timer_cmp(void *a, void *b)
 {

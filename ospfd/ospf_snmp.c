@@ -48,7 +48,7 @@
 #include "ospfd/ospf_ism.h"
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_snmp.h"
-
+
 /* OSPF2-MIB. */
 #define OSPF2MIB 1,3,6,1,2,1,14
 
@@ -204,7 +204,7 @@
 #define TIMETICKS   ASN_TIMETICKS
 #define IPADDRESS   ASN_IPADDRESS
 #define STRING      ASN_OCTET_STR
-
+
 /* Declare static local variables for convenience. */
 SNMP_LOCAL_VARIABLES
 
@@ -501,7 +501,7 @@ struct variable ospf_variables[] =
   {OSPFAREAAGGREGATEEFFECT,   INTEGER, RWRITE, ospfAreaAggregateEntry,
    3, {14, 1, 6}}
 };
-
+
 /* The administrative status of OSPF.  When OSPF is enbled on at least
    one interface return 1. */
 static int
@@ -1407,7 +1407,7 @@ ospfHostEntry (struct variable *v, oid *name, size_t *length, int exact,
     }
   return NULL;
 }
-
+
 struct list *ospf_snmp_iflist;
 
 struct ospf_snmp_if
@@ -1911,7 +1911,7 @@ ospfIfMetricEntry (struct variable *v, oid *name, size_t *length, int exact,
     }
   return NULL;
 }
-
+
 struct route_table *ospf_snmp_vl_table;
 
 void
@@ -2127,7 +2127,7 @@ ospfVirtIfEntry (struct variable *v, oid *name, size_t *length, int exact,
     }
   return NULL;
 }
-
+
 static struct ospf_neighbor *
 ospf_snmp_nbr_lookup (struct ospf *ospf, struct in_addr *nbr_addr,
 		      unsigned int *ifindex)
@@ -2360,7 +2360,7 @@ ospfNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
     }
   return NULL;
 }
-
+
 static u_char *
 ospfVirtNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
 		  size_t *var_len, WriteMethod **write_method)
@@ -2419,7 +2419,7 @@ ospfVirtNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
     }
   return NULL;
 }
-
+
 static struct ospf_lsa *
 ospfExtLsdbLookup (struct variable *v, oid *name, size_t *length, u_char *type,
 		   struct in_addr *ls_id, struct in_addr *router_id, int exact)
@@ -2572,7 +2572,7 @@ ospfExtLsdbEntry (struct variable *v, oid *name, size_t *length, int exact,
     }
   return NULL;
 }
-
+
 static u_char *
 ospfAreaAggregateEntry (struct variable *v, oid *name, size_t *length,
 			int exact, size_t *var_len, WriteMethod **write_method)
@@ -2608,7 +2608,7 @@ ospfAreaAggregateEntry (struct variable *v, oid *name, size_t *length,
     }
   return NULL;
 }
-
+
 /* OSPF Traps. */
 #define IFSTATECHANGE      16
 #define VIRTIFSTATECHANGE   1

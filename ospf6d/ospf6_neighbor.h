@@ -148,7 +148,7 @@ static const char *ospf6_neighbor_event_string (int event)
 
 extern const char *ospf6_neighbor_state_str[];
 
-
+
 /* Function Prototypes */
 int ospf6_neighbor_cmp (void *va, void *vb);
 void ospf6_neighbor_dbex_init (struct ospf6_neighbor *on);

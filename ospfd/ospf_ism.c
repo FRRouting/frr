@@ -44,7 +44,7 @@
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_snmp.h"
-
+
 /* elect DR and BDR. Refer to RFC2319 section 9.4 */
 static struct ospf_neighbor *
 ospf_dr_election_sub (struct list *routers)
@@ -245,7 +245,7 @@ ospf_dr_election (struct ospf_interface *oi)
   return new_state;
 }
 
-
+
 int
 ospf_hello_timer (struct thread *thread)
 {

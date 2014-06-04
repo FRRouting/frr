@@ -57,7 +57,7 @@ static void vty_event (enum event, int, struct vty *);
 
 /* Extern host structure from command.c */
 extern struct host host;
-
+
 /* Vector which store each vty structure. */
 static vector vtyvec;
 
@@ -89,7 +89,7 @@ static u_char restricted_mode = 0;
 /* Integrated configuration file path */
 char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
-
+
 /* VTY standard output function. */
 int
 vty_out (struct vty *vty, const char *format, ...)
@@ -455,7 +455,7 @@ vty_command (struct vty *vty, char *buf)
 
   return ret;
 }
-
+
 static const char telnet_backward_char = 0x08;
 static const char telnet_space_char = ' ';
 
@@ -2494,7 +2494,7 @@ vty_config_unlock (struct vty *vty)
     }
   return vty->config;
 }
-
+
 /* Master of the threads. */
 static struct thread_master *master;
 
@@ -2551,7 +2551,7 @@ vty_event (enum event event, int sock, struct vty *vty)
       break;
     }
 }
-
+
 DEFUN (config_who,
        config_who_cmd,
        "who",

@@ -61,7 +61,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #ifdef HAVE_SNMP
 #include "bgpd/bgp_snmp.h"
 #endif /* HAVE_SNMP */
-
+
 /* BGP process wide configuration.  */
 static struct bgp_master bgp_master;
 
@@ -72,7 +72,7 @@ struct bgp_master *bm;
 
 /* BGP community-list.  */
 struct community_list_handler *bgp_clist;
-
+
 /* BGP global flag manipulation.  */
 int
 bgp_option_set (int flag)
@@ -115,7 +115,7 @@ bgp_option_check (int flag)
 {
   return CHECK_FLAG (bm->options, flag);
 }
-
+
 /* BGP flag manipulation.  */
 int
 bgp_flag_set (struct bgp *bgp, int flag)
@@ -136,7 +136,7 @@ bgp_flag_check (struct bgp *bgp, int flag)
 {
   return CHECK_FLAG (bgp->flags, flag);
 }
-
+
 /* Internal function to set BGP structure configureation flag.  */
 static void
 bgp_config_set (struct bgp *bgp, int config)
@@ -155,7 +155,7 @@ bgp_config_check (struct bgp *bgp, int config)
 {
   return CHECK_FLAG (bgp->config, config);
 }
-
+
 /* Set BGP router identifier. */
 int
 bgp_router_id_set (struct bgp *bgp, struct in_addr *id)
@@ -242,7 +242,7 @@ bgp_cluster_id_unset (struct bgp *bgp)
     }
   return 0;
 }
-
+
 /* time_t value that is monotonicly increasing
  * and uneffected by adjustments to system clock
  */
@@ -273,7 +273,7 @@ bgp_timers_unset (struct bgp *bgp)
 
   return 0;
 }
-
+
 /* BGP confederation configuration.  */
 int
 bgp_confederation_id_set (struct bgp *bgp, as_t as)
@@ -485,7 +485,7 @@ bgp_confederation_peers_remove (struct bgp *bgp, as_t as)
 
   return 0;
 }
-
+
 /* Local preference configuration.  */
 int
 bgp_default_local_preference_set (struct bgp *bgp, u_int32_t local_pref)
@@ -508,7 +508,7 @@ bgp_default_local_preference_unset (struct bgp *bgp)
 
   return 0;
 }
-
+
 /* If peer is RSERVER_CLIENT in at least one address family and is not member
     of a peer_group for that family, return 1.
     Used to check wether the peer is included in list bgp->rsclient. */
@@ -1325,7 +1325,7 @@ peer_delete (struct peer *peer)
 
   return 0;
 }
-
+
 static int
 peer_group_cmp (struct peer_group *g1, struct peer_group *g2)
 {
@@ -1926,7 +1926,7 @@ peer_group_unbind (struct bgp *bgp, struct peer *peer,
 
   return 0;
 }
-
+
 /* BGP instance creation by `router bgp' commands. */
 static struct bgp *
 bgp_create (as_t *as, const char *name)
@@ -2181,7 +2181,7 @@ bgp_free (struct bgp *bgp)
       }
   XFREE (MTYPE_BGP, bgp);
 }
-
+
 struct peer *
 peer_lookup (struct bgp *bgp, union sockunion *su)
 {
@@ -2250,7 +2250,7 @@ peer_lookup_with_open (union sockunion *su, as_t remote_as,
     }
   return NULL;
 }
-
+
 /* If peer is configured at least one address family return 1. */
 int
 peer_active (struct peer *peer)
@@ -2276,7 +2276,7 @@ peer_active_nego (struct peer *peer)
     return 1;
   return 0;
 }
-
+
 /* peer_flag_change_type. */
 enum peer_change_type
 {
@@ -2695,7 +2695,7 @@ peer_af_flag_unset (struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag)
 {
   return peer_af_flag_modify (peer, afi, safi, flag, 0);
 }
-
+
 /* EBGP multihop configuration. */
 int
 peer_ebgp_multihop_set (struct peer *peer, int ttl)
@@ -2794,7 +2794,7 @@ peer_ebgp_multihop_unset (struct peer *peer)
     }
   return 0;
 }
-
+
 /* Neighbor description. */
 int
 peer_description_set (struct peer *peer, char *desc)
@@ -2817,7 +2817,7 @@ peer_description_unset (struct peer *peer)
 
   return 0;
 }
-
+
 /* Neighbor update-source. */
 int
 peer_update_source_if_set (struct peer *peer, const char *ifname)
@@ -3037,7 +3037,7 @@ peer_update_source_unset (struct peer *peer)
     }
   return 0;
 }
-
+
 int
 peer_default_originate_set (struct peer *peer, afi_t afi, safi_t safi,
 			    const char *rmap)
@@ -3142,7 +3142,7 @@ peer_default_originate_unset (struct peer *peer, afi_t afi, safi_t safi)
     }
   return 0;
 }
-
+
 int
 peer_port_set (struct peer *peer, u_int16_t port)
 {
@@ -3156,7 +3156,7 @@ peer_port_unset (struct peer *peer)
   peer->port = BGP_PORT_DEFAULT;
   return 0;
 }
-
+
 /* neighbor weight. */
 int
 peer_weight_set (struct peer *peer, u_int16_t weight)
@@ -3204,7 +3204,7 @@ peer_weight_unset (struct peer *peer)
     }
   return 0;
 }
-
+
 int
 peer_timers_set (struct peer *peer, u_int32_t keepalive, u_int32_t holdtime)
 {
@@ -3274,7 +3274,7 @@ peer_timers_unset (struct peer *peer)
 
   return 0;
 }
-
+
 int
 peer_timers_connect_set (struct peer *peer, u_int32_t connect)
 {
@@ -3309,7 +3309,7 @@ peer_timers_connect_unset (struct peer *peer)
 
   return 0;
 }
-
+
 int
 peer_advertise_interval_set (struct peer *peer, u_int32_t routeadv)
 {
@@ -3342,7 +3342,7 @@ peer_advertise_interval_unset (struct peer *peer)
   
   return 0;
 }
-
+
 /* neighbor interface */
 int
 peer_interface_set (struct peer *peer, const char *str)
@@ -3363,7 +3363,7 @@ peer_interface_unset (struct peer *peer)
 
   return 0;
 }
-
+
 /* Allow-as in.  */
 int
 peer_allowas_in_set (struct peer *peer, afi_t afi, safi_t safi, int allow_num)
@@ -3424,7 +3424,7 @@ peer_allowas_in_unset (struct peer *peer, afi_t afi, safi_t safi)
     }
   return 0;
 }
-
+
 int
 peer_local_as_set (struct peer *peer, as_t as, int no_prepend, int replace_as)
 {
@@ -3552,7 +3552,7 @@ peer_local_as_unset (struct peer *peer)
     }
   return 0;
 }
-
+
 /* Set password for authenticating with the peer. */
 int
 peer_password_set (struct peer *peer, const char *password)
@@ -3657,7 +3657,7 @@ peer_password_unset (struct peer *peer)
 
   return 0;
 }
-
+
 /* Set distribute list to the peer. */
 int
 peer_distribute_set (struct peer *peer, afi_t afi, safi_t safi, int direct, 
@@ -3817,7 +3817,7 @@ peer_distribute_update (struct access_list *access)
 	}
     }
 }
-
+
 /* Set prefix list to the peer. */
 int
 peer_prefix_list_set (struct peer *peer, afi_t afi, safi_t safi, int direct, 
@@ -3976,7 +3976,7 @@ peer_prefix_list_update (struct prefix_list *plist)
 	}
     }
 }
-
+
 int
 peer_aslist_set (struct peer *peer, afi_t afi, safi_t safi, int direct,
 		 const char *name)
@@ -4130,7 +4130,7 @@ peer_aslist_update (void)
 	}
     }
 }
-
+
 /* Set route-map to the peer. */
 int
 peer_route_map_set (struct peer *peer, afi_t afi, safi_t safi, int direct, 
@@ -4238,7 +4238,7 @@ peer_route_map_unset (struct peer *peer, afi_t afi, safi_t safi, int direct)
     }
   return 0;
 }
-
+
 /* Set unsuppress-map to the peer. */
 int
 peer_unsuppress_map_set (struct peer *peer, afi_t afi, safi_t safi, 
@@ -4320,7 +4320,7 @@ peer_unsuppress_map_unset (struct peer *peer, afi_t afi, safi_t safi)
     }
   return 0;
 }
-
+
 int
 peer_maximum_prefix_set (struct peer *peer, afi_t afi, safi_t safi,
 			 u_int32_t max, u_char threshold,
@@ -4547,7 +4547,7 @@ peer_ttl_security_hops_unset (struct peer *peer)
 
   return peer_ebgp_multihop_unset (opeer);
 }
-
+
 int
 peer_clear (struct peer *peer)
 {
@@ -4652,7 +4652,7 @@ peer_clear_soft (struct peer *peer, afi_t afi, safi_t safi,
     }
   return 0;
 }
-
+
 /* Display peer uptime.*/
 /* XXX: why does this function return char * when it takes buffer? */
 char *
@@ -4697,7 +4697,7 @@ peer_uptime (time_t uptime2, char *buf, size_t len)
 	      tm->tm_yday/7, tm->tm_yday - ((tm->tm_yday/7) * 7), tm->tm_hour);
   return buf;
 }
-
+
 static void
 bgp_config_write_filter (struct vty *vty, struct peer *peer,
 			 afi_t afi, safi_t safi)
@@ -5394,7 +5394,7 @@ bgp_master_init (void)
   bm->start_time = bgp_clock ();
 }
 
-
+
 void
 bgp_init (void)
 {

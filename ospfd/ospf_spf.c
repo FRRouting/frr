@@ -52,7 +52,7 @@ static void ospf_vertex_free (void *);
  * dynamically allocated at begin of ospf_spf_calculate
  */
 static struct list vertex_list = { .del = ospf_vertex_free };
-
+
 /* Heap related functions, for the managment of the candidates, to
  * be used with pqueue. */
 static int
@@ -90,7 +90,7 @@ update_stat (void *node , int position)
   /* Set the status of the vertex, when its position changes. */
   *(v->stat) = position;
 }
-
+
 static struct vertex_nexthop *
 vertex_nexthop_new (void)
 {
@@ -134,7 +134,7 @@ ospf_canonical_nexthops_free (struct vertex *root)
           vertex_nexthop_free (vp->nexthop);
     }
 }      
-
+
 /* TODO: Parent list should be excised, in favour of maintaining only
  * vertex_nexthop, with refcounts.
  */
@@ -159,7 +159,7 @@ vertex_parent_free (void *p)
 {
   XFREE (MTYPE_OSPF_VERTEX_PARENT, p);
 }
-
+
 static struct vertex *
 ospf_vertex_new (struct ospf_lsa *lsa)
 {
@@ -276,7 +276,7 @@ ospf_vertex_add_parent (struct vertex *v)
         listnode_add (vp->parent->children, v);
     }
 }
-
+
 static void
 ospf_spf_init (struct ospf_area *area)
 {
@@ -1254,7 +1254,7 @@ ospf_spf_calculate (struct ospf_area *area, struct route_table *new_table,
     zlog_debug ("ospf_spf_calculate: Stop. %ld vertices",
                 mtype_stats_alloc(MTYPE_OSPF_VERTEX));
 }
-
+
 /* Timer for SPF calculation. */
 static int
 ospf_spf_calculate_timer (struct thread *thread)

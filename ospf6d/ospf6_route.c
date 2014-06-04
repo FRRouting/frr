@@ -780,7 +780,7 @@ ospf6_route_table_delete (struct ospf6_route_table *table)
   XFREE (MTYPE_OSPF6_ROUTE, table);
 }
 
-
+
 /* VTY commands */
 void
 ospf6_route_show (struct vty *vty, struct ospf6_route *route)

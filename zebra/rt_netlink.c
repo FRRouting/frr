@@ -1848,7 +1848,7 @@ kernel_delete_ipv6_old (struct prefix_ipv6 *dest, struct in6_addr *gate,
                         dest->prefixlen, gate, index, flags, table);
 }
 #endif /* HAVE_IPV6 */
-
+
 /* Interface address modification. */
 static int
 netlink_address (int cmd, int family, struct interface *ifp,

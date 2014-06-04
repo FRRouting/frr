@@ -22,7 +22,7 @@
 #ifndef OSPF6_NETWORK_H
 #define OSPF6_NETWORK_H
 
-
+
 
 extern int ospf6_sock;
 extern struct in6_addr allspfrouters6;

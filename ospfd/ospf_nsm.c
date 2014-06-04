@@ -50,7 +50,7 @@
 #include "ospfd/ospf_snmp.h"
 
 static void nsm_clear_adj (struct ospf_neighbor *);
-
+
 /* OSPF NSM Timer functions. */
 static int
 ospf_inactivity_timer (struct thread *thread)
@@ -156,7 +156,7 @@ nsm_should_adj (struct ospf_neighbor *nbr)
 
   return 0;
 }
-
+
 /* OSPF NSM functions. */
 static int
 nsm_packet_received (struct ospf_neighbor *nbr)
@@ -258,7 +258,7 @@ ospf_db_summary_clear (struct ospf_neighbor *nbr)
     }
 }
 
-
+
 
 /* The area link state database consists of the router-LSAs,
    network-LSAs and summary-LSAs contained in the area structure,

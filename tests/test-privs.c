@@ -74,7 +74,7 @@ Report bugs to %s\n", progname, ZEBRA_BUG_ADDRESS);
     }
   exit (status);
 }
-
+
 struct thread_master *master;
 /* main routine. */
 int

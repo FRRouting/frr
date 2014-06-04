@@ -42,7 +42,7 @@ static struct bgp_damp_config *damp = &bgp_damp_cfg;
    used list.  */
 #define BGP_DAMP_LIST_ADD(N,A)  BGP_INFO_ADD(N,A,no_reuse_list)
 #define BGP_DAMP_LIST_DEL(N,A)  BGP_INFO_DEL(N,A,no_reuse_list)
-
+
 /* Calculate reuse list index by penalty value.  */
 static int
 bgp_reuse_index (int penalty)
@@ -86,7 +86,7 @@ bgp_reuse_list_delete (struct bgp_damp_info *bdi)
   else
     damp->reuse_list[bdi->index] = bdi->next;
 }   
-
+
 /* Return decayed penalty value.  */
 int 
 bgp_damp_decay (time_t tdiff, int penalty)
