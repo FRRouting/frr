@@ -1,5 +1,29 @@
 Note: this file lists major user-visible changes only.
 
+* Changes in Quagga 0.99.23
+
+Known issues:
+- [bgpd] setting an extcommunity in a route map on a route that already has
+  an extcommunity attribute will cause bgpd to crash.  This issue will be
+  fixed in a followup minor release.
+
+User-visible changes:
+- [lib] Performance enhancements on hashes and timers.
+- [bgpd] New feature: iBGP TTL security.
+- [bgpd] New feature: relaxed bestpath criteria for multipath and improved
+  display of multipath routes in "show ip bgp".  Scripts parsing this output
+  may need to be updated.
+- [bgpd] Multiprotocol peerings over IPv6 now try to find a more appropriate
+  IPv4 nexthop by looking at the interface.
+- [ospf6d] A large amount of changes has been merged for ospf6d.  Careful
+  evaluation prior to deployment is recommended.
+- [zebra] Recursive route support has been overhauled.  Scripts parsing
+  "show ip route" output may need adaptation.
+- [zebra] IPv6 address management has been improved regarding tentative
+  addresses.  This is visible in that a freshly configured address will not
+  immediately be marked as usable.
+- [*] a lot of bugs have been fixed, please refer to the git log
+
 * Changes in Quagga 0.99.22
 
 - [bgpd] The semantics of default-originate route-map have changed.
