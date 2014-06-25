@@ -2167,7 +2167,7 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
 
   /* Reset stream and RTE counter. */
   stream_reset (s);
-  rtemax = (RIP_PACKET_MAXSIZ - 4) / 20;
+  rtemax = RIP_MAX_RTE;
 
   /* Get RIP interface. */
   ri = ifc->ifp->info;
