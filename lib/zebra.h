@@ -246,20 +246,6 @@ typedef int socklen_t;
 #include <execinfo.h>
 #endif /* HAVE_GLIBC_BACKTRACE */
 
-#ifdef BSDI_NRL
-
-#ifdef HAVE_NETINET6_IN6_H
-#include <netinet6/in6.h>
-#endif /* HAVE_NETINET6_IN6_H */
-
-#ifdef NRL
-#include <netinet6/in6.h>
-#endif /* NRL */
-
-#define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
-
-#endif /* BSDI_NRL */
-
 /* Local includes: */
 #if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL)) 
 #define __attribute__(x)

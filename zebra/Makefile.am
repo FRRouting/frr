@@ -12,11 +12,10 @@ if_method = @IF_METHOD@
 rt_method = @RT_METHOD@
 rtread_method = @RTREAD_METHOD@
 kernel_method = @KERNEL_METHOD@
-other_method = @OTHER_METHOD@
 ioctl_method = @IOCTL_METHOD@
 
 otherobj = $(ioctl_method) $(ipforward) $(if_method) \
-	$(rt_method) $(rtread_method) $(kernel_method) $(other_method)
+	$(rt_method) $(rtread_method) $(kernel_method)
 
 if HAVE_NETLINK
 othersrc = zebra_fpm_netlink.c
@@ -54,10 +53,10 @@ testzebra_LDADD = ../lib/libzebra.la $(LIBCAP) $(LIB_IPV6)
 zebra_DEPENDENCIES = $(otherobj)
 
 EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c \
-        if_sysctl.c ipforward_aix.c ipforward_ews.c ipforward_proc.c \
+        if_sysctl.c ipforward_proc.c \
 	ipforward_solaris.c ipforward_sysctl.c rt_ioctl.c rt_netlink.c \
 	rt_socket.c rtread_netlink.c rtread_sysctl.c \
-	rtread_getmsg.c kernel_socket.c kernel_netlink.c mtu_kvm.c \
+	rtread_getmsg.c kernel_socket.c kernel_netlink.c \
 	ioctl.c ioctl_solaris.c \
 	GNOME-SMI GNOME-PRODUCT-ZEBRA-MIB
 

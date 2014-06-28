@@ -653,22 +653,9 @@ case "$host" in
       opsys=gnu-linux
       AC_DEFINE(GNU_LINUX,,GNU Linux)
   ;;
-  *-nec-sysv4*)
-      AC_CHECK_LIB(nsl, gethostbyname)
-      AC_CHECK_LIB(socket, socket)
-  ;;
   *-openbsd*)
       opsys=openbsd
       AC_DEFINE(OPEN_BSD,,OpenBSD)
-  ;;
-  *-bsdi*)
-      opsys=bsdi
-      OTHER_METHOD="mtu_kvm.o"
-      AC_CHECK_LIB(kvm, main)
-  ;;
-  *-irix6.5)
-      opsys=irix
-      AC_DEFINE(IRIX_65,,IRIX 6.5)
   ;;
 esac
 
@@ -853,10 +840,6 @@ elif test x"$opsys" = x"sol8";then
   AC_MSG_RESULT(Route socket)
   KERNEL_METHOD="kernel_socket.o"
   RT_METHOD="rt_socket.o"
-elif test "$opsys" = "irix" ; then
-  AC_MSG_RESULT(Route socket)
-  KERNEL_METHOD="kernel_socket.o"
-  RT_METHOD="rt_socket.o"
 else
   AC_TRY_RUN([#include <errno.h>
 #include <sys/types.h>
@@ -882,7 +865,6 @@ main ()
 fi
 AC_SUBST(RT_METHOD)
 AC_SUBST(KERNEL_METHOD)
-AC_SUBST(OTHER_METHOD)
 AM_CONDITIONAL([HAVE_NETLINK], [test "x$netlink" = "xyes"])
 
 dnl --------------------------
@@ -989,9 +971,6 @@ elif test "$opsys" = "sol8";then
   AC_MSG_RESULT(Solaris GLIF)
   IF_METHOD=if_ioctl_solaris.o
   IOCTL_METHOD=ioctl_solaris.o
-elif test "$opsys" = "irix" ; then
-  AC_MSG_RESULT(IRIX)
-  IF_METHOD=if_ioctl.o
 elif test "$opsys" = "openbsd";then
   AC_MSG_RESULT(openbsd)
   IF_METHOD=if_ioctl.o
@@ -1103,7 +1082,6 @@ case $quagga_cv_ipforward_method in
   "/proc/net/snmp")  quagga_cv_ipforward_method="proc";;
   "/dev/ip")         
                      case "$host" in
-                       *-nec-sysv4*)  quagga_cv_ipforward_method="ews";;
                        *-freebsd*)    quagga_cv_ipforward_method="sysctl";;
                        *)             quagga_cv_ipforward_method="solaris";;
                      esac;;
@@ -1170,12 +1148,7 @@ dnl ---------
     AC_DEFINE(NRL,1,NRL)
     RIPNGD="ripngd"
     OSPF6D="ospf6d"
-    if test x"$opsys" = x"bsdi";then
-      AC_DEFINE(BSDI_NRL,,BSDI)
-      AC_MSG_RESULT(BSDI_NRL)
-    else
-      AC_MSG_RESULT(NRL)
-    fi
+    AC_MSG_RESULT(NRL)
 dnl ------------------------------------
 dnl Solaris 9, 10 and potentially higher
 dnl ------------------------------------

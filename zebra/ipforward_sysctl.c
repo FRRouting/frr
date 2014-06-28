@@ -106,7 +106,7 @@ int mib_ipv6[MIB_SIZ] =
 {
   CTL_NET,
   PF_INET6,
-#if defined(KAME) || (defined(__bsdi__) && _BSDI_VERSION >= 199802 ) || defined(NRL)
+#if defined(KAME) || defined(NRL)
   IPPROTO_IPV6,
   IPV6CTL_FORWARDING
 #else /* NOT KAME */
