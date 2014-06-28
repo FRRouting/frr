@@ -244,10 +244,6 @@ AC_ARG_ENABLE(solaris,
 [  --enable-solaris          build solaris])
 AC_ARG_ENABLE(bgp-announce,
 [  --disable-bgp-announce, turn off BGP route announcement])
-AC_ARG_ENABLE(netlink,
-[  --enable-netlink        force to use Linux netlink interface])
-AC_ARG_ENABLE(broken-aliases,
-[  --enable-broken-aliases enable aliases as distinct interfaces for Linux 2.2.X])
 AC_ARG_ENABLE(snmp,
 [  --enable-snmp=ARG       enable SNMP support (smux or agentx)])
 AC_ARG_WITH(libpam,
@@ -350,15 +346,6 @@ fi
 
 if test "${enable_fpm}" = "yes"; then
    AC_DEFINE(HAVE_FPM,,Forwarding Plane Manager support)
-fi
-
-if test "${enable_broken_aliases}" = "yes"; then
-  if test "${enable_netlink}" = "yes"
-  then
-    AC_MSG_FAILURE([Sorry you can not use netlink with broken aliases])
-  fi
-  AC_DEFINE(HAVE_BROKEN_ALIASES,,Broken Alias)
-  enable_netlink=no
 fi
 
 if test "${enable_tcp_zebra}" = "yes"; then
@@ -853,17 +840,11 @@ dnl Determine routing get and set method
 dnl ------------------------------------
 AC_MSG_CHECKING(zebra between kernel interface method)
 if test x"$opsys" = x"gnu-linux"; then
-  if test "${enable_netlink}" = "no"; then
-    AC_MSG_RESULT(ioctl)
-    RT_METHOD=rt_ioctl.o
-    netlink=no
-  else
-    AC_MSG_RESULT(netlink)
-    RT_METHOD=rt_netlink.o
-    AC_DEFINE(HAVE_NETLINK,,netlink)
-    netlink=yes
-    AC_CHECK_DECLS([IFLA_INFO_SLAVE_KIND], [], [], [#include <linux/if_link.h>])
-  fi
+  AC_MSG_RESULT(netlink)
+  RT_METHOD=rt_netlink.o
+  AC_DEFINE(HAVE_NETLINK,,netlink)
+  netlink=yes
+  AC_CHECK_DECLS([IFLA_INFO_SLAVE_KIND], [], [], [#include <linux/if_link.h>])
 elif test x"$opsys" = x"sol2-6";then
   AC_MSG_RESULT(Route socket)
   KERNEL_METHOD="kernel_socket.o"
@@ -976,12 +957,11 @@ AC_CACHE_CHECK([route read method], [quagga_cv_rtread_method],
 [if test "x$netlink" = xyes; then
   quagga_cv_rtread_method="netlink"
 else
-for quagga_cv_rtread_method in /proc/net/route /dev/ip /dev/null;
+for quagga_cv_rtread_method in /dev/ip /dev/null;
 do
   test x`ls $quagga_cv_rtread_method 2>/dev/null` = x"$quagga_cv_rtread_method" && break
 done
 case $quagga_cv_rtread_method in
-  "/proc/net/route") quagga_cv_rtread_method="proc";;
   "/dev/ip")
                      case "$host" in
                        *-freebsd*)    quagga_cv_rtread_method="sysctl";;
@@ -1102,21 +1082,6 @@ if test $ac_cv_have_decl_TCP_MD5SIG = no; then
         ])
        AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)])
 fi
-
-dnl -----------------------
-dnl check proc file system.
-dnl -----------------------
-if test "$netlink" != yes; then
-  if test -r /proc/net/dev; then
-    AC_DEFINE(HAVE_PROC_NET_DEV,,/proc/net/dev)
-    IF_PROC=if_proc.o
-  fi
-  if test -r /proc/net/if_inet6; then
-    AC_DEFINE(HAVE_PROC_NET_IF_INET6,,/proc/net/if_inet6)
-    IF_PROC=if_proc.o
-  fi
-fi
-AC_SUBST(IF_PROC)
 
 dnl -----------------------------
 dnl check ipforward detect method
