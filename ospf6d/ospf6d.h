@@ -30,12 +30,6 @@
 /* global variables */
 extern struct thread_master *master;
 
-#ifdef INRIA_IPV6
-#ifndef IPV6_PKTINFO
-#define IPV6_PKTINFO IPV6_RECVPKTINFO
-#endif /* IPV6_PKTINFO */
-#endif /* INRIA_IPV6 */
-
 /* Historical for KAME.  */
 #ifndef IPV6_JOIN_GROUP
 #ifdef IPV6_ADD_MEMBERSHIP

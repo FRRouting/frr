@@ -715,7 +715,7 @@ bgp_listener (int sock, struct sockaddr *sa, socklen_t salen)
 }
 
 /* IPv6 supported version of BGP server socket setup.  */
-#if defined (HAVE_IPV6) && ! defined (NRL)
+#ifdef HAVE_IPV6
 int
 bgp_socket (unsigned short port, const char *address)
 {
@@ -815,7 +815,7 @@ bgp_socket (unsigned short port, const char *address)
     }
   return sock;
 }
-#endif /* HAVE_IPV6 && !NRL */
+#endif /* HAVE_IPV6 */
 
 void
 bgp_close (void)

@@ -372,7 +372,7 @@ connected_up_ipv6 (struct interface *ifp, struct connected *ifc)
   /* Apply mask to the network. */
   apply_mask_ipv6 (&p);
 
-#if ! defined (MUSICA) && ! defined (LINUX)
+#ifndef LINUX
   /* XXX: It is already done by rib_bogus_ipv6 within rib_add_ipv6 */
   if (IN6_IS_ADDR_UNSPECIFIED (&p.prefix))
     return;

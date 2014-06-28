@@ -23,10 +23,6 @@
 #include "privs.h"
 #include "zebra/ipforward.h"
 
-#ifdef NRL
-#include <netinet6/in6.h>
-#endif /* NRL */
-
 #include "log.h"
 
 #define MIB_SIZ 4
@@ -106,7 +102,7 @@ int mib_ipv6[MIB_SIZ] =
 {
   CTL_NET,
   PF_INET6,
-#if defined(KAME) || defined(NRL)
+#if defined(KAME)
   IPPROTO_IPV6,
   IPV6CTL_FORWARDING
 #else /* NOT KAME */

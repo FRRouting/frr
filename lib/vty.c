@@ -1775,7 +1775,7 @@ vty_accept (struct thread *thread)
   return 0;
 }
 
-#if defined(HAVE_IPV6) && !defined(NRL)
+#ifdef HAVE_IPV6
 static void
 vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
 {
@@ -1840,7 +1840,7 @@ vty_serv_sock_addrinfo (const char *hostname, unsigned short port)
 
   freeaddrinfo (ainfo_save);
 }
-#else /* HAVE_IPV6 && ! NRL */
+#else /* HAVE_IPV6 */
 
 /* Make vty server socket. */
 static void
@@ -1908,7 +1908,7 @@ vty_serv_sock_family (const char* addr, unsigned short port, int family)
   /* Add vty server event. */
   vty_event (VTY_SERV, accept_sock, NULL);
 }
-#endif /* HAVE_IPV6 && ! NRL */
+#endif /* HAVE_IPV6 */
 
 #ifdef VTYSH
 /* For sockaddr_un. */
@@ -2143,12 +2143,7 @@ vty_serv_sock (const char *addr, unsigned short port, const char *path)
     {
 
 #ifdef HAVE_IPV6
-#ifdef NRL
-      vty_serv_sock_family (addr, port, AF_INET);
-      vty_serv_sock_family (addr, port, AF_INET6);
-#else /* ! NRL */
       vty_serv_sock_addrinfo (addr, port);
-#endif /* NRL*/
 #else /* ! HAVE_IPV6 */
       vty_serv_sock_family (addr,port, AF_INET);
 #endif /* HAVE_IPV6 */

@@ -930,7 +930,7 @@ ripng_redistribute_add (int type, int sub_type, struct prefix_ipv6 *p,
     return;
   if (IN6_IS_ADDR_LOOPBACK (&p->prefix))
     return;
-#if defined (MUSICA) || defined (LINUX)
+#ifdef LINUX
   /* XXX As long as the RIPng redistribution is applied to all the connected
    *     routes, one needs to filter the ::/96 prefixes.
    *     However it could be a wanted case, it will be removed soon.
@@ -938,7 +938,7 @@ ripng_redistribute_add (int type, int sub_type, struct prefix_ipv6 *p,
   if ((IN6_IS_ADDR_V4COMPAT(&p->prefix)) ||
       (IN6_IS_ADDR_UNSPECIFIED (&p->prefix) && (p->prefixlen == 96)))
     return;
-#endif /* MUSICA or LINUX */
+#endif /* LINUX */
 
   rp = route_node_get (ripng->table, (struct prefix *) p);
   rinfo = rp->info;
@@ -1027,7 +1027,7 @@ ripng_redistribute_delete (int type, int sub_type, struct prefix_ipv6 *p,
     return;
   if (IN6_IS_ADDR_LOOPBACK (&p->prefix))
     return;
-#if defined (MUSICA) || defined (LINUX)
+#ifdef LINUX
   /* XXX As long as the RIPng redistribution is applied to all the connected
    *     routes, one needs to filter the ::/96 prefixes.
    *     However it could be a wanted case, it will be removed soon.
@@ -1035,7 +1035,7 @@ ripng_redistribute_delete (int type, int sub_type, struct prefix_ipv6 *p,
   if ((IN6_IS_ADDR_V4COMPAT(&p->prefix)) ||
       (IN6_IS_ADDR_UNSPECIFIED (&p->prefix) && (p->prefixlen == 96)))
     return;
-#endif /* MUSICA or LINUX */
+#endif /* LINUX */
 
   rp = route_node_lookup (ripng->table, (struct prefix *) p);
 

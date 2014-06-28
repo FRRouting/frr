@@ -263,13 +263,8 @@ sin6_masklen (struct in6_addr mask)
   char *p, *lim;
   int len;
 
-#if defined (INRIA)
-  if (IN_ANYADDR6 (mask)) 
-    return sizeof (long);
-#else /* ! INRIA */
   if (IN6_IS_ADDR_UNSPECIFIED (&mask)) 
     return sizeof (long);
-#endif /* ! INRIA */
 
   sin6.sin6_addr = mask;
   len = sizeof (struct sockaddr_in6);

@@ -312,13 +312,8 @@ sockunion_connect (int fd, union sockunion *peersu, unsigned short port,
 	{
 #ifdef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID
 	  su.sin6.sin6_scope_id = ifindex;
-#ifdef MUSICA
-	  su.sin6.sin6_scope_id = ifindex; 
-#endif
 #endif /* HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID */
-#ifndef MUSICA
 	  SET_IN6_LINKLOCAL_IFINDEX (su.sin6.sin6_addr, ifindex);
-#endif
 	}
 #endif /* KAME */
       break;
@@ -402,7 +397,7 @@ sockunion_bind (int sock, union sockunion *su, unsigned short port,
 #endif /* SIN6_LEN */
       if (su_addr == NULL)
 	{
-#if defined(LINUX_IPV6) || defined(NRL)
+#ifdef LINUX_IPV6
 	  memset (&su->sin6.sin6_addr, 0, sizeof (struct in6_addr));
 #else
 	  su->sin6.sin6_addr = in6addr_any;

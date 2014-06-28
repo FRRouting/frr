@@ -1099,21 +1099,10 @@ AC_MSG_CHECKING(whether does this OS have IPv6 stack)
 if test "${enable_ipv6}" = "no"; then
   AC_MSG_RESULT(disabled)
 else
-dnl ----------
-dnl INRIA IPv6
-dnl ----------
-  if grep IPV6_INRIA_VERSION /usr/include/netinet/in.h >/dev/null 2>&1; then
-    zebra_cv_ipv6=yes
-    AC_DEFINE(HAVE_IPV6,1,INRIA IPv6)
-    AC_DEFINE(INRIA_IPV6,1,INRIA IPv6)
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
-    LIB_IPV6=""
-    AC_MSG_RESULT(INRIA IPv6)
 dnl ---------
 dnl KAME IPv6
 dnl ---------
-  elif grep WIDE /usr/include/netinet6/in6.h >/dev/null 2>&1; then
+  if grep WIDE /usr/include/netinet6/in6.h >/dev/null 2>&1; then
     zebra_cv_ipv6=yes
     AC_DEFINE(HAVE_IPV6,1,KAME IPv6)
     AC_DEFINE(KAME,1,KAME IPv6)
@@ -1123,32 +1112,6 @@ dnl ---------
       LIB_IPV6="-L/usr/local/v6/lib -linet6"
     fi
     AC_MSG_RESULT(KAME)
-dnl -------------------------
-dnl MUSICA IPv6
-dnl  default host check
-dnl  It is not used by Kheops
-dnl -------------------------
-  elif grep MUSICA /usr/include6/netinet6/in6.h >/dev/null 2>&1; then
-    zebra_cv_ipv6=yes
-    AC_DEFINE(HAVE_IPV6,1,Musicia IPv6)
-    AC_DEFINE(MUSICA,1,Musica IPv6 stack)
-    AC_DEFINE(KAME,1,KAME IPv6 stack)
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
-    if test -d /usr/local/v6/lib -a -f /usr/local/v6/lib/libinet6.a; then
-      LIB_IPV6="-L/usr/local/v6/lib -linet6"
-    fi
-    AC_MSG_RESULT(MUSICA)
-dnl ---------
-dnl NRL check
-dnl ---------
-  elif grep NRL /usr/include/netinet6/in6.h >/dev/null 2>&1; then
-    zebra_cv_ipv6=yes
-    AC_DEFINE(HAVE_IPV6,1,NRL IPv6)
-    AC_DEFINE(NRL,1,NRL)
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
-    AC_MSG_RESULT(NRL)
 dnl ------------------------------------
 dnl Solaris 9, 10 and potentially higher
 dnl ------------------------------------
