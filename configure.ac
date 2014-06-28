@@ -240,8 +240,6 @@ AC_ARG_ENABLE(isisd,
 [  --enable-isisd          build isisd])
 AC_ARG_ENABLE(pimd,
 [  --disable-pimd           do not build pimd])
-AC_ARG_ENABLE(solaris,
-[  --enable-solaris          build solaris])
 AC_ARG_ENABLE(bgp-announce,
 [  --disable-bgp-announce, turn off BGP route announcement])
 AC_ARG_ENABLE(snmp,
@@ -624,6 +622,7 @@ case "$host" in
       AC_DEFINE(SUNOS_5, 1, SunOS 5)
       AC_CHECK_LIB(xnet, main)
       CURSES=-lcurses
+      SOLARIS="solaris"
   ;;
   [*-sunos5.[8-9]] \
   | [*-sunos5.1[0-9]] \
@@ -642,12 +641,14 @@ case "$host" in
       	 AC_DEFINE([HAVE_STACK_TRACE],1,[Stack symbols decode functionality])
       	])
       CURSES=-lcurses
+      SOLARIS="solaris"
   ;;
   *-sunos5* | *-solaris2*)
       AC_DEFINE(SUNOS_5,,SunOS 5, Unknown SunOS)
       AC_CHECK_LIB(socket, main)
       AC_CHECK_LIB(nsl, main)
       CURSES=-lcurses
+      SOLARIS="solaris"
   ;;
   *-linux*)
       opsys=gnu-linux
@@ -1225,13 +1226,6 @@ case "${enable_pimd}" in
   *    ) PIMD="pimd";;
 esac
 AM_CONDITIONAL(PIMD, test "x$PIMD" = "xpimd")
-
-# XXX Perhaps auto-enable on Solaris, but that's messy for cross builds.
-case "${enable_solaris}" in
-  "yes") SOLARIS="solaris";;
-  "no" ) SOLARIS="";;
-  *    ) ;;
-esac
 
 if test "${enable_bgp_announce}" = "no";then
   AC_DEFINE(DISABLE_BGP_ANNOUNCE,1,Disable BGP installation to zebra)
