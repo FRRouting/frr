@@ -527,12 +527,4 @@ kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
 {
   return kernel_ioctl_ipv6_multipath (SIOCDELRT, p, rib, AF_INET6);
 }
-
-/* Delete IPv6 route from the kernel. */
-int
-kernel_delete_ipv6_old (struct prefix_ipv6 *dest, struct in6_addr *gate,
-		    unsigned int index, int flags, int table)
-{
-  return kernel_ioctl_ipv6 (SIOCDELRT, dest, gate, index, flags);
-}
 #endif /* HAVE_IPV6 */

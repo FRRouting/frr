@@ -38,8 +38,6 @@ extern int kernel_address_delete_ipv4 (struct interface *, struct connected *);
 extern int kernel_add_ipv6 (struct prefix *, struct rib *);
 extern int kernel_update_ipv6 (struct prefix *, struct rib *);
 extern int kernel_delete_ipv6 (struct prefix *, struct rib *);
-extern int kernel_delete_ipv6_old (struct prefix_ipv6 *dest, struct in6_addr *gate,
-			    	  unsigned int index, int flags, int table);
 
 #endif /* HAVE_IPV6 */
 

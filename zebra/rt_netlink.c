@@ -2394,15 +2394,6 @@ kernel_delete_ipv6 (struct prefix *p, struct rib *rib)
       return netlink_route_multipath (RTM_DELROUTE, p, rib, AF_INET6, 0);
     }
 }
-
-/* Delete IPv6 route from the kernel. */
-int
-kernel_delete_ipv6_old (struct prefix_ipv6 *dest, struct in6_addr *gate,
-                        unsigned int index, int flags, int table)
-{
-  return netlink_route (RTM_DELROUTE, AF_INET6, &dest->prefix,
-                        dest->prefixlen, gate, index, flags, table);
-}
 #endif /* HAVE_IPV6 */
 
 /* Interface address modification. */
