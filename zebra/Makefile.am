@@ -53,7 +53,7 @@ zebra_DEPENDENCIES = $(otherobj)
 
 EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c \
         if_sysctl.c ipforward_proc.c \
-	ipforward_solaris.c ipforward_sysctl.c rt_ioctl.c rt_netlink.c \
+	ipforward_solaris.c ipforward_sysctl.c rt_netlink.c \
 	rt_socket.c rtread_netlink.c rtread_sysctl.c \
 	rtread_getmsg.c kernel_socket.c kernel_netlink.c \
 	ioctl.c ioctl_solaris.c \

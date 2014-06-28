@@ -832,36 +832,10 @@ if test x"$opsys" = x"gnu-linux"; then
   AC_DEFINE(HAVE_NETLINK,,netlink)
   netlink=yes
   AC_CHECK_DECLS([IFLA_INFO_SLAVE_KIND], [], [], [#include <linux/if_link.h>])
-elif test x"$opsys" = x"sol2-6";then
-  AC_MSG_RESULT(Route socket)
-  KERNEL_METHOD="kernel_socket.o"
-  RT_METHOD="rt_socket.o"
-elif test x"$opsys" = x"sol8";then
-  AC_MSG_RESULT(Route socket)
-  KERNEL_METHOD="kernel_socket.o"
-  RT_METHOD="rt_socket.o"
 else
-  AC_TRY_RUN([#include <errno.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-
-main ()
-{
-  int ac_sock;
-
-  ac_sock = socket (AF_ROUTE, SOCK_RAW, 0);
-  if (ac_sock < 0 && errno == EINVAL)
-    exit (1);
-  exit (0);
-}],
-  [KERNEL_METHOD=kernel_socket.o
-   RT_METHOD=rt_socket.o
-   AC_MSG_RESULT(socket)],
-  [RT_METHOD=rt_ioctl.o
-   AC_MSG_RESULT(ioctl)],
-  [KERNEL_METHOD=kernel_socket.o
-   RT_METHOD=rt_socket.o
-   AC_MSG_RESULT(socket)])
+  AC_MSG_RESULT(Route socket)
+  KERNEL_METHOD="kernel_socket.o"
+  RT_METHOD="rt_socket.o"
 fi
 AC_SUBST(RT_METHOD)
 AC_SUBST(KERNEL_METHOD)
