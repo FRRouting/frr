@@ -4,7 +4,6 @@ INCLUDES = @INCLUDES@ -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 
-LIB_IPV6 = @LIB_IPV6@
 LIBCAP = @LIBCAP@
 
 ipforward = @IPFORWARD@
@@ -46,9 +45,9 @@ noinst_HEADERS = \
 	zebra_ptm_redistribute.h zebra_ptm.h zebra_routemap.h \
 	zebra_ns.h zebra_vrf.h
 
-zebra_LDADD = $(otherobj) ../lib/libzebra.la $(LIBCAP) $(LIB_IPV6)
+zebra_LDADD = $(otherobj) ../lib/libzebra.la $(LIBCAP)
 
-testzebra_LDADD = ../lib/libzebra.la $(LIBCAP) $(LIB_IPV6)
+testzebra_LDADD = ../lib/libzebra.la $(LIBCAP)
 
 zebra_DEPENDENCIES = $(otherobj)
 

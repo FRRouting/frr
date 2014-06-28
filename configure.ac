@@ -1104,61 +1104,20 @@ dnl KAME IPv6
 dnl ---------
   if grep WIDE /usr/include/netinet6/in6.h >/dev/null 2>&1; then
     zebra_cv_ipv6=yes
-    AC_DEFINE(HAVE_IPV6,1,KAME IPv6)
     AC_DEFINE(KAME,1,KAME IPv6)
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
-    if test -d /usr/local/v6/lib -a -f /usr/local/v6/lib/libinet6.a; then
-      LIB_IPV6="-L/usr/local/v6/lib -linet6"
-    fi
     AC_MSG_RESULT(KAME)
 dnl ------------------------------------
 dnl Solaris 9, 10 and potentially higher
 dnl ------------------------------------
   elif test x"$opsys" = x"sol8"; then
     zebra_cv_ipv6=yes;
-    AC_DEFINE(HAVE_IPV6, 1, IPv6)
     AC_DEFINE(SOLARIS_IPV6, 1, Solaris IPv6)
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
     AC_MSG_RESULT(Solaris IPv6)
 dnl ----------
 dnl Linux IPv6
 dnl ----------
-  elif test "${enable_ipv6}" = "yes"; then
-    AC_EGREP_CPP(yes, [
-      #include <linux/version.h>
-      /* 2.1.128 or later */
-      #if LINUX_VERSION_CODE >= 0x020180
-      yes
-      #endif],
-      [zebra_cv_ipv6=yes
-       zebra_cv_linux_ipv6=yes
-       AC_MSG_RESULT(Linux IPv6)])
-  else
-    if test x`ls /proc/net/ipv6_route 2>/dev/null` = x"/proc/net/ipv6_route"
-     then
-      zebra_cv_ipv6=yes
-      zebra_cv_linux_ipv6=yes
-      AC_MSG_RESULT(Linux IPv6)
-    fi
-  fi
-
-  if test "$zebra_cv_linux_ipv6" = "yes";then
-    AC_MSG_CHECKING(whether libc has IPv6 support)
-    AC_TRY_LINK([#include <netinet/in.h>
-    ],[ int a; a = (int) in6addr_any.s6_addr[0]; if (a != 12345) return a; ],
-    [AC_MSG_RESULT(yes)
-      zebra_cv_ipv6=yes
-      zebra_cv_linux_ipv6=yes],
-    [AC_MSG_RESULT(no)
-      zebra_cv_ipv6=no
-      zebra_cv_linux_ipv6=no])
-  fi
-
-  if test "$zebra_cv_linux_ipv6" = "yes";then
-    AC_MSG_CHECKING(for GNU libc >= 2.1)
-    AC_DEFINE(HAVE_IPV6,1,Linux IPv6)
+  elif test x"$opsys" = x"gnu-linux"; then
+    zebra_cv_ipv6=yes
     AC_DEFINE(LINUX_IPV6,1,Linux IPv6 stack)
     dnl Linux has a compilation problem with mixing
     dnl netinet/in.h and linux/in6.h they are not
@@ -1166,35 +1125,18 @@ dnl ----------
     dnl how to fix it but no real progress on implementation
     dnl when they fix it, remove this
     AC_DEFINE(IPV6_MINHOPCOUNT, 73, Linux ipv6 Min Hop Count)
-
-    AC_EGREP_CPP(yes, [
-#include <features.h>
-#if __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1
-  yes
-#endif], 
-      [glibc=yes
-       AC_MSG_RESULT(yes)], 
-      AC_MSG_RESULT(no)
-    )
-    RIPNGD="ripngd"
-    OSPF6D="ospf6d"
-    if test "$glibc" != "yes"; then
-      if test x`ls /usr/inet6/lib/libinet6.a 2>/dev/null` != x;then
-         INCLUDES="-I/usr/inet6/include"
-         LIB_IPV6="-L/usr/inet6/lib -linet6"
-      fi
-    fi
+    AC_MSG_RESULT(Linux IPv6)
+  else
+    AC_MSG_RESULT(Unknown OS)
   fi
+fi
 
-dnl -----------------------
-dnl Set IPv6 related values
-dnl -----------------------
-  LIBS="$LIB_IPV6 $LIBS"
-  AC_SUBST(LIB_IPV6)
-
-  if test x"$RIPNGD" = x""; then
-    AC_MSG_RESULT(IPv4 only)
-  fi
+if test x"$zebra_cv_ipv6" = x"yes"; then
+  AC_DEFINE(HAVE_IPV6,1,IPv6)
+  RIPNGD="ripngd"
+  OSPF6D="ospf6d"
+elif test x"${enable_ipv6}" = x"yes"; then
+  AC_MSG_ERROR([--enable-ipv6 given but IPv6 stack unknown])
 fi
 
 dnl ------------------
