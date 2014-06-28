@@ -1440,13 +1440,6 @@ AC_CHECK_LIB(c, inet_pton, [AC_DEFINE(HAVE_INET_PTON,,inet_pton)])
 AC_CHECK_LIB(crypt, crypt)
 AC_CHECK_LIB(resolv, res_init)
 
-dnl ---------------------------------------------------
-dnl BSD/OS 4.1 define inet_XtoY function as __inet_XtoY
-dnl ---------------------------------------------------
-AC_CHECK_FUNC(__inet_ntop, AC_DEFINE(HAVE_INET_NTOP,,__inet_ntop))
-AC_CHECK_FUNC(__inet_pton, AC_DEFINE(HAVE_INET_PTON,,__inet_pton))
-AC_CHECK_FUNC(__inet_aton, AC_DEFINE(HAVE_INET_ATON,,__inet_aton))
-
 dnl ---------------------------
 dnl check system has PCRE regexp
 dnl ---------------------------
