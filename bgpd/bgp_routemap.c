@@ -93,13 +93,33 @@ o Cisco route-map
       tag               :  (This will not be implemented by bgpd)
       weight            :  Done
 
-o Local extention
+o Local extensions
 
   set ipv6 next-hop global: Done
   set ipv6 next-hop local : Done
   set as-path exclude     : Done
 
 */ 
+
+ /* generic as path object to be shared in multiple rules */
+
+static void *
+route_aspath_compile (const char *arg)
+{
+  struct aspath *aspath;
+
+  aspath = aspath_str2aspath (arg);
+  if (! aspath)
+    return NULL;
+  return aspath;
+}
+
+static void
+route_aspath_free (void *rule)
+{
+  struct aspath *aspath = rule;
+  aspath_free (aspath);
+}
 
  /* 'match peer (A.B.C.D|X:X::X:X)' */
 
@@ -1228,33 +1248,13 @@ route_set_aspath_prepend (void *rule, struct prefix *prefix, route_map_object_t 
   return RMAP_OKAY;
 }
 
-/* Compile function for as-path prepend. */
-static void *
-route_set_aspath_prepend_compile (const char *arg)
-{
-  struct aspath *aspath;
-
-  aspath = aspath_str2aspath (arg);
-  if (! aspath)
-    return NULL;
-  return aspath;
-}
-
-/* Compile function for as-path prepend. */
-static void
-route_set_aspath_prepend_free (void *rule)
-{
-  struct aspath *aspath = rule;
-  aspath_free (aspath);
-}
-
-/* Set metric rule structure. */
+/* Set as-path prepend rule structure. */
 struct route_map_rule_cmd route_set_aspath_prepend_cmd = 
 {
   "as-path prepend",
   route_set_aspath_prepend,
-  route_set_aspath_prepend_compile,
-  route_set_aspath_prepend_free,
+  route_aspath_compile,
+  route_aspath_free,
 };
 
 /* `set as-path exclude ASn' */
@@ -1282,37 +1282,13 @@ route_set_aspath_exclude (void *rule, struct prefix *dummy, route_map_object_t t
   return RMAP_OKAY;
 }
 
-/* FIXME: consider using route_set_aspath_prepend_compile() and
- * route_set_aspath_prepend_free(), which two below function are
- * exact clones of.
- */
-
-/* Compile function for as-path exclude. */
-static void *
-route_set_aspath_exclude_compile (const char *arg)
-{
-  struct aspath *aspath;
-
-  aspath = aspath_str2aspath (arg);
-  if (! aspath)
-    return NULL;
-  return aspath;
-}
-
-static void
-route_set_aspath_exclude_free (void *rule)
-{
-  struct aspath *aspath = rule;
-  aspath_free (aspath);
-}
-
 /* Set ASn exlude rule structure. */
 struct route_map_rule_cmd route_set_aspath_exclude_cmd = 
 {
   "as-path exclude",
   route_set_aspath_exclude,
-  route_set_aspath_exclude_compile,
-  route_set_aspath_exclude_free,
+  route_aspath_compile,
+  route_aspath_free,
 };
 
 /* `set community COMMUNITY' */
@@ -1705,7 +1681,7 @@ route_set_origin_free (void *rule)
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-/* Set metric rule structure. */
+/* Set origin rule structure. */
 struct route_map_rule_cmd route_set_origin_cmd = 
 {
   "origin",
@@ -2191,7 +2167,7 @@ route_set_originator_id_free (void *rule)
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-/* Set metric rule structure. */
+/* Set originator-id rule structure. */
 struct route_map_rule_cmd route_set_originator_id_cmd = 
 {
   "originator-id",

@@ -412,6 +412,7 @@ struct peer
 #define PEER_FLAG_MAX_PREFIX                (1 << 14) /* maximum prefix */
 #define PEER_FLAG_MAX_PREFIX_WARNING        (1 << 15) /* maximum prefix warning-only */
 #define PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED   (1 << 16) /* leave link-local nexthop unchanged */
+#define PEER_FLAG_NEXTHOP_SELF_ALL          (1 << 17) /* next-hop-self all */
 
   /* MD5 password */
   char *password;

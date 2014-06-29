@@ -299,10 +299,12 @@ This command is deprecated and may be removed in a future release. Its
 use should be avoided.
 @end deffn
 
-@deffn {BGP} {neighbor @var{peer} next-hop-self} {}
-@deffnx {BGP} {no neighbor @var{peer} next-hop-self} {}
+@deffn {BGP} {neighbor @var{peer} next-hop-self [all]} {}
+@deffnx {BGP} {no neighbor @var{peer} next-hop-self [all]} {}
 This command specifies an announced route's nexthop as being equivalent
-to the address of the bgp router.
+to the address of the bgp router if it is learned via eBGP.
+If the optional keyword @code{all} is specified the modifiation is done
+also for routes learned via iBGP.
 @end deffn
 
 @deffn {BGP} {neighbor @var{peer} update-source @var{<ifname|address>}} {}
