@@ -136,6 +136,9 @@ typedef enum {
  BGP_ATTR_PARSE_PROCEED = 0,
  BGP_ATTR_PARSE_ERROR = -1,
  BGP_ATTR_PARSE_WITHDRAW = -2,
+
+ /* only used internally, send notify + convert to BGP_ATTR_PARSE_ERROR */
+ BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -3,
 } bgp_attr_parse_ret_t;
 
 /* Prototypes. */

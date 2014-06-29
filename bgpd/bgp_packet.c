@@ -1720,7 +1720,10 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
       attr_parse_ret = bgp_attr_parse (peer, &attr, attribute_len, 
 			    &mp_update, &mp_withdraw);
       if (attr_parse_ret == BGP_ATTR_PARSE_ERROR)
-	return -1;
+	{
+	  bgp_attr_unintern_sub (&attr);
+	  return -1;
+	}
     }
   
   /* Logging the attribute. */

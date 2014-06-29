@@ -794,7 +794,7 @@ bgp_attr_malformed (struct bgp_attr_parser_args *args, u_char subcode,
     return BGP_ATTR_PARSE_WITHDRAW;
   
   /* default to reset */
-  return BGP_ATTR_PARSE_ERROR;
+  return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 }
 
 /* Find out what is wrong with the path attribute flag bits and log the error.
@@ -1110,7 +1110,7 @@ bgp_attr_nexthop (struct bgp_attr_parser_args *args)
   if (IPV4_NET0 (nexthop_h) || IPV4_NET127 (nexthop_h) || IPV4_CLASS_DE (nexthop_h))
     {
       char buf[INET_ADDRSTRLEN];
-      inet_ntop (AF_INET, &nexthop_h, buf, INET_ADDRSTRLEN);
+      inet_ntop (AF_INET, &nexthop_n, buf, INET_ADDRSTRLEN);
       zlog (peer->log, LOG_ERR, "Martian nexthop %s", buf);
       return bgp_attr_malformed (args,
                                  BGP_NOTIFY_UPDATE_INVAL_NEXT_HOP,
@@ -1483,7 +1483,7 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
     {
       zlog_info ("%s: %s sent invalid length, %lu", 
 		 __func__, peer->host, (unsigned long)length);
-      return BGP_ATTR_PARSE_ERROR;
+      return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
     }
   
   /* Load AFI, SAFI. */
@@ -1497,7 +1497,7 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
     {
       zlog_info ("%s: %s, MP nexthop length, %u, goes past end of attribute", 
 		 __func__, peer->host, attre->mp_nexthop_len);
-      return BGP_ATTR_PARSE_ERROR;
+      return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
     }
   
   /* Nexthop length check. */
@@ -1540,14 +1540,14 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
     default:
       zlog_info ("%s: (%s) Wrong multiprotocol next hop length: %d", 
 		 __func__, peer->host, attre->mp_nexthop_len);
-      return BGP_ATTR_PARSE_ERROR;
+      return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
     }
 
   if (!LEN_LEFT)
     {
       zlog_info ("%s: (%s) Failed to read SNPA and NLRI(s)",
                  __func__, peer->host);
-      return BGP_ATTR_PARSE_ERROR;
+      return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
     }
   
   {
@@ -1563,7 +1563,7 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
     {
       zlog_info ("%s: (%s) Failed to read NLRI",
                  __func__, peer->host);
-      return BGP_ATTR_PARSE_ERROR;
+      return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
     }
  
   if (safi != SAFI_MPLS_LABELED_VPN)
@@ -1573,7 +1573,7 @@ bgp_mp_reach_parse (struct bgp_attr_parser_args *args,
         {
           zlog_info ("%s: (%s) NLRI doesn't pass sanity check",
                      __func__, peer->host);
-	  return BGP_ATTR_PARSE_ERROR;
+	  return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
 	}
     }
 
@@ -1605,7 +1605,7 @@ bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
   
 #define BGP_MP_UNREACH_MIN_SIZE 3
   if ((length > STREAM_READABLE(s)) || (length <  BGP_MP_UNREACH_MIN_SIZE))
-    return BGP_ATTR_PARSE_ERROR;
+    return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
   
   afi = stream_getw (s);
   safi = stream_getc (s);
@@ -1616,7 +1616,7 @@ bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
     {
       ret = bgp_nlri_sanity_check (peer, afi, stream_pnt (s), withdraw_len);
       if (ret < 0)
-	return BGP_ATTR_PARSE_ERROR;
+	return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
     }
 
   mp_withdraw->afi = afi;
@@ -1913,6 +1913,14 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
 	  break;
 	}
       
+      if (ret == BGP_ATTR_PARSE_ERROR_NOTIFYPLS)
+	{
+	  bgp_notify_send (peer, 
+			   BGP_NOTIFY_UPDATE_ERR,
+			   BGP_NOTIFY_UPDATE_MAL_ATTR);
+	  ret = BGP_ATTR_PARSE_ERROR;
+	}
+
       /* If hard error occured immediately return to the caller. */
       if (ret == BGP_ATTR_PARSE_ERROR)
         {
@@ -1920,9 +1928,6 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
                 "%s: Attribute %s, parse error", 
                 peer->host, 
                 LOOKUP (attr_str, type));
-          bgp_notify_send (peer, 
-                           BGP_NOTIFY_UPDATE_ERR,
-                           BGP_NOTIFY_UPDATE_MAL_ATTR);
           if (as4_path)
             aspath_unintern (&as4_path);
           return ret;
@@ -1979,9 +1984,14 @@ bgp_attr_parse (struct peer *peer, struct attr *attr, bgp_size_t size,
    * all attributes first, including these 32bit ones, and now,
    * afterwards, we look what and if something is to be done for as4.
    */
+  /* actually... this doesn't ever return failure currently, but
+   * better safe than sorry */
   if (bgp_attr_munge_as4_attrs (peer, attr, as4_path,
                                 as4_aggregator, &as4_aggregator_addr))
     {
+      bgp_notify_send (peer, 
+		       BGP_NOTIFY_UPDATE_ERR,
+		       BGP_NOTIFY_UPDATE_MAL_ATTR);
       if (as4_path)
         aspath_unintern (&as4_path);
       return BGP_ATTR_PARSE_ERROR;
