@@ -455,7 +455,8 @@ struct in_pktinfo
 #define ZEBRA_BFD_CLIENT_REGISTER         46
 #define ZEBRA_INTERFACE_ENABLE_RADV       47
 #define ZEBRA_INTERFACE_DISABLE_RADV      48
-#define ZEBRA_MESSAGE_MAX                 49
+#define ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB    49
+#define ZEBRA_MESSAGE_MAX                 50
 
 /* Marker value used in new Zserv, in the byte location corresponding
  * the command value in the old zserv header. To allow old and new
