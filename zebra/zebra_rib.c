@@ -4135,6 +4135,9 @@ struct zebra_vrf *
 zebra_vrf_alloc (vrf_id_t vrf_id)
 {
   struct zebra_vrf *zvrf;
+#ifdef HAVE_NETLINK
+  char nl_name[64];
+#endif
 
   zvrf = XCALLOC (MTYPE_ZEBRA_VRF, sizeof (struct zebra_vrf));
 
@@ -4156,6 +4159,17 @@ zebra_vrf_alloc (vrf_id_t vrf_id)
 
   /* Set VRF ID */
   zvrf->vrf_id = vrf_id;
+
+#ifdef HAVE_NETLINK
+  /* Initialize netlink sockets */
+  snprintf (nl_name, 64, "netlink-listen (vrf %u)", vrf_id);
+  zvrf->netlink.sock = -1;
+  zvrf->netlink.name = XSTRDUP (MTYPE_NETLINK_NAME, nl_name);
+
+  snprintf (nl_name, 64, "netlink-cmd (vrf %u)", vrf_id);
+  zvrf->netlink_cmd.sock = -1;
+  zvrf->netlink_cmd.name = XSTRDUP (MTYPE_NETLINK_NAME, nl_name);
+#endif
 
   return zvrf;
 }

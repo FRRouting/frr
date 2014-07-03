@@ -225,6 +225,9 @@ zebra_vrf_enable (vrf_id_t vrf_id, void **info)
 
   assert (zvrf);
 
+  kernel_init (zvrf);
+  route_read (zvrf);
+
   return 0;
 }
 
@@ -248,6 +251,8 @@ zebra_vrf_disable (vrf_id_t vrf_id, void **info)
       if (operative)
         if_down (ifp);
     }
+
+  kernel_terminate (zvrf);
 
   return 0;
 }
@@ -363,8 +368,6 @@ main (int argc, char **argv)
 
   /* Make kernel routing socket. */
   zebra_vrf_init ();
-  kernel_init ();
-  route_read ();
   zebra_vty_init();
 
   /* Configuration file read*/

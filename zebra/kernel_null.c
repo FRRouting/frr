@@ -8,6 +8,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/connected.h"
 #include "zebra/rt_netlink.h"
+#include "zebra/rib.h"
 
 int kernel_add_ipv4 (struct prefix *a, struct rib *b) { return 0; }
 int kernel_update_ipv4 (struct prefix *a, struct rib *b) { return 0; }
@@ -54,9 +55,10 @@ int netlink_neigh_update (int cmd, int ifindex, __u32 addr, char *lla, int llale
   return 0;
 }
 
-void kernel_init (void) { return; }
+void kernel_init (struct zebra_vrf *zvrf) { return; }
+void kernel_terminate (struct zebra_vrf *zvrf) { return; }
 #ifdef HAVE_SYS_WEAK_ALIAS_PRAGMA
 #pragma weak route_read = kernel_init
 #else
-void route_read (void) { return; }
+void route_read (struct zebra_vrf *zvrf) { return; }
 #endif

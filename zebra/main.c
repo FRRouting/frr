@@ -241,6 +241,10 @@ zebra_vrf_enable (vrf_id_t vrf_id, void **info)
 #ifdef RTADV
   rtadv_init (zvrf);
 #endif
+  kernel_init (zvrf);
+  interface_list (zvrf);
+  route_read (zvrf);
+
   return 0;
 }
 
@@ -268,6 +272,7 @@ zebra_vrf_disable (vrf_id_t vrf_id, void **info)
 #ifdef RTADV
   rtadv_terminate (zvrf);
 #endif
+  kernel_terminate (zvrf);
 
   list_delete_all_node (zvrf->rid_all_sorted_list);
   list_delete_all_node (zvrf->rid_lo_sorted_list);
@@ -428,9 +433,6 @@ main (int argc, char **argv)
 
   /* Initialize VRF module, and make kernel routing socket. */
   zebra_vrf_init ();
-  kernel_init ();
-  interface_list ();
-  route_read ();
 
 #ifdef HAVE_SNMP
   zebra_snmp_init ();

@@ -38,6 +38,7 @@
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
 #include "zebra/kernel_socket.h"
+#include "zebra/rib.h"
 
 extern struct zebra_privs_t zserv_privs;
 extern struct zebra_t zebrad;
@@ -1262,8 +1263,11 @@ kernel_read (struct thread *thread)
 
 /* Make routing socket. */
 static void
-routing_socket (void)
+routing_socket (struct zebra_vrf *zvrf)
 {
+  if (zvrf->vrf_id != VRF_DEFAULT)
+    return;
+
   if ( zserv_privs.change (ZPRIVS_RAISE) )
     zlog_err ("routing_socket: Can't raise privileges");
 
@@ -1294,7 +1298,13 @@ routing_socket (void)
 /* Exported interface function.  This function simply calls
    routing_socket (). */
 void
-kernel_init (void)
+kernel_init (struct zebra_vrf *zvrf)
 {
-  routing_socket ();
+  routing_socket (zvrf);
+}
+
+void
+kernel_terminate (struct zebra_vrf *zvrf)
+{
+  return;
 }
