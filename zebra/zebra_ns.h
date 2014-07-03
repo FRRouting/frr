@@ -23,6 +23,8 @@
 #if !defined(__ZEBRA_NS_H__)
 #define __ZEBRA_NS_H__
 
+#include <lib/ns.h>
+
 #ifdef HAVE_NETLINK
 /* Socket interface to kernel */
 struct nlsock
@@ -33,9 +35,6 @@ struct nlsock
   const char *name;
 };
 #endif
-
-/* NetNS ID type. */
-typedef u_int16_t ns_id_t;
 
 struct zebra_ns
 {

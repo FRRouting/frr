@@ -41,6 +41,7 @@
 #include "vtysh/vtysh.h"
 #include "log.h"
 #include "bgpd/bgp_vty.h"
+#include "ns.h"
 #include "vrf.h"
 
 /* Struct VTY. */
@@ -936,6 +937,12 @@ static struct cmd_node interface_node =
   "%s(config-if)# ",
 };
 
+static struct cmd_node ns_node =
+{
+  NS_NODE,
+  "%s(config-logical-router)# ",
+};
+
 static struct cmd_node vrf_node =
 {
   VRF_NODE,
@@ -1391,6 +1398,7 @@ vtysh_exit (struct vty *vty)
       vty->node = ENABLE_NODE;
       break;
     case INTERFACE_NODE:
+    case NS_NODE:
     case VRF_NODE:
     case ZEBRA_NODE:
     case BGP_NODE:
@@ -1622,6 +1630,19 @@ DEFSH (VTYSH_ZEBRA,
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 
+DEFUNSH (VTYSH_NS,
+         vtysh_ns,
+         vtysh_ns_cmd,
+         "logical-router <1-65535 ns NAME",
+	 "Enable a logical-router\n"
+         "Specify the logical-router indentifier\n"
+         "The Name Space\n"
+         "The file name in " NS_RUN_DIR ", or a full pathname\n")
+{
+  vty->node = NS_NODE;
+  return CMD_SUCCESS;
+}
+
 DEFUNSH (VTYSH_VRF,
 	 vtysh_vrf,
 	 vtysh_vrf_cmd,
@@ -1639,6 +1660,20 @@ DEFSH (VTYSH_ZEBRA,
        NO_STR
        "Delete a pseudo vrf's configuration\n"
        "VRF's name\n")
+
+DEFUNSH (VTYSH_NS,
+         vtysh_exit_ns,
+         vtysh_exit_ns_cmd,
+         "exit",
+         "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+ALIAS (vtysh_exit_ns,
+       vtysh_quit_ns_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n")
 
 DEFUNSH (VTYSH_VRF,
 	 vtysh_exit_vrf,
@@ -2864,6 +2899,7 @@ vtysh_init_vty (void)
   install_node (&rip_node, NULL);
   install_node (&interface_node, NULL);
   install_node (&link_params_node, NULL);
+  install_node (&ns_node, NULL);
   install_node (&vrf_node, NULL);
   install_node (&rmap_node, NULL);
   install_node (&zebra_node, NULL);
@@ -2894,6 +2930,7 @@ vtysh_init_vty (void)
   vtysh_install_default (RIP_NODE);
   vtysh_install_default (INTERFACE_NODE);
   vtysh_install_default (LINK_PARAMS_NODE);
+  vtysh_install_default (NS_NODE);
   vtysh_install_default (VRF_NODE);
   vtysh_install_default (RMAP_NODE);
   vtysh_install_default (ZEBRA_NODE);
@@ -2990,6 +3027,10 @@ vtysh_init_vty (void)
   install_element (LINK_PARAMS_NODE, &vtysh_end_all_cmd);
   install_element (LINK_PARAMS_NODE, &vtysh_exit_interface_cmd);
   install_element (INTERFACE_NODE, &vtysh_quit_interface_cmd);
+
+  install_element (NS_NODE, &vtysh_end_all_cmd);
+  install_element (NS_NODE, &vtysh_exit_ns_cmd);
+  install_element (NS_NODE, &vtysh_quit_ns_cmd);
 
   install_element (VRF_NODE, &vtysh_end_all_cmd);
   install_element (VRF_NODE, &vtysh_exit_vrf_cmd);

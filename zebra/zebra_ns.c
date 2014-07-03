@@ -21,6 +21,7 @@
  */
 #include "zebra.h"
 
+#include "lib/ns.h"
 #include "lib/vrf.h"
 #include "lib/prefix.h"
 #include "lib/memory.h"
@@ -85,6 +86,8 @@ int
 zebra_ns_init (void)
 {
   dzns = XCALLOC (MTYPE_ZEBRA_NS, sizeof (struct zebra_ns));
+
+  ns_init ();
 
   zebra_vrf_init ();
 

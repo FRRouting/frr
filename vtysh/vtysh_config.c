@@ -171,6 +171,7 @@ vtysh_config_parse_line (const char *line)
 	{
 	  if (config->index == RMAP_NODE ||
 	           config->index == INTERFACE_NODE ||
+		   config->index == NS_NODE ||
 	           config->index == VRF_NODE ||
 		   config->index == VTY_NODE)
 	    config_add_line_uniq (config->line, line);
@@ -183,6 +184,8 @@ vtysh_config_parse_line (const char *line)
     default:
       if (strncmp (line, "interface", strlen ("interface")) == 0)
 	config = config_get (INTERFACE_NODE, line);
+      else if (strncmp (line, "ns", strlen ("ns")) == 0)
+	config = config_get (NS_NODE, line);
       else if (strncmp (line, "vrf", strlen ("vrf")) == 0)
 	config = config_get (VRF_NODE, line);
       else if (strncmp (line, "router-id", strlen ("router-id")) == 0)

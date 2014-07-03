@@ -33,7 +33,7 @@ typedef u_int16_t ns_id_t;
 /*
  * The command strings
  */
-
+#define NS_RUN_DIR         "/var/run/netns"
 #define NS_CMD_STR         "logical-router <0-65535>"
 #define NS_CMD_HELP_STR    "Specify the Logical-Router\nThe Logical-Router ID\n"
 

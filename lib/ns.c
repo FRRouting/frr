@@ -22,6 +22,13 @@
 
 #include <zebra.h>
 
+#ifdef HAVE_NETNS
+#undef  _GNU_SOURCE
+#define _GNU_SOURCE
+
+#include <sched.h>
+#endif
+
 #include "if.h"
 #include "ns.h"
 #include "prefix.h"
@@ -29,7 +36,34 @@
 #include "log.h"
 #include "memory.h"
 
+#include "command.h"
+#include "vty.h"
+
+#ifdef HAVE_NETNS
+
+#ifndef CLONE_NEWNET
+#define CLONE_NEWNET 0x40000000 /* New network namespace (lo, device, names sockets, etc) */
+#endif
+
+#ifndef HAVE_SETNS
+static inline int setns(int fd, int nstype)
+{
+#ifdef __NR_setns
+  return syscall(__NR_setns, fd, nstype);
+#else
+  errno = ENOSYS;
+  return -1;
+#endif
+}
+#endif /* HAVE_SETNS */
+
+#define NS_DEFAULT_NAME    "/proc/self/ns/net"
+
+#else /* !HAVE_NETNS */
+
 #define NS_DEFAULT_NAME    "Default-logical-router"
+
+#endif /* HAVE_NETNS */
 
 struct ns
 {
@@ -37,6 +71,8 @@ struct ns
   ns_id_t ns_id;
   /* Name */
   char *name;
+  /* File descriptor */
+  int fd;
 
   /* Master list of interfaces belonging to this NS */
   struct list *iflist;
@@ -90,6 +126,7 @@ ns_get (ns_id_t ns_id)
 
   ns = XCALLOC (MTYPE_NS, sizeof (struct ns));
   ns->ns_id = ns_id;
+  ns->fd = -1;
   rn->info = ns;
 
   /*
@@ -114,8 +151,7 @@ ns_delete (struct ns *ns)
 {
   zlog_info ("NS %u is to be deleted.", ns->ns_id);
 
-  if (ns_is_enabled (ns))
-    ns_disable (ns);
+  ns_disable (ns);
 
   if (ns_master.ns_delete_hook)
     (*ns_master.ns_delete_hook) (ns->ns_id, &ns->info);
@@ -158,7 +194,11 @@ ns_lookup (ns_id_t ns_id)
 static int
 ns_is_enabled (struct ns *ns)
 {
-  return ns && ns->ns_id == NS_DEFAULT;
+#ifdef HAVE_NETNS
+  return ns && ns->fd >= 0;
+#else
+  return ns && ns->fd == -2 && ns->ns_id == NS_DEFAULT;
+#endif
 }
 
 /*
@@ -171,18 +211,34 @@ ns_is_enabled (struct ns *ns)
 static int
 ns_enable (struct ns *ns)
 {
-  /* Till now, only the default NS can be enabled. */
-  if (ns->ns_id == NS_DEFAULT)
-    {
-      zlog_info ("NS %u is enabled.", ns->ns_id);
 
+  if (!ns_is_enabled (ns))
+    {
+#ifdef HAVE_NETNS
+      ns->fd = open (ns->name, O_RDONLY);
+#else
+      ns->fd = -2; /* Remember that ns_enable_hook has been called */
+      errno = -ENOTSUP;
+#endif
+
+      if (!ns_is_enabled (ns))
+        {
+          zlog_err ("Can not enable NS %u: %s!",
+                    ns->ns_id, safe_strerror (errno));
+          return 0;
+        }
+
+#ifdef HAVE_NETNS
+      zlog_info ("NS %u is associated with NETNS %s.",
+                 ns->ns_id, ns->name);
+#endif
+
+      zlog_info ("NS %u is enabled.", ns->ns_id);
       if (ns_master.ns_enable_hook)
         (*ns_master.ns_enable_hook) (ns->ns_id, &ns->info);
-
-      return 1;
     }
 
-  return 0;
+  return 1;
 }
 
 /*
@@ -197,10 +253,13 @@ ns_disable (struct ns *ns)
     {
       zlog_info ("NS %u is to be disabled.", ns->ns_id);
 
-      /* Till now, nothing to be done for the default NS. */
-
       if (ns_master.ns_disable_hook)
         (*ns_master.ns_disable_hook) (ns->ns_id, &ns->info);
+
+#ifdef HAVE_NETNS
+      close (ns->fd);
+#endif
+      ns->fd = -1;
     }
 }
 
@@ -438,6 +497,144 @@ ns_bitmap_check (ns_bitmap_t bmap, ns_id_t ns_id)
                      NS_BITMAP_FLAG (offset)) ? 1 : 0;
 }
 
+#ifdef HAVE_NETNS
+/*
+ * NS realization with NETNS
+ */
+
+static char *
+ns_netns_pathname (struct vty *vty, const char *name)
+{
+  static char pathname[PATH_MAX];
+  char *result;
+
+  if (name[0] == '/') /* absolute pathname */
+    result = realpath (name, pathname);
+  else /* relevant pathname */
+    {
+      char tmp_name[PATH_MAX];
+      snprintf (tmp_name, PATH_MAX, "%s/%s", NS_RUN_DIR, name);
+      result = realpath (tmp_name, pathname);
+    }
+
+  if (! result)
+    {
+      vty_out (vty, "Invalid pathname: %s%s", safe_strerror (errno),
+               VTY_NEWLINE);
+      return NULL;
+    }
+  return pathname;
+}
+
+DEFUN (ns_netns,
+       ns_netns_cmd,
+       "logical-router <1-65535> ns NAME",
+       "Enable a logical-router\n"
+       "Specify the logical-router indentifier\n"
+       "The Name Space\n"
+       "The file name in " NS_RUN_DIR ", or a full pathname\n")
+{
+  ns_id_t ns_id = NS_DEFAULT;
+  struct ns *ns = NULL;
+  char *pathname = ns_netns_pathname (vty, argv[1]);
+
+  if (!pathname)
+    return CMD_WARNING;
+
+  VTY_GET_INTEGER ("NS ID", ns_id, argv[0]);
+  ns = ns_get (ns_id);
+
+  if (ns->name && strcmp (ns->name, pathname) != 0)
+    {
+      vty_out (vty, "NS %u is already configured with NETNS %s%s",
+               ns->ns_id, ns->name, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (!ns->name)
+    ns->name = XSTRDUP (MTYPE_NS_NAME, pathname);
+
+  if (!ns_enable (ns))
+    {
+      vty_out (vty, "Can not associate NS %u with NETNS %s%s",
+               ns->ns_id, ns->name, VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_ns_netns,
+       no_ns_netns_cmd,
+       "no logical-router <1-65535> ns NAME",
+       NO_STR
+       "Enable a Logical-Router\n"
+       "Specify the Logical-Router identifier\n"
+       "The Name Space\n"
+       "The file name in " NS_RUN_DIR ", or a full pathname\n")
+{
+  ns_id_t ns_id = NS_DEFAULT;
+  struct ns *ns = NULL;
+  char *pathname = ns_netns_pathname (vty, argv[1]);
+
+  if (!pathname)
+    return CMD_WARNING;
+
+  VTY_GET_INTEGER ("NS ID", ns_id, argv[0]);
+  ns = ns_lookup (ns_id);
+
+  if (!ns)
+    {
+      vty_out (vty, "NS %u is not found%s", ns_id, VTY_NEWLINE);
+      return CMD_SUCCESS;
+    }
+
+  if (ns->name && strcmp (ns->name, pathname) != 0)
+    {
+      vty_out (vty, "Incorrect NETNS file name%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ns_disable (ns);
+
+  if (ns->name)
+    {
+      XFREE (MTYPE_NS_NAME, ns->name);
+      ns->name = NULL;
+    }
+
+  return CMD_SUCCESS;
+}
+
+/* NS node. */
+static struct cmd_node ns_node =
+{
+  NS_NODE,
+  "",       /* NS node has no interface. */
+  1
+};
+
+/* NS configuration write function. */
+static int
+ns_config_write (struct vty *vty)
+{
+  struct route_node *rn;
+  struct ns *ns;
+  int write = 0;
+
+  for (rn = route_top (ns_table); rn; rn = route_next (rn))
+    if ((ns = rn->info) != NULL &&
+        ns->ns_id != NS_DEFAULT && ns->name)
+      {
+        vty_out (vty, "logical-router %u netns %s%s", ns->ns_id, ns->name, VTY_NEWLINE);
+        write++;
+      }
+
+  return write;
+}
+
+#endif /* HAVE_NETNS */
+
 /* Initialize NS module. */
 void
 ns_init (void)
@@ -464,6 +661,13 @@ ns_init (void)
       zlog_err ("ns_init: failed to enable the default NS!");
       exit (1);
     }
+
+#ifdef HAVE_NETNS
+  /* Install NS commands. */
+  install_node (&ns_node, ns_config_write);
+  install_element (CONFIG_NODE, &ns_netns_cmd);
+  install_element (CONFIG_NODE, &no_ns_netns_cmd);
+#endif
 }
 
 /* Terminate NS module. */
@@ -485,19 +689,26 @@ ns_terminate (void)
 int
 ns_socket (int domain, int type, int protocol, ns_id_t ns_id)
 {
+  struct ns *ns = ns_lookup (ns_id);
   int ret = -1;
 
-  if (!ns_is_enabled (ns_lookup (ns_id)))
+  if (!ns_is_enabled (ns))
     {
       errno = ENOSYS;
       return -1;
     }
 
-  if (ns_id == NS_DEFAULT)
-    ret = socket (domain, type, protocol);
-  else
-    errno = ENOSYS;
+#ifdef HAVE_NETNS
+  ret = (ns_id != NS_DEFAULT) ? setns (ns->fd, CLONE_NEWNET) : 0;
+  if (ret >= 0)
+    {
+      ret = socket (domain, type, protocol);
+      if (ns_id != NS_DEFAULT)
+        setns (ns_lookup (NS_DEFAULT)->fd, CLONE_NEWNET);
+    }
+#else
+  ret = socket (domain, type, protocol);
+#endif
 
   return ret;
 }
-
