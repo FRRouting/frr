@@ -1863,7 +1863,7 @@ _netlink_route_build_multipath(
     {
       rta_addattr_l (rta, NL_PKT_BUF_SIZE, RTA_GATEWAY,
                      &nexthop->gate.ipv4, bytelen);
-      rtnh->rtnh_len += sizeof (struct rtattr) + 4;
+      rtnh->rtnh_len += sizeof (struct rtattr) + bytelen;
 
       if (nexthop->rmap_src.ipv4.s_addr)
         *src = &nexthop->rmap_src;
