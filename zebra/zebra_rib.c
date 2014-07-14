@@ -3064,9 +3064,8 @@ static_uninstall_route (afi_t afi, safi_t safi, struct prefix *p, struct static_
   route_unlock_node (rn);
 }
 
-/* Add static route into static route configuration. */
 int
-static_add_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
+static_add_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, unsigned int ifindex,
 		 const char *ifname, u_char flags, u_short tag,
 		 u_char distance, struct zebra_vrf *zvrf)
 {
@@ -3076,7 +3075,7 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
   struct static_route *pp;
   struct static_route *cp;
   struct static_route *update = NULL;
-  struct route_table *stable = zvrf->stable[AFI_IP][SAFI_UNICAST];
+  struct route_table *stable = zvrf->stable[AFI_IP][safi];
 
   if (! stable)
     return -1;
@@ -3111,7 +3110,7 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
 
   /* Distance or tag changed. */
   if (update)
-    static_delete_ipv4 (p, gate, ifindex, update->tag, update->distance, zvrf);
+    static_delete_ipv4 (safi, p, gate, ifindex, update->tag, update->distance, zvrf);
 
   /* Make new static route structure. */
   si = XCALLOC (MTYPE_STATIC_ROUTE, sizeof (struct static_route));
@@ -3156,14 +3155,13 @@ static_add_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
   si->next = cp;
 
   /* Install into rib. */
-  static_install_route (AFI_IP, SAFI_UNICAST, p, si);
+  static_install_route (AFI_IP, safi, p, si);
 
   return 1;
 }
 
-/* Delete static route from static route configuration. */
 int
-static_delete_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex,
+static_delete_ipv4 (safi_t safi, struct prefix *p, struct in_addr *gate, unsigned int ifindex,
 		    u_short tag, u_char distance, struct zebra_vrf *zvrf)
 {
   u_char type = 0;
@@ -3172,7 +3170,7 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex
   struct route_table *stable;
 
   /* Lookup table.  */
-  stable = zebra_vrf_static_table (AFI_IP, SAFI_UNICAST, zvrf);
+  stable = zebra_vrf_static_table (AFI_IP, safi, zvrf);
   if (! stable)
     return -1;
 
@@ -3205,7 +3203,7 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex
     }
 
   /* Install into rib. */
-  static_uninstall_route (AFI_IP, SAFI_UNICAST, p, si);
+  static_uninstall_route (AFI_IP, safi, p, si);
 
   /* Unlink static route from linked list. */
   if (si->prev)
@@ -3223,7 +3221,6 @@ static_delete_ipv4 (struct prefix *p, struct in_addr *gate, unsigned int ifindex
 
   return 1;
 }
-
 
 int
 rib_add_ipv6 (int type, u_short instance, int flags, struct prefix_ipv6 *p,
