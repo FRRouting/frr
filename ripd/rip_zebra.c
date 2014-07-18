@@ -23,7 +23,9 @@
 
 #include "command.h"
 #include "prefix.h"
+#include "table.h"
 #include "stream.h"
+#include "memory.h"
 #include "routemap.h"
 #include "zclient.h"
 #include "log.h"
@@ -35,12 +37,18 @@
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 
-/* RIPd to zebra command interface. */
-void
-rip_zebra_ipv4_add (struct prefix_ipv4 *p, struct in_addr *nexthop, 
-		    u_int32_t metric, u_char distance)
+/* Send ECMP routes to zebra. */
+static void
+rip_zebra_ipv4_send (struct route_node *rp, u_char cmd)
 {
+  static struct in_addr **nexthops = NULL;
+  static unsigned int nexthops_len = 0;
+
+  struct list *list = (struct list *)rp->info;
   struct zapi_ipv4 api;
+  struct listnode *listnode = NULL;
+  struct rip_info *rinfo = NULL;
+  int count = 0;
 
   if (vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT))
     {
@@ -50,50 +58,64 @@ rip_zebra_ipv4_add (struct prefix_ipv4 *p, struct in_addr *nexthop,
       api.flags = 0;
       api.message = 0;
       api.safi = SAFI_UNICAST;
+
+      if (nexthops_len < listcount (list))
+        {
+          nexthops_len = listcount (list);
+          nexthops = XREALLOC (MTYPE_TMP, nexthops,
+                               nexthops_len * sizeof (struct in_addr *));
+        }
+
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = 1;
-      api.nexthop = &nexthop;
+      for (ALL_LIST_ELEMENTS_RO (list, listnode, rinfo))
+        {
+          nexthops[count++] = &rinfo->nexthop;
+          if (cmd == ZEBRA_IPV4_ROUTE_ADD)
+            SET_FLAG (rinfo->flags, RIP_RTF_FIB);
+          else
+            UNSET_FLAG (rinfo->flags, RIP_RTF_FIB);
+        }
+
+      api.nexthop = nexthops;
+      api.nexthop_num = count;
       api.ifindex_num = 0;
+
+      rinfo = listgetdata (listhead (list));
+
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
-      api.metric = metric;
+      api.metric = rinfo->metric;
 
-      if (distance && distance != ZEBRA_RIP_DISTANCE_DEFAULT)
-	{
-	  SET_FLAG (api.message, ZAPI_MESSAGE_DISTANCE);
-	  api.distance = distance;
-	}
+      if (rinfo->distance && rinfo->distance != ZEBRA_RIP_DISTANCE_DEFAULT)
+        {
+          SET_FLAG (api.message, ZAPI_MESSAGE_DISTANCE);
+          api.distance = rinfo->distance;
+        }
 
-      zapi_ipv4_route (ZEBRA_IPV4_ROUTE_ADD, zclient, p, &api);
+      zapi_ipv4_route (cmd, zclient,
+                       (struct prefix_ipv4 *)&rp->p, &api);
+
+      if (IS_RIP_DEBUG_ZEBRA)
+        zlog_debug ("%s: %s/%d nexthops %d",
+                    (cmd == ZEBRA_IPV4_ROUTE_ADD) ? \
+                        "Install into zebra" : "Delete from zebra",
+                    inet_ntoa (rp->p.u.prefix4), rp->p.prefixlen, count);
 
       rip_global_route_changes++;
     }
 }
 
+/* Add/update ECMP routes to zebra. */
 void
-rip_zebra_ipv4_delete (struct prefix_ipv4 *p, struct in_addr *nexthop,
-		       u_int32_t metric)
+rip_zebra_ipv4_add (struct route_node *rp)
 {
-  struct zapi_ipv4 api;
+  rip_zebra_ipv4_send (rp, ZEBRA_IPV4_ROUTE_ADD);
+}
 
-  if (vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT))
-    {
-      api.vrf_id = VRF_DEFAULT;
-      api.type = ZEBRA_ROUTE_RIP;
-      api.instance = 0;
-      api.flags = 0;
-      api.message = 0;
-      api.safi = SAFI_UNICAST;
-      SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
-      api.nexthop_num = 1;
-      api.nexthop = &nexthop;
-      api.ifindex_num = 0;
-      SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
-      api.metric = metric;
-
-      zapi_ipv4_route (ZEBRA_IPV4_ROUTE_DELETE, zclient, p, &api);
-
-      rip_global_route_changes++;
-    }
+/* Delete ECMP routes from zebra. */
+void
+rip_zebra_ipv4_delete (struct route_node *rp)
+{
+  rip_zebra_ipv4_send (rp, ZEBRA_IPV4_ROUTE_DELETE);
 }
 
 /* Zebra route add and delete treatment. */

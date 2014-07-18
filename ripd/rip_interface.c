@@ -580,37 +580,15 @@ rip_if_down(struct interface *ifp)
   struct route_node *rp;
   struct rip_info *rinfo;
   struct rip_interface *ri = NULL;
+  struct list *list = NULL;
+  struct listnode *listnode = NULL, *nextnode = NULL;
   if (rip)
-    {
-      for (rp = route_top (rip->table); rp; rp = route_next (rp))
-	if ((rinfo = rp->info) != NULL)
-	  {
-	    /* Routes got through this interface. */
-	    if (rinfo->ifindex == ifp->ifindex &&
-		rinfo->type == ZEBRA_ROUTE_RIP &&
-		rinfo->sub_type == RIP_ROUTE_RTE)
-	      {
-		rip_zebra_ipv4_delete ((struct prefix_ipv4 *) &rp->p,
-				       &rinfo->nexthop,
-				       rinfo->metric);
+    for (rp = route_top (rip->table); rp; rp = route_next (rp))
+      if ((list = rp->info) != NULL)
+        for (ALL_LIST_ELEMENTS (list, listnode, nextnode, rinfo))
+          if (rinfo->ifindex == ifp->ifindex)
+            rip_ecmp_delete (rinfo);
 
-		rip_redistribute_delete (rinfo->type,rinfo->sub_type,
-					 (struct prefix_ipv4 *)&rp->p,
-					 rinfo->ifindex);
-	      }
-	    else
-	      {
-		/* All redistributed routes but static and system */
-		if ((rinfo->ifindex == ifp->ifindex) &&
-		    /* (rinfo->type != ZEBRA_ROUTE_STATIC) && */
-		    (rinfo->type != ZEBRA_ROUTE_SYSTEM))
-		  rip_redistribute_delete (rinfo->type,rinfo->sub_type,
-					   (struct prefix_ipv4 *)&rp->p,
-					   rinfo->ifindex);
-	      }
-	  }
-    }
-	    
   ri = ifp->info;
   
   if (ri->running)

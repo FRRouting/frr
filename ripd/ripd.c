@@ -139,8 +139,13 @@ rip_garbage_collect (struct thread *t)
   rp = rinfo->rp;
 
   /* Unlock route_node. */
-  rp->info = NULL;
-  route_unlock_node (rp);
+  listnode_delete (rp->info, rinfo);
+  if (list_isempty ((struct list *)rp->info))
+    {
+      list_free (rp->info);
+      rp->info = NULL;
+      route_unlock_node (rp);
+    }
 
   /* Free RIP routing information. */
   rip_info_free (rinfo);
@@ -148,36 +153,149 @@ rip_garbage_collect (struct thread *t)
   return 0;
 }
 
+static void rip_timeout_update (struct rip_info *rinfo);
+
+/* Add new route to the ECMP list.
+ * RETURN: the new entry added in the list
+ */
+struct rip_info *
+rip_ecmp_add (struct rip_info *rinfo_new)
+{
+  struct route_node *rp = rinfo_new->rp;
+  struct rip_info *rinfo = NULL;
+  struct list *list = NULL;
+
+  if (rp->info == NULL)
+    rp->info = list_new ();
+  list = (struct list *)rp->info;
+
+  rinfo = rip_info_new ();
+  memcpy (rinfo, rinfo_new, sizeof (struct rip_info));
+  listnode_add (list, rinfo);
+
+  if (rip_route_rte (rinfo))
+    {
+      rip_timeout_update (rinfo);
+      rip_zebra_ipv4_add (rp);
+    }
+
+  /* Set the route change flag on the first entry. */
+  rinfo = listgetdata (listhead (list));
+  SET_FLAG (rinfo->flags, RIP_RTF_CHANGED);
+
+  /* Signal the output process to trigger an update (see section 2.5). */
+  rip_event (RIP_TRIGGERED_UPDATE, 0);
+
+  return rinfo;
+}
+
+/* Replace the ECMP list with the new route.
+ * RETURN: the new entry added in the list
+ */
+struct rip_info *
+rip_ecmp_replace (struct rip_info *rinfo_new)
+{
+  struct route_node *rp = rinfo_new->rp;
+  struct list *list = (struct list *)rp->info;
+  struct rip_info *rinfo = NULL, *tmp_rinfo = NULL;
+  struct listnode *node = NULL, *nextnode = NULL;
+
+  if (list == NULL || listcount (list) == 0)
+    return rip_ecmp_add (rinfo_new);
+
+  /* Get the first entry */
+  rinfo = listgetdata (listhead (list));
+
+  /* Learnt route replaced by a local one. Delete it from zebra. */
+  if (rip_route_rte (rinfo) && !rip_route_rte (rinfo_new))
+    if (CHECK_FLAG (rinfo->flags, RIP_RTF_FIB))
+      rip_zebra_ipv4_delete (rp);
+
+  /* Re-use the first entry, and delete the others. */
+  for (ALL_LIST_ELEMENTS (list, node, nextnode, tmp_rinfo))
+    if (tmp_rinfo != rinfo)
+      {
+        RIP_TIMER_OFF (tmp_rinfo->t_timeout);
+        RIP_TIMER_OFF (tmp_rinfo->t_garbage_collect);
+        list_delete_node (list, node);
+        rip_info_free (tmp_rinfo);
+      }
+
+  RIP_TIMER_OFF (rinfo->t_timeout);
+  RIP_TIMER_OFF (rinfo->t_garbage_collect);
+  memcpy (rinfo, rinfo_new, sizeof (struct rip_info));
+
+  if (rip_route_rte (rinfo))
+    {
+      rip_timeout_update (rinfo);
+      /* The ADD message implies an update. */
+      rip_zebra_ipv4_add (rp);
+    }
+
+  /* Set the route change flag. */
+  SET_FLAG (rinfo->flags, RIP_RTF_CHANGED);
+
+  /* Signal the output process to trigger an update (see section 2.5). */
+  rip_event (RIP_TRIGGERED_UPDATE, 0);
+
+  return rinfo;
+}
+
+/* Delete one route from the ECMP list.
+ * RETURN:
+ *  null - the entry is freed, and other entries exist in the list
+ *  the entry - the entry is the last one in the list; its metric is set
+ *              to INFINITY, and the garbage collector is started for it
+ */
+struct rip_info *
+rip_ecmp_delete (struct rip_info *rinfo)
+{
+  struct route_node *rp = rinfo->rp;
+  struct list *list = (struct list *)rp->info;
+
+  RIP_TIMER_OFF (rinfo->t_timeout);
+
+  if (listcount (list) > 1)
+    {
+      /* Some other ECMP entries still exist. Just delete this entry. */
+      RIP_TIMER_OFF (rinfo->t_garbage_collect);
+      listnode_delete (list, rinfo);
+      if (rip_route_rte (rinfo) && CHECK_FLAG (rinfo->flags, RIP_RTF_FIB))
+        /* The ADD message implies the update. */
+        rip_zebra_ipv4_add (rp);
+      rip_info_free (rinfo);
+      rinfo = NULL;
+    }
+  else
+    {
+      assert (rinfo == listgetdata (listhead (list)));
+
+      /* This is the only entry left in the list. We must keep it in
+       * the list for garbage collection time, with INFINITY metric. */
+
+      rinfo->metric = RIP_METRIC_INFINITY;
+      RIP_TIMER_ON (rinfo->t_garbage_collect,
+                    rip_garbage_collect, rip->garbage_time);
+
+      if (rip_route_rte (rinfo) && CHECK_FLAG (rinfo->flags, RIP_RTF_FIB))
+        rip_zebra_ipv4_delete (rp);
+    }
+
+  /* Set the route change flag on the first entry. */
+  rinfo = listgetdata (listhead (list));
+  SET_FLAG (rinfo->flags, RIP_RTF_CHANGED);
+
+  /* Signal the output process to trigger an update (see section 2.5). */
+  rip_event (RIP_TRIGGERED_UPDATE, 0);
+
+  return rinfo;
+}
+
 /* Timeout RIP routes. */
 static int
 rip_timeout (struct thread *t)
 {
-  struct rip_info *rinfo;
-  struct route_node *rn;
-
-  rinfo = THREAD_ARG (t);
-  rinfo->t_timeout = NULL;
-
-  rn = rinfo->rp;
-
-  /* - The garbage-collection timer is set for 120 seconds. */
-  RIP_TIMER_ON (rinfo->t_garbage_collect, rip_garbage_collect, 
-		rip->garbage_time);
-
-  rip_zebra_ipv4_delete ((struct prefix_ipv4 *)&rn->p, &rinfo->nexthop,
-			 rinfo->metric);
-  /* - The metric for the route is set to 16 (infinity).  This causes
-     the route to be removed from service. */
-  rinfo->metric = RIP_METRIC_INFINITY;
-  rinfo->flags &= ~RIP_RTF_FIB;
-
-  /* - The route change flag is to indicate that this entry has been
-     changed. */
-  rinfo->flags |= RIP_RTF_CHANGED;
-
-  /* - The output process is signalled to trigger a response. */
-  rip_event (RIP_TRIGGERED_UPDATE, 0);
-
+  rip_ecmp_delete ((struct rip_info *)THREAD_ARG (t));
   return 0;
 }
 
@@ -367,13 +485,13 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
   int ret;
   struct prefix_ipv4 p;
   struct route_node *rp;
-  struct rip_info *rinfo, rinfotmp;
+  struct rip_info *rinfo = NULL, newinfo;
   struct rip_interface *ri;
   struct in_addr *nexthop;
-  u_char oldmetric;
   int same = 0;
-  int route_reuse = 0;
   unsigned char old_dist, new_dist;
+  struct list *list = NULL;
+  struct listnode *node = NULL;
 
   /* Make prefix structure. */
   memset (&p, 0, sizeof (struct prefix_ipv4));
@@ -391,21 +509,20 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
   if (ret < 0)
     return;
 
+  memset (&newinfo, 0, sizeof (newinfo));
+  newinfo.type = ZEBRA_ROUTE_RIP;
+  newinfo.sub_type = RIP_ROUTE_RTE;
+  newinfo.nexthop = rte->nexthop;
+  newinfo.from = from->sin_addr;
+  newinfo.ifindex = ifp->ifindex;
+  newinfo.metric = rte->metric;
+  newinfo.metric_out = rte->metric; /* XXX */
+  newinfo.tag = ntohs (rte->tag);   /* XXX */
+
   /* Modify entry according to the interface routemap. */
   if (ri->routemap[RIP_FILTER_IN])
     {
       int ret;
-      struct rip_info newinfo;
-
-      memset (&newinfo, 0, sizeof (newinfo));
-      newinfo.type = ZEBRA_ROUTE_RIP;
-      newinfo.sub_type = RIP_ROUTE_RTE;
-      newinfo.nexthop = rte->nexthop;
-      newinfo.from = from->sin_addr;
-      newinfo.ifindex = ifp->ifindex;
-      newinfo.metric = rte->metric;
-      newinfo.metric_out = rte->metric; /* XXX */
-      newinfo.tag = ntohs (rte->tag);   /* XXX */
 
       /* The object should be of the type of rip_info */
       ret = route_map_apply (ri->routemap[RIP_FILTER_IN],
@@ -457,8 +574,62 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
   /* Get index for the prefix. */
   rp = route_node_get (rip->table, (struct prefix *) &p);
 
+  newinfo.rp = rp;
+  newinfo.nexthop = *nexthop;
+  newinfo.metric = rte->metric;
+  newinfo.tag = ntohs (rte->tag);
+  newinfo.distance = rip_distance_apply (&newinfo);
+
+  new_dist = newinfo.distance ? newinfo.distance : ZEBRA_RIP_DISTANCE_DEFAULT;
+
   /* Check to see whether there is already RIP route on the table. */
-  rinfo = rp->info;
+  if ((list = rp->info) != NULL)
+    for (ALL_LIST_ELEMENTS_RO (list, node, rinfo))
+      {
+        /* Need to compare with redistributed entry or local entry */
+        if (!rip_route_rte (rinfo))
+          break;
+
+        if (IPV4_ADDR_SAME (&rinfo->from, &from->sin_addr) &&
+            IPV4_ADDR_SAME (&rinfo->nexthop, nexthop))
+          break;
+
+        if (!listnextnode (node))
+          {
+            /* Not found in the list */
+
+            if (rte->metric > rinfo->metric)
+              {
+                /* New route has a greater metric. Discard it. */
+                route_unlock_node (rp);
+                return;
+              }
+
+            if (rte->metric < rinfo->metric)
+              /* New route has a smaller metric. Replace the ECMP list
+               * with the new one in below. */
+              break;
+
+            /* Metrics are same. We compare the distances. */
+            old_dist = rinfo->distance ? \
+                       rinfo->distance : ZEBRA_RIP_DISTANCE_DEFAULT;
+
+            if (new_dist > old_dist)
+              {
+                /* New route has a greater distance. Discard it. */
+                route_unlock_node (rp);
+                return;
+              }
+
+            if (new_dist < old_dist)
+              /* New route has a smaller distance. Replace the ECMP list
+               * with the new one in below. */
+              break;
+
+            /* Metrics and distances are both same. Keep "rinfo" null and
+             * the new route is added in the ECMP list in below. */
+          }
+      }
 
   if (rinfo)
     {
@@ -476,13 +647,6 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
       if (rinfo->type != ZEBRA_ROUTE_RIP
           && rinfo->metric != RIP_METRIC_INFINITY)
         {
-          /* Fill in a minimaly temporary rip_info structure, for a future
-             rip_distance_apply() use) */
-          memset (&rinfotmp, 0, sizeof (rinfotmp));
-          IPV4_ADDR_COPY (&rinfotmp.from, &from->sin_addr);
-          rinfotmp.rp = rinfo->rp;
-          new_dist = rip_distance_apply (&rinfotmp);
-          new_dist = new_dist ? new_dist : ZEBRA_RIP_DISTANCE_DEFAULT;
           old_dist = rinfo->distance;
           /* Only routes directly connected to an interface (nexthop == 0)
 	   * may have a valid NULL distance */
@@ -490,88 +654,30 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
             old_dist = old_dist ? old_dist : ZEBRA_RIP_DISTANCE_DEFAULT;
           /* If imported route does not have STRICT precedence, 
              mark it as a ghost */
-          if (new_dist > old_dist 
-              || rte->metric == RIP_METRIC_INFINITY)
-            {
-              route_unlock_node (rp);
-              return;
-            }
-          else
-            {
-              RIP_TIMER_OFF (rinfo->t_timeout);
-              RIP_TIMER_OFF (rinfo->t_garbage_collect);
-                                                                                
-              rp->info = NULL;
-              if (rip_route_rte (rinfo))
-                rip_zebra_ipv4_delete ((struct prefix_ipv4 *)&rp->p, 
-                                        &rinfo->nexthop, rinfo->metric);
-              rip_info_free (rinfo);
-              rinfo = NULL;
-              route_reuse = 1;
-            }
+          if (new_dist <= old_dist && rte->metric != RIP_METRIC_INFINITY)
+            rip_ecmp_replace (&newinfo);
+
+          route_unlock_node (rp);
+          return;
         }
     }
 
   if (!rinfo)
     {
+      if (rp->info)
+        route_unlock_node (rp);
+
       /* Now, check to see whether there is already an explicit route
          for the destination prefix.  If there is no such route, add
          this route to the routing table, unless the metric is
          infinity (there is no point in adding a route which
          unusable). */
       if (rte->metric != RIP_METRIC_INFINITY)
-        {
-          rinfo = rip_info_new ();
-
-          /* - Setting the destination prefix and length to those in
-             the RTE. */
-          rinfo->rp = rp;
-
-          /* - Setting the metric to the newly calculated metric (as
-             described above). */
-          rinfo->metric = rte->metric;
-          rinfo->tag = ntohs (rte->tag);
-
-          /* - Set the next hop address to be the address of the router
-             from which the datagram came or the next hop address
-             specified by a next hop RTE. */
-          IPV4_ADDR_COPY (&rinfo->nexthop, nexthop);
-          IPV4_ADDR_COPY (&rinfo->from, &from->sin_addr);
-          rinfo->ifindex = ifp->ifindex;
-
-          /* - Initialize the timeout for the route.  If the
-             garbage-collection timer is running for this route, stop it
-             (see section 2.3 for a discussion of the timers). */
-          rip_timeout_update (rinfo);
-
-          /* - Set the route change flag. */
-          rinfo->flags |= RIP_RTF_CHANGED;
-
-          /* - Signal the output process to trigger an update (see section
-             2.5). */
-          rip_event (RIP_TRIGGERED_UPDATE, 0);
-
-          /* Finally, route goes into the kernel. */
-          rinfo->type = ZEBRA_ROUTE_RIP;
-          rinfo->sub_type = RIP_ROUTE_RTE;
-
-          /* Set distance value. */
-          rinfo->distance = rip_distance_apply (rinfo);
-
-          rp->info = rinfo;
-          rip_zebra_ipv4_add (&p, &rinfo->nexthop, rinfo->metric,
-                              rinfo->distance);
-          rinfo->flags |= RIP_RTF_FIB;
-        }
-
-      /* Unlock temporary lock, i.e. same behaviour */
-      if (route_reuse)
-        route_unlock_node (rp);
+        rip_ecmp_add (&newinfo);
     }
   else
     {
       /* Route is there but we are not sure the route is RIP or not. */
-      rinfo = rp->info;
 
       /* If there is an existing route, compare the next hop address
          to the address of the router from which the datagram came.
@@ -580,16 +686,8 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
       same = (IPV4_ADDR_SAME (&rinfo->from, &from->sin_addr)
               && (rinfo->ifindex == ifp->ifindex));
 
-      if (same)
-        rip_timeout_update (rinfo);
-
-
-      /* Fill in a minimaly temporary rip_info structure, for a future
-         rip_distance_apply() use) */
-      memset (&rinfotmp, 0, sizeof (rinfotmp));
-      IPV4_ADDR_COPY (&rinfotmp.from, &from->sin_addr);
-      rinfotmp.rp = rinfo->rp;
-
+      old_dist = rinfo->distance ? \
+                 rinfo->distance : ZEBRA_RIP_DISTANCE_DEFAULT;
 
       /* Next, compare the metrics.  If the datagram is from the same
          router as the existing route, and the new metric is different
@@ -601,95 +699,51 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
           || (rte->metric < rinfo->metric)
           || ((same)
               && (rinfo->metric == rte->metric)
-              && ntohs (rte->tag) != rinfo->tag)
-          || (rinfo->distance > rip_distance_apply (&rinfotmp))
-          || ((rinfo->distance != rip_distance_apply (rinfo)) && same))
+              && (newinfo.tag != rinfo->tag))
+          || (old_dist > new_dist)
+          || ((old_dist != new_dist) && same))
         {
-          /* - Adopt the route from the datagram.  That is, put the
-             new metric in, and adjust the next hop address (if
-             necessary). */
-          oldmetric = rinfo->metric;
-          rinfo->metric = rte->metric;
-          rinfo->tag = ntohs (rte->tag);
-          IPV4_ADDR_COPY (&rinfo->from, &from->sin_addr);
-          rinfo->ifindex = ifp->ifindex;
-          rinfo->distance = rip_distance_apply (rinfo);
-
-          /* Should a new route to this network be established
-             while the garbage-collection timer is running, the
-             new route will replace the one that is about to be
-             deleted.  In this case the garbage-collection timer
-             must be cleared. */
-
-          if (oldmetric == RIP_METRIC_INFINITY &&
-              rinfo->metric < RIP_METRIC_INFINITY)
+          if (listcount (list) == 1)
             {
-              rinfo->type = ZEBRA_ROUTE_RIP;
-              rinfo->sub_type = RIP_ROUTE_RTE;
-
-              RIP_TIMER_OFF (rinfo->t_garbage_collect);
-
-              if (!IPV4_ADDR_SAME (&rinfo->nexthop, nexthop))
-                IPV4_ADDR_COPY (&rinfo->nexthop, nexthop);
-
-              rip_zebra_ipv4_add (&p, nexthop, rinfo->metric,
-                                  rinfo->distance);
-              rinfo->flags |= RIP_RTF_FIB;
-            }
-
-          /* Update nexthop and/or metric value.  */
-          if (oldmetric != RIP_METRIC_INFINITY)
-            {
-              rip_zebra_ipv4_delete (&p, &rinfo->nexthop, oldmetric);
-              rip_zebra_ipv4_add (&p, nexthop, rinfo->metric,
-                                  rinfo->distance);
-              rinfo->flags |= RIP_RTF_FIB;
-
-              if (!IPV4_ADDR_SAME (&rinfo->nexthop, nexthop))
-                IPV4_ADDR_COPY (&rinfo->nexthop, nexthop);
-            }
-
-          /* - Set the route change flag and signal the output process
-             to trigger an update. */
-          rinfo->flags |= RIP_RTF_CHANGED;
-          rip_event (RIP_TRIGGERED_UPDATE, 0);
-
-          /* - If the new metric is infinity, start the deletion
-             process (described above); */
-          if (rinfo->metric == RIP_METRIC_INFINITY)
-            {
-              /* If the new metric is infinity, the deletion process
-                 begins for the route, which is no longer used for
-                 routing packets.  Note that the deletion process is
-                 started only when the metric is first set to
-                 infinity.  If the metric was already infinity, then a
-                 new deletion process is not started. */
-              if (oldmetric != RIP_METRIC_INFINITY)
-                {
-                  /* - The garbage-collection timer is set for 120 seconds. */
-                  RIP_TIMER_ON (rinfo->t_garbage_collect,
-                                rip_garbage_collect, rip->garbage_time);
-                  RIP_TIMER_OFF (rinfo->t_timeout);
-
-                  /* - The metric for the route is set to 16
-                     (infinity).  This causes the route to be removed
-                     from service. */
-                  rip_zebra_ipv4_delete (&p, &rinfo->nexthop, oldmetric);
-                  rinfo->flags &= ~RIP_RTF_FIB;
-
-                  /* - The route change flag is to indicate that this
-                     entry has been changed. */
-                  /* - The output process is signalled to trigger a
-                     response. */
-                  ;             /* Above processes are already done previously. */
-                }
+              if (newinfo.metric != RIP_METRIC_INFINITY)
+                rip_ecmp_replace (&newinfo);
+              else
+                rip_ecmp_delete (rinfo);
             }
           else
             {
-              /* otherwise, re-initialize the timeout. */
-              rip_timeout_update (rinfo);
+              if (newinfo.metric < rinfo->metric)
+                rip_ecmp_replace (&newinfo);
+              else if (newinfo.metric > rinfo->metric)
+                rip_ecmp_delete (rinfo);
+              else if (new_dist < old_dist)
+                rip_ecmp_replace (&newinfo);
+              else if (new_dist > old_dist)
+                rip_ecmp_delete (rinfo);
+              else
+                {
+                  int update = CHECK_FLAG (rinfo->flags, RIP_RTF_FIB) ? 1 : 0;
+
+                  assert (newinfo.metric != RIP_METRIC_INFINITY);
+
+                  RIP_TIMER_OFF (rinfo->t_timeout);
+                  RIP_TIMER_OFF (rinfo->t_garbage_collect);
+                  memcpy (rinfo, &newinfo, sizeof (struct rip_info));
+                  rip_timeout_update (rinfo);
+
+                  if (update)
+                    rip_zebra_ipv4_add (rp);
+
+                  /* - Set the route change flag on the first entry. */
+                  rinfo = listgetdata (listhead (list));
+                  SET_FLAG (rinfo->flags, RIP_RTF_CHANGED);
+                  rip_event (RIP_TRIGGERED_UPDATE, 0);
+                }
             }
         }
+      else /* same & no change */
+        rip_timeout_update (rinfo);
+
       /* Unlock tempolary lock of the route. */
       route_unlock_node (rp);
     }
@@ -1523,8 +1577,9 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
                       unsigned int metric, unsigned char distance)
 {
   int ret;
-  struct route_node *rp;
-  struct rip_info *rinfo;
+  struct route_node *rp = NULL;
+  struct rip_info *rinfo = NULL, newinfo;
+  struct list *list = NULL;
 
   /* Redistribute route  */
   ret = rip_destination_check (p->prefix);
@@ -1533,10 +1588,21 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
 
   rp = route_node_get (rip->table, (struct prefix *) p);
 
-  rinfo = rp->info;
+  memset (&newinfo, 0, sizeof (struct rip_info));
+  newinfo.type = type;
+  newinfo.sub_type = sub_type;
+  newinfo.ifindex = ifindex;
+  newinfo.metric = 1;
+  newinfo.external_metric = metric;
+  newinfo.distance = distance;
+  newinfo.rp = rp;
+  if (nexthop)
+    newinfo.nexthop = *nexthop;
 
-  if (rinfo)
+  if ((list = rp->info) != NULL && listcount (list) != 0)
     {
+      rinfo = listgetdata (listhead (list));
+
       if (rinfo->type == ZEBRA_ROUTE_CONNECT 
 	  && rinfo->sub_type == RIP_ROUTE_INTERFACE
 	  && rinfo->metric != RIP_METRIC_INFINITY)
@@ -1558,35 +1624,11 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
 	    }
 	}
 
-      RIP_TIMER_OFF (rinfo->t_timeout);
-      RIP_TIMER_OFF (rinfo->t_garbage_collect);
-
-      if (rip_route_rte (rinfo))
-	rip_zebra_ipv4_delete ((struct prefix_ipv4 *)&rp->p, &rinfo->nexthop,
-			       rinfo->metric);
-      rp->info = NULL;
-      rip_info_free (rinfo);
-      
-      route_unlock_node (rp);      
+      rinfo = rip_ecmp_replace (&newinfo);
+      route_unlock_node (rp);
     }
-
-  rinfo = rip_info_new ();
-    
-  rinfo->type = type;
-  rinfo->sub_type = sub_type;
-  rinfo->ifindex = ifindex;
-  rinfo->metric = 1;
-  rinfo->external_metric = metric;
-  rinfo->distance = distance;
-  rinfo->rp = rp;
-
-  if (nexthop)
-    rinfo->nexthop = *nexthop;
-
-  rinfo->flags |= RIP_RTF_FIB;
-  rp->info = rinfo;
-
-  rinfo->flags |= RIP_RTF_CHANGED;
+  else
+    rinfo = rip_ecmp_add (&newinfo);
 
   if (IS_RIP_DEBUG_EVENT) {
     if (!nexthop)
@@ -1598,7 +1640,6 @@ rip_redistribute_add (int type, int sub_type, struct prefix_ipv4 *p,
                  inet_ntoa(p->prefix), p->prefixlen, inet_ntoa(rinfo->nexthop),
                  ifindex2ifname(ifindex));
   }
-
 
   rip_event (RIP_TRIGGERED_UPDATE, 0);
 }
@@ -1619,27 +1660,33 @@ rip_redistribute_delete (int type, int sub_type, struct prefix_ipv4 *p,
   rp = route_node_lookup (rip->table, (struct prefix *) p);
   if (rp)
     {
-      rinfo = rp->info;
+      struct list *list = rp->info;
 
-      if (rinfo != NULL
-	  && rinfo->type == type 
-	  && rinfo->sub_type == sub_type 
-	  && rinfo->ifindex == ifindex)
-	{
-	  /* Perform poisoned reverse. */
-	  rinfo->metric = RIP_METRIC_INFINITY;
-	  RIP_TIMER_ON (rinfo->t_garbage_collect, 
-			rip_garbage_collect, rip->garbage_time);
-	  RIP_TIMER_OFF (rinfo->t_timeout);
-	  rinfo->flags |= RIP_RTF_CHANGED;
+      if (list != NULL && listcount (list) != 0)
+        {
+          rinfo = listgetdata (listhead (list));
+          if (rinfo != NULL
+              && rinfo->type == type
+              && rinfo->sub_type == sub_type
+              && rinfo->ifindex == ifindex)
+            {
+              /* Perform poisoned reverse. */
+              rinfo->metric = RIP_METRIC_INFINITY;
+              RIP_TIMER_ON (rinfo->t_garbage_collect,
+                            rip_garbage_collect, rip->garbage_time);
+              RIP_TIMER_OFF (rinfo->t_timeout);
+              rinfo->flags |= RIP_RTF_CHANGED;
 
-          if (IS_RIP_DEBUG_EVENT)
-            zlog_debug ("Poisone %s/%d on the interface %s with an infinity metric [delete]",
-                       inet_ntoa(p->prefix), p->prefixlen,
-                       ifindex2ifname(ifindex));
+              if (IS_RIP_DEBUG_EVENT)
+                zlog_debug ("Poisone %s/%d on the interface %s with an "
+                            "infinity metric [delete]",
+                            inet_ntoa(p->prefix), p->prefixlen,
+                            ifindex2ifname(ifindex));
 
-	  rip_event (RIP_TRIGGERED_UPDATE, 0);
-	}
+              rip_event (RIP_TRIGGERED_UPDATE, 0);
+            }
+        }
+      route_unlock_node (rp);
     }
 }
 
@@ -1711,7 +1758,7 @@ rip_request_process (struct rip_packet *packet, int size,
 	  rp = route_node_lookup (rip->table, (struct prefix *) &p);
 	  if (rp)
 	    {
-	      rinfo = rp->info;
+	      rinfo = listgetdata (listhead ((struct list *)rp->info));
 	      rte->metric = htonl (rinfo->metric);
 	      route_unlock_node (rp);
 	    }
@@ -2151,6 +2198,8 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
   int num = 0;
   int rtemax;
   int subnetted = 0;
+  struct list *list = NULL;
+  struct listnode *listnode = NULL;
 
   /* Logging output event. */
   if (IS_RIP_DEBUG_EVENT)
@@ -2208,8 +2257,9 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
     }
 
   for (rp = route_top (rip->table); rp; rp = route_next (rp))
-    if ((rinfo = rp->info) != NULL)
+    if ((list = rp->info) != NULL && listcount (list) != 0)
       {
+        rinfo = listgetdata (listhead (list));
 	/* For RIPv1, if we are subnetted, output subnets in our network    */
 	/* that have the same mask as the output "interface". For other     */
 	/* networks, only the classfull version is output.                  */
@@ -2268,11 +2318,22 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
              * (in order to handle the case when multiple subnets are
              * configured on the same interface).
              */
-	    if (rinfo->type == ZEBRA_ROUTE_RIP  &&
-                 rinfo->ifindex == ifc->ifp->ifindex) 
-	      continue;
-	    if (rinfo->type == ZEBRA_ROUTE_CONNECT &&
+	    int suppress = 0;
+	    struct rip_info *tmp_rinfo = NULL;
+
+	    for (ALL_LIST_ELEMENTS_RO (list, listnode, tmp_rinfo))
+	      if (tmp_rinfo->type == ZEBRA_ROUTE_RIP &&
+	          tmp_rinfo->ifindex == ifc->ifp->ifindex)
+	        {
+	          suppress = 1;
+	          break;
+	        }
+
+	    if (!suppress && rinfo->type == ZEBRA_ROUTE_CONNECT &&
                  prefix_match((struct prefix *)p, ifc->address))
+	      suppress = 1;
+
+	    if (suppress)
 	      continue;
 	  }
 
@@ -2366,12 +2427,15 @@ rip_output_process (struct connected *ifc, struct sockaddr_in *to,
              * (in order to handle the case when multiple subnets are
              * configured on the same interface).
              */
-	  if (rinfo->type == ZEBRA_ROUTE_RIP  &&
-	       rinfo->ifindex == ifc->ifp->ifindex)
-	       rinfo->metric_out = RIP_METRIC_INFINITY;
-	  if (rinfo->type == ZEBRA_ROUTE_CONNECT &&
+	  struct rip_info *tmp_rinfo = NULL;
+
+	  for (ALL_LIST_ELEMENTS_RO (list, listnode, tmp_rinfo))
+	    if (tmp_rinfo->type == ZEBRA_ROUTE_RIP  &&
+	        tmp_rinfo->ifindex == ifc->ifp->ifindex)
+	      rinfo->metric_out = RIP_METRIC_INFINITY;
+	  if (tmp_rinfo->type == ZEBRA_ROUTE_CONNECT &&
               prefix_match((struct prefix *)p, ifc->address))
-	       rinfo->metric_out = RIP_METRIC_INFINITY;
+	    rinfo->metric_out = RIP_METRIC_INFINITY;
 	}
 	
 	/* Prepare preamble, auth headers, if needs be */
@@ -2591,12 +2655,18 @@ static void
 rip_clear_changed_flag (void)
 {
   struct route_node *rp;
-  struct rip_info *rinfo;
+  struct rip_info *rinfo = NULL;
+  struct list *list = NULL;
+  struct listnode *listnode = NULL;
 
   for (rp = route_top (rip->table); rp; rp = route_next (rp))
-    if ((rinfo = rp->info) != NULL)
-      if (rinfo->flags & RIP_RTF_CHANGED)
-	rinfo->flags &= ~RIP_RTF_CHANGED;
+    if ((list = rp->info) != NULL)
+      for (ALL_LIST_ELEMENTS_RO (list, listnode, rinfo))
+        {
+          UNSET_FLAG (rinfo->flags, RIP_RTF_CHANGED);
+          /* This flag can be set only on the first entry. */
+          break;
+        }
 }
 
 /* Triggered update interval timer. */
@@ -2661,14 +2731,16 @@ void
 rip_redistribute_withdraw (int type)
 {
   struct route_node *rp;
-  struct rip_info *rinfo;
+  struct rip_info *rinfo = NULL;
+  struct list *list = NULL;
 
   if (!rip)
     return;
 
   for (rp = route_top (rip->table); rp; rp = route_next (rp))
-    if ((rinfo = rp->info) != NULL)
+    if ((list = rp->info) != NULL)
       {
+	rinfo = listgetdata (listhead (list));
 	if (rinfo->type == type
 	    && rinfo->sub_type != RIP_ROUTE_INTERFACE)
 	  {
@@ -2981,12 +3053,15 @@ static void
 rip_update_default_metric (void)
 {
   struct route_node *np;
-  struct rip_info *rinfo;
+  struct rip_info *rinfo = NULL;
+  struct list *list = NULL;
+  struct listnode *listnode = NULL;
 
   for (np = route_top (rip->table); np; np = route_next (np))
-    if ((rinfo = np->info) != NULL)
-      if (rinfo->type != ZEBRA_ROUTE_RIP && rinfo->type != ZEBRA_ROUTE_CONNECT)
-        rinfo->metric = rip->default_metric;
+    if ((list = np->info) != NULL)
+      for (ALL_LIST_ELEMENTS_RO (list, listnode, rinfo))
+        if (rinfo->type != ZEBRA_ROUTE_RIP && rinfo->type != ZEBRA_ROUTE_CONNECT)
+          rinfo->metric = rip->default_metric;
 }
 #endif
 
@@ -3422,7 +3497,9 @@ DEFUN (show_ip_rip,
        "Show RIP routes\n")
 {
   struct route_node *np;
-  struct rip_info *rinfo;
+  struct rip_info *rinfo = NULL;
+  struct list *list = NULL;
+  struct listnode *listnode = NULL;
 
   if (! rip)
     return CMD_SUCCESS;
@@ -3435,7 +3512,8 @@ DEFUN (show_ip_rip,
 	   VTY_NEWLINE, VTY_NEWLINE,  VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
   
   for (np = route_top (rip->table); np; np = route_next (np))
-    if ((rinfo = np->info) != NULL)
+    if ((list = np->info) != NULL)
+      for (ALL_LIST_ELEMENTS_RO (list, listnode, rinfo))
       {
 	int len;
 
@@ -3789,27 +3867,30 @@ rip_clean (void)
 {
   int i;
   struct route_node *rp;
-  struct rip_info *rinfo;
+  struct rip_info *rinfo = NULL;
+  struct list *list = NULL;
+  struct listnode *listnode = NULL;
 
   if (rip)
     {
       /* Clear RIP routes */
       for (rp = route_top (rip->table); rp; rp = route_next (rp))
-	if ((rinfo = rp->info) != NULL)
-	  {
-	    if (rinfo->type == ZEBRA_ROUTE_RIP &&
-		rinfo->sub_type == RIP_ROUTE_RTE)
-	      rip_zebra_ipv4_delete ((struct prefix_ipv4 *)&rp->p,
-				     &rinfo->nexthop, rinfo->metric);
-	
-	    RIP_TIMER_OFF (rinfo->t_timeout);
-	    RIP_TIMER_OFF (rinfo->t_garbage_collect);
+        if ((list = rp->info) != NULL)
+          {
+            rinfo = listgetdata (listhead (list));
+            if (rip_route_rte (rinfo))
+              rip_zebra_ipv4_delete (rp);
 
-	    rp->info = NULL;
-	    route_unlock_node (rp);
-
-	    rip_info_free (rinfo);
-	  }
+            for (ALL_LIST_ELEMENTS_RO (list, listnode, rinfo))
+              {
+                RIP_TIMER_OFF (rinfo->t_timeout);
+                RIP_TIMER_OFF (rinfo->t_garbage_collect);
+                rip_info_free (rinfo);
+              }
+            list_delete (list);
+            rp->info = NULL;
+            route_unlock_node (rp);
+          }
 
       /* Cancel RIP related timers. */
       RIP_TIMER_OFF (rip->t_update);

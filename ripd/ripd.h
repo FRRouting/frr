@@ -401,8 +401,8 @@ extern void rip_redistribute_add (int, int, struct prefix_ipv4 *, unsigned int,
 			   struct in_addr *, unsigned int, unsigned char);
 extern void rip_redistribute_delete (int, int, struct prefix_ipv4 *, unsigned int);
 extern void rip_redistribute_withdraw (int);
-extern void rip_zebra_ipv4_add (struct prefix_ipv4 *, struct in_addr *, u_int32_t, u_char);
-extern void rip_zebra_ipv4_delete (struct prefix_ipv4 *, struct in_addr *, u_int32_t);
+extern void rip_zebra_ipv4_add (struct route_node *);
+extern void rip_zebra_ipv4_delete (struct route_node *);
 extern void rip_interface_multicast_set (int, struct connected *);
 extern void rip_distribute_update_interface (struct interface *);
 extern void rip_if_rmap_update_interface (struct interface *);
@@ -428,6 +428,10 @@ extern u_char rip_distance_apply (struct rip_info *);
 extern void rip_redistribute_clean (void);
 extern void rip_ifaddr_add (struct interface *, struct connected *);
 extern void rip_ifaddr_delete (struct interface *, struct connected *);
+
+extern struct rip_info *rip_ecmp_add (struct rip_info *);
+extern struct rip_info *rip_ecmp_replace (struct rip_info *);
+extern struct rip_info *rip_ecmp_delete (struct rip_info *);
 
 /* There is only one rip strucutre. */
 extern struct rip *rip;
