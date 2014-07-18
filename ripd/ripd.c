@@ -156,7 +156,8 @@ rip_garbage_collect (struct thread *t)
 static void rip_timeout_update (struct rip_info *rinfo);
 
 /* Add new route to the ECMP list.
- * RETURN: the new entry added in the list
+ * RETURN: the new entry added in the list, or NULL if it is not the first
+ *         entry and ECMP is not allowed.
  */
 struct rip_info *
 rip_ecmp_add (struct rip_info *rinfo_new)
@@ -168,6 +169,11 @@ rip_ecmp_add (struct rip_info *rinfo_new)
   if (rp->info == NULL)
     rp->info = list_new ();
   list = (struct list *)rp->info;
+
+  /* If ECMP is not allowed and some entry already exists in the list,
+   * do nothing. */
+  if (listcount (list) && !rip->ecmp)
+    return NULL;
 
   rinfo = rip_info_new ();
   memcpy (rinfo, rinfo_new, sizeof (struct rip_info));
@@ -3443,6 +3449,80 @@ DEFUN (no_rip_distance_source_access_list,
   return CMD_SUCCESS;
 }
 
+/* Update ECMP routes to zebra when ECMP is disabled. */
+static void
+rip_ecmp_disable (void)
+{
+  struct route_node *rp;
+  struct rip_info *rinfo, *tmp_rinfo;
+  struct list *list;
+  struct listnode *node, *nextnode;
+
+  if (!rip)
+    return;
+
+  for (rp = route_top (rip->table); rp; rp = route_next (rp))
+    if ((list = rp->info) != NULL && listcount (list) > 1)
+      {
+        rinfo = listgetdata (listhead (list));
+        if (!rip_route_rte (rinfo))
+          continue;
+
+        /* Drop all other entries, except the first one. */
+        for (ALL_LIST_ELEMENTS (list, node, nextnode, tmp_rinfo))
+          if (tmp_rinfo != rinfo)
+            {
+              RIP_TIMER_OFF (tmp_rinfo->t_timeout);
+              RIP_TIMER_OFF (tmp_rinfo->t_garbage_collect);
+              list_delete_node (list, node);
+              rip_info_free (tmp_rinfo);
+            }
+
+        /* Update zebra. */
+        rip_zebra_ipv4_add (rp);
+
+        /* Set the route change flag. */
+        SET_FLAG (rinfo->flags, RIP_RTF_CHANGED);
+
+        /* Signal the output process to trigger an update. */
+        rip_event (RIP_TRIGGERED_UPDATE, 0);
+      }
+}
+
+DEFUN (rip_allow_ecmp,
+       rip_allow_ecmp_cmd,
+       "allow-ecmp",
+       "Allow Equal Cost MultiPath\n")
+{
+  if (rip->ecmp)
+    {
+      vty_out (vty, "ECMP is already enabled.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  rip->ecmp = 1;
+  zlog_info ("ECMP is enabled.");
+  return CMD_SUCCESS;
+}
+
+DEFUN (no_rip_allow_ecmp,
+       no_rip_allow_ecmp_cmd,
+       "no allow-ecmp",
+       NO_STR
+       "Allow Equal Cost MultiPath\n")
+{
+  if (!rip->ecmp)
+    {
+      vty_out (vty, "ECMP is already disabled.%s", VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  rip->ecmp = 0;
+  zlog_info ("ECMP is disabled.");
+  rip_ecmp_disable ();
+  return CMD_SUCCESS;
+}
+
 /* Print out routes update time. */
 static void
 rip_vty_out_uptime (struct vty *vty, struct rip_info *rinfo)
@@ -3749,6 +3829,10 @@ config_write_rip (struct vty *vty)
 		   inet_ntoa (rn->p.u.prefix4), rn->p.prefixlen,
 		   rdistance->access_list ? rdistance->access_list : "",
 		   VTY_NEWLINE);
+
+      /* ECMP configuration. */
+      if (rip->ecmp)
+        vty_out (vty, " allow-ecmp%s", VTY_NEWLINE);
 
       /* RIP static route configuration. */
       for (rn = route_top (rip->route); rn; rn = route_next (rn))
@@ -4087,6 +4171,8 @@ rip_init (void)
   install_element (RIP_NODE, &no_rip_distance_source_cmd);
   install_element (RIP_NODE, &rip_distance_source_access_list_cmd);
   install_element (RIP_NODE, &no_rip_distance_source_access_list_cmd);
+  install_element (RIP_NODE, &rip_allow_ecmp_cmd);
+  install_element (RIP_NODE, &no_rip_allow_ecmp_cmd);
 
   /* Debug related init. */
   rip_debug_init ();

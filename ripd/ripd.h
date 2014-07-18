@@ -143,6 +143,9 @@ struct rip
   u_char distance;
   struct route_table *distance_table;
 
+  /* RIP ECMP flag */
+  unsigned int ecmp;
+
   /* For redistribute route map. */
   struct
   {
