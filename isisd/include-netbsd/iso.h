@@ -192,7 +192,7 @@ extern struct protosw isosw[];
 #else
 /* user utilities definitions from the iso library */
 
-#ifdef SUNOS_5
+#ifndef HAVE_SYS_CDEFS_H
 #define	__P(x)	x
 #define	__BEGIN_DECLS
 #define	__END_DECLS
