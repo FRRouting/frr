@@ -1204,21 +1204,22 @@ dnl ----------
   if test "$zebra_cv_linux_ipv6" = "yes";then
     AC_MSG_CHECKING(for GNU libc >= 2.1)
     AC_DEFINE(HAVE_IPV6,1,Linux IPv6)
+    AC_DEFINE(LINUX_IPV6,1,Linux IPv6 stack)
+
     AC_EGREP_CPP(yes, [
 #include <features.h>
 #if __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1
   yes
 #endif], 
       [glibc=yes
-       AC_DEFINE(LINUX_IPV6,1,Linux IPv6 stack)
        AC_MSG_RESULT(yes)], 
       AC_MSG_RESULT(no)
     )
     RIPNGD="ripngd"
     OSPF6D="ospf6d"
     if test "$glibc" != "yes"; then
-      INCLUDES="-I/usr/inet6/include"
       if test x`ls /usr/inet6/lib/libinet6.a 2>/dev/null` != x;then
+         INCLUDES="-I/usr/inet6/include"
          LIB_IPV6="-L/usr/inet6/lib -linet6"
       fi
     fi
